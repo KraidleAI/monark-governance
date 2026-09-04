@@ -187,9 +187,17 @@ COMMIT   si intent in C, |C|<=tau, B_t>=B_floor
   fermé jusqu'à une exigence de couverture nommée (NON TROUVÉ au 2026-09-03).
 - **Noyau** : vecteur de clearing Eisenberg-Noe `p* = fix Phi(p) = (Pi^T p + e) ∧ p̄` — existence (Thm 1, Tarski),
   unicité sous régularité (Thm 2 ; suffisant `e>0`), algorithme **fictitious default ≤ n tours**, non-expansivité en
-  `e` (Lemme 5, K4:63) — **[lu-archive K4]** (`liquidations/lecture/K4-systemique-clearing.md:21-63,160`). La borne
+  `e` (Lemme 5, K4:63) — **[lu-archive K4]** (`liquidations/lecture/K4-systemique-clearing.md:21-63,160`). ~~La borne
   `||Δp*||_1 <= ||Δe||_1` est une **[inférence du lecteur K4:90]**, pas un énoncé du papier (C11) — le test 21 la
-  vérifie empiriquement sur fixture, sans la citer comme théorème. **Contrôle négatif d'unicité (C10)** : App. 2 E&N
+  vérifie empiriquement sur fixture, sans la citer comme théorème.~~ **AMENDEMENT 2026-09-04 (Lot U, orchestrateur)** :
+  la lecture de la source primaire ([lu] `_txt/eisenberg2001.txt:614-660`, p.244-245) montre que le Lemme 5 énonce
+  **lui-même** `e ↦ p*` « concave, increasing, and nonexpansive » (norme 1, déf. p.238) — K4:90 était une paraphrase
+  fidèle, l'écart est **source ↔ implémentation**. Le calcul sur deux systèmes **réguliers, `e ≫ 0`** (chaîne :
+  `||Δp*||_1 = 2||Δe||_1` exactement ; fan-in : `||Δp*||_∞ = 3||Δe||_∞`) **réfute** la non-expansivité de `e ↦ p*` en
+  L1 **et** L∞ ; mécanisme `Δp*_D = (I − Π^T_DD)^{-1} Δe_D`. Le test 21 (a) confirme Φ non-expansif **en p** (Thm 1),
+  (b) confirme croissance + concavité (Lemme 5, sous-énoncés tenus), (c) assert les deux ratios exacts. On n'écrit
+  **pas** « Lemme 5 faux » (OCR illisible sur la formule) — pendant de lecture formé §4 (l). `error_origin` : G7.
+  **Contrôle négatif d'unicité (C10)** : App. 2 E&N
   (K4:49) — deux nœuds, `e=(0,0)`, dettes mutuelles 1 ⇒ continuum `(t,t)`, `p+ ≠ p-` ; `e=(0.01, 0)` restaure l'unicité.
   Déterministe, **recalculable par quiconque** depuis `(L, e)` — même exigence que Shōgen. Sur **graphe-fixture**
   committé ; le portage DeFi (pools, pénalité de liquidation ⇒ perte d'unicité E&N p.248 ⇒ livrer `p+`/`p-` en bornes)
@@ -272,7 +280,9 @@ racine) · 27. `perps_stubs_throw` (les noms `perps_order_preview` / `perps_orde
 `packages/atelier/**` hors tests ; `globalThis.fetch` remplacé par un lanceur qui lève pendant le rejeu des 9 états).
 **Lot U** : 18. `clearing_fixed_point` (Phi(p*)=p*) · 19. `fictitious_default_le_n_rounds` · 20. `uniqueness_when_e_positive`
 **+ contrôle négatif** App. 2 (`e=(0,0)` ⇒ `p+ ≠ p-` ; `e=(0.01,0)` ⇒ égalité — C10) · 21. `nonexpansive_in_e`
-(empirique sur fixture, inférence K4:90) · 22. `liquidable_amount_eq3` (cible A sur fixture, choc `x %` sur **24 h**
+(~~empirique sur fixture, inférence K4:90~~ **amendé 2026-09-04** : Φ non-expansif en p [Thm 1] + `e↦p*` croissante
+et concave [Lemme 5, tenus] + **réfutation** par ratios exacts 2 [L1, chaîne] et 3 [L∞, fan-in] sur systèmes réguliers
+`e ≫ 0` — voir D9) · 22. `liquidable_amount_eq3` (cible A sur fixture, choc `x %` sur **24 h**
 en paramètre déclaré, recalculable) ·
 23. `prediction_numeric_emitted` (`Prediction{yhat:number, predictor_id="internal:ukemi-cascade-v0"}` passe
 `serializePrediction` + schéma ajv).
@@ -338,6 +348,13 @@ pour les deux moteurs et l'atelier). Lectures nouvelles éventuelles = lecteurs 
 - **Phase 2** : prédicteur UsePod/Hermes (clé, Python) ; `crossAgentGate` sur `AttestedPrice` réel ; adaptateur « sens
   émis » ; label par `AttestedPrice` (ADR-M001 l.166 rétabli) ; surface de skill + atelier ; **branche (a) de L2**
   (`C_t` par `r_t`) par ADR après S2 réel ; DtACI en repli nommé si S2b montre un drift que IM-OCP ne suit pas.
+- **(l) Lecture formée — E&N Lemme 5 sur page rendue (ajouté 2026-09-04, Lot U)** : lecteur Sonnet 5 (`lecteur.md`,
+  doc 03 §6, exception page rendue car la formule est illisible dans `_txt`) sur le PDF Eisenberg & Noe 2001, **p.244-245
+  et p.238** : (1) énoncé exact du Lemme 5 (l'objet : `e ↦ p*` ? la norme : `||·||_1` ? le domaine : `ℝⁿ₊₊` ?) ; (2) la
+  définition « 1-nonexpansive » p.238 ; (3) l'étape d'induction `f_n(e) = F(f_{n-1}(e), e)` et la constante obtenue.
+  Usage : adjudiquer l'`error_origin` du test 21 au G7 (papier / archive / implémentation). Contexte déjà fermé sans
+  lecture : l'amplification réseau est **connue et citée** dans le corpus ([lu-archive] `detering2020.txt` l.53, 108,
+  951, 958) — le phénomène n'est pas en question, seule la formulation exacte de la source l'est.
 - **Procurements (mainteneur, inchangés)** : P-K4-1 Rogers & Veraart (DOI 10.1287/mnsc.1120.1569), P-K4-2 Cifuentes,
   Ferrucci & Shin (DOI 10.1162/jeea.2005.3.2-3.556) — canal endogène ; PM-6 votes Aave exécutés.
 - **DEVOPS avant tout remote** : eslint, SHA-pin, commits signés (ADR-M001 D8).
