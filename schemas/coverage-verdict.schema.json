@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://monark.local/schemas/coverage-verdict.schema.json",
+  "title": "CoverageVerdict",
+  "description": "Verdict de couverture conforme HIKAE. Region POLYMORPHE set|interval (set=classif btc-dir/pm-yesno ; interval=regression cascade-VaR UKEMI). SANS p_correct. alpha = couverture VISEE, pas une proba de correction. ADR-M001 Decision 4.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_class",
+    "method",
+    "alpha",
+    "n_calib",
+    "region",
+    "qhat",
+    "abstain",
+    "reason",
+    "residual",
+    "calib_digest",
+    "produced_at"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "task_class": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 },
+    "method": { "enum": ["split", "hac-cp"] },
+    "alpha": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+    "n_calib": { "type": "integer", "minimum": 0 },
+    "region": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "labels", "label_schema"],
+          "properties": {
+            "kind": { "const": "set" },
+            "labels": { "type": "array", "items": { "type": "string", "pattern": "^[ -~]+$" } },
+            "label_schema": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "lo", "hi"],
+          "properties": {
+            "kind": { "const": "interval" },
+            "lo": { "type": "number" },
+            "hi": { "type": "number" }
+          }
+        }
+      ]
+    },
+    "qhat": { "type": ["number", "null"] },
+    "abstain": { "type": "boolean" },
+    "reason": {
+      "enum": [
+        "covered",
+        "set_too_large",
+        "interval_too_wide",
+        "intent_not_in_region",
+        "under_calib",
+        "no_label_schema",
+        "budget_exhausted",
+        "clock_expired",
+        "upstream_timeout",
+        "attestation_absent",
+        "attestation_refused",
+        "binding_broken",
+        "non_evaluable"
+      ]
+    },
+    "residual": { "type": "array", "items": { "type": "string", "pattern": "^[ -~]+$" } },
+    "scores": { "type": "array", "items": { "type": "number" } },
+    "calib_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "produced_at": { "type": "string", "format": "date-time" }
+  }
+}

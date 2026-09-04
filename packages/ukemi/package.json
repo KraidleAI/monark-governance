@@ -1,0 +1,8 @@
+{
+  "name": "@monark/ukemi",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "UKEMI — liquidation-cascade survival / cascade-VaR (Phase 1). Phase 0: stub only.",
+  "exports": { ".": "./src/index.ts" }
+}

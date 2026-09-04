@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://monark.local/schemas/prediction.schema.json",
+  "title": "Prediction",
+  "description": "Le predicteur amont que HIKAE conforme (le 4e contrat, resout la caution advisor #4). Pipeline : predicteur -> Prediction -> HIKAE conforme -> CoverageVerdict -> GateDecision. ADR-M001 Decision 6.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "task_class", "yhat", "predictor_id", "produced_at"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "task_class": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 },
+    "yhat": { "type": ["string", "number"] },
+    "predictor_id": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 },
+    "produced_at": { "type": "string", "format": "date-time" },
+    "features_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

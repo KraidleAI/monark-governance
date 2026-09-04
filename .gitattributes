@@ -1,0 +1,4 @@
+# Normalize line endings across the polyglot, multi-OS fleet (Rust/Python/TS).
+* text=auto eol=lf
+*.png binary
+*.pdf binary

@@ -1,0 +1,11 @@
+{
+  "name": "@monark/monark",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MONARK — cross-agent integration layer (the tokenised agent + Hermes harness wiring). Phase 0: freezes the cross-agent gate signature only.",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@monark/contracts": "*"
+  }
+}

@@ -1,0 +1,30 @@
+name: MONARK CI (Phase 0 gates)
+
+# LOCAL-ONLY in Phase 0 (ADR-M001 C14): no remote executes this workflow yet.
+# It is the artefact a PRIVATE remote will run post-Phase-0. Run locally:
+#     npm ci && npm run ci
+#
+# DEFERRED to post-Phase-0 DEVOPS (ADR-M001 D8): pin `uses:` to commit SHAs and
+# enable signed commits BEFORE a remote is enabled. The @vN tags below are a
+# placeholder while the workflow does not run anywhere.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4 # DEFERRED (ADR-M001 D8 — DEVOPS pass, before remote)
+      - uses: actions/setup-node@v4 # DEFERRED (ADR-M001 D8 — DEVOPS pass, before remote)
+        with:
+          node-version: "24"
+      - run: npm ci
+      - name: vocabulary gate (09 discipline)
+        run: npm run gate:vocab
+      - name: typecheck (tsc strict; = build for a noEmit contracts lib)
+        run: npm run typecheck
+      - name: test (node:test)
+        run: npm test

@@ -1,0 +1,8 @@
+{
+  "name": "@monark/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Frozen interface contracts for the MONARK fleet (AttestedPrice, Prediction, CoverageVerdict, GateDecision). Source of truth = ../../schemas/*.json (language-neutral); this is the TS binding. ADR-M001.",
+  "exports": { ".": "./src/index.ts" }
+}

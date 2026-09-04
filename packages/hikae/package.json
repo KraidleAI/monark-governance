@@ -1,0 +1,8 @@
+{
+  "name": "@monark/hikae",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "HIKAE — HAC-CP conformal engine (Phase 1). Phase 0: stub only.",
+  "exports": { ".": "./src/index.ts" }
+}

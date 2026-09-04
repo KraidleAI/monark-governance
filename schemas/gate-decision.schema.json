@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://monark.local/schemas/gate-decision.schema.json",
+  "title": "GateDecision",
+  "description": "Decision de gate L3 (consommee par UKEMI + le middleware Hermes). intent est string|number|null (l'union set|interval ne fuit PAS, C6) : le predicat de containment est 'intent in labels' (set) ou 'lo <= intent <= hi' (interval). remaining_budget = B_t (capacite d'autorisation conforme restante), attribut de MONARK, depletable, JAMAIS un rendement (ADR-CERT-MONARK). ADR-M001 Decision 5.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "action",
+    "allow",
+    "tool",
+    "intent",
+    "verdict",
+    "remaining_budget",
+    "reason"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "action": { "enum": ["commit", "defer", "abstain"] },
+    "allow": { "type": "boolean" },
+    "tool": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 },
+    "intent": { "type": ["string", "number", "null"] },
+    "verdict": { "$ref": "coverage-verdict.schema.json" },
+    "remaining_budget": { "type": "number" },
+    "reason": {
+      "enum": [
+        "covered",
+        "set_too_large",
+        "interval_too_wide",
+        "intent_not_in_region",
+        "under_calib",
+        "no_label_schema",
+        "budget_exhausted",
+        "clock_expired",
+        "upstream_timeout",
+        "attestation_absent",
+        "attestation_refused",
+        "binding_broken",
+        "non_evaluable"
+      ]
+    }
+  }
+}

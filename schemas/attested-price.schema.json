@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://monark.local/schemas/attested-price.schema.json",
+  "title": "AttestedPrice",
+  "description": "Projection d'un temoignage Shogen VERIFIE (emis uniquement apres Ok(Verdict)). Aucun champ verite/confiance/validated (Shogen 03 §0). Le nombre prix n'est PAS porte ici (trou 'sens emis', ADR-0015 pt 17bis) : il est interprete par un adaptateur HIKAE. ADR-M001 Decision 3.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "attestor",
+    "residual",
+    "transport",
+    "utterance",
+    "observed_at",
+    "octets_recalcules",
+    "verifier_revision"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "subject": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 },
+    "attestor": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["identity", "key"],
+        "properties": {
+          "identity": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 },
+          "key": { "type": "string", "pattern": "^([0-9a-f]{2})+$" }
+        }
+      }
+    },
+    "residual": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 }
+    },
+    "transport": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 },
+    "utterance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hash"],
+      "properties": {
+        "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "bytes": { "type": "string", "pattern": "^([0-9a-f]{2})*$" }
+      }
+    },
+    "observed_at": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clock", "instant"],
+      "properties": {
+        "clock": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 },
+        "instant": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "octets_recalcules": { "type": "boolean" },
+    "verifier_revision": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 },
+    "sens_emis_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}
