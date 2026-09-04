@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0.0",
+  "action": "abstain",
+  "allow": false,
+  "tool": "perps_order_preview",
+  "intent": "up",
+  "verdict": {
+    "schema_version": "1.0.0",
+    "task_class": "btc-dir-15m",
+    "method": "hac-cp",
+    "alpha": 0.1,
+    "n_calib": 10,
+    "region": {
+      "kind": "set",
+      "labels": [],
+      "label_schema": "up|down"
+    },
+    "qhat": null,
+    "abstain": true,
+    "reason": "under_calib",
+    "residual": [
+      "assume:tls-notary",
+      "assume:delegation"
+    ],
+    "scores": [
+      0,
+      0,
+      1,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1
+    ],
+    "calib_digest": "6e49f37fbe89e867152585cdb4246daca3b46f4c1c7931fccedce71e3564f102",
+    "produced_at": "2026-09-04T12:00:00Z"
+  },
+  "remaining_budget": 0.1,
+  "reason": "under_calib"
+}

@@ -1,0 +1,11 @@
+{
+  "01-commit-up.gate-decision.json": "1b6a853b3cf31802984a87a7e3bb0578f6b8c39228732a6c9ce41c7a3083a8ed",
+  "02-commit-down.gate-decision.json": "bddc15f84d47b9b826a8f4bd3b94947cf043808738a7cdfefbcdb37a8cc549ee",
+  "03-commit-up-lowbudget.gate-decision.json": "a67cd62e74689e92fe600ed9a0d800f31969f033544e74f6355f9958bfa0f1f8",
+  "04-defer-set-too-large.gate-decision.json": "13fdb07f5f32dbe565c89f01a5852326b10244caa25853b921c31b4ca0668f45",
+  "05-defer-set-too-large-down.gate-decision.json": "a98bc3471a531ba7d3c36ecbd0cdbfdbd45675bc441e1ea4ae12254cd0b33607",
+  "06-abstain-intent-not-in-region.gate-decision.json": "cb15376ef6a640c414837d4787f25e7414c91ae0f2abe20e57ee817ddfcf77c2",
+  "07-abstain-upstream-timeout.gate-decision.json": "a7a0c6a2864d54ebbe48d4174b8ae7fed6e27be6ee7196ee490ed1444e60d327",
+  "08-abstain-budget-exhausted.gate-decision.json": "82022f0625a80809645aaeed5f25b268f232880155d3185b9ddabacb55a8aeca",
+  "09-under-calib.gate-decision.json": "8ca897598475a49e6d56d6147b7266186af2f2e4a87147f8ae98650863c2e2db"
+}

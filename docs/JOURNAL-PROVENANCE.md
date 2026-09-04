@@ -105,8 +105,26 @@ orchestrateurs projet en tier nu `fable` → `claude-fable-5-1` (par projet).
 - **Pendants investisseur formés (ADR-M002 §4)** : (a) venue + conditions d'usage endpoint prix ; (b) ratification
   ADR-CERT avant Phase 3 ; (c) lecture D9 UKEMI = brique-moteur ; (d) horizon 15 min ≠ objet payé ; (e) S2b baseline =
   silence calibré quasi total ; (f) skill/atelier reportés Phase 2.
-- **Discipline** : workers `claude-opus-4-8` effort max (Gate-0 au premier de chaque lot) ; deux worktrees isolés ;
+- **Discipline** : workers `claude-opus-4-8` effort max (Gate-0 au premier de chaque lot) ; worktrees isolés ;
   zéro dépendance runtime ; `contracts_frozen` racine ; seul l'orchestrateur committe ; 0 remote.
+
+### Amendements post-checkpoint (2026-09-04, décisions investisseur posées en langage simple)
+- **Amendement 1** : les six questions (a)-(f) tranchées — Coinbase ; ADR-CERT **ratifié** ; UKEMI brique-moteur ;
+  **horizon UKEMI 24 h** (contre 15 min proposé) ; présentation S2b « plus tard » (deux blocs étiquetés) ; skill →
+  Phase 2. Quick-verify d'amendement : **OK** + 2 corrections de forme intégrées.
+- **Amendement 2 — cap hackathon** (page `clawpump.tech/ansemhack` lue) : re-séquencement, deploy early, « on publie ce
+  qui a tourné » (forme falsifiable = ligne D10), tracks pump.fun + UsePod, **Lot D écran de démo maintenant**,
+  **pas de trading dans MONARK** (→ KAIZEN, produit futur). Quick-verify : **ACCEPTE-AVEC-CORRECTIONS, 10 items,
+  intégrés** (tests 24-28 Lot D, CA-D1..D5 falsifiables, note MAST « pression de deadline », pendants (g)-(k)).
+- **Premières relances** : les deux workers H/U initiaux sont morts sur **limite d'usage avant d'écrire** (un fichier
+  sonde `_probe.ts` retiré) ; relancés sur la **source** ADR (`F:\Clawpumptech`) comme spec.
+- **Fichiers racine écrits par l'ORCHESTRATEUR (`claude-fable-5-1`) — générateur ≠ worker, à relire au G2** :
+  `vocab-banned.json` (liste `BANNED` exportée + motif « X % … corrects », mutant « 73 % de fills corrects » **attrapé**),
+  `scripts/grep-forbidden.mjs` (lit le JSON, étend le parcours à `packages/atelier/**`, accepte des cibles en argument),
+  `fixtures/` (9 `GateDecision` 3/2/3/1 générés par un script one-shot du scratchpad via `serializeGateDecision`
+  + `calibDigest`, `manifest.json` sha256), `test/fixtures-root.test.ts` (ajv + gardes runtime + hash + répartition —
+  1er jet faux sur le comptage `under_calib`/abstain, attrapé par l'oracle, corrigé), `test/contracts-frozen.test.ts`
+  (mutant rouge vérifié). CI racine : **45/45**.
 
 ### Résolution C13 (2026-09-04) — roster currency
 Décision investisseur **« Global — flip Kraidle too »** : `claude-fable-5-1` propagé aux fichiers **globaux**

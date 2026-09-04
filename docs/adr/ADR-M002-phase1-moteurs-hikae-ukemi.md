@@ -1,13 +1,18 @@
 # ADR-M002 — Phase 1 (G0) : moteurs HIKAE (HAC-CP, beachhead `btc-dir-15m`) et UKEMI (noyau de clearing)
 - **Statut** : **ACCEPTÉ-AVEC-CORRECTIONS** par le validateur-humain (checkpoint 1, 2026-09-04, modèle résolu
-  `claude-fable-5-1`) → **corrections C1-C13 intégrées** (cette version) → quick-verify validateur **dû** avant toute
-  ligne de code. Aucun code Phase 1 n'existe.
+  `claude-fable-5-1`) → **corrections C1-C13 intégrées** → **quick-verify OK au 4e passage (2026-09-04)** → **amendé
+  par les décisions investisseur (a)-(f) du 2026-09-04** (posées en langage simple ; D8, D9, §4) → **quick-verify
+  d'amendement OK** (validateur `claude-fable-5-1`, deux corrections de forme intégrées) → **amendement n°2 « cap
+  hackathon » (D0, Lot D, KAIZEN) le 2026-09-04** : validateur **ACCEPTE-AVEC-CORRECTIONS** (10 items, intégrés ;
+  H et U relançables immédiatement, D après les deux fichiers racine). Code Phase 1 : lots H et U en cours.
 - **Rattachement** : `ROADMAP-MONARK.md` §Phase 1 (engine-first, décision investisseur 2026-09-04) ; ADR-M001 (Phase 0
   close, commits `357ef25` + `b526dbd`, contrats gelés) ; `hikae/GROK-DECORTICATION.md` §9 (idées adoptées, code le
   nôtre) ; `hikae/VERDICT-TASKCLASS-GROK.md` §3-4 (btc-dir fondé sur Barber/Su, pas sur les ancres GPU) ;
   `liquidations/G7-VERDICT-UKEMI.md` §5-6 (porte G0 UKEMI) ; `ADR-CERT-MONARK-reconciliation.md` (B_t attaché à MONARK).
 - **Provenance / Gate-0** : écrit par l'orchestrateur. Advisor (canal intégré) consulté **avant** rédaction : périmètre
-  ramené à **deux lots** (le gate cross-agent `crossAgentGate` reste **Phase 2**, ADR-M001 + stub `packages/monark`) ;
+  ramené à **deux lots** (le gate cross-agent `crossAgentGate` reste **Phase 2**, ADR-M001 + stub `packages/monark`) —
+  un **troisième lot D (écran de démo)** ajouté plus tard le même jour par la décision investisseur D0, sans rouvrir le
+  gate cross-agent ;
   réconciliation UKEMI/G7 à écrire (D9) ; décisions sourcées sur **nos archives [lu]**, jamais sur les docs Grok.
   **Gate-0 validateur (mesuré, C12c)** : le `validateur-humain` a résolu **`claude-fable-5-1`** au checkpoint 1 — la
   prédiction initiale « résoudra encore `claude-fable-5` (cache de session) » était **fausse** ; corrigée, pas effacée.
@@ -25,19 +30,60 @@ cascade en parallèle et **devient la 2e classe de tâche HIKAE** (régression �
 
 ## 2. Décisions
 
-### D1 — Deux lots, deux worktrees, pas trois
+### D0 — Cap hackathon (décisions investisseur 2026-09-04 ; supersède ROADMAP §3 Phase 3 « HARD GATE » et §6)
+Page `clawpump.tech/ansemhack` lue le 2026-09-04 : tokenize **20 sept. 23:59 UTC**, judging 21-30 sept., winners
+1er oct. Critères verbatim : « Builders onboarded, Onchain volume, Attention garnered, $ANSEM volume, Deploy early ».
+**Décisions** : (1) re-séquencement — Phase 1 compressée (moteurs sur fixtures + écran de démo), Phase 2 = UsePod
+réel + chaîne cross-agent, Phase 3 = vitrine + token **tôt** (« deploy early ») ; (2) la barrière « rien de public avant
+S2 réel » devient « **on publie ce qui a tourné, chiffres n / couverture / abstention, négatifs compris** » ; (3)
+tracks : **pump.fun** (tooling/skills/harness) + **UsePod** (profondeur d'inférence) ; (4) **pas de trading** dans
+MONARK (→ KAIZEN, produit futur). Réservé à l'investisseur : clés API, comptes, token, post X. La **discipline 09**
+(= `09-vocabulaire.md` **de Grok**, adoptée via ADR-M001 D8 et `scripts/grep-forbidden.mjs` ; le `09` de Shōgen est
+son homonyme, non visé ici) et les gates G0-G7 sont **inchangés** : la vitesse ne suspend aucun gate (R-22) ; elle
+raccourcit les lots, pas les revues.
+**Forme falsifiable de « on publie ce qui a tourné, négatifs compris »** : tout chiffre rendu public porte la **ligne
+D10** — `n`, étiquette de provenance (`synthétique` / `réel-rejoué` / `réel`), date, hash du journal brut — ; un chiffre
+public **sans `n` ni étiquette** est un **défaut**, du même statut qu'un chiffre sans source (doc 03) ; le résultat
+négatif se publie avec les mêmes champs.
+
+### D1 — Trois lots (H, U, D), trois worktrees
 - **Lot H (HIKAE)** : `packages/hikae` — HAC-CP L1/L2/L3 + instrument S2 + tests nommés.
 - **Lot U (UKEMI)** : `packages/ukemi` — noyau de clearing Eisenberg-Noe + cible/horizon déclarés ; émet en Phase 1
   une **`Prediction{yhat: number, predictor_id}`** sur fixture (**pas** de région `interval` : l'émission d'une région
   est un travail de conformeur, propriété du Lot H — C4). **Aucune dépendance Lot U → Lot H.**
-- **Hors Phase 1, reportés Phase 2 (C6)** : la **surface de skill** (`hikae_calibrate/conform/gate`, Hermes) et
-  l'**atelier/démo d'arène** — la roadmap l.61-64 les déclare « décidés » par l'investisseur ; ils dépendent du
-  prédicteur réel (clé, Python, D7) et de l'intégration. **Réduction de périmètre motivée par la deadline et les
-  credentials → pendant investisseur (f), §4.**
+- **Lot D (ÉCRAN DE DÉMO) — ajouté par la décision investisseur « cap hackathon » du 2026-09-04 (inverse (f))** :
+  `packages/atelier` — atelier **local** (page web servie en local, zéro dépendance runtime, TS + HTML/CSS/JS
+  vanilla, **pas** de framework) qui montre le gate **en direct** : verdict (set / abstain), décision COMMIT / DEFER /
+  ABSTAIN avec sa raison, **budget B_t qui se consomme**, **deux horloges** — à l'écran, nommées pour ce qu'elles sont
+  sur fixtures : « **couverture avant décision** » / « **label arrivé à t+w** » (l'explication « avant l'ordre / après
+  le fill ; le kill-switch n'est pas un stop-loss » reste dans cet ADR et le README, **pas dans le rendu** : MONARK ne
+  passe aucun ordre), et la chaîne **Shōgen → HIKAE → UKEMI** en trois panneaux. Conçu pour
+  le **stream de jugement**. Consomme les moteurs des lots H et U **par leurs contrats** (fixtures en Phase 1, UsePod
+  réel en Phase 2). Inspiré de l'atelier Grok (input), **code le nôtre**, jamais lifté. **Dépend de H et U → démarre sur
+  les contrats gelés + le `fixtures/` racine, se branche aux moteurs à leur merge.** Aucun mot du gate vocab à l'écran.
+  L'atelier porte son propre `tsconfig.json` (`lib: ["ES2023","DOM"]`), la racine reste intouchée (D13).
+- **Deux fichiers racine, écrits par l'orchestrateur AVANT le fan-out D (frères de CA-0 ; générateur = orchestrateur,
+  consigné au journal, relus au G2)** : (1) `vocab-banned.json` — liste `BANNED` exportée, lue par
+  `scripts/grep-forbidden.mjs`, **motif ajouté** `\d+\s?%\s?(de\s)?\w*\s?(correct|corrects|gagnant|winning)` (attrape
+  « X % de fills corrects » pour tout X), parcours étendu à `packages/atelier/**/*.{ts,js,html,css}` ; (2)
+  `fixtures/` — les **9 états** (3 COMMIT / 2 DEFER / 3 ABSTAIN / 1 under_calib) en JSON **valides ajv** contre les
+  schémas gelés, avec `fixtures/manifest.json` (sha256) et un test racine `fixtures_root_valid` ; lus par **D** (rejeu)
+  et par **H** en oracle de conformité (le test 14 de H garde son propre jeu généré par graine — pas de duplication
+  d'invariant : deux jeux, deux rôles, deux hashes).
+- **Surface de skill Hermes** (`hikae_calibrate/conform/gate`) : **Phase 2** (elle exige le prédicteur réel et une clé
+  API — réservée à l'investisseur).
+- **Pas de trading dans MONARK (décision investisseur 2026-09-04)** : HIKAE **gate** `perps_order_preview/execute`
+  mais MONARK **ne les appelle jamais** — ni réel ni paper. Le trading est un **produit futur, KAIZEN** (flotte
+  d'agents, décisions d'investissement multi-marchés, analyses multi-disciplines, semi-autonome → autonome avec la
+  phase Kraidle), **après** MONARK. L'angle hackathon pump.fun est donc « agent that does real work : new tooling,
+  new skills, use of the Hermes harness nobody has tried », plus le track UsePod.
 - **Pas de lot MONARK** : `crossAgentGate` (un `AttestedPrice` **réel** → verdict → décision, end-to-end) est le jalon
   **Phase 2** (ADR-M001 ; stub `packages/monark/src/index.ts`). Garde-fou de réduction AgileGates : fan-out par
-  **isolation** (deux moteurs indépendants), pas par débit.
-- Worktrees git isolés (`F:\Monark` main → `wt/hikae`, `wt/ukemi`) ; **local-only, 0 remote** (inchangé).
+  **isolation** (deux moteurs indépendants + un écran qui ne les consomme que par contrat), pas par débit.
+- Worktrees git isolés (`F:\Monark` main → `Monark-wt-hikae`, `Monark-wt-ukemi`, `Monark-wt-atelier`) ; **local-only,
+  0 remote** jusqu'à la passe DEVOPS (SHA-pin, commits signés) qui précède la vitrine publique.
+- **Fan-out justifié par l'isolation** : trois moteurs/écrans à frontières de contrat ; le Lot D est le seul qui
+  consomme les deux autres — par contrats gelés + fixtures, jamais par import de leur code avant merge.
 
 ### D2 — Contrats gelés : garde CI
 - `schemas/*.json` et `packages/contracts/src/**` restent **byte-identiques à `357ef25`** pendant toute la Phase 1 :
@@ -127,8 +173,8 @@ COMMIT   si intent in C, |C|<=tau, B_t>=B_floor
   `0/public/Ticker?pair=XBTUSD`, Bitstamp `api/v2/ticker/btcusd/` → **200 sans clé**, USD, place primaire. L'endpoint
   **bougies** réellement utilisé (candidat v0 : Coinbase Exchange `products/BTC-USD/candles?granularity=900`) **n'a pas
   été mesuré** ; la **sonde datée J0** vise **cet** endpoint (200 sans clé + forme du JSON) avant S2b, pas le ticker.
-  **Question formée à l'investisseur (a)** : venue et **conditions d'usage** de l'API publique pour un usage
-  démo/rapport — **ne bloque pas** : moteur et S2a tournent sur **fixtures committées**.
+  **DÉCISION INVESTISSEUR (a), 2026-09-04 : Coinbase Exchange BTC-USD, bougies 15 min**, usage rapports internes
+  seulement (pas un produit, rien de publié) ; moteur et S2a tournent sur **fixtures committées** ; sonde J0 avant S2b.
 - Phase 2 remplace cet endpoint par `AttestedPrice` Shōgen via l'adaptateur « sens émis » — jalon d'intégration.
 
 ### D9 — UKEMI : brique-moteur MONARK, pas un produit autonome (réconciliation avec G7)
@@ -150,8 +196,15 @@ COMMIT   si intent in C, |C|<=tau, B_t>=B_floor
   est **nommé**, pas résolu.
 - **Cible + horizon fixés maintenant** (SYNTHESE-LIQUIDATIONS §4.7 : aucune garantie avant) : candidat **A** — « montant
   liquidable sous un choc de prix de x % » (Perez et al. *Liquidations: DeFi on a Knife-edge*, **Eq. 3 p.7**, seul
-  candidat où un prix entre formellement, `SYNTHESE-LIQUIDATIONS.md` §1 maillon 1 et §2(a) ; cible candidate A en §2(b)) ; horizon = **une fenêtre 15 min** (aligné
-  HIKAE). Déclaré, non fondé ; B-E nommés dans la synthèse, écartés pour Phase 1 (sans prix, ou horizon 1 j à 100 j).
+  candidat où un prix entre formellement, `SYNTHESE-LIQUIDATIONS.md` §1 maillon 1 et §2(a) ; cible candidate A en §2(b)) ;
+  **horizon = 24 h — DÉCISION INVESTISSEUR (d), 2026-09-04** (« 24 h tout de suite », contre la proposition 15 min de
+  l'orchestrateur) : on vise directement l'horizon de l'objet payé (VaR 99 %/24 h, SYNTHESE §3.1). **Conséquences
+  écrites** : (i) UKEMI et HIKAE ne partagent plus la fenêtre — la cible A devient, à l'intégration Phase 2, une
+  **2e classe de tâche HIKAE** à horizon 24 h et `alpha = 0.01` (viser 99 %), distincte de `btc-dir-15m` ; (ii) en
+  Phase 1, le choc de prix `x %` sur 24 h est un **paramètre de fixture déclaré** (pas un modèle de choc : la dynamique
+  24 h est NON TROUVÉE dans le corpus, synthèse §4.7 horizons hétérogènes) ; (iii) le « 99 % » n'est **pas** produit par
+  UKEMI en Phase 1 — c'est le niveau de couverture que HIKAE devra tenir plus tard, jamais un `p_correct`. Déclaré ;
+  B-E nommés dans la synthèse, écartés (sans prix, ou horizon hors 24 h).
 - **Canal endogène DeFi** (fire-sale bouclant sur un prix partagé) : **NON TROUVÉ** dans les 15 papiers — hors
   périmètre ; procurements P-K4-1 / P-K4-2 **tiennent** (mainteneur).
 - **Ferme les pendants Phase 0 — propriétaire tranché (C4) : le Lot H.** L'invariant **M5** `lo <= hi` et la règle
@@ -159,8 +212,9 @@ COMMIT   si intent in C, |C|<=tau, B_t>=B_floor
   de `+inf`) vivent dans **un seul constructeur** `hikae/src/region.ts::buildIntervalRegion(lo, hi)` — **pas** dans
   `contracts` (gelé, D2), **pas** dupliqué dans `ukemi`. Le Lot U ne construit aucune région en Phase 1 ; à l'intégration
   Phase 2, HIKAE conforme la `Prediction` numérique d'UKEMI en région `interval` via ce constructeur.
-- **Réserve de valeur nommée (C13d)** : la cible A à **horizon 15 min** n'est **pas l'objet payé** (SYNTHESE §3.1 :
-  VaR 99 %/24 h, Chaos/LlamaRisk) — brique fixture Phase 1, horizon à réaligner par ADR quand un acheteur nomme le sien.
+- **Réserve C13d — levée par la décision (d)** : l'horizon est désormais **24 h**, celui de l'objet payé (SYNTHESE
+  §3.1 : VaR 99 %/24 h, Chaos/LlamaRisk). Reste déclaré, non fondé : aucun acheteur n'a encore nommé une exigence de
+  couverture (G7 UKEMI, NON TROUVÉ) ; le niveau 99 % est une cible HIKAE Phase 2, pas une sortie UKEMI Phase 1.
 
 ### D10 — Instrument S2 (conception **adoptée de Grok doc 11** §2, §5.1, §7, §8 — input, jamais lifté — réécrite pour
 nos contrats ; harnais jetable, R-22 : ne se promeut pas) (C7)
@@ -181,9 +235,12 @@ nos contrats ; harnais jetable, R-22 : ne se promeut pas) (C7)
   rejoué hors ligne, seulement après la sonde J0. Le rapport S2b porte **« synthétique »** ou **« réel-rejoué »**.
 - **Résultat attendu, en clair (C13e)** : au score 0/1, `n=50`, `alpha=0.10` ⇒ `p=46` ⇒ COMMIT exige **≤ 4 erreurs
   sur 50** ; une baseline momentum ~50 % donne **DEFER → ABSTAIN quasi total**. La démo d'arène montrera du **silence
-  calibré**, pas des trades. Question investisseur (e).
+  calibré**, pas des trades. **Tranché §4 (e), 2026-09-04** : le rapport S2b porte **deux blocs étiquetés** — bloc
+  « silence réel » (`internal:momentum-4c`) et bloc « démo de mécanisme » (`internal:oracle-didactique`, marqué « pas
+  un produit ») ; la présentation de démo se décide devant les chiffres.
 - **Résultat négatif = résultat** : S2b à ~100 % d'abstention s'écrit avec n, m, q̂ ; révision de classe par ADR, jamais
-  par un alpha cosmétique. **HARD GATE Phase 3** (roadmap) = S2 sur données **réelles** ; Phase 1 le prépare.
+  par un alpha cosmétique. *(Historique : « HARD GATE Phase 3 = S2 sur données réelles avant tout public » —
+  **supersédé le 2026-09-04 par D0** : on publie ce qui a tourné, avec la ligne D10, négatifs compris.)*
 
 ### D11 — Liste fermée des tests nommés (acceptation)
 Reprend les 7 de Grok (doc 10 §5, input) **réécrits pour nos contrats** + nos ajouts. **Lot H** :
@@ -200,11 +257,23 @@ le chiffre desk sort étiqueté ; la tournure interdite fait échouer le gate vo
 sans ADR = bug) · 15. `interval_lo_le_hi` (M5, `buildIntervalRegion`, C4) · 16. `unbounded_is_abstain` (C4) ·
 17. `features_strictly_before_t` (D7 : aucune bougie-feature terminée **après** t — indice `> t` rejeté, `close[t]`
 accepté ; le label de `[t, t+15)` n'entre jamais).
-**Racine (CA-0, hors lots, exécuté par les deux worktrees)** : `contracts_frozen` (D2) — `test/contracts-frozen.test.ts`
-à la racine du workspace, ajouté au glob `npm test` ; ni H ni U ne le portent, **les deux** le subissent.
+**Racine (CA-0, hors lots, exécuté par les trois worktrees)** : `contracts_frozen` (D2) — `test/contracts-frozen.test.ts`
+à la racine du workspace, ajouté au glob `npm test` ; aucun lot ne le porte, **les trois** le subissent. Second test
+racine : `fixtures_root_valid` (les 9 états de `fixtures/` valides ajv + hash = `fixtures/manifest.json`).
+**Lot D (atelier)** : 24. `atelier_state_oracle` (module d'état pur : pour chacun des 9 états du `fixtures/` racine,
+verdict / décision / raison présents ; B_t **non croissant** sur miscover ; état des deux horloges = « couverture avant
+décision » / « label arrivé à t+w » sur fixtures) · 25. `atelier_replays_root_fixtures` (les 9 états — 3 COMMIT /
+2 DEFER / 3 ABSTAIN / 1 under_calib — sont tous rendus, chacun visible) · 26. `atelier_no_forbidden_vocab` (le rendu
+HTML/JS/CSS passe `scripts/grep-forbidden.mjs`, étendu à `packages/atelier/**`, liste lue depuis `vocab-banned.json`
+racine) · 27. `perps_stubs_throw` (les noms `perps_order_preview` / `perps_order_execute` sont définis au **Lot H**
+(`hikae/src/l3-gate.ts`, const `GATED_TOOLS`) et exercés par le gate HIKAE comme `tool` de la décision dans
+`set_too_large_defers` / `intent_not_in_region_denied` ; l'atelier porte des stubs qui **lèvent** s'ils sont invoqués) ·
+28. `atelier_no_network` (grep `fetch|XMLHttpRequest|WebSocket|http\.request|net\.connect` = 0 dans
+`packages/atelier/**` hors tests ; `globalThis.fetch` remplacé par un lanceur qui lève pendant le rejeu des 9 états).
 **Lot U** : 18. `clearing_fixed_point` (Phi(p*)=p*) · 19. `fictitious_default_le_n_rounds` · 20. `uniqueness_when_e_positive`
 **+ contrôle négatif** App. 2 (`e=(0,0)` ⇒ `p+ ≠ p-` ; `e=(0.01,0)` ⇒ égalité — C10) · 21. `nonexpansive_in_e`
-(empirique sur fixture, inférence K4:90) · 22. `liquidable_amount_eq3` (cible A sur fixture, recalculable) ·
+(empirique sur fixture, inférence K4:90) · 22. `liquidable_amount_eq3` (cible A sur fixture, choc `x %` sur **24 h**
+en paramètre déclaré, recalculable) ·
 23. `prediction_numeric_emitted` (`Prediction{yhat:number, predictor_id="internal:ukemi-cascade-v0"}` passe
 `serializePrediction` + schéma ajv).
 
@@ -212,38 +281,60 @@ accepté ; le label de `[t, t+15)` n'entre jamais).
 Workers **`claude-opus-4-8` effort max** (Gate-0 au premier worker de chaque lot) ; relecteurs G2 = instances séparées,
 contexte frais ; **seul l'orchestrateur committe** (R-19/R-20) ; journal de provenance par lot ; `error_origin` au G7 ;
 vocab gate + `tsc --strict` + `node:test` bloquants ; R-8 avant toute dépendance (**objectif : zéro dépendance runtime**
-pour les deux moteurs). Lectures nouvelles éventuelles = lecteurs `claude-sonnet-5` max, PDF pré-extraits (doc 03 §6).
+pour les deux moteurs et l'atelier). Lectures nouvelles éventuelles = lecteurs `claude-sonnet-5` max, PDF pré-extraits (doc 03 §6).
 
 ### D13 — Note MAST (modes d'échec multi-agents, checklist de risque résiduel — C3)
 | Mode MAST | Où il frappe ici | Contre-mesure imposée par le système |
 |---|---|---|
-| Désalignement inter-agents sur les contrats | deux worktrees lisant `contracts` | `contracts_frozen` = **test racine** (`test/contracts-frozen.test.ts`, CA-0), exécuté par `npm run ci` dans **chaque** worktree, hors comptage par lot ; toute dérive = rouge |
+| Désalignement inter-agents sur les contrats | trois worktrees lisant `contracts` | `contracts_frozen` = **test racine** (`test/contracts-frozen.test.ts`, CA-0), exécuté par `npm run ci` dans **chaque** worktree, hors comptage par lot ; toute dérive = rouge |
 | Extension non autorisée (enum `method`/`reason`) | un worker « ajoute une raison utile » | enums gelés + `enums.test.ts` Phase 0 ; nouvelle valeur = ADR seulement |
 | Duplication d'invariant (`lo<=hi`) | H et U écrivent chacun leur région | **un seul** constructeur, Lot H (D9/C4) ; U n'émet pas de région |
 | Conflit sur la racine workspace partagée | `package.json`, lockfile, `npm run ci` | **zéro dépendance runtime** (aucune écriture lockfile) ; les lots ne touchent que `packages/<lot>/**` ; merge par l'orchestrateur seul |
 | Terminaison prématurée (« tests verts, fini ») | un worker clôt sans rapport S2 ou README | CA fermés (§3) ; G7 ne consomme qu'un lot **complet** |
 | Revue complaisante | G2 par un worker ayant vu le contexte | instance **séparée, contexte frais**, checklist G2 ; R-21 orchestrateur |
 | Perte d'information (résultat négatif tu) | S2b « décevant » adouci | table recalculable + « résultat négatif = résultat » (D10) |
+| **Pression de deadline (D0)** | lots grossis « pour aller vite », merge sans G2 consigné, publication avant checkpoint 2 | R-25 (lots petits) ; **aucun merge sans revue G2 au journal** ; **aucune publication avant checkpoint 2** ; la ligne D10 sur tout chiffre public |
 
 ## 3. Critères d'acceptation Phase 1 (fermés)
 - **CA-H1** les 17 tests Lot H passent ; **CA-H2** rapport S2a (synthétique, déclaré) + S2b (fixtures **étiquetées**
-  synthétique / réel-rejoué, baseline D7) avec les 6 blocs de table et M1-M5 ; **CA-H3** aucun mot du gate vocab ;
+  synthétique / réel-rejoué, baseline D7) avec les 6 blocs de table (paramètres, journal, S2a, S2b par strate et poolé,
+  mutants, tête), M1-M5, **et les deux blocs étiquetés de (e)** : « silence réel » (`internal:momentum-4c`) et « démo de
+  mécanisme » (`internal:oracle-didactique`, « pas un produit ») ; **CA-H3** aucun mot du gate vocab ;
   **CA-H4** les `CoverageVerdict`/`GateDecision` émis passent `serialize*` Phase 0 et les schémas ajv ; **CA-H5**
   `buildIntervalRegion` refuse `lo>hi` et toute borne non finie (⇒ abstention).
 - **CA-U1** les 6 tests Lot U passent ; **CA-U2** une `Prediction{yhat:number}` émise via `@monark/contracts` sur
-  fixture (aucune région en Phase 1) ; **CA-U3** cible A + horizon écrits dans le README du package avec « déclaré, non
-  fondé » et la réserve C13d.
-- **CA-0** test racine `contracts_frozen` vert **dans les deux worktrees** (hors CA-H1/CA-U1 ; 17 + 6 + 1 = 24 tests) ;
+  fixture (aucune région en Phase 1) ; **CA-U3** cible A + **horizon 24 h (décision investisseur (d))** écrits dans le
+  README du package avec « déclaré, non fondé », les trois conséquences (i)-(iii) de D9, et sans aucun « 99 % » présenté
+  comme une sortie.
+- **CA-D1** (Lot D) — **oracle** : test 24 (module d'état pur) ; **visuel** : l'atelier démarre en local
+  (`npm run atelier`) sans réseau ni clé et affiche les trois panneaux Shōgen → HIKAE → UKEMI, le verdict, la décision
+  et sa raison, **B_t qui se consomme**, les **deux horloges** — vérifié par **capture d'écran au checkpoint 2** ;
+  **CA-D2** = test 25 (rejeu des 9 états du `fixtures/` racine) ; **CA-D3** = test 26 ; **CA-D4** = tests 27 + 28
+  (les stubs prouvent le chemin de refus ; l'absence d'appel est prouvée par grep + `fetch` remplacé) ; **CA-D5** zéro
+  dépendance runtime, `tsconfig` propre à l'atelier (`lib: DOM`), racine intouchée.
+- **CA-0** test racine `contracts_frozen` vert **dans les trois worktrees** (hors CA-H1/CA-U1/CA-D ; 17 + 6 + 5 + 1 =
+  **29** tests) ;
   **0 remote** ; G2 par lot ; G7 ; checkpoint 2.
 
 ## 4. Pendants formés (zéro dette nue)
-- **Investisseur** : (a) venue + conditions d'usage de l'endpoint prix S2b (D8) ; (b) ratification ADR-CERT-MONARK
-  **avant Phase 3** (inchangé) ; (c) confirmer D9 (UKEMI = brique-moteur, pas de G0 produit) comme lecture de sa
-  décision ; **(d)** l'horizon 15 min de la cible A n'est pas l'objet payé (VaR 99 %/24 h) — accepté comme brique
-  fixture Phase 1 ? ; **(e)** S2b avec baseline momentum à α=0,10 ⇒ DEFER/ABSTAIN quasi total : la démo d'arène montrera
-  du **silence calibré** — accepté pour la deadline, ou autoriser un cadrage « démo de mécanisme » (oracle didactique
-  **étiqueté**) ? ; **(f)** skill Hermes + atelier/démo reportés Phase 2 (C6) — réduction de périmètre par rapport à sa
-  décision, motivée par le prédicteur réel (clé) : accepté ?
+- **Investisseur — les six questions formées ont été posées en langage simple et TRANCHÉES le 2026-09-04** :
+  **(a)** Coinbase Exchange BTC-USD, bougies 15 min, rapports internes → **décidé** (D8) ; **(b)** ADR-CERT-MONARK →
+  **RATIFIÉ** (statut mis à jour dans l'ADR) ; **(c)** UKEMI = brique-moteur MONARK, pas de G0 produit → **confirmé**
+  (D9) ; **(d)** horizon UKEMI → **24 h tout de suite** (contre la proposition 15 min ; D9 amendé, conséquences
+  (i)-(iii)) ; **(e)** présentation S2b (silence seul / mécanisme étiqueté) → **« décider plus tard »** : le moteur se
+  construit, le rapport S2b porte les **deux** blocs étiquetés (silence réel avec `internal:momentum-4c` ; mécanisme
+  avec `internal:oracle-didactique`, marqué « pas un produit »), et la **présentation** de démo sera tranchée devant
+  les chiffres — **pendant investisseur ouvert, formé, échéance : lecture du rapport S2b** ; **(f)** skill Hermes →
+  Phase 2 **accepté** ; atelier → **inversé le même jour par le cap hackathon (D0) : Lot D maintenant**.
+- **Investisseur — cap hackathon (2026-09-04, quatre questions, tranchées)** : re-séquencement **oui** ; tracks
+  **pump.fun + UsePod** ; écran de démo **maintenant** ; trading **non** (→ KAIZEN, produit futur, après MONARK).
+  **Pendants formés (investisseur)** : (g) accès UsePod (clé API — jamais saisie par l'orchestrateur), **échéance :
+  avant le 10 septembre** (le track UsePod est vide sans elle, sur 16 jours de runway) ; (h) date du lancement token /
+  post X (« deploy early »), **à fixer avant le 10 septembre** ; (i) **passe DEVOPS** (SHA-pin, commits signés, remote)
+  = chemin critique de tout ce qui est public — **planifiée juste après le merge des lots H/U/D**, avant toute vitrine ;
+  (j) **« builders onboarded »** : rien n'est onboardable avant la Phase 2 (skill Hermes, 0 remote) — nommé, à
+  trancher avec (h) ; (k) **volume on-chain / $ANSEM** = le token MONARK seul (pas de perps) — hors périmètre de cet
+  ADR, nommé.
 - **Phase 2** : prédicteur UsePod/Hermes (clé, Python) ; `crossAgentGate` sur `AttestedPrice` réel ; adaptateur « sens
   émis » ; label par `AttestedPrice` (ADR-M001 l.166 rétabli) ; surface de skill + atelier ; **branche (a) de L2**
   (`C_t` par `r_t`) par ADR après S2 réel ; DtACI en repli nommé si S2b montre un drift que IM-OCP ne suit pas.
@@ -252,7 +343,8 @@ pour les deux moteurs). Lectures nouvelles éventuelles = lecteurs `claude-sonne
 - **DEVOPS avant tout remote** : eslint, SHA-pin, commits signés (ADR-M001 D8).
 
 ## 5. Alternatives écartées
-- Trois lots (dont un « MONARK gate ») : contredit ADR-M001 et le garde-fou de réduction.
+- Un **lot cross-agent** (`crossAgentGate` sur `AttestedPrice` réel) en Phase 1 : contredit ADR-M001 (jalon Phase 2)
+  et le garde-fou de réduction. (Le Lot D atelier, ajouté par D0, n'est pas ce lot : il rejoue des fixtures.)
 - Prédicteur LLM en Phase 1 : credentials + Python + Hermes = Phase 2 ; sinon S2b « tourne » sur un mock qui wrap.
 - DtACI en L2 : hypothèses de couverture locale non testées ; gardé en repli.
 - UKEMI G0 produit : interdit par G7 §5 tant qu'aucune exigence de couverture nommée.

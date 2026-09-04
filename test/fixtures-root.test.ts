@@ -1,0 +1,59 @@
+/**
+ * Test racine `fixtures_root_valid` — ADR-M002 D1 (Lot D item 2) / D11.
+ * Les 9 états de `fixtures/` (3 COMMIT / 2 DEFER / 3 ABSTAIN / 1 under_calib) sont des
+ * `GateDecision` valides contre les schémas gelés (ajv) ET contre les gardes runtime de
+ * Phase 0 (closed-check + forbidden-keys), et leur sha256 == fixtures/manifest.json.
+ * Lus par le Lot D (rejeu) et par le Lot H (oracle de conformité). Exécuté par `npm test`
+ * dans chaque worktree.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { createRequire } from "node:module";
+import { serializeGateDecision, calibDigest } from "../packages/contracts/src/index.ts";
+import type { GateDecision } from "../packages/contracts/src/index.ts";
+
+const ROOT = join(import.meta.dirname, "..");
+const FIX = join(ROOT, "fixtures");
+const require = createRequire(import.meta.url);
+const ajvMod = require("ajv/dist/2020");
+const Ajv2020 = ajvMod.default ?? ajvMod;
+const addFormatsMod = require("ajv-formats");
+const addFormats = addFormatsMod.default ?? addFormatsMod;
+
+function loadSchema(name: string): object {
+  return JSON.parse(readFileSync(join(ROOT, "schemas", name), "utf8")) as object;
+}
+
+const manifest = JSON.parse(readFileSync(join(FIX, "manifest.json"), "utf8")) as Record<string, string>;
+const files = readdirSync(FIX).filter((f) => f.endsWith(".gate-decision.json")).sort();
+
+test("fixtures_root_valid — 9 états, hash == manifest", () => {
+  assert.equal(files.length, 9, "attendu 9 fixtures");
+  assert.deepEqual(Object.keys(manifest).sort(), files, "manifest ≠ fichiers");
+  for (const f of files) {
+    const raw = readFileSync(join(FIX, f), "utf8").replace(/\r\n/g, "\n");
+    assert.equal(createHash("sha256").update(raw, "utf8").digest("hex"), manifest[f], `hash dérivé : ${f}`);
+  }
+});
+
+test("fixtures_root_valid — ajv + gardes runtime Phase 0, répartition 3/2/3/1", () => {
+  const ajv = new Ajv2020({ allErrors: true, strict: true, allowUnionTypes: true });
+  addFormats(ajv);
+  ajv.addSchema(loadSchema("coverage-verdict.schema.json"), "coverage-verdict.schema.json");
+  const validate = ajv.compile(loadSchema("gate-decision.schema.json"));
+  const counts = { commit: 0, defer: 0, abstain: 0, under_calib: 0 };
+  for (const f of files) {
+    const d = JSON.parse(readFileSync(join(FIX, f), "utf8")) as GateDecision;
+    assert.ok(validate(d), `${f}: ${JSON.stringify(validate.errors)}`);
+    assert.doesNotThrow(() => serializeGateDecision(d), `${f}: garde runtime`);
+    if (d.verdict.scores) assert.equal(d.verdict.calib_digest, calibDigest(d.verdict.scores), `${f}: calib_digest`);
+    // 3/2/3/1 : under_calib est compté à part des abstentions (ADR-M002 D11).
+    if (d.reason === "under_calib") counts.under_calib += 1;
+    else counts[d.action] += 1;
+    assert.equal(d.allow, d.action === "commit", `${f}: allow ≠ (action==commit)`);
+  }
+  assert.deepEqual(counts, { commit: 3, defer: 2, abstain: 3, under_calib: 1 });
+});

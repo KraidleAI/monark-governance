@@ -1,8 +1,9 @@
 # ADR — Réconciliation token : `$CERT` (Grok) → mécanique de MONARK (2026-09-04)
-- **Statut** : proposé (décision orchestrateur) — **ratification investisseur due AVANT la Phase 3** (G7 du
-  2026-09-04). **Ne bloque pas la Phase 0** : sur le fil, `GateDecision.remaining_budget: number` est agnostique du
-  token (l'attribution à MONARK n'est que prose de `description`) ; c'est la phase vitrine/token (Phase 3) qui
-  dépend de *savoir ce que le token fait*.
+- **Statut** : **RATIFIÉ par l'investisseur le 2026-09-04** (réponse « Oui, ratifié » à la question formée (b) de
+  l'ADR-M002 §4, posée en langage simple : un seul token MONARK ; sa mécanique = capacité d'autorisation conforme
+  restante de la flotte, ressource depletable, jamais un rendement ni un PnL). Historique : proposé par
+  l'orchestrateur le 2026-09-04 (G7 Phase 0), ratification due avant la Phase 3 — **rendue**. Sur le fil,
+  `GateDecision.remaining_budget: number` reste agnostique du token ; la Phase 3 vitrine/token s'appuie sur cette ADR.
 - **Rattachement** : `ROADMAP-MONARK.md` §Phase 0/3 ; décortication Grok `hikae/GROK-DECORTICATION.md` §4/§9 ;
   nommage MONARK (mémoire 08043503) ; Grok ADR-0005/0008/0013 + Thm H5.
 
