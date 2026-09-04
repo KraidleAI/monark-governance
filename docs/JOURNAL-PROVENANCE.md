@@ -5,7 +5,7 @@ code généré.** Un artefact sans entrée ne s'intègre pas.
 
 | Date | PR/commit | Modèle (identifiant épinglé exact) | Effort | Contexte fourni | Générateur (agent) | Réviseur | Verdict G2 |
 |---|---|---|---|---|---|---|---|
-| 2026-09-04 | Phase 0 — **staged, non commité** (R-20) | `claude-opus-4-8` | max | ADR-M001 + ROADMAP-MONARK + ADR-CERT-MONARK + VERDICT-TASKCLASS-GROK + HERMES-FONDEMENTS + sources Shōgen/Grok | worker (session, Opus 4.8) | G2 (worker Opus 4.8 distinct, contexte frais) | **approuvé-avec-réserves** |
+| 2026-09-04 | Phase 0 — commit **`357ef25`** (main, local-only ; commité par l'orchestrateur `claude-fable-5-1`, R-20) | `claude-opus-4-8` | max | ADR-M001 + ROADMAP-MONARK + ADR-CERT-MONARK + VERDICT-TASKCLASS-GROK + HERMES-FONDEMENTS + sources Shōgen/Grok | worker (session, Opus 4.8) | G2 (worker Opus 4.8 distinct, contexte frais) | **approuvé-avec-réserves** |
 
 ## Lot Phase 0 — squelette & gel des contrats (`F:\Monark`)
 
@@ -88,7 +88,7 @@ orchestrateurs projet en tier nu `fable` → `claude-fable-5-1` (par projet).
 | G3/G4/G6 (oracle) | ✅ CI verte locale (vocab + typecheck + 41 tests + schémas ajv) |
 | G7 (verdict orchestrateur) | ✅ **ACCEPTÉ** (2026-09-04, `claude-fable-5-1`, R-21 reproduit) — conditionnel au checkpoint 2 |
 | Acceptation validateur-humain (checkpoint 2, livrable) | ✅ **accepté-avec-corrections** (2026-09-04, `claude-fable-5-1` ; 4 corrections documentaires, appliquées : revue G2 persistée `docs/adr/G2-review-M001.md`, en-têtes ADR-M001/ADR-CERT, README « coverage-controlled ») — **premier commit autorisé** |
-| Commit | ⏳ **DÛ — orchestrateur seul** (R-19/R-20) ; staged, 0 commit, 0 remote (C14) |
+| Commit | ✅ **`357ef25`** (2026-09-04, orchestrateur `claude-fable-5-1`, R-19/R-20) — après advisor pré-commit (lockfile prouvé par `npm ci` à frais : 14 paquets, CI 41/41) ; hook `gate-commit` passé ; **0 remote** (C14). Ancrage de provenance = commit suivant (R-25). |
 
 ### Résolution C13 (2026-09-04) — roster currency
 Décision investisseur **« Global — flip Kraidle too »** : `claude-fable-5-1` propagé aux fichiers **globaux**

@@ -1,11 +1,13 @@
 # ADR-M001 — Phase 0 (G0) : dépôt MONARK, langage, et gel des contrats d'interface
 - **Statut** : **ACCEPTÉ-AVEC-CORRECTIONS** par le validateur-humain (checkpoint 1, 2026-09-04) → **corrections
   C1-C14 intégrées** → **quick-verify validateur OK (14/14 PASS, 2026-09-04)** → **implémentation Phase 0
-  réalisée** (`F:\Monark`, CI verte : vocab + typecheck + **41 tests**) et **staged** (0 commit — R-20).
+  réalisée** (`F:\Monark`, CI verte : vocab + typecheck + **41 tests**) et **commitée** (`357ef25`, main, 0 remote).
   **Rendus (2026-09-04)** : revue G2 = **approuvé-avec-réserves** (réserves fermées/ratifiées ;
   `docs/adr/G2-review-M001.md`) ; verdict G7 orchestrateur = **ACCEPTÉ** (`claude-fable-5-1`, R-21 reproduit) ;
   checkpoint 2 validateur-humain = **accepté-avec-corrections** (4 corrections documentaires, appliquées).
-  **Dû** : le premier commit (orchestrateur seul, R-19/R-20).
+  **Premier commit posé** : `357ef25` (2026-09-04, orchestrateur `claude-fable-5-1` seul, R-19/R-20 ; advisor
+  pré-commit consulté, `npm ci` à frais prouvé). **Phase 0 close — zéro dette nue** ; pendant investisseur :
+  ratification d'ADR-CERT-MONARK avant la Phase 3.
 - **Provenance / Gate-0** : modèle worker résolu **`claude-opus-4-8`** (confirmé `/model`), effort `max`.
   **Advisor consulté** (canal intégré) : **deux bloquants-gel** (#1 objet-frontière Shōgen ; #2 verdict
   polymorphe) + **cinq cautions de conception** (#3 listes de champs Grok = input non lifté ; #4 le prédicteur
