@@ -8,7 +8,7 @@
   "engines": { "node": ">=24" },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test \"packages/*/test/*.test.ts\"",
+    "test": "node --test \"test/*.test.ts\" \"packages/*/test/*.test.ts\"",
     "gate:vocab": "node scripts/grep-forbidden.mjs",
     "ci": "npm run gate:vocab && npm run typecheck && npm run test"
   },

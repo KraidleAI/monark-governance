@@ -1,0 +1,15 @@
+{
+  "packages/contracts/src/calib-digest.ts": "3603265d0a1f1a4e3e1a1d57b4b568fcadf4f6861351c2ca49b38dc794c42380",
+  "packages/contracts/src/closed-check.ts": "0411585fdd9ec06a3b1510e716fcbe5ae662cac70fe51d41745c8bdd27fac79c",
+  "packages/contracts/src/enums.ts": "8e4b733282c500c4329e7d640ef4af329c924c63d3bba35a656dbc90bfffbb8d",
+  "packages/contracts/src/forbidden-keys.ts": "4d9fd4cf5319258bc5525ef87d3e50e2dda6497b424bac3e3255c954294c9c3d",
+  "packages/contracts/src/index.ts": "5be892e2303b4a8ef21e9868703c6f2e0b306c89a995bb689d8b2688a054de5e",
+  "packages/contracts/src/region.ts": "369054e6760ed8abf8d00d21c587d1265288d1fce6ebbfc3cb23d623b0dc05e6",
+  "packages/contracts/src/serialize.ts": "8dbff773941efc5cc176183d546dcf5fd9211354284471ff73dbfecc7ecbc42b",
+  "packages/contracts/src/types.ts": "29c250f42fdd9db72f106a3b43440e68e01d9bc00c273f618c73e28af2c1045e",
+  "schemas/attested-price.schema.json": "d7e0ac574120e3a7605b6d745fdd9f538eb27a4cdd2b05c2a766a13174ebff37",
+  "schemas/coverage-verdict.schema.json": "b63ad12abe3dbbbf6288bc22834b3bbe33fcf0fa69dc32b910716da03074c5a7",
+  "schemas/forbidden-keys.json": "a58bbb48e3663626df597b2a63bebe7d3fc7f0cc3ca3176dc1bf7435b0aab813",
+  "schemas/gate-decision.schema.json": "9434bf4cb768f80c0f7774936386f1318a712746c1ec603eeeedfcfe055a3e6a",
+  "schemas/prediction.schema.json": "df48fe882cceea5247310fb361fd4044d953abe44d8a63ea5c4a1cafc1d2979d"
+}

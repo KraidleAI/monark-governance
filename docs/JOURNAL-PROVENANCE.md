@@ -90,6 +90,24 @@ orchestrateurs projet en tier nu `fable` → `claude-fable-5-1` (par projet).
 | Acceptation validateur-humain (checkpoint 2, livrable) | ✅ **accepté-avec-corrections** (2026-09-04, `claude-fable-5-1` ; 4 corrections documentaires, appliquées : revue G2 persistée `docs/adr/G2-review-M001.md`, en-têtes ADR-M001/ADR-CERT, README « coverage-controlled ») — **premier commit autorisé** |
 | Commit | ✅ **`357ef25`** (2026-09-04, orchestrateur `claude-fable-5-1`, R-19/R-20) — après advisor pré-commit (lockfile prouvé par `npm ci` à frais : 14 paquets, CI 41/41) ; hook `gate-commit` passé ; **0 remote** (C14). Ancrage de provenance = commit suivant (R-25). |
 
+## Lot Phase 1 — moteurs HIKAE (HAC-CP `btc-dir-15m`) et UKEMI (noyau de clearing) — ADR-M002
+
+### G0 (2026-09-04) — plan approuvé AVANT tout code
+- **ADR-M002** rédigé par l'orchestrateur `claude-fable-5-1` après **advisor pré-rédaction** (périmètre ramené à deux
+  lots ; gate cross-agent = Phase 2 ; réconciliation UKEMI/G7 ; sources sur nos archives [lu]).
+- **Checkpoint 1 validateur-humain** : **ACCEPTE-AVEC-CORRECTIONS C1-C13** (13 items, dont 3 choix d'ingénierie
+  tranchés par l'orchestrateur : C1 → L2 **moniteur**, aucune garantie (ii) revendiquée ; C4 → invariant `interval`
+  dans `hikae` seul ; C6 → skill + atelier reportés Phase 2). **Quick-verify** : passage 2 = 13/13 PASS + 2
+  incohérences inter-sections révélées ; passage 3 = 3 FAIL résiduels (dont un introduit par une correction) ;
+  **passage 4 = QUICK-VERIFY OK, code autorisé**. Copie dépôt ≡ source (md5) à chaque passage.
+- **Gate-0 validateur (mesuré)** : les quatre instances ont résolu **`claude-fable-5-1`** — la prédiction « cache de
+  session → `claude-fable-5` » (Phase 0) était **fausse** cette fois ; consignée telle quelle.
+- **Pendants investisseur formés (ADR-M002 §4)** : (a) venue + conditions d'usage endpoint prix ; (b) ratification
+  ADR-CERT avant Phase 3 ; (c) lecture D9 UKEMI = brique-moteur ; (d) horizon 15 min ≠ objet payé ; (e) S2b baseline =
+  silence calibré quasi total ; (f) skill/atelier reportés Phase 2.
+- **Discipline** : workers `claude-opus-4-8` effort max (Gate-0 au premier de chaque lot) ; deux worktrees isolés ;
+  zéro dépendance runtime ; `contracts_frozen` racine ; seul l'orchestrateur committe ; 0 remote.
+
 ### Résolution C13 (2026-09-04) — roster currency
 Décision investisseur **« Global — flip Kraidle too »** : `claude-fable-5-1` propagé aux fichiers **globaux**
 (`~/.claude/CLAUDE.md` + les 4 agents globaux advisor/advisor-marché/lecture-advisor/validateur ; `advisorModel`
