@@ -43,6 +43,44 @@ Panagiotou, Ritter, *An integrated model for fire sales and default contagion*, 
 2020, `detering2020.txt` l.53, 108, 951, 958). Mesurer cette amplification est exactement ce
 pourquoi UKEMI existe.
 
+## Phase 2 — coûts de défaut `(α, β)` de Rogers & Veraart (ADR-M003 D6.3)
+
+Source [lu] : `P-K4-1-rogers2013.md` (Rogers & Veraart, *Failure and Rescue in an Interbank Network*,
+Management Science 2013) — éq. (1) p.884 (Q1), GA (Def. 3.6) / Thm 3.7 « ≤ n tours » (Q2), Ex. 3.3
+(Q2). **On cite la lecture, jamais le papier de mémoire.**
+
+`fictitiousDefault(sys, α, β)` et `clearing(sys, α, β)` généralisent E&N par des **coûts de défaut** :
+un nœud en défaut ne distribue plus toute sa valeur mais un recouvrement `α·e_i + β·(interbancaire
+reçu)`, où **α ∈ (0,1]** = fraction récupérée des actifs externes, **β ∈ (0,1]** = des actifs
+interbancaires en liquidation (P-K4-1 Q1, Def. 2.5).
+
+- **`α = β = 1` ⇒ E&N inchangé, AU BIT PRÈS** : `1·x = x` en IEEE-754 et l'ordre d'accumulation est
+  préservé ⇒ toutes les fixtures/tests Phase 1 sont reproduits sans dérive d'un bit (test 36,
+  `clearing_alpha_beta_regression_en`, comparé aux **valeurs attendues actuelles**, pas à une
+  ré-exécution).
+- **Unicité PERDUE dès `α < 1` ou `β < 1`** (Ex. 3.3, P-K4-1 Q2) : `clearing` rapporte le **plus grand**
+  `L*` (GA) **et** le **plus petit** `L_*` (itérés depuis 0), avec `unique = (‖L*−L_*‖₁ ≤ tol)`.
+  On ne prétend **jamais** l'unicité hors `α = β = 1`. **Réserve consignée** : Φ est « continue par le
+  haut » toujours, « pas par le bas » si `α,β < 1` (P-K4-1 Q2) — l'itération depuis 0 donne un point
+  fixe bas sans garantie théorique d'atteindre `L_*` sans redémarrages.
+- **Contrôle négatif = Ex. 3.3** (test 37, `clearing_rv_ex33_two_vectors`) : 2 banques, `e=(1,1)`,
+  `α=β=½`, `L̄=(2.2,2.2)` ⇒ deux vecteurs de compensation, **`L*=(2.2,2.2)` et `L_*=(1,1)`**,
+  `unique=false` ; avec `α=β=1`, compensation **unique = (2.2,2.2)**. NB : la valeur « (2,2.2) »
+  citée par la source (Q2) et l'ADR est une **coquille** pour (2.2,2.2) — démontrée dans le test
+  (`(2,2.2)` n'est un point fixe sous **aucun** α) et consignée en consultation formée
+  (`docs/G1-lot-K.md`).
+- **`(α, β)` sont exogènes** (Def. 2.5) : hors `α=β=1` (E&N) et hors les valeurs d'Ex. 3.3, toute
+  valeur employée est **déclarée, NON FONDÉE** — pendant formé (ADR-M003 §4 : « (α,β) fondés par
+  source empirique »). Aucun défaut produit n'en fixe une.
+
+**Conformeur `interval` + classe `ukemi-liquidable-24h` (côté HIKAE)** : la `Prediction` numérique
+d'UKEMI est conformée par HIKAE (`@monark/hikae` `conformInterval`) en région `[ŷ−q̂, ŷ+q̂]`,
+`q̂ = ⌈(n+1)(1−α)⌉`-ième résidu `|y−ŷ|` (α=0.01). La classe de calibration `ukemi-liquidable-24h`
+est **synthétique, seedée, déclarée** (`harness_version = fixtures-synth`) : **aucune source de label
+de dette liquidée réalisée sur 24 h** n'existe (ADR-M003 pré-vérif 3) — la couverture ne vaut que sur
+ces paires ; « données réelles » n'est pas revendiqué (pendant §4). Le seuil de largeur de gate
+`τ_interval` est lui aussi **déclaré, non fondé** (D6.1).
+
 ## Pas de trading, pas de garantie (ADR-M002 D0)
 
 UKEMI ne trade pas, ne recommande pas, n'appelle aucun ordre. Le trading est un produit **futur,
@@ -53,6 +91,9 @@ KAIZEN**. Le canal endogène DeFi (fire sales) est **hors périmètre Phase 1** 
 `npm run ci` (racine) : gate vocab + `tsc --strict` + `node:test`. Les 6 tests nommés d'ADR-M002 D11
 (Lot U, 18-23) : `clearing_fixed_point`, `fictitious_default_le_n_rounds`,
 `uniqueness_when_e_positive` (+ contrôle négatif App. 2), `nonexpansive_in_e` (ci-dessus),
-`liquidable_amount_eq3`, `prediction_numeric_emitted`. Fixtures = **JSON pur** dans
-`test/fixtures/`, chaque note donne l'oracle recalculable à la main. Contrat `Prediction` gelé
-consommé via `@monark/contracts` — jamais réimplémenté (`contracts_frozen`).
+`liquidable_amount_eq3`, `prediction_numeric_emitted`. Phase 2 (ADR-M003 D11) ajoute les tests
+**36** `clearing_alpha_beta_regression_en` (E&N byte-exact) et **37** `clearing_rv_ex33_two_vectors`
+(Ex. 3.3, unicité perdue) ; les tests **34**/**35** du conformeur `interval` et du gate vivent côté
+`@monark/hikae`. Fixtures = **JSON pur** dans `test/fixtures/`, chaque note donne l'oracle
+recalculable à la main. Contrat `Prediction` gelé consommé via `@monark/contracts` — jamais
+réimplémenté (`contracts_frozen`).

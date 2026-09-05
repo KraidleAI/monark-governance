@@ -382,6 +382,7 @@ function baseInput(over: Partial<GateInput> & { verdict: GateInput["verdict"]; i
     remainingBudget: 0.1,
     bFloor: 0,
     tau: 1,
+    tauInterval: 1, // inerte ici : ces états de démo sont tous `set` (M003 D6.1 chemin interval non exercé)
     nCalib: 50,
     nMin: 50,
     clockOpen: true,
