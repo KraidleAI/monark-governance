@@ -1,0 +1,2394 @@
+campaign	index	close_time	hour_utc	stratum	predictor_id	yhat	y	role	score	set	covered	action
+S2a	0	0	3	asia	synthetic	down	down	calib	0			—
+S2a	1	0	9	mid	synthetic	down	up	calib	1			—
+S2a	2	0	5	asia	synthetic	up	up	calib	0			—
+S2a	3	0	9	mid	synthetic	down	down	calib	0			—
+S2a	4	0	1	asia	synthetic	up	up	calib	0			—
+S2a	5	0	18	americas	synthetic	up	up	calib	0			—
+S2a	6	0	1	asia	synthetic	down	down	calib	0			—
+S2a	7	0	20	americas	synthetic	up	up	calib	0			—
+S2a	8	0	15	americas	synthetic	up	up	calib	0			—
+S2a	9	0	12	mid	synthetic	up	up	calib	0			—
+S2a	10	0	4	asia	synthetic	up	up	calib	0			—
+S2a	11	0	3	asia	synthetic	down	down	calib	0			—
+S2a	12	0	5	asia	synthetic	up	up	calib	0			—
+S2a	13	0	6	asia	synthetic	down	down	calib	0			—
+S2a	14	0	8	mid	synthetic	down	down	calib	0			—
+S2a	15	0	15	americas	synthetic	down	down	calib	0			—
+S2a	16	0	8	mid	synthetic	up	up	calib	0			—
+S2a	17	0	15	americas	synthetic	down	down	calib	0			—
+S2a	18	0	18	americas	synthetic	up	up	calib	0			—
+S2a	19	0	14	americas	synthetic	up	up	calib	0			—
+S2a	20	0	16	americas	synthetic	down	down	calib	0			—
+S2a	21	0	20	americas	synthetic	down	down	calib	0			—
+S2a	22	0	4	asia	synthetic	up	up	calib	0			—
+S2a	23	0	13	americas	synthetic	down	down	calib	0			—
+S2a	24	0	3	asia	synthetic	up	down	calib	1			—
+S2a	25	0	1	asia	synthetic	up	up	calib	0			—
+S2a	26	0	2	asia	synthetic	down	down	calib	0			—
+S2a	27	0	14	americas	synthetic	down	down	calib	0			—
+S2a	28	0	12	mid	synthetic	up	up	calib	0			—
+S2a	29	0	10	mid	synthetic	down	down	calib	0			—
+S2a	30	0	13	americas	synthetic	up	up	calib	0			—
+S2a	31	0	11	mid	synthetic	up	up	calib	0			—
+S2a	32	0	21	mid	synthetic	down	down	calib	0			—
+S2a	33	0	7	asia	synthetic	up	up	calib	0			—
+S2a	34	0	7	asia	synthetic	down	down	calib	0			—
+S2a	35	0	15	americas	synthetic	down	up	calib	1			—
+S2a	36	0	17	americas	synthetic	down	down	calib	0			—
+S2a	37	0	15	americas	synthetic	down	down	calib	0			—
+S2a	38	0	6	asia	synthetic	down	down	calib	0			—
+S2a	39	0	9	mid	synthetic	up	up	calib	0			—
+S2a	40	0	14	americas	synthetic	up	up	calib	0			—
+S2a	41	0	5	asia	synthetic	down	down	calib	0			—
+S2a	42	0	6	asia	synthetic	up	up	calib	0			—
+S2a	43	0	16	americas	synthetic	up	up	calib	0			—
+S2a	44	0	15	americas	synthetic	down	down	calib	0			—
+S2a	45	0	13	americas	synthetic	down	down	calib	0			—
+S2a	46	0	0	asia	synthetic	down	down	calib	0			—
+S2a	47	0	21	mid	synthetic	down	down	calib	0			—
+S2a	48	0	14	americas	synthetic	down	down	calib	0			—
+S2a	49	0	15	americas	synthetic	down	down	calib	0			—
+S2a	50	0	6	asia	synthetic	up	up	calib	0			—
+S2a	51	0	10	mid	synthetic	down	down	calib	0			—
+S2a	52	0	14	americas	synthetic	down	down	calib	0			—
+S2a	53	0	12	mid	synthetic	up	up	calib	0			—
+S2a	54	0	23	mid	synthetic	up	up	calib	0			—
+S2a	55	0	7	asia	synthetic	down	down	calib	0			—
+S2a	56	0	3	asia	synthetic	down	down	calib	0			—
+S2a	57	0	6	asia	synthetic	up	up	calib	0			—
+S2a	58	0	21	mid	synthetic	up	up	calib	0			—
+S2a	59	0	11	mid	synthetic	down	down	calib	0			—
+S2a	60	0	18	americas	synthetic	down	down	calib	0			—
+S2a	61	0	6	asia	synthetic	up	up	calib	0			—
+S2a	62	0	9	mid	synthetic	up	up	calib	0			—
+S2a	63	0	5	asia	synthetic	up	up	calib	0			—
+S2a	64	0	9	mid	synthetic	up	up	calib	0			—
+S2a	65	0	10	mid	synthetic	down	down	calib	0			—
+S2a	66	0	6	asia	synthetic	down	down	calib	0			—
+S2a	67	0	20	americas	synthetic	up	up	calib	0			—
+S2a	68	0	15	americas	synthetic	down	down	calib	0			—
+S2a	69	0	8	mid	synthetic	up	up	calib	0			—
+S2a	70	0	1	asia	synthetic	down	up	calib	1			—
+S2a	71	0	14	americas	synthetic	down	down	calib	0			—
+S2a	72	0	22	mid	synthetic	down	down	calib	0			—
+S2a	73	0	12	mid	synthetic	up	up	calib	0			—
+S2a	74	0	23	mid	synthetic	down	down	calib	0			—
+S2a	75	0	13	americas	synthetic	down	down	calib	0			—
+S2a	76	0	12	mid	synthetic	down	down	calib	0			—
+S2a	77	0	10	mid	synthetic	up	up	calib	0			—
+S2a	78	0	22	mid	synthetic	down	down	calib	0			—
+S2a	79	0	16	americas	synthetic	up	up	calib	0			—
+S2a	80	0	7	asia	synthetic	down	down	calib	0			—
+S2a	81	0	8	mid	synthetic	up	up	calib	0			—
+S2a	82	0	1	asia	synthetic	up	up	calib	0			—
+S2a	83	0	17	americas	synthetic	up	up	calib	0			—
+S2a	84	0	10	mid	synthetic	up	up	calib	0			—
+S2a	85	0	11	mid	synthetic	down	down	calib	0			—
+S2a	86	0	7	asia	synthetic	up	up	calib	0			—
+S2a	87	0	14	americas	synthetic	down	down	calib	0			—
+S2a	88	0	15	americas	synthetic	up	up	calib	0			—
+S2a	89	0	6	asia	synthetic	down	down	calib	0			—
+S2a	90	0	5	asia	synthetic	up	down	calib	1			—
+S2a	91	0	20	americas	synthetic	down	down	calib	0			—
+S2a	92	0	3	asia	synthetic	up	up	calib	0			—
+S2a	93	0	15	americas	synthetic	up	up	calib	0			—
+S2a	94	0	12	mid	synthetic	up	up	calib	0			—
+S2a	95	0	10	mid	synthetic	up	up	calib	0			—
+S2a	96	0	20	americas	synthetic	up	up	calib	0			—
+S2a	97	0	0	asia	synthetic	up	up	calib	0			—
+S2a	98	0	18	americas	synthetic	down	down	calib	0			—
+S2a	99	0	18	americas	synthetic	down	down	calib	0			—
+S2a	100	0	19	americas	synthetic	down	down	calib	0			—
+S2a	101	0	11	mid	synthetic	down	down	calib	0			—
+S2a	102	0	17	americas	synthetic	up	up	calib	0			—
+S2a	103	0	16	americas	synthetic	down	down	calib	0			—
+S2a	104	0	3	asia	synthetic	down	down	calib	0			—
+S2a	105	0	5	asia	synthetic	down	down	calib	0			—
+S2a	106	0	8	mid	synthetic	down	down	calib	0			—
+S2a	107	0	0	asia	synthetic	down	down	calib	0			—
+S2a	108	0	12	mid	synthetic	up	up	calib	0			—
+S2a	109	0	14	americas	synthetic	down	down	calib	0			—
+S2a	110	0	12	mid	synthetic	down	down	calib	0			—
+S2a	111	0	20	americas	synthetic	up	up	calib	0			—
+S2a	112	0	10	mid	synthetic	down	down	calib	0			—
+S2a	113	0	20	americas	synthetic	down	down	calib	0			—
+S2a	114	0	16	americas	synthetic	up	up	calib	0			—
+S2a	115	0	7	asia	synthetic	up	up	calib	0			—
+S2a	116	0	6	asia	synthetic	up	up	calib	0			—
+S2a	117	0	1	asia	synthetic	up	up	calib	0			—
+S2a	118	0	7	asia	synthetic	up	up	calib	0			—
+S2a	119	0	6	asia	synthetic	down	down	calib	0			—
+S2a	120	0	18	americas	synthetic	down	down	calib	0			—
+S2a	121	0	23	mid	synthetic	up	up	calib	0			—
+S2a	122	0	1	asia	synthetic	up	up	calib	0			—
+S2a	123	0	21	mid	synthetic	up	up	calib	0			—
+S2a	124	0	1	asia	synthetic	down	up	calib	1			—
+S2a	125	0	6	asia	synthetic	up	up	calib	0			—
+S2a	126	0	6	asia	synthetic	down	down	calib	0			—
+S2a	127	0	16	americas	synthetic	down	down	calib	0			—
+S2a	128	0	14	americas	synthetic	down	down	calib	0			—
+S2a	129	0	6	asia	synthetic	up	up	calib	0			—
+S2a	130	0	15	americas	synthetic	down	down	calib	0			—
+S2a	131	0	8	mid	synthetic	down	down	calib	0			—
+S2a	132	0	17	americas	synthetic	up	up	calib	0			—
+S2a	133	0	2	asia	synthetic	up	up	calib	0			—
+S2a	134	0	6	asia	synthetic	up	up	calib	0			—
+S2a	135	0	5	asia	synthetic	up	up	calib	0			—
+S2a	136	0	12	mid	synthetic	down	down	calib	0			—
+S2a	137	0	19	americas	synthetic	down	down	calib	0			—
+S2a	138	0	0	asia	synthetic	down	down	calib	0			—
+S2a	139	0	22	mid	synthetic	down	down	calib	0			—
+S2a	140	0	19	americas	synthetic	down	down	calib	0			—
+S2a	141	0	6	asia	synthetic	up	up	calib	0			—
+S2a	142	0	2	asia	synthetic	down	down	calib	0			—
+S2a	143	0	7	asia	synthetic	down	down	calib	0			—
+S2a	144	0	9	mid	synthetic	down	down	calib	0			—
+S2a	145	0	4	asia	synthetic	up	up	calib	0			—
+S2a	146	0	21	mid	synthetic	up	up	calib	0			—
+S2a	147	0	7	asia	synthetic	up	up	calib	0			—
+S2a	148	0	0	asia	synthetic	down	down	calib	0			—
+S2a	149	0	5	asia	synthetic	up	up	calib	0			—
+S2a	150	0	18	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	151	0	6	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	152	0	7	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	153	0	18	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	154	0	8	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	155	0	10	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	156	0	12	mid	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	157	0	13	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	158	0	1	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	159	0	17	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	160	0	2	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	161	0	5	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	162	0	13	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	163	0	5	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	164	0	8	mid	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	165	0	17	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	166	0	1	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	167	0	4	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	168	0	3	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	169	0	8	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	170	0	2	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	171	0	4	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	172	0	9	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	173	0	4	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	174	0	17	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	175	0	14	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	176	0	18	americas	synthetic	down	up	holdout	1	{down}	0	commit
+S2a	177	0	15	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	178	0	14	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	179	0	21	mid	synthetic	up	down	holdout	1	{up}	0	commit
+S2a	180	0	6	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	181	0	23	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	182	0	17	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	183	0	13	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	184	0	18	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	185	0	23	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	186	0	23	mid	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	187	0	16	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	188	0	15	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	189	0	10	mid	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	190	0	8	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	191	0	19	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	192	0	2	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	193	0	16	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	194	0	6	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	195	0	21	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	196	0	12	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	197	0	18	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	198	0	3	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	199	0	17	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	200	0	14	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	201	0	18	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	202	0	21	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	203	0	9	mid	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	204	0	15	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	205	0	23	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	206	0	4	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	207	0	4	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	208	0	1	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	209	0	18	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	210	0	13	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	211	0	9	mid	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	212	0	6	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	213	0	19	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	214	0	2	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	215	0	2	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	216	0	9	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	217	0	17	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	218	0	11	mid	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	219	0	23	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	220	0	6	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	221	0	19	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	222	0	2	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	223	0	4	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	224	0	0	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	225	0	18	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	226	0	0	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	227	0	21	mid	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	228	0	9	mid	synthetic	down	up	holdout	1	{down}	0	commit
+S2a	229	0	1	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	230	0	7	asia	synthetic	down	up	holdout	1	{down}	0	commit
+S2a	231	0	19	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	232	0	20	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	233	0	1	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	234	0	12	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	235	0	1	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	236	0	22	mid	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	237	0	23	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	238	0	13	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	239	0	12	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	240	0	20	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	241	0	7	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	242	0	14	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	243	0	21	mid	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	244	0	20	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	245	0	0	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	246	0	6	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	247	0	4	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	248	0	23	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	249	0	17	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	250	0	16	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	251	0	4	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	252	0	0	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	253	0	2	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	254	0	10	mid	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	255	0	6	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	256	0	19	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	257	0	2	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	258	0	20	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	259	0	5	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	260	0	19	americas	synthetic	down	up	holdout	1	{down}	0	commit
+S2a	261	0	3	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	262	0	5	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	263	0	21	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	264	0	16	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	265	0	8	mid	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	266	0	2	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	267	0	3	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	268	0	4	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	269	0	20	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	270	0	5	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	271	0	19	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	272	0	4	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	273	0	17	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	274	0	6	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	275	0	14	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	276	0	11	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	277	0	4	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	278	0	2	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	279	0	23	mid	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	280	0	10	mid	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	281	0	14	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	282	0	13	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	283	0	11	mid	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	284	0	9	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	285	0	2	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	286	0	10	mid	synthetic	up	down	holdout	1	{up}	0	commit
+S2a	287	0	17	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	288	0	0	asia	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	289	0	8	mid	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	290	0	19	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	291	0	18	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	292	0	16	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	293	0	21	mid	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	294	0	20	americas	synthetic	up	up	holdout	0	{up}	1	commit
+S2a	295	0	0	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	296	0	8	mid	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	297	0	3	asia	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	298	0	19	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2a	299	0	18	americas	synthetic	down	down	holdout	0	{down}	1	commit
+S2b-asia	5	1756947600	1	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-asia	6	1756948500	1	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-asia	7	1756949400	1	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-asia	8	1756950300	1	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-asia	9	1756951200	2	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-asia	10	1756952100	2	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-asia	11	1756953000	2	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-asia	12	1756953900	2	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-asia	13	1756954800	3	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-asia	14	1756955700	3	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-asia	15	1756956600	3	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	16	1756957500	3	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	17	1756958400	4	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-asia	18	1756959300	4	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	19	1756960200	4	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	20	1756961100	4	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	21	1756962000	5	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-asia	22	1756962900	5	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	23	1756963800	5	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-asia	24	1756964700	5	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-asia	25	1756965600	6	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	26	1756966500	6	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-asia	27	1756967400	6	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	28	1756968300	6	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	29	1756969200	7	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-asia	30	1756970100	7	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	31	1756971000	7	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	32	1756971900	7	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	97	1757030400	0	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	98	1757031300	0	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-asia	99	1757032200	0	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-asia	100	1757033100	0	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-asia	101	1757034000	1	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	102	1757034900	1	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	103	1757035800	1	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	104	1757036700	1	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	105	1757037600	2	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	106	1757038500	2	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	107	1757039400	2	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-asia	108	1757040300	2	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	109	1757041200	3	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	110	1757042100	3	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-asia	111	1757043000	3	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-asia	112	1757043900	3	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	113	1757044800	4	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-asia	114	1757045700	4	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-asia	115	1757046600	4	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-asia	116	1757047500	4	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-asia	117	1757048400	5	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-asia	118	1757049300	5	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-asia	119	1757050200	5	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-asia	120	1757051100	5	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-asia	121	1757052000	6	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-asia	122	1757052900	6	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-asia	123	1757053800	6	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-asia	124	1757054700	6	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-asia	125	1757055600	7	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-asia	126	1757056500	7	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-asia	127	1757057400	7	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-asia	128	1757058300	7	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-asia	193	1757116800	0	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	194	1757117700	0	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	195	1757118600	0	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	196	1757119500	0	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	197	1757120400	1	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	198	1757121300	1	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	199	1757122200	1	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	200	1757123100	1	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	201	1757124000	2	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	202	1757124900	2	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	203	1757125800	2	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	204	1757126700	2	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	205	1757127600	3	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	206	1757128500	3	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	207	1757129400	3	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	208	1757130300	3	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	209	1757131200	4	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	210	1757132100	4	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	211	1757133000	4	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	212	1757133900	4	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	213	1757134800	5	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	214	1757135700	5	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	215	1757136600	5	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	216	1757137500	5	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	217	1757138400	6	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	218	1757139300	6	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	219	1757140200	6	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	220	1757141100	6	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	221	1757142000	7	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	222	1757142900	7	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	223	1757143800	7	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	224	1757144700	7	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	289	1757203200	0	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	290	1757204100	0	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	291	1757205000	0	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	292	1757205900	0	asia	internal:momentum-4c	up	non_evaluable	excluded				—
+S2b-asia	293	1757206800	1	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	294	1757207700	1	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	295	1757208600	1	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	296	1757209500	1	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	297	1757210400	2	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	298	1757211300	2	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	299	1757212200	2	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	300	1757213100	2	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	301	1757214000	3	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	302	1757214900	3	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	303	1757215800	3	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	304	1757216700	3	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	305	1757217600	4	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	306	1757218500	4	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	307	1757219400	4	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	308	1757220300	4	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	309	1757221200	5	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	310	1757222100	5	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	311	1757223000	5	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	312	1757223900	5	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	313	1757224800	6	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	314	1757225700	6	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	315	1757226600	6	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	316	1757227500	6	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	317	1757228400	7	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	318	1757229300	7	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	319	1757230200	7	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	320	1757231100	7	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	385	1757289600	0	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	386	1757290500	0	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	387	1757291400	0	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	388	1757292300	0	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	389	1757293200	1	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	390	1757294100	1	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	391	1757295000	1	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	392	1757295900	1	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	393	1757296800	2	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	394	1757297700	2	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	395	1757298600	2	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	396	1757299500	2	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	397	1757300400	3	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	398	1757301300	3	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	399	1757302200	3	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	400	1757303100	3	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	401	1757304000	4	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	402	1757304900	4	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	403	1757305800	4	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	404	1757306700	4	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	405	1757307600	5	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	406	1757308500	5	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	407	1757309400	5	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	408	1757310300	5	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	409	1757311200	6	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	410	1757312100	6	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	411	1757313000	6	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	412	1757313900	6	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	413	1757314800	7	asia	internal:momentum-4c	up	non_evaluable	excluded				—
+S2b-asia	414	1757315700	7	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	415	1757316600	7	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	416	1757317500	7	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	481	1757376000	0	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	482	1757376900	0	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	483	1757377800	0	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	484	1757378700	0	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	485	1757379600	1	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	486	1757380500	1	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	487	1757381400	1	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	488	1757382300	1	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	489	1757383200	2	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	490	1757384100	2	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	491	1757385000	2	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	492	1757385900	2	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	493	1757386800	3	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	494	1757387700	3	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	495	1757388600	3	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	496	1757389500	3	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	497	1757390400	4	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	498	1757391300	4	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	499	1757392200	4	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	500	1757393100	4	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	501	1757394000	5	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	502	1757394900	5	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	503	1757395800	5	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	504	1757396700	5	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	505	1757397600	6	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	506	1757398500	6	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	507	1757399400	6	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	508	1757400300	6	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	509	1757401200	7	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	510	1757402100	7	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	511	1757403000	7	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	512	1757403900	7	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	577	1757462400	0	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	578	1757463300	0	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	579	1757464200	0	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	580	1757465100	0	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	581	1757466000	1	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	582	1757466900	1	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	583	1757467800	1	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	584	1757468700	1	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	585	1757469600	2	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	586	1757470500	2	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	587	1757471400	2	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	588	1757472300	2	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	589	1757473200	3	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	590	1757474100	3	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	591	1757475000	3	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	592	1757475900	3	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	593	1757476800	4	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	594	1757477700	4	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	595	1757478600	4	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	596	1757479500	4	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	597	1757480400	5	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	598	1757481300	5	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	599	1757482200	5	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	600	1757483100	5	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	601	1757484000	6	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	602	1757484900	6	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	603	1757485800	6	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	604	1757486700	6	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	605	1757487600	7	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	606	1757488500	7	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	607	1757489400	7	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	608	1757490300	7	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	673	1757548800	0	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	674	1757549700	0	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	675	1757550600	0	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	676	1757551500	0	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	677	1757552400	1	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	678	1757553300	1	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	679	1757554200	1	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	680	1757555100	1	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-asia	681	1757556000	2	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	682	1757556900	2	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	683	1757557800	2	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	684	1757558700	2	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	685	1757559600	3	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	686	1757560500	3	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	687	1757561400	3	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	688	1757562300	3	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	689	1757563200	4	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	690	1757564100	4	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	691	1757565000	4	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-asia	692	1757565900	4	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	693	1757566800	5	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	694	1757567700	5	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	695	1757568600	5	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-asia	696	1757569500	5	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	697	1757570400	6	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	698	1757571300	6	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-asia	699	1757572200	6	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	53	1756990800	13	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-americas	54	1756991700	13	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-americas	55	1756992600	13	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-americas	56	1756993500	13	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-americas	57	1756994400	14	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-americas	58	1756995300	14	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-americas	59	1756996200	14	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-americas	60	1756997100	14	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-americas	61	1756998000	15	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-americas	62	1756998900	15	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-americas	63	1756999800	15	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-americas	64	1757000700	15	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-americas	65	1757001600	16	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-americas	66	1757002500	16	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-americas	67	1757003400	16	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-americas	68	1757004300	16	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-americas	69	1757005200	17	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-americas	70	1757006100	17	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-americas	71	1757007000	17	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-americas	72	1757007900	17	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-americas	73	1757008800	18	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-americas	74	1757009700	18	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-americas	75	1757010600	18	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-americas	76	1757011500	18	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-americas	77	1757012400	19	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-americas	78	1757013300	19	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-americas	79	1757014200	19	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-americas	80	1757015100	19	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-americas	81	1757016000	20	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-americas	82	1757016900	20	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-americas	83	1757017800	20	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-americas	84	1757018700	20	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-americas	149	1757077200	13	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-americas	150	1757078100	13	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-americas	151	1757079000	13	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-americas	152	1757079900	13	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-americas	153	1757080800	14	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-americas	154	1757081700	14	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-americas	155	1757082600	14	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-americas	156	1757083500	14	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-americas	157	1757084400	15	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-americas	158	1757085300	15	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-americas	159	1757086200	15	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-americas	160	1757087100	15	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-americas	161	1757088000	16	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-americas	162	1757088900	16	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-americas	163	1757089800	16	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-americas	164	1757090700	16	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-americas	165	1757091600	17	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-americas	166	1757092500	17	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-americas	167	1757093400	17	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-americas	168	1757094300	17	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-americas	169	1757095200	18	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-americas	170	1757096100	18	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-americas	171	1757097000	18	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-americas	172	1757097900	18	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-americas	173	1757098800	19	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-americas	174	1757099700	19	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-americas	175	1757100600	19	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-americas	176	1757101500	19	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-americas	177	1757102400	20	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	178	1757103300	20	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	179	1757104200	20	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	180	1757105100	20	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	245	1757163600	13	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	246	1757164500	13	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	247	1757165400	13	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	248	1757166300	13	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	249	1757167200	14	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	250	1757168100	14	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	251	1757169000	14	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	252	1757169900	14	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	253	1757170800	15	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	254	1757171700	15	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	255	1757172600	15	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	256	1757173500	15	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	257	1757174400	16	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	258	1757175300	16	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	259	1757176200	16	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	260	1757177100	16	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	261	1757178000	17	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	262	1757178900	17	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	263	1757179800	17	americas	internal:momentum-4c	up	non_evaluable	excluded				—
+S2b-americas	264	1757180700	17	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	265	1757181600	18	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	266	1757182500	18	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	267	1757183400	18	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	268	1757184300	18	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	269	1757185200	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	270	1757186100	19	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	271	1757187000	19	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	272	1757187900	19	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	273	1757188800	20	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	274	1757189700	20	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	275	1757190600	20	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	276	1757191500	20	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	341	1757250000	13	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	342	1757250900	13	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	343	1757251800	13	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	344	1757252700	13	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	345	1757253600	14	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	346	1757254500	14	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	347	1757255400	14	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	348	1757256300	14	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	349	1757257200	15	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	350	1757258100	15	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	351	1757259000	15	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	352	1757259900	15	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	353	1757260800	16	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	354	1757261700	16	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	355	1757262600	16	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	356	1757263500	16	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	357	1757264400	17	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	358	1757265300	17	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	359	1757266200	17	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	360	1757267100	17	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	361	1757268000	18	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	362	1757268900	18	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	363	1757269800	18	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	364	1757270700	18	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	365	1757271600	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	366	1757272500	19	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	367	1757273400	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	368	1757274300	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	369	1757275200	20	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	370	1757276100	20	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	371	1757277000	20	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	372	1757277900	20	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	437	1757336400	13	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	438	1757337300	13	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	439	1757338200	13	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	440	1757339100	13	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	441	1757340000	14	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	442	1757340900	14	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	443	1757341800	14	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	444	1757342700	14	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	445	1757343600	15	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	446	1757344500	15	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	447	1757345400	15	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	448	1757346300	15	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	449	1757347200	16	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	450	1757348100	16	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	451	1757349000	16	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	452	1757349900	16	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	453	1757350800	17	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	454	1757351700	17	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	455	1757352600	17	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	456	1757353500	17	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	457	1757354400	18	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	458	1757355300	18	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	459	1757356200	18	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	460	1757357100	18	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	461	1757358000	19	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	462	1757358900	19	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	463	1757359800	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	464	1757360700	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	465	1757361600	20	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	466	1757362500	20	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	467	1757363400	20	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	468	1757364300	20	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	533	1757422800	13	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	534	1757423700	13	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	535	1757424600	13	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	536	1757425500	13	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	537	1757426400	14	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	538	1757427300	14	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	539	1757428200	14	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	540	1757429100	14	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	541	1757430000	15	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	542	1757430900	15	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	543	1757431800	15	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	544	1757432700	15	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	545	1757433600	16	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	546	1757434500	16	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	547	1757435400	16	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	548	1757436300	16	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	549	1757437200	17	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	550	1757438100	17	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	551	1757439000	17	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	552	1757439900	17	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	553	1757440800	18	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	554	1757441700	18	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	555	1757442600	18	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	556	1757443500	18	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	557	1757444400	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	558	1757445300	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	559	1757446200	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	560	1757447100	19	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	561	1757448000	20	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	562	1757448900	20	americas	internal:momentum-4c	down	non_evaluable	excluded				—
+S2b-americas	563	1757449800	20	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	564	1757450700	20	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	629	1757509200	13	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	630	1757510100	13	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	631	1757511000	13	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	632	1757511900	13	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	633	1757512800	14	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	634	1757513700	14	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	635	1757514600	14	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	636	1757515500	14	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	637	1757516400	15	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	638	1757517300	15	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	639	1757518200	15	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	640	1757519100	15	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	641	1757520000	16	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	642	1757520900	16	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	643	1757521800	16	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	644	1757522700	16	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	645	1757523600	17	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	646	1757524500	17	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	647	1757525400	17	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	648	1757526300	17	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-americas	649	1757527200	18	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	650	1757528100	18	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	651	1757529000	18	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	652	1757529900	18	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	653	1757530800	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	654	1757531700	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	655	1757532600	19	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	656	1757533500	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	657	1757534400	20	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-americas	658	1757535300	20	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-americas	659	1757536200	20	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-americas	660	1757537100	20	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	5	1756947600	1	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	6	1756948500	1	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	7	1756949400	1	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	8	1756950300	1	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	9	1756951200	2	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	10	1756952100	2	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	11	1756953000	2	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	12	1756953900	2	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	13	1756954800	3	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	14	1756955700	3	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	15	1756956600	3	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	16	1756957500	3	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	17	1756958400	4	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	18	1756959300	4	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	19	1756960200	4	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	20	1756961100	4	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	21	1756962000	5	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	22	1756962900	5	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	23	1756963800	5	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	24	1756964700	5	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	25	1756965600	6	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	26	1756966500	6	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	27	1756967400	6	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	28	1756968300	6	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	29	1756969200	7	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	30	1756970100	7	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	31	1756971000	7	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	32	1756971900	7	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	33	1756972800	8	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	34	1756973700	8	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	35	1756974600	8	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	36	1756975500	8	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	37	1756976400	9	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	38	1756977300	9	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	39	1756978200	9	mid	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	40	1756979100	9	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	41	1756980000	10	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	42	1756980900	10	mid	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	43	1756981800	10	mid	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	44	1756982700	10	mid	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	45	1756983600	11	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	46	1756984500	11	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	47	1756985400	11	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	48	1756986300	11	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	49	1756987200	12	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	50	1756988100	12	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	51	1756989000	12	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	52	1756989900	12	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	53	1756990800	13	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	54	1756991700	13	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	55	1756992600	13	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	56	1756993500	13	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	57	1756994400	14	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	58	1756995300	14	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	59	1756996200	14	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	60	1756997100	14	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	61	1756998000	15	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	62	1756998900	15	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	63	1756999800	15	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	64	1757000700	15	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	65	1757001600	16	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	66	1757002500	16	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	67	1757003400	16	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	68	1757004300	16	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	69	1757005200	17	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	70	1757006100	17	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	71	1757007000	17	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	72	1757007900	17	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	73	1757008800	18	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	74	1757009700	18	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	75	1757010600	18	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	76	1757011500	18	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	77	1757012400	19	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	78	1757013300	19	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	79	1757014200	19	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	80	1757015100	19	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	81	1757016000	20	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	82	1757016900	20	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	83	1757017800	20	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	84	1757018700	20	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	85	1757019600	21	mid	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	86	1757020500	21	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	87	1757021400	21	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	88	1757022300	21	mid	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	89	1757023200	22	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	90	1757024100	22	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	91	1757025000	22	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	92	1757025900	22	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	93	1757026800	23	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	94	1757027700	23	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	95	1757028600	23	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	96	1757029500	23	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	97	1757030400	0	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	98	1757031300	0	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	99	1757032200	0	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	100	1757033100	0	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	101	1757034000	1	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	102	1757034900	1	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	103	1757035800	1	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	104	1757036700	1	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	105	1757037600	2	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	106	1757038500	2	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	107	1757039400	2	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	108	1757040300	2	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	109	1757041200	3	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	110	1757042100	3	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	111	1757043000	3	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	112	1757043900	3	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	113	1757044800	4	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	114	1757045700	4	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	115	1757046600	4	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	116	1757047500	4	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	117	1757048400	5	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	118	1757049300	5	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	119	1757050200	5	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	120	1757051100	5	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	121	1757052000	6	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	122	1757052900	6	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	123	1757053800	6	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	124	1757054700	6	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	125	1757055600	7	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	126	1757056500	7	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	127	1757057400	7	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	128	1757058300	7	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	129	1757059200	8	mid	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	130	1757060100	8	mid	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	131	1757061000	8	mid	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	132	1757061900	8	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	133	1757062800	9	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	134	1757063700	9	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	135	1757064600	9	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	136	1757065500	9	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	137	1757066400	10	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	138	1757067300	10	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	139	1757068200	10	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	140	1757069100	10	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	141	1757070000	11	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	142	1757070900	11	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	143	1757071800	11	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	144	1757072700	11	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	145	1757073600	12	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	146	1757074500	12	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	147	1757075400	12	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	148	1757076300	12	mid	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	149	1757077200	13	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	150	1757078100	13	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	151	1757079000	13	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	152	1757079900	13	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	153	1757080800	14	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	154	1757081700	14	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	155	1757082600	14	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	156	1757083500	14	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	157	1757084400	15	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	158	1757085300	15	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	159	1757086200	15	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	160	1757087100	15	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	161	1757088000	16	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	162	1757088900	16	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	163	1757089800	16	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	164	1757090700	16	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	165	1757091600	17	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	166	1757092500	17	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	167	1757093400	17	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	168	1757094300	17	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	169	1757095200	18	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	170	1757096100	18	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	171	1757097000	18	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	172	1757097900	18	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	173	1757098800	19	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	174	1757099700	19	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	175	1757100600	19	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	176	1757101500	19	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	177	1757102400	20	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	178	1757103300	20	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	179	1757104200	20	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	180	1757105100	20	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	181	1757106000	21	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	182	1757106900	21	mid	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	183	1757107800	21	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	184	1757108700	21	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	185	1757109600	22	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	186	1757110500	22	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	187	1757111400	22	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	188	1757112300	22	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	189	1757113200	23	mid	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	190	1757114100	23	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	191	1757115000	23	mid	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	192	1757115900	23	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	193	1757116800	0	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	194	1757117700	0	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	195	1757118600	0	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	196	1757119500	0	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	197	1757120400	1	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	198	1757121300	1	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	199	1757122200	1	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	200	1757123100	1	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	201	1757124000	2	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	202	1757124900	2	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	203	1757125800	2	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	204	1757126700	2	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	205	1757127600	3	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	206	1757128500	3	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	207	1757129400	3	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	208	1757130300	3	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	209	1757131200	4	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	210	1757132100	4	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	211	1757133000	4	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	212	1757133900	4	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	213	1757134800	5	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	214	1757135700	5	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	215	1757136600	5	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	216	1757137500	5	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	217	1757138400	6	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	218	1757139300	6	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	219	1757140200	6	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	220	1757141100	6	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	221	1757142000	7	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	222	1757142900	7	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	223	1757143800	7	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	224	1757144700	7	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	225	1757145600	8	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	226	1757146500	8	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	227	1757147400	8	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	228	1757148300	8	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	229	1757149200	9	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	230	1757150100	9	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	231	1757151000	9	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	232	1757151900	9	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	233	1757152800	10	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	234	1757153700	10	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	235	1757154600	10	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	236	1757155500	10	mid	internal:momentum-4c	up	non_evaluable	excluded				—
+S2b-pooled	237	1757156400	11	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	238	1757157300	11	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	239	1757158200	11	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	240	1757159100	11	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	241	1757160000	12	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	242	1757160900	12	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	243	1757161800	12	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	244	1757162700	12	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	245	1757163600	13	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	246	1757164500	13	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	247	1757165400	13	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	248	1757166300	13	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	249	1757167200	14	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	250	1757168100	14	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	251	1757169000	14	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	252	1757169900	14	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	253	1757170800	15	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	254	1757171700	15	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	255	1757172600	15	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	256	1757173500	15	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	257	1757174400	16	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	258	1757175300	16	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	259	1757176200	16	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	260	1757177100	16	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	261	1757178000	17	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	262	1757178900	17	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	263	1757179800	17	americas	internal:momentum-4c	up	non_evaluable	excluded				—
+S2b-pooled	264	1757180700	17	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	265	1757181600	18	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	266	1757182500	18	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	267	1757183400	18	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	268	1757184300	18	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	269	1757185200	19	americas	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	270	1757186100	19	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	271	1757187000	19	americas	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	272	1757187900	19	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	273	1757188800	20	americas	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	274	1757189700	20	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	275	1757190600	20	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	276	1757191500	20	americas	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	277	1757192400	21	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	278	1757193300	21	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	279	1757194200	21	mid	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	280	1757195100	21	mid	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	281	1757196000	22	mid	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	282	1757196900	22	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	283	1757197800	22	mid	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	284	1757198700	22	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	285	1757199600	23	mid	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	286	1757200500	23	mid	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	287	1757201400	23	mid	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	288	1757202300	23	mid	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	289	1757203200	0	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	290	1757204100	0	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	291	1757205000	0	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	292	1757205900	0	asia	internal:momentum-4c	up	non_evaluable	excluded				—
+S2b-pooled	293	1757206800	1	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	294	1757207700	1	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	295	1757208600	1	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	296	1757209500	1	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	297	1757210400	2	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	298	1757211300	2	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	299	1757212200	2	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	300	1757213100	2	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	301	1757214000	3	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	302	1757214900	3	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	303	1757215800	3	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	304	1757216700	3	asia	internal:momentum-4c	up	up	calib	0			—
+S2b-pooled	305	1757217600	4	asia	internal:momentum-4c	up	down	calib	1			—
+S2b-pooled	306	1757218500	4	asia	internal:momentum-4c	down	down	calib	0			—
+S2b-pooled	307	1757219400	4	asia	internal:momentum-4c	down	up	calib	1			—
+S2b-pooled	308	1757220300	4	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	309	1757221200	5	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	310	1757222100	5	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	311	1757223000	5	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	312	1757223900	5	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	313	1757224800	6	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	314	1757225700	6	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	315	1757226600	6	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	316	1757227500	6	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	317	1757228400	7	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	318	1757229300	7	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	319	1757230200	7	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	320	1757231100	7	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	321	1757232000	8	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	322	1757232900	8	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	323	1757233800	8	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	324	1757234700	8	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	325	1757235600	9	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	326	1757236500	9	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	327	1757237400	9	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	328	1757238300	9	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	329	1757239200	10	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	330	1757240100	10	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	331	1757241000	10	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	332	1757241900	10	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	333	1757242800	11	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	334	1757243700	11	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	335	1757244600	11	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	336	1757245500	11	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	337	1757246400	12	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	338	1757247300	12	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	339	1757248200	12	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	340	1757249100	12	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	341	1757250000	13	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	342	1757250900	13	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	343	1757251800	13	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	344	1757252700	13	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	345	1757253600	14	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	346	1757254500	14	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	347	1757255400	14	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	348	1757256300	14	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	349	1757257200	15	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	350	1757258100	15	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	351	1757259000	15	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	352	1757259900	15	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	353	1757260800	16	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	354	1757261700	16	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	355	1757262600	16	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	356	1757263500	16	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	357	1757264400	17	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	358	1757265300	17	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	359	1757266200	17	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	360	1757267100	17	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	361	1757268000	18	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	362	1757268900	18	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	363	1757269800	18	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	364	1757270700	18	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	365	1757271600	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	366	1757272500	19	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	367	1757273400	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	368	1757274300	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	369	1757275200	20	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	370	1757276100	20	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	371	1757277000	20	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	372	1757277900	20	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	373	1757278800	21	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	374	1757279700	21	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	375	1757280600	21	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	376	1757281500	21	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	377	1757282400	22	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	378	1757283300	22	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	379	1757284200	22	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	380	1757285100	22	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	381	1757286000	23	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	382	1757286900	23	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	383	1757287800	23	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	384	1757288700	23	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	385	1757289600	0	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	386	1757290500	0	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	387	1757291400	0	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	388	1757292300	0	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	389	1757293200	1	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	390	1757294100	1	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	391	1757295000	1	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	392	1757295900	1	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	393	1757296800	2	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	394	1757297700	2	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	395	1757298600	2	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	396	1757299500	2	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	397	1757300400	3	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	398	1757301300	3	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	399	1757302200	3	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	400	1757303100	3	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	401	1757304000	4	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	402	1757304900	4	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	403	1757305800	4	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	404	1757306700	4	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	405	1757307600	5	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	406	1757308500	5	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	407	1757309400	5	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	408	1757310300	5	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	409	1757311200	6	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	410	1757312100	6	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	411	1757313000	6	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	412	1757313900	6	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	413	1757314800	7	asia	internal:momentum-4c	up	non_evaluable	excluded				—
+S2b-pooled	414	1757315700	7	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	415	1757316600	7	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	416	1757317500	7	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	417	1757318400	8	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	418	1757319300	8	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	419	1757320200	8	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	420	1757321100	8	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	421	1757322000	9	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	422	1757322900	9	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	423	1757323800	9	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	424	1757324700	9	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	425	1757325600	10	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	426	1757326500	10	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	427	1757327400	10	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	428	1757328300	10	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	429	1757329200	11	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	430	1757330100	11	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	431	1757331000	11	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	432	1757331900	11	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	433	1757332800	12	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	434	1757333700	12	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	435	1757334600	12	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	436	1757335500	12	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	437	1757336400	13	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	438	1757337300	13	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	439	1757338200	13	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	440	1757339100	13	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	441	1757340000	14	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	442	1757340900	14	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	443	1757341800	14	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	444	1757342700	14	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	445	1757343600	15	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	446	1757344500	15	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	447	1757345400	15	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	448	1757346300	15	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	449	1757347200	16	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	450	1757348100	16	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	451	1757349000	16	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	452	1757349900	16	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	453	1757350800	17	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	454	1757351700	17	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	455	1757352600	17	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	456	1757353500	17	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	457	1757354400	18	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	458	1757355300	18	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	459	1757356200	18	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	460	1757357100	18	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	461	1757358000	19	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	462	1757358900	19	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	463	1757359800	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	464	1757360700	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	465	1757361600	20	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	466	1757362500	20	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	467	1757363400	20	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	468	1757364300	20	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	469	1757365200	21	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	470	1757366100	21	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	471	1757367000	21	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	472	1757367900	21	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	473	1757368800	22	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	474	1757369700	22	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	475	1757370600	22	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	476	1757371500	22	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	477	1757372400	23	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	478	1757373300	23	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	479	1757374200	23	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	480	1757375100	23	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	481	1757376000	0	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	482	1757376900	0	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	483	1757377800	0	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	484	1757378700	0	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	485	1757379600	1	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	486	1757380500	1	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	487	1757381400	1	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	488	1757382300	1	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	489	1757383200	2	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	490	1757384100	2	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	491	1757385000	2	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	492	1757385900	2	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	493	1757386800	3	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	494	1757387700	3	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	495	1757388600	3	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	496	1757389500	3	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	497	1757390400	4	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	498	1757391300	4	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	499	1757392200	4	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	500	1757393100	4	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	501	1757394000	5	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	502	1757394900	5	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	503	1757395800	5	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	504	1757396700	5	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	505	1757397600	6	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	506	1757398500	6	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	507	1757399400	6	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	508	1757400300	6	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	509	1757401200	7	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	510	1757402100	7	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	511	1757403000	7	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	512	1757403900	7	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	513	1757404800	8	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	514	1757405700	8	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	515	1757406600	8	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	516	1757407500	8	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	517	1757408400	9	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	518	1757409300	9	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	519	1757410200	9	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	520	1757411100	9	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	521	1757412000	10	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	522	1757412900	10	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	523	1757413800	10	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	524	1757414700	10	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	525	1757415600	11	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	526	1757416500	11	mid	internal:momentum-4c	down	non_evaluable	excluded				—
+S2b-pooled	527	1757417400	11	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	528	1757418300	11	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	529	1757419200	12	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	530	1757420100	12	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	531	1757421000	12	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	532	1757421900	12	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	533	1757422800	13	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	534	1757423700	13	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	535	1757424600	13	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	536	1757425500	13	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	537	1757426400	14	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	538	1757427300	14	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	539	1757428200	14	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	540	1757429100	14	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	541	1757430000	15	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	542	1757430900	15	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	543	1757431800	15	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	544	1757432700	15	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	545	1757433600	16	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	546	1757434500	16	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	547	1757435400	16	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	548	1757436300	16	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	549	1757437200	17	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	550	1757438100	17	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	551	1757439000	17	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	552	1757439900	17	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	553	1757440800	18	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	554	1757441700	18	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	555	1757442600	18	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	556	1757443500	18	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	557	1757444400	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	558	1757445300	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	559	1757446200	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	560	1757447100	19	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	561	1757448000	20	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	562	1757448900	20	americas	internal:momentum-4c	down	non_evaluable	excluded				—
+S2b-pooled	563	1757449800	20	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	564	1757450700	20	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	565	1757451600	21	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	566	1757452500	21	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	567	1757453400	21	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	568	1757454300	21	mid	internal:momentum-4c	up	non_evaluable	excluded				—
+S2b-pooled	569	1757455200	22	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	570	1757456100	22	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	571	1757457000	22	mid	internal:momentum-4c	up	non_evaluable	excluded				—
+S2b-pooled	572	1757457900	22	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	573	1757458800	23	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	574	1757459700	23	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	575	1757460600	23	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	576	1757461500	23	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	577	1757462400	0	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	578	1757463300	0	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	579	1757464200	0	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	580	1757465100	0	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	581	1757466000	1	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	582	1757466900	1	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	583	1757467800	1	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	584	1757468700	1	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	585	1757469600	2	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	586	1757470500	2	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	587	1757471400	2	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	588	1757472300	2	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	589	1757473200	3	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	590	1757474100	3	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	591	1757475000	3	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	592	1757475900	3	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	593	1757476800	4	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	594	1757477700	4	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	595	1757478600	4	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	596	1757479500	4	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	597	1757480400	5	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	598	1757481300	5	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	599	1757482200	5	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	600	1757483100	5	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	601	1757484000	6	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	602	1757484900	6	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	603	1757485800	6	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	604	1757486700	6	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	605	1757487600	7	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	606	1757488500	7	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	607	1757489400	7	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	608	1757490300	7	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	609	1757491200	8	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	610	1757492100	8	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	611	1757493000	8	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	612	1757493900	8	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	613	1757494800	9	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	614	1757495700	9	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	615	1757496600	9	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	616	1757497500	9	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	617	1757498400	10	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	618	1757499300	10	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	619	1757500200	10	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	620	1757501100	10	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	621	1757502000	11	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	622	1757502900	11	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	623	1757503800	11	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	624	1757504700	11	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	625	1757505600	12	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	626	1757506500	12	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	627	1757507400	12	mid	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	628	1757508300	12	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	629	1757509200	13	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	630	1757510100	13	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	631	1757511000	13	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	632	1757511900	13	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	633	1757512800	14	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	634	1757513700	14	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	635	1757514600	14	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	636	1757515500	14	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	637	1757516400	15	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	638	1757517300	15	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	639	1757518200	15	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	640	1757519100	15	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	641	1757520000	16	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	642	1757520900	16	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	643	1757521800	16	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	644	1757522700	16	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	645	1757523600	17	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	646	1757524500	17	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	647	1757525400	17	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	648	1757526300	17	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	649	1757527200	18	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	650	1757528100	18	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	651	1757529000	18	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	652	1757529900	18	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	653	1757530800	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	654	1757531700	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	655	1757532600	19	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	656	1757533500	19	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	657	1757534400	20	americas	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	658	1757535300	20	americas	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	659	1757536200	20	americas	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	660	1757537100	20	americas	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	661	1757538000	21	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	662	1757538900	21	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	663	1757539800	21	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	664	1757540700	21	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	665	1757541600	22	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	666	1757542500	22	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	667	1757543400	22	mid	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	668	1757544300	22	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	669	1757545200	23	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	670	1757546100	23	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	671	1757547000	23	mid	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	672	1757547900	23	mid	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	673	1757548800	0	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	674	1757549700	0	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	675	1757550600	0	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	676	1757551500	0	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	677	1757552400	1	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	678	1757553300	1	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	679	1757554200	1	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	680	1757555100	1	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-pooled	681	1757556000	2	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	682	1757556900	2	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	683	1757557800	2	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	684	1757558700	2	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	685	1757559600	3	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	686	1757560500	3	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	687	1757561400	3	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	688	1757562300	3	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	689	1757563200	4	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	690	1757564100	4	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	691	1757565000	4	asia	internal:momentum-4c	down	up	holdout	1	{up,down}	1	abstain
+S2b-pooled	692	1757565900	4	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	693	1757566800	5	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	694	1757567700	5	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	695	1757568600	5	asia	internal:momentum-4c	up	up	holdout	0	{up,down}	1	abstain
+S2b-pooled	696	1757569500	5	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	697	1757570400	6	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	698	1757571300	6	asia	internal:momentum-4c	up	down	holdout	1	{up,down}	1	abstain
+S2b-pooled	699	1757572200	6	asia	internal:momentum-4c	down	down	holdout	0	{up,down}	1	abstain
+S2b-oracle	5	1756947600	1	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	6	1756948500	1	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	7	1756949400	1	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	8	1756950300	1	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	9	1756951200	2	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	10	1756952100	2	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	11	1756953000	2	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	12	1756953900	2	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	13	1756954800	3	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	14	1756955700	3	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	15	1756956600	3	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	16	1756957500	3	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	17	1756958400	4	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	18	1756959300	4	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	19	1756960200	4	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	20	1756961100	4	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	21	1756962000	5	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	22	1756962900	5	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	23	1756963800	5	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	24	1756964700	5	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	25	1756965600	6	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	26	1756966500	6	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	27	1756967400	6	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	28	1756968300	6	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	29	1756969200	7	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	30	1756970100	7	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	31	1756971000	7	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	32	1756971900	7	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	33	1756972800	8	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	34	1756973700	8	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	35	1756974600	8	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	36	1756975500	8	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	37	1756976400	9	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	38	1756977300	9	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	39	1756978200	9	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	40	1756979100	9	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	41	1756980000	10	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	42	1756980900	10	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	43	1756981800	10	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	44	1756982700	10	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	45	1756983600	11	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	46	1756984500	11	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	47	1756985400	11	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	48	1756986300	11	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	49	1756987200	12	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	50	1756988100	12	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	51	1756989000	12	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	52	1756989900	12	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	53	1756990800	13	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	54	1756991700	13	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	55	1756992600	13	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	56	1756993500	13	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	57	1756994400	14	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	58	1756995300	14	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	59	1756996200	14	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	60	1756997100	14	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	61	1756998000	15	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	62	1756998900	15	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	63	1756999800	15	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	64	1757000700	15	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	65	1757001600	16	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	66	1757002500	16	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	67	1757003400	16	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	68	1757004300	16	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	69	1757005200	17	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	70	1757006100	17	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	71	1757007000	17	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	72	1757007900	17	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	73	1757008800	18	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	74	1757009700	18	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	75	1757010600	18	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	76	1757011500	18	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	77	1757012400	19	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	78	1757013300	19	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	79	1757014200	19	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	80	1757015100	19	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	81	1757016000	20	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	82	1757016900	20	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	83	1757017800	20	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	84	1757018700	20	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	85	1757019600	21	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	86	1757020500	21	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	87	1757021400	21	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	88	1757022300	21	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	89	1757023200	22	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	90	1757024100	22	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	91	1757025000	22	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	92	1757025900	22	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	93	1757026800	23	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	94	1757027700	23	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	95	1757028600	23	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	96	1757029500	23	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	97	1757030400	0	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	98	1757031300	0	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	99	1757032200	0	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	100	1757033100	0	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	101	1757034000	1	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	102	1757034900	1	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	103	1757035800	1	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	104	1757036700	1	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	105	1757037600	2	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	106	1757038500	2	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	107	1757039400	2	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	108	1757040300	2	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	109	1757041200	3	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	110	1757042100	3	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	111	1757043000	3	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	112	1757043900	3	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	113	1757044800	4	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	114	1757045700	4	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	115	1757046600	4	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	116	1757047500	4	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	117	1757048400	5	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	118	1757049300	5	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	119	1757050200	5	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	120	1757051100	5	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	121	1757052000	6	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	122	1757052900	6	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	123	1757053800	6	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	124	1757054700	6	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	125	1757055600	7	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	126	1757056500	7	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	127	1757057400	7	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	128	1757058300	7	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	129	1757059200	8	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	130	1757060100	8	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	131	1757061000	8	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	132	1757061900	8	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	133	1757062800	9	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	134	1757063700	9	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	135	1757064600	9	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	136	1757065500	9	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	137	1757066400	10	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	138	1757067300	10	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	139	1757068200	10	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	140	1757069100	10	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	141	1757070000	11	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	142	1757070900	11	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	143	1757071800	11	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	144	1757072700	11	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	145	1757073600	12	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	146	1757074500	12	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	147	1757075400	12	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	148	1757076300	12	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	149	1757077200	13	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	150	1757078100	13	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	151	1757079000	13	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	152	1757079900	13	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	153	1757080800	14	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	154	1757081700	14	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	155	1757082600	14	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	156	1757083500	14	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	157	1757084400	15	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	158	1757085300	15	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	159	1757086200	15	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	160	1757087100	15	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	161	1757088000	16	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	162	1757088900	16	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	163	1757089800	16	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	164	1757090700	16	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	165	1757091600	17	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	166	1757092500	17	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	167	1757093400	17	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	168	1757094300	17	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	169	1757095200	18	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	170	1757096100	18	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	171	1757097000	18	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	172	1757097900	18	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	173	1757098800	19	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	174	1757099700	19	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	175	1757100600	19	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	176	1757101500	19	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	177	1757102400	20	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	178	1757103300	20	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	179	1757104200	20	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	180	1757105100	20	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	181	1757106000	21	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	182	1757106900	21	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	183	1757107800	21	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	184	1757108700	21	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	185	1757109600	22	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	186	1757110500	22	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	187	1757111400	22	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	188	1757112300	22	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	189	1757113200	23	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	190	1757114100	23	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	191	1757115000	23	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	192	1757115900	23	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	193	1757116800	0	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	194	1757117700	0	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	195	1757118600	0	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	196	1757119500	0	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	197	1757120400	1	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	198	1757121300	1	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	199	1757122200	1	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	200	1757123100	1	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	201	1757124000	2	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	202	1757124900	2	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	203	1757125800	2	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	204	1757126700	2	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	205	1757127600	3	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	206	1757128500	3	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	207	1757129400	3	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	208	1757130300	3	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	209	1757131200	4	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	210	1757132100	4	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	211	1757133000	4	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	212	1757133900	4	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	213	1757134800	5	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	214	1757135700	5	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	215	1757136600	5	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	216	1757137500	5	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	217	1757138400	6	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	218	1757139300	6	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	219	1757140200	6	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	220	1757141100	6	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	221	1757142000	7	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	222	1757142900	7	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	223	1757143800	7	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	224	1757144700	7	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	225	1757145600	8	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	226	1757146500	8	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	227	1757147400	8	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	228	1757148300	8	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	229	1757149200	9	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	230	1757150100	9	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	231	1757151000	9	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	232	1757151900	9	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	233	1757152800	10	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	234	1757153700	10	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	235	1757154600	10	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	237	1757156400	11	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	238	1757157300	11	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	239	1757158200	11	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	240	1757159100	11	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	241	1757160000	12	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	242	1757160900	12	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	243	1757161800	12	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	244	1757162700	12	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	245	1757163600	13	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	246	1757164500	13	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	247	1757165400	13	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	248	1757166300	13	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	249	1757167200	14	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	250	1757168100	14	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	251	1757169000	14	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	252	1757169900	14	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	253	1757170800	15	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	254	1757171700	15	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	255	1757172600	15	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	256	1757173500	15	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	257	1757174400	16	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	258	1757175300	16	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	259	1757176200	16	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	260	1757177100	16	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	261	1757178000	17	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	262	1757178900	17	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	264	1757180700	17	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	265	1757181600	18	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	266	1757182500	18	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	267	1757183400	18	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	268	1757184300	18	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	269	1757185200	19	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	270	1757186100	19	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	271	1757187000	19	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	272	1757187900	19	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	273	1757188800	20	americas	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	274	1757189700	20	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	275	1757190600	20	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	276	1757191500	20	americas	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	277	1757192400	21	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	278	1757193300	21	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	279	1757194200	21	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	280	1757195100	21	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	281	1757196000	22	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	282	1757196900	22	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	283	1757197800	22	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	284	1757198700	22	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	285	1757199600	23	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	286	1757200500	23	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	287	1757201400	23	mid	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	288	1757202300	23	mid	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	289	1757203200	0	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	290	1757204100	0	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	291	1757205000	0	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	293	1757206800	1	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	294	1757207700	1	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	295	1757208600	1	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	296	1757209500	1	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	297	1757210400	2	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	298	1757211300	2	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	299	1757212200	2	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	300	1757213100	2	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	301	1757214000	3	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	302	1757214900	3	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	303	1757215800	3	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	304	1757216700	3	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	305	1757217600	4	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	306	1757218500	4	asia	internal:oracle-didactique	down	down	calib	0			—
+S2b-oracle	307	1757219400	4	asia	internal:oracle-didactique	up	up	calib	0			—
+S2b-oracle	308	1757220300	4	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	309	1757221200	5	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	310	1757222100	5	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	311	1757223000	5	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	312	1757223900	5	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	313	1757224800	6	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	314	1757225700	6	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	315	1757226600	6	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	316	1757227500	6	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	317	1757228400	7	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	318	1757229300	7	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	319	1757230200	7	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	320	1757231100	7	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	321	1757232000	8	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	322	1757232900	8	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	323	1757233800	8	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	324	1757234700	8	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	325	1757235600	9	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	326	1757236500	9	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	327	1757237400	9	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	328	1757238300	9	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	329	1757239200	10	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	330	1757240100	10	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	331	1757241000	10	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	332	1757241900	10	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	333	1757242800	11	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	334	1757243700	11	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	335	1757244600	11	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	336	1757245500	11	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	337	1757246400	12	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	338	1757247300	12	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	339	1757248200	12	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	340	1757249100	12	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	341	1757250000	13	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	342	1757250900	13	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	343	1757251800	13	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	344	1757252700	13	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	345	1757253600	14	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	346	1757254500	14	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	347	1757255400	14	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	348	1757256300	14	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	349	1757257200	15	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	350	1757258100	15	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	351	1757259000	15	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	352	1757259900	15	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	353	1757260800	16	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	354	1757261700	16	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	355	1757262600	16	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	356	1757263500	16	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	357	1757264400	17	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	358	1757265300	17	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	359	1757266200	17	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	360	1757267100	17	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	361	1757268000	18	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	362	1757268900	18	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	363	1757269800	18	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	364	1757270700	18	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	365	1757271600	19	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	366	1757272500	19	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	367	1757273400	19	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	368	1757274300	19	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	369	1757275200	20	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	370	1757276100	20	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	371	1757277000	20	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	372	1757277900	20	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	373	1757278800	21	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	374	1757279700	21	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	375	1757280600	21	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	376	1757281500	21	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	377	1757282400	22	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	378	1757283300	22	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	379	1757284200	22	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	380	1757285100	22	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	381	1757286000	23	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	382	1757286900	23	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	383	1757287800	23	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	384	1757288700	23	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	385	1757289600	0	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	386	1757290500	0	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	387	1757291400	0	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	388	1757292300	0	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	389	1757293200	1	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	390	1757294100	1	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	391	1757295000	1	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	392	1757295900	1	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	393	1757296800	2	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	394	1757297700	2	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	395	1757298600	2	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	396	1757299500	2	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	397	1757300400	3	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	398	1757301300	3	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	399	1757302200	3	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	400	1757303100	3	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	401	1757304000	4	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	402	1757304900	4	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	403	1757305800	4	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	404	1757306700	4	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	405	1757307600	5	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	406	1757308500	5	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	407	1757309400	5	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	408	1757310300	5	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	409	1757311200	6	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	410	1757312100	6	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	411	1757313000	6	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	412	1757313900	6	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	414	1757315700	7	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	415	1757316600	7	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	416	1757317500	7	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	417	1757318400	8	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	418	1757319300	8	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	419	1757320200	8	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	420	1757321100	8	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	421	1757322000	9	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	422	1757322900	9	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	423	1757323800	9	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	424	1757324700	9	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	425	1757325600	10	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	426	1757326500	10	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	427	1757327400	10	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	428	1757328300	10	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	429	1757329200	11	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	430	1757330100	11	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	431	1757331000	11	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	432	1757331900	11	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	433	1757332800	12	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	434	1757333700	12	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	435	1757334600	12	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	436	1757335500	12	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	437	1757336400	13	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	438	1757337300	13	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	439	1757338200	13	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	440	1757339100	13	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	441	1757340000	14	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	442	1757340900	14	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	443	1757341800	14	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	444	1757342700	14	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	445	1757343600	15	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	446	1757344500	15	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	447	1757345400	15	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	448	1757346300	15	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	449	1757347200	16	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	450	1757348100	16	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	451	1757349000	16	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	452	1757349900	16	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	453	1757350800	17	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	454	1757351700	17	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	455	1757352600	17	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	456	1757353500	17	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	457	1757354400	18	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	458	1757355300	18	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	459	1757356200	18	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	460	1757357100	18	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	461	1757358000	19	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	462	1757358900	19	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	463	1757359800	19	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	464	1757360700	19	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	465	1757361600	20	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	466	1757362500	20	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	467	1757363400	20	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	468	1757364300	20	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	469	1757365200	21	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	470	1757366100	21	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	471	1757367000	21	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	472	1757367900	21	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	473	1757368800	22	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	474	1757369700	22	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	475	1757370600	22	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	476	1757371500	22	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	477	1757372400	23	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	478	1757373300	23	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	479	1757374200	23	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	480	1757375100	23	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	481	1757376000	0	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	482	1757376900	0	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	483	1757377800	0	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	484	1757378700	0	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	485	1757379600	1	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	486	1757380500	1	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	487	1757381400	1	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	488	1757382300	1	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	489	1757383200	2	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	490	1757384100	2	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	491	1757385000	2	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	492	1757385900	2	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	493	1757386800	3	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	494	1757387700	3	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	495	1757388600	3	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	496	1757389500	3	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	497	1757390400	4	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	498	1757391300	4	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	499	1757392200	4	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	500	1757393100	4	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	501	1757394000	5	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	502	1757394900	5	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	503	1757395800	5	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	504	1757396700	5	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	505	1757397600	6	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	506	1757398500	6	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	507	1757399400	6	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	508	1757400300	6	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	509	1757401200	7	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	510	1757402100	7	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	511	1757403000	7	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	512	1757403900	7	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	513	1757404800	8	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	514	1757405700	8	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	515	1757406600	8	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	516	1757407500	8	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	517	1757408400	9	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	518	1757409300	9	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	519	1757410200	9	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	520	1757411100	9	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	521	1757412000	10	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	522	1757412900	10	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	523	1757413800	10	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	524	1757414700	10	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	525	1757415600	11	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	527	1757417400	11	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	528	1757418300	11	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	529	1757419200	12	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	530	1757420100	12	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	531	1757421000	12	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	532	1757421900	12	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	533	1757422800	13	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	534	1757423700	13	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	535	1757424600	13	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	536	1757425500	13	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	537	1757426400	14	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	538	1757427300	14	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	539	1757428200	14	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	540	1757429100	14	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	541	1757430000	15	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	542	1757430900	15	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	543	1757431800	15	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	544	1757432700	15	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	545	1757433600	16	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	546	1757434500	16	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	547	1757435400	16	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	548	1757436300	16	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	549	1757437200	17	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	550	1757438100	17	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	551	1757439000	17	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	552	1757439900	17	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	553	1757440800	18	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	554	1757441700	18	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	555	1757442600	18	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	556	1757443500	18	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	557	1757444400	19	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	558	1757445300	19	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	559	1757446200	19	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	560	1757447100	19	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	561	1757448000	20	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	563	1757449800	20	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	564	1757450700	20	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	565	1757451600	21	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	566	1757452500	21	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	567	1757453400	21	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	569	1757455200	22	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	570	1757456100	22	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	572	1757457900	22	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	573	1757458800	23	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	574	1757459700	23	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	575	1757460600	23	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	576	1757461500	23	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	577	1757462400	0	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	578	1757463300	0	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	579	1757464200	0	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	580	1757465100	0	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	581	1757466000	1	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	582	1757466900	1	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	583	1757467800	1	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	584	1757468700	1	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	585	1757469600	2	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	586	1757470500	2	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	587	1757471400	2	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	588	1757472300	2	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	589	1757473200	3	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	590	1757474100	3	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	591	1757475000	3	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	592	1757475900	3	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	593	1757476800	4	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	594	1757477700	4	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	595	1757478600	4	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	596	1757479500	4	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	597	1757480400	5	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	598	1757481300	5	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	599	1757482200	5	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	600	1757483100	5	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	601	1757484000	6	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	602	1757484900	6	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	603	1757485800	6	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	604	1757486700	6	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	605	1757487600	7	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	606	1757488500	7	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	607	1757489400	7	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	608	1757490300	7	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	609	1757491200	8	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	610	1757492100	8	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	611	1757493000	8	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	612	1757493900	8	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	613	1757494800	9	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	614	1757495700	9	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	615	1757496600	9	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	616	1757497500	9	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	617	1757498400	10	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	618	1757499300	10	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	619	1757500200	10	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	620	1757501100	10	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	621	1757502000	11	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	622	1757502900	11	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	623	1757503800	11	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	624	1757504700	11	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	625	1757505600	12	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	626	1757506500	12	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	627	1757507400	12	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	628	1757508300	12	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	629	1757509200	13	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	630	1757510100	13	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	631	1757511000	13	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	632	1757511900	13	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	633	1757512800	14	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	634	1757513700	14	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	635	1757514600	14	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	636	1757515500	14	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	637	1757516400	15	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	638	1757517300	15	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	639	1757518200	15	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	640	1757519100	15	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	641	1757520000	16	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	642	1757520900	16	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	643	1757521800	16	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	644	1757522700	16	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	645	1757523600	17	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	646	1757524500	17	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	647	1757525400	17	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	648	1757526300	17	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	649	1757527200	18	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	650	1757528100	18	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	651	1757529000	18	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	652	1757529900	18	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	653	1757530800	19	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	654	1757531700	19	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	655	1757532600	19	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	656	1757533500	19	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	657	1757534400	20	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	658	1757535300	20	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	659	1757536200	20	americas	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	660	1757537100	20	americas	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	661	1757538000	21	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	662	1757538900	21	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	663	1757539800	21	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	664	1757540700	21	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	665	1757541600	22	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	666	1757542500	22	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	667	1757543400	22	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	668	1757544300	22	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	669	1757545200	23	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	670	1757546100	23	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	671	1757547000	23	mid	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	672	1757547900	23	mid	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	673	1757548800	0	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	674	1757549700	0	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	675	1757550600	0	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	676	1757551500	0	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	677	1757552400	1	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	678	1757553300	1	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	679	1757554200	1	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	680	1757555100	1	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	681	1757556000	2	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	682	1757556900	2	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	683	1757557800	2	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	684	1757558700	2	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	685	1757559600	3	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	686	1757560500	3	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	687	1757561400	3	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	688	1757562300	3	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	689	1757563200	4	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	690	1757564100	4	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	691	1757565000	4	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	692	1757565900	4	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	693	1757566800	5	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	694	1757567700	5	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	695	1757568600	5	asia	internal:oracle-didactique	up	up	holdout	0	{up}	1	commit
+S2b-oracle	696	1757569500	5	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	697	1757570400	6	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	698	1757571300	6	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+S2b-oracle	699	1757572200	6	asia	internal:oracle-didactique	down	down	holdout	0	{down}	1	commit
+M2-clean	0	0	14	americas	synthetic	up	up	calib	0			—
+M2-clean	1	0	4	asia	synthetic	down	down	calib	0			—
+M2-clean	2	0	20	americas	synthetic	up	up	calib	0			—
+M2-clean	3	0	17	americas	synthetic	up	up	calib	0			—
+M2-clean	4	0	16	americas	synthetic	down	down	calib	0			—
+M2-clean	5	0	20	americas	synthetic	up	up	calib	0			—
+M2-clean	6	0	6	asia	synthetic	up	up	calib	0			—
+M2-clean	7	0	12	mid	synthetic	up	up	calib	0			—
+M2-clean	8	0	11	mid	synthetic	down	down	calib	0			—
+M2-clean	9	0	0	asia	synthetic	up	up	calib	0			—
+M2-clean	10	0	5	asia	synthetic	down	down	calib	0			—
+M2-clean	11	0	17	americas	synthetic	down	down	calib	0			—
+M2-clean	12	0	6	asia	synthetic	up	up	calib	0			—
+M2-clean	13	0	16	americas	synthetic	down	down	calib	0			—
+M2-clean	14	0	22	mid	synthetic	up	up	calib	0			—
+M2-clean	15	0	2	asia	synthetic	up	up	calib	0			—
+M2-clean	16	0	14	americas	synthetic	down	down	calib	0			—
+M2-clean	17	0	22	mid	synthetic	up	up	calib	0			—
+M2-clean	18	0	12	mid	synthetic	down	up	calib	1			—
+M2-clean	19	0	13	americas	synthetic	down	down	calib	0			—
+M2-clean	20	0	8	mid	synthetic	down	down	calib	0			—
+M2-clean	21	0	7	asia	synthetic	up	up	calib	0			—
+M2-clean	22	0	23	mid	synthetic	down	down	calib	0			—
+M2-clean	23	0	7	asia	synthetic	up	up	calib	0			—
+M2-clean	24	0	18	americas	synthetic	down	down	calib	0			—
+M2-clean	25	0	19	americas	synthetic	up	up	calib	0			—
+M2-clean	26	0	17	americas	synthetic	down	down	calib	0			—
+M2-clean	27	0	3	asia	synthetic	down	down	calib	0			—
+M2-clean	28	0	15	americas	synthetic	down	down	calib	0			—
+M2-clean	29	0	9	mid	synthetic	up	up	calib	0			—
+M2-clean	30	0	0	asia	synthetic	down	down	calib	0			—
+M2-clean	31	0	21	mid	synthetic	up	up	calib	0			—
+M2-clean	32	0	4	asia	synthetic	up	up	calib	0			—
+M2-clean	33	0	6	asia	synthetic	up	up	calib	0			—
+M2-clean	34	0	5	asia	synthetic	down	up	calib	1			—
+M2-clean	35	0	3	asia	synthetic	up	up	calib	0			—
+M2-clean	36	0	9	mid	synthetic	up	up	calib	0			—
+M2-clean	37	0	9	mid	synthetic	up	up	calib	0			—
+M2-clean	38	0	11	mid	synthetic	down	down	calib	0			—
+M2-clean	39	0	5	asia	synthetic	up	up	calib	0			—
+M2-clean	40	0	16	americas	synthetic	up	up	calib	0			—
+M2-clean	41	0	7	asia	synthetic	up	up	calib	0			—
+M2-clean	42	0	13	americas	synthetic	up	up	calib	0			—
+M2-clean	43	0	17	americas	synthetic	down	down	calib	0			—
+M2-clean	44	0	3	asia	synthetic	down	down	calib	0			—
+M2-clean	45	0	21	mid	synthetic	up	up	calib	0			—
+M2-clean	46	0	19	americas	synthetic	up	up	calib	0			—
+M2-clean	47	0	23	mid	synthetic	up	up	calib	0			—
+M2-clean	48	0	17	americas	synthetic	up	up	calib	0			—
+M2-clean	49	0	12	mid	synthetic	down	up	calib	1			—
+M2-clean	50	0	19	americas	synthetic	down	down	calib	0			—
+M2-clean	51	0	14	americas	synthetic	up	up	calib	0			—
+M2-clean	52	0	16	americas	synthetic	up	up	calib	0			—
+M2-clean	53	0	7	asia	synthetic	down	down	calib	0			—
+M2-clean	54	0	0	asia	synthetic	up	up	calib	0			—
+M2-clean	55	0	22	mid	synthetic	down	down	calib	0			—
+M2-clean	56	0	3	asia	synthetic	up	up	calib	0			—
+M2-clean	57	0	6	asia	synthetic	up	up	calib	0			—
+M2-clean	58	0	19	americas	synthetic	down	down	calib	0			—
+M2-clean	59	0	12	mid	synthetic	up	up	calib	0			—
+M2-clean	60	0	10	mid	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	61	0	12	mid	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	62	0	15	americas	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	63	0	3	asia	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	64	0	10	mid	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	65	0	1	asia	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	66	0	13	americas	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	67	0	15	americas	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	68	0	12	mid	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	69	0	1	asia	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	70	0	13	americas	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	71	0	8	mid	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	72	0	4	asia	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	73	0	12	mid	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	74	0	13	americas	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	75	0	18	americas	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	76	0	13	americas	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	77	0	7	asia	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	78	0	9	mid	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	79	0	9	mid	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	80	0	14	americas	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	81	0	6	asia	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	82	0	15	americas	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	83	0	4	asia	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	84	0	11	mid	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	85	0	16	americas	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	86	0	17	americas	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	87	0	2	asia	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	88	0	20	americas	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	89	0	6	asia	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	90	0	15	americas	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	91	0	2	asia	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	92	0	6	asia	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	93	0	11	mid	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	94	0	16	americas	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	95	0	0	asia	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	96	0	23	mid	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	97	0	15	americas	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	98	0	9	mid	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	99	0	3	asia	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	100	0	20	americas	synthetic	down	up	holdout	1	{down}	0	commit
+M2-clean	101	0	4	asia	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	102	0	4	asia	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	103	0	15	americas	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	104	0	22	mid	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	105	0	22	mid	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	106	0	7	asia	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	107	0	20	americas	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	108	0	12	mid	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	109	0	3	asia	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	110	0	12	mid	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	111	0	3	asia	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	112	0	4	asia	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	113	0	11	mid	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	114	0	20	americas	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	115	0	12	mid	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	116	0	21	mid	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	117	0	1	asia	synthetic	down	down	holdout	0	{down}	1	commit
+M2-clean	118	0	12	mid	synthetic	up	up	holdout	0	{up}	1	commit
+M2-clean	119	0	0	asia	synthetic	down	down	holdout	0	{down}	1	commit
+M2-flip	0	0	14	americas	synthetic	up	up	calib	0			—
+M2-flip	1	0	4	asia	synthetic	down	down	calib	0			—
+M2-flip	2	0	20	americas	synthetic	up	up	calib	0			—
+M2-flip	3	0	17	americas	synthetic	up	up	calib	0			—
+M2-flip	4	0	16	americas	synthetic	down	down	calib	0			—
+M2-flip	5	0	20	americas	synthetic	up	up	calib	0			—
+M2-flip	6	0	6	asia	synthetic	up	up	calib	0			—
+M2-flip	7	0	12	mid	synthetic	up	up	calib	0			—
+M2-flip	8	0	11	mid	synthetic	down	down	calib	0			—
+M2-flip	9	0	0	asia	synthetic	up	up	calib	0			—
+M2-flip	10	0	5	asia	synthetic	down	down	calib	0			—
+M2-flip	11	0	17	americas	synthetic	down	down	calib	0			—
+M2-flip	12	0	6	asia	synthetic	up	up	calib	0			—
+M2-flip	13	0	16	americas	synthetic	down	down	calib	0			—
+M2-flip	14	0	22	mid	synthetic	up	up	calib	0			—
+M2-flip	15	0	2	asia	synthetic	up	up	calib	0			—
+M2-flip	16	0	14	americas	synthetic	down	down	calib	0			—
+M2-flip	17	0	22	mid	synthetic	up	up	calib	0			—
+M2-flip	18	0	12	mid	synthetic	down	up	calib	1			—
+M2-flip	19	0	13	americas	synthetic	down	down	calib	0			—
+M2-flip	20	0	8	mid	synthetic	down	down	calib	0			—
+M2-flip	21	0	7	asia	synthetic	up	up	calib	0			—
+M2-flip	22	0	23	mid	synthetic	down	down	calib	0			—
+M2-flip	23	0	7	asia	synthetic	up	up	calib	0			—
+M2-flip	24	0	18	americas	synthetic	down	down	calib	0			—
+M2-flip	25	0	19	americas	synthetic	up	up	calib	0			—
+M2-flip	26	0	17	americas	synthetic	down	down	calib	0			—
+M2-flip	27	0	3	asia	synthetic	down	down	calib	0			—
+M2-flip	28	0	15	americas	synthetic	down	down	calib	0			—
+M2-flip	29	0	9	mid	synthetic	up	up	calib	0			—
+M2-flip	30	0	0	asia	synthetic	down	down	calib	0			—
+M2-flip	31	0	21	mid	synthetic	up	up	calib	0			—
+M2-flip	32	0	4	asia	synthetic	up	up	calib	0			—
+M2-flip	33	0	6	asia	synthetic	up	up	calib	0			—
+M2-flip	34	0	5	asia	synthetic	down	up	calib	1			—
+M2-flip	35	0	3	asia	synthetic	up	up	calib	0			—
+M2-flip	36	0	9	mid	synthetic	up	up	calib	0			—
+M2-flip	37	0	9	mid	synthetic	up	up	calib	0			—
+M2-flip	38	0	11	mid	synthetic	down	down	calib	0			—
+M2-flip	39	0	5	asia	synthetic	up	up	calib	0			—
+M2-flip	40	0	16	americas	synthetic	up	up	calib	0			—
+M2-flip	41	0	7	asia	synthetic	up	up	calib	0			—
+M2-flip	42	0	13	americas	synthetic	up	up	calib	0			—
+M2-flip	43	0	17	americas	synthetic	down	down	calib	0			—
+M2-flip	44	0	3	asia	synthetic	down	down	calib	0			—
+M2-flip	45	0	21	mid	synthetic	up	up	calib	0			—
+M2-flip	46	0	19	americas	synthetic	up	up	calib	0			—
+M2-flip	47	0	23	mid	synthetic	up	up	calib	0			—
+M2-flip	48	0	17	americas	synthetic	up	up	calib	0			—
+M2-flip	49	0	12	mid	synthetic	down	up	calib	1			—
+M2-flip	50	0	19	americas	synthetic	down	down	calib	0			—
+M2-flip	51	0	14	americas	synthetic	up	up	calib	0			—
+M2-flip	52	0	16	americas	synthetic	up	up	calib	0			—
+M2-flip	53	0	7	asia	synthetic	down	down	calib	0			—
+M2-flip	54	0	0	asia	synthetic	up	up	calib	0			—
+M2-flip	55	0	22	mid	synthetic	down	down	calib	0			—
+M2-flip	56	0	3	asia	synthetic	up	up	calib	0			—
+M2-flip	57	0	6	asia	synthetic	up	up	calib	0			—
+M2-flip	58	0	19	americas	synthetic	down	down	calib	0			—
+M2-flip	59	0	12	mid	synthetic	up	up	calib	0			—
+M2-flip	60	0	10	mid	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	61	0	12	mid	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	62	0	15	americas	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	63	0	3	asia	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	64	0	10	mid	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	65	0	1	asia	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	66	0	13	americas	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	67	0	15	americas	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	68	0	12	mid	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	69	0	1	asia	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	70	0	13	americas	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	71	0	8	mid	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	72	0	4	asia	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	73	0	12	mid	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	74	0	13	americas	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	75	0	18	americas	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	76	0	13	americas	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	77	0	7	asia	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	78	0	9	mid	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	79	0	9	mid	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	80	0	14	americas	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	81	0	6	asia	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	82	0	15	americas	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	83	0	4	asia	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	84	0	11	mid	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	85	0	16	americas	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	86	0	17	americas	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	87	0	2	asia	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	88	0	20	americas	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	89	0	6	asia	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	90	0	15	americas	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	91	0	2	asia	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	92	0	6	asia	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	93	0	11	mid	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	94	0	16	americas	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	95	0	0	asia	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	96	0	23	mid	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	97	0	15	americas	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	98	0	9	mid	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	99	0	3	asia	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	100	0	20	americas	synthetic	down	down	holdout	0	{down}	1	commit
+M2-flip	101	0	4	asia	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	102	0	4	asia	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	103	0	15	americas	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	104	0	22	mid	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	105	0	22	mid	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	106	0	7	asia	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	107	0	20	americas	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	108	0	12	mid	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	109	0	3	asia	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	110	0	12	mid	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	111	0	3	asia	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	112	0	4	asia	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	113	0	11	mid	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	114	0	20	americas	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	115	0	12	mid	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	116	0	21	mid	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	117	0	1	asia	synthetic	down	up	holdout	1	{down}	0	commit
+M2-flip	118	0	12	mid	synthetic	up	down	holdout	1	{up}	0	commit
+M2-flip	119	0	0	asia	synthetic	down	up	holdout	1	{down}	0	commit
