@@ -25,6 +25,7 @@ function input(over: Partial<GateInput> & Pick<GateInput, "verdict" | "intent">)
     remainingBudget: 0.1,
     bFloor: 0,
     tau: 1,
+    tauInterval: 1, // inerte : verdict `set` (chemin interval non exercé ici)
     nCalib: 50,
     nMin: 50,
     clockOpen: true,

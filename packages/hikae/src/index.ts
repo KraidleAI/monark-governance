@@ -38,6 +38,19 @@ export type { SetRegion, IntervalRegion, IntervalRegionResult, BtcDirLabel } fro
 export { buildVerdict, underCalibVerdict, serialize } from "./verdict.ts";
 export type { VerdictParams } from "./verdict.ts";
 
+// Interval conformer (régression UKEMI, ADR-M003 D6.1) + classe synthétique ukemi-liquidable-24h (D6.2).
+export { conformInterval, absoluteResidualScores } from "./interval-conformer.ts";
+export type { CalibPair, IntervalConformalParams, IntervalConformalResult } from "./interval-conformer.ts";
+export {
+  generateLiquidable24hPairs,
+  liquidable24hProvenanceLine,
+  LIQUIDABLE_24H_CLASS,
+  LIQUIDABLE_24H_HARNESS,
+  LIQUIDABLE_24H_ALPHA,
+  LIQUIDABLE_24H_N,
+  LIQUIDABLE_24H_NMIN,
+} from "./liquidable-24h.ts";
+
 // Predictors + labels (D7/D8).
 export {
   MOMENTUM_4C_ID,

@@ -19,11 +19,18 @@
  *
  * D0 (pas de trading dans MONARK ; produit futur = KAIZEN) : les outils gated
  * `perps_order_preview` / `perps_order_execute` sont NOMMÉS ici mais JAMAIS appelés.
- * Une région `interval` en entrée est un travail de conformeur = Phase 2 (D9) : on LÈVE
- * explicitement, on n'invente aucune raison.
+ *
+ * Région `interval` (régression UKEMI, ADR-M003 D6.1) : le throw Phase 1 est LEVÉ. Chemin dédié —
+ *   COMMIT   si intent ∈ [lo,hi] ET largeur (hi−lo) <= τ_interval
+ *   DEFER    si largeur > τ_interval (horloge ouverte ; sinon ABSTAIN clock_expired)
+ *   ABSTAIN  sinon (intent ∉ [lo,hi]) ; + gardes amont communes (parse/timeout/calib/budget).
+ * `τ_interval` est DÉCLARÉ, NON FONDÉ (D6.1 ; même statut que D6 M002 ; pendant ADR-M003 §4).
  */
-import type { CoverageVerdict, GateDecision, GateAction, CoverageReason } from "@monark/contracts";
+import type { CoverageVerdict, GateDecision, GateAction, CoverageReason, PredictionRegion } from "@monark/contracts";
 import { intentInRegion } from "@monark/contracts";
+
+/** Variante `interval` de la région gelée (régression), pour le chemin L3 dédié. */
+type IntervalRegion = Extract<PredictionRegion, { kind: "interval" }>;
 
 /** Outils de marché gated (D0) — NOMMÉS, jamais invoqués par MONARK (ni réel ni paper). */
 export const GATED_TOOLS = ["perps_order_preview", "perps_order_execute"] as const;
@@ -36,7 +43,14 @@ export interface GateInput {
   /** B_t (statistique L2) — capacité d'autorisation restante, jamais un rendement. */
   remainingBudget: number;
   bFloor: number;
+  /** Seuil de TAILLE d'ensemble pour le chemin `set` (|C| <= tau ⇒ COMMIT). */
   tau: number;
+  /**
+   * Seuil de LARGEUR pour le chemin `interval` ((hi−lo) <= tauInterval ⇒ COMMIT). Grandeur
+   * DISTINCTE de `tau` (une largeur en unités de prix, pas une cardinalité) — DÉCLARÉE, NON FONDÉE
+   * (ADR-M003 D6.1). Champ requis ; NON gelé (GateInput n'est pas l'un des 4 contrats, cf. M003 D4).
+   */
+  tauInterval: number;
   nCalib: number;
   nMin: number;
   /** L'horloge de couverture (fenêtre de décision) est-elle encore ouverte ? */
@@ -58,17 +72,17 @@ interface Verdictum {
 
 function decide(input: GateInput): Verdictum {
   const region = input.verdict.region;
-  // Région `interval` = conformeur de régression (UKEMI) ⇒ Phase 2. Throw explicite (D9).
-  if (region.kind === "interval") {
-    throw new Error(
-      "l3-gate: région `interval` non gérée en Phase 1 — le conformeur d'intervalle est Phase 2 (ADR-M002 D9).",
-    );
-  }
-  const setSize = region.labels.length;
-
+  // Gardes amont fail-closed, COMMUNES aux deux natures de région : elles étaient déjà les TROIS
+  // premières lignes du chemin `set`, donc les hisser avant l'aiguillage est byte-neutre pour `set`.
   if (!input.evaluable) return { action: "abstain", allow: false, reason: "non_evaluable" };
   if (input.timedOut) return { action: "abstain", allow: false, reason: "upstream_timeout" };
   if (input.nCalib < input.nMin) return { action: "abstain", allow: false, reason: "under_calib" };
+
+  // Chemin `interval` (régression UKEMI) — le throw Phase 1 est LEVÉ (ADR-M003 D6.1).
+  if (region.kind === "interval") return decideInterval(input, region);
+
+  // Chemin `set` (classification) — INCHANGÉ : intent → budget → taille.
+  const setSize = region.labels.length;
   if (!intentInRegion(input.intent, region)) {
     return { action: "abstain", allow: false, reason: "intent_not_in_region" };
   }
@@ -81,6 +95,28 @@ function decide(input: GateInput): Verdictum {
     return { action: "abstain", allow: false, reason: "clock_expired" };
   }
   // intent∈C, |C|<=tau, B_t>=B_floor ⇒ COMMIT.
+  return { action: "commit", allow: true, reason: "covered" };
+}
+
+/**
+ * Chemin `interval` (ADR-M003 D6.1). Ordre DÉCLARÉ : budget (fail-closed, prime le DEFER — miroir
+ * du chemin `set`) → LARGEUR (le DEFER est piloté par la largeur, indépendamment de l'intention :
+ * lecture littérale « DEFER si largeur > τ_interval, ABSTAIN sinon ») → intention. Le DEFER obéit à
+ * l'invariant d'horloge du module (un DEFER impossible, horloge close, devient ABSTAIN `clock_expired`).
+ */
+function decideInterval(input: GateInput, region: IntervalRegion): Verdictum {
+  if (input.remainingBudget < input.bFloor) {
+    return { action: "abstain", allow: false, reason: "budget_exhausted" };
+  }
+  const width = region.hi - region.lo;
+  if (width > input.tauInterval) {
+    if (input.clockOpen) return { action: "defer", allow: false, reason: "interval_too_wide" };
+    return { action: "abstain", allow: false, reason: "clock_expired" };
+  }
+  if (!intentInRegion(input.intent, region)) {
+    return { action: "abstain", allow: false, reason: "intent_not_in_region" };
+  }
+  // intent ∈ [lo,hi], largeur <= τ_interval, B_t >= B_floor ⇒ COMMIT.
   return { action: "commit", allow: true, reason: "covered" };
 }
 

@@ -1,0 +1,11 @@
+{
+  "name": "ex33-two-bank",
+  "note": "Contrôle négatif de NON-UNICITÉ de Rogers & Veraart (Ex. 3.3) — [lu] P-K4-1-rogers2013.md Q1/Q2. Entrées de la source : 2 banques, e=(1,1), α=β=½, L̄=(2.2,2.2). Comme chaque banque n'a qu'un créancier interbancaire (l'autre), π₁₂=π₂₁=1 ⇒ L=[[0,2.2],[2.2,0]] (sommes de lignes = L̄). Vecteurs de compensation : L*=(2.2,2.2) (GA, plus grand), L_*=(1,1) (depuis 0, plus petit) ⇒ unique=false. Avec α=β=1 (E&N) : unique=(2.2,2.2). NB : la valeur '(2,2.2)' citée en P-K4-1 Q2 et reprise ADR-M003 D6.3 est une COQUILLE de transcription pour (2.2,2.2) : (2,2.2) n'est un point fixe sous AUCUN α (Φ([2,2.2])=[2.2,2.2]), et (1,1) comme plus petit FORCE π=1 donc le plus grand=(2.2,2.2). Voir docs/G1-lot-K.md (consultation formée). Recalculable à la main via éq. (1) p.884.",
+  "L": [
+    [0, 2.2],
+    [2.2, 0]
+  ],
+  "e": {
+    "ex33": [1, 1]
+  }
+}
