@@ -3,6 +3,6 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "UKEMI — liquidation-cascade survival / cascade-VaR (Phase 1). Phase 0: stub only.",
+  "description": "UKEMI — brique-moteur MONARK de cascade de liquidation (Phase 1) : clearing Eisenberg-Noe déterministe + montant liquidable sous choc (Eq. 3 Knife-edge), émis en Prediction numérique. Pas un produit, aucune garantie.",
   "exports": { ".": "./src/index.ts" }
 }

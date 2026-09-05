@@ -1,0 +1,17 @@
+{
+  "name": "chain-3",
+  "note": "Chaîne 1→2→3 : 1 doit 100 à 2, 2 doit 100 à 3, 3 ne doit rien. p̄=[100,100,0]. e ≫ 0 (dyadique ε=0,5 ⇒ arithmétique flottante EXACTE) — à l'intérieur du domaine ℝⁿ₊₊ du Lemme 5 d'Eisenberg & Noe. base : p*=[10, 10,5, 0] (nœud 1 paie ses 10 ; nœud 2 paie 0,5+10). bumped (e₁ : 10→11) : p*=[11, 11,5, 0]. Δp*=[1,1,0] ⇒ ‖Δp*‖₁=2 > ‖Δe‖₁=1 : l'amplification L1 est de 2 EXACTEMENT. Mécanisme : sur l'ensemble de défaut D={1,2}, Δp*_D=(I−Πᵀ_DD)⁻¹Δe_D avec (I−Πᵀ_DD)⁻¹=[[1,0],[1,1]], sommes de colonnes [2,1], norme d'opérateur L1 = 2. Fictitious default en 2 tours (n=3). Unique. Segment de concavité : lo/mid/hi sur e₁ avec la borne p̄ comme coude.",
+  "L": [
+    [0, 100, 0],
+    [0, 0, 100],
+    [0, 0, 0]
+  ],
+  "e": {
+    "base": [10, 0.5, 0.5],
+    "bumped": [11, 0.5, 0.5],
+    "mono_hi": [10, 5.5, 0.5],
+    "concave_lo": [0.5, 0.5, 0.5],
+    "concave_mid": [100.5, 0.5, 0.5],
+    "concave_hi": [200.5, 0.5, 0.5]
+  }
+}

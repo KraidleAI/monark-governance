@@ -1,0 +1,15 @@
+{
+  "name": "fan-in-5",
+  "note": "Fan-in : les nœuds 1,2,3 doivent chacun 10 au nœud 0 ; le nœud 0 doit 30 au nœud 4 ; 4 ne doit rien. p̄=[30,10,10,10,0]. e ≫ 0 (ε=0,5 dyadique, exact). base : nœuds 1-3 paient 0,5 chacun ; nœud 0 reçoit 1,5, paie 0,5+1,5=2 ⇒ p*=[2, 0,5, 0,5, 0,5, 0]. bumped (e₁,e₂,e₃ : +1 chacun) : nœuds 1-3 paient 1,5 ; nœud 0 paie 0,5+4,5=5 ⇒ p*=[5, 1,5, 1,5, 1,5, 0]. Δp*=[3,1,1,1,0] : ‖Δp*‖∞=3 > ‖Δe‖∞=1 (amplification L∞ = 3 EXACTEMENT, par convergence de 3 chocs unitaires sur un seul nœud) et ‖Δp*‖₁=6 = 2·‖Δe‖₁. Réfute la non-expansivité de e↦p* dans les DEUX normes L1 et L∞, sur un système régulier et unique.",
+  "L": [
+    [0, 0, 0, 0, 30],
+    [10, 0, 0, 0, 0],
+    [10, 0, 0, 0, 0],
+    [10, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0]
+  ],
+  "e": {
+    "base": [0.5, 0.5, 0.5, 0.5, 0.5],
+    "bumped": [0.5, 1.5, 1.5, 1.5, 0.5]
+  }
+}
