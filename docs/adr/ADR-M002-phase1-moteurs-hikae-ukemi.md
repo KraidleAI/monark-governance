@@ -226,8 +226,9 @@ COMMIT   si intent in C, |C|<=tau, B_t>=B_floor
 
 ### D10 — Instrument S2 (conception **adoptée de Grok doc 11** §2, §5.1, §7, §8 — input, jamais lifté — réécrite pour
 nos contrats ; harnais jetable, R-22 : ne se promeut pas) (C7)
-- **S2a plomberie** : classe binaire à gold connu **hors marché** — lot **synthétique déclaré** (200 phrases template,
-  gold déterministe) — tranche « le quantile et le gate sont-ils câblés ? ».
+- **S2a plomberie** : classe binaire à gold connu **hors marché** — lot **synthétique déclaré** (~~200 phrases template,
+  gold déterministe~~ **amendé 2026-09-05, checkpoint 2 corr. 3** : tirage (ŷ, y) seedé, graine 101, n = 300, accuracy
+  déclarée 0,96, n_calib = 150 — `generateLabeledSeries`) — tranche « le quantile et le gate sont-ils câblés ? ».
 - **S2b beachhead** : `btc-dir-15m`, prédicteur D7, labels D8, **split committé (graine + règle)**, strates **ex ante**
   `asia` 00-08 UTC / `americas` 13-21 UTC (n >= 50 **par strate** avant tout chiffre par strate) ; couverture empirique
   **abstentions incluses** + couverture **conditionnelle à l'action** en ligne séparée « pas la garantie CP ».
@@ -238,8 +239,11 @@ nos contrats ; harnais jetable, R-22 : ne se promeut pas) (C7)
   recalcule **sans croire HIKAE**. Tête de rapport soumise au gate vocabulaire.
 - **Provenance des fixtures (C9)** — deux jeux, **étiquetés** : (i) **synthétique par graine committée** (générateur
   déterministe de séries + labels ; `harness_version=fixtures-synth`) — c'est **lui** qui produit le jeu
-  `3 COMMIT / 2 DEFER / 3 ABSTAIN / 1 under_calib` du test 14, via l'**oracle didactique** et des mutants, **pas**
-  `momentum-4c` ; (ii) **snapshot réel daté** (endpoint + date + hash committés, `harness_version=fixtures-real-replay`)
+  `3 COMMIT / 2 DEFER / 3 ABSTAIN / 1 under_calib` du test 14, ~~via l'**oracle didactique** et des mutants~~
+  **amendé 2026-09-05 (checkpoint 2 corr. 3 ; G2-H corr. 1)** : par le vrai `gate()` sur des verdicts à **scores
+  déclarés** (calibration 47/50 ⇒ q̂=0 pour les COMMIT ; 25/50 ⇒ q̂=1 pour les DEFER) + mutants (timeout, intent hors
+  région, budget épuisé, n<n_min) — **pas** par l'oracle didactique, qui est lui **réellement exécuté** sur la série de
+  bougies seedée (bloc 6b du rapport), et **pas** `momentum-4c` ; (ii) **snapshot réel daté** (endpoint + date + hash committés, `harness_version=fixtures-real-replay`)
   rejoué hors ligne, seulement après la sonde J0. Le rapport S2b porte **« synthétique »** ou **« réel-rejoué »**.
 - **Résultat attendu, en clair (C13e)** : au score 0/1, `n=50`, `alpha=0.10` ⇒ `p=46` ⇒ COMMIT exige **≤ 4 erreurs
   sur 50** ; une baseline momentum ~50 % donne **DEFER → ABSTAIN quasi total**. La démo d'arène montrera du **silence
@@ -261,7 +265,8 @@ cover ↓ r — pas une garantie, C1/C2) · 10. `budget_ignores_pending_label` (
 « peek » pas) · 11. `budget_exhausted_refuses_commit` (H5, B_floor) · 12. `commit_error_not_alpha_is_labelled` (H2.3 :
 le chiffre desk sort étiqueté ; la tournure interdite fait échouer le gate vocab) · 13. `calib_digest_matches_contracts`
 (digest du verdict = `calibDigest(scores)` Phase 0) · 14. `fixtures_hash_stable` (jeu **synthétique par graine**
-3 COMMIT / 2 DEFER / 3 ABSTAIN / 1 `under_calib`, produit par l'oracle didactique + mutants — C9 ; hash committé, dérive
+3 COMMIT / 2 DEFER / 3 ABSTAIN / 1 `under_calib`, produit par ~~l'oracle didactique + mutants~~ **le vrai `gate()` sur
+verdicts à scores déclarés + mutants (amendé 2026-09-05, checkpoint 2 corr. 3)** — C9 ; hash committé, dérive
 sans ADR = bug) · 15. `interval_lo_le_hi` (M5, `buildIntervalRegion`, C4) · 16. `unbounded_is_abstain` (C4) ·
 17. `features_strictly_before_t` (D7 : aucune bougie-feature terminée **après** t — indice `> t` rejeté, `close[t]`
 accepté ; le label de `[t, t+15)` n'entre jamais).
@@ -269,8 +274,11 @@ accepté ; le label de `[t, t+15)` n'entre jamais).
 à la racine du workspace, ajouté au glob `npm test` ; aucun lot ne le porte, **les trois** le subissent. Second test
 racine : `fixtures_root_valid` (les 9 états de `fixtures/` valides ajv + hash = `fixtures/manifest.json`).
 **Lot D (atelier)** : 24. `atelier_state_oracle` (module d'état pur : pour chacun des 9 états du `fixtures/` racine,
-verdict / décision / raison présents ; B_t **non croissant** sur miscover ; état des deux horloges = « couverture avant
-décision » / « label arrivé à t+w » sur fixtures) · 25. `atelier_replays_root_fixtures` (les 9 états — 3 COMMIT /
+verdict / décision / raison présents ; ~~B_t **non croissant** sur miscover~~ **amendé 2026-09-04 (G2 Lot D corr. 2)** :
+B_t **porté fidèlement** (`remaining_budget` jamais recalculé ni inflé) + histoire de consommation montrée (`03` lowbudget
+0.02, `08` budget_exhausted −0.02) — « non croissant sur miscover » exige le label réalisé `Y`, absent de `GateDecision`
+(gelé D2) : cette propriété relève du **Lot H** (tests 9-11) ; panneau HIKAE lié champ à champ au verdict brut ; état
+des deux horloges = « couverture avant décision » / « label arrivé à t+w » sur fixtures) · 25. `atelier_replays_root_fixtures` (les 9 états — 3 COMMIT /
 2 DEFER / 3 ABSTAIN / 1 under_calib — sont tous rendus, chacun visible) · 26. `atelier_no_forbidden_vocab` (le rendu
 HTML/JS/CSS passe `scripts/grep-forbidden.mjs`, étendu à `packages/atelier/**`, liste lue depuis `vocab-banned.json`
 racine) · 27. `perps_stubs_throw` (les noms `perps_order_preview` / `perps_order_execute` sont définis au **Lot H**
@@ -355,6 +363,13 @@ pour les deux moteurs et l'atelier). Lectures nouvelles éventuelles = lecteurs 
   Usage : adjudiquer l'`error_origin` du test 21 au G7 (papier / archive / implémentation). Contexte déjà fermé sans
   lecture : l'amplification réseau est **connue et citée** dans le corpus ([lu-archive] `detering2020.txt` l.53, 108,
   951, 958) — le phénomène n'est pas en question, seule la formulation exacte de la source l'est.
+  **CLOS le 2026-09-05** — lecture faite sur page rendue ([lu], `docs/lecture-EN-lemme5.md`) : norme **ℓ¹** explicite
+  (p.238), Lemme 5 énonce `e ↦ FIX(Φ(·;Π,p̄,e))` « concave, increasing, and nonexpansive » sur `e ∈ ℝⁿ₊₊` (pp.244-245),
+  induction `f_n = F(f_{n−1}(e), e)` avec « F … nonexpansive » jointement, **aucune norme reprécisée, aucune hypothèse
+  supplémentaire** (p.245). `error_origin` test 21 = **source** (sous-énoncé « nonexpansive » non soutenu par l'étape
+  d'induction — constante `n`, pas 1 — et contredit par calcul dans le domaine énoncé) ; archive K4:90 fidèle ;
+  implémentation correcte. Nouveau pendant né de la lecture : **P-EN-249** — page imprimée 249 absente du PDF local
+  (fin App. 1 / références) ; procurement formé dans `docs/lecture-EN-lemme5.md` ; non bloquant.
 - **Procurements (mainteneur, inchangés)** : P-K4-1 Rogers & Veraart (DOI 10.1287/mnsc.1120.1569), P-K4-2 Cifuentes,
   Ferrucci & Shin (DOI 10.1162/jeea.2005.3.2-3.556) — canal endogène ; PM-6 votes Aave exécutés.
 - **DEVOPS avant tout remote** : eslint, SHA-pin, commits signés (ADR-M001 D8).
