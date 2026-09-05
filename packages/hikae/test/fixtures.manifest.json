@@ -1,0 +1,14 @@
+{
+  "digest": "7729800596e94d52b8c34dc33844d61fbc20c5901922d3a386caf611a3da4306",
+  "ids": [
+    "01-commit-up",
+    "02-commit-up-b",
+    "03-commit-up-lowbudget",
+    "04-defer",
+    "05-defer-b",
+    "06-abstain-intent",
+    "07-abstain-timeout",
+    "08-abstain-budget",
+    "09-under-calib"
+  ]
+}
