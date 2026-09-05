@@ -1,0 +1,12 @@
+{
+  "name": "app2-two-node",
+  "note": "Contre-exemple de non-unicité d'Eisenberg & Noe, Appendice 2 ([lu-archive] K4). Deux nœuds se doivent 1 l'un l'autre, p̄=[1,1]. Avec e=(0,0) aucune valeur n'entre : Φ(p)=(Πᵀp)∧1 et p=[1,1] comme p=[0,0] sont des points fixes ⇒ p⁺=[1,1] ≠ p⁻=[0,0], PAS unique (contrôle négatif). Avec e=(0,01, 0) le système est régulier ⇒ p⁺=p⁻=[1,1], unique (Thm 2 : e>0 suffisant ; ici une seule composante >0 suffit car chaque nœud a un chemin vers de la valeur).",
+  "L": [
+    [0, 1],
+    [1, 0]
+  ],
+  "e": {
+    "zero": [0, 0],
+    "eps": [0.01, 0]
+  }
+}
