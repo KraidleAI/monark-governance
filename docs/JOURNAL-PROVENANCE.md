@@ -159,3 +159,4 @@ définitions d'agent = **redémarrage de session**. La divergence notée au Gate
 | `docs/CHECKPOINT1-phase2.md` | orchestrateur (avis verbatim persisté) | — | — |
 
 Pré-vérifications machine (orchestrateur) : champs `AttestedPrice` ↔ `Temoignage`/`Verdict`/`Constat` Rust ; 0 `serde` dans `crates/` ; fixtures `s3-binance` ; mesure des lots Phase 1 (`0468cf4` 5131, `133aba9` 1205, `ca8a070` 826). `error_origin` des 14 items : **orchestrateur** (générateur du plan) ; item 3 second passage : orchestrateur. Aucun code écrit. Miroir `F:\Clawpumptech\ADR-M003-phase2-integration.md` md5 `12d8e26f`.
+- **2026-09-05, escalade D10 tranchée** : investisseur, verbatim « escalade D10 option A, oui » → D10 en vigueur (addendum ADR-M003 D10 ; CHECKPOINT1-phase2.md §4). Consigné par l'orchestrateur `claude-fable-5-1`.

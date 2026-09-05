@@ -1,6 +1,6 @@
 # ADR-M003 — Phase 2 (G0) : intégration MONARK (Shōgen → HIKAE → UKEMI), S2b réel, DEVOPS et vitrine hackathon
 
-- **Statut** : **ACCEPTÉ-AVEC-CORRECTIONS au checkpoint 1** (validateur-humain, 2026-09-05, 14 items appliqués ci-dessous — avis verbatim et traitement : `docs/CHECKPOINT1-phase2.md`) ; **D10 en ESCALADE-INVESTISSEUR, non en vigueur**.
+- **Statut** : **ACCEPTÉ-AVEC-CORRECTIONS au checkpoint 1** (validateur-humain, 2026-09-05, 14 items appliqués ci-dessous — avis verbatim et traitement : `docs/CHECKPOINT1-phase2.md`) ; ~~**D10 en ESCALADE-INVESTISSEUR, non en vigueur**~~ **D10 EN VIGUEUR — option (a) décidée par l'investisseur le 2026-09-05** (addendum D10).
 - **Rattachement** : ADR-M001 (contrats gelés, D8 DEVOPS différé, l.166 label par `AttestedPrice`), ADR-M002 (Phase 1, §4 pendants), `docs/G7-phase1.md`, `docs/CHECKPOINT2-phase1.md`.
 - **Provenance** : rédigé par l'orchestrateur `claude-fable-5-1` (effort high) le 2026-09-05, après consultation advisor (R-26, outil intégré, 2 appels : pré-rédaction, pré-checkpoint) et quatre pré-vérifications machine (§1.3). Aucun code écrit.
 - **Auteur du siège investisseur** : l'utilisateur. Actions réservées investisseur : listées D0.3 verbatim.
@@ -84,8 +84,10 @@ ca8a070  15 files changed, 826 insertions(+)
 ```
 Une borne à la médiane **bloque par construction environ la moitié des lots passés : c'est un resserrement délibéré** (item 7), assumé. Justification R-25 : DORA 2024 pp. 39-40 (**[lu] primaire vérifié, doc 02 §8.2 tableau**). Le lot H dépasse à cause du journal TSV S2 (2393 lignes générées, sous `packages/hikae/docs/`) : les artefacts générés reproductibles sont **exclus du décompte** par le pathspec git `':(exclude)packages/*/docs/S2-*'` écrit dans le job du workflow commis (le template n'exclut que les lockfiles). eslint config `@typescript-eslint/recommended-type-checked`. Actions épinglées par SHA complet. Commits signés (clé investisseur).
 
-### D10 — Roster, écriture en siège worker (**ESCALADÉ à l'investisseur le 2026-09-05 par le validateur, NON EN VIGUEUR tant que non tranché** — la règle roster relève du mainteneur ; options (a)/(b)/(c) dans `docs/CHECKPOINT1-phase2.md`)
+### D10 — Roster, écriture en siège worker (escaladé à l'investisseur le 2026-09-05 par le validateur ; **tranché le même jour : option (a), en vigueur** — voir addendum)
 Workers `claude-opus-4-8` effort max ; lecteurs/chercheurs `claude-sonnet-5` max ; orchestrateur `claude-fable-5-1` high, seul committeur. **Règle nouvelle** : si le worker Opus d'un lot meurt deux fois sur limite d'usage, l'orchestrateur peut écrire en siège worker, **à condition** d'une relecture G2 delta par `claude-opus-4-8` avant G7 et d'une ligne de journal nommant le modèle résolu. Ce qui fut déviation en Phase 1 devient mode documenté.
+
+**Addendum 2026-09-05 (décision investisseur, verbatim : « escalade D10 option A, oui »)** : D10 est **en vigueur tel quel** pour la Phase 2 MONARK. Conditions inchangées et obligatoires : (1) deux morts du worker Opus 4.8 sur limite d'usage, consignées ; (2) relecture G2 delta par `claude-opus-4-8` (instance séparée, mutants re-exécutés) avant G7 ; (3) ligne de journal R-1 nommant le modèle résolu de l'écrivain. Portée : MONARK Phase 2 seulement ; la règle roster globale (CLAUDE.md mainteneur) n'est pas modifiée par cet ADR.
 
 ### D10bis — Vérification imposée par le système (reconduction ADR-M002 D12, item 12)
 Pour **tous** les lots, déviation ou non : relecteur G2 = instance séparée à contexte frais, ≠ générateur, `claude-opus-4-8` max ; checklist G2 du corpus ; **mutants re-exécutés par le relecteur** (rouge puis restauration à l'octet vérifiée) ; oracle d'exécution non-LLM (CI) avant G7 ; G7 = orchestrateur ; checkpoint 2 = validateur-humain.
@@ -113,7 +115,7 @@ Chaque test est tué par ≥ 1 mutant nommé en revue G2 (discipline Phase 1 rec
 | Mode MAST | Contre-mesure |
 |---|---|
 | Pression de délai (J-15, deux dates dures) | R-22 (aucun gate suspendu) ; R-25 via `VIBEGATES_PR_LIMIT` bloquant en CI ; **aucune publication avant checkpoint 2** ; replis nommés D1 plutôt que raccourcis |
-| Générateur = vérificateur | D10bis (relecteur Opus séparé, mutants) ; D10 non en vigueur tant que l'escalade n'est pas tranchée |
+| Générateur = vérificateur | D10bis (relecteur Opus séparé, mutants) ; D10 en vigueur (option (a), 2026-09-05) sous ses trois conditions |
 | Collision de nom Hermes | motif `\bHermes\b` nu **interdit** hors `pyth-hermes` / `clawpump-hermes` dans `vocab-banned.json` ; parcours du gate étendu à `packages/monark/**` (Lot V) |
 | Décrochage de dépendance externe (clé tardive, endpoint down) | replis D1 + décisions investisseur datées §4 (a′, g, i) ; tests sans réseau (28, 39) |
 | Dérive de périmètre vers du trading | D0.4 ; `perps_*` restent des stubs qui lèvent (M002 test 27, reconduit) |
