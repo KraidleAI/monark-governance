@@ -150,3 +150,12 @@ définitions d'agent = **redémarrage de session**. La divergence notée au Gate
 - **Checkpoint 2** (`validateur-humain`, `claude-fable-5-1`, sans Bash/Write) : ACCEPTE-AVEC-CORRECTIONS, 6 items — `docs/CHECKPOINT2-phase1.md`. Traitement : (1) **relecture delta-2** du diff post-delta Lot H par `claude-opus-4-8[1m]` effort max (première instance morte sur coupure de courant, relancée) → **CLOS**, `F:\Monark-wt-hikae\docs\G2-lot-H-delta2.md` (M2 : 120+120 lignes, 0.983/0.017 recalculés, sha256 TSV `16003409…` == cité, 2 mutants rouges restaurés, CI 66/66) ; (2) cellules l.140-141 barrées ; (3) ADR D10/D11-14 amendés, copie ≡ source ; (4) pendant (e) ; (5) `tsconfig include` + `test/**/*.ts` (tsc 0 partout) ; (6) CA-D1 visuel **confirmé par l'investisseur** (atelier lancé, 5 éléments vus, 2026-09-05).
 - **Procurements** : 6 lus le même jour (P-K1-1, P-K4-1, P-K4-2, P-EN-249, P-HIKAE-2, P-HIKAE-3 ; lecteurs `claude-sonnet-5`, règle 4bis) — chiffre d'archive « 800 M$ de gains de liquidateurs » **réfuté** (807,46 M = volume liquidé ; profit 63,59 M USD, Qin IMC'21 p. 341).
 - **Commits** : un par lot (`phase1/hikae`, `phase1/ukemi`, `phase1/atelier`), merge dans `main`, puis commit des documents `main` — par l'orchestrateur seul (R-19/R-20), 0 remote.
+
+## Phase 2 — ouverture (2026-09-05)
+
+| Artefact | Générateur (résolu) | Relecteur / validateur | Verdict |
+|---|---|---|---|
+| `docs/adr/ADR-M003-phase2-integration.md` | `claude-fable-5-1` (orchestrateur, effort high ; advisor intégré ×2) | `validateur-humain` `claude-fable-5-1` ×2 (checkpoint 1, quick-verify) | ACCEPTE-AVEC-CORRECTIONS 14/14 appliqués ; **D10 ESCALADE-INVESTISSEUR, non en vigueur** |
+| `docs/CHECKPOINT1-phase2.md` | orchestrateur (avis verbatim persisté) | — | — |
+
+Pré-vérifications machine (orchestrateur) : champs `AttestedPrice` ↔ `Temoignage`/`Verdict`/`Constat` Rust ; 0 `serde` dans `crates/` ; fixtures `s3-binance` ; mesure des lots Phase 1 (`0468cf4` 5131, `133aba9` 1205, `ca8a070` 826). `error_origin` des 14 items : **orchestrateur** (générateur du plan) ; item 3 second passage : orchestrateur. Aucun code écrit. Miroir `F:\Clawpumptech\ADR-M003-phase2-integration.md` md5 `12d8e26f`.
