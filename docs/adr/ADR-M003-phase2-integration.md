@@ -33,6 +33,8 @@ Phase 1 close le 2026-09-05 (`66ec181`, main, CI 77/77, vocab OK, tsc strict 0, 
 - **D0.3** **Actions réservées à l'investisseur, verbatim** (l'orchestrateur ne les exécute jamais, ne saisit jamais de secret) : création du dépôt distant ; configuration de la clé de signature git ; saisie de la clé API UsePod (variable d'environnement locale, jamais dans le dépôt) ; lancement du token ; publication du post X ; création de tout compte.
 - **D0.4** Pas de trading en Phase 2 (`ROADMAP-MONARK.md` §7). MONARK gate, n'exécute pas.
 
+- **D0.5 — Langue et dépôts (décisions investisseur 2026-09-05, verbatim « tout ce qui est github, site, plateforme, doit être en anglais, rien en français » ; « je suis ta recommandation des deux dépôts »)** : tout artefact public — code, commentaires, noms de tests, CI, README, API, schémas, site, messages de commit du dépôt public — est **en anglais**. Deux dépôts : **`KraidleAI/monark-governance`** (privé, ce dépôt, historique intact, ADR/journaux/revues en français, jamais réécrit) et **`KraidleAI/monark`** (public au lancement ; créé privé le 2026-09-05 ; export anglais du code et de la documentation produit, historique neuf). Chaque lot passe une revue « English only » à sa G2 avant d'être exporté. Les rapports G1/G2/G7 restent en français dans la gouvernance.
+
 ### D1 — Lots, ordre de dépendance, repli
 | Lot | Contenu | Dépend de | Repli si bloqué |
 |---|---|---|---|
