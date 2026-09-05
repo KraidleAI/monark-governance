@@ -1,0 +1,11 @@
+{
+  "name": "@monark/atelier",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MONARK — atelier de démo LOCAL (Phase 1, Lot D) : rejoue les 9 états GateDecision de fixtures/ racine — verdict, décision COMMIT/DEFER/ABSTAIN, budget B_t, deux horloges, chaîne Shōgen → HIKAE → UKEMI. Zéro dépendance runtime, zéro réseau, aucun ordre.",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "atelier": "node serve.js"
+  }
+}
