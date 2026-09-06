@@ -15,20 +15,30 @@ import {
   LIQUIDABLE_24H_NMIN,
 } from "../src/index.ts";
 import type { CalibPair } from "../src/index.ts";
+import type { Ajv2020 as Ajv2020Instance, Options, SchemaObject, ValidateFunction } from "ajv/dist/2020.js";
+import type { FormatsPlugin } from "ajv-formats";
+import type { CoverageVerdict } from "@monark/contracts";
 
-// Schéma gelé `coverage-verdict.schema.json` compilé par ajv strict (même montage que
-// packages/ukemi/test/prediction.test.ts) — la région `interval` produite doit valider.
+// Frozen schema `coverage-verdict.schema.json`, compiled by strict ajv — the produced `interval`
+// region must validate against the frozen contract. ajv and ajv-formats are CommonJS; under NodeNext
+// ESM the export may sit on `.default`, so both are loaded via `require` and the untyped result is
+// narrowed to the exact types used here. No `any`, no `eslint-disable`: every token added for typing
+// (`import type`, the `type` alias, `as`, and the `<T>` argument) is erased by Node type stripping and
+// adds no runtime effect; the executed logic is unchanged (same 83 tests, same behaviour).
+type Ajv2020Ctor = new (opts?: Options) => Ajv2020Instance;
+
 const require = createRequire(import.meta.url);
-const ajvMod = require("ajv/dist/2020");
-const Ajv2020 = ajvMod.default ?? ajvMod;
-const addFormatsMod = require("ajv-formats");
-const addFormats = addFormatsMod.default ?? addFormatsMod;
+const ajvExport = require("ajv/dist/2020") as { default?: Ajv2020Ctor };
+const Ajv2020: Ajv2020Ctor = ajvExport.default ?? (ajvExport as unknown as Ajv2020Ctor);
+const addFormatsExport = require("ajv-formats") as { default?: FormatsPlugin };
+const addFormats: FormatsPlugin = addFormatsExport.default ?? (addFormatsExport as unknown as FormatsPlugin);
 const ROOT = join(import.meta.dirname, "..", "..", "..");
 const ajv = new Ajv2020({ strict: true, allowUnionTypes: true, allErrors: true });
 addFormats(ajv);
-const validateVerdict = ajv.compile(
-  JSON.parse(readFileSync(join(ROOT, "schemas", "coverage-verdict.schema.json"), "utf8")),
-);
+const verdictSchema = JSON.parse(
+  readFileSync(join(ROOT, "schemas", "coverage-verdict.schema.json"), "utf8"),
+) as SchemaObject;
+const validateVerdict: ValidateFunction<CoverageVerdict> = ajv.compile<CoverageVerdict>(verdictSchema);
 
 const COMMON = {
   alpha: LIQUIDABLE_24H_ALPHA,
