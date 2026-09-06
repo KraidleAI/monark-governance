@@ -103,7 +103,7 @@ test("schema rejects an EMPTY residual (minItems) — the value constraint the T
   assert.equal(validator(ID.ap)({ ...validAttestedPrice(), residual: [] }), false);
 });
 
-test("schema rejects a DUPLICATE residual (uniqueItems) — validateur C4 edge case", () => {
+test("schema rejects a DUPLICATE residual (uniqueItems) — validator C4 edge case", () => {
   assert.equal(validator(ID.ap)({ ...validAttestedPrice(), residual: ["dup", "dup"] }), false);
 });
 
