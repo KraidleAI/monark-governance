@@ -1,30 +1,95 @@
-name: MONARK CI (Phase 0 gates)
-
-# LOCAL-ONLY in Phase 0 (ADR-M001 C14): no remote executes this workflow yet.
-# It is the artefact a PRIVATE remote will run post-Phase-0. Run locally:
-#     npm ci && npm run ci
+# MONARK — CI gates (instantiated from the compliance corpus template `templates/ci-gates.yml`,
+# doc 02 v1.2; concrete tools fixed by ADR-M003 D9 and its dated addenda, R-23).
+# Invariant (not parameterisable): EVERY job is BLOCKING. No `continue-on-error` (test 38 checks this
+# mechanically, ADR-M003 D11).
 #
-# DEFERRED to post-Phase-0 DEVOPS (ADR-M001 D8): pin `uses:` to commit SHAs and
-# enable signed commits BEFORE a remote is enabled. The @vN tags below are a
-# placeholder while the workflow does not run anywhere.
+# Provenance of pinned action SHAs (never guessed — GitHub API `git/ref/tags/<tag>`, cross-checked by
+# the Lot V worker on 2026-09-05 and re-verified by the G2 reviewer on 2026-09-06):
+#   actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+#   actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+#
+# Delivery flow (ADR-M003 D9 bis): every lot lands through a pull request; `main` is protected.
+# A direct push produces no run (and `github.base_ref` would be empty for r25) — by design.
+#
+# Rewritten by the orchestrator on 2026-09-06 under ADR-M003 D10 (two Opus worker deaths on this lot),
+# to the specification of docs/G1-lot-V.md + docs/G2-lot-V.md; English only (D0.5).
 
+name: gates
 on:
-  push:
-    branches: [main]
   pull_request:
 
 jobs:
-  gates:
+  g1-controle-generation:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4 # DEFERRED (ADR-M001 D8 — DEVOPS pass, before remote)
-      - uses: actions/setup-node@v4 # DEFERRED (ADR-M001 D8 — DEVOPS pass, before remote)
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Pinned model identifiers only (R-1/R-4 — a bare tier resolves platform-side)
+        run: bash enforcement/lint-model-pinning.sh . # vendored from the public vibegates repo (mirror 2026-08-13)
+
+  r25-taille-de-lot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Bounded lot size (R-25 — DORA 2024 pp. 39-40, lot inflation degrades stability)
+        env:
+          VIBEGATES_PR_LIMIT: "1205" # ADR-M003 D9 (R-23: measured median of the 3 Phase 1 lots)
+        run: |
+          case "$VIBEGATES_PR_LIMIT" in
+            ''|*[!0-9]*)
+              echo '::error::R-25 not configured: set VIBEGATES_PR_LIMIT by a sourced ADR (R-23). Fail-closed.'
+              exit 1 ;;
+          esac
+          # fetch-depth: 0 above provides the base history. A shallow clone (--depth=1) makes the diff fail
+          # with "no merge base" (exit 128), which the `|| exit 1` below turns into an explicit fail-closed
+          # (measured by the G2 delta review, TEST F, 2026-09-06).
+          # Exclusions (ADR-M003 D9 + D9 quater): reproducible generated S2 artefacts, per-lot governance
+          # reports G1/G2 (governance, not code), and the lockfile.
+          STAT=$(git diff --shortstat "origin/${{ github.base_ref }}...HEAD" -- . ':(exclude)packages/*/docs/S2-*' ':(exclude)docs/G1-lot-*.md' ':(exclude)docs/G2-lot-*.md' ':(exclude)package-lock.json') || {
+            echo '::error::Gate R-25: diff not computable (no merge base?). Fail-closed.'
+            exit 1
+          }
+          CHANGED=$(printf '%s\n' "$STAT" | awk '{ins=0; del=0; for(i=1;i<=NF;i++){ if($i ~ /insertion/) ins=$(i-1); if($i ~ /deletion/) del=$(i-1) } print ins+del+0}')
+          echo "Changed lines: $CHANGED (ADR bound: $VIBEGATES_PR_LIMIT)"
+          if [ "$CHANGED" -gt "$VIBEGATES_PR_LIMIT" ]; then
+            echo "::error::BLOCKED (VibeGates R-25): $CHANGED changed lines exceed the ADR bound of $VIBEGATES_PR_LIMIT. Split the PR."
+            exit 1
+          fi
+
+  g3-verification:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
+          cache: npm
+      - name: Install (lockfile must be present and consistent)
+        run: npm ci
+      - name: Vocabulary gate + strict typecheck + tests (contracts_frozen, fixtures, tests 1-41)
+        run: npm run gate:vocab && npm run typecheck && npm test
+
+  g4-architecture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
       - run: npm ci
-      - name: vocabulary gate (09 discipline)
-        run: npm run gate:vocab
-      - name: typecheck (tsc strict; = build for a noEmit contracts lib)
-        run: npm run typecheck
-      - name: test (node:test)
-        run: npm test
+      - name: eslint recommended-type-checked (src strict) + test-debt ratchet (ADR-M003 D9 ter)
+        run: npm run lint && npm run lint:ratchet
+
+  g6-compliance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Dependency audit (high and above = failure)
+        run: npm audit --audit-level=high

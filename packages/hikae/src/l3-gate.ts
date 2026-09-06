@@ -60,7 +60,7 @@ export interface GateInput {
   /** Le parse de ŷ est-il évaluable ? `false` ⇒ non_evaluable, fail-closed. */
   evaluable: boolean;
   /** L'outil gated visé (NOMMÉ, jamais appelé — D0). */
-  tool: GatedTool | string;
+  tool: string;
   schemaVersion: string;
 }
 
