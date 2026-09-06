@@ -1,33 +1,33 @@
-// MONARK — configuration ESLint « flat », ADR-M003 D9 + addendum D9 ter (2026-09-06).
+// MONARK — "flat" ESLint configuration, ADR-M003 D9 + addendum D9 ter (2026-09-06).
 //
-// STATUT : EXÉCUTABLE et MESURÉ (TS 6.0.3, API classique du compilateur) — le blocage toolchain
-// (portage NATIF TS 7 sans l'API classique) est résolu par l'addendum D9 (2026-09-05, option c :
-// typescript épinglé 6.0.3). Le PÉRIMÈTRE des violations est tranché par l'addendum D9 ter :
+// STATUS: EXECUTABLE and MEASURED (TS 6.0.3, classic compiler API) — the toolchain blocker
+// (NATIVE TS 7 port without the classic API) is resolved by addendum D9 (2026-09-05, option c:
+// typescript pinned 6.0.3). The SCOPE of the violations is settled by addendum D9 ter:
 //
-//   §2  no-floating-promises : traité par l'option DOCUMENTÉE `allowForKnownSafeCalls` ciblant
-//       test()/describe()/it() de `node:test` — la promesse retournée par le runner est gérée par
-//       le runner (idiome), ce n'est PAS un défaut de code. La règle est CONSERVÉE en erreur partout
-//       ailleurs (aucune désactivation). Doc : https://typescript-eslint.io/rules/no-floating-promises/
-//       (vérifiée le 2026-09-06 ; plugin @typescript-eslint/eslint-plugin@8.69.0, schéma contient
-//       `allowForKnownSafeCalls` ; forme « package » = { from:"package", name:[...], package:"node:test" }).
+//   §2  no-floating-promises: handled by the DOCUMENTED option `allowForKnownSafeCalls` targeting
+//       test()/describe()/it() of `node:test` — the promise returned by the runner is handled by
+//       the runner (idiom), it is NOT a code defect. The rule is KEPT as an error everywhere
+//       else (no disabling). Doc: https://typescript-eslint.io/rules/no-floating-promises/
+//       (verified 2026-09-06; plugin @typescript-eslint/eslint-plugin@8.69.0, schema contains
+//       `allowForKnownSafeCalls`; "package" form = { from:"package", name:[...], package:"node:test" }).
 //
-//   §3  fichiers de test (**/*.test.ts, test/**) : les 6 règles no-unsafe-*/no-explicit-any en `off`
-//       (fixtures JSON manipulées en `any` dans les tests), AVEC cliquet mesuré `scripts/lint-ratchet.mjs`
-//       qui les RÉACTIVE sur les tests et borne le compte au plafond commis `lint-ratchet.json`.
-//       La liste des 6 règles est la SOURCE UNIQUE `lint-ratchet.json` → aucune divergence possible
-//       entre cette config (off) et le cliquet (réactivation/compte). Pendant formé (D9 ter §3) :
-//       typage des fixtures de test, objectif plafond 0 avant le checkpoint 2 de la Phase 3.
+//   §3  test files (**/*.test.ts, test/**): the 6 no-unsafe-*/no-explicit-any rules set to `off`
+//       (JSON fixtures handled as `any` in the tests), WITH the measured ratchet `scripts/lint-ratchet.mjs`
+//       that RE-ENABLES them on the tests and bounds the count to the committed ceiling `lint-ratchet.json`.
+//       The list of the 6 rules is the SINGLE SOURCE `lint-ratchet.json` -> no possible divergence
+//       between this config (off) and the ratchet (re-enable/count). Formed pending (D9 ter §3):
+//       typing of the test fixtures, target ceiling 0 before checkpoint 2 of Phase 3.
 //
-// Versions installées, épinglées EXACTES (registre npm, R-8) :
+// Installed versions, pinned EXACT (npm registry, R-8):
 //   eslint@10.10.0  ·  typescript-eslint@8.69.0  ·  typescript@6.0.3
 import tseslint from "typescript-eslint";
 import ratchet from "./lint-ratchet.json" with { type: "json" };
 
-// Off-map des 6 règles à typage différé dans les tests — DÉRIVÉE de lint-ratchet.json (source unique).
+// Off-map of the 6 deferred-typing rules in the tests — DERIVED from lint-ratchet.json (single source).
 const testDeferredOff = Object.fromEntries(ratchet.rules.map((r) => [r, "off"]));
 
 export default tseslint.config(
-  // Le linter type-checked ne voit que le TypeScript du projet ; JS/MJS/CJS hors programme sont ignorés.
+  // The type-checked linter only sees the project's TypeScript; out-of-program JS/MJS/CJS are ignored.
   { ignores: ["node_modules/**", "dist/**", "**/*.js", "**/*.mjs", "**/*.cjs"] },
   ...tseslint.configs.recommendedTypeChecked,
   {
@@ -39,8 +39,8 @@ export default tseslint.config(
       },
     },
     rules: {
-      // D9 ter §2 — node:test : test()/describe()/it() renvoient une promesse GÉRÉE par le runner.
-      // Règle conservée en erreur ; seuls ces appels connus-sûrs sont exemptés.
+      // D9 ter §2 — node:test: test()/describe()/it() return a promise HANDLED by the runner.
+      // Rule kept as an error; only these known-safe calls are exempted.
       "@typescript-eslint/no-floating-promises": [
         "error",
         {
@@ -52,8 +52,8 @@ export default tseslint.config(
     },
   },
   {
-    // D9 ter §3 — fichiers de test : 6 règles no-unsafe-*/no-explicit-any OFF (fixtures en any).
-    // Suivies par le cliquet scripts/lint-ratchet.mjs (réactivation + plafond). Globs = ceux de l'ADR.
+    // D9 ter §3 — test files: 6 no-unsafe-*/no-explicit-any rules OFF (fixtures as any).
+    // Tracked by the ratchet scripts/lint-ratchet.mjs (re-enable + ceiling). Globs = those of the ADR.
     files: ["**/*.test.ts", "test/**"],
     rules: testDeferredOff,
   },
