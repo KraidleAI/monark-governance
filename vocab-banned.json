@@ -1,5 +1,5 @@
 {
-  "$comment": "MONARK vocabulary gate — ADR-M001 D8 / ADR-M002 D0 (09 discipline, Grok, adopted). Single source read by scripts/grep-forbidden.mjs and by any package test (atelier_no_forbidden_vocab). Regex source strings, flags 'i'. Adding a pattern = ADR line. 'banned' = patterns GLOBAUX (tous fichiers scannés). Un bloc scan.<x>.banned = patterns SCOPÉS à ce parcours seulement (ex. Hermes nu, borné à packages/monark/** par ADR-M003 D12 — non global car packages/contracts/src est GELÉ et porte un 'Hermes' non éditable).",
+  "$comment": "MONARK vocabulary gate — ADR-M001 D8 / ADR-M002 D0 (09 discipline, Grok, adopted). Single source read by scripts/grep-forbidden.mjs and by any package test (atelier_no_forbidden_vocab). Regex source strings, flags 'i'. Adding a pattern = ADR line. 'banned' = GLOBAL patterns (all scanned files). A scan.<x>.banned block = patterns SCOPED to that walk only (e.g. naked Hermes, bounded to packages/monark/** by ADR-M003 D12 — not global because packages/contracts/src is FROZEN and carries a non-editable 'Hermes').",
   "banned": [
     { "re": "\\b95\\s*%\\s*(correct|accur|winning|gagnan)", "why": "\"95% correct/accurate/winning\" claim" },
     { "re": "\\b100\\s*%\\s*(correct|accur)", "why": "\"100% correct/accurate\" claim" },
@@ -19,7 +19,7 @@
       "package": "monark",
       "extensions": [".ts", ".js", ".mjs", ".json", ".md"],
       "banned": [
-        { "re": "(?<!pyth-)(?<!clawpump-)\\bHermes\\b", "why": "\"Hermes\" nu interdit dans packages/monark/** — collision de nom (Pyth Hermes vs harnais ClawPump) ; qualifier en pyth-hermes / clawpump-hermes (ADR-M003 D12, pre-verif 4)" }
+        { "re": "(?<!pyth-)(?<!clawpump-)\\bHermes\\b", "why": "naked \"Hermes\" forbidden in packages/monark/** — name collision (Pyth Hermes vs ClawPump harness); qualify as pyth-hermes / clawpump-hermes (ADR-M003 D12, pre-verif 4)" }
       ]
     }
   }

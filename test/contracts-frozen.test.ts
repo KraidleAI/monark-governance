@@ -1,10 +1,10 @@
 /**
- * Test racine `contracts_frozen` — ADR-M002 D2 / D13 (CA-0).
- * Pendant toute la Phase 1, `schemas/*.json` et `packages/contracts/src/**` restent
- * byte-identiques à l'état du commit Phase 0 `357ef25`. Le manifeste ci-dessous a été
- * calculé sur cet état (sha256 du contenu, LF). Toute dérive = rouge ; une évolution
- * de contrat passe par un ADR + bump `schema_version`, puis mise à jour du manifeste.
- * Exécuté par `npm test` dans CHAQUE worktree (hors comptage par lot).
+ * Root test `contracts_frozen` — ADR-M002 D2 / D13 (CA-0).
+ * Throughout Phase 1, `schemas/*.json` and `packages/contracts/src/**` stay
+ * byte-identical to the state of the Phase 0 commit `357ef25`. The manifest below was
+ * computed on that state (sha256 of the content, LF). Any drift = red; a contract
+ * evolution goes through an ADR + a `schema_version` bump, then a manifest update.
+ * Run by `npm test` in EACH worktree (outside per-lot counting).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -47,19 +47,19 @@ function currentManifest(): Record<string, string> {
   return m;
 }
 
-test("contracts_frozen — schemas/ et packages/contracts/src/ identiques au manifeste Phase 0 (357ef25)", () => {
+test("contracts_frozen — schemas/ and packages/contracts/src/ identical to the Phase 0 manifest (357ef25)", () => {
   const now = currentManifest();
   const frozenKeys = Object.keys(FROZEN_MANIFEST).sort();
   const nowKeys = Object.keys(now).sort();
-  assert.deepEqual(nowKeys, frozenKeys, "fichier ajouté ou retiré dans la zone gelée (ADR requis)");
+  assert.deepEqual(nowKeys, frozenKeys, "file added or removed in the frozen zone (ADR required)");
   for (const k of frozenKeys) {
-    assert.equal(now[k], FROZEN_MANIFEST[k], `contenu modifié dans la zone gelée : ${k} (ADR requis)`);
+    assert.equal(now[k], FROZEN_MANIFEST[k], `content modified in the frozen zone: ${k} (ADR required)`);
   }
 });
 
-test("contracts_frozen — le manifeste n'est pas vide et couvre les 5 schémas", () => {
+test("contracts_frozen — the manifest is not empty and covers the 5 schemas", () => {
   const keys = Object.keys(FROZEN_MANIFEST);
-  assert.ok(keys.length >= 10, `manifeste trop court : ${keys.length}`);
+  assert.ok(keys.length >= 10, `manifest too short: ${keys.length}`);
   const schemas = keys.filter((k) => k.startsWith("schemas/")).length;
-  assert.equal(schemas, 5, "attendu : 4 schémas + forbidden-keys.json");
+  assert.equal(schemas, 5, "expected: 4 schemas + forbidden-keys.json");
 });

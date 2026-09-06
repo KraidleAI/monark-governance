@@ -49,7 +49,7 @@ npm run ci   # vocabulary gate → typecheck (tsc strict) → tests (node:test)
 ## Engineering choices (Phase 0)
 
 - **Polyglot fleet, schema-first contracts.** Shōgen is Rust, the Hermes/`claw-agent` runtime is
-  **Python**, HIKAE's engine + the vitrine are **TS**. So the contracts live as language-neutral
+  **Python**, HIKAE's engine + the storefront are **TS**. So the contracts live as language-neutral
   **JSON Schema**; the TS package in `packages/contracts` is the first binding. Rust/Python bind to
   the same schemas.
 - **Zero runtime dependencies.** The published contracts pull in nothing at runtime. Dev deps:
