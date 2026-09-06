@@ -104,6 +104,8 @@ Une borne à la médiane **bloque par construction environ la moitié des lots p
 4. **`no-unused-vars` (6) et `no-unnecessary-type-assertion` (4)** : corrigées partout, tests compris.
 `error_origin` : orchestrateur (D9 n'avait pas anticipé l'idiome `node:test` ni le coût des fixtures non typées).
 
+**Addendum D9 quater — 2026-09-06 (revue G2 du Lot V, réserves 1 et 3)** : (1) le décompte R-25 mesuré avec les rapports de gouvernance = 1311 > 1205 (code seul = 621) : les rapports G1/G2 par lot sont des artefacts de gouvernance, pas des changements de code ; le pathspec du job r25 devient `-- . ':(exclude)packages/*/docs/S2-*' ':(exclude)docs/G1-lot-*.md' ':(exclude)docs/G2-lot-*.md' ':(exclude)package-lock.json'` et test 38 l'asserte ; `error_origin` = orchestrateur (D9 n'avait pas anticipé le volume des rapports). (2) test 38 assertion (7) : le job g4 contient **littéralement** `npm run lint && npm run lint:ratchet` (un `||` ou le retrait de `lint` rougit). (3) English-only (réserve 2) : lot transverse E avant export, comme pour K.
+
 ### D10 — Roster, écriture en siège worker (escaladé à l'investisseur le 2026-09-05 par le validateur ; **tranché le même jour : option (a), en vigueur** — voir addendum)
 Workers `claude-opus-4-8` effort max ; lecteurs/chercheurs `claude-sonnet-5` max ; orchestrateur `claude-fable-5-1` high, seul committeur. **Règle nouvelle** : si le worker Opus d'un lot meurt deux fois sur limite d'usage, l'orchestrateur peut écrire en siège worker, **à condition** d'une relecture G2 delta par `claude-opus-4-8` avant G7 et d'une ligne de journal nommant le modèle résolu. Ce qui fut déviation en Phase 1 devient mode documenté.
 
