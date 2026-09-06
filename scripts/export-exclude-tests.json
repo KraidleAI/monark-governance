@@ -1,0 +1,4 @@
+{
+  "reason": "governance-only tests (ADR-M004 D7 addendum 2026-09-06): they read files excluded from the public export",
+  "tests": ["packages/hikae/test/s2.test.ts"]
+}
