@@ -16,7 +16,10 @@
     "gate:vocab": "node scripts/grep-forbidden.mjs",
     "lint": "eslint .",
     "lint:ratchet": "node scripts/lint-ratchet.mjs",
-    "ci": "npm run gate:vocab && npm run typecheck && npm run test"
+    "ci": "npm run gate:vocab && npm run typecheck && npm run test",
+    "export:check": "node scripts/export-public.mjs --check",
+    "export": "node scripts/export-public.mjs",
+    "lang:gate": "node scripts/lang-gate.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
