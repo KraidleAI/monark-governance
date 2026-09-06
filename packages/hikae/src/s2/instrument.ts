@@ -296,7 +296,7 @@ export function runSplitCampaign(params: CampaignParams): CampaignResult {
   for (const p of holdout) {
     const scores = indicatorScores(p.yhat, BTC_DIR_LABELS);
     const set = conformalSet(scores, qhat);
-    const isCovered = set.includes(p.y as string);
+    const isCovered = set.includes(p.y);
     if (isCovered) covered++;
     const abstain = set.length > params.tau;
     if (abstain) {
@@ -308,7 +308,7 @@ export function runSplitCampaign(params: CampaignParams): CampaignResult {
     rows.push({
       ...base(p),
       role: "holdout",
-      score: indicatorScore(p.yhat, p.y as string),
+      score: indicatorScore(p.yhat, p.y),
       set: `{${set.join(",")}}`,
       covered: isCovered,
       action: abstain ? "abstain" : "commit",
@@ -446,9 +446,9 @@ export const M2_PARAMS = { seed: 42, n: 120, accuracy: 0.95, nCalib: 60 } as con
 export function m2Campaigns(): { clean: CampaignResult; broken: CampaignResult } {
   const base = generateLabeledSeries({ seed: M2_PARAMS.seed, n: M2_PARAMS.n, accuracy: M2_PARAMS.accuracy });
   const clean = runSplitCampaign({ label: "M2-clean", points: base, alpha: 0.1, nMin: 50, tau: 1, nCalib: M2_PARAMS.nCalib });
-  const flipped = base.map((p) =>
+  const flipped = base.map((p): LabeledPoint =>
     p.index >= M2_PARAMS.nCalib && p.y !== "non_evaluable"
-      ? { ...p, y: (p.y === "up" ? "down" : "up") as "up" | "down" }
+      ? { ...p, y: p.y === "up" ? "down" : "up" }
       : p,
   );
   const broken = runSplitCampaign({ label: "M2-flip", points: flipped, alpha: 0.1, nMin: 50, tau: 1, nCalib: M2_PARAMS.nCalib });

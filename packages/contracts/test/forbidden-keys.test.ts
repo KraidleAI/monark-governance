@@ -1,6 +1,5 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { GateDecision } from "../src/index.ts";
 import { findForbiddenKey, assertNoForbiddenKey, FORBIDDEN_KEYS, serializeGateDecision } from "../src/index.ts";
 import { validVerdictSet, validGateDecision } from "./fixtures.ts";
 
@@ -44,5 +43,5 @@ test("a forbidden key inside a GateDecision's nested verdict is caught end-to-en
   // The recursive guard locates it at the nested path...
   assert.equal(findForbiddenKey(bad), "$.verdict.p_correct");
   // ...and serializeGateDecision REFUSES it (closed-check + guard) rather than emitting it.
-  assert.throws(() => serializeGateDecision(bad as unknown as GateDecision), /p_correct/);
+  assert.throws(() => serializeGateDecision(bad), /p_correct/);
 });

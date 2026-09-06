@@ -8,12 +8,6 @@ import { buildVerdict, buildSetRegion, serialize } from "../src/index.ts";
 import { calibDigest, serializeVerdict } from "@monark/contracts";
 import type { CoverageVerdict } from "@monark/contracts";
 import { runS2 } from "../src/index.ts";
-import {
-  generateLabeledSeries,
-  runSplitCampaign,
-  runMutants,
-  demoStates,
-} from "../src/index.ts";
 
 const SCORES = [0, 0, 1, 0, 1];
 
