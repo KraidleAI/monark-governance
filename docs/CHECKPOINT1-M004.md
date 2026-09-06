@@ -53,3 +53,6 @@
 
 ## 2. Traitement par l'orchestrateur (2026-09-06)
 Voir la version corrigée de l'ADR (réécrite intégralement, les 17 items intégrés ; mesures collées) et le journal. Escalades Q1-Q3 transmises à l'investisseur telles quelles.
+
+## 3. Quick-verify (validateur, instance fraîche, 2026-09-06)
+CORRECTIONS-INTÉGRÉES sauf 3 résiduels de forme : R1 double propriétaire de `workspaces` (E-root vs F-public) ; R2 « verbatim » inexact en §6 et deux comptes transmis ; R3 rattachement « (i) résolu » vs Q2 ouverte. **Traitement** : R1 → F-public seul propriétaire, clause retirée de D8 ; R2 → verbatim de l'avis collé, reformulations attribuées à l'orchestrateur, compte actualisé (15 lots) désigné comme faisant foi ; R3 → « repris, réduit à Q2 ». Escalades confirmées non tranchées par l'ADR.

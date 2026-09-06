@@ -1,7 +1,7 @@
 # ADR-M004 — Infrastructure et plateforme MONARK (dépôts, site, backend, exposition aux agents, export public)
 
 - **Statut** : **ACCEPTÉ-AVEC-CORRECTIONS au checkpoint 1** (validateur-humain, 2026-09-06, 17 items intégrés dans cette version — avis verbatim : `docs/CHECKPOINT1-M004.md`) ; **3 escalades investisseur ouvertes** (Q1 ordre de coupe, Q2 hébergement du site, Q3 tokenomics — §6). Paramètres investisseur attendus **≤ 2026-09-09** (§4).
-- **Rattachement** : ADR-M003 (Phase 2 ; D0.5 langue et dépôts ; D8/W supersédés ici ; D5 addendum R-P1 ; pendant (i) « hébergement » **résolu par le présent ADR**), ADR-M001 (contrats gelés), `docs/R-P1-clawpump-hermes.md`, `ROADMAP-MONARK.md` §7.
+- **Rattachement** : ADR-M003 (Phase 2 ; D0.5 langue et dépôts ; D8/W supersédés ici ; D5 addendum R-P1 ; pendant (i) « hébergement » **repris ici, réduit à la question Q2**), ADR-M001 (contrats gelés), `docs/R-P1-clawpump-hermes.md`, `ROADMAP-MONARK.md` §7.
 - **Provenance** : rédigé par l'orchestrateur `claude-fable-5-1` le 2026-09-06 (advisor intégré : 1 appel de cadrage), corrigé le même jour après checkpoint 1. Version 1 (`099cdc4`) contenait une **citation fausse** (« ADR-M003 §5 écartait une base de données » — inexistante ; `error_origin` = orchestrateur), corrigée en D4. Aucun code écrit.
 - **Décisions investisseur fondatrices (verbatim, 2026-09-05)** : « une entreprise, une compagnie, où les agents sont les produits, chaque agent collabore, note, améliore son produit » ; « si une personne veut voir, auditer les décisions de son agent, il le fait où ? » ; « exposer tout Shōgen […] via MONARK » ; « MONARK sera la vitrine de nos produits, et c'est par ça qu'on va financer le développement continu » ; « tout ce qui est github, site, plateforme, doit être en anglais » ; « je suis ta recommandation des deux dépôts ».
 
@@ -50,7 +50,7 @@ D0.1-D0.5 d'ADR-M003 s'appliquent. **L'orchestrateur ne touche jamais le VPS** :
 Règle d'honnêteté : rien n'est une maquette ; chaque chiffre vient d'un fichier commis et hashé (test 44) ; chaque page d'agent porte son vrai état.
 
 ### D2 — Frontend : Next.js, hébergement **à trancher (Q2)**
-Pages dynamiques, temps réel, comptes à venir ⇒ **Next.js** (App Router) sous `apps/site` ; **F-public modifie `workspaces`** en `["packages/*", "apps/*"]` (item 4). **Hébergement** : la page fair-use de Vercel [lu, validateur, 2026-09-06, `last_updated 2026-07-29`] réserve le plan Hobby à l'usage **non commercial** ; le site est commercial par décision investisseur ⇒ **Vercel Pro (payant, tarif à lire à la souscription)** ou **site auto-hébergé sur le VPS derrière Caddy** (Next.js en conteneur, ou Astro statique si l'investisseur renonce au temps réel — §5 rouvert dans ce cas). Décision investisseur (item 5, Q2). Design system propre, pas de template.
+Pages dynamiques, temps réel, comptes à venir ⇒ **Next.js** (App Router) sous `apps/site` ; **F-public est le seul propriétaire de la modification `workspaces`** en `["packages/*", "apps/*"]` (item 4, quick-verify R1). **Hébergement** : la page fair-use de Vercel [lu, validateur, 2026-09-06, `last_updated 2026-07-29`] réserve le plan Hobby à l'usage **non commercial** ; le site est commercial par décision investisseur ⇒ **Vercel Pro (payant, tarif à lire à la souscription)** ou **site auto-hébergé sur le VPS derrière Caddy** (Next.js en conteneur, ou Astro statique si l'investisseur renonce au temps réel — §5 rouvert dans ce cas). Décision investisseur (item 5, Q2). Design system propre, pas de template.
 
 ### D3 — Backend : un VPS, conteneurs, reverse proxy — **périmètre par lot**
 VPS (fournisseur = paramètre ; Ubuntu LTS ; SSH par clé ; pare-feu ; fail2ban ; snapshots), Docker Compose, Caddy TLS automatique. Services **et leur lot** (item 14) :
@@ -80,7 +80,7 @@ HTTP `api.<domaine>` (OpenAPI ; clés API par acheteur après le pivot ; quotas 
 - Historique du dépôt public **neuf** (un commit par export, message = tag de gouvernance).
 
 ### D8 — Lot E (English only) et R-25 (item 11)
-Scindé par package, une PR chacune, **aucun lot exempté** ; **hikae scindé `src` / `test`** (mesure §1.3) ; règle générale : si la mesure d'un lot dépasse 1 205, scission par répertoire (`src`, `test`, sous-répertoire `s2/`). **E-contracts ne touche jamais aux identifiants gelés** (test 0 `contracts_frozen`). Ordre : E-root (CI, scripts, tests racine ; inclut la modification `workspaces` si F-public n'est pas encore là) ∥ E-contracts → E-hikae-src → E-hikae-test → E-ukemi → E-atelier → E-monark.
+Scindé par package, une PR chacune, **aucun lot exempté** ; **hikae scindé `src` / `test`** (mesure §1.3) ; règle générale : si la mesure d'un lot dépasse 1 205, scission par répertoire (`src`, `test`, sous-répertoire `s2/`). **E-contracts ne touche jamais aux identifiants gelés** (test 0 `contracts_frozen`). Ordre : E-root (CI, scripts, tests racine) ∥ E-contracts → E-hikae-src → E-hikae-test → E-ukemi → E-atelier → E-monark.
 
 ### D9 — Chiffres et fournisseurs
 Aucun prix écrit ici (règle « aucun chiffre de seconde main ») ; les tarifs se lisent à la réservation. Réservations, dans l'ordre, investisseur : domaine + DNS ; VPS ; hébergement du site (Q2) ; supervision ; snapshots.
@@ -136,8 +136,10 @@ Aucun prix écrit ici (règle « aucun chiffre de seconde main ») ; les tarifs 
 - **JSONL + chaîne de hash / SQLite** comme journal post-pivot : écartés (D4), SQLite gardé en repli.
 - **Orchestrateur avec accès SSH au VPS** : viole D0.3 ; écarté (D6).
 
-## 6. Escalades investisseur (validateur, 2026-09-06 — verbatim des questions)
+## 6. Escalades investisseur (validateur, 2026-09-06)
+**Verbatim de l'avis (CHECKPOINT1-M004.md l.50)** : « Q1 ordre de coupe (proposition : garder X → E-root/contracts → F-public → F-console → B-api ; couper d'abord B-mcp, P, S2b réel, I, E-ukemi/monark/atelier) ; Q2 Vercel Pro payant ou site auto-hébergé sur le VPS ; Q3 tokenomics fourni avant le pivot ou “to be announced” ».
+**Reformulées ci-dessous par l'orchestrateur** (précisions entre parenthèses = orchestrateur, pas le validateur). **Compte actualisé (§1.2)** : 15 lots, pivot = (h), défaut 2026-09-20 23:59 UTC — c'est ce compte qui fait foi, pas le « neuf/treize » de l'avis initial.
 - **Q1 (compte)** : « Neuf lots (treize après scission R-25) sont marqués “avant le 21 sept.” pour 14 jours calendaires, à 1-2 jours par lot mesurés. Quel ordre de coupe acceptez-vous si le compte ne tient pas ? Proposition à confirmer ou réordonner : garder d'abord X → E-root/contracts → F-public → F-console lecture seule → B-api ; couper en premier, dans l'ordre : B-mcp, P (UsePod réel), S2b réel, I (flux réel `s3-binance`), E-ukemi/monark/atelier. » Sans réponse : l'ordre D10 s'exécute et ce qui manque au pivot est déclaré sur le site.
 - **Q2 (hébergement du site)** : « Vercel Hobby est réservé à l'usage non commercial [lu] ; le site est commercial. Plan Vercel Pro (payant), ou site servi depuis le VPS derrière Caddy (Next.js auto-hébergé, ou Astro statique sans temps réel) ? »
-- **Q3 (tokenomics)** : « Le contenu tokenomics (offre, utilité, distribution) est-il fourni avant le pivot, ou la page porte-t-elle “to be announced” jusqu'à (h) ? »
+- **Q3 (tokenomics)** : « Le contenu tokenomics est-il fourni avant le pivot, ou la page porte-t-elle “to be announced” jusqu'à (h) ? » (orchestrateur : par contenu on entend au minimum offre, utilité, distribution.)
 Aucune escalade ne bloque E-root, E-contracts ni X.
