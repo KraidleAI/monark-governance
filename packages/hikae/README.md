@@ -1,54 +1,54 @@
-# @monark/hikae — moteur HAC-CP (Phase 1)
+# @monark/hikae — HAC-CP engine (Phase 1)
 
-HIKAE conforme une prédiction en un **verdict de couverture**, puis **gate** une action :
-`COMMIT | DEFER | ABSTAIN`. Le produit n'est pas l'ensemble — c'est le **droit d'agir sous
-couverture attestée**, et **le droit de n'avoir aucun avis**. Code le nôtre ; l'app Grok est un
-input de conception, jamais liftée (ADR-M002 D0 ; GROK-DECORTICATION §9).
+HIKAE conforms a prediction into a **coverage verdict**, then **gates** an action:
+`COMMIT | DEFER | ABSTAIN`. The product is not the set — it is the **right to act under
+attested coverage**, and **the right to hold no opinion**. Code is ours; the Grok app is a
+design input, never lifted (ADR-M002 D0; GROK-DECORTICATION §9).
 
-## Les trois couches
+## The three layers
 
-| Couche | Rôle | Garantie **déclarée honnêtement** |
+| Layer | Role | **Honestly declared** guarantee |
 |---|---|---|
-| **L1** `l1-split` | split conformal par classe, `q̂ = ceil((n+1)(1−α))`-ième score ; fail-closed `under_calib` | **type (i)** : marginale, échantillon-fini, **sous échangeabilité à l'intérieur de la classe** ; **pas** de couverture conditionnelle à x ; **jamais `p_correct`**. Sources [lu] : Barber 2020 Thm 2.1 ; jackknife+ note 1 p.4 (correction `(n+1)`). |
-| **L2** `l2-monitor` | pas IM-OCP sur labels **arrivés**, budget `B_t` | **MONITEUR — aucune garantie revendiquée** (ADR-M002 D4 branche b). `r_t` n'a aucun consommateur d'ensemble en Phase 1 ; la garantie long-run (ii) de Wang n'est **pas** invoquée. Le retard déterministe + `w/T` = **composition (H4), esquisse**, pas un théorème publié. |
-| **L3** `l3-gate` | politique fermée → `GateDecision` | soundness du gate (H2) ; **l'erreur conditionnelle à COMMIT n'est PAS bornée par α** (H2.3) : chiffre de desk **étiqueté**, jamais vendu comme `1−α`. |
+| **L1** `l1-split` | per-class conformal split, `q̂ = ceil((n+1)(1−α))`-th score; fail-closed `under_calib` | **type (i)**: marginal, finite-sample, **under exchangeability within the class**; **no** x-conditional coverage; **never `p_correct`**. Sources [lu]: Barber 2020 Thm 2.1; jackknife+ note 1 p.4 (`(n+1)` correction). |
+| **L2** `l2-monitor` | IM-OCP step on **arrived** labels, budget `B_t` | **MONITOR — no guarantee claimed** (ADR-M002 D4 branch b). `r_t` has no set consumer in Phase 1; Wang's long-run (ii) guarantee is **not** invoked. The deterministic delay + `w/T` = **composition (H4), sketch**, not a published theorem. |
+| **L3** `l3-gate` | closed policy → `GateDecision` | gate soundness (H2); **the COMMIT-conditional error is NOT bounded by α** (H2.3): desk figure **labelled**, never sold as `1−α`. |
 
 ## Beachhead `btc-dir-15m`
 
-Score **indicatif** `s(x,ŷ)=0, s(x,autre)=1` (k=1) ⇒ `q̂ ∈ {0,1}` : `q̂=0 ⇒ C={ŷ}`,
-`q̂=1 ⇒ C={up,down}`. Sur un binaire, la richesse de la CP ne se manifeste pas — **c'est le
-silence calibré, pas un défaut** (GROK-DECORTICATION §2). Label `y = sign(close − open)` de la
-bougie `[t, t+15)` ; `close == open ⇒ non_evaluable`. Features = 5 closes terminées **≤ t** (D7,
-anti look-ahead). Prédicteurs Phase 1 : `internal:momentum-4c` (baseline déclarée) et
-`internal:oracle-didactique` (rend le chemin COMMIT visible — **pas un produit**). Le prédicteur
-UsePod/Hermes (clé API, Python) est **Phase 2**.
+**Indicator** score `s(x,ŷ)=0, s(x,other)=1` (k=1) ⇒ `q̂ ∈ {0,1}`: `q̂=0 ⇒ C={ŷ}`,
+`q̂=1 ⇒ C={up,down}`. On a binary, the richness of CP does not show — **it is the
+calibrated silence, not a defect** (GROK-DECORTICATION §2). Label `y = sign(close − open)` of the
+`[t, t+15)` candle; `close == open ⇒ non_evaluable`. Features = 5 completed closes **≤ t** (D7,
+anti look-ahead). Phase 1 predictors: `internal:momentum-4c` (declared baseline) and
+`internal:oracle-didactique` (makes the COMMIT path visible — **not a product**). The
+UsePod/Hermes predictor (API key, Python) is **Phase 2**.
 
-## Pas de trading (ADR-M002 D0)
+## No trading (ADR-M002 D0)
 
-HIKAE **gate** `perps_order_preview` / `perps_order_execute` — MONARK **ne les appelle jamais**,
-ni réel ni paper. Le trading est un produit **futur, KAIZEN**. Le PnL n'entre pas dans la politique.
+HIKAE **gates** `perps_order_preview` / `perps_order_execute` — MONARK **never calls them**,
+neither real nor paper. Trading is a **future product, KAIZEN**. PnL does not enter the policy.
 
-## Instrument S2 (`s2/`)
+## S2 instrument (`s2/`)
 
-Harnais **jetable** (R-22), fixtures **synthétiques par graine** (`fixtures-synth`) — aucun réseau,
-la sonde J0 sur Coinbase (décision (a)) est ultérieure. Les prédicteurs D7 sont **réellement
-exécutés** (`generateCandleSeries → extractMomentumFeatures → momentum4c`, label par `labelOf` ;
-oracle didactique sur la même série) et entrent dans la chaîne gelée par une `Prediction`
-(`serializePrediction`). Rapport + **journal brut par point** générés par `scripts/s2-report.mjs`
-(`node packages/hikae/scripts/s2-report.mjs`) :
+**Disposable** harness (R-22), **per-seed synthetic** fixtures (`fixtures-synth`) — no network,
+the J0 probe on Coinbase (decision (a)) comes later. The D7 predictors are **actually
+run** (`generateCandleSeries → extractMomentumFeatures → momentum4c`, label by `labelOf`;
+didactic oracle on the same series) and enter the frozen chain through a `Prediction`
+(`serializePrediction`). Report + **per-point raw journal** generated by `scripts/s2-report.mjs`
+(`node packages/hikae/scripts/s2-report.mjs`):
 [`docs/S2-RAPPORT-fixtures-synth.md`](docs/S2-RAPPORT-fixtures-synth.md),
-[`docs/S2-journal-fixtures-synth.tsv`](docs/S2-journal-fixtures-synth.tsv) ; le test
-`s2_report_reproducible` exige l'égalité **octet à octet** rapport committé ↔ régénéré et le sha256
-du journal — chaque chiffre porte sa ligne D10 (n, étiquette, date injectée, hash). **Résultat
-négatif = résultat** : avec `internal:momentum-4c` sur marche aléatoire (≈ pièce), `q̂=1`,
-abstention 100 % — la démo ne montre pas de position. Les 9 états de mécanisme sont des verdicts à
-**scores déclarés** (pas ŷ=y), digest figé. Paramètres v0 (`α=0.10, n_min=50, τ=1, k=1, η=0.05, B_floor=0, w=15 min`) :
-**déclarés, non fondés** (Grok = input) ; ils changent par ADR.
+[`docs/S2-journal-fixtures-synth.tsv`](docs/S2-journal-fixtures-synth.tsv); the
+`s2_report_reproducible` test requires **byte-for-byte** equality committed report ↔ regenerated and the
+journal sha256 — each figure carries its D10 line (n, label, injected date, hash). **A negative
+result = a result**: with `internal:momentum-4c` on a random walk (≈ coin), `q̂=1`,
+abstention 100 % — the demo shows no position. The 9 mechanism states are verdicts with
+**declared scores** (not ŷ=y), frozen digest. v0 parameters (`α=0.10, n_min=50, τ=1, k=1, η=0.05, B_floor=0, w=15 min`):
+**declared, unfounded** (Grok = input); they change by ADR.
 
 ## Tests
 
-`npm run ci` (racine) : gate vocab + `tsc --strict` + `node:test`. Les 17 tests nommés d'ADR-M002
-D11 (Lot H) plus les gardes S2. Le jeu de mécanisme (3 COMMIT / 2 DEFER / 3 ABSTAIN / 1
-`under_calib`) est produit par le vrai `gate()` et son hash figé dans `test/fixtures.manifest.json`
-(dérive sans ADR = bug). Contrats gelés consommés via `@monark/contracts` — jamais réimplémentés,
-jamais modifiés (`contracts_frozen`).
+`npm run ci` (root): vocab gate + `tsc --strict` + `node:test`. The 17 named tests of ADR-M002
+D11 (Lot H) plus the S2 guards. The mechanism set (3 COMMIT / 2 DEFER / 3 ABSTAIN / 1
+`under_calib`) is produced by the real `gate()` and its hash frozen in `test/fixtures.manifest.json`
+(drift without ADR = bug). Frozen contracts consumed via `@monark/contracts` — never reimplemented,
+never modified (`contracts_frozen`).

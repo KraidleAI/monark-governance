@@ -1,42 +1,42 @@
 /**
- * HIKAE L2 — MONITEUR de risque restant (mécanisme IM-OCP).
+ * HIKAE L2 — remaining-risk MONITOR (IM-OCP mechanism).
  *
- * *** MONITEUR, AUCUNE GARANTIE REVENDIQUÉE (ADR-M002 D4, branche b). ***
- * En Phase 1, `q̂` split (L1) définit SEUL C_t. `r_t` (IM-OCP) et `B_t` sont des
- * statistiques de monitoring qui pilotent π (L3) et le drapeau de drift ; `r_t` n'a
- * AUCUN consommateur d'ensemble, donc la garantie long-run type (ii) de Wang n'est
- * attachée à rien et n'est PAS revendiquée. La branche (a) (`C_t = {y : s <= r_t}`,
- * garantie (ii) portée par C_t) est NOMMÉE pour la Phase 2, par ADR après S2 réel.
+ * *** MONITOR, NO GUARANTEE CLAIMED (ADR-M002 D4, branch b). ***
+ * In Phase 1, the split `q̂` (L1) ALONE defines C_t. `r_t` (IM-OCP) and `B_t` are
+ * monitoring statistics that drive π (L3) and the drift flag; `r_t` has
+ * NO set consumer, so Wang's long-run type-(ii) guarantee is
+ * attached to nothing and is NOT claimed. Branch (a) (`C_t = {y : s <= r_t}`,
+ * guarantee (ii) carried by C_t) is NAMED for Phase 2, by ADR after a real S2.
  *
- * Source [lu] du mécanisme : Wang, Zecchin, Simeone, IEEE SPL 32 (2025) 2888-2892,
- * éq. 10 / Thm 1 (cité, non republié) — transporté sur la sous-suite des labels ARRIVÉS
- * (p = 1 sur cette sous-suite, pas « p_t = 0 avant w » : R5:151-158 exige p_min > 0).
- * Le terme d'horloge `w/T` (retard déterministe) est une COMPOSITION (H4) — notre choix
- * de conception, pas un théorème publié. Les tests 9-10 vérifient le MÉCANISME, pas une garantie.
+ * [lu] source of the mechanism: Wang, Zecchin, Simeone, IEEE SPL 32 (2025) 2888-2892,
+ * eq. 10 / Thm 1 (cited, not republished) — transported onto the subsequence of ARRIVED labels
+ * (p = 1 on this subsequence, not "p_t = 0 before w": R5:151-158 requires p_min > 0).
+ * The clock term `w/T` (deterministic delay) is a COMPOSITION (H4) — our design
+ * choice, not a published theorem. Tests 9-10 verify the MECHANISM, not a guarantee.
  */
 
-/** E_t = 1{Y_t not in C_t} — indicatrice de miscover (0 = couvert, 1 = miscover). */
+/** E_t = 1{Y_t not in C_t} — miscover indicator (0 = covered, 1 = miscover). */
 export type Miscover = 0 | 1;
 
 /**
- * Pas IM-OCP (cas euclidien de l'éq. 10, sur UN label arrivé) :
+ * IM-OCP step (Euclidean case of eq. 10, on ONE arrived label):
  *   `r_t = r_{t-1} - eta * (alpha - E)`.
- * Direction (test `imocp_update_direction`) : miscover (E=1) ⇒ r MONTE ; couvert (E=0)
- * ⇒ r BAISSE. C'est le mécanisme, jamais une garantie de couverture (branche b).
+ * Direction (test `imocp_update_direction`): miscover (E=1) ⇒ r RISES; covered (E=0)
+ * ⇒ r FALLS. This is the mechanism, never a coverage guarantee (branch b).
  */
 export function imocpStep(r: number, alpha: number, E: Miscover, eta: number): number {
   return r - eta * (alpha - E);
 }
 
 /**
- * Sous-suite des E des labels ARRIVÉS à l'instant de décision de la fenêtre `t` (H4, D4).
+ * Subsequence of the E's of labels ARRIVED at the decision instant of window `t` (H4, D4).
  *
- * `errorTimeline[i]` = E de la i-ème fenêtre ÉVALUABLE (les points `non_evaluable` sont
- * exclus EN AMONT — ils n'entrent jamais dans `t°`). Un label de la fenêtre `i` est
- * *réglé* à `i + labelDelay` ET n'est utilisable que si ce n'est pas celui de la fenêtre
- * courante (`i < t` : le gate décide AVANT son propre label — c'est H4). Donc utilisable
- * ssi `i + labelDelay <= t` ET `i < t`. B_t ne lit JAMAIS un label en attente — ni `y_t`
- * lui-même, MÊME à `labelDelay = 0` (le « no-peek »).
+ * `errorTimeline[i]` = E of the i-th EVALUABLE window (`non_evaluable` points are
+ * excluded UPSTREAM — they never enter `t°`). A label of window `i` is
+ * *settled* at `i + labelDelay` AND is usable only if it is not the one of the current
+ * window (`i < t`: the gate decides BEFORE its own label — this is H4). So usable
+ * iff `i + labelDelay <= t` AND `i < t`. B_t NEVER reads a pending label — nor `y_t`
+ * itself, EVEN at `labelDelay = 0` (the "no-peek").
  */
 export function arrivedErrors(
   errorTimeline: readonly Miscover[],
@@ -45,21 +45,21 @@ export function arrivedErrors(
 ): Miscover[] {
   const out: Miscover[] = [];
   for (let i = 0; i < errorTimeline.length; i++) {
-    const settled = i + labelDelay <= t; // le label est réglé
-    const notCurrent = i < t; // pas la fenêtre en cours de décision (no-peek H4)
+    const settled = i + labelDelay <= t; // the label is settled
+    const notCurrent = i < t; // not the window currently being decided (no-peek H4)
     if (settled && notCurrent) {
       const e = errorTimeline[i];
-      if (e !== undefined) out.push(e); // garde noUncheckedIndexedAccess
+      if (e !== undefined) out.push(e); // noUncheckedIndexedAccess guard
     }
   }
   return out;
 }
 
 /**
- * Budget restant `B_t = alpha - (1/t°) * sum_{labels arrivés} E_i`, où `t°` = nombre de
- * labels ARRIVÉS. `t° = 0` (aucun label arrivé) ⇒ `B_t = alpha` (rien de consommé).
- * Statistique suffisante pour L3 (prédicat d'autorisation H5) et le drapeau de drift —
- * JAMAIS un rendement (ADR-CERT-MONARK).
+ * Remaining budget `B_t = alpha - (1/t°) * sum_{arrived labels} E_i`, where `t°` = number of
+ * ARRIVED labels. `t° = 0` (no label arrived) ⇒ `B_t = alpha` (nothing consumed).
+ * Sufficient statistic for L3 (authorization predicate H5) and the drift flag —
+ * NEVER a yield (ADR-CERT-MONARK).
  */
 export function remainingBudget(arrived: readonly Miscover[], alpha: number): number {
   const tDeg = arrived.length;
@@ -70,8 +70,8 @@ export function remainingBudget(arrived: readonly Miscover[], alpha: number): nu
 }
 
 /**
- * B_t directement depuis une timeline d'erreurs et l'instant de décision `t` (compose
- * `arrivedErrors` + `remainingBudget`) — le chemin garanti « no-peek » pour L3/S2.
+ * B_t directly from an error timeline and the decision instant `t` (composes
+ * `arrivedErrors` + `remainingBudget`) — the path that guarantees no-peek for L3/S2.
  */
 export function budgetAt(
   errorTimeline: readonly Miscover[],

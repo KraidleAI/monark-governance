@@ -1,34 +1,34 @@
 /**
- * HIKAE — prédicteurs Phase 1 (ADR-M002 D7 : baseline momentum DÉCLARÉE ; le prédicteur
- * LLM UsePod/Hermes, Python + clé API, est Phase 2).
+ * HIKAE — Phase 1 predictors (ADR-M002 D7: DECLARED momentum baseline; the UsePod/Hermes
+ * LLM predictor, Python + API key, is Phase 2).
  *
- * Convention d'indice D7/D8 (anti look-ahead) : `close[k]` = close de la bougie TERMINÉE
- * à l'instant `k`. Pour la fenêtre `[t, t+15)`, les features sont `close[t], close[t-15],
- * close[t-30], close[t-45], close[t-60]` (bougies terminées à un instant <= t) et
- * `ŷ = signe de close[t] - close[t-60]`. Le label `sign(close - open)` de `[t, t+15)`
- * n'est JAMAIS une feature (garde : test `features_strictly_before_t`).
+ * D7/D8 index convention (anti look-ahead): `close[k]` = close of the candle CLOSED
+ * at instant `k`. For the window `[t, t+15)`, the features are `close[t], close[t-15],
+ * close[t-30], close[t-45], close[t-60]` (candles closed at an instant <= t) and
+ * `ŷ = sign of close[t] - close[t-60]`. The label `sign(close - open)` of `[t, t+15)`
+ * is NEVER a feature (guard: test `features_strictly_before_t`).
  *
- * Aucune HORLOGE n'est lue ici ni dans `src/` (`Date.now()`, `new Date()` sans argument : interdits ;
- * formater un instant PORTÉ, `new Date(t*1000).toISOString()`, est licite — stabilité des hashes) —
- * tout instant (`close_time`, `t`) est une donnée portée / un paramètre injecté.
+ * No CLOCK is read here or anywhere in `src/` (`Date.now()`, `new Date()` with no argument: forbidden;
+ * formatting a CARRIED instant, `new Date(t*1000).toISOString()`, is allowed — hash stability) —
+ * every instant (`close_time`, `t`) is carried data / an injected parameter.
  */
 
-/** Identifiants de prédicteur (préfixe `internal:` conservé d'ADR-M001). */
+/** Predictor identifiers (`internal:` prefix kept from ADR-M001). */
 export const MOMENTUM_4C_ID = "internal:momentum-4c";
 export const ORACLE_DIDACTIQUE_ID = "internal:oracle-didactique";
 
-/** Une bougie 15 min terminée (grille UTC :00/:15/:30/:45). */
+/** One closed 15 min candle (UTC grid :00/:15/:30/:45). */
 export interface Candle {
-  /** Instant de FIN de bougie (secondes UTC, aligné 15 min). Donnée portée, jamais une horloge lue. */
+  /** Candle END instant (UTC seconds, 15 min aligned). Carried data, never a read clock. */
   close_time: number;
   open: number;
   close: number;
 }
 
-/** Direction, ou non-évaluabilité (égalité stricte ⇒ `non_evaluable`, jamais un `flat` inventé). */
+/** Direction, or non-evaluability (strict equality ⇒ `non_evaluable`, never an invented `flat`). */
 export type Direction = "up" | "down" | "non_evaluable";
 
-/** `sign(a - b)` projeté sur `{up, down}` ; `a === b` ⇒ `non_evaluable`. */
+/** `sign(a - b)` projected onto `{up, down}`; `a === b` ⇒ `non_evaluable`. */
 export function signDirection(a: number, b: number): Direction {
   if (a > b) return "up";
   if (a < b) return "down";
@@ -36,23 +36,23 @@ export function signDirection(a: number, b: number): Direction {
 }
 
 /**
- * Label réalisé de la bougie `[t, t+15)` : `y = sign(close - open)` (D8).
- * `close === open` ⇒ `non_evaluable` (le point est exclu, compté ; pas de 3e label).
+ * Realized label of the candle `[t, t+15)`: `y = sign(close - open)` (D8).
+ * `close === open` ⇒ `non_evaluable` (the point is excluded, counted; no 3rd label).
  */
 export function labelOf(candle: Candle): Direction {
   return signDirection(candle.close, candle.open);
 }
 
-/** Les 5 closes de features momentum : `[close[t], close[t-15], close[t-30], close[t-45], close[t-60]]`. */
+/** The 5 momentum feature closes: `[close[t], close[t-15], close[t-30], close[t-45], close[t-60]]`. */
 export interface MomentumFeatures {
   readonly closes: readonly [number, number, number, number, number];
 }
 
 /**
- * close de la bougie terminée à `t - offsetMinutes*60`, avec GARDE anti look-ahead (D7) :
- * un `offsetMinutes < 0` (donc `close_time > t`, bougie terminée APRÈS `t`) est un
- * look-ahead — c'est une violation d'INTÉGRITÉ, pas un trou de données : on LÈVE.
- * `offsetMinutes = 0` (`close[t]`) est accepté.
+ * close of the candle closed at `t - offsetMinutes*60`, with an anti look-ahead GUARD (D7):
+ * an `offsetMinutes < 0` (hence `close_time > t`, candle closed AFTER `t`) is a
+ * look-ahead — that is an INTEGRITY violation, not a data gap: we THROW.
+ * `offsetMinutes = 0` (`close[t]`) is accepted.
  */
 export function featureCloseAt(
   candlesByCloseTime: ReadonlyMap<number, Candle>,
@@ -62,17 +62,17 @@ export function featureCloseAt(
   const closeTime = t - offsetMinutes * 60;
   if (closeTime > t) {
     throw new Error(
-      `featureCloseAt: look-ahead interdit — offset ${offsetMinutes}m donne close_time=${closeTime} > t=${t} (D7).`,
+      `featureCloseAt: look-ahead forbidden — offset ${offsetMinutes}m gives close_time=${closeTime} > t=${t} (D7).`,
     );
   }
   const c = candlesByCloseTime.get(closeTime);
   if (c === undefined) {
-    throw new Error(`featureCloseAt: bougie manquante à close_time=${closeTime} (offset ${offsetMinutes}m).`);
+    throw new Error(`featureCloseAt: missing candle at close_time=${closeTime} (offset ${offsetMinutes}m).`);
   }
   return c.close;
 }
 
-/** Extrait les 5 features momentum à l'instant de décision `t` (toutes terminées <= t). */
+/** Extracts the 5 momentum features at decision instant `t` (all closed <= t). */
 export function extractMomentumFeatures(
   candlesByCloseTime: ReadonlyMap<number, Candle>,
   t: number,
@@ -89,17 +89,17 @@ export function extractMomentumFeatures(
 }
 
 /**
- * Baseline `internal:momentum-4c` (D7) : `ŷ = signe de close[t] - close[t-60]`.
- * Égalité ⇒ `non_evaluable`. Aucune bougie terminée APRÈS `t` n'entre (garde `featureCloseAt`).
+ * Baseline `internal:momentum-4c` (D7): `ŷ = sign of close[t] - close[t-60]`.
+ * Equality ⇒ `non_evaluable`. No candle closed AFTER `t` enters (guard `featureCloseAt`).
  */
 export function momentum4c(f: MomentumFeatures): Direction {
   return signDirection(f.closes[0], f.closes[4]);
 }
 
 /**
- * Mutant `internal:oracle-didactique` (D7) : `ŷ = y` PAR CONSTRUCTION (via `labelOf`).
- * Ce n'est PAS un produit — il rend le chemin COMMIT visible pour la démo de MÉCANISME
- * (S2b), jamais une revendication de performance.
+ * Mutant `internal:oracle-didactique` (D7): `ŷ = y` BY CONSTRUCTION (via `labelOf`).
+ * This is NOT a product — it makes the COMMIT path visible for the MECHANISM demo
+ * (S2b), never a performance claim.
  */
 export function oracleDidactique(candle: Candle): Direction {
   return labelOf(candle);

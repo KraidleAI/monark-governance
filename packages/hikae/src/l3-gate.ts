@@ -1,65 +1,65 @@
 /**
- * HIKAE L3 — politique d'engagement différé 控え (ADR-M002 D5, prédicat FERMÉ).
+ * HIKAE L3 — deferred-commitment policy 控え (ADR-M002 D5, CLOSED predicate).
  *
- *   ABSTAIN  si parse non_evaluable | timeout | n<n_min | intent∉C | B_t<B_floor
- *            | (|C|>tau ET horloge close)          ← DEFER converti ⇒ clock_expired
- *   DEFER    si |C|>tau ET horloge ouverte
- *   COMMIT   si intent∈C, |C|<=tau, B_t>=B_floor
+ *   ABSTAIN  if parse non_evaluable | timeout | n<n_min | intent∉C | B_t<B_floor
+ *            | (|C|>tau AND clock closed)          ← converted DEFER ⇒ clock_expired
+ *   DEFER    if |C|>tau AND clock open
+ *   COMMIT   if intent∈C, |C|<=tau, B_t>=B_floor
  *
- * Lecture d'horloge RETENUE (déclarée) : l'horloge ne conditionne QUE le DEFER — un DEFER
- * impossible (horloge close) devient ABSTAIN `clock_expired` ; COMMIT n'a AUCUNE condition
- * d'horloge (D5 littéral : « COMMIT si intent∈C, |C|<=tau, B>=B_floor »). C'est la seule
- * lecture où les trois lignes du prédicat tiennent simultanément. DEFER attend, ABSTAIN
- * refuse ; le PnL n'entre pas dans π.
+ * RETAINED clock reading (declared): the clock conditions ONLY the DEFER — an impossible
+ * DEFER (clock closed) becomes ABSTAIN `clock_expired`; COMMIT has NO clock
+ * condition (D5 literal: "COMMIT if intent∈C, |C|<=tau, B>=B_floor"). This is the only
+ * reading where the three predicate lines hold simultaneously. DEFER waits, ABSTAIN
+ * refuses; PnL does not enter π.
  *
- * Ordre de priorité des raisons (déclaré, overlap déterministe) :
+ * Reason priority order (declared, deterministic overlap):
  *   non_evaluable → upstream_timeout → under_calib → intent_not_in_region →
- *   budget_exhausted → [ |C|>tau ? (horloge ? DEFER:set_too_large : ABSTAIN:clock_expired)
+ *   budget_exhausted → [ |C|>tau ? (clock ? DEFER:set_too_large : ABSTAIN:clock_expired)
  *                       : COMMIT:covered ].
  *
- * D0 (pas de trading dans MONARK ; produit futur = KAIZEN) : les outils gated
- * `perps_order_preview` / `perps_order_execute` sont NOMMÉS ici mais JAMAIS appelés.
+ * D0 (no trading in MONARK; future product = KAIZEN): the gated tools
+ * `perps_order_preview` / `perps_order_execute` are NAMED here but NEVER called.
  *
- * Région `interval` (régression UKEMI, ADR-M003 D6.1) : le throw Phase 1 est LEVÉ. Chemin dédié —
- *   COMMIT   si intent ∈ [lo,hi] ET largeur (hi−lo) <= τ_interval
- *   DEFER    si largeur > τ_interval (horloge ouverte ; sinon ABSTAIN clock_expired)
- *   ABSTAIN  sinon (intent ∉ [lo,hi]) ; + gardes amont communes (parse/timeout/calib/budget).
- * `τ_interval` est DÉCLARÉ, NON FONDÉ (D6.1 ; même statut que D6 M002 ; pendant ADR-M003 §4).
+ * `interval` region (UKEMI regression, ADR-M003 D6.1): the Phase 1 throw is LIFTED. Dedicated path —
+ *   COMMIT   if intent ∈ [lo,hi] AND width (hi−lo) <= τ_interval
+ *   DEFER    if width > τ_interval (clock open; otherwise ABSTAIN clock_expired)
+ *   ABSTAIN  otherwise (intent ∉ [lo,hi]); + common upstream guards (parse/timeout/calib/budget).
+ * `τ_interval` is DECLARED, UNFOUNDED (D6.1; same status as D6 M002; pending ADR-M003 §4).
  */
 import type { CoverageVerdict, GateDecision, GateAction, CoverageReason, PredictionRegion } from "@monark/contracts";
 import { intentInRegion } from "@monark/contracts";
 
-/** Variante `interval` de la région gelée (régression), pour le chemin L3 dédié. */
+/** `interval` variant of the frozen region (regression), for the dedicated L3 path. */
 type IntervalRegion = Extract<PredictionRegion, { kind: "interval" }>;
 
-/** Outils de marché gated (D0) — NOMMÉS, jamais invoqués par MONARK (ni réel ni paper). */
+/** Gated market tools (D0) — NAMED, never invoked by MONARK (neither real nor paper). */
 export const GATED_TOOLS = ["perps_order_preview", "perps_order_execute"] as const;
 export type GatedTool = (typeof GATED_TOOLS)[number];
 
-/** Entrées de la politique L3 (déjà calculées par L1/L2 ; tout horodatage est injecté en amont). */
+/** Inputs of the L3 policy (already computed by L1/L2; every timestamp is injected upstream). */
 export interface GateInput {
   intent: string | number | null;
   verdict: CoverageVerdict;
-  /** B_t (statistique L2) — capacité d'autorisation restante, jamais un rendement. */
+  /** B_t (L2 statistic) — remaining authorization capacity, never a yield. */
   remainingBudget: number;
   bFloor: number;
-  /** Seuil de TAILLE d'ensemble pour le chemin `set` (|C| <= tau ⇒ COMMIT). */
+  /** Set-SIZE threshold for the `set` path (|C| <= tau ⇒ COMMIT). */
   tau: number;
   /**
-   * Seuil de LARGEUR pour le chemin `interval` ((hi−lo) <= tauInterval ⇒ COMMIT). Grandeur
-   * DISTINCTE de `tau` (une largeur en unités de prix, pas une cardinalité) — DÉCLARÉE, NON FONDÉE
-   * (ADR-M003 D6.1). Champ requis ; NON gelé (GateInput n'est pas l'un des 4 contrats, cf. M003 D4).
+   * WIDTH threshold for the `interval` path ((hi−lo) <= tauInterval ⇒ COMMIT). A quantity
+   * DISTINCT from `tau` (a width in price units, not a cardinality) — DECLARED, UNFOUNDED
+   * (ADR-M003 D6.1). Required field; NOT frozen (GateInput is not one of the 4 contracts, cf. M003 D4).
    */
   tauInterval: number;
   nCalib: number;
   nMin: number;
-  /** L'horloge de couverture (fenêtre de décision) est-elle encore ouverte ? */
+  /** Is the coverage clock (decision window) still open? */
   clockOpen: boolean;
-  /** L'amont (prédicteur) a-t-il timeout ? ⇒ upstream_timeout, fail-closed. */
+  /** Did the upstream (predictor) time out? ⇒ upstream_timeout, fail-closed. */
   timedOut: boolean;
-  /** Le parse de ŷ est-il évaluable ? `false` ⇒ non_evaluable, fail-closed. */
+  /** Is the ŷ parse evaluable? `false` ⇒ non_evaluable, fail-closed. */
   evaluable: boolean;
-  /** L'outil gated visé (NOMMÉ, jamais appelé — D0). */
+  /** The targeted gated tool (NAMED, never called — D0). */
   tool: string;
   schemaVersion: string;
 }
@@ -72,16 +72,16 @@ interface Verdictum {
 
 function decide(input: GateInput): Verdictum {
   const region = input.verdict.region;
-  // Gardes amont fail-closed, COMMUNES aux deux natures de région : elles étaient déjà les TROIS
-  // premières lignes du chemin `set`, donc les hisser avant l'aiguillage est byte-neutre pour `set`.
+  // Fail-closed upstream guards, COMMON to both region kinds: they were already the FIRST THREE
+  // lines of the `set` path, so hoisting them before the branch is byte-neutral for `set`.
   if (!input.evaluable) return { action: "abstain", allow: false, reason: "non_evaluable" };
   if (input.timedOut) return { action: "abstain", allow: false, reason: "upstream_timeout" };
   if (input.nCalib < input.nMin) return { action: "abstain", allow: false, reason: "under_calib" };
 
-  // Chemin `interval` (régression UKEMI) — le throw Phase 1 est LEVÉ (ADR-M003 D6.1).
+  // `interval` path (UKEMI regression) — the Phase 1 throw is LIFTED (ADR-M003 D6.1).
   if (region.kind === "interval") return decideInterval(input, region);
 
-  // Chemin `set` (classification) — INCHANGÉ : intent → budget → taille.
+  // `set` path (classification) — UNCHANGED: intent → budget → size.
   const setSize = region.labels.length;
   if (!intentInRegion(input.intent, region)) {
     return { action: "abstain", allow: false, reason: "intent_not_in_region" };
@@ -90,7 +90,7 @@ function decide(input: GateInput): Verdictum {
     return { action: "abstain", allow: false, reason: "budget_exhausted" };
   }
   if (setSize > input.tau) {
-    // |C| > tau : DEFER si l'horloge est ouverte, sinon le DEFER se convertit en ABSTAIN.
+    // |C| > tau: DEFER if the clock is open, otherwise the DEFER converts to ABSTAIN.
     if (input.clockOpen) return { action: "defer", allow: false, reason: "set_too_large" };
     return { action: "abstain", allow: false, reason: "clock_expired" };
   }
@@ -99,10 +99,10 @@ function decide(input: GateInput): Verdictum {
 }
 
 /**
- * Chemin `interval` (ADR-M003 D6.1). Ordre DÉCLARÉ : budget (fail-closed, prime le DEFER — miroir
- * du chemin `set`) → LARGEUR (le DEFER est piloté par la largeur, indépendamment de l'intention :
- * lecture littérale « DEFER si largeur > τ_interval, ABSTAIN sinon ») → intention. Le DEFER obéit à
- * l'invariant d'horloge du module (un DEFER impossible, horloge close, devient ABSTAIN `clock_expired`).
+ * `interval` path (ADR-M003 D6.1). DECLARED order: budget (fail-closed, takes precedence over DEFER — mirror
+ * of the `set` path) → WIDTH (the DEFER is driven by the width, independently of the intent:
+ * literal reading "DEFER if width > τ_interval, ABSTAIN otherwise") → intent. The DEFER obeys
+ * the module's clock invariant (an impossible DEFER, clock closed, becomes ABSTAIN `clock_expired`).
  */
 function decideInterval(input: GateInput, region: IntervalRegion): Verdictum {
   if (input.remainingBudget < input.bFloor) {
@@ -116,13 +116,13 @@ function decideInterval(input: GateInput, region: IntervalRegion): Verdictum {
   if (!intentInRegion(input.intent, region)) {
     return { action: "abstain", allow: false, reason: "intent_not_in_region" };
   }
-  // intent ∈ [lo,hi], largeur <= τ_interval, B_t >= B_floor ⇒ COMMIT.
+  // intent ∈ [lo,hi], width <= τ_interval, B_t >= B_floor ⇒ COMMIT.
   return { action: "commit", allow: true, reason: "covered" };
 }
 
 /**
- * Politique L3 → `GateDecision` (contrat gelé). Le gate NE FAIT QU'ÉMETTRE une décision ;
- * il n'appelle JAMAIS `input.tool` (D0 : pas de trading dans MONARK).
+ * L3 policy → `GateDecision` (frozen contract). The gate ONLY EMITS a decision;
+ * it NEVER calls `input.tool` (D0: no trading in MONARK).
  */
 export function gate(input: GateInput): GateDecision {
   const { action, allow, reason } = decide(input);

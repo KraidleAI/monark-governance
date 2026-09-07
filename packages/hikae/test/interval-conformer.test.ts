@@ -49,40 +49,40 @@ const COMMON = {
   schemaVersion: "1.0.0",
 } as const;
 
-// Test 34 (ADR-M003 D11) — conformeur `interval` : q̂ et région EXACTS (déterministe) + couverture
-// MOYENNE sur R=100 répétitions seedées (seeds 1..100) >= 1−α−0.005. Mutant nommé : q̂ décalé d'un
-// rang (splitQuantile sorted[p-1]→sorted[p-2]) ⇒ q̂ exact faux ⇒ ce test rouge.
+// Test 34 (ADR-M003 D11) — `interval` conformer: EXACT q̂ and region (deterministic) + MEAN coverage
+// over R=100 seeded repetitions (seeds 1..100) >= 1−α−0.005. Named mutant: q̂ shifted by one
+// rank (splitQuantile sorted[p-1]→sorted[p-2]) ⇒ exact q̂ wrong ⇒ this test red.
 test("interval_conformer_coverage", () => {
-  // (a) q̂/région EXACTS — cas à la main. n=99, α=0.01 ⇒ p=⌈100·0.99⌉=99=n ⇒ q̂ = 99e (=max) résidu.
-  // Résidus construits = {1,2,…,99} (ŷ=1000, y=1000+i) ⇒ q̂ = 99 EXACTEMENT ; région [901,1099].
+  // (a) EXACT q̂/region — hand case. n=99, α=0.01 ⇒ p=⌈100·0.99⌉=99=n ⇒ q̂ = 99th (=max) residual.
+  // Constructed residuals = {1,2,…,99} (ŷ=1000, y=1000+i) ⇒ q̂ = 99 EXACTLY; region [901,1099].
   const hand: CalibPair[] = Array.from({ length: 99 }, (_, i) => ({ yhat: 1000, y: 1000 + (i + 1) }));
   const rHand = conformInterval({ ...COMMON, calib: hand, yhat: 1000 });
-  assert.equal(rHand.qhat, 99, "q̂ = ⌈(99+1)·0.99⌉-ième = 99e résidu trié = 99 (constante à la main)");
-  assert.deepEqual(rHand.region, { lo: 901, hi: 1099 }, "région = [ŷ−q̂, ŷ+q̂] = [901,1099]");
+  assert.equal(rHand.qhat, 99, "q̂ = ⌈(99+1)·0.99⌉-th = 99th sorted residual = 99 (hand constant)");
+  assert.deepEqual(rHand.region, { lo: 901, hi: 1099 }, "region = [ŷ−q̂, ŷ+q̂] = [901,1099]");
   assert.equal(rHand.verdict.region.kind, "interval");
   assert.equal(rHand.verdict.reason, "covered");
   assert.equal(rHand.verdict.abstain, false);
   assert.equal(rHand.verdict.method, "split");
   assert.equal(rHand.verdict.task_class, LIQUIDABLE_24H_CLASS);
-  // Le verdict produit VALIDE le schéma gelé ; une clé étrangère le rend invalide (fermé).
-  assert.equal(validateVerdict(rHand.verdict), true, `ajv : ${JSON.stringify(validateVerdict.errors)}`);
-  assert.equal(validateVerdict({ ...rHand.verdict, p_correct: 0.99 }), false, "ajv refuse p_correct (schéma fermé)");
+  // The produced verdict VALIDATES against the frozen schema; a foreign key makes it invalid (closed).
+  assert.equal(validateVerdict(rHand.verdict), true, `ajv: ${JSON.stringify(validateVerdict.errors)}`);
+  assert.equal(validateVerdict({ ...rHand.verdict, p_correct: 0.99 }), false, "ajv rejects p_correct (closed schema)");
 
-  // (a′) q̂ EXACT à n=300 (seed 1), par recomputation INDÉPENDANTE dans le test (tri + indice 297).
+  // (a′) EXACT q̂ at n=300 (seed 1), by INDEPENDENT recomputation in the test (sort + index 297).
   const s1 = generateLiquidable24hPairs(1, LIQUIDABLE_24H_N);
   const sorted = [...absoluteResidualScores(s1)].sort((x, y) => x - y);
-  const pIdx = Math.ceil((LIQUIDABLE_24H_N + 1) * (1 - LIQUIDABLE_24H_ALPHA)) - 1; // 298e ⇒ indice 297
+  const pIdx = Math.ceil((LIQUIDABLE_24H_N + 1) * (1 - LIQUIDABLE_24H_ALPHA)) - 1; // 298th ⇒ index 297
   assert.equal(pIdx, 297);
   const r300 = conformInterval({ ...COMMON, calib: s1, yhat: 1234.5 });
-  assert.equal(r300.qhat, sorted[pIdx], "q̂ = 298e plus petit résidu (indice 297), recalculé indépendamment");
+  assert.equal(r300.qhat, sorted[pIdx], "q̂ = 298th smallest residual (index 297), recomputed independently");
   assert.deepEqual(
     r300.region,
     { lo: 1234.5 - (sorted[pIdx] as number), hi: 1234.5 + (sorted[pIdx] as number) },
-    "région centrée sur ŷ de test",
+    "region centered on the test ŷ",
   );
 
-  // (b) Couverture MOYENNE, R=100 seeds (1..100). Chaque répétition : n=300 calibration + m=200 test
-  // du MÊME flux seedé (échangeables). Couverture = fraction des points de test dont y ∈ [ŷ−q̂, ŷ+q̂].
+  // (b) MEAN coverage, R=100 seeds (1..100). Each repetition: n=300 calibration + m=200 test
+  // from the SAME seeded stream (exchangeable). Coverage = fraction of test points where y ∈ [ŷ−q̂, ŷ+q̂].
   const R = 100;
   const M = 200;
   let coveredTotal = 0;
@@ -91,9 +91,9 @@ test("interval_conformer_coverage", () => {
     const all = generateLiquidable24hPairs(seed, LIQUIDABLE_24H_N + M);
     const calib = all.slice(0, LIQUIDABLE_24H_N);
     const held = all.slice(LIQUIDABLE_24H_N);
-    // q̂ ne dépend que de la calibration : une passe du conformeur suffit à l'obtenir.
+    // q̂ depends only on the calibration: a single conformer pass suffices to obtain it.
     const q = conformInterval({ ...COMMON, calib, yhat: 0 }).qhat;
-    assert.notEqual(q, null, `seed ${seed}: q̂ produit (n=300 ≥ nMin)`);
+    assert.notEqual(q, null, `seed ${seed}: q̂ produced (n=300 ≥ nMin)`);
     const qhat = q as number;
     for (const pt of held) {
       testTotal++;
@@ -104,13 +104,13 @@ test("interval_conformer_coverage", () => {
   const floor = 1 - LIQUIDABLE_24H_ALPHA - 0.005; // 0.985
   assert.ok(
     meanCoverage >= floor,
-    `couverture moyenne ${meanCoverage.toFixed(4)} >= 1−α−0.005 = ${floor} (R=${R} seeds, ${testTotal} points)`,
+    `mean coverage ${meanCoverage.toFixed(4)} >= 1−α−0.005 = ${floor} (R=${R} seeds, ${testTotal} points)`,
   );
 
-  // (c) Ligne D10 IMPOSÉE (D6.2, item 6) : harness_version=fixtures-synth + « synthétique » à côté
-  // de l'identifiant. Date INJECTÉE (jamais lue).
+  // (c) IMPOSED D10 line (D6.2, item 6): harness_version=fixtures-synth + "synthetic" next
+  // to the identifier. INJECTED date (never read).
   const d10 = liquidable24hProvenanceLine(1, LIQUIDABLE_24H_N, "2026-09-05");
-  assert.ok(d10.includes(`${LIQUIDABLE_24H_CLASS}\` (synthétique)`), "« synthétique » accolé à l'identifiant");
+  assert.ok(d10.includes(`${LIQUIDABLE_24H_CLASS}\` (synthetic)`), `"synthetic" next to the identifier`);
   assert.ok(d10.includes(`harness_version = \`${LIQUIDABLE_24H_HARNESS}\``), "harness_version=fixtures-synth");
-  assert.ok(d10.includes("n = 300") && d10.includes("α = 0.01"), "n et α portés sur la ligne D10");
+  assert.ok(d10.includes("n = 300") && d10.includes("α = 0.01"), "n and α carried on the D10 line");
 });

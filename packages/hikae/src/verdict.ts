@@ -1,19 +1,19 @@
 /**
- * HIKAE — assemblage du `CoverageVerdict` (ADR-M002 D5 ; contrat gelé Phase 0, ADR-M001).
+ * HIKAE — `CoverageVerdict` assembly (ADR-M002 D5; frozen Phase 0 contract, ADR-M001).
  *
- * `calib_digest = calibDigest(scores)` — recalculabilité PAR RÉFÉRENCE (ADR-M001 C5),
- * déterministe cross-langage. Sérialisé par `serializeVerdict` (closed-check + garde
- * récursif de clés interdites). Aucun horodatage lu ici : `produced_at` est INJECTÉ
- * (stabilité des hashes).
+ * `calib_digest = calibDigest(scores)` — recalculability BY REFERENCE (ADR-M001 C5),
+ * cross-language deterministic. Serialized by `serializeVerdict` (closed-check + recursive
+ * guard against forbidden keys). No timestamp read here: `produced_at` is INJECTED
+ * (hash stability).
  *
- * Sémantique d'`abstain` (DÉCLARÉE) : `abstain = 1{|C| > tau}` au sens du gate (Grok doc 11
- * §4 étape 3) — un DEFER porte un verdict `{ abstain: true }`, ce qui rend la colonne
- * « abstention (tau=1) » du journal S2 recalculable sans croire HIKAE. `verdict.reason`
- * reflète le NIVEAU couverture (`covered` / `set_too_large` / `under_calib`) ; la raison de
- * GATE (timeout / budget / clock) vit sur `GateDecision.reason` (seule vérité de gate).
+ * `abstain` semantics (DECLARED): `abstain = 1{|C| > tau}` in the gate sense (Grok doc 11
+ * §4 step 3) — a DEFER carries a verdict `{ abstain: true }`, which makes the
+ * "abstention (tau=1)" column of the S2 journal recalculable without trusting HIKAE. `verdict.reason`
+ * reflects the coverage LEVEL (`covered` / `set_too_large` / `under_calib`); the GATE reason
+ * (timeout / budget / clock) lives on `GateDecision.reason` (the sole gate-level truth).
  *
- * Sous-calibration (D5) : région `set` VIDE (labels `[]`), `abstain=true`, `qhat=null`
- * (le contrat requiert la clé `qhat` présente ; `null` sous `exactOptionalPropertyTypes`).
+ * Under-calibration (D5): EMPTY `set` region (labels `[]`), `abstain=true`, `qhat=null`
+ * (the contract requires the `qhat` key present; `null` under `exactOptionalPropertyTypes`).
  */
 import type { CoverageVerdict, CoverageReason, Method, PredictionRegion } from "@monark/contracts";
 import { calibDigest, serializeVerdict } from "@monark/contracts";
@@ -23,7 +23,7 @@ export interface VerdictParams {
   taskClass: string;
   method: Method;
   alpha: number;
-  /** Scores de CALIBRATION (n_calib = leur nombre) ; base du calib_digest. */
+  /** CALIBRATION scores (n_calib = their count); basis of calib_digest. */
   scores: readonly number[];
   region: PredictionRegion;
   qhat: number | null;
@@ -32,11 +32,11 @@ export interface VerdictParams {
   residual: readonly string[];
   producedAt: string;
   schemaVersion: string;
-  /** Inclure `scores` sur le fil (payload optionnel) ; par défaut non (recalcul par calib_digest). */
+  /** Include `scores` on the wire (optional payload); off by default (recomputed via calib_digest). */
   includeScores?: boolean;
 }
 
-/** Assemble un `CoverageVerdict` gelé (n_calib = scores.length ; calib_digest recalculable). */
+/** Assembles a frozen `CoverageVerdict` (n_calib = scores.length; calib_digest recalculable). */
 export function buildVerdict(params: VerdictParams): CoverageVerdict {
   return {
     schema_version: params.schemaVersion,
@@ -56,8 +56,8 @@ export function buildVerdict(params: VerdictParams): CoverageVerdict {
 }
 
 /**
- * Verdict de sous-calibration (D5) : région `set` VIDE, `abstain=true`, `qhat=null`,
- * `reason=under_calib`. Le digest reste calculé sur les scores DISPONIBLES (par référence).
+ * Under-calibration verdict (D5): EMPTY `set` region, `abstain=true`, `qhat=null`,
+ * `reason=under_calib`. The digest is still computed over the AVAILABLE scores (by reference).
  */
 export function underCalibVerdict(params: {
   taskClass: string;
@@ -84,7 +84,7 @@ export function underCalibVerdict(params: {
   });
 }
 
-/** Sérialisation canonique (contrat gelé) : closed-check + garde récursif de clés interdites. */
+/** Canonical serialization (frozen contract): closed-check + recursive guard against forbidden keys. */
 export function serialize(verdict: CoverageVerdict): string {
   return serializeVerdict(verdict);
 }

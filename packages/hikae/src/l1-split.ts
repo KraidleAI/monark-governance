@@ -1,31 +1,31 @@
 /**
- * HIKAE L1 — split conformal par classe de tâche (ADR-M002 D3, garantie type (i)).
+ * HIKAE L1 — per-task-class split conformal (ADR-M002 D3, type-(i) guarantee).
  *
- * Garantie DÉCLARÉE : marginale, échantillon-fini, SOUS échangeabilité à l'intérieur de
- * la classe κ ; PAS de couverture conditionnelle à x ; JAMAIS `p_correct`.
- * Sources [lu] (nos archives) : correction `(n+1)` — Barber, Candès, Ramdas, Tibshirani,
+ * DECLARED guarantee: marginal, finite-sample, UNDER exchangeability within
+ * class κ; NO coverage conditional on x; NEVER `p_correct`.
+ * Sources [lu] (our archives): `(n+1)` correction — Barber, Candes, Ramdas, Tibshirani,
  * *Predictive inference with the jackknife+*, AoS 2021, note 1 p.4 (hikae/lecture/
- * L6-jackknife-lei.md:103 ; R2-cp-distfree.md:218) ; validité split-CP marginale — Barber
- * et al. 2020, Thm 2.1 p.5 (R2-cp-distfree.md:40,85) ; partition/strates — Thm 4.1 p.11.
- * Score SANS logits — Su et al. *API Is Enough* (VERDICT-TASKCLASS-GROK §1).
+ * L6-jackknife-lei.md:103 ; R2-cp-distfree.md:218); marginal split-CP validity — Barber
+ * et al. 2020, Thm 2.1 p.5 (R2-cp-distfree.md:40,85); partition/strata — Thm 4.1 p.11.
+ * Score WITHOUT logits — Su et al. *API Is Enough* (VERDICT-TASKCLASS-GROK §1).
  *
- * Beachhead : score INDICATIF `s(x,ŷ)=0, s(x,autre)=1` (k=1). À ce score `q̂ ∈ {0,1}` :
- * `q̂=0 ⇒ C={ŷ}` (singleton), `q̂=1 ⇒ C={up,down}`. La richesse CP ne se manifeste pas
- * sur un binaire — c'est le silence calibré, pas un défaut (GROK-DECORTICATION §2).
+ * Beachhead: INDICATOR score `s(x,ŷ)=0, s(x,other)=1` (k=1). At this score `q̂ ∈ {0,1}`:
+ * `q̂=0 ⇒ C={ŷ}` (singleton), `q̂=1 ⇒ C={up,down}`. CP richness does not show
+ * on a binary — it is calibrated silence, not a defect (GROK-DECORTICATION §2).
  */
 
-/** Score indicatif k=1 (D3) : 0 si `y === yhat`, 1 sinon. */
+/** Indicator score k=1 (D3): 0 if `y === yhat`, 1 otherwise. */
 export function indicatorScore(yhat: string, y: string): 0 | 1 {
   return y === yhat ? 0 : 1;
 }
 
-/** Résultat L1 : soit le quantile conforme, soit fail-closed sous-calibration. */
+/** L1 result: either the conformal quantile, or fail-closed under-calibration. */
 export type SplitResult = { qhat: number } | { reason: "under_calib" };
 
 /**
- * Quantile split conformal (D3) : `p = ceil((n+1)(1-alpha))`, `q̂` = p-ème plus petit
- * score. FAIL-CLOSED (jamais un `+inf` clampé en silence) : `n < nMin` OU `p > n`
- * ⇒ `under_calib` (pas de `q̂` produit).
+ * Split conformal quantile (D3): `p = ceil((n+1)(1-alpha))`, `q̂` = p-th smallest
+ * score. FAIL-CLOSED (never a silently clamped `+inf`): `n < nMin` OR `p > n`
+ * ⇒ `under_calib` (no `q̂` produced).
  */
 export function splitQuantile(
   scores: readonly number[],
@@ -38,14 +38,14 @@ export function splitQuantile(
   if (p > n) return { reason: "under_calib" };
   const sorted = [...scores].sort((a, b) => a - b);
   const q = sorted[p - 1];
-  if (q === undefined) return { reason: "under_calib" }; // garde noUncheckedIndexedAccess
+  if (q === undefined) return { reason: "under_calib" }; // noUncheckedIndexedAccess guard
   return { qhat: q };
 }
 
 /**
- * Ensemble conforme `C(x) = { y : s(x,y) <= qhat }` (D3). `scoresByLabel` porte le score
- * indicatif de CHAQUE label candidat pour ce x ; l'ordre d'itération de la Map est
- * préservé (déterminisme de sérialisation).
+ * Conformal set `C(x) = { y : s(x,y) <= qhat }` (D3). `scoresByLabel` carries the indicator
+ * score of EVERY candidate label for this x; the Map's iteration order is
+ * preserved (serialization determinism).
  */
 export function conformalSet(
   scoresByLabel: ReadonlyMap<string, number>,
@@ -59,8 +59,8 @@ export function conformalSet(
 }
 
 /**
- * Scores indicatifs pour un x donné : `s(x,ŷ)=0`, `s(x,autre)=1` sur l'espace `labels`,
- * en préservant l'ordre de `labels` (Map ordonnée).
+ * Indicator scores for a given x: `s(x,ŷ)=0`, `s(x,other)=1` over the `labels` space,
+ * preserving the order of `labels` (ordered Map).
  */
 export function indicatorScores(
   yhat: string,

@@ -2,15 +2,15 @@
  * HIKAE — Hikae Adaptive Conformal Control (HAC-CP) engine (Phase 1, ADR-M002).
  *
  * Chain: predictor → Prediction → HIKAE conformalizes → CoverageVerdict → GateDecision.
- *   L1 (l1-split)   — split conformal par classe, garantie type (i), score indicatif 0/1.
- *   L2 (l2-monitor) — MONITEUR IM-OCP (aucune garantie revendiquée, branche b, D4).
- *   L3 (l3-gate)    — politique COMMIT/DEFER/ABSTAIN, prédicat fermé (D5). Pas de trading (D0).
- *   region          — buildIntervalRegion (invariant M5, borné-ou-abstention), buildSetRegion.
- *   verdict         — assemblage CoverageVerdict (calib_digest par référence).
+ *   L1 (l1-split)   — per-class split conformal, type-(i) guarantee, 0/1 indicator score.
+ *   L2 (l2-monitor) — IM-OCP MONITOR (no guarantee claimed, branch b, D4).
+ *   L3 (l3-gate)    — COMMIT/DEFER/ABSTAIN policy, closed predicate (D5). No trading (D0).
+ *   region          — buildIntervalRegion (M5 invariant, bounded-or-abstention), buildSetRegion.
+ *   verdict         — CoverageVerdict assembly (calib_digest by reference).
  *   predictor       — internal:momentum-4c, internal:oracle-didactique ; labelOf (D7/D8).
- *   s2              — instrument S2 (harnais jetable, R-22 ; fixtures étiquetées).
+ *   s2              — S2 instrument (disposable harness, R-22 ; labelled fixtures).
  *
- * Le code est le nôtre ; l'app Grok est un input de conception, jamais liftée.
+ * The code is our own; the Grok app is a design input, never lifted.
  */
 
 // L1 — split conformal.
@@ -38,7 +38,7 @@ export type { SetRegion, IntervalRegion, IntervalRegionResult, BtcDirLabel } fro
 export { buildVerdict, underCalibVerdict, serialize } from "./verdict.ts";
 export type { VerdictParams } from "./verdict.ts";
 
-// Interval conformer (régression UKEMI, ADR-M003 D6.1) + classe synthétique ukemi-liquidable-24h (D6.2).
+// Interval conformer (UKEMI regression, ADR-M003 D6.1) + synthetic class ukemi-liquidable-24h (D6.2).
 export { conformInterval, absoluteResidualScores } from "./interval-conformer.ts";
 export type { CalibPair, IntervalConformalParams, IntervalConformalResult } from "./interval-conformer.ts";
 export {

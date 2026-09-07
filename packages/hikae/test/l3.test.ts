@@ -25,7 +25,7 @@ function input(over: Partial<GateInput> & Pick<GateInput, "verdict" | "intent">)
     remainingBudget: 0.1,
     bFloor: 0,
     tau: 1,
-    tauInterval: 1, // inerte : verdict `set` (chemin interval non exercé ici)
+    tauInterval: 1, // inert: verdict `set` (interval path not exercised here)
     nCalib: 50,
     nMin: 50,
     clockOpen: true,
@@ -37,7 +37,7 @@ function input(over: Partial<GateInput> & Pick<GateInput, "verdict" | "intent">)
   };
 }
 
-// Test 2 — intent hors région ⇒ ABSTAIN (littéral gelé intent_not_in_region).
+// Test 2 — intent outside region ⇒ ABSTAIN (frozen literal intent_not_in_region).
 test("intent_not_in_region_denied", () => {
   const v = mkVerdict(["up"], 0, "covered");
   const d = gate(input({ verdict: v, intent: "down" })); // down ∉ {up}
@@ -46,7 +46,7 @@ test("intent_not_in_region_denied", () => {
   assert.equal(d.allow, false);
 });
 
-// Test 3 — timeout ⇒ deny upstream_timeout, jamais un set.
+// Test 3 — timeout ⇒ deny upstream_timeout, never a set.
 test("timeout_is_deny", () => {
   const v = mkVerdict(["up"], 0, "covered");
   const d = gate(input({ verdict: v, intent: "up", timedOut: true }));
@@ -54,27 +54,27 @@ test("timeout_is_deny", () => {
   assert.equal(d.reason, "upstream_timeout");
 });
 
-// Test 6 — |C|>tau (q̂=1 ⇒ {up,down}) ⇒ DEFER, pas COMMIT.
+// Test 6 — |C|>tau (q̂=1 ⇒ {up,down}) ⇒ DEFER, not COMMIT.
 test("set_too_large_defers", () => {
   const v = mkVerdict(["up", "down"], 1, "set_too_large");
   const d = gate(input({ verdict: v, intent: "up", clockOpen: true }));
   assert.equal(d.action, "defer");
   assert.equal(d.reason, "set_too_large");
-  // Horloge close ⇒ le DEFER se convertit en ABSTAIN clock_expired.
+  // Clock closed ⇒ the DEFER converts to ABSTAIN clock_expired.
   const d2 = gate(input({ verdict: v, intent: "up", clockOpen: false }));
   assert.equal(d2.action, "abstain");
   assert.equal(d2.reason, "clock_expired");
 });
 
-// Test 7 — H3 : le report ne change pas Σ miscover. Deux politiques RÉELLEMENT distinctes passent
-// par `gate()` : π^H (τ=1 : un 2-set ⇒ DEFER) et π⁰ (τ=2 : un 2-set ⇒ COMMIT). E_t = 1{y∉C_t} est
-// dérivé du MÊME C_t (région du verdict, L1) — la politique ne touche jamais C_t. Si `l3-gate`
-// corrompait la comptabilité (ex. DEFER → COMMIT), le compte de DEFER ci-dessous casse.
+// Test 7 — H3: deferral does not change Σ miscover. Two REALLY distinct policies go
+// through `gate()`: π^H (τ=1: a 2-set ⇒ DEFER) and π⁰ (τ=2: a 2-set ⇒ COMMIT). E_t = 1{y∉C_t} is
+// derived from the SAME C_t (verdict region, L1) — the policy never touches C_t. If `l3-gate`
+// corrupted the accounting (e.g. DEFER → COMMIT), the DEFER count below breaks.
 test("deferral_preserves_miscover", () => {
   const seq: { labels: string[]; y: string }[] = [
     { labels: ["up"], y: "up" }, // covered
     { labels: ["up"], y: "down" }, // miscover
-    { labels: ["up", "down"], y: "down" }, // covered (DEFER sous π^H, COMMIT sous π⁰)
+    { labels: ["up", "down"], y: "down" }, // covered (DEFER under π^H, COMMIT under π⁰)
     { labels: ["up", "down"], y: "up" }, // covered
     { labels: ["down"], y: "up" }, // miscover
   ];
@@ -86,7 +86,7 @@ test("deferral_preserves_miscover", () => {
       const v = mkVerdict(labels, labels.length > 1 ? 1 : 0, labels.length > 1 ? "set_too_large" : "covered");
       const d = gate(input({ verdict: v, intent: labels[0] as string, tau }));
       const C = d.verdict.region;
-      assert.ok(C !== undefined && C !== null && C.kind === "set", "C_t porté par la décision");
+      assert.ok(C !== undefined && C !== null && C.kind === "set", "C_t carried by the decision");
       if (!C.labels.includes(y)) miscover++;
       if (d.action === "defer") defers++;
       if (d.action === "commit") commits++;
@@ -95,9 +95,9 @@ test("deferral_preserves_miscover", () => {
   };
   const piH = run(1);
   const pi0 = run(2);
-  assert.equal(piH.defers, 2, "π^H reporte les deux 2-sets");
-  assert.equal(pi0.defers, 0, "π⁰ ne reporte jamais");
-  assert.equal(pi0.commits, piH.commits + 2, "les deux politiques diffèrent réellement");
-  assert.equal(piH.miscover, pi0.miscover, "Σ 1{y∉C} identique (H3)");
-  assert.equal(piH.miscover, 2, "2 miscovers, invariants au report");
+  assert.equal(piH.defers, 2, "π^H defers both 2-sets");
+  assert.equal(pi0.defers, 0, "π⁰ never defers");
+  assert.equal(pi0.commits, piH.commits + 2, "the two policies really differ");
+  assert.equal(piH.miscover, pi0.miscover, "Σ 1{y∉C} identical (H3)");
+  assert.equal(piH.miscover, 2, "2 miscovers, invariant under deferral");
 });

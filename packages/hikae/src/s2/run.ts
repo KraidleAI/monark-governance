@@ -1,15 +1,15 @@
 /**
- * HIKAE — exécution complète de l'instrument S2 (ADR-M002 D10 ; G2 Lot H corr. 1 et 4).
+ * HIKAE — full run of the S2 instrument (ADR-M002 D10; G2 Lot H corr. 1 and 4).
  *
- * Une seule fonction pure `runS2(params)` produit le RAPPORT et le JOURNAL BRUT par point.
- * Elle est appelée (i) par `scripts/s2-report.mjs`, qui écrit les deux fichiers dans `docs/`,
- * et (ii) par le test `s2_report_reproducible`, qui régénère le rapport en mémoire et exige
- * l'égalité octet à octet avec le fichier committé (chiffres non recalculables = bug).
+ * A single pure function `runS2(params)` produces the REPORT and the per-point RAW JOURNAL.
+ * It is called (i) by `scripts/s2-report.mjs`, which writes both files into `docs/`,
+ * and (ii) by the `s2_report_reproducible` test, which regenerates the report in memory and requires
+ * byte-for-byte equality with the committed file (non-recalculable figures = bug).
  *
- * Provenance RÉELLE (corr. 1) : §4/§6a = `internal:momentum-4c` exécuté sur une série de bougies
- * seedée via `extractMomentumFeatures → momentum4c`, label par `labelOf` ; §6b = `internal:
- * oracle-didactique` exécuté sur la MÊME série. Chaque point passe par une `Prediction` du
- * contrat gelé. Aucune horloge lue : `generatedOn` est injecté.
+ * REAL provenance (corr. 1): §4/§6a = `internal:momentum-4c` run on a candle series
+ * seeded via `extractMomentumFeatures → momentum4c`, label by `labelOf`; §6b = `internal:
+ * oracle-didactique` run on the SAME series. Each point passes through a frozen-contract
+ * `Prediction`. No clock read: `generatedOn` is injected.
  */
 import { createHash } from "node:crypto";
 import {
@@ -30,9 +30,9 @@ export interface S2Params {
   readonly alpha: number;
   readonly nMin: number;
   readonly tau: number;
-  /** S2a — tirage synthétique (ŷ,y) déclaré (plomberie). */
+  /** S2a — declared synthetic (ŷ,y) draw (plumbing). */
   readonly s2a: { readonly seed: number; readonly n: number; readonly accuracy: number; readonly nCalib: number };
-  /** S2b — bougies synthétiques + prédicteurs RÉELS. */
+  /** S2b — synthetic candles + REAL predictors. */
   readonly s2b: {
     readonly seed: number;
     readonly nCandles: number;
@@ -43,11 +43,11 @@ export interface S2Params {
     readonly nCalibPerStratum: number;
     readonly nCalibPooled: number;
   };
-  /** Date de génération, INJECTÉE (ligne D10), jamais lue. */
+  /** Generation date, INJECTED (D10 line), never read. */
   readonly generatedOn: string;
 }
 
-/** Paramètres v0 (déclarés, non fondés — ils changent par ADR). */
+/** v0 parameters (declared, unfounded — they change by ADR). */
 export const S2_DEFAULT: S2Params = {
   alpha: 0.1,
   nMin: 50,
@@ -56,7 +56,7 @@ export const S2_DEFAULT: S2Params = {
   s2b: {
     seed: 202,
     nCandles: 700,
-    startCloseTime: 1_756_944_000, // 2025-09-04T00:00:00Z, grille 15 min — donnée injectée
+    startCloseTime: 1_756_944_000, // 2025-09-04T00:00:00Z, 15-min grid — injected datum
     startPrice: 100_000,
     stepPct: 0.004,
     flatRate: 0.01,
@@ -68,7 +68,7 @@ export const S2_DEFAULT: S2Params = {
 
 export interface S2Output {
   readonly report: string;
-  /** Journal brut TSV (une ligne par point et par campagne), en-tête inclus. */
+  /** Raw journal TSV (one line per point and per campaign), header included. */
   readonly journal: string;
   readonly journalDigest: string;
   readonly journalLines: number;
@@ -111,7 +111,7 @@ function journalRows(c: CampaignResult): string[] {
 }
 
 export function runS2(p: S2Params = S2_DEFAULT): S2Output {
-  // S2a — plomberie sur tirage déclaré.
+  // S2a — plumbing on a declared draw.
   const s2aPoints = generateLabeledSeries({ seed: p.s2a.seed, n: p.s2a.n, accuracy: p.s2a.accuracy });
   const s2a = runSplitCampaign({
     label: "S2a",
@@ -122,7 +122,7 @@ export function runS2(p: S2Params = S2_DEFAULT): S2Output {
     nCalib: p.s2a.nCalib,
   });
 
-  // S2b — bougies + prédicteurs RÉELS.
+  // S2b — candles + REAL predictors.
   const candles = generateCandleSeries({
     seed: p.s2b.seed,
     n: p.s2b.nCandles,
