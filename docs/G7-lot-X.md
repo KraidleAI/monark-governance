@@ -23,19 +23,22 @@ Assertions (a)–(g) vertes. Mutants tués, revue delta :
 Diff PR vs `origin/main`, exclusions D9 quater (`docs/G1-lot-*.md`, `docs/G2-lot-*.md`, `packages/*/docs/S2-*`, `package-lock.json`) : **≈ 936 lignes countables** < 1 205. Le présent G7 (`docs/G7-lot-*` non exclu) reste borné pour tenir sous la limite.
 
 ## Honnêteté et invariants
-- **English-only** (D0.5) : `lang-gate.mjs` + `lang-exempt.json` conformes ; seul jeton FR = `orchestrateur` ×2 (taxonomie `error_origin`, exemptée). Observation O3.
+- **English-only** (D0.5) : `lang-gate.mjs` + `lang-exempt.json` conformes. Le seul jeton FR résiduel de `export-public.mjs` (`orchestrateur` ×2, commentaires) **n'était PAS exempté** — il passait par un angle mort du détecteur (aucun diacritique, hors `FR_WORDS`) ; corrigé en `orchestrator` (correction C3, checkpoint 2). Le fichier exporté ne porte plus aucun jeton FR. O3 résolu.
 - **Contrats gelés (ADR-M001) intacts** : `git diff origin/main -- schemas/ packages/contracts` **vide** ; le lot ne touche que `scripts/`, `test/export-public.test.ts`, `package.json`.
 - **Workflow vitrine dérivé honnête** : suppression du commentaire « Delivery flow » = 2 lignes **fausses dans la vitrine** (push y déclenche un run ; `r25` absent) ; l'égalité byte-à-byte des jobs prouve que rien de vrai n'est retiré. `error_origin` = orchestrateur.
 
-## error_origin (assignés au G7)
-- **Incident overwrite `ci.yml`** (restauration mutant par `git checkout` sur arbre non commis) → `error_origin = orchestrateur` ; règle établie : restauration de mutant **par copie de fichier** uniquement.
-- **D7 n'avait pas simulé la CI du dépôt exporté** (finding G1 §9.1, 2 tests rouges) → `error_origin = orchestrateur` ; corrigé (addendum D7 : liste blanche atelier + `export-exclude-tests.json`).
-- **`on: pull_request` seul dans le workflow exporté** (R1) → dérivation déterministe du workflow vitrine ; `error_origin = orchestrateur`.
+## error_origin (assignés au G7) — complété au checkpoint 2 (correction C2)
+- **Règle héritée du Lot V** (journal 2026-09-06) : l'incident d'écrasement de `ci.yml` par `git checkout` sur arbre non commis appartient au **Lot V** (`error_origin` = orchestrateur, déjà journalisé) ; aucun artefact du Lot X ne rapporte de récidive. Le Lot X **applique** la règle établie : restauration de mutant **par copie de fichier uniquement**.
+- **R1 — `on: pull_request` seul dans le workflow exporté** → dérivation déterministe du workflow vitrine ; `error_origin` = orchestrateur. La règle (4) de la dérivation retire le commentaire « Delivery flow » (seule autre occurrence de `r25`, faux dans la vitrine) ; jobs g1/g3/g4/g6 byte-identiques.
+- **R2 — LICENSE hors liste blanche non détectée par la conception D7** → `error_origin` = générateur (lecture D7 étendue à LICENSE en D7 bis).
+- **R3 — statut d'`enforcement/` « à établir »** → tranché par D7 bis (liste blanche, script requis par le job g1) ; `error_origin` = orchestrateur.
+- **R4 — exclusion `.md` FR vs liste noire de gouvernance** → liste noire évaluée **en premier** (fail-closed) ; `error_origin` = orchestrateur.
+- **D7 n'avait pas simulé la CI du dépôt exporté** (finding G1 §9.1, 2 tests rouges) → `error_origin` = orchestrateur ; corrigé (addendum D7 : liste blanche atelier + `export-exclude-tests.json`).
 
 ## Observations (non promues en défaut ; consignées)
-- **O1** : test 42(f) ne détecte pas la **perte** d'un job (g3/g4) du workflow dérivé ; l'invariant « jobs byte-identiques » n'est garanti que par la revue manuelle. Non défaut (code commis correct, prouvé ; test conforme à sa spec D7 bis). **À durcir** dans un incrément ultérieur (assertion « ensemble de jobs == {g1,g3,g4,g6} »).
+- **O1 (pendant formé, correction C1)** : test 42(f) ne détecte ni la **perte** d'un job ni un corps de job corrompu du workflow dérivé (la splice `/^ {2}\S/` s'arrête sur tout non-blanc en colonne 2 ; un commentaire indenté inséré entre `r25` et `g3` laisserait un corps `r25` orphelin — YAML cassé — tout en gardant 42(f) vert). Non défaut (code commis correct, prouvé). **Durcissement dû = assertion 42(f′)** : les **4 corps de job g1/g3/g4/g6 du workflow exporté sont byte-identiques à ceux de la source** (l'invariant « ensemble de jobs == {…} » est trop faible). **Propriétaire** : le lot qui touche `.github/workflows/ci.yml`, au plus tard la première publication de `KraidleAI/monark` ; consigné en ADR-M004 D7 ter.
 - **O2** : R2(a) sans oracle de test (LICENSE factice masquerait une régression `TOLERATED_ABSENT`).
-- **O3** : `orchestrateur` (FR) exporté dans la taxonomie `error_origin`.
+- **O3 (résolu, correction C3)** : `orchestrateur` (FR) en commentaires de `export-public.mjs` → `orchestrator` ; le détecteur de langue avait un angle mort (aucun diacritique, hors `FR_WORDS`) qui l'aurait laissé passer.
 - **O4** : vert distant réel = vérification orchestrateur à la première publication de `KraidleAI/monark` (R-20). Le dépôt public étant public, minutes CI gratuites.
 
 ## Interdits respectés

@@ -187,7 +187,7 @@ function sha256(abs) {
 //   (2) remove the whole `r25-taille-de-lot` job (its 2-space key line up to the next 2-space job key);
 //   (3) prepend a one-line provenance header;
 //   (4) drop the 2-line governance "Delivery flow" comment (it is FALSE in the public workflow and is
-//       the sole other "r25" mention — see the inline note; error_origin = orchestrateur).
+//       the sole other "r25" mention — see the inline note; error_origin = orchestrator).
 // The JOBS stay BYTE-IDENTICAL: the pinned action SHAs and the "every job blocking, no
 // continue-on-error" invariant carry over untouched. FAIL-CLOSED (exit 1) if the `on:` block or the r25
 // job are not found — a silent verbatim copy would ship the governance-only gate and mask the drift,
@@ -221,7 +221,7 @@ export function derivePublicWorkflow(raw) {
   //     public workflow (a push DOES run now; there is no r25) and would contradict the header prepended
   //     below; it is also the sole surviving "r25" mention, so removing it makes `grep -c r25` = 0 (D7 bis
   //     oracle). Anchored on the unique ASCII prefixes (line 12 carries an em-dash; a full === would be
-  //     codepoint-fragile). Remove-if-present, NOT fail-closed. error_origin = orchestrateur: the D7 bis
+  //     codepoint-fragile). Remove-if-present, NOT fail-closed. error_origin = orchestrator: the D7 bis
   //     oracle `grep -c r25 = 0` and the "byte-identical rest" method text collide because the method
   //     overlooked this comment (advisor-adjudicated 2026-09-06).
   const dfi = lines.findIndex(
