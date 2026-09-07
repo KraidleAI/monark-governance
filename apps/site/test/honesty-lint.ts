@@ -6,8 +6,10 @@
 //   (1) a JSX text node ................................... <p>1.07</p>
 //   (2) a string/number/template literal that is a JSX CHILD expression ... <p>{1.07}</p> / <p>{"1.07"}</p>
 //   (3) a string/number/template literal that is the value of a VISIBLE attribute
-//       (alt, title, aria-label, placeholder, label) ....... <img alt="1.07 B" />
-//   (4) MDX prose (outside code fences/spans and outside {...} expressions).
+//       (alt, title, aria-label, placeholder, label, value, content) ....... <img alt="1.07 B" />
+//   (4) MDX prose (outside code fences/spans). A {...} expression is scanned when it renders a literal
+//       (string/number/template/nested-JSX) — parity with a TSX {...} child (PLAN F-2 §6c).
+//   (5) an exported Next `metadata` object's title/description (rendered into <title>/<meta>) (§6b).
 // EVERYTHING ELSE is ignored: className, style, key, SVG attrs (viewBox, grid-cols-*, gap-*, w-*),
 // import/require specifiers, cn()/other call arguments, object-literal properties, variable initialisers.
 // So a figure rendered dynamically ({figure.value}) is a property access, NOT a literal, and is never
@@ -43,12 +45,16 @@ export interface ExemptFile {
 
 export type SourceKind = "tsx" | "ts" | "mdx";
 
-const VISIBLE_ATTRS = new Set(["alt", "title", "aria-label", "placeholder", "label"]);
+const VISIBLE_ATTRS = new Set(["alt", "title", "aria-label", "placeholder", "label", "value", "content"]);
+const VISIBLE_META_KEYS = new Set(["title", "description"]);
 const ALLOWED_ID = /\b(?:ADR-M\d+|R-\d+|CA-\d+|D\d+|HIP-\d+)\b/g;
 const ISO_DATE = /\b\d{4}-\d{2}-\d{2}\b/g;
 const NUMERIC_TOKEN = /\d+(?:[.,]\d+)*/g;
-const SKIP_DIRS = new Set(["node_modules", ".next", ".turbo"]);
-const SCAN_ROOTS = ["app", "content"];
+const SKIP_DIRS = new Set(["node_modules", ".next", ".turbo"]); // skipped at ANY depth
+// C4 (PLAN F-2 §6a): scan ALL of apps/site. `test/` + `data/` are excluded at the apps/site TOP LEVEL
+// only (test/ hosts this detector + fixtures; data/ is committed hashed data — neither renders). A
+// nested dir named test/ or data/ (e.g. components/data/) IS still scanned.
+const SKIP_TOP = new Set(["test", "data"]);
 
 /** Char ranges [start,end) covered by an allowed identifier or an ISO date in `text`. */
 function coveredRanges(text: string): Array<[number, number]> {
@@ -172,11 +178,79 @@ function renderedTexts(sf: ts.SourceFile): RenderedText[] {
   return texts;
 }
 
-/** Strip code fences/spans and {...} expressions, leaving MDX prose. */
+/** Rendered literals from string-valued title/description keys inside a metadata object (recursive). */
+function collectMetaLiterals(node: ts.Node, keys: Set<string>): string[] {
+  const out: string[] = [];
+  if (!ts.isObjectLiteralExpression(node)) return out;
+  for (const prop of node.properties) {
+    if (!ts.isPropertyAssignment(prop)) continue;
+    const name =
+      ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name) ? prop.name.text : undefined;
+    if (name !== undefined && keys.has(name)) out.push(...renderedLiterals(prop.initializer));
+    if (ts.isObjectLiteralExpression(prop.initializer)) out.push(...collectMetaLiterals(prop.initializer, keys));
+  }
+  return out;
+}
+
+/**
+ * Rendered-text strings from an exported Next `metadata` object (PLAN F-2 §6b): `title`/`description`
+ * are rendered into <title>/<meta name="description">, so a hard-coded number there is as visible as
+ * JSX text. Only `export const metadata = {...}` is scanned; nested objects (openGraph/twitter) are
+ * descended for their title/description.
+ */
+function metadataTexts(sf: ts.SourceFile): RenderedText[] {
+  const texts: RenderedText[] = [];
+  const lineOf = (node: ts.Node): number => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+  const visit = (node: ts.Node): void => {
+    if (ts.isVariableStatement(node)) {
+      const isExport = node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ?? false;
+      if (isExport) {
+        for (const decl of node.declarationList.declarations) {
+          if (ts.isIdentifier(decl.name) && decl.name.text === "metadata" && decl.initializer !== undefined) {
+            const line = lineOf(decl.initializer);
+            for (const t of collectMetaLiterals(decl.initializer, VISIBLE_META_KEYS)) texts.push({ text: t, line });
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return texts;
+}
+
+/** Every rendered-text string in a tsx/ts source: JSX rendered positions + the metadata export. */
+function allRenderedTexts(sf: ts.SourceFile): RenderedText[] {
+  return [...renderedTexts(sf), ...metadataTexts(sf)];
+}
+
+/**
+ * Rendered literals an MDX `{...}` expression contributes, for PARITY with a TSX `{...}` JSX child
+ * (PLAN F-2 §6c): parse the inner text as a TSX expression, keep string/number/template/conditional/
+ * concat literals AND a nested JSX element's own text; a dynamic read ({figures.x.value}, {count})
+ * contributes nothing. A `{...}` that fails to parse contributes nothing (fail-open to green, never a
+ * false red). Only flat (non-nested) braces are matched by the caller's regex. A backtick template
+ * literal INSIDE braces ({`x ${n}`}) is consumed by the inline-code strip that runs first (accepted
+ * limit; the string / number / nested-JSX mutant target is unaffected).
+ */
+function mdxExprLiterals(inner: string): string[] {
+  const sf = ts.createSourceFile("expr.tsx", "(" + inner + "\n)", ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const stmt = sf.statements[0];
+  if (stmt === undefined || !ts.isExpressionStatement(stmt)) return [];
+  const expr = ts.isParenthesizedExpression(stmt.expression) ? stmt.expression.expression : stmt.expression;
+  const out = [...renderedLiterals(expr)];
+  for (const rt of renderedTexts(sf)) out.push(rt.text);
+  return out;
+}
+
+/** Strip code fences/spans; keep a {...} expression only when it renders a literal (TSX parity, §6c). */
 function mdxProse(source: string): string {
   let s = source.replace(/```[\s\S]*?```/g, " "); // fenced code
   s = s.replace(/`[^`]*`/g, " "); // inline code
-  s = s.replace(/\{[^{}]*\}/g, " "); // JSX/MDX expressions (dynamic, not literals)
+  s = s.replace(/\{([^{}]*)\}/g, (_m: string, inner: string) => {
+    const lits = mdxExprLiterals(inner);
+    return lits.length > 0 ? " " + lits.join(" ") + " " : " ";
+  });
   return s;
 }
 
@@ -189,7 +263,7 @@ export function scanSource(source: string, kind: SourceKind, exemptValues: Set<s
   if (kind === "mdx") return scanText(mdxProse(source), exemptValues);
   const sf = ts.createSourceFile("in." + kind, source, ts.ScriptTarget.Latest, true, scriptKindFor(kind));
   const out: string[] = [];
-  for (const rt of renderedTexts(sf)) out.push(...scanText(rt.text, exemptValues));
+  for (const rt of allRenderedTexts(sf)) out.push(...scanText(rt.text, exemptValues));
   return out;
 }
 
@@ -202,7 +276,7 @@ function scanFileText(rel: string, source: string, kind: SourceKind, exemptValue
     return out;
   }
   const sf = ts.createSourceFile(rel, source, ts.ScriptTarget.Latest, true, scriptKindFor(kind));
-  for (const rt of renderedTexts(sf)) {
+  for (const rt of allRenderedTexts(sf)) {
     for (const token of scanText(rt.text, exemptValues)) {
       out.push({ file: rel, line: rt.line, token, text: rt.text.trim().slice(0, 60) });
     }
@@ -213,14 +287,24 @@ function scanFileText(rel: string, source: string, kind: SourceKind, exemptValue
 function kindForExt(ext: string): SourceKind | null {
   if (ext === ".tsx") return "tsx";
   if (ext === ".ts") return "ts";
-  // .md is treated AS .mdx (defensive, F-1 G2 R1): next.config.mjs drops "md" from pageExtensions so a
-  // stray content .md is never a route, but should one land under app/ or content/ it is still scanned as
-  // MDX prose here — the honesty lint never silently skips a rendered-text surface.
-  if (ext === ".mdx" || ext === ".md") return "mdx";
+  if (ext === ".mdx") return "mdx";
+  // .md is NOT a honesty surface. next.config.mjs `pageExtensions` = ts/tsx/mdx, so a .md is NEVER a
+  // route (never rendered). Under the C4 whole-apps/site walk, .md files are provenance/docs
+  // (COMPONENTS-PROVENANCE.md) that legitimately carry version numbers (4.21.0, 1.8.0, …); flagging
+  // those as "rendered" literals is a false positive. Rendered content is .mdx (F-2b/c). The .md files
+  // are still English-gated by scripts/lang-gate.mjs (--scope site).
   return null;
 }
 
-/** Walk apps/site/{app,content} and scan every .tsx/.ts/.mdx file. */
+/**
+ * Walk ALL of apps/site and scan every .tsx/.ts/.mdx file (C4, PLAN F-2 §6a). `.md` is NOT scanned:
+ * it is absent from next.config.mjs pageExtensions and matched by no MDX loader, so it is never a
+ * route or a rendered surface (F-2a D1 — a conscious reversal of F-1 G2 R1, whose routable-but-
+ * unscanned hole is now closed structurally by pageExtensions, not by scanning .md). SKIP_DIRS
+ * (node_modules/.next/.turbo) are skipped at any depth; `test/` and `data/` only at the top level
+ * (SKIP_TOP); `*.d.ts` (generated, e.g. next-env.d.ts) is skipped. This closes the class the old
+ * {app,content} whitelist left open — a rendered numeric literal in components/ or hooks/ now reds.
+ */
 export function scanAppsSite(
   rootDir: string,
   exemptValues: Set<string>,
@@ -228,23 +312,25 @@ export function scanAppsSite(
   const base = join(rootDir, "apps", "site");
   const violations: Violation[] = [];
   let filesScanned = 0;
-  const walk = (absDir: string, relDir: string): void => {
+  const walk = (absDir: string, relDir: string, atTop: boolean): void => {
     if (!existsSync(absDir)) return;
     for (const name of readdirSync(absDir)) {
       if (SKIP_DIRS.has(name)) continue;
+      if (atTop && SKIP_TOP.has(name)) continue;
       const abs = join(absDir, name);
       const rel = relDir + "/" + name;
       if (statSync(abs).isDirectory()) {
-        walk(abs, rel);
+        walk(abs, rel, false);
         continue;
       }
+      if (name.endsWith(".d.ts")) continue;
       const kind = kindForExt(extname(name).toLowerCase());
       if (kind === null) continue;
       filesScanned += 1;
       violations.push(...scanFileText(rel, readFileSync(abs, "utf8"), kind, exemptValues));
     }
   };
-  for (const r of SCAN_ROOTS) walk(join(base, r), "apps/site/" + r);
+  walk(base, "apps/site", true);
   return { violations, filesScanned };
 }
 

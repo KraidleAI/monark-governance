@@ -21,6 +21,19 @@
       "banned": [
         { "re": "(?<!pyth-)(?<!clawpump-)\\bHermes\\b", "why": "naked \"Hermes\" forbidden in packages/monark/** — name collision (Pyth Hermes vs ClawPump harness); qualify as pyth-hermes / clawpump-hermes (ADR-M003 D12, pre-verif 4)" }
       ]
+    },
+    "site": {
+      "package": "site",
+      "extensions": [".ts", ".tsx", ".mdx"],
+      "banned": [
+        { "re": "\\bautonomous\\b", "why": "\"autonomous\" — no autonomy claim on the public storefront (README v2 proscribed vocab; PLAN F-2 C6)" },
+        { "re": "\\bself[-\\s]?evolving\\b", "why": "\"self-evolving\" claim (C6)" },
+        { "re": "\\bpredicts\\b", "why": "\"predicts\" — the fleet conforms a predictor, it does not itself predict (C6)" },
+        { "re": "\\bconfidence\\b", "why": "\"confidence\" — no confidence field/score anywhere (fleet invariant; C6)" },
+        { "re": "\\baccuracy\\b", "why": "\"accuracy\" claim (C6)" },
+        { "re": "\\bhedge\\s+fund\\b", "why": "\"hedge fund\" — MONARK is not a fund (C6)" },
+        { "re": "\\bKraidle\\b", "why": "\"Kraidle\" — internal name, never on the public storefront (C6)" }
+      ]
     }
   }
 }

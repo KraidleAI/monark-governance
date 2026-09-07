@@ -1,11 +1,166 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-/* Lot F-public foundation baseline. `npx shadcn@4.21.0 init -d` DID run headless (exit 0), but its
-   base-nova default preset was REVERTED for R-8 (caret-range deps + the shadcn CLI added as a runtime
-   dependency); adopting a base/preset is a deferred F-2 decision — see COMPONENTS-PROVENANCE.md. So there
-   is no shadcn design-token layer (:root / .dark variables, @theme inline mapping) yet; the foundation
-   keeps the classic cn() (clsx + tailwind-merge) and this bare @import, and the F-1 placeholder page uses
-   built-in Tailwind utilities only. */
+/*
+ * MONARK storefront design tokens (Lot F-2a). Navy/gold brand, kanji secondary typography.
+ * HONEST: colour + typography tokens only — no content, no numbers-as-claims, no assertions.
+ *
+ * Base UI primitives (own-the-code, Lot F-2a). shadcn's `init -b base` wrote
+ * `@import "shadcn/tailwind.css"` (629 lines) and added `shadcn` as a runtime dependency. Both were
+ * removed for R-8 (the CLI is NEVER a runtime dep; it is invoked via `npx shadcn@4.21.0`). Instead
+ * the two `@custom-variant` blocks the copied Button/Dialog actually reference (`data-open`,
+ * `data-closed`) are inlined below verbatim from shadcn/dist/tailwind.css (MIT). Unreferenced
+ * utilities (scroll-fade, shimmer, the other data-variants, accordion keyframes) are NOT inlined; a
+ * future lot re-inlines per component that needs them. See COMPONENTS-PROVENANCE.md.
+ */
+
+@custom-variant dark (&:is(.dark *));
+
+@custom-variant data-open {
+  &:where([data-state="open"]),
+  &:where([data-open]:not([data-open="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-closed {
+  &:where([data-state="closed"]),
+  &:where([data-closed]:not([data-closed="false"])) {
+    @slot;
+  }
+}
+
 :root {
   color-scheme: light;
+
+  /* Typography */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  --font-heading: var(--font-sans);
+  /* Kanji secondary (display) — CJK-capable stack for later slices */
+  --font-kanji: "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif JP", serif;
+
+  /* Brand: navy ink on near-white, gold accent */
+  --background: oklch(0.99 0.004 260);
+  --foreground: oklch(0.22 0.03 264);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.03 264);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.03 264);
+  --primary: oklch(0.29 0.07 264);
+  --primary-foreground: oklch(0.98 0.01 90);
+  --secondary: oklch(0.95 0.012 264);
+  --secondary-foreground: oklch(0.29 0.07 264);
+  --muted: oklch(0.96 0.008 264);
+  --muted-foreground: oklch(0.48 0.03 264);
+  --accent: oklch(0.8 0.12 85);
+  --accent-foreground: oklch(0.26 0.05 264);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.9 0.01 264);
+  --input: oklch(0.9 0.01 264);
+  --ring: oklch(0.8 0.12 85);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.5rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.22 0.03 264);
+  --sidebar-primary: oklch(0.29 0.07 264);
+  --sidebar-primary-foreground: oklch(0.98 0.01 90);
+  --sidebar-accent: oklch(0.8 0.12 85);
+  --sidebar-accent-foreground: oklch(0.26 0.05 264);
+  --sidebar-border: oklch(0.9 0.01 264);
+  --sidebar-ring: oklch(0.8 0.12 85);
+}
+
+@theme inline {
+  --font-heading: var(--font-heading);
+  --font-sans: var(--font-sans);
+  --font-kanji: var(--font-kanji);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+.dark {
+  --background: oklch(0.2 0.03 264);
+  --foreground: oklch(0.98 0.01 90);
+  --card: oklch(0.24 0.035 264);
+  --card-foreground: oklch(0.98 0.01 90);
+  --popover: oklch(0.24 0.035 264);
+  --popover-foreground: oklch(0.98 0.01 90);
+  --primary: oklch(0.8 0.12 85);
+  --primary-foreground: oklch(0.24 0.05 264);
+  --secondary: oklch(0.3 0.04 264);
+  --secondary-foreground: oklch(0.98 0.01 90);
+  --muted: oklch(0.3 0.04 264);
+  --muted-foreground: oklch(0.72 0.03 264);
+  --accent: oklch(0.8 0.12 85);
+  --accent-foreground: oklch(0.24 0.05 264);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.8 0.12 85);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.24 0.035 264);
+  --sidebar-foreground: oklch(0.98 0.01 90);
+  --sidebar-primary: oklch(0.8 0.12 85);
+  --sidebar-primary-foreground: oklch(0.24 0.05 264);
+  --sidebar-accent: oklch(0.3 0.04 264);
+  --sidebar-accent-foreground: oklch(0.98 0.01 90);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.8 0.12 85);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
 }

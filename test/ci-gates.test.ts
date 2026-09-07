@@ -122,3 +122,56 @@ test("vocab_monark_scope_bans_naked_hermes — naked Hermes reddens, pyth-/clawp
   assert.ok(!re.test("the tokenised agent + clawpump-hermes harness wiring"), "clawpump-hermes must stay green");
   assert.ok(!re.test("pyth-hermes prices"), "pyth-hermes must stay green");
 });
+
+// Lot F-2a (PLAN F-2 §6e, C6) — the public storefront vocabulary gate (scope 'site') bans the README
+// v2 marketing vocab in apps/site. Live end-to-end mutant (grep of the gate on a banned word in an
+// apps/site file) is in docs/G1-lot-F2a.md; this locks the config so the scope cannot drift silently.
+test("vocab_site_scope_bans_marketing_words — 7 proscribed words redden in apps/site (C6)", () => {
+  const cfg = JSON.parse(readFileSync(join(ROOT, "vocab-banned.json"), "utf8")) as {
+    scan: { site?: { package: string; extensions: string[]; banned: { re: string; why: string }[] } };
+  };
+  const site = cfg.scan.site;
+  assert.ok(site, "scope 'site' missing from vocab-banned.json (C6)");
+  assert.equal(site.package, "site");
+  assert.deepEqual([...site.extensions].sort(), [".mdx", ".ts", ".tsx"], "site scope scans rendered surfaces only");
+  const res = site.banned.map((b) => new RegExp(b.re, "i"));
+  for (const w of ["autonomous", "self-evolving", "predicts", "confidence", "accuracy", "hedge fund", "Kraidle"]) {
+    assert.ok(res.some((re) => re.test(`the ${w} claim`)), `no site-scope pattern reddens '${w}'`);
+  }
+  // Discriminating: adjacent honest words stay green (only 'predicts' is banned, not prediction/predictor).
+  assert.ok(
+    !res.some((re) => re.test("the predictor emits a Prediction and a coverage region")),
+    "'prediction'/'predictor' must stay green (only 'predicts' banned)",
+  );
+});
+
+// Lot F-2a (PLAN F-2 §6f, C11) — package-name collision guard: Base UI is `@base-ui/react`; the
+// differently-named `@base-ui-components/react` must NEVER appear. Mutant (adding it to the site
+// package.json) reddens; proof in docs/G1-lot-F2a.md.
+test("no_base_ui_components_collision — @base-ui-components/react absent from site pkg + lockfile (C11)", () => {
+  const pkg = readFileSync(join(ROOT, "apps", "site", "package.json"), "utf8");
+  const lock = readFileSync(join(ROOT, "package-lock.json"), "utf8");
+  assert.ok(
+    !pkg.includes("@base-ui-components/react"),
+    "@base-ui-components/react must be absent from apps/site/package.json (use @base-ui/react)",
+  );
+  assert.ok(
+    !lock.includes("@base-ui-components/react"),
+    "@base-ui-components/react must be absent from package-lock.json (collision with @base-ui/react)",
+  );
+  assert.ok(pkg.includes("@base-ui/react"), "positive control: @base-ui/react IS the pinned package");
+});
+
+// Lot F-2a (checkpoint-2 C-1) — the D1 decision (drop .md from the honesty walk) is only safe while
+// .md is never a route. That safety rests ENTIRELY on next.config.mjs pageExtensions excluding "md":
+// guard (a) locks the non-scan of .md, NOT the route closure. This locks pageExtensions so a future
+// lot re-adding "md" (reopening F-1 G2 R1's routable-but-unscanned hole) reddens HERE. Named mutant:
+// add "md" to pageExtensions ⇒ this test fails.
+test("pageExtensions_excludes_md — .md is never a route, so the honesty walk may skip it (C-1)", () => {
+  const cfg = readFileSync(join(ROOT, "apps", "site", "next.config.mjs"), "utf8");
+  const inner = cfg.match(/pageExtensions\s*:\s*\[([^\]]*)\]/)?.[1] ?? "";
+  assert.ok(inner, "pageExtensions array not found in apps/site/next.config.mjs");
+  const exts = [...inner.matchAll(/["']([^"']+)["']/g)].map((x) => x[1]).filter((s): s is string => !!s);
+  assert.deepEqual([...exts].sort(), ["mdx", "ts", "tsx"], "pageExtensions must be exactly ts/tsx/mdx");
+  assert.ok(!exts.includes("md"), "adding 'md' reopens F-1 G2 R1's routable-but-unscanned hole (C-1)");
+});
