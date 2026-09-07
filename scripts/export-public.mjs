@@ -32,8 +32,9 @@ export const REPO_ROOT = resolve(SCRIPT_DIR, "..");
 export const PACKAGE_SUBPATHS = ["src", "test", "package.json", "README.md"];
 // `enforcement/` (contains lint-model-pinning.sh, English): required by the exported
 // g1-controle-generation job (`bash enforcement/lint-model-pinning.sh .`). Confirmed in the whitelist
-// by ADR-M004 D7 bis R3 (D7 amended). `apps/site` is tolerated absent until Lot F-public (D7); every
-// OTHER whitelist entry is REQUIRED (fail-closed on absence, D7 bis R2 — see TOLERATED_ABSENT below).
+// by ADR-M004 D7 bis R3 (D7 amended). `apps/site` shipped in Lot F-1, so the D7 tolerated-absence
+// carve-out is RETIRED: EVERY fixed whitelist entry is now REQUIRED (fail-closed on absence, D7 bis
+// R2 — see TOLERATED_ABSENT below).
 export const WHITELIST_DIRS = ["schemas", "fixtures", "enforcement", "apps/site"];
 export const WHITELIST_FILES = [
   "README.md", "LICENSE",
@@ -51,11 +52,12 @@ export const WHITELIST_FILES = [
 ];
 
 // ADR-M004 D7 bis R2(a): every fixed whitelist entry (dir or file) MUST exist under the export root or
-// the export/check FAILS CLOSED (exit 1). The ONLY tolerated absence is apps/site (D7: tolerated until
-// Lot F-public ships it). LICENSE is NOT tolerated — while investor Q4 (license choice, D7 bis) is
-// open, LICENSE is absent and the real export deliberately fails. PACKAGE_SUBPATHS stay optional
-// per package (a package may legitimately lack a test/ dir).
-export const TOLERATED_ABSENT = new Set(["apps/site"]);
+// the export/check FAILS CLOSED (exit 1). There is now NO tolerated absence: apps/site shipped in Lot
+// F-1, so its D7 carve-out is retired and the set is EMPTY (the mechanism is kept so a future carve-out
+// can be reinstated by adding its path here). LICENSE is NOT tolerated either — while investor Q4
+// (license choice, D7 bis) is open, LICENSE is absent and the real export deliberately fails.
+// PACKAGE_SUBPATHS stay optional per package (a package may legitimately lack a test/ dir).
+export const TOLERATED_ABSENT = new Set();
 
 // ---- 2. STRUCTURAL BLACKLIST (defense in depth behind the whitelist) ----------------------
 export const STRUCTURAL_BLACKLIST = [
@@ -184,8 +186,8 @@ export function collectFiles(root) {
       }
     }
   }
-  // Fixed whitelist — FAIL CLOSED on a missing required entry (D7 bis R2(a)); apps/site is the only
-  // tolerated absence (D7). addDir/addFile stay silent-skip for the per-package (optional) paths above.
+  // Fixed whitelist — FAIL CLOSED on a missing required entry (D7 bis R2(a)); no dir is tolerated absent
+  // now that apps/site ships (F-1). addDir/addFile stay silent-skip for the per-package (optional) paths above.
   for (const d of WHITELIST_DIRS) {
     const abs = join(root, d);
     // F-1 G2 O2: only apps/site gets the gitignored-file filter (item 3b: bounded there, no side effects).
@@ -295,7 +297,7 @@ function doExport(root, outDir) {
     process.exit(1);
   }
   if (missingRequired.length) {
-    console.error("export FAILED — required whitelist entr(ies) missing (fail-closed, D7 bis R2; only apps/site is tolerated absent):");
+    console.error("export FAILED — required whitelist entr(ies) missing (fail-closed, D7 bis R2; no entry is tolerated absent since F-1 shipped apps/site):");
     for (const r of missingRequired) console.error(`  ${r}`);
     process.exit(1);
   }
@@ -350,7 +352,7 @@ function doCheck(root, selectedScopes) {
     bad = true;
   }
   if (missingRequired.length) {
-    console.error("check FAILED — required whitelist entr(ies) missing (fail-closed, D7 bis R2; only apps/site tolerated absent):");
+    console.error("check FAILED — required whitelist entr(ies) missing (fail-closed, D7 bis R2; no entry is tolerated absent since F-1 shipped apps/site):");
     for (const r of missingRequired) console.error(`  ${r}`);
     bad = true;
   }
