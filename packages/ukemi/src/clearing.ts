@@ -1,51 +1,51 @@
 /**
- * UKEMI — noyau de clearing Eisenberg & Noe (ADR-M002 D9 ; [lu-archive K4]
- * liquidations/lecture/K4-systemique-clearing.md:21-63,160), ÉTENDU aux coûts de défaut
- * (α, β) de Rogers & Veraart (ADR-M003 D6.3 ; [lu] `P-K4-1-rogers2013.md`, éq. (1) p.884 Q1,
- * GA Def. 3.6 Q2, Thm 3.7 « ≤ n tours » Q2). DÉTERMINISTE, recalculable par quiconque depuis
- * `(L, e, α, β)` — même exigence de recalculabilité que Shōgen.
+ * UKEMI — Eisenberg & Noe clearing core (ADR-M002 D9; [lu-archive K4]
+ * liquidations/lecture/K4-systemique-clearing.md:21-63,160), EXTENDED to the default costs
+ * (α, β) of Rogers & Veraart (ADR-M003 D6.3; [lu] `P-K4-1-rogers2013.md`, Eq. (1) p.884 Q1,
+ * GA Def. 3.6 Q2, Thm 3.7 "≤ n rounds" Q2). DETERMINISTIC, recomputable by anyone from
+ * `(L, e, α, β)` — the same recomputability requirement as Shōgen.
  *
- * Carte de compensation (P-K4-1 éq. (1), Q1) sur le treillis [0, p̄] :
- *   Φ(p)_i = p̄_i                         si  p̄_i ≤ e_i + Σ_j p_j Π_ji   (solvable : paie le nominal)
- *          = α·e_i + β·(Σ_j p_j Π_ji)     sinon                          (défaut : recouvrement partiel)
- *   - `p̄_i = Σ_j L_ij` (obligations nominales totales du nœud i) ; `Π_ij = L_ij / p̄_i`.
- *   - **α ∈ (0,1]** = fraction récupérée des actifs EXTERNES en liquidation ; **β ∈ (0,1]** = des
- *     actifs INTERBANCAIRES (P-K4-1 Q1, Def. 2.5). **α=β=1 ⇒ E&N** (éq. 6 p.886, Q1) :
- *     Φ(p)_i = p̄_i ∧ (e_i + Σ_j p_j Π_ji) — la carte Phase 1, reproduite AU BIT PRÈS (test 36).
- *   - existence de `L*` (plus grand) et `L_*` (plus petit) pour tout 0<α,β≤1 : Thm 3.1 (P-K4-1 Q2).
- *   - **unicité NON garantie dès α<1 ou β<1** : Ex. 3.3 (P-K4-1 Q2) — `clearing()` rapporte les
- *     deux vecteurs et `unique=false` hors égalité ; ne JAMAIS prétendre l'unicité hors α=β=1.
- *   - `L*` par GA (fictitious default ≤ n tours, Thm 3.7, P-K4-1 Q2).
- *   - `L_*` par itérés de Φ depuis 0 — RÉSERVE consignée : Φ « continuous from above » toujours,
- *     « not continuous from below sauf α=β=1 » (P-K4-1 Q2) ⇒ pour α,β<1 l'itération depuis 0
- *     donne un point fixe bas, sans garantie théorique d'atteindre L_* sans redémarrages.
+ * Clearing map (P-K4-1 Eq. (1), Q1) on the lattice [0, p̄]:
+ *   Φ(p)_i = p̄_i                         if  p̄_i ≤ e_i + Σ_j p_j Π_ji   (solvent: pays the nominal)
+ *          = α·e_i + β·(Σ_j p_j Π_ji)     otherwise                      (default: partial recovery)
+ *   - `p̄_i = Σ_j L_ij` (total nominal obligations of node i); `Π_ij = L_ij / p̄_i`.
+ *   - **α ∈ (0,1]** = fraction recovered of EXTERNAL assets in liquidation; **β ∈ (0,1]** = of
+ *     INTERBANK assets (P-K4-1 Q1, Def. 2.5). **α=β=1 ⇒ E&N** (Eq. 6 p.886, Q1):
+ *     Φ(p)_i = p̄_i ∧ (e_i + Σ_j p_j Π_ji) — the Phase 1 map, reproduced BIT-FOR-BIT (test 36).
+ *   - existence of `L*` (largest) and `L_*` (smallest) for all 0<α,β≤1: Thm 3.1 (P-K4-1 Q2).
+ *   - **uniqueness NOT guaranteed once α<1 or β<1**: Ex. 3.3 (P-K4-1 Q2) — `clearing()` reports the
+ *     two vectors and `unique=false` outside equality; NEVER claim uniqueness outside α=β=1.
+ *   - `L*` via GA (fictitious default ≤ n rounds, Thm 3.7, P-K4-1 Q2).
+ *   - `L_*` via iterates of Φ from 0 — recorded CAVEAT: Φ is "continuous from above" always,
+ *     "not continuous from below except α=β=1" (P-K4-1 Q2) ⇒ for α,β<1 iterating from 0
+ *     yields a low fixed point, with no theoretical guarantee of reaching L_* without restarts.
  *
- * `(α, β)` sont des SCALAIRES EXOGÈNES (Def. 2.5) : hors α=β=1 (E&N) et hors le contrôle négatif
- * Ex. 3.3 (valeurs de la source), toute valeur employée est DÉCLARÉE, non fondée — aucun défaut
- * produit n'en fixe une (pendant formé ADR-M003 §4 : « (α,β) fondés par source empirique »).
+ * `(α, β)` are EXOGENOUS SCALARS (Def. 2.5): outside α=β=1 (E&N) and outside the negative control
+ * Ex. 3.3 (source values), every value used is DECLARED, unfounded — no shipped default
+ * fixes one (formed pending item ADR-M003 §4: "(α,β) grounded by an empirical source").
  *
- * UKEMI = brique-moteur MONARK, PAS un produit (G7 UKEMI §5-6). Aucune garantie, aucun `p_correct`,
- * aucun rendement. Le canal endogène DeFi (prix de liquidation) est NON MODÉLISÉ (P-K4-1 Q5, D6.4).
+ * UKEMI = MONARK engine building-block, NOT a product (G7 UKEMI §5-6). No guarantee, no `p_correct`,
+ * no yield. The DeFi endogenous channel (liquidation price) is NOT MODELED (P-K4-1 Q5, D6.4).
  */
 
 export interface FinancialSystem {
-  /** Matrice des passifs nominaux : `L[i][j]` = ce que i doit à j. Carrée, ≥ 0, diagonale nulle. */
+  /** Nominal liabilities matrix: `L[i][j]` = what i owes j. Square, ≥ 0, zero diagonal. */
   readonly L: readonly (readonly number[])[];
-  /** Actifs externes (valeur de liquidation) par nœud, à la date de compensation. */
+  /** External assets (liquidation value) per node, at the clearing date. */
   readonly e: readonly number[];
 }
 
 export interface ClearingResult {
-  /** Plus grand vecteur de compensation `L*` (fictitious default / GA). */
+  /** Largest clearing vector `L*` (fictitious default / GA). */
   readonly pPlus: number[];
-  /** Plus petit vecteur `L_*` (itérés depuis 0 ; réserve « pas continue par le bas » si α,β<1). */
+  /** Smallest vector `L_*` (iterates from 0; caveat "not continuous from below" if α,β<1). */
   readonly pMinus: number[];
-  /** `‖L*−L_*‖_1 ≤ tol` ⇒ unicité (K4:47-48 sous régularité e>0 ; JAMAIS revendiquée hors α=β=1). */
+  /** `‖L*−L_*‖_1 ≤ tol` ⇒ uniqueness (K4:47-48 under regularity e>0; NEVER claimed outside α=β=1). */
   readonly unique: boolean;
-  /** Nombre de tours du fictitious default (≤ n). */
+  /** Number of fictitious-default rounds (≤ n). */
   readonly rounds: number;
   readonly tol: number;
-  /** Coûts de défaut employés (provenance ; 1 = E&N). */
+  /** Default costs used (provenance; 1 = E&N). */
   readonly alpha: number;
   readonly beta: number;
 }
@@ -54,7 +54,7 @@ function pbarOf(L: FinancialSystem["L"]): number[] {
   return L.map((row) => row.reduce((a, b) => a + b, 0));
 }
 
-/** `Π[i][j] = L[i][j] / p̄_i` (0 si p̄_i = 0). */
+/** `Π[i][j] = L[i][j] / p̄_i` (0 if p̄_i = 0). */
 function piOf(L: FinancialSystem["L"], pbar: readonly number[]): number[][] {
   return L.map((row, i) => {
     const pi = pbar[i] ?? 0;
@@ -62,7 +62,7 @@ function piOf(L: FinancialSystem["L"], pbar: readonly number[]): number[][] {
   });
 }
 
-/** Actifs interbancaires reçus par i sous des paiements `p` : `Σ_j Π[j][i] p_j` (branche R&V seule). */
+/** Interbank assets received by i under payments `p`: `Σ_j Π[j][i] p_j` (R&V branch only). */
 function interbankIn(i: number, p: readonly number[], Pi: readonly (readonly number[])[]): number {
   let v = 0;
   for (let j = 0; j < p.length; j++) v += (Pi[j]?.[i] ?? 0) * (p[j] ?? 0);
@@ -70,8 +70,8 @@ function interbankIn(i: number, p: readonly number[], Pi: readonly (readonly num
 }
 
 /**
- * Valeur d'un nœud i sous des paiements `p` : `e_i + Σ_j Π[j][i] p_j` (externe + interbancaire reçu).
- * Repli à GAUCHE depuis `e_i` — ORDRE d'accumulation identique à la Phase 1 (byte-exactness E&N, test 36).
+ * Value of a node i under payments `p`: `e_i + Σ_j Π[j][i] p_j` (external + interbank received).
+ * LEFT fold from `e_i` — accumulation ORDER identical to Phase 1 (E&N byte-exactness, test 36).
  */
 function nodeValue(i: number, p: readonly number[], e: readonly number[], Pi: readonly (readonly number[])[]): number {
   let v = e[i] ?? 0;
@@ -79,7 +79,7 @@ function nodeValue(i: number, p: readonly number[], e: readonly number[], Pi: re
   return v;
 }
 
-/** Élimination de Gauss avec pivot partiel : résout A x = b (A carrée). */
+/** Gaussian elimination with partial pivoting: solves A x = b (A square). */
 function solveLinear(A: number[][], b: number[]): number[] {
   const n = b.length;
   const M = A.map((row, i) => [...row, b[i] ?? 0]);
@@ -90,7 +90,7 @@ function solveLinear(A: number[][], b: number[]): number[] {
     M[col] = M[piv]!;
     M[piv] = tmp;
     const d = M[col]![col]!;
-    if (Math.abs(d) < 1e-15) continue; // singulier : laisse la ligne ; la composante renvoie 0 (plus petite solution). N'arrive que sur un bloc D non régulier, où p⁺≠p⁻ de toute façon (unicité rapportée `false`).
+    if (Math.abs(d) < 1e-15) continue; // singular: leaves the row; the component returns 0 (smallest solution). Only happens on a non-regular block D, where p⁺≠p⁻ anyway (uniqueness reported `false`).
     for (let r = 0; r < n; r++) {
       if (r === col) continue;
       const f = M[r]![col]! / d;
@@ -101,16 +101,16 @@ function solveLinear(A: number[][], b: number[]): number[] {
 }
 
 /**
- * Fictitious default / GA (K4:51-58 ; P-K4-1 Def. 3.6, Thm 3.7, Q2) : `p⁰ = p̄` ; à chaque tour, les
- * nœuds DÉFAILLANTS (valeur < p̄, insolvabilité aux fondamentaux, INCHANGÉE par α,β) paient le
- * recouvrement `x_i = α e_i + β·(Σ_j p_j Π_ji)` — système linéaire `(I − β Π_DDᵀ) x_D = α e_D +
- * β Π_{Dc D}ᵀ p̄_Dc` sur le bloc défaillant D — les autres paient p̄. L'ensemble de défaut CROÎT
- * d'au moins un par tour ⇒ **≤ n tours**. Renvoie `L*`.
+ * Fictitious default / GA (K4:51-58; P-K4-1 Def. 3.6, Thm 3.7, Q2): `p⁰ = p̄`; each round, the
+ * DEFAULTING nodes (value < p̄, insolvency at fundamentals, UNCHANGED by α,β) pay the
+ * recovery `x_i = α e_i + β·(Σ_j p_j Π_ji)` — linear system `(I − β Π_DDᵀ) x_D = α e_D +
+ * β Π_{Dc D}ᵀ p̄_Dc` on the defaulting block D — the others pay p̄. The default set GROWS
+ * by at least one per round ⇒ **≤ n rounds**. Returns `L*`.
  *
- * **α=β=1 (E&N) reproduit AU BIT PRÈS la Phase 1** : `1·x = x` en IEEE-754 et l'ordre d'accumulation
- * du RHS est inchangé, donc `A`, `b` et donc `L*` sont identiques bit-à-bit à l'implémentation
- * d'origine (test 36 ; mutant nommé « β ignoré » ⇒ test 37 rouge, mutant « interbancaire retiré »
- * ⇒ test 36 rouge).
+ * **α=β=1 (E&N) reproduces Phase 1 BIT-FOR-BIT**: `1·x = x` in IEEE-754 and the RHS accumulation
+ * order is unchanged, so `A`, `b` and thus `L*` are bit-for-bit identical to the original
+ * implementation (test 36; named mutant "β ignored" ⇒ test 37 red, mutant "interbank removed"
+ * ⇒ test 36 red).
  */
 export function fictitiousDefault(
   sys: FinancialSystem,
@@ -125,7 +125,7 @@ export function fictitiousDefault(
   let rounds = 0;
 
   for (let iter = 0; iter <= n; iter++) {
-    // Résout les paiements de recouvrement des nœuds défaillants (bloc D).
+    // Solves the recovery payments of the defaulting nodes (block D).
     const D: number[] = [];
     for (let i = 0; i < n; i++) if (inDefault[i]) D.push(i);
     if (D.length > 0) {
@@ -141,7 +141,7 @@ export function fictitiousDefault(
       p = [...pbar];
       D.forEach((i, k) => (p[i] = Math.max(0, Math.min(pbar[i] ?? 0, pD[k] ?? 0))));
     }
-    // Nouveaux défaillants : nœud non encore en défaut dont la valeur (fondamentale) < p̄.
+    // New defaulters: a node not yet in default whose (fundamental) value < p̄.
     let grew = false;
     for (let i = 0; i < n; i++) {
       if (inDefault[i]) continue;
@@ -157,10 +157,10 @@ export function fictitiousDefault(
 }
 
 /**
- * Itérés de Φ depuis 0 : `L_*` (plus petit point fixe). Picard monotone croissant.
- * RÉSERVE (P-K4-1 Q2) : Φ n'est « pas continue par le bas » si α,β<1 — l'itération depuis 0
- * converge vers un point fixe bas, sans garantie d'atteindre L_* sans redémarrages ; pour α=β=1
- * (E&N, Φ continue) elle atteint bien le plus petit.
+ * Iterates of Φ from 0: `L_*` (smallest fixed point). Monotone increasing Picard.
+ * CAVEAT (P-K4-1 Q2): Φ is "not continuous from below" if α,β<1 — iterating from 0
+ * converges to a low fixed point, with no guarantee of reaching L_* without restarts; for α=β=1
+ * (E&N, Φ continuous) it does reach the smallest.
  */
 export function clearingFromBelow(
   sys: FinancialSystem,
@@ -181,7 +181,7 @@ export function clearingFromBelow(
   return p;
 }
 
-/** Compensation complète : `L*` (fictitious default / GA), `L_*` (depuis 0), unicité. */
+/** Full clearing: `L*` (fictitious default / GA), `L_*` (from 0), uniqueness. */
 export function clearing(sys: FinancialSystem, alpha = 1, beta = 1, tol = 1e-8): ClearingResult {
   const { p: pPlus, rounds } = fictitiousDefault(sys, alpha, beta);
   const pMinus = clearingFromBelow(sys, alpha, beta);
@@ -191,19 +191,19 @@ export function clearing(sys: FinancialSystem, alpha = 1, beta = 1, tol = 1e-8):
 }
 
 /**
- * `Φ(p)` explicite (P-K4-1 éq. (1), Q1). Pour vérifier `Φ(p*) = p*`.
- * **α=β=1 : chemin E&N préservé au bit près** (`Math.min(p̄_i, valeur_i)`, carte Phase 1 littérale).
+ * Explicit `Φ(p)` (P-K4-1 Eq. (1), Q1). To check `Φ(p*) = p*`.
+ * **α=β=1: E&N path preserved bit-for-bit** (`Math.min(p̄_i, value_i)`, literal Phase 1 map).
  */
 export function phi(sys: FinancialSystem, p: readonly number[], alpha = 1, beta = 1): number[] {
   const pbar = pbarOf(sys.L);
   const Pi = piOf(sys.L, pbar);
-  const enPath = alpha === 1 && beta === 1; // Eisenberg & Noe : reproduit bit-à-bit la Phase 1
+  const enPath = alpha === 1 && beta === 1; // Eisenberg & Noe: reproduces Phase 1 bit-for-bit
   return p.map((_, i) => {
     const pb = pbar[i] ?? 0;
-    const value = nodeValue(i, p, sys.e, Pi); // e_i + interbancaire, ordre d'accumulation Phase 1
-    if (enPath) return Math.min(pb, value); // carte E&N littérale (byte-exact)
-    if (value >= pb) return pb; // solvable : paie le nominal
-    return alpha * (sys.e[i] ?? 0) + beta * interbankIn(i, p, Pi); // défaut : α·externe + β·interbancaire
+    const value = nodeValue(i, p, sys.e, Pi); // e_i + interbank, Phase 1 accumulation order
+    if (enPath) return Math.min(pb, value); // literal E&N map (byte-exact)
+    if (value >= pb) return pb; // solvent: pays the nominal
+    return alpha * (sys.e[i] ?? 0) + beta * interbankIn(i, p, Pi); // default: α·external + β·interbank
   });
 }
 

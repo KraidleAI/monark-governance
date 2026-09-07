@@ -1,10 +1,10 @@
 /**
- * UKEMI (受け身) — brique-moteur MONARK de risque de cascade de liquidation (Phase 1).
+ * UKEMI (受け身) — MONARK liquidation-cascade risk engine building-block (Phase 1).
  *
- * PAS un produit autonome (G7 UKEMI 2026-09-03 §5-6 ; ADR-M002 D9) : un noyau de clearing
- * Eisenberg-Noe déterministe + une cible « montant liquidable sous choc » (horizon 24 h,
- * décision investisseur (d)), émise comme `Prediction` numérique que HIKAE conformera en
- * Phase 2. Aucune garantie, aucun rendement, aucun `p_correct`. Code le nôtre.
+ * NOT a standalone product (G7 UKEMI 2026-09-03 §5-6; ADR-M002 D9): a deterministic
+ * Eisenberg-Noe clearing core + a "liquidable amount under shock" target (24 h horizon,
+ * investor decision (d)), emitted as a numeric `Prediction` that HIKAE will conformalize in
+ * Phase 2. No guarantee, no yield, no `p_correct`. Our own code.
  */
 export {
   clearing,
