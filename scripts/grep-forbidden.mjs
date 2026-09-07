@@ -22,13 +22,16 @@ const CONFIG = JSON.parse(readFileSync(join(ROOT, "vocab-banned.json"), "utf8"))
 const compile = ({ re, why }) => ({ re: new RegExp(re, "i"), why });
 const GLOBAL = CONFIG.banned.map(compile);
 
-function walk(dir, exts) {
+const DEFAULT_SKIP = new Set(["node_modules", "dist"]);
+// Lot F-2 (C6): the apps/site walk also skips Next build output and non-rendered surfaces.
+const SITE_SKIP = new Set(["node_modules", "dist", ".next", ".turbo", "test", "data"]);
+function walk(dir, exts, skip = DEFAULT_SKIP) {
   const out = [];
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
     const st = statSync(p);
     if (st.isDirectory()) {
-      if (name !== "node_modules" && name !== "dist") out.push(...walk(p, exts));
+      if (!skip.has(name)) out.push(...walk(p, exts, skip));
     } else if (exts.includes(extname(p))) {
       out.push(p);
     }
@@ -72,6 +75,20 @@ for (const pkg of readdirSync(packagesDir)) {
     if (statSync(srcDir).isDirectory()) add(walk(srcDir, srcExts), GLOBAL);
   } catch {
     /* no src/ in this package yet */
+  }
+}
+
+// Lot F-2 (C6): the public storefront apps/site (NOT under packages/) — GLOBAL patterns + the
+// site-scoped marketing bans (README v2 proscribed vocab). Rendered surfaces only (.tsx/.ts/.mdx);
+// node_modules/.next/.turbo/test/data skipped (SITE_SKIP).
+const site = CONFIG.scan.site;
+if (site) {
+  const siteDir = join(ROOT, "apps", site.package ?? "site");
+  const SITE_EXTRA = (site.banned ?? []).map(compile);
+  try {
+    if (statSync(siteDir).isDirectory()) add(walk(siteDir, site.extensions, SITE_SKIP), [...GLOBAL, ...SITE_EXTRA]);
+  } catch {
+    /* no apps/site yet */
   }
 }
 

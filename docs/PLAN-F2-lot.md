@@ -100,3 +100,10 @@ F-2b/F-2c fusionnables **seulement si** la mesure tient sous 1205 (mesure avant 
 - **C11** test anti-collision `@base-ui-components/react` absent : §6(f).
 - **C12** en-tête R-1 = modèle résolu réel (`claude-opus-4-8`, exception Opus-seat citée) + D2-ter commis avant 1er worker : en-tête + §3/§7.
 - **E-1/E-2** escalades tranchées : en-tête (bloc escalades) ; §2 onboarding ; §3 WCAG.
+
+## 12. Errata (checkpoint 2, 2026-09-07 — corrections C-2/C-3 du validateur)
+Le PLAN étant le contrat, il reflète le livré F-2a :
+- **D4 — `--dry-run` supersédé** : les mentions « `--dry-run` journalisé » (§4/§5/§9.4) présumaient un flag **inexistant dans shadcn 4.21.0** (`init --help` ne le liste pas). Équivalent retenu et journalisé : commande `init` exacte + lancement sur **arbre git-propre** + lecture du `git diff` (l'ensemble exact tiré). `error_origin` = outillage.
+- **§10 — `\bconfidence\b` promu pendant explicite** : la copy d'invariant de flotte MONARK (README l.67-71, « no confidence field/score ») rougira le gate vocab `site` en F-2b ⇒ **ADR scopé** en F-2b : phrase exempte fermée (façon `honesty-lint.exempt.json`/`lang-exempt.json`) **ou** motif conscient de la négation. (Ne vivait qu'en note de provenance ; désormais au contrat.)
+- **§6b-bis (F-2b) — `generateMetadata()`** : la garde (b) scanne la **variable** `metadata` ; une fonction `export async function generateMetadata()` retournant des littéraux `title/description` échapperait (prouvé en sonde G2). F-2b : soit scanner le retour de `generateMetadata` (avec mutant), soit documenter le non-usage. Aucune page F-2a ne l'utilise.
+- **C-1 (appliquée en F-2a)** : `test/ci-gates.test.ts` verrouille désormais `pageExtensions` (== ts/tsx/mdx, `md` absent) ; mutant `+"md"` ⇒ rouge (prouvé, restauré byte-exact). Ferme le fail-open latent de D1 (la sûreté du non-scan `.md` ne repose plus sur un `pageExtensions` non verrouillé). `error_origin` = générateur (preuve structurelle non verrouillée), attrapé au checkpoint 2.
