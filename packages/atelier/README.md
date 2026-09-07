@@ -1,42 +1,42 @@
-# @monark/atelier — écran de démo local (Phase 1, Lot D)
+# @monark/atelier — local demo screen (Phase 1, Lot D)
 
-Atelier **local** (ADR-M002 D0/D1, cap hackathon) : une page servie sur `127.0.0.1` qui **rejoue les
-9 états gelés** de `fixtures/` racine — verdict de couverture, décision **COMMIT / DEFER / ABSTAIN** avec
-sa raison, **B_t qui se consomme**, **deux horloges**, et la chaîne **Shōgen → HIKAE → UKEMI** en trois
-panneaux. Conçu pour le stream de jugement. Inspiré de l'atelier Grok (input), **code le nôtre**.
+**Local** atelier (ADR-M002 D0/D1, hackathon cap): a page served on `127.0.0.1` that **replays the
+9 frozen states** from root `fixtures/` — coverage verdict, **COMMIT / DEFER / ABSTAIN** decision with
+its reason, **B_t that depletes**, **two clocks**, and the **Shōgen → HIKAE → UKEMI** chain in three
+panels. Built for the judgment stream. Inspired by the Grok atelier (input), **our own code**.
 
 ```bash
 npm run atelier --workspace @monark/atelier
 ```
 
-## Ce que l'écran dit — et ne dit pas
+## What the screen says — and does not say
 
-- **Deux horloges, nommées pour ce qu'elles sont sur fixtures** : « couverture avant décision »
-  (horodatage du verdict) et « label arrivé à t+w » (w = 15 min, beachhead `btc-dir-15m`, D8). L'explication
-  « avant l'ordre / après le fill ; le kill-switch n'est pas un stop-loss » vit **ici et dans l'ADR, pas dans
-  le rendu** : MONARK ne passe aucun ordre.
-- **B_t** est la capacité d'autorisation restante (ADR-CERT-MONARK) — **jamais un rendement**.
-- **Silence calibré = résultat** : 3 COMMIT / 2 DEFER / 3 ABSTAIN / 1 `under_calib`, tous visibles.
-- **UKEMI** est affiché **non branché** (Phase 1) — rien n'est simulé à sa place.
-- **Aucun mot du gate vocab** à l'écran : le paquet entier **et** le rendu passent `scripts/grep-forbidden.mjs`
-  (test 26, mutant vérifié).
+- **Two clocks, named for what they are on fixtures**: "coverage before decision"
+  (verdict timestamp) and "label arrived at t+w" (w = 15 min, `btc-dir-15m` beachhead, D8). The explanation
+  "before the order / after the fill; the kill-switch is not a stop-loss" lives **here and in the ADR, not in
+  the render**: MONARK places no order.
+- **B_t** is the remaining authorization capacity (ADR-CERT-MONARK) — **never a yield**.
+- **Calibrated silence = result**: 3 COMMIT / 2 DEFER / 3 ABSTAIN / 1 `under_calib`, all visible.
+- **UKEMI** is shown **not wired** (Phase 1) — nothing is simulated in its place.
+- **No gate-vocab word** on screen: the whole package **and** the render pass `scripts/grep-forbidden.mjs`
+  (test 26, mutant verified).
 
-## Architecture (zéro dépendance, zéro réseau)
+## Architecture (zero dependency, zero network)
 
-| Fichier | Rôle |
+| File | Role |
 |---|---|
-| `src/state.ts` | **état pur** depuis une `GateDecision` gelée (`@monark/contracts`, closed-check avant tout rendu) |
-| `src/render.ts` | **rendu pur** en chaînes HTML (testable en node, sans DOM) |
-| `src/fixtures-loader.ts` | lecture disque des 9 états racine |
-| `src/market-stubs.ts` | `perps_order_preview` / `perps_order_execute` : **lèvent** s'ils sont invoqués |
-| `serve.js` | serveur `node:http` local ; rend côté serveur, sert `index.html` / `style.css` / `main.js` |
-| `main.js` | glue DOM minimale (bascule d'état) — **aucune donnée, aucun `fetch`** |
+| `src/state.ts` | **pure state** from a frozen `GateDecision` (`@monark/contracts`, closed-check before any render) |
+| `src/render.ts` | **pure render** into HTML strings (testable in node, no DOM) |
+| `src/fixtures-loader.ts` | disk read of the 9 root states |
+| `src/market-stubs.ts` | `perps_order_preview` / `perps_order_execute`: **throw** if invoked |
+| `serve.js` | local `node:http` server; renders server-side, serves `index.html` / `style.css` / `main.js` |
+| `main.js` | minimal DOM glue (state toggle) — **no data, no `fetch`** |
 
-Le `tsconfig.json` du paquet ajoute `lib: DOM` sans toucher la racine (D13) ; les modules TS restent
-sans DOM, ce qui les rend typables et testables par la racine.
+The package `tsconfig.json` adds `lib: DOM` without touching the root (D13); the TS modules stay
+DOM-free, which keeps them typable and testable by the root.
 
 ## Tests (ADR-M002 D11, Lot D)
 
 24 `atelier_state_oracle` · 25 `atelier_replays_root_fixtures` · 26 `atelier_no_forbidden_vocab` ·
-27 `perps_stubs_throw` · 28 `atelier_no_network`. Les moteurs H et U sont consommés **par contrat**
-(fixtures) ; ils se branchent à leur merge.
+27 `perps_stubs_throw` · 28 `atelier_no_network`. The H and U engines are consumed **by contract**
+(fixtures); they wire in at their merge.

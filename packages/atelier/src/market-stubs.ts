@@ -1,13 +1,13 @@
 /**
- * Stubs de marché de l'atelier (ADR-M002 D0/D11 test 27 `perps_stubs_throw`).
- * Les deux noms sont ceux gatés par HIKAE au Lot H (`GATED_TOOLS`). MONARK ne les appelle JAMAIS —
- * ni réel, ni papier : ils LÈVENT s'ils sont invoqués. Le trading est un produit futur, KAIZEN.
+ * Atelier market stubs (ADR-M002 D0/D11 test 27 `perps_stubs_throw`).
+ * The two names are the ones gated by HIKAE at Lot H (`GATED_TOOLS`). MONARK NEVER calls them —
+ * neither real nor paper: they THROW if invoked. Trading is a future product, KAIZEN.
  */
 export const PERPS_ORDER_PREVIEW = "perps_order_preview";
 export const PERPS_ORDER_EXECUTE = "perps_order_execute";
 
 function refuse(name: string): never {
-  throw new Error(`${name} : MONARK ne passe aucun ordre (ADR-M002 D0) — stub, jamais appelable`);
+  throw new Error(`${name}: MONARK places no order (ADR-M002 D0) — stub, never callable`);
 }
 
 export function perps_order_preview(): never {

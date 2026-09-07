@@ -1,5 +1,5 @@
-// Atelier MONARK — glue DOM minimale : bascule l'état visible. Aucune donnée ici, aucun réseau :
-// tout le contenu est rendu côté serveur local (serve.js) depuis fixtures/ racine.
+// MONARK atelier — minimal DOM glue: toggles the visible state. No data here, no network:
+// all content is rendered server-side locally (serve.js) from root fixtures/.
 document.addEventListener("click", (ev) => {
   const btn = ev.target.closest(".nav-btn");
   if (!btn) return;
