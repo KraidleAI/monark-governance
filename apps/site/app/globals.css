@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+/* Lot F-public foundation baseline. The shadcn/ui design-token layer (:root / .dark CSS variables and
+   the @theme inline mapping) is authored by `npx shadcn@4.21.0 init` when it can run headless — see
+   COMPONENTS-PROVENANCE.md. The F-1 placeholder page uses built-in Tailwind utilities only. */
+:root {
+  color-scheme: light;
+}

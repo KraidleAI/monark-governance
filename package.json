@@ -5,7 +5,8 @@
   "description": "MONARK — tokenisation layer + frozen interface contracts for the fleet (Shogen / HIKAE / UKEMI). Phase 0: skeleton & freeze. LOCAL-ONLY, no remote (ADR-M001 C14).",
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "engines": {
     "node": ">=24"

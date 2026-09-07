@@ -3,3 +3,8 @@ dist/
 *.tsbuildinfo
 .DS_Store
 Thumbs.db
+
+# Lot F-public — apps/site (Next.js) build output / cache / generated types (never committed)
+.next/
+.turbo/
+next-env.d.ts

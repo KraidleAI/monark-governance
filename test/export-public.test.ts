@@ -16,13 +16,17 @@
  *       every listed sha256+bytes recomputes exactly, the manifest does not list itself, every
  *       output file (bar the manifest) is listed, and excluded_tests EQUALS the committed config
  *       (config-relative, so mutant M4 below reds at (e), not here);
- *   (c) the language gate is GREEN on `--scope root,contracts` (E-root + E-contracts are done);
+ *   (c) the language gate is GREEN on `--scope root,contracts,site` (E-root + E-contracts done; apps/site
+ *       is English-only, Lot F-public — a French string visible in a page reds here);
  *   (d) packages/hikae/docs/ is absent (S2 reports excluded, D7) and the excluded tests are absent;
  *   (e) `npm ci` then `npm run ci` INSIDE the export are BOTH exit 0 (the exported CI is green);
  *   (f) the exported .github/workflows/ci.yml is DERIVED (D7 bis R1): no `r25` at all (bare regex, =
  *       the `grep -c r25 = 0` oracle, subsumes the r25-taille-de-lot job), a `push` trigger under
  *       `on:`, >= 2 SHA-pinned actions, and no continue-on-error DIRECTIVE (YAML key; the prose
  *       "No continue-on-error" comment is allowed — mirrors test 38 in ci-gates.test.ts).
+ *   (h) (Lot F-public) build output (.next/.turbo) and installed deps (node_modules) are NEVER exported
+ *       into apps/site (WALK_SKIP_DIRS). Seeded in the source copy, asserted absent from the output.
+ *       (Lettered (h), not (g): ADR-M004 D7 bis R4 already names 42(g) for the MINE-B assertion.)
  *
  * Named mutants (manual, docs/G1-lot-X.md, restored by file copy, sha256 before/after):
  *   M1  slip `docs/adr/ADR-M001*.md` into the whitelist  => export FAILS HARD => this test reds.
@@ -37,6 +41,8 @@
  *   M6  (D7 bis R4) slip `docs/JOURNAL-PROVENANCE.md` (a FRENCH governance file) into the whitelist =>
  *       the structural blacklist fires FIRST (before the French-.md rule) => export FAILS HARD => this
  *       test reds. Proves a governance file can never be silently masked by the language rule (MINE-B).
+ *   M7  (Lot F-public) neuter the WALK_SKIP_DIRS skip in walkFiles (`if (false) continue;`) => a seeded
+ *       (or real, from `next build`) apps/site/.next path is exported => the (h) build-output assertion reds.
  *
  * Run by `npm test` in each worktree (outside per-lot R-25 counting). Assertion (e) runs a real
  * `npm ci` (measured offline ~2 s in this repo) + the exported CI; keep it — do NOT skip even if
@@ -45,9 +51,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync, type SpawnSyncReturns } from "node:child_process";
-import { mkdtempSync, rmSync, readFileSync, readdirSync, statSync, existsSync, cpSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, readdirSync, statSync, existsSync, cpSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { join, relative, dirname } from "node:path";
 import { createHash } from "node:crypto";
 
 const ROOT = join(import.meta.dirname, "..");
@@ -120,6 +126,23 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
       "MONARK public export test fixture (not a real license). Real license = investor pending Q4, ADR-M004 D7 bis R2.\n",
     );
 
+    // Lot F-public: seed build-output / installed-deps dirs the export MUST NOT walk into apps/site
+    // (WALK_SKIP_DIRS in export-public.mjs). cpSync's own filter skips node_modules, so inject these AFTER
+    // the copy — this exercises the EXPORT's exclusion, not the copy's. Mutant (remove the WALK_SKIP_DIRS
+    // skip in walkFiles) => a .next path is exported => the .next/.turbo/node_modules assertion below reds.
+    // F-1 G2 O2 also seeds the generated (gitignored) next-env.d.ts, which the .gitignore-aware apps/site
+    // filter must drop (deterministic regardless of whether `next build` ran in the developer tree).
+    for (const [rel, body] of [
+      ["apps/site/.next/BUILD_ID", "test"],
+      ["apps/site/.turbo/cache.txt", "test"],
+      ["apps/site/node_modules/junk/index.js", "export const x = true;\n"],
+      ["apps/site/next-env.d.ts", '/// <reference types="next" />\n'],
+    ] as const) {
+      const abs = join(src, rel);
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, body);
+    }
+
     // Run the export CLI from the copy (throws if it exits non-zero — that is how mutants M1/M6 red).
     execFileSync(process.execPath, [join(src, "scripts", "export-public.mjs"), "--out", out], {
       cwd: src,
@@ -128,6 +151,26 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
 
     const files = listFiles(out);
     assert.ok(files.length >= 80, `implausibly small export: ${files.length} file(s)`);
+
+    // (F-public) build output / installed deps are never exported (WALK_SKIP_DIRS). A leaked .next would
+    // ship build artefacts into the public storefront; a leaked node_modules would bloat it. Mutant:
+    // remove the WALK_SKIP_DIRS skip in export-public.mjs walkFiles => the seeded .next/.turbo leak here.
+    for (const seg of [".next", ".turbo", "node_modules"]) {
+      const leaked = files.find((f) => f.split("/").includes(seg));
+      assert.ok(leaked === undefined, `export leaked a ${seg}/ path: ${leaked ?? ""}`);
+    }
+
+    // (O1, F-1 G2) apps/site/test/** is the honesty-lint DETECTOR — DORMANT in the public repo (nothing
+    // exported imports it: its runner test/site-honesty.test.ts is at the repo root, not whitelisted). It
+    // must not ship. The whole-tree copy above carries it, so this assertion has teeth.
+    const dormantAppTest = files.find((f) => f.startsWith("apps/site/test/"));
+    assert.ok(dormantAppTest === undefined, `export shipped a dormant apps/site test file: ${dormantAppTest ?? ""}`);
+    assert.ok(!existsSync(join(out, "apps", "site", "test", "honesty-lint.ts")), "apps/site/test/honesty-lint.ts must be excluded (O1)");
+
+    // (O2, F-1 G2) next-env.d.ts is generated (gitignored); the .gitignore-aware apps/site filter must
+    // drop it (seeded above). A leaked generated declaration file would ship into the public storefront.
+    const nextEnv = files.find((f) => f === "apps/site/next-env.d.ts");
+    assert.ok(nextEnv === undefined, "generated apps/site/next-env.d.ts must be excluded from export (O2)");
 
     // (a) no structural-blacklist path in the output.
     for (const f of files) {
@@ -190,10 +233,13 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
     }
     assert.ok(pinnedShas.size >= 2, `exported workflow must keep >= 2 SHA-pinned actions (found ${pinnedShas.size})`);
 
-    // (c) language gate GREEN on root,contracts (throws if it exits 1 — how mutant M2 reds).
+    // (c) language gate GREEN on root,contracts,site (throws if it exits 1 — how mutant M2 reds). The
+    //     `site` scope (Lot F-public) gives English-only teeth to the exported apps/site: a French string
+    //     visible in a page reds the export here. E-hikae/ukemi/atelier/monark stay ungated (still RED
+    //     globally by design — docs/G1-lot-X.md).
     execFileSync(
       process.execPath,
-      [join(ROOT, "scripts", "lang-gate.mjs"), "--dir", out, "--scope", "root,contracts"],
+      [join(ROOT, "scripts", "lang-gate.mjs"), "--dir", out, "--scope", "root,contracts,site"],
       { cwd: ROOT, stdio: "pipe" },
     );
 

@@ -1,0 +1,70 @@
+{
+  "_comment": "Canonical, committed source of every public figure the MONARK site renders (ADR-M004 D1 item 12). Each figure is reproduced verbatim with its qualifier, from a primary [lu] source reading; no second-hand numbers (doc 03). English (ADR-M003 D0.5). Hashed into apps/site/data/manifest.sha256.json and verified at load by apps/site/lib/load-committed.ts (root test/site-honesty.test.ts, test 44). Any figure the site renders MUST originate here (dynamically, via the loader) — a hard-coded numeric literal in a page is a test-44 violation. Adding or altering a figure requires regenerating the manifest.",
+  "figures": [
+    {
+      "id": "ukemi-target-liquidatable-maker",
+      "value": 1.07,
+      "unit": "billion USD",
+      "qualifier": "up to; MakerDAO only; for an immediate 43% ETH price decline; state as of block 12,344,944 (2021-04-30)",
+      "claim": "Collateral that would become liquidatable on MakerDAO under an immediate 43% ETH drop.",
+      "source": "Qin, Zhou, Gamito, Jovanovic, Gervais — An Empirical Study of DeFi Liquidations (IMC '21)",
+      "doi": "10.1145/3487552.3487811",
+      "page": 344,
+      "reading": "procurements-lectures/P-K1-1-qin2021.md",
+      "level": "lu",
+      "used_by": "UKEMI — target A (liquidatable amount under shock)"
+    },
+    {
+      "id": "liquidated-collateral-total",
+      "value": 807.46,
+      "unit": "million USD",
+      "qualifier": "four platforms (Aave V1, Aave V2, Compound, dYdX, MakerDAO); from each protocol inception to 2021-04-30 (~2 years)",
+      "claim": "Total collateral liquidated across the four studied platforms.",
+      "source": "Qin et al. (IMC '21)",
+      "doi": "10.1145/3487552.3487811",
+      "page": 341,
+      "reading": "procurements-lectures/P-K1-1-qin2021.md",
+      "level": "lu",
+      "used_by": "context — scale of the liquidation problem"
+    },
+    {
+      "id": "liquidator-profit-total",
+      "value": 63.59,
+      "unit": "million USD",
+      "qualifier": "28,138 liquidations by 2,011 liquidators; assumes collateral resold immediately at the oracle price; ~7.9% of liquidated volume",
+      "claim": "Total liquidator profit over the studied period.",
+      "source": "Qin et al. (IMC '21)",
+      "doi": "10.1145/3487552.3487811",
+      "page": 341,
+      "reading": "procurements-lectures/P-K1-1-qin2021.md",
+      "level": "lu",
+      "used_by": "context — NOT the $800M figure; the archive's '$800M of liquidator gains' was a confusion with liquidated collateral (807.46M), corrected"
+    },
+    {
+      "id": "compound-oracle-irregular-nov2020",
+      "value": 8.38,
+      "unit": "million USD",
+      "qualifier": "single event; irregular DAI price from the Compound price oracle; November 2020",
+      "claim": "Liquidator profit enabled by an irregular DAI price on Compound's oracle.",
+      "source": "Qin et al. (IMC '21)",
+      "doi": "10.1145/3487552.3487811",
+      "page": 341,
+      "reading": "procurements-lectures/P-K1-1-qin2021.md",
+      "level": "lu",
+      "used_by": "Shōgen — why an attested price matters; HIKAE — oracle-anomaly abstention"
+    },
+    {
+      "id": "liquidator-risk-window",
+      "value": 19.07,
+      "unit": "percent",
+      "qualifier": "share of liquidations where the collateral price stays below the liquidation price at the end of a 1,440-block window (liquidator risk, not systemic)",
+      "claim": "Fraction of liquidations that left the collateral underwater at window end.",
+      "source": "Qin et al. (IMC '21), Appendix A",
+      "doi": "10.1145/3487552.3487811",
+      "page": 344,
+      "reading": "procurements-lectures/P-K1-1-qin2021.md",
+      "level": "lu",
+      "used_by": "context — execution risk faced by liquidators"
+    }
+  ]
+}

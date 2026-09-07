@@ -70,6 +70,15 @@ export const STRUCTURAL_BLACKLIST = [
 
 const toPosix = (p) => p.replace(/\\/g, "/");
 
+// ---- 2d. DORMANT app-internal test exclusion (F-1 G2 O1) -----------------------------------
+// apps/site/test/** is the honesty-lint DETECTOR + its closed exempt list. NOTHING in the public export
+// imports it: its runner test/site-honesty.test.ts lives at the repo ROOT (not whitelisted, so never
+// exported), and the exported `npm run ci` test glob is test/*.test.ts + packages/*/test/*.test.ts, which
+// never reaches apps/site/test/. Shipping it would plant a DORMANT guard in the public repo. This is a
+// SILENT, NON-FATAL skip (not a structural violation), and is DISTINCT from the config-driven governance
+// `excluded_tests` (scripts/export-exclude-tests.json) that test 42(d) asserts equals its committed config.
+export const DORMANT_APP_TEST = /^apps\/site\/test\//;
+
 // ---- 2b. GOVERNANCE-ONLY TEST EXCLUSIONS (ADR-M004 D7 addendum, 2026-09-06) ----------------
 // A CLOSED, committed list of test files that must NOT be exported because they read files the
 // public export deliberately omits (initially packages/hikae/test/s2.test.ts, whose
@@ -96,12 +105,49 @@ export function loadExcludedTests(root) {
   return raw.tests.map(toPosix);
 }
 
-function walkFiles(absDir, relDir, out) {
+// Directory names NEVER copied to the public export: installed deps and build output. Added by Lot
+// F-public for apps/site (Next.js). A committed working tree lacks them, but a local `npm install` /
+// `next build` creates node_modules/.next/.turbo, and the whole-tree copy exercised by test 42 would
+// otherwise walk them into the manifest. Skipping is defense in depth; git-tracking is the real source.
+export const WALK_SKIP_DIRS = new Set(["node_modules", ".next", ".turbo"]);
+
+// ---- 2c. GENERATED-FILE EXCLUSION under apps/site (PLAN F-1 item 3b, F-1 G2 O2) --------------
+// Item 3b offered a git-tracked-only walk as an alternative. A LITERAL git filter is NOT usable here,
+// MEASURED on this tree (2026-09-07): (1) the lot F-1 tree is UNCOMMITTED, so `git ls-files apps/site`
+// returns 0 files and a tracked-only walk would drop the whole app; (2) test 42 runs the COPIED script
+// with cwd in os.tmpdir() and `.git` stripped by cpSync, so any `git` subprocess fatals (or, worse,
+// resolves to an unrelated parent repo). So we take the SECOND sanctioned option — filter out gitignored
+// files — by PARSING the .gitignore that IS copied into the export root, git-independently. This drops the
+// generated, gitignored next-env.d.ts (and any future generated FILE a .gitignore line names); generated
+// DIRS (.next/.turbo/node_modules) stay covered by WALK_SKIP_DIRS. Bounded to apps/site (item 3b: keep the
+// change local so no other whitelist dir is perturbed).
+// Supported .gitignore subset (a line outside it is SKIPPED — never a silent broad match): a bare
+// basename (next-env.d.ts, .DS_Store) and a basename `*` glob (*.tsbuildinfo). Directory ('foo/'),
+// path-anchored ('a/b') and negated ('!keep') lines are NOT file-matched here (dirs => WALK_SKIP_DIRS).
+const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+export function appIgnoredFileMatcher(root) {
+  const abs = join(root, ".gitignore");
+  const names = new Set();
+  const globs = [];
+  if (existsSync(abs)) {
+    for (const raw of readFileSync(abs, "utf8").split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line || line.startsWith("#") || line.startsWith("!")) continue;
+      if (line.endsWith("/") || line.includes("/")) continue; // dir / path-anchored: not a basename file rule
+      if (line.includes("*")) globs.push(new RegExp("^" + line.split("*").map(reEsc).join("[^/]*") + "$"));
+      else names.add(line);
+    }
+  }
+  return (name) => names.has(name) || globs.some((g) => g.test(name));
+}
+
+function walkFiles(absDir, relDir, out, skipFile) {
   for (const name of readdirSync(absDir)) {
+    if (WALK_SKIP_DIRS.has(name)) continue; // F-public: never export node_modules/.next/.turbo
     const abs = join(absDir, name);
     const rel = relDir ? `${relDir}/${name}` : name;
-    if (statSync(abs).isDirectory()) walkFiles(abs, rel, out);
-    else out.push({ abs, rel: toPosix(rel) });
+    if (statSync(abs).isDirectory()) walkFiles(abs, rel, out, skipFile);
+    else if (!skipFile || !skipFile(name)) out.push({ abs, rel: toPosix(rel) }); // F-1 G2 O2: drop gitignored files
   }
 }
 
@@ -111,15 +157,16 @@ export function collectFiles(root) {
   const candidates = [];
   const seen = new Set();
   const missingRequired = []; // D7 bis R2(a): fixed whitelist entries absent (and not tolerated).
+  const ignoreAppFile = appIgnoredFileMatcher(root); // F-1 G2 O2: gitignored FILES under apps/site (next-env.d.ts, ...)
   const addFile = (rel) => {
     const abs = join(root, rel);
     if (existsSync(abs) && statSync(abs).isFile() && !seen.has(rel)) { seen.add(rel); candidates.push({ abs, rel }); }
   };
-  const addDir = (rel) => {
+  const addDir = (rel, skipFile) => {
     const abs = join(root, rel);
     if (existsSync(abs) && statSync(abs).isDirectory()) {
       const acc = [];
-      walkFiles(abs, rel, acc);
+      walkFiles(abs, rel, acc, skipFile);
       for (const f of acc) if (!seen.has(f.rel)) { seen.add(f.rel); candidates.push(f); }
     }
   };
@@ -141,7 +188,8 @@ export function collectFiles(root) {
   // tolerated absence (D7). addDir/addFile stay silent-skip for the per-package (optional) paths above.
   for (const d of WHITELIST_DIRS) {
     const abs = join(root, d);
-    if (existsSync(abs) && statSync(abs).isDirectory()) addDir(d);
+    // F-1 G2 O2: only apps/site gets the gitignored-file filter (item 3b: bounded there, no side effects).
+    if (existsSync(abs) && statSync(abs).isDirectory()) addDir(d, d === "apps/site" ? ignoreAppFile : undefined);
     else if (!TOLERATED_ABSENT.has(d)) missingRequired.push(d);
   }
   for (const f of WHITELIST_FILES) {
@@ -159,17 +207,20 @@ export function collectFiles(root) {
   const structuralViolations = [];
   const frenchMd = [];
   const excludedTests = [];
+  const dormantAppTests = []; // F-1 G2 O1: apps/site/test/** dropped (dormant detector), reported not fatal
   const kept = [];
   for (const c of candidates) {
     if (STRUCTURAL_BLACKLIST.some((re) => re.test(c.rel))) { structuralViolations.push(c.rel); continue; } // (1) fail-closed, FIRST
     if (excludedTestPaths.has(c.rel)) { excludedTests.push(c.rel); continue; } // (2) governance-only test (D7 addendum)
+    if (DORMANT_APP_TEST.test(c.rel)) { dormantAppTests.push(c.rel); continue; } // (2b) F-1 G2 O1: dormant honesty-lint detector, silent skip
     if (c.rel.toLowerCase().endsWith(".md") && isFileFrench(c.abs, maskers)) { frenchMd.push(c.rel); continue; } // (3) French .md, reported
     kept.push(c);
   }
   kept.sort((a, b) => (a.rel < b.rel ? -1 : 1));
   excludedTests.sort((a, b) => (a < b ? -1 : 1));
+  dormantAppTests.sort((a, b) => (a < b ? -1 : 1));
   missingRequired.sort((a, b) => (a < b ? -1 : 1));
-  return { kept, structuralViolations, frenchMd, excludedTests, missingRequired, maskers };
+  return { kept, structuralViolations, frenchMd, excludedTests, dormantAppTests, missingRequired, maskers };
 }
 
 function sha256(abs) {
@@ -237,7 +288,7 @@ export function derivePublicWorkflow(raw) {
 
 // ---- WRITE mode ---------------------------------------------------------------------------
 function doExport(root, outDir) {
-  const { kept, structuralViolations, frenchMd, excludedTests, missingRequired } = collectFiles(root);
+  const { kept, structuralViolations, frenchMd, excludedTests, dormantAppTests, missingRequired } = collectFiles(root);
   if (structuralViolations.length) {
     console.error("export FAILED — the whitelist selected forbidden governance path(s) (blacklist, D7):");
     for (const r of structuralViolations) console.error(`  ${r}`);
@@ -281,6 +332,10 @@ function doExport(root, outDir) {
   if (frenchMd.length) {
     console.log(`  excluded ${frenchMd.length} French .md (D7 French-.md rule; translate in the E-* lots):`);
     for (const r of frenchMd) console.log(`    - ${r}`);
+  }
+  if (dormantAppTests.length) {
+    console.log(`  excluded ${dormantAppTests.length} dormant apps/site test file(s) (F-1 G2 O1; not imported by any exported test):`);
+    for (const r of dormantAppTests) console.log(`    - ${r}`);
   }
   console.log("  EXPORT-MANIFEST.json written (files[].{path,sha256,bytes}, excluded_tests[]).");
 }

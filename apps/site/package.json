@@ -1,0 +1,30 @@
+{
+  "name": "@monark/site",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MONARK public storefront (Lot F-public). Local-only; no deployment (ADR-M004 D1/D2, Q2 = deploy-time).",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "lint": "cd ../.. && eslint apps/site"
+  },
+  "dependencies": {
+    "@mdx-js/loader": "3.1.1",
+    "@mdx-js/react": "3.1.1",
+    "@next/mdx": "16.3.4",
+    "clsx": "2.1.1",
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "tailwind-merge": "3.6.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "24.13.3",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3"
+  }
+}
