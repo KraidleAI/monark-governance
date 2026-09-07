@@ -12,13 +12,13 @@
       "page": 344,
       "reading": "procurements-lectures/P-K1-1-qin2021.md",
       "level": "lu",
-      "used_by": "UKEMI — target A (liquidatable amount under shock)"
+      "used_by": "Ukemi — target A (liquidatable amount under shock)"
     },
     {
       "id": "liquidated-collateral-total",
       "value": 807.46,
       "unit": "million USD",
-      "qualifier": "four platforms (Aave V1, Aave V2, Compound, dYdX, MakerDAO); from each protocol inception to 2021-04-30 (~2 years)",
+      "qualifier": "Aave (V1 and V2), Compound, dYdX, MakerDAO; from each protocol inception to 2021-04-30 (~2 years)",
       "claim": "Total collateral liquidated across the four studied platforms.",
       "source": "Qin et al. (IMC '21)",
       "doi": "10.1145/3487552.3487811",
@@ -51,7 +51,7 @@
       "page": 341,
       "reading": "procurements-lectures/P-K1-1-qin2021.md",
       "level": "lu",
-      "used_by": "Shōgen — why an attested price matters; HIKAE — oracle-anomaly abstention"
+      "used_by": "Shōgen — why an attested price matters; Hikae — oracle-anomaly abstention"
     },
     {
       "id": "liquidator-risk-window",

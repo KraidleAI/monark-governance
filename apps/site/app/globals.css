@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
-/* Lot F-public foundation baseline. The shadcn/ui design-token layer (:root / .dark CSS variables and
-   the @theme inline mapping) is authored by `npx shadcn@4.21.0 init` when it can run headless — see
-   COMPONENTS-PROVENANCE.md. The F-1 placeholder page uses built-in Tailwind utilities only. */
+/* Lot F-public foundation baseline. `npx shadcn@4.21.0 init -d` DID run headless (exit 0), but its
+   base-nova default preset was REVERTED for R-8 (caret-range deps + the shadcn CLI added as a runtime
+   dependency); adopting a base/preset is a deferred F-2 decision — see COMPONENTS-PROVENANCE.md. So there
+   is no shadcn design-token layer (:root / .dark variables, @theme inline mapping) yet; the foundation
+   keeps the classic cn() (clsx + tailwind-merge) and this bare @import, and the F-1 placeholder page uses
+   built-in Tailwind utilities only. */
 :root {
   color-scheme: light;
 }

@@ -3,6 +3,6 @@
   "algorithm": "sha256",
   "normalization": "crlf-to-lf-utf8",
   "files": {
-    "fixtures/figures-sourced.json": "ac3ae329c0fb43d8738e6ea16a4156094b438c5a63c1031a0b70e67a5105d54c"
+    "fixtures/figures-sourced.json": "15aad757d9f182ef203dd213bc20eaa8d18d03e9f602b61ef2359f162acb693e"
   }
 }

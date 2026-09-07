@@ -22,11 +22,17 @@
 
 ## Pendants formés (zéro dette nue)
 - **shadcn base/preset** (Base UI vs Radix vs Aria) → **décision F-2** (recherche routée) ; la fondation garde `cn()` clsx+tailwind-merge, pas de `components.json`.
-- **Détecteur test 44** : périmètre « texte rendu » à élargir en F-2 avec les vrais composants (props porteurs de texte, MDX imbriqué).
+- **Détecteur test 44 — 4 trous nommés à fermer en F-2** (chacun avec le mutant que F-2 devra faire rougir ; verts aujourd'hui) :
+  - **(a) `SCAN_ROOTS = ["app", "content"]`** (`apps/site/test/honesty-lint.ts:51`) : `components/` (cible de `npx shadcn add`) et `lib/` ne sont **pas scannés**. Mutant F-2 : un `<p>999</p>` dans `apps/site/components/*.tsx` reste **vert** (non parcouru) et doit devenir **rouge** (élargir `SCAN_ROOTS`).
+  - **(b) `metadata.description`** (`apps/site/app/layout.tsx:7-8`) : texte **rendu** par Next (balises `<title>`/`<meta>` du `<head>`) mais exprimé comme **propriété d'objet** ⇒ **hors périmètre par construction** — le détecteur n'inspecte que texte JSX, enfant JSX, attribut visible et prose MDX ; « object-literal properties » est explicitement **ignoré** (`honesty-lint.ts:10-11`). Mutant F-2 : `description: "42 decisions today"` reste vert et doit rougir (scanner l'export `metadata`).
+  - **(c) `mdxProse` efface `{…}`** (`apps/site/test/honesty-lint.ts:179` — `s.replace(/\{[^{}]*\}/g, " ")`) : `{"999 agents"}` en **MDX** est **effacé** (donc échappe), alors que le même `{"999 agents"}` en **TSX** est **rouge** (enfant JSX string, prouvé par le test détecteur `site-honesty.test.ts:72`). Mutant F-2 : `{"999 agents"}` dans un `.mdx` doit rougir (ne plus stripper les expressions-chaînes littérales).
+  - **(d) `VISIBLE_ATTRS`** (`apps/site/test/honesty-lint.ts:46`) = `alt, title, aria-label, placeholder, label` — **sans `value`** (`<option value="5">`) **ni `content`** (`<meta content="5 agents">`). Mutant F-2 : `<option value="5">` / `<meta content="5 agents">` restent verts et doivent rougir (ajouter les attributs visibles porteurs de texte).
 - **`next dev` local** : CA vérifiable manuellement ; `next build` en tient lieu d'oracle.
 
 ## Interdits respectés
 `packages/**`/`schemas/**`/contrats gelés non touchés ; chaîne `package-lock` existante inchangée (`typescript 6.0.3`, `eslint 10.10.0`, `typescript-eslint 8.69.0`) ; aucun commit worker ; **R-25 905 < 1205**.
+
+- **PLAN §7 « aucun run incluant `apps/site` avant checkpoint 2 » = aucun _export réel_.** Le seul run d'export touchant `apps/site` est celui du **test 42**, qui s'exécute contre une copie arbre-entier dans un `mkdtemp` sous `os.tmpdir()` (`src` et `out`), **tous deux supprimés en `finally`** (`rmSync`, `test/export-public.test.ts:113-114,285-288`) : c'est un **oracle local** — il n'écrit dans aucun dépôt, ne définit aucun `--out` persistant et ne pousse rien —, **pas une publication**. La ligne PLAN §7 se lit donc « aucun **export réel** » (renvoi ADR-M004 **D12** « aucune publication d'un lot avant son checkpoint 2 », `docs/adr/ADR-M004-infrastructure-plateforme.md:132`). La première publication de `KraidleAI/monark` reste une action **orchestrateur** post-checkpoint 2 (R-20).
 
 ## Suite
 Acceptation validateur-humain (checkpoint 2) → commit orchestrateur → PR sur `monark-governance` → 5 jobs verts → merge. F-public reste **local** (pas de mise en ligne ; Q2 = Cloudflare+VPS au déploiement, hors périmètre F-1).
