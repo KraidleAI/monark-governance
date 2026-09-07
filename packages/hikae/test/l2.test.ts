@@ -4,35 +4,35 @@ import { imocpStep, arrivedErrors, remainingBudget, budgetAt, gate } from "../sr
 import type { GateInput } from "../src/index.ts";
 import { buildVerdict, buildSetRegion } from "../src/index.ts";
 
-// Test 9 — direction du pas IM-OCP (mécanisme, PAS une garantie — D4 branche b).
+// Test 9 — direction of the IM-OCP step (mechanism, NOT a guarantee — D4 branch b).
 test("imocp_update_direction", () => {
   const alpha = 0.1;
   const eta = 0.05;
   const r0 = 0.5;
-  const onMiscover = imocpStep(r0, alpha, 1, eta); // E=1 ⇒ r monte
-  const onCover = imocpStep(r0, alpha, 0, eta); // E=0 ⇒ r baisse
-  assert.ok(onMiscover > r0, `miscover ⇒ r monte (${onMiscover} > ${r0})`);
-  assert.ok(onCover < r0, `cover ⇒ r baisse (${onCover} < ${r0})`);
+  const onMiscover = imocpStep(r0, alpha, 1, eta); // E=1 ⇒ r rises
+  const onCover = imocpStep(r0, alpha, 0, eta); // E=0 ⇒ r falls
+  assert.ok(onMiscover > r0, `miscover ⇒ r rises (${onMiscover} > ${r0})`);
+  assert.ok(onCover < r0, `cover ⇒ r falls (${onCover} < ${r0})`);
 });
 
-// Test 10 — B_t n'utilise JAMAIS un label en attente (H4 no-peek), même à delay=0.
+// Test 10 — B_t NEVER uses a pending label (H4 no-peek), even at delay=0.
 test("budget_ignores_pending_label", () => {
   const alpha = 0.1;
-  // Deux timelines qui ne diffèrent QUE sur l'indice t (la fenêtre en cours de décision).
+  // Two timelines that differ ONLY at index t (the window currently under decision).
   const t = 5;
   const baseTL = [0, 1, 0, 0, 1, 0, 0] as const;
   const tlA = baseTL.map((e, i) => (i === t ? 0 : e));
   const tlB = baseTL.map((e, i) => (i === t ? 1 : e));
-  // À delay=0, le label courant (index t) est exclu car i<t requis (no-peek).
+  // At delay=0, the current label (index t) is excluded since i<t is required (no-peek).
   assert.equal(
     budgetAt(tlA, t, 0, alpha),
     budgetAt(tlB, t, 0, alpha),
-    "B_t identique quel que soit y_t (delay=0 ne peek pas)",
+    "B_t identical whatever y_t (delay=0 does not peek)",
   );
-  // À delay=2, un label de la fenêtre t-1 n'est pas encore réglé (i+delay=t+1>t) ⇒ exclu.
+  // At delay=2, a label from window t-1 is not yet settled (i+delay=t+1>t) ⇒ excluded.
   const arrivedDelay2 = arrivedErrors(baseTL, t, 2);
-  assert.ok(!arrivedDelay2.includes(baseTL[t - 1] as 0 | 1) || arrivedDelay2.length < t, "pending non compté");
-  // t°=0 ⇒ B = alpha (rien consommé).
+  assert.ok(!arrivedDelay2.includes(baseTL[t - 1] as 0 | 1) || arrivedDelay2.length < t, "pending not counted");
+  // t°=0 ⇒ B = alpha (nothing consumed).
   assert.equal(remainingBudget([], alpha), alpha);
 });
 
@@ -56,7 +56,7 @@ function commitInput(over: Partial<GateInput>): GateInput {
     remainingBudget: 0.1,
     bFloor: 0,
     tau: 1,
-    tauInterval: 1, // inerte : verdict `set` (chemin interval non exercé ici)
+    tauInterval: 1, // inert: verdict `set` (interval path not exercised here)
     nCalib: 50,
     nMin: 50,
     clockOpen: true,
@@ -68,10 +68,10 @@ function commitInput(over: Partial<GateInput>): GateInput {
   };
 }
 
-// Test 11 — B_t < B_floor ⇒ refuse COMMIT (H5).
+// Test 11 — B_t < B_floor ⇒ refuses COMMIT (H5).
 test("budget_exhausted_refuses_commit", () => {
   const ok = gate(commitInput({ remainingBudget: 0.1, bFloor: 0 }));
-  assert.equal(ok.action, "commit", "budget suffisant ⇒ COMMIT");
+  assert.equal(ok.action, "commit", "sufficient budget ⇒ COMMIT");
   const exhausted = gate(commitInput({ remainingBudget: -0.01, bFloor: 0 }));
   assert.equal(exhausted.action, "abstain");
   assert.equal(exhausted.reason, "budget_exhausted");

@@ -1,12 +1,12 @@
 /**
- * HIKAE — rendu du rapport S2 (ADR-M002 D10, CA-H2). Six blocs recalculables + les DEUX
- * blocs étiquetés de la décision (e) : « silence réel » (momentum RÉELLEMENT exécuté) / « démo de
- * mécanisme » (9 états à scores déclarés + oracle didactique RÉELLEMENT exécuté, marqué « pas un
- * produit »). Tête soumise au gate vocabulaire.
+ * HIKAE — S2 report rendering (ADR-M002 D10, CA-H2). Six recalculable blocks + the TWO
+ * labelled blocks of decision (e): "real silence" (momentum ACTUALLY run) / "mechanism
+ * demo" (9 states with declared scores + didactic oracle ACTUALLY run, marked "not a
+ * product"). Headline subject to the vocabulary gate.
  *
- * Ligne D10 sous chaque chiffre : n, étiquette de provenance, date (injectée), hash du journal
- * brut. Discipline 09 : aucune tournure interdite. Jamais « X % de fills corrects » ; on écrit
- * n, m, q̂, couverture empirique, taux d'abstention. Résultat négatif = résultat.
+ * D10 line under each figure: n, provenance label, date (injected), raw journal
+ * hash. Discipline 09: no forbidden phrasing. Never "X % of correct fills"; we write
+ * n, m, q̂, empirical coverage, abstention rate. A negative result = a result.
  */
 import type { CampaignResult, MutantOutcome } from "./instrument.ts";
 import type { S2Params } from "./run.ts";
@@ -34,12 +34,12 @@ export interface ReportInput {
   readonly s2bByStratum: readonly CampaignResult[];
   readonly predictorRuns: { readonly momentum: PredictorRunSummary; readonly oracle: PredictorRunSummary };
   readonly mutants: readonly MutantOutcome[];
-  /** Paramètres déclarés de M2 + n évaluable (journalisé sous `M2-clean` / `M2-flip`). */
+  /** DECLARED parameters of M2 + n evaluable (journalled under `M2-clean` / `M2-flip`). */
   readonly m2Params: { readonly seed: number; readonly n: number; readonly accuracy: number; readonly nCalib: number };
   readonly m2N: number;
-  /** (e) « silence réel » — `internal:momentum-4c` exécuté (== S2b poolé). */
+  /** (e) "real silence" — `internal:momentum-4c` run (== pooled S2b). */
   readonly silenceReal: CampaignResult;
-  /** (e) `internal:oracle-didactique` exécuté sur la même série (pas un produit). */
+  /** (e) `internal:oracle-didactique` run on the same series (not a product). */
   readonly oracleReal: CampaignResult;
   readonly demo: readonly { readonly id: string; readonly decision: GateDecision }[];
   readonly journal: { readonly path: string; readonly digest: string; readonly lines: number };
@@ -49,64 +49,64 @@ export function renderS2Report(inp: ReportInput): string {
   const L: string[] = [];
   const p = inp.params;
   const d10 = (n: number, label: string) =>
-    `_D10 : n = ${n} · étiquette = \`${inp.harnessVersion}/${label}\` · date = ${p.generatedOn} · journal sha256 = \`${inp.journal.digest.slice(0, 16)}…\`_`;
+    `_D10: n = ${n} · label = \`${inp.harnessVersion}/${label}\` · date = ${p.generatedOn} · journal sha256 = \`${inp.journal.digest.slice(0, 16)}…\`_`;
 
-  L.push(`# Rapport S2 — HIKAE (\`${inp.harnessVersion}\`)`);
+  L.push(`# S2 report — HIKAE (\`${inp.harnessVersion}\`)`);
   L.push("");
   L.push(
-    "> Harnais **jetable** (R-22). Fixtures **synthétiques par graine** (déclaré) — la sonde J0 sur " +
-      "Coinbase (décision investisseur (a)) est ultérieure. **Résultat négatif = résultat.** Aucun chiffre " +
-      "n'est présenté comme une probabilité de vérité (09). Généré par `scripts/s2-report.mjs` ; " +
-      "le test `s2_report_reproducible` exige l'égalité octet à octet avec ce fichier.",
-  );
-  L.push("");
-
-  // Bloc 1 — Paramètres (par campagne).
-  L.push("## 1. Paramètres");
-  L.push(
-    `Communs : α = ${p.alpha} · n_min = ${p.nMin} · τ = ${p.tau} · route = fixtures synthétiques (aucun réseau) · ` +
-      `harness_version = \`${inp.harnessVersion}\` · date de génération (injectée) = ${p.generatedOn}.`,
-  );
-  L.push(
-    `S2a : graine = ${p.s2a.seed} · n = ${p.s2a.n} · accuracy déclarée du tirage = ${p.s2a.accuracy} · n_calib = ${p.s2a.nCalib}.`,
-  );
-  L.push(
-    `S2b : bougies seedées (graine = ${p.s2b.seed}, n = ${p.s2b.nCandles}, close_time₀ = ${p.s2b.startCloseTime}, ` +
-      `prix₀ = ${p.s2b.startPrice}, pas max = ${p.s2b.stepPct}, taux plat = ${p.s2b.flatRate}) · ` +
-      `n_calib par strate = ${p.s2b.nCalibPerStratum} · n_calib poolé = ${p.s2b.nCalibPooled}. ` +
-      `Prédicteurs RÉELLEMENT exécutés : \`${MOMENTUM_4C_ID}\` (${inp.predictorRuns.momentum.nPredictions} \`Prediction\` émises, ` +
-      `${inp.predictorRuns.momentum.nWarmup} fenêtres de chauffe, ${inp.predictorRuns.momentum.nPredictorNonEvaluable} sans direction) ; ` +
-      `\`${ORACLE_DIDACTIQUE_ID}\` (${inp.predictorRuns.oracle.nPredictions} émises, ${inp.predictorRuns.oracle.nPredictorNonEvaluable} sans direction).`,
-  );
-  L.push(
-    `M2 (mutant labels inversés) : graine = ${inp.m2Params.seed} · n = ${inp.m2Params.n} · accuracy déclarée = ${inp.m2Params.accuracy} · ` +
-      `n_calib = ${inp.m2Params.nCalib} · campagnes journalisées \`M2-clean\` / \`M2-flip\`.`,
+    "> **Disposable** harness (R-22). **Per-seed synthetic** fixtures (declared) — the J0 probe on " +
+      "Coinbase (investor decision (a)) comes later. **A negative result = a result.** No figure " +
+      "is presented as a probability of truth (09). Generated by `scripts/s2-report.mjs`; " +
+      "the `s2_report_reproducible` test requires byte-for-byte equality with this file.",
   );
   L.push("");
 
-  // Bloc 2 — Journal brut.
-  L.push("## 2. Journal brut");
+  // Block 1 — Parameters (per campaign).
+  L.push("## 1. Parameters");
   L.push(
-    `Une ligne par point et par campagne (colonnes : campaign, index, close_time, hour_utc, stratum, predictor_id, ` +
-      `yhat, y, role ∈ {calib, holdout, excluded}, score, set, covered, action) : [\`${inp.journal.path}\`](${inp.journal.path
-        .replace(/^docs\//, "")}) — **${inp.journal.lines} lignes**, sha256 = \`${inp.journal.digest}\`. ` +
-      "Tout chiffre ci-dessous se recalcule depuis ce journal sans croire HIKAE (D10).",
+    `Common: α = ${p.alpha} · n_min = ${p.nMin} · τ = ${p.tau} · route = synthetic fixtures (no network) · ` +
+      `harness_version = \`${inp.harnessVersion}\` · generation date (injected) = ${p.generatedOn}.`,
+  );
+  L.push(
+    `S2a: seed = ${p.s2a.seed} · n = ${p.s2a.n} · declared draw accuracy = ${p.s2a.accuracy} · n_calib = ${p.s2a.nCalib}.`,
+  );
+  L.push(
+    `S2b: seeded candles (seed = ${p.s2b.seed}, n = ${p.s2b.nCandles}, close_time₀ = ${p.s2b.startCloseTime}, ` +
+      `price₀ = ${p.s2b.startPrice}, max step = ${p.s2b.stepPct}, flat rate = ${p.s2b.flatRate}) · ` +
+      `n_calib per stratum = ${p.s2b.nCalibPerStratum} · pooled n_calib = ${p.s2b.nCalibPooled}. ` +
+      `Predictors ACTUALLY run: \`${MOMENTUM_4C_ID}\` (${inp.predictorRuns.momentum.nPredictions} \`Prediction\` emitted, ` +
+      `${inp.predictorRuns.momentum.nWarmup} warmup windows, ${inp.predictorRuns.momentum.nPredictorNonEvaluable} without direction); ` +
+      `\`${ORACLE_DIDACTIQUE_ID}\` (${inp.predictorRuns.oracle.nPredictions} emitted, ${inp.predictorRuns.oracle.nPredictorNonEvaluable} without direction).`,
+  );
+  L.push(
+    `M2 (flipped-labels mutant): seed = ${inp.m2Params.seed} · n = ${inp.m2Params.n} · declared accuracy = ${inp.m2Params.accuracy} · ` +
+      `n_calib = ${inp.m2Params.nCalib} · journalled campaigns \`M2-clean\` / \`M2-flip\`.`,
   );
   L.push("");
 
-  // Bloc 3 — S2a.
-  L.push("## 3. S2a — plomberie (classe binaire synthétique déclarée)");
+  // Block 2 — Raw journal.
+  L.push("## 2. Raw journal");
+  L.push(
+    `One line per point and per campaign (columns: campaign, index, close_time, hour_utc, stratum, predictor_id, ` +
+      `yhat, y, role ∈ {calib, holdout, excluded}, score, set, covered, action): [\`${inp.journal.path}\`](${inp.journal.path
+        .replace(/^docs\//, "")}) — **${inp.journal.lines} lines**, sha256 = \`${inp.journal.digest}\`. ` +
+      "Every figure below recomputes from this journal without trusting HIKAE (D10).",
+  );
+  L.push("");
+
+  // Block 3 — S2a.
+  L.push("## 3. S2a — plumbing (declared synthetic binary class)");
   L.push(
     `n_calib = ${inp.s2a.nCalib} · m = ${inp.s2a.mHoldout} · q̂ = ${qh(inp.s2a)} · ` +
-      `couverture empirique (abstentions incluses) = ${pct(inp.s2a.coverageAll)} · ` +
+      `empirical coverage (abstentions included) = ${pct(inp.s2a.coverageAll)} · ` +
       `abstention (τ=${p.tau}) = ${pct(inp.s2a.abstentionRate)} · non_evaluable = ${inp.s2a.nNonEvaluable}.`,
   );
   L.push(d10(inp.s2a.nEvaluable, "S2a"));
   L.push("");
 
-  // Bloc 4 — S2b par strate et poolé (momentum réel).
-  L.push(`## 4. S2b — beachhead \`btc-dir-15m\` (bougies synthétiques, \`${MOMENTUM_4C_ID}\` exécuté)`);
-  L.push("| strate | n_calib | m | q̂ | couverture (abst. incl.) | abstention | couv. cond. à l'action* |");
+  // Block 4 — S2b per stratum and pooled (real momentum).
+  L.push(`## 4. S2b — beachhead \`btc-dir-15m\` (synthetic candles, \`${MOMENTUM_4C_ID}\` run)`);
+  L.push("| stratum | n_calib | m | q̂ | coverage (abst. incl.) | abstention | action-cond. cov.* |");
   L.push("|---|---|---|---|---|---|---|");
   for (const s of inp.s2bByStratum) {
     L.push(
@@ -116,17 +116,17 @@ export function renderS2Report(inp: ReportInput): string {
     );
   }
   L.push(
-    `| **poolé** | ${inp.s2bPooled.nCalib} | ${inp.s2bPooled.mHoldout} | ${qh(inp.s2bPooled)} | ${pct(
+    `| **pooled** | ${inp.s2bPooled.nCalib} | ${inp.s2bPooled.mHoldout} | ${qh(inp.s2bPooled)} | ${pct(
       inp.s2bPooled.coverageAll,
     )} | ${pct(inp.s2bPooled.abstentionRate)} | ${pct(inp.s2bPooled.coverageConditional)} |`,
   );
   L.push("");
-  L.push("*\\* couverture conditionnelle à l'action = chiffre de desk, **PAS la garantie CP** (H2.3).*");
+  L.push("*\\* action-conditional coverage = desk figure, **NOT the CP guarantee** (H2.3).*");
   L.push(d10(inp.s2bPooled.nEvaluable, "S2b-pooled"));
   L.push("");
 
-  // Bloc 5 — Mutants.
-  L.push("## 5. Mutants (contrôles négatifs semés)");
+  // Block 5 — Mutants.
+  L.push("## 5. Mutants (seeded negative controls)");
   L.push("| id | mutant | verdict |");
   L.push("|---|---|---|");
   for (const m of inp.mutants) L.push(`| ${m.id} | ${m.name} | ${m.pass ? "PASS" : "FAIL"} (${m.detail}) |`);
@@ -134,42 +134,42 @@ export function renderS2Report(inp: ReportInput): string {
   L.push(d10(inp.m2N, "M2-clean+M2-flip"));
   L.push("");
 
-  // Décision (e) — deux blocs étiquetés.
-  L.push("## 6. Décision (e) — deux blocs étiquetés");
-  L.push(`### 6a. Silence réel (\`${MOMENTUM_4C_ID}\`, exécuté)`);
+  // Decision (e) — two labelled blocks.
+  L.push("## 6. Decision (e) — two labelled blocks");
+  L.push(`### 6a. Real silence (\`${MOMENTUM_4C_ID}\`, run)`);
   L.push(
-    `Prédicteur momentum sur marche aléatoire ≈ pièce : n_calib = ${inp.silenceReal.nCalib} · m = ${inp.silenceReal.mHoldout} · ` +
-      `q̂ = ${qh(inp.silenceReal)} · couverture = ${pct(inp.silenceReal.coverageAll)} · ` +
+    `Momentum predictor on a random walk ≈ coin: n_calib = ${inp.silenceReal.nCalib} · m = ${inp.silenceReal.mHoldout} · ` +
+      `q̂ = ${qh(inp.silenceReal)} · coverage = ${pct(inp.silenceReal.coverageAll)} · ` +
       `abstention = ${pct(inp.silenceReal.abstentionRate)} · commit = ${pct(inp.silenceReal.commitRate)}. ` +
-      `Attendu : **silence calibré quasi total** (au score 0/1, q̂=0 exige ≤ n − ⌈(n+1)(1−α)⌉ erreurs de calibration : ` +
+      `Expected: **near-total calibrated silence** (at score 0/1, q̂=0 requires ≤ n − ⌈(n+1)(1−α)⌉ calibration errors: ` +
       `n=${inp.silenceReal.nCalib}, α=${p.alpha} ⇒ ≤ ${inp.silenceReal.nCalib - Math.ceil((inp.silenceReal.nCalib + 1) * (1 - p.alpha))}). ` +
-      "La démo ne montre pas de position — c'est le produit (le droit de n'avoir aucun avis).",
+      "The demo shows no position — that is the product (the right to hold no opinion).",
   );
   L.push(d10(inp.silenceReal.nEvaluable, "S2b-pooled"));
   L.push("");
-  L.push(`### 6b. Démo de mécanisme (\`${ORACLE_DIDACTIQUE_ID}\` — **pas un produit**)`);
+  L.push(`### 6b. Mechanism demo (\`${ORACLE_DIDACTIQUE_ID}\` — **not a product**)`);
   L.push(
-    `Oracle didactique (ŷ=y par construction) **exécuté sur la même série** : n_calib = ${inp.oracleReal.nCalib} · ` +
-      `m = ${inp.oracleReal.mHoldout} · q̂ = ${qh(inp.oracleReal)} · couverture = ${pct(inp.oracleReal.coverageAll)} · ` +
+    `Didactic oracle (ŷ=y by construction) **run on the same series**: n_calib = ${inp.oracleReal.nCalib} · ` +
+      `m = ${inp.oracleReal.mHoldout} · q̂ = ${qh(inp.oracleReal)} · coverage = ${pct(inp.oracleReal.coverageAll)} · ` +
       `abstention = ${pct(inp.oracleReal.abstentionRate)} · commit = ${pct(inp.oracleReal.commitRate)}. ` +
-      "Il rend le chemin COMMIT visible ; il ne dit rien du marché.",
+      "It makes the COMMIT path visible; it says nothing about the market.",
   );
   L.push(d10(inp.oracleReal.nEvaluable, "S2b-oracle"));
   L.push("");
   L.push(
-    "Les 9 états de mécanisme ci-dessous sont produits par le vrai `gate()` sur des verdicts à **scores déclarés** " +
-      "(COMMIT : calibration 47/50 ⇒ q̂=0 ; DEFER : 25/50 ⇒ q̂=1) — **pas** par l'oracle (digest figé, test 14) :",
+    "The 9 mechanism states below are produced by the real `gate()` on verdicts with **declared scores** " +
+      "(COMMIT: 47/50 calibration ⇒ q̂=0; DEFER: 25/50 ⇒ q̂=1) — **not** by the oracle (frozen digest, test 14):",
   );
-  L.push("| état | action | raison | budget restant |");
+  L.push("| state | action | reason | remaining budget |");
   L.push("|---|---|---|---|");
   for (const s of inp.demo) {
     L.push(`| ${s.id} | ${s.decision.action} | ${s.decision.reason} | ${s.decision.remaining_budget} |`);
   }
   L.push("");
   L.push(
-    `**Tête** (sur m = ${inp.silenceReal.mHoldout} hold-out, \`${MOMENTUM_4C_ID}\`) : couverture empirique = ${pct(
+    `**Headline** (on m = ${inp.silenceReal.mHoldout} hold-out, \`${MOMENTUM_4C_ID}\`): empirical coverage = ${pct(
       inp.silenceReal.coverageAll,
-    )} vs 1−α = ${pct(1 - p.alpha)} · abstention (τ=${p.tau}) = ${pct(inp.silenceReal.abstentionRate)} — trois chiffres, jamais fusionnés.`,
+    )} vs 1−α = ${pct(1 - p.alpha)} · abstention (τ=${p.tau}) = ${pct(inp.silenceReal.abstentionRate)} — three figures, never merged.`,
   );
   L.push("");
   return L.join("\n");

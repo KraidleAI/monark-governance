@@ -4,7 +4,7 @@ import { gate, conformInterval, LIQUIDABLE_24H_CLASS, LIQUIDABLE_24H_ALPHA, LIQU
 import type { GateInput, CalibPair } from "../src/index.ts";
 import type { CoverageVerdict } from "@monark/contracts";
 
-// Verdict `interval` réel : q̂ = 99 sur résidus {1,…,99}, ŷ=1000 ⇒ région [901,1099], largeur 198.
+// Real `interval` verdict: q̂ = 99 on residuals {1,…,99}, ŷ=1000 ⇒ region [901,1099], width 198.
 const hand: CalibPair[] = Array.from({ length: 99 }, (_, i) => ({ yhat: 1000, y: 1000 + (i + 1) }));
 const intervalVerdict: CoverageVerdict = conformInterval({
   calib: hand,
@@ -36,36 +36,36 @@ function input(over: Partial<GateInput>): GateInput {
   };
 }
 
-// Test 35 (ADR-M003 D11) — les trois états du chemin `interval` sur largeur/intention (D6.1). Mutant
-// nommé : τ_interval inversé (`width > tauInterval` → `width < tauInterval`) ⇒ COMMIT et DEFER
-// s'échangent ⇒ ce test rouge.
+// Test 35 (ADR-M003 D11) — the three states of the `interval` path on width/intent (D6.1). Named
+// mutant: τ_interval inverted (`width > tauInterval` → `width < tauInterval`) ⇒ COMMIT and DEFER
+// swap ⇒ this test red.
 test("interval_gate_commit_defer_abstain", () => {
   const WIDTH = 1099 - 901; // 198
 
-  // COMMIT : intention ∈ [901,1099] ET largeur (198) <= τ_interval (250).
+  // COMMIT: intent ∈ [901,1099] AND width (198) <= τ_interval (250).
   const commit = gate(input({ intent: 1000, tauInterval: 250 }));
-  assert.equal(commit.action, "commit", "intent∈région, largeur<=τ ⇒ COMMIT");
+  assert.equal(commit.action, "commit", "intent∈region, width<=τ ⇒ COMMIT");
   assert.equal(commit.reason, "covered");
   assert.equal(commit.allow, true);
 
-  // DEFER : largeur (198) > τ_interval (150), horloge ouverte.
+  // DEFER: width (198) > τ_interval (150), clock open.
   const defer = gate(input({ intent: 1000, tauInterval: 150, clockOpen: true }));
-  assert.equal(defer.action, "defer", `largeur ${WIDTH} > τ ⇒ DEFER`);
+  assert.equal(defer.action, "defer", `width ${WIDTH} > τ ⇒ DEFER`);
   assert.equal(defer.reason, "interval_too_wide");
   assert.equal(defer.allow, false);
 
-  // ABSTAIN : intention ∉ [901,1099], largeur <= τ.
+  // ABSTAIN: intent ∉ [901,1099], width <= τ.
   const abstain = gate(input({ intent: 500, tauInterval: 250 }));
-  assert.equal(abstain.action, "abstain", "intent∉région ⇒ ABSTAIN");
+  assert.equal(abstain.action, "abstain", "intent∉region ⇒ ABSTAIN");
   assert.equal(abstain.reason, "intent_not_in_region");
   assert.equal(abstain.allow, false);
 
-  // Invariant d'horloge du module : un DEFER impossible (horloge close) devient ABSTAIN clock_expired.
+  // Module clock invariant: an impossible DEFER (clock closed) becomes ABSTAIN clock_expired.
   const clockClosed = gate(input({ intent: 1000, tauInterval: 150, clockOpen: false }));
-  assert.equal(clockClosed.action, "abstain", "largeur>τ mais horloge close ⇒ ABSTAIN");
+  assert.equal(clockClosed.action, "abstain", "width>τ but clock closed ⇒ ABSTAIN");
   assert.equal(clockClosed.reason, "clock_expired");
 
-  // La décision porte la région `interval` du verdict (containment numérique, C6).
+  // The decision carries the verdict's `interval` region (numeric containment, C6).
   assert.equal(commit.verdict.region.kind, "interval");
   assert.equal(commit.intent, 1000);
 });

@@ -1,16 +1,16 @@
 /**
- * HIKAE — instrument S2 (ADR-M002 D10 ; conception ADOPTÉE de Grok doc 11 §2/§5.1/§7/§8,
- * input jamais lifté, réécrite pour nos contrats). Harnais JETABLE (R-22 : ne se promeut pas).
+ * HIKAE — S2 instrument (ADR-M002 D10; design ADOPTED from Grok doc 11 §2/§5.1/§7/§8,
+ * input never lifted, rewritten for our contracts). DISPOSABLE harness (R-22: does not promote itself).
  *
- * S2a plomberie (classe binaire synthétique déclarée) : « le quantile et le gate sont-ils
- * câblés ? ». S2b beachhead `btc-dir-15m` (fixtures synthétiques ici — la sonde J0 sur
- * Coinbase, décidée par l'investisseur (a), est ultérieure ; PAS de fetch réseau ici).
+ * S2a plumbing (declared synthetic binary class): "are the quantile and the gate
+ * wired?". S2b beachhead `btc-dir-15m` (synthetic fixtures here — the J0 probe on
+ * Coinbase, decided by the investor (a), comes later; NO network fetch here).
  *
- * Déterminisme : PRNG `mulberry32` SEEDÉ (aucun `Math.random`, aucune horloge lue — stabilité
- * des hashes, D7). Split COMMITTÉ (graine + règle « first-n chronologique »). Strates EX ANTE.
+ * Determinism: SEEDED `mulberry32` PRNG (no `Math.random`, no clock read — hash
+ * stability, D7). COMMITTED split (seed + "chronological first-n" rule). EX ANTE strata.
  *
- * `harness_version = "fixtures-synth"`. Résultat négatif = résultat : un S2b à ~100 %
- * d'abstention s'écrit avec n, m, q̂ (D10), jamais adouci.
+ * `harness_version = "fixtures-synth"`. A negative result = a result: an S2b at ~100 %
+ * abstention is written with n, m, q̂ (D10), never softened.
  */
 import { indicatorScore, indicatorScores, conformalSet, splitQuantile } from "../l1-split.ts";
 import type { SplitResult } from "../l1-split.ts";
@@ -31,9 +31,9 @@ import { serializePrediction } from "@monark/contracts";
 
 export const HARNESS_VERSION = "fixtures-synth";
 const SCHEMA_VERSION = "1.0.0";
-const T0 = "2026-09-04T00:00:00Z"; // horodatage injecté (jamais lu) — stabilité des hashes.
+const T0 = "2026-09-04T00:00:00Z"; // injected timestamp (never read) — hash stability.
 
-/** PRNG déterministe seedé (mulberry32) — reproductible, indépendant de l'horloge. */
+/** Deterministic seeded PRNG (mulberry32) — reproducible, clock-independent. */
 export function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return function next(): number {
@@ -47,7 +47,7 @@ export function mulberry32(seed: number): () => number {
 
 export type Stratum = "asia" | "americas" | "mid";
 
-/** Strates EX ANTE (D10) : `asia` 00-08 UTC, `americas` 13-21 UTC, reste `mid` (hors inférence par strate). */
+/** EX ANTE strata (D10): `asia` 00-08 UTC, `americas` 13-21 UTC, rest `mid` (outside per-stratum inference). */
 export function strataOf(hourUtc: number): Stratum {
   if (hourUtc >= 0 && hourUtc < 8) return "asia";
   if (hourUtc >= 13 && hourUtc < 21) return "americas";
@@ -56,27 +56,27 @@ export function strataOf(hourUtc: number): Stratum {
 
 export interface LabeledPoint {
   readonly index: number;
-  /** Instant de décision `t` (secondes UTC) quand le point vient d'une série de bougies ; 0 pour S2a synthétique. */
+  /** Decision instant `t` (UTC seconds) when the point comes from a candle series; 0 for synthetic S2a. */
   readonly closeTime: number;
-  /** Prédicteur ayant produit `yhat` (`internal:*`) ; `"synthetic"` pour le tirage S2a. */
+  /** Predictor that produced `yhat` (`internal:*`); `"synthetic"` for the S2a draw. */
   readonly predictorId: string;
   readonly hourUtc: number;
   readonly stratum: Stratum;
   readonly yhat: "up" | "down";
-  /** Label réalisé ; `non_evaluable` est exclu de la calibration et du hold-out, compté à part. */
+  /** Realized label; `non_evaluable` is excluded from calibration and hold-out, counted separately. */
   readonly y: "up" | "down" | "non_evaluable";
 }
 
 export interface GenParams {
   readonly seed: number;
   readonly n: number;
-  /** Probabilité que `y === yhat` (précision du prédicteur). ~0.5 = pièce (momentum sur BTC 15 min). */
+  /** Probability that `y === yhat` (predictor accuracy). ~0.5 = coin (momentum on BTC 15 min). */
   readonly accuracy: number;
-  /** Fraction de points `non_evaluable` (égalité close==open). */
+  /** Fraction of `non_evaluable` points (close==open equality). */
   readonly nonEvaluableRate?: number;
 }
 
-/** Série labellisée déterministe (S2a plomberie ou S2b beachhead selon `accuracy`). */
+/** Deterministic labelled series (S2a plumbing or S2b beachhead depending on `accuracy`). */
 export function generateLabeledSeries(params: GenParams): LabeledPoint[] {
   const rnd = mulberry32(params.seed);
   const neRate = params.nonEvaluableRate ?? 0;
@@ -97,23 +97,23 @@ export function generateLabeledSeries(params: GenParams): LabeledPoint[] {
 }
 
 // ---------------------------------------------------------------------------
-// Série de BOUGIES synthétique + câblage RÉEL des prédicteurs D7 (G2 Lot H corr. 1) :
-// la chaîne gelée est entrée à l'étape 1 — `predictor → Prediction → conformer`.
+// Synthetic CANDLE series + REAL wiring of the D7 predictors (G2 Lot H corr. 1):
+// the frozen chain is entered at step 1 — `predictor → Prediction → conformer`.
 // ---------------------------------------------------------------------------
 
 export interface CandleGenParams {
   readonly seed: number;
   readonly n: number;
-  /** `close_time` de la première bougie (secondes UTC, aligné 15 min). Donnée injectée. */
+  /** `close_time` of the first candle (UTC seconds, 15-min aligned). Injected datum. */
   readonly startCloseTime: number;
   readonly startPrice: number;
-  /** Amplitude max d'un pas (fraction) : marche aléatoire symétrique ⇒ momentum ≈ pièce. */
+  /** Max amplitude of a step (fraction): symmetric random walk ⇒ momentum ≈ coin. */
   readonly stepPct: number;
-  /** Fraction de bougies `close == open` (⇒ `non_evaluable`). */
+  /** Fraction of `close == open` candles (⇒ `non_evaluable`). */
   readonly flatRate?: number;
 }
 
-/** Marche aléatoire seedée sur grille 15 min : `open = close précédent`. Aucun réseau, aucune horloge. */
+/** Seeded random walk on a 15-min grid: `open = previous close`. No network, no clock. */
 export function generateCandleSeries(p: CandleGenParams): Candle[] {
   const rnd = mulberry32(p.seed);
   const flat = p.flatRate ?? 0;
@@ -133,19 +133,19 @@ export type PredictorKind = "momentum-4c" | "oracle-didactique";
 export interface PredictorRun {
   readonly predictorId: string;
   readonly points: LabeledPoint[];
-  /** Les `Prediction` émises (contrat gelé, fermées — `serializePrediction` appliqué à chacune). */
+  /** The emitted `Prediction`s (frozen contract, closed — `serializePrediction` applied to each). */
   readonly predictions: Prediction[];
-  /** Fenêtres sans 5 features terminées (début de série). */
+  /** Windows without 5 completed features (start of series). */
   readonly nWarmup: number;
-  /** Fenêtres où le PRÉDICTEUR n'a pas de direction (`close[t] == close[t-60]`) — exclues, comptées. */
+  /** Windows where the PREDICTOR has no direction (`close[t] == close[t-60]`) — excluded, counted. */
   readonly nPredictorNonEvaluable: number;
 }
 
 /**
- * Applique un prédicteur D7 à une série de bougies : à chaque décision `t = close_time` de la
- * dernière bougie terminée, features = 5 closes ≤ t (`extractMomentumFeatures`, garde anti
- * look-ahead), `ŷ = momentum4c(features)` ou `ŷ = oracleDidactique(bougie [t,t+15))` (ŷ=y par
- * construction — mutant didactique, PAS un produit), `y = labelOf(bougie [t,t+15))`.
+ * Applies a D7 predictor to a candle series: at each decision `t = close_time` of the
+ * last completed candle, features = 5 closes ≤ t (`extractMomentumFeatures`, anti-look-ahead
+ * guard), `ŷ = momentum4c(features)` or `ŷ = oracleDidactique(candle [t,t+15))` (ŷ=y by
+ * construction — didactic mutant, NOT a product), `y = labelOf(candle [t,t+15))`.
  */
 export function labeledFromPredictor(candles: readonly Candle[], kind: PredictorKind): PredictorRun {
   const byClose = new Map<number, Candle>(candles.map((c) => [c.close_time, c]));
@@ -173,9 +173,9 @@ export function labeledFromPredictor(candles: readonly Candle[], kind: Predictor
       task_class: "btc-dir-15m",
       yhat: yhatDir,
       predictor_id: predictorId,
-      produced_at: new Date(t * 1000).toISOString(), // formatage d'un instant PORTÉ, pas une horloge lue
+      produced_at: new Date(t * 1000).toISOString(), // formatting of a CARRIED instant, not a clock read
     };
-    serializePrediction(pred); // closed-check du contrat gelé : lève sur clé étrangère
+    serializePrediction(pred); // frozen-contract closed-check: throws on a foreign key
     predictions.push(pred);
     const y = labelOf(target);
     const hourUtc = Math.floor((t % 86400) / 3600);
@@ -193,7 +193,7 @@ export function labeledFromPredictor(candles: readonly Candle[], kind: Predictor
 }
 
 export interface CampaignParams {
-  readonly label: string; // "S2a" | "S2b" | strate
+  readonly label: string; // "S2a" | "S2b" | stratum
   readonly points: readonly LabeledPoint[];
   readonly alpha: number;
   readonly nMin: number;
@@ -201,7 +201,7 @@ export interface CampaignParams {
   readonly nCalib: number;
 }
 
-/** Une ligne du JOURNAL BRUT par point (D10 : tout chiffre se recalcule sans croire HIKAE). */
+/** One RAW JOURNAL line per point (D10: every figure recomputes without trusting HIKAE). */
 export interface PointTrace {
   readonly index: number;
   readonly closeTime: number;
@@ -226,19 +226,19 @@ export interface CampaignResult {
   readonly nCalib: number;
   readonly mHoldout: number;
   readonly split: SplitResult;
-  /** Couverture empirique INCLUANT les abstentions (la garantie CP, D10 étape 4). */
+  /** Empirical coverage INCLUDING abstentions (the CP guarantee, D10 step 4). */
   readonly coverageAll: number | null;
-  /** Couverture CONDITIONNELLE à l'action (|C|<=tau) — chiffre de desk, « pas la garantie CP ». */
+  /** Action-CONDITIONAL coverage (|C|<=tau) — desk figure, "not the CP guarantee". */
   readonly coverageConditional: number | null;
   readonly abstentionRate: number | null;
   readonly commitRate: number | null;
 }
 
 /**
- * Une passe split-CP (S2a, S2b, ou une strate). Split COMMITTÉ : les `nCalib` premiers points
- * ÉVALUABLES (ordre chronologique = ordre de la série) forment la calibration, le reste le
- * hold-out (pas de data-snooping ; règle + graine committées en amont). Couverture calculée
- * abstentions incluses ; couverture conditionnelle à l'action publiée à part, étiquetée.
+ * One split-CP pass (S2a, S2b, or a stratum). COMMITTED split: the first `nCalib` EVALUABLE
+ * points (chronological order = series order) form the calibration, the rest the
+ * hold-out (no data-snooping; rule + seed committed upstream). Coverage computed
+ * with abstentions included; action-conditional coverage published separately, labelled.
  */
 export function runSplitCampaign(params: CampaignParams): CampaignResult {
   const evaluable = params.points.filter((p) => p.y !== "non_evaluable");
@@ -333,13 +333,13 @@ export function runSplitCampaign(params: CampaignParams): CampaignResult {
 }
 
 // ---------------------------------------------------------------------------
-// Les 9 états de MÉCANISME (bloc « démo de mécanisme » de (e) ; oracle du test 14).
-// 3 COMMIT / 2 DEFER / 3 ABSTAIN / 1 under_calib, tous produits par le VRAI `gate()`.
-// Verdicts construits à scores DÉCLARÉS (pas ŷ=y — G2 Lot H corr. 1) : les COMMIT d'une
-// calibration 47/50 (3 erreurs ⇒ q̂=0 ⇒ singleton) ; les DEFER d'une calibration à moitié
-// fausse (25/50 ⇒ q̂=1 ⇒ {up,down}) ; les ABSTAIN des mutants (timeout, intent hors région,
-// budget épuisé) ; under_calib de n<n_min. L'oracle didactique RÉEL est exécuté dans `run.ts`
-// (bloc 6b du rapport), sans toucher ce jeu (digest figé, test 14).
+// The 9 MECHANISM states (block "mechanism demo" of (e); oracle of test 14).
+// 3 COMMIT / 2 DEFER / 3 ABSTAIN / 1 under_calib, all produced by the REAL `gate()`.
+// Verdicts built with DECLARED scores (not ŷ=y — G2 Lot H corr. 1): the COMMIT from a
+// 47/50 calibration (3 errors ⇒ q̂=0 ⇒ singleton); the DEFER from a half-wrong
+// calibration (25/50 ⇒ q̂=1 ⇒ {up,down}); the ABSTAIN from the mutants (timeout, intent outside region,
+// budget exhausted); under_calib from n<n_min. The REAL didactic oracle is run in `run.ts`
+// (block 6b of the report), without touching this set (frozen digest, test 14).
 // ---------------------------------------------------------------------------
 
 const GOOD_SCORES: readonly number[] = Array.from({ length: 50 }, (_, i) => (i < 47 ? 0 : 1)); // 3/50 → q̂=0
@@ -382,7 +382,7 @@ function baseInput(over: Partial<GateInput> & { verdict: GateInput["verdict"]; i
     remainingBudget: 0.1,
     bFloor: 0,
     tau: 1,
-    tauInterval: 1, // inerte ici : ces états de démo sont tous `set` (M003 D6.1 chemin interval non exercé)
+    tauInterval: 1, // inert here: these demo states are all `set` (M003 D6.1 interval path not exercised)
     nCalib: 50,
     nMin: 50,
     clockOpen: true,
@@ -394,7 +394,7 @@ function baseInput(over: Partial<GateInput> & { verdict: GateInput["verdict"]; i
   };
 }
 
-/** Les 9 GateDecisions de mécanisme, dans un ordre stable (oracle test 14 + bloc démo). */
+/** The 9 mechanism GateDecisions, in a stable order (test 14 oracle + demo block). */
 export function demoStates(): { readonly id: string; readonly decision: GateDecision }[] {
   const commit = commitVerdict();
   const defer = deferVerdict();
@@ -436,14 +436,14 @@ export interface MutantOutcome {
 }
 
 /**
- * Contrôles négatifs semés (D10 étape 7) — un instrument qui n'a jamais rejeté n'a rien
- * montré. M5 (`p_correct` en sérialisation ⇒ lève) est vérifié dans le test dédié
- * (`no_p_correct_field`) car il exerce le contrat gelé ; ici on porte M1-M4 mécaniques.
+ * Seeded negative controls (D10 step 7) — an instrument that never rejected has shown
+ * nothing. M5 (`p_correct` in serialization ⇒ throws) is verified in the dedicated test
+ * (`no_p_correct_field`) since it exercises the frozen contract; here we carry the mechanical M1-M4.
  */
-/** Paramètres DÉCLARÉS du mutant M2 (bloc 1 du rapport) — recalculables. */
+/** DECLARED parameters of the M2 mutant (block 1 of the report) — recalculable. */
 export const M2_PARAMS = { seed: 42, n: 120, accuracy: 0.95, nCalib: 60 } as const;
 
-/** Les deux campagnes de M2 (propre / labels inversés), exposées pour le journal brut (G2 delta 5.2). */
+/** The two M2 campaigns (clean / flipped labels), exposed for the raw journal (G2 delta 5.2). */
 export function m2Campaigns(): { clean: CampaignResult; broken: CampaignResult } {
   const base = generateLabeledSeries({ seed: M2_PARAMS.seed, n: M2_PARAMS.n, accuracy: M2_PARAMS.accuracy });
   const clean = runSplitCampaign({ label: "M2-clean", points: base, alpha: 0.1, nMin: 50, tau: 1, nCalib: M2_PARAMS.nCalib });
@@ -459,27 +459,27 @@ export function m2Campaigns(): { clean: CampaignResult; broken: CampaignResult }
 export function runMutants(): MutantOutcome[] {
   const out: MutantOutcome[] = [];
 
-  // M1 — under_calib : n=10 < 50 ⇒ pas de q̂.
+  // M1 — under_calib: n=10 < 50 ⇒ no q̂.
   const m1 = splitQuantile(TEN_SCORES, 0.1, 50);
   out.push({
     id: "M1",
-    name: "under_calib (n=10<50 ⇒ pas de q̂)",
+    name: "under_calib (n=10<50 ⇒ no q̂)",
     pass: "reason" in m1 && m1.reason === "under_calib",
     detail: JSON.stringify(m1),
   });
 
-  // M2 — labels inversés post-gel de q̂ ⇒ la couverture casse nettement sous 1-α.
+  // M2 — labels flipped after q̂ is frozen ⇒ coverage breaks clearly below 1-α.
   const { clean, broken } = m2Campaigns();
   const cleanCov = clean.coverageAll ?? 0;
   const brokenCov = broken.coverageAll ?? 1;
   out.push({
     id: "M2",
-    name: "labels inversés (hold-out) ⇒ couverture casse",
+    name: "flipped labels (hold-out) ⇒ coverage breaks",
     pass: brokenCov < cleanCov - 0.2,
     detail: `coverage clean=${cleanCov.toFixed(3)} → flipped=${brokenCov.toFixed(3)}`,
   });
 
-  // M3 — timeout UsePod ⇒ deny / upstream_timeout, jamais un set.
+  // M3 — UsePod timeout ⇒ deny / upstream_timeout, never a set.
   const m3 = gate(baseInput({ verdict: commitVerdict(), intent: "up", timedOut: true }));
   out.push({
     id: "M3",
@@ -488,21 +488,21 @@ export function runMutants(): MutantOutcome[] {
     detail: `${m3.action}/${m3.reason}`,
   });
 
-  // M4 — parse `MAYBE` ⇒ non_evaluable, pas un label inventé.
+  // M4 — `MAYBE` parse ⇒ non_evaluable, not an invented label.
   const m4 = gate(baseInput({ verdict: commitVerdict(), intent: "up", evaluable: false }));
   out.push({
     id: "M4",
-    name: "parse non-évaluable ⇒ ABSTAIN non_evaluable",
+    name: "non-evaluable parse ⇒ ABSTAIN non_evaluable",
     pass: m4.action === "abstain" && m4.reason === "non_evaluable",
     detail: `${m4.action}/${m4.reason}`,
   });
 
-  // M5 — p_correct injecté ⇒ sérialisation lève : porté par le test `no_p_correct_field`.
+  // M5 — p_correct injected ⇒ serialization throws: carried by the `no_p_correct_field` test.
   out.push({
     id: "M5",
-    name: "p_correct injecté ⇒ serializeVerdict lève (voir test no_p_correct_field)",
+    name: "p_correct injected ⇒ serializeVerdict throws (see test no_p_correct_field)",
     pass: true,
-    detail: "exercé sur le contrat gelé dans le test dédié",
+    detail: "exercised on the frozen contract in the dedicated test",
   });
 
   return out;
