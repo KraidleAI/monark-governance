@@ -1,25 +1,25 @@
 /**
- * Atelier MONARK — module d'ÉTAT PUR (ADR-M002 D1 Lot D ; test 24 `atelier_state_oracle`).
- * Aucun DOM, aucun réseau, aucune horloge lue : tout vient d'une `GateDecision` gelée (contrat
- * `@monark/contracts`, jamais réimplémenté). Ce que l'écran montre est recalculable d'ici.
+ * MONARK atelier — PURE STATE module (ADR-M002 D1 Lot D; test 24 `atelier_state_oracle`).
+ * No DOM, no network, no clock read: everything comes from a frozen `GateDecision` (the
+ * `@monark/contracts` contract, never reimplemented). What the screen shows is recomputable from here.
  */
 import type { GateDecision, CoverageVerdict } from "@monark/contracts";
 import { assertClosedGateDecision } from "@monark/contracts";
 
-/** Fenêtre de label du beachhead `btc-dir-15m` (ADR-M002 D8) — paramètre DÉCLARÉ, minutes. */
+/** Label window of the `btc-dir-15m` beachhead (ADR-M002 D8) — DECLARED parameter, minutes. */
 export const LABEL_WINDOW_MIN = 15;
 
 export type Decision = "COMMIT" | "DEFER" | "ABSTAIN";
 
 export interface ClockView {
-  /** « couverture avant décision » : horodatage du verdict (le verdict précède la décision). */
+  /** "coverage before decision": timestamp of the verdict (the verdict precedes the decision). */
   readonly coverageAt: string;
-  /** « label arrivé à t+w » : quand le label de la bougie [t, t+w) devient connu — sur fixture. */
+  /** "label arrived at t+w": when the label of candle [t, t+w) becomes known — on fixture. */
   readonly labelAt: string;
 }
 
 export interface ShogenPanel {
-  /** Hypothèses résiduelles d'attestation, telles que portées par le verdict (jamais inventées). */
+  /** Residual attestation hypotheses, as carried by the verdict (never invented). */
   readonly residual: readonly string[];
   readonly taskClass: string;
 }
@@ -29,15 +29,15 @@ export interface HikaePanel {
   readonly alpha: number;
   readonly nCalib: number;
   readonly qhat: number | null;
-  /** Région rendue textuellement : `{up}` / `{up,down}` / `[lo, hi]` / `—` si abstention sans région. */
+  /** Region rendered as text: `{up}` / `{up,down}` / `[lo, hi]` / `—` if abstaining without a region. */
   readonly region: string;
   readonly reason: string;
   readonly abstain: boolean;
 }
 
 export interface UkemiPanel {
-  /** Phase 1 : la brique n'est PAS branchée à l'atelier (merge Lot U) — on l'écrit, on ne la simule pas. */
-  readonly status: "non-branchee-phase1";
+  /** Phase 1: the block is NOT wired to the atelier (Lot U merge) — we write it, we do not simulate it. */
+  readonly status: "not-wired-phase1";
 }
 
 export interface AtelierState {
@@ -45,10 +45,10 @@ export interface AtelierState {
   readonly decision: Decision;
   readonly allow: boolean;
   readonly reason: string;
-  /** Intention telle que portée par la décision : label (set), nombre (interval) ou `null` (aucune). */
+  /** Intent as carried by the decision: label (set), number (interval) or `null` (none). */
   readonly intent: string | number | null;
   readonly tool: string;
-  /** B_t restant APRÈS cette décision (capacité d'autorisation, jamais un rendement). */
+  /** B_t remaining AFTER this decision (authorization capacity, never a yield). */
   readonly remainingBudget: number;
   readonly clocks: ClockView;
   readonly shogen: ShogenPanel;
@@ -74,14 +74,14 @@ function regionText(v: CoverageVerdict): string {
   return `[${r.lo}, ${r.hi}]`;
 }
 
-/** Ajoute `minutes` à un ISO UTC ; pure, sans lire l'horloge. */
+/** Adds `minutes` to a UTC ISO; pure, without reading the clock. */
 export function plusMinutes(iso: string, minutes: number): string {
   const t = Date.parse(iso);
-  if (!Number.isFinite(t)) throw new Error(`horodatage invalide : ${iso}`);
+  if (!Number.isFinite(t)) throw new Error(`invalid timestamp: ${iso}`);
   return new Date(t + minutes * 60_000).toISOString().replace(".000Z", "Z");
 }
 
-/** Construit l'état d'écran d'UNE décision gelée. Lève si la décision n'est pas fermée (contrat). */
+/** Builds the screen state of ONE frozen decision. Throws if the decision is not closed (contract). */
 export function buildState(id: string, d: GateDecision): AtelierState {
   assertClosedGateDecision(d);
   const v = d.verdict;
@@ -104,11 +104,11 @@ export function buildState(id: string, d: GateDecision): AtelierState {
       reason: v.reason,
       abstain: v.abstain,
     },
-    ukemi: { status: "non-branchee-phase1" },
+    ukemi: { status: "not-wired-phase1" },
   };
 }
 
-/** Répartition des décisions (l'oracle du jeu racine est 3/2/3/1 avec `under_calib` compté à part). */
+/** Decision distribution (the root set oracle is 3/2/3/1 with `under_calib` counted separately). */
 export function distribution(states: readonly AtelierState[]): {
   COMMIT: number;
   DEFER: number;

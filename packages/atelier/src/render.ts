@@ -1,7 +1,7 @@
 /**
- * Atelier MONARK — rendu HTML PUR (chaînes), sans DOM : testable en node, servi par `serve.js`.
- * Trois panneaux Shōgen → HIKAE → UKEMI, verdict, décision + raison, B_t, deux horloges nommées
- * pour ce qu'elles sont sur fixtures. Aucun mot du gate vocab ; aucune promesse ; aucun ordre.
+ * MONARK atelier — PURE HTML render (strings), no DOM: testable in node, served by `serve.js`.
+ * Three panels Shōgen → HIKAE → UKEMI, verdict, decision + reason, B_t, two clocks named
+ * for what they are on fixtures. No gate-vocab word; no promise; no order.
  */
 import type { AtelierState } from "./state.ts";
 import { distribution } from "./state.ts";
@@ -21,40 +21,40 @@ export function renderState(s: AtelierState, index: number): string {
   <header class="state-head">
     <h2>${esc(s.id)}</h2>
     ${badge(s.decision)}
-    <span class="reason">raison : <code>${esc(s.reason)}</code></span>
+    <span class="reason">reason: <code>${esc(s.reason)}</code></span>
   </header>
   <div class="chain">
     <article class="panel panel-shogen">
-      <h3>Shōgen — perception attestée</h3>
-      <p>classe : <code>${esc(s.shogen.taskClass)}</code></p>
-      <p>hypothèses résiduelles portées par le verdict :</p>
+      <h3>Shōgen — attested perception</h3>
+      <p>class: <code>${esc(s.shogen.taskClass)}</code></p>
+      <p>residual hypotheses carried by the verdict:</p>
       <ul class="residual">${residual}</ul>
     </article>
     <article class="panel panel-hikae">
-      <h3>HIKAE — verdict de couverture</h3>
+      <h3>HIKAE — coverage verdict</h3>
       <dl>
-        <dt>méthode</dt><dd><code>${esc(s.hikae.method)}</code></dd>
+        <dt>method</dt><dd><code>${esc(s.hikae.method)}</code></dd>
         <dt>α</dt><dd>${s.hikae.alpha}</dd>
-        <dt>n calibration</dt><dd>${s.hikae.nCalib}</dd>
+        <dt>calibration n</dt><dd>${s.hikae.nCalib}</dd>
         <dt>q̂</dt><dd>${qhat}</dd>
-        <dt>région</dt><dd><code>${esc(s.hikae.region)}</code></dd>
-        <dt>abstention</dt><dd>${s.hikae.abstain ? "oui" : "non"}</dd>
+        <dt>region</dt><dd><code>${esc(s.hikae.region)}</code></dd>
+        <dt>abstention</dt><dd>${s.hikae.abstain ? "yes" : "no"}</dd>
       </dl>
     </article>
     <article class="panel panel-ukemi">
-      <h3>UKEMI — brique de cascade</h3>
-      <p class="muted">non branchée en Phase 1 (se branche au merge du Lot U) — rien n'est simulé ici.</p>
+      <h3>UKEMI — cascade block</h3>
+      <p class="muted">not wired in Phase 1 (wires in at the Lot U merge) — nothing is simulated here.</p>
     </article>
   </div>
   <div class="decision">
-    <p>intention <code>${esc(s.intent === null ? "—" : String(s.intent))}</code> vers l'outil <code>${esc(s.tool)}</code> → ${badge(s.decision)}
-      (${s.allow ? "autorisé" : "non autorisé"}) — MONARK ne passe aucun ordre : l'outil est nommé, jamais appelé.</p>
-    <p class="budget">B<sub>t</sub> restant après cette décision : <strong>${s.remainingBudget}</strong>
-      <span class="muted">(capacité d'autorisation qui se consomme — pas un rendement)</span></p>
+    <p>intent <code>${esc(s.intent === null ? "—" : String(s.intent))}</code> toward tool <code>${esc(s.tool)}</code> → ${badge(s.decision)}
+      (${s.allow ? "authorized" : "not authorized"}) — MONARK places no order: the tool is named, never called.</p>
+    <p class="budget">B<sub>t</sub> remaining after this decision: <strong>${s.remainingBudget}</strong>
+      <span class="muted">(authorization capacity that depletes — not a yield)</span></p>
   </div>
   <div class="clocks">
-    <div class="clock"><span class="clock-name">couverture avant décision</span><time>${esc(s.clocks.coverageAt)}</time></div>
-    <div class="clock"><span class="clock-name">label arrivé à t+w (w = 15 min, fixture)</span><time>${esc(s.clocks.labelAt)}</time></div>
+    <div class="clock"><span class="clock-name">coverage before decision</span><time>${esc(s.clocks.coverageAt)}</time></div>
+    <div class="clock"><span class="clock-name">label arrived at t+w (w = 15 min, fixture)</span><time>${esc(s.clocks.labelAt)}</time></div>
   </div>
 </section>`;
 }
@@ -70,12 +70,12 @@ export function renderNav(states: readonly AtelierState[]): string {
 
 export function renderSummary(states: readonly AtelierState[]): string {
   const d = distribution(states);
-  return `<p class="summary">${states.length} états rejoués depuis <code>fixtures/</code> racine —
+  return `<p class="summary">${states.length} states replayed from root <code>fixtures/</code> —
     ${d.COMMIT} COMMIT · ${d.DEFER} DEFER · ${d.ABSTAIN} ABSTAIN · ${d.under_calib} under_calib.
-    Silence calibré = résultat, pas défaut.</p>`;
+    Calibrated silence = result, not failure.</p>`;
 }
 
-/** Corps complet de la page (sans <html>/<head> : `index.html` les porte, `serve.js` injecte ici). */
+/** Full page body (no <html>/<head>: `index.html` carries them, `serve.js` injects here). */
 export function renderAll(states: readonly AtelierState[]): string {
   return `${renderSummary(states)}
 ${renderNav(states)}

@@ -1,6 +1,6 @@
 /**
- * Lecture des 9 états gelés de `fixtures/` racine (disque local, jamais réseau), dans l'ordre des
- * noms de fichiers. Chaque état passe le closed-check du contrat dans `buildState`.
+ * Reads the 9 frozen states from root `fixtures/` (local disk, never network), in filename
+ * order. Each state passes the contract closed-check in `buildState`.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
