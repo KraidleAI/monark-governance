@@ -1,0 +1,4 @@
+{
+  "$comment": "CLOSED, committed exemption list for the test-44 honesty lint (root test/site-honesty.test.ts, ADR-M004 D11). Each entry allows one EXACT numeric token to appear in a rendered-text position under apps/site/{app,content}. An entry whose `value` equals a figure value in fixtures/figures-sourced.json is REJECTED by the test: figures MUST flow from the loader (loadCommitted), never be hard-coded. F-1 needs no exemptions — the placeholder page renders zero numeric literals.",
+  "entries": []
+}

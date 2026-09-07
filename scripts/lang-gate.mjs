@@ -89,11 +89,15 @@ export const FR_WORDS = [
 const DIACRITICS = "àâäáéèêëíîïóôöùûüÿçœæÀÂÄÁÉÈÊËÍÎÏÓÔÖÙÛÜŸÇŒÆ";
 
 export const TEXT_EXTS = new Set([
-  ".ts", ".tsx", ".mjs", ".cjs", ".js", ".jsx", ".md", ".yml", ".yaml", ".json", ".html", ".css", ".sh", ".txt",
+  ".ts", ".tsx", ".mjs", ".cjs", ".js", ".jsx", ".md", ".mdx", ".yml", ".yaml", ".json", ".html", ".css", ".sh", ".txt",
 ]);
-export const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "docs"]);
+// `.next`/`.turbo` added by Lot F-public (apps/site scope): Next.js build output and Turbo cache are
+// generated (gitignored) minified JS that would produce spurious hits and slow the scan — skipping them
+// is an exclusion of SCANNING, not of words. A committed working tree never contains them.
+export const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "docs", ".next", ".turbo"]);
 export const EXCLUDE_NAMES = new Set(["package-lock.json", "lang-exempt.json", "lang-gate.mjs"]);
-export const SCOPES = ["root", "contracts", "hikae", "ukemi", "atelier", "monark"];
+// `site` = apps/site (Lot F-public, English-only per ADR-M003 D0.5). Gated by the export --scope site.
+export const SCOPES = ["root", "contracts", "hikae", "ukemi", "atelier", "monark", "site"];
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const byLenDesc = (a, b) => b.length - a.length || (a < b ? -1 : 1);
@@ -114,6 +118,7 @@ const FRID_RE = new RegExp("\\b(" + FRENCH_IDENTIFIERS.slice().sort(byLenDesc).m
 /** POSIX-relative path -> scope name. */
 export function classifyScope(rel) {
   const p = rel.replace(/\\/g, "/");
+  if (p === "apps/site" || p.startsWith("apps/site/")) return "site"; // Lot F-public
   const m = /^packages\/([^/]+)\//.exec(p);
   if (m && SCOPES.includes(m[1])) return m[1];
   return "root";

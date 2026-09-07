@@ -1,0 +1,8 @@
+{
+  "$comment": "Tamper-evidence manifest for the committed data the MONARK site renders (ADR-M004 D1 / D11 test 44). Keys are repo-root-relative POSIX paths; values are the SHA-256 of each file after CRLF->LF normalization over UTF-8 bytes (mirrors fixtures/manifest.json and test/fixtures-root.test.ts, so the hash is OS-independent). Verified at load by apps/site/lib/load-committed.ts and by root test/site-honesty.test.ts. Regenerate after changing any listed file: node -e \"const{readFileSync}=require('fs'),{createHash}=require('crypto');console.log(createHash('sha256').update(readFileSync('fixtures/figures-sourced.json','utf8').replace(/\\r\\n/g,'\\n'),'utf8').digest('hex'))\". F-1 lists the figures only; F-2 adds apps/site/content/** (MDX) as it lands.",
+  "algorithm": "sha256",
+  "normalization": "crlf-to-lf-utf8",
+  "files": {
+    "fixtures/figures-sourced.json": "ac3ae329c0fb43d8738e6ea16a4156094b438c5a63c1031a0b70e67a5105d54c"
+  }
+}
