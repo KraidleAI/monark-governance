@@ -1,54 +1,54 @@
 /**
- * UKEMI — cible A : « montant liquidable sous un choc de prix de x % » (ADR-M002 D9 ;
- * [lu-archive] SYNTHESE-LIQUIDATIONS §1 maillon 1 / §2(b) ; Perez, Werner, Xu, Livshits,
+ * UKEMI — target A: "liquidable amount under a price shock of x %" (ADR-M002 D9;
+ * [lu-archive] SYNTHESE-LIQUIDATIONS §1 link 1 / §2(b); Perez, Werner, Xu, Livshits,
  * *Liquidations: DeFi on a Knife-edge*, arXiv 2009.13235v6, **Eq. 3 p.7**).
  *
- * Critère Eq. 3 (verbatim de forme) : une position est liquidable quand
- *   (collatéral × prix-oracle φ × seuil K) / (emprunt × prix-oracle) < 1.
- * Sur un choc du prix du COLLATÉRAL de fraction `shock` (baisse), la valeur du collatéral
- * devient `collateralQty × collateralPrice × (1 − shock)`, et la position bascule quand
+ * Eq. 3 criterion (verbatim in form): a position is liquidable when
+ *   (collateral × oracle-price φ × threshold K) / (borrowing × oracle-price) < 1.
+ * Under a shock to the COLLATERAL price of fraction `shock` (a drop), the collateral value
+ * becomes `collateralQty × collateralPrice × (1 − shock)`, and the position tips when
  *   collateralQty × collateralPrice × (1 − shock) × K < debt.
  *
- * **Horizon = 24 h — DÉCISION INVESTISSEUR (d), 2026-09-04.** C'est l'horizon de l'objet payé
- * (VaR 99 %/24 h, SYNTHESE §3.1) ; le choc `x %` sur 24 h est un **paramètre de fixture
- * DÉCLARÉ, PAS un modèle de dynamique 24 h** (la dynamique est NON TROUVÉE dans le corpus,
- * §4.7). Le « 99 % » n'est **pas** produit ici — c'est une cible de couverture HIKAE Phase 2,
- * jamais un `p_correct`. Aucune garantie ; UKEMI = brique-moteur MONARK (D9).
+ * **Horizon = 24 h — INVESTOR DECISION (d), 2026-09-04.** It is the horizon of the paid object
+ * (VaR 99 %/24 h, SYNTHESE §3.1); the `x %` shock over 24 h is a **DECLARED fixture parameter,
+ * NOT a 24 h dynamics model** (the dynamics is NOT FOUND in the corpus, §4.7). The "99 %" is
+ * **not** produced here — it is a HIKAE Phase 2 coverage target, never a `p_correct`. No
+ * guarantee; UKEMI = MONARK engine building-block (D9).
  */
 
 export interface Position {
   readonly id: string;
-  /** Quantité de collatéral (unités de l'actif). */
+  /** Collateral quantity (units of the asset). */
   readonly collateralQty: number;
-  /** Prix-oracle courant du collatéral (avant choc). */
+  /** Current oracle price of the collateral (before shock). */
   readonly collateralPrice: number;
-  /** Seuil de liquidation `K` ∈ (0,1] (ex. 0,8 = LTV max ⇒ liquidable si valeur·K < dette). */
+  /** Liquidation threshold `K` ∈ (0,1] (e.g. 0,8 = max LTV ⇒ liquidable if value·K < debt). */
   readonly liqThreshold: number;
-  /** Emprunt (dette) libellé dans l'actif de référence. */
+  /** Borrowing (debt) denominated in the reference asset. */
   readonly debt: number;
 }
 
-/** Une position est-elle liquidable après une baisse `shock` (fraction ∈ [0,1]) du prix collatéral ? */
+/** Is a position liquidable after a `shock` drop (fraction ∈ [0,1]) in the collateral price? */
 export function isLiquidable(pos: Position, shock: number): boolean {
   const collateralValue = pos.collateralQty * pos.collateralPrice * (1 - shock);
   return collateralValue * pos.liqThreshold < pos.debt;
 }
 
 export interface LiquidableResult {
-  /** Choc appliqué (fraction, sur 24 h — paramètre déclaré). */
+  /** Applied shock (fraction, over 24 h — declared parameter). */
   readonly shock: number;
   readonly horizon: "24h";
-  /** Dette totale des positions devenues liquidables sous le choc. */
+  /** Total debt of the positions that became liquidable under the shock. */
   readonly liquidableDebt: number;
-  /** Identifiants des positions liquidables (recalculable). */
+  /** Identifiers of the liquidable positions (recomputable). */
   readonly liquidableIds: string[];
 }
 
 /**
- * Montant liquidable = somme des dettes des positions qui basculent sous le choc (cible A).
- * Déterministe, recalculable à la main. Exemple (voir test) : collateralQty=1, price=100,
- * K=0,8, debt=70 ⇒ seuil de bascule à `100·(1−shock)·0,8 < 70` ⇔ `1−shock < 0,875` ⇔
- * `shock > 0,125` (12,5 %). À shock=0,20 : `100·0,8·0,8=64 < 70` ⇒ liquidable.
+ * Liquidable amount = sum of the debts of the positions that tip under the shock (target A).
+ * Deterministic, recomputable by hand. Example (see test): collateralQty=1, price=100,
+ * K=0,8, debt=70 ⇒ tipping threshold at `100·(1−shock)·0,8 < 70` ⇔ `1−shock < 0,875` ⇔
+ * `shock > 0,125` (12,5 %). At shock=0,20: `100·0,8·0,8=64 < 70` ⇒ liquidable.
  */
 export function liquidableAmount(positions: readonly Position[], shock: number): LiquidableResult {
   const hit = positions.filter((p) => isLiquidable(p, shock));

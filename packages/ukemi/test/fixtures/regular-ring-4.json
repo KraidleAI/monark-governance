@@ -1,6 +1,6 @@
 {
   "name": "regular-ring-4",
-  "note": "Anneau : i doit 10 à i+1 (mod 4). p̄=[10,10,10,10]. Avec e=[8,8,8,8] personne ne fait défaut : valeur_i = 8 + p_{i-1} = 18 ≥ 10 ⇒ p*=[10,10,10,10], 0 tour de fictitious default, unique (e>0, Thm 2). Recalculable à la main.",
+  "note": "Ring: i owes 10 to i+1 (mod 4). p̄=[10,10,10,10]. With e=[8,8,8,8] no one defaults: value_i = 8 + p_{i-1} = 18 ≥ 10 ⇒ p*=[10,10,10,10], 0 rounds of fictitious default, unique (e>0, Thm 2). Recomputable by hand.",
   "L": [
     [0, 10, 0, 0],
     [0, 0, 10, 0],

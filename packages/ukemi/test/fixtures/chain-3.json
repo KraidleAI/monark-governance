@@ -1,6 +1,6 @@
 {
   "name": "chain-3",
-  "note": "Chaîne 1→2→3 : 1 doit 100 à 2, 2 doit 100 à 3, 3 ne doit rien. p̄=[100,100,0]. e ≫ 0 (dyadique ε=0,5 ⇒ arithmétique flottante EXACTE) — à l'intérieur du domaine ℝⁿ₊₊ du Lemme 5 d'Eisenberg & Noe. base : p*=[10, 10,5, 0] (nœud 1 paie ses 10 ; nœud 2 paie 0,5+10). bumped (e₁ : 10→11) : p*=[11, 11,5, 0]. Δp*=[1,1,0] ⇒ ‖Δp*‖₁=2 > ‖Δe‖₁=1 : l'amplification L1 est de 2 EXACTEMENT. Mécanisme : sur l'ensemble de défaut D={1,2}, Δp*_D=(I−Πᵀ_DD)⁻¹Δe_D avec (I−Πᵀ_DD)⁻¹=[[1,0],[1,1]], sommes de colonnes [2,1], norme d'opérateur L1 = 2. Fictitious default en 2 tours (n=3). Unique. Segment de concavité : lo/mid/hi sur e₁ avec la borne p̄ comme coude.",
+  "note": "Chain 1→2→3: 1 owes 100 to 2, 2 owes 100 to 3, 3 owes nothing. p̄=[100,100,0]. e ≫ 0 (dyadic ε=0,5 ⇒ EXACT floating-point arithmetic) — inside the domain ℝⁿ₊₊ of Eisenberg & Noe's Lemma 5. base: p*=[10, 10,5, 0] (node 1 pays its 10; node 2 pays 0,5+10). bumped (e₁: 10→11): p*=[11, 11,5, 0]. Δp*=[1,1,0] ⇒ ‖Δp*‖₁=2 > ‖Δe‖₁=1: the L1 amplification is EXACTLY 2. Mechanism: on the default set D={1,2}, Δp*_D=(I−Πᵀ_DD)⁻¹Δe_D with (I−Πᵀ_DD)⁻¹=[[1,0],[1,1]], column sums [2,1], L1 operator norm = 2. Fictitious default in 2 rounds (n=3). Unique. Concavity segment: lo/mid/hi on e₁ with the bound p̄ as the kink.",
   "L": [
     [0, 100, 0],
     [0, 0, 100],

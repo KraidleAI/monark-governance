@@ -1,11 +1,11 @@
 /**
- * UKEMI — émission d'une `Prediction` NUMÉRIQUE (ADR-M002 D1 : le Lot U émet une
- * `Prediction{yhat:number, predictor_id}` SEULEMENT ; AUCUNE région `interval` — la région
- * est un travail de conformeur, propriété du Lot H, à l'intégration Phase 2).
+ * UKEMI — emission of a NUMERIC `Prediction` (ADR-M002 D1: Lot U emits a
+ * `Prediction{yhat:number, predictor_id}` ONLY; NO `interval` region — the region
+ * is a conformalizer's job, owned by Lot H, at Phase 2 integration).
  *
- * Contrat gelé consommé (jamais réimplémenté) : `@monark/contracts`. Sérialisé par
- * `serializePrediction` (closed-check + garde récursif de clés interdites). Aucun horodatage
- * n'est LU ici : `producedAt` est un paramètre INJECTÉ (stabilité des hashes, D7).
+ * Frozen contract consumed (never reimplemented): `@monark/contracts`. Serialized by
+ * `serializePrediction` (closed-check + recursive guard against forbidden keys). No timestamp
+ * is READ here: `producedAt` is an INJECTED parameter (hash stability, D7).
  */
 import type { Prediction } from "@monark/contracts";
 import { serializePrediction } from "@monark/contracts";
@@ -15,9 +15,9 @@ const SCHEMA_VERSION = "1.0.0";
 const TASK_CLASS = "cascade-liquidable-24h";
 
 /**
- * Émet une prédiction ponctuelle (le montant liquidable estimé, cible A) comme `yhat:number`.
- * C'est un point que HIKAE conformera en région `interval` en Phase 2 — UKEMI n'émet PAS
- * de région ni de garantie.
+ * Emits a point prediction (the estimated liquidable amount, target A) as `yhat:number`.
+ * It is a point that HIKAE will conformalize into an `interval` region in Phase 2 — UKEMI does
+ * NOT emit a region or a guarantee.
  */
 export function emitPrediction(yhat: number, producedAt: string): Prediction {
   return {
@@ -29,7 +29,7 @@ export function emitPrediction(yhat: number, producedAt: string): Prediction {
   };
 }
 
-/** Sérialisation canonique (contrat gelé) — lève sur clé inconnue/interdite à tout rang. */
+/** Canonical serialization (frozen contract) — throws on an unknown/forbidden key at any depth. */
 export function serialize(p: Prediction): string {
   return serializePrediction(p);
 }
