@@ -21,7 +21,10 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname } from "node:path";
 import ts from "typescript";
 import { compilePatterns, scanText } from "../scripts/grep-forbidden.mjs";
-import { renderedTexts } from "../apps/site/test/honesty-lint.ts";
+import { renderedTexts, scanText as scanNumericText } from "../apps/site/test/honesty-lint.ts";
+import { FLEET_AGENTS, PRODUCTS } from "../apps/site/lib/fleet.ts";
+import type { FleetStatus } from "../apps/site/lib/fleet.ts";
+import type { AgentStatus } from "../apps/site/lib/status.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const WF = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
@@ -378,4 +381,109 @@ test("no_coverage_level_alpha — α is never rendered as the coverage level in 
   const inversion = /\bcoverage\s+level\s*(?:&alpha;|α)/i;
   const hits = surfaces.filter((s) => inversion.test(s.text)).map((s) => s.rel);
   assert.deepEqual(hits, [], `α rendered as a "coverage level" (it is the miscoverage level; coverage = one minus α): ${hits.join(", ")}`);
+});
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+// Lot F-2c (ADR-M004 D14 / PLAN F-2c C-2) — the FLEET REGISTER is the single source of truth for what
+// is BUILT vs UPCOMING. This root test locks the invariant: the built set is EXACTLY {Shōgen, Hikae,
+// Ukemi}; the eight other agents and all five products are upcoming. Named mutant (G2): flip any of the
+// thirteen to "built" ⇒ this test reds (live proof + sha256 restore in docs/G1-lot-F2c.md). Two extra
+// guards make the register honest and non-inert: (1) a numeric-hole closure — register strings render
+// via {property access}, which the honesty lint (test 44) never flags, so a digit there would render
+// un-caught; we scan every rendered register string with the SAME detector here. (2) a consumption
+// check — the two new surfaces read status FROM the register, never hard-code a status attribute.
+test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi}; 13 others upcoming (F-2c C-2)", () => {
+  // Compile-time: FleetStatus IS the honest AgentStatus vocabulary (both "built"|"upcoming"). The two
+  // typed identity coercions only type-check if neither type adds or drops a member (a stray "live"
+  // reds ONE of them under `npm run typecheck`). Called below so they are not unused.
+  const asAgentStatus = (s: FleetStatus): AgentStatus => s;
+  const asFleetStatus = (s: AgentStatus): FleetStatus => s;
+  assert.equal(asAgentStatus("built"), "built");
+  assert.equal(asFleetStatus("upcoming"), "upcoming");
+
+  // The invariant — built agents are exactly the three named, no more, no fewer.
+  const BUILT = ["Shōgen", "Hikae", "Ukemi"];
+  const builtAgents = FLEET_AGENTS.filter((a) => a.status === "built").map((a) => a.name);
+  assert.deepEqual([...builtAgents].sort(), [...BUILT].sort(), "built agents must be exactly {Shōgen, Hikae, Ukemi}");
+
+  // Every other agent is upcoming (both directions, per agent — a flip reds here).
+  for (const a of FLEET_AGENTS) {
+    const expected = BUILT.includes(a.name) ? "built" : "upcoming";
+    assert.equal(a.status, expected, `agent ${a.name} must be ${expected}`);
+  }
+
+  // All five products are upcoming — a product is a wiring of fleet agents, never the engine, so it is
+  // never "built" (ADR-M004 D14 invariant), even when its engine agent (e.g. Ukemi) is built.
+  assert.equal(PRODUCTS.length, 5, "exactly five products");
+  for (const p of PRODUCTS) {
+    assert.equal(p.status, "upcoming", `product ${p.name} must be upcoming (the engine agent may be built, the product is not)`);
+  }
+
+  // The register-wide count: exactly 3 built, exactly 13 upcoming (8 agents + 5 products).
+  const builtCount = FLEET_AGENTS.filter((a) => a.status === "built").length;
+  const upcomingCount =
+    FLEET_AGENTS.filter((a) => a.status === "upcoming").length + PRODUCTS.filter((p) => p.status === "upcoming").length;
+  assert.equal(builtCount, 3, "exactly three agents are built");
+  assert.equal(upcomingCount, 13, "exactly thirteen upcoming (eight agents + five products)");
+
+  // (1) NUMERIC-HOLE closure — every RENDERED register string carries zero numeric literal. `{a.line}`
+  // is a property access the honesty lint never flags, so this scan (same detector) is where a digit in
+  // a register string (e.g. a "53h" window) would be caught.
+  const noExempt = new Set<string>();
+  const registryStrings: string[] = [];
+  for (const a of FLEET_AGENTS) registryStrings.push(a.name, a.line);
+  for (const p of PRODUCTS) {
+    registryStrings.push(p.segment, p.name, p.fn, p.connects, p.wiring.sensor, p.wiring.gate, p.wiring.act);
+  }
+  const numericHits = registryStrings.flatMap((s) => scanNumericText(s, noExempt));
+  assert.deepEqual(numericHits, [], `a register string carries a rendered numeric literal: ${JSON.stringify(numericHits)}`);
+
+  // (2) CONSUMPTION — the two new surfaces render the badge FROM the register (status={...}), never a
+  // hard-coded status="built"/status="upcoming" attribute. The built F-2b panels are out of scope
+  // (their status is their own declared source of truth on the home page).
+  const NEW_SURFACES = ["apps/site/app/roadmap/page.tsx", "apps/site/components/upcoming-panel.tsx"];
+  const surfaces = siteSurfaces(join(ROOT, "apps", "site"));
+  // Also catches the JSX-wrapped literal status={"built"} (G2-F2c reserve a), not just status="built".
+  const hardCoded = /status\s*=\s*\{?\s*["'](?:built|upcoming)["']/;
+  for (const rel of NEW_SURFACES) {
+    const surface = surfaces.find((s) => s.rel === rel);
+    assert.ok(surface, `expected new surface ${rel} to be scanned (false green)`);
+    assert.ok(
+      !hardCoded.test(surface.text),
+      `${rel} must not hard-code a status attribute — read it from lib/fleet.ts (inert register otherwise)`,
+    );
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+// Lot F-2c (ADR-M004 D14 / PLAN F-2c C-4) — the site-scope vocab gate bans unambiguous third-party
+// platform names so product wiring stays generic on the public storefront. Live end-to-end mutant
+// (real CLI, exit code, sha256 restore) is in docs/G1-lot-F2c.md; this locks the closed list and its
+// discriminating boundaries so the scope cannot drift silently.
+test("vocab_site_scope_bans_third_party_platforms — nine platform brands redden in apps/site (F-2c C-4)", () => {
+  const cfg = JSON.parse(readFileSync(join(ROOT, "vocab-banned.json"), "utf8")) as {
+    scan: { site?: { banned: { re: string; why: string }[] } };
+  };
+  const site = cfg.scan.site;
+  assert.ok(site, "scope 'site' missing from vocab-banned.json (C-4)");
+  const res = site.banned.map((b) => new RegExp(b.re, "i"));
+
+  // Each unambiguous brand reddens inside a rendered sentence.
+  for (const w of ["Aave", "Polymarket", "Kalshi", "Pendle", "Hyperliquid", "HIP-3", "Arrakis", "UMA", "Gamma"]) {
+    assert.ok(res.some((re) => re.test(`settle on ${w} today`)), `no site-scope pattern reddens '${w}'`);
+  }
+
+  // Discriminating: the strict \b...\b boundary keeps substrings green (no false positive on the tree).
+  for (const green of ["a human review", "in summary", "Pendleton Street", "a gammaglobulin dose"]) {
+    assert.ok(!res.some((re) => re.test(green)), `'${green}' must stay green (word-boundary false-positive guard)`);
+  }
+
+  // KNOWN LIMIT (declared for checkpoint-2, docs/G1-lot-F2c.md): the gate is case-insensitive, so the
+  // standalone options-greek word 'gamma' also reddens. Acceptable today (no such prose in-tree); a
+  // future need would take a dated addendum (like D13). Asserted, not hidden.
+  assert.ok(res.some((re) => re.test("the gamma of the option")), "standalone 'gamma' reddens (declared limit, checkpoint-2)");
+
+  // 'Safe' is DELIBERATELY not listed (ambiguous English word AND a multisig brand) — manual review,
+  // declared for checkpoint-2. Guard the decision so a silent add of a naked \bSafe\b becomes visible.
+  assert.ok(!res.some((re) => re.test("keep your funds safe")), "'safe' must stay green (ambiguous; manual control declared)");
 });
