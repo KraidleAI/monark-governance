@@ -25,6 +25,7 @@
     "site": {
       "package": "site",
       "extensions": [".ts", ".tsx", ".mdx"],
+      "$comment_exempt": "exemptPhrases: closed list (PLAN F-2 §12 errata, Lot F-2b). Honest fleet-invariant copy may keep an otherwise-banned word here the negation 'no confidence field' from the README; those exact spans are masked before matching, scope 'site' only, so 'high confidence' still reddens. Load-bearing and non-inert proof in test/ci-gates.test.ts.",
       "banned": [
         { "re": "\\bautonomous\\b", "why": "\"autonomous\" — no autonomy claim on the public storefront (README v2 proscribed vocab; PLAN F-2 C6)" },
         { "re": "\\bself[-\\s]?evolving\\b", "why": "\"self-evolving\" claim (C6)" },
@@ -33,7 +34,8 @@
         { "re": "\\baccuracy\\b", "why": "\"accuracy\" claim (C6)" },
         { "re": "\\bhedge\\s+fund\\b", "why": "\"hedge fund\" — MONARK is not a fund (C6)" },
         { "re": "\\bKraidle\\b", "why": "\"Kraidle\" — internal name, never on the public storefront (C6)" }
-      ]
+      ],
+      "exemptPhrases": ["no confidence field"]
     }
   }
 }

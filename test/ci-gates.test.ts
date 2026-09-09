@@ -17,8 +17,11 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join, extname } from "node:path";
+import ts from "typescript";
+import { compilePatterns, scanText } from "../scripts/grep-forbidden.mjs";
+import { renderedTexts } from "../apps/site/test/honesty-lint.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const WF = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
@@ -174,4 +177,205 @@ test("pageExtensions_excludes_md — .md is never a route, so the honesty walk m
   const exts = [...inner.matchAll(/["']([^"']+)["']/g)].map((x) => x[1]).filter((s): s is string => !!s);
   assert.deepEqual([...exts].sort(), ["mdx", "ts", "tsx"], "pageExtensions must be exactly ts/tsx/mdx");
   assert.ok(!exts.includes("md"), "adding 'md' reopens F-1 G2 R1's routable-but-unscanned hole (C-1)");
+});
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+// Lot F-2b (PLAN F-2 §12 errata) — the site-scope vocab gate bans `\bconfidence\b`, yet MONARK's
+// honest fleet-invariant copy ("no confidence field", README l.67-71) must render. A CLOSED
+// exemptPhrases list in vocab-banned.json masks that exact phrase, scope-locally, BEFORE matching.
+// This test imports the REAL gate functions (scanText/compilePatterns) from grep-forbidden.mjs
+// WITHOUT executing the CLI (run-guarded), and proves the mechanism is closed, load-bearing AND
+// non-inert. The live end-to-end proof (real CLI, exit codes, sha256 restore) is in docs/G1-lot-F2b.md.
+
+interface VocabConfig {
+  banned: { re: string; why: string }[];
+  scan: { site: { banned: { re: string; why: string }[]; exemptPhrases: string[] } };
+}
+
+/** apps/site rendered surfaces (.ts/.tsx/.mdx), mirroring grep-forbidden.mjs SITE_SKIP (any depth). */
+function siteSurfaces(base: string): { rel: string; text: string }[] {
+  const SKIP = new Set(["node_modules", "dist", ".next", ".turbo", "test", "data"]);
+  const EXTS = new Set([".ts", ".tsx", ".mdx"]);
+  const out: { rel: string; text: string }[] = [];
+  const walk = (absDir: string, rel: string): void => {
+    for (const name of readdirSync(absDir)) {
+      if (SKIP.has(name)) continue;
+      const abs = join(absDir, name);
+      if (statSync(abs).isDirectory()) {
+        walk(abs, `${rel}/${name}`);
+      } else if (EXTS.has(extname(name).toLowerCase())) {
+        out.push({ rel: `${rel}/${name}`, text: readFileSync(abs, "utf8") });
+      }
+    }
+  };
+  walk(base, "apps/site");
+  return out;
+}
+
+test("vocab_site_confidence_exemption — closed, load-bearing, non-inert (F-2b §12 errata)", () => {
+  const cfg = JSON.parse(readFileSync(join(ROOT, "vocab-banned.json"), "utf8")) as VocabConfig;
+  const site = cfg.scan.site;
+  assert.ok(
+    Array.isArray(site.exemptPhrases) && site.exemptPhrases.length >= 1,
+    "site scope must carry a closed exemptPhrases list (PLAN F-2 §12 errata)",
+  );
+  // The banned `confidence` rule must still be present — the exemption narrows it, never removes it.
+  assert.ok(
+    site.banned.some((b) => /confidence/.test(b.re)),
+    "the site scope must still ban 'confidence' (only the closed honest phrase is exempt)",
+  );
+  const patterns = [...compilePatterns(cfg.banned), ...compilePatterns(site.banned)];
+  const phrases = site.exemptPhrases;
+
+  // (a) MUTANT — a NON-exempt marketing use of a banned word reddens.
+  assert.ok(
+    scanText("We deliver high confidence signals.", patterns, phrases).length >= 1,
+    "(a) 'high confidence' (non-exempt) must redden the site vocab gate",
+  );
+
+  // (b) MUTANT — the honest exempt phrase stays green.
+  assert.deepEqual(
+    scanText("MONARK keeps no confidence field, anywhere.", patterns, phrases),
+    [],
+    "(b) the exempt honest phrase must stay green",
+  );
+
+  // NON-INERT + (c) MUTANT — every exempt phrase must sit in a genuinely RENDERED position of a scanned
+  // apps/site surface, and removing it from the exempt set must redden that very rendered copy.
+  const surfaces = siteSurfaces(join(ROOT, "apps", "site"));
+  assert.ok(surfaces.length >= 1, "no apps/site surfaces scanned (false green)");
+  // R-E (trou M3): the carrier must be a RENDERED position, PROVEN by the honesty-lint AST walker
+  // renderedTexts() — a JSX text node, a JSX child expression, or a visible attribute. The former
+  // `startsWith("//")` line heuristic accepted a dead `const X = "no confidence field"` as a carrier,
+  // so the rendered honest claim could be deleted while this test stayed green. Parsing closes that hole
+  // (a variable initialiser is not a rendered position). .mdx is not parsed here (the carriers are .tsx);
+  // a phrase living only in .mdx prose would fail this stricter check until put in a TSX/TS rendered
+  // position — none such exists in-tree.
+  const renderedTextsOf = (rel: string, text: string): string[] => {
+    if (!rel.endsWith(".ts") && !rel.endsWith(".tsx")) return [];
+    const kind = rel.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+    const sf = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, kind);
+    return renderedTexts(sf).map((rt) => rt.text);
+  };
+  for (const phrase of phrases) {
+    const carrier = surfaces.find((s) => renderedTextsOf(s.rel, s.text).some((t) => t.includes(phrase)));
+    assert.ok(carrier, `exempt phrase '${phrase}' sits in no RENDERED position under apps/site — inert exemption (R-E)`);
+    const withoutThis = phrases.filter((p) => p !== phrase);
+    assert.ok(
+      scanText(carrier.text, patterns, withoutThis).length >= 1,
+      `(c) removing exempt '${phrase}' must redden the rendered copy that carries it (load-bearing)`,
+    );
+  }
+
+  // Steady state — with the full closed exemption set, EVERY apps/site surface is vocab-clean (this is
+  // the in-process mirror of `npm run gate:vocab`; a stray banned word in a page reds here too).
+  for (const s of surfaces) {
+    assert.deepEqual(
+      scanText(s.text, patterns, phrases),
+      [],
+      `apps/site surface must be vocab-clean with the closed exemptions: ${s.rel}`,
+    );
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+// Lot F-2b (PLAN F-2 §12 errata §6b-bis) — generateMetadata() non-usage, documented by test.
+// The honesty lint (test 44 §6b) scans the exported `metadata` VARIABLE; an
+// `export [async] function generateMetadata()` returning literal title/description renders into
+// <title>/<meta> yet would ESCAPE that scan. Chosen resolution (R-C): forbid it. No apps/site .ts/.tsx
+// may export generateMetadata — a future lot that needs it reddens HERE and must extend the §6b scan
+// first. AST (not regex): a comment or a string that merely names it is never a false red. Named mutant
+// (a temp apps/site file exporting generateMetadata reds; removed; git clean) is in docs/G1-lot-F2b.md.
+test("no_generate_metadata_in_apps_site — generateMetadata unused, §6b metadata scan not bypassable (F-2b §6b-bis)", () => {
+  const surfaces = siteSurfaces(join(ROOT, "apps", "site")).filter(
+    (s) => (s.rel.endsWith(".ts") || s.rel.endsWith(".tsx")) && !s.rel.endsWith(".d.ts"),
+  );
+  assert.ok(surfaces.length >= 1, "no apps/site TS/TSX surfaces scanned (false green)");
+  const isExported = (mods: readonly ts.ModifierLike[] | undefined): boolean =>
+    mods?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ?? false;
+  const offenders: string[] = [];
+  for (const s of surfaces) {
+    const kind = s.rel.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+    const sf = ts.createSourceFile(s.rel, s.text, ts.ScriptTarget.Latest, true, kind);
+    const visit = (node: ts.Node): void => {
+      if (ts.isFunctionDeclaration(node) && node.name?.text === "generateMetadata" && isExported(node.modifiers)) {
+        offenders.push(s.rel);
+      } else if (ts.isVariableStatement(node) && isExported(node.modifiers)) {
+        for (const decl of node.declarationList.declarations) {
+          if (ts.isIdentifier(decl.name) && decl.name.text === "generateMetadata") offenders.push(s.rel);
+        }
+      } else if (ts.isExportDeclaration(node) && node.exportClause && ts.isNamedExports(node.exportClause)) {
+        for (const el of node.exportClause.elements) {
+          if (el.name.text === "generateMetadata") offenders.push(s.rel);
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(sf);
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    `apps/site exports generateMetadata (bypasses the §6b metadata scan): ${offenders.join(", ")}`,
+  );
+});
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+// Lot F-2b (R-D / trou M6, widened by G2-delta R-γ) — the frozen-contract FIELD NAMES stay dynamic.
+// The panels render `contract.required.map(...)`, read from schemas/ at build time; if a lot hard-coded
+// that list the storefront would silently drift from the frozen contract. page.tsx loads THREE contracts
+// (Shōgen→AttestedPrice 9, Hikae→CoverageVerdict 12, Ukemi→Prediction 5); this guard covers all three,
+// not just AttestedPrice. Mirror of test 44's guard, for the field names: none of the required fields of
+// those contracts may appear as a QUOTED STRING LITERAL ("f"/'f'/`f`) in an apps/site .ts/.tsx. QUOTED
+// (not bare word) ON PURPOSE — `residual`/`attestor`/`region`/`reason` occur legitimately in rendered
+// PROSE ("named residual hypotheses", "an output is a region"); a JSX-text occurrence is an ACCEPTED,
+// declared non-target (the M6 regression hard-codes an array of quoted strings, which this catches).
+// Scope = .ts AND .tsx (a strict superset of the task's .tsx): lib/load-contract.ts, the .ts that reads
+// required[], is the likeliest hard-code site. Generated .d.ts excluded (mirrors test 44). Reuses
+// siteSurfaces() raw text, like test 44. Named mutant proof in docs/G1-lot-F2b.md.
+test("frozen_contract_fields_stay_dynamic — loaded contracts' required[] never hard-coded in apps/site (F-2b R-D)", () => {
+  const contracts: { file: string; count: number }[] = [
+    { file: "attested-price.schema.json", count: 9 },
+    { file: "coverage-verdict.schema.json", count: 12 },
+    { file: "prediction.schema.json", count: 5 },
+  ];
+  const fields = new Set<string>();
+  for (const c of contracts) {
+    const schema = JSON.parse(readFileSync(join(ROOT, "schemas", c.file), "utf8")) as { required?: string[] };
+    const req = schema.required ?? [];
+    assert.equal(req.length, c.count, `expected ${c.count} required fields in ${c.file} (schema drift?)`);
+    for (const f of req) fields.add(f);
+  }
+
+  const quotes = ['"', "'", "`"];
+  const surfaces = siteSurfaces(join(ROOT, "apps", "site")).filter(
+    (s) => (s.rel.endsWith(".ts") || s.rel.endsWith(".tsx")) && !s.rel.endsWith(".d.ts"),
+  );
+  assert.ok(surfaces.length >= 1, "no apps/site .ts/.tsx surfaces scanned (false green)");
+  const hits: string[] = [];
+  for (const s of surfaces) {
+    for (const field of fields) {
+      if (quotes.some((q) => s.text.includes(q + field + q))) hits.push(`${s.rel} :: ${field}`);
+    }
+  }
+  assert.deepEqual(hits, [], `frozen contract field name hard-coded as a literal in apps/site: ${hits.join(", ")}`);
+});
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+// Lot F-2b (checkpoint-2 C-1 / narrow guard C-3c) — α is the MISCOVERAGE level; coverage is one minus α.
+// The Hikae "Honest limits" block once rendered "coverage level α" (reads α AS the coverage: α=0.10 would
+// mean 10 % coverage, when it means 90 %). The validateur caught this honesty inversion after two mot-pour-
+// mot G2 rounds and a full oracle. This is a NARROW regression guard — it pins THIS phrase, it does NOT
+// catch every semantic inversion (only G2 review does): no apps/site rendered surface may place the word
+// "coverage" directly before "level α" (entity or glyph). `\bcoverage` on purpose, so "MIScoverage level α"
+// — which is CORRECT (α is the miscoverage level) — is not a false positive. Named mutant proof in
+// docs/G1-lot-F2b.md.
+test("no_coverage_level_alpha — α is never rendered as the coverage level in apps/site (F-2b C-1)", () => {
+  const surfaces = siteSurfaces(join(ROOT, "apps", "site")).filter(
+    (s) => (s.rel.endsWith(".ts") || s.rel.endsWith(".tsx")) && !s.rel.endsWith(".d.ts"),
+  );
+  assert.ok(surfaces.length >= 1, "no apps/site .ts/.tsx surfaces scanned (false green)");
+  const inversion = /\bcoverage\s+level\s*(?:&alpha;|α)/i;
+  const hits = surfaces.filter((s) => inversion.test(s.text)).map((s) => s.rel);
+  assert.deepEqual(hits, [], `α rendered as a "coverage level" (it is the miscoverage level; coverage = one minus α): ${hits.join(", ")}`);
 });

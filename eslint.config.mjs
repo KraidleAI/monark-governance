@@ -40,7 +40,11 @@ export default tseslint.config(
       "**/*.cjs",
       "**/.next/**",
       "**/.turbo/**",
-      "**/next-env.d.ts",
+      // Declaration files carry no runtime code and must not be type-checked-linted: a *.d.ts/*.d.mts
+      // outside the tsconfig program (e.g. scripts/grep-forbidden.d.mts, the vocab-gate type surface
+      // for the root test — Lot F-2b) otherwise crashes the type-info rules ("no parserServices").
+      "**/*.d.ts",
+      "**/*.d.mts",
     ],
   },
   ...tseslint.configs.recommendedTypeChecked,
