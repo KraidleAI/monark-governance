@@ -1,13 +1,15 @@
 import type { ReactNode } from "react";
 import { join } from "node:path";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { RscBoundaryDemo } from "@/components/rsc-boundary-demo";
-import { StatusBadge } from "@/components/status-badge";
 import { ShogenPanel } from "@/components/shogen-panel";
 import { HikaePanel } from "@/components/hikae-panel";
 import { UkemiPanel } from "@/components/ukemi-panel";
+import { UpcomingPanel } from "@/components/upcoming-panel";
 import { loadAttestedPriceContract, loadContract } from "@/lib/load-contract";
 import { MonarkMark } from "@/components/marks/monark-mark";
+import { PRODUCTS } from "@/lib/fleet";
 
 // MONARK v2 — the four layers (README l.16-21). `what` and `status` are JSX (ReactNode), not raw
 // strings, so the honesty lint (test 44) scans them; counts are spelled as words, never digits.
@@ -34,16 +36,13 @@ const LAYERS: { name: string; what: ReactNode; status: ReactNode }[] = [
   },
 ];
 
-// Entry by market segment (onboarding decision, memstack 0d186517). Each `act` is JSX prose. The
-// segments are the investor&rsquo;s entry frame; the openable per-product panels are the three built
-// agents below. No roadmap agent is named here (Lot F-2c).
-const SEGMENTS: { title: string; act: ReactNode }[] = [
-  { title: "Vault LP", act: <>Survive liquidation cascades and redemption runs on pooled collateral.</> },
-  { title: "DAO / agent", act: <>Reach the fleet as a tool your DAO or another agent can call.</> },
-  { title: "Leverage", act: <>Read liquidation risk on a leveraged position before it clears.</> },
-  { title: "Betting desk", act: <>Turn a raw predictor into a coverage-controlled decision.</> },
-  { title: "Rate treasury", act: <>Track yield-curve exposure across the rate surface.</> },
-];
+// Entry by market segment (onboarding decision, memstack 0d186517). Each of the five segments now
+// OPENS the placeholder of the product it maps to (ADR-M004 D14 / PLAN F-2c C-2): Vault LP -> Firebreak,
+// DAO / agent -> Warden, Leverage -> Softlanding, Betting desk -> Verdict, Rate treasury -> Ballast. The
+// mapping, the segment titles, the product function copy and the honest `upcoming` status all come from
+// the fleet register (lib/fleet.ts) — no status is hard-coded here. All five products are upcoming (a
+// product is a wiring of fleet agents, distinct from the built engine agent); Verdict names no engine
+// agent (C-1). The three BUILT agents remain the openable panels further below.
 
 export default function HomePage() {
   // Frozen contracts, read from schemas/ at build time (server component). apps/site is the cwd under
@@ -108,34 +107,25 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Enter by segment (5 profiles). */}
+      {/* Enter by segment (5 profiles). Each card opens its product placeholder; all five are upcoming. */}
       <section className="mt-16">
         <h2 className="font-heading text-2xl font-medium tracking-tight text-foreground">
           Enter by segment
         </h2>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          Pick the profile that fits you. Every profile plugs into an act, the same gate, and a way to
-          connect &mdash; the built products are below.
+          Pick the profile that fits you. Each opens the product it maps to &mdash; a wiring of fleet
+          agents on the same gate, still to come. The built agents are below.
         </p>
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {SEGMENTS.map((s) => (
-            <article key={s.title} className="flex flex-col gap-2 rounded-xl border bg-card p-5">
-              <h3 className="font-heading text-base font-medium text-card-foreground">{s.title}</h3>
-              <p className="text-sm text-muted-foreground">{s.act}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Cleared by the same gate: Hikae and the MONARK budget.
-              </p>
-              <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                Reachable over HTTP or MCP
-                <StatusBadge status="upcoming" />
-              </p>
-            </article>
+          {PRODUCTS.map((p) => (
+            <UpcomingPanel key={p.key} product={p} />
           ))}
         </div>
       </section>
 
-      {/* The built fleet — three built agents, each opening its own 8-block panel. */}
-      <section className="mt-16">
+      {/* The built fleet — three built agents, each opening its own 8-block panel. Anchor #fleet is the
+          renvoi target from /roadmap; the Home -> /roadmap link (C-3) sits just below the intro. */}
+      <section id="fleet" className="mt-16 scroll-mt-16">
         <h2 className="font-heading text-2xl font-medium tracking-tight text-foreground">
           The built fleet
         </h2>
@@ -143,6 +133,13 @@ export default function HomePage() {
           The first vertical, built end to end and closed under independent review. Each agent below is
           built; open its panel for how it works, how it is built, its honest limits, and its frozen
           contract.
+        </p>
+        <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+          Eight more agents are named on the{" "}
+          <Link href="/roadmap" className="underline underline-offset-4 hover:text-foreground">
+            fleet roadmap
+          </Link>
+          .
         </p>
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
           <ShogenPanel contract={attestedContract} />
