@@ -151,8 +151,10 @@ interface RenderedText {
   line: number;
 }
 
-/** Every rendered-text string (with 1-based line) in a tsx/ts source. */
-function renderedTexts(sf: ts.SourceFile): RenderedText[] {
+/** Every rendered-text string (with 1-based line) in a tsx/ts source. Exported so a root test can
+ *  prove a copy string sits in a genuinely RENDERED position (JSX text / child expr / visible attr),
+ *  not merely on a non-comment line (F-2b R-E: the vocab-exemption carrier check). */
+export function renderedTexts(sf: ts.SourceFile): RenderedText[] {
   const texts: RenderedText[] = [];
   const lineOf = (node: ts.Node): number => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
   const visit = (node: ts.Node): void => {

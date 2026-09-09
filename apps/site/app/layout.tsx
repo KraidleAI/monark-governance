@@ -5,7 +5,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "MONARK",
   description:
-    "MONARK — a tokenisation layer and frozen interface contracts for the fleet. Foundation preview.",
+    "MONARK — a company of agent-products on one coverage-controlled gate that emits commit, defer, or abstain, and a depletable authorization budget.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
