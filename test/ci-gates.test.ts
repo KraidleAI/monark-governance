@@ -26,9 +26,10 @@ import { FLEET_AGENTS, PRODUCTS } from "../apps/site/lib/fleet.ts";
 import type { FleetStatus } from "../apps/site/lib/fleet.ts";
 import type { AgentStatus } from "../apps/site/lib/status.ts";
 import { loadGateEnums } from "../apps/site/lib/gate-enums.ts";
-import { ACTION_COMMIT, ACTION_DEFER, ACTION_ABSTAIN, SENSOR_NODES, AMBIENT, decide, fresh, CAVEAT } from "../apps/site/lib/sim.ts";
+import { ACTION_COMMIT, ACTION_DEFER, ACTION_ABSTAIN, SENSOR_NODES, AMBIENT, decide, fresh, CAVEAT, gateJson, push } from "../apps/site/lib/sim.ts";
 import { AGENTS_PRESENTATION } from "../apps/site/lib/agents-presentation.ts";
 import { PICKER_PROFILES } from "../apps/site/lib/profiles.ts";
+import { OUTCOMES, REGION_KINDS, REASON_GLOSS } from "../apps/site/lib/how-copy.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const WF = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
@@ -708,4 +709,78 @@ test("gate_sim_caveat_present_in_all_mounts — illustrative C-5 caveat at every
   assert.ok(caveatMounts >= 2, `index.tsx must render <Caveat/> in the explainer AND token mounts (saw ${caveatMounts})`);
   // (c) the explainer qualifies α as illustrative (R5).
   assert.match(index, /illustrative/i, "the explainer must qualify the α it shows as illustrative (R5)");
+});
+
+// Lot F-site-5 (K-4(b) / checkpoint-2, owner F-site-5) — the sim's illustrative GateDecision JSON view
+// (lib/sim.ts gateJson, mounted on the How explainer) is an ABBREVIATED read-out; every key it renders
+// MUST be a real property of the frozen contract it stands for: top-level keys ⊆ GateDecision.properties,
+// and the nested verdict's keys ⊆ CoverageVerdict.properties. A foreign/invented key (a "p_correct"
+// slipped into the view) would render an honesty violation the schemas forbid (additionalProperties:
+// false). Pattern R1 (like sim_emitted_reason_codes...): DRIVE the real gateJson() over a region-present
+// state — never a hard-coded key list — so a key edited in lib/sim.ts flows through to `parsed` here.
+// This is DISTINCT from frozen_contract_fields_stay_dynamic (which forbids hard-coding field NAMES as
+// quoted literals in apps/site): that guards the SPELLING, this guards the SHAPE the sim emits — no
+// duplication: F-site-8's R1 (now merged on main) extends the field-NAME gate (spelling of frozen fields
+// as quoted literals); THIS gate guards the SHAPE gateJson() emits (keys ⊆ contract properties) — orthogonal.
+// Named mutant (G2): add `p_correct: 0` to gateJson's `view` (or its `verdict`) ⇒ this reds alone under
+// `node --test test/ci-gates.test.ts`. Live proof + sha256 restore in docs/G1-lot-fsite-5.md.
+test("gate_sim_json_keys_subset_of_frozen_contracts — sim JSON view keys are all frozen-contract properties (K-4b)", () => {
+  const propsOf = (file: string): Set<string> => {
+    const schema = JSON.parse(readFileSync(join(ROOT, "schemas", file), "utf8")) as {
+      properties?: Record<string, unknown>;
+    };
+    return new Set(Object.keys(schema.properties ?? {}));
+  };
+  const gateProps = propsOf("gate-decision.schema.json");
+  const verdictProps = propsOf("coverage-verdict.schema.json");
+  assert.ok(gateProps.size >= 1 && verdictProps.size >= 1, "frozen contract properties not loaded (false green)");
+
+  const { actions } = loadGateEnums(ROOT);
+  // Drive the region-present ("covered") branch so `verdict` is an OBJECT, not the ELLIPSIS placeholder —
+  // otherwise the verdict-key check below would pass VACUOUSLY (non-vacuity, mirrors the R1 emitted.size).
+  const state = push(fresh(), { reading: 0.8, spread: 0.25, intent: "up", timeout: false });
+  const parsed = JSON.parse(gateJson(state, actions)) as { verdict?: unknown } & Record<string, unknown>;
+
+  const topForeign = Object.keys(parsed).filter((k) => !gateProps.has(k));
+  assert.deepEqual(topForeign, [], `gateJson() emits top-level key(s) not in GateDecision: ${topForeign.join(", ")}`);
+
+  assert.equal(typeof parsed.verdict, "object", "expected a region-present verdict OBJECT (non-vacuity)");
+  assert.ok(parsed.verdict !== null, "verdict must not be null in the covered branch");
+  const verdictForeign = Object.keys(parsed.verdict as Record<string, unknown>).filter((k) => !verdictProps.has(k));
+  assert.deepEqual(verdictForeign, [], `gateJson() verdict emits key(s) not in CoverageVerdict: ${verdictForeign.join(", ")}`);
+});
+
+// Lot F-site-5 (R2, PLAN §8 owner F-site-5 / C-4) — the How page renders the region vocabulary and the
+// reason/outcome glosses (lib/how-copy.ts) via {property access}, which the honesty lint (test 44) never
+// scans, so a stray digit there (a "top-3 labels") would render un-caught. Mirror of the sim/register
+// numeric-hole closures: scan every rendered How-copy string with the SAME detector. ALSO pins the
+// 13-reasons grid to the frozen enum: the grid renders codes FROM loadGateEnums() and glosses them by
+// code, so this proves the gloss table is complete AND has no phantom code (BIDIRECTIONAL) — the grid can
+// neither drift from nor outrun the frozen reason enum. Imports the pure data module (no JSX / no @-alias)
+// like lib/sim.ts. Live proof in docs/G1-lot-fsite-5.md.
+test("how_page_rendered_vocab_has_no_numeric_hole — region + reason copy carries zero rendered digit; glosses match the enum (R2)", () => {
+  const noExempt = new Set<string>();
+  const strings: string[] = [];
+  for (const o of OUTCOMES) strings.push(o.gloss);
+  for (const rk of REGION_KINDS) strings.push(rk.eyebrow, rk.title, ...rk.example);
+  for (const [, meta] of Object.entries(REASON_GLOSS)) strings.push(meta.gloss);
+  assert.ok(strings.length >= 1, "no How-copy strings scanned (false green)");
+  const numericHits = strings.flatMap((s) => scanNumericText(s, noExempt));
+  assert.deepEqual(numericHits, [], `a rendered How-copy string carries a numeric literal: ${JSON.stringify(numericHits)}`);
+
+  // The reason grid renders one card per FROZEN enum code (loadGateEnums), reading its gloss from
+  // REASON_GLOSS. Completeness must be BIDIRECTIONAL: every enum code has a gloss (no blank card) AND
+  // every gloss key is a real enum code (no phantom card). A new reason in the schema without a gloss —
+  // or a stale gloss for a removed reason — reds here (a new reason needs an ADR, not a silent deploy).
+  const { actions, reasons } = loadGateEnums(ROOT);
+  const enumSet = new Set(reasons);
+  const missing = reasons.filter((r) => !(r in REASON_GLOSS));
+  const phantom = Object.keys(REASON_GLOSS).filter((k) => !enumSet.has(k));
+  assert.deepEqual(missing, [], `frozen reason code(s) with no How gloss: ${missing.join(", ")}`);
+  assert.deepEqual(phantom, [], `How gloss(es) for a non-existent reason code: ${phantom.join(", ")}`);
+
+  // Every tone (region cards, reasons, outcomes) must index a real action lane [commit, defer, abstain] —
+  // the page resolves the action WORD + colour by this index; an out-of-range tone would mis-label.
+  const tones = [...OUTCOMES.map((o) => o.tone), ...Object.values(REASON_GLOSS).map((m) => m.tone)];
+  for (const t of tones) assert.ok(t >= 0 && t < actions.length, `a How tone ${t} is outside the frozen action enum`);
 });

@@ -185,10 +185,22 @@ export function GateSim({ mode, actions, reasons, cost, ambient }: GateSimProps)
         >
           {gateJson(state, actions)}
         </pre>
+        {/* R3b (Lot F-site-5): the design's strong honesty denial (design L192), ported next to the JSON
+            view. The middle item is the CLOSED vocab-exempt phrase "no confidence field" (vocab-banned.json
+            scan.site.exemptPhrases), masked per-line before matching — kept CONTIGUOUS on ONE source line
+            so the mask lands and the F-2b carrier check (renderedTexts) sees it. */}
         <div style={mono11Ink2}>
-          The &alpha; shown is illustrative — it is the target miscoverage level (coverage is one minus
-          &alpha;), not a probability that this region is right. The reason is one of {reasons.length} in
-          the frozen enum.
+          GateDecision, a frozen contract. Note what is absent: no p_correct, no confidence field, no score.
+        </div>
+        {/* K-4(b), Lot F-site-5: the JSON above is an ABBREVIATED, illustrative view — the frozen
+            CoverageVerdict carries more fields than the read-out shows (the Hikae panel lists them). The
+            root gate gate_sim_json_keys_subset_of_frozen_contracts pins every shown key ⊆ the frozen
+            contracts (GateDecision top-level, CoverageVerdict verdict). */}
+        <div style={mono11Ink2}>
+          An abbreviated, illustrative view — the frozen CoverageVerdict carries more fields than are
+          shown here; the Hikae panel lists them. The &alpha; is the target miscoverage level (coverage is
+          one minus &alpha;), not a probability that this region is right. The reason is one of{" "}
+          {reasons.length} in the frozen enum.
         </div>
         <Caveat />
       </div>
