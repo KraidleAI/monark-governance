@@ -40,7 +40,13 @@ export interface ProductWiring {
 }
 
 export interface FleetProduct {
-  /** Stable id / segment key (never a frozen-contract field name). */
+  /**
+   * Stable product id / segment key. Usually not a frozen-contract field name; the one
+   * coincidence is the verdict key (the MONARK Verdict product), which equals a GateDecision
+   * required field. It is a product id here, NOT a rendered contract field, and is named
+   * in the closed exemption of the `frozen_contract_fields_stay_dynamic` gate (that field
+   * stays gated in every other file). See test/ci-gates.test.ts.
+   */
   key: string;
   /** The investor entry frame it sits behind on the home page. */
   segment: string;

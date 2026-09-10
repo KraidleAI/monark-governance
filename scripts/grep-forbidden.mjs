@@ -134,7 +134,12 @@ function collectTargets(root, config, cliArgs) {
     const SITE_EXTRA = compilePatterns(site.banned);
     try {
       if (statSync(siteDir).isDirectory()) {
-        add(walk(siteDir, site.extensions, SITE_SKIP), [...GLOBAL, ...SITE_EXTRA], site.exemptPhrases ?? []);
+        // Skip generated *.d.ts (e.g. next-env.d.ts — gitignored, written by `next build`/`next dev`) so the
+        // scanned-file count is build-state-independent, aligning with the two twins that already skip them:
+        // apps/site/test/honesty-lint.ts (scanAppsSite: `name.endsWith(".d.ts")`) and test/ci-gates.test.ts
+        // (the siteSurfaces() callers: `!rel.endsWith(".d.ts")`). A .d.ts carries no rendered vocab.
+        const siteFiles = walk(siteDir, site.extensions, SITE_SKIP).filter((f) => !f.endsWith(".d.ts"));
+        add(siteFiles, [...GLOBAL, ...SITE_EXTRA], site.exemptPhrases ?? []);
       }
     } catch {
       /* no apps/site yet */
