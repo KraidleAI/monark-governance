@@ -6,6 +6,8 @@
   "description": "MONARK — cross-agent integration layer (the tokenised agent + clawpump-hermes harness wiring). Phase 0: freezes the cross-agent gate signature only.",
   "exports": { ".": "./src/index.ts" },
   "dependencies": {
-    "@monark/contracts": "*"
+    "@monark/contracts": "*",
+    "@monark/hikae": "*",
+    "@monark/ukemi": "*"
   }
 }
