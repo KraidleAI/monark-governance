@@ -2,6 +2,7 @@
 
 > **Statut** : proposé, **révisé après deux checkpoint-1 (validateur, 2026-09-10) et quatre décisions investisseur**
 > (Q1/Q2 + Q-A/Q-B, ci-dessous). Corrections C-1..C-10 et K-1..K-9 **intégrées**. Checkpoint-1 final avant code.
+> **Révision 2026-09-10 (Addendum D12)** : **Q2 révisée** — l'agent déploie AUSSI le harnais (même motif que la vitrine). D0/D10/§1.1/§5/PF-2 lus à travers D12.
 > **Siège committeur** : `claude-opus-4-8` par exception Opus-seat (précédent PR #1) — journalisé par commit.
 > Orchestrateur/validateur `claude-fable-5-1` ; workers `claude-opus-4-8` effort max ; lecteurs `claude-sonnet-5` ;
 > Opus 5 banni ; Gate 0 / R-1 au premier worker.
@@ -170,3 +171,15 @@ arrêter l'auto-déploiement vitrine (rejeté Q-B) ; docker-compose/GHCR (report
 1. Pari produit « gate appelable » : **répondu** (D2) ; reste PF-4 (GTM). 2. DNS A (PF-2) : action investisseur.
 3. Q1 attest/cascade littéraux : **répondu**. Q2 déploiement harnais : **répondu** (n'amende pas).
 4. **Q-A export** : **répondu** — public. **Q-B vitrine** : **répondu** — auto-déploiement conservé, ratifié exception datée.
+
+## Addendum D12 — Q2 RÉVISÉ (investisseur, 2026-09-10) : l'agent déploie AUSSI le harnais (même motif que la vitrine)
+
+**Décision investisseur (2026-09-10, après H3 ; `AskUserQuestion` « le harnais : je le déploie moi-même comme la vitrine, ou tu gardes le déploiement manuel via runbook ? » → « Je le déploie (comme la vitrine) »).** Q2 (« n'amende pas » — §1.1, D0, D10) est **révisée** : l'orchestrateur/agent **déploie aussi le harnais MCP**, exactement comme il déploie déjà la vitrine (Q-B). Ce qui change, et ce qui tient :
+
+- **Qui déploie** : l'**agent**, par SSH avec la clé existante `~/.ssh/monark_vps` (`ssh -i ~/.ssh/monark_vps root@31.97.155.188`) — **pas** l'investisseur. Systemd `monark-harness` (`127.0.0.1:3001`) + Caddy `mcp./api. → 127.0.0.1:3001` **appended** à `/etc/caddy/Caddyfile` (la vitrine y vit — jamais remplacé, `caddy validate` avant `reload`). CA de déploiement **enregistrée par l'agent** via `scripts/verify-harness.mjs`.
+- **Redéploiements** : script `/opt/monark-harness-redeploy.sh` **sur le VPS** (motif `/opt/monark-redeploy.sh` de la vitrine ; **non commis** au dépôt, cohérent avec Q-B), créé au déploiement.
+- **Aucune exposition de sécurité nouvelle** : Q-B a déjà ratifié le déploiement **root-SSH de la vitrine par l'agent** (clé maintenue, aucune révocation — M004 D16). Le harnais suit le **même** canal, la **même** clé, la **même** discipline (append Caddy, `caddy validate`, jamais de secret commis — test `no_secret_in_repo`). Le harnais reste **stateless** ; aucune persistance, aucun trading (D0/D1). L'agent ne saisit jamais de mot de passe/clé.
+- **Ce qui NE change PAS** : les livrables **H4 sont méthode-agnostiques** et tiennent tels quels — miroir HTTP/JSON, OpenAPI dérivé des schémas gelés, `deploy/monark-harness.service`, `deploy/Caddyfile.monark-harness`, `scripts/verify-harness.mjs`, export Q-A. Seule la **désignation de l'exécutant** change (RUNBOOK reframé : orchestrateur, pas investisseur — correction portée **dans le lot H4**).
+- **Timing** : déploiement **après** merge de H4 + preuve e2e H5 (`tools/call` réel sur l'endpoint) + **checkpoint-2 consolidé** (M004 D15).
+
+**Supersède** : §1.1 Q2, D0 (clause Q2), D10 (« harnais par l'investisseur »), §5 (« déploiement harnais par l'agent (**rejeté** Q2) » — désormais **retenu**), §6.3. **PF-2** (DNS A `mcp.`/`api.`) était marqué « action investisseur » mais a en fait été **posé par l'agent** (panneau Hostinger, navigateur, compte investisseur déjà connecté, aucun mot de passe manipulé) — conforme à cette révision. **error_origin = n/a** (décision investisseur). Reflété : M004 **Addendum D17** ; `JOURNAL-PROVENANCE.md` ; memstack `uid=e366643f`.
