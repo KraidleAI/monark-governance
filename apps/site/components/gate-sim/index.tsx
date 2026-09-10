@@ -14,13 +14,12 @@
 // layout's ThemeProvider (the hook reads reduced-motion from it). NOT yet mounted in a page (Home/How/
 // Token are F-site-4/5/7); it compiles and lints on its own.
 import type { CSSProperties } from "react";
-import { decisionColorVar, gateJson, type AmbientInput } from "@/lib/sim";
+import { CAVEAT, decisionColorVar, gateJson, type AmbientInput } from "@/lib/sim";
+import { EngineBoard } from "./board";
 import { GateControls } from "./controls";
 import { GateDiagram } from "./diagram";
 import { GateMeter } from "./meter";
 import { useGateSim, type GateSimMode } from "./use-gate-sim";
-
-const CAVEAT = "An illustrative simulation of the gate policy — not market activity";
 
 export interface GateSimProps {
   /** Which mount to render. */
@@ -59,13 +58,11 @@ export function GateSim({ mode, actions, reasons, cost, ambient }: GateSimProps)
   const decisionColor = decisionColorVar(state.actionIndex);
 
   if (mode === "board") {
-    return (
-      <div style={{ ...card, padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
-        <GateDiagram state={state} actions={actions} />
-        <GateMeter budget={state.budget} />
-        <Caveat />
-      </div>
-    );
+    // R3a (Lot F-site-4): the board mount renders the DESIGN's card-pipeline (EngineBoard), reconciled
+    // from F-site-3's placeholder SVG. The bespoke SVG GateDiagram stays the EXPLAINER's figure (below).
+    // The live sim (this hook, auto-cycling AMBIENT) drives the gate card inside EngineBoard; the profile
+    // picker drives the plumbing highlights. The C-5 caveat renders inside EngineBoard.
+    return <EngineBoard sim={sim} actions={actions} />;
   }
 
   if (mode === "token") {

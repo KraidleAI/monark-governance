@@ -25,6 +25,9 @@ export const ALPHA = 0.1;
 export const SCHEMA_VERSION = "1.0.0";
 /** Ellipsis placeholder for a not-yet-decided field in the JSON view. */
 export const ELLIPSIS = "…";
+/** The C-5 illustrative caveat, rendered at EVERY sim mount (board / explainer / token). Kept here in the
+ *  plain module so the R5 presence guard (test/ci-gates.test.ts) can import and assert its wording. */
+export const CAVEAT = "An illustrative simulation of the gate policy — not market activity";
 const EPSILON = 1e-9;
 /** Newest-first cap on the visible decision log. */
 const LOG_CAP = 6;
