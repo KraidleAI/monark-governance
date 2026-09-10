@@ -97,7 +97,8 @@ export const TEXT_EXTS = new Set([
 export const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "docs", ".next", ".turbo"]);
 export const EXCLUDE_NAMES = new Set(["package-lock.json", "lang-exempt.json", "lang-gate.mjs"]);
 // `site` = apps/site (Lot F-public, English-only per ADR-M003 D0.5). Gated by the export --scope site.
-export const SCOPES = ["root", "contracts", "hikae", "ukemi", "atelier", "monark", "site"];
+// `harness` = apps/harness (Lot H1, English-only per ADR-M005 D7/D9). Gated by --scope harness.
+export const SCOPES = ["root", "contracts", "hikae", "ukemi", "atelier", "monark", "site", "harness"];
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const byLenDesc = (a, b) => b.length - a.length || (a < b ? -1 : 1);
@@ -119,6 +120,7 @@ const FRID_RE = new RegExp("\\b(" + FRENCH_IDENTIFIERS.slice().sort(byLenDesc).m
 export function classifyScope(rel) {
   const p = rel.replace(/\\/g, "/");
   if (p === "apps/site" || p.startsWith("apps/site/")) return "site"; // Lot F-public
+  if (p === "apps/harness" || p.startsWith("apps/harness/")) return "harness"; // Lot H1 (K-3)
   const m = /^packages\/([^/]+)\//.exec(p);
   if (m && SCOPES.includes(m[1])) return m[1];
   return "root";
