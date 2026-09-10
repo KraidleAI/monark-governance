@@ -46,6 +46,16 @@
         { "re": "\\bGamma\\b", "why": "\"Gamma\" — third-party liquidity manager; strict \\b boundary so substrings stay green (F-2c C-4)" }
       ],
       "exemptPhrases": ["no confidence field"]
+    },
+    "harness": {
+      "package": "harness",
+      "extensions": [".ts"],
+      "$comment": "Lot H1 (ADR-M005 D9 / K-3): apps/harness sources + tool descriptions scanned for honesty vocab NOT in the GLOBAL list. 'confidence' is load-bearing (fleet invariant: no confidence field/score anywhere) — the mission's named example, and what harness_tool_descriptions_pass_vocab kills. 'autonomous'/'self-evolving' mirror the site honesty subset and carry no legitimate use in a coverage-gate server. Adding a name = this ADR line.",
+      "banned": [
+        { "re": "\\bconfidence\\b", "why": "\"confidence\" — no confidence field/score anywhere (fleet invariant; ADR-M005 D9)" },
+        { "re": "\\bautonomous\\b", "why": "\"autonomous\" — no autonomy claim on the harness surface (ADR-M005 D9)" },
+        { "re": "\\bself[-\\s]?evolving\\b", "why": "\"self-evolving\" claim (ADR-M005 D9)" }
+      ]
     }
   }
 }

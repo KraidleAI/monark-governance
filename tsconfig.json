@@ -20,5 +20,11 @@
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts", "test/**/*.ts"]
+  "include": [
+    "packages/*/src/**/*.ts",
+    "packages/*/test/**/*.ts",
+    "test/**/*.ts",
+    "apps/harness/src/**/*.ts",
+    "apps/harness/test/**/*.ts"
+  ]
 }

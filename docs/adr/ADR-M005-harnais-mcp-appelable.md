@@ -128,7 +128,9 @@ déclarés non gelés, schéma d'outil à part.
   dans `classifyScope` (sinon `apps/harness` tombe en scope `root`) ; `scripts/grep-forbidden.mjs` reçoit un bloc de
   parcours `apps/harness` ; `vocab-banned.json` un scope `scan.harness`. Sans quoi `harness_tool_descriptions_pass_vocab`
   serait vacueux. Descriptions sans mot banni (`confidence`…). `lang-gate --scope harness` anglais.
-- **K-8** `mcp_tools_have_no_side_effects` : registre fermé `=== {attest, gate, cascade}` **+** scan statique de
+- **K-8** `mcp_tools_have_no_side_effects` : (a) allowlist fermée `REGISTERED ⊆ {attest, gate, cascade}` **et**
+  (b) **set EXACT par lot** — `=== {attest, gate, cascade}` est l'**état TERMINAL atteint en H3** ; chaque lot
+  asserte son propre set exact vers cet état (H1 : `=== {gate}`, erratum C-4 checkpoint-2) — **+** scan statique de
   `apps/harness/src/tools/**` **sans** import `node:fs`/`node:net`/`node:child_process`/`fetch`/écriture `process.env`
   (mutant : import `node:fs` ⇒ rouge).
 - **C-8** calibration déclarée **`synthetic`** ; `lint:ratchet` 92/92 ; `npm run lint` séparé de `npm run ci` (leçon g4).

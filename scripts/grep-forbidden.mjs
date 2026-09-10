@@ -146,6 +146,19 @@ function collectTargets(root, config, cliArgs) {
     }
   }
 
+  // The harness apps/harness/src (Lot H1, ADR-M005 D9 / K-3) — GLOBAL + harness-scoped honesty bans.
+  // SOURCE only (not test/): a negative-control test may legitimately name a banned token in a fixture.
+  const harness = config.scan.harness;
+  if (harness) {
+    const harnessSrc = join(root, "apps", harness.package ?? "harness", "src");
+    const HARNESS_EXTRA = compilePatterns(harness.banned);
+    try {
+      if (statSync(harnessSrc).isDirectory()) add(walk(harnessSrc, harness.extensions), [...GLOBAL, ...HARNESS_EXTRA]);
+    } catch {
+      /* no apps/harness/src yet */
+    }
+  }
+
   // Extra targets from the command line (tests use this on temp files) — GLOBAL patterns only.
   for (const arg of cliArgs) {
     const p = resolve(arg);

@@ -50,11 +50,12 @@ export default tseslint.config(
   ...tseslint.configs.recommendedTypeChecked,
   {
     files: ["**/*.ts"],
-    // Lot F-public: apps/** stay OUT of the root TS program (they are not in tsconfig.json `include`).
-    // Pointing the type-checked project at an apps .ts not in the program would emit a "parserServices"
-    // fatal that fails scripts/lint-ratchet.mjs closed. apps files are handled by the disableTypeChecked
-    // block appended at the end of this config.
-    ignores: ["apps/**"],
+    // apps/site stays OUT of the root TS program (its own tsconfig; not in tsconfig.json `include`):
+    // pointing the type-checked project at a site .ts not in the program would emit a "parserServices"
+    // fatal that fails scripts/lint-ratchet.mjs closed. It is handled by the disableTypeChecked block
+    // appended at the end. apps/harness (Lot H1) IS a node package in the root program (tsconfig
+    // `include` carries apps/harness/src + test), so it is type-checked-linted like packages/*.
+    ignores: ["apps/site/**"],
     languageOptions: {
       parserOptions: {
         project: "./tsconfig.json",
@@ -89,7 +90,7 @@ export default tseslint.config(
   // test-debt ratchet is unaffected — apps/** match neither `**/*.test.ts` nor `test/**`, so they add 0
   // to the committed ceiling (which must stay 92). Appended LAST so it wins for apps files.
   {
-    files: ["apps/**/*.{ts,tsx}"],
+    files: ["apps/site/**/*.{ts,tsx}"],
     ...tseslint.configs.disableTypeChecked,
   },
 );
