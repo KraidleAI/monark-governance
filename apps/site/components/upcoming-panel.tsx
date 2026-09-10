@@ -11,6 +11,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status-badge";
 import { SHEET } from "@/components/panel-shell";
+import { WhatInside } from "@/components/what-inside";
+import { insideFor } from "@/lib/fleet-presentation";
 import type { FleetProduct } from "@/lib/fleet";
 import { cn } from "@/lib/utils";
 
@@ -94,6 +96,7 @@ export function UpcomingPanel({ product }: { product: FleetProduct }) {
             </dl>
           </div>
           <p>{product.connects}</p>
+          <WhatInside block={insideFor(product.key)} />
           <p className="text-xs">To be announced.</p>
         </div>
       </DialogContent>

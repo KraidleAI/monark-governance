@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { AgentCard } from "@/components/agent-card";
 import { ShogenMark } from "@/components/marks/shogen-mark";
 import { PanelBlock, SHEET } from "@/components/panel-shell";
+import { WhatInside } from "@/components/what-inside";
+import { insideFor } from "@/lib/fleet-presentation";
 import type { FrozenContract } from "@/lib/load-contract";
 import { cn } from "@/lib/utils";
 
@@ -49,9 +51,7 @@ export function ShogenPanel({ contract }: { contract: FrozenContract }) {
             A Rust verifier emits a verified testimony only after a passing verdict, then projects it
             onto the frozen contract (ADR-M001 D3).
           </PanelBlock>
-          <PanelBlock title="Sourced bibliography" status="upcoming">
-            The primary readings behind the agent are not committed to this public repository yet.
-          </PanelBlock>
+          <WhatInside block={insideFor("shogen")} />
           <PanelBlock title="Honest limits" status="built">
             <p>
               A verified testimony proves what was said, that its bytes hash as recorded, and that the
