@@ -60,7 +60,10 @@ export function GateControls({
       <div>
         <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 4 }}>Push an input through the gate</div>
         <div style={{ fontSize: 13, color: "var(--ink2)" }}>
-          Move the reading, widen the calibration spread, pick an intent — then push.
+          {/* K-4(a), Lot F-site-5: restore the design's task framing (design L171). */}
+          Classification task, label schema{" "}
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>up|down</span>. Move the reading,
+          widen the calibration spread, pick an intent — then push.
         </div>
       </div>
 
