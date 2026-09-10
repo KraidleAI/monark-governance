@@ -36,22 +36,23 @@ const FORBIDDEN: { re: RegExp; why: string }[] = [
   { re: /\bprocess\.env(?:\.[A-Za-z_]\w*|\[[^\]]+\])\s*=(?!=)/, why: "process.env write" },
 ];
 
-// Test — the registry is (a) within the closed allowlist and (b) EXACTLY this lot's set (`["gate"]` in
-// H1; fills to {attest,gate,cascade} by H3), and no tool implementation has a side effect. Mutants: a
-// tool outside the allowlist, a stray/premature registration, or `import "node:fs"` in a tools file ⇒ red.
+// Test — the registry is (a) within the closed allowlist and (b) EXACTLY the terminal set
+// {attest,gate,cascade} (ADR-M005 D9, reached at H3; H1 was `["gate"]`, H2 `["cascade","gate"]`), and no
+// tool implementation has a side effect. Mutants: a tool outside the allowlist, a stray/premature
+// registration, or a `node:fs` import in a tools file ⇒ red.
 test("mcp_tools_have_no_side_effects", () => {
-  // (1) closed allowlist (K-8): registered ⊆ {attest, gate, cascade}, and `gate` is present in H1.
+  // (1) closed allowlist (K-8): registered ⊆ {attest, gate, cascade}, and all three are present at H3.
   assert.ok(REGISTERED_TOOL_NAMES.length >= 1, "at least one tool registered");
   for (const name of REGISTERED_TOOL_NAMES) {
     assert.ok((ALLOWED_TOOL_NAMES as readonly string[]).includes(name), `tool '${name}' outside the closed allowlist`);
   }
   assert.ok(REGISTERED_TOOL_NAMES.includes("gate"), "the `gate` tool stays registered");
-  assert.ok(REGISTERED_TOOL_NAMES.includes("cascade"), "the `cascade` tool is registered in H2");
-  // (1b) EXACT per-lot registry (G2 R1): H2 registers EXACTLY `cascade` + `gate`. This tightens per lot
-  // as each tool ships (H1 `gate`, H2 `cascade`, H3 `attest`); a premature or stray registration reddens
-  // here, where the subset allowlist above would tolerate it. The terminal set {attest,gate,cascade}
-  // (ADR-M005 D9) is reached lot by lot — this asserts the current lot's exact set, not the end state.
-  assert.deepEqual([...REGISTERED_TOOL_NAMES].sort(), ["cascade", "gate"], "H2 registers exactly cascade + gate");
+  assert.ok(REGISTERED_TOOL_NAMES.includes("cascade"), "the `cascade` tool stays registered");
+  assert.ok(REGISTERED_TOOL_NAMES.includes("attest"), "the `attest` tool is registered in H3");
+  // (1b) EXACT registry (G2 R1): H3 registers EXACTLY `attest` + `cascade` + `gate` — the TERMINAL set
+  // {attest,gate,cascade} (ADR-M005 D9), reached lot by lot (H1 `gate`, H2 `cascade`, H3 `attest`). A
+  // premature or stray registration reddens here, where the subset allowlist above would tolerate it.
+  assert.deepEqual([...REGISTERED_TOOL_NAMES].sort(), ["attest", "cascade", "gate"], "H3 registers exactly attest + cascade + gate (terminal set, ADR-M005 D9)");
 
   // (2) static side-effect scan of src/tools/**.
   const files = collectTs(TOOLS_DIR);

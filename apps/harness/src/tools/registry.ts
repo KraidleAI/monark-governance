@@ -4,12 +4,11 @@
  * The registry is DATA (`HARNESS_TOOLS`) so the closed allowlist and the descriptions are inspectable
  * without standing up a server (the K-8 oracle and the vocab oracle read this table directly).
  *
- * `ALLOWED_TOOL_NAMES` is the closed universe of the MVP surface (`attest`·`gate`·`cascade`, D1). In
- * H1 only `gate` is wired; H2/H3 add `cascade`/`attest`. The K-8 oracle asserts BOTH: (a) the CLOSED
- * ALLOWLIST `REGISTERED_TOOL_NAMES ⊆ ALLOWED_TOOL_NAMES` (never a tool outside the three), and (b) the
- * EXACT per-lot set — H1 registers precisely `["gate"]` (G2 R1). The ADR-M005 D9 literal
- * `=== {attest,gate,cascade}` is the TERMINAL state reached at H3; each lot asserts its own exact set
- * on the way there. Plus a static side-effect scan of `src/tools/**`.
+ * `ALLOWED_TOOL_NAMES` is the closed universe of the MVP surface (`attest`·`gate`·`cascade`, D1). H1
+ * wired `gate`, H2 added `cascade`, H3 adds `attest` — the TERMINAL set. The K-8 oracle asserts BOTH:
+ * (a) the CLOSED ALLOWLIST `REGISTERED_TOOL_NAMES ⊆ ALLOWED_TOOL_NAMES` (never a tool outside the three),
+ * and (b) the EXACT set — now `=== {attest,gate,cascade}`, the ADR-M005 D9 TERMINAL state reached at H3
+ * (each earlier lot asserted its own exact set on the way here). Plus a static side-effect scan of `src/tools/**`.
  *
  * Like everything under `src/tools/`, this file does no I/O: it imports the frozen-schema PROJECTION
  * (`../schema-projection.ts`, which owns the one `node:fs` read at load) and the pure gate logic; it
@@ -20,8 +19,10 @@ import type { Prediction } from "@monark/contracts";
 import { toolInputStandardSchema, toolOutputStandardSchema, TOOL_INPUT_SCHEMA, TOOL_OUTPUT_SCHEMA } from "../schema-projection.ts";
 import { cascadeInputStandardSchema, cascadeOutputStandardSchema, CASCADE_INPUT_SCHEMA, CASCADE_OUTPUT_SCHEMA } from "../schema-projection.ts";
 import type { Json } from "../schema-projection.ts";
+import { attestInputStandardSchema, attestOutputStandardSchema, ATTEST_INPUT_SCHEMA, ATTEST_OUTPUT_SCHEMA } from "../schema-projection.ts";
 import { runGate, honestyText, GATE_TOOL_NAME, GATE_TOOL_DESCRIPTION, type HarnessParams } from "./gate.ts";
 import { runCascade, cascadeHonestyText, CASCADE_TOOL_NAME, CASCADE_TOOL_DESCRIPTION, type CascadeInput } from "./cascade.ts";
+import { runAttest, attestHonestyText, ATTEST_TOOL_NAME, ATTEST_TOOL_DESCRIPTION } from "./attest.ts";
 
 /** Closed universe of the MVP tool surface (ADR-M005 D1). */
 export const ALLOWED_TOOL_NAMES = ["attest", "gate", "cascade"] as const;
@@ -46,7 +47,8 @@ export interface HarnessToolDescriptor {
   readonly run: (args: unknown) => { readonly text: string; readonly structured: Record<string, unknown> };
 }
 
-/** The tools registered by THIS lot's cumulative state (H1: `gate`; H2 adds `cascade`). */
+/** The tools registered by THIS lot's cumulative state (H1: `gate`; H2: `cascade`; H3: `attest` — the
+ *  terminal set {attest,gate,cascade}, ADR-M005 D9). */
 export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
   {
     name: GATE_TOOL_NAME,
@@ -76,9 +78,24 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
       return { text: cascadeHonestyText(), structured: prediction as unknown as Record<string, unknown> };
     },
   },
+  {
+    name: ATTEST_TOOL_NAME,
+    description: ATTEST_TOOL_DESCRIPTION,
+    inputSchemaJson: ATTEST_INPUT_SCHEMA,
+    outputSchemaJson: ATTEST_OUTPUT_SCHEMA,
+    inputStandardSchema: attestInputStandardSchema,
+    outputStandardSchema: attestOutputStandardSchema,
+    run: () => {
+      // No caller input: the witness is the committed internal fixture (ADR-M005 H3).
+      const output = runAttest();
+      // structuredContent = the K-1 envelope {price, provenance, label}; `price` alone is the frozen
+      // contract, label/provenance ride OUTSIDE it. Honesty prose rides in `content` text (K-1).
+      return { text: attestHonestyText(), structured: output as unknown as Record<string, unknown> };
+    },
+  },
 ];
 
-/** The names actually registered (H2: `["gate","cascade"]`). */
+/** The names actually registered (H3: `["gate","cascade","attest"]` — the terminal set, ADR-M005 D9). */
 export const REGISTERED_TOOL_NAMES: readonly string[] = HARNESS_TOOLS.map((t) => t.name);
 
 /**

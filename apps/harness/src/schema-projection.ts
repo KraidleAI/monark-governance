@@ -161,3 +161,46 @@ export const CASCADE_OUTPUT_SCHEMA: JsonObject = asObject(stripMeta(PREDICTION_S
 /** SDK Standard Schemas for the cascade tool (`registerTool` arguments). */
 export const cascadeInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(CASCADE_INPUT_SCHEMA as unknown as JsonSchemaType);
 export const cascadeOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(CASCADE_OUTPUT_SCHEMA as unknown as JsonSchemaType);
+
+// ---------------------------------------------------------------------------- attest (Lot H3, D3/D8)
+
+/**
+ * attest OUTPUT (ADR-M005 D3/D8, K-1): the `AdapterOutput` ENVELOPE. Only `price` is a FROZEN contract —
+ * the projected `attested-price.schema.json` (stripped), byte-for-byte the frozen file (drift-guarded by
+ * `attest_output_is_frozen_attested_price`). `provenance` and `label` are the K-1 honesty envelope: they
+ * live OUTSIDE the closed contract (the frozen `AttestedPrice` is `additionalProperties:false` and can
+ * carry neither), declared HERE in English, never in schemas/ — the gate `params` / cascade-input precedent.
+ */
+export const ATTESTED_PRICE_SCHEMA: JsonObject = loadFrozen("attested-price.schema.json");
+
+/** attest INPUT: none. The witness is the committed internal fixture; the tool takes no caller parameters. */
+export const ATTEST_INPUT_SCHEMA: JsonObject = {
+  type: "object",
+  additionalProperties: false,
+  properties: {},
+};
+
+/** attest OUTPUT = the K-1 envelope: frozen (projected) `price` + non-frozen `provenance`/`label`. */
+export const ATTEST_OUTPUT_SCHEMA: JsonObject = {
+  type: "object",
+  additionalProperties: false,
+  required: ["price", "provenance", "label"],
+  properties: {
+    price: stripMeta(ATTESTED_PRICE_SCHEMA),
+    provenance: {
+      type: "object",
+      additionalProperties: false,
+      required: ["source_lot_sha256", "source_verdict_sha256", "shogen_head_sha"],
+      properties: {
+        source_lot_sha256: { type: "string", pattern: "^[0-9a-f]{64}$", description: "sha256 of the committed witness lot (CBOR), recomputed from the bytes." },
+        source_verdict_sha256: { type: "string", pattern: "^[0-9a-f]{64}$", description: "sha256 of the committed verifier output (UTF-8), recomputed from the bytes." },
+        shogen_head_sha: { type: "string", pattern: "^[0-9a-f]{40}$", description: "Source revision the fixtures were extracted from (pinned)." },
+      },
+    },
+    label: { type: "string", description: "Honesty label carried OUTSIDE the frozen price (K-1): the witness is demonstrative, not probative." },
+  },
+};
+
+/** SDK Standard Schemas for the attest tool (`registerTool` arguments). */
+export const attestInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(ATTEST_INPUT_SCHEMA as unknown as JsonSchemaType);
+export const attestOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(ATTEST_OUTPUT_SCHEMA as unknown as JsonSchemaType);
