@@ -27,6 +27,13 @@
 // package-lock.json are NOT scanned: they enumerate the very French tokens they detect, by
 // construction. This is an exclusion of SCANNING, not an exemption of words.
 //
+// PATH EXEMPTION (lang-exempt.json "paths", Lot I-a / K-2 / ADR-M005 D3): a repo-relative glob list
+// (only `*` = a run of non-slash chars) of WHOLE FILES that are verbatim, sha256-pinned third-party
+// artifacts and thus legitimately non-English — here the Shogen fixtures fixtures/s3-binance.* (the
+// verifier output is French: "VERDICT : valide sous A(notary-neutrality), ..."). A path-exempt file is skipped entirely
+// (never scanned). This is a PATH mechanism, NOT phrase masking: the fixtures stay byte-frozen and
+// removing the entry un-skips the file so its French reddens the root scope (mutant-testable).
+//
 // SCOPE: every run computes hit counts for ALL scopes (root, contracts, schemas, hikae, ukemi,
 // atelier, monark) — free input data for the E-* translation lots. `--scope a,b` only gates the EXIT
 // CODE: exit 1 iff a non-exempt hit falls in a selected scope. No --scope = global. For Lot X
@@ -136,17 +143,35 @@ export function scannable(rel) {
   return TEXT_EXTS.has(extname(rel).toLowerCase()) && !EXCLUDE_NAMES.has(name);
 }
 
-/** Compile the exemption maskers from <dir>/scripts/lang-exempt.json. */
+/** Convert a repo-relative POSIX glob (only `*` = any run of non-slash chars) to an anchored RegExp. */
+export function globToRegExp(glob) {
+  let body = "";
+  for (const ch of glob) {
+    if (ch === "*") body += "[^/]*";
+    else body += /[.*+?^${}()|[\]\\]/.test(ch) ? "\\" + ch : ch;
+  }
+  return new RegExp("^" + body + "$");
+}
+
+/** True iff the POSIX-relative path is whole-file exempt by any compiled path glob (lang-exempt.json "paths"). */
+export function pathExempt(rel, pathMatchers) {
+  const p = rel.replace(/\\/g, "/");
+  return pathMatchers.some((re) => re.test(p));
+}
+
+/** Compile the exemption maskers + path matchers from <dir>/scripts/lang-exempt.json. */
 export function loadExempt(dir) {
   const raw = JSON.parse(readFileSync(join(dir, "scripts", "lang-exempt.json"), "utf8"));
   const terms = Array.isArray(raw.terms) ? raw.terms : [];
   const phrases = Array.isArray(raw.phrases) ? raw.phrases : [];
   const patterns = Array.isArray(raw.patterns) ? raw.patterns : [];
+  const paths = Array.isArray(raw.paths) ? raw.paths : [];
   const maskers = [];
   if (phrases.length) maskers.push(new RegExp("(" + phrases.slice().sort(byLenDesc).map(esc).join("|") + ")", "g"));
   if (terms.length) maskers.push(new RegExp("\\b(" + terms.slice().sort(byLenDesc).map(esc).join("|") + ")\\b", "g"));
   for (const p of patterns) maskers.push(new RegExp(p, "g"));
-  return { maskers, raw };
+  const pathMatchers = paths.map(globToRegExp);
+  return { maskers, pathMatchers, raw };
 }
 
 /** Blank every exempt span with equal-length spaces (columns preserved for reporting). */
@@ -212,12 +237,14 @@ export function collectTextFiles(dir) {
   return out;
 }
 
-/** Scan a list of {abs, rel}; returns per-file results + per-scope aggregation. */
-export function scanFileList(files, maskers) {
+/** Scan a list of {abs, rel}; returns per-file results + per-scope aggregation.
+ *  pathMatchers (lang-exempt.json "paths", K-2): whole-file exemptions skipped entirely (never scanned). */
+export function scanFileList(files, maskers, pathMatchers = []) {
   const results = [];
   const byScope = Object.fromEntries(SCOPES.map((s) => [s, { files: 0, hits: 0 }]));
   for (const f of files) {
     if (!scannable(f.rel)) continue;
+    if (pathExempt(f.rel, pathMatchers)) continue; // whole-file path exemption (Lot I-a, K-2 / ADR-M005 D3)
     const hits = scanFile(f.abs, maskers);
     const scope = classifyScope(f.rel);
     results.push({ rel: f.rel, scope, hits });
@@ -268,9 +295,9 @@ function main() {
     console.error(`lang-gate: no scripts/lang-exempt.json under ${dir} (needed for the exemptions).`);
     process.exit(2);
   }
-  const { maskers } = loadExempt(dir);
+  const { maskers, pathMatchers } = loadExempt(dir);
   const files = collectTextFiles(dir);
-  const agg = scanFileList(files, maskers);
+  const agg = scanFileList(files, maskers, pathMatchers);
   const selected = args.scope ? args.scope.split(",").map((s) => s.trim()).filter(Boolean) : SCOPES.slice();
   for (const s of selected) {
     if (!SCOPES.includes(s)) { console.error(`lang-gate: unknown scope '${s}' (known: ${SCOPES.join(",")})`); process.exit(2); }

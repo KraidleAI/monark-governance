@@ -1,0 +1,21 @@
+# Registre publié des résidus — extrait de docs/08-assumptions.md le 2026-08-13.
+# Un identifiant par ligne, « # » pour les commentaires : le format se relit à
+# l'œil et se recalcule à la main depuis le registre (ADR-0003).
+A(asn-attribution)
+A(attestor-honesty)
+A(axis-coverage)
+A(coupling-effect)
+A(enclave-integrity)
+A(gate-adequacy)
+A(history-integrity)
+A(notary-neutrality)
+A(origin-normalization-conformance)
+A(self-attestation)
+A(source-key)
+A(toolchain-soundness)
+A(transport-check-delegated)
+A(typer-correctness)
+A(upstream-alpha)
+A(verifier-binary)
+A(verifier-designation)
+A(window-stationarity)

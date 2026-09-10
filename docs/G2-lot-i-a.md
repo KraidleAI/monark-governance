@@ -1,0 +1,26 @@
+# G1+G2+G7 — Lot I-a (fixtures Shōgen + décodeur CBOR canonique)
+
+> Provenance consolidée. Rattachement G0 : ADR-M003 D10 (« Lot I »), PLAN Lot I-a, ADR-M005 D3. Matérialisé au dépôt par l'orchestrateur au merge. **checkpoint-2 = campagne** (consolidé, précédent M004 D15). Prérequis de l'outil `attest` (I-b/H3).
+
+## G1 — Génération (worker `claude-opus-4-8[1m]`, R-20)
+- **PF-5 (owner = worker)** : rejeu du vérificateur Shōgen — `F:\Shogen` HEAD `5b6469ae`, arbre **propre** avant+après (build seulement dans `target/` gité-ignoré), `rustc/cargo 1.97.1`, commande exacte (`cargo build -p shogen-verifier --locked` puis binaire direct sur `s3-binance.lot.cbor --registre … --constat …`). Captures séparées : **exit 0**, stdout **1679 o** sha256 `b2528be9…`, stderr **0 o**. **Aucune modification/commit de F:\Shogen** (R-20).
+- **Fixtures** `fixtures/s3-binance.{lot.cbor(7399),constat.json(875),registre.txt(616),verdict.txt(1679)}` + `PROVENANCE-s3-binance.md` (sha256 + origine de chacune). `.gitattributes` (`*.cbor binary`). Exemption de langue **PAR CHEMIN** dans `scripts/lang-exempt.json` (`paths: ["fixtures/s3-binance.*"]`) + mécanisme dans `scripts/lang-gate.mjs` (fichier entier non scanné — artefacts tiers verbatim, sha-épinglés, non traduisibles).
+- **`packages/monark/src/cbor-canonique.ts`** : décodeur du sous-ensemble CBOR canonique déterministe, **zéro-dep**, port fidèle de `crates/shogen-core/src/{cbor,lot,temoignage_canonique}.rs` (majeurs 0/2/3/4/5, longueurs définies, entier forme préférée, clés triées croissant sur octets, canonicité par ré-encodage). `subject`-canonicité (ADR-0016) **non portée, déclarée** (autorité d'acceptation = le verdict Rust commis). `packages/contracts`/`schemas` : 0 octet.
+
+## G2 — Revue (relecteur `claude-opus-4-8[1m]`, fraîche ≠ générateur) — **PASS-AVEC-RÉSERVE (1, disposée)**
+- **Oracle** : ci 125/125 (base I-a) — recompté **129/129** sur main post-H2 ; lint 0, ratchet 92/92, lang 0, grep 0 (99 fichiers), gelé 0 octet ; R-25 **957 < 1205**.
+- **Anti-circularité (P3) PROUVÉE** : mutant de **collusion** `hash[0]^=1` des DEUX côtés (decode+encode) → le round-trip `encode(decode)===b` **reste vert** (auto-cohérence), mais le test `fields match the Shogen verifier output` **rougit** — tué **uniquement par l'oracle indépendant** (`sha256(utterance.bytes)===empreinte` du verdict Rust). Un décodeur validé contre lui-même aurait survécu. Mutants `instant+1n`, corruptions → tués/rejetés ; restaurés sha256.
+- **P4 PENDANT FORMÉ FERMÉ** : **13/13 entrées forgées** (via l'encodeur canonique, bytes canoniques) violant chaque prédicat porteur (tableau vide, anti-doublon résidu/attestateur, US-ASCII, sans contrôle, empreinte 32 o) → **toutes REFUSÉES sur leur prédicat** (position intérieure, message = le prédicat, jamais « re-encoding diverges »). Couverture réelle, pas illusoire.
+- **P5 exemption non vacueuse** : mutant (clé `paths` retirée) → lang-gate root **RED 79 hits** (verdict.txt+registre.txt FR). Restauré.
+- **P6 fidélité Rust** : prédicats identiques ; non-port `subject` honnêtement consigné (sans conséquence sur les 7399 octets de la fixture) ; divergence code-points JS vs octets UTF-8 inoffensive sur ASCII (tout ≥0x80 refusé des deux côtés, vérifié).
+- Provenance : `F:\Shogen` pristine confirmée par la G2 ; verdict.txt reproduit **byte-exact** (rejeu du binaire prébâti ; l'étape `cargo build --locked` non re-jouée par la G2, la reproduction byte-exact étant la preuve porteuse — caveat consigné).
+
+### RÉSERVE R-D (mineure, `error_origin=worker`) — **DISPOSÉE avant merge**
+`scripts/lang-gate.mjs` l.33 et `scripts/lang-exempt.json` `$comment` citaient la sortie du vérificateur comme « VERDICT : octets conformes … » — **verbatim FAUX** : le `verdict.txt` commis (l.15) dit « VERDICT : **valide sous A(notary-neutrality), A(self-attestation), A(transport-check-delegated)** ». Le **mécanisme d'exemption est intact** (prouvé par le mutant P5) → non bloquant ; mais un verbatim faux d'un fichier commis est de la classe RR-1 (« chaque affirmation porte sa preuve »). **Disposé (orchestrateur)** : les 2 citations corrigées au texte réel (l.15). Les deux fichiers sont dans `EXCLUDE_NAMES` (non scannés) → correction **comportementalement neutre** ; JSON re-validé, oracle re-passé vert (129/129).
+
+## G7 (orchestrateur)
+- **R-21** : oracle ré-exécuté post-R-D — ci **129/129**, lint 0, ratchet 92/92, lang 0, grep 0, gelé 0 octet. Adjudication R-20 indépendante : `F:\Shogen` pristine (HEAD `5b6469ae`, porcelain vide), 4 fixtures sha256 == pins, `verdict.txt`==`b2528be9…`.
+- **error_origin** : R-D = **worker** (citation verbatim fausse d'un artefact commis) — attrapé par la G2, disposé avant merge, aucun défaut de comportement.
+- **checkpoint-2** : **consolidé au niveau campagne** (M004 D15).
+- **Résidus nommés** : contrôles porteurs de forme désormais couverts par les entrées forgées (fermé) ; `.gitattributes` hors whitelist d'export → **owned par H4** ; couverture de `subject`-canonicité non portée = hors périmètre (I-b / Shōgen).
+- **G7 CLOS — merge I-a.** Siège committeur `claude-opus-4-8` exception Opus-seat. Prochain : **I-b** (`fromShogen` adapter + `crossAgentGate` réel, consomme `cbor-canonique.ts`).

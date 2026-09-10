@@ -1,0 +1,16 @@
+shogen-verifier — lot : crates/shogen-verifier/tests/fixtures/s3-binance.lot.cbor
+  octets lus : 7399
+  tête du lot : a7677375626a656374783a6874747073…
+  décodage : accepté (sous-ensemble canonique CBOR, RFC 8949 — ADR-0002)
+  ré-encodage : 7399 octets, identiques au lot (round-trip exact)
+  forme : témoignage canonique — les sept champs de 03 §1
+  subject : « https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT »
+  transport porté : « tlsn-mpc/1 » (identifiant du lot, jamais une constante de ce binaire)
+  observé à : 1786594228 selon l'horloge « tlsn-mpc/1:connection_info.time » (donnée du lot, aucune horloge lue)
+  empreinte d'utterance : c28a41ce87dafcd313d301ab56472b6f3cd1b3d81d903da787b0ca9dfffbeea0
+  preuve de transport : 6034 octet(s), opaques — ce binaire n'en interprète aucun
+  attestateur : « shogen:attestateur-de-demonstration-s3 », clé épinglée de 71 octet(s)
+  registre publié : 18 identifiant(s)
+  liaison d'utterance : empreinte recalculée sur les octets portés (ADR-0005 règle 1)
+VERDICT : valide sous A(notary-neutrality), A(self-attestation), A(transport-check-delegated)
+  ce que ce verdict NE dit pas : le contrôle cryptographique de la preuve de transport a été exécuté par le binaire compagnon du transport « tlsn-mpc/1 » à la révision amont 0fe3c32d35382b3f290a43c4156399ca4512bb89, jamais par ce binaire ; la désignation complète de subject — chemin et requête — n'est liée par aucun contrôle recalculable ici, seul son hôte l'est (ADR-0015 point 17 bis, unité S4 « liaison de la désignation ») ; et la conformité ne dit rien de la vérité de la source — ADR-0001, ADR-0015
