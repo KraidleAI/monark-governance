@@ -1,7 +1,7 @@
 {
   "$id": "https://monark.local/schemas/forbidden-keys.json",
   "title": "MONARK forbidden keys — fleet invariant",
-  "description": "Invariant de flotte MONARK (ADR-M001 Decision 7). Union citee de DEUX disciplines de source primaire : Shogen 03 §0 (temoignage_canonique.rs L15-19 : pas de champ verite, pas de score de confiance, pas de 'validated') + Grok hac-cp.ts:77 (p_correct, confidence, hallucination_score, hallucination). AUCUNE de ces cles ne doit apparaitre a AUCUN niveau d'un contrat serialise. Enforcement primaire = schemas fermes (additionalProperties:false) ; cette liste = defense en profondeur, appliquee RECURSIVEMENT.",
+  "description": "MONARK fleet invariant (ADR-M001 Decision 7). Cited union of TWO primary-source disciplines: Shogen 03 §0 (temoignage_canonique.rs L15-19: no truth field, no confidence score, no 'validated') + Grok hac-cp.ts:77 (p_correct, confidence, hallucination_score, hallucination). NONE of these keys may appear at ANY level of a serialized contract. Primary enforcement = closed schemas (additionalProperties:false); this list = defense in depth, applied RECURSIVELY.",
   "forbidden_keys": [
     "p_correct",
     "confidence",

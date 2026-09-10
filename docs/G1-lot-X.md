@@ -75,6 +75,7 @@ détecter par (3) ⇒ rouge sur le token. Prouvé §6.
   commise), les chaînes sont **byte-exactes** (pas un motif large : elles ne peuvent masquer AUCUN français nouveau), et
   cela permet à la vérif **globale** de virer au vert **après** les lots E (le français gelé est légitime en permanence).
   **Pendant formé** (§9.2) : ré-émettre les schémas en anglais exige un ADR de dé-gel + bump `schema_version` (ADR-M001 D9).
+  **CLOS (2026-09-10, ADR-M001 Addendum D9-bis)** : les 5 `description` sont ré-émises en **anglais** par un erratum d'**ANNOTATION SEULE** — la prémisse « + bump `schema_version` » est **superseded** : une `description` est inerte aux données émises (aucune fixture/digest touché), donc **PAS de bump** ; le manifest `contracts_frozen` est re-baseliné dans le même commit (évolution par ADR, pas une dérogation). Les 5 phrases d'exemption sont **retirées** de `lang-exempt.json` (le français gelé n'existe plus dans les descriptions ; seuls les identifiants restent exemptés).
 - **Identifiants gelés** (`octets_recalcules`, `verite`, `valide`, …) et **clés de fixtures Shōgen** : exemptés comme termes.
 
 ### 4.4 Mots FR omis (faux positifs anglais/code, mesurés — pas devinés)

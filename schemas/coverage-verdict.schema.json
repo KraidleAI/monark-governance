@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://monark.local/schemas/coverage-verdict.schema.json",
   "title": "CoverageVerdict",
-  "description": "Verdict de couverture conforme HIKAE. Region POLYMORPHE set|interval (set=classif btc-dir/pm-yesno ; interval=regression cascade-VaR UKEMI). SANS p_correct. alpha = couverture VISEE, pas une proba de correction. ADR-M001 Decision 4.",
+  "description": "HIKAE conformal coverage verdict. POLYMORPHIC region set|interval (set = classification btc-dir/pm-yesno; interval = regression cascade-VaR UKEMI). No p_correct. alpha is the target MISCOVERAGE, so the target coverage is one minus alpha (never a probability of correctness, never a 'coverage level alpha'). ADR-M001 Decision 4.",
   "type": "object",
   "additionalProperties": false,
   "required": [

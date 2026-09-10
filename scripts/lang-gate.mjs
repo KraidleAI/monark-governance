@@ -27,11 +27,12 @@
 // package-lock.json are NOT scanned: they enumerate the very French tokens they detect, by
 // construction. This is an exclusion of SCANNING, not an exemption of words.
 //
-// SCOPE: every run computes hit counts for ALL scopes (root, contracts, hikae, ukemi, atelier,
-// monark) — free input data for the E-* translation lots. `--scope a,b` only gates the EXIT
+// SCOPE: every run computes hit counts for ALL scopes (root, contracts, schemas, hikae, ukemi,
+// atelier, monark) — free input data for the E-* translation lots. `--scope a,b` only gates the EXIT
 // CODE: exit 1 iff a non-exempt hit falls in a selected scope. No --scope = global. For Lot X
 // the E-hikae/ukemi/atelier/monark lots are NOT done, so global is RED by design; the lot's
-// oracle is `--scope root,contracts` = GREEN.
+// oracle is `--scope root,contracts` = GREEN. The frozen `schemas` scope (ADR-M001 D9-bis) is
+// English-only and GATED alongside root,contracts (test 42 uses root,contracts,schemas,site).
 //
 // Usage: node scripts/lang-gate.mjs [--dir <path>] [--scope root,contracts] [--json]
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
@@ -98,7 +99,10 @@ export const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "docs", ".next
 export const EXCLUDE_NAMES = new Set(["package-lock.json", "lang-exempt.json", "lang-gate.mjs"]);
 // `site` = apps/site (Lot F-public, English-only per ADR-M003 D0.5). Gated by the export --scope site.
 // `harness` = apps/harness (Lot H1, English-only per ADR-M005 D7/D9). Gated by --scope harness.
-export const SCOPES = ["root", "contracts", "hikae", "ukemi", "atelier", "monark", "site", "harness"];
+// `schemas` = the frozen contract JSON Schemas under schemas/ (ADR-M001 D9-bis). English-only external
+// surface (published via the export whitelist + the D8 harness wire); GATED in ci (test 42) and at export
+// so French prose in a schema `description`/`title` reddens — the annotation-erratum door-hole closure.
+export const SCOPES = ["root", "contracts", "schemas", "hikae", "ukemi", "atelier", "monark", "site", "harness"];
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const byLenDesc = (a, b) => b.length - a.length || (a < b ? -1 : 1);
@@ -121,6 +125,7 @@ export function classifyScope(rel) {
   const p = rel.replace(/\\/g, "/");
   if (p === "apps/site" || p.startsWith("apps/site/")) return "site"; // Lot F-public
   if (p === "apps/harness" || p.startsWith("apps/harness/")) return "harness"; // Lot H1 (K-3)
+  if (p === "schemas" || p.startsWith("schemas/")) return "schemas"; // ADR-M001 D9-bis: frozen contract schemas, gated
   const m = /^packages\/([^/]+)\//.exec(p);
   if (m && SCOPES.includes(m[1])) return m[1];
   return "root";

@@ -1,9 +1,12 @@
 /**
  * Root test `contracts_frozen` — ADR-M002 D2 / D13 (CA-0).
- * Throughout Phase 1, `schemas/*.json` and `packages/contracts/src/**` stay
- * byte-identical to the state of the Phase 0 commit `357ef25`. The manifest below was
- * computed on that state (sha256 of the content, LF). Any drift = red; a contract
- * evolution goes through an ADR + a `schema_version` bump, then a manifest update.
+ * Throughout Phase 1, `schemas/*.json` and `packages/contracts/src/**` stay byte-identical to the
+ * frozen manifest below (sha256 of the content, LF): the Phase 0 commit `357ef25`, re-baselined once
+ * by the ADR-M001 D9-bis annotation-only erratum (the 5 schema `description`/`title` reissued in
+ * English — NO `schema_version` bump, no data-shape change). Any drift = red. A DATA-SHAPE contract
+ * evolution goes through an ADR + a `schema_version` bump; an ANNOTATION-ONLY erratum
+ * (`description`/`title`, no bump) goes through an ADR too — both then re-baseline this manifest in
+ * the same commit.
  * Run by `npm test` in EACH worktree (outside per-lot counting).
  */
 import { test } from "node:test";

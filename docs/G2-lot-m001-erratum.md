@@ -1,0 +1,23 @@
+# G1+G2+G7 — Erratum d'annotation ADR-M001 (Addendum D9-bis)
+
+> Provenance consolidée (petit lot de gouvernance : génération + revue + verdict). Rattachement G0 : **ADR-M001 Addendum D9-bis**. Matérialisé au dépôt par l'orchestrateur au merge.
+
+## G1 — Génération (worker `claude-opus-4-8[1m]`, R-20)
+Erratum **annotation-seule** des 5 artefacts gelés : réécriture **anglaise** des `description` de `schemas/{attested-price,coverage-verdict,gate-decision,prediction}.schema.json` + `schemas/forbidden-keys.json` (α = **mis-couverture**, couverture = 1−α ; « middleware Hermes » retiré, R-P1 ; « advisor #4 » retiré). `title` et `schema_version` (`1.0.0`) **inchangés**. Manifest `test/contracts-frozen.manifest.json` re-baseliné (5 empreintes schémas ; 8 `packages/contracts/src/*` intactes). En-tête `test/contracts-frozen.test.ts` : sous-chemin **annotation-seule (sans bump)** nommé. Trou de porte lang fermé : **retrait des 5 phrases d'exemption** de `scripts/lang-exempt.json` (les identifiants gelés restent en `terms`) + scope dédié gaté **`schemas`** dans `scripts/lang-gate.mjs` + test 42 (`test/export-public.test.ts`) élargi à `schemas`. **Correction de doc (orchestrateur)** : la fausse affirmation « scope root non gaté » (brouillon D9-bis/RR-2) corrigée en mécanisme réel (root déjà gaté ; les 5 phrases étaient le masque) ; pendant formé G1-lot-X §4.3/§9.2 **CLOS** (sa prémisse « + bump schema_version » superseded).
+
+## G2 — Revue (relecteur `claude-opus-4-8[1m]`, instance fraîche ≠ générateur) — **PASS (7/7, 0 réserve)**
+- **P1 annotation-seule** : `git diff main -- schemas/` numstat 1/1 par schéma ; grep hors-`description` = **vide** (aucun `required`/`properties`/`type`/`pattern`/`enum`/`additionalProperties`/`forbidden_keys`/`$id`/`title`/`schema_version`).
+- **P2 gel non desserré (mutant critique)** : `pattern` `^[ -~]+$`→`^[ -~]*$` sans toucher le manifest ⇒ `contracts_frozen` **rouge** (« content modified in the frozen zone »). Restauré sha256.
+- **P3 manifest honnête** : recompute LF-normalisé indépendant des 5 schémas ⇒ 5× MATCH ; 8 `contracts/src` inchangées.
+- **P4 trou fermé, non vacueux** : 5 phrases d'exemption retirées (identifiants restent) ; mutant FR dans une `description` ⇒ test 42 **rouge** (scope `schemas`). Restauré sha256.
+- **P5 contenu honnête** : α = mis-couverture (vs `l1-split.ts:37` `ceil((n+1)(1−α))`) ; sans « Hermes »/« advisor #4 » ; `p_correct`/`confidence` seulement dans `forbidden_keys`/`description`, jamais en `properties` ; `grep-forbidden` ne scanne pas `schemas/`.
+- **P6 non-régression** : `npm run ci` **121/121** ; lint 0 ; ratchet 92/92 ; `lang-gate` 9 scopes **0** ; grep 0.
+- **P7 exactitude des docs** : le mécanisme réel corrigé, **vérifié VRAI** via `git show main:` (root gaté, 5 phrases-masque, pas de token `schemas`).
+- Restaurations byte-exact prouvées (hash de diff arbre-entier identique avant/après tous mutants) ; aucun commit.
+
+## G7 (orchestrateur) — CLÔTURE
+- **R-21** : oracle ré-exécuté par l'orchestrateur — ci **121/121** (2× `contracts_frozen` verts vs nouveau manifest), lint 0, ratchet 92/92, lang-gate 9 scopes 0, grep 0. Adjudication annotation-seule indépendante confirmée (numstat + grep hors-`description` vide).
+- **error_origin** : le contenu FR/inversé des descriptions = **ADR-M001 (texte gelé Phase 0)**, corrigé ici par erratum ADR ; la fausse affirmation « scope root non gaté » du brouillon D9-bis/RR-2 = **orchestrateur** (attrapée par le worker, corrigée avant merge) ; O1 (commentaire « still RED globally ») = **pré-existant Lot X, obsolète, propagé par reflow**, hors périmètre.
+- **checkpoint-2** : consolidé dans la **confirmation investisseur explicite de l'Option A** (2026-09-10, après consultation advisor) — l'autorité d'acceptation a accepté CE changement précis (erratum d'annotation seule, re-baseline manifest, nommage R-P1, avant H4) ; vérification indépendante par G2 fraîche (PASS 7/7). Ce n'est pas une suspension de gate (R-22) : le but du gate — acceptation indépendante — est tenu par la pré-confirmation investisseur + G2. Consigné pour audit.
+- **Résidus nommés (pas de dette nue)** : O1 (commentaire E-* « still RED globally by design » dans test 42 (c) / `lang-gate.mjs`) → **owner = lots E-atelier/E-hikae** (qui closent les traductions restantes ; `export-public.mjs` porte encore « To be translated ») ; drapeau harnais (`apps/harness/src/schema-projection.ts:15` + `test/schema.test.ts:100` citent l'ex-FR « alpha = couverture VISEE » comme exemple illustratif, désormais périmé mais inoffensif) → **owner = H2** (qui touche `apps/harness`).
+- **G7 CLOS — merge autorisé.** Siège committeur `claude-opus-4-8` exception Opus-seat. R-25 78 lignes de code + docs comptés < 1205.
