@@ -96,7 +96,7 @@ const eyebrow: CSSProperties = {
 };
 const kanjiStyle: CSSProperties = { fontFamily: "'Newsreader', serif", color: "var(--ink2)", fontSize: 13 };
 const teaser: CSSProperties = { fontSize: 12, color: "var(--ink2)", lineHeight: 1.45 };
-const rowCenter: CSSProperties = { display: "flex", alignItems: "center", gap: 8 };
+const rowCenter: CSSProperties = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", rowGap: 4 };
 const markBox: CSSProperties = { width: 26, height: 26, flex: "none", display: "inline-flex" };
 const chip = (on: boolean, color: string): CSSProperties => ({
   ...mono,
@@ -287,7 +287,7 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
         >
           <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
             {/* sensors */}
-            <div className="flex flex-1 flex-col gap-2.5">
+            <div className="flex min-w-0 flex-1 flex-col gap-2.5">
               <div style={eyebrow}>04 · sensors · witness</div>
               {SENSORS.map((n) => (
                 <AgentMiniCard key={n.key} node={n} active={isLit(n.key)} dimmed={!isLit(n.key)} reduced={reducedMotion} />
@@ -297,7 +297,7 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
             <Lane label="bytes + hash" active={Boolean(profile)} reduced={reducedMotion} />
 
             {/* adapter (always the backbone) */}
-            <div className="flex flex-col justify-center gap-2.5 lg:flex-[0.8]">
+            <div className="flex min-w-0 flex-col justify-center gap-2.5 lg:flex-[0.8]">
               <div style={eyebrow}>adapter</div>
               <div style={cardStyle("var(--ukemi-t)", Boolean(profile), false, reducedMotion)}>
                 <div style={rowCenter}>
@@ -314,7 +314,7 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
             <Lane label="Prediction" active={Boolean(profile)} reduced={reducedMotion} />
 
             {/* gate (Hikae, live sim) + Genkan storefront */}
-            <div className="flex flex-col justify-center gap-2.5 lg:flex-[1.1]">
+            <div className="flex min-w-0 flex-col justify-center gap-2.5 lg:flex-[1.1]">
               <div style={eyebrow}>03 · gate · authorize</div>
               <div style={cardStyle("var(--hikae-t)", Boolean(profile), false, reducedMotion)}>
                 <div style={rowCenter}>
@@ -362,7 +362,7 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
             <Lane label="commit · B_t" active={Boolean(profile)} reduced={reducedMotion} />
 
             {/* acts */}
-            <div className="flex flex-1 flex-col gap-2">
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
               <div style={eyebrow}>02 · acts · execute</div>
               {ACTS.map((n) => (
                 <AgentMiniCard key={n.key} node={n} active={isLit(n.key)} dimmed={!isLit(n.key)} reduced={reducedMotion} />
