@@ -1,4 +1,9 @@
 {
-  "$comment": "CLOSED, committed exemption list for the test-44 honesty lint (root test/site-honesty.test.ts, ADR-M004 D11). Each entry allows one EXACT numeric token to appear in a rendered-text position under apps/site (Lot F-2a C4 whole-tree scan; top-level test/ and data/ excluded). An entry whose `value` equals a figure value in fixtures/figures-sourced.json is REJECTED by the test: figures MUST flow from the loader (loadCommitted), never be hard-coded. F-1 needs no exemptions — the placeholder page renders zero numeric literals.",
-  "entries": []
+  "$comment": "CLOSED, committed exemption list for the test-44 honesty lint (root test/site-honesty.test.ts, ADR-M004 D11). Each entry allows one EXACT numeric token to appear in a rendered-text position under apps/site (Lot F-2a C4 whole-tree scan; top-level test/ and data/ excluded). An entry whose `value` equals a figure value in fixtures/figures-sourced.json is REJECTED by the test: figures MUST flow from the loader (loadCommitted), never be hard-coded. Lot F-site-4 adds the section ordinals 01-04; the C-6 INERTIA GUARD (test/ci-gates.test.ts honesty_exempt_entries_have_rendered_carrier) reds any entry with no rendered carrier and any bare single digit.",
+  "entries": [
+    { "value": "01", "reason": "section ordinal — a non-figure decoration, not a market value", "context": "app/page.tsx thesis '01 — a region, not a score'" },
+    { "value": "02", "reason": "section ordinal — a non-figure decoration, not a market value", "context": "app/page.tsx thesis '02 — a budget, not a yield' + gate-sim/board.tsx '02 · acts · execute'" },
+    { "value": "03", "reason": "section ordinal — a non-figure decoration, not a market value", "context": "app/page.tsx thesis '03 — products, not tokens' + gate-sim/board.tsx '03 · gate · authorize'" },
+    { "value": "04", "reason": "section ordinal — a non-figure decoration, not a market value", "context": "gate-sim/board.tsx '04 · sensors · witness'" }
+  ]
 }

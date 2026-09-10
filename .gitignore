@@ -8,3 +8,7 @@ Thumbs.db
 .next/
 .turbo/
 next-env.d.ts
+
+# Lot F-site-4 — Next 16 auto-generates agent context files on `next dev`; never committed
+apps/site/AGENTS.md
+apps/site/CLAUDE.md

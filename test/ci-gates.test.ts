@@ -21,12 +21,14 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname } from "node:path";
 import ts from "typescript";
 import { compilePatterns, scanText } from "../scripts/grep-forbidden.mjs";
-import { renderedTexts, scanText as scanNumericText } from "../apps/site/test/honesty-lint.ts";
+import { renderedTexts, scanText as scanNumericText, loadExemptFile, scanAppsSite } from "../apps/site/test/honesty-lint.ts";
 import { FLEET_AGENTS, PRODUCTS } from "../apps/site/lib/fleet.ts";
 import type { FleetStatus } from "../apps/site/lib/fleet.ts";
 import type { AgentStatus } from "../apps/site/lib/status.ts";
 import { loadGateEnums } from "../apps/site/lib/gate-enums.ts";
-import { ACTION_COMMIT, ACTION_DEFER, ACTION_ABSTAIN, SENSOR_NODES, AMBIENT, decide, fresh } from "../apps/site/lib/sim.ts";
+import { ACTION_COMMIT, ACTION_DEFER, ACTION_ABSTAIN, SENSOR_NODES, AMBIENT, decide, fresh, CAVEAT } from "../apps/site/lib/sim.ts";
+import { AGENTS_PRESENTATION } from "../apps/site/lib/agents-presentation.ts";
+import { PICKER_PROFILES } from "../apps/site/lib/profiles.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const WF = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
@@ -384,6 +386,10 @@ test("frozen_contract_fields_stay_dynamic — loaded contracts' required[] never
       "apps/site/lib/fleet.ts :: verdict",
       "MONARK Verdict PRODUCT key (fleet register id), not the GateDecision `verdict` field; documented in fleet.ts' `key` doc comment",
     ],
+    [
+      "apps/site/lib/profiles.ts :: verdict",
+      "the E-1 profile picker's productKey for the MONARK Verdict product (same registry id as fleet.ts), not the GateDecision `verdict` field — a product id, not a rendered contract field",
+    ],
   ]);
 
   const quotes = ['"', "'", "`"];
@@ -618,4 +624,88 @@ test("gate_sim_rendered_labels_have_no_numeric_hole — sim label data carries z
   assert.ok(simStrings.length >= 1, "no sim label strings scanned (false green)");
   const numericHits = simStrings.flatMap((s) => scanNumericText(s, noExempt));
   assert.deepEqual(numericHits, [], `a rendered sim label carries a numeric literal: ${JSON.stringify(numericHits)}`);
+});
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+// Lot F-site-4 (checkpoint-1 C-4 / ADR-M004 D15) — the NEW home data modules (agents-presentation,
+// profiles) render via {property access}, which the honesty lint (test 44) never scans, so a digit there
+// would render un-caught. Mirror of the fleet-register + sim-label numeric-hole closures: scan every
+// RENDERED string (name/kanji for agents; label/product name for profiles) with the same detector. The
+// `accent` (a style value, e.g. a hex) and `engineKeys`/`n` (never rendered as text) are intentionally
+// out of scope. Named mutant: put a digit in a kanji/label/product name ⇒ this reds.
+test("home_data_modules_have_no_numeric_hole — presentation + profiles carry zero rendered digit (F-site-4 C-4)", () => {
+  const noExempt = new Set<string>();
+  const strings: string[] = [];
+  for (const a of AGENTS_PRESENTATION) strings.push(a.name, a.kanji);
+  for (const p of PICKER_PROFILES) strings.push(p.label, p.productName);
+  assert.ok(strings.length >= 1, "no home data strings scanned (false green)");
+  const numericHits = strings.flatMap((s) => scanNumericText(s, noExempt));
+  assert.deepEqual(numericHits, [], `a home data string carries a rendered numeric literal: ${JSON.stringify(numericHits)}`);
+});
+
+// Lot F-site-4 (checkpoint-2 K-2 / C-6) — the honesty-lint EXEMPTION INERTIA GUARD. The closed list
+// (apps/site/test/honesty-lint.exempt.json) may only carry a token that is ACTUALLY rendered somewhere
+// under apps/site; an entry with no rendered carrier is inert (a hole waiting to launder a future digit)
+// and reds here. This guard enters with the first exemptions (the 01-04 section ordinals). Two named
+// mutants: (a) add {value:"99"} with no carrier ⇒ (a) reds; (b) add {value:"5"} (a bare single digit that
+// would gut the detector, inventory §4a a3) ⇒ (b) reds. (c) proves the exemptions are load-bearing: with an
+// EMPTY exempt set the SAME whole-tree walker (scanAppsSite) reds each entry at its carrier — so test 44
+// proper (which uses the real list) is green precisely BECAUSE these carriers are exempted, not absent.
+test("honesty_exempt_entries_have_rendered_carrier — no inert exemption, no gutting bare digit (F-site-4 C-6/K-2)", () => {
+  const ex = loadExemptFile(ROOT);
+  assert.ok(ex.entries.length >= 1, "expected at least the 01-04 section ordinals (false green)");
+  const noExempt = new Set<string>();
+
+  // Every EXACT numeric token that appears in a RENDERED-TEXT position (renderedTexts) across apps/site.
+  const renderedTokens = new Set<string>();
+  const surfaces = siteSurfaces(join(ROOT, "apps", "site")).filter(
+    (s) => (s.rel.endsWith(".ts") || s.rel.endsWith(".tsx")) && !s.rel.endsWith(".d.ts"),
+  );
+  assert.ok(surfaces.length >= 1, "no apps/site surfaces scanned (false green)");
+  for (const s of surfaces) {
+    const kind = s.rel.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+    const sf = ts.createSourceFile(s.rel, s.text, ts.ScriptTarget.Latest, true, kind);
+    for (const rt of renderedTexts(sf)) {
+      for (const tok of scanNumericText(rt.text, noExempt)) renderedTokens.add(tok);
+    }
+  }
+
+  // (a) NON-INERT — every exempt value is an EXACT rendered token somewhere.
+  for (const e of ex.entries) {
+    assert.ok(
+      renderedTokens.has(e.value),
+      `exempt '${e.value}' matches no rendered numeric token under apps/site — inert exemption (C-6/K-2)`,
+    );
+  }
+  // (b) no bare single digit — it would gut the numeric detector.
+  for (const e of ex.entries) {
+    assert.ok(!/^\d$/.test(e.value), `exempt '${e.value}' is a bare single digit — it would gut the detector (C-6)`);
+  }
+  // (c) LOAD-BEARING — with an EMPTY exempt set the whole-tree walker reds each entry at its carrier.
+  const unexemptedTokens = new Set(scanAppsSite(ROOT, noExempt).violations.map((v) => v.token));
+  for (const e of ex.entries) {
+    assert.ok(
+      unexemptedTokens.has(e.value),
+      `removing the exemptions must red '${e.value}' at its carrier (load-bearing, C-6)`,
+    );
+  }
+});
+
+// Lot F-site-4 (checkpoint-1 C-5 / G2 reserve R5) — the ILLUSTRATIVE caveat is present at EVERY sim mount.
+// The caveat wording lives in lib/sim.ts (CAVEAT), imported by all mounts; this guard pins the wording and
+// that the board mount (board.tsx) AND the explainer + token mounts (index.tsx) each render it, plus the
+// explainer's illustrative-α clause. Named mutants: delete {CAVEAT} from board.tsx ⇒ (b) reds; delete a
+// <Caveat/> from index.tsx ⇒ (b) reds; weaken the CAVEAT wording ⇒ (a) reds.
+test("gate_sim_caveat_present_in_all_mounts — illustrative C-5 caveat at every mount (F-site-4 R5)", () => {
+  // (a) the wording carries the illustrative disclaimer.
+  assert.match(CAVEAT, /illustrative/i, "the caveat must call the sim illustrative");
+  assert.match(CAVEAT, /not market activity/i, "the caveat must deny market activity");
+  // (b) every mount renders it: the board mount (board.tsx) + the explainer & token mounts (index.tsx).
+  const board = readFileSync(join(ROOT, "apps", "site", "components", "gate-sim", "board.tsx"), "utf8");
+  const index = readFileSync(join(ROOT, "apps", "site", "components", "gate-sim", "index.tsx"), "utf8");
+  assert.match(board, /\{CAVEAT\}/, "the board mount (board.tsx) must render {CAVEAT} (R5/C-5)");
+  const caveatMounts = (index.match(/<Caveat\s*\/>/g) ?? []).length;
+  assert.ok(caveatMounts >= 2, `index.tsx must render <Caveat/> in the explainer AND token mounts (saw ${caveatMounts})`);
+  // (c) the explainer qualifies α as illustrative (R5).
+  assert.match(index, /illustrative/i, "the explainer must qualify the α it shows as illustrative (R5)");
 });
