@@ -6,8 +6,10 @@
 //               decision read-outs + the GateDecision JSON view + caveat;
 //   token     — the mini B_t depletion sim (Token): budget + meter + decision log + push + caveat.
 // Honesty (ADR-M004 D15): no rendered numeric literal — every number is computed state ({...Text}),
-// property access, or a call ({gateJson(...)}). The third action word is NEVER a literal: output labels
-// and the log read it from the loaded `action` enum (a prop) by index. The C-5 caveat renders in ALL
+// property access, or a call ({gateJson(...)}). The third action word is never a QUOTED literal — never in
+// a machine-consumed position sensitive to schema drift (prose such as an aria-label is an accepted,
+// gate-green position): output labels and the log read it from the loaded `action` enum (a prop) by index.
+// The C-5 caveat renders in ALL
 // three modes; the illustrative alpha is qualified beside the JSON view. This island must sit under the
 // layout's ThemeProvider (the hook reads reduced-motion from it). NOT yet mounted in a page (Home/How/
 // Token are F-site-4/5/7); it compiles and lints on its own.

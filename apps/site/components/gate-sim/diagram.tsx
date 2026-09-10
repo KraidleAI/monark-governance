@@ -1,8 +1,10 @@
 "use client";
 
 // The animated flow diagram (Lot F-site-3): sensor lanes -> the gate -> the three output lanes. The
-// output labels come from the loaded `action` enum (a prop), so the third action word is NEVER a literal
-// here; the active lane is chosen by state.actionIndex. Sensor labels come from lib/sim.ts SENSOR_NODES
+// output labels come from the loaded `action` enum (a prop), so the third action word is never a QUOTED
+// literal here — never in a machine-consumed position sensitive to schema drift; its appearance in the
+// aria-label PROSE below is an accepted, gate-green position (not a quoted literal). The active lane is
+// chosen by state.actionIndex. Sensor labels come from lib/sim.ts SENSOR_NODES
 // (covered by the numeric-hole test). All geometry lives in non-visible SVG attributes / inline styles
 // (not honesty-lint surfaces); the only scanned strings are the JSX text labels and the aria-label, none
 // of which carries a digit. Animation (flow/glow keyframes from globals.css) is dropped under reduced

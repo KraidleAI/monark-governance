@@ -1,7 +1,7 @@
 # G1 — Journal de provenance — Lot F-site-3 (Le sim interactif du gate)
 
 - **Campagne** : F-site MONARK (port du design `MONARK.dc.html` sur la fondation gouvernée).
-- **Worktree** : `F:\Monark-wt-fsite3` — branche `lot-fsite3`, base `main = 5db169f` (F-site-1 shell mergé, PR #19).
+- **Worktree** : `F:\Monark-wt-fsite3` — branche `lot-fsite3`, base `main = 855e61f` (F-site-2 marques mergé, PR #20 ; F-site-1 shell = 5db169f/PR #19 en amont).
 - **Date** : 2026-09-10.
 - **Contrat** : `docs/PLAN-Fsite-lot.md` §7 (checkpoint-1 C-1..C-9) + `docs/adr/ADR-M004-infrastructure-plateforme.md` addendum **D15**. Inventaire d'implémentation `scratchpad/design-impl-inventory.md` §2/§3/§4a/§4d.
 - **Rôle** : worker mono-agent. **R-20** : ne committe pas, ne déclenche aucun workflow. Revue G2 (instance séparée, contexte frais) + verdict G7 restent à l'orchestrateur.
@@ -69,7 +69,7 @@ Le sim ne rend **aucun** ordinal nu ni `1.0.0` en texte JSX (le `'1.0.0'` vit da
 
 ## Critère de fidélité (C-1)
 Sections `data-screen-label` servies par ce lot (montage effectif en F-site-4/5/7) :
-- **board** (`mode='board'`) → « Engine board » (design L81-137) : diagramme capteurs→gate→actes, meter B_t, caveat ; auto-cycle AMBIENT.
+- **board** (`mode='board'`) → « Engine board » (design L81-137) : **le board du design est un pipeline de cartes** (capteurs/adaptateur/gate/actes + aside, L83-118) ; le montage livré rend un **SVG bespoke** (capteurs→gate→lanes) + meter B_t + caveat + auto-cycle AMBIENT. (Le SVG animé `xDiagram` du design vit, lui, dans l'**explainer** L185, non le board.) **Réconciliation card-pipeline ↔ SVG tracée à R3a → owner F-site-4** (montage Home).
 - **explainer** (`mode='explainer'`) → « Gate explainer » (L168-195) : sliders reading/spread, intent up/down, `simulate sensor timeout`, Push/New epoch, diagramme, meter, panneaux region + decision·reason, vue JSON `GateDecision` (`gateJson`), clause α, caveat.
 - **token** (`mode='token'`) → mini-sim B_t (L368-378) : B_t + meter + log (action·reason·budget) + « Push a reading » + caveat + cost illustratif.
 Layout responsive par CSS (grid `auto-fit minmax`), pas d'état de largeur JS (inventaire §3). Diagramme mis à l'échelle par `compact` (explainer plus large). Comparaison au design par le relecteur G2 (instance séparée).
@@ -88,8 +88,8 @@ Layout responsive par CSS (grid `auto-fit minmax`), pas d'état de largeur JS (i
 | `node scripts/grep-forbidden.mjs` | 0 | 69 fichiers, aucun mot proscrit (commentaires compris) |
 | `git diff main -- schemas/ packages/` | — | **vide** (0 octet) |
 
-## R-25
-**1088 lignes** ajoutées (1045 nouveaux fichiers + 43 en `ci-gates.test.ts`) < **1205**. **Pas** de scission de `diagram.tsx` nécessaire (marge 117 l.). Docs G1/G2 exclus du compte (pathspec CI).
+## R-25 (chiffre unique final, mesuré sur l'arbre committé — K-3)
+**1152 lignes** comptées (added 1151, deleted 1) < **1205** (marge 53), `git diff --numstat main` hors `docs/G1-*`, `docs/G2-*`, `package-lock.json`. Décomposition : les 7 fichiers du sim (1045) + `ci-gates.test.ts` (+49, test R1 inclus) + `docs/PLAN-Fsite-lot.md` (+58, §7 décisions E-1/β/Mod#2 tranchées + §8 réserves/K-2/K-4) − 1. `docs/G1-lot-fsite-3.md` et `docs/G2-lot-fsite-3.md` exclus (pathspec CI). Ce chiffre **supersède** les comptes intermédiaires (1088 à la revue, 1141 après R1/R6) — un seul chiffre pré-commit fait foi.
 
 ## Choix douteux (pour la vérification adversariale R-21)
 1. **`decide(state, input)` vs. cost prop** : la logique utilise la const module `COST` ; `cost` est affichage-seul. Divergence possible si un montage passe `cost ≠ COST` — atténuée par le contrat D-4 (passer `cost={COST}`). Alternative écartée : `decide(state, input, cost)` (dévie de la signature mission).
@@ -99,3 +99,12 @@ Layout responsive par CSS (grid `auto-fit minmax`), pas d'état de largeur JS (i
 
 ## error_origin
 n/a au niveau lot (implémentation conforme au contrat checkpoint-1 ; aucun défaut résiduel). Le premier run field-gate rouge (backticks `` `reason` ``) a été **attrapé et corrigé dans la passe** (origine = worker, corrigé avant clôture — pas une dette). Verdict G7 + `error_origin` définitif à l'orchestrateur.
+
+## Addendum G2/G7 (orchestrateur `claude-opus-4-8`, 2026-09-10) — corrections post-revue + preuve mutant R1
+Revue G2 (instance fraîche ≠ générateur) = **PASS-AVEC-RÉSERVES, 0 bloquante**. Oracle R-21 orchestrateur (avant ET après corrections) vert. Trois corrections appliquées par un worker Opus 4.8 (R-20, ne committe pas), consommées après re-vérification orchestrateur :
+- **R1 (gate d'honnêteté ajouté)** : test racine `sim_emitted_reason_codes_subset_of_frozen_enum` — pilote `decide()` (fonction exportée de `lib/sim.ts`, seul émetteur) sur ses 5 branches, collecte les codes-raison émis (`upstream_timeout` L130, `set_too_large` L135, `intent_not_in_region` L138, `budget_exhausted` L141, `covered` L143) et assert que chacun ∈ enum `reason` gelé (13 valeurs de `schemas/gate-decision.schema.json`). Garde de complétude `size===5`. **Preuve de mutant re-jouée par l'orchestrateur** : baseline `node --test test/ci-gates.test.ts` exit **0** ; mutation `lib/sim.ts` L143 `reason:"covered"`→`"covered_XX"` → exit **1** (test R1 rouge, `AssertionError … covered_XX`) ; restauration `cp` → exit **0**. `sha256(sim.ts)` avant = après = `f7ad2bc8e13b594e2fd139189cdbc754309e9f420f9fa1a7a5bdb6271f724858` ; `git diff -- apps/site/lib/sim.ts` vide. `sha256(test/ci-gates.test.ts)` final = `08e6a61dd91ace231d773b5ddc5482f48296e090ad06448b86f2790bfe08ffb6`.
+- **R6b** : commentaires `gate-sim/index.tsx` L9 + `diagram.tsx` L4 reformulés « never a literal » → « never a **quoted** literal, jamais en position machine-consommée sensible à la dérive ; la prose d'`aria-label` est une position acceptée gate-verte » (commentaires seuls, aucun code exécuté touché).
+- **R6a** : base `main` du présent G1 corrigée `5db169f`→`855e61f` + label rectifié (855e61f = F-site-2/PR #20).
+- **Oracle final** (orchestrateur, arbre corrigé) : `npm run ci` **103/103** (0 fail) ; lint 0 ; ratchet 92/92 ; `next build` 0 ; lang site 0 ; vocab 0/78 ; `git diff main -- schemas/ packages/` **0 octet** ; **R-25 = 1152** (chiffre unique final, cf. section R-25 ci-dessus).
+- **Réserves non-bloquantes tracées** (owner unique, PLAN §7) : R2 (scan numeric-hole vocab région)→F-site-5 ; R3a (board card-pipeline)→F-site-4, R3b (démenti « no p_correct/confidence/score » sur How)→F-site-5 ; R4 (contrat `cost={COST}`)→F-site-7 ; R5 (gate présence caveat+clause α)→F-site-4. Chacune = correction nommée + owner unique, **pas** de dette nue.
+- **error_origin** : R6a = défaut factuel de provenance (origine **worker-G1**, corrigé). R1–R5 = compléments de spec / concerns au montage (**pas** des erreurs). Aucun défaut de code produit.

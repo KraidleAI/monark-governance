@@ -26,7 +26,7 @@ import { FLEET_AGENTS, PRODUCTS } from "../apps/site/lib/fleet.ts";
 import type { FleetStatus } from "../apps/site/lib/fleet.ts";
 import type { AgentStatus } from "../apps/site/lib/status.ts";
 import { loadGateEnums } from "../apps/site/lib/gate-enums.ts";
-import { ACTION_COMMIT, ACTION_DEFER, ACTION_ABSTAIN, SENSOR_NODES, AMBIENT } from "../apps/site/lib/sim.ts";
+import { ACTION_COMMIT, ACTION_DEFER, ACTION_ABSTAIN, SENSOR_NODES, AMBIENT, decide, fresh } from "../apps/site/lib/sim.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const WF = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
@@ -512,6 +512,55 @@ test("gate_action_enum_order_is_frozen — action=[commit,defer,abstain]; sim in
   assert.equal(actions[ACTION_COMMIT], "commit", "ACTION_COMMIT must index the commit action");
   assert.equal(actions[ACTION_DEFER], "defer", "ACTION_DEFER must index the defer action");
   assert.equal(actions[ACTION_ABSTAIN], "abstain", "ACTION_ABSTAIN must index the third action");
+});
+
+// Lot F-site-3 (checkpoint-1 / G2 review R1) — HONESTY GATE: every reason code the sim can EMIT in a
+// rendered position (region/decision read-outs, the decision log, gateJson's reason) MUST be a member of
+// the FROZEN gate-decision `reason` enum (thirteen closed codes). Reason codes are NOT contract fields, so
+// the sim writes them as plain literals; nothing else guaranteed they stay inside the frozen enum. The
+// emissible SET is built by DRIVING the exported pure policy decide() (lib/sim.ts) over one input per
+// branch — never a hard-coded list — so a reason literal edited in lib/sim.ts flows through to `emitted`
+// here and reddens THIS test (sole-red mutant proof: `reason: "covered"` -> "covered_XX" in lib/sim.ts
+// reddens this test alone under `node --test test/ci-gates.test.ts`). decide() is the SOLE emitter:
+// SimState.reason, LogRow.reason and gateJson()'s reason are all set from its Decision.reason.
+// use-gate-sim.ts emits nothing (its REASON_BUDGET_EXHAUSTED is a COMPARISON constant only — a drift
+// there breaks epoch auto-recovery, a behavioural bug, not a rendered-honesty one) AND is un-importable
+// here anyway ("use client" + React hooks + the @/ alias do not resolve under `node --test`); lib/sim.ts
+// is a plain module (no JSX/DOM/node: imports), so importing decide/fresh from it is both correct and the
+// only viable path. The five branches are traced to their decide() source lines:
+//   L130 upstream_timeout      — input.timeout
+//   L135 set_too_large         — |reading| <= spread  (labels collapse to {up,down})
+//   L138 intent_not_in_region  — single label != intent
+//   L141 budget_exhausted      — budget < COST
+//   L143 covered               — otherwise
+test("sim_emitted_reason_codes_subset_of_frozen_enum — every reason the sim renders is in the frozen enum (R1)", () => {
+  const { reasons } = loadGateEnums(ROOT);
+  assert.equal(reasons.length, 13, "frozen gate-decision reason enum must carry the thirteen closed codes");
+  const frozen = new Set(reasons);
+
+  const base = fresh();
+  const emitted = new Set(
+    [
+      decide(base, { reading: 0.8, spread: 0.25, intent: "up", timeout: true }), // upstream_timeout (L130)
+      decide(base, { reading: 0.1, spread: 0.35, intent: "up", timeout: false }), // set_too_large (L135)
+      decide(base, { reading: 0.8, spread: 0.25, intent: "down", timeout: false }), // intent_not_in_region (L138)
+      decide({ ...base, budget: 0 }, { reading: 0.8, spread: 0.25, intent: "up", timeout: false }), // budget_exhausted (L141)
+      decide(base, { reading: 0.8, spread: 0.25, intent: "up", timeout: false }), // covered (L143)
+    ].map((d) => d.reason),
+  );
+
+  // Completeness (non-vacuity): the five branch-covering inputs reach five DISTINCT codes, so the
+  // membership check below is never vacuously true and drift in any exercised branch is observed. A future
+  // lot that adds a decide() branch must extend both this input list and this count (declared limit).
+  assert.equal(emitted.size, 5, `expected 5 distinct emissible reason codes, saw {${[...emitted].join(", ")}}`);
+
+  // The honesty invariant: every code the sim can render MUST be a member of the frozen reason enum.
+  const offenders = [...emitted].filter((r) => !frozen.has(r));
+  assert.deepEqual(
+    offenders,
+    [],
+    `sim emits reason code(s) NOT in the frozen gate-decision reason enum: ${offenders.join(", ")}`,
+  );
 });
 
 // Lot F-site-3 (checkpoint-1 C-4 / ADR-M004 D15) — the sim's RENDERED-LABEL data (the diagram sensor
