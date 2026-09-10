@@ -16,8 +16,9 @@
  *       every listed sha256+bytes recomputes exactly, the manifest does not list itself, every
  *       output file (bar the manifest) is listed, and excluded_tests EQUALS the committed config
  *       (config-relative, so mutant M4 below reds at (e), not here);
- *   (c) the language gate is GREEN on `--scope root,contracts,site` (E-root + E-contracts done; apps/site
- *       is English-only, Lot F-public — a French string visible in a page reds here);
+ *   (c) the language gate is GREEN on `--scope root,contracts,schemas,site` (E-root + E-contracts done +
+ *       the frozen `schemas` scope, ADR-M001 D9-bis; apps/site is English-only, Lot F-public — a French
+ *       string visible in a page, or in a frozen schema `description`, reds here);
  *   (d) packages/hikae/docs/ is absent (S2 reports excluded, D7) and the excluded tests are absent;
  *   (e) `npm ci` then `npm run ci` INSIDE the export are BOTH exit 0 (the exported CI is green);
  *   (f) the exported .github/workflows/ci.yml is DERIVED (D7 bis R1): no `r25` at all (bare regex, =
@@ -233,13 +234,14 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
     }
     assert.ok(pinnedShas.size >= 2, `exported workflow must keep >= 2 SHA-pinned actions (found ${pinnedShas.size})`);
 
-    // (c) language gate GREEN on root,contracts,site (throws if it exits 1 — how mutant M2 reds). The
-    //     `site` scope (Lot F-public) gives English-only teeth to the exported apps/site: a French string
-    //     visible in a page reds the export here. E-hikae/ukemi/atelier/monark stay ungated (still RED
-    //     globally by design — docs/G1-lot-X.md).
+    // (c) language gate GREEN on root,contracts,schemas,site (throws if it exits 1 — how mutant M2 reds).
+    //     The `schemas` scope (ADR-M001 D9-bis) gives the frozen schemas/ English-only teeth: French prose
+    //     in a schema `description` reds the export here (annotation-erratum door-hole closure). The `site`
+    //     scope (Lot F-public) does the same for a French string visible in an exported apps/site page.
+    //     E-hikae/ukemi/atelier/monark stay ungated (still RED globally by design — docs/G1-lot-X.md).
     execFileSync(
       process.execPath,
-      [join(ROOT, "scripts", "lang-gate.mjs"), "--dir", out, "--scope", "root,contracts,site"],
+      [join(ROOT, "scripts", "lang-gate.mjs"), "--dir", out, "--scope", "root,contracts,schemas,site"],
       { cwd: ROOT, stdio: "pipe" },
     );
 

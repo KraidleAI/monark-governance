@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://monark.local/schemas/attested-price.schema.json",
   "title": "AttestedPrice",
-  "description": "Projection d'un temoignage Shogen VERIFIE (emis uniquement apres Ok(Verdict)). Aucun champ verite/confiance/validated (Shogen 03 §0). Le nombre prix n'est PAS porte ici (trou 'sens emis', ADR-0015 pt 17bis) : il est interprete par un adaptateur HIKAE. ADR-M001 Decision 3.",
+  "description": "Projection of a VERIFIED Shogen testimony (emitted only after Ok(Verdict)). No truth/confidence/validated field (Shogen 03 §0). The price number is NOT carried here (the emitted-meaning gap, anchored by sens_emis_digest, ADR-0015 pt 17bis): it is interpreted by a HIKAE adapter. ADR-M001 Decision 3.",
   "type": "object",
   "additionalProperties": false,
   "required": [
