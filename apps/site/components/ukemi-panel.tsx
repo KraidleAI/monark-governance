@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { AgentCard } from "@/components/agent-card";
 import { UkemiMark } from "@/components/marks/ukemi-mark";
 import { PanelBlock, SHEET } from "@/components/panel-shell";
+import { WhatInside } from "@/components/what-inside";
+import { insideFor } from "@/lib/fleet-presentation";
 import type { FrozenContract } from "@/lib/load-contract";
 import { cn } from "@/lib/utils";
 
@@ -51,9 +53,7 @@ export function UkemiPanel({ contract }: { contract: FrozenContract }) {
             how a local shock is amplified across the payment network, using recovery rates &alpha; and
             &beta; for external and interbank assets in liquidation (ADR-M001 D6; ADR-M003 D6).
           </PanelBlock>
-          <PanelBlock title="Sourced bibliography" status="upcoming">
-            The primary readings behind the engine are not committed to this public repository yet.
-          </PanelBlock>
+          <WhatInside block={insideFor("ukemi")} />
           <PanelBlock title="Honest limits" status="built">
             <p>
               Ukemi solves for a clearing outcome, and that outcome is unique only under full recovery.

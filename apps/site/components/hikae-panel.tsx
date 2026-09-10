@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { AgentCard } from "@/components/agent-card";
 import { HikaeMark } from "@/components/marks/hikae-mark";
 import { PanelBlock, SHEET } from "@/components/panel-shell";
+import { WhatInside } from "@/components/what-inside";
+import { insideFor } from "@/lib/fleet-presentation";
 import type { FrozenContract } from "@/lib/load-contract";
 import { cn } from "@/lib/utils";
 
@@ -51,9 +53,7 @@ export function HikaePanel({ contract }: { contract: FrozenContract }) {
             minus &alpha;, then a closed gate policy reads that region and the remaining budget to emit commit,
             defer, or abstain (ADR-M001 D4, D5).
           </PanelBlock>
-          <PanelBlock title="Sourced bibliography" status="upcoming">
-            The primary readings behind the engine are not committed to this public repository yet.
-          </PanelBlock>
+          <WhatInside block={insideFor("hikae")} />
           <PanelBlock title="Honest limits" status="built">
             <p>
               Hikae is a monitor &mdash; a second-level check, not a promise about any single case. Its
