@@ -1,0 +1,24 @@
+# G1+G2+G7 — Lot H2 (outil `cascade` = UKEMI réel)
+
+> Provenance consolidée. Rattachement G0 : ADR-M005 D4, PLAN §H2. Matérialisé au dépôt par l'orchestrateur au merge. **checkpoint-2 = campagne** (consolidé, précédent M004 D15 ; avant le déploiement H4 / la publication).
+
+## G1 — Génération (worker `claude-opus-4-8[1m]`, R-20)
+`apps/harness/src/tools/cascade.ts` (+ `test/cascade.test.ts`) : composition **pure** des primitives UKEMI réelles (`clearing` Eisenberg-Noe → chaque nœud clearé lu comme position à levier, `collateral = e_i + Σ_j Π[j][i]·L*_j` (afflux interbancaire sous L*), `debt = pbar_i`, K=1 → `liquidableAmount(positions, shock)` → `yhat` → `emitPrediction` → `Prediction` gelée `cascade-liquidable-24h`). Retourne une **`Prediction`** (atomicité D4), pas une `GateDecision`. `α=β=1` (E&N pur), **non exposé** (évite le pendant `(α,β)` M003 §4). Choc sur toute la valeur clearée = **simplification v0 DÉCLARÉE** (en-tête + description, jamais un modèle systémique validé). `FinancialSystem`-entrée non gelée `{L,e,shock∈[0,1],producedAt RFC3339}`, validée serveur (K-4a). Honnêteté hors `Prediction` (K-1). Registre généralisé (schémas par outil) + set exact `["cascade","gate"]`. `@monark/ukemi` (symlink workspace, lockfile intact). `packages/contracts`/`schemas` : 0 octet.
+
+## G2 — Revue (relecteur `claude-opus-4-8[1m]`, fraîche ≠ générateur) — **PASS-AVEC-RÉSERVE (1, disposée)**
+- **Oracle** : ci **125/125**, lint 0, ratchet 92/92, lang-gate harness 0, grep 0 (98 fichiers), gelé 0 octet ; R-25 410 < 1205.
+- **Mutants** : M1 `p_correct` post-garde → `cascade_returns_frozen_prediction` rouge ; M2 `yhat=const` → `cascade_wires` rouge (shock 0.6 porteur) ; M3 `confidence` dans la description → triple défense rouge ; M4 `e_i` seul (drop afflux) → `wires` rouge. Tous restaurés byte-exact sha256.
+- **Honnêteté (P3)** : simplification v0 déclarée (en-tête `:27` + description `:58`, « never asserted as a validated systemic-risk model » `:28`) ; `yhat` = « no guarantee, no score » ; aucun token proba/score dans la `Prediction` (5 clés) ni la description ; chemin cascade→`under_calib` prouvé bout-en-bout (`abstain`/`under_calib`/`n_calib=0`).
+- **Clearing porteur (P4)** : afflux prouvé porteur ; fixture 2-nœuds `L*=[90,50]` vérifiée.
+- **Isolation (P5)** : `Prediction` (pas `GateDecision`) ; `cascade.ts` pur (aucun fs/net/child_process/fetch/env/horloge) ; registre généralisé n'affaiblit pas le gate H1 (`TOOL_*_SCHEMA` intacts, `tool_schema_equals_frozen_schema` vert) ; K-4a 11 classes d'entrée invalide → `CascadeToolError`.
+
+### RÉSERVE R-H2-1 (mineure, `error_origin=générateur`) — **DISPOSÉE avant merge**
+La G2 a mesuré que le mutant **M5** (`cascade.ts:142` `pPlus[j]`→`pbar[j]` : afflux sous obligations **nominales** au lieu du **vecteur de clearing E&N**, sans solve) **survivait** (125/125) : la grille de shocks {0, 0.2, 0.6} n'observe jamais le **solve** E&N (L*≠pbar), seulement le terme d'afflux. L'en-tête `:25-27` (« the clearing is load-bearing, not decorative, asserted by `cascade_wires_clearing_to_yhat` ») **sur-affirmait** (écart affirmation-vs-preuve, cœur RR-1). Le **code est correct** (utilise `pPlus`) → réserve, pas échec.
+**Disposition (orchestrateur, Option A de la G2, arithmétique re-vérifiée)** : assertion discriminante ajoutée à `cascade_wires_clearing_to_yhat` — au **shock 0.57**, la valeur clearée du nœud 1 (110, via L*) bascule (110·0.43=47,3 < 50) ⇒ `yhat=150` ; sous obligations nominales (120, via pbar) elle ne basculerait PAS (120·0.43=51,6 ≥ 50) ⇒ 100. Seul le vrai L* donne 150. **Vérifié** : assertion verte sur le code réel ; **M5 désormais TUÉ** (`cascade_wires` rouge sous `pPlus→pbar`) ; `cascade.ts` restauré byte-exact (`aea4d4e9…`). L'affirmation d'en-tête est maintenant **prouvée** (le solve est observé). Oracle re-passé : ci 125/125, lint 0, gelé 0.
+
+## G7 (orchestrateur)
+- **R-21** : oracle ré-exécuté post-disposition — ci **125/125**, lint 0, ratchet 92/92, gelé 0 octet. Adjudication honnêteté indépendante (lecture `cascade.ts` : simplification v0 déclarée, clearing porteur) faite avant la G2.
+- **error_origin** : R-H2-1 = **générateur** (affirmation + grille de shocks non discriminante) — attrapé par la G2, disposé avant merge (Option A), aucun défaut livré (le code était correct ; c'était une couverture de test manquante sous une affirmation).
+- **checkpoint-2** : **consolidé au niveau campagne** (précédent M004 D15) — l'acceptation validateur du harnais tourne une fois avant le déploiement H4 / la publication, pas par lot ; la rigueur par lot (G2 fraîche + R-21) est tenue.
+- **Résidus nommés** : seam SDK `tools/call` sur `cascade` = **H4** (observation G2, PLAN §H2 l.73) ; drapeau harnais FR périmé (`schema-projection.ts:15`) = déjà owned par ce lot ? non — reste owned par le prochain lot touchant ces commentaires.
+- **G7 CLOS — merge H2.** Siège committeur `claude-opus-4-8` exception Opus-seat.

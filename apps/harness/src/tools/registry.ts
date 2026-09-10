@@ -15,11 +15,13 @@
  * (`../schema-projection.ts`, which owns the one `node:fs` read at load) and the pure gate logic; it
  * never touches `node:fs`/`node:net`/`node:child_process`/`fetch`/`process.env`.
  */
-import type { McpServer } from "@modelcontextprotocol/server";
+import type { McpServer, StandardSchemaWithJSON } from "@modelcontextprotocol/server";
 import type { Prediction } from "@monark/contracts";
 import { toolInputStandardSchema, toolOutputStandardSchema, TOOL_INPUT_SCHEMA, TOOL_OUTPUT_SCHEMA } from "../schema-projection.ts";
+import { cascadeInputStandardSchema, cascadeOutputStandardSchema, CASCADE_INPUT_SCHEMA, CASCADE_OUTPUT_SCHEMA } from "../schema-projection.ts";
 import type { Json } from "../schema-projection.ts";
 import { runGate, honestyText, GATE_TOOL_NAME, GATE_TOOL_DESCRIPTION, type HarnessParams } from "./gate.ts";
+import { runCascade, cascadeHonestyText, CASCADE_TOOL_NAME, CASCADE_TOOL_DESCRIPTION, type CascadeInput } from "./cascade.ts";
 
 /** Closed universe of the MVP tool surface (ADR-M005 D1). */
 export const ALLOWED_TOOL_NAMES = ["attest", "gate", "cascade"] as const;
@@ -36,26 +38,47 @@ export interface HarnessToolDescriptor {
   readonly description: string;
   readonly inputSchemaJson: Json;
   readonly outputSchemaJson: Json;
-  /** Executes the tool: caller-carried envelope → closed decision (structured content). */
-  readonly run: (env: GateEnvelope) => { readonly text: string; readonly structured: Record<string, unknown> };
+  /** Per-tool projected SDK schemas (H2): each tool owns its own input/output shape (gate: envelope
+   *  -> GateDecision; cascade: FinancialSystem -> Prediction). registerTools no longer hardcodes one. */
+  readonly inputStandardSchema: StandardSchemaWithJSON;
+  readonly outputStandardSchema: StandardSchemaWithJSON;
+  /** Executes the tool: caller-carried args (validated at the SDK boundary) → structured content + text. */
+  readonly run: (args: unknown) => { readonly text: string; readonly structured: Record<string, unknown> };
 }
 
-/** The tools registered in THIS lot (H1: `gate` only). */
+/** The tools registered by THIS lot's cumulative state (H1: `gate`; H2 adds `cascade`). */
 export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
   {
     name: GATE_TOOL_NAME,
     description: GATE_TOOL_DESCRIPTION,
     inputSchemaJson: TOOL_INPUT_SCHEMA,
     outputSchemaJson: TOOL_OUTPUT_SCHEMA,
-    run: (env) => {
+    inputStandardSchema: toolInputStandardSchema,
+    outputStandardSchema: toolOutputStandardSchema,
+    run: (args) => {
+      const env = args as GateEnvelope;
       const decision = runGate(env.prediction, env.params);
       // structuredContent = the closed GateDecision ONLY (K-1); honesty prose rides in `content` text.
       return { text: honestyText(env.prediction.task_class), structured: decision as unknown as Record<string, unknown> };
     },
   },
+  {
+    name: CASCADE_TOOL_NAME,
+    description: CASCADE_TOOL_DESCRIPTION,
+    inputSchemaJson: CASCADE_INPUT_SCHEMA,
+    outputSchemaJson: CASCADE_OUTPUT_SCHEMA,
+    inputStandardSchema: cascadeInputStandardSchema,
+    outputStandardSchema: cascadeOutputStandardSchema,
+    run: (args) => {
+      const input = args as CascadeInput;
+      const prediction = runCascade(input);
+      // structuredContent = the closed Prediction ONLY (K-1); honesty prose rides in `content` text.
+      return { text: cascadeHonestyText(), structured: prediction as unknown as Record<string, unknown> };
+    },
+  },
 ];
 
-/** The names actually registered (H1: `["gate"]`). */
+/** The names actually registered (H2: `["gate","cascade"]`). */
 export const REGISTERED_TOOL_NAMES: readonly string[] = HARNESS_TOOLS.map((t) => t.name);
 
 /**
@@ -69,12 +92,11 @@ export function registerTools(server: McpServer): void {
       tool.name,
       {
         description: tool.description,
-        inputSchema: toolInputStandardSchema,
-        outputSchema: toolOutputStandardSchema,
+        inputSchema: tool.inputStandardSchema,
+        outputSchema: tool.outputStandardSchema,
       },
       (args: unknown) => {
-        const env = args as GateEnvelope;
-        const { text, structured } = tool.run(env);
+        const { text, structured } = tool.run(args);
         return { content: [{ type: "text" as const, text }], structuredContent: structured };
       },
     );

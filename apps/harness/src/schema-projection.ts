@@ -127,3 +127,37 @@ export const TOOL_OUTPUT_SCHEMA: JsonObject = derefVerdict(GATE_DECISION_SCHEMA,
 /** SDK Standard Schemas built from the projected JSON (the actual `registerTool` arguments). */
 export const toolInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(TOOL_INPUT_SCHEMA as unknown as JsonSchemaType);
 export const toolOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(TOOL_OUTPUT_SCHEMA as unknown as JsonSchemaType);
+
+// ---------------------------------------------------------------------------- cascade (Lot H2, D4/D8)
+
+/**
+ * cascade INPUT (ADR-M005 D4/D8): the NON-frozen UKEMI `FinancialSystem` (`L`, `e`) plus the declared
+ * 24h `shock` and the caller-carried `producedAt`. Declared HERE, never in schemas/ — a matrix/vector
+ * shape the frozen contracts never described (the gate's `params` precedent).
+ */
+export const CASCADE_INPUT_SCHEMA: JsonObject = {
+  type: "object",
+  additionalProperties: false,
+  required: ["L", "e", "shock", "producedAt"],
+  properties: {
+    L: {
+      type: "array",
+      description: "Nominal interbank liabilities matrix L[i][j] = what node i owes node j. Square, entries >= 0, zero diagonal.",
+      items: { type: "array", items: { type: "number" } },
+    },
+    e: {
+      type: "array",
+      description: "External assets (liquidation value) per node at the clearing date. One value per node.",
+      items: { type: "number" },
+    },
+    shock: { type: "number", description: "24h collateral price shock fraction in [0,1] — a declared fixture parameter, not a dynamics model." },
+    producedAt: { type: "string", description: "Caller-carried RFC3339 instant, injected for hash stability (D4); the tool reads no clock." },
+  },
+};
+
+/** cascade OUTPUT = the frozen `Prediction`, PROJECTED (stripped), never re-written (D8). */
+export const CASCADE_OUTPUT_SCHEMA: JsonObject = asObject(stripMeta(PREDICTION_SCHEMA), "cascade output (Prediction)");
+
+/** SDK Standard Schemas for the cascade tool (`registerTool` arguments). */
+export const cascadeInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(CASCADE_INPUT_SCHEMA as unknown as JsonSchemaType);
+export const cascadeOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(CASCADE_OUTPUT_SCHEMA as unknown as JsonSchemaType);

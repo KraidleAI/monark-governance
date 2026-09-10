@@ -3,11 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "MONARK harness (Lot H1) — a stateless MCP server exposing the REAL HIKAE gate primitive. ADR-M005 D1/D5/D6/D7/D8/D9/D11.",
+  "description": "MONARK harness — a stateless MCP server exposing the REAL engine primitives: the HIKAE `gate` and the UKEMI `cascade`. ADR-M005 D1/D4/D5/D6/D7/D8/D9/D11.",
   "exports": { ".": "./src/server.ts" },
   "dependencies": {
     "@modelcontextprotocol/server": "2.0.0",
     "@monark/contracts": "0.0.0",
-    "@monark/hikae": "0.0.0"
+    "@monark/hikae": "0.0.0",
+    "@monark/ukemi": "0.0.0"
   }
 }

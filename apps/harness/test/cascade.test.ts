@@ -1,0 +1,150 @@
+/**
+ * Harness Lot H2 — cascade (UKEMI) tests (ADR-M005 D4/D8/D9, PLAN H2).
+ * Each test is killed by >= 1 named mutant (proven red, then restored byte-exact via sha256 — see the
+ * passe report). Fully typed: no `any`, no unsafe access — the file stays at the lint ratchet ceiling.
+ *
+ * The wiring fixture is a 2-node interbank contagion, hand-verifiable from the real primitives:
+ *   L = [[0,100],[50,0]], e = [40,20]  ->  E&N clearing L* = [90, 50]  (node 0 defaults, node 1 solvent)
+ *   cleared balance-sheet value:  node 0 = e0 + L*_1 = 40+50 = 90   (debt pbar_0 = 100)
+ *                                 node 1 = e1 + L*_0 = 20+90 = 110  (debt pbar_1 = 50)
+ *   shock 0.0 -> node 0 tips (90 < 100) only            -> yhat = 100   (= the E&N default set)
+ *   shock 0.6 -> node 0 (90*0.4=36<100) + node 1 (110*0.4=44<50) -> yhat = 150
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { assertClosedPrediction, assertNoForbiddenKey } from "@monark/contracts";
+import { clearing, pbarOf, UKEMI_PREDICTOR_ID } from "@monark/ukemi";
+import {
+  runCascade,
+  cascadeLiquidable,
+  CascadeToolError,
+  CASCADE_TOOL_DESCRIPTION,
+  type CascadeInput,
+} from "../src/tools/cascade.ts";
+import { CASCADE_INPUT_SCHEMA, CASCADE_OUTPUT_SCHEMA, type Json } from "../src/schema-projection.ts";
+import { CASCADE_UNCALIBRATED_SENTENCE } from "../src/tools/gate.ts";
+
+const CONTAGION: CascadeInput = { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" };
+
+// ---- frozen-schema drift helpers (the schema.test.ts pattern; JSON via an `unknown` sink, no `any`).
+const SCHEMAS = fileURLToPath(new URL("../../../schemas/", import.meta.url));
+function loadJson(file: string): Json {
+  const parsed: unknown = JSON.parse(readFileSync(SCHEMAS + file, "utf8"));
+  return parsed as Json;
+}
+function asObj(node: Json | undefined, where: string): { [k: string]: Json } {
+  if (node === null || node === undefined || typeof node !== "object" || Array.isArray(node)) {
+    throw new Error(`expected object at ${where}`);
+  }
+  return node;
+}
+const SUBSCHEMA_MAP_KEYWORDS = new Set(["properties", "patternProperties", "$defs", "definitions", "dependentSchemas"]);
+function assertNoAnnotations(node: Json, path: string, insideMap: boolean): void {
+  if (Array.isArray(node)) {
+    node.forEach((n, i) => { assertNoAnnotations(n, `${path}[${String(i)}]`, false); });
+    return;
+  }
+  if (node === null || typeof node !== "object") return;
+  for (const [k, v] of Object.entries(node)) {
+    if (!insideMap) assert.ok(k !== "description" && k !== "title", `annotation '${k}' leaked onto the wire at ${path}`);
+    assertNoAnnotations(v, `${path}.${k}`, SUBSCHEMA_MAP_KEYWORDS.has(k));
+  }
+}
+
+// Test — the tool EMITS the frozen, closed Prediction; a key outside the contract throws; invalid input
+// is a tool error. Mutant: `return { ...prediction, p_correct: 0 }` before the guard in runCascade ⇒ the
+// closed-check throws inside runCascade ⇒ the first call reddens.
+test("cascade_returns_frozen_prediction", () => {
+  const p = runCascade({ L: [[0, 100], [50, 0]], e: [40, 20], shock: 0.2, producedAt: "2026-09-04T00:00:00Z" });
+  assertClosedPrediction(p);
+  assertNoForbiddenKey(p);
+  assert.equal(p.schema_version, "1.0.0");
+  assert.equal(p.task_class, "cascade-liquidable-24h");
+  assert.equal(p.predictor_id, UKEMI_PREDICTOR_ID);
+  assert.equal(p.produced_at, "2026-09-04T00:00:00Z");
+  assert.equal(typeof p.yhat, "number");
+  assert.equal(p.yhat, 100, "at shock 0.2 only node 0 tips (90*0.8=72 < 100)");
+  // K-1 — any key outside the frozen closed contract is refused (both the closed-check and the recursive
+  // forbidden-key guard). This is what the `p_correct` mutant trips before it can reach the wire.
+  const tampered = { ...p, p_correct: 0 };
+  assert.throws(() => { assertClosedPrediction(tampered); }, /unknown key/i);
+  assert.throws(() => { assertNoForbiddenKey(tampered); }, /forbidden key/i);
+  // K-4a — invalid input ⇒ a tool error, never a silent output.
+  assert.throws(() => runCascade({ L: [[0, 1], [1, 0]], e: [1], shock: 0, producedAt: "2026-09-04T00:00:00Z" }), CascadeToolError);
+  assert.throws(() => runCascade({ L: [[0, 1], [1, 0]], e: [1, 1], shock: 2, producedAt: "2026-09-04T00:00:00Z" }), CascadeToolError);
+  assert.throws(() => runCascade({ L: [[0, 1], [1, 0]], e: [1, 1], shock: 0, producedAt: "not-a-date" }), CascadeToolError);
+});
+
+// Test — yhat is genuinely the clearing->liquidableAmount composition, not a constant nor a shortcut.
+// Mutant: hard-code yhat in runCascade (e.g. `emitPrediction(999, ...)`) ⇒ the 100/150 assertions redden.
+// The anchor (liquidable set == E&N default set at shock 0) also kills an "ignore the clearing inflow,
+// use e_i alone" mutant (which would liquidate BOTH nodes at shock 0 ⇒ yhat 150, ids {0,1}).
+test("cascade_wires_clearing_to_yhat", () => {
+  const liq0 = cascadeLiquidable({ ...CONTAGION, shock: 0 });
+  assert.deepEqual(liq0.liquidableIds, ["0"], "only node 0 (the E&N defaulter) is liquidable at shock 0");
+  assert.equal(liq0.liquidableDebt, 100, "yhat at shock 0 = node 0 nominal obligations");
+  // ANCHOR — recompute the E&N default set independently from the real primitives; it must equal the
+  // liquidable set at shock 0. This is the load-bearing proof that the clearing feeds yhat.
+  const cleared = clearing({ L: CONTAGION.L, e: CONTAGION.e });
+  const pbar = pbarOf(CONTAGION.L);
+  const defaultSet = pbar
+    .map((pb, i) => ((cleared.pPlus[i] ?? 0) < pb - 1e-9 ? String(i) : null))
+    .filter((x): x is string => x !== null);
+  assert.deepEqual(liq0.liquidableIds, defaultSet, "liquidable-at-shock-0 == E&N default set");
+  // shock 0.6: node 1 also tips (110*0.4=44 < 50); yhat = 150 through the frozen Prediction.
+  const p6 = runCascade({ ...CONTAGION, shock: 0.6 });
+  assert.equal(p6.yhat, 150, "yhat at shock 0.6 = 100 + 50");
+  // DISCRIMINATING SHOCK (R-H2-1): proves the E&N SOLVE is load-bearing, not just the inflow term. At
+  // shock 0.57, node 1's CLEARED value (110, via L*) tips (110*0.43=47.3 < 50) ⇒ yhat=150; but under
+  // NOMINAL obligations (120, via pbar) it would NOT tip (120*0.43=51.6 >= 50) ⇒ 100. Only the real E&N
+  // clearing vector L* yields 150 here — kills the `pPlus -> pbar` mutant that shocks 0/0.2/0.6 miss.
+  const p57 = runCascade({ ...CONTAGION, shock: 0.57 });
+  assert.equal(p57.yhat, 150, "the E&N solve (L*, not nominal pbar) is load-bearing: 150 not 100 at shock 0.57");
+  // a disconnected/hard-coded yhat cannot match BOTH 100 (shock 0) and 150 (shock 0.6).
+  const p0 = runCascade({ ...CONTAGION, shock: 0 });
+  assert.equal(p0.yhat, 100);
+});
+
+// Test — the description makes NO probability/score claim (honesty rides here, not in the Prediction),
+// and it carries the K-4e under_calib sentence. Mutant: put `confidence` (or a probability word) in
+// CASCADE_TOOL_DESCRIPTION ⇒ the banned pattern matches ⇒ red (also caught by the vocab gate).
+test("cascade_description_makes_no_probability_claim", () => {
+  const banned = /probability|probable|likelihood|confidence|p_correct|accuracy/i;
+  assert.ok(!banned.test(CASCADE_TOOL_DESCRIPTION), "cascade description makes no probability/score claim");
+  // non-vacuous positive anchors (the test cannot pass on an empty string).
+  assert.ok(CASCADE_TOOL_DESCRIPTION.includes("liquidable"), "description names the liquidable amount");
+  assert.ok(CASCADE_TOOL_DESCRIPTION.includes("Eisenberg-Noe"), "description names the real clearing primitive");
+  // K-4e — the honest under_calib sentence is carried (single source: gate.ts).
+  assert.ok(CASCADE_TOOL_DESCRIPTION.includes(CASCADE_UNCALIBRATED_SENTENCE), "carries the under_calib honesty (K-4e)");
+});
+
+// Test — the projected output schema IS the frozen Prediction (drift guard, D8), and the input is the
+// NON-frozen FinancialSystem declared field by field. Mutant: drop a `required` entry (or alter a
+// property definition) in CASCADE_OUTPUT_SCHEMA ⇒ it diverges from the frozen file ⇒ red.
+test("cascade_tool_schema_equals_frozen_prediction", () => {
+  const frozen = asObj(loadJson("prediction.schema.json"), "prediction");
+  // OUTPUT = projected frozen Prediction (modulo the documented $schema/$id/description/title strip).
+  assert.deepEqual(CASCADE_OUTPUT_SCHEMA["required"], frozen["required"], "required must match the frozen file");
+  assert.equal(CASCADE_OUTPUT_SCHEMA["additionalProperties"], false, "output stays a closed contract");
+  assert.deepEqual(
+    Object.keys(asObj(CASCADE_OUTPUT_SCHEMA["properties"], "cascade output.properties")),
+    Object.keys(asObj(frozen["properties"], "frozen Prediction.properties")),
+    "output property set must match the frozen file",
+  );
+  assert.deepEqual(
+    asObj(CASCADE_OUTPUT_SCHEMA["properties"], "cascade output.properties"),
+    asObj(frozen["properties"], "frozen Prediction.properties"),
+    "output property definitions must match the frozen file in full",
+  );
+  assertNoAnnotations(CASCADE_OUTPUT_SCHEMA, "CASCADE_OUTPUT_SCHEMA", false);
+  // INPUT is NON-frozen (never in schemas/), declared field by field: exactly L, e, shock, producedAt.
+  assert.equal(CASCADE_INPUT_SCHEMA["additionalProperties"], false, "input is a closed envelope");
+  assert.deepEqual(
+    Object.keys(asObj(CASCADE_INPUT_SCHEMA["properties"], "cascade input.properties")).sort(),
+    ["L", "e", "producedAt", "shock"],
+    "input declares exactly L, e, shock, producedAt",
+  );
+  assert.deepEqual(CASCADE_INPUT_SCHEMA["required"], ["L", "e", "shock", "producedAt"], "all four fields required");
+});

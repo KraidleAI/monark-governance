@@ -45,12 +45,13 @@ test("mcp_tools_have_no_side_effects", () => {
   for (const name of REGISTERED_TOOL_NAMES) {
     assert.ok((ALLOWED_TOOL_NAMES as readonly string[]).includes(name), `tool '${name}' outside the closed allowlist`);
   }
-  assert.ok(REGISTERED_TOOL_NAMES.includes("gate"), "the `gate` tool is registered in H1");
-  // (1b) EXACT per-lot registry (G2 R1): H1 registers EXACTLY `gate`. This tightens per lot as each
-  // tool ships (H2 `cascade`, H3 `attest`); a premature or stray registration reddens here, where the
-  // subset allowlist above would tolerate it. The terminal set {attest,gate,cascade} (ADR-M005 D9) is
-  // reached lot by lot — this asserts the current lot's exact set, not the end state.
-  assert.deepEqual([...REGISTERED_TOOL_NAMES].sort(), ["gate"], "H1 registers exactly the `gate` tool");
+  assert.ok(REGISTERED_TOOL_NAMES.includes("gate"), "the `gate` tool stays registered");
+  assert.ok(REGISTERED_TOOL_NAMES.includes("cascade"), "the `cascade` tool is registered in H2");
+  // (1b) EXACT per-lot registry (G2 R1): H2 registers EXACTLY `cascade` + `gate`. This tightens per lot
+  // as each tool ships (H1 `gate`, H2 `cascade`, H3 `attest`); a premature or stray registration reddens
+  // here, where the subset allowlist above would tolerate it. The terminal set {attest,gate,cascade}
+  // (ADR-M005 D9) is reached lot by lot — this asserts the current lot's exact set, not the end state.
+  assert.deepEqual([...REGISTERED_TOOL_NAMES].sort(), ["cascade", "gate"], "H2 registers exactly cascade + gate");
 
   // (2) static side-effect scan of src/tools/**.
   const files = collectTs(TOOLS_DIR);
