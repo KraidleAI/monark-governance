@@ -96,7 +96,7 @@ const eyebrow: CSSProperties = {
 };
 const kanjiStyle: CSSProperties = { fontFamily: "'Newsreader', serif", color: "var(--ink2)", fontSize: 13 };
 const teaser: CSSProperties = { fontSize: 12, color: "var(--ink2)", lineHeight: 1.45 };
-const rowCenter: CSSProperties = { display: "flex", alignItems: "center", gap: 8 };
+const rowCenter: CSSProperties = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", rowGap: 4 };
 const markBox: CSSProperties = { width: 26, height: 26, flex: "none", display: "inline-flex" };
 const chip = (on: boolean, color: string): CSSProperties => ({
   ...mono,
