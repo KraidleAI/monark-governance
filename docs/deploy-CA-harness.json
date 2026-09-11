@@ -1,21 +1,21 @@
 {
   "url": "https://api.monarkgate.tech",
   "mcp_url": "https://mcp.monarkgate.tech",
-  "checked_at": "2026-09-11T05:56:59.965Z",
+  "checked_at": "2026-09-11T12:33:11.185Z",
   "checks": [
     {
       "name": "health",
       "ok": true,
       "status": 200,
-      "sha256": "2e15fb68cbda856da58bef097f84a386c80b0404970aa79782943570d5df9c95",
-      "detail": "operations=gate,cascade,attest"
+      "sha256": "d754b2feb82a3c45588e379d4d343c140ee8229d63f6771c940c27121c90f441",
+      "detail": "operations=gate,cascade,attest,calibrate"
     },
     {
       "name": "openapi",
       "ok": true,
       "status": 200,
-      "sha256": "c6fb56b9af96f43f17519af07cfd39bd1c225a511fe8e15f70475fbe2a62b21e",
-      "detail": "paths=/gate,/cascade,/attest"
+      "sha256": "72e5380975df7955600b2e3411b9cf05872f318fd7521e055ef36be80bd39baf",
+      "detail": "paths=/gate,/cascade,/attest,/calibrate"
     },
     {
       "name": "origin_403_api",
@@ -35,8 +35,8 @@
       "name": "mcp_tools_list",
       "ok": true,
       "status": 200,
-      "sha256": "a56fcf8e8298da1043fac9878a9c291a3cf38614e24927cb7932d5405c542884",
-      "detail": "status=200"
+      "sha256": "eb493b02760651ac76017c9b20d8588b961d1b08c01764de88abed023aa15773",
+      "detail": "tools=gate,cascade,attest,calibrate"
     },
     {
       "name": "gate_call",
@@ -58,6 +58,20 @@
       "status": 200,
       "sha256": "aeeb34e020d93b21e31c676552d260ceffae1e79c69b56ba2b5c911079d6ad69",
       "detail": "real, notary Shōgen, demonstrative, not probative"
+    },
+    {
+      "name": "calibrate_call",
+      "ok": true,
+      "status": 200,
+      "sha256": "b8e72adedaeddca12a2ea510f809a076ec19e1c3cc1cb4a3b6489433a084eb46",
+      "detail": "qhat=1"
+    },
+    {
+      "name": "gate_byo_call",
+      "ok": true,
+      "status": 200,
+      "sha256": "4fbf08e9509b04865abc972d700ff886bb581729c2b062c6c61e749008741140",
+      "detail": "action=commit calib_digest=4081f7184e42b34e594015191f04720343b8b37691c7e4412c2469efdc43dd3a set_digest=4081f7184e42b34e594015191f04720343b8b37691c7e4412c2469efdc43dd3a"
     }
   ],
   "tls": {
