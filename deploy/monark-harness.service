@@ -1,0 +1,38 @@
+# systemd unit for the MONARK harness (ADR-M005 D7/D10/D12; PLAN §H4). Orchestrator-deployed (ADR-M005 D12): the orchestrator
+# installs it over SSH, same channel as the vitrine. Mirrors the live vitrine motif (a systemd service + Caddy, NOT
+# docker): the vitrine runs as `monark.service` out of /opt/monark-app; the harness runs as
+# `monark-harness.service` out of /opt/monark-harness, isolated from it.
+#
+# It serves BOTH surfaces on ONE loopback listener, 127.0.0.1:3001 (the server.ts defaults, under its
+# run-guard): the MCP surface for `mcp.monarkgate.tech` and the HTTP/JSON mirror for `api.monarkgate.tech`,
+# routed by Host inside the process. Caddy terminates TLS and reverse-proxies both sub-domains to this
+# port. No secret, no environment: the harness reads only committed fixtures/schemas and listens on
+# loopback (defense in depth for `no_secret_in_repo`).
+[Unit]
+Description=MONARK harness - stateless MCP + HTTP/JSON mirror (attest, gate, cascade)
+Documentation=https://github.com/KraidleAI/monark
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# The deployed repo root (fixtures/ and schemas/ are resolved relative to apps/harness/src, and the
+# @monark/* workspace symlinks live in ./node_modules — RUNBOOK step 2 runs `npm ci` here).
+WorkingDirectory=/opt/monark-harness
+# Node 24 strips TypeScript at load; server.ts binds 127.0.0.1:3001 under its run-guard. `which node` on
+# this VPS (Hostinger, Node v24.21.0) is /usr/bin/node; `/usr/bin/env node` resolves it on the service
+# PATH. If your `which node` differs, set that absolute path here (RUNBOOK step 4 verifies it).
+ExecStart=/usr/bin/env node /opt/monark-harness/apps/harness/src/server.ts
+Restart=always
+RestartSec=2
+# Least privilege (R-8 / M004 D0.3): a dedicated non-login user, created by RUNBOOK step 3.
+User=monark
+Group=monark
+# Hardening: no new privileges, read-only filesystem (the harness writes nothing), private /tmp.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

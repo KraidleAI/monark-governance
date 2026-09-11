@@ -153,6 +153,15 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
     const files = listFiles(out);
     assert.ok(files.length >= 80, `implausibly small export: ${files.length} file(s)`);
 
+    // (i) (Lot H4, Q-A / ADR-M005 D10/D16) apps/harness is exported PACKAGE-STYLE (src+test+package.json+
+    // README.md), so KraidleAI/monark is reproducible e2e; the H4 HTTP/JSON mirror + OpenAPI ship, and no
+    // whole-dir cruft (tsconfig) leaks. Its English is gated by adding `harness` to the lang scope at (c).
+    // Mutant: drop "apps/harness" from APP_PACKAGE_DIRS in export-public.mjs ⇒ these files vanish ⇒ red.
+    for (const rel of ["apps/harness/src/http.ts", "apps/harness/src/openapi.ts", "apps/harness/test/http.test.ts", "apps/harness/package.json"]) {
+      assert.ok(files.includes(rel), `apps/harness export must include ${rel}`);
+    }
+    assert.ok(!files.includes("apps/harness/tsconfig.json"), "apps/harness/tsconfig.json must not be exported (package-style)");
+
     // (F-public) build output / installed deps are never exported (WALK_SKIP_DIRS). A leaked .next would
     // ship build artefacts into the public storefront; a leaked node_modules would bloat it. Mutant:
     // remove the WALK_SKIP_DIRS skip in export-public.mjs walkFiles => the seeded .next/.turbo leak here.
@@ -239,9 +248,11 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
     //     in a schema `description` reds the export here (annotation-erratum door-hole closure). The `site`
     //     scope (Lot F-public) does the same for a French string visible in an exported apps/site page.
     //     E-hikae/ukemi/atelier/monark stay ungated (still RED globally by design — docs/G1-lot-X.md).
+    //     The `harness` scope (Lot H4, ADR-M005 Q-A) gives the now-exported apps/harness English-only teeth:
+    //     a French word in an exported apps/harness .ts reds the export here.
     execFileSync(
       process.execPath,
-      [join(ROOT, "scripts", "lang-gate.mjs"), "--dir", out, "--scope", "root,contracts,schemas,site"],
+      [join(ROOT, "scripts", "lang-gate.mjs"), "--dir", out, "--scope", "root,contracts,schemas,site,harness"],
       { cwd: ROOT, stdio: "pipe" },
     );
 
