@@ -109,7 +109,9 @@ export const EXCLUDE_NAMES = new Set(["package-lock.json", "lang-exempt.json", "
 // `schemas` = the frozen contract JSON Schemas under schemas/ (ADR-M001 D9-bis). English-only external
 // surface (published via the export whitelist + the D8 harness wire); GATED in ci (test 42) and at export
 // so French prose in a schema `description`/`title` reddens — the annotation-erratum door-hole closure.
-export const SCOPES = ["root", "contracts", "schemas", "hikae", "ukemi", "atelier", "monark", "site", "harness"];
+// `skills` = the ClawHub skill artefacts under skills/ (Lot M006-B, ADR-M006 D5). English-only (the
+// SKILL.md/INTEGRATION.md are English); GATED so a French string in a published skill file reds.
+export const SCOPES = ["root", "contracts", "schemas", "hikae", "ukemi", "atelier", "monark", "site", "harness", "skills"];
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const byLenDesc = (a, b) => b.length - a.length || (a < b ? -1 : 1);
@@ -132,6 +134,7 @@ export function classifyScope(rel) {
   const p = rel.replace(/\\/g, "/");
   if (p === "apps/site" || p.startsWith("apps/site/")) return "site"; // Lot F-public
   if (p === "apps/harness" || p.startsWith("apps/harness/")) return "harness"; // Lot H1 (K-3)
+  if (p === "skills" || p.startsWith("skills/")) return "skills"; // Lot M006-B (ADR-M006 D5)
   if (p === "schemas" || p.startsWith("schemas/")) return "schemas"; // ADR-M001 D9-bis: frozen contract schemas, gated
   const m = /^packages\/([^/]+)\//.exec(p);
   if (m && SCOPES.includes(m[1])) return m[1];

@@ -44,7 +44,10 @@ export const APP_PACKAGE_DIRS = ["apps/harness"];
 // by ADR-M004 D7 bis R3 (D7 amended). `apps/site` shipped in Lot F-1, so the D7 tolerated-absence
 // carve-out is RETIRED: EVERY fixed whitelist entry is now REQUIRED (fail-closed on absence, D7 bis
 // R2 — see TOLERATED_ABSENT below).
-export const WHITELIST_DIRS = ["schemas", "fixtures", "enforcement", "apps/site"];
+// `skills` (Lot M006-B, ADR-M006 D5/M-4): the ClawHub skill artefacts (skills/monark/SKILL.md +
+// INTEGRATION.md + LICENSE). Whitelisted AND created in the SAME lot, so this fixed entry is REQUIRED
+// (fail-closed on absence, like every other entry below — TOLERATED_ABSENT is empty).
+export const WHITELIST_DIRS = ["schemas", "fixtures", "enforcement", "apps/site", "skills"];
 export const WHITELIST_FILES = [
   "README.md", "LICENSE",
   ".github/workflows/ci.yml",

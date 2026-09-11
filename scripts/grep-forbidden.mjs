@@ -159,6 +159,20 @@ function collectTargets(root, config, cliArgs) {
     }
   }
 
+  // The ClawHub skill artefacts under skills/ (Lot M006-B, ADR-M006 D2/D5) — GLOBAL + skills-scoped
+  // honesty/securities bans, with the skill scope's closed exemptPhrases masked before matching (same
+  // closed-list mechanism as the site scope). Not under packages/ or apps/, so it is a top-level walk.
+  const skills = config.scan.skills;
+  if (skills) {
+    const skillsDir = join(root, "skills");
+    const SKILLS_EXTRA = compilePatterns(skills.banned);
+    try {
+      if (statSync(skillsDir).isDirectory()) add(walk(skillsDir, skills.extensions), [...GLOBAL, ...SKILLS_EXTRA], skills.exemptPhrases ?? []);
+    } catch {
+      /* no skills/ yet */
+    }
+  }
+
   // Extra targets from the command line (tests use this on temp files) — GLOBAL patterns only.
   for (const arg of cliArgs) {
     const p = resolve(arg);
