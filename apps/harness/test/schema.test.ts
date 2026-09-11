@@ -26,7 +26,7 @@ function asObj(node: Json | undefined, where: string): { [k: string]: Json } {
 const SUBSCHEMA_MAP_KEYWORDS = new Set(["properties", "patternProperties", "$defs", "definitions", "dependentSchemas"]);
 
 /**
- * C-1 (checkpoint-2 H1) — assert NO `description`/`title` annotation survived onto a frozen-derived
+ * C-1 (H1 review) — assert NO `description`/`title` annotation survived onto a frozen-derived
  * schema subtree, at any depth. Position-aware to match `stripMeta`: keys inside a subschema map are
  * property names, not annotations. Mutant: disable the annotation strip in `stripMeta` ⇒ the frozen
  * French / RR-1-inverted descriptions reappear here ⇒ red.
@@ -96,7 +96,7 @@ test("tool_schema_equals_frozen_schema", () => {
   delete frozenOtherProps["verdict"];
   assert.deepEqual(projOtherProps, frozenOtherProps, "GateDecision non-verdict property definitions must match the frozen file in full");
 
-  // C-1 (checkpoint-2) — the FROZEN schemas carry French, RR-1-inverted prose (coverage-verdict:
+  // C-1 (H1 review) — the FROZEN schemas carry French, RR-1-inverted prose (coverage-verdict:
   // "alpha = couverture VISEE"); the projection MUST strip it before the wire. Assert none survives on
   // the frozen-derived subtrees (the output in full; the prediction input). `params` is NOT checked —
   // it is the non-frozen, English, honest gate-parameter schema and keeps its descriptions.

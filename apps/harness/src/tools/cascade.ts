@@ -167,7 +167,7 @@ export function cascadeLiquidable(input: CascadeInput): LiquidableResult {
   // IDENTICAL to `clearing().pPlus`: clearing() computes its pPlus by calling exactly this function
   // (clearing.ts:186) and cascade consumes ONLY L*. Calling fictitiousDefault directly SKIPS the
   // 100000-iteration `clearingFromBelow` least-vector pass clearing() also runs (never read here) —
-  // fictitiousDefault is bounded to <= n rounds (Thm 3.7, clearing.ts:104-108), killing the checkpoint-2
+  // fictitiousDefault is bounded to <= n rounds (Thm 3.7, clearing.ts:104-108), killing the
   // self-DoS: a crafted cyclic/tiny-e system can no longer make cascade burn ~1e9 ops on the event loop.
   const { p: pPlus } = fictitiousDefault(sys);
   const pbar = pbarOf(input.L);

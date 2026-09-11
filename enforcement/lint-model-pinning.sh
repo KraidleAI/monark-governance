@@ -16,7 +16,7 @@
 #   JSON (no comments): list the value in .claude/model-exceptions.txt, one
 #   per line, each line carrying its ADR reference:  advisorModel=fable ADR-0003
 #   (the value must be followed by whitespace or end-of-line: an exception for
-#   `opusplan` never exempts `opus` — boundary proven by fixture, G2 review.)
+#   `opusplan` never exempts `opus` — boundary proven by fixture, independent review.)
 # Known residual limit: values built dynamically (env expansion, scripts) are
 # invisible to a textual linter; the resolution control at first launch
 # (R-1, pass methodology §1.5) remains mandatory and is not replaced by this.

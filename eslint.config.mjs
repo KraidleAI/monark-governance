@@ -16,7 +16,7 @@
 //       that RE-ENABLES them on the tests and bounds the count to the committed ceiling `lint-ratchet.json`.
 //       The list of the 6 rules is the SINGLE SOURCE `lint-ratchet.json` -> no possible divergence
 //       between this config (off) and the ratchet (re-enable/count). Formed pending (D9 ter §3):
-//       typing of the test fixtures, target ceiling 0 before checkpoint 2 of Phase 3.
+//       typing of the test fixtures, target ceiling 0 before a later phase.
 //
 // Installed versions, pinned EXACT (npm registry, R-8):
 //   eslint@10.10.0  ·  typescript-eslint@8.69.0  ·  typescript@6.0.3

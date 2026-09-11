@@ -57,7 +57,7 @@ test("uniqueness_when_e_positive", () => {
 /**
  * Test 21 — "nonexpansive_in_e" (D11 name kept: it names the PROPERTY under examination).
  *
- * SOURCE ↔ IMPLEMENTATION DISCREPANCY, recorded and not smoothed over (R-21). Eisenberg & Noe 2001, Lemma 5
+ * SOURCE ↔ IMPLEMENTATION DISCREPANCY, recorded and not smoothed over. Eisenberg & Noe 2001, Lemma 5
  * (Management Science 47(2), p.244-245, [lu] `_txt/eisenberg2001.txt:614-660`) states that
  * e ↦ p*(e) is "concave, increasing, and nonexpansive" (norm 1, defined p.238, l.198-206).
  * This test:

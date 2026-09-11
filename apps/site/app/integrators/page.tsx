@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "For integrators — MONARK",
   description:
-    "The MONARK fleet, reachable by your agent over HTTP and MCP: four tools, frozen contracts, closed keys, and a reachable endpoint.",
+    "The MONARK fleet, reachable by any MCP-capable agent over streamable HTTP: four tools, a ClawHub skill, frozen contracts, and closed keys.",
 };
 
 // Example SHAPES for the two frozen contracts (MONARK.dc.html apiRequest/apiResponse, L732-733). These
@@ -41,10 +41,14 @@ const apiResponse = {
   reason: "one of 13",
 };
 
-// /integrators (server component) — "For integrators", Specified, not shipped. Design section L426-438
-// (ADR-M004 D15 renamed the design's #/api to /integrators). Renders on the shell mounted by the layout
-// (header/footer NOT re-mounted). The two <pre> blocks are a SINGLE JSON.stringify call each, never a
-// literal JSON string typed in JSX.
+// /integrators (server component) — "For integrators", Built. Design section L426-438 (ADR-M004 D15
+// renamed the design's #/api to /integrators). Renders on the shell mounted by the layout (header/footer
+// NOT re-mounted). The two <pre> contract blocks are a SINGLE JSON.stringify call each, never a literal
+// JSON string typed in JSX. The featured "Add MONARK to your agent" block leads: the skill (ClawHub) and
+// the MCP one-liners; command <pre> use whitespace-pre-wrap + break-words so every character is visible
+// without horizontal scroll, and each command line is digit-free so the honesty lint (test 44) stays
+// green with the commands as JSX text. The MCP client / registry names are distribution channels, not
+// DeFi partner brands (site vocab scope).
 export default function IntegratorsPage() {
   return (
     <main className="mx-auto max-w-[1200px] px-6 pt-16 pb-22">
@@ -60,11 +64,64 @@ export default function IntegratorsPage() {
       <h1 className="mt-3 mb-4 max-w-[820px] font-heading text-[clamp(34px,4.5vw,56px)] font-semibold tracking-[-0.025em] text-balance">
         The fleet, reachable by your agent.
       </h1>
-      <p className="mb-9 max-w-[720px] text-[18px] leading-[1.55] text-muted-foreground">
+      <p className="mb-8 max-w-[760px] text-[18px] leading-[1.55] text-muted-foreground">
         The harness makes the same gate callable over HTTP and MCP — four tools: attest, gate, cascade,
         and calibrate. The contracts are frozen, and the endpoint is reachable now. What you send and what
         you get back will not change without a versioned contract revision.
       </p>
+
+      {/* Featured: add MONARK to your agent — the skill + the MCP endpoint, full width, wrapping. */}
+      <section className="mb-10 rounded-[18px] border border-border bg-card p-6 sm:p-8">
+        <h2 className="font-heading text-[clamp(24px,3vw,34px)] font-semibold tracking-[-0.02em]">
+          Add MONARK to your agent
+        </h2>
+        <p className="mt-3 max-w-[820px] text-[16px] leading-[1.6] text-muted-foreground">
+          <span className="font-medium text-foreground">Compatible with any MCP-capable agent.</span> The
+          endpoint is a standard MCP server over streamable HTTP, so any agent or client that speaks MCP
+          can call the gate as a tool by pointing at the URL. A plain-HTTP mirror serves agents that do
+          not speak MCP.
+        </p>
+        <p className="mt-3 max-w-[820px] text-[16px] leading-[1.6] text-muted-foreground">
+          <span className="font-medium text-foreground">There is also a skill.</span> It packages the
+          endpoint and its usage notes so a runtime can adopt the gate in one step — published on ClawHub
+          as <code className="font-mono text-[14px]">monark</code>.
+        </p>
+
+        <div className="mt-6 flex flex-col gap-4">
+          <div className="rounded-[14px] border border-border bg-soft p-5">
+            <div className="mb-2 font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground">
+              MCP — add the endpoint
+            </div>
+            <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[13px] leading-[1.7] text-foreground">{`hermes mcp add monark --url https://mcp.monarkgate.tech/mcp
+openclaw mcp add monark --url https://mcp.monarkgate.tech/mcp --transport streamable-http`}</pre>
+          </div>
+          <div className="rounded-[14px] border border-border bg-soft p-5">
+            <div className="mb-2 font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground">
+              ClawHub — install the skill
+            </div>
+            <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[13px] leading-[1.7] text-foreground">{`clawhub install monark`}</pre>
+          </div>
+          <div className="rounded-[14px] border border-border bg-soft p-5">
+            <div className="mb-2 font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground">
+              Any other MCP client
+            </div>
+            <p className="m-0 text-[15px] leading-[1.6] text-foreground">
+              Point it at{" "}
+              <code className="select-all break-all font-mono text-[13px]">https://mcp.monarkgate.tech/mcp</code>{" "}
+              (streamable HTTP). Source is open on{" "}
+              <a
+                href="https://github.com/KraidleAI/monark"
+                className="underline underline-offset-4"
+                target="_blank"
+                rel="noreferrer"
+              >
+                GitHub
+              </a>
+              .
+            </p>
+          </div>
+        </div>
+      </section>
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] gap-4">
         <div className="flex flex-col gap-3 rounded-[18px] border border-border bg-card p-6">
@@ -115,43 +172,6 @@ export default function IntegratorsPage() {
           </div>
         </div>
       </div>
-
-      {/* Add MONARK to your agent — the skill on ClawHub + the MCP one-liners for the runtimes. The
-          client/registry names are distribution channels (not DeFi partner brands), and no command
-          carries a digit, so the honesty-lint numeric scan stays green with the commands as JSX text. */}
-      <section className="mt-12">
-        <h2 className="font-heading text-[clamp(24px,3vw,32px)] font-semibold tracking-[-0.02em]">
-          Add MONARK to your agent
-        </h2>
-        <p className="mt-2 mb-5 max-w-[720px] text-[16px] leading-[1.55] text-muted-foreground">
-          The skill is published on ClawHub as{" "}
-          <code className="font-mono text-[14px]">monark</code>, and the gate is reachable over MCP at the
-          endpoint above. Point your runtime at it:
-        </p>
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] gap-3">
-          <div className="rounded-[14px] border border-border p-5">
-            <div className="mb-2 font-mono text-xs text-muted-foreground">MCP — add the endpoint</div>
-            <pre className="m-0 overflow-auto whitespace-pre font-mono text-[12.5px] leading-[1.6] text-foreground">{`hermes mcp add monark --url https://mcp.monarkgate.tech/mcp
-openclaw mcp add monark --url https://mcp.monarkgate.tech/mcp --transport streamable-http`}</pre>
-          </div>
-          <div className="rounded-[14px] border border-border p-5">
-            <div className="mb-2 font-mono text-xs text-muted-foreground">ClawHub — install the skill</div>
-            <pre className="m-0 overflow-auto whitespace-pre font-mono text-[12.5px] leading-[1.6] text-foreground">{`clawhub install monark`}</pre>
-          </div>
-        </div>
-        <p className="mt-4 max-w-[720px] text-[14px] leading-[1.55] text-muted-foreground">
-          Source is open on{" "}
-          <a
-            href="https://github.com/KraidleAI/monark"
-            className="underline underline-offset-4"
-            target="_blank"
-            rel="noreferrer"
-          >
-            GitHub
-          </a>
-          .
-        </p>
-      </section>
     </main>
   );
 }

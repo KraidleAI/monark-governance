@@ -49,7 +49,7 @@ test("clearing_alpha_beta_regression_en", () => {
 
 // Test 37 — NON-UNIQUENESS negative control, Ex. 3.3 (P-K4-1 Q2): e=(1,1), α=β=½, L̄=(2.2,2.2).
 //
-// ORACLE DISCREPANCY ACKNOWLEDGED AND DEMONSTRATED (R-21): ADR-M003 D6.3, the mission brief and P-K4-1 Q2
+// ORACLE DISCREPANCY ACKNOWLEDGED AND DEMONSTRATED: ADR-M003 D6.3, the mission brief and P-K4-1 Q2
 // write the largest vector "(2,2.2)". It is a TYPO for (2.2,2.2): (2,2.2) is not a
 // fixed point of Φ under ANY α (`notDeepEqual` assertions below), and (1,1) being the smaller forces
 // π₁₂=π₂₁=1 so the largest = (2.2,2.2). This test asserts the MATHEMATICALLY correct values

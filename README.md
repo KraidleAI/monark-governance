@@ -22,7 +22,7 @@ labels below are the point: they say what exists today and what is only named.
 
 ### The fleet
 
-Built (Phase 1 closed under independent G2 review + G7 verdict):
+Built (Phase 1 closed under independent review and a closing verdict):
 
 - **Shōgen** — attested perception (verified price testimony)
 - **Hikae** — coverage-controlled inference (the gate)
@@ -82,10 +82,9 @@ Both Shōgen (doc 03 §0: no truth/confidence/"validated") and Hikae (`hac-cp.ts
 ## Status
 
 **Phase 2 — integration.** Phase 0 (contract freeze) and Phase 1 (Hikae + Ukemi engines) are
-**closed** under an independent G2 review and a G7 verdict
-(`docs/adr/ADR-M001..ADR-M003`, `docs/G7-phase1.md`). Governance is versioned in a **private**
-repository; the public projection of this repo is produced by `scripts/export-public.mjs` and is
-**gated per lot** — nothing is published before its acceptance checkpoint (ADR-M004 D12).
+**closed** under an independent review and a closing verdict
+(`docs/adr/ADR-M001..ADR-M003`). Governance is maintained privately; the public projection of this
+repo is produced by `scripts/export-public.mjs`.
 
 ## Run the gates
 

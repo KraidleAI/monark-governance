@@ -7,7 +7,7 @@
  * It stands the harness up in-process on a real `127.0.0.1` ephemeral listener (`startServer`) and
  * drives the REAL MCP `tools/call` path over the streamable-HTTP transport (an actual JSON-RPC request
  * over the socket, NOT a `tool.run()` call) plus the HTTP/JSON mirror (`api.` Host) — closing the
- * deferred "seam SDK tools/call" residual named in docs/G2-lot-h3.md. `buildTrace()` returns the
+ * deferred "seam SDK tools/call" residual from an earlier lot. `buildTrace()` returns the
  * captured chain; the ephemeral port is DELIBERATELY not recorded so the trace is reproducible.
  *
  * `mcpToolsCall` is the ANTI-MOCK SEAM: the probe's test-chosen perturbation drives it too, so a mutant
@@ -253,8 +253,8 @@ export async function buildTrace(): Promise<H5Trace> {
         worker_model: "claude-opus-4-8",
         effort: "max",
         date: "2026-09-11",
-        grounding: "ADR-M005 H5 / C-6; docs/PLAN-harnais-lot.md H5",
-        reviewer: "G2 fresh reviewer + G7 committer: claude-opus-4-8 (Opus-seat); verdict in docs/JOURNAL-PROVENANCE.md + docs/G2-lot-h5.md",
+        grounding: "ADR-M005 H5 / C-6",
+        reviewer: "Independently reviewed and recorded before commit.",
       },
       transport: {
         mcp: "MCP streamable-HTTP via createMcpHandler (SDK modelcontextprotocol server 2.0.0); a real JSON-RPC tools/call over a 127.0.0.1 socket; the response is framed as text/event-stream.",
@@ -271,7 +271,7 @@ export async function buildTrace(): Promise<H5Trace> {
         attest: "demonstrative, not probative: a projection of ONE committed, previously Shōgen-verified witness (Binance BTCUSDT, self-notarised); the verifier is not executed at call time.",
         vocabulary: "no overclaim: this trace states no correctness or coverage claim and uses no forbidden vocabulary.",
       },
-      closes: "H5 closes the deferred residual 'seam SDK tools/call (gate/cascade/attest not exercised via createHarnessHandler)' recorded in docs/G2-lot-h3.md: these tools/call steps are real JSON-RPC over the streamable-HTTP transport, not tool.run() calls.",
+      closes: "H5 closes the deferred residual 'seam SDK tools/call (gate/cascade/attest not exercised via createHarnessHandler)' from an earlier lot: these tools/call steps are real JSON-RPC over the streamable-HTTP transport, not tool.run() calls.",
       steps,
       observed: {
         cascade_yhat: field(cascadePrediction, "yhat"),

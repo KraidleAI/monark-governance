@@ -60,9 +60,9 @@ const LAYERS: {
     n: <>Layer three</>,
     name: <>Harness &mdash; reachable by other agents</>,
     what: <>The same fleet made reachable by other agents over HTTP or MCP.</>,
-    detail: <>contracts frozen &middot; endpoint to be announced</>,
-    maturity: <>Specified, not shipped</>,
-    maturityTone: "border-line text-ink2",
+    detail: <>contracts frozen &middot; public MCP endpoint &middot; four tools &middot; skill on ClawHub</>,
+    maturity: <>Built</>,
+    maturityTone: "border-hikae-t text-hikae-t",
   },
   {
     id: "company",
@@ -77,9 +77,9 @@ const LAYERS: {
 
 // The three phase cards (design L349-351). The design's "dates appear only where a phase has closed"
 // intro line is cut — no card renders a date, so it under-delivers (F-site-7: cut superfluous defensive
-// copy). "Phase 0/1/2" is reformulated to words; the phase-one body drops the literal "G2 review / G7
-// verdict" (the 2 and 7 would red test 44 — no G\d in ALLOWED_ID) for "closed under independent review
-// and a closing verdict" (the phrasing already used in the Built section below).
+// copy). "Phase 0/1/2" is reformulated to words; the phase-one body uses "closed under independent
+// review and a closing verdict" rather than internal gate labels (whose digits would red test 44 —
+// no G\d in ALLOWED_ID; the phrasing already used in the Built section below).
 const PHASES: { id: string; label: ReactNode; body: ReactNode; tone: string }[] = [
   {
     id: "freeze",
