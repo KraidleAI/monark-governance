@@ -14,7 +14,7 @@
 //   - CI job g4 = `npm run lint && npm run lint:ratchet` (the general-purpose lint first).
 //
 // Formed pending (D9 ter §3): type the fixtures (parse + typed ajv validation), one lot per package
-// (S, I, K), target ceiling 0 before checkpoint 2 of Phase 3. Any decrease lowers the ceiling.
+// (S, I, K), target ceiling 0 before a later phase. Any decrease lowers the ceiling.
 import { ESLint } from "eslint";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";

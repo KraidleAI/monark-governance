@@ -8,7 +8,7 @@
 //
 //   node scripts/record-byo-demo.mjs
 //
-// The agent does NOT commit (R-20); the orchestrator commits the produced fixture + provenance.
+// Regenerate the committed fixture + provenance from source; never hand-edit.
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { buildByoTrace, sha256Lf } from "../test/byo-demo-builder.ts";

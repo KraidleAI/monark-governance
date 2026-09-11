@@ -7,8 +7,7 @@
     "effort": "high",
     "date": "2026-09-11",
     "grounding": "ADR-M006 D10; the BYO loop of skills/monark/SKILL.md",
-    "worktree": "Monark-wt-m006c (branch lot-m006-3)",
-    "reviewer": "G2 fresh reviewer + G7 committer (Opus-seat), claude-opus-4-8; the verdict and closure are recorded by the orchestrator (R-20). The agent does not commit as itself."
+    "reviewer": "Independently reviewed and recorded before commit."
   },
   "transport": {
     "mcp": "MCP streamable-HTTP via createMcpHandler (SDK modelcontextprotocol server 2.0.0); a real JSON-RPC tools/call over a 127.0.0.1 socket; the response is framed as text/event-stream.",

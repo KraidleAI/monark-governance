@@ -211,7 +211,7 @@ function countingMatrix(base: readonly (readonly number[])[]): { L: readonly (re
 }
 
 // Test — cascade obtains L* from the BOUNDED `fictitiousDefault` (<= n rounds), NEVER paying for the
-// 100000-iteration `clearingFromBelow` least-vector pass. This is the checkpoint-2 self-DoS fix (Lot H7):
+// 100000-iteration `clearingFromBelow` least-vector pass. This is the self-DoS fix:
 // under the OLD path (`clearing(sys)`), a crafted request valid under every H6 cap makes the harness burn
 // ~1e9 ops (~7 s measured) on the single-threaded event loop per ~10 KB request.
 //

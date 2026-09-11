@@ -14,7 +14,7 @@
  *                      `$id`; the annotation strip keeps the FROZEN schemas' French / RR-1-inverted prose
  *                      (e.g. coverage-verdict's "alpha = couverture VISEE") OFF the MCP wire, on an
  *                      English-only external surface — the frozen bytes on disk are untouched (C-1,
- *                      checkpoint-2 H1; "frozen != honest", RR-2). Position-aware: keys INSIDE a
+ *                      the H1 review; "frozen != honest", RR-2). Position-aware: keys INSIDE a
  *                      subschema map (`properties`/`$defs`/…) are property NAMES, never annotations, so a
  *                      contract with a property literally named `description` survives.
  *   (2) `derefVerdict` — the frozen `GateDecision` carries `verdict: { $ref:
