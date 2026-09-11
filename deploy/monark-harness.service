@@ -12,7 +12,7 @@
 # port. No secret, no environment: the harness reads only committed fixtures/schemas and listens on
 # loopback (defense in depth for `no_secret_in_repo`).
 [Unit]
-Description=MONARK harness - stateless MCP + HTTP/JSON mirror (attest, gate, cascade)
+Description=MONARK harness - stateless MCP + HTTP/JSON mirror (attest, gate, cascade, calibrate)
 Documentation=https://github.com/KraidleAI/monark
 After=network-online.target
 Wants=network-online.target

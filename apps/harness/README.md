@@ -1,8 +1,9 @@
 # @monark/harness
 
 A **stateless MCP server** (plus a **HTTP/JSON mirror**, Lot H4) that exposes the real engine primitives
-— the HIKAE `gate`, the UKEMI `cascade`, and the Shōgen `attest` — as callable tools. This document
-details the `gate` tool; the mirror and deployment are covered at the end.
+— the HIKAE `gate`, the UKEMI `cascade`, the Shōgen `attest`, and the HIKAE BYO `calibrate` (Lot C1,
+ADR-M007) — as callable tools. This document details the `gate` tool; the mirror and deployment are
+covered at the end.
 No stand-in: the `gate` tool composes the actual `@monark/hikae` policy (`conformalSet` / `conformInterval`
 → `buildVerdict` → `gate()`) and returns a **frozen, closed `GateDecision`** (`@monark/contracts`).
 Free, pure, no persistence, no trading (ADR-M005 D1). Transport: MCP Streamable HTTP via
@@ -83,12 +84,13 @@ The listener starts only when `src/server.ts` is run directly; importing the mod
 ## HTTP/JSON mirror & deployment (Lot H4)
 
 One `127.0.0.1:3001` listener serves two surfaces, routed by Host: `mcp.monarkgate.tech` → the MCP tools
-above; `api.monarkgate.tech` → a plain-JSON mirror of the **same** three tools and the **same** frozen
+above; `api.monarkgate.tech` → a plain-JSON mirror of the **same** four tools and the **same** frozen
 schemas.
 
-- `POST /gate`, `POST /cascade`, `POST /attest` — JSON body in, `{ structuredContent, content }` out
-  (`structuredContent` is the frozen contract; the honesty text rides in `content`, K-1). A body that
-  fails the frozen schema, or a tool refusal, is a `4xx`, never a silent result.
+- `POST /gate`, `POST /cascade`, `POST /attest`, `POST /calibrate` — JSON body in,
+  `{ structuredContent, content }` out (`structuredContent` is the frozen contract for gate/cascade, the
+  K-1 envelope for attest/calibrate; the honesty text rides in `content`, K-1). A body that fails the
+  frozen schema, or a tool refusal, is a `4xx`, never a silent result.
 - `GET /openapi.json` — the OpenAPI 3.1 spec, **derived** from the frozen schemas (never hand-written).
 - `GET /health` — liveness plus the operation list.
 - The Origin guard (K-9) and the `127.0.0.1` bind apply to **both** surfaces.

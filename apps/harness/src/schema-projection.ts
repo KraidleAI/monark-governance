@@ -34,6 +34,9 @@ import type { JsonSchemaType, StandardSchemaWithJSON } from "@modelcontextprotoc
 // (this module -> cascade -> gate -> calibration; none import back here). cascade.ts does no I/O, so
 // importing it here does not move any filesystem read out of this module (the K-8 boundary is intact).
 import { CASCADE_MAX_NODES } from "./tools/cascade.ts";
+// Lot C1 resource cap: the single source for the calibrate score bound lives in the pure tool file
+// (motif CASCADE_MAX_NODES). No cycle (this module -> calibrate; calibrate does no I/O, imports no schema).
+import { CALIBRATE_MAX_N } from "./tools/calibrate.ts";
 
 /** A JSON value (no `any`; keeps the type-checked linter happy end-to-end). */
 export type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
@@ -212,3 +215,53 @@ export const ATTEST_OUTPUT_SCHEMA: JsonObject = {
 /** SDK Standard Schemas for the attest tool (`registerTool` arguments). */
 export const attestInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(ATTEST_INPUT_SCHEMA as unknown as JsonSchemaType);
 export const attestOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(ATTEST_OUTPUT_SCHEMA as unknown as JsonSchemaType);
+
+// ---------------------------------------------------------------------------- calibrate (Lot C1, D2/D3/D8)
+
+/**
+ * calibrate INPUT (ADR-M007 D2): the NON-frozen BYO score array plus `alpha` and `nMin`. Declared HERE,
+ * never in schemas/ — the gate `params` / cascade-input / attest-envelope precedent. `maxItems` bounds the
+ * score count at the SDK boundary (motif CASCADE_MAX_NODES), the first line of the fail-closed cap that
+ * `runCalibrate` also enforces below the boundary (belt-and-suspenders).
+ */
+export const CALIBRATE_INPUT_SCHEMA: JsonObject = {
+  type: "object",
+  additionalProperties: false,
+  required: ["scores", "alpha", "nMin"],
+  properties: {
+    scores: {
+      type: "array",
+      description: "Caller-supplied nonconformity scores (BYO: the caller owns the score function; MONARK stays agnostic).",
+      maxItems: CALIBRATE_MAX_N, // Lot C1 resource cap: bound the score count at the SDK boundary.
+      items: { type: "number" },
+    },
+    alpha: { type: "number", description: "Target miscoverage in the open interval (0,1)." },
+    nMin: { type: "integer", description: "Minimum calibration count (>= 1); n < nMin fails closed to under_calib." },
+  },
+};
+
+/**
+ * calibrate OUTPUT (ADR-M007 D3, NON-frozen envelope, investor decision "flexible, freeze after C2"): declared
+ * HERE, never in schemas/. `reason` is IN the schema (M-5) so `additionalProperties:false` accepts the
+ * fail-closed shape; `qhat` is nullable (number on success, null on under_calib). `label` is the K-1
+ * honesty carrier (outside any frozen contract, like attest's envelope `label`). `set_digest` is the
+ * 64-hex `calibDigest`.
+ */
+export const CALIBRATE_OUTPUT_SCHEMA: JsonObject = {
+  type: "object",
+  additionalProperties: false,
+  required: ["qhat", "n", "alpha", "method", "set_digest", "label", "reason"],
+  properties: {
+    qhat: { type: ["number", "null"], description: "The conformal quantile q̂, or null when the calibration is insufficient (fail-closed)." },
+    n: { type: "integer", description: "The number of supplied scores (echoed)." },
+    alpha: { type: "number", description: "The target miscoverage (echoed)." },
+    method: { const: "split", description: "The conformal method — always split." },
+    set_digest: { type: "string", pattern: "^[0-9a-f]{64}$", description: "calibDigest(scores): recalculable by reference; the audit tie to verdict.calib_digest (C2)." },
+    label: { type: "string", description: "Honesty label (K-1): the marginal coverage holds only under exchangeability with the supplied scores." },
+    reason: { type: ["string", "null"], description: "under_calib when q̂ is null, else null on success." },
+  },
+};
+
+/** SDK Standard Schemas for the calibrate tool (`registerTool` arguments). */
+export const calibrateInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(CALIBRATE_INPUT_SCHEMA as unknown as JsonSchemaType);
+export const calibrateOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(CALIBRATE_OUTPUT_SCHEMA as unknown as JsonSchemaType);

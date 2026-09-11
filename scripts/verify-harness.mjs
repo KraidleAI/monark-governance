@@ -10,7 +10,7 @@
 // so the JSON mirror is reachable against a local `http://127.0.0.1:3001` target too (fetch cannot set the
 // Host header, so a local fetch would carry `Host: 127.0.0.1` and miss the `api.` mirror route). It checks
 // the endpoint — /health, /openapi.json (the live twin of test 43), a present-and-invalid Origin -> 403 on
-// BOTH hosts, MCP tools/list returns the three tools, a REAL gate/cascade/attest call, and — for an https
+// BOTH hosts, MCP tools/list returns the four tools, a REAL gate/cascade/attest/calibrate call, and — for an https
 // `--api` ONLY — the TLS certificate (issuer, expiry); an http `--api` (plain/local) SKIPS the TLS check.
 // Then writes the CA
 //   { url, mcp_url, checked_at, checks:[{ name, ok, status, sha256 }], tls:{ issuer, valid_to, authorized } | { skipped } }
@@ -26,16 +26,34 @@ import { fileURLToPath } from "node:url";
 
 const DEFAULT_API = "https://api.monarkgate.tech";
 const DEFAULT_MCP = "https://mcp.monarkgate.tech";
-const TOOLS = ["gate", "cascade", "attest"];
+// The TERMINAL tool set (ADR-M007, set 3→4): checks assert SET EQUALITY against this, not a subset — a
+// dropped OR a stray tool reddens (B-2, motif registry.test.ts:55).
+const TOOLS = ["gate", "cascade", "attest", "calibrate"];
 
-// Same fixture shapes the harness tests use (a real, non-abstain btc-dir decision; a 2-node cascade).
+// Same fixture shapes the harness tests use (a real, non-abstain btc-dir decision; a 2-node cascade;
+// a calibrate call whose n=10 >= nMin and p=⌈11·0.9⌉=10 <= n yields a numeric q̂).
 const GATE_BODY = {
   prediction: { schema_version: "1.0.0", task_class: "btc-dir-15m", yhat: "up", predictor_id: "internal:momentum-4c", produced_at: "2026-09-04T00:00:00Z" },
   params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: "up", tool: "perps_order_preview", clockOpen: true },
 };
 const CASCADE_BODY = { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" };
+const CALIBRATE_BODY = { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], alpha: 0.1, nMin: 5 };
 
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
+/** Set equality (order-independent): the two arrays carry EXACTLY the same members (B-2, no subset). */
+const sameSet = (a, b) => a.length === b.length && [...a].sort().join(",") === [...b].sort().join(",");
+/** Extract the tool names from an MCP `tools/list` response (SSE-framed or plain JSON). */
+const mcpToolNames = (text) => {
+  const j = parseJson(text);
+  if (j && Array.isArray(j.result?.tools)) return j.result.tools.map((t) => t && t.name).filter((n) => typeof n === "string");
+  // SSE-framed: pull the `data:` line and parse its JSON-RPC envelope.
+  const dataLine = text.split(/\r?\n/).find((l) => l.startsWith("data:"));
+  if (dataLine) {
+    const env = parseJson(dataLine.slice("data:".length).trim());
+    if (env && Array.isArray(env.result?.tools)) return env.result.tools.map((t) => t && t.name).filter((n) => typeof n === "string");
+  }
+  return null;
+};
 const jsonInit = (body) => ({ method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
 function parseArgs(argv) {
@@ -145,13 +163,13 @@ async function main() {
   checks.push(await wiredCheck("health", `${api}/health`, { method: "GET" }, apiHostHeader, (res, text) => {
     const j = parseJson(text);
     const ops = j && Array.isArray(j.operations) ? j.operations : [];
-    return { ok: res.status === 200 && TOOLS.every((n) => ops.includes(n)), detail: `operations=${ops.join(",")}` };
+    return { ok: res.status === 200 && sameSet(ops, TOOLS), detail: `operations=${ops.join(",")}` };
   }));
 
   checks.push(await wiredCheck("openapi", `${api}/openapi.json`, { method: "GET" }, apiHostHeader, (res, text) => {
     const j = parseJson(text);
     const paths = j && j.paths ? Object.keys(j.paths) : [];
-    return { ok: res.status === 200 && ["/gate", "/cascade", "/attest"].every((p) => paths.includes(p)), detail: `paths=${paths.join(",")}` };
+    return { ok: res.status === 200 && sameSet(paths, TOOLS.map((t) => `/${t}`)), detail: `paths=${paths.join(",")}` };
   }));
 
   // api surface: WIRED so the evil-Origin POST actually reaches the api. mirror (Host set explicitly).
@@ -171,7 +189,10 @@ async function main() {
     method: "POST",
     headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
-  }, (res, text) => ({ ok: res.status === 200 && TOOLS.every((n) => text.includes(`"${n}"`)), detail: `status=${res.status}` })));
+  }, (res, text) => {
+    const names = mcpToolNames(text);
+    return { ok: res.status === 200 && names !== null && sameSet(names, TOOLS), detail: names ? `tools=${names.join(",")}` : `status=${res.status}` };
+  }));
 
   checks.push(await wiredCheck("gate_call", `${api}/gate`, jsonInit(GATE_BODY), apiHostHeader, (res, text) => {
     const j = parseJson(text);
@@ -190,6 +211,17 @@ async function main() {
     const j = parseJson(text);
     const label = j && j.structuredContent && typeof j.structuredContent.label === "string" ? j.structuredContent.label : "";
     return { ok: res.status === 200 && label.includes("demonstrative"), detail: label.slice(0, 60) };
+  }));
+
+  // calibrate (Lot C1): a REAL BYO call returns a numeric q̂ AND carries the exchangeability label —
+  // NOT "demonstrative" (calibrate computes; it is not a replayed witness like attest, ADR-M007 D5).
+  checks.push(await wiredCheck("calibrate_call", `${api}/calibrate`, jsonInit(CALIBRATE_BODY), apiHostHeader, (res, text) => {
+    const j = parseJson(text);
+    const sc = j ? j.structuredContent : null;
+    const label = sc && typeof sc.label === "string" ? sc.label : "";
+    const ok = res.status === 200 && sc !== null && typeof sc.qhat === "number"
+      && label.includes("exchangeable") && !label.includes("demonstrative");
+    return { ok, detail: sc ? `qhat=${String(sc.qhat)}` : "no body" };
   }));
 
   // TLS only makes sense for an https target; an http `--api` (plain/local) SKIPS it (never a false fail).

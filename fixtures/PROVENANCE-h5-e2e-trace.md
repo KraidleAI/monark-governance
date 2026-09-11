@@ -48,13 +48,20 @@ These statements live in the trace's `honesty` block and are re-asserted by
 
 - The tools read no clock (`produced_at`/`producedAt` are caller-carried); the ephemeral port is
   intentionally NOT recorded. Re-running the recorder reproduces the file byte-for-byte.
-- **sha256 (LF-normalized)**: `8213c631d975cf6a357814a1faba35c1c14b66c985fc1f9b0dbc48ad8a5406ef`
-  (15624 bytes). `.gitattributes` normalizes to `eol=lf`, so this digest survives commit; the probe
+- **sha256 (LF-normalized)**: `aed272a901489bb23ab9ecad1f968243b0f00543516ff6c2b93cf352e8234c23`
+  (15647 bytes). `.gitattributes` normalizes to `eol=lf`, so this digest survives commit; the probe
   LF-normalizes before hashing, so it also survives a CRLF checkout. This value is pinned as
   `TRACE_SHA256_PINNED` in `test/h5-e2e-probe.test.ts`.
+- **Re-pin (2026-09-11, Lot C1)**: the set-terminal 3→4 expansion (`+calibrate`, ADR-M007) grew the MCP
+  `tools/list` result — the trace's compacted `names` array now carries `calibrate` and the `response_sha256`
+  covers a 4-tool list — so the trace was regenerated and the whole-file digest moved `8213c631…` →
+  `aed272a9…` (above), 15624 → 15647 bytes. The recorded `cascade`/`gate`/`attest` `tools/call` results and
+  `yhat` are UNCHANGED (calibrate is not driven in the demo chain, C-6); only the `tools/list` step and the
+  file digest moved. Byte-reproducible: three consecutive recorder runs printed the identical LF sha256.
+  Regenerate, never hand-edit: `node scripts/record-h5-e2e-trace.mjs`.
 - **Re-pin (2026-09-11, Lot H6)**: the H6 cascade input bound (`maxItems` on `L`/`e`) changed the `tools/list`
   `inputSchema` wire bytes — exactly ONE line of this trace (`tools/list` `response_sha256`) — so the trace was
-  regenerated and the whole-file digest moved `2a81509a…` → `8213c631…` (above). cascade/gate/attest results and
+  regenerated and the whole-file digest moved `2a81509a…` → `8213c631…`. cascade/gate/attest results and
   `yhat` are unchanged; Lot H7 (cascade → `fictitiousDefault`) preserved `yhat` byte-for-byte, so it did NOT
   re-pin. Regenerate, never hand-edit: `node scripts/record-h5-e2e-trace.mjs`.
 

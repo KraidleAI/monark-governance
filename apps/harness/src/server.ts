@@ -7,7 +7,7 @@
  *
  * TWO surfaces on the ONE `127.0.0.1:3001` listener, routed by Host (Caddy fronts both sub-domains ->
  * this port, D7/D10): `mcp.monarkgate.tech` -> the MCP handler (below); `api.monarkgate.tech` -> the
- * HTTP/JSON mirror (`./http.ts`), a byte-faithful JSON mirror of the same three tools / frozen schemas.
+ * HTTP/JSON mirror (`./http.ts`), a byte-faithful JSON mirror of the same four tools / frozen schemas.
  * Host validation is OPT-IN in the SDK via `enableDnsRebindingProtection` — it defaults to `false`
  * (`@modelcontextprotocol/server@2.0.0/dist/index.mjs:333`) and `validateRequestHeaders` returns early
  * when it is disabled (`:390`); the harness does not enable it, so the SDK performs NO Host check. Passing

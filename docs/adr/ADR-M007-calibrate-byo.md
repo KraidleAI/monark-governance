@@ -1,0 +1,85 @@
+# ADR-M007 — `calibrate` BYO : 4ᵉ outil pur (quantile conforme apporté par l'appelant)
+
+> **Statut** : **accepté / en vigueur** (2026-09-11). checkpoint-1 validateur `claude-fable-5-1` **ACCEPTE-AVEC-CORRECTIONS** (grounding code confirmé 5/5, corrections B-1..B-7 + M-1..M-7 intégrées) ; **investisseur a ratifié les 2 escalades** (2026-09-11 : set terminal 3→4 « Oui, 4 outils permanents » ; sortie `calibrate` « souple, figer après C2 »).
+> **Amende** ADR-M005 **D1** (périmètre MVP = 3 outils) + **D9(b)** (« set EXACT `{attest,gate,cascade}` = état TERMINAL ») → set terminal **3→4 (`+calibrate`)**. L'amendement est porté dans M005 par l'**Addendum D14** daté, dans le même commit que le changement de set (évolution par ADR, pas dérogation R-22 ; motif D9-bis M001).
+> **Roster** : workers `claude-opus-4-8` effort high (amendement 2026-09-11) ; orchestrateur/validateur `claude-fable-5-1` ; Opus 5 banni. Siège committeur `claude-opus-4-8` (exception Opus-seat).
+> **S'appuie sur** : ADR-M002 (HIKAE L1 `splitQuantile`), ADR-M001 (`calibDigest` C5), et l'endpoint LIVE (déployé 2026-09-11, CA `docs/deploy-CA-harness.json`).
+
+## 1. Contexte
+
+### 1.1 Demande investisseur (E-3, ratifiée)
+À l'`AskUserQuestion` « construire `calibrate` BYO d'abord, ou les skills d'abord ? », l'investisseur a tranché **`calibrate` BYO d'abord** (« pas droit à l'erreur, MVP fonctionnel/abouti »). BYO = *Bring Your Own predictor* : un agent tiers **calibre le gate sur SON propre prédicteur** — il apporte ses scores de non-conformité + α, MONARK rend le quantile conforme q̂ ; puis (lot C2) il porte ce q̂ dans `gate` pour une décision couverte sur SON modèle. C'est le passage démo (calibration synthétique committée) → produit appelable sur les données de l'appelant (« MVP abouti »). Le passage du set terminal 3→4 et le choix « sortie non gelée » ont été **ratifiés par l'investisseur le 2026-09-11**.
+
+### 1.2 Grounding code ([lu], confirmé par le validateur au checkpoint-1, fichier:ligne)
+- **`packages/hikae/src/l1-split.ts:30-43`** — `splitQuantile(scores, alpha, nMin)` est la SEULE implémentation de quantile conforme du dépôt, **agnostique au score**, **déjà fail-closed** : `n<nMin`⇒`under_calib` (:36), `p=⌈(n+1)(1−α)⌉ > n`⇒`under_calib` (:37-38), jamais un q̂ silencieusement clampé. Garantie déclarée en en-tête (:4-5) : « marginale, échantillon fini, SOUS échangeabilité dans la classe κ ; PAS de couverture conditionnelle ; JAMAIS `p_correct` ».
+- **`apps/harness/src/tools/gate.ts:34,120,155`** — `gate` calcule q̂ **en interne** sur une calibration committée par `task_class` (`BTC_DIR_CALIB`) ; `HarnessParams` (:57-67) ne porte NI scores NI q̂. ⇒ **`calibrate` seul produit un q̂ que rien ne consomme ; le lot C2 est requis** pour la boucle BYO.
+- **`packages/contracts/src/calib-digest.ts:14-30`** — `calibDigest(scores)` = `hex(SHA-256(concat float64_be des scores triés ↑))`, jette sur non-fini, normalise −0. **Le verdict du gate porte déjà `calib_digest`** ⇒ à réutiliser (B-7) pour que l'audit `calibrate`↔`verdict.calib_digest` ferme en C2.
+- **`packages/hikae/src/region.ts:44-54`** — `buildIntervalRegion(lo,hi)` : bornes non-finies⇒`under_calib` ; **`lo>hi`⇒THROW** (Error nu). ⇒ un q̂ négatif en mode `interval` (C2) casserait (contrainte B-6).
+- **`apps/harness/src/schema-projection.ts:99-164,182-210`** — la surface **non gelée** est déclarée ICI (jamais dans `schemas/`) : `PARAMS_SCHEMA`, `CASCADE_INPUT_SCHEMA` (`maxItems: CASCADE_MAX_NODES` importé de `tools/cascade.ts:36`), enveloppe K-1 `attest` (`price` gelé projeté + `provenance`/`label` hors contrat). **C'est le précédent exact de `calibrate`.**
+- **`apps/harness/src/http.ts:36,88-91`** — `TOOL_ERROR_NAMES = {HarnessToolError, CascadeToolError, AttestToolError}` ⇒ une erreur `calibrate` hors de ce set sort en **500**, pas 400 (correction B-1). L'input est validé au schéma projeté (:78) ⇒ `maxItems` rejette le sur-cap en 400 au bord.
+- **`scripts/verify-harness.mjs:29,148,154,174`** — `TOOLS=["gate","cascade","attest"]` ; les checks `health`/`mcp_tools_list` sont en `every` (sous-ensemble) et `openapi` en paths **codés en dur** `["/gate","/cascade","/attest"]` ⇒ resteraient VERTS à 3 OU 4 outils (correction B-2).
+- **Set terminal enforced** : `registry.ts:28` `ALLOWED_TOOL_NAMES` + commentaires « TERMINAL » (:7-11,50-51,98) ; `test/registry.test.ts:55` `deepEqual(..., ["attest","cascade","gate"])`. La trace e2e `fixtures/h5-e2e-trace.json` capture `tools/list` (grandit ⇒ re-pin), scannée par `test/h5-e2e-probe.test.ts:148` avec les patterns harness (⇒ collision vocab, correction B-3).
+
+## 2. Décisions
+
+### D0 — Nature : 4ᵉ outil PUR, gratuit, sans état ; expansion RATIFIÉE
+`calibrate` est **pur** (K-8 : aucun `node:fs`/`node:net`/`node:child_process`/`fetch`/`process.env`, aucune horloge) et **expose `splitQuantile`** sur des scores apportés par l'appelant. Gratuit. **Aucune monétisation, aucune déplétion** (M005 D6 : MONARK ne stocke rien, l'appelant porte q̂ comme il porte B_t). Set terminal `{attest,gate,cascade}` → `{attest,gate,cascade,calibrate}` — **ratifié investisseur**, porté par cet ADR + Addendum D14 daté dans M005 (B-4), tous les points de contact du set dans le **même commit** (évolution par ADR).
+
+### D1 — Deux lots, découpe par ORACLES SÉPARABLES
+Découpe justifiée par **l'indépendance des oracles de vérification** (pas par le débit ni par le budget) : C1 vérifie set/schéma/vocab/quantile/fail-closed ; C2 vérifie région conforme + politique L3 + audit digest. (R-25 : H4 a atteint 94 % du plafond 1205 — contrainte réelle, mais non le motif de la découpe.)
+- **C1** = cet ADR (matérialisé) + Addendum D14 (M005) + `calibrate` PUR + tous les points de contact D8 + corrections déploiement D8bis. `calibrate` seul = **outil de transparence honnête** (un tiers recalcule le q̂ que MONARK calculerait) — **jamais public seul** : le redéploiement n'a lieu qu'après C2 (D1), donc la découpe est une découpe de **vérification**, pas de livraison.
+- **C2** = `gate` **consomme** une calibration apportée par l'appelant (boucle BYO, D7).
+Chaque lot : worker `claude-opus-4-8` (effort high) → **G2 fraîche ≠ générateur** → R-21 orchestrateur → PR + CI + merge. **Redéploiement après C2** (git archive + `/opt/monark-harness-redeploy.sh`, redémarrage stateless ≈ quelques centaines de ms de 502 attendues) → **nouvelle CA à 4 outils** → journal.
+
+### D2 — `calibrate` INPUT (non gelé, `schema-projection.ts`, motif cascade)
+`CALIBRATE_INPUT_SCHEMA = { type:"object", additionalProperties:false, required:["scores","alpha","nMin"], properties:{ scores:{type:"array", items:{type:"number"}, maxItems:CALIBRATE_MAX_N}, alpha:{type:"number"}, nMin:{type:"integer"} } }`. Une constante **`CALIBRATE_MAX_N`** (déclarée dans `tools/calibrate.ts`, motif `CASCADE_MAX_NODES`) + garde fail-closed `n>cap`⇒`CalibrateToolError`. **BYO au niveau SCORE** (E-M007-2) : l'appelant possède SA fonction de non-conformité et apporte le tableau ; MONARK reste **agnostique** (classification, régression, tout montage conforme).
+
+### D3 — `calibrate` OUTPUT (enveloppe K-1 **NON gelée** — décision investisseur)
+`CALIBRATE_OUTPUT_SCHEMA = { type:"object", additionalProperties:false, required:["qhat","n","alpha","method","set_digest","label","reason"], properties:{ qhat:{type:["number","null"]}, n:{type:"integer"}, alpha:{type:"number"}, method:{const:"split"}, set_digest:{type:"string", pattern:"^[0-9a-f]{64}$"}, label:{type:"string"}, reason:{type:["string","null"]} } }`.
+- **M-5** : `reason` DANS le schéma (sinon `additionalProperties:false` rejette la sortie fail-closed) ; `qhat` nullable.
+- **B-7** : `set_digest = calibDigest(scores)` **importé de `@monark/contracts`**, JAMAIS ré-implémenté (ferme l'audit `calibrate`↔`verdict.calib_digest` en C2).
+- Fail-closed ⇒ `qhat:null`, `reason:"under_calib"` ; succès ⇒ `reason:null`.
+- **NON gelé** (investisseur « souple, figer après C2 ») : déclaré dans `schema-projection.ts` comme l'enveloppe `attest`. Le gel éventuel (`schemas/calibrate-result.schema.json`) est **reporté à la fin de C2**, quand la forme de consommation par `gate` sera connue — **pendant formé, owner C2**.
+
+### D4 — Fail-closed (hérité de `splitQuantile`, re-déclaré)
+`n<nMin`⇒`under_calib` (`qhat:null`) ; `⌈(n+1)(1−α)⌉>n`⇒`under_calib` (**JAMAIS clampé au score max**) ; `α∉(0,1)`⇒`CalibrateToolError` ; score non fini⇒`CalibrateToolError` (validé AVANT `calibDigest`, pour un message d'outil et non l'`Error` nu de calibDigest) ; `n>CALIBRATE_MAX_N`⇒`CalibrateToolError` (+ `maxItems` au bord SDK). **Aucun succès silencieux.**
+
+### D5 — Honnêteté K-1 : l'échangeabilité DÉCLARÉE ; garde à 3 porteurs ; vocab négation-aware
+**Label** (hors tout contrat gelé), porté aux **3 porteurs** (description de l'outil + `content` MCP + `label` de sortie — motif H3 OBS-2, correction B-5), en anglais :
+> « split-conformal quantile at miscoverage α over caller-supplied nonconformity scores. MONARK does not see, store, or verify the caller's data or model, and does not validate that the supplied numbers are nonconformity scores of any model. Marginal 1−α coverage holds ONLY for future points exchangeable with the supplied scores; non-exchangeable data (e.g. distribution-shifted or time-ordered) voids it. Never a probability of being right. »
+- **PAS « demonstrative »** (contrairement à `attest`, qui rejoue un témoin committé) : `calibrate` **calcule réellement**, mais **sous une hypothèse externe** que seul l'appelant porte — le label le dit.
+- **B-3 (BLOQUANT)** : étendre `grep-forbidden`/`vocab-banned` à la surface `calibrate` **sans casser l'existant honnête** — `schema-projection.ts:208` « not probative », `attest.ts`/`cascade.ts` « no guarantee », trace H5 (scannée `h5-e2e-probe.test.ts:148`). ⇒ patterns **négation-aware** (`(?<!\bnot\s)probative`, `(?<!\bno\s)guarantee`, `predicts`) OU masque de phrases exemptes (motif scope `site`). **Non-vacuité PROUVÉE** : un mutant surclaim nu (`"guarantees coverage"` / `"probative"` / `"predicts …"`) ⇒ ROUGE ; les phrases honnêtes existantes ⇒ VERTES.
+
+### D6 — Statelessness (K-8/D9 préservés)
+MONARK ne stocke JAMAIS les scores ni q̂. L'appelant porte q̂ dans `gate` (C2) exactement comme B_t (M005 D6). Pas de déplétion (monétisation hors périmètre, M005 D6 / M006 E-2).
+
+### D7 — C2 : `gate` consomme la calibration apportée (grounding ; design sous checkpoint-1 du plan C2)
+Chemin **générique** composant les primitives existantes (aucune maths nouvelle) : l'appelant porte ses scores + la structure du point de test (scores candidats mode `set`, ou ŷ mode `interval`) ; `gate` appelle `splitQuantile`, construit la région (`conformalSet`/`buildIntervalRegion`), puis exécute **la MÊME** politique L3 `gate()` gelée. D0 préservé (le gate n'exécute jamais l'outil nommé).
+- **B-6 (CONTRAINTE, pas option)** : le mode `interval` exige `q̂ ≥ 0` (⇔ `scores ≥ 0`, convention de non-conformité) OU un fail-closed explicite AVANT `buildIntervalRegion` (`region.ts:48` jette sur `lo>hi`) ⇒ jamais un 500. Forme du paramètre (E-M007-3 : nouveau `task_class` « byo » vs champ `calibration`) tranchée au design C2.
+
+### D8 — Points de contact ATOMIQUES (dans le même commit que le set)
+`apps/harness/src/tools/calibrate.ts` (nouveau, pur, `CalibrateToolError`, `CALIBRATE_MAX_N`) + `registry.ts` (`ALLOWED_TOOL_NAMES`, `HARNESS_TOOLS`, commentaires « terminal » 3→4 pointant M007) + `test/registry.test.ts:55` (set exact 3→4) + `schema-projection.ts` (`CALIBRATE_INPUT_SCHEMA`/`CALIBRATE_OUTPUT_SCHEMA` + standard schemas) + `openapi.ts` (chemin `/calibrate` **+ `:97` prose `info.description` « (attest, gate, cascade) »** — wire public) + `test/openapi.test.ts` + `http.ts` (**B-1 : `CalibrateToolError` ∈ `TOOL_ERROR_NAMES:36`** + commentaire `:4`) + `test/http.test.ts` (**+ test chemin d'erreur : `n>cap` et `α∉(0,1)` ⇒ 400, jamais 500**) + **`scripts/verify-harness.mjs` (B-2 : `TOOLS:29` + `/calibrate` `:154` ; `health:148`/`openapi:154`/`mcp_tools_list:174` en ÉGALITÉ de set ; nouveau check `calibrate_call` réel)** + `docs/RUNBOOK-harness.md` (« trois → quatre primitives ») + `apps/harness/README.md` + `deploy/monark-harness.service:15` (Description) + `server.ts:10` (commentaire) + **re-pin `fixtures/h5-e2e-trace.json`** (+ `test/h5-e2e-probe.test.ts:50` + `fixtures/PROVENANCE-h5-e2e-trace.md`, motif H6 ~1 ligne). **Contrats gelés `schemas/*.json` : 0 octet.**
+
+### D8bis — Corrections de déploiement (advisor post-go-live), portées à C1
+- **RUNBOOK §1/Operations (`docs/RUNBOOK-harness.md:35-76,214`)** : remplacer rsync/tar de l'arbre de travail par **`git archive HEAD <chemins service>`** (`git archive HEAD apps packages schemas fixtures package.json package-lock.json deploy scripts/verify-harness.mjs | ssh -i ~/.ssh/monark_vps root@31.97.155.188 "tar xzf - -C /opt/monark-harness"`), la méthode réellement employée au go-live (exclut d'office le `apps/site/.next` gitignoré).
+- **Journal (OBS-B)** : la formulation « graceful-V8-OOM tient » a été écrite au repos ; la sonde sous charge (50× cascade n=64) mesure **~52→54 Mo, 0 redémarrage, actif** — le chemin graceful-OOM **n'est jamais atteint** (les entrées bornées n≤64 / corps≤256KB ne peuvent approcher le cap 448 MiB) ⇒ **backstop conçu, non exercé**, non « prédiction vérifiée » (RR-1). Entrée corrective dans le journal de C1.
+
+### D9 — Versionnement
+`SCHEMA_VERSION` inchangé (la sortie `calibrate` est nouvelle, pas une modif de contrat gelé). `schemas/*.json` : 0 octet. Le gel éventuel de la sortie (fin de C2) re-baselinera le manifest `contracts_frozen` DANS ce commit-là.
+
+## 3. Critères d'acceptation (par lot)
+R-25<1205 ; **G2 fraîche ≠ générateur** ; oracle = **exemple split-conformal de manuel hand-rolled** (≠ le `sort` de production — anti-circularité) + déterminisme + **cas quantile-infini fail-closed** (`p>n`) + **mutant de cap** (`n>CALIBRATE_MAX_N`⇒400) + **mutant d'honnêteté** (surclaim⇒rouge) + **B-1** (erreur calibrate⇒400 HTTP, jamais 500) + **B-3** (non-vacuité vocab) ; contrats gelés **0 octet** ; test de set exact registry mis à jour+vert ; trace H5 re-épinglée ; `verify-harness` en égalité de set + `calibrate_call`. **Après C2 : redéploiement → CA 4 outils (exit 0 + VERIFY OK + tls.authorized) + sondes live → journal.** checkpoint-2 consolidé avant toute publication.
+
+## 4. Modes MAST (checklist de risque résiduel)
+- **Dérive de spécification C1↔C2** : le contrat de sortie C1 doit matcher ce que `gate` consomme en C2 (`set_digest`=`calibDigest`, sémantique de `qhat`) — contre-mesure : B-7 (digest partagé) + design C2 sous checkpoint-1.
+- **Vérification incomplète / mutant survivant** (type H2 M5, H6 origin-first) — contre-mesure : oracle hand-rolled anti-circulaire + mutants nommés + G2 fraîche + R-21.
+- **Point de contact manquant** (test vert à tort, type H6) — contre-mesure : D8 exhaustif file:line + G2 vérifie l'atomicité.
+
+## 5. Alternatives écartées
+BYO niveau-paire `(ŷ,y)` seul (moins général — E-M007-2) ; figer la sortie en C1 (investisseur : souple, après C2) ; déplétion/monétisation côté serveur (M005 D6) ; `calibrate` sans C2 (un nombre que rien ne consomme — C2 requis pour la boucle) ; ajouter `calibrate` sans ADR/Addendum (violerait la discipline set-terminal D9 + RR-2).
+
+## 6. Décisions escaladées — RÉSOLUES
+- **E-M007-1** (gel de la sortie) : **NON gelé**, figer après C2 (investisseur 2026-09-11). *Pendant formé : gel éventuel = owner C2.*
+- **E-M007-2** (niveau score vs paire) : **niveau-score** primaire (orchestrateur).
+- **E-M007-3** (forme du paramètre C2) : grounding fait ; tranché au design C2 sous checkpoint-1, sous contrainte B-6.
+- **E-M007-4** (revirement « terminal 3→4 ») : **RATIFIÉ** (investisseur 2026-09-11).

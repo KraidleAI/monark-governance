@@ -44,7 +44,7 @@ export class AttestToolError extends Error {
 /**
  * Pure projection of a Shōgen witness triple into the K-1 `AdapterOutput`. Fail-closed: a named adapter
  * refusal (`isAdapterError`) becomes an `AttestToolError`, never a silent or partial price. Re-affirms the
- * closed posture on `price` (fromShogen already guarantees it; this is defense in depth, D9). Exposed so
+ * closed posture on `price` (fromShogen already ensures it; this is defense in depth, D9). Exposed so
  * the fail-closed path is exercisable (a negated verdict), while the tool projects only the committed triple.
  */
 export function projectShogen(lot: Uint8Array, verdictText: string, constat: unknown): AdapterOutput {
