@@ -124,11 +124,3 @@ apps/site           public vitrine — foundation only (Lot F-1); rich pages = L
 docs/adr            ADR-M001..M004 (phases 0-2, infrastructure), ADR-CERT-MONARK (token)
 .github/workflows   CI (5 blocking jobs)
 ```
-
-## Discipline
-
-Governed by the "Compliance et ingénierie logicielle et architecturale" corpus (gates G0–G7,
-R-1..R-26) and the AgileGates framework. **Only the orchestrator commits** (R-19/R-20): a worker
-stages, never commits. Contracts are frozen — they evolve **by ADR only** (`schema_version`,
-ADR-M001 D9). No debt is admitted at a pass close: every open point is a formed procurement or a
-sourced solution-search, never a naked "due".
