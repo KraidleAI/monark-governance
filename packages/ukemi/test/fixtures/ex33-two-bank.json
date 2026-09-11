@@ -1,6 +1,6 @@
 {
   "name": "ex33-two-bank",
-  "note": "Rogers & Veraart NON-UNIQUENESS negative control (Ex. 3.3) — [lu] P-K4-1-rogers2013.md Q1/Q2. Source inputs: 2 banks, e=(1,1), α=β=½, L̄=(2.2,2.2). Since each bank has only one interbank creditor (the other), π₁₂=π₂₁=1 ⇒ L=[[0,2.2],[2.2,0]] (row sums = L̄). Clearing vectors: L*=(2.2,2.2) (GA, largest), L_*=(1,1) (from 0, smallest) ⇒ unique=false. With α=β=1 (E&N): unique=(2.2,2.2). NB: the value '(2,2.2)' cited in P-K4-1 Q2 and carried over in ADR-M003 D6.3 is a transcription TYPO for (2.2,2.2): (2,2.2) is a fixed point under NO α (Φ([2,2.2])=[2.2,2.2]), and (1,1) as the smallest FORCES π=1 so the largest=(2.2,2.2). See docs/G1-lot-K.md (formed consultation). Recomputable by hand via Eq. (1) p.884.",
+  "note": "Rogers & Veraart NON-UNIQUENESS negative control (Ex. 3.3) — [lu] P-K4-1-rogers2013.md Q1/Q2. Source inputs: 2 banks, e=(1,1), α=β=½, L̄=(2.2,2.2). Since each bank has only one interbank creditor (the other), π₁₂=π₂₁=1 ⇒ L=[[0,2.2],[2.2,0]] (row sums = L̄). Clearing vectors: L*=(2.2,2.2) (GA, largest), L_*=(1,1) (from 0, smallest) ⇒ unique=false. With α=β=1 (E&N): unique=(2.2,2.2). NB: the value '(2,2.2)' cited in P-K4-1 Q2 and carried over in ADR-M003 D6.3 is a transcription TYPO for (2.2,2.2): (2,2.2) is a fixed point under NO α (Φ([2,2.2])=[2.2,2.2]), and (1,1) as the smallest FORCES π=1 so the largest=(2.2,2.2). Recomputable by hand via Eq. (1) p.884.",
   "L": [
     [0, 2.2],
     [2.2, 0]

@@ -20,10 +20,10 @@ import { cn } from "@/lib/utils";
 /**
  * A light, data-driven placeholder panel for an UPCOMING fleet entity that has no built engine to show:
  * the eight roadmap agents (on /fleet) and the three VISAGE artefacts (on /products). ONE component
- * instead of eleven (F-site-6 R-25): a dashed card that opens the same lateral sheet as the built
+ * instead of eleven: a dashed card that opens the same lateral sheet as the built
  * panels, carrying the honest one-line descriptor, an optional "Sold to" line (visage buyers), and the
  * Mod #1 "What it will use" block. `status` flows from the register (never hard-coded here). Openable
- * upcoming cards are a documented Mod #1 delta from the design's non-openable divs (docs/G1-lot-fsite-6.md).
+ * upcoming cards are a documented Mod #1 delta from the design's non-openable divs.
  */
 export function PlaceholderPanel({
   mark,

@@ -1,5 +1,5 @@
 /**
- * Lot U JSON fixtures loader (pure data, recomputable by hand — never code).
+ * UKEMI JSON fixtures loader (pure data, recomputable by hand — never code).
  * Runtime shape guards: a malformed fixture throws, it does not "pass" silently.
  */
 import { readFileSync } from "node:fs";

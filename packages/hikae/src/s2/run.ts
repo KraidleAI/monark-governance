@@ -1,5 +1,5 @@
 /**
- * HIKAE — full run of the S2 instrument (ADR-M002 D10; G2 Lot H corr. 1 and 4).
+ * HIKAE — full run of the S2 instrument (ADR-M002 D10; review corr. 1 and 4).
  *
  * A single pure function `runS2(params)` produces the REPORT and the per-point RAW JOURNAL.
  * It is called (i) by `scripts/s2-report.mjs`, which writes both files into `docs/`,

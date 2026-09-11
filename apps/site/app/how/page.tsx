@@ -8,7 +8,7 @@ import { GateSim } from "@/components/gate-sim";
 import { ACTION_DEFER, ACTION_ABSTAIN, AMBIENT, COST, decisionColorVar } from "@/lib/sim";
 import { OUTCOMES, REASON_GLOSS, REGION_KINDS } from "@/lib/how-copy";
 
-// How it works (Lot F-site-5) — a SERVER shell around the one interactive island (the gate explainer,
+// How it works — a SERVER shell around the one interactive island (the gate explainer,
 // GateSim mode="explainer"). Honesty by construction: (1) the third action word (a CoverageVerdict field)
 // is NEVER a literal here — every place the design shows it, the word is rendered from the loaded
 // `action` enum by index (ACTION_ABSTAIN); commit/defer and the reason codes are not contract fields and

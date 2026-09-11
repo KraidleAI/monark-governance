@@ -1,4 +1,4 @@
-// apps/site/lib/how-copy.ts — How-page presentation copy (Lot F-site-5). PURE DATA: no JSX, no React,
+// apps/site/lib/how-copy.ts — How-page presentation copy. PURE DATA: no JSX, no React,
 // no node: import, no `@/` alias — so BOTH the Next app (bundler resolution) and the root test program
 // (nodenext) import it, exactly like lib/fleet.ts (which documents the dual-resolution friction and is
 // self-contained for the same reason). The reason CODES and the third action WORD are NEVER spelled in a

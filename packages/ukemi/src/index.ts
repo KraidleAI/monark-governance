@@ -3,7 +3,7 @@
  *
  * NOT a standalone product (G7 UKEMI 2026-09-03 §5-6; ADR-M002 D9): a deterministic
  * Eisenberg-Noe clearing core + a "liquidable amount under shock" target (24 h horizon,
- * investor decision (d)), emitted as a numeric `Prediction` that HIKAE will conformalize in
+ * a product decision (d)), emitted as a numeric `Prediction` that HIKAE will conformalize in
  * Phase 2. No guarantee, no yield, no `p_correct`. Our own code.
  */
 export {

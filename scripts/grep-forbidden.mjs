@@ -1,4 +1,4 @@
-// MONARK vocabulary gate (ADR-M001 D8, ADR-M002 D0/D1, ADR-M003 D12, PLAN F-2 §6e/§12) —
+// MONARK vocabulary gate (ADR-M001 D8, ADR-M002 D0/D1, ADR-M003 D12) —
 // "discipline enforced in code". Scans package SOURCE (packages/*/src/**/*.ts), the whole atelier
 // package (packages/atelier/**), the whole monark package (packages/monark/**), and the public
 // storefront (apps/site/**, rendered surfaces .ts/.tsx/.mdx) for the guarantee/marketing claims
@@ -9,7 +9,7 @@
 // (vocab-banned.json "scan.<name>.banned") apply ONLY to that scope's files (naked "Hermes" bounded
 // to packages/monark/**; the README-v2 marketing vocab bounded to apps/site/**).
 //
-// EXEMPT PHRASES (PLAN F-2 §12 errata, Lot F-2b): a scope may carry a CLOSED "exemptPhrases" list of
+// EXEMPT PHRASES: a scope may carry a CLOSED "exemptPhrases" list of
 // honest sentences that legitimately contain an otherwise-banned word — here the fleet-invariant
 // negation "no confidence field" (README l.67-71). Those spans are blanked BEFORE matching, scope-
 // locally (site only); "high confidence" still reddens. Load-bearing + non-inert proof:
@@ -68,7 +68,7 @@ export function scanText(text, patterns, exemptPhrases = []) {
 
 // ---- CLI walk + target assembly (run-guarded main at the bottom) ----------------------------
 const DEFAULT_SKIP = new Set(["node_modules", "dist"]);
-// The apps/site walk also skips Next build output and non-rendered surfaces (PLAN F-2 C6).
+// The apps/site walk also skips Next build output and non-rendered surfaces.
 const SITE_SKIP = new Set(["node_modules", "dist", ".next", ".turbo", "test", "data"]);
 
 function walk(dir, exts, skip = DEFAULT_SKIP) {
@@ -127,7 +127,7 @@ function collectTargets(root, config, cliArgs) {
   }
 
   // The public storefront apps/site (NOT under packages/) — GLOBAL + site-scoped marketing bans,
-  // with the site's closed exemptPhrases masked before matching (PLAN F-2 §6e/§12).
+  // with the site's closed exemptPhrases masked before matching.
   const site = config.scan.site;
   if (site) {
     const siteDir = join(root, "apps", site.package ?? "site");
@@ -146,7 +146,7 @@ function collectTargets(root, config, cliArgs) {
     }
   }
 
-  // The harness apps/harness/src (Lot H1, ADR-M005 D9 / K-3) — GLOBAL + harness-scoped honesty bans.
+  // The harness apps/harness/src (ADR-M005 D9 / K-3) — GLOBAL + harness-scoped honesty bans.
   // SOURCE only (not test/): a negative-control test may legitimately name a banned token in a fixture.
   const harness = config.scan.harness;
   if (harness) {
@@ -159,7 +159,7 @@ function collectTargets(root, config, cliArgs) {
     }
   }
 
-  // The ClawHub skill artefacts under skills/ (Lot M006-B, ADR-M006 D2/D5) — GLOBAL + skills-scoped
+  // The ClawHub skill artefacts under skills/ (ADR-M006 D2/D5) — GLOBAL + skills-scoped
   // honesty/securities bans, with the skill scope's closed exemptPhrases masked before matching (same
   // closed-list mechanism as the site scope). Not under packages/ or apps/, so it is a top-level walk.
   const skills = config.scan.skills;

@@ -1,6 +1,6 @@
 // apps/site/next.config.mjs — Next.js App Router config for the MONARK storefront (ADR-M004 D2 addendum).
 // @next/mdx (Vercel-maintained) renders the committed MDX content pages; its peers @mdx-js/loader and
-// @mdx-js/react are pinned in package.json (R-8). No deployment config here — local `next dev` only;
+// @mdx-js/react are pinned in package.json. No deployment config here — local `next dev` only;
 // hosting (Cloudflare + VPS) is the F-deploy increment (ADR-M004 Q2, out of this lot).
 import createMDX from "@next/mdx";
 

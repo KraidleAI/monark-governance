@@ -46,12 +46,12 @@ and are re-asserted by `test/byo-demo-probe.test.ts`.
 
 - The tools read no clock (`produced_at` is caller-carried); the ephemeral port is intentionally NOT
   recorded. Re-running the recorder reproduces the file byte-for-byte.
-- **sha256 (LF-normalized)**: `3f987994900bedb47f27c819f3ff4e780883a030016916a2e6d07abda5e02697`
-  (9590 bytes). `.gitattributes` normalizes to `eol=lf`, so this digest survives commit; the probe
+- **sha256 (LF-normalized)**: `79b54471bb2e4d92f574e6456f3f4d548f7d73f187ea2528cbc54ca6f49286d4`
+  (9575 bytes). `.gitattributes` normalizes to `eol=lf`, so this digest survives commit; the probe
   LF-normalizes before hashing, so it also survives a CRLF checkout. This value is pinned as
   `TRACE_SHA256_PINNED` in `test/byo-demo-probe.test.ts`.
 - Byte-reproducible: two consecutive recorder runs printed the identical LF sha256
-  (`3f987994…`), and `probe_byo_demo_loop_closes` re-derives it in-test. Regenerate, never hand-edit:
+  (`79b54471…`), and `probe_byo_demo_loop_closes` re-derives it in-test. Regenerate, never hand-edit:
   `node scripts/record-byo-demo.mjs`.
 - **No `tools/list` step** is recorded on purpose: unlike `h5-e2e-trace.json` (which re-pinned three
   times as the tool schemas evolved), this trace records only `initialize` + the two `tools/call`

@@ -1,5 +1,5 @@
 /**
- * Harness — OpenAPI 3.1 spec DERIVED from the frozen-projected schemas (ADR-M005 D7/D8, Lot H4).
+ * Harness — OpenAPI 3.1 spec DERIVED from the frozen-projected schemas (ADR-M005 D7/D8).
  *
  * The HTTP/JSON mirror (`src/http.ts`) is a byte-faithful mirror of the MCP surface: the SAME four
  * operations, the SAME frozen input/output schemas (`schema-projection.ts`, projected from the frozen

@@ -119,7 +119,7 @@ packages/hikae      HAC-CP engine: L1 split / L2 monitor / L3 gate, interval con
 packages/ukemi      liquidation-cascade survival: clearing, liquidable                  (Phase 1 — built)
 packages/monark     cross-agent gate — freezes the wiring signature; token budget B_t   (engine = Phase 2)
 packages/atelier    local demo surface (not a shipped product)
-apps/site           public vitrine — foundation only (Lot F-1); rich pages = Lot F-2
+apps/site           public vitrine — foundation only; rich pages come later
 docs/adr            ADR-M001..M004 (phases 0-2, infrastructure), ADR-CERT-MONARK (token)
 .github/workflows   CI (5 blocking jobs)
 ```

@@ -43,7 +43,7 @@ export function renderState(s: AtelierState, index: number): string {
     </article>
     <article class="panel panel-ukemi">
       <h3>UKEMI — cascade block</h3>
-      <p class="muted">not wired in Phase 1 (wires in at the Lot U merge) — nothing is simulated here.</p>
+      <p class="muted">not wired in Phase 1 (wires in at a later phase) — nothing is simulated here.</p>
     </article>
   </div>
   <div class="decision">

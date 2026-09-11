@@ -1,5 +1,5 @@
 /**
- * Harness Lot H1 — gate-logic tests (ADR-M005 D5/D8/D9, K-4).
+ * Harness — gate-logic tests (ADR-M005 D5/D8/D9, K-4).
  * Each test is killed by >= 1 named mutant (proven red, then restored byte-exact via sha256 —
  * see the passe report). No `any`, no unsafe: the file stays off the lint ratchet.
  */

@@ -1,7 +1,7 @@
 // apps/site/components/marks/mokugeki-mark.tsx
 // Mokugeki agent mark, transcribed faithfully (2026-09-10) from the MONARK brand-system design source —
 // the mark('mokugeki') branch of MONARK.dc.html (line 612; external, not committed to this public mirror;
-// sha256 + exact line recorded in the MONARK governance doc docs/G1-lot-fsite-2.md, not part of this public mirror). Ink = currentColor; accent hard-coded
+// sha256 + exact line recorded privately; not part of this public mirror). Ink = currentColor; accent hard-coded
 // (#4E6E8E, the two brackets). Decorative (aria-hidden), so the adjacent text label is the accessible name.
 import type { SVGProps } from "react";
 

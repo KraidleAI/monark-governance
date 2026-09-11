@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 /**
  * The built Ukemi agent (liquidation-cascade survival). Same 8-block template as Shōgen: blocks 1/2/4/6
  * BUILT, blocks 3/5/7/8 UPCOMING. `contract` is the frozen Prediction shape Ukemi emits for the gate,
- * read server-side from schemas/. Block 4 is the C8 honest limit (PLAN F-2 §2/§11): uniqueness is lost
+ * read server-side from schemas/. Block 4 is the C8 honest limit: uniqueness is lost
  * when the recovery rates fall below full recovery — grounded in packages/ukemi/README.md ("Uniqueness
  * LOST once α < 1 or β < 1 ... we never claim uniqueness outside α = β = 1"). No market number is rendered.
  */

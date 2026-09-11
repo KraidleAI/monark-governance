@@ -1,19 +1,19 @@
-# shadcn/ui component provenance — MONARK site (Lot F-public, R-8)
+# shadcn/ui component provenance — MONARK site
 
 shadcn/ui is a source-copied ("own-the-code") design system, MIT-licensed. It is NOT an npm dependency:
-the CLI copies component source into this repo, so R-8 is satisfied by pinning the **CLI version** and
+the CLI copies component source into this repo, so the exact-pinning requirement is satisfied by pinning the **CLI version** and
 logging **every component copied** (name + registry item version) here.
 
 ## Pinned CLI
 
 - `shadcn` CLI: **4.21.0** (npm registry, verified 2026-09-07). Invocation: `npx shadcn@4.21.0 <cmd>`.
 
-## Foundation authored by hand (provenance = worker, not the CLI)
+## Foundation authored by hand (provenance = authored directly, not the CLI)
 
 Standard Tailwind/JS, written directly (not shadcn component source):
 
 - `postcss.config.mjs` — Tailwind v4 PostCSS plugin (`@tailwindcss/postcss@4.3.3`).
-- `app/globals.css` — navy/gold design tokens + kanji secondary font token (Lot F-2a); `@import "tailwindcss"` + `@import "tw-animate-css"`.
+- `app/globals.css` — navy/gold design tokens + kanji secondary font token; `@import "tailwindcss"` + `@import "tw-animate-css"`.
 - `lib/utils.ts` — `cn()` helper (`clsx@2.1.1` + `tailwind-merge@3.6.0`, pinned exact).
 
 ## Components copied (own-the-code)
@@ -23,7 +23,7 @@ Standard Tailwind/JS, written directly (not shadcn component source):
 | `components/ui/button.tsx` | base / nova | `npx shadcn@4.21.0 add -c apps/site button` | `import { cn } from "cn"` redirected → `@/lib/utils`; `cva` variants |
 | `components/ui/dialog.tsx` | base / nova | `npx shadcn@4.21.0 add -c apps/site dialog` | `"use client"`; `cn` → `@/lib/utils`; uses `lucide-react` XIcon + tw-animate-css |
 
-`components/rsc-boundary-demo.tsx` is authored by the worker (NOT the CLI): the RSC-boundary oracle
+`components/rsc-boundary-demo.tsx` is authored directly (NOT the CLI): the RSC-boundary oracle
 (C5) — a client Dialog+Button rendered by the server page `app/page.tsx` (`next build` compiles the
 boundary; runtime hydration = manual `next dev` CA).
 
@@ -33,9 +33,9 @@ boundary; runtime hydration = manual `next dev` CA).
 import alias validated; exit 0). So "the CLI works in this environment" is proven.
 
 Its output was **NOT adopted**, because the 4.21.0 **default preset (`base-nova`, selected by `-d`)** is not
-a foundation-scope, R-8-clean result:
+a foundation-scope, exact-pinning-clean result:
 
-- dependencies were added as **caret ranges** (violates R-8 exact pinning): `@base-ui/react ^1.8.0`,
+- dependencies were added as **caret ranges** (violates exact pinning): `@base-ui/react ^1.8.0`,
   `class-variance-authority ^0.7.1`, `cn ^0.2.6`, `lucide-react ^1.41.0`, `tw-animate-css ^1.4.0`;
 - it added the **`shadcn` CLI itself as a runtime dependency** (`^4.21.0`) — a tool, not a runtime peer;
 - it switched the primitives to **Base UI** and rewrote `lib/utils.ts` to a `cn` **indirection package**
@@ -46,9 +46,9 @@ a foundation-scope, R-8-clean result:
 The output was reverted by file copy (backup taken before the attempt); the lockfile was reconciled with
 `npm install`.
 
-## Lot F-2a — base/preset resolved (2026-09-07, worker `claude-opus-4-8`, ADR-M004 D2-ter)
+## Base/preset resolved (2026-09-07, ADR-M004 D2-ter)
 
-Runtime deps added by Base UI, all **pinned EXACT** (R-8; each = registry `latest` verified
+Runtime deps added by Base UI, all **pinned EXACT** (each = registry `latest` verified
 2026-09-07): `@base-ui/react 1.8.0`, `class-variance-authority 0.7.1`, `lucide-react 1.41.0`,
 `tw-animate-css 1.4.0`. The four F-1 pending items are resolved:
 
@@ -60,8 +60,8 @@ Runtime deps added by Base UI, all **pinned EXACT** (R-8; each = registry `lates
 2. **`shadcn` runtime dep dropped.** `init` added it only because it wrote `@import "shadcn/tailwind.css"`
    (629 lines of `@custom-variant`/`@utility`/keyframes). The copied Button/Dialog reference only two
    blocks (`@custom-variant data-open` / `data-closed`, dialog transitions); those were inlined verbatim
-   (MIT) into `globals.css` and the import + dep removed — cheaper than `eject` (inlines all 629 → R-25)
-   and R-8-clean (CLI never a runtime dep). Unreferenced utilities re-inlined per future component.
+   (MIT) into `globals.css` and the import + dep removed — cheaper than `eject` (inlines all 629)
+   and exact-pinning-clean (CLI never a runtime dep). Unreferenced utilities re-inlined per future component.
 3. **Fonts self-hosted.** `init` wired Geist via `next/font/google` (build-time fetch) into `layout.tsx`;
    removed for an offline-safe build (PLAN §3). `--font-sans`/`--font-heading`/`--font-kanji` are
    system-stack CSS tokens.
@@ -69,7 +69,7 @@ Runtime deps added by Base UI, all **pinned EXACT** (R-8; each = registry `lates
    `import { cn } from "cn"` redirected to `@/lib/utils`, the `cn` package dropped. Why: `cn@0.2.6` is a
    compiled from-scratch reimplementation of clsx+tailwind-merge (own engine/tables), a general drop-in —
    NOT a Base-UI-specific config the components depend on; they only call `cn()` with standard Tailwind
-   utilities. R-8 minimalism + F-1 consistency + own-the-code.
+   utilities. Exact-pinning minimalism + F-1 consistency + own-the-code.
 
 **No `--dry-run`:** shadcn 4.21.0 `init` exposes none (`init --help` lists no such flag; the CLI rejects
 `--dry-run` as an unknown option). Faithful equivalent = run `init` on the git-clean tree, read the

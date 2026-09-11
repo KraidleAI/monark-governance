@@ -1,5 +1,5 @@
 /**
- * Harness Lot H1 — registry safety (K-8) and vocab honesty (ADR-M005 D9/D11).
+ * Harness — registry safety (K-8) and vocab honesty (ADR-M005 D9/D11).
  * No `any` (off the ratchet). The static scan targets DOUBLE/SINGLE-quoted module specifiers, so the
  * prose in the tool sources (which names these modules in backticks) is not a false positive.
  */
@@ -50,9 +50,9 @@ test("mcp_tools_have_no_side_effects", () => {
   assert.ok(REGISTERED_TOOL_NAMES.includes("cascade"), "the `cascade` tool stays registered");
   assert.ok(REGISTERED_TOOL_NAMES.includes("attest"), "the `attest` tool stays registered");
   assert.ok(REGISTERED_TOOL_NAMES.includes("calibrate"), "the `calibrate` tool is registered in C1");
-  // (1b) EXACT registry (G2 R1): C1 registers EXACTLY `attest` + `cascade` + `gate` + `calibrate` — the
-  // TERMINAL set {attest,gate,cascade,calibrate} (ADR-M007, set terminal 3→4 ratified investisseur),
-  // reached lot by lot (H1 `gate`, H2 `cascade`, H3 `attest`, C1 `calibrate`). A premature or stray
+  // (1b) EXACT registry: C1 registers EXACTLY `attest` + `cascade` + `gate` + `calibrate` — the
+  // TERMINAL set {attest,gate,cascade,calibrate} (ADR-M007, set terminal 3→4 ratified by a product decision),
+  // reached incrementally (H1 `gate`, H2 `cascade`, H3 `attest`, C1 `calibrate`). A premature or stray
   // registration reddens here, where the subset allowlist above would tolerate it.
   assert.deepEqual([...REGISTERED_TOOL_NAMES].sort(), ["attest", "calibrate", "cascade", "gate"], "C1 registers exactly attest + cascade + gate + calibrate (terminal set, ADR-M007)");
 

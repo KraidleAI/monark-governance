@@ -82,7 +82,7 @@ calibrated, and nothing else.
 ## Recorded demonstration
 
 This exact loop is recorded, byte-for-byte, in `fixtures/byo-demo-trace.json` (LF sha256
-`613e345b…`), produced by the deterministic recorder `scripts/record-byo-demo.mjs` and re-driven and
+`79b54471…`), produced by the deterministic recorder `scripts/record-byo-demo.mjs` and re-driven and
 verified end-to-end by `test/byo-demo-probe.test.ts`. Its origin, digest, and the mock-discriminating
 checks are documented in `fixtures/PROVENANCE-byo-demo.md`.
 

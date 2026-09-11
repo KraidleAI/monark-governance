@@ -1,4 +1,4 @@
-// scripts/lang-gate.mjs — French-language gate for the MONARK public export (ADR-M004 D7, Lot X).
+// scripts/lang-gate.mjs — French-language gate for the MONARK public export (ADR-M004 D7).
 // Node 24, ZERO dependencies.
 //
 // WHY: the public storefront repo must be English (ADR-M004 D0.5 / ADR-M003 D0.5). This gate
@@ -16,7 +16,7 @@
 //                    English or code in this repo (verified code-scope=0). `de`/`du` are
 //                    DELIBERATELY absent (they collide with the CI job name r25-taille-de-lot
 //                    and the vocab-banned regex `(de\\s+|of\\s+)`); French prose is still caught
-//                    by le/la/les/un/une/est/... — see docs/G1-lot-X.md.
+//                    by le/la/les/un/une/est/...
 //   (3) fr-id      — the genuinely-French frozen snake_case identifiers that carry no diacritic
 //                    and are not fr-words (octets_recalcules, verite, ...). This list lives HERE,
 //                    SEPARATE from scripts/lang-exempt.json, so removing an identifier from the
@@ -27,7 +27,7 @@
 // package-lock.json are NOT scanned: they enumerate the very French tokens they detect, by
 // construction. This is an exclusion of SCANNING, not an exemption of words.
 //
-// PATH EXEMPTION (lang-exempt.json "paths", Lot I-a / K-2 / ADR-M005 D3): a repo-relative glob list
+// PATH EXEMPTION (lang-exempt.json "paths", K-2 / ADR-M005 D3): a repo-relative glob list
 // (only `*` = a run of non-slash chars) of WHOLE FILES that are verbatim, sha256-pinned third-party
 // artifacts and thus legitimately non-English — here the Shogen fixtures fixtures/s3-binance.* (the
 // verifier output is French: "VERDICT : valide sous A(notary-neutrality), ..."). A path-exempt file is skipped entirely
@@ -36,7 +36,7 @@
 //
 // SCOPE: every run computes hit counts for ALL scopes (root, contracts, schemas, hikae, ukemi,
 // atelier, monark) — free input data for the E-* translation lots. `--scope a,b` only gates the EXIT
-// CODE: exit 1 iff a non-exempt hit falls in a selected scope. No --scope = global. For Lot X
+// CODE: exit 1 iff a non-exempt hit falls in a selected scope. No --scope = global. For this gate
 // the E-hikae/ukemi/atelier/monark lots are NOT done, so global is RED by design; the lot's
 // oracle is `--scope root,contracts` = GREEN. The frozen `schemas` scope (ADR-M001 D9-bis) is
 // English-only and GATED alongside root,contracts (test 42 uses root,contracts,schemas,site).
@@ -99,17 +99,17 @@ const DIACRITICS = "àâäáéèêëíîïóôöùûüÿçœæÀÂÄÁÉÈÊËÍ
 export const TEXT_EXTS = new Set([
   ".ts", ".tsx", ".mjs", ".cjs", ".js", ".jsx", ".md", ".mdx", ".yml", ".yaml", ".json", ".html", ".css", ".sh", ".txt",
 ]);
-// `.next`/`.turbo` added by Lot F-public (apps/site scope): Next.js build output and Turbo cache are
+// `.next`/`.turbo` added for the apps/site scope: Next.js build output and Turbo cache are
 // generated (gitignored) minified JS that would produce spurious hits and slow the scan — skipping them
 // is an exclusion of SCANNING, not of words. A committed working tree never contains them.
 export const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "docs", ".next", ".turbo"]);
 export const EXCLUDE_NAMES = new Set(["package-lock.json", "lang-exempt.json", "lang-gate.mjs"]);
-// `site` = apps/site (Lot F-public, English-only per ADR-M003 D0.5). Gated by the export --scope site.
-// `harness` = apps/harness (Lot H1, English-only per ADR-M005 D7/D9). Gated by --scope harness.
+// `site` = apps/site (English-only per ADR-M003 D0.5). Gated by the export --scope site.
+// `harness` = apps/harness (English-only per ADR-M005 D7/D9). Gated by --scope harness.
 // `schemas` = the frozen contract JSON Schemas under schemas/ (ADR-M001 D9-bis). English-only external
 // surface (published via the export whitelist + the D8 harness wire); GATED in ci (test 42) and at export
 // so French prose in a schema `description`/`title` reddens — the annotation-erratum door-hole closure.
-// `skills` = the ClawHub skill artefacts under skills/ (Lot M006-B, ADR-M006 D5). English-only (the
+// `skills` = the ClawHub skill artefacts under skills/ (ADR-M006 D5). English-only (the
 // SKILL.md/INTEGRATION.md are English); GATED so a French string in a published skill file reds.
 export const SCOPES = ["root", "contracts", "schemas", "hikae", "ukemi", "atelier", "monark", "site", "harness", "skills"];
 
@@ -132,9 +132,9 @@ const FRID_RE = new RegExp("\\b(" + FRENCH_IDENTIFIERS.slice().sort(byLenDesc).m
 /** POSIX-relative path -> scope name. */
 export function classifyScope(rel) {
   const p = rel.replace(/\\/g, "/");
-  if (p === "apps/site" || p.startsWith("apps/site/")) return "site"; // Lot F-public
-  if (p === "apps/harness" || p.startsWith("apps/harness/")) return "harness"; // Lot H1 (K-3)
-  if (p === "skills" || p.startsWith("skills/")) return "skills"; // Lot M006-B (ADR-M006 D5)
+  if (p === "apps/site" || p.startsWith("apps/site/")) return "site"; // apps/site scope
+  if (p === "apps/harness" || p.startsWith("apps/harness/")) return "harness"; // (K-3)
+  if (p === "skills" || p.startsWith("skills/")) return "skills"; // (ADR-M006 D5)
   if (p === "schemas" || p.startsWith("schemas/")) return "schemas"; // ADR-M001 D9-bis: frozen contract schemas, gated
   const m = /^packages\/([^/]+)\//.exec(p);
   if (m && SCOPES.includes(m[1])) return m[1];
@@ -247,7 +247,7 @@ export function scanFileList(files, maskers, pathMatchers = []) {
   const byScope = Object.fromEntries(SCOPES.map((s) => [s, { files: 0, hits: 0 }]));
   for (const f of files) {
     if (!scannable(f.rel)) continue;
-    if (pathExempt(f.rel, pathMatchers)) continue; // whole-file path exemption (Lot I-a, K-2 / ADR-M005 D3)
+    if (pathExempt(f.rel, pathMatchers)) continue; // whole-file path exemption (K-2 / ADR-M005 D3)
     const hits = scanFile(f.abs, maskers);
     const scope = classifyScope(f.rel);
     results.push({ rel: f.rel, scope, hits });

@@ -1,5 +1,5 @@
 /**
- * Harness Lot H4 — OpenAPI derivation drift test (test 43, ADR-M005 D7/D8).
+ * Harness — OpenAPI derivation drift test (test 43, ADR-M005 D7/D8).
  * The OpenAPI 3.1 spec MUST be DERIVED from the frozen `schemas/*.json` (via the projection), NEVER
  * hand-written. This test reads the frozen files INDEPENDENTLY and asserts every operation's
  * frozen-derived `required` set (and full property definitions where the projection is byte-faithful)
@@ -97,7 +97,7 @@ test("openapi_generated_matches_frozen_schemas", () => {
     "attest response price property definitions == frozen in full",
   );
 
-  // --- calibrate (Lot C1, ADR-M007 D2/D3): the path is present and NON-frozen (declared in
+  // --- calibrate (ADR-M007 D2/D3): the path is present and NON-frozen (declared in
   // schema-projection.ts, never in schemas/). We pin the wire shape here — the request requires
   // {scores,alpha,nMin} and the response structuredContent requires the 7 D3 fields (reason IN the
   // schema = M-5) — so a drift in the projected calibrate schema reddens.

@@ -1,4 +1,4 @@
-/** MONARK atelier (Lot D) — public API: pure state + pure render + stubs that throw. */
+/** MONARK atelier — public API: pure state + pure render + stubs that throw. */
 export { buildState, distribution, plusMinutes, LABEL_WINDOW_MIN } from "./state.ts";
 export type { AtelierState, Decision, ClockView, ShogenPanel, HikaePanel, UkemiPanel } from "./state.ts";
 export { renderState, renderNav, renderSummary, renderAll, esc } from "./render.ts";

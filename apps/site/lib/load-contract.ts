@@ -1,6 +1,6 @@
 // apps/site/lib/load-contract.ts — server-only read of a FROZEN JSON-Schema contract from schemas/
 // (ADR-M001; the schemas are the language-neutral source of truth per README). The storefront shows
-// the contract SHAPE for integrators (PLAN F-2 §2, panel block 6: the frozen JSON contract, read from schemas/).
+// the contract SHAPE for integrators (panel block 6: the frozen JSON contract, read from schemas/).
 // Read at build time inside a server component and passed to the client panel as a prop, so no
 // node:fs reaches the client bundle. `rootDir` is the repo root: a server component passes
 // join(process.cwd(), "..", "..") — apps/site is the cwd under `next build`/`next dev` (mirrors

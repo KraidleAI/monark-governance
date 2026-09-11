@@ -33,7 +33,7 @@ import type { GateInput } from "@monark/hikae";
 import { assertClosedGateDecision, assertNoForbiddenKey } from "@monark/contracts";
 import type { GateDecision, Prediction, CoverageVerdict } from "@monark/contracts";
 import { BTC_DIR_CALIB, BTC_DIR_CALIB_PROVENANCE } from "../calibration.ts";
-// Lot C2 (ADR-M007 D7): the BYO path REUSES the calibrate constants — the score cap (single source) and
+// (ADR-M007 D7): the BYO path REUSES the calibrate constants — the score cap (single source) and
 // the K-1 honesty label (B-2: one constant, no paraphrase, no banned overclaim verb). Errors on the
 // gate BYO path are `HarnessToolError` (already ∈ http.ts TOOL_ERROR_NAMES ⇒ 400), NOT CalibrateToolError.
 import { CALIBRATE_MAX_N, CALIBRATE_LABEL } from "./calibrate.ts";

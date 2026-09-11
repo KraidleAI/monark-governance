@@ -1,5 +1,5 @@
 /**
- * Harness Lot H3 — `attest` tool tests (ADR-M005 D1/D3/D8/D9, PLAN H3).
+ * Harness — `attest` tool tests (ADR-M005 D1/D3/D8/D9).
  * Each test is killed by >= 1 named mutant (proven red, then restored byte-exact via sha256 — see the
  * passe report). Fully typed: no `any`, no unsafe access — the file stays at the lint ratchet ceiling.
  *

@@ -30,7 +30,7 @@ neither real nor paper. Trading is a **future product, KAIZEN**. PnL does not en
 
 ## S2 instrument (`s2/`)
 
-**Disposable** harness (R-22), **per-seed synthetic** fixtures (`fixtures-synth`) — no network,
+**Disposable** harness, **per-seed synthetic** fixtures (`fixtures-synth`) — no network,
 the J0 probe on Coinbase (decision (a)) comes later. The D7 predictors are **actually
 run** (`generateCandleSeries → extractMomentumFeatures → momentum4c`, label by `labelOf`;
 didactic oracle on the same series) and enter the frozen chain through a `Prediction`
@@ -48,7 +48,7 @@ abstention 100 % — the demo shows no position. The 9 mechanism states are verd
 ## Tests
 
 `npm run ci` (root): vocab gate + `tsc --strict` + `node:test`. The 17 named tests of ADR-M002
-D11 (Lot H) plus the S2 guards. The mechanism set (3 COMMIT / 2 DEFER / 3 ABSTAIN / 1
+D11 plus the S2 guards. The mechanism set (3 COMMIT / 2 DEFER / 3 ABSTAIN / 1
 `under_calib`) is produced by the real `gate()` and its hash frozen in `test/fixtures.manifest.json`
 (drift without ADR = bug). Frozen contracts consumed via `@monark/contracts` — never reimplemented,
 never modified (`contracts_frozen`).

@@ -1,6 +1,6 @@
 # @monark/ukemi — liquidation-cascade engine building-block (Phase 1)
 
-UKEMI (受け身, "knowing how to fall") is a **MONARK engine building-block, not a product** (investor
+UKEMI (受け身, "knowing how to fall") is a **MONARK engine building-block, not a product** (a maintainer
 decision (c); G7 UKEMI §5-6; ADR-M002 D9). It produces, in a **deterministic and
 recomputable-by-anyone** way, a liquidable amount under shock, emitted as a numeric `Prediction`
 that HIKAE will conformalize in Phase 2. **No guarantee, no yield, no `p_correct`.**
@@ -11,7 +11,7 @@ Our own code.
 | Building-block | Role | Guarantee **honestly declared** |
 |---|---|---|
 | **Clearing** `clearing` | fixed point `p* = Φ(p*)`, `Φ(p) = (Πᵀp + e) ∧ p̄` (Eisenberg & Noe 2001, [lu] `eisenberg2001.txt`; [lu-archive] K4); `p⁺` via fictitious default ≤ n rounds, `p⁻` via iterates from 0; uniqueness reported by `‖p⁺−p⁻‖₁ < tol` | existence (Thm 1, Tarski); uniqueness **if** regular, `e>0` sufficient (Thm 2) — **tested by a negative control** (App. 2: `e=0` ⇒ not unique). `unique` is evaluated at `tol=1e-8` while Picard stops at `1e-10`: declared, not a theorem — on the regular fixtures `p⁺=p⁻` exactly. |
-| **Target A** `liquidableAmount` | "liquidable amount under a shock of `x %`" via Eq. 3 of *Knife-edge* (arXiv 2009.13235v6 p.7): tips if `qty·price·(1−shock)·K < debt` | **24 h horizon = investor decision (d)**. The shock is a **declared parameter, NOT a 24 h dynamics model** (dynamics NOT FOUND in the corpus). The "99 %" is not produced here — HIKAE Phase 2 coverage target. **Consequence (i) of D9**: UKEMI and HIKAE **no longer share the window** — target A becomes, at Phase 2 integration, a **2nd HIKAE task class** at a 24 h horizon and `alpha = 0.01` (aiming for 99 %), **distinct from `btc-dir-15m`**. **Target/horizon = "declared, unfounded"** (caveat C13d): no buyer has yet named a coverage requirement (G7 UKEMI, NOT FOUND); the 99 % level is a HIKAE Phase 2 target, not a UKEMI Phase 1 output. |
+| **Target A** `liquidableAmount` | "liquidable amount under a shock of `x %`" via Eq. 3 of *Knife-edge* (arXiv 2009.13235v6 p.7): tips if `qty·price·(1−shock)·K < debt` | **24 h horizon = a product decision (d)**. The shock is a **declared parameter, NOT a 24 h dynamics model** (dynamics NOT FOUND in the corpus). The "99 %" is not produced here — HIKAE Phase 2 coverage target. **Consequence (i) of D9**: UKEMI and HIKAE **no longer share the window** — target A becomes, at Phase 2 integration, a **2nd HIKAE task class** at a 24 h horizon and `alpha = 0.01` (aiming for 99 %), **distinct from `btc-dir-15m`**. **Target/horizon = "declared, unfounded"** (caveat C13d): no buyer has yet named a coverage requirement (G7 UKEMI, NOT FOUND); the 99 % level is a HIKAE Phase 2 target, not a UKEMI Phase 1 output. |
 
 ## Source ↔ implementation discrepancy, recorded (test 21 `nonexpansive_in_e`)
 
@@ -68,7 +68,7 @@ interbank assets in liquidation (P-K4-1 Q1, Def. 2.5).
   `unique=false`; with `α=β=1`, **unique clearing = (2.2,2.2)**. NB: the value "(2,2.2)"
   cited by the source (Q2) and the ADR is a **typo** for (2.2,2.2) — demonstrated in the test
   (`(2,2.2)` is a fixed point under **no** α) and recorded as a formed consultation
-  (`docs/G1-lot-K.md`).
+  an internal record.
 - **`(α, β)` are exogenous** (Def. 2.5): outside `α=β=1` (E&N) and outside the Ex. 3.3 values, every
   value used is **declared, UNFOUNDED** — formed pending (ADR-M003 §4: "(α,β) grounded by an
   empirical source"). No shipped default fixes one.
@@ -89,7 +89,7 @@ KAIZEN**. The DeFi endogenous channel (fire sales) is **out of Phase 1 scope** (
 ## Tests
 
 `npm run ci` (root): vocab gate + `tsc --strict` + `node:test`. The 6 named tests of ADR-M002 D11
-(Lot U, 18-23): `clearing_fixed_point`, `fictitious_default_le_n_rounds`,
+(18-23): `clearing_fixed_point`, `fictitious_default_le_n_rounds`,
 `uniqueness_when_e_positive` (+ negative control App. 2), `nonexpansive_in_e` (above),
 `liquidable_amount_eq3`, `prediction_numeric_emitted`. Phase 2 (ADR-M003 D11) adds tests
 **36** `clearing_alpha_beta_regression_en` (E&N byte-exact) and **37** `clearing_rv_ex33_two_vectors`

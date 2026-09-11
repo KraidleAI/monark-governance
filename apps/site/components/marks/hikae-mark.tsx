@@ -2,7 +2,7 @@
 // Hikae agent mark, transcribed faithfully from the MONARK brand-system source `hikae-mark.svg`
 // (NOT committed to this repo; 2026-09-09). Ink = `currentColor` (the monitored series); accent
 // hard-coded (#12857A, the two rails). Decorative (`aria-hidden`). External source path + sha256
-// recorded in the MONARK governance repository (docs/G1-lot-F2b.md, not part of this public mirror).
+// recorded privately; not part of this public mirror.
 import type { SVGProps } from "react";
 
 export function HikaeMark({ className, ...props }: SVGProps<SVGSVGElement>) {

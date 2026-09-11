@@ -1,6 +1,6 @@
 "use client";
 
-// The explainer controls (Lot F-site-3): the reading and calibration-spread sliders, the intent choice,
+// The explainer controls: the reading and calibration-spread sliders, the intent choice,
 // the sensor-timeout toggle, and Push / New epoch. The slider min/max/step are non-visible attributes
 // (not honesty-lint surfaces); the only scanned strings are the JSX labels, none carrying a digit. The
 // live reading/spread read-outs are computed strings passed in as props (property access, never literals).
@@ -60,7 +60,7 @@ export function GateControls({
       <div>
         <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 4 }}>Push an input through the gate</div>
         <div style={{ fontSize: 13, color: "var(--ink2)" }}>
-          {/* K-4(a), Lot F-site-5: restore the design's task framing (design L171). */}
+          {/* K-4(a): restore the design's task framing (design L171). */}
           Classification task, label schema{" "}
           <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>up|down</span>. Move the reading,
           widen the calibration spread, pick an intent — then push.

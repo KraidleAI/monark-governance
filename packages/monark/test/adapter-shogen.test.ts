@@ -1,4 +1,4 @@
-// packages/monark/test/adapter-shogen.test.ts — Lot I-b (ADR-M003 D10/D11, ADR-M001 Decision 3, ADR-M005 D3).
+// packages/monark/test/adapter-shogen.test.ts — ADR-M003 D10/D11, ADR-M001 Decision 3, ADR-M005 D3.
 //
 // Exercises `fromShogen` on the committed, sha256-pinned s3-binance fixtures. ANTI-CIRCULARITY: every
 // mapped field is confronted with an INDEPENDENT oracle — the Shogen verifier stdout

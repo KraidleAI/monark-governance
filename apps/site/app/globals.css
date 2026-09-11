@@ -2,7 +2,7 @@
 @import "tw-animate-css";
 
 /*
- * MONARK storefront design tokens — Lot F-site-1 (Shell & brand tokens).
+ * MONARK storefront design tokens (Shell & brand tokens).
  * Brand freeze 2026-09-07, applied here per ADR-M004 addendum D15: everything in Sora; paper #FAF7F2
  * ground / ink #1F1B16; IBM Plex Mono for data; Newsreader serif reserved for long-form reading; one
  * fixed accent per agent. This restyle re-values the EXISTING shadcn/Base UI token contract (same
@@ -10,7 +10,7 @@
  * the brand tokens of MONARK.dc.html L14 (light) / L15 (dark).
  * HONEST: colour + typography tokens only — no content, no numbers-as-claims, no assertions.
  *
- * Base UI primitives (own-the-code, Lot F-2a): the two @custom-variant blocks the copied Button/Dialog
+ * Base UI primitives (own-the-code): the two @custom-variant blocks the copied Button/Dialog
  * reference (data-open, data-closed) are inlined verbatim from shadcn/dist/tailwind.css (MIT). See
  * COMPONENTS-PROVENANCE.md. The dark variant stays a `.dark` class (ADR-M004 D15), driven by the client
  * theme provider.

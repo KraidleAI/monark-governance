@@ -1,6 +1,6 @@
 "use client";
 
-// The animated flow diagram (Lot F-site-3): sensor lanes -> the gate -> the three output lanes. The
+// The animated flow diagram: sensor lanes -> the gate -> the three output lanes. The
 // output labels come from the loaded `action` enum (a prop), so the third action word is never a QUOTED
 // literal here — never in a machine-consumed position sensitive to schema drift; its appearance in the
 // aria-label PROSE below is an accepted, gate-green position (not a quoted literal). The active lane is

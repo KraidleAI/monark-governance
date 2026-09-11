@@ -17,7 +17,7 @@ import type { FleetProduct } from "@/lib/fleet";
 import { cn } from "@/lib/utils";
 
 /**
- * Sober sensor -> gate -> act wiring diagram (PLAN F-2c §3). Ink = currentColor; decorative
+ * Sober sensor -> gate -> act wiring diagram. Ink = currentColor; decorative
  * (aria-hidden) — the per-product list beside it is the accessible, concrete wiring. SVG geometry
  * attributes are ignored by the honesty lint (test 44), like the agent marks; no rendered number.
  */
@@ -48,7 +48,7 @@ function WiringSchema() {
 }
 
 /**
- * A single UPCOMING product placeholder (ADR-M004 D14 / PLAN F-2c §3, C-9/C-10). A segment card opens
+ * A single UPCOMING product placeholder (ADR-M004 D14). A segment card opens
  * it. Honest and LIGHT: not the eight-block built template, and no Frozen contract / Living proof /
  * Bibliography (a product that is not built has nothing built to show). Exactly ONE status signal — the
  * product-level Upcoming badge. The wiring names Ukemi / Hikae where they are the engine, with NO

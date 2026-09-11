@@ -53,7 +53,7 @@ test("clearing_alpha_beta_regression_en", () => {
 // write the largest vector "(2,2.2)". It is a TYPO for (2.2,2.2): (2,2.2) is not a
 // fixed point of Φ under ANY α (`notDeepEqual` assertions below), and (1,1) being the smaller forces
 // π₁₂=π₂₁=1 so the largest = (2.2,2.2). This test asserts the MATHEMATICALLY correct values
-// verified by computation (scratchpad rv-check.mjs, cf. docs/G1-lot-K.md — formed consultation).
+// verified by computation (scratchpad rv-check.mjs).
 // Named mutant: "β ignored" (β→1 in the default RHS/A) ⇒ the interbank recovery is
 // no longer discounted ⇒ L_* ≠ (1,1) ⇒ this test red.
 test("clearing_rv_ex33_two_vectors", () => {

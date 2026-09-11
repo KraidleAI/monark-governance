@@ -44,7 +44,7 @@ const TRACE_PATH = fileURLToPath(new URL("../fixtures/byo-demo-trace.json", impo
 const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url));
 
 /** Pinned sha256 (LF-normalized) of the committed trace — also stated in fixtures/PROVENANCE-byo-demo.md. */
-const TRACE_SHA256_PINNED = "3f987994900bedb47f27c819f3ff4e780883a030016916a2e6d07abda5e02697";
+const TRACE_SHA256_PINNED = "79b54471bb2e4d92f574e6456f3f4d548f7d73f187ea2528cbc54ca6f49286d4";
 
 /** Genericity guard pattern: the demo names no asset, no market activity, and no maturity overclaim.
  *  (This regex is the ENFORCEMENT mechanism; it necessarily spells the tokens it forbids.) */

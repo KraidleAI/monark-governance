@@ -1,7 +1,7 @@
 // apps/site/components/marks/kaihi-mark.tsx
 // Kaihi agent mark, transcribed faithfully (2026-09-10) from the MONARK brand-system design source —
 // the mark('kaihi') branch of MONARK.dc.html (line 614; external, not committed to this public mirror;
-// sha256 + exact line recorded in the MONARK governance doc docs/G1-lot-fsite-2.md, not part of this public mirror). Ink = currentColor (the diamond); accent
+// sha256 + exact line recorded privately; not part of this public mirror). Ink = currentColor (the diamond); accent
 // hard-coded (#E06B2E, the avoidance arc and its arrowhead). Decorative (aria-hidden), so the adjacent
 // text label is the accessible name.
 import type { SVGProps } from "react";

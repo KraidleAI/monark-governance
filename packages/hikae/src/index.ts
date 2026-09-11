@@ -8,7 +8,7 @@
  *   region          — buildIntervalRegion (M5 invariant, bounded-or-abstention), buildSetRegion.
  *   verdict         — CoverageVerdict assembly (calib_digest by reference).
  *   predictor       — internal:momentum-4c, internal:oracle-didactique ; labelOf (D7/D8).
- *   s2              — S2 instrument (disposable harness, R-22 ; labelled fixtures).
+ *   s2              — S2 instrument (disposable harness ; labelled fixtures).
  *
  * The code is our own; the Grok app is a design input, never lifted.
  */
@@ -25,7 +25,7 @@ export type { Miscover } from "./l2-monitor.ts";
 export { gate, GATED_TOOLS } from "./l3-gate.ts";
 export type { GateInput, GatedTool } from "./l3-gate.ts";
 
-// Region constructors (M5 invariant owner = Lot H, D9/C4).
+// Region constructors (M5 invariant owner settled, D9/C4).
 export {
   buildIntervalRegion,
   buildSetRegion,

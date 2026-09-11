@@ -1,6 +1,6 @@
 {
   "name": "knife-edge-positions",
-  "note": "Oracle Eq. 3 from Perez, Werner, Xu, Livshits, *Liquidations: DeFi on a Knife-edge* (arXiv 2009.13235v6, p.7; [lu-archive] SYNTHESE §1). A position tips when qty·price·(1−shock)·K < debt. P1: 1·100·(1−s)·0,8 < 70 ⇔ 1−s < 0,875 ⇔ s > 0,125 (12,5 %); at s=0,20: 64 < 70 liquidable; at s=0,10: 72 ≥ 70 no. P2 (low threshold, small debt): 2·50·(1−s)·0,5 < 20 ⇔ 1−s < 0,4 ⇔ s > 0,6; never liquidable at s≤0,5. P3 (already underwater): 1·100·0,8=80 < 90 ⇒ liquidable even at s=0. Shock = DECLARED parameter over 24 h (investor decision (d)), NOT a dynamics model.",
+  "note": "Oracle Eq. 3 from Perez, Werner, Xu, Livshits, *Liquidations: DeFi on a Knife-edge* (arXiv 2009.13235v6, p.7; [lu-archive] SYNTHESE §1). A position tips when qty·price·(1−shock)·K < debt. P1: 1·100·(1−s)·0,8 < 70 ⇔ 1−s < 0,875 ⇔ s > 0,125 (12,5 %); at s=0,20: 64 < 70 liquidable; at s=0,10: 72 ≥ 70 no. P2 (low threshold, small debt): 2·50·(1−s)·0,5 < 20 ⇔ 1−s < 0,4 ⇔ s > 0,6; never liquidable at s≤0,5. P3 (already underwater): 1·100·0,8=80 < 90 ⇒ liquidable even at s=0. Shock = DECLARED parameter over 24 h (a product decision (d)), NOT a dynamics model.",
   "positions": [
     { "id": "P1", "collateralQty": 1, "collateralPrice": 100, "liqThreshold": 0.8, "debt": 70 },
     { "id": "P2", "collateralQty": 2, "collateralPrice": 50, "liqThreshold": 0.5, "debt": 20 },

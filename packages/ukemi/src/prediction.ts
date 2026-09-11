@@ -1,7 +1,7 @@
 /**
- * UKEMI — emission of a NUMERIC `Prediction` (ADR-M002 D1: Lot U emits a
+ * UKEMI — emission of a NUMERIC `Prediction` (ADR-M002 D1: UKEMI emits a
  * `Prediction{yhat:number, predictor_id}` ONLY; NO `interval` region — the region
- * is a conformalizer's job, owned by Lot H, at Phase 2 integration).
+ * is a conformalizer's job, owned by HIKAE, at Phase 2 integration).
  *
  * Frozen contract consumed (never reimplemented): `@monark/contracts`. Serialized by
  * `serializePrediction` (closed-check + recursive guard against forbidden keys). No timestamp

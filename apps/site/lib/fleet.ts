@@ -1,10 +1,10 @@
 // apps/site/lib/fleet.ts — the fleet register: the SINGLE SOURCE OF TRUTH for what is BUILT vs
-// UPCOMING across the storefront (ADR-M004 D14 / PLAN F-2c C-2). The /roadmap route and the
+// UPCOMING across the storefront (ADR-M004 D14). The /roadmap route and the
 // per-product UpcomingPanel read status FROM HERE; no status is hard-coded on those surfaces.
 //
 // Locked by the root test `fleet_register_built_set_is_frozen` (test/ci-gates.test.ts): the built
 // set is EXACTLY {Shōgen, Hikae, Ukemi}; the eight other agents and all five products are upcoming.
-// Flipping any of those thirteen to "built" reds that test (named mutant, docs/G1-lot-F2c.md).
+// Flipping any of those thirteen to "built" reds that test (named mutant).
 //
 // PORTABILITY: this module is compiled by TWO programs with different module resolution — the Next
 // app (moduleResolution "bundler") and the root test program (moduleResolution "nodenext", which
@@ -14,7 +14,7 @@
 // vocabulary — proven identical by the root test (bidirectional assignability) and enforced at every
 // <StatusBadge status={...} /> call site by `next build` (a stray "live" reds there too).
 //
-// SOURCING of the eight upcoming lines (deck + memstack, verbatim PLAN F-2c §2): docs/G1-lot-F2c.md.
+// SOURCING of the eight upcoming lines: recorded privately.
 // Pure data — NO React/Next import — so the root test can import it under node:test.
 
 /** The frozen public status vocabulary (identical to lib/status.ts AgentStatus). No "live" exists. */
@@ -48,7 +48,7 @@ export interface FleetProduct {
    * stays gated in every other file). See test/ci-gates.test.ts.
    */
   key: string;
-  /** The investor entry frame it sits behind on the home page. */
+  /** The entry frame it sits behind on the home page. */
   segment: string;
   /** Product name ("MONARK …"). */
   name: string;
@@ -62,7 +62,7 @@ export interface FleetProduct {
 
 // The eleven fleet agents. The three built ones are the same agents rendered by their Home panels
 // (that stays their source of truth); listed here so the register is complete and testable, and so
-// /roadmap can point back to them. The eight upcoming lines are the verbatim PLAN F-2c §2 wording.
+// /roadmap can point back to them. The eight upcoming lines are recorded internally.
 export const FLEET_AGENTS: FleetAgent[] = [
   { name: "Shōgen", role: "sensor", line: "Attested perception — a verified price testimony.", status: "built" },
   { name: "Hikae", role: "gate", line: "Coverage-controlled inference — the gate itself.", status: "built" },

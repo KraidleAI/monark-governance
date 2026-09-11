@@ -2,7 +2,7 @@
 // MONARK brand mark, transcribed faithfully from the MONARK brand-system source `monark-mark.svg`
 // (NOT committed to this repo; 2026-09-09). Ink = `currentColor` (follows the text colour of the
 // caller via className); accent hard-coded (#A6453E). Decorative: `aria-hidden`, so the adjacent text
-// label is the accessible name. External source path + sha256 recorded in the MONARK governance repository (docs/G1-lot-F2b.md, not part of this public mirror; own-the-code, R-8).
+// label is the accessible name. External source path + sha256 recorded privately; not part of this public mirror (own-the-code).
 import type { SVGProps } from "react";
 
 export function MonarkMark({ className, ...props }: SVGProps<SVGSVGElement>) {

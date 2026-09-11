@@ -30,11 +30,11 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { fromJsonSchema } from "@modelcontextprotocol/server";
 import type { JsonSchemaType, StandardSchemaWithJSON } from "@modelcontextprotocol/server";
-// Lot H6 resource cap: the single source for the cascade node bound lives in the pure tool file. No cycle
+// Resource cap: the single source for the cascade node bound lives in the pure tool file. No cycle
 // (this module -> cascade -> gate -> calibration; none import back here). cascade.ts does no I/O, so
 // importing it here does not move any filesystem read out of this module (the K-8 boundary is intact).
 import { CASCADE_MAX_NODES } from "./tools/cascade.ts";
-// Lot C1 resource cap: the single source for the calibrate score bound lives in the pure tool file
+// Resource cap: the single source for the calibrate score bound lives in the pure tool file
 // (motif CASCADE_MAX_NODES). No cycle (this module -> calibrate; calibrate does no I/O, imports no schema).
 import { CALIBRATE_MAX_N } from "./tools/calibrate.ts";
 
@@ -100,7 +100,7 @@ export function derefVerdict(gateDecision: JsonObject, coverageVerdict: JsonObje
 }
 
 /** Non-frozen gate parameters (ADR-M005 D5/D6, caller-carried). Declared here, never in schemas/.
- *  Lot C2 (ADR-M007 D7): the OPTIONAL `calibration` object opens the BYO loop — the caller supplies its
+ *  (ADR-M007 D7): the OPTIONAL `calibration` object opens the BYO loop — the caller supplies its
  *  own nonconformity `scores` + a `mode` (interval|set), and the gate conformalizes against THOSE scores
  *  instead of a committed class. It stays OUT of `required` so the existing committed-class calls
  *  (btc-dir / cascade) remain valid. `maxItems: CALIBRATE_MAX_N` bounds both `scores` and `candidates`
@@ -164,7 +164,7 @@ export const TOOL_OUTPUT_SCHEMA: JsonObject = derefVerdict(GATE_DECISION_SCHEMA,
 export const toolInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(TOOL_INPUT_SCHEMA as unknown as JsonSchemaType);
 export const toolOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(TOOL_OUTPUT_SCHEMA as unknown as JsonSchemaType);
 
-// ---------------------------------------------------------------------------- cascade (Lot H2, D4/D8)
+// ---------------------------------------------------------------------------- cascade (D4/D8)
 
 /**
  * cascade INPUT (ADR-M005 D4/D8): the NON-frozen UKEMI `FinancialSystem` (`L`, `e`) plus the declared
@@ -179,7 +179,7 @@ export const CASCADE_INPUT_SCHEMA: JsonObject = {
     L: {
       type: "array",
       description: "Nominal interbank liabilities matrix L[i][j] = what node i owes node j. Square, entries >= 0, zero diagonal.",
-      // Lot H6 resource cap: bound BOTH the outer array (node count n) and each inner row at the SDK
+      // Resource cap: bound BOTH the outer array (node count n) and each inner row at the SDK
       // boundary — a square matrix is n x n, so an unbounded row is as much a DoS vector as an unbounded n.
       maxItems: CASCADE_MAX_NODES,
       items: { type: "array", items: { type: "number" }, maxItems: CASCADE_MAX_NODES },
@@ -187,7 +187,7 @@ export const CASCADE_INPUT_SCHEMA: JsonObject = {
     e: {
       type: "array",
       description: "External assets (liquidation value) per node at the clearing date. One value per node.",
-      maxItems: CASCADE_MAX_NODES, // Lot H6: |e| == n, capped in lockstep with L.
+      maxItems: CASCADE_MAX_NODES, // |e| == n, capped in lockstep with L.
       items: { type: "number" },
     },
     shock: { type: "number", description: "24h collateral price shock fraction in [0,1] — a declared fixture parameter, not a dynamics model." },
@@ -202,7 +202,7 @@ export const CASCADE_OUTPUT_SCHEMA: JsonObject = asObject(stripMeta(PREDICTION_S
 export const cascadeInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(CASCADE_INPUT_SCHEMA as unknown as JsonSchemaType);
 export const cascadeOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(CASCADE_OUTPUT_SCHEMA as unknown as JsonSchemaType);
 
-// ---------------------------------------------------------------------------- attest (Lot H3, D3/D8)
+// ---------------------------------------------------------------------------- attest (D3/D8)
 
 /**
  * attest OUTPUT (ADR-M005 D3/D8, K-1): the `AdapterOutput` ENVELOPE. Only `price` is a FROZEN contract —
@@ -245,7 +245,7 @@ export const ATTEST_OUTPUT_SCHEMA: JsonObject = {
 export const attestInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(ATTEST_INPUT_SCHEMA as unknown as JsonSchemaType);
 export const attestOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(ATTEST_OUTPUT_SCHEMA as unknown as JsonSchemaType);
 
-// ---------------------------------------------------------------------------- calibrate (Lot C1, D2/D3/D8)
+// ---------------------------------------------------------------------------- calibrate (D2/D3/D8)
 
 /**
  * calibrate INPUT (ADR-M007 D2): the NON-frozen BYO score array plus `alpha` and `nMin`. Declared HERE,
@@ -261,7 +261,7 @@ export const CALIBRATE_INPUT_SCHEMA: JsonObject = {
     scores: {
       type: "array",
       description: "Caller-supplied nonconformity scores (BYO: the caller owns the score function; MONARK stays agnostic).",
-      maxItems: CALIBRATE_MAX_N, // Lot C1 resource cap: bound the score count at the SDK boundary.
+      maxItems: CALIBRATE_MAX_N, // Resource cap: bound the score count at the SDK boundary.
       items: { type: "number" },
     },
     alpha: { type: "number", description: "Target miscoverage in the open interval (0,1)." },
@@ -270,7 +270,7 @@ export const CALIBRATE_INPUT_SCHEMA: JsonObject = {
 };
 
 /**
- * calibrate OUTPUT (ADR-M007 D3, NON-frozen envelope, investor decision "flexible, freeze after C2"): declared
+ * calibrate OUTPUT (ADR-M007 D3, NON-frozen envelope, a product decision "flexible, freeze after C2"): declared
  * HERE, never in schemas/. `reason` is IN the schema (M-5) so `additionalProperties:false` accepts the
  * fail-closed shape; `qhat` is nullable (number on success, null on under_calib). `label` is the K-1
  * honesty carrier (outside any frozen contract, like attest's envelope `label`). `set_digest` is the

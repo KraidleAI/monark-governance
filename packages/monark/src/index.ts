@@ -116,7 +116,7 @@ export function crossAgentGate(price: AttestedPrice, prediction: Prediction, ctx
 /** Phase 2 — the cross-agent gate is REAL (ADR-M003 D4). */
 export const MONARK_PHASE = "2-integration";
 
-// Lot I-b adapter surface — re-exported on the barrel for downstream consumers (the harness `attest`
+// Adapter surface — re-exported on the barrel for downstream consumers (the harness `attest`
 // tool, ADR-M005 H3). `@monark/monark` exposes a single `.` entry (package.json `exports`), so the barrel
 // is where the Shōgen -> AttestedPrice adapter is published. Additive; the frozen contracts are unchanged.
 export { fromShogen, isAdapterError, DEMONSTRATIVE_LABEL, SHOGEN_HEAD_SHA } from "./adapter-shogen.ts";

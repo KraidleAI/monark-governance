@@ -1,6 +1,6 @@
 {
   "schema": "monark-byo-demo-trace/1",
-  "title": "MONARK harness — recorded bring-your-own (BYO) calibrate -> gate -> audit demonstration (Lot M006 D10)",
+  "title": "MONARK harness — recorded bring-your-own (BYO) calibrate -> gate -> audit demonstration",
   "generated_by": {
     "recorder": "scripts/record-byo-demo.mjs",
     "worker_model": "claude-opus-4-8",

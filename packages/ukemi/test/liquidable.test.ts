@@ -4,7 +4,7 @@ import { isLiquidable, liquidableAmount } from "../src/index.ts";
 import { loadPositions } from "./fixtures.ts";
 
 // Test 22 (ADR-M002 D11) — target A via Eq. 3 of "Knife-edge" (arXiv 2009.13235v6 p.7),
-// oracle by hand (see fixture note). Horizon 24 h = investor decision (d).
+// oracle by hand (see fixture note). Horizon 24 h = a product decision (d).
 test("liquidable_amount_eq3", () => {
   const positions = loadPositions("knife-edge-positions.json");
   const [p1, p2, p3] = positions;

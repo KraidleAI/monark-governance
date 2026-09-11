@@ -1,5 +1,5 @@
 /**
- * Harness — the committed Shōgen witness FIXTURE loader (ADR-M005 D3, PLAN H3).
+ * Harness — the committed Shōgen witness FIXTURE loader (ADR-M005 D3).
  *
  * Reads the three committed, sha256-pinned `s3-binance.*` fixtures — the ONLY real Shōgen witness in the
  * repo (Binance BTCUSDT, self-notarized) — and freezes them as module-level constants at load. It sits at

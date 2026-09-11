@@ -19,10 +19,10 @@ import { cn } from "@/lib/utils";
 
 /**
  * The built Shōgen agent. Its fleet card carries a panel trigger; so do Hikae and Ukemi — the three
- * built agents each open the same 8-block template (PLAN F-2 §2 / memstack 0d186517): blocks 1/2/4/6
+ * built agents each open the same 8-block template: blocks 1/2/4/6
  * are BUILT here; blocks 3/5/7/8 are declared UPCOMING (no committed bibliography / F-live / B-api|B-mcp
  * / F-console yet). `contract` is the frozen AttestedPrice shape, read server-side from schemas/ (C7
- * decision on a committed Shogen sample: "to be announced" — see docs/G1-lot-F2b.md).
+ * decision on a committed Shogen sample: "to be announced").
  */
 export function ShogenPanel({ contract }: { contract: FrozenContract }) {
   return (

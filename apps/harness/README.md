@@ -1,8 +1,8 @@
 # @monark/harness
 
-A **stateless MCP server** (plus a **HTTP/JSON mirror**, Lot H4) that exposes the real engine primitives
-— the HIKAE `gate`, the UKEMI `cascade`, the Shōgen `attest`, and the HIKAE BYO `calibrate` (Lot C1,
-ADR-M007) — as callable tools. This document details the `gate` tool; the mirror and deployment are
+A **stateless MCP server** (plus a **HTTP/JSON mirror**) that exposes the real engine primitives
+— the HIKAE `gate`, the UKEMI `cascade`, the Shōgen `attest`, and the HIKAE BYO `calibrate`
+(ADR-M007) — as callable tools. This document details the `gate` tool; the mirror and deployment are
 covered at the end.
 No stand-in: the `gate` tool composes the actual `@monark/hikae` policy (`conformalSet` / `conformInterval`
 → `buildVerdict` → `gate()`) and returns a **frozen, closed `GateDecision`** (`@monark/contracts`).
@@ -16,7 +16,7 @@ Free, pure, no persistence, no trading (ADR-M005 D1). Transport: MCP Streamable 
 - `prediction` — the **frozen `Prediction`** (`schemas/prediction.schema.json`, projected verbatim,
   `additionalProperties:false`; the SDK enforces the closed contract at the boundary).
 - `params` — the **non-frozen** gate parameters (declared by the server, never in `schemas/`). The
-  OPTIONAL `params.calibration` opens the **BYO** path (Lot C2, ADR-M007 D7): see below.
+  OPTIONAL `params.calibration` opens the **BYO** path (ADR-M007 D7): see below.
 
 **Dispatch is on `prediction.task_class`** (ADR-M005 D5), UNLESS the caller supplies `params.calibration`
 (then the BYO path runs, keyed on presence — see the BYO row):
@@ -95,7 +95,7 @@ calibration exists, so that class abstains honestly.
 
 The listener starts only when `src/server.ts` is run directly; importing the module is side-effect-free.
 
-## HTTP/JSON mirror & deployment (Lot H4)
+## HTTP/JSON mirror & deployment
 
 One `127.0.0.1:3001` listener serves two surfaces, routed by Host: `mcp.monarkgate.tech` → the MCP tools
 above; `api.monarkgate.tech` → a plain-JSON mirror of the **same** four tools and the **same** frozen
