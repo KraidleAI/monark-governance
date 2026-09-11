@@ -32,31 +32,66 @@ service + Caddy, **not** docker).
 
 ## 1. Put the harness tree on the VPS at `/opt/monark-harness`
 
-**rsync the working tree from the orchestrator's machine** over the existing deploy key — do NOT `git clone`
-on the VPS: cloning the private **governance** repo there would need a deploy key on the VPS, a new
-credential the vitrine never provisioned. Exclude `node_modules` (rebuilt by `npm ci` in step 2) and `.git`.
-From the orchestrator's machine, in the repo root:
+**rsync only the SERVICE paths from the orchestrator's machine** over the existing deploy key — do NOT `git
+clone` on the VPS (cloning the private **governance** repo there would need a deploy key on the VPS, a new
+credential the vitrine never provisioned), and do NOT push the whole repo (Lot H6: a public-facing host
+carries only what it runs — least privilege). Ship exactly what `node apps/harness/src/server.ts` needs at
+runtime plus what this runbook installs: `apps/ packages/ schemas/ fixtures/ package.json package-lock.json
+deploy/ scripts/verify-harness.mjs`.
+
+Why this set (re-verified against the running process):
+- `apps/` and `packages/` ship **whole** — `npm ci` (step 2) validates every workspace in
+  `package-lock.json`, so dropping one breaks the install; and `server.ts` imports the `@monark/*`
+  workspaces (contracts, hikae, ukemi, monark) transitively via the tool registry.
+- `schemas/` and `fixtures/` are the process's ONLY two runtime file reads: `schema-projection.ts` reads
+  the frozen `*.schema.json`, `shogen-fixture.ts` reads the `s3-binance.*` witness.
+- `deploy/` (unit + Caddy block, cp'd in steps 4–5) and `scripts/verify-harness.mjs` (step 6, and a local
+  VPS re-run) are needed by the deploy procedure itself.
+
+This EXCLUDES `docs/`, `enforcement/`, `test/`, `.github/`, `README.md`, `tsconfig.json`,
+`eslint.config.mjs`, `vocab-banned.json`, `lint-ratchet.json`, and all of `scripts/` except
+`verify-harness.mjs` — none is read at runtime. Restricting the SOURCE list is the guarantee that
+governance files never reach the public host; `--delete` is for update hygiene (files that vanished from
+the shipped set), not the primary control. `-R` (`--relative`) preserves the nested
+`scripts/verify-harness.mjs` path on the destination. Exclude `node_modules` (rebuilt by `npm ci` in step
+2) and `.git`. From the orchestrator's machine, in the repo root:
 
 ```bash
-rsync -az --delete -e "ssh -i ~/.ssh/monark_vps" \
+rsync -azR --delete -e "ssh -i ~/.ssh/monark_vps" \
   --exclude node_modules --exclude .git \
-  ./ root@31.97.155.188:/opt/monark-harness/
+  apps packages schemas fixtures package.json package-lock.json deploy scripts/verify-harness.mjs \
+  root@31.97.155.188:/opt/monark-harness/
 ```
 
 If `rsync` is not on the orchestrator's machine (Git-for-Windows does not ship it), use tar-over-ssh instead
-(same excludes, `scp`/`ssh`/`tar` are always present):
+(same SERVICE path set and excludes; `scp`/`ssh`/`tar` are always present). tar stores the listed relative
+paths verbatim, so `scripts/verify-harness.mjs` keeps its `scripts/` prefix. Note tar does NOT prune the
+destination (unlike `rsync --delete`), so on a re-push it overwrites but never removes stale files:
 
 ```bash
-tar czf - --exclude node_modules --exclude .git . \
+tar czf - --exclude node_modules --exclude .git \
+  apps packages schemas fixtures package.json package-lock.json deploy scripts/verify-harness.mjs \
   | ssh -i ~/.ssh/monark_vps root@31.97.155.188 "mkdir -p /opt/monark-harness && tar xzf - -C /opt/monark-harness"
 ```
 
-Then, on the VPS (`ssh -i ~/.ssh/monark_vps root@31.97.155.188`), confirm the tree carries this lot (it
-must contain apps/, packages/, schemas/, fixtures/):
+**One-time cleanup if the host ever received a pre-H6 (whole-repo) push:** neither `rsync --delete` (with
+`-R` and an explicit source list) nor tar reliably prunes TOP-LEVEL directories absent from the source
+list, so an `/opt/monark-harness` populated by an older runbook may still carry `docs/`, `test/`,
+`enforcement/`, `.github/`, etc. Remove them explicitly — do NOT rely on `--delete`:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@31.97.155.188 \
+  'cd /opt/monark-harness && rm -rf docs test enforcement .github README.md tsconfig.json eslint.config.mjs vocab-banned.json lint-ratchet.json'
+```
+
+Then, on the VPS (`ssh -i ~/.ssh/monark_vps root@31.97.155.188`), confirm the tree carries this lot AND no
+governance (it must contain apps/, packages/, schemas/, fixtures/; scripts/ holds only verify-harness.mjs):
 
 ```bash
 cd /opt/monark-harness
-test -f apps/harness/src/http.ts || echo "STOP: this tree predates Lot H4 (no HTTP mirror) — re-rsync a newer one"
+test -f apps/harness/src/http.ts || echo "STOP: this tree predates Lot H4 (no HTTP mirror) — re-push a newer one"
+if [ -d docs ] || [ -d test ] || [ -d enforcement ]; then echo "STOP: governance dirs present — restricted push did not take; run the cleanup above"; fi
+ls scripts   # expect ONLY: verify-harness.mjs
 ```
 
 ## 2. Install dependencies and verify the launch command (as root)
@@ -94,6 +129,12 @@ systemctl daemon-reload
 systemctl enable --now monark-harness
 systemctl status monark-harness --no-pager        # Active: active (running)
 curl -s -H 'Host: api.monarkgate.tech' http://127.0.0.1:3001/health   # local check before Caddy
+# Lot H6 — the resource caps are ENFORCED at runtime, not just written in the unit file. Verify the cgroup
+# actually applied them (expect CPUQuotaPerSecUSec=500ms, MemoryMax=536870912 [512 MiB], TasksMax=128):
+systemctl show monark-harness -p CPUQuotaPerSecUSec -p MemoryMax -p TasksMax
+# A MemoryMax=infinity (or CPUQuotaPerSecUSec=infinity) reading means the cgroup cap did NOT apply on this
+# host (e.g. cgroup v1, or a delegation gap) — STOP and fix before exposing the endpoint; the unit file
+# alone is not the control.
 ```
 
 ## 5. Add the Caddy site block (TLS is automatic once DNS resolves)
@@ -122,6 +163,21 @@ It checks: `/health` and `/openapi.json` live; a present-and-invalid `Origin` �
 MCP `tools/list` returns the three tools; a real `gate`, `cascade`, and `attest` call; and the TLS
 certificate (issuer, expiry). It writes the **conformity attestation** (URL, timestamp, per-check
 sha256, TLS cert) to the `--out` file and exits non-zero on any failure. Keep that file as the CA.
+
+**Deploy reserves — the green gate (Lot H6).** The deploy is GREEN only when BOTH hold:
+- the command **exits 0** AND its stderr prints `VERIFY OK`. Treat ANY non-zero exit as RED and read the
+  JSON `checks` array to find the failing check (on Windows an unavailable interpreter can surface as exit
+  `127` — still RED, never a pass); and
+- on the first real **https** run, the CA's `tls.authorized === true` (a genuine handshake to the live
+  cert, not merely "fetch didn't throw"). An http/local target reports `tls.skipped` and does NOT satisfy
+  the go-live gate.
+
+After a GREEN deploy, record the CA in the provenance journal — compute its sha256 and log that digest with
+today's date to `docs/JOURNAL-PROVENANCE.md`, alongside the artifact `docs/deploy-CA-harness.json`:
+
+```bash
+sha256sum docs/deploy-CA-harness.json   # log this digest + the date into docs/JOURNAL-PROVENANCE.md
+```
 
 ## Rollback
 

@@ -30,6 +30,10 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { fromJsonSchema } from "@modelcontextprotocol/server";
 import type { JsonSchemaType, StandardSchemaWithJSON } from "@modelcontextprotocol/server";
+// Lot H6 resource cap: the single source for the cascade node bound lives in the pure tool file. No cycle
+// (this module -> cascade -> gate -> calibration; none import back here). cascade.ts does no I/O, so
+// importing it here does not move any filesystem read out of this module (the K-8 boundary is intact).
+import { CASCADE_MAX_NODES } from "./tools/cascade.ts";
 
 /** A JSON value (no `any`; keeps the type-checked linter happy end-to-end). */
 export type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
@@ -143,11 +147,15 @@ export const CASCADE_INPUT_SCHEMA: JsonObject = {
     L: {
       type: "array",
       description: "Nominal interbank liabilities matrix L[i][j] = what node i owes node j. Square, entries >= 0, zero diagonal.",
-      items: { type: "array", items: { type: "number" } },
+      // Lot H6 resource cap: bound BOTH the outer array (node count n) and each inner row at the SDK
+      // boundary — a square matrix is n x n, so an unbounded row is as much a DoS vector as an unbounded n.
+      maxItems: CASCADE_MAX_NODES,
+      items: { type: "array", items: { type: "number" }, maxItems: CASCADE_MAX_NODES },
     },
     e: {
       type: "array",
       description: "External assets (liquidation value) per node at the clearing date. One value per node.",
+      maxItems: CASCADE_MAX_NODES, // Lot H6: |e| == n, capped in lockstep with L.
       items: { type: "number" },
     },
     shock: { type: "number", description: "24h collateral price shock fraction in [0,1] — a declared fixture parameter, not a dynamics model." },

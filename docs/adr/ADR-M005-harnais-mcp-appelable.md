@@ -1,6 +1,6 @@
 # ADR-M005 — Harnais MCP appelable : exposer les primitives RÉELLES `attest`(Shōgen) · `gate`(HIKAE) · `cascade`(UKEMI)
 
-> **Statut** : proposé, **révisé après deux checkpoint-1 (validateur, 2026-09-10) et quatre décisions investisseur**
+> **Statut** : **accepté / en vigueur** (2026-09-11, après H1→H5 mergés + checkpoint-2 consolidé), **révisé après deux checkpoint-1 (validateur, 2026-09-10) et quatre décisions investisseur**
 > (Q1/Q2 + Q-A/Q-B, ci-dessous). Corrections C-1..C-10 et K-1..K-9 **intégrées**. Checkpoint-1 final avant code.
 > **Révision 2026-09-10 (Addendum D12)** : **Q2 révisée** — l'agent déploie AUSSI le harnais (même motif que la vitrine). D0/D10/§1.1/§5/PF-2 lus à travers D12.
 > **Siège committeur** : `claude-opus-4-8` par exception Opus-seat (précédent PR #1) — journalisé par commit.

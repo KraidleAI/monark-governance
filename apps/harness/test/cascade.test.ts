@@ -21,9 +21,10 @@ import {
   cascadeLiquidable,
   CascadeToolError,
   CASCADE_TOOL_DESCRIPTION,
+  CASCADE_MAX_NODES,
   type CascadeInput,
 } from "../src/tools/cascade.ts";
-import { CASCADE_INPUT_SCHEMA, CASCADE_OUTPUT_SCHEMA, type Json } from "../src/schema-projection.ts";
+import { CASCADE_INPUT_SCHEMA, CASCADE_OUTPUT_SCHEMA, cascadeInputStandardSchema, type Json } from "../src/schema-projection.ts";
 import { CASCADE_UNCALIBRATED_SENTENCE } from "../src/tools/gate.ts";
 
 const CONTAGION: CascadeInput = { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" };
@@ -147,4 +148,50 @@ test("cascade_tool_schema_equals_frozen_prediction", () => {
     "input declares exactly L, e, shock, producedAt",
   );
   assert.deepEqual(CASCADE_INPUT_SCHEMA["required"], ["L", "e", "shock", "producedAt"], "all four fields required");
+});
+
+/** A structurally-valid n-node system (zero matrix, unit external assets): the ONLY thing that can make it
+ *  illegal is its size, so it isolates the Lot H6 node cap from every other validation rule. */
+function zeroSystem(n: number): CascadeInput {
+  return {
+    L: Array.from({ length: n }, () => new Array<number>(n).fill(0)),
+    e: new Array<number>(n).fill(1),
+    shock: 0,
+    producedAt: "2026-09-04T00:00:00Z",
+  };
+}
+
+// Test — the Lot H6 resource cap rejects an oversized interbank system (n > CASCADE_MAX_NODES) at BOTH
+// layers, and accepts one exactly at the cap. WHY: the harness is a public, unauthenticated endpoint on the
+// vitrine's VPS and the Eisenberg-Noe clearing is ~O(n^3), so an unbounded L is a DoS vector.
+// Mutants (each reddens ≥ 1 assertion below): (m1) remove the `if (n > CASCADE_MAX_NODES)` guard in
+// cascade.ts ⇒ (a) stops throwing; (m2) drop `maxItems` from CASCADE_INPUT_SCHEMA in schema-projection.ts
+// ⇒ (b) the maxItems assertions and (c) the behavioral boundary rejection go green→red; (m3) widen the cap
+// (e.g. 4096) ⇒ the value assertions and the n==cap/n>cap split redden.
+test("cascade_rejects_oversized_system_over_the_node_cap", async () => {
+  assert.equal(CASCADE_MAX_NODES, 64, "the node cap is 64 (Lot H6)");
+  const over = zeroSystem(CASCADE_MAX_NODES + 1); // 65 nodes: structurally valid, only the size is illegal
+  const atCap = zeroSystem(CASCADE_MAX_NODES); // 64 nodes: legal
+
+  // (a) GUARD — the pure tool itself refuses n > cap, BEFORE the O(n^3) clearing. Belt-and-suspenders
+  // behind the schema: a direct in-process call (HTTP mirror / a test) is capped even past the SDK boundary.
+  assert.throws(() => runCascade(over), CascadeToolError, "runCascade refuses n > cap as a tool error");
+  assert.throws(() => cascadeLiquidable(over), CascadeToolError, "the cap fires before the clearing runs");
+  // boundary / off-by-one — exactly the cap is accepted (kills a `>=`-for-`>` mutant and a wrong cap value).
+  assert.doesNotThrow(() => runCascade(atCap), "n == cap is accepted (the cap is an upper bound, not exclusive of 64)");
+
+  // (b) SCHEMA maxItems at the SDK boundary — the outer array (node count), EACH inner row, and e.
+  const props = asObj(CASCADE_INPUT_SCHEMA["properties"], "cascade input.properties");
+  const L = asObj(props["L"], "cascade input.properties.L");
+  assert.equal(L["maxItems"], CASCADE_MAX_NODES, "L outer array is capped at the node count");
+  assert.equal(asObj(L["items"], "L.items")["maxItems"], CASCADE_MAX_NODES, "each inner row of L is capped too");
+  assert.equal(asObj(props["e"], "cascade input.properties.e")["maxItems"], CASCADE_MAX_NODES, "e is capped in lockstep with L");
+
+  // (c) BEHAVIORAL — the SAME projected standard schema the MCP boundary AND the HTTP mirror validate with
+  // rejects n > cap and accepts n == cap. This is the load-bearing killer for a mutant that removes
+  // `maxItems` from the projection (the guard test in (a) would still pass then, but this reddens).
+  const overValidated = await cascadeInputStandardSchema["~standard"].validate(over);
+  assert.notEqual(overValidated.issues, undefined, "the boundary schema rejects n > cap");
+  const atCapValidated = await cascadeInputStandardSchema["~standard"].validate(atCap);
+  assert.equal(atCapValidated.issues, undefined, "the boundary schema accepts n == cap (positive control)");
 });
