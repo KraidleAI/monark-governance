@@ -250,9 +250,11 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
     //     E-hikae/ukemi/atelier/monark stay ungated (still RED globally by design — docs/G1-lot-X.md).
     //     The `harness` scope (Lot H4, ADR-M005 Q-A) gives the now-exported apps/harness English-only teeth:
     //     a French word in an exported apps/harness .ts reds the export here.
+    //     The `skills` scope (Lot M006-B, ADR-M006 D5) does the same for the now-exported skills/ artefacts:
+    //     a French string in an exported SKILL.md/INTEGRATION.md reds the export here.
     execFileSync(
       process.execPath,
-      [join(ROOT, "scripts", "lang-gate.mjs"), "--dir", out, "--scope", "root,contracts,schemas,site,harness"],
+      [join(ROOT, "scripts", "lang-gate.mjs"), "--dir", out, "--scope", "root,contracts,schemas,site,harness,skills"],
       { cwd: ROOT, stdio: "pipe" },
     );
 

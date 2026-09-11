@@ -59,6 +59,27 @@
         { "re": "(?<!not\\s)(?<!no[\\s_])probative", "why": "naked \"probative\" surclaim; the honest \"not probative\"/\"no probative\"/\"no_probative\" negations stay green (ADR-M007 B-3)" },
         { "re": "\\bpredicts\\b", "why": "\"predicts\" — the fleet conforms a predictor, it does not itself predict; \"predictor\"/\"prediction\" stay green (ADR-M007 B-3)" }
       ]
+    },
+    "skills": {
+      "extensions": [".md", ".json", ".yaml", ".txt"],
+      "$comment": "Lot M006-B (ADR-M006 D2/D5): the ClawHub skill artefacts under skills/ (SKILL.md, INTEGRATION.md, ...) carry the honesty framing, so the SAME negation-aware overclaim gate the harness applies to its tool surface applies here — PLUS the securities vocabulary (ADR-M006 M-2, kept OUT of the skill: profit-share/yield/APY/pay-for-inference/staking) and the risk #1 mis-read of the coverage gate as a spend guard (ADR-M006 D2). The pattern 'spend[-\\s]?(cap|guard|limit)' catches the mis-read, while 'spend controls' (the honest pointer to the caller's own platform) stays green; the ONE honest sentence that names '$/token spend cap' only to DENY it is masked by the closed exemptPhrases below (same closed-list mechanism as the site scope). 'live'/'proven' (ADR-M006 M-9) never describe the skill. No naked '\\bBTC\\b' ban here on purpose: the committed class 'btc-dir-15m' (D9/C-3) is a mandated, disclosed plumbing fixture. Adding a pattern = this ADR line.",
+      "banned": [
+        { "re": "\\bconfidence\\b", "why": "\"confidence\" — no confidence field/score anywhere (fleet invariant; ADR-M006 D2)" },
+        { "re": "\\bautonomous\\b", "why": "\"autonomous\" — no autonomy claim on the skill surface (ADR-M006 D2)" },
+        { "re": "\\bself[-\\s]?evolving\\b", "why": "\"self-evolving\" claim (ADR-M006 D2)" },
+        { "re": "(?<!\\bno\\s)guarantee", "why": "naked \"guarantee\" surclaim; the honest \"no guarantee\" stays green (ADR-M006 D2, mirror of harness ADR-M007 B-3)" },
+        { "re": "(?<!not\\s)(?<!no[\\s_])probative", "why": "naked \"probative\" surclaim; the honest \"not probative\"/\"no probative\" negations stay green (ADR-M006 D2)" },
+        { "re": "\\bpredicts\\b", "why": "\"predicts\" — MONARK gates a predictor, it does not itself predict; \"predictor\"/\"prediction\" stay green (ADR-M006 D2)" },
+        { "re": "profit[-\\s]?share", "why": "\"profit-share\" — securities framing kept OUT of the skill (ADR-M006 M-2, token page only)" },
+        { "re": "\\byield\\b", "why": "\"yield\" — securities framing kept out of the skill (ADR-M006 M-2)" },
+        { "re": "\\bAPY\\b", "why": "\"APY\" — securities framing kept out of the skill (ADR-M006 M-2)" },
+        { "re": "pays?\\s.{0,12}inference", "why": "\"pay ... inference\" — the abstain-to-payment framing is kept out of the skill (ADR-M006 M-2)" },
+        { "re": "\\bstak", "why": "\"stak(e|ing)\" — token-staking framing kept out of the skill (ADR-M006 M-2)" },
+        { "re": "\\bspend[-\\s]?(cap|guard|limit)\\b", "why": "\"spend cap/guard/limit\" — the coverage gate is NOT a spend guard (ADR-M006 D2 risk #1); \"spend controls\" (pointer to the caller's own platform) stays green" },
+        { "re": "\\blive\\b", "why": "\"live\" — never describes the skill (ADR-M006 M-9)" },
+        { "re": "\\bproven\\b", "why": "\"proven\" — never describes the skill (ADR-M006 M-9)" }
+      ],
+      "exemptPhrases": ["$/token spend cap"]
     }
   }
 }
