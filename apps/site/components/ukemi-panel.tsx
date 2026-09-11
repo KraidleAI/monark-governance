@@ -51,7 +51,7 @@ export function UkemiPanel({ contract }: { contract: FrozenContract }) {
           <PanelBlock title="How it is built" status="built">
             A network clearing fixed point &mdash; each node pays what it can, in rounds &mdash; measures
             how a local shock is amplified across the payment network, using recovery rates &alpha; and
-            &beta; for external and interbank assets in liquidation (ADR-M001 D6; ADR-M003 D6).
+            &beta; for external and interbank assets in liquidation.
           </PanelBlock>
           <WhatInside block={insideFor("ukemi")} />
           <PanelBlock title="Honest limits" status="built">

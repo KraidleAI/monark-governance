@@ -49,7 +49,7 @@ export function ShogenPanel({ contract }: { contract: FrozenContract }) {
           </PanelBlock>
           <PanelBlock title="How it is built" status="built">
             A Rust verifier emits a verified testimony only after a passing verdict, then projects it
-            onto the frozen contract (ADR-M001 D3).
+            onto the frozen contract.
           </PanelBlock>
           <WhatInside block={insideFor("shogen")} />
           <PanelBlock title="Honest limits" status="built">

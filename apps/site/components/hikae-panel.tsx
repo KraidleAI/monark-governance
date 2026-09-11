@@ -51,7 +51,7 @@ export function HikaePanel({ contract }: { contract: FrozenContract }) {
           <PanelBlock title="How it is built" status="built">
             A conformal split turns the prediction into a set or an interval at a target coverage of one
             minus &alpha;, then a closed gate policy reads that region and the remaining budget to emit commit,
-            defer, or abstain (ADR-M001 D4, D5).
+            defer, or abstain.
           </PanelBlock>
           <WhatInside block={insideFor("hikae")} />
           <PanelBlock title="Honest limits" status="built">
