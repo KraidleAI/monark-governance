@@ -1,0 +1,384 @@
+{
+  "schema": "monark-h5-e2e-trace/1",
+  "title": "MONARK harness — recorded end-to-end demonstration (Lot H5)",
+  "generated_by": {
+    "recorder": "scripts/record-h5-e2e-trace.mjs",
+    "worker_model": "claude-opus-4-8",
+    "effort": "max",
+    "date": "2026-09-11",
+    "grounding": "ADR-M005 H5 / C-6; docs/PLAN-harnais-lot.md H5",
+    "reviewer": "G2 fresh reviewer + G7 committer: claude-opus-4-8 (Opus-seat); verdict in docs/JOURNAL-PROVENANCE.md + docs/G2-lot-h5.md"
+  },
+  "transport": {
+    "mcp": "MCP streamable-HTTP via createMcpHandler (SDK modelcontextprotocol server 2.0.0); a real JSON-RPC tools/call over a 127.0.0.1 socket; the response is framed as text/event-stream.",
+    "http_mirror": "HTTP/JSON mirror on the api. Host: the same registry and the same frozen input/output schemas.",
+    "bind": "127.0.0.1, ephemeral port; the port is intentionally NOT recorded so this trace is reproducible byte-for-byte.",
+    "accept_required": "application/json, text/event-stream (a request missing text/event-stream is answered 406).",
+    "session": "stateless: tools/list and tools/call succeed with no session id; B_t is caller-carried in and out.",
+    "protocol_version_negotiated": "the SDK 2.0.0 negotiates protocolVersion 2025-11-25 (the ADR names 2026-07-28); a pre-existing SDK observation, outside H5 scope."
+  },
+  "honesty": {
+    "calibration": "synthetic: the btc-dir-15m calibration is a HIKAE S2a plumbing fixture (declared synthetic, not a measured predictor). The btc-dir decision here is demonstrative, not a trading signal.",
+    "budget_bt": "B_t is caller-carried: remainingBudget enters as a gate parameter and the SAME value leaves as remaining_budget. The stateless server does NOT deplete it (depletion would be monetisation, outside ADR-M005 scope, D6).",
+    "cascade_class": "under_calib: no cascade calibration is committed, so the cascade -> gate path abstains. That abstention is the honest, expected result, not a defect.",
+    "attest": "demonstrative, not probative: a projection of ONE committed, previously Shōgen-verified witness (Binance BTCUSDT, self-notarised); the verifier is not executed at call time.",
+    "vocabulary": "no overclaim: this trace states no correctness or coverage claim and uses no forbidden vocabulary."
+  },
+  "closes": "H5 closes the deferred residual 'seam SDK tools/call (gate/cascade/attest not exercised via createHarnessHandler)' recorded in docs/G2-lot-h3.md: these tools/call steps are real JSON-RPC over the streamable-HTTP transport, not tool.run() calls.",
+  "steps": [
+    {
+      "n": 1,
+      "surface": "mcp",
+      "op": "initialize",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+          "protocolVersion": "2026-07-28",
+          "capabilities": {},
+          "clientInfo": {
+            "name": "monark-h5-probe",
+            "version": "1.0.0"
+          }
+        }
+      },
+      "result": {
+        "protocolVersion": "2025-11-25",
+        "serverInfo": {
+          "name": "monark",
+          "version": "1.0.0"
+        }
+      }
+    },
+    {
+      "n": 2,
+      "surface": "mcp",
+      "op": "tools/list",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/list"
+      },
+      "result": {
+        "names": [
+          "attest",
+          "cascade",
+          "gate"
+        ],
+        "response_sha256": "bfecb82cd923800f531a4339af03bc5ece37bff6b09900922833f07567e7ec8f"
+      }
+    },
+    {
+      "n": 3,
+      "surface": "mcp",
+      "op": "tools/call",
+      "label": "cascade",
+      "tool": "cascade",
+      "note": "UKEMI cascade -> Prediction (estimated liquidable amount).",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "tools/call",
+        "params": {
+          "name": "cascade",
+          "arguments": {
+            "L": [
+              [
+                0,
+                100
+              ],
+              [
+                50,
+                0
+              ]
+            ],
+            "e": [
+              40,
+              20
+            ],
+            "shock": 0,
+            "producedAt": "2026-09-04T00:00:00Z"
+          }
+        }
+      },
+      "response": {
+        "content": [
+          {
+            "type": "text",
+            "text": "yhat is the estimated liquidable amount (a monetary quantity in the reference asset), a single point that HIKAE conformalizes downstream; no guarantee, no score. no cascade calibration is committed; the gate abstains (under_calib) on this class."
+          }
+        ],
+        "structuredContent": {
+          "schema_version": "1.0.0",
+          "task_class": "cascade-liquidable-24h",
+          "yhat": 100,
+          "predictor_id": "internal:ukemi-cascade-v0",
+          "produced_at": "2026-09-04T00:00:00Z"
+        }
+      }
+    },
+    {
+      "n": 4,
+      "surface": "mcp",
+      "op": "tools/call",
+      "label": "cascade-gate",
+      "tool": "gate",
+      "note": "cascade -> gate: no cascade calibration is committed, so the gate abstains (under_calib). This is the honest, expected result.",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "method": "tools/call",
+        "params": {
+          "name": "gate",
+          "arguments": {
+            "prediction": {
+              "schema_version": "1.0.0",
+              "task_class": "cascade-liquidable-24h",
+              "yhat": 100,
+              "predictor_id": "internal:ukemi-cascade-v0",
+              "produced_at": "2026-09-04T00:00:00Z"
+            },
+            "params": {
+              "bFloor": 0,
+              "tau": 1,
+              "tauInterval": 1,
+              "alpha": 0.1,
+              "nMin": 50,
+              "tool": "perps_order_preview",
+              "clockOpen": true,
+              "remainingBudget": 0.1,
+              "intent": 100
+            }
+          }
+        }
+      },
+      "response": {
+        "content": [
+          {
+            "type": "text",
+            "text": "no cascade calibration is committed; the gate abstains (under_calib) on this class; B_t is caller-carried."
+          }
+        ],
+        "structuredContent": {
+          "schema_version": "1.0.0",
+          "action": "abstain",
+          "allow": false,
+          "tool": "perps_order_preview",
+          "intent": 100,
+          "verdict": {
+            "schema_version": "1.0.0",
+            "task_class": "cascade-liquidable-24h",
+            "method": "split",
+            "alpha": 0.1,
+            "n_calib": 0,
+            "region": {
+              "kind": "set",
+              "labels": [],
+              "label_schema": "up|down"
+            },
+            "qhat": null,
+            "abstain": true,
+            "reason": "under_calib",
+            "residual": [],
+            "calib_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "produced_at": "2026-09-04T00:00:00Z"
+          },
+          "remaining_budget": 0.1,
+          "reason": "under_calib"
+        }
+      }
+    },
+    {
+      "n": 5,
+      "surface": "mcp",
+      "op": "tools/call",
+      "label": "btc-dir-gate",
+      "tool": "gate",
+      "note": "btc-dir-15m over the committed SYNTHETIC calibration (a plumbing fixture, not a measured predictor): the committed synthetic decision, demonstrative only.",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "method": "tools/call",
+        "params": {
+          "name": "gate",
+          "arguments": {
+            "prediction": {
+              "schema_version": "1.0.0",
+              "task_class": "btc-dir-15m",
+              "yhat": "up",
+              "predictor_id": "internal:momentum-4c",
+              "produced_at": "2026-09-04T00:00:00Z"
+            },
+            "params": {
+              "bFloor": 0,
+              "tau": 1,
+              "tauInterval": 1,
+              "alpha": 0.1,
+              "nMin": 50,
+              "tool": "perps_order_preview",
+              "clockOpen": true,
+              "remainingBudget": 0.1,
+              "intent": "up"
+            }
+          }
+        }
+      },
+      "response": {
+        "content": [
+          {
+            "type": "text",
+            "text": "synthetic — HIKAE S2a instrument draw (harness_version=fixtures-synth, seed=101, n=300, nCalib=150); 0/1 indicator scores; calib_digest=fcebed27fd3f9607bba94898f5ae4ebba548ced519d1d800b49890235358eda6; declared synthetic, a plumbing fixture, not a measured predictor (ADR-M005 D5, C-8). B_t is caller-carried."
+          }
+        ],
+        "structuredContent": {
+          "schema_version": "1.0.0",
+          "action": "commit",
+          "allow": true,
+          "tool": "perps_order_preview",
+          "intent": "up",
+          "verdict": {
+            "schema_version": "1.0.0",
+            "task_class": "btc-dir-15m",
+            "method": "split",
+            "alpha": 0.1,
+            "n_calib": 150,
+            "region": {
+              "kind": "set",
+              "labels": [
+                "up"
+              ],
+              "label_schema": "up|down"
+            },
+            "qhat": 0,
+            "abstain": false,
+            "reason": "covered",
+            "residual": [],
+            "calib_digest": "fcebed27fd3f9607bba94898f5ae4ebba548ced519d1d800b49890235358eda6",
+            "produced_at": "2026-09-04T00:00:00Z"
+          },
+          "remaining_budget": 0.1,
+          "reason": "covered"
+        }
+      }
+    },
+    {
+      "n": 6,
+      "surface": "mcp",
+      "op": "tools/call",
+      "label": "attest",
+      "tool": "attest",
+      "note": "Shōgen projection of one committed, previously verified witness; demonstrative, not probative; the verifier is not executed at call time.",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 6,
+        "method": "tools/call",
+        "params": {
+          "name": "attest",
+          "arguments": {}
+        }
+      },
+      "response": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Projection of a committed, previously Shōgen-verified witness (Binance BTCUSDT, self-notarized); the verifier is NOT executed at call time. Label: real, notary Shōgen, demonstrative, not probative."
+          }
+        ],
+        "structuredContent": {
+          "price": {
+            "schema_version": "1.0.0",
+            "subject": "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+            "attestor": [
+              {
+                "identity": "shogen:attestateur-de-demonstration-s3",
+                "key": "6b32353620303336616165636232313162616466326633353933326164633231323638626561353833616431613334623965306630663437383135353763666539343832323731"
+              }
+            ],
+            "residual": [
+              "A(notary-neutrality)",
+              "A(self-attestation)",
+              "A(transport-check-delegated)"
+            ],
+            "transport": "tlsn-mpc/1",
+            "utterance": {
+              "hash": "c28a41ce87dafcd313d301ab56472b6f3cd1b3d81d903da787b0ca9dfffbeea0",
+              "bytes": "485454502f312e3120323030204f4b0d0a436f6e74656e742d547970653a206170706c69636174696f6e2f6a736f6e3b636861727365743d5554462d380d0a436f6e74656e742d4c656e6774683a2034350d0a436f6e6e656374696f6e3a20636c6f73650d0a446174653a205468752c2031332041756720323032362030343a31303a323920474d540d0a4163636573732d436f6e74726f6c2d416c6c6f772d4d6574686f64733a204745542c20484541442c204f5054494f4e530d0a5365727665723a206e67696e780d0a782d6d62782d757569643a2066326465393361312d643537332d343534332d383537342d3561663233303738326464380d0a782d6d62782d757365642d7765696768743a20370d0a782d6d62782d757365642d7765696768742d316d3a20370d0a5374726963742d5472616e73706f72742d53656375726974793a206d61782d6167653d33313533363030303b20696e636c756465537562646f6d61696e730d0a582d4672616d652d4f7074696f6e733a2053414d454f524947494e0d0a582d5873732d50726f74656374696f6e3a20313b206d6f64653d626c6f636b0d0a582d436f6e74656e742d547970652d4f7074696f6e733a206e6f736e6966660d0a436f6e74656e742d53656375726974792d506f6c6963793a2064656661756c742d737263202773656c66270d0a582d436f6e74656e742d53656375726974792d506f6c6963793a2064656661756c742d737263202773656c66270d0a582d5765624b69742d4353503a2064656661756c742d737263202773656c66270d0a43616368652d436f6e74726f6c3a206e6f2d63616368652c206e6f2d73746f72652c206d7573742d726576616c69646174650d0a507261676d613a206e6f2d63616368650d0a457870697265733a20300d0a4163636573732d436f6e74726f6c2d416c6c6f772d4f726967696e3a202a0d0a582d43616368653a204d6973732066726f6d20636c6f756466726f6e740d0a5669613a20312e312062626163663764346362313465653563313531323934393234636639656134652e636c6f756466726f6e742e6e65742028436c6f756446726f6e74290d0a582d416d7a2d43662d506f703a204d414435362d50320d0a582d416d7a2d43662d49643a204745565a37666d715f547131544a74654b493064313845466c38653777554d6d6e59754e54745f55342d6961736762714976743465673d3d0d0a0d0a7b2273796d626f6c223a2242544355534454222c227072696365223a2236333634332e3231303030303030227d"
+            },
+            "observed_at": {
+              "clock": "tlsn-mpc/1:connection_info.time",
+              "instant": 1786594228
+            },
+            "octets_recalcules": true,
+            "verifier_revision": "0fe3c32d35382b3f290a43c4156399ca4512bb89",
+            "sens_emis_digest": "4ad0e84b4f078e7ee62482ca86853c09e3c17bf074274168d65c024d1777e24b"
+          },
+          "provenance": {
+            "source_lot_sha256": "8700d88f87253f0fd8496402601dc7326362a2cd9e6614a9bf44b79052f1e5a3",
+            "source_verdict_sha256": "b2528be9c75b388f538a4a2aa81daa268a3da4ecf4b6c5d52e314b9a27d3663d",
+            "shogen_head_sha": "5b6469ae9999212a0db5d2fea0a169ff5d183a95"
+          },
+          "label": "real, notary Shōgen, demonstrative, not probative"
+        }
+      }
+    },
+    {
+      "n": 7,
+      "surface": "http",
+      "op": "POST /cascade",
+      "label": "cascade-mirror",
+      "tool": "cascade",
+      "note": "HTTP/JSON mirror (api. Host): the same frozen structuredContent as the MCP surface.",
+      "request": {
+        "host": "api.monarkgate.tech",
+        "method": "POST",
+        "path": "/cascade",
+        "body": {
+          "L": [
+            [
+              0,
+              100
+            ],
+            [
+              50,
+              0
+            ]
+          ],
+          "e": [
+            40,
+            20
+          ],
+          "shock": 0,
+          "producedAt": "2026-09-04T00:00:00Z"
+        }
+      },
+      "response": {
+        "structuredContent": {
+          "schema_version": "1.0.0",
+          "task_class": "cascade-liquidable-24h",
+          "yhat": 100,
+          "predictor_id": "internal:ukemi-cascade-v0",
+          "produced_at": "2026-09-04T00:00:00Z"
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "yhat is the estimated liquidable amount (a monetary quantity in the reference asset), a single point that HIKAE conformalizes downstream; no guarantee, no score. no cascade calibration is committed; the gate abstains (under_calib) on this class."
+          }
+        ]
+      }
+    }
+  ],
+  "observed": {
+    "cascade_yhat": 100,
+    "cascade_gate_action": "abstain",
+    "cascade_gate_reason": "under_calib",
+    "cascade_gate_remaining_budget": 0.1,
+    "btc_dir_action": "commit",
+    "btc_dir_reason": "covered",
+    "btc_dir_calib_digest": "fcebed27fd3f9607bba94898f5ae4ebba548ced519d1d800b49890235358eda6",
+    "attest_label": "real, notary Shōgen, demonstrative, not probative",
+    "attest_sens_emis_digest": "4ad0e84b4f078e7ee62482ca86853c09e3c17bf074274168d65c024d1777e24b",
+    "mirror_matches_mcp_cascade": true
+  }
+}
