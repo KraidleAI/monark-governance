@@ -8,7 +8,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { request as httpRequest } from "node:http";
-import { assertClosedGateDecision, assertClosedPrediction, assertClosedAttestedPrice } from "@monark/contracts";
+import { assertClosedGateDecision, assertClosedPrediction, assertClosedAttestedPrice, calibDigest } from "@monark/contracts";
 import { handleJsonMirror, MIRROR_OPERATIONS } from "../src/http.ts";
 import { HARNESS_TOOLS, REGISTERED_TOOL_NAMES } from "../src/tools/registry.ts";
 import { CALIBRATE_MAX_N } from "../src/tools/calibrate.ts";
@@ -170,4 +170,46 @@ test("http_calibrate_errors_are_400_never_500", async () => {
   const overCap = await call(API_HOST, "POST", "/calibrate", { scores: over, alpha: 0.1, nMin: 3 });
   assert.equal(overCap.status, 400, "n > cap must be a 400 (maxItems at the boundary), never a 500");
   assert.equal(overCap.body.error, "invalid_input", "n > cap is rejected by the projected schema's maxItems (invalid_input)");
+});
+
+/** A BYO gate body: a caller-owned task_class + params.calibration (interval mode, scores ≥ 0). */
+const GATE_BYO_BODY = {
+  prediction: { schema_version: "1.0.0", task_class: "byo-demo", yhat: 0, predictor_id: "caller:model", produced_at: "2026-09-04T00:00:00Z" },
+  params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 2, alpha: 0.1, nMin: 5, intent: 0, tool: "perps_order_preview", clockOpen: true, calibration: { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], mode: "interval" } },
+} as const;
+
+// Test — C2 BYO over the HTTP mirror: a /gate body carrying params.calibration returns 200 + a closed
+// GateDecision whose verdict.calib_digest == calibDigest(scores) (the audit tie), and the content text is
+// the BYO exchangeability carrier (not the cascade sentence). BYO refusals are 400 (HarnessToolError ∈
+// TOOL_ERROR_NAMES), never 500. Mutants: skip the yhat type check ⇒ interval on a string yhat 500s; drop
+// the negative-score guard ⇒ an all-negative interval 500s ⇒ these reds. Also anti-override ⇒ 400.
+test("http_gate_byo_calibration", async () => {
+  // 200 + closed GateDecision + audit digest.
+  const ok = await call(API_HOST, "POST", "/gate", GATE_BYO_BODY);
+  assert.equal(ok.status, 200, "a BYO /gate body is served (200)");
+  assertClosedGateDecision(ok.body.structuredContent);
+  const sc = ok.body.structuredContent as { verdict: { calib_digest: string }; action: string };
+  assert.equal(sc.verdict.calib_digest, calibDigest(GATE_BYO_BODY.params.calibration.scores), "verdict.calib_digest == calibDigest(caller scores) — the C1↔C2 audit tie");
+  assert.equal(sc.action, "commit", "width 2 <= tauInterval 2, intent 0 ∈ [−1,1] ⇒ COMMIT");
+  // content parity with the MCP tool (K-1): the BYO honesty carrier, not the cascade sentence.
+  const gateTool = HARNESS_TOOLS.find((t) => t.name === "gate");
+  assert.ok(gateTool, "the gate tool is registered");
+  assert.deepEqual(ok.body.content, [{ type: "text", text: gateTool.run(GATE_BYO_BODY).text }], "BYO mirror content == MCP honesty text");
+  // RES-1 (G2 C2): an ABSOLUTE oracle so the HTTP layer itself kills a B-1 regression (the deepEqual above is
+  // an identity and would stay green under a mutant that renders the cascade sentence on BOTH sides).
+  const byoPart = (ok.body.content as ReadonlyArray<{ text: string }>)[0];
+  assert.ok(byoPart, "BYO mirror returns a content text part");
+  assert.ok(byoPart.text.includes("exchangeable"), "BYO content carries the exchangeability honesty carrier");
+  assert.ok(!byoPart.text.includes("no cascade calibration is committed"), "BYO content must NOT carry the cascade under_calib sentence (B-1 wiring, independent of run())");
+
+  // BYO refusals ⇒ 400 tool_error, never 500.
+  const negScores = { ...GATE_BYO_BODY, params: { ...GATE_BYO_BODY.params, calibration: { scores: [-1, -2, -3, -4, -5, -6, -7, -8, -9, -10], mode: "interval" } } };
+  const neg = await call(API_HOST, "POST", "/gate", negScores);
+  assert.equal(neg.status, 400, "an all-negative interval BYO ⇒ 400, never 500 (B-6)");
+  assert.equal(neg.body.error, "tool_error", "a BYO refusal surfaces as tool_error (HarnessToolError ∈ TOOL_ERROR_NAMES)");
+
+  const override = { ...GATE_BYO_BODY, prediction: { ...GATE_BYO_BODY.prediction, task_class: "btc-dir-15m", yhat: "up" } };
+  const ov = await call(API_HOST, "POST", "/gate", override);
+  assert.equal(ov.status, 400, "calibration + a committed class ⇒ 400 (anti-override)");
+  assert.equal(ov.body.error, "tool_error", "anti-override surfaces as tool_error");
 });

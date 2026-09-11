@@ -64,6 +64,16 @@ test("openapi_generated_matches_frozen_schemas", () => {
     "gate request prediction property definitions == frozen in full",
   );
 
+  // C2 (ADR-M007 D7): the gate request `params` carries the OPTIONAL BYO `calibration` — present in the
+  // properties, but NOT in `required` (so committed-class calls stay valid). A drift reddens here.
+  const gateParams = asObj(asObj(gateReq["properties"], "gate.request.properties")["params"], "gate.request.params");
+  assert.deepEqual(gateParams["required"], ["remainingBudget", "bFloor", "tau", "tauInterval", "alpha", "nMin", "intent", "tool", "clockOpen"], "params.required stays the 9 committed fields (calibration is OPTIONAL)");
+  const gateParamProps = asObj(gateParams["properties"], "gate.request.params.properties");
+  assert.ok("calibration" in gateParamProps, "params carries the optional BYO calibration field (C2)");
+  const calib = asObj(gateParamProps["calibration"], "gate.request.params.calibration");
+  assert.deepEqual(calib["required"], ["scores", "mode"], "calibration requires scores + mode");
+  assert.equal(calib["additionalProperties"], false, "calibration is a closed sub-object");
+
   const gateOut = responseStructured(spec, "gate");
   assert.deepEqual(gateOut["required"], frozenGate["required"], "gate response GateDecision.required == frozen");
   assert.equal(gateOut["additionalProperties"], false, "gate response GateDecision stays closed");

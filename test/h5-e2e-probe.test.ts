@@ -46,8 +46,11 @@ import type { H5Trace, ToolCallResponse } from "./h5-trace-builder.ts";
 const TRACE_PATH = fileURLToPath(new URL("../fixtures/h5-e2e-trace.json", import.meta.url));
 const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url));
 
-/** Pinned sha256 (LF-normalized) of the committed trace — also stated in fixtures/PROVENANCE-h5-e2e-trace.md. */
-const TRACE_SHA256_PINNED = "aed272a901489bb23ab9ecad1f968243b0f00543516ff6c2b93cf352e8234c23";
+/** Pinned sha256 (LF-normalized) of the committed trace — also stated in fixtures/PROVENANCE-h5-e2e-trace.md.
+ *  Re-pinned in Lot C2 (ADR-M007 D7): the optional BYO `calibration` field in the gate input schema grew
+ *  the MCP `tools/list` bytes ⇒ exactly the `tools/list` step's `response_sha256` moved; the cascade/gate/
+ *  attest tools/call results and every digest are byte-identical (M-1). */
+const TRACE_SHA256_PINNED = "711536850b4a84b3d635b5f0bcd870a6d316b08e8142147a0cde999266e6618e";
 
 const DEMONSTRATIVE_LABEL = "real, notary Shōgen, demonstrative, not probative";
 

@@ -65,7 +65,8 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
       const env = args as GateEnvelope;
       const decision = runGate(env.prediction, env.params);
       // structuredContent = the closed GateDecision ONLY (K-1); honesty prose rides in `content` text.
-      return { text: honestyText(env.prediction.task_class), structured: decision as unknown as Record<string, unknown> };
+      // B-1: the honesty text is keyed on the PRESENCE of a BYO calibration, not task_class alone.
+      return { text: honestyText(env.prediction.task_class, env.params.calibration !== undefined), structured: decision as unknown as Record<string, unknown> };
     },
   },
   {

@@ -15,14 +15,26 @@ Free, pure, no persistence, no trading (ADR-M005 D1). Transport: MCP Streamable 
 
 - `prediction` — the **frozen `Prediction`** (`schemas/prediction.schema.json`, projected verbatim,
   `additionalProperties:false`; the SDK enforces the closed contract at the boundary).
-- `params` — the **non-frozen** gate parameters (declared by the server, never in `schemas/`).
+- `params` — the **non-frozen** gate parameters (declared by the server, never in `schemas/`). The
+  OPTIONAL `params.calibration` opens the **BYO** path (Lot C2, ADR-M007 D7): see below.
 
-**Dispatch is on `prediction.task_class`** (ADR-M005 D5):
+**Dispatch is on `prediction.task_class`** (ADR-M005 D5), UNLESS the caller supplies `params.calibration`
+(then the BYO path runs, keyed on presence — see the BYO row):
 
 | `task_class`               | Path                          | Calibration                                   | Typical result |
 |----------------------------|-------------------------------|-----------------------------------------------|----------------|
 | `btc-dir-15m`              | `conformalSet` (region `set`) | committed **synthetic** (HIKAE S2a draw)      | a real decision (commit/defer/abstain) |
 | `cascade-liquidable-24h`   | `conformInterval` (`interval`)| **none committed** ⇒ empty region             | **`abstain` / `under_calib`** (the honest, expected result — not a defect) |
+| any caller-owned class **with `params.calibration`** | BYO — `splitQuantile` over the caller's scores, then `buildIntervalRegion` (`interval` mode) or `conformalSet` over `candidates` (`set` mode) | **caller-supplied** (BYO, ADR-M007 D7) | a real decision on the caller's own model; `verdict.calib_digest = calibDigest(caller scores)` closes the `calibrate`↔`gate` audit |
+
+**BYO (`params.calibration`, ADR-M007 D7).** Shape: `{ scores: number[], mode: "interval" \| "set",
+candidates?: { label, score }[] }` (optional ⇒ existing committed-class calls are unchanged). `interval`
+mode requires **every score `>= 0`** (a negative one ⇒ tool error before the region, B-6); `set` mode
+requires a non-empty `candidates` list whose labels are printable ASCII, non-empty, unique, and free of
+`|` (the `label_schema` separator; the schema is **derived** from the candidates, B-3). **Anti-override
+guard:** a `calibration` supplied alongside a committed class (`btc-dir-15m` / `cascade-liquidable-24h`)
+is a **tool error** — never a silent overwrite of the committed synthetic decision. MONARK stores nothing;
+the caller carries `q̂` and `B_t` exactly as before (stateless, D6).
 
 **Output** is the frozen `GateDecision` (`schemas/gate-decision.schema.json`, projected as the tool
 `outputSchema`; its `verdict` `$ref` is mechanically dereferenced from `coverage-verdict.schema.json`).
@@ -45,6 +57,7 @@ abstention sentence) rides in the tool result **`content` text**, never inside t
 | `intent`         | the intent tested for containment. | `string \| number \| null` |
 | `tool`           | the **named** gated tool — echoed into `GateDecision.tool`, **never invoked** (D0/D1). | non-empty string |
 | `clockOpen`      | whether the coverage window is still open (the caller owns the window, K-4d). | boolean |
+| `calibration`    | **OPTIONAL** BYO calibration (ADR-M007 D7): `{ scores, mode, candidates? }`. Present ⇒ the BYO conformal path (see above). | closed object; `mode ∈ {interval,set}`; `\|scores\| <= CALIBRATE_MAX_N`; interval ⇒ scores `>= 0`; set ⇒ non-empty, well-formed unique candidate labels |
 
 ### Caller-carried (in `prediction`, frozen)
 `schema_version` (must be `1.0.0` — the server speaks one version), `task_class`, `yhat`,
@@ -57,11 +70,12 @@ server **reads no clock**.
 | `schemaVersion` | fixed `"1.0.0"` | K-4c |
 | `timedOut`      | `false` | K-4d — a pure server never invents an upstream timeout |
 | `evaluable`     | derived from `yhat` | K-4d — right type but non-directional/non-finite `yhat` ⇒ `abstain`/`non_evaluable` (a decision); wrong-typed `yhat` ⇒ tool error |
-| `nCalib`        | derived (btc-dir: committed calibration size; cascade: `0`) | K-4d |
-| `verdict`       | built server-side (calibration ⇒ region) | D5 |
+| `nCalib`        | derived (btc-dir: committed calibration size; cascade: `0`; BYO: the caller's `scores.length`) | K-4d |
+| `verdict`       | built server-side (calibration ⇒ region; BYO ⇒ the caller's scores) | D5 |
 
-Any invalid param, an unknown `task_class`, or a wrong-typed `yhat` yields a **tool error**, never a
-silent gate.
+Any invalid param, an unknown `task_class` (with no `calibration`), a BYO validation failure, a
+`calibration` on a committed class (anti-override), or a wrong-typed `yhat` yields a **tool error**,
+never a silent gate.
 
 ## Calibration (synthetic, committed)
 

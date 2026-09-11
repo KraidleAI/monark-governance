@@ -99,7 +99,12 @@ export function derefVerdict(gateDecision: JsonObject, coverageVerdict: JsonObje
   return gd;
 }
 
-/** Non-frozen gate parameters (ADR-M005 D5/D6, caller-carried). Declared here, never in schemas/. */
+/** Non-frozen gate parameters (ADR-M005 D5/D6, caller-carried). Declared here, never in schemas/.
+ *  Lot C2 (ADR-M007 D7): the OPTIONAL `calibration` object opens the BYO loop — the caller supplies its
+ *  own nonconformity `scores` + a `mode` (interval|set), and the gate conformalizes against THOSE scores
+ *  instead of a committed class. It stays OUT of `required` so the existing committed-class calls
+ *  (btc-dir / cascade) remain valid. `maxItems: CALIBRATE_MAX_N` bounds both `scores` and `candidates`
+ *  at the SDK boundary (motif CASCADE_MAX_NODES / calibrate); `gate.ts` re-validates below the boundary. */
 export const PARAMS_SCHEMA: JsonObject = {
   type: "object",
   additionalProperties: false,
@@ -114,6 +119,30 @@ export const PARAMS_SCHEMA: JsonObject = {
     intent: { type: ["string", "number", "null"], description: "The intent tested against the region." },
     tool: { type: "string", description: "The NAMED gated tool (echoed, never invoked — D0/D1)." },
     clockOpen: { type: "boolean", description: "Whether the coverage window is still open (caller-owned)." },
+    calibration: {
+      type: "object",
+      additionalProperties: false,
+      required: ["scores", "mode"],
+      description: "OPTIONAL BYO calibration (ADR-M007 D7): caller-supplied nonconformity scores + region mode. Present ⇒ the gate conformalizes on the caller's model, not a committed class.",
+      properties: {
+        scores: { type: "array", items: { type: "number" }, maxItems: CALIBRATE_MAX_N, description: "Caller-supplied nonconformity scores (interval mode requires all >= 0)." },
+        mode: { type: "string", enum: ["interval", "set"], description: "`interval` ⇒ region [yhat - q̂, yhat + q̂]; `set` ⇒ conformal set over `candidates`." },
+        candidates: {
+          type: "array",
+          maxItems: CALIBRATE_MAX_N,
+          description: "Set-mode candidate labels with their nonconformity scores (required and non-empty when mode = set).",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["label", "score"],
+            properties: {
+              label: { type: "string", description: "Candidate label (printable ASCII, unique, no `|`)." },
+              score: { type: "number", description: "The candidate's nonconformity score." },
+            },
+          },
+        },
+      },
+    },
   },
 };
 
