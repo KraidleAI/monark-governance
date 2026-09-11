@@ -48,10 +48,11 @@ Why this set (re-verified against the running process):
 - `deploy/` (unit + Caddy block, cp'd in steps 4–5) and `scripts/verify-harness.mjs` (step 6, and a local
   VPS re-run) are needed by the deploy procedure itself.
 
-This EXCLUDES `docs/`, `enforcement/`, `test/`, `.github/`, `README.md`, `tsconfig.json`,
+This EXCLUDES `docs/`, `enforcement/`, the ROOT `test/`, `.github/`, `README.md`, `tsconfig.json`,
 `eslint.config.mjs`, `vocab-banned.json`, `lint-ratchet.json`, and all of `scripts/` except
-`verify-harness.mjs` — none is read at runtime. Restricting the SOURCE list is the guarantee that
-governance files never reach the public host; `--delete` is for update hygiene (files that vanished from
+`verify-harness.mjs` — none is read at runtime. (Workspace tests under `apps/*/test/` and `packages/*/test/`
+DO ship with `apps/`/`packages/` — that is source code, not the governance surface, and is never executed on
+the host.) Restricting the SOURCE list is the guarantee that governance files never reach the public host; `--delete` is for update hygiene (files that vanished from
 the shipped set), not the primary control. `-R` (`--relative`) preserves the nested
 `scripts/verify-harness.mjs` path on the destination. Exclude `node_modules` (rebuilt by `npm ci` in step
 2) and `.git`. From the orchestrator's machine, in the repo root:
@@ -131,7 +132,12 @@ systemctl status monark-harness --no-pager        # Active: active (running)
 curl -s -H 'Host: api.monarkgate.tech' http://127.0.0.1:3001/health   # local check before Caddy
 # Lot H6 — the resource caps are ENFORCED at runtime, not just written in the unit file. Verify the cgroup
 # actually applied them (expect CPUQuotaPerSecUSec=500ms, MemoryMax=536870912 [512 MiB], TasksMax=128):
-systemctl show monark-harness -p CPUQuotaPerSecUSec -p MemoryMax -p TasksMax
+nproc   # log this — CPUQuota=50% is 50% of ONE core; this MUST read > 1 for the cap to leave the vitrine CPU headroom (OBS-1)
+systemctl show monark-harness -p CPUQuotaPerSecUSec -p MemoryMax -p TasksMax -p StartLimitIntervalUSec -p StartLimitBurst
+# Expect CPUQuotaPerSecUSec=500ms, MemoryMax=536870912 [512 MiB], TasksMax=128, StartLimitIntervalUSec=0
+# (H7: start rate-limiting disabled so an overload restart-loop cannot leave the unit dead). Confirm the V8
+# heap cap reached the LIVE process (H7):
+cat /proc/"$(systemctl show -p MainPID --value monark-harness)"/cmdline | tr '\0' ' '; echo   # expect --max-old-space-size=448
 # A MemoryMax=infinity (or CPUQuotaPerSecUSec=infinity) reading means the cgroup cap did NOT apply on this
 # host (e.g. cgroup v1, or a delegation gap) — STOP and fix before exposing the endpoint; the unit file
 # alone is not the control.
@@ -177,6 +183,20 @@ today's date to `docs/JOURNAL-PROVENANCE.md`, alongside the artifact `docs/deplo
 
 ```bash
 sha256sum docs/deploy-CA-harness.json   # log this digest + the date into docs/JOURNAL-PROVENANCE.md
+```
+
+**Live cap probes (Lot H6/H7).** The config/unit tests prove the caps in CI; these two prove they BITE on the
+live endpoint. Record both outcomes in the journal next to the CA sha:
+
+```bash
+# (a) Caddy body cap in prod — a >256KB body must be REJECTED (413/non-200) on BOTH hosts:
+head -c 300000 /dev/zero | tr '\0' a > /tmp/big.txt
+curl -s -o /dev/null -w '%{http_code}\n' -X POST --data-binary @/tmp/big.txt https://mcp.monarkgate.tech/            # expect non-200
+curl -s -o /dev/null -w '%{http_code}\n' -X POST --data-binary @/tmp/big.txt https://api.monarkgate.tech/cascade    # expect non-200
+# (b) cascade node cap live — an L/e with n=65 (> CASCADE_MAX_NODES=64) must be REFUSED (4xx, never a 200 result):
+node -e 'const n=65,L=Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>j===(i+1)%n?100:0)),e=Array(n).fill(1);process.stdout.write(JSON.stringify({L,e,shock:0,producedAt:"2026-01-01T00:00:00Z"}))' > /tmp/n65.json
+curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'content-type: application/json' --data-binary @/tmp/n65.json https://api.monarkgate.tech/cascade   # expect 4xx, NOT 200
+rm -f /tmp/big.txt /tmp/n65.json
 ```
 
 ## Rollback

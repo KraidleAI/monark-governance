@@ -16,6 +16,19 @@ Description=MONARK harness - stateless MCP + HTTP/JSON mirror (attest, gate, cas
 Documentation=https://github.com/KraidleAI/monark
 After=network-online.target
 Wants=network-online.target
+# StartLimitIntervalSec=0 (Lot H7, OBS-2): DISABLE systemd's start rate limiting for this unit. With
+# Restart=always + RestartSec=2, a sustained crash/OOM loop (e.g. a burst of crafted requests that keep
+# tripping the V8 heap cap above) restarts ~1x / 2 s, so ~5 restarts land inside systemd's STOCK default
+# window (DefaultStartLimitIntervalSec=10s, DefaultStartLimitBurst=5 — systemd-system.conf(5)). Reaching
+# that limit makes systemd STOP restarting a Restart= unit and leave it dead ("units which are configured
+# for Restart= and which reach the start limit are not attempted to be restarted anymore" — systemd.unit(5)),
+# turning a TRANSIENT overload into a PERSISTENT harness outage — the very self-DoS Lot H7 removes. Setting
+# it to 0 ("may be set to 0 to disable any kind of rate limiting" — systemd.unit(5), a [Unit] directive)
+# keeps this stateless loopback service self-healing: it always comes back once load passes. Trade-off — a
+# permanently-broken unit would restart forever every RestartSec — is acceptable: the service is stateless,
+# its CPU is bounded by CPUQuota=50% (no hot spin), and RUNBOOK step 4 verifies the node path pre-go-live,
+# so a permanent crash is caught operationally rather than by letting systemd latch the unit dead.
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -25,7 +38,16 @@ WorkingDirectory=/opt/monark-harness
 # Node 24 strips TypeScript at load; server.ts binds 127.0.0.1:3001 under its run-guard. `which node` on
 # this VPS (Hostinger, Node v24.21.0) is /usr/bin/node; `/usr/bin/env node` resolves it on the service
 # PATH. If your `which node` differs, set that absolute path here (RUNBOOK step 4 verifies it).
-ExecStart=/usr/bin/env node /opt/monark-harness/apps/harness/src/server.ts
+# --max-old-space-size=448 (Lot H7, OBS-2): bound V8's OLD generation to 448 MiB, BELOW MemoryMax=512M
+# (= 512 MiB — systemd size suffixes are base-1024, systemd.resource-control(5)). node's flag is in MiB
+# (nodejs.org CLI docs). As the old generation nears 448 MiB, V8 runs GC — and if it truly cannot free
+# enough, throws "JS heap out of memory" and exits so systemd restarts it CLEANLY — INSTEAD of RSS reaching
+# 512 MiB, where the cgroup OOM-killer SIGKILLs the process mid-request (systemd.resource-control(5): "the
+# out-of-memory killer is invoked inside the unit"). This bounds only V8's old space: external ArrayBuffers
+# and the native/C++ heap are NOT covered, so MemoryMax stays the HARD backstop; the flag just makes the
+# graceful path the common one. The ~64 MiB of headroom (512-448) covers V8's non-old-space memory
+# (new-space semi-spaces, code space, C++ heap) for this small stateless server — a deliberate margin.
+ExecStart=/usr/bin/env node --max-old-space-size=448 /opt/monark-harness/apps/harness/src/server.ts
 Restart=always
 RestartSec=2
 # Least privilege (R-8 / M004 D0.3): a dedicated non-login user, created by RUNBOOK step 3.

@@ -52,6 +52,11 @@ These statements live in the trace's `honesty` block and are re-asserted by
   (15624 bytes). `.gitattributes` normalizes to `eol=lf`, so this digest survives commit; the probe
   LF-normalizes before hashing, so it also survives a CRLF checkout. This value is pinned as
   `TRACE_SHA256_PINNED` in `test/h5-e2e-probe.test.ts`.
+- **Re-pin (2026-09-11, Lot H6)**: the H6 cascade input bound (`maxItems` on `L`/`e`) changed the `tools/list`
+  `inputSchema` wire bytes — exactly ONE line of this trace (`tools/list` `response_sha256`) — so the trace was
+  regenerated and the whole-file digest moved `2a81509a…` → `8213c631…` (above). cascade/gate/attest results and
+  `yhat` are unchanged; Lot H7 (cascade → `fictitiousDefault`) preserved `yhat` byte-for-byte, so it did NOT
+  re-pin. Regenerate, never hand-edit: `node scripts/record-h5-e2e-trace.mjs`.
 
 ## How the probe is mock-discriminating
 

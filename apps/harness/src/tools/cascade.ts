@@ -2,7 +2,8 @@
  * Harness — the `cascade` tool (ADR-M005 D1/D4/D8/D9, PLAN H2).
  *
  * A PURE composition of the REAL UKEMI primitives (imported from `@monark/ukemi`, NEVER
- * re-implemented): it runs an Eisenberg-Noe `clearing` of an interbank system, reads each cleared
+ * re-implemented): it runs an Eisenberg-Noe clearing (`fictitiousDefault`, the greatest clearing vector
+ * L* in <=n rounds) of an interbank system, reads each cleared
  * node as a leveraged position, runs `liquidableAmount` under a caller-carried 24h shock, and emits
  * the estimated liquidable amount as a closed, frozen `Prediction` (task_class
  * `cascade-liquidable-24h`). It returns a `Prediction`, NOT a `GateDecision` (atomicity, D4): the
@@ -13,8 +14,11 @@
  * clock. `producedAt` is INJECTED via the input (hash stability, D4/D7), exactly as the gate takes its
  * instant from the Prediction rather than the wall clock.
  *
- * Wiring `clearing -> liquidableAmount -> yhat` (composed here in TS, the ADR leaves it to the lot):
- *   1. `clearing({L, e})` with alpha=beta=1 (Eisenberg-Noe) yields the largest clearing vector L*.
+ * Wiring `fictitiousDefault -> liquidableAmount -> yhat` (composed here in TS, the ADR leaves it to the lot):
+ *   1. `fictitiousDefault({L, e})` with alpha=beta=1 (Eisenberg-Noe) yields the largest clearing vector L*
+ *      (the greatest fixed point, GA / fictitious default, <= n rounds — Thm 3.7). This is exactly
+ *      `clearing().pPlus` WITHOUT the 100000-iteration `clearingFromBelow` least-vector pass cascade never
+ *      reads (H7 self-DoS fix): `clearing()` obtains its pPlus by calling this same function (clearing.ts:186).
  *   2. each node i is read as a leveraged position on its CLEARED balance sheet:
  *        collateral value  = e_i + interbank receipts under L* (= sum_j Pi[j][i] * L*_j)  <- clearing feeds in
  *        debt              = nominal obligations pbar_i
@@ -29,7 +33,7 @@
  * honesty rides in the description and the MCP text content, NEVER inside the Prediction (K-1).
  */
 import {
-  clearing,
+  fictitiousDefault,
   liquidableAmount,
   emitPrediction,
   pbarOf,
@@ -44,10 +48,14 @@ export const CASCADE_TOOL_NAME = "cascade";
 
 /**
  * Resource cap (Lot H6, deploy-hardening): the maximum node count `n` (`|L| = |e|`) the cascade accepts.
- * The harness is a public, unauthenticated compute surface co-located with the vitrine on one VPS; the
- * Eisenberg-Noe `clearing` is ~O(n^3), so an unbounded `L` is a denial-of-service vector against the
- * shared host. 64 nodes keeps the clearing trivial (< 3e5 ops) while covering any realistic interbank
- * fixture. Enforced TWICE, fail-closed: the tool-input projection sets `maxItems` at the SDK boundary
+ * The harness is a public, unauthenticated compute surface co-located with the vitrine on one VPS, so `n`
+ * must be bounded. cascade computes the largest clearing vector L* via `fictitiousDefault`: <= n rounds
+ * (Thm 3.7, clearing.ts:104-108), each round a Gaussian solve on the defaulting block O(|D|^3) <= O(n^3),
+ * so <= O(n^4) worst case (~1.7e7 ops at n=64), deterministic and always terminating. (H7 self-DoS fix:
+ * cascade no longer calls `clearing()`, which ALSO runs a 100000-iteration `clearingFromBelow` least-vector
+ * pass — O(n^2)/iter, ~1e9 ops on a crafted cyclic/tiny-e system — that cascade never consumed; the prior
+ * "< 3e5 ops" claim was FALSE in that worst case.) The cap stays defense-in-depth; 64 nodes covers any
+ * realistic interbank fixture. Enforced TWICE, fail-closed: the tool-input projection sets `maxItems` at the SDK boundary
  * (`schema-projection.ts`, which imports THIS constant) AND `validateCascadeInput` rejects `n >
  * CASCADE_MAX_NODES` below — belt-and-suspenders behind the schema, so a direct in-process tool call
  * (bypassing the SDK boundary, e.g. the HTTP mirror or a test) is capped too. This file stays pure/no-I/O
@@ -105,9 +113,10 @@ const RFC3339 = /^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[Zz]|[+-]\d
 function validateCascadeInput(input: CascadeInput): void {
   const n = input.L.length;
   if (n === 0) throw new CascadeToolError("invalid 'L': expected a non-empty square matrix");
-  // Resource cap (Lot H6): bound `n` BEFORE the O(n^2) validation loop and the O(n^3) clearing, so a
-  // crafted huge `L` cannot exhaust the shared VPS even on a direct tool call (schema `maxItems` is the
-  // first line at the SDK boundary; this is the fail-closed backstop). |L| == |e| is enforced below.
+  // Resource cap (Lot H6): bound `n` BEFORE the O(n^2) validation loop and the bounded fictitious-default
+  // L* solve (<= n rounds, H7), so a crafted huge `L` cannot exhaust the shared VPS even on a direct tool
+  // call (schema `maxItems` is the first line at the SDK boundary; this is the fail-closed backstop).
+  // |L| == |e| is enforced below.
   if (n > CASCADE_MAX_NODES) {
     throw new CascadeToolError(
       `invalid 'L': ${String(n)} nodes exceeds the cap of ${String(CASCADE_MAX_NODES)} (resource guard, Lot H6)`,
@@ -154,10 +163,15 @@ function validateCascadeInput(input: CascadeInput): void {
 export function cascadeLiquidable(input: CascadeInput): LiquidableResult {
   validateCascadeInput(input);
   const sys: FinancialSystem = { L: input.L, e: input.e };
-  const cleared = clearing(sys); // Eisenberg-Noe: defaults alpha=1, beta=1 (D4, "clearing (Eisenberg-Noe)").
+  // Eisenberg-Noe largest clearing vector L* via fictitious default / GA (alpha=1, beta=1 defaults, D4).
+  // IDENTICAL to `clearing().pPlus`: clearing() computes its pPlus by calling exactly this function
+  // (clearing.ts:186) and cascade consumes ONLY L*. Calling fictitiousDefault directly SKIPS the
+  // 100000-iteration `clearingFromBelow` least-vector pass clearing() also runs (never read here) —
+  // fictitiousDefault is bounded to <= n rounds (Thm 3.7, clearing.ts:104-108), killing the checkpoint-2
+  // self-DoS: a crafted cyclic/tiny-e system can no longer make cascade burn ~1e9 ops on the event loop.
+  const { p: pPlus } = fictitiousDefault(sys);
   const pbar = pbarOf(input.L);
   const Pi = piOf(input.L, pbar);
-  const pPlus = cleared.pPlus;
   const positions: Position[] = pbar.map((pbi, i) => {
     let inflow = 0; // interbank receipts under the clearing vector L*: sum_j Pi[j][i] * L*_j.
     for (let j = 0; j < pPlus.length; j++) inflow += (Pi[j]?.[i] ?? 0) * (pPlus[j] ?? 0);
