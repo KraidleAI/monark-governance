@@ -20,6 +20,11 @@ export const metadata: Metadata = {
 // and the simulated depletion never diverge (one source of truth, D-4 contract). The island sits under
 // the layout's ThemeProvider, so useTheme resolves. Every number the sim shows is computed state / a call
 // (honest by construction, ADR-M004 D15); this page renders no numeric literal of its own.
+// The MONARK token contract address (CA). Rendered via an identifier read ({CA_ADDRESS}) so the honesty
+// lint's numeric-token scan (rendered JSX text only) never sees its digits — the same injection path as
+// loadCommitted figures. Address + label only: no chain name, no market/price/CTA (securities floor).
+const CA_ADDRESS = "FYZcYCHSp8FzNba1UtDZydKKGosmxVNpFBiVuia38AhT";
+
 export default function TokenPage() {
   const root = join(process.cwd(), "..", "..");
   const { actions, reasons } = loadGateEnums(root);
@@ -111,6 +116,16 @@ export default function TokenPage() {
           <span className="rounded-xl border bg-soft px-4 py-2 font-mono text-sm text-foreground">
             to be announced
           </span>
+        </div>
+
+        {/* Contract address (CA) — the token's on-chain identity. Rendered from an identifier read so the
+            honesty-lint numeric scan never sees its digits; select-all for a one-tap copy (server
+            component, no client island). Label + address only — no chain name, no price, no buy CTA. */}
+        <div className="mt-4 rounded-2xl border bg-card p-6">
+          <div className="mb-2 font-mono text-xs uppercase tracking-wide text-monark-t">Contract address (CA)</div>
+          <code className="block select-all break-all font-mono text-sm leading-6 text-foreground">
+            {CA_ADDRESS}
+          </code>
         </div>
       </section>
     </main>

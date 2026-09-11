@@ -60,6 +60,9 @@ export function SiteFooter() {
             Console <span className="font-mono text-[10px] text-muted-foreground">UPCOMING</span>
           </Link>
           <Link href="/writing">Writing</Link>
+          <a href="https://github.com/KraidleAI/monark" target="_blank" rel="noreferrer">
+            GitHub
+          </a>
         </div>
       </div>
 
