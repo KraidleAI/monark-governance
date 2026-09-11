@@ -1,0 +1,231 @@
+{
+  "schema": "monark-byo-demo-trace/1",
+  "title": "MONARK harness — recorded bring-your-own (BYO) calibrate -> gate -> audit demonstration (Lot M006 D10)",
+  "generated_by": {
+    "recorder": "scripts/record-byo-demo.mjs",
+    "worker_model": "claude-opus-4-8",
+    "effort": "high",
+    "date": "2026-09-11",
+    "grounding": "ADR-M006 D10; the BYO loop of skills/monark/SKILL.md",
+    "worktree": "Monark-wt-m006c (branch lot-m006-3)",
+    "reviewer": "G2 fresh reviewer + G7 committer (Opus-seat), claude-opus-4-8; the verdict and closure are recorded by the orchestrator (R-20). The agent does not commit as itself."
+  },
+  "transport": {
+    "mcp": "MCP streamable-HTTP via createMcpHandler (SDK modelcontextprotocol server 2.0.0); a real JSON-RPC tools/call over a 127.0.0.1 socket; the response is framed as text/event-stream.",
+    "bind": "127.0.0.1, ephemeral port; the port is intentionally NOT recorded so this trace is reproducible byte-for-byte.",
+    "accept_required": "application/json, text/event-stream (a request missing text/event-stream is answered 406).",
+    "session": "stateless: MONARK stores nothing between the calibrate and the gate call; the caller carries qhat and B_t in and out."
+  },
+  "scenario": {
+    "caller": "a fictitious third-party caller with its OWN predictor and its OWN nonconformity score function; the scores below are ILLUSTRATIVE, not measured, and name no asset.",
+    "task_class": "caller-demo-reg",
+    "scores": [
+      0.1,
+      0.2,
+      0.3,
+      0.4,
+      0.5,
+      0.6,
+      0.7,
+      0.8,
+      0.9,
+      1
+    ],
+    "alpha": 0.1,
+    "n_min": 5,
+    "yhat": 0,
+    "intent": 0,
+    "tau_interval": 3,
+    "remaining_budget": 0.1,
+    "expected": "p = ceil((n+1)(1-alpha)) = ceil(11 * 0.9) = 10; qhat = 10th smallest score = 1.0; region [yhat-qhat, yhat+qhat] = [-1, 1]; width 2 < tauInterval 3 and intent 0 in [-1, 1] => commit / covered."
+  },
+  "honesty": {
+    "byo": "split-conformal quantile at miscoverage α over caller-supplied nonconformity scores. MONARK does not see, store, or verify the caller's data or model, and does not validate that the supplied numbers are nonconformity scores of any model. Marginal 1−α coverage holds ONLY for future points exchangeable with the supplied scores; non-exchangeable data (e.g. distribution-shifted or time-ordered) voids it. Never a probability of being right.",
+    "coverage": "Marginal 1-alpha coverage holds ONLY under exchangeability of the caller's future points with these scores; non-exchangeable data voids it. This is not a probability of being right.",
+    "budget_bt": "B_t is caller-carried: remainingBudget enters as a gate parameter and the SAME value leaves as remaining_budget. The stateless server does NOT deplete it.",
+    "allow": "'allow' is a coverage verdict on the caller's prediction, NOT permission to execute the named tool; the gate never calls the named tool.",
+    "illustrative": "The scores, the prediction, and the task label are generic and illustrative. MONARK gates the caller's prediction; it does not itself predict, and it names no asset.",
+    "vocabulary": "This trace states no correctness or coverage claim and uses no forbidden vocabulary."
+  },
+  "audit": "The BYO loop closes when the gate verdict's calib_digest equals the calibrate set_digest over the same scores. Both are recorded below and asserted equal by test/byo-demo-probe.test.ts.",
+  "steps": [
+    {
+      "n": 1,
+      "surface": "mcp",
+      "op": "initialize",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+          "protocolVersion": "2026-07-28",
+          "capabilities": {},
+          "clientInfo": {
+            "name": "monark-byo-demo",
+            "version": "1.0.0"
+          }
+        }
+      },
+      "result": {
+        "protocolVersion": "2025-11-25",
+        "serverInfo": {
+          "name": "monark",
+          "version": "1.0.0"
+        }
+      }
+    },
+    {
+      "n": 2,
+      "surface": "mcp",
+      "op": "tools/call",
+      "label": "calibrate",
+      "tool": "calibrate",
+      "note": "The caller calibrates its OWN nonconformity scores: MONARK returns the split-conformal quantile qhat and a set_digest over exactly those scores. MONARK does not see, store, or verify the caller's data or model.",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/call",
+        "params": {
+          "name": "calibrate",
+          "arguments": {
+            "scores": [
+              0.1,
+              0.2,
+              0.3,
+              0.4,
+              0.5,
+              0.6,
+              0.7,
+              0.8,
+              0.9,
+              1
+            ],
+            "alpha": 0.1,
+            "nMin": 5
+          }
+        }
+      },
+      "response": {
+        "content": [
+          {
+            "type": "text",
+            "text": "split-conformal quantile at miscoverage α over caller-supplied nonconformity scores. MONARK does not see, store, or verify the caller's data or model, and does not validate that the supplied numbers are nonconformity scores of any model. Marginal 1−α coverage holds ONLY for future points exchangeable with the supplied scores; non-exchangeable data (e.g. distribution-shifted or time-ordered) voids it. Never a probability of being right."
+          }
+        ],
+        "structuredContent": {
+          "qhat": 1,
+          "n": 10,
+          "alpha": 0.1,
+          "method": "split",
+          "set_digest": "4081f7184e42b34e594015191f04720343b8b37691c7e4412c2469efdc43dd3a",
+          "label": "split-conformal quantile at miscoverage α over caller-supplied nonconformity scores. MONARK does not see, store, or verify the caller's data or model, and does not validate that the supplied numbers are nonconformity scores of any model. Marginal 1−α coverage holds ONLY for future points exchangeable with the supplied scores; non-exchangeable data (e.g. distribution-shifted or time-ordered) voids it. Never a probability of being right.",
+          "reason": null
+        }
+      }
+    },
+    {
+      "n": 3,
+      "surface": "mcp",
+      "op": "tools/call",
+      "label": "gate-byo",
+      "tool": "gate",
+      "note": "The caller gates its OWN prediction with params.calibration (the SAME scores, interval mode): the gate conformalizes against THOSE caller-supplied scores (BYO) and returns a covered commit. 'allow' is a coverage verdict on the caller's prediction, NOT permission to execute the named tool.",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "tools/call",
+        "params": {
+          "name": "gate",
+          "arguments": {
+            "prediction": {
+              "schema_version": "1.0.0",
+              "task_class": "caller-demo-reg",
+              "yhat": 0,
+              "predictor_id": "caller:own-model",
+              "produced_at": "2026-09-04T00:00:00Z"
+            },
+            "params": {
+              "remainingBudget": 0.1,
+              "bFloor": 0,
+              "tau": 1,
+              "tauInterval": 3,
+              "alpha": 0.1,
+              "nMin": 5,
+              "intent": 0,
+              "tool": "caller_downstream_tool",
+              "clockOpen": true,
+              "calibration": {
+                "scores": [
+                  0.1,
+                  0.2,
+                  0.3,
+                  0.4,
+                  0.5,
+                  0.6,
+                  0.7,
+                  0.8,
+                  0.9,
+                  1
+                ],
+                "mode": "interval"
+              }
+            }
+          }
+        }
+      },
+      "response": {
+        "content": [
+          {
+            "type": "text",
+            "text": "split-conformal quantile at miscoverage α over caller-supplied nonconformity scores. MONARK does not see, store, or verify the caller's data or model, and does not validate that the supplied numbers are nonconformity scores of any model. Marginal 1−α coverage holds ONLY for future points exchangeable with the supplied scores; non-exchangeable data (e.g. distribution-shifted or time-ordered) voids it. Never a probability of being right. B_t is caller-carried."
+          }
+        ],
+        "structuredContent": {
+          "schema_version": "1.0.0",
+          "action": "commit",
+          "allow": true,
+          "tool": "caller_downstream_tool",
+          "intent": 0,
+          "verdict": {
+            "schema_version": "1.0.0",
+            "task_class": "caller-demo-reg",
+            "method": "split",
+            "alpha": 0.1,
+            "n_calib": 10,
+            "region": {
+              "kind": "interval",
+              "lo": -1,
+              "hi": 1
+            },
+            "qhat": 1,
+            "abstain": false,
+            "reason": "covered",
+            "residual": [],
+            "calib_digest": "4081f7184e42b34e594015191f04720343b8b37691c7e4412c2469efdc43dd3a",
+            "produced_at": "2026-09-04T00:00:00Z"
+          },
+          "remaining_budget": 0.1,
+          "reason": "covered"
+        }
+      }
+    }
+  ],
+  "observed": {
+    "calibrate_qhat": 1,
+    "calibrate_n": 10,
+    "calibrate_reason": null,
+    "calibrate_set_digest": "4081f7184e42b34e594015191f04720343b8b37691c7e4412c2469efdc43dd3a",
+    "gate_action": "commit",
+    "gate_allow": true,
+    "gate_reason": "covered",
+    "gate_tool": "caller_downstream_tool",
+    "gate_remaining_budget": 0.1,
+    "gate_calib_digest": "4081f7184e42b34e594015191f04720343b8b37691c7e4412c2469efdc43dd3a",
+    "gate_n_calib": 10,
+    "gate_qhat": 1,
+    "gate_region_kind": "interval",
+    "gate_region_lo": -1,
+    "gate_region_hi": 1,
+    "audit_calib_digest_equals_set_digest": true
+  }
+}
