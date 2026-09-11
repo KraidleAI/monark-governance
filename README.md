@@ -17,7 +17,7 @@ labels below are the point: they say what exists today and what is only named.
 |---|---|---|
 | **Backbone** — the gate | Hikae (coverage control) + the MONARK token's budget `B_t`; turns a sensor reading into `commit \| defer \| abstain` | **Built** — 4 frozen contracts, Hikae + Ukemi engines, CI |
 | **Fleet** — a company of agents | sensors → gate → acts, one token across all of them | **3 built, 8 on the roadmap** |
-| **Harness** — DeFAI, multi-directional | the same fleet made reachable *by other agents* over HTTP / MCP | **Specified, not shipped** |
+| **Harness** — DeFAI, multi-directional | the same fleet made reachable *by other agents* over HTTP / MCP | **Built** — public 4-tool MCP endpoint (attest · gate · cascade · calibrate) + skill on ClawHub |
 | **Self-improving company** | agents that rate, improve, and sell one another's products | **Direction, unscheduled** |
 
 ### The fleet
