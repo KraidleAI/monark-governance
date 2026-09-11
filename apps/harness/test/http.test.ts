@@ -1,6 +1,6 @@
 /**
- * Harness Lot H4 — HTTP/JSON mirror tests (ADR-M005 D7/D8). The JSON mirror MUST expose exactly the
- * three MCP tools, with the SAME frozen schemas and the SAME boundary validation, and must sit behind
+ * Harness Lot H4 — HTTP/JSON mirror tests (ADR-M005 D7/D8; extended to 4 tools by ADR-M007 C1). The JSON
+ * mirror MUST expose exactly the four MCP tools, with the SAME frozen schemas and the SAME boundary validation, and must sit behind
  * the SAME Host routing + Origin guard. Each test is killed by >= 1 named mutant (proven red, then
  * restored byte-exact via sha256 — see the passe report). No `any`, no unsafe (off the ratchet).
  */
@@ -11,6 +11,7 @@ import { request as httpRequest } from "node:http";
 import { assertClosedGateDecision, assertClosedPrediction, assertClosedAttestedPrice } from "@monark/contracts";
 import { handleJsonMirror, MIRROR_OPERATIONS } from "../src/http.ts";
 import { HARNESS_TOOLS, REGISTERED_TOOL_NAMES } from "../src/tools/registry.ts";
+import { CALIBRATE_MAX_N } from "../src/tools/calibrate.ts";
 import { startServer } from "../src/server.ts";
 
 const API_HOST = "api.monarkgate.tech";
@@ -20,8 +21,10 @@ const GATE_BODY = {
   params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: "up", tool: "perps_order_preview", clockOpen: true },
 } as const;
 const CASCADE_BODY = { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" } as const;
+/** A valid calibrate body: n=10 >= nMin, p=⌈11·0.9⌉=10 <= n ⇒ q̂ is a number (a covered, not under_calib, result). */
+const CALIBRATE_BODY = { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], alpha: 0.1, nMin: 5 } as const;
 /** A valid body per operation (attest takes none). */
-const BODIES: Readonly<Record<string, unknown>> = { gate: GATE_BODY, cascade: CASCADE_BODY, attest: {} };
+const BODIES: Readonly<Record<string, unknown>> = { gate: GATE_BODY, cascade: CASCADE_BODY, attest: {}, calibrate: CALIBRATE_BODY };
 
 interface MirrorResult { structuredContent: unknown; content: unknown; error?: string }
 
@@ -32,15 +35,15 @@ async function call(host: string, method: string, path: string, body?: unknown):
   return { status: res.status, body: (await res.json()) as MirrorResult };
 }
 
-// Test — the mirror exposes EXACTLY the three MCP tools, returns the SAME frozen structuredContent, and
+// Test — the mirror exposes EXACTLY the four MCP tools, returns the SAME frozen structuredContent, and
 // enforces the SAME frozen input schema as the MCP boundary. Mutants: (a) hardcode the route table (drop
 // cascade/attest, or add a 4th route) instead of deriving from HARNESS_TOOLS ⇒ the served set ≠ registry
 // ⇒ red; (b) skip `~standard.validate` in http.ts ⇒ an extra key slips through ⇒ 200 ⇒ red; (c) alter the
 // returned structuredContent ⇒ the parity deep-equal reds; (d) drop/empty the `content` honesty `text`
 // (http.ts:85) ⇒ the content-parity deep-equal reds (K-1: the mirror text must equal the MCP text byte-for-byte).
 test("http_mirror_matches_mcp_surface", async () => {
-  // (a) the mirror's operation set IS the registry — the terminal set {attest,gate,cascade}, no drift.
-  assert.deepEqual([...MIRROR_OPERATIONS].sort(), ["attest", "cascade", "gate"], "mirror ops == terminal MCP set");
+  // (a) the mirror's operation set IS the registry — the terminal set {attest,gate,cascade,calibrate}, no drift.
+  assert.deepEqual([...MIRROR_OPERATIONS].sort(), ["attest", "calibrate", "cascade", "gate"], "mirror ops == terminal MCP set");
   assert.deepEqual([...MIRROR_OPERATIONS].sort(), [...REGISTERED_TOOL_NAMES].sort(), "mirror ops == REGISTERED_TOOL_NAMES");
 
   // every registered tool has a live route (200); a non-registered operation is 404.
@@ -65,7 +68,8 @@ test("http_mirror_matches_mcp_surface", async () => {
   const gateTool = HARNESS_TOOLS.find((t) => t.name === "gate");
   const cascadeTool = HARNESS_TOOLS.find((t) => t.name === "cascade");
   const attestTool = HARNESS_TOOLS.find((t) => t.name === "attest");
-  assert.ok(gateTool && cascadeTool && attestTool, "the three tools are registered");
+  const calibrateTool = HARNESS_TOOLS.find((t) => t.name === "calibrate");
+  assert.ok(gateTool && cascadeTool && attestTool && calibrateTool, "the four tools are registered");
 
   const gateRes = await call(API_HOST, "POST", "/gate", GATE_BODY);
   assert.deepEqual(gateRes.body.structuredContent, gateTool.run(GATE_BODY).structured, "gate mirror == MCP structured output");
@@ -84,6 +88,11 @@ test("http_mirror_matches_mcp_surface", async () => {
   // the frozen `price` alone is the closed contract; label/provenance ride the envelope (K-1).
   assertClosedAttestedPrice((attestStructured as { price: unknown }).price);
   assert.deepEqual(attestRes.body.content, [{ type: "text", text: attestTool.run({}).text }], "attest mirror content == MCP honesty text");
+
+  // calibrate (Lot C1): the mirror returns the SAME structuredContent + honesty content as the MCP tool.
+  const calibrateRes = await call(API_HOST, "POST", "/calibrate", CALIBRATE_BODY);
+  assert.deepEqual(calibrateRes.body.structuredContent, calibrateTool.run(CALIBRATE_BODY).structured, "calibrate mirror == MCP structured output");
+  assert.deepEqual(calibrateRes.body.content, [{ type: "text", text: calibrateTool.run(CALIBRATE_BODY).text }], "calibrate mirror content == MCP honesty text");
 });
 
 /** Wired POST via node:http so the `Host` header can be set explicitly (fetch forbids setting Host). */
@@ -140,4 +149,25 @@ test("http_mirror_routes_by_host_and_guards_origin", async () => {
   } finally {
     await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
   }
+});
+
+// Test — B-1 (ADR-M007): a calibrate refusal is a client error (400), NEVER a leaked 500. This is the
+// non-vacuity proof that `CalibrateToolError` ∈ `TOOL_ERROR_NAMES` (http.ts): drop it from that set and
+// the α∉(0,1) case below throws past the tool-error branch into the generic handler ⇒ 500 ⇒ this reds.
+// Two error paths, distinct on purpose:
+//   (a) α=1.5 PASSES the input schema (`alpha` is bare {type:number}, no range) and reaches runCalibrate,
+//       which throws CalibrateToolError ⇒ 400 `tool_error` — the load-bearing B-1 discriminator.
+//   (b) n>cap is caught EARLIER, at the SDK boundary by `maxItems` ⇒ 400 `invalid_input` (never reaches
+//       the tool). Both are 400, never 500 — that is the invariant the ADR §3 requires.
+test("http_calibrate_errors_are_400_never_500", async () => {
+  // (a) α out of (0,1) ⇒ CalibrateToolError surfaced as 400 tool_error (B-1).
+  const badAlpha = await call(API_HOST, "POST", "/calibrate", { scores: [0.1, 0.2, 0.3, 0.4, 0.5], alpha: 1.5, nMin: 3 });
+  assert.equal(badAlpha.status, 400, "α∉(0,1) must be a 400 tool error, never a 500");
+  assert.equal(badAlpha.body.error, "tool_error", "α∉(0,1) surfaces as tool_error (proves CalibrateToolError ∈ TOOL_ERROR_NAMES, B-1)");
+
+  // (b) n > CALIBRATE_MAX_N ⇒ rejected at the schema boundary (maxItems) as invalid_input, still 400.
+  const over = new Array<number>(CALIBRATE_MAX_N + 1).fill(0);
+  const overCap = await call(API_HOST, "POST", "/calibrate", { scores: over, alpha: 0.1, nMin: 3 });
+  assert.equal(overCap.status, 400, "n > cap must be a 400 (maxItems at the boundary), never a 500");
+  assert.equal(overCap.body.error, "invalid_input", "n > cap is rejected by the projected schema's maxItems (invalid_input)");
 });

@@ -41,18 +41,20 @@ const FORBIDDEN: { re: RegExp; why: string }[] = [
 // tool implementation has a side effect. Mutants: a tool outside the allowlist, a stray/premature
 // registration, or a `node:fs` import in a tools file ⇒ red.
 test("mcp_tools_have_no_side_effects", () => {
-  // (1) closed allowlist (K-8): registered ⊆ {attest, gate, cascade}, and all three are present at H3.
+  // (1) closed allowlist (K-8): registered ⊆ {attest, gate, cascade, calibrate}, and all four are present at C1.
   assert.ok(REGISTERED_TOOL_NAMES.length >= 1, "at least one tool registered");
   for (const name of REGISTERED_TOOL_NAMES) {
     assert.ok((ALLOWED_TOOL_NAMES as readonly string[]).includes(name), `tool '${name}' outside the closed allowlist`);
   }
   assert.ok(REGISTERED_TOOL_NAMES.includes("gate"), "the `gate` tool stays registered");
   assert.ok(REGISTERED_TOOL_NAMES.includes("cascade"), "the `cascade` tool stays registered");
-  assert.ok(REGISTERED_TOOL_NAMES.includes("attest"), "the `attest` tool is registered in H3");
-  // (1b) EXACT registry (G2 R1): H3 registers EXACTLY `attest` + `cascade` + `gate` — the TERMINAL set
-  // {attest,gate,cascade} (ADR-M005 D9), reached lot by lot (H1 `gate`, H2 `cascade`, H3 `attest`). A
-  // premature or stray registration reddens here, where the subset allowlist above would tolerate it.
-  assert.deepEqual([...REGISTERED_TOOL_NAMES].sort(), ["attest", "cascade", "gate"], "H3 registers exactly attest + cascade + gate (terminal set, ADR-M005 D9)");
+  assert.ok(REGISTERED_TOOL_NAMES.includes("attest"), "the `attest` tool stays registered");
+  assert.ok(REGISTERED_TOOL_NAMES.includes("calibrate"), "the `calibrate` tool is registered in C1");
+  // (1b) EXACT registry (G2 R1): C1 registers EXACTLY `attest` + `cascade` + `gate` + `calibrate` — the
+  // TERMINAL set {attest,gate,cascade,calibrate} (ADR-M007, set terminal 3→4 ratified investisseur),
+  // reached lot by lot (H1 `gate`, H2 `cascade`, H3 `attest`, C1 `calibrate`). A premature or stray
+  // registration reddens here, where the subset allowlist above would tolerate it.
+  assert.deepEqual([...REGISTERED_TOOL_NAMES].sort(), ["attest", "calibrate", "cascade", "gate"], "C1 registers exactly attest + cascade + gate + calibrate (terminal set, ADR-M007)");
 
   // (2) static side-effect scan of src/tools/**.
   const files = collectTs(TOOLS_DIR);

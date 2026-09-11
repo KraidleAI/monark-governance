@@ -63,10 +63,11 @@
       "result": {
         "names": [
           "attest",
+          "calibrate",
           "cascade",
           "gate"
         ],
-        "response_sha256": "0be9a2a43442e77eaa73b55b6a25602a2ba7ecccc73a462df3bfd77d8c338251"
+        "response_sha256": "11346ee2076efdea49ffe78f812ab3d1775db2dc477655cfba147449e9052c14"
       }
     },
     {

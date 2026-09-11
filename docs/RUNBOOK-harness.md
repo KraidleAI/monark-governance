@@ -1,8 +1,9 @@
 # RUNBOOK — deploy the MONARK harness (orchestrator-deployed)
 
-The MONARK harness is a stateless Node service exposing the three real primitives — `attest` (Shōgen),
-`gate` (HIKAE), `cascade` (UKEMI) — over **MCP** (`mcp.monarkgate.tech`) and a **HTTP/JSON mirror**
-(`api.monarkgate.tech`), both on ONE loopback listener `127.0.0.1:3001`, fronted by Caddy for TLS.
+The MONARK harness is a stateless Node service exposing the four real primitives — `attest` (Shōgen),
+`gate` (HIKAE), `cascade` (UKEMI), `calibrate` (HIKAE BYO split-conformal, Lot C1 / ADR-M007) — over
+**MCP** (`mcp.monarkgate.tech`) and a **HTTP/JSON mirror** (`api.monarkgate.tech`), both on ONE loopback
+listener `127.0.0.1:3001`, fronted by Caddy for TLS.
 
 **Who runs this:** the **orchestrator**, from its own machine, over SSH — the SAME channel it already uses
 for the live vitrine (key `~/.ssh/monark_vps`: `ssh -i ~/.ssh/monark_vps root@31.97.155.188`). Per
@@ -32,12 +33,16 @@ service + Caddy, **not** docker).
 
 ## 1. Put the harness tree on the VPS at `/opt/monark-harness`
 
-**rsync only the SERVICE paths from the orchestrator's machine** over the existing deploy key — do NOT `git
-clone` on the VPS (cloning the private **governance** repo there would need a deploy key on the VPS, a new
-credential the vitrine never provisioned), and do NOT push the whole repo (Lot H6: a public-facing host
-carries only what it runs — least privilege). Ship exactly what `node apps/harness/src/server.ts` needs at
-runtime plus what this runbook installs: `apps/ packages/ schemas/ fixtures/ package.json package-lock.json
-deploy/ scripts/verify-harness.mjs`.
+**Ship the SERVICE paths with `git archive` from the orchestrator's machine** over the existing deploy key
+— do NOT `git clone` on the VPS (cloning the private **governance** repo there would need a deploy key on
+the VPS, a new credential the vitrine never provisioned), and do NOT push the whole repo (Lot H6: a
+public-facing host carries only what it runs — least privilege). `git archive` ships the **committed bytes
+of exactly the listed paths** — the same set `node apps/harness/src/server.ts` needs at runtime plus what
+this runbook installs: `apps/ packages/ schemas/ fixtures/ package.json package-lock.json deploy/
+scripts/verify-harness.mjs`. It reads from `HEAD`, so it is the method used at the go-live deploy
+(2026-09-11) and it excludes `node_modules`, `.git`, and gitignored build output (`apps/site/.next`)
+**by construction** — an uncommitted or ignored file cannot enter the tarball, which IS the least-privilege
+guarantee (no filter to get wrong).
 
 Why this set (re-verified against the running process):
 - `apps/` and `packages/` ship **whole** — `npm ci` (step 2) validates every workspace in
@@ -50,35 +55,27 @@ Why this set (re-verified against the running process):
 
 This EXCLUDES `docs/`, `enforcement/`, the ROOT `test/`, `.github/`, `README.md`, `tsconfig.json`,
 `eslint.config.mjs`, `vocab-banned.json`, `lint-ratchet.json`, and all of `scripts/` except
-`verify-harness.mjs` — none is read at runtime. (Workspace tests under `apps/*/test/` and `packages/*/test/`
-DO ship with `apps/`/`packages/` — that is source code, not the governance surface, and is never executed on
-the host.) Restricting the SOURCE list is the guarantee that governance files never reach the public host; `--delete` is for update hygiene (files that vanished from
-the shipped set), not the primary control. `-R` (`--relative`) preserves the nested
-`scripts/verify-harness.mjs` path on the destination. Exclude `node_modules` (rebuilt by `npm ci` in step
-2) and `.git`. From the orchestrator's machine, in the repo root:
+`verify-harness.mjs` — none is read at runtime and none is in the archive's path list. (Workspace tests
+under `apps/*/test/` and `packages/*/test/` DO ship with `apps/`/`packages/` — that is source code, not the
+governance surface, and is never executed on the host.) `git archive` does NOT prune the destination (it
+overwrites but never removes stale files), so a stale tree needs the one-time cleanup below. From the
+orchestrator's machine, in the repo root:
 
 ```bash
-rsync -azR --delete -e "ssh -i ~/.ssh/monark_vps" \
-  --exclude node_modules --exclude .git \
-  apps packages schemas fixtures package.json package-lock.json deploy scripts/verify-harness.mjs \
-  root@31.97.155.188:/opt/monark-harness/
-```
-
-If `rsync` is not on the orchestrator's machine (Git-for-Windows does not ship it), use tar-over-ssh instead
-(same SERVICE path set and excludes; `scp`/`ssh`/`tar` are always present). tar stores the listed relative
-paths verbatim, so `scripts/verify-harness.mjs` keeps its `scripts/` prefix. Note tar does NOT prune the
-destination (unlike `rsync --delete`), so on a re-push it overwrites but never removes stale files:
-
-```bash
-tar czf - --exclude node_modules --exclude .git \
+git archive --format=tar.gz HEAD \
   apps packages schemas fixtures package.json package-lock.json deploy scripts/verify-harness.mjs \
   | ssh -i ~/.ssh/monark_vps root@31.97.155.188 "mkdir -p /opt/monark-harness && tar xzf - -C /opt/monark-harness"
 ```
 
-**One-time cleanup if the host ever received a pre-H6 (whole-repo) push:** neither `rsync --delete` (with
-`-R` and an explicit source list) nor tar reliably prunes TOP-LEVEL directories absent from the source
-list, so an `/opt/monark-harness` populated by an older runbook may still carry `docs/`, `test/`,
-`enforcement/`, `.github/`, etc. Remove them explicitly — do NOT rely on `--delete`:
+`--format=tar.gz` is REQUIRED: `git archive HEAD …` defaults to an UNcompressed tar on stdout, and the
+remote `tar xzf -` forces gunzip (`-z`), which fails on a plain tar (`gzip: stdin: not in gzip format`);
+`--format=tar.gz` emits the gzip stream the remote expects. `git archive` stores the listed relative paths
+verbatim, so `scripts/verify-harness.mjs` keeps its `scripts/` prefix on the destination.
+
+**One-time cleanup if the host ever received a pre-H6 (whole-repo) push:** `git archive` writes only the
+listed paths and does NOT prune TOP-LEVEL directories absent from that list, so an `/opt/monark-harness`
+populated by an older runbook (rsync/tar/whole-repo) may still carry `docs/`, `test/`, `enforcement/`,
+`.github/`, etc. Remove them explicitly:
 
 ```bash
 ssh -i ~/.ssh/monark_vps root@31.97.155.188 \
@@ -166,9 +163,10 @@ node scripts/verify-harness.mjs --out docs/deploy-CA-harness.json
 ```
 
 It checks: `/health` and `/openapi.json` live; a present-and-invalid `Origin` → `403` on both hosts; the
-MCP `tools/list` returns the three tools; a real `gate`, `cascade`, and `attest` call; and the TLS
-certificate (issuer, expiry). It writes the **conformity attestation** (URL, timestamp, per-check
-sha256, TLS cert) to the `--out` file and exits non-zero on any failure. Keep that file as the CA.
+MCP `tools/list` returns the four tools (SET EQUALITY, not subset — B-2); a real `gate`, `cascade`,
+`attest`, and `calibrate` call; and the TLS certificate (issuer, expiry). It writes the **conformity
+attestation** (URL, timestamp, per-check sha256, TLS cert) to the `--out` file and exits non-zero on any
+failure. Keep that file as the CA.
 
 **Deploy reserves — the green gate (Lot H6).** The deploy is GREEN only when BOTH hold:
 - the command **exits 0** AND its stderr prints `VERIFY OK`. Treat ANY non-zero exit as RED and read the
@@ -211,8 +209,8 @@ caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
 
 - Logs: `journalctl -u monark-harness -f`
 - Restart: `systemctl restart monark-harness`
-- Update: re-run the step-1 rsync from the orchestrator's machine (the `node_modules`/`.git` excludes are
-  not removed by `--delete`, so the VPS `npm ci` tree survives the re-push), then on the VPS:
+- Update: re-run the step-1 `git archive` from the orchestrator's machine (it overwrites the shipped paths
+  but does not touch `node_modules`/`.git`, so the VPS `npm ci` tree survives the re-push), then on the VPS:
   `cd /opt/monark-harness && npm ci && chown -R monark:monark . && systemctl restart monark-harness`. The
   orchestrator writes a VPS-side `/opt/monark-harness-redeploy.sh` wrapping these steps during the initial
   deploy (same redeploy motif as the vitrine's `/opt/monark-redeploy.sh`); later updates just run it.

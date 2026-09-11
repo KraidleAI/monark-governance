@@ -50,11 +50,14 @@
     "harness": {
       "package": "harness",
       "extensions": [".ts"],
-      "$comment": "Lot H1 (ADR-M005 D9 / K-3): apps/harness sources + tool descriptions scanned for honesty vocab NOT in the GLOBAL list. 'confidence' is load-bearing (fleet invariant: no confidence field/score anywhere) — the mission's named example, and what harness_tool_descriptions_pass_vocab kills. 'autonomous'/'self-evolving' mirror the site honesty subset and carry no legitimate use in a coverage-gate server. Adding a name = this ADR line.",
+      "$comment": "Lot H1 (ADR-M005 D9 / K-3): apps/harness sources + tool descriptions scanned for honesty vocab NOT in the GLOBAL list. 'confidence' is load-bearing (fleet invariant: no confidence field/score anywhere) — the mission's named example, and what harness_tool_descriptions_pass_vocab kills. 'autonomous'/'self-evolving' mirror the site honesty subset and carry no legitimate use in a coverage-gate server. Lot C1 (ADR-M007 D5/B-3): the calibrate surface must police 'guarantees'/'predicts'/'probative' NEGATION-AWARE, so the honest existing negations stay green: 'no guarantee'/'no score' (cascade/attest), 'not probative'/'no probative'/'attest_makes_no_probative_claim' (attest, schema-projection), and 'not a measured predictor' (only 'predicts' is banned, never 'predictor'). A naked surclaim ('guarantees coverage'/'the scores are probative'/'MONARK predicts ...') reddens. Both 'no' and 'not' are negations; the '[\\s_]' separator covers the snake_case identifier. Adding a name = this ADR line.",
       "banned": [
         { "re": "\\bconfidence\\b", "why": "\"confidence\" — no confidence field/score anywhere (fleet invariant; ADR-M005 D9)" },
         { "re": "\\bautonomous\\b", "why": "\"autonomous\" — no autonomy claim on the harness surface (ADR-M005 D9)" },
-        { "re": "\\bself[-\\s]?evolving\\b", "why": "\"self-evolving\" claim (ADR-M005 D9)" }
+        { "re": "\\bself[-\\s]?evolving\\b", "why": "\"self-evolving\" claim (ADR-M005 D9)" },
+        { "re": "(?<!\\bno\\s)guarantee", "why": "naked \"guarantee/guarantees/guaranteed\" surclaim on the calibrate surface; the honest \"no guarantee\" stays green (ADR-M007 B-3 ; R1: ADR-literal — participle covered, so \"coverage is guaranteed\" reddens. Known limit: \"not/cannot guaranteed\" would also redden — no such honest span exists in scope; a future one = an exemptPhrases line)" },
+        { "re": "(?<!not\\s)(?<!no[\\s_])probative", "why": "naked \"probative\" surclaim; the honest \"not probative\"/\"no probative\"/\"no_probative\" negations stay green (ADR-M007 B-3)" },
+        { "re": "\\bpredicts\\b", "why": "\"predicts\" — the fleet conforms a predictor, it does not itself predict; \"predictor\"/\"prediction\" stay green (ADR-M007 B-3)" }
       ]
     }
   }

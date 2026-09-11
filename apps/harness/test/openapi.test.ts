@@ -44,8 +44,8 @@ test("openapi_generated_matches_frozen_schemas", () => {
   const spec = buildOpenApi();
   assert.equal(spec["openapi"], OPENAPI_VERSION, "OpenAPI 3.1 (JSON Schema 2020-12 dialect)");
 
-  // Paths are DERIVED from the registry — exactly the three operations, no more, no less.
-  assert.deepEqual(Object.keys(asObj(spec["paths"], "paths")).sort(), ["/attest", "/cascade", "/gate"], "paths == the 3 ops");
+  // Paths are DERIVED from the registry — exactly the four operations, no more, no less (ADR-M007 C1).
+  assert.deepEqual(Object.keys(asObj(spec["paths"], "paths")).sort(), ["/attest", "/calibrate", "/cascade", "/gate"], "paths == the 4 ops");
 
   const frozenPrediction = asObj(loadJson("prediction.schema.json"), "prediction");
   const frozenGate = asObj(loadJson("gate-decision.schema.json"), "gate-decision");
@@ -86,4 +86,19 @@ test("openapi_generated_matches_frozen_schemas", () => {
     asObj(frozenPrice["properties"], "frozen attested-price.properties"),
     "attest response price property definitions == frozen in full",
   );
+
+  // --- calibrate (Lot C1, ADR-M007 D2/D3): the path is present and NON-frozen (declared in
+  // schema-projection.ts, never in schemas/). We pin the wire shape here — the request requires
+  // {scores,alpha,nMin} and the response structuredContent requires the 7 D3 fields (reason IN the
+  // schema = M-5) — so a drift in the projected calibrate schema reddens.
+  const calibrateReq = requestSchema(spec, "calibrate");
+  assert.deepEqual(calibrateReq["required"], ["scores", "alpha", "nMin"], "calibrate request requires scores, alpha, nMin");
+  assert.equal(calibrateReq["additionalProperties"], false, "calibrate request is a closed envelope");
+  const calibrateOut = responseStructured(spec, "calibrate");
+  assert.deepEqual(
+    calibrateOut["required"],
+    ["qhat", "n", "alpha", "method", "set_digest", "label", "reason"],
+    "calibrate response requires the 7 D3 fields (reason IN the schema, M-5)",
+  );
+  assert.equal(calibrateOut["additionalProperties"], false, "calibrate response is a closed envelope");
 });

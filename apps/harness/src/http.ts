@@ -1,7 +1,7 @@
 /**
  * Harness — HTTP/JSON MIRROR of the MCP surface (ADR-M005 D7/D8, Lot H4).
  *
- * The SAME three operations (attest, gate, cascade), the SAME frozen input/output schemas
+ * The SAME four operations (attest, gate, cascade, calibrate), the SAME frozen input/output schemas
  * (`schema-projection.ts` / the registry), exposed as plain JSON: `POST /{tool}` with a JSON body ->
  * a JSON response mirroring the MCP `CallToolResult` (`{ structuredContent, content }`). The mirror is
  * DERIVED from the SAME `HARNESS_TOOLS` registry the MCP server registers, so the two surfaces cannot
@@ -33,7 +33,7 @@ const TOOL_BY_NAME: ReadonlyMap<string, HarnessToolDescriptor> = new Map(
 export const MIRROR_OPERATIONS: readonly string[] = REGISTERED_TOOL_NAMES;
 
 /** Names of the tool-level errors the pure tools throw — surfaced as `400`, never a `500` with a stack. */
-const TOOL_ERROR_NAMES: ReadonlySet<string> = new Set(["HarnessToolError", "CascadeToolError", "AttestToolError"]);
+const TOOL_ERROR_NAMES: ReadonlySet<string> = new Set(["HarnessToolError", "CascadeToolError", "AttestToolError", "CalibrateToolError"]);
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });

@@ -47,7 +47,7 @@ const TRACE_PATH = fileURLToPath(new URL("../fixtures/h5-e2e-trace.json", import
 const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url));
 
 /** Pinned sha256 (LF-normalized) of the committed trace — also stated in fixtures/PROVENANCE-h5-e2e-trace.md. */
-const TRACE_SHA256_PINNED = "8213c631d975cf6a357814a1faba35c1c14b66c985fc1f9b0dbc48ad8a5406ef";
+const TRACE_SHA256_PINNED = "aed272a901489bb23ab9ecad1f968243b0f00543516ff6c2b93cf352e8234c23";
 
 const DEMONSTRATIVE_LABEL = "real, notary Shōgen, demonstrative, not probative";
 

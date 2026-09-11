@@ -1,7 +1,7 @@
 /**
  * Harness — OpenAPI 3.1 spec DERIVED from the frozen-projected schemas (ADR-M005 D7/D8, Lot H4).
  *
- * The HTTP/JSON mirror (`src/http.ts`) is a byte-faithful mirror of the MCP surface: the SAME three
+ * The HTTP/JSON mirror (`src/http.ts`) is a byte-faithful mirror of the MCP surface: the SAME four
  * operations, the SAME frozen input/output schemas (`schema-projection.ts`, projected from the frozen
  * `schemas/*.json`, NEVER re-written by hand — D8). This module assembles those projected schemas into an
  * OpenAPI 3.1 document. OpenAPI 3.1 adopts JSON Schema 2020-12 as its schema dialect, so the projected
@@ -56,7 +56,7 @@ function resultEnvelopeSchema(outputSchema: Json): JsonObject {
 }
 
 /**
- * Build the OpenAPI 3.1 document for the three JSON-mirror operations. One `POST /{tool}` per registered
+ * Build the OpenAPI 3.1 document for the JSON-mirror operations. One `POST /{tool}` per registered
  * tool (the path set == the registry, so the spec cannot advertise an operation the mirror does not
  * serve). Request body = the tool's projected input schema; the 200 response = the result envelope over
  * the tool's projected output schema. Descriptions reuse the vocab-clean, English tool descriptions.
@@ -94,7 +94,7 @@ export function buildOpenApi(): JsonObject {
       title: "MONARK harness — HTTP/JSON mirror",
       version: OPENAPI_INFO_VERSION,
       description:
-        "Plain-JSON mirror of the MONARK MCP harness (attest, gate, cascade). Same frozen contracts as the " +
+        "Plain-JSON mirror of the MONARK MCP harness (attest, gate, cascade, calibrate). Same frozen contracts as the " +
         "MCP surface; derived from the frozen schemas, never hand-written. The gate only emits a decision; " +
         "it never calls the named tool.",
     },
