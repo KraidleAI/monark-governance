@@ -35,15 +35,17 @@ export const MIRROR_OPERATIONS: readonly string[] = REGISTERED_TOOL_NAMES;
 /** Names of the tool-level errors the pure tools throw — surfaced as `400`, never a `500` with a stack. */
 const TOOL_ERROR_NAMES: ReadonlySet<string> = new Set(["HarnessToolError", "CascadeToolError", "AttestToolError", "CalibrateToolError"]);
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
+function json(body: unknown, status = 200, extraHeaders?: Readonly<Record<string, string>>): Response {
+  return new Response(JSON.stringify(body), { status, headers: { ...JSON_HEADERS, ...(extraHeaders ?? {}) } });
 }
 
 /**
  * Serve one JSON-mirror request. `GET /health` (and `/`) -> liveness + operation list; `GET /openapi.json`
  * -> the derived spec; `POST /{tool}` -> validate against the projected schema, run the pure tool, return
- * `{ structuredContent, content }`. The Origin guard is applied by server.ts BEFORE this, identically to
- * the MCP path, so this handler never sees a present-and-invalid Origin.
+ * `{ structuredContent, content }`. A `GET /{tool}` on a KNOWN operation is a wrong method, answered with
+ * `405` + `Allow: POST` and a "use POST /{tool}" hint (an unknown path stays `404`), so a caller that GETs
+ * self-corrects. The Origin guard is applied by server.ts BEFORE this, identically to the MCP path, so
+ * this handler never sees a present-and-invalid Origin.
  */
 export async function handleJsonMirror(request: Request): Promise<Response> {
   const { pathname } = new URL(request.url);
@@ -53,10 +55,21 @@ export async function handleJsonMirror(request: Request): Promise<Response> {
       return json({ status: "ok", surface: "http-json-mirror", operations: MIRROR_OPERATIONS });
     }
     if (pathname === "/openapi.json") return json(buildOpenApi());
+    // A GET to a known operation path is a wrong METHOD, not a missing route: every tool is served at
+    // POST /{tool}. Return 405 (with Allow: POST) and a hint, so a caller that GETs self-corrects instead
+    // of reading a bare 404 as "endpoint not deployed". An unknown GET path stays a 404.
+    const getName = pathname.replace(/^\/+/, "");
+    if (TOOL_BY_NAME.has(getName)) {
+      return json(
+        { error: "method_not_allowed", operation: getName, message: `use POST /${getName} with a JSON body`, operations: MIRROR_OPERATIONS },
+        405,
+        { allow: "POST" },
+      );
+    }
     return json({ error: "not_found", path: pathname }, 404);
   }
   if (request.method !== "POST") {
-    return json({ error: "method_not_allowed", method: request.method }, 405);
+    return json({ error: "method_not_allowed", method: request.method }, 405, { allow: "POST" });
   }
 
   const name = pathname.replace(/^\/+/, "");

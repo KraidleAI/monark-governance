@@ -55,6 +55,20 @@ test("http_mirror_matches_mcp_surface", async () => {
   assert.equal(unknown.status, 404, "a non-registered operation must be 404");
   assert.equal(unknown.body.error, "unknown_operation");
 
+  // a GET to a KNOWN operation path is a wrong method, not a missing route: 405 + Allow: POST + a POST hint,
+  // so a caller that GETs self-corrects instead of reading a bare 404 as "endpoint not deployed". Mutant:
+  // fall through to the 404 (the old behavior) ⇒ these red. An unknown GET path stays 404 (not every GET is 405).
+  for (const name of REGISTERED_TOOL_NAMES) {
+    const g = await handleJsonMirror(new Request(`http://${API_HOST}/${name}`, { method: "GET" }));
+    assert.equal(g.status, 405, `GET /${name} is a wrong method ⇒ 405, not 404`);
+    assert.equal(g.headers.get("allow"), "POST", `405 for GET /${name} carries Allow: POST`);
+    const gb = (await g.json()) as { error?: string; message?: string };
+    assert.equal(gb.error, "method_not_allowed", `GET /${name} surfaces method_not_allowed`);
+    assert.ok(gb.message?.includes(`POST /${name}`), `the 405 hint names POST /${name}`);
+  }
+  const unknownGet = await handleJsonMirror(new Request(`http://${API_HOST}/not-a-tool`, { method: "GET" }));
+  assert.equal(unknownGet.status, 404, "an unknown GET path stays 404 (not every GET becomes 405)");
+
   // (b) same FROZEN INPUT schema as the MCP boundary: an extra key (additionalProperties:false) is 400.
   const extra = await call(API_HOST, "POST", "/gate", { ...GATE_BODY, rogue: true });
   assert.equal(extra.status, 400, "an extra key must be rejected (mirror validates like the MCP boundary)");
