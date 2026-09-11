@@ -164,9 +164,11 @@ node scripts/verify-harness.mjs --out docs/deploy-CA-harness.json
 
 It checks: `/health` and `/openapi.json` live; a present-and-invalid `Origin` → `403` on both hosts; the
 MCP `tools/list` returns the four tools (SET EQUALITY, not subset — B-2); a real `gate`, `cascade`,
-`attest`, and `calibrate` call; and the TLS certificate (issuer, expiry). It writes the **conformity
-attestation** (URL, timestamp, per-check sha256, TLS cert) to the `--out` file and exits non-zero on any
-failure. Keep that file as the CA.
+`attest`, and `calibrate` call; a **`gate_byo_call`** (Lot C2, ADR-M007 D7) that reuses the `calibrate`
+call's scores as `params.calibration` and asserts the live decision's `verdict.calib_digest` equals the
+live `calibrate` `set_digest` AND `action === "commit"` — proving the BYO loop end-to-end; and the TLS
+certificate (issuer, expiry). It writes the **conformity attestation** (URL, timestamp, per-check sha256,
+TLS cert) to the `--out` file and exits non-zero on any failure. Keep that file as the CA.
 
 **Deploy reserves — the green gate (Lot H6).** The deploy is GREEN only when BOTH hold:
 - the command **exits 0** AND its stderr prints `VERIFY OK`. Treat ANY non-zero exit as RED and read the

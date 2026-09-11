@@ -10,8 +10,9 @@
 // so the JSON mirror is reachable against a local `http://127.0.0.1:3001` target too (fetch cannot set the
 // Host header, so a local fetch would carry `Host: 127.0.0.1` and miss the `api.` mirror route). It checks
 // the endpoint — /health, /openapi.json (the live twin of test 43), a present-and-invalid Origin -> 403 on
-// BOTH hosts, MCP tools/list returns the four tools, a REAL gate/cascade/attest/calibrate call, and — for an https
-// `--api` ONLY — the TLS certificate (issuer, expiry); an http `--api` (plain/local) SKIPS the TLS check.
+// BOTH hosts, MCP tools/list returns the four tools, a REAL gate/cascade/attest/calibrate call, a gate BYO
+// call (C2: verdict.calib_digest === the calibrate set_digest + action commit, proving the loop), and — for
+// an https `--api` ONLY — the TLS certificate (issuer, expiry); an http `--api` (plain/local) SKIPS the TLS check.
 // Then writes the CA
 //   { url, mcp_url, checked_at, checks:[{ name, ok, status, sha256 }], tls:{ issuer, valid_to, authorized } | { skipped } }
 // to stdout (and --out FILE), and exits non-zero on any failure. The per-check sha256 pins the exact
@@ -38,6 +39,14 @@ const GATE_BODY = {
 };
 const CASCADE_BODY = { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" };
 const CALIBRATE_BODY = { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], alpha: 0.1, nMin: 5 };
+// Lot C2 BYO loop: a /gate call that REUSES CALIBRATE_BODY.scores as caller-supplied calibration (interval
+// mode, a caller-owned task_class). Hand-rolled n=10, α=0.1 ⇒ p=⌈11·0.9⌉=10 ⇒ q̂=10th smallest=1.0; ŷ=0 ⇒
+// region [−1,1], width 2 ≤ tauInterval 2, intent 0 ∈ [−1,1] ⇒ COMMIT (written in). The check asserts the
+// LIVE decision's verdict.calib_digest === the LIVE calibrate set_digest — proving the BYO boucle end-to-end.
+const GATE_BYO_BODY = {
+  prediction: { schema_version: "1.0.0", task_class: "byo-demo", yhat: 0, predictor_id: "caller:model", produced_at: "2026-09-04T00:00:00Z" },
+  params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 2, alpha: 0.1, nMin: 5, intent: 0, tool: "perps_order_preview", clockOpen: true, calibration: { scores: CALIBRATE_BODY.scores, mode: "interval" } },
+};
 
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 /** Set equality (order-independent): the two arrays carry EXACTLY the same members (B-2, no subset). */
@@ -215,13 +224,29 @@ async function main() {
 
   // calibrate (Lot C1): a REAL BYO call returns a numeric q̂ AND carries the exchangeability label —
   // NOT "demonstrative" (calibrate computes; it is not a replayed witness like attest, ADR-M007 D5).
+  // Capture the LIVE set_digest so the C2 gate_byo_call check below can prove the loop closes.
+  let calibrateSetDigest = null;
   checks.push(await wiredCheck("calibrate_call", `${api}/calibrate`, jsonInit(CALIBRATE_BODY), apiHostHeader, (res, text) => {
     const j = parseJson(text);
     const sc = j ? j.structuredContent : null;
     const label = sc && typeof sc.label === "string" ? sc.label : "";
+    if (sc && typeof sc.set_digest === "string") calibrateSetDigest = sc.set_digest;
     const ok = res.status === 200 && sc !== null && typeof sc.qhat === "number"
       && label.includes("exchangeable") && !label.includes("demonstrative");
     return { ok, detail: sc ? `qhat=${String(sc.qhat)}` : "no body" };
+  }));
+
+  // gate BYO (Lot C2): the BOUCLE. A /gate call reusing CALIBRATE_BODY.scores must return 200 + a COMMIT
+  // AND its verdict.calib_digest must equal the calibrate call's set_digest (same scores ⇒ same digest) —
+  // proving the caller can calibrate and then gate a covered decision on ITS OWN model, live.
+  checks.push(await wiredCheck("gate_byo_call", `${api}/gate`, jsonInit(GATE_BYO_BODY), apiHostHeader, (res, text) => {
+    const j = parseJson(text);
+    const sc = j ? j.structuredContent : null;
+    const digest = sc && sc.verdict ? sc.verdict.calib_digest : null;
+    const action = sc ? sc.action : null;
+    const ok = res.status === 200 && action === "commit"
+      && typeof digest === "string" && digest === calibrateSetDigest;
+    return { ok, detail: `action=${String(action)} calib_digest=${String(digest)} set_digest=${String(calibrateSetDigest)}` };
   }));
 
   // TLS only makes sense for an https target; an http `--api` (plain/local) SKIPS it (never a false fail).
