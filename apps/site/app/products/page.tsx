@@ -44,7 +44,7 @@ export default function ProductsPage() {
         </div>
       </section>
 
-      {/* Core products — the three VISAGE artefacts (uid 28b02686), each sold to a named buyer. Distinct
+      {/* Core products — the three VISAGE artefacts, each sold to a named buyer. Distinct
           register (lib/visage.ts); never folded into PRODUCTS (keeps PRODUCTS.length === 5). */}
       <section className="mt-16">
         <h2 className="font-heading text-2xl font-medium tracking-tight text-foreground">Core products</h2>

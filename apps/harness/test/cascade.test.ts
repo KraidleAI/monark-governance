@@ -1,5 +1,5 @@
 /**
- * Harness Lot H2 — cascade (UKEMI) tests (ADR-M005 D4/D8/D9, PLAN H2).
+ * Harness — cascade (UKEMI) tests (ADR-M005 D4/D8/D9).
  * Each test is killed by >= 1 named mutant (proven red, then restored byte-exact via sha256 — see the
  * passe report). Fully typed: no `any`, no unsafe access — the file stays at the lint ratchet ceiling.
  *
@@ -151,7 +151,7 @@ test("cascade_tool_schema_equals_frozen_prediction", () => {
 });
 
 /** A structurally-valid n-node system (zero matrix, unit external assets): the ONLY thing that can make it
- *  illegal is its size, so it isolates the Lot H6 node cap from every other validation rule. */
+ *  illegal is its size, so it isolates the node cap from every other validation rule. */
 function zeroSystem(n: number): CascadeInput {
   return {
     L: Array.from({ length: n }, () => new Array<number>(n).fill(0)),
@@ -161,7 +161,7 @@ function zeroSystem(n: number): CascadeInput {
   };
 }
 
-// Test — the Lot H6 resource cap rejects an oversized interbank system (n > CASCADE_MAX_NODES) at BOTH
+// Test — the resource cap rejects an oversized interbank system (n > CASCADE_MAX_NODES) at BOTH
 // layers, and accepts one exactly at the cap. WHY: the harness is a public, unauthenticated endpoint on the
 // vitrine's VPS and the fictitious-default clearing is superlinear (<=n rounds, each O(n^3)), so an unbounded L is a DoS vector.
 // Mutants (each reddens ≥ 1 assertion below): (m1) remove the `if (n > CASCADE_MAX_NODES)` guard in
@@ -169,7 +169,7 @@ function zeroSystem(n: number): CascadeInput {
 // ⇒ (b) the maxItems assertions and (c) the behavioral boundary rejection go green→red; (m3) widen the cap
 // (e.g. 4096) ⇒ the value assertions and the n==cap/n>cap split redden.
 test("cascade_rejects_oversized_system_over_the_node_cap", async () => {
-  assert.equal(CASCADE_MAX_NODES, 64, "the node cap is 64 (Lot H6)");
+  assert.equal(CASCADE_MAX_NODES, 64, "the node cap is 64");
   const over = zeroSystem(CASCADE_MAX_NODES + 1); // 65 nodes: structurally valid, only the size is illegal
   const atCap = zeroSystem(CASCADE_MAX_NODES); // 64 nodes: legal
 
@@ -215,7 +215,7 @@ function countingMatrix(base: readonly (readonly number[])[]): { L: readonly (re
 // under the OLD path (`clearing(sys)`), a crafted request valid under every H6 cap makes the harness burn
 // ~1e9 ops (~7 s measured) on the single-threaded event loop per ~10 KB request.
 //
-// The input is the shape the validateur described and is WIRE-FEASIBLE: a pure n=64 cycle (n ==
+// The input is the shape the review described and is WIRE-FEASIBLE: a pure n=64 cycle (n ==
 // CASCADE_MAX_NODES, the H6 cap; ~10 KB JSON, under the 256 KB Caddy body cap), each node owing 100 to the
 // next only, tiny e. On this gain-1 cycle `clearingFromBelow` never converges within tol and runs its full
 // maxIter=100000 Picard steps; cascade reads ONLY L*, which `fictitiousDefault` returns in <= n rounds

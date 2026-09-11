@@ -41,6 +41,27 @@ const apiResponse = {
   reason: "one of 13",
 };
 
+// BYO demo payloads — illustrative example values, in the SAME object-literal position as apiRequest
+// above, so the honesty lint (test 44) never scans their digits. Values mirror the recorded loop in
+// skills/monark/DEMO.md (calibrate -> gate -> the digests tie).
+const byoCalibrate = {
+  request: { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], alpha: 0.1, nMin: 5 },
+  returns: { qhat: 1.0, n: 10, set_digest: "4081f718…" },
+};
+
+const byoGate = {
+  request: {
+    prediction: { task_class: "your-own-class", yhat: 0, predictor_id: "you:your-model" },
+    params: { remainingBudget: "B_t", intent: 0, calibration: { scores: "…the same scores…", mode: "interval" } },
+  },
+  returns: {
+    action: "commit",
+    allow: true,
+    reason: "covered",
+    verdict: { region: { kind: "interval", lo: -1, hi: 1 }, calib_digest: "4081f718…" },
+  },
+};
+
 // /integrators (server component) — "For integrators", Built. Design section L426-438 (ADR-M004 D15
 // renamed the design's #/api to /integrators). Renders on the shell mounted by the layout (header/footer
 // NOT re-mounted). The two <pre> contract blocks are a SINGLE JSON.stringify call each, never a literal
@@ -121,6 +142,51 @@ openclaw mcp add monark --url https://mcp.monarkgate.tech/mcp --transport stream
             </p>
           </div>
         </div>
+      </section>
+
+      {/* See the BYO loop — the recorded demo (skills/monark/DEMO.md). Payload digits live in the byo*
+          object literals (identifier reads), so the honesty lint never scans them; the section prose is
+          digit-free. Two stateless calls; the audit closes when the two digests match. */}
+      <section className="mb-10">
+        <h2 className="font-heading text-[clamp(24px,3vw,34px)] font-semibold tracking-[-0.02em]">
+          See the BYO loop
+        </h2>
+        <p className="mt-2 mb-5 max-w-[820px] text-[16px] leading-[1.6] text-muted-foreground">
+          Two stateless calls. You calibrate on your own nonconformity scores, then gate your own
+          prediction under them. The audit closes when the gate&rsquo;s{" "}
+          <code className="font-mono text-[13px]">calib_digest</code> equals the calibrate{" "}
+          <code className="font-mono text-[13px]">set_digest</code> — proof the decision was gated against
+          exactly the scores you calibrated, and nothing else.
+        </p>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] gap-4">
+          <div className="flex flex-col gap-2 rounded-[18px] border border-border bg-card p-6">
+            <div className="text-[16px] font-semibold">First &middot; calibrate your scores</div>
+            <div className="font-mono text-[12px] text-muted-foreground">you send &rarr; you get</div>
+            <pre className="m-0 overflow-auto whitespace-pre font-mono text-[12.5px] leading-[1.55] text-foreground">
+              {JSON.stringify(byoCalibrate, null, 2)}
+            </pre>
+          </div>
+          <div className="flex flex-col gap-2 rounded-[18px] border border-border bg-card p-6">
+            <div className="text-[16px] font-semibold">Then &middot; gate your prediction</div>
+            <div className="font-mono text-[12px] text-muted-foreground">you send &rarr; you get</div>
+            <pre className="m-0 overflow-auto whitespace-pre font-mono text-[12.5px] leading-[1.55] text-foreground">
+              {JSON.stringify(byoGate, null, 2)}
+            </pre>
+          </div>
+        </div>
+        <p className="mt-4 max-w-[820px] text-[15px] leading-[1.6] text-muted-foreground">
+          The gate returns a covered <code className="font-mono text-[13px]">commit</code>, and the two
+          digests are equal — the loop closes. Full walkthrough + byte-reproducible recording:{" "}
+          <a
+            href="https://github.com/KraidleAI/monark/blob/main/skills/monark/DEMO.md"
+            className="underline underline-offset-4"
+            target="_blank"
+            rel="noreferrer"
+          >
+            DEMO.md on GitHub
+          </a>
+          .
+        </p>
       </section>
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] gap-4">

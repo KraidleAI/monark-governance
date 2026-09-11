@@ -8,7 +8,7 @@ import { loadAttestedPriceContract, loadContract } from "@/lib/load-contract";
 import { loadGateEnums } from "@/lib/gate-enums";
 import { AMBIENT, COST } from "@/lib/sim";
 
-// Home (Lot F-site-4) — a server shell over ONE client island (the engine board = GateSim mode="board":
+// Home — a server shell over ONE client island (the engine board = GateSim mode="board":
 // hero statement + profile picker + sensors→adapter→gate→acts pipeline + aside). The frozen `action`/reason
 // enums are read server-side (gate-enums.ts) and passed as props, so the client island never imports a
 // node: module (K-2 bundling proof). Below the board: the thesis, the built fleet (the /#fleet renvoi

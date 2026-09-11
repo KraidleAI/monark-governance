@@ -1,5 +1,5 @@
 /**
- * HIKAE — REGRESSION `interval` conformer (ADR-M003 D6.1; owner = Lot H, D9/C4).
+ * HIKAE — REGRESSION `interval` conformer (ADR-M003 D6.1; owner settled, D9/C4).
  *
  * Absolute-residual split conformal, for UKEMI's NUMERIC `Prediction` (liquidable amount,
  * class `ukemi-liquidable-24h`): from calibration pairs `(ŷ_i, y_i)`,

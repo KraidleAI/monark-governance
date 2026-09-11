@@ -10,7 +10,7 @@
 # Scans: the YAML FRONTMATTER (first `---` block) of .claude/agents/**/*.md and
 #        .claude/skills/**/*.md — body prose and code examples are not linted;
 #        .claude/settings.json and .claude/settings.local.json.
-# Exemption, visible at point of use (R-23: an undocumented exception is a
+# Exemption, visible at point of use (an undocumented exception is a
 # defect): a bare tier passes only if its own line carries an ADR reference —
 #   frontmatter:  model: fable   # ADR-0003
 #   JSON (no comments): list the value in .claude/model-exceptions.txt, one

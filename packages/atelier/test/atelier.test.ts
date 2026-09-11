@@ -38,7 +38,7 @@ test("atelier_state_oracle", () => {
     assert.ok(Date.parse(s.clocks.labelAt) > Date.parse(s.clocks.coverageAt));
     assert.deepEqual([...s.shogen.residual], raw.verdict.residual, "residual carried, not invented");
     assert.equal(s.ukemi.status, "not-wired-phase1");
-    // HIKAE panel: each numeric/textual field is bound to the raw verdict (G2 Lot D corr. 1 —
+    // HIKAE panel: each numeric/textual field is bound to the raw verdict (review corr. 1 —
     // a swap `alpha := n_calib` used to pass tsc + tests; now red).
     assert.equal(s.hikae.method, raw.verdict.method, `${s.id}: method`);
     assert.equal(s.hikae.alpha, raw.verdict.alpha, `${s.id}: alpha`);
@@ -95,7 +95,7 @@ test("atelier_no_forbidden_vocab", () => {
   assert.throws(() => execFileSync("node", [gate, mutant], { stdio: "pipe" }), "the gate must go red on the mutant");
 });
 
-// Test 27 — the two names gated at Lot H exist here as stubs that THROW.
+// Test 27 — the two names gated by HIKAE exist here as stubs that THROW.
 test("perps_stubs_throw", () => {
   assert.equal(PERPS_ORDER_PREVIEW, "perps_order_preview");
   assert.equal(PERPS_ORDER_EXECUTE, "perps_order_execute");

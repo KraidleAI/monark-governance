@@ -1,5 +1,5 @@
 /**
- * Harness — the `attest` tool (ADR-M005 D1/D3/D8/D9, PLAN H3).
+ * Harness — the `attest` tool (ADR-M005 D1/D3/D8/D9).
  *
  * Exposes the REAL Shōgen adapter (`fromShogen`, imported from `@monark/monark`, NEVER re-implemented): it
  * projects the ONE committed, sha256-pinned Shōgen witness (Binance BTCUSDT, self-notarized) into the

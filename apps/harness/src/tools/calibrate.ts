@@ -6,7 +6,7 @@
  * Bring Your Own predictor, ADR-M007 D2): the agent owns its nonconformity function and hands MONARK
  * the score array + the target miscoverage `alpha`; MONARK returns the conformal quantile q̂ that a
  * covered decision would use. `set_digest` = `calibDigest(scores)` (imported from `@monark/contracts`,
- * NEVER re-implemented — B-7), so the audit `calibrate` ↔ `verdict.calib_digest` closes in Lot C2.
+ * NEVER re-implemented — B-7), so the audit `calibrate` ↔ `verdict.calib_digest` closes.
  *
  * NO side effects (K-8): this file — like everything under `src/tools/` — imports no
  * `node:fs`/`node:net`/`node:child_process`, calls no `fetch`, writes no `process.env`, and reads no
@@ -29,7 +29,7 @@ import { calibDigest } from "@monark/contracts";
 export const CALIBRATE_TOOL_NAME = "calibrate";
 
 /**
- * Resource cap (motif `CASCADE_MAX_NODES`, Lot H6): the maximum number of caller-supplied scores the
+ * Resource cap (motif `CASCADE_MAX_NODES`): the maximum number of caller-supplied scores the
  * tool accepts. The harness is a public, unauthenticated compute surface co-located with the vitrine on
  * one VPS, so `n` must be bounded even though `splitQuantile` (an O(n log n) sort) and `calibDigest` (an
  * O(n) hash) are cheap. 10000 is generously above realistic split-conformal calibration sizes (hundreds

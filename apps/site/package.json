@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "MONARK public storefront (Lot F-public). Local-only; no deployment (ADR-M004 D1/D2, Q2 = deploy-time).",
+  "description": "MONARK public storefront (Next.js). ADR-M004 D1/D2.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

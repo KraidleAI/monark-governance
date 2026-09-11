@@ -1,5 +1,5 @@
 /**
- * Harness Lot H1 — transport safety (ADR-M005 D7, K-8/K-9). Origin allowlist + localhost bind.
+ * Harness — transport safety (ADR-M005 D7, K-8/K-9). Origin allowlist + localhost bind.
  * No `any` (off the ratchet).
  */
 import { test } from "node:test";
@@ -87,7 +87,7 @@ test("origin_absent_is_accepted", () => {
   assert.equal(guard(null), undefined, "an absent Origin is accepted");
 });
 
-// Test — Lot H6 body cap: an oversized request body is rejected with 413 BEFORE dispatch (fail-closed,
+// Test — body cap: an oversized request body is rejected with 413 BEFORE dispatch (fail-closed,
 // streaming — never buffered past the cap), a body EXACTLY at the cap is NOT capped, and a legitimate MCP
 // `tools/call` over the SAME wired reader still succeeds (the reader feeds the SSE seam the same bytes).
 // Mutants: (a) drop the bounded read (buffer the whole body) ⇒ the oversized POST is no longer 413 ⇒ red;

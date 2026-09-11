@@ -1,9 +1,9 @@
 // apps/site/lib/fleet-presentation.ts — the Mod #1 panel content: "What's inside" (a built agent) and
-// "What it will use" (an upcoming agent, product, or visage). DESIGN-MODS-MONARK Mod #1 (investor
-// 2026-09-09) / PLAN-Fsite-lot §7 C-8, rendered in F-site-6.
+// "What it will use" (an upcoming agent, product, or visage). Mod #1 (a product decision,
+// 2026-09-09), rendered in F-site-6.
 //
 // SOURCING (C-8): every BUILT point below names a technique/algorithm anchored to a COMMITTED ADR line,
-// cited line-by-line in docs/G1-lot-fsite-6.md. Points name METHODS, never a paper, never a number.
+// cited line-by-line internally. Points name METHODS, never a paper, never a number.
 // Upcoming blocks name a technique (academic method names are allowed) and close with a single
 // "(more details to come)" (rendered by the WhatInside component, not repeated per point); they make no
 // built claim. β (2026-09-10): MONARK Verdict names its engine here (Mokugeki × Kamae) — the panel
@@ -54,7 +54,7 @@ export const INSIDE: Record<string, InsideBlock> = {
     ],
   },
 
-  // ── The eight roadmap agents — "What it will use" (DESIGN-MODS Mod #1; method names only) ──
+  // ── The eight roadmap agents — "What it will use" (Mod #1; method names only) ──
   mokugeki: {
     kind: "upcoming",
     points: ["Cryptographic attestation for documents and events", "Named residual hypotheses"],
@@ -88,7 +88,7 @@ export const INSIDE: Record<string, InsideBlock> = {
     points: ["Least-privilege dual control at the treasury door"],
   },
 
-  // ── The five products — "What it will use": each inherits its engine agent (DESIGN-MODS Mod #1) ──
+  // ── The five products — "What it will use": each inherits its engine agent (Mod #1) ──
   softlanding: {
     kind: "upcoming",
     points: ["Ukemi's liquidation-cascade engine: a network clearing fixed point and a conformal interval, conformed by the gate"],

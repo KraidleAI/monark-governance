@@ -1,5 +1,5 @@
 /**
- * HIKAE — region constructors (ADR-M002 D9 / C4; owner settled: Lot H).
+ * HIKAE — region constructors (ADR-M002 D9 / C4; owner settled).
  *
  * The M5 invariant (`lo <= hi`) and the "bounded or abstention" rule (never ±inf on the
  * wire, mirroring Hikae's refusal of `+inf`) live HERE, in a single constructor — NOT

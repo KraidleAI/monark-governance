@@ -1,7 +1,7 @@
 // apps/site/components/marks/narabi-mark.tsx
 // Narabi agent mark, transcribed faithfully (2026-09-10) from the MONARK brand-system design source —
 // the mark('narabi') branch of MONARK.dc.html (line 613; external, not committed to this public mirror;
-// sha256 + exact line recorded in the MONARK governance doc docs/G1-lot-fsite-2.md, not part of this public mirror). Ink = currentColor (the queue bars +
+// sha256 + exact line recorded privately; not part of this public mirror). Ink = currentColor (the queue bars +
 // baseline); accent hard-coded (#B8922E, the standing bar and its cap). Decorative (aria-hidden), so the
 // adjacent text label is the accessible name.
 import type { SVGProps } from "react";

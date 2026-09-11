@@ -8,7 +8,7 @@ interface ThemeContextValue {
   theme: Theme;
   setTheme: (t: Theme) => void;
   toggleTheme: () => void;
-  /** Whether the visitor asked for reduced motion (matchMedia). Read by the gate sim (Lot F-site-3). */
+  /** Whether the visitor asked for reduced motion (matchMedia). Read by the gate sim. */
   reducedMotion: boolean;
 }
 

@@ -9,7 +9,7 @@
  * becomes `collateralQty × collateralPrice × (1 − shock)`, and the position tips when
  *   collateralQty × collateralPrice × (1 − shock) × K < debt.
  *
- * **Horizon = 24 h — INVESTOR DECISION (d), 2026-09-04.** It is the horizon of the paid object
+ * **Horizon = 24 h — a product decision (d), 2026-09-04.** It is the horizon of the paid object
  * (VaR 99 %/24 h, SYNTHESE §3.1); the `x %` shock over 24 h is a **DECLARED fixture parameter,
  * NOT a 24 h dynamics model** (the dynamics is NOT FOUND in the corpus, §4.7). The "99 %" is
  * **not** produced here — it is a HIKAE Phase 2 coverage target, never a `p_correct`. No

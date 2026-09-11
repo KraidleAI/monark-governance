@@ -1,6 +1,6 @@
 "use client";
 
-// EngineBoard (Lot F-site-4) — the Home engine board, reconciled to the DESIGN's card-pipeline (R3a),
+// EngineBoard — the Home engine board, reconciled to the DESIGN's card-pipeline (R3a),
 // replacing F-site-3's placeholder SVG "board" mode. Structure = MONARK.dc.html L64-136: a hero (statement
 // + profile picker) over a sensors -> adapter -> gate -> acts pipeline of register cards, with an aside
 // that names the picked profile's product.
@@ -296,17 +296,28 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
 
             <Lane label="bytes + hash" active={Boolean(profile)} reduced={reducedMotion} />
 
-            {/* adapter (always the backbone) */}
+            {/* backbone: adapter + calibrate (BYO), always built */}
             <div className="flex min-w-0 flex-col justify-center gap-2.5 lg:flex-[0.8]">
-              <div style={eyebrow}>adapter</div>
+              <div style={eyebrow}>backbone</div>
               <div style={cardStyle("var(--ukemi-t)", Boolean(profile), false, reducedMotion)}>
                 <div style={rowCenter}>
                   <span style={{ fontWeight: 600, fontSize: 14 }}>Adapter</span>
-                  <StatusBadge status="upcoming" className="ml-auto" />
+                  <StatusBadge status="built" className="ml-auto" />
                 </div>
                 <div style={teaser}>
                   Typed attestations become one frozen shape. Sensors never speak to the gate directly;
                   clients never speak to sensors.
+                </div>
+              </div>
+              {/* calibrate (BYO) — the second way in: a caller's own scores feed the gate directly */}
+              <div style={cardStyle("var(--hikae-t)", Boolean(profile), false, reducedMotion)}>
+                <div style={rowCenter}>
+                  <span style={{ fontWeight: 600, fontSize: 14 }}>calibrate · BYO</span>
+                  <StatusBadge status="built" className="ml-auto" />
+                </div>
+                <div style={teaser}>
+                  Or bring your own nonconformity scores — the gate conforms against them. Any asset,
+                  any task.
                 </div>
               </div>
             </div>

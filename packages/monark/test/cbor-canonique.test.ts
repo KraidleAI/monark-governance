@@ -1,4 +1,4 @@
-// packages/monark/test/cbor-canonique.test.ts — Lot I-a (ADR-M003 D10 / ADR-M005 D3).
+// packages/monark/test/cbor-canonique.test.ts — ADR-M003 D10 / ADR-M005 D3.
 //
 // Decodes the REAL, sha256-pinned Shogen batch fixtures/s3-binance.lot.cbor and asserts every decoded
 // field AGAINST AN INDEPENDENT ORACLE: fixtures/s3-binance.verdict.txt, the re-played output of the
@@ -17,7 +17,7 @@ import { decodeTemoignageCbor, encodeTemoignageCanonical, CborError } from "../s
 
 const FIX = fileURLToPath(new URL("../../../fixtures", import.meta.url));
 
-// sha256 pins (fixtures/PROVENANCE-s3-binance.md; match F:\Shogen source, ADR-M003 D3 l.55).
+// sha256 pins (fixtures/PROVENANCE-s3-binance.md; match the Shōgen source, ADR-M003 D3 l.55).
 const LOT_SHA256 = "8700d88f87253f0fd8496402601dc7326362a2cd9e6614a9bf44b79052f1e5a3";
 
 // Expected decoded values — read off the Shogen verifier output (s3-binance.verdict.txt), NOT our decoder.

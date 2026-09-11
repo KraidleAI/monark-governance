@@ -1,6 +1,6 @@
 "use client";
 
-// The gate-sim state hook (Lot F-site-3). Drives the illustrative policy from lib/sim.ts: a phase
+// The gate-sim state hook. Drives the illustrative policy from lib/sim.ts: a phase
 // machine (idle -> in -> gate -> out -> done) animated with setTimeout, and an optional ambient auto-demo
 // for the non-interactive mounts. It reads prefers-reduced-motion from the ThemeProvider and, when set,
 // applies each decision in one settled step with no animation. This module is client-only (React hooks,

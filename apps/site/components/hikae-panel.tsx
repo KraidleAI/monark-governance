@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 /**
  * The built Hikae agent (the gate itself). Same 8-block template as Shōgen: blocks 1/2/4/6 BUILT,
  * blocks 3/5/7/8 UPCOMING. `contract` is the frozen CoverageVerdict shape Hikae emits, read server-side
- * from schemas/. Block 4 is the C8 honest limit (PLAN F-2 §2/§11): a monitor gives marginal, not
+ * from schemas/. Block 4 is the C8 honest limit: a monitor gives marginal, not
  * conditional, coverage — grounded in packages/hikae/README.md (L1/L2/L3 table) and src/l2-monitor.ts
  * ("MONITOR — no guarantee claimed"). No market number, no probability of being right is rendered.
  */

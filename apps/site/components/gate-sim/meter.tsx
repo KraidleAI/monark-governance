@@ -1,6 +1,6 @@
 "use client";
 
-// The animated B_t budget meter (Lot F-site-3). `segments` cells fill up to the current budget (0..1).
+// The animated B_t budget meter. `segments` cells fill up to the current budget (0..1).
 // No rendered numeric literal: the fill count is computed and every dimension lives in inline styles /
 // non-visible attributes (not honesty-lint surfaces). Reduced-motion drops the fill transition.
 import { useTheme } from "@/components/theme-provider";

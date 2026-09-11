@@ -57,7 +57,7 @@ test("commit_error_not_alpha_is_labelled", () => {
   assert.match(report, /NOT the CP guarantee/, "the conditional coverage is labelled (H2.3)");
   // (b) the root vocab gate rejects a "NN % of ... correct" claim (exit 1).
   const root = join(import.meta.dirname, "..", "..", "..");
-  // Outside the work tree (G2 Lot H corr. 3): `os.tmpdir()`, ephemeral directory, cleaned up.
+  // Outside the work tree (review corr. 3): `os.tmpdir()`, ephemeral directory, cleaned up.
   const scratch = mkdtempSync(join(tmpdir(), "hikae-vocab-"));
   const tmp = join(scratch, "hikae-vocab-mutant.md");
   writeFileSync(tmp, "Our agent achieves 73 % de fills corrects.\n");

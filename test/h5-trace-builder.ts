@@ -247,7 +247,7 @@ export async function buildTrace(): Promise<H5Trace> {
 
     return {
       schema: "monark-h5-e2e-trace/1",
-      title: "MONARK harness — recorded end-to-end demonstration (Lot H5)",
+      title: "MONARK harness — recorded end-to-end demonstration",
       generated_by: {
         recorder: "scripts/record-h5-e2e-trace.mjs",
         worker_model: "claude-opus-4-8",

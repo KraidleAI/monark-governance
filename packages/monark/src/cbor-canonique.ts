@@ -1,5 +1,5 @@
 // packages/monark/src/cbor-canonique.ts — decoder for the canonical, deterministic CBOR subset
-// that Shogen emits. ZERO dependencies, our own code (ADR-M003 D10, ADR-M005 D3, Lot I-a).
+// that Shogen emits. ZERO dependencies, our own code (ADR-M003 D10, ADR-M005 D3).
 //
 // It is a faithful TypeScript port of the Rust core of the Shogen repo (read-only, sha-pinned):
 //   - crates/shogen-core/src/cbor.rs                 (the subset + strict reader/writer)
@@ -21,12 +21,12 @@
 // covered subset; the re-encode/compare is kept for parity with the Rust acceptance property
 // (ADR-0011 property (a): encode(decode(b)) === b for every accepted b).
 //
-// NON-PORT, declared (Lot I-a): the reader ports the cheap SHAPE and IDENTIFIER checks (exact map
+// NON-PORT, declared: the reader ports the cheap SHAPE and IDENTIFIER checks (exact map
 // sizes, non-empty arrays, ASCII non-control identifiers, no duplicate residual/attestor, 32-byte
 // utterance hash) but does NOT port the subject-canonicity predicate (Shogen ADR-0016, subject.rs,
 // ~28 KB). The acceptance authority for the committed fixture is the Shogen verifier's own verdict,
 // re-played and committed at fixtures/s3-binance.verdict.txt (see fixtures/PROVENANCE-s3-binance.md).
-// The adapter fromShogen (Lot I-b) consumes the structure below; this module only decodes.
+// The adapter fromShogen consumes the structure below; this module only decodes.
 
 /** A named, positioned decode failure. Fail-closed: any deviation is a named error, never a default. */
 export class CborError extends Error {

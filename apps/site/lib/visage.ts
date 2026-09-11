@@ -1,7 +1,7 @@
 // apps/site/lib/visage.ts — the VISAGE register: the three face-market artefacts sold to a named buyer
-// (ADR-M004 addendum D15 / PLAN-Fsite-lot §7 C-7). Distinct from PRODUCTS (the five fingers) and
+// (ADR-M004 addendum D15). Distinct from PRODUCTS (the five fingers) and
 // FLEET_AGENTS (the eleven budō agents): a VISAGE is a packaging sold to a buyer, and all three are
-// UPCOMING today. Copy, taglines and buyers are the investor decision (memstack uid 28b02686), NOT the
+// UPCOMING today. Copy, taglines and buyers are a product decision, NOT the
 // design's CORE blurbs — the design INVERTS the sense (it calls Threshold "the gate as a product"; the
 // decision calls it The Trigger, a parametric index that fires a claim). D15 requires this register, not
 // a status hard-coded on the storefront.
@@ -21,11 +21,11 @@ export interface VisageArtifact {
   key: string;
   /** Product name ("MONARK …"). */
   name: string;
-  /** The short face of the artefact (uid 28b02686: The File / The Seal / The Trigger). */
+  /** The short face of the artefact (The File / The Seal / The Trigger). */
   tagline: string;
-  /** One-sentence English restatement of what the artefact is (uid 28b02686, translated, not embellished). */
+  /** One-sentence English restatement of what the artefact is (translated, not embellished). */
   what: string;
-  /** The named buyer the artefact is sold to (uid 28b02686). */
+  /** The named buyer the artefact is sold to. */
   buyers: string;
   status: VisageStatus;
 }

@@ -5,11 +5,11 @@
  * without standing up a server (the K-8 oracle and the vocab oracle read this table directly).
  *
  * `ALLOWED_TOOL_NAMES` is the closed universe of the surface (`attest`·`gate`·`cascade`·`calibrate`). H1
- * wired `gate`, H2 added `cascade`, H3 added `attest` (the MVP terminal set, ADR-M005 D9); Lot C1 adds
- * `calibrate`, the 4th pure primitive — the set terminal 3→4 EXPANSION ratified by the investisseur and
+ * wired `gate`, H2 added `cascade`, H3 added `attest` (the MVP terminal set, ADR-M005 D9); and
+ * `calibrate`, the 4th pure primitive — the set terminal 3→4 EXPANSION ratified by a product decision and
  * carried by ADR-M007 (+ ADR-M005 Addendum D14). The K-8 oracle asserts BOTH: (a) the CLOSED ALLOWLIST
  * `REGISTERED_TOOL_NAMES ⊆ ALLOWED_TOOL_NAMES` (never a tool outside the four), and (b) the EXACT set —
- * now `=== {attest,gate,cascade,calibrate}`, the ADR-M007 TERMINAL state (each earlier lot asserted its
+ * now `=== {attest,gate,cascade,calibrate}`, the ADR-M007 TERMINAL state (each earlier stage asserted its
  * own exact set on the way here). Plus a static side-effect scan of `src/tools/**`.
  *
  * Like everything under `src/tools/`, this file does no I/O: it imports the frozen-schema PROJECTION

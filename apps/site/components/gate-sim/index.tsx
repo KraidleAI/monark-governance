@@ -1,6 +1,6 @@
 "use client";
 
-// GateSim (Lot F-site-3) — one client island, three mounts driven by `mode`:
+// GateSim — one client island, three mounts driven by `mode`:
 //   board     — the auto-cycling engine board (Home): diagram + meter + caveat;
 //   explainer — the interactive push-through-the-gate (How): controls + diagram + meter + region /
 //               decision read-outs + the GateDecision JSON view + caveat;
@@ -58,7 +58,7 @@ export function GateSim({ mode, actions, reasons, cost, ambient }: GateSimProps)
   const decisionColor = decisionColorVar(state.actionIndex);
 
   if (mode === "board") {
-    // R3a (Lot F-site-4): the board mount renders the DESIGN's card-pipeline (EngineBoard), reconciled
+    // R3a: the board mount renders the DESIGN's card-pipeline (EngineBoard), reconciled
     // from F-site-3's placeholder SVG. The bespoke SVG GateDiagram stays the EXPLAINER's figure (below).
     // The live sim (this hook, auto-cycling AMBIENT) drives the gate card inside EngineBoard; the profile
     // picker drives the plumbing highlights. The C-5 caveat renders inside EngineBoard.
@@ -185,14 +185,14 @@ export function GateSim({ mode, actions, reasons, cost, ambient }: GateSimProps)
         >
           {gateJson(state, actions)}
         </pre>
-        {/* R3b (Lot F-site-5): the design's strong honesty denial (design L192), ported next to the JSON
+        {/* R3b: the design's strong honesty denial (design L192), ported next to the JSON
             view. The middle item is the CLOSED vocab-exempt phrase "no confidence field" (vocab-banned.json
             scan.site.exemptPhrases), masked per-line before matching — kept CONTIGUOUS on ONE source line
             so the mask lands and the F-2b carrier check (renderedTexts) sees it. */}
         <div style={mono11Ink2}>
           GateDecision, a frozen contract. Note what is absent: no p_correct, no confidence field, no score.
         </div>
-        {/* K-4(b), Lot F-site-5: the JSON above is an ABBREVIATED, illustrative view — the frozen
+        {/* K-4(b): the JSON above is an ABBREVIATED, illustrative view — the frozen
             CoverageVerdict carries more fields than the read-out shows (the Hikae panel lists them). The
             root gate gate_sim_json_keys_subset_of_frozen_contracts pins every shown key ⊆ the frozen
             contracts (GateDecision top-level, CoverageVerdict verdict). */}

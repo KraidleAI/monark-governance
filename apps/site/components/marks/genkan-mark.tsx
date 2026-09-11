@@ -1,7 +1,7 @@
 // apps/site/components/marks/genkan-mark.tsx
 // Genkan agent mark, transcribed faithfully (2026-09-10) from the MONARK brand-system design source —
 // the mark('genkan') branch of MONARK.dc.html (line 619; external, not committed to this public mirror;
-// sha256 + exact line recorded in the MONARK governance doc docs/G1-lot-fsite-2.md, not part of this public mirror). Ink = currentColor (the arch + inward arrow);
+// sha256 + exact line recorded privately; not part of this public mirror). Ink = currentColor (the arch + inward arrow);
 // accent hard-coded (#B06A4A, the threshold bar). Decorative (aria-hidden), so the adjacent text label is
 // the accessible name.
 import type { SVGProps } from "react";

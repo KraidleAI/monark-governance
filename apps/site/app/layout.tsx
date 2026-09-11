@@ -10,8 +10,8 @@ import { SiteFooter } from "@/components/site-footer";
 // long-form reading. Self-hosted by next/font at build time, exposed as CSS variables consumed by
 // app/globals.css (--font-sora / --font-ibm-plex-mono / --font-newsreader).
 // RESERVE (D15, C-2): next/font/google fetches the font files from Google at BUILD time; they are not
-// pinned by hash, so an offline build reds here. The @fontsource alternative (R-8) is left to the
-// orchestrator — do not switch without instruction.
+// pinned by hash, so an offline build reds here. The @fontsource alternative is left to a maintainer
+// decision — do not switch without instruction.
 const sora = Sora({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],

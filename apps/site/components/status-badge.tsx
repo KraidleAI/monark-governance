@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 /**
  * Renders the honest status pill. The label text is a JSX literal (scanned by the honesty lint,
  * test 44) — never a market number. A "built" pill is only ever placed on something genuinely
- * built; the roadmap teasers (Lot F-2c) carry "upcoming".
+ * built; the roadmap teasers carry "upcoming".
  */
 export function StatusBadge({ status, className }: { status: AgentStatus; className?: string }) {
   return (

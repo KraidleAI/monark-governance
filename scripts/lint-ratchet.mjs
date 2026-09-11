@@ -1,5 +1,5 @@
 // scripts/lint-ratchet.mjs — RATCHET for deferred typing debt in the test files.
-// ADR-M003 addendum D9 ter §3 (2026-09-06). Lot V DEVOPS, MONARK Phase 2.
+// ADR-M003 addendum D9 ter §3 (2026-09-06). MONARK Phase 2.
 //
 // D9 ter §3 sets the 6 no-unsafe-*/no-explicit-any rules to `off` on **/*.test.ts and test/**
 // (JSON fixtures handled as `any`). Without a guard, this debt could grow silently.
@@ -13,7 +13,7 @@
 //     false green (decorative gate). The counter is reliable ONLY if the run is healthy.
 //   - CI job g4 = `npm run lint && npm run lint:ratchet` (the general-purpose lint first).
 //
-// Formed pending (D9 ter §3): type the fixtures (parse + typed ajv validation), one lot per package
+// Formed pending (D9 ter §3): type the fixtures (parse + typed ajv validation), one package at a time
 // (S, I, K), target ceiling 0 before a later phase. Any decrease lowers the ceiling.
 import { ESLint } from "eslint";
 import { readFileSync } from "node:fs";

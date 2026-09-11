@@ -1,5 +1,5 @@
 /**
- * Harness — the `cascade` tool (ADR-M005 D1/D4/D8/D9, PLAN H2).
+ * Harness — the `cascade` tool (ADR-M005 D1/D4/D8/D9).
  *
  * A PURE composition of the REAL UKEMI primitives (imported from `@monark/ukemi`, NEVER
  * re-implemented): it runs an Eisenberg-Noe clearing (`fictitiousDefault`, the greatest clearing vector
@@ -47,7 +47,7 @@ import { CASCADE_UNCALIBRATED_SENTENCE } from "./gate.ts";
 export const CASCADE_TOOL_NAME = "cascade";
 
 /**
- * Resource cap (Lot H6, deploy-hardening): the maximum node count `n` (`|L| = |e|`) the cascade accepts.
+ * Resource cap (deploy-hardening): the maximum node count `n` (`|L| = |e|`) the cascade accepts.
  * The harness is a public, unauthenticated compute surface co-located with the vitrine on one VPS, so `n`
  * must be bounded. cascade computes the largest clearing vector L* via `fictitiousDefault`: <= n rounds
  * (Thm 3.7, clearing.ts:104-108), each round a Gaussian solve on the defaulting block O(|D|^3) <= O(n^3),
@@ -113,13 +113,13 @@ const RFC3339 = /^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[Zz]|[+-]\d
 function validateCascadeInput(input: CascadeInput): void {
   const n = input.L.length;
   if (n === 0) throw new CascadeToolError("invalid 'L': expected a non-empty square matrix");
-  // Resource cap (Lot H6): bound `n` BEFORE the O(n^2) validation loop and the bounded fictitious-default
+  // Resource cap: bound `n` BEFORE the O(n^2) validation loop and the bounded fictitious-default
   // L* solve (<= n rounds, H7), so a crafted huge `L` cannot exhaust the shared VPS even on a direct tool
   // call (schema `maxItems` is the first line at the SDK boundary; this is the fail-closed backstop).
   // |L| == |e| is enforced below.
   if (n > CASCADE_MAX_NODES) {
     throw new CascadeToolError(
-      `invalid 'L': ${String(n)} nodes exceeds the cap of ${String(CASCADE_MAX_NODES)} (resource guard, Lot H6)`,
+      `invalid 'L': ${String(n)} nodes exceeds the cap of ${String(CASCADE_MAX_NODES)} (resource guard)`,
     );
   }
   for (let i = 0; i < n; i++) {

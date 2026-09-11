@@ -28,7 +28,7 @@ test("prediction_numeric_emitted", () => {
   assert.equal(p.yhat, 160);
   assert.equal(p.predictor_id, UKEMI_PREDICTOR_ID);
   assert.equal(p.produced_at, "2026-09-04T00:00:00Z", "INJECTED timestamp, never read (D7)");
-  assert.ok(!("region" in p), "NO region: the region is a conformalizer's job (Lot H, Phase 2)");
+  assert.ok(!("region" in p), "NO region: the region is a conformalizer's job (Phase 2)");
   assert.ok(!("p_correct" in p), "NO p_correct");
 
   // Frozen ajv schema: the emitted instance is VALID; a foreign key makes it INVALID (additionalProperties:false).

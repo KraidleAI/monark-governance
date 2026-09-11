@@ -1,7 +1,7 @@
 // apps/site/components/marks/shogen-mark.tsx
 // Shogen agent mark, transcribed faithfully from the MONARK brand-system source `shogen-mark.svg`
 // (NOT committed to this repo; 2026-09-09). Ink = `currentColor`; accent hard-coded (#FF6B4A).
-// Decorative (`aria-hidden`). External source path + sha256 recorded in the MONARK governance repository (docs/G1-lot-F2b.md, not part of this public mirror; own-the-code, R-8).
+// Decorative (`aria-hidden`). External source path + sha256 recorded privately; not part of this public mirror (own-the-code).
 import type { SVGProps } from "react";
 
 export function ShogenMark({ className, ...props }: SVGProps<SVGSVGElement>) {

@@ -1,5 +1,5 @@
 /**
- * MONARK atelier — PURE STATE module (ADR-M002 D1 Lot D; test 24 `atelier_state_oracle`).
+ * MONARK atelier — PURE STATE module (ADR-M002 D1; test 24 `atelier_state_oracle`).
  * No DOM, no network, no clock read: everything comes from a frozen `GateDecision` (the
  * `@monark/contracts` contract, never reimplemented). What the screen shows is recomputable from here.
  */
@@ -36,7 +36,7 @@ export interface HikaePanel {
 }
 
 export interface UkemiPanel {
-  /** Phase 1: the block is NOT wired to the atelier (Lot U merge) — we write it, we do not simulate it. */
+  /** Phase 1: the block is NOT wired to the atelier (a later merge) — we write it, we do not simulate it. */
   readonly status: "not-wired-phase1";
 }
 

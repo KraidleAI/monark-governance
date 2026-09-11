@@ -1,5 +1,5 @@
 /**
- * Harness — stateless MCP server + HTTP/JSON mirror (ADR-M005 D1/D6/D7, Lot H4).
+ * Harness — stateless MCP server + HTTP/JSON mirror (ADR-M005 D1/D6/D7).
  *
  * Transport: MCP Streamable HTTP via `createMcpHandler` (SDK v2). The factory returns a FRESH
  * `McpServer` per request — that IS the stateless model (D6): no session, no persisted budget; B_t
@@ -35,7 +35,7 @@ export const HOST = "127.0.0.1";
 export const PORT = 3001;
 export const KEEP_ALIVE_MS = 15000;
 /**
- * Hard request-body cap (Lot H6): the harness aborts a body larger than this and answers `413`, streaming
+ * Hard request-body cap: the harness aborts a body larger than this and answers `413`, streaming
  * — it never buffers past the cap. This is the INNER backstop behind Caddy's 256KB `request_body`
  * (deploy/Caddyfile.monark-harness); the harness cap is looser (512 KiB) so Caddy rejects first in prod,
  * and the harness still fail-closes if a request reaches the loopback listener directly (Caddy bypassed).
@@ -114,7 +114,7 @@ function toWebRequest(req: IncomingMessage, body: Uint8Array | undefined): Reque
 const BODY_TOO_LARGE = Symbol("body_too_large");
 
 /**
- * Streaming bounded body reader (Lot H6). Accumulates the request body and STOPS as soon as it exceeds
+ * Streaming bounded body reader. Accumulates the request body and STOPS as soon as it exceeds
  * `limit`, so a crafted oversized body never buffers past the cap — memory stays ~O(limit + one chunk).
  * Returns the body bytes for a legitimate request, or `BODY_TOO_LARGE` when the cap is crossed.
  *
@@ -145,7 +145,7 @@ async function handleNodeRequest(req: IncomingMessage, res: ServerResponse, hand
       res.end(await rejected.text());
       return;
     }
-    // Accepted origin: read the body under the hard streaming cap (Lot H6). Oversized => 413, fail-closed,
+    // Accepted origin: read the body under the hard streaming cap. Oversized => 413, fail-closed,
     // BEFORE dispatch. GET/HEAD carry no body. For any legitimate (< cap) request the bytes handed to the
     // downstream handlers are byte-identical to the previous unbounded read, so the MCP `tools/call` (SSE)
     // and the HTTP-mirror paths are unchanged.

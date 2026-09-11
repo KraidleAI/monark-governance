@@ -1,9 +1,9 @@
-// packages/monark/src/adapter-shogen.ts — the Shogen -> AttestedPrice adapter (ADR-M003 D10 "Lot I",
+// packages/monark/src/adapter-shogen.ts — the Shogen -> AttestedPrice adapter (ADR-M003 D10,
 // ADR-M001 Decision 3, ADR-M005 D3). Composes THREE existing Shogen artifacts into the frozen
 // `AttestedPrice` contract, then wraps it in the K-1 envelope (label + provenance live OUTSIDE the
 // frozen, additionalProperties:false contract). Pure, our own code, no npm dependency.
 //
-//   (1) Temoignage  <- the canonical CBOR batch, decoded by ./cbor-canonique.ts (Lot I-a).
+//   (1) Temoignage  <- the canonical CBOR batch, decoded by ./cbor-canonique.ts.
 //   (2) Verdict     <- reconstructed from the Shogen verifier's stdout (the committed
 //                      fixtures/s3-binance.verdict.txt), parsed line-by-line, fail-closed.
 //   (3) Constat     <- the companion JSON (fixtures/s3-binance.constat.json), read for the

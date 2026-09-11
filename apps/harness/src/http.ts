@@ -1,5 +1,5 @@
 /**
- * Harness — HTTP/JSON MIRROR of the MCP surface (ADR-M005 D7/D8, Lot H4).
+ * Harness — HTTP/JSON MIRROR of the MCP surface (ADR-M005 D7/D8).
  *
  * The SAME four operations (attest, gate, cascade, calibrate), the SAME frozen input/output schemas
  * (`schema-projection.ts` / the registry), exposed as plain JSON: `POST /{tool}` with a JSON body ->

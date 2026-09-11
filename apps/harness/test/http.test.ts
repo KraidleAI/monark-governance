@@ -1,5 +1,5 @@
 /**
- * Harness Lot H4 — HTTP/JSON mirror tests (ADR-M005 D7/D8; extended to 4 tools by ADR-M007 C1). The JSON
+ * Harness — HTTP/JSON mirror tests (ADR-M005 D7/D8; extended to 4 tools by ADR-M007 C1). The JSON
  * mirror MUST expose exactly the four MCP tools, with the SAME frozen schemas and the SAME boundary validation, and must sit behind
  * the SAME Host routing + Origin guard. Each test is killed by >= 1 named mutant (proven red, then
  * restored byte-exact via sha256 — see the passe report). No `any`, no unsafe (off the ratchet).
@@ -89,7 +89,7 @@ test("http_mirror_matches_mcp_surface", async () => {
   assertClosedAttestedPrice((attestStructured as { price: unknown }).price);
   assert.deepEqual(attestRes.body.content, [{ type: "text", text: attestTool.run({}).text }], "attest mirror content == MCP honesty text");
 
-  // calibrate (Lot C1): the mirror returns the SAME structuredContent + honesty content as the MCP tool.
+  // calibrate: the mirror returns the SAME structuredContent + honesty content as the MCP tool.
   const calibrateRes = await call(API_HOST, "POST", "/calibrate", CALIBRATE_BODY);
   assert.deepEqual(calibrateRes.body.structuredContent, calibrateTool.run(CALIBRATE_BODY).structured, "calibrate mirror == MCP structured output");
   assert.deepEqual(calibrateRes.body.content, [{ type: "text", text: calibrateTool.run(CALIBRATE_BODY).text }], "calibrate mirror content == MCP honesty text");

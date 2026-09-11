@@ -1,5 +1,5 @@
 /**
- * Harness Lot H1 — schema PROJECTION drift test (ADR-M005 D8).
+ * Harness — schema PROJECTION drift test (ADR-M005 D8).
  * The tool input/output schemas MUST be the frozen `schemas/*.json`, read here INDEPENDENTLY and
  * compared to what `schema-projection.ts` publishes. Mutant: drop a `required` field in the
  * projection (e.g. make `stripMeta` also skip `required`) ⇒ red. No `any` (off the ratchet).

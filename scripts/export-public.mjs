@@ -1,5 +1,5 @@
 // scripts/export-public.mjs — export the MONARK governance repo to the PUBLIC storefront repo
-// (ADR-M004 D7, Lot X). Node 24, ZERO dependencies.
+// (ADR-M004 D7). Node 24, ZERO dependencies.
 //
 //   node scripts/export-public.mjs --out <dir>            copy the whitelist to <dir> + manifest
 //   node scripts/export-public.mjs --check [--scope a,b]  no copy; exit 1 if a forbidden file
@@ -14,9 +14,9 @@
 //      EXCLUDED from the copy and REPORTED (not fatal): the root README.md carries only the exempt
 //      corpus proper name, so a raw accent check would wrongly drop it; the gate is exempt-aware.
 //
-// The first publication of KraidleAI/monark is an ORCHESTRATOR action with investor permission
-// (R-20). This script only writes to a LOCAL --out directory; it never pushes and never touches a
-// remote. See docs/G1-lot-X.md.
+// The first publication of KraidleAI/monark is a deliberate maintainer decision. This
+// script only writes to a LOCAL --out directory; it never pushes and never touches a
+// remote.
 import { readFileSync, readdirSync, statSync, existsSync, mkdirSync, copyFileSync, writeFileSync } from "node:fs";
 import { join, dirname, resolve, basename } from "node:path";
 import { createHash } from "node:crypto";
@@ -28,7 +28,7 @@ export const REPO_ROOT = resolve(SCRIPT_DIR, "..");
 
 // ---- 1. WHITELIST --------------------------------------------------------------------------
 // Each package contributes src/**, test/**, package.json, README.md. Plus the shared root files.
-// Kept as data so a mutant (test 42) can slip a governance path in and be caught by the blacklist.
+// Kept as data so a mutant (test 42) can slip a forbidden path in and be caught by the blacklist.
 export const PACKAGE_SUBPATHS = ["src", "test", "package.json", "README.md"];
 // apps/* exported PACKAGE-STYLE (ADR-M005 D10 / D16, Q-A): the SAME four subpaths as a package
 // (src, test, package.json, README.md), NOT a whole-dir walk like apps/site (WHITELIST_DIRS). Rationale:
@@ -41,15 +41,15 @@ export const PACKAGE_SUBPATHS = ["src", "test", "package.json", "README.md"];
 export const APP_PACKAGE_DIRS = ["apps/harness"];
 // `enforcement/` (contains lint-model-pinning.sh, English): required by the exported
 // g1-controle-generation job (`bash enforcement/lint-model-pinning.sh .`). Confirmed in the whitelist
-// by ADR-M004 D7 bis R3 (D7 amended). `apps/site` shipped in Lot F-1, so the D7 tolerated-absence
+// by ADR-M004 D7 bis R3 (D7 amended). `apps/site` shipped earlier, so the D7 tolerated-absence
 // carve-out is RETIRED: EVERY fixed whitelist entry is now REQUIRED (fail-closed on absence, D7 bis
 // R2 — see TOLERATED_ABSENT below).
-// `skills` (Lot M006-B, ADR-M006 D5/M-4): the ClawHub skill artefacts (skills/monark/SKILL.md +
+// `skills` (ADR-M006 D5/M-4): the ClawHub skill artefacts (skills/monark/SKILL.md +
 // INTEGRATION.md + LICENSE). Whitelisted AND created in the SAME lot, so this fixed entry is REQUIRED
 // (fail-closed on absence, like every other entry below — TOLERATED_ABSENT is empty).
 export const WHITELIST_DIRS = ["schemas", "fixtures", "enforcement", "apps/site", "skills"];
 export const WHITELIST_FILES = [
-  "README.md", "LICENSE",
+  "README.md", "LICENSE", "CONTRIBUTING.md",
   ".github/workflows/ci.yml",
   "eslint.config.mjs", "lint-ratchet.json", "vocab-banned.json",
   "package.json", "package-lock.json", "tsconfig.json",
@@ -61,7 +61,7 @@ export const WHITELIST_FILES = [
   // ADR-M004 D7 addendum (2026-09-06): the four rendered atelier demo files scanned by
   // atelier_no_network. They live at the package ROOT (outside src/), so PACKAGE_SUBPATHS does not
   // cover them; without them the exported atelier surface is < 8 and the test reds. To be
-  // translated at lot E-atelier.
+  // translated later.
   "packages/atelier/index.html", "packages/atelier/main.js",
   "packages/atelier/style.css", "packages/atelier/serve.js",
 ];
@@ -69,8 +69,8 @@ export const WHITELIST_FILES = [
 // ADR-M004 D7 bis R2(a): every fixed whitelist entry (dir or file) MUST exist under the export root or
 // the export/check FAILS CLOSED (exit 1). There is now NO tolerated absence: apps/site shipped in Lot
 // F-1, so its D7 carve-out is retired and the set is EMPTY (the mechanism is kept so a future carve-out
-// can be reinstated by adding its path here). LICENSE is NOT tolerated either — while investor Q4
-// (license choice, D7 bis) is open, LICENSE is absent and the real export deliberately fails.
+// can be reinstated by adding its path here). LICENSE is NOT tolerated either — while the license
+// choice (D7 bis Q4) is open, LICENSE is absent and the real export deliberately fails.
 // PACKAGE_SUBPATHS stay optional per package (a package may legitimately lack a test/ dir).
 export const TOLERATED_ABSENT = new Set();
 
@@ -128,9 +128,9 @@ export function loadExcludedTests(root) {
 // otherwise walk them into the manifest. Skipping is defense in depth; git-tracking is the real source.
 export const WALK_SKIP_DIRS = new Set(["node_modules", ".next", ".turbo"]);
 
-// ---- 2c. GENERATED-FILE EXCLUSION under apps/site (PLAN F-1 item 3b, F-1 G2 O2) --------------
+// ---- 2c. GENERATED-FILE EXCLUSION under apps/site (F-1 G2 O2) --------------
 // Item 3b offered a git-tracked-only walk as an alternative. A LITERAL git filter is NOT usable here,
-// MEASURED on this tree (2026-09-07): (1) the lot F-1 tree is UNCOMMITTED, so `git ls-files apps/site`
+// MEASURED on this tree (2026-09-07): (1) the apps/site tree is UNCOMMITTED, so `git ls-files apps/site`
 // returns 0 files and a tracked-only walk would drop the whole app; (2) test 42 runs the COPIED script
 // with cwd in os.tmpdir() and `.git` stripped by cpSync, so any `git` subprocess fatals (or, worse,
 // resolves to an unrelated parent repo). So we take the SECOND sanctioned option — filter out gitignored
@@ -257,23 +257,23 @@ function sha256(abs) {
 }
 
 // ---- 3. DERIVE THE PUBLIC CI WORKFLOW (ADR-M004 D7 bis R1) ----------------------------------
-// The governance .github/workflows/ci.yml runs on `pull_request` only and carries the
-// r25-taille-de-lot lot-size gate. Neither fits the public storefront, which D7 populates with one
+// The internal .github/workflows/ci.yml runs on `pull_request` only and carries the
+// `r25-taille-de-lot` lot-size gate. Neither fits the public storefront, which D7 populates with one
 // commit per export on a fresh history: a push must run the gates (CA-X "CI green remotely"), and lot
-// size is a governance concern, not a storefront one. So the export DERIVES the public workflow from
-// the governance one by a DETERMINISTIC, dependency-free text rewrite:
+// size is an internal concern, not a storefront one. So the export DERIVES the public workflow from
+// the internal one by a DETERMINISTIC, dependency-free text rewrite:
 //   (1) add a `push` trigger under `on:` (public pushes run the gates);
 //   (2) remove the whole `r25-taille-de-lot` job (its 2-space key line up to the next 2-space job key);
 //   (3) prepend a one-line provenance header;
 //   (4) drop the 2-line governance "Delivery flow" comment (it is FALSE in the public workflow and is
-//       the sole other "r25" mention — see the inline note; error_origin = orchestrator).
+//       the sole other "r25" mention — see the inline note; error_origin = internal).
 // The JOBS stay BYTE-IDENTICAL: the pinned action SHAs and the "every job blocking, no
 // continue-on-error" invariant carry over untouched. FAIL-CLOSED (exit 1) if the `on:` block or the r25
 // job are not found — a silent verbatim copy would ship the governance-only gate and mask the drift,
 // which test 42(f) / mutant M5 (short-circuited derivation) catches.
 export const CI_WORKFLOW_PATH = ".github/workflows/ci.yml";
 export const DERIVED_HEADER =
-  "# Derived by scripts/export-public.mjs from the governance workflow (ADR-M004 D7 bis): lot-size gate removed, push trigger added.";
+  "# Derived by scripts/export-public.mjs from the internal workflow (ADR-M004 D7 bis): lot-size gate removed, push trigger added.";
 
 export function derivePublicWorkflow(raw) {
   const eol = raw.includes("\r\n") ? "\r\n" : "\n";
@@ -284,13 +284,13 @@ export function derivePublicWorkflow(raw) {
     process.exit(1);
   }
   let out = raw.replace(onNeedle, `on:${eol}  push:${eol}  pull_request:`);
-  // (2) remove the r25-taille-de-lot job: its 2-space-indented key line up to (not including) the next
+  // (2) remove the `r25-taille-de-lot` job: its 2-space-indented key line up to (not including) the next
   //     2-space-indented job key. All r25 body lines are >= 4 spaces, so /^ {2}\S/ first re-matches at
   //     the following job (g3-verification), never inside the job body.
   const lines = out.split(eol);
   const start = lines.findIndex((l) => l === "  r25-taille-de-lot:");
   if (start === -1) {
-    console.error(`export FAILED — ${CI_WORKFLOW_PATH}: the r25-taille-de-lot job was not found (fail-closed, D7 bis R1).`);
+    console.error(`export FAILED — ${CI_WORKFLOW_PATH}: the internal lot-size gate job was not found (fail-closed, D7 bis R1).`);
     process.exit(1);
   }
   let end = start + 1;
@@ -300,9 +300,9 @@ export function derivePublicWorkflow(raw) {
   //     public workflow (a push DOES run now; there is no r25) and would contradict the header prepended
   //     below; it is also the sole surviving "r25" mention, so removing it makes `grep -c r25` = 0 (D7 bis
   //     oracle). Anchored on the unique ASCII prefixes (line 12 carries an em-dash; a full === would be
-  //     codepoint-fragile). Remove-if-present, NOT fail-closed. error_origin = orchestrator: the D7 bis
+  //     codepoint-fragile). Remove-if-present, NOT fail-closed. error_origin = internal: the D7 bis
   //     oracle `grep -c r25 = 0` and the "byte-identical rest" method text collide because the method
-  //     overlooked this comment (advisor-adjudicated 2026-09-06).
+  //     overlooked this comment (adjudicated 2026-09-06).
   const dfi = lines.findIndex(
     (l, i) =>
       l.startsWith("# Delivery flow (ADR-M003 D9 bis):") &&
@@ -318,7 +318,7 @@ export function derivePublicWorkflow(raw) {
 function doExport(root, outDir) {
   const { kept, structuralViolations, frenchMd, excludedTests, dormantAppTests, missingRequired } = collectFiles(root);
   if (structuralViolations.length) {
-    console.error("export FAILED — the whitelist selected forbidden governance path(s) (blacklist, D7):");
+    console.error("export FAILED — the whitelist selected forbidden path(s) (blacklist, D7):");
     for (const r of structuralViolations) console.error(`  ${r}`);
     process.exit(1);
   }
@@ -373,7 +373,7 @@ function doCheck(root, selectedScopes) {
   const { kept, structuralViolations, frenchMd, missingRequired, maskers } = collectFiles(root);
   let bad = false;
   if (structuralViolations.length) {
-    console.error("check FAILED — the whitelist would include forbidden governance path(s) (blacklist, D7):");
+    console.error("check FAILED — the whitelist would include forbidden path(s) (blacklist, D7):");
     for (const r of structuralViolations) console.error(`  ${r}`);
     bad = true;
   }
@@ -408,7 +408,7 @@ function doCheck(root, selectedScopes) {
   const langBad = selectedScopes.reduce((n, s) => n + byScope[s].hits, 0);
   if (langBad > 0) { console.error(`\ncheck FAILED — ${langBad} non-exempt French hit(s) in scope {${selectedScopes.join(",")}} (D7 language gate).`); bad = true; }
   if (bad) {
-    if (selectedScopes.length < SCOPES.length) console.error("(scoped check: the E-* translation lots are not all done; a GLOBAL check stays RED by design — see docs/G1-lot-X.md.)");
+    if (selectedScopes.length < SCOPES.length) console.error("(scoped check: the E-* translation lots are not all done; a GLOBAL check stays RED by design.)");
     process.exit(1);
   }
   console.log(`\ncheck OK — 0 forbidden path, 0 non-exempt French hit in scope {${selectedScopes.join(",")}}.`);

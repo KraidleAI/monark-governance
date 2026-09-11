@@ -1,4 +1,4 @@
-# @monark/atelier — local demo screen (Phase 1, Lot D)
+# @monark/atelier — local demo screen (Phase 1)
 
 **Local** atelier (ADR-M002 D0/D1, hackathon cap): a page served on `127.0.0.1` that **replays the
 9 frozen states** from root `fixtures/` — coverage verdict, **COMMIT / DEFER / ABSTAIN** decision with
@@ -35,7 +35,7 @@ npm run atelier --workspace @monark/atelier
 The package `tsconfig.json` adds `lib: DOM` without touching the root (D13); the TS modules stay
 DOM-free, which keeps them typable and testable by the root.
 
-## Tests (ADR-M002 D11, Lot D)
+## Tests (ADR-M002 D11)
 
 24 `atelier_state_oracle` · 25 `atelier_replays_root_fixtures` · 26 `atelier_no_forbidden_vocab` ·
 27 `perps_stubs_throw` · 28 `atelier_no_network`. The H and U engines are consumed **by contract**

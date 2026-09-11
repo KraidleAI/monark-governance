@@ -1,5 +1,5 @@
 /**
- * Harness Lot C1 — calibrate (BYO split-conformal) tests (ADR-M007 D2/D3/D4/D5/B-3/B-7, §3 criteria).
+ * Harness — calibrate (BYO split-conformal) tests (ADR-M007 D2/D3/D4/D5/B-3/B-7, §3 criteria).
  * Each test is killed by >= 1 named mutant. Fully typed: no `any`, no unsafe access — the file stays at
  * the lint ratchet ceiling.
  *

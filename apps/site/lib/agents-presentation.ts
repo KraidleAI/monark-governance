@@ -1,4 +1,4 @@
-// apps/site/lib/agents-presentation.ts — PRESENTATION-ONLY metadata for the engine board (Lot F-site-4).
+// apps/site/lib/agents-presentation.ts — PRESENTATION-ONLY metadata for the engine board.
 // The fleet register (lib/fleet.ts) stays the single source of truth for name / role / status / teaser
 // line; this module adds ONLY what the board draws that is not part of the frozen register: the kanji
 // glyph and the one fixed brand accent per agent (brand freeze 2026-09-07 — "one fixed accent per

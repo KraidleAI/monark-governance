@@ -2,7 +2,7 @@
 // Ukemi agent mark, transcribed faithfully from the MONARK brand-system source `ukemi-mark.svg`
 // (NOT committed to this repo; 2026-09-09). Ink = `currentColor` (falling bars + baseline); accent
 // hard-coded (#5661C9, the standing bar). Decorative (`aria-hidden`). External source path + sha256
-// recorded in the MONARK governance repository (docs/G1-lot-F2b.md, not part of this public mirror).
+// recorded privately; not part of this public mirror.
 import type { SVGProps } from "react";
 
 export function UkemiMark({ className, ...props }: SVGProps<SVGSVGElement>) {

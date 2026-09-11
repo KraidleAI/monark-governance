@@ -50,7 +50,7 @@ const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url
  *  Re-pinned in Lot C2 (ADR-M007 D7): the optional BYO `calibration` field in the gate input schema grew
  *  the MCP `tools/list` bytes ⇒ exactly the `tools/list` step's `response_sha256` moved; the cascade/gate/
  *  attest tools/call results and every digest are byte-identical (M-1). */
-const TRACE_SHA256_PINNED = "7fc4b22ee7d621ab3dcbe6ce3e606b71bacf30a34f903d52f796fdedf5a4d90e";
+const TRACE_SHA256_PINNED = "711879f0d6eca93f8032c670aac40502290e433e8f3fe5768bd62790b7940f4e";
 
 const DEMONSTRATIVE_LABEL = "real, notary Shōgen, demonstrative, not probative";
 

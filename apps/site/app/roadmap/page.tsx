@@ -4,7 +4,7 @@ import Link from "next/link";
 import { StatusBadge } from "@/components/status-badge";
 import { FLEET_AGENTS } from "@/lib/fleet";
 
-// Static metadata only (ADR-M004 D14 / PLAN F-2c §2): no number in title/description (honesty lint
+// Static metadata only (ADR-M004 D14): no number in title/description (honesty lint
 // §6b scans them), and NO generateMetadata — that would render into <title>/<meta> yet escape the §6b
 // scan (F-2b guard no_generate_metadata_in_apps_site).
 export const metadata: Metadata = {
@@ -192,7 +192,7 @@ export default function RoadmapPage() {
       </section>
 
       {/* Upcoming agents — teasers: name, one sourced line, an Upcoming badge. Non-openable (nothing
-          built to open); the wording is the verbatim register line (deck + memstack; docs/G1-lot-F2c.md). */}
+          built to open); the wording is the verbatim register line. */}
       <section className="mt-16">
         <h2 className="font-heading text-2xl font-medium tracking-tight text-foreground">On the roadmap</h2>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">

@@ -1,10 +1,10 @@
 /**
  * HIKAE — S2 instrument (ADR-M002 D10; design ADOPTED from Grok doc 11 §2/§5.1/§7/§8,
- * input never lifted, rewritten for our contracts). DISPOSABLE harness (R-22: does not promote itself).
+ * input never lifted, rewritten for our contracts). DISPOSABLE harness (does not promote itself).
  *
  * S2a plumbing (declared synthetic binary class): "are the quantile and the gate
  * wired?". S2b beachhead `btc-dir-15m` (synthetic fixtures here — the J0 probe on
- * Coinbase, decided by the investor (a), comes later; NO network fetch here).
+ * Coinbase, decided by a product decision (a), comes later; NO network fetch here).
  *
  * Determinism: SEEDED `mulberry32` PRNG (no `Math.random`, no clock read — hash
  * stability, D7). COMMITTED split (seed + "chronological first-n" rule). EX ANTE strata.
@@ -97,7 +97,7 @@ export function generateLabeledSeries(params: GenParams): LabeledPoint[] {
 }
 
 // ---------------------------------------------------------------------------
-// Synthetic CANDLE series + REAL wiring of the D7 predictors (G2 Lot H corr. 1):
+// Synthetic CANDLE series + REAL wiring of the D7 predictors (review corr. 1):
 // the frozen chain is entered at step 1 — `predictor → Prediction → conformer`.
 // ---------------------------------------------------------------------------
 
@@ -335,7 +335,7 @@ export function runSplitCampaign(params: CampaignParams): CampaignResult {
 // ---------------------------------------------------------------------------
 // The 9 MECHANISM states (block "mechanism demo" of (e); oracle of test 14).
 // 3 COMMIT / 2 DEFER / 3 ABSTAIN / 1 under_calib, all produced by the REAL `gate()`.
-// Verdicts built with DECLARED scores (not ŷ=y — G2 Lot H corr. 1): the COMMIT from a
+// Verdicts built with DECLARED scores (not ŷ=y — review corr. 1): the COMMIT from a
 // 47/50 calibration (3 errors ⇒ q̂=0 ⇒ singleton); the DEFER from a half-wrong
 // calibration (25/50 ⇒ q̂=1 ⇒ {up,down}); the ABSTAIN from the mutants (timeout, intent outside region,
 // budget exhausted); under_calib from n<n_min. The REAL didactic oracle is run in `run.ts`
