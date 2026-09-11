@@ -1,0 +1,70 @@
+{
+  "url": "https://api.monarkgate.tech",
+  "mcp_url": "https://mcp.monarkgate.tech",
+  "checked_at": "2026-09-11T05:56:59.965Z",
+  "checks": [
+    {
+      "name": "health",
+      "ok": true,
+      "status": 200,
+      "sha256": "2e15fb68cbda856da58bef097f84a386c80b0404970aa79782943570d5df9c95",
+      "detail": "operations=gate,cascade,attest"
+    },
+    {
+      "name": "openapi",
+      "ok": true,
+      "status": 200,
+      "sha256": "c6fb56b9af96f43f17519af07cfd39bd1c225a511fe8e15f70475fbe2a62b21e",
+      "detail": "paths=/gate,/cascade,/attest"
+    },
+    {
+      "name": "origin_403_api",
+      "ok": true,
+      "status": 403,
+      "sha256": "6223c4e66eafcf69f7b07ef333009e4798be73d028edb16c82ca77892e718ad1",
+      "detail": "status=403"
+    },
+    {
+      "name": "origin_403_mcp",
+      "ok": true,
+      "status": 403,
+      "sha256": "6223c4e66eafcf69f7b07ef333009e4798be73d028edb16c82ca77892e718ad1",
+      "detail": "status=403"
+    },
+    {
+      "name": "mcp_tools_list",
+      "ok": true,
+      "status": 200,
+      "sha256": "a56fcf8e8298da1043fac9878a9c291a3cf38614e24927cb7932d5405c542884",
+      "detail": "status=200"
+    },
+    {
+      "name": "gate_call",
+      "ok": true,
+      "status": 200,
+      "sha256": "ac0973d27498573839d56c511ac1244a7621807e7ceaa927b09ff8ca07aea9ad",
+      "detail": "action=commit"
+    },
+    {
+      "name": "cascade_call",
+      "ok": true,
+      "status": 200,
+      "sha256": "11d1e7ed8e6b8fae5b4ed2c7053ad08e1461f0014350c8b88fd61c006bc1770e",
+      "detail": "yhat=100"
+    },
+    {
+      "name": "attest_call",
+      "ok": true,
+      "status": 200,
+      "sha256": "aeeb34e020d93b21e31c676552d260ceffae1e79c69b56ba2b5c911079d6ad69",
+      "detail": "real, notary Shōgen, demonstrative, not probative"
+    }
+  ],
+  "tls": {
+    "host": "api.monarkgate.tech",
+    "authorized": true,
+    "issuer": "Let's Encrypt",
+    "subject": "api.monarkgate.tech",
+    "valid_to": "Dec 10 04:57:46 2026 GMT"
+  }
+}
