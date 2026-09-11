@@ -43,8 +43,10 @@ import type { ByoTrace } from "./byo-demo-builder.ts";
 const TRACE_PATH = fileURLToPath(new URL("../fixtures/byo-demo-trace.json", import.meta.url));
 const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url));
 
-/** Pinned sha256 (LF-normalized) of the committed trace — also stated in fixtures/PROVENANCE-byo-demo.md. */
-const TRACE_SHA256_PINNED = "79b54471bb2e4d92f574e6456f3f4d548f7d73f187ea2528cbc54ca6f49286d4";
+/** Pinned sha256 (LF-normalized) of the committed trace — also stated in fixtures/PROVENANCE-byo-demo.md.
+ *  Re-pinned after the verdict summary was appended to the calibrate + gate `content` text (a delivery aid
+ *  for text-only MCP clients that drop `structuredContent`), derived from the same frozen result. */
+const TRACE_SHA256_PINNED = "60f348689cc75db4978c04ec0e4a232c90fcf277720785fc6fabf27ad20c6ce3";
 
 /** Genericity guard pattern: the demo names no asset, no market activity, and no maturity overclaim.
  *  (This regex is the ENFORCEMENT mechanism; it necessarily spells the tokens it forbids.) */

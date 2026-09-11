@@ -215,6 +215,11 @@ test("http_gate_byo_calibration", async () => {
   assert.ok(byoPart, "BYO mirror returns a content text part");
   assert.ok(byoPart.text.includes("exchangeable"), "BYO content carries the exchangeability honesty carrier");
   assert.ok(!byoPart.text.includes("no cascade calibration is committed"), "BYO content must NOT carry the cascade under_calib sentence (B-1 wiring, independent of run())");
+  // The verdict summary reaches the wire (delivery aid for text-only MCP clients): the decision action and
+  // the truncated calib_digest are in the content text, so a client that drops structuredContent still sees
+  // the decision. Absolute oracle: a mutant that omits the summary or hardcodes a stale digest reds here.
+  assert.ok(byoPart.text.includes("action=commit"), "BYO content carries the verdict summary action (=commit)");
+  assert.ok(byoPart.text.includes(`calib_digest=${calibDigest(GATE_BYO_BODY.params.calibration.scores).slice(0, 8)}`), "BYO content carries the (truncated) calib_digest in the verdict summary");
 
   // BYO refusals ⇒ 400 tool_error, never 500.
   const negScores = { ...GATE_BYO_BODY, params: { ...GATE_BYO_BODY.params, calibration: { scores: [-1, -2, -3, -4, -5, -6, -7, -8, -9, -10], mode: "interval" } } };

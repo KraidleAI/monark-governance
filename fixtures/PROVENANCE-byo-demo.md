@@ -46,12 +46,14 @@ and are re-asserted by `test/byo-demo-probe.test.ts`.
 
 - The tools read no clock (`produced_at` is caller-carried); the ephemeral port is intentionally NOT
   recorded. Re-running the recorder reproduces the file byte-for-byte.
-- **sha256 (LF-normalized)**: `79b54471bb2e4d92f574e6456f3f4d548f7d73f187ea2528cbc54ca6f49286d4`
-  (9575 bytes). `.gitattributes` normalizes to `eol=lf`, so this digest survives commit; the probe
+- **sha256 (LF-normalized)**: `60f348689cc75db4978c04ec0e4a232c90fcf277720785fc6fabf27ad20c6ce3`
+  (9735 bytes). `.gitattributes` normalizes to `eol=lf`, so this digest survives commit; the probe
   LF-normalizes before hashing, so it also survives a CRLF checkout. This value is pinned as
-  `TRACE_SHA256_PINNED` in `test/byo-demo-probe.test.ts`.
+  `TRACE_SHA256_PINNED` in `test/byo-demo-probe.test.ts`. Re-pinned after the verdict summary was appended
+  to the `calibrate` and `gate` `content` text (a delivery aid for text-only MCP clients); the recorded
+  `structuredContent` and every decision digest are unaffected.
 - Byte-reproducible: two consecutive recorder runs printed the identical LF sha256
-  (`79b54471…`), and `probe_byo_demo_loop_closes` re-derives it in-test. Regenerate, never hand-edit:
+  (`60f34868…`), and `probe_byo_demo_loop_closes` re-derives it in-test. Regenerate, never hand-edit:
   `node scripts/record-byo-demo.mjs`.
 - **No `tools/list` step** is recorded on purpose: unlike `h5-e2e-trace.json` (which re-pinned three
   times as the tool schemas evolved), this trace records only `initialize` + the two `tools/call`

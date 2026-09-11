@@ -23,10 +23,10 @@ import { cascadeInputStandardSchema, cascadeOutputStandardSchema, CASCADE_INPUT_
 import type { Json } from "../schema-projection.ts";
 import { attestInputStandardSchema, attestOutputStandardSchema, ATTEST_INPUT_SCHEMA, ATTEST_OUTPUT_SCHEMA } from "../schema-projection.ts";
 import { calibrateInputStandardSchema, calibrateOutputStandardSchema, CALIBRATE_INPUT_SCHEMA, CALIBRATE_OUTPUT_SCHEMA } from "../schema-projection.ts";
-import { runGate, honestyText, GATE_TOOL_NAME, GATE_TOOL_DESCRIPTION, type HarnessParams } from "./gate.ts";
+import { runGate, honestyText, gateVerdictSummary, GATE_TOOL_NAME, GATE_TOOL_DESCRIPTION, type HarnessParams } from "./gate.ts";
 import { runCascade, cascadeHonestyText, CASCADE_TOOL_NAME, CASCADE_TOOL_DESCRIPTION, type CascadeInput } from "./cascade.ts";
 import { runAttest, attestHonestyText, ATTEST_TOOL_NAME, ATTEST_TOOL_DESCRIPTION } from "./attest.ts";
-import { runCalibrate, calibrateHonestyText, CALIBRATE_TOOL_NAME, CALIBRATE_TOOL_DESCRIPTION, type CalibrateInput } from "./calibrate.ts";
+import { runCalibrate, calibrateHonestyText, calibrateVerdictSummary, CALIBRATE_TOOL_NAME, CALIBRATE_TOOL_DESCRIPTION, type CalibrateInput } from "./calibrate.ts";
 
 /** Closed universe of the tool surface (ADR-M005 D1, EXPANDED by ADR-M007 to the terminal set of 4). */
 export const ALLOWED_TOOL_NAMES = ["attest", "gate", "cascade", "calibrate"] as const;
@@ -65,8 +65,10 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
       const env = args as GateEnvelope;
       const decision = runGate(env.prediction, env.params);
       // structuredContent = the closed GateDecision ONLY (K-1); honesty prose rides in `content` text.
-      // B-1: the honesty text is keyed on the PRESENCE of a BYO calibration, not task_class alone.
-      return { text: honestyText(env.prediction.task_class, env.params.calibration !== undefined), structured: decision as unknown as Record<string, unknown> };
+      // B-1: the honesty text is keyed on the PRESENCE of a BYO calibration, not task_class alone. The
+      // verdict summary (a delivery aid for text-only clients, derived from `decision`) follows the prose.
+      const text = `${honestyText(env.prediction.task_class, env.params.calibration !== undefined)} ${gateVerdictSummary(decision)}`;
+      return { text, structured: decision as unknown as Record<string, unknown> };
     },
   },
   {
@@ -109,8 +111,10 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
       const input = args as CalibrateInput;
       const result = runCalibrate(input);
       // structuredContent = the calibrate envelope {qhat,n,alpha,method,set_digest,label,reason}; the
-      // K-1 honesty label rides IN the output (carrier 3/3, ADR-M007 D3/D5) and ALSO in `content` text.
-      return { text: calibrateHonestyText(), structured: result as unknown as Record<string, unknown> };
+      // K-1 honesty label rides IN the output (carrier 3/3, ADR-M007 D3/D5) and ALSO in `content` text,
+      // followed by the verdict summary (a delivery aid for text-only clients, derived from `result`).
+      const text = `${calibrateHonestyText()} ${calibrateVerdictSummary(result)}`;
+      return { text, structured: result as unknown as Record<string, unknown> };
     },
   },
 ];

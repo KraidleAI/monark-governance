@@ -368,6 +368,28 @@ export function honestyText(taskClass: string, isByo: boolean): string {
 }
 
 /**
+ * A compact, FACTUAL restatement of the frozen decision, carried in the MCP `content` text ALONGSIDE the
+ * honesty prose (a delivery aid, NOT a 4th K-1 carrier). Motivation: some MCP clients forward only
+ * `content` text to the model and DROP `structuredContent` (measured on Hermes v0.21), so a `commit` and
+ * an `under_calib` would read identically in the prose channel. This line surfaces the DECISION — action,
+ * the coverage `reason` (how `under_calib` becomes visibly distinct from `covered`), the region, q̂,
+ * n_calib, and a TRUNCATED calib_digest (8 leading + 6 trailing; the full value stays in
+ * `structuredContent`). DERIVED from the same closed `GateDecision` (single source, no drift), it restates
+ * only fields already on the wire and asserts NO probability of being right.
+ */
+export function gateVerdictSummary(d: GateDecision): string {
+  const v = d.verdict;
+  const region =
+    v.region.kind === "interval"
+      ? `[${String(v.region.lo)}, ${String(v.region.hi)}]`
+      : `{${v.region.labels.join(", ")}}`;
+  const qhat = v.qhat === null ? "null" : String(v.qhat);
+  const digest =
+    v.calib_digest.length > 14 ? `${v.calib_digest.slice(0, 8)}...${v.calib_digest.slice(-6)}` : v.calib_digest;
+  return `verdict action=${d.action} reason=${d.reason} region=${region} qhat=${qhat} n_calib=${String(v.n_calib)} calib_digest=${digest}`;
+}
+
+/**
  * Compose the real primitives into a closed `GateDecision`. Throws `HarnessToolError` on an unknown
  * `task_class`, a wrong-typed `yhat`, or invalid params (K-4a). The gate NEVER calls `params.tool`.
  */

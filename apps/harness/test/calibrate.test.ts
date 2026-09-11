@@ -16,6 +16,7 @@ import { compilePatterns, scanText } from "../../../scripts/grep-forbidden.mjs";
 import {
   runCalibrate,
   calibrateHonestyText,
+  calibrateVerdictSummary,
   CalibrateToolError,
   CALIBRATE_MAX_N,
   CALIBRATE_LABEL,
@@ -23,6 +24,7 @@ import {
   CALIBRATE_TOOL_DESCRIPTION,
   type CalibrateInput,
 } from "../src/tools/calibrate.ts";
+import { HARNESS_TOOLS } from "../src/tools/registry.ts";
 import {
   CALIBRATE_INPUT_SCHEMA,
   CALIBRATE_OUTPUT_SCHEMA,
@@ -57,6 +59,34 @@ test("calibrate_hand_rolled_split_conformal_oracle", () => {
   assert.equal(r.n, 9, "n echoes the score count");
   assert.equal(r.alpha, 0.2, "alpha is echoed");
   assert.equal(typeof r.label, "string", "the K-1 label rides in the output (carrier 3/3)");
+});
+
+// Test — verdict summary (a delivery aid for text-only MCP clients, NOT a 4th carrier): the calibrate
+// tool's content text LEADS with the K-1 honesty label (carrier 2/3, unchanged) and then carries a FACTUAL
+// summary DERIVED from the SAME result — q̂ and a truncated set_digest on success (no `reason=`), and
+// `reason=under_calib` + `qhat=null` when the calibration is insufficient (so under_calib is visibly
+// distinct in the prose channel). Mutant that hardcodes the summary or drops `reason` on under_calib reds.
+test("calibrate_content_carries_verdict_summary", () => {
+  const calibrateTool = HARNESS_TOOLS.find((t) => t.name === CALIBRATE_TOOL_NAME);
+  assert.ok(calibrateTool, "the calibrate tool is registered");
+
+  // Success: n=9, α=0.2, nMin=5 ⇒ q̂=0.8 (hand oracle above), reason:null ⇒ no `reason=` in the summary.
+  const okScores = [0.5, 0.1, 0.9, 0.3, 0.7, 0.2, 0.8, 0.4, 0.6];
+  const okResult = runCalibrate({ scores: okScores, alpha: 0.2, nMin: 5 });
+  const okText = calibrateTool.run({ scores: okScores, alpha: 0.2, nMin: 5 }).text;
+  assert.ok(okText.startsWith(CALIBRATE_LABEL), "calibrate content leads with the K-1 honesty label (carrier 2/3)");
+  assert.equal(
+    calibrateVerdictSummary(okResult),
+    `verdict qhat=0.8 n=9 alpha=0.2 set_digest=${okResult.set_digest.slice(0, 8)}...${okResult.set_digest.slice(-6)}`,
+    "the summary is derived byte-for-byte from the result (hand value q̂=0.8, truncated digest)",
+  );
+  assert.ok(okText.includes(`set_digest=${calibDigest(okScores).slice(0, 8)}`), "the wired content carries the truncated set_digest");
+  assert.ok(!okText.includes("reason="), "a covered calibrate summary carries NO reason= (reason is null)");
+
+  // Under-calibration: n=3 < nMin=5 ⇒ q̂=null, reason=under_calib ⇒ both surface in the text.
+  const underText = calibrateTool.run({ scores: [0.1, 0.2, 0.3], alpha: 0.1, nMin: 5 }).text;
+  assert.ok(underText.includes("qhat=null"), "an under-calibrated summary shows qhat=null");
+  assert.ok(underText.includes("reason=under_calib"), "an under-calibrated summary surfaces reason=under_calib (visibly distinct from covered)");
 });
 
 // Test — B-7: `set_digest` IS `calibDigest(scores)` (imported, never re-implemented), and the whole

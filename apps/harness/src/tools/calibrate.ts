@@ -67,6 +67,22 @@ export function calibrateHonestyText(): string {
   return CALIBRATE_LABEL;
 }
 
+/**
+ * A compact, FACTUAL restatement of the calibrate result, carried in the MCP `content` text ALONGSIDE the
+ * honesty label (a delivery aid, NOT a 4th K-1 carrier). Motivation: some MCP clients forward only
+ * `content` text and DROP `structuredContent` (measured on Hermes v0.21), so q̂ and the digest would never
+ * reach the model. This line surfaces q̂, n, alpha, a TRUNCATED set_digest (8 leading + 6 trailing; the
+ * full value stays in `structuredContent`), and `reason` when the calibration is insufficient (so
+ * `under_calib` is visibly distinct from a real q̂). DERIVED from the same `CalibrateResult` (single
+ * source), it restates only fields already on the wire and asserts NO probability of being right.
+ */
+export function calibrateVerdictSummary(r: CalibrateResult): string {
+  const qhat = r.qhat === null ? "null" : String(r.qhat);
+  const digest = r.set_digest.length > 14 ? `${r.set_digest.slice(0, 8)}...${r.set_digest.slice(-6)}` : r.set_digest;
+  const base = `verdict qhat=${qhat} n=${String(r.n)} alpha=${String(r.alpha)} set_digest=${digest}`;
+  return r.reason === null ? base : `${base} reason=${r.reason}`;
+}
+
 /** A tool-level error (K-4a analog): surfaced by the MCP/HTTP seam as a tool error, never a silent output. */
 export class CalibrateToolError extends Error {
   constructor(message: string) {

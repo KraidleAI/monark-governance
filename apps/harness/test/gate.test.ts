@@ -227,9 +227,16 @@ test("gate_byo_honesty_text_is_wired_on_calibration_presence", () => {
     params: { ...GOOD_PARAMS, intent: 0, tauInterval: 2, calibration: { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], mode: "interval" } },
   };
   const text = gateTool.run(byoBody).text;
-  assert.equal(text, `${CALIBRATE_LABEL} B_t is caller-carried.`, "BYO content == the CALIBRATE_LABEL honesty carrier (B-2)");
+  // The honesty carrier LEADS the content text (byte-identical prefix, B-2); the verdict summary (a
+  // delivery aid for text-only clients) follows it — so the prefix equality is now a startsWith.
+  assert.ok(text.startsWith(`${CALIBRATE_LABEL} B_t is caller-carried.`), "BYO content leads with the CALIBRATE_LABEL honesty carrier (B-2)");
   assert.ok(text.includes("exchangeable"), "the BYO content declares the exchangeability hypothesis");
   assert.ok(!text.includes(CASCADE_UNCALIBRATED_SENTENCE), "the BYO content must NOT carry the CASCADE sentence (B-1)");
+  // The verdict summary is DERIVED from the same decision (single source): action + a truncated calib_digest
+  // appear in the content text, so a text-only client sees the decision. Mutant that hardcodes it ⇒ reds.
+  const byoDecision = runGate(byoBody.prediction, byoBody.params);
+  assert.ok(text.includes(`action=${byoDecision.action}`), "the verdict summary carries the decision action");
+  assert.ok(text.includes(`calib_digest=${byoDecision.verdict.calib_digest.slice(0, 8)}`), "the verdict summary carries the (truncated) calib_digest");
   // Non-regression: a committed-class gate still carries its own honesty text (not the BYO label).
   const cascadeText = gateTool.run({ prediction: CASCADE_PRED, params: { ...GOOD_PARAMS, intent: 12345 } }).text;
   assert.ok(cascadeText.includes(CASCADE_UNCALIBRATED_SENTENCE), "a cascade gate still carries the CASCADE sentence");

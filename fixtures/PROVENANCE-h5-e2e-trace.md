@@ -48,13 +48,14 @@ These statements live in the trace's `honesty` block and are re-asserted by
 
 - The tools read no clock (`produced_at`/`producedAt` are caller-carried); the ephemeral port is
   intentionally NOT recorded. Re-running the recorder reproduces the file byte-for-byte.
-- **sha256 (LF-normalized)**: `711879f0d6eca93f8032c670aac40502290e433e8f3fe5768bd62790b7940f4e`
-  (15529 bytes). `.gitattributes` normalizes to `eol=lf`, so this digest survives commit; the probe
+- **sha256 (LF-normalized)**: `4481384a003d1a4af00e06d3dc997f43777421cc7471d04a40745b87b79e9293`
+  (15731 bytes). `.gitattributes` normalizes to `eol=lf`, so this digest survives commit; the probe
   LF-normalizes before hashing, so it also survives a CRLF checkout. This value is pinned as
   `TRACE_SHA256_PINNED` in `test/h5-e2e-probe.test.ts`.
 - **Re-pinning**: the pinned digest is updated whenever the MCP `tools/list` wire bytes change (an added
-  optional input field, or a new tool in the list); the recorded `cascade`/`gate`/`attest` `tools/call`
-  results, `yhat`, and every decision digest are unaffected. Byte-reproducible: consecutive recorder runs
+  optional input field, or a new tool in the list) OR the `content` prose changes (e.g. the verdict summary
+  appended to each `gate` step for text-only MCP clients); the recorded `structuredContent`, `yhat`, and
+  every decision digest are unaffected. Byte-reproducible: consecutive recorder runs
   print the identical LF sha256. Regenerate, never hand-edit: `node scripts/record-h5-e2e-trace.mjs`.
 
 ## How the probe is mock-discriminating

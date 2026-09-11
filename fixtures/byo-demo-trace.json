@@ -108,7 +108,7 @@
         "content": [
           {
             "type": "text",
-            "text": "split-conformal quantile at miscoverage α over caller-supplied nonconformity scores. MONARK does not see, store, or verify the caller's data or model, and does not validate that the supplied numbers are nonconformity scores of any model. Marginal 1−α coverage holds ONLY for future points exchangeable with the supplied scores; non-exchangeable data (e.g. distribution-shifted or time-ordered) voids it. Never a probability of being right."
+            "text": "split-conformal quantile at miscoverage α over caller-supplied nonconformity scores. MONARK does not see, store, or verify the caller's data or model, and does not validate that the supplied numbers are nonconformity scores of any model. Marginal 1−α coverage holds ONLY for future points exchangeable with the supplied scores; non-exchangeable data (e.g. distribution-shifted or time-ordered) voids it. Never a probability of being right. verdict qhat=1 n=10 alpha=0.1 set_digest=4081f718...43dd3a"
           }
         ],
         "structuredContent": {
@@ -176,7 +176,7 @@
         "content": [
           {
             "type": "text",
-            "text": "split-conformal quantile at miscoverage α over caller-supplied nonconformity scores. MONARK does not see, store, or verify the caller's data or model, and does not validate that the supplied numbers are nonconformity scores of any model. Marginal 1−α coverage holds ONLY for future points exchangeable with the supplied scores; non-exchangeable data (e.g. distribution-shifted or time-ordered) voids it. Never a probability of being right. B_t is caller-carried."
+            "text": "split-conformal quantile at miscoverage α over caller-supplied nonconformity scores. MONARK does not see, store, or verify the caller's data or model, and does not validate that the supplied numbers are nonconformity scores of any model. Marginal 1−α coverage holds ONLY for future points exchangeable with the supplied scores; non-exchangeable data (e.g. distribution-shifted or time-ordered) voids it. Never a probability of being right. B_t is caller-carried. verdict action=commit reason=covered region=[-1, 1] qhat=1 n_calib=10 calib_digest=4081f718...43dd3a"
           }
         ],
         "structuredContent": {
