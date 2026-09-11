@@ -86,8 +86,9 @@ export function HikaePanel({ contract }: { contract: FrozenContract }) {
               ))}
             </ul>
           </PanelBlock>
-          <PanelBlock title="How to connect" status="upcoming">
-            A concrete call over HTTP or MCP &mdash; specified, not shipped.
+          <PanelBlock title="How to connect" status="built">
+            Reachable now over HTTP and MCP as the <code>gate</code> tool at{" "}
+            <code>mcp.monarkgate.tech/mcp</code>. See For integrators for the add one-liners.
           </PanelBlock>
           <PanelBlock title="Traceability" status="upcoming">
             Every figure and decision links to its committed, hashed source in the audit console.
