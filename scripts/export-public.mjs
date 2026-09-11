@@ -30,6 +30,15 @@ export const REPO_ROOT = resolve(SCRIPT_DIR, "..");
 // Each package contributes src/**, test/**, package.json, README.md. Plus the shared root files.
 // Kept as data so a mutant (test 42) can slip a governance path in and be caught by the blacklist.
 export const PACKAGE_SUBPATHS = ["src", "test", "package.json", "README.md"];
+// apps/* exported PACKAGE-STYLE (ADR-M005 D10 / D16, Q-A): the SAME four subpaths as a package
+// (src, test, package.json, README.md), NOT a whole-dir walk like apps/site (WHITELIST_DIRS). Rationale:
+// apps/harness/test/** IS run by the exported CI (`apps/harness/test/*.test.ts` is in the exported
+// package.json "test" glob), so it is NON-DORMANT — unlike apps/site/test/**, whose runner
+// (test/site-honesty.test.ts) lives at the repo root and is never exported, which is why apps/site/test/**
+// is dropped as a dormant guard (DORMANT_APP_TEST). A whole-dir walk would also drag
+// apps/harness/tsconfig.json, which the export does not need (the exported root tsconfig.json already
+// includes apps/harness/**); package-style keeps the public surface minimal and matches packages/*.
+export const APP_PACKAGE_DIRS = ["apps/harness"];
 // `enforcement/` (contains lint-model-pinning.sh, English): required by the exported
 // g1-controle-generation job (`bash enforcement/lint-model-pinning.sh .`). Confirmed in the whitelist
 // by ADR-M004 D7 bis R3 (D7 amended). `apps/site` shipped in Lot F-1, so the D7 tolerated-absence
@@ -41,7 +50,10 @@ export const WHITELIST_FILES = [
   ".github/workflows/ci.yml",
   "eslint.config.mjs", "lint-ratchet.json", "vocab-banned.json",
   "package.json", "package-lock.json", "tsconfig.json",
-  "scripts/grep-forbidden.mjs", "scripts/lint-ratchet.mjs",
+  // grep-forbidden.d.mts: the type surface of grep-forbidden.mjs. Required since ADR-M005 D10/Q-A exports
+  // apps/harness, whose registry.test.ts imports `../../../scripts/grep-forbidden.mjs`; without the .d.mts
+  // the exported `tsc --noEmit` reds TS7016 (measured, H4). It declares only pure functions (English).
+  "scripts/grep-forbidden.mjs", "scripts/grep-forbidden.d.mts", "scripts/lint-ratchet.mjs",
   "scripts/export-public.mjs", "scripts/lang-gate.mjs", "scripts/lang-exempt.json",
   // ADR-M004 D7 addendum (2026-09-06): the four rendered atelier demo files scanned by
   // atelier_no_network. They live at the package ROOT (outside src/), so PACKAGE_SUBPATHS does not
@@ -184,6 +196,17 @@ export function collectFiles(root) {
         if (statSync(abs).isDirectory()) addDir(rel);
         else addFile(rel);
       }
+    }
+  }
+  // apps/* exported PACKAGE-STYLE (ADR-M005 D10 / D16, Q-A): the same four PACKAGE_SUBPATHS as a package.
+  // Silent-skip an absent subpath (an app may legitimately lack a test/ dir), exactly like packages/* above.
+  for (const app of APP_PACKAGE_DIRS) {
+    for (const sub of PACKAGE_SUBPATHS) {
+      const rel = `${app}/${sub}`;
+      const abs = join(root, rel);
+      if (!existsSync(abs)) continue;
+      if (statSync(abs).isDirectory()) addDir(rel);
+      else addFile(rel);
     }
   }
   // Fixed whitelist — FAIL CLOSED on a missing required entry (D7 bis R2(a)); no dir is tolerated absent

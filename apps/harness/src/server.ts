@@ -1,9 +1,18 @@
 /**
- * Harness — stateless MCP server (ADR-M005 D1/D6/D7).
+ * Harness — stateless MCP server + HTTP/JSON mirror (ADR-M005 D1/D6/D7, Lot H4).
  *
  * Transport: MCP Streamable HTTP via `createMcpHandler` (SDK v2). The factory returns a FRESH
  * `McpServer` per request — that IS the stateless model (D6): no session, no persisted budget; B_t
  * is caller-carried in and out. `keepAliveMs = 15000` (D7).
+ *
+ * TWO surfaces on the ONE `127.0.0.1:3001` listener, routed by Host (Caddy fronts both sub-domains ->
+ * this port, D7/D10): `mcp.monarkgate.tech` -> the MCP handler (below); `api.monarkgate.tech` -> the
+ * HTTP/JSON mirror (`./http.ts`), a byte-faithful JSON mirror of the same three tools / frozen schemas.
+ * Host validation is OPT-IN in the SDK via `enableDnsRebindingProtection` — it defaults to `false`
+ * (`@modelcontextprotocol/server@2.0.0/dist/index.mjs:333`) and `validateRequestHeaders` returns early
+ * when it is disabled (`:390`); the harness does not enable it, so the SDK performs NO Host check. Passing
+ * the public Host through Caddy is therefore safe; routing keys on the request URL's hostname, not the
+ * (fetch-forbidden) Host header. The Origin guard runs on BOTH surfaces, before dispatch.
  *
  * Origin (K-9/C-1): a PRESENT-and-invalid Origin ⇒ `403`; an ABSENT Origin ⇒ ACCEPTED (non-browser
  * MCP clients send none). Built on the SDK's `validateOriginHeader` (parse + deny-on-failure), with a
@@ -20,6 +29,7 @@ import { fileURLToPath } from "node:url";
 import { createMcpHandler, McpServer, validateOriginHeader } from "@modelcontextprotocol/server";
 import type { McpHttpHandler } from "@modelcontextprotocol/server";
 import { registerTools } from "./tools/registry.ts";
+import { handleJsonMirror } from "./http.ts";
 
 /** Bind host — localhost ONLY (K-8/C-10). Never `0.0.0.0`. */
 export const HOST = "127.0.0.1";
@@ -30,6 +40,19 @@ export const SERVER_NAME = "monark";
 
 /** Origin allowlist apex; `monarkgate.tech` and its sub-domains are accepted (K-9/C-1). */
 export const ORIGIN_APEX = "monarkgate.tech";
+
+/** Host prefix that selects the HTTP/JSON mirror surface (`api.` -> JSON); `mcp.`/anything else -> MCP. */
+export const API_HOST_PREFIX = "api.";
+
+/**
+ * Route selection (D7/D10): the JSON mirror serves requests whose Host is the `api.` sub-domain; the MCP
+ * handler serves `mcp.` and everything else (incl. a direct `127.0.0.1` dev call). Keys on the URL's
+ * hostname — `toWebRequest` builds the URL from the Node `Host` header, and `Host` is a forbidden fetch
+ * header so `request.headers.get("host")` is unreliable, but the URL always carries it.
+ */
+export function isJsonMirrorHost(request: Request): boolean {
+  return new URL(request.url).hostname.startsWith(API_HOST_PREFIX);
+}
 
 /**
  * K-9/C-1 Origin decision. Absent/empty ⇒ accepted; malformed ⇒ rejected; apex or a sub-domain of the
@@ -86,8 +109,9 @@ async function handleNodeRequest(req: IncomingMessage, res: ServerResponse, hand
     const method = req.method ?? "GET";
     const body = method === "GET" || method === "HEAD" ? undefined : new Uint8Array(await buffer(req));
     const request = toWebRequest(req, body);
-    const rejected = originGuard(request); // K-9 Origin check BEFORE dispatch
-    const response = rejected ?? (await handler.fetch(request));
+    const rejected = originGuard(request); // K-9 Origin check BEFORE dispatch (both surfaces)
+    const response =
+      rejected ?? (isJsonMirrorHost(request) ? await handleJsonMirror(request) : await handler.fetch(request));
     res.writeHead(response.status, Object.fromEntries(response.headers));
     if (response.body !== null) {
       Readable.fromWeb(response.body).pipe(res);

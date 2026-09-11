@@ -1,0 +1,15 @@
+# MONARK harness — Caddy site block (ADR-M005 D7/D10/D12; PLAN §H4). Orchestrator-deployed (ADR-M005 D12): APPEND this
+# block to the existing /etc/caddy/Caddyfile — do NOT replace it. The vitrine block (monarkgate.tech + www
+# -> localhost:3000) is ALREADY live in that file; replacing it takes the site down.
+#
+# Caddy (v2.11.4 on this VPS) obtains a certificate via ACME HTTP-01 automatically, once the A records for
+# mcp./api. resolve. They ARE posed -> 31.97.155.188 (Hostinger DNS; K-7). No Cloudflare proxy sits in
+# front (K-7 correction), so HTTP-01 completes directly. Both sub-domains reverse-proxy to the ONE loopback
+# harness listener on 127.0.0.1:3001; the harness routes MCP vs JSON by the Host header internally.
+mcp.monarkgate.tech, api.monarkgate.tech {
+	reverse_proxy 127.0.0.1:3001 {
+		# Forward the public Host so the harness's Host-based routing sees mcp./api. — set explicitly so
+		# routing never depends on a proxy default.
+		header_up Host {host}
+	}
+}
