@@ -212,7 +212,7 @@ export default function HowItWorksPage() {
             </h2>
             <p style={{ margin: 0, ...bodyText, fontSize: 16, maxWidth: 620 }}>
               Every decision names why. The reason is a closed enum in the frozen contract — a new reason
-              needs an ADR, not a deploy.
+              needs a deliberate, versioned revision, not a deploy.
             </p>
           </div>
           <span style={{ ...mono, fontSize: 11, padding: "3px 9px", borderRadius: 999, border: "1px solid var(--hikae-t)", color: "var(--hikae-t)" }}>
