@@ -43,6 +43,19 @@ import { CASCADE_UNCALIBRATED_SENTENCE } from "./gate.ts";
 export const CASCADE_TOOL_NAME = "cascade";
 
 /**
+ * Resource cap (Lot H6, deploy-hardening): the maximum node count `n` (`|L| = |e|`) the cascade accepts.
+ * The harness is a public, unauthenticated compute surface co-located with the vitrine on one VPS; the
+ * Eisenberg-Noe `clearing` is ~O(n^3), so an unbounded `L` is a denial-of-service vector against the
+ * shared host. 64 nodes keeps the clearing trivial (< 3e5 ops) while covering any realistic interbank
+ * fixture. Enforced TWICE, fail-closed: the tool-input projection sets `maxItems` at the SDK boundary
+ * (`schema-projection.ts`, which imports THIS constant) AND `validateCascadeInput` rejects `n >
+ * CASCADE_MAX_NODES` below — belt-and-suspenders behind the schema, so a direct in-process tool call
+ * (bypassing the SDK boundary, e.g. the HTTP mirror or a test) is capped too. This file stays pure/no-I/O
+ * (K-8), so `schema-projection.ts` -> `cascade.ts` -> `gate.ts` -> `calibration.ts` has no cycle back here.
+ */
+export const CASCADE_MAX_NODES = 64;
+
+/**
  * Tool description (D4/D9/K-1): declares the node->position mapping, the v0 shock simplification, that
  * yhat is a monetary amount (a single point HIKAE conformalizes) and no guarantee, and carries the
  * K-4e honesty sentence. Carries NO probability/score claim token (asserted by
@@ -92,6 +105,14 @@ const RFC3339 = /^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[Zz]|[+-]\d
 function validateCascadeInput(input: CascadeInput): void {
   const n = input.L.length;
   if (n === 0) throw new CascadeToolError("invalid 'L': expected a non-empty square matrix");
+  // Resource cap (Lot H6): bound `n` BEFORE the O(n^2) validation loop and the O(n^3) clearing, so a
+  // crafted huge `L` cannot exhaust the shared VPS even on a direct tool call (schema `maxItems` is the
+  // first line at the SDK boundary; this is the fail-closed backstop). |L| == |e| is enforced below.
+  if (n > CASCADE_MAX_NODES) {
+    throw new CascadeToolError(
+      `invalid 'L': ${String(n)} nodes exceeds the cap of ${String(CASCADE_MAX_NODES)} (resource guard, Lot H6)`,
+    );
+  }
   for (let i = 0; i < n; i++) {
     const row = input.L[i];
     if (row === undefined || row.length !== n) {

@@ -7,6 +7,15 @@
 # front (K-7 correction), so HTTP-01 completes directly. Both sub-domains reverse-proxy to the ONE loopback
 # harness listener on 127.0.0.1:3001; the harness routes MCP vs JSON by the Host header internally.
 mcp.monarkgate.tech, api.monarkgate.tech {
+	# Lot H6 resource cap: reject any request body larger than 256KB before it reaches the loopback harness.
+	# The endpoint is public and unauthenticated on the SAME VPS as the vitrine, so an oversized body is a
+	# denial-of-service vector against the shared host; this is the OUTER cap. The harness keeps a tighter-
+	# scoped 512 KiB streaming backstop of its own (server.ts), so the two caps are layered. This ONE block
+	# serves BOTH hosts (mcp. + api.), so the cap applies to both surfaces (Caddy evaluates request_body
+	# before reverse_proxy regardless of file order).
+	request_body {
+		max_size 256KB
+	}
 	reverse_proxy 127.0.0.1:3001 {
 		# Forward the public Host so the harness's Host-based routing sees mcp./api. — set explicitly so
 		# routing never depends on a proxy default.

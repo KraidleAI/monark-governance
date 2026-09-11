@@ -23,7 +23,6 @@
  */
 import { createServer, type IncomingMessage, type ServerResponse, type Server as HttpServer } from "node:http";
 import { Readable } from "node:stream";
-import { buffer } from "node:stream/consumers";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createMcpHandler, McpServer, validateOriginHeader } from "@modelcontextprotocol/server";
@@ -35,6 +34,13 @@ import { handleJsonMirror } from "./http.ts";
 export const HOST = "127.0.0.1";
 export const PORT = 3001;
 export const KEEP_ALIVE_MS = 15000;
+/**
+ * Hard request-body cap (Lot H6): the harness aborts a body larger than this and answers `413`, streaming
+ * — it never buffers past the cap. This is the INNER backstop behind Caddy's 256KB `request_body`
+ * (deploy/Caddyfile.monark-harness); the harness cap is looser (512 KiB) so Caddy rejects first in prod,
+ * and the harness still fail-closes if a request reaches the loopback listener directly (Caddy bypassed).
+ */
+export const MAX_REQUEST_BODY_BYTES = 512 * 1024;
 /** MCP server name — the fleet name `monark`, never a caller/agent brand (R-P1 Q4). */
 export const SERVER_NAME = "monark";
 
@@ -104,14 +110,57 @@ function toWebRequest(req: IncomingMessage, body: Uint8Array | undefined): Reque
   return new Request(url, init);
 }
 
+/** Sentinel returned by `readBodyBounded` when the body crosses the cap (kept module-private). */
+const BODY_TOO_LARGE = Symbol("body_too_large");
+
+/**
+ * Streaming bounded body reader (Lot H6). Accumulates the request body and STOPS as soon as it exceeds
+ * `limit`, so a crafted oversized body never buffers past the cap — memory stays ~O(limit + one chunk).
+ * Returns the body bytes for a legitimate request, or `BODY_TOO_LARGE` when the cap is crossed.
+ *
+ * `destroyOnReturn:false` is load-bearing: breaking the `for await` calls the iterator's `return()`, and
+ * Node's default (`destroyOnReturn:true`) would DESTROY `req` — which shares the socket with `res` and
+ * would drop the `413` we still owe the caller. So we stop reading but leave the socket alive; the caller
+ * sets `Connection: close` on the `413` so the undrained remainder cannot poison a keep-alive socket.
+ */
+async function readBodyBounded(req: IncomingMessage, limit: number): Promise<Uint8Array | typeof BODY_TOO_LARGE> {
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of req.iterator({ destroyOnReturn: false }) as AsyncIterable<Buffer>) {
+    total += chunk.length;
+    if (total > limit) return BODY_TOO_LARGE;
+    chunks.push(chunk);
+  }
+  return new Uint8Array(Buffer.concat(chunks));
+}
+
 async function handleNodeRequest(req: IncomingMessage, res: ServerResponse, handler: McpHttpHandler): Promise<void> {
   try {
     const method = req.method ?? "GET";
-    const body = method === "GET" || method === "HEAD" ? undefined : new Uint8Array(await buffer(req));
+    // K-9 Origin guard runs FIRST (both surfaces), on a HEADER-ONLY request: a present-and-invalid Origin
+    // is refused with 403 BEFORE the body is read, so a bad-origin oversized body is never buffered.
+    const rejected = originGuard(toWebRequest(req, undefined));
+    if (rejected !== undefined) {
+      res.writeHead(rejected.status, { ...Object.fromEntries(rejected.headers), connection: "close" });
+      res.end(await rejected.text());
+      return;
+    }
+    // Accepted origin: read the body under the hard streaming cap (Lot H6). Oversized => 413, fail-closed,
+    // BEFORE dispatch. GET/HEAD carry no body. For any legitimate (< cap) request the bytes handed to the
+    // downstream handlers are byte-identical to the previous unbounded read, so the MCP `tools/call` (SSE)
+    // and the HTTP-mirror paths are unchanged.
+    let body: Uint8Array | undefined;
+    if (method !== "GET" && method !== "HEAD") {
+      const read = await readBodyBounded(req, MAX_REQUEST_BODY_BYTES);
+      if (read === BODY_TOO_LARGE) {
+        res.writeHead(413, { "content-type": "application/json", connection: "close" });
+        res.end(JSON.stringify({ error: "payload_too_large", max_bytes: MAX_REQUEST_BODY_BYTES }));
+        return;
+      }
+      body = read;
+    }
     const request = toWebRequest(req, body);
-    const rejected = originGuard(request); // K-9 Origin check BEFORE dispatch (both surfaces)
-    const response =
-      rejected ?? (isJsonMirrorHost(request) ? await handleJsonMirror(request) : await handler.fetch(request));
+    const response = isJsonMirrorHost(request) ? await handleJsonMirror(request) : await handler.fetch(request);
     res.writeHead(response.status, Object.fromEntries(response.headers));
     if (response.body !== null) {
       Readable.fromWeb(response.body).pipe(res);

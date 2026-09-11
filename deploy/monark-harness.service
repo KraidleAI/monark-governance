@@ -1,7 +1,10 @@
 # systemd unit for the MONARK harness (ADR-M005 D7/D10/D12; PLAN §H4). Orchestrator-deployed (ADR-M005 D12): the orchestrator
 # installs it over SSH, same channel as the vitrine. Mirrors the live vitrine motif (a systemd service + Caddy, NOT
 # docker): the vitrine runs as `monark.service` out of /opt/monark-app; the harness runs as
-# `monark-harness.service` out of /opt/monark-harness, isolated from it.
+# `monark-harness.service` out of /opt/monark-harness. Its isolation from the vitrine is ENFORCED, not a
+# bare claim: the resource caps below (CPUQuota/MemoryMax/TasksMax) bound its share of the shared host, it
+# binds loopback ONLY (127.0.0.1:3001, never a public interface), runs as a dedicated non-root User, and
+# ProtectSystem=strict makes the filesystem read-only to it.
 #
 # It serves BOTH surfaces on ONE loopback listener, 127.0.0.1:3001 (the server.ts defaults, under its
 # run-guard): the MCP surface for `mcp.monarkgate.tech` and the HTTP/JSON mirror for `api.monarkgate.tech`,
@@ -33,6 +36,19 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
+
+# Resource caps (Lot H6): the harness is a public, unauthenticated compute endpoint on the SAME VPS as the
+# live vitrine, so a crafted request must not be able to starve it. These bound the harness's share:
+#   CPUQuota=50%   — at most 50% of ONE CPU (systemd semantics: 500 ms of CPU time per second), NOT half the
+#                    box; the vitrine and the rest of the system keep their share and every other core.
+#   MemoryMax=512M — hard memory ceiling; the cgroup OOM-kills the HARNESS (never the vitrine) past it.
+#   TasksMax=128   — thread/process cap, so a fork/thread storm cannot exhaust the host PID table.
+# Enforcement is a runtime fact, not a file claim: verify with RUNBOOK step 4's
+#   `systemctl show monark-harness -p CPUQuotaPerSecUSec -p MemoryMax -p TasksMax`
+# (MemoryMax=infinity there would mean the cgroup cap is NOT applied on this host — investigate before go-live).
+CPUQuota=50%
+MemoryMax=512M
+TasksMax=128
 
 [Install]
 WantedBy=multi-user.target

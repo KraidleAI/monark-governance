@@ -7,6 +7,10 @@
  *
  * Mutant: change the Caddy reverse_proxy target to 127.0.0.1:3002 (or 0.0.0.0:3001), or drop
  * Restart=always from the unit ⇒ red.
+ *
+ * Lot H6 adds `harness_deploy_config_has_resource_caps`: the deploy configs must carry the resource caps
+ * that let the harness be a public, unauthenticated compute endpoint co-located with the vitrine — the
+ * Caddy request-body cap on every harness host, and the systemd CPU/memory/task ceilings.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -16,6 +20,45 @@ import { HOST, PORT } from "../apps/harness/src/server.ts";
 
 const REPO = fileURLToPath(new URL("../", import.meta.url));
 const read = (rel: string): string => readFileSync(REPO + rel, "utf8");
+
+/** A top-level Caddy site block: its `header` (host list before `{`) and its `body` (between the braces). */
+interface CaddyBlock {
+  readonly header: string;
+  readonly body: string;
+}
+
+/**
+ * Extract the top-level Caddy site blocks by brace depth. Line comments (`# …`) are stripped first so a
+ * brace or host name INSIDE a comment never shifts the parse; the `{host}` placeholder on `header_up` is
+ * brace-balanced, so it does not affect the depth-0 boundaries. Property-based on purpose: the body-cap
+ * test then holds whether mcp./api. share one block (as today) or are later split into two.
+ */
+function topLevelBlocks(text: string): CaddyBlock[] {
+  const src = text.replace(/#[^\n]*/g, "");
+  const out: CaddyBlock[] = [];
+  let depth = 0;
+  let headerStart = 0;
+  let bodyStart = -1;
+  let header = "";
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (ch === "{") {
+      if (depth === 0) {
+        header = src.slice(headerStart, i).trim();
+        bodyStart = i + 1;
+      }
+      depth++;
+    } else if (ch === "}") {
+      depth--;
+      if (depth === 0 && bodyStart >= 0) {
+        out.push({ header, body: src.slice(bodyStart, i) });
+        headerStart = i + 1;
+        bodyStart = -1;
+      }
+    }
+  }
+  return out;
+}
 
 test("harness_deploy_config_targets_loopback", () => {
   // The bind the configs must match IS the server's own default (code is the single source of truth).
@@ -44,4 +87,32 @@ test("harness_deploy_config_targets_loopback", () => {
   assert.ok(userMatch, "unit sets a User (least privilege)");
   assert.notEqual(userMatch[1], "root", "the harness must NOT run as root");
   assert.ok(!/^\s*Environment\s*=/m.test(unit), "no Environment= (no secret in the unit)");
+});
+
+test("harness_deploy_config_has_resource_caps", () => {
+  // --- Caddy request-body cap on EVERY harness host (Lot H6) -----------------------------------------
+  // The endpoint is public + unauthenticated on the vitrine's VPS; an oversized body is a DoS vector, so
+  // every site block that serves a harness host must cap the request body. Property, not layout: this
+  // passes with today's single combined block AND with a future split into two per-host blocks.
+  const caddy = read("deploy/Caddyfile.monark-harness");
+  const blocks = topLevelBlocks(caddy);
+  assert.ok(blocks.length > 0, "the Caddyfile has at least one site block");
+  const HARNESS_HOSTS = ["mcp.monarkgate.tech", "api.monarkgate.tech"];
+  for (const host of HARNESS_HOSTS) {
+    const hostRe = new RegExp(`(^|[\\s,])${host.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\s|,|$)`);
+    const serving = blocks.filter((b) => hostRe.test(b.header));
+    assert.ok(serving.length > 0, `a Caddy site block serves ${host}`);
+    for (const b of serving) {
+      assert.ok(/\brequest_body\b/.test(b.body), `the block serving ${host} caps the request body (request_body directive)`);
+      assert.ok(/\bmax_size\s+256\s*KB\b/i.test(b.body), `the block serving ${host} sets max_size 256KB`);
+    }
+  }
+
+  // --- systemd CPU / memory / task ceilings (Lot H6) ------------------------------------------------
+  // Bound the harness's share of the shared host so a crafted request cannot starve the vitrine. Pinned
+  // to the agreed values; a mutant that drops ANY one of the three (or weakens a value) reddens.
+  const unit = read("deploy/monark-harness.service");
+  assert.ok(/^\s*CPUQuota\s*=\s*50%\s*$/m.test(unit), "unit caps CPU (CPUQuota=50%)");
+  assert.ok(/^\s*MemoryMax\s*=\s*512M\s*$/m.test(unit), "unit caps memory (MemoryMax=512M)");
+  assert.ok(/^\s*TasksMax\s*=\s*128\s*$/m.test(unit), "unit caps tasks (TasksMax=128)");
 });
