@@ -116,3 +116,31 @@ test("harness_deploy_config_has_resource_caps", () => {
   assert.ok(/^\s*MemoryMax\s*=\s*512M\s*$/m.test(unit), "unit caps memory (MemoryMax=512M)");
   assert.ok(/^\s*TasksMax\s*=\s*128\s*$/m.test(unit), "unit caps tasks (TasksMax=128)");
 });
+
+// Lot H7 (OBS-2, availability hardening): the unit must (a) bound V8's heap BELOW MemoryMax so V8 GCs
+// rather than the cgroup OOM-killing the process mid-request, and (b) NOT let a sustained OOM/crash restart
+// loop trip systemd's default start-limit and latch the unit dead. Mutants: (m1) drop --max-old-space-size
+// from ExecStart => the heap-flag assertion reds; (m2) raise it to >= MemoryMax (e.g. 1024) => the
+// heap<cap invariant reds; (m3) drop StartLimitIntervalSec=0 => the start-limit assertion reds.
+test("harness_deploy_config_bounds_v8_heap_and_restart_loop", () => {
+  const unit = read("deploy/monark-harness.service");
+
+  // (a) V8 heap cap present ON the ExecStart directive line (scoped there on purpose: a comment that merely
+  // mentions the flag must NOT satisfy this — the flag has to actually be on the exec line), in MiB
+  // (nodejs.org CLI docs).
+  const execMatch = /^\s*ExecStart\s*=.*$/m.exec(unit);
+  assert.ok(execMatch, "unit has an ExecStart directive");
+  const heapMatch = /--max-old-space-size=(\d+)\b/.exec(execMatch[0]);
+  assert.ok(heapMatch, "ExecStart bounds V8's old-space heap (--max-old-space-size=<MiB>)");
+  const heapMiB = Number(heapMatch[1]);
+  assert.equal(heapMiB, 448, "the agreed V8 heap cap is 448 MiB");
+  // The invariant that makes it load-bearing: the heap cap must sit BELOW MemoryMax (both MiB — systemd
+  // suffixes are base-1024) so V8 GCs/throws before RSS hits the cgroup ceiling and the OOM-killer fires.
+  const memMatch = /^\s*MemoryMax\s*=\s*(\d+)M\s*$/m.exec(unit);
+  assert.ok(memMatch, "unit sets MemoryMax=<N>M");
+  const memMiB = Number(memMatch[1]);
+  assert.ok(heapMiB < memMiB, `V8 heap cap (${String(heapMiB)} MiB) must be below MemoryMax (${String(memMiB)} MiB) so V8 GCs before the cgroup OOM-kills`);
+
+  // (b) start rate limiting disabled: a crash/OOM loop must NOT latch the Restart= unit into a dead state.
+  assert.ok(/^\s*StartLimitIntervalSec\s*=\s*0\s*$/m.test(unit), "unit disables start rate limiting (StartLimitIntervalSec=0) so a crash/OOM loop cannot latch the unit dead");
+});

@@ -61,7 +61,7 @@ rougiraient le test 42. La checklist de tests nommés est enregistrée ici pour 
     **enveloppe `AdapterOutput` (K-1)** `{ price, provenance:{source_lot_sha256,source_verdict_sha256,shogen_head_sha}, label }` ;
     seul `price` passe `assertClosedAttestedPrice` ; **test 29** (couple réel ⊨ schéma) ; `adapter_output_carries_demonstrative_label` (mutant : label absent/« probative » ⇒ rouge) ; `adapter_maps_shogen_triple` (mutant : champ mal mappé ⇒ rouge).
   - **`crossAgentGate` réel** `(price, prediction, ctx)` remplace le stub ; **test 30** `cross_agent_gate_end_to_end` (mutant nommé).
-- **Pendant M003 CA-I (K-5)** : tests 31/41, `utterance-prix.ts`, panneau atelier UKEMI **non réduits silencieusement** — owner = lot post-H5 (ou M003 Lot I-c), consigné §4/PF.
+- **Pendant M003 CA-I (K-5)** : tests 31/41, `utterance-prix.ts`, panneau atelier UKEMI **non réduits silencieusement** — **daté 2026-09-11 (JOURNAL-PROVENANCE)** : owner = **lot de nettoyage M003 CA-I**, échéance **post-publication** (hors chemin critique « projet vérifié »).
 
 ### H3 — `attest` : expose Lot I (`fromShogen`) en MCP, enveloppe + label démonstratif
 **Dépend de** : H1 **et Lot I-b**. **Isolé (C-5)** : `src/tools/attest.ts` + 1 ligne registre.

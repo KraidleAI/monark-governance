@@ -160,7 +160,8 @@ l'**enveloppe** (K-1) ; calibration `synthetic` ; cascade `under_calib` déclar�
 - **PF-4 (D2)** — recherche GTM (advisor-marché), owner = orchestrateur (consultation formée), échéance avant toute revendication d'acheteur (jamais avant H5).
 - **PF-5 (Lot I)** — ✅ owner résolu = **agent** (K-6) ; rejeu au démarrage de Lot I-a, provenance commise.
 - **Pendant M003 CA-I (K-5)** — tests 31/41, `utterance-prix.ts`, panneau atelier UKEMI **non réduits silencieusement** :
-  owner = lot post-H5 (ou M003 Lot I-c), consigné, jamais un dû nu.
+  **daté 2026-09-11 (JOURNAL-PROVENANCE)** : owner = **lot de nettoyage M003 CA-I**, échéance **post-publication**
+  (hors chemin critique « projet vérifié »), consigné, jamais un dû nu.
 
 ## 5. Alternatives écartées
 Stand-ins de démo (rejeté Q1) ; réécrire l'attestation en TS (trahirait « le vrai Shōgen ») ; modifier F:\Shogen pour

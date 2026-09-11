@@ -163,7 +163,7 @@ function zeroSystem(n: number): CascadeInput {
 
 // Test — the Lot H6 resource cap rejects an oversized interbank system (n > CASCADE_MAX_NODES) at BOTH
 // layers, and accepts one exactly at the cap. WHY: the harness is a public, unauthenticated endpoint on the
-// vitrine's VPS and the Eisenberg-Noe clearing is ~O(n^3), so an unbounded L is a DoS vector.
+// vitrine's VPS and the fictitious-default clearing is superlinear (<=n rounds, each O(n^3)), so an unbounded L is a DoS vector.
 // Mutants (each reddens ≥ 1 assertion below): (m1) remove the `if (n > CASCADE_MAX_NODES)` guard in
 // cascade.ts ⇒ (a) stops throwing; (m2) drop `maxItems` from CASCADE_INPUT_SCHEMA in schema-projection.ts
 // ⇒ (b) the maxItems assertions and (c) the behavioral boundary rejection go green→red; (m3) widen the cap
@@ -194,4 +194,64 @@ test("cascade_rejects_oversized_system_over_the_node_cap", async () => {
   assert.notEqual(overValidated.issues, undefined, "the boundary schema rejects n > cap");
   const atCapValidated = await cascadeInputStandardSchema["~standard"].validate(atCap);
   assert.equal(atCapValidated.issues, undefined, "the boundary schema accepts n == cap (positive control)");
+});
+
+/** Wraps the outer matrix so we can COUNT numeric-index reads of it — a deterministic, machine-independent
+ *  proxy for the number of full passes over L. `clearingFromBelow` re-derives pbar and Pi from L on EVERY
+ *  Picard step (packages/ukemi/src/clearing.ts:198-199), so #reads-of-L tracks #iterations 1:1. */
+function countingMatrix(base: readonly (readonly number[])[]): { L: readonly (readonly number[])[]; reads: () => number } {
+  let reads = 0;
+  const L = new Proxy(base, {
+    get(target, prop): unknown {
+      if (typeof prop === "string" && String(Number(prop)) === prop) reads += 1;
+      return Reflect.get(target, prop) as unknown;
+    },
+  });
+  return { L, reads: () => reads };
+}
+
+// Test — cascade obtains L* from the BOUNDED `fictitiousDefault` (<= n rounds), NEVER paying for the
+// 100000-iteration `clearingFromBelow` least-vector pass. This is the checkpoint-2 self-DoS fix (Lot H7):
+// under the OLD path (`clearing(sys)`), a crafted request valid under every H6 cap makes the harness burn
+// ~1e9 ops (~7 s measured) on the single-threaded event loop per ~10 KB request.
+//
+// The input is the shape the validateur described and is WIRE-FEASIBLE: a pure n=64 cycle (n ==
+// CASCADE_MAX_NODES, the H6 cap; ~10 KB JSON, under the 256 KB Caddy body cap), each node owing 100 to the
+// next only, tiny e. On this gain-1 cycle `clearingFromBelow` never converges within tol and runs its full
+// maxIter=100000 Picard steps; cascade reads ONLY L*, which `fictitiousDefault` returns in <= n rounds
+// (here rounds=0 — the full cycle is solvent, L*=pbar), so that pass is pure waste.
+//
+// ORACLE (deterministic, stronger than a wall-clock timeout): count numeric-index reads of the outer L.
+// The new path does a FIXED 5 full passes over L (validate + cascade's pbarOf/piOf + fictitiousDefault's
+// pbarOf/piOf) = 5*N = 320 reads (measured). The OLD path adds 2*N per clearingFromBelow iteration =>
+// 2*64*100000 = 12,800,000 extra (12,800,320 total, measured). We CANNOT mock the internal call (node:test
+// + a non-writable ESM namespace), and BOTH paths return the identical L* — so op-count, not the result
+// value, is the discriminator. MUTANT: restore `const cleared = clearing(sys); ... cleared.pPlus` in
+// cascade.ts => reads jumps to ~1.28e7 and this assertion reddens (the RED run also takes ~7 s per call —
+// expected, not a hang).
+test("cascade_uses_bounded_fictitious_default_not_clearing_from_below", () => {
+  const N = CASCADE_MAX_NODES; // 64 = the H6 cap: the largest system the tool accepts.
+  const L = Array.from({ length: N }, (_, i) => Array.from({ length: N }, (_, j) => (j === (i + 1) % N ? 100 : 0)));
+  const e = new Array<number>(N).fill(1e-6);
+
+  const counted = countingMatrix(L);
+  const t0 = performance.now();
+  const liq0 = cascadeLiquidable({ L: counted.L, e, shock: 0, producedAt: "2026-09-04T00:00:00Z" });
+  const elapsedMs = performance.now() - t0;
+  const reads = counted.reads();
+
+  // KILLER (deterministic): <= 40*N (=2560) sits far above the fixed new-path 5*N (=320, measured) and far
+  // below the OLD path's 1.28e7 — so a mutant restoring the `clearing()` call reddens here on ANY machine.
+  assert.ok(reads < 40 * N, `cascade must read L a bounded O(N) times, not O(iterations*N): got ${String(reads)} (mutant restoring clearing() => ~1.28e7)`);
+
+  // CORRECTNESS on the pathological input: the full cycle is solvent (L*=pbar), so at shock 0 nothing tips.
+  assert.equal(liq0.liquidableDebt, 0, "shock 0: the full-cycle system is solvent (L*=pbar) => nothing liquidable");
+  assert.deepEqual(liq0.liquidableIds, [], "shock 0: the liquidable set is empty");
+  // shock 0.5 halves every cleared value (~100 -> ~50 < 100 = debt): all N nodes tip => yhat = N*100.
+  const p5 = runCascade({ L, e, shock: 0.5, producedAt: "2026-09-04T00:00:00Z" });
+  assert.equal(p5.yhat, N * 100, "shock 0.5: all 64 nodes tip => yhat = 6400");
+
+  // CORROBORATING only (NOT the oracle; generous bound so it cannot flake in CI): the bounded path returns
+  // in ~2 ms measured; the OLD path took ~7 s. The deterministic read-count above is the real killer.
+  assert.ok(elapsedMs < 2000, `bounded fictitious-default returns promptly: ${elapsedMs.toFixed(0)}ms (OLD path ~7000ms)`);
 });
