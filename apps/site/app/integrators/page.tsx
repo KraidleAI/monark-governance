@@ -63,7 +63,7 @@ export default function IntegratorsPage() {
       <p className="mb-9 max-w-[720px] text-[18px] leading-[1.55] text-muted-foreground">
         The harness makes the same gate callable over HTTP and MCP. The contracts are frozen today; the
         concrete endpoint is to be announced. What you send and what you get back will not change without
-        an ADR.
+        a versioned contract revision.
       </p>
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] gap-4">
