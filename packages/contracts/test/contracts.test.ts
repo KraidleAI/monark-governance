@@ -13,11 +13,13 @@ import {
 } from "../src/index.ts";
 import {
   validAttestedPrice,
+  validAttestedFlow,
   validPrediction,
   validVerdictSet,
   validVerdictInterval,
   validGateDecision,
 } from "./fixtures.ts";
+import { serializeAttestedFlow } from "../src/index.ts";
 
 const schemasDir = new URL("../../../schemas/", import.meta.url);
 // deno-lint-ignore no-explicit-any
@@ -35,6 +37,14 @@ test("schema properties are IN SYNC with the TS allowed-key sets (no drift)", ()
   assert.deepEqual(propKeys(ap.properties.attestor.items).sort(), [...ALLOWED_KEYS.attestor].sort());
   assert.deepEqual(propKeys(ap.properties.utterance).sort(), [...ALLOWED_KEYS.utterance].sort());
   assert.deepEqual(propKeys(ap.properties.observed_at).sort(), [...ALLOWED_KEYS.observedAt].sort());
+
+  const af = loadSchema("attested-flow.schema.json");
+  assert.deepEqual(propKeys(af).sort(), [...ALLOWED_KEYS.attestedFlow].sort());
+  assert.deepEqual(propKeys(af.properties.attestor.items).sort(), [...ALLOWED_KEYS.attestor].sort());
+  assert.deepEqual(propKeys(af.properties.source).sort(), [...ALLOWED_KEYS.attestedFlowSource].sort());
+  assert.deepEqual(propKeys(af.properties.flow).sort(), [...ALLOWED_KEYS.attestedFlowFlow].sort());
+  assert.deepEqual(propKeys(af.properties.utterance).sort(), [...ALLOWED_KEYS.utterance].sort());
+  assert.deepEqual(propKeys(af.properties.observed_at).sort(), [...ALLOWED_KEYS.observedAt].sort());
 
   assert.deepEqual(propKeys(loadSchema("prediction.schema.json")).sort(), [...ALLOWED_KEYS.prediction].sort());
 
@@ -59,7 +69,7 @@ test("every contract schema declares additionalProperties:false at each object n
       if (node.items) assertClosedNode(node.items, `${where}[]`);
     }
   }
-  for (const name of ["attested-price", "prediction", "coverage-verdict", "gate-decision"]) {
+  for (const name of ["attested-price", "attested-flow", "prediction", "coverage-verdict", "gate-decision"]) {
     assertClosedNode(loadSchema(`${name}.schema.json`), name);
   }
 });
@@ -88,6 +98,7 @@ test("intentInRegion — interval variant", () => {
 
 test("valid contracts serialize without throwing", () => {
   assert.doesNotThrow(() => serializeAttestedPrice(validAttestedPrice()));
+  assert.doesNotThrow(() => serializeAttestedFlow(validAttestedFlow()));
   assert.doesNotThrow(() => serializePrediction(validPrediction()));
   assert.doesNotThrow(() => serializeVerdict(validVerdictSet()));
   assert.doesNotThrow(() => serializeVerdict(validVerdictInterval()));

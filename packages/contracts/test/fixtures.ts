@@ -1,7 +1,30 @@
-import type { AttestedPrice, Prediction, CoverageVerdict, GateDecision } from "../src/index.ts";
+import type { AttestedPrice, AttestedFlow, Prediction, CoverageVerdict, GateDecision } from "../src/index.ts";
 import { calibDigest } from "../src/index.ts";
 
 const HASH = "a".repeat(64);
+
+export function validAttestedFlow(): AttestedFlow {
+  return {
+    schema_version: "1.0.0",
+    subject: "msUSD",
+    attestor: [{ identity: "issuer-por", key: "deadbeef" }],
+    source: { chain: "ethereum", issuer: "0x0000000000000000000000000000000000000000" },
+    window: "24h",
+    flow: {
+      burns: "1000000000000000000000",
+      mints: "0",
+      supply: "50000000000000000000000000",
+      from_block: 20000000,
+      to_block: 20007200,
+    },
+    residual: ["ap_capacity_unknown"],
+    transport: "rpc+por",
+    utterance: { hash: HASH },
+    observed_at: { clock: "transport", instant: 1_756_000_000 },
+    octets_recalcules: true,
+    verifier_revision: "narabi-adapter@abc123",
+  };
+}
 
 export function validAttestedPrice(): AttestedPrice {
   return {

@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import type { ValidateFunction } from "ajv";
 import {
   validAttestedPrice,
+  validAttestedFlow,
   validPrediction,
   validVerdictSet,
   validVerdictInterval,
@@ -23,6 +24,7 @@ function load(name: string): any {
 
 const ID = {
   ap: "https://monark.local/schemas/attested-price.schema.json",
+  af: "https://monark.local/schemas/attested-flow.schema.json",
   pred: "https://monark.local/schemas/prediction.schema.json",
   cv: "https://monark.local/schemas/coverage-verdict.schema.json",
   gd: "https://monark.local/schemas/gate-decision.schema.json",
@@ -46,6 +48,7 @@ addFormats(ajv);
 // Register all four so the gate-decision → coverage-verdict `$ref` resolves.
 ajv.addSchema([
   load("attested-price.schema.json"),
+  load("attested-flow.schema.json"),
   load("prediction.schema.json"),
   load("coverage-verdict.schema.json"),
   load("gate-decision.schema.json"),
@@ -57,7 +60,7 @@ function validator(id: string): ValidateFunction {
   return v;
 }
 
-test("all four schemas compile (valid JSON Schema; the $ref resolves)", () => {
+test("all five schemas compile (valid JSON Schema; the $ref resolves)", () => {
   assert.doesNotThrow(() => {
     for (const id of Object.values(ID)) validator(id);
   });
@@ -66,6 +69,8 @@ test("all four schemas compile (valid JSON Schema; the $ref resolves)", () => {
 test("valid fixtures pass their schema", () => {
   const vap = validator(ID.ap);
   assert.equal(vap(validAttestedPrice()), true, JSON.stringify(vap.errors));
+  const vaf = validator(ID.af);
+  assert.equal(vaf(validAttestedFlow()), true, JSON.stringify(vaf.errors));
   const vp = validator(ID.pred);
   assert.equal(vp(validPrediction()), true, JSON.stringify(vp.errors));
   const vcv = validator(ID.cv);
@@ -111,4 +116,26 @@ test("schema rejects a bad region kind (oneOf) and a set-region missing label_sc
   const vcv = validator(ID.cv);
   assert.equal(vcv({ ...validVerdictSet(), region: { kind: "triangle", a: 1 } }), false);
   assert.equal(vcv({ ...validVerdictSet(), region: { kind: "set", labels: ["up"] } }), false);
+});
+
+// ---- AttestedFlow (ADR-M008 D2/D3) — the frozen source of truth, Ajv-executed.
+
+test("attested-flow rejects a residual OUTSIDE the closed enum (ADR-M008 D3)", () => {
+  const vaf = validator(ID.af);
+  assert.equal(vaf({ ...validAttestedFlow(), residual: ["peg_broke"] }), false);
+  assert.equal(vaf({ ...validAttestedFlow(), residual: [] }), false); // minItems
+  assert.equal(vaf({ ...validAttestedFlow(), residual: ["ap_capacity_unknown", "ap_capacity_unknown"] }), false); // uniqueItems
+});
+
+test("attested-flow rejects a non-decimal-string flow count (raw uint256, no precision loss)", () => {
+  const af = validAttestedFlow();
+  // a JS number would lose precision above 2^53 ⇒ the schema demands a decimal string.
+  assert.equal(validator(ID.af)({ ...af, flow: { ...af.flow, burns: 1000 } }), false);
+  assert.equal(validator(ID.af)({ ...af, flow: { ...af.flow, supply: "0x1f" } }), false);
+});
+
+test("attested-flow rejects an unknown window and an unknown top-level key (closed)", () => {
+  const af = validAttestedFlow();
+  assert.equal(validator(ID.af)({ ...af, window: "7d" }), false);
+  assert.equal(validator(ID.af)({ ...af, peg_score: 0.9 }), false); // additionalProperties:false
 });

@@ -21,6 +21,13 @@ export const FORBIDDEN_KEYS: readonly string[] = [
   "trust",
   "score_de_confiance",
   "verdict_de_verite",
+  // Narabi / AttestedFlow surface (ADR-M008 D5): a redemption flow is measured under coverage, never
+  // scored. These keys are never legitimate anywhere in the fleet ⇒ banned globally. (NOTE: `price`/`mid`
+  // are NOT here — they are legitimate on the `attest` envelope; they are banned on AttestedFlow by its
+  // closed schema alone.)
+  "peg_score",
+  "p_depeg",
+  "nav",
 ] as const;
 
 const FORBIDDEN = new Set<string>(FORBIDDEN_KEYS);

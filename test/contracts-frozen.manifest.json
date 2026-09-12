@@ -1,15 +1,16 @@
 {
   "packages/contracts/src/calib-digest.ts": "3603265d0a1f1a4e3e1a1d57b4b568fcadf4f6861351c2ca49b38dc794c42380",
-  "packages/contracts/src/closed-check.ts": "0411585fdd9ec06a3b1510e716fcbe5ae662cac70fe51d41745c8bdd27fac79c",
-  "packages/contracts/src/enums.ts": "8e4b733282c500c4329e7d640ef4af329c924c63d3bba35a656dbc90bfffbb8d",
-  "packages/contracts/src/forbidden-keys.ts": "4d9fd4cf5319258bc5525ef87d3e50e2dda6497b424bac3e3255c954294c9c3d",
-  "packages/contracts/src/index.ts": "5be892e2303b4a8ef21e9868703c6f2e0b306c89a995bb689d8b2688a054de5e",
+  "packages/contracts/src/closed-check.ts": "e41477ce48517342be0577d02793b3b7ce6e02d06e0ee19cb66e3405a30d5c76",
+  "packages/contracts/src/enums.ts": "452a5224ecd4828645bcdb6dc18fd205d6c91a0f52bff4345fd4b10c1703721d",
+  "packages/contracts/src/forbidden-keys.ts": "a2298a6cc8c0b868f419c82f8b862b76d483b177a3828f43a197f5406075da9a",
+  "packages/contracts/src/index.ts": "321725f9ec78be17d731bd7e3de8d08f7bfcc608fb674a37d3f4443cf64a1254",
   "packages/contracts/src/region.ts": "369054e6760ed8abf8d00d21c587d1265288d1fce6ebbfc3cb23d623b0dc05e6",
-  "packages/contracts/src/serialize.ts": "8dbff773941efc5cc176183d546dcf5fd9211354284471ff73dbfecc7ecbc42b",
-  "packages/contracts/src/types.ts": "29c250f42fdd9db72f106a3b43440e68e01d9bc00c273f618c73e28af2c1045e",
+  "packages/contracts/src/serialize.ts": "cd510be3d9d5e09acd0321181d6947ddc178ea88e9103dcbaf7e6990739e457c",
+  "packages/contracts/src/types.ts": "1a94c70858c7ee646dbe9e7867ff705d68a49624be0c4e329682f685ae0fab70",
+  "schemas/attested-flow.schema.json": "a12fdac1e58b0980ea49bda43bc11ad141e266d5f98e4f99bfbb234aace9344d",
   "schemas/attested-price.schema.json": "d2c17c4dfd2b44b2b79041e2164628f75f67cb0d3fadefe804e3b43e2d873b8a",
   "schemas/coverage-verdict.schema.json": "203591de14994dfbc1076a5af888accd147cfb832a22feb2e284432b68c18d88",
-  "schemas/forbidden-keys.json": "6dbcca9956dd11916f27f6b9c93ddf7c36819913a0b6afd031277ffeaf132f46",
+  "schemas/forbidden-keys.json": "a4e93fd14c1dbd51d6bbffbdc289e8bcba08c1a94dd306c2729d0849d25e2990",
   "schemas/gate-decision.schema.json": "ed725b73e346eda43c67376286d9a653cdbc1686ceb09d2e93d1bc3280a5fea9",
   "schemas/prediction.schema.json": "f304e0726f06aa5158a5c023c8236b3cad535ba3d7507d249667a856118fd3cc"
 }

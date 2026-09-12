@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://monark.local/schemas/attested-flow.schema.json",
+  "title": "AttestedFlow",
+  "description": "Projection of a VERIFIED redemption-flow observation — the THIRD typed attestation of the fleet (Narabi), parallel to AttestedPrice. Carries the RAW flow counts (burns/mints/supply, decimal-string uint256) plus the on-chain block range that makes them recalculable against eth_getLogs; the VELOCITY v_t = burns/(supply*delta) is NOT carried here (it is derived by a HIKAE adapter, the emitted-meaning gap). No peg_score/p_depeg/confidence/nav, no price/mid: a flow is measured under coverage, never scored (ADR-M008 D0/D2). Modelled on attested-price.schema.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "attestor",
+    "source",
+    "window",
+    "flow",
+    "residual",
+    "transport",
+    "utterance",
+    "observed_at",
+    "octets_recalcules",
+    "verifier_revision"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "subject": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 },
+    "attestor": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["identity", "key"],
+        "properties": {
+          "identity": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 },
+          "key": { "type": "string", "pattern": "^([0-9a-f]{2})+$" }
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chain", "issuer"],
+      "properties": {
+        "chain": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 },
+        "issuer": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 }
+      }
+    },
+    "window": { "type": "string", "enum": ["1h", "24h"] },
+    "flow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["burns", "mints", "supply", "from_block", "to_block"],
+      "properties": {
+        "burns": { "type": "string", "pattern": "^[0-9]+$" },
+        "mints": { "type": "string", "pattern": "^[0-9]+$" },
+        "supply": { "type": "string", "pattern": "^[0-9]+$" },
+        "from_block": { "type": "integer", "minimum": 0 },
+        "to_block": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "residual": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "ap_capacity_unknown",
+          "attestor_silent",
+          "attestor_terminated",
+          "primary_closed_weekend",
+          "cross_venue_gap",
+          "redeem_velocity_unexplained",
+          "mint_wall"
+        ]
+      }
+    },
+    "transport": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 },
+    "utterance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hash"],
+      "properties": {
+        "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "bytes": { "type": "string", "pattern": "^([0-9a-f]{2})*$" }
+      }
+    },
+    "observed_at": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clock", "instant"],
+      "properties": {
+        "clock": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 },
+        "instant": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "octets_recalcules": { "type": "boolean" },
+    "verifier_revision": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 }
+  }
+}

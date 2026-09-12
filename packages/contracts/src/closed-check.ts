@@ -16,6 +16,12 @@ export const ALLOWED_KEYS = {
     "schema_version", "subject", "attestor", "residual", "transport",
     "utterance", "observed_at", "octets_recalcules", "verifier_revision", "sens_emis_digest",
   ],
+  attestedFlow: [
+    "schema_version", "subject", "attestor", "source", "window", "flow",
+    "residual", "transport", "utterance", "observed_at", "octets_recalcules", "verifier_revision",
+  ],
+  attestedFlowSource: ["chain", "issuer"],
+  attestedFlowFlow: ["burns", "mints", "supply", "from_block", "to_block"],
   attestor: ["identity", "key"],
   utterance: ["hash", "bytes"],
   observedAt: ["clock", "instant"],
@@ -62,6 +68,19 @@ export function assertClosedAttestedPrice(value: unknown): void {
   }
   if (v["utterance"] !== undefined) assertOnlyKeys(asObject(v["utterance"], "AttestedPrice.utterance"), ALLOWED_KEYS.utterance, "AttestedPrice.utterance");
   if (v["observed_at"] !== undefined) assertOnlyKeys(asObject(v["observed_at"], "AttestedPrice.observed_at"), ALLOWED_KEYS.observedAt, "AttestedPrice.observed_at");
+}
+
+export function assertClosedAttestedFlow(value: unknown): void {
+  const v = asObject(value, "AttestedFlow");
+  assertOnlyKeys(v, ALLOWED_KEYS.attestedFlow, "AttestedFlow");
+  const attestor = v["attestor"];
+  if (Array.isArray(attestor)) {
+    attestor.forEach((a, i) => assertOnlyKeys(asObject(a, `AttestedFlow.attestor[${i}]`), ALLOWED_KEYS.attestor, `AttestedFlow.attestor[${i}]`));
+  }
+  if (v["source"] !== undefined) assertOnlyKeys(asObject(v["source"], "AttestedFlow.source"), ALLOWED_KEYS.attestedFlowSource, "AttestedFlow.source");
+  if (v["flow"] !== undefined) assertOnlyKeys(asObject(v["flow"], "AttestedFlow.flow"), ALLOWED_KEYS.attestedFlowFlow, "AttestedFlow.flow");
+  if (v["utterance"] !== undefined) assertOnlyKeys(asObject(v["utterance"], "AttestedFlow.utterance"), ALLOWED_KEYS.utterance, "AttestedFlow.utterance");
+  if (v["observed_at"] !== undefined) assertOnlyKeys(asObject(v["observed_at"], "AttestedFlow.observed_at"), ALLOWED_KEYS.observedAt, "AttestedFlow.observed_at");
 }
 
 export function assertClosedPrediction(value: unknown): void {

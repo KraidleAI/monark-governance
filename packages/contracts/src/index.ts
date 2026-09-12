@@ -13,6 +13,8 @@ export type {
   IsoDateTime,
   Attestor,
   AttestedPrice,
+  AttestedFlow,
+  AttestedFlowResidual,
   Prediction,
   CoverageReason,
   PredictionRegion,
@@ -22,7 +24,7 @@ export type {
   GateDecision,
 } from "./types.ts";
 
-export { COVERAGE_REASONS, GATE_ACTIONS, METHODS } from "./enums.ts";
+export { COVERAGE_REASONS, GATE_ACTIONS, METHODS, ATTESTED_FLOW_RESIDUALS } from "./enums.ts";
 
 export { intentInRegion } from "./region.ts";
 export { calibDigest } from "./calib-digest.ts";
@@ -30,12 +32,14 @@ export { FORBIDDEN_KEYS, findForbiddenKey, assertNoForbiddenKey } from "./forbid
 export {
   ALLOWED_KEYS,
   assertClosedAttestedPrice,
+  assertClosedAttestedFlow,
   assertClosedPrediction,
   assertClosedCoverageVerdict,
   assertClosedGateDecision,
 } from "./closed-check.ts";
 export {
   serializeAttestedPrice,
+  serializeAttestedFlow,
   serializePrediction,
   serializeVerdict,
   serializeGateDecision,

@@ -1,7 +1,7 @@
 {
   "$id": "https://monark.local/schemas/forbidden-keys.json",
   "title": "MONARK forbidden keys — fleet invariant",
-  "description": "MONARK fleet invariant (ADR-M001 Decision 7). Cited union of TWO primary-source disciplines: Shogen 03 §0 (temoignage_canonique.rs L15-19: no truth field, no confidence score, no 'validated') + Grok hac-cp.ts:77 (p_correct, confidence, hallucination_score, hallucination). NONE of these keys may appear at ANY level of a serialized contract. Primary enforcement = closed schemas (additionalProperties:false); this list = defense in depth, applied RECURSIVELY.",
+  "description": "MONARK fleet invariant (ADR-M001 Decision 7, extended by ADR-M008 D5). Union of THREE disciplines: Shogen 03 §0 (temoignage_canonique.rs L15-19: no truth field, no confidence score, no 'validated') + Grok hac-cp.ts:77 (p_correct, confidence, hallucination_score, hallucination) + Narabi/AttestedFlow (peg_score, p_depeg, nav: a flow is measured under coverage, never scored). NONE of these keys may appear at ANY level of a serialized contract. NOTE: price/mid are NOT banned globally (legitimate on the attest envelope); they are banned on AttestedFlow by its closed schema alone. Primary enforcement = closed schemas (additionalProperties:false); this list = defense in depth, applied RECURSIVELY.",
   "forbidden_keys": [
     "p_correct",
     "confidence",
@@ -14,6 +14,9 @@
     "certainty",
     "trust",
     "score_de_confiance",
-    "verdict_de_verite"
+    "verdict_de_verite",
+    "peg_score",
+    "p_depeg",
+    "nav"
   ]
 }

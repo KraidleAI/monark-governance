@@ -10,7 +10,7 @@
  * enums are derived from the single runtime source in enums.ts.
  */
 
-import type { CoverageReason, GateAction, Method } from "./enums.ts";
+import type { CoverageReason, GateAction, Method, AttestedFlowResidual } from "./enums.ts";
 
 /** Lowercase hex, even length (e.g. an ed25519 key). */
 export type Hex = string;
@@ -70,6 +70,52 @@ export interface AttestedPrice {
   sens_emis_digest?: Hex32;
 }
 
+/**
+ * A VERIFIED redemption-flow observation — the THIRD typed attestation of the fleet (Narabi,
+ * ADR-M008 D2), parallel to AttestedPrice. The RAW counts are carried (as decimal-string uint256, so
+ * no JS-number precision is lost) together with the `[from_block, to_block]` range that makes them
+ * recalculable against `eth_getLogs`; the VELOCITY is NOT here — a HIKAE adapter derives it (the same
+ * emitted-meaning gap as AttestedPrice's price number). No peg_score/p_depeg/confidence/nav, no
+ * price/mid: a flow is measured under coverage, never scored.
+ */
+export interface AttestedFlow {
+  schema_version: SemVer;
+  /** The asset / wrapper whose redemption flow is observed (e.g. "msUSD"). */
+  subject: string;
+  /** >=1 attestor, no exact duplicate — the issuer / proof-of-reserve attestor. */
+  attestor: Attestor[];
+  /** Where the flow is read: the chain and the token issuer. */
+  source: { chain: string; issuer: string };
+  /** The observation window the raw counts are summed over. */
+  window: "1h" | "24h";
+  /**
+   * RAW flow counts as decimal-string uint256 (adapter parses with BigInt): `supply` at window CLOSE,
+   * `burns`/`mints` SUMMED over the window, plus the block range so a third party can recompute them
+   * from `eth_getLogs`. NOT a pre-computed ratio (the velocity is the adapter's, recalculable).
+   */
+  flow: { burns: string; mints: string; supply: string; from_block: number; to_block: number };
+  /** Standing assumptions, CLOSED enum (>=1), in emitted order, never aggregated. NOT scores. */
+  residual: AttestedFlowResidual[];
+  /** Attestation-mechanism id (opaque), e.g. the RPC + proof-of-reserve transport. */
+  transport: string;
+  utterance: {
+    /** SHA-256 of the exact canonical payload (on-chain logs + endpoint body) — ALWAYS carried. */
+    hash: Hex32;
+    /** Exact bytes, when class policy retains them. */
+    bytes?: Hex;
+  };
+  observed_at: {
+    /** Identity of the transport's clock (never MONARK's). */
+    clock: string;
+    /** Timestamp in seconds, carried data (the core reads no clock). */
+    instant: number;
+  };
+  /** Whether the counts were recomputed over the carried block range. Mandatory. */
+  octets_recalcules: boolean;
+  /** Revision of the binary that ran the delegated verification (provenance). */
+  verifier_revision: string;
+}
+
 /** The upstream predictor HIKAE conformalizes — the 4th contract (ADR-M001 D6). */
 export interface Prediction {
   schema_version: SemVer;
@@ -82,7 +128,7 @@ export interface Prediction {
   features_digest?: Hex32;
 }
 
-export type { CoverageReason, GateAction, Method } from "./enums.ts";
+export type { CoverageReason, GateAction, Method, AttestedFlowResidual } from "./enums.ts";
 
 /**
  * The prediction region — POLYMORPHIC (ADR-M001 D4/#2). `set` = classification

@@ -6,7 +6,10 @@
  * English — NO `schema_version` bump, no data-shape change). Any drift = red. A DATA-SHAPE contract
  * evolution goes through an ADR + a `schema_version` bump; an ANNOTATION-ONLY erratum
  * (`description`/`title`, no bump) goes through an ADR too — both then re-baseline this manifest in
- * the same commit.
+ * the same commit. Re-baselined again by ADR-M008 D9: a NEW frozen contract `AttestedFlow`
+ * (schemas/attested-flow.schema.json, the 5th) + its TS binding in packages/contracts/src/** +
+ * forbidden-keys extension (peg_score/p_depeg/nav) — a new file and new keys, the 4 existing
+ * contracts unchanged.
  * Run by `npm test` in EACH worktree (outside per-lot counting).
  */
 import { test } from "node:test";
@@ -60,9 +63,9 @@ test("contracts_frozen — schemas/ and packages/contracts/src/ identical to the
   }
 });
 
-test("contracts_frozen — the manifest is not empty and covers the 5 schemas", () => {
+test("contracts_frozen — the manifest is not empty and covers the 6 schemas", () => {
   const keys = Object.keys(FROZEN_MANIFEST);
   assert.ok(keys.length >= 10, `manifest too short: ${keys.length}`);
   const schemas = keys.filter((k) => k.startsWith("schemas/")).length;
-  assert.equal(schemas, 5, "expected: 4 schemas + forbidden-keys.json");
+  assert.equal(schemas, 6, "expected: 5 schemas (attested-price, attested-flow, prediction, coverage-verdict, gate-decision) + forbidden-keys.json");
 });

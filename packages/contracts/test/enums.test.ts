@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { COVERAGE_REASONS, GATE_ACTIONS, METHODS } from "../src/index.ts";
+import { COVERAGE_REASONS, GATE_ACTIONS, METHODS, ATTESTED_FLOW_RESIDUALS } from "../src/index.ts";
 
 // Closes G2 reserve M3: the enums are single-sourced in enums.ts; the JSON Schema
 // copies are asserted identical to it, so no silent drift between the two.
@@ -26,4 +26,9 @@ test("method enum: schema matches the TS single source", () => {
 test("action enum: schema matches the TS single source", () => {
   const gd = load("gate-decision.schema.json");
   assert.deepEqual(gd.properties.action.enum, [...GATE_ACTIONS]);
+});
+
+test("attested-flow residual enum: schema matches the TS single source (ADR-M008 D3)", () => {
+  const af = load("attested-flow.schema.json");
+  assert.deepEqual(af.properties.residual.items.enum, [...ATTESTED_FLOW_RESIDUALS]);
 });
