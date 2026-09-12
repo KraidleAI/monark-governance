@@ -19,7 +19,9 @@
       "package": "monark",
       "extensions": [".ts", ".js", ".mjs", ".json", ".md"],
       "banned": [
-        { "re": "(?<!pyth-)(?<!clawpump-)\\bHermes\\b", "why": "naked \"Hermes\" forbidden in packages/monark/** — name collision (Pyth Hermes vs ClawPump harness); qualify as pyth-hermes / clawpump-hermes (ADR-M003 D12, pre-verif 4)" }
+        { "re": "(?<!pyth-)(?<!clawpump-)\\bHermes\\b", "why": "naked \"Hermes\" forbidden in packages/monark/** — name collision (Pyth Hermes vs ClawPump harness); qualify as pyth-hermes / clawpump-hermes (ADR-M003 D12, pre-verif 4)" },
+        { "re": "(?<!not a )(?<!no )peg[-_\\s]?score", "why": "naked \"peg score\" surclaim on the Narabi surface (ADR-M008 D5); the honest \"not a peg score\"/\"no peg score\" negation stays green" },
+        { "re": "\\bp[_\\s-]?depeg\\b", "why": "\"p_depeg\" — Narabi never emits a depeg probability (ADR-M008 D5)" }
       ]
     },
     "site": {
@@ -57,7 +59,9 @@
         { "re": "\\bself[-\\s]?evolving\\b", "why": "\"self-evolving\" claim (ADR-M005 D9)" },
         { "re": "(?<!\\bno\\s)guarantee", "why": "naked \"guarantee/guarantees/guaranteed\" surclaim on the calibrate surface; the honest \"no guarantee\" stays green (ADR-M007 B-3 ; R1: ADR-literal — participle covered, so \"coverage is guaranteed\" reddens. Known limit: \"not/cannot guaranteed\" would also redden — no such honest span exists in scope; a future one = an exemptPhrases line)" },
         { "re": "(?<!not\\s)(?<!no[\\s_])probative", "why": "naked \"probative\" surclaim; the honest \"not probative\"/\"no probative\"/\"no_probative\" negations stay green (ADR-M007 B-3)" },
-        { "re": "\\bpredicts\\b", "why": "\"predicts\" — the fleet conforms a predictor, it does not itself predict; \"predictor\"/\"prediction\" stay green (ADR-M007 B-3)" }
+        { "re": "\\bpredicts\\b", "why": "\"predicts\" — the fleet conforms a predictor, it does not itself predict; \"predictor\"/\"prediction\" stay green (ADR-M007 B-3)" },
+        { "re": "(?<!not a )(?<!no )peg[-_\\s]?score", "why": "naked \"peg score\" surclaim on the harness surface (ADR-M008 D5); the honest \"not a peg score\"/\"no peg score\" negation stays green" },
+        { "re": "\\bp[_\\s-]?depeg\\b", "why": "\"p_depeg\" — the harness never emits a depeg probability (ADR-M008 D5)" }
       ]
     },
     "skills": {

@@ -1,0 +1,203 @@
+// packages/monark/src/adapter-narabi.ts — the Narabi AttestedFlow -> Prediction adapter (ADR-M008 D4).
+//
+// PURE: derives the redemption VELOCITY from a VERIFIED `AttestedFlow` and emits the frozen `Prediction`
+// (a velocity FORECAST), wrapped in the K-1 envelope (label + provenance live OUTSIDE the frozen,
+// additionalProperties:false contract, exactly like adapter-shogen.ts). Our own code, no npm dependency.
+//
+// The velocity is NEVER carried pre-computed in the contract (the emitted-meaning gap, ADR-M008 D2): it
+// is RECALCULABLE here from the raw counts + block range. The forecast rule is a DECLARED, NAMED baseline
+// (persistence: v̂_{t,t+h} = v_t) — honest for F1; a sourced model supersedes it per-class (D7bis). No peg
+// score, no p(run), no advice: a flow is measured under coverage, never scored.
+//
+// K-8: this module lives in packages/monark/src (NOT apps/harness/src/tools), so it may hash. It reads NO
+// network / fs / env / current clock — `produced_at` is DERIVED from the CARRIED `observed_at.instant`
+// (a pure transformation of carried data), nothing else.
+import { createHash } from "node:crypto";
+import {
+  assertClosedAttestedFlow,
+  assertClosedPrediction,
+  assertNoForbiddenKey,
+  serializeAttestedFlow,
+  ATTESTED_FLOW_RESIDUALS,
+} from "@monark/contracts";
+import type { AttestedFlow, Prediction, CoverageReason } from "@monark/contracts";
+
+/** The frozen contract version (ADR-M001) — a constant, never carried by the inputs. */
+const SCHEMA_VERSION = "1.0.0";
+
+/** The committed task_class for the Narabi velocity forecast (ADR-M008 D4). "24h" = the forecast horizon h. */
+export const NARABI_TASK_CLASS = "stable-run-velocity-24h";
+
+/**
+ * The F1 baseline forecaster: PERSISTENCE — v̂_{t,t+h} = v_t (this window's measured velocity). DECLARED
+ * and honest; the nonconformity pair for F2 is (v̂, v realized next window). A sourced model per-class
+ * (D7bis) supersedes it with its OWN predictor_id.
+ */
+export const NARABI_PREDICTOR_ID = "narabi:persistence-v1";
+
+/** The K-1 honesty label (ADR-M008 D5). Lives on the envelope, NEVER inside the frozen contract. */
+export const NARABI_LABEL =
+  "measured redemption flow; velocity forecast conformalized under coverage; not a peg score, not advice";
+
+/** Velocity unit = fraction of supply redeemed per HOUR (homogeneous across window sizes, D4). */
+const WINDOW_HOURS: Record<AttestedFlow["window"], number> = { "1h": 1, "24h": 24 };
+
+/**
+ * Fixed-point scale for burns/supply. The Number narrowing is EXACT while `burns·10^12/supply < 2^53`
+ * (i.e. ratio ≲ 9e3, which covers the run/severity regime of interest, O(1)–O(10)); above that the
+ * low-order bits are lost (never NaN/Inf — the value stays finite for any uint256). A ratio below 1e-12
+ * truncates to 0 (negligible for run detection). NOT a general exactness claim.
+ */
+const RATIO_SCALE = 1_000_000_000_000n;
+
+/**
+ * Max `observed_at.instant` (Unix seconds) the frozen `Prediction.produced_at` (format: date-time,
+ * RFC-3339, 4-digit year) can carry: the last second of year 9999. Beyond it `toISOString()` emits the
+ * `+0YYYYY` extended form ajv rejects (G2-delta R-DELTA-1). Verified: 253_402_300_799 → "9999-12-31T23:59:59Z".
+ */
+const MAX_INSTANT_SECONDS = 253_402_300_799;
+
+/**
+ * Reasons the adapter can refuse — a NON-attestation COMPUTATION fault ⇒ frozen COVERAGE_REASONS literals
+ * ONLY (ADR-M008 D3, validateur #9). An attestation fault (attestor silence/termination) is a RESIDUAL on
+ * the AttestedFlow, not an adapter error: it rides in `flow.residual`, never here.
+ */
+export type NarabiAdapterErrorReason = Extract<CoverageReason, "non_evaluable" | "binding_broken">;
+
+/** Provenance of one adapted output (K-1) — recomputable from the inputs. */
+export interface NarabiProvenance {
+  readonly source_flow_sha256: string;
+  readonly window: AttestedFlow["window"];
+  readonly from_block: number;
+  readonly to_block: number;
+  /** The per-hour velocity the forecast is built on, recomputed here from the raw counts. */
+  readonly velocity_per_hour: number;
+}
+
+/** The K-1 envelope: only `prediction` is a frozen contract; `provenance`/`label` live OUTSIDE it. */
+export interface NarabiOutput {
+  readonly prediction: Prediction;
+  readonly provenance: NarabiProvenance;
+  readonly label: string;
+}
+
+/** A named, fail-closed refusal. Never a default, never a partial `Prediction`. */
+export interface NarabiError {
+  readonly error: true;
+  readonly reason: NarabiAdapterErrorReason;
+  readonly message: string;
+}
+
+/** True iff a `fromAttestedFlow` result is the refusal branch. */
+export function isNarabiError(x: unknown): x is NarabiError {
+  return typeof x === "object" && x !== null && (x as { error?: unknown }).error === true;
+}
+
+function fail(reason: NarabiAdapterErrorReason, message: string): NarabiError {
+  return { error: true, reason, message };
+}
+
+const DECIMAL = /^[0-9]+$/;
+
+function sha256HexUtf8(text: string): string {
+  return createHash("sha256").update(text, "utf8").digest("hex");
+}
+
+/** ISO-8601 from the CARRIED Unix-seconds instant — pure (an argument-ed Date, never the current clock). */
+function isoFromInstant(instant: number): string {
+  return new Date(instant * 1000).toISOString();
+}
+
+/**
+ * Projects a VERIFIED `AttestedFlow` into the frozen `Prediction` (a per-hour velocity forecast), wrapped
+ * in the K-1 envelope. Pure. Returns a named `NarabiError` on any non-conforming input.
+ */
+export function fromAttestedFlow(flow: AttestedFlow): NarabiOutput | NarabiError {
+  // (1) The input must be a closed, forbidden-key-free AttestedFlow (fail-closed, not a partial).
+  try {
+    assertClosedAttestedFlow(flow);
+    assertNoForbiddenKey(flow);
+  } catch (e) {
+    return fail("binding_broken", `input is not a closed AttestedFlow: ${(e as Error).message}`);
+  }
+
+  const { burns, mints, supply, from_block, to_block } = flow.flow;
+
+  // (2) VALUE guards the closed-check (keys only) does not express (fail-closed, NEVER a partial). The
+  //     schema enforces these too, but the adapter re-guards so a caller that skips validation cannot
+  //     smuggle a NaN forecast or a silent out-of-enum residual past us (ADR-M008 D3, MAST contrat↔adaptateur).
+  if (!(flow.window in WINDOW_HOURS)) {
+    return fail("binding_broken", `unknown window '${flow.window}' (expected 1h|24h)`);
+  }
+  for (const r of flow.residual) {
+    if (!(ATTESTED_FLOW_RESIDUALS as readonly string[]).includes(r)) {
+      return fail("binding_broken", `residual '${r}' outside the closed enum (ADR-M008 D3)`);
+    }
+  }
+  if (!DECIMAL.test(burns) || !DECIMAL.test(supply) || !DECIMAL.test(mints)) {
+    return fail("binding_broken", "flow counts must be decimal-string uint256");
+  }
+  if (!Number.isInteger(from_block) || !Number.isInteger(to_block) || to_block < from_block) {
+    return fail("binding_broken", `invalid block range [${String(from_block)}, ${String(to_block)}]`);
+  }
+  // observed_at.instant is unbounded above in the schema, but `produced_at` carries `format: date-time`
+  // (RFC-3339, a 4-DIGIT year). The bound is therefore the last second of year 9999 (253_402_300_799 s =
+  // 9999-12-31T23:59:59Z): beyond it `toISOString()` emits the `+0YYYYY` extended form that ajv REJECTS —
+  // and past ~8.64e12 s it throws RangeError outright. Guard on the SCHEMA-valid range (not merely the
+  // Date-representable range, G2-delta R-DELTA-1) so a schema-valid but out-of-range instant is a NAMED
+  // refusal, never a schema-INVALID Prediction returned as success nor an uncaught throw (R1 class).
+  const instant = flow.observed_at.instant;
+  if (!Number.isInteger(instant) || instant < 0 || instant > MAX_INSTANT_SECONDS) {
+    return fail("binding_broken", `observed_at.instant out of the date-time range [0, ${String(MAX_INSTANT_SECONDS)}]: ${String(instant)}`);
+  }
+  const supplyBig = BigInt(supply);
+  if (supplyBig === 0n) {
+    return fail("non_evaluable", "supply is zero — velocity is undefined");
+  }
+  const burnsBig = BigInt(burns);
+  // NB: NO `burns > supply` guard. `supply` is the CLOSING supply (D2); during a real run the closing
+  // supply is DRAINED, so burns/supply_close can exceed 1 — that is a severity signal, exactly the regime
+  // Narabi exists to see, NEVER an "impossible flow" to reject (checkpoint-2 C-1). Only supply=0 is
+  // non_evaluable. `mints` is carried for audit / the mint_wall residual, outside the D4 velocity (burns only).
+
+  // (3) Velocity v_t = (burns / supply) / Δ_hours — fraction of supply redeemed per hour (D4).
+  const ratio = Number((burnsBig * RATIO_SCALE) / supplyBig) / Number(RATIO_SCALE);
+  const velocityPerHour = ratio / WINDOW_HOURS[flow.window];
+
+  // (4) The F1 forecast: PERSISTENCE — v̂_{t,t+h} = v_t (declared baseline; a number yhat, regression).
+  const yhat = velocityPerHour;
+  if (!Number.isFinite(yhat)) {
+    return fail("binding_broken", "velocity forecast is not finite"); // belt-and-suspenders after the guards above
+  }
+
+  // (5) The frozen Prediction — the SAME contract HIKAE conformalizes; features_digest binds the flow.
+  const prediction: Prediction = {
+    schema_version: SCHEMA_VERSION,
+    task_class: NARABI_TASK_CLASS,
+    yhat,
+    predictor_id: NARABI_PREDICTOR_ID,
+    produced_at: isoFromInstant(instant),
+    features_digest: flow.utterance.hash,
+  };
+
+  // (6) Fail-closed on the frozen contract: ONLY `prediction` must pass (label/provenance are outside, K-1).
+  try {
+    assertClosedPrediction(prediction);
+    assertNoForbiddenKey(prediction);
+  } catch (e) {
+    return fail("binding_broken", `mapped prediction is not a closed Prediction: ${(e as Error).message}`);
+  }
+
+  // (7) The K-1 envelope: the content digest binds the input, the block range names the recompute domain.
+  return {
+    prediction,
+    provenance: {
+      source_flow_sha256: sha256HexUtf8(serializeAttestedFlow(flow)),
+      window: flow.window,
+      from_block,
+      to_block,
+      velocity_per_hour: velocityPerHour,
+    },
+    label: NARABI_LABEL,
+  };
+}

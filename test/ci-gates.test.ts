@@ -134,6 +134,25 @@ test("vocab_monark_scope_bans_naked_hermes — naked Hermes reddens, pyth-/clawp
   assert.ok(!re.test("pyth-hermes prices"), "pyth-hermes must stay green");
 });
 
+// ADR-M008 D5 (« mutant surclaim ⇒ ROUGE ») — the Narabi peg-score / p_depeg patterns are present in BOTH
+// the monark and harness scopes AND discriminating: a naked surclaim reddens, the honest negation stays
+// green. Without this, deleting the patterns would redden no test (the G2 R2 gap). Uses the REAL gate
+// functions (compilePatterns/scanText) without executing the CLI.
+test("vocab_narabi_scopes_ban_peg_score_and_p_depeg — naked surclaim reddens, negation green (ADR-M008 D5)", () => {
+  const cfg = JSON.parse(readFileSync(join(ROOT, "vocab-banned.json"), "utf8"));
+  for (const scopeName of ["monark", "harness"] as const) {
+    const scope = cfg.scan[scopeName];
+    assert.ok(scope, `scope '${scopeName}' missing from vocab-banned.json`);
+    const patterns = compilePatterns(scope.banned);
+    // (a) MUTANT — a naked peg-score / p_depeg surclaim reddens.
+    assert.ok(scanText("the sensor emits a peg score of 0.9", patterns).length >= 1, `(a) naked "peg score" must redden the ${scopeName} scope`);
+    assert.ok(scanText("field p_depeg carries the estimate", patterns).length >= 1, `(a) "p_depeg" must redden the ${scopeName} scope`);
+    // (b) the honest negation stays green (NARABI_LABEL's "not a peg score", and "no peg score").
+    assert.deepEqual(scanText("velocity forecast under coverage, not a peg score, not advice", patterns), [], `(b) "not a peg score" must stay green in the ${scopeName} scope`);
+    assert.deepEqual(scanText("no peg score is emitted", patterns), [], `(b) "no peg score" must stay green in the ${scopeName} scope`);
+  }
+});
+
 // Lot F-2a (PLAN F-2 §6e, C6) — the public storefront vocabulary gate (scope 'site') bans the README
 // v2 marketing vocab in apps/site. Live end-to-end mutant (grep of the gate on a banned word in an
 // apps/site file) is in docs/G1-lot-F2a.md; this locks the config so the scope cannot drift silently.

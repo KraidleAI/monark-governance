@@ -1,0 +1,99 @@
+# ADR-M008 — Narabi : capteur de flux (AttestedFlow), 3ᵉ attestation typée
+
+> **Statut** : **ACCEPTÉ** (2026-09-12) — G0 ratifié. Revue technique advisor `claude-fable-5-1` (2 défauts bloquants sur E3 corrigés : D4/D4bis prévision de vélocité + seuil quantile 99e ; D7 calibration calm-only, run hors échantillon ; + P1/P2/P3). **Escalades E-M008-1..4 ratifiées par l'investisseur le 2026-09-12** (« yes », E3 = forme amendée). Checkpoint validateur `claude-fable-5-1` : à confirmer ou renoncer explicitement par l'investisseur avant F1 (voir §7). F2 bloqué sur donnée msUSD (P-F-5).
+> **Roster** : workers `claude-opus-4-8` effort high ; orchestrateur/validateur `claude-fable-5-1` ; Opus 5 banni. Siège committeur `claude-opus-4-8` (exception Opus-seat).
+> **S'appuie sur** : ADR-M001 (contrats gelés + `calibDigest` C5), ADR-M002 (HIKAE `splitQuantile`, `conformInterval`), ADR-M005 (harnais, set terminal 4 outils, K-8), ADR-M007 (BYO `calibrate`), et la fiche produit `MONARK SUITE/produit-F-run-redemption.md`.
+> **Nom** : « Narabi 並び » = nom interne de flotte (roster gelé 2026-09-06). Aucun impact wire.
+
+## 1. Contexte
+
+### 1.1 Décision investisseur
+Narabi (pièce F) est la prochaine pièce construite (« pas de triche, aligné sur nos décisions »). C'est le **3ᵉ capteur** : Shōgen atteste un **prix** (`AttestedPrice`), Narabi atteste un **flux de rachat** (burns / file de redeem / utilisation / statut attestor). Objet mathématique = **vélocité** `v_t = B_t / (S_t · Δ)` (burns sur supply sur fenêtre), jamais un prix, jamais un score de dépeg.
+
+### 1.2 Cadrage advisor (figé, à ne pas rouvrir)
+1. F = nouvelle **attestation typée `AttestedFlow`**, PAS une réutilisation d'`AttestedPrice`.
+2. « Fini » (barre de livraison) = **1re calibration commitée issue d'outcomes RÉELS** (épisode msUSD) ; sinon F = typage + adaptateur et le gate abstient encore.
+3. PAS de « Live Shōgen à l'appel » ni aucune I/O dans `src/tools/` (K-8) : l'ingestion est **hors outil**, l'appelant/adaptateur apporte le constat **déjà hashé** (comme `attest` apporte le lot Binance figé).
+4. Principe appliqué dès Narabi : **un abstain porte toujours une raison lisible**.
+5. Zéro couplage token ; zéro `p_depeg`/`peg_score`/`confidence`/`nav`.
+
+### 1.3 Grounding code ([lu] 2026-09-12, file:ligne)
+- **`schemas/attested-price.schema.json`** — le modèle exact d'une attestation gelée : `additionalProperties:false`, `schema_version`, `subject`, `attestor[]{identity,key}`, `residual[]`, `transport`, `utterance{hash,bytes?}`, `observed_at{clock,instant}`, `octets_recalcules`, `verifier_revision`, `sens_emis_digest`. **Aucun champ truth/confidence/validated** (Shōgen 03 §0). AttestedFlow se modèle DESSUS.
+- **`apps/harness/src/tools/gate.ts:44-45,382-411`** — `gate` dispatche sur `task_class` : `btc-dir-15m` (set committé), `cascade-liquidable-24h` (interval, AUCUNE calibration committée ⇒ `under_calib`/abstain), ou BYO (`params.calibration` présent, M007 D7). **C'est ici que la classe Narabi se branche.**
+- **`apps/harness/src/tools/cascade.ts:53-99,163-182`** — `cascade` prend `{L,e,shock,producedAt}` (graphe interbancaire) et fabrique des `Position[]` pour `liquidableAmount`. Narabi peut fournir des `Position[]` RÉELLES au lieu du graphe synthétique (composition secondaire).
+- **`packages/ukemi/src/liquidable.ts:19-61`** — `Position{collateralQty,collateralPrice,liqThreshold,debt}` + `liquidableAmount(positions,shock)` (Eq. 3). L'adaptateur Narabi peut peupler ces `Position[]`.
+- **`apps/harness/src/tools/registry.ts:32`** — `ALLOWED_TOOL_NAMES = ["attest","gate","cascade","calibrate"]`, **set TERMINAL de 4 ratifié** (M007). ⇒ **Narabi n'ajoute AUCUN 5ᵉ outil** (voir D-Surface), sinon amendement de set requis.
+- **`packages/hikae/src/l1-split.ts`** `splitQuantile` (statique, fail-closed) et **`interval-conformer.ts`** `conformInterval` — la calibration de Narabi les réutilise ; **ACI (adaptatif) n'est PAS implémenté** (grep 2026-09-12 : seul le NOM « Adaptive Conformal Control » existe) ⇒ hors périmètre F (voir D8).
+- **`packages/contracts/src/closed-check.ts` + `schemas/forbidden-keys.json`** — mécanisme `assertNoForbiddenKey` + liste de clés interdites ⇒ à étendre pour bannir `peg_score`/`p_depeg`/`confidence`/`nav` sur AttestedFlow.
+
+## 2. Décisions
+
+### D0 — Nature
+Narabi = **capteur** émettant un nouveau contrat gelé **`AttestedFlow`** + un **adaptateur pur** `AttestedFlow → Prediction` (vélocité), consommé par les outils EXISTANTS. Aucune I/O dans les outils (K-8) : l'ingestion on-chain (Transfer vers l'adresse de burn, `totalSupply` horaire, endpoint proof-of-reserve 200/404) se fait **hors outil**, produit un `AttestedFlow` **déjà hashé et recalculable**. Gratuit, sans état, sans stockage (M005 D6).
+
+### D-Surface — AUCUN nouvel outil MCP (set terminal 4 préservé)
+Narabi n'ajoute pas de 5ᵉ outil (l'invariant `{attest,gate,cascade,calibrate}` reste, M007). Le constat entre par **l'appelant qui porte** la sortie de l'adaptateur dans `gate` (nouvelle `task_class`, chemin BYO/committé) et/ou dans `cascade` (`Position[]`). **NB : la composition UKEMI exige que l'appelant fournisse `liqThreshold` et `debt` par position — non dérivables d'`AttestedFlow` ⇒ c'est un SECOND input, pas une dérivation du flux (chemin secondaire).** Cohérent avec la philosophie caller-carried (comme B_t, comme `params.calibration`). *(Escalade E-M008-1 : dédier un outil `narabi` plus tard = amendement de set explicite, non retenu par défaut.)*
+
+### D1 — Deux lots (découpe par oracles séparables)
+- **F1** = contrat gelé `AttestedFlow` + adaptateur `AttestedFlow → Prediction(vélocité)` + nouvelle `task_class` branchée sur `gate` + porteurs d'honnêteté K-1 + fail-closed. **Sans calibration committée, la classe abstient (`under_calib`) honnêtement** (comme `cascade` aujourd'hui). Oracle : contrat fermé, adaptateur déterministe, vélocité recalculable à la main, vocab non-vacuité.
+- **F2** = **1re calibration committée** issue de la série msUSD réalisée (flux + outcome réalisé ⇒ scores de non-conformité ⇒ la classe peut **committer**, audit `calib_digest` fermé). Oracle : replay msUSD, digest reproductible, quantile hand-rolled anti-circulaire. **Dépend de la donnée (P-F-5).**
+
+### D2 — Contrat gelé `AttestedFlow` (schemas/attested-flow.schema.json)
+Modelé sur AttestedPrice, `additionalProperties:false`, champs : `schema_version` ; `subject` (l'actif/wrapper, ASCII) ; `attestor[]{identity,key}` (l'émetteur/attestor du proof-of-reserve) ; `source{chain, issuer}` ; `window` (`"1h"`|`"24h"`) ; `flow{burns, mints, supply, from_block, to_block}` (bruts, PAS un ratio pré-calculé : `supply` à la **clôture** de fenêtre, `burns`/`mints` **sommés** sur la fenêtre, `[from_block,to_block]` porté DANS le payload pour que `octets_recalcules` soit une **procédure vérifiable** contre `eth_getLogs`, pas une revendication ; la vélocité est dérivée par l'adaptateur) ; `transport` (id du mécanisme d'attestation, opaque : le RPC + endpoint proof-of-reserve — parallèle à AttestedPrice, pour qu'un tiers sache QUEL transport a produit le flux) ; `utterance{hash, bytes?}` (SHA-256 du payload canonique = logs on-chain + corps de l'endpoint) ; `observed_at{clock,instant}` ; `residual[]` (**enum FERMÉ**, ci-dessous) ; `octets_recalcules` ; `verifier_revision`. **Interdits** (bannis, D5) : `peg_score`, `p_depeg`, `confidence`, `nav`, tout `price`/`mid`. *(Escalade E-M008-2 : gelé en `schemas/` (proposé, cohérent audit/recalcul) vs projection non gelée façon `params` — proposition = GELÉ.)*
+
+### D3 — Résidus v1 (enum fermé, fiche produit §1.1)
+`ap_capacity_unknown`, `attestor_silent`, `attestor_terminated`, `primary_closed_weekend`, `cross_venue_gap`, `redeem_velocity_unexplained`, `mint_wall`. Enum **fermé** (plus strict que le `residual[]` libre d'AttestedPrice) ⇒ un résidu inconnu est un rejet fail-closed, jamais un texte silencieux. **`attestor_silent`/`attestor_terminated` sont liés à un statut HTTP 4xx/5xx OBSERVÉ + son hash dans l'`utterance`, jamais à l'absence d'un champ** (un endpoint muet est un fait attesté, pas un trou de données).
+
+### D4 — Adaptateur + `task_class` (PRÉVISION de vélocité)
+L'adaptateur recalcule la vélocité `v_t = burns/(supply·Δ)` (jamais portée pré-calculée dans le contrat) et émet une **PRÉVISION** `v̂_{t,t+h}` (h=24h) sous forme de `Prediction` **interval** (régression). **`supply` = supply à la CLÔTURE de fenêtre (D2)** ⇒ lors d'un drain sévère la supply de clôture est réduite et le ratio `burns/supply` **PEUT dépasser 1** : c'est un **signal de sévérité** (exactement le régime que Narabi doit voir), **jamais un rejet** (checkpoint-2 C-1) ; seul `supply=0` ⇒ `non_evaluable`. `mints` est porté pour l'audit et le résidu `mint_wall`, **hors** la formule de vélocité (D4 = burns seul). **Paires de calibration = (v̂ prévue, v réalisée de la fenêtre suivante)** ; score de non-conformité `|v_{t+h} − v̂|`. C'est la SEULE paire (ŷ,y) **homogène** qui rend le split-conformal applicable : le montant liquidable/run réalisé est une AUTRE quantité ⇒ ce serait la classification `{hold,run}` (secondaire). Nouvelle `task_class` proposée : **`stable-run-velocity-24h`**. Dispatch `gate` : classe committée (après F2) ou BYO. *(Escalade E-M008-3 amendée : voir §6. Escalade E-M008-4 : nom de la `task_class`.)*
+
+### D4bis — Règle de décision = CÔTÉ APPELANT (siège HORS contrats gelés)
+Le gate émet commit/defer/abstain sur la **suffisance de COUVERTURE** de la région de vélocité prévue `[lo,hi]` (comme toute classe) — **jamais une action de marché**. L'ALERTE de run (« borne basse > quantile 99e historique ⇒ l'appelant `swap_out` », fiche §3 « alerte si v > quantile 99e historique, avant tout mid ») est une **RÈGLE DE DÉCISION CÔTÉ APPELANT** appliquée à la région committée, exactement comme `B_t` est caller-carried : **MONARK n'émet ni `swap_out` ni `alerte` ni `run`** (aucun nouveau `GateAction`/`CoverageReason` ; `{commit,defer,abstain}` et `COVERAGE_REASONS` restent gelés — vérifié `enums.ts:7-25`). Le seuil q99 est **caller-carried** (déclaré, recalculable), comparé à la région **en aval** ; en F1, aucun q99 committé ⇒ la classe abstient `under_calib`. Motif : la couverture qualifie la prévision (rôle MONARK), le seuil qualifie l'action (rôle appelant, « never a probability of being right »). **⇒ D4bis ne requiert AUCUN amendement des contrats gelés** (résout la condition d'escalade du checkpoint validateur, 2026-09-12).
+
+### D5 — Honnêteté K-1 (3 porteurs, négation-aware, non-vacuité)
+Label unique porté aux 3 porteurs (description outil + `content` MCP + label de sortie), en anglais, déclarant l'hypothèse et l'absence de score. Motif M007 D5. Étendre `grep-forbidden`/`vocab-banned` à la surface Narabi **sans casser l'existant** (négation-aware) ; mutant surclaim ⇒ ROUGE. Aucun « probability of being right », aucun p(run), aucun peg_score.
+
+### D6 — K-8 / statelessness / recalcul hors ligne
+Les outils ne font aucune I/O. L'adaptateur d'ingestion (hors `src/tools/`) apporte l'`AttestedFlow` hashé ; `octets_recalcules` = un tiers recompute le hash depuis les logs + le corps d'endpoint (doctrine Shōgen ADR-0003, « recompute yourself »). MONARK ne stocke rien.
+
+### D7 — Barre « fini » = 1re calibration réelle (F2) + dépendance donnée
+La classe ne **commit** qu'avec une calibration committée issue d'outcomes réalisés : **paires (v̂ prévue, v réalisée de la fenêtre suivante)** sur la série msUSD (D4). **Fenêtres de calibration = périodes CALMES uniquement ; le run est TENU HORS ÉCHANTILLON comme test** (sinon on poole deux régimes, ce que D7bis interdit, et le backtest « aurait-il parlé au jour −5 ? » perd son sens). **Homogénéité fenêtre↔horizon (note advisor)** : l'adaptateur accepte une fenêtre d'observation `1h` ou `24h` et prévoit à horizon 24h par persistance ; pour des paires (v̂, v réalisée) homogènes, la calibration F2 restreint le lot aux **fenêtres du MÊME type** (24h), ou déclare explicitement l'hypothèse de persistance 1h→24h — à trancher en F2, jamais un choix silencieux. **Dépendance P-F-5** : la série BRUTE msUSD (tx redeem/burn + `totalSupply` horaire + outcome) n'est PAS dans le dossier (grep 2026-09-12) ⇒ **procurement** (Dune / export explorer / subgraph), requiert **l'adresse du contrat msUSD** + la fenêtre. Si la donnée n'est pas de niveau [lu] ⇒ demande de procurement formée (règle Dettes), jamais un contournement.
+
+### D7bis — msUSD = 1er lot, montée en classes, recherche poussée PAR classe
+msUSD n'est pas le périmètre : c'est le **premier** lot de calibration. Raisons du choix en premier : (a) c'est un épisode à **outcome réalisé** connu (vérité terrain pour de vrais scores + backtest) ; (b) l'**échangeabilité interdit de pooler** tous les stablecoins dans une seule calibration (majors profonds vs wrapper long-tail = régimes distincts) ⇒ calibration **par classe**, msUSD ancrant la classe « run wrapper long-tail » ; (c) c'est un vrai événement de **flux** (file de redeem), visible par Narabi, contrairement aux dépegs de **bilan/carnet** (xUSD/deUSD/USDe) que le flux ne voit pas.
+**Montée en classes** : msUSD (long-tail) → majors → collatéralisés → etc., une calibration committée **par classe**. **CHAQUE `task_class` de calibration fait l'objet d'une recherche poussée dédiée** (biblio + passe de lecture, discipline doc-03 ; sur outcomes réels ; **résultat négatif accepté**) AVANT d'être committée. **Aucun modèle pooled unique.** Actif hors classe / sans historique / sans flux ⇒ **abstain motivé** (résidu type calibration/diversité absente).
+
+### D8 — ACI hors périmètre F (ADR séparé)
+F1/F2 utilisent le **split-conformal statique** (échangeabilité **déclarée**, comme aujourd'hui). ACI (adaptatif) n'est PAS dans F : c'est un ADR ultérieur (candidat M009) sous forme de **primitive pure à état porté par l'appelant** (α_t + err révélé), motivé par la non-stationnarité du flux. Tant qu'ACI n'est pas livré, **ne pas** marketer Narabi comme « adaptatif ». (Le flux non stationnaire de Narabi est précisément le futur consommateur d'ACI.)
+
+### D9 — Versionnement / contrats gelés
+Nouveau `schemas/attested-flow.schema.json` (nouveau contrat, pas une modif d'un gelé existant) ⇒ **re-baseline du manifest `contracts_frozen`** (5ᵉ contrat gelé) — à porter dans le commit F1. `forbidden-keys.json` étendu. `SCHEMA_VERSION` des Prediction/verdict inchangé (l'adaptateur émet le `Prediction` gelé existant).
+
+## 3. Critères d'acceptation (par lot)
+R-25 < plafond ; **G2 fraîche ≠ générateur** ; F1 : contrat fermé + adaptateur déterministe + vélocité hand-rolled (anti-circularité) + enum résidus fermé (résidu inconnu ⇒ rejet) + mutant d'honnêteté (surclaim ⇒ rouge) + abstain motivé sans calibration ; F2 : replay msUSD reproductible + digest audit fermé (`adaptateur.scores` ⇒ `calib_digest` = `calibDigest`) + quantile hand-rolled. Contrats gelés : re-baseline explicite (nouveau contrat) ; 0 modif des 4 gelés existants. checkpoint validateur avant merge ; redéploiement seulement quand F1+F2 verts.
+
+## 4. Modes MAST (risque résiduel)
+- Dérive contrat↔adaptateur (le `Prediction` émis doit être exactement le gelé existant) ⇒ tests de fermeture + G2.
+- Overclaim latent « adaptive » (le nom du moteur) ⇒ D8 : interdiction de marketer adaptatif avant ACI.
+- Donnée msUSD non recalculable / non exchangeable ⇒ D7 procurement + note d'échangeabilité (la calibration ne vaut que dans la classe).
+- Résidu manquant / score qui rentre par une clé ⇒ enum fermé + forbidden-keys + closed-check.
+
+## 5. Alternatives écartées
+Réutiliser `AttestedPrice` (contredit l'advisor : F est une attestation typée distincte) ; un 5ᵉ outil MCP `narabi` (casse le set terminal 4 sans amendement) ; porter la vélocité pré-calculée dans le contrat (non recalculable) ; committer sans calibration réelle (fixture, gate malhonnête) ; ACI dans F sans son ADR ni feedback (étiquette adaptative vide, overclaim).
+
+## 6. Décisions escaladées — **RATIFIÉES par l'investisseur le 2026-09-12** (« yes »)
+- **E-M008-1** ✅ — Surface : aucun nouvel outil MCP (set terminal 4 préservé) ; l'outil `narabi` dédié reste un amendement de set non retenu.
+- **E-M008-2** ✅ — `AttestedFlow` GELÉ dans `schemas/` (5ᵉ contrat gelé).
+- **E-M008-3** ✅ (amendé advisor) — Prediction primaire = **prévision de vélocité `v̂_{t,t+h}` (interval)** + **règle de décision côté appelant sur le quantile 99e historique** (D4/D4bis), paires de calib (prévu, réalisé fenêtre suivante), **calm-only / run hors échantillon** (D7).
+- **E-M008-4** ✅ — `task_class` = `stable-run-velocity-24h` ; « Narabi » = nom interne uniquement (zéro impact wire).
+- **Dépendance P-F-5** — adresse du contrat msUSD + fenêtre (bloque F2, pas F1). **Demande de procurement formée** : `MONARK SUITE/biblio-F-narabi/PROCUREMENT-P-F-5-msusd-data.md`.
+
+## 7. Implémentation — topologie, checkpoints, statut
+- **Topologie (CA-4)** : un implémenteur `claude-opus-4-8` (effort high, siège committeur Opus-seat) ; **une revue G2 en instance séparée à contexte frais** (relecteur ≠ générateur, worker `claude-opus-4-8`) ; **aucun** worker parallèle sur fichiers partagés (pas de fan-out — l'indépendance de vérification, pas le débit, AgileGates).
+- **Découpe R-25** : **F1a** = zone gelée (`attested-flow.schema.json` + binding `packages/contracts/src/**` + `forbidden-keys` étendu + re-baseline manifest) = un événement d'audit ; **F1b** = adaptateur `packages/monark/src/adapter-narabi.ts` + branchement `gate` + honnêteté + tests + re-pin de la trace h5 (la description outil ayant changé).
+- **Checkpoints AgileGates** : (1) PLAN — validateur `claude-fable-5-1` **ACCEPTE-AVEC-CORRECTIONS** (2026-09-12), 12 corrections intégrées ; le point #1 (siège D4bis) **résolu sans amendement de contrat gelé** (règle côté appelant, D4bis) ⇒ **pas d'escalade**. (2) LIVRABLE — verdict G7 orchestrateur + acceptation validateur checkpoint-2 (conditionné à la revue G2 fraîche) AVANT clôture.
+- **Statut F1** : code écrit, `npm run ci` **vert (197 tests)**, typecheck + gate:vocab OK.
+  - **G2 fraîche** (worker `claude-opus-4-8`, ≠ générateur) = CLOS-AVEC-RÉSERVES → R1 (adaptateur ne re-vérifiait pas `window`/`residual`/`isFinite`) + R2/R3/R4/O1 **levées**.
+  - **Checkpoint-2 validateur** (`claude-fable-5-1`) = ACCEPTE-AVEC-CORRECTIONS → **C-1** (garde `burns>supply` erronée : supply=clôture, un drain pousse le ratio >1 = signal, jamais rejet) et **C-2** (`instant` non borné) **levées** ; C-4/C-5/C-6 (journal + comptes R-25 + persistance checkpoint-1) faits.
+  - **G2-delta** (worker `claude-opus-4-8`, ≠ générateur, mutants vérifiés) = CLOS-AVEC-RÉSERVES → **R-DELTA-1** (classe R1 : borne `instant` sur la représentabilité `Date` et non le format RFC-3339 4-chiffres ⇒ un `produced_at` `+0YYYYY` invalide au schéma s'échappait en succès) **levée** (borne `MAX_INSTANT_SECONDS=253_402_300_799` = 9999-12-31T23:59:59Z + test frontière ajv) ; R-DELTA-2/3 (doc) + O-DELTA-1 (commentaire précision) **corrigés**.
+  - **G7 orchestrateur : CLOS** (oracle ré-exécuté 197 verts ; R1/C-1/C-2/R-DELTA-1 fermées avec mutants discriminants). Reste : commit local (2 commits R-25 : F1a≈314 / F1b≈550 insertions, branche `lot-m008-f1`). **Pas de push public / pas de redéploiement VPS** tant que F1+F2 ne sont pas verts (§3).

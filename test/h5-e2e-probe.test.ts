@@ -47,12 +47,12 @@ const TRACE_PATH = fileURLToPath(new URL("../fixtures/h5-e2e-trace.json", import
 const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url));
 
 /** Pinned sha256 (LF-normalized) of the committed trace — also stated in fixtures/PROVENANCE-h5-e2e-trace.md.
- *  Re-pinned again after the verdict summary was appended to the gate `content` text (a delivery aid for
- *  text-only MCP clients that drop `structuredContent`): the cascade-gate and btc-dir-gate `content[].text`
- *  now carry `verdict action=… reason=… region=… qhat=… n_calib=… calib_digest=…`, derived from the same
- *  frozen decision (structuredContent + every digest are byte-identical). (Prior re-pin: Lot C2 ADR-M007
- *  D7 grew the `tools/list` bytes via the optional BYO `calibration` field.) */
-const TRACE_SHA256_PINNED = "4481384a003d1a4af00e06d3dc997f43777421cc7471d04a40745b87b79e9293";
+ *  Re-pinned again for ADR-M008 F1 (Narabi): the `stable-run-velocity-24h` honesty sentence was added to
+ *  GATE_TOOL_DESCRIPTION, so the `tools/list` step's `response_sha256` changed (the ONLY drift — the
+ *  cascade-gate/btc-dir-gate/attest decision bytes and every digest are byte-identical; the trace stores
+ *  the response as a hash, so its own length is unchanged). (Prior re-pins: the verdict summary in the gate
+ *  `content` text; Lot C2 ADR-M007 D7 grew the `tools/list` bytes via the optional BYO `calibration` field.) */
+const TRACE_SHA256_PINNED = "e847315c6c0abe065e6ad4bbbe57e5697223dcbbd6e545eb57594da79bc24e50";
 
 const DEMONSTRATIVE_LABEL = "real, notary Shōgen, demonstrative, not probative";
 

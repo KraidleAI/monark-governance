@@ -121,3 +121,14 @@ export const MONARK_PHASE = "2-integration";
 // is where the Shōgen -> AttestedPrice adapter is published. Additive; the frozen contracts are unchanged.
 export { fromShogen, isAdapterError, DEMONSTRATIVE_LABEL, SHOGEN_HEAD_SHA } from "./adapter-shogen.ts";
 export type { AdapterOutput, AdapterError, AdapterProvenance, AdapterErrorReason } from "./adapter-shogen.ts";
+
+// Narabi — the AttestedFlow -> Prediction (velocity forecast) adapter (ADR-M008 D4). Additive; the frozen
+// contracts are unchanged. The velocity is derived here (recalculable), never carried pre-computed.
+export {
+  fromAttestedFlow,
+  isNarabiError,
+  NARABI_TASK_CLASS,
+  NARABI_PREDICTOR_ID,
+  NARABI_LABEL,
+} from "./adapter-narabi.ts";
+export type { NarabiOutput, NarabiError, NarabiProvenance, NarabiAdapterErrorReason } from "./adapter-narabi.ts";

@@ -43,10 +43,20 @@ export const SCHEMA_VERSION = "1.0.0";
 
 export const TASK_BTC_DIR = "btc-dir-15m";
 export const TASK_CASCADE = "cascade-liquidable-24h";
+/** Narabi velocity-forecast class (ADR-M008 D4). "24h" = the forecast horizon; UNCOMMITTED in F1 (abstains). */
+export const TASK_STABLE_RUN = "stable-run-velocity-24h";
 
 /** The one honesty sentence the `cascade` path MUST carry (K-4e). */
 export const CASCADE_UNCALIBRATED_SENTENCE =
   "no cascade calibration is committed; the gate abstains (under_calib) on this class";
+
+/**
+ * The one honesty sentence the `stable-run-velocity-24h` path MUST carry while UNCOMMITTED (K-4e, ADR-M008
+ * D5). Distinct from the cascade sentence: a default fall-through to CASCADE_UNCALIBRATED_SENTENCE would be
+ * FALSE on the wire next to a stable-run decision (validateur checkpoint, correction #2).
+ */
+export const STABLE_RUN_UNCALIBRATED_SENTENCE =
+  "no stable-run velocity calibration is committed; the gate abstains (under_calib) on this class";
 
 export const GATE_TOOL_NAME = "gate";
 
@@ -57,6 +67,7 @@ export const GATE_TOOL_DESCRIPTION =
   "authorization budget B_t. Dispatches on task_class. For 'btc-dir-15m' it conformalizes against a " +
   "committed synthetic calibration derived from the HIKAE S2a instrument (seed 101, n=300 draw), declared " +
   `synthetic — a plumbing fixture, not a measured predictor. For 'cascade-liquidable-24h' ${CASCADE_UNCALIBRATED_SENTENCE}. ` +
+  `For 'stable-run-velocity-24h' (Narabi: a redemption-flow velocity forecast) ${STABLE_RUN_UNCALIBRATED_SENTENCE}. ` +
   "When the caller instead supplies a `calibration` (its own nonconformity scores plus a `mode`: `interval` " +
   "⇒ region [yhat - q̂, yhat + q̂], or `set` ⇒ a conformal set over caller `candidates`), the gate " +
   `conformalizes against THOSE caller-supplied scores (BYO): ${CALIBRATE_LABEL} ` +
@@ -356,6 +367,27 @@ function cascadeVerdict(prediction: Prediction, params: HarnessParams): Coverage
 }
 
 /**
+ * stable-run velocity verdict (ADR-M008 D4): `conformInterval` with NO committed calibration ⇒ empty
+ * region ⇒ `abstain`/`under_calib`. Identical shape to `cascadeVerdict` by design — F1 has no committed
+ * velocity calibration, so the honest, expected result is abstention; F2 supplies the msUSD-calibrated
+ * scores (D7). The velocity FORECAST itself is the caller-carried `prediction.yhat` (the Narabi adapter's
+ * output); the gate only conformalizes and decides.
+ */
+function stableRunVerdict(prediction: Prediction, params: HarnessParams): CoverageVerdict {
+  const yhat = typeof prediction.yhat === "number" ? prediction.yhat : Number(prediction.yhat);
+  return conformInterval({
+    calib: [], // no committed velocity calibration in F1 — the honest, expected result is abstention
+    yhat,
+    alpha: params.alpha,
+    nMin: params.nMin,
+    taskClass: TASK_STABLE_RUN,
+    residual: [],
+    producedAt: prediction.produced_at,
+    schemaVersion: SCHEMA_VERSION,
+  }).verdict;
+}
+
+/**
  * The honesty text carried in the MCP tool result content (never inside the frozen decision, K-1).
  * B-1 (CRITICAL): keyed on the PRESENCE of calibration, NOT on `task_class` alone — a BYO decision on a
  * free-string class must NOT fall through to the CASCADE sentence (which would be false on the wire next
@@ -364,6 +396,7 @@ function cascadeVerdict(prediction: Prediction, params: HarnessParams): Coverage
 export function honestyText(taskClass: string, isByo: boolean): string {
   if (isByo) return `${CALIBRATE_LABEL} B_t is caller-carried.`;
   if (taskClass === TASK_BTC_DIR) return `${BTC_DIR_CALIB_PROVENANCE} B_t is caller-carried.`;
+  if (taskClass === TASK_STABLE_RUN) return `${STABLE_RUN_UNCALIBRATED_SENTENCE}; B_t is caller-carried.`;
   return `${CASCADE_UNCALIBRATED_SENTENCE}; B_t is caller-carried.`;
 }
 
@@ -409,7 +442,7 @@ export function runGate(prediction: Prediction, params: HarnessParams): GateDeci
   if (calibration !== undefined) {
     // Anti-override guard (C2): a BYO calibration must NEVER silently overwrite the committed synthetic
     // classes. Strict equality on exactly the two committed classes ⇒ tool error (400).
-    if (taskClass === TASK_BTC_DIR || taskClass === TASK_CASCADE) {
+    if (taskClass === TASK_BTC_DIR || taskClass === TASK_CASCADE || taskClass === TASK_STABLE_RUN) {
       throw new HarnessToolError(
         `calibration must not override the committed class '${taskClass}': use a caller-owned task_class for BYO (ADR-M007 D7)`,
       );
@@ -428,8 +461,14 @@ export function runGate(prediction: Prediction, params: HarnessParams): GateDeci
     }
     verdict = cascadeVerdict(prediction, params);
     nCalib = verdict.n_calib; // 0 — no committed cascade calibration
+  } else if (taskClass === TASK_STABLE_RUN) {
+    if (typeof prediction.yhat !== "number") {
+      throw new HarnessToolError(`task_class '${TASK_STABLE_RUN}' expects a number yhat (velocity forecast), got ${typeof prediction.yhat}`);
+    }
+    verdict = stableRunVerdict(prediction, params);
+    nCalib = verdict.n_calib; // 0 — no committed stable-run calibration in F1 (F2 supplies it)
   } else {
-    throw new HarnessToolError(`unknown task_class '${taskClass}' (known: ${TASK_BTC_DIR}, ${TASK_CASCADE}; or supply params.calibration for BYO)`);
+    throw new HarnessToolError(`unknown task_class '${taskClass}' (known: ${TASK_BTC_DIR}, ${TASK_CASCADE}, ${TASK_STABLE_RUN}; or supply params.calibration for BYO)`);
   }
 
   const gateInput: GateInput = {

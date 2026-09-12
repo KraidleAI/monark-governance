@@ -13,6 +13,7 @@ import {
   HarnessToolError,
   GATE_TOOL_DESCRIPTION,
   CASCADE_UNCALIBRATED_SENTENCE,
+  STABLE_RUN_UNCALIBRATED_SENTENCE,
   type HarnessParams,
 } from "../src/tools/gate.ts";
 import { HARNESS_TOOLS, type GateEnvelope } from "../src/tools/registry.ts";
@@ -44,6 +45,15 @@ const CASCADE_PRED: Prediction = {
   task_class: "cascade-liquidable-24h",
   yhat: 12345,
   predictor_id: "internal:ukemi",
+  produced_at: "2026-09-04T00:00:00Z",
+};
+
+// A Narabi velocity-forecast Prediction (ADR-M008 D4) — the caller-carried output of the Narabi adapter.
+const STABLE_RUN_PRED: Prediction = {
+  schema_version: "1.0.0",
+  task_class: "stable-run-velocity-24h",
+  yhat: 0.0000416, // a per-hour velocity forecast (fraction of supply / hour)
+  predictor_id: "narabi:persistence-v1",
   produced_at: "2026-09-04T00:00:00Z",
 };
 
@@ -331,4 +341,60 @@ test("gate_committed_classes_unchanged_without_calibration", () => {
   // cascade has NO committed calibration ⇒ calibDigest([]) — the empty-input sha256, written in by hand.
   assert.equal(cascade.verdict.calib_digest, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "cascade calib_digest == calibDigest([])");
   assert.equal(cascade.verdict.reason, "under_calib");
+});
+
+// ── Narabi / stable-run-velocity-24h (ADR-M008 D4/D5, F1) ────────────────────────────────────────────
+
+// Test — F1: the velocity class has NO committed calibration, so it abstains under_calib HONESTLY (the
+// same expected result as cascade). Mutant: wire a committed calibration in F1 ⇒ a dishonest commit ⇒ red.
+test("gate_stable_run_abstains_under_calib_in_F1", () => {
+  const d = runGate(STABLE_RUN_PRED, { ...GOOD_PARAMS, intent: 0 });
+  assert.equal(d.action, "abstain", "stable-run has no committed calibration in F1 ⇒ abstain");
+  assert.equal(d.reason, "under_calib");
+  assert.equal(d.verdict.reason, "under_calib");
+  assert.equal(d.verdict.qhat, null, "no committed calibration ⇒ q̂ null (never clamped)");
+  assert.equal(d.verdict.task_class, "stable-run-velocity-24h", "the verdict carries the velocity class");
+  assert.equal(d.verdict.calib_digest, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "stable-run calib_digest == calibDigest([]) (no committed calibration)");
+  assert.doesNotThrow(() => { assertClosedGateDecision(d); assertNoForbiddenKey(d); }, "the emitted decision is closed + forbidden-key-free");
+});
+
+// Test — a string yhat for the numeric velocity class ⇒ tool error BEFORE any region (C-1 mirror).
+test("gate_stable_run_rejects_a_non_numeric_yhat", () => {
+  assert.throws(
+    () => runGate({ ...STABLE_RUN_PRED, yhat: "run" }, { ...GOOD_PARAMS, intent: 0 }),
+    HarnessToolError,
+    "a string yhat on stable-run-velocity-24h ⇒ HarnessToolError",
+  );
+});
+
+// Test — anti-override guard (D-C2.1 mirror): a BYO calibration must NOT silently overwrite the RESERVED
+// committed class name. Mutant: drop TASK_STABLE_RUN from the guard ⇒ a caller poses its own scores under
+// the committed class name ⇒ no throw ⇒ red.
+test("gate_stable_run_anti_override_guard", () => {
+  const scores = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+  assert.throws(
+    () => runGate({ ...STABLE_RUN_PRED }, { ...GOOD_PARAMS, intent: 0, calibration: { scores, mode: "interval" } }),
+    HarnessToolError,
+    "calibration + task_class stable-run-velocity-24h ⇒ HarnessToolError",
+  );
+});
+
+// Test — B-1 / validateur correction #2 (honesty wiring): the stable-run content text carries ITS OWN
+// uncommitted sentence and NEVER the cascade sentence. Mutant: no dedicated honestyText branch ⇒ the
+// default fall-through returns the CASCADE sentence (false on the wire) ⇒ this reds. Driven through the
+// REAL registry run() so the wiring is exercised end-to-end.
+test("gate_stable_run_honesty_text_is_distinct_from_cascade", () => {
+  // The tool description declares the class honestly.
+  assert.ok(GATE_TOOL_DESCRIPTION.includes(STABLE_RUN_UNCALIBRATED_SENTENCE), "the tool description declares the stable-run sentence");
+  assert.ok(STABLE_RUN_UNCALIBRATED_SENTENCE.includes("no stable-run velocity calibration is committed"));
+  assert.ok(STABLE_RUN_UNCALIBRATED_SENTENCE.includes("under_calib"));
+
+  const gateTool = HARNESS_TOOLS.find((t) => t.name === "gate");
+  assert.ok(gateTool, "the gate tool is registered");
+  const text = gateTool.run({ prediction: STABLE_RUN_PRED, params: { ...GOOD_PARAMS, intent: 0 } }).text;
+  assert.ok(text.includes(STABLE_RUN_UNCALIBRATED_SENTENCE), "the stable-run content carries its own honesty sentence");
+  assert.ok(!text.includes(CASCADE_UNCALIBRATED_SENTENCE), "the stable-run content must NOT carry the CASCADE sentence (B-1)");
+  // The verdict summary (delivery aid) surfaces the decision for text-only clients.
+  const d = runGate(STABLE_RUN_PRED, { ...GOOD_PARAMS, intent: 0 });
+  assert.ok(text.includes(`action=${d.action}`), "the verdict summary carries the decision action");
 });
