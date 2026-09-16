@@ -64,6 +64,8 @@ Four contracts, frozen (source of truth: `schemas/*.json`, language-neutral):
 `abstain` do not. It is **not a yield, not a stake, not an oracle** — it is the fleet's right-to-act,
 metered. Tokenomics: to be announced.
 
+**Contract address (CA):** `FYZcYCHSp8FzNba1UtDZydKKGosmxVNpFBiVuia38AhT` (address only — no price, no buy call).
+
 ## Fleet invariant — no confidence field, anywhere
 
 Both Shōgen (doc 03 §0: no truth/confidence/"validated") and Hikae (`hac-cp.ts:77`: no
