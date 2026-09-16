@@ -27,8 +27,13 @@ notes live on the **GitHub Release object**, not in a root file (persisted in §
    B-3): the sync commit message stays fixed/generated; the only human free text is the notes file, and
    it is gated (§4).
 3. **Cadence** : one tag **per lot that changes the public surface** (schema, tool description, skill,
-   site), **never per sync**. `v0.1.0` = the **current** public state; `v0.2.0` = F1+F2 (the 5th additive
-   contract = **minor** bump). `1.0.0` = a **human** decision, never an agent (the schemas do not thaw).
+   site), **never per sync**. `v0.1.0` = the **current** public state. **`v0.2.0` = F1 only** (investisseur
+   ruling 2026-09-16, **supersedes** the earlier "`v0.2.0` = F1+F2" — see ADR-M008 §3 amendment): the
+   AttestedFlow contract (the 5th additive typed contract = **minor** bump) + the velocity adapter + the
+   `stable-run-velocity-24h` gate class, shipped **honestly `under_calib`** (synthetic fixtures declared;
+   the gate **abstains by design** until a committed calibration lands) — **never labelled "V1"**.
+   **`v0.3.0` = F2** (the committed msUSD split-conformal calibration; a clean, no-deadline lot). `1.0.0`
+   = a **human** decision, never an agent (the schemas do not thaw).
 4. **Version source of truth = the git tag**. `package.json` stays `0.0.0` / `private:true` (not npm
    published); `CONTRIBUTING.md` §Releases states it.
 5. **PR template** : on the **governance** repo only (the mirror takes no PR — a PR merged on the mirror
