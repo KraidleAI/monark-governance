@@ -23,8 +23,8 @@ labels below are the point: they say what exists today and what is only named.
 
 | Layer | What it is | Status |
 |---|---|---|
-| **Backbone** — the gate | Hikae (coverage control) + the MONARK token's budget `B_t`; turns a sensor reading into `commit \| defer \| abstain` | **Built** — 4 frozen contracts, Hikae + Ukemi engines, CI |
-| **Fleet** — a company of agents | sensors → gate → acts, one token across all of them | **3 built, 8 on the roadmap** |
+| **Backbone** — the gate | Hikae (coverage control) + the MONARK token's budget `B_t`; turns a sensor reading into `commit \| defer \| abstain` | **Built** — 5 frozen contracts, Hikae + Ukemi engines, CI |
+| **Fleet** — a company of agents | sensors → gate → acts, one token across all of them | **3 built · Narabi shipped and abstaining (`under_calib`) · 7 named** |
 | **Harness** — DeFAI, multi-directional | the same fleet made reachable *by other agents* over HTTP / MCP | **Built** — public 4-tool MCP endpoint (attest · gate · cascade · calibrate) + skill on ClawHub |
 | **Self-improving company** | agents that rate, improve, and sell one another's products | **Direction, unscheduled** |
 
@@ -36,10 +36,13 @@ Built (Phase 1 closed under independent review and a closing verdict):
 - **Hikae** — coverage-controlled inference (the gate)
 - **Ukemi** — liquidation-cascade survival
 
+Shipped, calibration pending (a frozen contract and an adapter — the gate abstains by design, *not* a delivered prediction product):
+
+- **Narabi** — redemption-run sensing. The `AttestedFlow` attestation (the 5th frozen typed contract) and the velocity adapter ship in this repo; the gate class `stable-run-velocity-24h` abstains `under_calib` until a committed calibration lands (`v0.3.0`). It is in the **repository** today — the public endpoint is **not yet redeployed**, so it still serves the two original classes. Never a "version one". (`under_calib` = no committed region; distinct from `under_witness` = no hashable flow.)
+
 Named on the roadmap (teasers — *not* delivered products, no metrics claimed):
 
 - **Mokugeki** — document / event attestation
-- **Narabi** — redemption-run sensing
 - **Kaihi** — LVR / toxicity avoidance
 - **Kessai** — swap execution (transaction-cost analysis)
 - **Kamae** — inventory market-making

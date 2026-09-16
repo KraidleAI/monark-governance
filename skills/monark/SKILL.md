@@ -50,6 +50,11 @@ calibration (never a measured predictor), and `cascade-liquidable-24h` ships no 
 it abstains (`under_calib`). They are NOT use cases. The real path is BYO: bring your own predictor +
 nonconformity scores.
 
+A third `task_class`, `stable-run-velocity-24h` (redemption-run velocity, the Narabi sensor), ships in the
+**repository** as of `v0.2.0` and also abstains (`under_calib`, declared **synthetic** fixtures). It is
+**not yet served by this endpoint** — a committed calibration, measured on a real episode and held out of
+sample, is `v0.3.0`.
+
 ## Endpoint and license
 
 - Endpoint: `https://mcp.monarkgate.tech/mcp` (mirror `https://api.monarkgate.tech/mcp`).
