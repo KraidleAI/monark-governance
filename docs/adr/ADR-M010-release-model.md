@@ -69,6 +69,14 @@ version**. `v0.1.0` syncs from `main` only **after `lot-m010` is merged**; F1 st
   non-exempt hit **or** empty/whitespace text. This is the **only** free text reaching the public — the
   same English firewall as the rest (B-8/N-3). `scanText`, **not** `scanFile` (the text is an in-memory
   string, not necessarily a file on disk).
+  - **Scope decision (open, checkpoint-2 m-4)** : the vocab gate applied to the notes is the **GLOBAL**
+    banned set only, **not** the site/harness/skills honesty-scoped bans. So a public Release note could
+    carry a storefront-banned surclaim (e.g. *autonomous*, *predicts*, *confidence*, *accuracy*, a
+    third-party brand) that the site itself reddens on. This is ADR-compliant as written, but the Release
+    object **is** public storefront text. **Current decision = GLOBAL-only** (recorded, not a naked debt);
+    **pending investisseur confirmation** whether to extend `checkReleaseText` to also apply the **site**
+    (and/or skills) scoped bans — a small, additive change gated by its own fresh G2 + a test. Decided at
+    the first `v0.1.0` notes-writing moment (an outbound go), not before.
 - **Branch guard (B-2)** : `release-public.mjs` refuses unless local **`HEAD == main`** **and**
   `git status --porcelain` is **empty**. The `origin/main`-worktree variant of the old draft is
   **removed** — `origin/main` is a stale remote ref (fail-open: it can lag a reverted push). A sync on
@@ -91,8 +99,12 @@ Guards are **importable pure functions** with **mutant tests** (the deterministi
 guardrail: a simple, verifiable, tight-budget task takes mono-worker + oracle, not fan-out):
 - `isSemverTag(tag) → boolean` : `/^v0\.\d+\.\d+$/` (rejects `v1.0.0`, `v0.1`, `0.1.0`, `v0.1.0-rc`,
   trailing junk).
-- `checkReleaseText(text, maskers) → {ok, hits}` : `scanText` + global forbidden patterns; empty /
-  whitespace text → `ok:false`.
+- `checkReleaseText(text) → {ok, hits}` : runs BOTH lang-gate `scanText` (with `loadExempt(REPO_ROOT)`
+  maskers, loaded **inside**) AND grep-forbidden `scanText` over `compilePatterns(vocab-banned.banned)`;
+  empty / whitespace text → `ok:false`. **Erratum (2026-09-16, checkpoint-2 m-3)** : the signature is
+  **1-arg** `checkReleaseText(text)` — the maskers are loaded internally from `REPO_ROOT`, not passed in;
+  an earlier draft wrote `(text, maskers)`. The function is side-effect-free (no write, no network, no
+  `process.exit` — safe to import and unit-test), reading only the two committed configs.
 - `branchGuard(headRef, porcelain) → {ok, reason}` : `ok` iff `headRef === 'main' && porcelain === ''`.
 
 `--dry-run` and the real path both call these functions. Mutant tests: `isSemverTag` mutated to accept
@@ -113,10 +125,17 @@ The MAST modes that bite this lot, with the mitigation each:
 - **FM-1.2 (disobey task spec)** — a dry-run that does not match the real path → shared pure functions (§5).
 - **FM-2.4 (information withholding)** — a silent skip of the notes gate → fail-closed + no silent cap.
 - **FM-3.1 (premature / partial action)** — a tag created then a failed Release → **atomicity/reprise
-  (N-1)**: the tag is created **after** the notes gate passes; if `gh release create` then fails, the tag
-  is **deleted (rollback)** so a re-run is clean; a re-run with an **existing** tag refuses (§5). **N-2**:
-  if the sync produces **no new commit** but `--tag` was given, the run refuses ("Nothing to publish" is
-  not a release).
+  (N-1, amended 2026-09-16, checkpoint-2 M-1)**: the sync commit is pushed **before** the tag block, so
+  it is already public once the tag step runs. If `git push refs/tags` or `gh release create` fails, the
+  rollback **deletes the tag(s)** and reports the **actual** delete outcome (a remote-delete that itself
+  fails leaves the remote tag present — the tool says so and names the manual `git push --delete`). Because
+  the sync commit is already public, **gh-failure recovery is MANUAL, not a re-run**: re-running would
+  reset the mirror to `origin/main` (which already carries the sync), find nothing to publish, and be
+  refused by **N-2** — so N-1 and N-2 are consistent only under manual recovery. The operator recreates the
+  tag and re-runs `gh release create` on the already-pushed mirror HEAD (`sha` is printed in the abort).
+  The N-2 abort message names this case. This is **fail-closed** (the failure mode is a Release that must
+  be cut by hand, never an accidental publish). Auto-detecting `published-HEAD == export` was **rejected**:
+  it needs persisted run-state a fail-closed tool must not trust.
 - **FM-3.3 (incorrect verification)** — dry-run green ≠ real green → the oracle is the real `gh` dry-run
   **plus** the mutant tests.
 

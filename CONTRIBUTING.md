@@ -44,6 +44,23 @@ they return through the sync. Open a PR or an issue anyway; that is how we pick 
 - Run the checks locally before opening (`npm run ci`).
 - Explain the *why*, not just the *what*, in the description.
 
+## Releases
+
+The public repository is a **push-only mirror**: it is re-synced from the private governance
+repo, and never carries a tag or Release created by hand on the mirror.
+
+- **The version source of truth is the git tag.** `package.json` deliberately stays at `0.0.0`
+  and `private: true`: MONARK is **not published to npm**, so the carrying version is the frozen
+  interface-contract set, released as an annotated `v0.MINOR.PATCH` tag on the mirror. `1.0.0` is
+  a human decision, never an agent's — the interface contracts do not thaw.
+- **A release is cut with the internal `release-public.mjs` tool, under a maintainer go:**
+  `node scripts/release-public.mjs --tag v0.MINOR.PATCH --notes <file>`. `--tag` and `--notes`
+  are all-or-none (omit both for a plain sync). The tool runs every local gate, exports the
+  public tree, pushes the sync commit, then creates the annotated tag and the GitHub Release
+  from the English notes file.
+- **Release notes live on the GitHub Release object**, not in a root `CHANGELOG.md`. Read them
+  on the repository's Releases page; the latest is linked from the README badge.
+
 ## Ground rules
 
 Be respectful and assume good faith. MONARK returns a coverage decision over a
