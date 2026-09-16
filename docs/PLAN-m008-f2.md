@@ -25,6 +25,7 @@ Cible (P-F-5 §0) : Main Street msUSD v2, token `0x4ba0…7C00`, minter `0x70C0�
 - **Fenêtre calme de référence** : de la naissance (~192 j avant le run) au 14 juin, **moins** toute fenêtre de stress antérieure (à identifier au pull).
 - **Identité d'intégrité (C1, ADR-M008 D4)** : pour chaque fenêtre, vérifier `totalSupply(fin de from_block − 1) == supply_close + burns − mints` ; **fail-close sur écart** (oracle on-chain gratuit : attrape décimales, mauvais token/legacy, supply modifiée sans event Transfer). Bornage : `S_open` = `totalSupply` à la fin de `from_block − 1` (cohérent `eth_getLogs [from_block, to_block]` inclusif).
 - **Cross-checks d'acceptation** (contre les [2nd] fournis) : Σ burns du run ≈ **10,8-11 %** de ~74,2 M ; jour-pic (17 juin) ≈ **4,26 %** ; 2 wallets ≈ 100 % du flux. Un pull qui ne les reproduit pas est **rejeté** (mauvais token / mauvaise fenêtre / décimales).
+- **Piège dormance/q99 (advisor-defi ; E-F2-2)** : si le token était dormant avant le run, résidus ≈ 0 ⇒ `q̂ ≈ 0` ⇒ tout flux compte comme un raté ET `q99 ≈ 0` ⇒ alertes sur tout rachat ordinaire. À `n ≈ 190`, `q99` est décidé par **une seule fenêtre** ; **exclure les fenêtres de stress antérieures ABAISSE q99 et multiplie les alertes** — jugement à écrire noir sur blanc dans la recherche par classe (§6). (ACI n'y touche pas : il règle la largeur, pas le seuil appelant.)
 - **Artefacts** : fixture série (windows bruts) **sha-pinnée** + `PROVENANCE-msusd-run.md` + un **récorder reproductible** (`scripts/record-msusd-calib.mjs`, motif `record-h5`) qui recompute série → scores → `calib_digest`.
 
 ## 4. Branchement (hors zone gelée)
@@ -37,6 +38,7 @@ Cible (P-F-5 §0) : Main Street msUSD v2, token `0x4ba0…7C00`, minter `0x70C0�
 - `calib_digest` == `calibDigest(scores)` recomputé indépendamment (boucle C1↔C2, motif F1b).
 - **Quantile hand-rolled** dans le test (jamais via la primitive testée).
 - **Test rétrospectif du run (hors échantillon)** : rejouer les fenêtres du 15-20 juin ; montrer que la vélocité franchit le **q99 calme historique** (règle D4bis, côté appelant) **AVANT** le mid public (≤ 20 juin) — « aurait parlé au jour −N ». Le mutant (calibration sur le run inclus) ⇒ rouge.
+- **Piège B_t (advisor-defi 2026-09-16, CONDITION D'ORACLE)** : `decideInterval` teste `budget_exhausted` AVANT la largeur/l'intention (`l3-gate.ts`) ; un B_t frais au 15 juin s'épuise dès le 1er raté ⇒ le gate `abstain` **LE JOUR MÊME** où l'alerte devrait tirer — la démo échouerait pour une raison **étrangère à la calibration**. Donc le test rétrospectif : (a) rapporte **DEUX dates** (jour d'alerte, jour d'épuisement de B_t) ; (b) **déclare l'init de B_t + le `bFloor`** utilisés ; (c) **amorce B_t HORS ÉCHANTILLON** (une queue calme retirée de la calibration) — sinon B_t est optimiste par construction et « statique honnête » se lirait « statique qui couvre le run ».
 - Série validée contre les cross-checks §3. Fixtures jamais réécrites en test ; sha re-vérifié.
 
 ## 6. Recherche par classe (D7bis) — PRÉREQUIS avant de committer
