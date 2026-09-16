@@ -21,7 +21,7 @@ import { readFileSync, readdirSync, statSync, existsSync, mkdirSync, copyFileSyn
 import { join, dirname, resolve, basename } from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { loadExempt, scanFile, isFileFrench, classifyScope, scannable, SCOPES } from "./lang-gate.mjs";
+import { loadExempt, scanFile, isFileFrench, classifyScope, scannable, pathExempt, SCOPES } from "./lang-gate.mjs";
 
 const SCRIPT_DIR = fileURLToPath(new URL(".", import.meta.url));
 export const REPO_ROOT = resolve(SCRIPT_DIR, "..");
@@ -231,7 +231,7 @@ export function collectFiles(root) {
   // is a REPORTED, NON-FATAL exclusion and MUST stay AFTER it: were the French rule first, a French
   // governance file slipped into the whitelist (finding MINE-B) would be SILENTLY dropped by the
   // language rule instead of triggering the hard blacklist failure. Test 42(g) / mutant M6 proves it.
-  const { maskers } = loadExempt(root);
+  const { maskers, pathMatchers } = loadExempt(root);
   const structuralViolations = [];
   const frenchMd = [];
   const excludedTests = [];
@@ -248,7 +248,7 @@ export function collectFiles(root) {
   excludedTests.sort((a, b) => (a < b ? -1 : 1));
   dormantAppTests.sort((a, b) => (a < b ? -1 : 1));
   missingRequired.sort((a, b) => (a < b ? -1 : 1));
-  return { kept, structuralViolations, frenchMd, excludedTests, dormantAppTests, missingRequired, maskers };
+  return { kept, structuralViolations, frenchMd, excludedTests, dormantAppTests, missingRequired, maskers, pathMatchers };
 }
 
 function sha256(abs) {
@@ -370,7 +370,7 @@ function doExport(root, outDir) {
 
 // ---- CHECK mode ---------------------------------------------------------------------------
 function doCheck(root, selectedScopes) {
-  const { kept, structuralViolations, frenchMd, missingRequired, maskers } = collectFiles(root);
+  const { kept, structuralViolations, frenchMd, missingRequired, maskers, pathMatchers } = collectFiles(root);
   let bad = false;
   if (structuralViolations.length) {
     console.error("check FAILED — the whitelist would include forbidden path(s) (blacklist, D7):");
@@ -391,6 +391,7 @@ function doCheck(root, selectedScopes) {
   const printed = [];
   for (const f of kept) {
     if (!scannable(f.rel)) continue;
+    if (pathExempt(f.rel, pathMatchers)) continue; // whole-file path exemption (lang-exempt.json "paths") — mirror lang-gate scanFileList; the s3-binance Shogen fixtures are verbatim third-party evidence (investor ruling 2026-09-16)
     const hits = scanFile(f.abs, maskers);
     if (!hits.length) continue;
     const scope = classifyScope(f.rel);
