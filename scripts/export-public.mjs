@@ -64,6 +64,12 @@ export const WHITELIST_FILES = [
   // translated later.
   "packages/atelier/index.html", "packages/atelier/main.js",
   "packages/atelier/style.css", "packages/atelier/serve.js",
+  // Community-facing public assets at stable raw URLs (ADR-M004 D7 — "adding a name = this ADR line").
+  // out/mint.txt is the token contract address the community links to (documented since the initial
+  // publish); out/logo.png is the published logo. They pre-exist on the mirror; whitelisting them makes the
+  // private repo their single source of truth so a full-replace sync PRESERVES them instead of deleting them
+  // (community request: never drop the CA). Binary/plain — not language-scanned; pinned by test/token-ca-pinned.
+  "out/mint.txt", "out/logo.png",
 ];
 
 // ADR-M004 D7 bis R2(a): every fixed whitelist entry (dir or file) MUST exist under the export root or
