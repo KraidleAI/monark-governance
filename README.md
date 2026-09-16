@@ -1,5 +1,9 @@
 # MONARK
 
+<!-- The CI badge points at the PUBLIC repo's workflow (KraidleAI/monark) — what a stranger sees. -->
+[![CI](https://github.com/KraidleAI/monark/actions/workflows/ci.yml/badge.svg)](https://github.com/KraidleAI/monark/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
+
 **MONARK is a company of agent-products for DeFi and inference, built on one backbone: a
 coverage-controlled decision gate that emits `commit | defer | abstain` and a depletable
 authorization budget (`B_t`) — never a probability of being right.**
@@ -85,8 +89,8 @@ Both Shōgen (doc 03 §0: no truth/confidence/"validated") and Hikae (`hac-cp.ts
 
 **Phase 2 — integration.** Phase 0 (contract freeze) and Phase 1 (Hikae + Ukemi engines) are
 **closed** under an independent review and a closing verdict
-(`docs/adr/ADR-M001..ADR-M003`). Governance is maintained privately; the public projection of this
-repo is produced by `scripts/export-public.mjs`.
+(ADR-M001..M003, kept in private governance). Governance is maintained privately; the public projection
+of this repo is produced by `scripts/export-public.mjs`.
 
 ## Run the gates
 
@@ -122,6 +126,6 @@ packages/ukemi      liquidation-cascade survival: clearing, liquidable          
 packages/monark     cross-agent gate — freezes the wiring signature; token budget B_t   (engine = Phase 2)
 packages/atelier    local demo surface (not a shipped product)
 apps/site           public vitrine — foundation only; rich pages come later
-docs/adr            ADR-M001..M004 (phases 0-2, infrastructure), ADR-CERT-MONARK (token)
+docs/               governance — ADRs & journal, kept private (not in this public mirror)
 .github/workflows   CI (5 blocking jobs)
 ```

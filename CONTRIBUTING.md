@@ -35,6 +35,11 @@ kind of report we want.
 
 ## Pull requests
 
+This repository is the **public mirror** of MONARK: development happens in a private
+governance repo and the mirror is re-synced from it. A pull request merged directly on the
+mirror is overwritten at the next sync — so we port accepted changes into governance and
+they return through the sync. Open a PR or an issue anyway; that is how we pick the change up.
+
 - Keep them small and focused — one change per pull request.
 - Run the checks locally before opening (`npm run ci`).
 - Explain the *why*, not just the *what*, in the description.
