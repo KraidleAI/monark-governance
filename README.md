@@ -1,3 +1,5 @@
+![MONARK — it abstains so DeFi can act.](out/banner.jpg)
+
 # MONARK
 
 <!-- The CI badge points at the PUBLIC repo's workflow (KraidleAI/monark) — what a stranger sees. -->

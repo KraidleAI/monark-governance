@@ -69,7 +69,9 @@ export const WHITELIST_FILES = [
   // publish); out/logo.png is the published logo. They pre-exist on the mirror; whitelisting them makes the
   // private repo their single source of truth so a full-replace sync PRESERVES them instead of deleting them
   // (community request: never drop the CA). Binary/plain — not language-scanned; pinned by test/token-ca-pinned.
-  "out/mint.txt", "out/logo.png",
+  // out/banner.jpg is the README hero banner (investor ruling 2026-09-16; see JOURNAL-PROVENANCE) — an image,
+  // outside the text vocab gate by nature.
+  "out/mint.txt", "out/logo.png", "out/banner.jpg",
 ];
 
 // ADR-M004 D7 bis R2(a): every fixed whitelist entry (dir or file) MUST exist under the export root or
