@@ -65,7 +65,8 @@ absent by design, not a regression); `export:check` = **0 forbidden, 0 non-exemp
 GATED**. **error_origin** of the B-1 friction = the original `1f14b9b` bundled two lots in one commit
 (**R-25** violation). **N-1** : a future rebase of `lot-m008-f1` onto post-m010 `main` will conflict on
 `README.md`/`CONTRIBUTING.md` (the split commit is not the same patch-id) — resolve by **taking `main`'s
-version**. `v0.1.0` syncs from `main` only **after `lot-m010` is merged**; F1 stays unmerged.
+version**. `v0.1.0` syncs from `main` only **after `lot-m010` is merged**; F1 stays unmerged **until
+`v0.2.0`** (F1 merged into `main` 2026-09-16 per the §2.3 amendment, as F1-only `under_calib`; F2 = `v0.3.0`).
 
 ## 4. Guard-rails (fail-closed)
 - **Gated free text** : the release notes, the annotated-tag message, and the Release title each pass
@@ -90,7 +91,8 @@ version**. `v0.1.0` syncs from `main` only **after `lot-m010` is merged**; F1 st
 - **Branch guard (B-2)** : `release-public.mjs` refuses unless local **`HEAD == main`** **and**
   `git status --porcelain` is **empty**. The `origin/main`-worktree variant of the old draft is
   **removed** — `origin/main` is a stale remote ref (fail-open: it can lag a reverted push). A sync on
-  `lot-m008-f1` must never publish F1 before F2 (ADR-M008 §3).
+  `lot-m008-f1` must never publish F1 before F2 (ADR-M008 §3) — **superseded 2026-09-16 (§2.3 amendment):
+  F1-only = `v0.2.0` (`under_calib`), F2 = `v0.3.0`; the branch guard checks a clean `main`, not F1's absence**.
 - **`--dry-run`** (oracle, N-7) : prints the tag + Release + notes, **refuses** without notes,
   **refuses** a non-semver tag, **refuses** on `gh auth` failure — **without touching the remote**. A
   green dry-run while the real sync would fail is a fail-open (class R2(a)). The dry-run calls the **same**

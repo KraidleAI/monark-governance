@@ -29,3 +29,34 @@
 plan atteint, 26 entrées **M/A (zéro D, out/ préservés)**, adapter+test+attested-flow.schema.json shippés,
 aucune fuite gouvernance ; notes `checkReleaseText` ok=true. `error_origin` du ratchet = F1 (dette de typage
 non attrapée par son propre oracle ; attrapée au G2 release).
+
+## Notes de release v0.2.0 — ÉPINGLÉES (checkpoint-2 C-3 : « accepted text » ↔ « pushed text »)
+**sha256 (LF, UTF-8)** = `5260dcda1cfa913113e3cfe9d237b28e399951a4d0842c517592609fade82cd2`. Au moment du
+tag, `sha256(--notes file)` doit égaler cette valeur (sinon le texte poussé ≠ le texte accepté). Amendée
+au checkpoint-2 (C-2) : `supply` du contrat gelé est la **clôture** (le stock d'ouverture est recalculé),
+donc les notes disent « burns, mints and closing supply … a fraction of the opening stock, which it
+recomputes ». Verbatim accepté :
+
+```
+MONARK v0.2.0 — Narabi (AttestedFlow)
+
+Adds AttestedFlow, the fifth frozen typed contract: an attestation over token flow
+(burns, mints and closing supply over a declared block window) that any agent can
+recompute from onchain bytes. On top of it, a velocity adapter and a new gate class
+stable-run-velocity-24h that reads redemption velocity as a fraction of the opening
+stock, which it recomputes from those raw numbers.
+
+The gate class abstains by design. It ships under_calib: the fixtures are synthetic and
+declared, and no committed calibration exists yet, so the class returns abstain rather
+than invent a verdict. This is the honest state, not a version one, and there is no confidence field anywhere in the interface.
+
+The contract and adapter are in the repository. The public endpoint has not been
+redeployed, so it still serves the two original classes; the repository is ahead of the
+public endpoint by this class.
+
+Next, v0.3.0 brings the first committed calibration, measured on a real redemption
+episode and held out of sample. If the retrospective test fails, the class keeps
+abstaining. We publish the method, not a trophy.
+
+Apache 2.0. Five frozen typed contracts. Never a probability of being right.
+```

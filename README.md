@@ -38,7 +38,7 @@ Built (Phase 1 closed under independent review and a closing verdict):
 
 Shipped, calibration pending (a frozen contract and an adapter — the gate abstains by design, *not* a delivered prediction product):
 
-- **Narabi** — redemption-run sensing. The `AttestedFlow` attestation (the 5th frozen typed contract) and the velocity adapter ship in this repo; the gate class `stable-run-velocity-24h` abstains `under_calib` until a committed calibration lands (`v0.3.0`). It is in the **repository** today — the public endpoint is **not yet redeployed**, so it still serves the two original classes. Never a "version one". (`under_calib` = no committed region; distinct from `under_witness` = no hashable flow.)
+- **Narabi** — redemption-run sensing. The `AttestedFlow` attestation (the 5th frozen typed contract) and the velocity adapter ship in this repo; the gate class `stable-run-velocity-24h` abstains `under_calib` until a committed calibration lands (`v0.3.0`). It is in the **repository** today — the public endpoint is **not yet redeployed**, so it still serves the two original classes. Never a "version one". (`under_calib` = no committed region — distinct from having no hashable flow to attest at all.)
 
 Named on the roadmap (teasers — *not* delivered products, no metrics claimed):
 
