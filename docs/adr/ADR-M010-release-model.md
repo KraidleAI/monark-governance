@@ -72,11 +72,14 @@ version**. `v0.1.0` syncs from `main` only **after `lot-m010` is merged**; F1 st
   - **Scope decision (open, checkpoint-2 m-4)** : the vocab gate applied to the notes is the **GLOBAL**
     banned set only, **not** the site/harness/skills honesty-scoped bans. So a public Release note could
     carry a storefront-banned surclaim (e.g. *autonomous*, *predicts*, *confidence*, *accuracy*, a
-    third-party brand) that the site itself reddens on. This is ADR-compliant as written, but the Release
-    object **is** public storefront text. **Current decision = GLOBAL-only** (recorded, not a naked debt);
-    **pending investisseur confirmation** whether to extend `checkReleaseText` to also apply the **site**
-    (and/or skills) scoped bans — a small, additive change gated by its own fresh G2 + a test. Decided at
-    the first `v0.1.0` notes-writing moment (an outbound go), not before.
+    third-party brand) that the site itself reddens on. The Release object **is** public storefront text.
+    **DECIDED (investisseur, 2026-09-16) = extend to the STOREFRONT bar** : `checkReleaseText` must also
+    apply the **site** (and skills) scoped honesty bans (`vocab-banned.json` `scan.site.banned` /
+    `scan.skills.banned`), not GLOBAL only — release notes meet the same honesty bar as the site, on-thesis
+    ("never a probability of being right"). **Implementation is a pre-go lot** (additive change to
+    `checkReleaseText` + a test + a fresh G2). **Until it lands, `checkReleaseText` stays GLOBAL-only and NO
+    tagged release (`--tag`) may be cut** — the plain sync (no tag) is unaffected. m-4 is thus a **closed
+    decision**, not a naked debt; the code change is the next lot before the `v0.1.0` outbound go.
 - **Branch guard (B-2)** : `release-public.mjs` refuses unless local **`HEAD == main`** **and**
   `git status --porcelain` is **empty**. The `origin/main`-worktree variant of the old draft is
   **removed** — `origin/main` is a stale remote ref (fail-open: it can lag a reverted push). A sync on
