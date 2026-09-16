@@ -60,11 +60,12 @@ sensors (attest)  →  the gate: Hikae + MONARK B_t  →  acts (execute)
 The first vertical, built end to end: `Shōgen → Hikae → Ukemi`. Every future act plugs into the
 same gate; every future sensor attests into the same contract.
 
-Four contracts, frozen (source of truth: `schemas/*.json`, language-neutral):
+Five contracts, frozen (source of truth: `schemas/*.json`, language-neutral):
 
 | Contract | Producer | Meaning |
 |---|---|---|
 | `AttestedPrice` | Shōgen | A **verified** testimony (bytes + hash + named residual hypotheses). The price *number* is interpreted by a Hikae-side adapter — Shōgen deliberately carries no number and **no confidence** (doc 03 §0). |
+| `AttestedFlow` | Narabi | A **verified** testimony of redemption flow (bytes + hash + a **closed** `residual[]` enum). `burns`/`mints`/`supply` are carried **raw** over a block window — **no score**, no price; the velocity is derived downstream by the velocity adapter, never pre-computed. |
 | `Prediction` | any predictor | The `ŷ` Hikae conformalizes, with `predictor_id` (venue/model). |
 | `CoverageVerdict` | Hikae | Conformal region — **polymorphic** `set` (classification) \| `interval` (regression, so Ukemi plugs in). **No `p_correct`.** |
 | `GateDecision` | Hikae L3 | `commit \| defer \| abstain` + `remaining_budget` = `B_t`, the depletable conformal authorization capacity that attaches to MONARK (never a return). |
@@ -117,7 +118,7 @@ npm run ci   # vocabulary gate → typecheck (tsc strict) → tests (node:test)
   `node:test` (Node ≥ 24 native TS type-stripping). **Key-closedness** is enforced hand-rolled at
   runtime (mirroring Shōgen's zero-dep `CleInconnue`); the **value constraints** (min/unique items,
   hash length, ASCII-printable) live in the JSON Schemas and are exercised against `ajv` in tests.
-- **`ajv` is a dev-dependency** (test-only, per ADR-M001 D2): it executes the four frozen JSON
+- **`ajv` is a dev-dependency** (test-only, per ADR-M001 D2): it executes the five frozen JSON
   Schemas — compiling them, resolving the `$ref`, and proving they reject the value-constraints
   (empty/duplicate arrays, wrong-length hash, control chars) that the TS types alone do not. Applying
   `ajv` at the runtime boundary to validate an external Rust/Python producer's JSON is a natural

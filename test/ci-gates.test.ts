@@ -139,7 +139,10 @@ test("vocab_monark_scope_bans_naked_hermes — naked Hermes reddens, pyth-/clawp
 // green. Without this, deleting the patterns would redden no test (the G2 R2 gap). Uses the REAL gate
 // functions (compilePatterns/scanText) without executing the CLI.
 test("vocab_narabi_scopes_ban_peg_score_and_p_depeg — naked surclaim reddens, negation green (ADR-M008 D5)", () => {
-  const cfg = JSON.parse(readFileSync(join(ROOT, "vocab-banned.json"), "utf8"));
+  const cfg = JSON.parse(readFileSync(join(ROOT, "vocab-banned.json"), "utf8")) as {
+    banned: { re: string; why: string }[];
+    scan: Record<string, { banned?: { re: string; why: string }[] } | undefined>;
+  };
   for (const scopeName of ["monark", "harness"] as const) {
     const scope = cfg.scan[scopeName];
     assert.ok(scope, `scope '${scopeName}' missing from vocab-banned.json`);

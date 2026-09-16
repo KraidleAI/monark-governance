@@ -22,7 +22,7 @@
  * Named mutant (G2, PLAN F-1 item 6): hard-code `1.07` in apps/site/app/page.tsx => (b) reds. Restored by
  * copy, sha256 before/after (docs G1). Run by `npm test` in each worktree (outside per-lot R-25 counting).
  * The detector lives in apps/site (type-checked rules off) so this file stays free of the 6 ratcheted
- * no-unsafe/no-explicit-any rules (committed ceiling 92 unchanged).
+ * no-unsafe/no-explicit-any rules (adds 0 to the committed ceiling in lint-ratchet.json).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";

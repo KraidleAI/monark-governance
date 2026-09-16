@@ -88,7 +88,7 @@ export default tseslint.config(
   // the "parserServices" fatal that would fail scripts/lint-ratchet.mjs closed. Net effect: apps/site is
   // linted syntactically; its numeric-honesty is enforced by test/site-honesty.test.ts (test 44). The
   // test-debt ratchet is unaffected — apps/** match neither `**/*.test.ts` nor `test/**`, so they add 0
-  // to the committed ceiling (which must stay 92). Appended LAST so it wins for apps files.
+  // to the committed ceiling (lint-ratchet.json). Appended LAST so it wins for apps files.
   {
     files: ["apps/site/**/*.{ts,tsx}"],
     ...tseslint.configs.disableTypeChecked,

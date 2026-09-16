@@ -1,6 +1,6 @@
 {
-  "ceiling": 92,
-  "measured_on": "2026-09-06",
+  "ceiling": 69,
+  "measured_on": "2026-09-16",
   "rules": [
     "@typescript-eslint/no-unsafe-member-access",
     "@typescript-eslint/no-unsafe-assignment",

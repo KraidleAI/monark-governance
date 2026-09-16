@@ -9,7 +9,7 @@
 //
 //   - Single source of the 6 rules = lint-ratchet.json `rules` (shared with eslint.config.mjs).
 //   - Fail-closed: non-integer/absent ceiling, empty `rules`, or a fatal/rule-less message (broken
-//     parse, broken config) => exit 1. Without this, a broken config would yield 0 messages -> "0/92" ->
+//     parse, broken config) => exit 1. Without this, a broken config would yield 0 messages -> "0/<ceiling>" ->
 //     false green (decorative gate). The counter is reliable ONLY if the run is healthy.
 //   - CI job g4 = `npm run lint && npm run lint:ratchet` (the general-purpose lint first).
 //
