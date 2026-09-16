@@ -79,6 +79,30 @@ test("checkReleaseText — clean English passes; French, forbidden vocab, and em
   assert.equal(checkReleaseText("v0.1.0").ok, true, "the derived Release title (the bare tag) must pass the firewall");
 });
 
+test("checkReleaseText — storefront honesty bar (m-4): site + skills scoped bans redden; honest negations pass", () => {
+  // Release notes are public storefront text (ADR-M010 section 4 m-4): checkReleaseText applies the site
+  // AND skills scoped honesty bans on top of GLOBAL. Each term below is UNIQUE to one scope (absent from
+  // GLOBAL and from the other scope), so it doubles as that scope's mutation-catcher.
+
+  // Site-scope: a third-party venue brand. If the site scope were dropped, this would pass.
+  assert.equal(checkReleaseText("MONARK plugs straight into Aave.").ok, false, "a site-scoped brand (Aave) must redden — proves the site scope is wired");
+
+  // Skills-scope: securities vocab. If the skills scope were dropped, this would pass.
+  assert.equal(checkReleaseText("Redemptions now earn yield for holders.").ok, false, "a skills-scoped term (yield) must redden — proves the skills scope is wired");
+
+  // A shared storefront honesty term reddens at the bar either way.
+  assert.equal(checkReleaseText("The fleet is fully autonomous now.").ok, false, "an autonomy claim must redden at the storefront bar");
+
+  // Cross-scope exemption (why the two scopes' exemptPhrases are UNIONed): "no confidence field" is an
+  // honest negation exempt on the SITE surface. Without the union it would still redden under the SKILLS
+  // scan (which also bans "confidence"); with the union it passes on both.
+  assert.equal(checkReleaseText("This release keeps the fleet invariant: no confidence field is exposed.").ok, true, "the honest 'no confidence field' negation must pass under the union exemption");
+
+  // Over-exemption regression: the exempt phrase masks ONLY its own span, so a real ban co-located with it
+  // still reddens. If the masker ever blanked the whole line, this would wrongly pass.
+  assert.equal(checkReleaseText("The fleet is autonomous; no confidence field is exposed.").ok, false, "a real ban next to an exempt phrase must still redden (no over-exemption)");
+});
+
 test("branchGuard — ok only on a clean main; a wrong branch or a dirty tree refuses", () => {
   // Positive: on main with an empty porcelain.
   assert.equal(branchGuard("main", "").ok, true, "main + clean tree must pass");

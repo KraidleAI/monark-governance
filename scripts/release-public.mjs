@@ -54,18 +54,36 @@ export function branchGuard(headRef, porcelain) {
   return { ok: true, reason: "on main, clean" };
 }
 
-/** checkReleaseText(text) -> {ok, hits}: run BOTH the language gate (French detection, lang-exempt maskers)
- *  AND the GLOBAL vocab gate (grep-forbidden banned patterns) over the in-memory string. Empty/whitespace
- *  text -> ok:false. ok iff the text is non-empty AND both hit-lists are empty. Reads only the committed gate
- *  config (scripts/lang-exempt.json, vocab-banned.json) — no writes, no network, no process.exit — so it is
- *  safe to import and unit-test. This is the ONLY free text that can reach the public repo (ADR-M010 section
- *  4), so it passes the same English/vocab firewall as the rest of the export. */
+/** checkReleaseText(text) -> {ok, hits}: run the language gate (French detection, lang-exempt maskers) AND
+ *  the vocab gate at the STOREFRONT honesty bar over the in-memory string. Empty/whitespace text -> ok:false.
+ *  ok iff the text is non-empty AND every hit-list is empty. Reads only the committed gate config
+ *  (scripts/lang-exempt.json, vocab-banned.json) — no writes, no network, no process.exit — so it is safe to
+ *  import and unit-test. This is the ONLY free text that can reach the public repo, and the GitHub Release
+ *  object is public STOREFRONT text, so it meets the same honesty bar as the site — ADR-M010 section 4 m-4
+ *  (investisseur 2026-09-16): apply the GLOBAL bans PLUS the `site` AND `skills` scoped honesty bans (brands,
+ *  autonomous/predicts/confidence/accuracy, securities vocab, ...), each with the UNION of the two scopes'
+ *  closed exemptPhrases masked first, so an honest negation ("no confidence field", "$/token spend cap") that
+ *  is exempt on one storefront surface is not falsely reddened by the other's scan. */
 export function checkReleaseText(text) {
   if (typeof text !== "string" || text.trim() === "") return { ok: false, hits: [] };
   const { maskers } = loadExempt(SRC);
   const frenchHits = scanLang(text, maskers);
-  const vocabBanned = JSON.parse(readFileSync(join(SRC, "vocab-banned.json"), "utf8")).banned;
-  const vocabHits = scanVocab(text, compilePatterns(vocabBanned));
+  const cfg = JSON.parse(readFileSync(join(SRC, "vocab-banned.json"), "utf8"));
+  const site = cfg.scan?.site ?? {};
+  const skills = cfg.scan?.skills ?? {};
+  // Fail-closed (m-4 F3): the storefront bar REQUIRES both scoped ban sets. A missing/empty scope is a config
+  // defect, never a licence to silently fall back to GLOBAL-only on public text — refuse all text instead.
+  if (!Array.isArray(site.banned) || site.banned.length === 0 || !Array.isArray(skills.banned) || skills.banned.length === 0) {
+    return { ok: false, hits: [{ why: "storefront gate config incomplete: scan.site.banned / scan.skills.banned missing or empty (fail-closed)" }] };
+  }
+  // Union of the honest-negation exemptPhrases across the storefront scopes we apply — masked before every
+  // scoped scan so a phrase exempt on one surface (site) is not reddened by the other (skills), and vice versa.
+  const exemptPhrases = [...(site.exemptPhrases ?? []), ...(skills.exemptPhrases ?? [])];
+  const vocabHits = [
+    ...scanVocab(text, compilePatterns(cfg.banned)), // GLOBAL bans (no exemptPhrases in the config)
+    ...scanVocab(text, compilePatterns(site.banned), exemptPhrases), // site storefront honesty + brands
+    ...scanVocab(text, compilePatterns(skills.banned), exemptPhrases), // skills honesty + securities vocab
+  ];
   const hits = [...frenchHits, ...vocabHits];
   return { ok: hits.length === 0, hits };
 }

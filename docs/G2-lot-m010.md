@@ -29,9 +29,9 @@
 - **m-3 (mineur)** : signature ADR §5 → 1-arg `checkReleaseText(text)` (erratum, conforme impl + .d.mts).
 - **m-5 (mineur)** : commentaire de test corrigé (« MONARK » ASCII, non flaggé par lang-gate ; l'assert
   verrouille le texte dérivé, pas l'exemption).
-- **m-4 (mineur, DÉFÉRÉ)** : notes de release gatées par vocab GLOBAL seulement, pas les bans site/skills.
-  ADR-compliant §4 ; enregistré §4 « pending investisseur » (pas une dette nue). **ESCALADE-INVESTISSEUR
-  posée** (voir JOURNAL).
+- **m-4 (mineur) — RÉSOLU (lot M010-m4, 2026-09-16)** : notes de release gatées par vocab GLOBAL seulement à
+  l'origine ; escalade investisseur posée → **DÉCIDÉ « barre vitrine »**. `checkReleaseText` étendu aux bans
+  scoped `site` + `skills` (union des exemptPhrases, fail-closed). Voir `G1-lot-m010-m4.md` / `G2-lot-m010-m4.md`.
 
 ## Checkpoint-2 (validateur-humain `claude-fable-5-1`, R-1) — ACCEPTE-AVEC-CORRECTIONS
 Le validateur a accepté le design/impl et levé 3 corrections de clôture, appliquées par l'orchestrateur :

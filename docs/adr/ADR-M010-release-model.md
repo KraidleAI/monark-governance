@@ -73,13 +73,15 @@ version**. `v0.1.0` syncs from `main` only **after `lot-m010` is merged**; F1 st
     banned set only, **not** the site/harness/skills honesty-scoped bans. So a public Release note could
     carry a storefront-banned surclaim (e.g. *autonomous*, *predicts*, *confidence*, *accuracy*, a
     third-party brand) that the site itself reddens on. The Release object **is** public storefront text.
-    **DECIDED (investisseur, 2026-09-16) = extend to the STOREFRONT bar** : `checkReleaseText` must also
-    apply the **site** (and skills) scoped honesty bans (`vocab-banned.json` `scan.site.banned` /
-    `scan.skills.banned`), not GLOBAL only — release notes meet the same honesty bar as the site, on-thesis
-    ("never a probability of being right"). **Implementation is a pre-go lot** (additive change to
-    `checkReleaseText` + a test + a fresh G2). **Until it lands, `checkReleaseText` stays GLOBAL-only and NO
-    tagged release (`--tag`) may be cut** — the plain sync (no tag) is unaffected. m-4 is thus a **closed
-    decision**, not a naked debt; the code change is the next lot before the `v0.1.0` outbound go.
+    **DECIDED + IMPLEMENTED (investisseur 2026-09-16 ; lot m4, same day)** : `checkReleaseText` applies the
+    **site** AND **skills** scoped honesty bans (`vocab-banned.json` `scan.site.banned` / `scan.skills.banned`)
+    on top of GLOBAL, with the **UNION** of the two scopes' `exemptPhrases` masked first (so an honest
+    negation exempt on one storefront surface — `no confidence field`, `$/token spend cap` — is not reddened
+    by the other's scan). Release notes now meet the same honesty bar as the site, on-thesis ("never a
+    probability of being right"). The `--tag` gate is **OPEN** (the storefront bar is enforced). **Fail-closed
+    (F3)** : a missing/empty `scan.site.banned` or `scan.skills.banned` makes `checkReleaseText` refuse all
+    text — never a silent GLOBAL-only fallback on public text. Provenance: `docs/G1-lot-m010-m4.md`,
+    `docs/G2-lot-m010-m4.md`.
 - **Branch guard (B-2)** : `release-public.mjs` refuses unless local **`HEAD == main`** **and**
   `git status --porcelain` is **empty**. The `origin/main`-worktree variant of the old draft is
   **removed** — `origin/main` is a stale remote ref (fail-open: it can lag a reverted push). A sync on
@@ -103,9 +105,10 @@ Guards are **importable pure functions** with **mutant tests** (the deterministi
 guardrail: a simple, verifiable, tight-budget task takes mono-worker + oracle, not fan-out):
 - `isSemverTag(tag) → boolean` : `/^v0\.\d+\.\d+$/` (rejects `v1.0.0`, `v0.1`, `0.1.0`, `v0.1.0-rc`,
   trailing junk).
-- `checkReleaseText(text) → {ok, hits}` : runs BOTH lang-gate `scanText` (with `loadExempt(REPO_ROOT)`
-  maskers, loaded **inside**) AND grep-forbidden `scanText` over `compilePatterns(vocab-banned.banned)`;
-  empty / whitespace text → `ok:false`. **Erratum (2026-09-16, checkpoint-2 m-3)** : the signature is
+- `checkReleaseText(text) → {ok, hits}` : runs lang-gate `scanText` (with `loadExempt(REPO_ROOT)` maskers,
+  loaded **inside**) AND grep-forbidden `scanText` at the **storefront bar** — `compilePatterns` over the
+  GLOBAL `banned` **plus** the `scan.site.banned` and `scan.skills.banned` scoped bans, with the union of
+  both scopes' `exemptPhrases` masked first (m-4, §4); empty / whitespace text → `ok:false`. **Erratum (2026-09-16, checkpoint-2 m-3)** : the signature is
   **1-arg** `checkReleaseText(text)` — the maskers are loaded internally from `REPO_ROOT`, not passed in;
   an earlier draft wrote `(text, maskers)`. The function is side-effect-free (no write, no network, no
   `process.exit` — safe to import and unit-test), reading only the two committed configs.
