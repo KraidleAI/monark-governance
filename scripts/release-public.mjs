@@ -301,9 +301,14 @@ function main() {
     try {
       run(`git push origin "refs/tags/${tag}"`, MIRROR);
     } catch {
-      run(`git tag -d "${tag}"`, MIRROR);
+      // Tag push failed — the sync commit is already public (pushed above), but no remote tag/Release
+      // exists. Delete the local mirror tag, report the ACTUAL outcome, and route MANUAL recovery (N-1):
+      // a re-run would reset to origin/main, find nothing to publish, and be refused by N-2.
+      const localDel = tryCapture(`git tag -d "${tag}"`, MIRROR);
       rmSync(tagMsgFile, { force: true });
-      abort(`failed to push the release tag ${tag} (rolled back the local tag).`);
+      console.error(`\n  rollback — remote tag: not pushed (nothing to delete)`);
+      console.error(`  rollback — local tag:  ${localDel.ok ? "deleted" : `STILL PRESENT; delete by hand: git tag -d ${tag}`}`);
+      abort(`failed to push the release tag ${tag}. Sync commit ${sha} is already public — recover MANUALLY per ADR-M010 N-1 (recreate + push the tag, then gh release create on ${sha}); do NOT re-run.`);
     }
 
     // Write the VALIDATED notes to a controlled temp file — never pass the user-supplied path to gh.

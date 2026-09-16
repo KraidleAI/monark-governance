@@ -91,7 +91,8 @@ CLI : `node scripts/release-public.mjs --tag vX.Y.Z --notes <file> [--dry-run]`.
 are **all-or-none** (both, or neither; neither = a plain sync with no tag). Fail-closed refusals:
 - tag not matching `/^v0\.\d+\.\d+$/` → refuse (semver, `0.x` only);
 - MAJOR ≥ 1 → refuse (`1.0.0` is a human decision, §2.3 — the schemas do not thaw);
-- tag already exists (local, or on the remote via `gh`) → refuse (no clobber);
+- tag already exists — local (`git tag -l`) or on the public remote (read-only `git ls-remote --tags`)
+  → refuse (no clobber);
 - `gh auth status` fails, or `gh` is absent → refuse (system dep, N-7; surfaced from `--dry-run`);
 - `--notes` file missing / empty, or its text reddens the gate (§4) → refuse.
 
@@ -161,6 +162,7 @@ an investisseur go**, the first **tagged sync `v0.1.0`** (outbound). Out of scop
 separate go), F2.
 
 **G1 journal** : `error_origin` assigned at G7; the B-1 friction `error_origin` = mixed commit `1f14b9b`
-(**R-25**). The CA-in-README ruling (investisseur 2026-09-16) is journaled (N-6). Lot-4 is **4
-deliverables, unitary** — within the R-25 lot bound (N-5). `gh` is a **system dependency** (N-7):
+(**R-25**). The CA-in-README ruling (investisseur 2026-09-16) is journaled (N-6). Lot-4 is **5
+deliverables, unitary** (release-public.mjs + tests + CONTRIBUTING §Releases + README badge + PR
+template) — within the R-25 lot bound (N-5). `gh` is a **system dependency** (N-7):
 `release-public.mjs` checks `gh` presence + auth and refuses fail-closed if absent.

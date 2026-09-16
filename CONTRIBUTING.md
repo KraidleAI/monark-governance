@@ -47,7 +47,9 @@ they return through the sync. Open a PR or an issue anyway; that is how we pick 
 ## Releases
 
 The public repository is a **push-only mirror**: it is re-synced from the private governance
-repo, and never carries a tag or Release created by hand on the mirror.
+repo, and never carries a tag or Release that did not originate from a governance sync (if a
+sync's Release step fails, it is re-created on that same already-synced commit — never authored
+independently on the mirror).
 
 - **The version source of truth is the git tag.** `package.json` deliberately stays at `0.0.0`
   and `private: true`: MONARK is **not published to npm**, so the carrying version is the frozen
