@@ -32,21 +32,23 @@ export const NARABI_TASK_CLASS = "stable-run-velocity-24h";
  * The F1 baseline forecaster: PERSISTENCE — v̂_{t,t+h} = v_t (this window's measured velocity). DECLARED
  * and honest; the nonconformity pair for F2 is (v̂, v realized next window). A sourced model per-class
  * (D7bis) supersedes it with its OWN predictor_id.
+ * v2 (2026-09-16, advisor-defi + investor ruling): v_t is now the fraction of the OPENING stock (was the
+ * closing-supply odds) — the definition changed, so the id bumps for auditability.
  */
-export const NARABI_PREDICTOR_ID = "narabi:persistence-v1";
+export const NARABI_PREDICTOR_ID = "narabi:persistence-v2";
 
 /** The K-1 honesty label (ADR-M008 D5). Lives on the envelope, NEVER inside the frozen contract. */
 export const NARABI_LABEL =
   "measured redemption flow; velocity forecast conformalized under coverage; not a peg score, not advice";
 
-/** Velocity unit = fraction of supply redeemed per HOUR (homogeneous across window sizes, D4). */
+/** Velocity unit = fraction of the OPENING supply redeemed per HOUR (homogeneous across window sizes, D4). */
 const WINDOW_HOURS: Record<AttestedFlow["window"], number> = { "1h": 1, "24h": 24 };
 
 /**
- * Fixed-point scale for burns/supply. The Number narrowing is EXACT while `burns·10^12/supply < 2^53`
- * (i.e. ratio ≲ 9e3, which covers the run/severity regime of interest, O(1)–O(10)); above that the
- * low-order bits are lost (never NaN/Inf — the value stays finite for any uint256). A ratio below 1e-12
- * truncates to 0 (negligible for run detection). NOT a general exactness claim.
+ * Fixed-point scale for burns/S_open. The fraction is ≤ 1 in the normal regime (burns ≤ opening stock),
+ * so `burns·10^12/S_open < 2^53` and the Number narrowing is EXACT; intra-window churn (mints > close)
+ * can push it above 1 (attributable to the carried `mints`, never a rejection) but it stays finite for
+ * any uint256. A ratio below 1e-12 truncates to 0 (negligible for run detection). NOT a general exactness claim.
  */
 const RATIO_SCALE = 1_000_000_000_000n;
 
@@ -150,18 +152,25 @@ export function fromAttestedFlow(flow: AttestedFlow): NarabiOutput | NarabiError
   if (!Number.isInteger(instant) || instant < 0 || instant > MAX_INSTANT_SECONDS) {
     return fail("binding_broken", `observed_at.instant out of the date-time range [0, ${String(MAX_INSTANT_SECONDS)}]: ${String(instant)}`);
   }
-  const supplyBig = BigInt(supply);
-  if (supplyBig === 0n) {
-    return fail("non_evaluable", "supply is zero — velocity is undefined");
-  }
+  // v_t is the FRACTION of the OPENING stock redeemed per hour (Diamond–Dybvig), a true fraction — NOT
+  // burns/closing-supply (the odds f/(1−f): can exceed 1, endogenous, and mislabelled a "fraction";
+  // advisor-defi 2026-09-16, ADR-M008 D4). `supply` on the wire stays the window-CLOSE value (D2); the
+  // OPENING supply is recomputed EXACTLY from the carried counts by window conservation
+  // (S_close = S_open − burns + mints  ⇒  S_open = S_close + burns − mints), so NO wire field / schema
+  // change. The identity totalSupply(from_block−1) == S_close + burns − mints is verified by the OFF-TOOL
+  // ingestion (K-8), fail-closed on mismatch — a free on-chain integrity oracle (D4 C1).
   const burnsBig = BigInt(burns);
-  // NB: NO `burns > supply` guard. `supply` is the CLOSING supply (D2); during a real run the closing
-  // supply is DRAINED, so burns/supply_close can exceed 1 — that is a severity signal, exactly the regime
-  // Narabi exists to see, NEVER an "impossible flow" to reject (checkpoint-2 C-1). Only supply=0 is
-  // non_evaluable. `mints` is carried for audit / the mint_wall residual, outside the D4 velocity (burns only).
+  const sOpen = BigInt(supply) + burnsBig - BigInt(mints);
+  if (sOpen <= 0n) {
+    // Genesis window, or a rebasing/negative-rebase wrapper where the conservation identity breaks
+    // (out of class, Mondrian) ⇒ velocity undefined. NB: supply_close = 0 with a REAL drain is NOT
+    // non_evaluable under start-supply — it is the STRONGEST signal (f = 1, v = 1/Δ).
+    return fail("non_evaluable", "opening supply (close + burns − mints) <= 0 — velocity undefined (genesis or out-of-class rebasing wrapper)");
+  }
 
-  // (3) Velocity v_t = (burns / supply) / Δ_hours — fraction of supply redeemed per hour (D4).
-  const ratio = Number((burnsBig * RATIO_SCALE) / supplyBig) / Number(RATIO_SCALE);
+  // (3) v_t = (burns / S_open) / Δ_hours — fraction of the OPENING stock redeemed per hour (D4). Numerator
+  // is burns ONLY (not net burns−mints); `mints` enters solely through the exact S_open reconstruction.
+  const ratio = Number((burnsBig * RATIO_SCALE) / sOpen) / Number(RATIO_SCALE);
   const velocityPerHour = ratio / WINDOW_HOURS[flow.window];
 
   // (4) The F1 forecast: PERSISTENCE — v̂_{t,t+h} = v_t (declared baseline; a number yhat, regression).

@@ -7,7 +7,7 @@
   "packages/contracts/src/region.ts": "369054e6760ed8abf8d00d21c587d1265288d1fce6ebbfc3cb23d623b0dc05e6",
   "packages/contracts/src/serialize.ts": "cd510be3d9d5e09acd0321181d6947ddc178ea88e9103dcbaf7e6990739e457c",
   "packages/contracts/src/types.ts": "1a94c70858c7ee646dbe9e7867ff705d68a49624be0c4e329682f685ae0fab70",
-  "schemas/attested-flow.schema.json": "a12fdac1e58b0980ea49bda43bc11ad141e266d5f98e4f99bfbb234aace9344d",
+  "schemas/attested-flow.schema.json": "393a155f4b717c9e0fdde2212bc0099df305bb8d78317b2d018255b4894960d1",
   "schemas/attested-price.schema.json": "d2c17c4dfd2b44b2b79041e2164628f75f67cb0d3fadefe804e3b43e2d873b8a",
   "schemas/coverage-verdict.schema.json": "203591de14994dfbc1076a5af888accd147cfb832a22feb2e284432b68c18d88",
   "schemas/forbidden-keys.json": "a4e93fd14c1dbd51d6bbffbdc289e8bcba08c1a94dd306c2729d0849d25e2990",

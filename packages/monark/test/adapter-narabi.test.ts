@@ -1,15 +1,17 @@
 // packages/monark/test/adapter-narabi.test.ts — ADR-M008 D4/D5 (Narabi F1).
 //
 // Exercises `fromAttestedFlow` on hand-built AttestedFlow inputs. ANTI-CIRCULARITY: the derived velocity
-// is confronted with an INDEPENDENT hand computation (burns/supply/Δ), never with the adapter's own
-// arithmetic; the emitted Prediction is validated against the FROZEN schema (ajv), not the TS mirror.
+// is confronted with an INDEPENDENT hand computation — v_t = burns/(S_open·Δ) with S_open = close + burns
+// − mints (start-supply, D4) — never with the adapter's own arithmetic; the emitted Prediction is
+// validated against the FROZEN schema (ajv), not the TS mirror.
 // Tests:
 //   - narabi_flow_maps_to_a_closed_prediction    : output.prediction |= prediction.schema.json (ajv).
-//   - narabi_velocity_recomputable_by_hand        : v_t = burns/(supply·Δ), per-hour, independent oracle.
+//   - narabi_velocity_recomputable_by_hand        : v_t = burns/(S_open·Δ), per-hour, independent oracle (pins start-supply).
 //   - narabi_window_scales_velocity_per_hour      : 1h vs 24h differ by exactly 24x (unit is per-hour).
 //   - narabi_is_deterministic                     : same input twice => byte-identical output.
-//   - narabi_fails_closed                         : supply=0, bad block range, unknown key/window/residual, out-of-range instant.
-//   - narabi_maps_the_run_regime                  : burns > CLOSING supply is a valid severity signal, NOT a refusal (C-1).
+//   - narabi_fails_closed                         : full-drain maps (v=1/Δ), S_open<=0 non_evaluable, bad range/key/window/residual/instant.
+//   - narabi_maps_a_drain_below_burns_as_a_fraction : burns>close = a proper fraction of the opening stock (start-supply), not the odds.
+//   - narabi_churn_ratio_above_1_is_mapped_not_rejected : mints>close pushes f>1 (churn), mapped, never rejected.
 //   - narabi_instant_boundary_...                 : the last 4-digit-year instant maps to a schema-valid produced_at (R-DELTA-1).
 //   - narabi_output_carries_honesty_label         : the K-1 label (an overclaim reddens the label check).
 //   - narabi_adapter_is_pure_no_io_no_clock       : K-8 mirror — no fs/net/child_process/fetch/env/clock.
@@ -93,12 +95,14 @@ test("narabi_flow_maps_to_a_closed_prediction (frozen schema, ajv)", () => {
   assert.equal(Math.round(new Date(out.prediction.produced_at).getTime() / 1000), INSTANT);
 });
 
-test("narabi_velocity_recomputable_by_hand (anti-circularity)", () => {
-  // burns = 1_000 tokens, supply = 1_000_000 tokens, window = 24h.
-  // ratio = 1_000 / 1_000_000 = 0.001 ; per-hour = 0.001 / 24.
-  const expectedPerHour = 0.001 / 24;
+test("narabi_velocity_recomputable_by_hand (anti-circularity, start-supply)", () => {
+  // burns = 1_000, supply CLOSE = 1_000_000, mints = 0, window = 24h.
+  // Start-supply (D4): S_open = close + burns − mints = 1_001_000 ; v = (burns/S_open)/Δ.
+  // Independent hand recompute (plain float division) — pins start-supply: close-supply would give
+  // 1000/1_000_000/24 ≈ 4.1667e-5, differing by ~4e-8 ≫ tolerance, so a reverted denominator reds here.
+  const expectedPerHour = (1_000 / (1_000_000 + 1_000)) / 24;
   const out = adapt(flow());
-  assert.ok(Math.abs(out.provenance.velocity_per_hour - expectedPerHour) < 1e-15);
+  assert.ok(Math.abs(out.provenance.velocity_per_hour - expectedPerHour) < 1e-12);
   assert.equal(out.prediction.yhat, out.provenance.velocity_per_hour); // persistence: v̂ = v_t
 });
 
@@ -114,8 +118,17 @@ test("narabi_is_deterministic (same input => byte-identical output)", () => {
 });
 
 test("narabi_fails_closed with a named reason (never a partial Prediction)", () => {
-  const zeroSupply = fromAttestedFlow(flow({}, { supply: "0" }));
-  assert.ok(isNarabiError(zeroSupply) && zeroSupply.reason === "non_evaluable");
+  // Start-supply (D4): supply_close=0 with a REAL drain is NOT non_evaluable — it is the STRONGEST signal
+  // (f=1, v=1/Δ). close=0, burns=500, mints=0 ⇒ S_open=500 ⇒ ratio=1 ⇒ v=1/24 (24h).
+  const fullDrain = adapt(flow({ window: "24h" }, { burns: "500000000000000000000", mints: "0", supply: "0" }));
+  assert.ok(Math.abs(fullDrain.provenance.velocity_per_hour - 1 / 24) < 1e-12, "supply_close=0 with a real drain maps to v=1/Δ, not non_evaluable");
+  // non_evaluable is now S_open <= 0 (mints >= close + burns): genesis / out-of-class rebasing wrapper.
+  const nonPositiveOpen = fromAttestedFlow(flow({}, { supply: "0", burns: "0", mints: "100000000000000000000" }));
+  assert.ok(isNarabiError(nonPositiveOpen) && nonPositiveOpen.reason === "non_evaluable", "S_open <= 0 (mints >= close+burns) is non_evaluable");
+  // R1 (G2-delta): S_open === 0 EXACTLY is the boundary the `sOpen <= 0` guard adds. A `< 0` mutant would
+  // let it through to a 0n/0n BigInt division (uncaught RangeError) — the throw class we claim to exclude.
+  const zeroOpen = fromAttestedFlow(flow({}, { supply: "0", burns: "0", mints: "0" }));
+  assert.ok(isNarabiError(zeroOpen) && zeroOpen.reason === "non_evaluable", "S_open === 0 (genesis) must be non_evaluable, never a division-by-zero throw");
 
   const badRange = fromAttestedFlow(flow({}, { from_block: 20_007_200, to_block: 20_000_000 }));
   assert.ok(isNarabiError(badRange) && badRange.reason === "binding_broken");
@@ -153,16 +166,25 @@ test("narabi_instant_boundary_maps_to_schema_valid_produced_at (R-DELTA-1)", () 
   assert.equal(validatePrediction(out.prediction), true, JSON.stringify(validatePrediction.errors));
 });
 
-// Test — C-1: `supply` is the CLOSING supply (D2), so during a run burns can EXCEED it. The adapter must
-// MAP this (the severity regime it exists to detect), not reject it as "impossible flow". Mutant: re-add
-// the `burns > supply` guard ⇒ this reds (the run window is refused).
-test("narabi_maps_the_run_regime_burns_over_closing_supply (C-1)", () => {
-  // open 1000, burn 600, mint 0, CLOSE 400 (D2 supply = close). burns(600) > supply_close(400).
+// Test — start-supply (D4): `supply` is the window-CLOSE value, so a run can drain it below `burns`.
+// Under start-supply that is a PROPER fraction of the OPENING stock (≤ 1), MAPPED — not the odds >1.
+// Mutant: revert to burns/close ⇒ this reds (it would be 1.5/24, not 0.6/24).
+test("narabi_maps_a_drain_below_burns_as_a_fraction (D4 start-supply)", () => {
+  // burn 600, mint 0, CLOSE 400 ⇒ S_open = 400 + 600 − 0 = 1000 ⇒ f = 600/1000 = 0.6 (of the opening stock).
   const out = adapt(flow({ window: "24h" }, { burns: "600000000000000000000", mints: "0", supply: "400000000000000000000" }));
-  // v_t = burns/(supply_close·Δ) = (600/400)/24 = 1.5/24. Ratio ABOVE 1 is expected, never an error.
-  const expected = 1.5 / 24;
-  assert.ok(Math.abs(out.provenance.velocity_per_hour - expected) < 1e-12, "the run-regime velocity is burns/closing-supply/Δ (may exceed 1)");
+  const expected = 0.6 / 24;
+  assert.ok(Math.abs(out.provenance.velocity_per_hour - expected) < 1e-12, "burns>close is 60% of the OPENING stock (start-supply), not the odds 1.5");
   assert.equal(out.prediction.yhat, out.provenance.velocity_per_hour);
+});
+
+// Test — churn: v_t can exceed 1 ONLY via intra-window mint-then-burn (mints > close), attributable to
+// the carried `mints`, and it is MAPPED, never a rejection (the C-1 "never reject a drain" invariant
+// survives on start-supply). Mutant: a `ratio > 1 ⇒ reject` guard ⇒ this reds.
+test("narabi_churn_ratio_above_1_is_mapped_not_rejected (D4)", () => {
+  // CLOSE 100, burn 600, mint 500 ⇒ S_open = 100 + 600 − 500 = 200 ⇒ ratio = 600/200 = 3.
+  const out = adapt(flow({ window: "24h" }, { burns: "600000000000000000000", mints: "500000000000000000000", supply: "100000000000000000000" }));
+  const expected = 3 / 24;
+  assert.ok(Math.abs(out.provenance.velocity_per_hour - expected) < 1e-12, "mints>close pushes the fraction above 1 (churn), mapped and attributable to mints");
 });
 
 test("narabi_output_carries_honesty_label (K-1, 3rd carrier)", () => {
