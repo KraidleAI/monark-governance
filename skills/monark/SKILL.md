@@ -51,13 +51,14 @@ it abstains (`under_calib`). They are NOT use cases. The real path is BYO: bring
 nonconformity scores.
 
 A third `task_class`, `stable-run-velocity-24h` (redemption-run velocity, the Narabi sensor), ships in the
-**repository** as of `v0.2.0` and also abstains (`under_calib`, declared **synthetic** fixtures). It is
-**not yet served by this endpoint** — a committed calibration, measured on a real episode and held out of
-sample, is `v0.3.0`.
+**repository** as of `v0.3.0` with a **committed calibration for one population** — USDe, key
+`narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3`, measured on calm onchain
+redemption-flow windows with exchangeability declared. **Every other population abstains** (`under_calib`).
+It is **not yet served by this endpoint** — the public endpoint still serves the two original classes.
 
 ## Endpoint and license
 
-- Endpoint: `https://mcp.monarkgate.tech/mcp` (mirror `https://api.monarkgate.tech/mcp`).
+- Endpoint: `https://mcp.monarkgate.tech/mcp` (HTTP/JSON mirror: `POST https://api.monarkgate.tech/{attest|gate|cascade|calibrate}`).
 - Install on each runtime: see `INTEGRATION.md`.
 - This skill is licensed under **MIT-0** (MIT No Attribution); see `LICENSE`. The MONARK harness is a
   separate, Apache-2.0 codebase - only this descriptive skill is MIT-0.

@@ -2,7 +2,7 @@
 
 MONARK is one public MCP endpoint exposing the four tools `{attest, gate, cascade, calibrate}`:
 
-- `https://mcp.monarkgate.tech/mcp` (mirror `https://api.monarkgate.tech/mcp`)
+- `https://mcp.monarkgate.tech/mcp` (HTTP/JSON mirror: `POST https://api.monarkgate.tech/{attest|gate|cascade|calibrate}`)
 
 Transport is Streamable HTTP. The endpoint is public and unauthenticated, with no availability
 commitment; treat it as a reference implementation of the coverage-gate contract, not a hosted service

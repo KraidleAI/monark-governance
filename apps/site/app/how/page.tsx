@@ -49,9 +49,9 @@ export default function HowItWorksPage() {
   const { actions, reasons } = loadGateEnums(root);
 
   // The four frozen shapes of the pipeline = the four committed schemas. Field lists load dynamically
-  // (required[]), never hard-coded — the storefront cannot drift from the frozen contract. AttestedDoc/
-  // AttestedFlow (in the design mock) are NOT frozen contracts in schemas/, so the sensor card renders
-  // only the one built attestation shape (AttestedPrice), no invented "two upcoming" count.
+  // (required[]), never hard-coded — the storefront cannot drift from the frozen contract. AttestedDoc is
+  // not a frozen contract; AttestedFlow IS frozen (the fifth schema) but is a PARALLEL sensor, not a
+  // pipeline stage — so the pipeline card renders only the one built attestation shape (AttestedPrice).
   // `layer`/`what`/`absent` are ReactNode fragments (not raw strings), so the honesty lint (test 44)
   // scans their JSX text even though they sit in an array initializer — a numeric literal in this copy
   // reds (C-4 convention: rendered prose is JSX text). `contract.title` + `required[]` load dynamically.

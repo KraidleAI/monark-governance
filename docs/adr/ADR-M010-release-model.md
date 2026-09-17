@@ -34,6 +34,15 @@ notes live on the **GitHub Release object**, not in a root file (persisted in §
    the gate **abstains by design** until a committed calibration lands) — **never labelled "V1"**.
    **`v0.3.0` = F2** (the committed msUSD split-conformal calibration; a clean, no-deadline lot). `1.0.0`
    = a **human** decision, never an agent (the schemas do not thaw).
+   **Amendement 2026-09-17 (investisseur, checkpoint-2 du lot release `v0.3.0`, C-2) — `v0.2.0` est SAUTÉ sur le
+   miroir public.** F1 a été mergé sur `main` le 2026-09-16 (`v0.2.0` préparé, dry-run vert) mais **jamais tagué ni
+   poussé** ; F2-B (première calibration committée — population **USDe**, pas msUSD : msUSD a été mesuré puis refusé
+   comme dégénéré, cf. ADR-M008 D7bis amendé) a ensuite été mergé par-dessus (`1f4dbaf`). Un tag `v0.2.0` sur un sync
+   contenant F2 serait **faux**, et le branch guard (§4 B-2) interdit de re-synchroniser un `main` antérieur. Ruling :
+   la séquence publique est **`v0.1.0` → `v0.3.0`** ; les notes `v0.3.0` **portent les deux** (le contenu v0.2.0 —
+   AttestedFlow, adaptateur, classe — puis la calibration committée) ; `v0.3.0` = F1 + F2-B (USDe). La règle de
+   cadence (un tag par lot changeant la surface publique) **reste** ; ceci est une exception déclarée et datée, pas
+   un précédent — leçon consignée au JOURNAL : **taguer chaque lot public avant que le suivant ne merge sur `main`**.
 4. **Version source of truth = the git tag**. `package.json` stays `0.0.0` / `private:true` (not npm
    published); `CONTRIBUTING.md` §Releases states it.
 5. **PR template** : on the **governance** repo only (the mirror takes no PR — a PR merged on the mirror

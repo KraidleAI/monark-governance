@@ -6,7 +6,7 @@ verdict's digest equals your score-set digest. The numbers below are ILLUSTRATIV
 scores, not a measured model and not any asset. The full honesty label lives verbatim in `SKILL.md`;
 this file only shows the loop.
 
-Endpoint: `https://mcp.monarkgate.tech/mcp` (mirror `https://api.monarkgate.tech/mcp`). Every call is
+Endpoint: `https://mcp.monarkgate.tech/mcp` (HTTP/JSON mirror: `POST https://api.monarkgate.tech/{attest|gate|cascade|calibrate}`). Every call is
 stateless — MONARK stores nothing between the two calls; you carry q̂ and B_t in and out. The request
 bodies below are shown against the HTTP/JSON mirror (`POST /{tool}`); over MCP the SAME body travels as
 the `arguments` of a `tools/call`, which is the form the recorded trace captures.

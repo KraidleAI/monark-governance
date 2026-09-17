@@ -37,7 +37,7 @@ const LAYERS: {
         defer, or abstain.
       </>
     ),
-    detail: <>four frozen contracts &middot; Hikae + Ukemi engines &middot; CI</>,
+    detail: <>five frozen contracts &middot; Hikae + Ukemi engines &middot; CI</>,
     maturity: <>Built</>,
     maturityTone: "border-hikae-t text-hikae-t",
   },
@@ -84,7 +84,7 @@ const PHASES: { id: string; label: ReactNode; body: ReactNode; tone: string }[] 
   {
     id: "freeze",
     label: <>Phase zero &middot; closed</>,
-    body: <>Contract freeze &mdash; four schemas, closed keys, forbidden-key guard, vocabulary gate.</>,
+    body: <>Contract freeze &mdash; the first four schemas, closed keys, forbidden-key guard, vocabulary gate.</>,
     tone: "text-hikae-t",
   },
   {
