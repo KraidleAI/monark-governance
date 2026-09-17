@@ -82,7 +82,7 @@ export function conformInterval(params: IntervalConformalParams): IntervalConfor
   if ("reason" in split) return underCalib(params); // fail-closed: under-calibration
 
   const qhat = split.qhat;
-  const ir = buildIntervalRegion(params.yhat - qhat, params.yhat + qhat); // q̂ ≥ 0 ⇒ lo ≤ hi (M5); lo<hi ⇒ q̂>0 ; réciproque FAUSSE sous absorption flottante (M011 D1)
+  const ir = buildIntervalRegion(params.yhat - qhat, params.yhat + qhat); // q̂ ≥ 0 ⇒ lo ≤ hi (M5); lo<hi ⇒ q̂>0 ; converse FALSE under float absorption (M011 D1)
   if (ir.abstain) return underCalib(params); // non-finite bound (ŷ ±inf/NaN), OR zero-width lo===hi (q̂=0 / absorption, NDG-1 M011)
 
   const verdict = buildVerdict({
