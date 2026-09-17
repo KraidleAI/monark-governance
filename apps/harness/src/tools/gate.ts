@@ -69,14 +69,25 @@ export const STABLE_RUN_UNCALIBRATED_SENTENCE =
 
 /**
  * The honesty sentence for the ONE committed stable-run population (ADR-M008 Amendement bis A2): USDe, the
- * synthetic-dollar-whitelisted-redeem family, measured over CALM 24h redemption-flow windows. Exchangeability
- * is DECLARED (a modelling assumption, not a proof); every other population abstains `under_calib`. No
- * marketing "calibrated" adjective, no "V1", no numeric early-warning, no probability — measured, never scored.
+ * synthetic-dollar-whitelisted-redeem family, measured over CALM 24h redemption-flow windows. The coverage
+ * statement follows the split-conformal bound of Barber, Candes, Ramdas and Tibshirani 2023 (Thm 2, unit
+ * weights): 1 - alpha is the coverage ONLY if the average total-variation gap between the calibration windows
+ * and the next is zero (exchangeability). That gap is NOT estimated here and the calibration is MEASURED
+ * non-stationary across half-years, so exchangeability is NOT assumed and no coverage is measured (ADR-M012 D7,
+ * supersedes the ADR-M008 D7 declared-exchangeability wording). Every other population abstains `under_calib`.
+ * No marketing "calibrated" adjective, no "V1", no numeric early-warning, no probability — measured, never scored.
+ * NOTE (declared deviation): ADR-M012 D7 spells the third author's surname with a French diacritic; it is
+ * rendered ASCII "Candes" here to match repo precedent (packages/hikae/src/l1-split.ts) and the English-only
+ * export gate (ADR-M004 D7) — the diacritic reddens lang:gate + export:check (harness scope). Substance identical.
  */
 export const STABLE_RUN_COMMITTED_SENTENCE =
   "a committed stable-run velocity calibration for the USDe synthetic-dollar-whitelisted-redeem population " +
   "(key narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3) over calm-window " +
-  "redemption flow; exchangeability is declared within that population; every other (task_class, predictor_id) abstains (under_calib)";
+  "redemption flow; coverage is stated under the split-conformal bound of Barber, Candes, Ramdas and " +
+  "Tibshirani 2023 (Thm 2, unit weights): at least 1 − α minus the average total-variation gap between " +
+  "calibration windows and the next one; that gap is not estimated here and the calibration is measured " +
+  "non-stationary across half-years, so 1 − α is the coverage only if that gap is zero (exchangeability), " +
+  "which is not assumed here; no coverage is measured; every other (task_class, predictor_id) abstains (under_calib)";
 
 export const GATE_TOOL_NAME = "gate";
 
@@ -87,11 +98,8 @@ export const GATE_TOOL_DESCRIPTION =
   "authorization budget B_t. Dispatches on task_class. For 'btc-dir-15m' it conformalizes against a " +
   "committed synthetic calibration derived from the HIKAE S2a instrument (seed 101, n=300 draw), declared " +
   `synthetic — a plumbing fixture, not a measured predictor. For 'cascade-liquidable-24h' ${CASCADE_UNCALIBRATED_SENTENCE}. ` +
-  "For 'stable-run-velocity-24h' (Narabi: a redemption-flow velocity forecast) the gate holds a committed " +
-  "velocity calibration for ONE population — USDe (synthetic-dollar-whitelisted-redeem), keyed on " +
-  "(task_class, predictor_id) = ('stable-run-velocity-24h', " +
-  "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3), measured over calm " +
-  `redemption-flow windows; for any other population, ${STABLE_RUN_UNCALIBRATED_SENTENCE}. ` +
+  `For 'stable-run-velocity-24h' (Narabi: a redemption-flow velocity forecast) the gate holds ${STABLE_RUN_COMMITTED_SENTENCE}; ` +
+  `for any other population, ${STABLE_RUN_UNCALIBRATED_SENTENCE}. ` +
   "When the caller instead supplies a `calibration` (its own nonconformity scores plus a `mode`: `interval` " +
   "⇒ region [yhat - q̂, yhat + q̂], or `set` ⇒ a conformal set over caller `candidates`), the gate " +
   `conformalizes against THOSE caller-supplied scores (BYO): ${CALIBRATE_LABEL} ` +

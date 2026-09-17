@@ -156,6 +156,52 @@ test("vocab_narabi_scopes_ban_peg_score_and_p_depeg — naked surclaim reddens, 
   }
 });
 
+// ADR-M012 D8 (C-3) — the adaptive-surclaim patterns are present in the site, harness, skills AND narabi_docs scopes (narabi_docs enforces AC-5 on README, C-4) and
+// discriminating: "adaptive coverage" / "the gate adapts" / "adaptively covers" redden, while the EXACT
+// ADR-M012 D8 public sentence stays green with NO exemption. WORKER DEVIATION (ADR-M012 D8 asked for an
+// exemptPhrases entry = the D8 sentence): it is NOT added, because (i) the sentence dodges both patterns by
+// construction (measured: 0 match), so the entry would be inert, and (ii) an inert entry in site.exemptPhrases
+// would FAIL the vocab_site_confidence_exemption non-inert guard (it has no rendered apps/site carrier), and
+// the harness scope does not even consume exemptPhrases (grep-forbidden.mjs add() passes none). The stronger
+// property is asserted directly: the D8 sentence is green with an EMPTY exemption list, in all three scopes.
+// Uses the REAL gate functions (compilePatterns/scanText) without executing the CLI (run-guarded).
+test("vocab_adaptive_coverage_reddens — adaptive surclaim reddens site/harness/skills/narabi_docs; the exact D8 sentence green, no exemption (ADR-M012 D8)", () => {
+  const cfg = JSON.parse(readFileSync(join(ROOT, "vocab-banned.json"), "utf8")) as {
+    banned: { re: string; why: string }[];
+    scan: Record<string, { banned?: { re: string; why: string }[] } | undefined>;
+  };
+  // The EXACT ADR-M012 D8 public sentence (verbatim English; straight apostrophes, en-dash author names).
+  const D8_SENTENCE =
+    "Narabi runs an adaptive quantile tracker (Angelopoulos–Barber–Bates 2024, decaying step) on the attested " +
+    "daily USDe redemption flow: its state moves each 24h window from the realized outcome, and the full " +
+    "timeline is published so anyone can replay it. What it carries is a deterministic long-run bound that " +
+    "tightens as windows accumulate, printed daily with T, not a per-window coverage, not a probability; the " +
+    "gate's committed calibration does not depend on the tracker state. Until the pre-registered drift " +
+    "criterion fires and an ADR says otherwise, the gate's region is still the committed static calibration: " +
+    "the tracker adapts, the gate does not yet.";
+  const MUTANTS = ["adaptive coverage", "the gate adapts", "adaptively covers"];
+  for (const scopeName of ["site", "harness", "skills", "narabi_docs"] as const) {
+    const scope = cfg.scan[scopeName];
+    assert.ok(scope && scope.banned, `scope '${scopeName}' missing from vocab-banned.json`);
+    // Both ADR-M012 D8 patterns are present (a deletion also reds the load-bearing check below).
+    const adaptive = scope.banned.filter((b) => /adapt/i.test(b.re));
+    assert.equal(adaptive.length, 2, `scope '${scopeName}' must carry BOTH ADR-M012 D8 adaptive patterns`);
+    const patterns = compilePatterns([...cfg.banned, ...scope.banned]);
+    // (a) MUTANT — the three surclaims redden the scope.
+    for (const m of MUTANTS) {
+      assert.ok(scanText(m, patterns, []).length >= 1, `(a) '${m}' must redden the ${scopeName} scope (ADR-M012 D8)`);
+    }
+    // (b) the EXACT D8 public sentence stays green with an EMPTY exemption list (no exemptPhrases entry).
+    assert.deepEqual(scanText(D8_SENTENCE, patterns, []), [], `(b) the exact D8 sentence must stay green in ${scopeName} with NO exemption`);
+    // (c) LOAD-BEARING — remove the two adaptive patterns and every mutant goes green, proving THOSE patterns
+    // (not a pre-existing rule) are what redden the surclaims.
+    const without = compilePatterns([...cfg.banned, ...scope.banned.filter((b) => !/adapt/i.test(b.re))]);
+    for (const m of MUTANTS) {
+      assert.deepEqual(scanText(m, without, []), [], `(c) removing the adaptive patterns must green '${m}' in ${scopeName} (load-bearing)`);
+    }
+  }
+});
+
 // Lot F-2a (PLAN F-2 §6e, C6) — the public storefront vocabulary gate (scope 'site') bans the README
 // v2 marketing vocab in apps/site. Live end-to-end mutant (grep of the gate on a banned word in an
 // apps/site file) is in docs/G1-lot-F2a.md; this locks the config so the scope cannot drift silently.

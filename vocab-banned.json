@@ -45,7 +45,9 @@
         { "re": "\\bHIP-3\\b", "why": "\"HIP-3\" — third-party protocol proposal, named generically (F-2c C-4)" },
         { "re": "\\bArrakis\\b", "why": "\"Arrakis\" — third-party liquidity manager, named generically (F-2c C-4)" },
         { "re": "\\bUMA\\b", "why": "\"UMA\" — third-party optimistic oracle; strict \\b boundary so 'human'/'summary' stay green (F-2c C-4)" },
-        { "re": "\\bGamma\\b", "why": "\"Gamma\" — third-party liquidity manager; strict \\b boundary so substrings stay green (F-2c C-4)" }
+        { "re": "\\bGamma\\b", "why": "\"Gamma\" — third-party liquidity manager; strict \\b boundary so substrings stay green (F-2c C-4)" },
+        { "re": "adaptive(ly)?\\s+(cover|guarantee|region|gate)", "why": "\"adaptive coverage/guarantee/region/gate\" surclaim — the Narabi tracker is adaptive, the committed gate region is NOT (ADR-M012 D8, C-3; catches \"adaptively covers\")" },
+        { "re": "(coverage|region|gate)\\s+adapt", "why": "\"the gate/region/coverage adapts\" surclaim — the gate does not adapt before the pre-registered drift criterion fires (ADR-M012 D8, C-3; catches \"the gate adapts\")" }
       ],
       "exemptPhrases": ["no confidence field"]
     },
@@ -61,7 +63,9 @@
         { "re": "(?<!not\\s)(?<!no[\\s_])probative", "why": "naked \"probative\" surclaim; the honest \"not probative\"/\"no probative\"/\"no_probative\" negations stay green (ADR-M007 B-3)" },
         { "re": "\\bpredicts\\b", "why": "\"predicts\" — the fleet conforms a predictor, it does not itself predict; \"predictor\"/\"prediction\" stay green (ADR-M007 B-3)" },
         { "re": "(?<!not a )(?<!no )peg[-_\\s]?score", "why": "naked \"peg score\" surclaim on the harness surface (ADR-M008 D5); the honest \"not a peg score\"/\"no peg score\" negation stays green" },
-        { "re": "\\bp[_\\s-]?depeg\\b", "why": "\"p_depeg\" — the harness never emits a depeg probability (ADR-M008 D5)" }
+        { "re": "\\bp[_\\s-]?depeg\\b", "why": "\"p_depeg\" — the harness never emits a depeg probability (ADR-M008 D5)" },
+        { "re": "adaptive(ly)?\\s+(cover|guarantee|region|gate)", "why": "\"adaptive coverage/guarantee/region/gate\" surclaim — the Narabi tracker is adaptive, the committed gate region is NOT (ADR-M012 D8, C-3; catches \"adaptively covers\")" },
+        { "re": "(coverage|region|gate)\\s+adapt", "why": "\"the gate/region/coverage adapts\" surclaim — the gate does not adapt before the pre-registered drift criterion fires (ADR-M012 D8, C-3; catches \"the gate adapts\")" }
       ]
     },
     "skills": {
@@ -81,19 +85,23 @@
         { "re": "\\bstak", "why": "\"stak(e|ing)\" — token-staking framing kept out of the skill (ADR-M006 M-2)" },
         { "re": "\\bspend[-\\s]?(cap|guard|limit)\\b", "why": "\"spend cap/guard/limit\" — the coverage gate is NOT a spend guard (ADR-M006 D2 risk #1); \"spend controls\" (pointer to the caller's own platform) stays green" },
         { "re": "\\blive\\b", "why": "\"live\" — never describes the skill (ADR-M006 M-9)" },
-        { "re": "\\bproven\\b", "why": "\"proven\" — never describes the skill (ADR-M006 M-9)" }
+        { "re": "\\bproven\\b", "why": "\"proven\" — never describes the skill (ADR-M006 M-9)" },
+        { "re": "adaptive(ly)?\\s+(cover|guarantee|region|gate)", "why": "\"adaptive coverage/guarantee/region/gate\" surclaim — the Narabi tracker is adaptive, the committed gate region is NOT (ADR-M012 D8, C-3; catches \"adaptively covers\")" },
+        { "re": "(coverage|region|gate)\\s+adapt", "why": "\"the gate/region/coverage adapts\" surclaim — the gate does not adapt before the pre-registered drift criterion fires (ADR-M012 D8, C-3; catches \"the gate adapts\")" }
       ],
       "exemptPhrases": ["$/token spend cap"]
     },
     "narabi_docs": {
       "$comment": "(ADR-M008 Amendement bis, C-12): the Lot F2-B USDe provenance + closure docs carry the honest MEASURED framing; the forbidden 'attribution' surface purged from the recorder must never re-enter these docs. Files are listed EXPLICITLY (not a directory walk) so unrelated docs/fixtures stay untouched. GLOBAL patterns also apply. A flow is measured under coverage, never scored: no would-have counterfactual, no timing-vs-price claim, no numeric early-warning.",
       "extensions": [".md"],
-      "files": ["fixtures/PROVENANCE-usde.md", "docs/CLOTURE-lot-f2b-usde.md"],
+      "files": ["fixtures/PROVENANCE-usde.md", "docs/CLOTURE-lot-f2b-usde.md", "README.md"],
       "banned": [
         { "re": "would\\s+have", "why": "\"would have (alerted/spoken)\" — the retrospective is factual (bare dates + above_q99), never a counterfactual alert claim (C-12)" },
         { "re": "before\\s+the\\s+mid", "why": "\"before the mid\" — no timing-vs-price surclaim on the Narabi surface (C-12)" },
         { "re": "\\bspoke\\b", "why": "\"spoke\" — the purged spoke_before_public_mid surface must not re-enter (C-12)" },
-        { "re": "\\bearly\\s+warning\\b", "why": "\"early warning\" — no numeric early-warning marketing (ADR-M008 D5, C-12)" }
+        { "re": "\\bearly\\s+warning\\b", "why": "\"early warning\" — no numeric early-warning marketing (ADR-M008 D5, C-12)" },
+        { "re": "adaptive(ly)?\\s+(cover|guarantee|region|gate)", "why": "\"adaptive coverage/guarantee/region/gate\" surclaim on the Narabi docs incl. README (C-4) — the tracker is adaptive, the committed gate region is NOT (ADR-M012 D8, AC-5)" },
+        { "re": "(coverage|region|gate)\\s+adapt", "why": "\"the gate/region/coverage adapts\" surclaim on the Narabi docs incl. README (C-4) — the gate does not adapt before the pre-registered drift criterion fires (ADR-M012 D8, AC-5)" }
       ]
     }
   }

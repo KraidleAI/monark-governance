@@ -51,10 +51,11 @@ These statements live in the trace's `honesty` block and are re-asserted by
 
 - The tools read no clock (`produced_at`/`producedAt` are caller-carried); the ephemeral port is
   intentionally NOT recorded. Re-running the recorder reproduces the file byte-for-byte.
-- **sha256 (LF-normalized)**: `09cd5b370808a43dfe5bac122ac71191485cd813449973ff3a8053ffa4693bf3`
-  (15731 bytes; re-pinned for ADR-M008 F2-B — the `stable-run-velocity-24h` clause of the gate tool
-  description now declares the committed USDe population + the keyed under_calib, changing only the
-  `tools/list` step's `response_sha256`, no decision bytes).
+- **sha256 (LF-normalized)**: `94af6409267cb98bc9ff26da5e3a9a7e18653f9787ee8d7f3402ebc7b98acdee`
+  (15731 bytes; re-pinned for ADR-M012 D7 — the `stable-run-velocity-24h` clause of the gate tool
+  description now interpolates `STABLE_RUN_COMMITTED_SENTENCE` (the corrected split-conformal / Barber Thm 2
+  coverage framing, no exchangeability claim), changing only the `tools/list` step's `response_sha256`, no
+  decision bytes).
   `.gitattributes` normalizes to `eol=lf`, so this digest survives commit; the probe
   LF-normalizes before hashing, so it also survives a CRLF checkout. This value is pinned as
   `TRACE_SHA256_PINNED` in `test/h5-e2e-probe.test.ts`.

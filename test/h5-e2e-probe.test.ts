@@ -47,13 +47,14 @@ const TRACE_PATH = fileURLToPath(new URL("../fixtures/h5-e2e-trace.json", import
 const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url));
 
 /** Pinned sha256 (LF-normalized) of the committed trace — also stated in fixtures/PROVENANCE-h5-e2e-trace.md.
- *  Re-pinned for ADR-M008 F2-B (Narabi): the `stable-run-velocity-24h` clause of GATE_TOOL_DESCRIPTION now
- *  declares the committed USDe population + the keyed under_calib for every other population, so the
- *  `tools/list` step's `response_sha256` changed (the ONLY drift — the cascade-gate/btc-dir-gate/attest
- *  decision bytes and every digest are byte-identical; the trace stores the response as a hash, so its own
- *  length is unchanged: 15731 bytes). (Prior re-pins: ADR-M008 F1 stable-run sentence; the verdict summary
- *  in the gate `content` text; Lot C2 ADR-M007 D7 grew the `tools/list` bytes via the optional BYO field.) */
-const TRACE_SHA256_PINNED = "09cd5b370808a43dfe5bac122ac71191485cd813449973ff3a8053ffa4693bf3";
+ *  Re-pinned for ADR-M012 D7 (Narabi): GATE_TOOL_DESCRIPTION's `stable-run-velocity-24h` clause now
+ *  interpolates the STABLE_RUN_COMMITTED_SENTENCE constant (the corrected split-conformal / Barber Thm 2
+ *  coverage framing, no exchangeability claim), so the `tools/list` step's `response_sha256` changed (the
+ *  ONLY drift — the cascade-gate/btc-dir-gate/attest decision bytes and every digest are byte-identical; the
+ *  trace stores the response as a hash, so its own length is unchanged: 15731 bytes). (Prior re-pins: ADR-M008
+ *  F2-B keyed committed/under_calib clause; ADR-M008 F1 stable-run sentence; the verdict summary in the gate
+ *  `content` text; Lot C2 ADR-M007 D7 grew the `tools/list` bytes via the optional BYO field.) */
+const TRACE_SHA256_PINNED = "94af6409267cb98bc9ff26da5e3a9a7e18653f9787ee8d7f3402ebc7b98acdee";
 
 const DEMONSTRATIVE_LABEL = "real, notary Shōgen, demonstrative, not probative";
 

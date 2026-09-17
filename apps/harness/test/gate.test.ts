@@ -490,6 +490,17 @@ test("gate_stable_run_honesty_text_is_keyed_A2_A7f", () => {
   assert.ok(!msusdText.includes(CASCADE_UNCALIBRATED_SENTENCE), "non-committed key ⇒ NOT the cascade sentence (B-1)");
 });
 
+// Test — ADR-M012 D7: the committed sentence's exchangeability clause is replaced by the split-conformal
+// (Barber, Candes, Ramdas, Tibshirani 2023, Thm 2, unit weights) coverage framing. It now cites "Barber"
+// and NO LONGER declares exchangeability (the measured-non-stationary honesty correction, ADR-M012 §0/D7).
+test("gate_sentence_barber", () => {
+  assert.ok(STABLE_RUN_COMMITTED_SENTENCE.includes("Barber"), "ADR-M012 D7: the committed sentence must cite Barber (Thm 2)");
+  assert.ok(
+    !STABLE_RUN_COMMITTED_SENTENCE.includes("exchangeability is declared"),
+    "ADR-M012 D7: the committed sentence must no longer declare exchangeability",
+  );
+});
+
 // Test — livrable (d): NDG-1 (ADR-M011) is REUSED on the USDe stable-run path, not re-added. The path's
 // conformalization is splitQuantile → buildIntervalRegion. An ALL-ZERO score vector (degenerate calibration)
 // routes to under_calib through THAT chain; the REAL committed USDe scores are non-degenerate (q̂>0, a real
