@@ -166,7 +166,7 @@ const PRINTABLE_ASCII = /^[ -~]+$/;
 /**
  * Validate the caller-supplied calibration (C2, fail-closed ⇒ `HarnessToolError`, surfaced as 400). Runs
  * BEFORE any conformal computation. `interval` mode requires every score >= 0 (B-4/B-6): rejected here so
- * `buildIntervalRegion`'s `lo > hi` throw (region.ts:48) is UNREACHABLE. `set` mode requires a non-empty
+ * `buildIntervalRegion`'s `lo > hi` throw (region.ts:55) is UNREACHABLE. `set` mode requires a non-empty
  * `candidates` list whose labels are printable ASCII, non-empty, unique, and free of `|` (B-3: `|` is the
  * `label_schema` separator, so a label containing it would forge a false schema in the frozen decision).
  */
@@ -229,7 +229,7 @@ function validateCalibration(cal: ByoCalibration): void {
  * Order mirrors gate.ts:189-197 — validate, then check `yhat` TYPE for the mode (wrong type ⇒ tool error
  * BEFORE any computation), then `splitQuantile` (under-calibration ⇒ fail-closed `underCalibVerdict`),
  * then the region. `abstain`/`reason` conventions mirror the committed paths (set: |C|>tau ⇒ set_too_large
- * else covered — gate.ts:135/144; interval: abstain:false/covered — interval-conformer.ts:93-94; the L3
+ * else covered — gate.ts:135/144; interval: abstain:false/covered — interval-conformer.ts:95-96; the L3
  * gate decides DEFER/ABSTAIN on the width). Every error is `HarnessToolError` (⇒ 400), never a 500.
  */
 function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalibration): CoverageVerdict {
@@ -268,7 +268,8 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
     const center = yhat as number; // narrowed by the typeof guard above
     const ir = buildIntervalRegion(center - qhat, center + qhat);
     if (ir.abstain) {
-      // A non-finite bound (yhat non-finite) ⇒ fail-closed under_calib (C-1, mirror interval-conformer.ts:84).
+      // Fail-closed under_calib (C-1, mirror interval-conformer.ts:86): a non-finite bound (yhat non-finite),
+      // OR a zero-width region lo===hi (q̂=0 or float absorption `center±q̂===center`, NDG-1 ADR-M011).
       return underCalibVerdict({
         taskClass,
         method: "split",

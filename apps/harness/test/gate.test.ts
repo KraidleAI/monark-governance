@@ -19,6 +19,7 @@ import {
 import { HARNESS_TOOLS, type GateEnvelope } from "../src/tools/registry.ts";
 import { runCalibrate, CALIBRATE_LABEL } from "../src/tools/calibrate.ts";
 import { BTC_DIR_CALIB_PROVENANCE, BTC_DIR_CALIB_DIGEST, CALIB_DIGEST_PINNED } from "../src/calibration.ts";
+import { splitQuantile } from "@monark/hikae"; // ADR-M011 §3.6/§3.3: anti-circularity — prove L1 q̂ before runGate
 
 const GOOD_PARAMS: HarnessParams = {
   remainingBudget: 0.1,
@@ -397,4 +398,60 @@ test("gate_stable_run_honesty_text_is_distinct_from_cascade", () => {
   // The verdict summary (delivery aid) surfaces the decision for text-only clients.
   const d = runGate(STABLE_RUN_PRED, { ...GOOD_PARAMS, intent: 0 });
   assert.ok(text.includes(`action=${d.action}`), "the verdict summary carries the decision action");
+});
+
+// ── ADR-M011 — interval non-degeneracy (NDG-1), BYO path (the REAL F2 msUSD repro path) ───────────────
+
+// The msUSD F2-A degenerate STRUCTURE (ADR-M011 §1): n=191 = 190 zero scores + 1 positive dust
+// (ratio ≈ 1.2e-8). Provenance sha d95cc0a34507ff9593ed52d55463c2daeca826a9cd2117e5776c19cabdff5e58 names
+// the source episode (198 windows, OUT-OF-REPO, REFUSED / negative closure — authority: ADR-M011 §1; see also PLAN-m008-f2b-usde.md §0);
+// this vector reproduces the structure, it is NOT that fixture.
+const MSUSD_LIKE_SCORES: number[] = [...Array.from({ length: 190 }, () => 0), 1.2e-8]; // n=191
+
+// Test — §3.6 (C-1 BLOQUANTE): a BYO `interval` calibration whose region has ZERO WIDTH (q̂=0 at the
+// pinned α=0.10) ⇒ under_calib, never a fabricated width-0 commit. This is the ONLY test that traverses the
+// real repro path (harness byoVerdict). Mutant M1 (region.ts guard removed) ⇒ verdict `covered`/q̂=0 ⇒ red.
+test("gate_byo_interval_degenerate_calibration_is_under_calib_M011", () => {
+  assert.equal(GOOD_PARAMS.alpha, 0.1, "GOOD_PARAMS.alpha is 0.10 (the degenerate-at-α=0.10 case)");
+  assert.equal(MSUSD_LIKE_SCORES.length, 191, "n=191 (<= CALIBRATE_MAX_N=10000 ⇒ passes the cap)");
+  // ANTI-CIRCULARITY: L1 gives q̂=0 (NOT under_calib) at α=0.10 ⇒ the under_calib comes from NDG-1, not L1.
+  assert.deepEqual(splitQuantile(MSUSD_LIKE_SCORES, 0.1, 5), { qhat: 0 }, "L1 q̂=0 at α=0.10 (not under_calib)");
+  // PIN alpha:0.10 explicitly — the trap: at α=0.01, p=n=191 ⇒ q̂ = the dust > 0 ⇒ NON-degenerate.
+  const d = runGate(BYO_INTERVAL_PRED, {
+    ...GOOD_PARAMS,
+    intent: 0,
+    nMin: 5,
+    alpha: 0.1,
+    calibration: { scores: MSUSD_LIKE_SCORES, mode: "interval" },
+  });
+  // Verdict-level (kills M1: with the region.ts guard removed the verdict is `covered`, q̂ 0):
+  assert.equal(d.verdict.reason, "under_calib", "degenerate calibration ⇒ verdict under_calib (NDG-1)");
+  assert.equal(d.verdict.qhat, null, "q̂ null on the honest abstention (never a width-0 covered)");
+  assert.equal(d.verdict.abstain, true);
+  // Gate-level (D3(b) + D6(b)):
+  assert.equal(d.action, "abstain");
+  assert.equal(d.allow, false);
+  assert.equal(d.reason, "under_calib", "gate reason under_calib (D6(b) — kills M4 ⇒ intent_not_in_region)");
+});
+
+// Test — §3.3 D1 discriminator (structural lo===hi, NOT `q̂>0`): float absorption at q̂>0. The ONLY path
+// where q̂>0 AND lo===hi coexist is BYO fed scores (in the conformer, residuals absorb to 0 BEFORE
+// splitQuantile ⇒ q̂=0, indiscernable). scores=[1e-12 × n], ŷ=1e6 ⇒ q̂=1e-12>0 but 1e6 ± 1e-12 === 1e6.
+// Mutant M3 (replace lo===hi by q̂>0 in the producer) ⇒ verdict `covered` here ⇒ red.
+test("gate_byo_interval_float_absorption_is_under_calib_M011", () => {
+  const scores: number[] = Array.from({ length: 10 }, () => 1e-12); // n=10 >= nMin 5
+  // In-code absorption proof + L1 gives q̂ = 1e-12 > 0 (NOT under_calib, NOT q̂=0): a naive `q̂>0` guard
+  // would MISS this — only the STRUCTURAL lo===hi catches it (D1).
+  assert.deepEqual(splitQuantile(scores, 0.1, 5), { qhat: 1e-12 }, "L1 q̂ = 1e-12 > 0");
+  assert.equal(1e6 + 1e-12, 1e6, "float absorption: 1e6 + 1e-12 === 1e6");
+  assert.equal(1e6 - 1e-12, 1e6, "float absorption: 1e6 - 1e-12 === 1e6");
+  const d = runGate(
+    { ...BYO_INTERVAL_PRED, yhat: 1e6 },
+    { ...GOOD_PARAMS, intent: 1e6, nMin: 5, alpha: 0.1, calibration: { scores, mode: "interval" } },
+  );
+  assert.equal(d.verdict.reason, "under_calib", "lo===hi at q̂>0 ⇒ under_calib (structural NDG-1, not q̂>0)");
+  assert.equal(d.verdict.qhat, null);
+  assert.equal(d.verdict.abstain, true);
+  assert.equal(d.action, "abstain");
+  assert.equal(d.reason, "under_calib");
 });

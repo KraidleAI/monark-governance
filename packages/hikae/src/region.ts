@@ -1,11 +1,15 @@
 /**
  * HIKAE — region constructors (ADR-M002 D9 / C4; owner settled).
  *
- * The M5 invariant (`lo <= hi`) and the "bounded or abstention" rule (never ±inf on the
- * wire, mirroring Hikae's refusal of `+inf`) live HERE, in a single constructor — NOT
- * in `@monark/contracts` (frozen, D2), NOT duplicated in `ukemi` (D13). At Phase 2
- * integration, HIKAE will conform UKEMI's numeric `Prediction` into an `interval` region via
- * `buildIntervalRegion`.
+ * TWO disjoint bound invariants live HERE, in a single constructor — NOT in `@monark/contracts`
+ * (frozen, D2), NOT duplicated in `ukemi` (D13):
+ *   - M5 (hard): `lo > hi` ⇒ throw (bypass = bug).
+ *   - NDG-1 (non-degeneracy, ADR-M011): a VALID `interval` region requires `lo < hi` STRICT;
+ *     `lo === hi` (zero width: q̂=0, or float absorption `ŷ±q̂===ŷ`) ⇒ abstention `under_calib`,
+ *     never a `covered` region (a width-0 hit would be fabricated precision).
+ * Plus the "bounded or abstention" rule (never ±inf on the wire, mirroring Hikae's refusal of
+ * `+inf`). At Phase 2 integration, HIKAE will conform UKEMI's numeric `Prediction` into an
+ * `interval` region via `buildIntervalRegion`.
  */
 import type { PredictionRegion } from "@monark/contracts";
 
@@ -25,21 +29,24 @@ export const BTC_DIR_LABELS = ["up", "down"] as const;
 export type BtcDirLabel = (typeof BTC_DIR_LABELS)[number];
 
 /**
- * Result of `buildIntervalRegion` (D9): a valid bounded region, OR an abstention
- * (a non-finite bound CANNOT be carried on the wire — we never emit ±inf).
- * `under_calib` is the chosen frozen literal (mirroring Hikae's refusal of `+inf`, D9).
+ * Result of `buildIntervalRegion` (D9): a valid bounded region (`lo < hi` strict, NDG-1), OR an
+ * abstention — a non-finite bound (never carried on the wire, ±inf) OR a zero-width `lo === hi`
+ * region (degenerate, ADR-M011). `under_calib` is the chosen frozen literal (mirroring Hikae's
+ * refusal of `+inf`, D9).
  */
 export type IntervalRegionResult =
   | { abstain: false; region: IntervalRegion }
   | { abstain: true; reason: "under_calib" };
 
 /**
- * The SOLE constructor of an `interval` region (D9 / C4, M5 invariant).
+ * The SOLE constructor of an `interval` region (D9 / C4, M5 + NDG-1 invariants).
  *
  * Intended order (declared): **finiteness is tested first** — a non-finite bound
  * (`±Infinity`/`NaN`) ⇒ abstention `under_calib` (we never emit ±inf); then, finite
- * bounds with `lo > hi` ⇒ explicit throw (M5 invariant violation). This ordering
- * choice treats `(+Infinity, 5)` as "unbounded ⇒ abstention", not as `lo > hi`.
+ * bounds with `lo > hi` ⇒ explicit throw (M5 invariant violation); then `lo === hi`
+ * (zero width) ⇒ abstention `under_calib` (NDG-1, ADR-M011). A VALID region therefore has
+ * `lo < hi` STRICT. This ordering choice treats `(+Infinity, 5)` as "unbounded ⇒ abstention",
+ * not as `lo > hi`.
  */
 export function buildIntervalRegion(lo: number, hi: number): IntervalRegionResult {
   if (!Number.isFinite(lo) || !Number.isFinite(hi)) {
@@ -49,6 +56,12 @@ export function buildIntervalRegion(lo: number, hi: number): IntervalRegionResul
     throw new Error(
       `buildIntervalRegion: lo (${lo}) > hi (${hi}) — M5 invariant (lo <= hi) violated (ADR-M002 D9/C4).`,
     );
+  }
+  if (lo === hi) {
+    // NDG-1 (ADR-M011): a zero-width region (q̂=0, or float absorption `ŷ±q̂===ŷ`) is degenerate —
+    // a width-0 `covered` verdict would fabricate precision. Fail-closed abstention, same frozen
+    // literal as the non-finite case. A valid `interval` region is `lo < hi` STRICT.
+    return { abstain: true, reason: "under_calib" };
   }
   return { abstain: false, region: { kind: "interval", lo, hi } };
 }

@@ -140,6 +140,7 @@ DEFER    si |C|>tau et horloge ouverte
 COMMIT   si intent in C, |C|<=tau, B_t>=B_floor
 ```
 - DEFER ≠ ABSTAIN (attend vs refuse) ; horloge close ⇒ DEFER → ABSTAIN `clock_expired`. Le PnL n'entre pas dans pi.
+- **Amendé M011 (2026-09-17, NDG-1)** : le prédicat ABSTAIN `under_calib` fire aussi sur `verdict.reason === "under_calib"` (D6(b)), et le chemin `interval` ajoute `lo >= hi` (largeur nulle) ⇒ `under_calib`, jamais COMMIT. Voir `docs/adr/ADR-M011-interval-non-degenerescence.md`.
 - **Propriétés exécutables** (oracle non-LLM) : **H3** — la somme des miscovers est identique sous pi0 (commit dès
   intent in C) et pi^H (identité pure ⇒ test de propriété) ; **H2.3** — l'erreur conditionnelle à COMMIT **n'est pas**
   bornée par alpha : chiffre de desk **étiqueté**, et la tournure « X % de fills corrects » entre dans le **gate
@@ -220,6 +221,7 @@ COMMIT   si intent in C, |C|<=tau, B_t>=B_floor
   de `+inf`) vivent dans **un seul constructeur** `hikae/src/region.ts::buildIntervalRegion(lo, hi)` — **pas** dans
   `contracts` (gelé, D2), **pas** dupliqué dans `ukemi`. Le Lot U ne construit aucune région en Phase 1 ; à l'intégration
   Phase 2, HIKAE conforme la `Prediction` numérique d'UKEMI en région `interval` via ce constructeur.
+  - **Amendé M011 (2026-09-17, NDG-1)** : une région `interval` valide exige désormais `lo < hi` **strict** ; `lo == hi` (largeur nulle : `q̂=0` ou absorption flottante `ŷ±q̂===ŷ`) ⇒ `abstain=true, reason=under_calib` dans `buildIntervalRegion` (M5 `lo>hi`⇒throw conservé). Voir `docs/adr/ADR-M011-interval-non-degenerescence.md`.
 - **Réserve C13d — levée par la décision (d)** : l'horizon est désormais **24 h**, celui de l'objet payé (SYNTHESE
   §3.1 : VaR 99 %/24 h, Chaos/LlamaRisk). Reste déclaré, non fondé : aucun acheteur n'a encore nommé une exigence de
   couverture (G7 UKEMI, NON TROUVÉ) ; le niveau 99 % est une cible HIKAE Phase 2, pas une sortie UKEMI Phase 1.

@@ -7,7 +7,9 @@
  *   - `q̂` = ⌈(n+1)(1−α)⌉-th smallest score — REUSES `splitQuantile` (L1, l1-split.ts),
  *     the SOLE conformal-quantile implementation, NEVER rewritten here (shared fail-closed);
  *   - region `C(ŷ) = [ŷ − q̂, ŷ + q̂]` for the test point's prediction `ŷ`, via
- *     `buildIntervalRegion` (M5 invariant `lo ≤ hi` — trivially true since `q̂ ≥ 0`).
+ *     `buildIntervalRegion` (M5: `lo > hi` impossible since `q̂ ≥ 0`; NDG-1 ADR-M011: `q̂ = 0` — or
+ *     float absorption `ŷ ± q̂ === ŷ` — ⇒ `lo === hi` ⇒ `under_calib` abstention; a valid region is
+ *     `lo < hi` STRICT, this module never emits a zero-width `covered`).
  *
  * DECLARED guarantee (inherited from L1): marginal, finite-sample coverage, UNDER exchangeability
  * within the class. NO conditional coverage, NEVER `p_correct`. The WIDTH judgment
@@ -80,8 +82,8 @@ export function conformInterval(params: IntervalConformalParams): IntervalConfor
   if ("reason" in split) return underCalib(params); // fail-closed: under-calibration
 
   const qhat = split.qhat;
-  const ir = buildIntervalRegion(params.yhat - qhat, params.yhat + qhat); // q̂ ≥ 0 ⇒ lo ≤ hi (M5)
-  if (ir.abstain) return underCalib(params); // non-finite bound (ŷ ±inf/NaN) — never reached if ŷ finite
+  const ir = buildIntervalRegion(params.yhat - qhat, params.yhat + qhat); // q̂ ≥ 0 ⇒ lo ≤ hi (M5); lo<hi ⇒ q̂>0 ; réciproque FAUSSE sous absorption flottante (M011 D1)
+  if (ir.abstain) return underCalib(params); // non-finite bound (ŷ ±inf/NaN), OR zero-width lo===hi (q̂=0 / absorption, NDG-1 M011)
 
   const verdict = buildVerdict({
     taskClass: params.taskClass,
