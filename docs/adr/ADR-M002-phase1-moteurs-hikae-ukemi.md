@@ -132,6 +132,7 @@ négatif se publie avec les mêmes champs.
   feedback intermittent (Table I). Les deux sont (ii) ; DtACI = **repli nommé** si S2b montre un drift non suivi.
 - **L2 n'amende pas L1 en Phase 1** : `q̂` reste le quantile split ; `r_t`, `B_t` pilotent seulement pi (L3) et le
   drapeau de drift (conséquence directe de la branche b).
+- **Cross-ref 2026-09-17 (ADR-M009, proposé)** : `imocpStep` est généralisé par un **calendrier de pas décroissant** (quantile tracker ABB 2024, primitive `packages/hikae/src/tracker.ts`) — **branche (b) inchangée**, aucun consommateur d'ensemble, `B_t` reste calculé contre le `q̂` statique ; tout passage à la branche (a) exige d'abord la redéfinition de `B_t` (D5/D6).
 
 ### D5 — L3 : politique d'engagement différé (prédicat fermé)
 ```
