@@ -11,6 +11,9 @@
  *   - `btc-dir-15m`         → `conformalSet` over the committed SYNTHETIC calibration (region `set`).
  *   - `cascade-liquidable-24h` → `conformInterval` with NO committed calibration ⇒ empty region ⇒
  *                             `abstain`/`under_calib`. That is the honest expected result, not a defect.
+ *   - `stable-run-velocity-24h` → committed calibration looked up PER KEY (task_class, predictor_id)
+ *                             (ADR-M008 Amendement bis): the USDe key ⇒ `splitQuantile` + `buildIntervalRegion`
+ *                             over USDE_STABLE_RUN_CALIB (region `interval`); any other key ⇒ `under_calib`.
  *
  * Server-owned fields (D6/K-4c/K-4d): `schema_version` is fixed here (`"1.0.0"`), `timedOut=false`,
  * `evaluable`/`nCalib` are derived; `clockOpen`, `tau`, `tauInterval`, `alpha`, `nMin`, `bFloor`,
@@ -32,7 +35,7 @@ import {
 import type { GateInput } from "@monark/hikae";
 import { assertClosedGateDecision, assertNoForbiddenKey } from "@monark/contracts";
 import type { GateDecision, Prediction, CoverageVerdict } from "@monark/contracts";
-import { BTC_DIR_CALIB, BTC_DIR_CALIB_PROVENANCE } from "../calibration.ts";
+import { BTC_DIR_CALIB, BTC_DIR_CALIB_PROVENANCE, lookupCommittedCalibration } from "../calibration.ts";
 // (ADR-M007 D7): the BYO path REUSES the calibrate constants — the score cap (single source) and
 // the K-1 honesty label (B-2: one constant, no paraphrase, no banned overclaim verb). Errors on the
 // gate BYO path are `HarnessToolError` (already ∈ http.ts TOOL_ERROR_NAMES ⇒ 400), NOT CalibrateToolError.
@@ -43,7 +46,11 @@ export const SCHEMA_VERSION = "1.0.0";
 
 export const TASK_BTC_DIR = "btc-dir-15m";
 export const TASK_CASCADE = "cascade-liquidable-24h";
-/** Narabi velocity-forecast class (ADR-M008 D4). "24h" = the forecast horizon; UNCOMMITTED in F1 (abstains). */
+/**
+ * Narabi velocity-forecast class (ADR-M008 D4). "24h" = the forecast horizon. Since F2-B (ADR-M008
+ * Amendement bis) a calibration is committed PER KEY (task_class, predictor_id): the USDe key
+ * (calibration.ts USDE_STABLE_RUN_PREDICTOR_ID) conformalizes; every other key abstains under_calib.
+ */
 export const TASK_STABLE_RUN = "stable-run-velocity-24h";
 
 /** The one honesty sentence the `cascade` path MUST carry (K-4e). */
@@ -51,12 +58,25 @@ export const CASCADE_UNCALIBRATED_SENTENCE =
   "no cascade calibration is committed; the gate abstains (under_calib) on this class";
 
 /**
- * The one honesty sentence the `stable-run-velocity-24h` path MUST carry while UNCOMMITTED (K-4e, ADR-M008
- * D5). Distinct from the cascade sentence: a default fall-through to CASCADE_UNCALIBRATED_SENTENCE would be
- * FALSE on the wire next to a stable-run decision (validateur checkpoint, correction #2).
+ * The honesty sentence the `stable-run-velocity-24h` path carries for a population WITHOUT a committed
+ * calibration (K-4e, ADR-M008 D5 + Amendement bis A2). Now POPULATION-scoped (per key), not class-wide: a
+ * committed key exists (USDe), so this is the honest text for EVERY OTHER (task_class, predictor_id).
+ * Distinct from the cascade sentence: a fall-through to CASCADE_UNCALIBRATED_SENTENCE would be FALSE on the
+ * wire next to a stable-run decision (validateur checkpoint, correction #2).
  */
 export const STABLE_RUN_UNCALIBRATED_SENTENCE =
-  "no stable-run velocity calibration is committed; the gate abstains (under_calib) on this class";
+  "no stable-run velocity calibration is committed for this population; the gate abstains (under_calib)";
+
+/**
+ * The honesty sentence for the ONE committed stable-run population (ADR-M008 Amendement bis A2): USDe, the
+ * synthetic-dollar-whitelisted-redeem family, measured over CALM 24h redemption-flow windows. Exchangeability
+ * is DECLARED (a modelling assumption, not a proof); every other population abstains `under_calib`. No
+ * marketing "calibrated" adjective, no "V1", no numeric early-warning, no probability — measured, never scored.
+ */
+export const STABLE_RUN_COMMITTED_SENTENCE =
+  "a committed stable-run velocity calibration for the USDe synthetic-dollar-whitelisted-redeem population " +
+  "(key narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3) over calm-window " +
+  "redemption flow; exchangeability is declared within that population; every other (task_class, predictor_id) abstains (under_calib)";
 
 export const GATE_TOOL_NAME = "gate";
 
@@ -67,7 +87,11 @@ export const GATE_TOOL_DESCRIPTION =
   "authorization budget B_t. Dispatches on task_class. For 'btc-dir-15m' it conformalizes against a " +
   "committed synthetic calibration derived from the HIKAE S2a instrument (seed 101, n=300 draw), declared " +
   `synthetic — a plumbing fixture, not a measured predictor. For 'cascade-liquidable-24h' ${CASCADE_UNCALIBRATED_SENTENCE}. ` +
-  `For 'stable-run-velocity-24h' (Narabi: a redemption-flow velocity forecast) ${STABLE_RUN_UNCALIBRATED_SENTENCE}. ` +
+  "For 'stable-run-velocity-24h' (Narabi: a redemption-flow velocity forecast) the gate holds a committed " +
+  "velocity calibration for ONE population — USDe (synthetic-dollar-whitelisted-redeem), keyed on " +
+  "(task_class, predictor_id) = ('stable-run-velocity-24h', " +
+  "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3), measured over calm " +
+  `redemption-flow windows; for any other population, ${STABLE_RUN_UNCALIBRATED_SENTENCE}. ` +
   "When the caller instead supplies a `calibration` (its own nonconformity scores plus a `mode`: `interval` " +
   "⇒ region [yhat - q̂, yhat + q̂], or `set` ⇒ a conformal set over caller `candidates`), the gate " +
   `conformalizes against THOSE caller-supplied scores (BYO): ${CALIBRATE_LABEL} ` +
@@ -226,18 +250,19 @@ function validateCalibration(cal: ByoCalibration): void {
 
 /**
  * BYO conformal path (C2, ADR-M007 D7): compose the SAME real HIKAE primitives on the CALLER's scores.
- * Order mirrors gate.ts:189-197 — validate, then check `yhat` TYPE for the mode (wrong type ⇒ tool error
- * BEFORE any computation), then `splitQuantile` (under-calibration ⇒ fail-closed `underCalibVerdict`),
- * then the region. `abstain`/`reason` conventions mirror the committed paths (set: |C|>tau ⇒ set_too_large
- * else covered — gate.ts:135/144; interval: abstain:false/covered — interval-conformer.ts:95-96; the L3
- * gate decides DEFER/ABSTAIN on the width). Every error is `HarnessToolError` (⇒ 400), never a 500.
+ * Order mirrors `validateCalibration` then the committed dispatch — validate, then check `yhat` TYPE for the
+ * mode (wrong type ⇒ tool error BEFORE any computation), then `splitQuantile` (under-calibration ⇒ fail-closed
+ * `underCalibVerdict`), then the region. `abstain`/`reason` conventions mirror the committed paths (set:
+ * |C|>tau ⇒ set_too_large else covered, as in `btcDirVerdict`; interval: abstain:false/covered, as in
+ * `conformInterval`; the L3 gate decides DEFER/ABSTAIN on the width). Every error is `HarnessToolError`
+ * (⇒ 400), never a 500. (Line-number cross-refs refreshed for F2-B — the "next touch" M011 promised.)
  */
 function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalibration): CoverageVerdict {
   validateCalibration(cal);
   const taskClass = prediction.task_class;
   const yhat = prediction.yhat;
 
-  // WRONG-typed yhat for the mode ⇒ tool error BEFORE the region (C-1, mirror gate.ts:189-197).
+  // WRONG-typed yhat for the mode ⇒ tool error BEFORE the region (C-1, mirror the committed dispatch's yhat check).
   if (cal.mode === "interval" && typeof yhat !== "number") {
     throw new HarnessToolError(`byo 'interval' mode expects a number yhat, got ${typeof yhat}`);
   }
@@ -368,24 +393,56 @@ function cascadeVerdict(prediction: Prediction, params: HarnessParams): Coverage
 }
 
 /**
- * stable-run velocity verdict (ADR-M008 D4): `conformInterval` with NO committed calibration ⇒ empty
- * region ⇒ `abstain`/`under_calib`. Identical shape to `cascadeVerdict` by design — F1 has no committed
- * velocity calibration, so the honest, expected result is abstention; F2 supplies the msUSD-calibrated
- * scores (D7). The velocity FORECAST itself is the caller-carried `prediction.yhat` (the Narabi adapter's
- * output); the gate only conformalizes and decides.
+ * stable-run velocity verdict (ADR-M008 D4 + Amendement bis, isolation of population on the wire, C-10):
+ * keyed on (task_class, predictor_id). When a committed calibration exists for the key (USDe), conformalize
+ * the caller-carried velocity forecast against THOSE committed nonconformity scores (split-conformal on the
+ * scores directly — they are residuals |v − v̂|, NOT pairs — the SAME primitive chain as the BYO interval
+ * branch: splitQuantile → buildIntervalRegion → buildVerdict; NDG-1 (ADR-M011) traverses buildIntervalRegion,
+ * REUSED not re-added). For EVERY OTHER population (naked formula, another token, another chain, an altered
+ * key) no committed calibration exists ⇒ empty region ⇒ honest `under_calib`. The velocity FORECAST itself is
+ * the caller-carried `prediction.yhat` (the Narabi adapter's output); the gate only conformalizes and decides.
  */
 function stableRunVerdict(prediction: Prediction, params: HarnessParams): CoverageVerdict {
   const yhat = typeof prediction.yhat === "number" ? prediction.yhat : Number(prediction.yhat);
-  return conformInterval({
-    calib: [], // no committed velocity calibration in F1 — the honest, expected result is abstention
-    yhat,
-    alpha: params.alpha,
-    nMin: params.nMin,
-    taskClass: TASK_STABLE_RUN,
-    residual: [],
-    producedAt: prediction.produced_at,
-    schemaVersion: SCHEMA_VERSION,
-  }).verdict;
+  const committed = lookupCommittedCalibration(TASK_STABLE_RUN, prediction.predictor_id);
+  if (committed === undefined) {
+    // No committed calibration for THIS (task_class, predictor_id) ⇒ honest abstention (empty region ⇒
+    // under_calib). This is the fail-closed isolation: msUSD, an L2 chain, or an altered key never reach USDe.
+    return conformInterval({
+      calib: [],
+      yhat,
+      alpha: params.alpha,
+      nMin: params.nMin,
+      taskClass: TASK_STABLE_RUN,
+      residual: [],
+      producedAt: prediction.produced_at,
+      schemaVersion: SCHEMA_VERSION,
+    }).verdict;
+  }
+  // Committed population (USDe): split-conformal over the committed SCORES. Same primitive chain as
+  // byoVerdict's interval branch — one quantile implementation (L1), never re-rolled.
+  const scores = committed.scores;
+  const split = splitQuantile(scores, params.alpha, params.nMin);
+  if ("reason" in split) {
+    // Caller demanded more calibration than the committed set holds (n < nMin, or p > n) ⇒ honest under_calib.
+    return underCalibVerdict({
+      taskClass: TASK_STABLE_RUN, method: "split", alpha: params.alpha, scores,
+      residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
+    });
+  }
+  const ir = buildIntervalRegion(yhat - split.qhat, yhat + split.qhat);
+  if (ir.abstain) {
+    // NDG-1 (ADR-M011): a zero-width region (q̂=0 or float absorption yhat±q̂===yhat) ⇒ under_calib. REUSED.
+    return underCalibVerdict({
+      taskClass: TASK_STABLE_RUN, method: "split", alpha: params.alpha, scores,
+      residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
+    });
+  }
+  return buildVerdict({
+    taskClass: TASK_STABLE_RUN, method: "split", alpha: params.alpha, scores,
+    region: ir.region, qhat: split.qhat, abstain: false, reason: "covered",
+    residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
+  });
 }
 
 /**
@@ -393,11 +450,19 @@ function stableRunVerdict(prediction: Prediction, params: HarnessParams): Covera
  * B-1 (CRITICAL): keyed on the PRESENCE of calibration, NOT on `task_class` alone — a BYO decision on a
  * free-string class must NOT fall through to the CASCADE sentence (which would be false on the wire next
  * to a BYO COMMIT). The BYO carrier REUSES `CALIBRATE_LABEL` (B-2: one constant, no paraphrase).
+ * A2 (ADR-M008 Amendement bis): the `stable-run-velocity-24h` honesty is keyed on (task_class, predictor_id)
+ * — the COMMITTED sentence for the USDe key, the UNCOMMITTED (under_calib) sentence for every other population.
+ * A surclaim mutant (returning the committed sentence for a non-committed key) reddens the A7(f) test.
  */
-export function honestyText(taskClass: string, isByo: boolean): string {
+export function honestyText(taskClass: string, predictorId: string, isByo: boolean): string {
   if (isByo) return `${CALIBRATE_LABEL} B_t is caller-carried.`;
   if (taskClass === TASK_BTC_DIR) return `${BTC_DIR_CALIB_PROVENANCE} B_t is caller-carried.`;
-  if (taskClass === TASK_STABLE_RUN) return `${STABLE_RUN_UNCALIBRATED_SENTENCE}; B_t is caller-carried.`;
+  if (taskClass === TASK_STABLE_RUN) {
+    const committed = lookupCommittedCalibration(TASK_STABLE_RUN, predictorId);
+    return committed !== undefined
+      ? `${STABLE_RUN_COMMITTED_SENTENCE}; B_t is caller-carried.`
+      : `${STABLE_RUN_UNCALIBRATED_SENTENCE}; B_t is caller-carried.`;
+  }
   return `${CASCADE_UNCALIBRATED_SENTENCE}; B_t is caller-carried.`;
 }
 
@@ -441,11 +506,17 @@ export function runGate(prediction: Prediction, params: HarnessParams): GateDeci
   let nCalib: number;
 
   if (calibration !== undefined) {
-    // Anti-override guard (C2): a BYO calibration must NEVER silently overwrite the committed synthetic
-    // classes. Strict equality on exactly the two committed classes ⇒ tool error (400).
-    if (taskClass === TASK_BTC_DIR || taskClass === TASK_CASCADE || taskClass === TASK_STABLE_RUN) {
+    // Anti-override guard (C2 + A6, ADR-M008 Amendement bis): a BYO calibration must NEVER overwrite a
+    // COMMITTED calibration. btc-dir/cascade are committed on the CLASS ⇒ locked for any predictor_id. The
+    // stable-run class is committed by KEY (task_class, predictor_id) ⇒ locked ONLY for a committed key; a
+    // DIFFERENT population on the same class MAY bring its own scores (BYO by κ by family). Fail-closed (400).
+    const overridesCommitted =
+      taskClass === TASK_BTC_DIR ||
+      taskClass === TASK_CASCADE ||
+      lookupCommittedCalibration(taskClass, prediction.predictor_id) !== undefined;
+    if (overridesCommitted) {
       throw new HarnessToolError(
-        `calibration must not override the committed class '${taskClass}': use a caller-owned task_class for BYO (ADR-M007 D7)`,
+        `calibration must not override the committed (task_class, predictor_id) '${taskClass}' / '${prediction.predictor_id}': use a caller-owned key for BYO (ADR-M007 D7, ADR-M008 A6)`,
       );
     }
     verdict = byoVerdict(prediction, params, calibration);
@@ -467,7 +538,7 @@ export function runGate(prediction: Prediction, params: HarnessParams): GateDeci
       throw new HarnessToolError(`task_class '${TASK_STABLE_RUN}' expects a number yhat (velocity forecast), got ${typeof prediction.yhat}`);
     }
     verdict = stableRunVerdict(prediction, params);
-    nCalib = verdict.n_calib; // 0 — no committed stable-run calibration in F1 (F2 supplies it)
+    nCalib = verdict.n_calib; // 613 for the committed USDe key; 0 for any other population (under_calib)
   } else {
     throw new HarnessToolError(`unknown task_class '${taskClass}' (known: ${TASK_BTC_DIR}, ${TASK_CASCADE}, ${TASK_STABLE_RUN}; or supply params.calibration for BYO)`);
   }

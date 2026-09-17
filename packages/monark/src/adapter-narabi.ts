@@ -31,11 +31,35 @@ export const NARABI_TASK_CLASS = "stable-run-velocity-24h";
 /**
  * The F1 baseline forecaster: PERSISTENCE — v̂_{t,t+h} = v_t (this window's measured velocity). DECLARED
  * and honest; the nonconformity pair for F2 is (v̂, v realized next window). A sourced model per-class
- * (D7bis) supersedes it with its OWN predictor_id.
+ * (D7bis) supersedes it with its OWN formula segment.
  * v2 (2026-09-16, advisor-defi + investor ruling): v_t is now the fraction of the OPENING stock (was the
- * closing-supply odds) — the definition changed, so the id bumps for auditability.
+ * closing-supply odds) — the definition changed, so the segment bumped for auditability.
+ *
+ * This is the FORMULA-VERSION segment only. The committed-calibration KEY (ADR-M008 Amendement bis) is
+ * `<formula>@<chain>/<token>` — the naked formula on its own matches NO committed key ⇒ under_calib.
  */
-export const NARABI_PREDICTOR_ID = "narabi:persistence-v2";
+export const NARABI_FORMULA = "narabi:persistence-v2";
+
+/** Reject the frozen `label_schema` separator '|' in a key segment (B-3: a '|' would forge a false schema). */
+function assertNoPipe(segment: string, where: string): void {
+  if (segment.includes("|")) {
+    throw new Error(`narabiPredictorId: '|' is forbidden in the ${where} segment (B-3): ${segment}`);
+  }
+}
+
+/**
+ * Derive the committed-calibration KEY `predictor_id = <formula>@<chain>/<token>` from the ATTESTED
+ * population fields (ADR-M008 Amendement bis, advisor option (i')): `chain` (CAIP-2) + `subject` (the
+ * canonical token, convention A4). Canonicalized: lowercased (hex, ADR-M001 C5); '|' rejected (B-3). The
+ * SAME function is used by the adapter (which EMITS the id) and by the harness calibration registry (which
+ * MATCHES it) — no duplicated registry, no issuer→family map. A naked formula, another token, or another
+ * chain yields a DIFFERENT key ⇒ the gate abstains `under_calib` (isolation of population on the wire, C-10).
+ */
+export function narabiPredictorId(chain: string, subject: string): string {
+  assertNoPipe(chain, "chain");
+  assertNoPipe(subject, "token");
+  return `${NARABI_FORMULA}@${chain.toLowerCase()}/${subject.toLowerCase()}`;
+}
 
 /** The K-1 honesty label (ADR-M008 D5). Lives on the envelope, NEVER inside the frozen contract. */
 export const NARABI_LABEL =
@@ -180,11 +204,14 @@ export function fromAttestedFlow(flow: AttestedFlow): NarabiOutput | NarabiError
   }
 
   // (5) The frozen Prediction — the SAME contract HIKAE conformalizes; features_digest binds the flow.
+  //     predictor_id is the committed-calibration KEY `<formula>@<chain>/<token>` (ADR-M008 Amendement
+  //     bis): the attested population (`source.chain` + `subject`) is copied VERBATIM, canonicalized, into
+  //     the key — no issuer→family map here (the registry lives in the harness calibration.ts, option (i')).
   const prediction: Prediction = {
     schema_version: SCHEMA_VERSION,
     task_class: NARABI_TASK_CLASS,
     yhat,
-    predictor_id: NARABI_PREDICTOR_ID,
+    predictor_id: narabiPredictorId(flow.source.chain, flow.subject),
     produced_at: isoFromInstant(instant),
     features_digest: flow.utterance.hash,
   };

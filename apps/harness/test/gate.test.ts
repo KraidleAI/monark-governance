@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { assertClosedGateDecision, assertNoForbiddenKey, calibDigest } from "@monark/contracts";
-import type { Prediction } from "@monark/contracts";
+import type { Prediction, AttestedFlow } from "@monark/contracts";
 import {
   runGate,
   validateHarnessParams,
@@ -14,12 +14,23 @@ import {
   GATE_TOOL_DESCRIPTION,
   CASCADE_UNCALIBRATED_SENTENCE,
   STABLE_RUN_UNCALIBRATED_SENTENCE,
+  STABLE_RUN_COMMITTED_SENTENCE,
+  TASK_STABLE_RUN,
   type HarnessParams,
 } from "../src/tools/gate.ts";
 import { HARNESS_TOOLS, type GateEnvelope } from "../src/tools/registry.ts";
 import { runCalibrate, CALIBRATE_LABEL } from "../src/tools/calibrate.ts";
-import { BTC_DIR_CALIB_PROVENANCE, BTC_DIR_CALIB_DIGEST, CALIB_DIGEST_PINNED } from "../src/calibration.ts";
-import { splitQuantile } from "@monark/hikae"; // ADR-M011 §3.6/§3.3: anti-circularity — prove L1 q̂ before runGate
+import {
+  BTC_DIR_CALIB_PROVENANCE,
+  BTC_DIR_CALIB_DIGEST,
+  CALIB_DIGEST_PINNED,
+  USDE_STABLE_RUN_CALIB,
+  USDE_STABLE_RUN_PREDICTOR_ID,
+  USDE_STABLE_RUN_TASK_CLASS,
+  USDE_STABLE_RUN_CALIB_DIGEST_PINNED,
+} from "../src/calibration.ts";
+import { splitQuantile, buildIntervalRegion } from "@monark/hikae"; // ADR-M011: anti-circularity — prove L1 q̂ + NDG-1 region before runGate
+import { fromAttestedFlow, isNarabiError, narabiPredictorId } from "@monark/monark"; // A7: real flows via the adapter
 
 const GOOD_PARAMS: HarnessParams = {
   remainingBudget: 0.1,
@@ -344,18 +355,47 @@ test("gate_committed_classes_unchanged_without_calibration", () => {
   assert.equal(cascade.verdict.reason, "under_calib");
 });
 
-// ── Narabi / stable-run-velocity-24h (ADR-M008 D4/D5, F1) ────────────────────────────────────────────
+// ── Narabi / stable-run-velocity-24h — isolation of POPULATION on the wire (ADR-M008 D4/D5 + Amend. bis, C-10) ──
 
-// Test — F1: the velocity class has NO committed calibration, so it abstains under_calib HONESTLY (the
-// same expected result as cascade). Mutant: wire a committed calibration in F1 ⇒ a dishonest commit ⇒ red.
-test("gate_stable_run_abstains_under_calib_in_F1", () => {
+const EMPTY_CALIB_DIGEST = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"; // calibDigest([])
+const USDE_TOKEN = "erc20:0x4c9EDD5852cd905f086C759E8383e09bff1E68B3"; // A4 canonical token (mixed case; canonicalized in the key)
+const MSUSD_TOKEN = "erc20:0x4ba01f22827018b4772CD326C7627FB4956A7C00"; // Main Street msUSD v2 — a DIFFERENT population
+
+/** Build a valid AttestedFlow for a (chain, subject) population — the A7 fixtures drive REAL adapter output. */
+function narabiFlow(chain: string, subject: string, over: Partial<AttestedFlow["flow"]> = {}): AttestedFlow {
+  return {
+    schema_version: "1.0.0",
+    subject,
+    attestor: [{ identity: "issuer-por", key: "deadbeef" }],
+    source: { chain, issuer: "0xe3490297a08d6fc8da46edb7b6142e4f461b62d3" }, // EthenaMinting V2 (A4)
+    window: "24h",
+    // calm window: burns 1_000, close 1e9, mints 0 ⇒ S_open ≈ 1e9 (≫ floor) ⇒ v ≈ 4.17e-8/h.
+    flow: { burns: "1000000000000000000000", mints: "0", supply: "1000000000000000000000000000", from_block: 23_000_000, to_block: 23_007_200, ...over },
+    residual: ["ap_capacity_unknown"],
+    transport: "rpc+eth_getLogs",
+    utterance: { hash: "b".repeat(64) },
+    observed_at: { clock: "utc", instant: 1_756_000_000 },
+    octets_recalcules: true,
+    verifier_revision: "narabi-adapter@f2b",
+  };
+}
+/** Adapter → Prediction (fail the test if the adapter refused — A7 needs a real emitted Prediction). */
+function adaptToPrediction(f: AttestedFlow): Prediction {
+  const out = fromAttestedFlow(f);
+  assert.ok(!isNarabiError(out), `adapter unexpectedly refused: ${JSON.stringify(out)}`);
+  return out.prediction;
+}
+
+// Test — a NON-committed population (STABLE_RUN_PRED carries the naked-ish key `narabi:persistence-v1`)
+// abstains under_calib HONESTLY. Mutant: route a non-committed key to the USDe region ⇒ a dishonest commit ⇒ red.
+test("gate_stable_run_noncommitted_key_abstains_under_calib", () => {
   const d = runGate(STABLE_RUN_PRED, { ...GOOD_PARAMS, intent: 0 });
-  assert.equal(d.action, "abstain", "stable-run has no committed calibration in F1 ⇒ abstain");
+  assert.equal(d.action, "abstain", "a non-committed (task_class, predictor_id) ⇒ abstain");
   assert.equal(d.reason, "under_calib");
   assert.equal(d.verdict.reason, "under_calib");
-  assert.equal(d.verdict.qhat, null, "no committed calibration ⇒ q̂ null (never clamped)");
+  assert.equal(d.verdict.qhat, null, "no committed calibration for this key ⇒ q̂ null (never clamped)");
   assert.equal(d.verdict.task_class, "stable-run-velocity-24h", "the verdict carries the velocity class");
-  assert.equal(d.verdict.calib_digest, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "stable-run calib_digest == calibDigest([]) (no committed calibration)");
+  assert.equal(d.verdict.calib_digest, EMPTY_CALIB_DIGEST, "non-committed key ⇒ calib_digest == calibDigest([])");
   assert.doesNotThrow(() => { assertClosedGateDecision(d); assertNoForbiddenKey(d); }, "the emitted decision is closed + forbidden-key-free");
 });
 
@@ -368,36 +408,132 @@ test("gate_stable_run_rejects_a_non_numeric_yhat", () => {
   );
 });
 
-// Test — anti-override guard (D-C2.1 mirror): a BYO calibration must NOT silently overwrite the RESERVED
-// committed class name. Mutant: drop TASK_STABLE_RUN from the guard ⇒ a caller poses its own scores under
-// the committed class name ⇒ no throw ⇒ red.
-test("gate_stable_run_anti_override_guard", () => {
-  const scores = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
-  assert.throws(
-    () => runGate({ ...STABLE_RUN_PRED }, { ...GOOD_PARAMS, intent: 0, calibration: { scores, mode: "interval" } }),
-    HarnessToolError,
-    "calibration + task_class stable-run-velocity-24h ⇒ HarnessToolError",
-  );
+// Test — the committed task_class string in the registry equals gate.ts TASK_STABLE_RUN (no cyclic import,
+// so a drift would silently unwire the class). Mutant: change either literal ⇒ red.
+test("gate_stable_run_task_class_matches_registry", () => {
+  assert.equal(USDE_STABLE_RUN_TASK_CLASS, TASK_STABLE_RUN, "the committed registry task_class must equal the gate's TASK_STABLE_RUN");
 });
 
-// Test — B-1 / validateur correction #2 (honesty wiring): the stable-run content text carries ITS OWN
-// uncommitted sentence and NEVER the cascade sentence. Mutant: no dedicated honestyText branch ⇒ the
-// default fall-through returns the CASCADE sentence (false on the wire) ⇒ this reds. Driven through the
-// REAL registry run() so the wiring is exercised end-to-end.
-test("gate_stable_run_honesty_text_is_distinct_from_cascade", () => {
-  // The tool description declares the class honestly.
-  assert.ok(GATE_TOOL_DESCRIPTION.includes(STABLE_RUN_UNCALIBRATED_SENTENCE), "the tool description declares the stable-run sentence");
+// Test — A7(b): a REAL USDe mainnet flow → adapter → gate reaches the COMMITTED region (covered), keyed on
+// (task_class, predictor_id). Anti-circularity: q̂ is proven via splitQuantile BEFORE runGate; the pinned
+// digest is the wire calib_digest. Mutant: unwire the USDe key ⇒ under_calib ⇒ every assertion below reds.
+test("gate_stable_run_usde_committed_region_A7b", () => {
+  const pred = adaptToPrediction(narabiFlow("eip155:1", USDE_TOKEN));
+  assert.equal(pred.predictor_id, USDE_STABLE_RUN_PREDICTOR_ID, "the USDe flow emits the committed key");
+  const sq = splitQuantile(USDE_STABLE_RUN_CALIB, GOOD_PARAMS.alpha, GOOD_PARAMS.nMin);
+  assert.ok("qhat" in sq, "the committed USDe calibration is not under-calibrated at α=0.10, nMin=50");
+  // COMMIT: intent = the forecast, width 2·q̂ ≪ tauInterval=1, budget ≥ floor.
+  const d = runGate(pred, { ...GOOD_PARAMS, intent: pred.yhat as number, tauInterval: 1 });
+  assert.equal(d.verdict.reason, "covered", "the committed USDe region is produced (not under_calib)");
+  assert.equal(d.verdict.region.kind, "interval", "a regression region");
+  assert.equal(d.verdict.qhat, sq.qhat, "the wire q̂ equals the independent splitQuantile of the committed scores");
+  assert.equal(d.verdict.n_calib, USDE_STABLE_RUN_CALIB.length, "n_calib = 613 committed scores");
+  assert.equal(d.verdict.n_calib, 613);
+  assert.equal(d.verdict.calib_digest, USDE_STABLE_RUN_CALIB_DIGEST_PINNED, "the wire calib_digest is the pinned USDe digest");
+  assert.equal(d.action, "commit", "intent ∈ region, width ≤ τ_interval, B_t ≥ floor ⇒ commit/covered");
+  assert.doesNotThrow(() => { assertClosedGateDecision(d); assertNoForbiddenKey(d); });
+});
+
+// Test — A7(a,c,d,e): family isolation is fail-closed. A DIFFERENT population NEVER reaches the USDe region:
+//   (a) a real msUSD flow (different token) ⇒ under_calib;
+//   (c) the USDe token on an L2 chain (different chain) ⇒ under_calib;
+//   (d) the USDe key altered by ONE character ⇒ under_calib;
+//   (e) the naked formula `narabi:persistence-v2` ⇒ under_calib.
+// Mutant: key on task_class alone (drop predictor_id) ⇒ msUSD/L2/altered/naked would pool into USDe ⇒ red.
+test("gate_stable_run_family_isolation_fail_closed_A7acde", () => {
+  const usdeKey = USDE_STABLE_RUN_PREDICTOR_ID;
+  const cases: { name: string; pred: Prediction }[] = [
+    { name: "a: real msUSD flow (other token)", pred: adaptToPrediction(narabiFlow("eip155:1", MSUSD_TOKEN)) },
+    { name: "c: USDe token on an L2 chain (other chain)", pred: adaptToPrediction(narabiFlow("eip155:8453", USDE_TOKEN)) },
+    { name: "d: USDe key altered by one char", pred: { ...adaptToPrediction(narabiFlow("eip155:1", USDE_TOKEN)), predictor_id: usdeKey.slice(0, -1) + (usdeKey.endsWith("3") ? "4" : "3") } },
+    { name: "e: naked formula (no population)", pred: { ...adaptToPrediction(narabiFlow("eip155:1", USDE_TOKEN)), predictor_id: "narabi:persistence-v2" } },
+  ];
+  for (const { name, pred } of cases) {
+    assert.notEqual(pred.predictor_id, usdeKey, `${name}: precondition — the key differs from the committed USDe key`);
+    const d = runGate(pred, { ...GOOD_PARAMS, intent: pred.yhat as number, tauInterval: 1 });
+    assert.equal(d.action, "abstain", `${name} ⇒ abstain (never the USDe region)`);
+    assert.equal(d.reason, "under_calib", `${name} ⇒ under_calib`);
+    assert.equal(d.verdict.reason, "under_calib", `${name} ⇒ verdict under_calib`);
+    assert.equal(d.verdict.qhat, null, `${name} ⇒ q̂ null (never the committed q̂)`);
+    assert.equal(d.verdict.calib_digest, EMPTY_CALIB_DIGEST, `${name} ⇒ calib_digest == calibDigest([]), NEVER the USDe digest`);
+    assert.notEqual(d.verdict.calib_digest, USDE_STABLE_RUN_CALIB_DIGEST_PINNED, `${name} ⇒ never the USDe committed digest`);
+  }
+});
+
+// Test — B-1 + A2 (honesty wiring keyed on the KEY): the committed USDe key carries the COMMITTED sentence;
+// every other population carries the UNCOMMITTED sentence; NEVER the cascade sentence. A7(f) surclaim mutant:
+// return the committed sentence for a non-committed (msUSD) key ⇒ this reds. Driven through the REAL registry run().
+test("gate_stable_run_honesty_text_is_keyed_A2_A7f", () => {
+  // The tool description declares BOTH the committed USDe population AND the uncommitted-population sentence.
+  assert.ok(GATE_TOOL_DESCRIPTION.includes(STABLE_RUN_UNCALIBRATED_SENTENCE), "the description declares the uncommitted-population sentence");
+  assert.ok(GATE_TOOL_DESCRIPTION.includes("synthetic-dollar-whitelisted-redeem"), "the description names the committed USDe population");
   assert.ok(STABLE_RUN_UNCALIBRATED_SENTENCE.includes("no stable-run velocity calibration is committed"));
   assert.ok(STABLE_RUN_UNCALIBRATED_SENTENCE.includes("under_calib"));
+  assert.ok(STABLE_RUN_COMMITTED_SENTENCE.includes("committed"));
+  // no marketing "calibrated" adjective, no "V1", no probability on either sentence.
+  for (const s of [STABLE_RUN_COMMITTED_SENTENCE, STABLE_RUN_UNCALIBRATED_SENTENCE]) {
+    assert.doesNotMatch(s, /\bcalibrated\b|\bV1\b|probability|early warning/i, "no overclaim vocabulary");
+  }
 
   const gateTool = HARNESS_TOOLS.find((t) => t.name === "gate");
   assert.ok(gateTool, "the gate tool is registered");
-  const text = gateTool.run({ prediction: STABLE_RUN_PRED, params: { ...GOOD_PARAMS, intent: 0 } }).text;
-  assert.ok(text.includes(STABLE_RUN_UNCALIBRATED_SENTENCE), "the stable-run content carries its own honesty sentence");
-  assert.ok(!text.includes(CASCADE_UNCALIBRATED_SENTENCE), "the stable-run content must NOT carry the CASCADE sentence (B-1)");
-  // The verdict summary (delivery aid) surfaces the decision for text-only clients.
-  const d = runGate(STABLE_RUN_PRED, { ...GOOD_PARAMS, intent: 0 });
-  assert.ok(text.includes(`action=${d.action}`), "the verdict summary carries the decision action");
+  // committed USDe key ⇒ the committed sentence, never the uncommitted/cascade sentence.
+  const usdePred = adaptToPrediction(narabiFlow("eip155:1", USDE_TOKEN));
+  const usdeText = gateTool.run({ prediction: usdePred, params: { ...GOOD_PARAMS, intent: usdePred.yhat as number, tauInterval: 1 } }).text;
+  assert.ok(usdeText.includes(STABLE_RUN_COMMITTED_SENTENCE), "committed key ⇒ committed sentence");
+  assert.ok(!usdeText.includes(CASCADE_UNCALIBRATED_SENTENCE), "committed key ⇒ NOT the cascade sentence");
+  // A7(f): a msUSD (non-committed) key ⇒ the uncommitted sentence, NEVER the committed one (surclaim).
+  const msusdPred = adaptToPrediction(narabiFlow("eip155:1", MSUSD_TOKEN));
+  const msusdText = gateTool.run({ prediction: msusdPred, params: { ...GOOD_PARAMS, intent: 0 } }).text;
+  assert.ok(msusdText.includes(STABLE_RUN_UNCALIBRATED_SENTENCE), "non-committed key ⇒ uncommitted sentence");
+  assert.ok(!msusdText.includes(STABLE_RUN_COMMITTED_SENTENCE), "A7(f): a non-committed key must NEVER carry the committed 'committed' sentence (surclaim)");
+  assert.ok(!msusdText.includes(CASCADE_UNCALIBRATED_SENTENCE), "non-committed key ⇒ NOT the cascade sentence (B-1)");
+});
+
+// Test — livrable (d): NDG-1 (ADR-M011) is REUSED on the USDe stable-run path, not re-added. The path's
+// conformalization is splitQuantile → buildIntervalRegion. An ALL-ZERO score vector (degenerate calibration)
+// routes to under_calib through THAT chain; the REAL committed USDe scores are non-degenerate (q̂>0, a real
+// region). Mutant (region.ts, ADR-M011): drop the lo===hi guard ⇒ the all-zero case yields a covered width-0
+// region ⇒ the first assertion reds. No second guard is added anywhere in this lot.
+test("gate_stable_run_ndg1_zero_width_is_under_calib_reused", () => {
+  const zeros = Array.from({ length: USDE_STABLE_RUN_CALIB.length }, () => 0);
+  const sqZero = splitQuantile(zeros, GOOD_PARAMS.alpha, GOOD_PARAMS.nMin);
+  assert.ok("qhat" in sqZero && sqZero.qhat === 0, "all-zero scores ⇒ q̂ = 0 (calibrated, degenerate)");
+  const irZero = buildIntervalRegion(0.00005 - 0, 0.00005 + 0); // yhat ± 0 ⇒ lo === hi
+  assert.ok(irZero.abstain && irZero.reason === "under_calib", "NDG-1: a zero-width region ⇒ under_calib (reused)");
+  // The REAL committed USDe scores are non-degenerate ⇒ a real region.
+  const sqReal = splitQuantile(USDE_STABLE_RUN_CALIB, GOOD_PARAMS.alpha, GOOD_PARAMS.nMin);
+  assert.ok("qhat" in sqReal && sqReal.qhat > 0, "the committed USDe q̂ is strictly positive (non-degenerate)");
+  const irReal = buildIntervalRegion(0.00005 - sqReal.qhat, 0.00005 + sqReal.qhat);
+  assert.ok(!irReal.abstain, "the committed USDe scores produce a non-degenerate interval region");
+});
+
+// Test — A6 (ADR-M008 Amendement bis): the BYO anti-override guard is KEY-AWARE. A BYO calibration must NOT
+// overwrite the COMMITTED USDe key, but a DIFFERENT population on the same class MAY bring its own scores.
+//   (i)  USDe committed key + calibration ⇒ HarnessToolError (the committed key is locked);
+//   (ii) msUSD (non-committed) key + calibration ⇒ NO throw; the CALLER's scores are used (n_calib=10,
+//        calib_digest = calibDigest(callerScores)), NEVER the USDe 613.
+// Mutants: (a) revert the guard to class-only (`taskClass === TASK_STABLE_RUN`) ⇒ (ii) throws ⇒ red;
+// (b) drop the committed-key lookup term ⇒ (i) no longer throws (a caller silently overrides the committed
+// USDe calibration) ⇒ red. The n_calib===10 assertion proves the BYO path actually RAN (not merely no throw).
+test("gate_stable_run_byo_anti_override_is_key_aware_A6", () => {
+  const callerScores = [0.5, 0.1, 0.9, 0.3, 0.7, 0.2, 0.8, 0.4, 0.6, 1.0]; // n=10, the caller's OWN scores
+  // (i) the committed USDe key is LOCKED — a BYO must not overwrite it.
+  const usdePred = adaptToPrediction(narabiFlow("eip155:1", USDE_TOKEN));
+  assert.equal(usdePred.predictor_id, USDE_STABLE_RUN_PREDICTOR_ID);
+  assert.throws(
+    () => runGate(usdePred, { ...GOOD_PARAMS, intent: 0, calibration: { scores: callerScores, mode: "interval" } }),
+    HarnessToolError,
+    "BYO on the committed USDe key ⇒ HarnessToolError (locked)",
+  );
+  // (ii) a DIFFERENT population (msUSD) on the same class MAY BYO its own scores (BYO by κ by family).
+  const msusdPred = adaptToPrediction(narabiFlow("eip155:1", MSUSD_TOKEN));
+  assert.notEqual(msusdPred.predictor_id, USDE_STABLE_RUN_PREDICTOR_ID);
+  const d = runGate(msusdPred, { ...GOOD_PARAMS, intent: msusdPred.yhat as number, nMin: 5, tauInterval: 2, calibration: { scores: callerScores, mode: "interval" } });
+  assert.equal(d.verdict.reason, "covered", "the msUSD BYO path RUNS (not locked)");
+  assert.equal(d.verdict.n_calib, callerScores.length, "the CALLER's scores are used (n=10), never the USDe 613");
+  assert.equal(d.verdict.calib_digest, calibDigest(callerScores), "calib_digest is over the CALLER's scores, never the USDe digest");
+  assert.notEqual(d.verdict.calib_digest, USDE_STABLE_RUN_CALIB_DIGEST_PINNED, "never the USDe committed digest");
 });
 
 // ── ADR-M011 — interval non-degeneracy (NDG-1), BYO path (the REAL F2 msUSD repro path) ───────────────

@@ -25,7 +25,8 @@ import {
   fromAttestedFlow,
   isNarabiError,
   NARABI_TASK_CLASS,
-  NARABI_PREDICTOR_ID,
+  NARABI_FORMULA,
+  narabiPredictorId,
   NARABI_LABEL,
 } from "../src/adapter-narabi.ts";
 import type { NarabiOutput } from "../src/adapter-narabi.ts";
@@ -87,12 +88,37 @@ test("narabi_flow_maps_to_a_closed_prediction (frozen schema, ajv)", () => {
   const out = adapt(flow());
   assert.equal(validatePrediction(out.prediction), true, JSON.stringify(validatePrediction.errors));
   assert.equal(out.prediction.task_class, NARABI_TASK_CLASS);
-  assert.equal(out.prediction.predictor_id, NARABI_PREDICTOR_ID);
+  // predictor_id is the committed-calibration KEY `<formula>@<chain>/<token>` (ADR-M008 Amendement bis):
+  // the attested population (source.chain + subject) copied verbatim, canonicalized, into the key.
+  assert.equal(out.prediction.predictor_id, narabiPredictorId("ethereum", "msUSD"));
+  assert.equal(out.prediction.predictor_id, "narabi:persistence-v2@ethereum/msusd");
+  assert.ok(out.prediction.predictor_id.startsWith(`${NARABI_FORMULA}@`), "the key keeps the formula segment then appends the population");
   assert.equal(typeof out.prediction.yhat, "number");
   // features_digest binds the Prediction to the exact flow observation (F2 replay anchor, validateur #8).
   assert.equal(out.prediction.features_digest, HASH);
   // produced_at is DERIVED from the carried instant — round-trips back to it (deterministic, no clock read).
   assert.equal(Math.round(new Date(out.prediction.produced_at).getTime() / 1000), INSTANT);
+});
+
+// Test — the shared KEY function (ADR-M008 Amendement bis): canonicalizes (lowercases hex, C5), keeps the
+// formula segment, and rejects the frozen label separator '|' (B-3). The adapter and the harness registry
+// derive the key by THIS one function (no duplicated registry). The USDe mainnet key is exact.
+test("narabi_predictor_id_key_is_canonical_and_pipe_free (ADR-M008 Amendement bis, A4)", () => {
+  // Mixed-case hex on the wire → lowercased in the key (canonical, C5).
+  assert.equal(
+    narabiPredictorId("eip155:1", "erc20:0x4c9EDD5852cd905f086C759E8383e09bff1E68B3"),
+    "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
+    "the USDe mainnet key canonicalizes hex to lowercase",
+  );
+  // chain is PART of the key: same token, another chain ⇒ a different key (L2 OFT lock-and-mint = another law).
+  assert.notEqual(
+    narabiPredictorId("eip155:1", "erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3"),
+    narabiPredictorId("eip155:8453", "erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3"),
+    "the chain segment is load-bearing (mainnet != L2)",
+  );
+  // B-3: a '|' in either segment would forge a false label_schema ⇒ rejected.
+  assert.throws(() => narabiPredictorId("eip155:1", "erc20:0xdead|beef"), /forbidden/i);
+  assert.throws(() => narabiPredictorId("eip|155", "erc20:0xdead"), /forbidden/i);
 });
 
 test("narabi_velocity_recomputable_by_hand (anti-circularity, start-supply)", () => {

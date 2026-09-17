@@ -67,7 +67,7 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
       // structuredContent = the closed GateDecision ONLY (K-1); honesty prose rides in `content` text.
       // B-1: the honesty text is keyed on the PRESENCE of a BYO calibration, not task_class alone. The
       // verdict summary (a delivery aid for text-only clients, derived from `decision`) follows the prose.
-      const text = `${honestyText(env.prediction.task_class, env.params.calibration !== undefined)} ${gateVerdictSummary(decision)}`;
+      const text = `${honestyText(env.prediction.task_class, env.prediction.predictor_id, env.params.calibration !== undefined)} ${gateVerdictSummary(decision)}`;
       return { text, structured: decision as unknown as Record<string, unknown> };
     },
   },

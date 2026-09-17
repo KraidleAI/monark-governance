@@ -128,7 +128,8 @@ export {
   fromAttestedFlow,
   isNarabiError,
   NARABI_TASK_CLASS,
-  NARABI_PREDICTOR_ID,
+  NARABI_FORMULA,
+  narabiPredictorId,
   NARABI_LABEL,
 } from "./adapter-narabi.ts";
 export type { NarabiOutput, NarabiError, NarabiProvenance, NarabiAdapterErrorReason } from "./adapter-narabi.ts";

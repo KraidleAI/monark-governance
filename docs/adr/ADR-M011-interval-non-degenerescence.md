@@ -12,7 +12,9 @@
 > **S'appuie sur** : la décision **advisor-defi 2026-09-16** (« Option A = `under_calib` honnête + garde
 > largeur-nulle + clôture négative » ; msUSD dégénérescence GÉNUINE) — **CITÉE, non re-litigée**. Chip
 > `task_e94d7490` : garde du **chemin BYO `interval` L3**, **DISTINCT** de la garde classe-committée **C-11**
-> du lot F2-B (`calibration.ts`, PLAN-m008-f2b-usde §5.1/§10).
+> du lot F2-B (`calibration.ts`, PLAN-m008-f2b-usde §5.1/§10). **Note 2026-09-17 (checkpoint-2 F2-B,
+> C-16)** : C-11 a finalement été **résolu par RÉUTILISATION de NDG-1** — F2-B n'a posé **aucune** garde
+> dans `calibration.ts` (qui ne fait que pinner le digest) ; la distinction ci-dessus est historique.
 
 ## 1. Contexte / le défaut (mesuré, [lu] code, fichier:ligne)
 Le chemin `interval` (BYO ADR-M007 D7 **et** le conformeur HIKAE `conformInterval`) accepte une calibration
@@ -181,4 +183,5 @@ chaque mutant nommé (retrait de garde ; `lo===hi`→`q̂>0`) doit passer ROUGE.
 - **`HarnessToolError` 400 pour tous-nuls** : traite un input bien-formé comme malformé, masque la
   sous-calibration honnête (D2), contredit le ruling advisor-defi Option A.
 - **Garde uniquement au recorder / `calibration.ts`** : c'est **C-11** (classe committée F2-B), **DISTINCT** ;
-  ne protège pas le chemin **BYO générique** ni le conformeur HIKAE (UKEMI).
+  ne protège pas le chemin **BYO générique** ni le conformeur HIKAE (UKEMI). *(Note 2026-09-17 : F2-B n'a
+  finalement posé AUCUNE garde dans `calibration.ts` ; C-11 = NDG-1 réutilisée — C-16 checkpoint-2.)*

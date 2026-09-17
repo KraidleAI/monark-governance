@@ -173,6 +173,21 @@ function collectTargets(root, config, cliArgs) {
     }
   }
 
+  // The Narabi Lot F2-B docs (ADR-M008 Amendement bis, C-12): an EXPLICIT file list (not a directory walk),
+  // scanned with GLOBAL + the narabi_docs-scoped forbidden surface. Keeps unrelated docs/fixtures untouched.
+  const narabiDocs = config.scan.narabi_docs;
+  if (narabiDocs) {
+    const NARABI_EXTRA = compilePatterns(narabiDocs.banned);
+    for (const rel of narabiDocs.files ?? []) {
+      const p = join(root, rel);
+      try {
+        if (statSync(p).isFile()) add([p], [...GLOBAL, ...NARABI_EXTRA]);
+      } catch {
+        /* file not present yet */
+      }
+    }
+  }
+
   // Extra targets from the command line (tests use this on temp files) — GLOBAL patterns only.
   for (const arg of cliArgs) {
     const p = resolve(arg);

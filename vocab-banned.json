@@ -84,6 +84,17 @@
         { "re": "\\bproven\\b", "why": "\"proven\" — never describes the skill (ADR-M006 M-9)" }
       ],
       "exemptPhrases": ["$/token spend cap"]
+    },
+    "narabi_docs": {
+      "$comment": "(ADR-M008 Amendement bis, C-12): the Lot F2-B USDe provenance + closure docs carry the honest MEASURED framing; the forbidden 'attribution' surface purged from the recorder must never re-enter these docs. Files are listed EXPLICITLY (not a directory walk) so unrelated docs/fixtures stay untouched. GLOBAL patterns also apply. A flow is measured under coverage, never scored: no would-have counterfactual, no timing-vs-price claim, no numeric early-warning.",
+      "extensions": [".md"],
+      "files": ["fixtures/PROVENANCE-usde.md", "docs/CLOTURE-lot-f2b-usde.md"],
+      "banned": [
+        { "re": "would\\s+have", "why": "\"would have (alerted/spoken)\" — the retrospective is factual (bare dates + above_q99), never a counterfactual alert claim (C-12)" },
+        { "re": "before\\s+the\\s+mid", "why": "\"before the mid\" — no timing-vs-price surclaim on the Narabi surface (C-12)" },
+        { "re": "\\bspoke\\b", "why": "\"spoke\" — the purged spoke_before_public_mid surface must not re-enter (C-12)" },
+        { "re": "\\bearly\\s+warning\\b", "why": "\"early warning\" — no numeric early-warning marketing (ADR-M008 D5, C-12)" }
+      ]
     }
   }
 }

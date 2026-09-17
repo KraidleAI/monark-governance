@@ -58,6 +58,10 @@ export const WHITELIST_FILES = [
   // the exported `tsc --noEmit` reds TS7016 (measured, H4). It declares only pure functions (English).
   "scripts/grep-forbidden.mjs", "scripts/grep-forbidden.d.mts", "scripts/lint-ratchet.mjs",
   "scripts/export-public.mjs", "scripts/lang-gate.mjs", "scripts/lang-exempt.json",
+  // The Narabi F2-B out-of-tool method (ADR-M008 Amendement bis, C-18): publish HOW the USDe series was
+  // acquired and how the committed scores/digest are reproduced, so PROVENANCE-usde.md §6 "Reproduce" is not
+  // hollow in public. Read-only public RPC, no key; English, no forbidden vocab (lang:gate + gate:vocab clean).
+  "scripts/usde-full-pull.mjs", "scripts/record-usde-calib.mjs",
   // ADR-M004 D7 addendum (2026-09-06): the four rendered atelier demo files scanned by
   // atelier_no_network. They live at the package ROOT (outside src/), so PACKAGE_SUBPATHS does not
   // cover them; without them the exported atelier surface is < 8 and the test reds. To be
