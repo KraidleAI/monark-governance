@@ -30,7 +30,7 @@ import {
   USDE_STABLE_RUN_CALIB_DIGEST_PINNED,
 } from "../src/calibration.ts";
 import { splitQuantile, buildIntervalRegion } from "@monark/hikae"; // ADR-M011: anti-circularity — prove L1 q̂ + NDG-1 region before runGate
-import { fromAttestedFlow, isNarabiError, narabiPredictorId } from "@monark/monark"; // A7: real flows via the adapter
+import { fromAttestedFlow, isNarabiError } from "@monark/monark"; // A7: real flows via the adapter
 
 const GOOD_PARAMS: HarnessParams = {
   remainingBudget: 0.1,
@@ -423,7 +423,7 @@ test("gate_stable_run_usde_committed_region_A7b", () => {
   const sq = splitQuantile(USDE_STABLE_RUN_CALIB, GOOD_PARAMS.alpha, GOOD_PARAMS.nMin);
   assert.ok("qhat" in sq, "the committed USDe calibration is not under-calibrated at α=0.10, nMin=50");
   // COMMIT: intent = the forecast, width 2·q̂ ≪ tauInterval=1, budget ≥ floor.
-  const d = runGate(pred, { ...GOOD_PARAMS, intent: pred.yhat as number, tauInterval: 1 });
+  const d = runGate(pred, { ...GOOD_PARAMS, intent: pred.yhat, tauInterval: 1 });
   assert.equal(d.verdict.reason, "covered", "the committed USDe region is produced (not under_calib)");
   assert.equal(d.verdict.region.kind, "interval", "a regression region");
   assert.equal(d.verdict.qhat, sq.qhat, "the wire q̂ equals the independent splitQuantile of the committed scores");
@@ -450,7 +450,7 @@ test("gate_stable_run_family_isolation_fail_closed_A7acde", () => {
   ];
   for (const { name, pred } of cases) {
     assert.notEqual(pred.predictor_id, usdeKey, `${name}: precondition — the key differs from the committed USDe key`);
-    const d = runGate(pred, { ...GOOD_PARAMS, intent: pred.yhat as number, tauInterval: 1 });
+    const d = runGate(pred, { ...GOOD_PARAMS, intent: pred.yhat, tauInterval: 1 });
     assert.equal(d.action, "abstain", `${name} ⇒ abstain (never the USDe region)`);
     assert.equal(d.reason, "under_calib", `${name} ⇒ under_calib`);
     assert.equal(d.verdict.reason, "under_calib", `${name} ⇒ verdict under_calib`);
@@ -529,7 +529,7 @@ test("gate_stable_run_byo_anti_override_is_key_aware_A6", () => {
   // (ii) a DIFFERENT population (msUSD) on the same class MAY BYO its own scores (BYO by κ by family).
   const msusdPred = adaptToPrediction(narabiFlow("eip155:1", MSUSD_TOKEN));
   assert.notEqual(msusdPred.predictor_id, USDE_STABLE_RUN_PREDICTOR_ID);
-  const d = runGate(msusdPred, { ...GOOD_PARAMS, intent: msusdPred.yhat as number, nMin: 5, tauInterval: 2, calibration: { scores: callerScores, mode: "interval" } });
+  const d = runGate(msusdPred, { ...GOOD_PARAMS, intent: msusdPred.yhat, nMin: 5, tauInterval: 2, calibration: { scores: callerScores, mode: "interval" } });
   assert.equal(d.verdict.reason, "covered", "the msUSD BYO path RUNS (not locked)");
   assert.equal(d.verdict.n_calib, callerScores.length, "the CALLER's scores are used (n=10), never the USDe 613");
   assert.equal(d.verdict.calib_digest, calibDigest(callerScores), "calib_digest is over the CALLER's scores, never the USDe digest");
