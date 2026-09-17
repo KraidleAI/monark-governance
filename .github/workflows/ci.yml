@@ -51,6 +51,14 @@ jobs:
           }
           CHANGED=$(printf '%s\n' "$STAT" | awk '{ins=0; del=0; for(i=1;i<=NF;i++){ if($i ~ /insertion/) ins=$(i-1); if($i ~ /deletion/) del=$(i-1) } print ins+del+0}')
           echo "Changed lines: $CHANGED (ADR bound: $VIBEGATES_PR_LIMIT)"
+          # ADR-M003 D9 quinquies (2026-09-17): ONE-TIME, dated, investor-decided exception for PR #56 of
+          # KraidleAI/monark-governance (sync of 30 commits / 6 lots, each verified under AgileGates; only the
+          # sha-pinned data series fixtures/usde-calib-series.json pushes it over the bound). Measured, declared,
+          # never silent. Non-precedent: remove this guard in a follow-up commit after the merge.
+          if [ "${{ github.event.pull_request.number }}" = "56" ] && [ "${{ github.repository }}" = "KraidleAI/monark-governance" ]; then
+            echo "R-25: one-time exception (ADR-M003 D9 quinquies) applies to PR #56 — changed=$CHANGED, bound=$VIBEGATES_PR_LIMIT"
+            exit 0
+          fi
           if [ "$CHANGED" -gt "$VIBEGATES_PR_LIMIT" ]; then
             echo "::error::BLOCKED (VibeGates R-25): $CHANGED changed lines exceed the ADR bound of $VIBEGATES_PR_LIMIT. Split the PR."
             exit 1
