@@ -33,3 +33,7 @@
 ## Livrables
 `docs/census-2026-09-18/{A-aave-liquidations,B-burners}.md` (chiffres, verdict par hypothèse, RPC utilisés, appels), JSONL bruts sous
 `docs/census-2026-09-18/data/` (sha256 listés), scripts sous `scripts/census/` (réutilisables, jamais dans CI). R-25 par PR.
+
+> **Amendement 2026-09-18 (R-25)** : les JSONL de `docs/census-2026-09-18/data/` (~4 000 lignes générées, régénérables par `scripts/census/*.mjs`)
+> restent **hors dépôt** (gitignorés), comme les artefacts S2 ; leurs sha256 sont épinglés dans les deux rapports, ce qui suffit à la reproductibilité
+> (même doctrine que `fixtures/*` sha-pinnés). Le lot gouvernance porte scripts + rapports + audit + archive de recherche.

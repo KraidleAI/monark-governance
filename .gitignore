@@ -16,4 +16,4 @@ apps/site/CLAUDE.md
 # Bibliography (docs 03): copyrighted PDFs and their text extractions stay local; only the fiches are committed
 docs/biblio/**/pdf/
 docs/biblio/**/_txt/
-docs/census-2026-09-18/data/A-rawlogs.jsonl
+docs/census-2026-09-18/data/
