@@ -6,12 +6,15 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { MonarkMark } from "@/components/marks/monark-mark";
 import { useTheme } from "@/components/theme-provider";
+import { NARABI_ROUTE } from "@/lib/narabi-live";
 
 // Primary nav — MONARK.dc.html navDef (data model L712). "Integrators" routes to /integrators
-// (ADR-M004 D15 renamed the design's #/api to avoid the route-handler confusion).
+// (ADR-M004 D15 renamed the design's #/api to avoid the route-handler confusion). "Narabi" links the
+// freshly-shipped daily board (ADR-M012 D4), the one live sensor surface.
 const NAV_ITEMS: readonly { href: string; label: string }[] = [
   { href: "/products", label: "Products" },
   { href: "/fleet", label: "Fleet" },
+  { href: NARABI_ROUTE, label: "Narabi" },
   { href: "/how", label: "How it works" },
   { href: "/roadmap", label: "Roadmap" },
   { href: "/token", label: "Token" },

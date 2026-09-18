@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +35,8 @@ export function PlaceholderPanel({
   soldTo,
   inside,
   status,
+  liveHref,
+  liveLabel,
 }: {
   mark?: ReactNode;
   /** kanji is intentionally omitted (app precedent: /roadmap and the built cards carry none). */
@@ -46,6 +49,9 @@ export function PlaceholderPanel({
   soldTo?: string;
   inside: InsideBlock;
   status: AgentStatus;
+  /** an optional route to the agent's own live surface (Narabi -> /narabi); register-keyed by the caller. */
+  liveHref?: string;
+  liveLabel?: string;
 }) {
   return (
     <Dialog>
@@ -57,8 +63,13 @@ export function PlaceholderPanel({
           <StatusBadge status={status} className="ml-auto" />
         </div>
         <p className="text-sm text-muted-foreground">{line}</p>
-        <div className="mt-auto pt-1">
+        <div className="mt-auto flex items-center gap-3 pt-1">
           <DialogTrigger render={<Button variant="outline" size="sm" />}>See {name}</DialogTrigger>
+          {liveHref ? (
+            <Link href={liveHref} className="text-sm text-monark-t underline">
+              {liveLabel ?? "See it live"}
+            </Link>
+          ) : null}
         </div>
       </article>
 
@@ -80,6 +91,13 @@ export function PlaceholderPanel({
             </section>
           ) : null}
           <WhatInside block={inside} />
+          {liveHref ? (
+            <section className="border-t py-4">
+              <Link href={liveHref} className="text-sm text-monark-t underline">
+                {liveLabel ?? "See it live"}
+              </Link>
+            </section>
+          ) : null}
         </div>
       </DialogContent>
     </Dialog>

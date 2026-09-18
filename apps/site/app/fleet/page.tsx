@@ -8,6 +8,7 @@ import { PlaceholderPanel } from "@/components/placeholder-panel";
 import { loadAttestedPriceContract, loadContract } from "@/lib/load-contract";
 import { FLEET_AGENTS } from "@/lib/fleet";
 import { insideFor } from "@/lib/fleet-presentation";
+import { NARABI_ROUTE } from "@/lib/narabi-live";
 import { MokugekiMark } from "@/components/marks/mokugeki-mark";
 import { NarabiMark } from "@/components/marks/narabi-mark";
 import { KaihiMark } from "@/components/marks/kaihi-mark";
@@ -37,6 +38,12 @@ const AGENT_MARKS: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   Kyokusen: KyokusenMark,
   Koyomi: KoyomiMark,
   Genkan: GenkanMark,
+};
+
+// A built sensor's own live surface, keyed by register name (mirrors AGENT_MARKS): Narabi ships a daily
+// board at /narabi. A future built sensor adds its own route here; the link is absent for the rest.
+const AGENT_LIVE: Record<string, string> = {
+  Narabi: NARABI_ROUTE,
 };
 
 // The /fleet route (server component). It consumes the fleet register (lib/fleet.ts): the three engines
@@ -105,6 +112,8 @@ export default function FleetPage() {
                     line={a.line}
                     inside={insideFor(a.name.toLowerCase())}
                     status={a.status}
+                    liveHref={AGENT_LIVE[a.name]}
+                    liveLabel="See it live"
                   />
                 );
               })}
