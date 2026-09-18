@@ -52,6 +52,16 @@ notes live on the **GitHub Release object**, not in a root file (persisted in §
 6. **README** : Release badge + link to the latest Release (the CI + Apache badges are already posted,
    lot 3). Never a fake "coverage %".
 
+**Amendement 2026-09-18 (investisseur, fait mesuré) — le dépôt de gouvernance `KraidleAI/monark-governance` est PUBLIC depuis sa
+création (2026-09-05, `PublicEvent` = `created_at` ; 0 star/fork/watcher au 2026-09-18).** Les décisions des 2026-09-11 et 2026-09-17 le
+désignaient « privé » : c'était une croyance, jamais une mesure. Ruling investisseur 2026-09-18 (AskUserQuestion) : « Le laisser public et
+continuer ». Modèle assumé : **deux dépôts publics** — la gouvernance complète (ADR, JOURNAL, G1/G2, runbooks, biblios) sur
+`monark-governance` et l'**export déclassifié** sur le miroir `KraidleAI/monark` (release-public.mjs). Conséquences : `no_secret_in_repo`
+reste la seule garde (aucun secret, l'IP du VPS est opérationnelle et déjà publiée dans les runbooks) ; le vocabulaire de gouvernance
+(noms d'agents, `Kraidle`) est visible mais hors du miroir (gate:vocab scope site) ; aucune re-privatisation sans décision investisseur.
+`error_origin` = **orchestrateur** (visibilité jamais vérifiée par l'API avant le 2026-09-18 ; `gh repo view --json visibility` devient
+un contrôle du runbook de release).
+
 ## 3. Branch topology (B-1)
 Lot-4 lands on **`lot-m010`, branched from `main` (3b9805a)** — **not** `lot-m008-f1`. Rationale: the
 branch guard (§4) requires a clean `main`; the release tooling must therefore live **on `main`** (via a
