@@ -94,6 +94,20 @@ R-25 < plafond ; **G2 fraîche ≠ générateur** ; F1 : contrat fermé + adapta
 
 **Amendement 2026-09-17 (investisseur, E-1) — `v0.3.0` = lot USDe ; msUSD clos négatif.** L'amendement 2026-09-16 désignait `v0.3.0` = « calibration committée **msUSD** ». msUSD ayant été mesuré puis **refusé** (dégénéré, cf. D7bis amendé), **`v0.3.0` = le lot de calibration USDe** : `stable-run-velocity-24h` **committée** pour la `wrapping_family` USDe **OU** `under_calib` **honnête** si un critère pré-enregistré échoue (`PLAN-m008-f2b-usde.md` §5/§9). msUSD reste **clos en négatif documenté** (fixture-test hors-échantillon conservée). La `task_class` et l'horizon 24h→24h (Option A, 2026-09-13) sont **inchangés** ; le REDÉPLOIEMENT endpoint reste gaté/distinct.
 
+**Rectificatif 2026-09-18 (mission P0-b, ADR-M015 D1 (e)) — `under_witness` n'est pas un littéral gelé.** La
+**ligne 93** (amendement 2026-09-16, « Distinguer `under_calib` … de **`under_witness`** (pas de flux hashable) »)
+emploie un terme **qui n'existe dans AUCUN enum gelé**. Vérifié [lu] : `packages/contracts/src/enums.ts:7-21`
+(`COVERAGE_REASONS`, **13 raisons** : `covered, set_too_large, interval_too_wide, intent_not_in_region, under_calib,
+no_label_schema, budget_exhausted, clock_expired, upstream_timeout, attestation_absent, attestation_refused,
+binding_broken, non_evaluable`) **ne contient pas `under_witness`** ; l'enum `ATTESTED_FLOW_RESIDUALS`
+(enums.ts:37-45, **7 résidus**) non plus. Le résidu « book/témoin absent, pas de flux hashable » n'a donc pas de
+raison `under_witness` : la raison **servie** est **`attestation_absent`** (attestor 4xx/5xx observé, hashé, l.17) ou
+**`binding_broken`** (l.19 ; ex. `window` inconnu, `adapter-narabi.ts:156`). `under_witness` figurait dans le
+vocabulaire **proposé** de 12 résidus (`narabi-phase/03-contrat-v1.md`, 2026-09-15) **non retenu** (confirmé
+`docs/AUDIT-next-piece-2026-09-18.md` §2 pt 5). **Aucun changement d'enum** : le contrat est gelé (diff **0 octet**
+sur `schemas`/`packages/contracts`) — cette entrée corrige la **prose** de l'ADR (lire « under_witness » comme le
+raccourci de `attestation_absent`/`binding_broken`), pas le contrat. `error_origin` = n/a (rédaction).
+
 ## 4. Modes MAST (risque résiduel)
 - Dérive contrat↔adaptateur (le `Prediction` émis doit être exactement le gelé existant) ⇒ tests de fermeture + G2.
 - Overclaim latent « adaptive » (le nom du moteur) ⇒ D8 : interdiction de marketer adaptatif avant ACI.

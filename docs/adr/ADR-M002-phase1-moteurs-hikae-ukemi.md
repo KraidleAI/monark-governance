@@ -152,6 +152,43 @@ COMMIT   si intent in C, |C|<=tau, B_t>=B_floor
 `alpha=0.10`, `n_min=50`, `tau=1`, `k=1`, `eta=0.05`, `B_floor=0`, `w=15 min`, `label_delay=1` fenêtre. Grok = input ;
 **aucun n'est fondé** par une source — écrit tel quel dans le journal S2. Toute valeur change par ADR.
 
+### Amendement 2026-09-18 (mesure M009 (a)) — `B_floor = 0` mesuré sur traces S2 ; PROPOSÉ, décision investisseur
+
+**Aucune valeur committée changée par cet amendement.** `B_floor` reste `0` tant que l'investisseur n'a pas
+tranché. Item ADR-M009 (a) (P(B_t<0) « 35 %→47 % [abs] », préexistant à ACI) désormais **mesuré** sur la
+suite de miscovers RÉELLE des traces S2 Shōgen — rapport `docs/measure-M009a.md`, script
+`scripts/measure-m009a.mjs` (sha256 des jsonl épinglés), contre-contrôlé sur le reader `shogen_s2`
+(Decimal-50). Miscover = **co-défaillance ≥2 sources présentes** (attestation ratée au sens τ/σ, K&L
+`r1.py:415` ; pyth exclu, ADR-0023 Shōgen).
+
+- **Fait [mesuré]** (n = 26 938 fenêtres) : taux de miscover réel **1,02 %** (canonique) / 5,03 % (K brut,
+  pyth inclus), **« alpha = 10 %**. `P(B_t < 0)` **canonique ≈ 0 % (analytique/i.i.d.) à ≤ 3 % (empirique,
+  burstiness)** aux horizons t°=30/90/365, vs **35,3 %→49,1 % [abs]** (le [abs] est la binomiale au **bord**,
+  `p̂ = alpha` ; reproduit exactement). Sur la campagne réelle, **`B_t` n'est jamais descendu sous 0** (min
+  0,0885 canonique / 0,0478 K brut) : **zéro `budget_exhausted` parasite**. Ordre 2 : le processus est en
+  **rafales** (empirique > i.i.d.) — analogue de l'ACF d'ADR-M009 (§Contexte) ; au bord, l'autocorrélation
+  aggraverait `budget_exhausted`. **Transitoire** : `B_t < 0` dès **un** miscover si `t° < 1/alpha = 10`
+  (`alpha − 1/t° < 0`) ; le « zéro parasite » réel tient parce que les 9 premières fenêtres furent propres. Le
+  [abs] démarre à t°=30 ; en deçà le budget est trivialement fragile et `n_min = 50` ne garde **pas** `t°`
+  (ce sont deux compteurs distincts) — argument de plus pour l'option (b).
+- **Correction de signe (load-bearing)** : `budget_exhausted ⟺ remainingBudget < B_floor` (`l3-gate.ts:100/126`)
+  ⟺ `p̂ > alpha − B_floor`. Un **`B_floor > 0` abstient PLUS TÔT** (seuil abaissé, plus strict) — il
+  **aggrave** l'abstention parasite au bord, il ne la corrige pas. La seule « tolérance » (`B_floor < 0`) est
+  **rejetée** par `gate.ts:169` (`B_floor ≥ 0` requis).
+- **Deux options, décision investisseur** (P5 — jamais un « dû » nu) :
+  - **(a) `B_floor > 0` pré-enregistré** = conservatisme délibéré et explicite (abstient à `p̂ > alpha −
+    B_floor`, plus prudent face au drift). Sur les données S2, tout `B_floor < 0,0478` est **inerte** (`B_t`
+    est resté ≥ 0,04776 sous D1, ≥ 0,0885 sous D2). Coût : au bord vrai, il augmente `budget_exhausted`
+    parasite — à chiffrer pour le `B_floor` retenu.
+  - **(b) conserver `B_floor = 0` + phrase d'honnêteté** (recommandation par défaut du worker, non-verdict) :
+    « au bord (taux vrai = α), `B_floor = 0` donne P(`budget_exhausted` par bruit) montant de ~35 % (t°=30)
+    à ~49 % (t°=365) ; **mesuré sur les traces d'attestation S2 réelles le taux est ≤ 5 % « α, donc cette
+    abstention parasite ne s'est pas matérialisée** (`B_t` jamais < 0) ; la préoccupation demeure pour toute
+    calibration réellement au bord et est **aggravée par la burstiness** ». Ceci **remplace** l'`échangeabilité
+    déclarée` par une honnêteté chiffrée, sans toucher la valeur.
+- **Rattachement** : conserve la doctrine D6 (« budgets déclarés, non fondés ») ; le passage branche (a)
+  (ADR-M009 item 7) exige toujours la redéfinition de `B_t` **avant** bascule. `error_origin` = n/a (mesure).
+
 ### D7 — Prédicteur : baseline déclarée en Phase 1, LLM en Phase 2
 - `Prediction.predictor_id` (gelé) rend le prédicteur **enfichable**. Phase 1 = **baseline momentum déclarée**
   (`predictor_id="internal:momentum-4c"`, préfixe ADR-M001 conservé). **Convention d'indice (alignée D8, anti
