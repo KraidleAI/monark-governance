@@ -22,6 +22,19 @@ export const PUBLIC_ENDPOINTS: readonly string[] = [
   "https://ethereum.publicnode.com", "https://eth.rpc.blxrbdn.com",
 ];
 
+/** The provider behind an endpoint URL: its registrable domain (last two host labels), so two aliases of
+ *  one operator (ethereum-rpc.publicnode.com / ethereum.publicnode.com) count as ONE provider. A quorum of
+ *  two must come from two providers (ADR-M012 item (m)); the pool keeps every alias for availability. */
+export function providerOf(url: string): string {
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return url; // test doubles use bare names: each is its own provider
+  }
+  return host.split(".").slice(-2).join(".");
+}
+
 /** One JSON-RPC round-trip to a NAMED endpoint. Injected in tests; the default hits the public pool. */
 export type RpcCall = (url: string, method: string, params: readonly unknown[]) => Promise<unknown>;
 
@@ -120,13 +133,18 @@ export function makeRpcPool(opts: { endpoints?: readonly string[]; call?: RpcCal
   async function quorumTwo<T>(label: string, fetchOne: (url: string) => Promise<T>): Promise<[T, T]> {
     const list = live();
     const got: T[] = [];
+    const providers = new Set<string>();
     let lastErr: Error | undefined;
     let i = 0;
+    const start = rr; // frozen at entry: `rr` is read across awaits (ADR-M012 item (n))
     for (; i < list.length && got.length < 2; i++) {
-      const url = list[(rr + i) % list.length];
+      const url = list[(start + i) % list.length];
       if (url === undefined) continue;
+      // Two answers from one provider are not a quorum: skip an alias of a provider already counted.
+      if (providers.has(providerOf(url))) continue;
       try {
         got.push(await fetchOne(url));
+        providers.add(providerOf(url));
       } catch (e) {
         lastErr = e instanceof Error ? e : new Error(String(e));
         cooldownUntil.set(url, Date.now() + cooldownMs);
@@ -134,9 +152,9 @@ export function makeRpcPool(opts: { endpoints?: readonly string[]; call?: RpcCal
     }
     const [a, b] = got;
     if (a === undefined || b === undefined) {
-      throw new Error(`${label}: quorum needs >= 2 live endpoints${lastErr ? ` (last: ${lastErr.message})` : ""}`);
+      throw new Error(`${label}: quorum needs >= 2 live endpoints from 2 providers${lastErr ? ` (last: ${lastErr.message})` : ""}`);
     }
-    rr = (rr + i) % list.length;
+    rr = (start + i) % list.length;
     return [a, b];
   }
   // eth_getLogs on ONE named endpoint, splitting the range on a result-limit error (recursively).

@@ -12,3 +12,16 @@
 		root * /var/lib/monark-sentinel/public
 		file_server
 	}
+
+# Access log for the vitrine block (ADR-M012 item (o), go investisseur 2026-09-18). INSERT inside the SAME
+# vitrine site block. Purpose: count distinct downloads of /narabi/state.json and /narabi/timeline.jsonl —
+# without a `log` directive they are not observable. Retention = rotation only: no IP is kept beyond the
+# rolled files (5 files, 30 days); nothing is shipped anywhere.
+	log {
+		output file /var/log/caddy/monarkgate-access.log {
+			roll_size 10MiB
+			roll_keep 5
+			roll_keep_for 720h
+		}
+		format json
+	}

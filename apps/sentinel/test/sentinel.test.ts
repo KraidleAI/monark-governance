@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { splitQuantile, trackerReplay, trackerDigest, trackerStepSize } from "@monark/hikae";
 import { USDE_STABLE_RUN_CALIB } from "@monark/harness/calibration";
 import { daysUTC, firstBlockAtOrAfter, windowBounds, midnightOf } from "../src/windows.ts";
-import { makeRpcPool, QuorumDisagreementError, TRANSFER_TOPIC } from "../src/rpc.ts";
+import { makeRpcPool, QuorumDisagreementError, TRANSFER_TOPIC, providerOf, PUBLIC_ENDPOINTS } from "../src/rpc.ts";
 import type { RpcCall, RpcPool } from "../src/rpc.ts";
 import { attest } from "../src/flow.ts";
 import type { WindowFacts } from "../src/flow.ts";
@@ -460,6 +460,28 @@ test("sentinel_quorum_needs_two_live", async () => {
   await assert.rejects(() => mk().finalized(), /quorum needs >= 2 live endpoints/);
   await assert.rejects(() => mk().supplyAt(1), /quorum needs >= 2 live endpoints/);
   await assert.rejects(() => mk().windowFlow(1, 2), /quorum needs >= 2 live endpoints/);
+});
+
+// ── ADR-M012 item (m) ─────────────────────────────────────────────────────────────────────────────────
+test("sentinel_quorum_needs_two_providers", async () => {
+  // Two aliases of ONE provider (publicnode) plus one distinct provider: the quorum must pair the first alias
+  // with the distinct provider, never the two aliases. With aliases only, it fails closed.
+  const P1 = "https://ethereum-rpc.publicnode.com", P1b = "https://ethereum.publicnode.com", P2 = "https://eth.drpc.org";
+  assert.equal(providerOf(P1), providerOf(P1b));
+  assert.notEqual(providerOf(P1), providerOf(P2));
+  // The committed pool must hold at least two distinct providers (else no quorum is ever reachable).
+  assert.ok(new Set(PUBLIC_ENDPOINTS.map(providerOf)).size >= 2);
+  const seen: string[] = [];
+  const call = (url: string, method: string): Promise<unknown> => {
+    seen.push(url);
+    if (method === "eth_getBlockByNumber") return Promise.resolve({ number: "0x1", timestamp: "0x1" });
+    return Promise.reject(new Error(`unexpected ${method}`));
+  };
+  const ok = makeRpcPool({ endpoints: [P1, P1b, P2], call });
+  assert.equal((await ok.finalized()).block, 1);
+  assert.deepEqual(seen, [P1, P2], "the alias P1b is skipped; the quorum is P1 + P2");
+  const aliases = makeRpcPool({ endpoints: [P1, P1b], call });
+  await assert.rejects(() => aliases.finalized(), /quorum needs >= 2 live endpoints from 2 providers/);
 });
 
 // ── 12h ──────────────────────────────────────────────────────────────────────────────────────────────
