@@ -38,6 +38,15 @@ const card: CSSProperties = {
   border: "1px solid var(--line)",
   borderRadius: 22,
   background: "var(--card)",
+  boxShadow:
+    "0 1px 2px color-mix(in oklab, var(--ink) 6%, transparent), 0 8px 24px -16px color-mix(in oklab, var(--ink) 25%, transparent)",
+};
+// Well (facts surface, design L119 / L305): bg-soft with an inset shadow. The B_t meter sits in one.
+const well: CSSProperties = {
+  background: "var(--soft)",
+  borderRadius: 10,
+  padding: "12px 14px",
+  boxShadow: "inset 0 1px 3px color-mix(in oklab, var(--ink) 12%, transparent)",
 };
 const mono11Ink2: CSSProperties = { fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "var(--ink2)", lineHeight: 1.5 };
 const readoutBox: CSSProperties = { border: "1px solid var(--line)", borderRadius: 12, padding: 14, background: "var(--card)" };
@@ -69,7 +78,7 @@ export function GateSim({ mode, actions, reasons, cost, ambient }: GateSimProps)
     return (
       <div style={{ ...card, borderRadius: 20, padding: 26, display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={mono11Ink2}>B_t over one illustrative epoch</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <div style={{ ...well, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
           <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, minWidth: 112 }}>
             B_t = <span style={{ fontWeight: 500 }}>{sim.budgetText}</span>
           </div>
@@ -132,7 +141,7 @@ export function GateSim({ mode, actions, reasons, cost, ambient }: GateSimProps)
         gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 500px), 1fr))",
       }}
     >
-      <div style={{ padding: 28, borderBottom: "1px solid var(--line)" }}>
+      <div style={{ padding: 28, borderRight: "1px solid var(--line)" }}>
         <GateControls
           reading={state.reading}
           spread={state.spread}
@@ -150,7 +159,7 @@ export function GateSim({ mode, actions, reasons, cost, ambient }: GateSimProps)
       </div>
       <div style={{ padding: 28, display: "flex", flexDirection: "column", gap: 14, background: "var(--paper)" }}>
         <GateDiagram state={state} actions={actions} compact />
-        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <div style={{ ...well, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
           <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, minWidth: 112 }}>
             B_t = <span style={{ fontWeight: 500 }}>{sim.budgetText}</span>
           </div>
@@ -171,15 +180,14 @@ export function GateSim({ mode, actions, reasons, cost, ambient }: GateSimProps)
         <pre
           style={{
             margin: 0,
-            border: "1px solid var(--line)",
             borderRadius: 12,
-            padding: 14,
-            background: "var(--card)",
+            padding: 16,
+            background: "var(--ink)",
             fontFamily: "'IBM Plex Mono', monospace",
             fontSize: 12,
-            lineHeight: 1.55,
+            lineHeight: 1.6,
             overflow: "auto",
-            color: "var(--ink2)",
+            color: "color-mix(in oklab, var(--paper) 92%, var(--ink))",
             whiteSpace: "pre",
           }}
         >
@@ -189,7 +197,18 @@ export function GateSim({ mode, actions, reasons, cost, ambient }: GateSimProps)
             view. The middle item is the CLOSED vocab-exempt phrase "no confidence field" (vocab-banned.json
             scan.site.exemptPhrases), masked per-line before matching — kept CONTIGUOUS on ONE source line
             so the mask lands and the F-2b carrier check (renderedTexts) sees it. */}
-        <div style={mono11Ink2}>
+        <div
+          style={{
+            fontFamily: "'IBM Plex Mono', monospace",
+            fontSize: 12,
+            lineHeight: 1.5,
+            color: "var(--ink)",
+            background: "var(--soft)",
+            borderLeft: "3px solid var(--abst)",
+            padding: "10px 14px",
+            borderRadius: "0 8px 8px 0",
+          }}
+        >
           GateDecision, a frozen contract. Note what is absent: no p_correct, no confidence field, no score.
         </div>
         {/* K-4(b): the JSON above is an ABBREVIATED, illustrative view — the frozen

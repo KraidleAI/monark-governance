@@ -24,14 +24,24 @@ import { cn } from "@/lib/utils";
  * when the recovery rates fall below full recovery — grounded in packages/ukemi/README.md ("Uniqueness
  * LOST once α < 1 or β < 1 ... we never claim uniqueness outside α = β = 1"). No market number is rendered.
  */
-export function UkemiPanel({ contract }: { contract: FrozenContract }) {
+export function UkemiPanel({ contract, showInside = false }: { contract: FrozenContract; showInside?: boolean }) {
+  const trigger = <DialogTrigger render={<Button variant="outline" size="sm" />}>Open panel</DialogTrigger>;
   return (
     <Dialog>
       <AgentCard
         mark={<UkemiMark className="size-8" />}
         name="Ukemi"
         status="built"
-        action={<DialogTrigger render={<Button variant="outline" size="sm" />}>Open panel</DialogTrigger>}
+        action={
+          showInside ? (
+            <div className="flex flex-col gap-4">
+              <WhatInside block={insideFor("ukemi")} variant="well" />
+              {trigger}
+            </div>
+          ) : (
+            trigger
+          )
+        }
       >
         Liquidation-cascade survival.
       </AgentCard>
