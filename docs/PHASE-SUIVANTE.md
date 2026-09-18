@@ -18,7 +18,8 @@ page `/narabi/live`) · items formés ADR-M012 (a)(e)(g)(h)(i)(l) · seuil R-25 
    5 contrats gelés, effort, risque d'overclaim, données disponibles.
 3. Alternative **« enrichir l'existant »** chiffrée au même format : nouvelles `task_class` Narabi (autres stablecoins /
    familles, cadence horaire = nouvelle classe Mondrian), flux, branche (a) ACI si le critère (iii) tire, `B_t` à
-   bFloor = 0 (item (a)), BYO, dashboard de risque « vue, pas score » (DefiDrama).
+   bFloor = 0 (item (a)), BYO. (DefiDrama : **mis de côté** par décision investisseur du 2026-09-18 — ni pièce ni produit tant que la question « produit
+   expérimental nourri par Narabi ou non » n'est pas tranchée ; ne pas le mentionner avec les produits.)
 4. Consultations formées, en tandem : **advisor-marché** (demande réelle, précédents de pricing) + **advisor-defi**
    (validité statistique, données) + **advisor** (architecture, dette) + **chercheurs Sonnet 5** (corpus produit,
    comparables) — avis, jamais verdict.
