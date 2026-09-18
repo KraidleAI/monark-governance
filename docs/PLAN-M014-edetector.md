@@ -56,7 +56,7 @@ Fichiers autorisés : `apps/sentinel/src/edetector.ts` (nouveau, **pur**), `apps
    (e-SR = somme d'e-processus ; pas « surmartingale »). Vérifie la validité, pas le délai.
    **Amendement G2 (C-a, error_origin = plan/checkpoint-1)** : à p = p0 l'égalité E[M_SR,H] = H est de bord et le test bascule selon la
    graine (mesuré : 3 dépassements sur 31 bases). Correctif : (c) devient deux assertions séparées — (c1) **validité** à p = p0 : moyenne
-   terminale ≤ H·(1 + marge tail-honnête), marge = 3·(écart-type empirique de M_SR,H)/√N_sim, avec un plafond déclaré ; (c2) **témoin
+   terminale ≤ H·(1 + marge tail-honnête), marge = 3·(écart-type empirique de M_SR,H)/(√N_sim·H), terminales winsorisées à exp(seuil)·H, avec un plafond analytique déclaré ; (c2) **témoin
    non-surmartingale** à p = p0 : moyenne terminale > 1. Critère d'acceptation : 0 basculement sur ≥ 30 bases de graine aux deux H
    (script de balayage rejoué au checkpoint-2).
 5. **Grille** : K = 12, λ strictement croissants, géométriques (ratio constant à 1e-12), poids sommant à 1, tous λ > 0.
