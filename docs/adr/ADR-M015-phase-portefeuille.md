@@ -2,8 +2,9 @@
 
 - **Statut** : proposé (G0 de phase) 2026-09-18 · checkpoint-1 validateur dû · décision = investisseur (CA-2)
 - **Rattachement** : `docs/PHASE-SUIVANTE.md` Action 1 ; inventaire `docs/etude-suite-2026-09-18/` (INDEX-corpus 139 fichiers, FICHES-pieces 16,
-  PROPOSITIONS, CARTOGRAPHIE-code, ACTU-defi-par-piece, AVIS-advisor-defi-2e-cle-c-prime) ; trois consultations du 2026-09-18 (advisor-marché,
-  advisor-defi, advisor architecture) ; ADR-M005 (harnais pur, D0/D6/K-8), M006 (D8 mesure de demande, N non fixé), M008, M009 (item a), M012, M014.
+  PROPOSITIONS, CARTOGRAPHIE-code, ACTU-defi-par-piece, AVIS-advisor-defi-2e-cle-c-prime, AVIS-advisor-marche, AVIS-advisor-defi-portefeuille,
+  AVIS-advisor-architecture, produit-ukemi-loop-clearing + ukemi-eisenberg-noe-audit reçus le 09-18) ; trois consultations du 2026-09-18 archivées ;
+  checkpoint-1 persisté `docs/CHECKPOINT1-M015.md` ; ADR-M005 (harnais pur, D0/D6/K-8), M006 (D8 mesure de demande, N non fixé), M008, M009 (item a), M012, M014.
 - **Demande investisseur (verbatim)** : « on continue la partie moteur ? ou on va plutôt étudier les 7 pièces restantes… la fleet reste la même…
   cartographie complète, est-ce que les composants se parlent ? plomberie, puis l'orchestrateur pose un plan qu'on va suivre, pose une stratégie…
   trouvons la grosse plus-value et comment la décrocher. »
@@ -112,17 +113,20 @@ les lots ; « partner » et « autonomous » jamais, y compris dans les campagne
   Koyomi, F2-C si décidé, lecture J+30 → Genkan v1 ou non ; **T3** mesure d'usage, décision P5 par ADR, revue (iii) ; **T4** selon P5.
 - Décisions investisseur à prendre, listées pour le checkpoint-1 : (1) N ; (2) 2ᵉ clé : escalade sUSDe/FDUSD ou (c′) seul ; (3) M014 (d)/(d′) ;
   (4) M012 (g) ancrage hebdo au premier mois ; (5) token ↔ `B_t` : maintenant ou après mesure ; (6) go pour le `log` Caddy harnais.
-- Procurements formés à l'ADR (**14**, liste dans `PLAN-STRATEGIE.md` §5, avec tentatives faites et étiquette document / recherche / mesure ;
+- Procurements formés à l'ADR (**18**, liste dans `PLAN-STRATEGIE.md` §5, avec tentatives faites et étiquette document / recherche / mesure ;
   les quatre dûs de l'AUDIT §5 y sont repris : AIP 262, Aave V4 × Ethena, `TetherToken.redeem`, Risk Committee Ethena) : hook `before_tool` OpenClaw ; `produit-ukemi-loop-clearing.md`
   introuvable ; PSM Sky / PYUSD / LUSD-BOLD à scouter ou écarter ; export du compteur ClawHub ; journal Caddy vitrine J+30 ; Blockaid AI agent
   tools (statut, pricing) ; MetaMask Agent Wallet Guard Mode (docs) ; HIP-3* proxy reduce-only (spec) ; post-mortem trade.xyz SK Hynix ; Kaiko
   Best Execution (grille) ; x402 Bazaar (frais, catalogue MCP) ; statut du blocage ClawPump ; archive HIP-3 (profondeur, API).
 - `error_origin` de l'étude : orchestrateur — avis (c′) non archivé avant le second avis (rétention d'information) ; « 219 pulls » transmis sans
   niveau de source ; règle « acheteur nommé » présentée comme héritée alors qu'elle est proposée ; ε = 0,05 perdu dans la réconciliation ;
-  **arbre non gelé pendant le checkpoint-1** (chercheurs écrivant `docs/biblio/procurements-M015/` à 20:25–20:26 UTC) ; 13 ≠ 14 ; M1/D8 confondus.
+  **arbre non gelé pendant le checkpoint-1** (chercheurs écrivant `docs/biblio/procurements-M015/` à 20:25–20:26 UTC) ; **rupture de gel n° 2** au
+  re-checkpoint (commit `b7ff7d8` PR-2 pendant la fenêtre) ; commit `74c9122` au message « corrections foldées » alors que le script avait avorté ;
+  entrée journal annoncée et absente jusqu'au 09-18 soir ; premier avis du validateur non persisté avant `CHECKPOINT1-M015.md` ; 13 ≠ 14 ≠ 18 ;
+  M1/D8 confondus. Remède structurel (K-C) : gel par identité d'artefact (SHA de commit lu par `git show`), aucun commit pendant la fenêtre.
 
 ## Sources
-Dossier `docs/etude-suite-2026-09-18/` (six fichiers, sha dans les rapports d'agents) ; ADR-M002 D4/D9, M005 D1/D6/D8/D15, M006 D8, M008 D4/D7,
+Dossier `docs/etude-suite-2026-09-18/` (douze fichiers après le 09-18 soir, sha dans les rapports d'agents et le journal) ; ADR-M002 D4/D9, M005 D1/D6/D8/D15, M006 D8, M008 D4/D7,
 M009 item (a), M012 D3–D8 et items, M014 ; `apps/harness/src/tools/{registry,gate}.ts`, `packages/monark/src/index.ts`,
 `scripts/record-usde-calib.mjs:71,115`, `packages/contracts/src/enums.ts`, `deploy/Caddyfile.*` ; ACTU §2–§13 (URL + dates) ; avis advisors du
 2026-09-18 (rapports de consultation, archivés pour (c′)).
