@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { join } from "node:path";
 import { GateSim } from "@/components/gate-sim";
+import { CaCopy } from "@/components/token/ca-copy";
 import { loadGateEnums } from "@/lib/gate-enums";
 import { COST, AMBIENT } from "@/lib/sim";
 
@@ -30,6 +31,12 @@ export default function TokenPage() {
   const { actions, reasons } = loadGateEnums(root);
   return (
     <main className="mx-auto max-w-5xl px-6 py-16">
+      {/* Contract address first (investor request 2026-09-18): copyable field + copy button, before the
+          hero. The address is an identifier read (CA_ADDRESS), never a rendered numeric literal. */}
+      <div className="mb-10">
+        <CaCopy address={CA_ADDRESS} />
+      </div>
+
       {/* Hero (the token) + the mini B_t depletion sim (design L358-378). */}
       <section className="grid gap-12 lg:grid-cols-2 lg:items-start">
         <div className="flex flex-col gap-6">
@@ -45,6 +52,29 @@ export default function TokenPage() {
             gate abstains &mdash; with reason{" "}
             <span className="font-mono text-foreground">budget_exhausted</span>.
           </p>
+          {/* The role of the token (investor request 2026-09-18): three duties, stated without a yield,
+              a price or a probability. The bond sentence is the investor's wording, verbatim. */}
+          <div className="rounded-2xl border bg-soft p-6">
+            <div className="mb-3 font-mono text-xs uppercase tracking-wide text-monark-t">The role of the token</div>
+            <ul className="flex flex-col gap-3 text-sm leading-7 text-foreground">
+              <li>
+                <span className="font-medium">Authorization budget</span> &mdash; MONARK is B_t, the metered
+                right to act. Every <span className="font-mono">commit</span> the gate emits spends it;{" "}
+                <span className="font-mono">defer</span> and <span className="font-mono">abstain</span> cost
+                nothing. When the budget is exhausted the gate abstains, and says so.
+              </li>
+              <li>
+                <span className="font-medium">Skin in the game to act</span> &mdash; an operator posts MONARK
+                as a bond to be authorized; a commit proven faulty is slashed (to the party it harmed, a
+                burn, and the watcher who proved it &mdash; never to the company).
+              </li>
+              <li>
+                <span className="font-medium">Watchers</span> &mdash; anyone can recompute a frozen decision
+                from its published bytes; a proven fault pays the watcher from the bond, not from the
+                company. The token is what makes the fleet answerable, not what makes it profitable.
+              </li>
+            </ul>
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-xl border bg-card p-5">
               <div className="mb-2 font-mono text-xs text-hikae-t">It is</div>
@@ -88,14 +118,6 @@ export default function TokenPage() {
           </div>
           <ul className="mt-5 flex flex-col gap-4 text-sm leading-7 text-foreground">
             <li>
-              <span className="font-medium">Stakers get discounts</span> on the products they use.
-            </li>
-            <li>
-              <span className="font-medium">Skin in the game to act</span> &mdash; an operator posts MONARK
-              as a bond to be authorized; a commit proven faulty is <span className="font-medium">slashed</span>{" "}
-              (to the party it harmed, a burn, and the watcher who proved it &mdash; never to the company).
-            </li>
-            <li>
               <span className="font-medium">Watchers earn</span> for catching a faulty commit; fault is
               proven by recomputing the frozen decision.
             </li>
@@ -116,16 +138,6 @@ export default function TokenPage() {
           <span className="rounded-xl border bg-soft px-4 py-2 font-mono text-sm text-foreground">
             to be announced
           </span>
-        </div>
-
-        {/* Contract address (CA) — the token's on-chain identity. Rendered from an identifier read so the
-            honesty-lint numeric scan never sees its digits; select-all for a one-tap copy (server
-            component, no client island). Label + address only — no chain name, no price, no buy CTA. */}
-        <div className="mt-4 rounded-2xl border bg-card p-6">
-          <div className="mb-2 font-mono text-xs uppercase tracking-wide text-monark-t">Contract address (CA)</div>
-          <code className="block select-all break-all font-mono text-sm leading-6 text-foreground">
-            {CA_ADDRESS}
-          </code>
         </div>
       </section>
     </main>
