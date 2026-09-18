@@ -202,3 +202,13 @@ déclaré, hors score).
   snippet committé `deploy/Caddyfile.monark-narabi.snippet`). Déployé : `rpc.ts` sur `/opt/monark-harness` (sha `6ebbf318…`, import
   vérifié), Caddyfile sauvegardé puis rechargé 09:33 UTC (premier reload refusé : fichier de log créé root par `caddy validate` ;
   corrigé par `chown caddy` ; la configuration précédente est restée servie, 200 sans interruption). Restent formés : (g), (h→l), (i).
+- **Amendement 2026-09-18 (go investisseur) — item (h) CLOS : procurement PR-M012-h lue intégralement** (chercheur Sonnet 5,
+  `docs/biblio/M012-h/` : README + 3 fiches ; PDF et extractions texte locaux, non committés). Lorden 1971 (12/12 p., scan JSTOR sans OCR
+  ⇒ lecture par rendu-image, écart doc 03 §6 déclaré), Shin–Ramdas–Rinaldo arXiv:2203.03532v4 (50/50 p.), Vovk 2012 PMLR 25 (16/16 p.).
+  **Conclusion sourcée** : l'instrument peut citer la *forme* Page/Lorden de sa statistique (Lorden p. 1897–1898) et la définition de
+  l'échangeabilité derrière son contrôle par permutation (Vovk Prop. 1, p. 477) ; il ne peut **jamais** citer ces papiers à l'appui d'un ARL,
+  d'un délai de détection ou d'une optimalité (Lorden Thm 1–3 supposent l'i.i.d., preuve p. 1900 ; confirmé par Shin et al. §6.2 p. 33),
+  ni prétendre que le cadre e-détecteur (Déf. 2.5–2.6) le couvre tant que `instrument.ts` reste un CUSUM à p₀/p₁ fixes. Le contrôle par
+  permutation n'est couvert par aucun des trois (0 occurrence) : troisième voie, à dire comme telle. **(l) reste formé** : publication de
+  `instrument.json` + rejeu post-J0 dès T ≥ 7, avec la phrase publique proposée dans le README (aucune garantie ARL revendiquée).
+

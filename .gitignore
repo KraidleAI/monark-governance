@@ -12,3 +12,7 @@ next-env.d.ts
 # Lot F-site-4 — Next 16 auto-generates agent context files on `next dev`; never committed
 apps/site/AGENTS.md
 apps/site/CLAUDE.md
+
+# Bibliography (docs 03): copyrighted PDFs and their text extractions stay local; only the fiches are committed
+docs/biblio/**/pdf/
+docs/biblio/**/_txt/
