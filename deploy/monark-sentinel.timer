@@ -1,0 +1,15 @@
+# systemd timer for the MONARK Narabi sentinel (ADR-M012 D5). Daily 00:30 UTC + up to 30 min jitter: by then
+# the previous UTC day's close is finalized, so the run publishes it. Persistent=true: a run missed while the
+# VPS was off fires on next boot — a missed day is LAG, never skipped. Enable: systemctl enable --now (step 4).
+[Unit]
+Description=MONARK Narabi sentinel daily timer (ADR-M012 D5)
+Documentation=https://github.com/KraidleAI/monark
+
+[Timer]
+OnCalendar=*-*-* 00:30:00 UTC
+RandomizedDelaySec=1800
+Persistent=true
+Unit=monark-sentinel.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,14 @@
+# MONARK Narabi publication snippet (ADR-M012 D4, C-1). Orchestrator-deployed.
+#
+# INSERT the `handle_path /narabi/*` block below INSIDE the EXISTING vitrine site block
+# (`monarkgate.tech, www.monarkgate.tech { ... }`), BEFORE its `reverse_proxy localhost:3000` — a path
+# matcher wins over the catch-all proxy, so /narabi/* is static and everything else still reaches the vitrine.
+# NEVER a separate site block: two blocks on the SAME address are an "ambiguous site definition" Caddy refuses
+# (measured, C-1). FIRST edit of the vitrine block since go-live, so RUNBOOK-sentinel step 5 backs up, validates,
+# reloads, curls the vitrine; rollback = delete these lines and reload. The sentinel writes read-only files
+# (0644, dir 0755) caddy can read; monarkgate.tech/narabi/ then serves state.json + timeline.jsonl (replayable).
+
+	handle_path /narabi/* {
+		root * /var/lib/monark-sentinel/public
+		file_server
+	}

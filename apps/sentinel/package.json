@@ -1,0 +1,12 @@
+{
+  "name": "@monark/sentinel",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MONARK Narabi sentinel — off-tool daily job (ADR-M012): reads the attested USDe redemption flow at block finality, feeds the M009 quantile tracker, publishes a replayable timeline. Node built-ins only; the harness never imports this.",
+  "dependencies": {
+    "@monark/contracts": "0.0.0",
+    "@monark/hikae": "0.0.0",
+    "@monark/monark": "0.0.0"
+  }
+}

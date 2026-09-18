@@ -25,6 +25,8 @@
     "packages/*/test/**/*.ts",
     "test/**/*.ts",
     "apps/harness/src/**/*.ts",
-    "apps/harness/test/**/*.ts"
+    "apps/harness/test/**/*.ts",
+    "apps/sentinel/src/**/*.ts",
+    "apps/sentinel/test/**/*.ts"
   ]
 }

@@ -78,7 +78,11 @@ hebdomadaire** ultérieur, décision investisseur (nouveau dépôt = action sort
 VPS gagne pour la première fois un processus à réseau sortant (pool RPC public, sans clé). Même canal SSH, même
 discipline (append Caddy, `caddy validate`, `no_secret_in_repo`). **Ordre obligatoire** : (a) redéploiement du harnais
 depuis HEAD (l'endpoint public ne sert pas encore la classe Narabi — deuxième écart d'honnêteté si on annonçait avant) ;
-(b) sentinelle ; (c) **J0 = premier pas live ; T compte depuis J0, jamais depuis la calibration** (`t₀ = 0`).
+(b) sentinelle ; (c) **J0 = première fenêtre publiée** (sans prédécesseur ⇒ `non_evaluable`) ; **le premier pas du
+tracker est la fenêtre J0+1** ; **T compte les pas live, jamais la calibration** (`t₀ = 0`) — ruling orchestrateur M012-b (Q1).
+`--day` non-dry = le jour suivant naturel seulement (garde CLI), sinon `throw` ; sur état non vide il **plafonne** le rattrapage
+(Q2). Aucune étiquette `run_label` : le régime est mécanique, l'étiquette `run` du pull n'existe pas en direct (Q3 ; les 3 paires
+de clôture 10-13/14/15 comptent calmes ⇒ 616 paires mécaniques vs 613 du recorder, max glissant inchangé 27/90).
 
 **D6 — Paramètres et critère (iii), pré-enregistrés.** Officiel : `c = B = 1/24`, **`ε = 0,1`** (ABB, valeur expérimentale
 des auteurs, l.432), `t₀ = 0`, `q₁ = q̂ committé = 1,3119e-4`, `α = 0,10`. **Tolérance nommée `δ_target = α = 0,10`** (D8 M008
@@ -158,6 +162,18 @@ déclaré, hors score).
 - **Items formés** : (a) M009 cité (B_t à bFloor = 0) — inchangé ; (g) ancrage hebdo option B — déclencheur : premier mois
   live ; action : décision investisseur nouveau dépôt ; (h) instrument CUSUM : théorie ARL — déclencheur : toute citation publique de l'instrument ; action : procurement formé
   Lorden 1971 (Ann. Math. Statist. 42(6)) + Shin–Ramdas–Rinaldo (arXiv:2203.03532) + Vovk 2012 (PMLR 25) AVANT citation.
+  (j) **M012-c** (scission R-25 formée, worker M012-b à 1197/1205) : `apps/sentinel/src/instrument.ts` (rejeux `c = q̂`,
+  `ε = 0,01`, CUSUM Page p₀ = 0,125 / p₁ = 0,25 graine 20260917 + contrôle par permutation ; **digest séparé, jamais dans
+  `state.json`**) + test `sentinel_instrument_separate_digest` + **`docs/RUNBOOK-sentinel.md`** (rédigé en M012-b, sorti du lot
+  au G7 : R-25 mesuré 1207 > 1205 après les ajouts ADR ; conservé hors arbre, réintégré tel quel en M012-c — le déploiement
+  (go 3) n'intervient qu'après M012-c) **+ (checkpoint-2 C-d)** : RUNBOOK en-tête RC1 (J0 = première fenêtre publiée, premier pas
+  J0+1 ; premier run de production = drop-in `MONARK_SENTINEL_J0`, **jamais `--day`**) ; `gate:vocab` étendu à `apps/sentinel` +
+  `deploy/` (G2 C2 — décision : **oui**, la sentinelle implémente le tracker « adaptatif », le ratchet doit la couvrir) ; `USDE_STABLE_RUN_CALIB`
+  exposé par export de paquet au lieu de l'import profond `../../harness/src/calibration.ts` (G2 C3 — décision : **oui**, R-3) ; résumé JSON
+  de `run.ts` imprime `startDay` (O-a) ; création de `/var/lib/monark-sentinel/public` 0755 propriétaire `sentinel` = étape runbook (O-d) ;
+  déclencheur : commit M012-b ; action : lot M012-c.
+  (k) `observed_at.instant` = clôture (D9) ⇒ `attested_flow_sha256` de la sentinelle ≠ celui du recorder (ouverture) pour la même
+  fenêtre (mesuré 2025-03-01 : `c9893475…` vs `128b1084…`) ; hash A3 et vélocité identiques, scores committés intacts — déclaré.
   (i) redondance de `GATE_TOOL_DESCRIPTION` (G2 F3 : « every other population abstains (under_calib) » rendu deux fois, queue
   de la phrase committée + clause `${STABLE_RUN_UNCALIBRATED_SENTENCE}` exigée par `gate.test.ts:468`) — honnête, assumée ;
   déclencheur : prochain lot touchant `GATE_TOOL_DESCRIPTION` ; action : dédoublonner sous contrainte du test + re-pin h5 (C-17).

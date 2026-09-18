@@ -1,11 +1,11 @@
 /**
  * HIKAE tracker — quantile tracker primitive (ABB 2024, rule (4)) over the L2 IM-OCP step.
  *
- * *** TRACKER, NO GUARANTEE CLAIMED (ADR-M009 ; D8 (i)-(iii) unmet). ***
- * The live stream is not deployed (T live = 0), so the no-peek flux (i), the reached
- * horizon (ii) and the drift measured at B_t (iii) of ADR-M008 D8 are NOT met. This file
- * ships ONLY the pure, caller-carried primitive and its byte-level oracle, so it can be
- * verified before (i)-(iii) hold. No consumer, no wire byte, no frozen contract touched.
+ * *** TRACKER — (i)-(ii) delivered by the sentinel (ADR-M012), T counted from its first step; (iii)
+ * pre-registered, unmet. NO GUARANTEE CLAIMED beyond ABB 2024 Thm 1 long-run bound. ***
+ * The sentinel (apps/sentinel/, off-tool, D8 (iv) caller) carries the state and feeds the daily attested
+ * outcome; this file stays the pure primitive and its byte-level oracle — no wire byte, no frozen contract
+ * touched, tracker logic unchanged (the header alone moved from "unmet" to "delivered", ADR-M012 D9).
  *
  * Mechanism (Angelopoulos, Barber, Bates 2024, arXiv:2402.01139, rule (4), cited not
  * republished): q_{t+1} = q_t + eta_t * (1{s_t > q_t} - alpha), which is EXACTLY

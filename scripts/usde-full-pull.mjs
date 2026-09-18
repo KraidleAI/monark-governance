@@ -12,6 +12,10 @@
 
 import { readFileSync, existsSync, appendFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+// Shared window module (ADR-M012 D1/C-6): the sentinel and this pull slice UTC-day windows with ONE
+// implementation, so blocks/bounds are identical (test sentinel_windows_identical_to_pull). `firstBlockAtOrAfter`
+// takes an injected block->ts reader; here it is the live `getBlockTs`.
+import { daysUTC, firstBlockAtOrAfter } from '../apps/sentinel/src/windows.ts';
 
 const OUT = new URL('./usde-windows.jsonl', import.meta.url);              // resumable per-window cache (intermediate)
 const FIXTURE = new URL('../fixtures/usde-calib-series.json', import.meta.url); // the committed sha-pinned series root
@@ -66,10 +70,6 @@ async function rpcCall(method, params, maxTries = 24) {
 async function getBlockTs(n) { const b = await rpcCall('eth_getBlockByNumber', [toHexBlock(n), false]); return b ? parseInt(b.timestamp, 16) : null; }
 async function totalSupplyAt(n) { return BigInt(await rpcCall('eth_call', [{ to: TOKEN, data: '0x18160ddd' }, toHexBlock(n)])); }
 
-async function firstBlockAtOrAfter(targetTs, lo, hi) {
-  while (lo < hi) { const mid = lo + Math.floor((hi - lo) / 2); const ts = await getBlockTs(mid); if (ts < targetTs) lo = mid + 1; else hi = mid; }
-  return lo;
-}
 // getLogs for [s,e], splitting recursively if an endpoint reports a result/range limit.
 async function getLogsRange(s, e, depth = 0) {
   try {
@@ -98,17 +98,12 @@ function sumBurnsMints(logs) {
   const top = Object.entries(byFrom).sort((a, b) => (b[1] > a[1] ? 1 : -1)).slice(0, 3).map(([a, r]) => ({ addr: '0x' + a, raw: r.toString() }));
   return { burns, mints, top, burnEvents, mintEvents, logCount: logs.length };
 }
-function daysUTC(startIso, endExclIso) {
-  const out = []; let d = new Date(startIso + 'T00:00:00Z'); const end = new Date(endExclIso + 'T00:00:00Z');
-  while (d < end) { const n = new Date(d.getTime() + 86400000); out.push([Math.floor(d / 1000), Math.floor(n / 1000), d.toISOString().slice(0, 10)]); d = n; }
-  return out;
-}
 function makeMidnightCache(startBlock, latest) {
   let prevBlock = startBlock; const boundary = new Map();
   return async function midnightBlock(ts) {
     if (boundary.has(ts)) return boundary.get(ts);
     const hi = Math.min(latest, prevBlock + 500000);
-    const b = await firstBlockAtOrAfter(ts, prevBlock, hi); boundary.set(ts, b); prevBlock = b; return b;
+    const b = await firstBlockAtOrAfter(ts, prevBlock, hi, getBlockTs); boundary.set(ts, b); prevBlock = b; return b;
   };
 }
 async function pullWindow(fromTs, toTs, day, regime, midnightBlock) {
@@ -139,7 +134,7 @@ async function verifyMode(latest) {
     const nextDay = new Date(new Date(cc.day + 'T00:00:00Z').getTime() + 86400000).toISOString().slice(0, 10);
     const [fromTs, toTs] = daysUTC(cc.day, nextDay)[0];
     // verify: isolated 2025 dates -> full-range block finder (NOT the +500000-capped marching cache).
-    const mid = (ts) => firstBlockAtOrAfter(ts, DEPLOY_BLOCK, latest);
+    const mid = (ts) => firstBlockAtOrAfter(ts, DEPLOY_BLOCK, latest, getBlockTs);
     const rec = await pullWindow(fromTs, toTs, cc.day, 'verify', mid);
     if (cc.kind === 'burns') {
       const magOk = Math.abs(rec.burnsUnits - cc.burnsUnits) / cc.burnsUnits <= 0.005, evOk = Math.abs(rec.burnEvents - cc.events) <= 2;

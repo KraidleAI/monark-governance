@@ -1,0 +1,34 @@
+# systemd unit for the MONARK Narabi sentinel (ADR-M012 D5; addendum ADR-M005 D12). Orchestrator-deployed over
+# the harness/vitrine SSH channel. A Type=oneshot job driven by monark-sentinel.timer (NOT a server): each run
+# reads the `finalized` head, processes every complete UTC day in order, appends the timeline, and exits. FIRST
+# outbound-network process on the VPS (public RPC, read-only, no key); DEDICATED `sentinel` user, its ONLY
+# writable path is /var/lib/monark-sentinel (ProtectSystem=strict) — no harness write. 0 new dependency (R-8).
+[Unit]
+Description=MONARK Narabi sentinel - daily attested-flow tracker step (ADR-M012)
+Documentation=https://github.com/KraidleAI/monark
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# The deployed harness tree (apps/sentinel ships inside `apps/` via the harness git archive; RUNBOOK step 1).
+# Read-only to this unit: ProtectSystem=strict + the single ReadWritePaths below.
+WorkingDirectory=/opt/monark-harness
+Environment=MONARK_SENTINEL_DIR=/var/lib/monark-sentinel
+# MONARK_SENTINEL_J0 (drop-in) MUST be set to J0 BEFORE `systemctl enable` — the first run FAILS CLOSED
+# without it (ADR-M012 D5); the unit never silently publishes nothing. Node 24 strips TypeScript at load.
+ExecStart=/usr/bin/env node /opt/monark-harness/apps/sentinel/src/run.ts
+# Least privilege (R-8 / M004 D0.3): a dedicated non-login user (RUNBOOK step 2), writing ONLY its state dir.
+User=sentinel
+Group=sentinel
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/monark-sentinel
+
+# Resource caps (mirror monark-harness.service): a public RPC-reading batch job on the shared VPS must not
+# starve the vitrine. CPUQuota=50% is at most half of ONE core (systemd semantics), not half the box.
+CPUQuota=50%
+MemoryMax=512M
+TasksMax=128

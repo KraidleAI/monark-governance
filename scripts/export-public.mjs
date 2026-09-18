@@ -38,7 +38,7 @@ export const PACKAGE_SUBPATHS = ["src", "test", "package.json", "README.md"];
 // is dropped as a dormant guard (DORMANT_APP_TEST). A whole-dir walk would also drag
 // apps/harness/tsconfig.json, which the export does not need (the exported root tsconfig.json already
 // includes apps/harness/**); package-style keeps the public surface minimal and matches packages/*.
-export const APP_PACKAGE_DIRS = ["apps/harness"];
+export const APP_PACKAGE_DIRS = ["apps/harness", "apps/sentinel"];
 // `enforcement/` (contains lint-model-pinning.sh, English): required by the exported
 // g1-controle-generation job (`bash enforcement/lint-model-pinning.sh .`). Confirmed in the whitelist
 // by ADR-M004 D7 bis R3 (D7 amended). `apps/site` shipped earlier, so the D7 tolerated-absence
