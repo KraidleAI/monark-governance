@@ -50,7 +50,7 @@ par ADR ; taille de lot avec méthode ; phrase D8 byte-identique ; MAST résidue
 | # | Type | Document / recherche / mesure | Tentatives faites (datées) | Usage | Bloque | Statut 2026-09-18 |
 |---|---|---|---|---|---|---|
 | PR-1 | D | Doc primaire du hook `before_tool` OpenClaw (version, URL, date) | grep `before_tool`/`hook` dans `docs/R-P4-skills-recon.md` = 0 (09-18) | interception Genkan | G-0 | chercheur en cours |
-| PR-2 | D | `produit-ukemi-loop-clearing.md` (cité par narabi-phase 05/08) | recherche par nom sur tout `Downloads\` = 0 (09-18) | fiche Ukemi | FICHES | demande au mainteneur |
+| PR-2 | D | `produit-ukemi-loop-clearing.md` + `ukemi-eisenberg-noe-audit.md` (cités par narabi-phase 05/08) | recherche par nom = 0 (09-18) ; **remis par l'investisseur le 09-18** | fiche Ukemi | FICHES | **clos** (copiés dans `MONARK SUITE\` et `docs/etude-suite-2026-09-18/`, indexés) |
 | PR-3 | R | Scouting PSM Sky/Maker, PYUSD, LUSD/BOLD (admissibilité inter-chaînes) | non scoutés avant (FICHES) | critère d'admissibilité | P3 | chercheur en cours |
 | PR-4 | D | Export/capture datée du compteur ClawHub | page lue 2 × (219, 226) ; API 404 (09-18) | quarantaine « 219 » | D3 | partiel (`PR-4-clawhub-counter.md`) |
 | PR-5 | M | Extrait anonymisé du journal Caddy vitrine à J+30 | journal actif depuis 09-18 09:33 UTC | M1 | D3 | différé 2026-10-18 |
