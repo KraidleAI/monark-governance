@@ -89,9 +89,11 @@ export function NarabiPanel({ contract }: { contract: FrozenContract }) {
               ))}
             </ul>
           </PanelBlock>
-          <PanelBlock title="How to connect" status="upcoming">
-            Reachable as a sensor over HTTP and MCP once the platform exposes it; the attested flow and its
-            timeline are served today for the Narabi page.
+          <PanelBlock title="How to connect" status="built">
+            Reachable now over HTTP and MCP through the <code>gate</code> tool at{" "}
+            <code>mcp.monarkgate.tech/mcp</code>, under the stable-run velocity class. The attested flow and
+            its timeline are served as plain files from the Narabi page. See For integrators for the add
+            one-liners.
           </PanelBlock>
           <PanelBlock title="Traceability" status="built">
             Every step carries a per-line hash; the published timeline replays to the byte from its
