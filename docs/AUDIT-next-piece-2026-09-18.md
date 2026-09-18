@@ -77,3 +77,26 @@ GHO en exercice de décomposition seulement.
 Rapport d'exécution AIP 262 (sortir « oracle USDT » du [2nd] côté gouvernance — le fait on-chain est [mesuré]) ; source primaire Aave V4 × Ethena
 datée 2026-09-07 ; docs StakedUSDeV2 + un tx `cooldownShares` avec logs ; source déployée `TetherToken.redeem` ; rémunération du Risk Committee
 Ethena (5ᵉ mandat) ; part Pool vs GSM des burns GHO (= census (B)) ; catalogue x402 Bazaar (pricing par appel).
+
+## 6. Rectificatif après census (A) et (B) — 2026-09-18, chiffres recalculés par l'orchestrateur sur les JSONL
+- **A-H1 est FALSIFIÉE à la lettre** : sur le filtre collatéral USDe/sUSDe/PT, 64 jours sur ~470 portent des `LiquidationCall`, dont **2 jours
+  ≥ 1 M$** : 2025-02-21 (≈ 21,4 M$, 5 événements, boucles ~100 % sUSDe au HF ≈ 1,003, oracle sUSDe en baisse de 2,2 %) et 2026-01-19 (≈ 3,3 M$).
+  Le §2.1 ci-dessus est donc **trop fort** : le feed « Capped USDT/USD » borne le **haut** et laisse passer les décotes qui atteignent le feed
+  (USDT/USD, taux de change sUSDe) ; ce qu'il ne propage pas, c'est la **dislocation du marché secondaire USDe** — mesuré le 2025-10-10/11 :
+  oracle USDe 1,0003 $ / sUSDe 1,2020 $ pendant que Binance affichait ~0,60 $ ; liquidations F1 ≈ 43,6 k$ puis 17 $.
+- **Conséquence inchangée sur la décision** : l'outcome réalisé « liquidations 24 h sur collatéral USDe » est **zéro-inflaté** (≈ 86 % de jours à
+  zéro, deux jours matériels en 16 mois) : une calibration de `cascade-liquidable-24h` sur y_t serait dominée par les zéros (NDG-1, ADR-M011) ;
+  pas « nulle par construction », mais **dégénérée par parcimonie**. Le rang 1 du mémo reste rejeté dans cette forme ; la réouverture exige un
+  acheteur nommé et une cible redéfinie par ADR.
+- **A-H2 tenue** : Spearman(y_t F2, v_t) = 0,14 sur 497 jours (dégénéré par les ex æquo à zéro ; 0,48 sur les 32 jours à liquidation).
+- **(B) — populations** : FDUSD brûleur unique 100 %, run 2025-04-03 = 8,32 %/24 h, C1 0/271, mais churn calme quotidien médian **0 %** (rachats en
+  rafales ; médiane des jours non nuls 0,50 %/j) ⇒ B-H1 partielle. sUSDe : `cooldownShares` brûle les parts (3/3 tx, `totalSupply` décroît),
+  `unstake` n'émet rien ⇒ **B-H2 confirmée**, classe « entrée de file » distincte. USDtb (`0xC139…aC1C`, fourni par l'investisseur, vérifié
+  eth_call) : top-1 brûleur 97,7 %, churn calme médian 0 %, pics à 37,8 %/24 h ⇒ B-H3 confirmée, risque q̂ = 0. GHO : 100 % flash mint+burn même
+  tx sur 90 j, 0 % repay, 0 % GSM ⇒ **B-H4 refus confirmé**. Intégrité : 481 fenêtres (B) + 598 chunks (A), 0 désaccord de quorum, 0 échec C1.
+- **Ordre pour la 2ᵉ clé, après mesure** : aucune population ne reproduit le profil USDe (churn calme quotidien non nul). FDUSD garde le meilleur
+  dossier (run reconstruit, brûleur unique, C1) mais son churn en rafales impose une fenêtre plus longue que 24 h ou une classe « rafale » à
+  pré-enregistrer ; sUSDe est la vraie nouveauté (file en amont, 437 brûleurs, adjacent à l'exposition Aave) et mérite le scouting complet
+  (churn calme, épisode 2025-10 held-out) avant tout G0 ; USDtb et GHO sont écartés. **Aucun commit de calibration** : décision investisseur sur
+  « FDUSD (fenêtre à pré-enregistrer) ou sUSDe (scouting F2-style) » avant tout lot.
+- Données : `docs/census-2026-09-18/data/` (A-rawlogs.jsonl, 11 Mo, hors dépôt : sha256 `d0f4aa1e…a996` dans le rapport A, régénérable par le script).
