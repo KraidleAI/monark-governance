@@ -1,0 +1,16 @@
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 26242
+Connection: keep-alive
+Server: nginx/1.22.1
+Date: Fri, 18 Sep 2026 20:39:31 GMT
+access-control-expose-headers: *
+access-control-allow-origin: *
+vary: origin
+vary: access-control-request-method
+vary: access-control-request-headers
+X-Cache: Miss from cloudfront
+Via: 1.1 7af8bfec5c0c58e89625161e57994f3e.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: JFK50-P12
+X-Amz-Cf-Id: FPw3EFBdJtmSkP0RB6oQj6y9xO3sU-4XE3o5EI8zLZfmYNQ4odAncg==
+
