@@ -17,7 +17,7 @@
  * never touches `node:fs`/`node:net`/`node:child_process`/`fetch`/`process.env`.
  */
 import type { McpServer, StandardSchemaWithJSON } from "@modelcontextprotocol/server";
-import type { Prediction } from "@monark/contracts";
+import type { Prediction, AttestedPrice } from "@monark/contracts";
 import { toolInputStandardSchema, toolOutputStandardSchema, TOOL_INPUT_SCHEMA, TOOL_OUTPUT_SCHEMA } from "../schema-projection.ts";
 import { cascadeInputStandardSchema, cascadeOutputStandardSchema, CASCADE_INPUT_SCHEMA, CASCADE_OUTPUT_SCHEMA } from "../schema-projection.ts";
 import type { Json } from "../schema-projection.ts";
@@ -32,10 +32,12 @@ import { runCalibrate, calibrateHonestyText, calibrateVerdictSummary, CALIBRATE_
 export const ALLOWED_TOOL_NAMES = ["attest", "gate", "cascade", "calibrate"] as const;
 export type AllowedToolName = (typeof ALLOWED_TOOL_NAMES)[number];
 
-/** The tool input envelope (D8): frozen `Prediction` + non-frozen params. */
+/** The tool input envelope (D8 + ADR-M017 D1): frozen `Prediction` + non-frozen params + OPTIONAL frozen `AttestedPrice`. */
 export interface GateEnvelope {
   readonly prediction: Prediction;
   readonly params: HarnessParams;
+  /** OPTIONAL caller-carried attestation (ADR-M017 D1): `required` stays `{prediction,params}`; absent ⇒ byte-identical behaviour. */
+  readonly attested?: AttestedPrice;
 }
 
 export interface HarnessToolDescriptor {
@@ -63,7 +65,7 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
     outputStandardSchema: toolOutputStandardSchema,
     run: (args) => {
       const env = args as GateEnvelope;
-      const decision = runGate(env.prediction, env.params);
+      const decision = runGate(env.prediction, env.params, env.attested);
       // structuredContent = the closed GateDecision ONLY (K-1); honesty prose rides in `content` text.
       // B-1: the honesty text is keyed on the PRESENCE of a BYO calibration, not task_class alone. The
       // verdict summary (a delivery aid for text-only clients, derived from `decision`) follows the prose.

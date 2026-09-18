@@ -47,13 +47,15 @@ const TRACE_PATH = fileURLToPath(new URL("../fixtures/h5-e2e-trace.json", import
 const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url));
 
 /** Pinned sha256 (LF-normalized) of the committed trace — also stated in fixtures/PROVENANCE-h5-e2e-trace.md.
- *  Re-pinned for M012-f (serverInfo version source): the `initialize` step's `serverInfo.version` moved from
- *  the misaligned "1.0.0" to the single-source HARNESS_VERSION "0.4.0" (the public tag v0.4.0 / MCP registry
- *  0.4.0) — the ONLY drift: a 5-char-for-5-char swap, so the length is unchanged (15731 bytes) and every
- *  decision byte and digest is byte-identical. (Prior re-pins: ADR-M012 D7 `stable-run-velocity-24h` clause ->
- *  STABLE_RUN_COMMITTED_SENTENCE; ADR-M008 F2-B keyed committed/under_calib clause; ADR-M008 F1 stable-run
- *  sentence; the verdict summary in the gate `content` text; Lot C2 ADR-M007 D7 grew the `tools/list` bytes.) */
-const TRACE_SHA256_PINNED = "b429a2414b1a719d05a4e6789a3d22bb08cc64350c17d2bcb5060b6fb70d3654";
+ *  Re-pinned for ADR-M017 P1-b1 (attested in the gate): the gate INPUT schema gained the OPTIONAL `attested`
+ *  (the frozen AttestedPrice, projected) and the description gained phrase (iv) + "no temporal binding in P1",
+ *  which grow the `tools/list` bytes — the ONLY drift is `steps[1].result.response_sha256` (a 64-hex swap), so
+ *  the length is unchanged (15731 bytes) and every decision byte and digest (cascade-gate/btc-dir-gate/attest)
+ *  is byte-identical. (Prior re-pins: M012-f serverInfo.version -> HARNESS_VERSION 0.4.0; ADR-M012 D7
+ *  `stable-run-velocity-24h` clause -> STABLE_RUN_COMMITTED_SENTENCE; ADR-M008 F2-B keyed committed/under_calib
+ *  clause; ADR-M008 F1 stable-run sentence; the verdict summary in the gate `content` text; Lot C2 ADR-M007 D7
+ *  grew the `tools/list` bytes.) */
+const TRACE_SHA256_PINNED = "f4014c1603015ec88457c82f6ced331d129eb22c9cd9cb809088b84b2e1f3490";
 
 const DEMONSTRATIVE_LABEL = "real, notary Shōgen, demonstrative, not probative";
 

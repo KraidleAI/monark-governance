@@ -14,8 +14,11 @@ so the H5 trace is pinned HERE instead, the same way the `s3-binance.*` fixtures
   description now declares the committed USDe population + the keyed under_calib for every other population,
   changing only the `tools/list` step's `response_sha256`; grounding: ADR-M005 §H5 / C-6), and
   **regenerated 2026-09-18 for M012-f** (the harness now advertises a single-source `HARNESS_VERSION` `0.4.0`,
-  so the `initialize` step's `serverInfo.version` moved off the misaligned `1.0.0`; grounding: ADR-M010 §2.3/§2.4).
-  Recorder: `scripts/record-h5-e2e-trace.mjs`.
+  so the `initialize` step's `serverInfo.version` moved off the misaligned `1.0.0`; grounding: ADR-M010 §2.3/§2.4),
+  and **regenerated 2026-09-18 for ADR-M017 P1-b1** (the gate INPUT schema gained the OPTIONAL `attested` — the
+  frozen `AttestedPrice`, projected — and the gate tool description gained the caller-carried-attestation phrase
+  plus "no temporal binding in P1", changing only the `tools/list` step's `response_sha256`; grounding:
+  ADR-M017 D1 / D2(iv) / D4 / D5). Recorder: `scripts/record-h5-e2e-trace.mjs`.
 - **Reviewer**: independently reviewed and recorded before commit.
 
 ## What it records
@@ -53,12 +56,13 @@ These statements live in the trace's `honesty` block and are re-asserted by
 
 - The tools read no clock (`produced_at`/`producedAt` are caller-carried); the ephemeral port is
   intentionally NOT recorded. Re-running the recorder reproduces the file byte-for-byte.
-- **sha256 (LF-normalized)**: `b429a2414b1a719d05a4e6789a3d22bb08cc64350c17d2bcb5060b6fb70d3654`
-  (15731 bytes; re-pinned for M012-f — the `initialize` step's `serverInfo.version` moved from the misaligned
-  `1.0.0` to the single-source `HARNESS_VERSION` `0.4.0` (the public tag `v0.4.0` / MCP registry `0.4.0`); a
-  5-char-for-5-char swap, so the length is unchanged and only that one value differs — every decision byte and
-  digest is byte-identical. Prior re-pin: ADR-M012 D7 `stable-run-velocity-24h` clause -> `STABLE_RUN_COMMITTED_SENTENCE`,
-  which changed only the `tools/list` step's `response_sha256`.)
+- **sha256 (LF-normalized)**: `f4014c1603015ec88457c82f6ced331d129eb22c9cd9cb809088b84b2e1f3490`
+  (15731 bytes; re-pinned for ADR-M017 P1-b1 — the gate INPUT schema gained the OPTIONAL `attested` (the frozen
+  `AttestedPrice`, projected) and the description gained the caller-carried-attestation phrase plus "no temporal
+  binding in P1", which grow the `tools/list` bytes; the ONLY drift is `steps[1].result.response_sha256` (a
+  64-hex swap), so the length is unchanged and every decision byte and digest — cascade-gate, btc-dir-gate,
+  attest — is byte-identical. Prior re-pins: M012-f `serverInfo.version` -> single-source `HARNESS_VERSION`
+  `0.4.0`; ADR-M012 D7 `stable-run-velocity-24h` clause -> `STABLE_RUN_COMMITTED_SENTENCE`.)
   `.gitattributes` normalizes to `eol=lf`, so this digest survives commit; the probe
   LF-normalizes before hashing, so it also survives a CRLF checkout. This value is pinned as
   `TRACE_SHA256_PINNED` in `test/h5-e2e-probe.test.ts`.

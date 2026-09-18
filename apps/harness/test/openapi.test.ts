@@ -74,6 +74,16 @@ test("openapi_generated_matches_frozen_schemas", () => {
   assert.deepEqual(calib["required"], ["scores", "mode"], "calibration requires scores + mode");
   assert.equal(calib["additionalProperties"], false, "calibration is a closed sub-object");
 
+  // ADR-M017 D4(6): the gate request envelope carries the OPTIONAL frozen `attested` (AttestedPrice) —
+  // PRESENT in `properties`, ABSENT from `required` (so a {prediction, params} call stays valid). A drift
+  // (attested dropped, or slipped into `required`, or the projection un-stripped) reddens here.
+  const gateReqProps = asObj(gateReq["properties"], "gate.request.properties");
+  assert.ok("attested" in gateReqProps, "gate request carries the optional `attested` (ADR-M017 D1)");
+  assert.deepEqual(gateReq["required"], ["prediction", "params"], "gate request required stays {prediction, params} (attested is OPTIONAL)");
+  const gateAttested = asObj(gateReqProps["attested"], "gate.request.attested");
+  assert.deepEqual(gateAttested["required"], frozenPrice["required"], "gate request attested.required == frozen AttestedPrice");
+  assert.equal(gateAttested["additionalProperties"], false, "gate request attested stays a closed contract");
+
   const gateOut = responseStructured(spec, "gate");
   assert.deepEqual(gateOut["required"], frozenGate["required"], "gate response GateDecision.required == frozen");
   assert.equal(gateOut["additionalProperties"], false, "gate response GateDecision stays closed");
