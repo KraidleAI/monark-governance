@@ -137,3 +137,27 @@ T1–T4 et la mise hors 12 mois de Kessai / Kaihi / Kamae / Kyokusen / Mokugeki 
 existante (le G7 UKEMI est scopé à Ukemi ; ADR-M006 D8 fonde « mesurer la demande », pas « rien avant la mesure »). Elle est soumise face aux
 alternatives costées de `PLAN-STRATEGIE.md` §2bis. Le « je valide le plan » de l'investisseur (2026-09-18) est enregistré comme ratification de
 principe ; la ratification explicite de (0) est demandée avec les six autres décisions.
+
+## Décisions investisseur du 2026-09-18 (soir) — consignées verbatim et appliquées
+- **(0) et (0bis), reformulées par l'investisseur** : « il ne faut pas voir les pièces à elles seules, mais le moteur au complet, un moteur
+  d'inférence conforme avec des outils internes faits par nos soins. On n'a pas besoin d'acheteurs individuels, mais on a besoin de savoir que le
+  gap existe. » ⇒ la règle de garde d'un G0 de pièce devient : **le gap est démontré sur pièces (mesure, pas récit) ET la pièce est calibrable
+  honnêtement (région, pas nombre)** ; « acheteur nommé » n'est plus une condition. D5 (Koyomi), D6 (Genkan) et Ukemi mode L se lisent sous
+  cette règle. La thèse « moteur réel et mesuré avant toute nouvelle pièce » est ratifiée (plan C de §2bis, avec P0 en tête : « ce qui prime
+  c'est de corriger ce qui existe »).
+- **(5) Token ↔ `B_t`** : « on ne relie pas le token pour le moment, on attend que toute la flotte soit érigée, testée, enrichie, fonctionnelle et
+  auditée. » ⇒ P5 hors de cette phase et des suivantes tant que la flotte n'est pas complète ; le token reste une CA affichée.
+- **(1) N** : validé = **20 `tools/call` d'origine ≠ MONARK sous 30 jours, dont ≥ 5 `gate` hors fixture, d'au moins 3 clients distincts**
+  (ADR-M006 D8 clos sur ce chiffre). Jauge d'orientation, pas condition de construction.
+- **(6) Journal Caddy du harnais** : go « ce soir » ⇒ **déployé 2026-09-18 21:11 UTC** (Caddyfile sauvegardé `.bak-…-harnesslog`, `caddy validate`
+  OK, reload, `active`, première ligne JSON vérifiée : host, méthode, route, statut, aucun corps). Snippet documenté dans `deploy/Caddyfile.monark-harness`.
+  Lecture à J+30 = 2026-10-18.
+- **(2) 2ᵉ clé Narabi** : « pas de 2ᵉ clé aujourd'hui » ⇒ (c′) (i)(ii) seuls : rejeu 11 mois à digest séparé avec test de couverture ε = 0,05 à
+  T ≥ 7 ; test co-variable sUSDe ; clôtures négatives ; PYUSD reste ouvert (PR-3).
+- **(3) M014 (d)/(d′)** : validé « un seul déclencheur (rolling90), e-détecteur cité comme évidence sans doctrine de lecture », sous consultation
+  advisor-defi rapide (en cours ; réserve éventuelle consignée en amendement M014).
+- **(4) M012 (g)** : validé, **dépôt public dédié** pour l'ancrage hebdomadaire de la timeline, à partir de T ≥ 30 (~2026-10-17), automatisé par la
+  sentinelle — lot à planifier (action sortante sous go au moment de la création du dépôt).
+- **(7) GTM** : « corrigez » ⇒ fait le 2026-09-18 dans `Downloads\GTM monark version 1\GTM\` : `08-90-jours.md` (« design partner » → « premier
+  utilisateur de conception (aucun accord, aucune exclusivité) »), `03-beachhead.md`, `04-clawrena.md`, `09-kpis-risques.md` (« Hermes » nu →
+  « Hermes runtime open source, aucun accord »). Aucun autre mot changé.
