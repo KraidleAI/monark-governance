@@ -174,6 +174,11 @@ déclaré, hors score).
   déclencheur : commit M012-b ; action : lot M012-c.
   (k) `observed_at.instant` = clôture (D9) ⇒ `attested_flow_sha256` de la sentinelle ≠ celui du recorder (ouverture) pour la même
   fenêtre (mesuré 2025-03-01 : `c9893475…` vs `128b1084…`) ; hash A3 et vélocité identiques, scores committés intacts — déclaré.
+  (l) **publication de `instrument.json` sous `/narabi/`** (G2 M012-c O-3 ; D6 « section instrument publiée étiquetée ») et **rejeu
+  post-J0 des 11 mois** sur la timeline live (`--timeline <jsonl>`) — déclencheur : J0 passé + go 3 ; action : étape runbook + entrée CLI, digest
+  séparé, jamais dans `state.json`. **Rapport à (h) (checkpoint-2 M012-c C-3)** : publier `instrument.json` sous `/narabi/` **est** une
+  citation publique de l'instrument ⇒ le procurement (h) (Lorden 1971, Shin–Ramdas–Rinaldo, Vovk 2012) devient **précondition de (l)** ;
+  et l'entrée CLI de publication portera une garde `--out` hors de `public/` tant que (h) n'est pas clos.
   (i) redondance de `GATE_TOOL_DESCRIPTION` (G2 F3 : « every other population abstains (under_calib) » rendu deux fois, queue
   de la phrase committée + clause `${STABLE_RUN_UNCALIBRATED_SENTENCE}` exigée par `gate.test.ts:468`) — honnête, assumée ;
   déclencheur : prochain lot touchant `GATE_TOOL_DESCRIPTION` ; action : dédoublonner sous contrainte du test + re-pin h5 (C-17).

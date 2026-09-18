@@ -20,7 +20,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname } from "node:path";
 import ts from "typescript";
-import { compilePatterns, scanText } from "../scripts/grep-forbidden.mjs";
+import { compilePatterns, scanText, collectTargets } from "../scripts/grep-forbidden.mjs";
 import { renderedTexts, scanText as scanNumericText, loadExemptFile, scanAppsSite } from "../apps/site/test/honesty-lint.ts";
 import { FLEET_AGENTS, PRODUCTS } from "../apps/site/lib/fleet.ts";
 import type { FleetStatus } from "../apps/site/lib/fleet.ts";
@@ -165,7 +165,7 @@ test("vocab_narabi_scopes_ban_peg_score_and_p_depeg — naked surclaim reddens, 
 // the harness scope does not even consume exemptPhrases (grep-forbidden.mjs add() passes none). The stronger
 // property is asserted directly: the D8 sentence is green with an EMPTY exemption list, in all three scopes.
 // Uses the REAL gate functions (compilePatterns/scanText) without executing the CLI (run-guarded).
-test("vocab_adaptive_coverage_reddens — adaptive surclaim reddens site/harness/skills/narabi_docs; the exact D8 sentence green, no exemption (ADR-M012 D8)", () => {
+test("vocab_adaptive_coverage_reddens — adaptive surclaim reddens site/harness/skills/narabi_docs/sentinel; the exact D8 sentence green, no exemption (ADR-M012 D8)", () => {
   const cfg = JSON.parse(readFileSync(join(ROOT, "vocab-banned.json"), "utf8")) as {
     banned: { re: string; why: string }[];
     scan: Record<string, { banned?: { re: string; why: string }[] } | undefined>;
@@ -180,7 +180,7 @@ test("vocab_adaptive_coverage_reddens — adaptive surclaim reddens site/harness
     "criterion fires and an ADR says otherwise, the gate's region is still the committed static calibration: " +
     "the tracker adapts, the gate does not yet.";
   const MUTANTS = ["adaptive coverage", "the gate adapts", "adaptively covers"];
-  for (const scopeName of ["site", "harness", "skills", "narabi_docs"] as const) {
+  for (const scopeName of ["site", "harness", "skills", "narabi_docs", "sentinel"] as const) {
     const scope = cfg.scan[scopeName];
     assert.ok(scope && scope.banned, `scope '${scopeName}' missing from vocab-banned.json`);
     // Both ADR-M012 D8 patterns are present (a deletion also reds the load-bearing check below).
@@ -199,6 +199,49 @@ test("vocab_adaptive_coverage_reddens — adaptive surclaim reddens site/harness
     for (const m of MUTANTS) {
       assert.deepEqual(scanText(m, without, []), [], `(c) removing the adaptive patterns must green '${m}' in ${scopeName} (load-bearing)`);
     }
+  }
+});
+
+// ADR-M012 item (j) / G2-lot-m012b C2 — the gate:vocab ratchet is EXTENDED to cover the off-tool sentinel:
+// apps/sentinel/src, apps/sentinel/test AND the deploy/ units, via a new `sentinel` scope. The
+// vocab_adaptive_coverage_reddens test above proves the CONFIG patterns discriminate; this one proves the
+// scope is WIRED INTO THE WALK (the G2 R2 gap: a config-only test stays green if collectTargets ignores the
+// scope). It drives the REAL collectTargets() over the REAL tree: with the live config the two adaptive
+// patterns are attached to instrument.ts, the sentinel test AND a deploy unit; deleting scan.sentinel drops
+// all three from the walk (load-bearing). Live CLI mutant (a sentinel comment "adaptive coverage" ⇒ exit 1
+// ⇒ revert, sha256 before/after) is recorded in the M012-c report.
+test("vocab_sentinel_scope_scans_src_test_deploy — sentinel src/test/deploy are in the walk with the adaptive patterns (ADR-M012 C2)", () => {
+  const cfg = JSON.parse(readFileSync(join(ROOT, "vocab-banned.json"), "utf8")) as {
+    banned: { re: string; why: string }[];
+    scan: Record<string, { banned?: { re: string; why: string }[]; dirs?: string[]; files?: string[] } | undefined>;
+  };
+  const sentinel = cfg.scan.sentinel;
+  assert.ok(sentinel && sentinel.banned, "scope 'sentinel' missing from vocab-banned.json (C2)");
+  assert.equal(
+    sentinel.banned.filter((b) => /adapt/i.test(b.re)).length,
+    2,
+    "the sentinel scope must carry BOTH ADR-M012 D8 adaptive patterns",
+  );
+
+  const REQUIRED = [
+    join(ROOT, "apps", "sentinel", "src", "instrument.ts"),
+    join(ROOT, "apps", "sentinel", "test", "sentinel.test.ts"),
+    join(ROOT, "deploy", "monark-sentinel.service"),
+  ];
+  // (a) with the REAL config, collectTargets attaches the adaptive patterns to every required file.
+  const targets = collectTargets(ROOT, cfg, []);
+  const byFile = new Map(targets.map((t) => [t.f, t.patterns]));
+  for (const f of REQUIRED) {
+    const patterns = byFile.get(f);
+    assert.ok(patterns, `the sentinel scope must scan ${f}`);
+    assert.ok(scanText("adaptive coverage", patterns, []).length >= 1, `the adaptive patterns must be attached to ${f}`);
+  }
+  // (b) LOAD-BEARING — delete scan.sentinel and the three files leave the walk entirely.
+  const stripped = JSON.parse(JSON.stringify(cfg)) as typeof cfg;
+  delete stripped.scan.sentinel;
+  const strippedFiles = new Set(collectTargets(ROOT, stripped, []).map((t) => t.f));
+  for (const f of REQUIRED) {
+    assert.ok(!strippedFiles.has(f), `removing scan.sentinel must drop ${f} from the walk (load-bearing)`);
   }
 });
 

@@ -10,7 +10,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { splitQuantile, trackerReplay, trackerDigest, trackerStepSize } from "@monark/hikae";
-import { USDE_STABLE_RUN_CALIB } from "../../harness/src/calibration.ts";
+import { USDE_STABLE_RUN_CALIB } from "@monark/harness/calibration";
 import { daysUTC, firstBlockAtOrAfter, windowBounds, midnightOf } from "../src/windows.ts";
 import { makeRpcPool, QuorumDisagreementError, TRANSFER_TOPIC } from "../src/rpc.ts";
 import type { RpcCall, RpcPool } from "../src/rpc.ts";
@@ -18,7 +18,8 @@ import { attest } from "../src/flow.ts";
 import type { WindowFacts } from "../src/flow.ts";
 import { initState, step, stateSummary, committedQ1, boundThm1, projectedBoundT, lineHashOf, TRACKER_PARAMS } from "../src/timeline.ts";
 import type { SentinelState, TimelineLine } from "../src/timeline.ts";
-import { dueDays, runDue, resolveStartDay } from "../src/run.ts";
+import { dueDays, runDue, resolveStartDay, j0SourceOf } from "../src/run.ts";
+import { buildInstrument, pageCusumMax, foldSeries } from "../src/instrument.ts";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const ROOT = join(HERE, "..", "..", "..");
@@ -234,6 +235,11 @@ test("sentinel_fails_closed_without_J0", () => {
   const start = resolveStartDay("2026-09-16", null, null, "2026-09-18");
   const due = dueDays(null, midnightOf("2026-09-18"), start, null);
   assert.ok(due.length > 0, "a set J0 in the finalized past yields a non-empty due list");
+  // O-a: the J0 source is env on a fresh state with MONARK_SENTINEL_J0, day for an explicit --day, and
+  // state once resuming (prevDay set, env/day unused — dueDays marches from prevDay+1).
+  assert.equal(j0SourceOf("2026-09-16", null, null), "env");
+  assert.equal(j0SourceOf(undefined, "2026-09-17", null), "day");
+  assert.equal(j0SourceOf("2026-09-16", null, "2026-09-17"), "state");
 });
 
 // ── 9 ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -291,6 +297,21 @@ test("sentinel_imports_bidirectional", () => {
   for (const f of collect(join(ROOT, "apps", "sentinel", "src"))) {
     assert.ok(!importsFrom(readFileSync(f, "utf8"), /harness\/src\/tools/), `sentinel must not import a harness tool: ${f}`);
   }
+  // R-1 (G2 M012-c): the ONLY @monark/harness specifier anywhere under apps/sentinel/** is exactly the C3
+  // export @monark/harness/calibration. A bare `@monark/harness` (the server entry, which pulls the tools
+  // registry) or any other subpath reddens — it would re-open the R-3 / K-8 hole the subpath export closed.
+  const harnessSpecifiers: string[] = [];
+  for (const f of [...collect(join(ROOT, "apps", "sentinel", "src")), ...collect(join(ROOT, "apps", "sentinel", "test"))]) {
+    for (const ln of readFileSync(f, "utf8").split("\n")) {
+      if (!/^\s*(import|export)\b/.test(ln)) continue;
+      const m = /["'](@monark\/harness[^"']*)["']/.exec(ln);
+      if (m && m[1]) harnessSpecifiers.push(m[1]);
+    }
+  }
+  assert.ok(harnessSpecifiers.length >= 1, "the sentinel must import @monark/harness/calibration (positive control)");
+  for (const s of harnessSpecifiers) {
+    assert.equal(s, "@monark/harness/calibration", `the only @monark/harness specifier allowed under apps/sentinel/** is @monark/harness/calibration (saw '${s}')`);
+  }
   assert.ok(/windows\.(ts|mjs)/.test(readFileSync(join(ROOT, "scripts", "usde-full-pull.mjs"), "utf8")), "the pull imports the shared window module (deliverable 2)");
 });
 
@@ -342,4 +363,60 @@ test("sentinel_state_T_zero_before_J0", () => {
   assert.equal(s.tracker.t, 0, "T = 0 before J0 (no pre-filled state)");
   assert.equal(s.scores.length, 0);
   assert.equal(stateSummary(s).tracker.t, 0);
+});
+
+// ── instrument ───────────────────────────────────────────────────────────────────────────────────────
+test("sentinel_instrument_separate_digest", () => {
+  const { state } = replayWindows(series.windows);
+  const inst = buildInstrument(state, { perms: 1000, seed: 20260917 });
+
+  // The instrument is NEVER carried into the live state: state.json (stateSummary) has NO `instrument`
+  // key, its shape is exactly the four D4 fields, and run.ts never imports the instrument module.
+  const summary = stateSummary(state);
+  assert.ok(!("instrument" in summary), "state.json carries no instrument section");
+  assert.deepEqual(
+    Object.keys(summary).sort(),
+    ["digest", "projected_bound_leq_target_T", "replay_q", "tracker"],
+    "state.json shape is unchanged by the instrument",
+  );
+  const runSrc = readFileSync(join(HERE, "..", "src", "run.ts"), "utf8");
+  const runReadsInstrument = runSrc.split("\n").some((ln) => /^\s*(import|export)\b/.test(ln) && /instrument/i.test(ln));
+  assert.ok(!runReadsInstrument, "run.ts must never import the instrument section (never carried into the live path)");
+
+  // Each instrument replay carries its OWN digest, distinct from the live state digest FOR THE SAME
+  // scores — the difference is the parameters (c = q̂, ε = 0.01), not the data.
+  assert.equal(inst.live_state_digest, summary.digest, "the instrument's baseline IS the real live state digest");
+  // The CLI fold path (foldSeries, used by `node instrument.ts --out`) reproduces the same state as the
+  // timeline replay — locks the entry point, not just the pure function.
+  assert.equal(stateSummary(foldSeries(series.windows)).digest, summary.digest, "foldSeries reproduces the timeline-replay state");
+  assert.equal(inst.scores_n, state.scores.length, "replays run on the full evaluable-pair stream, not a calm subset");
+  const [cReplay, epsReplay] = inst.replays;
+  assert.ok(cReplay && epsReplay, "two replays are published (c = q̂ and ε = 0.01)");
+  assert.equal(cReplay.params.c, committedQ1(), "replay (a) sets c = q̂ (recomputed, not pasted)");
+  assert.equal(epsReplay.params.eps, 0.01, "replay (b) sets ε = 0.01");
+  for (const r of inst.replays) {
+    assert.notEqual(r.digest, inst.live_state_digest, `instrument replay '${r.label}' digest differs from the live state digest`);
+    assert.equal(r.digest, trackerDigest(state.tracker.q1, r.params, state.scores), `replay '${r.label}' digest recomputes from (q1, its params, scores)`);
+  }
+  assert.notEqual(cReplay.digest, epsReplay.digest, "the two replays have distinct digests");
+  // ε = 0.01 tightens the bound ~4x sooner (ADR-M012 D6 cross-check: 453 vs 1789 at ε = 0.1).
+  assert.equal(inst.eps01_projected_bound_leq_target_T, 453);
+
+  // CUSUM of Page on E_static (calm pairs) + permutation control (ADR-M012 D6 / advisor-defi §0): the
+  // measured max statistic is ~9.54 and the permutation p-value is <= 1/(N+1) (0 exceedances here).
+  assert.equal(inst.cusum.n, 616, "primary CUSUM is over the 616 mechanical calm pairs");
+  assert.equal(inst.cusum.misses, 63);
+  assert.equal(inst.cusum.p0, 0.125);
+  assert.equal(inst.cusum.p1, 0.25);
+  assert.ok(Math.abs(inst.cusum.statistic - 9.5446) < 0.01, `calm CUSUM max = ${String(inst.cusum.statistic)} (measured ~9.54)`);
+  assert.equal(inst.cusum.permutation.perms, 1000);
+  // R-2 (G2): exceed is 0 (stronger than p <= 0.01) — no permutation reaches the observed statistic — and
+  // the p-value keeps the <= 1/(N+1) form.
+  assert.equal(inst.cusum.permutation.exceed, 0, "no permutation reaches the observed statistic");
+  assert.ok(inst.cusum.permutation.p_value <= 1 / (inst.cusum.permutation.perms + 1), `permutation p-value = ${String(inst.cusum.permutation.p_value)} (<= 1/(N+1))`);
+  // Pure recompute: pageCusumMax on the same sequence reproduces the reported statistic.
+  assert.equal(pageCusumMax(state.calmMiss, 0.125, 0.25), inst.cusum.statistic);
+  // The secondary CUSUM (all 694 evaluable pairs) is declared and larger — the drift is not calm-specific.
+  assert.equal(inst.cusum_all_evaluable.n, 694);
+  assert.ok(inst.cusum_all_evaluable.statistic > inst.cusum.statistic);
 });

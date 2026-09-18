@@ -86,7 +86,7 @@ function walk(dir, exts, skip = DEFAULT_SKIP) {
 }
 
 /** Resolve every scan target under `root` to {f, patterns, exemptPhrases}. cliArgs = GLOBAL only. */
-function collectTargets(root, config, cliArgs) {
+export function collectTargets(root, config, cliArgs) {
   const GLOBAL = compilePatterns(config.banned);
   const targets = [];
   const add = (files, patterns, exemptPhrases = []) => {
@@ -184,6 +184,30 @@ function collectTargets(root, config, cliArgs) {
         if (statSync(p).isFile()) add([p], [...GLOBAL, ...NARABI_EXTRA]);
       } catch {
         /* file not present yet */
+      }
+    }
+  }
+
+  // The off-tool Narabi sentinel (ADR-M012 item (j) / G2-lot-m012b C2) — GLOBAL + the two ADR-M012 D8
+  // adaptive patterns, over apps/sentinel/{src,test} (directory walk) AND the deploy/ units (an EXPLICIT
+  // file list, since .service/.timer/.snippet are not source extensions the walker recognizes).
+  const sentinel = config.scan.sentinel;
+  if (sentinel) {
+    const SENTINEL_EXTRA = compilePatterns(sentinel.banned);
+    for (const rel of sentinel.dirs ?? []) {
+      const d = join(root, rel);
+      try {
+        if (statSync(d).isDirectory()) add(walk(d, sentinel.extensions), [...GLOBAL, ...SENTINEL_EXTRA]);
+      } catch {
+        /* sentinel dir not present yet */
+      }
+    }
+    for (const rel of sentinel.files ?? []) {
+      const p = join(root, rel);
+      try {
+        if (statSync(p).isFile()) add([p], [...GLOBAL, ...SENTINEL_EXTRA]);
+      } catch {
+        /* deploy file not present yet */
       }
     }
   }

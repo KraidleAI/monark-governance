@@ -143,6 +143,17 @@ export function resolveStartDay(j0: string | undefined, day: string | null, prev
   return j0 ?? day ?? today;
 }
 
+/**
+ * Where the run's start day came from, for the summary (O-a). A non-empty state RESUMES (dueDays marches
+ * from prevDay+1, so env/`--day` J0 is unused) => "state"; a fresh state uses `MONARK_SENTINEL_J0` => "env"
+ * or an explicit `--day` => "day". Mirrors exactly what `dueDays` consumes; a fresh state with neither has
+ * already thrown in `resolveStartDay`.
+ */
+export function j0SourceOf(j0: string | undefined, day: string | null, prevDay: string | null): "env" | "day" | "state" {
+  if (prevDay !== null) return "state";
+  return j0 !== undefined ? "env" : "day";
+}
+
 async function main(): Promise<void> {
   const { dryRun, day, dir } = parseArgs(process.argv.slice(2));
   const srcDir = dirname(fileURLToPath(import.meta.url));
@@ -156,7 +167,11 @@ async function main(): Promise<void> {
   const due = dueDays(state.prevDay, fin.ts, startDay, day);
   const report = await runDue(state, rpc, due, fin.block, prov);
   const summary = stateSummary(report.state);
-  console.log(JSON.stringify({ processedDays: report.processedDays, lag: report.lag, stopped: report.stopped, finalized: fin.block, T: report.state.tracker.t, dryRun }, null, 2));
+  // O-a: report the effective start day and where J0 came from. On a non-empty state the run RESUMES
+  // (prevDay+1), so the printed start is that, never the unused `j0 ?? today`.
+  const j0Source = j0SourceOf(process.env.MONARK_SENTINEL_J0, day, state.prevDay);
+  const effectiveStartDay = state.prevDay !== null ? nextDay(state.prevDay) : startDay;
+  console.log(JSON.stringify({ startDay: effectiveStartDay, j0Source, processedDays: report.processedDays, lag: report.lag, stopped: report.stopped, finalized: fin.block, T: report.state.tracker.t, dryRun }, null, 2));
   if (dryRun) { console.log("--dry-run: nothing written."); return; }
   if (report.lines.length === 0) { console.log("nothing due (up to date, or waiting for finality)."); return; }
   mkdirSync(dir, { recursive: true });

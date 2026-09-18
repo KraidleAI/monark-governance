@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "description": "MONARK harness — a stateless MCP server exposing the REAL engine primitives: the Shōgen `attest`, the HIKAE `gate`, and the UKEMI `cascade`. ADR-M005 D1/D3/D4/D5/D6/D7/D8/D9/D11.",
-  "exports": { ".": "./src/server.ts" },
+  "exports": {
+    ".": "./src/server.ts",
+    "./calibration": "./src/calibration.ts"
+  },
   "dependencies": {
     "@modelcontextprotocol/server": "2.0.0",
     "@monark/contracts": "0.0.0",

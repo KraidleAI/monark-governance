@@ -13,7 +13,7 @@ import { createHash } from "node:crypto";
 import { trackerInit, trackerStep, trackerStepSize, trackerReplay, trackerDigest, clipScore } from "@monark/hikae";
 import type { TrackerParams, TrackerState, Miscover } from "@monark/hikae";
 import { splitQuantile, budgetAt } from "@monark/hikae";
-import { USDE_STABLE_RUN_CALIB } from "../../harness/src/calibration.ts";
+import { USDE_STABLE_RUN_CALIB } from "@monark/harness/calibration";
 import type { AttestResult, WindowFacts } from "./flow.ts";
 
 /** Pre-registered parameters (ADR-M012 D6). `c = B = 1/24`, ε = 0.1, t0 = 0, α = 0.10, δ_target = 0.10. */

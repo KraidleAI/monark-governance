@@ -25,3 +25,14 @@ export function scanText(
   patterns: CompiledRule[],
   exemptPhrases?: string[],
 ): VocabHit[];
+
+/** One resolved scan target: a file, the compiled patterns to apply, and its closed exempt phrases. */
+export interface VocabTarget {
+  f: string;
+  patterns: CompiledRule[];
+  exemptPhrases: string[];
+}
+
+/** Resolve every scan target under `root` from the parsed vocab config. Walks the tree (readdir/stat),
+ *  reads no file contents. `cliArgs` add GLOBAL-only targets. Used by the CLI and the load-bearing tests. */
+export function collectTargets(root: string, config: unknown, cliArgs: readonly string[]): VocabTarget[];
