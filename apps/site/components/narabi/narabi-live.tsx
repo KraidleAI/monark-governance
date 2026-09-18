@@ -45,6 +45,7 @@ import {
 } from "@/lib/narabi-live";
 import type { NarabiData } from "@/lib/narabi-live";
 import { NarabiMark } from "@/components/marks/narabi-mark";
+import { LEVELS, WINDOW_STEPS, GATE, NOT_LIST, GLOSSARY, FLEET_PLACE, VERIFY_HINT } from "@/lib/narabi-copy";
 
 async function browserFetchText(url: string): Promise<string> {
   const res = await fetch(url, { cache: "no-store" });
@@ -142,6 +143,40 @@ export function NarabiLive({ publishSchedule }: { publishSchedule: string }) {
           {TRACKER_ADAPTS} {NO_COVERAGE_MEASURED}
         </p>
       </Card>
+
+      {/* What Narabi is — six levels, condensed (T0 copy, lib/narabi-copy.ts) */}
+      <Card title="What Narabi is" lede={FLEET_PLACE}>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {LEVELS.map((lv) => (
+            <div key={lv.name} className="rounded-lg border border-border bg-soft p-4">
+              <div className="font-mono text-xs uppercase tracking-[0.08em] text-monark-t">{lv.name}</div>
+              <p className="mt-1 text-sm font-medium text-foreground">{lv.claim}</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{lv.detail}</p>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <div className="grid gap-8 lg:grid-cols-2">
+        {/* How a window is built */}
+        <Card title="How a window is built" lede="Five steps, every one recomputable from the chain and the two files.">
+          <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
+            {WINDOW_STEPS.map((st) => (
+              <li key={st} className="pl-1">{st}</li>
+            ))}
+          </ol>
+        </Card>
+
+        {/* What the gate does with it */}
+        <Card title="What the gate does with it" lede={GATE.body}>
+          <dl>
+            <Fact k="task class" v={GATE.cls} />
+            <Fact k="committed key" v={GATE.key} />
+            <Fact k="calibration pairs" v={GATE.nCalib} note="calm calibration pairs behind q₁; measured, order-independent digest" />
+          </dl>
+          <p className="mt-3 text-xs text-muted-foreground">{VERIFY_HINT}</p>
+        </Card>
+      </div>
 
       <div className="grid gap-8 lg:grid-cols-2">
         {/* Tracker state */}
@@ -275,6 +310,26 @@ export function NarabiLive({ publishSchedule }: { publishSchedule: string }) {
             />
             <Fact k="source" v={data.source} mono={false} />
             <Fact k="read at" v={readAtLabel(data.fetchedAt)} />
+          </dl>
+        </Card>
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-2">
+        <Card title="What this is not">
+          <ul className="space-y-1.5 text-sm text-foreground">
+            {NOT_LIST.map((n) => (
+              <li key={n} className="flex gap-2">
+                <span aria-hidden className="text-muted-foreground">×</span>
+                <span>{n}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+        <Card title="Glossary">
+          <dl>
+            {GLOSSARY.map((g) => (
+              <Fact key={g.term} k={g.term} v={g.def} mono={false} />
+            ))}
           </dl>
         </Card>
       </div>

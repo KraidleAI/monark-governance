@@ -14,7 +14,7 @@
 //      EXCLUDED from the copy and REPORTED (not fatal): the root README.md carries only the exempt
 //      corpus proper name, so a raw accent check would wrongly drop it; the gate is exempt-aware.
 //
-// The first publication of KraidleAI/monark is a deliberate maintainer decision. This
+// The first publication of KraidleAI/Monark is a deliberate maintainer decision. This
 // script only writes to a LOCAL --out directory; it never pushes and never touches a
 // remote.
 import { readFileSync, readdirSync, statSync, existsSync, mkdirSync, copyFileSync, writeFileSync } from "node:fs";

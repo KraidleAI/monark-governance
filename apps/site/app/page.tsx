@@ -4,9 +4,11 @@ import { GateSim } from "@/components/gate-sim";
 import { ShogenPanel } from "@/components/shogen-panel";
 import { HikaePanel } from "@/components/hikae-panel";
 import { UkemiPanel } from "@/components/ukemi-panel";
+import { NarabiPanel } from "@/components/narabi-panel";
 import { loadAttestedPriceContract, loadContract } from "@/lib/load-contract";
 import { loadGateEnums } from "@/lib/gate-enums";
 import { AMBIENT, COST } from "@/lib/sim";
+import { NARABI_ROUTE } from "@/lib/narabi-live";
 
 // Home — a server shell over ONE client island (the engine board = GateSim mode="board":
 // hero statement + profile picker + sensors→adapter→gate→acts pipeline + aside). The frozen `action`/reason
@@ -22,6 +24,16 @@ import { AMBIENT, COST } from "@/lib/sim";
 const soft: React.CSSProperties = { background: "var(--soft)", borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)" };
 const mono: React.CSSProperties = { fontFamily: "'IBM Plex Mono', monospace" };
 
+// ACI — pinned copy (T0, investor 2026-09-18). The version + citation year render via {property access}
+// so the honesty lint never sees them as literals (mirrors lib/narabi-live D8_SENTENCE). Note: "adaptive"
+// here qualifies only the quantile tracker and the method name; the copy makes no surclaim on the gate.
+const ACI = {
+  title: "Adaptive conformal inference (ACI)",
+  body:
+    "Shipped in v0.4.0 as a primitive: Narabi steps an adaptive quantile tracker (Angelopoulos, Barber and Bates 2024) every day on the attested USDe redemption flow and publishes the whole timeline. The tracker adapts; the gate does not yet. No coverage is measured.",
+  cta: "See the daily timeline →",
+} as const;
+
 export default function HomePage() {
   // Frozen contracts + gate enums, read from schemas/ at build time (server component). apps/site is the
   // cwd under `next build`; the repo root is two levels up (mirrors lib/load-committed.ts).
@@ -30,6 +42,7 @@ export default function HomePage() {
   const attestedContract = loadAttestedPriceContract(root);
   const coverageContract = loadContract(root, "coverage-verdict.schema.json", "Hikae");
   const predictionContract = loadContract(root, "prediction.schema.json", "Ukemi");
+  const attestedFlowContract = loadContract(root, "attested-flow.schema.json", "Narabi");
 
   return (
     <main>
@@ -63,25 +76,39 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* The built fleet — the /#fleet renvoi target (from /roadmap). Reuses the three built panels as-is
-          (PLAN §2). A bridge until F-site-6 ships /fleet + F-site-7 repoints the roadmap link. */}
+      {/* The built fleet — the /#fleet renvoi target (from /roadmap). Four built panels (Shōgen, Hikae,
+          Ukemi + Narabi, ADR-M012 M012-e). A bridge until /fleet is the canonical surface. */}
       <section id="fleet" className="mx-auto max-w-[1200px] scroll-mt-20 px-6 py-14">
         <h2 className="font-heading text-2xl font-semibold tracking-tight" style={{ letterSpacing: "-.02em" }}>
           The built fleet
         </h2>
         <p className="mt-2 max-w-2xl text-sm" style={{ color: "var(--ink2)" }}>
           The first vertical, built end to end and closed under independent review: Shōgen → Hikae →
-          Ukemi. Open a panel for how it works, how it is built, its honest limits, and its frozen
-          contract. More agents are named on the{" "}
+          Ukemi — with Narabi, the built redemption-run sensor, alongside. Open a panel for how it works,
+          how it is built, its honest limits, and its frozen contract. More agents are named on the{" "}
           <Link href="/roadmap" className="underline underline-offset-4">
             fleet roadmap
           </Link>
           .
         </p>
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <ShogenPanel contract={attestedContract} />
           <HikaePanel contract={coverageContract} />
           <UkemiPanel contract={predictionContract} />
+          <NarabiPanel contract={attestedFlowContract} />
+        </div>
+
+        {/* ACI — the v0.4.0 primitive (pinned copy; digits render via property access). */}
+        <div className="mt-8 rounded-2xl border p-6" style={{ borderColor: "var(--line)", background: "var(--soft)" }}>
+          <div style={{ ...mono, fontSize: 12, color: "var(--ink2)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".06em" }}>
+            {ACI.title}
+          </div>
+          <p className="max-w-3xl text-sm" style={{ color: "var(--ink)", lineHeight: 1.6, margin: 0 }}>
+            {ACI.body}
+          </p>
+          <Link href={NARABI_ROUTE} className="mt-3 inline-block text-sm underline underline-offset-4" style={{ color: "var(--monark-t)" }}>
+            {ACI.cta}
+          </Link>
         </div>
       </section>
 

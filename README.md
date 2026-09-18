@@ -2,11 +2,11 @@
 
 # MONARK
 
-<!-- The CI badge points at the PUBLIC repo's workflow (KraidleAI/monark) — what a stranger sees. -->
-[![CI](https://github.com/KraidleAI/monark/actions/workflows/ci.yml/badge.svg)](https://github.com/KraidleAI/monark/actions/workflows/ci.yml)
+<!-- The CI badge points at the PUBLIC repo's workflow (KraidleAI/Monark) — what a stranger sees. -->
+[![CI](https://github.com/KraidleAI/Monark/actions/workflows/ci.yml/badge.svg)](https://github.com/KraidleAI/Monark/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
-<!-- Latest tagged release on the PUBLIC repo (KraidleAI/monark) — the version source of truth is the git tag. -->
-[![Latest Release](https://img.shields.io/github/v/release/KraidleAI/monark?sort=semver&label=release)](https://github.com/KraidleAI/monark/releases/latest)
+<!-- Latest tagged release on the PUBLIC repo (KraidleAI/Monark) — the version source of truth is the git tag. -->
+[![Latest Release](https://img.shields.io/github/v/release/KraidleAI/Monark?sort=semver&label=release)](https://github.com/KraidleAI/Monark/releases/latest)
 
 **MONARK is a company of agent-products for DeFi and inference, built on one backbone: a
 coverage-controlled decision gate that emits `commit | defer | abstain` and a depletable

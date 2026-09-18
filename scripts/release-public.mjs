@@ -1,9 +1,9 @@
-// release-public.mjs — fail-closed local gate, then publish the exported tree to KraidleAI/monark,
+// release-public.mjs — fail-closed local gate, then publish the exported tree to KraidleAI/Monark,
 // optionally cutting an annotated tag + GitHub Release (ADR-M010).
 //
 // This is an INTERNAL release tool. It is deliberately NOT in export-public.mjs's whitelist, so it is
 // never itself exported to the public repo. It codifies the local-only policy: the private source lives
-// in this repo and is never pushed; the ONLY outward push is the exported public tree to KraidleAI/monark.
+// in this repo and is never pushed; the ONLY outward push is the exported public tree to KraidleAI/Monark.
 //
 // Usage:
 //   node scripts/release-public.mjs                               plain sync (gates -> export -> sync -> push)
@@ -33,8 +33,8 @@ import { scanText as scanVocab, compilePatterns } from "./grep-forbidden.mjs";
 
 const SRC = dirname(dirname(fileURLToPath(import.meta.url)));
 const MIRROR = process.env.MONARK_PUBLIC_MIRROR || join(os.homedir(), ".monark-public-mirror");
-const REMOTE = "https://github.com/KraidleAI/monark.git";
-const REPO_SLUG = REMOTE.replace(/^https:\/\/github\.com\//, "").replace(/\.git$/, ""); // KraidleAI/monark
+const REMOTE = "https://github.com/KraidleAI/Monark.git";
+const REPO_SLUG = REMOTE.replace(/^https:\/\/github\.com\//, "").replace(/\.git$/, ""); // KraidleAI/Monark
 
 // ============================================================ PURE, EXPORTED GUARDS (mutant-tested) =====
 
@@ -291,7 +291,7 @@ function main() {
 
   // 4. Commit and push the exported tree. The commit message is fixed/generated (no free-text input,
   //    ADR-M010 B-3); it is written to a temp file and passed via `git commit -F`, never interpolated.
-  step("commit + push to KraidleAI/monark main");
+  step("commit + push to KraidleAI/Monark main");
   const message = `Public sync ${new Date().toISOString()}`;
   const msgFile = join(os.tmpdir(), `monark-commit-${process.pid}.txt`);
   writeFileSync(msgFile, `${message}\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>\n`);
