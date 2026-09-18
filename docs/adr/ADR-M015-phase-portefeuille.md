@@ -24,8 +24,9 @@
    quand l'entrée est `transfer(to, amount)` ?* Sans réponse, Genkan est un spend guard en vocabulaire MONARK.
 5. **La demande n'est pas mesurable aujourd'hui** : ADR-M006 D8 fixe le test (« ≥ N POST d'origine ≠ MONARK sous 30 j »), **N n'a jamais été
    fixé** ; le bloc Caddy du harnais (`mcp.`/`api.`) **n'a pas de directive `log`** (seule la vitrine `/narabi/*` en a une depuis 09:33 UTC).
-   Le compteur ClawHub (219 téléchargements sur 8 jours, **lu par l'orchestrateur sur la page le 2026-09-18**, l'advisor-marché ne l'ayant pas
-   trouvé par API) mesure des pulls, pas des appels.
+   Compteur ClawHub : « Downloads 30d = 219 » lu à l'écran par l'orchestrateur le 2026-09-18 (226 à 20:35 UTC, capture textuelle datée dans
+   `docs/biblio/procurements-M015/PR-4-clawhub-counter.md`), définition du compteur non sourcée, non reproduit par API (404) ⇒ **quarantaine PR-4** ;
+   des pulls, pas des appels ; jamais une mesure de demande, jamais une phrase publique.
 6. **Dettes d'entrée mesurées** : recorder `q99 = ∞` silencieux pour n < 99 (bloque toute population < 99 paires) ; item (a) M009 (`B_t` à
    bFloor = 0, P(B_t < 0) 35–47 % [abs]) non mesuré ; `@monark/ukemi` déclaré jamais importé ; commentaires périmés ; contradiction de nommage
    `stable-run-velocity-24h` vs `flow-redeem-1h` ; `under_witness` cité dans ADR-M008 sans exister dans l'enum ; `lint-ratchet` 69.
@@ -44,26 +45,43 @@ pas supersession) ; (e) rectificatif ADR-M008 : `under_witness` n'existe pas dan
 **D2 — P1, prise `AttestedPrice` optionnelle dans `GateEnvelope` (1 ADR + 1–2 lots, T1).** `crossAgentGate` devient le chemin **servi** ; les
 résidus d'attestation sont filés dans `CoverageVerdict.residual`. K8 = 0 (pas de 5ᵉ outil), GEL = 0 (`params` non gelé, ADR-M005 D8), D6 = 0.
 Honnêteté : `attest` reste une fixture (label K-1) tant qu'aucun témoin vivant n'existe ; on le dit. Inclut M012 (i) (dédoublonnage de la
-description du gate, re-pin h5).
+description du gate, re-pin h5). **Précisions mesurées au checkpoint-1 (C-4)** : (a) `tool_schema_equals_frozen_schema` n'asserte que
+`properties.prediction` et la sortie ⇒ ajouter `attested` ne le rougit pas : P1-a nomme un **nouveau test de dérive** `gate_attested_is_frozen_attested_price`
+(motif `attest_output_is_frozen_attested_price`) + assertion `required === ["prediction","params"]` et clés d'enveloppe = `{prediction, params, attested}` ;
+(b) le scan K-8 interdit `child_process` ⇒ le vérifieur Shōgen ne peut pas tourner dans `gate` ⇒ **l'attestation portée par l'appelant n'est pas
+vérifiée à l'appel** — déclaré dans la description et l'ADR, jamais via `residual` (`gate.ts:316` : « residual is NOT an honesty carrier ») ;
+(c) `crossAgentGate` ne vérifie aucune **liaison** `price.subject` ↔ `prediction` (la trace h5 compose Binance BTCUSDT avec une prédiction sans lien) :
+P1-a nomme la règle de liaison, sinon le triangle servi est décoratif ; (d) `crossAgentGate` conformalise sur des paires (`ctx.calib.pairs`) alors que
+le gate servi dispatche par `task_class` sur des scores committés : P1-a dit quelle composition est servie. Rectificatifs : 11 sites `residual: []`
+dans `gate.ts` (le 12ᵉ est `packages/hikae/src/s2/instrument.ts`) ; `@monark/ukemi` est importé par `apps/harness/src/tools/cascade.ts:41`, « jamais
+importé » ne vaut que pour `packages/monark`.
 
-**D3 — Instrumentation de la demande (immédiat, hors lot).** (a) L'investisseur fixe **N** (ADR-M006 D8) ; (b) directive `log` sur le bloc Caddy du
-harnais (POST par host/route, jamais de payload, rotation 5 × 30 j, aucune IP au-delà) = action sortante sous go ; (c) critère M1 reconduit
-(≥ 3 clients externes distincts non-crawlers × ≥ 10 fetches, ou une entité nommée qui demande une population/classe précise) ; (d) lecture à J+30.
-Falsifiable : 0 `tools/call` non-crawler à J+30 ⇒ « la distribution était de la visibilité », consigné, et aucun lot Genkan.
+**D3 — Instrumentation de la demande (immédiat, hors lot). Deux surfaces, deux journaux, deux critères.** (a) L'investisseur fixe **N** (ADR-M006
+D8) ; (b) **D8 = harnais** (`mcp.`/`api.`) : directive `log` sur le bloc Caddy du harnais (POST par host/route, jamais de payload, rotation 5 × 30 j,
+aucune IP au-delà) = action sortante sous go ; **cet ADR clôt PF-M006-8** (ADR-M006 l.69 : ADR infra dédié avant instrumentation) ; critère :
+≥ N `tools/call` d'origine ≠ MONARK sous 30 j, dont ≥ 1 `gate` avec `task_class` ≠ fixture ; (c) **M1 = vitrine** (`/narabi/*`, journal actif depuis
+2026-09-18 09:33 UTC) : ≥ 3 clients externes distincts non-crawlers × ≥ 10 fetches, ou une entité nommée demandant une population/classe précise ;
+(d) lecture des deux à J+30 de l'instrumentation D8. **Ce qui gate D6 (Genkan) est D8**, pas M1. Falsifiable : 0 `tools/call` non-crawler à J+30
+⇒ « la distribution était de la visibilité », consigné, aucun lot Genkan.
 
 **D4 — P3, 2ᵉ clé Narabi = décision investisseur, puis F2-C sous protocole pré-enregistré.** Les deux avis advisor-defi divergent : (c′)
 « ni sUSDe ni FDUSD sous le protocole existant ; extension USDe 11 mois + sUSDe en co-variable » vs « sUSDe pour le churn, régime 1 jour seul,
 co-variable de breadth pré-enregistrée ». Réconciliation orchestrateur : (i) l'extension USDe = rejeu à digest séparé (item M012 (l), T ≥ 7, ne
-touche jamais les scores committés) — **fait dans tous les cas** ; (ii) le test co-variable sUSDe → USDe (lag = cooldown, seuil ≥ 50 % avec base
+touche jamais les scores committés) **avec le test pré-enregistré de (c′) §1** : couverture empirique de [v̂ ± q̂_committé] sur les paires calmes
+consécutives fraîches, acceptation ≥ 1 − α − ε avec **ε = 0,05 fixé maintenant** ; échec ⇒ un nombre de dérive mesuré (Barber 2023) dans la phrase
+d'honnêteté, **jamais une recalibration** — **fait dans tous les cas** ; (ii) le test co-variable sUSDe → USDe (lag = cooldown, seuil ≥ 50 % avec base
 < 15 % ⇒ ADR v3) — **fait dans tous les cas** ; (iii) l'ouverture d'une clé sUSDe (régime 1 j, breadth) ou FDUSD (classe calendaire) = **escalade
-investisseur** avec l'étiquette « seuils fixés après lecture de 100 % des données », jamais un choix d'orchestrateur ; (iv) clôtures négatives
+investisseur** ; l'étiquette « seuils fixés après lecture de 100 % des données » est l'opinion de (c′) et vaut **sauf si** le régime 1 jour
+(post-bloc 24669809) conserve un held-out intact — question factuelle non établie, à mesurer avant l'escalade (les deux avis advisor-defi sont
+archivés : `AVIS-advisor-defi-2e-cle-c-prime.md`, `AVIS-advisor-defi-portefeuille.md`) ; (iv) clôtures négatives
 formelles + critère d'admissibilité inter-chaînes (ne brûle pas sur mainnet, ou `from` séparable).
 
 **D5 — Koyomi = seule nouvelle pièce instruite (T2), par census avant tout G0.** Variable : gap log-return entre la marque HIP-3 clampée et le
 premier print de l'oracle du déployeur à la réouverture ; Mondrian par marché (jamais poolé) ; seuils pré-enregistrés avant pull ; held-out
 2026-07-27 **recomputé** (les chiffres −19 %/57 M$/17 M$ sont [abs]/[lu presse]) et requalifié (pré-marché de semaine, pas week-end : le cadrage de
 `produit-G` est trop étroit pour son propre meilleur cas) ; profondeur d'archive HIP-3 mesurée. G0 seulement si non dégénéré **et** acheteur
-nommé (le G7 UKEMI du 2026-09-03 s'applique par analogie) ; sinon clôture négative.
+nommé (règle **proposée** par cet ADR, décision (0) : le G7 UKEMI du 2026-09-03 est scopé à Ukemi ; Shōgen, Hikae et Narabi ont été construits
+   sans acheteur nommé) ; sinon clôture négative.
 
 **D6 — Genkan = couche d'interception côté appelant, après P1, après l'item (a) M009, et seulement si D3 mesure une demande.** Forme
 honnête : `before_tool` dans le runtime de l'opérateur (produit-H), `B_t` persisté chez l'opérateur, appel du `gate` pur ; aucune revendication
@@ -83,7 +101,8 @@ les lots ; « partner » et « autonomous » jamais, y compris dans les campagne
 ## Alternatives rejetées
 - **Construire Genkan maintenant** (rang 1 du chercheur) : fonction encombrée, demande de la forme non démontrée, `Prediction` non nommée, item (a)
   M009 non mesuré ⇒ « abstient au hasard » à la première démo.
-- **Construire une pièce parmi les 7 sans acheteur nommé** : contraire au G7 UKEMI (2026-09-03) et à la doctrine (CA-2).
+- **Construire une pièce parmi les 7 sans acheteur nommé** : contraire à la règle **proposée** ici (généralisation du G7 UKEMI, scopé à Ukemi) —
+  c'est la décision (0), à ratifier par l'investisseur face aux alternatives costées de PLAN-STRATEGIE §2bis.
 - **Ledger / token câblé maintenant** : architecture (D6 + GEL + chaîne) sans acheteur ; kill-criteria GTM 09 (« B_t vendu comme APY »).
 - **Campagnes « la claque » telles quelles** : chacune suppose du code absent (résidus hors enum, 11 pièces, `before_tool`, `AttestedDoc`).
 - **Abandonner les 7 pièces** : escalade investisseur, pas un avis ; la fleet reste la même (11 + 5).
@@ -93,14 +112,24 @@ les lots ; « partner » et « autonomous » jamais, y compris dans les campagne
   Koyomi, F2-C si décidé, lecture J+30 → Genkan v1 ou non ; **T3** mesure d'usage, décision P5 par ADR, revue (iii) ; **T4** selon P5.
 - Décisions investisseur à prendre, listées pour le checkpoint-1 : (1) N ; (2) 2ᵉ clé : escalade sUSDe/FDUSD ou (c′) seul ; (3) M014 (d)/(d′) ;
   (4) M012 (g) ancrage hebdo au premier mois ; (5) token ↔ `B_t` : maintenant ou après mesure ; (6) go pour le `log` Caddy harnais.
-- Procurements formés à l'ADR (13, liste dans `PLAN-STRATEGIE.md` §5) : hook `before_tool` OpenClaw ; `produit-ukemi-loop-clearing.md`
+- Procurements formés à l'ADR (**14**, liste dans `PLAN-STRATEGIE.md` §5, avec tentatives faites et étiquette document / recherche / mesure ;
+  les quatre dûs de l'AUDIT §5 y sont repris : AIP 262, Aave V4 × Ethena, `TetherToken.redeem`, Risk Committee Ethena) : hook `before_tool` OpenClaw ; `produit-ukemi-loop-clearing.md`
   introuvable ; PSM Sky / PYUSD / LUSD-BOLD à scouter ou écarter ; export du compteur ClawHub ; journal Caddy vitrine J+30 ; Blockaid AI agent
   tools (statut, pricing) ; MetaMask Agent Wallet Guard Mode (docs) ; HIP-3* proxy reduce-only (spec) ; post-mortem trade.xyz SK Hynix ; Kaiko
   Best Execution (grille) ; x402 Bazaar (frais, catalogue MCP) ; statut du blocage ClawPump ; archive HIP-3 (profondeur, API).
-- `error_origin` de l'étude : orchestrateur (avis (c′) non archivé avant le second avis ; « 219 pulls » transmis sans niveau de source).
+- `error_origin` de l'étude : orchestrateur — avis (c′) non archivé avant le second avis (rétention d'information) ; « 219 pulls » transmis sans
+  niveau de source ; règle « acheteur nommé » présentée comme héritée alors qu'elle est proposée ; ε = 0,05 perdu dans la réconciliation ;
+  **arbre non gelé pendant le checkpoint-1** (chercheurs écrivant `docs/biblio/procurements-M015/` à 20:25–20:26 UTC) ; 13 ≠ 14 ; M1/D8 confondus.
 
 ## Sources
 Dossier `docs/etude-suite-2026-09-18/` (six fichiers, sha dans les rapports d'agents) ; ADR-M002 D4/D9, M005 D1/D6/D8/D15, M006 D8, M008 D4/D7,
 M009 item (a), M012 D3–D8 et items, M014 ; `apps/harness/src/tools/{registry,gate}.ts`, `packages/monark/src/index.ts`,
 `scripts/record-usde-calib.mjs:71,115`, `packages/contracts/src/enums.ts`, `deploy/Caddyfile.*` ; ACTU §2–§13 (URL + dates) ; avis advisors du
 2026-09-18 (rapports de consultation, archivés pour (c′)).
+
+## Décision (0) — à ratifier par l'investisseur (C-1 du checkpoint-1)
+La thèse « rendre le moteur réel et mesuré avant toute nouvelle pièce », la règle **généralisée** « aucun G0 de pièce sans acheteur nommé », le calendrier
+T1–T4 et la mise hors 12 mois de Kessai / Kaihi / Kamae / Kyokusen / Mokugeki sont une **décision de valeur nouvelle**, pas une conséquence de la doctrine
+existante (le G7 UKEMI est scopé à Ukemi ; ADR-M006 D8 fonde « mesurer la demande », pas « rien avant la mesure »). Elle est soumise face aux
+alternatives costées de `PLAN-STRATEGIE.md` §2bis. Le « je valide le plan » de l'investisseur (2026-09-18) est enregistré comme ratification de
+principe ; la ratification explicite de (0) est demandée avec les six autres décisions.
