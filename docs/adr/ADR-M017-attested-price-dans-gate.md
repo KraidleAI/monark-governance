@@ -38,7 +38,8 @@ avec `attested` est refusé au même titre, jamais accepté en silence).
 fermé L3 (`l3-gate.ts:80-109`) est inchangé, et le littéral gelé `binding_broken` reste **inutilisé sur ce chemin** (déclaré : il est émis par les
 adaptateurs Shōgen (`adapter-shogen.ts:147-255`) et Narabi, jamais par le gate servi). Ordre des gardes : `validateHarnessParams` → anti-override BYO → cohérence sujet ↔ classe → dispatch. **Cas BYO + `attested`** (C'-8) : une classe
 libre n'a pas d'entrée dans la table ⇒ tombe dans « sujet absent de la table » ⇒ 400 nommé « attested is not accepted for BYO classes in P1 » ;
-cas explicite du test (2) avec mutant nommé (« table renvoie `[]` par défaut au lieu de refuser » ⇒ rouge).
+cas explicite du test (2) avec mutant nommé (« table renvoie `[]` par défaut au lieu de refuser » ⇒ rouge) ; **le test (2) asserte le texte du
+message** (« not accepted for BYO classes » vs « subject not in table »), pas le seul statut 400, sinon le mutant n'est pas discriminant.
 (iii) **Traçabilité** : `attested` est une clé d'enveloppe (D1) ; **seul `attested.residual` est filé** dans `CoverageVerdict.residual` ; `params`
 n'y est pour rien ; `residual` n'est pas un porteur d'honnêteté (M-2, `gate.ts:316`).
 (iv) **Non-vérification à l'appel, déclarée** dans la description de l'outil (phrase C-8) : « the attestation is carried by the caller and is not
@@ -58,7 +59,7 @@ Quand `attested` est absent : comportement byte-identique (oracle de diff ciblé
 
 **D3 — Honnêteté.** `attest` reste une fixture (label K-1) tant qu'aucun témoin vivant n'existe ; aucune revendication statistique nouvelle ; la
 prise ne sert que la fixture Binance et les appelants qui apportent leur propre `AttestedPrice`. Aucun texte public (README, site, skill) ne change
-dans ce lot ; la description de l'outil `gate` change (phrase (iv)) ⇒ item M012 (i) traité en même temps (dédoublonnage de
+dans ce lot ; la description de l'outil `gate` change (phrase (iv), lot b1) ; item M012 (i) traité en b2 (dédoublonnage de
 `GATE_TOOL_DESCRIPTION` sous la contrainte `gate_stable_run_honesty_text_is_keyed_A2_A7f`, re-pin de la trace h5). Le triangle servi en P1 est
 attest(fixture Binance) → gate(`btc-dir-15m`, calibration synthétique) : on l'écrit tel quel. `absent` ≠ `attestation_absent` : l'attestation est
 optionnelle par assomption A(shogen-optional) (M002 D8) ; `attestation_absent` reste réservé aux classes qui l'exigent. Mise à jour différée du

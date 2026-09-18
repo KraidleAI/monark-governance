@@ -31,3 +31,6 @@ Shōgen + Ukemi + Hikae après P1 (item formé) ; table de liaison non totale �
 b1 rougirait `probe_harness_records_real_decision` par construction ⇒ re-pin h5 + phrase (iv) dans b1 ; `README.md:188` faux après b3 ⇒ corrigé
 dans b3, l.102 réexaminée ; trois phrases inexactes (`binding_broken` Narabi-seul → Shōgen et Narabi ; Conséquences (c) reliquat ; M005 D3 non
 supersédée) ; cas BYO + attested nommé dans l'ordre des gardes avec mutant. Toutes pliées dans le commit suivant ; confirmation K-C légère demandée.
+
+Confirmation K-C légère sur `fe83ea2` : C'-1..C'-8 toutes foldées ; **prêt pour P1-b1 : OUI** ; deux alignements doc pliés dans le commit du lot b1 :
+(a) D3 « M012 (i) en même temps » → « en b2 » ; (b) test (2) asserte le texte du message BYO. Note b3 : test 30 = trois blocs (`:85`, `:115`, `:136`), couverture à juger au G2 de b3.
