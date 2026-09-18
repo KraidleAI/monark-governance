@@ -18,8 +18,9 @@ import type { AgentStatus } from "@/lib/status";
 import { cn } from "@/lib/utils";
 
 /**
- * A light, data-driven placeholder panel for an UPCOMING fleet entity that has no built engine to show:
- * the eight roadmap agents (on /fleet) and the three VISAGE artefacts (on /products). ONE component
+ * A light, data-driven placeholder panel for a fleet entity that has no bespoke engine panel to show:
+ * the seven roadmap agents (on /fleet), the three VISAGE artefacts (on /products), and the register-driven
+ * BUILT sentinel Narabi (its "What's inside" block is chosen by `WhatInside` on `block.kind`). ONE component
  * instead of eleven: a dashed card that opens the same lateral sheet as the built
  * panels, carrying the honest one-line descriptor, an optional "Sold to" line (visage buyers), and the
  * Mod #1 "What it will use" block. `status` flows from the register (never hard-coded here). Openable

@@ -12,9 +12,9 @@
 // PURE DATA — no React/Next import, self-contained (no import of ./fleet: the root test program
 // (nodenext) and the Next bundler disagree on the relative specifier and no single form type-checks under
 // both; see lib/fleet.ts L9-16) — so test/visage-register.test.ts can import it under node:test and scan
-// every rendered string for a numeric hole (C-4). Keyed by a lowercase slug: the three built agents, the
-// eight roadmap agents (a.name.toLowerCase()), the five products (product.key), the three visage
-// (visage.key) — nineteen keys, checked exhaustively by the register test (non-inert).
+// every rendered string for a numeric hole (C-4). Keyed by a lowercase slug: the four built agents (incl.
+// Narabi, ADR-M012 M012-e), the seven roadmap agents (a.name.toLowerCase()), the five products
+// (product.key), the three visage (visage.key) — nineteen keys, checked exhaustively by the register test (non-inert).
 
 export type InsideKind = "built" | "upcoming";
 
@@ -26,7 +26,7 @@ export interface InsideBlock {
 }
 
 export const INSIDE: Record<string, InsideBlock> = {
-  // ── The three built agents — "What's inside" (each point anchored to a committed ADR, see C-8 table) ──
+  // ── The four built agents — "What's inside" (each point anchored to a committed ADR, see C-8 table) ──
   shogen: {
     kind: "built",
     points: [
@@ -53,15 +53,22 @@ export const INSIDE: Record<string, InsideBlock> = {
       "A conformal interval for the cascade, conformed by the gate",
     ],
   },
+  // ── Narabi — built (ADR-M012 M012-e). Points anchored to ADR-M012: D1 (attested flow), the M009
+  //    quantile tracker, D4 (published replayable timeline + per-line hash chain), D3 (static committed
+  //    gate region). Digit-free and paper-free (method names only), like the three engines. ──
+  narabi: {
+    kind: "built",
+    points: [
+      "Attested redemption flow: burns, mints and closing supply over a declared block window, recomputable onchain",
+      "An adaptive quantile tracker (Angelopoulos, Barber and Bates decaying step), stepped on the realized outcome each window",
+      "A published, replayable timeline with a per-line hash chain; the committed gate region stays static until a pre-registered drift criterion fires",
+    ],
+  },
 
-  // ── The eight roadmap agents — "What it will use" (Mod #1; method names only) ──
+  // ── The seven roadmap agents — "What it will use" (Mod #1; method names only) ──
   mokugeki: {
     kind: "upcoming",
     points: ["Cryptographic attestation for documents and events", "Named residual hypotheses"],
-  },
-  narabi: {
-    kind: "upcoming",
-    points: ["Redemption-run signals: burn-rate, redeem-queue growth, witness liveness"],
   },
   kaihi: {
     kind: "upcoming",

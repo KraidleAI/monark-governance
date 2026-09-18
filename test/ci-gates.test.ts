@@ -546,13 +546,14 @@ test("no_coverage_level_alpha — α is never rendered as the coverage level in 
 // ────────────────────────────────────────────────────────────────────────────────────────────────
 // Lot F-2c (ADR-M004 D14 / PLAN F-2c C-2) — the FLEET REGISTER is the single source of truth for what
 // is BUILT vs UPCOMING. This root test locks the invariant: the built set is EXACTLY {Shōgen, Hikae,
-// Ukemi}; the eight other agents and all five products are upcoming. Named mutant (G2): flip any of the
-// thirteen to "built" ⇒ this test reds (live proof + sha256 restore in docs/G1-lot-F2c.md). Two extra
+// Ukemi, Narabi} (Narabi flipped upcoming→built at go 4, ADR-M012 M012-e); the seven other agents and all
+// five products are upcoming. Named mutant (G2): flip any of the twelve to "built" ⇒ this test reds (live
+// proof + sha256 restore in docs/G1-lot-F2c.md). Two extra
 // guards make the register honest and non-inert: (1) a numeric-hole closure — register strings render
 // via {property access}, which the honesty lint (test 44) never flags, so a digit there would render
 // un-caught; we scan every rendered register string with the SAME detector here. (2) a consumption
 // check — the two new surfaces read status FROM the register, never hard-code a status attribute.
-test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi}; 13 others upcoming (F-2c C-2)", () => {
+test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narabi}; 12 others upcoming (F-2c C-2; ADR-M012 M012-e)", () => {
   // Compile-time: FleetStatus IS the honest AgentStatus vocabulary (both "built"|"upcoming"). The two
   // typed identity coercions only type-check if neither type adds or drops a member (a stray "live"
   // reds ONE of them under `npm run typecheck`). Called below so they are not unused.
@@ -561,10 +562,10 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi}; 13 
   assert.equal(asAgentStatus("built"), "built");
   assert.equal(asFleetStatus("upcoming"), "upcoming");
 
-  // The invariant — built agents are exactly the three named, no more, no fewer.
-  const BUILT = ["Shōgen", "Hikae", "Ukemi"];
+  // The invariant — built agents are exactly the four named, no more, no fewer.
+  const BUILT = ["Shōgen", "Hikae", "Ukemi", "Narabi"];
   const builtAgents = FLEET_AGENTS.filter((a) => a.status === "built").map((a) => a.name);
-  assert.deepEqual([...builtAgents].sort(), [...BUILT].sort(), "built agents must be exactly {Shōgen, Hikae, Ukemi}");
+  assert.deepEqual([...builtAgents].sort(), [...BUILT].sort(), "built agents must be exactly {Shōgen, Hikae, Ukemi, Narabi}");
 
   // Every other agent is upcoming (both directions, per agent — a flip reds here).
   for (const a of FLEET_AGENTS) {
@@ -579,12 +580,24 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi}; 13 
     assert.equal(p.status, "upcoming", `product ${p.name} must be upcoming (the engine agent may be built, the product is not)`);
   }
 
-  // The register-wide count: exactly 3 built, exactly 13 upcoming (8 agents + 5 products).
+  // The register-wide count: exactly 4 built, exactly 12 upcoming (7 agents + 5 products). ADR-M012 M012-e:
+  // Narabi flips upcoming→built at go 4 (off-tool sentinel running daily), so built is 4 and upcoming 12.
   const builtCount = FLEET_AGENTS.filter((a) => a.status === "built").length;
   const upcomingCount =
     FLEET_AGENTS.filter((a) => a.status === "upcoming").length + PRODUCTS.filter((p) => p.status === "upcoming").length;
-  assert.equal(builtCount, 3, "exactly three agents are built");
-  assert.equal(upcomingCount, 13, "exactly thirteen upcoming (eight agents + five products)");
+  assert.equal(builtCount, 4, "exactly four agents are built");
+  assert.equal(upcomingCount, 12, "exactly twelve upcoming (seven agents + five products)");
+
+  // (0) package.json `description` is exported to the public mirror (scripts/export-public.mjs WHITELIST_FILES)
+  // and carries the fleet count in free text — a surface the register does not drive (G2 M012-e C2: it still
+  // said "3 agents built, 8 on the roadmap" after Narabi flipped). Lock its counts to the register so a flip
+  // that forgets the description reds here instead of shipping a contradiction to the mirror.
+  const upcomingAgentCount = FLEET_AGENTS.filter((a) => a.status === "upcoming").length;
+  const pkg = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as { description: string };
+  assert.ok(
+    pkg.description.includes(`fleet: ${builtCount} agents built, ${upcomingAgentCount} on the roadmap`),
+    `package.json description must state "fleet: ${builtCount} agents built, ${upcomingAgentCount} on the roadmap"`,
+  );
 
   // (1) NUMERIC-HOLE closure — every RENDERED register string carries zero numeric literal. `{a.line}`
   // is a property access the honesty lint never flags, so this scan (same detector) is where a digit in

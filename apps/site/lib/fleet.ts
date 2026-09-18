@@ -3,8 +3,8 @@
 // per-product UpcomingPanel read status FROM HERE; no status is hard-coded on those surfaces.
 //
 // Locked by the root test `fleet_register_built_set_is_frozen` (test/ci-gates.test.ts): the built
-// set is EXACTLY {Shōgen, Hikae, Ukemi}; the eight other agents and all five products are upcoming.
-// Flipping any of those thirteen to "built" reds that test (named mutant).
+// set is EXACTLY {Shōgen, Hikae, Ukemi, Narabi}; the seven other agents and all five products are upcoming.
+// Flipping any of those twelve to "built" reds that test (named mutant).
 //
 // PORTABILITY: this module is compiled by TWO programs with different module resolution — the Next
 // app (moduleResolution "bundler") and the root test program (moduleResolution "nodenext", which
@@ -14,7 +14,7 @@
 // vocabulary — proven identical by the root test (bidirectional assignability) and enforced at every
 // <StatusBadge status={...} /> call site by `next build` (a stray "live" reds there too).
 //
-// SOURCING of the eight upcoming lines: recorded privately.
+// SOURCING of the seven upcoming lines: recorded privately.
 // Pure data — NO React/Next import — so the root test can import it under node:test.
 
 /** The frozen public status vocabulary (identical to lib/status.ts AgentStatus). No "live" exists. */
@@ -60,9 +60,12 @@ export interface FleetProduct {
   status: FleetStatus;
 }
 
-// The eleven fleet agents. The three built ones are the same agents rendered by their Home panels
-// (that stays their source of truth); listed here so the register is complete and testable, and so
-// /roadmap can point back to them. The eight upcoming lines are recorded internally.
+// The eleven fleet agents. Three engines (Shōgen, Hikae, Ukemi) are rendered by their bespoke Home
+// panels (that stays their source of truth). Narabi is built as the redemption sensor (ADR-M012 M012-e:
+// its AttestedFlow contract, the velocity adapter and a committed calibration ship and are served, and an
+// off-tool sentinel steps the tracker daily) — rendered from the register, not a bespoke panel. Listed
+// here so the register is complete and testable, and so /roadmap and /fleet can render them. The seven
+// upcoming lines are recorded internally.
 export const FLEET_AGENTS: FleetAgent[] = [
   { name: "Shōgen", role: "sensor", line: "Attested perception — a verified price testimony.", status: "built" },
   { name: "Hikae", role: "gate", line: "Coverage-controlled inference — the gate itself.", status: "built" },
@@ -76,8 +79,11 @@ export const FLEET_AGENTS: FleetAgent[] = [
   {
     name: "Narabi",
     role: "sensor",
-    line: "Narabi watches for the signals that a redemption run has begun, such as a burn spike, a lengthening redeem queue, or a witness going silent.",
-    status: "upcoming",
+    // ADR-M012 M012-e: Narabi is built — AttestedFlow ships, the velocity adapter and a committed
+    // calibration are served, and an off-tool sentinel steps the tracker daily. Line kept digit-free
+    // (numeric-hole scan) and generic (population and numbers live in the README / skill, not the teaser).
+    line: "Narabi senses redemption-run velocity from the attested onchain flow; its adaptive quantile tracker publishes a replayable daily timeline.",
+    status: "built",
   },
   {
     name: "Kaihi",
@@ -123,7 +129,7 @@ const GATE = "Hikae and the MONARK budget";
 
 // The five products (fingers): each is a wiring of fleet agents, distinct from the engine agent, and
 // NONE is built today (ADR-M004 D14 invariant). Ordered as the home segment cards. A product opens its
-// placeholder from its segment card; products do NOT appear on /roadmap (the "three built, eight on the
+// placeholder from its segment card; products do NOT appear on /roadmap (the "four built, seven on the
 // roadmap" count stays true).
 export const PRODUCTS: FleetProduct[] = [
   {

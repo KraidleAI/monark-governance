@@ -8,6 +8,15 @@ Transport is Streamable HTTP. The endpoint is public and unauthenticated, with n
 commitment; treat it as a reference implementation of the coverage-gate contract, not a hosted service
 with an uptime promise.
 
+## The redemption-velocity class
+
+Besides the two built-in plumbing fixtures, this endpoint serves `stable-run-velocity-24h`: a committed
+split-conformal calibration for one population (USDe), measured on calm onchain redemption-flow windows.
+Every other population abstains (`under_calib`). Alongside it, an off-tool **daily** sentinel steps an
+adaptive quantile tracker on the attested 24h flow and publishes a replayable timeline (`state.json`,
+`timeline.jsonl`) at `monarkgate.tech/narabi/`; the committed gate region is static and does not change
+until a pre-registered drift criterion fires and an ADR says so.
+
 ## One-line install
 
 ### Hermes / claw-agent

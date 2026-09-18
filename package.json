@@ -2,7 +2,7 @@
   "name": "monark",
   "private": true,
   "version": "0.0.0",
-  "description": "MONARK — a company of agent-products for DeFi and inference on one backbone: a coverage-controlled gate (Hikae) emitting commit/defer/abstain and a depletable authorization budget B_t, never a probability. This repo = the tokenisation layer + frozen interface contracts. Phase 2 (integration); fleet: 3 agents built, 8 on the roadmap.",
+  "description": "MONARK — a company of agent-products for DeFi and inference on one backbone: a coverage-controlled gate (Hikae) emitting commit/defer/abstain and a depletable authorization budget B_t, never a probability. This repo = the tokenisation layer + frozen interface contracts. Phase 2 (integration); fleet: 4 agents built, 7 on the roadmap.",
   "type": "module",
   "workspaces": [
     "packages/*",

@@ -192,3 +192,6 @@ déclaré, hors score).
 - **Actions SORTANTES (go per-action, jamais inférées de « on finalise tout »)** : 1. push `b8937b1` + lot M012 (PR → checks
   → FF) ; 2. redéploiement harnais VPS ; 3. déploiement sentinelle + **édition du bloc vitrine Caddy** (`handle_path /narabi/*`, C-1) ; 4. textes publics « adaptive »
   (README, site, skill ClawHub, description registre) ; 5. annonce (avec T et la date J0).
+- **Amendement 2026-09-18 (checkpoint-2 M012-e C-3) — bascule du registre `apps/site/lib/fleet.ts` : Narabi `upcoming → built`** (4 built / 7 roadmap ;
+  invariant `fleet_register_built_set_is_frozen` ré-épinglé, garde (0) sur `package.json.description`). Motif : le vocabulaire est binaire et « upcoming » est faux
+  dès que la sentinelle tourne (go 3, J0 = 2026-09-17). Décision orchestrateur, **ratifiée par le go 4 de l'investisseur** (push des textes).

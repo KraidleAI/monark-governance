@@ -51,8 +51,8 @@ const LAYERS: {
         of them.
       </>
     ),
-    detail: <>Shōgen, Hikae, Ukemi built &middot; eight named</>,
-    maturity: <>Three built, eight on the roadmap</>,
+    detail: <>Shōgen, Hikae, Ukemi, Narabi built &middot; seven named</>,
+    maturity: <>Four built, seven on the roadmap</>,
     maturityTone: "border-hikae-t text-hikae-t",
   },
   {
@@ -102,10 +102,11 @@ const PHASES: { id: string; label: ReactNode; body: ReactNode; tone: string }[] 
 ];
 
 // The /roadmap route (server component). Top: the design "Roadmap" section (four layers + three phase
-// cards). Below (kept from F-2c, register-consuming): the three built agents (renvoi to their home
-// panels) and the eight upcoming agents as teasers. F-site-6 relocates the built/upcoming agent lists to
-// /fleet; they are kept here until then so the eight upcoming agents keep a rendered home (their only
-// surface today — the home page renders the three built panels and the five products, not these eight).
+// cards). Below (kept from F-2c, register-consuming): the four built agents (the three engines renvoi to
+// their home panels; Narabi, ADR-M012 M012-e, has no bespoke panel and renvois to /fleet) and the seven
+// upcoming agents as teasers. F-site-6 relocates the built/upcoming agent lists to /fleet; they are kept
+// here until then so the seven upcoming agents keep a rendered home (the home page renders the three
+// engine panels and the five products, not these seven).
 export default function RoadmapPage() {
   const built = FLEET_AGENTS.filter((a) => a.status === "built");
   const upcoming = FLEET_AGENTS.filter((a) => a.status === "upcoming");
@@ -166,28 +167,33 @@ export default function RoadmapPage() {
       <section className="mt-16">
         <h2 className="font-heading text-2xl font-medium tracking-tight text-foreground">Built</h2>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          Built end to end and closed under independent review. Each one keeps its full panel on the{" "}
+          The three engines are built end to end and closed under independent review, each with a full
+          panel on the{" "}
           <Link href="/#fleet" className="underline underline-offset-4 hover:text-foreground">
             home page
           </Link>
-          .
+          . Narabi, the redemption sensor, is built and runs daily; it publishes a replayable timeline
+          rather than a panel.
         </p>
         <ul className="mt-6 grid gap-4 sm:grid-cols-3">
-          {built.map((a) => (
-            <li key={a.name} className="flex flex-col gap-2 rounded-xl border bg-card p-5">
-              <div className="flex items-center gap-2">
-                <h3 className="font-heading text-lg font-medium text-card-foreground">{a.name}</h3>
-                <StatusBadge status={a.status} className="ml-auto" />
-              </div>
-              <p className="text-sm text-muted-foreground">{a.line}</p>
-              <Link
-                href="/#fleet"
-                className="mt-auto pt-1 text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
-              >
-                Open its panel on the home page
-              </Link>
-            </li>
-          ))}
+          {built.map((a) => {
+            const hasPanel = a.name === "Shōgen" || a.name === "Hikae" || a.name === "Ukemi";
+            return (
+              <li key={a.name} className="flex flex-col gap-2 rounded-xl border bg-card p-5">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-heading text-lg font-medium text-card-foreground">{a.name}</h3>
+                  <StatusBadge status={a.status} className="ml-auto" />
+                </div>
+                <p className="text-sm text-muted-foreground">{a.line}</p>
+                <Link
+                  href={hasPanel ? "/#fleet" : "/fleet"}
+                  className="mt-auto pt-1 text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                >
+                  {hasPanel ? "Open its panel on the home page" : "See it on the fleet page"}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </section>
 
