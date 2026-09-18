@@ -3,7 +3,7 @@
 - **Statut** : **proposé** (G0) — **checkpoint-1 validateur `claude-fable-5-1` 2026-09-17 : ACCEPTE-AVEC-CORRECTIONS C-1..C-14
   (foldées) + escalade investisseur TRANCHÉE le 2026-09-17 : ε = 0,1 ; option B « plus tard » ; AM-2 bis entériné**. Antériorité du pré-enregistrement D6 = date de cet avis
   (le PLAN était non suivi ; M012-a le fige a posteriori, même déclaration que F2-B — C-14). Aucune action sortante sans go.
-- **Dates** : décision 2026-09-17 · approbation — (checkpoint-2 dû) · dernière modification 2026-09-17
+- **Dates** : décision 2026-09-17 · approbation checkpoint-2 M012-e rendu (amendement 2026-09-18) · dernière modification 2026-09-18
 - **Propriétaire de la décision** : investisseur (décision verbatim 2026-09-17 : « on fait i et ii, on finalise tout, la
   condition iii arrivera quand elle arrivera, on garde adaptatif. et on annonce narabi adaptatif ») ; rédaction et
   exécution : orchestrateur `claude-fable-5-1`.
@@ -195,3 +195,10 @@ déclaré, hors score).
 - **Amendement 2026-09-18 (checkpoint-2 M012-e C-3) — bascule du registre `apps/site/lib/fleet.ts` : Narabi `upcoming → built`** (4 built / 7 roadmap ;
   invariant `fleet_register_built_set_is_frozen` ré-épinglé, garde (0) sur `package.json.description`). Motif : le vocabulaire est binaire et « upcoming » est faux
   dès que la sentinelle tourne (go 3, J0 = 2026-09-17). Décision orchestrateur, **ratifiée par le go 4 de l'investisseur** (push des textes).
+- **Amendement 2026-09-18 (go investisseur) — items (m), (n), (o) CLOS** : (m) `quorumTwo` exige deux **fournisseurs** distincts
+  (`providerOf(url)` = domaine enregistrable ; un alias d'un fournisseur déjà compté est sauté ; le pool garde ses 8 URL pour la
+  disponibilité) + test `sentinel_quorum_needs_two_providers` ; (n) `rr` figé à l'entrée (`const start = rr`) ; (o) directive `log` du bloc
+  vitrine Caddy (fichier JSON `/var/log/caddy/monarkgate-access.log`, rotation 5 × 10 MiB / 30 jours, aucune IP conservée au-delà,
+  snippet committé `deploy/Caddyfile.monark-narabi.snippet`). Déployé : `rpc.ts` sur `/opt/monark-harness` (sha `6ebbf318…`, import
+  vérifié), Caddyfile sauvegardé puis rechargé 09:33 UTC (premier reload refusé : fichier de log créé root par `caddy validate` ;
+  corrigé par `chown caddy` ; la configuration précédente est restée servie, 200 sans interruption). Restent formés : (g), (h→l), (i).
