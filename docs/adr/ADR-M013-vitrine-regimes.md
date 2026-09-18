@@ -1,0 +1,35 @@
+# ADR-M013 — Régimes de changement de la vitrine (`apps/site`) après la refonte : T0 / T1 / T2
+
+- **Statut** : accepté (investisseur, 2026-09-18 — « je valide, et à chaque fois, je vérifierai moi-même personnellement à la fin, s'il y a des choses à
+  retirer ou à changer »). Prend effet à la livraison du lot F-site-9a-ii (diagramme vivant), qui reste en T2.
+- **Contexte** : chaque modification de la vitrine a jusqu'ici suivi AgileGates complet (plan, checkpoint-1, worker, G2 par agent, checkpoint-2, G7, journal
+  long). Le coût est la cérémonie, pas les gates : l'oracle mécanique (`npm run ci` — honesty-lint, `gate:vocab`, `lang:gate`, champs gelés, registres,
+  tests site ; `lint`, `lint:ratchet`, `export:check`) tient les invariants d'honnêteté en moins d'une minute. Question investisseur : « une fois qu'on a
+  bien redesigné le site, on ne devrait pas refaire du AgileGates pour la vitrine à chaque fois ; juste des mises à jour, sauf un AgileGates léger pour
+  les sous-pages comme celle de Narabi ».
+- **Contrainte tenue** : R-22 (aucun gate suspendu). Cet ADR ne suspend rien ; il **dimensionne la cérémonie au diff**. G0 = cet ADR (rattachement par
+  régime) ; G1 = ligne de journal ; G2 = relecture fraîche ≠ générateur, toujours ; G3/G4/G6 = oracle CI complet, toujours ; G5 = zéro dette, toujours ;
+  G7 = verdict orchestrateur, toujours. Ce qui varie : plan, checkpoints validateur, longueur du journal.
+
+## Décision
+
+| Régime | Périmètre | Cérémonie | Acceptation |
+|---|---|---|---|
+| **T0 · mise à jour** | texte/copie, tokens de style, image ou icône **déjà sous licence consignée**, chiffre **déjà sourcé** ailleurs dans le dépôt, réordonnancement sans nouveau composant | orchestrateur édite ; oracle CI complet vert ; **G2 fraîche sur le diff** (instance séparée, checklist courte : honnêteté, vocab, langue, marques, chiffres) ; commit ; PR (R-25) ; déploiement sur go ; **une ligne** de journal | revue personnelle de l'investisseur après déploiement (retirer/changer) |
+| **T1 · léger** | sous-page ou composant **sur registres et patrons existants** (ex. page Narabi live lisant `state.json`/`timeline.jsonl` publiés), sans registre ni contrat touché | **mini-plan** (≤ 10 lignes : but, fichiers, tests nommés, risque MAST principal) ; worker Opus 4.8 ; G2 fraîche ; oracle ; G7 ; journal court | idem + G7 |
+| **T2 · complet** | tout ce qui touche un **registre** (`fleet.ts`, `profiles.ts`, présentation), un **contrat gelé** ou ses libellés, une **phrase publique nouvelle sur le moteur** (claims, garanties, méthode), un **chiffre nouveau**, une **dépendance** (R-8), la **liste d'export** public, une **marque tierce nouvelle**, un **nouveau service** ou une route serveur | AgileGates complet (plan → checkpoint-1 → worker → G2 → checkpoint-2 → G7 → commit) | validateur-humain + investisseur |
+
+- **Bascule automatique** (fail-closed) : un changement engagé en T0/T1 qui (a) fait rougir un test existant, (b) modifie un fichier de registre ou de
+  contrat, (c) introduit un nom de marque ou un chiffre absent du dépôt, ou (d) ajoute une dépendance, **monte en T2** avant toute suite. L'orchestrateur
+  déclare le régime **dans le message de commit** (`site[T0]`, `site[T1]`, `site[T2]`) et dans la ligne de journal ; le G2 vérifie que le régime déclaré est
+  le bon (première ligne de sa checklist).
+- **Revue personnelle de l'investisseur** : siège d'acceptation final de la vitrine pour T0/T1, exercé après déploiement ; ses retraits/changements sont
+  exécutés en T0 sans nouvelle cérémonie et consignés (une ligne). Elle ne remplace pas les checkpoints du validateur en T2.
+- **Déploiement** : reste une action sortante sous go par action (ADR-M010) ; T0 peut grouper plusieurs mises à jour en un seul déploiement.
+
+## Conséquences
+- Le lot F-site-9a-ii (diagramme), 9b (DA) et 9c (icônes providers) restent **T2** (registres, marques). La page Narabi live sera **T1**.
+- `docs/JOURNAL-PROVENANCE.md` accepte des entrées d'une ligne pour T0 (format : date, régime, fichiers, oracle, G2, go, revue investisseur).
+- Amendement du validateur-humain : ses checkpoints ne sont **pas** convoqués en T0/T1 (règle inscrite ici, pas dans son fichier — AM-2).
+- Alternatives rejetées : (i) supprimer G2 en T0 — rejeté, « générateur ≠ relecteur » est ce qui a attrapé « split-conformal » sur /fleet (M012-e C1) ;
+  (ii) tout garder en T2 — rejeté par l'investisseur (coût sans bénéfice sur du texte) ; (iii) régime au jugé sans critère écrit — rejeté (MAST FM-1.1).
