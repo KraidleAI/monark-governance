@@ -1,7 +1,7 @@
 {
   "url": "https://api.monarkgate.tech",
   "mcp_url": "https://mcp.monarkgate.tech",
-  "checked_at": "2026-09-11T12:33:11.185Z",
+  "checked_at": "2026-09-18T02:20:36.667Z",
   "checks": [
     {
       "name": "health",
@@ -14,7 +14,7 @@
       "name": "openapi",
       "ok": true,
       "status": 200,
-      "sha256": "72e5380975df7955600b2e3411b9cf05872f318fd7521e055ef36be80bd39baf",
+      "sha256": "74c58e4040725e305628dc189b2f65b6a15d8a25726dc705f65a12d4431ebf59",
       "detail": "paths=/gate,/cascade,/attest,/calibrate"
     },
     {
@@ -35,14 +35,14 @@
       "name": "mcp_tools_list",
       "ok": true,
       "status": 200,
-      "sha256": "eb493b02760651ac76017c9b20d8588b961d1b08c01764de88abed023aa15773",
+      "sha256": "3d3a89f88a7fa1f20ffc4cf9c3c8275dc9971e4b2fa07396031b49b26850655b",
       "detail": "tools=gate,cascade,attest,calibrate"
     },
     {
       "name": "gate_call",
       "ok": true,
       "status": 200,
-      "sha256": "ac0973d27498573839d56c511ac1244a7621807e7ceaa927b09ff8ca07aea9ad",
+      "sha256": "793e0df9ec43b214747eea703f3d183b7e09a5fdcf0631f0f391a0b8a35bb8a9",
       "detail": "action=commit"
     },
     {
@@ -63,14 +63,14 @@
       "name": "calibrate_call",
       "ok": true,
       "status": 200,
-      "sha256": "b8e72adedaeddca12a2ea510f809a076ec19e1c3cc1cb4a3b6489433a084eb46",
+      "sha256": "5a67ff502aaef51050048955cf7ca8e17011401235c6f7afaaf2b376f7a05e88",
       "detail": "qhat=1"
     },
     {
       "name": "gate_byo_call",
       "ok": true,
       "status": 200,
-      "sha256": "4fbf08e9509b04865abc972d700ff886bb581729c2b062c6c61e749008741140",
+      "sha256": "4641213ade70b3dbbf45c888db51398833252d1e2bbe71c701a22e21a4c6cb1e",
       "detail": "action=commit calib_digest=4081f7184e42b34e594015191f04720343b8b37691c7e4412c2469efdc43dd3a set_digest=4081f7184e42b34e594015191f04720343b8b37691c7e4412c2469efdc43dd3a"
     }
   ],
