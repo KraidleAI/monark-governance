@@ -12,7 +12,7 @@ export function StatusBadge({ status, className }: { status: AgentStatus; classN
       className={cn(
         "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
         status === "built"
-          ? "border-accent/50 bg-accent/15 text-foreground"
+          ? "border-ok bg-ok font-semibold text-paper"
           : "border-border bg-muted text-muted-foreground",
         className,
       )}

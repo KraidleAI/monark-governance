@@ -29,7 +29,7 @@ export function SiteFooter() {
         </div>
 
         <div className="flex flex-col gap-2 text-sm">
-          <div className="mb-1 font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
+          <div className="mb-1 font-mono text-[12px] uppercase tracking-[0.06em] text-muted-foreground">
             Company
           </div>
           {COMPANY.map((item) => (
@@ -40,7 +40,7 @@ export function SiteFooter() {
         </div>
 
         <div className="flex flex-col gap-2 text-sm">
-          <div className="mb-1 font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
+          <div className="mb-1 font-mono text-[12px] uppercase tracking-[0.06em] text-muted-foreground">
             Build
           </div>
           {BUILD.map((item) => (
@@ -51,7 +51,7 @@ export function SiteFooter() {
         </div>
 
         <div className="flex flex-col gap-2 text-sm">
-          <div className="mb-1 font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
+          <div className="mb-1 font-mono text-[12px] uppercase tracking-[0.06em] text-muted-foreground">
             Proof
           </div>
           <Link href="/console">
@@ -64,7 +64,7 @@ export function SiteFooter() {
         </div>
       </div>
 
-      <div className="mx-auto flex max-w-[1200px] flex-wrap justify-between gap-3 px-6 pb-7 font-mono text-[11px] text-muted-foreground">
+      <div className="mx-auto flex max-w-[1200px] flex-wrap justify-between gap-3 px-6 pb-7 font-mono text-[12px] text-muted-foreground">
         <span>MONARK — a company of agent-products for DeFi and inference.</span>
         <span>No confidence field, anywhere.</span>
       </div>
