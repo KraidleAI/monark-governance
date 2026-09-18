@@ -81,8 +81,9 @@ export const WHITELIST_FILES = [
 // ADR-M004 D7 bis R2(a): every fixed whitelist entry (dir or file) MUST exist under the export root or
 // the export/check FAILS CLOSED (exit 1). There is now NO tolerated absence: apps/site shipped in Lot
 // F-1, so its D7 carve-out is retired and the set is EMPTY (the mechanism is kept so a future carve-out
-// can be reinstated by adding its path here). LICENSE is NOT tolerated either — while the license
-// choice (D7 bis Q4) is open, LICENSE is absent and the real export deliberately fails.
+// can be reinstated by adding its path here). LICENSE is NOT tolerated-absent either: the license choice
+// (D7 bis Q4) is resolved — LICENSE now exists (Apache-2.0, repo root) and is a REQUIRED fixed
+// WHITELIST_FILES entry, so its ABSENCE (not its presence) would fail-close the export.
 // PACKAGE_SUBPATHS stay optional per package (a package may legitimately lack a test/ dir).
 export const TOLERATED_ABSENT = new Set();
 

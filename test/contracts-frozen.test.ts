@@ -53,7 +53,7 @@ function currentManifest(): Record<string, string> {
   return m;
 }
 
-test("contracts_frozen — schemas/ and packages/contracts/src/ identical to the Phase 0 manifest (357ef25)", () => {
+test("contracts_frozen — schemas/ and packages/contracts/src/ match the current frozen manifest (357ef25 baseline, re-pinned by ADR-M001 D9-bis + ADR-M008 D9; not pure Phase 0)", () => {
   const now = currentManifest();
   const frozenKeys = Object.keys(FROZEN_MANIFEST).sort();
   const nowKeys = Object.keys(now).sort();

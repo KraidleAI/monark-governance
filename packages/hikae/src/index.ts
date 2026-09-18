@@ -92,6 +92,6 @@ export type { ReportInput } from "./s2/report.ts";
 export { runS2, S2_DEFAULT } from "./s2/run.ts";
 export type { S2Params, S2Output } from "./s2/run.ts";
 
-// Quantile tracker (ADR-M009) — no consumer, no guarantee claimed.
+// Quantile tracker (ADR-M009) — consumed out-of-tool by the sentinel (apps/sentinel/src/timeline.ts); no guarantee claimed here.
 export { trackerInit, trackerStepSize, trackerStep, clipScore, trackerReplay, trackerDigest } from "./tracker.ts";
 export type { TrackerParams, TrackerState } from "./tracker.ts";
