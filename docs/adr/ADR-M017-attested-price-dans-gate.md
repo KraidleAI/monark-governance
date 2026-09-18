@@ -26,16 +26,19 @@ schéma gelé `attested-price.schema.json`, à l'octet (même mécanisme que `pr
 **D2 — Sémantique servie (réécrite au checkpoint-1, C-1..C-5).** Quand `attested` est présent :
 (i) **Cohérence déclarée sujet ↔ classe** (jamais « vérification ») : `attested.subject` est la chaîne de l'URL attestée (`^[ -~]+$`, ex.
 `https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT`, `fixtures/h5-e2e-trace.json:292`) ; règle = **égalité exacte** `attested.subject ∈
-URLS(prediction.task_class)` dans une table statique committée `apps/harness/src/attestation-binding.ts` (une liste d'URL par classe servie ;
-`btc-dir-15m` → l'URL Binance de la fixture). **Aucune liaison temporelle en P1** (« no temporal binding in P1 », déclaré dans la description ;
+URLS(prediction.task_class)` dans une table statique committée `apps/harness/src/attestation-binding.ts`, **totale sur les trois classes
+servies** (C'-2) : `btc-dir-15m` → `[<URL Binance de la fixture h5>]` ; `stable-run-velocity-24h` → `[]` (Narabi atteste des flux, pas des prix ;
+toute `attested` ⇒ 400, déclaré) ; `cascade-liquidable-24h` → `[]` (classe fixture, toute `attested` ⇒ 400, déclaré). **Aucune liaison temporelle en P1** (« no temporal binding in P1 », déclaré dans la description ;
 `observed_at` n'est pas comparé). Vocabulaire : « declared consistency between the attestation subject and the task class », jamais « verified ».
 **Périmètre P1 = classes committées seules** (`btc-dir-15m`, `stable-run-velocity-24h` ; `cascade-liquidable-24h` est une classe fixture sans
 URL de sujet ⇒ toute `attested` sur elle est incohérente par construction, déclaré) ; **BYO + `attested` = item formé** (hors P1 ; un appel BYO
 avec `attested` est refusé au même titre, jamais accepté en silence).
 (ii) **Émission de l'incohérence — voie (b), erreur d'outil fail-closed** : sujet absent de la table ou discordant ⇒ **erreur d'outil 400**
 (précédent K-4a et garde anti-override `gate.ts:526`), message nommant le sujet et la classe ; **zéro octet dans `packages/hikae`** ; le prédicat
-fermé L3 (`l3-gate.ts:80-109`) est inchangé, et le littéral gelé `binding_broken` reste **inutilisé sur ce chemin** (déclaré : il est réservé au
-verdict de l'adaptateur Narabi). Ordre des gardes : `validateHarnessParams` → anti-override BYO → cohérence sujet ↔ classe → dispatch.
+fermé L3 (`l3-gate.ts:80-109`) est inchangé, et le littéral gelé `binding_broken` reste **inutilisé sur ce chemin** (déclaré : il est émis par les
+adaptateurs Shōgen (`adapter-shogen.ts:147-255`) et Narabi, jamais par le gate servi). Ordre des gardes : `validateHarnessParams` → anti-override BYO → cohérence sujet ↔ classe → dispatch. **Cas BYO + `attested`** (C'-8) : une classe
+libre n'a pas d'entrée dans la table ⇒ tombe dans « sujet absent de la table » ⇒ 400 nommé « attested is not accepted for BYO classes in P1 » ;
+cas explicite du test (2) avec mutant nommé (« table renvoie `[]` par défaut au lieu de refuser » ⇒ rouge).
 (iii) **Traçabilité** : `attested` est une clé d'enveloppe (D1) ; **seul `attested.residual` est filé** dans `CoverageVerdict.residual` ; `params`
 n'y est pour rien ; `residual` n'est pas un porteur d'honnêteté (M-2, `gate.ts:316`).
 (iv) **Non-vérification à l'appel, déclarée** dans la description de l'outil (phrase C-8) : « the attestation is carried by the caller and is not
@@ -44,10 +47,13 @@ offline with the Shōgen verifier ». `attest` n'a aucun input et ne peut ni rec
 (v) **Composition servie et retrait de `crossAgentGate` (C-5)** : la région est celle du dispatch par `task_class` sur les scores committés
 (`gate.ts:284-329, 433-453`) ; `crossAgentGate` (`packages/monark/src/index.ts:69-114`) COMMIT sur `cascade-liquidable-24h` avec des paires
 seedées là où le chemin servi abstient `under_calib` et où la garde A6 interdit une calibration apportée sur une classe committée — deux vérités
-pour une classe, contraire à M002 D3 et M008 D7/A6 ⇒ **retrait** : amendement ADR-M003 D4 (« réel » → « servi par l'enveloppe `gate` »), test 30
-remplacé par un test harnais (fixture Binance via `attest` + `attested` + calibration BYO sur les mêmes paires seedées, couture
-`attested.residual → verdict.residual` assertée sur le chemin servi), retrait des types `GateContext`/`CalibrationState`/`BudgetState`/`GateRequest`
-et de la dépendance `@monark/ukemi` de `packages/monark/package.json` (que P0-a n'avait justifiée que par ce test).
+pour une classe, contraire à M002 D3 et M008 D7/A6 ⇒ **retrait** : amendement ADR-M003 D4 (« réel » → « servi par l'enveloppe `gate` ») ;
+**le remplacement du test 30 est le test (3) de D4** (`btc-dir-15m` + URL Binance, chemin servi, couture `attested.residual → verdict.residual`)
+— C'-1 : aucun test ne compose « `attested` + calibration BYO sur `cascade-liquidable-24h` », ce montage est refusé trois fois par cet ADR
+(BYO + `attested`, garde A6 `gate.ts:526`, classe sans URL) ; P1-b3 = suppression pure (test 29 de l'adaptateur conservé), retrait des types
+`GateContext`/`CalibrationState`/`BudgetState`/`GateRequest` et de la dépendance `@monark/ukemi` de `packages/monark/package.json`. **Après P1,
+aucun chemin ne compose Shōgen + Ukemi + Hikae en un appel** : la jambe Ukemi avec attestation = item formé (BYO + `attested`, ou calibration
+cascade servie). Ordre imposé : **b3 n'atterrit jamais avant b2**.
 Quand `attested` est absent : comportement byte-identique (oracle de diff ciblé, D4).
 
 **D3 — Honnêteté.** `attest` reste une fixture (label K-1) tant qu'aucun témoin vivant n'existe ; aucune revendication statistique nouvelle ; la
@@ -70,8 +76,11 @@ ne touche que `steps[1].result.response_sha256` (tools/list : schéma + descript
 
 **D5 — Invariants.** Set d'outils inchangé ; diff `schemas/` `packages/contracts/` = 0 octet ; aucun réseau, aucun état ; phrase D8 Narabi intacte ;
 `lint-ratchet` non croissant. **R-25 par package (C-11)** : **P1-a** = cet ADR + amendements ADR-M005 D5/D8 et ADR-M003 D4 (posés dans le même
-commit, C-9) ; **P1-b1** (`apps/harness`) enveloppe + projection + `attestation-binding.ts` + tests (1)(2)(6), ≈ 300–400 l. (analogie F1b) ;
-**P1-b2** (`apps/harness`) traçabilité + description + M012 (i) + re-pin h5 + tests (3)(4)(5), ≈ 200–300 l. ; **P1-b3** (`packages/monark`) retrait
+commit, C-9) ; **P1-b1** (`apps/harness`) enveloppe + projection + `attestation-binding.ts` + **phrase (iv) dans la description** + **re-pin h5 +
+`PROVENANCE-h5-e2e-trace.md`** + tests (1)(2)(4)(6), ≈ 350–450 l. (analogie F1b) — C'-3 : tout lot qui change les octets de `tools/list` porte son
+propre re-pin, sinon `probe_harness_records_real_decision` (`test/h5-e2e-probe.test.ts:85`) rougit par construction ; l'état intermédiaire
+« schéma acceptant `attested` sans le déclarer » n'existe donc jamais (M005 D12 déploie entre lots) ;
+**P1-b2** (`apps/harness`) filage `residual` + M012 (i) + re-pin h5 + tests (3)(5), ≈ 200–300 l. ; **P1-b3** (`packages/monark`) retrait
 de `crossAgentGate`, des types associés, de `@monark/ukemi`, test de remplacement, ≈ 150–250 l. en suppression ; chacun < 1205, revoyable séparément.
 
 **D6 — Topologie et modes MAST (C-10).** Un worker `claude-opus-4-8` par lot + G2 instance fraîche + validateur (checkpoints par SHA, K-C) ; fan-out
@@ -92,7 +101,11 @@ n'est émis sur une incohérence).
 ## Conséquences
 - Le triangle attest → gate → act devient servi et testé ; `attest` cesse d'être terminal.
 - Items formés : (a) témoin vivant (Shōgen live / Mokugeki) — hors P1, gaté par la règle « gap + calibrable » ; (b) table de liaison à étendre
-  à chaque nouvelle classe servie (une ligne par ADR de classe) ; (c) `crossAgentGate` : sort du paquet ou partage le noyau (G2).
+  à chaque nouvelle classe servie (une ligne par ADR de classe) ; (c) jambe Ukemi avec attestation (BYO + `attested`, ou calibration cascade servie).
+- **Texte public (C'-7)** : `README.md:188` décrit `packages/monark` comme « cross-agent gate — freezes the wiring signature » : **faux après P1-b3**
+  ⇒ P1-b3 corrige cette ligne dans le même lot (export public) ; `README.md:102` « The first vertical, built end to end: Shōgen → Hikae → Ukemi »
+  (porté par le test 30) est réexaminé au G2 de b3 et reformulé si nécessaire (« built and served piece by piece; composed on the gate path »).
+  Aucun autre texte public ne change en P1.
 - Procurement : aucun (tout est interne). Items formés : BYO + `attested` ; liaison temporelle (`observed_at`) ; skill/DEMO ; témoin vivant.
 
 ## Sources

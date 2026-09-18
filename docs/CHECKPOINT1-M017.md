@@ -23,3 +23,11 @@
 C-1 → voie (b) (erreur d'outil 400, zéro octet hikae, `binding_broken` déclaré inutilisé sur ce chemin) ; C-3 → P1 = classes committées seules,
 BYO + `attested` = item formé, `cascade-liquidable-24h` incohérente par construction ; C-5 → retrait de `crossAgentGate` (P1-b3) ; C-9 → amendements
 M005/M003 posés dans le même commit ; C-11 → P1-b1 / b2 / b3 par package.
+
+## Re-checkpoint sur `ca0088f` — ACCEPTE-AVEC-CORRECTIONS C'-1..C'-8 ; « prêt pour P1-b1 : NON tel quel »
+C-1..C-11 : pliées (C-4/C-5/C-6/C-7 partiellement). Attrapé : le « test de remplacement » du test 30 était refusé trois fois par l'ADR lui-même
+(BYO + attested, garde A6, classe sans URL) ⇒ le remplacement est le test (3) sur `btc-dir-15m`, b3 = suppression pure, aucun chemin ne compose
+Shōgen + Ukemi + Hikae après P1 (item formé) ; table de liaison non totale ⇒ trois classes explicites (`stable-run` → `[]`, `cascade` → `[]`) ;
+b1 rougirait `probe_harness_records_real_decision` par construction ⇒ re-pin h5 + phrase (iv) dans b1 ; `README.md:188` faux après b3 ⇒ corrigé
+dans b3, l.102 réexaminée ; trois phrases inexactes (`binding_broken` Narabi-seul → Shōgen et Narabi ; Conséquences (c) reliquat ; M005 D3 non
+supersédée) ; cas BYO + attested nommé dans l'ordre des gardes avec mutant. Toutes pliées dans le commit suivant ; confirmation K-C légère demandée.

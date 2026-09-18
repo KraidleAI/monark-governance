@@ -175,5 +175,7 @@ Chaque test est tué par ≥ 1 mutant nommé en revue G2 (discipline Phase 1 rec
 Le chemin composé attest → gate n'est plus `packages/monark/src/index.ts:crossAgentGate` (appelé seulement par son test, calibration par paires
 seedées, COMMIT sur `cascade-liquidable-24h` là où le chemin servi abstient `under_calib` — deux vérités pour une classe, contraire à M002 D3 et M008
 D7/A6) mais la clé d'enveloppe `attested` du `gate` servi (ADR-M017 D2). `crossAgentGate`, ses types (`GateContext`, `CalibrationState`, `BudgetState`,
-`GateRequest`) et le test 30 sont retirés en P1-b3 ; test de remplacement sur le chemin servi (fixture Binance via `attest` + `attested` + calibration
-BYO sur les mêmes paires seedées, couture `attested.residual → verdict.residual`). `@monark/ukemi` sort de `packages/monark/package.json`.
+`GateRequest`) et le test 30 sont retirés en P1-b3 (suppression pure, test 29 de l'adaptateur conservé) ; le remplacement du test 30 est le test
+harnais `gate_attested_concordant_files_residual` sur le chemin servi (`btc-dir-15m` + URL Binance, couture `attested.residual → verdict.residual`,
+ADR-M017 D4(3)). `@monark/ukemi` sort de `packages/monark/package.json`. Après P1, aucun chemin ne compose Shōgen + Ukemi + Hikae en un appel
+(item formé ADR-M017).

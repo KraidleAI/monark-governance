@@ -204,3 +204,5 @@ arrêter l'auto-déploiement vitrine (rejeté Q-B) ; docker-compose/GHCR (report
 `attested` est le contrat gelé `AttestedPrice` projeté à l'octet (même mécanisme que `prediction`) ; l'enveloppe reste hors `schemas/` (D8) ;
 aucun 5ᵉ outil (D1, K-8 intact) ; l'attestation apportée n'est pas re-vérifiée à l'appel (K-8 interdit le vérifieur), déclaré dans la description.
 Test de dérive dédié `gate_attested_is_frozen_attested_price`. Détail : ADR-M017 D1–D6.
+Supersession déclarée (C'-6) : la puce D3 de cet ADR « `crossAgentGate` réel (M003 D4) … test 30 » est **supersédée** par ADR-M003 D4 amendé
+et ADR-M017 D2(v) : `crossAgentGate` est retiré en P1-b3, le chemin composé est l'enveloppe `attested` du `gate` servi.
