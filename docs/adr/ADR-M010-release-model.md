@@ -62,6 +62,17 @@ reste la seule garde (aucun secret, l'IP du VPS est opérationnelle et déjà pu
 `error_origin` = **orchestrateur** (visibilité jamais vérifiée par l'API avant le 2026-09-18 ; `gh repo view --json visibility` devient
 un contrôle du runbook de release).
 
+**Rectification 2026-09-18 (investisseur, verbatim : « pour le repo gouvernance, c'est moi qui le met publique avant que tu push, ensuite je le
+remets toujours privé. juste pour info »)** : le dépôt de gouvernance est **PRIVÉ par défaut** ; l'investisseur le bascule en public **le temps
+d'un push** (la protection de branche et les checks CodeQL du plan exigent le public), puis le re-privatise. La lecture « public depuis sa
+création » ci-dessus était une **mesure prise pendant une fenêtre publique**, pas l'état permanent ; le ruling « le laisser public et continuer »
+répondait à une question mal posée et n'oblige à rien. Modèle assumé : **gouvernance privée à fenêtres publiques de push** + miroir export
+public. Règles : (1) l'orchestrateur **vérifie la visibilité avant chaque push** (`gh repo view --json visibility`) et **ne bascule jamais la
+visibilité lui-même** ; (2) un push sur dépôt privé est possible (le 403 « Please ask the owner to check their account » du premier push le
+2026-09-18 est vraisemblablement tombé sur la fenêtre de bascule) mais la protection/checks peuvent manquer — l'orchestrateur attend la fenêtre
+publique et le signale ; (3) `no_secret_in_repo` reste la garde. `error_origin` = orchestrateur (question posée sans connaître le protocole de
+l'investisseur).
+
 ## 3. Branch topology (B-1)
 Lot-4 lands on **`lot-m010`, branched from `main` (3b9805a)** — **not** `lot-m008-f1`. Rationale: the
 branch guard (§4) requires a clean `main`; the release tooling must therefore live **on `main`** (via a
