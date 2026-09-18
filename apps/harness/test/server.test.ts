@@ -6,8 +6,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { request as httpRequest } from "node:http";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { assertClosedPrediction } from "@monark/contracts";
 import { HOST, PORT, originGuard, startServer, MAX_REQUEST_BODY_BYTES } from "../src/server.ts";
+import { HARNESS_VERSION } from "../src/version.ts";
+import { buildOpenApi } from "../src/openapi.ts";
 
 /**
  * Minimal wired POST over node:http (self-contained — no import outside the harness workspace, so the
@@ -176,5 +180,56 @@ test("harness_binds_localhost_only", async () => {
     await new Promise<void>((resolve) => {
       server.close(() => { resolve(); });
     });
+  }
+});
+
+// Test — M012-f: the MCP serverInfo.version (and the OpenAPI info.version) advertise the SINGLE-SOURCE
+// HARNESS_VERSION, never a hardcoded "1.0.0". The live `initialize` probe (2026-09-18) returned
+// serverInfo.version "1.0.0", contradicting the public tag v0.4.0 / MCP registry 0.4.0 and the
+// "1.0.0 is a human decision" doctrine (ADR-M010 section 2.3). Mutants:
+//   (a) server.ts `version: HARNESS_VERSION` -> `"1.0.0"` ⇒ the wired serverInfo assertion reds;
+//   (b) version.ts HARNESS_VERSION -> "1.0.0" ⇒ the equality passes (both "1.0.0") but the
+//       startsWith("1.") doctrinal guard reds — the guard's non-vacuity proof.
+test("serverInfo_version_is_single_source_and_never_one", async () => {
+  // Doctrinal guard: the advertised version is a 0.MINOR.PATCH release aligned on the git tag, never a
+  // 1.x — "1.0.0 is a human decision, never an agent's; the interface contracts do not thaw"
+  // (ADR-M010 section 2.3 / CONTRIBUTING Releases).
+  assert.ok(!HARNESS_VERSION.startsWith("1."), `HARNESS_VERSION must not be a 1.x — 1.0.0 is a human decision, never an agent's (ADR-M010 section 2.3); got "${HARNESS_VERSION}"`);
+  assert.match(HARNESS_VERSION, /^0\.\d+\.\d+$/, `HARNESS_VERSION must be a 0.MINOR.PATCH release aligned on the git tag (ADR-M010 section 2.4); got "${HARNESS_VERSION}"`);
+
+  // The OpenAPI info.version is DERIVED from the SAME single source (no second version literal).
+  const info = buildOpenApi()["info"];
+  assert.ok(info !== null && typeof info === "object" && !Array.isArray(info), "the OpenAPI document must carry an info object");
+  assert.equal(info["version"], HARNESS_VERSION, "the OpenAPI info.version must equal HARNESS_VERSION (single source)");
+
+  // ADR-M010 section 2.4: the advertised version is DELIBERATELY decoupled from package.json, which stays
+  // "0.0.0"/private (never npm-published; the version source of truth is the git tag). Read the HARNESS
+  // package.json only (this file imports nothing outside the harness workspace).
+  const pkg = JSON.parse(readFileSync(join(import.meta.dirname, "..", "package.json"), "utf8")) as { version: string; private: boolean };
+  assert.equal(pkg.version, "0.0.0", "apps/harness/package.json stays 0.0.0 by doctrine (ADR-M010 section 2.4 — version source of truth is the git tag)");
+  assert.equal(pkg.private, true, "apps/harness is private:true (never npm-published — ADR-M010 section 2.4)");
+  assert.notEqual(HARNESS_VERSION, pkg.version, "the advertised HARNESS_VERSION is decoupled from package.json.version (ADR-M010 section 2.4)");
+
+  // WIRED — reproduce the `initialize` probe that measured the defect (2026-09-18) on the `mcp.` surface:
+  // the live serverInfo.version must equal HARNESS_VERSION. Stateless: no prior session is needed.
+  const server = startServer(0);
+  try {
+    await once(server, "listening");
+    const addr = server.address();
+    assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
+    const initialize = JSON.stringify({
+      jsonrpc: "2.0", id: 1, method: "initialize",
+      params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "m012f-probe", version: "0" } },
+    });
+    const res = await wiredPost(addr.port, "mcp.monarkgate.tech", "/", initialize, "application/json, text/event-stream");
+    assert.equal(res.status, 200, "initialize must return 200 on the mcp. surface");
+    // The streamable-HTTP transport may answer as SSE (a `data: <json>` line) or plain JSON — read either.
+    const sse = /^data: (.*)$/m.exec(res.raw);
+    const payload = JSON.parse(sse?.[1] ?? res.raw) as { result?: { serverInfo?: { name?: string; version?: string } } };
+    const serverInfo = payload.result?.serverInfo;
+    assert.ok(serverInfo, "the initialize result must carry serverInfo");
+    assert.equal(serverInfo.version, HARNESS_VERSION, `serverInfo.version must equal HARNESS_VERSION (single source); got "${String(serverInfo.version)}"`);
+  } finally {
+    await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
   }
 });

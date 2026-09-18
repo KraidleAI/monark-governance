@@ -1,7 +1,7 @@
 {
   "url": "https://api.monarkgate.tech",
   "mcp_url": "https://mcp.monarkgate.tech",
-  "checked_at": "2026-09-18T02:20:36.667Z",
+  "checked_at": "2026-09-18T07:26:01.710Z",
   "checks": [
     {
       "name": "health",
@@ -14,7 +14,7 @@
       "name": "openapi",
       "ok": true,
       "status": 200,
-      "sha256": "74c58e4040725e305628dc189b2f65b6a15d8a25726dc705f65a12d4431ebf59",
+      "sha256": "e22f301299c3f7dbd598d47e279e64974923e68145a4a26bad0dd7c6af5f162b",
       "detail": "paths=/gate,/cascade,/attest,/calibrate"
     },
     {

@@ -25,8 +25,6 @@ export function SiteFooter() {
           </Link>
           <p className="max-w-[300px] text-sm leading-relaxed text-muted-foreground">
             It abstains, so it can act.
-            <br />
-            Every label on this site is Built or Upcoming.
           </p>
         </div>
 

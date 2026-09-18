@@ -29,6 +29,7 @@ import { createMcpHandler, McpServer, validateOriginHeader } from "@modelcontext
 import type { McpHttpHandler } from "@modelcontextprotocol/server";
 import { registerTools } from "./tools/registry.ts";
 import { handleJsonMirror } from "./http.ts";
+import { HARNESS_VERSION } from "./version.ts";
 
 /** Bind host — localhost ONLY (K-8/C-10). Never `0.0.0.0`. */
 export const HOST = "127.0.0.1";
@@ -88,7 +89,7 @@ export function originGuard(request: Request): Response | undefined {
 export function createHarnessHandler(): McpHttpHandler {
   return createMcpHandler(
     () => {
-      const server = new McpServer({ name: SERVER_NAME, version: "1.0.0" });
+      const server = new McpServer({ name: SERVER_NAME, version: HARNESS_VERSION });
       registerTools(server);
       return server;
     },
