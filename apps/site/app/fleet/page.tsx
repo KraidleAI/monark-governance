@@ -21,11 +21,13 @@ import { GenkanMark } from "@/components/marks/genkan-mark";
 export const metadata: Metadata = {
   title: "Fleet — MONARK",
   description:
-    "The MONARK fleet: three agents built end to end, and eight more named on the roadmap, on one shared gate.",
+    "The MONARK fleet: three agents built end to end, the Narabi redemption sensor now running, and seven more named on the roadmap, on one shared gate.",
 };
 
-// The eight roadmap agents' marks (F-site-2), keyed by their register name. None of the eight carries a
-// diacritic, so the INSIDE slug is a.name.toLowerCase() (Shōgen, the only diacritic name, is built, not here).
+// Marks for the register agents rendered here without a bespoke panel (F-site-2): the seven roadmap agents
+// and the built Narabi sensor (ADR-M012 M012-e, shown via builtSensors below), keyed by register name. None
+// carries a diacritic, so the INSIDE slug is a.name.toLowerCase() (Shōgen, a review-closed engine, has its
+// own panel).
 const AGENT_MARKS: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   Mokugeki: MokugekiMark,
   Narabi: NarabiMark,
@@ -37,17 +39,20 @@ const AGENT_MARKS: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   Genkan: GenkanMark,
 };
 
-// The /fleet route (server component). It consumes the fleet register (lib/fleet.ts): the three built
-// agents reuse their home-page panels (one source of truth, contracts read server-side from schemas/),
-// and the eight upcoming agents each open a data-driven PlaceholderPanel carrying the sourced register
-// line and the Mod #1 "What it will use" block. Status flows from the register, never hard-coded here.
-// The five products are NOT here (they live on /products and behind the home segment cards), so
-// "three built, eight on the roadmap" stays true.
+// The /fleet route (server component). It consumes the fleet register (lib/fleet.ts): the three engines
+// reuse their home-page panels (one source of truth, contracts read server-side from schemas/); any other
+// built agent (ADR-M012 M012-e: Narabi) renders from the register via the shared PlaceholderPanel; and the
+// seven upcoming agents each open a data-driven PlaceholderPanel carrying the sourced register line and the
+// Mod #1 "What it will use" block. Status flows from the register, never hard-coded here. The five products
+// are NOT here (they live on /products and behind the home segment cards), so "four built, seven on the
+// roadmap" stays true.
 export default function FleetPage() {
   const root = join(process.cwd(), "..", "..");
   const attestedContract = loadAttestedPriceContract(root);
   const coverageContract = loadContract(root, "coverage-verdict.schema.json", "Hikae");
   const predictionContract = loadContract(root, "prediction.schema.json", "Ukemi");
+  const ENGINE_NAMES = new Set(["Shōgen", "Hikae", "Ukemi"]);
+  const builtSensors = FLEET_AGENTS.filter((a) => a.status === "built" && !ENGINE_NAMES.has(a.name));
   const upcoming = FLEET_AGENTS.filter((a) => a.status === "upcoming");
 
   return (
@@ -55,7 +60,7 @@ export default function FleetPage() {
       <section className="flex flex-col gap-4">
         <div className="font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground">Fleet</div>
         <h1 className="max-w-3xl font-heading text-4xl font-semibold tracking-tight text-foreground">
-          A company of agents. Three built, eight on the roadmap.
+          A company of agents. Four built, seven on the roadmap.
         </h1>
         <p className="max-w-2xl text-lg text-muted-foreground">
           The first vertical is built end to end: Shōgen, then Hikae, then Ukemi. Every future act plugs
@@ -63,7 +68,10 @@ export default function FleetPage() {
         </p>
       </section>
 
-      {/* Built — the three built agents reuse their eight-block panels (built count stays three). */}
+      {/* Built — the three engines reuse their eight-block panels under the review-closed pill. Any other
+          built agent (ADR-M012 M012-e: Narabi, the redemption sensor) renders below via the shared
+          register-driven PlaceholderPanel, OUTSIDE that pill — it ships and runs daily, it is not a
+          Phase-one review-closed engine. The real Narabi panel is a designer lot (ADR-M012 D4). */}
       <section className="mt-12">
         <div className="mb-4 flex items-center gap-3">
           <h2 className="font-heading text-xl font-medium tracking-tight text-foreground">Built</h2>
@@ -76,9 +84,36 @@ export default function FleetPage() {
           <HikaePanel contract={coverageContract} />
           <UkemiPanel contract={predictionContract} />
         </div>
+        {builtSensors.length > 0 ? (
+          <div className="mt-8">
+            <div className="mb-4 flex items-center gap-3">
+              <h3 className="font-heading text-base font-medium tracking-tight text-foreground">
+                Built &mdash; the redemption sensor
+              </h3>
+              <span className="rounded-full border border-border px-2.5 py-0.5 font-mono text-xs text-muted-foreground">
+                ships and runs daily
+              </span>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {builtSensors.map((a) => {
+                const Mark = AGENT_MARKS[a.name];
+                return (
+                  <PlaceholderPanel
+                    key={a.name}
+                    mark={Mark ? <Mark className="size-10" /> : undefined}
+                    name={a.name}
+                    line={a.line}
+                    inside={insideFor(a.name.toLowerCase())}
+                    status={a.status}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
       </section>
 
-      {/* Upcoming — the eight roadmap agents. Named, not delivered; each opens its "What it will use"
+      {/* Upcoming — the seven roadmap agents. Named, not delivered; each opens its "What it will use"
           placeholder. The one-line descriptor is the sourced register line (lib/fleet.ts), not the
           design's unsourced copy. */}
       <section className="mt-16">

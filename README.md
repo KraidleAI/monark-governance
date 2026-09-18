@@ -37,7 +37,7 @@ are the point: they say what exists today and what is only named.
 | Layer | What it is | Status |
 |---|---|---|
 | **Backbone** — the gate | Hikae (coverage control) + the MONARK token's budget `B_t`; turns a sensor reading into `commit \| defer \| abstain` | **Built** — five frozen contracts, Hikae + Ukemi engines, CI |
-| **Fleet** — a company of agents | sensors → gate → acts, one token across all of them | **3 built · Narabi: a committed calibration for one population · 7 named** |
+| **Fleet** — a company of agents | sensors → gate → acts, one token across all of them | **4 built · Narabi runs (class served; timeline published daily) · 7 named** |
 | **Harness** — DeFAI, multi-directional | the same fleet made reachable *by other agents* over HTTP / MCP | **Built** — public 4-tool MCP endpoint (attest · gate · cascade · calibrate) + skill on ClawHub |
 | **Self-improving company** | agents that rate, improve, and sell one another's products | **Direction, unscheduled** |
 
@@ -49,17 +49,38 @@ are the point: they say what exists today and what is only named.
 - **Hikae** — coverage-controlled inference (the gate)
 - **Ukemi** — liquidation-cascade survival
 
-**Shipped in the repository, one committed calibration** — a frozen contract, an adapter, and a first
-committed region; the gate still abstains by design outside that region, *not* a delivered prediction
-product:
+**Now running — a committed calibration served, a tracker timeline published daily** — a frozen contract, an
+adapter, a committed region served on the endpoint (static, not re-published each day), and an off-tool
+sentinel that steps the tracker every day and publishes its timeline; the gate still abstains by design
+outside that region, *not* a delivered prediction product:
 
 - **Narabi** — redemption-run sensing. Its `AttestedFlow` attestation (the fifth frozen typed contract)
-  and the velocity adapter ship in this repo, and the gate class `stable-run-velocity-24h` now carries **a
-  committed calibration for one population** — USDe — measured on calm onchain redemption-flow windows,
-  with exchangeability declared as a modelling assumption. **Every other population abstains**
-  (`under_calib`): the committed region is locked to a single key `(task_class, predictor_id)`, and no
-  family label routes around it. It is in the **repository** today; the public endpoint is **not yet
-  redeployed**, so it still serves the two original classes. Never a "version one".
+  and the velocity adapter ship in this repo, and the public endpoint now serves the gate class
+  `stable-run-velocity-24h` with **a committed calibration for one population** — USDe — measured on calm
+  onchain redemption-flow windows. That calibration is **measured non-stationary** across half-years, so no
+  per-window coverage is claimed; the honesty sentence on the wire is the Barber, Candes, Ramdas and
+  Tibshirani 2023 (Thm 2, unit weights) wording — *no coverage is measured*. **Every other population
+  abstains** (`under_calib`): the committed region is locked to a single key `(task_class, predictor_id)`,
+  and no family label routes around it.
+
+  An off-tool **daily** sentinel reads the attested redemption flow at block finality, steps the tracker,
+  and publishes a replayable timeline at `https://monarkgate.tech/narabi/`: `state.json` (the current
+  tracker state) and `timeline.jsonl` (an append-only, per-line hash-chained record of every window).
+
+  The single public sentence for Narabi, verbatim:
+
+  > Narabi runs an adaptive quantile tracker (Angelopoulos–Barber–Bates 2024, decaying step) on the attested daily USDe redemption flow: its state moves each 24h window from the realized outcome, and the full timeline is published so anyone can replay it. What it carries is a deterministic long-run bound that tightens as windows accumulate, printed daily with T, not a per-window coverage, not a probability; the gate's committed calibration does not depend on the tracker state. Until the pre-registered drift criterion fires and an ADR says otherwise, the gate's region is still the committed static calibration: the tracker adapts, the gate does not yet.
+
+  **What it is NOT.** The bound printed daily is the Angelopoulos, Barber and Bates 2024 (Thm 1) quantity
+  `(B + η₁)/(T·η_T)` with `c = B = 1/24` and `ε = 0.1`; it stays **above** the target `0.10` until
+  `T = 1789`, and we state that plainly rather than as a feature. The published region is the tracker's,
+  not the gate's: the gate keeps the committed static calibration and does **not** change until the
+  pre-registered drift criterion (`rolling90_calm_miss ≥ 0.40`, evaluable after 90 calm pairs) fires and an
+  ADR says so. Not a per-window coverage, not a probability of being right, not a price call.
+
+  **Replay it yourself.** Recompute every window from its `[from_block, to_block]` via `eth_getLogs` +
+  `totalSupply`, then re-derive `q` with the committed `trackerReplay` over the `s` column of
+  `timeline.jsonl`; the per-line hash chain makes any rewrite detectable.
 
 **Named on the roadmap** (teasers — *not* delivered products, no metrics claimed):
 

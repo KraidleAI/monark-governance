@@ -22,8 +22,9 @@ export interface AgentPresentation {
   readonly name: string;
   /** The kanji drawn beside the name (design AG). */
   readonly kanji: string;
-  /** The one fixed brand accent for this agent: a CSS variable for the three built agents, the frozen
-   *  design hex for the eight upcoming ones. Emitted only into inline style (border / tint / glow). */
+  /** The one fixed brand accent for this agent: a CSS variable for the three review-closed engines, the
+   *  frozen design hex for the rest (the seven roadmap agents and the built Narabi sensor, ADR-M012 M012-e).
+   *  Emitted only into inline style (border / tint / glow). */
   readonly accent: string;
 }
 
