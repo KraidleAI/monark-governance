@@ -18,11 +18,13 @@
  */
 import { HARNESS_TOOLS } from "./tools/registry.ts";
 import type { Json } from "./schema-projection.ts";
+import { HARNESS_VERSION } from "./version.ts";
 
 type JsonObject = { [k: string]: Json };
 
 export const OPENAPI_VERSION = "3.1.0";
-export const OPENAPI_INFO_VERSION = "1.0.0";
+/** The API document's `info.version` — DERIVED from the single source (version.ts), never a second literal. */
+export const OPENAPI_INFO_VERSION = HARNESS_VERSION;
 /** Public JSON base URL (the `api.` sub-domain fronted by Caddy -> 127.0.0.1:3001, ADR-M005 D7/D10). */
 export const API_SERVER_URL = "https://api.monarkgate.tech";
 
