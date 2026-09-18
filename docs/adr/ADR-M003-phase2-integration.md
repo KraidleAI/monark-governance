@@ -170,3 +170,10 @@ Chaque test est tué par ≥ 1 mutant nommé en revue G2 (discipline Phase 1 rec
 - **Prix endogène en Phase 2** : deuxième point fixe, unicité non revendiquée, hors chemin critique.
 - **Classe 24h « réelle »** : aucune source de label ; serait un chiffre nu.
 - **Push avant DEVOPS** : viole (i).
+
+## Amendement 2026-09-18 (ADR-M017, P1) — D4 : `crossAgentGate` « réel » → « servi par l'enveloppe `gate` »
+Le chemin composé attest → gate n'est plus `packages/monark/src/index.ts:crossAgentGate` (appelé seulement par son test, calibration par paires
+seedées, COMMIT sur `cascade-liquidable-24h` là où le chemin servi abstient `under_calib` — deux vérités pour une classe, contraire à M002 D3 et M008
+D7/A6) mais la clé d'enveloppe `attested` du `gate` servi (ADR-M017 D2). `crossAgentGate`, ses types (`GateContext`, `CalibrationState`, `BudgetState`,
+`GateRequest`) et le test 30 sont retirés en P1-b3 ; test de remplacement sur le chemin servi (fixture Binance via `attest` + `attested` + calibration
+BYO sur les mêmes paires seedées, couture `attested.residual → verdict.residual`). `@monark/ukemi` sort de `packages/monark/package.json`.
