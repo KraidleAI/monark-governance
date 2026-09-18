@@ -3,6 +3,9 @@
 // Public RPC pool (no key, read-only) with per-endpoint cooldown and a QUORUM OF 2 on the value-bearing
 // reads (burns/mints via eth_getLogs, supply via totalSupply): two distinct endpoints must return the
 // SAME bytes or the window fails closed (ADR-M012 D1, test `sentinel_quorum_disagreement_fails_closed`).
+// The quorum read FALLS BACK round-robin over the pool, benching any endpoint that throws (same cooldown as
+// `one()`) and needing >= 2 successes, so one persistently-failing endpoint never FATALs a run (M012-d fixes
+// G2 M012-b O2); disagreement between the two successes still fails closed.
 // The chain head is read at the `finalized` tag (never `latest` — mutant M4); `finalized` is min() across
 // two endpoints because nodes drift by a few blocks, and run.ts gates a day by ts(finalized) >= its close
 // midnight so a window is never sliced short. The low-level `call` is INJECTED, so CI drives stubs offline.
@@ -110,13 +113,30 @@ export function makeRpcPool(opts: { endpoints?: readonly string[]; call?: RpcCal
     }
     throw new Error(`${method}: no endpoint answered`);
   }
-  // Two DISTINCT live endpoints (for a quorum read). Advances the round-robin pointer past both.
-  function pickTwo(label: string): [string, string] {
+  // Two DISTINCT live endpoints that SUCCEED (quorum read with fallback, M012-d / G2 M012-b O2): iterate the
+  // live endpoints round-robin from `rr`, benching any that throws into the same `cooldownUntil` map as
+  // `one()`, until two answer; advance `rr` past those consumed. Throw only when fewer than two succeed, so a
+  // single persistently-failing endpoint (e.g. a 525 host) never FATALs the daily run. No randomness.
+  async function quorumTwo<T>(label: string, fetchOne: (url: string) => Promise<T>): Promise<[T, T]> {
     const list = live();
-    if (list.length < 2) throw new Error(`${label}: quorum needs >= 2 endpoints`);
-    const a = list[rr % list.length], b = list[(rr + 1) % list.length];
-    rr = (rr + 2) % list.length;
-    if (a === undefined || b === undefined) throw new Error(`${label}: endpoint selection failed`);
+    const got: T[] = [];
+    let lastErr: Error | undefined;
+    let i = 0;
+    for (; i < list.length && got.length < 2; i++) {
+      const url = list[(rr + i) % list.length];
+      if (url === undefined) continue;
+      try {
+        got.push(await fetchOne(url));
+      } catch (e) {
+        lastErr = e instanceof Error ? e : new Error(String(e));
+        cooldownUntil.set(url, Date.now() + cooldownMs);
+      }
+    }
+    const [a, b] = got;
+    if (a === undefined || b === undefined) {
+      throw new Error(`${label}: quorum needs >= 2 live endpoints${lastErr ? ` (last: ${lastErr.message})` : ""}`);
+    }
+    rr = (rr + i) % list.length;
     return [a, b];
   }
   // eth_getLogs on ONE named endpoint, splitting the range on a result-limit error (recursively).
@@ -136,9 +156,7 @@ export function makeRpcPool(opts: { endpoints?: readonly string[]; call?: RpcCal
 
   return {
     async finalized() {
-      const [ua, ub] = pickTwo("finalized");
-      const a = asBlock(await call(ua, "eth_getBlockByNumber", ["finalized", false]));
-      const b = asBlock(await call(ub, "eth_getBlockByNumber", ["finalized", false]));
+      const [a, b] = await quorumTwo("finalized", (url) => call(url, "eth_getBlockByNumber", ["finalized", false]).then(asBlock));
       const block = Math.min(a.number, b.number);
       return { block, ts: block === a.number ? a.ts : b.ts };
     },
@@ -146,17 +164,14 @@ export function makeRpcPool(opts: { endpoints?: readonly string[]; call?: RpcCal
       return one("eth_getBlockByNumber", [toHexBlock(block), false], (x) => asBlock(x).ts);
     },
     async windowFlow(fromBlock, toBlock) {
-      const [ua, ub] = pickTwo("windowFlow");
-      const [logsA, logsB] = await Promise.all([getLogsVia(ua, fromBlock, toBlock), getLogsVia(ub, fromBlock, toBlock)]);
+      const [logsA, logsB] = await quorumTwo("windowFlow", (url) => getLogsVia(url, fromBlock, toBlock));
       const fa = sumFlow(logsA);
       if (flowKey(fa) !== flowKey(sumFlow(logsB))) throw new QuorumDisagreementError("windowFlow: endpoints disagree on burns/mints");
       return fa;
     },
     async supplyAt(block) {
-      const [ua, ub] = pickTwo("supplyAt");
       const params = [{ to: USDE_TOKEN, data: TOTAL_SUPPLY_SELECTOR }, toHexBlock(block)];
-      const a = asBigHex(await call(ua, "eth_call", params));
-      const b = asBigHex(await call(ub, "eth_call", params));
+      const [a, b] = await quorumTwo("supplyAt", (url) => call(url, "eth_call", params).then(asBigHex));
       if (a !== b) throw new QuorumDisagreementError(`supplyAt(${String(block)}): endpoints disagree (${String(a)} vs ${String(b)})`);
       return a;
     },

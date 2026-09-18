@@ -420,3 +420,67 @@ test("sentinel_instrument_separate_digest", () => {
   assert.equal(inst.cusum_all_evaluable.n, 694);
   assert.ok(inst.cusum_all_evaluable.statistic > inst.cusum.statistic);
 });
+
+// ── 12f ──────────────────────────────────────────────────────────────────────────────────────────────
+test("sentinel_quorum_survives_one_dead_endpoint", async () => {
+  // The measured VPS defect (go 3, 2026-09-18): pool index 1 (eth.llamarpc.com) returns HTTP 525 on every
+  // probe while the others answer 200. With the fallback quorum, all three reads succeed on the two OTHER
+  // endpoints and the dead one is benched. THREE endpoints so `rr` wraps back onto the dead slot each read:
+  // absent a cooldown the dead endpoint would be re-hit on all 3 reads; benched, it is hit exactly once.
+  const eps = ["e0", "e1", "e2"];
+  const DEAD = eps[1]!;
+  const seen: string[] = [];
+  const burnLog = { topics: [TRANSFER_TOPIC, "0x" + "1".repeat(64), "0x" + "0".repeat(64)], data: "0x64" }; // burn of 100
+  const call: RpcCall = (url, method) => {
+    seen.push(url);
+    if (url === DEAD) return Promise.reject(new Error(`HTTP 525 ${url}`));
+    if (method === "eth_getBlockByNumber") return Promise.resolve({ number: "0x2710", timestamp: "0x66000000" });
+    if (method === "eth_call") return Promise.resolve("0x64");
+    if (method === "eth_getLogs") return Promise.resolve([burnLog]);
+    return Promise.reject(new Error(`unexpected ${method}`));
+  };
+  const rpc = makeRpcPool({ call, endpoints: eps });
+  assert.equal((await rpc.finalized()).block, 0x2710, "finalized quorum returns despite the dead endpoint");
+  assert.equal(await rpc.supplyAt(0x2710), 100n, "supplyAt quorum returns from the two live endpoints");
+  assert.deepEqual(await rpc.windowFlow(1, 2), { burns: 100n, mints: 0n }, "windowFlow quorum returns from the two live endpoints");
+  assert.equal(seen.filter((u) => u === DEAD).length, 1, "the dead endpoint is benched after its first failure (hit 1x, not 3x)");
+});
+
+// ── 12g ──────────────────────────────────────────────────────────────────────────────────────────────
+test("sentinel_quorum_needs_two_live", async () => {
+  // Only ONE of the two endpoints answers (the other is a 525 host): a quorum of 2 is unreachable, so every
+  // value read fails closed with the quorum error — the window is thrown, nothing is written.
+  const mk = (): RpcPool => makeRpcPool({ endpoints: ["a", "b"], call: (url, method) => {
+    if (url === "b") return Promise.reject(new Error("HTTP 525 b"));
+    if (method === "eth_getBlockByNumber") return Promise.resolve({ number: "0x1", timestamp: "0x1" });
+    if (method === "eth_call") return Promise.resolve("0x64");
+    if (method === "eth_getLogs") return Promise.resolve([]);
+    return Promise.reject(new Error(`unexpected ${method}`));
+  } });
+  await assert.rejects(() => mk().finalized(), /quorum needs >= 2 live endpoints/);
+  await assert.rejects(() => mk().supplyAt(1), /quorum needs >= 2 live endpoints/);
+  await assert.rejects(() => mk().windowFlow(1, 2), /quorum needs >= 2 live endpoints/);
+});
+
+// ── 12h ──────────────────────────────────────────────────────────────────────────────────────────────
+test("sentinel_quorum_parse_error_benches_not_masks", async () => {
+  // A malformed payload is a parse error, so quorumTwo BENCHES that endpoint and falls through — it must never
+  // mask a real disagreement (a) nor FATAL an otherwise-healthy quorum (b). A serves garbage; B=100, C=101 disagree.
+  const mk = (): { rpc: RpcPool; seen: string[] } => {
+    const seen: string[] = [];
+    const call: RpcCall = (url, method) => {
+      seen.push(url);
+      if (url === "A") return Promise.resolve(method === "eth_getBlockByNumber" ? null : "not-hex"); // malformed block / non-hex
+      const hex = url === "B" ? "0x64" : "0x65"; // 100 vs 101
+      return Promise.resolve(method === "eth_getBlockByNumber" ? { number: hex, timestamp: "0x1" } : hex);
+    };
+    return { rpc: makeRpcPool({ call, endpoints: ["A", "B", "C"] }), seen };
+  };
+  // (a) A's malformed eth_call is benched; the quorum reaches B and C, whose 100 != 101 fails closed (no silent value).
+  const a = mk();
+  await assert.rejects(() => a.rpc.supplyAt(1), QuorumDisagreementError);
+  assert.equal((await a.rpc.finalized()).block, 0x64, "A stays benched after the parse error: the next read skips it => min(B,C)=100");
+  assert.equal(a.seen.filter((u) => u === "A").length, 1, "A was probed once then benched, not re-hit (cooldown, not masked)");
+  // (b) A's malformed block is benched (never FATAL); finalized returns the min of the two healthy endpoints.
+  assert.equal((await mk().rpc.finalized()).block, 0x64, "finalized succeeds with min(100,101) despite A's malformed block");
+});

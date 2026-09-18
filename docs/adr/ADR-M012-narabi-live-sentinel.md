@@ -179,6 +179,13 @@ déclaré, hors score).
   séparé, jamais dans `state.json`. **Rapport à (h) (checkpoint-2 M012-c C-3)** : publier `instrument.json` sous `/narabi/` **est** une
   citation publique de l'instrument ⇒ le procurement (h) (Lorden 1971, Shin–Ramdas–Rinaldo, Vovk 2012) devient **précondition de (l)** ;
   et l'entrée CLI de publication portera une garde `--out` hors de `public/` tant que (h) n'est pas clos.
+  (m) **pool RPC par fournisseur** (G2 M012-d) : `PUBLIC_ENDPOINTS` porte deux alias `publicnode` (idx 0 et 6) ⇒ un quorum de 2 peut être
+  non indépendant ; déclencheur : premier désaccord ou incident live ; action : dédoublonner par fournisseur + test « deux fournisseurs distincts ».
+  (n) **durcissement `rr`** lu à travers des `await` (`one()`/`quorumTwo`, usage strictement série aujourd'hui) ; déclencheur : tout appel
+  concurrent du pool ; action : `const start = rr` figé à l'entrée + test.
+  (o) **journal d'accès Caddy sur le bloc vitrine** (advisor-marché M1 : téléchargements distincts de `timeline.jsonl`/`state.json` non
+  observables sans `log`) ; déclencheur : go 3 étape 5 (première édition du bloc vitrine) ou go 5 ; action : directive `log` (fichier, rotation,
+  pas d'IP conservée au-delà de la rotation) = action sortante sous go ; M2 (appels `/gate` par classe) reste **non observable** (harnais pur).
   (i) redondance de `GATE_TOOL_DESCRIPTION` (G2 F3 : « every other population abstains (under_calib) » rendu deux fois, queue
   de la phrase committée + clause `${STABLE_RUN_UNCALIBRATED_SENTENCE}` exigée par `gate.test.ts:468`) — honnête, assumée ;
   déclencheur : prochain lot touchant `GATE_TOOL_DESCRIPTION` ; action : dédoublonner sous contrainte du test + re-pin h5 (C-17).
