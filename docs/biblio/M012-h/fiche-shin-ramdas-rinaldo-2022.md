@@ -104,8 +104,8 @@ Cavaliers). Classe pré-changement `P := {(p₁,p₂,...) : p_i ≤ p₀ ∀i}` 
 mots, p. 24 : « this formalization allows for the winning probabilities to fluctuate over time before and
 after the changepoint »), p₀=0,49 (leur valeur, propre à leur exemple, sans rapport avec les 0,125/0,25 de
 notre instrument) ; classe post-changement symétrique avec q₀=0,51. Incrément de base (éq. 65, p. 24,
-reconstruit) : `L_n^(λ) = exp{ λ(X_n − p₀) − B(λ) }`, `B(λ) = log(1 − p₀ + p₀e^λ)` (fonction génératrice
-des cumulants de Bernoulli). Ce n'est **pas** un simple rapport de vraisemblance log(p₁/p₀) à p₁ fixe — le
+reconstruit) : `L_n^(λ) = exp{ λ(X_n − p₀) − B(λ) }`, `B(λ) = log(1 − p₀ + p₀e^λ) − λp₀` (fonction génératrice
+des cumulants de Bernoulli, **centrée** — l. 1558 ; rectificatif C-1 2026-09-18 : le « − λp₀ » manquait ici). Ce n'est **pas** un simple rapport de vraisemblance log(p₁/p₀) à p₁ fixe — le
 paramètre λ est optimisé/mélangé sur une plage `(q_L,q_U)` de post-changement possibles pour obtenir le
 contrôle ARL non-asymptotique **sans supposer p₀/p₁ vrais et fixes**.
 
@@ -140,3 +140,13 @@ propriété (ARL, délai, taille) du contrôle par permutation lui-même.
 lues et vérifiées par grep ciblé + lecture directe des passages porteurs). **Formules avec symboles grecs :
 reconstruites**, signalées comme telles partout où utilisées — pas une lecture [lu] au sens strict pour le
 symbole exact, mais un [lu] de contenu avec reconstruction typographique documentée.
+
+## Rectificatif 2026-09-18 (advisor-defi, vérification Bash sur la fixture, orchestrateur)
+Les passages « ce n'est pas un simple rapport de vraisemblance » (§5.1) et « le Théorème 2.4 ne s'applique pas mécaniquement »
+(§« En quoi ce papier fonde… ») sont **inexacts sur la forme** : à λ fixe = λ*(p₁) = log(p₁(1−p₀)/(p₀(1−p₁))), l'éq. (65) vaut
+exactement (p₁/p₀)^X·((1−p₁)/(1−p₀))^{1−X}, le rapport de vraisemblance Bernoulli (p. 25, « re-parametrized likelihood ratio »),
+et la récursion (14) donne log M^CU_n = CUSUM de Page ; identité numérique mesurée 9,5446 sur les 616 paires calmes. Le Thm 2.4
+s'applique donc à la statistique codée, pour la classe {E[X_n | F_{n−1}] ≤ 0,125}. La conclusion « aucun ARL revendicable pour
+l'instrument tel que publié » **reste vraie**, pour la bonne raison : (a) l'arrêt est un quantile de permutation, pas 1/α ; (b) la classe
+≤ 0,125 est violée par la calibration (le e-SR à 0,125, grille ADR-M014 D1, franchit 1/1000 in-sample le 2024-10-11 ; 2024-10-10 avec q_L ∈ {0,20 ; 0,25}). Voir ADR-M014.
+

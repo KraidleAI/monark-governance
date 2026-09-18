@@ -48,10 +48,20 @@ texte pré-extrait par défaut — conforme à la clause de secours de doc 03 §
 - **Shin, Ramdas & Rinaldo (2022/v4 2023)** confirment indépendamment, en relisant Lorden lui-même
   (Section 6.2, p. 32–33 : « Lorden proved that this method controls the ARL at 1/α if the data are iid »),
   que la garantie classique est conditionnée à l'i.i.d. — et proposent une voie nonparamétrique alternative
-  (e-détecteurs, Thm 2.4 p. 7) qui **abandonne** l'i.i.d. mais **exige** une construction martingale/e-process
-  (éq. 65 p. 24) que `instrument.ts` n'implémente pas. Aucune mention de permutation dans les 50 pages.
+  (e-détecteurs, Thm 2.4 p. 7) qui **abandonne** l'i.i.d. et exige une construction martingale/e-process
+  (éq. 65 p. 24). **Rectificatif 2026-09-18 (advisor-defi, [mesuré])** : à λ fixe = λ*(p₁), l'éq. (65) est exactement
+  le rapport de vraisemblance Bernoulli (SRR p. 25, « re-parametrized likelihood ratio » ; avec le cumulant **centré** B(λ) = log(1 − p₀ + p₀e^λ) − λp₀, l. 1558), donc `pageCusumMax`
+  **est** déjà `log M^CU_n` (Déf. 2.11, éq. 14 p. 9) — identité numérique 9,5446 — pour la classe
+  {E[X_n | F_{n−1}] ≤ 0,125}. Le Thm 2.4 s'y applique ; ce qui invalide la revendication d'ARL n'est pas la
+  forme de la statistique mais (a) la règle d'arrêt (quantile de permutation au lieu de 1/α) et (b) une classe
+  que la calibration viole (à p₀ = 0,125, grille ADR-M014 D1, le e-SR franchit 1/1000 in-sample le 2024-10-11). Cf. ADR-M014.
+  Aucune mention de permutation dans les 50 pages.
 - **Vovk (2012)** ne traite ni de CUSUM, ni d'ARL, ni de détection de rupture (zéro occurrence de
-  « Theorem », « CUSUM », « change detection » dans les 16 pages) — sa seule pertinence est **définitionnelle** :
+  « Theorem », « CUSUM », « change detection » dans les 16 pages) — sa pertinence est **définitionnelle et
+  calibratoire** (rectificatif 2026-09-18 : la fiche a lu la Section 3, Prop. 2a/2b pp. 478-479, qui donne la loi
+  Beta(61, 553) du taux de raté conditionnel à l'entraînement sous échangeabilité — q97,5 = 0,124, q99 = 0,129 ;
+  c'est la source de « 0,125 ≈ borne haute de la classe échangeable avec la calibration », que l'ADR-M012 D7 mesure
+  fausse) :
   la Proposition 1 (p. 477) définit l'échangeabilité comme invariance par permutation de la loi jointe,
   exactement l'hypothèse nulle implicite du contrôle par permutation de `instrument.ts`. Le papier note
   aussi explicitement (p. ~484) que « permuting the data set ensures exchangeability but not necessarily
@@ -87,8 +97,9 @@ procurés — à distinguer soigneusement dans toute citation.
   par leur théorie.
 - **« Le cadre e-détecteur de Shin–Ramdas–Rinaldo garantit notre instrument »** : faux tant que
   `instrument.ts` implémente un CUSUM classique à p₀/p₁ fixes et non une construction e-process/e-détecteur
-  (Déf. 2.5–2.6, éq. 65) — le Théorème 2.4 ne s'applique pas mécaniquement à la statistique codée
-  aujourd'hui ; l'adopter serait une refonte, pas une citation.
+  à la règle d'arrêt 1/α (Déf. 2.12) avec une classe qui contienne la référence — rectificatif 2026-09-18 : la
+  statistique codée est bien un e-CUSUM (identité 9,5446), mais sa classe (≤ 0,125) est violée par la calibration
+  et son arrêt est un quantile de permutation ; la revendication d'ARL exige les deux (ADR-M014 D1).
 - **« Vovk 2012 fonde la théorie de détection de rupture de l'instrument »** : faux — ce papier ne traite
   jamais de séries temporelles surveillées, de CUSUM ni d'ARL (fiche-vovk §« ce qu'il NE dit PAS »). Son
   usage légitime se limite à une note définissant l'échangeabilité.
