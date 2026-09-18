@@ -228,12 +228,12 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--hikae)" }} />
             commit · defer · abstain
           </div>
-          <h1 style={{ fontSize: "clamp(38px,4.8vw,62px)", lineHeight: 1.02, letterSpacing: "-.025em", fontWeight: 600, margin: "16px 0 18px", textWrap: "balance" }}>
+          <h1 style={{ fontSize: "clamp(42px,5.4vw,76px)", lineHeight: 1.02, letterSpacing: "-.025em", fontWeight: 600, margin: "16px 0 18px", textWrap: "balance" }}>
             It abstains,
             <br />
             so it can act.
           </h1>
-          <p style={{ fontSize: 17, lineHeight: 1.55, color: "var(--ink)", maxWidth: 520, margin: 0, textWrap: "pretty" }}>
+          <p style={{ fontSize: 17, lineHeight: 1.55, color: "var(--ink)", maxWidth: 640, margin: 0, textWrap: "pretty" }}>
             One engine, eleven agents, one plug per client. Sensors witness, an adapter shapes the
             testimony into a frozen <span style={{ ...mono, color: "var(--ink)" }}>Prediction</span>, the
             gate authorizes, an act executes — and B_t is spent only on{" "}

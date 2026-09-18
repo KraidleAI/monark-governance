@@ -202,6 +202,11 @@
   }
   html {
     @apply font-sans;
+    /* Wider, larger reading base (investor 2026-09-18): 17px body, 18px from lg, like anthropic.com */
+    font-size: 17px;
+  }
+  @media (min-width: 1024px) {
+    html { font-size: 18px; }
   }
   body {
     @apply bg-background text-foreground;

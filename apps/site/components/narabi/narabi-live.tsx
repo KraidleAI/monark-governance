@@ -290,7 +290,7 @@ export function NarabiLive({ publishSchedule }: { publishSchedule: string }) {
         </div>
         <div className="mt-5 grid grid-cols-1 items-end gap-6 min-[900px]:grid-cols-2 min-[900px]:gap-10">
           <div>
-            <h1 className="font-heading text-[40px] font-semibold leading-[1.05] tracking-tight text-paper sm:text-[44px]">
+            <h1 className="font-heading text-[40px] font-semibold leading-[1.05] tracking-tight text-paper sm:text-[52px]">
               Narabi — daily
             </h1>
             <p className="mt-3.5 max-w-xl text-lg leading-relaxed text-paper/90">{HERO_DEK}</p>

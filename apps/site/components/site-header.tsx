@@ -36,7 +36,7 @@ export function SiteHeader() {
       className="sticky top-0 z-40 border-b border-border backdrop-blur-md"
       style={{ background: "var(--paper)" }}
     >
-      <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-5 px-6">
+      <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-5 px-6 lg:px-10">
         <Link
           href="/"
           onClick={closeMenu}
