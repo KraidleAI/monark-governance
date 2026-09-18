@@ -47,11 +47,18 @@ Fichiers autorisés : `apps/sentinel/src/edetector.ts` (nouveau, **pur**), `apps
 2. **Constantes = ADR** : `EDET` relu contre `docs/adr/ADR-M014-edetector-preregistration.md` (regex sur le tableau D1), jamais collé.
 3. **Design check épinglé** : sur la fixture `7c33027a…`, `max_logM_sr` à p0 = 0,30 = 4,383 (±0,01), `crossed_sr === null` ; à p0 = 0,125 avec
    la **grille D1** le premier franchissement de log 1000 tombe sur la paire calme d'indice 279, jour de fenêtre de clôture **2024-10-11**
-   (convention d'étiquetage déclarée ; recalculé, jamais collé) — C-2.
+   (convention d'étiquetage déclarée ; recalculé, jamais collé) — C-2. **Amendement G2 (C-b, error_origin = plan)** : tout scalaire publié
+   par la section est épinglé — `max_logM_cu` à p0 = 0,30 (recalculé en domaine linéaire, attendu 3,22763 ± 1e-6) et `crossed_cu` (null à
+   0,30) ; le mutant « mélange e-CUSUM écrasé à K > 1 » doit rougir.
 4. **Validité (C-3)** : (a) exact, déterministe : E_{p0}[L^(λ)] = 1 à 1e-12 pour les 12 λ de la grille ; (b) Monte-Carlo seedé (mulberry32),
    2000 suites i.i.d. Bernoulli(p), p ∈ {0,10 ; 0,30}, horizons H ∈ {100, 300} (H·alphaArl < 1) : fréquence de franchissement de
    log(1/alphaArl) ≤ H·alphaArl + 3σ (mesuré 0,188 ≤ 0,3 à H = 300, p = 0,30) ; (c) à p = 0,30, moyenne empirique de M_SR,n ≤ n
    (e-SR = somme d'e-processus ; pas « surmartingale »). Vérifie la validité, pas le délai.
+   **Amendement G2 (C-a, error_origin = plan/checkpoint-1)** : à p = p0 l'égalité E[M_SR,H] = H est de bord et le test bascule selon la
+   graine (mesuré : 3 dépassements sur 31 bases). Correctif : (c) devient deux assertions séparées — (c1) **validité** à p = p0 : moyenne
+   terminale ≤ H·(1 + marge tail-honnête), marge = 3·(écart-type empirique de M_SR,H)/√N_sim, avec un plafond déclaré ; (c2) **témoin
+   non-surmartingale** à p = p0 : moyenne terminale > 1. Critère d'acceptation : 0 basculement sur ≥ 30 bases de graine aux deux H
+   (script de balayage rejoué au checkpoint-2).
 5. **Grille** : K = 12, λ strictement croissants, géométriques (ratio constant à 1e-12), poids sommant à 1, tous λ > 0.
 6. **Mutants (documentés dans G1, chacun rougit)** : **`− λp0` omis dans B(λ)** (rougit 1, 3, 4a) ; `>=`→`>` sur le seuil ; poids non normalisés ;
    λ ≤ 0 accepté ; K ≠ 12 ; `max(M,1)` → `M` dans e-CUSUM.
