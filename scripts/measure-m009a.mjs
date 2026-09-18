@@ -21,7 +21,7 @@
 //
 // Reproduces shogen_s2/r1.py::classify_ecart in float64 (the Shogen harness is Decimal prec 50). Precision
 // gap DECLARED. The Shogen reader fail-closes on the 2 torn lines (power cuts, cf. REPAIR-2026-09-16/18);
-// here we read TOLERANTLY, logging them. Never modifies the trace.
+// here we read TOLERANTLY, logging them. Reads the trace only; this script never writes it. (The two torn non-final lines it skipped on 2026-09-18 were later excised by the orchestrator, outside this script — see F:/shogen-campagne/campagne/REPAIR-2026-09-18.md.)
 
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";

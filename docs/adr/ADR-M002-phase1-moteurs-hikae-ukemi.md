@@ -162,7 +162,7 @@ suite de miscovers RÉELLE des traces S2 Shōgen — rapport `docs/measure-M009a
 `r1.py:415` ; pyth exclu, ADR-0023 Shōgen).
 
 - **Fait [mesuré]** (n = 26 938 fenêtres) : taux de miscover réel **1,02 %** (canonique) / 5,03 % (K brut,
-  pyth inclus), **« alpha = 10 %**. `P(B_t < 0)` **canonique ≈ 0 % (analytique/i.i.d.) à ≤ 3 % (empirique,
+  pyth inclus), **≪ alpha = 10 %**. `P(B_t < 0)` **canonique ≈ 0 % (analytique/i.i.d.) à ≤ 3 % (empirique,
   burstiness)** aux horizons t°=30/90/365, vs **35,3 %→49,1 % [abs]** (le [abs] est la binomiale au **bord**,
   `p̂ = alpha` ; reproduit exactement). Sur la campagne réelle, **`B_t` n'est jamais descendu sous 0** (min
   0,0885 canonique / 0,0478 K brut) : **zéro `budget_exhausted` parasite**. Ordre 2 : le processus est en
@@ -182,7 +182,7 @@ suite de miscovers RÉELLE des traces S2 Shōgen — rapport `docs/measure-M009a
     parasite — à chiffrer pour le `B_floor` retenu.
   - **(b) conserver `B_floor = 0` + phrase d'honnêteté** (recommandation par défaut du worker, non-verdict) :
     « au bord (taux vrai = α), `B_floor = 0` donne P(`budget_exhausted` par bruit) montant de ~35 % (t°=30)
-    à ~49 % (t°=365) ; **mesuré sur les traces d'attestation S2 réelles le taux est ≤ 5 % « α, donc cette
+    à ~49 % (t°=365) ; **mesuré sur les traces d'attestation S2 réelles le taux est ≤ 5 % ≪ α, donc cette
     abstention parasite ne s'est pas matérialisée** (`B_t` jamais < 0) ; la préoccupation demeure pour toute
     calibration réellement au bord et est **aggravée par la burstiness** ». Ceci **remplace** l'`échangeabilité
     déclarée` par une honnêteté chiffrée, sans toucher la valeur.

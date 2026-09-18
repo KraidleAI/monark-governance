@@ -87,7 +87,7 @@ Rejeu : `node scripts/measure-m009a.mjs` (surchargeable par `S2_CONTROL`/`S2_JOU
 - **n = 26 938 fenêtres complétées** (`window_close`), span 23,09 j ; **≈ 18,7 j de fenêtres complétées**
   (26 938 × 60 s), pas « 26 j » (uptime < 100 %, coupures).
 - **Taux de miscover réel** : `p̂_D2 = 1,021 %` (canonique, pyth exclu) ; `p̂_D1 = 5,034 %` (K brut, pyth
-  inclus). **Tous « alpha = 10 %.**
+  inclus). **Tous ≪ alpha = 10 %.**
 
 **P(B_t < 0) par horizon** (%, α=0,10, bFloor=0) :
 
@@ -118,7 +118,7 @@ Rejeu : `node scripts/measure-m009a.mjs` (surchargeable par `S2_CONTROL`/`S2_JOU
    ≤ 3 % en empirique/bloc — parce que le taux d'attestation réel (1,0 %) est **très inférieur** à alpha (10 %).
    Sur la campagne réelle, **`B_t` n'a jamais approché 0** (min 0,088) : **zéro `budget_exhausted` parasite**.
 3. **La tendance s'INVERSE** : le [abs] MONTE avec l'horizon (bruit au bord → 0,5) ; la mesure réelle
-   DESCEND (concentration sous alpha, `B_t → +p̂`). Le 35–47 % [abs] ne se matérialise pas quand `p̂ « alpha`.
+   DESCEND (concentration sous alpha, `B_t → +p̂`). Le 35–47 % [abs] ne se matérialise pas quand `p̂ ≪ alpha`.
 4. **Découverte d'ordre 2 — burstiness (non-i.i.d.)** : l'empirique et le bootstrap par blocs dépassent la
    binomiale i.i.d. (D2 : 2–3 % vs 0,02 % ; D1 : 16–22 % vs 6 %). Les pannes arrivent **en rafales**
    (coupures, redémarrages) : les co-défaillances se **groupent**. C'est l'analogue mesuré de l'ACF
@@ -176,6 +176,16 @@ En bref, avec le **chiffre** : `budget_exhausted ⟺ B_t < bFloor ⟺ p̂ > alph
 un `bFloor > 0` abstient **plus tôt**, plus strict). Deux options, **décision investisseur** :
 (a) `bFloor > 0` pré-enregistré (conservatisme délibéré ; inerte sur ces données tant que `bFloor < 0,0478`,
 `B_t` étant resté ≥ 0,04776 sous D1, ≥ 0,0885 sous D2) ;
-(b) conserver `bFloor = 0` + phrase d'honnêteté (le 35–47 % [abs] ne s'est pas matérialisé, `p̂ « alpha` ;
+(b) conserver `bFloor = 0` + phrase d'honnêteté (le 35–47 % [abs] ne s'est pas matérialisé, `p̂ ≪ alpha` ;
 la préoccupation demeure au bord et est aggravée par la burstiness). La tolérance (`bFloor < 0`) est
 **rejetée** par `gate.ts:169`.
+
+## Rectificatif G2 (R-C2, 2026-09-18 soir) — provenance de la trace
+Ce script lit seulement ; **la trace a bien été modifiée ensuite, par l'orchestrateur (Fable 5.1), pas par le worker** : les deux lignes déchirées
+non finales de `journal.jsonl` (283793, 322675) que le lecteur tolérant sautait ont été excisées après la mesure (driver arrêté puis relancé,
+sauvegarde `journal.jsonl.bak-precut-20260918`, sha b776b06c… → ac2cec24…, `REPAIR-2026-09-18.md` addendum), parce que le lecteur natif Shōgen
+fail-close sur elles et que le rapport J28 en dépend. La mesure ci-dessus porte sur l'instantané **non réparé** (sha épinglé §4) ; la réparation
+est mesure-neutre (lignes déjà ignorées ; taux et min B_t reproduits à l'identique par la G2 sur la trace réparée). Toute phrase « jamais la trace
+modifiée » / « `journal.jsonl` non réparé » ci-dessus se lit « au moment de la mesure ». Adjudication D-ADJ : acteur = orchestrateur ; action de
+récupération prescrite par le RUNBOOK Shōgen (même correctif que le 2026-09-16), hors dépôt Monark, exécutée sans go explicite pour cette
+seconde excision — **soumise à ratification de l'investisseur** (JOURNAL Shōgen 2026-09-18).
