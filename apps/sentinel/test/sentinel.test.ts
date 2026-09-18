@@ -6,10 +6,11 @@
 // (lint-ratchet.json, 69) sees no `any`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { splitQuantile, trackerReplay, trackerDigest, trackerStepSize } from "@monark/hikae";
+import { splitQuantile, trackerReplay, trackerDigest, trackerStepSize, mulberry32 } from "@monark/hikae";
+import type { Miscover } from "@monark/hikae";
 import { USDE_STABLE_RUN_CALIB } from "@monark/harness/calibration";
 import { daysUTC, firstBlockAtOrAfter, windowBounds, midnightOf } from "../src/windows.ts";
 import { makeRpcPool, QuorumDisagreementError, TRANSFER_TOPIC, providerOf, PUBLIC_ENDPOINTS } from "../src/rpc.ts";
@@ -19,7 +20,8 @@ import type { WindowFacts } from "../src/flow.ts";
 import { initState, step, stateSummary, committedQ1, boundThm1, projectedBoundT, lineHashOf, TRACKER_PARAMS } from "../src/timeline.ts";
 import type { SentinelState, TimelineLine } from "../src/timeline.ts";
 import { dueDays, runDue, resolveStartDay, j0SourceOf } from "../src/run.ts";
-import { buildInstrument, pageCusumMax, foldSeries } from "../src/instrument.ts";
+import { buildInstrument, pageCusumMax, foldSeries, foldSeriesWithDays, assertOutPathAllowed, EDET_PREREGISTRATION_COMMIT, EDET_ANCHOR_LINE_HASH } from "../src/instrument.ts";
+import { EDET, DISQUALIFIED_P0, logBaseIncrement, makeGrid, gridFor, firstCrossing, runEDetector, bridgeMonoLambda } from "../src/edetector.ts";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const ROOT = join(HERE, "..", "..", "..");
@@ -368,7 +370,13 @@ test("sentinel_state_T_zero_before_J0", () => {
 // ── instrument ───────────────────────────────────────────────────────────────────────────────────────
 test("sentinel_instrument_separate_digest", () => {
   const { state } = replayWindows(series.windows);
-  const inst = buildInstrument(state, { perms: 1000, seed: 20260917 });
+  const calmPairDays = foldSeriesWithDays(series.windows).calmPairDays;
+  const inst = buildInstrument(state, { perms: 1000, seed: 20260917, calmPairDays });
+  // Re-pin (ADR-M014 D4): the CUSUM + permutation section is now LABELLED pre-J0 (retrospective, withdrawn
+  // from sequential reading). The keys `cusum`/`cusum_all_evaluable` are KEPT (this test pins them); only the
+  // label wording changes, and every measured value below is unchanged.
+  assert.equal(inst.cusum.label, "pre-J0 CUSUM (retrospective permutation diagnostic, withdrawn from sequential reading; ADR-M014 D4): E_static over calm pairs");
+  assert.equal(inst.cusum_all_evaluable.label, "pre-J0 CUSUM (retrospective permutation diagnostic; ADR-M014 D4): E_static over all evaluable pairs");
 
   // The instrument is NEVER carried into the live state: state.json (stateSummary) has NO `instrument`
   // key, its shape is exactly the four D4 fields, and run.ts never imports the instrument module.
@@ -505,4 +513,269 @@ test("sentinel_quorum_parse_error_benches_not_masks", async () => {
   assert.equal(a.seen.filter((u) => u === "A").length, 1, "A was probed once then benched, not re-hit (cooldown, not masked)");
   // (b) A's malformed block is benched (never FATAL); finalized returns the min of the two healthy endpoints.
   assert.equal((await mk().rpc.finalized()).block, 0x64, "finalized succeeds with min(100,101) despite A's malformed block");
+});
+
+// ══ M014 — pre-registered e-detector (ADR-M014) ═════════════════════════════════════════════════════════
+// The calm-pair miss sequence and each pair's closing-window day, folded through the REAL `step` (the days
+// align 1:1 with state.calmMiss; timeline.ts is off-limits and carries no days, so the alignment is
+// reconstructed here from the real engine, never re-derived).
+function edetFixture(): { calmMiss: readonly Miscover[]; calmPairDays: readonly string[] } {
+  const { state, calmPairDays } = foldSeriesWithDays(series.windows);
+  return { calmMiss: state.calmMiss, calmPairDays };
+}
+
+// ── M014-1: bridge identity — single-lambda e-CUSUM max == Page CUSUM max (9.5446) ──────────────────────
+test("sentinel_edetector_bridge_equals_page_cusum", () => {
+  const { calmMiss } = edetFixture();
+  const bridge = bridgeMonoLambda(calmMiss, 0.125, 0.25).max_logM_cu;
+  const page = pageCusumMax(calmMiss, 0.125, 0.25);
+  assert.ok(Math.abs(bridge - page) < 1e-9, `bridge max_logM_cu ${String(bridge)} == pageCusumMax ${String(page)}`);
+  assert.ok(Math.abs(bridge - 9.5446) < 1e-3, `identity value ~9.5446 (got ${String(bridge)})`);
+  // At lambda* the base increment IS the Bernoulli LR (SRR p. 25); a NON-centred B would give ~2.81 and break this.
+});
+
+// ── M014-2: constants EDET == ADR-M014 D1 table (read + regex, never pasted) ────────────────────────────
+test("sentinel_edetector_constants_match_adr", (t) => {
+  // The ADR is governance: it lives only in the source repo (never the public export, where docs/adr is
+  // blacklisted). This provenance check therefore runs in the source repo — where the mission oracle runs;
+  // in the export it SKIPS (visible in the summary), never a silent pass.
+  const adrPath = join(ROOT, "docs", "adr", "ADR-M014-edetector-preregistration.md");
+  if (!existsSync(adrPath)) { t.skip("governance ADR absent from the public export"); return; }
+  const adr = readFileSync(adrPath, "utf8");
+  const num = (s: string): number => Number(s.replace(",", "."));
+  const p0m = /`p0`\s*\|\s*\*\*([\d,]+)\*\*/.exec(adr);
+  const qm = /`q_L`,\s*`q_U`\s*\|\s*\*\*([\d,]+)\s*;\s*([\d,]+)\*\*/.exec(adr);
+  const km = /uniforme K\s*=\s*(\d+)/.exec(adr);
+  const dm = /(\d{4}-\d{2}-\d{2})\*\* ; n/.exec(adr);
+  const am = /`alpha_arl`\s*\|\s*\*\*10([⁰-⁹¹²³⁻]+)\*\*/.exec(adr);
+  assert.ok(p0m && qm && km && dm && am, "the D1 table rows are present in ADR-M014");
+  const SUP: Record<string, string> = { "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9", "⁻": "-" };
+  const exponent = [...am[1]!].map((c) => SUP[c] ?? "?").join("");
+  assert.equal(EDET.p0, num(p0m[1]!), "p0 = ADR D1");
+  assert.equal(EDET.qL, num(qm[1]!), "qL = ADR D1");
+  assert.equal(EDET.qU, num(qm[2]!), "qU = ADR D1");
+  assert.equal(EDET.alphaArl, Number("1e" + exponent), "alphaArl = 10^exponent from ADR D1");
+  assert.equal(EDET.K, Number(km[1]!), "K = ADR D1");
+  assert.equal(EDET.startAfterDay, dm[1]!, "startAfterDay = ADR D1");
+});
+
+// ── M014-3: design check — recomputed from the fixture, never pasted (C-2) ──────────────────────────────
+test("sentinel_edetector_design_check", () => {
+  const { calmMiss, calmPairDays } = edetFixture();
+  assert.equal(calmMiss.length, 616);
+  assert.equal(calmPairDays.length, calmMiss.length, "days align 1:1 with calm misses");
+  // p0 = 0.30 (bound-carrying class): max log e-SR ~4.383, no crossing of log(1/alpha_arl).
+  const grid30 = gridFor(EDET.p0);
+  const d30 = runEDetector(calmMiss, EDET.p0, grid30);
+  assert.ok(Math.abs(d30.max_logM_sr - 4.383) < 0.01, `p0=0.30 max_logM_sr = ${String(d30.max_logM_sr)} (~4.383)`);
+  assert.equal(d30.crossed_sr, null, "p0=0.30 never crosses in-sample (design check, no bound)");
+  assert.ok(d30.max_logM_sr < d30.threshold, "max e-SR is below log(1/alpha_arl)");
+  // C-b (G2): pin every PUBLISHED scalar. Recompute the e-CUSUM mixture max in the LINEAR domain as an
+  // independent oracle (max ~25, no overflow), match it to the log-domain value, and pin crossed_cu === null.
+  // The mutant "e-CUSUM mixture collapsed to one component" (mix_cu = cu[j]) reddens here (K=1 is unaffected).
+  const cuLin = new Array<number>(grid30.lambdas.length).fill(0);
+  let maxLin = 0;
+  for (const x of calmMiss) {
+    let mix = 0;
+    for (let j = 0; j < grid30.lambdas.length; j++) {
+      const L = Math.exp(logBaseIncrement(x, grid30.lambdas[j]!, EDET.p0));
+      cuLin[j] = L * Math.max(cuLin[j]!, 1);
+      mix += grid30.weights[j]! * cuLin[j]!;
+    }
+    if (mix > maxLin) maxLin = mix;
+  }
+  assert.ok(maxLin < 1e6, `linear e-CUSUM mixture max ${String(maxLin)} does not overflow`);
+  assert.ok(Math.abs(Math.log(maxLin) - d30.max_logM_cu) < 1e-9, "log-domain max_logM_cu matches the linear recompute");
+  assert.ok(Math.abs(d30.max_logM_cu - 3.2276310958993952) < 1e-9, `p0=0.30 max_logM_cu = ${String(d30.max_logM_cu)} (pinned 3.2276310958993952)`);
+  assert.equal(d30.crossed_cu, null, "p0=0.30 e-CUSUM mixture never crosses in-sample");
+  // p0 = 0.125 (disqualified class): first crossing at calm-pair index 279, closing day 2024-10-11.
+  const d125 = runEDetector(calmMiss, DISQUALIFIED_P0, gridFor(DISQUALIFIED_P0));
+  const idx = d125.crossed_sr;
+  assert.equal(idx, 279, `first crossing index (recomputed) = ${String(idx)}`);
+  assert.ok(idx !== null);
+  assert.equal(calmPairDays[idx], "2024-10-11", "closing-window day of the crossing pair");
+});
+
+// ── M014-4a: exact validity — E_{p0}[L^(lambda)] = 1 for the 12 grid lambda (1e-12) ─────────────────────
+test("sentinel_edetector_baseline_is_unit_mean", () => {
+  const grid = gridFor(EDET.p0);
+  let maxdev = 0;
+  for (const lam of grid.lambdas) {
+    const EL = (1 - EDET.p0) * Math.exp(logBaseIncrement(0, lam, EDET.p0)) + EDET.p0 * Math.exp(logBaseIncrement(1, lam, EDET.p0));
+    maxdev = Math.max(maxdev, Math.abs(EL - 1));
+  }
+  assert.ok(maxdev < 1e-12, `max |E_p0[L] - 1| = ${String(maxdev)} (centred cumulant => unit mean)`);
+});
+
+// ── M014-4b: Monte-Carlo ARL bound — crossing frequency <= H*alpha_arl + 3 sigma (Ville, [abs]) ─────────
+test("sentinel_edetector_montecarlo_arl_bound", () => {
+  const grid = gridFor(EDET.p0);
+  const N = 2000;
+  for (const p of [0.10, 0.30]) {
+    for (const H of [100, 300]) {
+      const rnd = mulberry32(0x9e3779b9 ^ (Math.round(p * 100) << 8) ^ H);
+      let crossed = 0;
+      for (let s = 0; s < N; s++) {
+        const seq: Miscover[] = [];
+        for (let n = 0; n < H; n++) seq.push(rnd() < p ? 1 : 0);
+        if (runEDetector(seq, EDET.p0, grid).crossed_sr !== null) crossed++;
+      }
+      const freq = crossed / N;
+      const sigma = Math.sqrt(Math.max(freq * (1 - freq), 1 / N) / N);
+      const bound = H * EDET.alphaArl + 3 * sigma;
+      assert.ok(freq <= bound, `p=${String(p)} H=${String(H)}: crossing freq ${String(freq)} <= H*alpha_arl+3sigma ${String(bound)}`);
+    }
+  }
+});
+
+// ── M014-4c: e-SR is a SUM of e-processes (E[M_SR,H] <= H), not a supermartingale bounded by 1 ────────────
+// C-a (G2, error_origin = plan): at p = p0 = 0.30, E[L]=1 exactly so E[M_SR,H] = H is a BOUNDARY equality, and
+// the mixture is heavy-tailed (a single giant sim can push the RAW sample mean to ~50*H) — a hard "mean <= H"
+// flips on the seed (G2 measured 3/31). Fix (worker + advisor 2026-09-18): WINSORIZE each terminal at a
+// declared M_CAP = 1000*H (= exp(threshold)*H, tied to the class); min(M, M_CAP) is bounded so its sample mean
+// concentrates and E[min(M,M_CAP)] <= E[M] = H. Then (c1) validity: mean_w <= H*(1 + margin), margin =
+// 3*sd_w/(sqrt(N)*H) (a 3-sigma CI half-width); the margin has the closed-form ceiling 3*M_CAP/(2*sqrt(N)*H)
+// (since sd_w <= M_CAP/2), asserted so the bound can never be vacuous. (c2) witness: mean_w > 1 — THIS is what
+// discriminates from a supermartingale (bounded by 1); c1 is the linear-growth ceiling. Seed sweep (>= 30
+// bases, two families, session scratchpad sweep4c*.mjs, re-run at checkpoint-2): 0 flips of c1/c2/cap; the
+// 49.88*H raw giant winsorizes to 1.211*H. Under ~10 s.
+test("sentinel_edetector_sr_sum_not_supermartingale", () => {
+  const grid = gridFor(EDET.p0);
+  const p = 0.30, N = 2000;
+  for (const H of [100, 300]) {
+    const M_CAP = 1000 * H;
+    const rnd = mulberry32(12345 + H);
+    const w: number[] = [];
+    for (let s = 0; s < N; s++) {
+      const seq: Miscover[] = [];
+      for (let n = 0; n < H; n++) seq.push(rnd() < p ? 1 : 0);
+      const logM = runEDetector(seq, p, grid).logM_sr;
+      w.push(Math.min(Math.exp(logM[logM.length - 1]!), M_CAP)); // winsorize at the declared cap
+    }
+    const mean = w.reduce((a, b) => a + b, 0) / N;
+    const sd = Math.sqrt(w.reduce((a, b) => a + (b - mean) ** 2, 0) / (N - 1));
+    const margin = (3 * sd) / (Math.sqrt(N) * H);
+    const ceiling = (3 * M_CAP) / (2 * Math.sqrt(N) * H); // analytic ceiling: sd_w <= M_CAP/2
+    assert.ok(margin <= ceiling, `H=${String(H)}: margin ${String(margin)} within the declared cap ${String(ceiling)} (non-vacuous)`);
+    assert.ok(mean <= H * (1 + margin), `p=0.30 H=${String(H)}: winsorized mean ${String(mean)} <= H*(1+margin) (E[M_SR,H] <= H)`);
+    assert.ok(mean > 1, `p=0.30 H=${String(H)}: winsorized mean ${String(mean)} > 1 (grows past 1: not a supermartingale)`);
+  }
+});
+
+// ── M014-5: grid — K=12, strictly increasing geometric lambda > 0, weights sum to 1 ─────────────────────
+test("sentinel_edetector_grid_shape", () => {
+  const grid = gridFor(EDET.p0);
+  assert.equal(grid.lambdas.length, 12, "K = 12 lambda");
+  assert.equal(EDET.K, 12);
+  assert.ok(grid.lambdas.every((l) => l > 0), "all lambda > 0");
+  const ratios: number[] = [];
+  for (let i = 1; i < grid.lambdas.length; i++) {
+    assert.ok(grid.lambdas[i]! > grid.lambdas[i - 1]!, "strictly increasing");
+    ratios.push(grid.lambdas[i]! / grid.lambdas[i - 1]!);
+  }
+  assert.ok(Math.max(...ratios) - Math.min(...ratios) < 1e-12, "geometric: constant ratio");
+  const wsum = grid.weights.reduce((a, b) => a + b, 0);
+  assert.ok(Math.abs(wsum - 1) < 1e-12, `weights sum to 1 (got ${String(wsum)})`);
+  assert.equal(grid.weights.length, grid.lambdas.length);
+});
+
+// ── M014-6: mutant guards — firstCrossing is `>=` (Thm 2.4), makeGrid rejects lambda <= 0 ───────────────
+test("sentinel_edetector_mutant_guards", () => {
+  // `>=` vs `>`: a value landing EXACTLY on the threshold must cross (mutant `>` returns the later index).
+  const T = 5;
+  assert.equal(firstCrossing([1, T, 9], T), 1, "firstCrossing uses >= (a value == threshold crosses)");
+  assert.equal(firstCrossing([1, 2, 3], T), null, "no crossing below threshold");
+  // lambda <= 0 guard: a non-positive tilt is not a valid post-change direction (mutant drops the throw).
+  assert.throws(() => makeGrid(0, 1, 12), /lambda must be > 0/);
+  assert.throws(() => makeGrid(-0.1, 1, 12), /lambda must be > 0/);
+  assert.throws(() => makeGrid(0.5, 0.5, 12), /hi > lo/);
+});
+
+// ── M014-7: isolation — run.ts imports neither instrument nor edetector; edetector.ts is pure; no shell ──
+test("sentinel_edetector_isolation", () => {
+  const importLines = (text: string): string[] => text.split("\n").filter((ln) => /^\s*(import|export)\b/.test(ln));
+  const runSrc = readFileSync(join(HERE, "..", "src", "run.ts"), "utf8");
+  assert.ok(!importLines(runSrc).some((ln) => /instrument|edetector/i.test(ln)), "run.ts imports neither instrument nor edetector");
+  // edetector.ts is pure: no engine import, no node: builtin.
+  const edetSrc = readFileSync(join(HERE, "..", "src", "edetector.ts"), "utf8");
+  for (const ln of importLines(edetSrc)) {
+    assert.ok(!/\.\/(timeline|flow|run|rpc|windows)/.test(ln), `edetector.ts must not import the engine: ${ln}`);
+    assert.ok(!/["']node:/.test(ln), `edetector.ts must not import a node: builtin: ${ln}`);
+  }
+  // No subprocess anywhere in this oracle (C-4): the frozen-tree diff is checked out of band, never here.
+  // Tokens are assembled at runtime so this file does not match itself.
+  const testSrc = readFileSync(join(HERE, "sentinel.test.ts"), "utf8");
+  const cpTok = ["child", "process"].join("_"), execTok = ["exec", "Sync"].join(""), spawnTok = ["spawn", "Sync"].join("");
+  assert.ok(!testSrc.includes(cpTok) && !testSrc.includes(execTok) && !testSrc.includes(spawnTok), `the oracle spawns no subprocess (no ${cpTok} shell-out)`);
+});
+
+// ── M014-8: --out guard refuses a public/ path (extracted, tested without writing) ──────────────────────
+test("sentinel_edetector_out_guard", () => {
+  for (const bad of ["/var/lib/monark-sentinel/public/instrument.json", "./public/x.json", "public/x.json"]) {
+    assert.throws(() => assertOutPathAllowed(bad), /public/, `refuses ${bad}`);
+  }
+  for (const ok of ["/var/lib/monark-sentinel/instrument.json", "publicfoo/x.json", "/tmp/instrument.json"]) {
+    assert.doesNotThrow(() => assertOutPathAllowed(ok), `allows ${ok}`);
+  }
+});
+
+// ── M014-9: golden J0 — step(initState(), published J0 facts) reproduces the anchor line_hash ───────────
+// J0 facts read once from https://monarkgate.tech/narabi/timeline.jsonl on 2026-09-18 (the single published
+// line; s_open is the C1 witness supply_close + burns - mints, confirmed against the published s_open). The
+// line_hash EXCLUDES provenance (timeline.ts hashedFields) and the instant derives from the day (flow.ts:59),
+// so any PROV reproduces the anchor. This pins the engine against the pre-registration commit.
+test("sentinel_edetector_golden_j0_anchor", () => {
+  const j0: WindowFacts = {
+    day: "2026-09-17",
+    fromBlock: 25993482,
+    toBlock: 26000650,
+    burns: 7248378739600000000000000n,
+    mints: 17695946655200000000000000n,
+    supplyClose: 4740020686554655133523503861n,
+    supplyOpen: 4740020686554655133523503861n + 7248378739600000000000000n - 17695946655200000000000000n,
+  };
+  assert.equal(j0.supplyOpen, 4729573118639055133523503861n, "s_open = C1 witness (matches the published line)");
+  const out = stepOne(initState(), j0);
+  assert.equal(out.line.pair_status, "non_evaluable", "J0 is the genesis line (no predecessor)");
+  assert.equal(out.line.T, 0, "T = 0 at the anchor");
+  assert.equal(out.line.prev_line_hash, "GENESIS");
+  assert.equal(out.line.line_hash, EDET_ANCHOR_LINE_HASH, "reproduces the published anchor line_hash");
+  assert.equal(EDET_ANCHOR_LINE_HASH, "09beb6564fd68ac0635f782efb27fd655e9beffc48c7edc51bead5638c81da82");
+  assert.equal(EDET_PREREGISTRATION_COMMIT, "9d67302", "the M014-a pre-registration commit");
+});
+
+// ── M014-10: the PUBLISHED section inst.edetector — every scalar pinned, recomputed (C-iii, G2 checkpoint-2) ─
+// Tests 3/9 work at the function level; this pins the JSON surface buildInstrument emits. Every value is
+// RECOMPUTED here via runEDetector/gridFor (never pasted), so a wiring slip in buildEDetector reddens.
+test("sentinel_edetector_published_section", () => {
+  const { state, calmPairDays } = foldSeriesWithDays(series.windows);
+  const inst = buildInstrument(state, { perms: 1000, seed: 20260917, calmPairDays });
+  const e = inst.edetector;
+  // Constants === EDET (single source of truth), never pasted into the section.
+  assert.equal(e.p0, EDET.p0, "section p0 = EDET.p0");
+  assert.equal(e.q_l, EDET.qL, "section q_l = EDET.qL");
+  assert.equal(e.q_u, EDET.qU, "section q_u = EDET.qU");
+  assert.equal(e.alpha_arl, EDET.alphaArl, "section alpha_arl = EDET.alphaArl");
+  assert.equal(e.k, EDET.K, "section k = EDET.K");
+  assert.equal(e.start_after_day, EDET.startAfterDay, "section start_after_day = EDET.startAfterDay");
+  assert.equal(e.threshold_log, Math.log(1 / EDET.alphaArl), "threshold_log = log(1/alpha_arl)");
+  // Pre-registration anchor (full literals).
+  assert.equal(e.preregistered_at, "2026-09-18");
+  assert.equal(e.preregistration_commit, "9d67302");
+  assert.equal(e.anchor_line_hash, "09beb6564fd68ac0635f782efb27fd655e9beffc48c7edc51bead5638c81da82");
+  // design_check (p0 = 0.30): recomputed via runEDetector, matched to the section field-for-field.
+  const run = runEDetector(state.calmMiss, EDET.p0, gridFor(EDET.p0));
+  assert.equal(e.design_check.p0, EDET.p0, "design_check.p0 = 0.30 (not the disqualified 0.125)");
+  assert.equal(e.design_check.n, run.n, "design_check.n = recomputed n");
+  assert.equal(e.design_check.max_logM_sr, run.max_logM_sr, "design_check.max_logM_sr = recomputed");
+  assert.equal(e.design_check.max_logM_cu, run.max_logM_cu, "design_check.max_logM_cu = recomputed");
+  assert.equal(e.design_check.crossed, run.crossed_sr, "design_check.crossed = the SR crossing (crossed_sr)");
+  assert.equal(e.design_check.crossed, null, "no crossing at p0 = 0.30");
+  // disqualified_class (p0 = 0.125): recomputed; the day is calmPairDays at the crossing index.
+  const run125 = runEDetector(state.calmMiss, DISQUALIFIED_P0, gridFor(DISQUALIFIED_P0));
+  assert.equal(e.disqualified_class.p0, DISQUALIFIED_P0, "disqualified_class.p0 = 0.125");
+  assert.equal(e.disqualified_class.first_crossing_index, run125.crossed_sr, "first_crossing_index = recomputed crossing");
+  const idx = run125.crossed_sr;
+  assert.ok(idx !== null, "0.125 crosses in-sample");
+  assert.equal(e.disqualified_class.first_crossing_day, calmPairDays[idx], "first_crossing_day = calmPairDays[index]");
 });
