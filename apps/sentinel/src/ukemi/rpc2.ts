@@ -46,6 +46,11 @@ export interface LogEntry { readonly blockNumber: string; readonly logIndex: str
 
 const toHexBlock = (n: number): string => "0x" + BigInt(n).toString(16);
 const isResultLimit = (m: string): boolean => /more than|result|range is too|10000|query returned|limit exceeded|block range|too large|response size|maximum allowed|ranges? over/i.test(m);
+// A drpc free-plan 400 body reads "ranges over 10000 blocks are not supported on free plan" — which isResultLimit
+// matches via "10000"/"ranges over" — yet the chunk was already 9990 blocks (< 10000) and drpc still returned it
+// 31 times on each live run (D9 weth/susde-live.json): the block is the PLAN, not the range, so splitting only
+// re-hits the same 400 down to the floor. Detect it and let the caller bench the provider once (V-1(e)).
+const isPlanLimited = (m: string): boolean => /free plan/i.test(m);
 
 function asLogs(x: unknown): LogEntry[] {
   if (!Array.isArray(x)) throw new Error("eth_getLogs: result is not an array");
@@ -73,6 +78,23 @@ export function logsKey(logs: readonly LogEntry[]): string {
   const rows = logs.map((l) => [parseInt(l.blockNumber, 16), parseInt(l.logIndex, 16), l.topics, l.data] as const)
     .sort((a, z) => a[0] - z[0] || a[1] - z[1]);
   return createHash("sha256").update(JSON.stringify(rows)).digest("hex");
+}
+
+/** Drop exact (blockNumber, logIndex, transactionHash) duplicates, keyed like logsKey (parsed ints + lower-cased
+ *  hash) so a provider's hex-format drift cannot hide a duplicate; first occurrence is kept. Chunks and splits are
+ *  half-open and disjoint by construction, so with honest providers this is a no-op. It defends the [from,to]
+ *  coverage against a provider whose toBlock is inclusive off-by-one and returns a cut-boundary log on BOTH
+ *  adjacent chunks (V-1(f)). Holder enumeration downstream is a Set, so a no-op never moves a pinned digest. */
+export function dedupLogs(logs: readonly LogEntry[]): LogEntry[] {
+  const seen = new Set<string>();
+  const out: LogEntry[] = [];
+  for (const l of logs) {
+    const k = parseInt(l.blockNumber, 16) + "|" + parseInt(l.logIndex, 16) + "|" + l.transactionHash.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(l);
+  }
+  return out;
 }
 
 /** What the book builder consumes. Every method carries an explicit block number; no mutable head tag. */
@@ -146,7 +168,11 @@ export function makeUkemiPool(opts: UkemiReaderOpts): UkemiReader {
     try {
       return asLogs(await call(url, "eth_getLogs", params));
     } catch (e) {
-      if (to > from && depth < 20 && isResultLimit(String((e as Error).message))) {
+      const msg = String((e as Error).message);
+      // A plan-limited 400 (drpc free plan) is not a range cap: splitting cannot satisfy it, so rethrow and let
+      // the quorum bench this provider once, instead of re-hitting the same 400 on every sub-range (V-1(e)).
+      if (isPlanLimited(msg)) throw e;
+      if (to > from && depth < 20 && isResultLimit(msg)) {
         const mid = from + Math.floor((to - from) / 2);
         const [x, y] = await Promise.all([getLogsVia(url, address, topics, from, mid, depth + 1), getLogsVia(url, address, topics, mid + 1, to, depth + 1)]);
         return [...x, ...y];
@@ -166,7 +192,7 @@ export function makeUkemiPool(opts: UkemiReaderOpts): UkemiReader {
         const logs = await quorum2(`eth_getLogs[${from},${to}]`, getLogsProviders, (url) => getLogsVia(url, address, topics, from, to), logsKey);
         out.push(...logs);
       }
-      return out;
+      return dedupLogs(out);
     },
     async blockAt(block) {
       const b = await quorum2("eth_getBlockByNumber", ethCallProviders, (url) => call(url, "eth_getBlockByNumber", [toHexBlock(block), false]).then(asBlock), (v) => v.hash);

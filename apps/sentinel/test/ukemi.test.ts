@@ -155,7 +155,10 @@ test("ukemi_is_rpc_revert_rejects_archive_miss", () => {
 // Non-LLM oracle on the REAL record.ts defaultCall (fetch → typed RpcError → quorum2 → book tolerance) — the link
 // neither the worker nor the G2 delta executed. globalThis.fetch is stubbed (fully typed, no `any`; restored in a
 // finally) to serve the fixture bytes over JSON-RPC (HTTP 200) and to answer description() per scenario. 7 cases.
-test("ukemi_default_call_classifies_rpc_errors", async () => {
+// Per-test 10s cap (checkpoint-2 V-1(b), orchestrator ruling 2026-09-19): case (c) serves a PERSISTENT 429, which a
+// correct bounded retry throws at once but an unbounded-retry regression (mutant R2) would loop on — so this test
+// (the only fetch-loop test in the pair, measured) reds in ≤ 10s under R2 with --test-force-exit, never hangs the suite.
+test("ukemi_default_call_classifies_rpc_errors", { timeout: 10_000 }, async () => {
   const eps4 = ["https://one.example", "https://two.example", "https://three.example", "https://four.example"];
   const isDescData = (data: string): boolean => data.toLowerCase().startsWith(SEL.description.toLowerCase());
   const jsonResp = (body: unknown, status = 200): Response => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });

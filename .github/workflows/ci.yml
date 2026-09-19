@@ -20,6 +20,11 @@ on:
 jobs:
   g1-controle-generation:
     runs-on: ubuntu-latest
+    # timeout-minutes on EVERY job (checkpoint-2 V-1(b)): a hung run (e.g. an unbounded recorder retry) cannot pend
+    # a job toward GitHub's 6h ceiling. Bound = measured job wall-time ×3, capped ≤ 20 (measured 2026-09-19: g3
+    # ~62s incl. npm ci ~16s + ~31s tests ⇒ 10; the other jobs are faster ⇒ 5). --test-timeout (package.json) is the
+    # finer per-test guard; this is the coarse per-job backstop.
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Pinned model identifiers only (R-1/R-4 — a bare tier resolves platform-side)
@@ -27,6 +32,7 @@ jobs:
 
   r25-taille-de-lot:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -62,6 +68,7 @@ jobs:
 
   g3-verification:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -75,6 +82,7 @@ jobs:
 
   g4-architecture:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -87,6 +95,7 @@ jobs:
 
   g6-compliance:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
