@@ -41,3 +41,4 @@ d80dba944a136e07 pdf/tibshirani-barber-candes-ramdas-2019.pdf (arXiv:1904.06019,
 4b5ee1458b4debfe pdf/angelopoulos-candes-tibshirani-pid-2023.pdf (arXiv:2307.16895, OA, 2026-09-19)
 a2481c4852f4e93c pdf/milionis-moallemi-roughgarden-zhang-lvr.pdf (arXiv:2208.06046, OA, 2026-09-19)
 170e215db5f020b4 pdf/dunn-wasserman-ramdas-2022-hierarchical.pdf (arXiv:1809.07441v4 = JASA 2022 DOI 10.1080/01621459.2022.2060112, OA, 2026-09-19 ; NB arXiv:2010.06001 = collision cosmologie, écarté)
+06e9aa8b945e5628 pdf/cifuentes-ferrucci-shin-2004-boe-wp.pdf (procuré investisseur 2026-09-19)

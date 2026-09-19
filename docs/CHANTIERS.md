@@ -32,7 +32,7 @@ Dernière mise à jour : 2026-09-19 06:10 UTC (horloge système)
 | Étude + PROPOSITIONS + procurement §8 | LIVRÉ (`Downloads\PRODUITS\etude-2026-09-19\`) | — | — |
 | Sources T-1 gratuites (LULD, CTA/UTP, halts NYSE 2019-2026) | RÉCUPÉRÉES, sha consignés (`sources-T1/`) | — | — |
 | Abonnement Massive/Polygon Stocks Starter | ACTIF (29 $/m) ; clé en env utilisateur `POLYGON_API_KEY` (32 car., jamais affichée), testée 2026-09-19 (TSLA prev close 364,27 $, Bearer) ; licence « Individual Use » à revoir avant publication dérivée | — | — |
-| Procurement §8 items 1, 5, 6, 8-15 | investisseur « je vais les chercher » | intégrer à réception (pdftotext, sha, lecteur) | investisseur |
+| Procurement §8 | reçus : Amini 2016, Chow 1970, CFS BoE WP 264 (Ukemi) ; **Scharnowski 2026** (Bell, item 1, lecteur en cours) ; restent : Gatto PDF SSRN, post-mortem CAPO, Nexus terms, TokenLogic, rsETH report, LlamaRisk scope, Credora, Messari, clé Pyth Hermes, avis Massive licence | intégrer à réception | investisseur |
 | Lots T-1 (témoin faits, inscription « Bell » upcoming) → T-2 (parité droits) → T-3 (classe écart) | PLANIFIÉS après P1/W-1 et après ADR-M020 (ordre investisseur) | ADR T-1 + checkpoint-1 | W-1, ordre |
 | Lettre de commentaire SEC File 4-927 | VALIDÉE, après T-1, go avant dépôt | — | T-1 |
 | Hackathon Stocklana (dépôt 2026-09-25) | OPTION ultérieure, plan inchangé | décision investisseur le moment venu | — |
@@ -72,4 +72,4 @@ Séquence commune : W-1 → checkpoint-2 → G7 → fusion ; cartographie M018 D
 | S4 | U-5 témoin résiduel + rejeux pré-enregistrés | T-3 classe `tsv-offhours-gap` (harness) |
 | S5 | U-6 sentinelle-2 servie ⇒ Ukemi réellement built | Bell built ; lettre SEC 4-927 (go) |
 | S6+ | U-7 papier | bascule sur le flux G des premiers TSV |
-Prérequis manquants (investisseur) : clé Pyth Hermes gratuite ; Gatto PDF SSRN 7157638 ; Scharnowski 2026 (JIFMIM, payant) ; Cifuentes–Ferrucci–Shin 2004 BoE WP ; post-mortem CAPO primaire ; avis écrit Massive sur la licence « Individual Use » avant publication dérivée. Coût nouveau : 0 $ avant T-3/U-4 (Solana RPC ~50 $/mois à la bascule TSV ; repli archive Ethereum ~50 $/mois si un opérateur gratuit coupe).
+Prérequis manquants (investisseur) : clé Pyth Hermes gratuite ; Gatto PDF SSRN 7157638 ; post-mortem CAPO primaire ; (reçus : Scharnowski 2026, CFS BoE WP 264) ; avis écrit Massive sur la licence « Individual Use » avant publication dérivée. Coût nouveau : 0 $ avant T-3/U-4 (Solana RPC ~50 $/mois à la bascule TSV ; repli archive Ethereum ~50 $/mois si un opérateur gratuit coupe).
