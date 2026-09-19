@@ -1,11 +1,11 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 07:05 UTC (horloge système)
+Dernière mise à jour : 2026-09-19 07:40 UTC (horloge système)
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019)
 | Lot | État | Prochaine action | Bloqué par |
 |---|---|---|---|
 | P1-b1, b2, b3 | CLOS, fusionnés `lot/etude-suite` | — | — |
-| W-1 (`wiring`, test de gel, prose vitrine ×5, `fleet.ts:70`, panneau Ukemi) | G2 approuvé-avec-corrections C1-C4 pliées ; gel `3e0a150` ; **checkpoint-2 EN COURS** | G7 → fusion → cartographie | — |
+| W-1 (`wiring`, test de gel, prose vitrine ×5, `fleet.ts:70`, panneau Ukemi) | checkpoint-2 : accepte-avec-corrections K-V1 (pointeur Narabi + garde (3) titres suffixés), K-V2 (README « verified » ×3 → item) ; **worker plie** ; `docs/CHECKPOINT2-W1.md` persisté | re-gel → G7 → fusion → cartographie M018 D4 | worker |
 | Cartographie M018 D4 + rapport de passe P1 | À FAIRE après W-1 | worker contexte frais : graphe réel vs registre | W-1 |
 | Miroir public + PR empilées (#78-#83, lot/etude-suite, p1-b*, w-1) | EN ATTENTE fenêtre publique | push au go investisseur | investisseur |
 
@@ -24,9 +24,10 @@ Dernière mise à jour : 2026-09-19 07:05 UTC (horloge système)
 | Lecture Tibshirani 2019 + Barber 2023 | REÇUE : intra-événement = Thm 2 exact ; swap de bloc non couvert → Dunn–Wasserman–Ramdas 2022 (JASA, arXiv:1809.07441) téléchargé OA (collision arXiv:2010.06001 écartée) | lecture Dunn à lancer | — |
 | Note formelle treillis (T monotone, Q_*/Q^*, unicité, sens du treillis) | EN COURS — worker | affirmation centrale de l'ADR | — |
 | ADR-M020 « Eligible is not liquidated » | **checkpoint-1 : approuvé-avec-corrections U-0..U-3** (10 corrections pliées `3a48c88`) ; escalade classe (b) **tranchée : « les 2 »** (position + shortfall cluster, U-4) ; U-1 peut démarrer après W-1 + ADR de lot U-1 | ADR U-1 | W-1 |
+| ADR-U1 (recorder du book, énumération fixée) | EN COURS — worker rédacteur | checkpoint-1 U-1 après W-1 | — |
 | Commit de `docs/biblio/ukemi-modeL/` sur `lot/etude-suite` | FAIT (archive + avis + sha ; pdf/_txt gitignorés, sha tracés) ; MESURES à committer à réception | — | mesures |
 
-## C. MONARK Bell — témoin public attesté des TSV, actions tokenisées (nom investisseur 2026-09-19 ; décisions 1-3)
+## C. MONARK Bell — témoin public attesté des TSV, actions tokenisées (nom investisseur 2026-09-19 ; décisions 1-3, 10 : **produit full fini, VPS dédié dès T-1, grade institutionnel, GTM propre**)
 | Élément | État | Prochaine action | Bloqué par |
 |---|---|---|---|
 | Étude + PROPOSITIONS + procurement §8 | LIVRÉ (`Downloads\PRODUITS\etude-2026-09-19\`) | — | — |
@@ -35,6 +36,9 @@ Dernière mise à jour : 2026-09-19 07:05 UTC (horloge système)
 | Recherche web (post-mortem CAPO, Uniswap rebasing, Token-2022 scaled UI, ERC-8056, événement déficit Aave v3.3, Chainlink SVR) | EN COURS — chercheur, lecture directe par MONARK (investisseur : « il faut que tu lises toi-même ») | intégrer PR-UK-3/14 | — |
 | Procurement §8 | reçus : Amini 2016, Chow 1970, CFS BoE WP 264 (Ukemi) ; **Scharnowski 2026** (Bell, item 1, lecteur en cours) ; restent : Gatto PDF SSRN, post-mortem CAPO, Nexus terms, TokenLogic, rsETH report, LlamaRisk scope, Credora, Messari, clé Pyth Hermes, avis Massive licence | intégrer à réception | investisseur |
 | Lots T-1 (témoin faits, inscription « Bell » upcoming) → T-2 (parité droits) → T-3 (classe écart) | PLANIFIÉS après P1/W-1 et après ADR-M020 (ordre investisseur) | ADR T-1 + checkpoint-1 | W-1, ordre |
+| ADR-B0 (programme Bell : objet, tuyaux, définition de fini institutionnelle, VPS dédié, GTM) | EN COURS — worker rédacteur (contraintes décision 10 transmises) | checkpoint-1 → T-1 | — |
+| GTM-BELL (`docs/GTM-BELL.md`) | EN COURS — chercheur (gaps, acheteurs nommés, positionnement, offre/pricing sourcé, séquence, signaux, risques) | revue advisor-marché → investisseur | — |
+| VPS dédié Bell | À PROVISIONNER par l'investisseur (spec dans ADR-B0 ; ordre de grandeur 2 vCPU / 4 Go / 80 Go, Ubuntu 24.04, ~8-10 €/mois) | clé SSH, DNS `bell.monarkgate.tech` | ADR-B0 |
 | Lettre de commentaire SEC File 4-927 | VALIDÉE, après T-1, go avant dépôt | — | T-1 |
 | Hackathon Stocklana (dépôt 2026-09-25) | OPTION ultérieure, plan inchangé | décision investisseur le moment venu | — |
 
