@@ -118,3 +118,7 @@ Ce lot **n'ajoute aucun tuyau servi** : il **déclare** au registre ceux déjà 
 - Négatif assumé : l'effet servi d'Ukemi reste une **abstention constante** — le champ le dit ; le paroxysme est ADR-M020 (hors W-1).
 
 <!-- Format : Nygard 2011 [lu], étendu ISO/IEC/IEEE 42010:2022 §6.10 [lu] (propriétaire, horodatages, alternatives rejetées, liens). -->
+
+
+---
+**AMENDEMENT 2026-09-19 (E-registre `bd3fa0a`, checkpoint-2 V-1)** : D1 `integration_test: string` et D2 « un test qui existe » sont **supersédés par ADR-EC E2/E6** — `integration_test: string[]` (min 1, chaque id `test("…")` grepé dans les racines déclarées, E3 `wiring_test_roots_exclusion_is_declared`) et champ rendu **distinct et digit-free** `wiring.note` (seul champ de `wiring` rendu sur `/fleet`). Item (b) « rendu de `served_by` — lot designer » : **CLOS par E6** ; le résidu « rendu `served_by`/`integration_test` verbatim » (G1-lot-e-registre §10) est **retiré** : `served_by` porte des chiffres par construction, la note digit-free est la voie retenue. `error_origin` : rédacteur ADR-W1 (type scalaire) — corrigé par le lot.

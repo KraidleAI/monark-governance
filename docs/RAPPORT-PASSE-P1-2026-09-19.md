@@ -129,8 +129,8 @@ Non implémenté par ce worker (R-20). Déclencheur : prochaine cartographie / d
 | # | Item | Déclencheur |
 |---|---|---|
 | E1 | Étape h5 portant `attested` (fil MCP ne prouve pas la prise) | Premier appelant réel, ou prochain lot `apps/harness` (T-1 / U-4) — ADR-M019 (1) |
-| E2 | Registre : 1 `integration_test` pour N jambes (Hikae, Narabi) | Prochain lot touchant `apps/site/lib/fleet.ts` (designer, ou autre) |
-| E3 | Garde (3) `TEST_ROOTS` sans `packages/*/test/` (exclusion non documentée) | Premier built dont l'`integration_test` vivrait sous `packages/*/test/` |
+| E2 | Registre : 1 `integration_test` pour N jambes (Hikae, Narabi) | **FERMÉ par E-registre `bd3fa0a` (checkpoint-2 2026-09-19)** |
+| E3 | Garde (3) `TEST_ROOTS` sans `packages/*/test/` (exclusion non documentée) | **FERMÉ par E-registre `bd3fa0a`** (`wiring_test_roots_exclusion_is_declared`) |
 | E5/R1 | Hygiène de dépendances absente | §3.b (recherche jointe) |
 | E6 | Rendu de `wiring.served_by` (trou numérique : lever tripwire + ajouter au scan) | Lot **designer** (note honnête sans chiffre) — ADR-W1 (b) |
 | E7 | « verified » surclaim rendu **×6** (`shogen-panel:51,:57`, `fleet-presentation:33`, `README:48,:111,:112`) | Lot **Shōgen-honnêteté**, avant toute nouvelle revendication du panneau Shōgen |
