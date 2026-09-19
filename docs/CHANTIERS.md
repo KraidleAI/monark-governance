@@ -1,5 +1,5 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 (décisions 21-25 : zéro dette (b), K-1 (a), M018 D2 ratifié, CRA, D9 septies ; U-1a-hard + lecture CRA lancés)
+Dernière mise à jour : 2026-09-19 (autonomie : ADR-T1aii en checkpoint-1 ; CRA = escalade compliance ; Helius cartographié ; 6 agents en vol)
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019) — **CLOSE** (G7 de passe `16ec12a`, checkpoint-2 de clôture accepte-avec-corrections C-1..C-6 pliées)
 | Lot | État | Prochaine action | Bloqué par |
@@ -78,6 +78,7 @@ Dernière mise à jour : 2026-09-19 (décisions 21-25 : zéro dette (b), K-1 (a)
 - ADR-M009 l.124 « 47 % » → 49,1 % à la prochaine édition.
 - Replay (l) 11 mois à T ≥ 7 (2026-09-26) ; D3 lecture J+30 (2026-10-18) ; K-0 Koyomi pré-enregistrement ; M012 (g) dépôt dédié à T ≥ 30.
 - **Machine : règle disque appliquée 2026-09-19** (`TEMP/TMP`, caches npm/uv/pip, miroir public, `F:\PRODUITS`, `F:\MONARK SUITE` → `F:` ; INVENTAIRE §1 bis) ; reste : purge de l'ancien `C:\…\Temp` (8,5 Go) par l'investisseur ; historique : disque `C:` saturé (224 Mo libres) — `npm ci` imbriqué du test d'export échoue en ENOSPC ; contournement `TEMP/TMP/TMPDIR=F:	mp-monark-wt` à poser dans chaque shell ; à libérer par l'investisseur** (déclencheur : avant toute G2/checkpoint qui rejoue `export_public_no_governance_no_french`).
+- **CRA (règlement UE 2024/2847) — ESCALADE compliance (audit d'entrée `docs/AUDIT-ENTREE-CRA-2026-09-19.md`, décision 24)** : applicabilité à MONARK **INDÉTERMINÉE** (FOSS Apache-2.0 + service hébergé + intention de monétiser) ; si dans le champ comme fabricant, **l'art. 14 (notification vulnérabilités/incidents) est en vigueur depuis le 11/09/2026** ; stewards = 11/12/2027. Dus investisseur : forme juridique + pays de KraidleAI ; décision de consulter un juriste sur les 5 questions §6 avant release. En cours : seconde lecture sur le PDF officiel EUR-Lex (81 p., local). Template G6 du corpus à corriger (« applicabilité à instruire »).
 - Ratifications investisseur en suspens : excision journal.jsonl Shōgen (D-ADJ) ; ADR-M002 D5/D6 bFloor.
 
 ## F. Règles apprises cette passe (à ne plus enfreindre)
