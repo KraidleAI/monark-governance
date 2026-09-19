@@ -17,7 +17,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, extname } from "node:path";
 import ts from "typescript";
 import { compilePatterns, scanText, collectTargets } from "../scripts/grep-forbidden.mjs";
@@ -612,8 +612,8 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narab
   assert.deepEqual(numericHits, [], `a register string carries a rendered numeric literal: ${JSON.stringify(numericHits)}`);
 
   // (2) CONSUMPTION — the two new surfaces render the badge FROM the register (status={...}), never a
-  // hard-coded status="built"/status="upcoming" attribute. The built F-2b panels are out of scope
-  // (their status is their own declared source of truth on the home page).
+  // hard-coded status="built"/status="upcoming" attribute. The Shōgen/Hikae F-2b panels keep their own
+  // declared status on the home page; the Ukemi panel now reads the register too (pinned by (5) below).
   const NEW_SURFACES = ["apps/site/app/roadmap/page.tsx", "apps/site/components/upcoming-panel.tsx"];
   const surfaces = siteSurfaces(join(ROOT, "apps", "site"));
   // Also catches the JSX-wrapped literal status={"built"} (G2-F2c reserve a), not just status="built".
@@ -626,6 +626,50 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narab
       `${rel} must not hard-code a status attribute — read it from lib/fleet.ts (inert register otherwise)`,
     );
   }
+
+  // (3) WIRING (ADR-M018 D1(b)(c)/D2) — every built agent declares a SERVED path and a non-LLM integration
+  // test that EXISTS. The FleetAgent union already makes a built-without-wiring / upcoming-with-wiring a
+  // COMPILE error (npm run typecheck, via this file's import of fleet.ts); this block additionally reds if
+  // served_by is empty or integration_test names no real test. Named mutant: integration_test:"no_such_test"
+  // ⇒ this test reds; drop `wiring` from a built entry ⇒ typecheck reds (docs/G1-lot-w1.md).
+  const TEST_ROOTS = [join(ROOT, "test"), join(ROOT, "apps", "harness", "test"), join(ROOT, "apps", "sentinel", "test")];
+  const testCorpus = TEST_ROOTS.flatMap((dir) =>
+    existsSync(dir) ? readdirSync(dir).filter((n) => n.endsWith(".test.ts")).map((n) => readFileSync(join(dir, n), "utf8")) : [],
+  ).join("\n");
+  assert.ok(testCorpus.length > 0, "no *.test.ts collected under the three test roots (false green)");
+  for (const a of FLEET_AGENTS) {
+    if (a.status !== "built") continue;
+    assert.ok(a.wiring.served_by.trim().length > 0, `built agent ${a.name}: wiring.served_by must be non-empty (ADR-M018 D1(b))`);
+    const t = a.wiring.integration_test.trim();
+    assert.match(t, /^[A-Za-z0-9_]+$/, `built agent ${a.name}: integration_test must be a bare test identifier, got ${JSON.stringify(t)}`);
+    assert.ok(
+      testCorpus.includes(`test("${t}"`) || testCorpus.includes(`test('${t}'`),
+      `built agent ${a.name}: integration_test '${t}' names no test under test/, apps/harness/test/, apps/sentinel/test/ (ADR-M018 D1(c))`,
+    );
+  }
+
+  // (4) NUMERIC-HOLE closure for wiring — served_by carries task-class ids with digits (…-24h, btc-dir-15m).
+  // Like ACI.body, object values escape BOTH the honesty lint (property access) and the register numeric
+  // scan above (name/line only). So NO apps/site surface may render wiring.served_by / wiring.integration_test
+  // until item formed (b) [ADR-W1] BOTH lifts this guard AND adds the wiring strings to the numeric scan; a
+  // designer lot renders a digit-free honest note instead. Named mutant: render {a.wiring.served_by} ⇒ reds.
+  const wiringRender = /\bwiring\s*(?:\?\.|\.)\s*(?:served_by|integration_test)\b/;
+  const wiringRenderHits = surfaces
+    .filter((s) => (s.rel.endsWith(".ts") || s.rel.endsWith(".tsx")) && wiringRender.test(s.text))
+    .map((s) => s.rel);
+  assert.deepEqual(wiringRenderHits, [], `an apps/site surface renders wiring metadata (digit hole) — ADR-W1 item (b) must land first: ${wiringRenderHits.join(", ")}`);
+
+  // (5) The bespoke Ukemi Home panel reads its AgentCard STATUS from the register (ADR-M018 single source of
+  // truth), not a hard-coded status="built". It is NOT in NEW_SURFACES because its per-block PanelBlock
+  // maturity attrs are legitimately literal; we pin only the AgentCard status prop and the register import.
+  // Named mutant: put status="built" back on the AgentCard ⇒ this reds.
+  const ukemiPanel = surfaces.find((s) => s.rel === "apps/site/components/ukemi-panel.tsx");
+  assert.ok(ukemiPanel, "ukemi-panel.tsx must be scanned (false green)");
+  assert.match(ukemiPanel.text, /from ["']@\/lib\/fleet["']/, "ukemi-panel must import the fleet register (single source of truth)");
+  const acIdx = ukemiPanel.text.indexOf("<AgentCard");
+  assert.ok(acIdx >= 0, "ukemi-panel must render an AgentCard (false green)");
+  const stMatch = /status\s*=\s*(.)/.exec(ukemiPanel.text.slice(acIdx));
+  assert.ok(stMatch !== null && stMatch[1] === "{", "ukemi-panel AgentCard status must be read from the register (status={...}), not a hard-coded literal");
 });
 
 // ────────────────────────────────────────────────────────────────────────────────────────────────

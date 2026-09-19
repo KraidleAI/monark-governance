@@ -83,8 +83,8 @@ export default function HomePage() {
           The built fleet
         </h2>
         <p className="mt-2 max-w-2xl text-sm" style={{ color: "var(--ink2)" }}>
-          The first vertical, built end to end and closed under independent review: Shōgen → Hikae →
-          Ukemi — with Narabi, the built redemption-run sensor, alongside. Open a panel for how it works,
+          The first vertical, built and served piece by piece, composed on the gate path and closed under
+          independent review — with Narabi, the built redemption-run sensor, alongside. Open a panel for how it works,
           how it is built, its honest limits, and its frozen contract. More agents are named on the{" "}
           <Link href="/roadmap" className="underline underline-offset-4">
             fleet roadmap

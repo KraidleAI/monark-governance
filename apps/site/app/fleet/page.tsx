@@ -22,7 +22,7 @@ import { GenkanMark } from "@/components/marks/genkan-mark";
 export const metadata: Metadata = {
   title: "Fleet — MONARK",
   description:
-    "The MONARK fleet: three agents built end to end, the Narabi redemption sensor now running, and seven more named on the roadmap, on one shared gate.",
+    "The MONARK fleet: three agents built and served piece by piece and composed on the gate path, the Narabi redemption sensor now running, and seven more named on the roadmap, on one shared gate.",
 };
 
 // Marks for the register agents rendered here without a bespoke panel (F-site-2): the seven roadmap agents
@@ -70,8 +70,8 @@ export default function FleetPage() {
           A company of agents. Four built, seven on the roadmap.
         </h1>
         <p className="max-w-2xl text-lg text-muted-foreground">
-          The first vertical is built end to end: Shōgen, then Hikae, then Ukemi. Every future act plugs
-          into the same gate; every future sensor attests into the same contract.
+          The first vertical is built and served piece by piece and composed on the gate path. Every future
+          act plugs into the same gate; every future sensor attests into the same contract.
         </p>
       </section>
 

@@ -4,7 +4,9 @@
 //
 // Locked by the root test `fleet_register_built_set_is_frozen` (test/ci-gates.test.ts): the built
 // set is EXACTLY {Shōgen, Hikae, Ukemi, Narabi}; the seven other agents and all five products are upcoming.
-// Flipping any of those twelve to "built" reds that test (named mutant).
+// Flipping any of those twelve to "built" reds that test (named mutant). That same test also freezes the
+// WIRING (ADR-M018 D2): each built agent's served_by is non-empty, its integration_test names a real test,
+// and no surface renders the (digit-bearing) wiring metadata.
 //
 // PORTABILITY: this module is compiled by TWO programs with different module resolution — the Next
 // app (moduleResolution "bundler") and the root test program (moduleResolution "nodenext", which
@@ -23,14 +25,45 @@ export type FleetStatus = "built" | "upcoming";
 /** Where an agent sits on the backbone: it senses, it is the gate, it acts, or it distributes. */
 export type FleetRole = "sensor" | "gate" | "act" | "distribution";
 
-export interface FleetAgent {
+/**
+ * A built agent's WIRING (ADR-M018 D2): the served path that consumes its output, and the non-LLM
+ * integration test that replays that composition. REQUIRED on a built agent, FORBIDDEN on an upcoming one
+ * (encoded in the FleetAgent union below). The root test `fleet_register_built_set_is_frozen` checks that
+ * `served_by` is non-empty and `integration_test` names a test that EXISTS under test/, apps/harness/test/,
+ * or apps/sentinel/test/. NOTE: served_by carries task-class ids that contain digits (…-24h, btc-dir-15m);
+ * it is wiring METADATA, never a rendered string, so it is deliberately OUT of the numeric-hole scan, and
+ * no surface may render it (both pinned by that test) until a designer lot presents a digit-free honest note.
+ */
+export interface FleetWiring {
+  /** Who consumes this agent's output on a SERVED path (an MCP tool, or a published file read by a surface). */
+  served_by: string;
+  /** The non-LLM integration test that replays the served composition — a real test name. */
+  integration_test: string;
+}
+
+interface FleetAgentCommon {
   /** Public budō name. */
   name: string;
   role: FleetRole;
   /** One-line English descriptor (rendered as a teaser or a renvoi). */
   line: string;
-  status: FleetStatus;
 }
+
+/** A BUILT agent MUST declare its wiring (ADR-M018 D1(b)(c)/D2: a served path + a non-LLM test that replays it). */
+export interface BuiltFleetAgent extends FleetAgentCommon {
+  status: "built";
+  wiring: FleetWiring;
+}
+
+/** An UPCOMING agent carries NO wiring (nothing is served yet); a `wiring` on it is a type error. */
+export interface UpcomingFleetAgent extends FleetAgentCommon {
+  status: "upcoming";
+  wiring?: never;
+}
+
+/** A register entry: built (with wiring) or upcoming (without). Consumers reading name/role/line/status see
+ *  the common shape; only a `status === "built"` narrow exposes `wiring`. */
+export type FleetAgent = BuiltFleetAgent | UpcomingFleetAgent;
 
 /** A product's wiring, shown as a sober sensor -> gate -> act schema in the placeholder. */
 export interface ProductWiring {
@@ -60,16 +93,51 @@ export interface FleetProduct {
   status: FleetStatus;
 }
 
-// The eleven fleet agents. Three engines (Shōgen, Hikae, Ukemi) are rendered by their bespoke Home
-// panels (that stays their source of truth). Narabi is built as the redemption sensor (ADR-M012 M012-e:
+// The eleven fleet agents. Three engines (Shōgen, Hikae, Ukemi) are rendered by their bespoke Home panels;
+// the Ukemi panel reads its AgentCard status from THIS register (ADR-M018 single source of truth; pinned by
+// fleet_register_built_set_is_frozen). Narabi is built as the redemption sensor (ADR-M012 M012-e:
 // its AttestedFlow contract, the velocity adapter and a committed calibration ship and are served, and an
 // off-tool sentinel steps the tracker daily) — rendered from the register, not a bespoke panel. Listed
 // here so the register is complete and testable, and so /roadmap and /fleet can render them. The seven
 // upcoming lines are recorded internally.
 export const FLEET_AGENTS: FleetAgent[] = [
-  { name: "Shōgen", role: "sensor", line: "Attested perception — a verified price testimony.", status: "built" },
-  { name: "Hikae", role: "gate", line: "Coverage-controlled inference — the gate itself.", status: "built" },
-  { name: "Ukemi", role: "act", line: "Liquidation-cascade survival.", status: "built" },
+  {
+    name: "Shōgen",
+    role: "sensor",
+    line: "Attested perception — an attested price testimony.",
+    status: "built",
+    // attest → gate on the served wire: the `attested` envelope key files attested.residual into
+    // verdict.residual (ADR-M017 D2(iii)/D4(3)). gate_attested_concordant_files_residual replays that seam.
+    wiring: {
+      served_by: "MCP attest → gate (the attested envelope key; attested.residual filed into verdict.residual on the served gate)",
+      integration_test: "gate_attested_concordant_files_residual",
+    },
+  },
+  {
+    name: "Hikae",
+    role: "gate",
+    line: "Coverage-controlled inference — the gate itself.",
+    status: "built",
+    // The served gate itself. probe_harness_records_real_decision drives it on the real MCP wire
+    // (btc-dir-15m → commit/covered; cascade → abstain). The BYO and stable-run legs: ADR-W1 § Tuyaux.
+    wiring: {
+      served_by: "MCP gate (btc-dir-15m committed decision; stable-run-velocity-24h; BYO calibration)",
+      integration_test: "probe_harness_records_real_decision",
+    },
+  },
+  {
+    name: "Ukemi",
+    role: "act",
+    line: "Liquidation-cascade survival.",
+    status: "built",
+    // cascade → gate on the served wire (h5 trace step 4). By construction the gate abstains under_calib
+    // (no cascade calibration committed) and the prediction content does not change the served decision
+    // (measured vacuity, ADR-M019 D2/D4). The seam is real; its served effect is a constant abstention.
+    wiring: {
+      served_by: "MCP cascade → gate (cascade-liquidable-24h; abstains under_calib by construction, ADR-M019 D2/D4)",
+      integration_test: "probe_harness_records_real_decision",
+    },
+  },
   {
     name: "Mokugeki",
     role: "sensor",
@@ -84,6 +152,13 @@ export const FLEET_AGENTS: FleetAgent[] = [
     // (numeric-hole scan) and generic (population and numbers live in the README / skill, not the teaser).
     line: "Narabi senses redemption-run velocity from the attested onchain flow; its adaptive quantile tracker publishes a replayable daily timeline.",
     status: "built",
+    // Two served legs: the daily sentinel publishes a replayable timeline read by /narabi/, and
+    // fromAttestedFlow → gate serves the stable-run-velocity-24h class. sentinel_windows_identical_to_pull
+    // replays the sentinel windowing against a fresh on-chain pull; the gate leg: ADR-W1 § Tuyaux.
+    wiring: {
+      served_by: "daily published sentinel at /narabi/ + fromAttestedFlow → gate (stable-run-velocity-24h)",
+      integration_test: "sentinel_windows_identical_to_pull",
+    },
   },
   {
     name: "Kaihi",
