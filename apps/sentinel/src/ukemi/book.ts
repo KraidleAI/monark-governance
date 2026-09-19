@@ -9,6 +9,7 @@ import { SEL, TRANSFER_TOPIC0, wordAddr, wordAt, decAddress, decUint, decString,
 import { crossCheckHealthFactor, eligibleStatic, type HfCheck } from "./wadray.ts";
 import { POOL, POOL_ADDRESSES_PROVIDER, ORACLE, CHAIN_ID, type Cluster } from "./clusters.ts";
 import { ConcordantRevertError, type UkemiReader } from "./rpc2.ts";
+import { canonicalStringify, type Canon } from "@monark/monark";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
 
@@ -16,17 +17,10 @@ const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
  *  collateral delisted): fail-closed, never a repli onto stale params (ADR-U1 D1). */
 export class AbiMismatchError extends Error {}
 
-/** A canonical JSON value: strings (all integers as decimal strings), booleans, arrays, objects. No floats. */
-export type Canon = string | boolean | Canon[] | { [k: string]: Canon };
-
-/** Deterministic serialization (ADR-U1 D2): keys sorted by UTF-8 bytes, minified, no floats, UTF-8. */
-export function canonicalStringify(v: Canon): string {
-  if (typeof v === "string") return JSON.stringify(v);
-  if (typeof v === "boolean") return v ? "true" : "false";
-  if (Array.isArray(v)) return "[" + v.map(canonicalStringify).join(",") + "]";
-  const keys = Object.keys(v).sort((a, b) => Buffer.from(a, "utf8").compare(Buffer.from(b, "utf8")));
-  return "{" + keys.map((k) => JSON.stringify(k) + ":" + canonicalStringify(v[k] as Canon)).join(",") + "}";
-}
+/** The SINGLE canonical serialization and the `Canon` value type now live in @monark/monark (ADR-U1b D8, C-1):
+ *  imported above (no second definition of "canonical") and re-exported here for ukemi.test.ts / record.ts. */
+export { canonicalStringify };
+export type { Canon };
 const sha256 = (s: string): string => createHash("sha256").update(s, "utf8").digest("hex");
 
 /** HF cross-check finding for one account (provenance; outside the digest — depends on our WadRayMath). */

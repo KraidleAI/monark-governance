@@ -32,3 +32,11 @@ export {
   NARABI_LABEL,
 } from "./adapter-narabi.ts";
 export type { NarabiOutput, NarabiError, NarabiProvenance, NarabiAdapterErrorReason } from "./adapter-narabi.ts";
+
+// Ukemi — the AttestedBook adapter PAIR (consumer + producer) and the SINGLE canonical-serialization
+// definition (ADR-U1b D5/D8). Additive; the frozen contracts are unchanged. The book domain's canonical
+// form lives here (imported by apps/sentinel/src/ukemi, no second definition — C-1).
+export { fromAttestedBook, toAttestedBook, isBookError, BOOK_LABEL } from "./adapter-book.ts";
+export type { BookOutput, BookError, BookProvenance, BookAdapterErrorReason, AttestedBookContext, RecordedBook } from "./adapter-book.ts";
+export { canonicalStringify, bookDigest, canonicalAttestedBook, attestedBookDigest, NonCanonicalNumberError } from "./book-canonical.ts";
+export type { Canon, CanonicalEnvelope } from "./book-canonical.ts";
