@@ -34,12 +34,16 @@ import {
 } from "@monark/hikae";
 import type { GateInput } from "@monark/hikae";
 import { assertClosedGateDecision, assertNoForbiddenKey } from "@monark/contracts";
-import type { GateDecision, Prediction, CoverageVerdict } from "@monark/contracts";
+import type { GateDecision, Prediction, CoverageVerdict, AttestedPrice } from "@monark/contracts";
 import { BTC_DIR_CALIB, BTC_DIR_CALIB_PROVENANCE, lookupCommittedCalibration } from "../calibration.ts";
 // (ADR-M007 D7): the BYO path REUSES the calibrate constants — the score cap (single source) and
 // the K-1 honesty label (B-2: one constant, no paraphrase, no banned overclaim verb). Errors on the
 // gate BYO path are `HarnessToolError` (already ∈ http.ts TOOL_ERROR_NAMES ⇒ 400), NOT CalibrateToolError.
 import { CALIBRATE_MAX_N, CALIBRATE_LABEL } from "./calibrate.ts";
+// (ADR-M017 D2): the committed subject<->class binding table + the pure consistency predicate. A pure
+// sibling module at src/ (no I/O, imports nothing from the tools), so the K-8 tools scan stays meaningful
+// and there is no import cycle (attestation-binding.ts never imports gate.ts).
+import { checkAttestedConsistency } from "../attestation-binding.ts";
 
 /** Server-fixed contract version (K-4c) — NOT carried by the caller. */
 export const SCHEMA_VERSION = "1.0.0";
@@ -91,6 +95,16 @@ export const STABLE_RUN_COMMITTED_SENTENCE =
 
 export const GATE_TOOL_NAME = "gate";
 
+/**
+ * ADR-M017 D2(iv) — the non-re-verification sentence carried VERBATIM in the tool description (phrase C-8):
+ * the attestation is DECLARED-consistent, never verified at call time (no verifier runs here, K-8); `attest`
+ * has no input and cannot recompute or verify a caller-carried attestation. Kept as one constant so the
+ * "non-re-verification phrase removed from the description" mutant reddens `gate_description_declares_non_reverification` (test (4)).
+ */
+export const GATE_NON_REVERIFICATION_SENTENCE =
+  "the attestation is carried by the caller and is not re-verified at call time (the verifier is not executed here); " +
+  "`attest` only projects the committed witness — verify a caller-carried attestation offline with the Shōgen verifier";
+
 /** Tool description (K-4e / C-2): declares `synthetic` (btc-dir), the cascade sentence, AND the BYO path.
  *  The BYO carrier REUSES `CALIBRATE_LABEL` (B-2: one honesty constant, no paraphrase, no banned vocab). */
 export const GATE_TOOL_DESCRIPTION =
@@ -103,6 +117,10 @@ export const GATE_TOOL_DESCRIPTION =
   "When the caller instead supplies a `calibration` (its own nonconformity scores plus a `mode`: `interval` " +
   "⇒ region [yhat - q̂, yhat + q̂], or `set` ⇒ a conformal set over caller `candidates`), the gate " +
   `conformalizes against THOSE caller-supplied scores (BYO): ${CALIBRATE_LABEL} ` +
+  "A caller-carried `attested` price must declare a subject consistent with the committed task class " +
+  "(exact committed-URL membership; BYO classes do not accept `attested` in P1); " +
+  GATE_NON_REVERIFICATION_SENTENCE +
+  "; no temporal binding in P1. " +
   "The gate only emits a decision; it never calls the named tool.";
 
 /** One BYO candidate (set mode): a label and its caller-supplied nonconformity score. */
@@ -500,7 +518,7 @@ export function gateVerdictSummary(d: GateDecision): string {
  * Compose the real primitives into a closed `GateDecision`. Throws `HarnessToolError` on an unknown
  * `task_class`, a wrong-typed `yhat`, or invalid params (K-4a). The gate NEVER calls `params.tool`.
  */
-export function runGate(prediction: Prediction, params: HarnessParams): GateDecision {
+export function runGate(prediction: Prediction, params: HarnessParams, attested?: AttestedPrice): GateDecision {
   validateHarnessParams(params);
   if (prediction.schema_version !== SCHEMA_VERSION) {
     throw new HarnessToolError(
@@ -510,14 +528,14 @@ export function runGate(prediction: Prediction, params: HarnessParams): GateDeci
 
   const taskClass = prediction.task_class;
   const calibration = params.calibration;
-  let verdict: CoverageVerdict;
-  let nCalib: number;
 
+  // Anti-override guard (C2 + A6, ADR-M008 Amendement bis): a BYO calibration must NEVER overwrite a
+  // COMMITTED calibration. btc-dir/cascade are committed on the CLASS ⇒ locked for any predictor_id. The
+  // stable-run class is committed by KEY (task_class, predictor_id) ⇒ locked ONLY for a committed key; a
+  // DIFFERENT population on the same class MAY bring its own scores (BYO by κ by family). Fail-closed (400).
+  // Hoisted out of the dispatch (ADR-M017 D2(ii) order: validateHarnessParams -> anti-override BYO ->
+  // attested consistency -> dispatch); the throw and its message are byte-identical to the pre-M017 inline guard.
   if (calibration !== undefined) {
-    // Anti-override guard (C2 + A6, ADR-M008 Amendement bis): a BYO calibration must NEVER overwrite a
-    // COMMITTED calibration. btc-dir/cascade are committed on the CLASS ⇒ locked for any predictor_id. The
-    // stable-run class is committed by KEY (task_class, predictor_id) ⇒ locked ONLY for a committed key; a
-    // DIFFERENT population on the same class MAY bring its own scores (BYO by κ by family). Fail-closed (400).
     const overridesCommitted =
       taskClass === TASK_BTC_DIR ||
       taskClass === TASK_CASCADE ||
@@ -527,6 +545,23 @@ export function runGate(prediction: Prediction, params: HarnessParams): GateDeci
         `calibration must not override the committed (task_class, predictor_id) '${taskClass}' / '${prediction.predictor_id}': use a caller-owned key for BYO (ADR-M007 D7, ADR-M008 A6)`,
       );
     }
+  }
+
+  // Attested-consistency guard (ADR-M017 D2(i)(ii)): a caller-carried `attested` must DECLARE a subject
+  // consistent with the served class (exact committed-URL membership). Never a verification — no verifier
+  // runs here (K-8); a free/BYO class or a discordant subject fails closed to a tool error (400), naming the
+  // subject and the class with the two distinct texts. Absent `attested` ⇒ a no-op (byte-identical behaviour).
+  if (attested !== undefined) {
+    const inconsistency = checkAttestedConsistency(taskClass, attested.subject);
+    if (inconsistency !== undefined) {
+      throw new HarnessToolError(inconsistency);
+    }
+  }
+
+  let verdict: CoverageVerdict;
+  let nCalib: number;
+
+  if (calibration !== undefined) {
     verdict = byoVerdict(prediction, params, calibration);
     nCalib = calibration.scores.length;
   } else if (taskClass === TASK_BTC_DIR) {

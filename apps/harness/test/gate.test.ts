@@ -6,12 +6,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { assertClosedGateDecision, assertNoForbiddenKey, calibDigest } from "@monark/contracts";
-import type { Prediction, AttestedFlow } from "@monark/contracts";
+import type { Prediction, AttestedFlow, AttestedPrice } from "@monark/contracts";
 import {
   runGate,
   validateHarnessParams,
   HarnessToolError,
   GATE_TOOL_DESCRIPTION,
+  GATE_NON_REVERIFICATION_SENTENCE,
   CASCADE_UNCALIBRATED_SENTENCE,
   STABLE_RUN_UNCALIBRATED_SENTENCE,
   STABLE_RUN_COMMITTED_SENTENCE,
@@ -601,4 +602,84 @@ test("gate_byo_interval_float_absorption_is_under_calib_M011", () => {
   assert.equal(d.verdict.abstain, true);
   assert.equal(d.action, "abstain");
   assert.equal(d.reason, "under_calib");
+});
+
+// ---------------------------------------------------------------------------- ADR-M017 (attested in the gate)
+
+/** A minimal, schema-valid AttestedPrice carrying a chosen `subject` (only `subject` is read by the guard). */
+function attestedWith(subject: string): AttestedPrice {
+  return {
+    schema_version: "1.0.0",
+    subject,
+    attestor: [{ identity: "shogen:test-attestor", key: "6b6579" }],
+    residual: ["A(notary-neutrality)"],
+    transport: "https-demo",
+    utterance: { hash: "0".repeat(64) },
+    observed_at: { clock: "test-clock", instant: 0 },
+    octets_recalcules: true,
+    verifier_revision: "test-rev",
+  };
+}
+
+// Test (ADR-M017 D4(2)) — a caller-carried `attested` whose subject is NOT declared-consistent with the
+// served task_class is a fail-closed TOOL ERROR (HarnessToolError => 400, http.ts TOOL_ERROR_NAMES), never a
+// silent verdict. THREE cases; the MESSAGE TEXT is asserted (not the mere throw), so the mutant
+// "attestation-binding table returns [] by default" (which would answer 'not consistent' for a BYO class
+// instead of 'not accepted') reddens on case (1)'s text. The verifier is NOT run here (K-8): a declared
+// consistency check, never a verification.
+test("gate_attested_discordant_is_tool_error", () => {
+  // (1) a free / BYO class carrying `attested` (here also with a BYO calibration) => not accepted in P1.
+  const freePred: Prediction = { ...BTC_PRED, task_class: "caller-free-class-42", yhat: 0.5 };
+  assert.throws(
+    () =>
+      runGate(
+        freePred,
+        { ...GOOD_PARAMS, intent: 0, nMin: 5, calibration: { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], mode: "interval" } },
+        attestedWith("https://example.test/whatever"),
+      ),
+    (e: unknown) =>
+      e instanceof HarnessToolError &&
+      e.message.includes("not accepted for BYO classes") &&
+      e.message.includes("caller-free-class-42"),
+    "a free/BYO class with attested is a 400 naming 'not accepted for BYO classes' + the class",
+  );
+
+  // (2) btc-dir-15m with a DISCORDANT subject (a URL not in the committed list) => not consistent.
+  const discordant = "https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT";
+  assert.throws(
+    () => runGate(BTC_PRED, GOOD_PARAMS, attestedWith(discordant)),
+    (e: unknown) =>
+      e instanceof HarnessToolError &&
+      e.message.includes("not consistent") &&
+      e.message.includes(discordant) &&
+      e.message.includes("btc-dir-15m"),
+    "btc-dir-15m with a discordant subject is a 400 naming 'not consistent' + the subject + the class",
+  );
+
+  // (3) stable-run-velocity-24h binds to `[]` (Narabi attests flows, not prices) => ANY attested is 400 —
+  // even the exact Binance URL that is valid for btc-dir-15m is 'not consistent' for this class.
+  assert.throws(
+    () =>
+      runGate(
+        STABLE_RUN_PRED,
+        { ...GOOD_PARAMS, intent: 0 },
+        attestedWith("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"),
+      ),
+    (e: unknown) =>
+      e instanceof HarnessToolError &&
+      e.message.includes("not consistent") &&
+      e.message.includes("stable-run-velocity-24h"),
+    "stable-run-velocity-24h with any attested is a 400 naming 'not consistent' + the class",
+  );
+});
+
+// Test (ADR-M017 D4(4)) — the description carries the non-re-verification sentence VERBATIM (phrase (iv),
+// C-8) plus the "no temporal binding in P1" clause. Mutant: remove/blank the sentence in the description =>
+// red (motif gate.test.ts:112). Non-vacuous (motif gate.test.ts:113-117): the constant's OWN load-bearing
+// substrings are asserted too, so blanking the constant (not just the interpolation) also reddens.
+test("gate_description_declares_non_reverification", () => {
+  assert.ok(GATE_TOOL_DESCRIPTION.includes(GATE_NON_REVERIFICATION_SENTENCE), "the description carries phrase (iv) verbatim");
+  assert.ok(GATE_TOOL_DESCRIPTION.includes("no temporal binding in P1"), "the description declares 'no temporal binding in P1'");
+  assert.ok(GATE_NON_REVERIFICATION_SENTENCE.includes("not re-verified at call time"), "the sentence states it is not re-verified at call time");
+  assert.ok(GATE_NON_REVERIFICATION_SENTENCE.includes("the verifier is not executed here"), "the sentence states the verifier is not executed here");
 });

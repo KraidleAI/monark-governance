@@ -56,6 +56,9 @@ function loadFrozen(file: string): JsonObject {
 export const PREDICTION_SCHEMA: JsonObject = loadFrozen("prediction.schema.json");
 export const GATE_DECISION_SCHEMA: JsonObject = loadFrozen("gate-decision.schema.json");
 export const COVERAGE_VERDICT_SCHEMA: JsonObject = loadFrozen("coverage-verdict.schema.json");
+// Loaded up here (not in the attest section below) because BOTH the attest OUTPUT `price` AND the gate
+// INPUT envelope `attested` (ADR-M017 D1) project it — TOOL_INPUT_SCHEMA references it before that section.
+export const ATTESTED_PRICE_SCHEMA: JsonObject = loadFrozen("attested-price.schema.json");
 
 /** Keywords whose VALUE is a map from arbitrary (author-chosen) names to subschemas. The child KEYS
  *  there are property names, NOT schema-node annotations, so they are never stripped by name. */
@@ -146,7 +149,12 @@ export const PARAMS_SCHEMA: JsonObject = {
   },
 };
 
-/** Projected tool INPUT schema (envelope). `properties.prediction` is the frozen Prediction (stripped). */
+/**
+ * Projected tool INPUT schema (envelope, ADR-M005 D8 + ADR-M017 D1). `properties.prediction` is the frozen
+ * Prediction (stripped); `properties.attested` is the frozen `AttestedPrice` (stripped, the SAME mechanism
+ * as `prediction`, byte-for-byte). `attested` is OPTIONAL, so `required` stays `["prediction","params"]` and
+ * a `{prediction, params}` call is byte-identical (guarded by `gate_attested_is_frozen_attested_price`).
+ */
 export const TOOL_INPUT_SCHEMA: JsonObject = {
   type: "object",
   additionalProperties: false,
@@ -154,6 +162,7 @@ export const TOOL_INPUT_SCHEMA: JsonObject = {
   properties: {
     prediction: stripMeta(PREDICTION_SCHEMA),
     params: PARAMS_SCHEMA,
+    attested: stripMeta(ATTESTED_PRICE_SCHEMA),
   },
 };
 
@@ -206,12 +215,13 @@ export const cascadeOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchem
 
 /**
  * attest OUTPUT (ADR-M005 D3/D8, K-1): the `AdapterOutput` ENVELOPE. Only `price` is a FROZEN contract —
- * the projected `attested-price.schema.json` (stripped), byte-for-byte the frozen file (drift-guarded by
- * `attest_output_is_frozen_attested_price`). `provenance` and `label` are the K-1 honesty envelope: they
- * live OUTSIDE the closed contract (the frozen `AttestedPrice` is `additionalProperties:false` and can
- * carry neither), declared HERE in English, never in schemas/ — the gate `params` / cascade-input precedent.
+ * the projected `attested-price.schema.json` (stripped, ATTESTED_PRICE_SCHEMA loaded with the other frozen
+ * schemas above, the SAME projected object the gate INPUT `attested` rides, ADR-M017 D1), byte-for-byte the
+ * frozen file (drift-guarded by `attest_output_is_frozen_attested_price`). `provenance` and `label` are the
+ * K-1 honesty envelope: they live OUTSIDE the closed contract (the frozen `AttestedPrice` is
+ * `additionalProperties:false` and can carry neither), declared HERE in English, never in schemas/ — the
+ * gate `params` / cascade-input precedent.
  */
-export const ATTESTED_PRICE_SCHEMA: JsonObject = loadFrozen("attested-price.schema.json");
 
 /** attest INPUT: none. The witness is the committed internal fixture; the tool takes no caller parameters. */
 export const ATTEST_INPUT_SCHEMA: JsonObject = {
