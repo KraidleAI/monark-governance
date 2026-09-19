@@ -23,7 +23,7 @@ Dernière mise à jour : 2026-09-19 07:05 UTC (horloge système)
 | Lecture Gatto 2026 + Garcia Seuma 2026 | REÇUE : « 47 M$ » non trouvé (cassé confirmé) ; Gatto = page web, PDF SSRN 51 p. à procurer ; λ subcritique, k perps seulement | — | — |
 | Lecture Tibshirani 2019 + Barber 2023 | REÇUE : intra-événement = Thm 2 exact ; swap de bloc non couvert → Dunn–Wasserman–Ramdas 2022 (JASA, arXiv:1809.07441) téléchargé OA (collision arXiv:2010.06001 écartée) | lecture Dunn à lancer | — |
 | Note formelle treillis (T monotone, Q_*/Q^*, unicité, sens du treillis) | EN COURS — worker | affirmation centrale de l'ADR | — |
-| ADR-M020 « Eligible is not liquidated » | **checkpoint-1 : approuvé-avec-corrections U-0..U-3** (10 corrections pliées `3a48c88`) ; **ESCALADE investisseur : classe primaire de (b)** (dette liquidée par position / shortfall agrégé / les deux) — bloque U-4 seulement ; U-1 peut démarrer après W-1 + ADR de lot U-1 | décision investisseur ; ADR U-1 | W-1 |
+| ADR-M020 « Eligible is not liquidated » | **checkpoint-1 : approuvé-avec-corrections U-0..U-3** (10 corrections pliées `3a48c88`) ; escalade classe (b) **tranchée : « les 2 »** (position + shortfall cluster, U-4) ; U-1 peut démarrer après W-1 + ADR de lot U-1 | ADR U-1 | W-1 |
 | Commit de `docs/biblio/ukemi-modeL/` sur `lot/etude-suite` | FAIT (archive + avis + sha ; pdf/_txt gitignorés, sha tracés) ; MESURES à committer à réception | — | mesures |
 
 ## C. MONARK Bell — témoin public attesté des TSV, actions tokenisées (nom investisseur 2026-09-19 ; décisions 1-3)
