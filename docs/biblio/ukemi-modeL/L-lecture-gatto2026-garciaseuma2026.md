@@ -25,3 +25,6 @@ Lecteur Sonnet 5, 2026-09-19. Citations Gatto par ligne du .txt (pas de paginati
 - Λ ≠ 0 est **mesuré** sur perps (k̂ ~ 1e-10 à 2e-9 $⁻¹) mais pas sur Aave : la mesure M-2 reste la seule preuve recevable.
 - La cible Y = Σ debtToCover doit être décomposée (repayment / collateral seized / bad debt) sous peine de contredire Gatto.
 - λ subcritique partout mesuré : ne jamais vendre la criticité.
+
+
+**Addendum 2026-09-19 (orchestrateur, après lecture du PDF — `L-lecture-gatto2026-PDF-ssrn7157638.md`)** : (1) « 10 % / 47 M$ » : NON TROUVÉ sur la page web reste exact pour ce support, mais le PDF le porte verbatim dans l'abstract p. 1 (échelle cluster réel), pas dans Table 9 p. 26 ; (2) « LT(1+b) ∈ [0,8586 ; 0,9595] sur 8 catégories » = conflation : e-mode (8 catégories, p. 21) ∈ [0,876 ; 0,960] ; 0,859 = réserve wstETH hors e-mode ; (3) close factor de Gatto = règle Aave v2 (Limitation x, p. 44).
