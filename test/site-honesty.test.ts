@@ -30,7 +30,8 @@ import { join } from "node:path";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { loadCommitted } from "../apps/site/lib/load-committed.ts";
-import { scanAppsSite, scanSource, loadExemptFile, exemptValues } from "../apps/site/test/honesty-lint.ts";
+import { scanAppsSite, scanSource, scanText as scanNumericText, loadExemptFile, exemptValues } from "../apps/site/test/honesty-lint.ts";
+import { FLEET_AGENTS } from "../apps/site/lib/fleet.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 
@@ -184,4 +185,35 @@ test("detector (d) — value/content visible attributes scanned (§6d)", () => {
   assert.deepEqual(scanSource('<meta content="5 agents" />', "tsx", none), ["5"], "content attribute reds");
   assert.deepEqual(scanSource("<input value={figures.x.value} />", "tsx", none), [], "dynamic value stays green");
   assert.deepEqual(scanSource('<div data-slot="button-7" />', "tsx", none), [], "non-visible attr (data-slot) ignored");
+});
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+// Lot E-registre (ADR-EC E6) — the fleet register's wiring.note is the DIGIT-FREE honest note rendered on
+// /fleet in place of served_by (which carries task-class ids with digits). It renders as a property access
+// {a.wiring.note}, which the honesty lint above never flags — so the note VALUES are scanned here (the same
+// pattern narabi-live uses for the Narabi teaser). served_by/integration_test are NOT rendered (guard (4)
+// tripwire in ci-gates), so only note is scanned. Named mutant (G2): put a digit or a % in any built agent's
+// wiring.note ⇒ this reds (proof + sha256 restore in docs/G1-lot-e-registre.md).
+test("site_renders_only_committed_data — wiring.note is digit-free for every built agent (ADR-EC E6)", () => {
+  const noExempt = new Set<string>();
+  let builtScanned = 0;
+  for (const a of FLEET_AGENTS) {
+    if (a.status !== "built") continue; // narrows a to a built agent ⇒ a.wiring is present
+    builtScanned += 1;
+    const note = a.wiring.note;
+    assert.ok(note.trim().length > 0, `built agent ${a.name}: wiring.note must be a non-empty honest note (ADR-EC E6)`);
+    // (a) no numeric literal, using the SAME detector the register/site scans use (a "53h" would red).
+    assert.deepEqual(
+      scanNumericText(note, noExempt),
+      [],
+      `built agent ${a.name}: wiring.note carries a numeric literal (ADR-EC E6 digit-free): ${JSON.stringify(note)}`,
+    );
+    // (b) no bare digit and no % (the detector may skip a lone %); mission E6 forbids both.
+    assert.doesNotMatch(
+      note,
+      /[%\d]/,
+      `built agent ${a.name}: wiring.note must contain no digit and no % (ADR-EC E6): ${JSON.stringify(note)}`,
+    );
+  }
+  assert.ok(builtScanned >= 1, "no built agents scanned for wiring.note (false green)");
 });

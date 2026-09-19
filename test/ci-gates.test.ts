@@ -76,6 +76,15 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
   for (const ps of [":(exclude)docs/G1-lot-*.md", ":(exclude)docs/G2-lot-*.md"]) {
     assert.ok(WF.includes(ps), `pathspec ${ps} missing from the R-25 count (ADR-M003 D9 quater)`);
   }
+  // (4ter) governance docs under docs/ excluded from the R-25 count (ADR-M003 D9 septies, 2026-09-19,
+  //        investisseur 25: the integration PR is mostly docs — R-25 protects CODE review; docs are reviewed
+  //        by the checkpoints). The .md-only :(glob) pathspec keeps code/tests/schemas/scripts AND docs/**/*.mjs
+  //        counted. Matched WITH its single quotes (D9 sexies G2 C1: a bare includes is substring-fragile).
+  //        It subsumes (4bis) but (4bis) is kept for the D9 quater invariant. Mutant: drop it ⇒ this reds.
+  assert.ok(
+    WF.includes("':(exclude,glob)docs/**/*.md'"),
+    "docs/**/*.md exclusion pathspec missing from the R-25 count (ADR-M003 D9 septies)",
+  );
 
   // (5) delivery by PR (ADR-M003 D9 addendum 2026-09-05, option c): the workflow MUST trigger
   //     on pull_request. Block-scoped on the top-level key `on:` (lines indented up to the
@@ -545,6 +554,24 @@ test("no_coverage_level_alpha — α is never rendered as the coverage level in 
 });
 
 // ────────────────────────────────────────────────────────────────────────────────────────────────
+// ADR-EC E3 (checkpoint-1 C-5) — the test roots under which a built agent's wiring integration_test must
+// live, DERIVED from a documented rationale map, plus the documented EXCLUSION of packages/*/test/. A
+// served-pipe integration test lives at the repo root or under an app's test/ (it drives the served MCP wire
+// or a published surface); a package's OWN test/ is a UNIT test of that package (ADR-M018 D1), never a proof
+// of a served pipe — so packages/*/test/ is deliberately NOT a wiring root even though `npm test` runs it.
+// wiring_test_roots_exclusion_is_declared pins the ⇔ (roots ↔ rationale) + the exclusion; guard (3) of
+// fleet_register_built_set_is_frozen walks these roots.
+const WIRING_TEST_ROOTS = ["test", "apps/harness/test", "apps/sentinel/test"];
+const WIRING_TEST_ROOTS_RATIONALE: Record<string, string> = {
+  "test": "root integration/probe tests that drive the served MCP wire or a published surface (h5 probe, narabi-live, byo-demo)",
+  "apps/harness/test": "harness integration tests over the served gate tool / registry.run and the real MCP wire",
+  "apps/sentinel/test": "sentinel integration tests over the published timeline / recorded pull",
+};
+const WIRING_TEST_ROOTS_EXCLUDED: Record<string, string> = {
+  "packages/*/test": "package tests are UNIT tests of a package (ADR-M018 D1), never a served-pipe integration test — excluded from the wiring roots even though `npm test` runs them",
+};
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
 // Lot F-2c (ADR-M004 D14 / PLAN F-2c C-2) — the FLEET REGISTER is the single source of truth for what
 // is BUILT vs UPCOMING. This root test locks the invariant: the built set is EXACTLY {Shōgen, Hikae,
 // Ukemi, Narabi} (Narabi flipped upcoming→built at go 4, ADR-M012 M012-e); the seven other agents and all
@@ -605,7 +632,12 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narab
   // a register string (e.g. a "53h" window) would be caught.
   const noExempt = new Set<string>();
   const registryStrings: string[] = [];
-  for (const a of FLEET_AGENTS) registryStrings.push(a.name, a.line);
+  for (const a of FLEET_AGENTS) {
+    registryStrings.push(a.name, a.line);
+    // ADR-EC E6: wiring.note is RENDERED (guard (4) tripwire lifted for this field), so it is scanned here
+    // (guard (4) contract: "add the wiring strings to the numeric scan above") AND by site-honesty.
+    if (a.status === "built") registryStrings.push(a.wiring.note);
+  }
   for (const p of PRODUCTS) {
     registryStrings.push(p.segment, p.name, p.fn, p.connects, p.wiring.sensor, p.wiring.gate, p.wiring.act);
   }
@@ -628,13 +660,17 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narab
     );
   }
 
-  // (3) WIRING (ADR-M018 D1(b)(c)/D2) — every built agent declares a SERVED path and a non-LLM integration
-  // test that EXISTS. The FleetAgent union already makes a built-without-wiring / upcoming-with-wiring a
-  // COMPILE error (npm run typecheck, via this file's import of fleet.ts); this block additionally reds if
-  // served_by is empty or integration_test names no real test. The declared test title may be bare (`"`) or
-  // suffixed (` — …`), so we match `test("<id>` followed by a quote OR ` — `. Named mutants: "no_such_test"
-  // ⇒ reds; a title-suffixed id (m6, narabi_live_parses_real_state_shape) ⇒ green; drop `wiring` ⇒ typecheck reds.
-  const TEST_ROOTS = [join(ROOT, "test"), join(ROOT, "apps", "harness", "test"), join(ROOT, "apps", "sentinel", "test")];
+  // (3) WIRING (ADR-M018 D1(b)(c)/D2; ADR-EC E2) — every built agent declares a SERVED path and a NON-EMPTY
+  // LIST of non-LLM integration tests, ONE id per served leg (Hikae 3, Narabi 2, Shōgen/Ukemi 1), each of
+  // which EXISTS. The FleetAgent union already makes a built-without-wiring / upcoming-with-wiring a COMPILE
+  // error (npm run typecheck, via this file's import of fleet.ts); this block additionally reds if served_by
+  // is empty, the list is empty, or any id names no real test. The declared test title may be bare (`"`) or
+  // suffixed (` — …`), so we match `test("<id>` followed by a quote OR ` — `. Roots come from WIRING_TEST_ROOTS
+  // (documented list, ADR-EC E3). Named mutants: integration_test:[] ⇒ reds (min 1); [""] ⇒ reds (bare-id
+  // regex); "no_such_test" ⇒ reds (declRe); a DUPLICATED id inside one agent's list ⇒ reds (intra-list
+  // uniqueness, G2 O-1 — inter-agent sharing stays licit); a title-suffixed id (m6,
+  // narabi_live_parses_real_state_shape) ⇒ green; drop `wiring` ⇒ typecheck reds.
+  const TEST_ROOTS = WIRING_TEST_ROOTS.map((r) => join(ROOT, ...r.split("/")));
   const testCorpus = TEST_ROOTS.flatMap((dir) =>
     existsSync(dir) ? readdirSync(dir).filter((n) => n.endsWith(".test.ts")).map((n) => readFileSync(join(dir, n), "utf8")) : [],
   ).join("\n");
@@ -642,15 +678,26 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narab
   for (const a of FLEET_AGENTS) {
     if (a.status !== "built") continue;
     assert.ok(a.wiring.served_by.trim().length > 0, `built agent ${a.name}: wiring.served_by must be non-empty (ADR-M018 D1(b))`);
-    const t = a.wiring.integration_test.trim();
-    assert.match(t, /^[A-Za-z0-9_]+$/, `built agent ${a.name}: integration_test must be a bare test identifier, got ${JSON.stringify(t)}`);
-    // `t` is a bare identifier (validated above) ⇒ safe to interpolate. Accept a bare (`"`) or title-suffixed
-    // (` — …`) declaration: test("<id>" …) or test("<id> — …").
-    const declRe = new RegExp(`test\\(\\s*["']${t}(?:["']| — )`);
-    assert.ok(
-      declRe.test(testCorpus),
-      `built agent ${a.name}: integration_test '${t}' names no test("${t}" …) under test/, apps/harness/test/, apps/sentinel/test/ (ADR-M018 D1(c))`,
+    assert.ok(Array.isArray(a.wiring.integration_test), `built agent ${a.name}: integration_test must be a list (ADR-EC E2)`);
+    assert.ok(a.wiring.integration_test.length >= 1, `built agent ${a.name}: integration_test must name at least one served leg (ADR-EC E2)`);
+    // O-1 (G2): each served leg is a DISTINCT test — a duplicated id inside one agent's list is a padded
+    // list, not a real second leg (inter-agent sharing, e.g. probe_harness_records_real_decision, stays licit).
+    assert.equal(
+      new Set(a.wiring.integration_test.map((s) => s.trim())).size,
+      a.wiring.integration_test.length,
+      `built agent ${a.name}: integration_test ids must be unique within the agent (one per served leg, ADR-EC E2 / G2 O-1)`,
     );
+    for (const raw of a.wiring.integration_test) {
+      const t = raw.trim();
+      assert.match(t, /^[A-Za-z0-9_]+$/, `built agent ${a.name}: each integration_test must be a bare test identifier, got ${JSON.stringify(raw)}`);
+      // `t` is a bare identifier (validated above) ⇒ safe to interpolate. Accept a bare (`"`) or title-suffixed
+      // (` — …`) declaration: test("<id>" …) or test("<id> — …").
+      const declRe = new RegExp(`test\\(\\s*["']${t}(?:["']| — )`);
+      assert.ok(
+        declRe.test(testCorpus),
+        `built agent ${a.name}: integration_test '${t}' names no test("${t}" …) under ${WIRING_TEST_ROOTS.join(", ")} (ADR-M018 D1(c))`,
+      );
+    }
   }
 
   // (4) NUMERIC-HOLE tripwire for wiring (DECLARED LIMIT) — served_by carries task-class ids with digits
@@ -660,8 +707,9 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narab
   // `served_by`/`integration_test` — the bare-identifier scan catches member access {a.wiring.served_by}
   // (m5) AND destructuring `const {served_by}=a.wiring` (A2, which the old `wiring\.served_by` regex missed).
   // DECLARED LIMIT: a text regex canNOT close reflective leaks (Object.values(a.wiring) /
-  // JSON.stringify(a.wiring)); the designer item (b) [ADR-W1] that renders wiring MUST (i) lift this tripwire
-  // AND (ii) add the wiring strings to the numeric scan above — that fix is the PREREQUISITE of item (b).
+  // JSON.stringify(a.wiring)). ADR-EC E6 lifts this tripwire for the DISTINCT digit-free `note` field ONLY
+  // (rendered on /fleet, scanned digit-free by guard (1) above + site-honesty); served_by/integration_test
+  // stay tripwired here (they carry digits, are never rendered).
   const wiringIdent = /\b(?:served_by|integration_test)\b/;
   const wiringLeakHits = surfaces
     .filter((s) => (s.rel.endsWith(".ts") || s.rel.endsWith(".tsx")) && s.rel !== "apps/site/lib/fleet.ts" && wiringIdent.test(s.text))
@@ -689,6 +737,46 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narab
   );
   // (b) it IS a register read: status={IDENTIFIER} (e.g. status={UKEMI_STATUS}).
   assert.match(acStatus, /^status\s*=\s*\{\s*[A-Za-z_$][\w$.]*\s*\}/, "ukemi-panel AgentCard status must be status={IDENTIFIER} read from lib/fleet.ts");
+
+  // (6) CONSUMPTION of wiring.note (ADR-EC E6; branchement rule) — the /fleet page MUST render the digit-free
+  // note for the built agents. Without this render the note is inert metadata (MAST faux-vert / CA-11 unwired).
+  // Mutant: delete the note render on /fleet ⇒ this reds. (served_by/integration_test stay non-rendered, guard (4).)
+  const fleetPage = surfaces.find((s) => s.rel === "apps/site/app/fleet/page.tsx");
+  assert.ok(fleetPage, "apps/site/app/fleet/page.tsx must be scanned (false green)");
+  // Match the JSX EXPRESSION close `{…wiring.note}` (a prose mention of "wiring.note" in a comment has no
+  // trailing `}`), so deleting the RENDER — not just the comment — reds this (measured false-green otherwise).
+  assert.match(fleetPage.text, /wiring\.note\s*\}/, "the /fleet page must RENDER wiring.note as {…wiring.note} (ADR-EC E6 — else note is unwired metadata, CA-11)");
+});
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+// ADR-EC E3 (checkpoint-1 C-5) — the wiring TEST_ROOTS walked by guard (3) above ARE a documented list, and
+// the exclusion of packages/*/test/ is documented WITH a reason. Guard (3) derives its walk from
+// WIRING_TEST_ROOTS; this test pins that WIRING_TEST_ROOTS ⇔ the rationale map (neither drifts), that no
+// wiring root is a package test root, and that the packages/*/test/ exclusion carries a non-empty reason.
+// Mutant: add "packages/hikae/test" to WIRING_TEST_ROOTS without a rationale entry ⇒ (a) reds (⇔ broken);
+// add it WITH a rationale ⇒ (b) reds (a wiring root must not be a package test root). Proof + sha256 restore
+// in docs/G1-lot-e-registre.md. Run by `npm test`, OUTSIDE the per-lot R-25 count.
+test("wiring_test_roots_exclusion_is_declared — TEST_ROOTS ⇔ a documented list; packages/*/test excluded (ADR-EC E3, C-5)", () => {
+  // (a) ⇔ : the roots guard (3) walks are EXACTLY the documented (rationale) roots — a root added to the walk
+  //     without a rationale entry (or a rationale entry with no walked root) reds here.
+  assert.deepEqual(
+    [...WIRING_TEST_ROOTS].sort(),
+    Object.keys(WIRING_TEST_ROOTS_RATIONALE).sort(),
+    "WIRING_TEST_ROOTS must equal the keys of WIRING_TEST_ROOTS_RATIONALE (⇔ — no undocumented root, no orphan rationale)",
+  );
+  // (b) every included root carries a non-empty reason AND is NOT a package test root (packages/*/test/ is
+  //     the documented EXCLUSION, not an inclusion).
+  for (const [root, why] of Object.entries(WIRING_TEST_ROOTS_RATIONALE)) {
+    assert.ok(why.trim().length > 0, `wiring test root ${root} must carry a non-empty rationale`);
+    assert.doesNotMatch(root, /^packages\//, `packages/*/test is NOT a wiring root (it is documented as EXCLUDED): ${root}`);
+  }
+  // (c) the exclusion of packages/*/test/ is DECLARED, names a packages path, and carries a reason (why a
+  //     package unit test is not a served-pipe integration test — ADR-M018 D1).
+  assert.ok(Object.keys(WIRING_TEST_ROOTS_EXCLUDED).length >= 1, "the packages/*/test exclusion must be declared (ADR-EC E3)");
+  for (const [root, why] of Object.entries(WIRING_TEST_ROOTS_EXCLUDED)) {
+    assert.match(root, /^packages\//, `the documented exclusion must name a packages/*/test path: ${root}`);
+    assert.ok(why.trim().length > 0, `excluded root ${root} must carry a non-empty reason`);
+  }
 });
 
 // ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -983,7 +1071,9 @@ test("how_page_rendered_vocab_has_no_numeric_hole — region + reason copy carri
 // declaration); an altered byte (recomputed sha != declaration); a CODE file (.ts/.mjs/.js) under an
 // excluded root (condition c — no code disguised as data). It also asserts SET EQUALITY between the
 // :(glob) exclusion pathspecs wired in ci.yml and the derived source of truth (SERIES_EXCLUDED_ROOTS x
-// exts) — neither a dropped nor an extra pathspec (checkpoint-2 C-1). Named mutants
+// exts) — neither a dropped nor an extra pathspec (checkpoint-2 C-1) — EXCEPT the D9 septies docs pathspec
+// ':(exclude,glob)docs/**/*.md' (governance docs, NOT a data series: whitelisted via NON_SERIES_GLOB, asserted
+// instead by test 38 (4ter)); M11 stays red for any OTHER unexpected :(glob) pathspec. Named mutants
 // (docs/G1-lot-r25-series.md): M3 fixtures/zz.json with no declaration => red; M2 two shas permuted in a
 // table => red; M4 fixtures/zz.ts => red; M5 book.json/full-book.json siblings each on its own line =>
 // GREEN (token match, C-2a); M6b a sha moved under `## History` => red (rule (ii) removed, C-2b); M8 one
@@ -1030,8 +1120,15 @@ test("series_pinned_are_declared_and_hashed — every R-25-excluded data file is
   const wfGlobPathspecs = [...WF.matchAll(/'(:\(exclude,glob\)[^']+)'/g)]
     .map((m) => m[1])
     .filter((s): s is string => s !== undefined);
+  // ADR-M003 D9 septies: docs/**/*.md is a :(glob) exclusion that is NOT a data series — it excludes
+  // governance docs from the R-25 count (asserted by test 38 (4ter)), not a fixtures data series. Whitelist it
+  // from this series SET EQUALITY so it does not read as an "extra" data pathspec; mutant M11 stays intact for
+  // any OTHER unexpected :(glob) pathspec.
+  const NON_SERIES_GLOB = new Set([":(exclude,glob)docs/**/*.md"]);
   const missing = SERIES_EXCLUDE_PATHSPECS.filter((ps) => !WF.includes("'" + ps + "'"));
-  const extra = [...new Set(wfGlobPathspecs)].filter((ps) => !SERIES_EXCLUDE_PATHSPECS.includes(ps));
+  const extra = [...new Set(wfGlobPathspecs)].filter(
+    (ps) => !SERIES_EXCLUDE_PATHSPECS.includes(ps) && !NON_SERIES_GLOB.has(ps),
+  );
   assert.deepEqual(missing, [], `r25 job is missing exclusion pathspec(s): ${missing.join(", ")} (ADR-M003 D9 sexies)`);
   assert.deepEqual(
     extra,

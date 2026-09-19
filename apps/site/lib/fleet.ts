@@ -5,8 +5,9 @@
 // Locked by the root test `fleet_register_built_set_is_frozen` (test/ci-gates.test.ts): the built
 // set is EXACTLY {Shōgen, Hikae, Ukemi, Narabi}; the seven other agents and all five products are upcoming.
 // Flipping any of those twelve to "built" reds that test (named mutant). That same test also freezes the
-// WIRING (ADR-M018 D2): each built agent's served_by is non-empty, its integration_test names a real test,
-// and no surface renders the (digit-bearing) wiring metadata.
+// WIRING (ADR-M018 D2; ADR-EC E2/E6): each built agent's served_by is non-empty, its integration_test names
+// one real test per served leg, and only the digit-free `note` is rendered (/fleet); served_by and
+// integration_test stay unrendered (digit-bearing) wiring metadata.
 //
 // PORTABILITY: this module is compiled by TWO programs with different module resolution — the Next
 // app (moduleResolution "bundler") and the root test program (moduleResolution "nodenext", which
@@ -26,21 +27,29 @@ export type FleetStatus = "built" | "upcoming";
 export type FleetRole = "sensor" | "gate" | "act" | "distribution";
 
 /**
- * A built agent's WIRING (ADR-M018 D2): the served path that consumes its output, and the non-LLM
- * integration test that replays that composition. REQUIRED on a built agent, FORBIDDEN on an upcoming one
- * (encoded in the FleetAgent union below). The root test `fleet_register_built_set_is_frozen` checks that
- * `served_by` is non-empty and `integration_test` names a test that EXISTS under test/, apps/harness/test/,
- * or apps/sentinel/test/ — matched as `test("<id>"` where the declared title is bare (`"`) or suffixed (` — …`).
- * NOTE: served_by carries task-class ids that contain digits (…-24h, btc-dir-15m);
- * it is wiring METADATA, never a rendered string, so it is deliberately OUT of the numeric-hole scan, and
- * no surface may render it (both pinned by that test) until a designer lot presents a digit-free honest note.
+ * A built agent's WIRING (ADR-M018 D2): the served path that consumes its output, the non-LLM integration
+ * test(s) that replay that composition — ONE id per SERVED LEG (ADR-EC E2, checkpoint-1 P2) — and a
+ * digit-free honest `note` rendered to the storefront (ADR-EC E6). REQUIRED on a built agent, FORBIDDEN on
+ * an upcoming one (encoded in the FleetAgent union below). The root test `fleet_register_built_set_is_frozen`
+ * checks that `served_by` is non-empty, `integration_test` is a NON-EMPTY list of real test ids each
+ * EXISTING under test/, apps/harness/test/, or apps/sentinel/test/ — matched as `test("<id>"` where the
+ * declared title is bare (`"`) or suffixed (` — …`) — and that `note` is digit-free.
+ * NOTE: served_by and integration_test carry task-class ids / test names that contain digits (…-24h,
+ * btc-dir-15m); they are wiring METADATA, never rendered, so they stay OUT of the numeric-hole scan and NO
+ * apps/site surface (≠ this file) may reference the identifiers served_by/integration_test (guard (4)
+ * tripwire). Only `note` is rendered (ADR-EC E6 lifts the tripwire for THIS field alone) — it is scanned
+ * digit-free by guard (1) here AND by the site-honesty numeric scan.
  */
 export interface FleetWiring {
   /** Who consumes this agent's output on a SERVED path (an MCP tool, or a published file read by a surface). */
   served_by: string;
-  /** The non-LLM integration test that replays the served composition — a real test id; the guard matches
-   *  `test("<id>"` whether the title is bare or suffixed (` — …`). */
-  integration_test: string;
+  /** The non-LLM integration test(s) that replay the served composition — ONE id per SERVED LEG, at least
+   *  one (ADR-EC E2). Each is a real test id; the guard matches `test("<id>"` whether the title is bare or
+   *  suffixed (` — …`). Wiring METADATA (test names carry digits), never rendered. */
+  integration_test: string[];
+  /** A digit-free (no number, no %) honest one-line note on what is served, RENDERED to the storefront for
+   *  built agents (ADR-EC E6). served_by is never rendered (it carries digits); this is its digit-free proxy. */
+  note: string;
 }
 
 interface FleetAgentCommon {
@@ -112,7 +121,10 @@ export const FLEET_AGENTS: FleetAgent[] = [
     // verdict.residual (ADR-M017 D2(iii)/D4(3)). gate_attested_concordant_files_residual replays that seam.
     wiring: {
       served_by: "MCP attest → gate (the attested envelope key; attested.residual filed into verdict.residual on the served gate)",
-      integration_test: "gate_attested_concordant_files_residual",
+      // One served leg: attest → gate. gate_attested_concordant_files_residual (apps/harness/test/gate.test.ts:761)
+      // drives it through registry.run() with the real runAttest() price and asserts the seam files attested.residual.
+      integration_test: ["gate_attested_concordant_files_residual"],
+      note: "served through the MCP gate: its attested testimony's residual is carried into the verdict, replayed by a non-LLM integration test",
     },
   },
   {
@@ -124,7 +136,17 @@ export const FLEET_AGENTS: FleetAgent[] = [
     // (btc-dir-15m → commit/covered; cascade → abstain). The BYO and stable-run legs: ADR-W1 § Tuyaux.
     wiring: {
       served_by: "MCP gate (btc-dir-15m committed decision; stable-run-velocity-24h; BYO calibration)",
-      integration_test: "probe_harness_records_real_decision",
+      // Three served legs (cartography 2026-09-19 §3): the real MCP wire (btc-dir/cascade) —
+      // probe_harness_records_real_decision (test/h5-e2e-probe.test.ts:83); the BYO calibration loop —
+      // probe_byo_demo_loop_closes (test/byo-demo-probe.test.ts:78); and the stable-run task class over the
+      // served gate tool — gate_stable_run_honesty_text_is_keyed_A2_A7f (apps/harness/test/gate.test.ts:528,
+      // via gateTool.run()).
+      integration_test: [
+        "probe_harness_records_real_decision",
+        "probe_byo_demo_loop_closes",
+        "gate_stable_run_honesty_text_is_keyed_A2_A7f",
+      ],
+      note: "the served gate itself: each reading is conformed into a coverage region then decided, replayed on the real wire, on the bring-your-own loop, and on the stable-run class by non-LLM integration tests",
     },
   },
   {
@@ -137,7 +159,11 @@ export const FLEET_AGENTS: FleetAgent[] = [
     // (measured vacuity, ADR-M019 D2/D4). The seam is real; its served effect is a constant abstention.
     wiring: {
       served_by: "MCP cascade → gate (cascade-liquidable-24h; abstains under_calib by construction, ADR-M019 D2/D4)",
-      integration_test: "probe_harness_records_real_decision",
+      // One served leg: cascade → gate on the real MCP wire (h5 step 4), replayed by
+      // probe_harness_records_real_decision (test/h5-e2e-probe.test.ts:83). Its served effect is a constant
+      // abstention (measured vacuity, ADR-M019 D2/D4) — the note says so without a number.
+      integration_test: ["probe_harness_records_real_decision"],
+      note: "feeds the served gate through the cascade seam; until a cascade calibration is committed it abstains by construction, replayed by a non-LLM integration test",
     },
   },
   {
@@ -161,7 +187,15 @@ export const FLEET_AGENTS: FleetAgent[] = [
     // offline); the fromAttestedFlow → gate (stable-run-velocity-24h) leg: ADR-W1 § Tuyaux.
     wiring: {
       served_by: "daily published sentinel at /narabi/ + fromAttestedFlow → gate (stable-run-velocity-24h)",
-      integration_test: "narabi_live_parses_real_state_shape",
+      // Two served legs (cartography 2026-09-19 §3): the published timeline parsed by the site —
+      // narabi_live_parses_real_state_shape (test/narabi-live.test.ts:45, published bytes → the site parser,
+      // byte-exact); and fromAttestedFlow → gate — gate_stable_run_usde_committed_region_A7b
+      // (apps/harness/test/gate.test.ts:482, adaptToPrediction/fromAttestedFlow → runGate, USDe region covered).
+      integration_test: [
+        "narabi_live_parses_real_state_shape",
+        "gate_stable_run_usde_committed_region_A7b",
+      ],
+      note: "a daily published timeline parsed byte-exact by the site, and its attested flow carried into the served gate, both replayed by non-LLM integration tests",
     },
   },
   {

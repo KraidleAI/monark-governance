@@ -128,11 +128,15 @@ function AgentMiniCard({
   active,
   dimmed,
   reduced,
+  pipe,
 }: {
   node: BoardNode;
   active: boolean;
   dimmed: boolean;
   reduced: boolean;
+  /** an optional honest note on the card's REAL served pipe (ADR-EC C-11 vi: a built act feeds the gate
+   *  upstream — cascade → gate — it does not execute). Digit-free (no numeric-hole). */
+  pipe?: string;
 }) {
   const Mark = MARKS[node.key];
   return (
@@ -148,6 +152,7 @@ function AgentMiniCard({
         <StatusBadge status={node.status} className="ml-auto" />
       </div>
       <div style={teaser}>{node.line}</div>
+      {pipe ? <div style={{ ...mono, fontSize: 10.5, color: "var(--ink2)" }}>{pipe}</div> : null}
     </div>
   );
 }
@@ -372,11 +377,20 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
 
             <Lane label="commit · B_t" active={Boolean(profile)} reduced={reducedMotion} />
 
-            {/* acts */}
+            {/* acts — the execute layer is UPCOMING (ADR-EC C-11 vi): no act is served, the gate never
+                executes (D0 no-trade). The one BUILT act (Ukemi) is built because it FEEDS the gate upstream
+                (cascade → gate), not because it executes — its card says so; its register role stays "act". */}
             <div className="flex min-w-0 flex-1 flex-col gap-2">
-              <div style={eyebrow}>02 · acts · execute</div>
+              <div style={eyebrow}>02 · acts · execute (upcoming)</div>
               {ACTS.map((n) => (
-                <AgentMiniCard key={n.key} node={n} active={isLit(n.key)} dimmed={!isLit(n.key)} reduced={reducedMotion} />
+                <AgentMiniCard
+                  key={n.key}
+                  node={n}
+                  active={isLit(n.key)}
+                  dimmed={!isLit(n.key)}
+                  reduced={reducedMotion}
+                  pipe={n.status === "built" ? "feeds the gate (cascade → gate), not execute" : undefined}
+                />
               ))}
             </div>
           </div>
