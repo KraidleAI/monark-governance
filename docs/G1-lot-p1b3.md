@@ -22,8 +22,8 @@
 | `packages/monark/test/cross-agent-gate.test.ts` | **SUPPRIMÉ** (test 30 = 3 blocs `test()`) | pré-suppression `8b988a70ed9a864ec543fecdeb4c09e1579288552ea67ed9073ac9d343fdffd3` |
 | `README.md` | modifié (`:102`, `:188`) | `9230f2d44adb7db0cedb3878cf041b1b9a8edbe02fac9a5068e94de97f7959c2` |
 | `package-lock.json` | modifié (bloc `packages/monark`, 1/3 lignes) | `909c4913781918ca5e3ac3b61c55b484df8e5e8b06c4b6959605438e391a658c` |
-| `docs/adr/ADR-M017-attested-price-dans-gate.md` | modifié (amendement daté 2026-09-19, prémisse l.135) | `c79b74dafb7b9952b915cb90afa76e46f155e3c22744d25559ffffac9a8e1699` |
-| `docs/adr/ADR-M019-p1b3-retrait-crossagentgate-statut-ukemi.md` | **créé** (ADR de b3) | `7ac7e365a9b99171996e0f10d1e6530ec8d2566d1d4a476b1562296ec4f82896` |
+| `docs/adr/ADR-M017-attested-price-dans-gate.md` | modifié (amendement daté 2026-09-19, prémisse l.135) | `34fb0b164076ce35f5bb618f35c0dd6d78840043beea407db2be9eb85f07f1da` (re-sha au G7 après folds G2/checkpoint-2 ; au gel worker : `c79b74da…`) |
+| `docs/adr/ADR-M019-p1b3-retrait-crossagentgate-statut-ukemi.md` | **créé** (ADR de b3) | `4f0195b8174222f3ca1282c780cc0e58c78c0e77086e7da6ddd822586b849f41` (re-sha au G7 après folds G2/checkpoint-2 ; au gel worker : `7ac7e365…`) |
 | `docs/G1-lot-p1b3.md` | **créé** (ce journal) | _(auto)_ |
 
 `git status --short` : `M README.md`, `M package-lock.json`, `M packages/monark/package.json`, `M packages/monark/src/index.ts`,
@@ -87,7 +87,7 @@ d'hygiène « déclaré ⊇ importé » rendrait m1 rouge : **item formé** (ADR
   (`@monark/monark → @monark/contracts@0.0.0 -> .\packages\contracts`), tandis que `@monark/ukemi`/`@monark/hikae` ⇒ `(empty)`.
 - **`@monark/ukemi` ailleurs** (inchangé, légitime) : `apps/harness` (outil `cascade`, `@monark/ukemi` réel) + `packages/ukemi` +
   le lien lockfile. **`@monark/hikae` ailleurs** : `apps/harness`, `packages/hikae`, lockfile. Non touchés.
-- **Grep prose (texte public, hors `README:102`/`:188`)** — deux mentions **vérifiées, non falsifiées, non touchées** (surfaces
+- **Grep prose (texte public, hors `README:102`/`:188`)** — ~~deux mentions vérifiées, non falsifiées~~ **RECTIFIÉ au checkpoint-2 (K-C2-b3-1, `error_origin` générateur)** : cinq occurrences supplémentaires manquées sur la vitrine (`apps/site/app/fleet/page.tsx:25,:73`, `page.tsx:86-87`, `roadmap/page.tsx:170,:99`) → item formé (5) de l'ADR, lot W-1 ; les deux mentions initiales restent (surfaces
   intouchées) : `apps/site/lib/narabi-copy.ts:84` (« Narabi is the sensor of the first vertical. Shōgen attests, Hikae reads
   coverage, Ukemi carries the prediction contract… ») — **toujours vrai** (la prédiction cascade d'Ukemi **est** portée au gate),
   ne nomme pas la pièce retirée ; `skills/monark/DEMO.md:86` (« verified end-to-end by `test/byo-demo-probe.test.ts` ») — porte sur
@@ -150,3 +150,6 @@ texte public (README `:102`/`:188`, `package.json` `description`, en-tête `inde
 4. **Mutant de la mission vacué** _(orchestrateur)_ : le mutant « réintroduire un import de `@monark/ukemi` ⇒ rouge » est **vert**
    (hoist workspace, §2). La vraie preuve d'absence est fournie (§3) ; le mutant rouge exigerait un test d'hygiène de dépendances =
    **item formé (4)**, hors portée `packages/monark`. À valider comme substitution acceptable.
+
+## 6. Post-checkpoint-2 (orchestrateur)
+K-C2-b3-1..5 pliées au G7 : item formé (5) prose vitrine (W-1) ; déclencheur item (1) re-formé ; D4 : fondement « à constituer » ; sha ADR re-calculés ci-dessus (récidive de K-C2-2 b2, `error_origin` orchestrateur — règle adoptée : **tout fold post-gel re-sha le G1 dans le même commit**) ; mentions antérieures à D4 marquées.

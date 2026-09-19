@@ -155,7 +155,7 @@ réponse enregistrée est `action=abstain reason=under_calib` (aucune calibratio
 Conséquence : la requalification `built`/`upcoming` d'Ukemi **ne** se réduit **pas** à « consommé ou non ». Elle est traitée par
 **ADR-M019** (P1-b3), qui (a) documente le tuyau réel Ukemi → `gate`, (b) mesure que le **contenu** de la prédiction cascade
 n'influence pas la décision servie (vacuité sous `under_calib` : `yhat` ∈ {100, 999999, −5} ⇒ `GateDecision` byte-identique,
-mesure [lu]), et (c) soumet la décision de registre public à l'investisseur (question ouverte, deux options écrites,
+mesure [lu]), et (c) soumet la décision de registre public à l'investisseur (question ouverte au moment de l'amendement — tranchée par l'investisseur le 2026-09-19 : `built` maintenu + programme ADR-M020 ; deux options écrites,
 recommandation motivée — jamais une décision de worker). La phrase « `crossAgentGate` … retiré en b3 » (l.137) reste exacte :
 il est retiré dans ce lot (P1-b3). **ADR-M018 D2 (l.22)** porte la même prémisse fausse ; son amendement est **proposé** (non
 appliqué) dans ADR-M019 §(b), à **ratifier par l'investisseur** (ADR-M018 est un ADR investisseur — non modifié par ce lot).

@@ -85,7 +85,7 @@ littérature et rigueur académique. on doit le faire. » ⇒ **Ukemi reste `bui
 (b′) de ADR-M018 pour l'instant) **ET** l'écart mesuré en D2 (consommation réelle, effet servi = abstention constante) devient un
 **programme obligatoire** : « Ukemi mode L au paroxysme » — classe servie calibrée dont la sortie **influence** la décision, fondée sur
 la littérature (Eisenberg–Noe, Rogers–Veraart, Amini–Filipović–Minca, Cifuentes, Lehar–Parlour, Gatto 2026, Garcia Seuma 2026 ;
-campagne bibliographique `docs/biblio/ukemi-modeL/`, avis advisor-DeFi) ; ADR de programme dédié (ADR-M020) avec checkpoint-1
+campagne bibliographique `docs/biblio/ukemi-modeL/` et avis advisor-DeFi **à constituer sur `lot/etude-suite`, hors de ce gel** — fondement non encore versé à ce commit, K-C2-b3-3 ; verbatim investisseur normalisé en orthographe, sens inchangé) ; ADR de programme dédié (ADR-M020) avec checkpoint-1
 validateur avant tout code, passe suivant P1/W-1. Le champ `wiring` posé en W-1 dira honnêtement « abstains under_calib by
 construction » jusqu'à ce lot. Avis G2 b3 (option A + (b′)) consigné comme avis, non retenu par l'investisseur. Les deux options
 restent écrites ci-dessous pour la traçabilité.
@@ -108,7 +108,7 @@ l'investisseur (escalade CA-2). **Ce lot ne change pas le registre** (W-1 le fer
   "probe_harness_records_real_decision" }` sur la ligne Ukemi ; **aucun** changement de compte. **Risque** : un lecteur de
   `/roadmap` peut inférer que l'acte « fonctionne » alors que le seul effet servi est une abstention constante.
 
-**Recommandation (motivée — jamais une décision de worker)** : **Option A (upcoming) + ratifier la clause (b′)**. Motif : ADR-M018 D1
+**Recommandation (motivée — jamais une décision de worker ; antérieure à D4, non retenue, tranchée par l'investisseur le 2026-09-19)** : **Option A (upcoming) + ratifier la clause (b′)**. Motif : ADR-M018 D1
 vise « la sortie est **consommée** par un chemin servi » ; l'**esprit** (règle de branchement investisseur 2026-09-19 : « plus de
 pièces sans les brancher ») est un **effet réel**, pas une consommation vacue. Un registre `built` dont le seul effet servi est une
 abstention constante induit en erreur sur ce que « built » signifie. **Mais** ADR-M018 **tel qu'écrit** classe Ukemi `built`
@@ -141,8 +141,13 @@ Ce lot **retire** un tuyau (jamais servi) et **documente** un tuyau existant ; i
 
 ## Items formés (ADR-M018 D3 — déclencheur, jamais un « dû » nu)
 1. **Étape h5 portant `attested`** : la trace e2e n'a **aucune** étape où le `gate` porte la clé `attested` (l'étape 6 `attest` et
-   l'étape 5 `btc-dir-gate` sont disjointes). **Déclencheur** : premier appelant réel de la prise `attested`, ou G2 de b3 (hérité de
-   ADR-M017 Tuyaux l.133 ; non résolu par ce lot, qui ne touche pas `apps/harness`).
+   l'étape 5 `btc-dir-gate` sont disjointes). **Déclencheur** (re-formé au checkpoint-2 b3, K-C2-b3-2 : le déclencheur « G2 de b3 »
+   a été tiré sans traitement) : premier appelant réel de la prise `attested`, ou **prochain lot touchant `apps/harness`** (lot T-1 du
+   témoin TSV ou U-4 Ukemi, le premier venu) — la trace h5 y gagne une étape `gate` avec `attested`.
+5. **Prose « built end to end » sur la vitrine** (K-C2-b3-1) : la phrase corrigée à `README:102` vit encore dans `apps/site/app/fleet/page.tsx:25`
+   (metadata « three agents built end to end ») et `:73`, `apps/site/app/page.tsx:86-87`, `apps/site/app/roadmap/page.tsx:170` ; `roadmap/page.tsx:99`
+   nomme « the cross-agent gate » (artefact retiré). Hors portée octet de b3 (`apps/site` intouché par décision). **Déclencheur** : lot **W-1**
+   (même lot que `wiring`, `fleet.ts:70` « verified », test de gel) — reformulation « built and served piece by piece; composed on the gate path ».
 2. **Champ `wiring`** (`apps/site/lib/fleet.ts` + extension de `fleet_register_built_set_is_frozen`) : lot **W-1** (ADR-M018
    Conséquences). Porte la matérialisation de D4 (le statut d'Ukemi tranché + `wiring` déclaré) ; R-25 < 400. **Déclencheur** :
    décision investisseur sur D4.
@@ -183,7 +188,7 @@ Ce lot **retire** un tuyau (jamais servi) et **documente** un tuyau existant ; i
 - La prémisse fausse « Ukemi non consommé » est corrigée (ADR-M017 amendé) ; sa conséquence (statut de registre) est posée à
   l'investisseur avec deux options mesurées et une recommandation motivée — **zéro dette nue** : chaque point ouvert porte un
   déclencheur (items formés) ou une question formée (D4).
-- Négatif assumé : tant que D4 n'est pas tranché, `fleet.ts:72` affiche `Ukemi … "built"` sans champ `wiring` — état transitoire
+- Négatif assumé (rédigé avant D4 ; D4 tranché le 2026-09-19 : `built` maintenu) : jusqu'à W-1, `fleet.ts:72` affiche `Ukemi … "built"` sans champ `wiring` — état transitoire
   **déclaré** (W-1), non un oubli ; aucun G7 ne clôt b3 sans que D4 soit tranché et W-1 planifié (ADR-M018 D3).
 - Procurement : aucun. Dette délibérée-prudente : aucune (les quatre items formés portent chacun leur déclencheur).
 
