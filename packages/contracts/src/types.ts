@@ -10,7 +10,14 @@
  * enums are derived from the single runtime source in enums.ts.
  */
 
-import type { CoverageReason, GateAction, Method, AttestedFlowResidual } from "./enums.ts";
+import type {
+  CoverageReason,
+  GateAction,
+  Method,
+  AttestedFlowResidual,
+  AttestedBookResidual,
+  AttestedBookAbstainReason,
+} from "./enums.ts";
 
 /** Lowercase hex, even length (e.g. an ed25519 key). */
 export type Hex = string;
@@ -116,6 +123,59 @@ export interface AttestedFlow {
   verifier_revision: string;
 }
 
+/**
+ * A SELF-DECLARED liquidation-book reading at an archive block — the SIXTH frozen contract of the fleet
+ * (Ukemi, ADR-U1b), lineage AttestedFlow. UNLIKE AttestedPrice/AttestedFlow it is NOT a verified
+ * testimony: no verifier runs (ADR-U1 D10(b), Contexte 7 — a keyless RPC-quorum read has no Shogen
+ * Constat, so it can never yield Ok(Verdict)). It carries the DIGESTS of the canonical book (book,
+ * holders) with the block/provider/quorum context that make them recalculable against a keyless RPC
+ * quorum; the price NUMBERS stay in the book pointed to by `subject` (not frozen), same discipline as
+ * AttestedPrice. No peg_score/p_depeg/confidence/nav, no price/mid: a book is read under quorum, never scored.
+ */
+export interface AttestedBook {
+  schema_version: SemVer;
+  /** Canonical URL of the published book (ADR-U1b D2bis; the strict cluster×B motif is M017's, not frozen). */
+  subject: string;
+  /** CAIP-2 chain id (e.g. "eip155:1"); the value is not frozen (D5). */
+  chain: string;
+  /** Protocol id (e.g. "aave-v3-core"); the value is not frozen (D5). */
+  protocol: string;
+  /** Cluster id (the collateral family recorded), lowercase. */
+  cluster: string;
+  /** The archive block the read is anchored at (number + block hash "0x"+64 hex) — the digest's domain. */
+  block: { number: number; hash: string };
+  /** SHA-256 of the canonical book when recorded, or of the canonical abstention record when abstained (D3/D4). */
+  book_digest: Hex32;
+  /** SHA-256 of the sorted holder-address set — re-derivable by a third party (ADR-U1 D6). */
+  holders_digest: Hex32;
+  /** Oracle sources read (asset, source address, description); MAY be empty under fatal abstention (D4). */
+  oracle_sources: { asset: string; source: string; description: string }[];
+  /** Static-eligible aggregate (Perez Eq. 3 via on-chain HF<1): a count + base-currency amounts as decimal-string uint256. */
+  eligible: { n_positions: number; debt_base: string; collateral_base: string };
+  /** Providers of the keyless RPC quorum, per method (ADR-U1 D3). >=1, no exact duplicate. */
+  providers: { name: string; method: "getLogs" | "eth_call"; ok: boolean }[];
+  /** Quorum-by-method: `achieved` = min concordances over the methods used (ADR-U1 D3, C-4). */
+  quorum: { required: number; achieved: number };
+  /**
+   * Fatal-only abstention — the D4 TOTAL witness (never a partial book). The coupling `value ⇔ reason≠null`
+   * is authoritative in the FROZEN schema (a `oneOf` on `abstain`); this type does NOT encode the
+   * biconditional (like AttestedPrice's `residual: []` typechecks but the schema rejects it).
+   */
+  abstain: { value: boolean; reason: AttestedBookAbstainReason };
+  /** Standing assumptions, CLOSED enum (>=1), never aggregated. `no_third_party_verifier` always present. NOT scores. */
+  residual: AttestedBookResidual[];
+  /** The self-declaring recorder: `kind` const "recorder", `key` a placeholder until K-1, `sig` optional (D8). */
+  attestor: { kind: "recorder"; key: Hex; sig?: Hex };
+  /** sha256 of the recorder sources `ukemi/**` (ADR-M001 D3 mirror), format `ukemi-recorder@<64 hex>`. */
+  recorder_revision: string;
+  observed_at: {
+    /** Identity of the transport's clock (never MONARK's). */
+    clock: string;
+    /** Timestamp in seconds, carried data (the core reads no clock). */
+    instant: number;
+  };
+}
+
 /** The upstream predictor HIKAE conformalizes — the 4th contract (ADR-M001 D6). */
 export interface Prediction {
   schema_version: SemVer;
@@ -128,7 +188,14 @@ export interface Prediction {
   features_digest?: Hex32;
 }
 
-export type { CoverageReason, GateAction, Method, AttestedFlowResidual } from "./enums.ts";
+export type {
+  CoverageReason,
+  GateAction,
+  Method,
+  AttestedFlowResidual,
+  AttestedBookResidual,
+  AttestedBookAbstainReason,
+} from "./enums.ts";
 
 /**
  * The prediction region — POLYMORPHIC (ADR-M001 D4/#2). `set` = classification

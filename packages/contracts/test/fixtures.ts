@@ -1,7 +1,34 @@
-import type { AttestedPrice, AttestedFlow, Prediction, CoverageVerdict, GateDecision } from "../src/index.ts";
+import type { AttestedPrice, AttestedFlow, AttestedBook, Prediction, CoverageVerdict, GateDecision } from "../src/index.ts";
 import { calibDigest } from "../src/index.ts";
 
 const HASH = "a".repeat(64);
+
+export function validAttestedBook(): AttestedBook {
+  return {
+    schema_version: "1.0.0",
+    subject: "https://monarkgate.tech/ukemi/book/weth/23545087.json",
+    chain: "eip155:1",
+    protocol: "aave-v3-core",
+    cluster: "weth",
+    block: { number: 23_545_087, hash: "0x" + "a".repeat(64) },
+    book_digest: "a".repeat(64),
+    holders_digest: "b".repeat(64),
+    oracle_sources: [
+      { asset: "0x" + "1".repeat(40), source: "0x" + "2".repeat(40), description: "WETH / USD" },
+    ],
+    eligible: { n_positions: 3, debt_base: "1421800000000", collateral_base: "1803800000000" },
+    providers: [
+      { name: "drpc", method: "eth_call", ok: true },
+      { name: "mevblocker", method: "getLogs", ok: true },
+    ],
+    quorum: { required: 2, achieved: 2 },
+    abstain: { value: false, reason: null },
+    residual: ["no_third_party_verifier", "rpc_quorum_2_keyless"],
+    attestor: { kind: "recorder", key: "deadbeef" },
+    recorder_revision: "ukemi-recorder@" + "c".repeat(64),
+    observed_at: { clock: "block", instant: 1_760_140_800 },
+  };
+}
 
 export function validAttestedFlow(): AttestedFlow {
   return {

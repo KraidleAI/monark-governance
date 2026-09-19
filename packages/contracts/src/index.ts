@@ -3,7 +3,9 @@
  * Source of truth: ../../schemas/*.json (language-neutral). ADR-M001.
  *
  * Pipeline:  predictor → Prediction → HIKAE conformalizes → CoverageVerdict → GateDecision
- * Upstream:  Shogen (AttestedPrice, a VERIFIED testimony).
+ * Upstream attestations:
+ *   Shogen → AttestedPrice and Narabi → AttestedFlow are VERIFIED testimonies (emitted after Ok(Verdict));
+ *   Ukemi → AttestedBook is a SELF-DECLARED book reading under a keyless RPC quorum — NO verifier (ADR-U1b).
  */
 
 export type {
@@ -15,6 +17,9 @@ export type {
   AttestedPrice,
   AttestedFlow,
   AttestedFlowResidual,
+  AttestedBook,
+  AttestedBookResidual,
+  AttestedBookAbstainReason,
   Prediction,
   CoverageReason,
   PredictionRegion,
@@ -24,7 +29,14 @@ export type {
   GateDecision,
 } from "./types.ts";
 
-export { COVERAGE_REASONS, GATE_ACTIONS, METHODS, ATTESTED_FLOW_RESIDUALS } from "./enums.ts";
+export {
+  COVERAGE_REASONS,
+  GATE_ACTIONS,
+  METHODS,
+  ATTESTED_FLOW_RESIDUALS,
+  ATTESTED_BOOK_RESIDUALS,
+  ATTESTED_BOOK_ABSTAIN_REASONS,
+} from "./enums.ts";
 
 export { intentInRegion } from "./region.ts";
 export { calibDigest } from "./calib-digest.ts";
@@ -33,6 +45,7 @@ export {
   ALLOWED_KEYS,
   assertClosedAttestedPrice,
   assertClosedAttestedFlow,
+  assertClosedAttestedBook,
   assertClosedPrediction,
   assertClosedCoverageVerdict,
   assertClosedGateDecision,
@@ -40,6 +53,7 @@ export {
 export {
   serializeAttestedPrice,
   serializeAttestedFlow,
+  serializeAttestedBook,
   serializePrediction,
   serializeVerdict,
   serializeGateDecision,

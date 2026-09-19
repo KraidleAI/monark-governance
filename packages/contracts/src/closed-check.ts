@@ -25,6 +25,18 @@ export const ALLOWED_KEYS = {
   attestor: ["identity", "key"],
   utterance: ["hash", "bytes"],
   observedAt: ["clock", "instant"],
+  attestedBook: [
+    "schema_version", "subject", "chain", "protocol", "cluster", "block", "book_digest",
+    "holders_digest", "oracle_sources", "eligible", "providers", "quorum", "abstain",
+    "residual", "attestor", "recorder_revision", "observed_at",
+  ],
+  attestedBookBlock: ["number", "hash"],
+  attestedBookOracleSource: ["asset", "source", "description"],
+  attestedBookEligible: ["n_positions", "debt_base", "collateral_base"],
+  attestedBookProvider: ["name", "method", "ok"],
+  attestedBookQuorum: ["required", "achieved"],
+  attestedBookAbstain: ["value", "reason"],
+  attestedBookAttestor: ["kind", "key", "sig"],
   prediction: ["schema_version", "task_class", "yhat", "predictor_id", "produced_at", "features_digest"],
   coverageVerdict: [
     "schema_version", "task_class", "method", "alpha", "n_calib", "region",
@@ -81,6 +93,25 @@ export function assertClosedAttestedFlow(value: unknown): void {
   if (v["flow"] !== undefined) assertOnlyKeys(asObject(v["flow"], "AttestedFlow.flow"), ALLOWED_KEYS.attestedFlowFlow, "AttestedFlow.flow");
   if (v["utterance"] !== undefined) assertOnlyKeys(asObject(v["utterance"], "AttestedFlow.utterance"), ALLOWED_KEYS.utterance, "AttestedFlow.utterance");
   if (v["observed_at"] !== undefined) assertOnlyKeys(asObject(v["observed_at"], "AttestedFlow.observed_at"), ALLOWED_KEYS.observedAt, "AttestedFlow.observed_at");
+}
+
+export function assertClosedAttestedBook(value: unknown): void {
+  const v = asObject(value, "AttestedBook");
+  assertOnlyKeys(v, ALLOWED_KEYS.attestedBook, "AttestedBook");
+  if (v["block"] !== undefined) assertOnlyKeys(asObject(v["block"], "AttestedBook.block"), ALLOWED_KEYS.attestedBookBlock, "AttestedBook.block");
+  const os = v["oracle_sources"];
+  if (Array.isArray(os)) {
+    os.forEach((s, i) => assertOnlyKeys(asObject(s, `AttestedBook.oracle_sources[${i}]`), ALLOWED_KEYS.attestedBookOracleSource, `AttestedBook.oracle_sources[${i}]`));
+  }
+  if (v["eligible"] !== undefined) assertOnlyKeys(asObject(v["eligible"], "AttestedBook.eligible"), ALLOWED_KEYS.attestedBookEligible, "AttestedBook.eligible");
+  const providers = v["providers"];
+  if (Array.isArray(providers)) {
+    providers.forEach((p, i) => assertOnlyKeys(asObject(p, `AttestedBook.providers[${i}]`), ALLOWED_KEYS.attestedBookProvider, `AttestedBook.providers[${i}]`));
+  }
+  if (v["quorum"] !== undefined) assertOnlyKeys(asObject(v["quorum"], "AttestedBook.quorum"), ALLOWED_KEYS.attestedBookQuorum, "AttestedBook.quorum");
+  if (v["abstain"] !== undefined) assertOnlyKeys(asObject(v["abstain"], "AttestedBook.abstain"), ALLOWED_KEYS.attestedBookAbstain, "AttestedBook.abstain");
+  if (v["attestor"] !== undefined) assertOnlyKeys(asObject(v["attestor"], "AttestedBook.attestor"), ALLOWED_KEYS.attestedBookAttestor, "AttestedBook.attestor");
+  if (v["observed_at"] !== undefined) assertOnlyKeys(asObject(v["observed_at"], "AttestedBook.observed_at"), ALLOWED_KEYS.observedAt, "AttestedBook.observed_at");
 }
 
 export function assertClosedPrediction(value: unknown): void {

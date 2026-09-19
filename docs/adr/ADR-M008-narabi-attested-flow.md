@@ -94,6 +94,8 @@ R-25 < plafond ; **G2 fraîche ≠ générateur** ; F1 : contrat fermé + adapta
 
 **Amendement 2026-09-17 (investisseur, E-1) — `v0.3.0` = lot USDe ; msUSD clos négatif.** L'amendement 2026-09-16 désignait `v0.3.0` = « calibration committée **msUSD** ». msUSD ayant été mesuré puis **refusé** (dégénéré, cf. D7bis amendé), **`v0.3.0` = le lot de calibration USDe** : `stable-run-velocity-24h` **committée** pour la `wrapping_family` USDe **OU** `under_calib` **honnête** si un critère pré-enregistré échoue (`PLAN-m008-f2b-usde.md` §5/§9). msUSD reste **clos en négatif documenté** (fixture-test hors-échantillon conservée). La `task_class` et l'horizon 24h→24h (Option A, 2026-09-13) sont **inchangés** ; le REDÉPLOIEMENT endpoint reste gaté/distinct.
 
+**Renvoi 2026-09-19 (ADR-U1b D1, lot U-1b-a) — doctrine « 5 gelés » → SIX.** Un 6ᵉ contrat gelé `AttestedBook` (Ukemi, lignée AttestedFlow, auto-déclaré, hors Shōgen) est ajouté par **ADR-U1b** : nouveau `schemas/attested-book.schema.json` + binding `packages/contracts/src/**`, re-baseline explicite du manifest `contracts_frozen` (le 2ᵉ test passe `schemas===7`), **0 octet retiré des 5 gelés**, **`forbidden-keys.json` inchangé** (le schéma fermé suffit, ADR-U1b D1). Le mécanisme D9 (« re-baseline par nouveau contrat, 0 modif des existants ») est appliqué à l'identique. **L'amendement daté fait foi dans ADR-U1b D1** ; ce renvoi ne modifie pas la décision AttestedFlow de D9.
+
 **Rectificatif 2026-09-18 (mission P0-b, ADR-M015 D1 (e)) — `under_witness` n'est pas un littéral gelé.** La
 **ligne 93** (amendement 2026-09-16, « Distinguer `under_calib` … de **`under_witness`** (pas de flux hashable) »)
 emploie un terme **qui n'existe dans AUCUN enum gelé**. Vérifié [lu] : `packages/contracts/src/enums.ts:7-21`

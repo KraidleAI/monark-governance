@@ -14,7 +14,8 @@ authorization budget (`B_t`) — never a probability of being right.**
 
 Single token, single ticker (`MONARK`). The agents are **products, not tokens**: sensors that
 attest, a gate that authorizes, and acts that execute. This repository is the MONARK
-**tokenisation layer** plus the **five frozen interface contracts** that let those agents interoperate.
+**tokenisation layer** plus the **six frozen interface contracts** (the sixth, AttestedBook, upcoming
+until served) that let those agents interoperate.
 
 ## The backbone — the gate
 
@@ -36,7 +37,7 @@ are the point: they say what exists today and what is only named.
 
 | Layer | What it is | Status |
 |---|---|---|
-| **Backbone** — the gate | Hikae (coverage control) + the MONARK token's budget `B_t`; turns a sensor reading into `commit \| defer \| abstain` | **Built** — five frozen contracts, Hikae + Ukemi engines, CI |
+| **Backbone** — the gate | Hikae (coverage control) + the MONARK token's budget `B_t`; turns a sensor reading into `commit \| defer \| abstain` | **Built** — six frozen contracts (the sixth, AttestedBook, upcoming until served), Hikae + Ukemi engines, CI |
 | **Fleet** — a company of agents | sensors → gate → acts, one token across all of them | **4 built · Narabi runs (class served; timeline published daily) · 7 named** |
 | **Harness** — DeFAI, multi-directional | the same fleet made reachable *by other agents* over HTTP / MCP | **Built** — public 4-tool MCP endpoint (attest · gate · cascade · calibrate) + skill on ClawHub |
 | **Self-improving company** | agents that rate, improve, and sell one another's products | **Direction, unscheduled** |
@@ -102,7 +103,7 @@ sensors (attest)  →  the gate: Hikae + MONARK B_t  →  acts (execute)
 The first vertical, built and served piece by piece and composed on the gate path. Every future act plugs into the same
 gate; every future sensor attests into the same contract shape.
 
-## Five frozen contracts
+## Six frozen contracts
 
 The interface is frozen and language-neutral (source of truth: `schemas/*.json`):
 
@@ -113,6 +114,7 @@ The interface is frozen and language-neutral (source of truth: `schemas/*.json`)
 | `Prediction` | any predictor | The `ŷ` Hikae conformalises, with `predictor_id` (venue/model). |
 | `CoverageVerdict` | Hikae | Conformal region — **polymorphic** `set` (classification) \| `interval` (regression, so Ukemi plugs in). No `p_correct` field. |
 | `GateDecision` | Hikae L3 | `commit \| defer \| abstain` + `remaining_budget` = `B_t`, the depletable conformal authorization capacity that attaches to MONARK (never a return). |
+| `AttestedBook` | Ukemi (recorder) | A **self-declared** reading of a liquidation book at an archive block under a keyless RPC quorum: the digests (book, holders) with block/provider/quorum context — no price, no score, **no verifier**. **Upcoming until served** (schema frozen; the served path is wired at U-6). |
 
 ## The token
 
@@ -173,7 +175,7 @@ npm run ci   # vocabulary gate → typecheck (tsc strict) → tests (node:test)
   `node:test` (Node ≥ 24 native TS type-stripping). **Key-closedness** is enforced hand-rolled at runtime
   (mirroring Shōgen's zero-dep unknown-key refusal); the **value constraints** (min/unique items, hash
   length, ASCII-printable) are expressed in the JSON Schemas and exercised against `ajv` in tests.
-- **`ajv` is a dev-dependency** (test-only): it compiles the five frozen JSON Schemas, resolves the
+- **`ajv` is a dev-dependency** (test-only): it compiles the six frozen JSON Schemas, resolves the
   `$ref`s, and proves they reject the value-constraint violations (empty/duplicate arrays, wrong-length
   hash, control chars) that the TS types alone do not. Applying `ajv` at the runtime boundary to validate
   an external Rust/Python producer's JSON is a natural later extension.
