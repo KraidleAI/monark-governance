@@ -52,7 +52,7 @@ Récupération : `claude plugin marketplace add <repo>` puis `claude plugin inst
 | Variable | Service | État | Usage |
 |---|---|---|---|
 | `POLYGON_API_KEY` | Polygon.io = **Massive** (renommé 2025-10-30), Individual Use, Bearer sur `api.polygon.io` / `api.massive.com` | posée (32 car.) | Bell : calendrier NYSE, fills, tickers |
-| `HELIUS_API_KEY` | Helius (archive Solana) | **absente** — à poser `setx HELIUS_API_KEY <clé>` | Bell : course fondatrice (rejeu 15 mois) |
+| `HELIUS_API_KEY` | Helius (archive Solana), abonnement activé 2026-09-19 | **posée** (36 car., scope User, jamais affichée), **testée 2026-09-19** : `getSlot` finalized = 448 408 159 via `mainnet.helius-rpc.com` ; profondeur d'archive (`getSignaturesForAddress` sur les pools de `pools.ts`) à mesurer au spike T-1a-ii | Bell : course fondatrice (rejeu jul.-oct. 2025) |
 | `API_KEY_21ST` | 21st.dev magic | posée | plugin 21st |
 | `PERPLEXITY_API_KEY` | Perplexity | posée | recherche (non utilisée par MONARK) |
 | `RAILWAY_TOKEN` | Railway | posée | hors MONARK |
