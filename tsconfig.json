@@ -27,6 +27,8 @@
     "apps/harness/src/**/*.ts",
     "apps/harness/test/**/*.ts",
     "apps/sentinel/src/**/*.ts",
-    "apps/sentinel/test/**/*.ts"
+    "apps/sentinel/test/**/*.ts",
+    "apps/bell/src/**/*.ts",
+    "apps/bell/test/**/*.ts"
   ]
 }
