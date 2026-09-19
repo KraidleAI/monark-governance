@@ -10,7 +10,7 @@ import { canonReason, tallyReasons } from "../src/reason-canon.ts";
 import { etWallClockToUtcMs, classifySession } from "../src/sessions.ts";
 import { extractPoolSwap, swapsForPool, type JsonRpcCall, type SigInfo, type SwapFill } from "../src/rpc.ts";
 import { vwapDecimal, sessionGap } from "../src/gap.ts";
-import { buildDigest, bellSha, assertNoClose, canonical, type GapEntry } from "../src/digest.ts";
+import { buildDigest, bellSha, assertNoClose, canonical, provenance, type GapEntry } from "../src/digest.ts";
 import { POOLS } from "../src/pools.ts";
 import { scanText, compilePatterns, collectTargets } from "../../../scripts/grep-forbidden.mjs";
 
@@ -224,6 +224,10 @@ test("bell_close_guard_catches_camelcase", () => {
   assert.doesNotThrow(() => { assertNoClose({ prev_line_hash: "1234567890" }); });
   // and the real digest fields never match the widened guard:
   assert.doesNotThrow(() => { assertNoClose({ symbol: "TSLAx", vwap: "364.11", gT: "0.001", volumeBase: "52", n: 52, regime: "weekend" }); });
+  // The provenance envelope is published as well: a close smuggled through `sources`/`providers` reddens
+  // (checkpoint-2 V-3). Mutant: drop assertNoClose from provenance() => this assertion fails.
+  assert.throws(() => { provenance({ a: 1 }, { polygon: { prevClose: 364.27 } }, {}, "2026-09-19T00:00:00Z"); });
+  assert.doesNotThrow(() => { provenance({ a: 1 }, { polygon: { endpoint: "v2/aggs" } }, { rpc: ["mainnet-beta"] }, "2026-09-19T00:00:00Z"); });
 });
 
 test("bell_zero_volume_abstains_never_zero_gap", () => {

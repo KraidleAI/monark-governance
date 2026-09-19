@@ -74,5 +74,7 @@ export function buildDigest(gaps: readonly GapEntry[], haltCensus: Json, extra: 
 export interface Provenance { readonly bellSha: string; readonly sources: Json; readonly providers: Json; readonly generatedAt: string }
 /** Provenance envelope — carries what the digest may NOT (timestamps, providers), keyed to the bell_sha. */
 export function provenance(digest: Json, sources: Json, providers: Json, generatedAt: string): Provenance {
+  // The envelope is published too (T-1b, /bell/*.json): the close-guard applies to it as well (checkpoint-2 V-3).
+  assertNoClose({ sources, providers });
   return { bellSha: bellSha(digest), sources, providers, generatedAt };
 }

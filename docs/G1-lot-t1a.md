@@ -119,8 +119,8 @@ Méthode reproductible : `signaturesUntil` + `swapsForPool` (modules committés)
 
 1. **Helius (Solana archival)** = prérequis de la mesure fondatrice jul-oct 2025 (§0). Déclencheur : `HELIUS_API_KEY`. Collecteur env-driven prêt. **Rappel dû à l'investisseur** (décision 12).
 2. **Scission T-1a-ii** (borne R-25 + seam D2, avis advisor) : la couverture i-iv complète + CLI + mesure fondatrice estimée ~1 400 lignes > 1 205. **Livré T-1a-i** (i + ii + digest + dédup-cœur + oracle + spike + fenêtre récente + **pliage G2**) à **1 017 lignes** (R-25 mesuré après pliage, < 1 205). **T-1a-ii** = (iii) dénominateur ADV [2nd] Polygon + (iv) supply/PoR (staleness + taux wrapper) + jambe swap Ethereum/Ondo (events Uniswap) + entrypoint collecteur ; tests `bell_por_staleness_and_wrapper_rate` + `bell_volume_dedup_by_signature` (cœur dédup déjà livré en rpc.ts).
-3. **Ondo GM API auth-gated** (`api.gm.ondo.finance/v1/assets/all/addresses` → 403) : **procurement PR-B-ONDO** (clé) pour l'univers complet (100+/430+ actifs) et les adresses autoritatives ; TSLAon résolu via GeckoTerminal + confirmation on-chain. **(O-2 plié : PR-B-ONDO enregistré à la table procurement de l'ADR-B0.)**
-4. **Item (g) ADR** : census univers complet (839 xStocks + 395 Ondo) + source MWCB (cond. H) — hors portée T-1a livrée ; item formé. Le recensé-15 + reproduction parseur sont faits.
+3. **Ondo GM API auth-gated** (`api.gm.ondo.finance/v1/assets/all/addresses` → 403) : **procurement PR-B-ONDO** (clé) pour l'univers complet (univers non établi première main [abs]) et les adresses autoritatives ; TSLAon résolu via GeckoTerminal + confirmation on-chain. **(O-2 plié : PR-B-ONDO enregistré à la table procurement de l'ADR-B0.)**
+4. **Item (g) ADR** : census univers complet (839 xStocks [abs] + Ondo non établi) + source MWCB (PR-B-8) (cond. H) — hors portée T-1a livrée ; item formé. Le recensé-15 + reproduction parseur sont faits.
 5. **Conflation de dimensionnement ADR** : le « Ondo 837,9 M$ » des Sources est le total Ondo (bons du Trésor USDY/OUSG), **≠** les actions tokenisées Ondo (lancées 2025-09-03, > 1 Md$ 2026-07). Le « ≈ 47 % du périmètre » à revoir — **niveau ADR**, pas code T-1a.
 6. **Graphies ETF — RÉSOLU (O-4 plié)** : l'ADR D2 ii disait « ETF-composant ×6 graphies » ; **corrigé en ×5** (18 graphies au total) dans l'ADR + note `reason-canon.ts`. Carte fermée sur les 18 chaînes exactes mesurées (doc 03 : la mesure prime).
 7. **Solana version-1** : `maxSupportedTransactionVersion` doit être ≥ 1 (mesuré : mainnet-beta ET publicnode rendent `version:1` et rejettent 0) — constante `MAX_TX_VERSION=2` committée ; bump = ligne ADR.
@@ -140,3 +140,15 @@ Revue `docs/G2-lot-t1a.md` (**APPROUVÉ-AVEC-CORRECTIONS**) pliée par le worker
 | C-7 | `halts.ts` (l.83) | `before` borné par `>= haltUtcMs` ; fenêtre vide ⇒ `no_fill_in_window` seul | `bell_halt_last_before_resume_excludes_pre_halt` | borne retirée ⇒ fill pré-halt rendu « dernier avant Resume » : `actual 1785527572000, expected null` | générateur |
 
 **Observations pliées côté worker (périmètre autorisé)** : **O-4** (ADR D2 ii « ×6 » → « ×5 graphies, 18 au total » + note `reason-canon.ts`) ; **O-2** (PR-B-ONDO à la table procurement ADR) ; **O-7** (test `bell_csv_parses_quoted_names_and_dst_rows` ajouté à §2). **Hors périmètre worker** (orchestrateur) : O-1, O-3, O-5, O-6, O-8 et les items de Décision 19 non couverts ici.
+
+## Checkpoint-2 (validateur `claude-fable-5-1`, gel `9204435`) : ACCEPTE-AVEC-CORRECTIONS → pliées par l'orchestrateur
+| # | correction | error_origin |
+|---|---|---|
+| V-1 | `package-lock.json` régénéré (+8 lignes, workspace `apps/bell`) — `npm ci` échouait sur le gel (job CI G3) ; ni le worker ni la G2 n'avaient joué `npm ci` sur copie propre | générateur + relecteur G2 |
+| V-2 | fichiers modifiés : + `package-lock.json` ; **R-25 = 1030** (mesuré au gel par le validateur ; 1017 était pré-amendement ADR) | générateur / planificateur |
+| V-3 | `provenance()` passe `sources`/`providers` par `assertNoClose` ; assertion ajoutée à `bell_close_guard_catches_camelcase` (mutant : garde retirée ⇒ rouge, rejoué) | générateur |
+| V-4 | PR-B-8 (feed MWCB) formé dans la table de procurement ADR-B0 | planificateur |
+| V-5 | univers Ondo : un seul énoncé « non établi première main » ; « 395 » et « 100+/430+ » retirés ; citation `pools.ts` retirée | planificateur |
+| V-6 | racine `apps/bell/test/fixtures` NON exclue (fixture main-écrite, comptée) ; exclusion réservée aux séries épinglées réelles | planificateur |
+| V-7 | résidu `no_close_ref` à mapper à l'entrypoint T-1a-ii | générateur (portée) |
+Validateur : 10 mutants rouges rejoués en copie, faits CSV reproduits, merge-tree propre avec `lot/etude-suite`, conflit additif `vocab-banned.json` prévisible avec `lot/u-1a`. Scission O-5 entérinée (séquencement, pas décision de valeur).
