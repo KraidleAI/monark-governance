@@ -72,7 +72,7 @@ discordant ⇒ erreur 400 nommée, aucun verdict. (3) **`gate_attested_concordan
 `verdict.residual` deep-equal aux résidus attestés — tue « table vidée » et « `residual: []` réintroduit ». (4) Mutant « phrase de non-vérification
 retirée de la description » ⇒ rouge (motif `gate.test.ts:112`). (5) **Oracle « absent ⇒ byte-identique »** : `git diff a814973 -- fixtures/h5-e2e-trace.json`
 ne touche que `steps[1].result.response_sha256` (tools/list : schéma + description) ; étapes `cascade-gate`/`btc-dir-gate` byte-identiques ; suite
-`gate.test.ts` verte sans modification ; `TRACE_SHA256_PINNED` re-pinné avec `PROVENANCE-h5-e2e-trace.md` mis à jour. (6) **Test 43 étendu**
+aucune assertion préexistante de `gate.test.ts` altérée (seules des additions : tests (1)(2)(3)(4), F1, K2-1, et une assertion M012 (i) ajoutée à `gate_stable_run_honesty_text_is_keyed_A2_A7f` — G2 b2 K-b2-1) ; `TRACE_SHA256_PINNED` re-pinné avec `PROVENANCE-h5-e2e-trace.md` mis à jour. (6) **Test 43 étendu**
 (OpenAPI calculé à l'exécution, aucun fichier épinglé n'existe) : `attested` présent dans `properties`, absent de `required`.
 `tool_schema_equals_frozen_schema` et K-8 (`registry.test.ts`) conservés.
 
