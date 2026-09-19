@@ -1,5 +1,5 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 10:50 UTC (horloge système)
+Dernière mise à jour : 2026-09-19 11:25 UTC (horloge système)
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019)
 | Lot | État | Prochaine action | Bloqué par |
@@ -7,14 +7,14 @@ Dernière mise à jour : 2026-09-19 10:50 UTC (horloge système)
 | P1-b1, b2, b3 | CLOS, fusionnés `lot/etude-suite` | — | — |
 | W-1 (`wiring`, test de gel, prose vitrine ×5, `fleet.ts:70`, panneau Ukemi) | **CLOS** — G7 `bb252ce`, fusion `ccbb856`, journal `eb0b7e5` | — | — |
 | Cartographie M018 D4 | LIVRÉE `e447adf` (2 tuyaux branchés, mensonge retiré, écarts E2/E9/E10/E5 formés) | — | — |
-| Rapport de passe P1 | EN COURS — worker rédacteur | checkpoint-2 de clôture (validateur) → clôture zéro dette | — |
+| Rapport de passe P1 | RÉDIGÉ `a506631` (déclencheurs skill/DEMO et CRA/ENISA assignés) ; **checkpoint-2 de clôture EN COURS** | G7 de passe → clôture | validateur |
 | Miroir public + PR empilées (#78-#83, lot/etude-suite, p1-b*, w-1) | EN ATTENTE fenêtre publique | push au go investisseur | investisseur |
 
 ## B. Ukemi — programme « au paroxysme » (décision investisseur 2026-09-19)
 | Élément | État | Prochaine action | Bloqué par |
 |---|---|---|---|
 | **U-1a implémentation** (recorder book WETH + sUSDe/USDe, digest, invariant HF exact, fixture réduite, tests/mutants) | EN COURS — worker, worktree `F:\Monark-wt-p1b1`, branche `lot/u-1a` | G2 fraîche → checkpoint-2 → G7 (G7 attend le lot R-25-séries) | — |
-| **ADR-U1b contrat `AttestedBook`** (6e contrat gelé, décision 16) | EN COURS — worker rédacteur | checkpoint-1 avec signature investisseur | — |
+| **ADR-U1b contrat `AttestedBook`** (6e contrat gelé, décision 16) | RÉDIGÉ `1bdea9c` (18 clés, sans prix, description auto-déclarée) ; adjudications provisoires A (témoin total sous abstention) / B (liaison M017 par motif d'URL) / C (`attestor` objet dédié) ; **checkpoint-1 EN COURS** ; **signature investisseur due** | signature A/B/C → U-1b après U-1a | investisseur |
 | **Lot R-25-séries** (amendement ADR-M003 D9 sexies, pathspec CI, test de déclaration/hachage) | EN COURS — worker, worktree `F:\Monark-wt-r25`, branche `lot/r25-series` | G2 → checkpoint-2 → G7 → fusion (prérequis du G7 U-1a) | — |
 | Avis advisor-DeFi (objet B cascade cluster, plan U-0..U-7) | REÇU, persisté `docs/biblio/ukemi-modeL/` | — | — |
 | Avis advisor-marché (payeur = DAO/SP ; classe shortfall vs dette liquidée) | REÇU, persisté | — | — |
