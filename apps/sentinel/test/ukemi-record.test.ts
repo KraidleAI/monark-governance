@@ -9,7 +9,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makeDefaultCall, parseUkemiArgs, isMainModule, backoffDelay, type RpcErrorRecord } from "../src/ukemi/record.ts";
-import { makeUkemiPool, RpcError, type LogEntry } from "../src/ukemi/rpc2.ts";
+import { makeUkemiPool, RpcError, dedupLogs, type LogEntry } from "../src/ukemi/rpc2.ts";
 import { fileURLToPath } from "node:url";
 
 const jsonResp = (body: unknown, status = 200): Response => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -181,14 +181,16 @@ test("ukemi_record_free_plan_benches_without_split", async () => {
 // [from, to+1]; with chunk=10 over [0,19] the log at block 10 (chunk2.from = chunk1.to+1) is served on BOTH sides
 // of the cut. Both providers share the drift so the quorum concords (a one-sided drift is a QuorumDisagreementError,
 // caught earlier). getLogsRange must return each (blockNumber,logIndex,txHash) once and cover [from,to] with no
-// hole. Mutant (remove dedupLogs) ⇒ block 10 appears twice ⇒ red (V-1(f)).
+// hole. Mutant (remove dedupLogs) ⇒ block 10's logs are served twice over ⇒ red (V-1(f)).
 test("ukemi_record_getlogsrange_dedups_chunk_boundary", async () => {
-  const log = (n: number): LogEntry => ({ blockNumber: "0x" + n.toString(16), logIndex: "0x0", transactionHash: "0x" + n.toString(16).padStart(64, "0"), topics: ["0xt"], data: "0x" });
+  // C-1 hardening: each block carries TWO logs at distinct logIndex sharing one txHash, so the dedup key must be the
+  // full (block, logIndex, txHash) tuple — a blockNumber-only key (mutant G2-1) would drop the second of each block.
+  const log = (n: number, idx: number): LogEntry => ({ blockNumber: "0x" + n.toString(16), logIndex: "0x" + idx.toString(16), transactionHash: "0x" + n.toString(16).padStart(64, "0"), topics: ["0xt"], data: "0x" });
   await withFetch((_a, req) => {
     const p = (req.params as ReadonlyArray<{ fromBlock: string; toBlock: string }>)[0]!;
     const from = parseInt(p.fromBlock, 16); const to = parseInt(p.toBlock, 16);
     const out: LogEntry[] = [];
-    for (let b = from; b <= to + 1; b++) out.push(log(b)); // inclusive off-by-one: serves [from, to+1]
+    for (let b = from; b <= to + 1; b++) { out.push(log(b, 0)); out.push(log(b, 1)); } // inclusive off-by-one, 2 logs/block
     return jsonResp({ jsonrpc: "2.0", id: req.id, result: out });
   }, async () => {
     const call = makeDefaultCall({ retries: 0, backoffMs: 0 });
@@ -197,7 +199,45 @@ test("ukemi_record_getlogsrange_dedups_chunk_boundary", async () => {
     const logs = await pool.getLogsRange("0xabc", ["0xt"], 0, 19);
     const keys = logs.map((l) => parseInt(l.blockNumber, 16) + "|" + parseInt(l.logIndex, 16) + "|" + l.transactionHash.toLowerCase());
     assert.equal(new Set(keys).size, keys.length, "no (blockNumber,logIndex,txHash) duplicate survives the chunk cut");
-    const blocks = new Set(logs.map((l) => parseInt(l.blockNumber, 16)));
-    for (let b = 0; b <= 19; b++) assert.ok(blocks.has(b), `coverage: block ${String(b)} is present (no hole across the cut)`);
+    // Each in-range block keeps BOTH its logIndex across the cut (coverage + no block-only key collapse — kills G2-1).
+    for (let b = 0; b <= 19; b++) assert.equal(logs.filter((l) => parseInt(l.blockNumber, 16) === b).length, 2, `block ${String(b)}: both logIndex survive (no hole, no blockNumber-only collapse)`);
   });
+});
+
+// (C-1, hardens V-1(f)) dedupLogs keys on the FULL (blockNumber, logIndex, txHash) tuple, never blockNumber alone. A
+// single block routinely carries >= 2 Transfer logs at DISTINCT logIndex (often one txHash), so both must survive; a
+// blockNumber-only key (mutant G2-1) would silently drop the second — real on-chain data loss the coarser oracle
+// missed. A byte-identical (block, logIndex, txHash) triple is a genuine chunk-overlap duplicate ⇒ collapses to one.
+test("ukemi_record_deduplogs_keys_on_full_log_tuple", () => {
+  const mk = (block: number, logIndex: number, tx: string): LogEntry =>
+    ({ blockNumber: "0x" + block.toString(16), logIndex: "0x" + logIndex.toString(16), transactionHash: tx, topics: ["0xt"], data: "0x" });
+  const twoInOneBlock = dedupLogs([mk(100, 0, "0xaa"), mk(100, 1, "0xaa")]); // same block+txHash, distinct logIndex
+  assert.equal(twoInOneBlock.length, 2, "same block, distinct logIndex (shared txHash) ⇒ both logs survive (a blockNumber-only key would drop one)");
+  assert.deepEqual(twoInOneBlock.map((l) => parseInt(l.logIndex, 16)), [0, 1], "both logIndex kept, first-seen order preserved");
+  const repeated = dedupLogs([mk(100, 0, "0xaa"), mk(100, 0, "0xaa")]); // byte-identical triple ⇒ a real duplicate
+  assert.equal(repeated.length, 1, "same (block, logIndex, txHash) repeated ⇒ collapses to exactly one");
+});
+
+// (O-1, hardens V-1(c)) The backoff cap is WIRED at the retry call-site, not just a tested pure function: a low cap
+// must shrink the REAL waits paid between attempts. Timing discriminator, no fake clock. With retries:3, backoffMs:100
+// the three inter-attempt waits are 100+200+400=700ms uncapped, but clamp to 1+1+1ms at backoffCapMs:1. A call-site
+// that ignored the cap (mutant G2-2 ⇒ backoffMs*2**attempt) would pay ~700ms even when capped. Threshold 200ms (not
+// the ~50ms sketch): measured capped wall on Windows is ~45-69ms (15.6ms timer granularity x 3 sleeps), uncapped
+// ~715ms; 200ms sits ~3.5x under the 600ms floor and reds the ~700ms mutant while immune to CI timer jitter (G2:139
+// itself proposed a robust sub-100ms bound; the mission asks for wide CI margins). Exercises the 5xx call-site; the network-fault
+// call-site is the same one-liner (backoffDelay) by inspection.
+test("ukemi_record_backoff_cap_is_wired_at_call_site", async () => {
+  const serve503 = (): Response => jsonResp({ error: "down" }, 503); // every attempt a transient 5xx ⇒ the retry call-site sleeps
+  const measure = async (backoffCapMs: number): Promise<number> => {
+    const t0 = performance.now();
+    await withFetch(serve503, async () => {
+      const call = makeDefaultCall({ retries: 3, backoffMs: 100, backoffCapMs });
+      await assert.rejects(() => call("https://one.example", "eth_call", [{ to: "0x0", data: "0x0" }]), /HTTP 503/);
+    });
+    return performance.now() - t0;
+  };
+  const capped = await measure(1);
+  const uncapped = await measure(1_000_000);
+  assert.ok(capped < 200, `backoffCapMs:1 bounds the real inter-attempt waits at the call-site (measured ${capped.toFixed(1)}ms; a cap-ignoring call-site would pay ~700ms)`);
+  assert.ok(uncapped >= 600, `control: with the cap not binding, the three real waits are ~700ms (measured ${uncapped.toFixed(1)}ms) — the timing discriminator is live`);
 });
