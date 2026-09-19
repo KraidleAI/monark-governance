@@ -42,6 +42,19 @@ function fixtureReader(calls: Record<string, string> = FX.calls, logs: FixtureLo
   };
 }
 
+// ── 0 — description(): a unanimous revert is a fact recorded as ""; a provider DISAGREEMENT abstains the book (G2 C2)
+test("ukemi_description_disagreement_abstains_book", async () => {
+  const base = fixtureReader();
+  const descKey = (k: string) => k.endsWith("|" + SEL.description.toLowerCase());
+  // (a) unanimous revert on every description() call ⇒ tolerated, digest produced (GHO-like source)
+  const reverting: UkemiReader = { ...base, ethCall(to, data, block) { const k = `${to.toLowerCase()}|${data.toLowerCase()}`; return descKey(k) ? Promise.reject(new Error("execution reverted")) : base.ethCall(to, data, block); } };
+  const r = await recordBook(CLUSTER_WETH, FX.block, reverting);
+  assert.equal(typeof r.book_digest, "string", "a unanimously reverting description() still yields a book");
+  // (b) providers disagree on description() ⇒ the whole book abstains (ADR-U1 D3), never a digest with ""
+  const disagreeing: UkemiReader = { ...base, ethCall(to, data, block) { const k = `${to.toLowerCase()}|${data.toLowerCase()}`; return descKey(k) ? Promise.reject(new QuorumDisagreementError("description: providers disagree")) : base.ethCall(to, data, block); } };
+  await assert.rejects(() => recordBook(CLUSTER_WETH, FX.block, disagreeing), QuorumDisagreementError, "a description() disagreement must abstain the book");
+});
+
 // ── 1 — the deliverable oracle: replay the reduced book, digest is bit-identical ────────────────────────
 test("sentinel2_book_identical_to_pull", async () => {
   const r = await recordBook(CLUSTER_WETH, FX.block, fixtureReader());
@@ -70,7 +83,8 @@ test("ukemi_mutant_oracle_source", async () => {
   const WETH = CLUSTER_WETH.collaterals[0]!.asset;
   const key = `${ORACLE.toLowerCase()}|${(SEL.getSourceOfAsset + wordAddr(WETH)).toLowerCase()}`;
   const mutated = { ...FX.calls, [key]: "0x000000000000000000000000dead00000000000000000000000000000000beef" };
-  // the mutated source address needs its own description() (fail-closed otherwise); serve an empty string.
+  // the mutated source address needs its own description(): a unanimous fixture miss would be tolerated as "" (only a
+  // provider DISAGREEMENT abstains — see ukemi_description_disagreement_abstains_book); serve an empty string anyway.
   mutated["0xdead00000000000000000000000000000000beef|" + SEL.description] = "0x" + "0".repeat(128);
   const m = await recordBook(CLUSTER_WETH, FX.block, fixtureReader(mutated));
   assert.notEqual(m.book_digest, base.book_digest, "a changed oracle source changes the digest");
