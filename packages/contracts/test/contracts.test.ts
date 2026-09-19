@@ -7,6 +7,7 @@ import {
   FORBIDDEN_KEYS,
   intentInRegion,
   serializeAttestedPrice,
+  serializeAttestedBook,
   serializePrediction,
   serializeVerdict,
   serializeGateDecision,
@@ -14,6 +15,7 @@ import {
 import {
   validAttestedPrice,
   validAttestedFlow,
+  validAttestedBook,
   validPrediction,
   validVerdictSet,
   validVerdictInterval,
@@ -52,6 +54,17 @@ test("schema properties are IN SYNC with the TS allowed-key sets (no drift)", ()
   assert.deepEqual(propKeys(af.properties!.utterance!).sort(), [...ALLOWED_KEYS.utterance].sort());
   assert.deepEqual(propKeys(af.properties!.observed_at!).sort(), [...ALLOWED_KEYS.observedAt].sort());
 
+  const ab = loadSchema("attested-book.schema.json");
+  assert.deepEqual(propKeys(ab).sort(), [...ALLOWED_KEYS.attestedBook].sort());
+  assert.deepEqual(propKeys(ab.properties!.block!).sort(), [...ALLOWED_KEYS.attestedBookBlock].sort());
+  assert.deepEqual(propKeys(ab.properties!.oracle_sources!.items!).sort(), [...ALLOWED_KEYS.attestedBookOracleSource].sort());
+  assert.deepEqual(propKeys(ab.properties!.eligible!).sort(), [...ALLOWED_KEYS.attestedBookEligible].sort());
+  assert.deepEqual(propKeys(ab.properties!.providers!.items!).sort(), [...ALLOWED_KEYS.attestedBookProvider].sort());
+  assert.deepEqual(propKeys(ab.properties!.quorum!).sort(), [...ALLOWED_KEYS.attestedBookQuorum].sort());
+  assert.deepEqual(propKeys(ab.properties!.abstain!).sort(), [...ALLOWED_KEYS.attestedBookAbstain].sort());
+  assert.deepEqual(propKeys(ab.properties!.attestor!).sort(), [...ALLOWED_KEYS.attestedBookAttestor].sort());
+  assert.deepEqual(propKeys(ab.properties!.observed_at!).sort(), [...ALLOWED_KEYS.observedAt].sort());
+
   assert.deepEqual(propKeys(loadSchema("prediction.schema.json")).sort(), [...ALLOWED_KEYS.prediction].sort());
 
   const cv = loadSchema("coverage-verdict.schema.json");
@@ -75,7 +88,7 @@ test("every contract schema declares additionalProperties:false at each object n
       if (node.items) assertClosedNode(node.items, `${where}[]`);
     }
   }
-  for (const name of ["attested-price", "attested-flow", "prediction", "coverage-verdict", "gate-decision"]) {
+  for (const name of ["attested-price", "attested-flow", "attested-book", "prediction", "coverage-verdict", "gate-decision"]) {
     assertClosedNode(loadSchema(`${name}.schema.json`), name);
   }
 });
@@ -105,6 +118,7 @@ test("intentInRegion — interval variant", () => {
 test("valid contracts serialize without throwing", () => {
   assert.doesNotThrow(() => serializeAttestedPrice(validAttestedPrice()));
   assert.doesNotThrow(() => serializeAttestedFlow(validAttestedFlow()));
+  assert.doesNotThrow(() => serializeAttestedBook(validAttestedBook()));
   assert.doesNotThrow(() => serializePrediction(validPrediction()));
   assert.doesNotThrow(() => serializeVerdict(validVerdictSet()));
   assert.doesNotThrow(() => serializeVerdict(validVerdictInterval()));

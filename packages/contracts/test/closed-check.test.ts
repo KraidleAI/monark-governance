@@ -2,12 +2,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   assertClosedAttestedPrice,
+  assertClosedAttestedBook,
   assertClosedCoverageVerdict,
   assertClosedGateDecision,
   assertClosedPrediction,
 } from "../src/index.ts";
 import {
   validAttestedPrice,
+  validAttestedBook,
   validPrediction,
   validVerdictSet,
   validVerdictInterval,
@@ -49,4 +51,20 @@ test("an unknown region kind is refused", () => {
   const v = validVerdictSet();
   const bad = { ...v, region: { kind: "triangle", a: 1 } };
   assert.throws(() => assertClosedCoverageVerdict(bad), /unknown region kind 'triangle'/);
+});
+
+test("assertClosedAttestedBook passes a valid book and refuses an unknown envelope key (price/peg_score, ADR-U1b D1)", () => {
+  const ok = validAttestedBook();
+  assert.doesNotThrow(() => assertClosedAttestedBook(ok));
+  // a price or a peg_score smuggled onto the envelope is a CleInconnue-style refusal (closed contract).
+  assert.throws(() => assertClosedAttestedBook({ ...ok, price: "1000" }), /unknown key 'price' in AttestedBook/);
+  assert.throws(() => assertClosedAttestedBook({ ...ok, peg_score: 0.9 }), /unknown key 'peg_score' in AttestedBook/);
+});
+
+test("assertClosedAttestedBook is recursive — unknown key in a nested object / array element is refused (C-8)", () => {
+  const ok = validAttestedBook();
+  assert.throws(() => assertClosedAttestedBook({ ...ok, block: { ...ok.block, price: 1 } }), /unknown key 'price' in AttestedBook\.block/);
+  assert.throws(() => assertClosedAttestedBook({ ...ok, abstain: { ...ok.abstain, mid: "1" } }), /unknown key 'mid' in AttestedBook\.abstain/);
+  const badSource = { ...ok, oracle_sources: [{ asset: "0x" + "3".repeat(40), source: "0x" + "4".repeat(40), description: "x", mid: "1" }] };
+  assert.throws(() => assertClosedAttestedBook(badSource), /unknown key 'mid' in AttestedBook\.oracle_sources\[0\]/);
 });

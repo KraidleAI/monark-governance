@@ -1,7 +1,8 @@
-import type { AttestedPrice, AttestedFlow, Prediction, CoverageVerdict, GateDecision } from "./types.ts";
+import type { AttestedPrice, AttestedFlow, AttestedBook, Prediction, CoverageVerdict, GateDecision } from "./types.ts";
 import {
   assertClosedAttestedPrice,
   assertClosedAttestedFlow,
+  assertClosedAttestedBook,
   assertClosedPrediction,
   assertClosedCoverageVerdict,
   assertClosedGateDecision,
@@ -23,6 +24,12 @@ export function serializeAttestedPrice(v: AttestedPrice): string {
 
 export function serializeAttestedFlow(v: AttestedFlow): string {
   assertClosedAttestedFlow(v);
+  assertNoForbiddenKey(v);
+  return JSON.stringify(v);
+}
+
+export function serializeAttestedBook(v: AttestedBook): string {
+  assertClosedAttestedBook(v);
   assertNoForbiddenKey(v);
   return JSON.stringify(v);
 }

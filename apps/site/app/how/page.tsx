@@ -52,6 +52,8 @@ export default function HowItWorksPage() {
   // (required[]), never hard-coded — the storefront cannot drift from the frozen contract. AttestedDoc is
   // not a frozen contract; AttestedFlow IS frozen (the fifth schema) but is a PARALLEL sensor, not a
   // pipeline stage — so the pipeline card renders only the one built attestation shape (AttestedPrice).
+  // AttestedBook is the SIXTH frozen schema (Ukemi's self-declared book reading), likewise a PARALLEL
+  // sensor and not a pipeline stage; it is upcoming until served, so it is not rendered here either.
   // `layer`/`what`/`absent` are ReactNode fragments (not raw strings), so the honesty lint (test 44)
   // scans their JSX text even though they sit in an array initializer — a numeric literal in this copy
   // reds (C-4 convention: rendered prose is JSX text). `contract.title` + `required[]` load dynamically.

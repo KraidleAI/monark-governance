@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://monark.local/schemas/attested-book.schema.json",
+  "title": "AttestedBook",
+  "description": "Self-declared reading under keyless RPC quorum; no third-party verification; no price is carried. Projection of a self-declared liquidation-book reading at an archive block — the SIXTH frozen contract of the fleet (Ukemi), lineage AttestedFlow. It carries the DIGESTS of the canonical book (book, holders) with the block, provider and quorum context that make them recalculable against a keyless RPC quorum; the price numbers stay in the book pointed to by `subject` (not frozen), same discipline as AttestedPrice. `book_digest` is the SHA-256 of the canonical book when recorded, or of the canonical abstention record when the whole read abstained. No verifier runs (this is not the projection of a checked testimony, unlike AttestedPrice/AttestedFlow). `residual` always carries `no_third_party_verifier`. No score, no truth field (fleet forbidden-keys apply). ADR-U1b.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "chain",
+    "protocol",
+    "cluster",
+    "block",
+    "book_digest",
+    "holders_digest",
+    "oracle_sources",
+    "eligible",
+    "providers",
+    "quorum",
+    "abstain",
+    "residual",
+    "attestor",
+    "recorder_revision",
+    "observed_at"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "subject": { "type": "string", "pattern": "^https://[a-z0-9-]+(\\.[a-z0-9-]+)+(/[a-z0-9._~-]+)+$" },
+    "chain": { "type": "string", "pattern": "^[-a-z0-9]+:[-a-zA-Z0-9]+$" },
+    "protocol": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 },
+    "cluster": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["number", "hash"],
+      "properties": {
+        "number": { "type": "integer", "minimum": 0 },
+        "hash": { "type": "string", "pattern": "^0x[0-9a-f]{64}$" }
+      }
+    },
+    "book_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "holders_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "oracle_sources": {
+      "type": "array",
+      "minItems": 0,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["asset", "source", "description"],
+        "properties": {
+          "asset": { "type": "string", "pattern": "^0x[0-9a-f]{40}$" },
+          "source": { "type": "string", "pattern": "^0x[0-9a-f]{40}$" },
+          "description": { "type": "string", "pattern": "^[ -~]*$" }
+        }
+      }
+    },
+    "eligible": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["n_positions", "debt_base", "collateral_base"],
+      "properties": {
+        "n_positions": { "type": "integer", "minimum": 0 },
+        "debt_base": { "type": "string", "pattern": "^[0-9]+$" },
+        "collateral_base": { "type": "string", "pattern": "^[0-9]+$" }
+      }
+    },
+    "providers": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "method", "ok"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 },
+          "method": { "type": "string", "enum": ["getLogs", "eth_call"] },
+          "ok": { "type": "boolean" }
+        }
+      }
+    },
+    "quorum": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "achieved"],
+      "properties": {
+        "required": { "type": "integer", "minimum": 2 },
+        "achieved": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "abstain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "reason"],
+      "properties": {
+        "value": { "type": "boolean" },
+        "reason": { "type": ["string", "null"], "enum": [null, "no_quorum", "abi_mismatch", "unfinalized_block"] }
+      },
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "reason"],
+          "properties": {
+            "value": { "const": false },
+            "reason": { "type": "null" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "reason"],
+          "properties": {
+            "value": { "const": true },
+            "reason": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "residual": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "contains": { "const": "no_third_party_verifier" },
+      "items": {
+        "type": "string",
+        "enum": [
+          "no_third_party_verifier",
+          "oracle_price_as_read",
+          "oracle_source_as_read",
+          "rpc_quorum_2_keyless",
+          "block_timestamp_not_submission",
+          "emode_recompute_skipped"
+        ]
+      }
+    },
+    "attestor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "key"],
+      "properties": {
+        "kind": { "const": "recorder" },
+        "key": { "type": "string", "pattern": "^([0-9a-f]{2})+$" },
+        "sig": { "type": "string", "pattern": "^([0-9a-f]{2})+$" }
+      }
+    },
+    "recorder_revision": { "type": "string", "pattern": "^ukemi-recorder@[0-9a-f]{64}$" },
+    "observed_at": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clock", "instant"],
+      "properties": {
+        "clock": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 },
+        "instant": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

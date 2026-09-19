@@ -37,7 +37,7 @@ const LAYERS: {
         defer, or abstain.
       </>
     ),
-    detail: <>five frozen contracts &middot; Hikae + Ukemi engines &middot; CI</>,
+    detail: <>six frozen contracts (the sixth, AttestedBook, upcoming until served) &middot; Hikae + Ukemi engines &middot; CI</>,
     maturity: <>Built</>,
     maturityTone: "border-hikae-t text-hikae-t",
   },
