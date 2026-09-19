@@ -24,6 +24,17 @@ export type IntervalRegion = Extract<PredictionRegion, { kind: "interval" }>;
  */
 export const BTC_DIR_LABEL_SCHEMA = "up|down";
 
+/**
+ * Label schema carried by a NUMERIC (interval) class in the EMPTY `set` region of an
+ * `under_calib` abstention (the ADR-M018 D4 lot, E9). The frozen contract requires a `set`
+ * region's `label_schema` to be non-empty (`minLength: 1`, coverage-verdict.schema.json), so a
+ * numeric class cannot OMIT it; it names the numeric nature instead of the directional `up|down`.
+ * `underCalibVerdict`'s default stays `BTC_DIR_LABEL_SCHEMA`; every numeric (interval) caller
+ * passes THIS constant — see `apps/harness/test/gate.test.ts`
+ * `numeric_under_calib_region_is_not_directional` (7 chars, same width as `up|down`).
+ */
+export const NUMERIC_LABEL_SCHEMA = "numeric";
+
 /** The two direction-beachhead labels (stable order for serialization). */
 export const BTC_DIR_LABELS = ["up", "down"] as const;
 export type BtcDirLabel = (typeof BTC_DIR_LABELS)[number];

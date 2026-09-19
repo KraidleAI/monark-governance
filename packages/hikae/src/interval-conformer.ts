@@ -22,7 +22,7 @@
  */
 import type { CoverageVerdict } from "@monark/contracts";
 import { splitQuantile } from "./l1-split.ts";
-import { buildIntervalRegion } from "./region.ts";
+import { buildIntervalRegion, NUMERIC_LABEL_SCHEMA } from "./region.ts";
 import { buildVerdict, underCalibVerdict } from "./verdict.ts";
 
 /** One calibration pair: prediction `ŷ_i` and realization `y_i` (amounts, finite numbers). */
@@ -66,6 +66,9 @@ function underCalib(params: IntervalConformalParams): IntervalConformalResult {
       residual: params.residual,
       producedAt: params.producedAt,
       schemaVersion: params.schemaVersion,
+      // NUMERIC class (regression conformer): the empty under_calib region names the numeric
+      // nature, never the directional `up|down` default (E9). buildSetRegion still owns the shape.
+      labelSchema: NUMERIC_LABEL_SCHEMA,
     }),
     qhat: null,
     region: null,

@@ -22,7 +22,7 @@ so the H5 trace is pinned HERE instead, the same way the `s3-binance.*` fixtures
   tool description was DEDUPED — the committed sentence's "every other … abstains (under_calib)" queue is no
   longer rendered in the description, which now interpolates `STABLE_RUN_COMMITTED_CORE` — changing only the
   `tools/list` step's `response_sha256`; the b2 `residual` seam is a no-op on these steps, which carry no
-  `attested`; grounding: ADR-M012 (i) / ADR-M017 D4(5)). Recorder: `scripts/record-h5-e2e-trace.mjs`.
+  `attested`; grounding: ADR-M012 (i) / ADR-M017 D4(5)), and **regenerated 2026-09-19 for the ADR-M018 D4 lot** (E9: the served `cascade-liquidable-24h` NUMERIC-class under_calib region `label_schema` changed `up|down` -> `numeric` — every numeric (interval) caller now passes `NUMERIC_LABEL_SCHEMA`; the ONLY drift is that one region byte, both values 7 chars so the file holds at 15731 bytes; grounding: E9 / ADR-M018 D4). Recorder: `scripts/record-h5-e2e-trace.mjs`.
 - **Reviewer**: independently reviewed and recorded before commit.
 
 ## What it records
@@ -60,14 +60,14 @@ These statements live in the trace's `honesty` block and are re-asserted by
 
 - The tools read no clock (`produced_at`/`producedAt` are caller-carried); the ephemeral port is
   intentionally NOT recorded. Re-running the recorder reproduces the file byte-for-byte.
-- **sha256 (LF-normalized)**: `9cf2f8b23b2c17a7358ca3be27b08fd54378978ec74ae1fd1147573f9179e5dd`
-  (15731 bytes; re-pinned for ADR-M017 P1-b2 — M012 item (i) DEDUPED the gate tool description (the committed
-  sentence's "every other … abstains (under_calib)" queue is no longer rendered in the description, which now
-  interpolates `STABLE_RUN_COMMITTED_CORE`), SHRINKING the `tools/list` description bytes; the ONLY drift is
-  `steps[1].result.response_sha256` (a 64-hex swap), so the recorded JSON length is unchanged (the tools/list
-  body is stored only by its digest) and every decision byte and digest — cascade-gate, btc-dir-gate, attest —
-  is byte-identical (no `attested` is carried on those steps ⇒ the b2 `residual` seam is a no-op there). Prior
-  re-pins: P1-b1 added the OPTIONAL `attested` + phrase (iv) + "no temporal binding in P1"; M012-f
+- **sha256 (LF-normalized)**: `9b5457d9e8081fb8cdbe4ec7fcc3b6ce27fb1d34a0451989f66858567287b4ff`
+  (15731 bytes; re-pinned for the ADR-M018 D4 lot — E9: the served `cascade-liquidable-24h` (a NUMERIC class)
+  under_calib region carried a directional `label_schema: "up|down"` (an inert but dishonest octet on a numeric
+  class); every numeric (interval) caller now passes `NUMERIC_LABEL_SCHEMA`. The ONLY drift is the cascade-gate
+  step's `structuredContent.verdict.region.label_schema` ("up|down" -> "numeric"); both are 7 chars, so the
+  recorded JSON length is unchanged (15731 bytes) and every other decision byte and digest — btc-dir-gate
+  (still `up|down`), attest, the cascade Prediction — is byte-identical. Prior re-pins: P1-b2 M012 item (i)
+  description dedup; P1-b1 OPTIONAL `attested` + phrase (iv) + "no temporal binding in P1"; M012-f
   `serverInfo.version` -> single-source `HARNESS_VERSION` `0.4.0`; ADR-M012 D7 `stable-run-velocity-24h` clause
   -> `STABLE_RUN_COMMITTED_SENTENCE`.)
   `.gitattributes` normalizes to `eol=lf`, so this digest survives commit; the probe

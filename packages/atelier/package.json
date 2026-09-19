@@ -3,7 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "MONARK — LOCAL demo atelier (Phase 1): replays the 9 GateDecision states from root fixtures/ — verdict, COMMIT/DEFER/ABSTAIN decision, B_t budget, two clocks, Shōgen → HIKAE → UKEMI chain. Zero runtime dependency, zero network, no order.",
+  "description": "MONARK — LOCAL demo atelier (Phase 1): replays the 9 GateDecision states from root fixtures/ — verdict, COMMIT/DEFER/ABSTAIN decision, B_t budget, two clocks, Shōgen → HIKAE → UKEMI chain. No third-party runtime dependency (the workspace @monark/contracts binding aside), zero network, no order.",
+  "dependencies": { "@monark/contracts": "*" },
   "exports": { ".": "./src/index.ts" },
   "scripts": {
     "atelier": "node serve.js"

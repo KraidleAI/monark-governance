@@ -31,6 +31,7 @@ import {
   conformInterval,
   gate,
   BTC_DIR_LABELS,
+  NUMERIC_LABEL_SCHEMA,
 } from "@monark/hikae";
 import type { GateInput } from "@monark/hikae";
 import { assertClosedGateDecision, assertNoForbiddenKey } from "@monark/contracts";
@@ -308,8 +309,9 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
     throw new HarnessToolError(`byo 'set' mode expects a string yhat (label), got ${typeof yhat}`);
   }
 
-  // label_schema for set mode is DERIVED from the caller's candidates (B-3), joined by `|`.
-  const labelSchema = cal.mode === "set" ? (cal.candidates ?? []).map((c) => c.label).join("|") : undefined;
+  // label_schema for set mode is DERIVED from the caller's candidates (B-3), joined by `|`; interval mode
+  // is a NUMERIC class, so its empty under_calib region carries NUMERIC_LABEL_SCHEMA, never `up|down` (E9).
+  const labelSchema = cal.mode === "set" ? (cal.candidates ?? []).map((c) => c.label).join("|") : NUMERIC_LABEL_SCHEMA;
 
   const split = splitQuantile(cal.scores, params.alpha, params.nMin);
   if ("reason" in split) {
@@ -322,7 +324,7 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
       residual: [],
       producedAt: prediction.produced_at,
       schemaVersion: SCHEMA_VERSION,
-      ...(labelSchema !== undefined ? { labelSchema } : {}),
+      labelSchema,
     });
   }
   const qhat = split.qhat;
@@ -341,6 +343,7 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
         residual: [],
         producedAt: prediction.produced_at,
         schemaVersion: SCHEMA_VERSION,
+        labelSchema: NUMERIC_LABEL_SCHEMA,
       });
     }
     // residual is NOT an honesty carrier (M-2): frozen semantics inherited from the verdict contract.
@@ -466,6 +469,7 @@ function stableRunVerdict(prediction: Prediction, params: HarnessParams): Covera
     return underCalibVerdict({
       taskClass: TASK_STABLE_RUN, method: "split", alpha: params.alpha, scores,
       residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
+      labelSchema: NUMERIC_LABEL_SCHEMA,
     });
   }
   const ir = buildIntervalRegion(yhat - split.qhat, yhat + split.qhat);
@@ -474,6 +478,7 @@ function stableRunVerdict(prediction: Prediction, params: HarnessParams): Covera
     return underCalibVerdict({
       taskClass: TASK_STABLE_RUN, method: "split", alpha: params.alpha, scores,
       residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
+      labelSchema: NUMERIC_LABEL_SCHEMA,
     });
   }
   return buildVerdict({
