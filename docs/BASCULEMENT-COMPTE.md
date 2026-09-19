@@ -62,3 +62,8 @@ G2 sur disque AVANT tout checkpoint-2 ; jamais `--delete-branch` sur une pile de
 
 ## 6. Interdits permanents (rappel)
 Jamais « partner », « autonomous », « guarantee » nu, probabilité d'avoir raison ; jamais de secret dans le chat ; jamais de commit par un worker ; Opus 5 banni ; sci-bot oublié ; Higgsfield billing jamais.
+
+## 5.8 Repères pris sur le nouveau compte (2026-09-19, session Fable 5.1 ouverte dans F:\Clawpumptech puis basculée sur F:\Monark)
+- Check-list INVENTAIRE §7 rejouée : MCP user-scope 6/6 Connected (memstack répond) ; Claude Docs / Blockscout / Firecrawl Connected ; plugins 6/6 ; `POLYGON_API_KEY` 32 car. (scope User), `HELIUS_API_KEY` absente ; agents épinglés conformes ; `advisorModel = claude-fable-5-1` ; dépôt conforme à §5.2.
+- **Écart mesuré** : Firecrawl n'exposait AUCUN outil dans cette session (ni `mcp__8aa0cccf…` ni autre nom) — session ouverte avant le changement de répertoire. Décision investisseur : **redémarrage** dans `F:\Monark`. Mémoire memstack uid `ab9314ff`.
+- **À faire au redémarrage, avant §5.4-A** : `ToolSearch "+8aa0cccf"` — si vide, chercher `firecrawl` ; si l'UUID a changé, mettre à jour les 9 agents `~/.claude/agents/*.md` (`tools:`) + CLAUDE.md global §memstack/firecrawl, puis lancer A.
