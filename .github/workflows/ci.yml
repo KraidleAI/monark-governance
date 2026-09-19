@@ -52,7 +52,10 @@ jobs:
           # wrong/nothing (measured 2026-09-19: bare `git ls-files` => 0 / 73; `:(glob)docs/**/*.md` => 230). Every
           # excluded data file is declared+hashed same-dir (root test `series_pinned_are_declared_and_hashed`); the
           # docs/**/*.md pathspec is asserted by test 38 (4ter) and whitelisted from that series set-equality.
-          STAT=$(git diff --shortstat "origin/${{ github.base_ref }}...HEAD" -- . ':(exclude)packages/*/docs/S2-*' ':(exclude)docs/G1-lot-*.md' ':(exclude)docs/G2-lot-*.md' ':(exclude,glob)docs/**/*.md' ':(exclude)package-lock.json' ':(exclude,glob)fixtures/**/*.json' ':(exclude,glob)fixtures/**/*.jsonl' ':(exclude,glob)fixtures/**/*.csv' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.json' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.jsonl' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.csv') || {
+
+          # Bell data series root apps/bell/test/fixtures/series/**/*.{json,jsonl,csv} (ADR-T1aii C-14, D9 sexies) is
+          # excluded too; each pinned file is declared+hashed same-dir (root test `series_pinned_are_declared_and_hashed`).
+          STAT=$(git diff --shortstat "origin/${{ github.base_ref }}...HEAD" -- . ':(exclude)packages/*/docs/S2-*' ':(exclude)docs/G1-lot-*.md' ':(exclude)docs/G2-lot-*.md' ':(exclude,glob)docs/**/*.md' ':(exclude)package-lock.json' ':(exclude,glob)fixtures/**/*.json' ':(exclude,glob)fixtures/**/*.jsonl' ':(exclude,glob)fixtures/**/*.csv' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.json' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.jsonl' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.csv' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.json' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.jsonl' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.csv') || {
             echo '::error::Gate R-25: diff not computable (no merge base?). Fail-closed.'
             exit 1
           }

@@ -35,6 +35,9 @@ const SECRET_PATTERNS: ReadonlyArray<{ re: RegExp; name: string }> = [
   { re: /\bgithub_pat_[0-9A-Za-z_]{40,}\b/, name: "GitHub PAT (fine-grained)" },
   { re: /\bxox[baprs]-[0-9A-Za-z-]{10,}\b/, name: "Slack token" },
   { re: /\bAIza[0-9A-Za-z_-]{35}\b/, name: "Google API key" },
+  // ADR-T1aii C-10 / RESSOURCES-HELIUS §3.3: a Helius api key is a UUID (8-4-4-4-12 hex); flag it ONLY in an
+  // api-key CONTEXT (query param / header), so a base58 mint or a plain hex id is not a false positive.
+  { re: /api[-_]?key["' ]*[=:]["' ]*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i, name: "api-key UUID (Helius-shaped)" },
 ];
 
 interface Hit { file: string; pattern: string; line: number }
@@ -69,6 +72,11 @@ test("no_secret_in_repo", () => {
   // non-vacuity: the scanner actually FIRES on real credential shapes (else a green would be meaningless).
   assert.ok(SECRET_PATTERNS.some((p) => p.re.test("-----BEGIN OPENSSH PRIVATE KEY-----")), "detects a private key block");
   assert.ok(SECRET_PATTERNS.some((p) => p.re.test("AKIA1234567890ABCDEF")), "detects an AWS key id");
+  // ADR-T1aii C-10: a Helius-shaped UUID in an api-key context reddens (mutant: plant one ⇒ red); a bare
+  // base58 mint does NOT (the context is required, so pools.ts stays green).
+  assert.ok(SECRET_PATTERNS.some((p) => p.re.test("https://mainnet.helius-rpc.com/?api-key=deadbeef-1234-5678-9abc-def012345678")),
+    "detects a Helius-shaped UUID in an api-key context");
+  assert.equal(SECRET_PATTERNS.some((p) => p.re.test("XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB")), false, "a base58 mint is NOT a secret");
 
   const hits: Hit[] = [];
   const scanned = walk(REPO, "", hits);

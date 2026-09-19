@@ -2,13 +2,18 @@
 // TIMESTAMP-FREE serialization (MAST "sha with timestamp" threat): bit-identical replay ⇒ identical
 // `bell_sha`. Provenance (sources, providers, fetch times) lives SEPARATELY and is NOT hashed.
 //
-// NUMERIC-HOLE / CLOSE GUARD (ESC-1 c, D5): no output may carry the reference close verbatim. `assertNoClose`
-// walks the object and reddens on any key ~ /close|ref[_]?price|p[_]?ref|reference|\bprev\b/i whose value
-// is a number or a numeric string -- the added alternatives catch camelCase (`refPrice`, `pRef`) and the
-// Polygon `prev` close leg (G2 fold C-3). `\bprev\b` (not bare `prev`) leaves the timeline chain key
-// `prev_line_hash` (D2) un-reddened. Mutants `bell_close_field_reddens` + `bell_close_guard_catches_camelcase`
-// redden on an injected close. (vwap/g_t stay green: their keys do not match; close is derivable from the
-// public vwap+g_t, accepted by ESC-1 c.)
+// NUMERIC-HOLE / CLOSE GUARD (ESC-1 c, D5): no output may carry the reference close (or ADV) verbatim.
+// `assertNoClose` walks the object and reddens on any key matching CLOSE_KEY whose value is a number/numeric
+// string -- catching camelCase (`refPrice`, `pRef`), the Polygon `prev` close leg (G2 fold C-3), AND the
+// consolidated ADV denominator of fact (iii) via `adv|share_volume|volume_ref` (bare) (T-1a-ii C-6).
+// TWO negation exemptions, same motif: `\bprev\b` (not bare `prev`) leaves the timeline key `prev_line_hash`
+// (D2) green; `(?<!no_)close` leaves the NEGATED residual code `no_close_ref` (a counter, not a leaked close)
+// green. KNOWN HOLE (accepted, declared): a `no_close_*` numeric key would pass -- tolerated because residual
+// codes are a CLOSED set (residuals.ts), not free-form output. Mutants `bell_close_field_reddens` +
+// `bell_close_guard_catches_camelcase` + the T-1a-ii ratio killer redden on an injected close/ADV. (vwap/g_t
+// stay green; close is derivable from public vwap+g_t under ESC-1 (c). ADV is derivable from vol_ratio +
+// volumeBase -- the SAME derivation shape; only `vol_ratio` (no adv/share_volume/volume_ref substring) is
+// published. This extension of ESC-1 (c) to ADV is a point for checkpoint-2, not a ruling this file asserts.)
 import { createHash } from "node:crypto";
 
 type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
@@ -24,7 +29,7 @@ export function canonical(v: Json): string {
   return "{" + keys.map((k) => JSON.stringify(k) + ":" + canonical(v[k] as Json)).join(",") + "}";
 }
 
-const CLOSE_KEY = /close|ref[_]?price|p[_]?ref|reference|\bprev\b/i;
+const CLOSE_KEY = /(?<!no_)close|ref[_]?price|p[_]?ref|reference|\bprev\b|adv|share_volume|volume_ref/i;
 const isNumericLike = (x: unknown): boolean =>
   typeof x === "number" || (typeof x === "string" && x.trim() !== "" && Number.isFinite(Number(x)));
 
@@ -56,10 +61,12 @@ export interface GapEntryFilled extends GapEntryBase {
   readonly gT: string;
   readonly exceed1: number; readonly exceed2: number; readonly exceed5: number;
 }
-/** A zero-volume gap entry: NO g_t (a fabricated g_t=0 is indistinguishable from a real zero gap -- C-4);
- *  it carries an explicit abstention instead. The digest accepts it; `abstain` is not a close-like key. */
+/** An abstained gap entry: NO g_t. Two cases (T-1a-ii V-7): a zero-volume session (a fabricated g_t=0 would
+ *  be indistinguishable from a real zero gap -- C-4) abstains `no_fill_in_window`; a session WITH volume but
+ *  no reference close (closeRef missing / <= 0) abstains `no_close_ref` (it still carries its first-hand vwap,
+ *  never a fabricated 0/-Infinity gap). The digest accepts either; `abstain` is not a close-like key. */
 export interface GapEntryAbstained extends GapEntryBase {
-  readonly abstain: "no_fill_in_window";
+  readonly abstain: "no_fill_in_window" | "no_close_ref";
 }
 export type GapEntry = GapEntryFilled | GapEntryAbstained;
 /** Build the (timestamp-free) digest body. Entries are sorted for determinism; no close field exists. */
