@@ -44,7 +44,7 @@ export function ShogenPanel({ contract }: { contract: FrozenContract }) {
 
         <div className="mt-2">
           <PanelBlock title="How it works" status="built">
-            sensor (attest) &rarr; the gate: Hikae and the MONARK budget &rarr; act (execute). The gate
+            sensor (attest) &rarr; the gate: Hikae and the MONARK budget &rarr; act (execute · upcoming). The gate
             emits commit, defer, or abstain.
           </PanelBlock>
           <PanelBlock title="How it is built" status="built">

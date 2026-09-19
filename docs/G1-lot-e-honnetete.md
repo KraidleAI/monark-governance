@@ -15,10 +15,10 @@
 | sha256 (LF-normalisé) | lignes | fichier |
 |---|---:|---|
 | `af0da9c12f939e5855404361bf7238287687b1b72ea234b1068c46a6fd7a6034` | 204 | `README.md` |
-| `1a91aefa36d79f3256db09700660d009ce47180ed21bd1f7b20e003a7bacf6e4` | 94 | `apps/site/components/shogen-panel.tsx` |
+| `41ff95c49637701559b244ff1a28549a492ece7c0b8529f271456793761badd6` | 94 | `apps/site/components/shogen-panel.tsx` |
 | `b4458bb571943f1a56a860765f98a74cdeec67d0a7684ce9109d701457ab6d3a` | 144 | `apps/site/lib/fleet-presentation.ts` |
 | `bf17b560745cfb450a5601c24e1ada54115bdfbdfd3dfedb78b548ea26ec1705` | 136 | `docs/adr/ADR-M009-aci-tracker.md` |
-| `a01d16e1ee85fc099f451a0bcde38dc87c968a49d05f49e1d735c2cb96efc9f7` | 47 | `docs/adr/ADR-M018-regle-branchement.md` |
+| `9f327be059ac11d11cd565463fe500a5588a84dc645eae8fea015ba662d39fbc` | 47 | `docs/adr/ADR-M018-regle-branchement.md` |
 | `45dc11b5eab635043e18db91bab582de5fb256618ec41e63dd8eb9c9d2fd920e` | 34 | `packages/monark/src/index.ts` |
 | `cbf280547595127e7292e811c4649924efd0fb7d5ec525825475d5839c775eef` | 316 | `scripts/lang-gate.mjs` |
 | `c022c807f3393f76a68edcdba40e3a7781799866b8ed53c9bc2b662c22bbf71f` | 104 | `skills/monark/DEMO.md` |
@@ -44,7 +44,7 @@ Pinned-string check avant édition (test/ + apps/site/test/) : `passing verdict|
 
 Formulation de référence appliquée : « attested testimony — origin and bytes, never truth ». Jamais « proven » / « certified » / « guaranteed » introduits.
 
-**C-11 vi — README:98** : « sensors (attest) → the gate: Hikae + MONARK B_t → **acts (execute)** » → « …→ **acts (execute · upcoming)** ». Couche act nommée **upcoming** (aucun outil n'exécute : SKILL.md:10 « gate never executes the named tool », D0 no-trade), sans chiffre ni promesse. (Hors périmètre : `shogen-panel.tsx:47` « act (execute) » porte le même claim mais le task ne scope que README:98 — **item formé** §7.)
+**C-11 vi — README:98** : « sensors (attest) → the gate: Hikae + MONARK B_t → **acts (execute)** » → « …→ **acts (execute · upcoming)** ». Couche act nommée **upcoming** (aucun outil n'exécute : SKILL.md:10 « gate never executes the named tool », D0 no-trade), sans chiffre ni promesse. (Jumeau `shogen-panel.tsx:47` « act (execute) » **corrigé au pliage post-G2 (C-1)** → « act (execute · upcoming) » — voir §11.)
 
 ---
 
@@ -155,7 +155,7 @@ Bloc daté **« Amendement D2 — 2026-09-19, ratifié par l'investisseur (déci
 | `lint:ratchet` | `npm run lint:ratchet` | **69/69** (oracle ajoute 0 au plafond) |
 | `export:check` | `npm run export:check` | OK — 0 forbidden path, 0 French ; sentinel/bell GATED |
 | suite complète | `npm run ci` (après édition, base `ac04d41`) | **328 tests / 328 pass / 0 fail** (326 baseline + 2 oracle) |
-| **R-25** | `git diff --shortstat HEAD` + exclusions exactes `ci.yml:52` (oracle compté via `git add -N`, index restauré) | **201** lignes (11 fichiers, 184 ins + 17 del) — bound 1205 ✔ (≈ attendu 220) |
+| **R-25** | `git diff --shortstat ac04d41` + exclusions exactes `ci.yml:52` (cumulatif lot, oracle tracké à `d44b656`) | **203** lignes (11 fichiers, 185 ins + 18 del) — bound 1205 ✔ (pré-fold : 201) |
 
 **Note R-25 D9 septies** : la décision « docs exclus de R-25 » (décision 25, a3f85f4 / ADR-EC / CHANTIERS §E) **n'est pas encore dans `ci.yml`** (commande opérante inchangée, docs comptés) ⇒ 201 mesuré avec docs comptés ; hors-docs (ADR-M018 9 + ADR-M009 1) il serait ~191. Item d'implémentation §10.
 
@@ -169,10 +169,27 @@ Bloc daté **« Amendement D2 — 2026-09-19, ratifié par l'investisseur (déci
 
 1. **ADR-M019 l.4 et l.76** portent encore « amendement ADR-M018 D2 **proposé, à ratifier** » — désormais **périmé** (ratifié décision 23, §8). **Déclencheur** : fold G7 de l'orchestrateur (mettre « proposé, à ratifier » → « ratifié 2026-09-19 »). Non édité ici (coordinateur : « aucun autre changement de scope »).
 2. **ADR-M009 « 35 % » vs ADR-M002:166 « 35,3 % »** : le task ne scopait que 47 %→49,1 % ; le t°=30 reste « 35 % » (arrondi) alors que la source [abs] porte 35,3 %. **Déclencheur** : prochaine édition d'ADR-M009 (même cadence que CHANTIERS §E « à la prochaine édition »).
-3. **`shogen-panel.tsx:47` « act (execute) »** : même surclaim de couche act que README:98 (aucun outil n'exécute), **hors périmètre** (task scope = README:98 seul pour C-11 vi). **Déclencheur** : prochaine passe T0 touchant le bloc « How it works » du panneau Shōgen, ou passe honnêteté vitrine dédiée.
+3. **`shogen-panel.tsx:47` « act (execute) »** : **RÉSOLU** au pliage post-G2 (C-1, §11) → « act (execute · upcoming) ». (Était : jumeau non corrigé de README:98 ; error_origin orchestrateur, cadrage C-11 vi sous-mesuré.)
 4. **R-25 « D9 septies » (docs exclus)** décidé (a3f85f4/ADR-EC/CHANTIERS) mais **absent de `.github/workflows/ci.yml`** (gate opérant compte encore les docs). **Déclencheur** : lot d'implémentation de D9 septies dans `ci.yml` (hors E-honnêteté ; observé en mesurant R-25).
 5. **Rebase du lot** : `lot/etude-suite` a avancé de 11 commits docs-only ; ff-merge exécuté vers `ac04d41` (worktree à jour, mes éditions préservées, CI verte). **Déclencheur** : commit/intégration par l'orchestrateur (R-20 : seul lui committe).
 6. **`docs/cartographie-p1/import-graph.out.json` + `import-graph.mjs:125` SYMBOLS périmés** : le retrait de `MONARK_PHASE` (§5) rend stales `import-graph.out.json` (liste encore `MONARK_PHASE`, census 1) et la liste SYMBOLS de mesure. **Déclencheur** : cartographie pré-release (ADR-EC D2) régénère les deux en contexte frais.
 7. **lang-gate scope `bell` couvre `apps/bell/test/**`** : `classifyScope` route `apps/bell/**` → `bell` et `collectTextFiles` ne skippe pas `test/` — alors que le scope **vocab** `bell` (grep-forbidden) exclut `test/` **exprès** (tokens de contrôle négatif). `apps/bell` porte **0 français aujourd'hui**, mais `lot/t-1a` en vol (`F:\Monark-wt-bell`) ajoute des tests bell ; une chaîne française de **contrôle négatif** (ex. « aurait alerté », « prix de référence » — motifs bannis sentinel/bell) y rougirait l'appel source-tree du test 42. **Remède** : entrée fermée dans `scripts/lang-exempt.json` (motif de `release-public.test.ts:17`), **jamais un retrait de scope** (interdit par le task). **Déclencheur** : G2 de T-1a-ii — à signaler à l'orchestrateur maintenant, pas à la fusion.
 
 Aucun « dû » nu. Aucune dette ouverte au sens de la règle Dettes.
+
+
+---
+
+## 11. Pliage post-G2 (gel `d44b656`, verdict APPROUVÉ-AVEC-CORRECTIONS)
+
+Correction **C-1** du G2 (`F:\Monark\docs\G2-lot-e-honnetete.md`) pliée :
+- **`apps/site/components/shogen-panel.tsx:47`** (T0) : « … → **act (execute)**. » → « … → **act (execute · upcoming)**. » — jumeau exact du diagramme README:98, mis en cohérence (aucun outil n'exécute : SKILL.md:10, D0 no-trade). **error_origin = orchestrateur** (cadrage ADR-EC C-11 vi sous-mesuré : nommait README:98 + board.tsx:84→E-registre, manquait ce jumeau ; le worker était resté dans le périmètre donné). Nouveau sha256(LF) `41ff95c4…`.
+- **Balayage `execute` complet** (grep README + apps/site src + skills) — après fix, aucun autre **libellé de couche act « execute » nu** dans le périmètre E-honnêteté :
+  - **Corrigés** : README:98, `shogen-panel.tsx:47` (« execute · upcoming »).
+  - **Prose de patron conceptuel, licite (adjugé par le G2 §C-1, gardé)** : `README.md:16`, `apps/site/app/page.tsx:72`, `apps/site/app/roadmap/page.tsx:50` (« …acts that **execute** ») + `board.tsx:234` (« an act **executes** ») — description de l'architecture (3 rôles), pas un libellé de statut ; « · upcoming » y serait grammaticalement faux. **Item formé** (adjudication orchestrateur pour page.tsx:72/roadmap:50, non nommés au G2 ; déclencheur : passe honnêteté vitrine dédiée).
+  - **`board.tsx:377` « 02 · acts · execute » (eyebrow) + :84 (Ukemi)** : **fichier d'E-registre** (ADR-EC C-11 vi, règle fichiers-disjoints) — **NON édité ici** (collision de scope). **Item formé** ; propriétaire **E-registre** ; déclencheur : correction board.tsx d'E-registre (aligner le libellé de couche act sur « upcoming »).
+  - **Négations licites** : `DEMO.md:78-79`, `SKILL.md:3,:10,:33,:34` (« NOT permission to execute », « never executes »).
+
+Réserve 8 du G2 pliée : le bloc **Amendement D2** d'ADR-M018 porte désormais **`error_origin = planificateur`** (prémisse « Ukemi non consommé » écrite AVANT la mesure P1 du tuyau `cascade → gate`). Nouveau sha256(LF) `9f327be0…`.
+
+**Re-mesure post-fold** (arbre de travail, base `ac04d41`) : `npm run ci` **328/328** (rc=0) ; oracle racine `public_surfaces_make_no_probative_claim` **2/2** ; `lang:gate` scope `root,contracts,schemas,site,skills,sentinel,bell` **0 hit** ; `gate:vocab` **OK** (156 fichiers) ; **R-25 = 203** (+2 vs pré-fold 201) < 1205. **CA-11** : `fleet.ts` toujours intact. R-20 : aucun commit (fold en arbre de travail sur `d44b656`, l'orchestrateur committe).
