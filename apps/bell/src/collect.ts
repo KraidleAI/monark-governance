@@ -170,14 +170,15 @@ export function collect(input: CollectInput): CollectResult {
   const bellShaHex = bellSha(digest);
 
   const providers = [...(input.providers ?? [])];
+  const providersDistinct = new Set(providers.map(providerOf)).size; // V-2: distinct providers behind the quorum
   const faults = [...(input.faults ?? [])] as unknown as Json;
   const prov = makeProvenance(digest, { generated_at: input.generatedAt },
-    { providers, quorum: 2, faults }, input.generatedAt);
+    { providers, quorum_required: 2, providers_distinct: providersDistinct, faults }, input.generatedAt);
 
   const state: Json = { schema: "bell-state-v1", bell_sha: bellShaHex,
     window: { from_utc_ms: input.window.fromUtcMs, to_utc_ms: input.window.toUtcMs }, residuals: counts as unknown as Json, digest };
   const timeline = chainTimeline(timelineRecords);
-  const journal: Json = { generated_at: input.generatedAt, providers, quorum: 2, faults,
+  const journal: Json = { generated_at: input.generatedAt, providers, quorum_required: 2, providers_distinct: providersDistinct, faults,
     residual_total: RESIDUAL_CODES.reduce((a, c) => a + counts[c], 0) };
 
   return { bellSha: bellShaHex, digest, state, timeline, provenance: prov, journal };
@@ -299,6 +300,28 @@ function mintKey(result: unknown): Json {
 
 function argOf(argv: readonly string[], k: string): string | undefined { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : undefined; }
 
+/** V-1 (O-2): parse + VALIDATE the operator CLI, fail-closed. An unknown --pools symbol, a NaN/negative
+ *  numeric, or --eth+TSLAon without a valid block range throws `bell/collect: …`; main() surfaces that
+ *  message verbatim (V-3). Pure for a fixed nowMs (the only clock input), so the parse is replay-testable. */
+export function parseArgs(argv: readonly string[], knownSymbols: readonly string[], nowMs = Date.now()) {
+  const num = (k: string, def: number): number => {
+    const raw = argOf(argv, k);
+    if (raw === undefined) return def;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) throw new Error(`bell/collect: invalid numeric ${k}='${raw}' (need a finite value >= 0)`);
+    return n;
+  };
+  const wanted = (argOf(argv, "--pools") ?? "TSLAx").split(",").map((x) => x.trim()).filter(Boolean);
+  for (const w of wanted) if (!knownSymbols.includes(w)) throw new Error(`bell/collect: unknown pool symbol '${w}' (known: ${knownSymbols.join(", ")})`);
+  const toUtcMs = num("--to-utc", nowMs);
+  const eth = argv.includes("--eth"), ethFrom = num("--eth-from-block", 0), ethTo = num("--eth-to-block", 0);
+  if (eth && wanted.includes("TSLAon") && !(ethFrom > 0 && ethTo >= ethFrom))
+    throw new Error("bell/collect: --eth with TSLAon needs --eth-from-block > 0 and --eth-to-block >= --eth-from-block");
+  return { out: argOf(argv, "--out") ?? "F:/tmp/bell-out", toUtcMs,
+    fromUtcMs: num("--from-utc", toUtcMs - num("--window-days", 3) * 86_400_000),
+    wanted, maxPages: num("--max-pages", 3), bodySample: num("--body-sample", 5), minInterval: num("--min-interval", 250), eth, ethFrom, ethTo };
+}
+
 /** CA-11 guard (pure, wired in main): a bell --out MUST be OUTSIDE the repo tree. win32 path.resolve keeps
  *  the input's drive-letter case, so the old `resolve(out).startsWith(root)` missed `f:\…` vs `F:\…` and wrote
  *  inside (measured, G2 CA-11a). Compare lowercased + path.relative: "" (out === root) or a rel that is neither
@@ -314,16 +337,9 @@ export function assertOutsideRepo(out: string, repoRoot: string): void {
 
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
-  const out = argOf(argv, "--out") ?? "F:/tmp/bell-out";
+  const { out, toUtcMs, fromUtcMs, wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo } = parseArgs(argv, POOLS.map((p) => p.baseSymbol));
   const repoRoot = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
   assertOutsideRepo(out, repoRoot);
-  const toUtcMs = Number(argOf(argv, "--to-utc") ?? Date.now());
-  const windowDays = Number(argOf(argv, "--window-days") ?? 3);
-  const fromUtcMs = Number(argOf(argv, "--from-utc") ?? toUtcMs - windowDays * 86_400_000);
-  const wanted = (argOf(argv, "--pools") ?? "TSLAx").split(",").map((x) => x.trim()).filter(Boolean);
-  const maxPages = Number(argOf(argv, "--max-pages") ?? 3);
-  const bodySample = Number(argOf(argv, "--body-sample") ?? 5);
-  const minInterval = Number(argOf(argv, "--min-interval") ?? 250);
 
   const solProviders = solanaEndpoints();
   const polygonKey = process.env.POLYGON_API_KEY ?? "";
@@ -350,8 +366,7 @@ async function main(): Promise<void> {
 
   // Ethereum leg (ADR-T1aii D1): Uniswap v3 TSLAon/USDC swaps via makeUkemiPool.getLogsRange (quorum-2),
   // behind --eth with an explicit block range (eth getLogs is block-ranged). Skipped (declared) otherwise.
-  const ethFrom = Number(argOf(argv, "--eth-from-block") ?? 0), ethTo = Number(argOf(argv, "--eth-to-block") ?? 0);
-  if (argv.includes("--eth") && wanted.includes("TSLAon") && ethFrom > 0 && ethTo >= ethFrom) {
+  if (eth && wanted.includes("TSLAon") && ethFrom > 0 && ethTo >= ethFrom) {
     const ethPool = POOLS.find((pp) => pp.chain === "ethereum" && pp.baseSymbol === "TSLAon");
     if (ethPool) {
       try {
@@ -373,6 +388,13 @@ async function main(): Promise<void> {
   process.stdout.write(`bell/collect bell_sha=${result.bellSha} symbols=${String(symbols.length)} calls=${String(calls)} providers=${providerDomains.join(",")} out=${out}\n`);
 }
 
+/** V-3: a LOCAL fail-closed error (the `bell/collect:` prefix from parseArgs / assertOutsideRepo) is surfaced
+ *  VERBATIM so the operator sees the reason; any other error goes through statusOf, keeping the C-10 scrub so
+ *  no url or key can leak from a transport fault. */
+export function fatalMessage(e: unknown): string {
+  return e instanceof Error && e.message.startsWith("bell/collect:") ? e.message : `FATAL ${e instanceof Error ? statusOf(e) : "error"}`;
+}
+
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main().catch((e: unknown) => { process.stderr.write(`FATAL ${e instanceof Error ? statusOf(e) : "error"}\n`); process.exit(1); });
+  main().catch((e: unknown) => { process.stderr.write(fatalMessage(e) + "\n"); process.exit(1); });
 }

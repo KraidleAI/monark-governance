@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
-import { assertOutsideRepo, collect, chainTimeline, type SymbolInput } from "../src/collect.ts";
+import { assertOutsideRepo, collect, chainTimeline, parseArgs, fatalMessage, type SymbolInput } from "../src/collect.ts";
 import { quorum2, signaturesSetKey, statusOf, NoQuorumError, QuorumDisagreementError, ConcordantRevertError,
   SolRpcError, type JsonRpcCall, type TransportFault } from "../src/quorum.ts";
 import { readMintToken2022, porStatus, wrapperStatus, supplyVsPoRStatement } from "../src/supply.ts";
@@ -20,6 +20,7 @@ import { decodeV3Swap, ethSwapToFill, ethVwap, UNISWAP_V3_SWAP_TOPIC } from "../
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SERIES = join(HERE, "fixtures", "series");
+const SRC = readFileSync(join(HERE, "..", "src", "collect.ts"), "utf8"); // source, for the V-1/V-3 wiring proofs
 
 /** Load the reduced REAL session fills (sha-pinned under series/, PROVENANCE same-dir). */
 function loadSeriesFills(): SwapFill[] {
@@ -275,4 +276,34 @@ test("bell_out_guard_is_outside_the_repo", () => {
   }
   // Wiring proof (branchement): main() actually CALLS the guard — dropping the call reddens this test.
   assert.match(readFileSync(join(HERE, "..", "src", "collect.ts"), "utf8"), /assertOutsideRepo\(out, repoRoot\)/);
+});
+
+// ---- V-1: parseArgs is a pure, WIRED, fail-closed CLI parser (mutant: accept unknown / unwire => red) -----
+test("bell_parseargs_fail_closed_and_wired", () => {
+  const K = ["TSLAx", "SPYx", "NVDAx", "AAPLx", "TSLAon"];
+  assert.throws(() => parseArgs(["--pools", "ZZZ"], K), /bell\/collect: unknown pool symbol 'ZZZ' \(known: /);
+  assert.throws(() => parseArgs(["--window-days", "abc"], K), /bell\/collect: invalid numeric/);
+  assert.throws(() => parseArgs(["--window-days", "-3"], K), /bell\/collect: invalid numeric/);
+  assert.throws(() => parseArgs(["--pools", "TSLAon", "--eth"], K), /bell\/collect: --eth with TSLAon/);
+  const g = parseArgs(["--pools", "TSLAon", "--eth", "--eth-from-block", "9", "--eth-to-block", "20"], K, 1_000);
+  assert.deepEqual([g.wanted, g.eth, g.ethFrom, g.ethTo, g.toUtcMs], [["TSLAon"], true, 9, 20, 1_000]);
+  assert.match(SRC, /parseArgs\(argv, POOLS\.map/);
+});
+
+// ---- V-2: journal + provenance carry quorum_required + providers_distinct (derived via providerOf) --------
+test("bell_journal_quorum_required_and_providers_distinct", () => {
+  const r = collect({ symbols: [], haltRows: [], window: { fromUtcMs: 0, toUtcMs: 0 }, nowSec: 1, staleBoundSec: 1, generatedAt: "t",
+    providers: ["https://api.mainnet-beta.solana.com", "https://mainnet.helius-rpc.com", "https://b.helius-rpc.com"] });
+  const j = r.journal as { quorum_required: number; providers_distinct: number };
+  assert.deepEqual([j.quorum_required, j.providers_distinct, "quorum" in (r.journal as object)], [2, 2, false]);
+  assert.equal((r.provenance.providers as { providers_distinct: number }).providers_distinct, 2);
+});
+
+// ---- V-3: a LOCAL bell/collect: error is surfaced verbatim; a transport fault keeps the C-10 scrub --------
+test("bell_fatal_message_verbatim_local_and_scrubbed_transport", () => {
+  let local = "";
+  try { assertOutsideRepo(HERE, HERE); } catch (e) { local = fatalMessage(e); }
+  assert.match(local, /^bell\/collect: --out is under the repo root/);
+  assert.equal(fatalMessage(new Error("HTTP 429 https://x.example/rpc")), "FATAL HTTP 429");
+  assert.match(SRC, /main\(\)\.catch.*fatalMessage\(e\)/s);
 });
