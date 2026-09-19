@@ -13,10 +13,10 @@ import type { PoolRef } from "./pools.ts";
 /** One JSON-RPC round-trip to a NAMED endpoint. Injected in tests; the default hits the public pool. */
 export type JsonRpcCall = (url: string, method: string, params: readonly unknown[]) => Promise<unknown>;
 
-/** Public read-only Solana endpoints (spike §0). mainnet-beta serves deep bodies but rate-limits
- *  enumeration; publicnode is fast but prunes bodies. Override with BELL_SOLANA_RPC for archival runs. */
+/** Public read-only Solana endpoints (spike §0). mainnet-beta is the SOLE default (publicnode retired: it
+ *  prunes old bodies) — so a read with no 2nd provider via BELL_SOLANA_RPC is no_quorum, fail-closed (C-1a). */
 export const PUBLIC_SOLANA: readonly string[] = [
-  "https://api.mainnet-beta.solana.com", "https://solana-rpc.publicnode.com",
+  "https://api.mainnet-beta.solana.com",
 ];
 export function solanaEndpoints(env: NodeJS.ProcessEnv = process.env): readonly string[] {
   const raw = (env.BELL_SOLANA_RPC ?? "").trim();

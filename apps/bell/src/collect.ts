@@ -11,7 +11,7 @@
 import { createHash } from "node:crypto";
 import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { resolve } from "node:path";
+import { resolve, relative, isAbsolute } from "node:path";
 import { XSTOCKS, POOLS, type PoolRef } from "./pools.ts";
 import { classifySession } from "./sessions.ts";
 import { sessionGap, exceeds, vwapDecimal, fixed, GAP_PRECISION } from "./gap.ts";
@@ -299,11 +299,24 @@ function mintKey(result: unknown): Json {
 
 function argOf(argv: readonly string[], k: string): string | undefined { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : undefined; }
 
+/** CA-11 guard (pure, wired in main): a bell --out MUST be OUTSIDE the repo tree. win32 path.resolve keeps
+ *  the input's drive-letter case, so the old `resolve(out).startsWith(root)` missed `f:\…` vs `F:\…` and wrote
+ *  inside (measured, G2 CA-11a). Compare lowercased + path.relative: "" (out === root) or a rel that is neither
+ *  ".."-prefixed nor absolute ⇒ under root ⇒ throw. Lowercasing fail-closes a pathological case-sensitive-posix
+ *  collision — the safe direction for a CA-11 guard (this runs only in the win32-operator main(), never in CI). */
+export function assertOutsideRepo(out: string, repoRoot: string): void {
+  const root = resolve(repoRoot).toLowerCase();
+  const rel = relative(root, resolve(out).toLowerCase());
+  if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))) {
+    throw new Error("bell/collect: --out is under the repo root (CA-11: outputs must be OUTSIDE the tree)");
+  }
+}
+
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const out = argOf(argv, "--out") ?? "F:/tmp/bell-out";
   const repoRoot = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
-  if (resolve(out).startsWith(repoRoot)) throw new Error(`bell/collect: --out ${out} is under the repo root (CA-11: outputs must be OUTSIDE the tree)`);
+  assertOutsideRepo(out, repoRoot);
   const toUtcMs = Number(argOf(argv, "--to-utc") ?? Date.now());
   const windowDays = Number(argOf(argv, "--window-days") ?? 3);
   const fromUtcMs = Number(argOf(argv, "--from-utc") ?? toUtcMs - windowDays * 86_400_000);
@@ -317,7 +330,7 @@ async function main(): Promise<void> {
   const faults: TransportFault[] = [];
   let calls = 0;
   const call: JsonRpcCall = async (u, m, p) => { calls++; if (minInterval > 0) await sleep(minInterval); return bellSolanaCall(u, m, p); };
-  const providerDomains = [...new Set(solProviders.map((u) => { try { return new URL(u).hostname.split(".").slice(-2).join("."); } catch { return u; } }))];
+  const providerDomains = [...new Set(solProviders.map(providerOf))];
 
   const symbols: SymbolInput[] = [];
   for (const tok of XSTOCKS.filter((t) => wanted.includes(t.symbol))) {

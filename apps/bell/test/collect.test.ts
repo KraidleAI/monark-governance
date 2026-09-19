@@ -5,14 +5,15 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
-import { collect, chainTimeline, type SymbolInput } from "../src/collect.ts";
+import { assertOutsideRepo, collect, chainTimeline, type SymbolInput } from "../src/collect.ts";
 import { quorum2, signaturesSetKey, statusOf, NoQuorumError, QuorumDisagreementError, ConcordantRevertError,
   SolRpcError, type JsonRpcCall, type TransportFault } from "../src/quorum.ts";
 import { readMintToken2022, porStatus, wrapperStatus, supplyVsPoRStatement } from "../src/supply.ts";
 import { volumeToAdvRatio, poolVolumeBase } from "../src/volume.ts";
 import { assertNoClose } from "../src/digest.ts";
 import { newResidualCounts, RESIDUAL_CODES } from "../src/residuals.ts";
-import type { SwapFill } from "../src/rpc.ts";
+import { solanaEndpoints, type SwapFill } from "../src/rpc.ts";
+import { providerOf } from "../../sentinel/src/rpc.ts";
 import type { HaltRow } from "../src/halts.ts";
 import { classifySession } from "../src/sessions.ts";
 import { decodeV3Swap, ethSwapToFill, ethVwap, UNISWAP_V3_SWAP_TOPIC } from "../src/ethereum.ts";
@@ -77,6 +78,13 @@ test("bell_no_quorum_on_single_provider", async () => {
   await assert.rejects(quorum2("x", ["https://a.solana.com"], ok, fetchOne, keyOf), NoQuorumError);
   // two ALIASES of one provider (providerOf collapses to solana.com) => still no quorum
   await assert.rejects(quorum2("x", ["https://a.solana.com", "https://b.solana.com"], ok, fetchOne, keyOf), NoQuorumError);
+  // C-1a: the DEFAULT endpoint list is a SINGLE provider (publicnode retired), so a read with no Helius
+  // override via BELL_SOLANA_RPC is no_quorum — fail-closed, not a silent Helius-less quorum.
+  const def = solanaEndpoints({});
+  assert.deepEqual([...def], ["https://api.mainnet-beta.solana.com"]);
+  assert.equal(providerOf(def[0]!), "solana.com");
+  assert.equal(new Set(def.map(providerOf)).size, 1, "the default is one distinct provider");
+  await assert.rejects(quorum2("default", def, ok, fetchOne, keyOf), NoQuorumError, "the default list alone is no_quorum");
   // two DISTINCT providers, concordant => the value
   assert.equal(await quorum2("x", ["https://api.mainnet-beta.solana.com", "https://mainnet.helius-rpc.com"], ok, fetchOne, keyOf), "V");
   // two distinct providers that DISAGREE => fail-closed
@@ -249,4 +257,22 @@ test("bell_eth_v3_swap_decode_and_vwap", () => {
   assert.equal(fill.quoteDelta, -11_300_145n);
   // signed VWAP (quote per base) ~ 405.34 USDC/TSLAon (a plausible TSLA price) -- magnitudes, so a sell adds too
   assert.equal(Number(ethVwap([fill])).toFixed(2), "405.34");
+});
+
+// ---- CA-11: --out guard is a pure, wired, case-robust function (mutant: neutralize OR unwire => red) ----
+test("bell_out_guard_is_outside_the_repo", () => {
+  // under the root (same case / the root itself / upper-cased / mixed separators) => throw (CA-11)
+  assert.throws(() => assertOutsideRepo(join(HERE, "out-hole"), HERE), /CA-11/);
+  assert.throws(() => assertOutsideRepo(HERE, HERE), /CA-11/);
+  assert.throws(() => assertOutsideRepo(join(HERE, "out-hole").toUpperCase(), HERE), /CA-11/);
+  assert.throws(() => assertOutsideRepo(HERE.replace(/\\/g, "/") + "/a\\b", HERE), /CA-11/);
+  // a sibling OUTSIDE the root => ok (cross-platform anchor; CI is ubuntu, so F:/ literals are win32-only)
+  assert.doesNotThrow(() => assertOutsideRepo(join(HERE, "..", "bell-out-sibling"), HERE));
+  if (process.platform === "win32") {
+    // the MEASURED win32 hole: same path, drive-letter lower-cased (the old startsWith missed f: vs F:)
+    assert.throws(() => assertOutsideRepo(HERE[0]!.toLowerCase() + HERE.slice(1) + "\\out-hole", HERE), /CA-11/);
+    assert.doesNotThrow(() => assertOutsideRepo(HERE[0]! + ":/tmp/bell-out", HERE)); // task's F:/tmp/x => ok
+  }
+  // Wiring proof (branchement): main() actually CALLS the guard — dropping the call reddens this test.
+  assert.match(readFileSync(join(HERE, "..", "src", "collect.ts"), "utf8"), /assertOutsideRepo\(out, repoRoot\)/);
 });
