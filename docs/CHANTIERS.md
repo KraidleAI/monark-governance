@@ -1,5 +1,5 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 05:45 UTC (horloge système)
+Dernière mise à jour : 2026-09-19 06:10 UTC (horloge système)
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019)
 | Lot | État | Prochaine action | Bloqué par |
@@ -16,14 +16,14 @@ Dernière mise à jour : 2026-09-19 05:45 UTC (horloge système)
 | Avis advisor-marché (payeur = DAO/SP ; classe shortfall vs dette liquidée) | REÇU, persisté | — | — |
 | Campagne biblio (25 sources, 12 PDF, 36 sha) | REÇUE — `R-biblio-ukemi-modeL.md` (983 l.) ; cassé : « 47 M$ bad debt à 10 % » (absent de Gatto), « 65 %/15 % FC26 » (identité introuvable), « 15,7 Md$ » (sans primaire) ; procurements §7 : Amini–Filipović–Minca 2016 (ORL, DOI 10.1016/j.orl.2015.10.005), Chow 1970 (IEEE TIT, « reject tradeoff »), post-mortem CAPO primaire, Messari (429) | procurements → investisseur dans ADR-M020 | — |
 | 2e avis advisor-DeFi (après M-2) | REÇU (`AVIS-advisor-defi-bis-…`) : **fait structurel** — sources d'oracle Aave sUSDe/USDe/LST = adaptateurs plafonnés à taux de change ⇒ boucle de cascade par l'oracle coupée par construction ; objet → (c) témoin de faits + (b) classe `liquidation-realized-given-oracle-path-24h` ; (a) fermé sur Aave core ; treillis en annexe ; plan U-0..U-7 révisé | ADR-M020 après M-2b + bissection | M-2b |
-| Mesures M-2b (part de l'heure 21:00Z, test intra-bloc, bootstrap) + bissection du bloc de bascule de source sUSDe/USDe | EN COURS — worker | conditionne U-0 | — |
+| Mesures M-2b + bissection | REÇUES (`MESURES-M2b-sources`, `36541b4`) : part 1,52 % (< 5 %) ; update oracle précède la liquidation 15/15 (conséquence) ; bucket de krach pousse la pente vers le haut ; bascule sUSDe/USDe au bloc 22002625 (2025-03-08), ARFC 20495 [lu] ; WETH sur Chainlink SVR depuis 2025-06-28 | — | — |
 | Lecture Dunn 2022 (hiérarchique) | REÇUE : nouvel événement non trivial seulement si K ≥ 1/α−1 (99 à α = 0,01) ; événement observé = n₁ > 1/α−1 ; n_j fixé a priori violé et déclaré | — | — |
 | Mesures préalables M-1, M-2 | REÇUES (`MESURES-prealables-2026-09-19.md`, `ebf49f2`) : M-1 faisable keyless (5 opérateurs archive, N+2 appels, ~1 min) ; **M-2 Λ indéterminé, pente forte vers absence** (WETH oct. 2025 : 88 % liquidé en 1 h de krach exogène, oracle en V, IC ∋ 0, 0,318 % du volume Binance) ; sUSDe 2025-02 : décote d'oracle exogène ⇒ liquidations (conséquence) | objet B à redéfinir → 2e consultation advisor-DeFi EN COURS | — |
 | Lecture Amini 2016 + Chow 1970 (procurés) | REÇUE (`L-lecture-amini2016-chow1970.md`) : étiquetage Q_*/Q^* absent de la littérature → à démontrer ; Chow qualitatif seulement sous `under_calib` | — | — |
 | Lecture Gatto 2026 + Garcia Seuma 2026 | REÇUE : « 47 M$ » non trouvé (cassé confirmé) ; Gatto = page web, PDF SSRN 51 p. à procurer ; λ subcritique, k perps seulement | — | — |
 | Lecture Tibshirani 2019 + Barber 2023 | REÇUE : intra-événement = Thm 2 exact ; swap de bloc non couvert → Dunn–Wasserman–Ramdas 2022 (JASA, arXiv:1809.07441) téléchargé OA (collision arXiv:2010.06001 écartée) | lecture Dunn à lancer | — |
 | Note formelle treillis (T monotone, Q_*/Q^*, unicité, sens du treillis) | EN COURS — worker | affirmation centrale de l'ADR | — |
-| ADR-M020 (plan : objet, classe, lots, oracles, procurement) | À RÉDIGER après 2e avis DeFi + note treillis | → checkpoint-1 validateur → présentation investisseur point par point | avis DeFi bis, note treillis |
+| ADR-M020 « Eligible is not liquidated » | RÉDIGÉ, commit `565e90c` ; **checkpoint-1 EN COURS** | présentation investisseur point par point → U-1 | checkpoint-1 |
 | Commit de `docs/biblio/ukemi-modeL/` sur `lot/etude-suite` | FAIT (archive + avis + sha ; pdf/_txt gitignorés, sha tracés) ; MESURES à committer à réception | — | mesures |
 
 ## C. MONARK Bell — témoin public attesté des TSV, actions tokenisées (nom investisseur 2026-09-19 ; décisions 1-3)

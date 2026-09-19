@@ -27,8 +27,8 @@ CLAUDE.md global et projet ; agents `~/.claude/agents/*.md` (advisor/advisor-mar
 5. `F:\Monark\docs\biblio\ukemi-modeL\` — biblio, avis, mesures Ukemi.
 
 ## 5. État au dernier point (2026-09-19 ~03:30 UTC réel — horodatages antérieurs surestimés d'environ 5 h)
-- Branche de travail : `lot/etude-suite` (HEAD `0e9727f`, poussée, repo privé `KraidleAI/monark-governance`) ; lots P1-b1/b2/b3 clos et fusionnés ; W-1 en cours sur `lot/w-1` (worktree `F:\Monark-wt-p1b1`).
-- Sous-agents en cours (NE PAS basculer tant qu'ils tournent) : worker W-1 ; worker mesures Ukemi (M-1/M-2) ; lecteur Gatto+Garcia Seuma ; lecteur Tibshirani 2019+Barber 2023 ; worker note formelle treillis. (Amini+Chow : lu, commité `3a13a21`.)
+- Branche de travail : `lot/etude-suite` (HEAD `565e90c`+, poussée, repo privé `KraidleAI/monark-governance`) ; lots P1-b1/b2/b3 clos et fusionnés ; W-1 en cours sur `lot/w-1` (worktree `F:\Monark-wt-p1b1`).
+- Sous-agents en cours (NE PAS basculer tant qu'ils tournent) : validateur checkpoint-2 W-1 (`3e0a150`) ; validateur checkpoint-1 ADR-M020 (`565e90c`).
 - Suite prévue : G2 + checkpoint-2 W-1 → G7 → cartographie M018 D4 → rapport de passe P1 ; ADR-M020 Ukemi (plan) → checkpoint-1 → présentation investisseur ; puis lots T-1..T-3 témoin TSV.
 - Décisions investisseur du jour : témoin TSV validé ; market making écarté ; lettre SEC 4-927 après T-1 ; Ukemi built + programme paroxysme ; Stocklana = option ultérieure, plan inchangé.
 - Attentes investisseur : go annonce X « Day 1 » (non publiée) ; procurements §8 (2 reçus : Amini, Chow) ; fenêtre publique pour PR/miroir ; ratifications D-ADJ Shōgen et bFloor M002.
