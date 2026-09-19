@@ -1018,7 +1018,9 @@ function seriesLfSha256(abs: string): string {
 test("series_pinned_are_declared_and_hashed — every R-25-excluded data file is declared + hashed same-dir (ADR-M003 D9 sexies)", () => {
   // The r25 job carries the six :(glob) exclusion pathspecs — they cannot be silently removed.
   for (const ps of SERIES_EXCLUDE_PATHSPECS) {
-    assert.ok(WF.includes(ps), `r25 job is missing the exclusion pathspec ${ps} (ADR-M003 D9 sexies)`);
+    // Quoted token: ".json" is a substring of ".jsonl", so a bare includes(ps) would stay green when the
+    // .json pathspec lost its ,glob (G2 R-25-series C1, mutant 5).
+    assert.ok(WF.includes("'" + ps + "'"), `r25 job is missing the exclusion pathspec ${ps} (ADR-M003 D9 sexies)`);
   }
 
   const checked = new Set<string>();
@@ -1043,9 +1045,42 @@ test("series_pinned_are_declared_and_hashed — every R-25-excluded data file is
       const declFiles = readdirSync(dir)
         .filter((n) => n !== self && (/^PROVENANCE-.*\.md$/.test(n) || n === "manifest.json"))
         .map((n) => join(dir, n));
+      // Binding name<->sha (G2 R-25-series C2): the sha must sit on the row/bullet that names THIS file —
+      // a permuted table (each sha present somewhere in the document) must be red. manifest.json is parsed;
+      // in a PROVENANCE-*.md the binding holds when (i) the sha line itself names `self` (table row / bullet),
+      // or (ii) the sha line names no sibling data file and a heading (`#…`) above it names `self`
+      // (climbing to the document title; a heading naming another file stops the climb). A sha line naming ANOTHER sibling
+      // never binds.
+      const siblingData = readdirSync(dir).filter((n) => SERIES_DATA_EXTS.has(extname(n)));
+      const bindsSelf = (line: string): boolean => {
+        const named = siblingData.filter((n) => line.includes(n));
+        return named.length === 1 && named[0] === self;
+      };
       const declaredIn = declFiles.find((d) => {
         const text = readFileSync(d, "utf8");
-        return text.includes(sha) && text.includes(self);
+        if (basename(d) === "manifest.json") {
+          try {
+            const m = JSON.parse(text) as Record<string, unknown>;
+            return m[self] === sha;
+          } catch {
+            return false;
+          }
+        }
+        const lines = text.split(/\r?\n/);
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i] ?? "";
+          if (!line.includes(sha)) continue;
+          if (bindsSelf(line)) return true;
+          if (siblingData.some((n) => line.includes(n))) continue; // names another file: never binds
+          for (let j = i; j >= 0; j--) {
+            const up = lines[j] ?? "";
+            if (!/^#{1,6}\s/.test(up)) continue;
+            if (bindsSelf(up)) return true;
+            if (siblingData.some((n) => up.includes(n))) break; // section of another file
+            // heading naming no file: keep climbing to the document title
+          }
+        }
+        return false;
       });
       assert.ok(
         declaredIn !== undefined,

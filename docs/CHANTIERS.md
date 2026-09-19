@@ -56,7 +56,7 @@ Dernière mise à jour : 2026-09-19 10:05 UTC (horloge système)
 | MCP papiers (arxiv, openalex, semantic-scholar) | installés user-scope | actifs au redémarrage |
 
 ## E. Dettes / items formés transverses (avec déclencheur)
-- **Lot R-25 séries** (décision 17) : amendement ADR-M003 D9 quinquies — exclusion par pathspec des séries sha-pinnées + test ; à faire AVANT le G7 de U-1a.
+- **Lot R-25 séries** (décision 17) : amendement ADR-M003 D9 sexies — exclusion par pathspec des séries sha-pinnées + test ; à faire AVANT le G7 de U-1a.
 - **ADR contrat `AttestedBook`** (décision 16) : à rédiger avant U-1b ; touche `schemas/` ; checkpoint investisseur.
 - **Lot K-1 clés Ed25519** (Narabi sert `deadbeef`) : avant tout `built` de sentinelle / go U-6 / Bell T-1b.
 - Étape h5 portant `attested` → prochain lot touchant `apps/harness` (T-1 ou U-4).
