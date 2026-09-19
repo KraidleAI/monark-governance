@@ -95,6 +95,7 @@
 - **Modes MAST** : dérive contrat↔adaptateur (D6 + G2) ; sur-revendication de liaison contrée par D3 + oracle d'honnêteté (C-8) ; fixture auto-enregistrée (ADR-U1 C-7) : re-tirage live indépendant en G2 ; terminaison prématurée contrée par M018/registre au G7.
 
 ## Points à trancher — signature investisseur (checkpoint-1 ; point C tranché techniquement)
+**TRANCHÉS 2026-09-19 par délégation investisseur (décision 20, « celle qui a le plus de plus-value ») : (A) témoin total ; (B) amendement ratifié. Motifs consignés dans DECISIONS-investisseur-2026-09-19.md.**
 - **(A) Modèle du book abstenu** : témoin **total** (D4, recommandé — `book_digest` double domaine, `oracle_sources.minItems:0`, fichier `subject` d'abstention existant) **vs** émission seulement si `recorded` (abstention en timeline ADR-U1 D6). Gouverne `abstain`, `oracle_sources.minItems`, le fichier publié sous abstention.
 - **(B) Liaison M017 D2(i)** : amender « égalité exacte » → « exacte **ou** motif committé selon la classe » pour la classe (b) (`subject` variant par cluster×B) — ratification (doctrine d'un ADR accepté, précédent ADR-M019→M018).
 
