@@ -6,7 +6,7 @@ import { HikaePanel } from "@/components/hikae-panel";
 import { UkemiPanel } from "@/components/ukemi-panel";
 import { PlaceholderPanel } from "@/components/placeholder-panel";
 import { loadAttestedPriceContract, loadContract } from "@/lib/load-contract";
-import { FLEET_AGENTS } from "@/lib/fleet";
+import { FLEET_AGENTS, type BuiltFleetAgent } from "@/lib/fleet";
 import { insideFor } from "@/lib/fleet-presentation";
 import { NARABI_ROUTE } from "@/lib/narabi-live";
 import { MokugekiMark } from "@/components/marks/mokugeki-mark";
@@ -60,6 +60,7 @@ export default function FleetPage() {
   const predictionContract = loadContract(root, "prediction.schema.json", "Ukemi");
   const ENGINE_NAMES = new Set(["Shōgen", "Hikae", "Ukemi"]);
   const builtSensors = FLEET_AGENTS.filter((a) => a.status === "built" && !ENGINE_NAMES.has(a.name));
+  const built = FLEET_AGENTS.filter((a): a is BuiltFleetAgent => a.status === "built");
   const upcoming = FLEET_AGENTS.filter((a) => a.status === "upcoming");
 
   return (
@@ -120,6 +121,22 @@ export default function FleetPage() {
             </div>
           </div>
         ) : null}
+
+        {/* How each built agent is served — the digit-free wiring.note (ADR-EC E6). The served-path
+            metadata carries task-class ids with digits, so it is never rendered; this honest note is its
+            digit-free proxy. Pinned by fleet_register_built_set_is_frozen guard (6) — deleting this render reds it. */}
+        <div className="mt-8">
+          <div className="mb-3 font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground">
+            How each built agent is served
+          </div>
+          <ul className="flex max-w-3xl flex-col gap-2 text-sm text-muted-foreground">
+            {built.map((a) => (
+              <li key={a.name}>
+                <span className="text-foreground">{a.name}</span> &mdash; {a.wiring.note}
+              </li>
+            ))}
+          </ul>
+        </div>
       </section>
 
       {/* Upcoming — the seven roadmap agents. Named, not delivered; each opens its "What it will use"
