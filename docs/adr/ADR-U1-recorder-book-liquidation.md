@@ -102,3 +102,33 @@ Le book RPC ne peut pas produire un verdict Shōgen (Contexte 7). Choix **invest
 - **Q1 — clusters de U-1 : WETH + sUSDe/USDe** (les deux événements calibrables : 2025-10-10/11 WETH, 2025-02-21 sUSDe) ; wstETH/weETH/rsETH e-mode = lot **U-1c** après U-3. D1 v1 est amendé en conséquence : deux clusters dès U-1a (même recorder, deux registres de cluster, digest par cluster).
 - **Q2 — enveloppe d'attestation : voie (b) `AttestedBook`**, nouveau contrat gelé MONARK (lignée `AttestedFlow` Narabi, auto-déclaré : « ce que le recorder a lu, avec quorum de fournisseurs », hors Shōgen). ADR de contrat séparé (`ADR-U1b-contrat-attestedbook`) à rédiger, checkpoint-1 avec signature investisseur (touche `schemas/`). D10 : voies (a) et (c) écartées ; U-1b = implémentation de (b).
 - **Q3 — séries sha-pinnées et R-25 : règle générale** (amendement ADR-M003 D9 sexies (règle générale ; D9 quinquies = exception ponctuelle PR #56) : exclusion par pathspec des séries de données sha-pinnées + test de déclaration/hachage) ; l'exception ponctuelle U-1a est couverte par la règle. Prérequis du G7 de U-1a, pas de son démarrage.
+## Amendement 2026-09-19 (checkpoint-2 V-1) — sémantique du revert au quorum
+`error_origin = orchestrateur` : le pliage G2 C2 (gel `dedfcd5`) a été écrit ET vérifié par la même instance
+(orchestrateur, sans relance d'agent), sans relecture fraîche. Il a rendu la tolérance « `description()`
+reverté ⇒ `""` » **inatteignable à travers le pool réel `makeUkemiPool`** : `quorum2` classait tout rejet de
+fournisseur comme transport (bench 25 s, `NoQuorumError` sous 2 succès), que `book.ts` relançait — un revert
+**unanime** de `description()` (fait on-chain mesuré : oracle GHO `0xd110cac5…` sans `description()`) abstenait
+le book entier. Correctif (option (i) du validateur), **sans changer la forme canonique du book** :
+
+- **D1 amendé** — `oracle_description = ""` sur revert **CONCORDANT** (≥ 2 fournisseurs distincts renvoyant le
+  même revert) est **la valeur du champ au digest** ; l'adresse `oracle_source` reste la donnée porteuse. Aucune
+  clé nouvelle (`description: ""`, jamais `null` ni `description_reverted`) : `book_digest` `034fbff9…` et la
+  fixture réduite sont inchangés (`sentinel2_book_identical_to_pull` reste vert).
+- **D3 amendé** — sémantique du revert au quorum (`rpc2.ts` `quorum2`), tolérance portée à `description()` seule :
+  - **concordant** (même revert sur ≥ 2 fournisseurs) ⇒ **fait on-chain** (`ConcordantRevertError`), toléré `""`
+    **uniquement** pour `description()` ; un revert ne benche PAS le fournisseur (ce n'est pas une faute) ;
+  - **discordant** (valeur/revert, ou deux reverts différents) ⇒ `QuorumDisagreementError` ⇒ **abstention** ;
+  - **moins de deux issues** (fautes de transport benchées) ⇒ `NoQuorumError` ⇒ **abstention** ;
+  - **transport** (HTTP non-ok, timeout, réseau) ⇒ hors quorum, benché (inchangé).
+  Sur `getAssetPrice`, `getUserAccountData`, `getSourceOfAsset`, `balanceOf`, `getReserveData`,
+  `getReservesList`, `getPriceOracle`, toute erreur (dont `ConcordantRevertError`) **propage** ⇒ abstention.
+- **Critère de revert (explicite, testable — `rpc2.ts` `isRpcRevert`)** : un `RpcError` typé (produit par
+  `defaultCall` sur `json.error`, portant `code`+`data`) de code **3** (EIP-1474 « execution error ») ou
+  **-32000** (erreur serveur usuelle des nœuds) dont le message nomme un revert. HTTP non-ok / timeout restent
+  des `Error` de transport. Le critère est un **choix documenté** ; les formes réelles des 4 fournisseurs keyless
+  sur le `description()` GHO sont à vérifier au prochain run `record.ts` (item formé, durcissement `record.ts`).
+- **Oracle** réécrit **à travers `makeUkemiPool`** (`ukemi.test.ts`, 4 fournisseurs distincts) : (a) revert
+  unanime sur `description()` ⇒ book, `description === ""`, digest = chemin reader à descriptions vides ;
+  (b) valeur/revert ⇒ `QuorumDisagreementError` ; (c) revert + transport ⇒ `NoQuorumError` ; (d) revert
+  concordant sur `getAssetPrice` ⇒ `ConcordantRevertError` propagée. Trois mutants rejoués ROUGE : retrait du
+  rethrow `book.ts` ⇒ (b) ; tolérance élargie à `getAssetPrice` ⇒ (d) ; revert classé transport ⇒ (a).

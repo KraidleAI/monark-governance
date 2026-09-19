@@ -194,10 +194,14 @@ export function collectTargets(root, config, cliArgs) {
   const sentinel = config.scan.sentinel;
   if (sentinel) {
     const SENTINEL_EXTRA = compilePatterns(sentinel.banned);
+    // (ADR-U1 D8) the sentinel scope now carries the Ukemi motif bans incl. \bcascade\b; a scope-local closed
+    // exemptPhrases masks the ONE legitimate committed span — the harness tool-list naming the transitional
+    // `cascade` tool (removed at U-2, ADR-M020 D4). Same closed-list mechanism as the site/skills scopes.
+    const SENTINEL_EXEMPT = sentinel.exemptPhrases ?? [];
     for (const rel of sentinel.dirs ?? []) {
       const d = join(root, rel);
       try {
-        if (statSync(d).isDirectory()) add(walk(d, sentinel.extensions), [...GLOBAL, ...SENTINEL_EXTRA]);
+        if (statSync(d).isDirectory()) add(walk(d, sentinel.extensions), [...GLOBAL, ...SENTINEL_EXTRA], SENTINEL_EXEMPT);
       } catch {
         /* sentinel dir not present yet */
       }
@@ -205,7 +209,7 @@ export function collectTargets(root, config, cliArgs) {
     for (const rel of sentinel.files ?? []) {
       const p = join(root, rel);
       try {
-        if (statSync(p).isFile()) add([p], [...GLOBAL, ...SENTINEL_EXTRA]);
+        if (statSync(p).isFile()) add([p], [...GLOBAL, ...SENTINEL_EXTRA], SENTINEL_EXEMPT);
       } catch {
         /* deploy file not present yet */
       }
