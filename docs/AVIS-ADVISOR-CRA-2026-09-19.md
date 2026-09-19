@@ -7,7 +7,7 @@ La question n'est pas « MONARK est-il dans le champ ? » mais « **quel fait** 
 ## 2. Source nouvelle : ligne directrice C(2026) 5252 (annexe, 27/07/2026), non contraignante
 Deux copies sauvées sur F: (règle disque) — **non identiques octet à octet** (encodage PDF différent, à comparer par texte avant citation) :
 - miroir dataleaks.org : `F:\PRODUITS\etude-2026-09-19\reglementaire\cra-guidance-C2026-5252-annex-mirror.pdf` sha256 `3388397e93f7b70eafb4d89af2e6adcbf8ab3c5e4b0d03e36eaf2cf367a4da05` (lu par l'advisor : §2, 3, 8, 9.1 ; 9.3 p. 80-81 NON LU) ;
-- officiel `https://ec.europa.eu/newsroom/dae/redirection/document/131456` : `…-official.pdf` sha256 `fe209c250e3d1f7599e42826d91963666951332927edcf511a2e79fe8d2f8234` (non lu — item : lecteur, comparaison texte des § cités).
+- officiel `https://ec.europa.eu/newsroom/dae/redirection/document/131456` : `…-official.pdf` sha256 `fe209c250e3d1f7599e42826d91963666951332927edcf511a2e79fe8d2f8234` — **comparaison texte faite par l'orchestrateur (`pdftotext -layout`, 3 733 lignes chacun, `diff` sur les mots = 0 différence)** : les deux copies sont textuellement identiques ; les § cités par l'advisor valent pour l'officiel.
 
 | Point | Annexe [lu, miroir] | Conséquence MONARK |
 |---|---|---|
