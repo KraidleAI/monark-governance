@@ -5,7 +5,9 @@
  * non-LLM oracle scans the public surfaces and asserts no residual probative surclaim (`verified` /
  * `proven` / `certified` used to claim a testimony or fact is TRUE) survives.
  *
- * SCOPE (whole-file raw-line scan): README.md + apps/site sources (.ts/.tsx/.md) + skills/monark/*.md.
+ * SCOPE (whole-file raw-line scan): README.md + apps/site sources (.ts/.tsx/.md/.mdx) + skills/monark/*.md
+ * + every README the public export ships (apps/harness, packages/*, apps/sentinel-when-present), DERIVED
+ * from collectFiles (scripts/export-public.mjs) so the surface set stays wired to the export (V-4).
  * EXCLUDED, by design: the repo-root test/, docs/, packages-level README.md, apps/site/test/ and
  * apps/site/data/, and the generated .next/.turbo/node_modules/dist build output. The scan is WHOLE-FILE,
  * not rendered-position-only, because narabi's rendered copy lives in const strings in .ts that an AST
@@ -31,6 +33,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname } from "node:path";
+import { collectFiles } from "../scripts/export-public.mjs";
 
 const ROOT = join(import.meta.dirname, "..");
 
@@ -54,12 +57,13 @@ const LICIT: ReadonlyArray<readonly [string, string]> = [
   ["mechanism", "a proven fault pays"], // apps/site/app/token/page.tsx (slashing)
   ["mechanism", "proven by recomputing the frozen decision"], // apps/site/app/token/page.tsx (watcher)
   ["skill-test", "verified end-to-end by"], // skills/monark/DEMO.md (ADR-M017 D3, adjudicated)
+  ["provenance", "mutant verified"], // packages/atelier/README.md:22 — grep-forbidden test 26 mutant provenance (V-4)
 ];
 
 // SKIP applies at ANY depth (a dir named test/ or data/ anywhere is skipped) — same walk as
 // grep-forbidden's SITE_SKIP. Measured 2026-09-19: only apps/site/{test,data} exist (no nested ones).
 const SKIP = new Set([".next", ".turbo", "node_modules", "dist", "test", "data"]);
-const EXTS = new Set([".ts", ".tsx", ".md"]);
+const EXTS = new Set([".ts", ".tsx", ".md", ".mdx"]);
 
 function walk(dir: string, exts: Set<string>, out: string[]): void {
   for (const name of readdirSync(dir)) {
@@ -77,7 +81,16 @@ function surfaces(): string[] {
   walk(join(ROOT, "apps", "site"), EXTS, files);
   const skillsDir = join(ROOT, "skills", "monark");
   for (const name of readdirSync(skillsDir)) if (extname(name) === ".md") files.push(join(skillsDir, name));
-  return files;
+  // V-4 (checkpoint-2 O-7/O-10): also scan every README the PUBLIC EXPORT ships. The list is DERIVED from
+  // the real export enumerator (collectFiles) — never hard-coded — so the surface set stays wired to
+  // scripts/export-public.mjs: apps/harness/README.md, packages/*/README.md, and apps/sentinel/README.md
+  // the moment it exists (collectFiles silent-skips an absent subpath exactly as the export does; a French
+  // README is in `frenchMd`, not `kept`, so it is not shipped and not scanned here). Root README.md (also
+  // returned by collectFiles) is de-duplicated by the Set below.
+  for (const { rel } of collectFiles(ROOT).kept) {
+    if (rel === "README.md" || rel.endsWith("/README.md")) files.push(join(ROOT, rel));
+  }
+  return [...new Set(files)];
 }
 
 function mask(line: string): string {

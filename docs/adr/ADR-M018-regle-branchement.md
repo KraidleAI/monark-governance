@@ -38,7 +38,7 @@ registre « built » ⇔ chemin servi + test d'intégration, vérifié sur pièc
 - Journal : entrée dédiée ; règle globale et CA-11 écrites le 2026-09-19.
 
 ## Amendement D2 — 2026-09-19, ratifié par l'investisseur (décision 23)
-**Ratification.** L'investisseur (décision 23, 2026-09-19) ratifie l'amendement de **D2** proposé par ADR-M019 D3.
+**Ratification.** L'investisseur (décision 23, 2026-09-19) ratifie l'amendement de **D2** proposé par ADR-M019 D3. **Enregistrement de la décision (checkpoint-2 V-2b)** : aucun fichier `DECISIONS-investisseur-2026-09-19.md` n'existe ; la décision 23 est enregistrée dans `docs/CHANTIERS.md` §E (amendement décision 21 / décisions 22-24) et ADR-EC Q3, verbatim investisseur « 3. ta reco » (message « 1. b 2. ta reco 3. ta reco 4. ok pour la lecture 5. ta reco », 2026-09-19, en réponse à Q3 expliquée avec recommandation « ratifier D2 »).
 L'énoncé original de D2 (l.22) — « Ukemi (`cascade` servi sur graphe fixture ; **sa sortie n'est consommée par aucun chemin servi** ⇒ **à requalifier au G2 de P1-b3**) » — est **périmé** (prémisse « Ukemi non consommé » **fausse**). Il **n'est pas réécrit** (traçabilité) ; il est ici **cité comme périmé** et remplacé, pour la qualification d'Ukemi, par le texte exact proposé par ADR-M019 D3.
 **Mesure (corrige la prémisse).** Le tuyau `cascade → gate` est **mesuré et branché depuis P1** : cartographie P1 (`docs/CARTOGRAPHIE-P1-2026-09-19.md`) §2 l.62 (`cascade → gate` **CÂBLÉ (servi), vacue**, probe `probe_harness_records_real_decision` + `docs/cartographie-p1/vacuity-replay.mjs`) et §3 l.86 (ligne registre **Ukemi** : `cascade → gate`, servi, vacue). Mesure [lu] : `fixtures/h5-e2e-trace.json` étape 4 `cascade-gate`.
 **Texte ratifié (verbatim ADR-M019 D3).**
