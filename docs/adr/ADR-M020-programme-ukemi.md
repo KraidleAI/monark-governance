@@ -1,0 +1,59 @@
+# ADR-M020 — Programme Ukemi : « Eligible is not liquidated » — témoin attesté du book et classe conforme intra-événement sous chemin d'oracle attesté
+
+- **Statut** : proposé (G0 du programme Ukemi ; décision investisseur 2026-09-19 : « on le build, on ne revient pas en arrière, paroxysme, littérature et rigueur académique ») — checkpoint-1 validateur dû AVANT tout code.
+- **Rattachement** : ADR-M002 (Ukemi Phase 1), ADR-M008, ADR-M012 (motif sentinelle), ADR-M016 (nommage), ADR-M017/M019 (vacuité mesurée), ADR-M018 (branchement), ADR-W1.
+- **Décision investisseur amont** : nom de flotte inchangé (Ukemi), registre `built` maintenu, `wiring` honnête jusqu'à U-6.
+- **Sources [lu]** : `docs/biblio/ukemi-modeL/` — R-biblio (25 sources, 12 PDF hachés), L-lecture-amini2016-chow1970, L-lecture-gatto2026-garciaseuma2026, L-lecture-tibshirani2019-barber2023, L-lecture-dunn2022-hierarchical, AVIS-advisor-defi (×2), AVIS-advisor-marche, MESURES-prealables (M-1/M-2), MESURES-M2b-sources (M-2b + bissection, prereg haché avant mesure), NOTE-treillis (démonstrations + scripts hachés).
+
+## Contexte (mesuré)
+1. Ukemi aujourd'hui : `clearing.ts` implémente Eisenberg–Noe et Rogers–Veraart (α, β) avec non-unicité déclarée ; `cascade.ts` = fiction v0 (nœuds = banques, K = 1) ; classe `cascade-liquidable-24h` = fixture ; consommé par `gate` sur le fil mais **abstient `under_calib` par construction** ; contenu de la prédiction sans effet (ADR-M019 D2, sha `64619eb9…`).
+2. Le design « mode L loop-clearing » (docs 2026-09-18) se réduit, rejoué, à un health factor : sans cycle de créances, EN est trivial (avis DeFi §0).
+3. Chiffres de seconde main cassés : « 47 M$ bad debt à 10 % » (absent de Gatto), « 65 %/15 % FC26 » (identité introuvable), « 15,7 Md$ » (sans primaire). Fondés : LT(1+b) = 0,9595 e-mode ETH ; D* = 7,4 % ; λ̂ subcritique 0,03–0,2 (perps) ; Lehar–Parlour 2,49 Md$ ; 20,46 % recursif (BoC).
+4. M-1 : book par compte reconstructible sans clé à bloc archive (5 opérateurs, quorum-2, N+2 appels, ~1 min).
+5. M-2 : sur le plus grand cluster Aave v3 (WETH 2025-10-10/11, 268 liquidations, 6 915 WETH) : Λ **indéterminé** ; 88,4 % liquidé dans l'heure 21:00Z du krach exogène, oracle en V après, IC95 ∋ 0 (marché et oracle), points-estimés positifs, échelle 0,318 % du volume Binance de la fenêtre ; borne haute honnête non serrée (IC bas × Q_krach = −0,31 / −0,57 log). sUSDe 2025-02-21 : décote d'oracle exogène −2,21 % ⇒ 5 liquidations en 2 blocs (conséquence).
+6. **Fait structurel** [lu first-hand, bissection quorum-2] : sources d'oracle Aave v3 core — sUSDe et USDe sont passés de « Capped … / USDe/USD » (feed de marché) à « … / USDT/USD » au **même bloc 22002625 (2025-03-08T14:01:47Z, payloadId 254)**, par l'ARFC « sUSDe and USDe Price Feed Update » (Chaos Labs + LlamaRisk, posté 2025-01-02, Snapshot 2025-02-03→06, governance.aave.com/t/20495 [lu] ; rationale : déviation USDe 5 % ⇒ ~300 M$ éligibles, liquidité 6 M$ à 4 % d'impact). Au 2025-02-21 (événement sUSDe) la source était encore de marché ; **depuis 2025-03-08 une vente d'USDe/sUSDe n'entre plus dans le HF**. wstETH/weETH/rsETH : descriptions inchangées depuis 2025-01-14, ETH-dénominées (taux plafonné × ETH/USD). WETH : feed Chainlink **SVR** (backrun-only des liquidations) depuis le bloc 22803459 (2025-06-28). **La boucle de cascade par l'oracle est coupée par construction** sur les clusters cibles ; seul canal endogène = ETH/USD.
+6bis. **M-2b** (prereg haché avant mesure, sorties déterministes) : part de l'heure de krach 21:00Z = 6 109,57 WETH / 401 305,98 ETH Binance = **1,52 %** (< bascule 5 %) ; borne haute honnête (bord d'IC, point-estimé positif) −26,9 % marché / −43,6 % oracle ; test intra-bloc : 33 baisses / 84 égal / 2 hausses aux blocs de liquidation (binomial p = 3,7e-8, témoin apparié 4/119 tous hausse) **mais l'update d'oracle précède la liquidation 15/15 cas mesurables** ⇒ motif conséquence (prix → liquidation), pas endogène ; bootstrap : le bucket de krach (62,9 % des réplicats) porte toute la pente, **vers le haut** ; IC sans krach ∋ 0.
+7. Littérature : unicité EN+coûts sous x·f(x) croissante (Amini 2016 Th. 2) ; RV « do not feature unique fixed points » ; Gatto : bad debt ⟺ LT(1+b) < 1 sur chemin continu, « eligible ≠ perte », canaux gap discret / staleness / pool fin ; Barber 2023 Thm 2 exact intra-événement à poids unitaires ; Dunn 2022 : nouveau groupe non trivial seulement si K ≥ 1/α − 1 (99 à α = 0,01), groupe observé si n₁ > 1/α − 1 ; n_j fixé a priori (violé ici, déclaré) ; Chow 1970 : abstention qualitativement, garanties seulement sous calibration.
+8. Marché : les payeurs de mesure de risque sont les DAO/SP (1,6–3,5 M$/an, deux mandats déficitaires) ; aucun looper ne paie une mesure ; gap = packaging vérifiable, pas simulation ; classe « dette liquidée » sert le looper, « shortfall » sert le payeur.
+
+## Décision
+**D1 — Objet.** Ukemi devient deux choses branchées, dans cet ordre :
+- **(c) Témoin attesté du book de liquidation** (sans gate) : à chaque fenêtre UTC ancrée bloc, pour chaque cluster suivi (Aave v3 core Ethereum : e-mode ETH/LST, sUSDe/USDe, WETH) — digest du book (positions, HF, prix oracle, **source d'oracle par actif** `description()`, bloc), éligible statique (Perez Eq. 3) vs réalisé (`LiquidationCall` décomposé repayment / seized / bad debt), résidus nommés (`capo_oracle`, `oracle_staleness`, `source_change`, `partial_liquidation`, `sequencing`). Publié `/ukemi/` (JSONL chaîné, motif Narabi) + chemin `attested` (sujet = URL de l'état publié). Aucun score, aucune probabilité, aucun « cascade ».
+- **(b) Classe conforme `liquidation-realized-given-oracle-path-24h`** (M016) : cible Y_{i,e} = dette liquidée de la position i dans l'événement e sur 24 h, décomposée ; ŷ_{i,e} = éligible statique depuis le book attesté et le chemin d'oracle réalisé D_e **porté par l'appelant** ; scores |Y − ŷ| clipés ; Mondrian `(task_class, predictor_id)` avec `predictor_id = ukemi:realized-v1@eip155:1/aave-v3-core/<cluster>/<événement>` × strate (e-mode, HF₀, taille) ; calibration **committée par événement observé** (n_e > 1/α − 1) ; **abstention `under_calib` sur tout nouvel événement** (Dunn Thm 5/9 : K < 1/α − 1) sauf si l'appelant porte explicitement l'événement de calibration emprunté, le gap inter-événements étant rapporté qualitativement (Barber 2023 Thm 2, poids unitaires, d_TV non estimée). Option (α) : deux `Prediction` si une borne est nécessaire ; contrat gelé intact.
+- **(a) « Cascade à prix endogène » est fermée sur Aave v3 core**, avec preuve (points 5-6) ; rouverte uniquement si un collatéral de cluster reçoit une source de marché pure (`description()` sans cap ni taux) ou si M-2b montre un impact intra-bloc. Le treillis Q_*/Q^* est **démontré** (NOTE-treillis : T monotone, Tarski, Picard ≤ N+1 sans redémarrage ; Q_* = cascade séquentielle mécanique, Q^* = borne de run auto-réalisateur ; plus grand Q = pire ; T cousin d'EN/RV — α=β=1 ⇒ EN, Λ=0 ⇒ liquidable statique ; Λ ≈ f d'Amini, pas α/β ; « 2Λ·ΣB < 1 » ne suffit pas à l'unicité (contre-exemple à 3 points fixes), condition suffisante Prop. 4 « pas d'activation dormante ») et reste une **annexe** : cas limite « source de marché ⇒ treillis ouvert ; Aave core ⇒ point ».
+
+**D2 — Ce qui est interdit** : « Λ = 0 » (c'est « indéterminé, mécanisme coupé par construction ») ; « mythe de la cascade » ; « aurait alerté » ; split temporel intra-événement (sélection par HF) ; pooling des événements ; score (`Q^*/ΣB`, DebtRank, λ « sous-critique » vendu) ; « oracle Aave » ; chiffres [2nd] en ADR ; sha d'artefact contenant un horodatage présenté comme reproductible.
+
+**D3 — Tuyaux (M018 D3)**
+| Tuyau | Entrée (qui produit) | Sortie (qui consomme) | État | Test d'intégration |
+|---|---|---|---|---|
+| book → attested | `sentinel-2` (recorder archive, quorum-2) | `/ukemi/state.json` + `attest` (sujet URL) | JSONL chaîné, digest | rejeu bit-identique du book à bloc B ; bloc décalé / source changée ⇒ digest différent |
+| réalisations → timeline | logs `LiquidationCall` (+ déficit v3.3) | `/ukemi/timeline.jsonl`, panneau site, `fleet.ts wiring` | JSONL | `sentinel2_windows_identical_to_pull` |
+| Prediction → gate | adaptateur `fromRealizedBook` (remplace `cascade.ts`) | `gate` classe (b) committée | calibration par événement | **anti-vacuité** : ŷ varié ⇒ décision varie ; « nouvel événement ⇒ under_calib » ; h5 re-pin |
+| témoin résiduel | oracle attesté vs marché attesté (Shōgen étendu) | `attested.residual` du gate | — | rejeux pré-enregistrés 2025-02-21, CAPO (bloc épinglé) |
+
+**D4 — Lots (Sprint Backlog), chacun avec ADR, G1, G2 fraîche, checkpoint-2, mutants nommés**
+| Lot | Sortie | Oracle non-LLM / mutant | Bascule |
+|---|---|---|---|
+| U-0 (ce document) | objet, classe, tuyaux, payeur, interdits ; M-2b + bissection **faits** (conditions levées) | checkpoint-1 | — |
+| U-1 | recorder book à bloc archive (N+2 appels, quorum-2), sources par actif dans le digest | rejeu bit-identique ; bloc décalé ⇒ digest ≠ ; source changée ⇒ digest ≠ | — |
+| U-2 | `clearing.ts` : Λ = 0 ⇒ point fixe = liquidable statique (test) ; treillis en annexe ; retrait de la fiction `cascade.ts` | test 36 conservé ; monotonie ; anti-fiction | (a) rouvre |
+| U-3 | census → Y_{i,e} décomposé (2025-02, 2025-10, 2026-01) ; topic déficit v3.3 vérifié ; bissection de source | sha JSONL, quorum-2 | — |
+| U-4 | Mondrian intra-événement, calibration committée par événement, bras gate, anti-vacuité, abstention nouvel événement, phrases Thm 2 + Dunn | ci, h5 re-pin ; mutants nommés | K ≥ 1/α − 1 |
+| U-5 | témoin résiduel oracle/marché ; rejeux A-H pré-enregistrés | hypothèses avant pull | — |
+| U-6 | `sentinel-2` → `/ukemi/` servi ; `wiring` mis à jour ; **c'est ce test qui rend (c) réellement built** | intégration bout en bout | 0 consommateur SP en 90 j ⇒ témoin sans payeur |
+| U-7 | papier *Eligible is not liquidated…* (structurel + échelle + calibration intra-événement ; treillis en annexe) | relecture externe | — |
+Ordre : U-1 ∥ U-3 → U-2 → U-4 → U-5 → U-6 → U-7. Prérequis : W-1 clos.
+
+**D5 — Payeur (advisor-marché)** : cible = SP/curateur/underwriter (B + D), extension « shortfall » pré-enregistrée (C), looper = hypothèse à sonder (A). Pivot : un acteur à précédent de paiement consomme le book attesté ou Y_{i,e} dans un artefact public avant U-4. Registre : `built` maintenu (décision investisseur) ; `wiring` honnête « abstains under_calib by construction » jusqu'à U-6.
+
+**D6 — Mesures préalables** : M-1, M-2, M-2b et bissection de source **faites** (contexte 4-6bis) ; reste avant U-3 : topic exact de l'événement de déficit Aave v3.3 (présence dans le census) ; lecture du code des contrats SVR ([abs] → [lu]).
+
+## Alternatives rejetées
+Mode L loop-clearing (= HF, rejoué) ; cascade à prix endogène sur Aave core (sources plafonnées, M-2) ; score/PSL (doctrine) ; pooling CDF (Dunn : sous-couvre k ≤ 35-50) ; split temporel (sélection) ; « upcoming » (décision investisseur).
+
+## Conséquences
+Positives : premier témoin attesté du book de liquidation ; calibration distribution-free de l'écart éligible → réalisé (personne ne la publie) ; résultat structurel datable. Négatives assumées : sur un nouvel événement, le gate abstient (dit en chiffres) ; K = 3 événements ; hypothèse n_j fixé violée et déclarée ; payeur non démontré.
+
+## Procurement (investisseur)
+Gatto PDF SSRN 7157638 paginé ; post-mortem CAPO primaire ; Nexus Mutual cover terms ; TokenLogic backstop 2026-09-11 ; rsETH incident report ; LlamaRisk scope §4 ; Credora méthodologie ; Cifuentes–Ferrucci–Shin 2004 BoE WP long ; Messari « Cracks » ; recherche : conformal hiérarchique à taille de groupe dépendante de l'issue.
