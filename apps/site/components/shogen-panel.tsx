@@ -24,14 +24,24 @@ import { cn } from "@/lib/utils";
  * / F-console yet). `contract` is the frozen AttestedPrice shape, read server-side from schemas/ (C7
  * decision on a committed Shogen sample: "to be announced").
  */
-export function ShogenPanel({ contract }: { contract: FrozenContract }) {
+export function ShogenPanel({ contract, showInside = false }: { contract: FrozenContract; showInside?: boolean }) {
+  const trigger = <DialogTrigger render={<Button variant="outline" size="sm" />}>Open panel</DialogTrigger>;
   return (
     <Dialog>
       <AgentCard
         mark={<ShogenMark className="size-8" />}
         name="Shōgen"
         status="built"
-        action={<DialogTrigger render={<Button variant="outline" size="sm" />}>Open panel</DialogTrigger>}
+        action={
+          showInside ? (
+            <div className="flex flex-col gap-4">
+              <WhatInside block={insideFor("shogen")} variant="well" />
+              {trigger}
+            </div>
+          ) : (
+            trigger
+          )
+        }
       >
         Attested perception &mdash; a verified price testimony.
       </AgentCard>
