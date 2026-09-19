@@ -43,12 +43,15 @@ jobs:
           # fetch-depth: 0 above provides the base history. A shallow clone (--depth=1) makes the diff fail
           # with "no merge base" (exit 128), which the `|| exit 1` below turns into an explicit fail-closed
           # (measured by the G2 delta review, TEST F, 2026-09-06).
-          # Exclusions (ADR-M003 D9 + D9 quater + D9 sexies): reproducible generated S2 artefacts, per-lot
-          # governance reports G1/G2 (governance, not code), the lockfile, and sha-pinned DATA SERIES
-          # (fixtures/**/*.{json,jsonl,csv} and apps/sentinel/test/fixtures/** — D9 sexies). The :(glob) magic
-          # is MANDATORY: in git's default pathspec mode `**` is not special and `*` crosses `/`, so the bare
-          # `fixtures/**/*.json` matches NOTHING (measured 2026-09-19: `git ls-files` => 0). Every excluded data
-          # file is declared+hashed same-dir, enforced by root test `series_pinned_are_declared_and_hashed`.
+          # Exclusions (ADR-M003 D9 + D9 quater + D9 sexies + D9 septies): reproducible generated S2 artefacts,
+          # ALL governance docs under docs/**/*.md (D9 septies — R-25 protects CODE review; docs are reviewed by
+          # the checkpoints; this subsumes the G1/G2 excludes above, kept for the D9 quater invariant; docs/**/*.mjs
+          # STAYS counted), the lockfile, and sha-pinned DATA SERIES (fixtures/**/*.{json,jsonl,csv} and
+          # apps/sentinel/test/fixtures/** — D9 sexies). The :(glob) magic is MANDATORY: in git's default pathspec
+          # mode `**` is not special and `*` crosses `/`, so the bare `fixtures/**/*.json` / `docs/**/*.md` match
+          # wrong/nothing (measured 2026-09-19: bare `git ls-files` => 0 / 73; `:(glob)docs/**/*.md` => 230). Every
+          # excluded data file is declared+hashed same-dir (root test `series_pinned_are_declared_and_hashed`); the
+          # docs/**/*.md pathspec is asserted by test 38 (4ter) and whitelisted from that series set-equality.
           STAT=$(git diff --shortstat "origin/${{ github.base_ref }}...HEAD" -- . ':(exclude)packages/*/docs/S2-*' ':(exclude)docs/G1-lot-*.md' ':(exclude)docs/G2-lot-*.md' ':(exclude,glob)docs/**/*.md' ':(exclude)package-lock.json' ':(exclude,glob)fixtures/**/*.json' ':(exclude,glob)fixtures/**/*.jsonl' ':(exclude,glob)fixtures/**/*.csv' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.json' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.jsonl' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.csv') || {
             echo '::error::Gate R-25: diff not computable (no merge base?). Fail-closed.'
             exit 1

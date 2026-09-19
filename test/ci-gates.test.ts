@@ -667,8 +667,9 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narab
   // is empty, the list is empty, or any id names no real test. The declared test title may be bare (`"`) or
   // suffixed (` — …`), so we match `test("<id>` followed by a quote OR ` — `. Roots come from WIRING_TEST_ROOTS
   // (documented list, ADR-EC E3). Named mutants: integration_test:[] ⇒ reds (min 1); [""] ⇒ reds (bare-id
-  // regex); "no_such_test" ⇒ reds (declRe); a title-suffixed id (m6, narabi_live_parses_real_state_shape) ⇒
-  // green; drop `wiring` ⇒ typecheck reds.
+  // regex); "no_such_test" ⇒ reds (declRe); a DUPLICATED id inside one agent's list ⇒ reds (intra-list
+  // uniqueness, G2 O-1 — inter-agent sharing stays licit); a title-suffixed id (m6,
+  // narabi_live_parses_real_state_shape) ⇒ green; drop `wiring` ⇒ typecheck reds.
   const TEST_ROOTS = WIRING_TEST_ROOTS.map((r) => join(ROOT, ...r.split("/")));
   const testCorpus = TEST_ROOTS.flatMap((dir) =>
     existsSync(dir) ? readdirSync(dir).filter((n) => n.endsWith(".test.ts")).map((n) => readFileSync(join(dir, n), "utf8")) : [],
@@ -679,6 +680,13 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narab
     assert.ok(a.wiring.served_by.trim().length > 0, `built agent ${a.name}: wiring.served_by must be non-empty (ADR-M018 D1(b))`);
     assert.ok(Array.isArray(a.wiring.integration_test), `built agent ${a.name}: integration_test must be a list (ADR-EC E2)`);
     assert.ok(a.wiring.integration_test.length >= 1, `built agent ${a.name}: integration_test must name at least one served leg (ADR-EC E2)`);
+    // O-1 (G2): each served leg is a DISTINCT test — a duplicated id inside one agent's list is a padded
+    // list, not a real second leg (inter-agent sharing, e.g. probe_harness_records_real_decision, stays licit).
+    assert.equal(
+      new Set(a.wiring.integration_test.map((s) => s.trim())).size,
+      a.wiring.integration_test.length,
+      `built agent ${a.name}: integration_test ids must be unique within the agent (one per served leg, ADR-EC E2 / G2 O-1)`,
+    );
     for (const raw of a.wiring.integration_test) {
       const t = raw.trim();
       assert.match(t, /^[A-Za-z0-9_]+$/, `built agent ${a.name}: each integration_test must be a bare test identifier, got ${JSON.stringify(raw)}`);
@@ -1063,7 +1071,9 @@ test("how_page_rendered_vocab_has_no_numeric_hole — region + reason copy carri
 // declaration); an altered byte (recomputed sha != declaration); a CODE file (.ts/.mjs/.js) under an
 // excluded root (condition c — no code disguised as data). It also asserts SET EQUALITY between the
 // :(glob) exclusion pathspecs wired in ci.yml and the derived source of truth (SERIES_EXCLUDED_ROOTS x
-// exts) — neither a dropped nor an extra pathspec (checkpoint-2 C-1). Named mutants
+// exts) — neither a dropped nor an extra pathspec (checkpoint-2 C-1) — EXCEPT the D9 septies docs pathspec
+// ':(exclude,glob)docs/**/*.md' (governance docs, NOT a data series: whitelisted via NON_SERIES_GLOB, asserted
+// instead by test 38 (4ter)); M11 stays red for any OTHER unexpected :(glob) pathspec. Named mutants
 // (docs/G1-lot-r25-series.md): M3 fixtures/zz.json with no declaration => red; M2 two shas permuted in a
 // table => red; M4 fixtures/zz.ts => red; M5 book.json/full-book.json siblings each on its own line =>
 // GREEN (token match, C-2a); M6b a sha moved under `## History` => red (rule (ii) removed, C-2b); M8 one

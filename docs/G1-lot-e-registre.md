@@ -24,13 +24,13 @@
 | Fichier | sha256 (LF) | lignes | +/− |
 |---|---|---|---|
 | `apps/site/lib/fleet.ts` | `388b64e87e8d1fcc4eb7126ad892389acea10cdfbcc363a9c03889e074707579` | 294 | +51/−17 |
-| `test/ci-gates.test.ts` | `0373ad45667df47c29f4f65fdc31dcb7f81d4bb8dbcacca50e56d0fd4c5cd8d5` | 1198 | +107/−20 |
+| `test/ci-gates.test.ts` | `2b27aaea8f64e1433699b5042dbf48f04585a40615543027f821a73a45aa8f39` | 1208 | +117/−20 |
 | `test/site-honesty.test.ts` | `ffa6f5157fbbdf96d18513715c845355d760df302d3016ed375d556575e71679` | 219 | +33/−1 |
 | `apps/site/app/fleet/page.tsx` | `de4b1aea652a94928a729a6319d1f7bd83059894e35de84b4795758a00d7ab71` | 174 | +18/−1 |
 | `apps/site/components/gate-sim/board.tsx` | `d154c3c275c00c436a03954638d1211f2eafda65b366926a1277d0db0df790fb` | 444 | +17/−3 |
 | `apps/site/test/honesty-lint.exempt.json` | `6442843d06157c641f0fc9eb32b0774ff84a0904e550f08ff0f94b71c83dfb77` | 9 | +1/−1 |
-| `.github/workflows/ci.yml` | `11eda432e89db7fc36c30be6a15698f0242a731caf505f412db73458113dbf65` | 98 | +1/−1 |
-| `docs/adr/ADR-M003-phase2-integration.md` (doc, **hors R-25**) | `37b4bd392dd33183ff8a61492ee75533841169e688dd02d3255a1fa666e34e0d` | 185 | +2/−0 |
+| `.github/workflows/ci.yml` | `0dc455a6e6dcbb77653de5de2446ede8d246a0883148a602e4a33c2515df98e5` | 101 | +10/−7 |
+| `docs/adr/ADR-M003-phase2-integration.md` (doc, **hors R-25**) | `a52557156db3fceac6bc651a9776864acd3011759602502498e6ba0dfbba0fe9` | 185 | +2/−0 |
 | `docs/G1-lot-e-registre.md` (ce fichier, **hors R-25**) | — | — | — |
 
 Sha rejouable : `python -c "import sys,hashlib;print(hashlib.sha256(open(sys.argv[1],'rb').read().replace(b'\r\n',b'\n')).hexdigest())" <fichier>`.
@@ -59,7 +59,7 @@ Chaque id vérifié présent comme `test("<id>"` sous un `WIRING_TEST_ROOTS` (`t
 
 | Test | Rôle dans ce lot |
 |---|---|
-| `fleet_register_built_set_is_frozen` | E2 garde (3) liste ; E6 garde (1) note scannée + garde (6) consommation `/fleet` ; freeze (built=4, upcoming=12) |
+| `fleet_register_built_set_is_frozen` | E2 garde (3) liste + **unicité intra-liste (O-1, G2)** ; E6 garde (1) note scannée + garde (6) consommation `/fleet` ; freeze (built=4, upcoming=12) |
 | `wiring_test_roots_exclusion_is_declared` (**nouveau**) | E3 : ⇔ roots↔rationale + exclusion `packages/*/test` documentée |
 | `site_renders_only_committed_data — wiring.note is digit-free …` (**nouveau**) | E6 : `note` de chaque built scanné digit-free (`scanText` + `/[%\d]/`) |
 | `ci_gates_blocking_no_continue_on_error` (test 38) | D9 septies (4ter) : présence littérale `':(exclude,glob)docs/**/*.md'` |
@@ -75,13 +75,14 @@ Chaque id vérifié présent comme `test("<id>"` sous un `WIRING_TEST_ROOTS` (`t
 | E2-b | `integration_test: [""]` | rouge | ✖ `fleet_register…` (regex id nu) | `388b64e8…` ✔ |
 | E2-c | `integration_test: ["no_such_test_xyz"]` | rouge | ✖ `fleet_register…` (declRe) | `388b64e8…` ✔ |
 | E6 | un chiffre dans `wiring.note` (Shōgen) | rouge | ✖ `site_renders…wiring.note` **et** ✖ `fleet_register…` (garde 1) | `388b64e8…` ✔ |
-| E3 | `packages/hikae/test` ajouté à `WIRING_TEST_ROOTS` sans rationale | rouge | ✖ `wiring_test_roots_exclusion_is_declared` (⇔) | `0373ad45…` ✔ |
+| E3 | `packages/hikae/test` ajouté à `WIRING_TEST_ROOTS` sans rationale | rouge | ✖ `wiring_test_roots_exclusion_is_declared` (⇔) | `2b27aaea…` ✔ |
 | C-11 vi / garde (6) | supprimer le rendu `{a.wiring.note}` sur `/fleet` | rouge | contrôle vert (rendu présent) ; ✖ `fleet_register…` (rendu retiré) | `de4b1aea…` ✔ |
-| D9 septies | retirer `':(exclude,glob)docs/**/*.md'` de `ci.yml` | rouge | ✖ `ci_gates_blocking…` (test 38) | `11eda432…` ✔ |
+| D9 septies | retirer `':(exclude,glob)docs/**/*.md'` de `ci.yml` | rouge | ✖ `ci_gates_blocking…` (test 38) | `0dc455a6…` ✔ |
+| **O-1 (G2)** | id **dupliqué** dans la liste d'un agent (Shōgen, `fleet.ts`) | rouge | ✖ `fleet_register…` (unicité intra-liste) | `388b64e8…` ✔ |
 
-Battery entièrement re-jouée sur l'arbre **final** (après correction du faux-vert garde (6) et de l'en-tête `fleet.ts`) ; chaque sha de restauration ci-dessus **égale** son sha du tableau §2.
+Battery (8 mutants) entièrement re-jouée sur l'arbre **final** (après pliage post-G2 C-1/C-2/O-1) ; chaque sha de restauration ci-dessus **égale** son sha du tableau §2.
 
-**Faux-vert corrigé (auto-détecté par mutant)** : la garde (6) initiale matchait `/wiring\.note\b/` — le **commentaire** de `/fleet` contenait aussi « wiring.note » ⇒ retirer le rendu laissait le test VERT. Corrigé en `/wiring\.note\s*\}/` (ferme d'expression JSX, absente de la prose) ; re-mesuré : contrôle vert, mutant rouge. (D'où le sha `0373ad45…` de `ci-gates.test.ts` après correction.)
+**Faux-vert corrigé (auto-détecté par mutant)** : la garde (6) initiale matchait `/wiring\.note\b/` — le **commentaire** de `/fleet` contenait aussi « wiring.note » ⇒ retirer le rendu laissait le test VERT. Corrigé en `/wiring\.note\s*\}/` (ferme d'expression JSX, absente de la prose) ; re-mesuré : contrôle vert, mutant rouge.
 
 ---
 
@@ -104,12 +105,16 @@ Battery entièrement re-jouée sur l'arbre **final** (après correction du faux-
 ## 7. R-25
 
 - **Mon lot** — commande exacte `ci.yml:52` (nouvel ensemble d'exclusions, incluant `docs/**/*.md`), working tree vs base `lot/etude-suite` :
-  `git diff --shortstat lot/etude-suite -- . <exclusions>` ⇒ **7 fichiers, 228 insertions + 44 deletions = 272** lignes < 1 205. (7 fichiers code/tests/ci ; `docs/adr/ADR-M003` et ce G1 exclus par `docs/**/*.md`/`docs/G1-lot-*.md`.)
-- **D9 septies — oracle before/after de la PR d'intégration** `main...lot/etude-suite` (rejouable, `git diff --shortstat`, ins+del sous la gate, mesuré au SHA `3f69ef6`) :
-  - **avant** (S2 + G1/G2 + lockfile + séries fixtures) = 20 678 + 399 = **21 077**
-  - **après** (+ `docs/**/*.md`) = 8 737 + 392 = **9 129**
-  - **chute = 11 948 lignes**, l'essentiel en docs. (La PR d'intégration reste > 1 205 : R-25 est **par lot** ; la borne d'intégration relève de la décision investisseur (a)/(b)/(c), ADR-EC D4 — hors périmètre.)
-  - Note d'honnêteté (doc 03) : je cite **ma** mesure reproductible **21 077** (SHA `3f69ef6`) ; le « ~20 902 » du message de mission est un chiffre de contexte non re-mesuré par moi — non repris comme mien.
+  `git diff --shortstat ac04d41 -- . <exclusions>` ⇒ **7 fichiers, 247 insertions + 50 deletions = 297** lignes < 1 205 (inclut le pliage post-G2 C-1/C-2/O-1 ; base `ac04d41` = parent du gel `7d6d117`). (7 fichiers code/tests/ci ; `docs/adr/ADR-M003` et ce G1 exclus par `docs/**/*.md`/`docs/G1-lot-*.md`.)
+- **D9 septies — oracle before/after de la PR d'intégration** `main...<SHA>` (rejouable, `git diff --shortstat`, ins+del sous la gate). **Corrigé C-2 (G2)** : le « avant » **dépend du SHA** (les commits docs de la session le font croître) ; les DEUX mesures, avec leur SHA :
+
+  | SHA | avant (S2 + G1/G2 + lockfile + séries, **sans** docs) | après (**+** `docs/**/*.md`) | chute |
+  |---|---|---|---|
+  | `3f69ef6` (ma base de départ) | 20 676 + 399 = **21 075** | 8 737 + 392 = **9 129** | 11 946 |
+  | `a3f85f4` (commit « décision 25 R-25 D9 septies ») | 20 678 + 399 = **21 077** | 8 737 + 392 = **9 129** | 11 948 |
+
+  « **après = 9 129** » est **identique aux deux SHA** (docs exclus ⇒ stable) ; l'écart « avant » de 2 lignes est **entièrement docs**. La version initiale épinglait « avant = 21 077 » à `3f69ef6` — faux (`3f69ef6` donne **21 075** ; 21 077 se reproduit à **`a3f85f4`**) ; `error_origin` = worker (mauvais pin de SON chiffre), la propagation dans l'ADR déférée au G7. (La PR d'intégration reste > 1 205 : R-25 est **par lot** ; la borne d'intégration relève de la décision investisseur (a)/(b)/(c), ADR-EC D4 — hors périmètre.)
+  - Note d'honnêteté (doc 03) : je cite **mes** mesures reproductibles (commandes/SHA ci-dessus) ; le « ~20 902 » du message de mission est un chiffre de contexte non re-mesuré par moi — non repris comme mien.
 - **Glob D9 septies (mesuré, rejouable)** : `git ls-files -- ':(glob)docs/**/*.md'` ⇒ **230** (sommet `docs/*.md` **et** imbriqués `docs/adr/*.md`) ; bare `docs/**/*.md` ⇒ **73** (piège) ; `':(glob)docs/**/*.mjs'` ⇒ **13** (**non exclus**, code compté). `:(glob)` obligatoire.
 
 ---
@@ -142,3 +147,13 @@ Battery entièrement re-jouée sur l'arbre **final** (après correction du faux-
 
 ## 11. Provenance
 Généré le 2026-09-19 par worker `claude-opus-4-8[1m]` effort `max`, contexte frais, worktree `F:\Monark-wt-eregistre` (`lot/e-registre`). Base finale `ac04d41` (ff-merge `lot/etude-suite`). **Contrôle de non-dérive de spec** : `git diff 3f69ef6 ac04d41 -- docs/adr/ADR-EC*.md` montre que le merge a changé la **ligne K-1** (décision 22) et **D4** (« R-25 PR d'intégration TRANCHÉE, décision 25, voie (b) : ADR-M003 D9 septies… porté par le lot E-registre ») — ce qui **confirme** mon périmètre D9 septies — mais **n'a pas touché** la ligne E-registre (E2/E3/E6/C-11 vi) ni la section Tuyaux contre lesquelles j'ai travaillé. Lecture préalable : ADR-EC (D1 E-registre, Tuyaux, MAST, C-11 vi), CHECKPOINT1-ADR-EC (C-3/C-5/P2), ADR-M018 (D1/D2), ADR-W1 (D1-D4, Tuyaux, item (b)), ADR-M013 (T2), CARTOGRAPHIE-P1 §2/§3, RAPPORT-PASSE-P1 §3.c. Advisor intégré consulté avant écriture (E3 structurel, note `%`, consommation garde (6), leg-mapping reproductible, next build obligatoire, exempt.json, D9 septies whitelist) — avis suivi. **R-20 : aucun commit, aucun workflow ; la sortie est vérifiable (R-21) par les commandes citées.** Le ff-merge est une mise à niveau de base explicitement autorisée par la mission (« git merge --ff-only lot/etude-suite si en retard »), pas un commit de mon travail.
+
+---
+
+## 12. Pliage post-G2 (gel `7d6d117`, rapport `docs/G2-lot-e-registre.md` — APPROUVÉ-AVEC-CORRECTIONS)
+Corrections foldées (sur `7d6d117`, changements non-committés pour l'orchestrateur ; R-20) :
+- **C-1** (commentaires périmés) : `.github/workflows/ci.yml` (bloc d'exclusions cite désormais **D9 septies** : `docs/**/*.md` exclus, `docs/**/*.mjs` compté) ; doc de `series_pinned_are_declared_and_hashed` dans `test/ci-gates.test.ts` (note du **whitelist `NON_SERIES_GLOB`** du pathspec docs, M11 intact).
+- **C-2** (pin de l'oracle D9 septies) : le « avant » **dépend du SHA** — corrigé dans **G1 §7** *et* dans l'**addendum ADR-M003 D9 septies** : `3f69ef6` ⇒ **21 075** (20 676+399), `a3f85f4` ⇒ **21 077** (20 678+399) ; « après » = **9 129 aux deux** (docs exclus ⇒ stable). Les deux mesures rejouables portent leur SHA (doc 03). `error_origin` du pin = worker ; propagation ADR déférée au G7.
+- **O-1** (renforcement) : garde (3) enforce l'**unicité intra-liste** de `wiring.integration_test` (`assert.equal(new Set(list).size, list.length)` par agent) — partage **inter**-agents (`probe_harness_records_real_decision`) reste licite. Mutant « id dupliqué » ⇒ rouge (mesuré, restauré `388b64e8…`).
+- **O-2/O-3/O-4** : items formés (consommation garde (6) sur HTML au prochain lot `apps/site` ; confirmation supersession « designer » ; `error_origin` D9 septies) — **déférés au G7**, non tranchés par le worker.
+- Re-mesure après pliage : `npm run ci` **328 pass / 0 fail** ; lint/ratchet **69/69** ; lang/export/vocab verts ; `next build` 13/13 (`/fleet`) ; **R-25 = 297** (< 1 205). Battery des **8 mutants** re-jouée sur l'arbre final ; shas de restauration = §2.
