@@ -1,11 +1,11 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 04:40 UTC (horloge système). Règle : rien ne sort de ce tableau sans être « clos » ou « transféré ».
+Dernière mise à jour : 2026-09-19 05:45 UTC (horloge système)
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019)
 | Lot | État | Prochaine action | Bloqué par |
 |---|---|---|---|
 | P1-b1, b2, b3 | CLOS, fusionnés `lot/etude-suite` | — | — |
-| W-1 (`wiring`, test de gel, prose vitrine ×5, `fleet.ts:70`, panneau Ukemi) | LIVRÉ, gel `b1594c4` (289/289, build site OK, +149/−20) ; **G2 fraîche EN COURS** | checkpoint-2 → G7 → fusion | — |
+| W-1 (`wiring`, test de gel, prose vitrine ×5, `fleet.ts:70`, panneau Ukemi) | G2 approuvé-avec-corrections C1-C4 pliées ; gel `3e0a150` ; **checkpoint-2 EN COURS** | G7 → fusion → cartographie | — |
 | Cartographie M018 D4 + rapport de passe P1 | À FAIRE après W-1 | worker contexte frais : graphe réel vs registre | W-1 |
 | Miroir public + PR empilées (#78-#83, lot/etude-suite, p1-b*, w-1) | EN ATTENTE fenêtre publique | push au go investisseur | investisseur |
 
@@ -61,3 +61,15 @@ Dernière mise à jour : 2026-09-19 04:40 UTC (horloge système). Règle : rien 
 - Consigne de montage G2/checkpoint : jamais de jonction `node_modules` vers le dépôt réel (masque les mutants inter-paquets) ; reconstruire.
 - Freeze K-C : aucun commit sur la branche gelée pendant un checkpoint ; les docs de synthèse vont sur `lot/etude-suite`.
 - Procurement signalé avant production ; clé/secret jamais dans le chat (sci-bot).
+
+## G. Feuille de route proposée (2026-09-19, à valider par l'investisseur : « ok plan »)
+Séquence commune : W-1 → checkpoint-2 → G7 → fusion ; cartographie M018 D4 + rapport de passe P1 ; ADR-M020 (Ukemi) et ADR-B0 (Bell) → checkpoint-1 chacun. Puis deux chantiers en parallèle, deux worktrees (`lot/u-*`, `lot/b-*`), un orchestrateur, workers parallèles, **lots `apps/harness` sérialisés** (U-4 avant T-3), registre `fleet.ts` modifié seulement au G7 de chaque lot.
+| Semaine | Ukemi | Bell |
+|---|---|---|
+| S1 | U-1 recorder book archive (sources d'oracle dans le digest) ‖ U-3 réalisations décomposées + bissection de source | T-1 témoin des faits xStocks/Ondo (écart vs close Polygon, delta halts, volume/pool, supply vs PoR), `/bell/` |
+| S2 | U-2 `clearing.ts` (Λ=0 ⇒ statique ; retrait fiction `cascade.ts` ; treillis annexe) | T-2 parité de droits (rebase/dividendes en pool) |
+| S3 | U-4 classe `liquidation-realized-given-oracle-path-24h` (harness) | — |
+| S4 | U-5 témoin résiduel + rejeux pré-enregistrés | T-3 classe `tsv-offhours-gap` (harness) |
+| S5 | U-6 sentinelle-2 servie ⇒ Ukemi réellement built | Bell built ; lettre SEC 4-927 (go) |
+| S6+ | U-7 papier | bascule sur le flux G des premiers TSV |
+Prérequis manquants (investisseur) : clé Pyth Hermes gratuite ; Gatto PDF SSRN 7157638 ; Scharnowski 2026 (JIFMIM, payant) ; Cifuentes–Ferrucci–Shin 2004 BoE WP ; post-mortem CAPO primaire ; avis écrit Massive sur la licence « Individual Use » avant publication dérivée. Coût nouveau : 0 $ avant T-3/U-4 (Solana RPC ~50 $/mois à la bascule TSV ; repli archive Ethereum ~50 $/mois si un opérateur gratuit coupe).
