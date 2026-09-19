@@ -176,7 +176,7 @@
             "region": {
               "kind": "set",
               "labels": [],
-              "label_schema": "up|down"
+              "label_schema": "numeric"
             },
             "qhat": null,
             "abstain": true,

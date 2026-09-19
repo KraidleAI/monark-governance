@@ -32,7 +32,7 @@ import {
   USDE_STABLE_RUN_TASK_CLASS,
   USDE_STABLE_RUN_CALIB_DIGEST_PINNED,
 } from "../src/calibration.ts";
-import { splitQuantile, buildIntervalRegion } from "@monark/hikae"; // ADR-M011: anti-circularity — prove L1 q̂ + NDG-1 region before runGate
+import { splitQuantile, buildIntervalRegion, NUMERIC_LABEL_SCHEMA, BTC_DIR_LABEL_SCHEMA } from "@monark/hikae"; // ADR-M011: anti-circularity — L1 q̂ + NDG-1 region before runGate; E9: label_schema constants
 import { fromAttestedFlow, isNarabiError } from "@monark/monark"; // A7: real flows via the adapter
 
 const GOOD_PARAMS: HarnessParams = {
@@ -356,6 +356,65 @@ test("gate_committed_classes_unchanged_without_calibration", () => {
   // cascade has NO committed calibration ⇒ calibDigest([]) — the empty-input sha256, written in by hand.
   assert.equal(cascade.verdict.calib_digest, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "cascade calib_digest == calibDigest([])");
   assert.equal(cascade.verdict.reason, "under_calib");
+});
+
+// Test (E9, the ADR-M018 D4 lot) — a NUMERIC (interval) class under `under_calib` carries an EMPTY `set`
+// region whose label_schema names the numeric nature (NUMERIC_LABEL_SCHEMA), NEVER the directional
+// `up|down` (an inert but dishonest octet on the served wire). The frozen coverage-verdict contract
+// requires a set region's label_schema to be non-empty (minLength 1), so a numeric class cannot OMIT it —
+// hence a class-honest schema rather than an empty one. Every reachable served numeric under_calib path is
+// enumerated; a btc-dir positive control shows the directional default is intact (E9 changed only the
+// numeric callers, not underCalibVerdict's default). Mutant: delete `labelSchema: NUMERIC_LABEL_SCHEMA`
+// in interval-conformer.ts `underCalib` (the `labelSchema: NUMERIC_LABEL_SCHEMA` line) — `npm run typecheck` stays GREEN (the default masks it,
+// exactly as workspace hoisting masked m1), and the cascade case below reds.
+test("numeric_under_calib_region_is_not_directional", () => {
+  const numericUnderCalib: { name: string; d: GateDecision }[] = [
+    // committed cascade: cascadeVerdict -> conformInterval({calib:[]}) -> interval-conformer underCalib helper
+    { name: "cascade committed (no calibration)", d: runGate(CASCADE_PRED, { ...GOOD_PARAMS, intent: 12345 }) },
+    // stable-run, NON-committed key: stableRunVerdict committed===undefined -> conformInterval -> underCalib helper
+    { name: "stable-run non-committed key", d: runGate(STABLE_RUN_PRED, { ...GOOD_PARAMS, intent: 0 }) },
+    // stable-run, USDe committed key but nMin > committed score count: split fails -> stableRunVerdict direct under_calib
+    {
+      name: "stable-run USDe key, nMin > n_committed",
+      d: runGate({ ...STABLE_RUN_PRED, predictor_id: USDE_STABLE_RUN_PREDICTOR_ID }, { ...GOOD_PARAMS, intent: 0, nMin: 10000 }),
+    },
+    // BYO interval, p>n split failure: byoVerdict split under_calib, labelSchema=NUMERIC from the interval-mode ternary
+    {
+      name: "byo interval p>n",
+      d: runGate(BYO_INTERVAL_PRED, { ...GOOD_PARAMS, intent: 0, nMin: 1, alpha: 0.05, calibration: { scores: [0.2, 0.4, 0.6, 0.8, 1.0], mode: "interval" } }),
+    },
+    // BYO interval, successful split but q-hat=0 zero-width NDG-1 abstention: byoVerdict interval NDG branch
+    {
+      name: "byo interval NDG zero-width",
+      d: runGate(BYO_INTERVAL_PRED, { ...GOOD_PARAMS, intent: 0, nMin: 10, calibration: { scores: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], mode: "interval" } }),
+    },
+    // committed USDe key, yhat absorbed to +Inf: stableRunVerdict zero-width NDG branch (G2 review of the cheap-gaps lot, C2:
+    // the served path a mutant on gate.ts:481 left green before this case was enumerated)
+    {
+      name: "stable-run committed key NDG zero-width",
+      d: runGate({ ...STABLE_RUN_PRED, predictor_id: USDE_STABLE_RUN_PREDICTOR_ID, yhat: 1e300 }, GOOD_PARAMS),
+    },
+  ];
+  for (const { name, d } of numericUnderCalib) {
+    assert.equal(d.verdict.reason, "under_calib", `${name}: expected an under_calib verdict`);
+    // Whole-region deepEqual (exact keys): empty set region, class-honest numeric label_schema.
+    assert.deepEqual(
+      d.verdict.region,
+      { kind: "set", labels: [], label_schema: NUMERIC_LABEL_SCHEMA },
+      `${name}: numeric under_calib region must be the empty set with a numeric label_schema`,
+    );
+  }
+
+  // Positive control — the directional default is INTACT: btc-dir under_calib (nMin above the committed
+  // synthetic n) still carries `up|down` (btcDirVerdict :390, underCalibVerdict default, unchanged by E9).
+  // If this reds, the fix wrongly retargeted the shared default instead of only the numeric callers.
+  const btc = runGate(BTC_PRED, { ...GOOD_PARAMS, nMin: 100000 });
+  assert.equal(btc.verdict.reason, "under_calib", "btc-dir with nMin above n ⇒ under_calib");
+  assert.deepEqual(
+    btc.verdict.region,
+    { kind: "set", labels: [], label_schema: BTC_DIR_LABEL_SCHEMA },
+    "btc-dir under_calib stays directional up|down (default intact)",
+  );
 });
 
 // ── Narabi / stable-run-velocity-24h — isolation of POPULATION on the wire (ADR-M008 D4/D5 + Amend. bis, C-10) ──

@@ -35,9 +35,9 @@ import {
 import { scanText as scanNumericText } from "../apps/site/test/honesty-lint.ts";
 
 const ROOT = join(import.meta.dirname, "..");
-// sha256 of the files monarkgate.tech/narabi/{state.json,timeline.jsonl} served when captured (2026-09-18).
-const STATE_SHA = "7abd7ab40c47599589683f6a857974c49636114f104bd93f68b4961aafdecf2d";
-const TIMELINE_SHA = "1803f5128ae59e77cf8553b54a5ce5f9740903b9f63d259e951bcad4c73e2ad5";
+// sha256 of the files monarkgate.tech/narabi/{state.json,timeline.jsonl} served when captured (2026-09-19, T=1 series).
+const STATE_SHA = "86c33c4251bef4b307688c7b8386d74137136cf7ba2d91687ee42ad06e06b96b";
+const TIMELINE_SHA = "4b17d0b812e47e34a8d0d9fed47c153a8b471e6e53787b55bc4c574a6de0ea5b";
 
 const sha256 = (s: string): string => createHash("sha256").update(s, "utf8").digest("hex");
 const readComponent = (): string => readFileSync(join(ROOT, "apps", "site", "components", "narabi", "narabi-live.tsx"), "utf8");

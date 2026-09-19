@@ -67,6 +67,7 @@ La prédiction cascade d'Ukemi **est consommée** par le `gate` servi sur le fil
 `GateDecision` produite est **byte-identique** dans les trois cas (`action=abstain`, `reason=under_calib`, `region` = ensemble vide
 `{kind:"set",labels:[]}`, `qhat=null`, `n_calib=0`). Le gate bascule en `under_calib` **avant** de lire `yhat` : le **contenu** de
 la sortie d'Ukemi **n'influence pas** le résultat servi. Le tuyau est réel, mais son effet servi est une abstention constante.
+**Amendement D2 — 2026-09-19 (lot E-bon-marché, ADR-M018 D4 E9)** : la région servie des classes numériques porte désormais `label_schema:"numeric"` (constante `NUMERIC_LABEL_SCHEMA`, `packages/hikae/src/region.ts`) au lieu du défaut directionnel `up|down` : `{kind:"set",labels:[],label_schema:"numeric"}`. La propriété de vacuité est inchangée (byte-identique sur `yhat` ∈ {100, 999999, −5}) ; le digest de la décision change **par construction** : `fd1203e9175204cc…` (sources `16ec12a`, pré-E9) → `147737730b6e2109…` (sources `bb8f049`), reproductibles par `docs/cartographie-p1/vacuity-replay.mjs`. Le digest `64619eb9…` cité au G2/checkpoint-2 de b3 provient d'un sérialiseur de l'arbre b3 et n'est pas reproductible par le script committé ; il est remplacé ici par la valeur reproductible.
 
 **D3 — Correction de la prémisse « Ukemi non consommé » (tâche b).**
 La prémisse « Ukemi n'est consommé par aucun chemin servi » (ADR-M017:135 avant amendement ; ADR-M018:22) est **fausse** (D2).

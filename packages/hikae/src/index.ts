@@ -30,6 +30,7 @@ export {
   buildIntervalRegion,
   buildSetRegion,
   BTC_DIR_LABEL_SCHEMA,
+  NUMERIC_LABEL_SCHEMA,
   BTC_DIR_LABELS,
 } from "./region.ts";
 export type { SetRegion, IntervalRegion, IntervalRegionResult, BtcDirLabel } from "./region.ts";
