@@ -20,6 +20,7 @@ CLAUDE.md global et projet ; agents `~/.claude/agents/*.md` (advisor/advisor-mar
 - Après : redémarrage de session = prise d'effet des frontmatters d'agents et des MCP ; vérifier `claude mcp list` (memstack Connected).
 
 ## 4. Documents de vérité (dans l'ordre)
+0. `F:\Monark\docs\INVENTAIRE-OUTILS-TIERS.md` — API, MCP, connecteurs, plugins, skills, clés (noms) : check-list de récupération §7.
 1. `F:\Monark\docs\CHANTIERS.md` — tableau de bord des chantiers (P1/W-1, Ukemi ADR-M020, témoin TSV, opérations, items formés, règles apprises).
 2. `Downloads\MONARK SUITE\backup-2026-09-18\REPRISE.md` — journal de reprise horodaté.
 3. `Downloads\PRODUITS\etude-2026-09-19\DECISIONS-investisseur-2026-09-19.md` — décisions verbatim.
