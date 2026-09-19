@@ -150,7 +150,7 @@ test("bell_close_field_reddens", () => {
 // ---- secrets / vocab wiring -----------------------------------------------------------------------
 test("bell_no_secret_in_repo", () => {
   const SECRET = /(authorization\s*:\s*bearer\s+[\w.-]{16,})|(api[-_]?key\s*[=:]\s*["']?[\w.-]{16,})|([A-Z][A-Z_]*_API_KEY\s*=\s*["'][\w.-]{6,})/i;
-  for (const f of ["pools.ts", "rpc.ts", "gap.ts", "halts.ts", "sessions.ts", "digest.ts", "reason-canon.ts"]) {
+  for (const f of ["pools.ts", "rpc.ts", "gap.ts", "halts.ts", "sessions.ts", "digest.ts", "reason-canon.ts", "quorum.ts", "collect.ts", "supply.ts", "volume.ts", "residuals.ts"]) {
     assert.equal(SECRET.test(readFileSync(join(HERE, "..", "src", f), "utf8")), false, `secret-shaped context in ${f}`);
   }
   assert.ok(SECRET.test('const k = "api-key=abcdef0123456789";')); // mutant: a real key context reddens

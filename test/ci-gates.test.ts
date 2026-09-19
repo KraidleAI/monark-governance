@@ -992,7 +992,7 @@ test("how_page_rendered_vocab_has_no_numeric_hole — region + reason copy carri
 // Single source of truth for the R-25 series exclusion (ADR-M003 D9 sexies). POSIX strings, so the
 // derived pathspecs are byte-identical on win32 and Linux CI (checkpoint-2 C-1); join(ROOT, rel) still
 // normalizes them for the FS walk, and the walk flips `\\`->`/` before comparing.
-const SERIES_EXCLUDED_ROOTS = ["fixtures", "apps/sentinel/test/fixtures"];
+const SERIES_EXCLUDED_ROOTS = ["fixtures", "apps/sentinel/test/fixtures", "apps/bell/test/fixtures/series"];
 const SERIES_DATA_EXTS = new Set([".json", ".jsonl", ".csv"]);
 const SERIES_CODE_EXTS = new Set([".ts", ".mts", ".cts", ".mjs", ".cjs", ".js"]);
 // The pathspecs the r25 job MUST carry — DERIVED from the roots x exts above (never a parallel hand-kept
