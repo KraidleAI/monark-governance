@@ -78,12 +78,12 @@ export default function FleetPage() {
   };
 
   return (
-    <main className="mx-auto max-w-[1200px] px-6 py-16">
+    <main className="mx-auto max-w-[1440px] px-6 lg:px-10 py-16">
       {/* Hero 2-col (design L31-37): eyebrow + title left, dek right; stacks below 900px. */}
       <section className="grid gap-10 min-[900px]:grid-cols-[1.4fr_1fr] min-[900px]:items-end">
         <div className="flex flex-col gap-4">
           <div className="font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground">Fleet</div>
-          <h1 className="max-w-3xl font-heading text-4xl font-semibold tracking-tight text-foreground">
+          <h1 className="max-w-3xl font-heading text-4xl font-semibold lg:text-5xl tracking-tight text-foreground">
             A company of agents. Four built, seven on the roadmap.
           </h1>
         </div>
@@ -157,16 +157,12 @@ export default function FleetPage() {
         </p>
         {/* Grouped by role (design L72-90): sensor (1fr) · act (3fr, 3-col grid) · distribution (1fr).
             Stacks below 900px. */}
-        <div className="grid gap-4 min-[900px]:grid-cols-[1fr_3fr_1fr] min-[900px]:items-start">
-          <div className="flex flex-col gap-4">
-            {upcoming.filter((a) => a.role === "sensor").map(renderUpcoming)}
-          </div>
-          <div className="grid gap-4 min-[900px]:grid-cols-3">
-            {upcoming.filter((a) => a.role === "act").map(renderUpcoming)}
-          </div>
-          <div className="flex flex-col gap-4">
-            {upcoming.filter((a) => a.role === "distribution").map(renderUpcoming)}
-          </div>
+        {/* Role order kept (sensor, act, distribution); one fluid grid so a card is never narrower than 240px
+            (the 1fr/3fr/1fr split squeezed the five act cards to ~170px and the badge overflowed). */}
+        <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))]">
+          {upcoming.filter((a) => a.role === "sensor").map(renderUpcoming)}
+          {upcoming.filter((a) => a.role === "act").map(renderUpcoming)}
+          {upcoming.filter((a) => a.role === "distribution").map(renderUpcoming)}
         </div>
       </section>
     </main>

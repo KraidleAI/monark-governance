@@ -26,13 +26,13 @@ export function AgentCard({
   children: ReactNode;
 }) {
   return (
-    <article className={cn("flex flex-col gap-3 rounded-xl border bg-card p-5", className)}>
+    <article className={cn("flex flex-col gap-3 rounded-xl border border-ink/45 bg-white p-5 dark:bg-card", className)}>
       <div className="flex items-center gap-3">
         <span className="text-primary">{mark}</span>
         <h3 className="font-heading text-lg font-medium text-card-foreground">{name}</h3>
         <StatusBadge status={status} className="ml-auto" />
       </div>
-      <p className="text-sm text-muted-foreground">{children}</p>
+      <p className="text-sm text-foreground">{children}</p>
       {action ? <div className="mt-auto pt-1">{action}</div> : null}
     </article>
   );

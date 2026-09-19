@@ -71,7 +71,7 @@ export function PlaceholderPanel({
         // well inline, and the two links. Same strings as the narrow card; solid (non-dashed) border.
         <article className="grid gap-5 rounded-xl border bg-card p-6 shadow-sm min-[900px]:grid-cols-[1.2fr_1fr_auto] min-[900px]:items-center min-[900px]:gap-6">
           <div className="flex flex-col gap-2.5">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               {mark ? <span className="text-primary">{mark}</span> : null}
               <h3 className="font-heading text-lg font-medium text-card-foreground">{name}</h3>
               {sub ? <span className="font-serif text-sm italic text-muted-foreground">{sub}</span> : null}

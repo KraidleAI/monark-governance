@@ -30,7 +30,7 @@ export default function TokenPage() {
   const root = join(process.cwd(), "..", "..");
   const { actions, reasons } = loadGateEnums(root);
   return (
-    <main className="mx-auto max-w-[1200px] px-6 py-16">
+    <main className="mx-auto max-w-[1440px] px-6 lg:px-10 py-16">
       {/* Contract address as an ink band at the very top (restyle B / design L100-105): CaCopy reused
           as-is — same strings, same CA_ADDRESS identifier read; only ca-copy.tsx styling changed. */}
       <div className="mb-12">
@@ -42,7 +42,7 @@ export default function TokenPage() {
       <section className="grid gap-10 min-[900px]:grid-cols-[1.1fr_1fr] min-[900px]:items-start">
         <div className="flex flex-col gap-6">
           <div className="font-mono text-xs uppercase tracking-wide text-monark-t">MONARK &middot; the token</div>
-          <h1 className="font-heading text-4xl font-semibold tracking-tight text-primary">
+          <h1 className="font-heading text-4xl font-semibold lg:text-5xl tracking-tight text-primary">
             A depletable authorization budget.
           </h1>
           <p className="max-w-xl text-lg text-ink2">
