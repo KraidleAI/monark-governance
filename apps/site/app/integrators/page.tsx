@@ -72,7 +72,7 @@ const byoGate = {
 // DeFi partner brands (site vocab scope).
 export default function IntegratorsPage() {
   return (
-    <main className="mx-auto max-w-[1200px] px-6 pt-16 pb-22">
+    <main className="mx-auto max-w-[1440px] px-6 lg:px-10 pt-16 pb-22">
       {/* Hero 2-col (design L164-170): eyebrow + badge + title on the left, dek on the right. */}
       <header className="grid gap-10 min-[900px]:grid-cols-[1.2fr_1fr] min-[900px]:items-end">
         <div className="flex flex-col gap-4">

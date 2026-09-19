@@ -34,9 +34,9 @@ export function SiteHeader() {
   return (
     <header
       className="sticky top-0 z-40 border-b border-border backdrop-blur-md"
-      style={{ background: "color-mix(in oklab, var(--paper) 88%, transparent)" }}
+      style={{ background: "var(--paper)" }}
     >
-      <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-5 px-6">
+      <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-5 px-6 lg:px-10">
         <Link
           href="/"
           onClick={closeMenu}
@@ -57,7 +57,7 @@ export function SiteHeader() {
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "whitespace-nowrap rounded-lg px-[11px] py-2 text-sm transition-colors hover:bg-soft",
-                  active ? "bg-soft text-foreground" : "text-muted-foreground",
+                  active ? "bg-soft-active text-foreground" : "text-muted-foreground",
                 )}
               >
                 {item.label}
