@@ -1,5 +1,5 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 ~10:00 UTC. Règle : rien ne sort de ce tableau sans être « clos » ou « transféré ».
+Dernière mise à jour : 2026-09-19 03:57 UTC (horloge système ; les mentions « ~07:xx–10:00 UTC » antérieures étaient des estimations fausses de l'orchestrateur, décalées d'environ +5 h). Règle : rien ne sort de ce tableau sans être « clos » ou « transféré ».
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019)
 | Lot | État | Prochaine action | Bloqué par |
