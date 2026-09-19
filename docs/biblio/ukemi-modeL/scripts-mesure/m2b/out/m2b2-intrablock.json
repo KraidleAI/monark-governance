@@ -1,0 +1,141 @@
+{
+  "measure": "M-2b.2 intra-block oracle update (Aave WETH source, getAssetPrice)",
+  "model": "claude-opus-4-8[1m]",
+  "window_blocks": [
+    23543616,
+    23557920
+  ],
+  "weth_source": "0x5424384b256154046e9667ddfaaa5e550145215e",
+  "aggregator": "0x7c7fdfca295a787ded12bb5c1a49a8d2cc20e3f8",
+  "n_weth_liq_blocks": 119,
+  "liq": {
+    "n": 119,
+    "down": 33,
+    "equal": 84,
+    "up": 2,
+    "P_move": 0.29411764705882354,
+    "P_down_given_move": 0.9428571428571428,
+    "dUSD_min": -162.1894498900001,
+    "dUSD_max": 68.88921700000037,
+    "dUSD_median": -24.482000000000426
+  },
+  "control_uniform": {
+    "n": 119,
+    "down": 0,
+    "equal": 119,
+    "up": 0,
+    "P_move": 0,
+    "P_down_given_move": null,
+    "dUSD_min": null,
+    "dUSD_max": null,
+    "dUSD_median": null
+  },
+  "control_matched": {
+    "n": 119,
+    "down": 0,
+    "equal": 115,
+    "up": 4,
+    "P_move": 0.03361344537815126,
+    "P_down_given_move": 0,
+    "dUSD_min": 22.95171855999979,
+    "dUSD_max": 42.039999999999964,
+    "dUSD_median": 27.469999734999647
+  },
+  "delta_hist_usd_liq": {
+    "(-inf,-200)": 0,
+    "[-200,-100)": 2,
+    "[-100,-50)": 2,
+    "[-50,-20)": 28,
+    "[-20,-10)": 1,
+    "[-10,-5)": 0,
+    "[-5,-1)": 0,
+    "[-1,-0.0001)": 0,
+    "[-0.0001,0.0001)": 84,
+    "[0.0001,1)": 0,
+    "[1,5)": 0,
+    "[5,10)": 0,
+    "[10,20)": 1,
+    "[20,50)": 0,
+    "[50,100)": 1,
+    "[100,200)": 0,
+    "[200,+inf)": 0
+  },
+  "delta_hist_usd_matched": {
+    "(-inf,-200)": 0,
+    "[-200,-100)": 0,
+    "[-100,-50)": 0,
+    "[-50,-20)": 0,
+    "[-20,-10)": 0,
+    "[-10,-5)": 0,
+    "[-5,-1)": 0,
+    "[-1,-0.0001)": 0,
+    "[-0.0001,0.0001)": 115,
+    "[0.0001,1)": 0,
+    "[1,5)": 0,
+    "[5,10)": 0,
+    "[10,20)": 0,
+    "[20,50)": 4,
+    "[50,100)": 0,
+    "[100,200)": 0,
+    "[200,+inf)": 0
+  },
+  "delta_hist_usd_uniform": {
+    "(-inf,-200)": 0,
+    "[-200,-100)": 0,
+    "[-100,-50)": 0,
+    "[-50,-20)": 0,
+    "[-20,-10)": 0,
+    "[-10,-5)": 0,
+    "[-5,-1)": 0,
+    "[-1,-0.0001)": 0,
+    "[-0.0001,0.0001)": 119,
+    "[0.0001,1)": 0,
+    "[1,5)": 0,
+    "[5,10)": 0,
+    "[10,20)": 0,
+    "[20,50)": 0,
+    "[50,100)": 0,
+    "[100,200)": 0,
+    "[200,+inf)": 0
+  },
+  "binomial_liq_down_vs_up": {
+    "down": 33,
+    "up": 2,
+    "p_two_sided": 3.672903403639797e-8,
+    "H0": "p=0.5"
+  },
+  "permutation_P_move_liq_vs_matched": {
+    "obs_diff": 0.2605042016806723,
+    "p_two_sided": 0,
+    "p_one_sided_liq_gt": 0,
+    "nA": 119,
+    "nB": 119
+  },
+  "permutation_P_down_liq_vs_matched": {
+    "obs_diff": 0.2773109243697479,
+    "p_two_sided": 0,
+    "p_one_sided_liq_gt": 0,
+    "nA": 119,
+    "nB": 119
+  },
+  "permutation_P_down_given_move_liq_vs_matched": {
+    "obs_diff": 0.9428571428571428,
+    "p_two_sided": 0,
+    "p_one_sided_liq_gt": 0,
+    "nA": 35,
+    "nB": 4
+  },
+  "order_selftest": {
+    "tested_delta_ne0": 35,
+    "answerupdated_matches_price": 15,
+    "no_answerupdated_log": 17,
+    "multi_log_blocks": 0,
+    "update_before_liq_tx": 15,
+    "update_after_liq_tx": 0,
+    "note": "faible taux d appariement = la source Aave (0x5424384b) retarde son aggregator (~1 round); ordre intra-bloc NON defini pour cette source"
+  },
+  "conclusion_negative_oracle_update_at_liq_block": "oui (baisse dominante ET P(Delta<0|liq) > temoin apparie, permutation p<0.05)",
+  "interpretation": "un OUI = motif consequence (baisse d oracle -> liquidation), PAS un canal endogene; le prix lu retarde l aggregator (orientation §2.3)",
+  "seed": 20251010,
+  "nperm": 10000
+}

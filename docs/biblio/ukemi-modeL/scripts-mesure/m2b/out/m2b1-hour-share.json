@@ -1,0 +1,82 @@
+{
+  "measure": "M-2b.1 hour-share 2025-10-10T21:00Z",
+  "model": "claude-opus-4-8[1m]",
+  "window_blocks": [
+    23543616,
+    23557920
+  ],
+  "hour_utc": "2025-10-10T21:00Z",
+  "hour_ts": [
+    1760130000,
+    1760133600
+  ],
+  "SigmaWETH_event": 6914.832152221445,
+  "n_events_event": 268,
+  "n_blocks_event": 119,
+  "Q_hour_WETH": 6109.572849182061,
+  "n_events_hour": 140,
+  "n_blocks_hour": 48,
+  "sub_buckets_15min": [
+    {
+      "label": "21:00Z",
+      "q_weth": 1025.351580928465
+    },
+    {
+      "label": "21:15Z",
+      "q_weth": 5075.147956204657
+    },
+    {
+      "label": "21:30Z",
+      "q_weth": 9.073312048938394
+    },
+    {
+      "label": "21:45Z",
+      "q_weth": 0
+    }
+  ],
+  "Q_max_bucket_WETH": 5075.147956204657,
+  "binance": {
+    "url_1h": "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1h&startTime=1760130000000&limit=1",
+    "sha256_body_1h": "4d673e95066ad537df3b202fe2361402f790a24749a9494adbd3ffea402f9b63",
+    "openTime": 1760130000000,
+    "closeTime": 1760133599999,
+    "V_base_ETH_1h": 401305.9818,
+    "V_quote_USDT_1h": 1508981031.83518,
+    "url_1m": "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1m&startTime=1760130000000&endTime=1760133599999&limit=60",
+    "sha256_body_1m": "61e4f9a089af2d1f948208e40d39183d79cea2f050c9915024c90be81c082d3d",
+    "n_1m": 60,
+    "V_base_ETH_1m_sum": 401305.9818,
+    "crosscheck_1m_eq_1h": true
+  },
+  "ratio_Q_over_binanceBase_hour": 0.015224225718685912,
+  "ratio_pct": 1.5224225718685913,
+  "bascule_threshold_pct": 5,
+  "exceeds_bascule": false,
+  "IC95_lo_M2": {
+    "market": -0.000051224071164199977,
+    "oracle": -0.00009366191053782448
+  },
+  "borne_haute_honnete": {
+    "market": {
+      "Qhour": {
+        "log": -0.3129571944093659,
+        "pct": -26.87187851767584
+      },
+      "Qmaxbucket": {
+        "log": -0.2599697400774714,
+        "pct": -22.892508188216652
+      }
+    },
+    "oracle": {
+      "Qhour": {
+        "log": -0.5722342656244116,
+        "pct": -43.57366848631972
+      },
+      "Qmaxbucket": {
+        "log": -0.47534805384026335,
+        "pct": -37.833135535341796
+      }
+    }
+  },
+  "note": "borne_haute = IC95_lo(M-2 lead-lag b, par bucket 15min) x Q ; point-estime M-2 POSITIF, donc borne pessimiste (edge de CI), pas un effet detecte."
+}
