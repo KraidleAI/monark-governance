@@ -119,7 +119,7 @@ CI_EXIT=0
   - `scripts/lang-gate.d.mts` : +13 (nouveau ; dernier octet `0a` vérifié ⇒ `wc -l` == numstat git exact)
   - `test/lang-gate-routing.test.ts` : +46 (nouveau ; dernier octet `0a` vérifié)
   - **= +75 / −3 = 78 lignes changées** (cible « +80 » atteinte)
-- **R-25 projeté (code seul, après commit orchestrateur)** = 203 + 78 = **281 ≤ 1 205**. ✅
+- **R-25 mesuré par la G2 delta (`ac04d41...fededb7`, pathspec `ci.yml:52`)** = **407 brut / 264 docs-exclus ≤ 1 205** (la projection « 281 » du worker était pré-commit ; C-1 G2 delta, `error_origin` worker). ✅
 - **`docs/RAPPORT-lot-e-honnetete-2.md`** : ce fichier compte sous le pathspec **de cette branche** (`lot/e-honnetete` n'exclut pas `docs/**/*.md` — seulement `docs/G1-lot-*.md` / `docs/G2-lot-*.md`). À l'intégration sur `lot/etude-suite` (qui porte ADR-M003 **D9 septies**, `docs/**/*.md` hors R-25, cf. `3f2f19c`), il **cesse de compter**. R-25 projeté full (branche courante) reste **≪ 1 205**.
 - **T0 / CA-11** : `apps/site/lib/fleet.ts` blob `f770e191ba9378aa3ac6be31a026579300c4c230` **== HEAD**, `git status` vide — intact. Aucune pièce « built » nouvelle ; le seul consommateur nouveau (l'oracle racine) est branché sur `collectFiles` (surface servie de l'export) et couvert par un test non-LLM rejouant la composition.
 
