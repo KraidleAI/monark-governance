@@ -7,7 +7,7 @@
 ## Contexte (mesuré à `8c20ab4`)
 | Écart | Où (mesuré) | Nature |
 |---|---|---|
-| E7 « verified » surclaim ×6 | `README.md:48,111,112` ; `apps/site/components/shogen-panel.tsx:51,57,63` | prose publique (Shōgen atteste l'origine et le hash, jamais la vérité — ADR-M017/M012 D4) |
+| E7 « verified » surclaim ×6 | `README.md:48,111,112` ; `apps/site/components/shogen-panel.tsx:51,57` ; `apps/site/lib/fleet-presentation.ts:33` (`shogen-panel:63` = négation honnête, hors périmètre) | prose publique (Shōgen atteste l'origine et le hash, jamais la vérité — ADR-M017/M012 D4) |
 | skill/DEMO (ADR-M017 D3) | `skills/monark/{SKILL,DEMO,INTEGRATION}.md` | description `{prediction, params}` + prise `attested` à décrire honnêtement |
 | E8 `MONARK_PHASE` export mort | `packages/monark/src/index.ts:23` | constante sans consommateur (census 1) |
 | E3 garde `TEST_ROOTS` sans `packages/*/test/` | `test/ci-gates.test.ts:637` | exclusion non documentée |
@@ -18,7 +18,7 @@
 | E6 rendu `wiring.served_by` (trou numérique) | `apps/site` (tripwire + scan) | note honnête sans chiffre, ADR-W1 (b) |
 | E1 étape h5 portant `attested` | `apps/harness` (fil MCP `attest → gate`) | aucun appelant réel ne prouve la prise |
 | ~~E9 région `up|down`~~ | **FERMÉ par E-bon-marché** (`gate.ts:313` : `NUMERIC_LABEL_SCHEMA`, « never `up|down` (E9) », re-pin h5, amendement ADR-M019 D2) | — retiré |
-| K-1 clés Ed25519 | Narabi sert `attestor.key:"deadbeef"` (`packages/monark/src/flow.ts:52`) | placeholder public ; préalable U-6 / T-1b / tout `built` de sentinelle |
+| K-1 clés Ed25519 | Narabi sert `attestor.key:"deadbeef"` (`apps/sentinel/src/flow.ts:52` ; aussi `scripts/record-usde-calib.mjs:58`) | placeholder public ; préalable U-6 / T-1b / tout `built` de sentinelle |
 
 ## Décision
 **D1 — Quatre lots, chacun < 1 205 lignes R-25, un worktree chacun, worker `claude-opus-4-8` max, G2 fraîche + checkpoint-2 chacun, aucun registre `fleet.ts` modifié hors G7.**
@@ -45,7 +45,7 @@
 
 ## Alternatives rejetées
 - Tout fermer dans un seul lot : R-25 > 1 205 et deux régimes site mélangés. Rejeté.
-- Reporter E1/E9 à U-4 : laisserait deux écarts « avant release » ouverts ; U-4 est postérieur à la release. Rejeté (H-attested tiré en avant).
+- Reporter E1 à U-4 : laisserait un écart « avant release » ouvert ; U-4 est postérieur à la release. Rejeté (H-attested tiré en avant).
 - Cartographie par l'orchestrateur : générateur = relecteur (règle §F). Rejeté : worker en contexte frais.
 
 ## Conséquences
