@@ -1,5 +1,5 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 ~08:05 UTC. Règle : rien ne sort de ce tableau sans être « clos » ou « transféré ».
+Dernière mise à jour : 2026-09-19 ~08:20 UTC. Règle : rien ne sort de ce tableau sans être « clos » ou « transféré ».
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019)
 | Lot | État | Prochaine action | Bloqué par |
@@ -24,7 +24,7 @@ Dernière mise à jour : 2026-09-19 ~08:05 UTC. Règle : rien ne sort de ce tabl
 |---|---|---|---|
 | Étude + PROPOSITIONS + procurement §8 | LIVRÉ (`Downloads\PRODUITS\etude-2026-09-19\`) | — | — |
 | Sources T-1 gratuites (LULD, CTA/UTP, halts NYSE 2019-2026) | RÉCUPÉRÉES, sha consignés (`sources-T1/`) | — | — |
-| Abonnement Massive/Polygon Stocks Starter | ACTIF (29 $/m) | **clé à poser par l'investisseur** : `setx POLYGON_API_KEY` (terminal) ; puis test d'appel | investisseur |
+| Abonnement Massive/Polygon Stocks Starter | ACTIF (29 $/m) ; clé en env utilisateur `POLYGON_API_KEY` (32 car., jamais affichée), testée 2026-09-19 (TSLA prev close 364,27 $, Bearer) ; licence « Individual Use » à revoir avant publication dérivée | — | — |
 | Procurement §8 items 1, 5, 6, 8-15 | investisseur « je vais les chercher » | intégrer à réception (pdftotext, sha, lecteur) | investisseur |
 | Lots T-1 (témoin faits) → T-2 (parité droits) → T-3 (classe écart) | PLANIFIÉS après P1/W-1 et après ADR-M020 (ordre investisseur) | ADR T-1 + checkpoint-1 | W-1, ordre |
 | Lettre de commentaire SEC File 4-927 | VALIDÉE, après T-1, go avant dépôt | — | T-1 |
