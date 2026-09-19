@@ -18,7 +18,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
-import { join, extname } from "node:path";
+import { createHash } from "node:crypto";
+import { join, extname, dirname, basename } from "node:path";
 import ts from "typescript";
 import { compilePatterns, scanText, collectTargets } from "../scripts/grep-forbidden.mjs";
 import { renderedTexts, scanText as scanNumericText, loadExemptFile, scanAppsSite } from "../apps/site/test/honesty-lint.ts";
@@ -969,4 +970,96 @@ test("how_page_rendered_vocab_has_no_numeric_hole — region + reason copy carri
   // the page resolves the action WORD + colour by this index; an out-of-range tone would mis-label.
   const tones = [...OUTCOMES.map((o) => o.tone), ...Object.values(REASON_GLOSS).map((m) => m.tone)];
   for (const t of tones) assert.ok(t >= 0 && t < actions.length, `a How tone ${t} is outside the frozen action enum`);
+});
+
+// ---------------------------------------------------------------------------
+// Root test `series_pinned_are_declared_and_hashed` — ADR-M003 D9 sexies (Lot R-25-series).
+// The r25 job excludes sha-pinned DATA SERIES (fixtures/**/*.{json,jsonl,csv} and
+// apps/sentinel/test/fixtures/**, with :(glob) magic — the bare form matches NOTHING in git's default
+// pathspec mode, measured 2026-09-19) from the R-25 lot-size count. This root test is the safety
+// condition D9 sexies (a): EVERY excluded data file MUST be declared AND hashed in a same-dir declaration
+// — a PROVENANCE-*.md, or fixtures/manifest.json (a closed hashed set already enforced by
+// fixtures_root_valid, so the nine gate states are NOT duplicated). Reds on: an orphan file (added with no
+// declaration); an altered byte (recomputed sha != declaration); a CODE file (.ts/.mjs/.js) under an
+// excluded root (condition c — no code disguised as data). It also asserts the six :(glob) exclusion
+// pathspecs are wired in ci.yml (the exclusion cannot be silently dropped). Named mutants
+// (docs/G1-lot-r25-series.md): (1) fixtures/x.json with no PROVENANCE line => red; (2) one hex flipped in a
+// declared sha => red; (3) fixtures/x.ts => red. Run by `npm test`, OUTSIDE the per-lot R-25 count.
+const SERIES_EXCLUDED_ROOTS = ["fixtures", join("apps", "sentinel", "test", "fixtures")];
+const SERIES_DATA_EXTS = new Set([".json", ".jsonl", ".csv"]);
+const SERIES_CODE_EXTS = new Set([".ts", ".mts", ".cts", ".mjs", ".cjs", ".js"]);
+// The exact pathspecs the r25 job MUST carry (ADR-M003 D9 sexies). :(glob) is mandatory.
+const SERIES_EXCLUDE_PATHSPECS = [
+  ":(exclude,glob)fixtures/**/*.json",
+  ":(exclude,glob)fixtures/**/*.jsonl",
+  ":(exclude,glob)fixtures/**/*.csv",
+  ":(exclude,glob)apps/sentinel/test/fixtures/**/*.json",
+  ":(exclude,glob)apps/sentinel/test/fixtures/**/*.jsonl",
+  ":(exclude,glob)apps/sentinel/test/fixtures/**/*.csv",
+];
+
+function seriesWalk(absDir: string): string[] {
+  const out: string[] = [];
+  const stack: string[] = [absDir];
+  for (let cur = stack.pop(); cur !== undefined; cur = stack.pop()) {
+    for (const name of readdirSync(cur)) {
+      const abs = join(cur, name);
+      if (statSync(abs).isDirectory()) stack.push(abs);
+      else out.push(abs);
+    }
+  }
+  return out;
+}
+
+function seriesLfSha256(abs: string): string {
+  return createHash("sha256").update(readFileSync(abs, "utf8").replace(/\r\n/g, "\n"), "utf8").digest("hex");
+}
+
+test("series_pinned_are_declared_and_hashed — every R-25-excluded data file is declared + hashed same-dir (ADR-M003 D9 sexies)", () => {
+  // The r25 job carries the six :(glob) exclusion pathspecs — they cannot be silently removed.
+  for (const ps of SERIES_EXCLUDE_PATHSPECS) {
+    assert.ok(WF.includes(ps), `r25 job is missing the exclusion pathspec ${ps} (ADR-M003 D9 sexies)`);
+  }
+
+  const checked = new Set<string>();
+  for (const rootRel of SERIES_EXCLUDED_ROOTS) {
+    const root = join(ROOT, rootRel);
+    if (!existsSync(root)) continue;
+    for (const abs of seriesWalk(root)) {
+      const rel = abs.slice(ROOT.length + 1).replace(/\\/g, "/");
+      const ext = extname(abs);
+
+      // Condition (c): no code disguised as a data series under an excluded root.
+      assert.ok(
+        !SERIES_CODE_EXTS.has(ext),
+        `code file under an R-25-excluded root: ${rel} — only .json/.jsonl/.csv data may live there (D9 sexies c)`,
+      );
+      if (!SERIES_DATA_EXTS.has(ext)) continue;
+
+      // Condition (a): declared + hashed in a same-dir declaration (its filename AND its LF sha256 present).
+      const dir = dirname(abs);
+      const self = basename(abs);
+      const sha = seriesLfSha256(abs);
+      const declFiles = readdirSync(dir)
+        .filter((n) => n !== self && (/^PROVENANCE-.*\.md$/.test(n) || n === "manifest.json"))
+        .map((n) => join(dir, n));
+      const declaredIn = declFiles.find((d) => {
+        const text = readFileSync(d, "utf8");
+        return text.includes(sha) && text.includes(self);
+      });
+      assert.ok(
+        declaredIn !== undefined,
+        `series file not declared+hashed same-dir: ${rel} (sha256 LF ${sha}). Add a PROVENANCE-*.md line in ` +
+          `${dir.slice(ROOT.length + 1).replace(/\\/g, "/")} carrying its filename and this exact sha (D9 sexies a).`,
+      );
+      checked.add(rel);
+    }
+  }
+
+  // Anchor both excluded roots concretely: a walk that silently reached nothing would be a false green.
+  assert.ok(checked.has("fixtures/usde-calib-series.json"), "walk did not reach the usde series (broken fixtures root?)");
+  assert.ok(
+    checked.has("apps/sentinel/test/fixtures/usde-boundary-blocks.json"),
+    "walk did not reach the sentinel boundary fixture (broken apps/sentinel/test/fixtures root?)",
+  );
 });
