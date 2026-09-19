@@ -1,5 +1,5 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 08:20 UTC (horloge système)
+Dernière mise à jour : 2026-09-19 08:45 UTC (horloge système)
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019)
 | Lot | État | Prochaine action | Bloqué par |
@@ -25,7 +25,7 @@ Dernière mise à jour : 2026-09-19 08:20 UTC (horloge système)
 | Lecture Tibshirani 2019 + Barber 2023 | REÇUE : intra-événement = Thm 2 exact ; swap de bloc non couvert → Dunn–Wasserman–Ramdas 2022 (JASA, arXiv:1809.07441) téléchargé OA (collision arXiv:2010.06001 écartée) | lecture Dunn à lancer | — |
 | Note formelle treillis (T monotone, Q_*/Q^*, unicité, sens du treillis) | EN COURS — worker | affirmation centrale de l'ADR | — |
 | ADR-M020 « Eligible is not liquidated » | **checkpoint-1 : approuvé-avec-corrections U-0..U-3** (10 corrections pliées `3a48c88`) ; escalade classe (b) **tranchée : « les 2 »** (position + shortfall cluster, U-4) ; U-1 peut démarrer après W-1 + ADR de lot U-1 | ADR U-1 | W-1 |
-| ADR-U1 (recorder du book) | RÉDIGÉ `c7bbd37` (93 l.) ; 3 adjudications (Temoignage sans `attest`, clé placeholder + item K-1 clés, cache `holders_digest`) ; **checkpoint-1 EN COURS** | U-1a après approbation | validateur |
+| ADR-U1 (recorder du book) | checkpoint-1 : **U-1a approuvé-avec-corrections C-1..C-8** (worker plie) ; **U-1b refusé tel qu'écrit** — mon adjudication « Temoignage sans `attest` » était infondée (vérificateur Shōgen exige Constat compagnon + résidus au registre ; `error_origin` orchestrateur) ; **ESCALADE investisseur Q1-Q3** (périmètre clusters U-1 ; enveloppe d'attestation du book a/b/c ; séries sha-pinnées vs R-25) ; info : Narabi sert publiquement `attestor.key:"deadbeef"` → lot K-1 clés à ouvrir tôt | Q1-Q3 → U-1a démarre après folds (G7 attend Q3) | investisseur |
 | Commit de `docs/biblio/ukemi-modeL/` sur `lot/etude-suite` | FAIT (archive + avis + sha ; pdf/_txt gitignorés, sha tracés) ; MESURES à committer à réception | — | mesures |
 
 ## C. MONARK Bell — témoin public attesté des TSV, actions tokenisées (nom investisseur 2026-09-19 ; décisions 1-3, 10 : **produit full fini, VPS dédié dès T-1, grade institutionnel, GTM propre**)
@@ -81,3 +81,4 @@ Séquence commune : W-1 → checkpoint-2 → G7 → fusion ; cartographie M018 D
 | S5 | U-6 sentinelle-2 servie ⇒ Ukemi réellement built | Bell built ; lettre SEC 4-927 (go) |
 | S6+ | U-7 papier | bascule sur le flux G des premiers TSV |
 Prérequis manquants (investisseur) : clé Pyth Hermes gratuite ; Gatto PDF SSRN 7157638 ; post-mortem CAPO primaire ; (reçus : Scharnowski 2026, CFS BoE WP 264) ; avis écrit Massive sur la licence « Individual Use » avant publication dérivée. Coût nouveau : 0 $ avant T-3/U-4 (Solana RPC ~50 $/mois à la bascule TSV ; repli archive Ethereum ~50 $/mois si un opérateur gratuit coupe).
+- **Règle apprise (checkpoint-1 U-1)** : ne jamais ratifier un tuyau vers un contrat gelé sans lire le vérificateur du contrat (`verification.rs`) ; toute adjudication d'orchestrateur touchant un contrat = lecture de source d'abord.
