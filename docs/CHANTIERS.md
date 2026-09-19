@@ -35,7 +35,7 @@ Dernière mise à jour : 2026-09-19 (checkpoint-2 U-1a rendu : V-1 bloquante, co
 ## C. MONARK Bell — témoin public attesté des TSV, actions tokenisées (nom investisseur 2026-09-19 ; décisions 1-3, 10 : **produit full fini, VPS dédié dès T-1, grade institutionnel, GTM propre**)
 | Élément | État | Prochaine action | Bloqué par |
 |---|---|---|---|
-| Étude + PROPOSITIONS + procurement §8 | LIVRÉ (`Downloads\PRODUITS\etude-2026-09-19\`) | — | — |
+| Étude + PROPOSITIONS + procurement §8 | LIVRÉ (`F:\PRODUITS\etude-2026-09-19\`) | — | — |
 | Sources T-1 gratuites (LULD, CTA/UTP, halts NYSE 2019-2026) | RÉCUPÉRÉES, sha consignés (`sources-T1/`) | — | — |
 | Abonnement Massive/Polygon Stocks Starter | ACTIF (29 $/m) ; clé en env utilisateur `POLYGON_API_KEY` (32 car., jamais affichée), testée 2026-09-19 (TSLA prev close 364,27 $, Bearer) ; licence « Individual Use » à revoir avant publication dérivée | — | — |
 | Recherche web (post-mortem CAPO, Uniswap rebasing, Token-2022 scaled UI, ERC-8056, événement déficit Aave v3.3, Chainlink SVR) | EN COURS — chercheur, lecture directe par MONARK (investisseur : « il faut que tu lises toi-même ») | intégrer PR-UK-3/14 | — |

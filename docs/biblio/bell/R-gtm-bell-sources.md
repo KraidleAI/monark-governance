@@ -22,9 +22,9 @@
 
 | Document | Emplacement | Statut |
 |---|---|---|
-| PROPOSITIONS, R1, R2, R3, L6, L7, L8, ANNONCE-X | `C:\Users\KACIMI\Downloads\PRODUITS\etude-2026-09-19\` | [lu] intégral (ronde 1) |
+| PROPOSITIONS, R1, R2, R3, L6, L7, L8, ANNONCE-X | `F:\PRODUITS\etude-2026-09-19\` | [lu] intégral (ronde 1) |
 | **DECISIONS-investisseur-2026-09-19.md** | idem | [lu] intégral **relu en ronde 2** — le fichier a grossi sur disque de 10 à **19 points** entre les deux rondes (rédaction concurrente, même campagne). **Point 13 vérifié verbatim** : « ADR-B0 ESC-1 (close de référence et licence Polygon « Individual Use ») : **(c)** — « Bell publie l'écart seul, le close de référence reste une entrée non republiée ; un tiers rejoue avec sa propre licence de données. » Conséquence : la Définition de fini dit « recalculable par un tiers disposant d'une licence de close » ; le close n'apparaît jamais dans les fichiers publiés ; demande d'avis écrit à Polygon en parallèle (item formé, non bloquant). » — confirme intégralement la directive de l'orchestrateur, pas pris sur parole sans re-lecture. Point 12 (registre Bell, capteur `FLEET_AGENTS`) et point 14 (ESC-2, VPS déployé par l'orchestrateur en SSH) notés en passant, hors périmètre GTM direct. |
-| **Texte intégral pré-extrait, ordre SEC 34-106402** | `C:\Users\KACIMI\Downloads\PRODUITS\etude-2026-09-19\txt\sec-34-106402-innovation-exemption.txt` (2 116 lignes) | [lu] intégral de la section VI « Solicitation of Comments » (10 questions numérotées, p.56-59) + section duration/conclusion. **Nouveau en ronde 2** — remplace la dépendance à L7 (paraphrase) et à la page communiqué SEC (résumé) par le texte réglementaire primaire lui-même, déjà pré-extrait au format doc 03 §6. |
+| **Texte intégral pré-extrait, ordre SEC 34-106402** | `F:\PRODUITS\etude-2026-09-19\txt\sec-34-106402-innovation-exemption.txt` (2 116 lignes) | [lu] intégral de la section VI « Solicitation of Comments » (10 questions numérotées, p.56-59) + section duration/conclusion. **Nouveau en ronde 2** — remplace la dépendance à L7 (paraphrase) et à la page communiqué SEC (résumé) par le texte réglementaire primaire lui-même, déjà pré-extrait au format doc 03 §6. |
 | ADR-B0-programme-bell.md | `F:\Monark\docs\adr\` | [lu] intégral (ronde 1), non remodifié en ronde 2 |
 | CHANTIERS.md, GTM v1 | idem | [lu] ciblé (ronde 1) |
 

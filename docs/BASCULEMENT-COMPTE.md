@@ -8,7 +8,7 @@ Créé le 2026-09-19 par l'orchestrateur (Fable 5.1). Mis à jour à chaque fen�
 - Mots d'ordre au redémarrage : « reprends depuis `F:\Monark\docs\CHANTIERS.md` et `BASCULEMENT-COMPTE.md` ».
 
 ## 1. Ce qui est conservé (local, indépendant du compte)
-CLAUDE.md global et projet ; agents `~/.claude/agents/*.md` (advisor/advisor-marche/advisor-defi/lecture-advisor = medium, validateur high, workers Opus 4.8 max, lecteurs/chercheurs Sonnet 5 max) ; `advisorModel = claude-fable-5-1` dans settings.json ; MCP locaux user-scope : memstack (127.0.0.1:8848), arxiv, openalex, semantic-scholar, claude-mem ; variable d'environnement utilisateur `POLYGON_API_KEY` (testée) ; dépôts `F:\Monark`, `F:\Monark-wt-p1b1` (worktree), `F:\Shogen`, campagne `F:\shogen-campagne` ; sauvegardes `Downloads\MONARK SUITE\backup-2026-09-18\` ; étude `Downloads\PRODUITS\etude-2026-09-19\`.
+CLAUDE.md global et projet ; agents `~/.claude/agents/*.md` (advisor/advisor-marche/advisor-defi/lecture-advisor = medium, validateur high, workers Opus 4.8 max, lecteurs/chercheurs Sonnet 5 max) ; `advisorModel = claude-fable-5-1` dans settings.json ; MCP locaux user-scope : memstack (127.0.0.1:8848), arxiv, openalex, semantic-scholar, claude-mem ; variable d'environnement utilisateur `POLYGON_API_KEY` (testée) ; dépôts `F:\Monark`, `F:\Monark-wt-p1b1` (worktree), `F:\Shogen`, campagne `F:\shogen-campagne` ; sauvegardes `F:\MONARK SUITE\backup-2026-09-18\` ; étude `F:\PRODUITS\etude-2026-09-19\`.
 
 ## 2. À refaire sur le nouveau compte
 - Connecteurs claude.ai : Firecrawl (`mcp-search`, UUID `6144e146-7ed5-4073-b7f2-864b9335f725` — si l'UUID change, mettre à jour les 20 agents + CLAUDE.md global), Blockscout, Claude Docs, Higgsfield (outils billing jamais appelés), Origin/Vercel/CoinDesk (non nécessaires).
@@ -22,8 +22,8 @@ CLAUDE.md global et projet ; agents `~/.claude/agents/*.md` (advisor/advisor-mar
 ## 4. Documents de vérité (dans l'ordre)
 0. `F:\Monark\docs\INVENTAIRE-OUTILS-TIERS.md` — API, MCP, connecteurs, plugins, skills, clés (noms) : check-list de récupération §7.
 1. `F:\Monark\docs\CHANTIERS.md` — tableau de bord des chantiers (P1/W-1, Ukemi ADR-M020, témoin TSV, opérations, items formés, règles apprises).
-2. `Downloads\MONARK SUITE\backup-2026-09-18\REPRISE.md` — journal de reprise horodaté.
-3. `Downloads\PRODUITS\etude-2026-09-19\DECISIONS-investisseur-2026-09-19.md` — décisions verbatim.
+2. `F:\MONARK SUITE\backup-2026-09-18\REPRISE.md` — journal de reprise horodaté.
+3. `F:\PRODUITS\etude-2026-09-19\DECISIONS-investisseur-2026-09-19.md` — décisions verbatim.
 4. `F:\Monark\docs\JOURNAL-PROVENANCE.md` — journal G1..G7.
 5. `F:\Monark\docs\biblio\ukemi-modeL\` — biblio, avis, mesures Ukemi.
 
@@ -33,7 +33,7 @@ Les deux agents en vol ont terminé et leurs résultats sont pliés et committé
 ### 5.1 Dépôt
 - `lot/etude-suite` HEAD = voir `git log -1` (dernier commit de ce fichier), poussée sur `KraidleAI/monark-governance` ; `main` privé `144ce68` ; miroir public `KraidleAI/Monark` `5bde13a` (site sur VPS, pas Vercel ; restyle B validé « tout est bon »).
 - Oracle sur `lot/etude-suite` : 292/292 (après fusions R-25 `f4428b4` et E-bon-marché `4ffe553`).
-- Sauvegardes : `Downloads\MONARK SUITE\backup-2026-09-18\` (docs, décisions, CLAUDE-global.md, agents/) ; inventaire outils : `docs/INVENTAIRE-OUTILS-TIERS.md`.
+- Sauvegardes : `F:\MONARK SUITE\backup-2026-09-18\` (docs, décisions, CLAUDE-global.md, agents/) ; inventaire outils : `docs/INVENTAIRE-OUTILS-TIERS.md`.
 
 ### 5.2 Lots — état exact
 | Lot | Branche / worktree | Gel | État | Prochaine action |
@@ -67,4 +67,4 @@ Jamais « partner », « autonomous », « guarantee » nu, probabilité d'avoir
 - Check-list INVENTAIRE §7 rejouée : MCP user-scope 6/6 Connected (memstack répond) ; Claude Docs / Blockscout / Firecrawl Connected ; plugins 6/6 ; `POLYGON_API_KEY` 32 car. (scope User), `HELIUS_API_KEY` absente ; agents épinglés conformes ; `advisorModel = claude-fable-5-1` ; dépôt conforme à §5.2.
 - **Écart mesuré** : Firecrawl n'exposait AUCUN outil dans cette session (ni `mcp__8aa0cccf…` ni autre nom) — session ouverte avant le changement de répertoire. Décision investisseur : **redémarrage** dans `F:\Monark`. Mémoire memstack uid `ab9314ff`.
 - **À faire au redémarrage, avant §5.4-A** : `ToolSearch "+8aa0cccf"` — si vide, chercher `firecrawl` ; si l'UUID a changé, mettre à jour les 9 agents `~/.claude/agents/*.md` (`tools:`) + CLAUDE.md global §memstack/firecrawl, puis lancer A.
-- **FAIT (même session, après reconnexion du connecteur par l'investisseur)** : UUID Firecrawl changé `8aa0cccf-…` → `6144e146-7ed5-4073-b7f2-864b9335f725` ; 22 agents (9 globaux, Shōgen 2, Kraidle 5, Vernier 5, PermAegis 1) + CLAUDE.md global + INVENTAIRE réécrits ; sauvegarde `Downloads\MONARK SUITEackup-2026-09-18\pre-firecrawl-uuid-2026-09-19\`. Effet au redémarrage de session (le validateur A en vol porte l'ancien UUID, non bloquant).
+- **FAIT (même session, après reconnexion du connecteur par l'investisseur)** : UUID Firecrawl changé `8aa0cccf-…` → `6144e146-7ed5-4073-b7f2-864b9335f725` ; 22 agents (9 globaux, Shōgen 2, Kraidle 5, Vernier 5, PermAegis 1) + CLAUDE.md global + INVENTAIRE réécrits ; sauvegarde `F:\MONARK SUITEackup-2026-09-18\pre-firecrawl-uuid-2026-09-19\`. Effet au redémarrage de session (le validateur A en vol porte l'ancien UUID, non bloquant).
