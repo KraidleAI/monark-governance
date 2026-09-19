@@ -26,14 +26,14 @@ Dernière mise à jour : 2026-09-19 04:40 UTC (horloge système). Règle : rien 
 | ADR-M020 (plan : objet, classe, lots, oracles, procurement) | À RÉDIGER après 2e avis DeFi + note treillis | → checkpoint-1 validateur → présentation investisseur point par point | avis DeFi bis, note treillis |
 | Commit de `docs/biblio/ukemi-modeL/` sur `lot/etude-suite` | FAIT (archive + avis + sha ; pdf/_txt gitignorés, sha tracés) ; MESURES à committer à réception | — | mesures |
 
-## C. Actions tokenisées — témoin public des TSV (décisions 1-3 du 2026-09-19)
+## C. MONARK Bell — témoin public attesté des TSV, actions tokenisées (nom investisseur 2026-09-19 ; décisions 1-3)
 | Élément | État | Prochaine action | Bloqué par |
 |---|---|---|---|
 | Étude + PROPOSITIONS + procurement §8 | LIVRÉ (`Downloads\PRODUITS\etude-2026-09-19\`) | — | — |
 | Sources T-1 gratuites (LULD, CTA/UTP, halts NYSE 2019-2026) | RÉCUPÉRÉES, sha consignés (`sources-T1/`) | — | — |
 | Abonnement Massive/Polygon Stocks Starter | ACTIF (29 $/m) ; clé en env utilisateur `POLYGON_API_KEY` (32 car., jamais affichée), testée 2026-09-19 (TSLA prev close 364,27 $, Bearer) ; licence « Individual Use » à revoir avant publication dérivée | — | — |
 | Procurement §8 items 1, 5, 6, 8-15 | investisseur « je vais les chercher » | intégrer à réception (pdftotext, sha, lecteur) | investisseur |
-| Lots T-1 (témoin faits) → T-2 (parité droits) → T-3 (classe écart) | PLANIFIÉS après P1/W-1 et après ADR-M020 (ordre investisseur) | ADR T-1 + checkpoint-1 | W-1, ordre |
+| Lots T-1 (témoin faits, inscription « Bell » upcoming) → T-2 (parité droits) → T-3 (classe écart) | PLANIFIÉS après P1/W-1 et après ADR-M020 (ordre investisseur) | ADR T-1 + checkpoint-1 | W-1, ordre |
 | Lettre de commentaire SEC File 4-927 | VALIDÉE, après T-1, go avant dépôt | — | T-1 |
 | Hackathon Stocklana (dépôt 2026-09-25) | OPTION ultérieure, plan inchangé | décision investisseur le moment venu | — |
 
