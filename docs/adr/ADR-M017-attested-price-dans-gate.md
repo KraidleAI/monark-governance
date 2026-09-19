@@ -1,7 +1,8 @@
 # ADR-M017 — P1 : prise `AttestedPrice` optionnelle dans `GateEnvelope` ; `crossAgentGate` devient le chemin servi
 
-- **Statut** : proposé (G0 du tuyau P1, ADR-M015 D2) 2026-09-18 · checkpoint-1 rendu sur `a40c169` : ACCEPTE-AVEC-CORRECTIONS C-1..C-11, toutes
-  pliées ci-dessous (voir `docs/CHECKPOINT1-M017.md`) · re-checkpoint K-C dû sur le commit amendé avant tout code
+- **Statut** : accepté (checkpoint-1 confirmé `fe83ea2` ; b1 clos `44a121c`, checkpoint-2 K2-1..K2-5, `docs/CHECKPOINT2-M017-b1.md`) · checkpoint-1
+  rendu sur `a40c169` : ACCEPTE-AVEC-CORRECTIONS C-1..C-11, toutes pliées ci-dessous (voir `docs/CHECKPOINT1-M017.md`) · b2 plie K2-1..K2-4 (filage
+  `residual`, M012 (i), tests (3)(5), F1)
 - **Rattachement** : ADR-M015 D2 (P1), ADR-M005 D1 (4 outils, K-8), D5/D8 (enveloppe hors contrat gelé, `params` non gelé), ADR-M003 D4
   (`crossAgentGate` « réel » → « servi »), ADR-M001 D8 ; amende ADR-M005 D5/D8 et ADR-M003 D4. Décision investisseur 2026-09-18 : « ce qui prime
   c'est de corriger ce qui existe ; le moteur au complet, un moteur d'inférence conforme avec des outils internes faits par nos soins ».
@@ -69,7 +70,7 @@ skill/DEMO (`{prediction, params}` reste valide) = item formé.
 `required === ["prediction","params"]` ; clés d'enveloppe = `{prediction, params, attested}`. (2) `gate_attested_discordant_is_tool_error` : sujet
 discordant ⇒ erreur 400 nommée, aucun verdict. (3) **`gate_attested_concordant_files_residual`** : `btc-dir-15m` + URL Binance ⇒ pas d'erreur,
 `verdict.residual` deep-equal aux résidus attestés — tue « table vidée » et « `residual: []` réintroduit ». (4) Mutant « phrase de non-vérification
-retirée de la description » ⇒ rouge (motif `gate.test.ts:112`). (5) **Oracle « absent ⇒ byte-identique »** : `git diff a40c169 -- fixtures/h5-e2e-trace.json`
+retirée de la description » ⇒ rouge (motif `gate.test.ts:112`). (5) **Oracle « absent ⇒ byte-identique »** : `git diff a814973 -- fixtures/h5-e2e-trace.json`
 ne touche que `steps[1].result.response_sha256` (tools/list : schéma + description) ; étapes `cascade-gate`/`btc-dir-gate` byte-identiques ; suite
 `gate.test.ts` verte sans modification ; `TRACE_SHA256_PINNED` re-pinné avec `PROVENANCE-h5-e2e-trace.md` mis à jour. (6) **Test 43 étendu**
 (OpenAPI calculé à l'exécution, aucun fichier épinglé n'existe) : `attested` présent dans `properties`, absent de `required`.
@@ -86,8 +87,14 @@ de `crossAgentGate`, des types associés, de `@monark/ukemi`, test de remplaceme
 
 **D6 — Topologie et modes MAST (C-10).** Un worker `claude-opus-4-8` par lot + G2 instance fraîche + validateur (checkpoints par SHA, K-C) ; fan-out
 justifié par l'indépendance de vérification, jamais par le débit. Modes : dérive contrat ↔ enveloppe (le motif que `tool_schema_equals_frozen_schema`
-ne couvre pas pour `attested` — contré par le test (1)) ; surclaim de liaison (« verified » à la place de « declared » — contré par le mutant (4) et
-`gate:vocab`) ; artefact mouvant (deux ruptures mesurées en M015 — contré par K-C) ; raison fausse sur le fil (contré par la voie (b) : aucun verdict
+ne couvre pas pour `attested` — contré par le test (1)) ; surclaim de liaison (« verified » à la place de « declared ») — contré par le mutant (4)
+(phrase de non-vérification retirée) ET par le test `gate_description_makes_no_probative_claim` (K2-1) : le scrub PROBATIVE
+`/live|verified|probative|p_correct|confidence/i` d'`attest.test.ts:109` (byte pour byte) appliqué à `GATE_TOOL_DESCRIPTION` après masquage des deux
+négations licites nommées (« not re-verified at call time », « does not … verify ») ⇒ aucun jeton probatif ne survit ; `verify`/`verifier` (le
+vérifieur offline, nommé, jamais revendiqué à l'appel) NE matchent PAS `\bverified\b`, donc non masqués — auditable. **`gate:vocab`
+(`scripts/grep-forbidden.mjs` / `vocab-banned.json`) NE police PAS « verified »** : il police les verbes de surclaim, négation-aware (ADR-M007 B-3) ;
+l'oracle « verified » de la description EST ce test, pas `gate:vocab` (correction K2-1, checkpoint-2 b1). Artefact mouvant (deux ruptures mesurées en
+M015 — contré par K-C) ; raison fausse sur le fil (contré par la voie (b) : aucun verdict
 n'est émis sur une incohérence).
 
 ## Alternatives rejetées
@@ -108,6 +115,26 @@ n'est émis sur une incohérence).
   (porté par le test 30) est réexaminé au G2 de b3 et reformulé si nécessaire (« built and served piece by piece; composed on the gate path »).
   Aucun autre texte public ne change en P1.
 - Procurement : aucun (tout est interne). Items formés : BYO + `attested` ; liaison temporelle (`observed_at`) ; skill/DEMO ; témoin vivant.
+
+## Tuyaux (ADR-M018 D3)
+Prise **`attested`** dans le `gate` servi (branchement du triangle attest → gate, ADR-M018 D1) :
+- **Entrée (qui produit)** : l'outil **`attest`** (`apps/harness/src/tools/attest.ts`, `runAttest().price` — le témoin Binance BTCUSDT committé),
+  OU un appelant qui apporte son propre `AttestedPrice` (BYO du prix). Le contrat est le gelé `AttestedPrice` (`schemas/attested-price.schema.json`),
+  projeté à l'octet dans le schéma d'entrée du `gate` (clé d'enveloppe optionnelle `attested`, D1).
+- **Sortie (qui consomme)** : le **`gate` servi** — `apps/harness/src/tools/registry.ts` `run()` → `runGate(prediction, params, attested)`. La garde de
+  cohérence sujet ↔ classe (D2(i)(ii)) refuse (400) toute `attested` discordante ou de classe BYO ; sur le chemin concordant (b2), **`attested.residual`
+  → `verdict.residual`** (D2(iii)/D4(3)). Seul `residual` est filé ; `params` ne file rien ; la décision L3 (action/reason/allow) est inchangée (M-2).
+- **État** : **aucun état persistant**. La liaison est une **table statique committée** (`apps/harness/src/attestation-binding.ts`, `ATTESTATION_BINDING`,
+  totale sur les 3 classes servies), pure, sans I/O — le scan K-8 des outils reste significatif (module hors `src/tools/`).
+- **Test qui prouve la composition** (ADR-M018 D1(c), test d'intégration non-LLM) : `gate_attested_concordant_files_residual` (test (3), b2) pilote le
+  tuyau attest → gate **à travers le registre** (`HARNESS_TOOLS…run({prediction, params, attested})`) avec le prix réel de `runAttest()` et asserte
+  `verdict.residual == attested.residual` — c'est lui qui rejoue la couture. La trace e2e `fixtures/h5-e2e-trace.json` (probe
+  `probe_harness_records_real_decision`, MCP réel) prouve que `attest` ET `gate` sont **tous deux servis sur le fil**, mais son étape `gate` ne porte
+  **pas** `attested` (c'est précisément la preuve D4(5) « absent ⇒ byte-identique ») : elle n'exerce donc pas la couture. **Item formé** : une étape h5
+  portant `attested` (composition de la prise sur le fil MCP) — déclencheur : premier appelant réel de la prise, ou G2 de b3.
+- **Conséquence b3 (ADR-M018 D2)** : **Ukemi** (`cascade` sur graphe fixture) n'est consommé par **aucun** chemin servi après P1 ⇒ reste **« upcoming »**
+  dans le registre public jusqu'à requalification au G2 de b3 (`built` avec `wiring` fixture déclaré, ou `upcoming` — décision consignée dans l'ADR de
+  b3, jamais implicite). `crossAgentGate` (l'unique « tuyau » Shōgen → Hikae → Ukemi) n'est appelé que par son test ⇒ retiré en b3 (D2(v)).
 
 ## Sources
 `apps/harness/src/tools/registry.ts:30-38` ; `apps/harness/src/schema-projection.ts:209-214` ; `apps/harness/src/tools/gate.ts` (11 × `residual: []`,

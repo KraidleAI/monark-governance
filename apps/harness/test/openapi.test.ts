@@ -76,7 +76,10 @@ test("openapi_generated_matches_frozen_schemas", () => {
 
   // ADR-M017 D4(6): the gate request envelope carries the OPTIONAL frozen `attested` (AttestedPrice) —
   // PRESENT in `properties`, ABSENT from `required` (so a {prediction, params} call stays valid). A drift
-  // (attested dropped, or slipped into `required`, or the projection un-stripped) reddens here.
+  // (attested dropped, or slipped into `required`) reddens here. NOTE (K2-2, checkpoint-2 b1): an UN-STRIPPED
+  // projection is NOT caught here — this test checks `required` / presence / `additionalProperties`, not full
+  // property VALUE parity for `attested`; the un-stripped mutant is killed by `gate_attested_is_frozen_attested_price`
+  // (schema.test.ts, test (1)), which deep-equals the projection to the stripped frozen file byte-for-byte.
   const gateReqProps = asObj(gateReq["properties"], "gate.request.properties");
   assert.ok("attested" in gateReqProps, "gate request carries the optional `attested` (ADR-M017 D1)");
   assert.deepEqual(gateReq["required"], ["prediction", "params"], "gate request required stays {prediction, params} (attested is OPTIONAL)");

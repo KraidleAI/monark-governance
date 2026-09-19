@@ -47,15 +47,17 @@ const TRACE_PATH = fileURLToPath(new URL("../fixtures/h5-e2e-trace.json", import
 const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url));
 
 /** Pinned sha256 (LF-normalized) of the committed trace — also stated in fixtures/PROVENANCE-h5-e2e-trace.md.
- *  Re-pinned for ADR-M017 P1-b1 (attested in the gate): the gate INPUT schema gained the OPTIONAL `attested`
- *  (the frozen AttestedPrice, projected) and the description gained phrase (iv) + "no temporal binding in P1",
- *  which grow the `tools/list` bytes — the ONLY drift is `steps[1].result.response_sha256` (a 64-hex swap), so
- *  the length is unchanged (15731 bytes) and every decision byte and digest (cascade-gate/btc-dir-gate/attest)
- *  is byte-identical. (Prior re-pins: M012-f serverInfo.version -> HARNESS_VERSION 0.4.0; ADR-M012 D7
- *  `stable-run-velocity-24h` clause -> STABLE_RUN_COMMITTED_SENTENCE; ADR-M008 F2-B keyed committed/under_calib
- *  clause; ADR-M008 F1 stable-run sentence; the verdict summary in the gate `content` text; Lot C2 ADR-M007 D7
- *  grew the `tools/list` bytes.) */
-const TRACE_SHA256_PINNED = "f4014c1603015ec88457c82f6ced331d129eb22c9cd9cb809088b84b2e1f3490";
+ *  Re-pinned for ADR-M017 P1-b2 (M012 item (i)): GATE_TOOL_DESCRIPTION was DEDUPED — the committed sentence's
+ *  "every other ... abstains (under_calib)" queue is no longer rendered in the description (it now interpolates
+ *  STABLE_RUN_COMMITTED_CORE), which SHRINKS the `tools/list` description bytes over the wire. The ONLY drift is
+ *  `steps[1].result.response_sha256` (a 64-hex swap); the recorded JSON length is UNCHANGED (15731 bytes — the
+ *  tools/list body is stored only by its digest) and every decision byte and digest (cascade-gate/btc-dir-gate/
+ *  attest) is byte-identical: no `attested` is carried on those steps, so the b2 residual seam is a no-op there
+ *  (D4(5)). (Prior re-pins: P1-b1 added the OPTIONAL `attested` to the gate input schema + phrase (iv) + "no
+ *  temporal binding in P1"; M012-f serverInfo.version -> HARNESS_VERSION 0.4.0; ADR-M012 D7 `stable-run-velocity-24h`
+ *  clause; ADR-M008 F2-B keyed committed/under_calib clause; ADR-M008 F1 stable-run sentence; the verdict summary
+ *  in the gate `content` text; Lot C2 ADR-M007 D7 grew the `tools/list` bytes.) */
+const TRACE_SHA256_PINNED = "9cf2f8b23b2c17a7358ca3be27b08fd54378978ec74ae1fd1147573f9179e5dd";
 
 const DEMONSTRATIVE_LABEL = "real, notary Shōgen, demonstrative, not probative";
 
