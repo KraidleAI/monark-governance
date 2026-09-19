@@ -68,3 +68,15 @@ test("assertClosedAttestedBook is recursive — unknown key in a nested object /
   const badSource = { ...ok, oracle_sources: [{ asset: "0x" + "3".repeat(40), source: "0x" + "4".repeat(40), description: "x", mid: "1" }] };
   assert.throws(() => assertClosedAttestedBook(badSource), /unknown key 'mid' in AttestedBook\.oracle_sources\[0\]/);
 });
+
+// O-3 (ADR-U1b D6, lot U-1b-b): extend the recursive `sneak` probe to the sub-objects the base suite did not
+// exercise — eligible, providers[0], quorum, attestor, observed_at (before this, 4/8 were covered). A mutant
+// that cuts the closed-check recursion one level (drops these assertOnlyKeys calls) reddens this test.
+test("assertClosedAttestedBook recursion covers eligible/providers/quorum/attestor/observed_at (O-3)", () => {
+  const ok = validAttestedBook();
+  assert.throws(() => assertClosedAttestedBook({ ...ok, eligible: { ...ok.eligible, price: 1 } }), /unknown key 'price' in AttestedBook\.eligible/);
+  assert.throws(() => assertClosedAttestedBook({ ...ok, providers: [{ name: "drpc", method: "eth_call", ok: true, mid: "1" }] }), /unknown key 'mid' in AttestedBook\.providers\[0\]/);
+  assert.throws(() => assertClosedAttestedBook({ ...ok, quorum: { ...ok.quorum, price: 1 } }), /unknown key 'price' in AttestedBook\.quorum/);
+  assert.throws(() => assertClosedAttestedBook({ ...ok, attestor: { ...ok.attestor, mid: "1" } }), /unknown key 'mid' in AttestedBook\.attestor/);
+  assert.throws(() => assertClosedAttestedBook({ ...ok, observed_at: { ...ok.observed_at, price: 1 } }), /unknown key 'price' in AttestedBook\.observed_at/);
+});

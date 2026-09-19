@@ -72,7 +72,7 @@
 
 | Tuyau | Entrée | Sortie | État | Test |
 |---|---|---|---|---|
-| recorder → `AttestedBook` | recorder U-1a (book+digests, quorum-2) | `AttestedBook` sérialisé, fermé | (fichiers `/ukemi/`, servis en **U-6**) | `_roundtrip` + `_canonical_deterministic` + closed |
+| recorder → `AttestedBook` | recorder U-1a (`recordBook`, book+digests, quorum-2) | `AttestedBook` sérialisé, fermé | **producteur `toAttestedBook` + consommateur `fromAttestedBook` livrés U-1b-b** ; fichiers `/ukemi/` servis en **U-6** ⇒ reste **upcoming** jusque-là | `attested_book_roundtrip` + `_canonical_deterministic` + `_composition` (`recordBook`→`toAttestedBook`→`serialize`→`fromAttestedBook`, digest = PIN) livrés U-1b-b |
 | `AttestedBook` → fichiers `/ukemi/` | recorder | `/ukemi/state.json` + `/ukemi/book/<cluster>/<B>.json` | fichiers (Caddy en U-6, motif M012 D4/D5) | (U-6) test servi bout-en-bout |
 | `AttestedBook.residual` → `verdict.residual` (C-10) | `fromAttestedBook` | `CoverageVerdict.residual` du gate (b) | — | **U-4** : filage résidu + anti-vacuité |
 

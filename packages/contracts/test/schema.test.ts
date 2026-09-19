@@ -211,3 +211,33 @@ test("attested_book_description_may_be_empty", () => {
   assert.equal(vab(withDesc("x")), true, "normal description accepted");
   assert.equal(vab(withDesc("\u00e9")), false, "non-ASCII description refused (still ^[ -~]*$)");
 });
+
+// O-2 (ADR-U1b D2bis V-4, lot U-1b-b): SEMANTIC ajv probes on the FROZEN schema — the value constraints the
+// closed-check cannot express. Each asserts valid===false AND the EXPECTED error path/keyword, so removing that
+// one schema keyword (a mutant) reddens exactly this probe.
+test("attested_book_schema_subject_must_match_pattern (S1)", () => {
+  const vab = validator(ID.ab);
+  assert.equal(vab({ ...validAttestedBook(), subject: "https://monarkgate.tech" }), false, "a subject with no path segment (empty group) is refused");
+  assert.ok(vab.errors?.some((e) => e.instancePath === "/subject" && e.keyword === "pattern"), `refusal must be a subject pattern error: ${JSON.stringify(vab.errors)}`);
+});
+
+test("attested_book_schema_oracle_sources_unique (S2)", () => {
+  const vab = validator(ID.ab);
+  const s = { asset: "0x" + "1".repeat(40), source: "0x" + "2".repeat(40), description: "x" };
+  assert.equal(vab({ ...validAttestedBook(), oracle_sources: [s, { ...s }] }), false, "a duplicate oracle_source is refused");
+  assert.ok(vab.errors?.some((e) => e.keyword === "uniqueItems" && e.instancePath === "/oracle_sources"), `refusal must be a uniqueItems error: ${JSON.stringify(vab.errors)}`);
+});
+
+test("attested_book_schema_providers_min_items (S3)", () => {
+  const vab = validator(ID.ab);
+  assert.equal(vab({ ...validAttestedBook(), providers: [] }), false, "an empty providers array is refused (minItems:1)");
+  assert.ok(vab.errors?.some((e) => e.keyword === "minItems" && e.instancePath === "/providers"), `refusal must be a minItems error: ${JSON.stringify(vab.errors)}`);
+});
+
+test("attested_book_schema_required_key_missing (S6)", () => {
+  const vab = validator(ID.ab);
+  const b = { ...validAttestedBook() } as Record<string, unknown>;
+  delete b["book_digest"];
+  assert.equal(vab(b), false, "a missing required key is refused");
+  assert.ok(vab.errors?.some((e) => e.keyword === "required" && (e.message ?? "").includes("book_digest")), `refusal must name the missing required key: ${JSON.stringify(vab.errors)}`);
+});
