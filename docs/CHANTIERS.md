@@ -39,6 +39,8 @@ Dernière mise à jour : 2026-09-19 08:20 UTC (horloge système)
 | Lots T-1 (témoin faits, inscription « Bell » upcoming) → T-2 (parité droits) → T-3 (classe écart) | PLANIFIÉS après P1/W-1 et après ADR-M020 (ordre investisseur) | ADR T-1 + checkpoint-1 | W-1, ordre |
 | ADR-B0 (programme Bell) | RÉDIGÉ `9ab3771` (128 l. ; fait : n = 0 halts sur 15 grandes caps depuis 2025-06-30, CSV sans MWCB) ; 3 adjudications ; **checkpoint-1 EN COURS** | T-1a après approbation + VPS | validateur ; investisseur (registre produit vs capteur) |
 | GTM-BELL (`docs/GTM-BELL.md`) | EN COURS — chercheur (gaps, acheteurs nommés, positionnement, offre/pricing sourcé, séquence, signaux, risques) | revue advisor-marché → investisseur | — |
+| **RAPPEL investisseur : clé API Helius** (abonnement en cours) → `setx HELIUS_API_KEY` dans le terminal, jamais dans le chat ; à réclamer avant T-1a | ATTENDU | test d'appel à réception | investisseur |
+| Registre Bell | TRANCHÉ (décision 11) : capteur `FLEET_AGENTS` upcoming en T-1/T-2 → produit `PRODUCTS` à la Définition de fini (amendement M004 D14) | — | — |
 | VPS dédié Bell | À PROVISIONNER par l'investisseur (spec dans ADR-B0 ; ordre de grandeur 2 vCPU / 4 Go / 80 Go, Ubuntu 24.04, ~8-10 €/mois) | clé SSH, DNS `bell.monarkgate.tech` | ADR-B0 |
 | Lettre de commentaire SEC File 4-927 | VALIDÉE, après T-1, go avant dépôt | — | T-1 |
 | Hackathon Stocklana (dépôt 2026-09-25) | OPTION ultérieure, plan inchangé | décision investisseur le moment venu | — |
