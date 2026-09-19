@@ -1,5 +1,5 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 ~07:45 UTC. Règle : rien ne sort de ce tableau sans être « clos » ou « transféré ».
+Dernière mise à jour : 2026-09-19 ~08:05 UTC. Règle : rien ne sort de ce tableau sans être « clos » ou « transféré ».
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019)
 | Lot | État | Prochaine action | Bloqué par |
@@ -14,10 +14,10 @@ Dernière mise à jour : 2026-09-19 ~07:45 UTC. Règle : rien ne sort de ce tabl
 |---|---|---|---|
 | Avis advisor-DeFi (objet B cascade cluster, plan U-0..U-7) | REÇU, persisté `docs/biblio/ukemi-modeL/` | — | — |
 | Avis advisor-marché (payeur = DAO/SP ; classe shortfall vs dette liquidée) | REÇU, persisté | — | — |
-| Campagne biblio (15 + 12 papiers, chiffres à fonder/casser, OA téléchargé) | EN COURS — chercheur Sonnet 5 | liste de procurement → investisseur | — |
+| Campagne biblio (25 sources, 12 PDF, 36 sha) | REÇUE — `R-biblio-ukemi-modeL.md` (983 l.) ; cassé : « 47 M$ bad debt à 10 % » (absent de Gatto), « 65 %/15 % FC26 » (identité introuvable), « 15,7 Md$ » (sans primaire) ; procurements §7 : Amini–Filipović–Minca 2016 (ORL, DOI 10.1016/j.orl.2015.10.005), Chow 1970 (IEEE TIT, « reject tradeoff »), post-mortem CAPO primaire, Messari (429) | procurements → investisseur dans ADR-M020 | — |
 | Mesures préalables M-1 (coût `eth_call` archive), M-2 (Λ ≠ 0) | EN COURS — worker Opus 4.8 | résultat conditionne U-0 | — |
 | ADR-M020 (plan : objet, classe, lots U-0..U-7, oracles, procurement) | À RÉDIGER par l'orchestrateur | → checkpoint-1 validateur → présentation investisseur point par point | biblio + mesures |
-| Commit de `docs/biblio/ukemi-modeL/` sur `lot/etude-suite` | À FAIRE | après retour chercheur | chercheur |
+| Commit de `docs/biblio/ukemi-modeL/` sur `lot/etude-suite` | FAIT (archive + avis + sha ; pdf/_txt gitignorés, sha tracés) ; MESURES à committer à réception | — | mesures |
 
 ## C. Actions tokenisées — témoin public des TSV (décisions 1-3 du 2026-09-19)
 | Élément | État | Prochaine action | Bloqué par |

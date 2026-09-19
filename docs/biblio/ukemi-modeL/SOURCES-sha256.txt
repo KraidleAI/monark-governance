@@ -1,0 +1,36 @@
+=== sha256 pdf ===
+7191091eff6a6618ae7767ca7988f2b5da3f61d1a5a73ae0f5c32d9cf8ca122c *pdf/cifuentes-ferrucci-shin-2005.pdf
+4b703c068660f485078d3cd087cdb9d653a1fbc96be00a522877d461a838f61b *pdf/eisenberg-noe-2001.pdf
+15f35bf6d3ff2abfc21eaff1f1a7df2a51a5c891f2bed752f6fd75d3e47a5ff7 *pdf/gibbs-candes-2021.pdf
+f837c0d7564e2d72093f050517ea205748eed4ffa640ecef8187259ec6e59d3e *pdf/qin-et-al-2021.pdf
+e7f70dda93f041daa6f5c78351037b68267353f0f6f45a26aa4b2fa5f7e2169b *pdf/rogers-veraart-2013.pdf
+=== sha256 txt ===
+21e61b251ca6c2c0cef8de28a5a6bc99b7e741ae2304ade3d7485f2a8d8235a1 *_txt/cifuentes-ferrucci-shin-2005.txt
+ca106618073d062cafd6c76bb80b7b801ebb96c8224c49ce1dc3ffe77ecb2fef *_txt/eisenberg-noe-2001.txt
+1f89caf1fad8d9b1e5d35ef8116797e5959a03648c8bf82efd3c6a05e41b88ec *_txt/gibbs-candes-2021.txt
+f50838dc8f8f700a0f0347486b85e807c30927cc160da57419090cc9d04a6906 *_txt/klages-mundt-minca-instability-2019-2021.txt
+872f716f3bdd60b8b05c7e2c6b9b7087929cbd6cae1f976a1eda47d3b6d00a10 *_txt/klages-mundt-minca-while-stability-lasts.txt
+ed2df8c7b58051eb42d8eaa557642a2dbe66946d4dc8050e5a3f271da7e5615b *_txt/perez-werner-xu-livshits-knife-edge.txt
+40bfa3c21b06f41f2aea32e118b0665dbcbbc9a2dd751244630b5faf4185e2bd *_txt/qin-et-al-2021.txt
+4305da64dd568023482683aedea01d3b595fd80a6f2cf277f23f929160986dbb *_txt/rogers-veraart-2013.txt
+e9a4daac8e41b0897d8b0d5658f394e650dc1f7d9bc124b256c88bba5e484212 *pdf/garcia-seuma-2026.pdf
+27ba23840d6f0e6b2a992155de4207e01e893def56ada6a98b01aa7e4f126a03 *pdf/boc-sap2026-13.pdf
+bc2a8d7cc02f26b5be52fdebeef12cd7f37cabf66c258e0ececf1de65438bd43 *_txt/garcia-seuma-2026.txt
+72919360b3bda97e5f18785a5fe6ad41d9025b40491bb8fdf91dc8b31c9fd38c *_txt/boc-sap2026-13.txt
+eb63c58ca86a2b1f09074b9b4a7ae00e7715b9012c8b67e70d710ec4755702af *pdf/warmuz-chaudhary-pinna-2022.pdf
+d77807f833b753a80d1baf4fa4829e165113969187d4ac1439217fcd9c5412a8 *pdf/lehar-parlour-bis-wp1062.pdf
+d7e1eecf803172a568525f5573fb04a0d3e1155dc1727409a4a1bded975379dd *_txt/warmuz-chaudhary-pinna-2022.txt
+\375e44a302678a7e40825ff463bb0cfc9a7ac25cb3d96b84f0467d1345f2bcaa *F:\\Monark\\docs\\biblio\\ukemi-modeL\\pdf\\lehar-parlour-bis-wp1062.pdf
+\d1053b99e66f739391519a0f5ac5ae57ac8299eedf6cd1f70ff19d9cc3808b99 *F:\\Monark\\docs\\biblio\\ukemi-modeL\\_txt\\lehar-parlour-bis-wp1062.txt
+\eb63c58ca86a2b1f09074b9b4a7ae00e7715b9012c8b67e70d710ec4755702af *F:\\Monark\\docs\\biblio\\ukemi-modeL\\pdf\\warmuz-chaudhary-pinna-2022.pdf
+\78fb50ee898ed05cded4008f9b85931287e42d147d8d10404de32b0e430f4211 *F:\\Monark\\docs\\biblio\\ukemi-modeL/_txt/gatto-2026-daru-finance.html
+\9ad0ac1dac08d02f8363d82de478884cff8927f191dbaaeaf5e6cf5521626dcb *F:\\Monark\\docs\\biblio\\ukemi-modeL/_txt/gatto-2026-daru-finance.txt
+\f79b782a13ed37dcf7f197710ff6b394aababb21364b93df56d5551bdfcd5148 *F:\\Monark\\docs\\biblio\\ukemi-modeL/_txt/aave-blog-historical-liquidations.html
+7f708695f4d8df80a97f55c4833e3b770376e91b203b5028d79f22929030c569 *pdf/cont-schaanning-2017.pdf
+a9603b47f558e3a4054699ebe8b23ba2f46657ad41e5eaf8f2bfe25c8281826c *_txt/cont-schaanning-2017.txt
+89f7e6deab753c5ea961d8046745a117b535499333fcd0c9014a4be4120c0f18 *pdf/battiston-debtrank-2012.pdf
+46cd195b0a5fa22939e0e2de11a529e16d3831d71a284d76d54de551ae2667a0 *pdf/glasserman-young-2015.pdf
+53b1d5fbdaa95cfe4f070772889396abcd513633c822e9f6363e287d0f2ccc41 *pdf/kao-chitra-chiang-morrow-2020.pdf
+0dbdd3f391c775d5f2c0b8058927d70b1908e75f409fb67483a3815cca256f28 *_txt/battiston-debtrank-2012.txt
+e337e6a4963155259d570fe4cfb8d3ebc56ca7d5ba2f98a773d8905f74af9a1b *_txt/glasserman-young-2015.txt
+13eb287ecbd631c5ba67c0135ad10a113776800c97bbed0ea684128fdf3d4b16 *_txt/kao-chitra-chiang-morrow-2020.txt
