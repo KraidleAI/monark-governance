@@ -131,6 +131,7 @@ test("attested_book_composition", async () => {
   const result = await recordBook(CLUSTER_WETH, FX.block, recorderReader());
   assert.equal(result.book_digest, PIN.book_digest, "control: the recorder reproduces the PIN");
   const book = toAttestedBook(result, bookCtx());
+  assert.equal(serializeAttestedBook(book), FIXTURE.trim(), "C-V1: the producer output IS the fixture byte-exact (locks every copied field)");
   const out = expectBook(fromAttestedBook(serializeAttestedBook(book)));
   assert.equal(out.book.book_digest, PIN.book_digest, "recordBook → toAttestedBook → serialize → fromAttestedBook carries the PIN");
   assert.equal(out.book.holders_digest, PIN.holders_digest);
