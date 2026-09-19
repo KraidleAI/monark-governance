@@ -199,3 +199,18 @@ Aucune dette nue, aucun chiffre de seconde main, aucun `[2nd]`, aucune procureme
 
 ## 11. Provenance
 Revue G2 fraîche générée le **2026-09-19** par relecteur `claude-opus-4-8[1m]` effort `max`, **instance séparée / contexte frais** (n'a pas écrit le code), worktree de lecture `F:\tmp\g2-eregistre` (archive `7d6d117`, `npm ci` exit 0), dépôt `F:\Monark`. Advisor intégré consulté avant rédaction (cause du Δ2 oracle, item `error_origin` déféré, trace « MCP gate », tsconfig, restauration sha) — avis suivi. **R-20 : aucun commit, aucun workflow.** Livrable écrit non committé (l'orchestrateur committe, R-20). Lecture préalable par SHA : ADR-EC (D1/Tuyaux/MAST/C-11/P2), CHECKPOINT1-ADR-EC (C-3/C-5/P2), G1-lot-e-registre, ADR-M018 (via ADR-EC), ADR-W1 (via ADR-EC/G1), ADR-M013 (T2), ADR-M003 (D9 sexies/septies), CARTOGRAPHIE-P1-2026-09-19 §1-§4.
+
+---
+
+## Delta `7d6d117 → bd3fa0a` (pliage post-G2) — **CONFORME**
+
+Enfant direct de `7d6d117` (1 commit), **exactement 4 fichiers** (`ci.yml`, `test/ci-gates.test.ts`, `docs/adr/ADR-M003-…md`, `docs/G1-lot-e-registre.md`) ; aucun autre (`git diff --name-status 7d6d117 bd3fa0a`). Re-mesuré sur `git archive bd3fa0a` (node_modules inchangés, `package.json`/lockfile non touchés).
+
+- **C-1 (a) `ci.yml:46-51`** : commentaire réécrit « ADR-M003 D9 + D9 quater + D9 sexies **+ D9 septies** … ALL governance docs under `docs/**/*.md` … **`docs/**/*.mjs` STAYS counted** … `:(glob)docs/**/*.md` => 230 … asserted by test 38 (4ter) and whitelisted from that series set-equality ». Claims **vrais** : `docs/**/*.mjs`=**13 comptés** @bd3fa0a (mesuré), bare 73 / glob 230 (rejoués §2). ✔
+- **C-1 (b) `ci-gates.test.ts:~1074`** (doc `series_pinned`) : ajoute « SET EQUALITY … **EXCEPT** the D9 septies docs pathspec … whitelisted via `NON_SERIES_GLOB`, asserted instead by test 38 (4ter) ; **M11 stays red for any OTHER unexpected `:(glob)`** ». Corrige l'obsolescence signalée. ✔
+- **C-2 `ADR-M003` addendum D9 septies** : oracle repin — « le « avant » DÉPEND du SHA … à `3f69ef6` … = **21 075**, … à `a3f85f4` … = **21 077**, nouvelle = **9 129** … après = 9 129 identique aux deux SHA ». **Re-mesuré moi-même** : `main...3f69ef6` OLD=20 676+399=**21 075** ; `main...a3f85f4` OLD=20 678+399=**21 077** ; après (+docs) = 8 737+392=**9 129** aux deux. ✔ (SHA `a3f85f4` = commit « décision 25 R-25 D9 septies ».)
+- **O-1 garde d'unicité intra-liste `ci-gates.test.ts:680-687`** : `assert.equal(new Set(list.map(trim)).size, list.length, …unique within the agent…)` + commentaire « a DUPLICATED id … ⇒ reds … inter-agent sharing stays licit ». **Mutant rejoué** : Shōgen `[id,id]` ⇒ ✖ `fleet_register_built_set_is_frozen` « integration_test ids must be unique within the agent (… G2 O-1) » (auparavant SURVIVANT). Restauration `fleet.ts` sha=`388b64e8…` (= gel). **Partage inter-agents toujours licite** : `probe_harness_records_real_decision` reste dans Hikae **et** Ukemi ⇒ **CI 328/328 verte** sur le registre réel (la garde est par-agent, pas globale). ✔
+- **Gates @bd3fa0a** : `npm run ci` **328 pass / 0 fail** exit 0 ; gate:vocab 156 fichiers. **R-25 lot `ac04d41...bd3fa0a`** (nouvel ensemble) = **7 fichiers, 247+/50− = 297** (< 1205 ; docs `ADR-M003`+`G1` exclus). ✔
+- **Aucun autre changement** : les 4 fichiers seulement ; `page.tsx`/`board.tsx`/`fleet.ts`/`site-honesty.test.ts`/`honesty-lint.exempt.json` inchangés depuis `7d6d117`.
+
+**Statut G2 après pliage : C-1 et C-2 pliées et vérifiées ; O-1 pliée (mutant rouge). Restent O-2, O-3, O-4 (items formés à déclencheur, non requis pour cette clôture).** Delta relu par relecteur `claude-opus-4-8[1m]` effort `max`, contexte frais, aucun commit (R-20).
