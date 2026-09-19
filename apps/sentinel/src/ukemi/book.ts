@@ -62,10 +62,16 @@ export interface RecordResult {
 interface CachedReserve { rd: ReserveData; source: string; description: string; price: bigint; }
 interface AtRisk { address: string; config: bigint; emode: bigint; balances: Array<{ token: string; amount: bigint }>; uad: UserAccountData; eligible: boolean; }
 
+/** Options for a bounded record (hardening 2026-09-19). `fromBlock` raises the enumeration FLOOR: Transfer logs
+ *  are read from max(reserveInitBlock, fromBlock) instead of the full history — the committed successor to the
+ *  G1 §5b wrapper's forced from-block, so a keyless live run can bound its window. Omitted ⇒ full history from
+ *  reserveInitBlock (the fixture-replay path; the pinned digest 034fbff9… is unchanged). */
+export interface RecordOpts { fromBlock?: number | undefined; }
+
 /** Record the liquidation book of `cluster` at archive `block` through `reader` (quorum-2). Pure over the reader:
  *  the same recorded responses always yield the same `book_digest`. `prevLineHash` chains the timeline (GENESIS
- *  for the first line). */
-export async function recordBook(cluster: Cluster, block: number, reader: UkemiReader, prevLineHash = "GENESIS"): Promise<RecordResult> {
+ *  for the first line). `opts.fromBlock` bounds the enumeration window (a real subset run, a different digest). */
+export async function recordBook(cluster: Cluster, block: number, reader: UkemiReader, prevLineHash = "GENESIS", opts: RecordOpts = {}): Promise<RecordResult> {
   // Oracle resolved live (never hard-coded), cross-checked against the pinned AaveOracle.
   const oracle = decAddress(wordAt(await reader.ethCall(POOL_ADDRESSES_PROVIDER, SEL.getPriceOracle, block), 0));
   if (oracle.toLowerCase() !== ORACLE.toLowerCase()) throw new AbiMismatchError(`oracle drift @${block}: ${oracle} != ${ORACLE.toLowerCase()}`);
@@ -105,9 +111,11 @@ export async function recordBook(cluster: Cluster, block: number, reader: UkemiR
     clusterIdx.push(i);
     const { rd } = await getReserve(i);
     if (rd.aToken.toLowerCase() !== c.aToken.toLowerCase()) throw new AbiMismatchError(`aToken drift @${block}: ${rd.aToken} != pinned ${c.aToken.toLowerCase()}`);
-    const logs = await reader.getLogsRange(c.aToken, [TRANSFER_TOPIC0], c.reserveInitBlock, block);
+    // Enumeration floor: full history from reserveInitBlock unless a bounded window is requested (never below it).
+    const fromBlock = opts.fromBlock !== undefined ? Math.max(c.reserveInitBlock, opts.fromBlock) : c.reserveInitBlock;
+    const logs = await reader.getLogsRange(c.aToken, [TRANSFER_TOPIC0], fromBlock, block);
     for (const r of transferRecipients(logs)) holderSet.add(r);
-    minFrom = Math.min(minFrom, c.reserveInitBlock);
+    minFrom = Math.min(minFrom, fromBlock);
     legs.push({ atoken: c.aToken.toLowerCase(), asset: c.asset.toLowerCase(), reserve_init_block: String(c.reserveInitBlock) });
   }
   holderSet.delete(ZERO_ADDR);
