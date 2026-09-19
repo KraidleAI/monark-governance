@@ -27,8 +27,8 @@ CLAUDE.md global et projet ; agents `~/.claude/agents/*.md` (advisor/advisor-mar
 5. `F:\Monark\docs\biblio\ukemi-modeL\` — biblio, avis, mesures Ukemi.
 
 ## 5. État au dernier point (2026-09-19 ~03:30 UTC réel — horodatages antérieurs surestimés d'environ 5 h)
-- Branche de travail : `lot/etude-suite` (HEAD `4ddd17b`+, poussée, repo privé `KraidleAI/monark-governance`) ; lots P1-b1/b2/b3 clos et fusionnés ; W-1 CLOS et fusionné ; les 5 lots P1 sont clos ; cartographie M018 D4 en cours.
-- Sous-agents en cours (NE PAS basculer tant qu'ils tournent) : worker U-1a (F:/Monark-wt-p1b1, lot/u-1a) ; worker T-1a (F:/Monark-wt-bell, lot/t-1a) ; worker R-25-séries (F:/Monark-wt-r25, lot/r25-series) ; rédacteur ADR-U1b AttestedBook ; rédacteur rapport de passe P1 ; chercheur GTM-BELL (corrections).
+- Branche de travail : `lot/etude-suite` (HEAD `16ec12a`, **passe P1 CLOSE**+, poussée, repo privé `KraidleAI/monark-governance`) ; lots P1-b1/b2/b3 clos et fusionnés ; W-1 CLOS et fusionné ; les 5 lots P1 sont clos ; cartographie M018 D4 en cours.
+- Sous-agents en cours (NE PAS basculer tant qu'ils tournent) : U-1a (F:/Monark-wt-p1b1) ; T-1a (F:/Monark-wt-bell) ; R-25-séries (F:/Monark-wt-r25) ; E-bon-marché (F:/Monark-wt-ecart) ; validateur checkpoint-1 ADR-U1b AttestedBook.
 - Suite prévue : rapport de passe P1 → checkpoint-2 de clôture ; U-1a/T-1a/R-25 → G2 → checkpoint-2 → G7 → fusions ; ADR-U1b checkpoint-1 (signature investisseur) ; GTM-BELL présenté ; puis U-1b, T-1b (VPS Bell), K-1 clés.
 - Décisions investisseur du jour : témoin TSV validé ; market making écarté ; lettre SEC 4-927 après T-1 ; Ukemi built + programme paroxysme ; Stocklana = option ultérieure, plan inchangé.
 - Attentes investisseur : go annonce X « Day 1 » (non publiée) ; procurements §8 (2 reçus : Amini, Chow) ; fenêtre publique pour PR/miroir ; ratifications D-ADJ Shōgen et bFloor M002.
