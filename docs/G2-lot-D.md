@@ -10,7 +10,7 @@
 - **Spec de rattachement (G0)** : `F:\Monark\docs\adr\ADR-M002-phase1-moteurs-hikae-ukemi.md` — D0/D1 (Lot D, l.54-64),
   D11 (tests 24-28, l.271-280), CA-D1..D5 (l.319-324), CA-0 (l.325-327).
 - **Checklist appliquée** : `C:\Users\KACIMI\compiliance et ingénierie locielle et architecturale\templates\checklist-revue-G2.md`.
-- **Interdit respecté** : `C:\Users\KACIMI\Downloads\grok 1\src\**` **non ouvert** ; conformité « code le nôtre » vérifiée
+- **Interdit respecté** : `C:\Users\KACIMI\F:\PRODUITS\downloads-monark\grok 1\src\**` **non ouvert** ; conformité « code le nôtre » vérifiée
   par la forme (commentaires citant NOS ADR/contrats/types, import `@monark/contracts`, aucun code lifté visible), pas par
   comparaison au source Grok.
 

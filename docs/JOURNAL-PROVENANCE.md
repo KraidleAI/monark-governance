@@ -31,7 +31,7 @@ code généré.** Un artefact sans entrée ne s'intègre pas.
 
 ### Grok comme INPUT DE CONCEPTION (jamais lifté — licence/marque Grok)
 Le code MONARK est **le nôtre**, réimplémenté. Fonctions dont la **forme** a inspiré (ancrage
-`Downloads/grok 1/src/lib/hac-cp.ts`, **non copié**) :
+`F:/PRODUITS/downloads-monark/grok 1/src/lib/hac-cp.ts`, **non copié**) :
 - `CoverageVerdict`/`GateDecision` (formes L22/L46) → nos types, **étendus** : région polymorphe `set|interval`,
   `calib_digest`, taxonomie `reason` amont/aval, `schema_version`.
 - `FORBIDDEN_KEYS` (L77) + `hasForbiddenKey` **récursif** (L551) → notre `findForbiddenKey`/`assertNoForbiddenKey`,

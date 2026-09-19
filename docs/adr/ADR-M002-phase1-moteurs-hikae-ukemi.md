@@ -26,7 +26,7 @@ Phase 0 a gelé quatre contrats (`AttestedPrice`, `Prediction`, `CoverageVerdict
 `commit|defer|abstain` + `remaining_budget` = B_t). Phase 1 = les **moteurs** derrière ces contrats, sans les modifier.
 Décision investisseur **engine-first** : HIKAE bâtit d'abord `btc-dir-15m` (démo d'arène) ; UKEMI démarre son modèle de
 cascade en parallèle et **devient la 2e classe de tâche HIKAE** (régression → région `interval`) ; Shōgen continue S2,
-**intouché**. Le code est **le nôtre** ; l'app Grok (`Downloads/grok 1`) est **input de conception**, jamais liftée.
+**intouché**. Le code est **le nôtre** ; l'app Grok (`F:/PRODUITS/downloads-monark/grok 1`) est **input de conception**, jamais liftée.
 
 ## 2. Décisions
 

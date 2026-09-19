@@ -158,6 +158,6 @@ principe ; la ratification explicite de (0) est demandée avec les six autres d�
   advisor-defi rapide (en cours ; réserve éventuelle consignée en amendement M014).
 - **(4) M012 (g)** : validé, **dépôt public dédié** pour l'ancrage hebdomadaire de la timeline, à partir de T ≥ 30 (~2026-10-17), automatisé par la
   sentinelle — lot à planifier (action sortante sous go au moment de la création du dépôt).
-- **(7) GTM** : « corrigez » ⇒ fait le 2026-09-18 dans `Downloads\GTM monark version 1\GTM\` : `08-90-jours.md` (« design partner » → « premier
+- **(7) GTM** : « corrigez » ⇒ fait le 2026-09-18 dans `F:\PRODUITS\downloads-monark\GTM monark version 1\GTM\` : `08-90-jours.md` (« design partner » → « premier
   utilisateur de conception (aucun accord, aucune exclusivité) »), `03-beachhead.md`, `04-clawrena.md`, `09-kpis-risques.md` (« Hermes » nu →
   « Hermes runtime open source, aucun accord »). Aucun autre mot changé.
