@@ -1,5 +1,5 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 (ADR-EC checkpoint-1 plié ; E-honnêteté + E-registre lancés ; Helius posée ; L12 lue, SSRN 6711813 en lecture ; Q1-Q4 + R-25 dus)
+Dernière mise à jour : 2026-09-19 (décisions 21-25 : zéro dette (b), K-1 (a), M018 D2 ratifié, CRA, D9 septies ; U-1a-hard + lecture CRA lancés)
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019) — **CLOSE** (G7 de passe `16ec12a`, checkpoint-2 de clôture accepte-avec-corrections C-1..C-6 pliées)
 | Lot | État | Prochaine action | Bloqué par |
@@ -64,7 +64,7 @@ Dernière mise à jour : 2026-09-19 (ADR-EC checkpoint-1 plié ; E-honnêteté +
 | MCP papiers (arxiv, openalex, semantic-scholar) | installés user-scope | actifs au redémarrage |
 
 ## E. Dettes / items formés transverses (avec déclencheur)
-**RELEASE GATE (décision investisseur 19, 2026-09-19 06:54 UTC) : « au prochain release ; aucune dette. toutes seront fermées. » Tout item de cette section, plus E1/E2/E6/E7/E8/TEST_ROOTS/skill-DEMO/CRA-ENISA du rapport P1 §3.d, est BLOQUANT pour la prochaine release publique. Lot E-coûteux à lancer après la fusion d'E-bon-marché ; clause (a) M018 écartée définitivement.**
+**AMENDEMENT décision 21 (2026-09-19, voie (b)) : bloquant = tout item de CODE ou de SURFACE PUBLIQUE quel que soit son déclencheur ; calendaires et « exige un lot futur nommé » = formés, listés dans les notes de release ; release datée après le 2026-09-26. Décision 25 : D9 septies (docs hors R-25). Décisions 22-24 : K-1 ESC-2 (a), M018 D2 ratifié, lecture CRA.** — **RELEASE GATE (décision investisseur 19, 2026-09-19 06:54 UTC) : « au prochain release ; aucune dette. toutes seront fermées. » Tout item de cette section, plus E1/E2/E6/E7/E8/TEST_ROOTS/skill-DEMO/CRA-ENISA du rapport P1 §3.d, est BLOQUANT pour la prochaine release publique. Lot E-coûteux à lancer après la fusion d'E-bon-marché ; clause (a) M018 écartée définitivement.**
 - **Bell (G2 T-1a, décision 19 — à fermer avant la release Bell)** : census complet 839 xStocks + 395 Ondo [déclencheur PR-B-ONDO + Polygon `v3/reference/tickers`] ; flux MWCB (condition H) [procurement feed SIP MWCB — le CSV NYSE porte 0 ligne market-wide] ; conflation « Ondo 837,9 M$ » (USDY/OUSG ≠ actions) → amendement ADR-B0 ; scission T-1a-i/ii + `bell_sha` non signé + mesure fondatrice 0 ligne → amendement ADR-B0 daté ; sondes RPC du spike à consigner en provenance ; scope lang:gate/export:check sans `bell`/`sentinel` (item outillage) ; racine `apps/bell/test/fixtures` dans l'exclusion R-25 (lot R-25-séries C-4).
 - **Lot R-25 séries** (décision 17) : **CLOS** — G7 `e58d2c1`, fusionné `f4428b4` sur `lot/etude-suite` (290/290 après fusion). Racine `apps/bell/test/fixtures` = item formé, déclencheur checkpoint-2 T-1a (3 pièces).
 - **ADR contrat `AttestedBook`** (décision 16) : rédigé (`b60201d`) ; points (A)/(B) **tranchés par délégation** (décision 20 : A témoin total, B motif par classe) ; U-1b-a lançable après G7 de U-1a.
