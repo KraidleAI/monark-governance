@@ -33,13 +33,13 @@ export function ShogenPanel({ contract }: { contract: FrozenContract }) {
         status="built"
         action={<DialogTrigger render={<Button variant="outline" size="sm" />}>Open panel</DialogTrigger>}
       >
-        Attested perception &mdash; a verified price testimony.
+        Attested perception &mdash; an attested price testimony.
       </AgentCard>
 
       <DialogContent className={cn(SHEET)}>
         <DialogHeader className="pr-8">
           <DialogTitle>Shōgen</DialogTitle>
-          <DialogDescription>Attested perception &mdash; a verified price testimony.</DialogDescription>
+          <DialogDescription>Attested perception &mdash; an attested price testimony.</DialogDescription>
         </DialogHeader>
 
         <div className="mt-2">
