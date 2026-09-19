@@ -140,3 +140,22 @@ Prise **`attested`** dans le `gate` servi (branchement du triangle attest → ga
 `apps/harness/src/tools/registry.ts:30-38` ; `apps/harness/src/schema-projection.ts:209-214` ; `apps/harness/src/tools/gate.ts` (11 × `residual: []`,
 `:316`) ; `apps/harness/test/schema.test.ts:53-56, 74` ; `apps/harness/test/registry.test.ts:34` ; `packages/monark/src/index.ts:69-114` ;
 `schemas/attested-price.schema.json` ; ADR-M005 D1/D5/D8, ADR-M003 D4, ADR-M015 D2 et checkpoint-1 C-4 (`docs/CHECKPOINT1-M015.md`).
+
+## Amendement 2026-09-19 (P1-b3, ADR-M019) — correction de la prémisse « Ukemi non consommé »
+
+La section « Tuyaux » ci-dessus (l.135) affirme : « **Ukemi** (`cascade` sur graphe fixture) n'est consommé par **aucun** chemin
+servi après P1 ». **Cette prémisse est FAUSSE, corrigée ici** (checkpoint-2 b2 K-C2-3, `docs/CHECKPOINT2-M017-b2.md:26`). Mesure
+[lu] : la trace e2e `fixtures/h5-e2e-trace.json` (probe `probe_harness_records_real_decision`, fil MCP réel, non-LLM) enregistre
+à l'**étape 4 `cascade-gate`** (construite par `test/h5-trace-builder.ts:218` (arguments), `:219` (appel `gate`) et `:242` (step)) la prédiction cascade
+d'Ukemi (`task_class: cascade-liquidable-24h`, `predictor_id: internal:ukemi-cascade-v0`) **injectée dans le `gate` servi** ; la
+réponse enregistrée est `action=abstain reason=under_calib` (aucune calibration cascade committée ⇒ classe fixture,
+`apps/harness/src/attestation-binding.ts:33`). Donc Ukemi **EST** consommé par un chemin servi (le `gate`), mais **abstient
+`under_calib` par construction**.
+
+Conséquence : la requalification `built`/`upcoming` d'Ukemi **ne** se réduit **pas** à « consommé ou non ». Elle est traitée par
+**ADR-M019** (P1-b3), qui (a) documente le tuyau réel Ukemi → `gate`, (b) mesure que le **contenu** de la prédiction cascade
+n'influence pas la décision servie (vacuité sous `under_calib` : `yhat` ∈ {100, 999999, −5} ⇒ `GateDecision` byte-identique,
+mesure [lu]), et (c) soumet la décision de registre public à l'investisseur (question ouverte au moment de l'amendement — tranchée par l'investisseur le 2026-09-19 : `built` maintenu + programme ADR-M020 ; deux options écrites,
+recommandation motivée — jamais une décision de worker). La phrase « `crossAgentGate` … retiré en b3 » (l.137) reste exacte :
+il est retiré dans ce lot (P1-b3). **ADR-M018 D2 (l.22)** porte la même prémisse fausse ; son amendement est **proposé** (non
+appliqué) dans ADR-M019 §(b), à **ratifier par l'investisseur** (ADR-M018 est un ADR investisseur — non modifié par ce lot).

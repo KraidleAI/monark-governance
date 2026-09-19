@@ -3,12 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "MONARK — cross-agent integration layer (the tokenised agent + price-oracle harness wiring). Phase 0: freezes the cross-agent gate signature only.",
+  "description": "MONARK — the cross-agent integration adapters over the frozen contracts: Shogen -> AttestedPrice and Narabi AttestedFlow -> Prediction (a redemption-velocity forecast), plus a canonical-CBOR decoder. Phase 2 (integration).",
   "exports": { ".": "./src/index.ts" },
-  "//": "@monark/ukemi has no import in src/ (grep clean); it is a test-only dependency: packages/monark/test/cross-agent-gate.test.ts imports emitPrediction to build a UKEMI Prediction for the cross-agent gate integration test. Kept per ADR-M015 D1(b) (retire-or-justify): a packages/monark test uses it, so it is justified, not removed.",
   "dependencies": {
-    "@monark/contracts": "*",
-    "@monark/hikae": "*",
-    "@monark/ukemi": "*"
+    "@monark/contracts": "*"
   }
 }
