@@ -1,5 +1,5 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 13:30 UTC (horloge système)
+Dernière mise à jour : 2026-09-19 (après bascule de compte ; checkpoint-2 U-1a lancé) (horloge système)
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019) — **CLOSE** (G7 de passe `16ec12a`, checkpoint-2 de clôture accepte-avec-corrections C-1..C-6 pliées)
 | Lot | État | Prochaine action | Bloqué par |
@@ -66,6 +66,7 @@ Dernière mise à jour : 2026-09-19 13:30 UTC (horloge système)
 - **Bell (G2 T-1a, décision 19 — à fermer avant la release Bell)** : census complet 839 xStocks + 395 Ondo [déclencheur PR-B-ONDO + Polygon `v3/reference/tickers`] ; flux MWCB (condition H) [procurement feed SIP MWCB — le CSV NYSE porte 0 ligne market-wide] ; conflation « Ondo 837,9 M$ » (USDY/OUSG ≠ actions) → amendement ADR-B0 ; scission T-1a-i/ii + `bell_sha` non signé + mesure fondatrice 0 ligne → amendement ADR-B0 daté ; sondes RPC du spike à consigner en provenance ; scope lang:gate/export:check sans `bell`/`sentinel` (item outillage) ; racine `apps/bell/test/fixtures` dans l'exclusion R-25 (lot R-25-séries C-4).
 - **Lot R-25 séries** (décision 17) : **CLOS** — G7 `e58d2c1`, fusionné `f4428b4` sur `lot/etude-suite` (290/290 après fusion). Racine `apps/bell/test/fixtures` = item formé, déclencheur checkpoint-2 T-1a (3 pièces).
 - **ADR contrat `AttestedBook`** (décision 16) : rédigé (`b60201d`) ; points (A)/(B) **tranchés par délégation** (décision 20 : A témoin total, B motif par classe) ; U-1b-a lançable après G7 de U-1a.
+- **Firecrawl non exposé en session** (mesuré 2026-09-19 après bascule : « Connected » au `claude mcp list`, aucun outil `mcp__8aa0cccf…` ni autre nom dans le roster de session) → déclencheur : premier vrai redémarrage de session dans `F:\Monark` ou premier lancement d'un `chercheur` ; action : `ToolSearch "+8aa0cccf"`, sinon `firecrawl` ; si l'UUID a changé, mettre à jour les 9 agents + CLAUDE.md global (BASCULEMENT §5.8, memstack `ab9314ff`).
 - **Lot K-1 clés Ed25519** (Narabi sert `deadbeef`) : avant tout `built` de sentinelle / go U-6 / Bell T-1b.
 - Étape h5 portant `attested` → prochain lot touchant `apps/harness` (T-1 ou U-4).
 - Test d'hygiène dépendances (`import/no-extraneous-dependencies`) → cartographie M018 D4.
