@@ -1,12 +1,13 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 07:40 UTC (horloge système)
+Dernière mise à jour : 2026-09-19 07:55 UTC (horloge système)
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019)
 | Lot | État | Prochaine action | Bloqué par |
 |---|---|---|---|
 | P1-b1, b2, b3 | CLOS, fusionnés `lot/etude-suite` | — | — |
-| W-1 (`wiring`, test de gel, prose vitrine ×5, `fleet.ts:70`, panneau Ukemi) | checkpoint-2 : accepte-avec-corrections K-V1 (pointeur Narabi + garde (3) titres suffixés), K-V2 (README « verified » ×3 → item) ; **worker plie** ; `docs/CHECKPOINT2-W1.md` persisté | re-gel → G7 → fusion → cartographie M018 D4 | worker |
-| Cartographie M018 D4 + rapport de passe P1 | À FAIRE après W-1 | worker contexte frais : graphe réel vs registre | W-1 |
+| W-1 (`wiring`, test de gel, prose vitrine ×5, `fleet.ts:70`, panneau Ukemi) | **CLOS** — G7 `bb252ce`, fusion `ccbb856`, journal `eb0b7e5` | — | — |
+| Cartographie M018 D4 | EN COURS — worker contexte frais (`docs/CARTOGRAPHIE-P1-2026-09-19.md`) | rapport de passe P1 → checkpoint-2 de clôture | — |
+| Rapport de passe P1 (template corpus, dettes = items formés) | À RÉDIGER après cartographie | validateur | cartographie |
 | Miroir public + PR empilées (#78-#83, lot/etude-suite, p1-b*, w-1) | EN ATTENTE fenêtre publique | push au go investisseur | investisseur |
 
 ## B. Ukemi — programme « au paroxysme » (décision investisseur 2026-09-19)
