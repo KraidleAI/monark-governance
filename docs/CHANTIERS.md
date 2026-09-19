@@ -61,6 +61,7 @@ Dernière mise à jour : 2026-09-19 13:30 UTC (horloge système)
 | MCP papiers (arxiv, openalex, semantic-scholar) | installés user-scope | actifs au redémarrage |
 
 ## E. Dettes / items formés transverses (avec déclencheur)
+**RELEASE GATE (décision investisseur 19, 2026-09-19 06:54 UTC) : « au prochain release ; aucune dette. toutes seront fermées. » Tout item de cette section, plus E1/E2/E6/E7/E8/TEST_ROOTS/skill-DEMO/CRA-ENISA du rapport P1 §3.d, est BLOQUANT pour la prochaine release publique. Lot E-coûteux à lancer après la fusion d'E-bon-marché ; clause (a) M018 écartée définitivement.**
 - **Lot R-25 séries** (décision 17) : amendement ADR-M003 D9 sexies (livré `d3eb9bb`, G2 en cours) — exclusion par pathspec des séries sha-pinnées + test ; à faire AVANT le G7 de U-1a.
 - **ADR contrat `AttestedBook`** (décision 16) : à rédiger avant U-1b ; touche `schemas/` ; checkpoint investisseur.
 - **Lot K-1 clés Ed25519** (Narabi sert `deadbeef`) : avant tout `built` de sentinelle / go U-6 / Bell T-1b.
