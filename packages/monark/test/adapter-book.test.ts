@@ -184,6 +184,9 @@ test("attested_book_quorum_required", () => {
   const over = expectError(fromAttestedBook(mutate((b) => { b["quorum"] = { required: 5, achieved: 2 }; })));
   assert.equal(over.reason, "binding_broken");
   assert.match(over.message, /distinct provider/);
+  const over3 = expectError(fromAttestedBook(mutate((b) => { b["quorum"] = { required: 3, achieved: 2 }; })));
+  assert.equal(over3.reason, "binding_broken", "C-G2-1: required 3 > the 2 DISTINCT provider names, though <= the 4 providers[] entries");
+  assert.match(over3.message, /exceeds the 2 distinct provider/, "guard counts distinct NAMES (2), not providers.length (4)");
   const subQuorum = expectError(fromAttestedBook(mutate((b) => { b["quorum"] = { required: 2, achieved: 1 }; })));
   assert.equal(subQuorum.reason, "non_evaluable", "not abstained yet achieved < required ⇒ non_evaluable");
 });

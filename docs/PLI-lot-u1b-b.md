@@ -129,8 +129,27 @@ ADR-U1b D7 ligne 1 : « producteur `toAttestedBook` + consommateur `fromAttested
 2. **Garde `non_evaluable`** (non-abstenu ∧ `achieved<required`) ajoutée, fondée sur D4 (« achieved < required ⇒ no_quorum ») : donne un emploi réel au reason `non_evaluable` du type C-5 (sinon mort). Retrait trivial si refusée.
 3. **`attestedBookDigest`** livré (nommé par G0 corps L-2 ; le résumé mission-top ne cite que 3 fonctions) — compagnon sha de `canonicalAttestedBook`, domaine `attestor.sig`.
 4. **M2/M8 interprétés** comme au §5 (subsomption closed-check ⇒ M2 cible la fonction ; M8 = retrait de la contrainte de schéma liée par la sonde) — motifs `adapter-narabi.test.ts:162-164` et `schema.test.ts:157-173`.
-5. **R-25 = 589 > cible 400** (< seuil dur 1 205, CI passe) ; C-7 contre-productif (§7) — **décision finale à l'orchestrateur** : accepter, ou dicter un re-découpage.
+5. **R-25 = 587 > cible 400** (< seuil dur 1 205, CI passe) ; C-7 contre-productif (§7) — **décision finale à l'orchestrateur** : accepter, ou dicter un re-découpage.
 
 6. **C-6 « provenance déclarée dans la fixture »** : le contrat fermé (`additionalProperties:false`) interdit toute clé hors-schéma dans la fixture ; la provenance (placeholder `deadbeef`, `sig` absent, construction depuis le recorder) est déclarée dans l'en-tête de `adapter-book.test.ts` + ce PLI, **pas** dans le JSON. Le motif dépôt alternatif = un `PROVENANCE-*.md` frère (`apps/sentinel/test/fixtures/PROVENANCE-boundary-blocks.md`), écarté ici car un `.md` sous `packages/monark/test/fixtures/` **compterait** en R-25 ; à confirmer si le validateur (CA-11) attend le motif frère.
 
 Aucun « dû » nu, aucun contournement (P5).
+
+---
+
+## Annexe — Pli U-1b-b-2 (corrections C-G2-1, C-G2-2)
+
+**Worker** : `claude-opus-4-8[1m]` (modèle résolu tel quel, préfixe `claude-opus-4-8` vérifié, effort max, R-1). Date 2026-09-19. Gel `04d45d4` sur `lot/u-1b-b`. Rejeu mutant isolé sous `F:/tmp/u1b-b-2/` (`git archive 04d45d4` + jonctions workspace `@monark/{monark,contracts}` — **aucun `npm ci`** : clôture d'imports = `node:` + `@monark` + relatifs seuls, vérifiée par grep, baseline verte = preuve de résolution). `TEMP=TMP=TMPDIR=F:/tmp`. Node v24.15.0. Aucun commit, aucun workflow (R-20). **Seuls 2 fichiers touchés** ; `packages/monark/src/adapter-book.ts` **jamais** modifié dans le worktree (zone livrée intacte, sha256(LF) inchangé).
+
+**C-G2-1 — trou de couverture comblé.** `attested_book_quorum_required` reçoit le cas `quorum={required:3, achieved:2}` : sain ⇒ `binding_broken` « quorum.required (3) exceeds the 2 distinct provider(s) » (garde `adapter-book.ts:156`, `required > names.size`, où `names.size=2` alors que `providers.length=4`). Assertions : `reason==="binding_broken"` **et** `message =~ /exceeds the 2 distinct provider/`. Purement additif (+3 lignes) ; **aucun nouveau `test()`** (assertions ajoutées dans le bloc existant) : `grep -c '^test('` = 8 avant/après ⇒ le total 389 est préservé.
+- **Baseline** (code sain + nouveau test) : **VERT 8/8**, exit 0.
+- **Mutant MA** (`adapter-book.ts:156` `names.size`→`providers.length`, comparaison seule ; message l.157 intacte) : **ROUGE** — `attested_book_quorum_required` échoue à `adapter-book.test.ts:188` (`actual 'non_evaluable' ≠ expected 'binding_broken'` : sous MA `3 > 4` = faux ⇒ tombe sur la garde sous-quorum l.159). 7/8 pass, exit 1. **Restauration byte-exacte prouvée** : sha256(LF) = `b9816d33f4357029b7358c968391c331552c89c5a85b1d932e9f73bce929855c` = `git show 04d45d4:packages/monark/src/adapter-book.ts`.
+- **Mutant M5** (`adapter-book.ts:156` `(required as number) > names.size`→`false`) : reste **ROUGE** — échoue à `adapter-book.test.ts:185` (cas `over`, `required:5`). 7/8 pass, exit 1. Restauration byte-exacte : sha256(LF) = `b9816d33f4357029b7358c968391c331552c89c5a85b1d932e9f73bce929855c`.
+
+**C-G2-2 — PLI §12 pt 5** : « R-25 = 589 » → « R-25 = 587 » (1 occurrence). **NB** : §7 (l.103) « accepter 589 » **non modifiée** (hors liste fermée) — **observation formée** soumise à l'orchestrateur.
+
+**Oracles partiels (worktree, état final annexe incluse)** : `typecheck` exit 0 ; `node --test adapter-book.test.ts` **8/8** exit 0 ; `lint` exit 0 ; `lint:ratchet` **69/69** exit 0 ; `lang:gate` 0 hit exit 0. (`npm run ci` complet **non lancé** : G2 en parallèle sur un autre lot.)
+
+**R-25** (pathspec `STAT=` verbatim de `.github/workflows/ci.yml:64`) : contrôle `8c8eac8..04d45d4` = 576 ins / 11 del = **587** (reproduit G2). Working tree (`8c8eac8`→WT, mes édits) = **579 ins / 11 del = 590** (+3 lignes du test ; le PLI est `docs/**/*.md`, **exclu**). < seuil dur 1 205 ⇒ gate R-25 **PASSE** ; cible 400 = item formé checkpoint-1, inchangé par ce pli.
+
+**sha256(LF)** : `packages/monark/test/adapter-book.test.ts` = `f376760e665454e9dc8ea3b377bae0116f98ec036a14f345c9364c03c266dbe4`. Le sha256(LF) et le `--numstat` finaux de CE fichier (`docs/PLI-lot-u1b-b.md`) sont reportés dans la sortie worker (l'annexe ne peut porter son propre digest). Zéro dette : aucun « dû » nu, aucun contournement (P5).
