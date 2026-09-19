@@ -1,5 +1,5 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 08:45 UTC (horloge système)
+Dernière mise à jour : 2026-09-19 09:05 UTC (horloge système)
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019)
 | Lot | État | Prochaine action | Bloqué par |
@@ -37,7 +37,7 @@ Dernière mise à jour : 2026-09-19 08:45 UTC (horloge système)
 | Recherche web (post-mortem CAPO, Uniswap rebasing, Token-2022 scaled UI, ERC-8056, événement déficit Aave v3.3, Chainlink SVR) | EN COURS — chercheur, lecture directe par MONARK (investisseur : « il faut que tu lises toi-même ») | intégrer PR-UK-3/14 | — |
 | Procurement §8 | reçus : Amini 2016, Chow 1970, CFS BoE WP 264 (Ukemi) ; **Scharnowski 2026** (Bell, item 1, lecteur en cours) ; restent : Gatto PDF SSRN, post-mortem CAPO, Nexus terms, TokenLogic, rsETH report, LlamaRisk scope, Credora, Messari, clé Pyth Hermes, avis Massive licence | intégrer à réception | investisseur |
 | Lots T-1 (témoin faits, inscription « Bell » upcoming) → T-2 (parité droits) → T-3 (classe écart) | PLANIFIÉS après P1/W-1 et après ADR-M020 (ordre investisseur) | ADR T-1 + checkpoint-1 | W-1, ordre |
-| ADR-B0 (programme Bell) | RÉDIGÉ `9ab3771` (128 l. ; fait : n = 0 halts sur 15 grandes caps depuis 2025-06-30, CSV sans MWCB) ; 3 adjudications ; **checkpoint-1 EN COURS** | T-1a après approbation + VPS | validateur ; investisseur (registre produit vs capteur) |
+| ADR-B0 (programme Bell) | checkpoint-1 : **approuvé-avec-corrections C-1..C-19** (worker plie) ; validateur a rejoué le CSV (8 halts historiques sur 15 caps, 0 depuis 2025-06-30, 18 graphies `Reason`, 0 MWCB) ; **ESC-1** licence du close (avis Polygon / source publique / écart seul) et **ESC-2** indépendance opérateur du VPS Bell (agent root SSH vs investisseur seul) → investisseur ; T-1a démarre après folds de périmètre + cartographie committée (C-18) | investisseur ESC-1/2 ; C-18 | cartographie |
 | GTM-BELL (`docs/GTM-BELL.md`) | EN COURS — chercheur (gaps, acheteurs nommés, positionnement, offre/pricing sourcé, séquence, signaux, risques) | revue advisor-marché → investisseur | — |
 | **RAPPEL investisseur : clé API Helius** (abonnement en cours) → `setx HELIUS_API_KEY` dans le terminal, jamais dans le chat ; à réclamer avant T-1a | ATTENDU | test d'appel à réception | investisseur |
 | Registre Bell | TRANCHÉ (décision 11) : capteur `FLEET_AGENTS` upcoming en T-1/T-2 → produit `PRODUCTS` à la Définition de fini (amendement M004 D14) | — | — |
