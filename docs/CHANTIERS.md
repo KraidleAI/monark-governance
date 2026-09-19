@@ -51,6 +51,7 @@ Dernière mise à jour : 2026-09-19 13:30 UTC (horloge système)
 | Hackathon Stocklana (dépôt 2026-09-25) | OPTION ultérieure, plan inchangé | décision investisseur le moment venu | — |
 
 ## D. Opérations vivantes
+- **Miroir public** `KraidleAI/Monark` = `5bde13a` (2026-09-19 07:40Z, restyle B) ; `main` privé = `144ce68` ; 0 PR ouverte. Prochaine fenêtre : après fusion E-bon-marché / R-25-séries / U-1a / T-1a sur `main` privé (go investisseur).
 | Élément | État | Prochaine action |
 |---|---|---|
 | Narabi | T=1 (2026-09-19 00:39 UTC) ; prochain pas 00:39 UTC | vérifier T=2 demain ; consigner |
