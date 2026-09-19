@@ -1,0 +1,34 @@
+# G0 — Sprint backlog lot H-attested : étape 7 `attested-gate` de la trace h5 (ADR-EC E1 / C-7 ; ADR-M017 D2(iii)/D4)
+Orchestrateur `claude-fable-5-1`, 2026-09-19. Base : `lot/etude-suite` `8c8eac8`. Branche `lot/h-attested`, worktree `F:\Monark-wt-hatt`. Cadre : ADR-EC ligne H-attested (« étape **7 `attested-gate`** de la trace h5, consommant la sortie de l'étape 6 `attest`, fixture Shōgen committée ; assertion nommée `h5_carries_attested` : `verdict.residual` deep-equal `attested.residual`, décision sinon byte-identique à l'étape 5 ; re-pin `fixtures/h5-e2e-trace.json` + `PROVENANCE-h5` same-dir ») ; ADR-EC Tuyaux l.44 ; ADR-M017 D2(i) (liaison sujet ↔ classe, table `attestation-binding.ts`), D2(iii) (seul `attested.residual` est filé), D2(iv) (non-vérification déclarée), D4 (test (3) chemin servi). Parallèle licite avec U-1b-b : fichiers disjoints (`test/`, `fixtures/`, `apps/harness` vs `packages/monark`, `apps/sentinel`).
+
+## Objectif (une phrase)
+Prouver **sur le chemin servi** (JSON-RPC réel, in-process) que la prise `attested` du gate consomme la sortie de `attest` et file son résidu dans le verdict, sans changer la décision — et laisser cette preuve committée, re-pinnée et rejouée par CI.
+
+## Livrables (liste fermée)
+| # | Fichier | Contenu | Test / oracle |
+|---|---|---|---|
+| L-1 | `test/h5-trace-builder.ts` | nouvelle étape **7 `attested-gate`** insérée après l'étape 6 `attest` (l'actuel « 7 mirror » devient 8, `n` renumérotés, `H5Trace.steps` reste une liste fermée) : `gate` appelé avec `BTC_DIR_PREDICTION` (classe `btc-dir-15m`), les mêmes `params` que l'étape 5, **et** `attested = price` (la `AttestedPrice` fermée rendue par l'étape 6, `subject` = `BINANCE_BTCUSDT_TICKER_URL`, cohérent avec la table M017) ; `note` déclarative : « the attestation is carried by the caller and is not verified at call time » (phrase D2(iv), jamais « verified ») ; `summary` gagne `attested_gate_residual` | `probe_harness_records_real_decision` (1) faithfulness : la trace vive = la trace committée (donc l'étape 7 doit être re-enregistrée) |
+| L-2 | `fixtures/h5-e2e-trace.json` (re-pin) + `fixtures/PROVENANCE-h5-e2e-trace.md` (paragraphe « regenerated 2026-09-19 for ADR-EC H-attested : step 7 attested-gate added ; steps 7→8 renumbered ; sha pinned ») ; `TRACE_SHA256_PINNED` dans `test/h5-e2e-probe.test.ts` | même sha LF dans les trois lieux (test, PROVENANCE, fichier) ; hors décompte R-25 (D9 sexies `fixtures/**/*.json`) mais **déclaré et haché same-dir** (`series_pinned_are_declared_and_hashed` / `fixtures_root_valid` : vérifier quelle garde couvre `fixtures/h5-e2e-trace.json` et la satisfaire) |
+| L-3 | `test/h5-e2e-probe.test.ts` | nouveau test **`h5_carries_attested`** : (a) `verdict.residual` de l'étape 7 **deep-equal** `attested.residual` de l'étape 6 ; (b) hors `verdict.residual`, la décision de l'étape 7 est **byte-identique** à l'étape 5 (`action`, `reason`, `verdict.calib_digest`, `remaining_budget`, région, label — comparaison sur la sérialisation canonique après retrait du seul champ `verdict.residual`) ; (c) `attested.subject` de l'étape 7 ∈ `ATTESTATION_BINDING.get("btc-dir-15m")` (table lue, pas re-déclarée) ; (d) la description de l'outil `gate` dans l'étape 2 (`tools/list`) porte la phrase « not verified at call time » (D2(iv)) — via le sha ou une lecture directe du `tools/list` vivant | mutants : **M1** couture retirée (`verdict.residual` non filé, `gate.ts`) ⇒ (a) rouge ; **M2** décision altérée quand `attested` présent (ex. `reason` forcé) ⇒ (b) rouge ; **M3** `subject` de l'étape 7 remplacé par une URL hors table ⇒ le serveur répond 400 (D2(ii)) et (1) faithfulness + (c) rouges ; **M4** re-pin oublié (trace modifiée, sha ancien) ⇒ (2) tamper rouge ; **M5** étape 7 supprimée de la trace committée ⇒ (1) et `h5_carries_attested` rouges |
+| L-4 (doc) | `docs/adr/ADR-EC-lots-E-couteux-release-zero-dette.md` ligne Tuyaux H-attested (l.44) : état « livré, chemin servi = JSON-RPC in-process, test `h5_carries_attested` » ; `docs/adr/ADR-M017-attested-price-dans-gate.md` : note datée « D4 test (3) porté par H-attested sur la trace h5 » | doc, 0 coût R-25 (D9 septies) |
+
+## Critères d'acceptation (falsifiables)
+1. **Zéro octet** dans `packages/hikae`, `packages/contracts`, `schemas/` (sha/blobs identiques à la base) ; `apps/harness/src` **non modifié** sauf si un défaut réel de la couture est découvert (alors : item formé + pli séparé, jamais un patch silencieux).
+2. `npm run ci` = base + 1 test vert (`h5_carries_attested`), `probe_harness_records_real_decision` vert avec la trace re-pinnée ; lint 0 ; ratchet 69/69 ; lang-gate 0 (trace et code en anglais, `grep-forbidden` vert) ; export:check 0.
+3. Mutants M1-M5 rouges sur les tests nommés, restauration sha-exacte prouvée (M1/M2 sur copie `git archive`, jamais dans le worktree).
+4. R-25 `lot/etude-suite...lot/h-attested` sous la ligne `STAT=` ≤ 400 (estimation ADR-EC ≈ 350 ; la fixture JSON est exclue du décompte).
+5. Aucun mot probatoire ajouté (`verified`, `proven`, `certified`, `confidence`) : `public_surfaces_make_no_probative_claim` et `gate:vocab` verts ; la `note` de l'étape 7 reprend la phrase D2(iv).
+6. CA-11 : tuyau ADR-EC l.44 passe à « livré » avec le test nommé ; `fleet.ts` blob identique ; aucune surface publique modifiée ; Shōgen reste « built · served » (déjà) — ce lot ajoute la preuve h5 du même chemin, pas une pièce nouvelle.
+7. Aucune écriture hors du worktree et de `F:\tmp\h-attested\` ; worker ne committe pas ; PLI avec sha des fichiers livrés, sha de la trace re-pinnée, « Reste » honnête.
+
+## Hors périmètre (formés ailleurs)
+U-4 (union `AttestedPrice | AttestedBook` sur la prise `attested`, motif de liaison, ratification investisseur) ; K-1 clés ; BYO + `attested` (item formé M017 D2(i)) ; liaison temporelle (`observed_at`, hors P1).
+
+## Tuyaux (ADR-M018 D3)
+Entrée : fixture `AttestedPrice` = sortie réelle de l'étape 6 `attest` (Shōgen, témoin Binance committé) → Sortie : étape 7 `attested-gate` → `gate` (prise `attested` consommée ; `verdict.residual` = `attested.residual`) → consommateur : la trace committée `fixtures/h5-e2e-trace.json` (rejouée par CI) ; test : `h5_carries_attested`. Chemin **servi** (JSON-RPC streamable-HTTP in-process), pas `tool.run()`.
+
+## Risques (MAST)
+Trace hand-editée (contre-mesure : (1) faithfulness vive = committée + sha) ; « preuve » qui ne passe pas par le serveur (contre-mesure : étape enregistrée via `mcpToolsCall`) ; décision modifiée par `attested` sans le voir (contre-mesure : (b) byte-identique hors `verdict.residual`) ; re-pin en cascade oublié (contre-mesure : M4) ; vocabulaire probatoire dans la `note` (contre-mesure : critère 5).
+
+## Rôles
+Worker Opus 4.8 max (G1) → G2 fraîche Opus 4.8 → checkpoint-2 validateur → G7 orchestrateur → fusion (après U-1b-b si les deux sont prêts, ordre indifférent : fichiers disjoints, `merge-tree` à vérifier). Checkpoint-1 : validateur, avant tout code.
