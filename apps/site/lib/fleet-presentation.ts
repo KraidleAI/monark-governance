@@ -30,7 +30,7 @@ export const INSIDE: Record<string, InsideBlock> = {
   shogen: {
     kind: "built",
     points: [
-      "Cryptographic attestation: a verified testimony, emitted only after a passing verdict",
+      "Cryptographic attestation: an attested testimony, emitted only after a passing verdict",
       "Recomputable byte hashing — anyone re-derives the same hash",
       "Named residual hypotheses: the transport assumptions, stated, not hidden",
     ],

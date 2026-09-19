@@ -44,17 +44,17 @@ export function ShogenPanel({ contract }: { contract: FrozenContract }) {
 
         <div className="mt-2">
           <PanelBlock title="How it works" status="built">
-            sensor (attest) &rarr; the gate: Hikae and the MONARK budget &rarr; act (execute). The gate
+            sensor (attest) &rarr; the gate: Hikae and the MONARK budget &rarr; act (execute · upcoming). The gate
             emits commit, defer, or abstain.
           </PanelBlock>
           <PanelBlock title="How it is built" status="built">
-            A Rust verifier emits a verified testimony only after a passing verdict, then projects it
+            A Rust verifier emits an attested testimony only after its own verdict passes, then projects it
             onto the frozen contract.
           </PanelBlock>
           <WhatInside block={insideFor("shogen")} />
           <PanelBlock title="Honest limits" status="built">
             <p>
-              A verified testimony proves what was said, that its bytes hash as recorded, and that the
+              An attested testimony proves what was said, that its bytes hash as recorded, and that the
               attestor signed it.
             </p>
             <p className="mt-2">
