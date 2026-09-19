@@ -7,6 +7,7 @@
 # on 2026-09-05 and re-verified by independent review on 2026-09-06):
 #   actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
 #   actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+#   actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1 (SBOM upload, Lot CRA-B; gh api repos/actions/upload-artifact/git/ref/tags/v7.0.1 -> object.type=commit, measured 2026-09-19)
 #
 # Delivery flow (ADR-M003 D9 bis): every lot lands through a pull request; `main` is protected.
 # A direct push produces no run (and `github.base_ref` would be empty for r25) — by design.
@@ -109,5 +110,18 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci
+      # SBOM (CRA no-regret, ADR-CRA-B L-3): a CycloneDX bill of materials. --package-lock-only makes the
+      # COMPONENT SET reproducible (183 components, CycloneDX 1.5, measured 2026-09-19); without it the count
+      # drifts with the installed tree. serialNumber and metadata.timestamp are per-run, so the bytes are not
+      # reproducible. Not published to a tag here (release trigger, out of this lot). scripts/sbom.mjs mirrors
+      # THIS command locally; its SBOM_COMMAND is asserted against this run line by ci_publishes_sbom.
+      - name: Generate CycloneDX SBOM (npm sbom; ADR-CRA-B L-3)
+        run: npm sbom --sbom-format cyclonedx --omit dev --package-lock-only > sbom.cdx.json
+      - name: Upload SBOM artifact (per run)
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom-cyclonedx
+          path: sbom.cdx.json
+          if-no-files-found: error
       - name: Dependency audit (high and above = failure)
         run: npm audit --audit-level=high

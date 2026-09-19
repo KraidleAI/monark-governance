@@ -11,3 +11,15 @@ export const SCOPES: readonly string[];
 
 /** Map a repo-relative path (POSIX or Windows separators) to its gate scope name. Pure, no I/O. */
 export function classifyScope(rel: string): string;
+
+// Added for the CRA-B root test notification_procedure_declares_clocks (Lot CRA-B, C-4): the real
+// language oracle over docs/PROCEDURE-notification-CRA.md (lang-gate CLI skips docs/, so the test runs
+// the gate's own scanner directly). Runtime impl already exports both symbols from lang-gate.mjs.
+/** One French-language hit: 1-based line/column, the matched word, and its kind (diacritic|fr-word|fr-id). */
+export interface LangHit { line: number; col: number; word: string; kind: string; }
+/** Compiled exemptions from <dir>/scripts/lang-exempt.json: masking regexes + whole-file path matchers. */
+export interface Exemptions { maskers: RegExp[]; pathMatchers: RegExp[]; raw: unknown; }
+/** Compile the exemption maskers + path matchers from <dir>/scripts/lang-exempt.json. */
+export function loadExempt(dir: string): Exemptions;
+/** Scan a file for non-exempt French hits (exempt-aware). Pure read; no process exit. */
+export function scanFile(abs: string, maskers: RegExp[]): LangHit[];
