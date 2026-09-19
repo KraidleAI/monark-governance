@@ -1,5 +1,5 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 06:10 UTC (horloge système)
+Dernière mise à jour : 2026-09-19 07:05 UTC (horloge système)
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019)
 | Lot | État | Prochaine action | Bloqué par |
@@ -23,7 +23,7 @@ Dernière mise à jour : 2026-09-19 06:10 UTC (horloge système)
 | Lecture Gatto 2026 + Garcia Seuma 2026 | REÇUE : « 47 M$ » non trouvé (cassé confirmé) ; Gatto = page web, PDF SSRN 51 p. à procurer ; λ subcritique, k perps seulement | — | — |
 | Lecture Tibshirani 2019 + Barber 2023 | REÇUE : intra-événement = Thm 2 exact ; swap de bloc non couvert → Dunn–Wasserman–Ramdas 2022 (JASA, arXiv:1809.07441) téléchargé OA (collision arXiv:2010.06001 écartée) | lecture Dunn à lancer | — |
 | Note formelle treillis (T monotone, Q_*/Q^*, unicité, sens du treillis) | EN COURS — worker | affirmation centrale de l'ADR | — |
-| ADR-M020 « Eligible is not liquidated » | RÉDIGÉ, commit `565e90c` ; **checkpoint-1 EN COURS** | présentation investisseur point par point → U-1 | checkpoint-1 |
+| ADR-M020 « Eligible is not liquidated » | **checkpoint-1 : approuvé-avec-corrections U-0..U-3** (10 corrections pliées `3a48c88`) ; **ESCALADE investisseur : classe primaire de (b)** (dette liquidée par position / shortfall agrégé / les deux) — bloque U-4 seulement ; U-1 peut démarrer après W-1 + ADR de lot U-1 | décision investisseur ; ADR U-1 | W-1 |
 | Commit de `docs/biblio/ukemi-modeL/` sur `lot/etude-suite` | FAIT (archive + avis + sha ; pdf/_txt gitignorés, sha tracés) ; MESURES à committer à réception | — | mesures |
 
 ## C. MONARK Bell — témoin public attesté des TSV, actions tokenisées (nom investisseur 2026-09-19 ; décisions 1-3)
@@ -32,6 +32,7 @@ Dernière mise à jour : 2026-09-19 06:10 UTC (horloge système)
 | Étude + PROPOSITIONS + procurement §8 | LIVRÉ (`Downloads\PRODUITS\etude-2026-09-19\`) | — | — |
 | Sources T-1 gratuites (LULD, CTA/UTP, halts NYSE 2019-2026) | RÉCUPÉRÉES, sha consignés (`sources-T1/`) | — | — |
 | Abonnement Massive/Polygon Stocks Starter | ACTIF (29 $/m) ; clé en env utilisateur `POLYGON_API_KEY` (32 car., jamais affichée), testée 2026-09-19 (TSLA prev close 364,27 $, Bearer) ; licence « Individual Use » à revoir avant publication dérivée | — | — |
+| Recherche web (post-mortem CAPO, Uniswap rebasing, Token-2022 scaled UI, ERC-8056, événement déficit Aave v3.3, Chainlink SVR) | EN COURS — chercheur, lecture directe par MONARK (investisseur : « il faut que tu lises toi-même ») | intégrer PR-UK-3/14 | — |
 | Procurement §8 | reçus : Amini 2016, Chow 1970, CFS BoE WP 264 (Ukemi) ; **Scharnowski 2026** (Bell, item 1, lecteur en cours) ; restent : Gatto PDF SSRN, post-mortem CAPO, Nexus terms, TokenLogic, rsETH report, LlamaRisk scope, Credora, Messari, clé Pyth Hermes, avis Massive licence | intégrer à réception | investisseur |
 | Lots T-1 (témoin faits, inscription « Bell » upcoming) → T-2 (parité droits) → T-3 (classe écart) | PLANIFIÉS après P1/W-1 et après ADR-M020 (ordre investisseur) | ADR T-1 + checkpoint-1 | W-1, ordre |
 | Lettre de commentaire SEC File 4-927 | VALIDÉE, après T-1, go avant dépôt | — | T-1 |
