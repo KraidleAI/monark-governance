@@ -981,22 +981,27 @@ test("how_page_rendered_vocab_has_no_numeric_hole — region + reason copy carri
 // — a PROVENANCE-*.md, or fixtures/manifest.json (a closed hashed set already enforced by
 // fixtures_root_valid, so the nine gate states are NOT duplicated). Reds on: an orphan file (added with no
 // declaration); an altered byte (recomputed sha != declaration); a CODE file (.ts/.mjs/.js) under an
-// excluded root (condition c — no code disguised as data). It also asserts the six :(glob) exclusion
-// pathspecs are wired in ci.yml (the exclusion cannot be silently dropped). Named mutants
-// (docs/G1-lot-r25-series.md): (1) fixtures/x.json with no PROVENANCE line => red; (2) one hex flipped in a
-// declared sha => red; (3) fixtures/x.ts => red. Run by `npm test`, OUTSIDE the per-lot R-25 count.
-const SERIES_EXCLUDED_ROOTS = ["fixtures", join("apps", "sentinel", "test", "fixtures")];
+// excluded root (condition c — no code disguised as data). It also asserts SET EQUALITY between the
+// :(glob) exclusion pathspecs wired in ci.yml and the derived source of truth (SERIES_EXCLUDED_ROOTS x
+// exts) — neither a dropped nor an extra pathspec (checkpoint-2 C-1). Named mutants
+// (docs/G1-lot-r25-series.md): M3 fixtures/zz.json with no declaration => red; M2 two shas permuted in a
+// table => red; M4 fixtures/zz.ts => red; M5 book.json/full-book.json siblings each on its own line =>
+// GREEN (token match, C-2a); M6b a sha moved under `## History` => red (rule (ii) removed, C-2b); M8 one
+// byte added to a fixture => red; M1/M10 a pathspec losing ,glob => red; M11 a 7th pathspec in ci.yml =>
+// red. Run by `npm test`, OUTSIDE the per-lot R-25 count.
+// Single source of truth for the R-25 series exclusion (ADR-M003 D9 sexies). POSIX strings, so the
+// derived pathspecs are byte-identical on win32 and Linux CI (checkpoint-2 C-1); join(ROOT, rel) still
+// normalizes them for the FS walk, and the walk flips `\\`->`/` before comparing.
+const SERIES_EXCLUDED_ROOTS = ["fixtures", "apps/sentinel/test/fixtures"];
 const SERIES_DATA_EXTS = new Set([".json", ".jsonl", ".csv"]);
 const SERIES_CODE_EXTS = new Set([".ts", ".mts", ".cts", ".mjs", ".cjs", ".js"]);
-// The exact pathspecs the r25 job MUST carry (ADR-M003 D9 sexies). :(glob) is mandatory.
-const SERIES_EXCLUDE_PATHSPECS = [
-  ":(exclude,glob)fixtures/**/*.json",
-  ":(exclude,glob)fixtures/**/*.jsonl",
-  ":(exclude,glob)fixtures/**/*.csv",
-  ":(exclude,glob)apps/sentinel/test/fixtures/**/*.json",
-  ":(exclude,glob)apps/sentinel/test/fixtures/**/*.jsonl",
-  ":(exclude,glob)apps/sentinel/test/fixtures/**/*.csv",
-];
+// The pathspecs the r25 job MUST carry — DERIVED from the roots x exts above (never a parallel hand-kept
+// list), so ci.yml and this test can be checked for SET EQUALITY (checkpoint-2 C-1, mutant M11: a 7th
+// :(glob) pathspec in ci.yml with no marched root here used to stay green). :(glob) is mandatory (the
+// bare form matches nothing — measured 2026-09-19).
+const SERIES_EXCLUDE_PATHSPECS = SERIES_EXCLUDED_ROOTS.flatMap((root) =>
+  [...SERIES_DATA_EXTS].map((ext) => `:(exclude,glob)${root}/**/*${ext}`),
+);
 
 function seriesWalk(absDir: string): string[] {
   const out: string[] = [];
@@ -1016,12 +1021,24 @@ function seriesLfSha256(abs: string): string {
 }
 
 test("series_pinned_are_declared_and_hashed — every R-25-excluded data file is declared + hashed same-dir (ADR-M003 D9 sexies)", () => {
-  // The r25 job carries the six :(glob) exclusion pathspecs — they cannot be silently removed.
-  for (const ps of SERIES_EXCLUDE_PATHSPECS) {
-    // Quoted token: ".json" is a substring of ".jsonl", so a bare includes(ps) would stay green when the
-    // .json pathspec lost its ,glob (G2 R-25-series C1, mutant 5).
-    assert.ok(WF.includes("'" + ps + "'"), `r25 job is missing the exclusion pathspec ${ps} (ADR-M003 D9 sexies)`);
-  }
+  // SET EQUALITY between the r25 job's :(glob) exclusion pathspecs and the derived source of truth —
+  // neither missing nor extra. `missing`: a required pathspec absent from ci.yml — matched on the FULL
+  // single-quoted token because ".json" is a substring of ".jsonl", so a bare includes stays green when
+  // the .json pathspec loses its ,glob (G2 C1, mutant M1/M10). `extra`: a :(glob) pathspec present in
+  // ci.yml whose root is NOT in SERIES_EXCLUDED_ROOTS — it would drop files from the R-25 count with no
+  // declaration guard here (checkpoint-2 C-1, mutant M11).
+  const wfGlobPathspecs = [...WF.matchAll(/'(:\(exclude,glob\)[^']+)'/g)]
+    .map((m) => m[1])
+    .filter((s): s is string => s !== undefined);
+  const missing = SERIES_EXCLUDE_PATHSPECS.filter((ps) => !WF.includes("'" + ps + "'"));
+  const extra = [...new Set(wfGlobPathspecs)].filter((ps) => !SERIES_EXCLUDE_PATHSPECS.includes(ps));
+  assert.deepEqual(missing, [], `r25 job is missing exclusion pathspec(s): ${missing.join(", ")} (ADR-M003 D9 sexies)`);
+  assert.deepEqual(
+    extra,
+    [],
+    `r25 job carries :(glob) exclusion pathspec(s) with no marched root in SERIES_EXCLUDED_ROOTS: ${extra.join(", ")} ` +
+      `(add the root to the source of truth — ADR-M003 D9 sexies; G2 checkpoint-2 C-1 / mutant M11)`,
+  );
 
   const checked = new Set<string>();
   for (const rootRel of SERIES_EXCLUDED_ROOTS) {
@@ -1045,15 +1062,22 @@ test("series_pinned_are_declared_and_hashed — every R-25-excluded data file is
       const declFiles = readdirSync(dir)
         .filter((n) => n !== self && (/^PROVENANCE-.*\.md$/.test(n) || n === "manifest.json"))
         .map((n) => join(dir, n));
-      // Binding name<->sha (G2 R-25-series C2): the sha must sit on the row/bullet that names THIS file —
-      // a permuted table (each sha present somewhere in the document) must be red. manifest.json is parsed;
-      // in a PROVENANCE-*.md the binding holds when (i) the sha line itself names `self` (table row / bullet),
-      // or (ii) the sha line names no sibling data file and a heading (`#…`) above it names `self`
-      // (climbing to the document title; a heading naming another file stops the climb). A sha line naming ANOTHER sibling
-      // never binds.
+      // Binding name<->sha (G2 R-25-series C2 + checkpoint-2 C-2): the sha must sit on the row/bullet that
+      // names THIS file, SAME LINE ONLY. A permuted table (each sha present SOMEWHERE in the document) is
+      // red (mutant perm). The former rule (ii) — "a heading above the sha names the file" — is REMOVED
+      // (checkpoint-2 C-2b): it bound ANY nameless sha line of the document, e.g. a historical sha under a
+      // `## History` heading (mutant M6b). Name matching is by TOKEN, delimited by line start/end, backtick,
+      // `|`, space, `/` or a parenthesis (checkpoint-2 C-2a): a PATH prefix (`fixtures/x/book.json`) still
+      // binds `book.json`, but a NAME prefix (`full-book.json`) does NOT bind the sibling `book.json`
+      // (mutant M5), nor does `book.json` bind inside `book.jsonl`. manifest.json is parsed by key.
       const siblingData = readdirSync(dir).filter((n) => SERIES_DATA_EXTS.has(extname(n)));
+      const DELIM = "`| /()"; // token boundaries around a filename
+      const namesFile = (line: string, n: string): boolean => {
+        const esc = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return new RegExp(`(^|[${DELIM}])${esc}($|[${DELIM}])`).test(line);
+      };
       const bindsSelf = (line: string): boolean => {
-        const named = siblingData.filter((n) => line.includes(n));
+        const named = siblingData.filter((n) => namesFile(line, n));
         return named.length === 1 && named[0] === self;
       };
       const declaredIn = declFiles.find((d) => {
@@ -1066,21 +1090,8 @@ test("series_pinned_are_declared_and_hashed — every R-25-excluded data file is
             return false;
           }
         }
-        const lines = text.split(/\r?\n/);
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i] ?? "";
-          if (!line.includes(sha)) continue;
-          if (bindsSelf(line)) return true;
-          if (siblingData.some((n) => line.includes(n))) continue; // names another file: never binds
-          for (let j = i; j >= 0; j--) {
-            const up = lines[j] ?? "";
-            if (!/^#{1,6}\s/.test(up)) continue;
-            if (bindsSelf(up)) return true;
-            if (siblingData.some((n) => up.includes(n))) break; // section of another file
-            // heading naming no file: keep climbing to the document title
-          }
-        }
-        return false;
+        // Same-line only: one line carries BOTH this file's exact sha AND its (token-delimited) name.
+        return text.split(/\r?\n/).some((line) => line.includes(sha) && bindsSelf(line));
       });
       assert.ok(
         declaredIn !== undefined,

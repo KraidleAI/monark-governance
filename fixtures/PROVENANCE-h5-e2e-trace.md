@@ -60,7 +60,7 @@ These statements live in the trace's `honesty` block and are re-asserted by
 
 - The tools read no clock (`produced_at`/`producedAt` are caller-carried); the ephemeral port is
   intentionally NOT recorded. Re-running the recorder reproduces the file byte-for-byte.
-- **sha256 (LF-normalized)**: `9cf2f8b23b2c17a7358ca3be27b08fd54378978ec74ae1fd1147573f9179e5dd`
+- **sha256 (LF)** of `h5-e2e-trace.json`: `9cf2f8b23b2c17a7358ca3be27b08fd54378978ec74ae1fd1147573f9179e5dd`
   (15731 bytes; re-pinned for ADR-M017 P1-b2 — M012 item (i) DEDUPED the gate tool description (the committed
   sentence's "every other … abstains (under_calib)" queue is no longer rendered in the description, which now
   interpolates `STABLE_RUN_COMMITTED_CORE`), SHRINKING the `tools/list` description bytes; the ONLY drift is

@@ -48,7 +48,7 @@ and are re-asserted by `test/byo-demo-probe.test.ts`.
 
 - The tools read no clock (`produced_at` is caller-carried); the ephemeral port is intentionally NOT
   recorded. Re-running the recorder reproduces the file byte-for-byte.
-- **sha256 (LF-normalized)**: `daf8d3eabacbc601e608d01936d02c0f7ba78dfb5a0d6f5741ecea5fb4eef6d2`
+- **sha256 (LF)** of `byo-demo-trace.json`: `daf8d3eabacbc601e608d01936d02c0f7ba78dfb5a0d6f5741ecea5fb4eef6d2`
   (9735 bytes). `.gitattributes` normalizes to `eol=lf`, so this digest survives commit; the probe
   LF-normalizes before hashing, so it also survives a CRLF checkout. This value is pinned as
   `TRACE_SHA256_PINNED` in `test/byo-demo-probe.test.ts`. Re-pinned for M012-f — the `initialize` step's

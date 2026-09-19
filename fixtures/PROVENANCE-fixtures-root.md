@@ -24,7 +24,7 @@ these nine shas stay in ONE place (the manifest) — no drift, no duplication. D
 - **Cascade (declared, loud, rare)**: editing any gate-decision state changes `manifest.json` (updated hash),
   which changes the pin below; `fixtures_root_valid` AND `series_pinned_are_declared_and_hashed` both red until
   this line is updated. This is the intended tamper-evidence, not a defect.
-- **sha256 (LF)**: `08b2c3edb97a8420956eabe0211fcde04ef0460718784b2fde1c0be6b9269af4`
+- **sha256 (LF)** of `manifest.json`: `08b2c3edb97a8420956eabe0211fcde04ef0460718784b2fde1c0be6b9269af4`
 
 ## `figures-sourced.json` — committed sourced figures for the public site
 
@@ -33,4 +33,4 @@ these nine shas stay in ONE place (the manifest) — no drift, no duplication. D
   numbers exempt from the site numeric-hole honesty lint ("hors figures-sourced.json", ADR-M004 D11;
   `apps/site/test/honesty-lint.ts`) — a number is honoured ONLY when read from this file, never as a literal.
 - **Source**: ADR-M004 D11; consumed by `load-committed.ts` / `honesty-lint.ts`.
-- **sha256 (LF)**: `15aad757d9f182ef203dd213bc20eaa8d18d03e9f602b61ef2359f162acb693e`
+- **sha256 (LF)** of `figures-sourced.json`: `15aad757d9f182ef203dd213bc20eaa8d18d03e9f602b61ef2359f162acb693e`

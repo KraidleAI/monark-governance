@@ -14,4 +14,4 @@ excluded from the R-25 lot-size count. English by ADR-M003 D0.5.
   sentinel job in commit `56acedf` (M012-b, ADR-M012 D1-D6/D9).
 - **Integrity**: `.gitattributes` normalizes to `eol=lf`, so the pin survives commit; the root test
   `series_pinned_are_declared_and_hashed` LF-normalizes before hashing.
-- **sha256 (LF)**: `f4e509482fc4d6eee799a89822ad586d8010ff0e3d1a5add1e7033f962cce492`
+- **sha256 (LF)** of `usde-boundary-blocks.json`: `f4e509482fc4d6eee799a89822ad586d8010ff0e3d1a5add1e7033f962cce492`
