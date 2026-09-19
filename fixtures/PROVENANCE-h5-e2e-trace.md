@@ -60,7 +60,7 @@ These statements live in the trace's `honesty` block and are re-asserted by
 
 - The tools read no clock (`produced_at`/`producedAt` are caller-carried); the ephemeral port is
   intentionally NOT recorded. Re-running the recorder reproduces the file byte-for-byte.
-- **sha256 (LF-normalized)**: `9b5457d9e8081fb8cdbe4ec7fcc3b6ce27fb1d34a0451989f66858567287b4ff`
+- **sha256 (LF)** of `h5-e2e-trace.json`: `9b5457d9e8081fb8cdbe4ec7fcc3b6ce27fb1d34a0451989f66858567287b4ff`
   (15731 bytes; re-pinned for the ADR-M018 D4 lot — E9: the served `cascade-liquidable-24h` (a NUMERIC class)
   under_calib region carried a directional `label_schema: "up|down"` (an inert but dishonest octet on a numeric
   class); every numeric (interval) caller now passes `NUMERIC_LABEL_SCHEMA`. The ONLY drift is the cascade-gate

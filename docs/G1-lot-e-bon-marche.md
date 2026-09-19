@@ -158,3 +158,13 @@ générées à part ; trace h5 = **1 ligne** fixture, exempte ; ce G1 = rapport 
 - **E10** : un **item formé** (cadence de re-capture, déclencheur = lot `apps/site`, propriétaire orchestrateur).
 
 *(sha256 de ce fichier : émis dans le retour worker à l'orchestrateur post-écriture — un fichier ne contient pas son propre digest.)*
+
+## Checkpoint-2 (validateur `claude-fable-5-1`, gel `bb8f049`) : ACCEPTE-AVEC-CORRECTIONS → pliées
+| # | correction | error_origin |
+|---|---|---|
+| C-1 | ADR-M019 D2 amendé (région `label_schema:"numeric"`, digest reproductible `14773773…`, `fd1203e9…` pré-E9, `64619eb9…` retiré) ; ADR-M020:9 substitué | orchestrateur |
+| C-2 | `fixtures/PROVENANCE-h5-e2e-trace.md:63` : ligne sha nomme le fichier (règle same-line de R-25-séries `8fbd49c`, fusionnée `f4428b4`) | orchestrateur |
+Mutants rejoués par le validateur : `gate.ts` :481/:346/:472/:314, `interval-conformer.ts:71`, E5 m1, E10 byte-flip — tous rouges ; live Narabi GET = blobs embarqués. Ordre de fusion mesuré par `merge-tree` : propre avec etude-suite, u-1a, t-1a ; conflit textuel avec r25-series sur PROVENANCE-h5:63 (résolu par C-2).
+
+## G7 (orchestrateur `claude-fable-5-1`, 2026-09-19)
+G7 **CLOS** : oracle 291/291 (worker, G2, validateur, orchestrateur) ; G2 RÉVISION REQUISE pliée (`30665f4`, `5d24cb9`) ; checkpoint-2 ACCEPTE-AVEC-CORRECTIONS C-1/C-2 pliées ici. E5/E9/E10 fermés ; items formés : cadence de re-capture Narabi (lot `apps/site`), hygiène `test/` racine (lot `ci-gates`). Fusion sur `lot/etude-suite` AVANT U-1a/T-1a (décision 18).
