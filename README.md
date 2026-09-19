@@ -99,7 +99,7 @@ sensors (attest)  →  the gate: Hikae + MONARK B_t  →  acts (execute)
                         commit | defer | abstain
 ```
 
-The first vertical, built end to end: `Shōgen → Hikae → Ukemi`. Every future act plugs into the same
+The first vertical, built and served piece by piece and composed on the gate path. Every future act plugs into the same
 gate; every future sensor attests into the same contract shape.
 
 ## Five frozen contracts
@@ -185,7 +185,7 @@ schemas/            JSON Schema — the language-neutral source of truth (closed
 packages/contracts  TS binding: types, closed-check, forbidden-keys, calib_digest, serializers, tests
 packages/hikae      HAC-CP engine: L1 split / L2 monitor / L3 gate, interval conformer  (Phase one — built)
 packages/ukemi      liquidation-cascade survival: clearing, liquidable                  (Phase one — built)
-packages/monark     cross-agent gate — freezes the wiring signature; token budget B_t   (engine = Phase two)
+packages/monark     integration adapters: Shōgen→AttestedPrice, Narabi AttestedFlow→Prediction; canonical CBOR
 packages/atelier    local demo surface (not a shipped product)
 apps/site           public vitrine
 apps/harness        the MCP / HTTP harness — four tools over the frozen contracts
