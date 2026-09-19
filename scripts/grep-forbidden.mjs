@@ -212,6 +212,22 @@ export function collectTargets(root, config, cliArgs) {
     }
   }
 
+  // The off-tool Bell collector (ADR-B0 D5) — GLOBAL + the bell-scoped D1 interdicts, over apps/bell/src
+  // (SOURCE only: the bell tests name banned tokens as negative-control vocab mutants, so test/ is NOT
+  // scanned). Non-inert proof: apps/bell/test/bell.test.ts (bell_vocab_scope_reddens).
+  const bell = config.scan.bell;
+  if (bell) {
+    const BELL_EXTRA = compilePatterns(bell.banned);
+    for (const rel of bell.dirs ?? []) {
+      const d = join(root, rel);
+      try {
+        if (statSync(d).isDirectory()) add(walk(d, bell.extensions), [...GLOBAL, ...BELL_EXTRA]);
+      } catch {
+        /* bell dir not present yet */
+      }
+    }
+  }
+
   // Extra targets from the command line (tests use this on temp files) — GLOBAL patterns only.
   for (const arg of cliArgs) {
     const p = resolve(arg);

@@ -113,6 +113,20 @@
         { "re": "adaptive(ly)?\\s+(cover|guarantee|region|gate)", "why": "\"adaptive coverage/guarantee/region/gate\" surclaim — the Narabi tracker is adaptive, the committed gate region is NOT (ADR-M012 D8, C-3; catches \"adaptively covers\")" },
         { "re": "(coverage|region|gate)\\s+adapt", "why": "\"the gate/region/coverage adapts\" surclaim — the gate does not adapt before the pre-registered drift criterion fires (ADR-M012 D8, C-3; catches \"the gate adapts\")" }
       ]
+    },
+    "bell": {
+      "$comment": "(ADR-B0 D5): the off-tool Bell collector is scanned for the opposable interdicts of D1 — price band, 'verified' naked, 'guarantee', 'partner/partnership'. apps/bell/src by directory walk (.ts), SOURCE ONLY (not test/): the bell tests name these tokens as negative-control vocab mutants, so scanning test/ would red on the fixtures themselves. GLOBAL patterns also apply. 'verified' is negation-aware so the honest 'signed is not verified' (origin != truth, ADR-B0 D8/M017) stays green; the technical word 'verify'/'verification'/'confirmed' is never banned. Load-bearing wiring proof: apps/bell/test/bell.test.ts (bell_vocab_scope_reddens). Adding a pattern = an ADR line.",
+      "dirs": ["apps/bell/src"],
+      "extensions": [".ts"],
+      "banned": [
+        { "re": "(?<!not )(?<!no )\\bverified\\b", "why": "\"verified\" naked — Bell attests ORIGIN (signed), never that a fact is verified/true (ADR-B0 D1/D8, M017); 'not verified'/'no verified' stay green" },
+        { "re": "\\bguarantee", "why": "\"guarantee(d/s)\" — no guarantee on the Bell surface; the honest word is 'bound' (ADR-B0 D1)" },
+        { "re": "\\bpartners?\\b", "why": "\"partner(s)\" — no endorsement/partnership claim; venues are named factually as witnessed (ADR-B0 D1/D8)" },
+        { "re": "\\bpartnership", "why": "\"partnership\" — no endorsement/partnership claim (ADR-B0 D1)" },
+        { "re": "price[-\\s]?band", "why": "\"price band\" — Bell measures in gap space, never a price band (ADR-B0 D1)" },
+        { "re": "±\\s*\\d", "why": "\"+/-X...\" price/coverage band shape — Bell emits a fact, never a +/-X% band (ADR-B0 D1)" },
+        { "re": "\\d+\\s*%\\s*(at|\\u00e0)\\s*\\d+\\s*%", "why": "\"X % at Y %\" band/coverage surclaim (also the fr a-grave connector form) — no '+/-X% at 90%' (ADR-B0 D1)" }
+      ]
     }
   }
 }

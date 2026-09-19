@@ -1,0 +1,6 @@
+Halt Date,Halt Time,Symbol,Name,Exchange,Reason,Resume Date,NYSE Resume Time
+2026-02-27,16:26:29,ASND,Ascendis Pharma A/S American Depositary Shares,Nasdaq,News pending,2026-02-27,18:20:00
+2026-07-31,15:52:53,INHD,Inno Holdings Inc. Common Stock,Nasdaq,LULD Pause,2026-07-31,16:00:00
+2026-09-18,15:33:39,FRGT,"""Freight Technologies, Inc. Ordinary Shares""",Nasdaq,LULD Pause,2026-09-18,15:38:39
+2026-09-18,19:50:00,UZX,Linkage Global Inc Class A Ordinary Shares,Nasdaq,News Pending,,
+2026-08-01,10:00:00,ZZZZ,Test Broken Graphie Co,Nasdaq,LULD PAUSE,2026-08-01,10:05:00
