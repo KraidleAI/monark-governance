@@ -136,9 +136,7 @@ couture découvert ⇒ aucun item formé côté couture.
   pas par `assertClosed*` typant. 69/69 tenu ⇒ **aucune dette** ; signalé pour que G2 ne le redécouvre pas.
 - **Hors lot (observations, non des patchs)** : (1) `scripts/lang-gate.mjs` porte encore l'en-tête « global is RED
   by design » alors que le bare `npm run lang:gate` mesure **0 hit** dans tous les scopes — commentaire périmé,
-  hors périmètre H-attested (zone `scripts/`, non touchée) ; (2) `scripts/record-h5-e2e-trace.mjs` décrit encore
-  l'étape 7 comme « the HTTP/JSON mirror » dans son en-tête de prose (le miroir est maintenant l'étape 8) —
-  cosmétique, en-tête non probant, hors lot. Ces deux points sont des **items formés à déclencheur** (prochaine
+  hors périmètre H-attested (zone `scripts/`, non touchée) ; (2) **RETIRÉ (G2 COR-1, `error_origin` worker)** : l'en-tête de `scripts/record-h5-e2e-trace.mjs` ne numérote pas le miroir (« + the HTTP/JSON mirror », mesuré : aucune mention « step 7 ») — il reste exact ; item fantôme supprimé. Le point (1) reste un **item formé à déclencheur** (prochaine
   passe touchant `scripts/`), pas des « dûs » nus : aucun octet à modifier dans H-attested (interdits + R-25).
 - **Union `AttestedPrice | AttestedBook` sur la prise (U-4)**, clés (K-1), BYO + `attested`, liaison temporelle :
   hors périmètre, déjà formés ailleurs (ADR-EC / ADR-M017).
