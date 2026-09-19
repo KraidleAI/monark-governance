@@ -146,7 +146,7 @@ Prise **`attested`** dans le `gate` servi (branchement du triangle attest → ga
 La section « Tuyaux » ci-dessus (l.135) affirme : « **Ukemi** (`cascade` sur graphe fixture) n'est consommé par **aucun** chemin
 servi après P1 ». **Cette prémisse est FAUSSE, corrigée ici** (checkpoint-2 b2 K-C2-3, `docs/CHECKPOINT2-M017-b2.md:26`). Mesure
 [lu] : la trace e2e `fixtures/h5-e2e-trace.json` (probe `probe_harness_records_real_decision`, fil MCP réel, non-LLM) enregistre
-à l'**étape 4 `cascade-gate`** (construite par `test/h5-trace-builder.ts:218` (appel) et `:242` (step)) la prédiction cascade
+à l'**étape 4 `cascade-gate`** (construite par `test/h5-trace-builder.ts:218` (arguments), `:219` (appel `gate`) et `:242` (step)) la prédiction cascade
 d'Ukemi (`task_class: cascade-liquidable-24h`, `predictor_id: internal:ukemi-cascade-v0`) **injectée dans le `gate` servi** ; la
 réponse enregistrée est `action=abstain reason=under_calib` (aucune calibration cascade committée ⇒ classe fixture,
 `apps/harness/src/attestation-binding.ts:33`). Donc Ukemi **EST** consommé par un chemin servi (le `gate`), mais **abstient

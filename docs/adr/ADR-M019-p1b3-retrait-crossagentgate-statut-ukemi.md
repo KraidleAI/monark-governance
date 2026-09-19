@@ -1,6 +1,6 @@
 # ADR-M019 — P1-b3 : retrait de `crossAgentGate` et statut de branchement d'Ukemi
 
-- **Statut** : **accepté** pour le retrait de `crossAgentGate` (P1-b3, ce lot, mesuré) ; **QUESTION OUVERTE investisseur** pour le
+- **Statut** : **proposé / en revue** pour le retrait de `crossAgentGate` (G2 approuvé-avec-corrections 2026-09-19 ; G7 et checkpoint-2 à venir) ; **TRANCHÉ par l'investisseur le 2026-09-19** pour le
   statut de registre public d'Ukemi (§D4, candidate ESCALADE CA-2 au checkpoint-1 de b3) ; amendement d'ADR-M018 D2 **proposé, à
   ratifier** (§D3). Aucune surface publique du registre (`apps/site`) n'est modifiée par ce lot.
 - **Dates** : décision 2026-09-19 · approbation _(checkpoint-1 / checkpoint-2 de b3 — à venir)_ · dernière modification 2026-09-19
@@ -55,7 +55,7 @@ packages/monark` = `(empty)`. Détail et mutants : `docs/G1-lot-p1b3.md`.
 **D2 — Le tuyau réel Ukemi → `gate`, mesuré (K-C2-3, tâche a).**
 La prédiction cascade d'Ukemi **est consommée** par le `gate` servi sur le fil MCP réel — la trace e2e committée le prouve, non
 `crossAgentGate` (retiré). Mesure [lu] (`fixtures/h5-e2e-trace.json`, étape 4 `cascade-gate`, construite par
-`test/h5-trace-builder.ts:218` (appel `gate`) et `:242` (step enregistré) ; probe `probe_harness_records_real_decision`, non-LLM) :
+`test/h5-trace-builder.ts:218` (construction des arguments portant la prédiction cascade), `:219` (appel `gate` servi) et `:242` (step enregistré) ; probe `probe_harness_records_real_decision`, non-LLM) :
 - entrée : `cascade` (Ukemi) → `Prediction` `{ task_class: "cascade-liquidable-24h", yhat: 100, predictor_id:
   "internal:ukemi-cascade-v0", produced_at: "2026-09-04T00:00:00Z" }` ;
 - consommation : cette `Prediction` est passée comme **`prediction` porté par l'appelant** à l'outil `gate` (`registry.run →
@@ -79,7 +79,16 @@ La prémisse « Ukemi n'est consommé par aucun chemin servi » (ADR-M017:135 av
   > le **contenu** de la prédiction n'influence pas la décision (vacuité mesurée) ⇒ statut `built`/`upcoming` tranché par
   > l'investisseur en P1-b3 (ADR-M019 D4), jamais implicite. »_
 
-**D4 — Statut de registre public d'Ukemi : QUESTION OUVERTE investisseur (tâche c).**
+**D4 — Statut de registre public d'Ukemi : TRANCHÉ par l'investisseur (2026-09-19).**
+Décision investisseur, verbatim : « on le build, on ne revient pas en arrière. on cherche une façon de le mettre à son paroxysme ;
+littérature et rigueur académique. on doit le faire. » ⇒ **Ukemi reste `built` au registre** (option B ci-dessous, sans amendement
+(b′) de ADR-M018 pour l'instant) **ET** l'écart mesuré en D2 (consommation réelle, effet servi = abstention constante) devient un
+**programme obligatoire** : « Ukemi mode L au paroxysme » — classe servie calibrée dont la sortie **influence** la décision, fondée sur
+la littérature (Eisenberg–Noe, Rogers–Veraart, Amini–Filipović–Minca, Cifuentes, Lehar–Parlour, Gatto 2026, Garcia Seuma 2026 ;
+campagne bibliographique `docs/biblio/ukemi-modeL/`, avis advisor-DeFi) ; ADR de programme dédié (ADR-M020) avec checkpoint-1
+validateur avant tout code, passe suivant P1/W-1. Le champ `wiring` posé en W-1 dira honnêtement « abstains under_calib by
+construction » jusqu'à ce lot. Avis G2 b3 (option A + (b′)) consigné comme avis, non retenu par l'investisseur. Les deux options
+restent écrites ci-dessous pour la traçabilité.
 Décision de **registre public** (`apps/site/lib/fleet.ts:72`, aujourd'hui `Ukemi … status: "built"`), donc réservée à
 l'investisseur (escalade CA-2). **Ce lot ne change pas le registre** (W-1 le fera, ADR-M018 Conséquences). Deux options écrites :
 
@@ -142,7 +151,7 @@ Ce lot **retire** un tuyau (jamais servi) et **documente** un tuyau existant ; i
    intouchée par b3). **Déclencheur** : lot W-1.
 4. **Test d'hygiène de dépendances** (déclaré ⊇ importé, par package) : mesuré absent (ni eslint `import/no-extraneous-dependencies`,
    ni test) ⇒ le mutant « réintroduire un import de `@monark/ukemi` » reste **vert** (hoist workspace, cf. Sources). Non ajouté par ce
-   lot (hors portée `packages/monark`). **Déclencheur** : lot d'hygiène dépendances, ou prochaine cartographie (ADR-M018 D4).
+   lot (unitarité / R-25 : lot de suppression pure ; le garde eslint `import/no-extraneous-dependencies` est transverse au monorepo). **Déclencheur** : prochaine cartographie (ADR-M018 D4) — G2 b3 C2.
 
 ## Sources
 - Mesures primaires [lu] (reproductibles, `docs/G1-lot-p1b3.md`) : oracle `npm run ci` = 289 ; `grep` résiduels ; mutants m1
@@ -166,7 +175,7 @@ Ce lot **retire** un tuyau (jamais servi) et **documente** un tuyau existant ; i
 - **Trancher le statut d'Ukemi dans ce lot** : décision de registre **public** = investisseur (CA-2) ; un générateur ne
   l'auto-déclare pas (AgileGates). Refusé ⇒ question ouverte (D4).
 - **Amender ADR-M018 dans ce lot** : ADR investisseur. Refusé ⇒ amendement **proposé** (D3), à ratifier.
-- **Rendre le mutant `@monark/ukemi` rouge en ajoutant un test d'hygiène** : hors portée `packages/monark` ; ⇒ item formé (4).
+- **Rendre le mutant `@monark/ukemi` rouge en ajoutant un test d'hygiène** : un lot de suppression pure ne fait pas croître un oracle transverse (unitarité / R-25) ; ⇒ item formé (4), déclencheur cartographie ADR-M018 D4.
 
 ## Conséquences
 - Le seul « tuyau » Shōgen + Hikae + Ukemi en un appel (jamais servi) est retiré ; le dépôt ne prétend plus le contraire (README,
