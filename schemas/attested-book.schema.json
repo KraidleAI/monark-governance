@@ -123,6 +123,7 @@
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
+      "contains": { "const": "no_third_party_verifier" },
       "items": {
         "type": "string",
         "enum": [

@@ -154,6 +154,24 @@ test("attested-book rejects a residual OUTSIDE the closed enum, an empty residua
   assert.equal(vab({ ...validAttestedBook(), residual: ["no_third_party_verifier", "no_third_party_verifier"] }), false); // uniqueItems
 });
 
+// V-6 (b), investor decision 2026-09-19: the frozen schema itself must FORCE `residual` to carry
+// `no_third_party_verifier` (ADR-U1b D2ter) via `"contains": {"const": ...}`, so the invariant is enforced,
+// not merely stated in the description. Before V-6 (b) an in-enum, unique, non-empty residual that OMITTED
+// it was ACCEPTED (the gap checkpoint-2 flagged). Mutant (delete the schema `contains` line) reddens (b)
+// below AND the contracts_frozen guard (schema sha != manifest).
+test("attested_book_residual_always_names_no_third_party_verifier", () => {
+  const vab = validator(ID.ab);
+  const base = validAttestedBook();
+  // (a) a residual that CARRIES no_third_party_verifier passes — alone, and alongside another residual.
+  assert.equal(vab({ ...base, residual: ["no_third_party_verifier"] }), true, JSON.stringify(vab.errors));
+  assert.equal(vab({ ...base, residual: ["no_third_party_verifier", "oracle_price_as_read"] }), true, JSON.stringify(vab.errors));
+  // (b) an in-enum, unique, non-empty residual that OMITS no_third_party_verifier is REFUSED, and the
+  // failing keyword is `contains` (enum/minItems/uniqueItems all pass here) — proof the NEW constraint bites.
+  assert.equal(vab({ ...base, residual: ["oracle_price_as_read"] }), false, "residual omitting no_third_party_verifier must be refused");
+  assert.ok(vab.errors?.some((e) => e.keyword === "contains"), `refusal must come from the contains keyword: ${JSON.stringify(vab.errors)}`);
+  assert.equal(vab({ ...base, residual: ["oracle_price_as_read", "rpc_quorum_2_keyless"] }), false, "multi-element residual still refused when no_third_party_verifier is absent");
+});
+
 // value ⇔ reason≠null (ADR-U1b D4, C-1): BOTH uncoupled directions rejected by the frozen schema `oneOf`.
 test("attested_book_abstain_coupling", () => {
   const vab = validator(ID.ab);
