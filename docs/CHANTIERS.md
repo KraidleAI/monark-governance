@@ -74,6 +74,7 @@ Dernière mise à jour : 2026-09-19 13:30 UTC (horloge système)
 - Ratifications investisseur en suspens : excision journal.jsonl Shōgen (D-ADJ) ; ADR-M002 D5/D6 bFloor.
 
 ## F. Règles apprises cette passe (à ne plus enfreindre)
+- **Vitrine = ADR-M013 (T0/T1/T2), rappel investisseur 2026-09-19 (« on l'applique »)** : en vigueur depuis F-site-10 (`d87ffba` T1, puis 4 commits `site[T0]`) ; W-1 était T2 à bon droit (registre `fleet.ts`). Pré-classement des lots site à venir : `/bell` page publique + méthode (T-1b) = **T2** (nouveau service, registre upcoming 12→13, phrases publiques nouvelles) ; panneau Ukemi statut/prose (E2, Shōgen-honnêteté) = **T2 si `fleet.ts` touché, sinon T0** ; rendu du `wiring` (E6, designer) = **T1** (composant sur registre existant) ; README:48/111/112 « verified » = **T0** ; corrections de copie = **T0**. Le régime est déclaré dans le message de commit et contrôlé par la G2.
 - Tout fold post-gel re-sha le G1 dans le même commit (récidive b2/b3).
 - Consigne de montage G2/checkpoint : jamais de jonction `node_modules` vers le dépôt réel (masque les mutants inter-paquets) ; reconstruire.
 - Freeze K-C : aucun commit sur la branche gelée pendant un checkpoint ; les docs de synthèse vont sur `lot/etude-suite`.
