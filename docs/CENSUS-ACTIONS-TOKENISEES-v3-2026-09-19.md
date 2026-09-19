@@ -5,7 +5,7 @@ Chercheur `claude-sonnet-5` (effort max), archive `F:\PRODUITS\etude-2026-09-19\
 | Mesure | Lignes (actif×chaîne) | Actifs distincts |
 |---|---|---|
 | Pool DEX trouvé | 379 | 338 |
-| **Couvrable strict** (pool + volume 24 h > 0) | **370** | **330** (351 selon le décompte du chercheur, écart de clé de comptage — le nombre de lignes fait foi) |
+| **Couvrable strict** (pool + volume 24 h > 0) | **370** | **330 tickers** = 351 couples (ticker, émetteur) = 370 adresses de contrat — les trois comptes sont exacts, ils comptent des objets différents (recompte orchestrateur) |
 Par chaîne (strict) : Robinhood Chain 138, Solana 90, BSC 87, Base 26, Ethereum 23, Arbitrum 4, Ink 2. **Zéro** sur TON, Optimism, X Layer, Mantle, HyperEVM, Tron malgré 150-170 déploiements xStocks chacune (omnichain sans liquidité).
 Par émetteur (strict) : Robinhood 138, Ondo 57, xStocks 52, bStocks 52, Backpack 33, st0x 16, Coinbase 10, PreStocks 6, Reality 4, Tessera 2.
 Par DEX : Uniswap 170, PancakeSwap 78, Raydium 58, Meteora 16, Orca 14, Aerodrome 14, Hydrex 12, InkySwap 2.
