@@ -62,8 +62,8 @@
 | `ALLOWED_KEYS` sync (`contracts.test.ts:41-63`) + `assertClosedNode` récursif (`:78`) | clés fermées racine + **chaque** sous-objet | clé inconnue (`price`, `peg_score`) ⇒ throw |
 | `schema.test.ts:50-54,63` (« all schemas ») | binding TS ⇔ schéma, sur le **6ᵉ** | schéma dé-synchronisé ⇒ rouge |
 | `enums.test.ts` | `residual` + `abstain.reason` (`["string","null"]`) = source runtime | valeur hors enum ⇒ rouge |
-| `attested_book_roundtrip` (`adapter-book`) | round-trip byte-exact (**pas** de `Prediction`, C-2) | champ altéré ⇒ rejet |
-| `attested_book_canonical_deterministic` | canonicaliseur déterministe ; **réutilise la fixture/digest de `sentinel2_book_identical_to_pull`** (C-7) | ordre clés / flottant / non-minifié ⇒ digest ≠ |
+| `attested_book_roundtrip` (`adapter-book`, **livrable U-1b-b**) | round-trip byte-exact (**pas** de `Prediction`, C-2) | champ altéré ⇒ rejet |
+| `attested_book_canonical_deterministic` (**livrable U-1b-b**) | canonicaliseur déterministe ; **réutilise la fixture/digest de `sentinel2_book_identical_to_pull`** (C-7) | ordre clés / flottant / non-minifié ⇒ digest ≠ |
 | `subject_pattern_subset_of_canonical` | `subject` émis ⊂ canonique ; **oracle = fixture de verdicts Shōgen committée** (précédent `fixtures/s3-binance.verdict.txt`, C-5) + regex stricte | hôte MAJ / `#` / `@` / `..` / IPv4 rejeté |
 | `attested_book_description_no_probative_claim` (nouveau, C-8) | scrub PROBATIVE (`attest.test.ts:109`) sur la `description`, négations masquées | jeton probatif inséré ⇒ rouge |
 | `attested_book_abstain_coupling` | `value ⇔ reason≠null` (C-1) | `value=true reason=null` (ou l'inverse) ⇒ rejet |
