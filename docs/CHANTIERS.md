@@ -1,5 +1,5 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 07:55 UTC (horloge système)
+Dernière mise à jour : 2026-09-19 08:20 UTC (horloge système)
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019)
 | Lot | État | Prochaine action | Bloqué par |
@@ -25,7 +25,7 @@ Dernière mise à jour : 2026-09-19 07:55 UTC (horloge système)
 | Lecture Tibshirani 2019 + Barber 2023 | REÇUE : intra-événement = Thm 2 exact ; swap de bloc non couvert → Dunn–Wasserman–Ramdas 2022 (JASA, arXiv:1809.07441) téléchargé OA (collision arXiv:2010.06001 écartée) | lecture Dunn à lancer | — |
 | Note formelle treillis (T monotone, Q_*/Q^*, unicité, sens du treillis) | EN COURS — worker | affirmation centrale de l'ADR | — |
 | ADR-M020 « Eligible is not liquidated » | **checkpoint-1 : approuvé-avec-corrections U-0..U-3** (10 corrections pliées `3a48c88`) ; escalade classe (b) **tranchée : « les 2 »** (position + shortfall cluster, U-4) ; U-1 peut démarrer après W-1 + ADR de lot U-1 | ADR U-1 | W-1 |
-| ADR-U1 (recorder du book, énumération fixée) | EN COURS — worker rédacteur | checkpoint-1 U-1 après W-1 | — |
+| ADR-U1 (recorder du book) | RÉDIGÉ `c7bbd37` (93 l.) ; 3 adjudications (Temoignage sans `attest`, clé placeholder + item K-1 clés, cache `holders_digest`) ; **checkpoint-1 EN COURS** | U-1a après approbation | validateur |
 | Commit de `docs/biblio/ukemi-modeL/` sur `lot/etude-suite` | FAIT (archive + avis + sha ; pdf/_txt gitignorés, sha tracés) ; MESURES à committer à réception | — | mesures |
 
 ## C. MONARK Bell — témoin public attesté des TSV, actions tokenisées (nom investisseur 2026-09-19 ; décisions 1-3, 10 : **produit full fini, VPS dédié dès T-1, grade institutionnel, GTM propre**)
@@ -37,7 +37,7 @@ Dernière mise à jour : 2026-09-19 07:55 UTC (horloge système)
 | Recherche web (post-mortem CAPO, Uniswap rebasing, Token-2022 scaled UI, ERC-8056, événement déficit Aave v3.3, Chainlink SVR) | EN COURS — chercheur, lecture directe par MONARK (investisseur : « il faut que tu lises toi-même ») | intégrer PR-UK-3/14 | — |
 | Procurement §8 | reçus : Amini 2016, Chow 1970, CFS BoE WP 264 (Ukemi) ; **Scharnowski 2026** (Bell, item 1, lecteur en cours) ; restent : Gatto PDF SSRN, post-mortem CAPO, Nexus terms, TokenLogic, rsETH report, LlamaRisk scope, Credora, Messari, clé Pyth Hermes, avis Massive licence | intégrer à réception | investisseur |
 | Lots T-1 (témoin faits, inscription « Bell » upcoming) → T-2 (parité droits) → T-3 (classe écart) | PLANIFIÉS après P1/W-1 et après ADR-M020 (ordre investisseur) | ADR T-1 + checkpoint-1 | W-1, ordre |
-| ADR-B0 (programme Bell : objet, tuyaux, définition de fini institutionnelle, VPS dédié, GTM) | EN COURS — worker rédacteur (contraintes décision 10 transmises) | checkpoint-1 → T-1 | — |
+| ADR-B0 (programme Bell) | RÉDIGÉ `9ab3771` (128 l. ; fait : n = 0 halts sur 15 grandes caps depuis 2025-06-30, CSV sans MWCB) ; 3 adjudications ; **checkpoint-1 EN COURS** | T-1a après approbation + VPS | validateur ; investisseur (registre produit vs capteur) |
 | GTM-BELL (`docs/GTM-BELL.md`) | EN COURS — chercheur (gaps, acheteurs nommés, positionnement, offre/pricing sourcé, séquence, signaux, risques) | revue advisor-marché → investisseur | — |
 | VPS dédié Bell | À PROVISIONNER par l'investisseur (spec dans ADR-B0 ; ordre de grandeur 2 vCPU / 4 Go / 80 Go, Ubuntu 24.04, ~8-10 €/mois) | clé SSH, DNS `bell.monarkgate.tech` | ADR-B0 |
 | Lettre de commentaire SEC File 4-927 | VALIDÉE, après T-1, go avant dépôt | — | T-1 |
