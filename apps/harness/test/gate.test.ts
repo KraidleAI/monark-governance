@@ -388,6 +388,12 @@ test("numeric_under_calib_region_is_not_directional", () => {
       name: "byo interval NDG zero-width",
       d: runGate(BYO_INTERVAL_PRED, { ...GOOD_PARAMS, intent: 0, nMin: 10, calibration: { scores: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], mode: "interval" } }),
     },
+    // committed USDe key, yhat absorbed to +Inf: stableRunVerdict zero-width NDG branch (G2 E-bon-marché C2 —
+    // the served path a mutant on gate.ts:481 left green before this case was enumerated)
+    {
+      name: "stable-run committed key NDG zero-width",
+      d: runGate({ ...STABLE_RUN_PRED, predictor_id: USDE_STABLE_RUN_PREDICTOR_ID, yhat: 1e300 }, GOOD_PARAMS),
+    },
   ];
   for (const { name, d } of numericUnderCalib) {
     assert.equal(d.verdict.reason, "under_calib", `${name}: expected an under_calib verdict`);

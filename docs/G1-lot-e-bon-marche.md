@@ -124,7 +124,7 @@ historiques (F-site-10, JOURNAL, RAPPORT M014) — non réécrits.
 **Test/mutant** `narabi_live_parses_real_state_shape` (byte-exact + forme réelle) : les 6 tests Narabi verts sur la
 série T=1. Mutant : flip d'un octet de `narabi-snapshot.ts` `stateJson` → assertion sha **rouge** (`state.json bytes
 must match the published file`). Restauré byte-exact. `sha256(narabi-snapshot.ts)` avant = après =
-`3be6a66c1ffa31597e10116ffa8bca6a0edcadaabcc22fe15bb1a46569d1fd02`.
+`943a8596109c438a5ea6b116e0aaaad97e2b1bfb32252d4de4278ea25ac67ec5 (LF ; le G1 initial portait un digest non reproductible, corrigé à la G2 C1)`.
 
 **Item formé (déclencheur nommé, jamais un « dû » nu).** Cadence de re-capture du snapshot Narabi : **déclencheur =
 chaque lot touchant `apps/site`** (aligne la capture committée sur la série live publiée). Propriétaire : orchestrateur.
