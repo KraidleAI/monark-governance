@@ -1,5 +1,5 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 10:30 UTC (horloge système)
+Dernière mise à jour : 2026-09-19 10:50 UTC (horloge système)
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019)
 | Lot | État | Prochaine action | Bloqué par |
@@ -42,7 +42,7 @@ Dernière mise à jour : 2026-09-19 10:30 UTC (horloge système)
 | **T-1a implémentation** (spike RPC d'abord, collecte faits i-iv, digest, tests/mutants, fixture DST) | EN COURS — worker, worktree `F:\Monark-wt-bell`, branche `lot/t-1a` ; Helius absent → RPC public + déclaration | G2 → checkpoint-2 → G7 | clé Helius si profondeur insuffisante |
 | T-1b (publication `/bell/`, panneau, VPS dédié, clé Ed25519) → T-2 → T-3 | PLANIFIÉS (T-3 après U-4) | ADR de lot + checkpoint-1 | T-1a, VPS, K-1 |
 | ADR-B0 (programme Bell) | checkpoint-1 approuvé-avec-corrections, **C-1..C-19 pliées `a45b3f4`**, ESC-1 (c) et ESC-2 (a) tranchées, lettre SEC scopée Q3/Q6, capteur budō « Kane » proposé (collision à vérifier) ; validateur a rejoué le CSV (8 halts historiques sur 15 caps, 0 depuis 2025-06-30, 18 graphies `Reason`, 0 MWCB) ; **ESC-1 tranchée (c) : écart seul publié, close jamais republié, rejeu tiers sous sa propre licence** ; **ESC-2 tranchée (a)** : l'orchestrateur déploie, indépendance = hôte + clé séparés, dit sur `/bell/method` ; T-1a démarre après folds de périmètre + cartographie committée (C-18) | investisseur ESC-1/2 ; C-18 | cartographie |
-| GTM-BELL (`docs/GTM-BELL.md`, `b192db1`) | revue advisor-marché reçue (propre ; 13 corrections dont ESC-1 à propager, lettre SEC ancrée Q3/Q6, 5 sondes comportementales, réplique incumbent = TSV auto-publie + oracle republie) ; **chercheur plie** | → présentation investisseur | chercheur |
+| GTM-BELL (`docs/GTM-BELL.md`, `9a14841`) | **PRÊT** — corrections advisor pliées ; thèse : « valeur de position, seul acheteur plausible = DAO votant déjà un budget de risque » ; 5 sondes comportementales (Steakhouse/Morpho d'abord) ; pivot : un curateur/DAO consomme `g_t` publiquement sous 30 j après T-1b ; conflit Credora PD/PSL arbitré (présent sur la page méthodologie) | présenté à l'investisseur ; sondes après T-1b | T-1b |
 | **RAPPEL investisseur : clé API Helius** (abonnement en cours) → `setx HELIUS_API_KEY` dans le terminal, jamais dans le chat ; à réclamer avant T-1a | ATTENDU | test d'appel à réception | investisseur |
 | Registre Bell | TRANCHÉ (décision 11) : capteur `FLEET_AGENTS` upcoming en T-1/T-2 → produit `PRODUCTS` à la Définition de fini (amendement M004 D14) | — | — |
 | VPS dédié Bell | À PROVISIONNER par l'investisseur (spec dans ADR-B0 ; ordre de grandeur 2 vCPU / 4 Go / 80 Go, Ubuntu 24.04, ~8-10 €/mois) | clé SSH, DNS `bell.monarkgate.tech` | ADR-B0 |
