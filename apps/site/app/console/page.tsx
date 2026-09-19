@@ -25,7 +25,7 @@ const consoleCols: readonly { label: string; source: string }[] = [
 // sources, never from a literal.
 export default function ConsolePage() {
   return (
-    <main className="mx-auto max-w-[1200px] px-6 pt-16 pb-22">
+    <main className="mx-auto max-w-[1440px] px-6 lg:px-10 pt-16 pb-22">
       <div className="flex flex-wrap items-center gap-3">
         <div className="font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground">
           Proof · console
