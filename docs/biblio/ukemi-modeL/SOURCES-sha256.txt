@@ -34,3 +34,5 @@ a9603b47f558e3a4054699ebe8b23ba2f46657ad41e5eaf8f2bfe25c8281826c *_txt/cont-scha
 0dbdd3f391c775d5f2c0b8058927d70b1908e75f409fb67483a3815cca256f28 *_txt/battiston-debtrank-2012.txt
 e337e6a4963155259d570fe4cfb8d3ebc56ca7d5ba2f98a773d8905f74af9a1b *_txt/glasserman-young-2015.txt
 13eb287ecbd631c5ba67c0135ad10a113776800c97bbed0ea684128fdf3d4b16 *_txt/kao-chitra-chiang-morrow-2020.txt
+98685c641c50971d pdf/*amini2016.pdf (procuré investisseur 2026-09-19)
+54677401f3d40b3f pdf/*chow1970.pdf (procuré investisseur 2026-09-19)
