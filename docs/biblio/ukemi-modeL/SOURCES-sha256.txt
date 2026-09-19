@@ -40,3 +40,4 @@ d80dba944a136e07 pdf/tibshirani-barber-candes-ramdas-2019.pdf (arXiv:1904.06019,
 7d09be24289de9a9 pdf/barber-candes-ramdas-tibshirani-2023.pdf (arXiv:2202.13415, OA, 2026-09-19)
 4b5ee1458b4debfe pdf/angelopoulos-candes-tibshirani-pid-2023.pdf (arXiv:2307.16895, OA, 2026-09-19)
 a2481c4852f4e93c pdf/milionis-moallemi-roughgarden-zhang-lvr.pdf (arXiv:2208.06046, OA, 2026-09-19)
+cfa162a55c5846cb pdf/dunn-wasserman-ramdas-2022-hierarchical.pdf (arXiv:2010.06001, OA, 2026-09-19)
