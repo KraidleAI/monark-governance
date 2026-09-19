@@ -194,3 +194,7 @@ Ce lot **retire** un tuyau (jamais servi) et **documente** un tuyau existant ; i
 - Procurement : aucun. Dette délibérée-prudente : aucune (les quatre items formés portent chacun leur déclencheur).
 
 <!-- Format : Nygard 2011 [lu], étendu ISO/IEC/IEEE 42010:2022 §6.10 [lu] (propriétaire, horodatages, alternatives rejetées, liens). -->
+
+
+---
+**Annotation O-4 (orchestrateur, G7 E-honnêteté, 2026-09-19)** : les mentions « amendement d'ADR-M018 D2 **proposé, à ratifier par l'investisseur** » (en-tête l.4, D3 l.77, l.116, l.183) sont **périmées** — ratifié par la décision investisseur 23 (verbatim « 3. ta reco », 2026-09-19), porté dans ADR-M018 « Amendement D2 » par le lot E-honnêteté (`e756490`). La mention l.38 « `MONARK_PHASE` (conservé, non consommé ailleurs) » est **périmée** — retiré par E8 (ADR-EC), 0 importeur mesuré au checkpoint-2. Texte original conservé.
