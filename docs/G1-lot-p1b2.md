@@ -23,7 +23,7 @@
 | `test/h5-e2e-probe.test.ts` | modifié (re-pin `TRACE_SHA256_PINNED`) | `f8d28c52bb8150d2720e6b666d048a25a7ca4d4d64c515c503fa77e690e07da2` |
 | `fixtures/h5-e2e-trace.json` | régénéré (tools/list) | `9cf2f8b23b2c17a7358ca3be27b08fd54378978ec74ae1fd1147573f9179e5dd` |
 | `fixtures/PROVENANCE-h5-e2e-trace.md` | modifié (re-pin b2) | `a0ecb69d00cd67eedf5c5163297ffe236d98950bf82ac2dda4480d3c16eff796` |
-| `docs/adr/ADR-M017-attested-price-dans-gate.md` | modifié (K2-1/K2-3/K2-4) | `7277beb48fac8dbc0b50a407fcd89f83bbdb12ed120e9337066ebcbba9b5122a` |
+| `docs/adr/ADR-M017-attested-price-dans-gate.md` | modifié (K2-1/K2-3/K2-4 ; + fold G2 K-b2-1 en `0527419`) | `95c125754fe4179ba617ab144d34770d222a8b3d856159f1799a42d0f46996af` (au gel G2 `f25eb6d` : `7277beb4…`) |
 
 `git status --short` : les 7 fichiers `M` ci-dessus + `?? docs/G1-lot-p1b2.md` (ce journal). `registry.ts` **inchangé**
 (sha `03dfe77a…` == b1) : le tuyau `env.attested` a été câblé en b1 (`run()` → `runGate(prediction, params, attested)`).
@@ -160,3 +160,9 @@ Interdits de texte (mission) : les trois termes bannis (association / agir-seul 
 - **Provenance** : artefacts générés par worker `claude-opus-4-8[1m]` épinglé, effort `max` ; sortie vérifiable (sha256,
   mutants rejouables `scratchpad/mutants.py`, diff ciblé) ; vérification adversariale + G7 + acceptation validateur-humain
   chez l'orchestrateur (R-21). **Aucun commit** effectué (R-20).
+
+## 6. Post-G2 (rattrapage K-C2-2, orchestrateur)
+- **Incident K-b2-1** (G2 fraîche sur `f25eb6d`) : la clause D4(5) « `gate.test.ts` verte sans modification » était fausse (fichier modifié en b1 et b2) ;
+  reformulée en « aucune assertion préexistante altérée » au commit `0527419`. `error_origin` : **planificateur** (clause présente depuis `a814973`,
+  manquée aux checkpoints de b1 ; le worker b2 a corrigé la référence de commit K2-3 sans relire la clause).
+- Ce journal avait été gelé avant le fold (sha ADR périmé) — corrigé ici (checkpoint-2 K-C2-2, `error_origin` orchestrateur).
