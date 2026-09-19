@@ -78,20 +78,32 @@ export const STABLE_RUN_UNCALIBRATED_SENTENCE =
  * weights): 1 - alpha is the coverage ONLY if the average total-variation gap between the calibration windows
  * and the next is zero (exchangeability). That gap is NOT estimated here and the calibration is MEASURED
  * non-stationary across half-years, so exchangeability is NOT assumed and no coverage is measured (ADR-M012 D7,
- * supersedes the ADR-M008 D7 declared-exchangeability wording). Every other population abstains `under_calib`.
- * No marketing "calibrated" adjective, no "V1", no numeric early-warning, no probability — measured, never scored.
+ * supersedes the ADR-M008 D7 declared-exchangeability wording). (The "every other population abstains
+ * under_calib" queue lives in the full `STABLE_RUN_COMMITTED_SENTENCE` below; the description interpolates
+ * this CORE, ADR-M012 item (i) dedup.) No marketing "calibrated" adjective, no "V1", no numeric
+ * early-warning, no probability — measured, never scored.
  * NOTE (declared deviation): ADR-M012 D7 spells the third author's surname with a French diacritic; it is
  * rendered ASCII "Candes" here to match repo precedent (packages/hikae/src/l1-split.ts) and the English-only
  * export gate (ADR-M004 D7) — the diacritic reddens lang:gate + export:check (harness scope). Substance identical.
  */
-export const STABLE_RUN_COMMITTED_SENTENCE =
+export const STABLE_RUN_COMMITTED_CORE =
   "a committed stable-run velocity calibration for the USDe synthetic-dollar-whitelisted-redeem population " +
   "(key narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3) over calm-window " +
   "redemption flow; coverage is stated under the split-conformal bound of Barber, Candes, Ramdas and " +
   "Tibshirani 2023 (Thm 2, unit weights): at least 1 − α minus the average total-variation gap between " +
   "calibration windows and the next one; that gap is not estimated here and the calibration is measured " +
   "non-stationary across half-years, so 1 − α is the coverage only if that gap is zero (exchangeability), " +
-  "which is not assumed here; no coverage is measured; every other (task_class, predictor_id) abstains (under_calib)";
+  "which is not assumed here; no coverage is measured";
+
+/**
+ * The FULL committed sentence = CORE + the "every other population abstains" queue. `honestyText()`
+ * (tools/call, K-1 carrier) renders THIS unchanged for the USDe COMMIT — byte-identical on the wire, its
+ * VALUE unchanged from pre-b2. `GATE_TOOL_DESCRIPTION` (tools/list) interpolates `STABLE_RUN_COMMITTED_CORE`
+ * ONLY: ADR-M012 item (i) dedup — the queue duplicated the description's `for any other population,
+ * ${STABLE_RUN_UNCALIBRATED_SENTENCE}` clause (G2 F3). Split (not deleted), so NO K-1 carrier changes.
+ */
+export const STABLE_RUN_COMMITTED_SENTENCE =
+  STABLE_RUN_COMMITTED_CORE + "; every other (task_class, predictor_id) abstains (under_calib)";
 
 export const GATE_TOOL_NAME = "gate";
 
@@ -112,7 +124,7 @@ export const GATE_TOOL_DESCRIPTION =
   "authorization budget B_t. Dispatches on task_class. For 'btc-dir-15m' it conformalizes against a " +
   "committed synthetic calibration derived from the HIKAE S2a instrument (seed 101, n=300 draw), declared " +
   `synthetic — a plumbing fixture, not a measured predictor. For 'cascade-liquidable-24h' ${CASCADE_UNCALIBRATED_SENTENCE}. ` +
-  `For 'stable-run-velocity-24h' (Narabi: a redemption-flow velocity forecast) the gate holds ${STABLE_RUN_COMMITTED_SENTENCE}; ` +
+  `For 'stable-run-velocity-24h' (Narabi: a redemption-flow velocity forecast) the gate holds ${STABLE_RUN_COMMITTED_CORE}; ` +
   `for any other population, ${STABLE_RUN_UNCALIBRATED_SENTENCE}. ` +
   "When the caller instead supplies a `calibration` (its own nonconformity scores plus a `mode`: `interval` " +
   "⇒ region [yhat - q̂, yhat + q̂], or `set` ⇒ a conformal set over caller `candidates`), the gate " +
@@ -584,6 +596,16 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
     nCalib = verdict.n_calib; // 613 for the committed USDe key; 0 for any other population (under_calib)
   } else {
     throw new HarnessToolError(`unknown task_class '${taskClass}' (known: ${TASK_BTC_DIR}, ${TASK_CASCADE}, ${TASK_STABLE_RUN}; or supply params.calibration for BYO)`);
+  }
+
+  // ADR-M017 D2(iii)/D4(3) — attested `residual` seam (P1-b2). When a caller-carried `attested` is present
+  // (and, by the guard above, DECLARED-consistent with the served class), thread ITS residual into
+  // `verdict.residual` — the traceability field the contract inherits from `AttestedPrice.residual`. `residual`
+  // is NOT an honesty carrier (M-2): the L3 gate never reads it (l3-gate.ts `decide()` reads only region/reason),
+  // so action/reason/allow are UNCHANGED — only this field is filed, UNCONDITIONALLY on the reason (covered /
+  // under_calib / set_too_large). `params` files nothing (D2(iii)). Absent `attested` ⇒ no-op (byte-identical, D4(5)).
+  if (attested !== undefined) {
+    verdict = { ...verdict, residual: [...attested.residual] };
   }
 
   const gateInput: GateInput = {

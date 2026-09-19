@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { assertClosedGateDecision, assertNoForbiddenKey, calibDigest } from "@monark/contracts";
-import type { Prediction, AttestedFlow, AttestedPrice } from "@monark/contracts";
+import type { Prediction, AttestedFlow, AttestedPrice, GateDecision } from "@monark/contracts";
 import {
   runGate,
   validateHarnessParams,
@@ -20,6 +20,8 @@ import {
   type HarnessParams,
 } from "../src/tools/gate.ts";
 import { HARNESS_TOOLS, type GateEnvelope } from "../src/tools/registry.ts";
+import { runAttest } from "../src/tools/attest.ts"; // ADR-M017 D4(3) / M018 D1(b): the REAL served attest -> gate tuyau
+import { BINANCE_BTCUSDT_TICKER_URL } from "../src/attestation-binding.ts";
 import { runCalibrate, CALIBRATE_LABEL } from "../src/tools/calibrate.ts";
 import {
   BTC_DIR_CALIB_PROVENANCE,
@@ -468,6 +470,10 @@ test("gate_stable_run_honesty_text_is_keyed_A2_A7f", () => {
   // The tool description declares BOTH the committed USDe population AND the uncommitted-population sentence.
   assert.ok(GATE_TOOL_DESCRIPTION.includes(STABLE_RUN_UNCALIBRATED_SENTENCE), "the description declares the uncommitted-population sentence");
   assert.ok(GATE_TOOL_DESCRIPTION.includes("synthetic-dollar-whitelisted-redeem"), "the description names the committed USDe population");
+  // ADR-M012 item (i) dedup: the "every other ... abstains (under_calib)" queue is rendered ONCE (by the
+  // uncommitted clause), never twice — the description interpolates STABLE_RUN_COMMITTED_CORE (no queue).
+  // A mutant re-interpolating the full STABLE_RUN_COMMITTED_SENTENCE re-introduces "every other" ⇒ reds.
+  assert.equal((GATE_TOOL_DESCRIPTION.match(/every other/g) ?? []).length, 0, "M012(i): the committed sentence's 'every other' queue is deduped out of the description");
   assert.ok(STABLE_RUN_UNCALIBRATED_SENTENCE.includes("no stable-run velocity calibration is committed"));
   assert.ok(STABLE_RUN_UNCALIBRATED_SENTENCE.includes("under_calib"));
   assert.ok(STABLE_RUN_COMMITTED_SENTENCE.includes("committed"));
@@ -682,4 +688,92 @@ test("gate_description_declares_non_reverification", () => {
   assert.ok(GATE_TOOL_DESCRIPTION.includes("no temporal binding in P1"), "the description declares 'no temporal binding in P1'");
   assert.ok(GATE_NON_REVERIFICATION_SENTENCE.includes("not re-verified at call time"), "the sentence states it is not re-verified at call time");
   assert.ok(GATE_NON_REVERIFICATION_SENTENCE.includes("the verifier is not executed here"), "the sentence states the verifier is not executed here");
+});
+
+// ─────────────────────────────────────────────────────── ADR-M017 P1-b2 (residual seam + guard order + K2-1)
+
+// Test (ADR-M017 D2(iii) / D4(3)) — the SERVED attest -> gate tuyau (ADR-M018 D1(b)). A caller-carried
+// `attested` whose subject IS the committed btc-dir-15m URL is DECLARED-consistent, so the gate does NOT
+// error and FILES `attested.residual` into `verdict.residual` (the traceability field the contract inherits
+// from AttestedPrice.residual). Driven THROUGH THE REGISTRY `run()` (not runGate directly) so a mutant
+// "registry calls runGate WITHOUT env.attested" reds (that would leave the tuyau unwired). The producer is
+// the REAL `runAttest()` witness — the SAME AttestedPrice the h5 trace's attest step carries (the probe
+// `probe_harness_records_real_decision` proves live == committed byte-for-byte).
+test("gate_attested_concordant_files_residual", () => {
+  const gateTool = HARNESS_TOOLS.find((t) => t.name === "gate");
+  assert.ok(gateTool, "the gate tool is registered");
+
+  const price = runAttest().price; // the committed Binance BTCUSDT witness (the real attest output)
+  assert.equal(price.subject, BINANCE_BTCUSDT_TICKER_URL, "the committed witness subject IS the Binance BTCUSDT URL (concordant with btc-dir-15m)");
+  // Pinned to the fixture's attest step (fixtures/h5-e2e-trace.json) — non-empty ⇒ the seam is non-vacuous.
+  assert.deepEqual(
+    price.residual,
+    ["A(notary-neutrality)", "A(self-attestation)", "A(transport-check-delegated)"],
+    "the committed witness residual == the fixture's attest step (non-empty ⇒ non-vacuous seam)",
+  );
+
+  const withAttested = gateTool.run({ prediction: BTC_PRED, params: GOOD_PARAMS, attested: price }).structured as unknown as GateDecision;
+  const without = gateTool.run({ prediction: BTC_PRED, params: GOOD_PARAMS }).structured as unknown as GateDecision;
+
+  // (a) D2(iii)/D4(3): attested.residual is FILED into verdict.residual (kills "residual:[] reintroduced"
+  //     and "attestation-binding table emptied", and "registry drops env.attested").
+  assert.deepEqual(withAttested.verdict.residual, price.residual, "attested.residual is filed into verdict.residual");
+  // (b) absent attested ⇒ verdict.residual stays [] (byte-identical at the function level, D4(5)).
+  assert.deepEqual(without.verdict.residual, [], "absent attested ⇒ verdict.residual stays []");
+  // (c) the seam is SURGICAL (residual is NOT an honesty carrier, M-2): masking residual, the two decisions
+  //     are byte-identical — action/reason/allow/region/qhat/... unchanged by the seam.
+  assert.deepEqual(
+    { ...withAttested, verdict: { ...withAttested.verdict, residual: [] } },
+    without,
+    "the seam touches ONLY verdict.residual — the decision is otherwise identical",
+  );
+});
+
+// Test — G2 F1: the GUARD ORDER (ADR-M017 D2(ii)): validateHarnessParams -> anti-override BYO -> attested
+// consistency -> dispatch. A prediction on a COMMITTED class (btc-dir-15m) carrying BOTH a BYO `calibration`
+// AND a DISCORDANT `attested` trips BOTH guards; the EARLIER one (anti-override BYO) must win. Asserted on
+// the message TEXT (a bare 400 would not discriminate the order): it names the committed-override and NOT the
+// attested "not consistent" text. Mutant m5 (swap the two guard blocks): the attested-consistency guard fires
+// first ⇒ the message becomes "not consistent" ⇒ this reds.
+test("gate_guard_order_byo_override_before_attested_F1", () => {
+  assert.throws(
+    () =>
+      runGate(
+        BTC_PRED,
+        { ...GOOD_PARAMS, calibration: { scores: [0.1, 0.2, 0.3], mode: "interval" } },
+        attestedWith("https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT"),
+      ),
+    (e: unknown) =>
+      e instanceof HarnessToolError &&
+      e.message.includes("must not override the committed") &&
+      !e.message.includes("not consistent"),
+    "anti-override BYO fires BEFORE attested-consistency (order D2(ii)); m5 (swap) reds on the message text",
+  );
+});
+
+// Test — K2-1 (checkpoint-2 b1): `gate:vocab` (scripts/grep-forbidden.mjs / vocab-banned.json) polices the
+// overclaim VERBS negation-aware (ADR-M007 B-3); it does NOT ban live/verified/probative. So, like attest's
+// N-4 guard, the gate description is policed HERE at the test level with the SAME PROBATIVE regex as
+// attest.test.ts:109 (byte-for-byte), AFTER masking the two LICIT negated phrases the mission names. NOTE
+// (auditable): the verb "verify" and the noun "verifier" do NOT match `\bverified\b` — the offline Shogen
+// verifier is NAMED, never claimed at call time — so they are NOT masked; the "does not ... verify" mask is
+// defensive (it removes no PROBATIVE hit today). Mutant: add a bare "verified"/"live" claim to the description
+// ⇒ it survives the scope-locked mask ⇒ red.
+test("gate_description_makes_no_probative_claim", () => {
+  const PROBATIVE = /\blive\b|\bverified\b|\bprobative\b|\bp_correct\b|\bconfidence\b/i; // attest.test.ts:109, byte-for-byte
+  const NOT_REVERIFIED = /not re-verified at call time/gi; // the gate DECLARES it does not re-verify ("re-verified" ⊃ "verified")
+  const DOES_NOT_VERIFY = /does not see, store, or verify/gi; // CALIBRATE_LABEL: "does not ... verify" (negated, defensive)
+  const scrub = (s: string): string =>
+    s.replace(NOT_REVERIFIED, (m) => " ".repeat(m.length)).replace(DOES_NOT_VERIFY, (m) => " ".repeat(m.length));
+
+  // non-vacuous: the two masked phrases are actually present in the description (the masks are not vacuous).
+  assert.match(GATE_TOOL_DESCRIPTION, /not re-verified at call time/, "mask 1 (not re-verified) is non-vacuous");
+  assert.match(GATE_TOOL_DESCRIPTION, /does not see, store, or verify/, "mask 2 (does not verify) is non-vacuous");
+  // after masking exactly those licit negations, NO probative token survives in the gate description.
+  assert.ok(!PROBATIVE.test(scrub(GATE_TOOL_DESCRIPTION)), `the gate description makes no bare probative claim (scrubbed: "${scrub(GATE_TOOL_DESCRIPTION)}")`);
+  // scope-lock (non-vacuous): a bare probative token injected OUTSIDE the licit phrases IS caught.
+  assert.ok(
+    PROBATIVE.test(scrub("the price is verified and live now, confidence high " + GATE_TOOL_DESCRIPTION)),
+    "a bare probative claim outside the licit phrases must be caught",
+  );
 });
