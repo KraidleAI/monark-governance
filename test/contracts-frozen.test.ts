@@ -13,6 +13,8 @@
  * Re-baselined again by ADR-U1b D1: a NEW frozen contract `AttestedBook`
  * (schemas/attested-book.schema.json, the 6th) + its TS binding in packages/contracts/src/**: a new file,
  * NO forbidden-keys change (D1, the closed schema suffices), the 5 existing contracts byte-unchanged.
+ * Re-baselined again by ADR-U1b D2ter (lot U-1b-a-bis, investor decision V-6 (b)): `residual` now carries
+ * `contains: {const: "no_third_party_verifier"}` — one schema line, same schema_version (Option A), no new data key.
  * Run by `npm test` in EACH worktree (outside per-lot counting).
  */
 import { test } from "node:test";
