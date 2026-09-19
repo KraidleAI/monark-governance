@@ -11,6 +11,9 @@
 | Réglages Claude Code | `C:\Users\KACIMI\.claude\settings.json` : `advisorModel: claude-fable-5-1`, `enabledPlugins`, `extraKnownMarketplaces` | fichier |
 | Corpus qualité | `C:\Users\KACIMI\compiliance et ingénierie locielle et architecturale\docs\` (doc 02 gates, doc 03 méthode, 06 AgileGates, templates) | dossier |
 
+## 1 bis. Règle disque (investisseur 2026-09-19 : « on n'enregistre rien sur le C, même pas les fichiers temporaires »)
+Variables utilisateur (`setx`, scope User, effet aux NOUVEAUX shells/sessions) : `TEMP`/`TMP`/`TMPDIR` = `F:\tmp` ; `npm_config_cache` = `F:\cache\npm` (+ `npm config set cache`) ; `UV_CACHE_DIR` = `F:\cache\uv` ; `PIP_CACHE_DIR` = `F:\cache\pip` ; `XDG_CACHE_HOME` = `F:\cache\xdg` ; `MONARK_PUBLIC_MIRROR` = `F:\monark-public-mirror` (clone miroir déplacé). Caches npm/uv/pip déplacés par `robocopy /MOVE`. Reste sur C: par construction du harness : `~/.claude` (agents, settings, transcripts `projects/`), scratchpad de session `%LOCALAPPDATA%\Temp\claude\` (suit `TEMP` au prochain démarrage), Docker Desktop (données WSL déjà sur F:). Données investisseur `Downloads\PRODUITS\etude-2026-09-19` et `Downloads\MONARK SUITE` : à déplacer vers `F:\` quand aucun lecteur n'y écrit (chemins cités dans BASCULEMENT §4, ADR-B0, CHANTIERS — à réécrire dans le même commit). Tout worker/agent qui lance `npm`/`uvx` dans un shell hérité d'avant la règle exporte `TEMP/TMP/TMPDIR=F:\tmp`.
+
 ## 2. Serveurs MCP enregistrés en scope utilisateur (`~/.claude.json` → `mcpServers`)
 | Nom | Type | Commande / URL | Rôle | Récupération |
 |---|---|---|---|---|
