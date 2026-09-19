@@ -33,11 +33,13 @@ porte `wiring?: never` (**interdit**). Un `built` sans `wiring`, ou un `upcoming
 
 **D3 — Gel étendu** (`fleet_register_built_set_is_frozen`, `test/ci-gates.test.ts`). Pour chaque `built` : (3) `served_by` non vide ;
 `integration_test` est un identifiant nu qui apparaît comme `test("…")` **grepé** dans `test/`, `apps/harness/test/`, `apps/sentinel/test/`
-(assertion fichier-existe/nom-trouvé, non-LLM ; anti-faux-vert `testCorpus.length > 0`). (4) **Fermeture du trou numérique** : `served_by`
-porte des ids de classe avec chiffres (`…-24h`, `btc-dir-15m`) ; comme `ACI.body`, une valeur d'objet échappe au lint d'honnêteté (accès
-propriété) **et** au scan numérique du registre (name/line seuls) ⇒ **aucune surface `apps/site` ne rend `wiring.served_by`/
-`wiring.integration_test`** (grep `siteSurfaces`), tant que l'item (b) ci-dessous n'a pas **levé ce garde ET ajouté les chaînes au scan
-numérique**. (5) Le panneau Ukemi lit son statut d'`AgentCard` au registre (`status={…}`, import `@/lib/fleet`), pas un `status="built"` nu.
+(assertion fichier-existe/nom-trouvé, non-LLM ; anti-faux-vert `testCorpus.length > 0`). (4) **Tripwire de trou numérique (limite déclarée)** : `served_by`
+porte des ids avec chiffres (`…-24h`, `btc-dir-15m`) ; une valeur de `wiring` échappe au lint d'honnêteté (accès **ou destructuration**)
+**et** au scan numérique du registre (name/line seuls) ⇒ **aucune surface `apps/site` ≠ `lib/fleet.ts` ne référence les identifiants nus
+`served_by`/`integration_test`** (grep `siteSurfaces` sur l'identifiant : attrape accès `{a.wiring.served_by}` **et** destructuration
+`const {served_by}=a.wiring`, que l'ancien regex `wiring\.served_by` manquait). **Limite déclarée** : un regex de texte **ne ferme pas** les
+fuites réflexives (`Object.values(a.wiring)`/`JSON.stringify(a.wiring)`) ; le fix garde (4) — **(i)** lever le tripwire **et (ii)** ajouter les
+chaînes au scan numérique — est le **prérequis** de l'item (b). (5) Le panneau Ukemi lit son statut d'`AgentCard` au registre (`status={…}`, import `@/lib/fleet`), pas un `status="built"` nu.
 
 **D4 — Prose vitrine (item formé 5) & `fleet.ts:70` (item 3).** « built end to end » (×4) et « the cross-agent gate » (×1) sont
 **faux** après le retrait de `crossAgentGate` (ADR-M019 D1) : ils sont remplacés par le libellé **déjà accepté au checkpoint-2 b3 mot à
@@ -72,8 +74,10 @@ Ce lot **n'ajoute aucun tuyau servi** : il **déclare** au registre ceux déjà 
     l'outil sœur `calibrate` (couvert par `apps/harness/test/calibrate.test.ts`). Le registre reste sémantiquement « qui consomme la sortie ».
   - Ukemi : `probe_harness_records_real_decision` (étape 4 `cascade-gate`). **Effet servi = abstention constante** (vacuité mesurée,
     ADR-M019 D2) — le champ le dit honnêtement (« abstains under_calib by construction »).
-  - Narabi : `sentinel_windows_identical_to_pull` rejoue le fenêtrage quotidien contre un pull on-chain frais (jambe sentinelle publiée) ;
-    jambe `fromAttestedFlow → gate stable-run-velocity-24h` couverte par la suite `gate_stable_run_*` (isolation de population, `gate.test.ts:361+`).
+  - Narabi : `sentinel_windows_identical_to_pull` **recompute** le fenêtrage contre la **série committée sha-pinnée via RPC stubbé** (le pull
+    enregistré, **offline** — pas un pull on-chain frais) et prouve fenêtrage ≡ pull committé (jambe sentinelle publiée `/narabi/` ;
+    consommation de la surface `/narabi` : `narabi_live_parses_real_state_shape`, `test/narabi-live.test.ts`) ; jambe
+    `fromAttestedFlow → gate stable-run-velocity-24h` couverte par la suite `gate_stable_run_*` (`gate.test.ts:361+`).
 
 ## Items formés (déclencheur, jamais un « dû » nu)
 - **(b) Rendu de `wiring.served_by` sur les panneaux des built** — **non fait, délibéré**. Rendre le `served_by` verbatim mettrait un
@@ -81,12 +85,15 @@ Ce lot **n'ajoute aucun tuyau servi** : il **déclare** au registre ceux déjà 
   ajouté au scan, le **rougirait** ; et la présentation honnête et sans-casse sur **tous** les panneaux built (Shōgen/Hikae/Ukemi/Narabi)
   est un travail de mise en page. **Déclencheur** : **lot designer** (note honnête sans chiffre) — qui **lève le garde (4)** et **ajoute les
   chaînes `wiring` au scan numérique** dans le même lot. Le garde (4) rend cet item **vérifiable** (0 rendu aujourd'hui), pas déclaratif.
-- **Résidu « verified » (surclaim) hors portée octet de W-1** — mesuré : `apps/site/components/shogen-panel.tsx:36,42,51,57` (×4) et
-  `apps/site/lib/fleet-presentation.ts:33` (×1) portent « a verified testimony » (assertion positive). **Non corrigé ici** : hors du périmètre
-  W-1 (checkpoint-2 b3 ne cadre que `fleet.ts:70`) et hors R-25. **Décision mesurée : NE PAS bannir `\bverified\b` en scope `site`** — cela
-  rougirait aussi les **négations honnêtes** « what is not verified » (`how/page.tsx:62`, `shogen-panel.tsx:63`) et les 5 surclaims ci-dessus
-  d'un coup. **Déclencheur** : prochain lot touchant `shogen-panel`/`fleet-presentation`, ou lot vocabulaire dédié (choix positif :
-  « attested »/« notarized » à **grounder** sur `schemas/attested-price.schema.json`, non lu par ce worker).
+- **Résidu « verified » (surclaim) — item formé, un SEUL lot propriétaire nommé.** W-1 aligne **maintenant** les **jumeaux exacts** de
+  `fleet.ts:70` : `shogen-panel.tsx:36,:42` (« a verified price testimony » → « an attested price testimony » ; aucun test ne pinne la phrase,
+  vérifié). **Restent** `shogen-panel.tsx:51` (« A Rust verifier emits a verified testimony »), `:57` (« A verified testimony proves… ») et
+  `fleet-presentation.ts:33` (« a verified testimony ») — **phrases différentes** (le récit de vérification du panneau Shōgen), non de simples
+  substitutions du jumeau. **Motif du report (cadre b3, pas « schéma non lu »)** : le checkpoint-2 b3 a cadré W-1 sur `fleet.ts:70` **et ses
+  jumeaux rendus** ; réécrire le récit du panneau Shōgen est une **passe d'honnêteté dédiée**. **Déclencheur unique** : **lot Shōgen-honnêteté**
+  (propriétaire : `shogen-panel.tsx:51,:57` + `fleet-presentation.ts:33`), **avant toute nouvelle revendication du panneau Shōgen**.
+  **Décision mesurée : NE PAS bannir `\bverified\b` en scope `site`** — rougirait les **négations honnêtes** « what is not verified »
+  (`how/page.tsx:62`, `shogen-panel.tsx:63`).
 - **(1) Étape h5 portant `attested`** (ADR-M017/M019 item (1)) : **inchangé par ce lot** (W-1 ne touche pas `apps/harness`). Reste :
   premier appelant réel de la prise `attested`, ou **prochain lot touchant `apps/harness`** (T-1/U-4).
 
@@ -95,8 +102,9 @@ Ce lot **n'ajoute aucun tuyau servi** : il **déclare** au registre ceux déjà 
   compilation (ADR-M018 « si possible »), plus fort ; le runtime ne garde alors que le non-vide et l'existence-de-test (non redondants).
 - **Rendre `wiring.served_by` sur le panneau Ukemi maintenant** : refusé — trou numérique / réintroduction d'un chiffre public non gardé
   (voir item (b)).
-- **Bannir `\bverified\b` en scope site pour fermer `fleet.ts:70` durablement** : refusé — 7 faux-rouges mesurés (5 surclaims hors scope +
-  2 négations honnêtes) ; item formé à la place.
+- **Bannir `\bverified\b` en scope site pour fermer `fleet.ts:70` durablement** : refusé — faux-rouges mesurés : 2 **négations honnêtes**
+  rendues (« what is not verified », `how/page.tsx:62`, `shogen-panel.tsx:63`) + les 3 surclaims restants hors lot (`shogen-panel.tsx:51,:57`,
+  `fleet-presentation.ts:33`) + 2 commentaires non rendus (`integrators/page.tsx:15`, `load-committed.ts:41`) ; item formé (lot Shōgen-honnêteté) à la place.
 - **Trancher/rejuger le statut d'Ukemi** : hors du worker (registre public = investisseur, ADR-M019 D4 déjà tranché « built »).
 
 ## Conséquences

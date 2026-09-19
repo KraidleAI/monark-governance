@@ -154,7 +154,8 @@ export const FLEET_AGENTS: FleetAgent[] = [
     status: "built",
     // Two served legs: the daily sentinel publishes a replayable timeline read by /narabi/, and
     // fromAttestedFlow → gate serves the stable-run-velocity-24h class. sentinel_windows_identical_to_pull
-    // replays the sentinel windowing against a fresh on-chain pull; the gate leg: ADR-W1 § Tuyaux.
+    // recomputes the windowing against the committed sha-pinned series via a stubbed RPC (the recorded pull,
+    // offline) — proving windowing ≡ the committed pull; the gate leg: ADR-W1 § Tuyaux.
     wiring: {
       served_by: "daily published sentinel at /narabi/ + fromAttestedFlow → gate (stable-run-velocity-24h)",
       integration_test: "sentinel_windows_identical_to_pull",

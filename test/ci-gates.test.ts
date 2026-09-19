@@ -648,28 +648,42 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narab
     );
   }
 
-  // (4) NUMERIC-HOLE closure for wiring — served_by carries task-class ids with digits (…-24h, btc-dir-15m).
-  // Like ACI.body, object values escape BOTH the honesty lint (property access) and the register numeric
-  // scan above (name/line only). So NO apps/site surface may render wiring.served_by / wiring.integration_test
-  // until item formed (b) [ADR-W1] BOTH lifts this guard AND adds the wiring strings to the numeric scan; a
-  // designer lot renders a digit-free honest note instead. Named mutant: render {a.wiring.served_by} ⇒ reds.
-  const wiringRender = /\bwiring\s*(?:\?\.|\.)\s*(?:served_by|integration_test)\b/;
-  const wiringRenderHits = surfaces
-    .filter((s) => (s.rel.endsWith(".ts") || s.rel.endsWith(".tsx")) && wiringRender.test(s.text))
+  // (4) NUMERIC-HOLE tripwire for wiring (DECLARED LIMIT) — served_by carries task-class ids with digits
+  // (…-24h, btc-dir-15m). Like ACI.body, a wiring VALUE escapes BOTH the honesty lint (member access OR
+  // destructuring) and the register numeric scan above (name/line only). TRIPWIRE: no apps/site surface
+  // OTHER THAN lib/fleet.ts (where they are the FleetWiring field NAMES) may reference the identifiers
+  // `served_by`/`integration_test` — the bare-identifier scan catches member access {a.wiring.served_by}
+  // (m5) AND destructuring `const {served_by}=a.wiring` (A2, which the old `wiring\.served_by` regex missed).
+  // DECLARED LIMIT: a text regex canNOT close reflective leaks (Object.values(a.wiring) /
+  // JSON.stringify(a.wiring)); the designer item (b) [ADR-W1] that renders wiring MUST (i) lift this tripwire
+  // AND (ii) add the wiring strings to the numeric scan above — that fix is the PREREQUISITE of item (b).
+  const wiringIdent = /\b(?:served_by|integration_test)\b/;
+  const wiringLeakHits = surfaces
+    .filter((s) => (s.rel.endsWith(".ts") || s.rel.endsWith(".tsx")) && s.rel !== "apps/site/lib/fleet.ts" && wiringIdent.test(s.text))
     .map((s) => s.rel);
-  assert.deepEqual(wiringRenderHits, [], `an apps/site surface renders wiring metadata (digit hole) — ADR-W1 item (b) must land first: ${wiringRenderHits.join(", ")}`);
+  assert.deepEqual(wiringLeakHits, [], `an apps/site surface (≠ lib/fleet.ts) references wiring identifiers served_by/integration_test (digit-hole tripwire) — ADR-W1 item (b) must land first: ${wiringLeakHits.join(", ")}`);
 
   // (5) The bespoke Ukemi Home panel reads its AgentCard STATUS from the register (ADR-M018 single source of
-  // truth), not a hard-coded status="built". It is NOT in NEW_SURFACES because its per-block PanelBlock
-  // maturity attrs are legitimately literal; we pin only the AgentCard status prop and the register import.
-  // Named mutant: put status="built" back on the AgentCard ⇒ this reds.
+  // truth), not a hard-coded literal. NOT in NEW_SURFACES because its PanelBlock maturity attrs
+  // (status="built"/"upcoming" at l.56/61/67/80) are legitimately literal; we anchor to the FIRST `status`
+  // after `<AgentCard` (the AgentCard's own — mark/name carry no "status"), so those PanelBlock literals stay
+  // out of view. Named mutants: status="built" (m3) AND status={"built"} (A1, JSX-wrapped literal the old
+  // `stMatch[1]==="{"` check let pass) ⇒ both red; status={IDENTIFIER} ⇒ green.
   const ukemiPanel = surfaces.find((s) => s.rel === "apps/site/components/ukemi-panel.tsx");
   assert.ok(ukemiPanel, "ukemi-panel.tsx must be scanned (false green)");
   assert.match(ukemiPanel.text, /from ["']@\/lib\/fleet["']/, "ukemi-panel must import the fleet register (single source of truth)");
   const acIdx = ukemiPanel.text.indexOf("<AgentCard");
   assert.ok(acIdx >= 0, "ukemi-panel must render an AgentCard (false green)");
-  const stMatch = /status\s*=\s*(.)/.exec(ukemiPanel.text.slice(acIdx));
-  assert.ok(stMatch !== null && stMatch[1] === "{", "ukemi-panel AgentCard status must be read from the register (status={...}), not a hard-coded literal");
+  const stIdx = ukemiPanel.text.indexOf("status", acIdx);
+  assert.ok(stIdx > acIdx, "the AgentCard must carry a status prop (false green)");
+  const acStatus = ukemiPanel.text.slice(stIdx); // anchored at the AgentCard's own status prop
+  // (a) not a hard-coded literal — attribute OR JSX-wrapped {"built"} (the guard (2) shape, anchored with ^).
+  assert.ok(
+    !/^status\s*=\s*\{?\s*["'](?:built|upcoming)["']/.test(acStatus),
+    'ukemi-panel AgentCard status must not be a hard-coded literal (status="built" or status={"built"}) — read it from the register',
+  );
+  // (b) it IS a register read: status={IDENTIFIER} (e.g. status={UKEMI_STATUS}).
+  assert.match(acStatus, /^status\s*=\s*\{\s*[A-Za-z_$][\w$.]*\s*\}/, "ukemi-panel AgentCard status must be status={IDENTIFIER} read from lib/fleet.ts");
 });
 
 // ────────────────────────────────────────────────────────────────────────────────────────────────
