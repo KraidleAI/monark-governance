@@ -1,5 +1,5 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 13:10 UTC (horloge système)
+Dernière mise à jour : 2026-09-19 13:30 UTC (horloge système)
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019) — **CLOSE** (G7 de passe `16ec12a`, checkpoint-2 de clôture accepte-avec-corrections C-1..C-6 pliées)
 | Lot | État | Prochaine action | Bloqué par |
@@ -8,7 +8,7 @@ Dernière mise à jour : 2026-09-19 13:10 UTC (horloge système)
 | W-1 (`wiring`, test de gel, prose vitrine ×5, `fleet.ts:70`, panneau Ukemi) | **CLOS** — G7 `bb252ce`, fusion `ccbb856`, journal `eb0b7e5` | — | — |
 | Cartographie M018 D4 | LIVRÉE `e447adf` (2 tuyaux branchés, mensonge retiré, écarts E2/E9/E10/E5 formés) | — | — |
 | Rapport de passe P1 | CLOS `16ec12a` ; G2 b3 persistée ; 24 corrections par origine ; zéro dette nue | — | — |
-| **Escalade M018 D4** (« corrigée avant toute nouvelle pièce » vs U-1a/T-1a/R-25 déjà lancés) | POSÉE — reco (b) : lot **E-bon-marché** (E5 test deps, E9 région numérique + re-pin h5, E10 snapshot Narabi) **EN COURS** (worktree `F:\Monark-wt-ecart`, `lot/e-bon-marche`) avant fusion de U-1a/T-1a ; (a) amendement M018 réservé aux écarts coûteux | réponse investisseur (a/b) | investisseur |
+| **Escalade M018 D4** (« corrigée avant toute nouvelle pièce » vs U-1a/T-1a/R-25 déjà lancés) | **TRANCHÉE (b)** par l'investisseur (décision 18) : lot **E-bon-marché** (E5 test deps, E9 région numérique + re-pin h5, E10 snapshot Narabi) **EN COURS** (worktree `F:\Monark-wt-ecart`, `lot/e-bon-marche`) avant fusion de U-1a/T-1a ; (a) amendement M018 réservé aux écarts coûteux | fusion E-bon-marché AVANT fusion U-1a/T-1a | E-bon-marché |
 | Miroir public + PR empilées (#78-#83, lot/etude-suite, p1-b*, w-1) | EN ATTENTE fenêtre publique | push au go investisseur | investisseur |
 
 ## B. Ukemi — programme « au paroxysme » (décision investisseur 2026-09-19)
