@@ -25,8 +25,8 @@ export function GateMeter({ budget, segments = DEFAULT_SEGMENTS }: { budget: num
           style={{
             flex: 1,
             borderRadius: 3,
-            background: i < filled ? "var(--hikae)" : "var(--line)",
-            opacity: i < filled ? 1 : 0.7,
+            background: i < filled ? "var(--hikae)" : "var(--meter-empty)",
+            opacity: 1,
             transition: reducedMotion ? "none" : "background .5s, opacity .5s",
           }}
         />

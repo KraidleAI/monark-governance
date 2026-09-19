@@ -47,8 +47,10 @@
   /* Brand tokens — MONARK.dc.html L14 (light). One fixed accent per agent. */
   --paper: #faf7f2;
   --ink: #1f1b16;
-  --ink2: #665d52;
-  --line: rgba(31, 27, 22, 0.13);
+  --ink2: #4a4238;
+  --line: rgba(31, 27, 22, 0.24);
+  --soft-active: #e8e1d5;
+  --meter-empty: #d9d2c6;
   --card: #fffdf9;
   --soft: #f0ebe2;
   --monark: #a6453e;
@@ -146,6 +148,8 @@
   --color-ink2: var(--ink2);
   --color-line: var(--line);
   --color-soft: var(--soft);
+  --color-soft-active: var(--soft-active);
+  --color-meter-empty: var(--meter-empty);
   --color-monark: var(--monark);
   --color-monark-t: var(--monark-t);
   --color-shogen: var(--shogen);
@@ -176,8 +180,10 @@
      are unchanged in dark, as in the design; only their -t tint variants shift. */
   --paper: #15120f;
   --ink: #f2ede4;
-  --ink2: #aba296;
-  --line: rgba(242, 237, 228, 0.14);
+  --ink2: #b8b0a3;
+  --line: rgba(242, 237, 228, 0.24);
+  --soft-active: #2f2923;
+  --meter-empty: #3a332c;
   --card: #1d1915;
   --soft: #25201b;
   --monark-t: #e0766d;
@@ -196,6 +202,11 @@
   }
   html {
     @apply font-sans;
+    /* Wider, larger reading base (investor 2026-09-18): 17px body, 18px from lg, like anthropic.com */
+    font-size: 17px;
+  }
+  @media (min-width: 1024px) {
+    html { font-size: 18px; }
   }
   body {
     @apply bg-background text-foreground;

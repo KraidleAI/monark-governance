@@ -61,15 +61,33 @@ export default function FleetPage() {
   const ENGINE_NAMES = new Set(["Shōgen", "Hikae", "Ukemi"]);
   const builtSensors = FLEET_AGENTS.filter((a) => a.status === "built" && !ENGINE_NAMES.has(a.name));
   const upcoming = FLEET_AGENTS.filter((a) => a.status === "upcoming");
+  // One dashed upcoming card; grouped by FleetAgent.role into three columns below (design L72-90). The
+  // design's "sensor" / "act" / "distribution" column labels are NOT rendered — they would be new words.
+  const renderUpcoming = (a: (typeof FLEET_AGENTS)[number]) => {
+    const Mark = AGENT_MARKS[a.name];
+    return (
+      <PlaceholderPanel
+        key={a.name}
+        mark={Mark ? <Mark className="size-10" /> : undefined}
+        name={a.name}
+        line={a.line}
+        inside={insideFor(a.name.toLowerCase())}
+        status={a.status}
+      />
+    );
+  };
 
   return (
-    <main className="mx-auto max-w-[1200px] px-6 py-16">
-      <section className="flex flex-col gap-4">
-        <div className="font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground">Fleet</div>
-        <h1 className="max-w-3xl font-heading text-4xl font-semibold tracking-tight text-foreground">
-          A company of agents. Four built, seven on the roadmap.
-        </h1>
-        <p className="max-w-2xl text-lg text-muted-foreground">
+    <main className="mx-auto max-w-[1440px] px-6 lg:px-10 py-16">
+      {/* Hero 2-col (design L31-37): eyebrow + title left, dek right; stacks below 900px. */}
+      <section className="grid gap-10 min-[900px]:grid-cols-[1.4fr_1fr] min-[900px]:items-end">
+        <div className="flex flex-col gap-4">
+          <div className="font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground">Fleet</div>
+          <h1 className="max-w-3xl font-heading text-4xl font-semibold lg:text-5xl tracking-tight text-foreground">
+            A company of agents. Four built, seven on the roadmap.
+          </h1>
+        </div>
+        <p className="text-lg text-muted-foreground">
           The first vertical is built end to end: Shōgen, then Hikae, then Ukemi. Every future act plugs
           into the same gate; every future sensor attests into the same contract.
         </p>
@@ -86,10 +104,10 @@ export default function FleetPage() {
             closed under independent review
           </span>
         </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <ShogenPanel contract={attestedContract} />
-          <HikaePanel contract={coverageContract} />
-          <UkemiPanel contract={predictionContract} />
+        <div className="grid gap-4 min-[900px]:grid-cols-3">
+          <ShogenPanel contract={attestedContract} showInside />
+          <HikaePanel contract={coverageContract} showInside />
+          <UkemiPanel contract={predictionContract} showInside />
         </div>
         {builtSensors.length > 0 ? (
           <div className="mt-8">
@@ -101,7 +119,7 @@ export default function FleetPage() {
                 ships and runs daily
               </span>
             </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="flex flex-col gap-4">
               {builtSensors.map((a) => {
                 const Mark = AGENT_MARKS[a.name];
                 return (
@@ -114,6 +132,7 @@ export default function FleetPage() {
                     status={a.status}
                     liveHref={AGENT_LIVE[a.name]}
                     liveLabel="See it live"
+                    wide
                   />
                 );
               })}
@@ -136,20 +155,14 @@ export default function FleetPage() {
           One sentence on what each agent does. No date, no segment, no metric &mdash; nothing is claimed
           for an agent that is not built.
         </p>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {upcoming.map((a) => {
-            const Mark = AGENT_MARKS[a.name];
-            return (
-              <PlaceholderPanel
-                key={a.name}
-                mark={Mark ? <Mark className="size-10" /> : undefined}
-                name={a.name}
-                line={a.line}
-                inside={insideFor(a.name.toLowerCase())}
-                status={a.status}
-              />
-            );
-          })}
+        {/* Grouped by role (design L72-90): sensor (1fr) · act (3fr, 3-col grid) · distribution (1fr).
+            Stacks below 900px. */}
+        {/* Role order kept (sensor, act, distribution); one fluid grid so a card is never narrower than 240px
+            (the 1fr/3fr/1fr split squeezed the five act cards to ~170px and the badge overflowed). */}
+        <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))]">
+          {upcoming.filter((a) => a.role === "sensor").map(renderUpcoming)}
+          {upcoming.filter((a) => a.role === "act").map(renderUpcoming)}
+          {upcoming.filter((a) => a.role === "distribution").map(renderUpcoming)}
         </div>
       </section>
     </main>

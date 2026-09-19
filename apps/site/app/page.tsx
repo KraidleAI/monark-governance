@@ -51,7 +51,7 @@ export default function HomePage() {
 
       {/* Thesis — three principles (design L139-145). Col 01 carries the lower-case "no confidence field". */}
       <section data-screen-label="Home thesis" style={soft}>
-        <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-8 px-6 py-14 md:grid-cols-3">
+        <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-8 px-6 lg:px-10 py-14 md:grid-cols-3">
           <div>
             <div style={{ ...mono, fontSize: 12, color: "var(--ink2)", marginBottom: 10 }}>01 — a region, not a score</div>
             <p style={{ margin: 0, fontSize: 17, lineHeight: 1.5, textWrap: "pretty" }}>
@@ -78,7 +78,7 @@ export default function HomePage() {
 
       {/* The built fleet — the /#fleet renvoi target (from /roadmap). Four built panels (Shōgen, Hikae,
           Ukemi + Narabi, ADR-M012 M012-e). A bridge until /fleet is the canonical surface. */}
-      <section id="fleet" className="mx-auto max-w-[1200px] scroll-mt-20 px-6 py-14">
+      <section id="fleet" className="mx-auto max-w-[1440px] scroll-mt-20 px-6 lg:px-10 py-14">
         <h2 className="font-heading text-2xl font-semibold tracking-tight" style={{ letterSpacing: "-.02em" }}>
           The built fleet
         </h2>
@@ -114,7 +114,7 @@ export default function HomePage() {
 
       {/* Token teaser — renvoi to /token, no figure. "not idle staking" applies Mod #2's ratified
           reconciliation (staking is useful, not idle) for site-wide consistency with the token page. */}
-      <section data-screen-label="Home token" className="mx-auto max-w-[1200px] px-6 pb-20">
+      <section data-screen-label="Home token" className="mx-auto max-w-[1440px] px-6 lg:px-10 pb-20">
         <div
           className="grid grid-cols-1 items-center gap-7 md:grid-cols-2"
           style={{ border: "1px solid var(--line)", borderRadius: 20, padding: 36, background: "var(--card)" }}
