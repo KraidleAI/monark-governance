@@ -28,12 +28,16 @@ Décision investisseur 38 (« on va trouver un RPC qu'on va payer si non ; en pl
 ### Ankr (75+ chaînes) — `ankr.com/rpc/pricing`
 - **Modèle** : Freemium 30 req/s, chaînes limitées ; **Pay-as-you-go dès 10 $ / 100 M crédits (≈ 500 k requêtes)**, 1 500 req/s ; tarif **EVM 0,02 $ / 1 000 requêtes ; Solana 0,05 $ / 1 000** ; Deal mensuel dès 500 $ ; gRPC 0,001 $/1 000 appels + 0,5 $/Go.
 - **Apport** : le moins cher à l'appel (Solana 50 $/M, EVM 20 $/M — mais Triton est à 10 $/M sur Solana) ; multi-chaînes ; utile comme troisième source de quorum bon marché. Profondeur d'archive Solana non lue sur la page (à mesurer).
+### Robinhood Chain (chainId 4663) — `docs.robinhood.com/chain/connecting/` [lu, navigateur intégré]
+- **Alchemy recommandé** (`robinhood-mainnet.g.alchemy.com/v2/{KEY}`, RPC + WS, « for historical reads and indexing, use an archive endpoint — available through providers such as Alchemy ») ; **autres fournisseurs officiels : Chainstack, QuickNode, Blockdaemon, dRPC, Validation Cloud** ; public `rpc.mainnet.chain.robinhood.com` (rate-limited, non recommandé en production) ; sequencer feed/URL publics ; explorateur Blockscout.
+- **Apport** : le quorum 2 est réalisable avec Alchemy (Free, archive) + Chainstack Growth ou dRPC — trois des candidats déjà listés couvrent la chaîne ; correction de la fiche census v1 (« un seul RPC public » était faux).
 ### Non encore visités
-Fournisseurs spécifiques aux chaînes remontées par le census (Robinhood Chain, Base natifs).
+Validation Cloud, Blockdaemon ; fournisseurs natifs Base (Coinbase Developer Platform) ; BNB Chain (NodeReal).
 
 ## Lecture orchestrateur (préliminaire, avant le census)
 - **Solana** : **Triton** comme second archival (125 $ de dépôt, 10 $/M appels) — indépendant d'Helius, historique complet, même famille de méthodes. Alternative unique-compte : QuickNode Build (34-49 $/mois).
 - **EVM (Ethereum, BNB, Base, Arbitrum)** : les cinq keyless + **Alchemy Free** (archive, 30 M CU) comme sixième ; si les plages `getLogs` bloquent la course fondatrice : dRPC Growth (6 $/M req) ou QuickNode Build.
 - **Multi-chaînes en un compte** : Chainstack Growth (49 $/mois, archive, EVM + Solana) est le concurrent direct de QuickNode Build (34-49 $) ; Ankr PAYG (10 $ d'entrée) le plus flexible pour un troisième fournisseur.
+- **Robinhood Chain / Base / BNB** (census v2) : Alchemy Free + Chainstack Growth (49 $) ou dRPC Growth couvrent les trois avec archive ; Alchemy est le fournisseur recommandé par Robinhood.
 - Ordre de grandeur mensuel plausible : **< 100 $** pour les deux jambes (à confirmer par le compte d'appels par session du census).
 - Aucune de ces pages ne remplace la mesure : chaque candidat retenu sera **benché par le collecteur** (profondeur réelle, formes d'erreur, latence) avant d'entrer dans le quorum.
