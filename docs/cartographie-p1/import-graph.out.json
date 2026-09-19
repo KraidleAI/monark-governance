@@ -1,0 +1,827 @@
+{
+  "scanRoots": [
+    "packages",
+    "apps",
+    "scripts",
+    "test"
+  ],
+  "fileCount": 197,
+  "nodes": [
+    "app:harness",
+    "app:sentinel",
+    "app:site",
+    "pkg:atelier",
+    "pkg:contracts",
+    "pkg:hikae",
+    "pkg:monark",
+    "pkg:ukemi",
+    "scripts",
+    "test:root"
+  ],
+  "orphanNodes": [
+    "pkg:atelier"
+  ],
+  "testOnlyConsumedNodes": [
+    "app:site",
+    "scripts"
+  ],
+  "edgeCount": 23,
+  "edges": [
+    {
+      "edge": "app:harness => pkg:contracts",
+      "count": 17,
+      "srcCount": 8,
+      "testCount": 9,
+      "sites": [
+        "apps/harness/src/calibration.ts",
+        "apps/harness/src/tools/attest.ts",
+        "apps/harness/src/tools/calibrate.ts",
+        "apps/harness/src/tools/cascade.ts",
+        "apps/harness/src/tools/gate.ts",
+        "apps/harness/src/tools/registry.ts",
+        "apps/harness/test/attest.test.ts",
+        "apps/harness/test/calibrate.test.ts",
+        "apps/harness/test/cascade.test.ts",
+        "apps/harness/test/gate.test.ts",
+        "apps/harness/test/http.test.ts",
+        "apps/harness/test/server.test.ts",
+        "apps/harness/test/usde-calibration.test.ts"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "app:harness => pkg:hikae",
+      "count": 6,
+      "srcCount": 4,
+      "testCount": 2,
+      "sites": [
+        "apps/harness/src/calibration.ts",
+        "apps/harness/src/tools/calibrate.ts",
+        "apps/harness/src/tools/gate.ts",
+        "apps/harness/test/gate.test.ts",
+        "apps/harness/test/usde-calibration.test.ts"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "app:harness => pkg:monark",
+      "count": 6,
+      "srcCount": 3,
+      "testCount": 3,
+      "sites": [
+        "apps/harness/src/calibration.ts",
+        "apps/harness/src/tools/attest.ts",
+        "apps/harness/test/attest.test.ts",
+        "apps/harness/test/gate.test.ts",
+        "apps/harness/test/usde-calibration.test.ts"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "app:harness => pkg:ukemi",
+      "count": 3,
+      "srcCount": 2,
+      "testCount": 1,
+      "sites": [
+        "apps/harness/src/tools/cascade.ts",
+        "apps/harness/test/cascade.test.ts"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "app:harness => scripts",
+      "count": 2,
+      "srcCount": 0,
+      "testCount": 2,
+      "sites": [
+        "apps/harness/test/calibrate.test.ts",
+        "apps/harness/test/registry.test.ts"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "app:sentinel => app:harness",
+      "count": 2,
+      "srcCount": 1,
+      "testCount": 1,
+      "sites": [
+        "apps/sentinel/src/timeline.ts",
+        "apps/sentinel/test/sentinel.test.ts"
+      ],
+      "subs": [
+        "/calibration"
+      ]
+    },
+    {
+      "edge": "app:sentinel => pkg:contracts",
+      "count": 2,
+      "srcCount": 2,
+      "testCount": 0,
+      "sites": [
+        "apps/sentinel/src/flow.ts"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "app:sentinel => pkg:hikae",
+      "count": 8,
+      "srcCount": 6,
+      "testCount": 2,
+      "sites": [
+        "apps/sentinel/src/edetector.ts",
+        "apps/sentinel/src/instrument.ts",
+        "apps/sentinel/src/timeline.ts",
+        "apps/sentinel/test/sentinel.test.ts"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "app:sentinel => pkg:monark",
+      "count": 1,
+      "srcCount": 1,
+      "testCount": 0,
+      "sites": [
+        "apps/sentinel/src/flow.ts"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "pkg:atelier => pkg:contracts",
+      "count": 4,
+      "srcCount": 3,
+      "testCount": 1,
+      "sites": [
+        "packages/atelier/src/fixtures-loader.ts",
+        "packages/atelier/src/state.ts",
+        "packages/atelier/test/atelier.test.ts"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "pkg:hikae => pkg:contracts",
+      "count": 16,
+      "srcCount": 9,
+      "testCount": 7,
+      "sites": [
+        "packages/hikae/src/interval-conformer.ts",
+        "packages/hikae/src/l3-gate.ts",
+        "packages/hikae/src/region.ts",
+        "packages/hikae/src/s2/instrument.ts",
+        "packages/hikae/src/s2/report.ts",
+        "packages/hikae/src/verdict.ts",
+        "packages/hikae/test/contracts-integration.test.ts",
+        "packages/hikae/test/interval-conformer.test.ts",
+        "packages/hikae/test/interval-gate.test.ts",
+        "packages/hikae/test/interval-nondegenerate.test.ts",
+        "packages/hikae/test/l3.test.ts",
+        "packages/hikae/test/s2.test.ts"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "pkg:monark => pkg:contracts",
+      "count": 6,
+      "srcCount": 4,
+      "testCount": 2,
+      "sites": [
+        "packages/monark/src/adapter-narabi.ts",
+        "packages/monark/src/adapter-shogen.ts",
+        "packages/monark/test/adapter-narabi.test.ts",
+        "packages/monark/test/adapter-shogen.test.ts"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "pkg:ukemi => pkg:contracts",
+      "count": 3,
+      "srcCount": 2,
+      "testCount": 1,
+      "sites": [
+        "packages/ukemi/src/prediction.ts",
+        "packages/ukemi/test/prediction.test.ts"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "scripts => app:sentinel",
+      "count": 5,
+      "srcCount": 5,
+      "testCount": 0,
+      "sites": [
+        "scripts/census/aave-liquidations.mjs",
+        "scripts/census/burns-by-burner.mjs",
+        "scripts/usde-full-pull.mjs"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "scripts => pkg:contracts",
+      "count": 1,
+      "srcCount": 1,
+      "testCount": 0,
+      "sites": [
+        "scripts/record-usde-calib.mjs"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "scripts => pkg:hikae",
+      "count": 1,
+      "srcCount": 1,
+      "testCount": 0,
+      "sites": [
+        "scripts/record-usde-calib.mjs"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "scripts => pkg:monark",
+      "count": 1,
+      "srcCount": 1,
+      "testCount": 0,
+      "sites": [
+        "scripts/record-usde-calib.mjs"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "scripts => test:root",
+      "count": 2,
+      "srcCount": 2,
+      "testCount": 0,
+      "sites": [
+        "scripts/record-byo-demo.mjs",
+        "scripts/record-h5-e2e-trace.mjs"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "test:root => app:harness",
+      "count": 9,
+      "srcCount": 0,
+      "testCount": 9,
+      "sites": [
+        "test/byo-demo-builder.ts",
+        "test/byo-demo-probe.test.ts",
+        "test/h5-e2e-probe.test.ts",
+        "test/h5-trace-builder.ts",
+        "test/harness-deploy-config.test.ts",
+        "test/skills.test.ts"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "test:root => app:sentinel",
+      "count": 1,
+      "srcCount": 0,
+      "testCount": 1,
+      "sites": [
+        "test/narabi-live.test.ts"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "test:root => app:site",
+      "count": 32,
+      "srcCount": 0,
+      "testCount": 32,
+      "sites": [
+        "test/ci-gates.test.ts",
+        "test/narabi-live.test.ts",
+        "test/sas-audit.test.ts",
+        "test/sas-machine.test.ts",
+        "test/sas-model.test.ts",
+        "test/site-honesty.test.ts",
+        "test/visage-register.test.ts"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "test:root => pkg:contracts",
+      "count": 4,
+      "srcCount": 0,
+      "testCount": 4,
+      "sites": [
+        "test/byo-demo-probe.test.ts",
+        "test/fixtures-root.test.ts",
+        "test/h5-e2e-probe.test.ts"
+      ],
+      "subs": []
+    },
+    {
+      "edge": "test:root => scripts",
+      "count": 8,
+      "srcCount": 0,
+      "testCount": 8,
+      "sites": [
+        "test/byo-demo-probe.test.ts",
+        "test/ci-gates.test.ts",
+        "test/h5-e2e-probe.test.ts",
+        "test/harness-export.test.ts",
+        "test/record-usde-calib.test.ts",
+        "test/release-public.test.ts",
+        "test/skills.test.ts"
+      ],
+      "subs": []
+    }
+  ],
+  "interPackageEdges": [
+    {
+      "edge": "app:harness => pkg:contracts",
+      "count": 17
+    },
+    {
+      "edge": "app:harness => pkg:hikae",
+      "count": 6
+    },
+    {
+      "edge": "app:harness => pkg:monark",
+      "count": 6
+    },
+    {
+      "edge": "app:harness => pkg:ukemi",
+      "count": 3
+    },
+    {
+      "edge": "app:sentinel => pkg:contracts",
+      "count": 2
+    },
+    {
+      "edge": "app:sentinel => pkg:hikae",
+      "count": 8
+    },
+    {
+      "edge": "app:sentinel => pkg:monark",
+      "count": 1
+    },
+    {
+      "edge": "pkg:atelier => pkg:contracts",
+      "count": 4
+    },
+    {
+      "edge": "pkg:hikae => pkg:contracts",
+      "count": 16
+    },
+    {
+      "edge": "pkg:monark => pkg:contracts",
+      "count": 6
+    },
+    {
+      "edge": "pkg:ukemi => pkg:contracts",
+      "count": 3
+    },
+    {
+      "edge": "scripts => pkg:contracts",
+      "count": 1
+    },
+    {
+      "edge": "scripts => pkg:hikae",
+      "count": 1
+    },
+    {
+      "edge": "scripts => pkg:monark",
+      "count": 1
+    },
+    {
+      "edge": "test:root => pkg:contracts",
+      "count": 4
+    }
+  ],
+  "consumersByNode": {
+    "app:harness": [
+      "app:sentinel",
+      "test:root"
+    ],
+    "app:sentinel": [
+      "scripts",
+      "test:root"
+    ],
+    "app:site": [
+      "test:root"
+    ],
+    "pkg:atelier": [],
+    "pkg:contracts": [
+      "app:harness",
+      "app:sentinel",
+      "pkg:atelier",
+      "pkg:hikae",
+      "pkg:monark",
+      "pkg:ukemi",
+      "scripts",
+      "test:root"
+    ],
+    "pkg:hikae": [
+      "app:harness",
+      "app:sentinel",
+      "scripts"
+    ],
+    "pkg:monark": [
+      "app:harness",
+      "app:sentinel",
+      "scripts"
+    ],
+    "pkg:ukemi": [
+      "app:harness"
+    ],
+    "scripts": [
+      "app:harness",
+      "test:root"
+    ],
+    "test:root": [
+      "scripts"
+    ]
+  },
+  "srcConsumersByNode": {
+    "app:harness": [
+      "app:sentinel"
+    ],
+    "app:sentinel": [
+      "scripts"
+    ],
+    "app:site": [],
+    "pkg:atelier": [],
+    "pkg:contracts": [
+      "app:harness",
+      "app:sentinel",
+      "pkg:atelier",
+      "pkg:hikae",
+      "pkg:monark",
+      "pkg:ukemi",
+      "scripts"
+    ],
+    "pkg:hikae": [
+      "app:harness",
+      "app:sentinel",
+      "scripts"
+    ],
+    "pkg:monark": [
+      "app:harness",
+      "app:sentinel",
+      "scripts"
+    ],
+    "pkg:ukemi": [
+      "app:harness"
+    ],
+    "scripts": [],
+    "test:root": [
+      "scripts"
+    ]
+  },
+  "symbolCensus": {
+    "MONARK_PHASE": 1,
+    "crossAgentGate": 0,
+    "calibrate": 145,
+    "runCalibrate": 36,
+    "fromAttestedFlow": 28,
+    "conformInterval": 19,
+    "trackerInit": 33,
+    "trackerStep": 20,
+    "clipScore": 22
+  },
+  "externalSpecifiers": [
+    {
+      "spec": " },\n    { re: /[",
+      "count": 2
+    },
+    {
+      "spec": " },\n    { re: /\\bfetch\\s*\\(/, why: ",
+      "count": 1
+    },
+    {
+      "spec": " },\n  { re: /[",
+      "count": 2
+    },
+    {
+      "spec": " },\n  { re: /\\bfetch\\s*\\(/, why: ",
+      "count": 1
+    },
+    {
+      "spec": ", () => {\n  // The three exports are functions (import resolved without executing the CLI body).\n  for (const fn of [isSemverTag, checkReleaseText, branchGuard]) {\n    assert.equal(typeof fn, ",
+      "count": 1
+    },
+    {
+      "spec": "@/components/agent-card",
+      "count": 4
+    },
+    {
+      "spec": "@/components/gate-sim",
+      "count": 3
+    },
+    {
+      "spec": "@/components/hikae-panel",
+      "count": 2
+    },
+    {
+      "spec": "@/components/marks/genkan-mark",
+      "count": 2
+    },
+    {
+      "spec": "@/components/marks/hikae-mark",
+      "count": 2
+    },
+    {
+      "spec": "@/components/marks/kaihi-mark",
+      "count": 2
+    },
+    {
+      "spec": "@/components/marks/kamae-mark",
+      "count": 2
+    },
+    {
+      "spec": "@/components/marks/kessai-mark",
+      "count": 2
+    },
+    {
+      "spec": "@/components/marks/koyomi-mark",
+      "count": 2
+    },
+    {
+      "spec": "@/components/marks/kyokusen-mark",
+      "count": 2
+    },
+    {
+      "spec": "@/components/marks/mokugeki-mark",
+      "count": 2
+    },
+    {
+      "spec": "@/components/marks/monark-mark",
+      "count": 2
+    },
+    {
+      "spec": "@/components/marks/narabi-mark",
+      "count": 4
+    },
+    {
+      "spec": "@/components/marks/shogen-mark",
+      "count": 2
+    },
+    {
+      "spec": "@/components/marks/ukemi-mark",
+      "count": 2
+    },
+    {
+      "spec": "@/components/narabi-panel",
+      "count": 1
+    },
+    {
+      "spec": "@/components/narabi/narabi-live",
+      "count": 1
+    },
+    {
+      "spec": "@/components/panel-shell",
+      "count": 7
+    },
+    {
+      "spec": "@/components/placeholder-panel",
+      "count": 2
+    },
+    {
+      "spec": "@/components/sas/sas-machine",
+      "count": 1
+    },
+    {
+      "spec": "@/components/sas/sas-model",
+      "count": 1
+    },
+    {
+      "spec": "@/components/shogen-panel",
+      "count": 2
+    },
+    {
+      "spec": "@/components/site-footer",
+      "count": 1
+    },
+    {
+      "spec": "@/components/site-header",
+      "count": 1
+    },
+    {
+      "spec": "@/components/status-badge",
+      "count": 6
+    },
+    {
+      "spec": "@/components/theme-provider",
+      "count": 5
+    },
+    {
+      "spec": "@/components/token/ca-copy",
+      "count": 1
+    },
+    {
+      "spec": "@/components/ui/button",
+      "count": 8
+    },
+    {
+      "spec": "@/components/ui/dialog",
+      "count": 7
+    },
+    {
+      "spec": "@/components/ukemi-panel",
+      "count": 2
+    },
+    {
+      "spec": "@/components/upcoming-panel",
+      "count": 1
+    },
+    {
+      "spec": "@/components/what-inside",
+      "count": 6
+    },
+    {
+      "spec": "@/lib/agents-presentation",
+      "count": 1
+    },
+    {
+      "spec": "@/lib/fleet",
+      "count": 6
+    },
+    {
+      "spec": "@/lib/fleet-presentation",
+      "count": 9
+    },
+    {
+      "spec": "@/lib/gate-enums",
+      "count": 3
+    },
+    {
+      "spec": "@/lib/how-copy",
+      "count": 1
+    },
+    {
+      "spec": "@/lib/load-contract",
+      "count": 7
+    },
+    {
+      "spec": "@/lib/narabi-copy",
+      "count": 1
+    },
+    {
+      "spec": "@/lib/narabi-live",
+      "count": 6
+    },
+    {
+      "spec": "@/lib/narabi-snapshot",
+      "count": 1
+    },
+    {
+      "spec": "@/lib/profiles",
+      "count": 2
+    },
+    {
+      "spec": "@/lib/sim",
+      "count": 8
+    },
+    {
+      "spec": "@/lib/status",
+      "count": 4
+    },
+    {
+      "spec": "@/lib/utils",
+      "count": 11
+    },
+    {
+      "spec": "@/lib/visage",
+      "count": 1
+    },
+    {
+      "spec": "@base-ui/react/button",
+      "count": 1
+    },
+    {
+      "spec": "@base-ui/react/dialog",
+      "count": 1
+    },
+    {
+      "spec": "@modelcontextprotocol/server",
+      "count": 5
+    },
+    {
+      "spec": "@next/mdx",
+      "count": 1
+    },
+    {
+      "spec": "ajv",
+      "count": 1
+    },
+    {
+      "spec": "ajv-formats",
+      "count": 11
+    },
+    {
+      "spec": "ajv/dist/2020",
+      "count": 6
+    },
+    {
+      "spec": "ajv/dist/2020.js",
+      "count": 5
+    },
+    {
+      "spec": "class-variance-authority",
+      "count": 1
+    },
+    {
+      "spec": "clsx",
+      "count": 1
+    },
+    {
+      "spec": "eslint",
+      "count": 1
+    },
+    {
+      "spec": "lucide-react",
+      "count": 1
+    },
+    {
+      "spec": "next",
+      "count": 11
+    },
+    {
+      "spec": "next/font/google",
+      "count": 1
+    },
+    {
+      "spec": "next/link",
+      "count": 8
+    },
+    {
+      "spec": "next/navigation",
+      "count": 1
+    },
+    {
+      "spec": "node:assert/strict",
+      "count": 54
+    },
+    {
+      "spec": "node:child_process",
+      "count": 5
+    },
+    {
+      "spec": "node:crypto",
+      "count": 26
+    },
+    {
+      "spec": "node:events",
+      "count": 6
+    },
+    {
+      "spec": "node:fs",
+      "count": 61
+    },
+    {
+      "spec": "node:http",
+      "count": 10
+    },
+    {
+      "spec": "node:https",
+      "count": 1
+    },
+    {
+      "spec": "node:module",
+      "count": 7
+    },
+    {
+      "spec": "node:os",
+      "count": 7
+    },
+    {
+      "spec": "node:path",
+      "count": 50
+    },
+    {
+      "spec": "node:stream",
+      "count": 1
+    },
+    {
+      "spec": "node:test",
+      "count": 54
+    },
+    {
+      "spec": "node:tls",
+      "count": 1
+    },
+    {
+      "spec": "node:url",
+      "count": 34
+    },
+    {
+      "spec": "react",
+      "count": 30
+    },
+    {
+      "spec": "tailwind-merge",
+      "count": 1
+    },
+    {
+      "spec": "tailwindcss",
+      "count": 1
+    },
+    {
+      "spec": "typescript",
+      "count": 2
+    },
+    {
+      "spec": "unmet",
+      "count": 1
+    }
+  ]
+}
