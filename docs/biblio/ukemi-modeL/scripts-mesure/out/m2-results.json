@@ -1,0 +1,357 @@
+{
+  "model": "claude-opus-4-8[1m]",
+  "started": "2026-09-19T03:49:14.535Z",
+  "finished": "2026-09-19T03:50:43.431Z",
+  "cluster": "WETH",
+  "window_blocks": [
+    23543616,
+    23557920
+  ],
+  "n_events": 268,
+  "n_blocks": 119,
+  "SigmaWETH": 6914.832152221445,
+  "ts_window": [
+    1760072207,
+    1760216819
+  ],
+  "hours": 40.17,
+  "oracle_price_first_last": [
+    4346.87,
+    3662.38723752
+  ],
+  "corr_Qcum_t": 0.5706657750832611,
+  "level_regressions": {
+    "oracle": {
+      "beta_Qcum_only": -0.000011785512498341945,
+      "r2_Qcum": 0.3934842202148666,
+      "beta_t_only": -0.0016895604012817482,
+      "r2_t": 0.07202717570034312,
+      "beta_Qcum_ctrlT": -0.000013209965654192139,
+      "beta_t_ctrlQ": 0.000836386591092003,
+      "r2_QcumT": 0.4053868343626933,
+      "n": 268
+    },
+    "market": {
+      "beta_Qcum_only": -0.000009855992446158759,
+      "r2_Qcum": 0.2966968446221787,
+      "beta_t_only": -0.0016852527505560868,
+      "r2_t": 0.07726109499908984,
+      "beta_Qcum_ctrlT": -0.000010359501433983684,
+      "beta_t_ctrlQ": 0.00029564199017813314,
+      "r2_QcumT": 0.2983002461561006,
+      "n": 268
+    }
+  },
+  "leadlag_market": {
+    "n_buckets": 159,
+    "n_nonzero": 29,
+    "b_Q": 0.000012431941728499656,
+    "c_prevret": 0.20667214281505528,
+    "a": -0.0014217516482582402,
+    "r2": 0.1688607067510357,
+    "ci95_b": {
+      "lo": -0.000051224071164199977,
+      "hi": 0.00020502223129203922,
+      "median": 0.0000120519485589492,
+      "reps": 2000
+    },
+    "b_Q_ctrl_t": 0.000012457365631131008,
+    "r2_ctrl_t": 0.16943510512539106,
+    "ci95_b_ctrl_t": {
+      "lo": -0.00005039401436361546,
+      "hi": 0.00021114493996648987,
+      "median": 0.000012100987132812619,
+      "reps": 2000
+    },
+    "SigmaQ": 6914.832152221445
+  },
+  "leadlag_oracle": {
+    "n_buckets": 159,
+    "n_nonzero": 29,
+    "b_Q": 0.000010787426962049334,
+    "c_prevret": 0.5420143016172618,
+    "a": -0.0009668173947903252,
+    "r2": 0.19533634563338997,
+    "ci95_b": {
+      "lo": -0.00009366191053782448,
+      "hi": 0.00012284671938795567,
+      "median": 0.000010348865493646407,
+      "reps": 2000
+    },
+    "b_Q_ctrl_t": 0.000010801171710439921,
+    "r2_ctrl_t": 0.19572922352409472,
+    "ci95_b_ctrl_t": {
+      "lo": -0.0000923607334133576,
+      "hi": 0.00012195485247559354,
+      "median": 0.000010356000639742744,
+      "reps": 2000
+    },
+    "SigmaQ": 6914.832152221445
+  },
+  "scale": {
+    "SigmaWETH_aave": 6914.832152221445,
+    "market_src": "binance",
+    "market_base_vol_window": 2171387.1882999963,
+    "ratio_aave_over_market": 0.0031845228660647784
+  },
+  "hourly": [
+    {
+      "hourUTC": "2025-10-10T04:00Z",
+      "q_weth": 0,
+      "oracle": 4346.87,
+      "market": 4344.49
+    },
+    {
+      "hourUTC": "2025-10-10T05:00Z",
+      "q_weth": 0,
+      "oracle": 4346.87,
+      "market": 4368.34
+    },
+    {
+      "hourUTC": "2025-10-10T06:00Z",
+      "q_weth": 0,
+      "oracle": 4346.87,
+      "market": 4328
+    },
+    {
+      "hourUTC": "2025-10-10T07:00Z",
+      "q_weth": 0,
+      "oracle": 4346.87,
+      "market": 4323.39
+    },
+    {
+      "hourUTC": "2025-10-10T08:00Z",
+      "q_weth": 0,
+      "oracle": 4346.87,
+      "market": 4346.12
+    },
+    {
+      "hourUTC": "2025-10-10T09:00Z",
+      "q_weth": 0,
+      "oracle": 4346.87,
+      "market": 4322.12
+    },
+    {
+      "hourUTC": "2025-10-10T10:00Z",
+      "q_weth": 0,
+      "oracle": 4346.87,
+      "market": 4342.89
+    },
+    {
+      "hourUTC": "2025-10-10T11:00Z",
+      "q_weth": 0,
+      "oracle": 4346.87,
+      "market": 4343.02
+    },
+    {
+      "hourUTC": "2025-10-10T12:00Z",
+      "q_weth": 0,
+      "oracle": 4346.87,
+      "market": 4348.54
+    },
+    {
+      "hourUTC": "2025-10-10T13:00Z",
+      "q_weth": 0,
+      "oracle": 4346.87,
+      "market": 4356.1
+    },
+    {
+      "hourUTC": "2025-10-10T14:00Z",
+      "q_weth": 0,
+      "oracle": 4346.87,
+      "market": 4280.35
+    },
+    {
+      "hourUTC": "2025-10-10T15:00Z",
+      "q_weth": 409.13,
+      "oracle": 4102.85,
+      "market": 4103.11
+    },
+    {
+      "hourUTC": "2025-10-10T16:00Z",
+      "q_weth": 0,
+      "oracle": 4102.85,
+      "market": 4108.99
+    },
+    {
+      "hourUTC": "2025-10-10T17:00Z",
+      "q_weth": 0.37,
+      "oracle": 4097.93,
+      "market": 4093.97
+    },
+    {
+      "hourUTC": "2025-10-10T18:00Z",
+      "q_weth": 87.57,
+      "oracle": 4071.55,
+      "market": 4053.84
+    },
+    {
+      "hourUTC": "2025-10-10T19:00Z",
+      "q_weth": 140.63,
+      "oracle": 3968.31,
+      "market": 3997.56
+    },
+    {
+      "hourUTC": "2025-10-10T20:00Z",
+      "q_weth": 41.66,
+      "oracle": 3895.96,
+      "market": 3871.3
+    },
+    {
+      "hourUTC": "2025-10-10T21:00Z",
+      "q_weth": 6109.57,
+      "oracle": 3601.43,
+      "market": 3949.99
+    },
+    {
+      "hourUTC": "2025-10-10T22:00Z",
+      "q_weth": 0.75,
+      "oracle": 3885.85,
+      "market": 3855.09
+    },
+    {
+      "hourUTC": "2025-10-10T23:00Z",
+      "q_weth": 34.32,
+      "oracle": 3833.03,
+      "market": 3829.72
+    },
+    {
+      "hourUTC": "2025-10-11T00:00Z",
+      "q_weth": 1.1,
+      "oracle": 3823.87,
+      "market": 3838.48
+    },
+    {
+      "hourUTC": "2025-10-11T01:00Z",
+      "q_weth": 11.73,
+      "oracle": 3754.46,
+      "market": 3733.35
+    },
+    {
+      "hourUTC": "2025-10-11T02:00Z",
+      "q_weth": 0.15,
+      "oracle": 3853.43,
+      "market": 3841.17
+    },
+    {
+      "hourUTC": "2025-10-11T03:00Z",
+      "q_weth": 0.14,
+      "oracle": 3768.39,
+      "market": 3792.26
+    },
+    {
+      "hourUTC": "2025-10-11T04:00Z",
+      "q_weth": 0,
+      "oracle": 3768.39,
+      "market": 3820.54
+    },
+    {
+      "hourUTC": "2025-10-11T05:00Z",
+      "q_weth": 0,
+      "oracle": 3768.39,
+      "market": 3789.47
+    },
+    {
+      "hourUTC": "2025-10-11T06:00Z",
+      "q_weth": 0,
+      "oracle": 3768.39,
+      "market": 3781.78
+    },
+    {
+      "hourUTC": "2025-10-11T07:00Z",
+      "q_weth": 0.04,
+      "oracle": 3754.2,
+      "market": 3758.81
+    },
+    {
+      "hourUTC": "2025-10-11T08:00Z",
+      "q_weth": 0,
+      "oracle": 3754.2,
+      "market": 3815.36
+    },
+    {
+      "hourUTC": "2025-10-11T09:00Z",
+      "q_weth": 0,
+      "oracle": 3754.2,
+      "market": 3829.37
+    },
+    {
+      "hourUTC": "2025-10-11T10:00Z",
+      "q_weth": 0,
+      "oracle": 3754.2,
+      "market": 3833.89
+    },
+    {
+      "hourUTC": "2025-10-11T11:00Z",
+      "q_weth": 0,
+      "oracle": 3754.2,
+      "market": 3839.99
+    },
+    {
+      "hourUTC": "2025-10-11T12:00Z",
+      "q_weth": 0,
+      "oracle": 3754.2,
+      "market": 3823.52
+    },
+    {
+      "hourUTC": "2025-10-11T13:00Z",
+      "q_weth": 0,
+      "oracle": 3754.2,
+      "market": 3832.39
+    },
+    {
+      "hourUTC": "2025-10-11T14:00Z",
+      "q_weth": 0,
+      "oracle": 3754.2,
+      "market": 3814.2
+    },
+    {
+      "hourUTC": "2025-10-11T15:00Z",
+      "q_weth": 0,
+      "oracle": 3754.2,
+      "market": 3825.13
+    },
+    {
+      "hourUTC": "2025-10-11T16:00Z",
+      "q_weth": 0,
+      "oracle": 3754.2,
+      "market": 3820.07
+    },
+    {
+      "hourUTC": "2025-10-11T17:00Z",
+      "q_weth": 0,
+      "oracle": 3754.2,
+      "market": 3825.14
+    },
+    {
+      "hourUTC": "2025-10-11T18:00Z",
+      "q_weth": 0,
+      "oracle": 3754.2,
+      "market": 3815.48
+    },
+    {
+      "hourUTC": "2025-10-11T19:00Z",
+      "q_weth": 0,
+      "oracle": 3754.2,
+      "market": 3760.61
+    },
+    {
+      "hourUTC": "2025-10-11T20:00Z",
+      "q_weth": 68.11,
+      "oracle": 3685.06,
+      "market": 3695.15
+    },
+    {
+      "hourUTC": "2025-10-11T21:00Z",
+      "q_weth": 9.58,
+      "oracle": 3662.39,
+      "market": 3658.41
+    }
+  ],
+  "oracle_leadlag_sampling": "dense: getAssetPrice at 159 bucket-end blocks (not only liquidation blocks)",
+  "level_oracle_sampling": "event: getAssetPrice at each liquidation block (correct for level regression)",
+  "seed": 20251010,
+  "bucket_sec": 900,
+  "boot": 2000,
+  "block_len": 4
+}

@@ -1,0 +1,291 @@
+{
+  "model": "claude-opus-4-8[1m]",
+  "started": "2026-09-19T03:30:13.514Z",
+  "finished": "2026-09-19T03:31:45.496Z",
+  "block_B": 23545087,
+  "selectors": {
+    "getUserAccountData": "0xbf92857c",
+    "getUserReservesData": "0x51974cc0"
+  },
+  "endpoints_tested": 12,
+  "archive_ok": [
+    "drpc",
+    "tenderly",
+    "tenderly",
+    "mevblocker",
+    "blastapi",
+    "nodies"
+  ],
+  "quorum": {
+    "providers": [
+      "drpc",
+      "tenderly",
+      "tenderly",
+      "mevblocker",
+      "blastapi",
+      "nodies"
+    ],
+    "distinct_byte_values": 1,
+    "agree": true
+  },
+  "results": [
+    {
+      "provider": "publicnode",
+      "url": "https://ethereum-rpc.publicnode.com",
+      "archive": "refus",
+      "ms_at_B": 176,
+      "ms_latest": 84,
+      "notes": [
+        "@B auth: HTTP 403 {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32602,\"message\":\"Archive requests require a personal token. Get on"
+      ],
+      "uad_B_bytes": null
+    },
+    {
+      "provider": "publicnode",
+      "url": "https://ethereum.publicnode.com",
+      "archive": "refus",
+      "ms_at_B": 240,
+      "ms_latest": 91,
+      "notes": [
+        "@B auth: HTTP 403 {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32602,\"message\":\"Archive requests require a personal token. Get on"
+      ],
+      "uad_B_bytes": null
+    },
+    {
+      "provider": "llamarpc",
+      "url": "https://eth.llamarpc.com",
+      "archive": "refus",
+      "ms_at_B": 123,
+      "ms_latest": 2,
+      "notes": [
+        "@B net: fetch failed"
+      ],
+      "uad_B_bytes": null
+    },
+    {
+      "provider": "drpc",
+      "url": "https://eth.drpc.org",
+      "archive": "archive_ok",
+      "ms_at_B": 432,
+      "ms_latest": 92,
+      "notes": [],
+      "uad_B_bytes": "0x000000000000000000000000000000000000000000000000000001a3fc8229eb0000000000000000000000000000000000000000000000000000014b098117de000000000000000000000000000000000000000000000000000000070d48f7f4000000000000000000000000000000000000000000000000000000000000206c0000000000000000000000000000000000000000000000000000000000001f720000000000000000000000000000000000000000000000000e9d1403f39821c2",
+      "archive_evidence_users": 2,
+      "silent_users": 0,
+      "sample_user0": {
+        "totalCollateralBase_usd": 18038.27685867,
+        "totalDebtBase_usd": 14217.93630174,
+        "healthFactor": 1.0530198950788552
+      },
+      "latency_ms": {
+        "n": 12,
+        "median": 94,
+        "p90": 267
+      },
+      "cap": {
+        "fired": 100,
+        "ok": 100,
+        "firstRateAt": null,
+        "elapsedMin": 0.179,
+        "rate_ok_per_min": 558
+      },
+      "uipool_code_at_B": "ABSENT"
+    },
+    {
+      "provider": "ankr",
+      "url": "https://rpc.ankr.com/eth",
+      "archive": "refus",
+      "ms_at_B": 774,
+      "ms_latest": 117,
+      "notes": [
+        "@B auth: {\"code\":-32000,\"message\":\"Unauthorized: You must authenticate your request with an API key. Create an account on https://www.ankr.com/rpc/ and generat"
+      ],
+      "uad_B_bytes": null
+    },
+    {
+      "provider": "1rpc",
+      "url": "https://1rpc.io/eth",
+      "archive": "refus",
+      "ms_at_B": 511,
+      "ms_latest": 1250,
+      "notes": [
+        "@B err: {\"code\":-32000,\"message\":\"historical state 37733036b2cf24612b140ce29f717e82747a5f885caf2c23d0481c809e312150 is not available\"}"
+      ],
+      "uad_B_bytes": null
+    },
+    {
+      "provider": "tenderly",
+      "url": "https://gateway.tenderly.co/public/mainnet",
+      "archive": "archive_ok",
+      "ms_at_B": 451,
+      "ms_latest": 64,
+      "notes": [],
+      "uad_B_bytes": "0x000000000000000000000000000000000000000000000000000001a3fc8229eb0000000000000000000000000000000000000000000000000000014b098117de000000000000000000000000000000000000000000000000000000070d48f7f4000000000000000000000000000000000000000000000000000000000000206c0000000000000000000000000000000000000000000000000000000000001f720000000000000000000000000000000000000000000000000e9d1403f39821c2",
+      "archive_evidence_users": 2,
+      "silent_users": 0,
+      "sample_user0": {
+        "totalCollateralBase_usd": 18038.27685867,
+        "totalDebtBase_usd": 14217.93630174,
+        "healthFactor": 1.0530198950788552
+      },
+      "latency_ms": {
+        "n": 11,
+        "median": 74,
+        "p90": 80
+      },
+      "cap": {
+        "fired": 15,
+        "ok": 12,
+        "firstRateAt": 8,
+        "elapsedMin": 0.02,
+        "rate_ok_per_min": 600
+      },
+      "uipool_code_at_B": "ABSENT"
+    },
+    {
+      "provider": "tenderly",
+      "url": "https://mainnet.gateway.tenderly.co",
+      "archive": "archive_ok",
+      "ms_at_B": 428,
+      "ms_latest": 67,
+      "notes": [],
+      "uad_B_bytes": "0x000000000000000000000000000000000000000000000000000001a3fc8229eb0000000000000000000000000000000000000000000000000000014b098117de000000000000000000000000000000000000000000000000000000070d48f7f4000000000000000000000000000000000000000000000000000000000000206c0000000000000000000000000000000000000000000000000000000000001f720000000000000000000000000000000000000000000000000e9d1403f39821c2",
+      "archive_evidence_users": 2,
+      "silent_users": 0,
+      "sample_user0": {
+        "totalCollateralBase_usd": 18038.27685867,
+        "totalDebtBase_usd": 14217.93630174,
+        "healthFactor": 1.0530198950788552
+      },
+      "latency_ms": {
+        "n": 12,
+        "median": 63,
+        "p90": 67
+      },
+      "cap": {
+        "fired": 37,
+        "ok": 30,
+        "firstRateAt": 9,
+        "elapsedMin": 0.04,
+        "rate_ok_per_min": 759
+      },
+      "uipool_code_at_B": "err:rate"
+    },
+    {
+      "provider": "mevblocker",
+      "url": "https://rpc.mevblocker.io",
+      "archive": "archive_ok",
+      "ms_at_B": 341,
+      "ms_latest": 95,
+      "notes": [],
+      "uad_B_bytes": "0x000000000000000000000000000000000000000000000000000001a3fc8229eb0000000000000000000000000000000000000000000000000000014b098117de000000000000000000000000000000000000000000000000000000070d48f7f4000000000000000000000000000000000000000000000000000000000000206c0000000000000000000000000000000000000000000000000000000000001f720000000000000000000000000000000000000000000000000e9d1403f39821c2",
+      "archive_evidence_users": 2,
+      "silent_users": 0,
+      "sample_user0": {
+        "totalCollateralBase_usd": 18038.27685867,
+        "totalDebtBase_usd": 14217.93630174,
+        "healthFactor": 1.0530198950788552
+      },
+      "latency_ms": {
+        "n": 12,
+        "median": 111.5,
+        "p90": 352
+      },
+      "cap": {
+        "fired": 100,
+        "ok": 100,
+        "firstRateAt": null,
+        "elapsedMin": 0.197,
+        "rate_ok_per_min": 508
+      },
+      "uipool_code_at_B": "ABSENT"
+    },
+    {
+      "provider": "blastapi",
+      "url": "https://eth-mainnet.public.blastapi.io",
+      "archive": "archive_ok",
+      "ms_at_B": 339,
+      "ms_latest": 159,
+      "notes": [],
+      "uad_B_bytes": "0x000000000000000000000000000000000000000000000000000001a3fc8229eb0000000000000000000000000000000000000000000000000000014b098117de000000000000000000000000000000000000000000000000000000070d48f7f4000000000000000000000000000000000000000000000000000000000000206c0000000000000000000000000000000000000000000000000000000000001f720000000000000000000000000000000000000000000000000e9d1403f39821c2",
+      "archive_evidence_users": 2,
+      "silent_users": 0,
+      "sample_user0": {
+        "totalCollateralBase_usd": 18038.27685867,
+        "totalDebtBase_usd": 14217.93630174,
+        "healthFactor": 1.0530198950788552
+      },
+      "latency_ms": {
+        "n": 12,
+        "median": 162.5,
+        "p90": 183
+      },
+      "cap": {
+        "fired": 100,
+        "ok": 100,
+        "firstRateAt": null,
+        "elapsedMin": 0.268,
+        "rate_ok_per_min": 373
+      },
+      "uipool_code_at_B": "ABSENT"
+    },
+    {
+      "provider": "blxrbdn",
+      "url": "https://eth.rpc.blxrbdn.com",
+      "archive": "refus",
+      "ms_at_B": 445,
+      "ms_latest": 93,
+      "notes": [
+        "@B err: {\"code\":-32000,\"message\":\"historical state 37733036b2cf24612b140ce29f717e82747a5f885caf2c23d0481c809e312150 is not available\"}"
+      ],
+      "uad_B_bytes": null
+    },
+    {
+      "provider": "nodies",
+      "url": "https://eth-pokt.nodies.app",
+      "archive": "archive_ok",
+      "ms_at_B": 591,
+      "ms_latest": 166,
+      "notes": [],
+      "uad_B_bytes": "0x000000000000000000000000000000000000000000000000000001a3fc8229eb0000000000000000000000000000000000000000000000000000014b098117de000000000000000000000000000000000000000000000000000000070d48f7f4000000000000000000000000000000000000000000000000000000000000206c0000000000000000000000000000000000000000000000000000000000001f720000000000000000000000000000000000000000000000000e9d1403f39821c2",
+      "archive_evidence_users": 2,
+      "silent_users": 0,
+      "sample_user0": {
+        "totalCollateralBase_usd": 18038.27685867,
+        "totalDebtBase_usd": 14217.93630174,
+        "healthFactor": 1.0530198950788552
+      },
+      "latency_ms": {
+        "n": 12,
+        "median": 174,
+        "p90": 266
+      },
+      "cap": {
+        "fired": 100,
+        "ok": 100,
+        "firstRateAt": null,
+        "elapsedMin": 0.294,
+        "rate_ok_per_min": 340
+      },
+      "uipool_code_at_B": "ABSENT"
+    }
+  ],
+  "extrapolation": {
+    "event_623": {
+      "N": 623,
+      "calls": 625,
+      "provider": "tenderly",
+      "rate_per_min": 759,
+      "minutes": 0.8
+    },
+    "weth_cluster_213": {
+      "N": 213,
+      "calls": 215,
+      "provider": "tenderly",
+      "rate_per_min": 759,
+      "minutes": 0.3
+    },
+    "best_provider": "tenderly",
+    "caveat": "N depuis LiquidationCall = comptes DÉJÀ liquidés ; le cluster à-risque réel (détenteurs aWETH via Transfer logs) est plus grand → N sous-estime le coût U-1."
+  }
+}
