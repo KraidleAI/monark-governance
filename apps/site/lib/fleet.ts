@@ -30,14 +30,16 @@ export type FleetRole = "sensor" | "gate" | "act" | "distribution";
  * integration test that replays that composition. REQUIRED on a built agent, FORBIDDEN on an upcoming one
  * (encoded in the FleetAgent union below). The root test `fleet_register_built_set_is_frozen` checks that
  * `served_by` is non-empty and `integration_test` names a test that EXISTS under test/, apps/harness/test/,
- * or apps/sentinel/test/. NOTE: served_by carries task-class ids that contain digits (…-24h, btc-dir-15m);
+ * or apps/sentinel/test/ — matched as `test("<id>"` where the declared title is bare (`"`) or suffixed (` — …`).
+ * NOTE: served_by carries task-class ids that contain digits (…-24h, btc-dir-15m);
  * it is wiring METADATA, never a rendered string, so it is deliberately OUT of the numeric-hole scan, and
  * no surface may render it (both pinned by that test) until a designer lot presents a digit-free honest note.
  */
 export interface FleetWiring {
   /** Who consumes this agent's output on a SERVED path (an MCP tool, or a published file read by a surface). */
   served_by: string;
-  /** The non-LLM integration test that replays the served composition — a real test name. */
+  /** The non-LLM integration test that replays the served composition — a real test id; the guard matches
+   *  `test("<id>"` whether the title is bare or suffixed (` — …`). */
   integration_test: string;
 }
 
@@ -152,13 +154,14 @@ export const FLEET_AGENTS: FleetAgent[] = [
     // (numeric-hole scan) and generic (population and numbers live in the README / skill, not the teaser).
     line: "Narabi senses redemption-run velocity from the attested onchain flow; its adaptive quantile tracker publishes a replayable daily timeline.",
     status: "built",
-    // Two served legs: the daily sentinel publishes a replayable timeline read by /narabi/, and
-    // fromAttestedFlow → gate serves the stable-run-velocity-24h class. sentinel_windows_identical_to_pull
+    // Two served legs. The SERVED composition proven here: the sentinel publishes a sha-pinned timeline and
+    // /narabi parses those committed published bytes — narabi_live_parses_real_state_shape replays it
+    // (published snapshot bytes → the site's parser, byte-exact). Supporting: sentinel_windows_identical_to_pull
     // recomputes the windowing against the committed sha-pinned series via a stubbed RPC (the recorded pull,
-    // offline) — proving windowing ≡ the committed pull; the gate leg: ADR-W1 § Tuyaux.
+    // offline); the fromAttestedFlow → gate (stable-run-velocity-24h) leg: ADR-W1 § Tuyaux.
     wiring: {
       served_by: "daily published sentinel at /narabi/ + fromAttestedFlow → gate (stable-run-velocity-24h)",
-      integration_test: "sentinel_windows_identical_to_pull",
+      integration_test: "narabi_live_parses_real_state_shape",
     },
   },
   {

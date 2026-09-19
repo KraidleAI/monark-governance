@@ -18,14 +18,14 @@
 
 | Fichier | État | sha256 (LF) |
 |---|---|---|
-| `apps/site/lib/fleet.ts` | modifié (union `FleetWiring`+`Built`/`Upcoming` ; `wiring` ×4 ; `:70` attested ; **C3** commentaire Narabi « offline/sha-pinné ») | `8dd97f22009ff9cb7e153840d98d7c20108b8b9d4282b8ee5e5fb7a93c4813f3` |
-| `test/ci-gates.test.ts` | modifié (gel étendu ; `existsSync` ; **C1** garde (5) anti-`{"built"}` ; **C2** garde (4) tripwire identifiant) | `82abcdd44fd60a8ace1b28bb6dc595b905b8740d8bca50b353145daf0175fb24` |
+| `apps/site/lib/fleet.ts` | modifié (union `FleetWiring`+`Built`/`Upcoming` ; `wiring` ×4 ; `:70` attested ; C3 Narabi offline ; **K-V1a** Narabi `integration_test`→`narabi_live_parses_real_state_shape` + docstring titre-suffixé) | `ad26f8de588e19b1a0e1df32010c1e02f82c5d2fc3c7430f93cf5ca344a648b5` |
+| `test/ci-gates.test.ts` | modifié (gel étendu ; `existsSync` ; C1 garde (5) anti-`{"built"}` ; C2 garde (4) tripwire ; **K-V1b** garde (3) accepte `test("<id>"` bare **ou** ` — ` titre-suffixé) | `a11a2354369f29a9c581608c3145aa56e714e031e2c6568d41de1df78e47b810` |
 | `apps/site/components/ukemi-panel.tsx` | modifié (import `@/lib/fleet` ; `UKEMI`+`UKEMI_STATUS` fail-closed ; `status={…}`) | `0c717cc23417b074f84fb60c1b99ffafbc8a37490513431531227c0732af7efc` |
 | `apps/site/components/shogen-panel.tsx` | modifié (**C4** `:36,:42` « verified »→« attested », jumeaux de `fleet.ts:70`) | `a76a3bd062a74b4412879456497e8b017277644e34293a17327f6765c7faf7dc` |
 | `apps/site/app/fleet/page.tsx` | modifié (`:25` métadonnée, `:73` prose) | `e356f8efa35d32e88cbe11accc3923858955b3d864e74daf9d59635796bb45fd` |
 | `apps/site/app/page.tsx` | modifié (`:86` prose) | `ec3aad44fd10dae22f718fcff6ad4de3069e8cb2d93edc3fd05566ef349ae03b` |
 | `apps/site/app/roadmap/page.tsx` | modifié (`:99` carte Phase two, `:170` prose) | `cbde0775a3911d2a50adff6b4d0f939b84a06041e1937fd15eb71c33315223a5` |
-| `docs/adr/ADR-W1-registre-wiring.md` | **créé** (ADR de lot ; C2/C3/C4 pliées) | `9dfc3a57a5e660e3be5bdfe6c1ae82759a72dea1c3166b0d7369f598b7381b2b` (au gel worker ; re-sha au G7 si fold) |
+| `docs/adr/ADR-W1-registre-wiring.md` | **créé** (ADR de lot ; C2/C3/C4 + K-V1/K-V2 pliées ; **statut accepté checkpoint-2**) | `f2ae949c0287d1ab3dc7a7848113acd89c6e5f1ed63c63c5de1d31af7bab268c` |
 | `docs/G1-lot-w1.md` | **créé** (ce journal) | _(auto)_ |
 
 `git diff --numstat 79c4206` (branche start), **hors ADR/G1** : fleet.ts 84/8, ci-gates.test.ts 61/3, ukemi-panel 11/1, shogen-panel 2/2,
@@ -39,8 +39,9 @@ l'orchestrateur, **non touché** ; aucun autre fichier parasite ; **0 octet hors
   sas-model.ts, tests) ne lisent que name/role/line/status (base) ⇒ **union sûre** (mesuré : `grep` consommateurs, aucun ne construit ni
   ne lit `wiring` hors `status==="built"`).
 - **D2 (valeurs mesurées)** : Shōgen `gate_attested_concordant_files_residual` (`apps/harness/test/gate.test.ts:702`) ; Hikae/Ukemi
-  `probe_harness_records_real_decision` (`test/h5-e2e-probe.test.ts:83`) ; Narabi `sentinel_windows_identical_to_pull`
-  (`apps/sentinel/test/sentinel.test.ts:114`). Les 3 noms existent (grep §3).
+  `probe_harness_records_real_decision` (`test/h5-e2e-probe.test.ts:83`) ; Narabi **`narabi_live_parses_real_state_shape`**
+  (`test/narabi-live.test.ts:45` — **K-V1a** : octets publiés sha-pinnés → parseur du site, la composition **servie**). Les 4 noms existent
+  (grep §3) ; `narabi_live` porte un **titre suffixé** (`test("… — …"`) accepté par la garde (3) K-V1b.
 - **D3 (gel étendu)** : gardes (3)(4)(5) ajoutées au test existant — **compte de tests inchangé (289)**, l'extension n'ajoute aucun bloc
   `test()`. `existsSync` importé pour l'anti-faux-vert.
 - **D4 (prose)** : libellé `README.md:102` repris mot à mot (accepté checkpoint-2 b3) ; chaîne fléchée « Shōgen → Hikae → Ukemi » retirée
@@ -50,19 +51,20 @@ l'orchestrateur, **non touché** ; aucun autre fichier parasite ; **0 octet hors
   « verified »→« attested ».
 
 ## 2. Mutants nommés (mesuré : mutation → cible → résultat → restauration byte-exacte)
-Restauration prouvée : sha(LF) après restauration == sha du §1 pour `fleet.ts` (`8dd97f22…`, mutants m1/m2/m4), `ukemi-panel.tsx`
-(`0c717cc2…`, m3/A1), `roadmap/page.tsx` (`cbde0775…`, A2/m5) — **re-vérifié, tous OK** ; les 4 autres fichiers du §1 non mutés, inchangés.
-**A1/A2 = les deux trous G2 (C1/C2) désormais ROUGES** (étaient VERTS avant correction).
+Restauration prouvée : sha(LF) après restauration == sha du §1 pour `fleet.ts` (`ad26f8de…`, mutants m1/m2/m4), `ukemi-panel.tsx`
+(`0c717cc2…`, m3/A1), `roadmap/page.tsx` (`cbde0775…`, A2/m5) — **battery rejouée ce round (checkpoint-2), tous OK** (git status : ces 3
+fichiers restaurés = état committé). **A1/A2 = trous G2 (C1/C2) ROUGES** ; **m6 (K-V1b) VERT** (titre suffixé accepté ; `no_such_test` reste ROUGE).
 
 | # | Mutation | Cible attendue | Résultat MESURÉ |
 |---|---|---|---|
-| m1 | `wiring` retiré de Hikae (`built`) | `npm run typecheck` rouge | **rouge** — `fleet.ts(116,3) TS2322 : Property 'wiring' is missing … required in type 'BuiltFleetAgent'` |
-| m2 | Ukemi `integration_test:"no_such_test"` | gel rouge | **rouge** — `built agent Ukemi: integration_test 'no_such_test' names no test under test/, apps/harness/test/, apps/sentinel/test/` |
+| m1 | `wiring` retiré de Hikae (`built`) | `npm run typecheck` rouge | **rouge** — `fleet.ts(118,3) TS2322 : Property 'wiring' is missing … required in type 'BuiltFleetAgent'` |
+| m2 (`no_such_test`) | Ukemi `integration_test:"no_such_test"` | gel garde (3) rouge | **rouge** (vs **nouvelle** garde (3)) — `integration_test 'no_such_test' names no test("no_such_test" …) under test/, apps/harness/test/, apps/sentinel/test/` |
 | m3 | `status="built"` (attribut) sur l'`AgentCard` | gel garde (5) rouge | **rouge** — `ukemi-panel AgentCard status must not be a hard-coded literal (status="built" or status={"built"})` |
-| m4 | `wiring` ajouté sur Mokugeki (`upcoming`) | `npm run typecheck` rouge | **rouge** — `fleet.ts(141,3) TS2322 : Types of property 'wiring' are incompatible` (`wiring?: never`) |
+| m4 | `wiring` ajouté sur Mokugeki (`upcoming`) | `npm run typecheck` rouge | **rouge** — `fleet.ts(143,3) TS2322 : Types of property 'wiring' are incompatible` (`wiring?: never`) |
 | m5 | rendu **accès** `a.wiring.served_by` dans une surface site | gel garde (4) rouge | **rouge** — `…references wiring identifiers served_by/integration_test… : apps/site/app/roadmap/page.tsx` |
 | **A1** (C1) | `status={"built"}` **littéral JSX-wrappé** sur l'`AgentCard` | gel garde (5) rouge (était **VERT** : l'ancien `stMatch[1]==="{"` acceptait `{`) | **rouge** — même assertion que m3 ⇒ **trou C1 fermé** |
 | **A2** (C2) | **destructuration** `const {served_by}=a.wiring` dans une surface site | gel garde (4) rouge (était **VERT** : l'ancien regex `wiring\.served_by` la manquait) | **rouge** — même assertion que m5 ; **prouvé** : `old /wiring\.served_by/`=false, `new /served_by/`=true ⇒ **trou C2 fermé** |
+| **m6** (K-V1b) | `integration_test` = un test à **titre suffixé** (`narabi_live_parses_real_state_shape`, décl. `test("… — …"`) | gel garde (3) **VERT** | **vert** (frozen test passe) ; **prouvé load-bearing** : `old includes('test("narabi_live_parses_real_state_shape"')`=false (aurait rougi à tort), `new test\(\s*["']…(?:["']\| — )`=true |
 
 Note (type-stripping) : sous le runner node, m1/m4 rougissent aussi `npm test` en `TypeError` ; la **cible d'oracle** retenue est
 `npm run typecheck` (erreur de type explicite, `fleet.ts` vu transitivement par le programme root via l'import de ci-gates). m2/m3/m5/A1/A2
@@ -105,9 +107,9 @@ sont des rouges d'**assertion** (runtime, non-LLM).
 - **Sources** : toute valeur `wiring` est **[lu]** dans le code cité (§ ADR-W1 D2 + Tuyaux) ; aucun chiffre de seconde main ; aucun `[2nd]`.
 
 ## 6. Points à trancher (orchestrateur / G2 / checkpoint-2)
-- **Narabi `integration_test` = une seule jambe** : `sentinel_windows_identical_to_pull` (jambe sentinelle publiée). La jambe
-  `fromAttestedFlow → gate` est documentée (ADR-W1 Tuyaux) et couverte par `gate_stable_run_*`, mais le **champ** ne nomme qu'un test.
-  Alternative si G2 préfère la jambe gate : y pointer et documenter la sentinelle. **À valider.**
+- **Narabi `integration_test`** — **RÉSOLU (K-V1a, checkpoint-2)** : le champ nomme **`narabi_live_parses_real_state_shape`**, la
+  composition **servie** (octets publiés sha-pinnés → parseur `/narabi`). `sentinel_windows_identical_to_pull` (fenêtrage) et
+  `gate_stable_run_*` (jambe `fromAttestedFlow → gate`) restent en support documenté (ADR-W1 Tuyaux).
 - **`fleet.ts:70`/`shogen-panel.tsx:36,:42` « attested » vs répétition** : « Attested perception — an attested price testimony » (exemple de
   mission retenu ; « signed »/« notarized » **non** retenus — la sémantique de signature du récit du panneau Shōgen relève du **lot
   Shōgen-honnêteté** dédié, pas d'une substitution mot-à-mot ici, cadre b3). **À valider** (choix positif = item formé).
@@ -128,5 +130,20 @@ sont des rouges d'**assertion** (runtime, non-LLM).
   **un seul lot propriétaire nommé** (lot Shōgen-honnêteté), motif recadré **b3** (passe d'honnêteté dédiée), plus « schéma non lu ».
 - Oracle complet **re-vert** après C1–C4 : ci 289/289, lint 0, ratchet 69/69, lang-gate root OK, export:check OK, typecheck clean, build site OK.
   Battery m1–m5 + A1 + A2 rejouée (m1/m4 typecheck, m2/m3/m5/A1/A2 assertion) ; restauration byte-exacte re-vérifiée ; G1 re-sha dans ce passage.
+
+## 8. Corrections checkpoint-2 (round `3e0a150`, ACCEPTE-AVEC-CORRECTIONS) — pliées
+- **K-V1a** (`fleet.ts:161` + docstring + ADR-W1 D2/Tuyaux) : Narabi `integration_test` `sentinel_windows_identical_to_pull` →
+  **`narabi_live_parses_real_state_shape`** (`test/narabi-live.test.ts:45`) — la composition **servie** est la consommation `/narabi` (octets
+  publiés sha-pinnés → parseur du site), non le fenêtrage. `sentinel_windows_identical_to_pull` passe en **commentaire** (support, fenêtrage) ;
+  commentaire `fleet.ts:155-158` + docstring `:31-33`/`:40` rectifiés (le test peut être titre-suffixé).
+- **K-V1b** (`test/ci-gates.test.ts` garde (3)) : l'ancien `includes('test("<id>"')` exigeait un `"` immédiat ⇒ **manquait** un titre suffixé
+  (`test("<id> — …"`), ce qui aurait **rougi à tort** `narabi_live`. Élargi : `new RegExp(`test\\(\\s*["']${t}(?:["']\| — )`)` (`t` = identifiant
+  nu validé). **`no_such_test` reste ROUGE** (rejoué), **m6 VERT** (prouvé : old=false, new=true). Commentaire `:631` + docstring rectifiés. Pas de champ-tableau.
+- **K-V2** (`ADR-W1` item Shōgen-honnêteté, doc-only) : ajout de `README.md:48, :111, :112` (« verified (price) testimony ») au périmètre du
+  lot propriétaire (README **hors** périmètre octet W-1).
+- **Fold G7** : `ADR-W1:3` statut → **« accepté (checkpoint-2 2026-09-19) »**.
+- Oracle complet **re-vert** : ci 289/289, lint 0, ratchet 69/69, lang-gate root OK, export:check OK, typecheck clean, build site OK. Battery
+  **m1–m5 + A1 + A2 + `no_such_test` ROUGES, m6 VERT** ; restauration byte-exacte (fleet.ts `ad26f8de`, ukemi-panel `0c717cc2`, roadmap
+  `cbde0775`) ; G1 re-sha dans ce même passage. **0 octet hors `apps/site`, `test/ci-gates.test.ts`, `docs/`.**
 
 <!-- Journal de provenance G1 (corpus doc 02). Aucune revendication non sourcée ; toute mesure reproductible dans le worktree cité. -->

@@ -630,8 +630,9 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narab
   // (3) WIRING (ADR-M018 D1(b)(c)/D2) — every built agent declares a SERVED path and a non-LLM integration
   // test that EXISTS. The FleetAgent union already makes a built-without-wiring / upcoming-with-wiring a
   // COMPILE error (npm run typecheck, via this file's import of fleet.ts); this block additionally reds if
-  // served_by is empty or integration_test names no real test. Named mutant: integration_test:"no_such_test"
-  // ⇒ this test reds; drop `wiring` from a built entry ⇒ typecheck reds (docs/G1-lot-w1.md).
+  // served_by is empty or integration_test names no real test. The declared test title may be bare (`"`) or
+  // suffixed (` — …`), so we match `test("<id>` followed by a quote OR ` — `. Named mutants: "no_such_test"
+  // ⇒ reds; a title-suffixed id (m6, narabi_live_parses_real_state_shape) ⇒ green; drop `wiring` ⇒ typecheck reds.
   const TEST_ROOTS = [join(ROOT, "test"), join(ROOT, "apps", "harness", "test"), join(ROOT, "apps", "sentinel", "test")];
   const testCorpus = TEST_ROOTS.flatMap((dir) =>
     existsSync(dir) ? readdirSync(dir).filter((n) => n.endsWith(".test.ts")).map((n) => readFileSync(join(dir, n), "utf8")) : [],
@@ -642,9 +643,12 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narab
     assert.ok(a.wiring.served_by.trim().length > 0, `built agent ${a.name}: wiring.served_by must be non-empty (ADR-M018 D1(b))`);
     const t = a.wiring.integration_test.trim();
     assert.match(t, /^[A-Za-z0-9_]+$/, `built agent ${a.name}: integration_test must be a bare test identifier, got ${JSON.stringify(t)}`);
+    // `t` is a bare identifier (validated above) ⇒ safe to interpolate. Accept a bare (`"`) or title-suffixed
+    // (` — …`) declaration: test("<id>" …) or test("<id> — …").
+    const declRe = new RegExp(`test\\(\\s*["']${t}(?:["']| — )`);
     assert.ok(
-      testCorpus.includes(`test("${t}"`) || testCorpus.includes(`test('${t}'`),
-      `built agent ${a.name}: integration_test '${t}' names no test under test/, apps/harness/test/, apps/sentinel/test/ (ADR-M018 D1(c))`,
+      declRe.test(testCorpus),
+      `built agent ${a.name}: integration_test '${t}' names no test("${t}" …) under test/, apps/harness/test/, apps/sentinel/test/ (ADR-M018 D1(c))`,
     );
   }
 

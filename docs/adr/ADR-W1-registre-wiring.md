@@ -1,6 +1,6 @@
 # ADR-W1 — Champ `wiring` au registre `fleet.ts` + gel étendu (matérialisation d'ADR-M018 D2, items formés ADR-M019)
 
-- **Statut** : **proposé / en revue** (G2 + checkpoint-2 à venir). Aucune revendication publique nouvelle : le lot rend le registre
+- **Statut** : **accepté (checkpoint-2 2026-09-19)**. Aucune revendication publique nouvelle : le lot rend le registre
   et la vitrine **honnêtes sur le branchement déjà mesuré** (ADR-M017/M019), sans changer aucun compte (« 4 built, 7 on the roadmap »).
 - **Dates** : décision 2026-09-19 · dernière modification 2026-09-19.
 - **Propriétaire de la décision** : orchestrateur MONARK (changement technique + prose vitrine). Le **statut de registre d'Ukemi**
@@ -29,7 +29,7 @@ porte `wiring?: never` (**interdit**). Un `built` sans `wiring`, ou un `upcoming
 | Shōgen | `attest` → `gate` (clé d'enveloppe `attested` ; `attested.residual` filé dans `verdict.residual`) | `gate_attested_concordant_files_residual` |
 | Hikae | `gate` servi (btc-dir-15m committé ; stable-run-velocity-24h ; BYO) | `probe_harness_records_real_decision` |
 | Ukemi | `cascade` → `gate` (cascade-liquidable-24h ; **abstains under_calib by construction**, ADR-M019 D2/D4) | `probe_harness_records_real_decision` |
-| Narabi | sentinelle quotidienne publiée `/narabi/` + `fromAttestedFlow` → `gate` (stable-run-velocity-24h) | `sentinel_windows_identical_to_pull` |
+| Narabi | sentinelle quotidienne publiée `/narabi/` + `fromAttestedFlow` → `gate` (stable-run-velocity-24h) | `narabi_live_parses_real_state_shape` |
 
 **D3 — Gel étendu** (`fleet_register_built_set_is_frozen`, `test/ci-gates.test.ts`). Pour chaque `built` : (3) `served_by` non vide ;
 `integration_test` est un identifiant nu qui apparaît comme `test("…")` **grepé** dans `test/`, `apps/harness/test/`, `apps/sentinel/test/`
@@ -74,10 +74,11 @@ Ce lot **n'ajoute aucun tuyau servi** : il **déclare** au registre ceux déjà 
     l'outil sœur `calibrate` (couvert par `apps/harness/test/calibrate.test.ts`). Le registre reste sémantiquement « qui consomme la sortie ».
   - Ukemi : `probe_harness_records_real_decision` (étape 4 `cascade-gate`). **Effet servi = abstention constante** (vacuité mesurée,
     ADR-M019 D2) — le champ le dit honnêtement (« abstains under_calib by construction »).
-  - Narabi : `sentinel_windows_identical_to_pull` **recompute** le fenêtrage contre la **série committée sha-pinnée via RPC stubbé** (le pull
-    enregistré, **offline** — pas un pull on-chain frais) et prouve fenêtrage ≡ pull committé (jambe sentinelle publiée `/narabi/` ;
-    consommation de la surface `/narabi` : `narabi_live_parses_real_state_shape`, `test/narabi-live.test.ts`) ; jambe
-    `fromAttestedFlow → gate stable-run-velocity-24h` couverte par la suite `gate_stable_run_*` (`gate.test.ts:361+`).
+  - Narabi : le champ `integration_test` nomme **`narabi_live_parses_real_state_shape`** (`test/narabi-live.test.ts:45`) — il rejoue les
+    **octets publiés sha-pinnés → le parseur du site** (`/narabi`), c.-à-d. la **composition servie** (la surface qui consomme la sortie).
+    **Support** : `sentinel_windows_identical_to_pull` recompute le fenêtrage contre la série committée sha-pinnée via RPC stubbé (le pull
+    enregistré, **offline** — pas un pull on-chain frais) ; jambe `fromAttestedFlow → gate stable-run-velocity-24h` : suite `gate_stable_run_*`
+    (`gate.test.ts:361+`).
 
 ## Items formés (déclencheur, jamais un « dû » nu)
 - **(b) Rendu de `wiring.served_by` sur les panneaux des built** — **non fait, délibéré**. Rendre le `served_by` verbatim mettrait un
@@ -87,11 +88,13 @@ Ce lot **n'ajoute aucun tuyau servi** : il **déclare** au registre ceux déjà 
   chaînes `wiring` au scan numérique** dans le même lot. Le garde (4) rend cet item **vérifiable** (0 rendu aujourd'hui), pas déclaratif.
 - **Résidu « verified » (surclaim) — item formé, un SEUL lot propriétaire nommé.** W-1 aligne **maintenant** les **jumeaux exacts** de
   `fleet.ts:70` : `shogen-panel.tsx:36,:42` (« a verified price testimony » → « an attested price testimony » ; aucun test ne pinne la phrase,
-  vérifié). **Restent** `shogen-panel.tsx:51` (« A Rust verifier emits a verified testimony »), `:57` (« A verified testimony proves… ») et
-  `fleet-presentation.ts:33` (« a verified testimony ») — **phrases différentes** (le récit de vérification du panneau Shōgen), non de simples
-  substitutions du jumeau. **Motif du report (cadre b3, pas « schéma non lu »)** : le checkpoint-2 b3 a cadré W-1 sur `fleet.ts:70` **et ses
-  jumeaux rendus** ; réécrire le récit du panneau Shōgen est une **passe d'honnêteté dédiée**. **Déclencheur unique** : **lot Shōgen-honnêteté**
-  (propriétaire : `shogen-panel.tsx:51,:57` + `fleet-presentation.ts:33`), **avant toute nouvelle revendication du panneau Shōgen**.
+  vérifié). **Restent** (apps/site) `shogen-panel.tsx:51` (« A Rust verifier emits a verified testimony »), `:57` (« A verified testimony
+  proves… ») et `fleet-presentation.ts:33` (« a verified testimony ») ; **et, hors périmètre octet W-1, `README.md`** : `:48` (« attested
+  perception (verified price testimony) »), `:111` (Shōgen `AttestedPrice`, « A **verified** testimony »), `:112` (Narabi `AttestedFlow`,
+  « A **verified** testimony ») — **phrases différentes** (le récit de vérification), non de simples substitutions du jumeau. **Motif du
+  report (cadre b3, pas « schéma non lu »)** : le checkpoint-2 b3 a cadré W-1 sur `fleet.ts:70` **et ses jumeaux rendus** ; réécrire le récit
+  de vérification est une **passe d'honnêteté dédiée**. **Déclencheur unique** : **lot Shōgen-honnêteté** (propriétaire : `shogen-panel.tsx:51,:57`
+  + `fleet-presentation.ts:33` + `README.md:48,:111,:112`), **avant toute nouvelle revendication du panneau Shōgen**.
   **Décision mesurée : NE PAS bannir `\bverified\b` en scope `site`** — rougirait les **négations honnêtes** « what is not verified »
   (`how/page.tsx:62`, `shogen-panel.tsx:63`).
 - **(1) Étape h5 portant `attested`** (ADR-M017/M019 item (1)) : **inchangé par ce lot** (W-1 ne touche pas `apps/harness`). Reste :
