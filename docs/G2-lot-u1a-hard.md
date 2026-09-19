@@ -125,3 +125,7 @@ Artefacts du worker présents hors dépôt (`F:\tmp\u1a-hard\`, `git rev-parse` 
 Revue produite par un worker Opus 4.8 (`claude-opus-4-8[1m]`, effort `max`), instance séparée à contexte frais, 2026-09-19. Toute mesure est reproductible : copie `git archive e8bcfe4` (`F:\tmp\g2-u1ahard`), sondes/drivers hors dépôt (`F:\tmp\g2-work\{guard2,mutant-driver,retry-driver,ukemisha-recompute,live-inspect}.mjs`, `F:\tmp\g2-mut-sentinel\test\pin-harness.ts`), artefacts live du worker inspectés hors dépôt (`F:\tmp\u1a-hard\`). Aucun commit, aucun workflow (R-20) ; vérification adversariale R-21 et verdict G7 chez l'orchestrateur. `error_origin` des O ci-dessus, à confirmer au G7.
 
 <!-- G2 fraîche, lot U-1a-hard, gel e8bcfe4 (base a3f85f4). Corpus doc 02/03. -->
+
+
+---
+**Annotation orchestrateur (checkpoint-2, 2026-09-19)** : O-1 « inguardable en CI Linux » est **infirmé** par le validateur (l'ancien garde casse aussi sous POSIX sur un chemin percent-encodable ⇒ tueur cross-plateforme) ; « timeout CI 12 s » est **sans source** dans le dépôt (aucun `--test-timeout`/`timeout-minutes` : une régression retry infini pend le job) ; O-2 `{timeout:5000}` **insuffisant** (mesuré). Corrections en lot U-1a-hard-2. Texte original conservé.
