@@ -18,8 +18,8 @@
 //   INTRADAY_IIV_NA            5  (2 graphies)
 //   ETF_COMPONENT_NA           9  (5 graphies)
 //   ── Σ = 73 431 (all rows carry a known graphie; REASON_UNKNOWN count = 0 on this CSV)
-// NOTE vs ADR-B0 D2 ii text: it says "ETF-component ×6 graphies"; the measured tree carries ×5 ETF
-// graphies (Σ graphies still 18). The closed set below is the MEASURED truth (doc 03: measure wins).
+// NOTE (G2 fold O-4): the measured tree carries x5 ETF graphies (18 graphies total); ADR-B0 D2 ii text
+// was corrected from "x6" to "x5" in the same fold. The closed set below is the MEASURED truth (doc 03).
 
 export type ReasonFamily =
   | "LULD_PAUSE"

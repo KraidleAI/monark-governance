@@ -3,9 +3,12 @@
 // `bell_sha`. Provenance (sources, providers, fetch times) lives SEPARATELY and is NOT hashed.
 //
 // NUMERIC-HOLE / CLOSE GUARD (ESC-1 c, D5): no output may carry the reference close verbatim. `assertNoClose`
-// walks the object and reddens on any key ~ /close|ref_price|p_ref/i whose value is a number or a
-// numeric string. Mutant `bell_close_field_reddens` injects `close:"123.45"` ⇒ throw. (vwap/g_t stay
-// green: their keys do not match; ESC-1 c accepts that close is derivable from the public vwap+g_t.)
+// walks the object and reddens on any key ~ /close|ref[_]?price|p[_]?ref|reference|\bprev\b/i whose value
+// is a number or a numeric string -- the added alternatives catch camelCase (`refPrice`, `pRef`) and the
+// Polygon `prev` close leg (G2 fold C-3). `\bprev\b` (not bare `prev`) leaves the timeline chain key
+// `prev_line_hash` (D2) un-reddened. Mutants `bell_close_field_reddens` + `bell_close_guard_catches_camelcase`
+// redden on an injected close. (vwap/g_t stay green: their keys do not match; close is derivable from the
+// public vwap+g_t, accepted by ESC-1 c.)
 import { createHash } from "node:crypto";
 
 type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
@@ -21,7 +24,7 @@ export function canonical(v: Json): string {
   return "{" + keys.map((k) => JSON.stringify(k) + ":" + canonical(v[k] as Json)).join(",") + "}";
 }
 
-const CLOSE_KEY = /close|ref_price|p_ref/i;
+const CLOSE_KEY = /close|ref[_]?price|p[_]?ref|reference|\bprev\b/i;
 const isNumericLike = (x: unknown): boolean =>
   typeof x === "number" || (typeof x === "string" && x.trim() !== "" && Number.isFinite(Number(x)));
 
@@ -44,11 +47,21 @@ export function bellSha(digest: Json): string {
   return createHash("sha256").update(canonical(digest)).digest("hex");
 }
 
-export interface GapEntry {
+interface GapEntryBase {
   readonly symbol: string; readonly session: string; readonly regime: string | null;
-  readonly vwap: string; readonly gT: string; readonly volumeBase: string; readonly n: number;
+  readonly vwap: string; readonly volumeBase: string; readonly n: number;
+}
+/** A gap entry WITH volume: carries g_t and the threshold-exceedance counts. */
+export interface GapEntryFilled extends GapEntryBase {
+  readonly gT: string;
   readonly exceed1: number; readonly exceed2: number; readonly exceed5: number;
 }
+/** A zero-volume gap entry: NO g_t (a fabricated g_t=0 is indistinguishable from a real zero gap -- C-4);
+ *  it carries an explicit abstention instead. The digest accepts it; `abstain` is not a close-like key. */
+export interface GapEntryAbstained extends GapEntryBase {
+  readonly abstain: "no_fill_in_window";
+}
+export type GapEntry = GapEntryFilled | GapEntryAbstained;
 /** Build the (timestamp-free) digest body. Entries are sorted for determinism; no close field exists. */
 export function buildDigest(gaps: readonly GapEntry[], haltCensus: Json, extra: Record<string, Json> = {}): Json {
   const sorted = [...gaps].sort((a, b) =>

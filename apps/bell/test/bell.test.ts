@@ -124,6 +124,7 @@ function digestFrom(closeRef: number): ReturnType<typeof buildDigest> {
     { signature: "b", blockTimeUtcMs: 1_789_800_100_000, baseDelta: 20_000_000n, quoteDelta: -72_800_000n },
   ];
   const g = sessionGap(fills, closeRef, 8, 6);
+  if ("abstain" in g) throw new Error("digestFrom fixtures carry volume; unexpected abstention");
   const entry: GapEntry = { symbol: "TSLAx", session: "weekend", regime: "weekend", vwap: g.vwap, gT: g.gT,
     volumeBase: g.volumeBase, n: g.n, exceed1: 0, exceed2: 0, exceed5: 0 };
   return buildDigest([entry], { total: 5, emptyResume: 1, recense15_since_2025_06_30: 0 });
@@ -179,4 +180,82 @@ test("bell_session_classification", () => {
   assert.equal(classifySession(Date.UTC(2025, 0, 9, 16, 0, 0)).session, "holiday"); // Carter day of mourning
   assert.equal(classifySession(Date.UTC(2026, 8, 17, 3, 0, 0)).regime, "overnight-weekday"); // Wed 23:00 ET
   assert.equal(classifySession(Date.UTC(2025, 6, 3, 18, 0, 0)).session, "after"); // half-day: 14:00 ET is post-13:00 close
+});
+
+// ---- G2 fold (2026-09-19) -- new killers for C-1..C-7 (error_origin: generator) -------------------
+test("bell_anchor_skips_holidays_and_weekends", () => {
+  // An off-market instant anchors on the LAST TRADING DAY (walks back over weekends AND full closures),
+  // and regime = that gap's regime (C-1). Mutant: a walk skipping only weekends anchors Sat 07-04 on the
+  // Fri 07-03 holiday instead of Thu 07-02 => this test reddens (sessionDateET assertion fires first).
+  const sat = classifySession(etWallClockToUtcMs(2026, 7, 4, 12, 0, 0)); // Sat; Fri 2026-07-03 = closure
+  assert.equal(sat.session, "weekend");
+  assert.equal(sat.sessionDateET, "2026-07-02"); // Thu -- Fri 07-03 (Independence Day observed) skipped
+  assert.equal(sat.regime, "holiday"); // the gap spans the 07-03 closure
+  const mlk = classifySession(etWallClockToUtcMs(2026, 1, 19, 12, 0, 0)); // MLK 2026-01-19 = full closure
+  assert.equal(mlk.session, "holiday");
+  assert.equal(mlk.sessionDateET, "2026-01-16"); // Fri
+  assert.equal(mlk.regime, "holiday");
+  const sun = classifySession(etWallClockToUtcMs(2026, 8, 16, 12, 0, 0)); // ordinary Sunday
+  assert.equal(sun.session, "weekend");
+  assert.equal(sun.sessionDateET, "2026-08-14"); // Fri
+  assert.equal(sun.regime, "weekend");
+});
+
+test("bell_canonical_key_order_invariant", () => {
+  // Deeply permuted object keys => identical canonical form and bell_sha (canonical sorts keys). Mutant:
+  // remove `.sort()` in digest.ts:20 => the two orderings serialize differently => this test reddens.
+  const a = { b: 1, a: { y: [{ q: 1, p: 2 }, { q: 3, p: 4 }], x: "s" }, c: [3, 2, 1] };
+  const b = { c: [3, 2, 1], a: { x: "s", y: [{ p: 2, q: 1 }, { p: 4, q: 3 }] }, b: 1 };
+  assert.equal(canonical(a), canonical(b));
+  assert.equal(bellSha(a), bellSha(b));
+  // arrays stay ORDER-significant (not sorted): a reordered array must change the sha
+  assert.notEqual(bellSha({ c: [1, 2, 3] }), bellSha({ c: [3, 2, 1] }));
+});
+
+test("bell_close_guard_catches_camelcase", () => {
+  // Widened CLOSE_KEY (C-3) catches camelCase close-like keys and the Polygon `prev` leg. Mutant: narrow
+  // the regex back to /close|ref_price|p_ref/i => `refPrice`/`pRef` no longer match => this test reddens.
+  assert.throws(() => { assertNoClose({ refPrice: 1 }); });
+  assert.throws(() => { assertNoClose({ pRef: 1 }); });
+  assert.throws(() => { assertNoClose({ reference: "364.27" }); });
+  assert.throws(() => { assertNoClose({ prev: 364.27 }); }); // Polygon prev close
+  // `\bprev\b` (not bare prev) so the timeline chain key prev_line_hash is NOT falsely reddened, even
+  // when its value is all-digits (numeric-like):
+  assert.doesNotThrow(() => { assertNoClose({ prev_line_hash: "1234567890" }); });
+  // and the real digest fields never match the widened guard:
+  assert.doesNotThrow(() => { assertNoClose({ symbol: "TSLAx", vwap: "364.11", gT: "0.001", volumeBase: "52", n: 52, regime: "weekend" }); });
+});
+
+test("bell_zero_volume_abstains_never_zero_gap", () => {
+  // Zero volume => explicit abstention with NO numeric g_t (C-4). Mutant: reintroduce gT="0.0000000000"
+  // in the zero-volume branch => `"gT" in g` becomes true => this test reddens.
+  const g = sessionGap([], 364.5, 8, 6);
+  assert.ok(!("gT" in g), "no numeric g_t when volume is zero");
+  if (!("abstain" in g)) throw new Error("zero volume must abstain");
+  assert.equal(g.abstain, "no_fill_in_window");
+  assert.equal(g.volumeBase, (0).toFixed(10));
+  assert.equal(g.n, 0);
+  // a REAL zero gap (vwap == close) DOES carry g_t = "0.0000000000" -- present, thus distinguishable
+  const real = sessionGap([{ signature: "z", blockTimeUtcMs: 1, baseDelta: 100_000_000n, quoteDelta: -364_270_000n }], 364.27, 8, 6);
+  assert.ok("gT" in real, "a real gap carries g_t even when it is zero");
+  if ("abstain" in real) throw new Error("volume present must not abstain");
+  assert.equal(real.gT, (0).toFixed(10));
+  // closeRef <= 0 with volume THROWS (never a fabricated 0 / -Infinity) -- the adjacent silent-zero hole
+  assert.throws(() => sessionGap([{ signature: "x", blockTimeUtcMs: 1, baseDelta: 100_000_000n, quoteDelta: -1n }], 0, 8, 6));
+  // the digest ACCEPTS an abstention entry (abstain is not a close-like key) and hashes it
+  const entry: GapEntry = { symbol: "TSLAx", session: "weekend", regime: "weekend", vwap: g.vwap, volumeBase: g.volumeBase, n: g.n, abstain: "no_fill_in_window" };
+  assert.doesNotThrow(() => { bellSha(buildDigest([entry], { total: 0, emptyResume: 0 })); });
+});
+
+test("bell_halt_last_before_resume_excludes_pre_halt", () => {
+  // `lastFillBeforeResume` is bounded BELOW by the halt (C-7): a fill earlier than the halt is not "last
+  // before Resume". Mutant: drop the `>= haltUtcMs` bound => before=[preHaltFill] => not null => reddens.
+  const row = byId("INHD"); // resume 2026-07-31 16:00:00 present => resumeUtcMs != null
+  const haltUtc = etWallClockToUtcMs(2026, 7, 31, 15, 52, 53);
+  const preHaltFill: SwapFill = { signature: "pre", blockTimeUtcMs: haltUtc - 1000, baseDelta: 1n, quoteDelta: 1n };
+  const d = haltDelta(row, [preHaltFill]);
+  assert.equal(d.lastFillBeforeResumeUtcMs, null); // pre-halt fill excluded
+  assert.equal(d.firstFillAfterHaltUtcMs, null);
+  assert.equal(d.nFillsInWindow, 0);
+  assert.ok(d.residues.includes("no_fill_in_window")); // empty window => named residue
 });

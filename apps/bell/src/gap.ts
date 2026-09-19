@@ -37,23 +37,37 @@ export function vwapDecimal(fills: readonly SwapFill[], baseDec: number, quoteDe
   return fixed(num / den, precision);
 }
 
-export interface SessionGap {
+/** A session gap WITH volume: g_t is the (only) close-derived field carried. */
+export interface SessionGapFilled {
   readonly vwap: string; // decimal string, first-hand on-chain (publishable)
-  readonly gT: string; // ln(vwap/close) decimal string — the ONLY close-derived field carried
-  readonly volumeBase: string; // Σ|baseDelta| in human decimals (token units traded)
+  readonly gT: string; // ln(vwap/close) decimal string -- the ONLY close-derived field carried
+  readonly volumeBase: string; // sum of |baseDelta| in human decimals (token units traded)
   readonly n: number; // deduped fill count
 }
+/** A zero-volume session: NO g_t. A fabricated all-zeros g_t would be indistinguishable from a real zero
+ *  gap (vwap == close), so we abstain explicitly instead (C-4). Consumers branch on `abstain`. */
+export interface SessionGapAbstained {
+  readonly vwap: string; // an all-zeros decimal -- no base volume
+  readonly volumeBase: string; // an all-zeros decimal
+  readonly n: number; // fill count (0 when no fills reached the window)
+  readonly abstain: "no_fill_in_window";
+}
+export type SessionGap = SessionGapFilled | SessionGapAbstained;
 
-/** Compute the session gap from deduped fills and a reference close (read, never stored). closeRef must
- *  be > 0; g_t is ln(vwap/closeRef). ex_date_effect / disloc handling is a caller-side abstention (D2 i). */
+/** Compute the session gap from deduped fills and a reference close (read, never stored). When there is
+ *  NO base volume, returns an explicit abstention (no g_t -- C-4). Otherwise closeRef MUST be > 0 (D2 i
+ *  precondition, enforced by throw -- never a fabricated 0 or -Infinity); g_t is ln(vwap/closeRef). */
 export function sessionGap(fills: readonly SwapFill[], closeRef: number, baseDec: number, quoteDec: number,
   precision = GAP_PRECISION): SessionGap {
   const vwap = vwapDecimal(fills, baseDec, quoteDec, precision);
   let totalBase = 0n;
   for (const f of fills) totalBase += abs(f.baseDelta);
   const volumeBase = fixed(totalBase * pow10(precision) / pow10(baseDec), precision);
+  if (totalBase === 0n) return { vwap, volumeBase, n: fills.length, abstain: "no_fill_in_window" };
   const vwapNum = Number(vwap);
-  const gT = vwapNum > 0 && closeRef > 0 ? Math.log(vwapNum / closeRef).toFixed(precision) : (0).toFixed(precision);
+  if (closeRef <= 0) throw new Error("bell sessionGap: closeRef must be > 0 (D2 i precondition)");
+  if (vwapNum <= 0) throw new Error("bell sessionGap: non-positive VWAP with base volume (degenerate fills)");
+  const gT = Math.log(vwapNum / closeRef).toFixed(precision);
   return { vwap, gT, volumeBase, n: fills.length };
 }
 

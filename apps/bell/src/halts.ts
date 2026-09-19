@@ -80,7 +80,9 @@ export function haltDelta(row: HaltRow, fills: readonly SwapFill[]): HaltDelta {
   }
   const inWin = fills.filter((f) => f.blockTimeUtcMs >= haltUtcMs && (resumeUtcMs == null || f.blockTimeUtcMs <= resumeUtcMs));
   const after = fills.filter((f) => f.blockTimeUtcMs >= haltUtcMs).sort((a, b) => a.blockTimeUtcMs - b.blockTimeUtcMs);
-  const before = resumeUtcMs == null ? [] : fills.filter((f) => f.blockTimeUtcMs <= resumeUtcMs).sort((a, b) => a.blockTimeUtcMs - b.blockTimeUtcMs);
+  // `before` = last fill BEFORE Resume, bounded BELOW by the halt (C-7): a fill earlier than the halt is
+  // not "last before Resume". Empty [halt, resume] window => lastFillBeforeResume null + no_fill_in_window.
+  const before = resumeUtcMs == null ? [] : fills.filter((f) => f.blockTimeUtcMs >= haltUtcMs && f.blockTimeUtcMs <= resumeUtcMs).sort((a, b) => a.blockTimeUtcMs - b.blockTimeUtcMs);
   if (inWin.length === 0) residues.push("no_fill_in_window");
   return {
     symbol: row.symbol, reasonFamily, haltUtcMs, resumeUtcMs,
