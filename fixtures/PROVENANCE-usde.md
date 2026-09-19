@@ -75,6 +75,18 @@ adapter scale the PRE-REGISTERED set HELD: q̂ and q99 kept supports 61 and 6 (n
 committed digest is `calibDigest` (ADR-M001 C5, float64_be sorted) over the adapter scores:
 `c9793b281167465af88c9e837aaeaf7fb26c709ff4c5e342c68893e759d9e86c`.
 
+**File pins (ADR-M003 D9 sexies — R-25 series exclusion; these are plain sha256 of the FILE bytes, LF-normalized,
+NOT the `calibDigest` above, which is a domain digest over the score array):**
+
+| file | sha256 (LF) |
+|---|---|
+| `fixtures/usde-calib-series.json` | `7c33027a0e4c6a72e6b390dd95aa2396f1f8c6cdcfee22f8abe729ba8dfc9ef1` |
+| `fixtures/usde-calib-scores.json` | `e44a68b6b697a32f3f198770e740ab206393dc3425e8cc59e4b0e1e4e65cfd28` |
+
+The series pin repeats the value already in `apps/harness/test/usde-calibration.test.ts`; the scores pin is
+added here so `usde-calib-scores.json` is declared+hashed same-dir (D9 sexies condition a). Recompute:
+`node scripts/record-usde-calib.mjs` rewrites the scores fixture byte-for-byte, then the sha above holds.
+
 ## 6. Reproduce
 
 ```
