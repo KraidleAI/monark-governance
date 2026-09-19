@@ -36,3 +36,7 @@ e337e6a4963155259d570fe4cfb8d3ebc56ca7d5ba2f98a773d8905f74af9a1b *_txt/glasserma
 13eb287ecbd631c5ba67c0135ad10a113776800c97bbed0ea684128fdf3d4b16 *_txt/kao-chitra-chiang-morrow-2020.txt
 98685c641c50971d pdf/*amini2016.pdf (procuré investisseur 2026-09-19)
 54677401f3d40b3f pdf/*chow1970.pdf (procuré investisseur 2026-09-19)
+d80dba944a136e07 pdf/tibshirani-barber-candes-ramdas-2019.pdf (arXiv:1904.06019, OA, 2026-09-19)
+7d09be24289de9a9 pdf/barber-candes-ramdas-tibshirani-2023.pdf (arXiv:2202.13415, OA, 2026-09-19)
+4b5ee1458b4debfe pdf/angelopoulos-candes-tibshirani-pid-2023.pdf (arXiv:2307.16895, OA, 2026-09-19)
+a2481c4852f4e93c pdf/milionis-moallemi-roughgarden-zhang-lvr.pdf (arXiv:2208.06046, OA, 2026-09-19)

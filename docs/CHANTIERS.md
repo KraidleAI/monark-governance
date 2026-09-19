@@ -1,5 +1,5 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 ~08:20 UTC. Règle : rien ne sort de ce tableau sans être « clos » ou « transféré ».
+Dernière mise à jour : 2026-09-19 ~09:00 UTC. Règle : rien ne sort de ce tableau sans être « clos » ou « transféré ».
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019)
 | Lot | État | Prochaine action | Bloqué par |
@@ -16,7 +16,11 @@ Dernière mise à jour : 2026-09-19 ~08:20 UTC. Règle : rien ne sort de ce tabl
 | Avis advisor-marché (payeur = DAO/SP ; classe shortfall vs dette liquidée) | REÇU, persisté | — | — |
 | Campagne biblio (25 sources, 12 PDF, 36 sha) | REÇUE — `R-biblio-ukemi-modeL.md` (983 l.) ; cassé : « 47 M$ bad debt à 10 % » (absent de Gatto), « 65 %/15 % FC26 » (identité introuvable), « 15,7 Md$ » (sans primaire) ; procurements §7 : Amini–Filipović–Minca 2016 (ORL, DOI 10.1016/j.orl.2015.10.005), Chow 1970 (IEEE TIT, « reject tradeoff »), post-mortem CAPO primaire, Messari (429) | procurements → investisseur dans ADR-M020 | — |
 | Mesures préalables M-1 (coût `eth_call` archive), M-2 (Λ ≠ 0) | EN COURS — worker Opus 4.8 | résultat conditionne U-0 | — |
-| ADR-M020 (plan : objet, classe, lots U-0..U-7, oracles, procurement) | À RÉDIGER par l'orchestrateur | → checkpoint-1 validateur → présentation investisseur point par point | biblio + mesures |
+| Lecture Amini 2016 + Chow 1970 (procurés) | REÇUE (`L-lecture-amini2016-chow1970.md`) : étiquetage Q_*/Q^* absent de la littérature → à démontrer ; Chow qualitatif seulement sous `under_calib` | — | — |
+| Lecture Gatto 2026 + Garcia Seuma 2026 | EN COURS — lecteur | chiffres D*, λ̂, « 47 M$ » | — |
+| Lecture Tibshirani 2019 + Barber 2023 (OA téléchargés, + PID + LVR hachés) | EN COURS — lecteur | couverture intra-événement / gap | — |
+| Note formelle treillis (T monotone, Q_*/Q^*, unicité, sens du treillis) | EN COURS — worker | affirmation centrale de l'ADR | — |
+| ADR-M020 (plan : objet, classe, lots U-0..U-7, oracles, procurement) | À RÉDIGER par l'orchestrateur | → checkpoint-1 validateur → présentation investisseur point par point | mesures + note + 2 lectures |
 | Commit de `docs/biblio/ukemi-modeL/` sur `lot/etude-suite` | FAIT (archive + avis + sha ; pdf/_txt gitignorés, sha tracés) ; MESURES à committer à réception | — | mesures |
 
 ## C. Actions tokenisées — témoin public des TSV (décisions 1-3 du 2026-09-19)
