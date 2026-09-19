@@ -1,5 +1,5 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 10:05 UTC (horloge système)
+Dernière mise à jour : 2026-09-19 10:30 UTC (horloge système)
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019)
 | Lot | État | Prochaine action | Bloqué par |
@@ -13,6 +13,9 @@ Dernière mise à jour : 2026-09-19 10:05 UTC (horloge système)
 ## B. Ukemi — programme « au paroxysme » (décision investisseur 2026-09-19)
 | Élément | État | Prochaine action | Bloqué par |
 |---|---|---|---|
+| **U-1a implémentation** (recorder book WETH + sUSDe/USDe, digest, invariant HF exact, fixture réduite, tests/mutants) | EN COURS — worker, worktree `F:\Monark-wt-p1b1`, branche `lot/u-1a` | G2 fraîche → checkpoint-2 → G7 (G7 attend le lot R-25-séries) | — |
+| **ADR-U1b contrat `AttestedBook`** (6e contrat gelé, décision 16) | EN COURS — worker rédacteur | checkpoint-1 avec signature investisseur | — |
+| **Lot R-25-séries** (amendement ADR-M003 D9 sexies, pathspec CI, test de déclaration/hachage) | EN COURS — worker, worktree `F:\Monark-wt-r25`, branche `lot/r25-series` | G2 → checkpoint-2 → G7 → fusion (prérequis du G7 U-1a) | — |
 | Avis advisor-DeFi (objet B cascade cluster, plan U-0..U-7) | REÇU, persisté `docs/biblio/ukemi-modeL/` | — | — |
 | Avis advisor-marché (payeur = DAO/SP ; classe shortfall vs dette liquidée) | REÇU, persisté | — | — |
 | Campagne biblio (25 sources, 12 PDF, 36 sha) | REÇUE — `R-biblio-ukemi-modeL.md` (983 l.) ; cassé : « 47 M$ bad debt à 10 % » (absent de Gatto), « 65 %/15 % FC26 » (identité introuvable), « 15,7 Md$ » (sans primaire) ; procurements §7 : Amini–Filipović–Minca 2016 (ORL, DOI 10.1016/j.orl.2015.10.005), Chow 1970 (IEEE TIT, « reject tradeoff »), post-mortem CAPO primaire, Messari (429) | procurements → investisseur dans ADR-M020 | — |
@@ -36,7 +39,8 @@ Dernière mise à jour : 2026-09-19 10:05 UTC (horloge système)
 | Abonnement Massive/Polygon Stocks Starter | ACTIF (29 $/m) ; clé en env utilisateur `POLYGON_API_KEY` (32 car., jamais affichée), testée 2026-09-19 (TSLA prev close 364,27 $, Bearer) ; licence « Individual Use » à revoir avant publication dérivée | — | — |
 | Recherche web (post-mortem CAPO, Uniswap rebasing, Token-2022 scaled UI, ERC-8056, événement déficit Aave v3.3, Chainlink SVR) | EN COURS — chercheur, lecture directe par MONARK (investisseur : « il faut que tu lises toi-même ») | intégrer PR-UK-3/14 | — |
 | Procurement §8 | reçus : Amini 2016, Chow 1970, CFS BoE WP 264 (Ukemi) ; **Scharnowski 2026** (Bell, item 1, lecteur en cours) ; restent : Gatto PDF SSRN, post-mortem CAPO, Nexus terms, TokenLogic, rsETH report, LlamaRisk scope, Credora, Messari, clé Pyth Hermes, avis Massive licence | intégrer à réception | investisseur |
-| Lots T-1 (témoin faits, inscription « Bell » upcoming) → T-2 (parité droits) → T-3 (classe écart) | PLANIFIÉS après P1/W-1 et après ADR-M020 (ordre investisseur) | ADR T-1 + checkpoint-1 | W-1, ordre |
+| **T-1a implémentation** (spike RPC d'abord, collecte faits i-iv, digest, tests/mutants, fixture DST) | EN COURS — worker, worktree `F:\Monark-wt-bell`, branche `lot/t-1a` ; Helius absent → RPC public + déclaration | G2 → checkpoint-2 → G7 | clé Helius si profondeur insuffisante |
+| T-1b (publication `/bell/`, panneau, VPS dédié, clé Ed25519) → T-2 → T-3 | PLANIFIÉS (T-3 après U-4) | ADR de lot + checkpoint-1 | T-1a, VPS, K-1 |
 | ADR-B0 (programme Bell) | checkpoint-1 approuvé-avec-corrections, **C-1..C-19 pliées `a45b3f4`**, ESC-1 (c) et ESC-2 (a) tranchées, lettre SEC scopée Q3/Q6, capteur budō « Kane » proposé (collision à vérifier) ; validateur a rejoué le CSV (8 halts historiques sur 15 caps, 0 depuis 2025-06-30, 18 graphies `Reason`, 0 MWCB) ; **ESC-1 tranchée (c) : écart seul publié, close jamais republié, rejeu tiers sous sa propre licence** ; **ESC-2 tranchée (a)** : l'orchestrateur déploie, indépendance = hôte + clé séparés, dit sur `/bell/method` ; T-1a démarre après folds de périmètre + cartographie committée (C-18) | investisseur ESC-1/2 ; C-18 | cartographie |
 | GTM-BELL (`docs/GTM-BELL.md`, `b192db1`) | revue advisor-marché reçue (propre ; 13 corrections dont ESC-1 à propager, lettre SEC ancrée Q3/Q6, 5 sondes comportementales, réplique incumbent = TSV auto-publie + oracle republie) ; **chercheur plie** | → présentation investisseur | chercheur |
 | **RAPPEL investisseur : clé API Helius** (abonnement en cours) → `setx HELIUS_API_KEY` dans le terminal, jamais dans le chat ; à réclamer avant T-1a | ATTENDU | test d'appel à réception | investisseur |
