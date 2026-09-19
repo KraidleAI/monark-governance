@@ -24,7 +24,7 @@ Orchestrateur `claude-fable-5-1`, 2026-09-19. Base : `lot/etude-suite` `6cef6a7`
 5. Chaque sous-lot : G1 worker → G2 fraîche → checkpoint-2 → G7 ; R-25 < 1 205 mesuré sous la pathspec UNION ; séries exclues déclarées + hachées same-dir.
 6. Oracles non-LLM par sous-lot listés ci-dessus ; mutants ≥ 6 par sous-lot.
 
-## Décisions demandées au checkpoint-1 / investisseur
+## Décisions demandées au checkpoint-1 / investisseur — **Q-A et Q-B tranchées (décisions 44-45, 2026-09-19)** : fenêtre **par chaîne** + filtres utilisateur en T-1b (chaîne, émetteur, DEX, régime, fenêtre) ; couverture = **population entière si spike ≤ 50 % des quotas mensuels, sinon top 20/chaîne puis extension**. Reste Q-C au validateur.
 - **Q-A (valeur, investisseur)** : fenêtre par chaîne « depuis le premier fill → 2026-09-15 » pour EVM, et « 2025-07-01 → 2025-10-31 ou premier fill » pour Solana : ratifier, ou fixer une autre fenêtre commune (ex. 2026-07-01 → 2026-09-15 pour toutes les chaînes, comparable entre elles).
 - **Q-B (valeur, investisseur)** : couverture de la course fondatrice = top 20 pools par chaîne (≈ 100 pools) ou la population entière (362 lignes, coût Chainstack et durée à mesurer au spike) ?
 - **Q-C (validateur)** : ordre des sous-lots (-b1 → -b2 → -b3 proposé ; -b3 peut précéder -b2 si les rebases invalident les mesures Solana).
