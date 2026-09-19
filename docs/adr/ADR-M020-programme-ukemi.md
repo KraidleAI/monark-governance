@@ -74,7 +74,7 @@ Positives : premier témoin attesté du book de liquidation ; calibration distri
 | PR-UK-4 | Cifuentes–Ferrucci–Shin BoE WP 264 | 2005, 31 p. | **reçu** (lu) | forme de demande inverse, simulations |
 | PR-UK-5 | Messari « Aave: Cracks in the Monolithic Thesis » | messari.io, 2026 | HTTP 429 ×2 | contexte marché |
 | PR-UK-6 | Source primaire du « 15,7 Md$ » Q1 2026 | inconnue | recherche négative | ne pas citer tant qu'absente |
-| PR-UK-7 | Gatto « Liquidation without loss » PDF paginé | SSRN 7157638 (compte SSRN gratuit requis) | page web lue ; PDF à télécharger par l'investisseur | citation paginée U-7 |
+| PR-UK-7 | Gatto « Liquidation Without Loss: A Live-Book Decomposition of Aave v3 » PDF paginé (UNIP, juin 2026, 52 p.) | SSRN 7157638 — **REÇU 2026-09-19** (investisseur), sha256 `038706df7b786164266ef92fa6c8885deafd4b2beae7be7725e469643f6e5d65`, texte `_txt/gatto2026-ssrn-7157638.txt` ; lecture paginée lancée (chercheur Sonnet 5) — l'abstract porte « $47M at 10% » (canal gap discret) et « $26M » (CAPO) : le verdict « 47 M$ absent de Gatto » (lecture web) est à réviser par la lecture | citation paginée U-7 ; canaux U-5 |
 | PR-UK-8 | Nexus Mutual Leveraged Liquidation Cover — Terms | PDF IPFS (api.nexusmutual.io) | PDF illisible par WebFetch | extension C (shortfall) |
 | PR-UK-9 | TokenLogic, proposition Aave V4 bad-debt backstop | governance.aave.com, 2026-09-11 | id à résoudre | payeur C |
 | PR-UK-10 | rsETH Incident Report | governance.aave.com/t/…/24580, 2026-04-20 | non lu | répartition des pertes |

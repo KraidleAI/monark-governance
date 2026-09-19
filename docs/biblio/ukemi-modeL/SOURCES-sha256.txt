@@ -83,3 +83,5 @@ f4492ab132672f9b28c802ee2bb7bbf4d5d6c3ef9199a3019a719925a88d68f4 *_txt/web/ether
 1a5792097879826f551940b6b040f8a609cf0405c0757a850eb34d5e1b52a692 *_txt/web/aave-vote-proposal-330.html
 ffddf56fd5ac76b6840aede9ad06c18c432e0f76b1c205eed2939fe8bdef2a87 *_txt/web/extract_discourse.py
 4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945 *_txt/web/gh-solana-scaled-ui-commits.json
+\038706df7b786164266ef92fa6c8885deafd4b2beae7be7725e469643f6e5d65 *F:\Monark\docs\biblio\ukemi-modeL/pdf/gatto2026-ssrn-7157638.pdf
+\60190dc70855d6e1620c21cfc28d5dd5f128e9bc127529d4b07071c158f0755e *F:\Monark\docs\biblio\ukemi-modeL/_txt/gatto2026-ssrn-7157638.txt
