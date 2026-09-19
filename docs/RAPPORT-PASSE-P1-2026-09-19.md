@@ -163,3 +163,4 @@ l'orchestrateur ; le déclencheur skill/DEMO (§3.c) et la veille CRA/ENISA (G6)
 - Item ADR-M017 D3 « mise à jour skill/DEMO » sans déclencheur → **déclencheur assigné : lot Shōgen-honnêteté** (même lot que les six « verified » résiduels, `skills/monark/DEMO.md:86` déjà vrai ; la mise à jour de la description publiée du `gate` dans la skill suit le prochain re-pin h5, donc le premier lot `apps/harness` : T-1 ou U-4).
 - memstack : ConnectionRefused sur toute la session (cache de connexion) ; à reconnecter au redémarrage, consignation des règles du jour due à ce moment.
 - Verdict G7 de passe : rendu après le checkpoint-2 de clôture (validateur, contexte frais).
+- Veille CRA/ENISA (G6) surfacée l.160 : **déclencheur assigné = audit d'entrée de la prochaine passe** (template corpus « audit d'entrée », dû à chaque passe ; item de compliance, pas de code).
