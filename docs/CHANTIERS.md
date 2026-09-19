@@ -1,5 +1,5 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 12:05 UTC (horloge système)
+Dernière mise à jour : 2026-09-19 12:35 UTC (horloge système)
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019) — **CLOSE** (G7 de passe `16ec12a`, checkpoint-2 de clôture accepte-avec-corrections C-1..C-6 pliées)
 | Lot | État | Prochaine action | Bloqué par |
@@ -15,7 +15,7 @@ Dernière mise à jour : 2026-09-19 12:05 UTC (horloge système)
 | Élément | État | Prochaine action | Bloqué par |
 |---|---|---|---|
 | **U-1a implémentation** (recorder book WETH + sUSDe/USDe, digest, invariant HF exact, fixture réduite, tests/mutants) | EN COURS — worker, worktree `F:\Monark-wt-p1b1`, branche `lot/u-1a` | G2 fraîche → checkpoint-2 → G7 (G7 attend le lot R-25-séries) | — |
-| **ADR-U1b contrat `AttestedBook`** (6e contrat gelé, décision 16) | RÉDIGÉ `1bdea9c` (18 clés, sans prix, description auto-déclarée) ; adjudications provisoires A (témoin total sous abstention) / B (liaison M017 par motif d'URL) / C (`attestor` objet dédié) ; **checkpoint-1 EN COURS** ; **signature investisseur due** | signature A/B/C → U-1b après U-1a | investisseur |
+| **ADR-U1b contrat `AttestedBook`** (6e contrat gelé, décision 16) | RÉDIGÉ `1bdea9c` (18 clés, sans prix, description auto-déclarée) ; adjudications provisoires A (témoin total sous abstention) / B (liaison M017 par motif d'URL) / C (`attestor` objet dédié) ; checkpoint-1 : **approuvé-avec-corrections C-1..C-12** (Prediction vacue en U-1b-b → décodeur sans Prediction, `recorder_revision` 64 hex, quorum par méthode, un seul canonicaliseur, tests à liste fixe, « five frozen contracts » public à corriger, résidu `no_third_party_verifier` toujours émis) ; C tranché techniquement ; **rédacteur plie** ; **signature investisseur A/B due** | A/B → U-1b-a après G7 U-1a | investisseur |
 | **Lot R-25-séries** (amendement ADR-M003 D9 sexies, pathspec CI, test de déclaration/hachage) | EN COURS — worker, worktree `F:\Monark-wt-r25`, branche `lot/r25-series` | G2 → checkpoint-2 → G7 → fusion (prérequis du G7 U-1a) | — |
 | Avis advisor-DeFi (objet B cascade cluster, plan U-0..U-7) | REÇU, persisté `docs/biblio/ukemi-modeL/` | — | — |
 | Avis advisor-marché (payeur = DAO/SP ; classe shortfall vs dette liquidée) | REÇU, persisté | — | — |
