@@ -51,7 +51,7 @@ Dernière mise à jour : 2026-09-19 (G7 U-1a clos, U-1a + T-1a fusionnés, oracl
 | Hackathon Stocklana (dépôt 2026-09-25) | OPTION ultérieure, plan inchangé | décision investisseur le moment venu | — |
 
 ## D. Opérations vivantes
-- **Miroir public** `KraidleAI/Monark` = `5bde13a` (2026-09-19 07:40Z, restyle B) ; `main` privé = `144ce68` ; 0 PR ouverte. **`lot/etude-suite` porte désormais E-bon-marché, R-25-séries, U-1a, T-1a (HEAD après fusions `7f93e6a`+docs) — PRÊT pour PR → `main` privé au go investisseur** (jamais `--delete-branch`), puis miroir public (`release-public.mjs` depuis `F:\Monark-wt-main`, `apps/sentinel` exporté ⇒ U-1a devient public ; `apps/bell` non exporté avant T-1b).
+- **Miroir public** `KraidleAI/Monark` = `5bde13a` (2026-09-19 07:40Z, restyle B) ; `main` privé = `144ce68` ; 0 PR ouverte. **`lot/etude-suite` porte désormais E-bon-marché, R-25-séries, U-1a, T-1a + docs du jour — R-25 mesuré contre `main` = 20 902 lignes (193 fichiers) ≫ 1 205 ⇒ une PR unique est IMPOSSIBLE : il faut une PILE de PR par lot (bases à définir : R-25-séries → E-bon-marché → U-1a → T-1a → docs), sans jamais supprimer une base avant que toute la pile soit sur `main` (incident #79-#81) ; 33 commits locaux NON POUSSÉS (push conditionné à la fenêtre investisseur + contrôle de visibilité ADR-M010)**, puis miroir public (`release-public.mjs` depuis `F:\Monark-wt-main`, `apps/sentinel` exporté ⇒ U-1a devient public ; `apps/bell` non exporté avant T-1b).
 | Élément | État | Prochaine action |
 |---|---|---|
 | Narabi | T=1 (2026-09-19 00:39 UTC) ; prochain pas 00:39 UTC | vérifier T=2 demain ; consigner |
