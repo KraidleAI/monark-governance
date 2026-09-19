@@ -388,7 +388,7 @@ test("numeric_under_calib_region_is_not_directional", () => {
       name: "byo interval NDG zero-width",
       d: runGate(BYO_INTERVAL_PRED, { ...GOOD_PARAMS, intent: 0, nMin: 10, calibration: { scores: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], mode: "interval" } }),
     },
-    // committed USDe key, yhat absorbed to +Inf: stableRunVerdict zero-width NDG branch (G2 E-bon-marché C2 —
+    // committed USDe key, yhat absorbed to +Inf: stableRunVerdict zero-width NDG branch (G2 review of the cheap-gaps lot, C2:
     // the served path a mutant on gate.ts:481 left green before this case was enumerated)
     {
       name: "stable-run committed key NDG zero-width",
