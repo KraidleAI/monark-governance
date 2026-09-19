@@ -47,7 +47,7 @@ Ordre : U-1 ∥ U-3 (fan-out justifié par **isolation** : U-1 = code recorder +
 
 **D5 — Payeur (advisor-marché)** : cible = SP/curateur/underwriter (B + D), extension « shortfall » **retenue par l'investisseur comme seconde classe dès U-4** (C, `cluster-shortfall-given-oracle-path-24h`), looper = hypothèse à sonder (A). Pivot : un acteur à précédent de paiement consomme le book attesté ou Y_{i,e} dans un artefact public avant U-4. Registre : `built` maintenu (décision investisseur) ; `wiring` honnête « abstains under_calib by construction » jusqu'à U-6.
 
-**D6 — Mesures préalables** : M-1, M-2, M-2b et bissection de source **faites** (contexte 4-6bis) ; reste avant U-3 : topic exact de l'événement de déficit Aave v3.3 (présence dans le census) ; lecture du code des contrats SVR ([abs] → [lu]).
+**D6 — Mesures préalables** : M-1, M-2, M-2b et bissection de source **faites** (contexte 4-6bis) ; topic de déficit v3.3 **résolu** : `DeficitCreated(address indexed user, address indexed debtAsset, uint256 amountCreated)`, topic0 `0x2bccfb3fad376d59d7accf970515eb77b2f27b082c90ed0fb15583dd5a942699` (calculé, méthode validée sur `Transfer`), v3.3 déployé le 2025-02-24 ; présence dans le census à vérifier en U-3 ; lecture du code des contrats SVR ([abs] → [lu]).
 
 ## Modes d'échec MAST (checklist de risque résiduel, revue de sprint)
 | Mode | Où il menace | Contre-mesure |
@@ -70,7 +70,7 @@ Positives : premier témoin attesté du book de liquidation ; calibration distri
 |---|---|---|---|---|
 | PR-UK-1 | Amini–Filipović–Minca 2016 | ORL 44(1):1-5, DOI 10.1016/j.orl.2015.10.005 | **reçu** 2026-09-19 (lu) | unicité sous coûts |
 | PR-UK-2 | Chow 1970 | IEEE TIT 16(1):41-46, DOI 10.1109/TIT.1970.1054406 | **reçu** (lu) | abstention |
-| PR-UK-3 | Post-mortem CAPO primaire | governance.aave.com / Chaos Labs / BGD, mars 2026, ~27 M$, 512,19 ETH | recherche web en cours (chercheur) | rejeu U-5, résidu `capo_oracle` |
+| PR-UK-3 | Post-mortem CAPO primaire | **reçu [lu]** : governance.aave.com threads 24269 (post-mortem, 18 posts) et 24275 (ARFC remboursement) — racine : `snapshotRatio` périmé > 1 an, première mise à jour du « CAPO Risk Agent » ; 512,19 ETH confirmés ; montant liquidé 26–27 M$ (quatre formulations primaires ; **« 26,9 M$ » du doc interne introuvable en primaire, ne plus le citer**) ; bloc exact NON TROUVÉ (procurement : logs autour du 2026-03-10) | rejeu U-5, résidu `capo_oracle` |
 | PR-UK-4 | Cifuentes–Ferrucci–Shin BoE WP 264 | 2005, 31 p. | **reçu** (lu) | forme de demande inverse, simulations |
 | PR-UK-5 | Messari « Aave: Cracks in the Monolithic Thesis » | messari.io, 2026 | HTTP 429 ×2 | contexte marché |
 | PR-UK-6 | Source primaire du « 15,7 Md$ » Q1 2026 | inconnue | recherche négative | ne pas citer tant qu'absente |
@@ -81,4 +81,4 @@ Positives : premier témoin attesté du book de liquidation ; calibration distri
 | PR-UK-11 | LlamaRisk épisode 4, scope §4 R&D | thread 24446 | non lu | sous-traitance possible |
 | PR-UK-12 | Credora, méthodologie de rating | docs.redstone.finance | non lu | précédent opt-in curateur |
 | PR-UK-13 | Recherche : conformal hiérarchique à taille de groupe dépendante de l'issue | inconnu (Dunn 2022 suppose n_j fixé) | à chercher (arXiv/OpenAlex) | phrase d'honnêteté U-4 |
-| PR-UK-14 | Code des contrats Chainlink SVR (0x5424384b…) | Etherscan | [abs] | lecture U-5 |
+| PR-UK-14 | Code des contrats Chainlink SVR (0x5424384b…) | **lu** via API Blockscout (`EACAggregatorProxy`, `secondaryProxyAddress` du feed eth-usd-svr) ; docs SVR backrun-only [lu] ; split 65/35 primaire ; Phase 3 (id 22387) active SVR sur Core, date d'exécution ~2025-06-28 inférée | — | lecture U-5 |

@@ -42,3 +42,44 @@ d80dba944a136e07 pdf/tibshirani-barber-candes-ramdas-2019.pdf (arXiv:1904.06019,
 a2481c4852f4e93c pdf/milionis-moallemi-roughgarden-zhang-lvr.pdf (arXiv:2208.06046, OA, 2026-09-19)
 170e215db5f020b4 pdf/dunn-wasserman-ramdas-2022-hierarchical.pdf (arXiv:1809.07441v4 = JASA 2022 DOI 10.1080/01621459.2022.2060112, OA, 2026-09-19 ; NB arXiv:2010.06001 = collision cosmologie, écarté)
 06e9aa8b945e5628 pdf/cifuentes-ferrucci-shin-2004-boe-wp.pdf (procuré investisseur 2026-09-19)
+774e3d56d52fc75240c4546b494cd233d8bfb2151d6964daa10522e4ac8d53b9 *_txt/web/aave-capo-postmortem-24269.json
+61aeea3c89fec3536489a97591626e713f515bf2e29b1adf745157e71334e26a *_txt/web/aave-capo-postmortem-24269.txt
+af078b20e399585f9f57759981ef222c33998cbf18efa9cb93c2ae8688080082 *_txt/web/aave-capo-reimbursement-24275.json
+a79002cd60e9dcf190a45624dc18270a76c527cb4371061cb52ed23a69329eab *_txt/web/aave-capo-reimbursement-24275.txt
+8722ce38dde85603592f2b09d56e0d80bd5a8f0376d372bc282a3ab20a6929ad *_txt/web/uniswap-integration-issues.html
+8f4614ccf0a9ea04b7c8ad509aed7a64bbf452c7f3a75872d9819becf3dc1c18 *_txt/web/uniswap-unsupported-tokens.mdx
+982d8dfa681f2e2a9e4efd857c46a0d7c07b184d442f73162c4cacc4dfdf37cf *_txt/web/uniswap-v2-troubleshooting.mdx
+46f11c9ade9708206ab3f13a78008aca1c1842f8026c2b0c08aa94cc312999d1 *_txt/web/uniswap-support-rebasing.html
+3881ac7d8e711c5943d527821a82465decd04b6e7d5d505a2f463b4ccf1427ae *_txt/web/uniswap-support-rebasing.txt
+249eb6e2b9ef7786b76de3bb3e04ceb5d70bb9157483a9b8931e1bee2fc6d048 *_txt/web/uniswap-support-blast-rebase.html
+4c1debbdfbdae1b69b09af1ffaefbdc1ee88c786656314edd88046891361d2c5 *_txt/web/uniswap-support-blast-rebase.txt
+c8826bb153df920a9be415ea6d331b58fdb2a9a75291056063ffd5548d511d8d *_txt/web/solana-scaled-ui-amount.html
+7a7138403735b57a2980ee14ada7e04de7e180168e94be1bca87a0de00571fc5 *_txt/web/xstocks-dividends-splits.html
+a4574152edbb1b462e27784319090eb14c24c39c02c56150f2096bc66f8e12e3 *_txt/web/xstocks-how-it-works.html
+79f5fe248c12adb69996bf7cf6f191705b8a46b90fc3926db89a407969e148f0 *_txt/web/xstocks-developers-multipliers.html
+fa64d2cb20e2f15828cb8b5d7c5c83cc6fd07c2a84b07f804d216a89bd1e5848 *_txt/web/erc-8056.md
+b2e38767a6205f9c94e23475fbb7f3658ce46d49d3b0446b94296866c880345b *_txt/web/eip-8056-rendered.html
+cdb766931c5ff2db9402638ad3d00740cbae1227ecb0be8c9db8b0457c6d2f20 *_txt/web/robinhood-chain-stock-tokens.html
+4d2f663c4f926f67ac8e827d3442eb0faf8c4db04bf7da1c3fc042879d5133a5 *_txt/web/robinhood-chain-home.html
+524126d4068f8a94758da5a81926caba97ad3d1f666795601ff3692848301f83 *_txt/web/aave-v3.3-features.md
+e723bdae87d5e13eadec8f00bd1ea763ecfd72dea69b1339d4125be29afed976 *_txt/web/aave-changelog.html
+6678b48142857a40cf3e26b2f6047357ca8e0558513c5d0999e248608a9e6379 *_txt/web/aave-changelog.txt
+abfa8567551fcb60699914d52cc0cb871971424e24735a24b747ba95b444c5fc *_txt/web/aave-v3.3-governance-20129.json
+9e88ad0a23c8a1d5d5f4fc49675b23c08b505c4ad170c04784a9459bc21a00b1 *_txt/web/aave-v3.3-governance-20129.txt
+ee58bacafc0b033adeaf673da3b08130d9f3a9a3eb563f7f19a03240e488eba7 *_txt/web/aave-IPool-sol.txt
+1b21d2ed3ffa2796a084572219a9c50d2515a3e36be6e391427ce9018e4874e4 *_txt/web/chainlink-svr-feeds-docs.html
+6debb1c1979715a01731258a769b255e8d48be8df1e31d9e445b48fe2b1ead4f *_txt/web/chainlink-svr-feeds-docs.txt
+3d5de0feed34c7d2d73f89a4cbf35154a6928a4792be41e3a278efc33c4b2f4f *_txt/web/aave-chainlink-svr-phase1-21247.json
+e0325bd39d1010a46f27edcd0b438164119b6a831c7e4b7ece3f302ac633d03e *_txt/web/aave-chainlink-svr-phase1-21247.txt
+7559e76adbe973e5aca5be5d971f891a3a13e1f9e13cfcf66a80c7b41f89ff47 *_txt/web/aave-chainlink-svr-phase2-21940.json
+75a4069eda0315ef83086e1c5adb64ab247340e00c5dcd2657d07f37954ebda0 *_txt/web/aave-chainlink-svr-phase2-21940.txt
+2876b1af8226e724ce3d9ce592265d5ae908e55aef582057f1146bac99589747 *_txt/web/aave-chainlink-svr-phase3-22387.json
+dfa9515bc84e6fb40388f7f8af757c1f837339a629ee02bcb50813214cb575b9 *_txt/web/aave-chainlink-svr-phase3-22387.txt
+e60483fe28fd0bb669684e12ffa40e72659509eba5d4e90c5e17a94ea071ebec *_txt/web/chainlink-svr-blog.html
+982437b8b8fff555fcc7c411ab139fd3fba026231020bd1d7116058429f7954e *_txt/web/etherscan-0x5424384b.html
+f4492ab132672f9b28c802ee2bb7bbf4d5d6c3ef9199a3019a719925a88d68f4 *_txt/web/etherscan-api-source-0x5424384b.json
+9e2de906158f8e5014ff1662bd0b48d2e9b7fa324bacf081aaa9b28c8080e156 *_txt/web/chainlink-eth-usd-addresses.html
+5a1bbdc4a0af784378e454494d7c5a8482584058ae51411a708a8317b5cd5608 *_txt/web/blockscout-source-0x5424384b.json
+1a5792097879826f551940b6b040f8a609cf0405c0757a850eb34d5e1b52a692 *_txt/web/aave-vote-proposal-330.html
+ffddf56fd5ac76b6840aede9ad06c18c432e0f76b1c205eed2939fe8bdef2a87 *_txt/web/extract_discourse.py
+4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945 *_txt/web/gh-solana-scaled-ui-commits.json
