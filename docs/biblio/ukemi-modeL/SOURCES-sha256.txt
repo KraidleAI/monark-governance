@@ -93,3 +93,4 @@ ffddf56fd5ac76b6840aede9ad06c18c432e0f76b1c205eed2939fe8bdef2a87 *_txt/web/extra
 \b339a1f3f4af9ad2404ef64b41530128bf55ceeca8b2c828bcfe09015ab47c63 *F:\Monark\docs\biblio\ukemi-modeL/pdf/nexus-leveraged-liquidation-cover-wording-Qmdvjh-CURRENT.pdf
 \68c8141362aa4898a6828921006306710b058a3b711cd2de6cf97f8970a08561 *F:\Monark\docs\biblio\ukemi-modeL/_txt/nexus-leveraged-liquidation-cover-wording-Qmdvjh-CURRENT.txt
 \10fce5ea8fd421acbc6355dd3c80da59f15bfb65d0bfea8e315c58665e7a03fa *F:\Monark\docs\biblio\ukemi-modeL/pdf/nexus-member-agreement-2022-02-24.pdf
+\6464aae278f9bf6f06cfac1d3b5e376f7254e1d9a0ba4bcc4b4fb639506d8304 *F:\Monark\docs\biblio\ukemi-modeL/_txt/gatto-emode_categories.json
