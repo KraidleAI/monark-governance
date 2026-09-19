@@ -3,8 +3,9 @@
 //
 // Quorum depends on the method (measured, M-1 §5 / census A §2): eth_call@B is served by {drpc, mevblocker,
 // blastapi, nodies}; eth_getLogs (wide) only by {drpc, mevblocker, tenderly}. A value read needs TWO DISTINCT
-// providers (by providerOf) returning BYTE-IDENTICAL results: disagreement ⇒ QuorumDisagreementError, fewer
-// than two ⇒ NoQuorumError. Either way the caller abstains the whole book (no partial book presented complete).
+// providers (by providerOf) with CONCORDANT outcomes: byte-identical value, or the same EVM revert (a real
+// on-chain fact — ConcordantRevertError, tolerated only for description()). Disagreement ⇒ QuorumDisagreementError;
+// fewer than two ⇒ NoQuorumError. Either way the caller abstains the whole book (no partial book presented complete).
 // LOOK-AHEAD FORBIDDEN (ADR-U1 D7): every read carries an explicit block number; the `finalized` tag is read
 // only to gate B ≤ finalized; the mutable head tag is never requested (grep + test ukemi_no_latest_literal).
 import { createHash } from "node:crypto";
@@ -12,6 +13,33 @@ import { providerOf, QuorumDisagreementError, type RpcCall } from "../rpc.ts";
 
 /** No two distinct providers agreed on a read — the whole (cluster, B) book abstains, naming the read. */
 export class NoQuorumError extends Error {}
+
+/** A JSON-RPC error response (the node returned `{error:{code,message,data}}`), NOT a transport failure. Carries
+ *  the numeric code and optional revert data so the quorum can tell an EVM revert from a transport/rate fault. */
+export class RpcError extends Error {
+  readonly code: number;
+  readonly data: string | undefined;
+  constructor(message: string, code: number, data: string | undefined = undefined) { super(message); this.name = "RpcError"; this.code = code; this.data = data; }
+}
+
+/** >= 2 distinct providers returned the SAME revert for one read — a deterministic on-chain fact (e.g. an oracle
+ *  source with no `description()`), NOT a no-quorum. The caller tolerates it ONLY where an absent field is a real
+ *  datum (book.ts, `description()` ⇒ ""); everywhere else it abstains the whole book (ADR-U1 D3, V-1). */
+export class ConcordantRevertError extends Error {}
+
+/** Is this rejection an EVM execution revert (deterministic, identical across honest providers) rather than a
+ *  transport/rate fault? Explicit, testable criterion (ADR-U1 D3 amendment 2026-09-19): a typed RpcError whose
+ *  code is 3 (EIP-1474 "execution error") or -32000 (common node "server error" used for reverts) AND whose
+ *  message names a revert. A revert counts toward the quorum and does NOT bench; anything else benches. */
+export function isRpcRevert(e: unknown): e is RpcError {
+  return e instanceof RpcError && (e.code === 3 || e.code === -32000) && /execution reverted|revert/i.test(e.message);
+}
+
+/** Identity of a revert for the quorum comparison: the revert DATA if present (custom-error selector / reason),
+ *  else the message normalized (lower-cased, whitespace-collapsed). Two providers concord iff these match. */
+function revertKey(e: RpcError): string {
+  return e.data !== undefined && e.data !== "0x" ? e.data.toLowerCase() : e.message.trim().toLowerCase().replace(/\s+/g, " ");
+}
 
 /** A log as returned by eth_getLogs (the fields the recorder pins for the quorum digest + enumeration). */
 export interface LogEntry { readonly blockNumber: string; readonly logIndex: string; readonly transactionHash: string; readonly topics: readonly string[]; readonly data: string; }
@@ -81,10 +109,14 @@ export function makeUkemiPool(opts: UkemiReaderOpts): UkemiReader {
     return up.length > 0 ? up : [...providers];
   };
 
-  /** Two DISTINCT providers (by providerOf) that succeed AND agree on `keyOf`; else disagreement / no-quorum. */
+  /** Two DISTINCT providers (by providerOf) whose OUTCOMES concord. An outcome is a success (kind "ok", keyed by
+   *  `keyOf`) or an EVM revert (kind "revert", keyed by `revertKey`). A revert does NOT bench — it is on-chain
+   *  data, not a fault (ADR-U1 D3 V-1). Two ok concord ⇒ value; two reverts concord ⇒ ConcordantRevertError;
+   *  differing keys (value vs revert, or two different values/reverts) ⇒ QuorumDisagreementError; fewer than two
+   *  outcomes (transport faults are benched) ⇒ NoQuorumError. */
   async function quorum2<T>(label: string, providers: readonly string[], fetchOne: (url: string) => Promise<T>, keyOf: (v: T) => string): Promise<T> {
     const list = live(providers);
-    const got: Array<{ prov: string; key: string; val: T }> = [];
+    const got: Array<{ prov: string; kind: "ok" | "revert"; key: string; val?: T }> = [];
     const seen = new Set<string>();
     let lastErr: Error | undefined;
     for (let i = 0; i < list.length && got.length < 2; i++) {
@@ -93,17 +125,18 @@ export function makeUkemiPool(opts: UkemiReaderOpts): UkemiReader {
       try {
         await polite();
         const val = await fetchOne(url);
-        got.push({ prov: providerOf(url), key: keyOf(val), val });
+        got.push({ prov: providerOf(url), kind: "ok", key: "ok:" + keyOf(val), val });
         seen.add(providerOf(url));
       } catch (e) {
-        lastErr = e instanceof Error ? e : new Error(String(e));
-        cooldownUntil.set(url, Date.now() + 25_000);
+        if (isRpcRevert(e)) { got.push({ prov: providerOf(url), kind: "revert", key: "revert:" + revertKey(e) }); seen.add(providerOf(url)); }
+        else { lastErr = e instanceof Error ? e : new Error(String(e)); cooldownUntil.set(url, Date.now() + 25_000); }
       }
     }
     const [a, b] = got;
     if (a === undefined || b === undefined) throw new NoQuorumError(`${label}: quorum needs 2 providers${lastErr ? ` (last: ${lastErr.message})` : ""}`);
     if (a.key !== b.key) throw new QuorumDisagreementError(`${label}: providers ${a.prov}/${b.prov} disagree`);
-    return a.val;
+    if (a.kind === "revert") throw new ConcordantRevertError(`${label}: concordant revert across ${a.prov}/${b.prov}`);
+    return a.val as T;
   }
 
   /** eth_getLogs on ONE endpoint, splitting the range on a result/range-cap error (recursively). */

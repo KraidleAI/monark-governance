@@ -8,8 +8,7 @@ import { createHash } from "node:crypto";
 import { SEL, TRANSFER_TOPIC0, wordAddr, wordAt, decAddress, decUint, decString, decodeAddressArray, decodeReserveData, decodeUserAccountData, decodeUserConfig, transferRecipients, type ReserveData, type UserAccountData } from "./abi.ts";
 import { crossCheckHealthFactor, eligibleStatic, type HfCheck } from "./wadray.ts";
 import { POOL, POOL_ADDRESSES_PROVIDER, ORACLE, CHAIN_ID, type Cluster } from "./clusters.ts";
-import { NoQuorumError, type UkemiReader } from "./rpc2.ts";
-import { QuorumDisagreementError } from "../rpc.ts";
+import { ConcordantRevertError, type UkemiReader } from "./rpc2.ts";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
 
@@ -80,16 +79,16 @@ export async function recordBook(cluster: Cluster, block: number, reader: UkemiR
     const asset = reservesList[i]; if (asset === undefined) throw new AbiMismatchError(`reserve index ${i} out of range`);
     const rd = decodeReserveData(await reader.ethCall(POOL, SEL.getReserveData + wordAddr(asset), block));
     const source = decAddress(wordAt(await reader.ethCall(oracle, SEL.getSourceOfAsset + wordAddr(asset), block), 0));
-    // Some oracle sources expose NO `description()` (e.g. GHO's fixed-price oracle reverts on it): a
-    // consistently-reverting description is a real on-chain fact, recorded as "" — NOT a no-quorum of the book.
-    // The load-bearing datum is the source ADDRESS (in the digest); the description is a human-readable label.
-    // Only a UNANIMOUS revert/empty is tolerated as "": a provider DISAGREEMENT on this digest field must abstain
-    // the whole book (ADR-U1 D3; G2 C2 — the broad catch used to swallow QuorumDisagreementError).
+    // Some oracle sources expose NO `description()` (e.g. GHO's fixed-price oracle reverts on it): a CONCORDANT
+    // revert (>= 2 distinct providers returning the same revert) is a real on-chain fact recorded as "" — the
+    // source ADDRESS is the digest-bearing datum, the description a human-readable label (ADR-U1 D1/D3 amendment
+    // 2026-09-19, V-1). ONLY a ConcordantRevertError is tolerated here: a provider DISAGREEMENT
+    // (QuorumDisagreementError), a no-quorum (NoQuorumError), or any other error abstains the whole book.
     let description = "";
     try {
       description = decString(await reader.ethCall(source, SEL.description, block));
     } catch (e) {
-      if (e instanceof QuorumDisagreementError || e instanceof NoQuorumError) throw e;
+      if (!(e instanceof ConcordantRevertError)) throw e;
       description = "";
     }
     const price = decUint(await reader.ethCall(oracle, SEL.getAssetPrice + wordAddr(asset), block));

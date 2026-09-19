@@ -10,7 +10,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { recordBook, canonicalStringify, ukemiLineHash, type UkemiTimelineLine } from "../src/ukemi/book.ts";
-import { makeUkemiPool, NoQuorumError, type UkemiReader, type LogEntry } from "../src/ukemi/rpc2.ts";
+import { makeUkemiPool, NoQuorumError, RpcError, ConcordantRevertError, isRpcRevert, type UkemiReader, type LogEntry } from "../src/ukemi/rpc2.ts";
 import { QuorumDisagreementError, type RpcCall } from "../src/rpc.ts";
 import { SEL, wordAddr, decodeUserAccountData, decUint } from "../src/ukemi/abi.ts";
 import { crossCheckHealthFactor, healthFactorFromBalances, percentMul, wadDiv, eligibleStatic } from "../src/ukemi/wadray.ts";
@@ -42,17 +42,66 @@ function fixtureReader(calls: Record<string, string> = FX.calls, logs: FixtureLo
   };
 }
 
-// ── 0 — description(): a unanimous revert is a fact recorded as ""; a provider DISAGREEMENT abstains the book (G2 C2)
+// ── 0 — description() at the QUORUM, all THROUGH the real makeUkemiPool (4 distinct providers), V-1 correctif ──
+// A `call` over the fixture bytes that mirrors record.ts's defaultCall shapes; `tamper(selector,url)` may throw
+// an RpcError (EVM revert) or a plain Error (transport) per (read, provider), so a concordant revert, a
+// value/revert split, and a transport fault are all exercised against the ACTUAL quorum2, not a mocked reader.
+const POOL_EPS = ["https://a.example", "https://b.example", "https://c.example", "https://d.example"];
+function poolCall(tamper: (selector: string, url: string) => void = () => { /* no tamper */ }): RpcCall {
+  return (url, method, params) => {
+    if (method === "eth_getBlockByNumber") return Promise.resolve({ hash: FX.block_hash, number: "0x" + FX.block.toString(16), timestamp: "0x" + FX.block_ts.toString(16) });
+    if (method === "eth_getLogs") return Promise.resolve(FX.enumeration_logs);
+    const p = (params as ReadonlyArray<{ to: string; data: string }>)[0];
+    if (p === undefined) return Promise.reject(new Error("eth_call: missing params"));
+    tamper(p.data.toLowerCase(), url);
+    const v = FX.calls[`${p.to.toLowerCase()}|${p.data.toLowerCase()}`];
+    return v === undefined ? Promise.reject(new Error(`fixture miss ${p.to}`)) : Promise.resolve(v);
+  };
+}
+const poolOver = (call: RpcCall) => makeUkemiPool({ call, ethCallProviders: POOL_EPS, getLogsProviders: POOL_EPS });
+const isDesc = (selector: string) => selector.startsWith(SEL.description.toLowerCase());
+
+// (a) UNANIMOUS revert on every description() ⇒ concordant ⇒ recorded "" ⇒ a book is produced (GHO-like source).
+test("ukemi_description_concordant_revert_tolerated_through_pool", async () => {
+  let descCalls = 0;
+  const call = poolCall((selector) => { if (isDesc(selector)) { descCalls++; throw new RpcError("execution reverted", 3); } });
+  const r = await recordBook(CLUSTER_WETH, FX.block, poolOver(call));
+  const parsed = JSON.parse(canonicalStringify(r.book)) as { reserves: Array<{ oracle_description: string }> };
+  for (const rv of parsed.reserves) assert.equal(rv.oracle_description, "", "a concordant description() revert is recorded as \"\"");
+  assert.equal(descCalls, 6, "3 reserves × exactly 2 concordant reverts (a revert does not bench; the quorum stops at 2)");
+  // The pool path (ConcordantRevertError ⇒ "") converges bit-exactly with a reader path whose descriptions decode to "".
+  const empty: Record<string, string> = { ...FX.calls };
+  for (const k of Object.keys(empty)) if (k.endsWith("|" + SEL.description.toLowerCase())) empty[k] = "0x" + "0".repeat(128);
+  const viaReader = await recordBook(CLUSTER_WETH, FX.block, fixtureReader(empty));
+  assert.equal(r.book_digest, viaReader.book_digest, "pool concordant-revert path == reader empty-description path (bit-identical)");
+  assert.notEqual(r.book_digest, PIN.book_digest, "oracle_description is a digest field: emptying it changes the digest");
+});
+
+// (b) revert on one provider / value on another ⇒ QuorumDisagreementError ⇒ the whole book abstains, never a digest.
 test("ukemi_description_disagreement_abstains_book", async () => {
-  const base = fixtureReader();
-  const descKey = (k: string) => k.endsWith("|" + SEL.description.toLowerCase());
-  // (a) unanimous revert on every description() call ⇒ tolerated, digest produced (GHO-like source)
-  const reverting: UkemiReader = { ...base, ethCall(to, data, block) { const k = `${to.toLowerCase()}|${data.toLowerCase()}`; return descKey(k) ? Promise.reject(new Error("execution reverted")) : base.ethCall(to, data, block); } };
-  const r = await recordBook(CLUSTER_WETH, FX.block, reverting);
-  assert.equal(typeof r.book_digest, "string", "a unanimously reverting description() still yields a book");
-  // (b) providers disagree on description() ⇒ the whole book abstains (ADR-U1 D3), never a digest with ""
-  const disagreeing: UkemiReader = { ...base, ethCall(to, data, block) { const k = `${to.toLowerCase()}|${data.toLowerCase()}`; return descKey(k) ? Promise.reject(new QuorumDisagreementError("description: providers disagree")) : base.ethCall(to, data, block); } };
-  await assert.rejects(() => recordBook(CLUSTER_WETH, FX.block, disagreeing), QuorumDisagreementError, "a description() disagreement must abstain the book");
+  const call = poolCall((selector, url) => { if (isDesc(selector) && url !== POOL_EPS[0]) throw new RpcError("execution reverted", 3); });
+  await assert.rejects(() => recordBook(CLUSTER_WETH, FX.block, poolOver(call)), QuorumDisagreementError, "a value/revert split on description() abstains the book");
+});
+
+// (c) revert on one provider / transport fault on the rest ⇒ fewer than 2 outcomes ⇒ NoQuorumError ⇒ abstain.
+test("ukemi_description_no_quorum_abstains_book", async () => {
+  const call = poolCall((selector, url) => { if (isDesc(selector)) { if (url === POOL_EPS[0]) throw new RpcError("execution reverted", 3); throw new Error("HTTP 429 rate limited"); } });
+  await assert.rejects(() => recordBook(CLUSTER_WETH, FX.block, poolOver(call)), NoQuorumError, "one revert + transport faults is a no-quorum, not a tolerated revert");
+});
+
+// (d) a CONCORDANT revert on getAssetPrice (a load-bearing digest field, NOT description) propagates ⇒ abstain, never a digest.
+test("ukemi_concordant_revert_on_price_field_abstains_book", async () => {
+  const call = poolCall((selector) => { if (selector.startsWith(SEL.getAssetPrice.toLowerCase())) throw new RpcError("execution reverted", 3); });
+  await assert.rejects(() => recordBook(CLUSTER_WETH, FX.block, poolOver(call)), ConcordantRevertError, "tolerance is scoped to description(); getAssetPrice abstains");
+});
+
+// The explicit, testable revert criterion (ADR-U1 D3 amendment): code 3 (EIP-1474) or -32000 (node) naming a revert.
+test("ukemi_is_rpc_revert_criterion", () => {
+  assert.ok(isRpcRevert(new RpcError("execution reverted", 3)));
+  assert.ok(isRpcRevert(new RpcError("execution reverted: out of gas", -32000)));
+  assert.ok(!isRpcRevert(new RpcError("method not found", -32601)), "a non-revert JSON-RPC error benches (transport-classed)");
+  assert.ok(!isRpcRevert(new RpcError("rate limited", 429)), "a rate-limit is not a revert");
+  assert.ok(!isRpcRevert(new Error("HTTP 503 gateway")), "a transport fault is not a revert");
 });
 
 // ── 1 — the deliverable oracle: replay the reduced book, digest is bit-identical ────────────────────────
@@ -83,8 +132,9 @@ test("ukemi_mutant_oracle_source", async () => {
   const WETH = CLUSTER_WETH.collaterals[0]!.asset;
   const key = `${ORACLE.toLowerCase()}|${(SEL.getSourceOfAsset + wordAddr(WETH)).toLowerCase()}`;
   const mutated = { ...FX.calls, [key]: "0x000000000000000000000000dead00000000000000000000000000000000beef" };
-  // the mutated source address needs its own description(): a unanimous fixture miss would be tolerated as "" (only a
-  // provider DISAGREEMENT abstains — see ukemi_description_disagreement_abstains_book); serve an empty string anyway.
+  // the mutated source address needs its own description(): the fixtureReader is a single reader (no quorum), so a
+  // miss is a bare Error that now abstains the book (only a ConcordantRevertError is tolerated) — serve an empty ABI
+  // string so the changed source ADDRESS alone drives the digest delta.
   mutated["0xdead00000000000000000000000000000000beef|" + SEL.description] = "0x" + "0".repeat(128);
   const m = await recordBook(CLUSTER_WETH, FX.block, fixtureReader(mutated));
   assert.notEqual(m.book_digest, base.book_digest, "a changed oracle source changes the digest");

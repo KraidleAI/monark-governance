@@ -9,7 +9,7 @@ import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
 import type { RpcCall } from "../rpc.ts";
-import { makeUkemiPool, ETH_CALL_PROVIDERS, GET_LOGS_PROVIDERS } from "./rpc2.ts";
+import { makeUkemiPool, ETH_CALL_PROVIDERS, GET_LOGS_PROVIDERS, RpcError } from "./rpc2.ts";
 import { recordBook } from "./book.ts";
 import { clusterById } from "./clusters.ts";
 
@@ -19,9 +19,11 @@ export const defaultCall: RpcCall = async (url, method, params) => {
   const to = setTimeout(() => { ctl.abort(); }, 30_000);
   try {
     const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), signal: ctl.signal });
-    if (!res.ok) throw new Error(`HTTP ${String(res.status)} ${url}`);
-    const json = (await res.json()) as { result?: unknown; error?: { message?: string } };
-    if (json.error) throw new Error(json.error.message ?? "rpc error");
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)} ${url}`); // transport fault (benched by the quorum)
+    const json = (await res.json()) as { result?: unknown; error?: { code?: number; message?: string; data?: unknown } };
+    // A JSON-RPC error is a typed RpcError (code + optional revert data): the quorum classifies an EVM revert
+    // (concordant ⇒ on-chain fact) apart from a transport/rate fault (benched) — ADR-U1 D3 amendment, V-1.
+    if (json.error) throw new RpcError(json.error.message ?? "rpc error", json.error.code ?? 0, typeof json.error.data === "string" ? json.error.data : undefined);
     return json.result;
   } finally { clearTimeout(to); }
 };

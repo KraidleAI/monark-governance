@@ -20,8 +20,8 @@ Relecteur : instance séparée, contexte frais, `claude-opus-4-8[1m]` (R-1). Ren
 | `percentMul` demi-bas | ROUGE (`−429035` ≠ `+274302`) |
 | quorum divergence 1 octet / < 2 fournisseurs | `QuorumDisagreementError` / `NoQuorumError`, jamais un digest |
 | `asHex` vide | rejeté ⇒ `NoQuorumError` |
-| `description()` reverté unanime | toléré, digest honnête (GHO) |
-| `description()` DÉSACCORD | avalé ⇒ **C2** |
+| `description()` reverté unanime | toléré, digest honnête (GHO) — **[annoté 2026-09-19, checkpoint-2 V-1]** vrai du code pré-C2 (`1e7bb7e`, catch large) ; **INVALIDÉ par le pliage C2 sur `dedfcd5`** (le catch restreint relançait `NoQuorumError`, que `makeUkemiPool` produit pour un revert unanime ⇒ book abstenu — défaut V-1) ; **RÉTABLI par le correctif V-1** (revert **concordant** toléré via `ConcordantRevertError`, prouvé à travers `makeUkemiPool`) |
+| `description()` DÉSACCORD | avalé ⇒ **C2** (le correctif V-1 conserve : désaccord ⇒ `QuorumDisagreementError` ⇒ abstention) |
 
 ## Observations formées
 O1 mutant bloc offline = liaison au label ; O2 HF cross-check = diagnostic non borné (dire « exercé », pas « confirmé ») ; O3 revert `description()` non testé (couvert par C2 cas (a)) ; O4 cluster sUSDe/USDe sans couverture comportementale (run dédié, avant U-6) ; O5 aucun vérifieur de chaîne (U-1b/U-6) ; O6 `record.ts` non importé (conforme D7) ; O7 test « deux URL même providerOf » manquant ; O8 regex D8 superset inoffensif ; O9 exemption `cascade` bornée, câblage minimal ; O10 propriétaire du durcissement `record.ts` à nommer (orchestrateur).
