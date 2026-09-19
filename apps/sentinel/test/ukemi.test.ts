@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { recordBook, canonicalStringify, ukemiLineHash, type UkemiTimelineLine } from "../src/ukemi/book.ts";
 import { makeUkemiPool, NoQuorumError, RpcError, ConcordantRevertError, isRpcRevert, type UkemiReader, type LogEntry } from "../src/ukemi/rpc2.ts";
+import { defaultCall } from "../src/ukemi/record.ts";
 import { QuorumDisagreementError, type RpcCall } from "../src/rpc.ts";
 import { SEL, wordAddr, decodeUserAccountData, decUint } from "../src/ukemi/abi.ts";
 import { crossCheckHealthFactor, healthFactorFromBalances, percentMul, wadDiv, eligibleStatic } from "../src/ukemi/wadray.ts";
@@ -102,6 +103,105 @@ test("ukemi_is_rpc_revert_criterion", () => {
   assert.ok(!isRpcRevert(new RpcError("method not found", -32601)), "a non-revert JSON-RPC error benches (transport-classed)");
   assert.ok(!isRpcRevert(new RpcError("rate limited", 429)), "a rate-limit is not a revert");
   assert.ok(!isRpcRevert(new Error("HTTP 503 gateway")), "a transport fault is not a revert");
+});
+
+// ── V-4 killers (checkpoint-2 bis): the three mutants the G2 delta proved survive the base suite (M4/M5/M6). ──
+
+// M4 — a revert is on-chain DATA, not a fault: it does NOT bench the provider. Killer for the mutation that
+// benches on a revert. Exactly 3 providers: read1 reverts concordantly on the first two; in read2 those two
+// return a value while the THIRD is a transport fault — so the only way read2 can reach a 2-quorum is from the
+// two that reverted. read2 succeeding proves they were NOT put in cooldown (a direct inference, not "2-of-3 left 1").
+test("ukemi_revert_does_not_bench_provider", async () => {
+  const eps = ["https://one.example", "https://two.example", "https://three.example"];
+  let phase: "revert" | "value" = "revert";
+  const call: RpcCall = (url) => {
+    if (phase === "revert") return Promise.reject(new RpcError("execution reverted", 3));
+    if (url === eps[2]) return Promise.reject(new Error("HTTP 503 transport")); // third can never contribute in read2
+    return Promise.resolve("0x64");
+  };
+  const pool = makeUkemiPool({ call, ethCallProviders: eps, getLogsProviders: eps });
+  await assert.rejects(() => pool.ethCall("0xabc", "0xdef", 100), ConcordantRevertError, "read1: concordant revert across two distinct providers");
+  phase = "value";
+  assert.equal(await pool.ethCall("0xabc", "0xdef", 100), "0x64", "read2: quorum comes from the two that reverted ⇒ they were not benched");
+});
+
+// M5 — the revert concordance key is the revert DATA (custom-error selector / reason) when present, else the
+// message. Killer for the mutation that ignores data and keys on the message: same data + different messages ⇒
+// concordant (ConcordantRevertError); different data + same message ⇒ disagreement (QuorumDisagreementError).
+test("ukemi_revert_key_uses_data", async () => {
+  const eps = ["https://one.example", "https://two.example"];
+  const sameData: RpcCall = (url) => Promise.reject(new RpcError(url === eps[0] ? "execution reverted: alpha" : "execution reverted: beta", 3, "0xdeadbeef"));
+  await assert.rejects(() => makeUkemiPool({ call: sameData, ethCallProviders: eps, getLogsProviders: eps }).ethCall("0xa", "0xb", 1), ConcordantRevertError, "same revert data ⇒ concordant even if messages differ");
+  const diffData: RpcCall = (url) => Promise.reject(new RpcError("execution reverted", 3, url === eps[0] ? "0xaaaa" : "0xbbbb"));
+  await assert.rejects(() => makeUkemiPool({ call: diffData, ethCallProviders: eps, getLogsProviders: eps }).ethCall("0xa", "0xb", 1), QuorumDisagreementError, "different revert data ⇒ disagreement (abstain)");
+  // The REAL GHO case (measured live, V-4): one provider returns data "0x", another returns NO data. The
+  // `data !== "0x"` guard routes BOTH to the normalized message ⇒ concordant. Without that guard, "0x" vs the
+  // message would disagree ⇒ the whole book would abstain a real on-chain fact. This sub-case is load-bearing.
+  const mixed: RpcCall = (url) => Promise.reject(url === eps[0] ? new RpcError("execution reverted", 3, "0x") : new RpcError("execution reverted", 3));
+  await assert.rejects(() => makeUkemiPool({ call: mixed, ethCallProviders: eps, getLogsProviders: eps }).ethCall("0xa", "0xb", 1), ConcordantRevertError, "data \"0x\" and absent-data both key on the message ⇒ concordant (the !== \"0x\" guard)");
+});
+
+// M6 — isRpcRevert REJECTS an archive miss: a -32000 whose message is "header not found" / "missing trie node"
+// is transport (benched), not a revert; a code 3 with no revert word is not a revert either. Killer for the
+// mutation that drops the message clause. That clause is what separates a real revert from an archive miss.
+test("ukemi_is_rpc_revert_rejects_archive_miss", () => {
+  assert.equal(isRpcRevert(new RpcError("header not found", -32000)), false, "archive miss (header not found) is transport, not a revert");
+  assert.equal(isRpcRevert(new RpcError("missing trie node 0xabc (path ) <nil>", -32000)), false, "archive miss (missing trie node) is transport");
+  assert.equal(isRpcRevert(new RpcError("some node failure", 3)), false, "code 3 without a revert word is not classed a revert");
+  assert.ok(isRpcRevert(new RpcError("execution reverted", 3)), "positive control: code 3 naming a revert");
+  assert.ok(isRpcRevert(new RpcError("execution reverted: out of gas", -32000)), "positive control: -32000 naming a revert");
+});
+
+// Non-LLM oracle on the REAL record.ts defaultCall (fetch → typed RpcError → quorum2 → book tolerance) — the link
+// neither the worker nor the G2 delta executed. globalThis.fetch is stubbed (fully typed, no `any`; restored in a
+// finally) to serve the fixture bytes over JSON-RPC (HTTP 200) and to answer description() per scenario. 7 cases.
+// Per-test 10s cap (checkpoint-2 V-1(b), orchestrator ruling 2026-09-19): case (c) serves a PERSISTENT 429, which a
+// correct bounded retry throws at once but an unbounded-retry regression (mutant R2) would loop on — { timeout: 10_000 }
+// reds it in ≤ 10s under R2 with --test-force-exit. In ukemi-record.test.ts, retry_is_bounded and the 5xx backoff-cap
+// test serve a 200 beyond retries+1, so R2 (which unbounds only the HTTP path) makes those two resolve and red in ms.
+test("ukemi_default_call_classifies_rpc_errors", { timeout: 10_000 }, async () => {
+  const eps4 = ["https://one.example", "https://two.example", "https://three.example", "https://four.example"];
+  const isDescData = (data: string): boolean => data.toLowerCase().startsWith(SEL.description.toLowerCase());
+  const jsonResp = (body: unknown, status = 200): Response => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  type OnDesc = (url: string) => Response | null;
+  const original = globalThis.fetch;
+  const installStub = (onDesc: OnDesc): void => {
+    const stub = (input: string | URL, init?: RequestInit): Promise<Response> => {
+      const url = String(input);
+      const req = JSON.parse(typeof init?.body === "string" ? init.body : "{}") as { id: number; method: string; params: unknown[] };
+      const wrap = (result: unknown): Response => jsonResp({ jsonrpc: "2.0", id: req.id, result });
+      if (req.method === "eth_getBlockByNumber") return Promise.resolve(wrap({ hash: FX.block_hash, number: "0x" + FX.block.toString(16), timestamp: "0x" + FX.block_ts.toString(16) }));
+      if (req.method === "eth_getLogs") return Promise.resolve(wrap(FX.enumeration_logs));
+      const p = (req.params as ReadonlyArray<{ to: string; data: string }>)[0]!;
+      if (isDescData(p.data)) { const r = onDesc(url); if (r) return Promise.resolve(r); }
+      const v = FX.calls[`${p.to.toLowerCase()}|${p.data.toLowerCase()}`];
+      return Promise.resolve(v === undefined ? jsonResp({ jsonrpc: "2.0", id: req.id, error: { code: -32000, message: "fixture miss" } }) : wrap(v));
+    };
+    globalThis.fetch = stub as typeof globalThis.fetch;
+  };
+  const runBook = async (onDesc: OnDesc): Promise<{ book_digest: string; descs: string[] }> => {
+    installStub(onDesc);
+    const pool = makeUkemiPool({ call: defaultCall, ethCallProviders: eps4, getLogsProviders: eps4, minIntervalMs: 0 });
+    const r = await recordBook(CLUSTER_WETH, FX.block, pool);
+    const parsed = JSON.parse(canonicalStringify(r.book)) as { reserves: Array<{ oracle_description: string }> };
+    return { book_digest: r.book_digest, descs: parsed.reserves.map((x) => x.oracle_description) };
+  };
+  const revert3 = (): Response => jsonResp({ jsonrpc: "2.0", id: 1, error: { code: 3, message: "execution reverted" } });
+  try {
+    const base = await runBook(() => null);
+    assert.equal(base.book_digest, PIN.book_digest, "baseline via the real defaultCall reproduces the pinned digest");
+    const a = await runBook(() => revert3());
+    assert.deepEqual(a.descs, ["", "", ""], "(a) concordant code-3 revert on every description() ⇒ all \"\"");
+    assert.notEqual(a.book_digest, PIN.book_digest, "(a) emptying a digest field changes the digest");
+    const a2 = await runBook(() => jsonResp({ jsonrpc: "2.0", id: 1, error: { code: -32000, message: "execution reverted", data: "0x" } }));
+    assert.deepEqual(a2.descs, ["", "", ""], "(a') concordant -32000 revert ⇒ all \"\"");
+    await assert.rejects(() => runBook((url) => (url === eps4[0] ? null : revert3())), QuorumDisagreementError, "(b) value/revert split ⇒ abstain");
+    await assert.rejects(() => runBook((url) => (url === eps4[0] ? revert3() : jsonResp({ error: "rate limited" }, 429))), NoQuorumError, "(c) revert + HTTP 429 ⇒ no quorum");
+    await assert.rejects(() => runBook(() => jsonResp({ jsonrpc: "2.0", id: 1, error: { code: -32000, message: "header not found" } })), NoQuorumError, "(f) archive miss ⇒ transport ⇒ no quorum");
+    await assert.rejects(() => runBook(() => jsonResp({ jsonrpc: "2.0", id: 1, error: { message: "execution reverted" } })), NoQuorumError, "(i) JSON-RPC error without a code ⇒ transport (fail-safe)");
+  } finally {
+    globalThis.fetch = original;
+  }
 });
 
 // ── 1 — the deliverable oracle: replay the reduced book, digest is bit-identical ────────────────────────
