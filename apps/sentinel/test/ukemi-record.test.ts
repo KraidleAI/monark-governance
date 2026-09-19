@@ -224,14 +224,15 @@ test("ukemi_record_deduplogs_keys_on_full_log_tuple", () => {
 // that ignored the cap (mutant G2-2 ⇒ backoffMs*2**attempt) would pay ~700ms even when capped. Threshold 200ms (not
 // the ~50ms sketch): measured capped wall on Windows is ~45-69ms (15.6ms timer granularity x 3 sleeps), uncapped
 // ~715ms; 200ms sits ~3.5x under the 600ms floor and reds the ~700ms mutant while immune to CI timer jitter (G2:139
-// itself proposed a robust sub-100ms bound; the mission asks for wide CI margins). Exercises the 5xx call-site; the network-fault
-// call-site is the same one-liner (backoffDelay) by inspection.
-test("ukemi_record_backoff_cap_is_wired_at_call_site", async () => {
-  const serve503 = (): Response => jsonResp({ error: "down" }, 503); // every attempt a transient 5xx ⇒ the retry call-site sleeps
+// itself proposed a robust sub-100ms bound; the mission asks for wide CI margins). Exercises the 5xx call-site; the
+// network-fault call-site has its OWN killer below (ukemi_record_backoff_cap_is_wired_at_network_fault_call_site, V-E).
+test("ukemi_record_backoff_cap_is_wired_at_call_site", { timeout: 10_000 }, async () => {
+  const RETRIES = 3; // 503 for attempts 0..RETRIES then a 200 on the 5th call — a bounded loop throws on the 4th 503
+  // (measurement unchanged: 4 attempts = 3 waits); an unbounded R2 regression RESOLVES ⇒ assert.rejects reds in ms.
   const measure = async (backoffCapMs: number): Promise<number> => {
     const t0 = performance.now();
-    await withFetch(serve503, async () => {
-      const call = makeDefaultCall({ retries: 3, backoffMs: 100, backoffCapMs });
+    await withFetch((attempt, req) => (attempt <= RETRIES ? jsonResp({ error: "down" }, 503) : jsonResp({ jsonrpc: "2.0", id: req.id, result: "0x2a" })), async () => {
+      const call = makeDefaultCall({ retries: RETRIES, backoffMs: 100, backoffCapMs });
       await assert.rejects(() => call("https://one.example", "eth_call", [{ to: "0x0", data: "0x0" }]), /HTTP 503/);
     });
     return performance.now() - t0;
@@ -240,4 +241,30 @@ test("ukemi_record_backoff_cap_is_wired_at_call_site", async () => {
   const uncapped = await measure(1_000_000);
   assert.ok(capped < 200, `backoffCapMs:1 bounds the real inter-attempt waits at the call-site (measured ${capped.toFixed(1)}ms; a cap-ignoring call-site would pay ~700ms)`);
   assert.ok(uncapped >= 600, `control: with the cap not binding, the three real waits are ~700ms (measured ${uncapped.toFixed(1)}ms) — the timing discriminator is live`);
+});
+
+// (V-E, hardens O-1) The SAME cap must bind at the OTHER retry call-site — the network/timeout (transport) fault path,
+// where fetch itself throws (no Response). Symmetric timing discriminator: with retries:3, backoffMs:100 the three
+// inter-attempt waits are 100+200+400=700ms uncapped but clamp to ~1ms each at backoffCapMs:1. A call-site that ignored
+// the cap on THIS path only (mutant "V-E cap ignored at network-fault call-site ONLY": sleep(backoffMs*2**attempt) at
+// the transport catch, record.ts:67) would still pay ~700ms when capped ⇒ red, while backoff_cap_is_wired (the 5xx
+// site) stays green. §F belt: the stub throws for attempts 0..RETRIES then a 200 on the 5th call, so an unbounded
+// regression on this path RESOLVES fast instead of hanging; { timeout: 10_000 } on top.
+test("ukemi_record_backoff_cap_is_wired_at_network_fault_call_site", { timeout: 10_000 }, async () => {
+  const RETRIES = 3;
+  const measure = async (backoffCapMs: number): Promise<number> => {
+    const t0 = performance.now();
+    await withFetch((attempt, req) => {
+      if (attempt <= RETRIES) throw new TypeError("network down"); // transport fault ⇒ fetch throws ⇒ the catch-path sleeps
+      return jsonResp({ jsonrpc: "2.0", id: req.id, result: "0x2a" }); // 5th call: only an unbounded loop reaches it
+    }, async () => {
+      const call = makeDefaultCall({ retries: RETRIES, backoffMs: 100, backoffCapMs });
+      await assert.rejects(() => call("https://one.example", "eth_call", [{ to: "0x0", data: "0x0" }]), /network down/);
+    });
+    return performance.now() - t0;
+  };
+  const capped = await measure(1);
+  const uncapped = await measure(1_000_000);
+  assert.ok(capped < 200, `backoffCapMs:1 bounds the real inter-attempt waits at the network-fault call-site (measured ${capped.toFixed(1)}ms; a cap-ignoring transport path would pay ~700ms)`);
+  assert.ok(uncapped >= 600, `control: with the cap not binding, the three real transport-retry waits are ~700ms (measured ${uncapped.toFixed(1)}ms)`);
 });

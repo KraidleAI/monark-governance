@@ -1109,3 +1109,36 @@ test("series_pinned_are_declared_and_hashed — every R-25-excluded data file is
     "walk did not reach the sentinel boundary fixture (broken apps/sentinel/test/fixtures root?)",
   );
 });
+
+// (checkpoint-2 V-1(b)/V-3, 2026-09-19) The CI hang backstops are LOCKED, not merely present by inspection: (a) EVERY
+// job under `jobs:` carries a job-level `timeout-minutes` <= 20 (a hung run — e.g. an unbounded recorder retry — cannot
+// pend a job toward GitHub's 6h ceiling); (b) package.json `scripts.test` carries both `--test-timeout=` (per-test
+// guard) and `--test-force-exit` (exit even if a handle leaks after the tests settle). Mutants (measured in the pli):
+// drop a job's timeout-minutes => red; set one to 30 => red; drop --test-force-exit => red. Job keys are the 2-space
+// entries of the top-level `jobs:` block (not a global regex); the timeout line is anchored at the 4-space (job) column
+// so a step-level (8-space) timeout-minutes cannot masquerade as the job backstop.
+test("ci_jobs_have_timeout_and_test_flags_locked — per-job timeout-minutes <= 20 + test guards (checkpoint-2 V-1(b)/V-3)", () => {
+  const jobsIdx = LINES.findIndex((l) => /^jobs\s*:/.test(l));
+  assert.notEqual(jobsIdx, -1, "top-level key 'jobs:' missing from the workflow");
+  const jobs: { name: string; start: number }[] = [];
+  for (let i = jobsIdx + 1; i < LINES.length; i++) {
+    const l = LINES[i]!;
+    if (/^\S/.test(l) && !/^\s*#/.test(l)) break; // a column-0 non-comment key ends the jobs block
+    const m = /^  ([A-Za-z0-9_-]+)\s*:\s*$/.exec(l); // a job key: exactly 2-space indent, bare `name:`
+    if (m && m[1]) jobs.push({ name: m[1], start: i });
+  }
+  assert.ok(jobs.length >= 5, `expected >= 5 jobs under jobs:, saw ${jobs.length} (${jobs.map((j) => j.name).join(",")})`);
+  for (let j = 0; j < jobs.length; j++) {
+    const end = j + 1 < jobs.length ? jobs[j + 1]!.start : LINES.length;
+    const block: string[] = [];
+    for (let i = jobs[j]!.start + 1; i < end; i++) block.push(LINES[i]!.replace(/#.*$/, ""));
+    const tmLine = block.find((l) => /^    timeout-minutes\s*:\s*\d+\s*$/.test(l)); // 4-space = job level (not an 8-space step)
+    assert.ok(tmLine, `job '${jobs[j]!.name}' has no job-level timeout-minutes (a hung run could pend it to GitHub's 6h ceiling; checkpoint-2 V-1(b))`);
+    const minutes = Number(tmLine.replace(/\D/g, ""));
+    assert.ok(minutes <= 20, `job '${jobs[j]!.name}' timeout-minutes=${minutes} exceeds the 20-minute backstop (checkpoint-2 V-1(b))`);
+  }
+  const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: { test: string } };
+  const testScript = pkg.scripts.test;
+  assert.match(testScript, /--test-timeout=\d+/, "scripts.test must carry --test-timeout=<ms> (the per-test hang guard, checkpoint-2 V-1(b))");
+  assert.ok(testScript.includes("--test-force-exit"), "scripts.test must carry --test-force-exit (exit even if a handle leaks after the tests settle)");
+});

@@ -156,8 +156,9 @@ test("ukemi_is_rpc_revert_rejects_archive_miss", () => {
 // neither the worker nor the G2 delta executed. globalThis.fetch is stubbed (fully typed, no `any`; restored in a
 // finally) to serve the fixture bytes over JSON-RPC (HTTP 200) and to answer description() per scenario. 7 cases.
 // Per-test 10s cap (checkpoint-2 V-1(b), orchestrator ruling 2026-09-19): case (c) serves a PERSISTENT 429, which a
-// correct bounded retry throws at once but an unbounded-retry regression (mutant R2) would loop on — so this test
-// (the only fetch-loop test in the pair, measured) reds in ≤ 10s under R2 with --test-force-exit, never hangs the suite.
+// correct bounded retry throws at once but an unbounded-retry regression (mutant R2) would loop on — { timeout: 10_000 }
+// reds it in ≤ 10s under R2 with --test-force-exit. In ukemi-record.test.ts, retry_is_bounded and the 5xx backoff-cap
+// test serve a 200 beyond retries+1, so R2 (which unbounds only the HTTP path) makes those two resolve and red in ms.
 test("ukemi_default_call_classifies_rpc_errors", { timeout: 10_000 }, async () => {
   const eps4 = ["https://one.example", "https://two.example", "https://three.example", "https://four.example"];
   const isDescData = (data: string): boolean => data.toLowerCase().startsWith(SEL.description.toLowerCase());
