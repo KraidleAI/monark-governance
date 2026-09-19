@@ -45,7 +45,7 @@ are the point: they say what exists today and what is only named.
 
 **Built** (Phase one, closed under an independent review and a closing verdict):
 
-- **Shōgen** — attested perception (verified price testimony)
+- **Shōgen** — attested perception (an attested price testimony — origin and bytes, never truth)
 - **Hikae** — coverage-controlled inference (the gate)
 - **Ukemi** — liquidation-cascade survival
 
@@ -95,7 +95,7 @@ outside that region, *not* a delivered prediction product:
 ## The interlocking (why the agents work together)
 
 ```
-sensors (attest)  →  the gate: Hikae + MONARK B_t  →  acts (execute)
+sensors (attest)  →  the gate: Hikae + MONARK B_t  →  acts (execute · upcoming)
                         commit | defer | abstain
 ```
 
@@ -108,8 +108,8 @@ The interface is frozen and language-neutral (source of truth: `schemas/*.json`)
 
 | Contract | Producer | Meaning |
 |---|---|---|
-| `AttestedPrice` | Shōgen | A **verified** testimony (bytes + hash + named residual hypotheses). The price *number* is interpreted by a Hikae-side adapter — Shōgen deliberately carries no number and no score. |
-| `AttestedFlow` | Narabi | A **verified** testimony of redemption flow (bytes + hash + a **closed** `residual[]` enum). `burns`/`mints`/`supply` are carried **raw** over a block window — no score, no price; the velocity is derived downstream by the velocity adapter, never pre-computed. |
+| `AttestedPrice` | Shōgen | An **attested** testimony (bytes + hash + named residual hypotheses) — origin and bytes, never truth. The price *number* is interpreted by a Hikae-side adapter — Shōgen deliberately carries no number and no score. |
+| `AttestedFlow` | Narabi | An **attested** testimony of redemption flow (bytes + hash + a **closed** `residual[]` enum) — origin and bytes, never truth. `burns`/`mints`/`supply` are carried **raw** over a block window — no score, no price; the velocity is derived downstream by the velocity adapter, never pre-computed. |
 | `Prediction` | any predictor | The `ŷ` Hikae conformalises, with `predictor_id` (venue/model). |
 | `CoverageVerdict` | Hikae | Conformal region — **polymorphic** `set` (classification) \| `interval` (regression, so Ukemi plugs in). No `p_correct` field. |
 | `GateDecision` | Hikae L3 | `commit \| defer \| abstain` + `remaining_budget` = `B_t`, the depletable conformal authorization capacity that attaches to MONARK (never a return). |

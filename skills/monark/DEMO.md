@@ -58,6 +58,9 @@ The region is `[ŷ−q̂, ŷ+q̂] = [−1, 1]`; its width 2 is below `tauInterva
 `[−1, 1]`, so the decision is `commit` / `covered`. `remaining_budget` echoes the B_t you passed in —
 the stateless server never depletes it.
 
+`attested` is not part of this BYO loop: `gate` here takes only `{prediction, params}`. A bring-your-own
+call that carries an `attested` intake is refused in this phase — see `SKILL.md`.
+
 ## 3. Audit — the loop closes
 
 The gate verdict carries `calib_digest`; the calibrate call returned `set_digest`. Because both are

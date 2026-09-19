@@ -36,3 +36,12 @@ registre « built » ⇔ chemin servi + test d'intégration, vérifié sur pièc
 - Item formé : ajout du champ `wiring` et extension du test de gel du registre (lot **W-1**, `apps/site/lib/fleet.ts` + test, R-25 < 400,
   après P1-b3 pour refléter le vrai état) ; jusque-là aucune surface publique ne change.
 - Journal : entrée dédiée ; règle globale et CA-11 écrites le 2026-09-19.
+
+## Amendement D2 — 2026-09-19, ratifié par l'investisseur (décision 23)
+**Ratification.** L'investisseur (décision 23, 2026-09-19) ratifie l'amendement de **D2** proposé par ADR-M019 D3.
+L'énoncé original de D2 (l.22) — « Ukemi (`cascade` servi sur graphe fixture ; **sa sortie n'est consommée par aucun chemin servi** ⇒ **à requalifier au G2 de P1-b3**) » — est **périmé** (prémisse « Ukemi non consommé » **fausse**). Il **n'est pas réécrit** (traçabilité) ; il est ici **cité comme périmé** et remplacé, pour la qualification d'Ukemi, par le texte exact proposé par ADR-M019 D3.
+**Mesure (corrige la prémisse).** Le tuyau `cascade → gate` est **mesuré et branché depuis P1** : cartographie P1 (`docs/CARTOGRAPHIE-P1-2026-09-19.md`) §2 l.62 (`cascade → gate` **CÂBLÉ (servi), vacue**, probe `probe_harness_records_real_decision` + `docs/cartographie-p1/vacuity-replay.mjs`) et §3 l.86 (ligne registre **Ukemi** : `cascade → gate`, servi, vacue). Mesure [lu] : `fixtures/h5-e2e-trace.json` étape 4 `cascade-gate`.
+**Texte ratifié (verbatim ADR-M019 D3).**
+> Ukemi (`cascade` servi sur graphe fixture) : sa prédiction **est** consommée par le `gate` servi sur le fil réel (trace h5 étape 4 `cascade-gate`, probe) mais le gate **abstient `under_calib` par construction** (aucune calibration cascade committée) et le **contenu** de la prédiction n'influence pas la décision (vacuité mesurée) ⇒ statut `built`/`upcoming` tranché par l'investisseur en P1-b3 (ADR-M019 D4), jamais implicite.
+
+**Effet.** Statut de registre d'Ukemi = **`built`** (tranché par l'investisseur, ADR-M019 D4) ; le champ `wiring` (lot W-1) dit honnêtement « abstains under_calib by construction ». Les autres énoncés de D2 (Shōgen, Hikae, Narabi, extension du gel `fleet_register_built_set_is_frozen`) sont **inchangés**. Provenance : rédigé par le worker `claude-opus-4-8` (lot E-honnêteté), sous orchestration `claude-fable-5-1`, sur ratification investisseur décision 23 du 2026-09-19.

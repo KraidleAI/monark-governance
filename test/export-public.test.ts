@@ -252,9 +252,21 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
     //     a French word in an exported apps/harness .ts reds the export here.
     //     The `skills` scope (Lot M006-B, ADR-M006 D5) does the same for the now-exported skills/ artefacts:
     //     a French string in an exported SKILL.md/INTEGRATION.md reds the export here.
+    //     The `sentinel` scope (C-11 i, ADR-EC) gives the now-exported apps/sentinel (APP_PACKAGE_DIRS)
+    //     English-only teeth on the export.
     execFileSync(
       process.execPath,
-      [join(ROOT, "scripts", "lang-gate.mjs"), "--dir", out, "--scope", "root,contracts,schemas,site,harness,skills"],
+      [join(ROOT, "scripts", "lang-gate.mjs"), "--dir", out, "--scope", "root,contracts,schemas,site,harness,skills,sentinel"],
+      { cwd: ROOT, stdio: "pipe" },
+    );
+
+    // (c-bis) C-11 i (ADR-EC): apps/bell is NOT in the export whitelist (APP_PACKAGE_DIRS / WHITELIST_DIRS),
+    //     so gating `bell` on the EXPORT `out` would be a false-green (0 files -> 0 hits). The real gate for
+    //     the bell source is the repo SOURCE tree: run lang-gate on ROOT with --scope sentinel,bell and assert
+    //     green, so a French token in apps/bell/src (or apps/sentinel/src) reds CI here.
+    execFileSync(
+      process.execPath,
+      [join(ROOT, "scripts", "lang-gate.mjs"), "--scope", "sentinel,bell"],
       { cwd: ROOT, stdio: "pipe" },
     );
 

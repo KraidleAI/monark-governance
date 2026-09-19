@@ -15,13 +15,6 @@
  * (amended 2026-09-18) and ADR-M005 D3 (supersession declared).
  */
 
-/**
- * MONARK phase marker (ADR-M003). Phase 2 = integration. The served composition itself lives in
- * `apps/harness` (the `attest` / `gate` / `cascade` tools over the frozen contracts), not in this
- * package; this constant records the package's declared phase.
- */
-export const MONARK_PHASE = "2-integration";
-
 // Adapter surface — re-exported on the barrel for downstream consumers (the harness `attest`
 // tool, ADR-M005 H3). `@monark/monark` exposes a single `.` entry (package.json `exports`), so the barrel
 // is where the Shogen -> AttestedPrice adapter is published. Additive; the frozen contracts are unchanged.
