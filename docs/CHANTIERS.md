@@ -1,5 +1,5 @@
 # Tableau de bord des chantiers — MONARK (tenu par l'orchestrateur, mis à jour à chaque événement)
-Dernière mise à jour : 2026-09-19 (fenêtre publique : 5 branches poussées ; U-1b-a lancé ; re-relecture U-1a en cours ; recherche jeu T-3 ; décision R-25 due)
+Dernière mise à jour : 2026-09-19 (ADR-EC checkpoint-1 plié ; E-honnêteté + E-registre lancés ; Helius posée ; L12 lue, SSRN 6711813 en lecture ; Q1-Q4 + R-25 dus)
 
 ## A. Passe P1 — branchement (ADR-M017/M018/M019) — **CLOSE** (G7 de passe `16ec12a`, checkpoint-2 de clôture accepte-avec-corrections C-1..C-6 pliées)
 | Lot | État | Prochaine action | Bloqué par |
@@ -9,6 +9,7 @@ Dernière mise à jour : 2026-09-19 (fenêtre publique : 5 branches poussées ; 
 | Cartographie M018 D4 | LIVRÉE `e447adf` (2 tuyaux branchés, mensonge retiré, écarts E2/E9/E10/E5 formés) | — | — |
 | Rapport de passe P1 | CLOS `16ec12a` ; G2 b3 persistée ; 24 corrections par origine ; zéro dette nue | — | — |
 | **Escalade M018 D4** (« corrigée avant toute nouvelle pièce » vs U-1a/T-1a/R-25 déjà lancés) | **TRANCHÉE (b)** par l'investisseur (décision 18) : lot **E-bon-marché** (E5 test deps, E9 région numérique + re-pin h5, E10 snapshot Narabi) **LIVRÉ** `bbf53ce` → G2 RÉVISION REQUISE (C2 voie servie `stableRunVerdict` non énumérée, mutant :481 survivant ; C1 sha) → pliée `30665f4`/`5d24cb9`, G2 persistée `bb8f049` → checkpoint-2 ACCEPTE-AVEC-CORRECTIONS (C-1 amendement ADR-M019 D2 digest reproductible, C-2 PROVENANCE-h5 same-line) → **G7 CLOS `16cd39e`, fusionné `4ffe553`** (292/292 après fusion) avant fusion de U-1a/T-1a ; (a) amendement M018 réservé aux écarts coûteux | **FAIT** : E-bon-marché fusionné `4ffe553` avant U-1a/T-1a | — |
+| **Lots E-coûteux (ADR-EC `3f69ef6`, plan « ok plan » 2026-09-19, checkpoint-1 APPROUVÉ-AVEC-CORRECTIONS C-1..C-11 pliées + confirmation légère)** | **E-honnêteté EN COURS** (worker, `F:\Monark-wt-ehonnetete`, T0 : E7 ×6 exacts, oracle racine négation-aware, skill/DEMO, E8, lang-gate scopes sentinel/bell, ADR-M009 49,1 %, README:98) ; **E-registre EN COURS** (worker, `F:\Monark-wt-eregistre`, T2 : E2 `integration_test[]`, E3 test nommé, E6 `wiring.note` digit-free, board.tsx:84) ; H-attested (E1) après U-1b-a ; K-1 après E-registre ; cartographie pré-release sur le SHA candidat (gel des fusions jusqu'au tag) | G2 fraîches → checkpoints-2 → G7 → fusions ; **ESCALADE investisseur Q1-Q4** (définition zéro dette D3 vs décision 19 ; clé Narabi sur VPS ; ratification ADR-M018 D2 ; applicabilité CRA) | investisseur (Q1-Q4) |
 | Miroir public + PR empilées (#78-#83, lot/etude-suite, p1-b*, w-1) | EN ATTENTE fenêtre publique | push au go investisseur | investisseur |
 
 ## B. Ukemi — programme « au paroxysme » (décision investisseur 2026-09-19)
