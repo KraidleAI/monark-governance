@@ -22,13 +22,18 @@ Décision investisseur 38 (« on va trouver un RPC qu'on va payer si non ; en pl
 ### dRPC (136 chaînes) — `drpc.org/pricing`
 - **Modèle** : Free **210 M CU/mois**, nœuds publics seulement, 100 RPS ; Growth **6 $ / 1 M requêtes**, nœuds haute performance, 5 000 RPS, 99,99 % ; paiement crypto ; debug/trace.
 - **Apport** : déjà l'un des cinq keyless d'Ukemi ; le plan Growth lève probablement la limite « ranges over 10000 blocks are not supported on free plan » (mesurée U-1a-hard) — à vérifier sur pièce (non lu sur la page).
-### Chainstack — `chainstack.com/pricing` (page partiellement rendue)
-- Lu : « Unlimited Node » **dès 149 $/mois pour 25 RPS**, requêtes illimitées dans le palier RPS. Reste à lire : plans Developer/Growth, archive, chaînes. **Visite à refaire.**
+### Chainstack (Ethereum, Solana, Arbitrum, Base, BNB, …) — `chainstack.com/pricing` (visite complète)
+- **Modèle** : Developer **Free** 3 M request units (RU)/mois, 25 RPS, 1 nœud, WebSockets, paiement crypto — **sans archive** ; **Growth 49 $/mois** : 20 M RU, 250 RPS, 10 nœuds, **Archive Data** + add-ons ; Pro 199 $ (80 M RU, 400 RPS, nœuds dédiés) ; Business 499 $ ; extra 10-20 $/M RU ; « Unlimited Node » dès 149 $/mois (25 RPS, requêtes illimitées) ; Yellowstone Geyser gRPC en add-on ; SOC 2 / ISO 27001 ; 99,99 %.
+- **Apport** : second EVM **et** Solana avec archive dès 49 $/mois, multi-chaînes (Base, Arbitrum, BNB listées) ; convertisseur d'unités vers QuickNode/Alchemy utile pour comparer. Réserve : « What happened to included Archive node requests? » dans la FAQ — la tarification archive a changé, à lire avant engagement.
+### Ankr (75+ chaînes) — `ankr.com/rpc/pricing`
+- **Modèle** : Freemium 30 req/s, chaînes limitées ; **Pay-as-you-go dès 10 $ / 100 M crédits (≈ 500 k requêtes)**, 1 500 req/s ; tarif **EVM 0,02 $ / 1 000 requêtes ; Solana 0,05 $ / 1 000** ; Deal mensuel dès 500 $ ; gRPC 0,001 $/1 000 appels + 0,5 $/Go.
+- **Apport** : le moins cher à l'appel (Solana 50 $/M, EVM 20 $/M — mais Triton est à 10 $/M sur Solana) ; multi-chaînes ; utile comme troisième source de quorum bon marché. Profondeur d'archive Solana non lue sur la page (à mesurer).
 ### Non encore visités
-Ankr (cité par le comparateur dRPC), Chainstack (suite), fournisseurs spécifiques aux chaînes remontées par le census (Robinhood Chain, Base).
+Fournisseurs spécifiques aux chaînes remontées par le census (Robinhood Chain, Base natifs).
 
 ## Lecture orchestrateur (préliminaire, avant le census)
 - **Solana** : **Triton** comme second archival (125 $ de dépôt, 10 $/M appels) — indépendant d'Helius, historique complet, même famille de méthodes. Alternative unique-compte : QuickNode Build (34-49 $/mois).
 - **EVM (Ethereum, BNB, Base, Arbitrum)** : les cinq keyless + **Alchemy Free** (archive, 30 M CU) comme sixième ; si les plages `getLogs` bloquent la course fondatrice : dRPC Growth (6 $/M req) ou QuickNode Build.
+- **Multi-chaînes en un compte** : Chainstack Growth (49 $/mois, archive, EVM + Solana) est le concurrent direct de QuickNode Build (34-49 $) ; Ankr PAYG (10 $ d'entrée) le plus flexible pour un troisième fournisseur.
 - Ordre de grandeur mensuel plausible : **< 100 $** pour les deux jambes (à confirmer par le compte d'appels par session du census).
 - Aucune de ces pages ne remplace la mesure : chaque candidat retenu sera **benché par le collecteur** (profondeur réelle, formes d'erreur, latence) avant d'entrer dans le quorum.
