@@ -19,12 +19,18 @@ Worker `claude-opus-4-8[1m]` (résolu tel quel, R-1), effort max · 2026-09-20 �
 | `docs/adr/ADR-U3-realized-labels.md` | 84 | exclu |
 | `docs/PLI-lot-u3.md` | 88 | exclu (docs/**/*.md, ce fichier) |
 
-> Comptes du tableau = état gelé au commit lot `6cd991c` (ses **11 fichiers**, dont ce PLI à 88 lignes) + `docs/PLAN-u3-prereg.md` (committé seul en `e87549a`, C-10) = **12**. Le **pli documentaire 2** (C-G2-1..6) modifie **4 fichiers docs seulement** (census, PLI, PROVENANCE, ADR) sans toucher séries/script/test ; touched set, sha LF avant/après et preuves = **Annexe pli 2** ci-dessous. Parmi ces 4, **seul `PROVENANCE-u3.md` est compté en R-25** : modifié (C-G2-4/5) mais **62 lignes inchangées** ⇒ R-25 = 825 inchangé (census/PLI/ADR sont `docs/**/*.md`, exclus).
+> Comptes du tableau = état gelé au commit lot `6cd991c` (ses **11 fichiers**, dont ce PLI à 88 lignes) + `docs/PLAN-u3-prereg.md` (committé seul en `e87549a`, C-10) = **12**. Le **pli documentaire 2** (C-G2-1..6) modifie **4 fichiers docs seulement** (census, PLI, PROVENANCE, ADR) sans toucher séries/script/test ; touched set, sha LF avant/après et preuves = **Annexe pli 2** ci-dessous. Parmi ces 4, **seul `PROVENANCE-u3.md` est compté en R-25** : modifié (C-G2-4/5) mais **62 lignes inchangées** ⇒ R-25 = 825 inchangé (census/PLI/ADR sont `docs/**/*.md`, exclus). Le **pli documentaire 3** (checkpoint-2, C-V-1..3) ajoute `docs/CHECKPOINT2-lot-u3.md` (**13ᵉ** fichier, `docs/**/*.md` exclu) et modifie census/ADR/PLI (docs, exclus) + **une ligne** de `u3-realized.d.mts` (compté, édition **en place**) ; touched set, sha LF avant/après et R-25 **mesuré** = **Annexe pli 3** ci-dessous.
 
 **Non touchés** : `apps/sentinel/src/**` (rpc.ts, rpc2.ts, abi.ts, windows.ts, clusters.ts **réutilisés sans modification**),
 `fleet.ts`, `schemas/**`, `packages/hikae/src/liquidable-24h.ts`, tout code Narabi/Bell. `ukemi_sha` **intact** (aucun
-`.ts` ajouté sous `apps/sentinel/src/ukemi/`). Ordre C-10 respecté : le prereg est écrit et haché **avant** tout appel réseau ;
-il est le premier fichier committé par l'orchestrateur (le script refuse de démarrer sans `--prereg-sha` = son sha LF).
+`.ts` ajouté sous `apps/sentinel/src/ukemi/`). **Preuve de pré-enregistrement (C-V-3)** : ce **n'est pas** l'ordre des commits
+qui la porte — les commits du lot (`e87549a`/`6cd991c` @ 04:42:34/35 +0100, `git log`-vérifiable) sont **postérieurs** aux
+tirages (bruts 03:57→04:20, CHECKPOINT2 CA-8), donc
+l'ordre des commits ne prouve que l'**immuabilité du blob**, pas son antériorité. La preuve **imposée par le système** est le
+**garde `--prereg-sha`** du script (il refuse de démarrer sans `--prereg-sha` = le sha LF de `PLAN-u3-prereg.md`, `835805cc…`)
+**+ `meta.prereg_sha`** écrit dans `U3-inputs.jsonl` et le manifeste des bruts. Ordre C-10 : le prereg est écrit et haché
+**avant** tout appel réseau. **Règle U-4 et suivants** : l'orchestrateur committe le prereg **avant** de lancer le worker de
+tirage (rend l'antériorité aussi vérifiable par l'ordre des commits, en plus du garde).
 
 ## 2. R-25
 **825 insertions comptées** (`git diff --shortstat 13b8391 --` avec les exclusions pathspec de `.github/workflows/ci.yml`) —
@@ -71,7 +77,8 @@ Le cross-check C-7 est **non-vacide** (vérifié : corrompre le repayment match�
 ## 7. Résultats mesurés (détail dans `docs/census-2026-09-20/U3-realized.md`)
 - e1 2025-02-21 sUSDe : 5 appels / **3 positions**, ~21,38 M$ (MATCH census A), pré-v3.3 ⇒ `deficit_topic_absent`.
 - e2 2025-10-10/11 WETH : 268 cluster / **239 in-window / 194 positions**, 29 `outside_window`, ~24,08 M$ repay / ~25,16 M$
-  seized / ~180 k$ déficit (4 positions), **28 `DeficitCreated`** dans la fenêtre (4 `in_event`, 24 `window_other`).
+  seized / ~180 k$ déficit (4 positions, dont **1 à base omise** — la Σ 180 k$ vient de 3, D-5), **28 `DeficitCreated`** dans la
+  fenêtre (**4/24** `in_event`/`window_other` règle implémentée, **3/25** règle pré-enregistrée — **D-5**, census §7).
 - e3 2026-01-19 sUSDe : 1 / **1**, ~3,32 M$ (MATCH census A).
 - **U3-H1** tenue (déficit dans e2) · **U3-H2** tenue (sources constantes aux deux bornes) · **U3-H3** tenue à l'unité
   (e1/e3 pré-chiffrés MATCH ; e2 identité + cross-check).
@@ -81,10 +88,20 @@ Le cross-check C-7 est **non-vacide** (vérifié : corrompre le repayment match�
 - **PR-U1-1** (procurement, investisseur) : Perez et al. *Liquidations: DeFi on a Knife-edge*, FC 2021 pp. 457-476,
   arXiv:2009.13235 — **Eq. 3 non paginée ([abs])** ; PDF paginé à procurer pour la citation de l'éligible statique en U-7.
   ŷ éligible = HF on-chain [lu] suffit pour U-4.
-- **`deficit_base_no_price`** (1 ligne, item de commodité non bloquant) : un déficit `bad_debt_other_reserve` porte sur une
-  réserve dont le prix n'a pas été tiré au bloc du déficit (seuls les prix debt/collateral des blocs de `LiquidationCall`
-  sont tirés) ⇒ `deficit_native` conservé, conversion base **omise et signalée** (jamais une tolérance muette). Déclencheur :
-  si U-4 a besoin du `deficit_base` des réserves croisées, tirer `getAssetPrice(réserve)@bloc` du déficit (≈ +qq appels).
+- **`deficit_base_no_price`** (1 ligne, item de commodité non bloquant) : la ligne `(0x15391e14, USDT, WETH)` porte un déficit
+  **`in_event`** (même debtAsset USDT, joint **sans tx** — D-5) dont le prix n'a **pas** été tiré au **bloc du déficit** 23550879
+  (≠ bloc de la `LiquidationCall` 23550406 ; seuls les prix debt/collateral des blocs de `LiquidationCall` sont tirés) ⇒
+  `deficit_native` conservé, conversion base **omise et signalée** (jamais une tolérance muette). **Pas** un
+  `bad_debt_other_reserve` (0 cas mesuré). Déclencheur : si U-4 a besoin du `deficit_base` de cette ligne, tirer
+  `getAssetPrice(USDT)@23550879` (≈ +qq appels) — mais trancher d'abord l'item d'attribution ci-dessous (D-5).
+- **Attribution du bad debt inter-tx à Y_{i,e}** (item formé, **D-5**) : le reducer joint `DeficitCreated` par
+  `(event, user, debtAsset)` **sans tx** (`u3-realized.mjs:145-146,195-196`), alors que le prereg §5/C-8 disait « par
+  debtAsset/tx ». Effet mesuré : le déficit USDT de `0x15391e14…` (cristallisé dans sa liquidation **collatéral USDC**
+  @23550879, tx `0x9b3ca43c…`, **pas** sa liquidation WETH @23550406 tx `0xc3de456c…`) est attribué à sa position WETH ⇒
+  `in_event` **4** vs **3** (règle pré-enregistrée) ; Σ `deficit_base` e2 **inchangée** (la ligne vaut 0 en base). **Question de
+  modélisation** : le bad debt cristallisé dans une **autre** tx du même user (même debtAsset) doit-il compter dans Y_{i,e} de
+  la position WETH ? **Déclencheur** : **checkpoint-1 U-4** (avant calibration). **Propriétaire** : orchestrateur.
+  `error_origin` worker + non-détection G2 (census §7 D-5).
 - **Tuyau U-4** : le test d'intégration du chemin consommé est **`u4_calibrates_from_u3_realized_labels`** (nom réservé dans
   ADR-U3, **écrit au lot U-4**). Sortie U-3 déclarée **`annex`** jusqu'à U-4 (CA-11) ; `fleet.ts` inchangé.
 - **Registre (hors U-3)** : `apps/site/lib/fleet.ts:155` porte encore le mot interdit (→ lot U-2) ; ADR-M020 D1 (b)
@@ -156,6 +173,82 @@ insertions(+)` (PROVENANCE 62 + `.d.mts` 64 + `.mjs` 601 + test 98 = 825 ≤ 120
 `lang:gate` 0 hit (scope `sentinel` inclus — PROVENANCE reste anglais) · `export:check` 0 chemin interdit / 0 hit FR ·
 `npx tsx --test test/u3-realized.test.ts` **4 pass / 0 fail** ; bonus `series_pinned_are_declared_and_hashed` **pass**
 (table sha PROVENANCE intacte).
+
+*Donnée brute pour l'orchestrateur (R-21) : vérifier adversarialement avant consommation. Le worker plie ; l'orchestrateur
+committe (R-20).*
+
+## Annexe — pli 3 (corrections checkpoint-2 C-V-1..3 + nit, worker)
+
+Worker `claude-opus-4-8[1m]` (résolu tel quel, R-1), effort max · 2026-09-20 · worktree `F:\Monark-wt-u3`, branche `lot/u-3`,
+HEAD `3a0cdd9` (e87549a → 6cd991c → f0eefb2 → 3a0cdd9, base R-25 `13b8391`) · scratch `F:\tmp\u3-3\` · **aucun commit, aucun
+workflow (R-20)** · offline (aucun RPC ; aucune variable d'environnement imprimée). Les corrections du checkpoint-2
+(`docs/CHECKPOINT2-lot-u3.md`, validateur `claude-fable-5-1`) sont **documentaires** + **1 ligne** de `.d.mts` ; **aucune** ne
+touche une série `.jsonl`, le script `.mjs` ni le test.
+
+**Corrections → fichiers :**
+- **C-V-1 (D-5, doc)** → census §7 : ajout de **D-5** (jointure du déficit `in_event` par `(event,user,debtAsset)` **sans tx**
+  — `u3-realized.mjs:145-146,192,195-196` — alors que prereg §5/C-8 `docs/PLAN-u3-prereg.md:137-138` disait « par
+  debtAsset/tx ») ; réécriture census §2 (résidus), §4 (4 `in_event` règle implémentée / 3 pré-enregistrée ; le déficit USDT
+  de `0x15391e14…` est cristallisé par une liquidation **collatéral USDC** @23550879, pas la WETH @23550406), §7 (U3-H1, D-1, D-2 ; comptes 24/28 → **25/28** selon la
+  règle ; le résidu `deficit_base_no_price` = déficit `in_event` même debtAsset sans prix au **bloc du déficit**, **0 cas**
+  `bad_debt_other_reserve`) ; PLI §7/§8 (item `deficit_base_no_price` reformulé + **item formé** « attribution du bad debt
+  inter-tx à Y_{i,e} » → checkpoint-1 U-4, propriétaire orchestrateur) ; ADR D1/D3 alignés (`in_event` joint par
+  `(user, debtAsset)` **dans la fenêtre, toute tx** ; `bad_debt_other_reserve` **0 cas**). Matérialité **rejouée par ce
+  worker** depuis `U3-realized.jsonl`/`U3-deficit.jsonl` **et** `A-rawlogs.jsonl` (sha `d0f4aa1e…` re-vérifié) : `in_event`
+  4→3, `window_other` 24→25, **Σ `deficit_base` e2 = 18 010 445 414 122 inchangée** (la ligne vaut `deficit_base:"0"`).
+  `error_origin` worker + non-détection G2.
+- **C-V-2 (mineure)** → `scripts/census/u3-realized.d.mts:2` : `apps/sentinel/test/u3-realized.test.ts` → `test/u3-realized.test.ts`
+  (édition **en place**, 1 ligne). **R-25 mesuré = 825 (inchangé)** — voir ci-dessous ; le `.d.mts` est un fichier **nouveau**
+  depuis la base `13b8391` (compté 64 lignes quel que soit son contenu), l'édition en place ne change pas le nombre
+  d'insertions ⇒ l'estimation « ≈827 » du checkpoint est **haute de +2**. Le sha du `.d.mts` change (table ci-dessous).
+- **C-V-3 (mineure, doc)** → PLI §1 : preuve de pré-enregistrement reformulée — l'**ordre des commits** (04:42:34/35,
+  postérieurs aux tirages 03:57→04:20) ne prouve que l'**immuabilité du blob**, pas l'antériorité ; la preuve imposée par le
+  système est le **garde `--prereg-sha`** + **`meta.prereg_sha`** (`835805cc…`) dans `U3-inputs.jsonl` ; règle U-4 : committer
+  le prereg **avant** de lancer le worker. **Item formé (hors périmètre de ce pli)** : `docs/G0-lot-u3.md:23` critère 6 porte
+  encore « vérifiable par l'ordre des commits » ; le checkpoint C-V-3 veut la même correction en G0 ; ma mission scope C-V-3 « dans
+  le PLI ». **Déclencheur** : le commit de ce pli par l'orchestrateur (aligner G0:23 ou former l'item). **Propriétaire** :
+  orchestrateur (R-20).
+- **Nit** → census §2 : « recoupent le census A » → « **à < 0,03 % près** (Δ 1 568 $ = 0,007 % e1 ; 931 $ = 0,028 % e3) »
+  (le libellé « ~0,01 % » du checkpoint sous-estimait e3 = 0,028 % ; valeur rendue exacte).
+
+**Touched set du pli 3 (5 fichiers) — sha256 LF (fichiers PURE-LF vérifiés : aucun `\r`) :**
+
+| Fichier | lignes (avant→après) | sha256 LF avant (HEAD `3a0cdd9`) | sha256 LF après |
+|---|---|---|---|
+| `docs/CHECKPOINT2-lot-u3.md` | (nouveau) → 61 | (absent) — copie **verbatim** de `F:\tmp\cp2-u3\CHECKPOINT2-lot-u3.md` (`cmp` identique) | `e594486ee9eb90608538e8535c4beba24053a20e54daf13dc7cf8eabc5b20864` |
+| `docs/census-2026-09-20/U3-realized.md` | 145 → 181 | `b5bdc1467159d39c19e805578b813edfc3b1d0a26dc5b17749b2279e7a443858` | `055d56ed9a97cb33d7a45d38250dc5330f90a7b0ef73886c97fef323898561b4` |
+| `docs/adr/ADR-U3-realized-labels.md` | 84 → 87 | `9f511315101af86e4e1a64be83860404971bd3ad2f905c4587eb20bb7bb18cb5` | `ead0ba0717fa0c383feb934a6d2d6319f7479d206c1e75ead7d1c1111466c2fd` |
+| `scripts/census/u3-realized.d.mts` | 64 → 64 | `c93927e2bfb365da2a72435bd6571d9b13154da13bce33421bfdca759c778276` | `98f076722d095642a80cb132d9483b0f534585da02688417456c28e0ef55f66d` |
+| `docs/PLI-lot-u3.md` | 161 → (post-annexe) | `b564981dba42d5b8e566f2c9649aae8e25a325dec76bf7db6544a30926fcdb9a` | **auto-référentiel** |
+
+Le sha256 LF **après** de ce PLI ne peut figurer dans le PLI (un fichier ne contient pas son propre hash). Recalcul
+orchestrateur (R-21) : `tr -d '\r' < docs/PLI-lot-u3.md | sha256sum`. Les shas `avant` du census/ADR/`.d.mts` **égalent** les
+shas « après » de l'Annexe pli 2 (census/ADR) et le blob `.d.mts` de la table pli 2 — chaîne de provenance continue.
+
+**`.d.mts` — `git hash-object` (le seul fichier compté R-25 touché) :** avant `b4f0c353248c448124e74a22fe8e416839af0225`
+→ après `42cbe8bc3699f9dd4cd5c81090c235fa2440e982`.
+
+**Séries `.jsonl` (×4) + script `.mjs` + test — sha INCHANGÉ** (`git hash-object` worktree = blob HEAD `3a0cdd9`, mesuré
+avant/après ce pli) :
+
+| Fichier | `git hash-object` (inchangé) |
+|---|---|
+| `apps/sentinel/test/fixtures/ukemi/u3/U3-realized.jsonl` | `075d401e15934173737edea523bbd692a7265dd0` |
+| `apps/sentinel/test/fixtures/ukemi/u3/U3-sources.jsonl` | `acb300d92260f007fb5b35791c9fb97748e9c8cd` |
+| `apps/sentinel/test/fixtures/ukemi/u3/U3-deficit.jsonl` | `73379d0ea8d4951597d3a0b6f220b4bc647b0372` |
+| `apps/sentinel/test/fixtures/ukemi/u3/U3-inputs.jsonl` | `201e38208f1a91543aefffa13f5b76fe2b25fbc5` |
+| `scripts/census/u3-realized.mjs` | `0ba3ae4964ddfe3916927ac201e56da808180c76` |
+| `test/u3-realized.test.ts` | `c151b7130690ac2461ca2dc252e93ec6fc1811fd` |
+
+**R-25 = 825 (inchangé), mesuré** avec l'édition `.d.mts` en arbre de travail, pathspec **exact** du job R-25 de
+`.github/workflows/ci.yml`, base `13b8391` : `4 files changed, 825 insertions(+)` (PROVENANCE 62 + `.d.mts` 64 + `.mjs` 601 +
+test 98). Les 4 docs modifiés/ajoutés (census/ADR/PLI/CHECKPOINT2) sont `docs/**/*.md`, **exclus** ⇒ **delta R-25 du pli 3 =
+0**. 825 ≤ 1205 (`VIBEGATES_PR_LIMIT`, ADR-M003 D9). **Condition base de PR** (note G7 du checkpoint, C-V-4) inchangée : la
+base doit être `lot/etude-suite` (`13b8391 ∉ origin/main`).
+
+**Oracles (re-exécutés après pli 3, tous verts) :** `gate:vocab` OK (167 fichiers, aucune revendication interdite) ·
+`lang:gate` **0 hit** (scopes gatés, dont `sentinel`) · `export:check` OK (0 chemin interdit, 0 hit FR) · `typecheck`
+(`tsc --noEmit`) **exit 0** · `npx tsx --test test/u3-realized.test.ts` **4 pass / 0 fail**.
 
 *Donnée brute pour l'orchestrateur (R-21) : vérifier adversarialement avant consommation. Le worker plie ; l'orchestrateur
 committe (R-20).*

@@ -41,14 +41,17 @@ par construction (C-6).
 | e2 | 2 408 136 363 987 453 | 24 081 364 | 2 516 459 597 649 969 | 25 164 596 | 18 010 445 414 122 | 180 104 |
 | e3 | 332 145 826 379 787 | 3 321 458 | 341 412 694 935 783 | 3 414 127 | 0 | 0 |
 
-e1 ≈ 21,38 M$ et e3 ≈ 3,32 M$ **recoupent** le census A §7 (2025-02-21 ≈ 21,38 M ; 2026-01-19 ≈ 3,32 M). `seized > repayment`
+e1 ≈ 21,38 M$ et e3 ≈ 3,32 M$ **recoupent** le census A §7 (2025-02-21 ≈ 21,38 M ; 2026-01-19 ≈ 3,32 M) **à < 0,03 % près**
+(Δ 1 568 $ = 0,007 % en e1 ; 931 $ = 0,028 % en e3). `seized > repayment`
 partout (prime de liquidation ; le frais protocole treasury est **exclu** de `seized`, C-7).
 
 ### Résidus (198 lignes)
 `partial_liquidation` **162** (boucles HF≈1,00 partiellement liquidées, close factor < 100 %) · `price_moved_in_block`
 **108** (l'oracle a bougé dans le bloc de liquidation — feed WETH SVR backrun-only, M-2b §4.6 ; non corrigé, C-9) ·
-`deficit_topic_absent` **3** (e1) · `deficit` **4** (positions WETH avec bad debt) · `deficit_base_no_price` **1** (déficit
-sur une réserve dont le prix n'a pas été tiré au bloc — natif conservé, base omise) · **19** lignes à résidu vide (liquidations
+`deficit_topic_absent` **3** (e1) · `deficit` **4** (positions WETH avec bad debt ; **3** sous la règle pré-enregistrée, D-5) ·
+`deficit_base_no_price` **1** (déficit `in_event` même debtAsset — USDT, user `0x15391e14…` — dont le prix n'a pas été tiré au
+**bloc du déficit** 23550879, distinct du bloc de la `LiquidationCall` 23550406 : base omise, natif conservé ; cf. D-5,
+**pas** un `bad_debt_other_reserve`) · **19** lignes à résidu vide (liquidations
 pleines, cross-check exact).
 
 ## 3. Sources d'oracle par actif (U3-H2) — `U3-sources.jsonl`, aux deux bornes (B_first−1, B_last)
@@ -63,12 +66,19 @@ La bissection (C-10) se réduit au **contrôle aux deux bornes** : les bascules 
 
 ## 4. Déficit (U3-H1) — `U3-deficit.jsonl`, source autoritaire = `getLogs(Pool, DeficitCreated, [B_first,B_last])`
 **U3-H1 satisfaite** : `DeficitCreated` apparaît dans **e2** (post-v3.3). **28 déficits** dans la fenêtre e2, classés :
-- **4 `in_event`** (user ∈ positions WETH, join par `(user, debtAsset)`) : bad debt réel de boucles WETH (CRV ×3, USDT ×1),
-  Σ ≈ **180 104 $** — c'est le `deficit_base` de e2.
-- **24 `window_other`** : bad debt de liquidations d'**autres collatéraux** dans la même fenêtre de krach (mesuré : 23 des 27
+- **4 `in_event`** sous la **règle implémentée** (join `(user, debtAsset)`, **toute tx de la fenêtre** — déviation **D-5** vs
+  prereg « par debtAsset/tx ») ; **3** sous la règle pré-enregistrée. **CRV ×3** (bad debt de boucles WETH, cristallisé dans la
+  tx de liquidation WETH de la position), Σ ≈ **180 104 $** = le `deficit_base` de e2. Le **4ᵉ** (**USDT ×1**, user
+  `0x15391e14…`, bloc du déficit 23550879, tx `0x9b3ca43c…`, 4 428 191 052 natif) n'est joint que **sans tx** : il est
+  cristallisé dans une liquidation **collatéral USDC** du même user (tx `0x9b3ca43c…`, collatéral `0xa0b86991…`), **pas** dans
+  sa liquidation WETH (tx `0xc3de456c…` @23550406) ; son prix USDT n'ayant pas été tiré @23550879, sa base est omise
+  (`deficit_base_no_price`) ⇒ **0 $** en base ⇒ Σ `deficit_base` **inchangée**. Détail : **D-5**.
+- **24 `window_other`** (règle implémentée ; **25** sous la règle pré-enregistrée, le déficit USDT ci-dessus s'y ajoutant, D-5) :
+  bad debt de liquidations d'**autres collatéraux** dans la même fenêtre de krach (mesuré : 23 des 27
   users déficit distincts ne sont pas des liquidations WETH) — **hors** cluster WETH, rapporté pour contexte, ne contribue à
   **aucun** Y_{i,e}.
-**Contrôle positif (C-8)** : les 4 `in_event` (et les 24 `window_other`) sont des `DeficitCreated` **réels** décodés on-chain
+**Contrôle positif (C-8)** : les 4 `in_event` et 24 `window_other` (comptes de la **règle implémentée** ; 3/25 sous la
+pré-enregistrée, D-5) sont des `DeficitCreated` **réels** décodés on-chain
 après l'upgrade ⇒ le filtre (topic `0x2bccfb3f…`, keccak self-testé) attrape une émission réelle. e1 pré-v3.3 : `deficit_topic_absent`.
 e3 : 0 déficit (liquidation bénigne unique).
 
@@ -95,14 +105,17 @@ Seul **e2** dépasse 99 (avant stratification Mondrian e-mode × HF₀ × taille
 (`under_calib`). Le choix d'α et la calibration sont **hors périmètre** (U-4).
 
 ## 7. Écarts aux hypothèses et limites (zéro dette)
-- **U3-H1** : tenue (e2 porte 28 `DeficitCreated`). Nuance mesurée : la majorité du bad debt de la fenêtre e2 (24/28) vient
-  d'autres collatéraux — le cluster WETH ne porte que 4 déficits (~180 k$).
+- **U3-H1** : tenue (e2 porte 28 `DeficitCreated`). Nuance mesurée : la majorité du bad debt de la fenêtre e2 (24/28 règle
+  implémentée ; **25/28** sous la règle pré-enregistrée, D-5) vient d'autres collatéraux — le cluster WETH ne porte que 4
+  déficits `in_event` (**3** sous la règle pré-enregistrée ; les ~180 k$ de base viennent de 3, D-5).
 - **U3-H2** : tenue (sources constantes) — bascules connues hors fenêtres.
 - **U3-H3** : tenue à l'unité (e1/e3 pré-chiffrés ; e2 identité + cross-check).
 - **Positions e2 = 194** (le proxy 7200 blocs du prereg donnait 194 ; le « ≈189 » du checkpoint C-5 était approximatif — corrigé
   par la mesure ; B_last réel = 23552238).
-- `deficit_base_no_price` (1 ligne) : un déficit sur une réserve dont le prix n'a pas été tiré au bloc du déficit ; `deficit_native`
-  conservé, conversion base omise et **signalée** (jamais une tolérance muette). Item **non bloquant** (le natif suffit à Y_{i,e}
+- `deficit_base_no_price` (1 ligne) : un déficit **`in_event`** (même debtAsset, USDT) dont le prix n'a pas été tiré au **bloc
+  du déficit** (23550879 ≠ bloc de la `LiquidationCall` 23550406 ; seuls les prix debt/coll aux blocs des `LiquidationCall`
+  sont tirés) ⇒ `deficit_native` conservé, conversion base omise et **signalée** (jamais une tolérance muette). **Pas** un
+  `bad_debt_other_reserve` (0 cas mesuré) ; cf. **D-5** (jointure hors tx). Item **non bloquant** (le natif suffit à Y_{i,e}
   pour la calibration U-4 ; la conversion base de ce cas est un item de commodité).
 - e2 `outside_window` = 29 appels du cluster (bloc > B_last) comptés en résidu, hors Σ (le cluster déborde ~40 h, M-2b).
 - Portée : K = 3 événements ; hypothèse n_j fixé a priori (Dunn) **violée et déclarée** (ADR-M020).
@@ -110,16 +123,21 @@ Seul **e2** dépasse 99 (avant stratification Mondrian e-mode × HF₀ × taille
 ### Déviations au pré-enregistrement (déclarées, zéro dette)
 - **D-1 — Leg déficit — set-equality abandonnée.** Le prereg §5 pré-enregistrait une **égalité d'ensemble** entre les
   `DeficitCreated` extraits des **receipts** et ceux du **getLogs fenêtre**. Mesuré : les receipts ne voient que les tx de
-  liquidation **WETH** (le cross-check est par tx), or **24 des 28** déficits de la fenêtre e2 viennent de liquidations
-  d'**autres collatéraux** (23 des 27 users déficit distincts ne sont pas des users WETH). ⇒ leg receipts **retiré** pour le
+  liquidation **WETH** (le cross-check est par tx), or **24 des 28** déficits (règle implémentée ; **25** par le collatéral/tx
+  cristallisant — le déficit USDT de `0x15391e14…` vient d'une liquidation **USDC**, D-5) de la fenêtre e2 viennent de
+  liquidations d'**autres collatéraux** (23 des 27 users déficit distincts ne sont pas des users WETH). ⇒ leg receipts
+  **retiré** pour le
   déficit (conservé pour le cross-check Transfer C-7), leg getLogs fenêtre rendu **autoritaire** (complet). La set-equality
-  n'est **pas** testée ; la relation mesurée est receipts ⊆ fenêtre (4 in_event ⊆ 28). Déviation assumée, `error_origin`
+  n'est **pas** testée ; la relation mesurée est receipts ⊆ fenêtre (les `in_event` cristallisés dans une tx de liquidation
+  WETH — **3**, cf. D-5 — ⊆ 28 ; la règle implémentée compte **4** `in_event`, le 4ᵉ étant joint sans tx et absent des receipts
+  WETH). Déviation assumée, `error_origin`
   worker (l'attente du prereg était fausse ; la mesure la corrige).
 - **D-2 — Classes de résidu post-hoc** (hors liste fermée du prereg §5 `partial_liquidation, source_change, no_quorum,
   deficit_topic_absent, outside_window, xfer_mismatch, price_moved_in_block, bad_debt_other_reserve`) : **`deficit`** (marqueur
   d'une position portant ≥ 1 `DeficitCreated` joint), **`window_other`** (déficit d'un autre collatéral dans la fenêtre, kind
-  de `U3-deficit.jsonl`, jamais un résidu de position), **`deficit_base_no_price`** (déficit `bad_debt_other_reserve` sans prix
-  au bloc ⇒ base omise, natif conservé), **`receive_atoken`** (jamais rencontré : 0 cas `receiveAToken=true`). Ajouts déclarés,
+  de `U3-deficit.jsonl`, jamais un résidu de position), **`deficit_base_no_price`** (déficit **`in_event`** même debtAsset sans
+  prix tiré au **bloc du déficit** — **0 cas `bad_debt_other_reserve`** mesuré ; cf. D-5 ⇒ base omise, natif conservé),
+  **`receive_atoken`** (jamais rencontré : 0 cas `receiveAToken=true`). Ajouts déclarés,
   chacun justifié ; aucun ne masque une abstention.
 - **D-3 — Bruts hors dépôt** : PROVENANCE cite `u3-raws-clean/` (run **à froid**, sha reproductible `0afaf605…`) et non le
   `u3-raws/` par défaut (run tiède + lectures CAPO du smoke test = sur-ensemble) — choix pour un sha de bruts propre et
@@ -133,6 +151,24 @@ Seul **e2** dépasse 99 (avant stratification Mondrian e-mode × HF₀ × taille
   manquer un `Upgraded` ultérieur ; l'impl n'est qu'une **métadonnée corroborante**. Le statut **pré-v3.3** de e1 est codé
   en dur (`EVENTS[e1].preV33 = true`, `mjs:71`) sur la **date de déploiement v3.3 (2025-02-24, ADR-M020 D6 [lu]) > 2025-02-21**,
   pas sur l'impl ni son tag. **Immatérielle** à toute étiquette Y_{i,e}.
+- **D-5 — Jointure du déficit `in_event` sans la tx.** Le prereg §5 / C-8 (`docs/PLAN-u3-prereg.md:137-138`) pré-enregistrait la
+  clé `(user, debtAsset, block, tx, amount)` et une **jointure par debtAsset/tx** à la position. Le reducer joint en réalité
+  par `(event, user, debtAsset)` **sans la tx**, sur toute la fenêtre (`u3-realized.mjs:145-146` index `event|user|debt` ;
+  `:192` commentaire « same (event,user,debtAsset) » ; `:195-196` join `dk = event|user|debt`). L'ADR D1/D3 disent
+  « joints par `(user, debtAsset)` » — description de l'**implémentation**, pas du prereg ; la présente section (D-1..D-4) ne
+  déclarait pas l'écart. **Matérialité (rejouée depuis les séries + A-rawlogs `d0f4aa1e…`, sha re-vérifié)** : **1 déficit
+  `in_event` sur 4** est joint sans tx commune — user `0x15391e14…`, USDT, bloc du déficit **23550879**, tx `0x9b3ca43c…`,
+  4 428 191 052 natif. Cette tx est une liquidation **collatéral USDC** (`0xa0b86991…`) du même user ; sa liquidation **WETH**
+  est une **autre** tx (`0xc3de456c…` @23550406, dtc 2 760 502 233 = la ligne `U3-realized`). Ce user a **5 `LiquidationCall`**
+  dans la fenêtre (collatéraux USDT, LINK, USDC, WETH, USDC — **4 distincts** ; tous debt USDT). **Sous la règle
+  pré-enregistrée (tx)** : `in_event` 4→**3**, `window_other` 24→**25**, la ligne `(0x15391e14, USDT, WETH)` `deficit_native`
+  4 428 191 052→**0** et perd ses résidus `deficit`/`deficit_base_no_price`. **Σ `deficit_base` e2 inchangée**
+  (**18 010 445 414 122**) : la ligne vaut **0 en base** faute de prix USDT @23550879 (`deficit_base:"0"` dans
+  `U3-realized.jsonl`) ; aucune autre ligne touchée. Nature : écart de **déclaration** (la machine a déjà signalé la ligne, 0 $
+  en base) ⇒ correction documentaire, pas refus. `error_origin` = **worker** (jointure sans tx, non déclarée) **+
+  non-détection G2** (V4 l'a notée « clé (event,user,debt) » sans la confronter au prereg). La **règle d'attribution** (le bad
+  debt cristallisé dans une **autre** tx compte-t-il dans Y_{i,e} de la position WETH ?) est un **item formé** tranché au
+  **checkpoint-1 U-4** (propriétaire orchestrateur), pas ici (PLI §8).
 - **Vérification Blockscout par événement — non faite comme étape distincte tracée** (prereg §5). Le prereg prévoyait « un
   receipt par événement vérifié Blockscout avant généralisation : e1 `0x6290d4…333c`, e2 (tx @23545088), e3 `0xeb20d0…4aff` ».
   Le mot « Blockscout » n'apparaît que dans le prereg (grep) ⇒ **non faite** comme étape distincte. **Substance couverte** par

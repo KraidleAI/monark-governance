@@ -1,5 +1,5 @@
 // scripts/census/u3-realized.d.mts — type surface for the PURE reducer that scripts/census/u3-realized.mjs
-// exports (behind a run-guard). It lets the type-checked test (apps/sentinel/test/u3-realized.test.ts)
+// exports (behind a run-guard). It lets the type-checked test (test/u3-realized.test.ts)
 // import reduceU3/canonicalJsonl/sumRepaymentNative WITHOUT executing the live pull or pulling the network,
 // staying free of the ratcheted no-unsafe rules. Runtime implementation = u3-realized.mjs; Node ignores this
 // file. Governance-only (not whitelisted for the public export; record-usde-calib.d.mts precedent).

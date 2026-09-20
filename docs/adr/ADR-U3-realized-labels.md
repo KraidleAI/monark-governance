@@ -22,7 +22,7 @@
 **D1 — Étiquettes réelles.** Y_{i,e} est **mesurée on-chain**, par position `(user, debtAsset, collateralAsset)`, agrégée
 sur la fenêtre 24 h, décomposée : `repayment_base = Σ floor(debtToCover × getAssetPrice(debt)@bloc / 10^dec)` ;
 `seized_base = Σ floor(liquidatedCollateralAmount × getAssetPrice(coll)@bloc / 10^dec)` (frais protocole exclu) ;
-`deficit_base` = Σ `DeficitCreated(user, debtAsset, amount)` de la fenêtre joints par `(user, debtAsset)`. Montants base en
+`deficit_base` = Σ `DeficitCreated(user, debtAsset, amount)` de la fenêtre joints par `(user, debtAsset)` (toute tx ; D-5). Montants base en
 `BASE_CURRENCY_UNIT()` (8 déc., **lu on-chain**, jamais codé). Sommes natives conservées. **Prix au bloc du log**, jamais un
 prix moyen (résidu `price_moved_in_block` si l'oracle a bougé dans le bloc). Les paires synthétiques de `liquidable-24h.ts`
 sont **remplacées** par ces étiquettes en U-4 (aucune modification de `liquidable-24h.ts` en U-3).
@@ -33,8 +33,9 @@ bloc > B_last comptées en résidu `outside_window` (e2 : 29). Le cluster e2 = c
 (M-2b, sha-pinné).
 
 **D3 — Décomposition et déficit.** `DeficitCreated` sourcé par `getLogs(Pool, [topic], [B_first,B_last])` (autoritaire, complet
-pour la fenêtre), classé : `in_event` (join à une position), `bad_debt_other_reserve` (`_burnBadDebt`, autre réserve du même
-user), `window_other` (bad debt d'un autre collatéral dans la fenêtre — hors cluster, contexte). e1 pré-v3.3 ⇒
+pour la fenêtre), classé : `in_event` (join à une position par `(user, debtAsset)` **dans la fenêtre, toute tx** — déviation
+**D-5** vs prereg « par debtAsset/tx », census §7), `bad_debt_other_reserve` (`_burnBadDebt`, autre réserve du même user ;
+**0 cas mesuré**), `window_other` (bad debt d'un autre collatéral dans la fenêtre — hors cluster, contexte). e1 pré-v3.3 ⇒
 `deficit_topic_absent` **par construction**. Cross-check C-7 sur les `Transfer` underlying (repayment = liquidateur → aToken(debt) ;
 seized = aToken(coll) → liquidateur) ; écart ⇒ `xfer_mismatch` (mesuré : 0).
 
@@ -80,5 +81,7 @@ absent est un item formé avec déclencheur (le test U-4), jamais un oubli.
 - **Positives** : premières étiquettes **réelles** décomposées (repayment / seized / déficit) par position, sha-pinnées et
   rejouables sans réseau ; source d'oracle par actif datée aux deux bornes ; U3-H1/H2/H3 mesurées et rapportées telles quelles.
 - **Négatives (assumées)** : K = 3 événements ; un seul (e2, n=194) dépasse le seuil de Dunn 99 (α=0,01), et seulement avant
-  stratification ; le déficit du cluster WETH est faible (~180 k$, 4 positions) — la majorité du bad debt de la fenêtre e2
-  (24/28) vient d'autres collatéraux (`window_other`, hors périmètre) ; α et calibration = **U-4**. Sortie `annex` jusqu'à U-4.
+  stratification ; le déficit du cluster WETH est faible (~180 k$, 4 positions dont 1 à base omise — 3 sous la règle
+  pré-enregistrée, D-5) — la majorité du bad debt de la fenêtre e2
+  (24/28 règle implémentée, **25/28** pré-enregistrée — D-5) vient d'autres collatéraux (`window_other`, hors périmètre) ; α et
+  calibration = **U-4**. Sortie `annex` jusqu'à U-4.
