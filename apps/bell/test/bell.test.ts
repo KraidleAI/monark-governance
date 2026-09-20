@@ -134,9 +134,9 @@ test("bell_volume_dedup_by_signature", async () => {
   const call: JsonRpcCall = () => Promise.resolve(makeSwapTx(15_349_152n, -55_888_132n));
   const bt = 1_789_800_000;
   const sigs: SigInfo[] = [
-    { signature: "sigA", blockTime: bt, err: null },
-    { signature: "sigA", blockTime: bt, err: null }, // duplicate listing of the SAME signature
-    { signature: "sigB", blockTime: bt, err: null },
+    { signature: "sigA", blockTime: bt, err: null, slot: 1 },
+    { signature: "sigA", blockTime: bt, err: null, slot: 1 }, // duplicate listing of the SAME signature
+    { signature: "sigB", blockTime: bt, err: null, slot: 2 },
   ];
   const fills = await swapsForPool(call, "inject://", sigs, POOL);
   assert.equal(fills.length, 2); // deduped: sigA counted once, not twice

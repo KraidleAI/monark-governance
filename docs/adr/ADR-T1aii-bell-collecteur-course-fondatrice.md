@@ -146,3 +146,97 @@ est retenue (avis G2 §6). Fenêtre Cong 2025-07→10 conservée. Décisions 40/
 - **Usage prévu** : figer la règle du multiplicateur effectif dans `readMintToken2022` (ou documenter pourquoi le
   champ brut est conservé) **avant tout rendu `supply × multiplier`**. Déclencheur : -b3 (rebase-aware) au plus tard.
 - **Propriétaire** : orchestrateur → mainteneur (procurement).
+
+## Amendement D1-quater — 2026-09-20 (lot -b3a, worker `claude-opus-4-8[1m]` effort max ; G0 `docs/G0-lot-t1a-ii-b3.md` + checkpoint-1 C-1..C-12 pliées)
+**Objet** : rendre `multiplier(mint,t)` calculable par rejeu chronologique des instructions Token-2022
+ScaledUiAmount (43/0 Initialize, 43/1 UpdateMultiplier) depuis l'Initialize du mint ; étendre le gate rebase à
+**3 états** ; rendre `g_t` **rebase-aware** (fixtures). Aucune course fondatrice (décision 47). Sources [lu] :
+`docs/biblio/bell/L-lecture-spl-token2022-scaled-ui-amount-2026-09-20.md` + relecture first-hand du code
+`solana-program/token-2022@714a2ce6` (worker, 2026-09-20).
+
+### Faits [lu] qui fixent le rejeu (code cité ligne à ligne — R-21)
+- `program/src/extension/scaled_ui_amount/processor.rs` : **`process_initialize`** (l.24-35) pose
+  `multiplier = *multiplier` (l.32), `new_multiplier_effective_timestamp = 0` (l.33), `new_multiplier =
+  *multiplier` (l.34) ⇒ triplet initial `(m0, m0, 0)`. **`process_update_multiplier`** (l.37-66) :
+  `new_multiplier = *new_multiplier` (l.55, **écrasement inconditionnel**), `effTs = max(effective_timestamp, 0)`
+  (l.57-60), et `if clock.unix_timestamp >= int_effective_timestamp` (l.64) ⇒ `multiplier = *new_multiplier`
+  (l.65, repli immédiat).
+- `instruction.rs` : **compte 0 = le mint** (Initialize l.24 ; UpdateMultiplier l.39-42), compte 1 = l'autorité
+  (l.40) — c'est le filtre anti-contamination C-2 (l'autorité partagée `S7vYFF…` peut grouper plusieurs xStocks
+  dans une même tx). Layouts (piège F-8, deux décodeurs) : `UpdateMultiplierInstructionData` = `multiplier` PodF64
+  puis `effective_timestamp` UnixTimestamp (l.66-71) ⇒ 18 octets `[43][1][f64 LE 8][i64 LE 8]` ;
+  `InitializeInstructionData` = `authority` OptionalNonZeroPubkey puis `multiplier` PodF64 (l.56-61) ⇒ 42 octets.
+- `mod.rs` : règle de lecture `current_multiplier(t) = new_multiplier si t >= effTs sinon multiplier`
+  (comparaison **large `>=`**, F-3) ; état persistant `ScaledUiAmountConfig` = `authority(32)·multiplier(f64 LE)·
+  effTs(i64 LE)·new_multiplier(f64 LE)` (56 octets, **ordre distinct** de l'instruction).
+- f64 IEEE-754 non round-trip décimal (F-4) : le multiplicateur voyage en **8 octets LE (hex)** ; l'égalité
+  (`constant`, oracle C-3) se décide **sur les bits**, jamais sur le décimal.
+
+### C-1 (`constant` sur la trajectoire, pas « 0 événement in-window »)
+`constant` ⇔ `m(t)` identique (bits) à **chaque breakpoint** de `[from,to]` = {bornes} ∪ {blockTimes d'événements
+in-window} ∪ {effTs in-window}, évalué par rejeu **depuis l'Initialize**. Un `UpdateMultiplier` pré-fenêtre à
+effTs in-window, ou un spike-and-revert (deux effTs in-window, `overwritten_pending=0`, bornes égales), change
+`m(t)` sans instruction in-window ⇒ refusé (test `bell_rebase_constant_needs_trajectory`, mutant « drop effTs
+breakpoint » rouge). Le raccourci C-G2-8 (« autorité null maintenant = null en 2025 ») est **CLOS** : le readout
+courant seul n'établit jamais `constant` (`rebaseGateFromMint` renvoie toujours `rebase_unverified`).
+`overwritten_pending > 0` (piège F-2) ⇒ `rebase_unverified` fail-closed.
+
+### C-7 (direction de `g_t` — convention d'unités écrite, formule G0 inversée corrigée)
+`ui_amount = raw × m` et `volume.ts:47` `shares = tokens × m` ⇒ **une unité brute vaut `m` actions**. Donc prix
+par action = `VWAP_raw / m`, appliqué **par fill** : `VWAP_share = Σ|q| / Σ(|b|·m(tᵢ))`, `g_t = ln(VWAP_share /
+P_close)`. La formule du G0 (`VWAP × m`) était **inversée** (biais `2·ln(m)` ≈ +0,8 % sur SPYx) — corrigée. Le
+`vwap` publié reste le ratio brut first-hand (recomputable) ; `multiplierUsed` est publié par session.
+**Citation « O-8 » corrigée** : O-8 = tueur `vol_ratio` sous multiplicateur (CHECKPOINT2 -a), PAS « multiplicateur
+avant VWAP ».
+
+### Défaut trouvé — `error_origin` = rédacteur -b1 (pas -b3a)
+`collect()` calculait `g_t` sur la VWAP **brute** pour un gate `constant` de multiplicateur ≠ 1 (biais `ln(m)`).
+Jamais exercé à -b1 (aucun xStock immuable ; tous partagent `S7vYFF…` ⇒ `rebase_unverified`). Corrigé ici :
+`constant m≠"1"` prend le chemin rebase-aware (÷ m) ; `constant m=="1"` et « pas de gate » gardent le chemin
+bigint inchangé (digests m=1 bit-identiques à -b1). Test `bell_gt_constant_m_neq_1_defect`.
+
+### Tuyaux -b3a (entrée / sortie / état / test)
+| Tuyau | Entrée (produit) | Sortie (consomme) | État | Test |
+|---|---|---|---|---|
+| scan → trajectoire | RPC quorum-2 (helius+chainstack), bruts hors dépôt sha-pinnés | `rebase-scan.ts` `scanMultiplierEvents` (events + `finalStateOk` C-3) | upcoming (probe seule ; corps C-V-2) | `bell_rebase_scan_replays_fixture_bit_identical`, `bell_rebase_scan_state_divergence_is_unverified` |
+| trajectoire → gate | `MultiplierEvent[]` | `rebaseGateFromTrajectory` (3 états) | branché (offline) | `bell_rebase_gate_three_states` |
+| gate → g_t | `RebaseGate` (events) | `collect()` → `sessionGapRebase` (÷ m par fill) + `multiplierUsed` | **branché dans `main()`** via `--rebase-trajectory` (C-10) | `bell_gt_trajectory_known_integration`, `bell_symbol_build_mint_quorum_fail_unverified` (C-V-3) |
+| g_t → course | — | -b1-bis (course rebase-aware) | item formé | G0 -b1-bis |
+
+Branchement (règle KACIMI 2026-09-19, CA-11) : `rebase-trajectory.ts` → `supply.ts` (`rebaseGateFromTrajectory`)
+→ `collect.ts` `buildSolanaSymbol`/`main()` (flag `--rebase-trajectory` consommé) ; **consommateur servi = -b1-bis**
+(course), non encore réel ⇒ état **`upcoming`**. Bell reste **absent** de `fleet.ts`/README/site/skills (vérifié).
+Le seul consommateur actuel = tests non-LLM + le smoke live ⇒ jamais « built ».
+
+### Sonde (first-hand, quorum-2 helius+chainstack, bruts hors dépôt `F:\PRODUITS\etude-2026-09-20\bell-b3a-raws\`)
+Voir `docs/PLI-lot-t1a-ii-b3a.md` (mesures, sha, budget). Le gate `--rebase-scan` s'arrête AVANT les corps
+(méthode deux étages C-4) : le **coût crédit/appel de `getTransactionsForAddress` est NON TROUVÉ** dans la doc
+Helius (RESSOURCES-HELIUS l.12) ⇒ **C-V-2 = mesure Usage dashboard, propriétaire orchestrateur** = prérequis des
+corps. La course de trajectoire (L-5) et l'extension rapport `bell-report.mjs --rebase` sont **différées**
+(consultation formée, non un contournement).
+
+### Items formés (déclencheurs + propriétaires ; zéro dette nue)
+- **E-1** (date d'activation ScaledUiAmount) — **CLOS par argument** : le rejeu part de l'`Initialize` (43/0) du
+  mint ; la date d'activation du feature-gate n'est pas requise (le premier événement du mint borne la trajectoire).
+- **E-3** (commit du client JS `@solana/spl-token`) — **CLOS par argument** : Bell écrit ses **propres** décodeurs
+  (18/42/56 octets, testés sur vecteurs binaires à la main) ; aucune vendorisation.
+- **E-2** (Chainstack `getAccountInfo` à slot passé) — déclencheur : divergence de l'oracle d'état final C-3 OU
+  besoin d'un contrôle croisé rétrospectif ; propriétaire orchestrateur.
+- **E-4** (palier Alchemy account-archive) — déclencheur : idem E-2 ; propriétaire orchestrateur.
+- **E-5** (`try_validate_multiplier` bornes) — déclencheur : un multiplicateur décodé hors bornes plausibles ;
+  propriétaire orchestrateur. Non bloquant.
+- **E-6** (correctif PR #522 « not live yet » au 2026-09-20) — déclencheur : toute extension de la trajectoire
+  rejouée au-delà de la date/slot d'activation du correctif ; borner la trajectoire à cette date, relire le
+  processeur ; propriétaire orchestrateur.
+- **E-7** (NOUVEAU) : le locateur TLV `scaledUiConfigBytes`/`locateScaledUiTlv` (base 82, `account_type`@165,
+  TLV@166, type 25, valeur 56 octets) est **validé first-hand par la sonde** (oracle-slot pinné sur 3 mints réels,
+  678 octets) ; déclencheur d'une relecture : un mint dont le layout TLV diffère (autre ordre d'extensions) ou un
+  échec du locateur. Propriétaire orchestrateur.
+- **C-V-2** (crédit/appel `getTransactionsForAddress`) — **prérequis des corps** ; propriétaire orchestrateur
+  (Usage dashboard). Sans lui, la course L-5 ne démarre pas (budget écrit avant les corps, C-4).
+
+### MAST (résiduel)
++ « rejeu circulaire » (contre-mesure : oracle d'état final C-3, `getAccountInfo` quorum-2 après scan, comparaison
+sur bits ; `bell_rebase_scan_state_divergence_is_unverified` prouve qu'une divergence ⇒ `rebase_unverified`, jamais
+un ajustement du rejeu) ; + « upgrade de programme » (E-6) ; `SetAuthority` non scanné (sans effet pour la
+trajectoire du multiplicateur — dit).
