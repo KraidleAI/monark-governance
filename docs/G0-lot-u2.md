@@ -1,0 +1,35 @@
+# G0 — Sprint backlog lot U-2 : `clearing.ts` sous Λ = 0, treillis en annexe, retrait de la fiction `cascade`
+Orchestrateur `claude-fable-5-1`, 2026-09-20. Base : `lot/etude-suite` HEAD `830f699`. Branche `lot/u-2`, worktree `F:\Monark-wt-u2`. Cadre : ADR-M020 D1 (a) fermée par construction, D2 interdits, D4 ligne U-2 (« `clearing.ts` : Λ = 0 ⇒ point fixe = liquidable statique (test) ; treillis en annexe ; retrait de la fiction `cascade.ts` ; test 36 conservé ; monotonie ; anti-fiction »), NOTE-treillis (`docs/biblio/ukemi-modeL/`), ADR-M019 (vacuité mesurée, digest `14773773…`), ADR-M005 (outil `cascade` du harness), règle Branchement (ADR-M018). Régime site : **T2 si `fleet.ts` touché** (retrait d'une pièce du registre), sinon T0. Lancé en parallèle de Bell -b1-2 : isolation totale (fichiers `packages/ukemi/**`, `apps/harness/src/tools/cascade.ts`, `apps/harness/test/cascade.test.ts`, skills/README/site) — **lots `apps/harness` sérialisés** (CHANTIERS §G) : aucun autre lot harness en vol.
+
+## Objectif (une phrase)
+Faire dire au code ce que l'ADR-M020 a établi : sous Aave v3 core la cascade à prix endogène est fermée par construction, donc Ukemi ne sert plus une prédiction `cascade-liquidable-24h` issue d'une fiction (nœuds = banques, K = 1, paires synthétiques), et le moteur de clearing devient une annexe démontrée (treillis Q_*/Q^*) dont le cas Λ = 0 est prouvé égal au liquidable statique.
+
+## Livrables (liste fermée)
+| # | Fichier | Contenu | Test / oracle |
+|---|---|---|---|
+| L-1 | `packages/ukemi/src/clearing.ts` (+ nouveau `packages/ukemi/src/lattice.ts` si séparation utile) | opérateur T de la NOTE-treillis (inverse-demande **linéaire** P(Q) = P₀(1−D)(1−Λ·Q), déclarée choix MONARK, **confrontée** à l'exponentielle CFS/BoE p = e^{−α·s} et à la demande d'un CPMM x·y = k dans une fonction paramétrée `demand: "linear" \| "exponential" \| "cpmm"`), Picard ≤ N+1, Tarski (plus petit Q_* et plus grand Q^*), condition suffisante d'unicité Prop. 4 « pas d'activation dormante » implémentée comme prédicat, contre-exemple à 3 points fixes en fixture | `lattice_lambda_zero_equals_static_liquidable` (Λ = 0 ⇒ Q_* = Q^* = liquidable statique HF < 1, sur ≥ 3 fixtures dont une réelle dérivée du book WETH U-1a) ; `lattice_monotone_in_lambda` (Q^* croissant en Λ) ; `lattice_three_fixed_points_counterexample` (2Λ·ΣB < 1 et pourtant 3 points fixes ⇒ le prédicat Prop. 4 est faux) ; `lattice_picard_bounded_n_plus_1` ; `lattice_demand_forms_agree_at_lambda_zero` ; tests existants `clearing_*` **conservés** (dont `clearing_rv_ex33_two_vectors`, « test 36 ») |
+| L-2 | `packages/ukemi/src/prediction.ts`, `packages/ukemi/src/liquidable.ts` | **retrait** de `UKEMI_PREDICTOR_ID = "internal:ukemi-cascade-v0"` et de la classe `cascade-liquidable-24h` comme produit ; `liquidableAmount` conservé (Perez Eq. 3 = HF < 1) mais **sans le générateur de paires synthétiques** (`packages/hikae/src/liquidable-24h.ts:9-13`, « no real 24h label ») : la calibration synthétique est **supprimée**, remplacée par une abstention nommée `no_calibration_event` jusqu'à U-4 | `no_synthetic_calibration_pairs` (grep structurel + import : aucun générateur aléatoire de paires dans `packages/ukemi`, `packages/hikae/src/liquidable-24h.ts`) ; mutant : réintroduire `n=300` ⇒ rouge |
+| L-3 | `apps/harness/src/tools/cascade.ts`, `apps/harness/test/cascade.test.ts`, `apps/harness/src/tools/index.ts` (registre MCP), skill/README | **retrait de l'outil MCP `cascade`** (fiction v0 servie publiquement) ; à sa place **aucun outil** tant que U-4 n'existe pas (pas de placeholder « upcoming » servi) ; trace h5 : si l'outil figure dans la trace pinnée (`attested-gate` step 7 ou autre), re-pin justifié dans le PLI, jamais silencieux | `harness_has_no_cascade_tool` (liste des outils MCP ne contient pas `cascade`) ; `vacuity-replay.mjs` (ADR-M019) : le digest `14773773…` n'est **plus reproductible** parce que la source a disparu — le test de vacuité est **retiré avec sa fiction** et remplacé par `ukemi_serves_no_prediction_before_u4` ; mutant : ré-enregistrer l'outil ⇒ rouge |
+| L-4 | `apps/site/lib/fleet.ts`, README, `skills/**`, `docs/PRODUCT-BOUNDARY.md` | registre Ukemi : `wiring` = « clearing lattice (annex, proven), no served prediction before U-4 ; attested book upcoming (U-6) » ; toute phrase publique « cascade », « liquidation-cascade risk engine » (`packages/ukemi/src/index.ts:2`) **retirée** ; statut reste celui décidé par l'investisseur (`built` maintenu, `wiring` honnête) — **régime T2**, commit `site[T2]` | `public_surfaces_make_no_probative_claim` étendu au mot `cascade` en position de produit (liste fermée, negation-aware : « cascade channel is closed by construction » reste licite) ; mutant : « cascade risk engine » ⇒ rouge |
+| L-5 | `docs/adr/ADR-U2-clearing-lattice.md` | contexte (D1 (a), NOTE-treillis, correction d'attribution CFS/BoE), décision (annexe, pas produit ; Λ = 0 prouvé), alternatives (garder la fiction en « demo » — refusée par Branchement ; supprimer clearing.ts — refusée : annexe du papier U-7), conséquences, **tuyaux** (entrée : book U-1a → lattice ; sortie : **aucun consommateur servi** avant U-4/U-7 = déclaré `annex`, jamais `built`), bascule (a) rouvre = `description()` d'une source de marché pure | doc |
+| L-6 | `docs/PLI-lot-u2.md` | touched set, numstat sous pathspec `STAT=` de `ci.yml`, sha256 LF, mutants, R-25 | — |
+
+## Critères d'acceptation
+1. `npm run ci` = base (396) − tests retirés avec la fiction + nouveaux ≥ 6 ; lint 0 ; ratchet 69/69 ; lang-gate 0 ; export:check 0 ; `gate:vocab` vert (vocabulaire : « cascade » n'est plus un terme de produit).
+2. Mutants ≥ 6 rouges avec restauration prouvée (Λ = 0 forcé ≠ statique ; Picard borne relâchée ; prédicat Prop. 4 inversé ; paires synthétiques réintroduites ; outil `cascade` ré-enregistré ; phrase « cascade risk engine »).
+3. Trace h5 : aucun re-pin silencieux ; si l'outil `cascade` n'est pas dans la trace pinnée, le dire mesuré.
+4. R-25 ≤ 700 (retraits comptés en `del`) sous la pathspec UNION ; docs exclus.
+5. CA-11 : aucune pièce nouvelle déclarée `built` ; une pièce servie **retirée** (outil MCP `cascade`) et le registre le dit ; le lattice est `annex` avec consommateur = U-7 (papier) et U-4 (bascule), déclaré.
+6. D2 respecté : nulle part « Λ = 0 » comme fait de marché (seulement comme cas limite du treillis) ; nulle part « mythe de la cascade ».
+
+## Hors périmètre
+U-3 (données), U-4 (Mondrian), toute prédiction servie, `apps/bell/**`, `apps/sentinel/**`.
+
+## Tuyaux (ADR-M018 D3)
+book U-1a (fixture WETH) → `lattice(Λ)` → tests seuls jusqu'à U-4 (déclaré annexe) ; outil `cascade` → **retiré** ; registre `fleet.ts` → site (T2).
+
+## Risques (MAST)
+Retrait qui casse la trace h5 pinnée (contre-mesure : re-pin justifié) ; « Λ = 0 » glissant vers un fait de marché (scrub) ; lattice déclaré built par inadvertance (CA-11) ; suppression de `liquidableAmount` par excès (garder Eq. 3).
+
+## Rôles
+Checkpoint-1 validateur avant tout code. Worker Opus 4.8 max (G1) → G2 fraîche → checkpoint-2 → G7 → fusion. Régime site T2 contrôlé par la G2.
