@@ -51,7 +51,7 @@ function extState(info: Record<string, unknown>, name: string): Record<string, u
  *  C-G2-3 (fail-closed): `multiplier` is the STORED `scaled.multiplier` field verbatim — it is NOT resolved
  *  against `newMultiplier`/effTs here. When `newMultiplierEffectiveTimestampSec` is non-zero AND elapsed, the
  *  EFFECTIVE display multiplier under the SPL Token-2022 ScaledUiAmount rule MAY be `newMultiplier`; that rule
- *  is [abs] offline (`@solana/spl-token` absent from node_modules AND package-lock, verified 2026-09-20 — no
+ *  is [abs] offline (`@solana/spl-token` absent from node_modules AND package-lock, checked 2026-09-20 — no
  *  `amountToUiAmount` to read). Procurement PR-B-SPL-TOKEN2022 (ADR-B0). BOTH fields are preserved raw so -b3
  *  can resolve the trajectory; NO `supply × multiplier` value is RENDERED at -b1 (read-and-logged only), so
  *  logging the stored value is honest. The C-6 gate is unaffected either way (mutable authority => unverified;
