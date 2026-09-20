@@ -111,6 +111,8 @@ function mask(line: string): string {
 test("public_surfaces_make_no_probative_claim", () => {
   const files = surfaces();
   assert.ok(files.length >= 10, `expected >=10 public-surface files, scanned ${files.length}`);
+  // C-G2-2 (Lot CRA-B): SECURITY.md must be a scanned surface; dropping it from surfaces() (MG2) reds here.
+  assert.ok(files.includes(join(ROOT, "SECURITY.md")), "SECURITY.md must be a scanned public surface (surfaces(); MG2)");
 
   const corpus: string[] = [];
   const survivors: string[] = [];

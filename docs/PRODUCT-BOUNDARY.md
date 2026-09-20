@@ -5,7 +5,7 @@ public mirror `KraidleAI/Monark` by `scripts/export-public.mjs`; that script's w
 the single source of truth, and the root test `product_boundary_matches_export_list` keeps
 this table in lockstep with it (every whitelist entry has a row here; a dropped row or a
 dropped whitelist line reds the test). The hosted service (`mcp./api.monarkgate.tech`) and
-the storefront (`monarkgate.tech`, on Vercel) are the served surfaces; the fleet register
+the storefront (`monarkgate.tech`, on the VPS behind Caddy) are the served surfaces; the fleet register
 `apps/site/lib/fleet.ts` records which agents are served and by which integration test.
 
 This document makes no statement about whether any regulation applies to MONARK.

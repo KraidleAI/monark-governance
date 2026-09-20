@@ -41,8 +41,10 @@ ship a fix within that time.
 ## Data
 
 No personal data is required to use the service (no account, e-mail, or wallet). Operating
-the hosted endpoints produces a reverse-proxy access log (`deploy/Caddyfile`, a commented
-block documenting the 2026-09-18 deployment): Caddy's JSON access log format, rotated
-(10 MiB x 5) and kept at most 720 h, with nothing retained beyond that window. The JSON
-format is not field-restricted, so the log includes the client address; no request body is
-logged. The storefront site is hosted on Vercel.
+the hosted endpoints produces a reverse-proxy access log (`deploy/Caddyfile.monark-harness`,
+a commented block documenting the 2026-09-18 deployment): Caddy's JSON access log format,
+rotated (10 MiB x 5) and kept at most 720 h, with nothing retained beyond that window. The
+JSON format is not field-restricted, so the log includes the client address; no request body
+is logged. The storefront site is served on the same VPS behind Caddy; per
+`deploy/Caddyfile.monark-narabi.snippet`, its site block carries the same JSON access log
+format and rotation (10 MiB x 5, kept at most 720 h), with nothing shipped anywhere.

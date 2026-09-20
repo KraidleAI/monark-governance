@@ -168,3 +168,61 @@ depend on it. Site on Vercel: hosting stated; its logs not characterized.
   log — the SECURITY.md statement is grounded in the file's directive (`format json` + rotation), reproducible
   by reading `deploy/Caddyfile`.
 - Adversarial verification (R-21) and G2/G7 remain with the orchestrator; I did not commit (R-20).
+
+## Annexe — Pli CRA-B-2 (G2 fold, closed list C-G2-1..3)
+
+Worker: **`claude-opus-4-8`** (1M context, effort max) — R-1 resolution control: exact id
+`claude-opus-4-8[1m]`, prefix `claude-opus-4-8` (pinned, non-banned; Opus 5 banned). Date: 2026-09-20.
+Base `lot/cra-b` HEAD `849e2c9` (G2 freeze). No commit, no workflow (R-20). Scratch `F:/tmp/cra-b-2/`
+(nothing on C:). Folds the three closed corrections of `docs/G2-lot-cra-b.md` (`error_origin: worker`,
+carried from G2). Touched set = EXACTLY `SECURITY.md`, `docs/PRODUCT-BOUNDARY.md`,
+`test/public-surfaces-honesty.test.ts`, and this file.
+
+**Supersession (audit trail; body left verbatim).** The L-5 census line above — "Site on Vercel: hosting
+stated; its logs not characterized." — is SUPERSEDED by C-G2-1: the storefront is NOT on Vercel. Sources of
+truth: `docs/BASCULEMENT-COMPTE.md:34` ("site sur VPS, pas Vercel") and `deploy/Caddyfile.monark-narabi.snippet`
++ `deploy/Caddyfile.monark-harness:2-3,11` (vitrine `monarkgate.tech` + www -> localhost:3000, live on the SAME
+VPS as the harness). No `vercel.json` in the tree. The PLI body is not rewritten; this annex is the correction
+of record.
+
+### Corrections
+- **C-G2-1** — `SECURITY.md` §Data final sentence and `docs/PRODUCT-BOUNDARY.md:8` no longer say "Vercel".
+  Option (a') (G2-licit: "restore ... or remove"): real hosting restored AND the vitrine's own access log
+  stated, so §Data carries no omission (the narabi snippet log block is an uncommented directive; its insertion on the live VPS is not measured here, same file-grounded posture as the harness block, PLI 'Reste'). Clause -> source:
+
+  | clause (SECURITY.md) | source (only what the file says) |
+  |---|---|
+  | served on the same VPS behind Caddy | `BASCULEMENT-COMPTE.md:34`; `Caddyfile.monark-harness:2-3` (vitrine block live), `:11` ("SAME VPS as the vitrine") |
+  | its site block carries the same JSON access log format and rotation (10 MiB x 5, 720 h), nothing shipped | `Caddyfile.monark-narabi.snippet:16-27` (`format json`, `roll_size 10MiB`, `roll_keep 5`, `roll_keep_for 720h`; comment: "no IP is kept ... (5 files, 30 days); nothing is shipped anywhere") |
+
+- **C-G2-3** — `SECURITY.md:44` path `deploy/Caddyfile` -> `deploy/Caddyfile.monark-harness` (that file `:26-36`
+  IS the 2026-09-18 commented JSON log block §Data describes).
+- **C-G2-2** — `test/public-surfaces-honesty.test.ts`: +1 membership assertion inside
+  `public_surfaces_make_no_probative_claim`: `assert.ok(files.includes(join(ROOT, "SECURITY.md")), ...)`. Closes
+  the tuyau ADR-CRA-B declared but G2 found unproven (MG2 survived).
+
+### sha256 (LF-normalized: `tr -d '\r' < f | sha256sum`), before -> after
+| file | before (PLI/G2) | after |
+|---|---|---|
+| `SECURITY.md` | `b94fe854bc0212b020852e6353bb51303621afaf9531f73828d5cde530fb2c78` | `429ac43ffb6f954d10da504515a767634ca46ff24a2f7e41124a763fbd88b596` |
+| `docs/PRODUCT-BOUNDARY.md` | `2cca3ff3abf8d2c412975ca3dfc68ff1e8d38f06ace073b6a158ad158c56c134` | `f87976ba3d8e957c449609361fb2a547b60b2a2e244c109dd8c2875e77f21148` |
+| `test/public-surfaces-honesty.test.ts` | `de54c0f4c76364bfafa592f841ede8bc17d04607c88086a62c7b03aeb07a076a` | `0d10f1927514b7bc9b0ee39ff2b4cee30860c1018094f0ca1ac71ba0912ede78` |
+
+### MG2 (replay; sha-exact restoration)
+MG2 = drop `SECURITY.md` from `surfaces()` (line 83 -> `[join(ROOT, "README.md")]`), replayed on the real file
+with a durable backup in `F:/tmp/cra-b-2/`. Result: `public_surfaces_make_no_probative_claim` REDS (exit 1;
+pass 1 / fail 1) with `AssertionError: SECURITY.md must be a scanned public surface (surfaces(); MG2)`; the
+sibling scrub test stays green. Restored from backup -> LF-sha256 `0d10f1927514b7bc9b0ee39ff2b4cee30860c1018094f0ca1ac71ba0912ede78` (sha-exact). Before C-G2-2, MG2 survived (G2 table); it now reds exactly its target.
+
+### Oracles (partial set; full `npm run ci` withheld — Bell -b1 running), scratch on F:
+`typecheck` 0 · `test/cra-b.test.ts` 6/6 · `test/public-surfaces-honesty.test.ts` 2/2 · `lint` 0 ·
+`lint:ratchet` 69/69 · `lang:gate` 0 (12 scopes) · `export:check` 0 forbidden / 0 French.
+
+### R-25 (STAT pathspec, `627113c` .. worktree; gate CHANGED = ins + del)
+**297** (296 insertions, 1 deletion; bound 400) = baseline 293 + 4. Counted delta: `SECURITY.md` 48 -> 50 ins
+(+2: C-G2-1 real hosting + vitrine-log clause, C-G2-3 path); `test/public-surfaces-honesty.test.ts` 4/-1 ->
+6/-1 (+2: C-G2-2). `docs/PRODUCT-BOUNDARY.md` and this annex are `docs/**/*.md` (excluded). vs "~296": +1 is
+option (a') (extra vitrine-log clause) rather than removing the hosting characterization; both were G2-licit.
+
+R-20/R-21: no commit, no workflow; adversarial verification, `error_origin`, and the G7 verdict remain with the
+orchestrator.
