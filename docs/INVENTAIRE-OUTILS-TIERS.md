@@ -5,7 +5,7 @@
 | Élément | Où | Comment le récupérer |
 |---|---|---|
 | Instructions globales | `C:\Users\KACIMI\.claude\CLAUDE.md` | fichier ; sauvegarde dans `F:\MONARK SUITE\backup-2026-09-18\` à faire à chaque bascule |
-| Agents utilisateur (9) | `C:\Users\KACIMI\.claude\agents\{advisor,advisor-defi,advisor-marche,chercheur,designer,lecteur,lecture-advisor,validateur-humain,worker}.md` | fichiers ; roster : workers `claude-opus-4-8` max, lecteurs/chercheurs `claude-sonnet-5` max, advisors `claude-fable-5-1` medium, validateur high, designer medium ; tous portent `ToolSearch, mcp__memstack, mcp__6144e146-7ed5-4073-b7f2-864b9335f725` |
+| Agents utilisateur (9) | `C:\Users\KACIMI\.claude\agents\{advisor,advisor-defi,advisor-marche,chercheur,designer,lecteur,lecture-advisor,validateur-humain,worker}.md` | fichiers ; roster : workers `claude-opus-4-8` max, lecteurs/chercheurs `claude-sonnet-5` max, advisors `claude-fable-5-1` medium, validateur high, designer medium ; tous portent `ToolSearch, mcp__memstack, mcp__1e993196-5288-40f1-bf6f-0cb66830757d` |
 | Agents projet Shōgen (2) | `F:\Shogen\.claude\agents\shogen-{orchestrator,devops}.md` | fichiers |
 | Skills utilisateur (18) | `C:\Users\KACIMI\.claude\skills\` : caveman, diagnose, git-guardrails-claude-code, grill-me, grill-with-docs, handoff, improve-codebase-architecture, migrate-to-shoehorn, prototype, scaffold-exercises, setup-matt-pocock-skills, setup-pre-commit, tdd, to-issues, to-prd, triage, write-a-skill, zoom-out | dossiers (origine : `setup-matt-pocock-skills`) |
 | Réglages Claude Code | `C:\Users\KACIMI\.claude\settings.json` : `advisorModel: claude-fable-5-1`, `enabledPlugins`, `extraKnownMarketplaces` | fichier |
@@ -28,7 +28,7 @@ Prérequis binaires : `uv`/`uvx` (Python via uv, `C:\Users\KACIMI\AppData\Roamin
 ## 3. Connecteurs claude.ai (LIÉS AU COMPTE — à refaire sur l'autre abonnement)
 | Connecteur | URL | État mesuré 2026-09-19 | Usage | Note |
 |---|---|---|---|---|
-| **Firecrawl** | `https://mcp.firecrawl.dev/v2/mcp-search` | Connected | recherche web + papiers pour TOUS les agents | nommé en interne par UUID **`mcp__6144e146-7ed5-4073-b7f2-864b9335f725`** (a CHANGÉ à la bascule 2026-09-19 : ancien `8aa0cccf-…` ; 22 agents + CLAUDE.md réécrits, sauvegarde `pre-firecrawl-uuid-2026-09-19`) ; **si l'UUID change après ré-inscription, mettre à jour les 11 agents (`tools:`) + CLAUDE.md global §memstack/firecrawl** ; alternative robuste : `claude mcp add --scope user firecrawl` avec clé API (entrée stable `mcp__firecrawl`) |
+| **Firecrawl** | `https://mcp.firecrawl.dev/v2/mcp-search` | Connected | recherche web + papiers pour TOUS les agents | nommé en interne par UUID **`mcp__1e993196-5288-40f1-bf6f-0cb66830757d`** (a CHANGÉ à la bascule 2026-09-19 : ancien `8aa0cccf-…` ; 22 agents + CLAUDE.md réécrits, sauvegarde `pre-firecrawl-uuid-2026-09-19`) ; **si l'UUID change après ré-inscription, mettre à jour les 11 agents (`tools:`) + CLAUDE.md global §memstack/firecrawl** ; alternative robuste : `claude mcp add --scope user firecrawl` avec clé API (entrée stable `mcp__firecrawl`) |
 | Blockscout | `https://mcp.blockscout.com/mcp` | Connected | explorateur EVM (Ukemi) | réinscrire |
 | Claude Docs | `https://api.anthropic.com/v1/pages/mcp` | Connected | docs Anthropic | réinscrire |
 | Origin | `https://mcp.originhq.com/mcp` | Needs authentication | non utilisé | optionnel |
