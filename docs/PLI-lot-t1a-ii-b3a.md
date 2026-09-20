@@ -247,3 +247,91 @@ n'ajoute que des docs R-25-exclus) < 1 205.
 - **SetAuthority non scanné** (faille résiduelle de complétude côté signataire, déjà C-12) — déclencheur : scan SetAuthority du mint ; propriétaire orchestrateur.
 - **Énumération d'autorité mono-opérateur (Helius seul)** — gTfA n'a pas d'équivalent Chainstack ; backstop = C-3 (état final) ; même limite que la méthode mandatée ; déclencheur : contrôle croisé sur un 2ᵉ archiveur gTfA si disponible ; propriétaire orchestrateur.
 - **Motif de rebase Backed** (first-hand [lu] : paire commit(prior)+schedule(next) par tx, effTs = jour à 23:55:00Z, cadence ~trimestrielle, incréments positifs faibles) — contexte pour D1-quater (accumulation dividende/frais), pas une affirmation d'intention ; propriétaire ADR.
+
+## ANNEXE pli -b3a-3 (livraison sous décision orchestrateur 60 ; worker `claude-opus-4-8[1m]`, effort max, 2026-09-20)
+
+**R-1** : modèle résolu `claude-opus-4-8[1m]` (préfixe `claude-opus-4-8`). **R-20** : aucun commit, aucun workflow.
+Aucun appel RPC (tout déjà mesuré à -b3a-2). Scratch `F:/tmp/bell-b3a-3/`.
+
+**Objet** : ratification opérationnelle de l'option 1 (scan d'autorité, décision 60) — les 4 séries de course sont
+copiées sha-pinnées et rejouées bit-à-bit hors ligne, les résiduels nommés sont ajoutés à l'enum et émis par le gate,
+l'ADR D1-quater porte la méthode hybride + la précondition d'invariance d'autorité.
+
+### Livrables
+- **Séries** (byte-identiques aux sources hors dépôt) sous `apps/bell/test/fixtures/series/rebase/rebase-<MINT>.json`
+  + `PROVENANCE-rebase-course.md` (shas LF, shas des bruts hors dépôt, ToS Helius/Chainstack collé, méthode, budget
+  réel **6 323 crédits Helius / 4 042 appels Chainstack**, résiduels). `series_pinned_are_declared_and_hashed` **vert**
+  (4 séries déclarées+hashées, une ligne nom+sha chacune).
+- **Résiduels** : `authority_scan_mono_operator` + `set_authority_unscanned` ajoutés à `COLLECTOR_RESIDUE_CODES`
+  (`residuals.ts`) ; le gate `trajectory_known` porte le champ **requis** `residuals` ; `rebaseGateFromTrajectory(…,
+  scanMethod="authority")` les émet, jamais un `trajectory_known` sans eux (test d'égalité). **TSLAx `constant` ne
+  porte AUCUN résiduel** (scope `trajectory_known`) — déclaré (honnêteté).
+- **Test** `bell_rebase_course_replays_bit_identical` : par mint — invariance d'autorité (`Initialize.authority ==
+  oracle.authority`), `replayTriplet` == oracle sur les BITS, `overwritten_pending = 0`, `multiplier_at` aux 3 bornes
+  (bits + décimal `String()`), gate = `constant` (TSLAx) / `trajectory_known` (3 autres, résiduels portés). +
+  `bell_rebase_authority_residuals_named_and_gated` (codes ∈ set fermé ; émis sous `authority`, `[]` sinon).
+- **ADR D1-quater** : sous-section « Méthode hybride — scan de l'autorité », précondition d'invariance, coût
+  (5,34 M full-mint réfuté [décision 60 l.122, lu] vs ~1 825 projeté ; réel 6 323/4 042), résiduels nommés, tuyaux mis
+  à jour + ligne `gate.residuals` ABSENT, item MAST `SetAuthority` corrigé (« sans effet » → résiduel nommé).
+
+### Touched set
+Modifiés (tracked) : `apps/bell/src/{residuals,supply}.ts`, `apps/bell/test/{collect,rebase-gate-gt}.test.ts`.
+Docs (R-25-exclus `docs/**/*.md`) : `docs/adr/ADR-T1aii-bell-collecteur-course-fondatrice.md`, ce PLI.
+Nouveaux : `apps/bell/test/rebase-course.test.ts` (compté), `.../series/rebase/PROVENANCE-rebase-course.md` (compté —
+voir R-25), 4 `rebase-*.json` (R-25-exclus par la glob séries).
+
+### sha256 (LF) des fichiers touchés (provenance)
+```
+residuals.ts                 580575cac0448d844d4a37ef4c847d492e4c69756e87b5e8c4917b46626653df
+supply.ts                    b7352581ce1ee8b8a0def09d05ae722e1cf32503724d0790ca4e15fd4ba526bb
+collect.test.ts              df17d41988c57a48c7b9a72f8f8231ec1be0920b764a078a3567dfc4628225cd
+rebase-gate-gt.test.ts       6dade70fa845455ea082d1e4e4a1f0194ee34f9be78f845051ea9dc367a98f0c
+rebase-course.test.ts        7ef275c53c364cd997022b6a91e2cbc261b0f687da7f6b60850891334b7dfe2a
+PROVENANCE-rebase-course.md  c2c085c7faa2ad670734b87c23f04cc3a254b3d26a49007b606bf3a2d7bbc0fc
+séries (pins complets dans PROVENANCE) : TSLAx bd68590c… · SPYx 43243b87… · NVDAx f2776fe6… · AAPLx 02b37ecf…
+```
+
+### Re-pin du digest (`collect.test.ts` `PINNED_BELL_SHA`)
+L'ajout de 2 codes agrandit `newResidualCounts()` ⇒ la map `residuals` du digest gagne 2 clés ⇒ le sha glisse (octets
+de fixture INCHANGÉS ; extension de vocabulaire voulue, même mécanique qu'au re-pin -b1 `rebase_unverified`) :
+`eaed7ea4b200cf97957d5ea0b4ac4a5f3f4fa6870af7c640fcc61d1c700d6df6` →
+**`126abfaed17630808942a0dafc0ff6f1f9acf375d8f7adc6487d8c1e9e2c06d3`**. `bell_collector_replays_fixture_bit_identical`
+re-vert ; un octet de fixture le redsse toujours.
+
+### Mutants (2 ; rouges par construction ; restauration cp → sha identique, PAS de `git checkout`, R-20)
+| # | mutation | fichier | test tueur | résultat |
+|---|---|---|---|---|
+| M-r1 | émission des résiduels d'autorité neutralisée (`scanMethod === "authority"` → `false`) | supply.ts | `bell_rebase_authority_residuals_named_and_gated` + `bell_rebase_course_replays_bit_identical` | KILLED |
+| M-r2 | un octet de série altéré (SPYx oracle bits `…f03f`→`…f03e`) | rebase-SPYx.json | `bell_rebase_course_replays_bit_identical` + `series_pinned_are_declared_and_hashed` (racine, `test/ci-gates.test.ts`) | KILLED |
+
+Restauration vérifiée byte-identique : supply.ts sha LF `b7352581…` (== pristine) ; rebase-SPYx.json sha LF
+`43243b87…` (== annexe, `cmp` byte-identique à la source).
+
+### R-25 (`git diff --shortstat 3315ea7` sous pathspec `STAT=` de `.github/workflows/ci.yml`)
+**1 159 lignes** (1 105 ins + 54 del) < plafond 1 205 ⇒ **pas de seam**. = 987 (b3a-2, inchangé) + 172 (b3a-3).
+**Précondition de reproduction** : mesuré avec `git add -N` sur les 2 nouveaux fichiers comptés (`rebase-course.test.ts`,
+`PROVENANCE-rebase-course.md`) — c'est l'état committé, ce que mesure la CI via `HEAD`. Sans ce staging, le diff
+deux-points omet ces 155 lignes (1 004 affiché) : `git add -N <les 2 fichiers>` PUIS `git diff --shortstat 3315ea7 -- <pathspec>`.
+**Écart avec l'estimé ~1 037 de l'annexe -b3a-2 = fait mesuré, non un dépassement caché** : le `STAT=` exclut les
+données de la racine séries (`…/series/**/*.{json,jsonl,csv}`) et `docs/**/*.md`, mais **PAS** les `…/series/**/*.md`
+⇒ `PROVENANCE-rebase-course.md` (+78 l) **compte** (les PROVENANCE existants sous cette racine étaient dans la base
+`3315ea7`, donc invisibles au diff). **Item formé** (déclencheur : décision ADR/orchestrateur ; propriétaire
+orchestrateur) : exclure `:(exclude,glob)apps/bell/test/fixtures/series/**/*.md` du `STAT=` **exige** d'ajouter cette
+glob au whitelist `NON_SERIES_GLOB` de `series_pinned` (sinon `extra` rouge, mutant M11) — modification de gate, hors
+périmètre worker (R-20). Sans cet item, R-25 = 1 159 reste sous plafond.
+
+### Branchement (règle KACIMI 2026-09-19, CA-11)
+L'émission des résiduels par `rebaseGateFromTrajectory(…, "authority")` est **couverte par test non-LLM** mais **pas
+encore servie** : `collect()` compte `rebase_unverified` par séance et ne déverse PAS `gate.residuals` dans
+`state.json` (granularité mint vs séance non spécifiée — sémantique non inventée). ⇒ **item formé** (tuyau
+`gate.residuals → compteur/state.json` = ABSENT ; déclencheur -b1-bis ; propriétaire orchestrateur), consigné dans
+l'ADR D1-quater (tuyaux + items). Bell reste **`upcoming`** (consommateur servi = -b1-bis ; absent de fleet/README/site).
+
+### Oracles
+`gate:vocab` OK (171) ; `typecheck` 0 ; `eslint` 0 ; `lint:ratchet` 69/69 ; `lang:gate` 0 (bell) ; `export:check` 0 ;
+tests ciblés `apps/bell/test/*.test.ts` + `test/no-secret-in-repo.test.ts` = **69 verts** (67 -b3a-2 + 2 nouveaux) ;
+`series_pinned_are_declared_and_hashed` vert. **`npm run ci` complet = 432 verts** (430 -b3a-2 + 2 bell nouveaux ;
+0 fail ; `gate:vocab` + `typecheck` passent en tête du script `ci`). Lancé UNE fois en fin, après vérification qu'aucun
+node de worktree bell ne tournait (aucun processus node introspectable ne portait `wt-`/`--test` ; NARABI-OPS-1 =
+worktree distinct, isolé au niveau fichier). `error_origin` de la réfutation full-mint = orchestrateur (décision 55,
+sonde -b1 capée à 8 pages) — décision 60.

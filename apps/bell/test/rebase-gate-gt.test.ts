@@ -77,7 +77,7 @@ test("bell_gt_trajectory_known_integration — collect() emits a rebase-aware g_
   const cls = classifySession(bt);
   const refDate = refCloseDateOf(cls.session, cls.sessionDateET); // key the close exactly as collect() does
   const sym: SymbolInput = { symbol: "SPYx", chain: "solana", baseDec: 8, quoteDec: 6, fills: [fill], fillsResidues: [],
-    closeRefBySession: { [refDate]: 364 }, advDailyVolumes: [], rebase: { status: "trajectory_known", events, overwrittenPending: 0 } };
+    closeRefBySession: { [refDate]: 364 }, advDailyVolumes: [], rebase: { status: "trajectory_known", events, overwrittenPending: 0, residuals: [] } };
   const d = collect({ symbols: [sym], haltRows: [], window: { fromUtcMs: 0, toUtcMs: 0 }, nowSec: 1_800_000_000, staleBoundSec: 93600, generatedAt: "t" }).digest as { gaps: Array<Record<string, unknown>>; residuals: Record<string, number> };
   const g = d.gaps.find((x) => "gT" in x);
   assert.ok(g, "a filled gap exists");

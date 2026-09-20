@@ -1,0 +1,71 @@
+{
+  "symbol": "TSLAx",
+  "mint": "XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB",
+  "method": "hybrid-authority-scan (pending R-26 ratification)",
+  "oracle_slot": 448651418,
+  "oracle_triplet": {
+    "multiplierBitsHex": "000000000000f03f",
+    "newMultiplierBitsHex": "000000000000f03f",
+    "effectiveTimestampSec": 0,
+    "multiplier": "1",
+    "newMultiplier": "1",
+    "authority": "066f592251cc47747825a59ad1422ea43573f528da5dee2af7812b314f9945e3"
+  },
+  "initialize_authority": "066f592251cc47747825a59ad1422ea43573f528da5dee2af7812b314f9945e3",
+  "authority_invariant": true,
+  "events": [
+    {
+      "kind": "initialize",
+      "multiplier": "1",
+      "multiplierBitsHex": "000000000000f03f",
+      "effectiveTimestampSec": 0,
+      "blockTimeSec": 1749634870,
+      "slot": 346066196,
+      "instructionIndex": 4,
+      "signature": "5yKhATi8myn5XLPcKNkzvaTWSLhFR3CD1sEDsLvYib7BQTWzjjKqeQo2VP5uiDGaLt6kUkQAxi11r835uHCu42Z8"
+    }
+  ],
+  "event_count": 1,
+  "overwritten_pending": 0,
+  "replay_triplet": {
+    "multiplierBitsHex": "000000000000f03f",
+    "newMultiplierBitsHex": "000000000000f03f",
+    "effectiveTimestampSec": 0
+  },
+  "c3_final_state_ok": true,
+  "scan_complete": true,
+  "same_slot_diff_sig": false,
+  "body_quorum_fail": false,
+  "block_time_null": false,
+  "multiplier_at": {
+    "2025-07-01T00:00:00Z": {
+      "value": "1",
+      "bitsHex": "000000000000f03f"
+    },
+    "2025-10-31T23:59:59Z": {
+      "value": "1",
+      "bitsHex": "000000000000f03f"
+    },
+    "2026-09-19T00:00:00Z": {
+      "value": "1",
+      "bitsHex": "000000000000f03f"
+    }
+  },
+  "founding_window": {
+    "fromSec": 1751328000,
+    "toSec": 1761955199
+  },
+  "founding_window_gate": "constant",
+  "gate_detail": {
+    "status": "constant",
+    "multiplier": "1"
+  },
+  "quorum_reads": [
+    {
+      "sig": "5yKhATi8myn5",
+      "shaH": "06b109f7c1a0",
+      "shaC": "4ae42939ec90",
+      "keyMatch": true
+    }
+  ]
+}

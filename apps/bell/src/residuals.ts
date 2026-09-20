@@ -31,6 +31,11 @@ export const COLLECTOR_RESIDUE_CODES = [
   "quorum_sampled", // C-1: bodies concorded on a deterministic sample, not the full set (coverage published)
   "rebase_unverified", // C-6 (D1-bis): the scaled-UI multiplier was not verified CONSTANT across the pool-window
                        // (unread at a bound, or changed) — the session abstains, never a silently rescaled g_t
+  "authority_scan_mono_operator", // D1-quater (decision 60): a trajectory_known reconstructed by the hybrid AUTHORITY
+                       // scan carries this — the authority enumeration (getTransactionsForAddress) is Helius-only; a
+                       // Helius omission that would change the final state is caught by C-3, one that would not is not
+  "set_authority_unscanned", // D1-quater (decision 60, C-12): the mint's SetAuthority history is not scanned — a
+                       // signer-side A->B->A authority change with self-cancelling B-signed updates is the residual gap
 ] as const;
 
 /** The ONE closed list of residual codes (union). Iterated to build the counter and to check state.json. */

@@ -12,6 +12,7 @@
 // file records them, but no downstream fact is derived from them at this lot.
 
 import { constantMultiplierOver, overwrittenPending, type MultiplierEvent } from "./rebase-trajectory.ts";
+import { type Residual } from "./residuals.ts";
 
 const asObj = (x: unknown): Record<string, unknown> => (x && typeof x === "object" ? (x as Record<string, unknown>) : {});
 const asArr = (x: unknown): unknown[] => (Array.isArray(x) ? x : []);
@@ -143,7 +144,9 @@ export type RebaseGate =
   | { readonly status: "constant"; readonly multiplier: string }
   // C-6 (D1-quater): the multiplier trajectory was replayed from Initialize and m(t) is available per fill; the
   // events ride as plain data so collect() computes g_t rebase-aware and the replay oracle stays bit-identical.
-  | { readonly status: "trajectory_known"; readonly events: readonly MultiplierEvent[]; readonly overwrittenPending: number }
+  // `residuals` (D1-quater, decision 60): NAMED completeness caveats the reconstruction carries — non-empty for the
+  // hybrid AUTHORITY scan (authority_scan_mono_operator + set_authority_unscanned), `[]` for a hand-built/other method.
+  | { readonly status: "trajectory_known"; readonly events: readonly MultiplierEvent[]; readonly overwrittenPending: number; readonly residuals: readonly Residual[] }
   | { readonly status: "unverified"; readonly residue: "rebase_unverified" };
 export function rebaseGate(multiplierAtBegin: string | null, multiplierAtEnd: string | null): RebaseGate {
   if (multiplierAtBegin === null || multiplierAtEnd === null) return { status: "unverified", residue: "rebase_unverified" };
@@ -157,14 +160,18 @@ export function rebaseGate(multiplierAtBegin: string | null, multiplierAtEnd: st
  *  in-window effTs changes m without an in-window instruction). `overwritten_pending > 0` (F-2) fails CLOSED to
  *  `rebase_unverified` (the actually-applied value is not proven cheaply). An INCOMPLETE scan (budget, no_quorum,
  *  blockTime null, undecidable same-slot order, state-oracle divergence) => `rebase_unverified`. Otherwise the
- *  varying trajectory is `trajectory_known` and rides as events for a per-fill g_t. */
-export function rebaseGateFromTrajectory(events: readonly MultiplierEvent[], fromSec: number, toSec: number, scanComplete: boolean): RebaseGate {
+ *  varying trajectory is `trajectory_known` and rides as events for a per-fill g_t. `scanMethod === "authority"`
+ *  (decision 60) makes the `trajectory_known` gate carry the two named residuals of the hybrid authority scan
+ *  (authority_scan_mono_operator, set_authority_unscanned) — OBLIGATORY, never granted without them; any other
+ *  method (or none) carries `[]`. `constant` carries no residual (scoped to `trajectory_known` by construction). */
+export function rebaseGateFromTrajectory(events: readonly MultiplierEvent[], fromSec: number, toSec: number, scanComplete: boolean, scanMethod?: "authority"): RebaseGate {
   if (!scanComplete) return { status: "unverified", residue: "rebase_unverified" };
   const overwritten = overwrittenPending(events);
   if (overwritten > 0) return { status: "unverified", residue: "rebase_unverified" };
   const c = constantMultiplierOver(events, fromSec, toSec);
   if (c !== null) return { status: "constant", multiplier: String(c.value) };
-  return { status: "trajectory_known", events: [...events], overwrittenPending: overwritten };
+  const residuals: readonly Residual[] = scanMethod === "authority" ? ["authority_scan_mono_operator", "set_authority_unscanned"] : [];
+  return { status: "trajectory_known", events: [...events], overwrittenPending: overwritten, residuals };
 }
 
 /** C-1/C-12: the CURRENT mint readout ALONE cannot establish constancy (the C-G2-8 "authority null now = null in

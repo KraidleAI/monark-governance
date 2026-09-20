@@ -198,9 +198,10 @@ bigint inchangé (digests m=1 bit-identiques à -b1). Test `bell_gt_constant_m_n
 ### Tuyaux -b3a (entrée / sortie / état / test)
 | Tuyau | Entrée (produit) | Sortie (consomme) | État | Test |
 |---|---|---|---|---|
-| scan → trajectoire | RPC quorum-2 (helius+chainstack), bruts hors dépôt sha-pinnés | `rebase-scan.ts` `scanMultiplierEvents` (events + `finalStateOk` C-3) | upcoming (probe seule ; corps C-V-2) | `bell_rebase_scan_replays_fixture_bit_identical`, `bell_rebase_scan_state_divergence_is_unverified` |
-| trajectoire → gate | `MultiplierEvent[]` | `rebaseGateFromTrajectory` (3 états) | branché (offline) | `bell_rebase_gate_three_states` |
+| scan → trajectoire | course d'autorité `S7vYFF…` (gTfA Helius + relecture quorum-2 Chainstack), bruts hors dépôt sha-pinnés | décodeurs 43/x + `replayTriplet` (events + oracle d'état C-3) | course FAITE (décision 60) ; 4 séries sha-pinnées `test/fixtures/series/rebase/`, rejouées bit-à-bit hors ligne ; consommateur servi = -b1-bis ⇒ **upcoming** | `bell_rebase_course_replays_bit_identical`, `bell_rebase_scan_state_divergence_is_unverified` |
+| trajectoire → gate | `MultiplierEvent[]` | `rebaseGateFromTrajectory` (3 états ; `scanMethod="authority"` ⇒ résiduels nommés) | branché (offline) | `bell_rebase_gate_three_states`, `bell_rebase_authority_residuals_named_and_gated` |
 | gate → g_t | `RebaseGate` (events) | `collect()` → `sessionGapRebase` (÷ m par fill) + `multiplierUsed` | **branché dans `main()`** via `--rebase-trajectory` (C-10) | `bell_gt_trajectory_known_integration`, `bell_symbol_build_mint_quorum_fail_unverified` (C-V-3) |
+| gate.residuals → compteur résiduel / state.json | `RebaseGate.residuals` (trajectory_known) | — | **ABSENT** : `collect()` ne compte pas les résiduels du gate (la granularité mint vs séance n'est pas spécifiée) ⇒ **item formé** (déclencheur -b1-bis, propriétaire orchestrateur) | émission couverte par `bell_rebase_authority_residuals_named_and_gated` |
 | g_t → course | — | -b1-bis (course rebase-aware) | item formé | G0 -b1-bis |
 
 Branchement (règle KACIMI 2026-09-19, CA-11) : `rebase-trajectory.ts` → `supply.ts` (`rebaseGateFromTrajectory`)
@@ -214,6 +215,36 @@ Voir `docs/PLI-lot-t1a-ii-b3a.md` (mesures, sha, budget). Le gate `--rebase-scan
 Helius (RESSOURCES-HELIUS l.12) ⇒ **C-V-2 = mesure Usage dashboard, propriétaire orchestrateur** = prérequis des
 corps. La course de trajectoire (L-5) et l'extension rapport `bell-report.mjs --rebase` sont **différées**
 (consultation formée, non un contournement).
+
+### Méthode hybride — scan de l'autorité (DÉCISION ORCHESTRATEUR 60, 2026-09-20, `docs/CHANTIERS.md` l.122 [lu] ; pli -b3a-3)
+La méthode mandatée (décision 55 : corps **full-mint** via `getTransactionsForAddress`) est **réfutée par mesure** :
+débits 55 k–627 k signatures/jour par mint ⇒ **~5,34 M crédits Helius** projetés (SPYx seul ~2,92 M), > plafond 1 M
+(décision 56) — chiffre de la décision 60 l.122 [lu] ; le tableau par mint de l'annexe -b3a-2 en donne la ventilation
+(~5,4 M au total, même ordre de grandeur). `error_origin` orchestrateur (décision 55 fondée sur la sonde -b1 capée à
+8 pages). `getTransactionsForAddress` n'offre **aucun filtre programme/instruction serveur-side** ⇒ tirer tous les
+corps du mint est requis pour trouver les 43/x ⇒ infaisable sous plafond.
+**Option 1 ratifiée — scan de l'AUTORITÉ de mise à jour partagée `S7vYFF…`** (`066f5922…45e3`) : les 43/0 Initialize
+et **tous** les 43/1 UpdateMultiplier des 4 mints sont émis par cette autorité. Énumérer l'autorité (164 239
+signatures, gTfA `full` ~166 pages ≈ **1 825 crédits** projetés, ~2 900× moins cher que full-mint), décoder les 43/x
+par mint, relire chaque candidat quorum-2 (Helius + Chainstack, clé = événement décodé).
+**Précondition d'invariance d'autorité** (le socle de complétude) : `Initialize.authority == oracle.authority ==
+S7vYFF` (asserté par mint dans `bell_rebase_course_replays_bit_identical`). `processor.rs` (l.44-53) exige la
+**signature de l'autorité courante** pour un UpdateMultiplier ⇒ seule `S7vYFF` a pu en émettre un ⇒ le scan
+d'autorité les capture tous. Backstop : **oracle d'état final C-3 bit-à-bit** (le triplet rejoué == le
+`ScaledUiAmountConfig` lu quorum-2 au slot pinné).
+**Résiduels nommés** (symétriques, publiés **dans** le gate `trajectory_known` — jamais accordé sans eux) :
+`authority_scan_mono_operator` (l'énumération gTfA est **Helius seul** — pas d'équivalent Chainstack ; une omission
+Helius qui changerait l'état final est attrapée par C-3, une qui ne le changerait pas ne l'est pas) et
+`set_authority_unscanned` (l'historique `SetAuthority` du mint n'est pas scanné, C-12 : un changement d'autorité
+A→B→A avec updates B-signés qui s'annulent est la faille résiduelle côté signataire). Ajoutés à l'enum fermé
+`residuals.ts` ; émis par `rebaseGateFromTrajectory(…, scanMethod="authority")`.
+**Résultats de la course** (4/4, first-hand ; hors dépôt `course/series-*.json`, copiés sha-pinnés sous
+`test/fixtures/series/rebase/`) : TSLAx `constant` (1 événement, m = 1, **aucun résiduel** — les deux résiduels sont
+scopés à `trajectory_known`) ; SPYx 9, NVDAx 11, AAPLx 11 événements, `trajectory_known`, `overwritten_pending = 0`,
+C-3 OK ; premier update **dans** la fenêtre Cong (AAPLx 2025-08-14, NVDAx 2025-10-02, SPYx 2025-10-31 23:55Z) ⇒ 3/4
+mints non `constant` en fenêtre (g_t = VWAP_raw / m requis, incréments ≤ ~0,3 %). **Coût réel : ~6 323 crédits Helius,
+4 042 appels Chainstack** (inclut l'exploration `shape`/`verify-oldest`/`verify-gtfa-config`) — largement sous
+plafonds ; **aucun scan full-mint corps lancé**. Ratification **investisseur** due au retour (décision 60).
 
 ### Items formés (déclencheurs + propriétaires ; zéro dette nue)
 - **E-1** (date d'activation ScaledUiAmount) — **CLOS par argument** : le rejeu part de l'`Initialize` (43/0) du
@@ -233,10 +264,25 @@ corps. La course de trajectoire (L-5) et l'extension rapport `bell-report.mjs --
   678 octets) ; déclencheur d'une relecture : un mint dont le layout TLV diffère (autre ordre d'extensions) ou un
   échec du locateur. Propriétaire orchestrateur.
 - **C-V-2** (crédit/appel `getTransactionsForAddress`) — **prérequis des corps** ; propriétaire orchestrateur
-  (Usage dashboard). Sans lui, la course L-5 ne démarre pas (budget écrit avant les corps, C-4).
+  (Usage dashboard). Sans lui, la course L-5 ne démarre pas (budget écrit avant les corps, C-4). Contourné par la
+  méthode hybride (scan d'autorité), qui tire ~166 pages gTfA au coût mesuré 10 cr/appel (décision 55/60).
+- **Énumération d'autorité mono-opérateur** (`authority_scan_mono_operator`, décision 60) — gTfA n'a pas
+  d'équivalent Chainstack ⇒ l'énumération de l'autorité est Helius seul ; backstop = oracle d'état final C-3 ;
+  déclencheur : contrôle croisé de l'énumération sur un 2ᵉ archiveur gTfA si disponible ; propriétaire orchestrateur.
+- **`SetAuthority` non scanné** (`set_authority_unscanned`, C-12, décision 60) — faille résiduelle de complétude
+  côté signataire (A→B→A avec updates B-signés qui s'annulent) ; déclencheur : scan `SetAuthority` du mint ;
+  propriétaire orchestrateur.
+- **Débits mints** (55 k–627 k signatures/jour, mesurés décision 60) — fait pertinent pour tout scan full-mint
+  futur (réfutation de la décision 55) ; propriétaire orchestrateur / worker -b1-bis.
+- **`gate.residuals` non compté dans `state.json`** — `collect()` compte `rebase_unverified` par séance mais ne
+  déverse pas les résiduels du gate `trajectory_known` (granularité mint vs séance non spécifiée) ⇒ l'émission est
+  couverte par test mais non servie ; déclencheur : -b1-bis (course rebase-aware qui publie le gate) ;
+  propriétaire orchestrateur.
 
 ### MAST (résiduel)
 + « rejeu circulaire » (contre-mesure : oracle d'état final C-3, `getAccountInfo` quorum-2 après scan, comparaison
 sur bits ; `bell_rebase_scan_state_divergence_is_unverified` prouve qu'une divergence ⇒ `rebase_unverified`, jamais
-un ajustement du rejeu) ; + « upgrade de programme » (E-6) ; `SetAuthority` non scanné (sans effet pour la
-trajectoire du multiplicateur — dit).
+un ajustement du rejeu) ; + « upgrade de programme » (E-6) ; **`SetAuthority` non scanné = résiduel NOMMÉ
+`set_authority_unscanned`** (décision 60) : contrairement à la formulation initiale « sans effet », un changement
+d'autorité A→B→A avec updates B-signés qui s'annulent est une faille résiduelle réelle côté signataire, désormais
+listée dans le gate `trajectory_known` (jamais accordé sans elle), avec l'oracle C-3 pour backstop d'état final.

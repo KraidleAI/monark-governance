@@ -53,7 +53,10 @@ const anchorKeyOf = (utcMs: number): string => classifySession(utcMs).sessionDat
 // Re-pinned at -b1 (C-6): the closed residual set grew by `rebase_unverified`, so the digest's `residuals`
 // map carries one more key (`rebase_unverified: 0`) and its sha shifts. The fixture BYTES are unchanged; the
 // drift is the intended residual-vocabulary extension, recomputed here (a fixture byte still reddens this).
-const PINNED_BELL_SHA = "eaed7ea4b200cf97957d5ea0b4ac4a5f3f4fa6870af7c640fcc61d1c700d6df6";
+// Re-pinned again at -b3a-3 (decision 60): the closed set grew by TWO more keys (`authority_scan_mono_operator: 0`,
+// `set_authority_unscanned: 0`), so the `residuals` map and thus this digest shift once more — fixture BYTES still
+// unchanged (was eaed7ea4b200cf97957d5ea0b4ac4a5f3f4fa6870af7c640fcc61d1c700d6df6).
+const PINNED_BELL_SHA = "126abfaed17630808942a0dafc0ff6f1f9acf375d8f7adc6487d8c1e9e2c06d3";
 
 // ---- replay (bit-identical) ----------------------------------------------------------------------
 test("bell_collector_replays_fixture_bit_identical", () => {
