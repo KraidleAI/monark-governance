@@ -105,10 +105,10 @@ test("ukemi_record_logs_structured_errors", async () => {
 
 // The CLI exposes the enumeration floor, politeness, the bounded retry budget and the backoff cap (V-1(c)).
 test("ukemi_record_parses_cli_args", () => {
-  const a = parseUkemiArgs(["--cluster", "susde-usde", "--block", "23600000", "--from-block", "23598000", "--min-interval-ms", "350", "--retries", "3", "--backoff-ms", "250", "--backoff-cap-ms", "4000", "--out", "F:/tmp/x.json"]);
-  assert.deepEqual(a, { cluster: "susde-usde", block: 23600000, fromBlock: 23598000, minIntervalMs: 350, retries: 3, backoffMs: 250, backoffCapMs: 4000, out: "F:/tmp/x.json" });
+  const a = parseUkemiArgs(["--cluster", "susde-usde", "--block", "23600000", "--from-block", "23598000", "--min-interval-ms", "350", "--retries", "3", "--backoff-ms", "250", "--backoff-cap-ms", "4000", "--out", "F:/tmp/x.json", "--max-calls", "300000", "--resume", "F:/tmp/u4a/U4-inputs.jsonl", "--prereg-sha", "9209cdab", "--filter-only", "--slow-operator", "drpc.org", "--slow-operator", "p2pify.com", "--slow-interval-ms", "250", "--exclude-operator", "mevblocker.io"]);
+  assert.deepEqual(a, { cluster: "susde-usde", block: 23600000, fromBlock: 23598000, minIntervalMs: 350, retries: 3, backoffMs: 250, backoffCapMs: 4000, out: "F:/tmp/x.json", maxCalls: 300000, resume: "F:/tmp/u4a/U4-inputs.jsonl", preregSha: "9209cdab", filterOnly: true, slowOperators: ["drpc.org", "p2pify.com"], slowIntervalMs: 250, excludeOperators: ["mevblocker.io"] });
   const d = parseUkemiArgs([]);
-  assert.deepEqual(d, { cluster: "weth", block: undefined, fromBlock: undefined, minIntervalMs: 200, retries: 2, backoffMs: 500, backoffCapMs: 8000, out: undefined });
+  assert.deepEqual(d, { cluster: "weth", block: undefined, fromBlock: undefined, minIntervalMs: 200, retries: 2, backoffMs: 500, backoffCapMs: 8000, out: undefined, maxCalls: undefined, resume: undefined, preregSha: undefined, filterOnly: false, slowOperators: [], slowIntervalMs: 200, excludeOperators: [] });
   assert.throws(() => parseUkemiArgs(["--block", "abc"]), /non-negative integer/, "a non-numeric flag fails closed");
   assert.throws(() => parseUkemiArgs(["--retries", "-1"]), /non-negative integer/, "a negative flag fails closed");
   assert.throws(() => parseUkemiArgs(["--backoff-cap-ms", "-5"]), /non-negative integer/, "the backoff cap fails closed too");

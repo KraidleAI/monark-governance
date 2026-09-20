@@ -80,9 +80,26 @@ export const SEL = {
   getPriceOracle: selector("getPriceOracle()"),
   description: selector("description()"),
   balanceOf: selector("balanceOf(address)"),
+  aggregator: selector("aggregator()"),                          // U-4a D_e (C-4): EACAggregatorProxy.aggregator() → the live aggregator
+  getEModeCategoryData: selector("getEModeCategoryData(uint8)"), // U-4a C-3: e-mode category params (LT) for emode ≠ 0 accounts
 } as const;
 export const TRANSFER_TOPIC0 = TRANSFER_TOPIC;
 export const RESERVE_INITIALIZED_TOPIC0 = keccak256("ReserveInitialized(address,address,address,address,address)");
+
+/** U-4a D_e (C-4) — Chainlink AggregatorV2V3 `AnswerUpdated(int256 indexed current, uint256 indexed roundId,
+ *  uint256 updatedAt)`: topic0 COMPUTED via the self-tested keccak (never pasted). The realized oracle path is
+ *  the series of these logs on the resolved aggregator over [B₀, B_last]; the PRICE is `topics[1]` (indexed
+ *  int256), roundId `topics[2]`, updatedAt the data word. The fetched logs' topic0 must equal this (measured
+ *  self-test in the D_e course), and H6 (last update ≤ b == getAssetPrice@b on U3-inputs) validates end-to-end. */
+export const ANSWER_UPDATED_TOPIC0 = keccak256("AnswerUpdated(int256,uint256,uint256)");
+
+/** Decode a signed int256 from a 32-byte ABI word / log topic (two's complement). Aave feed answers are positive,
+ *  but AnswerUpdated.current is declared int256, so decode as signed for correctness (never assume unsigned). */
+export function decInt256(word: string): bigint {
+  const d = word.replace(/^0x/, "").padStart(64, "0").slice(-64);
+  const u = BigInt("0x" + d);
+  return u >= 2n ** 255n ? u - 2n ** 256n : u;
+}
 
 // ── encode / decode (all exact-integer; no floats) ──
 /** Left-pad a 20-byte address to a 32-byte ABI word (lowercased, no `0x`). */
@@ -144,6 +161,26 @@ export function decodeUserConfig(bitmap: bigint, nReserves: number): { collatera
     if ((bitmap >> BigInt(2 * i + 1)) & 1n) collateral.push(i);
   }
   return { collateral, borrow };
+}
+
+/** U-4a C-3 — getEModeCategoryData(uint8) → EModeCategory {uint16 ltv; uint16 liquidationThreshold; uint16
+ *  liquidationBonus; address priceSource; string label}. The return is a DYNAMIC tuple (it carries `label`), so
+ *  it is OFFSET-PREFIXED (word0 = 0x20) and the struct fields start at that offset — decoded on the REAL @B₀ bytes
+ *  (impl 0x97287a4f…; measured cat-1 = ltv 9300 / LT 9500 / bonus 10100 / "ETH correlated", self-tested). The
+ *  layout is read via the offset word (robust to a bare-tuple vs offset-prefixed return). Only LT is load-bearing
+ *  for the U-4a HF recompute under D_e; `label` is skipped (human-readable, not digest-bearing). */
+export interface EModeCategoryData { ltvBps: bigint; liquidationThresholdBps: bigint; liquidationBonusBps: bigint; priceSource: string; }
+export function decodeEModeCategoryData(hex: string): EModeCategoryData {
+  const totalWords = hex.replace(/^0x/, "").length / 64;
+  const off = Number(BigInt("0x" + wordAt(hex, 0)));
+  const base = off % 32 === 0 ? off / 32 : 1; // dynamic-tuple offset (0x20 ⇒ struct at word 1); fail-safe to 1
+  if (totalWords < base + 4) throw new Error(`ukemi/abi: getEModeCategoryData too short (${totalWords} words) — abi_mismatch`);
+  return {
+    ltvBps: BigInt("0x" + wordAt(hex, base)) & 0xFFFFn,
+    liquidationThresholdBps: BigInt("0x" + wordAt(hex, base + 1)) & 0xFFFFn,
+    liquidationBonusBps: BigInt("0x" + wordAt(hex, base + 2)) & 0xFFFFn,
+    priceSource: decAddress(wordAt(hex, base + 3)),
+  };
 }
 
 /** getReservesList() → address[] (lowercased). */

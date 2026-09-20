@@ -9,14 +9,44 @@
 //   node apps/sentinel/src/ukemi/record.ts --cluster susde-usde --block <B> --from-block <F> \
 //        --min-interval-ms 350 --retries 3 --backoff-ms 500 --out F:/tmp/u1a-hard/book.json
 import { createHash } from "node:crypto";
-import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync, appendFileSync, existsSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { providerOf, type RpcCall } from "../rpc.ts";
-import { makeUkemiPool, ETH_CALL_PROVIDERS, GET_LOGS_PROVIDERS, RpcError } from "./rpc2.ts";
-import { recordBook } from "./book.ts";
-import { clusterById } from "./clusters.ts";
+import { makeUkemiPool, ETH_CALL_PROVIDERS, GET_LOGS_PROVIDERS, RpcError, BudgetExceededError, type UkemiReader } from "./rpc2.ts";
+import { recordBook, AbiMismatchError } from "./book.ts";
+import { clusterById, POOL, POOL_ADDRESSES_PROVIDER, ORACLE, type Cluster } from "./clusters.ts";
+import { SEL, TRANSFER_TOPIC0, wordAddr, wordAt, decAddress, decUint, decodeAddressArray, decodeReserveData, decodeUserConfig, transferRecipients } from "./abi.ts";
+import { makeResumeReader, assertResumeHoldersMatch, parseResumeLines, holdersDigestOf, type CacheLine, type ResumeReader } from "./resume.ts";
+
+/** The env-injected archive operator's PUBLISHED label (U-4a A-1 / C-5). `CHAINSTACK_ETH_URL` is added as an extra
+ *  quorum leg (env, never printed); every published/provenance mention is this generic label — NOT its providerOf
+ *  domain and NEVER the URL (which carries the key) — matching U-3's `meta.providers` convention (PROVENANCE-u3:46:
+ *  the archive-env leg is present only when the env var is set, so the committed fixture stays env-independent). */
+export const ARCHIVE_ENV_LABEL = "archive-env";
+
+/** Strip every http(s) URL from a string (U-4a A-1 hygiene, MAST secret-leak): a leaked key always rides inside a
+ *  URL (path or `?api-key=`), and a provider that echoes the request URL in a 4xx body would otherwise surface it
+ *  in `rpc_errors[].message` (record.ts pre-U4 folded the body verbatim). Range-cap phrases carry no URL, so
+ *  `isResultLimit` / `isPlanLimited` still classify correctly on the scrubbed text. `never_prints_endpoint_url`. */
+export function scrubUrls(s: string): string {
+  return s.replace(/https?:\/\/[^\s"'\\]+/gi, "<url>");
+}
+
+/** Map a live URL to its PUBLISHED operator label: the env archive leg → `archive-env`, every other → its
+ *  providerOf domain (a bare host, never a key). The one place URLs become labels for provenance/journal. */
+export function operatorLabel(url: string, archiveEnvUrl: string | undefined): string {
+  return archiveEnvUrl !== undefined && url === archiveEnvUrl ? ARCHIVE_ENV_LABEL : providerOf(url);
+}
+
+/** Drop from a provider pool every URL whose operator is in `excluded` — matched by BOTH its providerOf domain
+ *  (`mevblocker.io`) AND its published label (`archive-env`) so either name excludes it (U-4a D-5: a MEASURED
+ *  degraded operator is removed, quorum-2 kept by the survivors). Empty `excluded` ⇒ the pool unchanged. */
+export function applyExcludeOperators(providers: readonly string[], excluded: readonly string[], archiveEnvUrl: string | undefined): string[] {
+  if (excluded.length === 0) return [...providers];
+  return providers.filter((u) => !excluded.includes(providerOf(u)) && !excluded.includes(operatorLabel(u, archiveEnvUrl)));
+}
 
 /** A structured, secret-free record of one provider's JSON-RPC / transport error (hardening, ADR-U1 D3/D9).
  *  `provider` is the REGISTRABLE DOMAIN (never the full URL, which could carry a key); `code`/`data` are present
@@ -62,14 +92,14 @@ export function makeDefaultCall(opts: DefaultCallOpts = {}): RpcCall {
         res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), signal: ctl.signal });
       } catch (e) {
         clearTimeout(to);
-        const message = e instanceof Error ? e.message : String(e);
+        const message = scrubUrls(e instanceof Error ? e.message : String(e)); // no URL/key in the journal or throw
         if (onErr) onErr({ provider: prov, method, message }); // network / timeout — transport, retryable
         if (attempt < maxRetries) { await sleep(backoffDelay(attempt, backoffMs, backoffCapMs)); continue; }
-        throw e instanceof Error ? e : new Error(message);
+        throw new Error(message);
       }
       clearTimeout(to);
       if (!res.ok) {
-        const body = (await res.text().catch(() => "")).replace(/\s+/g, " ").trim().slice(0, 160);
+        const body = scrubUrls((await res.text().catch(() => "")).replace(/\s+/g, " ").trim().slice(0, 160)); // scrub any echoed endpoint URL/key
         if (onErr) onErr({ provider: prov, method, http: res.status, message: body });
         if ((res.status === 429 || res.status >= 500) && attempt < maxRetries) { await sleep(backoffDelay(attempt, backoffMs, backoffCapMs)); continue; }
         // Body surfaced so getLogsVia can split a range-too-large HTTP 400; a 4xx other than 429 is not retried.
@@ -81,7 +111,7 @@ export function makeDefaultCall(opts: DefaultCallOpts = {}): RpcCall {
       try {
         json = JSON.parse(bodyText) as JsonRpcResponse;
       } catch {
-        const snippet = bodyText.replace(/\s+/g, " ").trim().slice(0, 160);
+        const snippet = scrubUrls(bodyText.replace(/\s+/g, " ").trim().slice(0, 160));
         if (onErr) onErr({ provider: prov, method, http: 200, message: `non-JSON body: ${snippet}` });
         // A non-JSON body from a JSON-RPC endpoint is a mis-route (wrong host / HTML error page), not a transient:
         // retrying the same URL returns the same body, so throw (the quorum benches it). The body stays in the
@@ -90,9 +120,10 @@ export function makeDefaultCall(opts: DefaultCallOpts = {}): RpcCall {
       }
       if (json.error) {
         const data = typeof json.error.data === "string" ? json.error.data : undefined;
-        if (onErr) onErr({ provider: prov, method, code: json.error.code ?? 0, message: json.error.message ?? "rpc error", ...(data !== undefined ? { data } : {}) });
+        const emsg = scrubUrls(json.error.message ?? "rpc error"); // defensive: a node error message never carries our key, but scrub anyway
+        if (onErr) onErr({ provider: prov, method, code: json.error.code ?? 0, message: emsg, ...(data !== undefined ? { data } : {}) });
         // A typed JSON-RPC error (EVM revert / method / server error) is deterministic ⇒ classified by the quorum, NOT retried.
-        throw new RpcError(json.error.message ?? "rpc error", json.error.code ?? 0, data);
+        throw new RpcError(emsg, json.error.code ?? 0, data);
       }
       return json.result;
     }
@@ -102,6 +133,79 @@ export function makeDefaultCall(opts: DefaultCallOpts = {}): RpcCall {
 /** The raw default round-trip (no retry): the fetch → RpcError | transport-Error classification path only. Tests
  *  drive THIS instance directly; the live recorder builds a HARDENED instance via makeDefaultCall({retries,...}). */
 export const defaultCall: RpcCall = makeDefaultCall();
+
+/** C-5 fail-closed RPC budget (calque Bell collect.ts:228 / quorum.ts:24). Wraps a call so that after `maxCalls`
+ *  network calls every further call REJECTS with BudgetExceededError — fatal, re-thrown FIRST by the three rpc2
+ *  guards (quorum2 / getLogsVia / finalized), so it is never benched into a no_quorum, split as a range-cap, or
+ *  swallowed. Counts the TOTAL and a per-operator breakdown (by operatorLabel, so the orchestrator can confront the
+ *  Chainstack dashboard). Pure/injectable: tests drive it offline; resume-cache HITS never reach it (no budget). */
+export function makeBudgetedCall(maxCalls: number, inner: RpcCall, archiveEnvUrl?: string): { call: RpcCall; total: () => number; byOperator: () => Record<string, number>; byMethod: () => Record<string, number> } {
+  let n = 0;
+  const per: Record<string, number> = {};
+  const perMethod: Record<string, number> = {};
+  const call: RpcCall = (u, m, p) => {
+    if (n >= maxCalls) return Promise.reject(new BudgetExceededError(`ukemi/record: --max-calls budget exceeded (C-5 fail-closed)`));
+    n += 1;
+    const label = operatorLabel(u, archiveEnvUrl);
+    per[label] = (per[label] ?? 0) + 1;
+    perMethod[m] = (perMethod[m] ?? 0) + 1;
+    return inner(u, m, p);
+  };
+  return { call, total: () => n, byOperator: () => ({ ...per }), byMethod: () => ({ ...perMethod }) };
+}
+
+/** sha256 of a text after CRLF→LF normalization (the prereg is compared LF-normalized: A-2/`--prereg-sha`). */
+export function lfSha256(text: string): string {
+  return createHash("sha256").update(text.replace(/\r\n/g, "\n"), "utf8").digest("hex");
+}
+
+/** Live progress of a filter pass, mutated in place so a BudgetExceededError stop can still report what was seen. */
+export interface FilterProgress { holders: number; config_read: number; n_at_risk_config: number; }
+/** The result of a filter-only pass (config-passing count = an UPPER bound of recordBook's final at_risk). */
+export interface FilterResult { holders: number; holders_digest: string; n_at_risk_config: number; excluded_collateral_off: number; excluded_no_debt: number; }
+
+/** The config-filter PREFIX of recordBook (U-4a two-stage go, D-3): enumerate the cluster's aToken holders, then
+ *  read `getUserConfiguration` for each and COUNT the config-passing at-risk (cluster collateral bit ON ∧ has
+ *  debt) — with NO per-account read (no balanceOf / getUserAccountData / getUserEMode). It MEASURES nAtRisk before
+ *  the ~9×nAtRisk per-account course; shared through the SAME reader, its enumeration and getUserConfiguration
+ *  reads are cached so the course HITs them (0 budget). `n_at_risk_config` does NOT apply the balanceOf>0
+ *  exclusion, so it EQUALS recordBook.counts.at_risk + excluded_zero_balance (an upper bound; drift-guarded by
+ *  test). It reuses abi decoders + clusters constants only — book.ts is NOT touched (PIN 034fbff9 intact). */
+export async function enumerateAndCountAtRisk(cluster: Cluster, block: number, reader: UkemiReader, opts: { fromBlock?: number | undefined } = {}, progress?: FilterProgress, onTick?: () => void): Promise<FilterResult> {
+  const oracle = decAddress(wordAt(await reader.ethCall(POOL_ADDRESSES_PROVIDER, SEL.getPriceOracle, block), 0));
+  if (oracle.toLowerCase() !== ORACLE.toLowerCase()) throw new AbiMismatchError(`oracle drift @${String(block)}: ${oracle} != ${ORACLE.toLowerCase()}`);
+  const reservesList = decodeAddressArray(await reader.ethCall(POOL, SEL.getReservesList, block));
+  const clusterIdx: number[] = [];
+  const holderSet = new Set<string>();
+  for (const c of cluster.collaterals) {
+    const i = reservesList.indexOf(c.asset.toLowerCase());
+    if (i < 0) throw new AbiMismatchError(`cluster collateral ${c.asset} not in getReservesList @${String(block)}`);
+    clusterIdx.push(i);
+    const rd = decodeReserveData(await reader.ethCall(POOL, SEL.getReserveData + wordAddr(c.asset), block));
+    if (rd.aToken.toLowerCase() !== c.aToken.toLowerCase()) throw new AbiMismatchError(`aToken drift @${String(block)}: ${rd.aToken} != pinned ${c.aToken.toLowerCase()}`);
+    const fromBlock = opts.fromBlock !== undefined ? Math.max(c.reserveInitBlock, opts.fromBlock) : c.reserveInitBlock;
+    const logs = await reader.getLogsRange(c.aToken, [TRANSFER_TOPIC0], fromBlock, block);
+    for (const r of transferRecipients(logs)) holderSet.add(r);
+  }
+  const { holders, holders_digest } = holdersDigestOf(holderSet); // drops zero addr, sorts, sha256 — same as book.ts
+  if (progress) progress.holders = holders.length;
+  let atRisk = 0, excCollOff = 0, excNoDebt = 0;
+  for (const h of holders) {
+    const config = decUint(await reader.ethCall(POOL, SEL.getUserConfiguration + wordAddr(h), block));
+    const { collateral, borrow } = decodeUserConfig(config, reservesList.length);
+    if (progress) {
+      progress.config_read += 1;
+      // Operational heartbeat via onTick (gated ⇒ silent in tests): a multi-hour filter pass must be observable,
+      // its partial nAtRisk AND per-operator call/error tallies visible (D-4 5%-rule monitoring) before it ends.
+      if (onTick !== undefined && progress.config_read % 2000 === 0) onTick();
+    }
+    if (!clusterIdx.some((i) => collateral.includes(i))) { excCollOff += 1; continue; }
+    if (borrow.length === 0) { excNoDebt += 1; continue; }
+    atRisk += 1;
+    if (progress) progress.n_at_risk_config = atRisk;
+  }
+  return { holders: holders.length, holders_digest, n_at_risk_config: atRisk, excluded_collateral_off: excCollOff, excluded_no_debt: excNoDebt };
+}
 
 /** sha256 over the recorder sources ukemi/**.ts (the build witness, ADR-U1 D2/C-6). OUTSIDE the digest. */
 export function ukemiSha(dir: string): string {
@@ -122,11 +226,19 @@ export interface UkemiArgs {
   backoffMs: number;
   backoffCapMs: number;
   out: string | undefined;
+  maxCalls: number | undefined; // C-5 fail-closed budget; REQUIRED (> 0) in main, undefined only pre-check
+  resume: string | undefined;   // C-5 resume/inputs cache path (JSONL request→result, OUTSIDE the repo)
+  preregSha: string | undefined; // A-2: the sha256 LF of docs/PLAN-u4-prereg.md, verified before any read
+  filterOnly: boolean;          // D-3 two-stage go: stop after getUserConfiguration×quorum, report nAtRisk, no per-account read
+  slowOperators: string[];      // D-4: providerOf domains throttled to slowIntervalMs (a misbehaving operator raised alone)
+  slowIntervalMs: number;       // D-4: interval for slowOperators (default 200)
+  excludeOperators: string[];   // D-5: providerOf domains / labels dropped from the pool (a measured-degraded operator; quorum-2 kept by survivors)
 }
 
 /** Parse the recorder CLI. Non-negative integers only for the numeric flags (fail-closed on a bad value). */
 export function parseUkemiArgs(argv: readonly string[]): UkemiArgs {
   const arg = (k: string): string | undefined => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : undefined; };
+  const argAll = (k: string): string[] => { const out: string[] = []; for (let i = 0; i < argv.length; i++) { if (argv[i] === k && argv[i + 1] !== undefined) out.push(argv[i + 1] as string); } return out; };
   const optInt = (k: string): number | undefined => {
     const v = arg(k); if (v === undefined) return undefined;
     const n = Number(v); if (!Number.isInteger(n) || n < 0) throw new Error(`ukemi/record: ${k} must be a non-negative integer, got '${v}'`);
@@ -142,6 +254,13 @@ export function parseUkemiArgs(argv: readonly string[]): UkemiArgs {
     backoffMs: reqInt("--backoff-ms", 500),
     backoffCapMs: reqInt("--backoff-cap-ms", 8000),
     out: arg("--out"),
+    maxCalls: optInt("--max-calls"),
+    resume: arg("--resume"),
+    preregSha: arg("--prereg-sha"),
+    filterOnly: argv.includes("--filter-only"),
+    slowOperators: argAll("--slow-operator"),
+    slowIntervalMs: reqInt("--slow-interval-ms", 200),
+    excludeOperators: argAll("--exclude-operator"),
   };
 }
 
@@ -158,36 +277,137 @@ async function main(): Promise<void> {
   const args = parseUkemiArgs(process.argv.slice(2));
   const cluster = clusterById(args.cluster);
   const here = dirname(fileURLToPath(import.meta.url));
+  const root = join(here, "..", "..", "..", "..");
+
+  // C-5: --max-calls REQUIRED and > 0 (fail-closed budget; calque Bell collect.ts:377-382).
+  if (args.maxCalls === undefined) throw new Error("ukemi/record: --max-calls is required (C-5 fail-closed RPC budget; e.g. --max-calls 300000)");
+  if (!(args.maxCalls > 0)) throw new Error("ukemi/record: --max-calls must be > 0 (C-5 fail-closed budget)");
+
+  // A-2: a supplied --prereg-sha MUST equal the sha256 LF of docs/PLAN-u4-prereg.md (proof the prereg was
+  // committed and unchanged BEFORE the course; else U4-H1 would be post hoc).
+  if (args.preregSha !== undefined) {
+    const actual = lfSha256(readFileSync(join(root, "docs", "PLAN-u4-prereg.md"), "utf8"));
+    if (actual !== args.preregSha) throw new Error(`ukemi/record: --prereg-sha ${args.preregSha} != docs/PLAN-u4-prereg.md LF sha ${actual} (A-2; commit the prereg first)`);
+  }
+
+  // Extra quorum leg from the env archive endpoint (never printed), APPENDED LAST so the keyless quorum forms
+  // first and Chainstack is pulled only on a bench (minimises RU draw — RU/call undocumented, E-2). Then D-5:
+  // drop any --exclude-operator (a MEASURED degraded operator), and fail-closed if quorum-2 can no longer form.
+  const archiveEnvUrl = process.env.CHAINSTACK_ETH_URL;
+  const ethCallProviders = applyExcludeOperators(archiveEnvUrl ? [...ETH_CALL_PROVIDERS, archiveEnvUrl] : [...ETH_CALL_PROVIDERS], args.excludeOperators, archiveEnvUrl);
+  const getLogsProviders = applyExcludeOperators(archiveEnvUrl ? [...GET_LOGS_PROVIDERS, archiveEnvUrl] : [...GET_LOGS_PROVIDERS], args.excludeOperators, archiveEnvUrl);
+  const distinct = (urls: readonly string[]): number => new Set(urls.map((u) => providerOf(u))).size;
+  if (distinct(ethCallProviders) < 2) throw new Error(`ukemi/record: eth_call quorum-2 needs >= 2 distinct operators after --exclude-operator (${String(distinct(ethCallProviders))} left)`);
+  if (distinct(getLogsProviders) < 2) throw new Error(`ukemi/record: eth_getLogs quorum-2 needs >= 2 distinct operators after --exclude-operator (${String(distinct(getLogsProviders))} left)`);
 
   const rpcErrors: RpcErrorRecord[] = [];
-  const hardened = makeDefaultCall({ retries: args.retries, backoffMs: args.backoffMs, backoffCapMs: args.backoffCapMs, onRpcError: (r) => { rpcErrors.push(r); } });
-  let calls = 0;
-  const call: RpcCall = (u, m, p) => { calls++; return hardened(u, m, p); };
-  const pool = makeUkemiPool({ call, ethCallProviders: ETH_CALL_PROVIDERS, getLogsProviders: GET_LOGS_PROVIDERS, minIntervalMs: args.minIntervalMs });
+  const errByOp: Record<string, number> = {}; // D-4: per-operator (providerOf domain) error tally for the 5%-rule monitor
+  const hardened = makeDefaultCall({ retries: args.retries, backoffMs: args.backoffMs, backoffCapMs: args.backoffCapMs, onRpcError: (r) => { rpcErrors.push(r); errByOp[r.provider] = (errByOp[r.provider] ?? 0) + 1; } });
+  const budgeted = makeBudgetedCall(args.maxCalls, hardened, archiveEnvUrl);
+  const basePool = makeUkemiPool({ call: budgeted.call, ethCallProviders, getLogsProviders, minIntervalMs: args.minIntervalMs, slowOperators: args.slowOperators, slowIntervalMs: args.slowIntervalMs });
 
-  const fin = await pool.finalized();
-  const block = args.block ?? fin.block;
-  if (block > fin.block) throw new Error(`ukemi/record: B=${String(block)} > finalized ${String(fin.block)} (look-ahead forbidden, ADR-U1 D7)`);
+  // C-5 resume/inputs cache (JSONL request→result, OUTSIDE the repo). Fresh ⇒ write the meta line; append every
+  // MISS (a hit costs no budget). After the record, a cached holders line that disagrees ⇒ abstention.
+  let reader: UkemiReader = basePool;
+  let resumeReader: ResumeReader | undefined;
+  const opLabels = (urls: readonly string[]): string[] => { const s = urls.map((u) => operatorLabel(u, archiveEnvUrl)); return s.filter((v, i) => s.indexOf(v) === i); };
+  if (args.resume !== undefined) {
+    const resumePath = args.resume;
+    const fresh = !existsSync(resumePath);
+    const lines: CacheLine[] = fresh ? [] : parseResumeLines(readFileSync(resumePath, "utf8"));
+    if (fresh) {
+      const meta: CacheLine = { kind: "meta", schema: "ukemi-u4-inputs/1", model: "claude-opus-4-8[1m]", recorded_at_utc: new Date().toISOString(),
+        cluster: cluster.id, block: args.block ?? null, from_block: args.fromBlock ?? null, chain_id: "1",
+        providers: [...opLabels(ethCallProviders), ...opLabels(getLogsProviders)].filter((v, i, a) => a.indexOf(v) === i), prereg_sha: args.preregSha ?? null };
+      writeFileSync(resumePath, JSON.stringify(meta) + "\n");
+    }
+    resumeReader = makeResumeReader(basePool, lines, (line) => { appendFileSync(resumePath, JSON.stringify(line) + "\n"); });
+    reader = resumeReader;
+  }
 
-  const t0 = Date.now();
-  const res = await recordBook(cluster, block, pool, "GENESIS", { fromBlock: args.fromBlock });
-  const seconds = (Date.now() - t0) / 1000;
+  // Live progress (mutated by the filter pass) so a BudgetExceededError stop can still report what was seen (D-3).
+  const progress: FilterProgress = { holders: 0, config_read: 0, n_at_risk_config: 0 };
+  try {
+    const fin = await reader.finalized();
+    const block = args.block ?? fin.block;
+    if (block > fin.block) throw new Error(`ukemi/record: B=${String(block)} > finalized ${String(fin.block)} (look-ahead forbidden, ADR-U1 D7)`);
 
-  const provenance = {
-    model: "claude-opus-4-8[1m]", recorded_at_utc: new Date().toISOString(),
-    endpoints: { eth_call: ETH_CALL_PROVIDERS, eth_getLogs: GET_LOGS_PROVIDERS }, quorum: 2,
-    params: { cluster: cluster.id, block, from_block: args.fromBlock ?? null, min_interval_ms: args.minIntervalMs, retries: args.retries, backoff_ms: args.backoffMs, backoff_cap_ms: args.backoffCapMs },
-    calls, seconds, finalized_block: fin.block, ukemi_sha: ukemiSha(here),
-    counts: res.counts, holders_digest: res.holders_digest, book_digest: res.book_digest,
-    hf_findings: res.hf_findings, timeline: res.timeline,
-    rpc_error_count: rpcErrors.length, rpc_errors: rpcErrors,
-  };
-  const out = args.out ?? join(tmpdir(), `ukemi-book-${cluster.id}-${String(block)}.json`);
-  writeFileSync(out, JSON.stringify({ provenance, book: res.book }, null, 2));
-  process.stdout.write(`ukemi/record cluster=${cluster.id} B=${String(block)} book_digest=${res.book_digest}\n` +
-    `  holders=${String(res.counts.holders)} at_risk=${String(res.counts.at_risk)} eligible=${String(res.counts.eligible)} ` +
-    `excluded={coll_off:${String(res.counts.excluded_collateral_off)},no_debt:${String(res.counts.excluded_no_debt)},zero_bal:${String(res.counts.excluded_zero_balance)}}\n` +
-    `  calls=${String(calls)} rpc_errors=${String(rpcErrors.length)} seconds=${seconds.toFixed(1)} ukemi_sha=${provenance.ukemi_sha}\n  out=${out}\n`);
+    // D-3 STAGE 1 — filter-only: measure nAtRisk (config filter, no per-account read); cache config reads for the course.
+    if (args.filterOnly) {
+      const t0 = Date.now();
+      const onTick = (): void => {
+        const t = (Date.now() - t0) / 1000;
+        const perOp = Object.entries(budgeted.byOperator()).map(([k, v]) => `${k}:${String(v)}`).join(",");
+        const perErr = Object.entries(errByOp).map(([k, v]) => `${k}:${String(v)}`).join(",");
+        process.stderr.write(`  ..filter config_read=${String(progress.config_read)}/${String(progress.holders)} n_at_risk_config=${String(progress.n_at_risk_config)} rate=${(progress.config_read / Math.max(t, 0.001)).toFixed(2)}/s calls={${perOp}} errors={${perErr}}\n`);
+      };
+      const fr = await enumerateAndCountAtRisk(cluster, block, reader, { fromBlock: args.fromBlock }, progress, onTick);
+      const seconds = (Date.now() - t0) / 1000;
+      if (resumeReader !== undefined) {
+        assertResumeHoldersMatch(fr.holders_digest, resumeReader);
+        if (resumeReader.cachedHoldersDigest() === undefined && args.resume !== undefined) {
+          appendFileSync(args.resume, JSON.stringify({ kind: "holders", n: fr.holders, holders_digest: fr.holders_digest } satisfies CacheLine) + "\n");
+        }
+      }
+      const provenance = {
+        model: "claude-opus-4-8[1m]", recorded_at_utc: new Date().toISOString(), phase: "filter-only",
+        endpoints: { eth_call: opLabels(ethCallProviders), eth_getLogs: opLabels(getLogsProviders) }, quorum: 2,
+        params: { cluster: cluster.id, block, from_block: args.fromBlock ?? null, min_interval_ms: args.minIntervalMs, slow_operators: args.slowOperators, slow_interval_ms: args.slowIntervalMs, retries: args.retries, backoff_ms: args.backoffMs, backoff_cap_ms: args.backoffCapMs, max_calls: args.maxCalls, prereg_sha: args.preregSha ?? null, resume: args.resume !== undefined, filter_only: true },
+        calls: budgeted.total(), calls_by_operator: budgeted.byOperator(), calls_by_method: budgeted.byMethod(), errors_by_operator: errByOp, excluded_operators: args.excludeOperators, seconds, finalized_block: fin.block, ukemi_sha: ukemiSha(here),
+        holders: fr.holders, holders_digest: fr.holders_digest, n_at_risk_config: fr.n_at_risk_config,
+        excluded: { collateral_off: fr.excluded_collateral_off, no_debt: fr.excluded_no_debt }, projection_remaining_calls: 9 * fr.n_at_risk_config,
+        rpc_error_count: rpcErrors.length, rpc_errors: rpcErrors,
+      };
+      const out = args.out ?? join(tmpdir(), `ukemi-filter-${cluster.id}-${String(block)}.json`);
+      writeFileSync(out, JSON.stringify({ provenance }, null, 2));
+      const perOpF = Object.entries(budgeted.byOperator()).map(([k, v]) => `${k}:${String(v)}`).join(",");
+      process.stdout.write(`ukemi/record FILTER-ONLY cluster=${cluster.id} B=${String(block)} holders=${String(fr.holders)} n_at_risk_config=${String(fr.n_at_risk_config)} ` +
+        `excluded={coll_off:${String(fr.excluded_collateral_off)},no_debt:${String(fr.excluded_no_debt)}}\n` +
+        `  calls=${String(budgeted.total())}/${String(args.maxCalls)} by_operator={${perOpF}} projection_remaining=9*${String(fr.n_at_risk_config)}=${String(9 * fr.n_at_risk_config)} seconds=${seconds.toFixed(1)}\n  out=${out}\n`);
+      return;
+    }
+
+    const t0 = Date.now();
+    const res = await recordBook(cluster, block, reader, "GENESIS", { fromBlock: args.fromBlock });
+    const seconds = (Date.now() - t0) / 1000;
+
+    if (resumeReader !== undefined) {
+      assertResumeHoldersMatch(res.holders_digest, resumeReader); // corrupted/tampered enumeration ⇒ abstention (C-5)
+      if (resumeReader.cachedHoldersDigest() === undefined && args.resume !== undefined) {
+        appendFileSync(args.resume, JSON.stringify({ kind: "holders", n: res.counts.holders, holders_digest: res.holders_digest } satisfies CacheLine) + "\n");
+      }
+    }
+
+    const provenance = {
+      model: "claude-opus-4-8[1m]", recorded_at_utc: new Date().toISOString(),
+      endpoints: { eth_call: opLabels(ethCallProviders), eth_getLogs: opLabels(getLogsProviders) }, quorum: 2, // labels only, NEVER a URL (C-5)
+      params: { cluster: cluster.id, block, from_block: args.fromBlock ?? null, min_interval_ms: args.minIntervalMs, retries: args.retries, backoff_ms: args.backoffMs, backoff_cap_ms: args.backoffCapMs, max_calls: args.maxCalls, prereg_sha: args.preregSha ?? null, resume: args.resume !== undefined },
+      calls: budgeted.total(), calls_by_operator: budgeted.byOperator(), calls_by_method: budgeted.byMethod(), errors_by_operator: errByOp, excluded_operators: args.excludeOperators, seconds, finalized_block: fin.block, ukemi_sha: ukemiSha(here),
+      counts: res.counts, holders_digest: res.holders_digest, book_digest: res.book_digest,
+      hf_findings: res.hf_findings, timeline: res.timeline,
+      rpc_error_count: rpcErrors.length, rpc_errors: rpcErrors,
+    };
+    const out = args.out ?? join(tmpdir(), `ukemi-book-${cluster.id}-${String(block)}.json`);
+    writeFileSync(out, JSON.stringify({ provenance, book: res.book }, null, 2));
+    const perOp = Object.entries(budgeted.byOperator()).map(([k, v]) => `${k}:${String(v)}`).join(",");
+    process.stdout.write(`ukemi/record cluster=${cluster.id} B=${String(block)} book_digest=${res.book_digest}\n` +
+      `  holders=${String(res.counts.holders)} at_risk=${String(res.counts.at_risk)} eligible=${String(res.counts.eligible)} ` +
+      `excluded={coll_off:${String(res.counts.excluded_collateral_off)},no_debt:${String(res.counts.excluded_no_debt)},zero_bal:${String(res.counts.excluded_zero_balance)}}\n` +
+      `  calls=${String(budgeted.total())}/${String(args.maxCalls)} by_operator={${perOp}} rpc_errors=${String(rpcErrors.length)} seconds=${seconds.toFixed(1)} ukemi_sha=${provenance.ukemi_sha}\n  out=${out}\n`);
+  } catch (e) {
+    // D-3: a budget stop must never lose information — report what was seen (nAtRisk so far, calls per operator/method).
+    if (e instanceof BudgetExceededError) {
+      const perOp = Object.entries(budgeted.byOperator()).map(([k, v]) => `${k}:${String(v)}`).join(",");
+      const perM = Object.entries(budgeted.byMethod()).map(([k, v]) => `${k}:${String(v)}`).join(",");
+      const perErr = Object.entries(errByOp).map(([k, v]) => `${k}:${String(v)}`).join(",");
+      process.stderr.write(`BUDGET STOP (${e.message})\n` +
+        `  seen: holders=${String(progress.holders)} config_read=${String(progress.config_read)} n_at_risk_config=${String(progress.n_at_risk_config)}\n` +
+        `  calls=${String(budgeted.total())}/${String(args.maxCalls ?? 0)} by_operator={${perOp}} by_method={${perM}} errors={${perErr}}\n` +
+        `  resume cache preserved; re-run --resume ONLY after a re-budget decision (R-26), never a silent raise.\n`);
+      process.exit(2);
+    }
+    throw e;
+  }
 }
 
 // Run-guard: run main() only when record.ts is the process entry point (see isMainModule — cross-platform, the
