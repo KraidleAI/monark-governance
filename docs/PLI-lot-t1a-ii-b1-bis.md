@@ -22,7 +22,7 @@ rédaction. L'orchestrateur committe ce PLI **seul** ; le run réel (scanner L-3
 **L-1/L-2 sont livrés HORS LIGNE** : l'ALGORITHME (`discover.ts`) est prouvé sur des corps gTfA synthétiques en mémoire ; le
 registre `FOUNDING_POOLS` est **measure-gated** (`founding_pool: null` déclaré pour les 4 mints, `bell_founding_registry_equals_discovery_measure`
 prouve `registre == mesure`). La **MESURE RÉELLE** (découverte réseau) reste la seule dépense gelée derrière ce PLI (§4b) ; elle écrit
-les vaults mesurés dans `discovery-*.json` **et** `FOUNDING_POOLS`, puis le test C-4 prouve l'égalité. **Aucun seam** (R-25 = 854 ≤ 1 205).
+les vaults mesurés dans `discovery-*.json` **et** `FOUNDING_POOLS`, puis le test C-4 prouve l'égalité. **Aucun seam** (R-25 = ~~854~~ [**erratum C-G2-7**, pli G2 : « 854 » est une projection R-25 **périmée pré-réseau**, orpheline ; supersédée par §2 = 1 031 (offline) puis RÉSULTATS = 1 090 (mesuré). Aucun paramètre/budget pré-enregistré n'est touché ; le texte original reste tracé par `git show bdfff31:docs/PLI-lot-t1a-ii-b1-bis.md` — retrait par annotation, non par réécriture des bytes pré-enregistrés (intégrité C-3). Ordre PLI-avant-code confirmé conforme : C-3 contraint budget-avant-réseau, pas PLI-avant-code — aucun appel réseau avant `bdfff31`.] ≤ 1 205).
 
 `PINNED_BELL_SHA 0cfbed20…` inchangé **prouvé** (`bell_pinned_sha_reduces_to_b3a_by_subtraction` vert). Bell reste **`upcoming`**
 (absent de `fleet.ts`/README/site/skills), consommateur servi nommé = course -b1-bis-ii puis T-1b.
@@ -128,7 +128,7 @@ Exit 0, 139 s, **76/300 appels** : gTfA 60 ×10 + `getAccountInfo` 16 ×1 = **61
 | NVDAx | `FaHQ9Ny2U2RkcdapsKVr9pvnt4Mg7n92NdKnvyRzuibH` | 0,3218 | `whirLbMii…` | unknown-program | 10 | 3 694 |
 | AAPLx | `3DRUhhz5q1wsXZxYYpujPP4Fq5hYNfEGggSq93d99Tn7` | 0,5219 | `CAMMCzo5…` | raydium-clmm | 5 | 3 258 |
 
-Tous `quote_class: usd` (USDC, liste fermée C-6). `FOUNDING_POOLS` == mesure (test C-4 vert). Hypothèse 1 partiellement réfutée : le vault du PoC TSLAx est retenu mais 6ᵉ (part 0,0753). Limites déclarées : échantillon, jamais une couverture de fenêtre ; un pool actif seulement hors des 3 points n'est pas vu ; énumération Helius mono-opérateur.
+Tous `quote_class: usd` (USDC, liste fermée C-6). `FOUNDING_POOLS` == mesure (test C-4 vert). Hypothèse 1 partiellement réfutée : le vault du PoC TSLAx est retenu mais **7ᵉ** (part 0,0753 ; **erratum C-G2-3** : rang recompté first-hand sur le brut sha-pinné `50c7f357…` — 8 vaults retenus, CY9X au rang 7 ; « 6ᵉ » était faux). Limites déclarées : échantillon, jamais une couverture de fenêtre ; un pool actif seulement hors des 3 points n'est pas vu ; énumération Helius mono-opérateur.
 
 ### Cumul, oracles, R-25
 **2 302 crédits réels** (pire cas 2 680) sur ≤ 20 000. Bell 92/92, racine `ci-gates` 27/27 (`series_pinned_are_declared_and_hashed` vert), typecheck/eslint/`gate:vocab`/`lang:gate`/ratchet 69/69/`export:check` verts ; `PINNED_BELL_SHA` `0cfbed20…` inchangé ; **R-25 = 1 090 ≤ 1 205**, seam non tiré. Bruts hors dépôt `F:\PRODUITS\etude-2026-09-20\bell-b1bis-raws\` sha-pinnés (`scan/rebase-trajectory.json` `dd165fbf…`, `scan/rebase-produce-report.json` `8559fff1…`, `discover/discovery-{TSLAx 50c7f357…, SPYx 72fe5792…, NVDAx ab423513…, AAPLx 6799122f…}`).
@@ -140,4 +140,43 @@ Tous `quote_class: usd` (USDC, liste fermée C-6). `FOUNDING_POOLS` == mesure (t
 - Indisponibilité : outil advisor intégré indisponible pour le worker pendant ce tour — consignée, non contournée.
 
 ### Items formés (déclencheur ; propriétaire)
-Entrée `DEX_BY_PROGRAM_ID` pour `whirLbMii…` avec source [lu] (G0 -b1-bis-ii ; orchestrateur → lecteur) ; règle d'agrégation multi-pool (8/7/10/5 vaults ≥ seuil ; G0 -ii, C-9 i) ; `quoteDec` en dur (G0 -ii) ; `calls_by_method` au CLI `--discover` (G0 -ii) ; compte in-window exact non capé si voulu (G0 -ii) ; archivage d'un corps gTfA structurel (lot -b3d, sonde C-7) ; `bell-report --founding` et consommateur servi de `coverage.ts` (G0 -ii).
+Entrée `DEX_BY_PROGRAM_ID` pour `whirLbMii…` avec source [lu] (G0 -b1-bis-ii ; orchestrateur → lecteur) ; règle d'agrégation multi-pool (8/7/10/5 vaults ≥ seuil ; G0 -ii, C-9 i) ; `quoteDec` en dur (G0 -ii) ; `calls_by_method` au CLI `--discover` (**CLOS pli G2, C-G2-6** — `discover-report.json`) ; compte in-window exact non capé si voulu (G0 -ii) ; archivage d'un corps gTfA structurel (lot -b3d, sonde C-7) ; `bell-report --founding` et consommateur servi de `coverage.ts` (G0 -ii).
+
+---
+## PLI G2 (2026-09-20, worker `claude-opus-4-8[1m]` effort max) — corrections C-G2-1..8
+Pli des findings de `docs/G2-lot-t1a-ii-b1-bis.md`. **R-20** : aucun commit, aucun workflow. **Réseau** : relecture `confirmVault` seule (C-G2-1), 16 `getAccountInfo` quorum-2 (8 helius / 8 chainstack, ~16 cr, 0 fault), **AUCUN re-tirage gTfA** — parts et choix de pool restent ceux du run pré-enregistré ; owner-of-owner == `programId` committé 4/4 (aucune contradiction ⇒ pas d'ARRÊT). Bruts + scripts hors dépôt sha-pinnés (`F:\PRODUITS\etude-2026-09-20\bell-b1bis-raws\`, `scripts-cg2\`).
+
+| finding | correction | test (non-LLM) | mutant ⇒ rouge | fichiers |
+|---|---|---|---|---|
+| C-G2-1 (MAJEUR) | `executable`+`authority_kind` (enum fermé `program`/`system-owned-pda-or-wallet`/`unread`, jamais `null`) lus par `confirmVault` et **ENREGISTRÉS** par `discoverFounding` dans `FoundingPoolRef`/`discovery-*.json`/`FOUNDING_POOLS` ; 4 pools = `(true,"program")` first-hand | `bell_discover_confirm_vault_executable_and_system_owned` (A/B/C/D exec+authority_kind, dont (D) `unread`) + C-4 `deepEqual` | `authority_kind` hardcodé `program` ⇒ (B) rouge **(démontré)** | `discover.ts`, `pools.ts`, 4× `discovery-*.json`, `discover.test.ts` |
+| C-G2-2 | réducteur non-LLM `leanFromDiscovery` (brut→lean, ordre committé) ; régénération = `node scripts-cg2/write-committed.mts` ; byte-for-byte hors champs C-G2-1 (+`\n`) vérifié 4/4 | `bell_discovery_lean_reducer_shape` | — (test de forme) | `discover.ts`, `discover.test.ts`, PROVENANCE |
+| C-G2-3 | rang PoC TSLAx `CY9Xzc1z…` = **7ᵉ** (recompté brut) — RÉSULTATS §RUN 2 + PROVENANCE corrigés | recompute first-hand (brut sha-pinné) | — | PLI RÉSULTATS, PROVENANCE |
+| C-G2-4 | table « shas au gel final » ci-dessous (partie pré-enregistrée non réécrite) | — | — | PLI RÉSULTATS |
+| C-G2-5 | cas de test « multiplier courant diverge (mulBits) » ⇒ `rebase_unverified` | `bell_c3_anchor_stale_trajectory_is_unverified` (cas `mulDiverge`) | drop `mulBits` (MINE1) ⇒ rouge **(démontré)** | `collect.test.ts` |
+| C-G2-6 | `--discover` auto-descriptif : `discover-report.json` (`calls_by_method`/`_by_operator`, points, pages/point, seuil, fenêtre, `credits_recomputed`) — **item G0-ii CLOS** | `bell_discover_cli_writes_measure_from_runMain` (asserts report) | — | `discover.ts`, `discover.test.ts` |
+| C-G2-7 | orphelin « 854 » annoté (erratum §1, texte pré-enregistré non réécrit) ; ordre PLI-avant-code noté conforme | — | — | PLI §1 |
+| C-G2-8 | déduplication par `signature` entre points ajoutée à `tallyFoundingVault` (`sampledTx` = compte DISTINCT) ; **DÉVIATION déclarée** | `bell_discover_tally_dedups_by_signature` | drop dedup ⇒ `sampledTx` 2 **(démontré)** | `discover.ts`, `discover.test.ts` |
+
+### C-G2-8 — recouvrement (mesure offline + déviation)
+Les **corps gTfA ne sont PAS archivés** (le brut `discovery-*.json` ne porte que parts + candidats, jamais les signatures) ⇒ le recouvrement RÉEL du run pré-enregistré n'est **pas mesurable a posteriori** (aucune fabrication de chiffre). Borne de raisonnement : `sampled_tx = 15000` **exact** = 3 × 5 × 1000 ⇒ chaque point a rendu 5000 tx pleines ; un recouvrement 2∩3 (2ᵉ moitié de fenêtre) exigerait < 10 000 tx dans `[médian,to]` — improbable aux débits mesurés (55 k–627 k sig/j) mais non exclu. **Effet éventuel sur les parts** (vaults proches du seuil 0,05, à re-mesurer) : TSLAx `9mAp…` 0,0546, NVDAx `BxgKh8…` 0,0532 / `GZFBZa…` 0,0597, SPYx `EoJb3b…` 0,0612 — une dédup pourrait faire passer l'un sous 0,05. **Seuil pré-enregistré 0,05 INCHANGÉ** (décision orchestrateur). La dédup est **ajoutée au code** (déviation vs run pré-enregistré) ; les fichiers committés restent ceux du run pré-enregistré (sans dédup) + champs C-G2-1. **Item formé `PR-B-DISCOVER-DEDUP`** (déclencheur : prochain run réel `--discover` sous go ; propriétaire orchestrateur → worker) : archiver les signatures par point, re-tirer les parts avec dédup, rapporter tout franchissement de 0,05.
+
+### Table « shas au gel final » (C-G2-4 ; LF, 16 hex ; working-tree post-pli, R-20 : non committé)
+| fichier | sha256 (LF) |
+|---|---|
+| `apps/bell/src/collect.ts` | `0ffa5cb11367c5ed…` (inchangé, = §5) |
+| `apps/bell/src/discover.ts` | `c033ea4d0717cafe…` (supersède `f5495784…` du §5) |
+| `apps/bell/src/pools.ts` | `29a920d137170e52…` (supersède `3caf397a…` périmé du §5) |
+| `apps/bell/test/collect.test.ts` | `ff78466e5c1d3ea6…` |
+| `apps/bell/test/discover.test.ts` | `f4a11ceb158002c8…` |
+| `…/series/founding/PROVENANCE-founding-discovery.md` | `bc3e4b90f16e9cd4…` (supersède `12d13d80…` périmé du §5) |
+| `…/series/founding/discovery-TSLAx.json` | `04734e85e2d63502…` |
+| `…/series/founding/discovery-SPYx.json` | `d55fead2a5764437…` |
+| `…/series/founding/discovery-NVDAx.json` | `b36a716f38971103…` |
+| `…/series/founding/discovery-AAPLx.json` | `b340d898b5fb43a0…` |
+(shas du PLI et de l'ADR = orchestrateur au commit ; `discover.ts`/`pools.ts`/PROVENANCE supersèdent les shas périmés du §5, finding C-G2-4.)
+
+### R-25 (re-mesuré sous la pathspec `STAT=` ci.yml:65) et `error_origin`
+`git diff --shortstat 5c29871 -- <STAT=>` (two-dot, `5c29871`..working-tree, pathspec exact ci.yml:65) = **1 174 insertions + 27 suppressions = 1 201 ≤ 1 205** (marge 4 ; seam `-b1-bis-i-b` non tiré — à un edit près, l'orchestrateur en est averti). `PINNED_BELL_SHA 0cfbed20…` **inchangé prouvé** (absent du diff ; `bell_pinned_sha_reduces_to_b3a_by_subtraction` vert). Oracles : bell **94/94**, `ci-gates` **27/27**, typecheck 0, eslint 0, `gate:vocab`/`lang:gate --scope bell`/`export:check` 0, `lint:ratchet` 69/69. **`error_origin`** : C-G2-1 **worker** ; C-G2-2 **orchestrateur** (adjudication « lean acceptée » sans réducteur — désormais fourni) ; C-G2-3 **worker** (PROVENANCE) + **orchestrateur** (RÉSULTATS) ; C-G2-4 **orchestrateur** ; C-G2-5 **worker** ; C-G2-6 **worker** (observabilité, item clos) ; C-G2-7 **orchestrateur** (854 orphelin) ; C-G2-8 **worker** (déviation-code déclarée, run pré-enregistré non re-tiré). Choix C-G2-7 (annotation vs retrait des bytes pré-enregistrés) soumis à l'override orchestrateur.
+
+### Vérification et adjudications orchestrateur (R-21), 2026-09-20 18:18 UTC (horloge)
+`claude-fable-5-1` : sha `discover.ts` `c033ea4d…` == rapport ; suite Bell rejouée par l'orchestrateur : **94/94**. Adjudications : (C-G2-7) annotation de l'orphelin RETENUE — les octets pré-enregistrés ne se réécrivent pas ; (C-G2-8) déduplication par signature ACCEPTÉE comme déviation de code déclarée, fichiers committés = run pré-enregistré non re-tiré, seuil 0,05 inchangé, `PR-B-DISCOVER-DEDUP` porté par le G0 -b1-bis-ii (archiver les signatures par point) ; vaults proches du seuil (0,0532 à 0,0612) sans effet sur le `founding_pool` retenu (top-tally à 0,32–0,52) ; **R-25 = 1 201 / 1 205 (marge 4)** : toute correction ultérieure de code tire le seam `-b1-bis-i-b` — décision orchestrateur le cas échéant.

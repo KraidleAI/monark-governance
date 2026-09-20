@@ -8,7 +8,9 @@
     "quoteDec": 6,
     "programId": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
     "dex": "unknown-program",
-    "quote_class": "usd"
+    "quote_class": "usd",
+    "executable": true,
+    "authority_kind": "program"
   },
   "discovery_enumeration": "helius-gtfa-mono-operator",
   "sampled_tx": 15000,

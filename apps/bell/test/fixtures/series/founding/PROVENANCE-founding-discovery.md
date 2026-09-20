@@ -45,7 +45,8 @@ on-chain accounts):
 - Multi-pool per mint: several vaults sit at/above threshold (TSLAx 8, SPYx 7, NVDAx 10, AAPLx 5 — see each file's
   `vault_share_of_sample`). `founding_pool` is the single top-tally vault; the aggregation rule over the other
   retained vaults is a formed item (G0 C-9 i, course -ii). The -b1 PoC TSLAx vault `CY9Xzc1z...` is present but
-  ranks 6th (share 0.0753) under the richer 3-point / 15000-tx sample, not the top-tally vault.
+  ranks **7th** (share 0.0753) among the 8 retained TSLAx vaults under the richer 3-point / 15000-tx sample, not the
+  top-tally vault (rank recomputed first-hand on the sha-pinned brut `50c7f357...`, C-G2-3; was mis-stated 6th).
 
 ## In-repo committed measures vs out-of-tree bruts (lean-vs-full)
 The committed in-repo `discovery-<MINT>.json` is a LEAN measure: `symbol`, `founding_pool`, `discovery_enumeration`,
@@ -62,10 +63,14 @@ same object measured in the full brut.
 ## Committed data-file pins (plain sha256 of the file bytes, LF-normalized — D9 sexies a)
 | file | sha256 (LF) |
 |---|---|
-| `discovery-TSLAx.json` | `2472f2438cc193bfd99795f916a9f2a62661254a803e160ed51d46a578b9bc83` |
-| `discovery-SPYx.json` | `298d16c52bfae7cfeb41271c5e1bd7443622c08823bf53b18a4d1b5763e21945` |
-| `discovery-NVDAx.json` | `3567522dcb6fd22ec4f9c1c92dea87b46e386842cd4fe659112f8efe7addc51d` |
-| `discovery-AAPLx.json` | `69b3fce822edd2e60fec69f45c98cb4d926e272f1466b1b93f266d037182ff67` |
+| `discovery-TSLAx.json` | `04734e85e2d63502a8ae56f03c8ca448a584e41a7bba75b4d739de5fbc91a9be` |
+| `discovery-SPYx.json` | `d55fead2a5764437f224c60f999ea3b0780e1874f7a4b2fa3a3cd0be62bff66a` |
+| `discovery-NVDAx.json` | `b36a716f3897110399ddbe0235a82359e1ab99954621f472d8a1f2f90c695fbb` |
+| `discovery-AAPLx.json` | `b340d898b5fb43a094b3438066e78be26f26fc4f76c0b28bf108da74a9f40e78` |
+
+## Pli G2 (2026-09-20, worker `claude-opus-4-8[1m]`) — C-G2-1 recorded fields + C-G2-2 reducer (out-of-tree scripts, sha-pinned)
+- **C-G2-1** — each `founding_pool` now RECORDS `executable` + `authority_kind` (closed enum `program|system-owned-pda-or-wallet|unread`); the four are `(true, "program")`, PRODUCED FIRST-HAND by re-reading `confirmVault` quorum-2 on the 4 vault authorities (16 `getAccountInfo`, 8 helius/8 chainstack, ~16 cr, 0 faults; owner-of-owner == committed `programId` 4/4 — no contradiction with the pre-registered measure, NO gTfA re-draw). Record `confirm-reread-2026-09-20.json` sha256 `c9e144f902280b76c7bd3307e5fb0f541e63de6a8bcb1c029a84e693338c4f2a`; script `scripts-cg2/reread-confirm.mts` sha `5c59d2f4…`; clock `2026-09-20T17:52:17Z`.
+- **C-G2-2** — the NON-LLM reducer `leanFromDiscovery` (`apps/bell/src/discover.ts`, test `bell_discovery_lean_reducer_shape`) derives the lean from the full brut. EXACT regeneration of the 4 committed lean from the sha-pinned bruts: `node write-committed.mts` (sha `93d890ff…`) RUN FROM `F:\tmp\bellb1bis\` — the scripts import `../../Monark-wt-bellb1bis/apps/bell/src/…`, an ESM relative resolved from the script's RUN location (`F:\tmp\bellb1bis\`, two levels under `F:\`); `scripts-cg2\` is the sha-pinned ARCHIVE, so copy a script back to `F:\tmp\bellb1bis\` (or fix the relative prefix) to execute. It reproduces the committed files byte-for-byte EXCEPT `founding_pool.{executable,authority_kind}` (added first-hand, C-G2-1) and the trailing `\n`; i.e. `leanFromDiscovery(brut)+"\n"` == the committed lean minus the 2 C-G2-1 fields (verified 4/4 by `verify-reducer.mts` sha `80c7de04…`).
 
 ## Out-of-tree bruts (NOT committed — CA-11; archived `F:\PRODUITS\etude-2026-09-20\bell-b1bis-raws\discover\`)
 Full CLI DiscoveryFile per mint (complete `candidates_below_threshold`); SHA-pinned (plain sha256 of the file bytes).

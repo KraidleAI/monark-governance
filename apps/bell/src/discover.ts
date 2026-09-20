@@ -15,7 +15,7 @@
 import { createHash } from "node:crypto";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
-import { DEX_BY_PROGRAM_ID, USD_STABLE_MINTS, FOUNDING_DISCOVERY_THRESHOLD, XSTOCKS, type FoundingPoolRef } from "./pools.ts";
+import { DEX_BY_PROGRAM_ID, USD_STABLE_MINTS, FOUNDING_DISCOVERY_THRESHOLD, XSTOCKS, type FoundingPoolRef, type AuthorityKind } from "./pools.ts";
 import { quorum2, NoQuorumError, QuorumDisagreementError, ConcordantRevertError, BudgetExceededError, type JsonRpcCall, type TransportFault } from "./quorum.ts";
 import { operatorOf } from "./operators.ts";
 
@@ -55,6 +55,13 @@ function tokenBalances(body: unknown): { pre: Bal[]; post: Bal[] } {
   });
   return { pre: read("preTokenBalances"), post: read("postTokenBalances") };
 }
+/** C-G2-8: a gTfA `full` body's tx signature (transaction.signatures[0], fallback top-level `signature`), or "" when
+ *  absent — the cross-point dedup key (a body with no signature is treated as distinct, never collapsed). */
+function sigOfBody(body: unknown): string {
+  const sigs = asArr(asObj(asObj(body).transaction).signatures);
+  const top = asObj(body).signature;
+  return typeof sigs[0] === "string" ? sigs[0] : typeof top === "string" ? top : "";
+}
 
 export interface FoundingDiscovery {
   readonly foundingVaults: string[];               // accounts holding the mint with share >= threshold (tally desc)
@@ -67,7 +74,13 @@ export interface FoundingDiscovery {
 /** PURE core (C-2/C-3): tally the mint-holding accounts across the sampled bodies, retain vaults >= threshold, and
  *  pair the quote vault by OWNER (a Jupiter multi-hop puts several opposite-delta accounts in one tx; only the pool
  *  authority's own quote reserve shares the base vault's owner). Offline-testable — the network sampler feeds it. */
-export function tallyFoundingVault(bodies: readonly unknown[], mint: string, threshold: number): FoundingDiscovery {
+export function tallyFoundingVault(bodiesIn: readonly unknown[], mint: string, threshold: number): FoundingDiscovery {
+  // C-G2-8 (DEVIATION vs the pre-registered run): DEDUP by tx signature across the 3 sampling points BEFORE tallying.
+  // Points 2 (median->to) and 3 (from->to desc) both cover the window's second half, so a tx enumerated by both would
+  // be counted twice (numerator AND sampledTx inflated => shares distorted near the 0.05 threshold). sampledTx is now
+  // the DISTINCT count (the share denominator); a body with no signature is treated as DISTINCT (synthetic tallies unaffected).
+  const seenSig = new Set<string>();
+  const bodies = bodiesIn.filter((b) => { const s = sigOfBody(b); if (s === "") return true; if (seenSig.has(s)) return false; seenSig.add(s); return true; });
   const sampledTx = bodies.length;
   const tally = new Map<string, number>();
   for (const body of bodies) {
@@ -141,18 +154,21 @@ async function readAccount(call: JsonRpcCall, providers: readonly string[], addr
   }
 }
 
-export interface VaultConfirmation { readonly ownerOfOwner: string | null; readonly executable: boolean; readonly dex: string; readonly authorityKind: string | null; readonly programId: string | null }
-/** C-5 (erratum, quorum-2, fail-closed): read the vault-authority's owner (owner-of-owner = the pool's program) and
- *  its executable flag. Owner-of-owner executable AND in the committed map => the dex; executable off the map =>
- *  unknown-program; System-owned => `system-owned-pda-or-wallet` DECLARED (retained on tally, NEVER rejected). */
+export interface VaultConfirmation { readonly ownerOfOwner: string | null; readonly executable: boolean; readonly dex: string; readonly authorityKind: AuthorityKind; readonly programId: string | null }
+/** C-5 (erratum, quorum-2, fail-closed) + C-G2-1: read the vault-authority's owner (owner-of-owner = the pool's
+ *  program), its `executable` flag, AND its `authorityKind` (closed enum — all three RECORDED by discoverFounding,
+ *  no longer computed-then-dropped). Owner-of-owner executable AND in the map => the dex; executable off the map /
+ *  non-executable => unknown-program; System-owned => `system-owned-pda-or-wallet` (retained on tally, NEVER
+ *  rejected). A quorum miss on the authority OR the program account => `authorityKind:"unread"` (never null). */
 export async function confirmVault(call: JsonRpcCall, providers: readonly string[], vaultAuthority: string, faults: TransportFault[]): Promise<VaultConfirmation> {
   const auth = await readAccount(call, providers, vaultAuthority, faults);
-  if (auth === null || auth.owner === null) return { ownerOfOwner: null, executable: false, dex: "unknown-program", authorityKind: null, programId: null };
+  if (auth === null || auth.owner === null) return { ownerOfOwner: null, executable: false, dex: "unknown-program", authorityKind: "unread", programId: null };
   const ownerOfOwner = auth.owner;
   if (ownerOfOwner === SYSTEM_PROGRAM) return { ownerOfOwner, executable: false, dex: "unknown-program", authorityKind: "system-owned-pda-or-wallet", programId: ownerOfOwner };
   const prog = await readAccount(call, providers, ownerOfOwner, faults);
-  const executable = prog?.executable === true;
-  return { ownerOfOwner, executable, dex: executable ? dexForProgram(ownerOfOwner) : "unknown-program", authorityKind: null, programId: ownerOfOwner };
+  if (prog === null) return { ownerOfOwner, executable: false, dex: "unknown-program", authorityKind: "unread", programId: ownerOfOwner };
+  const executable = prog.executable === true;
+  return { ownerOfOwner, executable, dex: executable ? dexForProgram(ownerOfOwner) : "unknown-program", authorityKind: "program", programId: ownerOfOwner };
 }
 
 export interface DiscoveryFile {
@@ -178,8 +194,28 @@ export async function discoverFounding(call: JsonRpcCall, providers: readonly st
   if (vault === undefined || t.quote === null) return { ...shell, founding_pool: null };
   const conf = await confirmVault(call, providers, t.quote.baseOwner, faults);
   const founding_pool: FoundingPoolRef = { foundingPoolId: t.quote.baseOwner, vaultBase: vault, vaultQuote: t.quote.vaultQuote,
-    quoteMint: t.quote.quoteMint, quoteDec: t.quote.quoteDec, programId: conf.programId ?? "unknown-program", dex: conf.dex, quote_class: quoteClass(t.quote.quoteMint) };
+    quoteMint: t.quote.quoteMint, quoteDec: t.quote.quoteDec, programId: conf.programId ?? "unknown-program", dex: conf.dex, quote_class: quoteClass(t.quote.quoteMint),
+    executable: conf.executable, authority_kind: conf.authorityKind }; // C-G2-1: RECORD what confirmVault read (no longer dropped)
   return { ...shell, founding_pool };
+}
+
+export interface LeanDiscoveryFile {
+  readonly symbol: string; readonly founding_pool: FoundingPoolRef | null; readonly discovery_enumeration: "helius-gtfa-mono-operator";
+  readonly sampled_tx: number; readonly window_total_tx: "unknown (>= floor)"; readonly vault_share_of_sample: Record<string, number>;
+  readonly candidates_below_threshold_count: number; readonly measure_note: string;
+}
+/** C-G2-2: the committed measure_note (only the symbol varies), templated so the reducer is the single source. */
+export const measureNote = (symbol: string): string =>
+  `In-repo committed measure (checkpoint-1 C-4 served input): founding_pool == FOUNDING_POOLS[${symbol}] field-by-field (bell_founding_registry_equals_discovery_measure). vault_share_of_sample lists every vault at/above FOUNDING_DISCOVERY_THRESHOLD (0.05); founding_pool is the top-tally vault, its quote paired by owner. candidates_below_threshold reduced to a count; the full CLI DiscoveryFile (complete below-threshold address list) is the sha-pinned out-of-tree brut (see PROVENANCE-founding-discovery.md).`;
+/** C-G2-2: the NON-LLM reducer from the FULL CLI DiscoveryFile (brut) to the committed lean measure. Deterministic:
+ *  replaces the ~3.3k-address `candidates_below_threshold` list with its COUNT, adds the `measure_note`, and emits the
+ *  keys in the COMMITTED order (the lean was hand-reordered). `founding_pool` passes through UNTOUCHED — a frozen brut
+ *  lacks the C-G2-1 fields, a fresh brut carries them, both consistent. Regenerating the 4 lean from the sha-pinned
+ *  bruts reproduces the committed files byte-for-byte EXCEPT founding_pool.{executable,authority_kind} (first-hand, C-G2-1). */
+export function leanFromDiscovery(brut: DiscoveryFile): LeanDiscoveryFile {
+  return { symbol: brut.symbol, founding_pool: brut.founding_pool, discovery_enumeration: brut.discovery_enumeration,
+    sampled_tx: brut.sampled_tx, window_total_tx: brut.window_total_tx, vault_share_of_sample: brut.vault_share_of_sample,
+    candidates_below_threshold_count: brut.candidates_below_threshold.length, measure_note: measureNote(brut.symbol) };
 }
 
 const sha = (s: string): string => createHash("sha256").update(s).digest("hex");
@@ -195,12 +231,25 @@ export async function runDiscoverCli(call: JsonRpcCall, providers: readonly stri
     { from: mid, to: window.toSec, order: "asc" },              // from the median
     { from: window.fromSec, to: window.toSec, order: "desc" },  // latest N pages
   ];
+  // C-G2-6: instrument the call so the run is AUTO-DESCRIPTIVE (calls_by_method / calls_by_operator, effective params,
+  // recomputed credits) — the CLI no longer publishes only a bare total. Same pattern as produceTrajectories.
+  const callsByMethod: Record<string, number> = { getTransactionsForAddress: 0, getAccountInfo: 0 };
+  const callsByOperator: Record<string, number> = {};
+  const counted: JsonRpcCall = (u, m, p) => { callsByMethod[m] = (callsByMethod[m] ?? 0) + 1; const op = operatorOf(u); callsByOperator[op] = (callsByOperator[op] ?? 0) + 1; return call(u, m, p); };
+  const pagesPerPoint = opts.pagesPerPoint ?? 5;
   const summary: Record<string, unknown> = {};
   for (const tok of XSTOCKS.filter((t) => wanted.includes(t.symbol))) {
-    const d = await discoverFounding(call, providers, tok.address, tok.symbol, points, opts.pagesPerPoint ?? 5, FOUNDING_DISCOVERY_THRESHOLD, faults);
+    const d = await discoverFounding(counted, providers, tok.address, tok.symbol, points, pagesPerPoint, FOUNDING_DISCOVERY_THRESHOLD, faults);
     const body = JSON.stringify(d, null, 2);
     writeFileSync(resolve(out, `discovery-${tok.symbol}.json`), body);
     summary[tok.symbol] = { founding: d.founding_pool !== null, sampled_tx: d.sampled_tx, sha: sha(body) };
   }
-  process.stdout.write(`bell/discover mints=${String(Object.keys(summary).length)} calls=${String(callsUsed())}/${String(maxCalls)} out=${out}\n`);
+  const total = Object.values(callsByMethod).reduce((a, n) => a + n, 0);
+  const creditsRecomputed = (callsByMethod.getTransactionsForAddress ?? 0) * 10 + (total - (callsByMethod.getTransactionsForAddress ?? 0)) * 1; // gTfA 10 cr/call, RPC 1 cr [lu]
+  const report = { generated_at: new Date().toISOString(), discovery_enumeration: "helius-gtfa-mono-operator", operators: [...new Set(providers.map(operatorOf))],
+    points: points.map((pt) => ({ from: pt.from, to: pt.to, order: pt.order })), pages_per_point: pagesPerPoint, threshold: FOUNDING_DISCOVERY_THRESHOLD,
+    window: { from_sec: window.fromSec, to_sec: window.toSec }, per_mint: summary, calls_by_method: callsByMethod, calls_by_operator: callsByOperator,
+    credits_recomputed: creditsRecomputed, credits_worst_case: total * 10, calls_used: callsUsed(), max_calls: maxCalls }; // worst case = every call at 10 cr (A-2)
+  writeFileSync(resolve(out, "discover-report.json"), JSON.stringify(report, null, 2));
+  process.stdout.write(`bell/discover mints=${String(Object.keys(summary).length)} calls=${String(callsUsed())}/${String(maxCalls)} credits_recomputed=${String(creditsRecomputed)} out=${out}\n`);
 }

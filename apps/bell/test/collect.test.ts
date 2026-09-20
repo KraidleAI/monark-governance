@@ -761,6 +761,11 @@ test("bell_c3_anchor_stale_trajectory_is_unverified", async () => {
   // "anchor removed (presence only)" would grant trajectory_known here => this reds them.
   const stale = await build(stateConfigB64(1, effTs + 600, 1.0057), stateConfigB64(1, effTs + 600, 1.0057));
   assert.equal(stale.rebase?.status, "unverified", "a post-scan scheduled update (stale file) => rebase_unverified");
+  // C-G2-5: the CURRENT multiplier diverges (mulBits differ: replay 1 vs live 2) while new_multiplier + effTs MATCH =>
+  // the full-triplet check must still diverge => rebase_unverified. Mutant "drop the mulBits equality" grants
+  // trajectory_known here => this reds it (MINE1, the G2's surviving mutant — the mulBits field was never exercised).
+  const mulDiverge = await build(stateConfigB64(2, effTs, 1.0039), stateConfigB64(2, effTs, 1.0039));
+  assert.equal(mulDiverge.rebase?.status, "unverified", "current-multiplier bits divergence => rebase_unverified (kills MINE1)");
   // an unreadable state (no base64 bytes) => quorum benched => rebase_unverified (fail-closed).
   const noState = await build("", "");
   assert.equal(noState.rebase?.status, "unverified", "an unreadable live state => rebase_unverified");

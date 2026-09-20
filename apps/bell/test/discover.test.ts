@@ -9,7 +9,7 @@ import { readFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { tallyFoundingVault, dexForProgram, quoteClass, discoverFounding, SYSTEM_PROGRAM } from "../src/discover.ts";
+import { tallyFoundingVault, dexForProgram, quoteClass, discoverFounding, SYSTEM_PROGRAM, leanFromDiscovery } from "../src/discover.ts";
 import { runMain } from "../src/collect.ts";
 import { type DatabentoGet, type PolygonGet } from "../src/close.ts";
 import { type JsonRpcCall } from "../src/quorum.ts";
@@ -88,10 +88,10 @@ test("bell_founding_registry_equals_discovery_measure — C-4: FOUNDING_POOLS ==
   for (const entry of FOUNDING_POOLS) {
     const measure = JSON.parse(readFileSync(SERIES + "discovery-" + entry.baseSymbol + ".json", "utf8")) as { symbol: string; founding_pool: unknown };
     assert.equal(measure.symbol, entry.baseSymbol, `${entry.baseSymbol}: discovery symbol matches`);
-    // field-by-field equality (here both null, MEASURE-GATED pending the network run). Mutant: fabricate a
-    // FOUNDING_POOLS entry (null -> a non-null pool) => != the measure => this reds (the registry cannot drift from
-    // the measure). The real run flips both to the measured vaults and this test proves registry == measure.
-    assert.deepEqual(entry.founding_pool, measure.founding_pool, `${entry.baseSymbol}: registry entry == discovery measure`);
+    // field-by-field equality (MEASURED; incl. the C-G2-1 executable + authority_kind — deepEqual covers the new
+    // fields for free). Mutant: fabricate a FOUNDING_POOLS entry (a changed address, or a wrong executable/
+    // authority_kind) => != the measure => this reds (the registry cannot drift from the served measure).
+    assert.deepEqual(entry.founding_pool, measure.founding_pool, `${entry.baseSymbol}: registry entry == discovery measure (incl. executable/authority_kind, C-G2-1)`);
   }
 });
 
@@ -150,6 +150,16 @@ test("bell_discover_cli_writes_measure_from_runMain — runMain --discover -> di
   assert.equal(fp.programId, RAYDIUM, "programId = owner-of-owner read on-chain");
   assert.equal(fp.dex, "raydium-clmm", "dex from the committed programId map (never memory)");
   assert.equal(fp.foundingPoolId, POOL_AUTH, "founding pool id = the vault authority (distinct from the census pairAddress)");
+  // C-G2-1: executable + authority_kind RECORDED (POOL_AUTH -> RAYDIUM non-System => program; RAYDIUM executable => true).
+  assert.equal(fp.executable, true, "C-G2-1: executable recorded from the quorum-2 program read");
+  assert.equal(fp.authority_kind, "program", "C-G2-1: authority_kind recorded (closed enum)");
+  // C-G2-6: the run is AUTO-DESCRIPTIVE — discover-report.json publishes calls_by_method/operator, effective params, recomputed credits.
+  const rep = JSON.parse(readFileSync(join(outDir, "discover-report.json"), "utf8")) as { calls_by_method: Record<string, number>; calls_by_operator: Record<string, number>; points: unknown[]; pages_per_point: number; threshold: number; window: { from_sec: number; to_sec: number }; credits_recomputed: number };
+  const gtfa = rep.calls_by_method.getTransactionsForAddress ?? 0, gai = rep.calls_by_method.getAccountInfo ?? 0;
+  assert.ok(gtfa >= 1 && gai >= 1, "C-G2-6: calls_by_method populated (gTfA + getAccountInfo)");
+  assert.ok(Object.keys(rep.calls_by_operator).length >= 1, "C-G2-6: calls_by_operator populated");
+  assert.deepEqual([rep.points.length, rep.pages_per_point, rep.threshold, rep.window.from_sec, rep.window.to_sec], [3, 1, 0.05, FROM_SEC, TO_SEC], "C-G2-6: effective params published");
+  assert.equal(rep.credits_recomputed, gtfa * 10 + gai, "C-G2-6: credits recomputed (gTfA 10cr + rpc 1cr)");
 });
 
 test("bell_discover_confirm_vault_executable_and_system_owned — C-5 erratum: executable AND in map => dex; System-owned RETAINED", async () => {
@@ -172,12 +182,47 @@ test("bell_discover_confirm_vault_executable_and_system_owned — C-5 erratum: e
   const a = await discoverFounding(mk(RAYDIUM, false), PROVIDERS, SPYX, "SPYx", points, 1, 0.05, []);
   assert.equal(a.founding_pool?.dex, "unknown-program", "owner-of-owner not executable => unknown-program (the executable check is load-bearing)");
   assert.equal(a.founding_pool?.programId, RAYDIUM, "the owner-of-owner id is still recorded");
-  // (B) System-owned authority => authority_kind declared, dex unknown, but the vault is RETAINED (never rejected on owner alone).
+  // C-G2-1: executable + authority_kind are RECORDED. Non-System owner-of-owner read but non-executable => (program, false).
+  assert.equal(a.founding_pool?.executable, false, "C-G2-1: executable recorded (false here)");
+  assert.equal(a.founding_pool?.authority_kind, "program", "C-G2-1: non-System owner-of-owner => authority_kind program");
+  // (B) System-owned authority => authority_kind "system-owned-pda-or-wallet", dex unknown, vault RETAINED (never rejected on owner alone).
   const b = await discoverFounding(mk(SYSTEM_PROGRAM, false), PROVIDERS, SPYX, "SPYx", points, 1, 0.05, []);
   assert.ok(b.founding_pool, "a System-owned-authority vault is RETAINED on tally (erratum C-5, never rejected on owner alone)");
   assert.equal(b.founding_pool?.dex, "unknown-program", "System-owned => unknown-program (never a DEX label)");
   assert.equal(b.founding_pool?.programId, SYSTEM_PROGRAM);
-  // (C) owner-of-owner executable AND in the map => the dex.
+  // C-G2-1 mutant killer ("authority_kind hardcoded program" / "field dropped" => this reds): System => the closed enum value.
+  assert.equal(b.founding_pool?.authority_kind, "system-owned-pda-or-wallet", "C-G2-1: System-owned => authority_kind recorded");
+  assert.equal(b.founding_pool?.executable, false, "C-G2-1: System-owned => executable false");
+  // (C) owner-of-owner executable AND in the map => the dex; the four MEASURED pools are this (program, true).
   const c = await discoverFounding(mk(RAYDIUM, true), PROVIDERS, SPYX, "SPYx", points, 1, 0.05, []);
   assert.equal(c.founding_pool?.dex, "raydium-clmm", "owner-of-owner executable AND in the committed map => the dex");
+  assert.equal(c.founding_pool?.executable, true, "C-G2-1: executable recorded (true — the 4 measured pools)");
+  assert.equal(c.founding_pool?.authority_kind, "program", "C-G2-1: executable program => authority_kind program");
+  // (D) C-G2-1: an UNREADABLE vault authority (quorum concords on owner:null) => authority_kind "unread" (never null, never program).
+  const unreadCall: JsonRpcCall = (_url, method) => method === "getTransactionsForAddress" ? Promise.resolve({ data: [baseTx], paginationToken: null }) : Promise.resolve({ value: { owner: null, executable: false } });
+  const dd = await discoverFounding(unreadCall, PROVIDERS, SPYX, "SPYx", points, 1, 0.05, []);
+  assert.equal(dd.founding_pool?.authority_kind, "unread", "C-G2-1: quorum-unreadable authority => unread (fail-closed, never null)");
+});
+
+test("bell_discovery_lean_reducer_shape — C-G2-2: leanFromDiscovery(brut) -> committed lean form (count + measure_note + order)", () => {
+  const brut = { symbol: "SPYx", discovery_enumeration: "helius-gtfa-mono-operator" as const, sampled_tx: 15000,
+    vault_share_of_sample: { [BASE]: 0.4 }, window_total_tx: "unknown (>= floor)" as const, candidates_below_threshold: [USER, DECOY, OTHER_AUTH],
+    founding_pool: { foundingPoolId: POOL_AUTH, vaultBase: BASE, vaultQuote: QUOTE, quoteMint: USDC_SOLANA, quoteDec: 6, programId: RAYDIUM, dex: "raydium-clmm", quote_class: "usd" as const, executable: true, authority_kind: "program" as const } };
+  const lean = leanFromDiscovery(brut);
+  assert.equal(lean.candidates_below_threshold_count, 3, "the ~3k-address candidates list becomes a COUNT");
+  assert.ok(!("candidates_below_threshold" in lean), "the full address list is dropped from the lean (repo hygiene)");
+  assert.ok(lean.measure_note.includes("FOUNDING_POOLS[SPYx]"), "measure_note templated with the symbol");
+  assert.deepEqual(lean.founding_pool, brut.founding_pool, "founding_pool passes through untouched (incl. C-G2-1 fields)");
+  // the COMMITTED key order (the lean was hand-reordered; the reducer emits founding_pool SECOND — the C-G2-2 bug).
+  assert.deepEqual(Object.keys(lean), ["symbol", "founding_pool", "discovery_enumeration", "sampled_tx", "window_total_tx", "vault_share_of_sample", "candidates_below_threshold_count", "measure_note"]);
+});
+
+test("bell_discover_tally_dedups_by_signature — C-G2-8: a tx enumerated by two sampling points is counted once (deviation)", () => {
+  const withSig = (sig: string): unknown => ({ transaction: { signatures: [sig], message: { accountKeys: [BASE, QUOTE] } },
+    meta: { preTokenBalances: [{ accountIndex: 0, mint: SPYX, owner: POOL_AUTH, uiTokenAmount: { amount: "1000", decimals: 8 } }],
+      postTokenBalances: [{ accountIndex: 0, mint: SPYX, owner: POOL_AUTH, uiTokenAmount: { amount: "1100", decimals: 8 } }] } });
+  // same-signature bodies (a tx returned by points 2 AND 3) dedup to ONE distinct tx (mutant: drop dedup => sampledTx 2).
+  assert.equal(tallyFoundingVault([withSig("SIGA"), withSig("SIGA")], SPYX, 0.05).sampledTx, 1, "same-signature bodies dedup (sampledTx = distinct count)");
+  // distinct signatures are NOT collapsed; a body with no signature (synthetic tallies) stays distinct.
+  assert.equal(tallyFoundingVault([withSig("SIGA"), withSig("SIGB")], SPYX, 0.05).sampledTx, 2, "distinct signatures are not collapsed");
 });

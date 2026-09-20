@@ -8,7 +8,9 @@
     "quoteDec": 6,
     "programId": "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK",
     "dex": "raydium-clmm",
-    "quote_class": "usd"
+    "quote_class": "usd",
+    "executable": true,
+    "authority_kind": "program"
   },
   "discovery_enumeration": "helius-gtfa-mono-operator",
   "sampled_tx": 15000,
