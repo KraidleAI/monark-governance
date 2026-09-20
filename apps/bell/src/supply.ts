@@ -24,6 +24,11 @@ export interface MintReadout {
   readonly multiplier: string;
   readonly paused: boolean;
   readonly permanentDelegate: string | null;
+  // C-6 rebase-gate inputs (scaledUiAmountConfig): the UPDATE authority (null = immutable multiplier), the
+  // pending newMultiplier, and the unix-second at which it takes effect (0 = none scheduled).
+  readonly scaledAuthority: string | null;
+  readonly newMultiplier: string;
+  readonly newMultiplierEffectiveTimestampSec: number;
 }
 
 /** Find a Token-2022 extension state by name in the jsonParsed extensions array. */
@@ -44,11 +49,15 @@ export function readMintToken2022(result: unknown, symbol: string): MintReadout 
   const decimals = typeof info.decimals === "number" ? info.decimals : 0;
   const scaled = extState(info, "scaledUiAmountConfig");
   const multiplier = scaled && typeof scaled.multiplier === "string" ? scaled.multiplier : "1";
+  const scaledAuthority = scaled && typeof scaled.authority === "string" && scaled.authority.length > 0 ? scaled.authority : null;
+  const newMultiplier = scaled && typeof scaled.newMultiplier === "string" ? scaled.newMultiplier : multiplier;
+  const effRaw = scaled ? scaled.newMultiplierEffectiveTimestamp : 0;
+  const newMultiplierEffectiveTimestampSec = typeof effRaw === "number" ? effRaw : typeof effRaw === "string" && effRaw.trim() !== "" && Number.isFinite(Number(effRaw)) ? Number(effRaw) : 0;
   const pausable = extState(info, "pausableConfig");
   const paused = pausable ? pausable.paused === true : false;
   const delegate = extState(info, "permanentDelegate");
   const permanentDelegate = delegate && typeof delegate.delegate === "string" ? delegate.delegate : null;
-  return { symbol, decimals, supply, multiplier, paused, permanentDelegate };
+  return { symbol, decimals, supply, multiplier, paused, permanentDelegate, scaledAuthority, newMultiplier, newMultiplierEffectiveTimestampSec };
 }
 
 /** A NAMED proof-of-reserves source (first-hand [lu] 2026-09-19). onchainFeed is the on-chain aggregator proxy
@@ -107,4 +116,34 @@ export function porStatus(symbol: string, nowSec: number, staleBoundSec: number,
 export function wrapperStatus(symbol: string): { readonly contracts: readonly string[]; readonly residue: "no_wrapper" | null } {
   const contracts = WRAPPERS[symbol] ?? [];
   return { contracts, residue: contracts.length === 0 ? "no_wrapper" : null };
+}
+
+/** C-6 pool-window rebase gate (ADR-T1aii-D1-bis). A founding VWAP is only comparable to a cash close if the
+ *  token's scaled-UI multiplier was CONSTANT across the window: a rebase (multiplier change) rescales the base
+ *  unit, so `Σ|quote|/Σ|base|` would drift for a reason unrelated to price. The multiplier is read at BOTH the
+ *  window's begin and end bounds (first-hand). Both present + equal => `constant`; a missing bound reading OR a
+ *  change => `rebase_unverified` (the affected sessions abstain — never a silently rescaled g_t). Pure: the
+ *  reconstruction of the two bound readings is a live/spike concern; this function only decides the gate. */
+export type RebaseGate =
+  | { readonly status: "constant"; readonly multiplier: string }
+  | { readonly status: "unverified"; readonly residue: "rebase_unverified" };
+export function rebaseGate(multiplierAtBegin: string | null, multiplierAtEnd: string | null): RebaseGate {
+  if (multiplierAtBegin === null || multiplierAtEnd === null) return { status: "unverified", residue: "rebase_unverified" };
+  if (multiplierAtBegin !== multiplierAtEnd) return { status: "unverified", residue: "rebase_unverified" };
+  return { status: "constant", multiplier: multiplierAtEnd };
+}
+
+/** C-6 gate from a CURRENT mint readout, first-hand and pure (measured lesson, spike 2026-09-20). The naive
+ *  "scan the scaledUiAmount authority's signatures" method is UNUSABLE: the four xStocks SHARE one update
+ *  authority (S7vYFF…) with 3000+ in-window signatures — non-discriminating and expensive. And a MUTABLE
+ *  multiplier's HISTORICAL value at the window's begin bound is unreadable by getAccountInfo (current state
+ *  only). So:
+ *   - IMMUTABLE multiplier (no scaledUiAmount update authority) => constant at its fixed value (readable at both
+ *     bounds trivially — it cannot change);
+ *   - MUTABLE multiplier (authority present — every measured xStock) => the begin bound is unreadable at -b1 =>
+ *     `rebase_unverified` (the founding sessions abstain). The SetMultiplier history reconstruction that would
+ *     verify constancy first-hand is -b3's rebase-aware job (ADR-T1aii-D1-bis). Never a silently rescaled g_t. */
+export function rebaseGateFromMint(mint: MintReadout): RebaseGate {
+  if (mint.scaledAuthority === null) return rebaseGate(mint.multiplier, mint.multiplier);
+  return rebaseGate(mint.multiplier, null);
 }

@@ -1,5 +1,7 @@
-// MONARK Bell — Solana quorum-2 (ADR-T1aii C-1/C-2, ADR-U1 D3 reused). A value-bearing read is trusted only
-// when TWO DISTINCT providers (by providerOf) concord on the KEY of the read. The archival set is measured
+// MONARK Bell — Solana quorum-2 (ADR-T1aii C-1/C-2, C-9, ADR-U1 D3 reused). A value-bearing read is trusted
+// only when TWO DISTINCT OPERATORS (by operatorOf, C-9 — NOT providerOf: Chainstack serves the same account
+// on chainstack.com AND p2pify.com, which providerOf would miscount as two) concord on the KEY of the read.
+// providerOf stays the LOGGING form (a bare host, never a key). The archival set is measured
 // (C-1): Helius + `api.mainnet-beta.solana.com` (publicnode retired — it serves no old bodies, "first
 // available block 447832277"). This is a DECLARED CALQUE of the sentinel quorum2
 // (apps/sentinel/src/ukemi/rpc2.ts): it imports ONLY providerOf (C-2 (b), the closure quorum2 is not
@@ -11,10 +13,15 @@
 // message. rpc2.ts:136 folds `lastErr.message` into NoQuorumError and rpc.ts:84 appends the url to the HTTP
 // error -- NEITHER motif is reproduced here. NoQuorumError / QuorumDisagreementError name providerOf only.
 import { providerOf } from "../../sentinel/src/rpc.ts";
+import { operatorOf } from "./operators.ts";
 import { createHash } from "node:crypto";
 
 export type JsonRpcCall = (url: string, method: string, params: readonly unknown[]) => Promise<unknown>;
 
+/** The `--max-calls` RPC budget was reached (C-11 fail-closed). It is NOT a transport fault: quorum2 and the
+ *  collector re-throw it immediately so it can never be swallowed as a `{provider,status}` fault and the run
+ *  stops (exit 1), never presenting a budget-truncated pool as complete. */
+export class BudgetExceededError extends Error {}
 /** Fewer than two distinct providers answered a read — the caller names it `no_quorum` and abstains. */
 export class NoQuorumError extends Error {}
 /** Two distinct providers answered but DISAGREED on the read key — fail-closed (a real divergence). */
@@ -73,15 +80,17 @@ export async function quorum2<T>(
   const seen = new Set<string>();
   for (let i = 0; i < providers.length && got.length < 2; i++) {
     const url = providers[i];
-    if (url === undefined || seen.has(providerOf(url))) continue;
+    // distinctness is by OPERATOR (C-9): two Chainstack hosts (chainstack.com / p2pify.com) count as ONE.
+    if (url === undefined || seen.has(operatorOf(url))) continue;
     try {
       const val = await fetchOne(call, url);
       got.push({ prov: providerOf(url), kind: "ok", key: "ok:" + keyOf(val), val });
-      seen.add(providerOf(url));
+      seen.add(operatorOf(url));
     } catch (e) {
+      if (e instanceof BudgetExceededError) throw e; // C-11: never swallowed as a fault
       if (isSolRevert(e)) {
         got.push({ prov: providerOf(url), kind: "revert", key: "revert:" + String(e.code) });
-        seen.add(providerOf(url));
+        seen.add(operatorOf(url));
       } else {
         faults.push({ provider: providerOf(url), status: statusOf(e) });
       }

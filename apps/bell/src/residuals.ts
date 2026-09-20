@@ -29,6 +29,8 @@ export const COLLECTOR_RESIDUE_CODES = [
   "multiplier_unit", // iii/iv: token unit vs share unit differ by a scaled-UI multiplier != 1
   "no_quorum", // C-1: fewer than two distinct providers answered a read
   "quorum_sampled", // C-1: bodies concorded on a deterministic sample, not the full set (coverage published)
+  "rebase_unverified", // C-6 (D1-bis): the scaled-UI multiplier was not verified CONSTANT across the pool-window
+                       // (unread at a bound, or changed) — the session abstains, never a silently rescaled g_t
 ] as const;
 
 /** The ONE closed list of residual codes (union). Iterated to build the counter and to check state.json. */

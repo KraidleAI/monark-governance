@@ -134,3 +134,13 @@ export function classifySession(utcMs: number): SessionClass {
   const prev = prevTradingDay(dateISO);
   return { session: "overnight-weekday", regime: gapRegime(prev), sessionDateET: prev };
 }
+
+/** C-7: the trading day whose OFFICIAL CLOSE is a session's reference close (the denominator of g_t). For the
+ *  OFF-HOURS regimes (overnight-weekday / weekend / holiday) and `after`, the close has already settled when
+ *  the session occurs, so the reference is the anchor day itself. For `pre` and `regular` the anchor day's
+ *  close has NOT settled yet at session time — using it would be a LOOK-AHEAD — so the reference is the PRIOR
+ *  trading day's close. This keys `closeRefBySession` (C-7: per reference-close day, never one /prev for all).
+ *  Off-hours regimes (the founding measurement) are unaffected: their reference-close day IS the anchor. */
+export function refCloseDateOf(session: SessionLabel, anchorDateET: string): string {
+  return session === "pre" || session === "regular" ? prevTradingDay(anchorDateET) : anchorDateET;
+}

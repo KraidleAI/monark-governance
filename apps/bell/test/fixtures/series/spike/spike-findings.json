@@ -1,0 +1,126 @@
+{
+  "generated_at": "2026-09-20T00:13:54.495Z",
+  "window": {
+    "fromUtc": "2025-07-01T00:00:00Z",
+    "toUtc": "2025-10-31T23:59:59Z"
+  },
+  "provider_first_hand": "helius (getTransactionsForAddress, blockTime-filtered)",
+  "note": "census-v3 Solana pools vs founding window; raw responses kept OUT of repo (C-4)",
+  "census_pools": {
+    "TSLAx": {
+      "poolId": "8aDaBQkTrS6HVMjyc6EZebgdiaXhLYGriDWKWWp1NpFF",
+      "dex": "raydium-clmm",
+      "poolFirstTx": "2026-02-11",
+      "poolLastTx": "2026-09-20",
+      "vaultBaseInWindowTx": {
+        "n": 0,
+        "pages": 1,
+        "capped": false
+      }
+    },
+    "SPYx": {
+      "poolId": "6truu3rZuiB9rKQg4VYC3Dt3QwV7DgwGqXrYUcrvnDDE",
+      "dex": "raydium-clmm",
+      "poolFirstTx": "2026-01-15",
+      "poolLastTx": "2026-09-20",
+      "vaultBaseInWindowTx": {
+        "n": 0,
+        "pages": 1,
+        "capped": false
+      }
+    },
+    "NVDAx": {
+      "poolId": "49iMatQtoyabsYAQc8GafVq6aeBFVDxSRH44oiatyyw6",
+      "dex": "raydium-clmm",
+      "poolFirstTx": "2025-07-02",
+      "poolLastTx": "2026-09-20",
+      "vaultBaseInWindowTx": {
+        "n": 8,
+        "pages": 1,
+        "capped": false
+      }
+    },
+    "AAPLx": {
+      "poolId": "ApniVWuZbZoruTAJdyJcLBA4AVw4DKGdV5fHxo6qrAZT",
+      "dex": "raydium-clmm",
+      "poolFirstTx": "2026-09-11",
+      "poolLastTx": "2026-09-20",
+      "vaultBaseInWindowTx": {
+        "n": 0,
+        "pages": 1,
+        "capped": false
+      }
+    }
+  },
+  "mints": {
+    "TSLAx": {
+      "mint": "XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB",
+      "mintFirstTx": "2025-06-11",
+      "mintInWindowTx": {
+        "n": 8000,
+        "pages": 8,
+        "capped": true
+      },
+      "rebase": {
+        "multiplier": "1",
+        "newMultiplier": "1",
+        "effTs": 0,
+        "scaledAuthority": "S7vYFF…",
+        "mutable": true
+      }
+    },
+    "SPYx": {
+      "mint": "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W",
+      "mintFirstTx": "2025-06-11",
+      "mintInWindowTx": {
+        "n": 8000,
+        "pages": 8,
+        "capped": true
+      },
+      "rebase": {
+        "multiplier": "1.003909240011759",
+        "newMultiplier": "1.005714560286254",
+        "effTs": 1781755200,
+        "scaledAuthority": "S7vYFF…",
+        "mutable": true
+      }
+    },
+    "NVDAx": {
+      "mint": "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh",
+      "mintFirstTx": "2025-06-11",
+      "mintInWindowTx": {
+        "n": 8000,
+        "pages": 8,
+        "capped": true
+      },
+      "rebase": {
+        "multiplier": "1.0009180758490996",
+        "newMultiplier": "1.001701196801074",
+        "effTs": 1789000200,
+        "scaledAuthority": "S7vYFF…",
+        "mutable": true
+      }
+    },
+    "AAPLx": {
+      "mint": "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+      "mintFirstTx": "2025-06-10",
+      "mintInWindowTx": {
+        "n": 8000,
+        "pages": 8,
+        "capped": true
+      },
+      "rebase": {
+        "multiplier": "1.0026642075893797",
+        "newMultiplier": "1.0032690125398187",
+        "effTs": 1786149000,
+        "scaledAuthority": "S7vYFF…",
+        "mutable": true
+      }
+    }
+  },
+  "calls": {
+    "helius": 52,
+    "chainstack": 0
+  },
+  "chainstack_first_available_block": 0
+}

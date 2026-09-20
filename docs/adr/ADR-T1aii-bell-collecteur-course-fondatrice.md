@@ -59,3 +59,22 @@
 
 ## Amendement D1-bis — 2026-09-19 (checkpoint-1 lot -b, C-1 ; décisions investisseur 38, 40, 41, 44, 45)
 Le lot -b est découpé en **quatre sous-lots séquentiels** (un worker à la fois, un worktree neuf chacun) : **-b1** course fondatrice Solana (spike Helius + Chainstack, fenêtre **2025-07-01 → 2025-10-31 épinglée** pour la réplication Cong Table 4, pools nés après = depuis le premier fill, borne déclarée par pool ; close **par ancre** via Massive `range/1/day` ; budget fail-closed ; gate C-4 par pool-fenêtre ou résidu `rebase_unverified`) ; **-b3** corporate actions (rebases/multiplicateurs xStocks, Coinbase, Ondo NAV) + fichier séance (horaires NY, halts par titre, niveaux MWCB) ; **-b2a** décodeurs DEX (Uniswap V3, PancakeSwap V3, Aerodrome ; Raydium/Meteora/Orca) + registre par pool (`baseIndex`, décimales, quote, `chainId`, sha census) + fixtures hors ligne ; **-b2b** course EVM (Robinhood Chain, BSC, Base, Ethereum) fenêtre **premier fill → 2026-09-15** + rapport. **Fenêtre par chaîne** (décision 44) avec filtres utilisateur en T-1b ; **couverture** (décision 45) : population entière du census si projection au spike ≤ 5 M crédits Helius ET ≤ 10 M RU Chainstack ET ≤ 7 jours, sinon top 20 par chaîne avec part du volume 24 h couverte publiée ; item d'extension Solana 2025-11 → 2026-09. Quorum : Helius + Chainstack (Solana) ; Chainstack + keyless par `chainId` (EVM), carte domaine → opérateur committée. Clôture cash : Massive Starter interne (décision 41), `close_source` en provenance, aucun close dans la série ni le rapport ; bascule de licence avant toute publication (item C-8). Seule la jambe Solana 2025 est comparable à Cong ; les autres chaînes = constat par régime avec période déclarée. Cadre : `docs/G0-lot-t1a-ii-b.md` + amendement checkpoint-1 C-1..C-15.
+
+## Tuyaux -b1 (C-12, worker 2026-09-20) — entrée / sortie / état / test
+- **Entrée (qui produit)** : RPC **Helius + Chainstack** en quorum par OPÉRATEUR (`operatorOf`, C-9 ; Chainstack
+  archive bloc 0 mesurée) ; `census-v3.csv` (sha `25db700e…`, `CENSUS_V3_SHA256`) ; close cash **Massive/Polygon**
+  (`POLYGON_API_KEY`, `close_source: massive-starter-internal`, jamais republié ESC-1 c). Secrets lus du scope User
+  dans le process, jamais loggés (`no_secret_in_repo` étendu C-10).
+- **Sortie (qui consomme)** : (1) **spike mesures** `apps/bell/test/fixtures/series/spike/{spike-measures,spike-findings}.json`
+  + `PROVENANCE-spike.md` → consommées par l'escalade `docs/PLI-lot-t1a-ii-b1.md` et l'amendement O-6 d'ADR-B0 ;
+  (2) collecteur `collect()` → `state.json`/`timeline.jsonl`/`journal.json`/`provenance.json` (D9 hors dépôt) →
+  `bell-report.mjs` (agrégat Table 4 par régime) → `docs/MESURE-FONDATRICE-bell-2026-09.md` → T-3. **La chaîne (2)
+  est BLOQUÉE** sur la CONSULTATION (pools fondateurs découverts vs escalade) : aucune course lancée.
+- **État (où il vit)** : réponses RPC brutes **hors dépôt** sha-pinnées (`F:\tmp\bell-b1\spike`, archivées
+  `F:\PRODUITS\etude-2026-09-19\bell-b1-spike`) ; mesures + séries réduites (à venir) committées sous
+  `apps/bell/test/fixtures/series/` (exclues R-25). **État public : `upcoming`** (CA-11 ; aucune surface servie —
+  Bell n'est « built » qu'à T-1b : règle de branchement). Le code -b1 (operators, corrections collect, gate rebase,
+  report) est aujourd'hui consommé par des **tests** (oracle non-LLM) + un smoke live, pas par un chemin servi ⇒ reste `upcoming`.
+- **Test** : 45 tests bell (`bell.test.ts`+`collect.test.ts`+`report.test.ts`) ; racine `no_secret_in_repo` (5 motifs
+  C-10 + mutant), `series_pinned_are_declared_and_hashed` (spike files) ; smoke live (budget-stop exit 1 verbatim ;
+  quorum 2 opérateurs ; aucune url/clé/uuid en sortie). Mutants ≥ 8 (voir PLI).
