@@ -38,6 +38,22 @@ const SECRET_PATTERNS: ReadonlyArray<{ re: RegExp; name: string }> = [
   // ADR-T1aii C-10 / RESSOURCES-HELIUS §3.3: a Helius api key is a UUID (8-4-4-4-12 hex); flag it ONLY in an
   // api-key CONTEXT (query param / header), so a base58 mint or a plain hex id is not a false positive.
   { re: /api[-_]?key["' ]*[=:]["' ]*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i, name: "api-key UUID (Helius-shaped)" },
+  // ADR-T1aii-D1-bis C-10 (lot -b1): a Chainstack Solana/EVM endpoint carries its key IN THE PATH as a 32-hex
+  // token (core.chainstack.com/<hex32>) or on the legacy p2pify host (nd-*.p2pify.com/<hex>). These shapes ARE
+  // the credential, so — unlike the Helius UUID — no extra "api-key" context is required; the host+hex path IS
+  // the context. A WebSocket url can carry the same key (wss://…/<hex>). Fail-closed by design (a false
+  // positive blocks a commit; a false negative leaks a paid RPC key). No committed file carries these today
+  // (measured 2026-09-20); artefacts holding raw endpoints live OUTSIDE the tree (F:/tmp, CA-11).
+  { re: /(?:core\.)?chainstack\.com\/[0-9a-f]{32}/i, name: "Chainstack RPC url (hex key in path)" },
+  { re: /p2pify\.com\/[0-9a-f]+/i, name: "Chainstack p2pify RPC url (hex key in path)" },
+  { re: /wss:\/\/[^\s"']*\/[0-9a-f]{16,}/i, name: "WebSocket url with a hex key in the path" },
+  // A Bearer token (Massive/Polygon, Helius header form) of >= 16 token chars. `Bearer ${apiKey}` (a template
+  // literal, the collector's real form) does NOT match: `$`,`{`,`}` are outside the class, so the run breaks
+  // before 16 chars. A committed literal Bearer secret reddens.
+  { re: /\bBearer\s+[A-Za-z0-9._-]{16,}/, name: "Bearer token (>= 16 chars)" },
+  // An *_API_KEY= assignment with an inline value (a .env / shell leak). `process.env.HELIUS_API_KEY` and the
+  // prose mentions in docs (no `=` + value) do NOT match; `HELIUS_API_KEY=<secret>` does.
+  { re: /\b[A-Z][A-Z0-9_]*_API_KEY\s*=\s*["']?[^\s"'#]{6,}/, name: "*_API_KEY= inline assignment" },
 ];
 
 interface Hit { file: string; pattern: string; line: number }
@@ -77,6 +93,20 @@ test("no_secret_in_repo", () => {
   assert.ok(SECRET_PATTERNS.some((p) => p.re.test("https://mainnet.helius-rpc.com/?api-key=deadbeef-1234-5678-9abc-def012345678")),
     "detects a Helius-shaped UUID in an api-key context");
   assert.equal(SECRET_PATTERNS.some((p) => p.re.test("XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB")), false, "a base58 mint is NOT a secret");
+  // ADR-T1aii-D1-bis C-10 (lot -b1): the Chainstack/p2pify/wss/Bearer/API_KEY shapes redden (mutant: plant one
+  // ⇒ red), while the collector's real forms and doc prose stay green (no false positive).
+  const fires = (s: string): boolean => SECRET_PATTERNS.some((p) => p.re.test(s));
+  assert.ok(fires("https://solana-mainnet.core.chainstack.com/0123456789abcdef0123456789abcdef"), "detects a Chainstack hex-key url");
+  assert.ok(fires("https://nd-123-456-789.p2pify.com/0123456789abcdef0123456789abcdef"), "detects a p2pify hex-key url");
+  assert.ok(fires("wss://solana-mainnet.core.chainstack.com/0123456789abcdef0123456789abcdef"), "detects a wss hex-key url");
+  assert.ok(fires("Authorization: Bearer sk_live_0123456789abcdefABCDEF"), "detects a >=16-char Bearer token");
+  assert.ok(fires('HELIUS_API_KEY="0123456789abcdef0123456789abcdef1234"'), "detects an *_API_KEY= inline assignment");
+  // Real committed forms stay GREEN: the template-literal Bearer, process.env access, a bare host, and the
+  // doc/prose mention of a key NAME with no value.
+  assert.equal(fires("headers: { Authorization: `Bearer ${apiKey}` }"), false, "template-literal Bearer is not a secret");
+  assert.equal(fires("const k = process.env.HELIUS_API_KEY ?? \"\";"), false, "process.env.*_API_KEY access is not a secret");
+  assert.equal(fires("second provider chainstack.com (archive from block 0)"), false, "a bare host mention is not a secret");
+  assert.equal(fires("the POLYGON_API_KEY key (32 chars, never printed)"), false, "a prose key-name mention is not a secret");
 
   const hits: Hit[] = [];
   const scanned = walk(REPO, "", hits);

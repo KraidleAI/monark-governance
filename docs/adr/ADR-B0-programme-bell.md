@@ -141,3 +141,38 @@ Rejeu **bit-identique** du digest. Mutants nommés, **rouge attendu** : **halt d
 - **R-25-séries (C-4 du lot R-25, re-formé au checkpoint-2 V-6)** : `halts-reduced.csv` est une fixture **écrite à la main** (ligne `ZZZZ` fabriquée pour le mutant de graphie) ⇒ matériau de test, **compté** par D9 sexies (b) — la racine `apps/bell/test/fixtures` n'est PAS à exclure. L'exclusion est réservée à un sous-dossier de séries épinglées réelles (ex. `apps/bell/test/fixtures/spike/` pour les réponses RPC brutes O-6, ou les séries Polygon de la course fondatrice) avec `PROVENANCE-*.md` same-dir, racine ajoutée à `SERIES_EXCLUDED_ROOTS` + 3 pathspecs `ci.yml` **au lot qui les committe** ; D7 `docs/PROVENANCE-bell.md` hors dossier est **remplacé** par la règle same-dir.
 - **V-7 (checkpoint-2 T-1a)** — `sessionGap` lève sur `closeRef ≤ 0` (fonction pure, jamais un 0/−∞ fabriqué) ; D8 exige des abstentions **comptées et publiées** : l'entrypoint collecteur (T-1a-ii) mappe ce cas en résidu nommé **`no_close_ref`** (ajouté à la liste des résidus D2 i), jamais une chute du digest entier. Déclencheur T-1a-ii.
 - **V-1 (checkpoint-2 T-1a)** — le workspace `apps/bell` était absent de `package-lock.json` : `npm ci` (job CI G3) échouait sur le gel, non vu par le worker ni la G2 (oracle joué sans `npm ci` propre). Lock régénéré (+8 lignes) ; règle : tout lot qui ajoute un workspace rejoue `npm ci` sur `git archive` propre avant gel.
+
+## Amendement orchestrateur/worker (2026-09-20, lot T-1a-ii-b1 — O-6 livré, C-4 tranchée, découvertes pivot)
+- **O-6 provenance LIVRÉE** : le spike -b1 committe ses **mesures** (profondeur, coûts, formes d'erreur, dates de
+  premier tx par pool, état rebase, méthode de découverte des vaults) sous `apps/bell/test/fixtures/series/spike/`
+  (`spike-measures.json`, `spike-findings.json`, `PROVENANCE-spike.md`), **pas** `fixtures/spike/` (C-3 : sous la racine
+  séries exclue R-25, PROVENANCE same-dir). Les **réponses RPC brutes ne sont PAS committées** (C-4, décision
+  orchestrateur 2026-09-19 sur lecture CGU Helius 2026-04-24 / Chainstack juin 2026) : hors dépôt sha-pinnées
+  (`F:\PRODUITS\etude-2026-09-19\bell-b1-spike\`). Paragraphe CGU collé en PROVENANCE. **O-6 clos pour la jambe Solana.**
+- **Découverte pivot 1** : les pools Solana du census v3 (source -b1) **datent de 2026** (premier tx 2026-01/02/09 ;
+  NVDAx 2025-07-02 mais 8 tx in-window) ⇒ 0 donnée dans la fenêtre fondatrice 2025-07→10. Les **mints** xStocks étaient
+  actifs in-window (8000+ tx/mint) ⇒ le trading fondateur 2025 a eu lieu sur d'autres pools (découvrables on-chain ;
+  PoC réussi : vault TSLAx fondateur `CY9Xzc1z…`, 5000+ tx in-window). ⇒ la source de pools de la course fondatrice
+  doit être les **pools 2025 découverts**, pas le `pairAddress` du census.
+- **Découverte pivot 2 (rebase)** : les xStocks portent un multiplicateur scaledUiAmount **mutable** (SPYx 1.0039,
+  NVDAx 1.0009, AAPLx 1.0027 ; TSLAx 1 ; autorité PARTAGÉE `S7vYFF…`, 3000+ sigs in-window) ⇒ l'état historique du
+  multiplicateur à la borne 2025-07-01 est **illisible** par `getAccountInfo` ⇒ la g_t fondatrice -b1 = `rebase_unverified`
+  (C-6) ; la reconstruction de la trajectoire (SetMultiplier + effTs) est **-b3**. La g_t fondatrice dépend donc de -b3.
+- **Escalade formée** (R-26, `docs/PLI-lot-t1a-ii-b1.md` CONSULTATION FORMÉE) : trois options costées (registre
+  fondateur découvert / -b1 tel quel ≈ 0 session / décalage fenêtre 2025-11→2026-09). Aucune course lancée (budget
+  préservé, ~90 appels Helius). Propriétaire : orchestrateur → investisseur/validateur. `error_origin` : planificateur
+  (hypothèse D7/ADR-T1aii D1 « pools existaient jul-oct 2025 » falsifiée par mesure first-hand -b1).
+
+## Amendement (2026-09-20, décision investisseur 47 + pli G2 -b1-2, worker `claude-opus-4-8[1m]`)
+- **Décision 47 (option (a), variante SPLIT)** : escalade tranchée. Le registre fondateur Solana = **pools 2025
+  découverts on-chain** (`founding_pool` ≠ `pairAddress` census). La **g_t fondatrice est déplacée APRÈS -b3** en
+  nouveau sous-lot **-b1-bis** (découverte → registre fondateur → course rebase-aware). **-b1 (ce lot)** = corrections
+  + spike + découverte (PoC) + décomptes + **abstention nommée**, aucune g_t. Ordre : `-b1 → -b3 → -b1-bis → -b2a →
+  -b2b`. Variante **FUSION écartée** (C-2). Détail des tuyaux -b1-bis + des 8 corrections G2 + procurement
+  **PR-B-SPL-TOKEN2022** : `docs/adr/ADR-T1aii…` **D1-ter** (font foi).
+- **Pli G2 -b1-2 (résumé)** : C-G2-1 fail-open C-6 corrigé dans `main()` (`rebaseForMint` fail-closed ; `collect()`
+  intact — repro + test + mutant) ; C-G2-2 effTs échus (past-dated, pas « future ») ; C-G2-3 `readMintToken2022`
+  fail-closed + procurement ScaledUiAmount ; C-G2-4 garde close rapport ; C-G2-5 `coverage.ts` (C-5) ; C-G2-6 PoC
+  recordée non-sha-backée + item -b1-bis ; C-G2-7 budget ETH/Massive → -b2b ; C-G2-8 hypothèse immuable énoncée.
+  Oracles ciblés verts (49 tests bell, typecheck, lint/ratchet/lang/export, series_pinned, no_secret). Aucune g_t
+  fondatrice produite. `error_origin` des corrections : rédacteur -b1 (C-G2-1/2/5) ; les autres = items formés.

@@ -1,0 +1,214 @@
+{
+  "generated_at": "2026-09-19T23:53:40.858Z",
+  "window": {
+    "fromUtc": "2025-07-01T00:00:00Z",
+    "toUtc": "2025-10-31T23:59:59Z",
+    "fromSec": 1751328000,
+    "toSec": 1761955199
+  },
+  "providers": {
+    "helius": "helius-rpc.com",
+    "chainstack": "chainstack.com"
+  },
+  "pools": {
+    "TSLAx": {
+      "vaultBase": "CYfaMv…",
+      "gtfa_window": {
+        "supported": true,
+        "pages": 0,
+        "sigs": 0,
+        "firstBlockTime": null,
+        "lastBlockTime": null,
+        "seconds": 0.133,
+        "truncated": false
+      },
+      "gsfa_recent_2pages": {
+        "pages": 2,
+        "sigsSeen": 2000,
+        "seconds": 1.057
+      }
+    },
+    "SPYx": {
+      "vaultBase": "CiQuPA…",
+      "gtfa_window": {
+        "supported": true,
+        "pages": 0,
+        "sigs": 0,
+        "firstBlockTime": null,
+        "lastBlockTime": null,
+        "seconds": 0.14,
+        "truncated": false
+      },
+      "gsfa_recent_2pages": {
+        "pages": 2,
+        "sigsSeen": 2000,
+        "seconds": 1.087
+      }
+    },
+    "NVDAx": {
+      "vaultBase": "DyKsyp…",
+      "gtfa_window": {
+        "supported": true,
+        "pages": 1,
+        "sigs": 8,
+        "firstBlockTime": 1751420555,
+        "lastBlockTime": 1751421901,
+        "seconds": 0.151,
+        "truncated": false
+      },
+      "gsfa_recent_2pages": {
+        "pages": 2,
+        "sigsSeen": 2000,
+        "seconds": 1.108
+      }
+    },
+    "AAPLx": {
+      "vaultBase": "69u6oE…",
+      "gtfa_window": {
+        "supported": true,
+        "pages": 0,
+        "sigs": 0,
+        "firstBlockTime": null,
+        "lastBlockTime": null,
+        "seconds": 0.13,
+        "truncated": false
+      },
+      "gsfa_recent_2pages": {
+        "pages": 2,
+        "sigsSeen": 2000,
+        "seconds": 1.053
+      }
+    }
+  },
+  "methods": {
+    "gtfa_response_shape": {
+      "isArray": false,
+      "topKeys": [
+        "data",
+        "paginationToken"
+      ],
+      "rowKeys": "undefined"
+    },
+    "gtfa_depth_probe": {
+      "pool": "TSLAx",
+      "count": 0,
+      "firstSig": null,
+      "firstBlockTime": null
+    },
+    "gtfa_full_one_page": {
+      "returned": 0,
+      "seconds": 0.136,
+      "hasBodies": false
+    },
+    "chainstack_gsfa_1page": {
+      "pages": 1,
+      "sigsSeen": 1000,
+      "seconds": 1.057
+    },
+    "chainstack_first_available_block": 0
+  },
+  "rebase": {
+    "TSLAx": {
+      "multiplier": "1",
+      "newMultiplier": "1",
+      "effTs": 0,
+      "scaledAuthority": "S7vYFF…",
+      "authorityWindowSigs": {
+        "sigsInWindow": 3000,
+        "pages": 3,
+        "truncated": true
+      }
+    },
+    "SPYx": {
+      "multiplier": "1.003909240011759",
+      "newMultiplier": "1.005714560286254",
+      "effTs": 1781755200,
+      "scaledAuthority": "S7vYFF…",
+      "authorityWindowSigs": {
+        "sigsInWindow": 3000,
+        "pages": 3,
+        "truncated": true
+      }
+    },
+    "NVDAx": {
+      "multiplier": "1.0009180758490996",
+      "newMultiplier": "1.001701196801074",
+      "effTs": 1789000200,
+      "scaledAuthority": "S7vYFF…",
+      "authorityWindowSigs": {
+        "sigsInWindow": 3000,
+        "pages": 3,
+        "truncated": true
+      }
+    },
+    "AAPLx": {
+      "multiplier": "1.0026642075893797",
+      "newMultiplier": "1.0032690125398187",
+      "effTs": 1786149000,
+      "scaledAuthority": "S7vYFF…",
+      "authorityWindowSigs": {
+        "sigsInWindow": 3000,
+        "pages": 3,
+        "truncated": true
+      }
+    }
+  },
+  "vaults": {
+    "TSLAx": {
+      "poolId": "8aDaBQ…",
+      "ownedTokenAccounts": 3,
+      "hasVaultBase": true,
+      "hasVaultQuote": true
+    },
+    "SPYx": {
+      "poolId": "6truu3…",
+      "ownedTokenAccounts": 3,
+      "hasVaultBase": true,
+      "hasVaultQuote": true
+    },
+    "NVDAx": {
+      "poolId": "49iMat…",
+      "ownedTokenAccounts": 4,
+      "hasVaultBase": true,
+      "hasVaultQuote": true
+    },
+    "AAPLx": {
+      "poolId": "ApniVW…",
+      "ownedTokenAccounts": 2,
+      "hasVaultBase": true,
+      "hasVaultQuote": true
+    }
+  },
+  "massive": {
+    "status": 200,
+    "hasClose": true,
+    "resultCount": 1,
+    "note": "close value NOT recorded (ESC-1 c); presence only"
+  },
+  "raws": [
+    {
+      "file": "depth-probe-tslax-gtfa.json",
+      "sha256": "fdd89433f8a4162ab731c52fa0e6c9b386cb7809864e58a6fdccd44d83eed3d0",
+      "bytes": 34
+    },
+    {
+      "file": "gtfa-full-page-sample.json",
+      "sha256": "801678683817240be82c5ffd3b3e089c83fb1af53f2e69496a017a13092fe7ed",
+      "bytes": 23
+    }
+  ],
+  "notes": [],
+  "calls": {
+    "helius": 38,
+    "chainstack": 2,
+    "polygon": 1,
+    "other": 0
+  },
+  "wallSeconds": 15.402,
+  "credit_model": {
+    "helius_standard_rpc": "1 credit/call [lu RESSOURCES-HELIUS l.20]",
+    "getTransactionsForAddress": "NOT in docs; page size/latency measured; credit/call to confirm via Usage dashboard [item]",
+    "getTokenAccountsByOwner": "1 credit (standard RPC)"
+  },
+  "helius_credits_estimate_standard": 38
+}

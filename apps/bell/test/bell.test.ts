@@ -11,7 +11,8 @@ import { etWallClockToUtcMs, classifySession } from "../src/sessions.ts";
 import { extractPoolSwap, swapsForPool, type JsonRpcCall, type SigInfo, type SwapFill } from "../src/rpc.ts";
 import { vwapDecimal, sessionGap } from "../src/gap.ts";
 import { buildDigest, bellSha, assertNoClose, canonical, provenance, type GapEntry } from "../src/digest.ts";
-import { POOLS } from "../src/pools.ts";
+import { POOLS, CENSUS_V3_SHA256 } from "../src/pools.ts";
+import { readMintToken2022 } from "../src/supply.ts";
 import { scanText, compilePatterns, collectTargets } from "../../../scripts/grep-forbidden.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -91,6 +92,32 @@ test("bell_halt_residues_named_never_silent", () => {
   // census reproduces the shape used on the full CSV (small here)
   assert.equal(census(rows).emptyResume, 1);
   assert.equal(haltsSince(rows, ["ZZZZ"], "2026-01-01").length, 1);
+});
+
+// ---- C-13/C-15: per-pool registry fields + on-chain verification record --------------------------
+test("bell_pool_registry_c13_fields", () => {
+  assert.match(CENSUS_V3_SHA256, /^[0-9a-f]{64}$/);
+  const UND: Record<string, string> = { TSLAx: "TSLA", SPYx: "SPY", NVDAx: "NVDA", AAPLx: "AAPL" };
+  for (const p of POOLS.filter((x) => x.chain === "solana")) {
+    assert.equal(p.baseIndex, 0, `${p.baseSymbol} baseIndex (vaultBase is the base leg)`);
+    assert.equal(p.baseDec, 8, `${p.baseSymbol} baseDec`);
+    assert.equal(p.quoteDec, 6, `${p.baseSymbol} quoteDec`);
+    assert.equal(p.chainId, "solana", `${p.baseSymbol} chainId`);
+    assert.equal(p.censusSha, CENSUS_V3_SHA256, `${p.baseSymbol} censusSha`);
+    assert.equal(p.foundingPool, false, `${p.baseSymbol} foundingPool (2026 pool, measured first-hand)`);
+    assert.equal(p.underlying, UND[p.baseSymbol], `${p.baseSymbol} underlying`);
+    assert.ok(p.vaultBase && p.vaultQuote, `${p.baseSymbol} vaults present`);
+    // C-15: the on-chain verification method (getTokenAccountsByOwner) is recorded per pool.
+    assert.match(p.source.onchain, /getTokenAccountsByOwner/, `${p.baseSymbol} C-15 verification recorded`);
+  }
+  // Non-tautological: baseDec is pinned to ON-CHAIN truth via the real mint fixture (a captured getAccountInfo),
+  // not echoed from the same source that declared it — a wrong registry baseDec would diverge from the mint.
+  const tslaxMint = readMintToken2022(JSON.parse(readFileSync(join(HERE, "fixtures", "series", "tslax-mint-token2022.json"), "utf8")), "TSLAx");
+  const tslaxPool = POOLS.find((p) => p.baseSymbol === "TSLAx");
+  assert.equal(tslaxMint.decimals, tslaxPool?.baseDec, "registry baseDec matches the mint's on-chain decimals");
+  // C-13 decimals are load-bearing: a wrong quoteDec scales VWAP by 10^delta (mutant: 6->9 reddens the oracle).
+  const fill = { signature: "s", blockTimeUtcMs: 1, baseDelta: 15_349_152n, quoteDelta: -55_888_132n };
+  assert.notEqual(vwapDecimal([fill], 8, 6), vwapDecimal([fill], 8, 9));
 });
 
 // ---- (i) fills / VWAP / dedup ---------------------------------------------------------------------

@@ -5,17 +5,19 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
-import { assertOutsideRepo, collect, chainTimeline, parseArgs, fatalMessage, type SymbolInput } from "../src/collect.ts";
-import { quorum2, signaturesSetKey, statusOf, NoQuorumError, QuorumDisagreementError, ConcordantRevertError,
-  SolRpcError, type JsonRpcCall, type TransportFault } from "../src/quorum.ts";
-import { readMintToken2022, porStatus, wrapperStatus, supplyVsPoRStatement } from "../src/supply.ts";
+import { assertOutsideRepo, collect, chainTimeline, parseArgs, fatalMessage, makeBudgetedCall, refCloseDatesForFills, type SymbolInput } from "../src/collect.ts";
+import { quorum2, signaturesSetKey, statusOf, isSolRevert, NoQuorumError, QuorumDisagreementError, ConcordantRevertError,
+  BudgetExceededError, SolRpcError, type JsonRpcCall, type TransportFault } from "../src/quorum.ts";
+import { readMintToken2022, porStatus, wrapperStatus, supplyVsPoRStatement, rebaseGate, rebaseGateFromMint, rebaseForMint } from "../src/supply.ts";
+import { coverageDecision, foundingCourseCostFloorSigs } from "../src/coverage.ts";
 import { volumeToAdvRatio, poolVolumeBase } from "../src/volume.ts";
 import { assertNoClose } from "../src/digest.ts";
 import { newResidualCounts, RESIDUAL_CODES } from "../src/residuals.ts";
-import { solanaEndpoints, type SwapFill } from "../src/rpc.ts";
+import { solanaEndpoints, PUBLIC_SOLANA, type SwapFill } from "../src/rpc.ts";
 import { providerOf } from "../../sentinel/src/rpc.ts";
+import { operatorOf } from "../src/operators.ts";
 import type { HaltRow } from "../src/halts.ts";
-import { classifySession } from "../src/sessions.ts";
+import { classifySession, refCloseDateOf } from "../src/sessions.ts";
 import { decodeV3Swap, ethSwapToFill, ethVwap, UNISWAP_V3_SWAP_TOPIC } from "../src/ethereum.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -48,7 +50,10 @@ function tslaxInput(closeAnchor: number | null): SymbolInput {
 }
 const anchorKeyOf = (utcMs: number): string => classifySession(utcMs).sessionDateET;
 
-const PINNED_BELL_SHA = "4375042c518253e2232f0390dfcd792db4d65ca55e9832900bc19862fab6fa46";
+// Re-pinned at -b1 (C-6): the closed residual set grew by `rebase_unverified`, so the digest's `residuals`
+// map carries one more key (`rebase_unverified: 0`) and its sha shifts. The fixture BYTES are unchanged; the
+// drift is the intended residual-vocabulary extension, recomputed here (a fixture byte still reddens this).
+const PINNED_BELL_SHA = "eaed7ea4b200cf97957d5ea0b4ac4a5f3f4fa6870af7c640fcc61d1c700d6df6";
 
 // ---- replay (bit-identical) ----------------------------------------------------------------------
 test("bell_collector_replays_fixture_bit_identical", () => {
@@ -102,6 +107,51 @@ test("bell_no_quorum_on_single_provider", async () => {
   assert.equal(d.gaps.length, 0);
 });
 
+// ---- C-9: quorum distinctness is by OPERATOR, not by DNS labels ----------------------------------
+test("bell_quorum_pair_two_operators", async () => {
+  // operatorOf collapses a provider's alias hosts to ONE operator (no hex key in these — hostnames only).
+  assert.equal(operatorOf("https://solana-mainnet.core.chainstack.com"), "chainstack");
+  assert.equal(operatorOf("https://nd-123-456-789.p2pify.com"), "chainstack"); // legacy host, SAME operator
+  assert.equal(operatorOf("https://mainnet.helius-rpc.com"), "helius");
+  assert.equal(operatorOf("https://api.mainnet-beta.solana.com"), "solana-foundation");
+  assert.equal(operatorOf("https://bsc-dataseed1.binance.org"), operatorOf("https://bsc-dataseed2.bnbchain.org"));
+  assert.equal(operatorOf("https://new.example.com"), "example.com"); // unmapped -> its own operator (safe default)
+  const ok: JsonRpcCall = () => Promise.resolve("V");
+  const fetchOne = (c: JsonRpcCall, u: string): Promise<unknown> => c(u, "m", [u]);
+  const keyOf = (v: unknown): string => String(v);
+  // a PAIR of two Chainstack hosts is ONE operator => no_quorum (the C-9 fix; providerOf would have passed it)
+  await assert.rejects(quorum2("cs-pair", ["https://solana-mainnet.core.chainstack.com", "https://nd-1.p2pify.com"], ok, fetchOne, keyOf), NoQuorumError);
+  // Helius + Chainstack = two operators => the value
+  assert.equal(await quorum2("h+cs", ["https://mainnet.helius-rpc.com", "https://solana-mainnet.core.chainstack.com"], ok, fetchOne, keyOf), "V");
+  // providers_distinct in the journal counts OPERATORS: two Chainstack hosts + Helius = 2, not 3
+  const r = collect({ symbols: [], haltRows: [], window: { fromUtcMs: 0, toUtcMs: 0 }, nowSec: 1, staleBoundSec: 1, generatedAt: "t",
+    providers: ["https://solana-mainnet.core.chainstack.com", "https://nd-1.p2pify.com", "https://mainnet.helius-rpc.com"] });
+  assert.equal((r.journal as { providers_distinct: number }).providers_distinct, 2);
+});
+
+// ---- O-9: isSolRevert tells a deterministic node error from a transport/rate fault ---------------
+test("bell_is_sol_revert_transport_vs_deterministic", () => {
+  // transport-like node codes BENCH (not a revert): -32005 behind/rate, -32004 slot not available, -32603 internal
+  for (const code of [-32005, -32004, -32603]) assert.equal(isSolRevert(new SolRpcError("transport-like", code)), false, `code ${String(code)} is transport`);
+  // deterministic node errors ARE reverts (identical across honest providers -> a concordant on-chain fact)
+  for (const code of [-32602, -32601, -32000, 0]) assert.equal(isSolRevert(new SolRpcError("deterministic", code)), true, `code ${String(code)} is deterministic`);
+  // a plain transport Error (HTTP/timeout) is NEVER a revert
+  assert.equal(isSolRevert(new Error("HTTP 429")), false);
+  assert.equal(isSolRevert(new Error("abort/timeout")), false);
+});
+
+// ---- O-10: solanaEndpoints reads BELL_SOLANA_RPC (env override), fail-closed to the public default ---------
+test("bell_solana_endpoints_env_override", () => {
+  // default (no env): the SINGLE public archival endpoint (publicnode retired) -> one operator -> no_quorum by design
+  assert.deepEqual([...solanaEndpoints({})], [...PUBLIC_SOLANA]);
+  // BELL_SOLANA_RPC (comma-separated): trimmed, empties dropped -> the live quorum list (Helius + Chainstack)
+  const two = solanaEndpoints({ BELL_SOLANA_RPC: " https://mainnet.helius-rpc.com , https://solana-mainnet.core.chainstack.com ,, " });
+  assert.deepEqual([...two], ["https://mainnet.helius-rpc.com", "https://solana-mainnet.core.chainstack.com"]);
+  assert.equal(new Set([...two].map(operatorOf)).size, 2, "the override yields two distinct operators");
+  // a blank override falls back to the default (never an empty endpoint list)
+  assert.deepEqual([...solanaEndpoints({ BELL_SOLANA_RPC: "   " })], [...PUBLIC_SOLANA]);
+});
+
 // ---- (iv) PoR staleness + wrapper rate + Token-2022 readout --------------------------------------
 test("bell_por_staleness_and_wrapper_rate", () => {
   const m = readMintToken2022(loadMintFixture(), "TSLAx");
@@ -128,6 +178,62 @@ test("bell_por_staleness_and_wrapper_rate", () => {
   assert.equal(wr.contracts.length, 0);
 });
 
+// ---- C-7: reference close is per reference-close DAY, look-ahead-safe (never one /prev for all) ----
+test("bell_close_per_reference_day_no_lookahead", () => {
+  // off-hours regimes + `after` reference the ANCHOR day's (settled) close; pre/regular reference the PRIOR
+  // trading day's close (the same-day close has not settled at session time). Mutant: return anchor for pre
+  // => the look-ahead assertions redden.
+  assert.equal(refCloseDateOf("weekend", "2026-09-18"), "2026-09-18");
+  assert.equal(refCloseDateOf("holiday", "2026-01-16"), "2026-01-16");
+  assert.equal(refCloseDateOf("overnight-weekday", "2026-09-16"), "2026-09-16");
+  assert.equal(refCloseDateOf("after", "2026-09-16"), "2026-09-16");
+  assert.equal(refCloseDateOf("pre", "2026-09-17"), "2026-09-16"); // Wed close, NOT Thu (a look-ahead)
+  assert.equal(refCloseDateOf("regular", "2026-09-17"), "2026-09-16");
+  // two overnight fills on adjacent trading days map to DISTINCT reference-close days — the C-7 bug applied
+  // ONE /prev close to every anchor; the fix keys per day. Wed 22:00 ET and Thu 22:00 ET (UTC-4 in Sept).
+  const wed: SwapFill = { signature: "w", blockTimeUtcMs: Date.UTC(2026, 8, 17, 2, 0, 0), baseDelta: 1n, quoteDelta: 1n };
+  const thu: SwapFill = { signature: "t", blockTimeUtcMs: Date.UTC(2026, 8, 18, 2, 0, 0), baseDelta: 1n, quoteDelta: 1n };
+  assert.deepEqual(refCloseDatesForFills([wed, thu]), ["2026-09-16", "2026-09-17"]);
+});
+
+// ---- C-6: rebase gate — constant multiplier or the sessions abstain (never a rescaled g_t) --------
+test("bell_rebase_gate_constant_or_abstains", () => {
+  assert.deepEqual(rebaseGate("1", "1"), { status: "constant", multiplier: "1" });
+  assert.deepEqual(rebaseGate("2", "2"), { status: "constant", multiplier: "2" });
+  for (const g of [rebaseGate("1", "2"), rebaseGate(null, "1"), rebaseGate("1", null), rebaseGate(null, null)]) {
+    assert.equal(g.status, "unverified");
+    assert.ok(g.status === "unverified" && g.residue === "rebase_unverified");
+  }
+});
+
+test("bell_rebase_gate_from_mint_immutable_vs_mutable", () => {
+  const base = { symbol: "X", decimals: 8, supply: "0", paused: false, permanentDelegate: null };
+  // immutable multiplier (no scaledUiAmount update authority) => constant at its value (readable at both bounds)
+  assert.deepEqual(rebaseGateFromMint({ ...base, multiplier: "1", newMultiplier: "1", newMultiplierEffectiveTimestampSec: 0, scaledAuthority: null }), { status: "constant", multiplier: "1" });
+  assert.deepEqual(rebaseGateFromMint({ ...base, multiplier: "2", newMultiplier: "2", newMultiplierEffectiveTimestampSec: 0, scaledAuthority: null }), { status: "constant", multiplier: "2" });
+  // MUTABLE multiplier (authority present — every measured xStock shares S7vYFF…): the historical begin bound is
+  // unreadable at -b1 => rebase_unverified (deferred to -b3's SetMultiplier reconstruction).
+  const g = rebaseGateFromMint({ ...base, multiplier: "1", newMultiplier: "1", newMultiplierEffectiveTimestampSec: 0, scaledAuthority: "SomeUpdateAuthority1111" });
+  assert.ok(g.status === "unverified" && g.residue === "rebase_unverified");
+  assert.equal(rebaseGateFromMint({ ...base, multiplier: "1.0039", newMultiplier: "1.0057", newMultiplierEffectiveTimestampSec: 1781755200, scaledAuthority: "auth" }).status, "unverified");
+});
+
+test("bell_rebase_unverified_abstains_sessions", () => {
+  // an unverified pool-window: every session abstains rebase_unverified, carrying vwap but NO gT.
+  const s: SymbolInput = { ...tslaxInput(364.5), rebase: { status: "unverified", residue: "rebase_unverified" } };
+  const r = collect({ symbols: [s], haltRows: [], window: { fromUtcMs: 0, toUtcMs: 0 }, nowSec: 1_800_000_000, staleBoundSec: 93600, generatedAt: "t" });
+  const d = r.digest as { residuals: Record<string, number>; gaps: Array<Record<string, unknown>> };
+  assert.ok((d.residuals.rebase_unverified ?? 0) >= 1, "rebase_unverified counted");
+  const g = d.gaps.find((x) => x.abstain === "rebase_unverified");
+  assert.ok(g, "a rebase_unverified gap entry exists");
+  assert.ok(!("gT" in (g ?? {})), "no gT on an unverified pool-window");
+  assert.ok(typeof g.vwap === "string", "the first-hand vwap is still carried");
+  // a CONSTANT gate does NOT abstain: the same input with a constant gate computes g_t normally.
+  const ok = collect({ symbols: [{ ...tslaxInput(364.5), rebase: { status: "constant", multiplier: "1" } }], haltRows: [], window: { fromUtcMs: 0, toUtcMs: 0 }, nowSec: 1_800_000_000, staleBoundSec: 93600, generatedAt: "t" });
+  assert.equal((ok.digest as { residuals: Record<string, number> }).residuals.rebase_unverified, 0);
+  assert.ok((ok.digest as { gaps: Array<Record<string, unknown>> }).gaps.some((x) => "gT" in x), "constant gate => g_t computed");
+});
+
 // ---- V-7: no_close_ref is a named residual (never a fabricated gap) ------------------------------
 test("bell_no_close_ref_is_a_named_residual", () => {
   // fills present but NO close in the map => abstain no_close_ref, carry vwap, NO gT (never a fake 0/-Inf gap)
@@ -150,7 +256,7 @@ test("bell_abstentions_counted", () => {
   const A: SymbolInput = { symbol: "AAPLx", chain: "solana", baseDec: 8, quoteDec: 6, fills: [], fillsResidues: ["no_quorum"], closeRefBySession: {}, advDailyVolumes: [] };
   const oneFill: SwapFill = { signature: "b1", blockTimeUtcMs: 1_789_824_710_000, baseDelta: 15_000_000n, quoteDelta: -54_000_000n };
   const B: SymbolInput = { symbol: "TSLAx", chain: "solana", baseDec: 8, quoteDec: 6, fills: [oneFill], fillsResidues: ["quorum_sampled"], quorumCoverage: 0.5,
-    closeRefBySession: {}, advDailyVolumes: [1000], mint: { symbol: "TSLAx", decimals: 8, supply: "100", multiplier: "2", paused: false, permanentDelegate: null } };
+    closeRefBySession: {}, advDailyVolumes: [1000], mint: { symbol: "TSLAx", decimals: 8, supply: "100", multiplier: "2", paused: false, permanentDelegate: null, scaledAuthority: null, newMultiplier: "2", newMultiplierEffectiveTimestampSec: 0 } };
   const halts: HaltRow[] = [
     { haltDate: "2026-09-15", haltTime: "10:00:00", symbol: "TSLA", name: "x", exchange: "Nasdaq", reason: "LULD pause", resumeDate: "2026-09-15", resumeTime: "" },
     { haltDate: "2026-09-15", haltTime: "11:00:00", symbol: "TSLA", name: "x", exchange: "Nasdaq", reason: "ZZZ unknown graphie", resumeDate: "2026-09-15", resumeTime: "11:05:00" },
@@ -230,6 +336,18 @@ test("bell_ratio_killer_adv_and_unit", () => {
   assert.doesNotThrow(() => assertNoClose({ vol_ratio: "0.5", volumeBase: "52", multiplier_unit: false }));
 });
 
+// ---- C-7: close_source is NAMED in provenance (never a close value); the close-guard still fires -----------
+test("bell_close_source_named_in_provenance", () => {
+  const r = collect({ symbols: [], haltRows: [], window: { fromUtcMs: 0, toUtcMs: 0 }, nowSec: 1, staleBoundSec: 1, generatedAt: "t", closeSource: "massive-starter-internal" });
+  const sources = r.provenance.sources as { close_source?: string };
+  assert.equal(sources.close_source, "massive-starter-internal"); // decision 41: the close provider is named
+  assert.doesNotThrow(() => { assertNoClose(r.provenance.sources); }); // a non-numeric string does not redden
+  assert.throws(() => { assertNoClose({ close_source: 364.27 }); }); // a NUMERIC close value still reddens (mutant)
+  // absent closeSource => no close_source key at all (never a fabricated one)
+  const r0 = collect({ symbols: [], haltRows: [], window: { fromUtcMs: 0, toUtcMs: 0 }, nowSec: 1, staleBoundSec: 1, generatedAt: "t" });
+  assert.ok(!("close_source" in (r0.provenance.sources as object)));
+});
+
 // ---- timeline chain -----------------------------------------------------------------------------
 test("bell_timeline_is_hash_chained", () => {
   const lines = chainTimeline([{ symbol: "TSLAx", n: 1 }, { symbol: "SPYx", n: 2 }]);
@@ -281,13 +399,44 @@ test("bell_out_guard_is_outside_the_repo", () => {
 // ---- V-1: parseArgs is a pure, WIRED, fail-closed CLI parser (mutant: accept unknown / unwire => red) -----
 test("bell_parseargs_fail_closed_and_wired", () => {
   const K = ["TSLAx", "SPYx", "NVDAx", "AAPLx", "TSLAon"];
+  // these specific errors fire BEFORE the --max-calls requirement (ordering: pool/numeric/eth checked first).
   assert.throws(() => parseArgs(["--pools", "ZZZ"], K), /bell\/collect: unknown pool symbol 'ZZZ' \(known: /);
   assert.throws(() => parseArgs(["--window-days", "abc"], K), /bell\/collect: invalid numeric/);
   assert.throws(() => parseArgs(["--window-days", "-3"], K), /bell\/collect: invalid numeric/);
   assert.throws(() => parseArgs(["--pools", "TSLAon", "--eth"], K), /bell\/collect: --eth with TSLAon/);
-  const g = parseArgs(["--pools", "TSLAon", "--eth", "--eth-from-block", "9", "--eth-to-block", "20"], K, 1_000);
-  assert.deepEqual([g.wanted, g.eth, g.ethFrom, g.ethTo, g.toUtcMs], [["TSLAon"], true, 9, 20, 1_000]);
+  // C-11: --max-calls is REQUIRED and must be > 0. O-12: Infinity/NaN/negative rejected by num().
+  assert.throws(() => parseArgs(["--pools", "TSLAx"], K), /bell\/collect: --max-calls is required/);
+  assert.throws(() => parseArgs(["--pools", "TSLAx", "--max-calls", "0"], K), /bell\/collect: --max-calls must be > 0/);
+  assert.throws(() => parseArgs(["--pools", "TSLAx", "--max-calls", "Infinity"], K), /bell\/collect: invalid numeric --max-calls/);
+  assert.throws(() => parseArgs(["--pools", "TSLAx", "--max-calls", "-1"], K), /bell\/collect: invalid numeric --max-calls/);
+  const g = parseArgs(["--pools", "TSLAon", "--eth", "--eth-from-block", "9", "--eth-to-block", "20", "--max-calls", "500"], K, 1_000);
+  assert.deepEqual([g.wanted, g.eth, g.ethFrom, g.ethTo, g.toUtcMs, g.maxCalls], [["TSLAon"], true, 9, 20, 1_000, 500]);
   assert.match(SRC, /parseArgs\(argv, POOLS\.map/);
+  assert.match(SRC, /makeBudgetedCall\(maxCalls,/); // wiring proof: main() enforces the budget through the wrapper
+});
+
+// ---- C-11 / O-12: the RPC budget is machine-enforced and fail-closed (never a swallowed fault) ------------
+test("bell_max_calls_budget_fail_closed", async () => {
+  let inner = 0;
+  const okCall: JsonRpcCall = () => { inner += 1; return Promise.resolve("v"); };
+  const { call, calls } = makeBudgetedCall(2, okCall);
+  assert.equal(await call("u", "m", []), "v");
+  assert.equal(await call("u", "m", []), "v");
+  assert.equal(calls(), 2);
+  // the 3rd call throws BudgetExceededError (a bell/collect: message, surfaced verbatim) and does NOT hit inner
+  await assert.rejects(call("u", "m", []), BudgetExceededError);
+  await assert.rejects(call("u", "m", []), /bell\/collect: --max-calls budget of 2 exceeded/);
+  assert.equal(inner, 2, "over-budget calls never reach the inner RPC");
+  // fatalMessage surfaces it verbatim (exit-1 path), so the operator sees the budget stop
+  const e = new BudgetExceededError("bell/collect: --max-calls budget of 2 exceeded (C-11 fail-closed)");
+  assert.match(fatalMessage(e), /^bell\/collect: --max-calls budget/);
+  // wiring: quorum2 re-throws it (never swallowed as a {provider,status} fault)
+  const faults: TransportFault[] = [];
+  const overBudget: JsonRpcCall = () => Promise.reject(new BudgetExceededError("bell/collect: --max-calls budget of 0 exceeded (C-11 fail-closed)"));
+  await assert.rejects(
+    quorum2("q", ["https://mainnet.helius-rpc.com", "https://solana-mainnet.core.chainstack.com"], overBudget, (c, u) => c(u, "m", []), (v) => String(v), faults),
+    BudgetExceededError);
+  assert.equal(faults.length, 0, "a budget error is never recorded as a transport fault");
 });
 
 // ---- V-2: journal + provenance carry quorum_required + providers_distinct (derived via providerOf) --------
@@ -306,4 +455,73 @@ test("bell_fatal_message_verbatim_local_and_scrubbed_transport", () => {
   assert.match(local, /^bell\/collect: --out is under the repo root/);
   assert.equal(fatalMessage(new Error("HTTP 429 https://x.example/rpc")), "FATAL HTTP 429");
   assert.match(SRC, /main\(\)\.catch.*fatalMessage\(e\)/s);
+});
+
+// ---- C-G2-1 (BLOQUANT): a FAILED mint read must abstain (rebase_unverified), never a fail-open g_t ---------
+test("bell_mint_read_failure_abstains_fail_closed", () => {
+  // The LIVE mapping main() applies: an ABSENT mint (getAccountInfo quorum failed) => rebase_unverified.
+  assert.deepEqual(rebaseForMint(undefined), { status: "unverified", residue: "rebase_unverified" });
+  const baseMint = { symbol: "X", decimals: 8, supply: "0", paused: false, permanentDelegate: null, newMultiplier: "1", newMultiplierEffectiveTimestampSec: 0 };
+  assert.equal(rebaseForMint({ ...baseMint, multiplier: "1", scaledAuthority: "auth" }).status, "unverified"); // mutable => unverified
+  assert.deepEqual(rebaseForMint({ ...baseMint, multiplier: "1", scaledAuthority: null }), { status: "constant", multiplier: "1" }); // immutable => constant
+
+  // integration: the SymbolInput main() builds on a FAILED mint read (repro-A shape), fed to the pure core.
+  const oneFill: SwapFill = { signature: "s1", blockTimeUtcMs: Date.UTC(2026, 8, 19, 2, 0, 0), baseDelta: 15_000_000n, quoteDelta: -54_000_000n };
+  const failed: SymbolInput = { symbol: "SPYx", chain: "solana", baseDec: 8, quoteDec: 6, fills: [oneFill],
+    fillsResidues: ["no_quorum"], closeRefBySession: { "2026-09-17": 640, "2026-09-18": 640 }, advDailyVolumes: [] };
+  const run = (s: SymbolInput): { residuals: Record<string, number>; gaps: Array<Record<string, unknown>> } =>
+    collect({ symbols: [s], haltRows: [], window: { fromUtcMs: 0, toUtcMs: 0 }, nowSec: 1_800_000_000, staleBoundSec: 93600, generatedAt: "t" })
+      .digest as { residuals: Record<string, number>; gaps: Array<Record<string, unknown>> };
+
+  // AFTER (fixed wiring): rebase = rebaseForMint(undefined) => the session ABSTAINS, no g_t emitted.
+  const after = run({ ...failed, rebase: rebaseForMint(undefined) });
+  assert.ok(!after.gaps.some((g) => "gT" in g), "fixed: no g_t on a failed-mint session");
+  assert.ok((after.residuals.rebase_unverified ?? 0) >= 1, "fixed: rebase_unverified counted");
+  assert.equal(after.residuals.no_quorum, 1, "fixed: the no_quorum reason is still counted");
+  assert.ok(after.gaps.some((g) => g.abstain === "rebase_unverified"), "fixed: abstain gap is named");
+
+  // BEFORE (fail-open, documented): with rebase ABSENT, collect() computes a g_t — this is the repro-A bug. The
+  // pure core is UNCHANGED by design (the fix lives in main()'s rebaseForMint), so the replay oracle stays green.
+  const before = run(failed);
+  assert.ok(before.gaps.some((g) => "gT" in g), "fail-open: absent rebase => g_t emitted (repro-A)");
+  assert.equal(before.residuals.rebase_unverified, 0, "fail-open: no abstention when rebase absent");
+
+  // wiring proof (SRC): main() applies the fail-closed mapping and pushes `rebase` UNCONDITIONALLY; the old
+  // fail-open line (`... : undefined`) is gone.
+  assert.match(SRC, /const rebase: RebaseGate = rebaseForMint\(mint\);/);
+  assert.match(SRC, /\.\.\.\(mint \? \{ mint \} : \{\}\), rebase \}\);/);
+  assert.doesNotMatch(SRC, /rebaseGateFromMint\(mint\) : undefined/);
+});
+
+// ---- C-G2-3: the mint readout preserves multiplier / newMultiplier / effTs distinctly (rule is [abs] offline) --
+test("bell_mint_readout_preserves_scaled_fields", () => {
+  // SPYx-shaped: multiplier != newMultiplier, effTs elapsed (2026-06-18Z). readMintToken2022 returns the STORED
+  // multiplier verbatim (it does NOT silently resolve to newMultiplier — that rule is [abs], PR-B-SPL-TOKEN2022).
+  const result = { value: { data: { parsed: { info: { supply: "1000", decimals: 8, extensions: [
+    { extension: "scaledUiAmountConfig", state: { multiplier: "1.0039", newMultiplier: "1.0057", newMultiplierEffectiveTimestamp: 1781755200, authority: "S7vYFF" } },
+  ] } } } } };
+  const m = readMintToken2022(result, "SPYx");
+  assert.equal(m.multiplier, "1.0039", "stored multiplier preserved verbatim");
+  assert.equal(m.newMultiplier, "1.0057", "scheduled newMultiplier preserved");
+  assert.equal(m.newMultiplierEffectiveTimestampSec, 1781755200, "effTs preserved (elapsed 2026-06-18Z, C-G2-2)");
+  assert.notEqual(m.multiplier, m.newMultiplier, "the two are distinct — the resolving rule is [abs] offline");
+  assert.equal(rebaseForMint(m).status, "unverified"); // gate unaffected: mutable authority => unverified
+});
+
+// ---- C-G2-5: the C-5 coverage decision (decision 45) — over threshold => top20 + published share -----------
+test("bell_c5_coverage_projection_over_threshold_top20", () => {
+  assert.equal(coverageDecision({ heliusCredits: 1_000_000, chainstackRu: 1_000_000, days: 3 }).mode, "full-population");
+  // over EACH budget INDEPENDENTLY => top20 (mutant: drop one conjunct => that case wrongly stays full-population).
+  const over1 = coverageDecision({ heliusCredits: 6_000_000, chainstackRu: 1_000_000, days: 3 });
+  const over2 = coverageDecision({ heliusCredits: 1_000_000, chainstackRu: 20_000_000, days: 3 });
+  const over3 = coverageDecision({ heliusCredits: 1_000_000, chainstackRu: 1_000_000, days: 9 });
+  for (const d of [over1, over2, over3]) {
+    assert.equal(d.mode, "top20-per-chain");
+    assert.ok(d.mode === "top20-per-chain" && d.publishCoverageShare === true, "top20 publishes the covered share");
+  }
+  // NOT computable (census 0 in-window data — the measured -b1 case) => NAMED abstention, never "assume it fits".
+  const none = coverageDecision(null);
+  assert.ok(none.mode === "abstain" && none.reason === "projection_not_computable");
+  // measured FLOOR (lower bound, capped): >= 8000 in-window sigs x 4 mints (spike-findings.json).
+  assert.equal(foundingCourseCostFloorSigs(8000, 4), 32000);
 });

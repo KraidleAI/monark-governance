@@ -42,8 +42,26 @@ export interface PoolRef {
   // deterministic and AMM-family-agnostic (no per-program layout decoding, Jupiter hops excluded).
   readonly vaultBase?: string;
   readonly vaultQuote?: string;
+  // Per-pool registry fields (C-13, ADR-T1aii-D1-bis). baseIndex names WHICH leg is the tokenized security:
+  // Solana vault extraction is order-independent (signed vault deltas), so baseIndex=0 means "vaultBase is the
+  // base leg" (a declared invariant, checked by the registry test); the EVM decoders (-b2a) use it to fix
+  // token0/1. baseDec/quoteDec are the two decimals (a wrong value scales VWAP by 10^delta — the vwap oracle
+  // reddens). underlying is the reference security ticker. chainId is the numeric EVM chainId, or "solana".
+  // censusSha pins the census-v3.csv the row was reconciled against. foundingPool records (MEASURED, spike
+  // 2026-09-20) whether THIS pool existed in the 2025-07..10 founding window — the four below are 2026 CLMM
+  // pools (false); the founding-window pools are a discovery item escalated in docs/PLI-lot-t1a-ii-b1.md.
+  readonly baseIndex?: 0 | 1;
+  readonly baseDec?: number;
+  readonly quoteDec?: number;
+  readonly underlying?: string;
+  readonly chainId?: number | "solana";
+  readonly censusSha?: string;
+  readonly foundingPool?: boolean;
   readonly source: Provenance;
 }
+
+/** sha256 of the census-v3.csv (2026-09-19) this registry's Solana rows were reconciled against (C-13). */
+export const CENSUS_V3_SHA256 = "25db700eb527651042c141e5f8a0e779b76db3e7b45608e77171628f862509c6";
 
 /** Canonical numeraires (quote legs). Confirmed on-chain: standard USDC mint / contract. */
 export const USDC_SOLANA = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
@@ -80,19 +98,23 @@ export const POOLS: readonly PoolRef[] = [
     poolId: "8aDaBQkTrS6HVMjyc6EZebgdiaXhLYGriDWKWWp1NpFF", programId: "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK",
     baseSymbol: "TSLAx", quoteSymbol: "USDC",
     vaultBase: "CYfaMvz6ft1YahGnetsGP3E8GWkURdJcDSzfihGrH8Qo", vaultQuote: "8JyAULXLSRjxAmzE2MfrgeHhTg8J1DRMqas1gaRn85ot",
-    source: { api: "https://api-v3.raydium.io/pools/key/ids?ids=8aDaBQ...", fetchedAt: D, snapshotSha256: "4d936b6458ac", onchain: "vault deltas reproduce Jupiter mid ~364 USDC/TSLAx on a recorded swap" } },
+    baseIndex: 0, baseDec: 8, quoteDec: 6, underlying: "TSLA", chainId: "solana", censusSha: CENSUS_V3_SHA256, foundingPool: false,
+    source: { api: "https://api-v3.raydium.io/pools/key/ids?ids=8aDaBQ...", fetchedAt: D, snapshotSha256: "4d936b6458ac", onchain: "getTokenAccountsByOwner(poolId) returns vaultBase+vaultQuote [C-15, 2026-09-20]; poolId first on-chain tx 2026-02-11 (measured) => foundingPool=false" } },
   { label: "SPYx/USDC (Raydium CLMM)", dex: "raydium-clmm", chain: "solana",
     poolId: "6truu3rZuiB9rKQg4VYC3Dt3QwV7DgwGqXrYUcrvnDDE", programId: "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK", baseSymbol: "SPYx", quoteSymbol: "USDC",
     vaultBase: "CiQuPAfYp5v82vijk6u7wqFnaZqtGdJfUUSjDKAtT9ML", vaultQuote: "3EmW8zJDHrfgwpQJAt1oD6nxgQZLUwrCRSKk8Gr3iKRF",
-    source: { api: "https://api-v3.raydium.io/pools/key/ids?ids=6truu3...", fetchedAt: D, snapshotSha256: "486295e2c9e2", onchain: "mintA==SPYx, mintB==USDC, vaults from pools/key/ids" } },
+    baseIndex: 0, baseDec: 8, quoteDec: 6, underlying: "SPY", chainId: "solana", censusSha: CENSUS_V3_SHA256, foundingPool: false,
+    source: { api: "https://api-v3.raydium.io/pools/key/ids?ids=6truu3...", fetchedAt: D, snapshotSha256: "486295e2c9e2", onchain: "getTokenAccountsByOwner(poolId) returns vaultBase+vaultQuote [C-15, 2026-09-20]; poolId first on-chain tx 2026-01-15 (measured) => foundingPool=false" } },
   { label: "NVDAx/USDC (Raydium CLMM)", dex: "raydium-clmm", chain: "solana",
     poolId: "49iMatQtoyabsYAQc8GafVq6aeBFVDxSRH44oiatyyw6", programId: "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK", baseSymbol: "NVDAx", quoteSymbol: "USDC",
     vaultBase: "DyKsypuzQvhi37K8UvjCMBC43h4HtW4r6jhWoqHyrSSe", vaultQuote: "4JEtq7NraU9U5URcCKSv6sWRRgDSuSnUjYDqpSJSWohY",
-    source: { api: "https://api-v3.raydium.io/pools/key/ids?ids=49iMat...", fetchedAt: D, snapshotSha256: "c9b6b778e7aa", onchain: "mintA==NVDAx, mintB==USDC, vaults from pools/key/ids" } },
+    baseIndex: 0, baseDec: 8, quoteDec: 6, underlying: "NVDA", chainId: "solana", censusSha: CENSUS_V3_SHA256, foundingPool: false,
+    source: { api: "https://api-v3.raydium.io/pools/key/ids?ids=49iMat...", fetchedAt: D, snapshotSha256: "c9b6b778e7aa", onchain: "getTokenAccountsByOwner(poolId) returns vaultBase+vaultQuote [C-15, 2026-09-20]; poolId first on-chain tx 2025-07-02, only 8 in-window txs (measured) => foundingPool=false (near-dormant in window)" } },
   { label: "AAPLx/USDC (Raydium CLMM)", dex: "raydium-clmm", chain: "solana",
     poolId: "ApniVWuZbZoruTAJdyJcLBA4AVw4DKGdV5fHxo6qrAZT", programId: "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK", baseSymbol: "AAPLx", quoteSymbol: "USDC",
     vaultBase: "69u6oEwRayMozqCWF9Vny6qiYN5f18pZVUtboaDJkXuj", vaultQuote: "3zBLzabogNNQ4s2zcuioXncdbTPED4jPx1x2J3Jn8Ezt",
-    source: { api: "https://api-v3.raydium.io/pools/key/ids?ids=ApniVW...", fetchedAt: D, snapshotSha256: "f3440b6f6d92", onchain: "mintA==AAPLx, mintB==USDC, vaults from pools/key/ids" } },
+    baseIndex: 0, baseDec: 8, quoteDec: 6, underlying: "AAPL", chainId: "solana", censusSha: CENSUS_V3_SHA256, foundingPool: false,
+    source: { api: "https://api-v3.raydium.io/pools/key/ids?ids=ApniVW...", fetchedAt: D, snapshotSha256: "f3440b6f6d92", onchain: "getTokenAccountsByOwner(poolId) returns vaultBase+vaultQuote [C-15, 2026-09-20]; poolId first on-chain tx 2026-09-11 (measured) => foundingPool=false" } },
   // Ondo TSLAon pools (Ethereum). Uniswap-family pools hold reserves in the pool contract itself; the
   // Ethereum swap/VWAP leg reads Swap events (T-1a-ii / parity), so no Solana-style vault pair here.
   { label: "TSLAon/USDC 1% (Uniswap v3)", dex: "uniswap-v3", chain: "ethereum",

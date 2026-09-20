@@ -61,12 +61,14 @@ export interface GapEntryFilled extends GapEntryBase {
   readonly gT: string;
   readonly exceed1: number; readonly exceed2: number; readonly exceed5: number;
 }
-/** An abstained gap entry: NO g_t. Two cases (T-1a-ii V-7): a zero-volume session (a fabricated g_t=0 would
- *  be indistinguishable from a real zero gap -- C-4) abstains `no_fill_in_window`; a session WITH volume but
- *  no reference close (closeRef missing / <= 0) abstains `no_close_ref` (it still carries its first-hand vwap,
- *  never a fabricated 0/-Infinity gap). The digest accepts either; `abstain` is not a close-like key. */
+/** An abstained gap entry: NO g_t. Cases (T-1a-ii V-7, D1-bis C-6): a zero-volume session (a fabricated g_t=0
+ *  would be indistinguishable from a real zero gap -- C-4) abstains `no_fill_in_window`; a session WITH volume
+ *  but no reference close (closeRef missing / <= 0) abstains `no_close_ref`; a session on a pool-window whose
+ *  scaled-UI multiplier was not verified constant abstains `rebase_unverified` (C-6). Each still carries its
+ *  first-hand vwap, never a fabricated / silently rescaled gap. The digest accepts any; `abstain` is not a
+ *  close-like key. */
 export interface GapEntryAbstained extends GapEntryBase {
-  readonly abstain: "no_fill_in_window" | "no_close_ref";
+  readonly abstain: "no_fill_in_window" | "no_close_ref" | "rebase_unverified";
 }
 export type GapEntry = GapEntryFilled | GapEntryAbstained;
 /** Build the (timestamp-free) digest body. Entries are sorted for determinism; no close field exists. */
