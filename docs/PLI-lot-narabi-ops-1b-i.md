@@ -11,10 +11,10 @@ seule** (C-15) : GET + fraîcheur/gril + chaîne recomputée complète + proxy c
 ## Livrés (7 fichiers ; sha256 finaux post-restauration des mutants)
 | Fichier | sha256 | Rôle |
 |---|---|---|
-| `scripts/probe-narabi.mjs` | `ed83ea4ed625ccba819b8d8b22c85cf47cd2fe19485c3dd5ecc768109ae98a29` | Sonde (built-ins Node seuls) : GET borné, gril d'échéance UTC, chaîne recomputée (31 champs dupliqués), proxy chainstack non positionnel, `narabi.json`, exit 1 ssi unhealthy |
-| `scripts/probe-narabi.d.mts` | `846b9214cdf9a80f62391f5409fb8c4846726d56e61301ba0e41eac4b2cdad8b` | Sidecar de types (TS7016) ; eslint ignore `**/*.d.mts` ; consommé par le test racine |
-| `test/probe-narabi.test.ts` | `4d77af7489c5756088acdca491607a6190c89ec272e06a7867a7b1cb2ff3936c` | 9 tests non-LLM (racine, glob `test/*.test.ts`) |
-| `deploy/monark-probe.service` | `a3d9885836fe986dfb1b5905df7a902b612b969c711607eb11a56f49bcb5b295` | Unité systemd Bell SANS mail : `User=probe`, `EnvironmentFile=-` toléré (-1b-i, pas de secret), `TimeoutStartSec=90`, `ReadWritePaths=/var/lib/monark-probe` |
+| `scripts/probe-narabi.mjs` | `c872cccec7cec8b48ad98b54a2469efae6f45892e4642a8eb9f22bb545238ee8` (post-G2-pli ; G1 était `ed83ea4…`) | Sonde (built-ins Node seuls) : GET borné, gril d'échéance UTC, chaîne recomputée (31 champs dupliqués), proxy chainstack non positionnel, `narabi.json`, exit 1 ssi unhealthy |
+| `scripts/probe-narabi.d.mts` | `2a183e98fdab24d7f1fb2e9f65f862856a251a68f15d09b87112de59bd078467` (post-G2-pli ; G1 était `846b9214…`) | Sidecar de types (TS7016) ; eslint ignore `**/*.d.mts` ; consommé par le test racine |
+| `test/probe-narabi.test.ts` | `b830bb6c01698a174ab142adc1d719e25dca8d0cadbb1feeaa03ef561d5d2045` (post-G2-pli ; G1 était `4d77af74…`) | 14 tests non-LLM (9 G1 + 5 G2 ; racine, glob `test/*.test.ts`) |
+| `deploy/monark-probe.service` | `35fba8755e456b2f641924229e1c17c576d744b0d270c43d3cb822bd3afdc22a` (post-G2-pli ; G1 était `a3d98858…`) | Unité systemd Bell SANS mail : `User=probe`, `EnvironmentFile=-` toléré (-1b-i, pas de secret), `TimeoutStartSec=90` (couvre le pire-cas env plafonné, C-G2-7), `ReadWritePaths=/var/lib/monark-probe` |
 | `deploy/monark-probe.timer` | `39335a1e1621733fc9b67020029bf504c6857f2738d18989e5d761e42bece3ee` | 3 tirs UTC post-échéance (10:30/12:30/16:30), `Persistent=true` |
 | `vocab-banned.json` | `134f5194e6a92fc084e8f00e587051875d81b1a5394fb754cc00496ee1b99277` | `scan.sentinel.files` **+4** chemins (probe .mjs/.test.ts + 2 unités) + note de provenance ADR-NARABI-OPS-1 |
 | `apps/sentinel/test/sentinel-retry.test.ts` | `6ef96a48bc0e8be695f818f8f0faa87a6d4e57c1ef0e2f84ae2657ae17f09212` | **L-4** (item hérité ii) : `after()`+`rmSync` — la fuite `mkdtemp` est fermée |
@@ -24,6 +24,7 @@ paire, brace-expandue). Vérifié : `vocab_sentinel_scope_scans_src_test_deploy`
 fichiers nommés, PAS une égalité d'ensemble ⇒ mes ajouts sont sûrs.
 
 ## Tests (9 nommés, tous verts ; `test/probe-narabi.test.ts`)
+**(Instantané G1 — le pli G2 porte le total à 14 tests ; voir §PLI G2, fait foi sur le compte.)**
 Rejeu : `node --test --test-timeout=120000 --test-force-exit test/probe-narabi.test.ts` ⇒ **tests 9, pass 9, fail 0**
 (TMP/TEMP redirigés sur `F:` — rien sur `C:`).
 1. `probe_hashed_fields_order_equals_sentinel` (C-1) — ordre des 31 champs `==` `timeline.ts hashedFields` sur une **ligne synthétique à 31 valeurs deux à deux distinctes** (deepEqual + hash) ; **second oracle** = les 3 lignes committées recomputent leur `line_hash` publié (== `lineHashOf` du sentinel).
@@ -37,6 +38,7 @@ Rejeu : `node --test --test-timeout=120000 --test-force-exit test/probe-narabi.t
 9. `probe_timer_multiple_shots` (C-13) — ≥ 3 tirs, premier ≥ DEADLINE, `Persistent=true`, `Unit=monark-probe.service` ; service : `User=probe`, `EnvironmentFile=-`, `ProtectSystem=strict`, `TimeoutStartSec` ≥ worst-case code (`DEFAULT_TIMEOUT_MS × (DEFAULT_RETRIES+1)`).
 
 ## Mutants (14, chacun rouge puis restauré sha-exact — jamais `git checkout` ; harnais reproductible `F:\tmp\narabi1b\{mut.mjs,run-mutants.sh,run-mutants2.sh}`)
+**(Instantané G1 ; le pli G2 ajoute 9 mutants RED + 1 contrôle négatif GREEN ; voir §PLI G2, fait foi.)**
 Chaque mutation = un remplacement de chaîne à occurrence unique (asserté) ; restauration inverse ; `sha256(fichier) == baseline` re-vérifié.
 | # | Mutation (dans `scripts/probe-narabi.mjs`) | Test tueur | Verdict |
 |---|---|---|---|
@@ -103,7 +105,86 @@ C-5↔C-10).
 - **Limite déclarée (R-21) : la boucle de réessai borné n'est pas différenciée `retries=0` vs `retries=2`** — la borne S'EXÉCUTE (couverte par le timeout et la garde oversize), mais aucun test ne prouve qu'un échec-puis-succès rejoue exactement N fois (il faudrait un serveur « échoue une fois puis sert »). C-6 ne nomme pas de mutant de réessai ⇒ pas une lacune du plan ; item formé, déclencheur : **-1b-ii** (revue G2 dédiée du transport SMTP, où le réessai est re-conçu). Propriétaire orchestrateur.
 - Portés par -1b-ii / déploiement (hors -1b-i) : machine à états + client SMTP (E-3 répondu : rappel quotidien) ; `health.json` (Q1) ; repli 587 (Q6) ; dead-man E-1 ; boîte/AUTH/tarif Hostinger E-2 ; `ALERT_TO` d'env.
 
+## PLI G2 — corrections de la revue G2 (worker `claude-opus-4-8[1m]` effort max, 2026-09-20)
+Modèle résolu (R-1) : **`claude-opus-4-8[1m]`**. R-20 (ne committe pas, aucun workflow, **aucune action sortante** — loopback/offline
+seulement, aucun secret). R-21 (écrit pour re-vérification adversariale). Base au pli : HEAD `69eb943` (arbre propre), branche
+`lot/narabi-ops-1b-i`, worktree `F:\Monark-wt-narabi1b`. Findings pliés : **C-G2-1..8** de `docs/G2-lot-narabi-ops-1b-i.md`
+(**NON édité**), verdict G2 `ACCEPTE-AVEC-CORRECTIONS` — **toutes** pliées, y compris les observations C-G2-6/7/8 (objectif
+investisseur : zéro dette au release). 4 fichiers touchés au pli G2 : `probe-narabi.mjs`, `probe-narabi.d.mts`, `test/probe-narabi.test.ts`,
+`deploy/monark-probe.service`.
+
+### sha256 post-pli (SUPERSÈDENT la table « Livrés » pour les fichiers changés)
+| Fichier | sha256 post-G2-pli |
+|---|---|
+| `scripts/probe-narabi.mjs` | `c872cccec7cec8b48ad98b54a2469efae6f45892e4642a8eb9f22bb545238ee8` |
+| `scripts/probe-narabi.d.mts` | `2a183e98fdab24d7f1fb2e9f65f862856a251a68f15d09b87112de59bd078467` |
+| `test/probe-narabi.test.ts` | `b830bb6c01698a174ab142adc1d719e25dca8d0cadbb1feeaa03ef561d5d2045` |
+| `deploy/monark-probe.service` | `35fba8755e456b2f641924229e1c17c576d744b0d270c43d3cb822bd3afdc22a` |
+| `deploy/monark-probe.timer` | `39335a1e1621733fc9b67020029bf504c6857f2738d18989e5d761e42bece3ee` (inchangé) |
+
+### Corrections (finding → correction `symbole` → test → mutant rouge démontré)
+| Finding | error_origin | Correction (`probe-narabi.mjs` sauf mention) | Test | Mutant (RED démontré, restauré sha-exact) |
+|---|---|---|---|---|
+| **C-G2-1** (MAJEUR) garde loopback | **worker** | `isLoopbackHost` STRICT : `localhost`/`::1`/`[::1]` exact, ou littéral IPv4 127/8 canonique (4 octets décimaux ≤255, sans zéro en tête, 1er=127) ; nouveau `rawUrlHost` lit l'hôte **AVANT** normalisation WHATWG ; `urlTransportAllowed` : http ssi **sans userinfo** ET `isLoopbackHost(u.hostname)` ET `isLoopbackHost(rawUrlHost(url))` | `probe_refuses_http_off_loopback` (batterie pure des 8 refus + `127.00.0.1`/`0177.0.0.1` ; admis `127.0.0.53`/`[::1]` ; e2e `.invalid` seulement) | `M-G2-1` : `if(!m) return false` → `/^127\./.test(h)` (préfixe regex rétabli) ⇒ RED |
+| **C-G2-2** fuseau CI-UTC | **worker** | `runProbe`/`runProbeAsync` figent `TZ` enfant (défaut `Etc/GMT-11`) ; `probe_narabi_detects_lag` rejoue les 8 cas sous `Etc/GMT-11` (UTC+11) ET `Etc/GMT+11` (UTC−11) — signes opposés, passage de jour ; verdicts UTC-invariants (mesuré) | `probe_narabi_detects_lag` (×2 fuseaux) | `M-G2-2/M4` (`getUTC*`→`get*`), `M-G2-2/M10` (date locale), **parent `TZ=UTC` offset=0 mesuré** ⇒ RED tous deux |
+| **C-G2-3** `--now` invalide | **worker** | `probe()` : `--now` non parsable ⇒ repli horloge réelle + `probe_error`, exit 1, `narabi.json` **toujours** écrit, jamais FATAL | `probe_invalid_now_still_writes_narabi_json` (+ `doesNotMatch(stderr,/FATAL/)`) | `M-G2-3` : repli retiré (`nowIso=providedNow`) ⇒ catch re-throw ⇒ non écrit ⇒ RED |
+| **C-G2-4** redirections | **worker** | `fetch(...,{redirect:"manual"})` + 3xx/opaqueredirect ⇒ `unreachable` (aucun suivi) | `probe_does_not_follow_redirects` (302 loopback→autre port, cible **jamais** contactée) | `M-G2-4` : `redirect:"manual"` retiré ⇒ suivi ⇒ cible contactée ⇒ RED |
+| **C-G2-5** double constante DEADLINE | **worker** | `DEADLINE_UTC="10:30"` source unique ; `DEADLINE_UTC_MINUTES=hhmmToMinutes(DEADLINE_UTC)` **dérivée** ; oracle `publish_latency` | `probe_deadline_single_source_and_publish_latency_oracle` (0 à 10:30Z, +300, −3600 ; minutes==parse(string)) | `M-G2-5` : minutes désync `629` ⇒ RED |
+| **C-G2-6** écriture non atomique | **plan (−1b-ii), plié par anticipation** | temp même répertoire + `renameSync` (écrase POSIX **et** Windows, mesuré) | `probe_writes_narabi_json_atomically` (2 runs sur le même `--out`, aucun résidu `.tmp`) | `M-G2-6` : `renameSync` retiré ⇒ `narabi.json` absent, résidu `.tmp` ⇒ RED |
+| **C-G2-7** env transport non plafonné | **worker/plan, plié** | `transportBounds(env)` plafonne dur `PROBE_TIMEOUT_MS`(≤10000)/`PROBE_RETRIES`(≤4)/`PROBE_MAX_BYTES`(≤64 Mio) ; pire-cas 60 s < `TimeoutStartSec` 90 s | `probe_timer_multiple_shots` (lit l'unité ; `TimeoutStartSec > 60 s` strict ; clamps mesurés) | `M-G2-7` : `Math.min(n,max)`→`n` ⇒ non plafonné ⇒ RED |
+| **C-G2-8** `--file` non borné | **worker** | `--file` borné (`statSync`) à la **même** borne que le GET ⇒ `too_large` | `probe_file_input_is_size_bounded` (fixture > 64 o ⇒ too_large) | `M-G2-8` : contrôle taille retiré ⇒ lu entier ⇒ healthy ⇒ RED |
+
+Harnais mutants : `F:\tmp\narabi1b\run-mutants.mjs` (auto-contenu — remplacement à occurrence unique **assertée** inline, sans
+dépendance) ; restauration depuis snapshot post-pli `F:\tmp\narabi1b\edited\probe-narabi.mjs`, **jamais `git checkout`** ; sha256 re-vérifié
+== `c872ccc…` après CHAQUE mutant). **Contrôle négatif** `CTRL-noop` (commentaire seul) ⇒ **GREEN** (fail 0) : le harnais
+discrimine. **9 mutants ⇒ 9 RED, 1 contrôle GREEN.** Arbre restauré sha-exact (`probe-narabi.mjs` == `c872ccc…`), `git status` = 4 fichiers.
+
+### Déviation déclarée (R-21)
+- **C-G2-1 `error_origin = worker`** : l'élargissement `/^127\./` (G1) était une **déviation NON déclarée** du plan (ensemble
+  `{127.0.0.1, ::1, localhost}`, G0 L-2/C-6). Corrigée. L'assertion G1 `isLoopbackHost("127.0.0.53")===true` « 127/8 » qui
+  validait l'élargissement est **remplacée** (non simplement retirée) par une assertion recadrée (« littéral 127/8 canonique,
+  PAS un nom DNS ») **plus** la batterie des refus — pour ne pas ouvrir un trou de sur-restriction (`=== "127.0.0.1"`).
+- **Point empirique mesuré (first-hand)** : le parseur WHATWG de Node **normalise** `127.1`/`0x7f.0.0.1`/`2130706433`/
+  `0177.0.0.1`/`127.00.0.1` → `127.0.0.1` ; d'où la nécessité de `rawUrlHost` (hôte brut) — `u.hostname` seul les laisserait
+  passer. `0.0.0.0` reste `0.0.0.0` (refusé, 1er octet ≠ 127) ; `127.0.0.1@evil.com` ⇒ `hostname=evil.com` + userinfo refusé ;
+  `[::1]`→`[::1]`. TZ enfant : `Etc/GMT-11`=UTC+11, `Etc/GMT+11`=UTC−11 (signe POSIX inversé), honorés via l'env `spawn`
+  (échec shell MSYS écarté) ; `toISOString` reste UTC. `renameSync` **écrase** un fichier existant sur ce Windows (mesuré).
+- **Note méthode (R-20, aucune action sortante)** : tous les cas end-to-end `--url` restent sur `.invalid` (jamais un domaine
+  enregistrable), pour que même le run du mutant C-G2-1 (garde désactivée) n'émette **aucun** paquet vers un service réel (au plus
+  une requête DNS sur `.invalid`, réservé non-résolvant, RFC 6761). Les 8 refus (dont `127.0.0.1.evil.com`, `127.evil.com`, domaines
+  réels) sont testés par `urlTransportAllowed` **pur** (décision de chaîne, zéro dial). Strictness déclarée : userinfo entièrement
+  refusé sur http-loopback ; `http:127.0.0.1/x` (WHATWG tolère `//` manquant) refusé par `rawUrlHost` — fail-safe, pas un bug.
+Formes IPv6 longues `http://[0:0:0:0:0:0:0:1]/` et `http://[::ffff:127.0.0.1]/` **refusées** aussi (hôte brut ≠ `::1` exact ;
+mesuré) — conforme à « EXACTEMENT `::1`/`[::1]` », fail-safe (elles sont bien loopback mais non canoniques).
+
+### R-25 (pathspec `STAT=` de `.github/workflows/ci.yml:65`, `git diff --shortstat 298aa5c` arbre de travail)
+**970 lignes** (966 insertions + 4 suppressions) ⇒ **≤ 1205** (plafond), **sous** le seuil d'alerte 1100 (~130 de marge). Delta pli
+G2 sur le G1 (793) ≈ **+177**. Répartition post-pli (`--numstat` vs `298aa5c`) : `probe-narabi.test.ts` 439 · `probe-narabi.mjs`
+374 · `probe-narabi.d.mts` 70 · `monark-probe.service` 42 · `monark-probe.timer` 26 · `sentinel-retry.test.ts` +13/−2 ·
+`vocab-banned.json` +2/−2 (ces 2 derniers = G1, non touchés au pli G2). `docs/**/*.md` exclus.
+
+### Oracles rejoués post-pli (un à un ; PAS de `npm run ci`)
+typecheck `tsc --noEmit` **0** · eslint `test/probe-narabi.test.ts` **0** · `lint:ratchet` **69/69** (0 violation ajoutée) ·
+`gate:vocab` OK (178 fichiers) · `export:check` OK · `lang:gate` OK · `probe-narabi.test.ts` **14/14** (9 G1 + 5 G2) ·
+`ci-gates` + `no-secret-in-repo` + `sentinel-retry` **32/32**.
+
+### Items formés au pli G2 (déclencheurs ; zéro dette nue)
+- **URL servie sans 3xx au déploiement** — `redirect:"manual"` traite TOUTE 3xx comme `unreachable` ; l'orchestrateur confirme au
+  déploiement que `https://monarkgate.tech/narabi/timeline.jsonl` répond **200 directement** (aucune redirection Caddy
+  trailing-slash / http→https), sinon fausse alerte. Propriétaire : orchestrateur ; déclencheur : go déploiement. (En pratique : GET
+  https direct d'un fichier existant ⇒ 200 ; aucune redirection attendue.)
+- **Atomicité sous crash** (R-21, limite déclarée) : le test prouve l'absence de résidu `.tmp` + JSON complet ; l'atomicité *sous
+  crash* est **structurelle** (`rename` atomique même-FS), non couvrable par un mutant d'exécution normale — `M-G2-6` prouve que le
+  `rename` est porteur (sans lui, pas de `narabi.json`). Propriétaire : orchestrateur.
+- Items G1 inchangés (durée run publiant après 00:30 UTC 2026-09-21 ; `STUB_SRC` à factoriser ; couplage ordre-de-hash ; digest
+  cross-check ; réessai différencié −1b-ii ; portés −1b-ii/déploiement) restent ouverts avec leurs déclencheurs.
+
 ## Reste dû : néant à ma charge en -1b-i
-Aucune dette nue. Tous les inconnus sont soit des **items formés avec déclencheur** ci-dessus, soit des adjudications déjà
-rendues (Doutes 1-5, E-1/E-2/E-3). Contrat de sortie tenu : `exit 1 ssi status==="unhealthy"`, `narabi.json` **toujours**
-écrit avant sortie (asserté par `runProbe`).
+Aucune dette nue. Les 8 findings G2 (C-G2-1..8) sont **pliés** (correction + test + mutant RED + sha) ; les inconnus restants sont
+soit des **items formés avec déclencheur** ci-dessus, soit des adjudications déjà rendues (Doutes 1-5, E-1/E-2/E-3). Contrat de
+sortie tenu : `exit 1 ssi status==="unhealthy"`, `narabi.json` **toujours** écrit avant sortie (asserté par `runProbe` ; C-G2-3
+étend l'invariant au `--now` invalide).
+
+### Vérification orchestrateur (R-21), 2026-09-20 17:58 UTC (horloge)
+claude-fable-5-1 : sha probe-narabi.mjs c872ccce… == rapport ; 
+ode --test test/probe-narabi.test.ts rejoué : 14/14 ; garde de transport exercée à la main : 127.0.0.1.evil.com, 127.1, localhost.evil.com, 127.0.0.1@evil.com ⇒ insecure_url ; 127.0.0.1:8080, [::1], https://monarkgate.tech/… ⇒ admis. **Item « URL servie sans 3xx » CLOS** : HEAD https://monarkgate.tech/narabi/timeline.jsonl ⇒ HTTP/1.1 200 OK, aucune redirection (lecture seule ; à re-contrôler au déploiement par le premier run de la sonde). Reste avant gel : durée d'un run Narabi publiant (créneau 00:30 UTC du 2026-09-21).

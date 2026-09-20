@@ -6,7 +6,7 @@
 // the Chainstack pipe (CA-11 durci). No network: a fetch stub / a node:http loopback server / `--file`.
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:http";
@@ -17,7 +17,8 @@ import type { TimelineLine } from "../apps/sentinel/src/timeline.ts";
 import { providerOf as rpcProviderOf } from "../apps/sentinel/src/rpc.ts";
 import {
   providerOf, chainstackPresent, hashedFieldsOf, lineHashOf as probeLineHashOf,
-  urlTransportAllowed, isLoopbackHost, DEADLINE_UTC_MINUTES, DEFAULT_TIMEOUT_MS, DEFAULT_RETRIES, SCHEMA,
+  urlTransportAllowed, isLoopbackHost, DEADLINE_UTC, DEADLINE_UTC_MINUTES, DEFAULT_TIMEOUT_MS, DEFAULT_RETRIES,
+  MAX_TIMEOUT_MS, MAX_RETRIES, START_MARGIN_MS, transportBounds, SCHEMA,
 } from "../scripts/probe-narabi.mjs";
 import type { NarabiState } from "../scripts/probe-narabi.mjs";
 
@@ -26,6 +27,13 @@ const REPO = join(HERE, "..");
 const PROBE_MJS = join(REPO, "scripts", "probe-narabi.mjs");
 const RUN_TS = join(REPO, "apps", "sentinel", "src", "run.ts");
 const FIXTURE = join(REPO, "apps", "sentinel", "test", "fixtures", "narabi-timeline-2026-09-19.jsonl");
+
+// The child probe runs under a NON-UTC zone fixed in its OWN env (overridable per case) so the local-hour (M4)
+// and local-date (M10) mutants die even when the parent is a UTC CI. toISOString stays UTC, so every verdict is
+// unchanged (TZ-invariant). POSIX Etc/GMT sign is inverted: Etc/GMT-11 = UTC+11 (east), Etc/GMT+11 = UTC-11
+// (west); both roll the calendar day for the grid cases (C-G2-2).
+const TZ_EAST = "Etc/GMT-11";
+const TZ_WEST = "Etc/GMT+11";
 
 let scratch: string | null = null;
 let uniq = 0;
@@ -38,27 +46,28 @@ after(() => {
   if (scratch !== null) rmSync(scratch, { recursive: true, force: true });
 });
 
-interface ProbeRun { status: number; stdout: string; state: NarabiState }
-/** Spawn the REAL probe .mjs and return its exit code + the narabi.json it wrote (which it ALWAYS writes). */
+interface ProbeRun { status: number; stdout: string; stderr: string; state: NarabiState }
+/** Spawn the REAL probe .mjs and return its exit code + the narabi.json it wrote (which it ALWAYS writes). The
+ *  child TZ is fixed NON-UTC (TZ_EAST unless overridden) so the local-time mutants die on a UTC CI (C-G2-2). */
 function runProbe(args: readonly string[], env: Record<string, string> = {}): ProbeRun {
   const out = join(scratchDir(), `narabi-${String(uniq++)}.json`);
   const r = spawnSync(process.execPath, [PROBE_MJS, "--out", out, ...args], {
-    cwd: REPO, env: { ...process.env, ...env }, encoding: "utf8", timeout: 60_000,
+    cwd: REPO, env: { ...process.env, TZ: TZ_EAST, ...env }, encoding: "utf8", timeout: 60_000,
   });
   assert.ok(existsSync(out), `the probe must ALWAYS write narabi.json (stdout=${JSON.stringify(r.stdout)} stderr=${JSON.stringify(r.stderr)})`);
   const state = JSON.parse(readFileSync(out, "utf8")) as NarabiState;
-  return { status: r.status ?? -1, stdout: r.stdout ?? "", state };
+  return { status: r.status ?? -1, stdout: r.stdout ?? "", stderr: r.stderr ?? "", state };
 }
 
 /** ASYNC variant, needed only when the probe connects back to an http server IN THIS process: a synchronous
  *  spawnSync would freeze the parent event loop and deadlock (the server could not accept the child). */
 async function runProbeAsync(args: readonly string[], env: Record<string, string> = {}): Promise<ProbeRun> {
   const out = join(scratchDir(), `narabi-${String(uniq++)}.json`);
-  const child = spawn(process.execPath, [PROBE_MJS, "--out", out, ...args], { cwd: REPO, env: { ...process.env, ...env } });
+  const child = spawn(process.execPath, [PROBE_MJS, "--out", out, ...args], { cwd: REPO, env: { ...process.env, TZ: TZ_EAST, ...env } });
   const status = await new Promise<number>((resolve) => { child.on("close", (code) => resolve(code ?? -1)); });
   assert.ok(existsSync(out), "the probe must ALWAYS write narabi.json");
   const state = JSON.parse(readFileSync(out, "utf8")) as NarabiState;
-  return { status, stdout: "", state };
+  return { status, stdout: "", stderr: "", state };
 }
 
 const midnight = (d: string): number => Math.floor(Date.parse(d + "T00:00:00Z") / 1000);
@@ -118,7 +127,7 @@ test("probe_provider_of_matches_sentinel — the duplicated providerOf equals ap
 });
 
 // ── C-4: the UTC deadline grid, lag_days>0 STRICT, reboot-no-false-alarm, DEADLINE pinned at 10:30 ───────────
-test("probe_narabi_detects_lag — the UTC deadline grid sets expected_last_day; lag_days>0 STRICT is unhealthy (exit 1); a reboot before 10:30 and lag_days<0 mornings stay healthy; DEADLINE pinned at 10:30 (C-4)", () => {
+test("probe_narabi_detects_lag — the UTC deadline grid sets expected_last_day; lag_days>0 STRICT is unhealthy (exit 1); a reboot before 10:30 and lag_days<0 mornings stay healthy; DEADLINE pinned at 10:30; every case runs under an east AND a west non-UTC child TZ so the local-hour/local-date mutants die on a UTC CI (C-4; C-G2-2)", () => {
   interface Case { now: string; status: "healthy" | "unhealthy"; reason: string | null; lag: number; exit: number; note: string }
   const cases: Case[] = [
     { now: "2026-09-20T10:35Z", status: "healthy", reason: null, lag: 0, exit: 0, note: "after deadline, J-1 present" },
@@ -130,15 +139,20 @@ test("probe_narabi_detects_lag — the UTC deadline grid sets expected_last_day;
     { now: "2026-09-21T10:30Z", status: "unhealthy", reason: "lag", lag: 1, exit: 1, note: "10:30Z lag (pins DEADLINE)" },
     { now: "2026-09-20T05:00Z", status: "healthy", reason: null, lag: -1, exit: 0, note: "lag_days=-1 normal morning (kills lag!==0)" },
   ];
-  for (const c of cases) {
-    const r = runProbe(["--file", FIXTURE, "--now", c.now]);
-    assert.equal(r.state.status, c.status, `${c.now}: status (${c.note})`);
-    assert.equal(r.state.reason, c.reason, `${c.now}: reason (${c.note})`);
-    assert.equal(r.state.lag_days, c.lag, `${c.now}: lag_days (${c.note})`);
-    assert.equal(r.status, c.exit, `${c.now}: exit code (${c.note})`);
-    assert.equal(r.state.last_day, "2026-09-19", `${c.now}: last_day is the fixture's last`);
-    assert.equal(r.state.chain_ok, true, `${c.now}: the fixture chain is intact`);
-    assert.equal(r.state.schema, SCHEMA, `${c.now}: schema is versioned`);
+  // Run the whole matrix under an east (UTC+11) AND a west (UTC-11) child TZ. The unmutated probe is UTC-strict,
+  // so the verdict is identical under both (asserted here); a local-hour/local-date mutant flips under at least
+  // one zone, so it dies regardless of the parent (CI) TZ (C-G2-2).
+  for (const TZ of [TZ_EAST, TZ_WEST]) {
+    for (const c of cases) {
+      const r = runProbe(["--file", FIXTURE, "--now", c.now], { TZ });
+      assert.equal(r.state.status, c.status, `[TZ=${TZ}] ${c.now}: status (${c.note})`);
+      assert.equal(r.state.reason, c.reason, `[TZ=${TZ}] ${c.now}: reason (${c.note})`);
+      assert.equal(r.state.lag_days, c.lag, `[TZ=${TZ}] ${c.now}: lag_days (${c.note})`);
+      assert.equal(r.status, c.exit, `[TZ=${TZ}] ${c.now}: exit code (${c.note})`);
+      assert.equal(r.state.last_day, "2026-09-19", `[TZ=${TZ}] ${c.now}: last_day is the fixture's last`);
+      assert.equal(r.state.chain_ok, true, `[TZ=${TZ}] ${c.now}: the fixture chain is intact`);
+      assert.equal(r.state.schema, SCHEMA, `[TZ=${TZ}] ${c.now}: schema is versioned`);
+    }
   }
 });
 
@@ -299,21 +313,37 @@ test("probe_get_over_loopback_http_executes — an http:// GET on loopback execu
 });
 
 // ── C-6: http off loopback is REFUSED before any dial (pure guard first -> zero packets under the mutant) ────
-test("probe_refuses_http_off_loopback — http:// off loopback is refused before any dial (insecure_url); https and http-on-loopback pass; the guard is pure so the mutant variant sends zero packets (C-6)", () => {
-  assert.deepEqual(urlTransportAllowed("http://narabi-probe.invalid/narabi/timeline.jsonl"), { ok: false, reason: "insecure_url" }, "http off loopback is refused");
-  assert.deepEqual(urlTransportAllowed("http://monarkgate.tech/narabi/timeline.jsonl"), { ok: false, reason: "insecure_url" }, "a real http host is refused");
-  assert.deepEqual(urlTransportAllowed("http://127.0.0.1:8080/x"), { ok: true }, "http on 127.0.0.1 is allowed");
-  assert.deepEqual(urlTransportAllowed("http://localhost:8080/x"), { ok: true }, "http on localhost is allowed");
-  assert.deepEqual(urlTransportAllowed("https://monarkgate.tech/narabi/timeline.jsonl"), { ok: true }, "https anywhere is allowed");
-  assert.equal(isLoopbackHost("127.0.0.53"), true, "127/8 is loopback");
+test("probe_refuses_http_off_loopback — http:// is admitted ONLY on a strict loopback literal; a DNS name merely starting with 127., the numeric shorthands (127.1 / 0x7f.0.0.1 / 2130706433 / 0177.0.0.1) the WHATWG parser normalizes to 127.0.0.1, userinfo, and 0.0.0.0 are all refused before any dial (insecure_url); the guard is pure so zero packets leave (C-6; C-G2-1)", () => {
+  // Admitted: https anywhere; http on a canonical loopback literal only.
+  for (const u of ["https://monarkgate.tech/narabi/timeline.jsonl", "http://127.0.0.1:8080/x", "http://127.0.0.53/x", "http://localhost:8080/x", "http://[::1]/x"]) {
+    assert.deepEqual(urlTransportAllowed(u), { ok: true }, `admitted: ${u}`);
+  }
+  // Refused BEFORE any dial — a PURE string decision (urlTransportAllowed never resolves or dials), so a real
+  // domain here leaks nothing. Covers the G2 bypass 127.<x>.evil.com and the numeric forms u.hostname alone
+  // would wave through (they normalize to 127.0.0.1); rawUrlHost catches those.
+  for (const u of [
+    "http://127.0.0.1.evil.com/x", "http://127.evil.com/x", "http://localhost.evil.com/x",
+    "http://127.0.0.1@evil.com/x", "http://user:pass@127.0.0.1/x", "http://0.0.0.0/x", "http://127.1/x",
+    "http://0x7f.0.0.1/x", "http://2130706433/x", "http://127.00.0.1/x", "http://0177.0.0.1/x",
+    "http://monarkgate.tech/narabi/timeline.jsonl",
+  ]) {
+    assert.deepEqual(urlTransportAllowed(u), { ok: false, reason: "insecure_url" }, `refused: ${u}`);
+  }
+  // isLoopbackHost is strict: a canonical dotted-quad in 127/8 IS loopback; a DNS name starting with "127." is
+  // NOT (the G2 regex-broadening bug). 127.0.0.53 stays true, so the guard is not over-tightened to 127.0.0.1.
+  assert.equal(isLoopbackHost("127.0.0.53"), true, "a canonical dotted-quad in 127/8 is loopback (NOT a DNS name)");
+  assert.equal(isLoopbackHost("127.evil.com"), false, "a DNS name starting with 127. is NOT loopback (C-G2-1)");
+  assert.equal(isLoopbackHost("127.0.0.1.evil.com"), false, "127.0.0.1.evil.com is NOT loopback (C-G2-1)");
   assert.equal(isLoopbackHost("monarkgate.tech"), false, "a real host is not loopback");
 
-  // end-to-end: the host is .invalid (never resolves), so even a guard-removed mutant emits no packet to a real
-  // service; the mutant records "unreachable" (DNS failure) instead of "insecure_url", reddening this.
-  const r = runProbe(["--url", "http://narabi-probe.invalid/narabi/timeline.jsonl", "--now", "2026-09-20T10:35Z"]);
-  assert.equal(r.state.reason, "insecure_url", "refused as insecure_url before any dial");
-  assert.equal(r.state.reachable, false, "no dial happened");
-  assert.equal(r.status, 1, "insecure_url exits 1");
+  // end-to-end, OFFLINE: both hosts are .invalid (never resolve), so even a guard-removed mutant emits no packet
+  // to a real service — the mutant records "unreachable" (DNS failure) instead of "insecure_url", reddening this.
+  for (const host of ["narabi-probe.invalid", "127.0.0.1.narabi-probe.invalid"]) {
+    const r = runProbe(["--url", `http://${host}/narabi/timeline.jsonl`, "--now", "2026-09-20T10:35Z"]);
+    assert.equal(r.state.reason, "insecure_url", `refused as insecure_url before any dial: ${host}`);
+    assert.equal(r.state.reachable, false, `no dial happened: ${host}`);
+    assert.equal(r.status, 1, `insecure_url exits 1: ${host}`);
+  }
 });
 
 // ── C-13: >= 3 post-deadline shots + Persistent; the service reads an optional env file and bounds its start ──
@@ -335,4 +365,75 @@ test("probe_timer_multiple_shots — the timer declares >= 3 post-deadline OnCal
   assert.ok(to, "TimeoutStartSec is set (C-6 per-start backstop)");
   const worstCaseSec = Math.ceil((DEFAULT_TIMEOUT_MS * (DEFAULT_RETRIES + 1)) / 1000);
   assert.ok(Number(to[1] ?? "0") >= worstCaseSec, `TimeoutStartSec (${to[1] ?? "?"}) must be >= code worst-case ${String(worstCaseSec)}s`);
+  // C-G2-7: the env-tunable bounds are HARD-CAPPED, and TimeoutStartSec STRICTLY exceeds the CAPPED worst case
+  // (timeout x (retries+1) + start margin), so a mis-set /etc/monark/probe.env can never get the job killed
+  // mid-write. The caps are real — a huge env value is clamped to MAX (read against the same unit the timer drives).
+  const worstCappedSec = Math.ceil((MAX_TIMEOUT_MS * (MAX_RETRIES + 1) + START_MARGIN_MS) / 1000);
+  assert.ok(Number(to[1] ?? "0") > worstCappedSec, `TimeoutStartSec (${to[1] ?? "?"}) must strictly exceed the CAPPED env worst-case ${String(worstCappedSec)}s`);
+  assert.equal(transportBounds({ PROBE_TIMEOUT_MS: "99999999" }).timeoutMs, MAX_TIMEOUT_MS, "PROBE_TIMEOUT_MS is hard-capped");
+  assert.equal(transportBounds({ PROBE_RETRIES: "99999" }).retries, MAX_RETRIES, "PROBE_RETRIES is hard-capped");
+});
+
+// ── C-G2-3: an invalid --now still writes narabi.json (probe_error, real timestamp, exit 1), never a FATAL ─────
+test("probe_invalid_now_still_writes_narabi_json — an unparseable --now yields a probe_error state written to narabi.json with a real checked_at and exit 1, never a FATAL that leaves the file unwritten (C-G2-3)", () => {
+  const r = runProbe(["--file", FIXTURE, "--now", "not-a-date"]); // runProbe asserts narabi.json ALWAYS exists
+  assert.equal(r.state.reason, "probe_error", "an invalid --now is probe_error, not a crash");
+  assert.equal(r.state.status, "unhealthy", "unhealthy");
+  assert.equal(r.status, 1, "exit 1 per contract");
+  assert.ok(!Number.isNaN(Date.parse(r.state.checked_at)), "checked_at is a real timestamp (fell back to the clock)");
+  assert.doesNotMatch(r.stderr, /FATAL/, "no FATAL on stderr (the write path completed)");
+});
+
+// ── C-G2-4: an HTTP redirect is treated as unreachable, never followed off the guarded URL ───────────────────
+test("probe_does_not_follow_redirects — a loopback server that answers 302 to another host is treated as unreachable; the redirect target is NEVER dialed (redirect: manual) (C-G2-4)", async () => {
+  let targetHit = false;
+  const target = createServer((_req, res) => { targetHit = true; res.writeHead(200, { "content-type": "application/jsonl" }); res.end(readFileSync(FIXTURE, "utf8")); });
+  await new Promise<void>((resolve) => target.listen(0, "127.0.0.1", () => resolve()));
+  const targetPort = (target.address() as { port: number }).port;
+  const redirector = createServer((_req, res) => { res.writeHead(302, { location: `http://127.0.0.1:${String(targetPort)}/narabi/timeline.jsonl` }); res.end(); });
+  await new Promise<void>((resolve) => redirector.listen(0, "127.0.0.1", () => resolve()));
+  try {
+    const redirPort = (redirector.address() as { port: number }).port;
+    const r = await runProbeAsync(["--url", `http://127.0.0.1:${String(redirPort)}/narabi/timeline.jsonl`, "--now", "2026-09-20T10:35Z"], { PROBE_RETRIES: "0" });
+    assert.equal(r.state.reachable, false, "a redirect is unreachable, not followed (mutant: redirect:manual removed -> followed -> red)");
+    assert.equal(r.state.reason, "unreachable", "reason unreachable");
+    assert.equal(r.status, 1, "exit 1");
+    assert.equal(targetHit, false, "the redirect target was NEVER dialed");
+  } finally {
+    redirector.closeAllConnections(); target.closeAllConnections();
+    await new Promise<void>((resolve) => redirector.close(() => resolve()));
+    await new Promise<void>((resolve) => target.close(() => resolve()));
+  }
+});
+
+// ── C-G2-5: DEADLINE is a single source (minutes derived from the string); publish_latency has an oracle ──────
+test("probe_deadline_single_source_and_publish_latency_oracle — DEADLINE_UTC_MINUTES is derived from the single DEADLINE_UTC string, and publish_latency is pinned on known --now instants (0 at the deadline, +300 after, -3600 before) (C-G2-5)", () => {
+  const parts = DEADLINE_UTC.split(":");
+  assert.equal(DEADLINE_UTC_MINUTES, Number(parts[0]) * 60 + Number(parts[1]), "the minutes constant is DERIVED from the DEADLINE_UTC string (a desync mutant reds here)");
+  assert.equal(runProbe(["--file", FIXTURE, "--now", "2026-09-20T10:30:00Z"]).state.publish_latency, 0, "publish_latency is 0 exactly at the deadline");
+  assert.equal(runProbe(["--file", FIXTURE, "--now", "2026-09-20T10:35:00Z"]).state.publish_latency, 300, "+300s five minutes after the deadline");
+  assert.equal(runProbe(["--file", FIXTURE, "--now", "2026-09-20T09:30:00Z"]).state.publish_latency, -3600, "-3600s one hour before the deadline");
+});
+
+// ── C-G2-6: narabi.json is written atomically (temp + rename), including over an existing file ────────────────
+test("probe_writes_narabi_json_atomically — the probe writes a temp file then renames it over the target, leaving exactly narabi.json (no .tmp residue) even on a repeated run over an existing file (C-G2-6)", () => {
+  const dir = mkdtempSync(join(scratchDir(), "atomic-"));
+  const out = join(dir, "narabi.json");
+  const run = (): void => {
+    const r = spawnSync(process.execPath, [PROBE_MJS, "--out", out, "--file", FIXTURE, "--now", "2026-09-20T10:35Z"], { cwd: REPO, env: { ...process.env, TZ: TZ_EAST }, encoding: "utf8", timeout: 60_000 });
+    assert.equal(r.status, 0, "healthy exit");
+    assert.deepEqual(readdirSync(dir), ["narabi.json"], "only the final file remains — no .tmp residue (atomic rename)");
+    const st = JSON.parse(readFileSync(out, "utf8")) as NarabiState; // complete, parseable JSON
+    assert.equal(st.status, "healthy", "the written state is complete and valid");
+  };
+  run();
+  run(); // rewrite over the existing narabi.json (production does this every shot — Windows rename-over-existing)
+});
+
+// ── C-G2-8: --file is size-bounded like the GET (an oversize file is refused too_large) ──────────────────────
+test("probe_file_input_is_size_bounded — a --file larger than the byte cap is refused too_large (the same bound the GET uses), never read whole (C-G2-8)", () => {
+  const r = runProbe(["--file", FIXTURE, "--now", "2026-09-20T10:35Z"], { PROBE_MAX_BYTES: "64" });
+  assert.equal(r.state.reason, "too_large", "a --file over PROBE_MAX_BYTES is refused (mutant: size check removed -> parsed -> red)");
+  assert.equal(r.state.reachable, false, "not read");
+  assert.equal(r.status, 1, "too_large exits 1");
 });

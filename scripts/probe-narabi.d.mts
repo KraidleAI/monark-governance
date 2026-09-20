@@ -12,6 +12,10 @@ export const DEADLINE_UTC_MINUTES: number;
 export const DEFAULT_TIMEOUT_MS: number;
 export const DEFAULT_MAX_BYTES: number;
 export const DEFAULT_RETRIES: number;
+export const MAX_TIMEOUT_MS: number;
+export const MAX_MAX_BYTES: number;
+export const MAX_RETRIES: number;
+export const START_MARGIN_MS: number;
 export const CHAINSTACK_PROVIDERS: readonly string[];
 
 /** narabi.json reason (DETECTION sub-lot). `null` = healthy. */
@@ -52,6 +56,9 @@ export function urlTransportAllowed(url: string): TransportDecision;
 export interface FetchOpts { timeoutMs?: number; maxBytes?: number; retries?: number }
 export type FetchResult = { ok: true; text: string } | { ok: false; reason: "unreachable" | "too_large" };
 export function fetchTimeline(url: string, opts?: FetchOpts): Promise<FetchResult>;
+
+export interface TransportBounds { timeoutMs: number; maxBytes: number; retries: number }
+export function transportBounds(env?: Record<string, string | undefined>): TransportBounds;
 
 export interface EvaluateInput { text: string | null; nowIso: string; reachable: boolean; fetchReason?: string }
 export function evaluate(input: EvaluateInput): NarabiState;

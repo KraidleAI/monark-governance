@@ -22,8 +22,10 @@ Environment=PROBE_OUT=/var/lib/monark-probe/narabi.json
 # config must fail the start loudly (C-8). The URL is never key-bearing and is never printed.
 EnvironmentFile=-/etc/monark/probe.env
 ExecStart=/usr/bin/env node /opt/monark-probe/probe-narabi.mjs
-# The GET is bounded in code (timeout x (retries+1) ~= 24 s); this is the coarse per-start backstop so a hung
-# run can never pend the job (mirrors the CI per-job timeout; C-6). Kept >= DEFAULT_TIMEOUT_MS x (DEFAULT_RETRIES+1).
+# The GET is bounded in code: defaults give timeout x (retries+1) ~= 24 s, and even if /etc/monark/probe.env
+# mis-sets PROBE_TIMEOUT_MS/PROBE_RETRIES they are HARD-CAPPED (C-G2-7), so the fetch worst case stays <= 60 s
+# (10 s x 5 + 10 s margin). This coarse per-start backstop is kept STRICTLY above that capped worst case so a hung
+# or mis-configured run can never pend the job mid-write (asserted by probe_timer_multiple_shots; C-6).
 TimeoutStartSec=90
 # Least privilege (R-8): a dedicated non-login `probe` user whose ONLY writable path is its state dir.
 User=probe

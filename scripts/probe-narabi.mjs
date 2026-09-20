@@ -14,7 +14,7 @@
 //   chainstack_present, provider, status, reason, publish_latency }. WRITE-ONLY in -1b-i (no prior state is
 //   read back); the state-machine read path (alerted/alert_error) lands in -1b-ii, which bumps `schema`.
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, statSync, renameSync } from "node:fs";
 import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -32,15 +32,29 @@ export const DEFAULT_OUT = "/var/lib/monark-probe/narabi.json";
 // (test probe_timer_oncalendar_ge_deadline), so an env knob would break that coupling. 10:30 UTC = the last
 // sentinel retry slot (09:30) + its 1800 s jitter + the publishing run's duration (NOT yet measured — the
 // orchestrator reads the 00:30 UTC 2026-09-21 journal before the freeze; 10:30 is a DECLARED hypothesis
-// until then). Expressed twice (string for the unit-coherence parse, minutes for the arithmetic).
+// until then). SINGLE source of truth (C-G2-5): the string; the minutes form is DERIVED from it, never edited
+// independently, so expectedLastDay (minutes) can never drift from publishLatencySec (the string).
 export const DEADLINE_UTC = "10:30";
-export const DEADLINE_UTC_MINUTES = 10 * 60 + 30; // 630
+/** Parse an "HH:MM" wall-clock string to minutes-of-day (the single-source derivation for the deadline). */
+function hhmmToMinutes(hm) {
+  const m = /^(\d{2}):(\d{2})$/.exec(hm);
+  if (!m) throw new Error(`DEADLINE must be HH:MM, got ${hm}`);
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+export const DEADLINE_UTC_MINUTES = hhmmToMinutes(DEADLINE_UTC); // DERIVED — single source (C-G2-5)
 
 // Transport bounds (C-6): the GET is never allowed to hang or read an unbounded body. These MAY be tuned by
 // env for the offline test (a short timeout proves the never-hang guard); DEADLINE deliberately may NOT.
 export const DEFAULT_TIMEOUT_MS = 8000;
 export const DEFAULT_MAX_BYTES = 8 * 1024 * 1024;
 export const DEFAULT_RETRIES = 2;
+// HARD CAPS on the env-tunable bounds (C-G2-7): a mis-set /etc/monark/probe.env can never push the fetch worst
+// case (timeout x (retries+1)) past the unit's TimeoutStartSec and get the job killed mid-write. Capped worst
+// case = 10000 x (4+1) + 10000 margin = 60 s < TimeoutStartSec 90 s (asserted by probe_timer_multiple_shots).
+export const MAX_TIMEOUT_MS = 10_000;
+export const MAX_MAX_BYTES = 64 * 1024 * 1024;
+export const MAX_RETRIES = 4;
+export const START_MARGIN_MS = 10_000;
 
 const DAY_MS = 86_400_000;
 
@@ -149,8 +163,31 @@ export function checkChain(lines) {
  *  refused BEFORE any dial (reason insecure_url), so a mis-set PROBE_URL never leaks a plaintext GET off-box.
  *  Exported so the test can assert it with ZERO packets (the mutant-removed variant stops here). */
 export function isLoopbackHost(hostname) {
-  const h = hostname.replace(/^\[|\]$/g, "").toLowerCase();
-  return h === "localhost" || h === "::1" || /^127\./.test(h);
+  const h = String(hostname).replace(/^\[|\]$/g, "").toLowerCase();
+  if (h === "localhost" || h === "::1") return true;
+  // A LITERAL IPv4 in 127.0.0.0/8 ONLY: exactly four canonical decimal octets (0-255, no leading zero), first
+  // === 127. Refuses DNS names (127.evil.com, 127.0.0.1.evil.com) and non-canonical numeric forms (C-G2-1).
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
+  if (!m) return false;
+  for (let i = 1; i <= 4; i++) {
+    const p = m[i];
+    if (p.length > 1 && p[0] === "0") return false; // a leading-zero (octal-looking) octet is not canonical
+    if (Number(p) > 255) return false;
+  }
+  return Number(m[1]) === 127;
+}
+/** The host EXACTLY as written in the URL authority (userinfo + port removed), read from the raw string BEFORE
+ *  the WHATWG parser normalizes 127.1 / 0x7f.0.0.1 / 2130706433 / 0177.0.0.1 to 127.0.0.1 — so those
+ *  non-canonical numeric loopback forms are refused even though u.hostname would look canonical (C-G2-1). */
+function rawUrlHost(url) {
+  const m = /^[a-z][a-z0-9+.-]*:\/\/([^/?#\\]*)/i.exec(String(url));
+  if (!m) return "";
+  let auth = m[1];
+  const at = auth.lastIndexOf("@");
+  if (at >= 0) auth = auth.slice(at + 1);
+  if (auth.startsWith("[")) { const rb = auth.indexOf("]"); return rb >= 0 ? auth.slice(0, rb + 1) : auth; }
+  const colon = auth.indexOf(":");
+  return colon >= 0 ? auth.slice(0, colon) : auth;
 }
 export function urlTransportAllowed(url) {
   let u;
@@ -160,29 +197,48 @@ export function urlTransportAllowed(url) {
     return { ok: false, reason: "insecure_url" };
   }
   if (u.protocol === "https:") return { ok: true };
-  if (u.protocol === "http:" && isLoopbackHost(u.hostname)) return { ok: true };
+  // http ONLY on a strict loopback literal: no userinfo (the 127.0.0.1@evil.com trick), and BOTH the DIALED
+  // host (u.hostname) AND the raw host (before normalization) must be loopback, so a mis-set PROBE_URL never
+  // leaks a plaintext GET off-box (C-G2-1). rawUrlHost is what refuses 127.1 / 0x7f.0.0.1 / 2130706433.
+  if (
+    u.protocol === "http:" && u.username === "" && u.password === "" &&
+    isLoopbackHost(u.hostname) && isLoopbackHost(rawUrlHost(url))
+  ) return { ok: true };
   return { ok: false, reason: "insecure_url" };
 }
 
-function numEnv(name, dflt) {
-  const v = process.env[name];
-  if (v === undefined) return dflt;
-  const n = Number(v);
-  return Number.isFinite(n) && n >= 0 ? n : dflt;
+/** Transport bounds read from env, each HARD-CAPPED (C-G2-7) so a mis-set env can never exceed the systemd
+ *  TimeoutStartSec worst case. A missing/negative/non-finite value falls back to the default. */
+export function transportBounds(env = process.env) {
+  const num = (v, dflt, max) => {
+    if (v === undefined) return dflt;
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0) return dflt;
+    return Math.min(n, max);
+  };
+  return {
+    timeoutMs: num(env.PROBE_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS),
+    maxBytes: num(env.PROBE_MAX_BYTES, DEFAULT_MAX_BYTES, MAX_MAX_BYTES),
+    retries: num(env.PROBE_RETRIES, DEFAULT_RETRIES, MAX_RETRIES),
+  };
 }
 
 /** GET the surface with a bounded timeout, a bounded body, and a bounded retry, so the probe never hangs and
  *  never buffers an unbounded response (C-6). On any failure returns { ok:false, reason } — never throws. */
 export async function fetchTimeline(url, opts = {}) {
-  const timeoutMs = opts.timeoutMs ?? numEnv("PROBE_TIMEOUT_MS", DEFAULT_TIMEOUT_MS);
-  const maxBytes = opts.maxBytes ?? numEnv("PROBE_MAX_BYTES", DEFAULT_MAX_BYTES);
-  const retries = opts.retries ?? numEnv("PROBE_RETRIES", DEFAULT_RETRIES);
+  const b = transportBounds(process.env);
+  const timeoutMs = opts.timeoutMs ?? b.timeoutMs;
+  const maxBytes = opts.maxBytes ?? b.maxBytes;
+  const retries = opts.retries ?? b.retries;
   let lastReason = "unreachable";
   for (let attempt = 0; attempt <= retries; attempt++) {
     const ctl = new AbortController();
     const to = setTimeout(() => { ctl.abort(); }, timeoutMs);
     try {
-      const res = await fetch(url, { signal: ctl.signal, headers: { accept: "application/jsonl, text/plain" } });
+      const res = await fetch(url, { redirect: "manual", signal: ctl.signal, headers: { accept: "application/jsonl, text/plain" } });
+      // A 3xx is NEVER followed off the guarded URL (C-G2-4): urlTransportAllowed vetted only the initial URL,
+      // so a redirect to any other host is treated as unreachable, deterministically (do not retry a redirect).
+      if (res.type === "opaqueredirect" || (res.status >= 300 && res.status < 400)) return { ok: false, reason: "unreachable" };
       if (!res.ok || !res.body) { lastReason = "unreachable"; continue; }
       const reader = res.body.getReader();
       const chunks = [];
@@ -243,14 +299,20 @@ export function evaluate({ text, nowIso, reachable, fetchReason }) {
 /** Obtain the body (from `--file` or a bounded GET), evaluate, and ALWAYS write narabi.json. Never throws
  *  out: any unexpected error still writes an unhealthy `probe_error` state. Returns { state, exitCode }. */
 export async function probe(opts = {}) {
-  const nowIso = opts.now ?? new Date().toISOString();
+  // An invalid --now must NOT abort the write (contract: narabi.json is ALWAYS written). Fall back to the real
+  // clock for checked_at and report probe_error, never a FATAL that leaves narabi.json unwritten (C-G2-3).
+  const providedNow = opts.now ?? new Date().toISOString();
+  const nowValid = !Number.isNaN(Date.parse(providedNow));
+  const nowIso = nowValid ? providedNow : new Date().toISOString();
   let text = null;
   let reachable = false;
   let fetchReason = "unreachable";
   try {
     if (opts.file !== undefined) {
-      text = readFileSync(opts.file, "utf8");
-      reachable = true;
+      // --file is size-bounded like the GET (C-G2-8): an oversize file is refused too_large, never read whole.
+      const maxBytes = opts.maxBytes ?? transportBounds(process.env).maxBytes;
+      if (statSync(opts.file).size > maxBytes) { fetchReason = "too_large"; }
+      else { text = readFileSync(opts.file, "utf8"); reachable = true; }
     } else {
       const url = opts.url ?? process.env.PROBE_URL ?? DEFAULT_URL;
       const allowed = urlTransportAllowed(url);
@@ -269,6 +331,7 @@ export async function probe(opts = {}) {
   }
   let state;
   try {
+    if (!nowValid) throw new RangeError("invalid --now"); // -> probe_error with a real checked_at (C-G2-3)
     state = evaluate({ text, nowIso, reachable, fetchReason });
   } catch {
     state = {
@@ -279,7 +342,11 @@ export async function probe(opts = {}) {
   }
   const out = opts.out ?? process.env.PROBE_OUT ?? DEFAULT_OUT;
   try { mkdirSync(dirname(out), { recursive: true }); } catch { /* dir may exist / be a root */ }
-  writeFileSync(out, JSON.stringify(state, null, 2) + "\n");
+  // Atomic write (C-G2-6): write a temp file in the SAME dir, then rename over the target (atomic on one
+  // filesystem, overwrites on POSIX and Windows), so a crash mid-write never leaves a torn narabi.json.
+  const tmp = `${out}.tmp-${String(process.pid)}-${String(Date.now())}`;
+  writeFileSync(tmp, JSON.stringify(state, null, 2) + "\n");
+  renameSync(tmp, out);
   return { state, exitCode: state.status === "unhealthy" ? 1 : 0 };
 }
 
