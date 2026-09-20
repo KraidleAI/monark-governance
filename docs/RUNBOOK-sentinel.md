@@ -2,7 +2,7 @@
 
 The **Narabi sentinel** is a daily `oneshot` job (`apps/sentinel/src/run.ts`) that reads the attested USDe
 redemption flow at finality, steps the M009 tracker, and publishes a replayable timeline at
-`monarkgate.tech/narabi/`. It is the FIRST outbound-network process on the VPS (public RPC, read-only, no key)
+`monarkgate.tech/narabi/`. It is the FIRST outbound-network process on the VPS (public RPC, read-only; optional keyed 9th operator via out-of-repo EnvironmentFile, ADR-NARABI-OPS-1)
 and writes ONLY its state dir. This runbook **mirrors `RUNBOOK-harness.md`**; only the deltas are here.
 
 **Who runs this:** the **orchestrator**, over the same SSH channel as the harness/vitrine
@@ -54,12 +54,14 @@ cd /opt/monark-harness
 sudo -u sentinel MONARK_SENTINEL_DIR=/var/lib/monark-sentinel \
   node apps/sentinel/src/run.ts --dry-run --day <J0-1>
 # Expect JSON on stdout (startDay, j0Source, finalized head, processedDays, T) and "--dry-run: nothing written."
+# --dry-run carries the SAME exit code as a real run (1 iff a fetch/quorum/c1 stop prevented catch-up, else 0),
+# yet writes NOTHING — a safe pre-flight (OBS-2 / C-V-2; test case (e) reds the "exit code dropped in --dry-run" mutant).
 # On a fresh state the first day is non_evaluable (no predecessor) so T=0; the first tracker STEP is J0+1
 # (ADR-M012 D5: J0 is the first published window; the first step is J0+1; T counts live steps only).
 ls /var/lib/monark-sentinel   # must still be EMPTY (public/ only) — a dry-run leaves no state.
 ```
 
-## 4. Install and enable the timer
+## 4. Install and enable the timer (FIRST INSTALL — for a redeploy on a live timer, see §6)
 
 **The first production run sets J0 ONLY via the `MONARK_SENTINEL_J0` env drop-in below — NEVER via `--day`
 (O-b).** On an empty state a non-dry `--day D` would make D the *de-facto* J0 (checkpoint-2 nuance); the
@@ -118,6 +120,57 @@ curl -sI https://monarkgate.tech/narabi/state.json | head -1  # 200 once step 4 
 
 **Rollback:** delete the `handle_path /narabi/*` lines (or `cp` the `.bak` back), `caddy validate`, `systemctl
 reload caddy`. Disable the job with `systemctl disable --now monark-sentinel.timer`.
+
+## 6. Redeploy (lot NARABI-OPS-1) on a LIVE timer
+
+Sections 0–5 are the FIRST install (`useradd`, the J0 drop-in, `enable --now`). Lot NARABI-OPS-1 ships onto a
+timer that is ALREADY active with a NON-EMPTY state, so the procedure differs: do NOT re-lay the J0 drop-in
+(the run RESUMES, `j0Source: state`), and use `restart`, not `enable --now`. Run it from the orchestrator over
+the usual SSH channel (`ssh -i ~/.ssh/monark_vps root@31.97.155.188`), archiving from `main` HEAD AFTER the G7
+merge — never from a lot worktree branch.
+
+```bash
+cd /opt/monark-harness
+# (1) Ship the new tree: re-run RUNBOOK-harness.md step 1
+#     (`git archive <main HEAD> … apps packages … | ssh … tar xzf -`) — it now carries the updated apps/sentinel/.
+npm ci                                        # refresh @monark/* workspace symlinks incl. @monark/sentinel
+test -f apps/sentinel/src/run.ts || echo "STOP: sentinel not shipped — re-archive apps/ from main HEAD"
+# (2) Copy BOTH units (the .timer changed: four OnCalendar slots + Persistent=true, ADR-NARABI-OPS-1 L-2).
+cp /opt/monark-harness/deploy/monark-sentinel.service /etc/systemd/system/
+cp /opt/monark-harness/deploy/monark-sentinel.timer   /etc/systemd/system/
+# (3) Validate ALL FOUR OnCalendar slots BEFORE reloading — a malformed expression silently never fires (C-2):
+grep '^OnCalendar=' /etc/systemd/system/monark-sentinel.timer | cut -d= -f2- | \
+  while read -r e; do systemd-analyze calendar "$e" || echo "STOP: invalid OnCalendar '$e'"; done
+#     expect FOUR "Next elapse:" blocks, no STOP.
+# (4) Do NOT re-lay the J0 drop-in: the state is non-empty, so dueDays RESUMES from prevDay+1 and j0Source is
+#     "state". Leave /etc/systemd/system/monark-sentinel.service.d/override.conf as it is.
+# (5) The OPTIONAL Chainstack key (ADR-NARABI-OPS-1 L-3 / C-5 / C-9): post it ONLY if not already present.
+#     Check first by DIGEST (never `cat` the file, never `set -x`):
+#   ssh -i ~/.ssh/monark_vps root@31.97.155.188 'test -f /etc/monark/sentinel.env && sha256sum /etc/monark/sentinel.env || echo absent'
+#     If absent (or to rotate), post via ssh STDIN so the key never reaches an arg, the transcript, or a git file:
+#   printf 'CHAINSTACK_ETH_URL=%s\n' "$CHAINSTACK_ETH_URL" \
+#     | ssh -i ~/.ssh/monark_vps root@31.97.155.188 \
+#         'umask 077; install -d -m 0750 -o root -g sentinel /etc/monark; cat > /etc/monark/sentinel.env; chown root:sentinel /etc/monark/sentinel.env; chmod 0640 /etc/monark/sentinel.env'
+#     Then verify by DIGEST on BOTH sides — the two hashes MUST be identical (never print the contents):
+#   printf 'CHAINSTACK_ETH_URL=%s\n' "$CHAINSTACK_ETH_URL" | sha256sum                 # local
+#   ssh -i ~/.ssh/monark_vps root@31.97.155.188 'sha256sum /etc/monark/sentinel.env'  # remote
+systemctl daemon-reload
+# (6) On an ALREADY-ACTIVE timer, `restart` is the safe default. (Whether `daemon-reload` alone recomputes the
+#     next elapse of an active timer is NOT verified here — no source consulted; the `restart` makes it moot.)
+systemctl restart monark-sentinel.timer
+systemctl list-timers monark-sentinel.timer --no-pager   # next elapse MUST be consistent with the four slots
+# (7) A restart during the day MAY fire a run at once: under Persistent=true ([abs], CHECKPOINT1 §2(2)) a
+#     newly-passed elapse since the last stored trigger can run immediately. HARMLESS by the L-4 replay (a no-op
+#     "nothing due", or a legitimate catch-up) — LOG it as the first run, do not be surprised by it.
+```
+
+**First-run acceptance (G0 criterion 3 — a POSITIVE observable):** on the first healthy run read `journalctl -u
+monark-sentinel -n 40 --no-pager` and CHECK the end JSON shows **`chainstack: true`** (the env → pool → line leg
+is wired — the point of this lot) AND **`exit_code: 0`**; a `chainstack: false` or a non-zero exit on the first
+healthy run is a STOP-and-investigate. Then record the FIRST run of **each** of the four slots
+(00:30 / 03:30 / 06:30 / 09:30 UTC) in `docs/JOURNAL-PROVENANCE.md` — its end JSON (`processedDays`,
+`chainstack`, `exit_code`) — four entries, the wiring proof for ADR-NARABI-OPS-1's `env → rpc.ts pool` and
+`timer → run → timeline` pipes (decision 46).
 
 ## Operations
 

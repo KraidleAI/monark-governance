@@ -1,6 +1,6 @@
 // SENTINEL — off-tool daily job (ADR-M012, K-8): the harness never imports this; this never imports apps/harness/src/tools.
 //
-// Public RPC pool (no key, read-only) with per-endpoint cooldown and a QUORUM OF 2 on the value-bearing
+// Public RPC pool (read-only; optional keyed 9th operator via out-of-repo EnvironmentFile, ADR-NARABI-OPS-1) with per-endpoint cooldown and a QUORUM OF 2 on the value-bearing
 // reads (burns/mints via eth_getLogs, supply via totalSupply): two distinct endpoints must return the
 // SAME bytes or the window fails closed (ADR-M012 D1, test `sentinel_quorum_disagreement_fails_closed`).
 // The quorum read FALLS BACK round-robin over the pool, benching any endpoint that throws (same cooldown as

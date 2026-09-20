@@ -70,13 +70,14 @@ keyed operator (Chainstack) whose URL lives OUTSIDE the repo (`/etc/monark/senti
 | `quorum_disagreement:D` | two endpoints disagreed (fail-closed) | 1 | days before D |
 | `unfinalized_to_block:D` | belt: `to_block > finalized` | 1 | days before D |
 | `c1_fail:D` | C1 identity broke (fail-closed) | 1 | days before D |
+| `--dry-run` (any of the above) | inspect only — same stop/exit semantics, nothing written | 0 or 1 (mirrors the run) | 0 |
 
 ## Tuyaux (ADR-M018 D3 — branchement)
 
 | Pipe | Entry (produces) | Exit (consumes) | State | Test (non-LLM) | Trigger |
 |---|---|---|---|---|---|
-| env → `rpc.ts` pool | `/etc/monark/sentinel.env` (orchestrator posts) | `poolEndpoints` → quorum | file, out-of-repo `root:sentinel 0640` | `sentinel_quorum_accepts_chainstack_as_distinct_operator`, `sentinel_chainstack_run_publishes_redacted_and_flags` | built (this lot) |
-| timer → run → timeline | `monark-sentinel.timer` (4 slots) | `timeline.jsonl` served at `/narabi/` (site parses it) | `/var/lib/monark-sentinel` | `sentinel_retry_replays_incident_and_exit_codes` (L-4, real `main` in subprocess) | built (this lot) |
+| env → `rpc.ts` pool | `/etc/monark/sentinel.env` (orchestrator posts) | `poolEndpoints` → quorum | file, out-of-repo `root:sentinel 0640` | `sentinel_quorum_accepts_chainstack_as_distinct_operator`, `sentinel_chainstack_run_publishes_redacted_and_flags` | built (code + test non-LLM); wired at deploy — proof = first-run JOURNAL entry (chainstack: true, 4 slots), RUNBOOK §6 (C-V-1) |
+| timer → run → timeline | `monark-sentinel.timer` (4 slots) | `timeline.jsonl` served at `/narabi/` (site parses it) | `/var/lib/monark-sentinel` | `sentinel_retry_replays_incident_and_exit_codes` (L-4, real `main` in subprocess) | built (code + test non-LLM); wired at deploy — proof = first-run JOURNAL entry (chainstack: true, 4 slots), RUNBOOK §6 (C-V-1) |
 | timeline → probe → `narabi.json` | published `timeline.jsonl` | (probe, on the Bell VPS) | **absent — pli NARABI-OPS-1b** | `probe_line_hash_equals_sentinel_lineHashOf`, `probe_narabi_detects_lag` | **pli NARABI-OPS-1b** (deferred by C-11, R-25 target; formed item below) |
 | probe → alerte | `narabi.json` (lag_days, ok) | alert channel | **upcoming** | — | investor picks the channel (mail / webhook / `/status`) — `upcoming → built` |
 

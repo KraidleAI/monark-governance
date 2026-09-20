@@ -9,7 +9,7 @@
 // OS-temp dir at test time (never committed: no `.mjs` may live under fixtures, series_pinned condition c).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -107,11 +107,11 @@ interface RunResult { status: number; stdout: string; end: EndJson; }
  *  key in the orchestrator's shell never enters the pool); a scenario sets it back explicitly. Every run's
  *  stdout JSON is parsed and returned, so a run-guard mismatch (no main => no JSON) fails loudly, never a
  *  false green that looks like "nothing due". */
-function runSentinel(stateDir: string, vars: Record<string, string>, setChainstack?: string): RunResult {
+function runSentinel(stateDir: string, vars: Record<string, string>, setChainstack?: string, extraArgs: readonly string[] = []): RunResult {
   const env: NodeJS.ProcessEnv = { ...process.env, STUB_FIXTURE: FIXTURE, ...vars };
   delete env.CHAINSTACK_ETH_URL;
   if (setChainstack !== undefined) env.CHAINSTACK_ETH_URL = setChainstack;
-  const r = spawnSync(process.execPath, ["--import", stubUrl(), RUN_TS, "--state", stateDir], { cwd: REPO, env, encoding: "utf8", timeout: 60_000 });
+  const r = spawnSync(process.execPath, ["--import", stubUrl(), RUN_TS, "--state", stateDir, ...extraArgs], { cwd: REPO, env, encoding: "utf8", timeout: 60_000 });
   const stdout = r.stdout ?? "";
   const close = stdout.indexOf("\n}");
   assert.ok(close >= 0, `run.ts printed no end JSON (run-guard mismatch?). stdout=${JSON.stringify(stdout)} stderr=${JSON.stringify(r.stderr)}`);
@@ -181,6 +181,18 @@ test("sentinel_retry_replays_incident_and_exit_codes — no_quorum exits 1 (0 li
   assert.match(rp.end.stopped!, /^fetch_error:2026-09-19:/, "the stop is on 2026-09-19");
   assert.equal(countLines(dir2), 2, "one line was appended (2026-09-18) despite the later stop");
   assert.equal((readFileSync(join(dir2, "timeline.jsonl"), "utf8").replace(/\r\n/g, "\n").split("\n").filter((x) => x.trim()).map((l) => JSON.parse(l) as FixLine)[1]!).line_hash, l2.line_hash, "the written 2026-09-18 line reproduces the published hash");
+
+  // (e) --dry-run under a total quorum failure: the run walks the whole fetch path, STOPS, and carries the stop
+  // in the PROCESS exit code (not only in the end JSON) while writing NOTHING (OBS-2 / C-V-2). Fresh state dir.
+  const dir3 = seedState(2);
+  const re = runSentinel(dir3, { ...finVars(l3), STUB_FAIL_ETH_CALL_FROM: "all" }, undefined, ["--dry-run"]);
+  assert.equal(re.status, 1, "--dry-run: the PROCESS exit still carries the stop (mutant MD: process.exitCode not set in --dry-run => this reds)");
+  assert.equal(re.end.exit_code, 1, "end JSON exit_code = 1 under --dry-run");
+  assert.equal(re.end.dryRun, true, "the run reports dryRun");
+  assert.match(re.end.stopped!, /^fetch_error:2026-09-19:supplyAt:/, "--dry-run still walked the fetch path to the quorum stop");
+  assert.equal(countLines(dir3), 2, "--dry-run appended no line");
+  assert.ok(!existsSync(join(dir3, "state.json")) && !existsSync(join(dir3, "public")), "--dry-run left the state dir untouched (no state.json, no public/)");
+  assert.match(re.stdout, /--dry-run: nothing written\./, "--dry-run announces it wrote nothing");
 });
 
 // ── C-1: the Chainstack endpoint URL (its key in the path) is NEVER printed — error, written line, stdout ──
