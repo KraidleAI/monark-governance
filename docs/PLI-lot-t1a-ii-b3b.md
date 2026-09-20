@@ -5,6 +5,8 @@ vérifié). R-20 : le worker ne committe pas (l'orchestrateur le fait). R-21 : s
 adversarialement — chaque chiffre porte sa preuve reproductible. Worktree `F:\Monark-wt-bellb3b`, branche `lot/t-1a-ii-b3b`,
 base `2da0bf5` (R-25) ; HEAD ff `e9c17b5` (biblio PR-B-DBN, `docs/**/*.md` exclu du R-25). G0 `docs/G0-lot-t1a-ii-b3b.md` +
 checkpoint-1 `docs/CHECKPOINT1-lot-t1a-ii-b3b.md` (C-1..C-11 pliées ; C-1/C-2/C-3 bloquantes traitées avant tout code).
+**G2 `docs/G2-lot-t1a-ii-b3b.md` (gel `e0de31d`) : APPROUVÉ-AVEC-CORRECTIONS — C-G2-1 pliée (tueur ajouté pour la branche `close.ts:161`,
+SONDE G2 désormais rouge) + O-3 (numérotation mutants contiguë, pins sha `close.test.ts` mis à jour) ; O-1/O-2 = signalements (non corrections).**
 
 ## 1. Livrables (liste fermée du G0) — état
 | # | Livrable | État | Preuve |
@@ -32,6 +34,10 @@ checkpoint-1 `docs/CHECKPOINT1-lot-t1a-ii-b3b.md` (C-1..C-11 pliées ; C-1/C-2/C
 - **Fixture synthétique committée (hors `series/`, comptée R-25)** : `apps/bell/test/fixtures/halts-tsla-synth.csv` — 1 ligne halt `Symbol=TSLA`,
   `Name="SYNTHETIC halt row - test fixture, not an NYSE event"` (erratum C-3), fenêtre ET samedi 09:31:00→09:32:00 (13:31:00Z→13:32:00Z)
   encadrant les 8 fills réels (13:31:04→13:31:50Z). Aucun close fabriqué ; aucune donnée sous `series/`.
+- **Fichiers nouveaux committés — sha256 (bytes, après C-G2-1)** :
+  - `apps/bell/src/close.ts` `c8de5b7533f9b3e97fd9a69eb4686d2b8e43f704b39b7b0453092c39cb12d145`
+  - `apps/bell/test/close.test.ts` `7e9d0e684b935f706d288d76299abcc5c7849029af20b2b0f2a4ebc4c6f8d908` (O-3 : re-pinné après l'ajout du cas C-G2-1)
+  - `apps/bell/test/fixtures/halts-tsla-synth.csv` `f1eb3a00af8acb238f32f07fb501bf34631fff8ab36d59878062dfbb69119c5a`
 
 ## 3. Chiffres (mesurés, reproductibles)
 - **Coût Databento** (`metadata.get_cost`, GRATUIT — PR-B-DBN Q7) : **$0.000031292439** pour 4 sous-jacents × 5 jours `ohlcv-1d`.
@@ -47,10 +53,9 @@ checkpoint-1 `docs/CHECKPOINT1-lot-t1a-ii-b3b.md` (C-1..C-11 pliées ; C-1/C-2/C
   L-3 (1), L-4 (1), C-6 joignabilité sur sortie collect (1), close.ts pur (5 : scaled-int C-5, earliestPublishUtc C-6, cash_request_digest, JSON parse, seam croisement). Oracles : `gate:vocab` 0,
   `typecheck` 0, `lint` 0, `lint:ratchet` 69/69, `lang:gate` 0, `export:check` 0, `no_secret_in_repo`/`series_pinned_are_declared_and_hashed` verts.
 - **R-25** : `git diff --shortstat 2da0bf5 -- .` sous la pathspec exacte `STAT=` (`.github/workflows/ci.yml` l.65 ; `docs/**/*.md` + `series/**` exclus ;
-  `halts-tsla-synth.csv` hors `series/` **compté**), `CHANGED = ins+del` = **710** (636 ins, 74 del) ≤ 1 205 (sous la projection G0 ~1 085,
-  marge ~495). **Seam L-4+L-5 → -b3b-2 NON déclenché** (mesuré < 1 205). Les 3 nouveaux fichiers de code/fixture sont comptés comme insertions
-  via `git add -N` (intent-to-add le temps de la mesure, jamais un commit — R-20) ; l'arbre est ensuite `git reset` ⇒ ils réapparaissent `??` (untracked).
-  CI mesurera `origin/base…HEAD` après commit orchestrateur et comptera ces fichiers à l'identique (710) ; une mesure sur l'arbre untracked SANS `-N` donnerait 217 (tracked seuls) — non représentatif.
+  `halts-tsla-synth.csv` hors `series/` **compté**), `CHANGED = ins+del` = **723** (649 ins, 74 del) ≤ 1 205 (sous la projection G0 ~1 085, marge ~482 ;
+  G1 = 710, +13 pour le cas C-G2-1). **Seam L-4+L-5 → -b3b-2 NON déclenché** (mesuré < 1 205). Fichiers désormais committés (G1 `e0de31d`) ⇒ comptés
+  nativement par `git diff` (plus de `git add -N` nécessaire) ; le G2 a re-mesuré 710 à `e0de31d` dans les trois formes de merge-base (`..`, `...`, vs `e9c17b5`).
 
 ## 4. Mutants nommés (≥ 8 rouges ; copie froide, restauration sha-exacte, jamais `git checkout`)
 Harnais : `cp f f.orig` → mutation (`sed`/append) → `node --test --test-name-pattern="^<killer>$"` (rouge attendu = exit≠0) → `cp f.orig f` → sha256 identique vérifié.
@@ -59,14 +64,15 @@ Harnais : `cp f f.orig` → mutation (`sed`/append) → `node --test --test-name
 | M1 | close.ts | `frac9` sans padding (comparaison de chaînes brutes) | `bell_cash_cross_scaled_integer_equality` | RED, restauré sha-exact |
 | M2 | close.ts | `===` → `!==` (croisement inversé) | `bell_read_reference_closes_cross_matched_mismatch_unavailable` | RED, restauré |
 | M3 | collect.ts | `bump("cash_cross_mismatch")` supprimé | `bell_cash_cross_mismatch_is_a_named_residual` | RED, restauré |
-| M5 | collect.ts | `closeSource` non passé (seam non consommé) | `bell_close_databento_replays_synthetic_fixture` | RED, restauré |
-| M6 | collect.ts | `earliest_publish_utc` retiré du gap rempli | `bell_close_databento_replays_synthetic_fixture` | RED, restauré |
-| M7 | collect.ts | jointure absente (`haltDelta(row, [])`) | `bell_halt_delta_brackets_real_fills_integration` | RED, restauré |
-| M8 | collect.ts | deux tokens fusionnés (`toks.slice(0,1)`) | `bell_halt_delta_brackets_real_fills_integration` | RED, restauré |
-| M9 | close.ts | clé `db-…` plantée | `no_secret_in_repo` | RED, restauré |
-| M10 | residuals.ts | `cash_cross_mismatch` → `close_cross_mismatch` (heurte `CLOSE_KEY`) | `bell_residual_counter_passes_close_guard` | RED, restauré |
+| M4 | collect.ts | `closeSource` non passé (seam non consommé) | `bell_close_databento_replays_synthetic_fixture` | RED, restauré |
+| M5 | collect.ts | `earliest_publish_utc` retiré du gap rempli | `bell_close_databento_replays_synthetic_fixture` | RED, restauré |
+| M6 | collect.ts | jointure absente (`haltDelta(row, [])`) | `bell_halt_delta_brackets_real_fills_integration` | RED, restauré |
+| M7 | collect.ts | deux tokens fusionnés (`toks.slice(0,1)`) | `bell_halt_delta_brackets_real_fills_integration` | RED, restauré |
+| M8 | close.ts | clé `db-…` plantée | `no_secret_in_repo` | RED, restauré |
+| M9 | residuals.ts | `cash_cross_mismatch` → `close_cross_mismatch` (heurte `CLOSE_KEY`) | `bell_residual_counter_passes_close_guard` | RED, restauré |
+| M10 | close.ts:161 | branche « clé Polygon présente + Massive rejette/vide » `"unavailable"`→`"matched"` (SONDE G2) | `bell_read_reference_closes_cross_matched_mismatch_unavailable` | RED, restauré (C-G2-1) |
 
-9/9 tués. Couverture L-1 (M5,M6), L-2 (M1,M2,M3), L-3 (M7,M8), L-6 (M9), C-1 (M10). « nouveau `PINNED_BELL_SHA` bit-identique vert » = baseline (`bell_collector_replays_fixture_bit_identical` vert).
+**10/10 tués** (O-3 : numérotation contiguë M1..M10, plus de trou). Couverture L-1 (M4,M5), L-2 (M1,M2,M3), L-3 (M6,M7), L-6 (M8), C-1 (M9), **C-G2-1 (M10, branche `close.ts:161` — la SONDE du G2 SURVIVAIT au G1, tuée ici)**. « nouveau `PINNED_BELL_SHA` bit-identique vert » = baseline (`bell_collector_replays_fixture_bit_identical` vert).
 
 ## 5. Décisions/placements déclarés (D-n)
 - **D-b3b-1** : `earliest_publish_utc` **dans le digest haché**, par entrée `gT` (C-6 option (a)) — joignable à sa g_t, tamper-evident ; l'enveloppe date-map serait injoignable

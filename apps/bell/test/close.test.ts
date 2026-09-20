@@ -97,6 +97,19 @@ test("bell_read_reference_closes_cross_matched_mismatch_unavailable", async () =
   assert.equal(unav.closeByUnderlying.TSLA?.[day], 364.27);
   assert.deepEqual(unav.cash_cross_unavailable_days, [`TSLA:${day}`]);
 
+  // C-G2-1: polygonKey PRESENT but the Massive cross REJECTS (5xx) => still unavailable (the close.ts massiveC-not-a-number
+  // branch, distinct from the no-key branch above) + the fault recorded (providerOf/status). Kills the G2 SONDE.
+  const upFaults: TransportFault[] = [];
+  const upReject = await readReferenceCloses({ TSLA: [day] }, deps(() => Promise.reject(new Error("HTTP 503")), "p", upFaults));
+  assert.equal(upReject.crossByUnderlying.TSLA?.[day], "unavailable");
+  assert.equal(upReject.closeByUnderlying.TSLA?.[day], 364.27);
+  assert.deepEqual(upReject.cash_cross_unavailable_days, [`TSLA:${day}`]);
+  assert.equal(upFaults.length, 1, "the Massive transport fault is recorded");
+  // C-G2-1: polygonKey PRESENT but Massive returns EMPTY results => massiveC undefined => same unavailable branch.
+  const upEmpty = await readReferenceCloses({ TSLA: [day] }, deps(() => Promise.resolve({ results: [] }), "p", []));
+  assert.equal(upEmpty.crossByUnderlying.TSLA?.[day], "unavailable");
+  assert.deepEqual(upEmpty.cash_cross_unavailable_days, [`TSLA:${day}`]);
+
   // a Databento transport fault => the day is absent (=> downstream no_close_ref), recorded, never fatal.
   const faults: TransportFault[] = [];
   const df = await readReferenceCloses({ TSLA: [day] }, { databentoGet: () => Promise.reject(new Error("HTTP 429")), polygonGet: massive(364.27), databentoKey: "k", polygonKey: "p", faults });
