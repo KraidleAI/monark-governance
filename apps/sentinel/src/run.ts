@@ -10,7 +10,7 @@ import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync, rea
 import { createHash } from "node:crypto";
 import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { makeRpcPool, PUBLIC_ENDPOINTS, QuorumDisagreementError } from "./rpc.ts";
+import { makeRpcPool, poolEndpoints, publishedEndpoints, hasChainstack, QuorumDisagreementError } from "./rpc.ts";
 import type { RpcPool } from "./rpc.ts";
 import { windowBounds, midnightOf } from "./windows.ts";
 import { attest } from "./flow.ts";
@@ -157,8 +157,8 @@ export function j0SourceOf(j0: string | undefined, day: string | null, prevDay: 
 async function main(): Promise<void> {
   const { dryRun, day, dir } = parseArgs(process.argv.slice(2));
   const srcDir = dirname(fileURLToPath(import.meta.url));
-  const prov: Provenance = { endpoints: PUBLIC_ENDPOINTS, node_version: process.version, sentinel_sha: sentinelSha(srcDir) };
-  const rpc = makeRpcPool();
+  const prov: Provenance = { endpoints: publishedEndpoints(), node_version: process.version, sentinel_sha: sentinelSha(srcDir) };
+  const rpc = makeRpcPool({ endpoints: poolEndpoints() });
   const { state } = loadState(dir, prov);
   const startDay = resolveStartDay(process.env.MONARK_SENTINEL_J0, day, state.prevDay, new Date().toISOString().slice(0, 10));
   // Never-skip under the CLI: a non-dry `--day` must be the natural next day (else a silent backlog write).
@@ -167,22 +167,33 @@ async function main(): Promise<void> {
   const due = dueDays(state.prevDay, fin.ts, startDay, day);
   const report = await runDue(state, rpc, due, fin.block, prov);
   const summary = stateSummary(report.state);
+  // L-1 (ADR-NARABI-OPS-1): exit NON-ZERO exactly when a stop PREVENTED catch-up — `report.stopped !== null`
+  // (a fetch / quorum / c1 / unfinalized failure), so a oneshot exit-0 no longer masks a stalled day (the
+  // 2026-09-20 incident). `stopped === null` means up to date OR waiting for finality (`due` empty or fully
+  // processed) => exit 0. `runDue` sets `stopped` only with `lag >= 1`, so the plan's `lag > 0` is implied;
+  // the timer's next slot retries (the unit is a oneshot — systemd `Restart=` is deliberately not used).
+  const exitCode = report.stopped !== null ? 1 : 0;
   // O-a: report the effective start day and where J0 came from. On a non-empty state the run RESUMES
-  // (prevDay+1), so the printed start is that, never the unused `j0 ?? today`.
+  // (prevDay+1), so the printed start is that, never the unused `j0 ?? today`. `chainstack`/`exit_code` (C-4/L-1).
   const j0Source = j0SourceOf(process.env.MONARK_SENTINEL_J0, day, state.prevDay);
   const effectiveStartDay = state.prevDay !== null ? nextDay(state.prevDay) : startDay;
-  console.log(JSON.stringify({ startDay: effectiveStartDay, j0Source, processedDays: report.processedDays, lag: report.lag, stopped: report.stopped, finalized: fin.block, T: report.state.tracker.t, dryRun }, null, 2));
-  if (dryRun) { console.log("--dry-run: nothing written."); return; }
-  if (report.lines.length === 0) { console.log("nothing due (up to date, or waiting for finality)."); return; }
-  mkdirSync(dir, { recursive: true });
-  const pub = join(dir, "public");
-  mkdirSync(pub, { recursive: true });
-  const tl = join(dir, "timeline.jsonl");
-  appendFileSync(tl, report.lines.map((l) => JSON.stringify(l)).join("\n") + "\n");
-  writeFileSync(join(dir, "state.json"), JSON.stringify(summary, null, 2) + "\n");
-  copyFileSync(tl, join(pub, "timeline.jsonl"));
-  copyFileSync(join(dir, "state.json"), join(pub, "state.json"));
-  console.log(`wrote ${String(report.lines.length)} line(s); T=${String(report.state.tracker.t)}.`);
+  console.log(JSON.stringify({ startDay: effectiveStartDay, j0Source, processedDays: report.processedDays, lag: report.lag, stopped: report.stopped, finalized: fin.block, T: report.state.tracker.t, chainstack: hasChainstack(), exit_code: exitCode, dryRun }, null, 2));
+  if (dryRun) { console.log("--dry-run: nothing written."); process.exitCode = exitCode; return; }
+  if (report.lines.length > 0) {
+    mkdirSync(dir, { recursive: true });
+    const pub = join(dir, "public");
+    mkdirSync(pub, { recursive: true });
+    const tl = join(dir, "timeline.jsonl");
+    // Lines processed BEFORE a stop ARE written (partial catch-up); the non-zero exit is set AFTER (C-6 case b).
+    appendFileSync(tl, report.lines.map((l) => JSON.stringify(l)).join("\n") + "\n");
+    writeFileSync(join(dir, "state.json"), JSON.stringify(summary, null, 2) + "\n");
+    copyFileSync(tl, join(pub, "timeline.jsonl"));
+    copyFileSync(join(dir, "state.json"), join(pub, "state.json"));
+    console.log(`wrote ${String(report.lines.length)} line(s); T=${String(report.state.tracker.t)}.`);
+  } else {
+    console.log(report.stopped !== null ? `nothing written: run stopped (${report.stopped}).` : "nothing due (up to date, or waiting for finality).");
+  }
+  process.exitCode = exitCode;
 }
 
 // Run-guard (mirrors the repo's scripts): the CLI runs only when invoked directly, never on import (tests).

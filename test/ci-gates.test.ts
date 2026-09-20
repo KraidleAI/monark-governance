@@ -255,6 +255,35 @@ test("vocab_sentinel_scope_scans_src_test_deploy — sentinel src/test/deploy ar
   }
 });
 
+// ADR-NARABI-OPS-1 L-2 / C-2: the sentinel timer carries FOUR same-day retry slots (00:30/03:30/06:30/09:30
+// UTC), each a SEPARATE valid `OnCalendar=` line — never the invalid single-line comma list. Mutant: a single
+// slot (or the `00:30,03:30,…` form) => this reds. Persistent=true is kept (one boot catch-up, never one/slot).
+test("sentinel_timer_has_retry_slots — four valid OnCalendar= retry slots, Persistent kept (ADR-NARABI-OPS-1 L-2 / C-2)", () => {
+  const timer = readFileSync(join(ROOT, "deploy", "monark-sentinel.timer"), "utf8");
+  const slots = timer.split(/\r?\n/).filter((l) => /^OnCalendar=/.test(l));
+  assert.equal(slots.length, 4, "exactly four OnCalendar= slots (mutant: one slot => red)");
+  const times = slots.map((l) => {
+    const m = /^OnCalendar=\*-\*-\* (\d\d):30:00 UTC$/.exec(l);
+    assert.ok(m, `each slot is a valid '*-*-* HH:30:00 UTC' expression, got ${JSON.stringify(l)}`);
+    return m[1];
+  });
+  assert.deepEqual([...times].sort(), ["00", "03", "06", "09"], "the four slots are 00:30, 03:30, 06:30, 09:30 UTC");
+  assert.ok(/^Persistent=true$/m.test(timer), "Persistent=true kept (one boot catch-up, never one per missed slot)");
+  // C-2: the invalid single-line comma-list form must never be a directive (only allowed inside a # comment).
+  assert.ok(!timer.split(/\r?\n/).some((l) => /^OnCalendar=.*,/.test(l)), "no invalid comma-list OnCalendar directive");
+});
+
+// ADR-NARABI-OPS-1 L-2 / C-5: the service reads its optional Chainstack key from an OUT-OF-REPO EnvironmentFile
+// (leading `-` => absence is non-fatal; the base pool stays fail-closed). No key is inline. Mutant: drop the
+// EnvironmentFile line => red; an inline Environment= carrying a URL/key => red.
+test("sentinel_service_reads_env_file — optional out-of-repo EnvironmentFile, no inline key (ADR-NARABI-OPS-1 L-2 / C-5)", () => {
+  const svc = readFileSync(join(ROOT, "deploy", "monark-sentinel.service"), "utf8");
+  assert.ok(/^EnvironmentFile=-\/etc\/monark\/sentinel\.env$/m.test(svc), "EnvironmentFile=-/etc/monark/sentinel.env present (the '-' makes it optional)");
+  // The only inline Environment= directive is the state dir — never an endpoint/key.
+  const inlineEnv = svc.split(/\r?\n/).filter((l) => /^Environment=/.test(l));
+  assert.deepEqual(inlineEnv, ["Environment=MONARK_SENTINEL_DIR=/var/lib/monark-sentinel"], "the only inline Environment= is the state dir (no key)");
+});
+
 // Lot F-2a (PLAN F-2 §6e, C6) — the public storefront vocabulary gate (scope 'site') bans the README
 // v2 marketing vocab in apps/site. Live end-to-end mutant (grep of the gate on a banned word in an
 // apps/site file) is in docs/G1-lot-F2a.md; this locks the config so the scope cannot drift silently.

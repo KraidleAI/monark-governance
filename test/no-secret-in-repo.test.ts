@@ -1,7 +1,9 @@
 /**
  * Root test `no_secret_in_repo` (ADR-M005 D10, PLAN §H4; MAST "secret leak"). The harness is deployed by
- * the orchestrator with NO secret committed — the systemd unit sets no Environment=, the Caddy block
- * needs no token (HTTP-01), and nothing in the tree carries a credential. This walks the committed tree
+ * the orchestrator with NO secret committed — the systemd units set no inline secret (the sentinel's
+ * optional Chainstack endpoint key lives in an out-of-repo EnvironmentFile, /etc/monark/sentinel.env, never
+ * committed — ADR-NARABI-OPS-1 C-5), the Caddy block needs no token (HTTP-01), and nothing in the tree
+ * carries a credential. This walks the committed tree
  * for HIGH-SIGNAL secret markers only (private-key blocks, cloud/token prefixes), so the fixtures' hex
  * `key` fields and package-lock's sha512 integrity hashes are NOT false positives. Governance-only (not
  * whitelisted); it walks the WHOLE tree, so it stays at the repo root and skips installed deps/build

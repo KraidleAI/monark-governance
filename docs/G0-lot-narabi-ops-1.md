@@ -53,3 +53,4 @@ Checkpoint-1 validateur avant tout code. Worker Opus 4.8 max (G1, offline, fetch
 - **C-10** : `ADR-NARABI-OPS-1` amende ADR-M012 D5 (« sans clé ») par référence datée ; sémantique des codes de sortie ; table des tuyaux avec déclencheurs.
 - **C-11** : R-25 mesuré à mi-G1 ; si > 500, L-5 (sonde) devient le pli `NARABI-OPS-1b`.
 - Relayé à l'investisseur (non bloquant) : canal d'alerte de la sonde (déclencheur `upcoming → built`) ; pose du secret par l'orchestrateur via stdin SSH, vérifiée par `sha256sum` des deux côtés, jamais `cat` distant.
+- **C-11 appliqué au G1 (2026-09-20)** : R-25 du cœur = 423 ; **L-5 (sonde externe) → pli `NARABI-OPS-1b`** (spécification de reprise dans `docs/adr/ADR-NARABI-OPS-1.md` § Deferral of L-5) ; canal d'alerte = mail (décision 58).
