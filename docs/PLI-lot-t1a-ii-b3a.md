@@ -149,3 +149,101 @@ aucun gT » est prouvée par le test offline `bell_symbol_build_mint_quorum_fail
 0 ; tests ciblés `apps/bell/test/*.test.ts` + `test/no-secret-in-repo.test.ts` = **67 verts** (48 base + 18 nouveaux
 + 1 racine ; +18 tests, ≥ 13 requis ; 14 mutants ≥ 11 requis). `npm run ci` complet = **430 verts** (412 base + 18
 bell). `error_origin` du défaut « constant m≠1 = brut » = rédacteur -b1.
+
+## ANNEXE pli -b3a-2 (course L-5 ; worker `claude-opus-4-8[1m]`, effort max, 2026-09-20)
+
+**R-1** : modèle résolu `claude-opus-4-8[1m]` (préfixe `claude-opus-4-8`). **R-20** : aucun commit, aucun workflow.
+
+**Budget (décision investisseur 56, 2026-09-20 « va jusqu a 10% », ratifie la 55)** : plafond Helius L-5 porté de
+~~500 000~~ à **1 000 000 crédits** (10 % du plan 10 M) ; plafond Chainstack **200 000 appels** inchangé ; règle
+inchangée : sonde + coût projeté écrits ICI **avant** les corps ; dépassement = arrêt + consultation, jamais un
+dépassement silencieux. Coûts mesurés (décision 55) : gTfA 10 cr/appel (1 000 tx), getTransaction 1, gSFA 1.
+
+**Sonde de coût (mandate étape 1), first-hand, quorum-2 helius+chainstack** : oracle d'état C-3 pinné et VALIDÉ
+live (triplet bits concordent sur les 2 opérateurs ET = `spike-measures.json`) ; genesis (plus ancienne tx, gTfA
+asc) = 2025-06-10/11 (~465 j). Énumération partielle des signatures du mint (2 opérateurs) ⇒ **mints HYPERACTIFS** :
+
+| mint | débit récent mesuré | N si soutenu ×465 j | corps full-mint gTfA (⌈N/1000⌉×10) |
+|---|---|---|---|
+| TSLAx | 54 670/j (sur 19,7 j) | ~25 M | ~254 k cr |
+| SPYx | 635 832/j (sur 1,43 j) | ~296 M | ~2 957 k cr |
+| NVDAx | 359 082/j (sur 2,65 j) | ~167 M | ~1 670 k cr |
+| AAPLx | 110 427/j (sur 9,66 j) | ~51 M | ~513 k cr |
+| **TOTAL projeté corps full-mint** | | | **~5,4 M cr** |
+
+SPYx seul (~2,96 M) dépasse le plafond 1 M ; borne basse conservatrice (débit récent × 90 j, SPYx+NVDAx seuls) >
+1 M ; N exact lui-même prohibitif (SPYx gSFA ~296 k pages, plusieurs heures). `getTransactionsForAddress` n'offre
+AUCUN filtre programme/instruction serveur-side (doc Helius [lu] : filtres slot/`blockTime`/statut/transfert-token
+seulement) ⇒ le jeu complet des corps doit être tiré pour trouver les 43/x. ⇒ **la méthode mandatée (scan full-mint
+des corps) est INFAISABLE sous le plafond 1 M** ⇒ **arrêt mandaté ; aucun scan full-mint corps lancé.**
+
+**gTfA `full` — viable (F-4 sûr), first-hand** : réponse `{data,paginationToken}` ; chaque ligne = la forme
+`getTransaction` json qu'attend `eventsFromTx` (slot/blockTime/version top-level, `transaction.signatures`,
+`message.{accountKeys(chaînes),instructions}`, `meta.{innerInstructions,loadedAddresses}`) ; `instruction.data` =
+chaîne base58 BRUTE (pas d'objet parsé) ; `maxSupportedTransactionVersion:2` accepté ; `sortOrder` asc/desc +
+`filters.slot.lte` fonctionnent. Raws `course/shape-v1..v6.json` (sha-pinnés).
+
+### CONSULTATION FORMÉE #2 (R-26 ; worker → orchestrateur ; décision AVANT clôture de la course L-5)
+Problème (une phrase) : la méthode mandatée (option 2, corps full-mint via gTfA) coûte ~5,4 M crédits Helius
+(mesuré) et dépasse le plafond 1 M ; comment obtenir la trajectoire complète sous plafond ?
+Tentatives : sonde de coût full-mint (débits mesurés) ; shape-probe gTfA ; vérification que gTfA rend les corps de
+config (Initialize + Update, pas seulement les transferts). Options (à trancher par l'orchestrateur, non le worker) :
+1. **HYBRIDE — scan de l'AUTORITÉ partagée S7vYFF (RECOMMANDÉ)**. Les 43/1 UpdateMultiplier ET les 43/0 Initialize
+   des 4 mints sont TOUS émis par S7vYFF (`066f5922..45e3`). Énumérer l'AUTORITÉ (164 239 sigs, gSFA 165 pages) +
+   gTfA `full` sur ses corps (166 pages), décoder 43/x pour les 4 mints, relire chaque candidat quorum-2. **Coût
+   ~1 825 crédits Helius (~2 900× moins cher), trivialement sous plafond.** Complétude PROUVÉE : (a) rejeu bit-à-bit
+   (`replayTriplet`) reproduit le triplet d'oracle sur les BITS pour les 4 mints (C-3/C-4(iv)) ; (b) INVARIANCE
+   D'AUTORITÉ : autorité de l'`Initialize` == autorité courante (oracle) == S7vYFF ⇒ processor.rs exigeant la
+   signature de l'autorité courante, seul S7vYFF a pu émettre un 43/1 ⇒ le scan d'autorité les capture tous.
+   PORTÉE de C-3 : C-3 prouve l'état FINAL ; les valeurs `multiplier_at` en fenêtre fondatrice sont des rejeux
+   bit-exacts des événements CAPTURÉS — leur complétude repose sur l'invariance d'autorité + la complétude de
+   l'historique gTfA Helius de S7vYFF, C-3 étant le backstop de l'état final. Failles résiduelles NOMMÉES, symétriques :
+   (i) côté signataire — changement d'autorité A→B→A avec updates B-signés qui s'annulent (couvert par l'item
+   « SetAuthority non scanné », C-12) ; (ii) côté énumération — le scan d'autorité gTfA est **Helius seul** (gTfA
+   n'a pas d'équivalent Chainstack ; même étape mono-opérateur que la méthode mandatée) : une omission Helius qui
+   changerait l'état final serait attrapée par C-3, une qui ne le changerait pas ne le serait pas. Déclencheurs :
+   scan SetAuthority du mint ; contrôle croisé de l'énumération d'autorité sur un 2ᵉ archiveur si disponible ;
+   propriétaire orchestrateur. (Les candidats 43/x sont, eux, relus quorum-2 helius+chainstack — clé événement décodé.)
+2. **Scan full-mint borné à la fenêtre fondatrice** (gTfA `filters.blockTime` [genesis, 2025-10-31]) : donne le gate
+   fenêtre (l'étude Cong ne vise que jul-oct 2025) mais PAS la trajectoire courante ; non chiffré, dominé par (1).
+3. **Relever le plafond à ~6 M crédits** (~54 % du plan) : NON crédible. Recommandation worker : **option 1**.
+
+**Résultat de la course (first-hand, HYBRIDE ; hors dépôt `course/series-*.json`, PENDING ratification, NON
+committé)** — 4/4 : C-3 bit-à-bit OK, invariance d'autorité OK, `overwritten_pending`=0, quorum des corps OK
+(helius+chainstack, tous `keyMatch`), `scan_complete`=true :
+
+| mint | événements | gate fenêtre | m@2025-07-01 | m@2025-10-31T23:59:59 | m@2026-09-19 | série sha256(LF) |
+|---|---|---|---|---|---|---|
+| TSLAx | 1 (init) | constant | 1 | 1 | 1 | `bd68590c7cd4…` |
+| SPYx | 9 | trajectory_known | 1 | 1.00099942056 | 1.005714560286254 | `43243b87ab65…` |
+| NVDAx | 11 | trajectory_known | 1 | 1.00003086642674 | 1.001701196801074 | `f2776fe6e028…` |
+| AAPLx | 11 | trajectory_known | 1 | 1.000781855115 | 1.0032690125398187 | `02b37ecf8704…` |
+
+Motif : rebase ~trimestriel (paire commit(prior)+schedule(next) par tx ⇒ 2 × 43/1 au MÊME slot/MÊME signature ⇒
+`same_slot_diff_sig`=false, pas d'ambiguïté ; effTs = jour de l'update à 23:55:00Z ; incréments positifs faibles =
+accumulation dividende/frais de portage). Premier update DANS la fenêtre fondatrice : AAPLx 2025-08-14, NVDAx
+2025-10-02, SPYx 2025-10-31T23:55 ⇒ **3/4 mints ne sont PAS `constant` en fenêtre** (ajustement g_t = VWAP_raw / m
+requis, C-7 ; incréments ≤ ~0,1 %) ; TSLAx `constant`=1 (aucun update, aucun ajustement).
+
+**Budget dépensé (exploration ; ledger hors dépôt `budget.json` ; fail-closed par opérateur)** : Helius ~6 323 cr
+(6 283 ledger + 40 à compteur propre `verify-gtfa-config`), Chainstack 4 042 appels ; largement sous plafonds ;
+AUCUN scan full-mint corps lancé. Plafonds par opérateur `--max-calls`/crédits fail-closed (BudgetExceeded re-levé).
+
+**Livrables SI ratification option 1** (reprise -b3a-2 ou suivi -b3a-3) : copier `course/series-*.json` sous
+`apps/bell/test/fixtures/series/rebase/` (R-25-exclus) + `PROVENANCE-rebase-course.md` (shas LF ci-dessus + ToS
+Helius/Chainstack) + test `bell_rebase_course_replays_bit_identical` (rejeu série = valeurs épinglées) ; mutants ≥ 2
+(octet série altéré ⇒ rouge via `series_pinned` + rejeu ; oracle forcé divergent ⇒ `rebase_unverified` via
+`rebaseGateFromTrajectory(...,scanComplete=false)`). ADR D1-quater : ajouter la méthode hybride + la précondition
+d'invariance d'autorité. **R-25 estimé** : +~50 l (test seul ; séries/docs exclues) ⇒ ~1 037 < 1 205, **pas de
+seam**.
+
+**R-25 de ce pli = 987 INCHANGÉ** (`git diff --shortstat 3315ea7` sous pathspec `STAT=` de `ci.yml` ; ce pli
+n'ajoute que des docs R-25-exclus) < 1 205.
+
+**Items formés (déclencheurs + propriétaires ; zéro dette nue)** :
+- **HYBRIDE comme méthode** (option 1) — précondition invariance d'autorité ; déclencheur : ratification orchestrateur ; propriétaire orchestrateur.
+- **Débits mints** (54 k–636 k sig/j, mesurés) — fait pertinent pour tout scan full-mint futur ; propriétaire orchestrateur / worker -b1-bis.
+- **`sample_events` décimal-seul** (défaut runner `authority-probe`, corrigé dans `course-hybrid` par les bits f64) — clos par correction (F-4 respecté dans la série finale).
+- **SetAuthority non scanné** (faille résiduelle de complétude côté signataire, déjà C-12) — déclencheur : scan SetAuthority du mint ; propriétaire orchestrateur.
+- **Énumération d'autorité mono-opérateur (Helius seul)** — gTfA n'a pas d'équivalent Chainstack ; backstop = C-3 (état final) ; même limite que la méthode mandatée ; déclencheur : contrôle croisé sur un 2ᵉ archiveur gTfA si disponible ; propriétaire orchestrateur.
+- **Motif de rebase Backed** (first-hand [lu] : paire commit(prior)+schedule(next) par tx, effTs = jour à 23:55:00Z, cadence ~trimestrielle, incréments positifs faibles) — contexte pour D1-quater (accumulation dividende/frais), pas une affirmation d'intention ; propriétaire ADR.
