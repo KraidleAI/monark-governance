@@ -43,15 +43,26 @@ export function decodeEntities(s) {
     .replace(/&amp;/g, "&");
 }
 
-/** Isolate the RENDERED text body: drop React's `<!-- -->` comment markers (inserted around interpolated
- *  text, so the body is NOT plain text) and every `<script>...</script>` payload (the inline RSC payload holds
- *  notes with LITERAL apostrophes — the false-green source), then decode entities. */
+/** Isolate the RENDERED text body: strip every `<script>`, `<noscript>` and `<template>` block (attributes
+ *  tolerated, case-insensitive) and React's `<!-- -->` comment markers, then decode entities. The inline RSC
+ *  `<script>` payload carries the notes with LITERAL apostrophes (the false-green source), and a note living
+ *  only inside a hidden `<noscript>`/`<template>` is likewise NOT rendered. Fail-closed on an UNCLOSED
+ *  `<script>` (no matching `</script>`): its payload would otherwise leak into the body. */
 export function renderedBody(html) {
-  // Strip <script> payloads FIRST, then <!-- --> markers: a `<!--` inside a payload cannot then pair with a
-  // `-->` in the body and eat rendered text. (Next escapes `<` as < in inline scripts, so there is no bug
-  // today either — measured on the real artefact — but scripts-first is the robust order.)
+  // Strip balanced <script> blocks FIRST (attributes + case tolerated via [^>]* and the gi flag), then the
+  // other hidden surfaces, then <!-- --> markers: a `<!--` inside a payload cannot then pair with a `-->` in
+  // the body and eat rendered text. (Next escapes `<` as an entity in inline scripts, so there is no bug on
+  // today's artefact - measured - but this order is the robust one.)
   const noScript = String(html).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "");
-  const noComments = noScript.replace(/<!--[\s\S]*?-->/g, "");
+  // Fail-closed: a `<script` opening that survived the balanced strip has no `</script>`, so its inline
+  // payload (notes with LITERAL apostrophes) would leak into the body and a broken build could pass on the
+  // payload alone (a false GREEN, G0 finding 8). Throw rather than let it through.
+  if (/<script\b/i.test(noScript))
+    throw new Error("assert-fleet-html: an unclosed <script> tag survived stripping (no matching </script>) - fail-closed");
+  const noHidden = noScript
+    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, "")
+    .replace(/<template\b[^>]*>[\s\S]*?<\/template>/gi, "");
+  const noComments = noHidden.replace(/<!--[\s\S]*?-->/g, "");
   return decodeEntities(noComments);
 }
 

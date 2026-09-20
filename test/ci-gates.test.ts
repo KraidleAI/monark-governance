@@ -44,6 +44,24 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
   const coeDirective = LINES.some((l) => /^\s*continue-on-error\s*:/.test(l));
   assert.ok(!coeDirective, "continue-on-error directive present: a job would stop being blocking");
 
+  // (1bis) SIBLING of (1): no `if:` DIRECTIVE on any job or step (block-scoped absence is also asserted for
+  //   g3-site in g3_site_builds_then_asserts_fleet_html). The header invariant is "EVERY job is BLOCKING"; a
+  //   conditional job/step is not. This is WORSE than continue-on-error: a required check that is SKIPPED
+  //   (e.g. `if: false`) counts as PASSING on GitHub, so a stray `if:` silently unblocks a gate. Same shape
+  //   as (1): a `#` comment line never matches (it starts with `#`). Kills the three C-G2-2 mutants (job
+  //   `if: false`, step `if: false`, `if: ${{ false }}`). No job carries `if:` today; a future conditional
+  //   job needs an ADR that updates this line (formed item, PLI-lot-ci-site).
+  const ifDirective = LINES.some((l) => /^\s*if\s*:/.test(l));
+  assert.ok(!ifDirective, "an `if:` directive is present: a conditional/SKIPPED required check counts as PASSING on GitHub (silent unblock); EVERY job must be unconditionally BLOCKING");
+  // discriminating controls: the r25 shell `if [ ... ]` and the g6 `if-no-files-found:` are NOT `if:`
+  // directives; `if: false` and `if: ${{ false }}` ARE (must be caught).
+  assert.ok(!/^\s*if\s*:/.test('          if [ "$CHANGED" -gt "$VIBEGATES_PR_LIMIT" ]; then'), "control: a shell `if [ ... ]` is not an `if:` directive");
+  assert.ok(!/^\s*if\s*:/.test("          if-no-files-found: error"), "control: `if-no-files-found:` is not an `if:` directive");
+  assert.ok(
+    /^\s*if\s*:/.test("        if: false") && /^\s*if\s*:/.test("    if: ${{ false }}"),
+    "control: `if: false` and `if: ${{ false }}` ARE `if:` directives (must be caught)",
+  );
+
   // (2) every `uses:` action pinned by a 40-hex commit SHA (comment lines ignored).
   const usesRefs: string[] = [];
   for (const l of LINES) {
@@ -1283,6 +1301,11 @@ test("g3_site_builds_then_asserts_fleet_html — job g3-site runs the build THEN
     if (/^  \S/.test(l) || /^\S/.test(l)) break; // next 2-space job key or a column-0 key
     block.push(l.replace(/#.*$/, "")); // strip end-of-line comments
   }
+  // C-G2-2 (step-level, error_origin = C-5 spec): the g3-site block carries no `if:` on the job OR any step.
+  // An `if: false` on the O-2 step would run the job GREEN with zero assertion - dropping the very O-2 that
+  // C-5 exists to protect. Block-scoped sibling of test 38's file-wide ban. Mutant: `if: false` on the O-2
+  // step (or on the job) => this reds. (block lines already had end-of-line comments stripped above.)
+  assert.ok(!block.some((l) => /^\s*if\s*:/.test(l)), "g3-site must carry no `if:` on the job or any step (a conditional/SKIPPED required check counts as PASSING on GitHub - silent unblock)");
   const buildIdx = block.findIndex((l) => /^\s*run:\s*npm run build -w @monark\/site\s*$/.test(l));
   const o2Idx = block.findIndex((l) => /^\s*run:\s*node scripts\/assert-fleet-html\.mjs\s*$/.test(l));
   assert.notEqual(buildIdx, -1, "g3-site must carry the `npm run build -w @monark/site` step (mutant: build step removed => red)");

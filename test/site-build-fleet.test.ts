@@ -23,6 +23,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { assertFleetBody, renderedBody, decodeEntities, SITE_BUILD_RUN, FLEET_HEADER } from "../scripts/assert-fleet-html.mjs";
 import { derivePublicWorkflow, collectFiles, CI_WORKFLOW_PATH } from "../scripts/export-public.mjs";
+import ts from "typescript";
+import { renderedTexts } from "../apps/site/test/honesty-lint.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const read = (rel: string): string => readFileSync(join(ROOT, ...rel.split("/")), "utf8");
@@ -77,11 +79,71 @@ test("fleet_html_assertion_is_sound — O-2 asserts the rendered /fleet body, sc
   assert.equal(decodeEntities("x&#x27;y &lt;z&gt; &quot;q&quot; &#39;w"), "x'y <z> \"q\" 'w", "named + numeric entity decode");
 });
 
-test("fleet_page_renders_the_served_header — the /fleet page still renders the O-2 header constant (tripwire)", () => {
+test("rendered_body_strips_hidden_surfaces_and_fails_closed — attributed/uppercase <script>, <noscript>/<template>, decimal entity, unclosed <script> (O-2/O-3)", () => {
+  const expectedNotes = [NOTE_A_SRC, NOTE_B];
+  const scriptAttrOf = (notes: string[]): string => `<script type="application/json" nonce="r4nd0m">${JSON.stringify(notes)}</script>`;
+  const scriptUpperOf = (notes: string[]): string => `<SCRIPT TYPE="application/json">${JSON.stringify(notes)}</SCRIPT>`;
+
+  // (O-3 / N3) attributed <script type=...>: the payload note must be stripped by the `[^>]*` in the regex; a
+  // NAKED `<script>` regex would miss it and the note would false-green from the payload. Body lacks NOTE_A.
+  const attributed = bodyOf([NOTE_B]) + scriptAttrOf([NOTE_A_SRC, NOTE_B]);
+  assert.ok(attributed.includes(NOTE_A_SRC), "fixture: the raw bytes carry the note (in an attributed <script>)");
+  assert.throws(() => assertFleetBody({ html: attributed, expectedHeader: FLEET_HEADER, expectedNotes }), /absent from the rendered/, "attributed <script type=...> payload must be stripped (mutant: drop `[^>]*` => this note false-greens)");
+
+  // (case-insensitivity) uppercase <SCRIPT ...>: the `gi` flag must strip it; without `i` the payload note false-greens.
+  const upper = bodyOf([NOTE_B]) + scriptUpperOf([NOTE_A_SRC, NOTE_B]);
+  assert.throws(() => assertFleetBody({ html: upper, expectedHeader: FLEET_HEADER, expectedNotes }), /absent from the rendered/, "uppercase <SCRIPT> payload must be stripped (mutant: drop the `i` flag => this note false-greens)");
+
+  // (O-2) a note logged ONLY inside a hidden <noscript>/<template> is NOT rendered — strip both. Mutant:
+  // remove either strip => the note survives => false-green (which this assert.throws catches).
+  const inNoscript = bodyOf([NOTE_B]) + `<noscript>${NOTE_A_SRC}</noscript>`;
+  assert.ok(inNoscript.includes(NOTE_A_SRC), "fixture: the raw bytes carry the note (in <noscript>)");
+  assert.throws(() => assertFleetBody({ html: inNoscript, expectedHeader: FLEET_HEADER, expectedNotes }), /absent from the rendered/, "a note only in <noscript> must red (mutant: drop the noscript strip)");
+  const inTemplate = bodyOf([NOTE_B]) + `<template>${NOTE_A_SRC}</template>`;
+  assert.throws(() => assertFleetBody({ html: inTemplate, expectedHeader: FLEET_HEADER, expectedNotes }), /absent from the rendered/, "a note only in <template> must red (mutant: drop the template strip)");
+
+  // (O-3 / N2) decimal entity: `&#8212;` (em dash) is decoded ONLY by the decimal branch `/&#(\d+);/` — unlike
+  // `&#39;`, which the named apostrophe rule also catches (why N2 survived the old fixtures). Load-bearing:
+  // drop the decimal branch and the decoded note no longer matches.
+  const NOTE_DEC_SRC = "served by a decimal—entity note";
+  const NOTE_DEC_ENC = "served by a decimal&#8212;entity note";
+  assert.ok(!NOTE_DEC_ENC.includes(NOTE_DEC_SRC), "fixture: the raw body carries the DECIMAL entity, not the literal char");
+  assert.ok(renderedBody(bodyOf([NOTE_DEC_ENC])).includes(NOTE_DEC_SRC), "the decimal-entity branch must decode &#8212; (mutant: drop /&#(\\d+);/ => reds here)");
+  assert.doesNotThrow(() => assertFleetBody({ html: bodyOf([NOTE_DEC_ENC]), expectedHeader: FLEET_HEADER, expectedNotes: [NOTE_DEC_SRC] }), "green after decimal decode");
+
+  // (O-2 fail-closed) an UNCLOSED <script> (no </script>) whose payload carries a note absent from the body
+  // must THROW — never let the payload leak in. Mutant: remove the fail-closed throw => the note survives the
+  // (non-matching) balanced strip => false-green, which this assert.throws then catches.
+  const unclosed = bodyOf([NOTE_B]) + `<script>self.__next_f.push([1,${JSON.stringify([NOTE_A_SRC])}])`;
+  assert.ok(unclosed.includes(NOTE_A_SRC), "fixture: the raw bytes carry the note (in an unclosed <script>)");
+  assert.throws(() => assertFleetBody({ html: unclosed, expectedHeader: FLEET_HEADER, expectedNotes }), /unclosed <script>/, "an unclosed <script> must fail-closed (mutant: remove the throw => the payload note false-greens)");
+  assert.throws(() => renderedBody("<main>body</main><script>oops no close"), /unclosed <script>/, "renderedBody itself fails-closed on an unclosed <script>");
+
+  // steady state: balanced attributed + uppercase scripts, a template and a noscript that hide NO expected
+  // note keep the well-formed body GREEN (the strips are not over-eager; balanced scripts do not trip the
+  // fail-closed).
+  const clean =
+    bodyOf([NOTE_A_ENC, NOTE_B]) + scriptAttrOf([NOTE_A_SRC]) + scriptUpperOf([NOTE_B]) +
+    "<template><li>ignored</li></template><noscript>enable javascript</noscript>";
+  assert.doesNotThrow(() => assertFleetBody({ html: clean, expectedHeader: FLEET_HEADER, expectedNotes }), "balanced hidden surfaces that hide no expected note stay green");
+});
+
+test("fleet_page_renders_the_served_header — the /fleet page RENDERS the O-2 header constant, not just a comment (tripwire, O-1 hardened)", () => {
   // The header lives in TWO places (page.tsx render + assert-fleet-html.mjs FLEET_HEADER). This is not the
   // "expected list" (which is derived from fleet.ts, never duplicated), so it is licit — but a drift between
   // the render and the constant would make O-2 assert a header the page no longer emits. Pin them together.
-  assert.ok(read("apps/site/app/fleet/page.tsx").includes(FLEET_HEADER), `apps/site/app/fleet/page.tsx must render the O-2 header ${JSON.stringify(FLEET_HEADER)}`);
+  // O-1 (G2 N4): a plain `.includes()` on the source was satisfiable by the JSX COMMENT that names the header
+  // (page.tsx:125), so deleting the RENDERED header while keeping the comment left this green. Harden it the
+  // way the vocab exemption guard was (an AST walker, not a substring match): parse the TSX and require the
+  // header in a RENDERED text position (renderedTexts = JSX text / child expression / visible attribute) — a
+  // JSX comment is not one. Mutant: delete the rendered header <div> (keep the :125 comment) => this reds.
+  const src = read("apps/site/app/fleet/page.tsx");
+  const sf = ts.createSourceFile("fleet/page.tsx", src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const rendered = renderedTexts(sf).map((rt) => rt.text);
+  assert.ok(
+    rendered.some((t) => t.includes(FLEET_HEADER)),
+    `apps/site/app/fleet/page.tsx must RENDER the O-2 header ${JSON.stringify(FLEET_HEADER)} in a JSX position (a comment naming it does not count — O-1)`,
+  );
 });
 
 test("g3_site_build_run_line_is_pinned — the g3-site build `run:` line == SITE_BUILD_RUN (C-1, idiom ci_publishes_sbom)", () => {
