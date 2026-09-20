@@ -56,13 +56,13 @@ test("bell_report_finds_per_pool_state_files", () => {
 test("bell_report_input_close_guard", () => {
   assert.doesNotThrow(() => aggregate([d1, d2])); // clean states aggregate
   // a numeric close smuggled into a gap => aggregate() throws (mutant: neutralize the guard => this stops throwing)
-  const withClose = { digest: { gaps: [{ symbol: "T", session: "weekend", regime: "weekend", vwap: "1", gT: "0.06", volumeBase: "1", n: 1, exceed1: 1, exceed2: 1, exceed5: 1, closeRef: 364.27 }], residuals: {} } };
+  const withClose = { digest: { gaps: [{ symbol: "T", session: "weekend", regime: "weekend", vwap: "1", gT: "0.06", volumeBase: "1", n: 1, exceed1: 1, exceed2: 1, exceed5: 1, closeRef: 123.45 }], residuals: {} } };
   assert.throws(() => aggregate([withClose]), /close/i);
   // an ADV value anywhere in the state => refused
   const withAdv = { digest: { gaps: [], residuals: {} }, adv: 1_000_000 };
   assert.throws(() => aggregate([withAdv]), /adv|close/i);
   // the guard is exported and directly exercisable (a Polygon prev-close key reddens too)
-  assert.throws(() => { assertNoCloseLike({ prev: 761.69 }); }, /prev|close/i);
+  assert.throws(() => { assertNoCloseLike({ prev: 123.46 }); }, /prev|close/i);
   // a non-numeric close_source string does NOT redden (decision 41: the provider is NAMED, never a value)
   assert.doesNotThrow(() => { assertNoCloseLike({ close_source: "massive-starter-internal" }); });
 });

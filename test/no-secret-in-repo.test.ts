@@ -56,6 +56,11 @@ const SECRET_PATTERNS: ReadonlyArray<{ re: RegExp; name: string }> = [
   // An *_API_KEY= assignment with an inline value (a .env / shell leak). `process.env.HELIUS_API_KEY` and the
   // prose mentions in docs (no `=` + value) do NOT match; `HELIUS_API_KEY=<secret>` does.
   { re: /\b[A-Z][A-Z0-9_]*_API_KEY\s*=\s*["']?[^\s"'#]{6,}/, name: "*_API_KEY= inline assignment" },
+  // ADR-T1aii-D1-quinquies C-10 (lot -b3b): a Databento API key is `db-` + 29 alphanum (32 chars total). The `db-`
+  // prefix + a long alphanum run IS the credential (like the Chainstack hex-in-path), so no extra context is
+  // required. `{20,}` after `db-` clears the real key (29 chars) but leaves the doc prose "prefix db-" green (no
+  // 20-char alphanum run follows). `DATABENTO_API_KEY=<value>` inline is already covered by the *_API_KEY= shape.
+  { re: /\bdb-[A-Za-z0-9]{20,}\b/, name: "Databento API key (db- prefix)" },
 ];
 
 interface Hit { file: string; pattern: string; line: number }
@@ -103,6 +108,11 @@ test("no_secret_in_repo", () => {
   assert.ok(fires("wss://solana-mainnet.core.chainstack.com/0123456789abcdef0123456789abcdef"), "detects a wss hex-key url");
   assert.ok(fires("Authorization: Bearer sk_live_0123456789abcdefABCDEF"), "detects a >=16-char Bearer token");
   assert.ok(fires('HELIUS_API_KEY="0123456789abcdef0123456789abcdef1234"'), "detects an *_API_KEY= inline assignment");
+  // ADR-T1aii-D1-quinquies C-10 (lot -b3b): a Databento db- key reddens (mutant: commit one => red); the doc prose
+  // mentioning the "db-" prefix, and DATABENTO_API_KEY via process.env, stay green (no false positive).
+  assert.ok(fires("const k = \"db-0123456789abcdef01234567\";"), "detects a Databento db- key value");
+  assert.equal(fires("the DATABENTO_API_KEY is 32 chars with the prefix db-"), false, "prose 'prefix db-' is not a secret");
+  assert.equal(fires("const k = process.env.DATABENTO_API_KEY ?? \"\";"), false, "process.env.DATABENTO_API_KEY access is not a secret");
   // Real committed forms stay GREEN: the template-literal Bearer, process.env access, a bare host, and the
   // doc/prose mention of a key NAME with no value.
   assert.equal(fires("headers: { Authorization: `Bearer ${apiKey}` }"), false, "template-literal Bearer is not a secret");

@@ -18,7 +18,7 @@ Relecteur : instance séparée, contexte frais, `claude-opus-4-8[1m]` (R-1). Ren
 | **e** | `digest.ts:20` `.sort()` retiré | aucun | **SURVIT 13/13** → C-2 |
 
 ## Faits première main reproduits
-Parse indépendant (Python RFC4180) et parseur committé identiques : 73 431 lignes ; 4 539 resume vides ; 18 graphies ; LULD_PAUSE 61 747 ; `REASON_UNKNOWN` 0 ; recensé-15 depuis 2025-06-30 = 0 ; historique 8 ; ETF ×5 graphies (correction G1 exacte). Fenêtre TSLAx×week-end n=52 non rejouée (réseau + clé) ; cohérence interne OK (close implicite ≈ 364,27, jamais écrit).
+Parse indépendant (Python RFC4180) et parseur committé identiques : 73 431 lignes ; 4 539 resume vides ; 18 graphies ; LULD_PAUSE 61 747 ; `REASON_UNKNOWN` 0 ; recensé-15 depuis 2025-06-30 = 0 ; historique 8 ; ETF ×5 graphies (correction G1 exacte). Fenêtre TSLAx×week-end n=52 non rejouée (réseau + clé) ; cohérence interne OK (close implicite ≈ [masqué], jamais écrit).
 
 ## Verdict : APPROUVÉ-AVEC-CORRECTIONS
 | # | fichier:ligne | défaut | correction | error_origin | déclencheur |

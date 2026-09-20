@@ -118,6 +118,6 @@ export const POOLS: readonly PoolRef[] = [
   // Ondo TSLAon pools (Ethereum). Uniswap-family pools hold reserves in the pool contract itself; the
   // Ethereum swap/VWAP leg reads Swap events (T-1a-ii / parity), so no Solana-style vault pair here.
   { label: "TSLAon/USDC 1% (Uniswap v3)", dex: "uniswap-v3", chain: "ethereum",
-    poolId: "0x31227b50eccdc9c589826aa2d9e7c5619b1895da", baseSymbol: "TSLAon", quoteSymbol: "USDC",
+    poolId: "0x31227b50eccdc9c589826aa2d9e7c5619b1895da", baseSymbol: "TSLAon", quoteSymbol: "USDC", underlying: "TSLA",
     source: { api: "https://api.geckoterminal.com/api/v2/search/pools?query=TSLAon&network=eth", fetchedAt: D, snapshotSha256: "4755c1bc0105", onchain: "pool base_token==TSLAon, quote==USDC(0xa0b8..eb48)" } },
 ];
