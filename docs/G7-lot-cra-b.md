@@ -10,7 +10,7 @@ Orchestrateur `claude-fable-5-1`, 2026-09-20. Livraison `849e2c9`, pli 2 `ef24c3
 | G2 delta bornée | `docs/G2-delta-lot-cra-b-2.md` | CONFORME, MG2 rouge, R-25 297 ; item « miroir public ne peut ouvrir `deploy/` » |
 | Checkpoint-2 | `docs/CHECKPOINT2-lot-cra-b.md` | ACCEPTE-AVEC-CORRECTIONS C-V-1..C-V-6 (rejeu à froid 33/33, SBOM CycloneDX 1.5 / 183 composants, upload-artifact SHA recoupé `git ls-remote`, mutants M6/MG2/V1 rouges ; V3 « within scope » vert → C-V-5) |
 | Plis orchestrateur | `c6552eb` | C-V-1 templates corpus conditionnels + ligne JOURNAL ; C-V-4 propriétaire + déclencheur filtre Caddy |
-| G7 | ce fichier | oracle sur l'arbre fusionné : **396/396** (390 + 6), lint 0, ratchet 69/69, lang-gate 0, export:check 0 (`F:	mp\g7-crab-ci.log`) |
+| G7 | ce fichier | oracle sur l'arbre fusionné : **396/396** (390 + 6), lint 0, ratchet 69/69, lang-gate 0, export:check 0 (`F:/tmp/g7-crab-ci.log`) |
 
 ## Ce que le lot livre
 `SECURITY.md` (canal GitHub Security Advisories seul, 72 h / 90 j, versions = dernier tag, §Data : aucune donnée personnelle requise, journal d'accès Caddy JSON mesuré, hébergement VPS) ; `docs/PROCEDURE-notification-CRA.md` (horloges art. 14 conditionnelles, CSIRT indéterminé pour un fabricant USA sans représentant) ; SBOM CycloneDX déterministe (`--package-lock-only`) en CI + `scripts/sbom.mjs` ; `docs/PRODUCT-BOUNDARY.md` ; déclaration « no personal data required » README ; `docs/adr/ADR-CRA-B.md` (PVR `enabled:true` mesuré, origine SBOM privé vs public) ; 6 tests (`test/cra-b.test.ts`) + `SECURITY.md` dans `surfaces()`.
