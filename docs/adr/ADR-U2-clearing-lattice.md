@@ -38,7 +38,7 @@
 | Tuyau | Entrée (qui produit) | Sortie (qui consomme) | État | Test |
 |---|---|---|---|---|
 | book WETH → fixture treillis | recorder `sentinel-2` (`recordBook`, U-1a) rejoué sur `weth-book.fixture.json` | `packages/ukemi/test/fixtures/weth-book-23545087.json` | dérivé, haché | `lattice_weth_fixture_replays_bit_identical` (script → sha256 LF identique) |
-| fixture/scénarios → `lattice(Λ, demand)` | fixtures `(pCrit,B)`+params, `positionToCritical` | tests L-3 ; papier U-7 (annexe) | `annex` | `lattice_*` (8 tests, 7 mutants) |
+| fixture/scénarios → `lattice(Λ, demand)` | fixtures `(pCrit,B)`+params, `positionToCritical` | tests L-3 ; papier U-7 (annexe) | `annex` | `lattice_*` (9 tests, 8 mutants (dont m-fx, mutant de fixture `expected.greatest`, pli 2)) |
 Aucun chemin **servi** n'est modifié (T0). Le treillis reste `annex` : son seul consommateur est le test (et, à terme, le papier U-7) — **jamais `built`** tant qu'aucun chemin servi ne le consomme (CA-11).
 
 ## Amendement daté d'ADR-M020 (CA-3)
