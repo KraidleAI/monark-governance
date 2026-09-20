@@ -118,3 +118,18 @@ Décisions 60 (scan d'autorité) et 61 (U-4c) ; **Q3(ii) Bell** (sans croisement
 
 ## 7.9 Interdits (rappel)
 Jamais de secret dans le chat ni le dépôt (contrôle par longueur) ; jamais lire le DOM d'une page portant une clé ; jamais un commit par un worker ; Opus 5 banni ; jamais « verified / guarantee / score » sur une surface publique ; jamais un close en clair (dépôt, tests, docs, chat) ; jamais de download sans permission ; jamais de contournement d'un CAPTCHA ; jamais d'action sortante (DNS, PR publique, mail) sans go.
+
+## 7.10 POINT D'ARRÊT — 2026-09-20 ~13:30 UTC (écrit juste avant la bascule, à la demande de l'investisseur)
+**Où je me suis arrêté** : l'agent de pli du G0 -b1-bis-i a été **arrêté avant d'écrire** (le G0 `docs/G0-lot-t1a-ii-b1-bis.md` est tel qu'au commit `1928e49`, non plié ; `F:\Monark` arbre propre). Le seul agent encore vivant à l'arrêt : la **passe filtre U-4a** (processus node en tâche de fond du worker ; il meurt avec la session, mais le cache `--resume` `F:\PRODUITS\etude-2026-09-20\u4-raws\U4-inputs.jsonl` (≈ 39 Mo à 14:16 locale) conserve tout ce qui a été lu : rien n'est re-payé).
+
+**Ce que le Claude qui arrive fait, dans l'ordre, dès la première minute** :
+1. Lire ce §7 en entier, puis la fin de `docs/CHANTIERS.md` (entrées 2026-09-20) et les 5 dernières lignes de `docs/JOURNAL-PROVENANCE.md`. Vérifier `git -C F:\Monark log -1` et `git status` (attendu propre). Vérifier `ToolSearch firecrawl` (UUID 7.1). Contrôle R-1 au premier worker.
+2. **U-4a (chantier 1)** : `git -C F:\Monark-wt-u4a status --short` (7 fichiers attendus, non committés — ne rien committer avant la G2). Regarder si `F:\PRODUITS\etude-2026-09-20\u4-raws\U4-filter-23545087.json` existe.
+   - S'il existe : lire `n_at_risk_config` ; si ≤ 17 730 ⇒ relancer un worker avec le prompt 7.6-C (**go course**) ; sinon arrêter et consulter (advisor-defi) avant toute course.
+   - S'il n'existe pas : relancer un worker (prompt 7.6-C) en lui demandant d'abord de **reprendre le filtre** `--filter-only --exclude-operator mevblocker.io --min-interval-ms 50 --resume` (HIT du cache instantané), puis la même règle de go.
+3. **Bell -b1-bis-i (chantier 2)** : worker avec le prompt 7.6-B (pli C-1..C-11 du checkpoint-1 dans le G0), committer le G0 plié, `git worktree add F:\Monark-wt-bellb1bis -b lot/t-1a-ii-b1-bis`, puis G1 (prompt 7.6-A). Boucle : G2 fraîche → checkpoint-2 (avec diff anti-close) → G7 (`npm run ci` une seule fois) → fusion `--no-ff` → CHANTIERS + JOURNAL.
+4. **Narabi** : à la première occasion, lire sur le VPS le journal des runs (`ssh -i ~/.ssh/monark_vps root@31.97.155.188 'journalctl -u monark-sentinel --since "2026-09-20 09:00" --no-pager | grep -E "processedDays|chainstack|exit_code|stopped"'`) et consigner en JOURNAL-PROVENANCE le premier run de chaque créneau (09:30 J, puis 00:30/03:30/06:30 J+1) : attendu `chainstack: true`, `exit_code: 0`. Un `chainstack: false` ou un exit ≠ 0 = STOP et enquête (RUNBOOK-sentinel §6).
+5. **Ne pas faire sans l'investisseur** : DNS `bell.`, déploiement T-1b, mail sortant, push public, course -b1-bis-ii (Q5 non ratifiée), toute dépense nouvelle.
+6. Dans le premier message à l'investisseur : la liste des ratifications dues (7.7) et la demande du **destinataire de l'alerte mail** (1b).
+
+**Toujours deux chantiers en parallèle** (décision 49) : U-4a et Bell -b1-bis-i sont les deux en cours ; quand l'un se termine, le suivant dans l'ordre de 7.5.
