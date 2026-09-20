@@ -38,7 +38,12 @@ const hex = (b: Uint8Array): string => [...b].map((n) => n.toString(16).padStart
  *  a substring of `method`; an unmapped method has NO scanMethod (fail-closed — loadTrajectories then ignores the
  *  entry => rebase_unverified). The four -b3a series carry this exact `method` string (rebase-SPYx.json:4). */
 export const SCAN_METHOD_MAP: Readonly<Record<string, "authority">> = {
+  // The four -b3a series carry the `pending` label until the -b3d full-mint cross-check reaches `equal` 4/4 (label
+  // KEPT until then, checkpoint-1 C-13). The RATIFIED label (pending removed on `equal`, L-4) maps to the SAME
+  // scanMethod enum — the cross-check is a provenance attestation, not a new scan method (Q4 = "authority" unchanged).
+  // Both coexist so the producer loads either the pending or the ratified series with no re-pin (bell_series_method_maps_to_authority).
   "hybrid-authority-scan (pending R-26 ratification)": "authority",
+  "hybrid-authority-scan": "authority",
 };
 export function scanMethodFromMethod(method: string): "authority" | undefined { return SCAN_METHOD_MAP[method]; }
 /** The producer's own method identity (decision 60, pending R-26 ratification — carried verbatim by the series). */
@@ -56,8 +61,9 @@ export interface ProducedTrajectory {
 const bySlotIndex = (a: MultiplierEvent, b: MultiplierEvent): number => a.slot - b.slot || a.instructionIndex - b.instructionIndex;
 
 /** Normalize one gTfA `full` body element to {sig, slot, blockTime, tx} for eventsFromTx (which reads the json
- *  message/CPI shape). sig = transaction.signatures[0] (fallback top-level `signature`). Null when unusable. */
-function normalizeBody(b: unknown): { sig: string; slot: number; blockTime: number | null; tx: unknown } | null {
+ *  message/CPI shape). sig = transaction.signatures[0] (fallback top-level `signature`). Null when unusable.
+ *  Exported so the L-2 full-mint scanner (rebase-crosscheck.ts) normalizes gTfA bodies the SAME way (no drift). */
+export function normalizeBody(b: unknown): { sig: string; slot: number; blockTime: number | null; tx: unknown } | null {
   const o = asObj(b);
   const sigs = asArr(asObj(o.transaction).signatures);
   const sig = typeof sigs[0] === "string" ? sigs[0] : typeof o.signature === "string" ? o.signature : "";

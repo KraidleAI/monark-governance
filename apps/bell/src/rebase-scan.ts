@@ -40,12 +40,29 @@ export function base58Decode(s: string): Uint8Array {
 }
 
 /** Full ordered account key list of a (v0/json) tx: static ++ loaded writable ++ loaded readonly (calque of
- *  rpc.ts accountKeysOf; json static keys are bare strings, not {pubkey}). Resolves an instruction account index. */
-function keysOfJson(tx: Record<string, unknown>): string[] {
+ *  rpc.ts accountKeysOf; json static keys are bare strings, not {pubkey}). Resolves an instruction account index.
+ *  Exported for the L-1 SetAuthority scanner (rebase-crosscheck.ts), which resolves the target mint (account 0)
+ *  and the current authority (account 1) of a SetAuthority instruction (source instruction.rs:183-194). */
+export function keysOfJson(tx: Record<string, unknown>): string[] {
   const msg = asObj(asObj(tx.transaction).message);
   const stat = asArr(msg.accountKeys).map((k) => (typeof k === "string" ? k : String(asObj(k).pubkey)));
   const loaded = asObj(asObj(tx.meta).loadedAddresses);
   return [...stat, ...asArr(loaded.writable).map(String), ...asArr(loaded.readonly).map(String)];
+}
+
+/** The instructions of a (v0/json) tx in EXECUTION order: each top-level instruction immediately followed by its
+ *  CPIs (its innerInstructions group, keyed by `index`) — NOT all-top-level-then-all-inner (else a same-target
+ *  instruction that appears both top-level and in a CPI would mis-order, C-2). An inner group with an out-of-range
+ *  index is appended, never dropped (fail-closed). Exported so the L-1 SetAuthority scanner (rebase-crosscheck.ts)
+ *  walks the SAME CPI-aware list as eventsFromTx — one source, no drift (checkpoint-1 C-9: inner instructions/CPI). */
+export function flattenInstructions(tx: unknown): unknown[] {
+  const t = asObj(tx);
+  const topLevel = asArr(asObj(asObj(t.transaction).message).instructions);
+  const groups = asArr(asObj(t.meta).innerInstructions).map(asObj);
+  const all: unknown[] = [];
+  for (let i = 0; i < topLevel.length; i++) { all.push(topLevel[i]); for (const g of groups) if (Number(g.index) === i) all.push(...asArr(g.instructions)); }
+  for (const g of groups) if (!(Number(g.index) >= 0 && Number(g.index) < topLevel.length)) all.push(...asArr(g.instructions));
+  return all;
 }
 
 /** Decode the 43/0 and 43/1 ScaledUiAmount instructions of ONE json-encoded tx that act on `mint` (account 0),
@@ -54,15 +71,7 @@ export function eventsFromTx(sig: string, slot: number, blockTimeSec: number | n
   if (blockTimeSec == null) return null; // C-2: blockTime null => fail-closed (caller marks incomplete)
   const t = asObj(tx);
   const keys = keysOfJson(t);
-  const msg = asObj(asObj(t.transaction).message);
-  // C-2 order: each top-level instruction's CPIs (its innerInstructions group, keyed by `index`) execute right
-  // AFTER it — NOT all-top-level-then-all-inner; else a same-mint 43/1 top-level + 43/1 CPI would mis-order.
-  const topLevel = asArr(msg.instructions);
-  const groups = asArr(asObj(t.meta).innerInstructions).map(asObj);
-  const all: unknown[] = [];
-  for (let i = 0; i < topLevel.length; i++) { all.push(topLevel[i]); for (const g of groups) if (Number(g.index) === i) all.push(...asArr(g.instructions)); }
-  // C-2 fail-closed: an inner group with an out-of-range index is appended, never dropped (old concat kept every CPI).
-  for (const g of groups) if (!(Number(g.index) >= 0 && Number(g.index) < topLevel.length)) all.push(...asArr(g.instructions));
+  const all = flattenInstructions(t);
   const out: MultiplierEvent[] = [];
   let pos = 0;
   for (const ixRaw of all) {

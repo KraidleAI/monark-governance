@@ -26,6 +26,7 @@ import { readMintToken2022, porStatus, wrapperStatus, rebaseForMint, rebaseGateF
 import { multiplierAtMs, replayTriplet, decodeStateConfig, type MultiplierEvent } from "./rebase-trajectory.ts";
 import { runRebaseScanCli, scaledUiConfigBytes } from "./rebase-scan.ts";
 import { runRebaseProduceCli } from "./rebase-produce.ts";
+import { runRebaseCrosscheckCli, readPriorCalls } from "./rebase-crosscheck.ts";
 import { runDiscoverCli } from "./discover.ts";
 import { quorum2, signaturesSetKey, statusOf, NoQuorumError, QuorumDisagreementError, ConcordantRevertError,
   BudgetExceededError, SolRpcError, type JsonRpcCall, type TransportFault } from "./quorum.ts";
@@ -293,8 +294,8 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 /** C-11 fail-closed RPC budget. Wraps a lower-level call: after `maxCalls` calls, every further call throws
  *  BudgetExceededError (a `bell/collect:` message, surfaced verbatim, exit 1) — the "> 1 M credits / 50 %
  *  quota" stop is now machine-enforced, not a human rule. Pure/injectable: the oracle drives it offline. */
-export function makeBudgetedCall(maxCalls: number, inner: JsonRpcCall): { call: JsonRpcCall; calls: () => number; tick: () => void } {
-  let n = 0;
+export function makeBudgetedCall(maxCalls: number, inner: JsonRpcCall, priorCalls = 0): { call: JsonRpcCall; calls: () => number; tick: () => void } {
+  let n = priorCalls; // C-1 (-b3d): a cross-process resume offsets the counter by the prior cumulative calls_used
   const guard = (): void => { if (n >= maxCalls) throw new BudgetExceededError(`bell/collect: --max-calls budget of ${String(maxCalls)} exceeded (C-11 fail-closed)`); n += 1; };
   const call: JsonRpcCall = (u, m, p) => {
     try { guard(); } catch (e) { return Promise.reject(e instanceof Error ? e : new Error(String(e))); }
@@ -438,6 +439,8 @@ export function parseArgs(argv: readonly string[], knownSymbols: readonly string
     wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo, maxCalls,
     rebaseScan: argv.includes("--rebase-scan"), rebaseTrajectory: argOf(argv, "--rebase-trajectory"),
     rebaseProduce: argv.includes("--rebase-produce"), authority: argOf(argv, "--authority"),
+    rebaseCrosscheck: argv.includes("--rebase-crosscheck"), seriesDir: argOf(argv, "--series-dir"),
+    allowShortPages: argv.includes("--allow-short-pages"),
     discover: argv.includes("--discover") };
 }
 
@@ -551,7 +554,7 @@ export interface RunDeps {
 }
 
 export async function runMain(argv: readonly string[], deps: RunDeps): Promise<void> {
-  const { out, toUtcMs, fromUtcMs, wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo, maxCalls, rebaseScan, rebaseTrajectory, rebaseProduce, authority, discover } = parseArgs(argv, POOLS.map((p) => p.baseSymbol), deps.nowMs);
+  const { out, toUtcMs, fromUtcMs, wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo, maxCalls, rebaseScan, rebaseTrajectory, rebaseProduce, authority, rebaseCrosscheck, seriesDir, allowShortPages, discover } = parseArgs(argv, POOLS.map((p) => p.baseSymbol), deps.nowMs);
   const repoRoot = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
   assertOutsideRepo(out, repoRoot);
 
@@ -560,7 +563,10 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
   const databentoKey = deps.env.DATABENTO_API_KEY ?? "";
   const faults: TransportFault[] = [];
   // C-11: every Solana RPC call goes through the fail-closed budget (throws BudgetExceededError past --max-calls).
-  const budgeted = makeBudgetedCall(maxCalls, async (u, m, p) => { if (minInterval > 0) await sleep(minInterval); return deps.call(u, m, p); });
+  // C-1 (-b3d): the --rebase-crosscheck branch is RESUMABLE — its budget is offset by the prior cumulative calls_used
+  // (<out>/budget.json), so a second process cannot reset the ceiling. Every other branch resumes from 0 (unchanged).
+  const priorCalls = rebaseCrosscheck ? readPriorCalls(out) : 0;
+  const budgeted = makeBudgetedCall(maxCalls, async (u, m, p) => { if (minInterval > 0) await sleep(minInterval); return deps.call(u, m, p); }, priorCalls);
   const call = budgeted.call;
   // C-G2-7: the cash-close leg (Databento + Massive) folds into the SAME budget — each GET ticks before it fires.
   const budgetedDatabento: DatabentoGet = (path, key) => { budgeted.tick(); return deps.databentoGet(path, key); };
@@ -575,6 +581,13 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
   if (rebaseProduce) {
     if (authority === undefined) throw new Error("bell/collect: --rebase-produce needs --authority <base58> (the shared multiplier authority, read on-chain)");
     await runRebaseProduceCli(call, solProviders, wanted, authority, out, { maxPages }, budgeted.calls, maxCalls, faults); return;
+  }
+  // L-2/L-3 (D1-quater, decision 67): --rebase-crosscheck re-scans each wanted mint's WHOLE body set (gTfA `full`,
+  // bounded to the committed series' oracle_slot) and compares it to the committed hybrid series (STOP on divergence
+  // / incompleteness). Budget cumulative across resumes (readPriorCalls offset). --series-dir defaults to the fixtures.
+  if (rebaseCrosscheck) {
+    const dir = seriesDir ?? resolve(repoRoot, "apps/bell/test/fixtures/series/rebase");
+    await runRebaseCrosscheckCli(call, solProviders, wanted, dir, out, { maxPages, requireFullPages: !allowShortPages }, budgeted.calls, maxCalls, faults); return;
   }
   // L-1 (D1-sexies): --discover samples the founding window (--from-utc/--to-utc) at 3 points, tallies the founding
   // vaults, pairs the quote by owner, confirms quorum-2, and WRITES discovery-<MINT>.json out-of-repo (the served
