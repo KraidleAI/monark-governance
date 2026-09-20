@@ -144,3 +144,29 @@ test("bell_rebase_scan_base58_decode_roundtrip — the base58 decoder recovers t
   assert.deepEqual([...base58Decode(b58enc(bytes))], [...bytes]);
   assert.deepEqual([...base58Decode("1" + b58enc(new Uint8Array([0, 5])))], [0, 0, 5], "leading-zero bytes preserved");
 });
+
+test("bell_rebase_scan_cpi_ordered_after_parent — same-mint 43/1 top-level + 43/1 CPI order by real execution (C-2)", () => {
+  // One tx (slot 20) touches our mint at TWO levels: a 43/1 CPI (m=1.2, effTs 1400) under top-level ix 0 (a
+  // shared-authority 43/1 for OTHER mint), and a direct top-level 43/1 (m=1.5, effTs 1500) at ix 1. Real order =
+  // CPI (runs inside ix 0) THEN top-level ix 1 => m=1.5 is the last write. The old all-top-level-then-all-inner
+  // concat reversed them (m=1.2 last) => the replay diverged from the read state (1.5) and mis-ordered the events.
+  const bodies: Record<string, unknown> = {
+    initSig: jsonTx(10, 1000, [{ accts: [0, 1], data: initBytes(1.0) }]),
+    mixedSig: jsonTx(20, 2000, [{ accts: [3, 1], data: updBytes(9.9, 0) }, { accts: [0, 1], data: updBytes(1.5, 1500) }], [{ accts: [0, 1], data: updBytes(1.2, 1400) }]),
+  };
+  const sigs = [{ signature: "mixedSig", slot: 20, blockTime: 2000, err: null }, { signature: "initSig", slot: 10, blockTime: 1000, err: null }];
+  const call: JsonRpcCall = (_u, method, params) => {
+    if (method === "getAccountInfo") return Promise.resolve({ context: { slot: 25 }, value: { data: [Buffer.from(stateBytes(1.5, 1500, 1.5)).toString("base64"), "base64"] } });
+    if (method === "getSignaturesForAddress") return Promise.resolve(sigs);
+    if (method === "getTransaction") return Promise.resolve(bodies[String((params as unknown[])[0])]);
+    throw new Error("unexpected method " + method);
+  };
+  return scanMultiplierEvents(call, PROVIDERS, MINT, {}, []).then((res) => {
+    assert.equal(res.complete, true, res.reason ?? "complete"); // old code: replay m=1.2 != read state 1.5 => reds
+    assert.equal(res.events.length, 3, "init + CPI update + top-level update (OTHER-mint 43/1 excluded)");
+    assert.equal(res.events[1]!.multiplierBitsHex, f64BitsHexLE(1.2), "CPI (under ix 0) folds before top-level ix 1");
+    assert.equal(res.events[1]!.instructionIndex, 1, "interleaved index: top0=0, CPI=1, top1=2");
+    assert.equal(res.events[2]!.multiplierBitsHex, f64BitsHexLE(1.5), "top-level ix 1 is the last write");
+    assert.equal(res.events[2]!.instructionIndex, 2);
+  });
+});

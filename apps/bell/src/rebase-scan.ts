@@ -49,14 +49,20 @@ function keysOfJson(tx: Record<string, unknown>): string[] {
 }
 
 /** Decode the 43/0 and 43/1 ScaledUiAmount instructions of ONE json-encoded tx that act on `mint` (account 0),
- *  top-level then CPI, in encounter order. Returns null (fail-closed) if blockTime is null. Pure. */
+ *  each top-level instruction then its CPIs, in execution order. Returns null (fail-closed) if blockTime is null. Pure. */
 export function eventsFromTx(sig: string, slot: number, blockTimeSec: number | null, tx: unknown, mint: string): MultiplierEvent[] | null {
   if (blockTimeSec == null) return null; // C-2: blockTime null => fail-closed (caller marks incomplete)
   const t = asObj(tx);
   const keys = keysOfJson(t);
   const msg = asObj(asObj(t.transaction).message);
-  const inner = asArr(asObj(t.meta).innerInstructions).flatMap((g) => asArr(asObj(g).instructions));
-  const all = [...asArr(msg.instructions), ...inner];
+  // C-2 order: each top-level instruction's CPIs (its innerInstructions group, keyed by `index`) execute right
+  // AFTER it — NOT all-top-level-then-all-inner; else a same-mint 43/1 top-level + 43/1 CPI would mis-order.
+  const topLevel = asArr(msg.instructions);
+  const groups = asArr(asObj(t.meta).innerInstructions).map(asObj);
+  const all: unknown[] = [];
+  for (let i = 0; i < topLevel.length; i++) { all.push(topLevel[i]); for (const g of groups) if (Number(g.index) === i) all.push(...asArr(g.instructions)); }
+  // C-2 fail-closed: an inner group with an out-of-range index is appended, never dropped (old concat kept every CPI).
+  for (const g of groups) if (!(Number(g.index) >= 0 && Number(g.index) < topLevel.length)) all.push(...asArr(g.instructions));
   const out: MultiplierEvent[] = [];
   let pos = 0;
   for (const ixRaw of all) {

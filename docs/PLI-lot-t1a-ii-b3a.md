@@ -142,6 +142,9 @@ aucun gT » est prouvée par le test offline `bell_symbol_build_mint_quorum_fail
   `concord=false` en atteignant genesis) ⇒ la complétude L-5 s'appuie sur l'oracle C-3 (C-4(iv)) + quorum des corps
   par événement (C-4(iii), implémenté), pas sur la concordance d'ensemble des signatures ; déclencheur : L-5 ;
   propriétaire orchestrateur + worker -b1-bis.
+- **Runner hors dépôt non épinglé (C-G2-2, G2 -b3a)** — `PROVENANCE-rebase-course.md` épingle les SORTIES (séries +
+  bruts `course/series-*.json`, `authority-probe.json`) mais PAS le CODE du runner `course-hybrid`/`authority-probe` qui
+  les a produites ⇒ sha-épingler le script (ou une chaîne entrée→sortie vérifiable) ; sévérité faible (séries auto-vérifiées `replayTriplet`==oracle C-3 sur les bits) ; déclencheur : reprise/relance du runner à -b1-bis ; propriétaire orchestrateur.
 - **`bell-report.mjs --rebase`** — reporté à -b1-bis (aucune donnée de course à rapporter avant L-5).
 
 ## Oracles (ciblés VERTS ; `npm run ci` complet lancé UNE fois en fin, §F)

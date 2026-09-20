@@ -277,7 +277,9 @@ plafonds ; **aucun scan full-mint corps lancé**. Ratification **investisseur** 
 - **`gate.residuals` non compté dans `state.json`** — `collect()` compte `rebase_unverified` par séance mais ne
   déverse pas les résiduels du gate `trajectory_known` (granularité mint vs séance non spécifiée) ⇒ l'émission est
   couverte par test mais non servie ; déclencheur : -b1-bis (course rebase-aware qui publie le gate) ;
-  propriétaire orchestrateur.
+  propriétaire orchestrateur. **Réserve `scanMethod` (côté ENTRÉE, C-G2 -b3a)** : servir ces résiduels exige AUSSI
+  d'étendre `TrajectoryInput`/`loadTrajectories` (`collect.ts` l.421/453) pour PORTER `scanMethod`, et `buildSolanaSymbol`
+  (l.442-444) pour le PASSER à `rebaseGateFromTrajectory` — l'appel actuel omet `scanMethod` ⇒ résiduels jamais émis en `main()` ; même déclencheur/propriétaire.
 
 ### MAST (résiduel)
 + « rejeu circulaire » (contre-mesure : oracle d'état final C-3, `getAccountInfo` quorum-2 après scan, comparaison
