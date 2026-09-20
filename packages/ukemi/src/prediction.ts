@@ -10,21 +10,29 @@
 import type { Prediction } from "@monark/contracts";
 import { serializePrediction } from "@monark/contracts";
 
-export const UKEMI_PREDICTOR_ID = "internal:ukemi-cascade-v0";
 const SCHEMA_VERSION = "1.0.0";
-const TASK_CLASS = "cascade-liquidable-24h";
+
+/**
+ * Prediction identity carried BY THE CALLER (D1): the package no longer hard-codes a `predictor_id`
+ * or a `task_class` — the caller (e.g. the harness, at U-2b/U-4) owns those strings, so `@monark/ukemi`
+ * ships no `internal:*` predictor and no served class.
+ */
+export interface PredictionMeta {
+  readonly predictorId: string;
+  readonly taskClass: string;
+}
 
 /**
  * Emits a point prediction (the estimated liquidable amount, target A) as `yhat:number`.
  * It is a point that HIKAE will conformalize into an `interval` region in Phase 2 — UKEMI does
- * NOT emit a region or a guarantee.
+ * NOT emit a region or a guarantee. `predictorId`/`taskClass` are supplied by the caller (`meta`).
  */
-export function emitPrediction(yhat: number, producedAt: string): Prediction {
+export function emitPrediction(yhat: number, producedAt: string, meta: PredictionMeta): Prediction {
   return {
     schema_version: SCHEMA_VERSION,
-    task_class: TASK_CLASS,
+    task_class: meta.taskClass,
     yhat,
-    predictor_id: UKEMI_PREDICTOR_ID,
+    predictor_id: meta.predictorId,
     produced_at: producedAt,
   };
 }

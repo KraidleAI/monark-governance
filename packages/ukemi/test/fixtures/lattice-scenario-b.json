@@ -1,0 +1,14 @@
+{
+  "name": "lattice-scenario-b",
+  "note": "NOTE-treillis §1 coincidence lambda=0: same positions as scenario A but D=0.15, lambda=0 (linear) => P=85 constant => T=50 constant => unique fixed point Q_*=Q^*=50 = the static eligible amount (positions 1,2 tip; position 3 at pCrit=85 is NOT tipped, strict inequality). Prop. 4 predicate TRUE here (only dormant pCrit=85 <= P_min=85) => uniqueness. Kills mutant m3 (dropping the (1-D) factor gives P=100 => T=20 != 50).",
+  "p0": 100,
+  "drop": 0.15,
+  "lambda": 0,
+  "demand": "linear",
+  "positions": [
+    { "pCrit": 105, "debt": 20 },
+    { "pCrit": 91, "debt": 30 },
+    { "pCrit": 85, "debt": 40 }
+  ],
+  "expected": { "smallest": 50, "greatest": 50 }
+}
