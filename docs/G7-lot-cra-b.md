@@ -25,7 +25,7 @@ Aucun composant nouveau, `fleet.ts` inchangé. `SECURITY.md` ∈ `WHITELIST_FILE
 C-G2-1..3 : worker. C-V-1 (L-6 non fait) : orchestrateur. C-V-5 (« within scope » hors liste C-6) : validateur (checkpoint-1). C-V-2 (délais publiés sans ratification explicite) : orchestrateur (a lu le silence comme accord).
 
 ## Gate de publication et items formés
-- **C-V-2 (ESCALADE-INVESTISSEUR, gate)** : ratification verbatim des 72 h / 90 j avant tout `export-public` d'un arbre contenant `SECURITY.md`. Question posée le 2026-09-20 ; réponse en attente.
+- **C-V-2 (ESCALADE-INVESTISSEUR, gate)** : ratification verbatim des 72 h / 90 j avant tout `export-public` d'un arbre contenant `SECURITY.md`. Ratifiée le 2026-09-20, décision 48 (verbatim « 72 h / 90 j ok ») — gate levée.
 - **C-V-5** : `cra_surfaces_stay_conditional` n'attrape pas « within scope » ; déclencheur : prochain lot touchant `test/cra-b.test.ts` ou cartographie pré-release ; ancrer sur le sujet (éviter le faux positif PROCEDURE:14-15).
 - **C-V-6** : le miroir public cite `deploy/Caddyfile.monark-*` et la preuve ADR-M012, non exportés ; déclencheur : première exportation / cartographie pré-release ; lié à C-V-2 (une seule gate de publication).
 - **C-V-4** : filtre Caddy `format filter` — propriétaire orchestrateur, lecture J+30 (2026-10-18).
