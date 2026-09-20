@@ -45,9 +45,9 @@ reportées non pour R-25 mais faute de données de course (C-V-2) — voir items
 ## sha256 (LF) des fichiers NOUVEAUX (provenance ; = shas pristine post-mutant-sweep, restauration prouvée)
 ```
 rebase-trajectory.ts       b831c0877b85053667aa047522f42ada7dd8721392fb5c9873abcc9fac739c18
-rebase-scan.ts             7f7cd4c7e31b6de655e4811fde711f31a181d3018e546d8c8ccbd102e974ac54
+rebase-scan.ts             1c9935258ab095a597af13fa89d61fd703c694f183b00969675bb7aa2da473cb
 rebase-trajectory.test.ts  69b8bca2d0fb3eaaf1d7f861f4fa1437680ff1c2d6e4d086aa38ac04c308ceee
-rebase-scan.test.ts        5efb9f6e601ac8a0705b20e8065d989b7dbe27b649eb0b77f31285cc734e36b0
+rebase-scan.test.ts        1cccded721cc23abaf5bb496ff3ebc93c09047d323d97be64ee02f481798afd4
 rebase-gate-gt.test.ts     bdeaab7aa7752a41bc3b71fe4c5206fed07cdaf36df6d8df14c2ff1bf61f01cb
 ```
 

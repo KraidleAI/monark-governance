@@ -200,7 +200,7 @@ bigint inchangé (digests m=1 bit-identiques à -b1). Test `bell_gt_constant_m_n
 |---|---|---|---|---|
 | scan → trajectoire | course d'autorité `S7vYFF…` (gTfA Helius + relecture quorum-2 Chainstack), bruts hors dépôt sha-pinnés | décodeurs 43/x + `replayTriplet` (events + oracle d'état C-3) | course FAITE (décision 60) ; 4 séries sha-pinnées `test/fixtures/series/rebase/`, rejouées bit-à-bit hors ligne ; consommateur servi = -b1-bis ⇒ **upcoming** | `bell_rebase_course_replays_bit_identical`, `bell_rebase_scan_state_divergence_is_unverified` |
 | trajectoire → gate | `MultiplierEvent[]` | `rebaseGateFromTrajectory` (3 états ; `scanMethod="authority"` ⇒ résiduels nommés) | branché (offline) | `bell_rebase_gate_three_states`, `bell_rebase_authority_residuals_named_and_gated` |
-| gate → g_t | `RebaseGate` (events) | `collect()` → `sessionGapRebase` (÷ m par fill) + `multiplierUsed` | **branché dans `main()`** via `--rebase-trajectory` (C-10) | `bell_gt_trajectory_known_integration`, `bell_symbol_build_mint_quorum_fail_unverified` (C-V-3) |
+| gate → g_t | `RebaseGate` (events) | `collect()` → `sessionGapRebase` (÷ m par fill) + `multiplierUsed` | **flag `--rebase-trajectory` consommé ; producteur in-repo ABSENT ; composition non rejouée** (checkpoint-2 C-V-1 : aucun producteur n'émet la forme `{symbol:{events,scanComplete}}` — `runRebaseScanCli` s'arrête au probe, séries committées en `scan_complete` snake_case ; `loadTrajectories` sans appelant de test ; `buildSolanaSymbol` testé seulement avec `trajectory=undefined` ; `collect.test.ts:494-498` = regex sur le source, pas une exécution) ⇒ **item formé** : producteur + test d'intégration non-LLM exécutant la composition depuis un fichier de trajectoire ; déclencheur G0 -b1-bis avant toute g_t fondatrice ; propriétaire orchestrateur | `bell_gt_trajectory_known_integration`, `bell_symbol_build_mint_quorum_fail_unverified` (C-V-3) |
 | gate.residuals → compteur résiduel / state.json | `RebaseGate.residuals` (trajectory_known) | — | **ABSENT** : `collect()` ne compte pas les résiduels du gate (la granularité mint vs séance n'est pas spécifiée) ⇒ **item formé** (déclencheur -b1-bis, propriétaire orchestrateur) | émission couverte par `bell_rebase_authority_residuals_named_and_gated` |
 | g_t → course | — | -b1-bis (course rebase-aware) | item formé | G0 -b1-bis |
 
@@ -280,6 +280,14 @@ plafonds ; **aucun scan full-mint corps lancé**. Ratification **investisseur** 
   propriétaire orchestrateur. **Réserve `scanMethod` (côté ENTRÉE, C-G2 -b3a)** : servir ces résiduels exige AUSSI
   d'étendre `TrajectoryInput`/`loadTrajectories` (`collect.ts` l.421/453) pour PORTER `scanMethod`, et `buildSolanaSymbol`
   (l.442-444) pour le PASSER à `rebaseGateFromTrajectory` — l'appel actuel omet `scanMethod` ⇒ résiduels jamais émis en `main()` ; même déclencheur/propriétaire.
+- **Fail-open C-3 sur le chemin servi (checkpoint-2 C-V-2, prouvé par harnais)** : `buildSolanaSymbol` (`collect.ts` l.442-444)
+  avec un fichier de trajectoire contredisant l'état live du mint (rejeu m = 1,5 ; mint lu m = 1) et `scanComplete: true`
+  rend `trajectory_known` — la lecture live du mint est un test de PRÉSENCE, jamais une comparaison `replayTriplet` vs état
+  sur les bits ; la parenthèse « (the C-3 oracle anchor) » du commentaire de `collect.ts` est FAUSSE (édition du `.ts`
+  différée à l'item, comptée R-25). Item formé, fusionné avec la réserve `scanMethod` ci-dessus : ancrer C-3 dans
+  `buildSolanaSymbol` (état du mint base64 quorum-2, comparaison sur les bits, divergence ⇒ `rebase_unverified`) + porter
+  `scanMethod` ; déclencheur : avant toute g_t -b1-bis ; propriétaire orchestrateur ; `error_origin` : rédacteur -b3a
+  (câblage L-3/C-10).
 
 ### MAST (résiduel)
 + « rejeu circulaire » (contre-mesure : oracle d'état final C-3, `getAccountInfo` quorum-2 après scan, comparaison
