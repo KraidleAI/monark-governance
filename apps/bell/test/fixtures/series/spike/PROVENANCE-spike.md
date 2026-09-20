@@ -6,7 +6,7 @@ sha of the out-of-repo raws). This directory is under the R-25 series-excluded r
 `series_pinned_are_declared_and_hashed`, LF-normalized). Worker Opus 4.8, 2026-09-20.
 
 ## ToS review (pasted per orchestrator decision, 2026-09-19)
-ToS review (2026-09-19): Helius Terms of Service (last updated 2026-04-24, https://www.helius.dev/terms) and
+ToS review (2026-09-19; read by a Sonnet 5 reader agent (`claude-sonnet-5`), orchestrator decision option (c), see ADR-T1aii C-13): Helius Terms of Service (last updated 2026-04-24, https://www.helius.dev/terms) and
 Chainstack SaaS Terms of Service (last updated June 2026, https://chainstack.com/tos/) do not explicitly
 address ownership, redistribution, or public-repository publication of RPC response data or statistics derived
 from it. Both contain general non-redistribution / no-derivative-works clauses aimed at the paid Service/API
