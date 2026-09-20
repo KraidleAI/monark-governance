@@ -189,6 +189,8 @@ suite de miscovers RÉELLE des traces S2 Shōgen — rapport `docs/measure-M009a
 - **Rattachement** : conserve la doctrine D6 (« budgets déclarés, non fondés ») ; le passage branche (a)
   (ADR-M009 item 7) exige toujours la redéfinition de `B_t` **avant** bascule. `error_origin` = n/a (mesure).
 
+### Décision investisseur 2026-09-20 17:44 UTC — option (b) RETENUE (ratification bFloor, décision 71)
+`B_floor` reste **0**. La phrase d'honnêteté chiffrée de l'option (b) ci-dessus devient le texte normatif de D6 pour ce paramètre et **remplace** l'« échangeabilité déclarée » : au bord (taux vrai = α), `B_floor = 0` donne une probabilité d'épuisement du budget par bruit seul d'environ 35 % (t° = 30) à 49 % (t° = 365) ; mesuré sur les traces d'attestation S2 réelles (n = 26 938 fenêtres, `docs/measure-M009a.md`) le taux de miscover est ≤ 5 % ≪ α et `B_t` n'est jamais descendu sous 0 ; la préoccupation demeure pour toute calibration réellement au bord et est aggravée par les rafales. Aucune valeur committée ne change ; le passage à l'option (a) d'ADR-M009 item 7 exige toujours la redéfinition de `B_t` avant bascule. Item « ratification bFloor » : **CLOS**.
 ### D7 — Prédicteur : baseline déclarée en Phase 1, LLM en Phase 2
 - `Prediction.predictor_id` (gelé) rend le prédicteur **enfichable**. Phase 1 = **baseline momentum déclarée**
   (`predictor_id="internal:momentum-4c"`, préfixe ADR-M001 conservé). **Convention d'indice (alignée D8, anti
