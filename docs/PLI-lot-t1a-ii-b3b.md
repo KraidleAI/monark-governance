@@ -7,6 +7,10 @@ base `2da0bf5` (R-25) ; HEAD ff `e9c17b5` (biblio PR-B-DBN, `docs/**/*.md` exclu
 checkpoint-1 `docs/CHECKPOINT1-lot-t1a-ii-b3b.md` (C-1..C-11 pliées ; C-1/C-2/C-3 bloquantes traitées avant tout code).
 **G2 `docs/G2-lot-t1a-ii-b3b.md` (gel `e0de31d`) : APPROUVÉ-AVEC-CORRECTIONS — C-G2-1 pliée (tueur ajouté pour la branche `close.ts:161`,
 SONDE G2 désormais rouge) + O-3 (numérotation mutants contiguë, pins sha `close.test.ts` mis à jour) ; O-1/O-2 = signalements (non corrections).**
+**Checkpoint-2 `docs/CHECKPOINT2-lot-t1a-ii-b3b.md` (gel `5da9734`) : ACCEPTÉ-AVEC-CORRECTIONS — pli -b3b-3 : C-V-1 BLOQUANTE (le triplet réel TSLA/2026-09-18/close
+officiel était committé sous étiquette « synthétique » — défaut ESC-1 c, `error_origin` validateur+worker) ⇒ littéraux remplacés par des valeurs RONDES déclarées synthétiques
+(123.45/123.46, jour synthétique 2026-09-07) + script anti-close (§2 bis) ; C-V-1 bis ([redacted real close A] + [redacted real close B] préexistants dans bell/collect/report.test) nettoyés (tests verts) ;
+C-V-2 (MV5b/MV6/MV8 tués) ; C-V-3 (O-1 = fil BELL_HALTS_CSV rejoué, MV9 tué ; O-2 disposition §5) ; C-V-5 (auteur/relecture pli -b3b-2, §5). C-V-4 = docs orchestrateur au G7.**
 
 ## 1. Livrables (liste fermée du G0) — état
 | # | Livrable | État | Preuve |
@@ -34,10 +38,26 @@ SONDE G2 désormais rouge) + O-3 (numérotation mutants contiguë, pins sha `clo
 - **Fixture synthétique committée (hors `series/`, comptée R-25)** : `apps/bell/test/fixtures/halts-tsla-synth.csv` — 1 ligne halt `Symbol=TSLA`,
   `Name="SYNTHETIC halt row - test fixture, not an NYSE event"` (erratum C-3), fenêtre ET samedi 09:31:00→09:32:00 (13:31:00Z→13:32:00Z)
   encadrant les 8 fills réels (13:31:04→13:31:50Z). Aucun close fabriqué ; aucune donnée sous `series/`.
-- **Fichiers nouveaux committés — sha256 (bytes, après C-G2-1)** :
-  - `apps/bell/src/close.ts` `c8de5b7533f9b3e97fd9a69eb4686d2b8e43f704b39b7b0453092c39cb12d145`
-  - `apps/bell/test/close.test.ts` `7e9d0e684b935f706d288d76299abcc5c7849029af20b2b0f2a4ebc4c6f8d908` (O-3 : re-pinné après l'ajout du cas C-G2-1)
-  - `apps/bell/test/fixtures/halts-tsla-synth.csv` `f1eb3a00af8acb238f32f07fb501bf34631fff8ab36d59878062dfbb69119c5a`
+- **Fichiers nouveaux/touchés — sha256 (bytes, après C-V-1..C-V-3, pli -b3b-3)** :
+  - `apps/bell/src/close.ts` `a4c92a59cce67add12b7cb48d96bc793a5c4312e6074897c53d4ad33f221624c`
+  - `apps/bell/test/close.test.ts` `1673bf9f153a3f0f82c753be22ce3ad969f7dd9f6d4a39fb696c3c540152f177` (re-pinné après C-V-1/C-V-2)
+  - `apps/bell/test/collect.test.ts` `0b6aeaf72953b9591b091dbee15568534974591f83df37b05626c781d67c5710`
+  - `apps/bell/test/bell.test.ts` `b941656f6634c4e3e2655b53a09e91ff9365a71248137f655021635af660abce`
+  - `apps/bell/test/report.test.ts` `9c216662b5076ddc95605394e29180ec4947bc42fd2ebe095c9f12d4b6e5ddc9`
+  - `apps/bell/test/fixtures/halts-tsla-synth.csv` `f1eb3a00af8acb238f32f07fb501bf34631fff8ab36d59878062dfbb69119c5a` (inchangé)
+
+## 2 bis. Anti-close (C-V-1, BLOQUANTE — le close réel ne doit JAMAIS être dans l'arbre)
+Défaut trouvé au checkpoint-2 : `close.test.ts`/`close.ts`/`bell.test.ts`/`report.test.ts`/`collect.test.ts` portaient le close officiel réel
+TSLA 2026-09-18 (`[redacted real close A]` / `"[redacted]"`) — et `report.test.ts` un second close réel (`[redacted real close B]`, décimale que le diff scaled-string du G2 avait manqué).
+Correctif : tous remplacés par des valeurs **rondes, déclarées synthétiques en commentaire adjacent** (`123.45`/`"123450000000"`, mismatch `123.46`), sur un
+**jour synthétique 2026-09-07** (férié, hors des 5 jours bruts) pour les enregistrements. Vérification par **script en copie froide** (lit les 4 bruts
+`get_range-*.json` hors dépôt + scanne `apps/bell/{src,test}/*.ts`, compare les décimales et les entiers scalés 1e-9, n'imprime AUCUN close) :
+```
+forbidden real closes (20 expected): 20
+apps/bell literals matching a REAL close: 0        # 29 AVANT le correctif
+candidate 123.45 / 123.46 / 123.450000000 / 100.00 : forbidden? false (chacun)
+```
+`PINNED_BELL_SHA` inchangé (`0cfbed20…` ; `tslaxInput(364.5)` non touché, 364.5 ∉ closes réels) ⇒ aucun octet de fixture changé, aucun re-pin. `assertNoClose` inchangée ; sorties `runMain` toujours close-free.
 
 ## 3. Chiffres (mesurés, reproductibles)
 - **Coût Databento** (`metadata.get_cost`, GRATUIT — PR-B-DBN Q7) : **$0.000031292439** pour 4 sous-jacents × 5 jours `ohlcv-1d`.
@@ -53,9 +73,9 @@ SONDE G2 désormais rouge) + O-3 (numérotation mutants contiguë, pins sha `clo
   L-3 (1), L-4 (1), C-6 joignabilité sur sortie collect (1), close.ts pur (5 : scaled-int C-5, earliestPublishUtc C-6, cash_request_digest, JSON parse, seam croisement). Oracles : `gate:vocab` 0,
   `typecheck` 0, `lint` 0, `lint:ratchet` 69/69, `lang:gate` 0, `export:check` 0, `no_secret_in_repo`/`series_pinned_are_declared_and_hashed` verts.
 - **R-25** : `git diff --shortstat 2da0bf5 -- .` sous la pathspec exacte `STAT=` (`.github/workflows/ci.yml` l.65 ; `docs/**/*.md` + `series/**` exclus ;
-  `halts-tsla-synth.csv` hors `series/` **compté**), `CHANGED = ins+del` = **723** (649 ins, 74 del) ≤ 1 205 (sous la projection G0 ~1 085, marge ~482 ;
-  G1 = 710, +13 pour le cas C-G2-1). **Seam L-4+L-5 → -b3b-2 NON déclenché** (mesuré < 1 205). Fichiers désormais committés (G1 `e0de31d`) ⇒ comptés
-  nativement par `git diff` (plus de `git add -N` nécessaire) ; le G2 a re-mesuré 710 à `e0de31d` dans les trois formes de merge-base (`..`, `...`, vs `e9c17b5`).
+  `halts-tsla-synth.csv` hors `series/` **compté**), `CHANGED = ins+del` = **771** (690 ins, 81 del) ≤ 1 205 (sous la projection G0 ~1 085, marge ~434 ;
+  G1 = 710, +13 -b3b-2 C-G2-1, +48 -b3b-3 C-V-1/C-V-2/C-V-3). **Seam L-4+L-5 → -b3b-2 NON déclenché** (mesuré < 1 205). Fichiers committés (G1 `e0de31d`,
+  G2 `9d6dacf`, -b3b-2 `5da9734`) ⇒ comptés nativement par `git diff` ; le G2 puis le checkpoint-2 ont re-mesuré 710/723 dans les trois formes de merge-base.
 
 ## 4. Mutants nommés (≥ 8 rouges ; copie froide, restauration sha-exacte, jamais `git checkout`)
 Harnais : `cp f f.orig` → mutation (`sed`/append) → `node --test --test-name-pattern="^<killer>$"` (rouge attendu = exit≠0) → `cp f.orig f` → sha256 identique vérifié.
@@ -71,8 +91,12 @@ Harnais : `cp f f.orig` → mutation (`sed`/append) → `node --test --test-name
 | M8 | close.ts | clé `db-…` plantée | `no_secret_in_repo` | RED, restauré |
 | M9 | residuals.ts | `cash_cross_mismatch` → `close_cross_mismatch` (heurte `CLOSE_KEY`) | `bell_residual_counter_passes_close_guard` | RED, restauré |
 | M10 | close.ts:161 | branche « clé Polygon présente + Massive rejette/vide » `"unavailable"`→`"matched"` (SONDE G2) | `bell_read_reference_closes_cross_matched_mismatch_unavailable` | RED, restauré (C-G2-1) |
+| M11 | close.ts | filtre `!== DBN_UNDEF_PRICE` retiré (UNDEF_PRICE gardé comme close) | `bell_read_reference_closes_cross_matched_mismatch_unavailable` | RED, restauré (C-V-2 MV5b) |
+| M12 | close.ts | requête Databento non poussée dans `cash_request_digest` (C-7) | `bell_read_reference_closes_cross_matched_mismatch_unavailable` | RED, restauré (C-V-2 MV6) |
+| M13 | collect.ts | `earliestPublishUtc(refDate)` → `earliestPublishUtc(g.anchor)` | `bell_earliest_publish_utc_is_joinable_per_session_on_collect_output` | RED, restauré (C-V-2 MV8) |
+| M14 | collect.ts | `runMain` `haltRows` forcé à `[]` (fil `BELL_HALTS_CSV` coupé) | `bell_close_databento_replays_synthetic_fixture` | RED, restauré (C-V-3 O-1 / MV9) |
 
-**10/10 tués** (O-3 : numérotation contiguë M1..M10, plus de trou). Couverture L-1 (M4,M5), L-2 (M1,M2,M3), L-3 (M6,M7), L-6 (M8), C-1 (M9), **C-G2-1 (M10, branche `close.ts:161` — la SONDE du G2 SURVIVAIT au G1, tuée ici)**. « nouveau `PINNED_BELL_SHA` bit-identique vert » = baseline (`bell_collector_replays_fixture_bit_identical` vert).
+**14/14 tués** (M1..M10 aux plis G1/-b3b-2 ; M11..M14 au pli -b3b-3 — ce sont les 4 mutants qui **SURVIVAIENT** au checkpoint-2, désormais tués par C-V-2/C-V-3). Couverture L-1 (M4,M5,M14), L-2 (M1,M2,M3,M11,M12), L-3 (M6,M7), L-6 (M8), C-1 (M9), C-G2-1 (M10), C-6 joignabilité (M13). « nouveau `PINNED_BELL_SHA` bit-identique vert » = baseline (`bell_collector_replays_fixture_bit_identical` vert).
 
 ## 5. Décisions/placements déclarés (D-n)
 - **D-b3b-1** : `earliest_publish_utc` **dans le digest haché**, par entrée `gT` (C-6 option (a)) — joignable à sa g_t, tamper-evident ; l'enveloppe date-map serait injoignable
@@ -99,4 +123,9 @@ témoin à l'abonnement 29 $/mois (décision de coût/dépendance, hors worker).
 - **Bord déclaré — token non mappé** (non dette) : `runMain` clé `datesByUnderlying` par `UNDERLYING[symbol] ?? symbol` ; un token futur non mappé interrogerait Databento avec le ticker du TOKEN — réponse 200 + `warnings` (PR-B-DBN Q10) ⇒ `closeStringsByDate` = `{}` ⇒ `no_close_ref`, fail-closed (jamais un close inventé). Les 5 sous-jacents actuels (TSLA/SPY/NVDA/AAPL, TSLAon→TSLA) sont mappés.
 - **Cost pre-flight committé dans `runMain`** : NON retenu (item, non dette) — le gate coût opérationnel est la validation `metadata.get_cost` (§3) + le budget `--max-calls` (compte d'appels) ; `databentoCostPath` est exposé pour un pré-vol T-1b futur.
 
-Provenance : modèle épinglé `claude-opus-4-8[1m]`, 2026-09-20, contexte G1 -b3b, réviseur = orchestrateur (R-21) puis G2 fraîche → checkpoint-2 (re-exécution imposée CA-9) → G7.
+## 8. Dispositions checkpoint-2 (pli -b3b-3)
+- **C-V-3 O-2 (disposition tranchée = « inatteignable déclaré »)** : `scaledFromDecimal(String(massiveC))` à `close.ts` est hors try/catch, mais `massiveC` est déjà borné à `number` fini par la garde `typeof massiveC !== "number"` juste au-dessus (undefined ⇒ branche `unavailable`) ; `String(x)` d'un nombre fini satisfait `/^-?\d+(\.\d+)?$/` SAUF |x| < 1e-6 (rendu exponentiel « 1e-7 ») ou ≥ 1e21 — aucun close d'action US cotée n'y est (TSLA/SPY/NVDA/AAPL ~1..10⁴). La jambe Databento, elle, EST enveloppée (une anomalie de forme y ⇒ fault + jour absent). Donc l'exception est **inatteignable depuis un close réel** ; aucun try/catch ajouté (R-25 ±0). Si un jour un jeu à prix < 1e-6 entre en périmètre, envelopper symétriquement (fault `polygon.io` ⇒ `unavailable`) — déclencheur T-1b.
+- **C-V-5 (consignation)** : le pli **-b3b-2** (`close.test.ts` +13 lignes, C-G2-1) a été **écrit par le worker Opus 4.8** (`claude-opus-4-8[1m]`) ; sa **relecture séparée à contexte frais** = le **checkpoint-2** (`claude-fable-5-1`), qui a re-exécuté MV4b (SONDE tuée) + la suite 172/172 sur le delta `9d6dacf..5da9734`. Le pli **-b3b-3** (C-V-1..C-V-3, C-V-5) est écrit par le même worker ; sa relecture séparée = le **checkpoint-2 bis borné** (§ checkpoint-2 §5 : re-diff des littéraux contre les bruts, suites `close`/`collect`/`no_secret` vertes, sha des fichiers touchés).
+- **C-V-4** : docs/registre (CHANTIERS §E -b3c ; ligne ratification Q3(ii) ; PR-B-DBN résiduel n° 8 + déclencheur C-6) = **propriétaire orchestrateur au G7 sur `lot/etude-suite`** (hors périmètre worker `apps/bell/**`).
+
+Provenance : modèle épinglé `claude-opus-4-8[1m]`, 2026-09-20, contexte G1 -b3b + plis -b3b-2 (C-G2-1) / -b3b-3 (C-V-1..C-V-5), réviseur = orchestrateur (R-21) ; G2 fraîche → checkpoint-2 (re-exécution imposée CA-9) → checkpoint-2 bis borné → G7.

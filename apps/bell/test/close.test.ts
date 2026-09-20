@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { scaledFromDatabento, scaledFromDecimal, earliestPublishUtc, cashRequestDigest, parseDatabentoJson,
-  dbnBarDateUtc, readReferenceCloses, databentoGetRangePath, type DatabentoGet, type PolygonGet } from "../src/close.ts";
+  dbnBarDateUtc, readReferenceCloses, databentoGetRangePath, DBN_UNDEF_PRICE, type DatabentoGet, type PolygonGet } from "../src/close.ts";
 import { etWallClockToUtcMs } from "../src/sessions.ts";
 import { assertNoClose } from "../src/digest.ts";
 import type { TransportFault } from "../src/quorum.ts";
@@ -11,21 +11,23 @@ import type { TransportFault } from "../src/quorum.ts";
 const nsOf = (dateISO: string): string => String(BigInt(new Date(dateISO + "T00:00:00Z").getTime()) * 1_000_000n);
 
 // ---- C-5: equality on the SCALED INTEGER (1e-9), never on the raw string ----
+// All numeric literals here are SYNTHETIC (123.45 / 123.46 — declared, verified ABSENT from the 20 real
+// out-of-repo closes by the anti-close script, PLI §2 bis); never a market print (C-V-1).
 test("bell_cash_cross_scaled_integer_equality", () => {
   // trailing-zero absorption: a decimal with 9 fractional zeros equals the same decimal without (kills a naive
-  // string compare "364.270000000" != "364.27").
-  assert.equal(scaledFromDecimal("364.270000000"), scaledFromDecimal("364.27"));
-  assert.equal(scaledFromDecimal("364.270000000"), 364_270_000_000n);
+  // string compare "123.450000000" != "123.45").
+  assert.equal(scaledFromDecimal("123.450000000"), scaledFromDecimal("123.45"));
+  assert.equal(scaledFromDecimal("123.450000000"), 123_450_000_000n);
   // a real difference at the cent IS a mismatch.
-  assert.notEqual(scaledFromDecimal("364.27"), scaledFromDecimal("364.28"));
+  assert.notEqual(scaledFromDecimal("123.45"), scaledFromDecimal("123.46"));
   // the Databento scaled-int STRING and the Massive decimal decode to the SAME scaled BigInt (the cross basis).
-  assert.equal(scaledFromDatabento("364270000000"), scaledFromDecimal("364.27"));
-  assert.notEqual(scaledFromDatabento("364280000000"), scaledFromDecimal("364.27"));
+  assert.equal(scaledFromDatabento("123450000000"), scaledFromDecimal("123.45"));
+  assert.notEqual(scaledFromDatabento("123460000000"), scaledFromDecimal("123.45"));
   // integers and negatives scale correctly.
   assert.equal(scaledFromDecimal("5"), 5_000_000_000n);
   assert.equal(scaledFromDecimal("-1.5"), -1_500_000_000n);
   // shape rejection, never a silent NaN: a decimal is NOT a databento scaled-int string.
-  assert.throws(() => scaledFromDatabento("364.27"));
+  assert.throws(() => scaledFromDatabento("123.45"));
   assert.throws(() => scaledFromDecimal("abc"));
 });
 
@@ -55,38 +57,48 @@ test("bell_cash_request_digest_key_free_and_stable", () => {
 });
 
 // ---- PR-B-DBN: JSON framing (NDJSON or array) + ts_event (UTC midnight of the bar date) ----
+// SYNTHETIC record: close "123450000000" (=123.45) on 2026-09-07 (a holiday, outside the 5 raw days) — NOT a
+// market print; the close is declared-synthetic and verified absent from the real closes (C-V-1, PLI §2 bis).
 test("bell_databento_json_parse_and_bar_date", () => {
-  const rec = { hd: { ts_event: nsOf("2026-09-18") }, close: "364270000000", symbol: "TSLA" };
-  const ndjson = JSON.stringify(rec) + "\n" + JSON.stringify({ hd: { ts_event: nsOf("2026-09-17") }, close: "365000000000" });
+  const rec = { hd: { ts_event: nsOf("2026-09-07") }, close: "123450000000", symbol: "TSLA" };
+  const ndjson = JSON.stringify(rec) + "\n" + JSON.stringify({ hd: { ts_event: nsOf("2026-09-06") }, close: "123460000000" });
   assert.equal(parseDatabentoJson(ndjson).length, 2);
   assert.equal(parseDatabentoJson(JSON.stringify([rec])).length, 1);
   assert.equal(parseDatabentoJson("").length, 0);
-  assert.equal(dbnBarDateUtc(rec), "2026-09-18"); // ts_event ns under hd
-  assert.equal(dbnBarDateUtc({ ts_event: Number(BigInt(nsOf("2026-09-18"))), close: "1" }), "2026-09-18"); // numeric ns at root
+  assert.equal(dbnBarDateUtc(rec), "2026-09-07"); // ts_event ns under hd
+  assert.equal(dbnBarDateUtc({ ts_event: Number(BigInt(nsOf("2026-09-07"))), close: "1" }), "2026-09-07"); // numeric ns at root
   // the range query carries the [lu] params, start inclusive / end exclusive, encoding=json (no pretty_px).
-  const path = databentoGetRangePath("TSLA", "2026-09-18", "2026-09-19");
-  for (const s of ["dataset=EQUS.SUMMARY", "schema=ohlcv-1d", "stype_in=raw_symbol", "encoding=json", "start=2026-09-18", "end=2026-09-19"]) assert.ok(path.includes(s), s);
+  const path = databentoGetRangePath("TSLA", "2026-09-07", "2026-09-08");
+  for (const s of ["dataset=EQUS.SUMMARY", "schema=ohlcv-1d", "stype_in=raw_symbol", "encoding=json", "start=2026-09-07", "end=2026-09-08"]) assert.ok(path.includes(s), s);
   assert.ok(!path.includes("pretty_px"));
 });
 
 // ---- L-2: the cross-check seam — matched publishes, mismatch abstains, unavailable single-sources ----
+// SYNTHETIC throughout: close 123.45 (=scaled "123450000000") on 2026-09-07 (a holiday, outside the 5 raw days) —
+// declared, verified absent from the real closes (C-V-1, PLI §2 bis); the mismatch decimal 123.46 is synthetic too.
 test("bell_read_reference_closes_cross_matched_mismatch_unavailable", async () => {
-  const day = "2026-09-18";
-  const dbn: DatabentoGet = () => Promise.resolve([{ hd: { ts_event: nsOf(day) }, close: "364270000000" }]);
+  const day = "2026-09-07";
+  const dbn: DatabentoGet = () => Promise.resolve([{ hd: { ts_event: nsOf(day) }, close: "123450000000" }]);
   const massive = (c: number): PolygonGet => () => Promise.resolve({ results: [{ c }] });
   const deps = (get: PolygonGet, key: string, faults: TransportFault[]): Parameters<typeof readReferenceCloses>[1] =>
     ({ databentoGet: dbn, polygonGet: get, databentoKey: "k", polygonKey: key, faults });
 
-  // matched: Massive 364.27 == Databento scaled int => publish + close_source + digest.
-  const m = await readReferenceCloses({ TSLA: [day] }, deps(massive(364.27), "p", []));
+  // matched: Massive 123.45 == Databento scaled int => publish + close_source + digest.
+  const m = await readReferenceCloses({ TSLA: [day] }, deps(massive(123.45), "p", []));
   assert.equal(m.crossByUnderlying.TSLA?.[day], "matched");
-  assert.equal(m.closeByUnderlying.TSLA?.[day], 364.27);
+  assert.equal(m.closeByUnderlying.TSLA?.[day], 123.45);
   assert.equal(m.close_source, "databento-equs-summary");
   assert.match(m.cash_request_digest, /^[0-9a-f]{64}$/);
   assert.deepEqual(m.cash_cross_mismatch_days, []);
+  // C-V-2 (MV6, C-7 imposed): the digest is the EXACT canonical list of requests ACTUALLY emitted (one Databento
+  // range [day, day+1) + one Massive per-day). Dropping/altering a request changes it (mutant: request not pushed).
+  assert.equal(m.cash_request_digest, cashRequestDigest([
+    { provider: "databento.com", dataset: "EQUS.SUMMARY", schema: "ohlcv-1d", stype_in: "raw_symbol", symbols: ["TSLA"], start: day, end: "2026-09-08" },
+    { provider: "polygon.io", symbols: ["TSLA"], start: day, end: day },
+  ]));
 
-  // mismatch: Massive 364.28 => NO close returned (session abstains downstream), day recorded, never an average.
-  const mm = await readReferenceCloses({ TSLA: [day] }, deps(massive(364.28), "p", []));
+  // mismatch: Massive 123.46 => NO close returned (session abstains downstream), day recorded, never an average.
+  const mm = await readReferenceCloses({ TSLA: [day] }, deps(massive(123.46), "p", []));
   assert.equal(mm.crossByUnderlying.TSLA?.[day], "mismatch");
   assert.ok(!(day in (mm.closeByUnderlying.TSLA ?? {})));
   assert.deepEqual(mm.cash_cross_mismatch_days, [`TSLA:${day}`]);
@@ -94,7 +106,7 @@ test("bell_read_reference_closes_cross_matched_mismatch_unavailable", async () =
   // unavailable (no Polygon key): publish the Databento close with the single-source marker (interim Q3(ii) (a)).
   const unav = await readReferenceCloses({ TSLA: [day] }, deps(() => Promise.reject(new Error("cross must not run")), "", []));
   assert.equal(unav.crossByUnderlying.TSLA?.[day], "unavailable");
-  assert.equal(unav.closeByUnderlying.TSLA?.[day], 364.27);
+  assert.equal(unav.closeByUnderlying.TSLA?.[day], 123.45);
   assert.deepEqual(unav.cash_cross_unavailable_days, [`TSLA:${day}`]);
 
   // C-G2-1: polygonKey PRESENT but the Massive cross REJECTS (5xx) => still unavailable (the close.ts massiveC-not-a-number
@@ -102,7 +114,7 @@ test("bell_read_reference_closes_cross_matched_mismatch_unavailable", async () =
   const upFaults: TransportFault[] = [];
   const upReject = await readReferenceCloses({ TSLA: [day] }, deps(() => Promise.reject(new Error("HTTP 503")), "p", upFaults));
   assert.equal(upReject.crossByUnderlying.TSLA?.[day], "unavailable");
-  assert.equal(upReject.closeByUnderlying.TSLA?.[day], 364.27);
+  assert.equal(upReject.closeByUnderlying.TSLA?.[day], 123.45);
   assert.deepEqual(upReject.cash_cross_unavailable_days, [`TSLA:${day}`]);
   assert.equal(upFaults.length, 1, "the Massive transport fault is recorded");
   // C-G2-1: polygonKey PRESENT but Massive returns EMPTY results => massiveC undefined => same unavailable branch.
@@ -112,7 +124,14 @@ test("bell_read_reference_closes_cross_matched_mismatch_unavailable", async () =
 
   // a Databento transport fault => the day is absent (=> downstream no_close_ref), recorded, never fatal.
   const faults: TransportFault[] = [];
-  const df = await readReferenceCloses({ TSLA: [day] }, { databentoGet: () => Promise.reject(new Error("HTTP 429")), polygonGet: massive(364.27), databentoKey: "k", polygonKey: "p", faults });
+  const df = await readReferenceCloses({ TSLA: [day] }, { databentoGet: () => Promise.reject(new Error("HTTP 429")), polygonGet: massive(123.45), databentoKey: "k", polygonKey: "p", faults });
   assert.ok(!(day in (df.closeByUnderlying.TSLA ?? {})));
   assert.equal(faults.length, 1);
+
+  // C-V-2 (MV5b): a Databento UNDEF_PRICE (INT64_MAX) record is FILTERED => the day is ABSENT from closeByUnderlying
+  // (=> no_close_ref downstream), never a garbage ~9.2e9 close. Killer: dropping the `!== DBN_UNDEF_PRICE` filter.
+  const undefDbn: DatabentoGet = () => Promise.resolve([{ hd: { ts_event: nsOf(day) }, close: DBN_UNDEF_PRICE }]);
+  const ud = await readReferenceCloses({ TSLA: [day] }, { databentoGet: undefDbn, polygonGet: massive(123.45), databentoKey: "k", polygonKey: "p", faults: [] });
+  assert.ok(!(day in (ud.closeByUnderlying.TSLA ?? {})), "UNDEF_PRICE filtered => day absent (no garbage close)");
+  assert.ok(!(day in (ud.crossByUnderlying.TSLA ?? {})), "no cross attempted on an absent close");
 });

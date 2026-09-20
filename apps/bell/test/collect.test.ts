@@ -358,7 +358,7 @@ test("bell_close_source_named_in_provenance", () => {
   const sources = r.provenance.sources as { close_source?: string };
   assert.equal(sources.close_source, "massive-starter-internal"); // decision 41: the close provider is named
   assert.doesNotThrow(() => { assertNoClose(r.provenance.sources); }); // a non-numeric string does not redden
-  assert.throws(() => { assertNoClose({ close_source: 364.27 }); }); // a NUMERIC close value still reddens (mutant)
+  assert.throws(() => { assertNoClose({ close_source: 123.45 }); }); // a NUMERIC close value still reddens (mutant)
   // absent closeSource => no close_source key at all (never a fabricated one)
   const r0 = collect({ symbols: [], haltRows: [], window: { fromUtcMs: 0, toUtcMs: 0 }, nowSec: 1, staleBoundSec: 1, generatedAt: "t" });
   assert.ok(!("close_source" in (r0.provenance.sources as object)));
@@ -652,12 +652,15 @@ test("bell_close_databento_replays_synthetic_fixture", async () => {
   const outDir = mkdtempSync(join(tmpdir(), "bell-runmain-"));
   const trajPath = join(outDir, "traj.json");
   writeFileSync(trajPath, JSON.stringify({ TSLAx: { events: [{ kind: "initialize", multiplier: "1", multiplierBitsHex: f64BitsHexLE(1), effectiveTimestampSec: 0, blockTimeSec: 0, slot: 1, instructionIndex: 0, signature: "s1" }], scanComplete: true } }));
-  const env = { BELL_SOLANA_RPC: "https://mainnet.helius-rpc.com,https://solana-mainnet.core.chainstack.com", POLYGON_API_KEY: "p", DATABENTO_API_KEY: "k" } as NodeJS.ProcessEnv;
+  // C-V-3 (O-1): also wire the halt CSV through runMain so the BELL_HALTS_CSV -> haltsSince -> collect -> halt_deltas
+  // path is replayed in composition (kills MV9). The synthetic halt window (13:31:00Z-13:32:00Z) brackets the runMain fill.
+  const env = { BELL_SOLANA_RPC: "https://mainnet.helius-rpc.com,https://solana-mainnet.core.chainstack.com", POLYGON_API_KEY: "p", DATABENTO_API_KEY: "k",
+    BELL_HALTS_CSV: join(HERE, "fixtures", "halts-tsla-synth.csv") } as NodeJS.ProcessEnv;
   const argv = ["--pools", "TSLAx", "--max-calls", "100000", "--body-sample", "0", "--min-interval", "0",
     "--from-utc", String(btMs - 2 * 86_400_000), "--to-utc", String(btMs + 86_400_000), "--rebase-trajectory", trajPath, "--out", outDir];
   await runMain(argv, { call, databentoGet, polygonGet, env, nowMs: btMs + 86_400_000 });
 
-  const state = JSON.parse(readFileSync(join(outDir, "state.json"), "utf8")) as { residuals: Record<string, number>; digest: { gaps: Array<Record<string, unknown>> } };
+  const state = JSON.parse(readFileSync(join(outDir, "state.json"), "utf8")) as { residuals: Record<string, number>; digest: { gaps: Array<Record<string, unknown>> }; halt_deltas?: Array<Record<string, unknown>> };
   const prov = JSON.parse(readFileSync(join(outDir, "provenance.json"), "utf8")) as { sources: Record<string, unknown> };
   // the seam ran: close_source names Databento (mutant: drop the seam => close_source absent => red).
   assert.equal(prov.sources.close_source, "databento-equs-summary");
@@ -669,6 +672,9 @@ test("bell_close_databento_replays_synthetic_fixture", async () => {
   // C-4: g_t derived OFF-CODE from the round inputs (vwap 365 from the declared deltas, close 364) — not captured.
   assert.equal(gap.gT, Math.log(365 / 364).toFixed(10));
   assert.equal(typeof gap.earliest_publish_utc, "number");
+  // C-V-3 (O-1 / MV9): the halt CSV read by runMain reached collect() and produced a TSLAx bracket over the fill.
+  const hd = (state.halt_deltas ?? []).find((x) => x.symbol === "TSLAx");
+  assert.ok(hd && (hd.n_fills_in_window as number) >= 1, "BELL_HALTS_CSV -> runMain -> collect -> halt_deltas bracket over the fill");
   // no reference close leaks into ANY produced artifact (ESC-1 c).
   assert.doesNotThrow(() => { assertNoClose(state); });
   assert.doesNotThrow(() => { assertNoClose(prov.sources); });
@@ -676,17 +682,25 @@ test("bell_close_databento_replays_synthetic_fixture", async () => {
 
 // ---- C-6 (option a rationale): earliest_publish_utc rides ON each filled entry => JOINABLE per session ----
 test("bell_earliest_publish_utc_is_joinable_per_session_on_collect_output", () => {
-  // two filled off-hours sessions on DIFFERENT reference-close days must carry DIFFERENT earliest_publish_utc =
-  // earliestPublishUtc(refDate) — proving the field is joinable (why it lives in the digest, not one envelope scalar).
+  // filled sessions on DIFFERENT reference-close days carry DIFFERENT earliest_publish_utc = earliestPublishUtc(refDate)
+  // — joinable (why the field rides on the digest entry, not one envelope scalar). A `regular` fill (anchor != refDate)
+  // also proves the gate is keyed on refCloseDateOf(session, anchor), NOT the anchor (C-V-2 MV8). Closes = bare
+  // synthetic ints (not close records; verified not among the real closes).
   const fA: SwapFill = { signature: "a", blockTimeUtcMs: Date.UTC(2026, 8, 19, 13, 0, 0), baseDelta: 100_000_000n, quoteDelta: -364_000_000n }; // Sat => ref 2026-09-18
   const fB: SwapFill = { signature: "b", blockTimeUtcMs: Date.UTC(2026, 8, 12, 13, 0, 0), baseDelta: 100_000_000n, quoteDelta: -360_000_000n }; // Sat => ref 2026-09-11
-  const sym: SymbolInput = { symbol: "TSLAx", chain: "solana", baseDec: 8, quoteDec: 6, fills: [fA, fB], fillsResidues: [],
-    closeRefBySession: { "2026-09-18": 364, "2026-09-11": 360 }, advDailyVolumes: [] };
+  const fC: SwapFill = { signature: "c", blockTimeUtcMs: Date.UTC(2026, 8, 16, 18, 0, 0), baseDelta: 100_000_000n, quoteDelta: -355_000_000n }; // Wed 14:00 ET => regular, anchor 09-16, ref 09-15
+  const sym: SymbolInput = { symbol: "TSLAx", chain: "solana", baseDec: 8, quoteDec: 6, fills: [fA, fB, fC], fillsResidues: [],
+    closeRefBySession: { "2026-09-18": 364, "2026-09-11": 360, "2026-09-15": 355 }, advDailyVolumes: [] };
   const d = collect({ symbols: [sym], haltRows: [], window: { fromUtcMs: 0, toUtcMs: 0 }, nowSec: 1_800_000_000, staleBoundSec: 93600, generatedAt: "t" }).digest as { gaps: Array<Record<string, unknown>> };
-  const epus = d.gaps.filter((g) => "gT" in g).map((g) => g.earliest_publish_utc as number).sort((x, y) => x - y);
-  assert.equal(epus.length, 2, "two filled sessions on two ref-close days");
-  assert.notEqual(epus[0], epus[1], "distinct ref-close days => distinct publish gates (joinable, not one scalar)");
-  assert.deepEqual(epus, [earliestPublishUtc("2026-09-11"), earliestPublishUtc("2026-09-18")].sort((x, y) => x - y), "each entry carries its OWN refDate gate");
-  // C-6 on the PRODUCED output: the later gate is >= 16:00 ET of its refDate + 24h.
-  assert.ok(epus[1]! >= etWallClockToUtcMs(2026, 9, 18, 16, 0, 0) + 86_400_000);
+  const filled = d.gaps.filter((g) => "gT" in g);
+  const epus = filled.map((g) => g.earliest_publish_utc as number).sort((x, y) => x - y);
+  assert.equal(epus.length, 3, "three filled sessions on three ref-close days");
+  assert.deepEqual(epus, [earliestPublishUtc("2026-09-11"), earliestPublishUtc("2026-09-15"), earliestPublishUtc("2026-09-18")].sort((x, y) => x - y), "each entry carries its OWN refDate gate");
+  // MV8: the `regular` gap is gated on refCloseDateOf("regular", anchor) = the PRIOR trading day, NOT the anchor.
+  const reg = filled.find((g) => g.session === "regular");
+  assert.ok(reg, "a regular filled session exists");
+  assert.equal(reg.earliest_publish_utc, earliestPublishUtc(refCloseDateOf("regular", "2026-09-16")));
+  assert.notEqual(earliestPublishUtc(refCloseDateOf("regular", "2026-09-16")), earliestPublishUtc("2026-09-16"), "refDate gate != anchor gate (MV8 distinguishable)");
+  // C-6 on the PRODUCED output: the latest gate is >= 16:00 ET of its refDate + 24h.
+  assert.ok(epus[epus.length - 1]! >= etWallClockToUtcMs(2026, 9, 18, 16, 0, 0) + 86_400_000);
 });

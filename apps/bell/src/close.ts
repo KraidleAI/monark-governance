@@ -8,8 +8,9 @@
 //  · basic auth, API key = USERNAME + empty password (header only, never printed, never in a url — C-10);
 //  · endpoint `/v0/timeseries.get_range` on `hist.databento.com` ([2nd]; confirmed by a real metadata.get_cost);
 //  · dataset=EQUS.SUMMARY, schema=ohlcv-1d, stype_in=raw_symbol, start inclusive / end EXCLUSIVE (UTC);
-//  · encoding=json => 64-bit ints are STRINGS; `close` = scaled fixed-point integer, 1 unit = 1e-9 ("364270000000"
-//    == 364.27); header fields (ts_event) under `hd`; ts_event of an ohlcv-1d bar = midnight UTC of the bar date;
+//  · encoding=json => 64-bit ints are STRINGS; `close` = scaled fixed-point integer, 1 unit = 1e-9 (SYNTHETIC
+//    illustration, not a market print: "123450000000" == 123.45); header (ts_event) under `hd`; ts_event of an
+//    ohlcv-1d bar = midnight UTC of the bar date;
 //  · close = the official consolidated Nasdaq NLS+ end-of-day summary (20:15 ET), non-adjusted;
 //  · one range request covers the whole [start,end); <= 2000 symbols; unknown symbol => 200 + `warnings`.
 import { createHash } from "node:crypto";
@@ -40,7 +41,7 @@ export function scaledFromDatabento(closeStr: string): bigint {
   return BigInt(t);
 }
 /** A Massive/Polygon decimal close (`String(number)` of the JSON `c`) -> a scaled BigInt at 1e-9. Trailing zeros
- *  are absorbed ("364.270000000" == "364.27"); a real US-equity close has <= 4 decimals, and 1e-9 is finer than any
+ *  are absorbed (SYNTHETIC: "123.450000000" == "123.45"); a real US-equity close has <= 4 decimals, and 1e-9 is finer than any
  *  close, so the 9-digit fraction is exact for our purpose (C-5). Never a raw-string compare. */
 export function scaledFromDecimal(decimalStr: string): bigint {
   const t = decimalStr.trim();

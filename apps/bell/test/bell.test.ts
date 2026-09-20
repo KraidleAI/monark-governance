@@ -244,8 +244,8 @@ test("bell_close_guard_catches_camelcase", () => {
   // the regex back to /close|ref_price|p_ref/i => `refPrice`/`pRef` no longer match => this test reddens.
   assert.throws(() => { assertNoClose({ refPrice: 1 }); });
   assert.throws(() => { assertNoClose({ pRef: 1 }); });
-  assert.throws(() => { assertNoClose({ reference: "364.27" }); });
-  assert.throws(() => { assertNoClose({ prev: 364.27 }); }); // Polygon prev close
+  assert.throws(() => { assertNoClose({ reference: "123.45" }); });
+  assert.throws(() => { assertNoClose({ prev: 123.45 }); }); // Polygon prev close
   // `\bprev\b` (not bare prev) so the timeline chain key prev_line_hash is NOT falsely reddened, even
   // when its value is all-digits (numeric-like):
   assert.doesNotThrow(() => { assertNoClose({ prev_line_hash: "1234567890" }); });
@@ -253,7 +253,7 @@ test("bell_close_guard_catches_camelcase", () => {
   assert.doesNotThrow(() => { assertNoClose({ symbol: "TSLAx", vwap: "364.11", gT: "0.001", volumeBase: "52", n: 52, regime: "weekend" }); });
   // The provenance envelope is published as well: a close smuggled through `sources`/`providers` reddens
   // (checkpoint-2 V-3). Mutant: drop assertNoClose from provenance() => this assertion fails.
-  assert.throws(() => { provenance({ a: 1 }, { polygon: { prevClose: 364.27 } }, {}, "2026-09-19T00:00:00Z"); });
+  assert.throws(() => { provenance({ a: 1 }, { polygon: { prevClose: 123.45 } }, {}, "2026-09-19T00:00:00Z"); });
   assert.doesNotThrow(() => { provenance({ a: 1 }, { polygon: { endpoint: "v2/aggs" } }, { rpc: ["mainnet-beta"] }, "2026-09-19T00:00:00Z"); });
 });
 
@@ -267,7 +267,7 @@ test("bell_zero_volume_abstains_never_zero_gap", () => {
   assert.equal(g.volumeBase, (0).toFixed(10));
   assert.equal(g.n, 0);
   // a REAL zero gap (vwap == close) DOES carry g_t = "0.0000000000" -- present, thus distinguishable
-  const real = sessionGap([{ signature: "z", blockTimeUtcMs: 1, baseDelta: 100_000_000n, quoteDelta: -364_270_000n }], 364.27, 8, 6);
+  const real = sessionGap([{ signature: "z", blockTimeUtcMs: 1, baseDelta: 100_000_000n, quoteDelta: -123_450_000n }], 123.45, 8, 6);
   assert.ok("gT" in real, "a real gap carries g_t even when it is zero");
   if ("abstain" in real) throw new Error("volume present must not abstain");
   assert.equal(real.gT, (0).toFixed(10));
