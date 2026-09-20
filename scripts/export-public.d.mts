@@ -29,3 +29,10 @@ export const WHITELIST_FILES: string[];
 /** Resolve the whitelist to concrete files under `root`; classify structural violations & French .md.
  *  Pure (no exit): LICENSE / missing fixed entries land in `missingRequired`, they do NOT abort here. */
 export function collectFiles(root: string): CollectResult;
+
+/** The governance workflow path (".github/workflows/ci.yml"). */
+export const CI_WORKFLOW_PATH: string;
+/** Derive the PUBLIC storefront workflow from the governance `raw` ci.yml (D7 bis R1): add a push trigger,
+ *  remove the r25 lot-size job, drop the governance-only comment; every retained job body stays byte-identical
+ *  (asserted by test 42(f') / export_public_derived_jobs_are_byte_identical). Fail-closed on a missing block. */
+export function derivePublicWorkflow(raw: string): string;

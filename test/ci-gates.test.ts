@@ -22,6 +22,7 @@ import { createHash } from "node:crypto";
 import { join, extname, dirname, basename } from "node:path";
 import ts from "typescript";
 import { compilePatterns, scanText, collectTargets } from "../scripts/grep-forbidden.mjs";
+import { collectFiles } from "../scripts/export-public.mjs";
 import { renderedTexts, scanText as scanNumericText, loadExemptFile, scanAppsSite } from "../apps/site/test/honesty-lint.ts";
 import { FLEET_AGENTS, PRODUCTS } from "../apps/site/lib/fleet.ts";
 import type { FleetStatus } from "../apps/site/lib/fleet.ts";
@@ -1267,4 +1268,36 @@ test("ci_jobs_have_timeout_and_test_flags_locked — per-job timeout-minutes <= 
   const testScript = pkg.scripts.test;
   assert.match(testScript, /--test-timeout=\d+/, "scripts.test must carry --test-timeout=<ms> (the per-test hang guard, checkpoint-2 V-1(b))");
   assert.ok(testScript.includes("--test-force-exit"), "scripts.test must carry --test-force-exit (exit even if a handle leaks after the tests settle)");
+});
+
+// Lot CI-site (ADR-M003 D9 octies) — the g3-site job's step order is load-bearing: `next build` must produce
+// apps/site/.next BEFORE the O-2 step reads it (else O-2 fails-closed on an absent artefact). The g3-site
+// per-job timeout-minutes (<= 20) is already covered by ci_jobs_have_timeout_and_test_flags_locked above
+// (6 jobs now). The build run-line pin (== SITE_BUILD_RUN) and O-2 soundness live in test/site-build-fleet.test.ts.
+test("g3_site_builds_then_asserts_fleet_html — job g3-site runs the build THEN O-2, in the same job, in order (C-5)", () => {
+  const idx = LINES.findIndex((l) => /^  g3-site\s*:/.test(l));
+  assert.notEqual(idx, -1, "job 'g3-site' missing from the workflow (mutant: g3-site removed => red)");
+  const block: string[] = [];
+  for (let i = idx + 1; i < LINES.length; i++) {
+    const l = LINES[i]!;
+    if (/^  \S/.test(l) || /^\S/.test(l)) break; // next 2-space job key or a column-0 key
+    block.push(l.replace(/#.*$/, "")); // strip end-of-line comments
+  }
+  const buildIdx = block.findIndex((l) => /^\s*run:\s*npm run build -w @monark\/site\s*$/.test(l));
+  const o2Idx = block.findIndex((l) => /^\s*run:\s*node scripts\/assert-fleet-html\.mjs\s*$/.test(l));
+  assert.notEqual(buildIdx, -1, "g3-site must carry the `npm run build -w @monark/site` step (mutant: build step removed => red)");
+  assert.notEqual(o2Idx, -1, "g3-site must carry the O-2 step `node scripts/assert-fleet-html.mjs` (mutant: O-2 step removed => red)");
+  assert.ok(buildIdx < o2Idx, "the build step must come BEFORE the O-2 step within g3-site (mutant: order inverted => red)");
+});
+
+// Lot CI-site (C-10) — the sentinel README is a REAL kept export file (model SECURITY.md, cra-b.test.ts). It is
+// scanned by public_surfaces_make_no_probative_claim and gate:vocab (scan.sentinel), but lang:gate/export:check
+// do NOT run in CI (formed item), so a FRENCH README would land in collectFiles().frenchMd and be dropped from
+// the export in SILENCE (export-public.mjs:263). This membership assertion is the CI teeth for that.
+test("sentinel_readme_is_a_kept_export — apps/sentinel/README.md is an English kept export file (C-10)", () => {
+  const kept = new Set(collectFiles(ROOT).kept.map((f) => f.rel));
+  assert.ok(
+    kept.has("apps/sentinel/README.md"),
+    "apps/sentinel/README.md must be in collectFiles(ROOT).kept (mutant 'README removed / turned French' => not kept => red)",
+  );
 });

@@ -108,7 +108,7 @@
       "$comment": "(ADR-M012 item (j) / G2-lot-m012b C2): the off-tool Narabi sentinel implements the adaptive quantile tracker, so the ratchet MUST cover it — apps/sentinel/src AND apps/sentinel/test by directory walk (.ts), the deploy/ units by an EXPLICIT file list (their extensions .service/.timer/.snippet/.monark-harness are not source extensions the walker recognizes). GLOBAL patterns + the two ADR-M012 D8 adaptive-surclaim patterns apply. A naked 'adaptive coverage/region/gate' or 'the gate adapts' reddens; the exact D8 public sentence dodges both by construction. Load-bearing wiring proof: test/ci-gates.test.ts (vocab_sentinel_scope_scans_src_test_deploy). Adding a pattern = this ADR line.",
       "dirs": ["apps/sentinel/src", "apps/sentinel/test"],
       "extensions": [".ts"],
-      "files": ["deploy/monark-sentinel.service", "deploy/monark-sentinel.timer", "deploy/Caddyfile.monark-narabi.snippet", "deploy/monark-harness.service", "deploy/Caddyfile.monark-harness"],
+      "files": ["deploy/monark-sentinel.service", "deploy/monark-sentinel.timer", "deploy/Caddyfile.monark-narabi.snippet", "deploy/monark-harness.service", "deploy/Caddyfile.monark-harness", "apps/sentinel/README.md"],
       "banned": [
         { "re": "adaptive(ly)?\\s+(cover|guarantee|region|gate)", "why": "\"adaptive coverage/guarantee/region/gate\" surclaim — the Narabi tracker is adaptive, the committed gate region is NOT (ADR-M012 D8, C-3; catches \"adaptively covers\")" },
         { "re": "(coverage|region|gate)\\s+adapt", "why": "\"the gate/region/coverage adapts\" surclaim — the gate does not adapt before the pre-registered drift criterion fires (ADR-M012 D8, C-3; catches \"the gate adapts\")" },

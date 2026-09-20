@@ -56,6 +56,7 @@ import { mkdtempSync, rmSync, readFileSync, readdirSync, statSync, existsSync, c
 import { tmpdir } from "node:os";
 import { join, relative, dirname } from "node:path";
 import { createHash } from "node:crypto";
+import { derivePublicWorkflow } from "../scripts/export-public.mjs";
 
 const ROOT = join(import.meta.dirname, "..");
 
@@ -313,4 +314,71 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
     rmSync(out, { recursive: true, force: true });
     rmSync(src, { recursive: true, force: true });
   }
+});
+
+// Extract every job body (the 2-space job key line through the line before the next job key) with the STRICT
+// key regex — the same one ci_jobs_have_timeout uses. Deliberately NOT /^ {2}\S/: an ORPHANED r25 body left by
+// a bad derivation is absorbed into a neighbour's body (never a spurious key), which is exactly what (f') must
+// catch.
+function jobBodies(text: string): Map<string, string[]> {
+  const lines = text.split(/\r?\n/);
+  const jobsIdx = lines.findIndex((l) => /^jobs\s*:/.test(l));
+  const out = new Map<string, string[]>();
+  if (jobsIdx === -1) return out;
+  const keys: { name: string; start: number }[] = [];
+  for (let i = jobsIdx + 1; i < lines.length; i++) {
+    const l = lines[i]!;
+    if (/^\S/.test(l) && !/^\s*#/.test(l)) break; // a column-0 non-comment key ends the jobs block
+    const m = /^  ([A-Za-z0-9_-]+)\s*:\s*$/.exec(l);
+    if (m && m[1]) keys.push({ name: m[1], start: i });
+  }
+  for (let j = 0; j < keys.length; j++) {
+    const end = j + 1 < keys.length ? keys[j + 1]!.start : lines.length;
+    out.set(keys[j]!.name, lines.slice(keys[j]!.start, end));
+  }
+  return out;
+}
+
+// -- L-4 / C-3 : the derived public workflow keeps every RETAINED job body byte-identical (test 42(f'); D7 ter)
+test("export_public_derived_jobs_are_byte_identical — every retained job body survives derivation unchanged (test 42(f'), ADR-M004 D7 ter amended)", () => {
+  const governance = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
+  const eol = governance.includes("\r\n") ? "\r\n" : "\n";
+  const derived = derivePublicWorkflow(governance);
+  const R25 = "r25-taille-de-lot";
+
+  // Mismatches between the retained governance job bodies and the derived job bodies (job set + line-by-line).
+  const mismatches = (govText: string, derText: string): string[] => {
+    const gov = jobBodies(govText);
+    const der = jobBodies(derText);
+    const retained = [...gov.keys()].filter((k) => k !== R25).sort();
+    const out: string[] = [];
+    if (JSON.stringify([...der.keys()].sort()) !== JSON.stringify(retained))
+      out.push(`job set: derived {${[...der.keys()].sort().join(",")}} != retained {${retained.join(",")}}`);
+    for (const name of retained) if (JSON.stringify(gov.get(name)) !== JSON.stringify(der.get(name))) out.push(`job '${name}' body differs after derivation`);
+    return out;
+  };
+
+  // Non-vacuity: >= 5 retained jobs (g1, g3-verification, g4, g6, g3-site) — the "job set == {…}" invariant of
+  // 42 is too weak; D7 ter (amended: ALL retained bodies, not just g1/g3/g4/g6) demands byte-identity.
+  const retainedCount = [...jobBodies(governance).keys()].filter((k) => k !== R25).length;
+  assert.ok(retainedCount >= 5, `expected >= 5 retained jobs, saw ${retainedCount}`);
+
+  // (f') the real derivation preserves every retained job body byte-for-byte (modulo EOL, which derive keeps).
+  assert.deepEqual(mismatches(governance, derived), [], "a retained job body changed under derivePublicWorkflow (42(f'))");
+
+  // Mutant M-42f' (D7 ter, finding 13): a col-2 INDENTED comment inside the r25 body stops the splice (/^ {2}\S/
+  // matches it) => only the r25 KEY is removed => the r25 body orphan is ABSORBED into the derived g1 body =>
+  // (f') reds. Bare `/r25/` (test 42(f)) stays GREEN (the orphan carries only "R-25", case-sensitive), so 42(f)
+  // alone MISSES this — which is why (f') exists.
+  const mutant = governance.replace(`  ${R25}:${eol}`, `  ${R25}:${eol}  # injected indented comment${eol}`);
+  assert.notEqual(mutant, governance, "mutant injection must change the source");
+  const mutantDerived = derivePublicWorkflow(mutant);
+  assert.ok(mismatches(mutant, mutantDerived).length > 0, "M-42f': an indented comment in r25 must red 42(f') (orphan absorbed into a retained body)");
+  assert.ok(!/r25/.test(mutantDerived), "M-42f' control: bare /r25/ (test 42(f)) stays green on the mutant — it MISSES the corruption");
+
+  // Mutant (single-byte corruption of a RETAINED body) => (f') reds — the class D7 ter closes ("a corrupted
+  // job body", not only "a lost job"). Simulated on the derived text (a derivation that mangles a kept job).
+  const corrupted = derived.replace("npm run lint && npm run lint:ratchet", "npm run lint &&  npm run lint:ratchet");
+  assert.notEqual(corrupted, derived, "byte-corruption must change the derived text");
+  assert.ok(mismatches(governance, corrupted).length > 0, "M-42f' (byte): a single-byte change in a retained job body must red 42(f')");
 });
