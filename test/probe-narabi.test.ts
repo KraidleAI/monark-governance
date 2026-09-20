@@ -17,8 +17,9 @@ import type { TimelineLine } from "../apps/sentinel/src/timeline.ts";
 import { providerOf as rpcProviderOf } from "../apps/sentinel/src/rpc.ts";
 import {
   providerOf, chainstackPresent, hashedFieldsOf, lineHashOf as probeLineHashOf,
-  urlTransportAllowed, isLoopbackHost, DEADLINE_UTC, DEADLINE_UTC_MINUTES, DEFAULT_TIMEOUT_MS, DEFAULT_RETRIES,
-  MAX_TIMEOUT_MS, MAX_RETRIES, START_MARGIN_MS, transportBounds, SCHEMA,
+  urlTransportAllowed, isLoopbackHost, fetchTimeline, DEADLINE_UTC, DEADLINE_UTC_MINUTES,
+  DEFAULT_TIMEOUT_MS, DEFAULT_MAX_BYTES, DEFAULT_RETRIES, MAX_TIMEOUT_MS, MAX_MAX_BYTES, MAX_RETRIES,
+  START_MARGIN_MS, transportBounds, SCHEMA,
 } from "../scripts/probe-narabi.mjs";
 import type { NarabiState } from "../scripts/probe-narabi.mjs";
 
@@ -335,6 +336,15 @@ test("probe_refuses_http_off_loopback — http:// is admitted ONLY on a strict l
   assert.equal(isLoopbackHost("127.evil.com"), false, "a DNS name starting with 127. is NOT loopback (C-G2-1)");
   assert.equal(isLoopbackHost("127.0.0.1.evil.com"), false, "127.0.0.1.evil.com is NOT loopback (C-G2-1)");
   assert.equal(isLoopbackHost("monarkgate.tech"), false, "a real host is not loopback");
+  // C-G2D-1: pin the per-octet byte bound of the exported helper (a -1b-ii caller could hit it directly). 256 in
+  // ANY octet is refused (kills N-G2-d, the >255 control removed); a negative octet and a trailing dot are not
+  // canonical quads either; the top of 127/8 and the canonical literal ARE loopback (not over-tightened).
+  assert.equal(isLoopbackHost("127.0.0.256"), false, "an octet > 255 is not a valid dotted-quad (pins the >255 byte bound; kills N-G2-d)");
+  assert.equal(isLoopbackHost("127.256.0.1"), false, "a > 255 octet is refused on ANY position, not only the last");
+  assert.equal(isLoopbackHost("127.0.0.-1"), false, "a negative octet is not a canonical dotted-quad");
+  assert.equal(isLoopbackHost("127.0.0.1."), false, "a trailing dot is not a canonical dotted-quad");
+  assert.equal(isLoopbackHost("127.255.255.255"), true, "the top of 127/8 (255.255.255 tail) IS loopback");
+  assert.equal(isLoopbackHost("127.0.0.1"), true, "the canonical loopback literal IS loopback");
 
   // end-to-end, OFFLINE: both hosts are .invalid (never resolve), so even a guard-removed mutant emits no packet
   // to a real service — the mutant records "unreachable" (DNS failure) instead of "insecure_url", reddening this.
@@ -436,4 +446,56 @@ test("probe_file_input_is_size_bounded — a --file larger than the byte cap is 
   assert.equal(r.state.reason, "too_large", "a --file over PROBE_MAX_BYTES is refused (mutant: size check removed -> parsed -> red)");
   assert.equal(r.state.reachable, false, "not read");
   assert.equal(r.status, 1, "too_large exits 1");
+});
+
+// ── C-G2D-2: an I/O fault on temp write/rename cleans the orphan .tmp and best-effort writes a probe_error
+// narabi.json (the "ALWAYS written" invariant survives a disk fault), never an uncaught FATAL; temp name = pid +
+// crypto random. rename is failed by INJECTION: --import patches fs.renameSync (verified to reach the .mjs import).
+const RENAME_FAIL_SRC = `
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+const fs = require("node:fs");
+fs.renameSync = (from) => { process.stderr.write("TMP=" + String(from) + "\\n"); throw Object.assign(new Error("injected rename EIO"), { code: "EIO" }); };
+`;
+test("probe_io_fault_cleans_tmp_and_falls_back — a rename I/O fault (injected) leaves NO orphan .tmp, still writes a probe_error narabi.json via a direct fallback, exits 1, never prints a FATAL; the temp name carries pid + 8 random bytes (C-G2D-2)", () => {
+  const dir = mkdtempSync(join(scratchDir(), "iofault-"));
+  const out = join(dir, "narabi.json");
+  const inject = join(scratchDir(), "inject-rename-fail.mjs");
+  writeFileSync(inject, RENAME_FAIL_SRC);
+  const r = spawnSync(process.execPath, ["--import", pathToFileURL(inject).href, PROBE_MJS, "--out", out, "--file", FIXTURE, "--now", "2026-09-20T10:35Z"], {
+    cwd: REPO, env: { ...process.env, TZ: TZ_EAST }, encoding: "utf8", timeout: 60_000,
+  });
+  assert.ok(existsSync(out), "narabi.json is STILL written (fallback direct write) despite the rename fault");
+  const state = JSON.parse(readFileSync(out, "utf8")) as NarabiState;
+  assert.equal(state.reason, "probe_error", "the fallback records probe_error");
+  assert.equal(state.status, "unhealthy", "unhealthy");
+  assert.equal(r.status, 1, "exit 1 per contract");
+  assert.deepEqual(readdirSync(dir), ["narabi.json"], "the orphan .tmp was cleaned up — only narabi.json remains (kills the cleanup mutant)");
+  assert.doesNotMatch(r.stderr ?? "", /FATAL/, "no uncaught FATAL — the I/O error was caught (kills the fallback mutant)");
+  assert.match(r.stderr ?? "", /TMP=.*narabi\.json\.tmp-\d+-[0-9a-f]{16}\r?\n/, "the temp name carries pid + 8 crypto-random bytes (non-collidable between simultaneous shots)");
+});
+
+// ── C-G2D-3: env transport bounds — blank/'0'/whitespace/negative/NaN/non-numeric fall back to the DEFAULT (never
+// a silent 0), then clamp; PROBE_RETRIES keeps an explicit 0 (a legitimate no-retry choice), only a blank defaults ─
+test("probe_env_bounds_fall_back_to_default_not_zero — a blank/'0'/whitespace/negative/NaN/non-numeric PROBE_TIMEOUT_MS/PROBE_MAX_BYTES yields the DEFAULT not 0 (else always-unhealthy); PROBE_RETRIES keeps an explicit 0 but a blank/malformed one defaults; the high clamp still holds (C-G2D-3)", () => {
+  for (const bad of ["", "  ", "0", "-5", "abc", "NaN"]) {
+    assert.equal(transportBounds({ PROBE_TIMEOUT_MS: bad }).timeoutMs, DEFAULT_TIMEOUT_MS, `PROBE_TIMEOUT_MS=${JSON.stringify(bad)} -> default, never 0`);
+    assert.equal(transportBounds({ PROBE_MAX_BYTES: bad }).maxBytes, DEFAULT_MAX_BYTES, `PROBE_MAX_BYTES=${JSON.stringify(bad)} -> default, never 0`);
+  }
+  // retries: an explicit 0 is a legitimate "no retry" choice (kept); only blank/malformed/negative defaults.
+  assert.equal(transportBounds({ PROBE_RETRIES: "0" }).retries, 0, "PROBE_RETRIES=0 is KEPT (no-retry is legitimate, not the always-unhealthy pathology)");
+  for (const bad of ["", "  ", "-1", "abc"]) {
+    assert.equal(transportBounds({ PROBE_RETRIES: bad }).retries, DEFAULT_RETRIES, `PROBE_RETRIES=${JSON.stringify(bad)} -> default (kills the empty-check mutant)`);
+  }
+  // a valid value passes through, and the hard MAX clamp still applies on top of the default fallback (C-G2-7).
+  assert.equal(transportBounds({ PROBE_TIMEOUT_MS: "1500" }).timeoutMs, 1500, "a valid timeout passes through");
+  assert.equal(transportBounds({ PROBE_MAX_BYTES: "999999999" }).maxBytes, MAX_MAX_BYTES, "an over-max maxBytes clamps to MAX");
+  assert.equal(transportBounds({ PROBE_RETRIES: "99999" }).retries, MAX_RETRIES, "an over-max retries clamps to MAX");
+});
+
+// ── C-G2D-4: fetchTimeline applies urlTransportAllowed ITSELF (a -1b-ii caller reaching it directly cannot bypass
+// the loopback guard); an off-loopback http call is refused insecure_url before any dial (.invalid = zero packets) ─
+test("probe_fetch_timeline_self_guards_transport — fetchTimeline refuses an off-loopback http URL ITSELF (insecure_url) with no dial, so a future direct caller cannot bypass the guard (C-G2D-4)", async () => {
+  const res = await fetchTimeline("http://127.0.0.1.evil.invalid/narabi/timeline.jsonl", { retries: 0 });
+  assert.deepEqual(res, { ok: false, reason: "insecure_url" }, "off-loopback http is refused by fetchTimeline itself, before any dial (mutant: self-guard removed -> .invalid DNS attempt -> unreachable -> red)");
 });

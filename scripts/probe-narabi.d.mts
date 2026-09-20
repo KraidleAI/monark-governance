@@ -54,7 +54,7 @@ export type TransportDecision = { ok: true } | { ok: false; reason: "insecure_ur
 export function urlTransportAllowed(url: string): TransportDecision;
 
 export interface FetchOpts { timeoutMs?: number; maxBytes?: number; retries?: number }
-export type FetchResult = { ok: true; text: string } | { ok: false; reason: "unreachable" | "too_large" };
+export type FetchResult = { ok: true; text: string } | { ok: false; reason: "unreachable" | "too_large" | "insecure_url" };
 export function fetchTimeline(url: string, opts?: FetchOpts): Promise<FetchResult>;
 
 export interface TransportBounds { timeoutMs: number; maxBytes: number; retries: number }

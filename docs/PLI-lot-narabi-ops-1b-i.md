@@ -188,3 +188,69 @@ sortie tenu : `exit 1 ssi status==="unhealthy"`, `narabi.json` **toujours** écr
 ### Vérification orchestrateur (R-21), 2026-09-20 17:58 UTC (horloge)
 claude-fable-5-1 : sha probe-narabi.mjs c872ccce… == rapport ; 
 ode --test test/probe-narabi.test.ts rejoué : 14/14 ; garde de transport exercée à la main : 127.0.0.1.evil.com, 127.1, localhost.evil.com, 127.0.0.1@evil.com ⇒ insecure_url ; 127.0.0.1:8080, [::1], https://monarkgate.tech/… ⇒ admis. **Item « URL servie sans 3xx » CLOS** : HEAD https://monarkgate.tech/narabi/timeline.jsonl ⇒ HTTP/1.1 200 OK, aucune redirection (lecture seule ; à re-contrôler au déploiement par le premier run de la sonde). Reste avant gel : durée d'un run Narabi publiant (créneau 00:30 UTC du 2026-09-21).
+
+## PLI G2 delta — les 4 observations C-G2D-1..4 pliées (worker `claude-opus-4-8[1m]` effort max, 2026-09-20)
+Modèle résolu (R-1) : **`claude-opus-4-8[1m]`**. R-20 (le worker ne committe pas, ne déclenche aucun workflow, **aucune action
+sortante** — loopback / hôtes `.invalid` non-résolvants seulement, aucun secret, aucune URL à clé). R-21 (écrit pour re-vérification
+adversariale). Base : HEAD `81dee56` (arbre propre), branche `lot/narabi-ops-1b-i`, worktree `F:\Monark-wt-narabi1b`. Objet plié :
+les **4 OBSERVATIONS C-G2D-1..4** de `docs/G2-DELTA-lot-narabi-ops-1b-i.md` (**NON édité** ; ni le G2 ni le G2 delta touchés) —
+objectif investisseur : **zéro dette au release**. 3 fichiers touchés : `scripts/probe-narabi.mjs`, `scripts/probe-narabi.d.mts`,
+`test/probe-narabi.test.ts` (le contrôle-résolution R-1 du premier worker de session est porté par la 1ʳᵉ ligne de mon rapport).
+
+### sha256 post-pli-delta (SUPERSÈDENT les tables « Livrés » et « post-G2-pli » pour ces 3 fichiers)
+| Fichier | sha256 post-pli-delta |
+|---|---|
+| `scripts/probe-narabi.mjs` | `929af29ed8bf8b6831c690e6bda85f98beeaa26984580bf91c74c0e353013796` |
+| `scripts/probe-narabi.d.mts` | `4561095ec5c739ac9e47e5c2f1f509dbfb8200d47ec0712669383076290fc902` |
+| `test/probe-narabi.test.ts` | `1de47a09521aa983ef07904cd1b6897956342e9b79c98a96bd29a6de97722093` |
+
+### Corrections (finding → correction `fichier:ligne` → test → mutant RED démontré, restauré sha-exact)
+| Finding | error_origin | Correction | Test | Mutant (RED démontré) |
+|---|---|---|---|---|
+| **C-G2D-1** borne d'octet `>255` de `isLoopbackHost` non pinnée | **worker** (coverage) | test-seul (le code `probe-narabi.mjs:175` était déjà correct) : la borne d'octet est désormais épinglée sur le helper EXPORTÉ | `probe_refuses_http_off_loopback` (`test:342-347` : `127.0.0.256`/`127.256.0.1` ⇒ false — tueurs ; `127.0.0.-1`/`127.0.0.1.` ⇒ false — bornes regex ; `127.255.255.255`/`127.0.0.1` ⇒ true) | **N-G2-d** : `if (Number(p) > 255) return false;` → `if (false) …` ⇒ `127.0.0.256`→true ⇒ **RED** |
+| **C-G2D-2** résidu `.tmp` + FATAL sur erreur d'E/S | **worker** | `probe-narabi.mjs:358-370` : nom temp `pid + randomBytes(8)` (non collisionnable) ; write+rename dans un `try` ; sur E/S : `unlinkSync(tmp)` (nettoie l'orphelin) puis **écriture directe de repli** de `narabi.json` `reason:"probe_error"` best-effort, `return {exitCode:1}` — jamais de FATAL non attrapé | `probe_io_fault_cleans_tmp_and_falls_back` (`test:460` : `renameSync` mis en échec par **injection** `--import` ; asserte `narabi.json` écrit, `probe_error`, exit 1, `readdir===["narabi.json"]`, pas de FATAL, format temp `…tmp-<pid>-<16 hex>`) | **N-G2D-2a** (`unlinkSync(tmp)`→`void tmp`) ⇒ résidu ⇒ **RED** ; **N-G2D-2b** (repli retiré) ⇒ non écrit ⇒ **RED** |
+| **C-G2D-3** borne basse d'env (`0`/`""`/`"  "`→0) | **worker/plan** | `probe-narabi.mjs:214-229` : `num(v,dflt,max,floor)` — vide/blanc/NaN/non-numérique/négatif/`<floor` ⇒ **DÉFAUT** (jamais un 0 muet), puis clamp `MAX`. Floor : timeout/maxBytes `1` (0 pathologique) ; retries `0` (**voir déviation** : `PROBE_RETRIES=0` légitime, conservé) | `probe_env_bounds_fall_back_to_default_not_zero` (`test:480` : table timeout/maxBytes {`""`,`"  "`,`"0"`,`"-5"`,`"abc"`,`"NaN"`}→défaut ; retries `"0"`→0, {`""`,`"  "`,`"-1"`,`"abc"`}→défaut ; clamp MAX) | **N-G2D-3a** (`n < floor`→`n < 0`) ⇒ `"0"`→0 ⇒ **RED** ; **N-G2D-3b** (`if (s === "")`→`if (false)`) ⇒ retries `""`→0 ⇒ **RED** (prouve le carve-out porteur) |
+| **C-G2D-4** `fetchTimeline` sans auto-garde loopback | **plan** (-1b-ii) | `probe-narabi.mjs:237-238` : `fetchTimeline` appelle `urlTransportAllowed(url)` **elle-même** (défense en profondeur, idempotent avec la pré-garde de `probe()`) ; refus ⇒ `{ok:false,reason}` sans dial. `.d.mts` : `FetchResult` gagne `"insecure_url"` | `probe_fetch_timeline_self_guards_transport` (`test:498` : appel DIRECT `http://127.0.0.1.evil.invalid/` ⇒ `{ok:false,reason:"insecure_url"}`, zéro paquet) | **N-G2D-4** (`if (!allowed.ok) return…`→`if (false) …`) ⇒ dial `.invalid` ⇒ `unreachable` ⇒ **RED** |
+
+Harnais mutants (reproductible, chemin stable) : `F:\tmp\narabi1b\g2d\run-mutants.mjs` (remplacement à occurrence unique **assertée** inline ;
+snapshot pristine `F:\tmp\narabi1b\g2d\probe-pristine.mjs` = `929af29e…` ; restauration **byte-exacte**, **jamais `git checkout`** ; sha256
+re-vérifié `== 929af29e…` après CHAQUE mutant, parent `TZ=UTC`). **7 mutants : 6 RED (N-G2-d, N-G2D-2a/2b, N-G2D-3a/3b, N-G2D-4) + 1 CTRL-noop
+GREEN** (le harnais discrimine). `git status` = 4 fichiers (3 code + ce PLI) ; `probe-narabi.mjs` final `== 929af29e…` (sha-exact) ; HEAD
+inchangé `81dee56` (aucun commit, R-20).
+
+**Limite déclarée (R-21, non deviné) — injection Linux non mesurable ici.** Le test C-G2D-2 met `renameSync` en échec par `--import` : un
+module préchargé mute `require("node:fs").renameSync` (via `createRequire`, en CJS) AVANT que la façade ESM de `node:fs` ne fige son snapshot
+d'exports, si bien que l'import nommé `import { renameSync } from "node:fs"` de la sonde voit la version fautée (**vérifié first-hand** sur cet
+hôte, Node **v24.15.0 == node CI 24**). C'est un comportement du **loader Node**, non de l'OS ; mais Linux CI n'est **pas mesurable depuis cet
+hôte** (Windows, outbound interdit) — aucun chiffre Linux affirmé. Preuve Linux = **premier run CI sur le commit plié** (item orchestrateur,
+même précédent que C-G2-2). Le regex de format temp tolère les deux fins de ligne (`\r?\n`).
+
+### Déviation déclarée (R-21) — carve-out `PROBE_RETRIES=0`
+- **C-G2D-3, `error_origin = worker` (jugement)** : la consigne « `0` ⇒ défaut » est appliquée **strictement** à `PROBE_TIMEOUT_MS` et
+  `PROBE_MAX_BYTES` (les seules bornes que C-G2D-3 nomme comme 0-pathologiques : `timeoutMs=0` ⇒ abort instantané, `maxBytes=0` ⇒ tout
+  `too_large`). Pour **`PROBE_RETRIES`, un `0` explicite est CONSERVÉ** (floor `0`) : `retries=0` (« aucun réessai ») est un choix
+  opérateur légitime — le forcer à `2` serait le **changement de comportement silencieux** que le finding condamne, et `PROBE_RETRIES:"0"`
+  est déjà posé volontairement par `probe_does_not_follow_redirects` (item G1 « réessai différencié 0 vs 2 »). Distinction *malformé* (vide,
+  blanc, NaN, non-numérique, négatif ⇒ défaut pour les trois) vs *zéro explicite* (défaut pour timeout/maxBytes, conservé pour retries),
+  **testée les deux sens** et pinnée par N-G2D-3b. L'orchestrateur (R-21/G7) peut surseoir : la ligne unique à basculer est le floor
+  `retries: num(…, 0)` → `1` en `probe-narabi.mjs:228` si « `0` ⇒ défaut » doit valoir aussi pour retries.
+
+### R-25 (pathspec `STAT=` de `.github/workflows/ci.yml:65`, `git diff --shortstat 298aa5c` arbre de travail)
+**1053 lignes** (1049 insertions + 4 suppressions) ⇒ **≤ 1205** (plafond) et **< 1100** (seuil d'alerte ; ~47 de marge). Delta pli-delta sur le
+pli G2 (970) = **+83** (`probe-narabi.mjs` 374→395 = +21 ; `probe-narabi.test.ts` 439→501 = +62 ; `probe-narabi.d.mts` 70→70, la ligne
+`FetchResult` est une modif intra-fichier-neuf, 0 net). `docs/**/*.md` (dont ce PLI) exclus.
+
+### Oracles rejoués post-pli-delta (un à un ; PAS de `npm run ci` — réservé à l'orchestrateur)
+`typecheck` (`tsc --noEmit`) **0** · `eslint test/probe-narabi.test.ts` **0** (le `.mjs`/`.d.mts` restent ignorés eslint) · `gate:vocab` OK
+(178 fichiers) · `export:check` OK · `lang:gate` OK · `lint:ratchet` **69/69** (0 violation ajoutée) · `probe-narabi.test.ts` **17/17**
+(14 + 3 : `probe_io_fault_cleans_tmp_and_falls_back`, `probe_env_bounds_fall_back_to_default_not_zero`,
+`probe_fetch_timeline_self_guards_transport`) · `ci-gates` + `no-secret-in-repo` + `sentinel-retry` **32/32**.
+
+### Reste dû (pli-delta) : néant à ma charge
+Les 4 observations C-G2D-1..4 sont **pliées** (correction + test + mutant RED + sha) ; l'unique jugement (carve-out `PROBE_RETRIES=0`) est une
+**déviation déclarée** ci-dessus, tranchable d'une ligne par l'orchestrateur — pas une dette nue. Items G1/G2 antérieurs inchangés (durée
+run publiant après 00:30 UTC 2026-09-21 ; `fetchTimeline`/machine à états portés -1b-ii). Contrat de sortie tenu, invariant « `narabi.json`
+toujours écrit » désormais étendu à la **panne d'E/S** (C-G2D-2), en plus du `--now` invalide (C-G2-3).
+
+### Vérification et adjudication orchestrateur du pli G2 delta (R-21), 2026-09-20 18:47 UTC (horloge)
+`claude-fable-5-1` : sha `probe-narabi.mjs` `929af29e…` == rapport ; suite sonde rejouée par l'orchestrateur (résultat au commit). **Déviation C-G2D-3 (`PROBE_RETRIES=0` conservé) : ACCEPTÉE** — « aucun réessai » est un réglage opérateur légitime ; le défaut ne s'applique qu'aux valeurs malformées. R-25 = 1 053 ≤ 1 205. Reste avant gel : durée d'un run Narabi publiant (créneau 00:30 UTC du 2026-09-21) ; preuve Linux du fuseau et de l'injection `--import` = premier run CI.

@@ -13,8 +13,8 @@
 // narabi.json (schema 1, DETECTION): { schema, checked_at, last_day, lag_days, chain_ok, reachable,
 //   chainstack_present, provider, status, reason, publish_latency }. WRITE-ONLY in -1b-i (no prior state is
 //   read back); the state-machine read path (alerted/alert_error) lands in -1b-ii, which bumps `schema`.
-import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync, mkdirSync, statSync, renameSync } from "node:fs";
+import { createHash, randomBytes } from "node:crypto";
+import { readFileSync, writeFileSync, mkdirSync, statSync, renameSync, unlinkSync } from "node:fs";
 import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -210,22 +210,32 @@ export function urlTransportAllowed(url) {
 /** Transport bounds read from env, each HARD-CAPPED (C-G2-7) so a mis-set env can never exceed the systemd
  *  TimeoutStartSec worst case. A missing/negative/non-finite value falls back to the default. */
 export function transportBounds(env = process.env) {
-  const num = (v, dflt, max) => {
+  // A blank/whitespace/non-numeric/NaN/negative or below-floor value falls back to the DEFAULT — never a silent 0
+  // that makes every fetch abort instantly (timeoutMs) or every body oversize (maxBytes), an always-unhealthy mute
+  // state (C-G2D-3) — then clamps to the hard MAX (C-G2-7). Floor: timeout/maxBytes at 1 (0 is pathological there);
+  // retries at 0, so an explicit PROBE_RETRIES=0 (legitimate "no retry") is KEPT while a blank/malformed one defaults.
+  const num = (v, dflt, max, floor) => {
     if (v === undefined) return dflt;
-    const n = Number(v);
-    if (!Number.isFinite(n) || n < 0) return dflt;
+    const s = String(v).trim();
+    if (s === "") return dflt; // empty/whitespace is malformed -> default (NOT Number("") === 0 -> a silent 0)
+    const n = Number(s);
+    if (!Number.isFinite(n) || n < floor) return dflt;
     return Math.min(n, max);
   };
   return {
-    timeoutMs: num(env.PROBE_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS),
-    maxBytes: num(env.PROBE_MAX_BYTES, DEFAULT_MAX_BYTES, MAX_MAX_BYTES),
-    retries: num(env.PROBE_RETRIES, DEFAULT_RETRIES, MAX_RETRIES),
+    timeoutMs: num(env.PROBE_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS, 1),
+    maxBytes: num(env.PROBE_MAX_BYTES, DEFAULT_MAX_BYTES, MAX_MAX_BYTES, 1),
+    retries: num(env.PROBE_RETRIES, DEFAULT_RETRIES, MAX_RETRIES, 0),
   };
 }
 
 /** GET the surface with a bounded timeout, a bounded body, and a bounded retry, so the probe never hangs and
  *  never buffers an unbounded response (C-6). On any failure returns { ok:false, reason } — never throws. */
 export async function fetchTimeline(url, opts = {}) {
+  // Defense in depth (C-G2D-4): fetchTimeline vets transport ITSELF (idempotent with probe()'s pre-check), so a
+  // future -1b-ii caller reaching it directly cannot bypass the https/loopback guard. No dial on refusal.
+  const allowed = urlTransportAllowed(url);
+  if (!allowed.ok) return { ok: false, reason: allowed.reason };
   const b = transportBounds(process.env);
   const timeoutMs = opts.timeoutMs ?? b.timeoutMs;
   const maxBytes = opts.maxBytes ?? b.maxBytes;
@@ -343,10 +353,21 @@ export async function probe(opts = {}) {
   const out = opts.out ?? process.env.PROBE_OUT ?? DEFAULT_OUT;
   try { mkdirSync(dirname(out), { recursive: true }); } catch { /* dir may exist / be a root */ }
   // Atomic write (C-G2-6): write a temp file in the SAME dir, then rename over the target (atomic on one
-  // filesystem, overwrites on POSIX and Windows), so a crash mid-write never leaves a torn narabi.json.
-  const tmp = `${out}.tmp-${String(process.pid)}-${String(Date.now())}`;
-  writeFileSync(tmp, JSON.stringify(state, null, 2) + "\n");
-  renameSync(tmp, out);
+  // filesystem, overwrites on POSIX and Windows), so a crash mid-write never leaves a torn narabi.json. The temp
+  // name carries the pid AND 8 crypto-random bytes so two simultaneous shots never collide on it (C-G2D-2).
+  const tmp = `${out}.tmp-${String(process.pid)}-${randomBytes(8).toString("hex")}`;
+  try {
+    writeFileSync(tmp, JSON.stringify(state, null, 2) + "\n");
+    renameSync(tmp, out);
+  } catch {
+    // A disk/rename I/O fault must NOT leak the orphan temp NOR escape as an uncaught FATAL: clean the temp and
+    // fall back to a best-effort DIRECT write of a probe_error state, keeping the "narabi.json ALWAYS written"
+    // invariant (C-G2D-2). If even that direct write fails (disk truly gone), still return the contract code.
+    try { unlinkSync(tmp); } catch { /* the temp may never have been created */ }
+    const errState = { ...state, status: "unhealthy", reason: "probe_error" };
+    try { writeFileSync(out, JSON.stringify(errState, null, 2) + "\n"); } catch { /* best-effort, never FATAL */ }
+    return { state: errState, exitCode: 1 };
+  }
   return { state, exitCode: state.status === "unhealthy" ? 1 : 0 };
 }
 
