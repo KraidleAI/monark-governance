@@ -19,7 +19,7 @@ Lecteur `claude-sonnet-5` (effort max, R-1 confirmé), brief fermé C-10 du chec
 ## Q4 — Encodage / échelle du prix
 - [lu] prix = entiers signés fixed-point, **1 unité = 1e-9** (`5411750000000` ↔ 5411.75) ; `int64` ; `UNDEF_PRICE = INT64_MAX`.
 - [lu] `blog/CSV-JSON-updates-july-2023` (effectif 2023-07-23) : **« All 64-bit integers will be encoded as strings »** en JSON ⇒ `close` arrive comme **chaîne** contenant l'entier scalé. Paramètre `pretty_px` (JSON) applique l'échelle 1e-9 ; type rendu (chaîne décimale ou nombre) NON TROUVÉ.
-- Conséquence C-5 : décoder les deux côtés en entier scalé 1e-9 ; jamais comparer des chaînes brutes (`"364270000000"` vs Massive `"364.27"`).
+- Conséquence C-5 : décoder les deux côtés en entier scalé 1e-9 ; jamais comparer des chaînes brutes (`"123450000000"` vs Massive `"123.45"`).
 
 ## Q5 — Champs `ohlcv-1d`
 - [lu] exemple CSV : `ts_event,rtype,publisher_id,instrument_id,open,high,low,close,volume,symbol`.
