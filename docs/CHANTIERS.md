@@ -168,3 +168,7 @@ Prérequis manquants (investisseur) : ~~clé Pyth Hermes gratuite~~ **CADUC (vé
 ### 2026-09-20 — Bell -b3a fusionné ; décision 65 (SMTP)
 - Bell T-1a-ii-b3a : G7 ACCEPTED (`docs/G7-lot-t1a-ii-b3a.md`), fusionné `--no-ff` sur `lot/etude-suite` (433/433, R-25 1 191). Worktree/branche supprimés. Ratification investisseur due : décision 60 (méthode hybride, C-V-4) ; amendement CA-11 proposé (« branché » = test exécutant la composition depuis l'artefact d'entrée).
 - **Décision 65 (investisseur)** : « le relais smtp, tu le configure sur le même site que les vps » ⇒ relais SMTP de l'alerte Narabi 1b = **Hostinger** (même fournisseur que les deux VPS), configuré par l'orchestrateur. Destinataire de l'alerte : à confirmer par l'investisseur. Item pli NARABI-OPS-1b : G0 dès confirmation du destinataire.
+
+### 2026-09-20 — Bell -b3b fusionné
+- T-1a-ii-b3b : G7 ACCEPTED (`docs/G7-lot-t1a-ii-b3b.md`), fusion `--no-ff` sur `lot/etude-suite` (464/464, R-25 771, 14 mutants, anti-close 0/20). Worktree/branche supprimés. Databento branché par seam injectable (coût mesuré 0,000031 $ ; ≈ 28–30 $/GB, décision 53 corroborée). Prochain lot Bell = **-b1-bis** (décision 47) ; premiers items : producteur de trajectoire + ancrage C-3 dans `buildSolanaSymbol` (checkpoint-2 -b3a C-V-1/C-V-2).
+- Ratifications investisseur dues (cumul) : décisions 60, 61 ; Q3(ii) intérim (a) ; amendement CA-11 (« branché » = test exécutant la composition depuis l'artefact d'entrée) ; amendement anti-close (diff `.`/`,` vs bruts à chaque checkpoint-2 Bell, masquage par jeton).
