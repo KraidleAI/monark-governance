@@ -108,22 +108,38 @@ Seul **e2** dépasse 99 (avant stratification Mondrian e-mode × HF₀ × taille
 - Portée : K = 3 événements ; hypothèse n_j fixé a priori (Dunn) **violée et déclarée** (ADR-M020).
 
 ### Déviations au pré-enregistrement (déclarées, zéro dette)
-- **Leg déficit — set-equality abandonnée.** Le prereg §5 pré-enregistrait une **égalité d'ensemble** entre les
+- **D-1 — Leg déficit — set-equality abandonnée.** Le prereg §5 pré-enregistrait une **égalité d'ensemble** entre les
   `DeficitCreated` extraits des **receipts** et ceux du **getLogs fenêtre**. Mesuré : les receipts ne voient que les tx de
   liquidation **WETH** (le cross-check est par tx), or **24 des 28** déficits de la fenêtre e2 viennent de liquidations
   d'**autres collatéraux** (23 des 27 users déficit distincts ne sont pas des users WETH). ⇒ leg receipts **retiré** pour le
   déficit (conservé pour le cross-check Transfer C-7), leg getLogs fenêtre rendu **autoritaire** (complet). La set-equality
   n'est **pas** testée ; la relation mesurée est receipts ⊆ fenêtre (4 in_event ⊆ 28). Déviation assumée, `error_origin`
   worker (l'attente du prereg était fausse ; la mesure la corrige).
-- **Classes de résidu post-hoc** (hors liste fermée du prereg §5 `partial_liquidation, source_change, no_quorum,
+- **D-2 — Classes de résidu post-hoc** (hors liste fermée du prereg §5 `partial_liquidation, source_change, no_quorum,
   deficit_topic_absent, outside_window, xfer_mismatch, price_moved_in_block, bad_debt_other_reserve`) : **`deficit`** (marqueur
   d'une position portant ≥ 1 `DeficitCreated` joint), **`window_other`** (déficit d'un autre collatéral dans la fenêtre, kind
   de `U3-deficit.jsonl`, jamais un résidu de position), **`deficit_base_no_price`** (déficit `bad_debt_other_reserve` sans prix
   au bloc ⇒ base omise, natif conservé), **`receive_atoken`** (jamais rencontré : 0 cas `receiveAToken=true`). Ajouts déclarés,
   chacun justifié ; aucun ne masque une abstention.
-- **Bruts hors dépôt** : PROVENANCE cite `u3-raws-clean/` (run **à froid**, sha reproductible `0afaf605…`) et non le
+- **D-3 — Bruts hors dépôt** : PROVENANCE cite `u3-raws-clean/` (run **à froid**, sha reproductible `0afaf605…`) et non le
   `u3-raws/` par défaut (run tiède + lectures CAPO du smoke test = sur-ensemble) — choix pour un sha de bruts propre et
   reproductible ; les deux runs donnent des séries byte-identiques.
+- **D-4 — Implémentation résolue par état on-chain (`eth_getStorageAt`, slot EIP-1967) @B_first, pas par le dernier
+  `Upgraded(impl) ≤ B_first`.** Le prereg §5 C-6 pré-enregistrait la résolution par le dernier log `Upgraded ≤ B_first` ;
+  le script résout l'impl par `eth_getStorageAt(POOL, EIP1967_IMPL_SLOT, B_first)` (`u3-realized.mjs:449` ; slot
+  `0x360894a1…` = keccak256("eip1967.proxy.implementation") - 1, `mjs:42`). `UPGRADED_TOPIC` est **défini et self-testé**
+  (`mjs:51`/`:55`) mais **jamais consommé** (aucun autre usage dans le script). Déviation assumée, `error_origin` **worker** :
+  `eth_getStorageAt` lit l'**état réel** du proxy au bloc (quorum-2) — **plus autoritaire** qu'un scan de logs qui pourrait
+  manquer un `Upgraded` ultérieur ; l'impl n'est qu'une **métadonnée corroborante**. Le statut **pré-v3.3** de e1 est codé
+  en dur (`EVENTS[e1].preV33 = true`, `mjs:71`) sur la **date de déploiement v3.3 (2025-02-24, ADR-M020 D6 [lu]) > 2025-02-21**,
+  pas sur l'impl ni son tag. **Immatérielle** à toute étiquette Y_{i,e}.
+- **Vérification Blockscout par événement — non faite comme étape distincte tracée** (prereg §5). Le prereg prévoyait « un
+  receipt par événement vérifié Blockscout avant généralisation : e1 `0x6290d4…333c`, e2 (tx @23545088), e3 `0xeb20d0…4aff` ».
+  Le mot « Blockscout » n'apparaît que dans le prereg (grep) ⇒ **non faite** comme étape distincte. **Substance couverte** par
+  le re-tirage receipt quorum-2 de la G2 (§3) : e1 `0x6290d4…333c` et e3 `0xeb20d0…4aff` re-vérifiés on-chain à l'unité
+  (dtc/liqColl exacts) ; e2 est couvert par une **autre** tx du même événement (`00d48aed` @23549385, pas la tx @23545088
+  nommée au prereg). **Item formé, non bloquant** (PLI §8) : déclencheur = contrôle hors-RPC exigé par U-7/relecteur externe ;
+  propriétaire orchestrateur.
 
 *Aucune phrase publique. Données brutes pour l'orchestrateur (R-21). Chaque chiffre trace à une ligne de `U3-*.jsonl`
 rejouable depuis `U3-inputs.jsonl` (4 tests CI) sans réseau.*

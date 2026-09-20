@@ -42,8 +42,8 @@ pre-registered BEFORE any network call, C-10) and `--rawlogs` verified against `
 - **Raw bytes OUT OF REPO**: `F:\PRODUITS\etude-2026-09-20\u3-raws-clean\u3-reads.jsonl` (concordant reads, domains
   only, no URL/key), sha256 `0afaf605679c05b1efb476bf78fe4b614619589f5dd045a8b45d73b26344e154`.
 - **Reproducibility**: two independent full runs (a cached run and a from-scratch clean run, 1961 vs 2152 RPC
-  calls) produced the four series BYTE-IDENTICALLY (the shas above). A third party re-derives `U3-inputs.jsonl`
-  from the raws and the four series from `U3-inputs.jsonl` via the reducer.
+  calls) produced the four series BYTE-IDENTICALLY (the shas above). The three OUTPUT series
+  (`U3-realized`/`U3-sources`/`U3-deficit`) a third party re-derives from `U3-inputs.jsonl` via the reducer are env-independent; re-deriving `U3-inputs.jsonl` itself from the raws reproduces every line EXCEPT `meta.providers` (env-dependent: the archive-env leg is present only when `CHAINSTACK_ETH_URL` is set).
 
 ## 3. Recipes a third party needs
 - `repayment_base` = `Σ floor(debtToCover × getAssetPrice(debtAsset)@block / 10^decimals(debtAsset))` (BigInt floor);
@@ -58,5 +58,5 @@ pre-registered BEFORE any network call, C-10) and `--rawlogs` verified against `
 ## 4. Integrity
 `.gitattributes` normalizes to `eol=lf`; the root test `series_pinned_are_declared_and_hashed` LF-normalizes
 before hashing and requires the table above. Regenerate, never hand-edit values: re-run `u3-realized.mjs` at the
-pinned prereg sha; any drift re-pins the table. The 4 CI tests (`apps/sentinel/test/u3-realized.test.ts`) fail if
+pinned prereg sha; any drift re-pins the table. The 4 CI tests (`test/u3-realized.test.ts`) fail if
 the committed series is not the reducer output of the committed `U3-inputs.jsonl`.

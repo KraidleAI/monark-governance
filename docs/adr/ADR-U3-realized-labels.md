@@ -5,7 +5,7 @@
 - **Dates** : décision 2026-09-20 · rédaction worker `claude-opus-4-8[1m]` (R-1, effort max) · verdict/commit : orchestrateur
   `claude-fable-5-1` (R-20). **Aucun commit, aucun workflow par le worker.**
 - **Gate** : G0 (cet ADR) → G1 (script + séries + tests) → G2 fraîche (offline, rejeu depuis bruts) → checkpoint-2 → G7.
-- **Éléments produits** : `scripts/census/u3-realized.mjs` (+ `.d.mts`), `apps/sentinel/test/u3-realized.test.ts` (4 tests),
+- **Éléments produits** : `scripts/census/u3-realized.mjs` (+ `.d.mts`), `test/u3-realized.test.ts` (4 tests),
   `apps/sentinel/test/fixtures/ukemi/u3/{U3-realized,U3-sources,U3-deficit,U3-inputs}.jsonl` + `PROVENANCE-u3.md`,
   `docs/census-2026-09-20/U3-realized.md`, `docs/PLAN-u3-prereg.md`. **Non touchés** : `apps/sentinel/src/**` (rpc.ts, rpc2.ts,
   abi.ts, windows.ts, clusters.ts **réutilisés sans modification**), `fleet.ts`, `schemas/**`, tout code Narabi/Bell.
