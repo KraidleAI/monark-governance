@@ -22,7 +22,7 @@
 // KEY HYGIENE (C-10): providerOf/operatorOf only; NEVER a url/key. The mint/authority are PUBLIC base58 (not secrets).
 // Raws (the ledger + only the 43/x and SetAuthority candidate bodies) are written OUT of the tree (--out, CA-11).
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync, appendFileSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, appendFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { operatorOf } from "./operators.ts";
 import { MAX_TX_VERSION, type JsonRpcCall } from "./rpc.ts";
@@ -354,7 +354,15 @@ export function compareToHybrid(scan: FullMintScan, series: HybridSeries): Cross
     // committed oracle) => inconclusive with a DISTINCT reason + the triplet diff + the blockTime gap (fieldDiffs), never mute.
     return { verdict: "inconclusive", reason: "c3_mismatch_sets_equal", missingFromFullmint, missingFromSeries, fieldDiffs, tripletDiff };
   }
-  if (setsEqual) return { verdict: "equal", fieldDiffs }; // an index-only fieldDiff rides here (C-G2-7): equal set, published gap.
+  if (setsEqual) {
+    // C-G2D-3: `equal` is the SOLE pending-removal path — it must carry ONLY the relaxed instructionIndex gap. A
+    // blockTimeSec fieldDiff on identity-matched events (in the fold, not the key) is a data-quality alarm the internal
+    // quorum-2 does not catch (bodyEventKey excludes blockTime); H5 can concord by coincidence => publish it and REFUSE
+    // equal (inconclusive, escalated at the checkpoint), never a silent pending removal on a blockTime disagreement.
+    const outsideIndex = fieldDiffs.filter((d) => d.field !== "instructionIndex");
+    if (outsideIndex.length > 0) return { verdict: "inconclusive", reason: "field_diff_outside_index", missingFromFullmint, missingFromSeries, fieldDiffs };
+    return { verdict: "equal", fieldDiffs }; // an index-only fieldDiff rides here (C-G2-7): equal set, published gap.
+  }
   return { verdict: "divergence", missingFromFullmint, missingFromSeries, fieldDiffs, tripletDiff: [] };
 }
 
@@ -372,14 +380,41 @@ export function loadHybridSeries(dir: string, symbol: string): (HybridSeries & {
     events: s.events };
 }
 
+/** Total ledger pages on disk across all ledger-<MINT>.jsonl in <out> (non-empty lines; NO JSON.parse — a page costs
+ *  >= 1 gTfA call, so this is a lower bound on calls_used, and a corrupt line must not mask the C-G2D-2 tamper check). */
+function ledgerPagesOnDisk(out: string): number {
+  if (!existsSync(out)) return 0;
+  let pages = 0;
+  for (const f of readdirSync(out)) if (/^ledger-.*\.jsonl$/.test(f))
+    pages += readFileSync(resolve(out, f), "utf8").split("\n").filter((l) => l.trim() !== "").length;
+  return pages;
+}
+/** Any persisted resume state (a ledger-/events-/handoffs-<MINT>.jsonl carrying content) in <out>. */
+function hasResumeState(out: string): boolean {
+  if (!existsSync(out)) return false;
+  return readdirSync(out).some((f) => /^(ledger|events|handoffs)-.*\.jsonl$/.test(f) && readFileSync(resolve(out, f), "utf8").trim() !== "");
+}
+
 /** C-1: the prior cumulative `calls_used` from <out>/budget.json (offsets the fail-closed budget on resume). Missing
- *  file => 0 (a fresh run); present-but-malformed => THROW (a corrupt ledger read as 0 would be fail-open). */
+ *  file => 0 (a fresh run); present-but-malformed => THROW (a corrupt ledger read as 0 would be fail-open). C-G2D-2
+ *  binds the budget to the ledger so a decrease is detectable, never a silent reset: (a) resume state present but
+ *  budget.json absent is INCOHERENT => throw, never a fresh run; (b) calls_used below the on-disk ledger pages it must
+ *  cover (a page = >= 1 gTfA call) is a downward tamper => throw. */
 export function readPriorCalls(out: string): number {
   const path = resolve(out, "budget.json");
-  if (!existsSync(path)) return 0;
+  if (!existsSync(path)) {
+    // (a) fail-closed: a ledger/events/handoffs jsonl with no budget.json is a resume state missing its counter.
+    if (hasResumeState(out)) throw new Error("bell/collect: <out> carries ledger/events/handoffs resume state but no budget.json (C-G2D-2 fail-closed: a resume without its cumulative counter is incoherent, never a fresh run)");
+    return 0;
+  }
   const raw = JSON.parse(readFileSync(path, "utf8")) as { calls_used?: unknown };
   if (typeof raw.calls_used !== "number" || !Number.isFinite(raw.calls_used) || raw.calls_used < 0)
     throw new Error("bell/collect: <out>/budget.json is malformed (calls_used must be a finite >= 0 number, C-1 fail-closed)");
+  // (b) fail-closed: calls_used must cover every persisted ledger page (a page costs >= 1 gTfA call). A budget.json
+  // edited DOWN below the on-disk ledger it must account for is a tamper => throw (the decrease is detectable).
+  const ledgerPages = ledgerPagesOnDisk(out);
+  if (raw.calls_used < ledgerPages)
+    throw new Error(`bell/collect: <out>/budget.json calls_used=${String(raw.calls_used)} is below the ${String(ledgerPages)} ledger pages on disk (C-G2D-2 fail-closed: budget edited below the ledger it must cover)`);
   return raw.calls_used;
 }
 
@@ -420,16 +455,20 @@ export async function runRebaseCrosscheckCli(call: JsonRpcCall, providers: reado
     // Persist per PAGE (C-7 b lossless resume): the chained ledger entry, the page's decoded events + hand-offs, and
     // the cumulative calls_used — so a crash/resume re-seeds the accumulators and cannot under-count or re-chain.
     const sink: ScanSink = {
-      onPage: (entry, _ledger, pageEvents, pageHandoffs) => {
+      onPage: (entry, ledger, pageEvents, pageHandoffs) => {
+        // C-G2D-2/C-G2D-4: persist the counter FIRST (before the ledger/events/handoffs appends) so a crash in the
+        // append window leaves calls_used >= on-disk ledger pages (a resume re-fetches the page; the budget over-counts
+        // by one, conservative) — never calls_used < pages, which readPriorCalls (C-G2D-2 b) reads as a tamper. `pages`
+        // binds budget.json to the ledger it covers; credits_worst_case stays calls_used x 10 (C-G2-1).
+        writeFileSync(resolve(out, "budget.json"), JSON.stringify({ calls_used: callsUsed(), credits_worst_case: callsUsed() * WORST_CASE_CREDITS_PER_CALL, pages: ledger.length }));
         appendFileSync(ledgerPath, JSON.stringify(entry) + "\n");
         for (const e of pageEvents) appendFileSync(eventsPath, JSON.stringify(e) + "\n");
         for (const h of pageHandoffs) appendFileSync(handoffsPath, JSON.stringify(h) + "\n");
-        writeFileSync(resolve(out, "budget.json"), JSON.stringify({ calls_used: callsUsed(), credits_worst_case: callsUsed() * WORST_CASE_CREDITS_PER_CALL }));
       },
       onCandidate: (sig, body) => { const b = JSON.stringify(body); candidateShas[sig] = sha(b); writeFileSync(resolve(out, "candidates", `${sig}.json`), b); },
     };
     const scan = await scanFullMint(counted, providers, tok.address, series.oracle_slot, opts, resumeFromLedger(out, symbol), sink, faults);
-    writeFileSync(resolve(out, "budget.json"), JSON.stringify({ calls_used: callsUsed(), credits_worst_case: callsUsed() * WORST_CASE_CREDITS_PER_CALL })); // final cumulative (incl. the desc end-anchor call)
+    writeFileSync(resolve(out, "budget.json"), JSON.stringify({ calls_used: callsUsed(), credits_worst_case: callsUsed() * WORST_CASE_CREDITS_PER_CALL, pages: scan.ledger.length })); // final cumulative (incl. the desc end-anchor call)
     const verdict = compareToHybrid(scan, series);
     const creditsRecomputed = (callsByMethod.getTransactionsForAddress ?? 0) * CREDITS_PER_GTFA + (callsByMethod.getTransaction ?? 0) * CREDITS_PER_GET_TX;
     const artifact = { oracle_slot: series.oracle_slot, n_exact: scan.n, pages: scan.pages, ledger_sha256: ledgerSha(scan.ledger),

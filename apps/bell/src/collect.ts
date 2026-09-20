@@ -445,6 +445,13 @@ export function parseArgs(argv: readonly string[], knownSymbols: readonly string
     throw new Error("bell/collect: --rebase-crosscheck requires --max-credits (worst-case credits, C-G2-1; e.g. --max-credits 6497500 for the draw, 1500 for the probe)");
   const maxCredits = argOf(argv, "--max-credits") === undefined ? Infinity : num("--max-credits", 0);
   if (argOf(argv, "--max-credits") !== undefined && !(maxCredits > 0)) throw new Error("bell/collect: --max-credits must be > 0 (C-G2-1 fail-closed budget)");
+  // C-G2D-1: a MISSING --max-pages defaults to 3 (the probe/discover default) => the crosscheck stops at 3 pages =>
+  // not_at_genesis => inconclusive at EVERY invocation (a real mint is 100000s of pages), never completing a draw. So
+  // --max-pages is REQUIRED (same idiom as --max-credits) + must be > 0. Draw --max-pages 649750 (= --max-calls; pages
+  // <= gTfA calls => never binds before the budget); probe 1. Checked AFTER --max-credits so that error surfaces first.
+  if (rebaseCrosscheck && argOf(argv, "--max-pages") === undefined)
+    throw new Error("bell/collect: --rebase-crosscheck requires --max-pages (else it defaults to 3 and never reaches genesis, C-G2D-1; e.g. --max-pages 649750 for the draw, 1 for the probe)");
+  if (rebaseCrosscheck && !(maxPages > 0)) throw new Error("bell/collect: --max-pages must be > 0 (C-G2D-1 fail-closed; a 0 bound never scans a page)");
   // C-10 (D1-quater): --rebase-trajectory <file> feeds a scanned per-mint trajectory to the gate (the g_t
   // rebase-aware path is then CONSUMED by main(), not just fixtures). --rebase-scan runs the scan/probe mode.
   // C-8 (L-3): --rebase-produce runs the in-repo authority scanner (needs --authority <base58>) that WRITES the

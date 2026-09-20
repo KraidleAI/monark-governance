@@ -73,6 +73,12 @@ const seriesOf = (events: readonly MultiplierEvent[]): HybridSeries => ({ symbol
 // self-consistent with the committed oracle; a full-mint whose own replay differs is inconclusive:c3_mismatch, not divergence).
 const seriesWith = (reference: readonly MultiplierEvent[], events: readonly MultiplierEvent[]): HybridSeries =>
   ({ symbol: "SPYx", oracle_slot: ORACLE_SLOT, oracle_triplet: replayTriplet(reference, Number.MAX_SAFE_INTEGER)!, events });
+// A body carrying its own signature on the REAL SPYx mint accountKeys (K2) — shared by the runMain crosscheck tests
+// (resume + per-page-budget crash). accountKeys [0]=SPYx mint [1]=authority A [2]=Token-2022 [3]=OTHER [4]=new auth B.
+const SPYX = XSTOCKS.find((t) => t.symbol === "SPYx")!;
+const K2 = [SPYX.address, A_ADDR, TOKEN_2022_PROGRAM, OTHER, B_ADDR];
+const jtx = (sig: string, slot: number, bt: number, data: Uint8Array): unknown =>
+  ({ slot, blockTime: bt, transaction: { signatures: [sig], message: { accountKeys: K2, instructions: [{ programIdIndex: 2, accounts: [0, 1], data: b58enc(data) }] } }, meta: { err: null, innerInstructions: [] } });
 
 /** A stub over 2 asc gTfA pages + a desc end-anchor + op-B getTransaction re-reads. Throws on getAccountInfo (M9).
  *  Captures the asc `filters.slot` each call so a test can assert the bound. Honors filters.slot.gte (resume). */
@@ -312,10 +318,6 @@ test("bell_crosscheck_runmain_resumes_budget_and_ledger — runMain --rebase-cro
   // the budget by run-1's persisted calls_used (mutant priorCalls=0 reds), (b) chain run-2's ledger page onto run-1's
   // (mutant genesis-reseed reds), and (c) carry run-1's Initialize so the resumed scan COMPLETES (mutant unseeded
   // events => start anchor fails => inconclusive reds). Bodies use the real SPYx mint address (runMain resolves it).
-  const SPYX = XSTOCKS.find((t) => t.symbol === "SPYx")!;
-  const K2 = [SPYX.address, A_ADDR, TOKEN_2022_PROGRAM, OTHER, B_ADDR];
-  const jtx = (sig: string, slot: number, bt: number, data: Uint8Array): unknown =>
-    ({ slot, blockTime: bt, transaction: { signatures: [sig], message: { accountKeys: K2, instructions: [{ programIdIndex: 2, accounts: [0, 1], data: b58enc(data) }] } }, meta: { err: null, innerInstructions: [] } });
   const cinit = jtx("initSig", 10, 1000, initBytes(1)), cupd = jtx("updSig", 20, 2000, updBytes(1.5, 1500));
   const bodies: Record<string, unknown> = { initSig: cinit, updSig: cupd };
   const evInit = ev("initialize", 1, 0, 10, 0, "initSig"), evUpd = ev("update", 1.5, 1500, 20, 0, "updSig");
@@ -339,7 +341,7 @@ test("bell_crosscheck_runmain_resumes_budget_and_ledger — runMain --rebase-cro
   const noDb: DatabentoGet = () => Promise.resolve([]);
   const noPoly: PolygonGet = () => Promise.resolve({ results: [] });
   const env = { BELL_SOLANA_RPC: PROVIDERS.join(",") } as NodeJS.ProcessEnv;
-  const args = (maxCalls: string): string[] => ["--rebase-crosscheck", "--pools", "SPYx", "--max-calls", maxCalls, "--max-credits", String(Number(maxCalls) * 10), "--min-interval", "0", "--allow-short-pages", "--series-dir", seriesDir, "--out", outDir];
+  const args = (maxCalls: string): string[] => ["--rebase-crosscheck", "--pools", "SPYx", "--max-calls", maxCalls, "--max-credits", String(Number(maxCalls) * 10), "--max-pages", "10", "--min-interval", "0", "--allow-short-pages", "--series-dir", seriesDir, "--out", outDir];
   const readJson = (f: string): Record<string, unknown> => JSON.parse(readFileSync(join(outDir, f), "utf8")) as Record<string, unknown>;
 
   // RUN 1: --max-calls 3 => p1 gTfA + initSig opB + p2 gTfA = 3; updSig opB is the 4th => BudgetExceeded => budget_exhausted.
@@ -431,4 +433,88 @@ test("bell_crosscheck_index_relaxed_published_collision_fails_closed — index-o
   const collSeries: HybridSeries = { symbol: "SPYx", oracle_slot: ORACLE_SLOT, oracle_triplet: replayTriplet([initE, dupA], Number.MAX_SAFE_INTEGER)!, events: [initE, dupA] };
   const c = compareToHybrid({ events: [initE, dupA, dupB], handoffs: [], complete: true, n: 3, pages: 1, ledger: [] }, collSeries);
   assert.ok(c.verdict === "inconclusive" && c.reason === "relaxed_key_collision", "a same-relaxed-key duplicate fails closed (mutant: drop the collision guard => false equal => reds)");
+});
+
+// ---- C-G2D-1: --max-pages is REQUIRED for the crosscheck (else default 3 => never reaches genesis => inconclusive) ---
+test("bell_crosscheck_requires_max_pages — --rebase-crosscheck without --max-pages fails closed (C-G2D-1)", () => {
+  // Without --max-pages the parse defaults maxPages to 3 (the probe/discover default) => the draw stops at 3 pages =>
+  // not_at_genesis => inconclusive at EVERY invocation, never completing a real (hundreds-of-thousands-of-pages) mint.
+  // --max-pages is REQUIRED (same idiom as --max-credits), checked AFTER --max-credits so that error surfaces first.
+  assert.throws(() => parseArgs(["--rebase-crosscheck", "--pools", "SPYx", "--max-calls", "100", "--max-credits", "1000"], ["SPYx"]), /--max-pages/, "the crosscheck must state its page bound explicitly (probe 1, draw 649750)");
+  // an explicit 0 is rejected too (a 0 bound never scans a page) — mirrors the --max-credits > 0 check.
+  assert.throws(() => parseArgs(["--rebase-crosscheck", "--pools", "SPYx", "--max-calls", "100", "--max-credits", "1000", "--max-pages", "0"], ["SPYx"]), /--max-pages must be > 0/, "an explicit --max-pages 0 fails closed");
+  // with --max-pages present and > 0, the parse succeeds (the crosscheck draw is expressible).
+  const parsed = parseArgs(["--rebase-crosscheck", "--pools", "SPYx", "--max-calls", "649750", "--max-credits", "6497500", "--max-pages", "649750"], ["SPYx"]);
+  assert.equal(parsed.maxPages, 649750, "an explicit --max-pages is honored (the draw bound)");
+});
+
+// ---- C-G2D-2: readPriorCalls binds the budget to the ledger — a decrease is always detectable (never a silent reset) --
+test("bell_crosscheck_readPriorCalls_binds_to_ledger — ledger present + budget absent throws; calls_used below ledger pages throws (C-G2D-2)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "bell-budget-bind-"));
+  const ledgerLine = (page: number): string => JSON.stringify({ prev_entry_sha256: "0".repeat(64), page, slot_lo: page, slot_hi: page, first_sig: "s", last_sig: "s", tx_count: 1, tail_sigs_at_slot_hi: ["s"], list_sha256: "x", entry_sha256: "y" }) + "\n";
+  // (a) a ledger-<MINT>.jsonl present with NO budget.json is a resume state missing its counter => throw (never 0).
+  writeFileSync(join(dir, "ledger-SPYx.jsonl"), ledgerLine(1));
+  assert.throws(() => readPriorCalls(dir), /resume state but no budget\.json/, "ledger present + budget.json absent is incoherent (never a silent reset to 0; mutant: return 0 => reds)");
+  // (b) budget.json calls_used below the on-disk ledger pages (2 here) is a downward tamper => throw.
+  writeFileSync(join(dir, "ledger-SPYx.jsonl"), ledgerLine(1) + ledgerLine(2)); // 2 ledger pages on disk
+  writeFileSync(join(dir, "budget.json"), JSON.stringify({ calls_used: 1, credits_worst_case: 10, pages: 2 }));
+  assert.throws(() => readPriorCalls(dir), /below the 2 ledger pages/, "calls_used=1 < 2 ledger pages => tamper => throw (mutant: drop the check => reds)");
+  // a legitimate resume (calls_used >= ledger pages) is accepted and read back.
+  writeFileSync(join(dir, "budget.json"), JSON.stringify({ calls_used: 5, credits_worst_case: 50, pages: 2 }));
+  assert.equal(readPriorCalls(dir), 5, "calls_used=5 >= 2 ledger pages is a valid resume");
+});
+
+// ---- C-G2D-3: equal (the sole pending-removal path) requires fieldDiffs subset of {instructionIndex} -----------------
+test("bell_crosscheck_equal_requires_fielddiffs_subset_index — a blockTimeSec gap on matched events blocks equal => inconclusive (C-G2D-3)", () => {
+  // Sets are key-EQUAL (eventKey omits blockTimeSec) and H5 passes (oracle anchored to the scan's own replay), but an
+  // identity-matched event carries a blockTimeSec gap (2000 vs 2100, both >= effTs 1500 => the fold is identical =>
+  // H5 concords). The old code returned equal (removing pending) with a mute blockTime alarm; C-G2D-3 refuses equal.
+  const init = ev("initialize", 1, 0, 10, 0, "initSig");
+  const scanUpd: MultiplierEvent = { kind: "update", multiplier: "1.5", multiplierBitsHex: f64BitsHexLE(1.5), effectiveTimestampSec: 1500, blockTimeSec: 2000, slot: 20, instructionIndex: 0, signature: "updSig" };
+  const seriesUpd: MultiplierEvent = { ...scanUpd, blockTimeSec: 2100 }; // same relaxed key, different blockTimeSec
+  const scanEvents = [init, scanUpd];
+  const series = seriesWith(scanEvents, [init, seriesUpd]); // oracle_triplet anchored to the scan replay => H5 holds
+  const v = compareToHybrid({ events: scanEvents, handoffs: [], complete: true, n: 2, pages: 1, ledger: [] }, series);
+  assert.ok(v.verdict === "inconclusive" && v.reason === "field_diff_outside_index", "a blockTimeSec fieldDiff on matched events blocks equal (mutant: return equal regardless of fieldDiffs => reds)");
+  assert.ok(v.verdict === "inconclusive" && (v.fieldDiffs ?? []).some((d) => d.field === "blockTimeSec" && d.fullmint === "2000" && d.series === "2100"), "the blockTime gap is published for the checkpoint escalation");
+  // control: with NO blockTimeSec gap (only an index gap), equal still holds (C-G2-7 relaxed key unchanged).
+  const okSeries = seriesWith(scanEvents, [init, { ...scanUpd, instructionIndex: 7 }]);
+  const ok = compareToHybrid({ events: scanEvents, handoffs: [], complete: true, n: 2, pages: 1, ledger: [] }, okSeries);
+  assert.equal(ok.verdict, "equal", "an index-only fieldDiff still rides on equal (C-G2-7 unchanged)");
+});
+
+// ---- C-G2D-4: budget.json is persisted PER PAGE (a crash before the final write leaves the exact per-page count) ----
+test("bell_crosscheck_per_page_budget_survives_crash — a hard crash after a page's onPage but before the final write leaves budget.json at the per-page count (C-G2D-4)", async () => {
+  const refEvents = [ev("initialize", 1, 0, 10, 0, "initSig"), ev("update", 1.5, 1500, 20, 0, "updSig")];
+  const oracleTriplet = replayTriplet(refEvents, Number.MAX_SAFE_INTEGER)!;
+  const seriesDir = mkdtempSync(join(tmpdir(), "bell-cc-crash-series-")), outDir = mkdtempSync(join(tmpdir(), "bell-cc-crash-out-"));
+  writeFileSync(join(seriesDir, "rebase-SPYx.json"), JSON.stringify({ symbol: "SPYx", method: "hybrid-authority-scan", oracle_slot: 25, oracle_triplet: oracleTriplet, events: refEvents }));
+  const cinit = jtx("initSig", 10, 1000, initBytes(1)), cupd = jtx("updSig", 20, 2000, updBytes(1.5, 1500));
+  const bodies: Record<string, unknown> = { initSig: cinit, updSig: cupd };
+  // A stub that serves page 1 (init) normally — its onPage MUST write budget.json — then HARD-CRASHES on the page-2
+  // asc fetch (a non-budget error = a simulated process kill), BEFORE the CLI's final budget.json write is reached.
+  let ascHits = 0;
+  const crashOnP2: JsonRpcCall = (_u, method, params) => {
+    throwOnState(method);
+    if (method === "getTransactionsForAddress") {
+      const p = (params as unknown[])[1] as { sortOrder: string };
+      if (p.sortOrder === "desc") return Promise.resolve({ data: [bodies.updSig], paginationToken: null });
+      ascHits += 1;
+      if (ascHits >= 2) throw new Error("simulated hard crash (process kill) mid-scan");
+      return Promise.resolve({ data: [cinit], paginationToken: "p2" });
+    }
+    if (method === "getTransaction") return Promise.resolve(bodies[String((params as unknown[])[0])]);
+    throw new Error("unexpected " + method);
+  };
+  const noDb: DatabentoGet = () => Promise.resolve([]);
+  const noPoly: PolygonGet = () => Promise.resolve({ results: [] });
+  const env = { BELL_SOLANA_RPC: PROVIDERS.join(",") } as NodeJS.ProcessEnv;
+  const args = ["--rebase-crosscheck", "--pools", "SPYx", "--max-calls", "100", "--max-credits", "1000", "--max-pages", "10", "--min-interval", "0", "--allow-short-pages", "--series-dir", seriesDir, "--out", outDir];
+  // the crash propagates out of runMain (crosscheck branch has no try/catch; scanFullMint rethrows non-budget errors).
+  await assert.rejects(runMain(args, { call: crashOnP2, databentoGet: noDb, polygonGet: noPoly, env, nowMs: 25000 }), /simulated hard crash/, "the hard crash propagates (not swallowed)");
+  // The CLI's FINAL budget.json write was NEVER reached — yet budget.json exists at page 1's onPage count (calls_used
+  // 2 = p1 gTfA + initSig opB; pages 1). Deleting the per-page write (mutant) leaves NO budget.json => this test reds.
+  const budget = JSON.parse(readFileSync(join(outDir, "budget.json"), "utf8")) as { calls_used: number; pages: number };
+  assert.equal(budget.pages, 1, "budget.json reflects exactly the one page persisted before the crash (per-page write)");
+  assert.equal(budget.calls_used, 2, "calls_used = page-1 gTfA + initSig opB re-read (persisted per page, not at the unreached final write)");
 });
