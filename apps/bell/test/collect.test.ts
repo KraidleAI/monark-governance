@@ -6,9 +6,9 @@ import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
-import { assertOutsideRepo, collect, chainTimeline, parseArgs, fatalMessage, makeBudgetedCall, refCloseDatesForFills, runMain, type SymbolInput } from "../src/collect.ts";
-import { POOLS } from "../src/pools.ts";
-import { f64BitsHexLE } from "../src/rebase-trajectory.ts";
+import { assertOutsideRepo, buildSolanaSymbol, collect, chainTimeline, parseArgs, fatalMessage, makeBudgetedCall, refCloseDatesForFills, runMain, type SymbolInput } from "../src/collect.ts";
+import { POOLS, XSTOCKS } from "../src/pools.ts";
+import { f64BitsHexLE, type MultiplierEvent } from "../src/rebase-trajectory.ts";
 import { earliestPublishUtc, type DatabentoGet, type PolygonGet } from "../src/close.ts";
 import { quorum2, signaturesSetKey, statusOf, isSolRevert, NoQuorumError, QuorumDisagreementError, ConcordantRevertError,
   BudgetExceededError, SolRpcError, type JsonRpcCall, type TransportFault } from "../src/quorum.ts";
@@ -53,6 +53,18 @@ function tslaxInput(closeAnchor: number | null): SymbolInput {
     closeRefBySession, advDailyVolumes: [1_000_000, 1_100_000, 900_000], mint };
 }
 const anchorKeyOf = (utcMs: number): string => classifySession(utcMs).sessionDateET;
+
+/** L-4 (C-7): a synthetic 56-byte ScaledUiAmountConfig (authority 32 zero, then multiplier f64, effTs i64,
+ *  new_multiplier f64, all little-endian) as base64 — the getAccountInfo(encoding:"base64") shape the C-3 anchor
+ *  decodes. No real account bytes (a m=1 or a scheduled-update state is built field by field). */
+function stateConfigB64(mult: number, effTs: number, newMult: number): string {
+  const b = new Uint8Array(56);
+  const dv = new DataView(b.buffer);
+  dv.setFloat64(32, mult, true);
+  dv.setBigInt64(40, BigInt(effTs), true);
+  dv.setFloat64(48, newMult, true);
+  return Buffer.from(b).toString("base64");
+}
 
 // Re-pinned at -b1 (C-6): the closed residual set grew by `rebase_unverified`, so the digest's `residuals`
 // map carries one more key (`rebase_unverified: 0`) and its sha shifts. The fixture BYTES are unchanged; the
@@ -638,10 +650,16 @@ test("bell_close_databento_replays_synthetic_fixture", async () => {
   const swapBody = { slot: 1, transaction: { message: { accountKeys: [{ pubkey: pool.vaultBase }, { pubkey: pool.vaultQuote }] } },
     meta: { err: null, preTokenBalances: [{ accountIndex: 0, uiTokenAmount: { amount: "1000000000" } }, { accountIndex: 1, uiTokenAmount: { amount: "5000000000" } }],
       postTokenBalances: [{ accountIndex: 0, uiTokenAmount: { amount: "1100000000" } }, { accountIndex: 1, uiTokenAmount: { amount: "4635000000" } }] } };
-  const call: JsonRpcCall = (_url, method) => {
+  const call: JsonRpcCall = (_url, method, params) => {
     if (method === "getSignaturesForAddress") return Promise.resolve([{ signature: "sig1", slot: 1, blockTime: btSec, err: null }]);
     if (method === "getTransaction") return Promise.resolve(swapBody);
-    if (method === "getAccountInfo") return Promise.resolve({ context: { slot: 9 }, value: { data: { parsed: { info: { supply: "1000000000", decimals: 8, extensions: [] } } } } });
+    if (method === "getAccountInfo") {
+      // L-4: the C-3 anchor reads encoding:"base64" (a 56-byte m=1 state, consistent with the init m=1 trajectory);
+      // the mint readout still reads jsonParsed. Same value on both operators => quorum concords.
+      const enc = (params[1] as { encoding?: string } | undefined)?.encoding;
+      if (enc === "base64") return Promise.resolve({ context: { slot: 9 }, value: { data: [stateConfigB64(1, 0, 1), "base64"] } });
+      return Promise.resolve({ context: { slot: 9 }, value: { data: { parsed: { info: { supply: "1000000000", decimals: 8, extensions: [] } } } } });
+    }
     throw new Error("unexpected " + method);
   };
   // synthetic fixtures (declared, in-memory): Databento returns a scaled-int close 364.0 for TSLA on the ref day;
@@ -651,7 +669,7 @@ test("bell_close_databento_replays_synthetic_fixture", async () => {
   // a scanned trajectory (constant m=1) so the gate is `constant` and collect() computes g_t (else it abstains).
   const outDir = mkdtempSync(join(tmpdir(), "bell-runmain-"));
   const trajPath = join(outDir, "traj.json");
-  writeFileSync(trajPath, JSON.stringify({ TSLAx: { events: [{ kind: "initialize", multiplier: "1", multiplierBitsHex: f64BitsHexLE(1), effectiveTimestampSec: 0, blockTimeSec: 0, slot: 1, instructionIndex: 0, signature: "s1" }], scanComplete: true } }));
+  writeFileSync(trajPath, JSON.stringify({ TSLAx: { events: [{ kind: "initialize", multiplier: "1", multiplierBitsHex: f64BitsHexLE(1), effectiveTimestampSec: 0, blockTimeSec: 0, slot: 1, instructionIndex: 0, signature: "s1" }], scanComplete: true, scanMethod: "authority" } }));
   // C-V-3 (O-1): also wire the halt CSV through runMain so the BELL_HALTS_CSV -> haltsSince -> collect -> halt_deltas
   // path is replayed in composition (kills MV9). The synthetic halt window (13:31:00Z-13:32:00Z) brackets the runMain fill.
   const env = { BELL_SOLANA_RPC: "https://mainnet.helius-rpc.com,https://solana-mainnet.core.chainstack.com", POLYGON_API_KEY: "p", DATABENTO_API_KEY: "k",
@@ -703,4 +721,78 @@ test("bell_earliest_publish_utc_is_joinable_per_session_on_collect_output", () =
   assert.notEqual(earliestPublishUtc(refCloseDateOf("regular", "2026-09-16")), earliestPublishUtc("2026-09-16"), "refDate gate != anchor gate (MV8 distinguishable)");
   // C-6 on the PRODUCED output: the latest gate is >= 16:00 ET of its refDate + 24h.
   assert.ok(epus[epus.length - 1]! >= etWallClockToUtcMs(2026, 9, 18, 16, 0, 0) + 86_400_000);
+});
+
+// ---- L-4 (C-7): the C-3 anchor grants trajectory_known ONLY on a bit-identical live state (never presence) ----
+test("bell_c3_anchor_stale_trajectory_is_unverified", async () => {
+  const pool = POOLS.find((p) => p.baseSymbol === "SPYx" && p.chain === "solana")!; // a NON-first symbol (C-7(b))
+  const tok = XSTOCKS.find((t) => t.symbol === "SPYx")!;
+  const providers = ["https://mainnet.helius-rpc.com", "https://solana-mainnet.core.chainstack.com"];
+  const from = 1751328000, to = 1761955199, effTs = 1761954000;
+  // an in-window varying trajectory (init m=1, one update m=1.0039 whose effTs lands in-window): replayTriplet =
+  // {mul: f64(1), new: f64(1.0039), effTs}. trajectory_known once anchored.
+  const events: MultiplierEvent[] = [
+    { kind: "initialize", multiplier: "1", multiplierBitsHex: f64BitsHexLE(1), effectiveTimestampSec: 0, blockTimeSec: 1000, slot: 10, instructionIndex: 0, signature: "i" },
+    { kind: "update", multiplier: "1.0039", multiplierBitsHex: f64BitsHexLE(1.0039), effectiveTimestampSec: effTs, blockTimeSec: 1761950000, slot: 20, instructionIndex: 0, signature: "u" },
+  ];
+  const traj = { events, scanComplete: true, scanMethod: "authority" as const };
+  // the anchor read is keyed on the MINT address; `other` is what a hardcoded-wrong-address anchor (C-7(b) mutant)
+  // would read — a DIFFERENT new_multiplier, so the mutant diverges on the concordance case and reds.
+  const build = (mintState: string, otherState: string): Promise<SymbolInput> => {
+    const call: JsonRpcCall = (_url, method, params) => {
+      if (method === "getSignaturesForAddress") return Promise.resolve([]);
+      if (method === "getAccountInfo") {
+        const addr = (params as unknown[])[0] as string;
+        const enc = ((params as unknown[])[1] as { encoding?: string } | undefined)?.encoding;
+        if (enc === "base64") return Promise.resolve({ context: { slot: 25 }, value: { data: [addr === tok.address ? mintState : otherState, "base64"] } });
+        return Promise.resolve({ context: { slot: 25 }, value: { data: { parsed: { info: { supply: "1", decimals: 8, extensions: [] } } } } });
+      }
+      throw new Error("unexpected " + method);
+    };
+    return buildSolanaSymbol(call, providers, tok, pool, { fromSec: from, toSec: to }, to * 1000, "", { maxPages: 1, bodySample: 0 }, traj, [] as TransportFault[]);
+  };
+  // CONCORDANCE: the live state == the replayed triplet on ALL THREE fields => trajectory_known + the two authority
+  // residuals (scanMethod passed; mutant "scanMethod not passed" => residuals empty => reds).
+  const ok = await build(stateConfigB64(1, effTs, 1.0039), stateConfigB64(1, effTs, 1.0057));
+  assert.equal(ok.rebase?.status, "trajectory_known", "bit-identical live state => trajectory_known");
+  assert.ok(ok.rebase?.status === "trajectory_known" && ok.rebase.residuals.length === 2, "the two authority residuals ride (scanMethod passed)");
+  // STALE: same file, live state has a DIFFERENT scheduled update (multiplier bits EQUAL, new_multiplier/effTs
+  // differ) => the full-triplet check diverges => rebase_unverified. Mutants "compare multiplier bits only" and
+  // "anchor removed (presence only)" would grant trajectory_known here => this reds them.
+  const stale = await build(stateConfigB64(1, effTs + 600, 1.0057), stateConfigB64(1, effTs + 600, 1.0057));
+  assert.equal(stale.rebase?.status, "unverified", "a post-scan scheduled update (stale file) => rebase_unverified");
+  // C-G2-5: the CURRENT multiplier diverges (mulBits differ: replay 1 vs live 2) while new_multiplier + effTs MATCH =>
+  // the full-triplet check must still diverge => rebase_unverified. Mutant "drop the mulBits equality" grants
+  // trajectory_known here => this reds it (MINE1, the G2's surviving mutant — the mulBits field was never exercised).
+  const mulDiverge = await build(stateConfigB64(2, effTs, 1.0039), stateConfigB64(2, effTs, 1.0039));
+  assert.equal(mulDiverge.rebase?.status, "unverified", "current-multiplier bits divergence => rebase_unverified (kills MINE1)");
+  // an unreadable state (no base64 bytes) => quorum benched => rebase_unverified (fail-closed).
+  const noState = await build("", "");
+  assert.equal(noState.rebase?.status, "unverified", "an unreadable live state => rebase_unverified");
+});
+
+// ---- L-5 (C-10): a published trajectory_known session counts the gate residuals + lists them (hors CLOSE_KEY) ----
+test("bell_gate_residuals_counted_in_state", () => {
+  const bt = Date.UTC(2025, 8, 20, 2, 0, 0), btSec = Math.floor(bt / 1000); // off-hours => ref close = anchor day
+  const events: MultiplierEvent[] = [
+    { kind: "initialize", multiplier: "1", multiplierBitsHex: f64BitsHexLE(1), effectiveTimestampSec: 0, blockTimeSec: btSec - 100_000, slot: 1, instructionIndex: 0, signature: "i" },
+    { kind: "update", multiplier: "1.0039", multiplierBitsHex: f64BitsHexLE(1.0039), effectiveTimestampSec: btSec - 50_000, blockTimeSec: btSec - 50_000, slot: 2, instructionIndex: 0, signature: "u" },
+  ];
+  const fill: SwapFill = { signature: "a", blockTimeUtcMs: bt, baseDelta: 100_000_000n, quoteDelta: -365_000_000n };
+  const cls = classifySession(bt);
+  const refDate = refCloseDateOf(cls.session, cls.sessionDateET);
+  const sym: SymbolInput = { symbol: "SPYx", chain: "solana", baseDec: 8, quoteDec: 6, fills: [fill], fillsResidues: [],
+    closeRefBySession: { [refDate]: 364 }, advDailyVolumes: [], rebase: { status: "trajectory_known", events, overwrittenPending: 0, residuals: ["authority_scan_mono_operator", "set_authority_unscanned"] } };
+  const r = collect({ symbols: [sym], haltRows: [], window: { fromUtcMs: 0, toUtcMs: 0 }, nowSec: 1_800_000_000, staleBoundSec: 93600, generatedAt: "t" });
+  const d = r.digest as { gaps: Array<Record<string, unknown>>; residuals: Record<string, number> };
+  const g = d.gaps.find((x) => "gT" in x);
+  assert.ok(g, "a published trajectory_known g_t exists");
+  // per-session COUNT (calque rebase_unverified): one published session => each code counted once. Mutant: neutralise
+  // the emission (`for (const r of [])`) => both 0 + no rebase_residuals => this reds.
+  assert.equal(d.residuals.authority_scan_mono_operator, 1, "authority_scan_mono_operator counted per published session");
+  assert.equal(d.residuals.set_authority_unscanned, 1, "set_authority_unscanned counted per published session");
+  assert.deepEqual(g.rebase_residuals, ["authority_scan_mono_operator", "set_authority_unscanned"], "the codes ride on the gap under rebase_residuals");
+  assert.equal(d.residuals.rebase_unverified, 0, "trajectory_known does NOT abstain");
+  // C-10 sonde: the produced state carries non-empty rebase_residuals and STILL passes the close-guard.
+  assert.doesNotThrow(() => { assertNoClose(r.state); }, "rebase_residuals is hors CLOSE_KEY (ESC-1 c intact)");
 });

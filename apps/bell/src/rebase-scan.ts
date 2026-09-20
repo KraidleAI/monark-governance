@@ -95,8 +95,9 @@ export interface ScanResult {
   readonly reason?: string;
 }
 
-/** The first two DISTINCT operators (by operatorOf) among the providers, or null if fewer than two. */
-function firstTwoDistinctOps(providers: readonly string[]): readonly [string, string] | null {
+/** The first two DISTINCT operators (by operatorOf) among the providers, or null if fewer than two. Exported
+ *  for the L-3 authority producer (rebase-produce.ts), which pins the same two-operator quorum. */
+export function firstTwoDistinctOps(providers: readonly string[]): readonly [string, string] | null {
   const byOp = new Map<string, string>();
   for (const u of providers) { const op = operatorOf(u); if (!byOp.has(op)) byOp.set(op, u); if (byOp.size === 2) break; }
   const two = [...byOp.values()];
@@ -106,7 +107,7 @@ function firstTwoDistinctOps(providers: readonly string[]): readonly [string, st
 /** Read the CURRENT ScaledUiAmountConfig state on BOTH operators (base64 => bit-exact, C-3). The two must concord
  *  on the triplet bits (else no_quorum). Returns S = MIN(slotA, slotB) (settled below both heads) + the triplet
  *  bits, or null on quorum failure. BudgetExceededError re-thrown (C-11). */
-async function pinOracleState(call: JsonRpcCall, ops: readonly [string, string], mint: string, faults: TransportFault[]): Promise<{ S: number; mulBits: string; newBits: string; effTs: number } | null> {
+export async function pinOracleState(call: JsonRpcCall, ops: readonly [string, string], mint: string, faults: TransportFault[]): Promise<{ S: number; mulBits: string; newBits: string; effTs: number; auth: string | null } | null> {
   const read = async (u: string): Promise<{ slot: number; st: ReturnType<typeof decodeStateConfig> }> => {
     const r = asObj(await call(u, "getAccountInfo", [mint, { encoding: "base64" }]));
     const st = decodeStateConfig(scaledUiConfigBytes(Buffer.from(String(asArr(asObj(r.value).data)[0]), "base64")));
@@ -117,7 +118,7 @@ async function pinOracleState(call: JsonRpcCall, ops: readonly [string, string],
   try { b = await read(ops[1]); } catch (e) { if (e instanceof BudgetExceededError) throw e; faults.push({ provider: providerOf(ops[1]), status: statusOf(e) }); return null; }
   const key = (x: typeof a): string => x.st.multiplierBitsHex + "|" + x.st.newMultiplierBitsHex + "|" + String(x.st.effectiveTimestampSec);
   if (key(a) !== key(b)) return null; // providers disagree on the current state => no_quorum
-  return { S: Math.min(a.slot, b.slot), mulBits: a.st.multiplierBitsHex, newBits: a.st.newMultiplierBitsHex, effTs: a.st.effectiveTimestampSec };
+  return { S: Math.min(a.slot, b.slot), mulBits: a.st.multiplierBitsHex, newBits: a.st.newMultiplierBitsHex, effTs: a.st.effectiveTimestampSec, auth: a.st.authority };
 }
 
 /** The Token-2022 mint account layout prepends a base (82) + TLV header before each extension state. This helper
@@ -167,8 +168,8 @@ async function enumerateBand(call: JsonRpcCall, ops: readonly [string, string], 
 }
 
 /** C-4(iii) quorum key of a candidate body = its DECODED events (sig|slot|mint|f64 bits|effTs|kind), never the raw
- *  JSON (incidental fields diverge between operators). */
-function bodyEventKey(mint: string, evs: readonly MultiplierEvent[]): string {
+ *  JSON (incidental fields diverge between operators). Exported for the L-3 authority producer (rebase-produce.ts). */
+export function bodyEventKey(mint: string, evs: readonly MultiplierEvent[]): string {
   return evs.map((e) => `${e.signature}|${String(e.slot)}|${mint}|${e.multiplierBitsHex}|${String(e.effectiveTimestampSec)}|${e.kind}`).join(";");
 }
 

@@ -1,0 +1,27 @@
+{
+  "symbol": "AAPLx",
+  "founding_pool": {
+    "foundingPoolId": "CKwJZwm7oj3nu4653N1EpDrqXbXAYXoPFiPeEnLouF8y",
+    "vaultBase": "3DRUhhz5q1wsXZxYYpujPP4Fq5hYNfEGggSq93d99Tn7",
+    "vaultQuote": "yMw7pT6pqeSNDUvHkv7626eeGEHC7PrRhXa6mAAuiuw",
+    "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "quoteDec": 6,
+    "programId": "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK",
+    "dex": "raydium-clmm",
+    "quote_class": "usd",
+    "executable": true,
+    "authority_kind": "program"
+  },
+  "discovery_enumeration": "helius-gtfa-mono-operator",
+  "sampled_tx": 15000,
+  "window_total_tx": "unknown (>= floor)",
+  "vault_share_of_sample": {
+    "3DRUhhz5q1wsXZxYYpujPP4Fq5hYNfEGggSq93d99Tn7": 0.5219333333333334,
+    "8aPjuyCPhxRDgiYCEdvfsCi8njsq5XTAX6aG1y4smkkP": 0.3233333333333333,
+    "BJksudAozZwu956NTWHZTAWq49QdVxDBUc5ixJishKK6": 0.118,
+    "QEY7t8XDeEGKWXPT3opjYzuHfq9QRkMMa2J8C3SiQDJ": 0.07313333333333333,
+    "BdVGuQwCznc3advYg7Y2RCiF8EVktD3jhBwjJaa6u86N": 0.0606
+  },
+  "candidates_below_threshold_count": 3258,
+  "measure_note": "In-repo committed measure (checkpoint-1 C-4 served input): founding_pool == FOUNDING_POOLS[AAPLx] field-by-field (bell_founding_registry_equals_discovery_measure). vault_share_of_sample lists every vault at/above FOUNDING_DISCOVERY_THRESHOLD (0.05); founding_pool is the top-tally vault, its quote paired by owner. candidates_below_threshold reduced to a count; the full CLI DiscoveryFile (complete below-threshold address list) is the sha-pinned out-of-tree brut (see PROVENANCE-founding-discovery.md)."
+}
