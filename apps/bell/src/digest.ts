@@ -15,6 +15,7 @@
 // volumeBase -- the SAME derivation shape; only `vol_ratio` (no adv/share_volume/volume_ref substring) is
 // published. This extension of ESC-1 (c) to ADV is a point for checkpoint-2, not a ruling this file asserts.)
 import { createHash } from "node:crypto";
+import { type Residual } from "./residuals.ts";
 
 type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
 
@@ -69,6 +70,11 @@ export interface GapEntryFilled extends GapEntryBase {
   readonly gT: string;
   readonly exceed1: number; readonly exceed2: number; readonly exceed5: number;
   readonly multiplierUsed?: string;
+  // L-5 (C-10, Q3): the gate's NAMED residuals (a closed-set subset — authority_scan_mono_operator /
+  // set_authority_unscanned) listed on a PUBLISHED trajectory_known session. Present only when non-empty; a
+  // closed-set string array under a NON-CLOSE_KEY key (`rebase_residuals` dodges CLOSE_KEY), so assertNoClose is
+  // green. The per-session COUNT lives in `residuals` (single counter source); this is the joinable per-gap detail.
+  readonly rebase_residuals?: readonly Residual[];
   // -b3b (C-6): the publication-policy gate for THIS session's g_t = earliestPublishUtc(refCloseDate) = 16:00 ET of
   // the reference-close day + 24 h (conservative >= 13:00 + 24 h on a half-day). A T-1b export whitelist consumes it;
   // it is a policy field, not a market fact, and not a close-like key. Placed on the hashed digest entry (C-6 option a,

@@ -23,9 +23,11 @@ import { readReferenceCloses, earliestPublishUtc, databentoGet, polygonGet,
 import { newResidualCounts, RESIDUAL_CODES, type Residual, type ResidualCounts } from "./residuals.ts";
 import { poolVolumeBase, consolidatedAdv, volumeToAdvRatio } from "./volume.ts";
 import { readMintToken2022, porStatus, wrapperStatus, rebaseForMint, rebaseGateFromTrajectory, type MintReadout, type RebaseGate } from "./supply.ts";
-import { multiplierAtMs, type MultiplierEvent } from "./rebase-trajectory.ts";
-import { runRebaseScanCli } from "./rebase-scan.ts";
-import { quorum2, signaturesSetKey, statusOf, NoQuorumError, QuorumDisagreementError,
+import { multiplierAtMs, replayTriplet, decodeStateConfig, type MultiplierEvent } from "./rebase-trajectory.ts";
+import { runRebaseScanCli, scaledUiConfigBytes } from "./rebase-scan.ts";
+import { runRebaseProduceCli } from "./rebase-produce.ts";
+import { runDiscoverCli } from "./discover.ts";
+import { quorum2, signaturesSetKey, statusOf, NoQuorumError, QuorumDisagreementError, ConcordantRevertError,
   BudgetExceededError, SolRpcError, type JsonRpcCall, type TransportFault } from "./quorum.ts";
 import { signaturesUntil, extractPoolSwap, MAX_TX_VERSION, solanaEndpoints, type SigInfo, type SwapFill } from "./rpc.ts";
 import { providerOf } from "../../sentinel/src/rpc.ts";
@@ -160,12 +162,19 @@ export function collect(input: CollectInput): CollectResult {
       const rb = s.rebase;
       if (rb !== undefined && (rb.status === "trajectory_known" || (rb.status === "constant" && rb.multiplier !== "1"))) {
         let mAt: (ms: number) => number | null;
+        // C-10: the gate's named residuals ride ONLY on a trajectory_known gate (constant carries none by construction).
+        const gateResiduals: readonly Residual[] = rb.status === "trajectory_known" ? rb.residuals : [];
         if (rb.status === "trajectory_known") { const evs = rb.events; mAt = (ms) => multiplierAtMs(evs, ms)?.value ?? null; }
         else { const mc = Number(rb.multiplier); mAt = () => mc; }
         const rgap = sessionGapRebase(g.fills, close, s.baseDec, s.quoteDec, mAt);
         if ("abstain" in rgap) { bump(rgap.abstain); symGaps.push({ symbol: s.symbol, session: g.session, regime: g.regime, vwap: rgap.vwap, volumeBase: rgap.volumeBase, n: rgap.n, abstain: rgap.abstain }); continue; }
+        // C-10 (Q3): count each gate residual PER published trajectory_known session (calque rebase_unverified) + list
+        // them on the gap under `rebase_residuals` (hors CLOSE_KEY). PINNED_BELL_SHA is untouched: replay fixtures pass
+        // rebase:undefined (never this branch) and a []-residual gate adds no key (gated on .length).
+        for (const r of gateResiduals) bump(r);
         symGaps.push({ symbol: s.symbol, session: g.session, regime: g.regime, vwap: rgap.vwap, gT: rgap.gT, volumeBase: rgap.volumeBase, n: rgap.n, multiplierUsed: rgap.multiplierUsed,
-          exceed1: exceeds(rgap.gT, 1) ? 1 : 0, exceed2: exceeds(rgap.gT, 2) ? 1 : 0, exceed5: exceeds(rgap.gT, 5) ? 1 : 0, earliest_publish_utc: epu, ...xmark });
+          exceed1: exceeds(rgap.gT, 1) ? 1 : 0, exceed2: exceeds(rgap.gT, 2) ? 1 : 0, exceed5: exceeds(rgap.gT, 5) ? 1 : 0, earliest_publish_utc: epu,
+          ...(gateResiduals.length ? { rebase_residuals: [...gateResiduals] } : {}), ...xmark });
         continue;
       }
       const gap = sessionGap(g.fills, close, s.baseDec, s.quoteDec);
@@ -423,9 +432,13 @@ export function parseArgs(argv: readonly string[], knownSymbols: readonly string
   if (!(maxCalls > 0)) throw new Error("bell/collect: --max-calls must be > 0 (C-11/O-12 fail-closed budget)");
   // C-10 (D1-quater): --rebase-trajectory <file> feeds a scanned per-mint trajectory to the gate (the g_t
   // rebase-aware path is then CONSUMED by main(), not just fixtures). --rebase-scan runs the scan/probe mode.
+  // C-8 (L-3): --rebase-produce runs the in-repo authority scanner (needs --authority <base58>) that WRITES the
+  // trajectory file --rebase-trajectory then consumes — the real run is one command through the same budget.
   return { out: argOf(argv, "--out") ?? "F:/tmp/bell-out", toUtcMs, fromUtcMs,
     wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo, maxCalls,
-    rebaseScan: argv.includes("--rebase-scan"), rebaseTrajectory: argOf(argv, "--rebase-trajectory") };
+    rebaseScan: argv.includes("--rebase-scan"), rebaseTrajectory: argOf(argv, "--rebase-trajectory"),
+    rebaseProduce: argv.includes("--rebase-produce"), authority: argOf(argv, "--authority"),
+    discover: argv.includes("--discover") };
 }
 
 /** CA-11 guard (pure, wired in main): a bell --out MUST be OUTSIDE the repo tree. win32 path.resolve keeps
@@ -442,8 +455,38 @@ export function assertOutsideRepo(out: string, repoRoot: string): void {
 }
 
 /** A scanned per-mint trajectory fed to the gate (D1-quater). `scanComplete` folds the L-2 completeness AND the
- *  C-3 final-state oracle: false => rebase_unverified. Plain data (events), so the whole path is offline-testable. */
-export interface TrajectoryInput { readonly events: readonly MultiplierEvent[]; readonly scanComplete: boolean }
+ *  C-3 final-state oracle: false => rebase_unverified. `scanMethod` (C-1: REQUIRED, closed enum) names the scan so
+ *  the gate carries the method's residuals; a missing/unknown value makes loadTrajectories DROP the entry (an
+ *  optional default would be a fail-open, fewer reserves). Plain data (events), so the whole path is offline-testable. */
+export interface TrajectoryInput { readonly events: readonly MultiplierEvent[]; readonly scanComplete: boolean; readonly scanMethod: "authority" }
+
+/** L-4 C-3 anchor (C-V-2, C-7): read the mint's ScaledUiAmountConfig base64 under quorum-2 (key on the triplet
+ *  bits, calque pinOracleState) and return whether the replayed trajectory's final triplet is bit-identical to the
+ *  read state. No Initialize / no_quorum / decode failure / ANY bit divergence => false (fail-closed: the caller
+ *  abstains rebase_unverified, never a rescale nor an adjustment of the replay). The comparison is on all THREE
+ *  fields (multiplier, new_multiplier, effTs) so a stale file with a post-scan scheduled update is caught. */
+async function stateAnchorMatches(call: JsonRpcCall, providers: readonly string[], mint: string,
+  events: readonly MultiplierEvent[], faults: TransportFault[]): Promise<boolean> {
+  const expected = replayTriplet(events, Number.MAX_SAFE_INTEGER);
+  if (expected === null) return false; // no Initialize precedes the read => nothing to anchor => abstain
+  let live: { mulBits: string; newBits: string; effTs: number };
+  try {
+    live = await quorum2(`state:${mint.slice(0, 8)}`, providers, call,
+      async (c, u) => {
+        const r = await c(u, "getAccountInfo", [mint, { encoding: "base64" }]);
+        const data = (r as { value?: { data?: unknown } }).value?.data;
+        const b64 = Array.isArray(data) && typeof data[0] === "string" ? data[0] : "";
+        const st = decodeStateConfig(scaledUiConfigBytes(Buffer.from(b64, "base64")));
+        return { mulBits: st.multiplierBitsHex, newBits: st.newMultiplierBitsHex, effTs: st.effectiveTimestampSec };
+      },
+      (t) => `${t.mulBits}|${t.newBits}|${String(t.effTs)}`, faults);
+  } catch (e) {
+    if (e instanceof BudgetExceededError) throw e; // C-11: the budget stop is fatal, never swallowed
+    if (e instanceof NoQuorumError || e instanceof QuorumDisagreementError || e instanceof ConcordantRevertError) return false;
+    throw e;
+  }
+  return expected.multiplierBitsHex === live.mulBits && expected.newMultiplierBitsHex === live.newBits && expected.effectiveTimestampSec === live.effTs;
+}
 
 /** C-6 (C-V-3): the injectable per-symbol build — one Solana SymbolInput from an injected `call`. main() loops
  *  over it; the offline test drives it with a stub where the mint getAccountInfo makes NO quorum, asserting the
@@ -462,10 +505,16 @@ export async function buildSolanaSymbol(call: JsonRpcCall, providers: readonly s
     const res = await quorum2(`mint:${tok.symbol}`, providers, call, (c, u) => c(u, "getAccountInfo", [tok.address, { encoding: "jsonParsed" }]), (r) => canonical(mintKey(r)), faults);
     mint = readMintToken2022(res, tok.symbol);
   } catch (e) { if (e instanceof NoQuorumError || e instanceof QuorumDisagreementError) mintResidues.push("no_quorum"); else throw e; }
-  // C-V-3: a scanned trajectory is trusted ONLY with a live mint read (the C-3 oracle anchor); mint no-quorum
-  // => rebase_unverified even if a (possibly stale) trajectory file was passed.
+  // C-V-3 / L-4 (C-V-2, C-7): a scanned trajectory is trusted ONLY with a live mint read AND a matching C-3 anchor.
+  // `stateAnchorMatches` reads the ScaledUiAmountConfig base64 under quorum-2 and checks replayTriplet(events) == the
+  // read triplet ON THE BITS; a stale file (a scheduled update posted after the scan) diverges on newBits/effTs =>
+  // NOT anchored => rebase_unverified, never a rescale. The anchor fires ONLY with trajectory + mint (no extra call
+  // otherwise, so a no-trajectory build makes exactly the same reads as before). scanMethod rides to the gate (fact 4).
+  const anchored = trajectory && mint ? await stateAnchorMatches(call, providers, tok.address, trajectory.events, faults) : false;
   const rebase: RebaseGate = trajectory && mint
-    ? rebaseGateFromTrajectory(trajectory.events, window.fromSec, window.toSec, trajectory.scanComplete)
+    ? (anchored
+        ? rebaseGateFromTrajectory(trajectory.events, window.fromSec, window.toSec, trajectory.scanComplete, trajectory.scanMethod)
+        : { status: "unverified", residue: "rebase_unverified" })
     : rebaseForMint(mint);
   // -b3b: the reference close is attached later by runMain (Databento cross-checked); here we read only the ADV.
   const advDailyVolumes = await advVolumes(UNDERLYING[tok.symbol] ?? tok.symbol, polygonKey, toUtcMs, faults, getAdv);
@@ -474,15 +523,18 @@ export async function buildSolanaSymbol(call: JsonRpcCall, providers: readonly s
     ...(mint ? { mint } : {}), rebase };
 }
 
-/** Load a --rebase-trajectory file (out-of-repo JSON: symbol -> {events, scanComplete}), fail-closed to {} on a
- *  missing/malformed file (every symbol then falls back to rebase_unverified). Never trusts a partial shape. */
+/** Load a --rebase-trajectory file (out-of-repo JSON: symbol -> {events, scanComplete, scanMethod}), fail-closed to
+ *  {} on a missing/malformed file (every symbol then falls back to rebase_unverified). C-1: an entry is trusted ONLY
+ *  when `scanMethod === "authority"` (the closed enum) — a missing/unknown scanMethod (e.g. an unconverted `method`
+ *  field) is DROPPED => the symbol falls back to rebase_unverified. Never trusts a partial shape. */
 export function loadTrajectories(path: string | undefined): Readonly<Record<string, TrajectoryInput>> {
   if (path === undefined) return {};
   const raw = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
   const out: Record<string, TrajectoryInput> = {};
   for (const [sym, v] of Object.entries(raw)) {
-    const o = v as { events?: unknown; scanComplete?: unknown };
-    if (Array.isArray(o.events) && typeof o.scanComplete === "boolean") out[sym] = { events: o.events as MultiplierEvent[], scanComplete: o.scanComplete };
+    const o = v as { events?: unknown; scanComplete?: unknown; scanMethod?: unknown };
+    if (Array.isArray(o.events) && typeof o.scanComplete === "boolean" && o.scanMethod === "authority")
+      out[sym] = { events: o.events as MultiplierEvent[], scanComplete: o.scanComplete, scanMethod: "authority" };
   }
   return out;
 }
@@ -499,7 +551,7 @@ export interface RunDeps {
 }
 
 export async function runMain(argv: readonly string[], deps: RunDeps): Promise<void> {
-  const { out, toUtcMs, fromUtcMs, wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo, maxCalls, rebaseScan, rebaseTrajectory } = parseArgs(argv, POOLS.map((p) => p.baseSymbol), deps.nowMs);
+  const { out, toUtcMs, fromUtcMs, wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo, maxCalls, rebaseScan, rebaseTrajectory, rebaseProduce, authority, discover } = parseArgs(argv, POOLS.map((p) => p.baseSymbol), deps.nowMs);
   const repoRoot = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
   assertOutsideRepo(out, repoRoot);
 
@@ -518,6 +570,16 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
   // L-2 (D1-quater): --rebase-scan runs the multiplier-trajectory scan/probe mode (rebase-scan.ts) and returns;
   // it writes its trajectory + probe out-of-repo (never in the collect digest). The bodies stage is C-V-2-gated.
   if (rebaseScan) { await runRebaseScanCli(call, solProviders, wanted, Math.floor(fromUtcMs / 1000), Math.floor(toUtcMs / 1000), out, { maxPages }, budgeted.calls, maxCalls, faults); return; }
+  // L-3 (C-8, D1-sexies): --rebase-produce runs the in-repo authority scanner and WRITES the loadable trajectory
+  // file out-of-repo (the C-G2-2 runner is now in-repo, through the budget). --authority is REQUIRED (fail-closed).
+  if (rebaseProduce) {
+    if (authority === undefined) throw new Error("bell/collect: --rebase-produce needs --authority <base58> (the shared multiplier authority, read on-chain)");
+    await runRebaseProduceCli(call, solProviders, wanted, authority, out, { maxPages }, budgeted.calls, maxCalls, faults); return;
+  }
+  // L-1 (D1-sexies): --discover samples the founding window (--from-utc/--to-utc) at 3 points, tallies the founding
+  // vaults, pairs the quote by owner, confirms quorum-2, and WRITES discovery-<MINT>.json out-of-repo (the served
+  // input FOUNDING_POOLS equals, C-4). --max-pages = N pages/point (PLI: 5). One command through the same budget.
+  if (discover) { await runDiscoverCli(call, solProviders, wanted, { fromSec: Math.floor(fromUtcMs / 1000), toSec: Math.floor(toUtcMs / 1000) }, out, { pagesPerPoint: maxPages }, budgeted.calls, maxCalls, faults); return; }
 
   // C-10: a scanned trajectory (out-of-repo file) is CONSUMED here so the g_t rebase-aware path is a real main()
   // path, not a fixture. Absent file => every symbol falls back to rebase_unverified (fail-closed).

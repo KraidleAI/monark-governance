@@ -1,0 +1,5 @@
+{
+  "symbol": "NVDAx",
+  "founding_pool": null,
+  "note": "MEASURE-GATED (checkpoint-1 C-4): pending the L-1/L-2 discovery network run (docs/PLI-lot-t1a-ii-b1-bis.md). null = no founding vault >= FOUNDING_DISCOVERY_THRESHOLD measured yet; the real run writes the measured {foundingPoolId, vaultBase, vaultQuote, quoteMint, quoteDec, programId, dex, quote_class}, and FOUNDING_POOLS is set equal field-by-field (bell_founding_registry_equals_discovery_measure)."
+}

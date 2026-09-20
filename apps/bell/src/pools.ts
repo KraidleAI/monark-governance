@@ -68,6 +68,20 @@ export const USDC_SOLANA = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 export const USDC_ETHEREUM = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
 export const TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 
+/** L-2 (C-5): committed programId -> dex map. Each entry's programId is READ on-chain (owner-of-owner) with a named
+ *  source; an id OFF this map is labelled `unknown-program` with the id lu — NEVER a dex from memory. Raydium CLMM is
+ *  the only family committed so far (the four `POOLS` rows, on-chain owner-of-owner). Adding a row is an ADR line. */
+export const DEX_BY_PROGRAM_ID: Readonly<Record<string, string>> = {
+  CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK: "raydium-clmm", // Raydium CLMM program (pools.ts rows, on-chain)
+};
+/** L-2 (C-6): committed CLOSED list of USD-stable quote mints (on-chain provenance). USDC only today; USDT/other =
+ *  an ADR line with a getAccountInfo-confirmed mint + source. A quote mint OFF this list => `quote_class` "non-usd"
+ *  (excluded from the -ii course, ADR-B0 D6 — a VWAP in SOL vs a USD close would need a third-party rate). */
+export const USD_STABLE_MINTS: readonly string[] = [USDC_SOLANA];
+/** L-1 (C-3): the PRE-REGISTERED founding-vault retention threshold (PLI). A vault whose share of the sampled tx is
+ *  >= this fraction is retained as a founding pool; present but below => candidate_below_threshold (published). */
+export const FOUNDING_DISCOVERY_THRESHOLD = 0.05;
+
 const JUP = (q: string) => `https://lite-api.jup.ag/tokens/v2/search?query=${q}`;
 const D = "2026-09-19";
 
@@ -120,4 +134,28 @@ export const POOLS: readonly PoolRef[] = [
   { label: "TSLAon/USDC 1% (Uniswap v3)", dex: "uniswap-v3", chain: "ethereum",
     poolId: "0x31227b50eccdc9c589826aa2d9e7c5619b1895da", baseSymbol: "TSLAon", quoteSymbol: "USDC", underlying: "TSLA",
     source: { api: "https://api.geckoterminal.com/api/v2/search/pools?query=TSLAon&network=eth", fetchedAt: D, snapshotSha256: "4755c1bc0105", onchain: "pool base_token==TSLAon, quote==USDC(0xa0b8..eb48)" } },
+];
+
+/** L-2 founding registry (decision 47): the 2025 founding pools DISCOVERED on-chain — `founding_pool` DISTINCT from
+ *  the `pairAddress` census (`POOLS`, which are 2026 CLMM pools). A found vault carries its vaults/quote/dex/
+ *  quote_class; a mint with no vault >= threshold => `founding_pool: null` DECLARED (no course in -ii), never a
+ *  guessed pool. MEASURE-GATED: every entry is `founding_pool: null` PENDING the L-1/L-2 network run (PLI — the
+ *  only paid dependency, frozen behind the pre-registered budget); each entry equals its
+ *  `series/founding/discovery-<MINT>.json` measure field-by-field (`bell_founding_registry_equals_discovery_measure`,
+ *  C-4), so the real run flips `null` -> the measured vaults and the test proves the registry == the measure. */
+export interface FoundingPoolRef {
+  readonly foundingPoolId: string; readonly vaultBase: string; readonly vaultQuote: string;
+  readonly quoteMint: string; readonly quoteDec: number; readonly programId: string; readonly dex: string;
+  readonly quote_class: "usd" | "non-usd";
+}
+export interface FoundingEntry {
+  readonly baseSymbol: string;
+  readonly underlying: string;
+  readonly founding_pool: FoundingPoolRef | null;
+}
+export const FOUNDING_POOLS: readonly FoundingEntry[] = [
+  { baseSymbol: "TSLAx", underlying: "TSLA", founding_pool: null },
+  { baseSymbol: "SPYx", underlying: "SPY", founding_pool: null },
+  { baseSymbol: "NVDAx", underlying: "NVDA", founding_pool: null },
+  { baseSymbol: "AAPLx", underlying: "AAPL", founding_pool: null },
 ];
