@@ -110,3 +110,34 @@ consultation** (jamais un dépassement silencieux, jamais un budget pondéré aj
 Aucune g_t fondatrice (course = -b1-bis-ii) ; aucun close ; scan `SetAuthority` + full-mint croisé (décisions 60 ratifiée / 67) =
 lot Bell dédié après -i ; course -ii soumise à son propre G0 + checkpoint-1 (plafond Q5 **ratifié** A-4 : ≤ 1 M cr Helius + ≤ 200 k
 appels Chainstack, fail-closed).
+
+---
+## RÉSULTATS (2026-09-20) — section distincte ; la partie pré-enregistrée ci-dessus (commit `bdfff31`) n'est pas réécrite
+Rédigée par l'orchestrateur `claude-fable-5-1` depuis le rapport du worker `claude-opus-4-8[1m]` (le worker n'avait pas écrit cette section : omission, `error_origin: worker`), shas de `pools.ts` et du brut `rebase-trajectory.json` re-vérifiés par l'orchestrateur. Gel mesuré : `9033670`. Paramètres pré-enregistrés §4a/§4b exécutés sans modification ; décision 60 ratifiée par l'investisseur le 2026-09-20.
+
+### RUN 1 — §4a scanner in-repo (`--rebase-produce`)
+Exit 0, 128 s, **192/300 appels** : `getTransactionsForAddress` 166 ×10 + `getTransaction` 18 ×1 + `getAccountInfo` 8 ×1 = **1 686 crédits** (pire cas A-2 : 1 920). Autorité lue on-chain et égale pour les 4 mints. **Critère C-8 (erratum + A-1) : PASS 4/4** — événements produits de `slot ≤ oracle_slot` == événements épinglés (bits/slot/index/signature) : TSLAx 1/1, SPYx 9/9, NVDAx 11/11, AAPLx 11/11 ; `replayTriplet(tous)` == triplet live quorum-2 sur les bits ; `scan_complete: true`, `reason: null`. **C-G2-2 (-b3a) CLOS** : le runner in-repo reproduit les 4 séries. **PR-B-GTFA-SHAPE CLOS par inférence** : le corps gTfA `full` a la forme `getTransaction` json (données d'instruction base58), établi par le succès du décodage (`rebase-produce.ts:60` → `rebase-scan.ts:53/72`) ; réserve : aucun corps brut structurel archivé par la commande pré-enregistrée.
+
+### RUN 2 — §4b découverte (`--discover`, 3 points, N = 5 pages/point, seuil 0,05)
+Exit 0, 139 s, **76/300 appels** : gTfA 60 ×10 + `getAccountInfo` 16 ×1 = **616 crédits** (pire cas 760 ; ventilation reconstruite — le CLI `--discover` ne publie que le total : item). `sampled_tx` = 15 000 par mint ; `window_total_tx: "unknown (>= floor)"`.
+
+| mint | founding_pool (vaultBase, adresse publique) | part de l'échantillon | programId lu (owner-of-owner) | dex | vaults ≥ seuil | candidats < seuil |
+|---|---|---|---|---|---|---|
+| TSLAx | `D2JXvYgyqo2CktPN4aNfdmHn8mK2vrF9essKdH8M4wn7` | 0,3985 | `CAMMCzo5…` | raydium-clmm | 8 | 3 273 |
+| SPYx | `EfmaMxuPJaU914gV9N8Z2sDTp249AtEASTLDZdhRsN37` | 0,4529 | `whirLbMii…` | unknown-program | 7 | 3 558 |
+| NVDAx | `FaHQ9Ny2U2RkcdapsKVr9pvnt4Mg7n92NdKnvyRzuibH` | 0,3218 | `whirLbMii…` | unknown-program | 10 | 3 694 |
+| AAPLx | `3DRUhhz5q1wsXZxYYpujPP4Fq5hYNfEGggSq93d99Tn7` | 0,5219 | `CAMMCzo5…` | raydium-clmm | 5 | 3 258 |
+
+Tous `quote_class: usd` (USDC, liste fermée C-6). `FOUNDING_POOLS` == mesure (test C-4 vert). Hypothèse 1 partiellement réfutée : le vault du PoC TSLAx est retenu mais 6ᵉ (part 0,0753). Limites déclarées : échantillon, jamais une couverture de fenêtre ; un pool actif seulement hors des 3 points n'est pas vu ; énumération Helius mono-opérateur.
+
+### Cumul, oracles, R-25
+**2 302 crédits réels** (pire cas 2 680) sur ≤ 20 000. Bell 92/92, racine `ci-gates` 27/27 (`series_pinned_are_declared_and_hashed` vert), typecheck/eslint/`gate:vocab`/`lang:gate`/ratchet 69/69/`export:check` verts ; `PINNED_BELL_SHA` `0cfbed20…` inchangé ; **R-25 = 1 090 ≤ 1 205**, seam non tiré. Bruts hors dépôt `F:\PRODUITS\etude-2026-09-20\bell-b1bis-raws\` sha-pinnés (`scan/rebase-trajectory.json` `dd165fbf…`, `scan/rebase-produce-report.json` `8559fff1…`, `discover/discovery-{TSLAx 50c7f357…, SPYx 72fe5792…, NVDAx ab423513…, AAPLx 6799122f…}`).
+
+### Adjudications orchestrateur (R-21)
+- **Mesure « lean » in-repo acceptée** (founding_pool + parts retenues + compteurs ; brut complet hors dépôt sha-pinné dans PROVENANCE) : le test C-4 compare le registre à l'artefact committé, ce qui est l'exigence ; ~14 000 adresses de bruit n'ont pas à vivre au dépôt.
+- **Critère de fuite précisé** (`error_origin: orchestrateur`, formulation trop large) : fuite = hôte RPC à clé, fragment de clé ou URL d'endpoint ; un identifiant d'opérateur nu (`"chainstack"`, forme C-10), une URL d'API publique préexistante ou une sous-chaîne fortuite dans une adresse base58 ne sont pas des fuites. Scan substantiel = 0 partout.
+- `NODE_OPTIONS=--max-old-space-size=8192` : garde-fou d'exécution, pas un paramètre de mesure ; accepté, à consigner au RUNBOOK Bell (item T-1b).
+- Indisponibilité : outil advisor intégré indisponible pour le worker pendant ce tour — consignée, non contournée.
+
+### Items formés (déclencheur ; propriétaire)
+Entrée `DEX_BY_PROGRAM_ID` pour `whirLbMii…` avec source [lu] (G0 -b1-bis-ii ; orchestrateur → lecteur) ; règle d'agrégation multi-pool (8/7/10/5 vaults ≥ seuil ; G0 -ii, C-9 i) ; `quoteDec` en dur (G0 -ii) ; `calls_by_method` au CLI `--discover` (G0 -ii) ; compte in-window exact non capé si voulu (G0 -ii) ; archivage d'un corps gTfA structurel (lot -b3d, sonde C-7) ; `bell-report --founding` et consommateur servi de `coverage.ts` (G0 -ii).
