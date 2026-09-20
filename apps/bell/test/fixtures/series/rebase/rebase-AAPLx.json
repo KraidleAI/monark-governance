@@ -1,0 +1,313 @@
+{
+  "symbol": "AAPLx",
+  "mint": "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+  "method": "hybrid-authority-scan (pending R-26 ratification)",
+  "oracle_slot": 448651429,
+  "oracle_triplet": {
+    "multiplierBitsHex": "5075c79fe90af03f",
+    "newMultiplierBitsHex": "052edfce630df03f",
+    "effectiveTimestampSec": 1786149000,
+    "multiplier": "1.0026642075893797",
+    "newMultiplier": "1.0032690125398187",
+    "authority": "066f592251cc47747825a59ad1422ea43573f528da5dee2af7812b314f9945e3"
+  },
+  "initialize_authority": "066f592251cc47747825a59ad1422ea43573f528da5dee2af7812b314f9945e3",
+  "authority_invariant": true,
+  "events": [
+    {
+      "kind": "initialize",
+      "multiplier": "1",
+      "multiplierBitsHex": "000000000000f03f",
+      "effectiveTimestampSec": 0,
+      "blockTimeSec": 1749553616,
+      "slot": 345862945,
+      "instructionIndex": 4,
+      "signature": "2NJTjifz17AFTepzFcqjwMZRaJGfYgPJ2WBcBMGrGjkLpR2NmnAnXVfgayMJETDXMgchjPBz6zN5hg1r84ddmwVw"
+    },
+    {
+      "kind": "update",
+      "multiplier": "1",
+      "multiplierBitsHex": "000000000000f03f",
+      "effectiveTimestampSec": 0,
+      "blockTimeSec": 1755205739,
+      "slot": 360077756,
+      "instructionIndex": 2,
+      "signature": "2XfGcz4YDFRRsjgpkKJoaUVoUgA6qY9AHnsoMNPqLk2FqL5k8cpQRjuWMnivEWEeTYm4xacsPkKTViHs7wYKUPHQ"
+    },
+    {
+      "kind": "update",
+      "multiplier": "1.000781855115",
+      "multiplierBitsHex": "dc62a2d53303f03f",
+      "effectiveTimestampSec": 1755215700,
+      "blockTimeSec": 1755205739,
+      "slot": 360077756,
+      "instructionIndex": 3,
+      "signature": "2XfGcz4YDFRRsjgpkKJoaUVoUgA6qY9AHnsoMNPqLk2FqL5k8cpQRjuWMnivEWEeTYm4xacsPkKTViHs7wYKUPHQ"
+    },
+    {
+      "kind": "update",
+      "multiplier": "1.000781855115",
+      "multiplierBitsHex": "dc62a2d53303f03f",
+      "effectiveTimestampSec": 1755215700,
+      "blockTimeSec": 1763070495,
+      "slot": 379891417,
+      "instructionIndex": 2,
+      "signature": "3vpENLVgjcuwXjEgn37QFc2gJ4tRGJKNJUPi6QcjoHxVXgUfSmuwxKMV8seJCoaTAuL5gUgdJRp5jwhQnUMJiZwJ"
+    },
+    {
+      "kind": "update",
+      "multiplier": "1.0013934869619912",
+      "multiplierBitsHex": "d1dd4e2db505f03f",
+      "effectiveTimestampSec": 1763078100,
+      "blockTimeSec": 1763070495,
+      "slot": 379891417,
+      "instructionIndex": 3,
+      "signature": "3vpENLVgjcuwXjEgn37QFc2gJ4tRGJKNJUPi6QcjoHxVXgUfSmuwxKMV8seJCoaTAuL5gUgdJRp5jwhQnUMJiZwJ"
+    },
+    {
+      "kind": "update",
+      "multiplier": "1.0013934869619912",
+      "multiplierBitsHex": "d1dd4e2db505f03f",
+      "effectiveTimestampSec": 1763078100,
+      "blockTimeSec": 1770935377,
+      "slot": 399855745,
+      "instructionIndex": 2,
+      "signature": "yyAihNzwD4Df2z2oa7rGPopQMhJhwDh5TqXTw5ziLj9Nbp5hACUJCmoExPPzuhWtH1TNwzLNMEBhKCoxAw9AXG5"
+    },
+    {
+      "kind": "update",
+      "multiplier": "1.002018559465695",
+      "multiplierBitsHex": "393eee9c4408f03f",
+      "effectiveTimestampSec": 1770940500,
+      "blockTimeSec": 1770935377,
+      "slot": 399855745,
+      "instructionIndex": 3,
+      "signature": "yyAihNzwD4Df2z2oa7rGPopQMhJhwDh5TqXTw5ziLj9Nbp5hACUJCmoExPPzuhWtH1TNwzLNMEBhKCoxAw9AXG5"
+    },
+    {
+      "kind": "update",
+      "multiplier": "1.002018559465695",
+      "multiplierBitsHex": "393eee9c4408f03f",
+      "effectiveTimestampSec": 1770940500,
+      "blockTimeSec": 1778292693,
+      "slot": 418519855,
+      "instructionIndex": 2,
+      "signature": "2JgBJcH5Ncb81kc1RJZoa11MfTMhWZB8vGjgi8hGUJNQrfSLYtQm4V6FTYadNW72ZEvVaEzqi7V9N9gfFtrb4MKo"
+    },
+    {
+      "kind": "update",
+      "multiplier": "1.0026642075893797",
+      "multiplierBitsHex": "5075c79fe90af03f",
+      "effectiveTimestampSec": 1778293800,
+      "blockTimeSec": 1778292693,
+      "slot": 418519855,
+      "instructionIndex": 3,
+      "signature": "2JgBJcH5Ncb81kc1RJZoa11MfTMhWZB8vGjgi8hGUJNQrfSLYtQm4V6FTYadNW72ZEvVaEzqi7V9N9gfFtrb4MKo"
+    },
+    {
+      "kind": "update",
+      "multiplier": "1.0026642075893797",
+      "multiplierBitsHex": "5075c79fe90af03f",
+      "effectiveTimestampSec": 1778293800,
+      "blockTimeSec": 1786134117,
+      "slot": 437855402,
+      "instructionIndex": 2,
+      "signature": "2CW1WSVjDagEDk3BkLpmqrwwpcNEie9wCMYoL2kDkCGeJvKdzrjtxGKjs75qRbVS7BSPJniLko1FVKMFP8fWbxWY"
+    },
+    {
+      "kind": "update",
+      "multiplier": "1.0032690125398187",
+      "multiplierBitsHex": "052edfce630df03f",
+      "effectiveTimestampSec": 1786149000,
+      "blockTimeSec": 1786134117,
+      "slot": 437855402,
+      "instructionIndex": 3,
+      "signature": "2CW1WSVjDagEDk3BkLpmqrwwpcNEie9wCMYoL2kDkCGeJvKdzrjtxGKjs75qRbVS7BSPJniLko1FVKMFP8fWbxWY"
+    }
+  ],
+  "event_count": 11,
+  "overwritten_pending": 0,
+  "replay_triplet": {
+    "multiplierBitsHex": "5075c79fe90af03f",
+    "newMultiplierBitsHex": "052edfce630df03f",
+    "effectiveTimestampSec": 1786149000
+  },
+  "c3_final_state_ok": true,
+  "scan_complete": true,
+  "same_slot_diff_sig": false,
+  "body_quorum_fail": false,
+  "block_time_null": false,
+  "multiplier_at": {
+    "2025-07-01T00:00:00Z": {
+      "value": "1",
+      "bitsHex": "000000000000f03f"
+    },
+    "2025-10-31T23:59:59Z": {
+      "value": "1.000781855115",
+      "bitsHex": "dc62a2d53303f03f"
+    },
+    "2026-09-19T00:00:00Z": {
+      "value": "1.0032690125398187",
+      "bitsHex": "052edfce630df03f"
+    }
+  },
+  "founding_window": {
+    "fromSec": 1751328000,
+    "toSec": 1761955199
+  },
+  "founding_window_gate": "trajectory_known",
+  "gate_detail": {
+    "status": "trajectory_known",
+    "events": [
+      {
+        "kind": "initialize",
+        "multiplier": "1",
+        "multiplierBitsHex": "000000000000f03f",
+        "effectiveTimestampSec": 0,
+        "blockTimeSec": 1749553616,
+        "slot": 345862945,
+        "instructionIndex": 4,
+        "signature": "2NJTjifz17AFTepzFcqjwMZRaJGfYgPJ2WBcBMGrGjkLpR2NmnAnXVfgayMJETDXMgchjPBz6zN5hg1r84ddmwVw"
+      },
+      {
+        "kind": "update",
+        "multiplier": "1",
+        "multiplierBitsHex": "000000000000f03f",
+        "effectiveTimestampSec": 0,
+        "blockTimeSec": 1755205739,
+        "slot": 360077756,
+        "instructionIndex": 2,
+        "signature": "2XfGcz4YDFRRsjgpkKJoaUVoUgA6qY9AHnsoMNPqLk2FqL5k8cpQRjuWMnivEWEeTYm4xacsPkKTViHs7wYKUPHQ"
+      },
+      {
+        "kind": "update",
+        "multiplier": "1.000781855115",
+        "multiplierBitsHex": "dc62a2d53303f03f",
+        "effectiveTimestampSec": 1755215700,
+        "blockTimeSec": 1755205739,
+        "slot": 360077756,
+        "instructionIndex": 3,
+        "signature": "2XfGcz4YDFRRsjgpkKJoaUVoUgA6qY9AHnsoMNPqLk2FqL5k8cpQRjuWMnivEWEeTYm4xacsPkKTViHs7wYKUPHQ"
+      },
+      {
+        "kind": "update",
+        "multiplier": "1.000781855115",
+        "multiplierBitsHex": "dc62a2d53303f03f",
+        "effectiveTimestampSec": 1755215700,
+        "blockTimeSec": 1763070495,
+        "slot": 379891417,
+        "instructionIndex": 2,
+        "signature": "3vpENLVgjcuwXjEgn37QFc2gJ4tRGJKNJUPi6QcjoHxVXgUfSmuwxKMV8seJCoaTAuL5gUgdJRp5jwhQnUMJiZwJ"
+      },
+      {
+        "kind": "update",
+        "multiplier": "1.0013934869619912",
+        "multiplierBitsHex": "d1dd4e2db505f03f",
+        "effectiveTimestampSec": 1763078100,
+        "blockTimeSec": 1763070495,
+        "slot": 379891417,
+        "instructionIndex": 3,
+        "signature": "3vpENLVgjcuwXjEgn37QFc2gJ4tRGJKNJUPi6QcjoHxVXgUfSmuwxKMV8seJCoaTAuL5gUgdJRp5jwhQnUMJiZwJ"
+      },
+      {
+        "kind": "update",
+        "multiplier": "1.0013934869619912",
+        "multiplierBitsHex": "d1dd4e2db505f03f",
+        "effectiveTimestampSec": 1763078100,
+        "blockTimeSec": 1770935377,
+        "slot": 399855745,
+        "instructionIndex": 2,
+        "signature": "yyAihNzwD4Df2z2oa7rGPopQMhJhwDh5TqXTw5ziLj9Nbp5hACUJCmoExPPzuhWtH1TNwzLNMEBhKCoxAw9AXG5"
+      },
+      {
+        "kind": "update",
+        "multiplier": "1.002018559465695",
+        "multiplierBitsHex": "393eee9c4408f03f",
+        "effectiveTimestampSec": 1770940500,
+        "blockTimeSec": 1770935377,
+        "slot": 399855745,
+        "instructionIndex": 3,
+        "signature": "yyAihNzwD4Df2z2oa7rGPopQMhJhwDh5TqXTw5ziLj9Nbp5hACUJCmoExPPzuhWtH1TNwzLNMEBhKCoxAw9AXG5"
+      },
+      {
+        "kind": "update",
+        "multiplier": "1.002018559465695",
+        "multiplierBitsHex": "393eee9c4408f03f",
+        "effectiveTimestampSec": 1770940500,
+        "blockTimeSec": 1778292693,
+        "slot": 418519855,
+        "instructionIndex": 2,
+        "signature": "2JgBJcH5Ncb81kc1RJZoa11MfTMhWZB8vGjgi8hGUJNQrfSLYtQm4V6FTYadNW72ZEvVaEzqi7V9N9gfFtrb4MKo"
+      },
+      {
+        "kind": "update",
+        "multiplier": "1.0026642075893797",
+        "multiplierBitsHex": "5075c79fe90af03f",
+        "effectiveTimestampSec": 1778293800,
+        "blockTimeSec": 1778292693,
+        "slot": 418519855,
+        "instructionIndex": 3,
+        "signature": "2JgBJcH5Ncb81kc1RJZoa11MfTMhWZB8vGjgi8hGUJNQrfSLYtQm4V6FTYadNW72ZEvVaEzqi7V9N9gfFtrb4MKo"
+      },
+      {
+        "kind": "update",
+        "multiplier": "1.0026642075893797",
+        "multiplierBitsHex": "5075c79fe90af03f",
+        "effectiveTimestampSec": 1778293800,
+        "blockTimeSec": 1786134117,
+        "slot": 437855402,
+        "instructionIndex": 2,
+        "signature": "2CW1WSVjDagEDk3BkLpmqrwwpcNEie9wCMYoL2kDkCGeJvKdzrjtxGKjs75qRbVS7BSPJniLko1FVKMFP8fWbxWY"
+      },
+      {
+        "kind": "update",
+        "multiplier": "1.0032690125398187",
+        "multiplierBitsHex": "052edfce630df03f",
+        "effectiveTimestampSec": 1786149000,
+        "blockTimeSec": 1786134117,
+        "slot": 437855402,
+        "instructionIndex": 3,
+        "signature": "2CW1WSVjDagEDk3BkLpmqrwwpcNEie9wCMYoL2kDkCGeJvKdzrjtxGKjs75qRbVS7BSPJniLko1FVKMFP8fWbxWY"
+      }
+    ],
+    "overwrittenPending": 0
+  },
+  "quorum_reads": [
+    {
+      "sig": "2CW1WSVjDagE",
+      "shaH": "736b0e32b3a7",
+      "shaC": "ea7f62205e7f",
+      "keyMatch": true
+    },
+    {
+      "sig": "2JgBJcH5Ncb8",
+      "shaH": "68ad8593844c",
+      "shaC": "eca50b97a112",
+      "keyMatch": true
+    },
+    {
+      "sig": "2NJTjifz17AF",
+      "shaH": "0a4ce1263aad",
+      "shaC": "87ad5a85d16b",
+      "keyMatch": true
+    },
+    {
+      "sig": "2XfGcz4YDFRR",
+      "shaH": "818b95458403",
+      "shaC": "844ba8023283",
+      "keyMatch": true
+    },
+    {
+      "sig": "3vpENLVgjcuw",
+      "shaH": "35f47b495e29",
+      "shaC": "14df6dbf7cc5",
+      "keyMatch": true
+    },
+    {
+      "sig": "yyAihNzwD4Df",
+      "shaH": "6dee039e1942",
+      "shaC": "a6ca771f77b8",
+      "keyMatch": true
+    }
+  ]
+}

@@ -56,10 +56,13 @@ interface GapEntryBase {
   readonly symbol: string; readonly session: string; readonly regime: string | null;
   readonly vwap: string; readonly volumeBase: string; readonly n: number;
 }
-/** A gap entry WITH volume: carries g_t and the threshold-exceedance counts. */
+/** A gap entry WITH volume: carries g_t and the threshold-exceedance counts. `multiplierUsed` is present ONLY on
+ *  a rebase-aware session (D1-quater C-7 — m applied per fill, VWAP_share = Σ|q|/Σ(|b|·m)); absent on the m=1
+ *  path so the existing digests stay bit-identical. Not a close-like key (dodges CLOSE_KEY). */
 export interface GapEntryFilled extends GapEntryBase {
   readonly gT: string;
   readonly exceed1: number; readonly exceed2: number; readonly exceed5: number;
+  readonly multiplierUsed?: string;
 }
 /** An abstained gap entry: NO g_t. Cases (T-1a-ii V-7, D1-bis C-6): a zero-volume session (a fabricated g_t=0
  *  would be indistinguishable from a real zero gap -- C-4) abstains `no_fill_in_window`; a session WITH volume

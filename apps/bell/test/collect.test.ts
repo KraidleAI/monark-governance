@@ -53,7 +53,10 @@ const anchorKeyOf = (utcMs: number): string => classifySession(utcMs).sessionDat
 // Re-pinned at -b1 (C-6): the closed residual set grew by `rebase_unverified`, so the digest's `residuals`
 // map carries one more key (`rebase_unverified: 0`) and its sha shifts. The fixture BYTES are unchanged; the
 // drift is the intended residual-vocabulary extension, recomputed here (a fixture byte still reddens this).
-const PINNED_BELL_SHA = "eaed7ea4b200cf97957d5ea0b4ac4a5f3f4fa6870af7c640fcc61d1c700d6df6";
+// Re-pinned again at -b3a-3 (decision 60): the closed set grew by TWO more keys (`authority_scan_mono_operator: 0`,
+// `set_authority_unscanned: 0`), so the `residuals` map and thus this digest shift once more — fixture BYTES still
+// unchanged (was eaed7ea4b200cf97957d5ea0b4ac4a5f3f4fa6870af7c640fcc61d1c700d6df6).
+const PINNED_BELL_SHA = "126abfaed17630808942a0dafc0ff6f1f9acf375d8f7adc6487d8c1e9e2c06d3";
 
 // ---- replay (bit-identical) ----------------------------------------------------------------------
 test("bell_collector_replays_fixture_bit_identical", () => {
@@ -206,16 +209,16 @@ test("bell_rebase_gate_constant_or_abstains", () => {
   }
 });
 
-test("bell_rebase_gate_from_mint_immutable_vs_mutable", () => {
+test("bell_rebase_gate_from_mint_needs_trajectory", () => {
+  // C-1/C-12 (D1-quater): the CURRENT mint readout ALONE never grants `constant` — constancy is decided on the
+  // replayed trajectory (rebaseGateFromTrajectory), not on the authority being null now (C-G2-8 shortcut CLOSED).
   const base = { symbol: "X", decimals: 8, supply: "0", paused: false, permanentDelegate: null };
-  // immutable multiplier (no scaledUiAmount update authority) => constant at its value (readable at both bounds)
-  assert.deepEqual(rebaseGateFromMint({ ...base, multiplier: "1", newMultiplier: "1", newMultiplierEffectiveTimestampSec: 0, scaledAuthority: null }), { status: "constant", multiplier: "1" });
-  assert.deepEqual(rebaseGateFromMint({ ...base, multiplier: "2", newMultiplier: "2", newMultiplierEffectiveTimestampSec: 0, scaledAuthority: null }), { status: "constant", multiplier: "2" });
-  // MUTABLE multiplier (authority present — every measured xStock shares S7vYFF…): the historical begin bound is
-  // unreadable at -b1 => rebase_unverified (deferred to -b3's SetMultiplier reconstruction).
+  // null authority ("immutable now") => still unverified without the trajectory (null-now != null-in-2025).
+  assert.equal(rebaseGateFromMint({ ...base, multiplier: "1", newMultiplier: "1", newMultiplierEffectiveTimestampSec: 0, scaledAuthority: null }).status, "unverified");
+  assert.equal(rebaseGateFromMint({ ...base, multiplier: "2", newMultiplier: "2", newMultiplierEffectiveTimestampSec: 0, scaledAuthority: null }).status, "unverified");
+  // present authority (every measured xStock shares S7vYFF…) => unverified too.
   const g = rebaseGateFromMint({ ...base, multiplier: "1", newMultiplier: "1", newMultiplierEffectiveTimestampSec: 0, scaledAuthority: "SomeUpdateAuthority1111" });
   assert.ok(g.status === "unverified" && g.residue === "rebase_unverified");
-  assert.equal(rebaseGateFromMint({ ...base, multiplier: "1.0039", newMultiplier: "1.0057", newMultiplierEffectiveTimestampSec: 1781755200, scaledAuthority: "auth" }).status, "unverified");
 });
 
 test("bell_rebase_unverified_abstains_sessions", () => {
@@ -463,7 +466,9 @@ test("bell_mint_read_failure_abstains_fail_closed", () => {
   assert.deepEqual(rebaseForMint(undefined), { status: "unverified", residue: "rebase_unverified" });
   const baseMint = { symbol: "X", decimals: 8, supply: "0", paused: false, permanentDelegate: null, newMultiplier: "1", newMultiplierEffectiveTimestampSec: 0 };
   assert.equal(rebaseForMint({ ...baseMint, multiplier: "1", scaledAuthority: "auth" }).status, "unverified"); // mutable => unverified
-  assert.deepEqual(rebaseForMint({ ...baseMint, multiplier: "1", scaledAuthority: null }), { status: "constant", multiplier: "1" }); // immutable => constant
+  // C-1/C-12 (D1-quater): the C-G2-8 "immutable now => constant" shortcut is CLOSED — the current readout alone
+  // never grants constant (constancy is decided by the replayed trajectory), so this too is rebase_unverified.
+  assert.equal(rebaseForMint({ ...baseMint, multiplier: "1", scaledAuthority: null }).status, "unverified");
 
   // integration: the SymbolInput main() builds on a FAILED mint read (repro-A shape), fed to the pure core.
   const oneFill: SwapFill = { signature: "s1", blockTimeUtcMs: Date.UTC(2026, 8, 19, 2, 0, 0), baseDelta: 15_000_000n, quoteDelta: -54_000_000n };
@@ -486,10 +491,12 @@ test("bell_mint_read_failure_abstains_fail_closed", () => {
   assert.ok(before.gaps.some((g) => "gT" in g), "fail-open: absent rebase => g_t emitted (repro-A)");
   assert.equal(before.residuals.rebase_unverified, 0, "fail-open: no abstention when rebase absent");
 
-  // wiring proof (SRC): main() applies the fail-closed mapping and pushes `rebase` UNCONDITIONALLY; the old
-  // fail-open line (`... : undefined`) is gone.
-  assert.match(SRC, /const rebase: RebaseGate = rebaseForMint\(mint\);/);
-  assert.match(SRC, /\.\.\.\(mint \? \{ mint \} : \{\}\), rebase \}\);/);
+  // wiring proof (SRC): buildSolanaSymbol (the C-6 injectable seam main() loops over) applies the fail-closed
+  // mapping and pushes `rebase` UNCONDITIONALLY; with a scanned trajectory it uses rebaseGateFromTrajectory, else
+  // rebaseForMint(mint); the old fail-open line (`... : undefined`) is gone.
+  assert.match(SRC, /: rebaseForMint\(mint\);/);
+  assert.match(SRC, /rebaseGateFromTrajectory\(trajectory\.events/);
+  assert.match(SRC, /\.\.\.\(mint \? \{ mint \} : \{\}\), rebase \};/);
   assert.doesNotMatch(SRC, /rebaseGateFromMint\(mint\) : undefined/);
 });
 

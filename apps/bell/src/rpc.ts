@@ -55,7 +55,7 @@ export const fetchCall: JsonRpcCall = async (url, method, params) => {
 // This must track the network's highest deployed version; bump = an ADR line.
 export const MAX_TX_VERSION = 2;
 
-export interface SigInfo { readonly signature: string; readonly blockTime: number | null; readonly err: unknown }
+export interface SigInfo { readonly signature: string; readonly blockTime: number | null; readonly err: unknown; readonly slot: number }
 /** Paginate getSignaturesForAddress backward (newest→oldest) until `untilBlockTime` (Unix s) or empty.
  *  Serial by construction (`before` chains). Returns signatures with err/blockTime for downstream filtering. */
 export async function signaturesUntil(call: JsonRpcCall, url: string, address: string, untilBlockTime: number,
@@ -69,7 +69,7 @@ export async function signaturesUntil(call: JsonRpcCall, url: string, address: s
     if (arr.length === 0) break;
     for (const r of arr) {
       const o = asObj(r);
-      out.push({ signature: String(o.signature), blockTime: typeof o.blockTime === "number" ? o.blockTime : null, err: o.err });
+      out.push({ signature: String(o.signature), blockTime: typeof o.blockTime === "number" ? o.blockTime : null, err: o.err, slot: typeof o.slot === "number" ? o.slot : 0 });
     }
     const last = asObj(arr[arr.length - 1]);
     before = String(last.signature);

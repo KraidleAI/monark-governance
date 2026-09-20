@@ -76,3 +76,36 @@ export function sessionGap(fills: readonly SwapFill[], closeRef: number, baseDec
 export function exceeds(gT: string, pct: number): boolean {
   return Math.abs(Math.exp(Number(gT)) - 1) > pct / 100;
 }
+
+/** A rebase-aware session gap (ADR-T1aii D1-quater, C-7). UNIT CONVENTION: ui_amount = raw × m and
+ *  volume.ts `shares = tokens × m`, so ONE raw base unit is m SHARES; the price PER SHARE = VWAP_raw / m, i.e.
+ *  the multiplier divides the BASE (denominator), applied PER FILL: VWAP_share = Σ|q| / Σ(|b|·m(tᵢ)). g_t =
+ *  ln(VWAP_share / P_close). (The G0 draft `× m` was inverted — biased by 2·ln(m); corrected here.) `vwap` stays
+ *  the RAW first-hand ratio (publishable, recomputable). `multiplierAt` returns m at a fill's blockTime (ms) or
+ *  null (before Initialize) => the session abstains, never a fabricated 1. */
+export interface SessionGapRebased {
+  readonly vwap: string; readonly gT: string; readonly volumeBase: string; readonly multiplierUsed: string; readonly n: number;
+}
+export function sessionGapRebase(fills: readonly SwapFill[], closeRef: number, baseDec: number, quoteDec: number,
+  multiplierAt: (blockTimeMs: number) => number | null, precision = GAP_PRECISION): SessionGapAbstained | SessionGapRebased {
+  const vwap = vwapDecimal(fills, baseDec, quoteDec, precision);
+  let totalBase = 0n;
+  for (const f of fills) totalBase += abs(f.baseDelta);
+  const volumeBase = fixed(totalBase * pow10(precision) / pow10(baseDec), precision);
+  if (totalBase === 0n) return { vwap, volumeBase, n: fills.length, abstain: "no_fill_in_window" };
+  if (closeRef <= 0) throw new Error("bell sessionGapRebase: closeRef must be > 0 (D2 i precondition)");
+  // Σ(|b|·m) in human SHARE units and Σ|q| in human quote units, both in Number (per-fill |b| ≪ 2^53; the
+  // multiplier is an f64 anyway, so exactness is lost at the rebase — honest to compute in double).
+  let shareDenom = 0, quoteNum = 0, mUsed: number | null = null, mUsedMs = -1;
+  for (const f of fills) {
+    const m = multiplierAt(f.blockTimeUtcMs);
+    if (m === null) throw new Error("bell sessionGapRebase: no multiplier at a fill (before Initialize) — gate must be unverified");
+    shareDenom += (Number(abs(f.baseDelta)) / Math.pow(10, baseDec)) * m;
+    quoteNum += Number(abs(f.quoteDelta)) / Math.pow(10, quoteDec);
+    if (f.blockTimeUtcMs >= mUsedMs) { mUsedMs = f.blockTimeUtcMs; mUsed = m; } // representative = most recent fill
+  }
+  if (!(shareDenom > 0)) throw new Error("bell sessionGapRebase: non-positive share volume (degenerate fills)");
+  const vwapShare = quoteNum / shareDenom;
+  const gT = Math.log(vwapShare / closeRef).toFixed(precision);
+  return { vwap, gT, volumeBase, multiplierUsed: String(mUsed), n: fills.length };
+}

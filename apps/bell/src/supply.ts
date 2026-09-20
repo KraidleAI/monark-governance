@@ -11,6 +11,9 @@
 // -> T-1b timeline; permanentDelegate is a parity fact -> T-2. They are carried in the readout so the state
 // file records them, but no downstream fact is derived from them at this lot.
 
+import { constantMultiplierOver, overwrittenPending, type MultiplierEvent } from "./rebase-trajectory.ts";
+import { type Residual } from "./residuals.ts";
+
 const asObj = (x: unknown): Record<string, unknown> => (x && typeof x === "object" ? (x as Record<string, unknown>) : {});
 const asArr = (x: unknown): unknown[] => (Array.isArray(x) ? x : []);
 
@@ -139,6 +142,11 @@ export function wrapperStatus(symbol: string): { readonly contracts: readonly st
  *  reconstruction of the two bound readings is a live/spike concern; this function only decides the gate. */
 export type RebaseGate =
   | { readonly status: "constant"; readonly multiplier: string }
+  // C-6 (D1-quater): the multiplier trajectory was replayed from Initialize and m(t) is available per fill; the
+  // events ride as plain data so collect() computes g_t rebase-aware and the replay oracle stays bit-identical.
+  // `residuals` (D1-quater, decision 60): NAMED completeness caveats the reconstruction carries — non-empty for the
+  // hybrid AUTHORITY scan (authority_scan_mono_operator + set_authority_unscanned), `[]` for a hand-built/other method.
+  | { readonly status: "trajectory_known"; readonly events: readonly MultiplierEvent[]; readonly overwrittenPending: number; readonly residuals: readonly Residual[] }
   | { readonly status: "unverified"; readonly residue: "rebase_unverified" };
 export function rebaseGate(multiplierAtBegin: string | null, multiplierAtEnd: string | null): RebaseGate {
   if (multiplierAtBegin === null || multiplierAtEnd === null) return { status: "unverified", residue: "rebase_unverified" };
@@ -146,22 +154,33 @@ export function rebaseGate(multiplierAtBegin: string | null, multiplierAtEnd: st
   return { status: "constant", multiplier: multiplierAtEnd };
 }
 
-/** C-6 gate from a CURRENT mint readout, first-hand and pure (measured lesson, spike 2026-09-20). The naive
- *  "scan the scaledUiAmount authority's signatures" method is UNUSABLE: the four xStocks SHARE one update
- *  authority (S7vYFF…) with 3000+ in-window signatures — non-discriminating and expensive. And a MUTABLE
- *  multiplier's HISTORICAL value at the window's begin bound is unreadable by getAccountInfo (current state
- *  only). So:
- *   - IMMUTABLE multiplier (no scaledUiAmount update authority) => constant at its fixed value (readable at both
- *     bounds trivially — it cannot change). C-G2-8 HYPOTHESIS (stated, not yet exercised — NO measured xStock is
- *     immutable; all four share authority S7vYFF…): "authority null NOW" is treated as "null across the 2025
- *     window". If the ScaledUiAmount authority is revocable AFTER a rebase, null-now != null-in-2025 — UNLESS
- *     DISCOVERED OTHERWISE, to be settled by -b3's first-hand SetMultiplier reconstruction;
- *   - MUTABLE multiplier (authority present — every measured xStock) => the begin bound is unreadable at -b1 =>
- *     `rebase_unverified` (the founding sessions abstain). The SetMultiplier history reconstruction that would
- *     verify constancy first-hand is -b3's rebase-aware job (ADR-T1aii-D1-bis). Never a silently rescaled g_t. */
+/** C-6/C-1 (D1-quater): the pool-window gate DECIDED ON THE REPLAYED TRAJECTORY, pure. `constant` <=> m(t) is
+ *  bit-identical at every breakpoint of [fromSec,toSec] (window bounds ∪ in-window event blockTimes ∪ in-window
+ *  effTs), established by replay from Initialize — NOT "zero in-window events" (a pre-window update with an
+ *  in-window effTs changes m without an in-window instruction). `overwritten_pending > 0` (F-2) fails CLOSED to
+ *  `rebase_unverified` (the actually-applied value is not proven cheaply). An INCOMPLETE scan (budget, no_quorum,
+ *  blockTime null, undecidable same-slot order, state-oracle divergence) => `rebase_unverified`. Otherwise the
+ *  varying trajectory is `trajectory_known` and rides as events for a per-fill g_t. `scanMethod === "authority"`
+ *  (decision 60) makes the `trajectory_known` gate carry the two named residuals of the hybrid authority scan
+ *  (authority_scan_mono_operator, set_authority_unscanned) — OBLIGATORY, never granted without them; any other
+ *  method (or none) carries `[]`. `constant` carries no residual (scoped to `trajectory_known` by construction). */
+export function rebaseGateFromTrajectory(events: readonly MultiplierEvent[], fromSec: number, toSec: number, scanComplete: boolean, scanMethod?: "authority"): RebaseGate {
+  if (!scanComplete) return { status: "unverified", residue: "rebase_unverified" };
+  const overwritten = overwrittenPending(events);
+  if (overwritten > 0) return { status: "unverified", residue: "rebase_unverified" };
+  const c = constantMultiplierOver(events, fromSec, toSec);
+  if (c !== null) return { status: "constant", multiplier: String(c.value) };
+  const residuals: readonly Residual[] = scanMethod === "authority" ? ["authority_scan_mono_operator", "set_authority_unscanned"] : [];
+  return { status: "trajectory_known", events: [...events], overwrittenPending: overwritten, residuals };
+}
+
+/** C-1/C-12: the CURRENT mint readout ALONE cannot establish constancy (the C-G2-8 "authority null now = null in
+ *  2025" shortcut is CLOSED by C-1 — a mutable OR immutable authority says nothing about the 2025 trajectory).
+ *  Without the replayed trajectory the gate is `rebase_unverified`, fail-closed; constancy comes only from
+ *  rebaseGateFromTrajectory (the -b3a scan). Used by rebaseForMint as the no-trajectory fallback in main(). */
 export function rebaseGateFromMint(mint: MintReadout): RebaseGate {
-  if (mint.scaledAuthority === null) return rebaseGate(mint.multiplier, mint.multiplier);
-  return rebaseGate(mint.multiplier, null);
+  void mint; // the current readout alone cannot establish constancy (C-1); kept in the signature for callers
+  return { status: "unverified", residue: "rebase_unverified" };
 }
 
 /** C-G2-1 (fail-closed LIVE wiring): the C-6 rebase gate for a symbol given its CURRENT mint readout, which may

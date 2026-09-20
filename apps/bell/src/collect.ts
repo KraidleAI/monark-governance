@@ -14,13 +14,15 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { resolve, relative, isAbsolute } from "node:path";
 import { XSTOCKS, POOLS, type PoolRef } from "./pools.ts";
 import { classifySession, refCloseDateOf, type SessionLabel } from "./sessions.ts";
-import { sessionGap, exceeds, vwapDecimal, fixed, GAP_PRECISION } from "./gap.ts";
+import { sessionGap, sessionGapRebase, exceeds, vwapDecimal, fixed, GAP_PRECISION } from "./gap.ts";
 import { rowsFromCsv, haltDelta, census, haltsSince, type HaltRow } from "./halts.ts";
 import { buildDigest, bellSha, assertNoClose, canonical, provenance as makeProvenance,
   type GapEntry, type Provenance } from "./digest.ts";
 import { newResidualCounts, RESIDUAL_CODES, type Residual, type ResidualCounts } from "./residuals.ts";
 import { poolVolumeBase, consolidatedAdv, volumeToAdvRatio } from "./volume.ts";
-import { readMintToken2022, porStatus, wrapperStatus, rebaseForMint, type MintReadout, type RebaseGate } from "./supply.ts";
+import { readMintToken2022, porStatus, wrapperStatus, rebaseForMint, rebaseGateFromTrajectory, type MintReadout, type RebaseGate } from "./supply.ts";
+import { multiplierAtMs, type MultiplierEvent } from "./rebase-trajectory.ts";
+import { runRebaseScanCli } from "./rebase-scan.ts";
 import { quorum2, signaturesSetKey, statusOf, NoQuorumError, QuorumDisagreementError,
   BudgetExceededError, SolRpcError, type JsonRpcCall, type TransportFault } from "./quorum.ts";
 import { signaturesUntil, extractPoolSwap, MAX_TX_VERSION, solanaEndpoints, type SigInfo, type SwapFill } from "./rpc.ts";
@@ -131,6 +133,20 @@ export function collect(input: CollectInput): CollectResult {
         bump("no_close_ref"); // V-7: volume present but no reference close — abstain, carry vwap, never a fake gap
         symGaps.push({ symbol: s.symbol, session: g.session, regime: g.regime, vwap: vwapDecimal(g.fills, s.baseDec, s.quoteDec),
           volumeBase: volumeBaseDecimal(g.fills, s.baseDec), n: g.fills.length, abstain: "no_close_ref" });
+        continue;
+      }
+      // C-7 (D1-quater): a trajectory_known window, OR a constant window whose multiplier != "1", computes g_t
+      // rebase-aware (m divides the base PER FILL: VWAP_share = Σ|q|/Σ(|b|·m)). A constant m == "1" (or no gate)
+      // takes the UNCHANGED bigint path so the m=1 digests stay bit-identical to -b1.
+      const rb = s.rebase;
+      if (rb !== undefined && (rb.status === "trajectory_known" || (rb.status === "constant" && rb.multiplier !== "1"))) {
+        let mAt: (ms: number) => number | null;
+        if (rb.status === "trajectory_known") { const evs = rb.events; mAt = (ms) => multiplierAtMs(evs, ms)?.value ?? null; }
+        else { const mc = Number(rb.multiplier); mAt = () => mc; }
+        const rgap = sessionGapRebase(g.fills, close, s.baseDec, s.quoteDec, mAt);
+        if ("abstain" in rgap) { bump(rgap.abstain); symGaps.push({ symbol: s.symbol, session: g.session, regime: g.regime, vwap: rgap.vwap, volumeBase: rgap.volumeBase, n: rgap.n, abstain: rgap.abstain }); continue; }
+        symGaps.push({ symbol: s.symbol, session: g.session, regime: g.regime, vwap: rgap.vwap, gT: rgap.gT, volumeBase: rgap.volumeBase, n: rgap.n, multiplierUsed: rgap.multiplierUsed,
+          exceed1: exceeds(rgap.gT, 1) ? 1 : 0, exceed2: exceeds(rgap.gT, 2) ? 1 : 0, exceed5: exceeds(rgap.gT, 5) ? 1 : 0 });
         continue;
       }
       const gap = sessionGap(g.fills, close, s.baseDec, s.quoteDec);
@@ -380,8 +396,11 @@ export function parseArgs(argv: readonly string[], knownSymbols: readonly string
   if (argOf(argv, "--max-calls") === undefined) throw new Error("bell/collect: --max-calls is required (fail-closed RPC budget, C-11; e.g. --max-calls 200000)");
   const maxCalls = num("--max-calls", 0);
   if (!(maxCalls > 0)) throw new Error("bell/collect: --max-calls must be > 0 (C-11/O-12 fail-closed budget)");
+  // C-10 (D1-quater): --rebase-trajectory <file> feeds a scanned per-mint trajectory to the gate (the g_t
+  // rebase-aware path is then CONSUMED by main(), not just fixtures). --rebase-scan runs the scan/probe mode.
   return { out: argOf(argv, "--out") ?? "F:/tmp/bell-out", toUtcMs, fromUtcMs,
-    wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo, maxCalls };
+    wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo, maxCalls,
+    rebaseScan: argv.includes("--rebase-scan"), rebaseTrajectory: argOf(argv, "--rebase-trajectory") };
 }
 
 /** CA-11 guard (pure, wired in main): a bell --out MUST be OUTSIDE the repo tree. win32 path.resolve keeps
@@ -397,9 +416,54 @@ export function assertOutsideRepo(out: string, repoRoot: string): void {
   }
 }
 
+/** A scanned per-mint trajectory fed to the gate (D1-quater). `scanComplete` folds the L-2 completeness AND the
+ *  C-3 final-state oracle: false => rebase_unverified. Plain data (events), so the whole path is offline-testable. */
+export interface TrajectoryInput { readonly events: readonly MultiplierEvent[]; readonly scanComplete: boolean }
+
+/** C-6 (C-V-3): the injectable per-symbol build — one Solana SymbolInput from an injected `call`. main() loops
+ *  over it; the offline test drives it with a stub where the mint getAccountInfo makes NO quorum, asserting the
+ *  gate is rebase_unverified and collect() yields NO gT. With a scanned `trajectory` the gate is decided by replay
+ *  (3 states); WITHOUT one — or when the mint quorum failed (mint absent) — it fails closed to rebase_unverified
+ *  (never a g_t on a "1" default, repro-A). Pure but for the injected `call`/`getClose`. */
+export async function buildSolanaSymbol(call: JsonRpcCall, providers: readonly string[],
+  tok: { readonly symbol: string; readonly address: string; readonly decimals: number }, pool: PoolRef,
+  window: { readonly fromSec: number; readonly toSec: number }, toUtcMs: number, polygonKey: string,
+  opts: { readonly maxPages: number; readonly bodySample: number }, trajectory: TrajectoryInput | undefined,
+  faults: TransportFault[], getClose: PolygonGet = polygonGet): Promise<SymbolInput> {
+  const solved = await liveSolanaFills(call, providers, pool, window.fromSec, window.toSec, opts, faults);
+  let mint: MintReadout | undefined;
+  const mintResidues: Residual[] = [];
+  try {
+    const res = await quorum2(`mint:${tok.symbol}`, providers, call, (c, u) => c(u, "getAccountInfo", [tok.address, { encoding: "jsonParsed" }]), (r) => canonical(mintKey(r)), faults);
+    mint = readMintToken2022(res, tok.symbol);
+  } catch (e) { if (e instanceof NoQuorumError || e instanceof QuorumDisagreementError) mintResidues.push("no_quorum"); else throw e; }
+  // C-V-3: a scanned trajectory is trusted ONLY with a live mint read (the C-3 oracle anchor); mint no-quorum
+  // => rebase_unverified even if a (possibly stale) trajectory file was passed.
+  const rebase: RebaseGate = trajectory && mint
+    ? rebaseGateFromTrajectory(trajectory.events, window.fromSec, window.toSec, trajectory.scanComplete)
+    : rebaseForMint(mint);
+  const { closeRefBySession, advDailyVolumes } = await closeAndAdv(UNDERLYING[tok.symbol] ?? tok.symbol, polygonKey, toUtcMs, solved.fills, faults, getClose);
+  return { symbol: tok.symbol, chain: "solana", baseDec: tok.decimals, quoteDec: 6, fills: solved.fills,
+    fillsResidues: [...solved.residues, ...mintResidues], quorumCoverage: solved.coverage, closeRefBySession, advDailyVolumes,
+    ...(mint ? { mint } : {}), rebase };
+}
+
+/** Load a --rebase-trajectory file (out-of-repo JSON: symbol -> {events, scanComplete}), fail-closed to {} on a
+ *  missing/malformed file (every symbol then falls back to rebase_unverified). Never trusts a partial shape. */
+export function loadTrajectories(path: string | undefined): Readonly<Record<string, TrajectoryInput>> {
+  if (path === undefined) return {};
+  const raw = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+  const out: Record<string, TrajectoryInput> = {};
+  for (const [sym, v] of Object.entries(raw)) {
+    const o = v as { events?: unknown; scanComplete?: unknown };
+    if (Array.isArray(o.events) && typeof o.scanComplete === "boolean") out[sym] = { events: o.events as MultiplierEvent[], scanComplete: o.scanComplete };
+  }
+  return out;
+}
+
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
-  const { out, toUtcMs, fromUtcMs, wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo, maxCalls } = parseArgs(argv, POOLS.map((p) => p.baseSymbol));
+  const { out, toUtcMs, fromUtcMs, wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo, maxCalls, rebaseScan, rebaseTrajectory } = parseArgs(argv, POOLS.map((p) => p.baseSymbol));
   const repoRoot = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
   assertOutsideRepo(out, repoRoot);
 
@@ -411,26 +475,20 @@ async function main(): Promise<void> {
   const call = budgeted.call;
   const providerDomains = [...new Set(solProviders.map(providerOf))];
 
+  // L-2 (D1-quater): --rebase-scan runs the multiplier-trajectory scan/probe mode (rebase-scan.ts) and returns;
+  // it writes its trajectory + probe out-of-repo (never in the collect digest). The bodies stage is C-V-2-gated.
+  if (rebaseScan) { await runRebaseScanCli(call, solProviders, wanted, Math.floor(fromUtcMs / 1000), Math.floor(toUtcMs / 1000), out, { maxPages }, budgeted.calls, maxCalls, faults); return; }
+
+  // C-10: a scanned trajectory (out-of-repo file) is CONSUMED here so the g_t rebase-aware path is a real main()
+  // path, not a fixture. Absent file => every symbol falls back to rebase_unverified (fail-closed).
+  const trajectories = loadTrajectories(rebaseTrajectory);
   const symbols: SymbolInput[] = [];
   for (const tok of XSTOCKS.filter((t) => wanted.includes(t.symbol))) {
     const pool = POOLS.find((pp) => pp.baseSymbol === tok.symbol && pp.chain === "solana");
     if (!pool) continue;
-    const solved = await liveSolanaFills(call, solProviders, pool, Math.floor(fromUtcMs / 1000), Math.floor(toUtcMs / 1000), { maxPages, bodySample }, faults);
-    let mint: MintReadout | undefined;
-    const mintResidues: Residual[] = [];
-    try {
-      const res = await quorum2(`mint:${tok.symbol}`, solProviders, call, (c, u) => c(u, "getAccountInfo", [tok.address, { encoding: "jsonParsed" }]), (r) => canonical(mintKey(r)), faults);
-      mint = readMintToken2022(res, tok.symbol);
-    } catch (e) { if (e instanceof NoQuorumError || e instanceof QuorumDisagreementError) mintResidues.push("no_quorum"); else throw e; }
-    // C-6 / C-G2-1 (fail-closed): the pool-window rebase gate from the current mint (pure). A mutable multiplier
-    // OR an ABSENT mint (getAccountInfo quorum failed) => rebase_unverified (historical / both bounds unreadable
-    // at -b1; -b3 reconstructs the SetMultiplier history first-hand). NEVER undefined here: an undefined rebase
-    // would let collect() compute a g_t with the default "1" multiplier (fail-open, proven by repro-A).
-    const rebase: RebaseGate = rebaseForMint(mint);
-    const { closeRefBySession, advDailyVolumes } = await closeAndAdv(UNDERLYING[tok.symbol] ?? tok.symbol, polygonKey, toUtcMs, solved.fills, faults);
-    symbols.push({ symbol: tok.symbol, chain: "solana", baseDec: tok.decimals, quoteDec: 6, fills: solved.fills,
-      fillsResidues: [...solved.residues, ...mintResidues], quorumCoverage: solved.coverage, closeRefBySession, advDailyVolumes,
-      ...(mint ? { mint } : {}), rebase });
+    symbols.push(await buildSolanaSymbol(call, solProviders, tok, pool,
+      { fromSec: Math.floor(fromUtcMs / 1000), toSec: Math.floor(toUtcMs / 1000) }, toUtcMs, polygonKey,
+      { maxPages, bodySample }, trajectories[tok.symbol], faults));
   }
 
   // Ethereum leg (ADR-T1aii D1): Uniswap v3 TSLAon/USDC swaps via makeUkemiPool.getLogsRange (quorum-2),

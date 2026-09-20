@@ -146,3 +146,153 @@ est retenue (avis G2 §6). Fenêtre Cong 2025-07→10 conservée. Décisions 40/
 - **Usage prévu** : figer la règle du multiplicateur effectif dans `readMintToken2022` (ou documenter pourquoi le
   champ brut est conservé) **avant tout rendu `supply × multiplier`**. Déclencheur : -b3 (rebase-aware) au plus tard.
 - **Propriétaire** : orchestrateur → mainteneur (procurement).
+
+## Amendement D1-quater — 2026-09-20 (lot -b3a, worker `claude-opus-4-8[1m]` effort max ; G0 `docs/G0-lot-t1a-ii-b3.md` + checkpoint-1 C-1..C-12 pliées)
+**Objet** : rendre `multiplier(mint,t)` calculable par rejeu chronologique des instructions Token-2022
+ScaledUiAmount (43/0 Initialize, 43/1 UpdateMultiplier) depuis l'Initialize du mint ; étendre le gate rebase à
+**3 états** ; rendre `g_t` **rebase-aware** (fixtures). Aucune course fondatrice (décision 47). Sources [lu] :
+`docs/biblio/bell/L-lecture-spl-token2022-scaled-ui-amount-2026-09-20.md` + relecture first-hand du code
+`solana-program/token-2022@714a2ce6` (worker, 2026-09-20).
+
+### Faits [lu] qui fixent le rejeu (code cité ligne à ligne — R-21)
+- `program/src/extension/scaled_ui_amount/processor.rs` : **`process_initialize`** (l.24-35) pose
+  `multiplier = *multiplier` (l.32), `new_multiplier_effective_timestamp = 0` (l.33), `new_multiplier =
+  *multiplier` (l.34) ⇒ triplet initial `(m0, m0, 0)`. **`process_update_multiplier`** (l.37-66) :
+  `new_multiplier = *new_multiplier` (l.55, **écrasement inconditionnel**), `effTs = max(effective_timestamp, 0)`
+  (l.57-60), et `if clock.unix_timestamp >= int_effective_timestamp` (l.64) ⇒ `multiplier = *new_multiplier`
+  (l.65, repli immédiat).
+- `instruction.rs` : **compte 0 = le mint** (Initialize l.24 ; UpdateMultiplier l.39-42), compte 1 = l'autorité
+  (l.40) — c'est le filtre anti-contamination C-2 (l'autorité partagée `S7vYFF…` peut grouper plusieurs xStocks
+  dans une même tx). Layouts (piège F-8, deux décodeurs) : `UpdateMultiplierInstructionData` = `multiplier` PodF64
+  puis `effective_timestamp` UnixTimestamp (l.66-71) ⇒ 18 octets `[43][1][f64 LE 8][i64 LE 8]` ;
+  `InitializeInstructionData` = `authority` OptionalNonZeroPubkey puis `multiplier` PodF64 (l.56-61) ⇒ 42 octets.
+- `mod.rs` : règle de lecture `current_multiplier(t) = new_multiplier si t >= effTs sinon multiplier`
+  (comparaison **large `>=`**, F-3) ; état persistant `ScaledUiAmountConfig` = `authority(32)·multiplier(f64 LE)·
+  effTs(i64 LE)·new_multiplier(f64 LE)` (56 octets, **ordre distinct** de l'instruction).
+- f64 IEEE-754 non round-trip décimal (F-4) : le multiplicateur voyage en **8 octets LE (hex)** ; l'égalité
+  (`constant`, oracle C-3) se décide **sur les bits**, jamais sur le décimal.
+
+### C-1 (`constant` sur la trajectoire, pas « 0 événement in-window »)
+`constant` ⇔ `m(t)` identique (bits) à **chaque breakpoint** de `[from,to]` = {bornes} ∪ {blockTimes d'événements
+in-window} ∪ {effTs in-window}, évalué par rejeu **depuis l'Initialize**. Un `UpdateMultiplier` pré-fenêtre à
+effTs in-window, ou un spike-and-revert (deux effTs in-window, `overwritten_pending=0`, bornes égales), change
+`m(t)` sans instruction in-window ⇒ refusé (test `bell_rebase_constant_needs_trajectory`, mutant « drop effTs
+breakpoint » rouge). Le raccourci C-G2-8 (« autorité null maintenant = null en 2025 ») est **CLOS** : le readout
+courant seul n'établit jamais `constant` (`rebaseGateFromMint` renvoie toujours `rebase_unverified`).
+`overwritten_pending > 0` (piège F-2) ⇒ `rebase_unverified` fail-closed.
+
+### C-7 (direction de `g_t` — convention d'unités écrite, formule G0 inversée corrigée)
+`ui_amount = raw × m` et `volume.ts:47` `shares = tokens × m` ⇒ **une unité brute vaut `m` actions**. Donc prix
+par action = `VWAP_raw / m`, appliqué **par fill** : `VWAP_share = Σ|q| / Σ(|b|·m(tᵢ))`, `g_t = ln(VWAP_share /
+P_close)`. La formule du G0 (`VWAP × m`) était **inversée** (biais `2·ln(m)` ≈ +0,8 % sur SPYx) — corrigée. Le
+`vwap` publié reste le ratio brut first-hand (recomputable) ; `multiplierUsed` est publié par session.
+**Citation « O-8 » corrigée** : O-8 = tueur `vol_ratio` sous multiplicateur (CHECKPOINT2 -a), PAS « multiplicateur
+avant VWAP ».
+
+### Défaut trouvé — `error_origin` = rédacteur -b1 (pas -b3a)
+`collect()` calculait `g_t` sur la VWAP **brute** pour un gate `constant` de multiplicateur ≠ 1 (biais `ln(m)`).
+Jamais exercé à -b1 (aucun xStock immuable ; tous partagent `S7vYFF…` ⇒ `rebase_unverified`). Corrigé ici :
+`constant m≠"1"` prend le chemin rebase-aware (÷ m) ; `constant m=="1"` et « pas de gate » gardent le chemin
+bigint inchangé (digests m=1 bit-identiques à -b1). Test `bell_gt_constant_m_neq_1_defect`.
+
+### Tuyaux -b3a (entrée / sortie / état / test)
+| Tuyau | Entrée (produit) | Sortie (consomme) | État | Test |
+|---|---|---|---|---|
+| scan → trajectoire | course d'autorité `S7vYFF…` (gTfA Helius + relecture quorum-2 Chainstack), bruts hors dépôt sha-pinnés | décodeurs 43/x + `replayTriplet` (events + oracle d'état C-3) | course FAITE (décision 60) ; 4 séries sha-pinnées `test/fixtures/series/rebase/`, rejouées bit-à-bit hors ligne ; consommateur servi = -b1-bis ⇒ **upcoming** | `bell_rebase_course_replays_bit_identical`, `bell_rebase_scan_state_divergence_is_unverified` |
+| trajectoire → gate | `MultiplierEvent[]` | `rebaseGateFromTrajectory` (3 états ; `scanMethod="authority"` ⇒ résiduels nommés) | branché (offline) | `bell_rebase_gate_three_states`, `bell_rebase_authority_residuals_named_and_gated` |
+| gate → g_t | `RebaseGate` (events) | `collect()` → `sessionGapRebase` (÷ m par fill) + `multiplierUsed` | **flag `--rebase-trajectory` consommé ; producteur in-repo ABSENT ; composition non rejouée** (checkpoint-2 C-V-1 : aucun producteur n'émet la forme `{symbol:{events,scanComplete}}` — `runRebaseScanCli` s'arrête au probe, séries committées en `scan_complete` snake_case ; `loadTrajectories` sans appelant de test ; `buildSolanaSymbol` testé seulement avec `trajectory=undefined` ; `collect.test.ts:494-498` = regex sur le source, pas une exécution) ⇒ **item formé** : producteur + test d'intégration non-LLM exécutant la composition depuis un fichier de trajectoire ; déclencheur G0 -b1-bis avant toute g_t fondatrice ; propriétaire orchestrateur | `bell_gt_trajectory_known_integration`, `bell_symbol_build_mint_quorum_fail_unverified` (C-V-3) |
+| gate.residuals → compteur résiduel / state.json | `RebaseGate.residuals` (trajectory_known) | — | **ABSENT** : `collect()` ne compte pas les résiduels du gate (la granularité mint vs séance n'est pas spécifiée) ⇒ **item formé** (déclencheur -b1-bis, propriétaire orchestrateur) | émission couverte par `bell_rebase_authority_residuals_named_and_gated` |
+| g_t → course | — | -b1-bis (course rebase-aware) | item formé | G0 -b1-bis |
+
+Branchement (règle KACIMI 2026-09-19, CA-11) : `rebase-trajectory.ts` → `supply.ts` (`rebaseGateFromTrajectory`)
+→ `collect.ts` `buildSolanaSymbol`/`main()` (flag `--rebase-trajectory` consommé) ; **consommateur servi = -b1-bis**
+(course), non encore réel ⇒ état **`upcoming`**. Bell reste **absent** de `fleet.ts`/README/site/skills (vérifié).
+Le seul consommateur actuel = tests non-LLM + le smoke live ⇒ jamais « built ».
+
+### Sonde (first-hand, quorum-2 helius+chainstack, bruts hors dépôt `F:\PRODUITS\etude-2026-09-20\bell-b3a-raws\`)
+Voir `docs/PLI-lot-t1a-ii-b3a.md` (mesures, sha, budget). Le gate `--rebase-scan` s'arrête AVANT les corps
+(méthode deux étages C-4) : le **coût crédit/appel de `getTransactionsForAddress` est NON TROUVÉ** dans la doc
+Helius (RESSOURCES-HELIUS l.12) ⇒ **C-V-2 = mesure Usage dashboard, propriétaire orchestrateur** = prérequis des
+corps. La course de trajectoire (L-5) et l'extension rapport `bell-report.mjs --rebase` sont **différées**
+(consultation formée, non un contournement).
+
+### Méthode hybride — scan de l'autorité (DÉCISION ORCHESTRATEUR 60, 2026-09-20, `docs/CHANTIERS.md` l.122 [lu] ; pli -b3a-3)
+La méthode mandatée (décision 55 : corps **full-mint** via `getTransactionsForAddress`) est **réfutée par mesure** :
+débits 55 k–627 k signatures/jour par mint ⇒ **~5,34 M crédits Helius** projetés (SPYx seul ~2,92 M), > plafond 1 M
+(décision 56) — chiffre de la décision 60 l.122 [lu] ; le tableau par mint de l'annexe -b3a-2 en donne la ventilation
+(~5,4 M au total, même ordre de grandeur). `error_origin` orchestrateur (décision 55 fondée sur la sonde -b1 capée à
+8 pages). `getTransactionsForAddress` n'offre **aucun filtre programme/instruction serveur-side** ⇒ tirer tous les
+corps du mint est requis pour trouver les 43/x ⇒ infaisable sous plafond.
+**Option 1 ratifiée — scan de l'AUTORITÉ de mise à jour partagée `S7vYFF…`** (`066f5922…45e3`) : les 43/0 Initialize
+et **tous** les 43/1 UpdateMultiplier des 4 mints sont émis par cette autorité. Énumérer l'autorité (164 239
+signatures, gTfA `full` ~166 pages ≈ **1 825 crédits** projetés, ~2 900× moins cher que full-mint), décoder les 43/x
+par mint, relire chaque candidat quorum-2 (Helius + Chainstack, clé = événement décodé).
+**Précondition d'invariance d'autorité** (le socle de complétude) : `Initialize.authority == oracle.authority ==
+S7vYFF` (asserté par mint dans `bell_rebase_course_replays_bit_identical`). `processor.rs` (l.44-53) exige la
+**signature de l'autorité courante** pour un UpdateMultiplier ⇒ seule `S7vYFF` a pu en émettre un ⇒ le scan
+d'autorité les capture tous. Backstop : **oracle d'état final C-3 bit-à-bit** (le triplet rejoué == le
+`ScaledUiAmountConfig` lu quorum-2 au slot pinné).
+**Résiduels nommés** (symétriques, publiés **dans** le gate `trajectory_known` — jamais accordé sans eux) :
+`authority_scan_mono_operator` (l'énumération gTfA est **Helius seul** — pas d'équivalent Chainstack ; une omission
+Helius qui changerait l'état final est attrapée par C-3, une qui ne le changerait pas ne l'est pas) et
+`set_authority_unscanned` (l'historique `SetAuthority` du mint n'est pas scanné, C-12 : un changement d'autorité
+A→B→A avec updates B-signés qui s'annulent est la faille résiduelle côté signataire). Ajoutés à l'enum fermé
+`residuals.ts` ; émis par `rebaseGateFromTrajectory(…, scanMethod="authority")`.
+**Résultats de la course** (4/4, first-hand ; hors dépôt `course/series-*.json`, copiés sha-pinnés sous
+`test/fixtures/series/rebase/`) : TSLAx `constant` (1 événement, m = 1, **aucun résiduel** — les deux résiduels sont
+scopés à `trajectory_known`) ; SPYx 9, NVDAx 11, AAPLx 11 événements, `trajectory_known`, `overwritten_pending = 0`,
+C-3 OK ; premier update **dans** la fenêtre Cong (AAPLx 2025-08-14, NVDAx 2025-10-02, SPYx 2025-10-31 23:55Z) ⇒ 3/4
+mints non `constant` en fenêtre (g_t = VWAP_raw / m requis, incréments ≤ ~0,3 %). **Coût réel : ~6 323 crédits Helius,
+4 042 appels Chainstack** (inclut l'exploration `shape`/`verify-oldest`/`verify-gtfa-config`) — largement sous
+plafonds ; **aucun scan full-mint corps lancé**. Ratification **investisseur** due au retour (décision 60).
+
+### Items formés (déclencheurs + propriétaires ; zéro dette nue)
+- **E-1** (date d'activation ScaledUiAmount) — **CLOS par argument** : le rejeu part de l'`Initialize` (43/0) du
+  mint ; la date d'activation du feature-gate n'est pas requise (le premier événement du mint borne la trajectoire).
+- **E-3** (commit du client JS `@solana/spl-token`) — **CLOS par argument** : Bell écrit ses **propres** décodeurs
+  (18/42/56 octets, testés sur vecteurs binaires à la main) ; aucune vendorisation.
+- **E-2** (Chainstack `getAccountInfo` à slot passé) — déclencheur : divergence de l'oracle d'état final C-3 OU
+  besoin d'un contrôle croisé rétrospectif ; propriétaire orchestrateur.
+- **E-4** (palier Alchemy account-archive) — déclencheur : idem E-2 ; propriétaire orchestrateur.
+- **E-5** (`try_validate_multiplier` bornes) — déclencheur : un multiplicateur décodé hors bornes plausibles ;
+  propriétaire orchestrateur. Non bloquant.
+- **E-6** (correctif PR #522 « not live yet » au 2026-09-20) — déclencheur : toute extension de la trajectoire
+  rejouée au-delà de la date/slot d'activation du correctif ; borner la trajectoire à cette date, relire le
+  processeur ; propriétaire orchestrateur.
+- **E-7** (NOUVEAU) : le locateur TLV `scaledUiConfigBytes`/`locateScaledUiTlv` (base 82, `account_type`@165,
+  TLV@166, type 25, valeur 56 octets) est **validé first-hand par la sonde** (oracle-slot pinné sur 3 mints réels,
+  678 octets) ; déclencheur d'une relecture : un mint dont le layout TLV diffère (autre ordre d'extensions) ou un
+  échec du locateur. Propriétaire orchestrateur.
+- **C-V-2** (crédit/appel `getTransactionsForAddress`) — **prérequis des corps** ; propriétaire orchestrateur
+  (Usage dashboard). Sans lui, la course L-5 ne démarre pas (budget écrit avant les corps, C-4). Contourné par la
+  méthode hybride (scan d'autorité), qui tire ~166 pages gTfA au coût mesuré 10 cr/appel (décision 55/60).
+- **Énumération d'autorité mono-opérateur** (`authority_scan_mono_operator`, décision 60) — gTfA n'a pas
+  d'équivalent Chainstack ⇒ l'énumération de l'autorité est Helius seul ; backstop = oracle d'état final C-3 ;
+  déclencheur : contrôle croisé de l'énumération sur un 2ᵉ archiveur gTfA si disponible ; propriétaire orchestrateur.
+- **`SetAuthority` non scanné** (`set_authority_unscanned`, C-12, décision 60) — faille résiduelle de complétude
+  côté signataire (A→B→A avec updates B-signés qui s'annulent) ; déclencheur : scan `SetAuthority` du mint ;
+  propriétaire orchestrateur.
+- **Débits mints** (55 k–627 k signatures/jour, mesurés décision 60) — fait pertinent pour tout scan full-mint
+  futur (réfutation de la décision 55) ; propriétaire orchestrateur / worker -b1-bis.
+- **`gate.residuals` non compté dans `state.json`** — `collect()` compte `rebase_unverified` par séance mais ne
+  déverse pas les résiduels du gate `trajectory_known` (granularité mint vs séance non spécifiée) ⇒ l'émission est
+  couverte par test mais non servie ; déclencheur : -b1-bis (course rebase-aware qui publie le gate) ;
+  propriétaire orchestrateur. **Réserve `scanMethod` (côté ENTRÉE, C-G2 -b3a)** : servir ces résiduels exige AUSSI
+  d'étendre `TrajectoryInput`/`loadTrajectories` (`collect.ts` l.421/453) pour PORTER `scanMethod`, et `buildSolanaSymbol`
+  (l.442-444) pour le PASSER à `rebaseGateFromTrajectory` — l'appel actuel omet `scanMethod` ⇒ résiduels jamais émis en `main()` ; même déclencheur/propriétaire.
+- **Fail-open C-3 sur le chemin servi (checkpoint-2 C-V-2, prouvé par harnais)** : `buildSolanaSymbol` (`collect.ts` l.442-444)
+  avec un fichier de trajectoire contredisant l'état live du mint (rejeu m = 1,5 ; mint lu m = 1) et `scanComplete: true`
+  rend `trajectory_known` — la lecture live du mint est un test de PRÉSENCE, jamais une comparaison `replayTriplet` vs état
+  sur les bits ; la parenthèse « (the C-3 oracle anchor) » du commentaire de `collect.ts` est FAUSSE (édition du `.ts`
+  différée à l'item, comptée R-25). Item formé, fusionné avec la réserve `scanMethod` ci-dessus : ancrer C-3 dans
+  `buildSolanaSymbol` (état du mint base64 quorum-2, comparaison sur les bits, divergence ⇒ `rebase_unverified`) + porter
+  `scanMethod` ; déclencheur : avant toute g_t -b1-bis ; propriétaire orchestrateur ; `error_origin` : rédacteur -b3a
+  (câblage L-3/C-10).
+
+### MAST (résiduel)
++ « rejeu circulaire » (contre-mesure : oracle d'état final C-3, `getAccountInfo` quorum-2 après scan, comparaison
+sur bits ; `bell_rebase_scan_state_divergence_is_unverified` prouve qu'une divergence ⇒ `rebase_unverified`, jamais
+un ajustement du rejeu) ; + « upgrade de programme » (E-6) ; **`SetAuthority` non scanné = résiduel NOMMÉ
+`set_authority_unscanned`** (décision 60) : contrairement à la formulation initiale « sans effet », un changement
+d'autorité A→B→A avec updates B-signés qui s'annulent est une faille résiduelle réelle côté signataire, désormais
+listée dans le gate `trajectory_known` (jamais accordé sans elle), avec l'oracle C-3 pour backstop d'état final.
