@@ -38,3 +38,18 @@ Retry qui réécrit une ligne (contre-mesure : L-4 idempotence) ; clé Chainstac
 
 ## Rôles
 Checkpoint-1 validateur avant tout code. Worker Opus 4.8 max (G1, offline, fetch stubbé) → G2 fraîche → checkpoint-2 → G7 → fusion → déploiement orchestrateur (JOURNAL).
+
+---
+## Amendement checkpoint-1 (2026-09-20, validateur `claude-fable-5-1`, APPROUVÉ-AVEC-CORRECTIONS C-1..C-11 — `docs/CHECKPOINT1-lot-narabi-ops-1.md`, pliées ici, font foi)
+- **C-1 (bloquant, secret)** : `run.ts:160` publie `prov.endpoints` verbatim dans chaque ligne servie sur monarkgate.tech (`narabi-snapshot.ts:23`) ⇒ avec Chainstack dans le pool, **la clé serait publiée sur le site**. Règle : `endpoints` publié sous forme **expurgée** (hôte seul, jamais chemin/query ; `PUBLIC_ENDPOINTS` gratuits inchangés) ; `sentinel_never_prints_endpoint_url` asserte sur **l'erreur, la ligne écrite et stdout** ; mutant URL brute dans la ligne ⇒ rouge.
+- **C-2** : syntaxe `OnCalendar=*-*-* 00:30,03:30,06:30,09:30 UTC` **invalide** ⇒ quatre lignes `OnCalendar=` (ou `*-*-* 00,03,06,09:30:00 UTC`) ; `systemd-analyze calendar` dans le runbook ; le test compte 4 expressions. `Persistent=true` ⇒ un seul run au reboot.
+- **C-3** : `providerOf` **byte-identique** (importé sous contrat par Bell `operators.ts`/`quorum.ts` et `ukemi/rpc2.ts`, hors isolation) ; pas de fusion p2pify (une seule URL Chainstack) ; « Chainstack en tête » retiré (`quorumTwo` fait tourner `rr`) — texte : « troisième opérateur distinct dans la rotation ».
+- **C-4** : URL Chainstack lue dans `main()` (ou `poolEndpoints(env)` appliqué seulement quand `opts.endpoints` est absent) ; le JSON de fin porte `chainstack: boolean`.
+- **C-5** : `EnvironmentFile=-` conservé (une unité qui ne démarre plus ne publie rien, sans alerte à ce jour) + `systemctl show -p EnvironmentFiles` au runbook ; commentaires « no key » (`monark-sentinel.service` l.4, `no-secret-in-repo.test.ts` l.4) mis à jour.
+- **C-6 (test du code de sortie)** : mécanisme nommé — sous-processus `node --import <stub fetch> run.ts` (ou CLI exportée) ; stub **méthode-conscient** (seul `eth_call` échoue ; `finalized()` doit réussir, sinon FATAL pré-existant sans exercer L-1) ; trois cas : `no_quorum` ⇒ exit 1 / 0 ligne ; rattrapage partiel ⇒ **1 ligne écrite ET exit 1** ; `due = []` ⇒ exit 0 ; `--dry-run` déclaré.
+- **C-7 (fixture)** : la ligne 2026-09-19 est absente du dépôt (snapshot arrêté à 09-18) ⇒ fixture `apps/sentinel/test/fixtures/narabi-timeline-2026-09-19.jsonl` (3 lignes, `curl` du site) + PROVENANCE sha256 ; oracle L-4 = tous les champs hachés + `line_hash` de la ligne 3 ; bruts non nécessaires (`attest`/`step` purs, stub dérivé de la ligne publiée).
+- **C-8 (sonde)** : `line_hash` **non importable** sur le VPS Bell (`@monark/sentinel` privé, `timeline.ts` importe hikae/harness) ⇒ la sonde n'utilise que des built-ins Node et **duplique l'ordre des 31 champs hachés** ; test `probe_line_hash_equals_sentinel_lineHashOf` sur les lignes committées ; créneau ≥ **10:30 UTC** (jitter du dernier créneau) ; utilisateur dédié + `ReadWritePaths` ; registre `upcoming`.
+- **C-9** : MAST + « secret dans la provenance publiée », « dérive de l'ordre de hash dupliqué ».
+- **C-10** : `ADR-NARABI-OPS-1` amende ADR-M012 D5 (« sans clé ») par référence datée ; sémantique des codes de sortie ; table des tuyaux avec déclencheurs.
+- **C-11** : R-25 mesuré à mi-G1 ; si > 500, L-5 (sonde) devient le pli `NARABI-OPS-1b`.
+- Relayé à l'investisseur (non bloquant) : canal d'alerte de la sonde (déclencheur `upcoming → built`) ; pose du secret par l'orchestrateur via stdin SSH, vérifiée par `sha256sum` des deux côtés, jamais `cat` distant.
