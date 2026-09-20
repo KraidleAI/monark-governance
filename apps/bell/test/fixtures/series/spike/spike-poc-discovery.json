@@ -1,0 +1,32 @@
+{
+  "recorded_by": "worker Opus 4.8, lot T-1a-ii-b1 pli -b1-2, 2026-09-20 (G2 fold C-G2-6)",
+  "purpose": "Make the founding-pool discovery PoC (basis of reco (a), decision 47) measure-shaped instead of prose-only. The values below are the -b1 worker's first-hand run of 2026-09-20 (probe4.mjs section C); their raw response was NOT retained, so this record is explicitly NOT sha-backed (raw_sha256: null) and carries a formed re-measure item.",
+  "generator": {
+    "script": "probe4.mjs",
+    "sha256": "efe38ecfe9f43d5102e9f50426827a2ad0206a62474334a67f4b399726fca842",
+    "archived": "F:/PRODUITS/etude-2026-09-19/bell-b1-spike/scripts/ (PROVENANCE-spike.md line 33)"
+  },
+  "method": "Helius getTransactionsForAddress(mint, {transactionDetails: full, blockTime window}) -> tally accounts appearing in the mint's pre/postTokenBalances -> the top-tallied vault is the founding pool vault; then count that vault's in-window signatures",
+  "window": { "fromUtc": "2025-07-01T00:00:00Z", "toUtc": "2025-10-31T23:59:59Z" },
+  "poc": {
+    "mint_symbol": "TSLAx",
+    "mint": "XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB",
+    "founding_vault_prefix": "CY9Xzc1z",
+    "founding_vault_full": null,
+    "in_window_tx_observed": "5000+",
+    "in_window_tx_exact": null,
+    "in_window_tx_capped": true,
+    "helius_calls_approx": 7,
+    "note": "the vault is printed 8-char-truncated by probe4.mjs (key hygiene); the tx count is capped at 5 pages x 1000 (>= 5000, true count unknown). This is a FLOOR, not a measured total."
+  },
+  "measure_backed": false,
+  "raw_sha256": null,
+  "raw_retained": false,
+  "reason_raw_absent": "saveRaw reuses file names across runs (PROVENANCE-spike.md line 44); the PoC full-tx raw was overwritten by the later census-pool probe. The two archived raws (depth-probe-tslax-gtfa.json, gtfa-full-page-sample.json) are the CENSUS pool's EMPTY results, not this mint-tally discovery.",
+  "item": {
+    "id": "C-G2-6",
+    "trigger": "go lot -b1-bis (founding-pool discovery)",
+    "action": "re-run the discovery PoC live, save the raw under a UNIQUE (non-reused) file name, pin its sha256 here (raw_sha256) and same-dir in PROVENANCE-spike.md; report the EXACT (uncapped) in-window tx count and the FULL founding_vault address",
+    "owner": "orchestrator -> worker at -b1-bis"
+  }
+}

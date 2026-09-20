@@ -162,3 +162,17 @@ Rejeu **bit-identique** du digest. Mutants nommés, **rouge attendu** : **halt d
   fondateur découvert / -b1 tel quel ≈ 0 session / décalage fenêtre 2025-11→2026-09). Aucune course lancée (budget
   préservé, ~90 appels Helius). Propriétaire : orchestrateur → investisseur/validateur. `error_origin` : planificateur
   (hypothèse D7/ADR-T1aii D1 « pools existaient jul-oct 2025 » falsifiée par mesure first-hand -b1).
+
+## Amendement (2026-09-20, décision investisseur 47 + pli G2 -b1-2, worker `claude-opus-4-8[1m]`)
+- **Décision 47 (option (a), variante SPLIT)** : escalade tranchée. Le registre fondateur Solana = **pools 2025
+  découverts on-chain** (`founding_pool` ≠ `pairAddress` census). La **g_t fondatrice est déplacée APRÈS -b3** en
+  nouveau sous-lot **-b1-bis** (découverte → registre fondateur → course rebase-aware). **-b1 (ce lot)** = corrections
+  + spike + découverte (PoC) + décomptes + **abstention nommée**, aucune g_t. Ordre : `-b1 → -b3 → -b1-bis → -b2a →
+  -b2b`. Variante **FUSION écartée** (C-2). Détail des tuyaux -b1-bis + des 8 corrections G2 + procurement
+  **PR-B-SPL-TOKEN2022** : `docs/adr/ADR-T1aii…` **D1-ter** (font foi).
+- **Pli G2 -b1-2 (résumé)** : C-G2-1 fail-open C-6 corrigé dans `main()` (`rebaseForMint` fail-closed ; `collect()`
+  intact — repro + test + mutant) ; C-G2-2 effTs échus (past-dated, pas « future ») ; C-G2-3 `readMintToken2022`
+  fail-closed + procurement ScaledUiAmount ; C-G2-4 garde close rapport ; C-G2-5 `coverage.ts` (C-5) ; C-G2-6 PoC
+  recordée non-sha-backée + item -b1-bis ; C-G2-7 budget ETH/Massive → -b2b ; C-G2-8 hypothèse immuable énoncée.
+  Oracles ciblés verts (49 tests bell, typecheck, lint/ratchet/lang/export, series_pinned, no_secret). Aucune g_t
+  fondatrice produite. `error_origin` des corrections : rédacteur -b1 (C-G2-1/2/5) ; les autres = items formés.

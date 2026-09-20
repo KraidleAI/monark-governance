@@ -75,6 +75,74 @@ Le lot -b est découpé en **quatre sous-lots séquentiels** (un worker à la fo
   `apps/bell/test/fixtures/series/` (exclues R-25). **État public : `upcoming`** (CA-11 ; aucune surface servie —
   Bell n'est « built » qu'à T-1b : règle de branchement). Le code -b1 (operators, corrections collect, gate rebase,
   report) est aujourd'hui consommé par des **tests** (oracle non-LLM) + un smoke live, pas par un chemin servi ⇒ reste `upcoming`.
-- **Test** : 45 tests bell (`bell.test.ts`+`collect.test.ts`+`report.test.ts`) ; racine `no_secret_in_repo` (5 motifs
-  C-10 + mutant), `series_pinned_are_declared_and_hashed` (spike files) ; smoke live (budget-stop exit 1 verbatim ;
-  quorum 2 opérateurs ; aucune url/clé/uuid en sortie). Mutants ≥ 8 (voir PLI).
+- **Test** : 45 tests bell au gel `2ac2e25` — **49 après pli G2 -b1-2** (+4 : C-G2-1/3/5 sur `collect.test.ts`,
+  C-G2-4 sur `report.test.ts`) (`bell.test.ts`+`collect.test.ts`+`report.test.ts`) ; racine `no_secret_in_repo`
+  (5 motifs C-10 + mutant), `series_pinned_are_declared_and_hashed` (spike files, dont `spike-poc-discovery.json`) ;
+  smoke live (budget-stop exit 1 verbatim ; quorum 2 opérateurs ; aucune url/clé/uuid en sortie). Mutants ≥ 8 (voir PLI).
+
+## Amendement D1-ter — 2026-09-20 (décision investisseur 47, variante SPLIT ; pli G2 -b1-2)
+**Décision 47 (verbatim « A », option (a) en variante SPLIT).** Le registre fondateur Solana = les **pools 2025
+découverts on-chain** (champ `founding_pool` distinct du `pairAddress` census v3), PAS les pools census (nés en
+2026, 0 tx in-window ; NVDAx 8 tx — mesuré -b1). Les xStocks portant un multiplicateur mutable dont l'état 2025
+est illisible hors ligne, la **g_t fondatrice est déplacée APRÈS -b3** :
+- **-b1** (gel `2ac2e25`, ce lot) = corrections + spike + découverte (PoC) + décomptes in-window + **abstention
+  nommée** (`rebase_unverified`). AUCUNE g_t fondatrice produite ni committée.
+- **-b3** = corporate actions + reconstruction de la trajectoire `SetMultiplier`/effTs (rebase-aware).
+- **-b1-bis** (NOUVEAU sous-lot, APRÈS -b3) = découverte des pools 2025 + registre fondateur + **course
+  rebase-aware** consommant la trajectoire de -b3.
+**Ordre (décision 47)** : `-b1 → -b3 → -b1-bis → -b2a → -b2b`. La variante **FUSION** (-b1+-b3 en un seul lot) est
+**écartée** (viole C-2 : séquence stricte, un worker / un worktree par sous-lot) ; la variante **SPLIT** ci-dessus
+est retenue (avis G2 §6). Fenêtre Cong 2025-07→10 conservée. Décisions 40/44/45 amendées (CHANTIERS.md décision 47).
+
+## Tuyaux -b1-bis (C-12) — entrée / sortie / état / test
+- **Entrée** : mints xStocks (Helius gTfA `full`, fenêtre) → tally des comptes → vaults fondateurs 2025 ; la
+  trajectoire `SetMultiplier`/effTs produite par **-b3** ; close Massive par ancre.
+- **Sortie** : registre fondateur (`founding_pool` ≠ `pairAddress`) → `collect()` rebase-aware → série réduite +
+  `bell-report.mjs` → `docs/MESURE-FONDATRICE-bell-2026-09.md` (g_t fondatrice, enfin calculable).
+- **État** : bruts hors dépôt sha-pinnés ; `upcoming` (CA-11) jusqu'à T-1b. La fonction de planification
+  `apps/bell/src/coverage.ts` (`coverageDecision`, C-5 / décision 45) est aujourd'hui consommée par des **tests
+  seuls** ⇒ `upcoming` ; son consommateur servi est la décision de couverture de -b1-bis (règle de branchement).
+- **Test** (à former au G0 -b1-bis) : découverte reproductible (mint → vault, sha du raw épinglé — item C-G2-6) ;
+  g_t rebase-aware inchangée sur multiplicateur constant, abstention sinon.
+
+## Corrections G2 (pli -b1-2, 2026-09-20, worker `claude-opus-4-8[1m]`) — origine + déclencheur
+- **C-G2-1** (BLOQUANT, `error_origin` rédacteur -b1) — fail-open C-6 en câblage LIVE corrigé dans `main()` : un
+  mint absent (quorum `getAccountInfo` échoué) ⇒ `rebaseForMint(mint)` = `rebase_unverified` (abstention), jamais
+  une g_t au multiplicateur défaut « 1 ». `collect()` INCHANGÉ (rebase absent = mode rejeu ⇒ oracle bit-identique
+  vert). Preuve : repro `F:/tmp/bell-b1-2/repro-A(-after).mts` (avant g_t=-0.5753641449 ; après abstention, vwap
+  porté) ; test `bell_mint_read_failure_abstains_fail_closed` ; mutant rouge.
+- **C-G2-2** (`error_origin` rédacteur -b1) — effTs à signe inversé corrigé (`supply.ts`, `PROVENANCE-spike.md`:66,
+  `PLI`:81) : les effTs sont ÉCHUS au 2026-09-20 (past-dated), pas « futur / pending ».
+- **C-G2-3** — `readMintToken2022` fail-closed (multiplicateur STORED conservé ; « effectif = newMultiplier si
+  effTs échu » = spec SPL Token-2022 ScaledUiAmount, illisible hors ligne). **Procurement PR-B-SPL-TOKEN2022**
+  (ci-dessous). Non bloquant -b1 (gate mutable ⇒ unverified ; supply non rendu ; `multiplier_unit` identique quel
+  que soit le champ effectif — `multiplier != 1 ⇔ newMultiplier != 1` sur les 4 mints mesurés).
+- **C-G2-4** — garde close niveau rapport (`assertNoCloseLike` dans `bell-report.mjs`, duplication DÉCLARÉE de
+  `digest.ts` CLOSE_KEY — un `.mjs` lancé par `node` ne peut importer un `.ts`) + test `bell_report_input_close_guard`
+  + mutant ; défense en profondeur (le digest est déjà `assertNoClose`-gardé en amont).
+- **C-G2-5** — dette C-5 levée : `coverage.ts` `coverageDecision` (décision 45) livrée en fonction pure testée
+  (`bell_c5_coverage_projection_over_threshold_top20`) : > seuil ⇒ top20 + part de volume 24 h publiée ; non
+  computable ⇒ abstention nommée `projection_not_computable`. **Plancher** computable (PAS plafond) via les mints :
+  ≥ 8000 sigs in-window × 4 mints (capé ; total exact = énumération non capée à -b1-bis).
+- **C-G2-6** — PoC de découverte recordée `spike-poc-discovery.json` (raw non retenu ⇒ `raw_sha256: null`, valeurs
+  = run first-hand -b1 non conservé) + item formé (re-mesure au go -b1-bis : raw sous nom unique + sha + compte
+  exact + adresse vault complète).
+- **C-G2-7** (item -b2, déclencheur **-b2b**) — `--max-calls` couvre la jambe Solana mais PAS la jambe ETH
+  (`liveEthSwaps`) ni Massive (`closeAndAdv`) ⇒ la course EVM `getLogs` doit passer par le budget fail-closed (RU
+  Chainstack). Propriétaire : worker -b2b.
+- **C-G2-8** (mineur) — hypothèse « autorité null MAINTENANT = null en 2025 » énoncée dans le docstring de
+  `rebaseGateFromMint` avec la clause **« sauf découverte contraire »** (déférée à la reconstruction -b3).
+
+## Procurement PR-B-SPL-TOKEN2022 (C-G2-3, doc 03 — demande formée, zéro dette nue)
+- **Quoi lire** : la règle du multiplicateur EFFECTIF de l'extension SPL Token-2022 **ScaledUiAmount** — laquelle
+  de `multiplier` / `newMultiplier` s'applique selon `newMultiplierEffectiveTimestamp` vs `now`. Sources : (1)
+  programme Rust `solana-program-library` `token/program-2022/src/extension/scaled_ui_amount/` (sélection du
+  multiplicateur par timestamp) ; ET/OU (2) JS `@solana/spl-token`, chemin scaled-UI de `amountToUiAmount` ; ET/OU
+  (3) doc `spl.solana.com/token-2022/extensions` section ScaledUiAmount.
+- **Version** : à épingler au procurement (dernière `@solana/spl-token` publiée) — non devinée ici.
+- **Tentatives d'acquisition** : `@solana/spl-token` **absent de `node_modules` ET 0 occurrence dans
+  `package-lock.json`** (vérifié first-hand 2026-09-20) ; session **offline** (ni `npm install` ni fetch autorisés)
+  ⇒ non lisible ici.
+- **Usage prévu** : figer la règle du multiplicateur effectif dans `readMintToken2022` (ou documenter pourquoi le
+  champ brut est conservé) **avant tout rendu `supply × multiplier`**. Déclencheur : -b3 (rebase-aware) au plus tard.
+- **Propriétaire** : orchestrateur → mainteneur (procurement).

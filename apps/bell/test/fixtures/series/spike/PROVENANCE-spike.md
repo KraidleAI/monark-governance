@@ -38,6 +38,7 @@ good-faith reading pending provider confirmation or legal sign-off.
 |---|---|
 | `spike-measures.json` | `1e733a6996ffdb0ed2b9a5a9b971a420850b4c5e1c61cb293565997792ef78d0` |
 | `spike-findings.json` | `c016418747de3a10166997fe52aae375fc1b4a754827906b573f2d4a4fe45224` |
+| `spike-poc-discovery.json` | `4dc927bb9d7ea71f9b825701a4dc933b6f8b64c559048488f529653ccbac696c` |
 
 ## Out-of-repo raw responses (NOT committed — C-4; archived `F:\PRODUITS\etude-2026-09-19\bell-b1-spike\raws\`)
 
@@ -61,9 +62,16 @@ EMPTY results (not error objects), which IS the finding — the census pool had 
 3. **The mints traded heavily in-window**: first tx 2025-06-10/11; 8000+ in-window txs per mint (capped at 8
    pages). So 2025 founding trading happened on OTHER (now-drained) pools, discoverable on-chain (PoC below).
 4. **Founding-pool discovery PoC (TSLAx, ~7 Helius calls)**: gTfA `full` on the mint (window) → tally accounts
-   holding TSLAx → founding vault `CY9Xzc1z…` with 5000+ in-window txs. Discovery feasible (~10-20 calls/mint).
+   holding TSLAx → founding vault `CY9Xzc1z…` with 5000+ in-window txs (5 pages capped — a FLOOR, exact unknown).
+   Discovery feasible (~10-20 calls/mint). **C-G2-6**: these PoC values are NOT sha-backed in-repo (the raw was
+   overwritten by saveRaw name reuse, l.44); recorded in `spike-poc-discovery.json` with `raw_sha256: null` and a
+   formed re-measure item (trigger: go -b1-bis — save the raw under a unique name, pin its sha, report the exact
+   uncapped count and the full vault address). Prose-only until then.
 5. **PIVOT — rebase**: scaledUiAmountConfig — TSLAx multiplier 1 (never scaled); SPYx 1.0039, NVDAx 1.0009,
-   AAPLx 1.0027, each with a pending `newMultiplier` (future effTs). Update authority SHARED (`S7vYFF…`) across
+   AAPLx 1.0027, each with a `newMultiplier` whose effTs is ALREADY ELAPSED at the 2026-09-20 read (SPYx effTs
+   1781755200=2026-06-18Z, AAPLx 1786149000=2026-08-08Z, NVDAx 1789000200=2026-09-10Z — a PAST-dated value, NOT
+   "future/pending"; C-G2-2). Whether it supersedes `multiplier` once elapsed is the ScaledUiAmount rule [abs
+   offline] (C-G2-3, PR-B-SPL-TOKEN2022). Update authority SHARED (`S7vYFF…`) across
    all four, 3000+ in-window signatures (capped). Multiplier is MUTABLE => the historical value at the window's
    begin bound is unreadable by `getAccountInfo` => C-6 gate is `rebase_unverified` at -b1; the SetMultiplier
    trajectory reconstruction is -b3.

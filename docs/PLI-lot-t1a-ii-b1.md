@@ -78,7 +78,10 @@ composé en mémoire. Bruts sous `F:\tmp\bell-b1\spike\` (sha en PROVENANCE, hor
 
 **DÉCOUVERTE PIVOT 2 (rebase) — les xStocks rebasent en continu** : scaledUiAmountConfig lu (spike) :
 TSLAx `multiplier=1, newMultiplier=1, effTs=0` (jamais scalé) ; **SPYx 1.0039, NVDAx 1.0009, AAPLx 1.0027**, chacun
-avec un `newMultiplier` en attente (effTs futur) ; **autorité PARTAGÉE `S7vYFF…`** pour les 4, **3000+ sigs in-window**
+avec un `newMultiplier` dont l'`effTs` est **DÉJÀ ÉCHU** au 2026-09-20 (SPYx 1781755200=2026-06-18Z, AAPLx
+1786149000=2026-08-08Z, NVDAx 1789000200=2026-09-10Z) — une valeur **passée**, PAS « en attente / future »
+(**correction C-G2-2** de cette ligne ; savoir si `newMultiplier` remplace `multiplier` une fois l'`effTs` échu =
+règle ScaledUiAmount [abs hors ligne], C-G2-3/PR-B-SPL-TOKEN2022) ; **autorité PARTAGÉE `S7vYFF…`** pour les 4, **3000+ sigs in-window**
 (capé). ⇒ (a) la méthode « scan des sigs de l'autorité » (mon `liveRebaseGate` initial) est **mauvaise** (partagée +
 massive) → remplacée par une règle PURE d'état de mint (immutable ssi pas d'autorité scaled) ; (b) l'état multiplicateur
 HISTORIQUE (borne 2025-07-01) est **illisible** par `getAccountInfo` (courant seul) ⇒ au sens strict de C-6, le
@@ -188,3 +191,77 @@ Tracked 459 (406 ins + 53 del) + untracked comptés 303 = **762** (`bell-report.
   corps-niveau passe par `quorum2` (testée : `QuorumDisagreementError`, `bell_quorum_pair_two_operators`) ; le résidu
   `quorum_sampled` a été **déclenché en direct** au smoke NVDAx. Un test hors-ligne dédié de `liveSolanaFills`
   (export + injection lourde) est optionnel — la preuve live + les tests quorum couvrent la sémantique.
+
+---
+
+# Annexe — pli G2 -b1-2 (2026-09-20, worker `claude-opus-4-8[1m]`, effort max)
+
+**R-1** : modèle résolu `claude-opus-4-8[1m]` (préfixe `claude-opus-4-8`, non banni). Aucun commit / aucun workflow
+(R-20). Aucun RPC live (tout offline). Décision investisseur 47 (variante SPLIT) : voir ADR-T1aii **D1-ter**.
+
+## Touched set (12 fichiers)
+| fichier | R-25 | rôle |
+|---|---|---|
+| `apps/bell/src/supply.ts` | compté | C-G2-1 `rebaseForMint` ; C-G2-2/C-G2-3 docstrings ; C-G2-8 hypothèse |
+| `apps/bell/src/collect.ts` | compté | C-G2-1 `main()` fail-closed (`rebase = rebaseForMint(mint)`, push inconditionnel) |
+| `apps/bell/src/coverage.ts` (NEW) | compté | C-G2-5 `coverageDecision` + `foundingCourseCostFloorSigs` |
+| `apps/bell/scripts/bell-report.mjs` | compté | C-G2-4 `assertNoCloseLike` + garde dans `aggregate()` |
+| `apps/bell/scripts/bell-report.d.mts` | compté | C-G2-4 surface de type `assertNoCloseLike` |
+| `apps/bell/test/collect.test.ts` | compté | tests C-G2-1 / C-G2-3 / C-G2-5 |
+| `apps/bell/test/report.test.ts` | compté | test C-G2-4 |
+| `apps/bell/test/fixtures/series/spike/PROVENANCE-spike.md` | compté (.md, hors exclusion série) | C-G2-2 finding 5 ; C-G2-6 finding 4 + pin `spike-poc-discovery.json` |
+| `apps/bell/test/fixtures/series/spike/spike-poc-discovery.json` (NEW) | **exclu** (série json) | C-G2-6 record PoC (`raw_sha256: null`) |
+| `docs/adr/ADR-T1aii-bell-collecteur-course-fondatrice.md` | **exclu** (docs) | D1-ter + Tuyaux -b1-bis + 8 folds + PR-B-SPL-TOKEN2022 |
+| `docs/adr/ADR-B0-programme-bell.md` | **exclu** (docs) | amendement décision 47 + résumé folds |
+| `docs/PLI-lot-t1a-ii-b1.md` | **exclu** (docs) | C-G2-2 ligne 81 ; cette annexe |
+
+## numstat sous pathspec `STAT=` (`.github/workflows/ci.yml` l.64)
+Delta pli -b1-2 (`c5d15a4..worktree`, fichiers comptés) = **8 fichiers, 219 ins + 16 del = 235 lignes** :
+```
+6	1	apps/bell/scripts/bell-report.d.mts
+22	1	apps/bell/scripts/bell-report.mjs
+7	5	apps/bell/src/collect.ts
+54	0	apps/bell/src/coverage.ts
+33	5	apps/bell/src/supply.ts
+71	1	apps/bell/test/collect.test.ts
+10	2	apps/bell/test/fixtures/series/spike/PROVENANCE-spike.md
+16	1	apps/bell/test/report.test.ts
+```
+**R-25 total `96ca634..worktree`** (même pathspec) = **927 ins + 56 del = 983 lignes < 1 205** (plafond `VIBEGATES_PR_LIMIT`) ; **> cible G0 700 de 283** (774 lot -b1 au gel + 235 pli G2 -b1-2 ; surcoût = fonction `coverage.ts` C-5 + tests + garde rapport, déclaré — sous plafond, pas de seam requis). `git add -N` posé sur les 2 fichiers neufs pour la mesure, puis `git reset` (pas de commit, R-20).
+
+## sha256 LF avant (`git cat-file blob c5d15a4:…`) / après (worktree, `\r\n`→`\n`)
+| fichier | avant | après |
+|---|---|---|
+| `bell-report.d.mts` | `652c14e80065263d` | `a1100c9b32111a6c` |
+| `bell-report.mjs` | `4e8271f5d660a952` | `e245f9d0937877a1` |
+| `collect.ts` | `ab7e01ed980812e3` | `032d5c060d714751` |
+| `coverage.ts` | `(new)` | `c8c1764dc6bcc546` |
+| `supply.ts` | `b160fca744708553` | `e8d2ceb5cb0edad4` |
+| `collect.test.ts` | `84c1b357b3f857e5` | `faf16224693c4cb7` |
+| `report.test.ts` | `7fcd6640be61d6f6` | `e70771cf9e6a49ce` |
+| `PROVENANCE-spike.md` | `362af00ee5a4d75c` | `80fc8cefe8dd0091` |
+| `spike-poc-discovery.json` | `(new)` | `4dc927bb9d7ea71f` (LF-pin déclaré) |
+
+## Repro C-G2-1 (offline, `F:/tmp/bell-b1-2/`)
+- `repro-A.mts` (copie du repro G2, arbre inchangé) : **AVANT** = `gT=-0.5753641449`, `exceed1/2/5=1`, `rebase_unverified=0`, `no_quorum=1` (fail-open au niveau `collect()` d'un input sans `rebase`).
+- `repro-A-after.mts` (modélise le `main()` corrigé) : **AVANT** (rebase absent) = même g_t ; **APRÈS** (`rebase = rebaseForMint(undefined)`) = **abstention** (`abstain: rebase_unverified`, pas de `gT`, vwap `360` porté, `rebase_unverified=1`, `no_quorum=1`).
+
+## Mutants (5, rouges par construction, restauration cp → sha post-fix identique ; PAS de `git checkout` car non committé)
+| # | correction | mutation | test | résultat |
+|---|---|---|---|---|
+| 1a | C-G2-1 | `rebaseForMint` mint absent → `rebaseGate("1","1")` (constant) | `bell_mint_read_failure_abstains_fail_closed` | ROUGE (fail 1) |
+| 1b | C-G2-1 | `main()` revient au fail-open (`rebase = mint ? … : undefined`) | `bell_mint_read_failure_abstains_fail_closed` (preuve SRC) | ROUGE (fail 1) |
+| 2 | C-G2-3 | `readMintToken2022` renvoie `newMultiplier` comme `multiplier` | `bell_mint_readout_preserves_scaled_fields` | ROUGE (fail 1) |
+| 3 | C-G2-4 | retrait de l'appel `assertNoCloseLike(st)` dans `aggregate()` | `bell_report_input_close_guard` | ROUGE (fail 1) |
+| 4 | C-G2-5 | suppression du conjoint `&& proj.days <= t.maxDays` | `bell_c5_coverage_projection_over_threshold_top20` | ROUGE (fail 1) |
+
+## Oracles (ciblés ; `npm run ci` NON lancé — un oracle tourne ailleurs, §F) — TMP/TEMP/TMPDIR=F:/tmp
+- `npx tsx --test apps/bell/test/*.test.ts test/no-secret-in-repo.test.ts` = **49/49** (base 45 + 4 : `bell_mint_read_failure_abstains_fail_closed`, `bell_mint_readout_preserves_scaled_fields`, `bell_c5_coverage_projection_over_threshold_top20`, `bell_report_input_close_guard`).
+- `npm run typecheck` OK ; `npm run lint` rc=0 ; `npm run lint:ratchet` **69/69** ; `npm run lang:gate` OK (bell 0 hit) ; `npm run export:check` OK.
+- Ciblés supplémentaires : `series_pinned_are_declared_and_hashed` **vert** (nouveau `spike-poc-discovery.json` déclaré+haché) ; `no_secret_in_repo` **vert**.
+
+## Items formés (zéro dette nue)
+- **PR-B-SPL-TOKEN2022** (C-G2-3) : spec SPL Token-2022 ScaledUiAmount (multiplicateur effectif `multiplier` vs `newMultiplier` selon effTs). `@solana/spl-token` absent (node_modules + package-lock, 0 hit), offline ⇒ non lisible. Usage : figer la règle dans `readMintToken2022` avant tout rendu `supply × multiplier`. Déclencheur : -b3. Propriétaire : orchestrateur → mainteneur. (Détail ADR-T1aii.)
+- **C-G2-6 re-mesure PoC** : raw non retenu (réutilisation de nom `saveRaw`) ⇒ `raw_sha256: null` dans `spike-poc-discovery.json`. Déclencheur : go -b1-bis (raw sous nom unique + sha + compte exact + adresse vault complète).
+- **C-G2-7 budget ETH/Massive** : `--max-calls` n'enveloppe pas `liveEthSwaps`/`closeAndAdv`. Déclencheur : lot -b2b.
+- **Course fondatrice g_t** : déplacée en -b1-bis (après -b3), décision 47. Aucune g_t produite dans ce pli.

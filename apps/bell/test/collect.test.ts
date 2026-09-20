@@ -8,7 +8,8 @@ import { join, dirname } from "node:path";
 import { assertOutsideRepo, collect, chainTimeline, parseArgs, fatalMessage, makeBudgetedCall, refCloseDatesForFills, type SymbolInput } from "../src/collect.ts";
 import { quorum2, signaturesSetKey, statusOf, isSolRevert, NoQuorumError, QuorumDisagreementError, ConcordantRevertError,
   BudgetExceededError, SolRpcError, type JsonRpcCall, type TransportFault } from "../src/quorum.ts";
-import { readMintToken2022, porStatus, wrapperStatus, supplyVsPoRStatement, rebaseGate, rebaseGateFromMint } from "../src/supply.ts";
+import { readMintToken2022, porStatus, wrapperStatus, supplyVsPoRStatement, rebaseGate, rebaseGateFromMint, rebaseForMint } from "../src/supply.ts";
+import { coverageDecision, foundingCourseCostFloorSigs } from "../src/coverage.ts";
 import { volumeToAdvRatio, poolVolumeBase } from "../src/volume.ts";
 import { assertNoClose } from "../src/digest.ts";
 import { newResidualCounts, RESIDUAL_CODES } from "../src/residuals.ts";
@@ -454,4 +455,73 @@ test("bell_fatal_message_verbatim_local_and_scrubbed_transport", () => {
   assert.match(local, /^bell\/collect: --out is under the repo root/);
   assert.equal(fatalMessage(new Error("HTTP 429 https://x.example/rpc")), "FATAL HTTP 429");
   assert.match(SRC, /main\(\)\.catch.*fatalMessage\(e\)/s);
+});
+
+// ---- C-G2-1 (BLOQUANT): a FAILED mint read must abstain (rebase_unverified), never a fail-open g_t ---------
+test("bell_mint_read_failure_abstains_fail_closed", () => {
+  // The LIVE mapping main() applies: an ABSENT mint (getAccountInfo quorum failed) => rebase_unverified.
+  assert.deepEqual(rebaseForMint(undefined), { status: "unverified", residue: "rebase_unverified" });
+  const baseMint = { symbol: "X", decimals: 8, supply: "0", paused: false, permanentDelegate: null, newMultiplier: "1", newMultiplierEffectiveTimestampSec: 0 };
+  assert.equal(rebaseForMint({ ...baseMint, multiplier: "1", scaledAuthority: "auth" }).status, "unverified"); // mutable => unverified
+  assert.deepEqual(rebaseForMint({ ...baseMint, multiplier: "1", scaledAuthority: null }), { status: "constant", multiplier: "1" }); // immutable => constant
+
+  // integration: the SymbolInput main() builds on a FAILED mint read (repro-A shape), fed to the pure core.
+  const oneFill: SwapFill = { signature: "s1", blockTimeUtcMs: Date.UTC(2026, 8, 19, 2, 0, 0), baseDelta: 15_000_000n, quoteDelta: -54_000_000n };
+  const failed: SymbolInput = { symbol: "SPYx", chain: "solana", baseDec: 8, quoteDec: 6, fills: [oneFill],
+    fillsResidues: ["no_quorum"], closeRefBySession: { "2026-09-17": 640, "2026-09-18": 640 }, advDailyVolumes: [] };
+  const run = (s: SymbolInput): { residuals: Record<string, number>; gaps: Array<Record<string, unknown>> } =>
+    collect({ symbols: [s], haltRows: [], window: { fromUtcMs: 0, toUtcMs: 0 }, nowSec: 1_800_000_000, staleBoundSec: 93600, generatedAt: "t" })
+      .digest as { residuals: Record<string, number>; gaps: Array<Record<string, unknown>> };
+
+  // AFTER (fixed wiring): rebase = rebaseForMint(undefined) => the session ABSTAINS, no g_t emitted.
+  const after = run({ ...failed, rebase: rebaseForMint(undefined) });
+  assert.ok(!after.gaps.some((g) => "gT" in g), "fixed: no g_t on a failed-mint session");
+  assert.ok((after.residuals.rebase_unverified ?? 0) >= 1, "fixed: rebase_unverified counted");
+  assert.equal(after.residuals.no_quorum, 1, "fixed: the no_quorum reason is still counted");
+  assert.ok(after.gaps.some((g) => g.abstain === "rebase_unverified"), "fixed: abstain gap is named");
+
+  // BEFORE (fail-open, documented): with rebase ABSENT, collect() computes a g_t — this is the repro-A bug. The
+  // pure core is UNCHANGED by design (the fix lives in main()'s rebaseForMint), so the replay oracle stays green.
+  const before = run(failed);
+  assert.ok(before.gaps.some((g) => "gT" in g), "fail-open: absent rebase => g_t emitted (repro-A)");
+  assert.equal(before.residuals.rebase_unverified, 0, "fail-open: no abstention when rebase absent");
+
+  // wiring proof (SRC): main() applies the fail-closed mapping and pushes `rebase` UNCONDITIONALLY; the old
+  // fail-open line (`... : undefined`) is gone.
+  assert.match(SRC, /const rebase: RebaseGate = rebaseForMint\(mint\);/);
+  assert.match(SRC, /\.\.\.\(mint \? \{ mint \} : \{\}\), rebase \}\);/);
+  assert.doesNotMatch(SRC, /rebaseGateFromMint\(mint\) : undefined/);
+});
+
+// ---- C-G2-3: the mint readout preserves multiplier / newMultiplier / effTs distinctly (rule is [abs] offline) --
+test("bell_mint_readout_preserves_scaled_fields", () => {
+  // SPYx-shaped: multiplier != newMultiplier, effTs elapsed (2026-06-18Z). readMintToken2022 returns the STORED
+  // multiplier verbatim (it does NOT silently resolve to newMultiplier — that rule is [abs], PR-B-SPL-TOKEN2022).
+  const result = { value: { data: { parsed: { info: { supply: "1000", decimals: 8, extensions: [
+    { extension: "scaledUiAmountConfig", state: { multiplier: "1.0039", newMultiplier: "1.0057", newMultiplierEffectiveTimestamp: 1781755200, authority: "S7vYFF" } },
+  ] } } } } };
+  const m = readMintToken2022(result, "SPYx");
+  assert.equal(m.multiplier, "1.0039", "stored multiplier preserved verbatim");
+  assert.equal(m.newMultiplier, "1.0057", "scheduled newMultiplier preserved");
+  assert.equal(m.newMultiplierEffectiveTimestampSec, 1781755200, "effTs preserved (elapsed 2026-06-18Z, C-G2-2)");
+  assert.notEqual(m.multiplier, m.newMultiplier, "the two are distinct — the resolving rule is [abs] offline");
+  assert.equal(rebaseForMint(m).status, "unverified"); // gate unaffected: mutable authority => unverified
+});
+
+// ---- C-G2-5: the C-5 coverage decision (decision 45) — over threshold => top20 + published share -----------
+test("bell_c5_coverage_projection_over_threshold_top20", () => {
+  assert.equal(coverageDecision({ heliusCredits: 1_000_000, chainstackRu: 1_000_000, days: 3 }).mode, "full-population");
+  // over EACH budget INDEPENDENTLY => top20 (mutant: drop one conjunct => that case wrongly stays full-population).
+  const over1 = coverageDecision({ heliusCredits: 6_000_000, chainstackRu: 1_000_000, days: 3 });
+  const over2 = coverageDecision({ heliusCredits: 1_000_000, chainstackRu: 20_000_000, days: 3 });
+  const over3 = coverageDecision({ heliusCredits: 1_000_000, chainstackRu: 1_000_000, days: 9 });
+  for (const d of [over1, over2, over3]) {
+    assert.equal(d.mode, "top20-per-chain");
+    assert.ok(d.mode === "top20-per-chain" && d.publishCoverageShare === true, "top20 publishes the covered share");
+  }
+  // NOT computable (census 0 in-window data — the measured -b1 case) => NAMED abstention, never "assume it fits".
+  const none = coverageDecision(null);
+  assert.ok(none.mode === "abstain" && none.reason === "projection_not_computable");
+  // measured FLOOR (lower bound, capped): >= 8000 in-window sigs x 4 mints (spike-findings.json).
+  assert.equal(foundingCourseCostFloorSigs(8000, 4), 32000);
 });

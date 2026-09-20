@@ -20,7 +20,7 @@ import { buildDigest, bellSha, assertNoClose, canonical, provenance as makeProve
   type GapEntry, type Provenance } from "./digest.ts";
 import { newResidualCounts, RESIDUAL_CODES, type Residual, type ResidualCounts } from "./residuals.ts";
 import { poolVolumeBase, consolidatedAdv, volumeToAdvRatio } from "./volume.ts";
-import { readMintToken2022, porStatus, wrapperStatus, rebaseGateFromMint, type MintReadout, type RebaseGate } from "./supply.ts";
+import { readMintToken2022, porStatus, wrapperStatus, rebaseForMint, type MintReadout, type RebaseGate } from "./supply.ts";
 import { quorum2, signaturesSetKey, statusOf, NoQuorumError, QuorumDisagreementError,
   BudgetExceededError, SolRpcError, type JsonRpcCall, type TransportFault } from "./quorum.ts";
 import { signaturesUntil, extractPoolSwap, MAX_TX_VERSION, solanaEndpoints, type SigInfo, type SwapFill } from "./rpc.ts";
@@ -422,13 +422,15 @@ async function main(): Promise<void> {
       const res = await quorum2(`mint:${tok.symbol}`, solProviders, call, (c, u) => c(u, "getAccountInfo", [tok.address, { encoding: "jsonParsed" }]), (r) => canonical(mintKey(r)), faults);
       mint = readMintToken2022(res, tok.symbol);
     } catch (e) { if (e instanceof NoQuorumError || e instanceof QuorumDisagreementError) mintResidues.push("no_quorum"); else throw e; }
-    // C-6: the pool-window rebase gate from the current mint (pure). A mutable multiplier => rebase_unverified
-    // (historical bound unreadable at -b1; -b3 reconstructs the SetMultiplier history first-hand).
-    const rebase = mint ? rebaseGateFromMint(mint) : undefined;
+    // C-6 / C-G2-1 (fail-closed): the pool-window rebase gate from the current mint (pure). A mutable multiplier
+    // OR an ABSENT mint (getAccountInfo quorum failed) => rebase_unverified (historical / both bounds unreadable
+    // at -b1; -b3 reconstructs the SetMultiplier history first-hand). NEVER undefined here: an undefined rebase
+    // would let collect() compute a g_t with the default "1" multiplier (fail-open, proven by repro-A).
+    const rebase: RebaseGate = rebaseForMint(mint);
     const { closeRefBySession, advDailyVolumes } = await closeAndAdv(UNDERLYING[tok.symbol] ?? tok.symbol, polygonKey, toUtcMs, solved.fills, faults);
     symbols.push({ symbol: tok.symbol, chain: "solana", baseDec: tok.decimals, quoteDec: 6, fills: solved.fills,
       fillsResidues: [...solved.residues, ...mintResidues], quorumCoverage: solved.coverage, closeRefBySession, advDailyVolumes,
-      ...(mint ? { mint } : {}), ...(rebase ? { rebase } : {}) });
+      ...(mint ? { mint } : {}), rebase });
   }
 
   // Ethereum leg (ADR-T1aii D1): Uniswap v3 TSLAon/USDC swaps via makeUkemiPool.getLogsRange (quorum-2),
