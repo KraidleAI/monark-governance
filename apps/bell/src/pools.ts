@@ -139,10 +139,13 @@ export const POOLS: readonly PoolRef[] = [
 /** L-2 founding registry (decision 47): the 2025 founding pools DISCOVERED on-chain — `founding_pool` DISTINCT from
  *  the `pairAddress` census (`POOLS`, which are 2026 CLMM pools). A found vault carries its vaults/quote/dex/
  *  quote_class; a mint with no vault >= threshold => `founding_pool: null` DECLARED (no course in -ii), never a
- *  guessed pool. MEASURE-GATED: every entry is `founding_pool: null` PENDING the L-1/L-2 network run (PLI — the
- *  only paid dependency, frozen behind the pre-registered budget); each entry equals its
- *  `series/founding/discovery-<MINT>.json` measure field-by-field (`bell_founding_registry_equals_discovery_measure`,
- *  C-4), so the real run flips `null` -> the measured vaults and the test proves the registry == the measure. */
+ *  guessed pool. MEASURED (lot -b1-bis-i network run, 2026-09-20, worker claude-opus-4-8[1m]): the four entries are
+ *  the top-tally founding vaults discovered on-chain (`--discover`, 3 sample points, N=5 pages/point, threshold 0.05);
+ *  each equals its `series/founding/discovery-<MINT>.json` measure field-by-field
+ *  (`bell_founding_registry_equals_discovery_measure`, C-4), so the test proves the registry == the measure. The
+ *  SPYx/NVDAx pools sit under programId `whirLbMii...` (off the committed `DEX_BY_PROGRAM_ID`) => `dex:
+ *  "unknown-program"` with the id READ on-chain (never a dex from memory, C-5); TSLAx/AAPLx under `CAMMCzo5...` =>
+ *  `raydium-clmm`. Multi-pool per mint (several vaults >= threshold) is a formed item (G0 C-9 i, course -ii). */
 export interface FoundingPoolRef {
   readonly foundingPoolId: string; readonly vaultBase: string; readonly vaultQuote: string;
   readonly quoteMint: string; readonly quoteDec: number; readonly programId: string; readonly dex: string;
@@ -154,8 +157,16 @@ export interface FoundingEntry {
   readonly founding_pool: FoundingPoolRef | null;
 }
 export const FOUNDING_POOLS: readonly FoundingEntry[] = [
-  { baseSymbol: "TSLAx", underlying: "TSLA", founding_pool: null },
-  { baseSymbol: "SPYx", underlying: "SPY", founding_pool: null },
-  { baseSymbol: "NVDAx", underlying: "NVDA", founding_pool: null },
-  { baseSymbol: "AAPLx", underlying: "AAPL", founding_pool: null },
+  { baseSymbol: "TSLAx", underlying: "TSLA", founding_pool: {
+    foundingPoolId: "HHQUnUbmWLrYzkscDY1C3deEFbGtiGBGoHjpANogmvum", vaultBase: "D2JXvYgyqo2CktPN4aNfdmHn8mK2vrF9essKdH8M4wn7", vaultQuote: "3h7wgb4hzxjM2F7fmLgwuzZxzuztUvUMdThnrmy9bTdF",
+    quoteMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", quoteDec: 6, programId: "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK", dex: "raydium-clmm", quote_class: "usd" } },
+  { baseSymbol: "SPYx", underlying: "SPY", founding_pool: {
+    foundingPoolId: "Fae5dWVntUt6zbWu2voXxioDpMii7SqQwtsxBmoVCsHR", vaultBase: "EfmaMxuPJaU914gV9N8Z2sDTp249AtEASTLDZdhRsN37", vaultQuote: "5NbsTM8qKWA65oRjZpMARnnxpeR4rGiGdG9vPdCD3sem",
+    quoteMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", quoteDec: 6, programId: "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc", dex: "unknown-program", quote_class: "usd" } },
+  { baseSymbol: "NVDAx", underlying: "NVDA", founding_pool: {
+    foundingPoolId: "6R4r93V5fcMzc13CL2enEepDSYcr4Qx3ptZBDwudTXCo", vaultBase: "FaHQ9Ny2U2RkcdapsKVr9pvnt4Mg7n92NdKnvyRzuibH", vaultQuote: "5TSHEwRAgHLTYkchrUNiKUL2RvuZgdh3vExbMptWrHoX",
+    quoteMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", quoteDec: 6, programId: "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc", dex: "unknown-program", quote_class: "usd" } },
+  { baseSymbol: "AAPLx", underlying: "AAPL", founding_pool: {
+    foundingPoolId: "CKwJZwm7oj3nu4653N1EpDrqXbXAYXoPFiPeEnLouF8y", vaultBase: "3DRUhhz5q1wsXZxYYpujPP4Fq5hYNfEGggSq93d99Tn7", vaultQuote: "yMw7pT6pqeSNDUvHkv7626eeGEHC7PrRhXa6mAAuiuw",
+    quoteMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", quoteDec: 6, programId: "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK", dex: "raydium-clmm", quote_class: "usd" } },
 ];
