@@ -9,24 +9,25 @@ adversarialement. **Base** `c9e7b4b`, worktree EXCLUSIF `F:\Monark-wt-cisite` (b
 C-1..C-14 honorées (C-1..C-5 bloquantes). Aucune contradiction G0/checkpoint rencontrée (le checkpoint est déjà
 plié dans le G0).
 
-## 1. Fichiers touchés + sha256 (mesuré `sha256sum`, **worktree post-pli G2**, non commité ; `.gitattributes` `eol=lf` ⇒ ces sha valent aussi pour le contenu git après commit. Recalculés au pli G2 : `assert-fleet-html.mjs`, `.d.mts`, `site-build-fleet.test.ts`, `ci-gates.test.ts`, `ADR-M003` — les 9 autres re-mesurés, inchangés)
+## 1. Fichiers touchés + sha256 (mesuré `sha256sum`, **worktree post-pli CHECKPOINT-2**, non commité ; `.gitattributes` `* text=auto eol=lf` ⇒ ces sha valent aussi pour le contenu git après commit. Recalculés au pli checkpoint-2 : `ci.yml`, `ci-gates.test.ts`, `ADR-M003` ; **`CHECKPOINT2-lot-ci-site.md` ajouté** ; les 12 autres re-mesurés, **sha byte-identiques au pli G2, inchangés**)
 | Fichier | Statut | R-25 | sha256 |
 |---|---|---|---|
-| `.github/workflows/ci.yml` | modifié | compté (25) | `abd1962a8c211eba5451a0068bcebc89371dc5fee6891dbaf827c2f128570fd7` |
+| `.github/workflows/ci.yml` | modifié | compté (29) | `d6b120729031dd722ba2fe27847ea1723e2d4cf48a384f07f2909888c563dd17` |
 | `scripts/assert-fleet-html.mjs` | nouveau | compté (119) | `9aec50dfbff9b17ea79f9ecf9ef7e0261296a0c3eb828fe88d669679a15dbc62` |
 | `scripts/assert-fleet-html.d.mts` | nouveau | compté (27) | `01689b4e5691ba5187d53a13d264f02acc696f0c3614e812effcd6a2e9fcfecb` |
 | `scripts/export-public.mjs` | modifié | compté (5) | `8343f30661d8bedfe47bda68887ef84aee32f0d3559f7eb0b5216dee9e4f2d33` |
 | `scripts/export-public.d.mts` | modifié | compté (7) | `40287cd7d6957f8e6d262c962ede29ba89bb9a74312d893d8d42f9602468eaca` |
 | `test/site-build-fleet.test.ts` | nouveau | compté (183) | `22798272df18871d56776afc38353c167e1c0aad84f52c0809320e8858e68936` |
 | `test/no-cash-provider-name.test.ts` | nouveau | compté (63) | `505c1ed25cee2432655ca64d59b7d62894d8e951845ff9955fe21833a4d3805a` |
-| `test/ci-gates.test.ts` | modifié | compté (56) | `ac16bb03ba714c3fd872976f46b3c0ab34391d7dcb18db545443e67c9b1d6aae` |
+| `test/ci-gates.test.ts` | modifié | compté (112) | `5192437af2da1222ea4cd8ced909276976a7e3f30272b614f0875af064d5493a` |
 | `test/export-public.test.ts` | modifié | compté (68) | `accbbf620a9d646889ecc97e99ea6e9d49377060c59f3aa2eb59e1244f560c8e` |
 | `vocab-banned.json` | modifié | compté (2 = +1/−1) | `d93a8ebc07d7b162097be78b3be5dd3592a657e31b8e32b153070d0985e76a76` |
 | `apps/sentinel/README.md` | nouveau | compté (46) | `796ba2b3230f467239e76a667532ae5cf591fdb65865c004cba0f6f06992933b` |
 | `docs/PRODUCT-BOUNDARY.md` | modifié | **exclu** (`docs/**/*.md`) | `a8f61b2c5d1c212348d68cb2aefcd825bd356dd0314a8c9d1ce894a77d707087` |
-| `docs/adr/ADR-M003-phase2-integration.md` | modifié (D9 octies ; titre + sous-note pli G2) | **exclu** | `c94eb21f0e8402ef92fe253e055d92a1dc63578d63ce4ff97d5a1b8a82039c49` |
+| `docs/adr/ADR-M003-phase2-integration.md` | modifié (D9 octies dé-sur-affirmé + clause checkpoint-2) | **exclu** | `10b732e64c4cadf159b8bd8f770cb7f9ffcb9cca5566afac0ca3b7311b96155f` |
 | `docs/adr/ADR-M004-infrastructure-plateforme.md` | modifié (D7 ter am.) | **exclu** | `9e802544df170a0ea7cd7e4c7f621d23dec5a4ea6f53d04bfdfbbdbc8d853123` |
-| `docs/PLI-lot-ci-site.md` | nouveau (ce fichier) | **exclu** | (calculé au gel) |
+| `docs/PLI-lot-ci-site.md` | modifié (ce fichier ; §11 checkpoint-2, §1/§6/§7/§8 mis à jour) | **exclu** | (calculé au gel — auto-référence) |
+| `docs/CHECKPOINT2-lot-ci-site.md` | nouveau (pli checkpoint-2) | **exclu** | `45aee6488db4337a7d9f0a2f7c2bd89da363c91ea53cb30bea12890a624f0df5` |
 
 ## 2. Correspondance C-n → fichier → test nommé → mutant
 | C-n | Ce qui change | Fichier(s) | Test nommé (non-LLM) | Mutant ROUGE |
@@ -88,10 +89,13 @@ plié dans le G0).
 - **Durcissement `renderedBody`** (avis advisor) : retrait des `<script>` AVANT les `<!-- -->` (un `<!--` dans un payload ne peut plus s'apparier avec un `-->` du corps). Pas de bug aujourd'hui (Next échappe `<` en `<` dans les scripts inline — mesuré sur l'artefact), durcissement d'une ligne. +3 lignes (R-25 501→504, assert-fleet-html.mjs 105→108) ; re-testé vert (site-build-fleet 4/4, O-2 réel).
 - **`.d.mts` non prévu au G0** : `scripts/export-public.d.mts` a dû recevoir les déclarations `derivePublicWorkflow`/`CI_WORKFLOW_PATH` (le `.d.mts` est la surface de type que le tsc racine consomme, pas le `.mjs`) — sinon TS2305 sur mes imports. +7 lignes comptées.
 - **Placement de `g3-site`** : en FIN de `ci.yml` (après g6), clé nue `  g3-site:` (le regex `ci_jobs_have_timeout` exige `\s*$`).
+- **Déviation 8 (checkpoint-2, C2-1/C2-3/C2-6 — détection `if:`/`continue-on-error` élargie)** : le pli G2 avait ajouté l'invariant `if:` avec une regex ancrée en début de ligne (`/^\s*if\s*:/`, `/^\s*continue-on-error\s*:/`) ; le checkpoint-2 (`claude-fable-5-1`) a trouvé **3 survivants** (`- if: false` en 1ʳᵉ clé d'étape ; `"if": false` sur le job ; `'continue-on-error': true`). Détecteurs remplacés par `IF_DIRECTIVE_RE`/`COE_DIRECTIVE_RE` (ouvreurs de position de clé `^\s*` **ou** `[-{,]\s*`, guillemets tolérés) + garde de commentaire `hasDirective` (saute `^\s*#` — la promesse « prose en commentaire licite » du test 38 (1) est verrouillée par un contrôle sur le détecteur COMPOSÉ, pas la regex nue). **La forme PROPOSÉE au checkpoint-2** (`^\s*(?:-\s+)?["']?if["']?\s*:`) a été **étendue** aux ouvreurs `{ ,` : mesuré, elle ne matche PAS le flow-mapping `{ if: … }` (un mutant rouge exigé — `matched=false` prouvé). `(1bis)` ajouté à l'énumération d'en-tête du test 38 ; commentaire `ci.yml:3-4` aligné (bannit `if:` ET `continue-on-error`, sans line-shift : 2 lignes → 2 lignes). `error_origin` = **worker (pli G2)** ; **cause contributive** : **pli non relu** (aucune G2 fraîche sur le fold avant le checkpoint-2), adressée par C2-4.
+- **Mutant du cru du worker + robustesse au-delà de la regex (checkpoint-2)** : aucun parseur YAML n'est une dépendance du dépôt (vérifié : absent de tous les `package.json` et de `node_modules` ; **aucun ajouté** — consigne stricte) ⇒ l'alternative « asserter la structure parsée » est indisponible sans nouvelle dépendance ; approche = regex robuste + mutants. En plus des 3 formes exigées, **`- "if": false`** (tiret + guillemets) et **`{ run: …, if: false }`** (flow, `if` pas en 1ʳᵉ clé) rejoués rouges. Des 3 pistes suggérées : **tabulation** = contrôle MESURÉ (`IF_DIRECTIVE_RE.test("\tif: false")` = vrai, « quelle que soit la position de YAML sur les tabulations » — jamais affirmé comme un fait de spec) ; **casse** = **non prétendue** (sensible par conception ; `IF:` est une autre clé YAML) ; **clé multi-lignes** (`? if` puis `: false`) = **résiduel déclaré** (un scan mono-ligne ne la voit pas sans parseur).
+- **Consultations advisor intégré (canal 1, pli checkpoint-2, C2-2)** : deux consultations — (1) avant travail : approche regex robuste vs forme proposée, environnement `TMP`→F:, ordre des étapes ; (2) avant clôture : vérification. Avis retenus : diverger vers la forme robuste (le mutant flow est exigé et la forme proposée le rate) ; **garde de commentaire** `hasDirective` (l'ouvreur `[-{,]` introduisait un faux-rouge sur une ligne `#`, mesuré) ; **conception des mutants** pour que l'assertion `if:`/`coe` rougisse (pas une assertion structurelle `o2Idx===-1`) ; **split du modèle `c9e7b4b`** au JOURNAL (worker fold + adjudications orchestrateur, cf. C2-2) ; reframing ADR sans revendication de spec.
 
 ## 7. Items formés (déclencheur + propriétaire ; C-14 — à porter dans `docs/CHANTIERS.md` par l'orchestrateur, déjà amorcé `CHANTIERS.md:221`)
 1. **Required status check `g3-site`** — ajouter `g3-site` à la liste fermée de 4 required checks (gouvernance ET miroir) ; **action sortante réservée à l'orchestrateur** ; déclencheur : avant la première PR post-fusion / liste release ; propriétaire orchestrateur. Tant qu'absent, le job est « bloquant (conditionnel) ».
-2. **Premier run réel sur runner Linux `g3-site`** — la composition est branchée localement (Windows) ; premier passage `ubuntu-latest` dû ; résiduel : casse d'imports invisible sous Windows ; déclencheur : première PR séquentielle / fenêtre de push ; propriétaire orchestrateur.
+2. **Premier run réel sur runner Linux `g3-site` ET premier run du MIROIR PUBLIC** — la composition est branchée localement (Windows) ; premier passage `ubuntu-latest` dû ; **la composition côté EXPORT/miroir public (build + O-2 dans l'arbre exporté) n'est couverte par AUCUN test automatisé** — exécutée à la main au checkpoint-2 (verte, CA-9), à rejouer au premier run réel du miroir ; résiduel : casse d'imports invisible sous Windows ; déclencheur : première PR séquentielle / fenêtre de push (dépôt de gouvernance ET miroir public) ; propriétaire orchestrateur.
 3. **Vendoring des fontes OFL** (`next/font/local`, ADR-M004 (e) décidé mais implémenté sur aucune branche ; `layout.tsx` INTERDIT dans ce lot) — déclencheur : premier rouge `g3-site` attribuable au fetch des fontes (`error_origin` externe) OU la fenêtre publique, au premier des deux ; propriétaire orchestrateur.
 4. **`export:check` et `lang:gate` absents de CI** — un README français serait retiré de l'export EN SILENCE (`export-public.mjs:263`) sans rougir la CI ; d'ici là `sentinel_readme_is_a_kept_export` protège CE README ; déclencheur : durcissement CI / avant fenêtre publique ; propriétaire orchestrateur.
 5. **Resserrement `timeout-minutes`** — valeur POSÉE = 5 ; 10 SEULEMENT par re-mesure sourcée si le premier run à froid dépasse 100 s ; déclencheur : premier run CI de `g3-site` ; propriétaire orchestrateur.
@@ -105,16 +109,46 @@ plié dans le G0).
 > `apps/site/.next/server/app/fleet.html` (retrait `<script>`/`<noscript>`/`<template>` attrs+casse, décodage entités dont décimal, vacuité, fail-closed sur `<script>` non fermé). Dettes
 > soldées : `apps/sentinel/README.md` (décision 29 a), test 42(f′) (ADR-M004 D7 ter, tous corps retenus
 > byte-identiques), oracle décision 69 `no_cash_cross_provider_name_in_export` (test racine NON exporté).
-> R-25 = 601/1205. 9 tests nommés + 23 mutants rouges byte-exact (13 G1 + 10 pli G2 : 3× `if:`-skip, O-1, 6× renderedBody). L-5 retiré (décision 77). Fusion
-> APRÈS `lot/narabi-ops-1b-i` (conflit `vocab-banned.json:111`) puis rejeu `gate:vocab`. Zéro dette.
+> R-25 = 661/1205 (pli checkpoint-2 : +60). 9 tests nommés + 30 mutants rouges byte-exact (13 G1 + 10 pli G2 + 7 pli
+> checkpoint-2 : `if:`/`continue-on-error` derrière tiret/guillemets/flow-mapping). **Pli checkpoint-2** (worker
+> `claude-opus-4-8[1m]`, checkpoint-2 `claude-fable-5-1` ACCEPTE-AVEC-CORRECTIONS `64cf0f6`) : détection
+> `if:`/`continue-on-error` élargie (C2-1/C2-6, 3 survivants tués), addendum D9 octies dé-sur-affirmé (liste exacte
+> des formes + résiduels), JOURNAL par modèle résolu. L-5 retiré (décision 77). Fusion APRÈS `lot/narabi-ops-1b-i`
+> (conflit `vocab-banned.json:111`) puis rejeu `gate:vocab`. **Items formés (propriétaire orchestrateur)** :
+> (5) **re-mesure `timeout-minutes`** — 5 posé ; 10 SEULEMENT par re-mesure sourcée si le 1ᵉʳ run à froid > 100 s
+> (déclencheur : 1ᵉʳ run CI `g3-site`) ; (6) **oracle décision 69 sur la surface servie `/bell/`** — l'oracle
+> « fichiers exportés » est livré ici (L-6) ; l'item T-1b reste pour `/bell/` (déclencheur : G0 T-1b / ajout
+> `apps/bell` à l'export) ; (7) **ADR pour un `if:` légitime** — l'invariant test 38 bannit tout `if:` conditionnel ;
+> un futur job qui en a besoin (p.ex. `if: github.event_name == 'push'`) passe par un ADR mettant à jour
+> `ci_gates_blocking_no_continue_on_error` ET `g3_site_builds_then_asserts_fleet_html` (déclencheur : 1ᵉʳ job
+> conditionnel envisagé) ; **(2, rappel)** le **1ᵉʳ run réel** nomme AUSSI le **miroir public** (composition côté
+> export non couverte par un test automatisé). Zéro dette.
 
 ### JOURNAL-PROVENANCE (provenance G7 ; `error_origin` assigné au G7 par l'orchestrateur)
-> **lot CI-site** — modèle `claude-opus-4-8[1m]` effort max, 2026-09-20, worktree `F:\Monark-wt-cisite`
-> (`lot/ci-site`, base `c9e7b4b`), offline. 14 fichiers (11 code + 3 docs ; + PLI) — sha256 recalculés post-pli en §1 du PLI.
-> R-25 601/1205 (pathspec `ci.yml:65`, worktree vs base ; G1 504 + pli G2 97). Oracles (copie `git archive` + `npm ci`) :
-> typecheck 0, tests touchés 37/37 (site-build-fleet 5, no-cash 1, ci-gates 29, export-public 2) + cra-b 6/6,
-> gate:vocab 177, lint 0 + lint:ratchet 69/69, export:check + lang:gate 0 hit, `next build` réel + O-2 extraite verts (CA-11, 34099 body chars).
-> ADR-M003 D9 octies, ADR-M004 D7 ter amendé. `error_origin` : trou « `next build` absent de CI » = **orchestrateur** (checkpoint-2 E-registre V-3/O-2) ; C-G2-1/3/4 = **worker** ; C-G2-2 = **classe préexistante de l'invariant CI** (job) + **spécification C-5 checkpoint-1** (étape O-2).
+> **lot CI-site** — worktree `F:\Monark-wt-cisite` (`lot/ci-site`, base `c9e7b4b`), offline, effort max.
+> **Modèle résolu PAR ÉTAPE (C2-2)** :
+> — **G0** (brouillon `dd058f0`, artefact `docs/G0-lot-ci-site.md`) : worker `claude-opus-4-8[1m]`, 2026-09-20.
+> — **checkpoint-1** (`afd1efe`) : validateur-humain `claude-fable-5-1`.
+> — **pli du G0** (fold C-1..C-14 + décision 77) : worker `claude-opus-4-8[1m]` ; **adjudications orchestrateur + commit** (`c9e7b4b`) : `claude-fable-5-1`. [Preuve primaire : le message de `c9e7b4b` porte les DEUX modèles — « (worker claude-opus-4-8) + orchestrator adjudications » — scindé ici ; le résumé de mission n'attribuait `c9e7b4b` qu'à `claude-fable-5-1`.]
+> — **G1** (`03e7b6c`) : worker `claude-opus-4-8[1m]`.
+> — **G2** (revue fraîche, relecteur SÉPARÉ, `5195378`) : `claude-opus-4-8[1m]`.
+> — **pli G2** (`64cf0f6`, **instance distincte du G1** : worker `claude-opus-4-8[1m]` lancé séparément).
+> — **consultations advisor intégré** (canal 1) : citées au PLI §6 (G1/pli-G2 et pli checkpoint-2).
+> — **checkpoint-2** (2026-09-20 22:22→22:33 UTC, artefact `64cf0f6`) : validateur-humain `claude-fable-5-1` — ACCEPTE-AVEC-CORRECTIONS.
+> — **ce pli (checkpoint-2)** : worker `claude-opus-4-8[1m]`, 2026-09-21.
+> — **G2-delta (C2-4)** : À VENIR — relecteur SÉPARÉ sur ce pli, lancé par l'orchestrateur.
+> — **G7** : À VENIR — orchestrateur.
+> Fichiers : 11 code + 5 docs (PRODUCT-BOUNDARY, ADR-M003, ADR-M004, PLI, CHECKPOINT2) — sha256 en §1. R-25 **661/1205**
+> (pathspec `ci.yml:65`, worktree vs base ; G1 504 + pli G2 97 + pli checkpoint-2 60). Oracles pli checkpoint-2 (copie
+> `git archive HEAD` + overlay + `npm ci`, `TMP`→F:) : suite complète **486/486**, typecheck **0**, gate:vocab **177**,
+> lint (fichier touché) 0 + lint:ratchet **69/69**, export:check + lang:gate **0 hit**, `next build` réel + O-2 EXTRAITE
+> verts (CA-11 : `fleet.html` 61 163 o, 34 099 body chars), **7 mutants `if:`/`continue-on-error` rouges byte-exact**.
+> ADR-M003 D9 octies (dé-sur-affirmé), ADR-M004 D7 ter amendé.
+> **`error_origin`** : trou « `next build` absent de CI » = **orchestrateur** (checkpoint-2 E-registre V-3/O-2) ;
+> C-G2-1/3/4 = **worker** ; C-G2-2 = **classe préexistante de l'invariant CI** (niveau job) + **spécification C-5
+> checkpoint-1** (étape O-2) ; **O-1/O-2/O-3 = worker** (couverture perfectible ; aucun faux-vert sur l'artefact réel) ;
+> **C2-1 = worker (pli G2)**, cause contributive **pli non relu** (adressée par C2-4) ; C2-6 = **trou antérieur au lot**
+> (même fragilité d'ancrage sur `continue-on-error`, test 38).
 
 ## 9. Reste dû
 **Zéro dette nue.** Tous les points ouverts sont soit un **item formé avec déclencheur + propriétaire** (§7,
@@ -180,7 +214,7 @@ lint:ratchet **69/69** (aucune dette de typage différé ajoutée). Réseau : fe
    (doctrine `ci.yml:3` « EVERY job is BLOCKING ») ; un futur job qui a réellement besoin d'un `if:`
    (p.ex. `if: github.event_name == 'push'`) passe par un **ADR** mettant à jour `ci_gates_blocking_no_continue_on_error`
    ET `g3_site_builds_then_asserts_fleet_html` ; déclencheur : premier job conditionnel envisagé ; propriétaire
-   orchestrateur. (Aujourd'hui : **0 job avec `if:`**, vérifié `grep -E '^\s*if\s*:' ci.yml` ⇒ vide.)
+   orchestrateur. (Aujourd'hui : **0 job avec `if:`**, vérifié `grep -E '^\s*if\s*:' ci.yml` ⇒ vide. **Pli checkpoint-2 : cette commande `grep` est la forme du pli G2, SUPERSÉDÉE — la détection est désormais `IF_DIRECTIVE_RE`, cf. §11 ; 0 match mesuré sur les lignes non-commentées du `ci.yml` réel.)**
 
 ### 10.6 Reste dû (pli G2) — zéro dette nue
 Grep de vérification C-G2-4 (les trois formes : nom de clé d'env, domaine API, marque en mot entier ; insensible à la
@@ -191,3 +225,64 @@ qu'il interdit) et `docs/adr/ADR-T1aii-*` / `ADR-B0-*` (docs du **lot Bell**, ho
 autorisé, décision 69). Actions réservées à l'orchestrateur (R-20, non faites) : commit, fusion `--no-ff` après
 `lot/narabi-ops-1b-i` (conflit `vocab-banned.json:111`, résolution par union) + rejeu `gate:vocab`, portage
 CHANTIERS/JOURNAL, ajout du required status check `g3-site`.
+
+## 11. PLI checkpoint-2 (pli des corrections du checkpoint-2 — worker `claude-opus-4-8[1m]` effort max, 2026-09-21, offline)
+
+Checkpoint-2 `docs/CHECKPOINT2-lot-ci-site.md` : validateur-humain `claude-fable-5-1`, **ACCEPTE-AVEC-CORRECTIONS** sur
+`64cf0f6`. Corrections **C2-1..C2-3, C2-5, C2-6 pliées ici** (C2-2 = JOURNAL §8 ; C2-5 = CHANTIERS §8 + §7 item 2).
+**C2-4 = G2-delta par relecteur SÉPARÉ, HORS ce pli** (lancée par l'orchestrateur). Rejeu offline dans
+`F:\tmp\cisite\pli2\build\` (`git archive HEAD` + overlay des 2 fichiers de code touchés + `npm ci`,
+`TMP/TEMP/TMPDIR=F:\tmp\cisite\pli2\tmp`, cache `F:\cache\npm`), jamais dans `F:\Monark*` ni sur `C:`. **Robustesse (jugement worker + advisor)** :
+aucun parseur YAML n'est une dépendance du dépôt (vérifié : absent de tous les `package.json` et de `node_modules` ;
+**aucun ajouté**) ⇒ l'assertion sur structure parsée est indisponible sans dépendance ; approche = **regex robuste +
+mutants**, avec **garde de commentaire** et **liste exacte des formes** (pas de sur-affirmation).
+
+### 11.1 Table des corrections (C2-n → fichier:ligne → test → mutant + message d'assertion mesuré)
+| C2-n | Ce qui change | Fichier:ligne | Test nommé (non-LLM) | Mutant ROUGE / message mesuré |
+|---|---|---|---|---|
+| **C2-1** détection `if:` élargie (test 38 1bis + bloc g3-site) | `IF_DIRECTIVE_RE` (ouvreurs `^\s*` \| `[-{,]\s*`, guillemets) + `hasDirective` (saute `^\s*#`) ; forme proposée ÉTENDUE aux ouvreurs `{ ,` (le flow-mapping lui échappait) | `test/ci-gates.test.ts:60,65,84` (test 38) ; `:1351-1352` (bloc g3-site) | `ci_gates_blocking_no_continue_on_error` ; `g3_site_builds_then_asserts_fleet_html` | `- if: false` / `"if": false` / `{ if: false, … }` ⇒ **rouges** ; test 38 : « an `if:` directive is present… » ; bloc : « g3-site must carry no `if:` … in any form (dash/quoted/flow) » |
+| **C2-6** détection `continue-on-error` élargie (test 38) | `COE_DIRECTIVE_RE` (même tolérance tiret + guillemets) | `test/ci-gates.test.ts:61,73` | `ci_gates_blocking_no_continue_on_error` | `'continue-on-error': true` / `- continue-on-error: true` ⇒ **rouges** ; « continue-on-error directive present: a job would stop being blocking » |
+| **C2-3** `(1bis)` en en-tête ; `ci.yml:3-4` aligné ; déviation 8 | énumération d'en-tête + commentaire workflow + §6 | `test/ci-gates.test.ts:7-11` ; `.github/workflows/ci.yml:3-4` ; `docs/PLI-lot-ci-site.md` §6 | (docs / commentaire) | n-a |
+| **C2-2** JOURNAL par modèle résolu | §8 JOURNAL réécrit (un modèle par étape + `error_origin` O-1..O-3, C2-1) | `docs/PLI-lot-ci-site.md` §8 | (provenance ; CA-8) | n-a |
+| **C2-5** items 5/6/7 + miroir public | §8 CHANTIERS + §7 item 2 | `docs/PLI-lot-ci-site.md` §7-§8 | (items formés ; C-14) | n-a |
+| **D9 octies dé-sur-affirmé** | « aucun `if:` » → « asserté pour les formes (a)-(d) » + résiduels déclarés (les deux clés) | `docs/adr/ADR-M003-phase2-integration.md:116` | (invariant décrit exactement) | n-a |
+
+### 11.2 Mutants du pli checkpoint-2 (tous ROUGES ; copie `F:\tmp\cisite\pli2\build\`, restauration byte-exacte vérifiée par sha256, JAMAIS `git checkout`)
+Harnais `F:\tmp\cisite\pli2\mutants.mjs` (occ=1, pristine byte-copy, `cp` de restauration, sha avant==après par mutant + contrôle final). Mutant **conçu** pour que l'assertion `if:`/`coe` rougisse (pas une assertion structurelle `o2Idx===-1`) : les formes en 1ʳᵉ clé gardent le `run:` de l'étape O-2 intact ; les formes flow sont AJOUTÉES (pas en remplacement de O-2).
+| # | Mutant | Test(s) rougi(s) mesuré(s) | Restauration |
+|---|---|---|---|
+| **A** (C2-1 exigé) | `- if: false` en 1ʳᵉ clé de l'étape O-2 | test 38 **+** bloc g3-site (fail=2, assertions `if:`) | sha == avant ✔ |
+| **B** (C2-1 exigé) | `"if": false` (guillemets) sur le JOB g3-site | test 38 **+** bloc g3-site (fail=2) | sha ✔ |
+| **C** (C2-1 exigé) | `{ if: false, run: … }` flow-mapping (étape ajoutée) — **la forme PROPOSÉE ratait** | test 38 **+** bloc g3-site (fail=2) | sha ✔ |
+| **D** (C2-6 exigé) | `'continue-on-error': true` (guillemets) sur le JOB | test 38 seul (fail=1 ; le bloc n'asserte pas `coe`) | sha ✔ |
+| **E** (C2-6 exigé) | `- continue-on-error: true` en 1ʳᵉ clé d'étape | test 38 seul (fail=1) | sha ✔ |
+| **F** (worker) | `- "if": false` (tiret + guillemets) en 1ʳᵉ clé d'étape | test 38 **+** bloc g3-site (fail=2) | sha ✔ |
+| **G** (worker) | `{ run: …, if: false }` flow, `if` PAS en 1ʳᵉ clé (étape ajoutée) | test 38 **+** bloc g3-site (fail=2) | sha ✔ |
+| contrôle mesuré | `IF_DIRECTIVE_RE.test("\tif: false")` = **vrai** (tabulation caught, sans revendication de spec) | (contrôle in-test) | — |
+| **FINAL** | `ci.yml` restauré byte-exact (sha == avant) | — | ✔ |
+
+### 11.3 Oracles (un à un, PAS `npm run ci` ; copie `git archive HEAD` + overlay + `npm ci`, cache `F:\cache\npm`)
+`npm ci` **0 vuln** (282 pkgs). Test 38 + bloc g3-site sur le `ci.yml` RÉEL (édité) : **verts**. Fichiers touchés/impactés
+un à un : `ci-gates` **29/29**, `cra-b` **6/6**, `site-build-fleet` **5/5**, `no-cash-provider-name` **1/1**,
+`export-public` **2/2** (dont 42(f′) qui LIT `ci.yml` — mon changement de commentaire d'en-tête ne casse pas la
+byte-identité des corps de job dérivés). **Suite complète `npm test` : 486/486.** `typecheck` **0** ; `gate:vocab` **OK,
+177 fichiers** ; eslint fichier touché `test/ci-gates.test.ts` **0** ; `lint:ratchet` **69/69** ; `export:check`
+DÉFAUT **0 hit** ; `lang:gate` DÉFAUT **0 hit**. **CA-11** : `next build` + O-2 **EXTRAITS de `ci.yml`** (grep de la
+ligne `run:`) → build **exit 0**, `fleet.html` **61 163 o** ; O-2 **exit 0** « header + 4 served note(s) … (34099 body
+chars) ». Concorde avec les chiffres CA-9 du validateur (486/486, 61 163 o, 34 099 car., 177, 69/69, 0/0) ; **`collectFiles(ROOT).kept` = 282 fichiers, 0 sous `test/`/`apps/bell`/`docs/`** re-mesuré ici (C-9, concorde). **Contrôle de robustesse mesuré** : `IF_DIRECTIVE_RE`/`COE_DIRECTIVE_RE` appliqués à **toutes les lignes NON-commentées** du `ci.yml` réel (dont la ligne dense `STAT=` pleine de `,`/`-`/`:`) ⇒ **0 match** pour les deux (le vert n'est pas « à un caractère près » d'un faux-rouge). **R-25 ci.yml** : 25 → **29** = le swap du commentaire d'en-tête (2 lignes → 2 lignes, sans line-shift) compte **+2 insertions / −2 suppressions** ; total lot 601 → **661** (+4 ci.yml, +56 ci-gates.test.ts).
+
+### 11.4 `error_origin` (récap G7)
+- **C2-1** (survivants `if:` derrière tiret/guillemets/flow) = **worker (pli G2)** ; **cause contributive** : **pli non
+  relu** (aucune G2 fraîche sur le fold `64cf0f6` avant le checkpoint-2) — adressée par **C2-4** (G2-delta par relecteur séparé).
+- **C2-6** (survivant `continue-on-error` guillemets) = **trou ANTÉRIEUR au lot** (test 38 partageait la même fragilité d'ancrage ; jamais rejoué sur une forme quotée avant le checkpoint-2).
+- **C2-2/C2-3/C2-5** et **D9 octies dé-sur-affirmé** = **worker** (traçabilité/provenance/formes exactes ; aucune régression de correction).
+
+### 11.5 Reste dû (pli checkpoint-2) — zéro dette nue
+Tous les points ouverts sont soit un **item formé avec déclencheur + propriétaire** (§7-§8 : required check, 1ᵉʳ run réel
++ **miroir public** non couvert par test, vendoring fontes, gates absents de CI, re-mesure timeout, oracle `/bell/`, ADR
+`if:` légitime — tous propriétaire orchestrateur), soit une **déviation déclarée** (§6, dont **déviation 8**). Divergence
+déclarée vs le résumé de mission : `c9e7b4b` porte **deux** modèles (fold worker Opus + adjudications orchestrateur
+Fable) — scindé au JOURNAL selon la preuve primaire du message de commit (R-21). Aucun chiffre de seconde main : TS/486/
+61 163/34 099/177/69/661/7 mutants mesurés first-hand, rejouables sous `F:\tmp\cisite\pli2\`. **C2-4 (G2-delta) reste dû
+à l'orchestrateur.** Actions réservées à l'orchestrateur (R-20, non faites) : commit, fusion `--no-ff` après
+`lot/narabi-ops-1b-i` + rejeu `gate:vocab` sur l'arbre fusionné, portage CHANTIERS/JOURNAL, required status check, lancement de la G2-delta.

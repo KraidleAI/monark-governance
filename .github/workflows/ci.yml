@@ -1,7 +1,7 @@
 # MONARK — CI gates (instantiated from an internal CI template;
 # concrete tools fixed by ADR-M003 D9 and its dated addenda).
-# Invariant (not parameterisable): EVERY job is BLOCKING. No `continue-on-error` (test 38 checks this
-# mechanically, ADR-M003 D11).
+# Invariant (not parameterisable): EVERY job is BLOCKING and UNCONDITIONAL. No `continue-on-error` and no
+# conditional `if` key on any job or step (test 38 checks BOTH mechanically; ADR-M003 D11 / D9 octies).
 #
 # Provenance of pinned action SHAs (never guessed — GitHub API `git/ref/tags/<tag>`, cross-checked
 # on 2026-09-05 and re-verified by independent review on 2026-09-06):

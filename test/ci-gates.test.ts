@@ -3,7 +3,12 @@
  * Non-LLM oracle over the instantiated workflow `.github/workflows/ci.yml`: it MUST stay
  * blocking end-to-end and pinned. The test reads the file as text (no `act` run
  * required, D1) and fails if:
- *   (1) a `continue-on-error` appears (a job would stop being blocking);
+ *   (1) a `continue-on-error` DIRECTIVE appears (a job would stop being blocking);
+ *   (1bis) an `if:` DIRECTIVE appears on any job or step (SIBLING of (1)): a SKIPPED required check
+ *      (e.g. `if: false`) counts as PASSING on GitHub, so a stray `if:` silently unblocks a gate. Both (1)
+ *      and (1bis) detect the key behind a list dash (`- if:`), quotes (`"if":`), or a flow mapping
+ *      (`{ if: … }`) — not only at line-start (checkpoint-2 C2-1/C2-6); a prose mention in a `#` comment stays
+ *      allowed. Block-scoped sibling for g3-site in g3_site_builds_then_asserts_fleet_html.
  *   (2) a `uses:` action is not pinned by a 40-hex commit SHA (movable tag);
  *   (3) `VIBEGATES_PR_LIMIT` != "1205" (bound ADR-M003 D9);
  *   (4) the exclusion pathspec for generated S2 artefacts is missing from the R-25 count;
@@ -12,7 +17,8 @@
  *   (4bis) the G1/G2 governance reports are not excluded from the R-25 count (D9 quater);
  *   (7) job g4 does not literally carry `run: npm run lint && npm run lint:ratchet` (D9 quater).
  * Named mutant (G2 review): `continue-on-error: true` inserted => red; byte-exact
- * restoration (sha256 before/after) recorded in docs/G1-lot-V.md.
+ * restoration (sha256 before/after) recorded in docs/G1-lot-V.md. Checkpoint-2 (C2-1/C2-6): the widened
+ * detectors also red on `- if:`/`"if":`/`{ if: … }` and `'continue-on-error':`/`- continue-on-error:`.
  * Run by `npm test` in each worktree (outside per-lot counting).
  */
 import { test } from "node:test";
@@ -37,30 +43,65 @@ const ROOT = join(import.meta.dirname, "..");
 const WF = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
 const LINES = WF.split(/\r?\n/);
 
+// `if:` / `continue-on-error:` KEY detectors (checkpoint-2 C2-1/C2-6). No YAML parser is a repo dependency
+// (verified 2026-09-20: absent from every package.json and from node_modules), and none may be added; so these
+// are the robust TEXT detectors, hardened past a naive `/^\s*if\s*:/` that ancres the key at line-start only. A
+// key escapes that naive form behind a list dash (`- if:`), quotes (`"if":`/`'if':`), or inside a flow mapping
+// (`{ if: false }`, `{ …, if: false }`). Here a key-position OPENER is line-start+indent OR one of `- { ,`; the
+// token must be EXACTLY `if`/`continue-on-error` (optionally quoted) immediately followed by `:`, so the r25
+// shell `if [ … ]` and the g6 `if-no-files-found:` are NOT directives (measured green in the controls below).
+// The proposed checkpoint-2 form `^\s*(?:-\s+)?["']?if["']?\s*:` was EXTENDED to the `{ ,` openers because it
+// does NOT match a flow-mapping `{ if: … }` — a required-red mutant (measured: proposed matched=false on it).
+// Asserted forms (exact list, ADR-M003 D9 octies): block key (any indent); first key of a list item (`- key:`);
+// quoted key (`"key":`/`'key':`, with or without dash); flow mapping (`{ key: … }` / `{ …, key: … }`). Declared
+// residuals (no parser, NOT claimed): an explicit-key `? if` / `: false` split across two lines is not caught by
+// a single-line scan; a `, if:` substring inside a quoted string on a NON-comment code line would false-RED
+// (fail-closed-safe — resolvable by the formed item for a legitimate `if:`).
+const IF_DIRECTIVE_RE = /(?:^\s*|[-{,]\s*)["']?if["']?\s*:/;
+const COE_DIRECTIVE_RE = /(?:^\s*|[-{,]\s*)["']?continue-on-error["']?\s*:/;
+// A prose mention in a COMMENT is allowed (test 38 (1) promise; the template writes "No continue-on-error"). Skip
+// full-comment lines (`^\s*#`, the idiom of the `uses:` loop) before applying a detector, so a comment that
+// quotes `- if: false` to name a mutant never reds. (The g3-site block test strips inline comments separately.)
+const hasDirective = (lines: string[], re: RegExp): boolean =>
+  lines.some((l) => !/^\s*#/.test(l) && re.test(l));
+
 test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (test 38)", () => {
-  // (1) template invariant: no continue-on-error DIRECTIVE (a YAML key on a
-  //     non-comment line). A prose mention in a comment is allowed (the template itself
-  //     writes "No continue-on-error"); it is the `continue-on-error:` key that would unblock a job.
-  const coeDirective = LINES.some((l) => /^\s*continue-on-error\s*:/.test(l));
+  // (1) template invariant: no continue-on-error DIRECTIVE (a YAML key on a non-comment line). A prose mention
+  //     in a comment is allowed (the template itself writes "No continue-on-error"); it is the
+  //     `continue-on-error:` key that would unblock a job. Widened at checkpoint-2 (C2-6) to catch the key
+  //     behind a list dash or quotes (`- continue-on-error:`, `'continue-on-error':`) via COE_DIRECTIVE_RE.
+  const coeDirective = hasDirective(LINES, COE_DIRECTIVE_RE);
   assert.ok(!coeDirective, "continue-on-error directive present: a job would stop being blocking");
 
   // (1bis) SIBLING of (1): no `if:` DIRECTIVE on any job or step (block-scoped absence is also asserted for
   //   g3-site in g3_site_builds_then_asserts_fleet_html). The header invariant is "EVERY job is BLOCKING"; a
   //   conditional job/step is not. This is WORSE than continue-on-error: a required check that is SKIPPED
-  //   (e.g. `if: false`) counts as PASSING on GitHub, so a stray `if:` silently unblocks a gate. Same shape
-  //   as (1): a `#` comment line never matches (it starts with `#`). Kills the three C-G2-2 mutants (job
-  //   `if: false`, step `if: false`, `if: ${{ false }}`). No job carries `if:` today; a future conditional
-  //   job needs an ADR that updates this line (formed item, PLI-lot-ci-site).
-  const ifDirective = LINES.some((l) => /^\s*if\s*:/.test(l));
+  //   (e.g. `if: false`) counts as PASSING on GitHub, so a stray `if:` silently unblocks a gate. Checkpoint-2
+  //   (C2-1): the pli-G2 form `/^\s*if\s*:/` ancred the key at line-start and let THREE idiomatic forms through
+  //   (`- if:` behind a list dash, `"if":` quoted, `{ if: … }` in a flow mapping — found by the validator).
+  //   IF_DIRECTIVE_RE catches all three; hasDirective skips `#` comment lines so prose stays allowed. No job
+  //   carries `if:` today; a future conditional job needs an ADR that updates this line (formed item, PLI §8).
+  const ifDirective = hasDirective(LINES, IF_DIRECTIVE_RE);
   assert.ok(!ifDirective, "an `if:` directive is present: a conditional/SKIPPED required check counts as PASSING on GitHub (silent unblock); EVERY job must be unconditionally BLOCKING");
-  // discriminating controls: the r25 shell `if [ ... ]` and the g6 `if-no-files-found:` are NOT `if:`
-  // directives; `if: false` and `if: ${{ false }}` ARE (must be caught).
-  assert.ok(!/^\s*if\s*:/.test('          if [ "$CHANGED" -gt "$VIBEGATES_PR_LIMIT" ]; then'), "control: a shell `if [ ... ]` is not an `if:` directive");
-  assert.ok(!/^\s*if\s*:/.test("          if-no-files-found: error"), "control: `if-no-files-found:` is not an `if:` directive");
-  assert.ok(
-    /^\s*if\s*:/.test("        if: false") && /^\s*if\s*:/.test("    if: ${{ false }}"),
-    "control: `if: false` and `if: ${{ false }}` ARE `if:` directives (must be caught)",
-  );
+  // Discriminating controls. GREEN (not directives): the r25 shell `if [ … ]`, the g6 `if-no-files-found:`, the
+  // word `if` inside a step name, and a PROSE mention in a `#` comment (tested through the COMPOSED detector
+  // `hasDirective` — the very function (1)/(1bis) call — which locks the "comment allowed" promise).
+  assert.ok(!IF_DIRECTIVE_RE.test('          if [ "$CHANGED" -gt "$VIBEGATES_PR_LIMIT" ]; then'), "control: a shell `if [ ... ]` is not an `if:` directive");
+  assert.ok(!IF_DIRECTIVE_RE.test("          if-no-files-found: error"), "control: `if-no-files-found:` is not an `if:` directive");
+  assert.ok(!IF_DIRECTIVE_RE.test("      - name: build if ready"), "control: the word `if` inside a step name is not an `if:` directive");
+  assert.ok(!hasDirective(["      # mutant note: `- if: false` on a step would red"], IF_DIRECTIVE_RE), "control: an `if:` quoted in a # comment stays allowed (test 38 (1) promise)");
+  assert.ok(!hasDirective(["      # prose: `- continue-on-error: true` is banned"], COE_DIRECTIVE_RE), "control: a continue-on-error quoted in a # comment stays allowed");
+  // RED (directives that MUST be caught): line-start, expr, list dash, quoted key, flow mapping, dash+quote
+  // (checkpoint-2 C2-1 + a worker mutant `- "if":` and a not-first flow key `{ …, if: … }`).
+  for (const red of ["        if: false", "    if: ${{ false }}", "      - if: false", '      "if": false', "      - { if: false, run: echo skip }", "      - { run: echo skip, if: false }", '      - "if": false']) {
+    assert.ok(IF_DIRECTIVE_RE.test(red), `control: \`${red.trim()}\` IS an if: directive (must be caught)`);
+  }
+  for (const red of ["        continue-on-error: true", "        'continue-on-error': true", "      - continue-on-error: true"]) {
+    assert.ok(COE_DIRECTIVE_RE.test(red), `control: \`${red.trim()}\` IS a continue-on-error directive (must be caught)`);
+  }
+  // Measured control (NOT a spec claim about YAML): a tab-indented key is caught regardless of YAML's stance on
+  // tabs. Case is case-SENSITIVE by design — `IF:` / `CONTINUE-ON-ERROR:` are different YAML keys and are NOT claimed.
+  assert.ok(IF_DIRECTIVE_RE.test("\tif: false"), "control (measured): a tab-indented `if:` is caught regardless of YAML's stance on tabs");
 
   // (2) every `uses:` action pinned by a 40-hex commit SHA (comment lines ignored).
   const usesRefs: string[] = [];
@@ -1301,11 +1342,14 @@ test("g3_site_builds_then_asserts_fleet_html — job g3-site runs the build THEN
     if (/^  \S/.test(l) || /^\S/.test(l)) break; // next 2-space job key or a column-0 key
     block.push(l.replace(/#.*$/, "")); // strip end-of-line comments
   }
-  // C-G2-2 (step-level, error_origin = C-5 spec): the g3-site block carries no `if:` on the job OR any step.
-  // An `if: false` on the O-2 step would run the job GREEN with zero assertion - dropping the very O-2 that
-  // C-5 exists to protect. Block-scoped sibling of test 38's file-wide ban. Mutant: `if: false` on the O-2
-  // step (or on the job) => this reds. (block lines already had end-of-line comments stripped above.)
-  assert.ok(!block.some((l) => /^\s*if\s*:/.test(l)), "g3-site must carry no `if:` on the job or any step (a conditional/SKIPPED required check counts as PASSING on GitHub - silent unblock)");
+  // C-G2-2 (step-level, error_origin = C-5 spec) + checkpoint-2 C2-1: the g3-site block carries no `if:` on the
+  // job OR any step, in ANY form (block key, list-dash `- if:`, quoted `"if":`, flow mapping `{ if: … }`). An
+  // `if: false` on the O-2 step would run the job GREEN with zero assertion - dropping the very O-2 that C-5
+  // exists to protect. Block-scoped sibling of test 38's file-wide IF_DIRECTIVE_RE ban. The job-KEY line itself
+  // (LINES[idx], e.g. a flow `g3-site: { …, if: false }`) is scanned too, since the block loop starts at idx+1;
+  // block lines already had inline comments stripped above, so strip the key line the same way.
+  const ifScan = [LINES[idx]!.replace(/#.*$/, ""), ...block];
+  assert.ok(!ifScan.some((l) => IF_DIRECTIVE_RE.test(l)), "g3-site must carry no `if:` on the job or any step, in any form (dash/quoted/flow) - a conditional/SKIPPED required check counts as PASSING on GitHub (silent unblock)");
   const buildIdx = block.findIndex((l) => /^\s*run:\s*npm run build -w @monark\/site\s*$/.test(l));
   const o2Idx = block.findIndex((l) => /^\s*run:\s*node scripts\/assert-fleet-html\.mjs\s*$/.test(l));
   assert.notEqual(buildIdx, -1, "g3-site must carry the `npm run build -w @monark/site` step (mutant: build step removed => red)");
