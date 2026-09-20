@@ -15,7 +15,7 @@ import { decodeSetAuthority, setAuthorityHandoffsFromTx, scanFullMint, compareTo
   chainedLedgerEntry, ledgerSha, loadHybridSeries, readPriorCalls, SET_AUTHORITY_TAG, AUTHORITY_TYPE_SCALED_UI,
   type FullMintScan, type HybridSeries, type ScanSink } from "../src/rebase-crosscheck.ts";
 import { scanMethodFromMethod } from "../src/rebase-produce.ts";
-import { makeBudgetedCall, runMain } from "../src/collect.ts";
+import { makeBudgetedCall, parseArgs, runMain } from "../src/collect.ts";
 import { type DatabentoGet, type PolygonGet } from "../src/close.ts";
 import { XSTOCKS } from "../src/pools.ts";
 import { TOKEN_2022_PROGRAM } from "../src/rebase-scan.ts";
@@ -113,6 +113,15 @@ test("bell_setauthority_handoff_detected_from_bodies — a SetAuthority(ScaledUi
   assert.equal(hs[0]!.newAuthorityHex, hexOf(B_BYTES), "new authority B");
   assert.equal(hs[0]!.currentAuthority, A_ADDR, "current authority A recorded (account index 1)");
   assert.deepEqual(setAuthorityHandoffsFromTx("noneSig", 12, 1200, jsonTx("noneSig", 12, 1200, [{ accts: [0, 1], data: updBytes(1.5, 0) }]), [MINT]), [], "no SetAuthority => no hand-off");
+  // C-G2-5 (N3): a presence byte NOT in {0,1} is Err (pod_instruction.rs:130) => null, even when 35 bytes long.
+  const pres2 = new Uint8Array(35); pres2[0] = SET_AUTHORITY_TAG; pres2[1] = AUTHORITY_TYPE_SCALED_UI; pres2[2] = 2;
+  assert.equal(decodeSetAuthority(pres2), null, "presence 2 => null (mutant presence>=1 accepted => reds)");
+  // C-G2-6 (N4): COption Some is EXACTLY presence+32 = 35 bytes; a 36-byte body is not decodable => null.
+  const some36 = new Uint8Array(36); some36[0] = SET_AUTHORITY_TAG; some36[1] = AUTHORITY_TYPE_SCALED_UI; some36[2] = 1;
+  assert.equal(decodeSetAuthority(some36), null, "Some length 36 => null (mutant length>=35 accepted => reds)");
+  // C-G2-4 (N2): a SetAuthority(15)-on-MINT instruction under a NON-Token-2022 program is NOT a hand-off (pid filter).
+  const nonT22 = { slot: 12, blockTime: 1200, transaction: { signatures: ["ntSig"], message: { accountKeys: KEYS, instructions: [{ programIdIndex: 0, accounts: [0, 1], data: b58enc(setAuthBytes(AUTHORITY_TYPE_SCALED_UI, B_BYTES)) }] } }, meta: { err: null, innerInstructions: [] } };
+  assert.deepEqual(setAuthorityHandoffsFromTx("ntSig", 12, 1200, nonT22, [MINT]), [], "a non-Token-2022 program is filtered (mutant pid===Token-2022 => true => reds)");
 });
 
 test("bell_setauthority_decodes_inner_cpi — a SetAuthority(ScaledUiAmount) emitted in an inner instruction (CPI) is caught (C-9)", () => {
@@ -241,7 +250,8 @@ test("bell_crosscheck_incomplete_keeps_pending — an incomplete scan OR an H5 m
   // (never divergence): the committed triplet is the anchor, so this is decided WITHOUT the live state.
   const wrongOracle: HybridSeries = { symbol: "SPYx", oracle_slot: ORACLE_SLOT, oracle_triplet: { multiplierBitsHex: f64BitsHexLE(2.0), newMultiplierBitsHex: f64BitsHexLE(2.0), effectiveTimestampSec: 1500 }, events: EXPECTED_EVENTS };
   const c3 = compareToHybrid({ events: EXPECTED_EVENTS, handoffs: [], complete: true, n: 2, pages: 1, ledger: [] }, wrongOracle);
-  assert.ok(c3.verdict === "inconclusive" && c3.reason === "c3_mismatch", "a full-mint replay != committed oracle is inconclusive:c3_mismatch");
+  // C-G2-2: sets are key-equal (both EXPECTED_EVENTS) but the replay != committed oracle => the DISTINCT sub-case B reason.
+  assert.ok(c3.verdict === "inconclusive" && c3.reason === "c3_mismatch_sets_equal", "a key-equal full-mint whose replay != committed oracle is inconclusive:c3_mismatch_sets_equal");
 });
 
 test("bell_crosscheck_ignores_events_after_oracle_slot — an event past oracle_slot is bounded out (no false divergence/c3, C-2/M4)", () => {
@@ -329,7 +339,7 @@ test("bell_crosscheck_runmain_resumes_budget_and_ledger — runMain --rebase-cro
   const noDb: DatabentoGet = () => Promise.resolve([]);
   const noPoly: PolygonGet = () => Promise.resolve({ results: [] });
   const env = { BELL_SOLANA_RPC: PROVIDERS.join(",") } as NodeJS.ProcessEnv;
-  const args = (maxCalls: string): string[] => ["--rebase-crosscheck", "--pools", "SPYx", "--max-calls", maxCalls, "--min-interval", "0", "--allow-short-pages", "--series-dir", seriesDir, "--out", outDir];
+  const args = (maxCalls: string): string[] => ["--rebase-crosscheck", "--pools", "SPYx", "--max-calls", maxCalls, "--max-credits", String(Number(maxCalls) * 10), "--min-interval", "0", "--allow-short-pages", "--series-dir", seriesDir, "--out", outDir];
   const readJson = (f: string): Record<string, unknown> => JSON.parse(readFileSync(join(outDir, f), "utf8")) as Record<string, unknown>;
 
   // RUN 1: --max-calls 3 => p1 gTfA + initSig opB + p2 gTfA = 3; updSig opB is the 4th => BudgetExceeded => budget_exhausted.
@@ -347,6 +357,12 @@ test("bell_crosscheck_runmain_resumes_budget_and_ledger — runMain --rebase-cro
   const l1 = JSON.parse(ledger2[0]!) as { entry_sha256: string }, l2 = JSON.parse(ledger2[1]!) as { prev_entry_sha256: string };
   assert.equal(l2.prev_entry_sha256, l1.entry_sha256, "run-2's page chains onto run-1's head (continuity; mutant genesis-reseed => reds)");
   assert.equal((readJson("crosscheck-SPYx.json").comparator_verdict as { verdict: string }).verdict, "equal", "the resumed scan carries run-1's Initialize => complete => equal (mutant unseeded events => inconclusive => reds)");
+  // C-G2-1: budget.json persists credits_worst_case = calls_used × 10 (6 × 10) — mutant dropping the ×10 reds.
+  assert.equal(readJson("budget.json").credits_worst_case, 60, "budget.json persists worst-case credits = 6 calls × 10 (C-G2-1)");
+  // C-G2-3: the artifact's credits_recomputed = gTfA×10 + getTransaction×1 (run-2: 2 gTfA + 1 getTransaction = 21) — mutant N1 (drop ×10) reds.
+  const cc = readJson("crosscheck-SPYx.json");
+  assert.deepEqual(cc.calls_by_method, { getTransactionsForAddress: 2, getTransaction: 1 }, "run-2 calls_by_method = 2 gTfA + 1 getTransaction");
+  assert.equal(cc.credits_recomputed, 21, "credits_recomputed = 2×10 + 1×1 = 21 (mutant: drop the ×10 => reds, C-G2-3)");
 });
 
 test("bell_crosscheck_readPriorCalls_fail_closed — missing budget.json => 0, malformed => throw (C-1)", () => {
@@ -357,4 +373,62 @@ test("bell_crosscheck_readPriorCalls_fail_closed — missing budget.json => 0, m
   writeFileSync(join(dir, "budget.json"), JSON.stringify({ calls_used: "oops" }));
   assert.throws(() => readPriorCalls(dir), /malformed/, "a corrupt ledger is a fail-closed throw, never read as 0");
   void ([] as TransportFault[]); // faults threading is exercised by the scan tests
+});
+
+// ---- C-G2-1: the credit unit is explicit + fail-closed (calls vs credits unconfusable) ----------------------------
+test("bell_crosscheck_budget_credits_cap_is_explicit — --max-credits caps in worst-case credits, independent of --max-calls (C-G2-1)", async () => {
+  // A LOOSE --max-calls with a TIGHT --max-credits: the credit cap (every call = 10 cr worst case) binds at
+  // floor(maxCredits/10) calls, so a probe written as 1500 CREDITS stops at 150 CALLS — the unit is unconfusable.
+  let hits = 0;
+  const inner: JsonRpcCall = () => { hits += 1; return Promise.resolve({}); };
+  const b = makeBudgetedCall(100000, inner, 0, 1500); // huge max-calls, max-credits 1500 => 150 calls
+  for (let i = 0; i < 150; i++) await b.call("u", "m", []);
+  await assert.rejects(b.call("u", "m", []), BudgetExceededError, "the 151st call (1510 worst-case cr) fails closed on --max-credits");
+  assert.equal(b.calls(), 150, "exactly 150 calls fit under 1500 worst-case credits (mutant: drop the ×10 => 1500 calls => reds)");
+  assert.equal(b.credits(), 1500, "credits() = calls × 10 worst case");
+  assert.equal(hits, 150, "only the 150 permitted inner calls fired");
+});
+
+test("bell_crosscheck_requires_max_credits — --rebase-crosscheck without --max-credits fails closed (C-G2-1)", () => {
+  assert.throws(() => parseArgs(["--rebase-crosscheck", "--pools", "SPYx", "--max-calls", "100"], ["SPYx"]), /--max-credits/, "the crosscheck draw must be bounded in the CREDIT unit (probe 1500 / draw 6497500)");
+});
+
+// ---- C-G2-2: a c3 mismatch is never mute — sub-case A (divergence) and B (inconclusive) both publish diffs --------
+test("bell_crosscheck_c3_mismatch_with_set_divergence_is_divergence — H5 fails AND sets differ => divergence, diffs published (C-G2-2 A)", () => {
+  // full-mint self-consistent replay {1.5,1.5,1500}; the committed oracle says {2.0,2.0,1500} (H5 fails) AND the series
+  // lacks the update (sets differ) => a GENUINE divergence, never the old mute inconclusive:c3_mismatch.
+  const scan: FullMintScan = { events: EXPECTED_EVENTS, handoffs: [], complete: true, n: 2, pages: 1, ledger: [] };
+  const badOracle: HybridSeries = { symbol: "SPYx", oracle_slot: ORACLE_SLOT, oracle_triplet: { multiplierBitsHex: f64BitsHexLE(2.0), newMultiplierBitsHex: f64BitsHexLE(2.0), effectiveTimestampSec: 1500 }, events: [EXPECTED_EVENTS[0]!] };
+  const v = compareToHybrid(scan, badOracle);
+  assert.ok(v.verdict === "divergence" && v.missingFromSeries.length === 1 && v.tripletDiff.length >= 1, "sets-differ + H5-fail => divergence with missing-set AND triplet diff (mutant: inconclusive on H5 fail w/o set check => reds)");
+});
+
+test("bell_crosscheck_c3_mismatch_sets_equal_declares_blocktime — H5 fails while sets key-equal => inconclusive + blockTime gap (C-G2-2 B)", () => {
+  // Same relaxed key on both sides but the full-mint update folded (blockTime 2000 >= effTs 1500) while the series
+  // update stayed pending (blockTime 1400 < 1500). eventKey omits blockTime => SETS equal; replayTriplet folds on it
+  // => H5 fails => sub-case B (never a FALSE equal: the mutant deciding equal on sets BEFORE H5 reds here).
+  const init = ev("initialize", 1, 0, 10, 0, "initSig");
+  const updFolded: MultiplierEvent = { kind: "update", multiplier: "1.5", multiplierBitsHex: f64BitsHexLE(1.5), effectiveTimestampSec: 1500, blockTimeSec: 2000, slot: 20, instructionIndex: 0, signature: "updSig" };
+  const updPending: MultiplierEvent = { ...updFolded, blockTimeSec: 1400 };
+  const series: HybridSeries = { symbol: "SPYx", oracle_slot: ORACLE_SLOT, oracle_triplet: replayTriplet([init, updPending], Number.MAX_SAFE_INTEGER)!, events: [init, updPending] };
+  const v = compareToHybrid({ events: [init, updFolded], handoffs: [], complete: true, n: 2, pages: 1, ledger: [] }, series);
+  assert.ok(v.verdict === "inconclusive" && v.reason === "c3_mismatch_sets_equal", "key-equal sets + failed replay => DISTINCT inconclusive reason, never equal (order-inverted mutant reds)");
+  assert.ok(v.verdict === "inconclusive" && (v.fieldDiffs ?? []).some((d) => d.field === "blockTimeSec" && d.fullmint === "2000" && d.series === "1400"), "the blockTime gap is declared explicitly (never mute)");
+});
+
+// ---- C-G2-7 (DEVIATION): instructionIndex relaxed OUT of the key, published in fieldDiffs; collision fails closed ---
+test("bell_crosscheck_index_relaxed_published_collision_fails_closed — index-only gap => equal + published; key collision => fail-closed (C-G2-7)", () => {
+  // (i) two events identical but for instructionIndex => same relaxed key => equal (no false divergence), and the
+  // index gap is PUBLISHED in fieldDiffs. Mutant α: index back in key => divergence => reds; β: drop it from fieldDiffs => reds.
+  const seriesEvents = [ev("initialize", 1, 0, 10, 4, "initSig"), ev("update", 1.5, 1500, 20, 2, "updSig")];
+  const scanEvents = [ev("initialize", 1, 0, 10, 4, "initSig"), ev("update", 1.5, 1500, 20, 7, "updSig")]; // update ix 7 vs 2
+  const series: HybridSeries = { symbol: "SPYx", oracle_slot: ORACLE_SLOT, oracle_triplet: replayTriplet(scanEvents, Number.MAX_SAFE_INTEGER)!, events: seriesEvents };
+  const v = compareToHybrid({ events: scanEvents, handoffs: [], complete: true, n: 2, pages: 1, ledger: [] }, series);
+  assert.equal(v.verdict, "equal", "an index-only difference is NOT a divergence (relaxed key; mutant α: index back in key => divergence => reds)");
+  assert.ok(v.verdict === "equal" && v.fieldDiffs.some((d) => d.field === "instructionIndex" && d.fullmint === "7" && d.series === "2"), "the index gap is published, never masked (mutant β: drop it from fieldDiffs => reds)");
+  // (ii) two full-mint events collapse to ONE relaxed key (same {slot,sig,kind,bits,effTs}) => fail-closed, never a silent false equal.
+  const initE = ev("initialize", 1, 0, 10, 4, "initSig"), dupA = ev("update", 1.5, 1500, 20, 0, "dupSig"), dupB = ev("update", 1.5, 1500, 20, 1, "dupSig");
+  const collSeries: HybridSeries = { symbol: "SPYx", oracle_slot: ORACLE_SLOT, oracle_triplet: replayTriplet([initE, dupA], Number.MAX_SAFE_INTEGER)!, events: [initE, dupA] };
+  const c = compareToHybrid({ events: [initE, dupA, dupB], handoffs: [], complete: true, n: 3, pages: 1, ledger: [] }, collSeries);
+  assert.ok(c.verdict === "inconclusive" && c.reason === "relaxed_key_collision", "a same-relaxed-key duplicate fails closed (mutant: drop the collision guard => false equal => reds)");
 });

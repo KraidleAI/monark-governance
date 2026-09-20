@@ -44,6 +44,18 @@ export const SET_AUTHORITY_TAG = 6;
 /** [lu] instruction.rs:1177,1199 — AuthorityType::ScaledUiAmount (the ONLY path that changes the scaled-UI authority). */
 export const AUTHORITY_TYPE_SCALED_UI = 15;
 
+/** [lu, G0 fact 2 / CHANTIERS l.122 decision 55] Helius credit tariffs — the SOLE home of the credit unit (C-G2-1/3):
+ *  getTransactionsForAddress (gTfA) = 10 cr/call (≤1000 tx), getTransaction = 1 cr. The WORST-CASE per-call rate for
+ *  the budget conversion (A-2) is the most expensive method = gTfA = 10 cr; EVERY call (incl. the Chainstack
+ *  getTransaction re-read) is metered at this worst case, so `calls × WORST_CASE_CREDITS_PER_CALL ≤ plafond`. The
+ *  `--max-credits` fail-closed cap (collect.ts) and `credits_worst_case` (budget.json) are expressed in the SAME unit
+ *  as the 6.5 M plafond, so probe/draw commands are written in credits and the calls-vs-credits confusion (C-G2-1) is
+ *  unrepresentable. Dropping the ×10 factor reds the C-G2-1 (credits_worst_case / --max-credits) and C-G2-3
+ *  (credits_recomputed) assertions — the unit is pinned in exactly one place. */
+export const CREDITS_PER_GTFA = 10;
+export const CREDITS_PER_GET_TX = 1;
+export const WORST_CASE_CREDITS_PER_CALL = CREDITS_PER_GTFA;
+
 /** A decoded SetAuthority(ScaledUiAmount) payload, or null when the bytes are not that instruction. `newAuthorityHex`
  *  is the target authority (null = None, i.e. the authority is being REMOVED — definitive, §D). Pure. The presence
  *  byte gates the length exactly (COption<Pubkey>): 0 => 3 bytes, 1 => 35 bytes; any other => not decodable (null). */
@@ -273,50 +285,77 @@ export interface HybridSeries {
   readonly events: readonly MultiplierEvent[];
 }
 export interface FieldDiff { readonly key: string; readonly field: string; readonly fullmint: string; readonly series: string }
+/** A per-field difference between the full-mint's replayed triplet (H5) and the series' COMMITTED oracle_triplet.
+ *  Published on any c3 mismatch (divergence sub-case A OR inconclusive sub-case B) so the verdict is never mute (C-G2-2). */
+export interface TripletDiff { readonly field: string; readonly fullmint: string; readonly series: string }
 export type CrosscheckVerdict =
-  | { readonly verdict: "equal" }
-  | { readonly verdict: "divergence"; readonly missingFromFullmint: string[]; readonly missingFromSeries: string[]; readonly fieldDiffs: FieldDiff[] }
-  | { readonly verdict: "inconclusive"; readonly reason: string };
+  | { readonly verdict: "equal"; readonly fieldDiffs: FieldDiff[] }
+  | { readonly verdict: "divergence"; readonly missingFromFullmint: string[]; readonly missingFromSeries: string[]; readonly fieldDiffs: FieldDiff[]; readonly tripletDiff: TripletDiff[] }
+  | { readonly verdict: "inconclusive"; readonly reason: string; readonly missingFromFullmint?: string[]; readonly missingFromSeries?: string[]; readonly fieldDiffs?: FieldDiff[]; readonly tripletDiff?: TripletDiff[] };
 
-/** Identity key of an event for the SYMMETRIC set comparison — bits, effTs, slot, in-tx index, signature, kind. */
+/** Identity key for the SYMMETRIC set comparison — {slot, signature, kind, bits, effTs}. instructionIndex is RELAXED
+ *  OUT (C-G2-7, DEVIATION): the committed series carry a flatten index from a getTransaction body, the full-mint one
+ *  from a gTfA-`full` body, and their VALUE-identity across the two RPC methods is NOT establishable offline (the raw
+ *  bodies are unarchived). Measured SAFE — the relaxed key is UNIQUE across all 32 committed events (9+11+11+1; same-slot pairs
+ *  differ in bits AND effTs), so relaxing introduces no false-equal; an index-only gap is PUBLISHED in fieldDiffs
+ *  (never masked), and a residual same-key collision fails closed (relaxed_key_collision). */
 function eventKey(e: MultiplierEvent): string {
-  return `${e.kind}|${e.multiplierBitsHex}|${String(e.effectiveTimestampSec)}|${String(e.slot)}|${String(e.instructionIndex)}|${e.signature}`;
+  return `${String(e.slot)}|${e.signature}|${e.kind}|${e.multiplierBitsHex}|${String(e.effectiveTimestampSec)}`;
+}
+/** The non-identity fields (instructionIndex, blockTimeSec) that CAN differ between two identity-matched events:
+ *  instructionIndex is the relaxed C-G2-7 gap; blockTimeSec is NOT in eventKey yet it drives the replay fold
+ *  (tripletUpTo folds on blockTimeSec), so a key-equal set can still fail H5 (C-G2-2 sub-case B) — both are published. */
+function nonKeyDiffs(fe: MultiplierEvent, he: MultiplierEvent): FieldDiff[] {
+  const out: FieldDiff[] = [];
+  for (const f of ["instructionIndex", "blockTimeSec"] as const)
+    if (fe[f] !== he[f]) out.push({ key: eventKey(fe), field: f, fullmint: String(fe[f]), series: String(he[f]) });
+  return out;
 }
 
-/** compareToHybrid — THREE verdicts (decision 67). `inconclusive` if the full-mint scan is not complete OR its H5
- *  anchor (replayTriplet(events <= oracle_slot) == the series' COMMITTED oracle_triplet, on the BITS) fails — the
- *  live state is NEVER consulted here (C-2: no getAccountInfo), so an UpdateMultiplier AFTER oracle_slot cannot make
- *  a false c3_mismatch. `divergence` if the bounded 43/x sets differ in EITHER direction (symmetric, C-10) or an
- *  appariated event differs on a field. `equal` only when the sets are identical AND H5 holds AND the scan is
- *  complete — the SOLE path that would remove `pending`. BOTH sides are re-bounded to slot <= oracle_slot here
- *  (the load-bearing bound for M4; the server-side slot.lte only saves credits). */
+/** compareToHybrid — THREE verdicts (decision 67). `inconclusive` if the scan is not complete, if the relaxed key
+ *  collides (C-G2-7), or (sub-case B, C-G2-2) if H5 fails while the sets are key-EQUAL. `divergence` if the bounded
+ *  43/x sets differ in EITHER direction (symmetric, C-10) — including sub-case A (C-G2-2): sets differ AND H5 fails
+ *  (a genuine divergence, never masked as a mute c3_mismatch). `equal` only when the sets are identical AND H5 holds
+ *  AND the scan is complete — the SOLE path that would remove `pending`. H5 (replayTriplet(events <= oracle_slot) ==
+ *  the series' COMMITTED oracle_triplet, on the BITS) is checked BEFORE the equal decision: eventKey omits
+ *  blockTimeSec but the fold uses it, so an "equal sets" shortcut ahead of H5 would return a FALSE equal on a
+ *  blockTime-only gap (relecteur). The live state is NEVER consulted (C-2: no getAccountInfo), so an UpdateMultiplier
+ *  AFTER oracle_slot cannot make a false c3_mismatch. BOTH sides are re-bounded to slot <= oracle_slot (M4 bound). */
 export function compareToHybrid(scan: FullMintScan, series: HybridSeries): CrosscheckVerdict {
   if (!scan.complete) return { verdict: "inconclusive", reason: scan.reason ?? "incomplete" };
   const bound = (evs: readonly MultiplierEvent[]): MultiplierEvent[] => evs.filter((e) => e.slot <= series.oracle_slot);
-  const full = bound(scan.events);
-  const h5 = replayTriplet(full, Number.MAX_SAFE_INTEGER);
-  if (h5 === null || h5.multiplierBitsHex !== series.oracle_triplet.multiplierBitsHex
-    || h5.newMultiplierBitsHex !== series.oracle_triplet.newMultiplierBitsHex
-    || h5.effectiveTimestampSec !== series.oracle_triplet.effectiveTimestampSec) return { verdict: "inconclusive", reason: "c3_mismatch" };
-  const hyb = bound(series.events);
+  const full = bound(scan.events), hyb = bound(series.events);
   const fullByKey = new Map(full.map((e) => [eventKey(e), e]));
   const hybByKey = new Map(hyb.map((e) => [eventKey(e), e]));
+  // C-G2-7 structural safety: if the relaxed key collapses two DISTINCT events on either side, the set comparison is
+  // unreliable => fail closed, never a silent false equal (measured not to occur on the committed series; a real
+  // duplicate 43/1 in one tx would be the trigger).
+  if (full.length !== fullByKey.size || hyb.length !== hybByKey.size) return { verdict: "inconclusive", reason: "relaxed_key_collision" };
   const missingFromFullmint = [...hybByKey.keys()].filter((k) => !fullByKey.has(k)); // a series event ABSENT from the full-mint (C-10 sens b)
   const missingFromSeries = [...fullByKey.keys()].filter((k) => !hybByKey.has(k));   // a full-mint event ABSENT from the series (C-10 sens a)
-  // fieldDiffs: an event PAIRED on the partial key {slot, signature, instructionIndex} but differing on a compared
-  // field (bits/effTs/kind) — the actionable detail for the escalation's error_origin (H2). It is a REFINEMENT of the
-  // missing-sets (a field diff already shows there); equal is decided on the missing-sets, so this is diagnostic only.
-  const partial = (e: MultiplierEvent): string => `${String(e.slot)}|${e.signature}|${String(e.instructionIndex)}`;
-  const hybByPartial = new Map(hyb.map((e) => [partial(e), e]));
+  const setsEqual = missingFromFullmint.length === 0 && missingFromSeries.length === 0;
+  // fieldDiffs: instructionIndex + blockTimeSec gaps on IDENTITY-MATCHED events (C-G2-7 index diagnostic + C-G2-2 b
+  // blockTime declaration) — published on every verdict so an index/blockTime gap is never mute.
   const fieldDiffs: FieldDiff[] = [];
-  for (const fe of full) {
-    const he = hybByPartial.get(partial(fe));
-    if (he !== undefined && eventKey(fe) !== eventKey(he))
-      for (const f of ["kind", "multiplierBitsHex", "effectiveTimestampSec"] as const)
-        if (String(fe[f]) !== String(he[f])) fieldDiffs.push({ key: partial(fe), field: f, fullmint: String(fe[f]), series: String(he[f]) });
+  for (const [k, fe] of fullByKey) { const he = hybByKey.get(k); if (he !== undefined) fieldDiffs.push(...nonKeyDiffs(fe, he)); }
+  const h5 = replayTriplet(full, Number.MAX_SAFE_INTEGER);
+  const h5Ok = h5 !== null && h5.multiplierBitsHex === series.oracle_triplet.multiplierBitsHex
+    && h5.newMultiplierBitsHex === series.oracle_triplet.newMultiplierBitsHex
+    && h5.effectiveTimestampSec === series.oracle_triplet.effectiveTimestampSec;
+  if (!h5Ok) {
+    const tripletDiff: TripletDiff[] = [];
+    const cmp = (field: string, f: string, s: string): void => { if (f !== s) tripletDiff.push({ field, fullmint: f, series: s }); };
+    cmp("multiplierBitsHex", h5?.multiplierBitsHex ?? "null", series.oracle_triplet.multiplierBitsHex);
+    cmp("newMultiplierBitsHex", h5?.newMultiplierBitsHex ?? "null", series.oracle_triplet.newMultiplierBitsHex);
+    cmp("effectiveTimestampSec", String(h5?.effectiveTimestampSec ?? "null"), String(series.oracle_triplet.effectiveTimestampSec));
+    // (A, C-G2-2) the sets ALSO differ => a GENUINE divergence, never masked as a mute inconclusive — route as divergence (C-4).
+    if (!setsEqual) return { verdict: "divergence", missingFromFullmint, missingFromSeries, fieldDiffs, tripletDiff };
+    // (B, C-G2-2) sets key-equal but the replay differs (a blockTimeSec fold gap not carried by eventKey, or a wrong
+    // committed oracle) => inconclusive with a DISTINCT reason + the triplet diff + the blockTime gap (fieldDiffs), never mute.
+    return { verdict: "inconclusive", reason: "c3_mismatch_sets_equal", missingFromFullmint, missingFromSeries, fieldDiffs, tripletDiff };
   }
-  if (missingFromFullmint.length === 0 && missingFromSeries.length === 0) return { verdict: "equal" };
-  return { verdict: "divergence", missingFromFullmint, missingFromSeries, fieldDiffs };
+  if (setsEqual) return { verdict: "equal", fieldDiffs }; // an index-only fieldDiff rides here (C-G2-7): equal set, published gap.
+  return { verdict: "divergence", missingFromFullmint, missingFromSeries, fieldDiffs, tripletDiff: [] };
 }
 
 // ---- CLI (--rebase-crosscheck; run-guarded main only) -------------------------------------------------------------
@@ -385,14 +424,14 @@ export async function runRebaseCrosscheckCli(call: JsonRpcCall, providers: reado
         appendFileSync(ledgerPath, JSON.stringify(entry) + "\n");
         for (const e of pageEvents) appendFileSync(eventsPath, JSON.stringify(e) + "\n");
         for (const h of pageHandoffs) appendFileSync(handoffsPath, JSON.stringify(h) + "\n");
-        writeFileSync(resolve(out, "budget.json"), JSON.stringify({ calls_used: callsUsed() }));
+        writeFileSync(resolve(out, "budget.json"), JSON.stringify({ calls_used: callsUsed(), credits_worst_case: callsUsed() * WORST_CASE_CREDITS_PER_CALL }));
       },
       onCandidate: (sig, body) => { const b = JSON.stringify(body); candidateShas[sig] = sha(b); writeFileSync(resolve(out, "candidates", `${sig}.json`), b); },
     };
     const scan = await scanFullMint(counted, providers, tok.address, series.oracle_slot, opts, resumeFromLedger(out, symbol), sink, faults);
-    writeFileSync(resolve(out, "budget.json"), JSON.stringify({ calls_used: callsUsed() })); // final cumulative (incl. the desc end-anchor call)
+    writeFileSync(resolve(out, "budget.json"), JSON.stringify({ calls_used: callsUsed(), credits_worst_case: callsUsed() * WORST_CASE_CREDITS_PER_CALL })); // final cumulative (incl. the desc end-anchor call)
     const verdict = compareToHybrid(scan, series);
-    const creditsRecomputed = (callsByMethod.getTransactionsForAddress ?? 0) * 10 + (callsByMethod.getTransaction ?? 0);
+    const creditsRecomputed = (callsByMethod.getTransactionsForAddress ?? 0) * CREDITS_PER_GTFA + (callsByMethod.getTransaction ?? 0) * CREDITS_PER_GET_TX;
     const artifact = { oracle_slot: series.oracle_slot, n_exact: scan.n, pages: scan.pages, ledger_sha256: ledgerSha(scan.ledger),
       scan_complete: scan.complete, scan_reason: scan.reason ?? null, events: scan.events, c3_oracle_triplet: series.oracle_triplet,
       comparator_verdict: verdict, calls_by_method: callsByMethod, credits_recomputed: creditsRecomputed, candidate_shas: candidateShas };
