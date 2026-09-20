@@ -20,7 +20,7 @@ Produire, sha-pinné et rejouable, le tableau des réalisations Y_{i,e} par posi
 3. Aucune clé, URL ou uuid dans le dépôt ni dans le rapport ; `no_secret_in_repo` vert ; bruts hors dépôt sha-pinnés.
 4. R-25 ≤ 400 (séries exclues par D9 sexies ; docs exclus ; script + tests comptent).
 5. CA-11 : aucune pièce nouvelle `built` ; sortie déclarée `annex` avec consommateur U-4 nommé ; `fleet.ts` inchangé.
-6. Pré-enregistrement haché **avant** le premier appel (sha dans PROVENANCE, vérifiable par l'ordre des commits).
+6. Pré-enregistrement haché **avant** le premier appel — preuve = garde `--prereg-sha` du script + `meta.prereg_sha` dans `U3-inputs` (C-V-3 checkpoint-2 : l'ordre des commits ne prouve rien, les commits sont postérieurs aux tirages) ; règle dès U-4 : committer le prereg avant de lancer le worker.
 
 ## Hors périmètre
 Calibration (U-4), toute prédiction, énumération du book (U-1a), Bell.
