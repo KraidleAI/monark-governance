@@ -52,7 +52,9 @@ export const DEFAULT_RETRIES = 2;
 // case (timeout x (retries+1)) past the unit's TimeoutStartSec and get the job killed mid-write. Capped worst
 // case = 10000 x (4+1) + 10000 margin = 60 s < TimeoutStartSec 90 s (asserted by probe_timer_multiple_shots).
 export const MAX_TIMEOUT_MS = 10_000;
-export const MAX_MAX_BYTES = 64 * 1024 * 1024;
+// Byte cap == DEFAULT_MAX_BYTES (env may only LOWER it): a cap-sized body peaks ~100 MiB RSS on the GET path
+// (measured), 22% under MemoryMax=128M; 64 MiB peaked ~247 MiB -> cgroup-killed pre-write (C-V-3; coherence in timer test).
+export const MAX_MAX_BYTES = 8 * 1024 * 1024;
 export const MAX_RETRIES = 4;
 export const START_MARGIN_MS = 10_000;
 

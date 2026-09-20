@@ -19,7 +19,7 @@ import {
   providerOf, chainstackPresent, hashedFieldsOf, lineHashOf as probeLineHashOf,
   urlTransportAllowed, isLoopbackHost, fetchTimeline, DEADLINE_UTC, DEADLINE_UTC_MINUTES,
   DEFAULT_TIMEOUT_MS, DEFAULT_MAX_BYTES, DEFAULT_RETRIES, MAX_TIMEOUT_MS, MAX_MAX_BYTES, MAX_RETRIES,
-  START_MARGIN_MS, transportBounds, SCHEMA,
+  START_MARGIN_MS, transportBounds, SCHEMA, evaluate,
 } from "../scripts/probe-narabi.mjs";
 import type { NarabiState } from "../scripts/probe-narabi.mjs";
 
@@ -197,6 +197,31 @@ test("probe_recomputes_full_chain — a tampered MIDDLE line (not only the last)
   assert.equal(rBad.status, 1, "chain_broken exits 1");
 });
 
+// ── C-V-2: three evaluate() guards on SYNTHETIC lines (no real record) — prev_line_hash LINK (N1), last-line chainstack (N2), chain_broken > lag (N5) ─
+test("probe_evaluate_guards_on_synthetic_lines — evaluate() on synthetic lines pins a broken prev_line_hash LINK as chain_broken (N1), chainstack_present read on the LAST line only (N2), and chain_broken outranking a lagging --now (N5)", () => {
+  const EP8 = Array.from({ length: 8 }, (_, i) => `https://e${String(i)}.drpc.org`); // 8 public, no chainstack
+  const EP9 = [...EP8, "https://nd.p2pify.com"]; // + the paid Chainstack operator = 9
+  const synth = (day: string, prev: string, endpoints: readonly string[]): TimelineLine => {
+    const l = { day, mints: "0", regime: {}, prev_line_hash: prev, endpoints } as unknown as TimelineLine;
+    return { ...l, line_hash: probeLineHashOf(l) }; };
+  const L1 = synth("2026-09-17", "0".repeat(64), EP9); // a 9-endpoint line WITH chainstack, non-last on purpose
+  const L2 = synth("2026-09-18", L1.line_hash, EP8);
+  const L3 = synth("2026-09-19", L2.line_hash, EP8);
+  const L2t = { ...L2, mints: "9999" }; // tamper a HASHED field, keep the stale line_hash
+  const NOW = "2026-09-25T12:00:00Z"; // well past L3's day -> lag>0, so an N5 lag-first mutant would surface lag
+  const ev = (ls: readonly TimelineLine[]): NarabiState =>
+    evaluate({ text: ls.map((l) => JSON.stringify(l)).join("\n"), nowIso: NOW, reachable: true });
+  const n1 = ev([L1, L3]); // skips L2 -> L3.prev_line_hash != the preceding line's hash; only the LINK check catches it
+  assert.equal(n1.reason, "chain_broken", "N1: a broken prev_line_hash LINK is chain_broken (kills the link-check-removed mutant)");
+  assert.equal(n1.chain_ok, false, "chain_ok is false under a broken link");
+  const n2 = ev([L1, L2]); // an OLD 9-endpoint line (L1) must NOT mask a degraded last line (L2, 8 endpoints)
+  assert.equal(n2.chainstack_present, false, "N2: chainstack_present is the LAST line's only (kills the read-any-line mutant)");
+  assert.equal(n2.provider, null, "no chainstack provider recorded from the last line");
+  const n5 = ev([L1, L2t, L3]); // tampered MIDDLE line + lagging --now
+  assert.equal(n5.reason, "chain_broken", "N5: chain_broken outranks lag (kills the lag-precedence mutant)");
+  assert.equal(n5.chain_ok, false, "chain_ok stays false — never a wrongful chain_ok:true under lag");
+});
+
 // ── C-5 (a): the chainstack pipe is BRANCHED — the REAL run.ts producer emits the line, the probe reads it ────
 const STUB_SRC = `
 import { readFileSync } from "node:fs";
@@ -281,7 +306,8 @@ test("probe_chainstack_present_from_real_producer_line — the REAL run.ts produ
 // ── C-6: http-on-loopback GET executes; never hangs (bounded timeout+retry); oversize body refused ──────────
 test("probe_get_over_loopback_http_executes — an http:// GET on loopback executes and decides; a non-responding server yields unreachable within the timeout (never hangs); an oversize body is refused (C-6)", async () => {
   const body = readFileSync(FIXTURE, "utf8");
-  const okServer = createServer((_req, res) => { res.writeHead(200, { "content-type": "application/jsonl" }); res.end(body); });
+  let okHits = 0;
+  const okServer = createServer((_req, res) => { okHits++; res.writeHead(200, { "content-type": "application/jsonl" }); res.end(body); });
   await new Promise<void>((resolve) => okServer.listen(0, "127.0.0.1", () => resolve()));
   try {
     const addr = okServer.address() as { port: number };
@@ -294,6 +320,13 @@ test("probe_get_over_loopback_http_executes — an http:// GET on loopback execu
     const rBig = await runProbeAsync(["--url", url, "--now", "2026-09-20T10:35Z"], { PROBE_MAX_BYTES: "64" });
     assert.equal(rBig.state.reason, "too_large", "a body over PROBE_MAX_BYTES is refused, not buffered unbounded");
     assert.equal(rBig.status, 1, "too_large exits 1");
+    // C-V-1: a GOOD server with PROBE_RETRIES=0 still performs EXACTLY ONE GET and decides healthy. Kills N4
+    // (attempt <= retries -> attempt < retries): at retries=0 that does ZERO GETs -> permanent unreachable.
+    const beforeHits = okHits;
+    const rNoRetry = await runProbeAsync(["--url", url, "--now", "2026-09-20T10:35Z"], { PROBE_RETRIES: "0" });
+    assert.equal(rNoRetry.state.status, "healthy", "PROBE_RETRIES=0 still fetches once and is healthy (kills N4)");
+    assert.equal(rNoRetry.status, 0, "exit 0 on the single successful GET");
+    assert.equal(okHits - beforeHits, 1, "EXACTLY one GET reached the server (zero under the N4 mutant)");
   } finally {
     await new Promise<void>((resolve) => okServer.close(() => resolve()));
   }
@@ -382,6 +415,12 @@ test("probe_timer_multiple_shots — the timer declares >= 3 post-deadline OnCal
   assert.ok(Number(to[1] ?? "0") > worstCappedSec, `TimeoutStartSec (${to[1] ?? "?"}) must strictly exceed the CAPPED env worst-case ${String(worstCappedSec)}s`);
   assert.equal(transportBounds({ PROBE_TIMEOUT_MS: "99999999" }).timeoutMs, MAX_TIMEOUT_MS, "PROBE_TIMEOUT_MS is hard-capped");
   assert.equal(transportBounds({ PROBE_RETRIES: "99999" }).retries, MAX_RETRIES, "PROBE_RETRIES is hard-capped");
+  // C-V-3: the unit's MemoryMax must cover the worst-case RSS when a body fills the byte cap. Measured peak RSS at
+  // a cap-sized body is ~100 MiB on the GET path (~13x the 8 MiB cap), so MemoryMax (128 MiB) must be >= 13 x
+  // MAX_MAX_BYTES (k derived AT this cap; RSS = base + slope x cap, so k over-bounds at larger caps — re-derive if moved).
+  const mem = /^MemoryMax=(\d+)M$/m.exec(svc);
+  assert.ok(mem, "the unit pins MemoryMax in MiB");
+  assert.ok(Number(mem[1]) * 1024 * 1024 >= 13 * MAX_MAX_BYTES, `MemoryMax (${mem[1] ?? "?"}M) must be >= 13x the byte cap MAX_MAX_BYTES (kills the cap-raised-to-64MiB mutant)`);
 });
 
 // ── C-G2-3: an invalid --now still writes narabi.json (probe_error, real timestamp, exit 1), never a FATAL ─────
