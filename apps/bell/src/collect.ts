@@ -17,7 +17,9 @@ import { classifySession, refCloseDateOf, type SessionLabel } from "./sessions.t
 import { sessionGap, sessionGapRebase, exceeds, vwapDecimal, fixed, GAP_PRECISION } from "./gap.ts";
 import { rowsFromCsv, haltDelta, census, haltsSince, type HaltRow } from "./halts.ts";
 import { buildDigest, bellSha, assertNoClose, canonical, provenance as makeProvenance,
-  type GapEntry, type Provenance } from "./digest.ts";
+  type GapEntry, type Provenance, type CashCross } from "./digest.ts";
+import { readReferenceCloses, earliestPublishUtc, databentoGet, polygonGet,
+  type PolygonGet, type DatabentoGet } from "./close.ts";
 import { newResidualCounts, RESIDUAL_CODES, type Residual, type ResidualCounts } from "./residuals.ts";
 import { poolVolumeBase, consolidatedAdv, volumeToAdvRatio } from "./volume.ts";
 import { readMintToken2022, porStatus, wrapperStatus, rebaseForMint, rebaseGateFromTrajectory, type MintReadout, type RebaseGate } from "./supply.ts";
@@ -42,6 +44,7 @@ export interface SymbolInput {
   readonly fillsResidues: readonly Residual[]; // no_quorum / quorum_sampled from the reader
   readonly quorumCoverage?: number; // sampled-body coverage rate (published with quorum_sampled)
   readonly closeRefBySession: Readonly<Record<string, number>>; // sessionDateET -> close (read, never stored)
+  readonly crossBySession?: Readonly<Record<string, CashCross>>; // -b3b C-9: refCloseDate -> cross status (matched/unavailable/mismatch)
   readonly advDailyVolumes: readonly number[]; // prior-month daily share volumes ([2nd] Polygon)
   readonly mint?: MintReadout; // Token-2022 readout (iv)
   readonly porRelayed?: { readonly value: string; readonly updatedAtSec: number };
@@ -57,6 +60,9 @@ export interface CollectInput {
   readonly faults?: readonly TransportFault[]; // transport faults for the journal (providerOf only)
   readonly providers?: readonly string[]; // provider DOMAINS (providerOf), never urls
   readonly closeSource?: string; // C-7/decision 41: names the close provider in provenance (never a value)
+  readonly cashRequestDigest?: string; // -b3b C-1/C-7: sha256 of the canonical cash-close request list (no key, no value)
+  readonly cashCrossMismatchDays?: readonly string[]; // -b3b: "UNDERLYING:refDate" days that mismatched (provenance detail)
+  readonly cashCrossUnavailableDays?: readonly string[]; // -b3b: "UNDERLYING:refDate" days the cross could not run (provenance detail)
 }
 export interface CollectResult {
   readonly bellSha: string;
@@ -128,6 +134,16 @@ export function collect(input: CollectInput): CollectResult {
       // C-7: the reference close is keyed by the session's reference-close DAY (off-hours/after = the anchor day;
       // pre/regular = the prior trading day, avoiding a same-day look-ahead) — never one /prev applied to all.
       const refDate = refCloseDateOf(g.session, g.anchor);
+      // -b3b (C-1/C-5/C-9): the Databento close was cross-checked against Massive per reference-close day. A MISMATCH
+      // abstains the session with a NAMED residual (never an average, never a silent pick) — checked BEFORE the close
+      // lookup so it is distinct from no_close_ref. matched / unavailable carry a per-session marker on the g_t.
+      const cross = s.crossBySession?.[refDate];
+      if (cross === "mismatch") {
+        bump("cash_cross_mismatch");
+        symGaps.push({ symbol: s.symbol, session: g.session, regime: g.regime, vwap: vwapDecimal(g.fills, s.baseDec, s.quoteDec),
+          volumeBase: volumeBaseDecimal(g.fills, s.baseDec), n: g.fills.length, cash_cross: "mismatch", abstain: "cash_cross_mismatch" });
+        continue;
+      }
       const close = refDate in s.closeRefBySession ? s.closeRefBySession[refDate] : undefined;
       if (close === undefined || close <= 0) {
         bump("no_close_ref"); // V-7: volume present but no reference close — abstain, carry vwap, never a fake gap
@@ -135,6 +151,9 @@ export function collect(input: CollectInput): CollectResult {
           volumeBase: volumeBaseDecimal(g.fills, s.baseDec), n: g.fills.length, abstain: "no_close_ref" });
         continue;
       }
+      if (cross === "unavailable") bump("cash_cross_unavailable"); // C-9 (Q3): cross could not run — publish (interim (a)) + count
+      const epu = earliestPublishUtc(refDate); // C-6: publication gate for this session's g_t (16:00 ET refDate + 24 h)
+      const xmark: { cash_cross?: CashCross } = cross === "matched" || cross === "unavailable" ? { cash_cross: cross } : {};
       // C-7 (D1-quater): a trajectory_known window, OR a constant window whose multiplier != "1", computes g_t
       // rebase-aware (m divides the base PER FILL: VWAP_share = Σ|q|/Σ(|b|·m)). A constant m == "1" (or no gate)
       // takes the UNCHANGED bigint path so the m=1 digests stay bit-identical to -b1.
@@ -146,13 +165,13 @@ export function collect(input: CollectInput): CollectResult {
         const rgap = sessionGapRebase(g.fills, close, s.baseDec, s.quoteDec, mAt);
         if ("abstain" in rgap) { bump(rgap.abstain); symGaps.push({ symbol: s.symbol, session: g.session, regime: g.regime, vwap: rgap.vwap, volumeBase: rgap.volumeBase, n: rgap.n, abstain: rgap.abstain }); continue; }
         symGaps.push({ symbol: s.symbol, session: g.session, regime: g.regime, vwap: rgap.vwap, gT: rgap.gT, volumeBase: rgap.volumeBase, n: rgap.n, multiplierUsed: rgap.multiplierUsed,
-          exceed1: exceeds(rgap.gT, 1) ? 1 : 0, exceed2: exceeds(rgap.gT, 2) ? 1 : 0, exceed5: exceeds(rgap.gT, 5) ? 1 : 0 });
+          exceed1: exceeds(rgap.gT, 1) ? 1 : 0, exceed2: exceeds(rgap.gT, 2) ? 1 : 0, exceed5: exceeds(rgap.gT, 5) ? 1 : 0, earliest_publish_utc: epu, ...xmark });
         continue;
       }
       const gap = sessionGap(g.fills, close, s.baseDec, s.quoteDec);
       if ("abstain" in gap) { bump(gap.abstain); symGaps.push({ symbol: s.symbol, session: g.session, regime: g.regime, vwap: gap.vwap, volumeBase: gap.volumeBase, n: gap.n, abstain: gap.abstain }); continue; }
       symGaps.push({ symbol: s.symbol, session: g.session, regime: g.regime, vwap: gap.vwap, gT: gap.gT, volumeBase: gap.volumeBase, n: gap.n,
-        exceed1: exceeds(gap.gT, 1) ? 1 : 0, exceed2: exceeds(gap.gT, 2) ? 1 : 0, exceed5: exceeds(gap.gT, 5) ? 1 : 0 });
+        exceed1: exceeds(gap.gT, 1) ? 1 : 0, exceed2: exceeds(gap.gT, 2) ? 1 : 0, exceed5: exceeds(gap.gT, 5) ? 1 : 0, earliest_publish_utc: epu, ...xmark });
     }
     gapEntries.push(...symGaps);
 
@@ -189,8 +208,24 @@ export function collect(input: CollectInput): CollectResult {
       ...(cov !== undefined ? { quorum_coverage: cov } : {}) });
   }
 
-  // Halt residues (ii): position, recensed n = 0 (empty fills), residues folded into the counter (never silent).
-  for (const row of input.haltRows) for (const r of haltDelta(row, []).residues) bump(r);
+  // Halt delta (ii) — L-3: joined onto the on-chain leg. Symbol (NYSE) -> underlying -> each token/chain carrying it
+  // (TSLA -> TSLAx AND TSLAon); ONE bracket per token/chain, never merged. Row-level residues bump ONCE per ROW;
+  // no_fill_in_window is per (row, token). A row whose Symbol has no registered underlying keeps its n=0 position.
+  const haltDeltas: Json[] = [];
+  const tokensByUnderlying = new Map<string, SymbolInput[]>();
+  for (const s of input.symbols) { const u = UNDERLYING[s.symbol]; if (u !== undefined) tokensByUnderlying.set(u, [...(tokensByUnderlying.get(u) ?? []), s]); }
+  for (const row of input.haltRows) {
+    const toks = tokensByUnderlying.get(row.symbol) ?? [];
+    if (toks.length === 0) { for (const r of haltDelta(row, []).residues) bump(r); continue; }
+    let rowResiduesDone = false;
+    for (const tok of toks) {
+      const d = haltDelta(row, tok.fills);
+      if (!rowResiduesDone) { for (const r of d.residues) if (r !== "no_fill_in_window") bump(r); rowResiduesDone = true; }
+      if (d.residues.includes("no_fill_in_window")) bump("no_fill_in_window");
+      haltDeltas.push({ symbol: tok.symbol, chain: tok.chain, reason_family: d.reasonFamily, halt_utc_ms: d.haltUtcMs, resume_utc_ms: d.resumeUtcMs,
+        first_fill_after_halt_utc_ms: d.firstFillAfterHaltUtcMs, last_fill_before_resume_utc_ms: d.lastFillBeforeResumeUtcMs, n_fills_in_window: d.nFillsInWindow });
+    }
+  }
   const cen = census(input.haltRows);
   const haltCensus: Json = { total: cen.total, empty_resume: cen.emptyResume };
 
@@ -206,12 +241,20 @@ export function collect(input: CollectInput): CollectResult {
   const faults = [...(input.faults ?? [])] as unknown as Json;
   // close_source NAMES the cash-close provider (decision 41), never a close value — a non-numeric string, so
   // the close-guard (assertNoClose over the provenance) does not fire on the `close`-containing key.
-  const sources: Json = { generated_at: input.generatedAt, ...(input.closeSource !== undefined ? { close_source: input.closeSource } : {}) };
+  // -b3b: cash_request_digest (C-1/C-7, a hex sha — not close-like, passes the guard) + the cross-check day detail
+  // (string "UNDERLYING:refDate" lists) travel in the provenance envelope, NOT the hashed digest. The per-session
+  // COUNTS live in `residuals` (single counter source); these arrays are traceability detail only.
+  const sources: Json = { generated_at: input.generatedAt,
+    ...(input.closeSource !== undefined ? { close_source: input.closeSource } : {}),
+    ...(input.cashRequestDigest !== undefined ? { cash_request_digest: input.cashRequestDigest } : {}),
+    ...(input.cashCrossMismatchDays && input.cashCrossMismatchDays.length ? { cash_cross_mismatch_days: [...input.cashCrossMismatchDays] } : {}),
+    ...(input.cashCrossUnavailableDays && input.cashCrossUnavailableDays.length ? { cash_cross_unavailable_days: [...input.cashCrossUnavailableDays] } : {}) };
   const prov = makeProvenance(digest, sources,
     { providers, quorum_required: 2, providers_distinct: providersDistinct, faults }, input.generatedAt);
 
   const state: Json = { schema: "bell-state-v1", bell_sha: bellShaHex,
-    window: { from_utc_ms: input.window.fromUtcMs, to_utc_ms: input.window.toUtcMs }, residuals: counts as unknown as Json, digest };
+    window: { from_utc_ms: input.window.fromUtcMs, to_utc_ms: input.window.toUtcMs }, residuals: counts as unknown as Json, digest,
+    ...(haltDeltas.length ? { halt_deltas: haltDeltas } : {}) };
   const timeline = chainTimeline(timelineRecords);
   const journal: Json = { generated_at: input.generatedAt, providers, quorum_required: 2, providers_distinct: providersDistinct, faults,
     residual_total: RESIDUAL_CODES.reduce((a, c) => a + counts[c], 0) };
@@ -241,14 +284,17 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 /** C-11 fail-closed RPC budget. Wraps a lower-level call: after `maxCalls` calls, every further call throws
  *  BudgetExceededError (a `bell/collect:` message, surfaced verbatim, exit 1) — the "> 1 M credits / 50 %
  *  quota" stop is now machine-enforced, not a human rule. Pure/injectable: the oracle drives it offline. */
-export function makeBudgetedCall(maxCalls: number, inner: JsonRpcCall): { call: JsonRpcCall; calls: () => number } {
+export function makeBudgetedCall(maxCalls: number, inner: JsonRpcCall): { call: JsonRpcCall; calls: () => number; tick: () => void } {
   let n = 0;
+  const guard = (): void => { if (n >= maxCalls) throw new BudgetExceededError(`bell/collect: --max-calls budget of ${String(maxCalls)} exceeded (C-11 fail-closed)`); n += 1; };
   const call: JsonRpcCall = (u, m, p) => {
-    if (n >= maxCalls) return Promise.reject(new BudgetExceededError(`bell/collect: --max-calls budget of ${String(maxCalls)} exceeded (C-11 fail-closed)`));
-    n += 1;
+    try { guard(); } catch (e) { return Promise.reject(e instanceof Error ? e : new Error(String(e))); }
     return inner(u, m, p);
   };
-  return { call, calls: () => n };
+  // C-G2-7 (-b3b): the cash-close leg (Databento + Massive) folds into the SAME budget — a non-JsonRpcCall GET
+  // ticks the counter before it fires, so the fail-closed stop covers every paid read, not just Solana RPC.
+  const tick = (): void => { guard(); };
+  return { call, calls: () => n, tick };
 }
 
 /** Bounded retry on 429 / 5xx (transport), deterministic backoff, no url in any message. A BudgetExceededError
@@ -317,9 +363,6 @@ async function liveSolanaFills(call: JsonRpcCall, providers: readonly string[], 
   return { fills, residues, coverage };
 }
 
-
-export type PolygonGet = (pathAndQuery: string, apiKey: string) => Promise<{ results?: Array<{ v?: number; c?: number }> }>;
-
 /** C-7: the distinct reference-close DAYS across a set of fills (per session, look-ahead-safe via
  *  refCloseDateOf). Sorted for determinism. Pure — the oracle asserts a pre/regular fill maps to the prior
  *  trading day and an off-hours fill to its own anchor day. */
@@ -329,37 +372,19 @@ export function refCloseDatesForFills(fills: readonly SwapFill[]): string[] {
   return [...set].sort();
 }
 
-/** Massive (Polygon.io, renamed 2025-10-30) cash closes + prior-month daily SHARE volumes for an underlying.
- *  C-7 (bug fix): the reference close is read PER reference-close DAY via `range/1/day/{day}/{day}?adjusted=
- *  false` — NEVER one `/prev` close smeared across every anchor (wrong for any historical session), and never
- *  a same-day look-ahead (refCloseDatesForFills keys pre/regular on the prior trading day). Closes are READ,
- *  never stored in an output; `close_source: "massive-starter-internal"` names them in provenance (decision
- *  41). Key in the Authorization header, never the url (C-10). `get` is injectable so CI drives it offline. */
-async function closeAndAdv(underlying: string, polygonKey: string, toUtcMs: number, fills: readonly SwapFill[],
-  faults: TransportFault[], get: PolygonGet = polygonGet): Promise<{ closeRefBySession: Record<string, number>; advDailyVolumes: number[] }> {
-  const closeRefBySession: Record<string, number> = {};
-  let advDailyVolumes: number[] = [];
-  if (!polygonKey) return { closeRefBySession, advDailyVolumes };
+/** Massive (Polygon.io, renamed 2025-10-30) prior-month daily SHARE volumes for an underlying (the ADV denominator
+ *  of fact (iii)). -b3b: the reference CLOSE moved to close.ts `readReferenceCloses` (Databento EQUS.SUMMARY +
+ *  Massive cross), so this leg no longer reads per-day closes — no double Polygon close fetch. Values are READ,
+ *  never stored in an output (C-6). Key in the Authorization header, never the url (C-10). `get` is injectable. */
+async function advVolumes(underlying: string, polygonKey: string, toUtcMs: number,
+  faults: TransportFault[], get: PolygonGet = polygonGet): Promise<number[]> {
+  if (!polygonKey) return [];
   try {
-    for (const day of refCloseDatesForFills(fills)) {
-      const bar = await withRetry(() => get(`/v2/aggs/ticker/${underlying}/range/1/day/${day}/${day}?adjusted=false`, polygonKey));
-      const close = bar.results?.[0]?.c;
-      if (typeof close === "number") closeRefBySession[day] = close;
-    }
     const to = new Date(toUtcMs), from = new Date(toUtcMs - 45 * 86_400_000);
     const fmt = (d: Date): string => d.toISOString().slice(0, 10);
     const bars = await withRetry(() => get(`/v2/aggs/ticker/${underlying}/range/1/day/${fmt(from)}/${fmt(to)}?adjusted=true&sort=asc&limit=60`, polygonKey));
-    advDailyVolumes = (bars.results ?? []).map((r) => r.v ?? 0).filter((v) => v > 0);
-  } catch (e) { faults.push({ provider: "polygon.io", status: statusOf(e) }); }
-  return { closeRefBySession, advDailyVolumes };
-}
-
-/** Default Massive/Polygon GET — key in the Authorization header, NEVER in the url (?apiKey). Values are used
- *  internally; the close and the ADV are never written to any output (ESC-1 c / C-6). */
-async function polygonGet(pathAndQuery: string, apiKey: string): Promise<{ results?: Array<{ v?: number; c?: number }> }> {
-  const res = await fetch(`https://api.polygon.io${pathAndQuery}`, { headers: { Authorization: `Bearer ${apiKey}` } });
-  if (!res.ok) throw new Error(`HTTP ${String(res.status)}`);
-  return (await res.json()) as { results?: Array<{ v?: number; c?: number }> };
+    return (bars.results ?? []).map((r) => r.v ?? 0).filter((v) => v > 0);
+  } catch (e) { faults.push({ provider: "polygon.io", status: statusOf(e) }); return []; }
 }
 
 /** A stable identity key of a mint account for the quorum (supply drifts, so key the fields that do not). */
@@ -429,7 +454,7 @@ export async function buildSolanaSymbol(call: JsonRpcCall, providers: readonly s
   tok: { readonly symbol: string; readonly address: string; readonly decimals: number }, pool: PoolRef,
   window: { readonly fromSec: number; readonly toSec: number }, toUtcMs: number, polygonKey: string,
   opts: { readonly maxPages: number; readonly bodySample: number }, trajectory: TrajectoryInput | undefined,
-  faults: TransportFault[], getClose: PolygonGet = polygonGet): Promise<SymbolInput> {
+  faults: TransportFault[], getAdv: PolygonGet = polygonGet): Promise<SymbolInput> {
   const solved = await liveSolanaFills(call, providers, pool, window.fromSec, window.toSec, opts, faults);
   let mint: MintReadout | undefined;
   const mintResidues: Residual[] = [];
@@ -442,9 +467,10 @@ export async function buildSolanaSymbol(call: JsonRpcCall, providers: readonly s
   const rebase: RebaseGate = trajectory && mint
     ? rebaseGateFromTrajectory(trajectory.events, window.fromSec, window.toSec, trajectory.scanComplete)
     : rebaseForMint(mint);
-  const { closeRefBySession, advDailyVolumes } = await closeAndAdv(UNDERLYING[tok.symbol] ?? tok.symbol, polygonKey, toUtcMs, solved.fills, faults, getClose);
+  // -b3b: the reference close is attached later by runMain (Databento cross-checked); here we read only the ADV.
+  const advDailyVolumes = await advVolumes(UNDERLYING[tok.symbol] ?? tok.symbol, polygonKey, toUtcMs, faults, getAdv);
   return { symbol: tok.symbol, chain: "solana", baseDec: tok.decimals, quoteDec: 6, fills: solved.fills,
-    fillsResidues: [...solved.residues, ...mintResidues], quorumCoverage: solved.coverage, closeRefBySession, advDailyVolumes,
+    fillsResidues: [...solved.residues, ...mintResidues], quorumCoverage: solved.coverage, closeRefBySession: {}, advDailyVolumes,
     ...(mint ? { mint } : {}), rebase };
 }
 
@@ -461,18 +487,32 @@ export function loadTrajectories(path: string | undefined): Readonly<Record<stri
   return out;
 }
 
-async function main(): Promise<void> {
-  const argv = process.argv.slice(2);
-  const { out, toUtcMs, fromUtcMs, wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo, maxCalls, rebaseScan, rebaseTrajectory } = parseArgs(argv, POOLS.map((p) => p.baseSymbol));
+/** C-2 (CA-11): the seams main() needs are injectable so the offline oracle drives the WHOLE composition — read
+ *  Solana fills -> read the cash close (Databento EQUS.SUMMARY, cross-checked against Massive) -> collect() ->
+ *  write state/provenance — and asserts on the PRODUCED artifacts, never on the source text. main() is a shell. */
+export interface RunDeps {
+  readonly call: JsonRpcCall;          // raw Solana RPC (wrapped in the budget below); a stub offline
+  readonly databentoGet: DatabentoGet; // EQUS.SUMMARY reader (stub offline)
+  readonly polygonGet: PolygonGet;     // Massive reader — ADV + close cross (stub offline)
+  readonly env: NodeJS.ProcessEnv;     // BELL_SOLANA_RPC / POLYGON_API_KEY / DATABENTO_API_KEY / BELL_HALTS_CSV
+  readonly nowMs: number;              // the ONLY clock input (parseArgs default + generatedAt + staleness)
+}
+
+export async function runMain(argv: readonly string[], deps: RunDeps): Promise<void> {
+  const { out, toUtcMs, fromUtcMs, wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo, maxCalls, rebaseScan, rebaseTrajectory } = parseArgs(argv, POOLS.map((p) => p.baseSymbol), deps.nowMs);
   const repoRoot = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
   assertOutsideRepo(out, repoRoot);
 
-  const solProviders = solanaEndpoints();
-  const polygonKey = process.env.POLYGON_API_KEY ?? "";
+  const solProviders = solanaEndpoints(deps.env);
+  const polygonKey = deps.env.POLYGON_API_KEY ?? "";
+  const databentoKey = deps.env.DATABENTO_API_KEY ?? "";
   const faults: TransportFault[] = [];
-  // C-11: every RPC call goes through the fail-closed budget (throws BudgetExceededError past --max-calls).
-  const budgeted = makeBudgetedCall(maxCalls, async (u, m, p) => { if (minInterval > 0) await sleep(minInterval); return bellSolanaCall(u, m, p); });
+  // C-11: every Solana RPC call goes through the fail-closed budget (throws BudgetExceededError past --max-calls).
+  const budgeted = makeBudgetedCall(maxCalls, async (u, m, p) => { if (minInterval > 0) await sleep(minInterval); return deps.call(u, m, p); });
   const call = budgeted.call;
+  // C-G2-7: the cash-close leg (Databento + Massive) folds into the SAME budget — each GET ticks before it fires.
+  const budgetedDatabento: DatabentoGet = (path, key) => { budgeted.tick(); return deps.databentoGet(path, key); };
+  const budgetedPolygon: PolygonGet = (path, key) => { budgeted.tick(); return deps.polygonGet(path, key); };
   const providerDomains = [...new Set(solProviders.map(providerOf))];
 
   // L-2 (D1-quater): --rebase-scan runs the multiplier-trajectory scan/probe mode (rebase-scan.ts) and returns;
@@ -482,13 +522,13 @@ async function main(): Promise<void> {
   // C-10: a scanned trajectory (out-of-repo file) is CONSUMED here so the g_t rebase-aware path is a real main()
   // path, not a fixture. Absent file => every symbol falls back to rebase_unverified (fail-closed).
   const trajectories = loadTrajectories(rebaseTrajectory);
-  const symbols: SymbolInput[] = [];
+  const built: SymbolInput[] = [];
   for (const tok of XSTOCKS.filter((t) => wanted.includes(t.symbol))) {
     const pool = POOLS.find((pp) => pp.baseSymbol === tok.symbol && pp.chain === "solana");
     if (!pool) continue;
-    symbols.push(await buildSolanaSymbol(call, solProviders, tok, pool,
+    built.push(await buildSolanaSymbol(call, solProviders, tok, pool,
       { fromSec: Math.floor(fromUtcMs / 1000), toSec: Math.floor(toUtcMs / 1000) }, toUtcMs, polygonKey,
-      { maxPages, bodySample }, trajectories[tok.symbol], faults));
+      { maxPages, bodySample }, trajectories[tok.symbol], faults, budgetedPolygon));
   }
 
   // Ethereum leg (ADR-T1aii D1): Uniswap v3 TSLAon/USDC swaps via makeUkemiPool.getLogsRange (quorum-2),
@@ -498,24 +538,45 @@ async function main(): Promise<void> {
     if (ethPool) {
       try {
         const ethFills = await liveEthSwaps(ethPool, ethFrom, ethTo);
-        const { closeRefBySession, advDailyVolumes } = await closeAndAdv("TSLA", polygonKey, toUtcMs, ethFills, faults);
-        symbols.push({ symbol: "TSLAon", chain: "ethereum", baseDec: 18, quoteDec: 6, fills: ethFills, fillsResidues: [], closeRefBySession, advDailyVolumes });
+        const advDailyVolumes = await advVolumes("TSLA", polygonKey, toUtcMs, faults, budgetedPolygon);
+        built.push({ symbol: "TSLAon", chain: "ethereum", baseDec: 18, quoteDec: 6, fills: ethFills, fillsResidues: [], closeRefBySession: {}, advDailyVolumes });
       } catch (e) { faults.push({ provider: "ethereum", status: statusOf(e) }); }
     }
   }
 
-  const csvPath = process.env.BELL_HALTS_CSV;
+  // L-1/L-2: read the cash reference close (Databento EQUS.SUMMARY, decision 53) per reference-close day and
+  // cross-check Massive; attach the cross-checked close + per-session marker to each token of the underlying.
+  const datesByUnderlying: Record<string, string[]> = {};
+  for (const s of built) {
+    const u = UNDERLYING[s.symbol] ?? s.symbol;
+    const set = new Set(datesByUnderlying[u] ?? []);
+    for (const d of refCloseDatesForFills(s.fills)) set.add(d);
+    datesByUnderlying[u] = [...set].sort();
+  }
+  const refCloses = await readReferenceCloses(datesByUnderlying, { databentoGet: budgetedDatabento, polygonGet: budgetedPolygon, databentoKey, polygonKey, faults });
+  const symbols: SymbolInput[] = built.map((s) => {
+    const u = UNDERLYING[s.symbol] ?? s.symbol;
+    return { ...s, closeRefBySession: refCloses.closeByUnderlying[u] ?? {}, crossBySession: refCloses.crossByUnderlying[u] ?? {} };
+  });
+
+  const csvPath = deps.env.BELL_HALTS_CSV;
   const haltRows: HaltRow[] = csvPath ? haltsSince(rowsFromCsv(readFileSync(csvPath, "utf8")), Object.values(UNDERLYING), new Date(fromUtcMs).toISOString().slice(0, 10)) : [];
-  const result = collect({ symbols, haltRows, window: { fromUtcMs, toUtcMs }, nowSec: Math.floor(Date.now() / 1000), staleBoundSec: 26 * 3600,
-    generatedAt: new Date().toISOString(), faults, providers: providerDomains, closeSource: "massive-starter-internal" });
+  const result = collect({ symbols, haltRows, window: { fromUtcMs, toUtcMs }, nowSec: Math.floor(deps.nowMs / 1000), staleBoundSec: 26 * 3600,
+    generatedAt: new Date(deps.nowMs).toISOString(), faults, providers: providerDomains, closeSource: refCloses.close_source,
+    cashRequestDigest: refCloses.cash_request_digest, cashCrossMismatchDays: refCloses.cash_cross_mismatch_days, cashCrossUnavailableDays: refCloses.cash_cross_unavailable_days });
 
   mkdirSync(out, { recursive: true });
   writeFileSync(resolve(out, "state.json"), JSON.stringify(result.state, null, 2));
   writeFileSync(resolve(out, "timeline.jsonl"), result.timeline.map((l) => JSON.stringify(l)).join("\n") + "\n");
   writeFileSync(resolve(out, "journal.json"), JSON.stringify(result.journal, null, 2));
-  // provenance.json carries close_source (decision 41) + providers/quorum — a D9 artifact (out of tree, CA-11).
+  // provenance.json carries close_source (decision 53) + cash_request_digest + providers/quorum — a D9 artifact (out of tree, CA-11).
   writeFileSync(resolve(out, "provenance.json"), JSON.stringify(result.provenance, null, 2));
   process.stdout.write(`bell/collect bell_sha=${result.bellSha} symbols=${String(symbols.length)} calls=${String(budgeted.calls())}/${String(maxCalls)} providers=${providerDomains.join(",")} out=${out}\n`);
+}
+
+/** main() is a 3-line shell (C-2): the run-guarded default deps (real network + clock) into runMain. */
+async function main(): Promise<void> {
+  await runMain(process.argv.slice(2), { call: bellSolanaCall, databentoGet, polygonGet, env: process.env, nowMs: Date.now() });
 }
 
 /** V-3: a LOCAL fail-closed error (the `bell/collect:` prefix from parseArgs / assertOutsideRepo) is surfaced

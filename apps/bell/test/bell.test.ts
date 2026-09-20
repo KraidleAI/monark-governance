@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
 import { rowsFromCsv, haltDelta, census, haltsSince, type HaltRow } from "../src/halts.ts";
 import { canonReason, tallyReasons } from "../src/reason-canon.ts";
-import { etWallClockToUtcMs, classifySession } from "../src/sessions.ts";
+import { etWallClockToUtcMs, classifySession, FULL_CLOSURES, HALF_DAYS } from "../src/sessions.ts";
 import { extractPoolSwap, swapsForPool, type JsonRpcCall, type SigInfo, type SwapFill } from "../src/rpc.ts";
 import { vwapDecimal, sessionGap } from "../src/gap.ts";
 import { buildDigest, bellSha, assertNoClose, canonical, provenance, type GapEntry } from "../src/digest.ts";
@@ -177,7 +177,7 @@ test("bell_close_field_reddens", () => {
 // ---- secrets / vocab wiring -----------------------------------------------------------------------
 test("bell_no_secret_in_repo", () => {
   const SECRET = /(authorization\s*:\s*bearer\s+[\w.-]{16,})|(api[-_]?key\s*[=:]\s*["']?[\w.-]{16,})|([A-Z][A-Z_]*_API_KEY\s*=\s*["'][\w.-]{6,})/i;
-  for (const f of ["pools.ts", "rpc.ts", "gap.ts", "halts.ts", "sessions.ts", "digest.ts", "reason-canon.ts", "quorum.ts", "collect.ts", "supply.ts", "volume.ts", "residuals.ts", "ethereum.ts"]) {
+  for (const f of ["pools.ts", "rpc.ts", "gap.ts", "halts.ts", "sessions.ts", "digest.ts", "reason-canon.ts", "quorum.ts", "collect.ts", "close.ts", "supply.ts", "volume.ts", "residuals.ts", "ethereum.ts"]) {
     assert.equal(SECRET.test(readFileSync(join(HERE, "..", "src", f), "utf8")), false, `secret-shaped context in ${f}`);
   }
   assert.ok(SECRET.test('const k = "api-key=abcdef0123456789";')); // mutant: a real key context reddens
@@ -276,6 +276,21 @@ test("bell_zero_volume_abstains_never_zero_gap", () => {
   // the digest ACCEPTS an abstention entry (abstain is not a close-like key) and hashes it
   const entry: GapEntry = { symbol: "TSLAx", session: "weekend", regime: "weekend", vwap: g.vwap, volumeBase: g.volumeBase, n: g.n, abstain: "no_fill_in_window" };
   assert.doesNotThrow(() => { bellSha(buildDigest([entry], { total: 0, emptyResume: 0 })); });
+});
+
+// ---- L-4 (C-8): the committed calendar matches the primary NYSE published calendar (2026 only, [lu]) ----
+test("bell_sessions_match_primary_nyse_calendar", () => {
+  // C-8: 2026 is [lu] (nyse.com/markets/hours-calendars). Compare ONLY the [lu] 2026 subset of the committed
+  // calendar to the primary NYSE published calendar. Declared hypothesis: NYSE and Nasdaq share the holiday
+  // calendar (the underlyings TSLA/NVDA/AAPL are Nasdaq). 2025 = PR-B-CAL (procurement) — NOT reconstructed here.
+  const NYSE_2026_FULL = ["2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25", "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25"];
+  const NYSE_2026_HALF = ["2026-11-27", "2026-12-24"];
+  const committedFull = [...FULL_CLOSURES].filter((d) => d.startsWith("2026-")).sort();
+  const committedHalf = [...HALF_DAYS].filter((d) => d.startsWith("2026-")).sort();
+  // mutant: a committed 2026 closure/half-day disagreeing with the primary reddens (deepEqual).
+  assert.deepEqual(committedFull, [...NYSE_2026_FULL].sort(), "2026 full closures == primary NYSE calendar");
+  assert.deepEqual(committedHalf, [...NYSE_2026_HALF].sort(), "2026 half-days == primary NYSE calendar");
+  assert.equal(committedFull.length, 10, "10 full 2026 closures (incl. Jul 3 observed Independence Day)");
 });
 
 test("bell_halt_last_before_resume_excludes_pre_halt", () => {

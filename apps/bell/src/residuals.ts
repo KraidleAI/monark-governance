@@ -36,6 +36,12 @@ export const COLLECTOR_RESIDUE_CODES = [
                        // Helius omission that would change the final state is caught by C-3, one that would not is not
   "set_authority_unscanned", // D1-quater (decision 60, C-12): the mint's SetAuthority history is not scanned — a
                        // signer-side A->B->A authority change with self-cancelling B-signed updates is the residual gap
+  "cash_cross_mismatch", // -b3b (C-1, C-5): the Databento EQUS.SUMMARY close and the Massive/Polygon cross close
+                       // DISAGREE on the scaled integer (1e-9) for a reference-close day — the session abstains, no g_t,
+                       // never an average nor a silent pick. NAMED `cash_*` so it stays OUTSIDE the CLOSE_KEY guard.
+  "cash_cross_unavailable", // -b3b (C-9, Q3): the Massive cross could not run (no POLYGON_API_KEY / transport 5xx) for a
+                       // reference-close day — DISTINCT from a mismatch and from no_close_ref; interim (a) publishes the
+                       // Databento g_t with this residue + a per-session marker (escalation Q3(ii), error_origin orchestrateur)
 ] as const;
 
 /** The ONE closed list of residual codes (union). Iterated to build the counter and to check state.json. */

@@ -11,7 +11,8 @@
 //    (Thanksgiving 11-26 closed, 11-27 early-close, 12-24 early-close, 12-25 closed).
 // Extending a year = an ADR line + the same first-hand check. Unknown future dates must NOT be guessed.
 
-const FULL_CLOSURES = new Set<string>([
+// Exported read-only for the L-4 primary-calendar cross-check (bell_sessions_match_primary_nyse_calendar, C-8).
+export const FULL_CLOSURES: ReadonlySet<string> = new Set<string>([
   // 2025 (Polygon daily-bar absence; 11 days incl. 01-09 Carter mourning)
   "2025-01-01", "2025-01-09", "2025-01-20", "2025-02-17", "2025-04-18", "2025-05-26",
   "2025-06-19", "2025-07-04", "2025-09-01", "2025-11-27", "2025-12-25",
@@ -19,7 +20,7 @@ const FULL_CLOSURES = new Set<string>([
   "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25", "2026-06-19",
   "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25",
 ]);
-const HALF_DAYS = new Set<string>([
+export const HALF_DAYS: ReadonlySet<string> = new Set<string>([
   "2025-07-03", "2025-11-28", "2025-12-24", // 2025 (Polygon minute-bar early close)
   "2026-11-27", "2026-12-24", // 2026 (NYSE page + Polygon upcoming)
 ]);

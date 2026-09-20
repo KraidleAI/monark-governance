@@ -52,9 +52,15 @@ export function bellSha(digest: Json): string {
   return createHash("sha256").update(canonical(digest)).digest("hex");
 }
 
+/** -b3b (C-9): the per-session close cross-check marker. `matched` = Databento == Massive on the scaled integer;
+ *  `unavailable` = the Massive cross could not run (a single-source publish, interim Q3(ii) (a)); `mismatch` = the
+ *  two disagreed (the session abstains). A consumer filters "cross-checked" vs "single-source" from this field.
+ *  Not a close-like key (dodges CLOSE_KEY: no `close`/`reference`/`p_ref`/`adv` substring). */
+export type CashCross = "matched" | "unavailable" | "mismatch";
 interface GapEntryBase {
   readonly symbol: string; readonly session: string; readonly regime: string | null;
   readonly vwap: string; readonly volumeBase: string; readonly n: number;
+  readonly cash_cross?: CashCross; // -b3b C-9: present only when the reference close went through the cross-check
 }
 /** A gap entry WITH volume: carries g_t and the threshold-exceedance counts. `multiplierUsed` is present ONLY on
  *  a rebase-aware session (D1-quater C-7 — m applied per fill, VWAP_share = Σ|q|/Σ(|b|·m)); absent on the m=1
@@ -63,6 +69,11 @@ export interface GapEntryFilled extends GapEntryBase {
   readonly gT: string;
   readonly exceed1: number; readonly exceed2: number; readonly exceed5: number;
   readonly multiplierUsed?: string;
+  // -b3b (C-6): the publication-policy gate for THIS session's g_t = earliestPublishUtc(refCloseDate) = 16:00 ET of
+  // the reference-close day + 24 h (conservative >= 13:00 + 24 h on a half-day). A T-1b export whitelist consumes it;
+  // it is a policy field, not a market fact, and not a close-like key. Placed on the hashed digest entry (C-6 option a,
+  // declared) so it is tamper-evident and joinable to its g_t; the pinned replay re-pins by subtraction of this field.
+  readonly earliest_publish_utc?: number;
 }
 /** An abstained gap entry: NO g_t. Cases (T-1a-ii V-7, D1-bis C-6): a zero-volume session (a fabricated g_t=0
  *  would be indistinguishable from a real zero gap -- C-4) abstains `no_fill_in_window`; a session WITH volume
@@ -71,7 +82,7 @@ export interface GapEntryFilled extends GapEntryBase {
  *  first-hand vwap, never a fabricated / silently rescaled gap. The digest accepts any; `abstain` is not a
  *  close-like key. */
 export interface GapEntryAbstained extends GapEntryBase {
-  readonly abstain: "no_fill_in_window" | "no_close_ref" | "rebase_unverified";
+  readonly abstain: "no_fill_in_window" | "no_close_ref" | "rebase_unverified" | "cash_cross_mismatch";
 }
 export type GapEntry = GapEntryFilled | GapEntryAbstained;
 /** Build the (timestamp-free) digest body. Entries are sorted for determinism; no close field exists. */

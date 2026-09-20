@@ -296,3 +296,27 @@ un ajustement du rejeu) ; + « upgrade de programme » (E-6) ; **`SetAuthority` 
 `set_authority_unscanned`** (décision 60) : contrairement à la formulation initiale « sans effet », un changement
 d'autorité A→B→A avec updates B-signés qui s'annulent est une faille résiduelle réelle côté signataire, désormais
 listée dans le gate `trajectory_known` (jamais accordé sans elle), avec l'oracle C-3 pour backstop d'état final.
+
+## Amendement D1-quinquies — 2026-09-20 (lot -b3b, worker `claude-opus-4-8[1m]` effort max ; G0 `docs/G0-lot-t1a-ii-b3b.md` + checkpoint-1 C-1..C-11 pliées ; PR-B-DBN `docs/biblio/bell/L-lecture-databento-api-2026-09-20.md` [lu])
+Clôture cash publiable en écart dérivé (ESC-1 c) : **Databento EQUS.SUMMARY `ohlcv-1d`** (`close_source: "databento-equs-summary"`,
+décision 53) **croisé** contre Massive/Polygon `range/1/day adjusted=false` sur **entier scalé 1e-9** (C-5, jamais la chaîne brute) ;
+mismatch ⇒ résiduel nommé `cash_cross_mismatch` + séance abstenue (jamais moyenne) ; Massive indisponible ⇒ résiduel distinct
+`cash_cross_unavailable` + publication (intérim Q3(ii) (a), `error_origin: orchestrateur` si renversée). Noms **hors** motif `CLOSE_KEY`
+(C-1 mesuré : `close_*` numérique fait lever `assertNoClose`). `earliest_publish_utc` = 16 h 00 ET du jour de clôture de référence + 24 h
+(C-6, fonction pure, **placé dans le digest haché par entrée `gT`**, option (a) déclarée) ; re-pin `PINNED_BELL_SHA` par **soustraction**
+(retirer `earliest_publish_utc` des gaps + les 2 clés `cash_*` ⇒ `126abfae…` -b3a). `cash_request_digest` = sha256 de la liste canonique
+des requêtes émises (ni clé ni valeur), en provenance. Delta de halt (fait ii) **rebranché** sur la jambe on-chain (jointure `Symbol`→`underlying`→token/chaîne,
+un bracket par token/chaîne, jamais fusionné). Séance : croisement 2026 [lu] contre le calendrier primaire NYSE (C-8 ; 2025 = PR-B-CAL).
+`no_secret_in_repo` étendu au motif clé Databento `db-`. Endpoint/auth/encodage confirmés first-hand (`metadata.get_cost` 200 + 4 `get_range`,
+bruts sha-pinnés `F:\PRODUITS\etude-2026-09-20\bell-b3b-raws\`) : NDJSON, `close` = chaîne entier scalé 1e-9, `ts_event` sous `hd` = minuit UTC du bar, pas de champ `symbol` (⇒ une requête par symbole). MWCB = **PR-B-8** (procurement, bloquant release, aucune constante). Corporate actions non-rebase ⇒ **-b3c**.
+
+### Tuyaux -b3b (entrée / sortie / état / test) — CA-11 : la composition est EXÉCUTÉE depuis l'artefact
+| Tuyau | Entrée (produit) | Sortie (consomme) | État | Test d'intégration non-LLM |
+|---|---|---|---|---|
+| close Databento → collect | `DatabentoGet` EQUS.SUMMARY `ohlcv-1d` (`runMain`) | `closeRefBySession` → `collect()` → digest / `state.json` | **upcoming** (consommateur servi = T-1b) | `bell_close_databento_replays_synthetic_fixture` |
+| croisement Massive → résiduel | Databento vs Polygon `range/1/day` (entier scalé) | `cash_cross_mismatch` / `cash_cross_unavailable` (compteur + champ `cash_cross` par session) | **upcoming** | `bell_cash_cross_mismatch_is_a_named_residual` ; `bell_read_reference_closes_cross_matched_mismatch_unavailable` |
+| halt CSV + fills → compteur/bracket | `haltRows` + fills on-chain (jointure `underlying`) | `haltDelta` résidus + `halt_deltas` (state) | **upcoming** | `bell_halt_delta_brackets_real_fills_integration` |
+| sessions → calendrier primaire | `FULL_CLOSURES`/`HALF_DAYS` (2026 [lu]) | assertion vs NYSE primaire | **livré/testé, upcoming** | `bell_sessions_match_primary_nyse_calendar` |
+| MWCB → fichier séance (T-1b) | PR-B-8 (doc NYSE sha-pinné) | niveaux + halts par titre + 5 dates | **ABSENT** (item formé, bloquant release) | (doc — assemblé à T-1b) |
+
+Invariant durable : `bell_residual_counter_passes_close_guard` (tout futur nom de résiduel heurtant `CLOSE_KEY` rougit ; exemption `(?<!no_)` non élargie, ESC-1 c). `error_origin` -b3b : rédacteur/worker (aucun défaut latent d'un lot antérieur trouvé).

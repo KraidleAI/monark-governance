@@ -2,22 +2,26 @@
 // No network (readers pre-decide quorum; the low-level call is injected where the quorum primitive is tested).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
-import { assertOutsideRepo, collect, chainTimeline, parseArgs, fatalMessage, makeBudgetedCall, refCloseDatesForFills, type SymbolInput } from "../src/collect.ts";
+import { assertOutsideRepo, collect, chainTimeline, parseArgs, fatalMessage, makeBudgetedCall, refCloseDatesForFills, runMain, type SymbolInput } from "../src/collect.ts";
+import { POOLS } from "../src/pools.ts";
+import { f64BitsHexLE } from "../src/rebase-trajectory.ts";
+import { earliestPublishUtc, type DatabentoGet, type PolygonGet } from "../src/close.ts";
 import { quorum2, signaturesSetKey, statusOf, isSolRevert, NoQuorumError, QuorumDisagreementError, ConcordantRevertError,
   BudgetExceededError, SolRpcError, type JsonRpcCall, type TransportFault } from "../src/quorum.ts";
 import { readMintToken2022, porStatus, wrapperStatus, supplyVsPoRStatement, rebaseGate, rebaseGateFromMint, rebaseForMint } from "../src/supply.ts";
 import { coverageDecision, foundingCourseCostFloorSigs } from "../src/coverage.ts";
 import { volumeToAdvRatio, poolVolumeBase } from "../src/volume.ts";
-import { assertNoClose } from "../src/digest.ts";
+import { assertNoClose, bellSha } from "../src/digest.ts";
 import { newResidualCounts, RESIDUAL_CODES } from "../src/residuals.ts";
 import { solanaEndpoints, PUBLIC_SOLANA, type SwapFill } from "../src/rpc.ts";
 import { providerOf } from "../../sentinel/src/rpc.ts";
 import { operatorOf } from "../src/operators.ts";
-import type { HaltRow } from "../src/halts.ts";
-import { classifySession, refCloseDateOf } from "../src/sessions.ts";
+import { rowsFromCsv, type HaltRow } from "../src/halts.ts";
+import { classifySession, refCloseDateOf, etWallClockToUtcMs } from "../src/sessions.ts";
 import { decodeV3Swap, ethSwapToFill, ethVwap, UNISWAP_V3_SWAP_TOPIC } from "../src/ethereum.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -56,7 +60,12 @@ const anchorKeyOf = (utcMs: number): string => classifySession(utcMs).sessionDat
 // Re-pinned again at -b3a-3 (decision 60): the closed set grew by TWO more keys (`authority_scan_mono_operator: 0`,
 // `set_authority_unscanned: 0`), so the `residuals` map and thus this digest shift once more — fixture BYTES still
 // unchanged (was eaed7ea4b200cf97957d5ea0b4ac4a5f3f4fa6870af7c640fcc61d1c700d6df6).
-const PINNED_BELL_SHA = "126abfaed17630808942a0dafc0ff6f1f9acf375d8f7adc6487d8c1e9e2c06d3";
+// Re-pinned at -b3b: the digest gained (a) two more residual keys (`cash_cross_mismatch: 0`, `cash_cross_unavailable: 0`)
+// and (b) an `earliest_publish_utc` field on each FILLED gap entry (C-6, digest placement). Fixture BYTES unchanged;
+// PROOF BY SUBTRACTION (docs/PLI-lot-t1a-ii-b3b.md): stripping earliest_publish_utc from the gaps and the two
+// cash_* keys from residuals recomputes exactly the -b3a sha 126abfaed17630808942a0dafc0ff6f1f9acf375d8f7adc6487d8c1e9e2c06d3.
+const PINNED_BELL_SHA = "0cfbed20fc7ab4391b687d870452211cdce02c3cc19ab1cc8f0425a3c24743d7";
+const PINNED_BELL_SHA_B3A = "126abfaed17630808942a0dafc0ff6f1f9acf375d8f7adc6487d8c1e9e2c06d3"; // -b3a, recovered by subtraction (b3b_subtraction test)
 
 // ---- replay (bit-identical) ----------------------------------------------------------------------
 test("bell_collector_replays_fixture_bit_identical", () => {
@@ -272,10 +281,14 @@ test("bell_abstentions_counted", () => {
   assert.equal(c.por_unavailable, 2, "A + B");
   assert.equal(c.no_wrapper, 2, "A + B");
   assert.equal(c.multiplier_unit, 1, "B multiplier 2");
-  assert.equal(c.block_ts_vs_submission, 2, "two halts, standing residue");
+  assert.equal(c.block_ts_vs_submission, 2, "two halts, standing residue (row-level, once per row)");
   assert.equal(c.resume_time_missing, 1, "one empty-resume halt");
   assert.equal(c.reason_unknown, 1, "one off-carte graphie");
-  assert.equal(c.no_fill_in_window, 2, "two halts with no fills");
+  // error_origin: generator (-b3b L-3 join). Both halt rows are Symbol=TSLA and now JOIN onto TSLAx's real fill
+  // (blockTimeUtcMs 1_789_824_710_000 = 2026-09-19). Row 1 has an EMPTY resume => window [halt, +inf) => that fill
+  // is in-window => no_fill_in_window does NOT fire for it; only row 2's bounded [11:00,11:05] window abstains.
+  // Was 2 (empty-fills position, pre-join); now 1 (a measurement change from wiring the on-chain leg, not a re-pin).
+  assert.equal(c.no_fill_in_window, 1, "one bounded-window halt with no fill in it (row 2); row 1's open window captures the join fill");
   assert.equal(c.por_stale, 0);
   assert.equal(c.resume_date_gt_halt_date, 0);
   // the state.json view carries the same counters (D8)
@@ -531,4 +544,149 @@ test("bell_c5_coverage_projection_over_threshold_top20", () => {
   assert.ok(none.mode === "abstain" && none.reason === "projection_not_computable");
   // measured FLOOR (lower bound, capped): >= 8000 in-window sigs x 4 mints (spike-findings.json).
   assert.equal(foundingCourseCostFloorSigs(8000, 4), 32000);
+});
+
+// ---- C-1: the residual counter (incl. the new cash_* keys) passes the close-guard; the guard is NOT widened ----
+test("bell_residual_counter_passes_close_guard", () => {
+  // the fresh counter carries cash_cross_mismatch / cash_cross_unavailable and does NOT trip assertNoClose
+  // (the names are OUTSIDE CLOSE_KEY). A future residual name colliding with the guard would redden here.
+  assert.doesNotThrow(() => { assertNoClose(newResidualCounts()); });
+  assert.ok("cash_cross_mismatch" in newResidualCounts() && "cash_cross_unavailable" in newResidualCounts());
+  // a provenance carrying a cash_request_digest hex passes (the key is not close-like), close_source too.
+  assert.doesNotThrow(() => { assertNoClose({ sources: { close_source: "databento-equs-summary", cash_request_digest: "a".repeat(64) } }); });
+  // non-vacuity (ESC-1 c intact): the MEASURED C-1 collision — a `close_*` numeric key STILL reddens (why cash_ was chosen).
+  assert.throws(() => { assertNoClose({ close_cross_mismatch: 0 }); });
+  assert.throws(() => { assertNoClose({ close_request_digest: 0 }); });
+});
+
+// ---- L-2: cash_cross_mismatch is a named residual; matched/unavailable mark the per-session g_t (C-9) ----
+test("bell_cash_cross_mismatch_is_a_named_residual", () => {
+  const refDate = "2026-09-18"; // the weekend series anchors here
+  const run = (status: "matched" | "unavailable" | "mismatch") =>
+    collect({ symbols: [{ ...tslaxInput(364.5), crossBySession: { [refDate]: status } }], haltRows: [],
+      window: { fromUtcMs: 0, toUtcMs: 0 }, nowSec: 1_800_000_000, staleBoundSec: 93600, generatedAt: "t" })
+      .digest as { residuals: Record<string, number>; gaps: Array<Record<string, unknown>> };
+  // mismatch => abstain with the NAMED residual, NO g_t, marked (never an average, never a silent pick).
+  const mm = run("mismatch");
+  assert.equal(mm.residuals.cash_cross_mismatch, 1);
+  const gm = mm.gaps.find((x) => x.abstain === "cash_cross_mismatch");
+  assert.ok(gm && !("gT" in gm) && gm.cash_cross === "mismatch", "mismatch abstains, no g_t, marked");
+  assert.equal(mm.residuals.no_close_ref, 0, "a mismatch is DISTINCT from no_close_ref");
+  // matched => publish g_t with a cross marker + earliest_publish_utc.
+  const ok = run("matched");
+  assert.equal(ok.residuals.cash_cross_mismatch, 0);
+  const gok = ok.gaps.find((x) => "gT" in x);
+  assert.ok(gok && gok.cash_cross === "matched" && typeof gok.earliest_publish_utc === "number");
+  // unavailable => still publish g_t (interim Q3(ii) (a)) + a DISTINCT residual + single-source marker.
+  const unav = run("unavailable");
+  assert.equal(unav.residuals.cash_cross_unavailable, 1);
+  assert.equal((unav.gaps.find((x) => "gT" in x) ?? {}).cash_cross, "unavailable");
+});
+
+// ---- re-pin proof: -b3b digest MINUS its additions recomputes the -b3a pin (by subtraction) ----
+test("bell_pinned_sha_reduces_to_b3a_by_subtraction", () => {
+  const r = collect({ symbols: [tslaxInput(364.5)], haltRows: [], window: { fromUtcMs: 0, toUtcMs: 0 }, nowSec: 1_800_000_000, staleBoundSec: 93600, generatedAt: "t" });
+  assert.equal(r.bellSha, PINNED_BELL_SHA);
+  const d = JSON.parse(JSON.stringify(r.digest)) as { gaps: Array<Record<string, unknown>>; residuals: Record<string, number> };
+  assert.ok(d.gaps.some((g) => "earliest_publish_utc" in g), "a filled gap carries earliest_publish_utc (else the subtraction is vacuous)");
+  for (const g of d.gaps) delete g.earliest_publish_utc;
+  delete d.residuals.cash_cross_mismatch;
+  delete d.residuals.cash_cross_unavailable;
+  assert.equal(bellSha(d as unknown as Parameters<typeof bellSha>[0]), PINNED_BELL_SHA_B3A);
+});
+
+// ---- L-3: the halt delta is EXECUTED on real fills, one bracket per token/chain (CA-11 composition) ----
+test("bell_halt_delta_brackets_real_fills_integration", () => {
+  // the synthetic halt CSV (Symbol=TSLA, outside series/) + the REAL weekend fills (series/) => collect() brackets.
+  const rows = rowsFromCsv(readFileSync(join(HERE, "fixtures", "halts-tsla-synth.csv"), "utf8"));
+  assert.equal(rows.length, 1);
+  const fills = loadSeriesFills();
+  const tslax: SymbolInput = { symbol: "TSLAx", chain: "solana", baseDec: 8, quoteDec: 6, fills, fillsResidues: [], closeRefBySession: {}, advDailyVolumes: [] };
+  // second token = a TSLAon SymbolInput built IN-TEST (declared, in-memory), one fill inside the same window.
+  const tslaon: SymbolInput = { symbol: "TSLAon", chain: "ethereum", baseDec: 18, quoteDec: 6,
+    fills: [{ signature: "eth1", blockTimeUtcMs: 1_789_824_680_000, baseDelta: 1_000_000_000_000_000_000n, quoteDelta: -365_000_000n }],
+    fillsResidues: [], closeRefBySession: {}, advDailyVolumes: [] };
+  const r = collect({ symbols: [tslax, tslaon], haltRows: rows, window: { fromUtcMs: 0, toUtcMs: 0 }, nowSec: 1_800_000_000, staleBoundSec: 93600, generatedAt: "t" });
+  const hd = (r.state as { halt_deltas?: Array<Record<string, unknown>> }).halt_deltas ?? [];
+  // ONE bracket per token/chain, never merged (mutant: merge => length 1).
+  assert.equal(hd.length, 2);
+  const bx = hd.find((x) => x.symbol === "TSLAx");
+  const bo = hd.find((x) => x.symbol === "TSLAon");
+  assert.ok(bx && bo && bx.chain === "solana" && bo.chain === "ethereum");
+  // TSLAx bracket: first fill AFTER halt = earliest real fill, last BEFORE resume = latest, n = all 8 in-window.
+  assert.equal(bx.first_fill_after_halt_utc_ms, 1_789_824_664_000);
+  assert.equal(bx.last_fill_before_resume_utc_ms, 1_789_824_710_000);
+  assert.equal(bx.n_fills_in_window, 8);
+  // mutant: join absent (fills not passed) => n would be 0 (position, never a measure).
+  assert.notEqual(bx.n_fills_in_window, 0);
+  // TSLAon bracket is DISTINCT (its own in-memory fill), proving per-token/chain brackets.
+  assert.equal(bo.n_fills_in_window, 1);
+  assert.equal(bo.first_fill_after_halt_utc_ms, 1_789_824_680_000);
+  // mutant: a halt bound shifted +30s drops the pre-shift fills (the bracket bound is load-bearing).
+  const late = rowsFromCsv(readFileSync(join(HERE, "fixtures", "halts-tsla-synth.csv"), "utf8").replace("09:31:00", "09:31:30"));
+  const rLate = collect({ symbols: [tslax], haltRows: late, window: { fromUtcMs: 0, toUtcMs: 0 }, nowSec: 1_800_000_000, staleBoundSec: 93600, generatedAt: "t" });
+  const bxLate = ((rLate.state as { halt_deltas?: Array<Record<string, unknown>> }).halt_deltas ?? []).find((x) => x.symbol === "TSLAx");
+  assert.notEqual(bxLate?.first_fill_after_halt_utc_ms, bx.first_fill_after_halt_utc_ms);
+});
+
+// ---- L-1 (C-2): runMain composes the WHOLE pipeline offline (read fills -> Databento close cross-check ->
+// ---- collect -> write state/provenance), asserted on the PRODUCED artifacts (never a regex on the source) ----
+test("bell_close_databento_replays_synthetic_fixture", async () => {
+  const btMs = Date.UTC(2026, 8, 19, 13, 31, 4), btSec = Math.floor(btMs / 1000); // Sat 2026-09-19 => weekend, ref close 2026-09-18
+  const pool = POOLS.find((p) => p.baseSymbol === "TSLAx" && p.chain === "solana")!;
+  // a swap giving vwap = 365 exactly: +1.0 TSLAx (8 dec) for 365 USDC (6 dec).
+  const swapBody = { slot: 1, transaction: { message: { accountKeys: [{ pubkey: pool.vaultBase }, { pubkey: pool.vaultQuote }] } },
+    meta: { err: null, preTokenBalances: [{ accountIndex: 0, uiTokenAmount: { amount: "1000000000" } }, { accountIndex: 1, uiTokenAmount: { amount: "5000000000" } }],
+      postTokenBalances: [{ accountIndex: 0, uiTokenAmount: { amount: "1100000000" } }, { accountIndex: 1, uiTokenAmount: { amount: "4635000000" } }] } };
+  const call: JsonRpcCall = (_url, method) => {
+    if (method === "getSignaturesForAddress") return Promise.resolve([{ signature: "sig1", slot: 1, blockTime: btSec, err: null }]);
+    if (method === "getTransaction") return Promise.resolve(swapBody);
+    if (method === "getAccountInfo") return Promise.resolve({ context: { slot: 9 }, value: { data: { parsed: { info: { supply: "1000000000", decimals: 8, extensions: [] } } } } });
+    throw new Error("unexpected " + method);
+  };
+  // synthetic fixtures (declared, in-memory): Databento returns a scaled-int close 364.0 for TSLA on the ref day;
+  // Massive returns 364 (matched) for the cross and a volume for the ADV leg. NO real close is committed.
+  const databentoGet: DatabentoGet = () => Promise.resolve([{ hd: { ts_event: String(BigInt(Date.UTC(2026, 8, 18)) * 1_000_000n) }, close: "364000000000" }]);
+  const polygonGet: PolygonGet = (path) => Promise.resolve(path.includes("adjusted=false") ? { results: [{ c: 364 }] } : { results: [{ v: 1_000_000, c: 364 }] });
+  // a scanned trajectory (constant m=1) so the gate is `constant` and collect() computes g_t (else it abstains).
+  const outDir = mkdtempSync(join(tmpdir(), "bell-runmain-"));
+  const trajPath = join(outDir, "traj.json");
+  writeFileSync(trajPath, JSON.stringify({ TSLAx: { events: [{ kind: "initialize", multiplier: "1", multiplierBitsHex: f64BitsHexLE(1), effectiveTimestampSec: 0, blockTimeSec: 0, slot: 1, instructionIndex: 0, signature: "s1" }], scanComplete: true } }));
+  const env = { BELL_SOLANA_RPC: "https://mainnet.helius-rpc.com,https://solana-mainnet.core.chainstack.com", POLYGON_API_KEY: "p", DATABENTO_API_KEY: "k" } as NodeJS.ProcessEnv;
+  const argv = ["--pools", "TSLAx", "--max-calls", "100000", "--body-sample", "0", "--min-interval", "0",
+    "--from-utc", String(btMs - 2 * 86_400_000), "--to-utc", String(btMs + 86_400_000), "--rebase-trajectory", trajPath, "--out", outDir];
+  await runMain(argv, { call, databentoGet, polygonGet, env, nowMs: btMs + 86_400_000 });
+
+  const state = JSON.parse(readFileSync(join(outDir, "state.json"), "utf8")) as { residuals: Record<string, number>; digest: { gaps: Array<Record<string, unknown>> } };
+  const prov = JSON.parse(readFileSync(join(outDir, "provenance.json"), "utf8")) as { sources: Record<string, unknown> };
+  // the seam ran: close_source names Databento (mutant: drop the seam => close_source absent => red).
+  assert.equal(prov.sources.close_source, "databento-equs-summary");
+  assert.match(String(prov.sources.cash_request_digest), /^[0-9a-f]{64}$/); // present, no key, no value
+  assert.equal(state.residuals.cash_cross_mismatch, 0); // matched
+  const gap = state.digest.gaps.find((g) => "gT" in g);
+  assert.ok(gap, "a filled g_t gap was produced from the composed close");
+  assert.equal(gap.cash_cross, "matched");
+  // C-4: g_t derived OFF-CODE from the round inputs (vwap 365 from the declared deltas, close 364) — not captured.
+  assert.equal(gap.gT, Math.log(365 / 364).toFixed(10));
+  assert.equal(typeof gap.earliest_publish_utc, "number");
+  // no reference close leaks into ANY produced artifact (ESC-1 c).
+  assert.doesNotThrow(() => { assertNoClose(state); });
+  assert.doesNotThrow(() => { assertNoClose(prov.sources); });
+});
+
+// ---- C-6 (option a rationale): earliest_publish_utc rides ON each filled entry => JOINABLE per session ----
+test("bell_earliest_publish_utc_is_joinable_per_session_on_collect_output", () => {
+  // two filled off-hours sessions on DIFFERENT reference-close days must carry DIFFERENT earliest_publish_utc =
+  // earliestPublishUtc(refDate) — proving the field is joinable (why it lives in the digest, not one envelope scalar).
+  const fA: SwapFill = { signature: "a", blockTimeUtcMs: Date.UTC(2026, 8, 19, 13, 0, 0), baseDelta: 100_000_000n, quoteDelta: -364_000_000n }; // Sat => ref 2026-09-18
+  const fB: SwapFill = { signature: "b", blockTimeUtcMs: Date.UTC(2026, 8, 12, 13, 0, 0), baseDelta: 100_000_000n, quoteDelta: -360_000_000n }; // Sat => ref 2026-09-11
+  const sym: SymbolInput = { symbol: "TSLAx", chain: "solana", baseDec: 8, quoteDec: 6, fills: [fA, fB], fillsResidues: [],
+    closeRefBySession: { "2026-09-18": 364, "2026-09-11": 360 }, advDailyVolumes: [] };
+  const d = collect({ symbols: [sym], haltRows: [], window: { fromUtcMs: 0, toUtcMs: 0 }, nowSec: 1_800_000_000, staleBoundSec: 93600, generatedAt: "t" }).digest as { gaps: Array<Record<string, unknown>> };
+  const epus = d.gaps.filter((g) => "gT" in g).map((g) => g.earliest_publish_utc as number).sort((x, y) => x - y);
+  assert.equal(epus.length, 2, "two filled sessions on two ref-close days");
+  assert.notEqual(epus[0], epus[1], "distinct ref-close days => distinct publish gates (joinable, not one scalar)");
+  assert.deepEqual(epus, [earliestPublishUtc("2026-09-11"), earliestPublishUtc("2026-09-18")].sort((x, y) => x - y), "each entry carries its OWN refDate gate");
+  // C-6 on the PRODUCED output: the later gate is >= 16:00 ET of its refDate + 24h.
+  assert.ok(epus[1]! >= etWallClockToUtcMs(2026, 9, 18, 16, 0, 0) + 86_400_000);
 });
