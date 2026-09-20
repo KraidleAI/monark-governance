@@ -42,9 +42,17 @@ import {
 import type { FinancialSystem, Position, LiquidableResult } from "@monark/ukemi";
 import { assertClosedPrediction, assertNoForbiddenKey } from "@monark/contracts";
 import type { Prediction } from "@monark/contracts";
-import { CASCADE_UNCALIBRATED_SENTENCE } from "./gate.ts";
+import { CASCADE_UNCALIBRATED_SENTENCE, TASK_CASCADE } from "./gate.ts";
 
 export const CASCADE_TOOL_NAME = "cascade";
+
+/**
+ * The v0 predictor id, now carried BY THE HARNESS (U-2a, ADR-U2 / C-1): `@monark/ukemi` no longer
+ * exports `UKEMI_PREDICTOR_ID`. The transitional cascade tool passes this string (with `TASK_CASCADE`
+ * from ./gate.ts) to `emitPrediction`, so the served Prediction is byte-identical to before (h5 pin
+ * unchanged). Removed with the cascade tool at U-4 (ADR-M020 D4 amended by decision 51).
+ */
+export const CASCADE_PREDICTOR_ID = "internal:ukemi-cascade-v0";
 
 /**
  * Resource cap (deploy-hardening): the maximum node count `n` (`|L| = |e|`) the cascade accepts.
@@ -189,7 +197,7 @@ export function cascadeLiquidable(input: CascadeInput): LiquidableResult {
 export function runCascade(input: CascadeInput): Prediction {
   const liquidable = cascadeLiquidable(input);
   const yhat = liquidable.liquidableDebt; // target A: total obligations tipped into the liquidable region.
-  const prediction = emitPrediction(yhat, input.producedAt);
+  const prediction = emitPrediction(yhat, input.producedAt, { predictorId: CASCADE_PREDICTOR_ID, taskClass: TASK_CASCADE });
   // Honesty gates (D9): the wire is the frozen, closed Prediction — nothing else.
   assertClosedPrediction(prediction);
   assertNoForbiddenKey(prediction);

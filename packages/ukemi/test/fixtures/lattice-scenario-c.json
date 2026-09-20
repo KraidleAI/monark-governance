@@ -1,0 +1,13 @@
+{
+  "name": "lattice-scenario-c",
+  "note": "NOTE-treillis §3 counterexample C: P0=100, D=0, lambda=0.001 (linear). Positions (pCrit,debt)=(99,100),(85,100), sumB=200. 2*lambda*sumB=0.4<1 (the AFM (iii) analogue holds) yet THREE fixed points {0,100,200}: Q_*=0, applyT(100)=100, Q^*=200. Refutes '2*lambda*sumB<1 => unique' (discrete demand). Prop. 4 predicate FALSE (dormant pCrit=99 > P_min=80). Kills m2 (Picard-up from sumB gives 200 not 0) and m4 (inverted predicate).",
+  "p0": 100,
+  "drop": 0,
+  "lambda": 0.001,
+  "demand": "linear",
+  "positions": [
+    { "pCrit": 99, "debt": 100 },
+    { "pCrit": 85, "debt": 100 }
+  ],
+  "expected": { "smallest": 0, "greatest": 200 }
+}

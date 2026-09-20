@@ -15,13 +15,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { assertClosedPrediction, assertNoForbiddenKey } from "@monark/contracts";
-import { clearing, pbarOf, UKEMI_PREDICTOR_ID } from "@monark/ukemi";
+import { clearing, pbarOf } from "@monark/ukemi";
 import {
   runCascade,
   cascadeLiquidable,
   CascadeToolError,
   CASCADE_TOOL_DESCRIPTION,
   CASCADE_MAX_NODES,
+  CASCADE_PREDICTOR_ID,
   type CascadeInput,
 } from "../src/tools/cascade.ts";
 import { CASCADE_INPUT_SCHEMA, CASCADE_OUTPUT_SCHEMA, cascadeInputStandardSchema, type Json } from "../src/schema-projection.ts";
@@ -63,7 +64,7 @@ test("cascade_returns_frozen_prediction", () => {
   assertNoForbiddenKey(p);
   assert.equal(p.schema_version, "1.0.0");
   assert.equal(p.task_class, "cascade-liquidable-24h");
-  assert.equal(p.predictor_id, UKEMI_PREDICTOR_ID);
+  assert.equal(p.predictor_id, CASCADE_PREDICTOR_ID);
   assert.equal(p.produced_at, "2026-09-04T00:00:00Z");
   assert.equal(typeof p.yhat, "number");
   assert.equal(p.yhat, 100, "at shock 0.2 only node 0 tips (90*0.8=72 < 100)");
