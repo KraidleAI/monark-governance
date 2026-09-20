@@ -75,7 +75,7 @@ Le lot -b est découpé en **quatre sous-lots séquentiels** (un worker à la fo
   `apps/bell/test/fixtures/series/` (exclues R-25). **État public : `upcoming`** (CA-11 ; aucune surface servie —
   Bell n'est « built » qu'à T-1b : règle de branchement). Le code -b1 (operators, corrections collect, gate rebase,
   report) est aujourd'hui consommé par des **tests** (oracle non-LLM) + un smoke live, pas par un chemin servi ⇒ reste `upcoming`.
-- **Test** : 45 tests bell au gel `2ac2e25` — **49 après pli G2 -b1-2** (+4 : C-G2-1/3/5 sur `collect.test.ts`,
+- **Test** : 45 tests bell au gel `2ac2e25` — **49 après pli G2 -b1-2** (48 bell + 1 racine `no_secret_in_repo`) (+4 : C-G2-1/3/5 sur `collect.test.ts`,
   C-G2-4 sur `report.test.ts`) (`bell.test.ts`+`collect.test.ts`+`report.test.ts`) ; racine `no_secret_in_repo`
   (5 motifs C-10 + mutant), `series_pinned_are_declared_and_hashed` (spike files, dont `spike-poc-discovery.json`) ;
   smoke live (budget-stop exit 1 verbatim ; quorum 2 opérateurs ; aucune url/clé/uuid en sortie). Mutants ≥ 8 (voir PLI).
