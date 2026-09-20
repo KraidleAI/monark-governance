@@ -12,8 +12,9 @@ is J0+1; T counts live steps.
 
 **Committed files this runbook installs:**
 - `deploy/monark-sentinel.service` — the `oneshot` unit (`User=sentinel`, `ReadWritePaths=/var/lib/monark-sentinel`).
-- `deploy/monark-sentinel.timer` — daily 00:30 UTC + jitter, `Persistent=true`.
+- `deploy/monark-sentinel.timer` — four same-day retry slots (00:30/03:30/06:30/09:30 UTC) + jitter, `Persistent=true` (ADR-NARABI-OPS-1 L-2).
 - `deploy/Caddyfile.monark-narabi.snippet` — the `handle_path /narabi/*` block to INSERT in the vitrine block.
+- `/etc/monark/sentinel.env` — NOT committed: the optional `CHAINSTACK_ETH_URL` (a distinct paid operator, ADR-NARABI-OPS-1 L-3). Posted by the orchestrator in step 4; absent, the run falls back to the 8 public endpoints and stays fail-closed.
 
 ---
 
@@ -67,12 +68,30 @@ drop-in is the one honest way to declare J0 so T counts live steps from J0+1.
 ```bash
 cp /opt/monark-harness/deploy/monark-sentinel.service /etc/systemd/system/
 cp /opt/monark-harness/deploy/monark-sentinel.timer   /etc/systemd/system/
+# (ADR-NARABI-OPS-1 L-2 / C-2) Validate ALL FOUR OnCalendar retry slots BEFORE enabling — a malformed
+# expression would silently never fire:
+grep '^OnCalendar=' /etc/systemd/system/monark-sentinel.timer | cut -d= -f2- | \
+  while read -r e; do systemd-analyze calendar "$e" || echo "STOP: invalid OnCalendar '$e'"; done
+#   expect four "Next elapse:" blocks, no STOP.
 # Set J0 (the first published day) as a drop-in so T counts live steps from J0+1 (never --day; O-b):
 # Explicit drop-in (scriptable over SSH; `systemctl edit` needs a TTY/editor and is NOT used):
 mkdir -p /etc/systemd/system/monark-sentinel.service.d
 printf '[Service]\nEnvironment=MONARK_SENTINEL_J0=<J0>\n' > /etc/systemd/system/monark-sentinel.service.d/override.conf
+# (ADR-NARABI-OPS-1 L-3 / C-5 / C-9) Post the OPTIONAL Chainstack key OUT OF BAND, from the orchestrator's LOCAL
+# shell (where $CHAINSTACK_ETH_URL already lives — decision 43): via ssh STDIN so the key never appears in a
+# command-line arg, the transcript, or any git-tracked file. NEVER `cat` the remote file back; NEVER `set -x`.
+#   printf 'CHAINSTACK_ETH_URL=%s\n' "$CHAINSTACK_ETH_URL" \
+#     | ssh -i ~/.ssh/monark_vps root@31.97.155.188 \
+#         'umask 077; install -d -m 0750 -o root -g sentinel /etc/monark; cat > /etc/monark/sentinel.env; chown root:sentinel /etc/monark/sentinel.env; chmod 0640 /etc/monark/sentinel.env'
+#   Verify by DIGEST on BOTH sides (never print the file contents) — the two hashes MUST be identical:
+#   printf 'CHAINSTACK_ETH_URL=%s\n' "$CHAINSTACK_ETH_URL" | sha256sum                 # local
+#   ssh -i ~/.ssh/monark_vps root@31.97.155.188 'sha256sum /etc/monark/sentinel.env'  # remote
+#   (The investor MAY post /etc/monark/sentinel.env themselves instead; this runbook accepts it identically.)
+#   Skipping this step is legal (the '-' on EnvironmentFile): the run falls back to the 8 public endpoints,
+#   fail-closed, and `chainstack:false` appears in the run's end JSON.
 systemctl daemon-reload
 systemctl show -p Environment monark-sentinel.service   # MUST print MONARK_SENTINEL_J0=<J0> BEFORE enable --now
+systemctl show -p EnvironmentFiles monark-sentinel.service  # expect -/etc/monark/sentinel.env (the leading - = optional)
 systemctl enable --now monark-sentinel.timer
 systemctl list-timers monark-sentinel.timer --no-pager    # next elapse ~00:30 UTC
 # First manual step (optional, on/after J0): `systemctl start monark-sentinel.service` then
@@ -106,3 +125,14 @@ reload caddy`. Disable the job with `systemctl disable --now monark-sentinel.tim
 - Manual catch-up (never skips): `systemctl start monark-sentinel.service` (processes every complete day in order).
 - Verify publication: `curl -s https://monarkgate.tech/narabi/state.json | head -c 300`; anyone can replay it
   via the committed `trackerReplay` over the `s` column of `timeline.jsonl`.
+- Exit code (ADR-NARABI-OPS-1 L-1): a run exits **1** iff it was STOPPED before catching up (`stopped != null`
+  in the end JSON — a fetch/quorum/c1/unfinalized failure); **0** when up to date or waiting for finality. A
+  later retry slot the same day re-runs it; `journalctl -u monark-sentinel` shows the non-zero exit plus the
+  `stopped` / `exit_code` / `chainstack` fields. The manual relaunch of 2026-09-20 is now automatic within the day.
+
+## Sonde externe — pli NARABI-OPS-1b
+
+The external probe (reads the published `/narabi/timeline.jsonl` from the **Bell VPS**, a distinct host, and
+exits 1 if the last line is older than J-1) is **deferred to pli NARABI-OPS-1b** (R-25 budget, C-11). Its full
+spec is in `docs/adr/ADR-NARABI-OPS-1.md` (§Deferral of L-5). Until then, monitor by hand: `curl -s
+https://monarkgate.tech/narabi/timeline.jsonl | tail -1` — the last `day` should be yesterday (UTC) after 10:00.

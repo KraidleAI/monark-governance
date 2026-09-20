@@ -1,12 +1,24 @@
-# systemd timer for the MONARK Narabi sentinel (ADR-M012 D5). Daily 00:30 UTC + up to 30 min jitter: by then
-# the previous UTC day's close is finalized, so the run publishes it. Persistent=true: a run missed while the
-# VPS was off fires on next boot — a missed day is LAG, never skipped. Enable: systemctl enable --now (step 4).
+# systemd timer for the MONARK Narabi sentinel (ADR-M012 D5; same-day retry slots ADR-NARABI-OPS-1 L-2). FOUR
+# daily UTC slots (00:30, 03:30, 06:30, 09:30) + up to 30 min jitter: by 00:30 the previous UTC day's close is
+# finalized, so the first slot publishes it; the later three are same-day RETRIES so a transient RPC failure
+# (the 2026-09-20 incident: a stopped run cost a day of publication until a manual relaunch) is caught up within
+# the day, not the next. Once the day's line is written, each later slot is a no-op "nothing due" (idempotent —
+# proven offline by the L-4 replay). The retry is carried by the timer, NOT by systemd Restart= (the service is
+# a oneshot => a clean journal). Enable: systemctl enable --now (RUNBOOK step 4).
 [Unit]
-Description=MONARK Narabi sentinel daily timer (ADR-M012 D5)
+Description=MONARK Narabi sentinel daily timer with same-day retry slots (ADR-M012 D5; ADR-NARABI-OPS-1)
 Documentation=https://github.com/KraidleAI/monark
 
 [Timer]
+# Four separate expressions (systemd.timer: "May be specified more than once ... trigger whenever any of the
+# expressions elapse"); C-2: NEVER the invalid single-line list `00:30,03:30,06:30,09:30` (a comma list of
+# hh:mm pairs is not a valid OnCalendar spec). Verify each with `systemd-analyze calendar '<expr>'` (RUNBOOK).
 OnCalendar=*-*-* 00:30:00 UTC
+OnCalendar=*-*-* 03:30:00 UTC
+OnCalendar=*-*-* 06:30:00 UTC
+OnCalendar=*-*-* 09:30:00 UTC
+# Persistent=true still fires ONE catch-up run at boot if a slot was missed (a missed day is LAG, never
+# skipped), never one per missed slot; the L-4 idempotence makes a duplicate slot a no-op regardless.
 RandomizedDelaySec=1800
 Persistent=true
 Unit=monark-sentinel.service
