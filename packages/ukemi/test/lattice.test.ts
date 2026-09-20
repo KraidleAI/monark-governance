@@ -7,6 +7,9 @@
 //   m5 flip the sign of lambda    => lattice_monotone_in_lambda RED (Q^* throws / != 90)
 //   m8 swap linear<->exponential  => lattice_linear_bounds_exponential_from_above RED (Q^*_lin != 100)
 // + the predictor-id removal: ukemi_package_exports_no_predictor_id (constant reintroduced => RED).
+// + a FIXTURE mutant (not a src mutant): altering expected.greatest of a scenario fixture => named test
+//   lattice_fixture_expected_values_hold RED (branches the loader's validated-but-unread `expected`; the
+//   mutant is restored byte-exact — see docs/PLI-lot-u2a.md annex "pli 2", OBS-1).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
@@ -200,5 +203,41 @@ test("ukemi_package_exports_no_predictor_id", () => {
     if (!file.endsWith(".ts")) continue;
     const text = readFileSync(join(srcDir, file), "utf8");
     for (const tok of forbidden) assert.ok(!text.includes(tok), `${file} must not contain "${tok}" (reintroduced constant would redden)`);
+  }
+});
+
+// OBS-1 (docs/G2-lot-u2a.md): loadLatticeScenario VALIDATES `expected: {smallest, greatest}` (throws if
+// absent/mistyped) yet nothing asserted it — a's 20/90 and c's 0/200 are pinned above as hard-coded literals
+// (lattice_monotone_in_lambda, lattice_three_fixed_points_counterexample), while b's 50/50 is cross-checked
+// against the independent liquidableAmount (lattice_lambda_zero_equals_static_liquidable) — so THIS test is
+// the first to assert b's 50/50 literally. Those guards STAY (double guard). This parameterized test
+// BRANCHES `expected`: for every fixture that carries it, Q_* and Q^* under the fixture's OWN declared lambda
+// and demand must equal expected.smallest / expected.greatest. A future scenario with a wrong (well-typed)
+// `expected` now reddens here — the "validated but never read" gap OBS-1 named. Fixtures a/b/c already carry
+// lambda+demand; the WETH book fixture carries no `expected`, so it is skipped (and must stay so: it is pinned
+// bit-identical to the derivation script by lattice_weth_fixture_replays_bit_identical).
+test("lattice_fixture_expected_values_hold", () => {
+  const fixturesDir = fileURLToPath(new URL("./fixtures", import.meta.url));
+  const checked: string[] = [];
+  for (const file of readdirSync(fixturesDir)) {
+    if (!file.endsWith(".json")) continue;
+    const raw: unknown = JSON.parse(readFileSync(join(fixturesDir, file), "utf8"));
+    if (typeof raw !== "object" || raw === null) continue;
+    const o = raw as Record<string, unknown>;
+    if (!("expected" in o)) continue;
+    // Fail-closed: a fixture that carries `expected` IS a lattice scenario; loadLatticeScenario throws if it
+    // is malformed (never a silent skip — a silent skip is the very gap OBS-1 flagged).
+    const s = loadLatticeScenario(file);
+    const state = stateOf(s);
+    assert.equal(smallestFixedPoint(state).value, s.expected.smallest,
+      `${file}: Q_* == expected.smallest (${String(s.expected.smallest)}) under declared lambda=${String(s.lambda)} ${s.demand}`);
+    assert.equal(greatestFixedPoint(state).value, s.expected.greatest,
+      `${file}: Q^* == expected.greatest (${String(s.expected.greatest)}) under declared lambda=${String(s.lambda)} ${s.demand}`);
+    checked.push(file);
+  }
+  // Non-vacuity: the three scenario fixtures MUST each be discovered and asserted, so the parameterized test
+  // can never silently degrade to checking nothing (which would re-create the unbranched state OBS-1 named).
+  for (const f of ["lattice-scenario-a.json", "lattice-scenario-b.json", "lattice-scenario-c.json"]) {
+    assert.ok(checked.includes(f), `${f} must be discovered and asserted (it carries expected)`);
   }
 });

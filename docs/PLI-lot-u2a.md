@@ -90,3 +90,60 @@ Rejeu `execFileSync(process.execPath, [derive-weth-lattice-fixture.mjs])` → sh
 
 ## 10. Provenance
 Artefacts générés par le worker U-2a, modèle épinglé `claude-opus-4-8[1m]`, effort max, 2026-09-20 ; scratch `F:/tmp/u2a/` (rien sur C:) ; aucun appel réseau ; arbre propre hors touched set ci-dessus. `error_origin` à assigner au G7. Vérification adversariale due (R-21) : G2 fraîche + checkpoint-2 (rejeu `npm run ci`, sha de trace, script → sha, mutants m1-m5/m8/prédicteur) + G7.
+
+---
+
+## Annexe « pli 2 » — U-2a-2 : branchement du champ `expected` des fixtures (OBS-1)
+
+Worker de pli, modèle épinglé **`claude-opus-4-8[1m]`** (préfixe `claude-opus-4-8` conforme ; R-1), effort max, 2026-09-20. Worktree `F:\Monark-wt-u2a`, branche `lot/u-2a`, HEAD `0538bbf`. Base R-25 `5fe6c12`. Scratch `F:/tmp/u2a-2/` (rien sur C:). Aucun réseau. Le worker ne committe pas (R-20) ; sortie à re-vérifier adversarialement (R-21).
+
+**Motif** : OBS-1 (docs/G2-lot-u2a.md l.51) — `loadLatticeScenario` **valide** `expected: {smallest, greatest}` (throw si absent/mal typé) mais **aucun test ne l'assertait** ; les tests réaffirmaient 20/90 (a) et 0/200 (c) en littéraux codés en dur, et 50/50 (b) **par recoupement avec `liquidableAmount`** (jamais l'assertion directe de `expected` ; ce pli est le **premier** à asserter 50/50 littéralement). Pièce « validée mais non lue » = non branchée (règle Branchement 2026-09-19). Pli : câbler `expected` par un test paramétré, **sans retirer** les littéraux (double garde).
+
+### Touched set (mesuré `git status --short` + `git diff --numstat HEAD`)
+| Fichier | Δ (vs HEAD) | Rôle |
+|---|---|---|
+| `packages/ukemi/test/lattice.test.ts` | +39/-0 | test paramétré `lattice_fixture_expected_values_hold` + 3 lignes d'en-tête (mutant m-fx documenté) |
+| `docs/PLI-lot-u2a.md` | cette annexe (docs, **hors R-25**) | provenance du pli |
+
+Aucun autre fichier modifié (`git status --short` final = ` M packages/ukemi/test/lattice.test.ts` + ` M docs/PLI-lot-u2a.md`). Fixtures a/b/c **inchangées** : elles portaient déjà `lambda` et `demand` (a : 0,004/linear ; b : 0/linear ; c : 0,001/linear) — rien ajouté (consigne « ajoute lambda/demand si absents » ⇒ **présents, rien à ajouter**). WETH `weth-book-23545087.json` **hors périmètre** : ne porte pas `expected`, et est épinglée octet-identique au script de dérivation par `lattice_weth_fixture_replays_bit_identical` — y ajouter une clé la rougirait.
+
+### Le test (branchement)
+`lattice_fixture_expected_values_hold` : découverte **dynamique** de `packages/ukemi/test/fixtures/*.json` ; pour CHAQUE fixture portant `expected` (**fail-closed** : `loadLatticeScenario` throw si mal formé — jamais un skip silencieux, qui recréerait le trou d'OBS-1), asserte sous le Λ et la forme **déclarés dans la fixture** (`stateOf(s)`, sans override) :
+- `smallestFixedPoint(state).value === expected.smallest`
+- `greatestFixedPoint(state).value === expected.greatest`
+
+Garde de **non-vacuité** : les 3 scénarios a/b/c doivent être découverts et assertés (le test ne peut pas dégénérer en « ne vérifie rien »). Aujourd'hui : 3 fixtures branchées ; toute 4ᵉ scénario au `expected` faux mais bien typé **rougit désormais** (le trou exact nommé par OBS-1 : « une 4ᵉ fixture au expected faux passerait aujourd'hui »). Valeurs re-calculées sous Λ déclaré et vertes : a (Λ=0,004) Q_*=20/Q^*=90 ; b (Λ=0) 50/50 ; c (Λ=0,001) 0/200.
+
+### sha256 (LF) avant/après
+| Fichier | avant | après |
+|---|---|---|
+| `packages/ukemi/test/lattice.test.ts` | `f411d79225ec3e284f4330eb5aabec65a2b529f9657c1dfe0ddf5d735ef3f446` | `83689716e5d836b138f4bfcba8c56a5c12daf1370db8d24add72f62150380175` |
+| `packages/ukemi/test/fixtures/lattice-scenario-a.json` | `5a6a75a87cecae18746194d717156a27e58a3c86986fa6d5bf1d7eb45caf45b6` | `5a6a75a87cecae18746194d717156a27e58a3c86986fa6d5bf1d7eb45caf45b6` (inchangée) |
+
+Convention : `sed 's/\r$//' FICHIER | sha256sum` == `git show HEAD:FICHIER | sha256sum`, re-vérifiée sur `lattice.ts`/`lattice.test.ts` == PLI §3 (fichiers LF sur disque).
+
+### Mutant (m-fx : altération de `expected.greatest`)
+`sed -i 's/"greatest": 90/"greatest": 91/'` sur `lattice-scenario-a.json` (sha `5a6a75a8…` → `aee61b546b7fdbbcf65362dd8b501ac14216557c0a77d766ae13814ff421e7d0`) ⇒ `node --test packages/ukemi/test/lattice.test.ts` = **9 tests, 8 pass, 1 fail**, la seule rouge = `lattice_fixture_expected_values_hold` (`AssertionError: lattice-scenario-a.json: Q^* == expected.greatest (91) under declared lambda=0.004 linear ; 90 !== 91`). Les **8 vertes** — dont `lattice_monotone_in_lambda`, qui lit aussi le scénario-a — prouvent la **double garde** : les littéraux codés en dur ne lisent pas `expected`, donc le test paramétré est le **seul capteur** du champ. Restauration `git checkout -- packages/ukemi/test/fixtures/lattice-scenario-a.json` ⇒ sha `5a6a75a8…` == avant (**byte-exact**) ; `git status --short` propre hors touched set. Logs : `/f/tmp/u2a-2/{green,mutant,green-final}.log`.
+
+### R-25 recalculé (pathspec exact `ci.yml:65`, base `5fe6c12`, plafond 1 205)
+`git diff --shortstat 5fe6c12 -- . <14 exclusions de ci.yml:65>` = **14 fichiers, 670 insertions(+), 23 deletions(-) = 693** ≤ **1 205** (plafond `VIBEGATES_PR_LIMIT`) et ≤ 720 (cible C-4). Delta du pli = **+39** (654 → 693), pure addition (aucune suppression). Pas de `git add -N` requis (aucun fichier nouveau ; `lattice.test.ts` déjà suivi ; PLI exclu par `:(exclude,glob)docs/**/*.md`). `packages/ukemi/test/fixtures/*.json` **comptent** (racine non exclue) mais inchangées.
+
+### Pin h5
+`sha256(fixtures/h5-e2e-trace.json)` = `4ca37d5c731f33edb17b2cbe986a2bd7007df6371d1edf0b9352be70db8075f1` — **inchangé** (recomputé après pli ; == PLI §5, G2 C-G2-5). Aucun fichier servi touché (CA-11) : seul `lattice.test.ts` (annex ukemi, consommateurs = tests) modifié ; `apps/*`, `registry.ts`, `fleet.ts`, README, skills, trace h5 **intacts**.
+
+### OBS-3 (renommage de l'ADR) — NON fait, condition non remplie
+Consigne : renommer `docs/adr/ADR-U2-clearing-lattice.md` → `docs/adr/ADR-U2-cascade-cluster-lattice.md` **seulement si** aucun autre fichier ne le référence par chemin. Grep `grep -rn "ADR-U2-clearing-lattice"` ⇒ **référencé dans 5 fichiers : 4 par chemin complet** (`docs/adr/…`) — `docs/G0-lot-u2.md:14`, `docs/G0-lot-u2a.md:2` et `:17`, `docs/PLI-lot-u2a.md:22` — **+ 1 par nom seul** (`docs/G2-lot-u2a.md:53`, le slug sans `docs/adr/`). Les 4 références par chemin suffisent : condition **non remplie** ⇒ **laissé tel quel** (un renommage rippellerait G0/PLI/G2, conforme à la note OBS-3 « renommer rippellerait G0/PLI »). Item formé (règle Dettes) : renommer en bloc avec mise à jour des **5 références** ; déclencheur = prochain lot touchant `docs/adr/` (p.ex. U-4/U-7).
+
+### Oracles (consigne : gate:vocab, typecheck, lint, lint:ratchet, tests ciblés — PAS `npm run ci`)
+| Oracle | Résultat |
+|---|---|
+| `npm run gate:vocab` | exit 0, 170 fichiers, 0 réclamation interdite |
+| `npm run typecheck` (`tsc --noEmit`) | exit 0 |
+| `npm run lint` (`eslint .`) | exit 0 |
+| `npm run lint:ratchet` | exit 0, **69/69** (0 violation ajoutée par le pli) |
+| tests ciblés `node --test packages/ukemi/test/*.test.ts test/h5-e2e-probe.test.ts` | **19 tests, 19 pass, 0 fail** (18 base + `lattice_fixture_expected_values_hold` ; inclut `probe_harness_records_real_decision`/`h5_carries_attested`) |
+
+`npm run ci` complet **non lancé** (checkpoint-2 U-3 + worker Bell -b3a en cours ; consigne de mission). Logs oracles : `/f/tmp/u2a-2/{vocab,typecheck,lint,ratchet,green-final}.log`.
+
+### Provenance
+Pli U-2a-2 généré par le worker de pli, modèle épinglé `claude-opus-4-8[1m]`, effort max, 2026-09-20 ; scratch `F:/tmp/u2a-2/` (rien sur C:) ; aucun appel réseau ; arbre propre hors touched set. Avis ADVISOR consulté (conseil, jamais verdict — R-26) : prédicat de découverte fail-closed (drop du filtre `p0`), raison WETH (pin bit-identique), preuve du capteur (8 vertes/1 rouge), méthode R-25 two-dot — tous appliqués. Vérification adversariale (R-21) + G7/checkpoint restent chez l'orchestrateur/validateur. Le worker ne committe pas (R-20).
