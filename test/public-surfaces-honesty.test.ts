@@ -77,7 +77,10 @@ function walk(dir: string, exts: Set<string>, out: string[]): void {
 }
 
 function surfaces(): string[] {
-  const files: string[] = [join(ROOT, "README.md")];
+  // C-2 (Lot CRA-B): SECURITY.md is a whitelisted public surface (scripts/export-public.mjs), so the
+  // probative scrub covers it too — added EXPLICITLY here (it is not a README, so the collectFiles loop below
+  // would not pick it up).
+  const files: string[] = [join(ROOT, "README.md"), join(ROOT, "SECURITY.md")];
   walk(join(ROOT, "apps", "site"), EXTS, files);
   const skillsDir = join(ROOT, "skills", "monark");
   for (const name of readdirSync(skillsDir)) if (extname(name) === ".md") files.push(join(skillsDir, name));
@@ -108,6 +111,8 @@ function mask(line: string): string {
 test("public_surfaces_make_no_probative_claim", () => {
   const files = surfaces();
   assert.ok(files.length >= 10, `expected >=10 public-surface files, scanned ${files.length}`);
+  // C-G2-2 (Lot CRA-B): SECURITY.md must be a scanned surface; dropping it from surfaces() (MG2) reds here.
+  assert.ok(files.includes(join(ROOT, "SECURITY.md")), "SECURITY.md must be a scanned public surface (surfaces(); MG2)");
 
   const corpus: string[] = [];
   const survivors: string[] = [];

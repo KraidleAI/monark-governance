@@ -50,6 +50,12 @@ export const APP_PACKAGE_DIRS = ["apps/harness", "apps/sentinel"];
 export const WHITELIST_DIRS = ["schemas", "fixtures", "enforcement", "apps/site", "skills"];
 export const WHITELIST_FILES = [
   "README.md", "LICENSE", "CONTRIBUTING.md",
+  // SECURITY.md (Lot CRA-B, ADR-M004 D7 quinquies): a public surface GitHub renders on the Security tab and
+  // researchers read. English (root language gate); scanned by public_surfaces_make_no_probative_claim (added
+  // to surfaces()) and by cra_surfaces_stay_conditional; product_boundary_matches_export_list asserts
+  // collectFiles(ROOT).kept contains it. Carries no link into docs/** (not exported). Full policy: Reporting
+  // (GitHub Security Advisories), Scope, Supported versions, Timelines, Data (investor decisions 42-43).
+  "SECURITY.md",
   ".github/workflows/ci.yml",
   "eslint.config.mjs", "lint-ratchet.json", "vocab-banned.json",
   "package.json", "package-lock.json", "tsconfig.json",

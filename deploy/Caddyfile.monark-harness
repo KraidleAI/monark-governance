@@ -25,7 +25,7 @@ mcp.monarkgate.tech, api.monarkgate.tech {
 
 # ADR-M015 D3(b) — deployed 2026-09-18 21:11 UTC (go investisseur), closes PF-M006-8 (ADR-M006 D8). INSERT inside the
 # mcp./api. site block, before `reverse_proxy 127.0.0.1:3001`. Route + host + method + status only: no request body, no
-# query string, rotation 5 x 10MiB / 30 days, no IP kept beyond rotation. Read at J+30 (2026-10-18) against N.
+# query string, rotation 5 x 10MiB / 30 days, no IP kept beyond rotation. Read at J+30 (2026-10-18) against N. Owner: orchestrator; trigger: that reading (CRA-B checkpoint-2 C-V-4).
 #	log {
 #		output file /var/log/caddy/harness-access.log {
 #			roll_size 10MiB

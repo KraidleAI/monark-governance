@@ -152,6 +152,8 @@ hermes mcp add monark --url https://mcp.monarkgate.tech/mcp
 openclaw mcp add monark --url https://mcp.monarkgate.tech/mcp --transport streamable-http
 ```
 
+No personal data is required to use the service (no account, e-mail, or wallet).
+
 ## Status
 
 **Phase two — integration.** The contract freeze and the Hikae + Ukemi engines are **closed** under an

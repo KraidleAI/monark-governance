@@ -22,6 +22,9 @@ export const PACKAGE_SUBPATHS: string[];
 export const APP_PACKAGE_DIRS: string[];
 /** Whole-dir whitelist entries walked recursively (schemas, fixtures, enforcement, apps/site). */
 export const WHITELIST_DIRS: string[];
+/** Fixed single-file whitelist entries (README.md, LICENSE, SECURITY.md, ci.yml, scripts, out/*, …).
+ *  Added for the CRA-B root test product_boundary_matches_export_list (Lot CRA-B, L-4). */
+export const WHITELIST_FILES: string[];
 
 /** Resolve the whitelist to concrete files under `root`; classify structural violations & French .md.
  *  Pure (no exit): LICENSE / missing fixed entries land in `missingRequired`, they do NOT abort here. */

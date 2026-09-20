@@ -111,6 +111,17 @@ Le test 42(f) certifie l'absence de `r25` et la présence de `push` mais **ne d�
 ### D7 quater — Exemption des noms de test ADR à collision « _le_ = ≤ » (2026-09-07, consultation R-26 du worker E-ukemi)
 Le lot E-ukemi a atteint **0 hit sauf 2** sur `lang-gate --scope ukemi` : le nom de test gelé **`fictitious_default_le_n_rounds`** (ADR-M002 D11, Lot U test #19 ; `packages/ukemi/README.md`, `test/clearing.test.ts`), où le substring `le` = l'abréviation de **≤**, faux-positif de la fr-word `le`. Non renommable (défini en spec ADR-M002 + **enregistré verbatim** dans les provenances `docs/G1-lot-K.md`, `docs/G2-lot-U.md` : renommer romprait la traçabilité = contournement P5), non exemptable par un worker (`lang-exempt.json` = plume orchestrateur). **Même collision en hikae** : **`interval_lo_le_hi`** (ADR-M002 test #15, M5 `buildIntervalRegion` ; `packages/hikae/test/region-predictor.test.ts`). **Décision (option i du worker, tranchée une fois pour la classe)** : les deux noms sont ajoutés aux `terms` de `scripts/lang-exempt.json` — cohérent avec le traitement des identifiants gelés à collision française déjà exemptés (`score_de_confiance`, `verdict_de_verite`, `revision_amont_deleguee`). Le générateur Lot X ne couvrait que schémas/enums, jamais les noms de test définis par ADR — trou de classe, fermé ici. `error_origin` = générateur du gate (Lot X, angle mort de classe), attrapé par la discipline lang-gate. Bénéficie à E-ukemi **et** E-hikae (pas de fork ad-hoc).
 
+### Addendum D7 quinquies — SECURITY.md whitelisted (Lot CRA-B, 2026-09-19)
+`SECURITY.md` (repo root) is added to `WHITELIST_FILES` in `scripts/export-public.mjs`. Rationale: it is a
+public surface GitHub renders on the Security tab and researchers read, so the private repo must be its single
+source of truth (motif `out/mint.txt`). It is scanned by the root language gate (English) and, added
+EXPLICITLY to `surfaces()`, by `public_surfaces_make_no_probative_claim`; `cra_surfaces_stay_conditional`
+scans it for CRA over-claims. Tuyaux (branchement): SECURITY.md -> GitHub Security tab (served) + the export
+whitelist; `product_boundary_matches_export_list` asserts `collectFiles(ROOT).kept` contains it (mutant: drop
+the whitelist line => red). It carries no link into `docs/**` (not exported). The full policy ships in this lot
+(investor decisions 42-43, 2026-09-19): Reporting (GitHub Security Advisories only), Scope, Supported versions,
+Timelines (72 h acknowledgement, 90-day coordinated disclosure), Data. See ADR-CRA-B.
+
 ### D8 — Lot E (English only) et R-25 (item 11)
 Scindé par package, une PR chacune, **aucun lot exempté** ; **hikae scindé `src` / `test`** (mesure §1.3) ; règle générale : si la mesure d'un lot dépasse 1 205, scission par répertoire (`src`, `test`, sous-répertoire `s2/`). **E-contracts ne touche jamais aux identifiants gelés** (test 0 `contracts_frozen`). Ordre : E-root (CI, scripts, tests racine) ∥ E-contracts → E-hikae-src → E-hikae-test → E-ukemi → E-atelier → E-monark.
 
