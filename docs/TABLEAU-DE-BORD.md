@@ -1,6 +1,6 @@
 # TABLEAU DE BORD MONARK — état par chantier
 
-Mis à jour par l'orchestrateur à CHAQUE événement (retour d'agent, décision, fusion). Le détail et l'historique vivent dans `docs/CHANTIERS.md` ; ce fichier ne porte que l'ÉTAT COURANT. Dernière mise à jour : 2026-09-21 ~12:00 UTC (horloge) — 12 lots fusionnés depuis minuit — régime B ; 9 lots fusionnés depuis minuit.
+Mis à jour par l'orchestrateur à CHAQUE événement (retour d'agent, décision, fusion). Le détail et l'historique vivent dans `docs/CHANTIERS.md` ; ce fichier ne porte que l'ÉTAT COURANT. Dernière mise à jour : 2026-09-21 18:05 UTC (`date -u`) — 16 lots fusionnés le 21/09 — régime B. Nouvelle session (Fable 5.1 `claude-fable-5-1`, 4ᵉ compte) reprise depuis `BASCULEMENT-COMPTE.md` §11.
 
 **RELEASE EN DEUX TEMPS (décision 117)** : temps 1 = Narabi + Ukemi (priorité 1) ; temps 2 = Bell (avance en parallèle, reste `upcoming` au temps 1).
 
@@ -74,8 +74,9 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | ~~E-1b~~ | Retrait de LlamaRPC — CONFIRMÉ (décision 106) | — |
 | ~~F-1~~ | Polices OFL — TÉLÉCHARGÉES (décision 107, `F:MONARK SUITEonts`) | — |
 | R-25 | Garder 1 205 / passer à 1 600 par ADR / désactiver | rien (défaut : 1 205) |
+| **Firecrawl** | Connecter le connecteur Firecrawl au nouveau compte claude.ai (absent de la session du 21/09 18:00 UTC) ; puis l'orchestrateur relève l'UUID et réécrit les 22 agents s'il a changé | lecteurs/chercheurs (WebFetch seul en attendant) |
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-En vol : AUCUN agent (17:40 UTC) — point de bascule sûr.
+En vol (18:05 UTC) : **2b-i — G2 (agent `worker` neuf, arbre isolé `F:/tmp/g2-garde2bi/tree` = `git archive 798b4e9`, rendu attendu `F:/tmp/g2-garde2bi/G2-lot-garde-helius-2b-i.md`) ‖ checkpoint-2 (agent `validateur-humain` neuf, arbre isolé `F:/tmp/cp2-garde2bi/tree`, verbatim par `persist.py`)** ; worktree `F:/Monark-wt-garde2b` GELÉ. Piège mesuré 18:00 UTC : un `node_modules` en jonction vers `F:/Monark` fait résoudre `@monark/*` vers l'arbre PRINCIPAL (liens d'espace de travail absolus) — les arbres isolés portent un `node_modules` reconstruit (`F:/tmp/g2-garde2bi/mk-nm.ps1`, `@monark/*` → l'arbre lui-même) ; le G1 du worker dans le worktree a mesuré `apps/*` contre le paquet de `F:/Monark`, pas du worktree : à faire re-mesurer par le G2. Firecrawl ABSENT du nouveau compte (item investisseur §6).
 À faire (temps 1) : G0 GARDE-HELIUS-2b → prereg U-4b-1b committé seul → course U-4b-1b (GO 119, plafonds actifs) → U-4b-2 → U-5 → U-6 (go) → U-7 · E-5 : ligne du run réel du 22/09 00:41 UTC · Bell (temps 2) : GARDE-HELIUS-1b puis G0 de course.
