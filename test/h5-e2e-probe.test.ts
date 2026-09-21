@@ -157,7 +157,7 @@ test("probe_harness_records_real_decision", async () => {
     assertClosedGateDecision(g.structuredContent);
     assert.equal(g.structuredContent["remaining_budget"], perturbedBudget, "remaining_budget echoes the perturbed caller-carried B_t");
   } finally {
-    server.closeAllConnections(); // C-G2D-1: destroy live sockets so no loopback handle survives --test-force-exit
+    server.closeAllConnections(); // C-G2D-1: server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
     await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
   }
 

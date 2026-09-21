@@ -13,7 +13,7 @@ import {
   SOLANA_PUBLIC_URL, ISSUER_HOST, assertHostAllowed, guardedRpcCall, makeUniverseBudget,
   readPriorCalls, serializeLedger, confirmMintIdentity, assertProvidersDistinctForQuorum,
   enumerateUniverse, foundingCalibration, buildUniverseArtifact, universeArtifactBytes, universeSha256,
-  foldPage, pageAssets, withUniverseRetry, HttpStatusError, RedirectBlockedError, retryAfterMs, scrubSecret,
+  foldPage, pageAssets, withUniverseRetry, HttpStatusError, RedirectBlockedError, Fatal403Error, retryAfterMs, scrubSecret,
   chainedLedgerEntry, countIdentityEmptied, UNIVERSE_LEDGER_JOURNAL,
   type OnchainReadout,
 } from "./universe.ts";
@@ -121,6 +121,12 @@ export async function runUniverse(argv: readonly string[], deps: RunDeps): Promi
   // resume reader re-derives the chain, refuses a downward edit (anchor.calls < head), and CONTINUES the chain
   // from its head (never GENESIS a 2nd time).
   const ledgerJournal = join(dirname(a.ledger), UNIVERSE_LEDGER_JOURNAL);
+  // C-G2b-3 (PHANTOM-FRESH residual, pattern HELIUS-1 — DECLARED, not fixed here): mkdirp(a.out) above runs BEFORE
+  // this read, and readPriorCalls treats anchor+journal BOTH absent as a fresh run (0). So a `--out` faulted/moved on
+  // a resume restarts silently from 0 and re-spends. Exposure is bounded per-run by --max-calls, and the inter-run
+  // reconciliation is the GARDE-HELIUS CYCLE ledger (write-ahead, itself a course gate). The proper fix is the
+  // `@monark/rpc-guard` C-8 guard (the --ledger parent MUST pre-exist on a resume, else throw) — universe MIGRATES to
+  // it at CONV-2. FORMED ITEM: CONV-2 = lot GARDE-HELIUS-1b (named trigger — the rpc-guard package already merged 88c63bb).
   const prior = readPriorCalls(a.ledger, ledgerJournal, deps.exists, deps.readFile);
   let ledgerHead = prior.head;      // prev_entry_sha256 of the NEXT entry (GENESIS iff fresh)
   let ledgerSeq = prior.seq;        // seq of the NEXT entry
@@ -155,34 +161,39 @@ export async function runUniverse(argv: readonly string[], deps: RunDeps): Promi
       const folded = foldPage(seenIds, res.json, a.pageSize);
       if (folded.duplicateIds) throw new Error("bell/universe: duplicate asset ids across pages (server ignores page => exhaustion not provable)");
       rawAssets.push(...folded.assets);
+      persist(); // C-V-1: persist PER PAGE (not only at the loop `finally`) so a hard-kill mid-pagination is <= 1 tick behind
       if (folded.endAnchor) { exhausted = true; break; }
     }
   } finally { persist(); }
   if (!exhausted) throw new Error(`bell/universe: reached --max-pages ${String(a.maxPages)} with no end anchor (exhaustion NOT proven; refuse to claim 'N pages')`);
 
-  // C-11: OBSERVATION-only probe of page+1 AFTER the proven end anchor. NEVER a STOP — the catch swallows
-  // HTTP/transport (incl. a 4xx past-end) and RE-THROWS only a BudgetExceededError (no budget fail-open). A
-  // DEDICATED paced GET with maxRetries:0 (pagedGet's default is 4; a 4xx past-end must not enter the retry
-  // path). Counts +1 GET on the budget; result = SHAPE/STATUS only (no content, C-10) => past_end_probe= in the
-  // provenance. It lifts the [gap] past-end of /public/assets on the first run WITHOUT being able to break a
-  // legitimate run (5a stays FORMED; the assertive probe awaits this first-hand measure).
-  let pastEndProbe = "not_run";
-  try {
-    const probeUrl = `https://${ISSUER_HOST}/api/v2/public/assets?pageSize=${String(a.pageSize)}&page=${String(page + 1)}`;
-    assertHostAllowed(probeUrl); budget.tick(); await deps.sleep(a.minInterval);
-    const probeRes = await withUniverseRetry(() => deps.httpGet(probeUrl), { sleep: deps.sleep, now: deps.now, maxRetries: 0 });
-    pastEndProbe = `array_len=${String(pageAssets(probeRes.json).length)}`;
-  } catch (e) {
-    if (e instanceof BudgetExceededError) throw e;            // never fail-open the budget
-    pastEndProbe = e instanceof HttpStatusError ? `http_${String(e.status)}` : "transport_error";
-  }
-
-  // --- SAVE the issuer raw sha-pinned OUT OF REPO, BEFORE the oracle (the proof if the enumerator breaks) -
+  // --- SAVE the issuer raw sha-pinned OUT OF REPO, BEFORE the oracle AND before the observation probe (C-V-2) ---
   const rawBody = lf(JSON.stringify({ schema: "bell-universe-issuer-raw-v1", host: ISSUER_HOST, endpoint: "/api/v2/public/assets", pageSize: a.pageSize, pages: page + 1, assets: rawAssets }, null, 0)) + "\n";
   const rawSha256 = sha256Hex(rawBody);
   const rawPath = join(a.out, `issuer-assets-${a.date}.json`);
   writeOut(rawPath, rawBody);
   log(scrubSecret(`raw saved: issuer-assets-${a.date}.json sha256=${rawSha256} pages=${String(page + 1)} assets=${String(rawAssets.length)}`, chainstack));
+
+  // C-11: OBSERVATION-only probe of page+1 AFTER the raw save (the proof is already durable). It NEVER STOPs the run
+  // on a SERVER response: 403 / 3xx / 4xx / 5xx / transport are RECORDED as past_end_probe= and swallowed. Only a
+  // PURE budget cap (BudgetExceededError from budget.tick()) STOPs — and Fatal403Error / RedirectBlockedError, which
+  // SUBCLASS BudgetExceededError for the main-path hard-STOP, are caught EXPLICITLY FIRST here so a 403/3xx past-end
+  // does NOT kill the run (C-V-2 / C-G2b-6; their STOP semantics OUTSIDE the probe are unchanged). maxRetries:0 (a
+  // 4xx past-end must not enter the 4-retry path). +1 GET budgeted; non-array shape kept (never a lossy array_len=0).
+  let pastEndProbe = "not_run";
+  try {
+    const probeUrl = `https://${ISSUER_HOST}/api/v2/public/assets?pageSize=${String(a.pageSize)}&page=${String(page + 1)}`;
+    assertHostAllowed(probeUrl); budget.tick(); await deps.sleep(a.minInterval);
+    const probeRes = await withUniverseRetry(() => deps.httpGet(probeUrl), { sleep: deps.sleep, now: deps.now, maxRetries: 0 });
+    const arr = pageAssets(probeRes.json);
+    pastEndProbe = Array.isArray(probeRes.json) ? `array_len=${String(arr.length)}` : (arr.length > 0 ? `envelope_len=${String(arr.length)}` : "not_array");
+  } catch (e) {
+    if (e instanceof Fatal403Error) pastEndProbe = "http_403";                     // subclass of BudgetExceededError — SWALLOW (observation, C-V-2)
+    else if (e instanceof RedirectBlockedError) pastEndProbe = "redirect_blocked"; // subclass of BudgetExceededError — SWALLOW
+    else if (e instanceof BudgetExceededError) throw e;                            // PURE budget cap => the ONLY probe STOP
+    else if (e instanceof HttpStatusError) pastEndProbe = `http_${String(e.status)}`;
+    else pastEndProbe = "transport_error";
+  } finally { persist(); } // C-V-1: persist the probe's +1 tick immediately (never deferred to the 1st confirm)
 
   // --- Confirm each Solana mint on-chain (quorum-2), with a pre-registered 429-streak STOP -------------
   let streak429 = 0;
@@ -193,9 +204,10 @@ export async function runUniverse(argv: readonly string[], deps: RunDeps): Promi
       if (faults.some((f) => f.status === "HTTP 429")) { streak429 += 1; } else { streak429 = 0; }
       if (streak429 >= a.max429Streak) throw new Error(`bell/universe: ${String(a.max429Streak)} consecutive rate-limited (429) confirmations after honoring Retry-After — STOP fail-closed (ledger persisted)`);
       return readout;
-    } finally { persist(); } // persist in `finally` even when confirmMintIdentity throws (403/budget). C-1: this is
-    // WRITE-BEHIND at the persist granularity — a kill between a send and its persist under-counts <= 2 logical
-    // calls (one quorum-2 confirmation); the write-AHEAD is the GARDE-HELIUS cycle ledger, not this RUN ledger.
+    } finally { persist(); } // persist per-mint even when confirmMintIdentity throws (403/budget). C-V-1: this is the
+    // PAID path — a kill between a quorum-2 send and its persist under-counts <= 2 logical calls (one quorum-2
+    // confirmation) => PAID exposure <= 2 RPC. (Pagination persists per-page above; the write-AHEAD is the
+    // GARDE-HELIUS cycle ledger, not this RUN ledger.)
   };
   const { candidates, totalAssets, solanaAssets } = await enumerateUniverse(rawAssets, confirm);
   persist();

@@ -225,6 +225,12 @@ test("bell_universe_ledger_chain_rederives_and_refuses_downward_edit", () => {
   assert.equal(verifyChain([d0, chainedLedgerEntry(d0.entry_sha256, 1, 5)]).ok, false, "C-4: calls_cumulative must be monotone non-decreasing");
   // MUTANT M-regenesis: a resume that re-chains from GENESIS a SECOND time breaks the link.
   assert.equal(verifyChain([e0, chainedLedgerEntry(LEDGER_GENESIS, 1, 4)]).ok, false, "MUTANT M-regenesis: chaining from GENESIS a 2nd time must redden");
+  // C-V-3: seq MUST equal the position — a non-monotone / negative / duplicate seq is refused (each properly hashed).
+  assert.equal(verifyChain([chainedLedgerEntry(LEDGER_GENESIS, 5, 1)]).ok, false, "seq != index (5 at position 0) => ok:false");
+  assert.equal(verifyChain([chainedLedgerEntry(LEDGER_GENESIS, -7, 1)]).ok, false, "seq negative => ok:false");
+  // MUTANT (writer freezes seq at 0): two well-hashed entries both seq=0 => the 2nd has seq 0 != index 1.
+  const s0 = chainedLedgerEntry(LEDGER_GENESIS, 0, 1);
+  assert.equal(verifyChain([s0, chainedLedgerEntry(s0.entry_sha256, 0, 2)]).ok, false, "MUTANT seq-frozen-at-0 (writer side): seq must track the position");
 
   const dir = mkdtempSync(join(tmpdir(), "bell-univ-chain-"));
   try {
@@ -243,6 +249,9 @@ test("bell_universe_ledger_chain_rederives_and_refuses_downward_edit", () => {
     // >= holds: an anchor AHEAD of the head (crash window) resumes, never demands ==.
     writeFileSync(anchor, serializeLedger(99));
     assert.equal(rd().calls, 99, ">= holds: an anchor AHEAD of the head (crash window) resumes");
+    // C-V-3: a FRACTIONAL anchor is refused (parity with verifyChain's integer calls_cumulative).
+    writeFileSync(anchor, JSON.stringify({ calls: 16.5 }));
+    assert.throws(rd, /invalid/, "a non-integer anchor must throw");
     // An unreadable journal line => throw (fail-closed, NO silent skip).
     writeFileSync(anchor, serializeLedger(16));
     appendFileSync(journal, "{ not json\n");
@@ -312,6 +321,35 @@ test("bell_universe_ledger_format_is_byte_identical_to_b3d", () => {
   // FREE C-13: the journal filename is OUTSIDE both -b3d globs (never falsely read as -b3d resume state).
   assert.equal(/^ledger-.*\.jsonl$/.test(UNIVERSE_LEDGER_JOURNAL), false, "outside the ledgerPagesOnDisk glob");
   assert.equal(/^(ledger|events|handoffs)-.*\.jsonl$/.test(UNIVERSE_LEDGER_JOURNAL), false, "outside the hasResumeState glob");
+});
+
+// ---- 8e. C-V-1: pagination persists PER PAGE so a hard-kill is <= 1 tick behind (never <= N_pages) --------
+test("bell_universe_pagination_persists_per_page_kill_window", async () => {
+  const out = mkdtempSync(join(tmpdir(), "bell-univ-kw-"));
+  try {
+    const K = 4; // pages 0..K-1 full (pageSize=2), page K short => end anchor
+    const anchorPath = join(out, "budget.json");
+    let lastAnchor = 0;
+    const anchorAtGet: number[] = []; // the anchor value (calls) persisted BEFORE each page GET
+    const httpGet = (url: string): Promise<HttpGetResult> => {
+      anchorAtGet.push(lastAnchor);
+      const p = Number(new URL(url).searchParams.get("page") ?? "0");
+      const rows = p < K
+        ? [{ id: `p${String(p)}a`, deployments: [] }, { id: `p${String(p)}b`, deployments: [] }]
+        : [{ id: `p${String(p)}a`, deployments: [] }];
+      return Promise.resolve({ json: rows });
+    };
+    const writeFile = (pth: string, data: string): void => {
+      if (pth === anchorPath) lastAnchor = (JSON.parse(data) as { calls: number }).calls;
+      writeFileSync(pth, data);
+    };
+    await runUniverse(["--out", out, "--max-calls", "1000", "--page-size", "2", "--max-pages", "20", "--date", "2026-09-21"],
+      fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, out, { httpGet, writeFile }));
+    // Before page p's GET (tick p+1) the anchor persisted by page p-1 equals p => at any instant the anchor is
+    // <= 1 tick behind the counter. MUTANT (persist removed from the loop body): the anchor stays 0 until the loop
+    // `finally`, so anchorAtGet becomes [0,0,0,…] and this reddens.
+    for (let p = 1; p <= K; p++) assert.ok(anchorAtGet[p]! >= p, `at page ${String(p)}'s GET the anchor is >= ${String(p)} (<= 1 tick behind); saw ${String(anchorAtGet[p])}`);
+  } finally { rmSync(out, { recursive: true, force: true }); }
 });
 
 // ---- 9. Retry: honor Retry-After on 429, HARD STOP on 403, re-throw budget errors -------------------
@@ -449,6 +487,47 @@ test("bell_universe_cli_composes_from_file_to_artifact", async () => {
   } finally { rmSync(out, { recursive: true, force: true }); }
 });
 
+// ---- 12b. C-V-2 / C-G2b-6: the C-11 probe OBSERVES, never STOPs on a server response; only a PURE budget cap
+// STOPs. Placed AFTER the raw save. maxRetries:0 (0 retry). Fatal403Error/RedirectBlockedError are swallowed.
+test("bell_universe_c11_probe_observes_never_stops_except_budget", async () => {
+  const argv = (out: string, maxCalls: string): string[] => ["--out", out, "--max-calls", maxCalls, "--date", "2026-09-21"];
+  // (a) 404 past-end => run OK, past_end_probe=http_404, raw present, probe called ONCE (0 retry, maxRetries:0).
+  const outA = mkdtempSync(join(tmpdir(), "bell-univ-p404-"));
+  try {
+    let probeCalls = 0;
+    const httpGet = (url: string): Promise<HttpGetResult> => {
+      if (Number(new URL(url).searchParams.get("page") ?? "0") === 0) return Promise.resolve({ json: issuerAssets() });
+      probeCalls += 1; return Promise.reject(new HttpStatusError(404, null));
+    };
+    const r = await runUniverse(argv(outA, "1000"), fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, outA, { httpGet }));
+    assert.equal(r.ok, true, "MUTANT (probe catch removed): a 404 past-end must NOT stop the run");
+    assert.equal(probeCalls, 1, "MUTANT (maxRetries:0 removed): the probe retries => probeCalls > 1 => red");
+    assert.ok(existsSync(join(outA, "issuer-assets-2026-09-21.json")), "raw saved BEFORE the probe");
+    assert.match(readFileSync(join(outA, "PROVENANCE-univers-solana.md"), "utf8"), /^- past_end_probe: http_404$/m, "404 recorded, run completed");
+  } finally { rmSync(outA, { recursive: true, force: true }); }
+  // (b) 403 at the probe => run OK, past_end_probe=http_403 (Fatal403Error, a BudgetExceededError SUBCLASS, is
+  // swallowed at the probe), raw present.
+  const outB = mkdtempSync(join(tmpdir(), "bell-univ-p403-"));
+  try {
+    const httpGet = (url: string): Promise<HttpGetResult> =>
+      Number(new URL(url).searchParams.get("page") ?? "0") === 0 ? Promise.resolve({ json: issuerAssets() }) : Promise.reject(new HttpStatusError(403, null));
+    const r = await runUniverse(argv(outB, "1000"), fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, outB, { httpGet }));
+    assert.equal(r.ok, true, "MUTANT (Fatal403Error not caught before the budget re-throw): a 403 past-end must NOT stop the run");
+    assert.ok(existsSync(join(outB, "issuer-assets-2026-09-21.json")), "raw saved");
+    assert.match(readFileSync(join(outB, "PROVENANCE-univers-solana.md"), "utf8"), /^- past_end_probe: http_403$/m, "403 recorded, run completed");
+  } finally { rmSync(outB, { recursive: true, force: true }); }
+  // (c) PURE budget cap at the probe => STOP. A page with NO Solana mint (0 confirms after the probe), --max-calls=1
+  // (only the page GET fits): the probe's budget.tick() throws a PURE BudgetExceededError => the run REJECTS. MUTANT
+  // (budget re-throw removed): the probe swallows it, the run reaches calibration and returns ok:false (no reject).
+  const outC = mkdtempSync(join(tmpdir(), "bell-univ-pcap-"));
+  try {
+    const httpGet = (url: string): Promise<HttpGetResult> =>
+      Promise.resolve({ json: [{ id: "evm-only", deployments: [{ network: "Ethereum", address: "0x0" }] }] });
+    await assert.rejects(() => runUniverse([...argv(outC, "1"), "--page-size", "100"], fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, outC, { httpGet })),
+      BudgetExceededError, "MUTANT (budget re-throw removed): a real budget cap at the probe must STOP => red");
+  } finally { rmSync(outC, { recursive: true, force: true }); }
+});
+
 // ---- 13. Byte-exact replay: committed raw + rpc => the frozen artifact, byte for byte -----------------
 test("bell_universe_artifact_byte_exact_replay", async () => {
   const map = rpcMap();
@@ -466,10 +545,12 @@ test("bell_universe_identity_text_sanitized_no_false_reject", () => {
     assert.equal(sanitizeIdentityText(String(a.name)), String(a.name), `name identity: ${String(a.name)}`);
     assert.equal(sanitizeIdentityText(String(a.symbol)), String(a.symbol), `symbol identity: ${String(a.symbol)}`);
   }
-  // Legitimate identity variety passes unchanged (no false reject) — incl. the DECLARED residual "TSLA 420".
-  for (const ok of ["3M", "S&P 500", "Moody's", "AT&T", "SP500 xStock", "TSLA 420"]) assert.equal(sanitizeIdentityText(ok), ok, `no false reject: ${ok}`);
-  // Monetary / out-of-whitelist text is EMPTIED (never truncated to a sub-price). "Fund 2.5" = declared false-reject.
-  for (const bad of ["Tesla 420.69", "$500", "USD 12", "1.5x", "eur 3", "Fund 2.5"]) assert.equal(sanitizeIdentityText(bad), "", `emptied: ${bad}`);
+  // Legitimate identity variety passes unchanged (no false reject) — incl. the DECLARED residual "TSLA 420", and
+  // symbol-like currency prefixes "USDx"/"USDCx"/"EURCx" (a LETTER follows the code => not a glued amount, C-V-4).
+  for (const ok of ["3M", "S&P 500", "Moody's", "AT&T", "SP500 xStock", "TSLA 420", "USDx", "USDCx", "EURCx"]) assert.equal(sanitizeIdentityText(ok), ok, `no false reject: ${ok}`);
+  // C-V-4 MUTANT (`\b` boundary restored): a GLUED currency+amount slips past `\b` but MUST be emptied by the
+  // letter-boundary lookaround. Also the COMMA decimal separator. Each of these must be EMPTIED.
+  for (const bad of ["Tesla 420.69", "$500", "USD 12", "1.5x", "eur 3", "Fund 2.5", "USD12", "12USD", "AAPL USD150", "EUR3", "Fund 2,5"]) assert.equal(sanitizeIdentityText(bad), "", `emptied: ${bad}`);
   assert.equal(sanitizeIdentityText("A".repeat(65)), "", "> 64 chars is emptied");
   // MUTANT (sanitizer no-op): a price injected into a candidate `name` must be EMPTIED in the built record.
   const withPrice: SolanaCandidate = { symbol: "TSLAx", name: "Tesla $500", mint: "XsDoV", network: "Solana", mic: null, onchain: confirmedReadout() };
@@ -659,4 +740,25 @@ test("bell_universe_cli_no_network_egress_under_shim", () => {
     assert.equal(r.stderr.includes("tk-node-key-placeholder"), false, "stderr carries no key-path (C-10)");
     assert.equal(r.stderr.includes("core.chainstack.com"), false, "stderr carries no operator host (C-10)");
   } finally { rmSync(outB, { recursive: true, force: true }); }
+});
+
+// ---- 23. C-V-5 (C-8): the shim blocks at the `net` level — http.request/https.request/net.connect/fetch ALL
+// blocked to a CLOSED loopback port (not just fetch). This is the test that test 22 could NOT provide (the CLI
+// only uses fetch, so the fetch belt alone reddened test 22). Witness without the shim = ECONNREFUSED.
+test("bell_universe_no_network_shim_blocks_at_net_level", () => {
+  const shim = fileURLToPath(new URL("./helpers/no-network.mjs", import.meta.url));
+  const probe = fileURLToPath(new URL("./helpers/net-probe.mjs", import.meta.url));
+  // WITH the shim: all four clients are blocked at the `net` patch (SHIM:), zero real connection.
+  const r = spawnSync(process.execPath, ["--import", pathToFileURL(shim).href, probe], { encoding: "utf8", timeout: 20000 });
+  assert.equal(r.status, 0, "the net-probe runs to completion under the shim");
+  const out = JSON.parse((r.stdout.trim().split("\n").pop() ?? "{}")) as Record<string, string>;
+  // MUTANT (net.Socket.prototype.connect patch removed): net/http/https revert to ECONNREFUSED (fetch stays SHIM:
+  // via the belt) => these assertions redden. The net patch — not the fetch belt — is what this test locks (C-8).
+  for (const k of ["net", "http", "https"]) assert.match(out[k] ?? "", /SHIM:/, `${k} is blocked at the net patch (not a real connect): ${String(out[k])}`);
+  assert.match(out["fetch"] ?? "", /SHIM:/, "fetch is blocked by the belt");
+  // WITNESS without the shim: the net-level clients reach the CLOSED loopback port => ECONNREFUSED (a real LOCAL
+  // refusal, no egress). Proves SHIM: comes from the shim, not from the closed port, and the net patch is load-bearing.
+  const w = spawnSync(process.execPath, [probe], { encoding: "utf8", timeout: 20000 });
+  const wout = JSON.parse((w.stdout.trim().split("\n").pop() ?? "{}")) as Record<string, string>;
+  assert.match(wout["net"] ?? "", /ECONNREFUSED/, `witness (no shim): net.connect reaches the closed loopback port (ECONNREFUSED): ${String(wout["net"])}`);
 });

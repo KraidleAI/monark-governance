@@ -157,11 +157,17 @@ export function serializeLedger(calls: number): string { return canonical({ call
 //  · Order = ANCHOR-COUNTER FIRST, journal append SECOND (calque b3db1a rebase-crosscheck.ts:592-597). A crash
 //    in the window between the two writes leaves anchor.calls >= head.calls_cumulative — an OVER-count on
 //    resume, never under. Crash-CONSERVATIVE, not a write-ahead.
-//  · At the persist() granularity it is WRITE-BEHIND: persist() runs in `finally` AFTER the two quorum-2 sends
-//    (universe-cli.ts:159), so a kill between a send and its persist UNDER-counts <= 2 logical calls (one
-//    quorum-2 confirmation). The true write-AHEAD (append before fetch) is the GARDE-HELIUS CYCLE ledger, NOT
-//    this RUN ledger. Unit = LOGICAL TICKS (a retry under the tick does NOT increment, C-2); this RUN ledger
-//    serves resume-without-double-count and the run cap, it is NOT the source of the Chainstack reconciliation.
+//  · WRITE-BEHIND bound, corrected (C-V-1 / C-G2b-2 — the earlier "<= 2 logical calls everywhere" was FALSE):
+//    - PAID path (Chainstack confirm): persist() is in `finally` per-mint (universe-cli.ts, the `confirm` closure),
+//      so a kill between a quorum-2 send and its persist under-counts <= 2 logical calls (one quorum-2 confirmation)
+//      => the PAID exposure is <= 2 RPC. This is the money-bearing bound.
+//    - LOGICAL ticks (any path): persist() now runs PER PAGE in the pagination loop body AND in the probe `finally`
+//      (not only at the loop `finally`), so at any instant the anchor is <= 1 logical tick behind the counter (a
+//      hard-kill loses at most the in-flight page/probe tick). The un-persisted GET is an ISSUER GET (xStocks,
+//      NON-paid); it costs no credit.
+//    The true write-AHEAD (append before fetch) is the GARDE-HELIUS CYCLE ledger, NOT this RUN ledger. Unit =
+//    LOGICAL TICKS (a retry under the tick does NOT increment, C-2); this RUN ledger serves resume-without-double-
+//    count and the run cap, it is NOT the source of the Chainstack reconciliation.
 //  · Threat model: tamper-EVIDENT for UNCOORDINATED edits only (a budget.json lowered by hand =>
 //    anchor.calls < head.calls_cumulative => throw; a journal line edited => verifyChain fails). It does NOT
 //    claim to catch a COORDINATED rewrite (truncate to K AND set anchor.calls = calls_cumulative(K)) — beyond
@@ -193,16 +199,20 @@ export function chainedLedgerEntry(prevSha: string, seq: number, callsCumulative
 export function verifyChain(entries: readonly unknown[]): { ok: boolean; head: string } {
   let prev = LEDGER_GENESIS;
   let lastCalls = -1;
+  let index = 0;
   for (const raw of entries) {
     const e = asObj(raw);
     if (!isHex64(e.prev_entry_sha256) || !isHex64(e.entry_sha256)) return { ok: false, head: prev };
-    if (!Number.isInteger(e.seq) || !Number.isInteger(e.calls_cumulative) || (e.calls_cumulative as number) < 0) return { ok: false, head: prev };
+    // C-V-3: seq MUST equal the entry's position (0,1,2,…) — so it is monotone, >= 0, no gap, no duplicate. A
+    // writer that freezes seq at 0 (mutant) breaks this at index 1. calls_cumulative stays an integer >= 0 too.
+    if (!Number.isInteger(e.seq) || e.seq !== index || !Number.isInteger(e.calls_cumulative) || (e.calls_cumulative as number) < 0) return { ok: false, head: prev };
     if (e.prev_entry_sha256 !== prev) return { ok: false, head: prev };
     const core = { prev_entry_sha256: e.prev_entry_sha256, seq: e.seq, calls_cumulative: e.calls_cumulative };
     if (ledgerEntrySha256(core) !== e.entry_sha256) return { ok: false, head: prev };
     if ((e.calls_cumulative as number) < lastCalls) return { ok: false, head: prev };
     lastCalls = e.calls_cumulative as number;
     prev = e.entry_sha256;
+    index += 1;
   }
   return { ok: true, head: prev };
 }
@@ -212,7 +222,9 @@ export interface PriorLedger { readonly calls: number; readonly head: string; re
  *  time — mutant M-regenesis). Cases:
  *   · neither anchor nor journal            => {0, GENESIS, 0}                 (fresh)
  *   · journal present, anchor ABSENT        => throw                          (incoherent resume; M-absent)
- *   · anchor present, journal absent/empty  => {anchor.calls, GENESIS, 0}     (LEGIT crash window pre-1st-append)
+ *   · anchor present, journal absent/empty  => {anchor.calls, GENESIS, 0}     (LEGIT: the crash window between ANY
+ *                                              persist's anchor write and its following append — C-V-1 persists per
+ *                                              page, so this is no longer only the very first append)
  *   · both present                          => verifyChain (throw if !ok); anchor.calls >= head.calls_cumulative
  *                                              (>=, NEVER ==: the crash window leaves the anchor AHEAD; == would
  *                                              break post-crash resume, C-4). anchor.calls < head => throw
@@ -228,7 +240,9 @@ export function readPriorCalls(anchorPath: string, journalPath: string, exists: 
   let parsed: unknown;
   try { parsed = JSON.parse(readFile(anchorPath)); } catch { throw new Error("bell/universe: budget anchor is malformed (fail-closed)"); }
   const anchorCalls = asObj(parsed).calls;
-  if (typeof anchorCalls !== "number" || !Number.isFinite(anchorCalls) || anchorCalls < 0) throw new Error("bell/universe: budget anchor 'calls' is invalid (fail-closed)");
+  // C-V-3: the anchor MUST be a whole integer >= 0 (parity with verifyChain's calls_cumulative), so a fractional
+  // hand-edited anchor is refused, not silently accepted.
+  if (typeof anchorCalls !== "number" || !Number.isInteger(anchorCalls) || anchorCalls < 0) throw new Error("bell/universe: budget anchor 'calls' is invalid (fail-closed, integer >= 0)");
   if (lines.length === 0) return { calls: anchorCalls, head: LEDGER_GENESIS, seq: 0 };
   const entries = lines.map((l, i) => { try { return JSON.parse(l) as unknown; } catch { throw new Error(`bell/universe: budget ledger journal line ${String(i)} is unreadable (fail-closed, no skip)`); } });
   const v = verifyChain(entries);
@@ -401,13 +415,17 @@ export function assertOnlyAllowedFields(rec: Record<string, unknown>): void {
  *  legitimate decimal name ("Fund 2.5") is emptied. The count is surfaced as identity_text_emptied=N in the
  *  provenance so a run that empties N fields is visible. */
 const IDENTITY_TEXT_ALLOWED = /^[A-Za-z0-9 .,&()+'-]*$/;
-const IDENTITY_CURRENCY_CODE = /\b(USD|EUR|GBP|CHF|JPY|CAD|AUD)\b/i;
-const IDENTITY_DECIMAL = /\d+\.\d+/;
+// C-V-4: currency code with a LETTER-boundary lookaround (NOT `\b`): `\b` treats a digit as a word char, so a
+// GLUED "USD12"/"12USD"/"AAPL USD150"/"EUR3" slipped through (a currency+amount surviving in identity text). The
+// letter-boundary form catches every glued form yet PRESERVES symbol-like "USDx"/"USDCx"/"EURCx" (a letter follows
+// the code). Decimal admits BOTH separators `[.,]` so "1,5" is emptied like "1.5".
+const IDENTITY_CURRENCY_CODE = /(?<![A-Za-z])(USD|EUR|GBP|CHF|JPY|CAD|AUD)(?![A-Za-z])/i;
+const IDENTITY_DECIMAL = /\d+[.,]\d+/;
 export function sanitizeIdentityText(s: string): string {
   if (s.length > 64) return "";
   if (!IDENTITY_TEXT_ALLOWED.test(s)) return "";     // covers `$` and any non-identity character
-  if (IDENTITY_CURRENCY_CODE.test(s)) return "";     // \b(USD|EUR|GBP|CHF|JPY|CAD|AUD)\b, case-insensitive
-  if (IDENTITY_DECIMAL.test(s)) return "";           // a price-shaped decimal
+  if (IDENTITY_CURRENCY_CODE.test(s)) return "";     // currency code adjacent to a digit (or standalone), case-insensitive
+  if (IDENTITY_DECIMAL.test(s)) return "";           // a price-shaped decimal (period OR comma separator)
   return s;
 }
 /** Count the name/symbol fields a run would EMPTY (surfaced as identity_text_emptied=N in the provenance). */
