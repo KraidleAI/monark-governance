@@ -9,10 +9,10 @@ export { BudgetExceededError } from "./errors.ts";
 export { runReconcile } from "./reconcile.ts";
 export { runCli } from "./cli.ts";
 export { verifyCycleLedger } from "./ledger.ts";
-export { heliusCredits, HELIUS_TARIFF_VERSION } from "./tariff.ts";
-export { HELIUS_CYCLE_CAP_CREDITS, CHAINSTACK_CYCLE_CAP_RU } from "./transport.ts";
+export { heliusCredits, HELIUS_TARIFF_VERSION, chainstackRu, CHAINSTACK_TARIFF_VERSION } from "./tariff.ts";
+export { HELIUS_CYCLE_CAP_CREDITS, CHAINSTACK_CYCLE_CAP_RU, ETH_CALL_KEYLESS_LABELS, GET_LOGS_KEYLESS_LABELS } from "./transport.ts";
 // Types only (erased at runtime; absent from the closed VALUE export set).
 export type { OperatorLabel, Transport, OperatorClass, AttemptRecord, Outcome, RunLimits, ClientConfig, BudgetedClient } from "./client.ts";
 export type { CycleLedger, CycleLedgerEntry } from "./ledger.ts";
-export type { Snapshot, Verdict, ReconcileResult } from "./reconcile.ts";
+export type { Snapshot, Verdict, ReconcileResult, ReconcileMode } from "./reconcile.ts";
 export type { CliDeps, CliResult } from "./cli.ts";

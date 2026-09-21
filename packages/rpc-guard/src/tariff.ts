@@ -28,3 +28,63 @@ export function heliusCredits(method: string): number {
   if (ONE_CREDIT.has(method)) return 1;
   throw new Error(`rpc-guard: Helius method '${method}' is absent from the closed tariff table (fail-closed; ruling Q2)`);
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Chainstack Request-Unit (RU) tariff (GARDE-HELIUS-2, D1) - a CONSERVATIVE fail-closed calque of the Helius table.
+// Pinned by the orchestrator's on-site read of docs.chainstack.com/docs/request-units
+// (FAITS-tarification-chainstack-2026-09-21, orchestrator on-site read). The guard
+// runs OFFLINE and cannot read the chain tip, so it cannot tell "full" (< 127 blocks behind, 1 RU) from "archive"
+// (>= 127 behind, 2 RU) per request. So every method the FAITS marks age-sensitive-or-always-archive is priced
+// 2 RU (the ceiling): the guard NEVER sub-counts. The over-count is absorbed by the ASYMMETRIC reconcile
+// (Delta_dashboard <= ledger_run, decision 113) - it can never mask consumption outside the guard.
+export const CHAINSTACK_TARIFF_VERSION = "chainstack-2026-09-21";
+
+/** FAITS pt 4: the CLOSED list of EVM methods billed by block age ("less than 127 blocks behind the tip is full;
+ *  127 or more behind is archive"). All 2 RU here (conservative). Exactly the 20 names on the page - the test
+ *  re-lists them and asserts size === 20 (the word-for-word oracle). */
+export const CHAINSTACK_AGE_SENSITIVE_EVM = new Set<string>([
+  "eth_call", "eth_createAccessList", "eth_estimateGas", "eth_feeHistory", "eth_getAccount",
+  "eth_getBalance", "eth_getBlockByNumber", "eth_getBlockReceipts", "eth_getBlockTransactionCountByHash",
+  "eth_getBlockTransactionCountByNumber", "eth_getCode", "eth_getLogs", "eth_getProof", "eth_getStorageAt",
+  "eth_getTransactionByBlockNumberAndIndex", "eth_getTransactionCount", "eth_getUncleCountByBlockHash",
+  "eth_getUncleCountByBlockNumber", "eth_newFilter", "eth_simulateV1",
+]);
+/** FAITS pt 7: the CLOSED list of Solana methods to which archive applies (2 RU conservatively); the page marks
+ *  getSignaturesForAddress + getFirstAvailableBlock ALWAYS archive, the rest by slot age - all 2 RU here. Size 8. */
+export const CHAINSTACK_ARCHIVABLE_SOLANA = new Set<string>([
+  "getTransaction", "getBlock", "getBlockTime", "getBlocks", "getBlocksWithLimit",
+  "getSignaturesForAddress", "getFirstAvailableBlock", "getSignatureStatuses",
+]);
+/** FAITS pt 4 tail (any other EVM method = 1 RU): a CLOSED set of non-age-sensitive EVM methods MONARK could
+ *  route through a Chainstack EVM endpoint, each DERIVED 1 RU because it is absent from the age-sensitive list. The
+ *  recorder uses NO 1-RU method today (its three methods eth_call / eth_getLogs / eth_getBlockByNumber are all in
+ *  the age-sensitive list => 2 RU); this set exists so a DRIFTED method fail-closes to `unknown_method` rather than
+ *  silently defaulting to a price. The test asserts this set is DISJOINT from the two 2-RU sets. */
+export const CHAINSTACK_ONE_RU_EVM = new Set<string>([
+  "eth_blockNumber", "eth_chainId", "eth_getBlockByHash", "eth_getTransactionByHash",
+  "eth_getTransactionReceipt", "eth_sendRawTransaction",
+]);
+
+/** RU for one Chainstack request of `method`. Prefix rule FIRST (FAITS pt 6: all debug_* / trace_* / arbtrace_*
+ *  and eth_callMany are always 2 RU), then the closed sets. A method on NO closed list throws (fail-closed, calque
+ *  Helius) - NEVER a default of 1 (which could sub-count a 2-RU archival method the tariff forgot). */
+export function chainstackRu(method: string): number {
+  if (/^(?:debug|trace|arbtrace)_/.test(method) || method === "eth_callMany") return 2; // FAITS pt 6 (prefix first)
+  if (CHAINSTACK_AGE_SENSITIVE_EVM.has(method)) return 2; // FAITS pt 4
+  if (CHAINSTACK_ARCHIVABLE_SOLANA.has(method)) return 2; // FAITS pt 7
+  if (CHAINSTACK_ONE_RU_EVM.has(method)) return 1;        // FAITS pt 4 tail (not age-sensitive)
+  throw new Error(`rpc-guard: Chainstack method '${method}' is absent from the closed RU tariff (fail-closed; calque Helius)`);
+}
+
+/** Keyless operators (the free ETH quorum providers + the Solana-Foundation witness) carry no paid tariff; their
+ *  ledger lines are stamped with this fixed version so a provenance reader never reads a paid version on a 0-cost line. */
+export const KEYLESS_TARIFF_VERSION = "keyless-0";
+
+/** The tariff_version stamped on an operator's ledger line (GARDE-HELIUS-2): the RIGHT version per operator, so a
+ *  chainstack.jsonl line never carries the Helius version (a provenance lie the reconcile would read). cli.ts opens
+ *  ledgers by --op with no class in hand, so the mapping lives HERE as a pure op -> version function. */
+export function tariffVersionOf(op: string): string {
+  if (op === "helius") return HELIUS_TARIFF_VERSION;
+  if (op === "chainstack") return CHAINSTACK_TARIFF_VERSION;
+  return KEYLESS_TARIFF_VERSION;
+}

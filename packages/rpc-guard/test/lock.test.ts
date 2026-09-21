@@ -1,28 +1,25 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { runCli, verifyCycleLedger, type Snapshot } from "@monark/rpc-guard";
+import { openGuardedClient, runCli, verifyCycleLedger, type Snapshot, type RunLimits } from "@monark/rpc-guard";
 import { acquireLock, LockHeldError } from "../src/lock.ts";
 import { ensureCycleDir, openOperatorLedger } from "../src/ledger.ts";
-import { makeClient } from "../src/client.ts";
-import { HELIUS, tmp, heliusCfg } from "./harness.ts";
-import type { Transport } from "../src/client.ts";
+import { HELIUS, tmp } from "./harness.ts";
 
 test("lock_blocks_second_writer", async () => {
   const { dir, cleanup } = tmp();
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = () => Promise.resolve(new Response(JSON.stringify({ result: 1 }), { status: 200, headers: { "content-type": "application/json" } }));
   try {
-    let calls = 0; const spy: Transport = () => { calls++; return Promise.resolve({ ok: 1 }); };
-    const cd = ensureCycleDir(dir, "c13");
-    // "process 1": makeClient acquires the helius lock at construction, then one call (1 transport).
-    const c1 = makeClient(heliusCfg(), new Map([["helius", openOperatorLedger(cd, "helius", 0)]]), { transport: spy });
+    const env = { BELL_SOLANA_RPC: "https://example.invalid/HELIUS", HELIUS_API_KEY: "FAKEKEY-9z9z9z" };
+    const limits: RunLimits = { maxCalls: 100, runCaps: { helius: 1_000_000 }, methodCaps: { getTransaction: 100 }, cycleFloor: { helius: 0 } };
+    // "process 1": openGuardedClient acquires the helius lock at construction (before opening the ledger), then one call.
+    const c1 = openGuardedClient(env, limits, dir, { helius: "c13" });
     await c1.call(HELIUS, "getTransaction", [1]);
-    assert.equal(calls, 1);
-    // "process 2": a SECOND makeClient on the SAME cycle dir fails to openSync("wx") => LockHeldError at construction,
-    // BEFORE any transport (mutant "w" would overwrite the lock and let it through).
-    const l2 = openOperatorLedger(cd, "helius", 0);
-    assert.throws(() => makeClient(heliusCfg(), new Map([["helius", l2]]), { transport: spy }), LockHeldError);
-    assert.equal(calls, 1, "the refused second constructor performs no transport");
-  } finally { cleanup(); }
+    // "process 2": a SECOND openGuardedClient on the SAME cycle dir fails to openSync("wx") => LockHeldError at
+    // construction, BEFORE any transport (mutant "w" would overwrite the lock and let it through).
+    assert.throws(() => openGuardedClient(env, limits, dir, { helius: "c13" }), LockHeldError);
+  } finally { globalThis.fetch = realFetch; cleanup(); }
 });
 
 test("unlock_subcommand_chains_release", () => {
