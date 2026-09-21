@@ -8,7 +8,7 @@
 // state; M11 token-null accepted without anchors; M12 failed tx decoded; M13 SetAuthority CPI ignored; M14 fullmint⊆hybrid.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdtempSync } from "node:fs";
+import { readFileSync, writeFileSync, appendFileSync, copyFileSync, existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { decodeSetAuthority, setAuthorityHandoffsFromTx, scanFullMint, compareToHybrid, canonicalListSha,
@@ -282,8 +282,8 @@ test("bell_series_method_maps_to_authority — the ratified method string maps t
 });
 
 test("bell_crosscheck_ledger_is_chained_and_rederivable — the page ledger chains + canonical list sha is stable (C-5)", () => {
-  const p1 = chainedLedgerEntry("0".repeat(64), 1, [{ sig: "b", slot: 10 }, { sig: "a", slot: 10 }])!;
-  const p2 = chainedLedgerEntry(p1.entry_sha256, 2, [{ sig: "c", slot: 20 }])!;
+  const p1 = chainedLedgerEntry("0".repeat(64), 1, [{ sig: "b", slot: 10 }, { sig: "a", slot: 10 }], [], [])!;
+  const p2 = chainedLedgerEntry(p1.entry_sha256, 2, [{ sig: "c", slot: 20 }], [], [])!;
   assert.equal(p2.prev_entry_sha256, p1.entry_sha256, "entry N carries entry N-1's sha (chained)");
   assert.deepEqual([...p1.tail_sigs_at_slot_hi], ["a", "b"], "tail sigs at slot_hi are recorded (resume dedupe, sorted)");
   // canonical list sha is order-independent of input (rows sorted by (slot, sig)) => re-derivable by an auditor.
@@ -610,31 +610,168 @@ type CrosscheckArtifact = { comparator_verdict: { verdict: string; reason?: stri
 const readCC = (outDir: string): CrosscheckArtifact =>
   JSON.parse(readFileSync(join(outDir, "crosscheck-SPYx.json"), "utf8")) as CrosscheckArtifact;
 
-// ---- L-b1a-6 / C-V-3: verifyLedgerChain re-derives the chain INDEPENDENTLY of the writer -----------------------------
-test("bell_crosscheck_ledger_chain_rederives_from_disk — verifyLedgerChain re-derives the head; a tampered prev/core fails closed (C-V-3)", () => {
-  const p1 = chainedLedgerEntry("0".repeat(64), 1, [{ sig: "a", slot: 10 }, { sig: "b", slot: 10 }])!;
-  const p2 = chainedLedgerEntry(p1.entry_sha256, 2, [{ sig: "c", slot: 20 }])!;
-  const p3 = chainedLedgerEntry(p2.entry_sha256, 3, [{ sig: "d", slot: 30 }])!;
-  const ok = verifyLedgerChain([p1, p2, p3]);
-  assert.equal(ok.ok, true, "a valid chain re-derives");
-  assert.equal(ok.headSha, ledgerSha([p1, p2, p3]), "the re-derived head == ledger_sha256 (the §5 audit anchor)");
-  // a tampered prev_entry_sha256 in the MIDDLE breaks the link (M-b1a-7b: a writer core WITHOUT prev survived the old
-  // carried-field test — here the independent re-derivation reds).
-  assert.equal(verifyLedgerChain([p1, { ...p2, prev_entry_sha256: "f".repeat(64) }, p3]).ok, false, "a tampered prev_entry_sha256 mid-chain fails closed");
+// ---- -b3d-f (condition (f)): verifyLedgerChain re-derives the chain AND its COMMITTED payload, independently of the
+// ---- writer (L-b1a-6 / C-V-3 base, now closing the payload vector: the ledger head commits page_events/page_handoffs) --
+test("bell_crosscheck_ledger_chain_rederives_from_disk — verifyLedgerChain re-derives the head of a runMain ledger == its ledger_sha256; a tampered prev/core fails closed (C-V-3, C-F-5)", async () => {
+  // C-F-5 (CA-11 durci): the records are the REAL ledger-<MINT>.jsonl runMain wrote, never hand-built in memory. A
+  // multi-page ledger (3 chained records) so the mid-chain tamper has a real link to break.
+  const sd = mkdtempSync(join(tmpdir(), "bell-fd-s-")), od = mkdtempSync(join(tmpdir(), "bell-fd-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), b1aSeries([eInitB, eAB, eBB, eCB]));
+  await runMain(b1aArgs(sd, od, 50), b1aDeps(b1aStub([{ data: [cinitB], paginationToken: "p2" }, { data: [cAB], paginationToken: "p3" }, { data: [cBB, cCB], paginationToken: null }])));
+  const records = readFileSync(join(od, "ledger-SPYx.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l) as LedgerRecord);
+  assert.equal(records.length, 3, "runMain wrote three chained atomic records");
+  const ok = verifyLedgerChain(records);
+  assert.equal(ok.ok, true, "the real on-disk chain re-derives (payload committed on every record)");
+  const artifact = JSON.parse(readFileSync(join(od, "crosscheck-SPYx.json"), "utf8")) as { ledger_sha256: string };
+  assert.equal(ok.headSha, artifact.ledger_sha256, "the re-derived head == the artifact's ledger_sha256 (the §5/CA-9 audit anchor)");
+  // a tampered prev_entry_sha256 in the MIDDLE breaks the link (independent re-derivation reds; M-b1a-7b stays live).
+  const midTamper = records.map((r, i) => (i === 1 ? { ...r, prev_entry_sha256: "f".repeat(64) } : r));
+  assert.equal(verifyLedgerChain(midTamper).ok, false, "a tampered prev_entry_sha256 mid-chain fails closed");
   // a core field edited under a STALE entry_sha256 (the writer's sha kept) => recomputed hash != stored => fail closed.
-  assert.equal(verifyLedgerChain([{ ...p1, tx_count: 999 }]).ok, false, "a core field edited under a stale entry_sha256 fails closed");
+  assert.equal(verifyLedgerChain([{ ...records[0]!, tx_count: 999 }]).ok, false, "a core field edited under a stale entry_sha256 fails closed");
 });
 
-test("bell_crosscheck_ledger_chain_rederives_ignoring_page_payload — page_events/page_handoffs never enter entry_sha256 (C-V-3/C-B-7)", () => {
-  const core1 = chainedLedgerEntry("0".repeat(64), 1, [{ sig: "a", slot: 10 }])!;
-  // TWO atomic records: SAME core, DIFFERENT payload => the same entry_sha256, and both re-derive (the payload rides
-  // OUTSIDE the hashed core). M-b1a-7/9 (hash the payload) reds: the two payloads would give two different hashes.
-  const recA: LedgerRecord = { ...core1, page_events: [ev("initialize", 1, 0, 10, 0, "a")], page_handoffs: [] };
-  const recB: LedgerRecord = { ...core1, page_events: [], page_handoffs: [{ mint: MINT, newAuthorityHex: null, currentAuthority: A_ADDR, slot: 10, instructionIndex: 0, signature: "a" }] };
-  assert.equal(recA.entry_sha256, recB.entry_sha256, "the payload does not change entry_sha256");
-  assert.equal(verifyLedgerChain([recA]).ok, true, "verify ignores page_events (mutant hashing the payload => reds)");
-  assert.equal(verifyLedgerChain([recB]).ok, true, "verify ignores page_handoffs");
-  assert.equal(verifyLedgerChain([recA]).headSha, verifyLedgerChain([recB]).headSha, "same head regardless of payload");
+test("bell_crosscheck_ledger_chain_rederives_committing_page_payload — page_events/page_handoffs ENTER entry_sha256; a substituted payload under a kept entry_sha256 fails closed (condition (f); M-b1a-7/9 INVERTED)", () => {
+  const pe = [ev("initialize", 1, 0, 10, 0, "a")];
+  const ho = [{ mint: MINT, newAuthorityHex: null, currentAuthority: A_ADDR, slot: 10, instructionIndex: 0, signature: "a" }];
+  // The payload is now COMMITTED (INVERSION of M-b1a-7/9, which hashed the payload as a MUTANT): two records with the
+  // SAME core txs but DIFFERENT payload get DIFFERENT entry_sha256 (via payload_sha256, the 10th core field).
+  const withEvents = chainedLedgerEntry("0".repeat(64), 1, [{ sig: "a", slot: 10 }], pe, [])!;
+  const withHandoffs = chainedLedgerEntry("0".repeat(64), 1, [{ sig: "a", slot: 10 }], [], ho)!;
+  assert.notEqual(withEvents.entry_sha256, withHandoffs.entry_sha256, "different payloads => different entry_sha256 (payload committed)");
+  // C-V-1(ii) LITERAL expected-value vector (executable pre-registered form of Amendment 2): for this fixed synthetic
+  // payload the two hex are hard-coded, computed once with HEAD code AND confirmed INDEPENDENTLY of the helper by raw
+  // sha256(JSON.stringify({page_events:[the event], page_handoffs:[]})) over the written form / ingestion order (RENDU
+  // cites the node -e). A degenerate helper that hashes only the array LENGTHS (M-f-5) or inverts the payload key order
+  // (M-f-6) is consistent on both sides — so the edit tests pass — but yields a DIFFERENT hex HERE => reds. The event is
+  // ev("initialize", 1, 0, 10, 0, "a") (multiplierBitsHex 000000000000f03f); the core carries payload_sha256 LAST.
+  assert.equal(withEvents.payload_sha256, "a3b346f0de060d33c20a461fcb40d600417f9b6f52282cd1a14fda69da40fd8e",
+    "payload_sha256 == raw sha256(JSON.stringify({page_events:[the event], page_handoffs:[]})), a hard-coded literal (M-f-5 lengths-only / M-f-6 key-order => different hex => reds)");
+  assert.equal(withEvents.entry_sha256, "1e47da9efc918af3a74e7239677bf29c15a0fb1316f6a1e5fb2f9156c58cfbf4",
+    "entry_sha256 == raw sha256(JSON.stringify(core with payload_sha256 LAST)), a hard-coded literal (a degenerate payload commitment => different entry_sha256 => reds)");
+  // C-G2-DELTA-1: the 1-event/0-handoff vector above CANNOT pin ingestion order: sortEvents (or a sort of page_handoffs)
+  // over a <=1 element array is identity, so the literal is unchanged => a mutant that sorts page_events on BOTH sides
+  // (MINE-3) or sorts page_handoffs on BOTH sides (MINE-4) survives it. Two multi-element vectors close that gap. The two
+  // hex are RECOMPUTED as raw sha256(JSON.stringify({page_events,page_handoffs})) INDEPENDENTLY of the payloadSha helper
+  // (RENDU cites the node script). The objects are BESPOKE literals (NOT ev()/hexOf) so each hex is valid ONLY for these
+  // exact bytes/order; a worker rebuilding them from ev()/hexOf would get a different hex (declared trap).
+  const evA: MultiplierEvent = { kind: "initialize", multiplier: "1", multiplierBitsHex: "aa", effectiveTimestampSec: 0, blockTimeSec: 1000, slot: 10, instructionIndex: 0, signature: "a" };
+  const evB: MultiplierEvent = { kind: "update", multiplier: "1.5", multiplierBitsHex: "bb", effectiveTimestampSec: 1500, blockTimeSec: 2000, slot: 20, instructionIndex: 0, signature: "b" };
+  const ho1cc = { mint: "M", newAuthorityHex: "cc", currentAuthority: "A", slot: 20, instructionIndex: 1, signature: "b" };
+  const ho0dd = { mint: "M", newAuthorityHex: "dd", currentAuthority: "A", slot: 10, instructionIndex: 0, signature: "a" };
+  const ccTxs = [{ sig: "a", slot: 10 }, { sig: "b", slot: 20 }];
+  // Vector 1 (event INGESTION ORDER): events [evB, evA] NON-sorted + one handoff [ho1cc]. A sortEvents on BOTH sides folds
+  // [evB,evA] to [evA,evB] => the payload hex changes (194133c8... != f2243f755f...) => MINE-3 reds. The same literal also
+  // pins the written FORM (MINE-2 key permutation => different hex) and the array CONTENT (MINE-1 lengths-only => different hex).
+  const orderedEntry = chainedLedgerEntry("0".repeat(64), 1, ccTxs, [evB, evA], [ho1cc])!;
+  assert.equal(orderedEntry.payload_sha256, "f2243f755fa55d8c564017c55b92debda4a5307cc6e5e6d1b5b5607a581ab1ff",
+    "payload_sha256 pins the ingestion order of >=2 events: raw sha256 over [evB,evA] (sorted [evA,evB] => 194133c8... => MINE-3 reds; lengths-only => MINE-1 reds; key permutation => MINE-2 reds)");
+  assert.equal(orderedEntry.entry_sha256, "aa0f826b5755754b6b258ecac9b26e8a6ac83632981945a31d55b0981322a0dd",
+    "entry_sha256 folds that payload_sha256 as the 10th core field: raw sha256 over the core (a re-ordered or degenerate payload => different entry_sha256 => reds)");
+  // Vector 2 (handoff INGESTION ORDER): two handoffs [ho1cc(slot20), ho0dd(slot10)] NON-sorted. A sort of page_handoffs on
+  // BOTH sides folds them to [ho0dd, ho1cc] => the payload hex changes => MINE-4 reds (a single handoff cannot pin this).
+  const handoffOrderEntry = chainedLedgerEntry("0".repeat(64), 1, ccTxs, [evB, evA], [ho1cc, ho0dd])!;
+  assert.equal(handoffOrderEntry.payload_sha256, "f0a2d8a3d56eaaf6e2a3e55a9fb01c2dbd6c4578bbe6362ab28573b987e875c0",
+    "payload_sha256 pins the ingestion order of >=2 handoffs: raw sha256 over [ho1cc,ho0dd] (a slot-asc handoff sort => [ho0dd,ho1cc] => different hex => MINE-4 reds)");
+  const recEvents: LedgerRecord = { ...withEvents, page_events: pe, page_handoffs: [] };
+  assert.equal(verifyLedgerChain([recEvents]).ok, true, "a record whose payload re-derives its committed sha is ok");
+  // SUBSTITUTE the payload but KEEP entry_sha256 (and its STORED payload_sha256) => the RE-DERIVED payload_sha256 differs
+  // => fail closed. M-f-1 (read the STORED payload_sha256 instead of recomputing) would MATCH => ok:true => reds.
+  const substituted: LedgerRecord = { ...withEvents, page_events: [], page_handoffs: ho };
+  assert.equal(verifyLedgerChain([substituted]).ok, false, "a substituted payload under a kept entry_sha256/payload_sha256 fails closed (M-f-1 => ok:true => reds)");
+});
+
+test("bell_crosscheck_ledger_chain_refuses_missing_payload_sha — a record whose payload_sha256 is ABSENT (9-field legacy or a tamper dropping it) is refused, never re-derived from the recomputed payload (C-F-1)", () => {
+  const pe = [ev("initialize", 1, 0, 10, 0, "a")];
+  const valid = chainedLedgerEntry("0".repeat(64), 1, [{ sig: "a", slot: 10 }], pe, [])!;
+  const validRec: LedgerRecord = { ...valid, page_events: pe, page_handoffs: [] };
+  assert.equal(verifyLedgerChain([validRec]).ok, true, "the 10-field record (payload committed) re-derives (control)");
+  // TAMPER: drop payload_sha256 but KEEP entry_sha256 + the intact page_events/page_handoffs. A verifier that TOLERATES
+  // the absent field (M-f-4) recomputes payload_sha256 from the intact payload, rebuilds the 10-field core and MATCHES
+  // the kept entry_sha256 => ok:true. The C-F-1 presence guard refuses on the ABSENT field FIRST => ok:false.
+  const dropped: Record<string, unknown> = { ...validRec };
+  delete dropped.payload_sha256;
+  assert.equal(verifyLedgerChain([dropped as unknown as LedgerRecord]).ok, false, "an absent payload_sha256 is refused, never ignored (M-f-4 tolerates it => recompute matches => ok:true => reds)");
+  // a genuine 9-field legacy record (no payload_sha256, any entry_sha256) is refused too — no migration (fact 5).
+  const legacyNine = { prev_entry_sha256: "0".repeat(64), page: 1, slot_lo: 10, slot_hi: 10, first_sig: "a", last_sig: "a",
+    tx_count: 1, tail_sigs_at_slot_hi: ["a"], list_sha256: "x", entry_sha256: "y", page_events: pe, page_handoffs: [] };
+  assert.equal(verifyLedgerChain([legacyNine as unknown as LedgerRecord]).ok, false, "a 9-field legacy record (no payload_sha256) is refused at the resume (no migration, fact 5)");
+});
+
+test("bell_crosscheck_resume_refuses_edited_payload — a resume onto a ledger whose page_events OR page_handoffs was edited (entry_sha256 kept) is fail-closed BEFORE any write; the byte-exact copy still resumes equal (condition (f), C-F-3)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-rep-s-")), od = mkdtempSync(join(tmpdir(), "bell-rep-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), b1aSeries([eInitB, eAB, eBB, eCB]));
+  const lf = join(od, "ledger-SPYx.jsonl"), bf = join(od, "budget.json");
+  // RUN 1: budget stop after page 1 (p1 gTfA + initSig opB + p2 gTfA = 3; updA opB is the 4th) => ONE honest atomic
+  // record carrying the Initialize in page_events and NO hand-off in page_handoffs.
+  await runMain(b1aArgs(sd, od, 3), b1aDeps(b1aStub([{ data: [cinitB], paginationToken: "p2" }, { data: [cAB], paginationToken: null }])));
+  assert.equal(readFileSync(lf, "utf8").trim().split("\n").length, 1, "run-1 persisted one atomic record");
+  const rec0 = JSON.parse(readFileSync(lf, "utf8").trim()) as Record<string, unknown>;
+  const pe0 = rec0.page_events as MultiplierEvent[];
+  assert.ok(pe0.length === 1 && pe0[0]!.kind === "initialize", "run-1's record carries the Initialize in page_events");
+  assert.equal((rec0.page_handoffs as unknown[]).length, 0, "run-1's record has NO hand-off => the (b) edit makes authority_change_found flip false->true (the L-5 premise)");
+  const resumeStub = (): JsonRpcCall => b1aStub([{ data: [cAB, cBB, cCB], paginationToken: null }]);
+
+  // (c) COUPLED CONTROL, run FIRST from a BYTE-EXACT copy taken BEFORE any edit (copyFileSync, not a utf8 re-encode):
+  // the unedited ledger resumes to EQUAL in a DISTINCT --out => the refusals below are the EDIT, not a refuse-always bug.
+  const odC = mkdtempSync(join(tmpdir(), "bell-rep-c-"));
+  copyFileSync(lf, join(odC, "ledger-SPYx.jsonl")); copyFileSync(bf, join(odC, "budget.json"));
+  await runMain(b1aArgs(sd, odC, 10), b1aDeps(resumeStub()));
+  assert.equal(readCC(odC).comparator_verdict.verdict, "equal", "(c) the byte-exact honest ledger resumes to equal (M-f-3 strips payload_sha256 => this honest resume throws => reds; refuse-always => reds; the honest resumes in this file are the broader control)");
+
+  // (a) EDIT page_events (drop the Initialize), KEEP entry_sha256, on a byte-exact copy.
+  const odA = mkdtempSync(join(tmpdir(), "bell-rep-a-"));
+  copyFileSync(lf, join(odA, "ledger-SPYx.jsonl")); copyFileSync(bf, join(odA, "budget.json"));
+  const recA = JSON.parse(readFileSync(join(odA, "ledger-SPYx.jsonl"), "utf8").trim()) as Record<string, unknown>;
+  writeFileSync(join(odA, "ledger-SPYx.jsonl"), JSON.stringify({ ...recA, page_events: [] }) + "\n"); // entry_sha256 kept => payload no longer re-derives
+  const budgetA = readFileSync(join(odA, "budget.json"), "utf8");
+  await assert.rejects(runMain(b1aArgs(sd, odA, 10), b1aDeps(resumeStub())), /chain does not re-derive/,
+    "(a) an edited page_events under a kept entry_sha256 is fail-closed (M-f-1 reads the STORED payload_sha256 => no refusal => reds; base 9-field code => no commitment => no refusal => reds)");
+  assert.equal(readFileSync(join(odA, "budget.json"), "utf8"), budgetA, "(a) budget.json is BYTE-IDENTICAL after the refusal (the refusal precedes any write: resumeFromLedger precedes writeBudget)");
+  assert.equal(existsSync(join(odA, "crosscheck-SPYx.json")), false, "(a) NO crosscheck-SPYx.json written by the refused resume");
+  assert.equal(existsSync(join(odA, "crosscheck-SPYx-attempt.json")), false, "(a) NO -attempt sidecar written by the refused resume");
+
+  // (b) EDIT page_handoffs so authority_change_found WOULD FLIP ([] -> one hand-off), KEEP entry_sha256 (vector L-5).
+  const odB = mkdtempSync(join(tmpdir(), "bell-rep-b-"));
+  copyFileSync(lf, join(odB, "ledger-SPYx.jsonl")); copyFileSync(bf, join(odB, "budget.json"));
+  const recB = JSON.parse(readFileSync(join(odB, "ledger-SPYx.jsonl"), "utf8").trim()) as Record<string, unknown>;
+  const injected = [{ mint: SPYX.address, newAuthorityHex: hexOf(B_BYTES), currentAuthority: A_ADDR, slot: 10, instructionIndex: 1, signature: "initSig" }];
+  writeFileSync(join(odB, "ledger-SPYx.jsonl"), JSON.stringify({ ...recB, page_handoffs: injected }) + "\n"); // authority_change_found would flip true
+  const budgetB = readFileSync(join(odB, "budget.json"), "utf8");
+  await assert.rejects(runMain(b1aArgs(sd, odB, 10), b1aDeps(resumeStub())), /chain does not re-derive/,
+    "(b) an edited page_handoffs (authority_change_found would flip) is fail-closed, vector L-5 (M-f-2 hashes page_events only => handoff edit not caught => no refusal => reds)");
+  assert.equal(readFileSync(join(odB, "budget.json"), "utf8"), budgetB, "(b) budget.json is BYTE-IDENTICAL after the refusal");
+  assert.equal(existsSync(join(odB, "crosscheck-SPYx.json")), false, "(b) NO crosscheck-SPYx.json written by the refused resume");
+  assert.equal(existsSync(join(odB, "crosscheck-SPYx-attempt.json")), false, "(b) NO -attempt sidecar written by the refused resume");
+
+  // (d) C-V-1(i) EQUAL-LENGTH in-place edit: change ONE field of page_events[0] (multiplierBitsHex), keeping the array
+  // LENGTHS (page_events 1, page_handoffs 0) and entry_sha256. M-f-5 (helper hashes only {e:events.length,h:handoffs.length})
+  // sees no length change => verifies => NO refusal => reds. The honest verifier re-derives the FULL payload => refused.
+  const odD = mkdtempSync(join(tmpdir(), "bell-rep-d-"));
+  copyFileSync(lf, join(odD, "ledger-SPYx.jsonl")); copyFileSync(bf, join(odD, "budget.json"));
+  const recD = JSON.parse(readFileSync(join(odD, "ledger-SPYx.jsonl"), "utf8").trim()) as Record<string, unknown>;
+  const evsD = recD.page_events as MultiplierEvent[];
+  writeFileSync(join(odD, "ledger-SPYx.jsonl"), JSON.stringify({ ...recD, page_events: [{ ...evsD[0]!, multiplierBitsHex: f64BitsHexLE(2) }] }) + "\n"); // same lengths, one field changed, entry_sha256 kept
+  const budgetD = readFileSync(join(odD, "budget.json"), "utf8");
+  await assert.rejects(runMain(b1aArgs(sd, odD, 10), b1aDeps(resumeStub())), /chain does not re-derive/,
+    "(d) an EQUAL-LENGTH in-place field edit (multiplierBitsHex) is fail-closed (M-f-5 hashes only the array lengths => no change => no refusal => reds)");
+  assert.equal(readFileSync(join(odD, "budget.json"), "utf8"), budgetD, "(d) budget.json is BYTE-IDENTICAL after the refusal");
+  assert.equal(existsSync(join(odD, "crosscheck-SPYx.json")), false, "(d) NO crosscheck-SPYx.json written by the refused resume");
+  assert.equal(existsSync(join(odD, "crosscheck-SPYx-attempt.json")), false, "(d) NO -attempt sidecar written by the refused resume");
+
+  // (e) C-V-1(iii) C-F-1 via runMain: DELETE the payload_sha256 field on disk (keep entry_sha256 + the intact payload)
+  // => the presence guard refuses at the resume through the REAL CLI (not only the unit test), killing M-f-4 via runMain.
+  const odE = mkdtempSync(join(tmpdir(), "bell-rep-e-"));
+  copyFileSync(lf, join(odE, "ledger-SPYx.jsonl")); copyFileSync(bf, join(odE, "budget.json"));
+  const recE = JSON.parse(readFileSync(join(odE, "ledger-SPYx.jsonl"), "utf8").trim()) as Record<string, unknown>;
+  delete recE.payload_sha256; // absent field, entry_sha256 + page_events/page_handoffs intact
+  writeFileSync(join(odE, "ledger-SPYx.jsonl"), JSON.stringify(recE) + "\n");
+  const budgetE = readFileSync(join(odE, "budget.json"), "utf8");
+  await assert.rejects(runMain(b1aArgs(sd, odE, 10), b1aDeps(resumeStub())), /chain does not re-derive/,
+    "(e) a record whose payload_sha256 field is DELETED on disk is refused at the resume via runMain (C-F-1 integration; M-f-4 tolerates absence => resume proceeds => no refusal => reds)");
+  assert.equal(readFileSync(join(odE, "budget.json"), "utf8"), budgetE, "(e) budget.json is BYTE-IDENTICAL after the refusal");
+  assert.equal(existsSync(join(odE, "crosscheck-SPYx.json")), false, "(e) NO crosscheck-SPYx.json written by the refused resume");
+  assert.equal(existsSync(join(odE, "crosscheck-SPYx-attempt.json")), false, "(e) NO -attempt sidecar written by the refused resume");
 });
 
 // ---- L-b1a-5 / C-B-5: a torn queue is truncated at resume; a corruption before the queue is fail-closed --------------

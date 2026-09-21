@@ -60,7 +60,7 @@ export const WORST_CASE_CREDITS_PER_CALL = CREDITS_PER_GTFA;
  *  FEWER *raw* txs than this WHILE a next token exists is a short NON-FINAL page (C-8: full pages except the last). The
  *  test uses the SAME constant, and the check is on the RAW `data.length` (never the post-dedup pageTxs.length) so a
  *  full boundary page deduped on a resume is never falsely flagged. `notFullPages` is thus NOT derived from the ledger
- *  and the §6 core stays 9 fields (no `raw_count`) — the resolution of the checkpoint-1 notFullPages consultation (d). */
+ *  and adds NO field to the §6 core (no `raw_count`) — the resolution of the checkpoint-1 notFullPages consultation (d). */
 export const GTFA_PAGE_LIMIT = 1000;
 
 /** A decoded SetAuthority(ScaledUiAmount) payload, or null when the bytes are not that instruction. `newAuthorityHex`
@@ -119,7 +119,10 @@ export const LEDGER_GENESIS = "0".repeat(64);
 /** One page's chained ledger entry. `tail_sigs_at_slot_hi` = the signatures at the deepest slot of this page, so a
  *  resume at `slot.gte = slot_hi` can DROP the already-ingested boundary txs (lossless resume, checkpoint-1 C-7 b).
  *  `list_sha256` = sha256 of the canonical `signature|slot` list (form fixed at PLI: rows sorted by (slot asc, sig
- *  asc), joined `signature|slot` per row, `\n`-separated, utf8). `entry_sha256` chains: it hashes prev ++ this. */
+ *  asc), joined `signature|slot` per row, `\n`-separated, utf8). `payload_sha256` (lot -f, condition (f)) = sha256 of
+ *  the page's decoded payload `{page_events, page_handoffs}` in its WRITTEN FORM and INGESTION ORDER (never sortEvents),
+ *  the 10th core field. `entry_sha256 = sha(JSON.stringify(core))` over the ten fields, so it commits the payload too;
+ *  `prev_entry_sha256` then commits every prior page transitively. */
 export interface LedgerEntry {
   readonly prev_entry_sha256: string;
   readonly page: number;
@@ -130,6 +133,7 @@ export interface LedgerEntry {
   readonly tx_count: number;
   readonly tail_sigs_at_slot_hi: readonly string[];
   readonly list_sha256: string;
+  readonly payload_sha256: string;
   readonly entry_sha256: string;
 }
 
@@ -139,15 +143,27 @@ export function canonicalListSha(txs: readonly { readonly sig: string; readonly 
   return sha(rows.join("\n"));
 }
 
-/** Build the next chained ledger entry from the previous entry's sha and this page's txs. Empty page => null. */
-export function chainedLedgerEntry(prevSha: string, page: number, txs: readonly { readonly sig: string; readonly slot: number }[]): LedgerEntry | null {
+/** The page-payload commitment (lot -f, condition (f)): sha256 of `{page_events, page_handoffs}` serialized in the
+ *  page's WRITTEN FORM and INGESTION ORDER (the arrays as onPage persists them, never `sortEvents`). Used by BOTH
+ *  chainedLedgerEntry (the writer) and verifyLedgerChain (the re-derivation), so an untampered record always re-derives
+ *  while an edited page_events OR page_handoffs flips it. Idempotent through the stringify/parse/stringify round-trip:
+ *  the events and hand-offs are plain data (strings / finite numbers / null, non-integer keys, insertion order kept). */
+function payloadSha(pageEvents: readonly MultiplierEvent[], pageHandoffs: readonly SetAuthorityHandoff[]): string {
+  return sha(JSON.stringify({ page_events: pageEvents, page_handoffs: pageHandoffs }));
+}
+
+/** Build the next chained ledger entry from the previous entry's sha, this page's txs AND its decoded payload. The
+ *  `payload_sha256` of `{page_events, page_handoffs}` is folded LAST as the 10th core field, so `entry_sha256` commits
+ *  the page's decoded payload (condition (f)) and `prev_entry_sha256` commits every prior page. Empty page => null. */
+export function chainedLedgerEntry(prevSha: string, page: number, txs: readonly { readonly sig: string; readonly slot: number }[],
+  pageEvents: readonly MultiplierEvent[], pageHandoffs: readonly SetAuthorityHandoff[]): LedgerEntry | null {
   if (txs.length === 0) return null;
   const slots = txs.map((x) => x.slot);
   const slot_lo = Math.min(...slots), slot_hi = Math.max(...slots);
   const list_sha256 = canonicalListSha(txs);
   const tail = txs.filter((x) => x.slot === slot_hi).map((x) => x.sig).sort();
   const core = { prev_entry_sha256: prevSha, page, slot_lo, slot_hi, first_sig: txs[0]!.sig, last_sig: txs[txs.length - 1]!.sig,
-    tx_count: txs.length, tail_sigs_at_slot_hi: tail, list_sha256 };
+    tx_count: txs.length, tail_sigs_at_slot_hi: tail, list_sha256, payload_sha256: payloadSha(pageEvents, pageHandoffs) };
   return { ...core, entry_sha256: sha(JSON.stringify(core)) };
 }
 /** The ledger's chained head sha = the last entry's `entry_sha256` (transitively commits every prior page). */
@@ -158,25 +174,30 @@ export function ledgerSha(entries: readonly LedgerEntry[]): string {
 /** The ATOMIC on-disk page record (§6 amended, C-B-7): the chained `LedgerEntry` PLUS the page's decoded payload
  *  (`page_events`/`page_handoffs`, formerly the separate `events-`/`handoffs-<MINT>.jsonl`). ONE `appendFileSync` per
  *  page = a single commit point, closing the fact-7 window where a page committed to the ledger before its events. The
- *  payload is NEVER hashed: `entry_sha256` covers the §6 core alone, so the chain stays re-derivable (verifyLedgerChain). */
+ *  payload is COMMITTED (lot -f, condition (f)): `entry_sha256` folds `payload_sha256 = payloadSha(page_events,
+ *  page_handoffs)` as the 10th core field, and verifyLedgerChain RE-DERIVES that sha from the re-read payload — so an
+ *  edited page_events OR page_handoffs is refused at the resume. */
 export interface LedgerRecord extends LedgerEntry {
   readonly page_events: readonly MultiplierEvent[];
   readonly page_handoffs: readonly SetAuthorityHandoff[];
 }
 
-/** C-V-3: RE-DERIVE the chain from the on-disk records, INDEPENDENTLY of the writer — the sole proof that
- *  `ledger_sha256` transitively commits every page (the prior test only checked the field was carried, never
- *  recomputed it, so a mutant dropping `prev_entry_sha256` from the core survived). Each `entry_sha256` is recomputed
- *  as sha(JSON.stringify(core)) over the §6 core ALONE (prev..list_sha256, in the writer's field order), STRIPPING
- *  `page_events`/`page_handoffs`; `prev_entry_sha256` must thread from genesis. The §5 audit (CA-9) calls this on
- *  `ledger-<MINT>.jsonl`. A tampered prev, a re-hash including the payload, or a broken link => { ok:false }. */
-export function verifyLedgerChain(entries: readonly LedgerEntry[]): { readonly ok: boolean; readonly headSha: string } {
+/** C-V-3 / condition (f): RE-DERIVE the chain from the on-disk records, INDEPENDENTLY of the writer — the sole proof
+ *  that `ledger_sha256` transitively commits every page AND its decoded payload. Each `entry_sha256` is recomputed as
+ *  sha(JSON.stringify(core)) over the §6 core (prev..list_sha256, in the writer's field order) THEN `payload_sha256`
+ *  RE-DERIVED from the re-read `page_events`/`page_handoffs` (never the STORED field); `prev_entry_sha256` must thread
+ *  from genesis. C-F-1: a record whose `payload_sha256` is ABSENT (a 9-field legacy or a tamper that dropped it) is
+ *  refused — never re-derived from the recomputed payload (no migration, fact 5). The §5 audit (CA-9) calls this on
+ *  `ledger-<MINT>.jsonl`. A tampered prev, an edited payload, a stale sha, or a broken link => { ok:false }. */
+export function verifyLedgerChain(records: readonly LedgerRecord[]): { readonly ok: boolean; readonly headSha: string } {
   let prev = LEDGER_GENESIS;
-  for (const e of entries) {
-    const core = { prev_entry_sha256: e.prev_entry_sha256, page: e.page, slot_lo: e.slot_lo, slot_hi: e.slot_hi,
-      first_sig: e.first_sig, last_sig: e.last_sig, tx_count: e.tx_count, tail_sigs_at_slot_hi: e.tail_sigs_at_slot_hi, list_sha256: e.list_sha256 };
-    if (e.prev_entry_sha256 !== prev || sha(JSON.stringify(core)) !== e.entry_sha256) return { ok: false, headSha: prev };
-    prev = e.entry_sha256;
+  for (const r of records) {
+    if (typeof r.payload_sha256 !== "string") return { ok: false, headSha: prev }; // C-F-1: an absent payload_sha256 is refused, never ignored
+    const core = { prev_entry_sha256: r.prev_entry_sha256, page: r.page, slot_lo: r.slot_lo, slot_hi: r.slot_hi,
+      first_sig: r.first_sig, last_sig: r.last_sig, tx_count: r.tx_count, tail_sigs_at_slot_hi: r.tail_sigs_at_slot_hi, list_sha256: r.list_sha256,
+      payload_sha256: payloadSha(r.page_events, r.page_handoffs) };
+    if (r.prev_entry_sha256 !== prev || sha(JSON.stringify(core)) !== r.entry_sha256) return { ok: false, headSha: prev };
+    prev = r.entry_sha256;
   }
   return { ok: true, headSha: prev };
 }
@@ -292,11 +313,11 @@ export async function scanFullMint(call: JsonRpcCall, providers: readonly string
       // without proof its page was full). A full boundary page deduped to fewer txs keeps its RAW length = the limit, so
       // a resume never falsely STOPs (the tx_count-based derivation the plan first prescribed WOULD have). A persistent
       // short page stays inconclusive => escalate. --allow-short-pages commits it (offline oracle); the FINAL page (no
-      // token) may be short. `notFullPages` is no longer a process-local flag NOR ledger-derived (core §6 stays 9 fields).
+      // token) may be short. `notFullPages` is no longer a process-local flag NOR ledger-derived (adds no core §6 field).
       if (requireFullPages && !finalPage && data.length < GTFA_PAGE_LIMIT) return { events: sortEvents(events), handoffs, complete: false, reason: "not_full_pages", n, pages: ledger.length, ledger };
       events.push(...pageEvents); handoffs.push(...pageHandoffs);
       n += pageTxs.length; // only a COMMITTED page counts toward N (a discarded faulted page never does)
-      const entry = chainedLedgerEntry(prevSha, ledger.length + 1, pageTxs);
+      const entry = chainedLedgerEntry(prevSha, ledger.length + 1, pageTxs, pageEvents, pageHandoffs);
       if (entry) { ledger.push(entry); prevSha = entry.entry_sha256; sink.onPage(entry, ledger, pageEvents, pageHandoffs); }
       fetched += 1;
       if (finalPage) { exhausted = true; break; }
@@ -553,8 +574,9 @@ function readJsonl<T>(path: string): T[] {
 /** Resume state for a mint from its persisted ATOMIC ledger (`ledger-<MINT>.jsonl`, C-B-7): the last record's slot_hi
  *  + tail sigs for the dedupe, AND the prior decoded ledger/events/handoffs (from each record's `page_events`/
  *  `page_handoffs`) so the resume is LOSSLESS (C-7 b: the run-1 Initialize is carried => start anchor holds; the ledger
- *  stays ONE chain). C-B-5 belt: verifyLedgerChain re-derives the chain at EVERY resume; a broken chain (a corruption
- *  past the repaired torn queue) is fail-closed, never resumed onto. Missing/empty => {} (fresh). */
+ *  stays ONE chain). C-B-5 / condition (f) belt: verifyLedgerChain re-derives the chain at EVERY resume; a broken chain
+ *  (a corruption past the repaired torn queue) OR an edited page_events/page_handoffs (payload_sha256 no longer
+ *  re-derives) is fail-closed, never resumed onto. Missing/empty => {} (fresh). */
 function resumeFromLedger(out: string, symbol: string): ResumeState {
   const records = readJsonl<LedgerRecord>(resolve(out, `ledger-${symbol}.jsonl`));
   if (records.length === 0) return {};
@@ -646,7 +668,7 @@ export async function runRebaseCrosscheckCli(call: JsonRpcCall, providers: reado
       onPage: (entry, ledger, pageEvents, pageHandoffs) => {
         // C-G2D-2/C-G2D-4: counter FIRST (before the ledger append) so a crash in the append window leaves calls_used >=
         // pages (a resume re-fetches; over-count by one, conservative). C-B-7: ONE atomic record per page = a single
-        // commit point (closes the fact-7 desync window); entry_sha256 stays over the core alone (verifyLedgerChain).
+        // commit point (closes the fact-7 desync window); entry_sha256 now commits page_events/page_handoffs via payload_sha256 (condition (f)).
         lastPages = ledger.length; setSlice(); writeBudget(ledger.length);
         const record: LedgerRecord = { ...entry, page_events: pageEvents, page_handoffs: pageHandoffs };
         appendFileSync(ledgerPath, JSON.stringify(record) + "\n");
