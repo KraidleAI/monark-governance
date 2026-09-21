@@ -43,7 +43,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Lot | État | Étape / bloqueur | Worktree |
 |---|---|---|---|
 | CI-site | FUSIONNÉ `70212e2` | required check `g3-site` à la clôture | — |
-| POOL-RPC-1 (pool RPC Ethereum) | EN COURS | pli checkpoint-1 (8 bloquantes) ; L-1/L-2 BLOQUÉS par E-1 | — |
+| POOL-RPC-1 (pool RPC Ethereum) | EN COURS | pli checkpoint-1 (8 bloquantes) ; E-1 levée (décision 106) | — |
 | EXPORT-CLEAN (miroir public) | EN COURS | G0+G1 | `Monark-wt-xclean` |
 | HELIUS-1 (incident) | EN COURS | fuite écartée (2 lectures = 60 938) ; audit appel par appel en cours | — |
 | Clôture (cartographie, K-1, MWCB, export, `g3-site`) | À VENIR | en dernier | — |
@@ -58,8 +58,8 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 ## 6. EN ATTENTE DE L'INVESTISSEUR
 | # | Quoi | Bloque |
 |---|---|---|
-| E-1a | Confirmer le retrait de Blast API du pool RPC | L-1/L-2 de POOL-RPC-1 |
-| E-1b | Confirmer le retrait de LlamaRPC | idem |
+| ~~E-1a~~ | Retrait de Blast API — CONFIRMÉ (décision 106) | — |
+| ~~E-1b~~ | Retrait de LlamaRPC — CONFIRMÉ (décision 106) | — |
 | F-1 | Autoriser le téléchargement des polices OFL (Archivo Black, Space Grotesk, JetBrains Mono, ~1 Mo, `github.com/google/fonts`) | lettrage final des logos, polices du site |
 | R-25 | Garder 1 205 / passer à 1 600 par ADR / désactiver | rien (défaut : 1 205) |
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
