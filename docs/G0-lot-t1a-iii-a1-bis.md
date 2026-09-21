@@ -483,3 +483,7 @@ concurrence multi-run (harmonisée à CONV-2). Aucun papier introuvable (sources
 10. **R-25** : base merge-base `lot/etude-suite` (**non** cumulatif 1 195) ; total ≈ **415-590 ≤ 1 205** (base 335-510 + ~80 C-3/C-6/C-9/C-11), une PR ; découpe déclarée si D1 > ~1 000.
 11. **Investisseur** : **AUCUNE** question — sous-lot offline ; l'escalade Helius est une condition du GO de course, pas de ce lot.
 12. **Zéro dette** : 6 rulings CP1-Q1..Q6 **TRANCHÉS** (γ-prime, hôte rpc-guard, Design A, sonde d'observation, mid-course formé, shim `net`) ; C-12/C-13 non bloquants portés au PLI ; chaque reste = item formé à déclencheur ; sources = fichiers du dépôt [lu].
+
+---
+## Amendement daté 2026-09-21T16:20Z (orchestrateur, G7) — D4 (l.242, l.370, l.480 laissées byte-stables)
+Le critère d'oracle de D4 (« matrice ×100 (C-10) ») est amendé : le flake résiduel (~4 %) est un défaut amont de Node sous Windows (`nodejs/node#56645`, correctif `#61999`), pas un handle non drainé. Oracle D4 = **0 échec non signé** sur la matrice ; relance locale Windows seulement sur signature exacte ; aucun retry en CI. Texte complet, attribution (2 signés + 2 inférés) et déclencheur de l'item : `docs/G2-DELTA-lot-t1a-iii-a1.md`, amendement du même horodatage. `error_origin` : plan.
