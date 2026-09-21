@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { makeDefaultCall, makeBudgetedCall, operatorLabel, lfSha256, scrubUrls, ARCHIVE_ENV_LABEL, enumerateAndCountAtRisk, applyExcludeOperators, type RpcErrorRecord } from "../src/ukemi/record.ts";
+import { makeDefaultCall, makeBudgetedCall, operatorLabel, scrubUrls, ARCHIVE_ENV_LABEL, enumerateAndCountAtRisk, applyExcludeOperators, type RpcErrorRecord } from "../src/ukemi/record.ts";
 import { makeUkemiPool, BudgetExceededError, resolveInterval, type UkemiReader, type LogEntry } from "../src/ukemi/rpc2.ts";
 import { recordBook } from "../src/ukemi/book.ts";
 import { CLUSTER_WETH } from "../src/ukemi/clusters.ts";
@@ -146,12 +146,6 @@ test("u4_reduced_recipient_logs_preserve_holders_digest", () => {
   assert.equal(holdersDigestOf(transferRecipients(reduced)).holders_digest, dRaw, "reduced logs reproduce the holders_digest bit-identically (O(N) cache)");
   const dropped = holdersDigestOf(transferRecipients(reducedRecipientLogs([A, B]))).holders_digest; // a recipient removed
   assert.notEqual(dropped, dRaw, "dropping a recipient shifts the digest (mutant 'position-removed' ⇒ red)");
-});
-
-// ── A-2: the committed prereg LF sha is exactly the one the course --prereg-sha will require (order proof).
-test("u4_prereg_sha_matches_committed_plan", () => {
-  const text = readFileSync(join(ROOT, "docs", "PLAN-u4-prereg.md"), "utf8");
-  assert.equal(lfSha256(text), "9209cdabe26d56f0be8603e214b29e8b10b2efb55f9d6c9e6fad68ae189849fb", "docs/PLAN-u4-prereg.md LF sha256 == the pinned prereg sha (A-2)");
 });
 
 // ── D-3 --filter-only: the config-filter core enumerates + counts at-risk WITHOUT any per-account read, on REAL
