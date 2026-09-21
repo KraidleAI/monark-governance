@@ -44,7 +44,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 |---|---|---|
 | U-4a | FUSIONNÉ `834a416` | — |
 | U-4b (absorbe U-4a-ii, décision 99) | **-1a FUSIONNÉ `006da8f`** (G7, 607/607, R-25 882, ADR-U4b) | -0 après GARDE-HELIUS-1a→2 et POOL-RPC-1a ; -1b : prereg (3 sha D4 + 3 transitifs, liste C-V-7, `--concordance-out`), `PR-U4-3-ter`, « agrégat ≠ Σ jambes » avant la course |
-| GARDE-HELIUS-2 (recorder Ukemi gardé, Chainstack en RU ; subsume U-4b-0) | EN COURS | **2a** G1 committé `dd9148f` (17 fichiers, 23 mutants) ; G2 ‖ checkpoint-2 en cours ; 2b (recorder) après fusion 2a |
+| GARDE-HELIUS-2 (recorder Ukemi gardé, Chainstack en RU ; subsume U-4b-0) | **2a FUSIONNÉ `e98b54f`** (G7 16:33 UTC, 744 tests 0 fail, lint 0, ratchet 69/69, R-25 940 ; C-R-1 et C-R-3 fuite de clé soldés, sonde du validateur rejouée : 0 caractère) ; **2b À OUVRIR** | G0 court 2b (migration du recorder + grep CI ; exigence d'entrée : item C-GD-2) → checkpoint-1 → G1 | — |
 | U-5 branchement outil servi | À VENIR | après U-4b |
 | U-6 book complet + course live | À VENIR | go investisseur |
 | U-7 biblio paginée, rejeu public | À VENIR | — |
@@ -77,5 +77,5 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-En vol : pli C-R-3 GARDE-HELIUS-2a (expurger AVANT de tronquer + userinfo), relancé 16:25 UTC.
-À faire : GARDE-HELIUS-2a → commit du pli, sonde `r2-leakforms.mts` (`leakedPrefixChars=0`), mutant rouge, G7 → 2b → prereg U-4b-1b → course (GO 119) · Bell : GARDE-HELIUS-1b puis G0 de course (C-F-4 + plafond = questions investisseur) · E-5 : ligne du run réel du 22/09 00:41 UTC.
+En vol : aucun agent (16:35 UTC).
+À faire (temps 1) : G0 GARDE-HELIUS-2b → prereg U-4b-1b committé seul → course U-4b-1b (GO 119, plafonds actifs) → U-4b-2 → U-5 → U-6 (go) → U-7 · E-5 : ligne du run réel du 22/09 00:41 UTC · Bell (temps 2) : GARDE-HELIUS-1b puis G0 de course.
