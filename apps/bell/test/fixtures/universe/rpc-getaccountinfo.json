@@ -1,0 +1,64 @@
+{
+  "XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB": {
+    "context": { "slot": 1000 },
+    "value": {
+      "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "executable": false, "lamports": 1000000, "rentEpoch": 0, "space": 400,
+      "data": { "program": "spl-token-2022", "space": 400, "parsed": { "type": "mint",
+        "info": { "decimals": 8, "supply": "100000000000000", "isInitialized": true,
+          "extensions": [
+            { "extension": "scaledUiAmountConfig", "state": { "authority": "S7vYFFsharedAUTHxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "multiplier": "1", "newMultiplier": "1", "newMultiplierEffectiveTimestamp": 0 } },
+            { "extension": "pausableConfig", "state": { "authority": "PauseAuthxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "paused": false } } ] } } }
+    } },
+  "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W": {
+    "context": { "slot": 1000 },
+    "value": {
+      "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "executable": false, "lamports": 1000000, "rentEpoch": 0, "space": 400,
+      "data": { "program": "spl-token-2022", "space": 400, "parsed": { "type": "mint",
+        "info": { "decimals": 8, "supply": "50000000000000", "isInitialized": true,
+          "extensions": [
+            { "extension": "scaledUiAmountConfig", "state": { "authority": "S7vYFFsharedAUTHxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "multiplier": "1.0039", "newMultiplier": "1.0039", "newMultiplierEffectiveTimestamp": 1781755200 } },
+            { "extension": "pausableConfig", "state": { "authority": "PauseAuthxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "paused": false } } ] } } }
+    } },
+  "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh": {
+    "context": { "slot": 1000 },
+    "value": {
+      "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "executable": false, "lamports": 1000000, "rentEpoch": 0, "space": 400,
+      "data": { "program": "spl-token-2022", "space": 400, "parsed": { "type": "mint",
+        "info": { "decimals": 8, "supply": "75000000000000", "isInitialized": true,
+          "extensions": [
+            { "extension": "scaledUiAmountConfig", "state": { "authority": "S7vYFFsharedAUTHxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "multiplier": "1.0009", "newMultiplier": "1.0009", "newMultiplierEffectiveTimestamp": 1789000200 } } ] } } }
+    } },
+  "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp": {
+    "context": { "slot": 1000 },
+    "value": {
+      "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "executable": false, "lamports": 1000000, "rentEpoch": 0, "space": 400,
+      "data": { "program": "spl-token-2022", "space": 400, "parsed": { "type": "mint",
+        "info": { "decimals": 8, "supply": "90000000000000", "isInitialized": true,
+          "extensions": [
+            { "extension": "scaledUiAmountConfig", "state": { "authority": "S7vYFFsharedAUTHxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "multiplier": "1.0027", "newMultiplier": "1.0027", "newMultiplierEffectiveTimestamp": 1786149000 } },
+            { "extension": "pausableConfig", "state": { "authority": "PauseAuthxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "paused": false } } ] } } }
+    } },
+  "GoogLxSynthMint1111111111111111111111111111": {
+    "context": { "slot": 1000 },
+    "value": {
+      "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "executable": false, "lamports": 1000000, "rentEpoch": 0, "space": 400,
+      "data": { "program": "spl-token-2022", "space": 400, "parsed": { "type": "mint",
+        "info": { "decimals": 8, "supply": "12000000000000", "isInitialized": true,
+          "extensions": [
+            { "extension": "scaledUiAmountConfig", "state": { "authority": "GoogLeDISTINCTauthxxxxxxxxxxxxxxxxxxxxxxxxxx", "multiplier": "1", "newMultiplier": "1", "newMultiplierEffectiveTimestamp": 0 } } ] } } }
+    } },
+  "FakeXSynthMint11111111111111111111111111111": {
+    "context": { "slot": 1000 },
+    "value": {
+      "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "executable": false, "lamports": 1000000, "rentEpoch": 0, "space": 82,
+      "data": { "program": "spl-token", "space": 82, "parsed": { "type": "mint",
+        "info": { "decimals": 6, "supply": "1000", "isInitialized": true } } }
+    } },
+  "AbsentXSynthMint111111111111111111111111111": { "context": { "slot": 1000 }, "value": null }
+}
