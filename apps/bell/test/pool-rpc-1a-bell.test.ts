@@ -46,3 +46,22 @@ test("bell_pool_rpc_1a_ca9_nodies_pocket_pair_no_quorum — {nodies, pocket} inj
   const inj: RpcCall = (_url, method) => (method === "eth_getLogs" ? Promise.resolve([SWAP]) : Promise.reject(new Error("x")));
   await assert.rejects(() => liveEthSwaps(POOL, 1, 100, { call: inj, getLogsProviders: ["https://eth-pokt.nodies.app", "https://eth.api.pocket.network"] }), NoQuorumError, "{nodies, pocket} = ONE operator (C-2) ⇒ no quorum, fail-closed");
 });
+
+// CA-9 (resilience, decision 102 margin — C-G2-3) — with the DEFAULT 4-operator GET_LOGS_PROVIDERS, a drpc transport
+// fault is benched and the window is STILL served by mevblocker + tenderly. A default reduced to [drpc, mevblocker]
+// (M-C7) leaves only mevblocker after drpc benches ⇒ NoQuorum ⇒ this reds. Proves Tenderly's kept margin (decision 102).
+test("bell_pool_rpc_1a_ca9_survives_drpc_bench — default pool: a drpc fault is benched, tenderly carries the quorum, the window is served (CA-9; C-G2-3)", async () => {
+  const seen: string[] = [];
+  const inj: RpcCall = (url, method) => {
+    seen.push(url);
+    if (url.includes("drpc")) return Promise.reject(new Error("HTTP 503 transport")); // drpc benched
+    if (method === "eth_getLogs") return Promise.resolve([SWAP]);
+    if (method === "eth_getBlockByNumber") return Promise.resolve({ hash: "0x" + "11".repeat(32), number: "0x1", timestamp: "0x66000000" });
+    return Promise.reject(new Error(`unexpected ${method}`));
+  };
+  const fills = await liveEthSwaps(POOL, 1, 100, { call: inj }); // DEFAULT resolution = GET_LOGS_PROVIDERS (4 operators)
+  assert.equal(fills.length, 1, "the window is served despite drpc benching (mevblocker + tenderly form the quorum)");
+  const ops = new Set(seen.map(operatorOf));
+  assert.ok(seen.some((u) => u.includes("drpc")), "drpc was attempted (then benched on its transport fault)");
+  assert.ok(ops.has("tenderly.co"), "tenderly.co carried the getLogs quorum after drpc benched (decision 102 margin; a [drpc,mevblocker]-only default ⇒ NoQuorum ⇒ reds)");
+});

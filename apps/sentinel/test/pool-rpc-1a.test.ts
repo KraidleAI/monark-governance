@@ -150,3 +150,13 @@ test("pool_rpc_1a_l1_pocket_through_unchanged_anchor — makeRpcPool windowFlow 
   assert.deepEqual(await pool.windowFlow(1_000_000, 1_007_167), { burns: 100n, mints: 0n }, "windowFlow over the 7168-block recent window succeeds (Pocket split by the unchanged anchor, concords with mevblocker)");
   assert.ok(served.length >= 2 && Math.max(...served) <= 5000, `Pocket was split into ≤ 5000-block sub-requests by rpc.ts (max ${String(Math.max(...served))})`);
 });
+
+// ── C-G2-2 — the EXACT order of the two Ukemi provider lists is load-bearing (C-6: quorum2 has no round-robin, so
+// the order fixes the default pair and the U-4b load distribution) ⇒ pin it byte-for-byte. A reorder (even of the
+// two Pocket-operator URLs, behaviourally immaterial) reds here, so a silent reshuffle can never land unreviewed. ─
+test("pool_rpc_1a_provider_order_is_pinned — ETH_CALL_PROVIDERS and GET_LOGS_PROVIDERS hold the exact plan order (C-6; a swap reds — C-G2-2)", () => {
+  assert.deepEqual(ETH_CALL_PROVIDERS, ["https://eth.drpc.org", "https://rpc.mevblocker.io", "https://eth-pokt.nodies.app", "https://eth.api.pocket.network"],
+    "eth_call: the proven providers lead (drpc, mevblocker), then the two Pocket-operator URLs (nodies, pocket) — swap reds (M-C6a)");
+  assert.deepEqual(GET_LOGS_PROVIDERS, ["https://eth.drpc.org", "https://rpc.mevblocker.io", "https://mainnet.gateway.tenderly.co", "https://eth.api.pocket.network"],
+    "getLogs: drpc, mevblocker, tenderly (kept, decision 102), pocket (trails) — swap reds (M-C6b)");
+});
