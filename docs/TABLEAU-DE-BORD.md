@@ -10,7 +10,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | -b3d-a contre-vérification | FUSIONNÉ `83da61d` (erratum `7aae8d7`) | — | — |
 | -b3d-b1a reprise/ledger/budget | EN COURS | G1 (implémentation) | `Monark-wt-b3db1a` |
 | -b3d-b1b densité/projection | À VENIR | après b1a | — |
-| Course de contre-vérification | BLOQUÉ | HELIUS-1 (rapprochement + garde) | — |
+| Course de contre-vérification | BLOQUÉ | lot GARDE-HELIUS (client budgété unique, cap par méthode) | — |
 | -b3d-b2 post-tirage | À VENIR | après la course | — |
 | T-1a-iii-a1 univers Solana | EN COURS | G2-delta (relecteur séparé) | `Monark-wt-univers` |
 | -iii-a1-bis (C-G2-6/7, reprise) | À VENIR | après a1 | — |
@@ -45,7 +45,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | CI-site | FUSIONNÉ `70212e2` | required check `g3-site` à la clôture | — |
 | POOL-RPC-1 (pool RPC Ethereum) | EN COURS | pli checkpoint-1 (8 bloquantes) ; E-1 levée (décision 106) | — |
 | EXPORT-CLEAN (miroir public) | EN COURS | G0+G1 | `Monark-wt-xclean` |
-| HELIUS-1 (incident) | EN COURS | fuite écartée (2 lectures = 60 938) ; audit appel par appel en cours | — |
+| HELIUS-1 (incident) | CAUSE PROUVÉE | scripts de brouillon hors garde (ledger reset, throw retiré) ; reste : lot GARDE-HELIUS avant toute course Bell | — |
 | Clôture (cartographie, K-1, MWCB, export, `g3-site`) | À VENIR | en dernier | — |
 
 ## 5. Site et marque (HORS GATES — décisions 62/101 ; en dernier, investisseur + orchestrateur)
