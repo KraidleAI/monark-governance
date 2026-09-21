@@ -332,14 +332,7 @@ printf 'SMTP_HOST=%s\nSMTP_PORT=465\nSMTP_TLS=implicit\nSMTP_USER=%s\nSMTP_PASS=
       'umask 077; install -d -m 0755 /etc/monark; cat > /etc/monark/probe.env; chown root:root /etc/monark/probe.env; chmod 0600 /etc/monark/probe.env'
 # Verify by DIGEST on both sides (never print the contents); the two hashes MUST match.
 # Read the password with `read -rs SMTP_PASS` BEFORE the printf above, so it never enters the shell history.
-#   printf 'SMTP_HOST=%s
-SMTP_PORT=465
-SMTP_TLS=implicit
-SMTP_USER=%s
-SMTP_PASS="%s"
-ALERT_FROM=%s
-ALERT_TO=%s
-' "$SMTP_HOST" "$SMTP_USER" "$PW_ESC" "$ALERT_FROM" "$ALERT_TO" | sha256sum   # local (same printf as above)
+#   printf 'SMTP_HOST=%s\nSMTP_PORT=465\nSMTP_TLS=implicit\nSMTP_USER=%s\nSMTP_PASS="%s"\nALERT_FROM=%s\nALERT_TO=%s\n' "$SMTP_HOST" "$SMTP_USER" "$PW_ESC" "$ALERT_FROM" "$ALERT_TO" | sha256sum   # local (same printf as above)
 #   ssh ... 'sha256sum /etc/monark/probe.env'                           # remote
 ```
 
