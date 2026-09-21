@@ -41,7 +41,7 @@ Raw-producing commands (out-of-repo): holder probe `node scripts/census/u4-probe
 `node apps/sentinel/src/ukemi/record.ts --cluster weth --block 23545087 --exclude-operator mevblocker.io --resume
 …/U4-inputs.jsonl --prereg-sha 9209cdab… --out …/U4-book-23545087.raw.json`; oracle path `node
 scripts/census/u4-oracle-path.mjs --prereg-sha 9209cdab… --max-calls 8000 --raws-dir …`. Out-of-repo raws under
-`F:\PRODUITS\etude-2026-09-20\u4-raws\` (leak-control grep `https?://|chainstack|p2pify|api-key` = 0 on every one):
+the out-of-repo raw archive of the lot (`<U4_RAWS_DIR>`; its location is recorded in the private lot PLI, never in an exported file) (leak-control grep `https?://|chainstack|p2pify|api-key` = 0 on every one):
 
 | raw (out of repo) | sha256 | recorded_at_utc |
 |---|---|---|
