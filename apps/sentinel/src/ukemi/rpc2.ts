@@ -14,6 +14,14 @@ import { providerOf, QuorumDisagreementError, type RpcCall } from "../rpc.ts";
 /** No two distinct providers agreed on a read — the whole (cluster, B) book abstains, naming the read. */
 export class NoQuorumError extends Error {}
 
+/** The `--max-calls` RPC budget was reached (U-4a A-1, C-5 fail-closed; calque Bell quorum.ts:24). It is NOT a
+ *  transport fault and NOT a revert: quorum2, getLogsVia and finalized re-throw it FIRST in their catch so it can
+ *  never be benched into a NoQuorumError, split as a range-cap (its message must carry NO isResultLimit token
+ *  either — belt), or swallowed by finalized's bare catch. The run stops (exit 1), never presenting a
+ *  budget-truncated book as complete. Defined here so record.ts's makeBudgetedCall and the three pool guards
+ *  share one type (no cycle; record.ts already imports rpc2.ts). */
+export class BudgetExceededError extends Error {}
+
 /** A JSON-RPC error response (the node returned `{error:{code,message,data}}`), NOT a transport failure. Carries
  *  the numeric code and optional revert data so the quorum can tell an EVM revert from a transport/rate fault. */
 export class RpcError extends Error {
@@ -111,20 +119,37 @@ export interface UkemiPoolOpts {
   getLogsProviders: readonly string[];
   minIntervalMs?: number; // politeness (ADR-U1 D3, ≤ 300/min ⇒ ~200ms). 0 in tests (injected call).
   chunk?: number;         // getLogs range chunk (census: 9990 ≤ common cap)
+  slowOperators?: readonly string[]; // U-4a D-4: providerOf domains throttled to slowIntervalMs (the rest use minIntervalMs)
+  slowIntervalMs?: number;           // interval for slowOperators (default 200) — used to raise a single misbehaving operator
+}
+
+/** The politeness interval for a provider domain: `slowIntervalMs` iff it is a slow operator, else `minIntervalMs`
+ *  (U-4a D-4). Pure/exported so the per-operator throttle is asserted directly (a global-only regression reds). */
+export function resolveInterval(domain: string, minIntervalMs: number, slowOperators: readonly string[], slowIntervalMs: number): number {
+  return slowOperators.includes(domain) ? slowIntervalMs : minIntervalMs;
 }
 
 export function makeUkemiPool(opts: UkemiReaderOpts): UkemiReader {
   const { call, ethCallProviders, getLogsProviders } = opts;
   const minIntervalMs = opts.minIntervalMs ?? 0;
+  const slowOperators = opts.slowOperators ?? [];
+  const slowIntervalMs = opts.slowIntervalMs ?? 200;
   const chunk = opts.chunk ?? 9990;
   const cooldownUntil = new Map<string, number>();
-  let last = 0;
+  // Politeness is PER PROVIDER (U-4a C-5), not one global gate: a single `last` throttled the whole pool to
+  // 1000/minIntervalMs calls/s across ALL operators (5 operators under 200ms ⇒ 5 calls/s ⇒ ~16.7h for 300k),
+  // whereas each endpoint tolerates ≤ 300/min on its own. Key `last` by providerOf(url) so distinct operators
+  // proceed in parallel; the fixture tests pass minIntervalMs 0 and this stays a no-op for them.
+  const politeLast = new Map<string, number>();
 
-  const polite = async (): Promise<void> => {
-    if (minIntervalMs <= 0) return;
-    const wait = last + minIntervalMs - Date.now();
+  const polite = async (url: string): Promise<void> => {
+    const dom = providerOf(url);
+    const interval = resolveInterval(dom, minIntervalMs, slowOperators, slowIntervalMs); // D-4: a slow operator waits longer
+    if (interval <= 0) return;
+    const prev = politeLast.get(dom) ?? 0;
+    const wait = prev + interval - Date.now();
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-    last = Date.now();
+    politeLast.set(dom, Date.now());
   };
   const live = (providers: readonly string[]): string[] => {
     const up = providers.filter((u) => (cooldownUntil.get(u) ?? 0) <= Date.now());
@@ -145,11 +170,12 @@ export function makeUkemiPool(opts: UkemiReaderOpts): UkemiReader {
       const url = list[i];
       if (url === undefined || seen.has(providerOf(url))) continue;
       try {
-        await polite();
+        await polite(url);
         const val = await fetchOne(url);
         got.push({ prov: providerOf(url), kind: "ok", key: "ok:" + keyOf(val), val });
         seen.add(providerOf(url));
       } catch (e) {
+        if (e instanceof BudgetExceededError) throw e; // C-5: budget stop is fatal FIRST — never benched into no_quorum
         if (isRpcRevert(e)) { got.push({ prov: providerOf(url), kind: "revert", key: "revert:" + revertKey(e) }); seen.add(providerOf(url)); }
         else { lastErr = e instanceof Error ? e : new Error(String(e)); cooldownUntil.set(url, Date.now() + 25_000); }
       }
@@ -163,11 +189,12 @@ export function makeUkemiPool(opts: UkemiReaderOpts): UkemiReader {
 
   /** eth_getLogs on ONE endpoint, splitting the range on a result/range-cap error (recursively). */
   async function getLogsVia(url: string, address: string, topics: ReadonlyArray<string | null>, from: number, to: number, depth = 0): Promise<LogEntry[]> {
-    await polite();
+    await polite(url);
     const params = [{ address, fromBlock: toHexBlock(from), toBlock: toHexBlock(to), topics }];
     try {
       return asLogs(await call(url, "eth_getLogs", params));
     } catch (e) {
+      if (e instanceof BudgetExceededError) throw e; // C-5: FIRST — else its message could trip isResultLimit ⇒ endless split
       const msg = String((e as Error).message);
       // A plan-limited 400 (drpc free plan) is not a range cap: splitting cannot satisfy it, so rethrow and let
       // the quorum bench this provider once, instead of re-hitting the same 400 on every sub-range (V-1(e)).
@@ -206,8 +233,8 @@ export function makeUkemiPool(opts: UkemiReaderOpts): UkemiReader {
       for (let i = 0; i < list.length && got.length < 2; i++) {
         const url = list[i];
         if (url === undefined || seen.has(providerOf(url))) continue;
-        try { await polite(); const b = asBlock(await call(url, "eth_getBlockByNumber", ["finalized", false])); got.push({ block: b.number, ts: b.ts }); seen.add(providerOf(url)); }
-        catch { cooldownUntil.set(url, Date.now() + 25_000); }
+        try { await polite(url); const b = asBlock(await call(url, "eth_getBlockByNumber", ["finalized", false])); got.push({ block: b.number, ts: b.ts }); seen.add(providerOf(url)); }
+        catch (e) { if (e instanceof BudgetExceededError) throw e; cooldownUntil.set(url, Date.now() + 25_000); } // C-5: FIRST — else the bare catch swallows the budget stop
       }
       const [a, b] = got;
       if (a === undefined || b === undefined) throw new NoQuorumError("finalized: quorum needs 2 providers");
