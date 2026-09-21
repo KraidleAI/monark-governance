@@ -44,7 +44,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 |---|---|---|
 | U-4a | FUSIONNÉ `834a416` | — |
 | U-4b (absorbe U-4a-ii, décision 99) | **-1a FUSIONNÉ `006da8f`** (G7, 607/607, R-25 882, ADR-U4b) | -0 après GARDE-HELIUS-1a→2 et POOL-RPC-1a ; -1b : prereg (3 sha D4 + 3 transitifs, liste C-V-7, `--concordance-out`), `PR-U4-3-ter`, « agrégat ≠ Σ jambes » avant la course |
-| GARDE-HELIUS-2 (recorder Ukemi gardé, Chainstack en RU ; subsume U-4b-0) | **2a FUSIONNÉ `e98b54f`** ; **2b DÉCOUPÉ (couture de repli pré-déclarée, R-25 total estimé 1 150–1 297)** : **2b-i PAQUET** G1 `798b4e9` RELU : G2 PASS-AVEC-CORRECTIONS + checkpoint-2 ACCEPTE-AVEC-CORRECTIONS (`f0a6f1d`), pli EN COURS ; **2b-ii MIGRATION** à lancer après la fusion de 2b-i | 2b-i : G2 ‖ checkpoint-2 (worktree GELÉ) → pli → G7 ; puis 2b-ii (blueprint : §8 de `F:/tmp/garde2b/RENDU-G1.md`) → prereg U-4b-1b → course | `Monark-wt-garde2b` |
+| GARDE-HELIUS-2 (recorder Ukemi gardé, Chainstack en RU ; subsume U-4b-0) | **2a FUSIONNÉ `e98b54f`** ; **2b DÉCOUPÉ (couture de repli pré-déclarée, R-25 total estimé 1 150–1 297)** : **2b-i PAQUET FUSIONNÉ `8ba2cbc`** (G7 : 759 tests 0 fail, lint 0, ratchet 69/69, R-25 439 ; `docs/G7-lot-garde-helius-2b-i.md`) ; **2b-ii MIGRATION** à lancer après la fusion de 2b-i | **2b-ii** : G0 committé `de2aff0` (rulings R-A..R-G), checkpoint-1 EN COURS → G1 (worktree neuf) → G2 ‖ cp-2 → G7 ; puis prereg U-4b-1b (brouillon `docs/PLAN-u4b-prereg.DRAFT.md`) → course | — |
 | U-5 branchement outil servi | À VENIR | après U-4b |
 | U-6 book complet + course live | À VENIR | go investisseur |
 | U-7 biblio paginée, rejeu public | À VENIR | — |
@@ -75,15 +75,9 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | ~~F-1~~ | Polices OFL — TÉLÉCHARGÉES (décision 107, `F:MONARK SUITEonts`) | — |
 | R-25 | Garder 1 205 / passer à 1 600 par ADR / désactiver | rien (défaut : 1 205) |
 | Logos | Note §6 du designer : 6 arbitrages (largeur du bloc 56 vs ≈ 63,7 px, etc.) | finalisation des SVG de la série |
-| **Firecrawl** | Connecter le connecteur Firecrawl au nouveau compte claude.ai (absent de la session du 21/09 18:00 UTC) ; puis l'orchestrateur relève l'UUID et réécrit les 22 agents s'il a changé | lecteurs/chercheurs (WebFetch seul en attendant) |
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-En vol (18:55 UTC, fan-out investisseur « enchaîne en parallèle sur tous les chantiers ») :
-1. **2b-i PLI** (worker, worktree `F:/Monark-wt-garde2b`, base `f0a6f1d`) — revues rentrées 18:22 UTC : G2 **PASS-AVEC-CORRECTIONS** (C-G-1..5), checkpoint-2 **ACCEPTE-AVEC-CORRECTIONS** (C-R-1 test helius D6 + C-R-2 ADR BLOQUANTS, clôture mécanique : mutant V1 rouge `FULL=1` + greps ADR ; C-R-3/C-R-4) ; TOUT plié dans 2b-i. Rendu `F:/tmp/garde2b-pli/RENDU-PLI.md` ; ensuite sha -c, lint rejoué, commit (+ `docs/G1-lot-garde-helius-2b-i.md` = rendu G1 persisté, hors R-25), clôture mécanique, G2-delta, G7 arbre fusionné.
-2. **2b-ii G0 brouillon** (worker, docs seulement, `F:/tmp/garde2b-ii/`) — mesure la transitivité `record.ts`/`rpc2.ts` ↔ code de score gelé, blueprint §8, point `"0x"`, seconde couture. Puis checkpoint-1.
-3. **Prereg U-4b-1b brouillon** (worker, docs seulement, `F:/tmp/u4b-prereg/`) — à committer SEUL après 2b-ii (arguments du recorder gardé finaux).
-4. **GARDE-HELIUS-1b G0 brouillon** (worker, docs seulement, `F:/tmp/garde1b/`, temps 2) — code après 2b-ii.
-5. **LANG-GATE-CI G0 court** (worker, docs seulement, `F:/tmp/langgate/`) — miroir de CI-EXPORT-CHECK ; doit FUSIONNER avant l'ouverture du worktree 2b-ii (`ci.yml` partagé).
-Règles : tout worktree de code reçoit `F:/tmp/g2-garde2bi/mk-nm.ps1` et se retire par `rm-nm.ps1` (un `node_modules` reconstruit est un VRAI dossier de 220 jonctions : jamais `Remove-Item -Recurse`) ; checkpoint-1 validateur à la réception des brouillons 2/4/5. HORS portée (119) : course Bell + C-F-4, U-6, site, DNS, achats ; aucun chercheur/lecteur tant que Firecrawl est absent.
+En vol (19:5x UTC) : **checkpoint-1 G0 2b-ii** (validateur, rendu `F:/tmp/cp1-garde2bii/`) ; **G1 LANG-GATE-CI** (worker, worktree `F:/Monark-wt-langgate`, petit lot G1+G2, à fusionner avant le worktree 2b-ii). Rendus persistés ce soir : 2b-i FUSIONNÉ `8ba2cbc` ; G0 1b DRAFT `099c13b` (7 questions orchestrateur, 1 investisseur : cap Chainstack compte vs réseau) ; prereg U-4b-1b DRAFT `e7b2ce9` (11 questions, Q11 conversion de Y non gelée → advisor-defi) ; G0 2b-ii `de2aff0`.
+Règles : tout worktree de code reçoit `F:/tmp/g2-garde2bi/mk-nm.ps1` et se retire par `rm-nm.ps1` (jamais `Remove-Item -Recurse`). HORS portée (119) : course Bell + C-F-4, U-6, site, DNS, achats. Firecrawl : UUID `6fa0ba96-…` posé dans les 22 agents, effet au REDÉMARRAGE (aucun lecteur/chercheur avant).
 À faire (temps 1) : G0 GARDE-HELIUS-2b → prereg U-4b-1b committé seul → course U-4b-1b (GO 119, plafonds actifs) → U-4b-2 → U-5 → U-6 (go) → U-7 · E-5 : ligne du run réel du 22/09 00:41 UTC · Bell (temps 2) : GARDE-HELIUS-1b puis G0 de course.
