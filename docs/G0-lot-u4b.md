@@ -344,7 +344,7 @@ Motif U-4a (`PLAN-u4-prereg.md:2,30-34`, `ADR-U4:56`) : **`docs/PLAN-u4b-prereg.
 
 | Tuyau | Entrée (produit) | Sortie (consomme) | État | Test |
 |---|---|---|---|---|
-| score-code gelé | `u4b-scores`/`u4b-reduce`/`record-u4b-calib` (sha figé prereg) | `U4b-scores.jsonl` → `calibration.ts` | -1a `built` (offline, e2) | `u4b_scores_on_e2`, `u4b_registry_recomputes_from_scores_jsonl` |
+| score-code gelé | `u4b-scores`/`u4b-reduce`/`record-u4b-calib` (sha figé prereg) | `U4b-scores.jsonl` → `calibration.ts` | -1a `upcoming` (consommé par un test seul, offline e2 ; C-V-5) | `u4b_scores_on_e2`, `u4b_registry_recomputes_from_scores_jsonl` |
 | épisode frais | `u4b-discover.mjs` (P-EPI, budget) | book/D_e/labels frais | -1b (dépend POOL-RPC-1a) | `u4b_episode_selection_is_deterministic` |
 | région servie | `calibration.ts` K entrées + `strateOf` serveur | outil MCP `gate` → `GateDecision` | `built` ssi test servi vert | `u4b_gate_serves_region_from_real_artifact` |
 | cascade retrait | 8 fichiers gatés + fleet.ts (déc.101) | classe synthétique disparue | -2 (fleet.ts au SITE) | `no_cascade_class_in_harness` |

@@ -6,7 +6,7 @@
 // calibDigest (ADR-M001 C5, float64_be sorted) per stratum. Class A ONLY (decision investisseur 108: Class B is
 // a formed item, not served). Here it runs on the e2 DESIGN set — the committed calibration.ts entries are built
 // in -2 from the FRESH episode; this validates the generator + its recompute test offline. NO commit (R-20).
-//   node scripts/record-u4b-calib.mjs [--scores <U4b-scores.jsonl>] [--scale <bigint>]
+//   node scripts/record-u4b-calib.mjs --scores <U4b-scores.jsonl> [--scale <bigint>]
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";

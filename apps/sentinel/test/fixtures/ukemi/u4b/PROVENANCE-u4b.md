@@ -70,6 +70,15 @@ is recorded in the private lot PLI, never in an exported file):
   category bonus from `emode_params`). `Y` = Σ (`repayment_base + deficit_base`) of the e2 `U3-realized.jsonl`
   lines of user i (a `deficit_base_no_price` residue is completed with `getAssetPrice(USDT)` from `usdt_prices`,
   fail-closed). `score = |Y − ŷ|`.
+- **Method conventions (measured effects; to pre-register for -1b, never a silent tolerance)** — (C-V-1) `D_tot(p)
+  = total_debt_base − vWETH@p0 + vWETH@p` (the authoritative on-chain aggregate, ADR-U1 C-2 precedent): the
+  alternative `D_tot = Σ debt legs` convention shifts 140/565 ŷ by ±1–2 units, 1 p\* (one dust account), and the
+  cell-A digest (mutant `dtot` RED). RAW finding recorded as-is (formed item « explain aggregate ≠ Σ legs », owner
+  orchestrator, trigger before the -1b course — it touches the U-4a book zone `034fbff9`): `total_debt_base` > Σ
+  floor(amt·price/unit) by +1..+5 units for 564/565 cell-A accounts (collateral is exact for all 9 452; debt is
+  biased). Which convention is "true" is NOT decided here. (C-V-4) the 483 sub-$1 `non_evaluable_x` residues are
+  NOT rounding: histogram 5 ≤ 5 units, 16 ∈ [6,100), 135 ∈ [101,1e4), 199 ∈ [1e4,1e6), 128 ∈ [1e6,1e8) ⇒ 478/483
+  are genuine tiny non-WETH collaterals; strict X=0 (decision 91) stays the correct reading.
 - **Series sha**: LF-normalized (`readFileSync(utf8).replace(/\r\n/g,"\n")` then sha256), matching the root test
   `series_pinned_are_declared_and_hashed`.
 

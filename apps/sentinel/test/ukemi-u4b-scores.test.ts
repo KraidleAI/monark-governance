@@ -60,7 +60,7 @@ test("u4b_scores_on_e2 — close factor at first crossing, two cells, pinned dig
   const c = r.census;
   assert.equal(c.accounts, 16096);
   assert.equal(c.non_evaluable_x, 6611, "mono-collateral X=0 EXACT excludes 6611 (non-WETH collateral via aggregate residue)");
-  assert.equal(c.non_evaluable_x_smallpos, 483, "of which 483 are sub-$1 residues (a rounding/dust constat REPORTED; strict X=0 excludes them)");
+  assert.equal(c.non_evaluable_x_smallpos, 483, "of which 483 have a sub-$1 non-WETH-collateral residue — NOT rounding (validator histogram: only 5 ≤ 5 units, 478/483 are genuine tiny non-WETH collaterals); strict X=0 (decision 91) excludes them, the correct reading (C-V-4)");
   assert.equal(c.non_evaluable_emode, 33, "e-mode ∉ {0, WETH-category=1} ⇒ non_evaluable (WETH∈category not verifiable off-line, C-14)");
   assert.equal(c.crossed, 563, "accounts with a first crossing (HF<1e18 somewhere on the path)");
   assert.equal(c.crossed_yhat_zero, 1, "of the 563 crossed, 1 has every D_r floor to 0 ⇒ ŷ=0 (out of cell unless liquidated) — counted, never a silent 0");
