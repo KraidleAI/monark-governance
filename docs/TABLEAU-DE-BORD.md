@@ -35,13 +35,16 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | **-1b-ii (-a + -b fusionnés)** | FUSIONNÉ `c0027cb` (G7, 646/646, R-25 1 690 déclaré : deux unités relues) | — | — |
 | Rattrapage `run.ts` (livelock ≥ ~12 j) | À VENIR | G0/ADR, AVANT E-5 | — |
 | Sonde VPS Bell | **DÉPLOYÉE** `c0027cb`, timer actif, premier mail réel délivré (tuyaux `built`) | — | — |
-| E-5 (VPS site, pool révisé) | À VENIR | après POOL-RPC-1a + lot `run.ts` (G0 à écrire) | — |
+| -1c `run.ts` rattrapage borné | EN COURS | plan plié `5d177db` (ADR amendé avant code) ; G1 en cours | `Monark-wt-narabi1c` |
+| E-5 (VPS site, pool révisé) | À VENIR | après -1c seulement (décision 118) ; go investisseur | — |
+| -1d migration `rpc.ts` vers le garde | APRÈS le temps 1 | résiduel accepté (décision 118) ; second redéploiement | — |
 
 ## 3. Ukemi
 | Lot | État | Étape / bloqueur |
 |---|---|---|
 | U-4a | FUSIONNÉ `834a416` | — |
 | U-4b (absorbe U-4a-ii, décision 99) | **-1a FUSIONNÉ `006da8f`** (G7, 607/607, R-25 882, ADR-U4b) | -0 après GARDE-HELIUS-1a→2 et POOL-RPC-1a ; -1b : prereg (3 sha D4 + 3 transitifs, liste C-V-7, `--concordance-out`), `PR-U4-3-ter`, « agrégat ≠ Σ jambes » avant la course |
+| GARDE-HELIUS-2 (recorder Ukemi gardé, Chainstack en RU ; subsume U-4b-0) | EN COURS | addendum plié (C-1..C-7) ; **2a** (paquet) en G1 ; 2b (recorder) après fusion 2a |
 | U-5 branchement outil servi | À VENIR | après U-4b |
 | U-6 book complet + course live | À VENIR | go investisseur |
 | U-7 biblio paginée, rejeu public | À VENIR | — |
@@ -73,4 +76,4 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-G2 b3d-b1b · ré-acceptation cp-2 b3d-b1b · G1 -iii-a1-bis (tous trois repris après la limite de session de 11:4x UTC).
+G1 Narabi -1c · G1 GARDE-HELIUS-2a (priorité 1, temps 1) · G2 b3d-b1b · G1 -iii-a1-bis (Bell, temps 2).
