@@ -10,29 +10,30 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { computeScores, type U4Book, type U4Oracle, type U3RealizedLine } from "../../../scripts/census/u4-scores.mjs";
+import { computeScores, type U4Book, type U3RealizedLine } from "../../../scripts/census/u4-scores.mjs";
+import { selectIndices } from "../../../scripts/census/u4-redraw.mjs";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const U4 = join(HERE, "fixtures", "ukemi", "u4");
 const U3 = join(HERE, "fixtures", "ukemi", "u3");
 const WETH = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
-const PINNED_DIGEST = "668ab214925c3e76ef4e0e68d3b6d564d6b57b6b88d7d12c8919c2ae18dd9d0a";
+const PINNED_DIGEST = "267cd9918abde0ee6de23f71c1dc0852d545e00824107c3dfb51f84bb943ea4b"; // C-V-2: re-pinned after Y completed (was 668ab214…)
 
-interface OracleMeta { kind: "meta"; p_min: string; emode_lt: Record<string, string>; monotone_blocks: boolean; phase_change: boolean }
+interface OracleMeta { kind: "meta"; p_min: string; emode_lt: Record<string, string>; usdt_prices: Record<string, string>; monotone_blocks: boolean; phase_change: boolean }
 interface OracleUpdate { kind: "update"; block: number; log_index: number; price: string; round_id: string; updated_at: string }
 interface PriceInput { kind: string; asset: string; block: number; price: string | number }
 
 function jsonl<T>(p: string): T[] {
   return readFileSync(p, "utf8").split(/\r?\n/).filter((l) => l.trim() !== "").map((l) => JSON.parse(l) as T);
 }
-function load(): { book: U4Book; oracle: U4Oracle; updates: OracleUpdate[]; u3: U3RealizedLine[]; meta: OracleMeta } {
+function load(): { book: U4Book; oracle: { p_min: string; emode_lt: Record<string, string>; usdt_prices: Record<string, string> }; updates: OracleUpdate[]; u3: U3RealizedLine[]; meta: OracleMeta } {
   const book = JSON.parse(readFileSync(join(U4, "U4-book-23545087.json"), "utf8")) as U4Book;
   const oLines = jsonl<OracleMeta | OracleUpdate>(join(U4, "U4-oracle-path-e2.jsonl"));
   const meta = oLines.find((l): l is OracleMeta => l.kind === "meta");
   if (meta === undefined) throw new Error("oracle fixture: no meta line");
   const updates = oLines.filter((l): l is OracleUpdate => l.kind === "update");
   const u3 = jsonl<U3RealizedLine>(join(U3, "U3-realized.jsonl"));
-  return { book, oracle: { p_min: meta.p_min, emode_lt: meta.emode_lt }, updates, u3, meta };
+  return { book, oracle: { p_min: meta.p_min, emode_lt: meta.emode_lt, usdt_prices: meta.usdt_prices }, updates, u3, meta };
 }
 const wethP0 = (book: U4Book): string => {
   const r = book.reserves.find((x) => x.asset.toLowerCase() === WETH);
@@ -53,6 +54,15 @@ test("u4_calibrates_from_u3_realized_labels", () => {
   assert.equal(r.census.emode_lt_overstate_clamps, 0, "clampNeg counts ONLY riskAdjMin<0 (measured 0) ⇒ the 42 e-mode cell accounts are kept, not non_evaluable; it does NOT certify the e-mode LT is right for the WETH leg (see the 12 non-cat-1 residual below)");
   assert.equal(r.qhat, "364550606513851", "q̂ = p-th smallest score (p=791 < n=797), NOT the maximal score; structural ~50% of debt (close factor)");
   assert.equal(r.p, 791);
+  // C-V-2 — Y completed: the U-3 `deficit_base_no_price` residue (user 0x15391e14, USDT) is priced with the C-12
+  // getAssetPrice(USDT)@23550406 ⇒ Y = repayment 277615428066 + deficit 445329889526 = 722945317592. ŷ=0 (this
+  // liquidated account is not eligible under D_e) ⇒ score = Y; 722945317592 << q̂ ⇒ n/p/q̂ invariant, digest re-pins.
+  assert.equal(r.census.deficit_lines_priced_from_usdt, 1, "exactly one deficit_base_no_price line priced from usdt_prices (C-12)");
+  const dLine = r.rows.find((x) => x.address === "0x15391e14a74a808f5e7a2055e755bd7f3db97f40");
+  assert.ok(dLine !== undefined, "the 0x15391e14 realized line is in the cell");
+  assert.equal(dLine.y, "722945317592", "Y completed = repayment 277615428066 + USDT deficit 445329889526 (C-12)");
+  assert.equal(dLine.yhat, "0", "yhat=0 (not eligible under D_e)");
+  assert.equal(dLine.score, "722945317592", "score = |Y-ŷ| = 722945317592 < q̂ ⇒ n/p/q̂ unchanged, only calib_digest re-pins");
   // C-G2-6 — e-mode residual (declared). 42 in-cell accounts have emode != 0; 12 of those are non-cat-1
   // (distribution {2:7, 11:3, 19:1, 23:1}). The 12 rely on the C-3 assumption that WETH is a collateral of their
   // e-mode category — true for category 1 (Aave's ETH e-mode), NOT verified for cat 2/11/19/23 (declared residual,
@@ -102,7 +112,7 @@ test("u4_oracle_path_monotone_and_matches_u3_prices", () => {
   const inSet = wethPrices.filter((p) => updPrices.has(String(p.price))).length;
   assert.equal(inSet, 106, "POST-HOC diagnostic (not the prereg criterion; does not validate H6): 106/107 getAssetPrice values in the AnswerUpdated series (the 1 = pre-window p0 @23545088). Bounds p_min's use only.");
   const gapMin = wethPrices.reduce((m, p) => (BigInt(String(p.price)) < m ? BigInt(String(p.price)) : m), 2n ** 255n).toString();
-  assert.equal(meta.p_min, gapMin, "p_min (min AnswerUpdated) == min getAssetPrice EXACTLY — the load-bearing quantity for ŷ, defended by bracketing min(events) <= min(served) = min(events)");
+  assert.equal(meta.p_min, gapMin, "p_min (min AnswerUpdated) == min getAssetPrice EXACTLY — the load-bearing quantity for ŷ. The bracket min(events) <= min(served, all blocks) <= min(served, sampled) = min(events) holds ONLY under the measured CONDITION that every served value is in events ∪ {p0} (179 sampled blocks, biased toward liquidations) — C-V-5");
 });
 
 test("u4_scores_mutants_shift_calib_digest", () => {
@@ -116,14 +126,40 @@ test("u4_scores_mutants_shift_calib_digest", () => {
   u3m[i] = { ...cur, repayment_base: (BigInt(cur.repayment_base) + 1n).toString() };
   assert.notEqual(computeScores(book, oracle, u3m).calib_digest, PINNED_DIGEST, "Y altered ⇒ calibDigest drift");
   // Mutant 2 — D_e ignored: p_min = p0 ⇒ HF(D_e) == hf_onchain ⇒ eligibility collapses to the 64 B₀-static ⇒ drift.
-  const de0 = computeScores(book, { p_min: wethP0(book), emode_lt: oracle.emode_lt }, u3);
+  const de0 = computeScores(book, { p_min: wethP0(book), emode_lt: oracle.emode_lt, usdt_prices: oracle.usdt_prices }, u3);
   assert.equal(de0.census.eligible_under_De, 64, "p_min=p0 ⇒ 64 eligible (D_e ignored)");
   assert.notEqual(de0.calib_digest, PINNED_DIGEST, "D_e ignored ⇒ calibDigest drift");
   // Mutant 3 — LT_W←0: zero the WETH leg LT (reserve + every e-mode category) ⇒ the WETH collateral drop no longer
   // lowers HF under p_min ⇒ only 59 eligible (the residual WETH-debt scaling) ⇒ drift.
   const bookM: U4Book = { ...book, reserves: book.reserves.map((r) => (r.asset.toLowerCase() === WETH ? { ...r, liquidation_threshold_bps: "0" } : r)) };
   const lt0: Record<string, string> = Object.fromEntries(Object.keys(oracle.emode_lt).map((k) => [k, "0"]));
-  const m3 = computeScores(bookM, { p_min: oracle.p_min, emode_lt: lt0 }, u3);
+  const m3 = computeScores(bookM, { p_min: oracle.p_min, emode_lt: lt0, usdt_prices: oracle.usdt_prices }, u3);
   assert.equal(m3.census.eligible_under_De, 59, "LT_W=0 ⇒ 59 eligible (WETH collateral leg no longer lowers HF)");
   assert.notEqual(m3.calib_digest, PINNED_DIGEST, "LT_W←0 ⇒ calibDigest drift");
+});
+
+test("u4_reducer_fails_closed_on_missing_usdt_price_and_missing_emode_lt", () => {
+  const { book, oracle, u3 } = load();
+  // C-V-2 guard: with no usdt_prices, the deficit_base_no_price line cannot be priced ⇒ THROW, never a silent Y
+  // drop (the pre-C-V-2 bug). This is the fail-closed proof for the deficit completion.
+  assert.throws(() => computeScores(book, { p_min: oracle.p_min, emode_lt: oracle.emode_lt, usdt_prices: {} }, u3), /no USDT price/, "empty usdt_prices ⇒ fail-closed (C-V-2)");
+  // C-3 guard (was a silent `?? wethBaseLT` fallback, now fail-closed): a missing e-mode category LT — category 1
+  // is used in-cell — ⇒ THROW, never a silent reserve-LT substitution.
+  const noCat1 = { ...oracle.emode_lt };
+  delete noCat1["1"];
+  assert.throws(() => computeScores(book, { p_min: oracle.p_min, emode_lt: noCat1, usdt_prices: oracle.usdt_prices }, u3), /category 1 .*missing/, "dropping emode_lt category 1 ⇒ fail-closed (C-3)");
+});
+
+test("u4_redraw_selects_by_book_digest_seed", () => {
+  // C-V-3: the G2-delta live re-draw (scripts/census/u4-redraw.mjs) picks its >= 3 accounts and >= 3 AnswerUpdated
+  // by a seed DERIVED from book_digest, never by hand. Pinned deterministic triplets (book_digest 695d862f…): a
+  // mutant that ignores the seed (e.g. returns [0,1,2]) reds these pins. The live network wiring is exercised by
+  // G2-delta (a bounded --max-calls <= 60 fail-closed control), not here.
+  const bd = "695d862fd1560d5a0ae1349f358accd36ecf394437bd2f497fa1a0fae7d7ab09";
+  assert.deepEqual(selectIndices(bd, 16096, 3), [3443, 12793, 15952], "account indices = the book_digest-seeded triplet (not hand-picked)");
+  assert.deepEqual(selectIndices(`${bd}:updates`, 140, 3), [131, 68, 114], "AnswerUpdated indices drawn with a distinct seed suffix");
+  assert.deepEqual(selectIndices(bd, 16096, 3), [3443, 12793, 15952], "deterministic ⇒ a reproducible re-draw");
+  const a = selectIndices(bd, 16096, 3);
+  assert.equal(new Set(a).size, 3, "distinct indices");
+  assert.ok(a.every((x) => x >= 0 && x < 16096), "in range [0,n)");
 });

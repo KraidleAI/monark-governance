@@ -56,7 +56,7 @@ function main() {
 
   // 3) scores fixture (jsonl): the reduced per-account rows + a meta with n/qhat/calib_digest.
   const u3 = readFileSync(join(ROOT, "apps", "sentinel", "test", "fixtures", "ukemi", "u3", "U3-realized.jsonl"), "utf8").split(/\r?\n/).filter((l) => l.trim()).map((l) => JSON.parse(l));
-  const scores = computeScores(book, { p_min: oRaw.p_min, emode_lt: emodeLT }, u3);
+  const scores = computeScores(book, { p_min: oRaw.p_min, emode_lt: emodeLT, usdt_prices: oRaw.usdt_prices }, u3);
   const { rows, ...summary } = scores;
   const scoreLines = [{ kind: "meta", ...summary }, ...rows.map((r) => ({ kind: "score", ...r }))];
   writeFileSync(join(outDir, "U4-scores-e2.jsonl"), scoreLines.map((l) => JSON.stringify(l)).join("\n") + "\n");

@@ -97,12 +97,12 @@ Lecteur `scripts/census/u4-oracle-path.mjs` (patron u4-probe, quorum-2 budgété
 ## 5quinquies. RÉDUCTION A-4 — scores de conformité (P-1/C-1/C-2/C-3, `u4-scores.mjs` + `.d.mts`)
 Réducteur PUR `(book B₀, D_e, U3-realized e2) → scores |Y−ŷ|` base 8 déc., **sans clipage**, tri canonique par adresse, `calibDigest`. Y_compte = Σ(repayment_base + deficit_base) des lignes e2 du user. ŷ = total_debt_base si HF(D_e) < 1e18 sinon 0 ; **HF(D_e) ancré sur hf_onchain autoritaire** (identité exacte à p_min=p_0, vérifiée : eligible@p0 == eligible_static_b0 == 64) et ajusté jambe WETH à p_min (autres actifs à p_0, limitation C-3 déclarée) : `HF_min = hf0·(riskAdjMin/riskAdj0)·(totalDebt0/totalDebtMin)`, LT_WETH = LT réserve si emode=0 sinon LT catégorie e-mode.
 
-**RÉSULTATS MESURÉS** : **n = |cellule| = 797** (770 ŷ>0 ∪ 189 liquidés, chevauchement 162), **p = 791**, **q̂ = 364550606513851** (~$3,65M), **calib_digest = 668ab214925c3e76ef4e0e68d3b6d564d6b57b6b88d7d12c8919c2ae18dd9d0a**. α=0,01, nMin=100.
+**RÉSULTATS MESURÉS** : **n = |cellule| = 797** (770 ŷ>0 ∪ 189 liquidés, chevauchement 162), **p = 791**, **q̂ = 364550606513851** (~$3,65M), **calib_digest = 267cd9918abde0ee6de23f71c1dc0852d545e00824107c3dfb51f84bb943ea4b** (checkpoint-2 **C-V-2** : re-pinné après complétion de Y ; **n / p / q̂ inchangés** ; ancien 668ab214…). α=0,01, nMin=100.
 - Census : eligible_static_b0 **64**, **eligible_under_De 770** (≫64), liquidated 189, résidus C-1 : **liquidated_not_in_book 4** (positions post-B₀, dont les 3 CRV portant tout le deficit_base), **liquidated_not_eligible_under_De 23** (dont **20/23 multi-collatéral** ⇒ **collatéral non-WETH NON ITÉMISÉ dans le book** — le book ne porte que aWETH + tous les vDebt, vérifié ; tenu à p0, limitation C-3 data-backed ; « corrélé-ETH » retiré, non démontré), **eligible_not_liquidated 608** (Y=0, score=ŷ ⇒ pilotent q̂ ; **« éligible non liquidé » ≠ « faux »** — constat exploratoire POST-HOC §PLI G2), emode≠0 dans cellule **42**, **emode_lt_overstate_clamps 0** (clampNeg ne capte QUE riskAdjMin<0 ; **ne certifie PAS** le LT e-mode du bras WETH — 12/42 e-mode in-cell sont non-cat-1 {2:7,11:3,19:1,23:1}, résiduel déclaré C-G2-6).
 - **Preuves non-tautologiques du recompute WETH** (l'identité ancrée seule est tautologique) : (a) **mono-collatéral 9482/9482** ont `aWethBal·p0/1e18 == total_collateral_base` (±100) ⇒ valorisation WETH juste ; (b) **mutant LT_W←0 ⇒ eligible_under_De = 59** (vs 770) ⇒ la jambe collatéral WETH sous p_min pilote 711 des éligibilités.
 - **q̂ EN CHIFFRES (C-G2-2, jamais « score maximal »)** : q̂ = **791ᵉ plus petit score** (p=791 **< n=797**) ⇒ 790 scores < q̂, 1 = q̂, **6 strictement au-dessus** ; couverture |Y−ŷ|≤q̂ = 791/797 = **99,25 %** (≥ 99 %, α=0,01). Les 6 échappées : 5 sont Y=0, **1 est une vraie liquidation** (`0x984292…`, score 368763614218023 > q̂), **toutes ŷ ≥ 1 M$**. **790/797** comptes ont ŷ ≤ q̂ ⇒ la région ŷ±q̂ **couvre 0** ⇒ calibration valide mais quasi-non-informative. **q̂ IDENTIQUE sur la classe {ŷ>0}** (n=770, p=764 — recalculé). Structurel : ŷ = dette totale, Y ≈ close factor × dette. **Échangeabilité** : K=1 épisode, **aucune revendication sur un nouvel événement** ; jamais « probabilité de liquidation ».
 - **Tests** (offline, verts) : `u4_calibrates_from_u3_realized_labels` (n=797, digest pinné ; **C-1 supersède le « 194 scores » du G0**), `u4_oracle_path_monotone_and_matches_u3_prices` (monotone + appartenance 106/107 + p_min exact), `u4_scores_mutants_shift_calib_digest`. **Mutants A-4 (3, tous digest-drift)** : Y altéré ⇒ ≠ ; D_e ignoré (p_min=p0 ⇒ 64) ⇒ ≠ ; LT_W←0 (⇒ 59) ⇒ ≠. (Le mutant décodeur e-mode est `u4_decode_emode_category_data_real_bytes`.)
-- **Fixtures réduites A-3** (`fixtures/ukemi/u4/`, hors R-25 par D9 sexies, leak=0) : `U4-book-23545087.json` sha 743e9499… (**5 957 519 o, 16 096 comptes × 7 champs** — **D-10 : lourd en git, décision orchestrateur** : garder / git-lfs / réduire à la cellule ; la cellule dérive de ŷ>0, pas d'un sous-ensemble a priori), `U4-oracle-path-e2.jsonl` sha 970357…, `U4-scores-e2.jsonl` sha e80386… (798 lignes).
+- **Fixtures réduites A-3** (`fixtures/ukemi/u4/`, hors R-25 par D9 sexies, leak=0) : `U4-book-23545087.json` sha 743e9499… (**5 957 519 o, 16 096 comptes × 7 champs** — **D-10 RATIFIÉ checkpoint-2 : GARDER les 16 096** ; la cellule dérive de ŷ>0, pas d'un sous-ensemble a priori), `U4-oracle-path-e2.jsonl` sha 970357… (inchangé), `U4-scores-e2.jsonl` sha **8b84e0…** (798 lignes ; re-pinné C-V-2, ancien e80386…).
 
 **Table hypothèses U4-H1..H7 (mesurées)** :
 | H | énoncé | verdict | chiffre |
@@ -132,12 +132,12 @@ Avant d'émettre « go course », l'orchestrateur doit :
 ## 7. Reste gated par « go course » (formé, déclenché — pas un dû nu)
 - **Course book B₀** (P-2 i) : per-compte reads via `record.ts --resume` ci-dessus ; résidus comptés.
 - **Course D_e** (P-2 ii, C-4) : `aggregator()` de `0x5424384b…` résolu à B₀ et B_last (phases ≠ ⇒ `abi_mismatch`), `getLogs(AnswerUpdated)` sur l'agrégateur ; contrôle `u4_oracle_path_matches_u3_prices` sur les 107 blocs prix WETH de `U3-inputs`. Sélecteur `aggregator()` + topic `AnswerUpdated` + `getEModeCategoryData(uint8)` (C-3, si e-mode ≠ 0) à ajouter à `abi.ts` (avec self-test) au tour course. **[C-G2-5 — amendement C-4]** : la course D_e a démarré à B₀ ; le premier update capté est @23545382 > B₀ ⇒ l'ancre C-4 « dernier update ≤ B₀ » n'est PAS dans D_e (le 1/107 = p0 @23545088, pré-fenêtre). **Immatérielle pour p_min** (p0 = 434687000000 > p_min = 345670460000 ; avis advisor-defi) ⇒ **pas de course réseau ce tour** ; **item formé** (déclencheur G0 U-4b, D_e reconstruit sur la **série servie** avec l'ancre incluse ; propriétaire orchestrateur). Chiffrage de la course évitée : `getLogs(AnswerUpdated)` sur l'agrégateur `0x7c7fdfca…`, fenêtre [B₀−9989, B₀], 1 chunk quorum-2 + 2 resolves quorum-2 (garde phase pré-B₀) ≈ **6–8 appels**, `--max-calls 50` fail-closed ; NON exécuté (immatériel).
-- **C-12** : `getAssetPrice(USDT)` sera lu aux **deux** blocs 23550406 (ligne réalisée `0x15391e…`, ce que dit C-12) **et** 23550879 (bloc du `DeficitCreated`) — 2 lectures quorum, USDT≈$1 ⇒ écart négligeable ; la réduction utilise 23550406 (C-12 fait foi) sauf avis contraire orchestrateur. **Déviation D-1 déclarée** (observation, non-blocage) : C-12 cite 23550406 = bloc de la ligne réalisée ; le log `DeficitCreated` est à 23550879 ; les deux mesurés, choix data-backed.
+- **C-12** : `getAssetPrice(USDT)` lu aux **deux** blocs 23550406 (ligne réalisée `0x15391e…`, ce que dit C-12) **et** 23550879 (bloc du `DeficitCreated`) — USDT≈$1 ⇒ écart négligeable. **[checkpoint-2 C-V-2 — CORRIGÉ]** : la réduction **complète effectivement** Y avec `getAssetPrice(USDT)@23550406` = 100567000 (le réducteur lit désormais `usdt_prices`, fail-closed si absent ; auparavant le déficit était **silencieusement omis**) ⇒ Y de `0x15391e…` = **722 945 317 592**, `calib_digest` re-pin (n/p/q̂ inchangés). **Déviation D-1** (observation, non-blocage) : C-12 cite 23550406 = bloc de la ligne réalisée ; `DeficitCreated` est à 23550879 ; les deux mesurés, réduction sur **23550406** (C-12 fait foi).
 - **Réduction** : A-4 `u4-scores.mjs` (P-1, |Y−ŷ| base 8 déc., sans clipage, tri canonique, `calibDigest`) ; A-5 entrée `UKEMI_REALIZED_E2` inerte dans `calibration.ts` (garde digest à l'import) ; A-6 `fromRealizedBook(attested, canonicalBook, oraclePath, opts)` lié par `book_digest` (C-6, **0 octet** `schemas/**`+`packages/contracts/**`) ; A-7 `liquidable-24h.ts` classe réelle + `NMIN 100` + re-base consommateurs Hikae ; A-8 ADR-U4 (P-1..P-3, littérature Barber 2023 Thm 2 / Dunn 2022 Thm 9/10/11 / Perez Eq. 3 [abs] PR-U1-1, table MAST C-13) — **rédigé après la course** (résultats mesurés : n, q̂, comptes à q̂, résidus).
 - **Hypothèses restantes** U4-H2..H7 : mesurées à la course/réduction, rapportées tenues/non tenues avec chiffres.
 
 ## 8. Déviations, indisponibilités, notes
-- **D-1** (§7) : C-12 bloc 23550406 (ligne réalisée `0x15391e…`) vs `DeficitCreated` @23550879 — les deux prix lus à la course, réduction sur 23550406 (C-12 fait foi) ; observation, non-blocage.
+- **D-1** (§7) : C-12 bloc 23550406 (ligne réalisée `0x15391e…`) vs `DeficitCreated` @23550879 — les deux prix lus à la course, réduction sur 23550406 (C-12 fait foi) ; observation, non-blocage. **`error_origin` = none** ; la phrase « la réduction utilise 23550406 » était **FAUSSE en β** (le réducteur ne lisait pas `usdt_prices`, déficit omis 445 329 889 526) — portée et corrigée par **C-V-2** (Y désormais complété à 722 945 317 592).
 - **D-2** (§5) : projection sonde ×2 trop haute dans le brut `U4-probe.json` (`PER_ACCOUNT_CALLS = 18` au lieu de 9), `error_origin = worker` ; champs mesurés intacts, projections corrigées au §5/§6, script corrigé (sha §1).
 - **D-3** (`error_origin = none`, séquençage — décision orchestrateur 2026-09-20) : **go en DEUX temps** (prereg §4 : « dépassement projeté ⇒ arrêt et consultation, jamais un dépassement » — la projection 501 k-764 k > 300 000, donc pas de go complet aveugle). (1) durcissement `--filter-only` + compteurs stderr au budget-stop (A-1bis §2, testés, mutant M-A1-3) ; (2) passe FILTRE `record.ts --cluster weth --block 23545087 --filter-only --max-calls 150000 --resume F:/PRODUITS/etude-2026-09-20/u4-raws/U4-inputs.jsonl --prereg-sha 9209cdab…` qui mesure `n_at_risk_config` (≈ 138 962 + ~1 470 attendus, jamais `--from-block`) ; (3) projection corrigée du reste = 9 × nAtRisk sous (300 000 − consommé), puis go/no-go course B₀/D_e. Chainstack : quota 20 M RU, **4 593 consommés** au dernier relevé orchestrateur ⇒ **non liant**. Résultats de la passe filtre au §5bis.
 - **D-4** (`error_origin = none`, réglage opérationnel — décision orchestrateur 2026-09-20) : passe filtre relancée à `--min-interval-ms 50` (par fournisseur) après arrêt propre du run 200 ms (cache `--resume` intact). Règle : si un opérateur dépasse **5 % d'erreurs sur 1 000 lectures**, le remonter SEUL à 200 ms via `--slow-operator <domaine>` (relance `--resume`, lectures faites HIT ⇒ 0 budget). **Constats mesurés** : (i) à 50 ms débit réel ~3,5/s (latency-bound, ~1,4× sur 200 ms) ; (ii) **`mevblocker.io` a dépassé 5 %** (config_read 4000→6000 : 16→406 erreurs, ~18 %) ⇒ remonté à 200 ms (`--slow-operator mevblocker.io`) ; (iii) **à 200 ms mevblocker RESTE dégradé (567/1661 = 34 %)** — le throttle est INEFFICACE (dégradation côté fournisseur, pas notre débit ; drpc 0 %, blastapi 0 %) ⇒ **ESCALADE orchestrateur** : le run est arrêté proprement (cache intact, ~8 261 lectures config), en attente de la décision d'approche (recommandé : `--exclude-operator mevblocker.io` — quorum-2 tenu par drpc+blastapi+nodies+chainstack à 50 ms, sans gaspillage ni gate 200 ms). Compteurs stderr conservés (jamais de perte d'info).
@@ -172,7 +172,7 @@ Modèle résolu **`claude-opus-4-8[1m]`** (R-1). Toutes les heures en **UTC** (`
 | **C-G2-7** | `docs/adr/ADR-U4-book-et-calibration.md` (créé) | ADR de lot : tuyaux (book/D_e/A-4) entrée/sortie/état/test, statut **`upcoming`**, H1-H7 (3 NON), MAST (C-13), nMin (C-11), constat POST-HOC, entrées prereg U-4b, procurements | — | — (doc) | **worker** (A-8 différé « après course » ; courses faites) |
 | **(D-7)** | course book run 1 (`bejkphz0o`) | verrou de fichier Windows tiers (EBUSY) ; fail-closed respecté, `--resume` complété | — | — | **orchestrateur** (lecture exclusive du cache pendant un append) |
 
-Mutants byte-exact : `PROVENANCE-u4.md` PRE==POST `e5b3929e…` ; `ukemi-u4-scores.test.ts` PRE==POST `6a565b0e…`. Les deux corrections de commentaire pur (`u4-scores.mjs` l.13-15/72) ne changent ni la sortie du réducteur ni `calib_digest = 668ab214…` (test `u4_calibrates…` VERT après édit).
+Mutants byte-exact (au G2 pli) : `PROVENANCE-u4.md` PRE==POST `e5b3929e…` ; `ukemi-u4-scores.test.ts` PRE==POST `6a565b0e…`. Les deux corrections de commentaire pur (`u4-scores.mjs`) ne changeaient ni la sortie du réducteur ni `calib_digest` (668ab214… au G2). **[checkpoint-2] digest et shas superSédés** : `calib_digest` → 267cd991… (C-V-2) ; les shas des fichiers touchés sont recalculés dans la table du **§PLI checkpoint-2** (C-V-7 : les trois shas G2-pli `6d3d5fb0`/`6a565b0e`/`e5b3929e` étaient déjà périmés vers `b35edaeb`/`09bccc03`/`fa8772cb` avant ce pli, puis re-changés ici).
 
 ### Constat exploratoire POST HOC (advisor-defi — ne touche NI le pin NI le prereg ; **rejoué** worker `measure3.mjs`)
 L'affirmation du **rapport G2 §3** « tenir le non-WETH à p0 ne fabrique pas les 608 » est **fausse pour la jambe DETTE** (je corrige la phrase ici, sans modifier le rapport du relecteur, R-20). Rejeu hors ligne (formule HF du réducteur ; agrégat ETH-échelle identifié par le prix on-chain du book) : sur les éligibles-non-liquidés **mono-collatéral WETH**, **132** portent une dette LST (wstETH/rETH/cbETH/weETH/ethX/osETH/rsETH) tenue à p0 ; **123 perdent l'éligibilité** si cette dette suit p_min/p0 ; **0** des vrais positifs mono n'est perdu ⇒ ≈ 20 % des 608 = **artefact de modèle** (boucle WETH contre LST). **Écart avec l'avis signalé** (tolérance de classification mono-collatéral `aWethColl0≈total_collateral_base ±100`) : worker mesure 474 ENL-mono (avis 475), 100 vrais positifs mono (avis 97), 9 505 mono total (PLI 9 482) — écarts ≤ 0,24 %, arrondi (réserve déjà déclarée par l'avis : 771 vs 770) ; **les trois chiffres load-bearing 132 / 123 / 0 sont reproduits à l'identique**. Niveau : **exploratoire, non publiable comme calibration** ; « éligible non liquidé » ≠ « faux » ; réserve : ratio LST/ETH supposé constant.
@@ -210,7 +210,7 @@ docs/AVIS-advisor-defi-u4a-2026-09-20.md                    (nouveau)        [EX
 ```
 = 143+31+163+67+129+73 = **606** comptés (β vs post-α = β vs b1302db, les ensembles α/β étant disjoints). Les 4 `.md` sous `docs/` + les 3 fixtures data = **exclus** du décompte R-25 mais **à committer en β** par l'orchestrateur (sinon orphelins).
 
-**Dépendances réelles (imports mesurés)** : **α → β = 0** (aucun fichier α n'importe un module β). **β → α** via `u4-oracle-path.mjs` (importe `abi.ts`/`record.ts`/`rpc2.ts` de α) ⇒ **β exige α d'abord** ; `u4-scores.mjs` n'importe que `wadray.ts` (base, inchangé) ; `ukemi-u4-scores.test.ts` importe `u4-scores.mjs` (β). Ordre **α PUIS β** forcé et sûr.
+**Dépendances réelles (imports mesurés)** : **α → β = 0** (aucun fichier α n'importe un module β). **β → α** via `u4-oracle-path.mjs` (importe `abi.ts`/`record.ts`/`rpc2.ts` de α) ⇒ **β exige α d'abord** ; `u4-scores.mjs` importe `wadray.ts` **et — [checkpoint-2] désormais AUSSI `abi.ts` de α** (fix runner C-V-2, décode `emode_lt`) ; `u4-redraw.mjs` (β, nouveau) importe `record.ts`/`rpc2.ts`/`abi.ts`/`clusters.ts`/`resume.ts` de α ; `ukemi-u4-scores.test.ts` importe `u4-scores.mjs` + `u4-redraw.mjs` (β). **α → β reste 0** (aucun α→β) ⇒ ordre **α PUIS β** forcé et sûr.
 
 **Preuve « α VERT SEUL »** (`F:/tmp/u4a/pli/alpha-alone.sh` — β relocalisé hors du worktree, oracles rejoués, restauré ; copie scratch littérale bloquée par `node_modules` + le gitfile `.git` du worktree) : β absent (u4-scores.mjs / ukemi-u4-scores.test / dir u4/ tous absents) ⇒ **typecheck exit 0** ; **ukemi α 46/46** (ukemi + ukemi-record + ukemi-u4a) ; **`series_pinned` 1/1** (u4/ absent, aucun orphelin). Restauration : **git status IDENTIQUE** (PRE==POST) et **tous les shas β IDENTIQUES** (PRE==POST). Les 6 autres gates (`eslint`, `lint:ratchet`, `gate:vocab`, `export:check`, `lang:gate`, `no-secret-in-repo`) sont **monotones dans l'ensemble de fichiers** — retirer β ne peut PAS ajouter un hit — donc α+β vert ⇒ **α vert seul** pour eux aussi. β-sur-α = arbre complet = déjà VERT (oracles ci-dessous).
 
@@ -240,3 +240,115 @@ docs/AVIS-advisor-defi-u4a-2026-09-20.md                    (nouveau)        [EX
 7. **U4-H1 stricte** (`balanceOf>0` ≤ 20 000) — ~106 770 appels, hors budget. Déclencheur : lot dédié ; propriétaire : orchestrateur.
 8. **Durcissement append EBUSY** (`record.ts` l.324) — déclencheur : récurrence d'un verrou tiers OU U-4b ; propriétaire : orchestrateur (cause D-7 retirée).
 9. **Ratification D-9** (69/107 épinglé ; diagnostic post-hoc ; encadrement p_min) — checkpoint-2 / advisor-defi (R-20).
+
+---
+
+## PLI checkpoint-2 — corrections C-V-1..C-V-7 (worker `claude-opus-4-8[1m]`, 2026-09-21, sur l'avis validateur `claude-fable-5-1` du 2026-09-20T23:47Z→00:10Z)
+
+Modèle résolu **`claude-opus-4-8[1m]`** (R-1). Worktree `F:\Monark-wt-u4a`, **NON committé** (R-20 : l'orchestrateur fera **deux commits de pli, α-fix PUIS β-fix**). Bruts hors dépôt en lecture partagée, aucun réseau/RPC. Chaque garde ajouté a son **mutant ROUGE rejoué** (copie scratch, restauration **byte-exacte** par `cp` du backup + sha256 PRE==POST, **jamais `git checkout`**). Ratifications validateur : **D-9** (mécanisme non expliqué, à procurer ; p_min par encadrement — cf. C-V-5) et **D-10** (garder 16 096 comptes).
+
+### Table des corrections
+| # | fichier:ligne | correction | test / oracle | mutant ROUGE (byte-exact) | error_origin |
+|---|---|---|---|---|---|
+| **C-V-1 α** | `apps/sentinel/test/ukemi-u4-governance.test.ts` (créé) ; `ukemi-u4a.test.ts` (test prereg + import `lfSha256` retirés) ; `scripts/export-exclude-tests.json` (+gouvernance) | isole `u4_prereg_sha_matches_committed_plan` (lit `docs/PLAN-u4-prereg.md`, hors export ⇒ ENOENT) dans un fichier gouvernance exclu de l'export | **`npm run test` COMPLET VERT sur α SEUL = 437/437** ; test 42 `export_public_no_governance_no_french` VERT | garde = les entrées de `export-exclude-tests.json` (les retirer ⇒ test 42 ROUGE) | **worker + orchestrateur** (non détecté G2 ; `npm run ci` différé) |
+| **C-V-1 β** | `scripts/export-exclude-tests.json` (+`ukemi-u4-scores.test.ts`) ; `docs/adr/ADR-M004…` (D7 sexies) | exclut `ukemi-u4-scores.test.ts` (importe `scripts/census/u4-scores.mjs`, non whitelisté ⇒ TS2307) ; `scripts/census/**` NON whitelisté (Ukemi `upcoming`) ; fixtures u4/ laissées orphelines (Option A, précédent u3 mesuré) ; recette non rejouable au miroir = item formé | test 42 VERT sur l'arbre final | idem (config) | **worker + orchestrateur** |
+| **C-V-2** | `scripts/census/u4-scores.mjs` (complétion Y + fail-closed USDT + fail-closed LT + import abi + chemin relatif) ; `.d.mts` ; `u4-reduce.mjs:59` ; `ukemi-u4-scores.test.ts` ; fixture `U4-scores-e2.jsonl` régénérée | complète Y de `0x15391e…` par `getAssetPrice(USDT)@23550406` (`usdt_prices`) : 277 615 428 066 → **722 945 317 592** ; **n=797/p=791/q̂=364550606513851 inchangés** ; `calib_digest` 668ab214… → **267cd991…** ; `deficit_lines_priced_from_usdt=1` | `u4_calibrates…` (pin 267cd991, ligne 0x15391e14 y=score=722945317592) ; `u4_reducer_fails_closed…` | A completion off ⇒ digest→668ab214 (u4_calibrates ROUGE) ; B `usdt_prices={}`⇒throw retiré ⇒ ROUGE ; C fail-closed LT retiré ⇒ ROUGE | **worker** (non détecté G2 ni advisor-defi) |
+| **C-V-3** | `scripts/census/u4-redraw.mjs` (créé) ; `.d.mts` ; `ukemi-u4-scores.test.ts` (test graine) ; ADR-U4 (ligne MAST) ; **D-12** ci-dessous | outil de contrôle indépendant LIVE pour **G2-delta** : re-tire ≥3 comptes + ≥3 `AnswerUpdated` par graine `book_digest`, compare au cache ; `--max-calls ≤ 60` fail-closed ; `--exclude-operator` (sans `publicnode`/`mevblocker`) ; **NON exécuté ici** | `u4_redraw_selects_by_book_digest_seed` (triplets pinnés [3443,12793,15952] / [131,68,114]) | D graine ignorée ⇒ triplet faux ⇒ ROUGE | **G2 + orchestrateur** (contrôle pré-enregistré non fait/déclaré) |
+| **C-V-5** | `docs/adr/ADR-U4…` (l.88) ; `ukemi-u4-scores.test.ts` (message p_min) | CONDITION de l'encadrement : « toute valeur servie ∈ events ∪ {p0} » (179 blocs, biaisés liquidations : 177∈events, 2=p0) | `u4_oracle_path_monotone_and_matches_u3_prices` VERT | (doc + message d'assertion) | **worker** |
+| **C-V-6** | `docs/adr/ADR-U4…` (PR-U4-4) | PR-U4-4 → **ITEM DE RECHERCHE** (chercheur Sonnet 5 résout CQR / Angelopoulos–Bates / studentisés avant G0 U-4b ; propriétaire orchestrateur ; tentatives consignées) | — | (item de recherche) | **worker** |
+| **C-V-7** | ce PLI (table sha ci-dessous) | RECALCULÉE en dernier ; les trois shas G2-pli `6d3d5fb0`/`6a565b0e`/`e5b3929e` étaient déjà périmés (`b35edaeb`/`09bccc03`/`fa8772cb`) puis re-changés ici | `series_pinned_are_declared_and_hashed` VERT | — | **worker** |
+| **Non bloquant** | `u4-scores.mjs:70` fail-closed LT ; `u4-scores.mjs:133` chemin relatif ; erratum G2 l.26 | fallback silencieux `?? wethBaseLT` → **fail-closed** (test + mutant C) ; chemin absolu worktree → relatif à la racine ; erratum ci-dessous | `u4_reducer_fails_closed…` | mutant C (supra) | **worker** |
+
+**Erratum (non bloquant, R-20 — le rapport G2 n'est PAS modifié)** : la ligne H6 du **rapport G2 (l.26)** « feed validé autrement (voir §2) » est **superSédée** par l'ADR-U4 : le feed **n'est PAS validé** ; **p_min tient par ENCADREMENT**, le **mécanisme reste NON EXPLIQUÉ, à procurer** (D-9 ratifié). Le §2 du même rapport G2 le dit d'ailleurs correctement (« NON DÉMONTRÉ : l'explication mécaniste »).
+
+### D-12 (nouvelle déviation — `error_origin` = G2 + orchestrateur) : contrôle indépendant LIVE pré-enregistré non fait ni déclaré
+Le prereg §4 (« re-tirage G2 ≥ 3 comptes du book + ≥ 3 `AnswerUpdated` », repris G0 l.68 / C-13) exige un **contrôle indépendant LIVE**. La revue G2 a fait un **rejeu OFFLINE depuis le cache** (byte-exact, 9 mutants) — rigoureux, mais **ce n'est pas** le re-tirage live pré-enregistré, et l'écart **n'a pas été déclaré**. **NON exécuté dans ce pli** (aucun réseau ; doit être exécuté par l'instance **G2-delta séparée** que l'orchestrateur lancera après le pli). **Outil préparé** : `scripts/census/u4-redraw.mjs` (β). Commande exacte (bornée, fail-closed, brut hors dépôt, opérateurs sensibles exclus) :
+```
+node scripts/census/u4-redraw.mjs \
+  --cache F:/PRODUITS/etude-2026-09-20/u4-raws/U4-inputs.jsonl \
+  --block 23545087 --k 3 --max-calls 60 \
+  --prereg-sha 9209cdabe26d56f0be8603e214b29e8b10b2efb55f9d6c9e6fad68ae189849fb \
+  --exclude-operator mevblocker.io --exclude-operator publicnode.com \
+  --out F:/PRODUITS/etude-2026-09-20/u4-raws/U4-redraw.json
+```
+Il choisit ses comptes/updates par une graine dérivée de `book_digest` (`selectIndices`, pure, testée : comptes [3443,12793,15952], updates [131,68,114]), lit `getUserAccountData` de chaque compte @B₀ et compare le **hex brut** au cache, relit ≥3 `AnswerUpdated` sur l'agrégateur et compare le prix ; **exit ≠ 0 sur tout écart** (fail-closed). **Exclusion d'opérateurs** : `--exclude-operator <domaine>` (via `applyExcludeOperators` ; garde `< 2 distincts` fail-closed). **`publicnode` n'est PAS dans le pool census actuel** (`rpc2.ts` : eth_call = drpc/mevblocker/blastapi/nodies ; getLogs = drpc/mevblocker/tenderly) ⇒ `--exclude-operator publicnode.com` est la **capacité exigée** par CONF-SRC-1 (si `publicnode` entrait dans un pool servi) mais un **no-op** sur le pool actuel ; l'exclusion qui **mord ici** est `--exclude-operator mevblocker.io` (dégradé mesuré, D-5). Cumul lot après ce contrôle = 278 987 + ≤ 60.
+
+### ▼ BLOC EXACT — JOURNAL de provenance à poser au commit G7 (C-V-4)
+```
+Lot U-4a (Ukemi) — journal de provenance (modèle résolu PAR ÉTAPE)
+- plan (G0) + pré-enregistrement (prereg)  : orchestrateur  claude-fable-5-1
+- checkpoint-1                              : validateur     claude-fable-5-1
+- G1 + courses (book B₀, D_e) + plis        : worker         claude-opus-4-8[1m]   (vérifiable : meta.model des bruts = "claude-opus-4-8[1m]", constaté)
+- G2 (revue fraîche, instance séparée)      : relecteur      claude-opus-4-8[1m]
+- avis advisor-defi                         : advisor-defi   claude-fable-5-1
+- checkpoint-2 (avis)                        : validateur     claude-fable-5-1
+- pli checkpoint-2 (ce pli)                 : worker         claude-opus-4-8[1m]
+- G2-delta (contrôle live, D-12)           : À VENIR        (worker claude-opus-4-8[1m], lancé par l'orchestrateur)
+- checkpoint-2 bis                          : À VENIR        (validateur claude-fable-5-1)
+- G7 (verdict + commit)                     : À VENIR        (orchestrateur claude-fable-5-1)
+
+error_origin (assignés au G7) :
+  D-1 none ; D-2 worker ; D-3 none ; D-4 none ; D-5 none ; D-7 orchestrateur ; D-8 none ;
+  D-9 worker ; D-10 none ; D-11 none ; D-12 (= déviation de C-V-3) G2 + orchestrateur ;
+  C-G2-1 worker ; C-G2-2 checkpoint-1 ; C-G2-3 worker ; C-G2-4 worker ; C-G2-5 worker ; C-G2-6 worker ; C-G2-7 worker ;
+  C-V-1 worker + orchestrateur (non détecté par G2 ; répétition du mode C-G2-1 : suite complète non lancée) ;
+  C-V-2 worker (non détecté par G2 ni advisor-defi) ;
+  C-V-3 G2 + orchestrateur (contrôle live pré-enregistré non fait ni déclaré).
+
+Note AM-1 du validateur (checkpoint-1) : son C-2 (« q̂ = score maximal ») supposait n ≤ 198 (n=797 mesuré l'invalide ⇒ C-G2-2) ;
+  son C-4 présupposait que le proxy sert le dernier event (contredit par D-9 : retard 1-3 events, mécanisme non expliqué).
+```
+
+(Le bloc ci-dessus reprend VERBATIM les `error_origin` assignés par le validateur. **C-V-5 / C-V-6 / C-V-7 sont des corrections documentaires** pour lesquelles le validateur n'a **pas** assigné d'`error_origin` — non fabriqué ici ; à défaut, imputables au worker au même titre que les autres corrections documentaires, mais **non présumé**.)
+
+### Deux listes de fichiers (l'orchestrateur fait α-fix PUIS β-fix)
+**α-fix** (fichiers α ; α-seul doit rester VERT — prouvé 437/437) :
+```
+apps/sentinel/test/ukemi-u4-governance.test.ts   (nouveau)
+apps/sentinel/test/ukemi-u4a.test.ts             (modifié : test prereg + import lfSha256 retirés)
+scripts/export-exclude-tests.json                (modifié : + ukemi-u4-governance.test.ts)
+```
+**β-fix** (sur α ; l'arbre final doit être VERT) :
+```
+scripts/census/u4-scores.mjs                     (modifié : complétion Y, fail-closed USDT + LT, import abi, chemin relatif)
+scripts/census/u4-scores.d.mts                   (modifié : usdt_prices, champs U3, census)
+scripts/census/u4-reduce.mjs                     (modifié : passe usdt_prices)
+scripts/census/u4-redraw.mjs                     (nouveau : contrôle live G2-delta)
+scripts/census/u4-redraw.d.mts                   (nouveau)
+apps/sentinel/test/ukemi-u4-scores.test.ts       (modifié : pin 267cd991, usdt_prices, C-V-2/fail-closed/redraw)
+scripts/export-exclude-tests.json                (modifié DE NOUVEAU : + ukemi-u4-scores.test.ts)
+apps/sentinel/test/fixtures/ukemi/u4/U4-scores-e2.jsonl   (régénérée par le driver ; EXCLU R-25)
+apps/sentinel/test/fixtures/ukemi/u4/PROVENANCE-u4.md     (modifié : sha scores + note C-12 ; .md hors docs/ ⇒ COMPTÉ R-25)
+docs/adr/ADR-U4-book-et-calibration.md           (modifié : C-V-2/3/5/6, escalade U-4b, calib_digest ; EXCLU R-25)
+docs/adr/ADR-M004-infrastructure-plateforme.md   (modifié : addendum D7 sexies ; EXCLU R-25)
+docs/PLI-lot-u4a.md                              (ce fichier ; EXCLU R-25)
+docs/CHECKPOINT2-lot-u4a.md                      (record checkpoint-2 ; EXCLU R-25 ; commit checkpoint-2)
+```
+`scripts/export-exclude-tests.json` est le **seul** fichier des deux commits (gouvernance en α, scores en β) : assertion (d) de test 42 exige `manifest.excluded_tests == cfg.tests` exactement, et un chemin absent de l'arbre n'est jamais candidat ⇒ pré-ajouter le test scores en α rendrait α-seul ROUGE.
+
+### Table sha (RECALCULÉE EN DERNIER — C-V-7 ; LF sha256, convention du validateur)
+| fichier | rôle | LF sha256 |
+|---|---|---|
+| **α-fix** | | |
+| `apps/sentinel/test/ukemi-u4-governance.test.ts` | nouveau | `e6ca7ae68a56eb1a9409a728774ba15d1c67530b8b3a391c46f96ab743d15ca4` |
+| `apps/sentinel/test/ukemi-u4a.test.ts` | modifié (C-V-7 : PLI `6d3d5fb0` → périmé `b35edaeb` → **`188505f0`**) | `188505f0a8a2651ccd078741262cf0561730dab8b217e6a018c423e0ba3a3c7f` |
+| `scripts/export-exclude-tests.json` (**état α-fix : 2 entrées** — testé 437/437 + R-25 α) | modifié (α: +gouvernance) | `5e3812c8fb9d9cb408f1da7063515cf32e3f7a20d45db5a0f5eb6f5a3079d214` |
+| **β-fix** | | |
+| `scripts/census/u4-scores.mjs` | modifié (complétion Y, fail-closed USDT+LT, import abi, chemin relatif) | `d53d5a86252648ffe10e24a438bea7626b5fcd67ad3f2a2d546f14302f7f81c3` |
+| `scripts/census/u4-scores.d.mts` | modifié | `4ce196c6a59cd570ab9d8fb2c5d9210f9cc9a088484ee3f112ab7e1a33f9ef96` |
+| `scripts/census/u4-reduce.mjs` | modifié (passe `usdt_prices`) | `9dc0acba5586c26bc28bfeebea19532bd1d3f7ba11f1b501cffc7aa7470dfe5d` |
+| `scripts/census/u4-redraw.mjs` | nouveau (contrôle live G2-delta) | `b90623fa3d30941cf1d433cf770039c6b4ae314e70bb2bc78d7d922b86994200` |
+| `scripts/census/u4-redraw.d.mts` | nouveau | `c61f4aee83f5e91eff3710e3f9b90e836f65601e154b17eea63e9ed613d80204` |
+| `apps/sentinel/test/ukemi-u4-scores.test.ts` | modifié (C-V-7 : PLI `6a565b0e` → périmé `09bccc03` → **`73f03202`**) | `73f0320280f6970f88c1a2931f88b3d0d7f139cb5499be52208dcf754cc9b7fb` |
+| `apps/sentinel/test/fixtures/ukemi/u4/U4-scores-e2.jsonl` | régénérée (C-V-2 ; ancien `e80386c6`) | `8b84e095d9b66595bffc67fb9d525558cff1a37f133d97eda23250b2feaf0852` |
+| `apps/sentinel/test/fixtures/ukemi/u4/PROVENANCE-u4.md` | modifié (C-V-7 : PLI `e5b3929e` → périmé `fa8772cb` → **`ec35820c`**) | `ec35820c084bae36113fd11dffaf9262eb271b4b54d0f3cf665ca8a36ca17ca6` |
+| `scripts/export-exclude-tests.json` (**état β-fix / FINAL : 3 entrées**) | modifié de nouveau (β: +scores) | `ebbab4152108b50abf6ba66f88935c9663e0572bfcefb72d685d80b7a12596de` |
+| **inchangées (confirmé byte-exact)** | | |
+| `apps/sentinel/test/fixtures/ukemi/u4/U4-book-23545087.json` | inchangé | `743e9499f81055bec7ab4f6b9cb5fb27347b94cf85b40eb93fc63cebb9f1ec87` |
+| `apps/sentinel/test/fixtures/ukemi/u4/U4-oracle-path-e2.jsonl` | inchangé | `970357153ff60e305c8c6818439358db0140dc72d2eb538d5efbdf944b15daed` |
+
+### Oracles + R-25 (chiffres finaux, tous hors ligne, rien sur C:)
+- **`npm run test` COMPLET** (objet de C-V-1 ; `--test-force-exit`, offline, TMP/TMPDIR+cache npm sur F:) : **α SEUL = 437 / 437 / 0** (`git archive 041a902` + α-fix + `npm ci --offline`) ; **arbre final = 442 / 442 / 0**. Le test 42 `export_public_no_governance_no_french` (assertion (e) = CI exportée, `npm ci && npm run ci` dans l'export) est **VERT** dans les deux. Les **3 mutants A-4** (Y altéré, D_e ignoré ⇒ 64, LT_W←0 ⇒ 59) rejoués dans `u4_scores_mutants_shift_calib_digest` = VERT vs pin `267cd991`.
+- typecheck (`tsc --noEmit`) **exit 0** ; eslint fichiers `.ts` touchés **exit 0** (les `.mjs` sont ignorés par `eslint.config.mjs`, couverts par typecheck via `.d.mts` + tests) ; `lint:ratchet` **69/69** ; `gate:vocab` **OK (174 fichiers)** ; `lang:gate --scope sentinel` **0 hit** ; `export:check` **OK** (scope sentinel ET global : 0 chemin interdit, 0 français non exempté) ; `no_secret_in_repo` + `series_pinned_are_declared_and_hashed` **VERTS** (dans la suite complète).
+- **Mutants des gardes ajoutés** (source, copie scratch, restauration byte-exacte sha PRE==POST, **jamais `git checkout`**) : **A** complétion désactivée ⇒ digest → `668ab214` (u4_calibrates ROUGE) ; **B** throw USDT retiré (`usdt_prices={}`) ⇒ scores test ROUGE ; **C** fail-closed LT retiré ⇒ ROUGE ; **D** graine du re-tirage ignorée ⇒ triplet faux ROUGE.
+- **R-25** (pathspec `STAT=` de `.github/workflows/ci.yml`, `CHANGED = insertions + deletions`, bound **1205**) : **α cumulé (b1302db → α+α-fix) = 948** ; **β cumulé (α-final → arbre final) = 810** ; total 1756 (justifie la découpe C-10 α→β). **α ≤ 1205 (pas de STOP), β ≤ 1205.** (Exclus mesurés : `docs/**/*.md`, `package-lock.json`, `apps/sentinel/test/fixtures/**/*.{json,jsonl,csv}` ⇒ `U4-scores-e2.jsonl` hors décompte ; `PROVENANCE-u4.md` (.md hors `docs/`) COMPTÉ.)

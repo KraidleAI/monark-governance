@@ -1,6 +1,6 @@
 # ADR-U4 — Book Aave v3 à B₀, chemin d'oracle réalisé D_e, calibration réelle de l'événement e2 (U-4a-i, A-1..A-4)
 
-- **Statut** : **proposé (G0 → G1 → revue G2 PASS-AVEC-CORRECTIONS C-G2-1..7 pliées ; checkpoint-2 + G7 à venir)** — lot
+- **Statut** : **proposé (G0 → G1 → revue G2 PASS-AVEC-CORRECTIONS C-G2-1..7 pliées ; checkpoint-2 ACCEPTE-AVEC-CORRECTIONS C-V-1..7 pliées ; G2-delta (contrôle live D-12) + checkpoint-2 bis + G7 à venir)** — lot
   U-4a du programme ADR-M020 (D1 (b)), sous-lot **U-4a-i = A-1..A-4** (A-5/A-6/A-7 = U-4a-ii, ABSENTS ici). Rattachement :
   ADR-M020 D1 (b)/D4 ligne U-4, ADR-U3 (étiquettes Y), ADR-U2 (treillis), ADR-M018 (règle de branchement, tuyaux),
   ADR-M011/M014 (non-dégénérescence, pré-enregistrement), checkpoint-1 U-4 (C-1..C-13).
@@ -9,8 +9,10 @@
 - **Gate** : G0 → G1 (recorder durci + courses + réduction + tests) → **G2 fraîche** (offline, rejeu depuis bruts,
   9 mutants) → checkpoint-2 (advisor-defi + validateur) → G7 (orchestrateur).
 - **Éléments produits (U-4a-i)** : `apps/sentinel/src/ukemi/{record.ts, rpc2.ts, resume.ts, abi.ts}` (A-1, durcissement
-  budget/reprise/exclusion + sélecteurs D_e) ; `scripts/census/{u4-probe,u4-oracle-path,u4-scores}.mjs` (+ `u4-scores.d.mts`) ;
-  `apps/sentinel/test/{ukemi-record,ukemi-u4a,ukemi-u4-scores}.test.ts` ; fixtures réduites
+  budget/reprise/exclusion + sélecteurs D_e) ; `scripts/census/{u4-probe,u4-oracle-path,u4-scores,u4-reduce,u4-redraw}.mjs`
+  (+ `u4-scores.d.mts`, `u4-redraw.d.mts` ; `u4-reduce` = driver A-3 ; `u4-redraw` = contrôle live G2-delta, checkpoint-2 C-V-3) ;
+  `apps/sentinel/test/{ukemi-record,ukemi-u4a,ukemi-u4-scores,ukemi-u4-governance}.test.ts` (`ukemi-u4-governance` = test prereg
+  isolé, checkpoint-2 C-V-1) ; fixtures réduites
   `apps/sentinel/test/fixtures/ukemi/u4/{U4-book-23545087.json, U4-oracle-path-e2.jsonl, U4-scores-e2.jsonl}` +
   `PROVENANCE-u4.md` ; `docs/PLAN-u4-prereg.md` (pré-enregistré, committé seul avant la course, LF sha
   `9209cdab…`). **Non touchés** : `book.ts` (PIN `034fbff9` intact), `schemas/**`, `packages/contracts/**`,
@@ -30,7 +32,11 @@
 **D1 — Cellule et étiquette (checkpoint-1 C-1).** Unité = **compte**. Y_compte = Σ (`repayment_base + deficit_base`)
 des lignes e2 de `U3-realized.jsonl` du `user` ; Y = 0 pour un éligible sous D_e non liquidé. Cellule e2 =
 {comptes du book B₀ avec ŷ > 0 sous D_e} ∪ {189 comptes liquidés} = **n = 797** (recouvrement 162). Résidus
-nommés et comptés (voir « Résultats »).
+nommés et comptés (voir « Résultats »). **C-12 / checkpoint-2 C-V-2** : la ligne e2 à `deficit_base_no_price` (user
+`0x15391e…`, USDT, non prisée en U-3) est **complétée** par `getAssetPrice(USDT)@23550406` (= 100567000, `usdt_prices`
+du chemin D_e) ⇒ Y = 277 615 428 066 + 445 329 889 526 = **722 945 317 592** ; le réducteur **échoue en dur** si ce
+prix manque (jamais un Y silencieusement amputé). ŷ = 0 pour ce compte (non éligible sous D_e) ⇒ score = Y < q̂ ⇒
+**n / p / q̂ inchangés**, seul `calib_digest` re-pin (668ab214… → **267cd991…**).
 
 **D2 — ŷ et HF(D_e) (checkpoint-1 C-3).** ŷ_compte = `total_debt_base` au book B₀ **si** HF(D_e) < 1e18, sinon 0.
 HF(D_e) est le HF on-chain autoritaire (`hf_onchain`) mis à l'échelle pour les jambes WETH (collatéral aWETH ET
@@ -56,12 +62,17 @@ méthode, discipline secret (opérateur d'archive `CHAINSTACK_ETH_URL` = label `
 |---|---|---|---|---|
 | book B₀ | recorder RPC quorum-2 → `U4-book-23545087.raw.json` (hors dépôt) → réducteur → `U4-book-23545087.json` | A-4 (réducteur, test) ; **A-6 `fromRealizedBook`** (U-4a-ii, ABSENT) | fixture in-repo sha-pinné (`PROVENANCE-u4.md`) + brut hors dépôt | `u4_calibrates_from_u3_realized_labels` |
 | D_e (chemin oracle réalisé) | `u4-oracle-path.mjs` (getLogs `AnswerUpdated`) → `U4-oracle-path-e2.raw.json` (hors dépôt) → réducteur → `U4-oracle-path-e2.jsonl` | A-4 (réducteur, test) | fixture in-repo sha-pinné + brut hors dépôt | `u4_oracle_path_monotone_and_matches_u3_prices` |
-| réduction A-4 → scores | (`book`, `D_e`, `U3-realized`) → `u4-scores.mjs` `computeScores` → `U4-scores-e2.jsonl` + `calib_digest` | **entrée `UKEMI_REALIZED_E2` de `calibration.ts` → gate** (U-4a-ii / U-4b, **ABSENT ici**) | **`upcoming`** (jamais `built` ; consommateur = **test seul**) | `u4_calibrates_from_u3_realized_labels` (`calib_digest = 668ab214…` pinné) |
+| réduction A-4 → scores | (`book`, `D_e`, `U3-realized`) → `u4-scores.mjs` `computeScores` → `U4-scores-e2.jsonl` + `calib_digest` | **entrée `UKEMI_REALIZED_E2` de `calibration.ts` → gate** (U-4a-ii / U-4b, **ABSENT ici**) | **`upcoming`** (jamais `built` ; consommateur = **test seul**) | `u4_calibrates_from_u3_realized_labels` (`calib_digest = 267cd991…` pinné) |
 
 **Branchement (CA-11)** : **rien de nouveau `built`**. `calib_digest` est consommé **uniquement** par son propre
 test ⇒ **`upcoming`** ; son consommateur servi (`calibration.ts` → gate) est **U-4a-ii / U-4b, absent**. `book` et
 `D_e` sont consommés uniquement par les tests A-4. `gate.ts`, `registry.ts`, `calibration.ts`, `fleet.ts`,
 `adapter-book.ts` = **intacts** (diff vide vérifié). Un tuyau annoncé et absent = item formé avec déclencheur.
+**Miroir public (checkpoint-2 C-V-1)** : la **recette de calibration n'est PAS rejouable depuis le miroir public** à
+ce stade — `scripts/census/u4-*.mjs` (réducteur, driver, re-tirage) ne sont pas whitelistés (Ukemi `upcoming`), et
+`ukemi-u4-scores.test.ts` (importe le réducteur) + `ukemi-u4-governance.test.ts` (lit le prereg exclu) sont exclus de
+l'export (`scripts/export-exclude-tests.json`, ADR-M004 D7 sexies). **Item formé** « rejouabilité publique de la
+calibration U-4 » — déclencheur : G0 U-7 / publication Ukemi ; propriétaire : orchestrateur.
 
 ## Résultats mesurés — H1..H7 (rapportés tels quels, trois NON)
 | H | énoncé | verdict | chiffre |
@@ -86,8 +97,11 @@ e-mode du bras WETH). Un NON est un **résultat mesuré, pas un défaut**.
 - **Diagnostic POST-HOC** (n'est PAS le critère pré-enregistré, ne **valide pas** H6, borne seulement l'usage de
   p_min) : 106/107 valeurs servies ∈ série `AnswerUpdated` (le 1 = p0 pré-fenêtre @23545088).
 - **p_min défendu par ENCADREMENT** : min(events) ≤ min(servi, tous blocs) ≤ min(servi, blocs échantillonnés) =
-  min(events) = 345670460000 ; l'égalité suffit pour **p_min**, pas pour un D_e résolu par bloc. **Biais déclaré** :
-  les 107 blocs sont des blocs de liquidation (69/107 n'est pas un taux de fraîcheur général).
+  min(events) = 345670460000 ; l'égalité suffit pour **p_min**, pas pour un D_e résolu par bloc. **CONDITION de
+  l'encadrement (checkpoint-2 C-V-5)** : la borne médiane ne tient QUE si **toute valeur servie ∈ events ∪ {p0}** —
+  mesuré sur **179 blocs échantillonnés (price + price_prev), biaisés vers les liquidations** : 177 ∈ events, 2 = p0 ;
+  hors de cette condition une valeur servie pourrait tomber sous min(events). **Biais déclaré** : les 107 blocs sont
+  des blocs de liquidation (69/107 n'est pas un taux de fraîcheur général).
 - **Mécanisme = NON EXPLIQUÉ, à procurer.** L'explication « backrun / logIndex intra-bloc » est **contredite par les
   données** (0 update multiple intra-bloc parmi les 38 échecs). Contraintes mesurées : la valeur servie **retarde de
   1 à 3 events** (26 / 6 / 5) ; le plus ancien update non servi a **0 à 5 blocs** d'âge ; sur 179 blocs échantillonnés
@@ -125,7 +139,7 @@ l'avis). Signal exploratoire — taux de liquidation des éligibles par tranche 
 ## Modes d'échec MAST (checklist de risque résiduel — checkpoint-1 C-13)
 | Mode | Menace | Contre-mesure (mesurée) |
 |---|---|---|
-| Fixture auto-enregistrée | le test rejoue ce que le script a écrit | G2 fraîche : `book_digest`/`calib_digest`/H1–H7 recalculés indépendamment (== rapportés) ; 9 mutants source (Y, D_e, LT_W, décodeur e-mode, signe int256, portée événement, appartenance, cache) TUEURS ; fixtures reproduites byte-exact depuis les bruts |
+| Fixture auto-enregistrée | le test rejoue ce que le script a écrit | G2 fraîche : `book_digest`/`calib_digest`/H1–H7 recalculés indépendamment (== rapportés) ; mutants source TUEURS (Y, D_e, LT_W, décodeur e-mode, signe int256, portée événement, appartenance, cache ; + checkpoint-2 : complétion Y, fail-closed USDT, fail-closed LT e-mode, graine du re-tirage) ; fixtures reproduites byte-exact depuis les bruts par le driver committé ; **contrôle indépendant LIVE (prereg §4) : À EXÉCUTER PAR G2-delta** via `scripts/census/u4-redraw.mjs` (re-tirage ≥ 3 comptes + ≥ 3 `AnswerUpdated` par graine `book_digest`, `--max-calls ≤ 60` fail-closed, opérateurs excludables — sans `publicnode`/`mevblocker`) — déviation **D-12** du PLI (`error_origin` G2 + orchestrateur) |
 | Sélection sur l'issue | 27 comptes entrent dans la cellule car Y > 0 | échangeabilité déclarée ; **q̂ identique sur {ŷ>0} seul** (observable a priori) ; K = 1, aucune revendication hors e2 |
 | Vérification incorrecte | mutant non discriminant ; critère basculé après données | mutants changent une éligibilité RÉELLE (770→64, 770→59) ; NON 69/107 **épinglé** (pas seulement en commentaire) ; diagnostic post-hoc étiqueté comme tel |
 | Fuite de secret | URL/clé d'archive dans un log/brut | `scrubUrls` ; leg archive = label `archive-env` ; `no-secret-in-repo` vert ; motif `https?://\|chainstack\|p2pify\|api-key` = 0 sur les bruts ET le dépôt |
@@ -147,13 +161,18 @@ Reprises de l'avis advisor-defi (b), à pré-enregistrer AVANT la course U-4b :
 6. **H6 reformulée sur la série servie** (appartenance + borne de retard).
 7. **Ancre pré-B₀** incluse (D_e reconstruit sur la série servie).
 
+**ESCALADE-INVESTISSEUR (checkpoint-2 — à poser AVANT le checkpoint-1 de U-4b ; EN ATTENTE, aucune réponse présumée)** :
+« La calibration e2 est valide, mais sa région couvre 0 pour **790 comptes sur 797**. Voulez-vous servir U-4b calibré
+sur e2 **tel quel**, comme le prévoit le G0 (P-6), ou le **re-périmétrer** selon l'avis advisor-defi — **épisode frais**
+(nouvelle course d'environ **280 k appels**), **ŷ à close factor**, **classe mono-collatéral**, **Mondrian** ? »
+
 ## Procurement (investisseur — items formés, jamais un dû nu)
 | Id | Document / lecture | Identité | Usage | Niveau aujourd'hui |
 |---|---|---|---|---|
 | PR-U4-1 | Code vérifié de l'agrégateur `0x7c7fdfca…` | route Blockscout keyless ([abs] `MESURES-M2b` §4.6) | expliquer le retard servi vs events (D-9) | [abs] |
 | PR-U4-2 | Test discriminant à **3 `eth_call`** sur un des 13 blocs | `latestAnswer()` agrégateur, `latestAnswer()` proxy, `getAssetPrice` | mécanisme du proxy (getter dépendant du lecteur ?) | à exécuter en U-4b |
 | PR-U4-3 | `LiquidationLogic.sol` de l'implémentation Pool **déployée à B_first** (impl `0x97287a4f35e583d924f78ad88db8afce1379189a`, EIP-1967, U3 census C-6, `U3-inputs.jsonl`) | 5 constantes : `DEFAULT_LIQUIDATION_CLOSE_FACTOR`, `MAX_LIQUIDATION_CLOSE_FACTOR`, `CLOSE_FACTOR_HF_THRESHOLD`, `MIN_BASE_MAX_CLOSE_FACTOR_THRESHOLD`, `MIN_LEFTOVER_BASE` | forme exacte de ŷ (close factor) ; « cassure ~2 k$ » à confirmer | [abs] |
-| PR-U4-4 | CQR (conformalized quantile regression) ; Angelopoulos–Bates ; scores studentisés | **absents du corpus `R-biblio-ukemi-modeL.md`** (grep Romano/CQR/Angelopoulos/quantile/studentiz = 0, vérifié) ⇒ identité bibliographique complète (DOI/arXiv/pages) **à procurer par le mainteneur** — non devinée | couverture **conditionnelle** de U-4b | [abs] |
+| PR-U4-4 | CQR (conformalized quantile regression) ; Angelopoulos–Bates ; scores studentisés | **ITEM DE RECHERCHE (checkpoint-2 C-V-6)** : absents du corpus `R-biblio-ukemi-modeL.md` (grep Romano/CQR/Angelopoulos/quantile/studentiz = 0, vérifié) ⇒ un **chercheur Sonnet 5** résout les identités bibliographiques complètes (DOI/arXiv/pages) **AVANT le G0 de U-4b** ; propriétaire orchestrateur ; tentatives consignées — non devinées | couverture **conditionnelle** de U-4b | [abs] |
 | PR-U1-1 | Perez et al., *Liquidations: DeFi on a Knife-edge* (FC 2021) | arXiv:2009.13235 ; Eq. 3 non paginée | éligible statique = HF on-chain [lu] | [abs] (Eq. 3) |
 
 ## Alternatives rejetées

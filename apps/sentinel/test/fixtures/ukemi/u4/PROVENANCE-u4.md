@@ -9,7 +9,7 @@ committed series below are decoded public on-chain data recomputed by the pure r
 |---|---|
 | `U4-book-23545087.json` | `743e9499f81055bec7ab4f6b9cb5fb27347b94cf85b40eb93fc63cebb9f1ec87` |
 | `U4-oracle-path-e2.jsonl` | `970357153ff60e305c8c6818439358db0140dc72d2eb538d5efbdf944b15daed` |
-| `U4-scores-e2.jsonl` | `e80386c6cd0ba200699fdb011370ae86b109b4711a9ab9f5f2ff35a0d52fda97` |
+| `U4-scores-e2.jsonl` | `8b84e095d9b66595bffc67fb9d525558cff1a37f133d97eda23250b2feaf0852` |
 
 ## 1. What it is
 Event e2 = Aave v3 core liquidations, WETH collateral, 2025-10-10/11. Reference book B₀ = 23545087 (cluster
@@ -28,7 +28,7 @@ Event e2 = Aave v3 core liquidations, WETH collateral, 2025-10-10/11. Reference 
   the decoded e-mode category liquidation thresholds (`emode_lt`), `aggregator_at_b0/at_b_last`, `phase_change`,
   `monotone_blocks`, `usdt_prices`. Each update line: `block, log_index, price, round_id, updated_at`.
 - `U4-scores-e2.jsonl` (798 lines = 1 meta + 797 score rows): the A-4 output. The meta carries `n=797`, `p=791`,
-  `qhat`, `calib_digest=668ab214…`, `census`. Each row: `address, y, yhat, score, in_book, eligible_de,
+  `qhat`, `calib_digest=267cd991…`, `census`. Each row: `address, y, yhat, score, in_book, eligible_de,
   liquidated`. Read by NO test (a published artifact); pinned only here.
 
 ## 2. Acquisition (raw provider bytes OUT OF REPO, sha-pinned)
@@ -60,8 +60,10 @@ scripts/census/u4-oracle-path.mjs --prereg-sha 9209cdab… --max-calls 8000 --ra
   (`computeScores`), and decodes the e-mode thresholds from the oracle raw's `emode_raw` via `abi.ts`
   `decodeEModeCategoryData`. Never hand-edit values; any drift re-pins the table.
 - **Score** `score_i = |Y_i − ŷ_i|` (base 8-dec, no clipping). `Y_i` = Σ (`repayment_base + deficit_base`) of the
-  e2 `U3-realized.jsonl` lines of user i. `ŷ_i` = `total_debt_base` if HF(D_e) < 1e18 else 0; HF(D_e) recomputes
-  the WETH collateral + WETH debt legs at `p_min = min AnswerUpdated over [B₀,B_last]`, other assets at p0.
+  e2 `U3-realized.jsonl` lines of user i; a U-3 `deficit_base_no_price` residue (user 0x15391e14, USDT) is completed
+  with the C-12 `getAssetPrice(USDT)@23550406` read from `usdt_prices` (fail-closed if absent). `ŷ_i` =
+  `total_debt_base` if HF(D_e) < 1e18 else 0; HF(D_e) recomputes the WETH collateral + WETH debt legs at
+  `p_min = min AnswerUpdated over [B₀,B_last]`, other assets at p0.
 - **Series sha**: LF-normalized (`readFileSync(utf8).replace(/\r\n/g,"\n")` then sha256), matching the root test
   `series_pinned_are_declared_and_hashed`.
 
@@ -69,5 +71,5 @@ scripts/census/u4-oracle-path.mjs --prereg-sha 9209cdab… --max-calls 8000 --ra
 `.gitattributes` normalizes to `eol=lf`; the root test `series_pinned_are_declared_and_hashed` LF-normalizes before
 hashing and requires the table in the header (filename AND its exact LF sha256 on the same line). The CI test
 `u4_calibrates_from_u3_realized_labels` fails if `U4-book-23545087.json` + `U4-oracle-path-e2.jsonl` +
-`U3-realized.jsonl`, run through `computeScores`, do not reproduce `n=797` and `calib_digest=668ab214…`.
+`U3-realized.jsonl`, run through `computeScores`, do not reproduce `n=797` and `calib_digest=267cd991…`.
 Regenerate, never hand-edit values: any drift re-pins the table.

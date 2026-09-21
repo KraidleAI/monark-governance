@@ -5,7 +5,9 @@
 // its inputs (offline, no network); the CI test `u4_calibrates_from_u3_realized_labels` replays it from the reduced
 // fixtures. NO commit / workflow (R-20).
 //
-// Y_i  (C-1)  = Σ (repayment_base + deficit_base) of the U3-realized e2 lines of user i (base, 8-dec).
+// Y_i  (C-1)  = Σ (repayment_base + deficit_base) of the U3-realized e2 lines of user i (base, 8-dec). A U-3
+//              `deficit_base_no_price` residue (deficit recorded natively, unpriced in U-3) is COMPLETED with the
+//              C-12 USDT getAssetPrice at the realized line's block (oracle.usdt_prices); fail-closed if absent.
 // ŷ_i  (P-1/C-3) = total_debt_base of i at book B₀ IF HF(D_e) < 1e18, else 0. HF(D_e) is the authoritative on-chain
 //                  HF at B₀ scaled for the WETH leg at p_min = min AnswerUpdated over [B₀,B_last] (other assets at
 //                  p_0): HF_min = hf0 · (riskAdjMin / riskAdj0) · (totalDebt0 / totalDebtMin), riskAdj = percentMul(
@@ -22,19 +24,23 @@
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { resolve } from "node:path";
+import { resolve, dirname, join } from "node:path";
 import { percentMul } from "../../apps/sentinel/src/ukemi/wadray.ts";
+import { decodeEModeCategoryData } from "../../apps/sentinel/src/ukemi/abi.ts";
 
 const WAD = 10n ** 18n;
 const WETH = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
 const E2 = "e2-2025-10-10-weth";
 const UINT_MAX = 2n ** 256n - 1n;
+const USDT = "0xdac17f958d2ee523a2206206994597c13d831ec7";
+const USDT_DECIMALS = 6n; // USDT native has 6 decimals; getAssetPrice is base 8-dec ⇒ value_base = native·price / 1e6
 const lc = (s) => String(s).toLowerCase();
 
 /** PURE reducer. book = ukemi-book/1; oracle = { p_min, emode_lt: {cat:LT} }; u3 = array of U3-realized lines. */
 export function computeScores(book, oracle, u3lines) {
   const pMin = BigInt(oracle.p_min);
   const emodeLT = oracle.emode_lt; // { "1":"9500", ... }
+  const usdtPrices = oracle.usdt_prices ?? {}; // { "23550406":"100567000", ... } base 8-dec, per block (C-12)
   // WETH reserve (price p0, base LT, vDebt token)
   const wr = book.reserves.find((r) => lc(r.asset) === WETH);
   if (wr === undefined) throw new Error("u4-scores: WETH reserve absent from book");
@@ -42,12 +48,28 @@ export function computeScores(book, oracle, u3lines) {
   const wethBaseLT = BigInt(wr.liquidation_threshold_bps);
   const aWeth = lc(wr.atoken), vWeth = lc(wr.variable_debt_token);
 
-  // Y_i from U3-realized e2 (group by user)
+  // Y_i from U3-realized e2 (group by user). Y = repayment_base + deficit_base (checkpoint-1 C-1, D-5 ratified).
+  // A U-3 `deficit_base_no_price` residue (deficit recorded natively, unpriced in U-3) is COMPLETED here with the
+  // C-12 USDT getAssetPrice at the realized line's block (oracle.usdt_prices); FAIL-CLOSED on an unexpected asset
+  // or a missing price (never a silent 0 — the pre-C-V-2 bug that dropped Y by deficit_native·price/1e6).
   const Yby = new Map();
+  let deficitPricedFromUsdt = 0;
   for (const p of u3lines) {
     if (p.event_id !== E2) continue;
     const u = lc(p.user);
-    Yby.set(u, (Yby.get(u) ?? 0n) + BigInt(p.repayment_base) + BigInt(p.deficit_base));
+    let db = BigInt(p.deficit_base ?? "0");
+    if (db === 0n && Array.isArray(p.residual) && p.residual.includes("deficit_base_no_price")) {
+      const dn = BigInt(p.deficit_native ?? "0");
+      if (dn > 0n) {
+        if (lc(p.debt_asset) !== USDT) throw new Error(`u4-scores: deficit_base_no_price on non-USDT asset ${String(p.debt_asset)} — C-12 only priced USDT (fail-closed)`);
+        const blk = String(p.first_block);
+        const px = usdtPrices[blk];
+        if (px === undefined) throw new Error(`u4-scores: no USDT price at block ${blk} for the deficit_base_no_price line (C-12 requires getAssetPrice(USDT)@${blk}; fail-closed)`);
+        db = (dn * BigInt(px)) / (10n ** USDT_DECIMALS);
+        deficitPricedFromUsdt++;
+      }
+    }
+    Yby.set(u, (Yby.get(u) ?? 0n) + BigInt(p.repayment_base) + db);
   }
 
   // ŷ_i per book account + eligibility census
@@ -67,7 +89,13 @@ export function computeScores(book, oracle, u3lines) {
     const wethCollMin = (aWethBal * pMin) / WAD;
     const wethDebt0 = (vWethBal * p0) / WAD;
     const wethDebtMin = (vWethBal * pMin) / WAD;
-    const ltWeth = emode === 0n ? wethBaseLT : BigInt(emodeLT[a.emode] ?? emodeLT[String(emode)] ?? wethBaseLT);
+    let ltWeth;
+    if (emode === 0n) ltWeth = wethBaseLT;
+    else {
+      const catLt = emodeLT[a.emode] ?? emodeLT[String(emode)]; // FAIL-CLOSED (was `?? wethBaseLT`): a missing e-mode category LT throws (C-3), never a silent reserve-LT fallback
+      if (catLt === undefined) throw new Error(`u4-scores: e-mode category ${String(emode)} liquidation threshold missing from the oracle path emode_lt (fail-closed, C-3)`);
+      ltWeth = BigInt(catLt);
+    }
     const riskAdj0 = percentMul(totalColl0, avgLT);
     const riskAdjMin = riskAdj0 - percentMul(wethColl0, ltWeth) + percentMul(wethCollMin, ltWeth);
     if (riskAdjMin < 0n) clampNeg++; // counts ONLY riskAdjMin<0 (measured 0); does NOT certify the e-mode LT is right for the WETH leg — the 12 non-cat-1 in-cell accounts rely on the C-3 WETH-in-category assumption (ADR-U4 residual)
@@ -120,7 +148,7 @@ export function computeScores(book, oracle, u3lines) {
     census: {
       eligible_static_b0: eligB0, eligible_under_De: eligDe, liquidated_total: Yby.size, liquidated_in_cell: liq_in_cell,
       liquidated_not_in_book: liq_not_in_book, liquidated_not_eligible_under_De: liq_not_eligible_De, eligible_not_liquidated: elig_not_liq,
-      emode_nonzero_in_cell: emodeInCell, emode_lt_overstate_clamps: clampNeg,
+      emode_nonzero_in_cell: emodeInCell, emode_lt_overstate_clamps: clampNeg, deficit_lines_priced_from_usdt: deficitPricedFromUsdt,
     },
     rows,
   };
@@ -128,14 +156,20 @@ export function computeScores(book, oracle, u3lines) {
 
 // ── runner (offline; reads the raws + fixture). Run-guard: never on import (u4-probe pattern). ──
 if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", ".."); // scripts/census -> repo root (C-V-2: no absolute worktree path)
   const bookPath = process.argv[2] ?? "F:/PRODUITS/etude-2026-09-20/u4-raws/U4-book-23545087.raw.json";
   const oraclePath = process.argv[3] ?? "F:/PRODUITS/etude-2026-09-20/u4-raws/U4-oracle-path-e2.raw.json";
-  const u3Path = process.argv[4] ?? "F:/Monark-wt-u4a/apps/sentinel/test/fixtures/ukemi/u3/U3-realized.jsonl";
-  const emodeLTPath = process.argv[5]; // optional JSON {cat:LT}; else decode from oracle raw is done by caller
+  const u3Path = process.argv[4] ?? join(ROOT, "apps", "sentinel", "test", "fixtures", "ukemi", "u3", "U3-realized.jsonl");
+  const emodeLTPath = process.argv[5]; // optional pre-decoded JSON {cat:LT}
   const book = JSON.parse(readFileSync(bookPath, "utf8")).book;
   const oracleRaw = JSON.parse(readFileSync(oraclePath, "utf8"));
-  const emodeLT = emodeLTPath ? JSON.parse(readFileSync(emodeLTPath, "utf8")) : (oracleRaw.emode_lt ?? {});
-  const oracle = { p_min: oracleRaw.p_min, emode_lt: emodeLT };
+  // emode_lt: an explicit path, else the reduced fixture's already-decoded map, else decode from the raw's
+  // emode_raw exactly as u4-reduce.mjs does (so the runner reproduces the driver/test digest on the raw).
+  let emodeLT;
+  if (emodeLTPath) emodeLT = JSON.parse(readFileSync(emodeLTPath, "utf8"));
+  else if (oracleRaw.emode_lt) emodeLT = oracleRaw.emode_lt;
+  else { emodeLT = {}; for (const [cat, hex] of Object.entries(oracleRaw.emode_raw ?? {})) if (typeof hex === "string") emodeLT[cat] = decodeEModeCategoryData(hex).liquidationThresholdBps.toString(); }
+  const oracle = { p_min: oracleRaw.p_min, emode_lt: emodeLT, usdt_prices: oracleRaw.usdt_prices ?? {} };
   const u3 = readFileSync(u3Path, "utf8").split(/\r?\n/).filter((l) => l.trim()).map((l) => JSON.parse(l));
   const out = computeScores(book, oracle, u3);
   const { rows, ...summary } = out;

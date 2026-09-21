@@ -1,4 +1,4 @@
 {
   "reason": "governance/upcoming-only tests (ADR-M004 D7 addendum 2026-09-06): each reads or imports a file the public export omits (a governance doc excluded by the D7 blacklist, or an upcoming scripts/census module that is not a public surface)",
-  "tests": ["packages/hikae/test/s2.test.ts", "apps/sentinel/test/ukemi-u4-governance.test.ts"]
+  "tests": ["packages/hikae/test/s2.test.ts", "apps/sentinel/test/ukemi-u4-governance.test.ts", "apps/sentinel/test/ukemi-u4-scores.test.ts"]
 }

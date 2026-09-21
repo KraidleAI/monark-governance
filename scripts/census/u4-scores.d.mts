@@ -12,15 +12,16 @@ export interface U4Account {
 export interface U4Book { schema: string; reserves: U4Reserve[]; accounts: U4Account[]; [k: string]: unknown }
 /** D_e reduction: p_min = min AnswerUpdated price over [B₀,B_last] (base 8-dec, string); emode_lt maps an
  *  e-mode category id (as string) to its liquidationThreshold in bps (string). */
-export interface U4Oracle { p_min: string; emode_lt: Record<string, string> }
+export interface U4Oracle { p_min: string; emode_lt: Record<string, string>; usdt_prices?: Record<string, string> }
 export interface U3RealizedLine {
-  event_id: string; user: string; repayment_base: string; deficit_base: string; [k: string]: unknown;
+  event_id: string; user: string; repayment_base: string; deficit_base: string;
+  deficit_native?: string; residual?: string[]; first_block?: number; debt_asset?: string; [k: string]: unknown;
 }
 export interface U4ScoreRow { address: string; y: string; yhat: string; score: string; in_book: boolean; eligible_de: boolean; liquidated: boolean }
 export interface U4Census {
   eligible_static_b0: number; eligible_under_De: number; liquidated_total: number; liquidated_in_cell: number;
   liquidated_not_in_book: number; liquidated_not_eligible_under_De: number; eligible_not_liquidated: number;
-  emode_nonzero_in_cell: number; emode_lt_overstate_clamps: number;
+  emode_nonzero_in_cell: number; emode_lt_overstate_clamps: number; deficit_lines_priced_from_usdt: number;
 }
 export interface U4ScoresResult {
   predictor_id: string; task_class: string; alpha: number; n_min: number; p_min_price: string;
