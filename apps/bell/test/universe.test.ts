@@ -303,12 +303,13 @@ test("bell_universe_ledger_format_is_byte_identical_to_b3d", () => {
   // HASHING DISCIPLINE byte-identity: universe's ledgerEntrySha256 applied to a -b3d PAGE core (in the calque's
   // field-write order) reproduces the calque's entry_sha256 EXACTLY. M-format KILLER: hashing via canonical()
   // (sorted keys) or renaming a field breaks this equality.
-  const pageEntry = b3dChainedEntry(B3D_LEDGER_GENESIS, 0, [{ sig: "sigA", slot: 7 }, { sig: "sigB", slot: 9 }]);
+  const pageEntry = b3dChainedEntry(B3D_LEDGER_GENESIS, 0, [{ sig: "sigA", slot: 7 }, { sig: "sigB", slot: 9 }], [], []); // lot -f: arity 5, empty page payload
   if (pageEntry === null) throw new Error("the calque must build a page entry for a non-empty page");
   const pageCore = {
     prev_entry_sha256: pageEntry.prev_entry_sha256, page: pageEntry.page, slot_lo: pageEntry.slot_lo,
     slot_hi: pageEntry.slot_hi, first_sig: pageEntry.first_sig, last_sig: pageEntry.last_sig,
     tx_count: pageEntry.tx_count, tail_sigs_at_slot_hi: [...pageEntry.tail_sigs_at_slot_hi], list_sha256: pageEntry.list_sha256,
+    payload_sha256: pageEntry.payload_sha256, // lot -f (condition (f)): the calque core has TEN fields, payload_sha256 last
   };
   assert.equal(ledgerEntrySha256(pageCore), pageEntry.entry_sha256, "MUTANT M-format: universe's hasher on a -b3d page core == the calque's entry_sha256 (sha(JSON.stringify(core)) in write order, NOT canonical)");
   assert.equal(b3dLedgerSha([]), B3D_LEDGER_GENESIS, "calque ledgerSha([]) == genesis");
