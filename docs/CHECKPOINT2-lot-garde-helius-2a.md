@@ -105,3 +105,66 @@ Deux couches, toutes deux requises.
 **Frontière.** Si le G7 fusionne 2a en laissant C-V-1 à C-V-3 en simples « à faire », sans item formé ayant 2b pour déclencheur, c'est une divergence checklist/G7, donc ESCALADE-INVESTISSEUR. Aucune décision de valeur ici.
 
 **Modèle résolu (R-1)** : `claude-fable-5-1`, effort high. Aucune écriture dans le dépôt. Sondes : `F:\tmp\cp2-garde2a\probes\{a-floor-units,c-subset-lock,e-tariff,f-transport,g-reconcile,g2-cli}.mts`.
+# Re-acceptation GARDE-HELIUS-2a (pli c6a112d)
+
+# RÉ-ACCEPTATION SUR PIÈCES — GARDE-HELIUS-2a, pli `c6a112d`
+
+**Décision : ACCEPTE-AVEC-CORRECTIONS**, liste fermée à un item, C-R-1, bloquant. Un corps de réponse qui reprend l'adresse du fournisseur sans le préfixe `http(s)://` fait apparaître la clé dans le message d'erreur. Le pli a créé ce défaut et aucun test ne le couvre. Tout le reste est conforme.
+
+**Artefacts lus (blobs `git show c6a112d:`)**
+- Le diff `dd9148f..c6a112d` des 5 sources : `cli`, `errors`, `index`, `reconcile`, `transport`.
+- Les tests modifiés et l'ADR aux lignes 102-103, 186, 207-217, 233-240.
+- `F:\tmp\garde2a\DELIVERED.sha256`.
+- La G2 et la G2-delta n'ont pas été lues.
+
+**Intégrité**
+- Manifeste : 22 blobs sur 22 identiques à HEAD.
+- Six fichiers mutés pendant mes rejeux, tous restaurés à l'identique.
+- HEAD `c6a112d`, `status --porcelain` à 0, jonction retirée.
+- Le `node_modules` du worktree garde ses 218 entrées.
+- Rejeux sous `F:\tmp\cp2-garde2a-r\{src,probes}`. Aucun réseau (`fetch` bouchonné, URL en `.invalid`), aucun `git` d'écriture, rien sur C:.
+
+## Re-exécutions
+| Objet | Résultat |
+|---|---|
+| `npm run ci` | 709 tests, 708 réussis, 0 échec, 1 skip (celui du lot 1b). eslint du paquet : 0. |
+| `lint` et `lint:ratchet` | Inchangés par rapport à la base : 1 erreur `apps/bell/test/rebase-crosscheck.test.ts:600` et ratchet 70/69. Le pli n'ajoute rien. |
+| R-25 contre `5d177db` | 857 avec mon pathspec, 853 annoncés (écart de pathspec), sous 1 205. |
+| Périmètre | Rien hors du paquet et de la doc. `rpc.ts` et `record.ts` identiques à l'octet. Les 6 sha du gel U-4b sont intacts. |
+| **Ex-survivant N5 (= A5)**, floor partagé à `guarded.ts:50` | ROUGE : `two_paid_operators_keep_separate_priors_and_units`. Le code n'a pas changé, seul le test manquait. |
+| **Ex-survivant N3 (= V1)**, caps de run sommés | ROUGE : `run_caps_are_per_operator_at_the_meter`. |
+| **Ex-survivant N14 (= V2)**, `tariff_version` constante | ROUGE : `ledger_stamps_tariff_version_per_operator`. |
+| **Ex-survivant N13 (= V3)**, keyless non verrouillé | ROUGE : `keyless_operator_is_locked_when_requested`. La convention du cycle des keyless est à la ligne 186 de l'ADR. |
+| **V6**, hook muet sur réponse HTTP non-ok | ROUGE : `transport_error_path_http_non_ok_keeps_body`. |
+| Mes 7 mutants hors liste | Six sont ROUGES : X1 (erreur JSON-RPC qui redonne `undefined`), X3 (code RPC perdu), X4 (mode strict relâché en calibration), X5 (calibration sans borne dure), X7 (garde chainstack-agrégat retirée), X8 (corps non-JSON qui donne `undefined`). X6 (`negative_delta` retiré) en rougit deux. |
+| **X2**, mon choix : les deux appels à `scrubUrls` de `raise` retirés | **SURVIT, 44/44.** Le nettoyage des URL n'est épinglé par aucune assertion. |
+| Sonde transport, 8 cas | Les quatre chemins d'erreur lèvent une `TransportError` avec `.name` et `.code` (429, 400, 200, −32005, 3). Le hook reçoit `op|nom|code`. La ligne `attempted` est écrite avant le fetch. Un `result: null` donne bien `null`. Le corps d'un HTTP 400 est conservé pour le découpage de plage. Une URL complète reprise par le serveur devient `<url>`. |
+| **Sonde 401, corps sans préfixe `http`** | **`leak=true`** : le message contient `chainstack.example.invalid/FAKEKEY-…` tel quel. |
+| Sonde rapprochement | `aggregate-calibration` avec sur-compte de 50 % : GO, `calibration_soft:1000`, exit 0, `softDeviation=1000`, ligne consignée. Contournement en calibration : NO-GO `hard:total`, exit 1. Delta négatif : `negative_delta` dans les deux modes. Mode strict inchangé : NO-GO `soft`. CLI `--op chainstack` sans `--mode`, ou en `per-method` : erreur levée avant le verrou, aucun verrou laissé, 0 ligne ajoutée. |
+
+## Checklist
+- **CA-6** : l'acceptation reste conditionnée à un PASS de la G2-delta.
+- **CA-7** : les items sont formés. Le chemin Narabi hors garde (décision 118) est inscrit dans l'ADR avec son déclencheur -1d.
+- **CA-8** : conforme.
+- **CA-9** : tout est re-exécuté par moi sur une copie fraîche, aux chemins indiqués plus haut.
+- **CA-10** : R-25 tenu.
+- **CA-11** : le paquet reste `upcoming`, son consommateur est 2b et aucun registre ne le déclare construit. Le protocole non-code a ses règles dans l'ADR A-4 (l.213-217 : fenêtre d'un jour entier, double lecture de stabilité, aucun chevauchement Narabi, résiduel pris comme minorant). Ses valeurs pour la course vont dans le prereg U-4b-1b, épinglé par sha. C'est ce que j'avais demandé.
+
+## Correction (liste fermée)
+- **C-R-1 (bloquant avant fusion) : la clé Chainstack peut fuir dans un message d'erreur.**
+  - **Cause.** La clé Chainstack est un segment de chemin de `CHAINSTACK_ETH_URL`, et `scrubUrls` ne retire que les URL préfixées par `http(s)://`.
+  - **Origine.** À `dd9148f` le corps du serveur n'était jamais repris dans le message. Le C-V-2 du pli le reprend désormais (« keep the body ») sans élargir le nettoyage : c'est une régression du pli. En 2b, ce message ira dans le journal `rpcErrors`, qui est écrit sur disque.
+  - **Classe.** Même défaut que le C-V-3 du lot 1a, qui était bloquant.
+  - **Exigé.**
+    - `raise` a la map `urls` sous la main. Elle expurge du `detail`, pour l'opérateur concerné, l'URL complète, sa forme sans préfixe, son chemin et sa valeur `api-key` (calque `redactEndpoint`).
+    - Un test nommé rejoue un corps qui reprend hôte et clé sans préfixe. Il doit rougir le mutant X2 et la sonde 401 (C-R-2 plié dedans).
+  - **`error_origin`.** Partagé worker et validateur. Mon C-V-2 demandait une erreur « nettoyée de toute URL » alors que la menace est la clé, qui n'a pas la forme d'une URL.
+  - **Clôture.** Une passe sur pièces limitée à rejouer X2 et la sonde 401 sur le pli, pas un checkpoint complet.
+
+## AM-1
+- **Attrapé :** le nettoyage des URL sans aucune assertion (X2), et la fuite de clé par un corps sans préfixe, régression née de « garder le corps ».
+- **Manqué au tour précédent :** je n'avais pas testé un corps qui reprend la clé. Ma consigne, centrée sur les URL, a laissé passer une implémentation conforme à la lettre.
+
+**Frontière.** Fusionner ce pli en laissant C-R-1 en simple « à faire » serait une divergence checklist/G7, donc une ESCALADE-INVESTISSEUR. Aucune décision de valeur ici.
+
+**Modèle résolu (R-1)** : `claude-fable-5-1`, effort high. Sondes : `F:\tmp\cp2-garde2a-r\probes\{r-transport,r-reconcile}.mts`. Journaux : `F:\tmp\cp2-garde2a-r\{ci,lint,ratchet,eslint-pkg}.log`.
