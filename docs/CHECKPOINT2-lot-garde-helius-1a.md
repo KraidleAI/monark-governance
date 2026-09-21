@@ -69,3 +69,41 @@ Deux décisions de l'ADR sont **mesurées fausses** sur ce HEAD : D3 (cap de cyc
 Attrapé par la checklist (mesuré, non lu) : formule de cap absorbée par le floor ; transport payant non compté exporté ; clé dans l'erreur `fetch` ; verrou opt-in ; `--method-caps` vacant ; méthode inconnue non ledgerée ; fenêtre `reconcile` ; troncature de queue. **Manqué par mon cp-1** (ma part d'`error_origin`) : j'ai accepté « ne rend une URL » comme critère de la couche (i), « lignes attempted du cycle » comme définition de `ledger_run`, et « chaîne cassée » sans la troncature — trois formulations dont l'ambiguïté a laissé passer C-V-2/7/8.
 
 **Modèle résolu (R-1)** : `claude-fable-5-1` (effort high). Aucune écriture dans le dépôt ; sondes conservées sous `F:\tmp\cp2-garde1a\probes\p1..p6*.mts`, logs `F:\tmp\cp2-garde1a\npm-run-ci.log`, `npm-ci.log`.
+
+
+---
+
+# SECOND CHECKPOINT-2 sur le HEAD corrigé `b13850c` (verbatim) — ACCEPTE, conditionnel à la G2-delta
+
+# CHECKPOINT-2 (second) — LIVRABLE — GARDE-HELIUS-1a, HEAD corrigé `b13850c`
+
+**Artefacts lus (blobs `git show b13850c:`)** : `packages/rpc-guard/{src/*.ts (11), test/*.ts (9)}`, `test/rpc-guard-fetch-only-inside-client.test.ts`, ADR, fin de `docs/G0-lot-garde-helius.md`, `docs/G2-lot-garde-helius-1a.md` (round-1, persisté — pas la G2-delta parallèle, non lue). Intégrité : 21 sha de blobs listés ; 5 fichiers mutés restaurés MATCH ; HEAD `b13850c` inchangé, `status --porcelain` 0, jonction retirée, `node_modules` worktree 218 entrées. Rejeux `F:\tmp\cp2-garde1a-2\{src,npmci,probes}` (AM-2 ter, `TEMP/TMP=F:/tmp`, aucun réseau, URL non analysable + clé factice).
+
+## Mesures re-exécutées
+| Demande | Rejeu | Résultat |
+|---|---|---|
+| CI | `npm run ci` sur copie | **599 tests, 598 PASS, 0 FAIL, 1 SKIP (1b)**, exit 0 ; `npm run lint` exit 0 ; `lint:ratchet` 69/69 exit 0 |
+| `npm ci` | `--offline --ignore-scripts --cache F:/tmp/npm-cache`, extraction séparée | exit 0, 283 paquets, lien `node_modules/@monark/rpc-guard` présent |
+| R-25 | pathspec exact `ci.yml` | **1 096** (< 1 205), = RENDU |
+| P3-floor `makeClient` | Q3 : floor 15/cap 25 ; floor 7 999 990/cap 8 M | **1 transport** chacun, `refused cycle_cap`, `BudgetExceededError` |
+| P3-floor `openGuardedClient` | Q3 : floor 7 999 990 / cap 8 M (le cap public est la constante 8 M `transport.ts:16` — 15/25 n'est pas reproductible par ce chemin, dit tel quel) | **1 ligne `attempted`** puis `cycle_cap` ; floor 15 : 3 lignes (cap loin), cohérent |
+| P6 | Q6 : exports valeur = `BudgetExceededError, CHAINSTACK_CYCLE_CAP_RU, HELIUS_CYCLE_CAP_CREDITS, HELIUS_TARIFF_VERSION, heliusCredits, openGuardedClient, runCli, runReconcile, verifyCycleLedger` | seule fonction menant au transport = `openGuardedClient` ; cycle dir = `helius.head, helius.jsonl, helius.lock` (ligne écrite avant `fetch`) ; erreur `fetch` = `transport error for operator 'helius' (TypeError)`, **0 URL, 0 clé** (message et `.input`) |
+| Bi-processus | Q4 : deux `node` via `openGuardedClient` | proc2 **`LockHeldError`, 0 transport**, exit 3 ; `cli reconcile` sous verrou tenu ⇒ **`LockHeldError`** ; après `unlock` ⇒ GO, verrou relâché |
+| P2 troncature | Q2 : 30→10 lignes ; `.head` absent ; ledger absent/`.head` présent | **THROW** dans les 3 cas (sidecar) ; intact prior 300 |
+| P5 deux courses | Q5 : fenêtre depuis `reconciled` | 2ᵉ honnête ⇒ **GO** ; 500 cr hors ledger ⇒ **NO-GO hard** ; méthode absente du ledger (+1 `getSlot`) ⇒ NO-GO hard ; bande 0,5 % du total : 501 ⇒ NO-GO soft, 500 ⇒ GO |
+| `unknown_method` / non listée / `{}` | Q7 | `BudgetExceededError`, 0 transport, ligne `refused unknown_method` ; non listée ⇒ `method_cap_unlisted` ; `{}` ⇒ throw à la construction |
+| Mutants (miens) | M1 append-après, M2 floor, M3 throw retiré, M4 `"w"`, M5 symétrique, M6 cap cycle, M7 `{}`, M7b non-listée, M8 prior non figé, M9 sidecar, M10 verrou non acquis, M11 `Error` nu, M12 erreur non scrubée | **12/12 ROUGES** sur leur test nommé (M7b tué par `ledger.test.ts::required_inputs_fail_closed`, pas `caps.test.ts`) ; restauration MATCH |
+
+## Checklist (delta vs round 1)
+CA-2 conforme (rulings C-V-5/7/8 pliés en G0, décision 113 « 0,5 % du run » appliquée au total — C-G2-6) ; CA-3 ADR amendée D1–D4 ; CA-6 conditionnel à G2-delta PASS (non lue) ; CA-7 zéro dette nue (items formés ci-dessous) ; CA-8 conforme (`claude-opus-4-8`, error_origin par correction) ; CA-9/10 conformes ; CA-11 : paquet **upcoming** maintenu (ADR l.12/77/85 ; `PRODUCT-BOUNDARY.md:67` = whitelist d'export, pas un registre built), T14 passe désormais par `runCli` (`lock.test.ts:36`), verrou composé dans `makeClient` (M10 rouge) ; anti-close bis : aucun prix/close/constante on-chain. Éditorial round 1 réglé (`tariff.ts:3` → « décisions 112/C-14 » ; sur-affirmation Chainstack retirée, ADR l.97-100).
+
+## Décision : **ACCEPTE** (sous-lot 1a, paquet upcoming — G0 §8 : « aucun sous-lot ne clôt seul »), conditionnel à G2-delta PASS
+Aucun point bloquant. Si G7 diverge de cette acceptation, escalade de frontière comme au round 1. **Items formés à déclencheur** (non bloquants, à consigner par l'orchestrateur, `error_origin` worker) :
+1. **Ordre figé du prior AVANT le verrou** (`guarded.ts:13` → `client.ts:72-75`) : Σ lue puis verrou acquis ; fenêtre microseconde où un writer encore verrouillé peut appender (fork détecté au prochain open, après dépense). Fix : figer le prior après l'acquisition (ou ouvrir le ledger sous verrou). Déclencheur : 1b.
+2. **Séquence opérationnelle `unlock` → `reconcile`** : mesurée (Q4), documentée ADR l.128, **absente du protocole pré-enregistré G0 §4** (l.252) ; à ajouter en une ligne avant la 1ʳᵉ course.
+3. **Atomicité multi-verrou** (`client.ts:72`, boucle) : un 2ᵉ acquire qui échoue laisse le 1ᵉʳ tenu — inerte à 1a (un seul payant) ; à plier dans l'item existant « prior par opérateur avant tout second opérateur payant ».
+
+## AM-1
+Attrapé (mesuré) : toutes les corrections C-V-1..9 vérifiées fonctionnellement, 12 mutants rouges. **Manqué par mon round 1**, établi sur la G2 round-1 persistée : C-G2-2 (`--max-credits` : mutant survivant que je n'ai pas cherché), C-G2-4 (append `reconcile` hors verrou), C-G2-5 (no-fetch-on-refuse non épinglé par test), C-G2-6 (j'avais accepté la bande par méthode comme « plus stricte » alors que la décision 113 dit « 0,5 % du run »). Round 2 : items 1–3 ci-dessus sont des trous que ma checklist n'avait pas nommés au round 1.
+
+**Modèle résolu (R-1)** : `claude-fable-5-1` (effort high). Aucune écriture dans le dépôt. Sondes : `F:\tmp\cp2-garde1a-2\probes\q2..q7*.mts` ; logs `ci.log`, `lint.log`, `ratchet.log`, `npm-ci.log` sous `F:\tmp\cp2-garde1a-2\`.
