@@ -323,32 +323,43 @@ test("bell_universe_ledger_format_is_byte_identical_to_b3d", () => {
   assert.equal(/^(ledger|events|handoffs)-.*\.jsonl$/.test(UNIVERSE_LEDGER_JOURNAL), false, "outside the hasResumeState glob");
 });
 
-// ---- 8e. C-V-1: pagination persists PER PAGE so a hard-kill is <= 1 tick behind (never <= N_pages) --------
+// ---- 8e. C-V-1 / C-R-1: the anchor is <= 1 logical tick behind at any SEND — persist PER PAGE (loop body) AND
+// in the probe's `finally`. Observed at each send on a nominal run (disk state read at every send); the true
+// KILL is the crash-sim 8c.
 test("bell_universe_pagination_persists_per_page_kill_window", async () => {
   const out = mkdtempSync(join(tmpdir(), "bell-univ-kw-"));
   try {
-    const K = 4; // pages 0..K-1 full (pageSize=2), page K short => end anchor
+    const K = 4; // pages 0..K full (pageSize=2), page K short => end anchor at page K
     const anchorPath = join(out, "budget.json");
     let lastAnchor = 0;
-    const anchorAtGet: number[] = []; // the anchor value (calls) persisted BEFORE each page GET
+    const anchorAtGet: number[] = []; // the anchor's calls value observed BEFORE each issuer GET
+    let anchorAtFirstRpc = -1;        // the anchor's calls value observed at the FIRST confirm RPC
     const httpGet = (url: string): Promise<HttpGetResult> => {
       anchorAtGet.push(lastAnchor);
       const p = Number(new URL(url).searchParams.get("page") ?? "0");
+      // page 0 carries ONE Solana mint so a confirm RPC fires AFTER the probe (to observe the anchor there).
+      const solana = p === 0 ? [{ network: "Solana", address: "Mint0a11111111111111111111111111111111" }] : [];
       const rows = p < K
-        ? [{ id: `p${String(p)}a`, deployments: [] }, { id: `p${String(p)}b`, deployments: [] }]
-        : [{ id: `p${String(p)}a`, deployments: [] }];
+        ? [{ id: `p${String(p)}a`, symbol: `S${String(p)}`, name: `S${String(p)}`, deployments: solana }, { id: `p${String(p)}b`, deployments: [] }]
+        : [{ id: `p${String(p)}z`, deployments: [] }];
       return Promise.resolve({ json: rows });
     };
     const writeFile = (pth: string, data: string): void => {
       if (pth === anchorPath) lastAnchor = (JSON.parse(data) as { calls: number }).calls;
       writeFileSync(pth, data);
     };
+    const call: JsonRpcCall = () => { if (anchorAtFirstRpc < 0) anchorAtFirstRpc = lastAnchor; return Promise.resolve({ value: null }); };
     await runUniverse(["--out", out, "--max-calls", "1000", "--page-size", "2", "--max-pages", "20", "--date", "2026-09-21"],
-      fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, out, { httpGet, writeFile }));
-    // Before page p's GET (tick p+1) the anchor persisted by page p-1 equals p => at any instant the anchor is
-    // <= 1 tick behind the counter. MUTANT (persist removed from the loop body): the anchor stays 0 until the loop
-    // `finally`, so anchorAtGet becomes [0,0,0,…] and this reddens.
-    for (let p = 1; p <= K; p++) assert.ok(anchorAtGet[p]! >= p, `at page ${String(p)}'s GET the anchor is >= ${String(p)} (<= 1 tick behind); saw ${String(anchorAtGet[p])}`);
+      fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, out, { httpGet, writeFile, call }));
+    // (i) pagination persists PER PAGE: before page p's GET (tick p+1) the anchor persisted by page p-1 equals p.
+    // MUTANT (persist removed from the loop body): the anchor stays 0 until the loop `finally` => anchorAtGet=[0,0,..].
+    for (let p = 1; p <= K; p++) assert.ok(anchorAtGet[p]! >= p, `at page ${String(p)}'s GET the anchor is >= ${String(p)}; saw ${String(anchorAtGet[p])}`);
+    // (ii) at the PROBE GET (index K+1) the anchor already reflects every page (K+1).
+    assert.ok(anchorAtGet[K + 1]! >= K + 1, `at the probe GET the anchor >= ${String(K + 1)}; saw ${String(anchorAtGet[K + 1])}`);
+    // (iii) C-R-1: at the FIRST confirm RPC the anchor already includes the probe's +1 tick (>= K+2). MUTANT
+    // (persist removed from the probe's `finally`): the probe tick is deferred to the first confirm persist =>
+    // anchor is K+1 at the first RPC => this reddens.
+    assert.ok(anchorAtFirstRpc >= K + 2, `at the first RPC the anchor includes the probe tick; saw ${String(anchorAtFirstRpc)} (want >= ${String(K + 2)})`);
   } finally { rmSync(out, { recursive: true, force: true }); }
 });
 
@@ -521,11 +532,33 @@ test("bell_universe_c11_probe_observes_never_stops_except_budget", async () => {
   // (budget re-throw removed): the probe swallows it, the run reaches calibration and returns ok:false (no reject).
   const outC = mkdtempSync(join(tmpdir(), "bell-univ-pcap-"));
   try {
-    const httpGet = (url: string): Promise<HttpGetResult> =>
+    const httpGet = (): Promise<HttpGetResult> =>
       Promise.resolve({ json: [{ id: "evm-only", deployments: [{ network: "Ethereum", address: "0x0" }] }] });
     await assert.rejects(() => runUniverse([...argv(outC, "1"), "--page-size", "100"], fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, outC, { httpGet })),
       BudgetExceededError, "MUTANT (budget re-throw removed): a real budget cap at the probe must STOP => red");
+    // C-R-1: the raw was saved BEFORE the probe, so it is PRESENT even after the budget STOP. MUTANT (raw save moved
+    // AFTER the probe): the STOP happens before the raw is written => this reddens.
+    assert.ok(existsSync(join(outC, "issuer-assets-2026-09-21.json")), "raw is present after the budget STOP (raw saved before the probe)");
   } finally { rmSync(outC, { recursive: true, force: true }); }
+  // (d) C-R-1: a 3xx (RedirectBlockedError, a BudgetExceededError SUBCLASS) at the probe => run OK, redirect_blocked.
+  const outD = mkdtempSync(join(tmpdir(), "bell-univ-predir-"));
+  try {
+    const httpGet = (url: string): Promise<HttpGetResult> =>
+      Number(new URL(url).searchParams.get("page") ?? "0") === 0 ? Promise.resolve({ json: issuerAssets() }) : Promise.reject(new RedirectBlockedError("3xx past-end"));
+    const r = await runUniverse(argv(outD, "1000"), fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, outD, { httpGet }));
+    assert.equal(r.ok, true, "MUTANT (RedirectBlockedError not caught before the budget re-throw): a 3xx past-end must NOT stop the run");
+    assert.match(readFileSync(join(outD, "PROVENANCE-univers-solana.md"), "utf8"), /^- past_end_probe: redirect_blocked$/m, "3xx recorded as redirect_blocked, run completed");
+  } finally { rmSync(outD, { recursive: true, force: true }); }
+  // (e) C-R-1: a plain transport error at the probe => run OK, transport_error. MUTANT (transport_error turned into a
+  // re-throw): the run stops instead of recording transport_error => reddens.
+  const outE = mkdtempSync(join(tmpdir(), "bell-univ-ptrans-"));
+  try {
+    const httpGet = (url: string): Promise<HttpGetResult> =>
+      Number(new URL(url).searchParams.get("page") ?? "0") === 0 ? Promise.resolve({ json: issuerAssets() }) : Promise.reject(new Error("ECONNRESET"));
+    const r = await runUniverse(argv(outE, "1000"), fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, outE, { httpGet }));
+    assert.equal(r.ok, true, "a transport error past-end must NOT stop the run");
+    assert.match(readFileSync(join(outE, "PROVENANCE-univers-solana.md"), "utf8"), /^- past_end_probe: transport_error$/m, "transport error recorded as transport_error, run completed");
+  } finally { rmSync(outE, { recursive: true, force: true }); }
 });
 
 // ---- 13. Byte-exact replay: committed raw + rpc => the frozen artifact, byte for byte -----------------

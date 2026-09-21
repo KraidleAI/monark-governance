@@ -406,14 +406,19 @@ export function assertOnlyAllowedFields(rec: Record<string, unknown>): void {
 }
 // ---- Identity-text sanitizer (C-G2-6) -------------------------------------------------------------
 /** `name`/`symbol` are FREE TEXT from the issuer list and ARE on the field allowlist (they are identity), so a
- *  price could ride inside them past assertOnlyAllowedFields. EMPTY the field (never truncate to a sub-price)
- *  when it is not plain identity: outside the value whitelist [A-Za-z0-9 .,&()+'-], longer than 64, or carrying
- *  a `$`, a word-boundary currency code, or a decimal `\d+\.\d+`. The whitelist already excludes `$`; the
- *  explicit monetary checks make the intent legible. DECLARED residual (C-7): a BARE integer ("TSLA 420")
- *  PASSES — indistinguishable from "S&P 500" / "3M" / "SP500 xStock"; bounded (values come from the issuer's
- *  public identity list, nothing published this round, reviewed before publication). DECLARED false-reject: a
- *  legitimate decimal name ("Fund 2.5") is emptied. The count is surfaced as identity_text_emptied=N in the
- *  provenance so a run that empties N fields is visible. */
+ *  price could ride inside them past assertOnlyAllowedFields. EMPTY the field (never truncate to a sub-price) when
+ *  it is not plain identity: outside the value whitelist [A-Za-z0-9 .,&()+'-], longer than 64, or carrying a `$`, a
+ *  currency code adjacent-to-a-digit-or-standalone (LETTER-boundary lookaround, C-V-4), or a decimal `\d+[.,]\d+`
+ *  (period OR comma separator). The whitelist already excludes `$`; the explicit monetary checks make the intent
+ *  legible. DECLARED RESIDUALS / survivors (C-7 / C-R-4; values come from the issuer's PUBLIC identity list,
+ *  nothing published this round, reviewed before publication):
+ *   - a BARE integer ("TSLA 420"): indistinguishable from "S&P 500" / "3M" / "SP500 xStock";
+ *   - a bare integer FOLLOWED by a stablecoin ticker or a word ("100 USDT", "5 shares"): not glued to a CLOSED-list code;
+ *   - a currency code glued to a symbol letter ("5USDx"): the trailing letter reads as a ticker, preserved on purpose;
+ *   - a decimal WITHOUT an integer part (".5"): the decimal pattern needs digits on BOTH sides;
+ *   - a currency OUTSIDE the closed list (CNY, INR, "kr"): the list is CLOSED to avoid false-rejecting legitimate names.
+ *  DECLARED FALSE-REJECTS (conservative): a legitimate decimal name ("Fund 2.5") AND a thousands-grouped integer
+ *  ("1,234") are emptied. The count is surfaced as identity_text_emptied=N in the provenance. */
 const IDENTITY_TEXT_ALLOWED = /^[A-Za-z0-9 .,&()+'-]*$/;
 // C-V-4: currency code with a LETTER-boundary lookaround (NOT `\b`): `\b` treats a digit as a word char, so a
 // GLUED "USD12"/"12USD"/"AAPL USD150"/"EUR3" slipped through (a currency+amount surviving in identity text). The
