@@ -208,6 +208,19 @@ test("sentinel_catchup_budget_stops_cleanly_between_days — 20-day backlog, +30
   assert.equal(pubState.digest, lines[lines.length - 1]!.digest_T, "the public state.json digest equals the 7th line's digest_T (the probe's fact-5 invariant)");
 });
 
+test("sentinel_budget_env_value_reaches_rundue — a NON-default MONARK_SENTINEL_BUDGET_S actually governs the catch-up: main passes the VALIDATED value to runDue, not the constant default. Budget 30 s on the 20-day backlog (+30 s/day) processes exactly 2 days (C1 checkpoint-2; kills the mutant where main validates the env but passes 180000; ADR-NARABI-OPS-1c)", () => {
+  const dir = freshStateDir();
+  const r = runMain(dir, writePlan("plan30s.json", synthPlan(20)), { MONARK_SENTINEL_J0: DAY0, MONARK_SENTINEL_BUDGET_S: "30" });
+  assert.equal(r.status, 1, "a budget stop exits 1");
+  const end = r.end;
+  assert.ok(end !== null, `end JSON present. stderr=${JSON.stringify(r.stderr)}`);
+  assert.equal(end.stopped, "catchup_budget");
+  assert.deepEqual(end.processedDays, [addDays(DAY0, 0), addDays(DAY0, 1)], "a 30 s budget (+30 s/day) processes exactly 2 due days, NOT the default-180 seven");
+  assert.equal(end.processedDays.length, 2);
+  assert.equal(end.lag, 18, "18 remain (20 - 2)");
+  assert.equal(end.elapsed_ms, 2 * STEP_MS, "elapsed = 2 served days x 30 s (the injected clock advanced twice before the stop)");
+});
+
 test("sentinel_catchup_resumes_next_slot_without_gap — the next slot resumes exactly at prevDay+1, no day duplicated and no gap, and the whole chain replays through trackerReplay (C1; ADR-NARABI-OPS-1c)", () => {
   const planPath = writePlan("plan20b.json", synthPlan(20));
   const dir = freshStateDir();
@@ -289,10 +302,13 @@ function timeoutStartSecOf(serviceText: string): number {
   assert.ok(m !== null, "the unit declares a numeric TimeoutStartSec (seconds)");
   return Number(m[1]);
 }
-// test-only override; a mutant points it at a 200 copy. run.ts never reads it. The deploy/ unit is NOT in the
-// public export, so this one test SKIPS there (the invariant is pinned in the source repo, where deploy/ lives).
+// test-only override; a mutant points it at a 200 copy. run.ts never reads it. SKIP this test IFF the deploy/
+// DIRECTORY is absent (the public export omits it, C3). A present deploy/ with the .service renamed/missing must
+// FAIL, never skip silently — the invariant is pinned where deploy/ lives (source repo, private G7).
+const DEPLOY_DIR = join(REPO, "deploy");
 const SERVICE_FILE = process.env.NARABI_SENTINEL_SERVICE_FILE ?? SERVICE;
-test("sentinel_budget_below_unit_timeout — BUDGET_MAX_S + MARGIN_MIN_S <= TimeoutStartSec read from deploy/monark-sentinel.service; a TimeoutStartSec=200 copy would red (C2; ADR-NARABI-OPS-1c)", { skip: existsSync(SERVICE_FILE) ? false : "deploy/monark-sentinel.service is omitted from the public export" }, () => {
+test("sentinel_budget_below_unit_timeout — BUDGET_MAX_S + MARGIN_MIN_S <= TimeoutStartSec read from deploy/monark-sentinel.service; a TimeoutStartSec=200 copy would red, a renamed .service (deploy/ present) reds (C2/C3; ADR-NARABI-OPS-1c)", { skip: existsSync(DEPLOY_DIR) ? false : "the deploy/ directory is omitted from the public export" }, () => {
+  assert.ok(existsSync(SERVICE_FILE), `deploy/ is present but ${SERVICE_FILE} is missing (renamed?) — a regression, not an export skip`);
   const ts = timeoutStartSecOf(readFileSync(SERVICE_FILE, "utf8"));
   assert.ok(BUDGET_MAX_S + MARGIN_MIN_S <= ts, `budget ${String(BUDGET_MAX_S)} + margin ${String(MARGIN_MIN_S)} = ${String(BUDGET_MAX_S + MARGIN_MIN_S)} must fit under TimeoutStartSec ${String(ts)}`);
   assert.equal(BUDGET_MAX_S + MARGIN_MIN_S, 300, "the pinned sum is 300 s (a larger TimeoutStartSec stays green: the invariant is <=, not ==)");
