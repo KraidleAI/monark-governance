@@ -229,18 +229,24 @@ calibration U-4 (D7 sexies) inchangée : hors périmètre de ce lot.
   `--check --scope root` (le scope root épingle le gate de langue au scope root, vert sur arbre propre : un
   exit 1 après semis est donc attribuable à la garde CHEMINS seule ; `export:check` nu est aussi exit 0 sur
   arbre propre — mesuré). Couvre la branche POSITIVE du mécanisme (pas seulement du contenu déjà présent).
-- **C-G2-3** — regex étendue `(?<![A-Za-z])[A-Za-z]:[\\/](?:[\w.$~-]|\s|$)` : attrape aussi une RACINE de
-  lecteur nue (`D:/`, `C:\`) en fin de ligne / avant un blanc (segment absent). Un second séparateur (`://`)
-  n'est ni segment ni blanc/EOL ⇒ URLs (`http://`, `x://host`) toujours épargnées. **UNC `\\host\share` HORS
-  PÉRIMÈTRE** (ce n'est pas un chemin à lettre de lecteur ; non attrapé — déclaré). Limite déclarée : le texte
-  **UTF-16** a des octets NUL entrelacés ⇒ classé binaire ici ; aucun fichier exporté n'est UTF-16.
+- **C-G2-3 (+ checkpoint-2 C-4)** — regex étendue `(?<![A-Za-z])[A-Za-z]:(?:\\\\|[\\/])(?:[\w.$~-]|\s|$)` :
+  après `:`, un séparateur **DOUBLÉ** (backslash échappé — la forme d'un chemin Windows dans un littéral de
+  chaîne JSON/JS, C-4) OU un simple `\`/`/` ; puis un segment OU un blanc / fin de ligne. Attrape donc une
+  RACINE de lecteur nue (`D:/`, `C:\`, échappée ou non) en fin de ligne / avant un blanc, ET la forme
+  échappée `"F:\\tmp\\x"` (angle mort mesuré au checkpoint-2 : 0 hit avant). Un second séparateur (`://`)
+  n'est ni segment ni blanc/EOL ⇒ URLs (`http://`, `x://host`) toujours épargnées. **Classe couverte** :
+  lettre + `:` + (`\` | `/` | `\\`) + (segment | blanc | EOL). **HORS PÉRIMÈTRE, déclaré** : UNC
+  `\\host\share` (pas de lettre de lecteur) ; segment non-ASCII (`[\w.$~-]` sans flag `u`, ex. `F:\Études`) ;
+  texte **UTF-16** (NUL entrelacés ⇒ classé binaire) — aucun fichier exporté n'est dans ces classes.
 - **C-G2-4** — `test/export-hygiene.test.ts` (racine, NON exporté) : commentaire rendu cohérent (les POSITIFS
   sont assemblés au runtime ⇒ le CODE ne porte aucun chemin de lecteur littéral) ET le vrai nom de dossier
   privé ANONYMISÉ (segments fictifs) — plus aucun `F:\PRODUITS\…` réel, même dans un test non exporté.
-- **Mutants PLI G2** (sauvegarde + sha256, restauration byte-exacte, jamais `git checkout`) : **M-3b**
-  (`windowsPathViolations`→`[]`) ⇒ test C-G2-2 ROUGE + chemin semé shipped dans le miroir (1 occ.) ;
+- **Mutants PLI G2 + checkpoint-2** (sauvegarde + sha256, restauration byte-exacte, jamais `git checkout`) :
+  **M-3b** (`windowsPathViolations`→`[]`) ⇒ test C-G2-2 ROUGE + chemin semé shipped dans le miroir (1 occ.) ;
   **allowlist restaurée** ⇒ test C-G2-2 ROUGE (`.mts`/`LICENSE` manqués) ; **fin de ligne** (regex revertie
-  en `[\w.$~-]`) ⇒ `windows_abs_path_matcher` ROUGE (positifs EOL), C-G2-2 vert (le semis a un segment).
+  en `[\w.$~-]`) ⇒ `windows_abs_path_matcher` ROUGE (positifs EOL), C-G2-2 vert ; **C-4 séparateur simple**
+  (regex revertie à `…:[\\/]…`) ⇒ `windows_abs_path_matcher` ROUGE (nouveau positif échappé `F:\\…`), le
+  semis à backslash simple reste vert.
 
 ### D8 — Lot E (English only) et R-25 (item 11)
 Scindé par package, une PR chacune, **aucun lot exempté** ; **hikae scindé `src` / `test`** (mesure §1.3) ; règle générale : si la mesure d'un lot dépasse 1 205, scission par répertoire (`src`, `test`, sous-répertoire `s2/`). **E-contracts ne touche jamais aux identifiants gelés** (test 0 `contracts_frozen`). Ordre : E-root (CI, scripts, tests racine) ∥ E-contracts → E-hikae-src → E-hikae-test → E-ukemi → E-atelier → E-monark.

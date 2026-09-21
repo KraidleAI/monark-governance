@@ -178,6 +178,8 @@ test("windows_abs_path_matcher — flags reader-local drive paths, spares URLs /
     "prefix prose then " + drive("F", BS, "sample"), // mid-line, preceded by a space
     drive("D", "/", ""), // PLI G2 C-G2-3: bare drive root at end of line (no segment) — forward slash
     drive("C", BS, ""), // PLI G2 C-G2-3: bare drive root at end of line (no segment) — backslash
+    drive("F", BS + BS, "tmp" + BS + BS + "x"), // checkpoint-2 C-4: escaped doubled-backslash (JSON/JS string-literal form)
+    drive("C", BS + BS, ""), // checkpoint-2 C-4: escaped doubled-backslash drive ROOT at end of line
   ];
   for (const p of positives) assert.ok(hit(p), `must flag a reader-local Windows absolute path: ${JSON.stringify(p)}`);
 

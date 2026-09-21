@@ -54,8 +54,9 @@ export function loadExcludedTests(root: string): string[];
 /** The orphan `upcoming` data files excluded from the export (scripts/export-exclude-data.json, D7 septies). */
 export function loadExcludedData(root: string): string[];
 
-/** Reader-local Windows absolute path detector (D7 septies (iii); PLI G2 C-G2-3: also a bare drive root
- *  at end of line / before whitespace). */
+/** Reader-local Windows absolute path detector (D7 septies (iii); PLI G2 C-G2-3: also a bare drive root at
+ *  end of line / before whitespace; checkpoint-2 C-4: also the escaped doubled-backslash form of a JSON/JS
+ *  string literal). */
 export const WINDOWS_ABS_PATH_RE: RegExp;
 /** Read `abs` as UTF-8 text, or null if binary (a NUL byte, or invalid UTF-8). The path guard scans TEXT
  *  by CONTENT, not an extension allowlist (PLI G2 C-G2-1). */

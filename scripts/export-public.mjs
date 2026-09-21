@@ -183,13 +183,15 @@ export function loadExcludedData(root) {
 // The export must carry NO reader-local absolute path (a poste path: a drive letter + ':' + separator,
 // with or without a following segment) — measured blind spot: export:check reported "0 forbidden path" on
 // an export that shipped one (u3 PROVENANCE:42). A drive path is a SINGLE drive letter (NOT the 'p' of
-// http://, which is preceded by a letter), then ':', then '\' or '/', then EITHER a path-segment char OR
-// whitespace / end-of-line (PLI G2 C-G2-3: a bare drive ROOT with no segment is still reader-local). A
-// SECOND separator immediately after (as in a scheme '://') is neither a segment nor whitespace/EOL, so
-// URLs stay spared. NOT matched: 'http(s)://', 'file://', a single-letter 'x://host', a bare 'C:' in prose
-// (no separator), a data: URI, or this regex's own source (its ':' follows ']', not a letter). UNC
-// '\\host\share' is OUT OF SCOPE (declared in G0 — it is not a drive-letter path).
-export const WINDOWS_ABS_PATH_RE = /(?<![A-Za-z])[A-Za-z]:[\\/](?:[\w.$~-]|\s|$)/;
+// http://, which is preceded by a letter), then ':', then a separator — a DOUBLED backslash (the escaped
+// form a Windows path takes inside a JSON/JS string literal, checkpoint-2 C-4) OR a single '\' or '/' —
+// then EITHER a path-segment char OR whitespace / end-of-line (PLI G2 C-G2-3: a bare drive ROOT with no
+// segment is still reader-local, escaped or not). A SECOND separator immediately after (as in a scheme
+// '://') is neither a segment nor whitespace/EOL, so URLs stay spared. NOT matched: 'http(s)://',
+// 'file://', a single-letter 'x://host', a bare 'C:' in prose (no separator), a data: URI, or this regex's
+// own source (its ':' follows ']', not a letter). UNC '\\host\share' is OUT OF SCOPE (declared in G0 — it
+// is not a drive-letter path).
+export const WINDOWS_ABS_PATH_RE = /(?<![A-Za-z])[A-Za-z]:(?:\\\\|[\\/])(?:[\w.$~-]|\s|$)/;
 
 // Read `abs` as UTF-8 text, or null if it is BINARY. Binary = a NUL byte anywhere, OR an invalid UTF-8
 // sequence (TextDecoder fatal throws). The path guard scans TEXT by CONTENT, not by an extension allowlist

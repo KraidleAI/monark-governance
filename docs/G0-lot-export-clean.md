@@ -88,13 +88,15 @@ commit (R-20). Code touché (hors R-25 `docs/**/*.md`) : `scripts/export-public.
 - **C-G2-2** : test committé `export_windows_path_guard_bites_seeded_text_file` — SÈME un chemin dans une
   copie d'arbre (`.mts` + `LICENSE`) et exige exit 1 de `--check` ET de `--out` (branche POSITIVE du
   mécanisme, pas seulement du contenu). Isolation `--scope root` (vert sur arbre propre).
-- **C-G2-3** : regex `(?<![A-Za-z])[A-Za-z]:[\\/](?:[\w.$~-]|\s|$)` — attrape la RACINE de lecteur nue
-  (`D:/`, `C:\`) en fin de ligne / avant un blanc. **UNC `\\host\share` HORS PÉRIMÈTRE** (pas un chemin à
-  lettre de lecteur ; non attrapé — déclaré ici, C-G2-3). Limite déclarée : texte **UTF-16** (NUL entrelacés)
-  classé binaire ; aucun fichier exporté n'est UTF-16.
+- **C-G2-3 (+ checkpoint-2 C-4)** : regex `(?<![A-Za-z])[A-Za-z]:(?:\\\\|[\\/])(?:[\w.$~-]|\s|$)` — attrape la
+  RACINE de lecteur nue (`D:/`, `C:\`) en fin de ligne / avant un blanc, ET la forme ÉCHAPPÉE `"F:\\tmp\\x"`
+  (backslash doublé d'un littéral JSON/JS — angle mort mesuré au checkpoint-2, 0 hit avant). **HORS PÉRIMÈTRE,
+  déclaré** : UNC `\\host\share` (pas de lettre de lecteur) ; segment non-ASCII (`[\w.$~-]` sans flag `u`) ;
+  texte **UTF-16** (NUL entrelacés ⇒ classé binaire) — aucun exporté n'est dans ces classes.
 - **C-G2-4** : `test/export-hygiene.test.ts` — commentaire cohérent (positifs assemblés au runtime ⇒ code
   sans chemin littéral) ; vrai nom de dossier privé ANONYMISÉ (segments fictifs) — plus aucun `F:\PRODUITS\…` réel.
-- **Mutants PLI G2** (sauvegarde + sha256, restauration byte-exacte, jamais `git checkout`) : **M-3b**
-  (`windowsPathViolations`→`[]`) ⇒ C-G2-2 ROUGE + chemin semé shipped (1 occ.) ; **allowlist restaurée** ⇒
-  C-G2-2 ROUGE (`.mts`/`LICENSE` manqués) ; **fin de ligne** (regex revertie) ⇒ `windows_abs_path_matcher`
-  ROUGE (positifs EOL), C-G2-2 vert.
+- **Mutants PLI G2 + checkpoint-2** (sauvegarde + sha256, restauration byte-exacte, jamais `git checkout`) :
+  **M-3b** (`windowsPathViolations`→`[]`) ⇒ C-G2-2 ROUGE + chemin semé shipped (1 occ.) ; **allowlist
+  restaurée** ⇒ C-G2-2 ROUGE (`.mts`/`LICENSE` manqués) ; **fin de ligne** (regex revertie) ⇒
+  `windows_abs_path_matcher` ROUGE (positifs EOL), C-G2-2 vert ; **C-4 séparateur simple** (regex revertie à
+  `…:[\\/]…`) ⇒ `windows_abs_path_matcher` ROUGE (positif échappé `F:\\…`), semis backslash-simple vert.
