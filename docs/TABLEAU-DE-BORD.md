@@ -44,7 +44,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 |---|---|---|
 | U-4a | FUSIONNÉ `834a416` | — |
 | U-4b (absorbe U-4a-ii, décision 99) | **-1a FUSIONNÉ `006da8f`** (G7, 607/607, R-25 882, ADR-U4b) | -0 après GARDE-HELIUS-1a→2 et POOL-RPC-1a ; -1b : prereg (3 sha D4 + 3 transitifs, liste C-V-7, `--concordance-out`), `PR-U4-3-ter`, « agrégat ≠ Σ jambes » avant la course |
-| GARDE-HELIUS-2 (recorder Ukemi gardé, Chainstack en RU ; subsume U-4b-0) | **2a FUSIONNÉ `e98b54f`** ; **2b EN COURS** : complément de plan `9dd7615` + checkpoint-1 delta APPROUVE-AVEC-CORRECTIONS plié `1a4fd55` (C-1 bloquant : classe `RpcError` canonique, vocabulaire de revert, `.data` validée) ; G1 worker lancé 17:00 UTC | G1 → G2 ‖ checkpoint-2 (worktree GELÉ pendant les revues) → G7 → prereg U-4b-1b → course | `Monark-wt-garde2b` |
+| GARDE-HELIUS-2 (recorder Ukemi gardé, Chainstack en RU ; subsume U-4b-0) | **2a FUSIONNÉ `e98b54f`** ; **2b DÉCOUPÉ (couture de repli pré-déclarée, R-25 total estimé 1 150–1 297)** : **2b-i PAQUET** G1 committé `798b4e9` (R-25 352 ; vérifs orchestrateur : sha 9/9, lint 0, tsc 0, vocab 0, `apps/` + `scripts/` inchangés) — NON relu ; **2b-ii MIGRATION** à lancer après la fusion de 2b-i | 2b-i : G2 ‖ checkpoint-2 (worktree GELÉ) → pli → G7 ; puis 2b-ii (blueprint : §8 de `F:/tmp/garde2b/RENDU-G1.md`) → prereg U-4b-1b → course | `Monark-wt-garde2b` |
 | U-5 branchement outil servi | À VENIR | après U-4b |
 | U-6 book complet + course live | À VENIR | go investisseur |
 | U-7 biblio paginée, rejeu public | À VENIR | — |
@@ -77,5 +77,5 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-En vol : G1 GARDE-HELIUS-2b (worker), lancé 17:00 UTC.
+En vol : AUCUN agent (17:40 UTC) — point de bascule sûr.
 À faire (temps 1) : G0 GARDE-HELIUS-2b → prereg U-4b-1b committé seul → course U-4b-1b (GO 119, plafonds actifs) → U-4b-2 → U-5 → U-6 (go) → U-7 · E-5 : ligne du run réel du 22/09 00:41 UTC · Bell (temps 2) : GARDE-HELIUS-1b puis G0 de course.
