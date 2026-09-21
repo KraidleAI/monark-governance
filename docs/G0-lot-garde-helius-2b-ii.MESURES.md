@@ -282,3 +282,69 @@ sans rougir l'oracle : **dérive ATTENDUE**, pas un invariant (DRAFT §8).
 `grep -rln "034fbff9\|267cd991"` : `book_digest 034fbff9…` épinglé par `apps/sentinel/test/ukemi.test.ts:29` (le fichier
 ripple qui porte AUSSI les ~18 `new RpcError`, M-3) ; `PINNED_DIGEST 267cd991…` par `apps/sentinel/test/ukemi-u4-scores.test.ts:20`.
 ⇒ invariant FORT `book_digest 034fbff9` : la migration doit garder les octets du livre identiques (DRAFT §8/§12).
+
+---
+
+# APPEND — Pli du checkpoint-1 (2026-09-21) — mesures neuves M-14..M-16
+
+Base HEAD `4d102ca` (`git rev-parse HEAD`). Lecture seule ; mêmes garde-fous (rien sur `C:`, aucun `git` d'écriture,
+écriture SEULEMENT sous `F:\tmp\garde2b-ii\`). Chaque chiffre neuf du G0 plié renvoie à M-14..M-16 ci-dessous.
+
+## M-14 — Ancêtres de base (C-8 / R-F) : 2b-i + pli DANS la base
+
+`cd /f/Monark ; git rev-parse HEAD` = `4d102caf88c0a9d4372dc7474511c9f2e867e166` (= HEAD annoncé par le coordinateur).
+`git merge-base --is-ancestor <c> HEAD` (exit 0 = ancêtre) :
+```
+f4ecf14 : ANCÊTRE de HEAD (oui)   # pli 2b-i (C-G-1/C-G-3/C-R-3 foldées) ⇒ R-F SATISFAIT
+8ba2cbc : ANCÊTRE de HEAD (oui)   # fusion 2b-i ⇒ base G1 2b-ii ≥ 8ba2cbc TENUE (C-8-b)
+280f9c8 : ANCÊTRE de HEAD (oui)
+19eddfc : ANCÊTRE de HEAD (oui)   # G7 2b-i
+```
+⇒ le paquet 2b-i (classe canonique, vocabulaire unique, `isRpcRevert` gardé, alternatives=jetons) est DANS la base ⇒
+les exigences d'entrée C-G-1/C-G-3/C-R-3 sont **satisfaites à l'entrée** (plus « conditionnelles »). Reste dû : LANG-GATE-CI
+fusionné avant le worktree 2b-ii (C-8-b, ordre orchestrateur).
+
+## M-15 — C-9 : les scripts `u4-*.mjs` lisent une clé payante ET sont sur le chemin de course U-4b-1b
+
+`cd /f/Monark ; grep -nE "CHAINSTACK_ETH_URL|process\.env" scripts/census/u4-{oracle-path,probe,redraw}.mjs` :
+```
+scripts/census/u4-oracle-path.mjs:55  const archiveEnvUrl = process.env.CHAINSTACK_ETH_URL;
+scripts/census/u4-probe.mjs:67        const archiveEnvUrl = process.env.CHAINSTACK_ETH_URL;
+scripts/census/u4-redraw.mjs:83       const archiveEnvUrl = process.env.CHAINSTACK_ETH_URL;
+```
+⇒ les 3 scripts lisent la clé Chainstack DIRECTEMENT (jambe payante HORS garde, hors ledger) — en plus d'importer
+`makeDefaultCall`/`makeBudgetedCall` de `record.ts` (supprimés par L-1, M-6).
+Sur le CHEMIN de la course U-4b-1b (`grep u4-oracle-path|u4-redraw docs/G0-lot-u4b.md docs/PLAN-u4b-prereg.DRAFT.md`) :
+```
+docs/G0-lot-u4b.md:27   D_e chemin oracle réalisé (SERVIE) = u4-oracle-path.mjs (getLogs AnswerUpdated) -> u4b-reduce
+docs/G0-lot-u4b.md:258  contrôle live G2-delta = rejoue u4-redraw.mjs (re-tirage >= 3 comptes + >= 3 AnswerUpdated)
+docs/PLAN-u4b-prereg.DRAFT.md:215  « Après GARDE-HELIUS-2b (post-migration) ... CHAINSTACK_ETH_URL n'est lu que dans transport.ts »
+```
+⇒ **C-9 fondé** : `u4-oracle-path.mjs` PRODUIT le D_e servi de la course, `u4-redraw.mjs` est le contrôle live de la
+G2-delta ; les deux dépensent du Chainstack HORS garde ⇒ la promesse « CHAINSTACK_ETH_URL lu que dans transport.ts »
+(prereg §215) est FAUSSE pour le chemin de course tant qu'ils ne migrent pas. La « première réexécution » de R-E EST la
+course ⇒ déclencheur corrigé = **AVANT la course** (sous-lot 2b-iii). `u4-probe.mjs` (sonde, non requise par la course) =
+archivage/item formé. Second résiduel payant hors garde = classe HELIUS-1 (décision 118) ⇒ jamais accepté sans escalade.
+
+## M-16 — C-1(c) : le motif KEY `\benv\.(...)\b` est contournable (crochets / `in` / destructuration)
+
+`node -e` avec le motif KEY exact du test (`test/rpc-guard-fetch-only-inside-client.test.ts:38`) sur 4 formes :
+```
+HIT   deps.env.CHAINSTACK_ETH_URL
+MISS  deps.env["CHAINSTACK_ETH_URL"]
+MISS  "CHAINSTACK_ETH_URL" in deps.env
+MISS  const {CHAINSTACK_ETH_URL}=deps.env
+```
+⇒ le motif ne voit que la forme `env.KEY` (point). Or le `record.ts` migré a trois raisons de tester « chainstack
+demandé ? » (pool, args, N `unlock`) ; C-1 les SUPPRIME (record.ts ne probe plus l'env, `--operators` explicite), mais
+le grep doit AUSSI couvrir `env[\s*["']KEY["']\s*]`, `["']KEY["']\s+in\s+…env`, destructuration `\{[^}]*\bKEY\b[^}]*\}\s*=\s*[^;]*env`
+avec un mutant « clé lue par crochets survit » ROUGE (défense en profondeur : le lot ne doit pas ajouter le contournement).
+
+## M-17 — Consommateurs du label (D-label) et provenance (checkpoint-1 §3, re-noté)
+
+`grep -n "archive-env" apps/sentinel/src/ukemi/*.ts` + lecture `concordance.ts`/`resume.ts` (checkpoint-1 §3, re-vérifié) :
+`concordance.ts` lit SEULEMENT `{pair, concordant, discordant}` (label-agnostique) ; `resume.ts:86` `case "meta": break`
+(providers du META **non vérifiés**). ⇒ **aucun consommateur ne casse** quel que soit le label (A `archive-env` / B
+`chainstack`) ; `u4b-reduce.mjs:48` (gelé) ne lit que `provenance.book_digest`, pas un label ⇒ D-label ne touche aucune
+sortie gelée (transitivité par les DONNÉES, checkpoint-1 §3). D-label reste un choix de NOMMAGE (pas de valeur), tranché
+par l'orchestrateur à la réception du pli (option A/B ci-dessous dans le G0 §6 D-label).
