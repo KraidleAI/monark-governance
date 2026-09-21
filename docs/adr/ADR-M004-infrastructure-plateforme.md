@@ -285,6 +285,59 @@ silence), seul le commentaire est à corriger. Aucun des deux n'est dans le pér
   (regex revertie à `…:[\\/]…`) ⇒ `windows_abs_path_matcher` ROUGE (nouveau positif échappé `F:\\…`), le
   semis à backslash simple reste vert.
 
+### Addendum LANG-GATE-CI — `lang:gate` branché en CI (2026-09-21)
+Miroir exact du lot **CI-EXPORT-CHECK ci-dessus**. L'item formé « `lang:gate` absent de la CI » (CHANTIERS:222/:313/:587,
+déclencheur *avant la fenêtre publique*, propriétaire orchestrateur) sera **CLOS par l'orchestrateur au G7** — la
+clôture de CHANTIERS n'est jamais un acte du worker (aucune ligne de `docs/CHANTIERS.md` touchée par ce lot). Worker
+`claude-opus-4-8[1m]` (effort max), base `4ee3285` de `lot/etude-suite`, worktree `lot/lang-gate-ci`, régime petit lot
+(ADR-C01 amendement 2026-09-21 : G1 + G2, sans checkpoint-2 ; rien de servi/réseau/argent/secret/prix touché). `npm run
+lang:gate` (`package.json:23` = `node scripts/lang-gate.mjs`) tourne désormais dans `.github/workflows/ci.yml`,
+**fail-closed** (aucun `continue-on-error`, aucun `if:`), sans dépendance nouvelle (script à ZÉRO dépendance ;
+`actions/setup-node` déjà épinglé suffit, pas de `npm ci`), placé **avant** l'étape `export:check` (ordre de
+**diagnostic** : `export-public.mjs:28` importe `lang-gate.mjs`, module de plus bas niveau ; l'ordre n'est PAS forcé à
+l'exécution, les deux sont des scripts node indépendants).
+
+**Tuyaux (règle Branchement)** :
+- **Entrée** : `npm run lang:gate` (script existant), invoqué par le job CI **r25-taille-de-lot** de `ci.yml`.
+- **Sortie** : **statut de la PR** — le job r25 rougit le check si un hit français non-exempté tombe dans un scope gaté
+  (exit 1) ou sur erreur d'usage (exit 2 : `lang-exempt.json` absent / scope inconnu). Tout non-zéro = red, fail-closed.
+- **État** : **câblé localement** ; **servi au premier run réel sur runner Linux** (item CHANTIERS **existant** :222/:313,
+  propriétaire orchestrateur — pas une dette neuve ; résiduel Windows→Linux faible car `lang-gate.mjs` est du `node:fs`
+  pur). D'ici là la composition est rejouée localement au G1/G2.
+- **Test qui prouve la composition** (non-LLM) : `ci_runs_lang_gate` (`test/ci-gates.test.ts`) rejoue la chaîne `ci.yml`
+  (ligne `run:`, block-scopée r25) vers `package.json` (`scripts["lang:gate"]`) vers `scripts/lang-gate.mjs`. Oracle
+  d'exécution : `npm run lang:gate` = **exit 0** mesuré sur cette base (12 scopes GATED, 0 hit, ~418 fichiers scannés).
+
+**Placement = job `r25-taille-de-lot`, PAS un job retenu — DOCTRINE + symétrie, PAS un rouge-miroir.** Différence
+**MESURÉE** d'avec export:check : ce dernier est *forcé* en r25 parce qu'il ROUGIT sur le miroir exporté (sa config
+`export-exclude-tests.json` n'est pas whitelistée ⇒ exit 1). Pour `lang:gate` ce forçage **ne tient PAS**, mesuré au G1
+(arbre isolé `git archive HEAD`, étape `lang:gate` placée temporairement dans le job RETENU g6, `export --out`,
+inspection du miroir dérivé) : (a) le miroir dérivé RECOPIE bien l'étape d'un job retenu (`grep -c "npm run lang:gate"`
+= 1) ; (b) `node scripts/lang-gate.mjs` rejoué **SUR le miroir** = **exit 0** (`package.json` + `scripts/lang-gate.mjs`
++ `scripts/lang-exempt.json` sont whitelistés byte-identiques et le miroir est anglais-only). Un placement en job
+retenu serait donc une étape **verte** sur la CI publique, pas un rouge latent — donc **non forcé** au sens
+d'export:check. Le placement r25 repose sur la **doctrine** « concern interne, pas vitrine » (même catégorie que la
+taille-de-lot et export:check, `export-public.mjs` L381-382) et la **symétrie** avec CI-EXPORT-CHECK ; il garde ce gate
+d'hygiène source hors du workflow storefront dérivé. Confirmé côté r25 : le miroir dérivé retire le job r25
+(`grep -c r25` = 0), donc l'étape `lang:gate` en r25 est **absente** du miroir (non recopiée).
+
+**Épingle non-LLM** : `ci_runs_lang_gate` lit `ci.yml` (aucun parseur YAML n'est dépendance) et asserte, block-scopé
+sur r25 : présence de l'étape ; absence de `continue-on-error` ET de `if:` (les 4 formes de `if:` tuées, la clé étant
+ancrée indépendamment de la valeur) ; chaîne `package.json` vers `lang-gate.mjs`. Le test copie la forme **post-C-1** du
+modèle, donc le « trou M5a » (un `if: false` job-level laissant le test vert) **n'existe jamais** ici — aucune G2-delta
+requise. Les gardes (2)/(3) sont **redondantes déclarées** avec `ci_runs_export_check` (même `r25Block`) et test 38,
+gardées pour la symétrie et l'auto-suffisance du contrat. Mutants (arbre isolé, restauration byte-exacte sha256 ;
+preuves RENDU-G1, à replier dans `docs/G1-lot-lang-gate-ci.md` par l'orchestrateur) : étape
+retirée/commentée/commande→`echo` ⇒ présence ROUGE (#fail=1) ; `continue-on-error: true` ⇒ COE ROUGE (#fail=3) ;
+`if:` (job r25 ou étape, 4 formes) ⇒ garde `if:` ROUGE (#fail=3).
+
+**Item de dérive doc (propriétaire : ce lot, déclencheur : branchement) — CORRIGÉ EN LIGNE** : le commentaire de
+`sentinel_readme_is_a_kept_export` (`test/ci-gates.test.ts`) portait « lang:gate does not run in CI », désormais FAUX ;
+corrigé au fil (substance du test — l'assertion d'appartenance — inchangée : `lang:gate` gate bien le scope `sentinel`,
+mais n'asserte pas l'APPARTENANCE d'un fichier, donc le test garde ses dents pour un README retiré/renommé).
+**AUCUN** changement au scope `lang:gate` ni à `scripts/lang-exempt.json` (tout élargissement est un autre lot).
+`error_origin` = ce lot (prémisse rendue périmée par le branchement), surfacée et corrigée au G1.
+
 ### D8 — Lot E (English only) et R-25 (item 11)
 Scindé par package, une PR chacune, **aucun lot exempté** ; **hikae scindé `src` / `test`** (mesure §1.3) ; règle générale : si la mesure d'un lot dépasse 1 205, scission par répertoire (`src`, `test`, sous-répertoire `s2/`). **E-contracts ne touche jamais aux identifiants gelés** (test 0 `contracts_frozen`). Ordre : E-root (CI, scripts, tests racine) ∥ E-contracts → E-hikae-src → E-hikae-test → E-ukemi → E-atelier → E-monark.
 
