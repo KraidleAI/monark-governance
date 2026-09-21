@@ -5,10 +5,10 @@
 // they reproduce the recorded cache / D_e series byte-for-byte (raw hex, no decoding for accounts). The accounts and
 // the updates are chosen by a seed DERIVED from book_digest (never hand-picked) — `selectIndices` is pure and unit-
 // tested offline. Bounded: --max-calls <= 60 enforced IN this script (fail-closed via BudgetExceededError under the
-// SAME budget guard as record.ts), quorum-2 by method, operators EXCLUDABLE (--exclude-operator, repeatable — e.g.
+// SAME budget guard @monark/rpc-guard, --with-chainstack for the paid leg), quorum-2 by method, operators EXCLUDABLE (--exclude-operator, repeatable — e.g.
 // publicnode.com under CGU review CONF-SRC-1, or mevblocker.io as the course excluded). Raw report OUT OF REPO,
 // labels only (never a URL/key). NOT run in the checkpoint-2 pli (no network there, R-20 / mission); RUN by G2-delta.
-// The live wiring reuses record.ts / rpc2.ts / abi.ts primitives verbatim (already tested by ukemi-u4a).
+// The live wiring reuses the quorum-2 pool rpc2.ts makeUkemiPool + abi.ts primitives verbatim (tested by ukemi-u4a).
 //
 //   node scripts/census/u4-redraw.mjs --cache <OUT-OF-REPO U4-inputs.jsonl> --block 23545087 --k 3 \
 //     --max-calls 60 --prereg-sha 9209cdabe26d56f0be8603e214b29e8b10b2efb55f9d6c9e6fad68ae189849fb \
@@ -20,11 +20,11 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { resolve, dirname, join } from "node:path";
-import { makeUkemiPool, ETH_CALL_PROVIDERS, GET_LOGS_PROVIDERS, BudgetExceededError } from "../../apps/sentinel/src/ukemi/rpc2.ts";
-import { makeDefaultCall, makeBudgetedCall, applyExcludeOperators, operatorLabel, lfSha256 } from "../../apps/sentinel/src/ukemi/record.ts";
+import { makeUkemiPool, BudgetExceededError } from "../../apps/sentinel/src/ukemi/rpc2.ts";
 import { SEL, wordAddr, ANSWER_UPDATED_TOPIC0, decInt256 } from "../../apps/sentinel/src/ukemi/abi.ts";
 import { POOL } from "../../apps/sentinel/src/ukemi/clusters.ts";
 import { parseResumeLines } from "../../apps/sentinel/src/ukemi/resume.ts";
+import { lfSha256, buildLabelLists, distinctLabels, parseBudgetArgs, assertLedgerDir, openU4GuardedClient, makeGuardedPoolCall, unlockAll } from "./u4-guard.mjs";
 
 const MAX_CALLS_CAP = 60; // C-V-3: a bounded control, never a re-course
 const lc = (s) => String(s).toLowerCase();
@@ -62,6 +62,9 @@ async function main() {
   if (preregSha === undefined) throw new Error("u4-redraw: --prereg-sha is required (A-2 order proof)");
   const preregActual = lfSha256(readFileSync(join(ROOT, "docs", "PLAN-u4-prereg.md"), "utf8"));
   if (preregActual !== preregSha) throw new Error(`u4-redraw: --prereg-sha ${preregSha} != docs/PLAN-u4-prereg.md LF sha ${preregActual} (A-2)`);
+  // GARDE-HELIUS-2b-iii: the guard budget arguments (all REQUIRED, fail-closed, no default) + the durable ledger dir.
+  const budget = parseBudgetArgs(arg, process.argv);
+  const ledgerDir = assertLedgerDir(budget.ledgerDir, ROOT);
 
   const book = JSON.parse(readFileSync(bookPath, "utf8"));
   const addresses = book.accounts.map((a) => lc(a.address));
@@ -79,15 +82,16 @@ async function main() {
   const acctIdx = selectIndices(bookDigest, addresses.length, k);
   const updIdx = selectIndices(`${bookDigest}:updates`, updates.length, k);
 
-  // live pool: SAME wiring as record.ts (keyless + env archive last, --exclude-operator, quorum-2, budget guard).
-  const archiveEnvUrl = process.env.CHAINSTACK_ETH_URL;
-  const ethCallProviders = applyExcludeOperators(archiveEnvUrl ? [...ETH_CALL_PROVIDERS, archiveEnvUrl] : [...ETH_CALL_PROVIDERS], excludeOperators, archiveEnvUrl);
-  const getLogsProviders = applyExcludeOperators(archiveEnvUrl ? [...GET_LOGS_PROVIDERS, archiveEnvUrl] : [...GET_LOGS_PROVIDERS], excludeOperators, archiveEnvUrl);
-  const distinct = (urls) => new Set(urls.map((u) => operatorLabel(u, archiveEnvUrl))).size;
-  if (distinct(ethCallProviders) < 2 || distinct(getLogsProviders) < 2) throw new Error("u4-redraw: quorum-2 needs >= 2 distinct operators per method after --exclude-operator (fail-closed)");
-  const budgeted = makeBudgetedCall(maxCalls, makeDefaultCall(), archiveEnvUrl);
-  const pool = makeUkemiPool({ call: budgeted.call, ethCallProviders, getLogsProviders, minIntervalMs: 50 });
+  // live pool by LABEL: keyless witnesses (+ --with-chainstack paid leg LAST), --exclude-operator, quorum-2, every
+  // read metered inside @monark/rpc-guard. retries 0 (a bounded control; calque of makeDefaultCall() default).
+  const { ethCallLabels, getLogsLabels } = buildLabelLists({ withChainstack: budget.withChainstack, excluded: excludeOperators });
+  const distinct = (labels) => new Set(labels).size;
+  if (distinct(ethCallLabels) < 2 || distinct(getLogsLabels) < 2) throw new Error("u4-redraw: quorum-2 needs >= 2 distinct operators per method after --exclude-operator (fail-closed)");
+  const { client } = openU4GuardedClient({ env: process.env, ledgerDir, cycle: budget.cycle, floor: budget.floor, maxRu: budget.maxRu, methodCaps: budget.methodCaps, maxCalls, ethCallLabels, getLogsLabels });
+  const guarded = makeGuardedPoolCall(client, { retries: 0 });
+  const pool = makeUkemiPool({ call: guarded.call, ethCallProviders: ethCallLabels, getLogsProviders: getLogsLabels, minIntervalMs: 50 });
 
+  try {
   const accountChecks = [];
   for (const i of acctIdx) {
     const addr = addresses[i];
@@ -110,13 +114,17 @@ async function main() {
   const report = {
     schema: "ukemi-u4-redraw/1", model: "claude-opus-4-8[1m]", recorded_at_utc: new Date().toISOString(),
     book_digest: bookDigest, block, k, seed: "book_digest", aggregator, excluded_operators: excludeOperators,
-    operators: [...new Set([...ethCallProviders, ...getLogsProviders].map((u) => operatorLabel(u, archiveEnvUrl)))],
-    calls: budgeted.total(), calls_by_operator: budgeted.byOperator(),
+    operators: distinctLabels([...ethCallLabels, ...getLogsLabels]),
+    calls: guarded.total(), calls_by_operator: guarded.byOperator(),
     account_checks: accountChecks, update_checks: updateChecks, all_match: allMatch,
   };
   if (outPath) writeFileSync(outPath, JSON.stringify(report, null, 2) + "\n");
-  process.stdout.write(JSON.stringify({ all_match: allMatch, calls: budgeted.total(), accounts: accountChecks.length, updates: updateChecks.length }) + "\n");
+  process.stdout.write(JSON.stringify({ all_match: allMatch, calls: guarded.total(), accounts: accountChecks.length, updates: updateChecks.length }) + "\n");
   if (!allMatch) throw new Error("u4-redraw: MISMATCH — a live re-draw disagrees with the recorded cache / D_e (fail-closed)");
+  } finally {
+    // Served release of every operator this run locked (keyless included); a hard kill leaves them for resume unlock.
+    unlockAll(client, { ledgerDir, cycle: budget.cycle, floor: budget.floor, reason: "u4-redraw control end" });
+  }
 }
 
 if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
