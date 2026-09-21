@@ -35,7 +35,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Lot | État | Étape / bloqueur |
 |---|---|---|
 | U-4a | FUSIONNÉ `834a416` | — |
-| U-4b (absorbe U-4a-ii, décision 99) | EN COURS | pli checkpoint-1 (15 bloquantes) ; ESCALADE E-I-3 (classe A seule) ; dépend de POOL-RPC-1a |
+| U-4b (absorbe U-4a-ii, décision 99) | EN COURS | plan plié `2f4456f` ; **-1a** (score offline, gel) en G1 `Monark-wt-u4b1a` ; -0 après fusion POOL-RPC-1a ; -1b attend Q-1 |
 | U-5 branchement outil servi | À VENIR | après U-4b |
 | U-6 book complet + course live | À VENIR | go investisseur |
 | U-7 biblio paginée, rejeu public | À VENIR | — |
@@ -69,4 +69,4 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-G1 b3d-b1a (correctif d) · G1 POOL-RPC-1a · pli cp-2 univers · pli G2-delta Narabi -a · pli cp-1 U-4b · G2 EXPORT-CLEAN.
+G1 b3d-b1a (correctif d) · G1 POOL-RPC-1a · G1 U-4b-1a · pli cp-2 univers · pli G2-delta Narabi -a · G2 EXPORT-CLEAN.
