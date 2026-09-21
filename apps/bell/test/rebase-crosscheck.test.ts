@@ -907,3 +907,101 @@ test("bell_crosscheck_require_full_pages_mode_guard — a STRICT resume of a led
   // RUN 2 STRICT (no --allow-short-pages), SAME --out => the mode guard refuses (a loose ledger may hold a short page).
   await assert.rejects(runMain(b1aArgsStrict(sd, od, 50), b1aDeps(b1aStub([{ data: [cinitB, cAB, cBB, cCB], paginationToken: null }]))), /built loosely/, "a strict resume of a loose ledger throws (guard removed => no throw => reds)");
 });
+
+// ================= PLI G2 (b3d-b1a) — killers for ANNOUNCED pipes (C-G2-1/2/3) + defensive ITEM-C ====================
+// The G2 review (docs/G2-lot-t1a-ii-b3d-b1a.md) was PASS-WITH-CORRECTIONS: three ANNOUNCED pipes had no integration
+// killer (verifyLedgerChain-at-resume, retries_by_method-via-the-real-CLI, the transient-short-page healing) and one
+// defensive hole (the mixed-mode guard caught only an EXPLICIT false). These close them, ALL through the REAL CLI
+// (runMain) from artefacts the CODE writes (CA-11 durci), never a regex on the source. NO network (the injected `call`
+// is a stub). Each mutant is demonstrated red with byte-exact sha256 restore in docs/PLI-lot-t1a-ii-b3d-b1a.md.
+
+// ---- C-G2-1: verifyLedgerChain re-derives at EVERY resume — a PARSABLE ledger with a BROKEN chain is refused ---------
+test("bell_crosscheck_resume_onto_broken_chain_is_refused — a resume onto a PARSABLE ledger whose entry_sha256 no longer re-derives is fail-closed via runMain (C-G2-1, C-B-5/C-V-3 belt at resume)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-g21-s-")), od = mkdtempSync(join(tmpdir(), "bell-g21-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), b1aSeries([eInitB, eAB, eBB, eCB]));
+  // RUN 1: a budget stop after page 1 (p1 gTfA + initSig opB + p2 gTfA = 3) => ONE valid, chained atomic record on disk.
+  await runMain(b1aArgs(sd, od, 3), b1aDeps(b1aStub([{ data: [cinitB], paginationToken: "p2" }, { data: [cAB], paginationToken: null }])));
+  const lf = join(od, "ledger-SPYx.jsonl");
+  assert.equal(readFileSync(lf, "utf8").trim().split("\n").length, 1, "run-1 persisted one atomic record");
+  // TAMPER after the fact: edit a HASHED core field (tx_count) but KEEP the stale entry_sha256 => the record stays
+  // PARSABLE JSON (not a torn line, so readJsonl passes it through unchanged) yet the chain no longer re-derives
+  // (recomputed sha(core with tx_count 999) != stored entry_sha256). This is the on-disk analogue of the in-memory
+  // {..., tx_count: 999} case that bell_crosscheck_ledger_chain_rederives_from_disk pins for the FUNCTION only.
+  const rec = JSON.parse(readFileSync(lf, "utf8").trim().split("\n")[0]!) as Record<string, unknown>;
+  writeFileSync(lf, JSON.stringify({ ...rec, tx_count: 999 }) + "\n"); // entry_sha256 / prev_sha now inconsistent
+  assert.doesNotThrow(() => JSON.parse(readFileSync(lf, "utf8").trim().split("\n")[0]!), "the tampered ledger line is still PARSABLE (a broken CHAIN, not a torn tail)");
+  const budget = JSON.parse(readFileSync(join(od, "budget.json"), "utf8")) as { calls_used: number };
+  assert.ok(budget.calls_used >= 1, "budget.json stays coherent (calls_used=" + String(budget.calls_used) + " >= 1 ledger page) => the throw below is the CHAIN belt at resume, NEVER readPriorCalls (C-G2D-2)");
+  // RUN 2 (resume, SAME --out, SAME loose mode so the mixed-mode guard is provably NOT what fires): the belt at
+  // rebase-crosscheck.ts:506 re-derives the chain, finds it broken, and REFUSES — never scanning onto tampered state.
+  await assert.rejects(runMain(b1aArgs(sd, od, 10), b1aDeps(b1aStub([{ data: [cAB, cBB, cCB], paginationToken: null }]))),
+    /chain does not re-derive/, "the resume onto the broken (but parsable) chain is fail-closed (mutant disabling verify@resume => the resume PROCEEDS onto tampered state => no throw => reds)");
+});
+
+// ---- C-G2-2: the retry -> retries_by_method -> budget.json pipe, WIRED through the real CLI (runMain), not a local retry
+test("bell_crosscheck_retries_by_method_wired_through_runmain — a transient 429 on op-B is counted PER METHOD into budget.json via the real CLI retry wiring (C-G2-2)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-g22-s-")), od = mkdtempSync(join(tmpdir(), "bell-g22-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), b1aSeries([eInitB, eAB, eBB, eCB]));
+  // One asc page (loose), a desc anchor = updC, and op-B (getTransaction) for updB throws HTTP 429 on its FIRST attempt
+  // then succeeds. The CLI wraps op-B in withRetry (rebase-crosscheck.ts:588) with NO injected sleep, so exactly ONE real
+  // 400 ms backoff is INHERENT to exercising the real wiring (the prior retry_on_429 test injected a no-op sleep and a
+  // LOCAL retry onto scanFullMint, so it never proved this pipe). --min-interval 0 keeps the run to that one backoff.
+  let updBTries = 0;
+  const stub429: JsonRpcCall = (_u, method, params) => {
+    throwOnState(method);
+    if (method === "getTransactionsForAddress") {
+      if (((params as unknown[])[1] as { sortOrder: string }).sortOrder === "desc") return Promise.resolve({ data: [cCB], paginationToken: null });
+      return Promise.resolve({ data: [cinitB, cAB, cBB, cCB], paginationToken: null });
+    }
+    if (method === "getTransaction") { const sig = String((params as unknown[])[0]); if (sig === "updB") { updBTries += 1; if (updBTries === 1) return Promise.reject(new Error("HTTP 429 rate")); } return Promise.resolve(B1A_BODIES[sig]); }
+    throw new Error("unexpected " + method);
+  };
+  await runMain(b1aArgs(sd, od, 50), b1aDeps(stub429));
+  const budget = JSON.parse(readFileSync(join(od, "budget.json"), "utf8")) as { retries_by_method: Record<string, number> };
+  assert.equal(budget.retries_by_method.getTransaction, 1, "the 429 on op-B was retried ONCE and metered into budget.json.retries_by_method.getTransaction (mutant onRetry no-op => 0 => reds; mutant retry=fn() => never retries => 0 => reds)");
+  assert.equal(budget.retries_by_method.getTransactionsForAddress, 0, "the retry is attributed PER METHOD (gTfA saw no retry), never a lump sum");
+  assert.equal(updBTries, 2, "op-B for updB was attempted twice (429 then ok) — the retry actually fired (mutant retry=fn() => 1 => reds)");
+  assert.equal(readCC(od).comparator_verdict.verdict, "equal", "the transient 429 healed in-process => the scan completed => equal (mutant retry=fn() => body_quorum inconclusive => reds)");
+});
+
+// ---- C-G2-3: a not_full_pages STOP under a TRANSIENT short page HEALS on resume (the option-d completeness path) ------
+test("bell_crosscheck_short_page_transient_token_heals_on_resume — a not_full_pages STOP heals when the same range returns a RAW-full page on resume => equal (C-G2-3, option d)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-g23-s-")), od = mkdtempSync(join(tmpdir(), "bell-g23-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), nfSeries);
+  const z = nfFiller(2005, "z"), shortP2 = nfBulk(400, 1009, "c"); // 400 raw < GTFA_PAGE_LIMIT, non-final => a TRANSIENT truncated page
+  // RUN 1 (strict): P1 (RAW-full) committed; P2 arrives SHORT + non-final (a transient truncation) => not_full_pages STOP,
+  // P2 NOT committed, artifact NOT sealed (scan_complete:false) — so a later resume can still upgrade it.
+  await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(nfStub([{ data: NF_P1, token: "p2" }, { data: shortP2, token: "p3" }], z)));
+  assert.equal(readFileSync(join(od, "ledger-SPYx.jsonl"), "utf8").trim().split("\n").length, 1, "run-1 committed only P1 (the transient short P2 discarded)");
+  assert.equal(readCC(od).comparator_verdict.reason, "not_full_pages", "run-1 stopped not_full_pages (never sealed)");
+  assert.equal(readCC(od).scan_complete, false, "run-1 is not complete");
+  // RUN 2 (strict, resume): the SAME slot range now returns a RAW-FULL page (the truncation healed) then a final page.
+  const P2full = [nfFiller(1007, "t0"), nfFiller(1007, "t1"), nfFiller(1007, "t2"), nfUpd, ...nfBulk(GTFA_PAGE_LIMIT - 4, 1009, "b")];
+  assert.equal(P2full.length, GTFA_PAGE_LIMIT, "the healed P2 is RAW-full (its k=3 tail dedups to 997 on resume, but the RAW length = the limit => never falsely short, C-B-1 option d)");
+  await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(nfStub([{ data: P2full, token: "p3" }, { data: [z], token: null }], z)));
+  const v = readCC(od);
+  assert.equal(v.scan_complete, true, "the resumed RAW-full page committed => the scan COMPLETED (the transient short page healed)");
+  assert.equal(v.comparator_verdict.verdict, "equal", "the healed resume is equal (init carried + update decoded, H5 holds, exhausted)");
+});
+
+// ---- ITEM-C (defensive, <= 2 lines): the mixed-mode guard fail-closes on an ABSENT require_full_pages, not only false --
+test("bell_crosscheck_require_full_pages_absent_strict_resume_refused — a STRICT resume whose budget.json LACKS require_full_pages is fail-closed (ITEM-C defensive, PROBE4 hole)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-g2c-s-")), od = mkdtempSync(join(tmpdir(), "bell-g2c-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), b1aSeries([eInitB, eAB, eBB, eCB]));
+  // RUN 1 LOOSE => a valid resume state (1 ledger page + budget.json). Then STRIP require_full_pages: a legacy pre-field
+  // or tampered budget.json where the field is ABSENT (undefined). The base guard tested `=== false`, so `undefined ===
+  // false` is false => a STRICT resume would PROCEED onto a ledger of UNKNOWN mode (the PROBE4 hole). The fix tightens it
+  // to `!== true`, GATED on a resume being present (existsSync budget.json), so a FRESH strict run is unaffected.
+  await runMain(b1aArgs(sd, od, 3), b1aDeps(b1aStub([{ data: [cinitB], paginationToken: "p2" }, { data: [cAB], paginationToken: null }])));
+  const bp = join(od, "budget.json");
+  const b = JSON.parse(readFileSync(bp, "utf8")) as Record<string, unknown>;
+  assert.equal(b.require_full_pages, false, "run-1 (loose) persisted require_full_pages:false");
+  delete b.require_full_pages; // the field is now ABSENT (undefined) — the hole
+  writeFileSync(bp, JSON.stringify(b));
+  assert.equal("require_full_pages" in (JSON.parse(readFileSync(bp, "utf8")) as object), false, "budget.json now LACKS require_full_pages");
+  // RUN 2 STRICT, SAME --out => the guard REFUSES (undefined !== true => fail-closed). budget.json stays coherent
+  // (calls_used=3 >= 1 page) so the throw is the mode guard, not readPriorCalls; the mutant `!== true`->`=== false`
+  // makes undefined PROCEED => this test reds, while the explicit-false mode_guard test stays green (a specific kill).
+  await assert.rejects(runMain(b1aArgsStrict(sd, od, 10), b1aDeps(b1aStub([{ data: [cAB, cBB, cCB], paginationToken: null }]))),
+    /built loosely/, "a strict resume of a field-less budget.json is refused (mutant `!== true`->`=== false` => undefined proceeds => no throw => reds)");
+});

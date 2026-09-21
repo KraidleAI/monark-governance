@@ -563,8 +563,8 @@ export async function runRebaseCrosscheckCli(call: JsonRpcCall, providers: reado
   // C-B-1 mixed-mode guard (family of C-G2D-2): a ledger's short-page trust depends on the mode it was built under. A
   // resume STRICTER than a prior LOOSER run cannot trust a ledger that may hold a short non-final page committed under
   // --allow-short-pages => fail-closed throw (the reverse — a strict ledger read loosely — stays safe).
-  if (prior.requireFullPages === false && requireFullPages)
-    throw new Error("bell/collect: <out>/budget.json was written under --allow-short-pages (require_full_pages:false) but this resume is strict (C-B-1 fail-closed: a strict run cannot trust a ledger built loosely)");
+  if (requireFullPages && existsSync(resolve(out, "budget.json")) && prior.requireFullPages !== true)
+    throw new Error("bell/collect: <out>/budget.json is not proven require_full_pages:true (absent or --allow-short-pages) but this resume is strict (C-B-1/ITEM-C fail-closed: a strict run cannot trust a ledger built loosely)");
   const byMint: Record<string, Record<string, number>> = { ...prior.byMint };
   const retriesByMethod: Record<string, number> = { getTransactionsForAddress: 0, getTransaction: 0, ...prior.retries };
   const gm = (): { getTransactionsForAddress: number; getTransaction: number } => ({ getTransactionsForAddress: 0, getTransaction: 0, ...callsByMethod() }); // global cumulative, both keys present
