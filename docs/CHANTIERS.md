@@ -472,3 +472,9 @@ Lecture investisseur (export `usage-top-drivers-current-credit-cycle.csv`, 2026-
 
 ### 05:23 UTC — Bell T-1a-iii-a1 : G7 ACCEPTED, fusionné `9a2fca9` (5ᵉ lot de la nuit)
 CI complète sur l'arbre fusionné 573/573 ; R-25 1 195 ; checkpoint-2 REFUSE (anti-close) puis ré-accepté sur pièces (fixture synthétique vérifiée 0 hit par l'orchestrateur, ADR D1-septies porté). `docs/G7-lot-t1a-iii-a1.md`. Worktree `Monark-wt-univers` à nettoyer ; -iii-a1-bis PRÊT (G0 lancé).
+
+### Décisions investisseur 112-114 (2026-09-21 ~06:40 UTC, GARDE-HELIUS, questions une par une) — G0 committé `b6b687b`
+- **112** plafond de cycle Helius `CYCLE_CAP = 8 000 000` crédits (80 % du plan 10 M) ; floor épinglé au tableau de bord avant chaque course (aujourd'hui 60 938).
+- **113** tolérance de rapprochement : borne dure `Δdashboard ≤ ledger_run` (sinon incident) + bande souple `ledger_run − Δdashboard ≤ max(50 cr, 0,5 % du run)` ; pré-enregistrée avant la 1ʳᵉ course.
+- **114** ledger de cycle dans un dossier `F:\` dédié : `F:\monark-ledger\` (créé ; `HELIUS_LEDGER_DIR` posé par l'orchestrateur, hors dépôt, sauvegardé avec MONARK SUITE).
+- Dépendances d'ordre retenues : fusion -b3d-b1a AVANT GARDE-HELIUS-1a ; POOL-RPC-1a AVANT le volet Ukemi (2) ; U-4b-0 devient « consommer `@monark/rpc-guard` ».
