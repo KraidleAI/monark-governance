@@ -55,7 +55,7 @@ scripts/census/u4-oracle-path.mjs --prereg-sha 9209cdab… --max-calls 8000 --ra
 ## 3. Recipes a third party needs
 - **Regenerate the three committed fixtures** from the raws, offline, deterministic (verified byte-exact against the
   LF shas above, 2026-09-20T23:06Z UTC): `node scripts/census/u4-reduce.mjs` (default `--raws-dir
-  F:/PRODUITS/etude-2026-09-20/u4-raws`, default `--out` = this directory). It reads `U4-book-23545087.raw.json` +
+  <U4_RAWS_DIR>`, default `--out` = this directory). It reads `U4-book-23545087.raw.json` +
   `U4-oracle-path-e2.raw.json` + `../u3/U3-realized.jsonl`, applies the pure reducer `scripts/census/u4-scores.mjs`
   (`computeScores`), and decodes the e-mode thresholds from the oracle raw's `emode_raw` via `abi.ts`
   `decodeEModeCategoryData`. Never hand-edit values; any drift re-pins the table.
