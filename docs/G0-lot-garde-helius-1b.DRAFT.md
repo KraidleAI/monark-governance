@@ -416,3 +416,13 @@ occurrences `[Pp]rovider` (163 Bell [mesuré]) aux SIGNATURES, pas aux stubs —
 10. **R-25** : churn >> 1 150 mesuré (makeBudgetedCall 20/callsByMethod 26/8 fichiers ré-export) ⇒ **scission obligatoire** (4 sous-lots) + repli 1b-ii.
 11. **Invariants** : format ledger de page, `PINNED_BELL_SHA`, gel U-4b (7 sha) ; cibles de migration NON gelées.
 12. **Zéro dette nue** : chaque reste = item formé à déclencheur ; **§13 QUESTIONS orchestrateur** (D-3, D-4, périmètre servi, label, chemin lock, bin).
+
+## 14. RULINGS ORCHESTRATEUR (2026-09-21 ~20:2x UTC, avant checkpoint-1 ; prévalent sur les « reco brouillon »)
+1. **D-3** : option **(b)** — `apps/bell/src/close.ts` en allowlist DÉCLARÉE du scanner, déclencheur « G0 de la course cash Bell » (lecture sur place des quotas Databento/Polygon à ce moment, plafond par cycle en requêtes, décision 115) ; T4 dé-skippé avec cette allowlist.
+2. **D-4** : **décision investisseur 121 (« A »)** — plafond Chainstack 16 M RU **par COMPTE**, un seul ledger de cycle Chainstack ; `network` = attribut du journal, jamais un second plafond. Floor = total du compte lu sur le tableau de bord.
+3. **Périmètre servi** : **1b-i (universe) suffit à BRANCHER** (chemin servi + IT-1) ; 1b-ii/iii sont des sous-lots du même G7 ; le registre reste `upcoming` jusqu'à la première course RAPPROCHÉE (même règle que 2b-ii, R-C).
+4. **Label** : opérateur `chainstack` UNIQUE (compte), résolution d'URL par réseau (`CHAINSTACK_ETH_URL` / `CHAINSTACK_SOLANA_URL`) = paramètre `network` du client, pas un opérateur `chainstack-solana`. Cohérent avec 121.
+5. **Lock-test** : L-1 vise `packages/rpc-guard/test/ledger-format-lock.test.ts:16-17,32` (le chemin `apps/bell/test/…` de la mission était une erreur de l'orchestrateur, `error_origin` orchestrateur).
+6. **`bin`** : dans **1b-0** (paquet), car c'est le sous-lot qui touche `packages/rpc-guard`.
+7. **D-9** : option **(a)** — le transport gagne un mode GET + un opérateur keyless `xstocks-issuer` (`assertHostAllowed` porté) ; **1b-0 est un préalable BLOQUANT de 1b-i** (sinon régression silencieuse C-G2-3 / Retry-After / 403 hard-stop). Test imposé : les sémantiques durcies d'a1-bis rejouées à travers le transport (mutant « redirect suivi » rouge).
+- Ordre : 1b-0 → 1b-i → 1b-ii → 1b-iii ; tout après la fusion de 2b-ii ; R-25 mesuré par sous-lot au G1.
