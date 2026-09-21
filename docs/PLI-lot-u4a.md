@@ -278,13 +278,15 @@ Il choisit ses comptes/updates par une graine dérivée de `book_digest` (`selec
 Lot U-4a (Ukemi) — journal de provenance (modèle résolu PAR ÉTAPE)
 - plan (G0) + pré-enregistrement (prereg)  : orchestrateur  claude-fable-5-1
 - checkpoint-1                              : validateur     claude-fable-5-1
-- G1 + courses (book B₀, D_e) + plis        : worker         claude-opus-4-8[1m]   (vérifiable : meta.model des bruts = "claude-opus-4-8[1m]", constaté)
+- G1 + courses (book B₀, D_e) + plis        : worker         claude-opus-4-8[1m]   (modèle DÉCLARÉ par chaque agent ; meta.model est un littéral source, non probant)
 - G2 (revue fraîche, instance séparée)      : relecteur      claude-opus-4-8[1m]
 - avis advisor-defi                         : advisor-defi   claude-fable-5-1
 - checkpoint-2 (avis)                        : validateur     claude-fable-5-1
-- pli checkpoint-2 (ce pli)                 : worker         claude-opus-4-8[1m]
-- G2-delta (contrôle live, D-12)           : À VENIR        (worker claude-opus-4-8[1m], lancé par l'orchestrateur)
-- checkpoint-2 bis                          : À VENIR        (validateur claude-fable-5-1)
+- pli checkpoint-2                          : worker         claude-opus-4-8[1m]
+- G2-delta (contrôle live D-12 FAIT)        : relecteur      claude-opus-4-8[1m]   (FAITE — instance séparée)
+- pli G2-delta (b8ad104, 88d28a5)          : orchestrateur  claude-fable-5-1      (vérifié mécaniquement au checkpoint-2 bis : grep = 0, suite 442/442)
+- checkpoint-2 bis                          : validateur     claude-fable-5-1      (FAIT — ACCEPTE-AVEC-CORRECTIONS docs seules)
+- ce pli docs (checkpoint-2 bis)           : worker         claude-opus-4-8[1m]
 - G7 (verdict + commit)                     : À VENIR        (orchestrateur claude-fable-5-1)
 
 error_origin (assignés au G7) :
@@ -294,12 +296,22 @@ error_origin (assignés au G7) :
   C-V-1 worker + orchestrateur (non détecté par G2 ; répétition du mode C-G2-1 : suite complète non lancée) ;
   C-V-2 worker (non détecté par G2 ni advisor-defi) ;
   C-V-3 G2 + orchestrateur (contrôle live pré-enregistré non fait ni déclaré).
+error_origin ASSIGNÉS AU CHECKPOINT-2 BIS (par le validateur) :
+  C-V-5 worker (docs) ; C-V-6 worker (docs) ; C-V-7 worker (docs) ;
+  C-G2D-1 worker + orchestrateur.
 
 Note AM-1 du validateur (checkpoint-1) : son C-2 (« q̂ = score maximal ») supposait n ≤ 198 (n=797 mesuré l'invalide ⇒ C-G2-2) ;
   son C-4 présupposait que le proxy sert le dernier event (contredit par D-9 : retard 1-3 events, mécanisme non expliqué).
+Note AM-1 du validateur (checkpoint-2 bis) : « vérifié » écrit sur meta.model au checkpoint-2 = MANQUÉ du validateur —
+  le champ model des bruts est un littéral source (u4-redraw.mjs:111, record.ts:319/353/382, u4-probe.mjs:121/128,
+  u4-oracle-path.mjs:125/140), non probant ; l'identité de l'instance G2 séparée est DÉCLARÉE + bornée par les
+  horodatages (16640ee 01:24:08Z ; G2-delta lancé 01:25:01Z ; brut écrit 01:56:48Z ; 0a348d4 02:07:58Z).
+Observation (checkpoint-2 bis) : le message du commit 0a348d4 annonce le retrait du chemin local alors que ce commit
+  NE CONTIENT QUE le rapport G2-delta (docs/G2-DELTA-lot-u4a.md) ; le retrait réel est dans b8ad104 puis 88d28a5
+  (même classe que C-G2D-2 ; l'historique reste tel quel).
 ```
 
-(Le bloc ci-dessus reprend VERBATIM les `error_origin` assignés par le validateur. **C-V-5 / C-V-6 / C-V-7 sont des corrections documentaires** pour lesquelles le validateur n'a **pas** assigné d'`error_origin` — non fabriqué ici ; à défaut, imputables au worker au même titre que les autres corrections documentaires, mais **non présumé**.)
+(Le bloc ci-dessus reprend VERBATIM les `error_origin` assignés par le validateur. **C-V-5 / C-V-6 / C-V-7** (corrections documentaires) ont été **assignés au checkpoint-2 bis** = **worker (docs)** — la mention antérieure « non assigné, non fabriqué » est **superSédée** par cet avis ; **C-G2D-1 = worker + orchestrateur**, également assigné au checkpoint-2 bis.)
 
 ### Deux listes de fichiers (l'orchestrateur fait α-fix PUIS β-fix)
 **α-fix** (fichiers α ; α-seul doit rester VERT — prouvé 437/437) :
@@ -341,7 +353,7 @@ docs/CHECKPOINT2-lot-u4a.md                      (record checkpoint-2 ; EXCLU R-
 | `scripts/census/u4-redraw.d.mts` | nouveau | `c61f4aee83f5e91eff3710e3f9b90e836f65601e154b17eea63e9ed613d80204` |
 | `apps/sentinel/test/ukemi-u4-scores.test.ts` | modifié (C-V-7 : PLI `6a565b0e` → périmé `09bccc03` → **`73f03202`**) | `73f0320280f6970f88c1a2931f88b3d0d7f139cb5499be52208dcf754cc9b7fb` |
 | `apps/sentinel/test/fixtures/ukemi/u4/U4-scores-e2.jsonl` | régénérée (C-V-2 ; ancien `e80386c6`) | `8b84e095d9b66595bffc67fb9d525558cff1a37f133d97eda23250b2feaf0852` |
-| `apps/sentinel/test/fixtures/ukemi/u4/PROVENANCE-u4.md` | modifié (C-V-7 : PLI `e5b3929e` → périmé `fa8772cb` → **`ec35820c`**) | `ec35820c084bae36113fd11dffaf9262eb271b4b54d0f3cf665ca8a36ca17ca6` |
+| `apps/sentinel/test/fixtures/ukemi/u4/PROVENANCE-u4.md` | modifié (C-V-7 : PLI `e5b3929e` → périmé `fa8772cb` → `ec35820c` (16640ee) → **`a1475cba`** (88d28a5, chemin local retiré ; recalculé C-VB-3)) | `a1475cba1183a6667ee120db47a1c71dbaeb28bb762f069327134c6770c5921a` |
 | `scripts/export-exclude-tests.json` (**état β-fix / FINAL : 3 entrées**) | modifié de nouveau (β: +scores) | `ebbab4152108b50abf6ba66f88935c9663e0572bfcefb72d685d80b7a12596de` |
 | **inchangées (confirmé byte-exact)** | | |
 | `apps/sentinel/test/fixtures/ukemi/u4/U4-book-23545087.json` | inchangé | `743e9499f81055bec7ab4f6b9cb5fb27347b94cf85b40eb93fc63cebb9f1ec87` |
@@ -356,6 +368,39 @@ docs/CHECKPOINT2-lot-u4a.md                      (record checkpoint-2 ; EXCLU R-
 
 ## PLI G2-delta (relecteur séparé `claude-opus-4-8[1m]`, `docs/G2-DELTA-lot-u4a.md`, PASS-AVEC-CORRECTIONS ; pli par l'orchestrateur `claude-fable-5-1`)
 - **Contrôle indépendant LIVE pré-enregistré (D-12) — FAIT par l'instance G2-delta** : `all_match: true` ; 13 appels (cumul du lot 279 000 < 300 000) ; 3 comptes tirés par graine dérivée de `book_digest` (indices 3443 / 12793 / 15952) et 3 `AnswerUpdated` (blocs 23551584 / 23549988 / 23550743) IDENTIQUES au cache, champ par champ ; cache byte-inchangé (sha `09968df1…`) ; fuite = 0 ; brut `U4-redraw.json` sha `c01f75ce…` (hors dépôt). Item d'outil formé : `u4-redraw.mjs` n'a pas de puits d'erreur RPC (`onRpcError`) — déclencheur : prochain usage de l'outil (U-4b) ; propriétaire orchestrateur.
-- **C-G2D-1 (a) FAIT** : le chemin local du poste est retiré de `PROVENANCE-u4.md` (fichier EXPORTÉ) et remplacé par `<U4_RAWS_DIR>` ; l'emplacement réel reste consigné ICI (PLI, non exporté) : lecteur F, dossier `PRODUITS/etude-2026-09-20/u4-raws/`. Le sha LF de `PROVENANCE-u4.md` change : la valeur `ec35820c…` de la table C-V-7 est SUPERSÉDÉE par celle du commit de ce pli (voir `git log`). **(b) item FORMÉ** : l'export public embarque les fixtures `u4/*` (environ 6,1 Mo, environ 60 % de l'export) alors que leurs tests en sont exclus ; même défaut latent pour `PROVENANCE-u3.md:42` (chemin local déjà exporté) ⇒ mécanisme d'exclusion des DONNÉES orphelines « upcoming » (analogue de `export-exclude-tests.json`, jamais `STRUCTURAL_BLACKLIST`) + retrait du chemin local de `PROVENANCE-u3.md` — déclencheur : AVANT la prochaine publication du miroir public ; propriétaire orchestrateur ; `error_origin` worker + orchestrateur.
+- **C-G2D-1 (a) FAIT** : le chemin local du poste est retiré de `PROVENANCE-u4.md` (fichier EXPORTÉ) et remplacé par `<U4_RAWS_DIR>` ; l'emplacement réel reste consigné ICI (PLI, non exporté) : lecteur F, dossier `PRODUITS/etude-2026-09-20/u4-raws/`. Le sha LF de `PROVENANCE-u4.md` change : la valeur `ec35820c…` de la table C-V-7 est SUPERSÉDÉE (à `88d28a5`) par le sha LF **`a1475cba1183a6667ee120db47a1c71dbaeb28bb762f069327134c6770c5921a`** (recalculé au checkpoint-2 bis, C-VB-3 ; LF confirmé, 0 octet CR). **(b) item FORMÉ** : l'export public embarque les fixtures `u4/*` (environ 6,1 Mo, environ 60 % de l'export) alors que leurs tests en sont exclus ; même défaut latent pour `PROVENANCE-u3.md:42` (chemin local déjà exporté) ⇒ mécanisme d'exclusion des DONNÉES orphelines « upcoming » (analogue de `export-exclude-tests.json`, jamais `STRUCTURAL_BLACKLIST`) + retrait du chemin local de `PROVENANCE-u3.md` — déclencheur : AVANT la prochaine publication du miroir public ; propriétaire orchestrateur ; `error_origin` worker + orchestrateur.
 - **C-G2D-2 (observation)** : l'historique est linéaire alpha, beta, alpha-fix, beta-fix ; `git archive c137af1` contient beta (439/440) ; le « alpha seul corrigé » vert (437/437) est l'arbre RECONSTRUIT `041a902` + 3 fichiers alpha-fix. Le message du commit `c137af1` est vrai pour l'arbre reconstruit, pas pour l'arbre du commit — à savoir pour un bisect ; la fusion se fait sur l'arbre FINAL (442/442).
 - **C-G2D-3 (observation)** : total direct base vers final = 1 756 ; alpha cumulé 948 + beta cumulé 810 = 1 758 ; l'écart de 2 = `export-exclude-tests.json` compté dans les deux plis.
+
+---
+
+## PLI checkpoint-2 bis — corrections C-VB-1..C-VB-6 (docs seules ; rédacteur `claude-opus-4-8[1m]`, 2026-09-21)
+Modèle résolu **`claude-opus-4-8[1m]`** (R-1). Pli **DOCS SEULS** : ne touche QUE `docs/**/*.md` (aucun fichier sous `apps/`, `scripts/`, `test/` ; `PROVENANCE-u4.md` NON touché). **NON committé** (R-20 : l'orchestrateur seul). Aucun réseau. Record de l'avis : `docs/CHECKPOINT2-BIS-lot-u4a.md` (validateur `claude-fable-5-1`, 2026-09-21T02:09Z→02:21Z, état `88d28a5`, **ACCEPTE-AVEC-CORRECTIONS docs seules avant G7**). Le validateur : « si l'orchestrateur applique ces plis à l'identique, pas de checkpoint-2 ter ».
+
+### Où chaque correction est pliée
+| # | correction | fichier(s) |
+|---|---|---|
+| **C-VB-1** | statut (G2-delta FAITE / checkpoint-2 bis FAIT) ; ligne MAST « à exécuter » ⇒ FAIT ; ESCALADE ⇒ RÉPONDUE (décision 91) ; `UKEMI_REALIZED_E2` requalifié (e2 = jeu de conception, jamais servi ; U-4a-ii renvoyé au G0 U-4b) ; ligne Gate + G2-delta/checkpoint-2 bis | `docs/adr/ADR-U4-book-et-calibration.md` |
+| **C-VB-2** | bloc JOURNAL (G2-delta FAITE relecteur ; pli G2-delta `b8ad104`/`88d28a5` ; checkpoint-2 bis FAIT ; ce pli docs ; `meta.model` littéral non probant) ; `error_origin` C-V-5/6/7 + C-G2D-1 ; observation `0a348d4` ; AM-1 checkpoint-2 | `docs/PLI-lot-u4a.md` (ci-dessus) |
+| **C-VB-3** | sha LF `PROVENANCE-u4.md` = `a1475cba1183a6667ee120db47a1c71dbaeb28bb762f069327134c6770c5921a` (recalculé ; remplace le renvoi antérieur au journal + la valeur C-V-7) | `docs/PLI-lot-u4a.md` (ci-dessus) |
+| **C-VB-4** | D7 sexies : chemin local retiré depuis `88d28a5` (corrigé) ; C-G2D-1 (b) porté avec 3 volets (exclusion données orphelines ; `PROVENANCE-u3.md:42` ; `export:check` chemins Windows) | `docs/adr/ADR-M004-infrastructure-plateforme.md` |
+| **C-VB-5** | `meta.model` argument/variable obligatoire fail-closed (s'ajoute à `onRpcError`) | `docs/adr/ADR-U4-book-et-calibration.md` + registre ci-dessous |
+| **C-VB-6** | texte du message de fusion attendu | ci-dessous |
+
+### C-VB-5 — item d'outil au registre (s'ajoute à l'item `onRpcError` de la section PLI G2-delta)
+`meta.model` devient un **ARGUMENT ou une variable d'environnement OBLIGATOIRE, fail-closed**, dans `record.ts` et les scripts census — aujourd'hui **littéral source** (`u4-redraw.mjs:111`, `record.ts:319,353,382`, `u4-probe.mjs:121,128`, `u4-oracle-path.mjs:125,140`, tous `"claude-opus-4-8[1m]"` codés en dur) ⇒ **non probant**. **À NE PAS faire dans ce lot** (rouvrirait α et changerait `ukemi_sha`). Déclencheur : **G0 U-4b** ; propriétaire : **orchestrateur**.
+
+### C-VB-6 — texte du message de fusion attendu (UNE seule fusion `--no-ff`)
+```
+lot U-4a (Ukemi): book Aave v3 @B0, chemin d'oracle réalisé D_e, calibration réelle e2 — UNE seule fusion --no-ff.
+
+R-25: α 948 / β 810 / direct 1 756. Chaque unité revue est ≤ 1 205 ; la borne R-25 est tenue ICI par DEUX mesures
+indépendantes (α cumulé puis β cumulé sur α), pas par le job CI — qui lirait 1 756 sur une PR unique.
+
+Caveat bisect (C-G2D-2): l'historique est linéaire α → β → α-fix → β-fix. `git archive c137af1` contient β ⇒ 439/440
+(test 42 rouge) — ce n'est PAS l'« α seul corrigé ». L'arbre vert « α seul corrigé » (437/437) est RECONSTRUIT =
+`git archive 041a902` + les 3 fichiers α-fix. La fusion porte sur l'arbre FINAL (442/442).
+```
+
+### Non bloquant — item U-4b (à consigner)
+`apps/sentinel/test/fixtures/ukemi/u4/PROVENANCE-u4.md:57-58` annonce comme défaut `<U4_RAWS_DIR>` alors que `scripts/census/u4-reduce.mjs:24` garde un défaut local (`F:/PRODUITS/etude-2026-09-20/u4-raws` ; script **non exporté** ⇒ hors miroir public, non bloquant) — **à aligner en U-4b**. Déclencheur : G0 U-4b ; propriétaire : orchestrateur.

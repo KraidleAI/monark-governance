@@ -137,8 +137,9 @@ G1, so test 42 (`export_public_no_governance_no_french`, assertion (e) = the exp
   mirror at this stage** (its reducer is not exported). Formed item « rejouabilité publique de la calibration
   U-4 » — trigger: G0 U-7 / Ukemi publication; owner: orchestrator.
 - Fixtures `apps/sentinel/test/fixtures/ukemi/u4/*` (incl. `U4-book-23545087.json`, 5.96 MB) and
-  `PROVENANCE-u4.md` (which cites a local raws path on the F: volume) ARE copied to the export via the
-  `apps/sentinel/test` package-style walk. They are LEFT as-is (Option A, smallest coherent form): after the two
+  `PROVENANCE-u4.md` (its local F: raws path REMOVED as of `88d28a5`, replaced by a `<U4_RAWS_DIR>` placeholder —
+  checkpoint-2 bis C-VB-4, 2026-09-21; the real location stays in the private PLI under `docs/`, never exported) ARE
+  copied to the export via the `apps/sentinel/test` package-style walk. They are LEFT as-is (Option A, smallest coherent form): after the two
   tests are excluded they are orphan data in the mirror, EXACTLY like the already-shipped
   `apps/sentinel/test/fixtures/ukemi/u3/*` + `PROVENANCE-u3.md` (the u3 reducer test lives at repo root, never
   exported) — an orphan state accepted at CHECKPOINT2-u3 (measured: the current export ships the u3 series + its
@@ -150,6 +151,18 @@ Disjunction constraint (two pli commits α then β): `scripts/export-exclude-tes
 governance test in the α-fix, the scores test in the β-fix — because assertion (d) requires
 `manifest.excluded_tests == cfg.tests` exactly and a path absent from the tree is never a candidate (pre-adding
 the β test would red the α-alone tree). `error_origin` = worker + orchestrator (same class as C-G2-1).
+
+**Addendum daté (checkpoint-2 bis, 2026-09-21) — item C-G2D-1 (b) porté ici (item formé ; déclencheur : AVANT la
+prochaine publication du miroir public ; propriétaire : orchestrateur).** Le chemin local u4 est **RETIRÉ** de
+`PROVENANCE-u4.md` depuis `88d28a5` (placeholder `<U4_RAWS_DIR>` ; l'emplacement réel reste dans le PLI privé sous
+`docs/`, jamais exporté). Trois volets restent formés :
+- (i) **mécanisme d'exclusion des DONNÉES orphelines `upcoming`** de l'export public (analogue de
+  `export-exclude-tests.json` pour les fixtures) — **jamais** `STRUCTURAL_BLACKLIST` (échec dur exit 1 + divergence du
+  miroir `BLACKLIST` de test 42) ;
+- (ii) **nettoyage de `apps/sentinel/test/fixtures/ukemi/u3/PROVENANCE-u3.md:42`** (un chemin de lecteur local
+  `F:\PRODUITS\etude-2026-09-20\u3-raws-clean\u3-reads.jsonl` toujours exporté) ;
+- (iii) **extension de `export:check` aux chemins de lecteur Windows** (`[A-Z]:\`) — **constat MESURÉ** : le gate rend
+  « 0 forbidden path » sur un export qui en contient un (u3:42) ⇒ il est **AVEUGLE à cette classe**.
 
 ### D8 — Lot E (English only) et R-25 (item 11)
 Scindé par package, une PR chacune, **aucun lot exempté** ; **hikae scindé `src` / `test`** (mesure §1.3) ; règle générale : si la mesure d'un lot dépasse 1 205, scission par répertoire (`src`, `test`, sous-répertoire `s2/`). **E-contracts ne touche jamais aux identifiants gelés** (test 0 `contracts_frozen`). Ordre : E-root (CI, scripts, tests racine) ∥ E-contracts → E-hikae-src → E-hikae-test → E-ukemi → E-atelier → E-monark.
