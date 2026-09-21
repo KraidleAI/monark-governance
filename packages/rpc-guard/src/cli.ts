@@ -4,7 +4,7 @@
 //   reconcile --before <snap> --after <snap> --cycle <id> --op <label>   (exit != 0 on NO-GO)
 //   unlock    --cycle <id> --op <label> --reason <text>
 import { ensureCycleDir, openOperatorLedger } from "./ledger.ts";
-import { runReconcile, type Snapshot } from "./reconcile.ts";
+import { runReconcile, AGGREGATE_ONLY_OPERATORS, type Snapshot } from "./reconcile.ts";
 import { acquireLock, releaseLock, runUnlock } from "./lock.ts";
 
 export interface CliDeps {
@@ -22,10 +22,14 @@ export function runCli(argv: readonly string[], deps: CliDeps): CliResult {
   if (sub === "reconcile") {
     const cycle = need("--cycle");
     const op = need("--op");
+    const mode = arg("--mode") ?? "per-method"; // GARDE-HELIUS-2: chainstack courses pass --mode aggregate|aggregate-calibration (FAITS pt 10)
+    if (mode !== "per-method" && mode !== "aggregate" && mode !== "aggregate-calibration") throw new Error(`rpc-guard: --mode must be 'per-method' | 'aggregate' | 'aggregate-calibration' (fail-closed)`);
+    // C-V-5: an operator with no per-method dashboard (FAITS pt 10) REQUIRES an aggregate mode - fail-closed BEFORE any lock.
+    if (AGGREGATE_ONLY_OPERATORS.has(op) && mode !== "aggregate" && mode !== "aggregate-calibration") throw new Error(`rpc-guard: operator '${op}' has no per-method dashboard (FAITS pt 10); pass --mode aggregate or aggregate-calibration (fail-closed)`);
     const cycleDir = ensureCycleDir(deps.ledgerDir, cycle);
     acquireLock(cycleDir, op); // C-G2-4: the reconcile APPEND is a write - guard it against a concurrent course writer
     try {
-      const r = runReconcile(openOperatorLedger(cycleDir, op, deps.floor), deps.readSnapshot(need("--before")), deps.readSnapshot(need("--after")), cycle);
+      const r = runReconcile(openOperatorLedger(cycleDir, op, deps.floor), deps.readSnapshot(need("--before")), deps.readSnapshot(need("--after")), cycle, mode);
       return { exitCode: r.exitCode, verdict: r.verdict, ...(r.reason !== undefined ? { reason: r.reason } : {}) };
     } finally { releaseLock(cycleDir, op); }
   }

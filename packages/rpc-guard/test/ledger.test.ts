@@ -66,21 +66,23 @@ test("ledger_path_is_outside_out_and_repo", () => {
 test("required_inputs_fail_closed", async () => {
   const { dir, cleanup } = tmp();
   try {
+    // GARDE-HELIUS-2: PER-OPERATOR limits (runCaps / cycleFloor keyed by label). The run-cost cap for a paid operator
+    // replaces the former scalar maxCredits.
     const mk = (over: Partial<ClientConfig["limits"]>, cap = 8_000_000, cycle = "t12") => () => makeClient(
-      { operators: { helius: { unit: "credits", credits: heliusCredits, cycleCap: cap } }, limits: { maxCalls: 10, maxCredits: 1000, methodCaps: { getTransaction: 1 }, cycleFloor: 0, ...over } },
+      { operators: { helius: { unit: "credits", credits: heliusCredits, cycleCap: cap } }, limits: { maxCalls: 10, runCaps: { helius: 1000 }, methodCaps: { getTransaction: 1 }, cycleFloor: { helius: 0 }, ...over } },
       new Map([["helius", openOperatorLedger(ensureCycleDir(dir, cycle), "helius", 0)]]), { transport: OK });
     assert.throws(mk({ maxCalls: 0 }), BudgetExceededError, "--max-calls required (> 0)");
-    assert.throws(mk({ maxCredits: 0 }), BudgetExceededError, "--max-credits required (> 0)");
-    assert.throws(mk({ cycleFloor: Number.NaN }), BudgetExceededError, "--cycle-floor required");
-    assert.throws(mk({ cycleFloor: 9_000_000 }), BudgetExceededError, "floor > cap => throw");
+    assert.throws(mk({ runCaps: { helius: 0 } }), BudgetExceededError, "run cap required (> 0) for the paid operator");
+    assert.throws(mk({ cycleFloor: { helius: Number.NaN } }), BudgetExceededError, "--cycle-floor required per operator");
+    assert.throws(mk({ cycleFloor: { helius: 9_000_000 } }), BudgetExceededError, "floor > cap => throw");
     assert.throws(mk({ methodCaps: {} }), BudgetExceededError, "empty --method-caps on a paid operator (C-V-5, M7a)");
     // paid operator without a cycle cap (decision 115).
-    assert.throws(() => makeClient({ operators: { helius: { unit: "credits", credits: heliusCredits } }, limits: { maxCalls: 10, maxCredits: 1000, methodCaps: { getTransaction: 1 }, cycleFloor: 0 } },
+    assert.throws(() => makeClient({ operators: { helius: { unit: "credits", credits: heliusCredits } }, limits: { maxCalls: 10, runCaps: { helius: 1000 }, methodCaps: { getTransaction: 1 }, cycleFloor: { helius: 0 } } },
       new Map([["helius", openOperatorLedger(ensureCycleDir(dir, "t12b"), "helius", 0)]]), { transport: OK }), BudgetExceededError);
     // M7b: a paid method NOT listed in --method-caps is REFUSED (not silently uncapped), 0 transport, ledgered.
     let calls = 0; const spy: Transport = () => { calls++; return Promise.resolve({ ok: 1 }); };
     const led = openOperatorLedger(ensureCycleDir(dir, "t12c"), "helius", 0);
-    const c = makeClient({ operators: { helius: { unit: "credits", credits: heliusCredits, cycleCap: 8_000_000 } }, limits: { maxCalls: 10, maxCredits: 1000, methodCaps: { getTransaction: 1 }, cycleFloor: 0 } }, new Map([["helius", led]]), { transport: spy });
+    const c = makeClient({ operators: { helius: { unit: "credits", credits: heliusCredits, cycleCap: 8_000_000 } }, limits: { maxCalls: 10, runCaps: { helius: 1000 }, methodCaps: { getTransaction: 1 }, cycleFloor: { helius: 0 } } }, new Map([["helius", led]]), { transport: spy });
     await assert.rejects(c.call(HELIUS, "getTransactionsForAddress", ["m"]), (e: unknown) => e instanceof BudgetExceededError);
     assert.equal(calls, 0);
     assert.equal(led.entries().at(-1)!.reason, "method_cap_unlisted");

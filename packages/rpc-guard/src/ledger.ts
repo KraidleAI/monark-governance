@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, appendFileSync, writeFileSync } from "node:fs";
 import { join, basename } from "node:path";
 import type { AttemptRecord, Outcome } from "./client.ts";
-import { HELIUS_TARIFF_VERSION } from "./tariff.ts";
+import { tariffVersionOf } from "./tariff.ts";
 
 export const LEDGER_GENESIS = "0".repeat(64);
 export const sha256Hex = (s: string): string => createHash("sha256").update(s, "utf8").digest("hex");
@@ -97,8 +97,9 @@ export function openOperatorLedger(cycleDir: string, op: string, floor: number):
   }
   let head = ledgerHeadSha(entries);
   const frozenPrior = Math.max(floor, entries.reduce((a, e) => a + (e.outcome === "attempted" ? e.credits_derived : 0), 0));
+  const tariffVersion = tariffVersionOf(op); // per-operator (GARDE-HELIUS-2): a chainstack line never carries the helius version
   const appendChained = (outcome: Outcome, byOpMethod: Record<string, number>, credits: number, reason?: string): CycleLedgerEntry => {
-    const core: CycleCore = { cycle_id: cycleId, tariff_version: HELIUS_TARIFF_VERSION, by_op_method: byOpMethod, outcome, credits_derived: credits, ...(reason !== undefined ? { reason } : {}) };
+    const core: CycleCore = { cycle_id: cycleId, tariff_version: tariffVersion, by_op_method: byOpMethod, outcome, credits_derived: credits, ...(reason !== undefined ? { reason } : {}) };
     const entry = chainCycleEntry(head, core);
     appendFileSync(path, JSON.stringify(entry) + "\n");
     entries.push(entry); head = entry.entry_sha256;

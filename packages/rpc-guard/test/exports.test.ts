@@ -8,7 +8,9 @@ import { HELIUS, tmp } from "./harness.ts";
 import type { RunLimits } from "../src/client.ts";
 
 const PROBE_ENV = { BELL_SOLANA_RPC: "https://example.invalid/HELIUS", HELIUS_API_KEY: "FAKEKEY-9z9z9z" };
-const PROBE_LIMITS: RunLimits = { maxCalls: 10, maxCredits: 1000, methodCaps: { getTransaction: 5 }, cycleFloor: 0 };
+// GARDE-HELIUS-2: RunLimits is PER OPERATOR (runCaps / cycleFloor keyed by label), and openGuardedClient takes a
+// per-operator `cycles` map whose keys are the REQUESTED subset (here: helius only).
+const PROBE_LIMITS: RunLimits = { maxCalls: 10, runCaps: { helius: 1000 }, methodCaps: { getTransaction: 5 }, cycleFloor: { helius: 0 } };
 
 test("public_api_never_reaches_fetch_without_a_ledger_line", async () => {
   // P6 functional probe: patch globalThis.fetch (isolated per test process); at fetch time the write-ahead ledger
@@ -22,7 +24,7 @@ test("public_api_never_reaches_fetch_without_a_ledger_line", async () => {
     return Promise.resolve(new Response(JSON.stringify({ result: 1 }), { status: 200, headers: { "content-type": "application/json" } }));
   };
   try {
-    const client = openGuardedClient(PROBE_ENV, PROBE_LIMITS, dir, "cycle-probe");
+    const client = openGuardedClient(PROBE_ENV, PROBE_LIMITS, dir, { helius: "cycle-probe" });
     await client.call(HELIUS, "getTransaction", [1]);
     assert.deepEqual(linesAtFetch, [1], "every fetch is preceded by exactly its write-ahead ledger line (P6)");
   } finally { globalThis.fetch = realFetch; cleanup(); }
@@ -37,7 +39,7 @@ test("public_api_freezes_the_prior_p3_floor", async () => {
   let calls = 0;
   globalThis.fetch = () => { calls++; return Promise.resolve(new Response(JSON.stringify({ result: 1 }), { status: 200, headers: { "content-type": "application/json" } })); };
   try {
-    const client = openGuardedClient(PROBE_ENV, { maxCalls: 10, maxCredits: 100_000_000, methodCaps: { getTransactionsForAddress: 100 }, cycleFloor: 7_999_990 }, dir, "cycle-p3");
+    const client = openGuardedClient(PROBE_ENV, { maxCalls: 10, runCaps: { helius: 100_000_000 }, methodCaps: { getTransactionsForAddress: 100 }, cycleFloor: { helius: 7_999_990 } }, dir, { helius: "cycle-p3" });
     await client.call(HELIUS, "getTransactionsForAddress", ["m"]);
     await assert.rejects(client.call(HELIUS, "getTransactionsForAddress", ["m"]), (e: unknown) => e instanceof BudgetExceededError);
     assert.equal(calls, 1, "the frozen prior (max(floor, 0)) is enforced through the PUBLIC API, not just makeClient");
@@ -47,7 +49,8 @@ test("public_api_freezes_the_prior_p3_floor", async () => {
 test("public_export_set_is_closed", async () => {
   const pub = await import("@monark/rpc-guard");
   assert.deepEqual(Object.keys(pub).sort(), [
-    "BudgetExceededError", "CHAINSTACK_CYCLE_CAP_RU", "HELIUS_CYCLE_CAP_CREDITS", "HELIUS_TARIFF_VERSION",
+    "BudgetExceededError", "TransportError", "CHAINSTACK_CYCLE_CAP_RU", "CHAINSTACK_TARIFF_VERSION", "ETH_CALL_KEYLESS_LABELS",
+    "GET_LOGS_KEYLESS_LABELS", "HELIUS_CYCLE_CAP_CREDITS", "HELIUS_TARIFF_VERSION", "chainstackRu",
     "heliusCredits", "openGuardedClient", "runCli", "runReconcile", "verifyCycleLedger",
   ].sort(), "the public VALUE-export set drifted (no new paid path may be exported)");
   for (const forbidden of ["makeClient", "resolveOperators", "resolveConfig", "InMemorySink", "openOperatorLedger", "acquireLock", "runUnlock"]) {
@@ -65,7 +68,7 @@ test("transport_error_never_carries_url_or_key", async () => {
   // rethrows a FRESH error with only label + error name (C-V-3). Offline: the parse fails before any dispatch.
   const { dir, cleanup } = tmp();
   try {
-    const client = openGuardedClient({ BELL_SOLANA_RPC: "not-a-url-scheme", HELIUS_API_KEY: "FAKEKEY-9z9z9z" }, PROBE_LIMITS, dir, "cycle-scrub");
+    const client = openGuardedClient({ BELL_SOLANA_RPC: "not-a-url-scheme", HELIUS_API_KEY: "FAKEKEY-9z9z9z" }, PROBE_LIMITS, dir, { helius: "cycle-scrub" });
     await assert.rejects(client.call(HELIUS, "getTransaction", [1]), (e: unknown) => {
       const msg = e instanceof Error ? e.message : String(e);
       assert.doesNotMatch(msg, /not-a-url-scheme|FAKEKEY|api-key/i, `error message leaks the endpoint: ${msg}`);
