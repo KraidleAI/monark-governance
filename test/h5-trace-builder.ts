@@ -299,6 +299,7 @@ export async function buildTrace(): Promise<H5Trace> {
       },
     };
   } finally {
+    server.closeAllConnections(); // C-G2D-1: server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
     await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
   }
 }

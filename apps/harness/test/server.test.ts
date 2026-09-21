@@ -79,6 +79,7 @@ test("origin_invalid_returns_403", async () => {
     await apexWired.body?.cancel();
     assert.notEqual(apexWired.status, 403, "an apex Origin passes the guard on the wired path");
   } finally {
+    server.closeAllConnections(); // C-G2D-1: server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
     await new Promise<void>((resolve) => {
       server.close(() => { resolve(); });
     });
@@ -163,6 +164,7 @@ test("oversized_body_413_and_normal_tools_call_unaffected", async () => {
     assert.equal(mcp.status, 200, "the MCP tools/call (SSE) path still returns 200 through the bounded reader");
     assert.ok(mcp.raw.includes("\"yhat\""), "the MCP tools/call SSE body carries the computed cascade result (yhat)");
   } finally {
+    server.closeAllConnections(); // C-G2D-1: server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
     await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
   }
 });
@@ -177,6 +179,7 @@ test("harness_binds_localhost_only", async () => {
     assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
     assert.equal(addr.address, "127.0.0.1", "must bind localhost only, never 0.0.0.0");
   } finally {
+    server.closeAllConnections(); // C-G2D-1: server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
     await new Promise<void>((resolve) => {
       server.close(() => { resolve(); });
     });
@@ -230,6 +233,39 @@ test("serverInfo_version_is_single_source_and_never_one", async () => {
     assert.ok(serverInfo, "the initialize result must carry serverInfo");
     assert.equal(serverInfo.version, HARNESS_VERSION, `serverInfo.version must equal HARNESS_VERSION (single source); got "${String(serverInfo.version)}"`);
   } finally {
+    server.closeAllConnections(); // C-G2D-1: server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
     await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
   }
+});
+
+// Test — C-G2D-1 drain hygiene: after closeAllConnections()+close(), the SERVER handle (TCPServerWrap) clears.
+// This asserts the drain is well-formed socket hygiene — it does NOT prove the CI flake is fixed. MEASURED (see
+// the D4 finding / RENDU): the residual ~4% flake is a libuv Windows assertion (`src\win\async.c:76`, a uv_async_t
+// at process.exit() under --test-force-exit — nodejs/node#56645, Windows-only, repro fetch()+process.exit()), NOT
+// a socket leak; the drain reduces socket handles but does NOT close it. The ×100 matrix therefore does NOT reach
+// 0 (~4% residual, matrix-clean-82/) => D4 "0-flake" escalated to config-CI (orchestrator). No deterministic MUTANT
+// reddens here. Test 18 (universe) is already drained; test 22 is spawnSync (no server handle) — untouched.
+test("harness_server_drain_leaves_no_server_handle", async () => {
+  const server = startServer(0);
+  try {
+    await once(server, "listening");
+    const addr = server.address();
+    assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
+    // Open a real connection so closeAllConnections() has a live socket to destroy.
+    const cascade = JSON.stringify({ L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" });
+    await wiredPost(addr.port, "api.monarkgate.tech", "/cascade", cascade, "application/json");
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
+  }
+  // libuv releases the handle one loop iteration AFTER the close() callback, so poll a bounded number of
+  // macrotasks: a DRAINED server clears within a few ticks; a genuine leak never clears (the assertion fails).
+  // We assert the SERVER handle (TCPServerWrap) only. The residual libuv async.c:76 flake (nodejs/node#56645) is
+  // NOT a socket handle and is NOT ruled out by this belt nor by the drain — it is escalated as a config-CI item.
+  let kinds = process.getActiveResourcesInfo();
+  for (let i = 0; i < 50 && kinds.includes("TCPServerWrap"); i++) {
+    await new Promise<void>((resolve) => { setImmediate(resolve); });
+    kinds = process.getActiveResourcesInfo();
+  }
+  assert.equal(kinds.includes("TCPServerWrap"), false, `the server handle must clear after closeAllConnections()+close() (a leak never does); saw [${kinds.join(",")}]`);
 });
