@@ -56,7 +56,8 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | POOL-RPC-1a (pool RPC Ethereum) | FUSIONNÉ `6bb2f84` (G7, 663/663, R-25 469 ; SHA nommé pour E-5) | débloque GARDE-HELIUS-2, U-4b-0, U-4b-1b | — |
 | EXPORT-CLEAN (miroir public) | FUSIONNÉ `5b110c7` (G7, 577/577, R-25 458) | item : `export:check` en CI avant la fenêtre publique | — |
 | HELIUS-1 (incident) | CAUSE PROUVÉE | scripts de brouillon hors garde (ledger reset, throw retiré) ; reste : lot GARDE-HELIUS avant toute course Bell | — |
-| CI-EXPORT-CHECK (petit lot : `export:check` fail-closed en CI, job r25) | FUSIONNÉ `3df2f73` (G7, 698 tests 0 fail, lint 0, ratchet 69/69, R-25 89) | item `export:check` en CI : CLOS ; reste `lang:gate` en CI (CHANTIERS:222) | — |
+| CI-EXPORT-CHECK (petit lot : `export:check` fail-closed en CI, job r25) | FUSIONNÉ `3df2f73` (G7, 698 tests 0 fail, lint 0, ratchet 69/69, R-25 89) | item `export:check` en CI : CLOS | — |
+| LANG-GATE-CI (petit lot : `lang:gate` fail-closed en CI, job r25) | FUSIONNÉ `1f8b78e` (G7, 760 tests 0 fail, lint 0, ratchet 69/69, R-25 80) | item `lang:gate` en CI : CLOS ; reste premier run Linux + required check | — |
 | Clôture temps 1 (cartographie Narabi + Ukemi, K-1, `g3-site`) | À VENIR | en dernier | — |
 
 ## 5. Site et marque (HORS GATES — décisions 62/101 ; en dernier, investisseur + orchestrateur)
@@ -77,6 +78,6 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-En vol (20:3x UTC, 6 agents, fan-out par composabilité) : (1) **checkpoint-1 G0 2b-ii** (validateur) ; (2) **G1 LANG-GATE-CI** (worker, `Monark-wt-langgate`) ; (3) **advisor-defi** sur le prereg U-4b-1b (Q11 gel de Y, Q4 arrondi CA, Q6 constantes H-n) → `F:/tmp/advisor-prereg/` ; (4) **amendement ADR-U4b C-7** (worker docs : `rpc.ts` au gel, U-4b-0 subsumé, contrainte d'ordre 1d, cap par compte 121) → `F:/tmp/adr-u4b-c7/` ; (5) **checkpoint-1 G0 GARDE-HELIUS-1b** (validateur, rulings §14 committés `8aedd03`) ; (6) **G0 NARABI-OPS-1d brouillon** (worker docs, après temps 1) → `F:/tmp/narabi1d/`. Décisions du soir : 120 (logos = reco designer), 121 (cap Chainstack par compte).
+En vol (22:0x UTC) : **G1 GARDE-HELIUS-2b-ii** (à lancer : worktree neuf depuis `lot/etude-suite` ≥ `1f8b78e`, G0 plié `51c4d9a`). Rendus du soir tous persistés : 2b-i FUSIONNÉ `8ba2cbc` ; LANG-GATE-CI FUSIONNÉ `1f8b78e` ; G0 2b-ii plié + cp-1 ; G0 1b plié + cp-1 (`d6af611`) ; prereg DRAFT + rulings Q1-Q11 (`c9b8ad5`) + amendement ADR-U4b (`2d1d685`) ; G0 1d DRAFT (`dbfcd55`). Décisions 120, 121.
 Règles : tout worktree de code reçoit `F:/tmp/g2-garde2bi/mk-nm.ps1` et se retire par `rm-nm.ps1` (jamais `Remove-Item -Recurse`). HORS portée (119) : course Bell + C-F-4, U-6, site, DNS, achats. Firecrawl : UUID `6fa0ba96-…` posé dans les 22 agents, effet au REDÉMARRAGE (aucun lecteur/chercheur avant).
 À faire (temps 1) : G0 GARDE-HELIUS-2b → prereg U-4b-1b committé seul → course U-4b-1b (GO 119, plafonds actifs) → U-4b-2 → U-5 → U-6 (go) → U-7 · E-5 : ligne du run réel du 22/09 00:41 UTC · Bell (temps 2) : GARDE-HELIUS-1b puis G0 de course.
