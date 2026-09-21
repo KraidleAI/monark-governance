@@ -14,7 +14,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { providerOf, type RpcCall } from "../rpc.ts";
-import { makeUkemiPool, ETH_CALL_PROVIDERS, GET_LOGS_PROVIDERS, RpcError, BudgetExceededError, type UkemiReader } from "./rpc2.ts";
+import { makeUkemiPool, ETH_CALL_PROVIDERS, GET_LOGS_PROVIDERS, RpcError, BudgetExceededError, operatorOf, type UkemiReader } from "./rpc2.ts";
 import { recordBook, AbiMismatchError } from "./book.ts";
 import { clusterById, POOL, POOL_ADDRESSES_PROVIDER, ORACLE, type Cluster } from "./clusters.ts";
 import { SEL, TRANSFER_TOPIC0, wordAddr, wordAt, decAddress, decUint, decodeAddressArray, decodeReserveData, decodeUserConfig, transferRecipients } from "./abi.ts";
@@ -233,6 +233,7 @@ export interface UkemiArgs {
   slowOperators: string[];      // D-4: providerOf domains throttled to slowIntervalMs (a misbehaving operator raised alone)
   slowIntervalMs: number;       // D-4: interval for slowOperators (default 200)
   excludeOperators: string[];   // D-5: providerOf domains / labels dropped from the pool (a measured-degraded operator; quorum-2 kept by survivors)
+  concordanceOut: string | undefined; // L-4: path for the per-operator-pair concordance jsonl; undefined ⇒ hook NO-OP (book_digest byte-identical)
 }
 
 /** Parse the recorder CLI. Non-negative integers only for the numeric flags (fail-closed on a bad value). */
@@ -261,6 +262,7 @@ export function parseUkemiArgs(argv: readonly string[]): UkemiArgs {
     slowOperators: argAll("--slow-operator"),
     slowIntervalMs: reqInt("--slow-interval-ms", 200),
     excludeOperators: argAll("--exclude-operator"),
+    concordanceOut: arg("--concordance-out"),
   };
 }
 
@@ -273,8 +275,38 @@ export function isMainModule(argv1: string | undefined, metaUrl: string): boolea
   return argv1 !== undefined && pathToFileURL(argv1).href === metaUrl;
 }
 
-async function main(): Promise<void> {
-  const args = parseUkemiArgs(process.argv.slice(2));
+/** Injected dependencies for `runRecorder` (the extracted CLI body, C-3): the process env (Chainstack leg) and a
+ *  clock. `exit` is NOT injected — runRecorder RETURNS an exit code so its `finally` (the concordance flush) always
+ *  runs (process.exit would kill the finally); the thin `main` wrapper maps the code to process.exit. Declared
+ *  deviation from the plan's literal "deps = env/now/exit" (R-21), chosen so a disagreement/budget stop still flushes. */
+export interface RecorderDeps { readonly env: NodeJS.ProcessEnv; readonly now: () => number; }
+/** The live dependencies: the real process env and clock. Tests pass a frozen env + fixed clock. */
+export const realDeps: RecorderDeps = { env: process.env, now: () => Date.now() };
+
+/** L-4: fold one live concordance observation into the per-operator-PAIR tally (sorted key). The archive-env leg
+ *  is relabelled to ARCHIVE_ENV_LABEL so the Chainstack domain never reaches the file (operators only, never a URL
+ *  — C-1). Mutates `agg`. */
+function tallyConcordance(agg: Map<string, { concordant: number; discordant: number }>, opA: string, opB: string, concordant: boolean, archiveEnvUrl: string | undefined): void {
+  const relabel = (op: string): string => (archiveEnvUrl !== undefined && op === operatorOf(archiveEnvUrl) ? ARCHIVE_ENV_LABEL : op);
+  const pair = [relabel(opA), relabel(opB)].sort((x, y) => (x < y ? -1 : x > y ? 1 : 0)).join("|");
+  const cur = agg.get(pair) ?? { concordant: 0, discordant: 0 };
+  if (concordant) cur.concordant += 1; else cur.discordant += 1;
+  agg.set(pair, cur);
+}
+
+/** L-4: flush the concordance aggregate to `path` as ONE compact jsonl line per pair (N-3). Writes the file EVEN
+ *  WHEN EMPTY, so a mis-wired sink (M-7c: flag parsed but onQuorum not passed) yields an empty file the reducer
+ *  turns into []. No URL is ever written. */
+function flushConcordance(path: string, agg: Map<string, { concordant: number; discordant: number }>, atIso: string): void {
+  const lines = [...agg.entries()].map(([pair, t]) => JSON.stringify({ pair, concordant: t.concordant, discordant: t.discordant, at: atIso }));
+  writeFileSync(path, lines.length > 0 ? lines.join("\n") + "\n" : "");
+}
+
+/** The extracted recorder body (C-3): pilotable by the chain test as `runRecorder([...args], deps)`. Returns the
+ *  exit code (0 = ok, 2 = budget stop); the `main` wrapper maps it to process.exit AFTER the `finally` concordance
+ *  flush has run. A disagreement / other fatal still throws (the wrapper's catch exits 1) — through the finally. */
+export async function runRecorder(argv: readonly string[], deps: RecorderDeps): Promise<number> {
+  const args = parseUkemiArgs(argv);
   const cluster = clusterById(args.cluster);
   const here = dirname(fileURLToPath(import.meta.url));
   const root = join(here, "..", "..", "..", "..");
@@ -293,10 +325,10 @@ async function main(): Promise<void> {
   // Extra quorum leg from the env archive endpoint (never printed), APPENDED LAST so the keyless quorum forms
   // first and Chainstack is pulled only on a bench (minimises RU draw — RU/call undocumented, E-2). Then D-5:
   // drop any --exclude-operator (a MEASURED degraded operator), and fail-closed if quorum-2 can no longer form.
-  const archiveEnvUrl = process.env.CHAINSTACK_ETH_URL;
+  const archiveEnvUrl = deps.env.CHAINSTACK_ETH_URL;
   const ethCallProviders = applyExcludeOperators(archiveEnvUrl ? [...ETH_CALL_PROVIDERS, archiveEnvUrl] : [...ETH_CALL_PROVIDERS], args.excludeOperators, archiveEnvUrl);
   const getLogsProviders = applyExcludeOperators(archiveEnvUrl ? [...GET_LOGS_PROVIDERS, archiveEnvUrl] : [...GET_LOGS_PROVIDERS], args.excludeOperators, archiveEnvUrl);
-  const distinct = (urls: readonly string[]): number => new Set(urls.map((u) => providerOf(u))).size;
+  const distinct = (urls: readonly string[]): number => new Set(urls.map((u) => operatorOf(u))).size; // C-2: by OPERATOR ({nodies,pocket}=1)
   if (distinct(ethCallProviders) < 2) throw new Error(`ukemi/record: eth_call quorum-2 needs >= 2 distinct operators after --exclude-operator (${String(distinct(ethCallProviders))} left)`);
   if (distinct(getLogsProviders) < 2) throw new Error(`ukemi/record: eth_getLogs quorum-2 needs >= 2 distinct operators after --exclude-operator (${String(distinct(getLogsProviders))} left)`);
 
@@ -304,7 +336,14 @@ async function main(): Promise<void> {
   const errByOp: Record<string, number> = {}; // D-4: per-operator (providerOf domain) error tally for the 5%-rule monitor
   const hardened = makeDefaultCall({ retries: args.retries, backoffMs: args.backoffMs, backoffCapMs: args.backoffCapMs, onRpcError: (r) => { rpcErrors.push(r); errByOp[r.provider] = (errByOp[r.provider] ?? 0) + 1; } });
   const budgeted = makeBudgetedCall(args.maxCalls, hardened, archiveEnvUrl);
-  const basePool = makeUkemiPool({ call: budgeted.call, ethCallProviders, getLogsProviders, minIntervalMs: args.minIntervalMs, slowOperators: args.slowOperators, slowIntervalMs: args.slowIntervalMs });
+  // L-4: the concordance sink is wired ONLY when --concordance-out is given (else onQuorum is undefined ⇒ NO-OP ⇒
+  // book_digest byte-identical). The aggregate is per operator PAIR; it is flushed in the finally below (M-7c: a
+  // parsed flag whose sink is NOT passed here leaves the aggregate empty ⇒ an empty file ⇒ reducer []).
+  const concordance = new Map<string, { concordant: number; discordant: number }>();
+  const onQuorum = args.concordanceOut !== undefined
+    ? (_label: string, opA: string, opB: string, concordant: boolean): void => { tallyConcordance(concordance, opA, opB, concordant, archiveEnvUrl); }
+    : undefined;
+  const basePool = makeUkemiPool({ call: budgeted.call, ethCallProviders, getLogsProviders, minIntervalMs: args.minIntervalMs, slowOperators: args.slowOperators, slowIntervalMs: args.slowIntervalMs, onQuorum });
 
   // C-5 resume/inputs cache (JSONL request→result, OUTSIDE the repo). Fresh ⇒ write the meta line; append every
   // MISS (a hit costs no budget). After the record, a cached holders line that disagrees ⇒ abstention.
@@ -316,7 +355,7 @@ async function main(): Promise<void> {
     const fresh = !existsSync(resumePath);
     const lines: CacheLine[] = fresh ? [] : parseResumeLines(readFileSync(resumePath, "utf8"));
     if (fresh) {
-      const meta: CacheLine = { kind: "meta", schema: "ukemi-u4-inputs/1", model: "claude-opus-4-8[1m]", recorded_at_utc: new Date().toISOString(),
+      const meta: CacheLine = { kind: "meta", schema: "ukemi-u4-inputs/1", model: "claude-opus-4-8[1m]", recorded_at_utc: new Date(deps.now()).toISOString(),
         cluster: cluster.id, block: args.block ?? null, from_block: args.fromBlock ?? null, chain_id: "1",
         providers: [...opLabels(ethCallProviders), ...opLabels(getLogsProviders)].filter((v, i, a) => a.indexOf(v) === i), prereg_sha: args.preregSha ?? null };
       writeFileSync(resumePath, JSON.stringify(meta) + "\n");
@@ -350,7 +389,7 @@ async function main(): Promise<void> {
         }
       }
       const provenance = {
-        model: "claude-opus-4-8[1m]", recorded_at_utc: new Date().toISOString(), phase: "filter-only",
+        model: "claude-opus-4-8[1m]", recorded_at_utc: new Date(deps.now()).toISOString(), phase: "filter-only",
         endpoints: { eth_call: opLabels(ethCallProviders), eth_getLogs: opLabels(getLogsProviders) }, quorum: 2,
         params: { cluster: cluster.id, block, from_block: args.fromBlock ?? null, min_interval_ms: args.minIntervalMs, slow_operators: args.slowOperators, slow_interval_ms: args.slowIntervalMs, retries: args.retries, backoff_ms: args.backoffMs, backoff_cap_ms: args.backoffCapMs, max_calls: args.maxCalls, prereg_sha: args.preregSha ?? null, resume: args.resume !== undefined, filter_only: true },
         calls: budgeted.total(), calls_by_operator: budgeted.byOperator(), calls_by_method: budgeted.byMethod(), errors_by_operator: errByOp, excluded_operators: args.excludeOperators, seconds, finalized_block: fin.block, ukemi_sha: ukemiSha(here),
@@ -364,7 +403,7 @@ async function main(): Promise<void> {
       process.stdout.write(`ukemi/record FILTER-ONLY cluster=${cluster.id} B=${String(block)} holders=${String(fr.holders)} n_at_risk_config=${String(fr.n_at_risk_config)} ` +
         `excluded={coll_off:${String(fr.excluded_collateral_off)},no_debt:${String(fr.excluded_no_debt)}}\n` +
         `  calls=${String(budgeted.total())}/${String(args.maxCalls)} by_operator={${perOpF}} projection_remaining=9*${String(fr.n_at_risk_config)}=${String(9 * fr.n_at_risk_config)} seconds=${seconds.toFixed(1)}\n  out=${out}\n`);
-      return;
+      return 0;
     }
 
     const t0 = Date.now();
@@ -379,7 +418,7 @@ async function main(): Promise<void> {
     }
 
     const provenance = {
-      model: "claude-opus-4-8[1m]", recorded_at_utc: new Date().toISOString(),
+      model: "claude-opus-4-8[1m]", recorded_at_utc: new Date(deps.now()).toISOString(),
       endpoints: { eth_call: opLabels(ethCallProviders), eth_getLogs: opLabels(getLogsProviders) }, quorum: 2, // labels only, NEVER a URL (C-5)
       params: { cluster: cluster.id, block, from_block: args.fromBlock ?? null, min_interval_ms: args.minIntervalMs, retries: args.retries, backoff_ms: args.backoffMs, backoff_cap_ms: args.backoffCapMs, max_calls: args.maxCalls, prereg_sha: args.preregSha ?? null, resume: args.resume !== undefined },
       calls: budgeted.total(), calls_by_operator: budgeted.byOperator(), calls_by_method: budgeted.byMethod(), errors_by_operator: errByOp, excluded_operators: args.excludeOperators, seconds, finalized_block: fin.block, ukemi_sha: ukemiSha(here),
@@ -394,6 +433,7 @@ async function main(): Promise<void> {
       `  holders=${String(res.counts.holders)} at_risk=${String(res.counts.at_risk)} eligible=${String(res.counts.eligible)} ` +
       `excluded={coll_off:${String(res.counts.excluded_collateral_off)},no_debt:${String(res.counts.excluded_no_debt)},zero_bal:${String(res.counts.excluded_zero_balance)}}\n` +
       `  calls=${String(budgeted.total())}/${String(args.maxCalls)} by_operator={${perOp}} rpc_errors=${String(rpcErrors.length)} seconds=${seconds.toFixed(1)} ukemi_sha=${provenance.ukemi_sha}\n  out=${out}\n`);
+    return 0;
   } catch (e) {
     // D-3: a budget stop must never lose information — report what was seen (nAtRisk so far, calls per operator/method).
     if (e instanceof BudgetExceededError) {
@@ -404,10 +444,20 @@ async function main(): Promise<void> {
         `  seen: holders=${String(progress.holders)} config_read=${String(progress.config_read)} n_at_risk_config=${String(progress.n_at_risk_config)}\n` +
         `  calls=${String(budgeted.total())}/${String(args.maxCalls ?? 0)} by_operator={${perOp}} by_method={${perM}} errors={${perErr}}\n` +
         `  resume cache preserved; re-run --resume ONLY after a re-budget decision (R-26), never a silent raise.\n`);
-      process.exit(2);
+      return 2; // NOT process.exit: the finally must flush the concordance first; the wrapper maps 2 → exit(2)
     }
     throw e;
+  } finally {
+    // L-4: flush the per-pair concordance ALWAYS (success, budget stop, or a disagreement throw), so a run that
+    // abstains still leaves the observation it gathered before throwing. No-op when --concordance-out is absent.
+    if (args.concordanceOut !== undefined) flushConcordance(args.concordanceOut, concordance, new Date(deps.now()).toISOString());
   }
+}
+
+/** Thin wrapper: run the recorder with live deps, then map its exit code to process.exit AFTER the finally flush. */
+async function main(): Promise<void> {
+  const code = await runRecorder(process.argv.slice(2), realDeps);
+  if (code !== 0) process.exit(code);
 }
 
 // Run-guard: run main() only when record.ts is the process entry point (see isMainModule — cross-platform, the
