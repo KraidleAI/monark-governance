@@ -168,3 +168,54 @@ Deux couches, toutes deux requises.
 **Frontière.** Fusionner ce pli en laissant C-R-1 en simple « à faire » serait une divergence checklist/G7, donc une ESCALADE-INVESTISSEUR. Aucune décision de valeur ici.
 
 **Modèle résolu (R-1)** : `claude-fable-5-1`, effort high. Sondes : `F:\tmp\cp2-garde2a-r\probes\{r-transport,r-reconcile}.mts`. Journaux : `F:\tmp\cp2-garde2a-r\{ci,lint,ratchet,eslint-pkg}.log`.
+# Passe limitee GARDE-HELIUS-2a (pli 4585b20)
+
+# Passe sur pièces limitée — GARDE-HELIUS-2a, pli `4585b20`
+
+**Décision : ACCEPTE-AVEC-CORRECTIONS**, une correction bloquante avant fusion, C-R-3. C-R-1 est clos pour les formes annoncées, mais un préfixe de la clé fuit encore quand la troncature à 160 caractères coupe la clé avant l'expurgation.
+
+**Intégrité.** Le `transport.ts` de la copie est identique au blob HEAD (`c6018184…`). Après mes rejeux il est restauré à l'identique, HEAD reste `4585b20`, `status --porcelain` vaut 0, la jonction est retirée et le `node_modules` du worktree a toujours 218 entrées. Rejeux sous `F:\tmp\cp2-garde2a-r2\{src,probes}`, avec `fetch` bouchonné, des clés factices, aucun réseau et aucun `git` d'écriture.
+
+**Note.** Le diff `c6a112d..4585b20` compte 5 fichiers et non 3. Les deux en plus sont des documents persistés, `CHECKPOINT2-…-2a.md` et `G2-…-2a.md`. Rien ne sort du paquet ni de la doc.
+
+## Re-exécutions demandées
+- **Suite du paquet :** 46 tests sur 46 réussis.
+  - `transport_error_path_http_non_ok_keeps_body` est vert.
+  - Les deux nouveaux tests nommés sont verts.
+- **Mutant X2 :** ROUGE dans les deux variantes, `redact` et `scrubUrls` retirés ensemble, puis `redact` seul retiré.
+  - Tests rougis : `transport_error_never_echoes_operator_key` et `transport_error_drops_body_when_operator_url_unparseable`.
+- **Ma sonde 401** (`r-transport.mts`) : `leak=false`, le message se termine par `bad token <redacted>`.
+  - Le cas 429 avec URL complète donne toujours `<url>`.
+  - Le corps d'un HTTP 400 est conservé intact pour le découpage de plage.
+- **Formes de fuite de mon choix** (`r2-leakforms.mts`), bien expurgées (0 caractère de préfixe) :
+  - la clé Helius placée en query, écrite sans le préfixe `http(s)://` ;
+  - la clé en majuscules ;
+  - la clé percent-encodée en hexadécimal minuscule ;
+  - la clé dans un message d'erreur JSON-RPC long, chemin qui ne tronque pas.
+
+## Correction (liste fermée)
+- **C-R-3 (bloquant avant fusion).**
+  - **Défaut.** Aux lignes 128 et 134 de `transport.ts`, le corps est coupé par `.slice(0, 160)` avant d'être passé à `redact`. Une clé à cheval sur la coupure n'est plus reconnue.
+  - **Mesure.** Avec 150 caractères de remplissage puis la clé, 9 caractères sur 22 fuient (`… FAKEKEY-C`). Avec 145 caractères, 14 sur 22. La borne est la longueur de la clé moins un caractère, ce qui revient à la clé entière.
+  - **Exigé.**
+    - Expurger d'abord, tronquer ensuite, sur les deux chemins : réponse HTTP non-ok et corps non-JSON.
+    - Un test nommé où le corps place la clé à cheval sur le 160ᵉ caractère.
+    - Un mutant « tronquer avant d'expurger » qui le rougit.
+  - **`error_origin`.** Worker pour l'ordre des opérations. J'en prends une part : ma sonde du tour précédent n'avait pas testé la troncature.
+  - **Clôture.**
+    - Pas de nouvelle passe de ma part si l'orchestrateur rejoue `F:\tmp\cp2-garde2a-r2\probes\r2-leakforms.mts` sur le pli suivant et obtient `leakedPrefixChars=0` sur les deux cas tronqués. C'est une sonde non-LLM à sortie numérique.
+    - Le rejeu doit aussi trouver le corps 400 intact, et la G2-delta doit voir le mutant rouge.
+    - Si ce n'est pas le cas, je refais une passe.
+
+## Checklist
+- **CA-6 :** l'acceptation reste conditionnée à un PASS de la G2-delta, que je n'ai pas lue.
+- **CA-9 :** tout est re-exécuté par moi, aux chemins indiqués plus haut.
+- **CA-11 :** le paquet reste `upcoming`, avec 2b pour consommateur.
+
+## AM-1
+- **Attrapé :** l'ordre « tronquer puis expurger », qui laisse passer un préfixe de clé. Le test nommé ne le couvre pas, car son corps est court.
+- **Manqué :** rien de nouveau ne m'a été signalé.
+
+**Frontière.** Fusionner en laissant C-R-3 en simple « à faire » serait une divergence checklist/G7, donc une ESCALADE-INVESTISSEUR.
+
+**Modèle résolu (R-1)** : `claude-fable-5-1`, effort high.
