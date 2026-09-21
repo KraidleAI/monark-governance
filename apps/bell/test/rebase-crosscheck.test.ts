@@ -639,6 +639,16 @@ test("bell_crosscheck_ledger_chain_rederives_committing_page_payload — page_ev
   const withEvents = chainedLedgerEntry("0".repeat(64), 1, [{ sig: "a", slot: 10 }], pe, [])!;
   const withHandoffs = chainedLedgerEntry("0".repeat(64), 1, [{ sig: "a", slot: 10 }], [], ho)!;
   assert.notEqual(withEvents.entry_sha256, withHandoffs.entry_sha256, "different payloads => different entry_sha256 (payload committed)");
+  // C-V-1(ii) LITERAL expected-value vector (executable pre-registered form of Amendment 2): for this fixed synthetic
+  // payload the two hex are hard-coded, computed once with HEAD code AND confirmed INDEPENDENTLY of the helper by raw
+  // sha256(JSON.stringify({page_events:[the event], page_handoffs:[]})) over the written form / ingestion order (RENDU
+  // cites the node -e). A degenerate helper that hashes only the array LENGTHS (M-f-5) or inverts the payload key order
+  // (M-f-6) is consistent on both sides — so the edit tests pass — but yields a DIFFERENT hex HERE => reds. The event is
+  // ev("initialize", 1, 0, 10, 0, "a") (multiplierBitsHex 000000000000f03f); the core carries payload_sha256 LAST.
+  assert.equal(withEvents.payload_sha256, "a3b346f0de060d33c20a461fcb40d600417f9b6f52282cd1a14fda69da40fd8e",
+    "payload_sha256 == raw sha256(JSON.stringify({page_events:[the event], page_handoffs:[]})), a hard-coded literal (M-f-5 lengths-only / M-f-6 key-order => different hex => reds)");
+  assert.equal(withEvents.entry_sha256, "1e47da9efc918af3a74e7239677bf29c15a0fb1316f6a1e5fb2f9156c58cfbf4",
+    "entry_sha256 == raw sha256(JSON.stringify(core with payload_sha256 LAST)), a hard-coded literal (a degenerate payload commitment => different entry_sha256 => reds)");
   const recEvents: LedgerRecord = { ...withEvents, page_events: pe, page_handoffs: [] };
   assert.equal(verifyLedgerChain([recEvents]).ok, true, "a record whose payload re-derives its committed sha is ok");
   // SUBSTITUTE the payload but KEEP entry_sha256 (and its STORED payload_sha256) => the RE-DERIVED payload_sha256 differs
@@ -709,6 +719,35 @@ test("bell_crosscheck_resume_refuses_edited_payload — a resume onto a ledger w
   assert.equal(readFileSync(join(odB, "budget.json"), "utf8"), budgetB, "(b) budget.json is BYTE-IDENTICAL after the refusal");
   assert.equal(existsSync(join(odB, "crosscheck-SPYx.json")), false, "(b) NO crosscheck-SPYx.json written by the refused resume");
   assert.equal(existsSync(join(odB, "crosscheck-SPYx-attempt.json")), false, "(b) NO -attempt sidecar written by the refused resume");
+
+  // (d) C-V-1(i) EQUAL-LENGTH in-place edit: change ONE field of page_events[0] (multiplierBitsHex), keeping the array
+  // LENGTHS (page_events 1, page_handoffs 0) and entry_sha256. M-f-5 (helper hashes only {e:events.length,h:handoffs.length})
+  // sees no length change => verifies => NO refusal => reds. The honest verifier re-derives the FULL payload => refused.
+  const odD = mkdtempSync(join(tmpdir(), "bell-rep-d-"));
+  copyFileSync(lf, join(odD, "ledger-SPYx.jsonl")); copyFileSync(bf, join(odD, "budget.json"));
+  const recD = JSON.parse(readFileSync(join(odD, "ledger-SPYx.jsonl"), "utf8").trim()) as Record<string, unknown>;
+  const evsD = recD.page_events as MultiplierEvent[];
+  writeFileSync(join(odD, "ledger-SPYx.jsonl"), JSON.stringify({ ...recD, page_events: [{ ...evsD[0]!, multiplierBitsHex: f64BitsHexLE(2) }] }) + "\n"); // same lengths, one field changed, entry_sha256 kept
+  const budgetD = readFileSync(join(odD, "budget.json"), "utf8");
+  await assert.rejects(runMain(b1aArgs(sd, odD, 10), b1aDeps(resumeStub())), /chain does not re-derive/,
+    "(d) an EQUAL-LENGTH in-place field edit (multiplierBitsHex) is fail-closed (M-f-5 hashes only the array lengths => no change => no refusal => reds)");
+  assert.equal(readFileSync(join(odD, "budget.json"), "utf8"), budgetD, "(d) budget.json is BYTE-IDENTICAL after the refusal");
+  assert.equal(existsSync(join(odD, "crosscheck-SPYx.json")), false, "(d) NO crosscheck-SPYx.json written by the refused resume");
+  assert.equal(existsSync(join(odD, "crosscheck-SPYx-attempt.json")), false, "(d) NO -attempt sidecar written by the refused resume");
+
+  // (e) C-V-1(iii) C-F-1 via runMain: DELETE the payload_sha256 field on disk (keep entry_sha256 + the intact payload)
+  // => the presence guard refuses at the resume through the REAL CLI (not only the unit test), killing M-f-4 via runMain.
+  const odE = mkdtempSync(join(tmpdir(), "bell-rep-e-"));
+  copyFileSync(lf, join(odE, "ledger-SPYx.jsonl")); copyFileSync(bf, join(odE, "budget.json"));
+  const recE = JSON.parse(readFileSync(join(odE, "ledger-SPYx.jsonl"), "utf8").trim()) as Record<string, unknown>;
+  delete recE.payload_sha256; // absent field, entry_sha256 + page_events/page_handoffs intact
+  writeFileSync(join(odE, "ledger-SPYx.jsonl"), JSON.stringify(recE) + "\n");
+  const budgetE = readFileSync(join(odE, "budget.json"), "utf8");
+  await assert.rejects(runMain(b1aArgs(sd, odE, 10), b1aDeps(resumeStub())), /chain does not re-derive/,
+    "(e) a record whose payload_sha256 field is DELETED on disk is refused at the resume via runMain (C-F-1 integration; M-f-4 tolerates absence => resume proceeds => no refusal => reds)");
+  assert.equal(readFileSync(join(odE, "budget.json"), "utf8"), budgetE, "(e) budget.json is BYTE-IDENTICAL after the refusal");
+  assert.equal(existsSync(join(odE, "crosscheck-SPYx.json")), false, "(e) NO crosscheck-SPYx.json written by the refused resume");
+  assert.equal(existsSync(join(odE, "crosscheck-SPYx-attempt.json")), false, "(e) NO -attempt sidecar written by the refused resume");
 });
 
 // ---- L-b1a-5 / C-B-5: a torn queue is truncated at resume; a corruption before the queue is fail-closed --------------
