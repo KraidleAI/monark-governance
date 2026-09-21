@@ -79,12 +79,36 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const onErr = opts.onTransportError;
   // Raise the CANONICAL typed transport fault (C-V-2). The message is SCRUBBED of every URL/key; the hook gets the
-  // label + error NAME + CODE only (never the URL). `detail` (a scrubbed server body/message) is kept in the message
+  // label + error NAME + CODE only (never the URL). `detail` (a REDACTED server body/message) is kept in the message
   // so a downstream getLogsVia can split a range on an HTTP 400 body.
+  // C-R-1: scrubUrls only strips http(s):// URLs, but a 401 body can echo `host/KEY` SCHEME-LESS, and the Chainstack
+  // key is a PATH SEGMENT of CHAINSTACK_ETH_URL (calque rpc.ts redactEndpoint: the key lives in the path/query). So
+  // for THIS operator we expunge from the body: the full URL, its scheme-less host+path, the host, every non-trivial
+  // path segment (the key), and every query value. FAIL-CLOSED: no url for the operator, or an unparseable url, means
+  // the body is NOT reprised at all (dropped) - the range-split hint is worth nothing next to a leaked key.
+  // Path tokens that are STRUCTURAL, never a secret (so "non-trivial" is structural, not a length guess): a key is any
+  // OTHER path segment, of any length. A server body may echo a secret in a different CASE, PERCENT-encoded, or inside
+  // JSON escaping - so we build ONE case-insensitive regex over every form (raw + encodeURIComponent + JSON-escaped).
+  const TRIVIAL_SEG = new Set(["v1", "v2", "v3", "rpc", "eth", "api", "ws", "wss", "http", "https", "mainnet", "core", "node"]);
+  const redact = (op: string, detail: string): string => {
+    if (detail === "") return "";
+    const url = urls.get(op);
+    if (url === undefined) return "";
+    let u: URL;
+    try { u = new URL(url); } catch { return ""; } // FAIL-CLOSED: an unparseable operator url => the body is NOT reprised
+    const targets = new Set<string>([url, u.host, u.hostname, u.host + u.pathname, u.hostname + u.pathname]);
+    for (const seg of u.pathname.split("/")) if (seg.length > 0 && !TRIVIAL_SEG.has(seg.toLowerCase())) { targets.add(seg); targets.add(encodeURIComponent(seg)); } // the key
+    for (const v of u.searchParams.values()) if (v.length > 0) { targets.add(v); targets.add(encodeURIComponent(v)); } // api-key etc.
+    for (const t of [...targets]) targets.add(JSON.stringify(t).slice(1, -1)); // the JSON-escaped form (a real body is JSON)
+    const escaped = [...targets].filter((t) => t.length >= 3).sort((a, b) => b.length - a.length).map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    const out = scrubUrls(detail);
+    return escaped.length === 0 ? out : out.replace(new RegExp(escaped.join("|"), "gi"), "<redacted>");
+  };
   const raise = (op: string, name: string, code: number | undefined, detail: string): never => {
     if (onErr) onErr(op, name, code);
+    const clean = redact(op, detail);
     const codeStr = code !== undefined ? ` (code ${String(code)})` : "";
-    const detailStr = detail !== "" ? `: ${scrubUrls(detail)}` : "";
+    const detailStr = clean !== "" ? `: ${clean}` : "";
     throw new TransportError(op, scrubUrls(`rpc-guard: ${name} for operator '${op}'${codeStr}${detailStr}`), name, code);
   };
   const transport: Transport = async (op, method, params) => {

@@ -185,13 +185,13 @@ test("prior_is_frozen_after_lock", () => {
 // call and returns the thrown error + the hook observations.
 const CS_ENV = { CHAINSTACK_ETH_URL: "https://SECRET-KEY-9z9z.example.invalid/rpc" };
 const CS_LIMITS: RunLimits = { maxCalls: 100, runCaps: { chainstack: 1000 }, methodCaps: { eth_call: 100 }, cycleFloor: { chainstack: 0 } };
-async function driveTransport(fetchStub: typeof globalThis.fetch, timeoutMs = 60): Promise<{ err: unknown; seen: Array<[string, string, number | undefined]> }> {
+async function driveTransport(fetchStub: typeof globalThis.fetch, timeoutMs = 60, env: Record<string, string | undefined> = CS_ENV): Promise<{ err: unknown; seen: Array<[string, string, number | undefined]> }> {
   const { dir, cleanup } = tmp();
   const realFetch = globalThis.fetch;
   globalThis.fetch = fetchStub;
   const seen: Array<[string, string, number | undefined]> = [];
   try {
-    const client = openGuardedClient(CS_ENV, CS_LIMITS, dir, { chainstack: "cyc" }, { timeoutMs, onTransportError: (op, name, code) => { seen.push([op, name, code]); } });
+    const client = openGuardedClient(env, CS_LIMITS, dir, { chainstack: "cyc" }, { timeoutMs, onTransportError: (op, name, code) => { seen.push([op, name, code]); } });
     let err: unknown;
     try { await client.call(CHAINSTACK, "eth_call", [{}, "0x1"]); } catch (e) { err = e; }
     return { err, seen };
@@ -221,6 +221,35 @@ test("transport_error_path_non_json_body", async () => {
   assert.ok(err instanceof TransportError && err.name === "NonJsonBody" && err.code === 200, "a non-JSON 200 body => typed fault, not a silent value");
   noUrl(err);
   assert.deepEqual(seen, [["chainstack", "NonJsonBody", 200]]);
+});
+
+test("transport_error_never_echoes_operator_key", async () => {
+  // C-R-1: the Chainstack key is a PATH SEGMENT (and here also a query value) of CHAINSTACK_ETH_URL. A 401 body that
+  // echoes it SCHEME-LESS, in MIXED case, or inside JSON must not leak it - scrubUrls (http(s):// only) is not enough.
+  const HOST = "cs-node.example.invalid", PKEY = "FAKEKEY-PATH-9z9z9z9z", QKEY = "FAKEKEY-QUERY-8y8y8y8y";
+  const env = { CHAINSTACK_ETH_URL: `https://${HOST}/${PKEY}?api-key=${QKEY}` };
+  const body = [
+    `${HOST}/${PKEY}`,                       // host + path key, scheme-less
+    `${HOST.toUpperCase()}/${PKEY}`,         // MIXED (upper) case host
+    PKEY, QKEY,                              // path key alone, query key alone
+    `https://${HOST}/${PKEY}?api-key=${QKEY}`, // the full URL
+    `{"error":"unauthorized ${QKEY}"}`,      // JSON-shaped (a real Chainstack body is JSON)
+  ].join(" ; ");
+  const { err, seen } = await driveTransport(() => Promise.resolve(new Response(body, { status: 401 })), 60, env);
+  assert.ok(err instanceof TransportError && err.code === 401, "typed TransportError, code 401 preserved");
+  const msg = err instanceof Error ? err.message : String(err);
+  assert.doesNotMatch(msg, /FAKEKEY-PATH|FAKEKEY-QUERY/i, `an operator KEY leaked into the message: ${msg}`);
+  assert.doesNotMatch(msg, /cs-node\.example\.invalid/i, `the operator HOST leaked into the message: ${msg}`);
+  assert.deepEqual(seen, [["chainstack", "HttpError", 401]], "hook got (label, name, code) only - never the body");
+});
+
+test("transport_error_drops_body_when_operator_url_unparseable", async () => {
+  // C-R-1 FAIL-CLOSED: if the operator URL is unparseable, the body cannot be redacted, so it is NOT reprised at all
+  // (the range-split hint is worth nothing next to a leaked key). Mutant "fail-closed => open" (return scrubUrls) reds.
+  const KEY = "FAKEKEY-RAW-7x7x7x";
+  const { err } = await driveTransport(() => Promise.resolve(new Response(`401: not-a-url-${KEY} rejected`, { status: 401 })), 60, { CHAINSTACK_ETH_URL: `not-a-url-${KEY}` });
+  assert.ok(err instanceof TransportError && err.code === 401);
+  assert.doesNotMatch(err instanceof Error ? err.message : String(err), new RegExp(KEY), "an unparseable url must DROP the body, not reprise it raw");
 });
 
 test("transport_error_path_json_rpc_error_never_resolves_undefined", async () => {
