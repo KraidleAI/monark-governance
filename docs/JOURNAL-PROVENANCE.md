@@ -343,3 +343,5 @@ Pré-vérifications machine (orchestrateur) : champs `AttestedPrice` ↔ `Temoig
   > checkpoint-1** (étape O-2) ; **O-1/O-2/O-3 = worker** (couverture perfectible ; aucun faux-vert sur l'artefact réel) ;
   > **C2-1 = worker (pli G2)**, cause contributive **pli non relu** (adressée par C2-4) ; C2-6 = **trou antérieur au lot**
   > (même fragilité d'ancrage sur `continue-on-error`, test 38).
+
+- **2026-09-21 01:34 UTC — G7 lot Bell T-1a-ii-b3d-a ACCEPTÉ, fusion `83da61d`** (orchestrateur `claude-fable-5-1`) ; gel `38d94ea` 506/506, arbre fusionné 533/533 ; aucun appel réseau ; pré-enregistrement §2 `7071484f…` inchangé ; générateur et plis `claude-opus-4-8[1m]` ; G2 / G2 delta / G2 delta-2 = trois instances SÉPARÉES `claude-opus-4-8[1m]` ; checkpoint-1 et checkpoint-2 = validateur-humain `claude-fable-5-1` ; `error_origin` détaillés dans `docs/PLI-lot-t1a-ii-b3d.md` ; défaut C-V-1 (reprise terminale) trouvé par le checkpoint-2, porté par -b3d-b avant tout tirage.

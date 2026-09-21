@@ -337,3 +337,38 @@ Validateur `claude-fable-5-1` (2026-09-20 23:41→23:53 UTC, artefacts `f5996a0`
 
 ### Décision investisseur 94 (2026-09-21, consigné 00:55 UTC)
 - **94 — conditions SIMPLES pour le release** (verbatim : « on met des conditions simples pour le moment, ce que tu m'avais proposé au début. pas de pays, pas d autre chose, jusqu ace que la société kraidle soit créé sur stripe atlas, ce qu'on fera ensemble »). Effets : (i) au release, Bell porte un DISCLAIMER court + des conditions courtes (faits attestés, pas un conseil ; « as is » ; signature = origine, pas vérité ; aucun endorsement ; rejeu = licence de close propre au lecteur) — AUCUN pays, AUCUNE forme juridique, AUCUN droit applicable tant que la société n'existe pas ; (ii) supersède l'apport « pays USA » de ce jour et SUSPEND le pli « éditeur US » ; (iii) item formé **LEGAL-ATLAS** : à la création de KraidleAI via Stripe Atlas (faite ensemble, investisseur + orchestrateur), compléter identité de l'éditeur, droit applicable, juridiction, notice de confidentialité complète, puis relecture juriste — déclencheur : société créée ; propriétaire : investisseur + orchestrateur. **Résiduel déclaré par l'orchestrateur** : le lien `mailto:` collecte des données personnelles (nom, mail, organisation) ; sans entité nommée, la mention de confidentialité courte désignera « the MONARK project » et la boîte de contact comme point de contact, avec finalité, durée (3 ans, CNIL [lu]) et droit d'opposition — c'est le minimum honnête ; une identité juridique complète reste due à LEGAL-ATLAS.
+
+
+### G7 — lot Bell T-1a-ii-b3d-a : ACCEPTÉ (orchestrateur `claude-fable-5-1`, 2026-09-21 01:34 UTC, horloge) — fusion `83da61d`
+- Gel `38d94ea` : `npm run ci` complet **506/506** ; arbre fusionné `83da61d` : `npm run ci` complet **533/533** (lancés sans `HELIUS_API_KEY` ni `BELL_SOLANA_RPC` dans l'environnement). R-25 : 1 130 (ins + del, pathspec `ci.yml:65`) ≤ 1 205. `PINNED_BELL_SHA` inchangé ; pré-enregistrement §2 sha `7071484f…` identique à `cb25d60`, `eb54baa`, `0dd13ca`, `0585f88`, `38d94ea` ; **AUCUN appel réseau n'a été fait par ce lot** ; Bell reste `upcoming` partout.
+- Chaîne de revue : G2 fraîche (relecteur séparé Opus 4.8 : unité appels/crédits — C-G2-1) → pli → G2 delta (relecteur séparé : `--max-pages` manquant) → pli → G2 delta-2 (relecteur séparé : 2 mutants survivants) → pli test-seul → checkpoint-2 (validateur `claude-fable-5-1` : défaut SOURCE de reprise terminale C-V-1, manqué par les trois G2) → pli docs. `error_origin` : table complète dans `docs/PLI-lot-t1a-ii-b3d.md` (§Pli checkpoint-2) ; C-G2-1 = worker PLI + orchestrateur (A-4 a vérifié la division, pas l'unité).
+- **SONDE (≤ 1 500 cr) — conditions du go** : (1) lecture du tableau de bord Helius PAR L'INVESTISSEUR (consommation du cycle + consommation gTfA depuis 2026-09-20 21:42 UTC ; attendu 0 ; non nul ⇒ STOP + incident) ; (2) `F:/tmp/bell-b3d-run` absent ; (3) `BELL_SOLANA_RPC` à deux opérateurs distincts ; (4) commande exacte du PLI §7 sur les 4 mints, même `--out` ; (5) point (g) convention d'index sinon STOP ; (6) la sonde ne calibre pas H6 et le TIRAGE NE S'ENCHAÎNE PAS. Phase B de T-1a-iii après la sonde (décision 84).
+- **TIRAGE BLOQUÉ** jusqu'au lot **-b3d-b** (pli source + G2 fraîche + checkpoint-2 delta) : C-V-1 (reprise après épuisement ⇒ `end_anchor_mismatch` permanent, et écrasement d'un artefact `equal` ; + décision sur le retry gTfA), C-V-2 (`credits_recomputed` cumulatif), C-V-3 (engagement de chaîne du ledger testé), C-V-4 (H6 : Amendement 3 à sous-plafonds cumulatifs par mint, ou code de projection), ordre d'append fermé, helper de densité + (c)(d), C-V-9 ; + L-1 prod, L-5, retrait de `pending` ; C-V-8 : l'ADR D1-quater publiera aussi H1 stricte. Item orchestrateur : `docs/RESSOURCES-HELIUS-2026-09-19.md:30` périmé.
+
+#### Registre durable porté du PLI (verbatim)
+## 2.` → ligne avant le `---` **inchangé** `7071484f3444abe6c09b694f730ad2fcce2f00ea8c12e8cc39fc31806a3c7867` (recomputé avant/après ce pli ; méthode `awk '/^## 2\./{f=1} f&&/^---/{exit} f' docs/PLI-lot-t1a-ii-b3d.md | sha256sum`). **R-20** : le worker ne committe pas. Aucun appel réseau. Avis validateur-humain `claude-fable-5-1` (2026-09-21 00:42→01:02 UTC, état `0585f88`, `docs/CHECKPOINT2-lot-t1a-ii-b3d-a.md`) : **ACCEPTE-AVEC-CORRECTIONS** — G7 hors ligne + fusion de -b3d-a possibles une fois les corrections « avant G7 » pliées ; SONDE sous conditions (§Conditions de la sonde) ; **TIRAGE bloqué par C-V-1..4** (§Registre durable). Le pli test-seul `0585f88` **n'exige PAS** de quatrième G2.
+
+### Corrections AVANT G7 (pliées ici, docs seuls)
+- **C-V-4 — item formé (résolution avant TIRAGE)** : H6 pré-enregistré (§2 : projection EN VOL à `f = 0,05`, STOP si projection > 6,5 M) n'a **NI implémentation NI item formé** ; les sous-plafonds §3(f) ne sont dans **AUCUNE commande** (§7 passe `--max-credits 6497500` à chaque mint). Item **formé maintenant** (registre durable, ligne 4) ; substitut SANS code = sous-plafonds **CUMULATIFS** par mint en `--max-credits` (le compteur partagé `budget.json` le permet) par un **Amendement 3** daté (§2 inchangé) — **NON rédigé ici** (écrit avec le pli source -b3d-b). `error_origin` : worker G1 + les trois G2 (tuyau pré-enregistré sans item).
+- **C-V-5 — heures du journal** : corrigées en UTC réel (le fuseau +01:00 était étiqueté « UTC ») — voir la note « Correction checkpoint-2 » du bloc **JOURNAL** ci-dessus (recompute de première main `TZ=UTC git log`). **Renvoi G0 FAIT** : ligne datée ajoutée EN TÊTE de `docs/G0-lot-t1a-ii-b3d.md` (H1/H2 + §Comparateur supersédés par Amend. 1(2)/2(3) dans le texte PLI ; DÉV-1 adjugée ; corps G0 non réécrit).
+- **C-V-7 — item A-6 (relecture décision 52) CONSIGNÉ FAIT** : `docs/CHANTIERS.md:117` (**DÉCISION INVESTISSEUR 52**, « le juriste fit GO ») couvre la publication des **séries réduites recalculées on-chain publiques** (VWAP, décomptes, digests dérivés des RPC Helius/Chainstack), **bruts hors dépôt sha-pinnés** (option c) [lu] — rien de plus dû.
+- **C-V-8 — exigence de l'ADR D1-quater à venir** : l'ADR final ne publiera **QUE si H1 STRICTE** (`fieldDiffs` **vides** sur 4/4) tient AUSSI, **en plus** de H1 relâchée (DÉV-1). Consigné comme exigence ; **l'ADR n'est PAS rédigé ici**.
+- **`error_origin` (assignés au checkpoint-2 ; confirmation au G7)** :
+
+| Défaut | `error_origin` |
+|---|---|
+| **C-G2-1** | worker PLI (§3/§7) + orchestrateur (A-4 a vérifié la division, PAS l'unité) |
+| **C-G2-2** | worker -b3d-a (déviation 3) + spéc G0 §Comparateur + validateur checkpoint-1 |
+| **C-G2-3/4/5/6** | worker -b3d-a (oracle G1) |
+| **C-G2-7** | worker G0 (clé H1 avec `instructionIndex` **sans convention établie**) + validateur checkpoint-1 + course -b3a (bruts non archivés) |
+| **C-G2D-1..4** | tels que consignés (§PLI G2 delta, table l.163-169) |
+| **C-G2D2-1..3** | tels que consignés (§PLI G2 delta-2, table l.203-208) |
+| **C-V-1** | worker G1 (C-7 b) + G2 + G2-delta + G2-delta-2 (reprise testée **seulement EN COURS de scan**) + validateur checkpoint-1 (C-8 n'exigeait pas le croisement **reprise × ancre**) |
+| **C-V-2** | worker du pli G2 + G2 (C-G2-3 n'exigeait pas le **cumul**) |
+| **C-V-3** | gap d'oracle (**code correct**) non attrapé par les trois G2 — à confirmer au G7 |
+| **C-V-4** | worker G1 + les trois G2 (tuyau pré-enregistré H6 sans item) |
+| **C-V-9** | test de rejeu construit à la main (non probant CA-11 durci) — à confirmer au G7 |
+
+- Item `docs/RESSOURCES-HELIUS-2026-09-19.md:30` périmé = **item orchestrateur** (hors périmètre d'édition de ce lot ; **NON touché** ici).
+
+---
