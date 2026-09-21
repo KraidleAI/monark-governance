@@ -7,9 +7,9 @@
 // the real `process.exitCode`), with `fetch` replaced by a method-aware stub (`node --import`) DERIVED from the
 // committed capture `fixtures/narabi-timeline-2026-09-19.jsonl` (C-7) — no network. The stub is written to an
 // OS-temp dir at test time (never committed: no `.mjs` may live under fixtures, series_pinned condition c).
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, mkdtempSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -99,6 +99,17 @@ function seedState(nLines: number): string {
   writeFileSync(join(dir, "timeline.jsonl"), raw.slice(0, nLines).join("\n") + "\n");
   return dir;
 }
+
+// L-4 (inherited item ii, G7-lot-narabi-ops-1 :27): this suite's mkdtemp scratch was never cleaned, leaking one
+// narabi-retry-* dir under the OS tmp on every run (measured 2026-09-20). Remove it after the suite; the
+// non-vacuity assert (scratch WAS allocated) keeps the cleanup from being a silent no-op.
+after(() => {
+  assert.notEqual(scratch, null, "the suite must have allocated a scratch dir (non-vacuous cleanup)");
+  if (scratch !== null) {
+    rmSync(scratch, { recursive: true, force: true });
+    assert.equal(existsSync(scratch), false, "the scratch dir is removed after the suite (no mkdtemp leak)");
+  }
+});
 
 interface EndJson { processedDays: string[]; lag: number; stopped: string | null; T: number; chainstack: boolean; exit_code: number; dryRun: boolean; }
 interface RunResult { status: number; stdout: string; end: EndJson; }

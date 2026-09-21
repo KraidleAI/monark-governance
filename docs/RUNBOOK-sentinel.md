@@ -126,8 +126,10 @@ reload caddy`. Disable the job with `systemctl disable --now monark-sentinel.tim
 Sections 0–5 are the FIRST install (`useradd`, the J0 drop-in, `enable --now`). Lot NARABI-OPS-1 ships onto a
 timer that is ALREADY active with a NON-EMPTY state, so the procedure differs: do NOT re-lay the J0 drop-in
 (the run RESUMES, `j0Source: state`), and use `restart`, not `enable --now`. Run it from the orchestrator over
-the usual SSH channel (`ssh -i ~/.ssh/monark_vps root@31.97.155.188`), archiving from `main` HEAD AFTER the G7
-merge — never from a lot worktree branch.
+the usual SSH channel (`ssh -i ~/.ssh/monark_vps root@31.97.155.188`), archiving from the **named G7 merge SHA** of the integration branch (`git archive <sha>` — the SHA is the one
+recorded in `docs/JOURNAL-PROVENANCE.md` for the lot; amended 2026-09-21, investor decision 72 « par SHA ») —
+never from a moving `HEAD`, never from a lot worktree branch. After the deploy, `sha256sum` of the shipped units is
+compared with the archive's.
 
 ```bash
 cd /opt/monark-harness
@@ -183,9 +185,15 @@ healthy run is a STOP-and-investigate. Then record the FIRST run of **each** of 
   later retry slot the same day re-runs it; `journalctl -u monark-sentinel` shows the non-zero exit plus the
   `stopped` / `exit_code` / `chainstack` fields. The manual relaunch of 2026-09-20 is now automatic within the day.
 
-## Sonde externe — pli NARABI-OPS-1b
+## Sonde externe — NARABI-OPS-1b
 
-The external probe (reads the published `/narabi/timeline.jsonl` from the **Bell VPS**, a distinct host, and
-exits 1 if the last line is older than J-1) is **deferred to pli NARABI-OPS-1b** (R-25 budget, C-11). Its full
-spec is in `docs/adr/ADR-NARABI-OPS-1.md` (§Deferral of L-5). Until then, monitor by hand: `curl -s
-https://monarkgate.tech/narabi/timeline.jsonl | tail -1` — the last `day` should be yesterday (UTC) after 10:00.
+The external probe (`scripts/probe-narabi.mjs`, units `deploy/monark-probe.{service,timer}`) reads the published
+`/narabi/timeline.jsonl` from the **Bell VPS** (a distinct host), recomputes the whole hash chain, checks that the
+last line is not older than J-1 at the 10:30 UTC deadline, and writes `narabi.json` (exit 1 iff unhealthy).
+**State (sub-lot -1b-i, merged): code + non-LLM tests; NOT deployed.** Alerting (mail) and the daily reminder are
+sub-lot **-1b-ii**; the probe is deployed on Bell only after -1b-ii-a AND -1b-ii-b have passed their gates
+(investor decision 72), by SHA. Deadline basis: measured publishing run of 2026-09-21 (start 00:47:55 UTC, exit
+00:48:20 UTC, 25.481 s wall clock, `chainstack: true`, 1 line written, T=3) => D <= 600 s, so 10:30 UTC is kept.
+**Residual, declared: a dead probe is silent** (no dead-man switch yet — formed item, trigger: G0 T-1b). Until the
+probe is deployed, monitor by hand: `curl -s https://monarkgate.tech/narabi/timeline.jsonl | tail -1` — the last
+`day` should be yesterday (UTC) after 10:00.
