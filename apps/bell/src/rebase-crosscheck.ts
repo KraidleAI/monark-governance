@@ -422,6 +422,61 @@ export function compareToHybrid(scan: FullMintScan, series: HybridSeries): Cross
   return { verdict: "divergence", missingFromFullmint, missingFromSeries, fieldDiffs, tripletDiff: [] };
 }
 
+// ---- density sonde H6 (L-b1b; PLI §3(c) + Amendement 3(4)): pure estimator + out-of-process projection -----------
+/** L-b1b-1: the sonde samples DENSITY_POINTS uniform points on [genesis_slot, oracle_slot] (plus 1 genesis probe),
+ *  so 1 + DENSITY_POINTS = 9 gTfA calls/mint => <= 36 for the 4 mints. */
+export const DENSITY_POINTS = 8;
+
+/** One sample of the pre-registered density model (a sonde-report.json points[] element): the grid slot, the raw tx
+ *  count of that point's gTfA `full limit:GTFA_PAGE_LIMIT slot.gte=slot` page, the page's measured slot span
+ *  (lastSlot - firstSlot), and the LOCAL density tx/slot (PLI §3(c) l.60 "mesurer tx/slot local"): span > 0 ?
+ *  tx/span : 0 (a degenerate 0/1-tx or same-slot page reads 0 local density — the sparse-tail fencepost, declared). */
+export interface DensityPoint {
+  readonly slot: number;
+  readonly tx: number;
+  readonly span: number;
+  readonly density: number;
+}
+
+/** Trapezoidal integration of a density sampled at nodes (Amendement 3(4)): the PROJECTED tx count is
+ *  Σ_j ((d_j + d_{j+1})/2)·(slot_{j+1} - slot_j) over the K-1 segments; the [min,max] envelope substitutes the min /
+ *  max of the two adjacent densities per segment. This is the per-segment integral, NEVER density_max × span (a
+ *  coarse majorant that over-projects — the Amendement 3(4) REJECT, exercised by the M-b1b-14 mutant). Pure. Nodes are
+ *  taken in the given order; fewer than 2 nodes => {0,0,0} (no segment). */
+export function trapezoidIntegral(points: readonly { readonly slot: number; readonly density: number }[]): { readonly projected: number; readonly min: number; readonly max: number } {
+  let projected = 0, min = 0, max = 0;
+  for (let j = 0; j + 1 < points.length; j++) {
+    const a = points[j]!, b = points[j + 1]!;
+    const w = b.slot - a.slot;
+    projected += ((a.density + b.density) / 2) * w;
+    min += Math.min(a.density, b.density) * w;
+    max += Math.max(a.density, b.density) * w;
+  }
+  return { projected, min, max };
+}
+
+/** L-b1b-2 (Amendement 3(1)(ii)): the PURE, out-of-process H6 projection the orchestrator runs at a fixed fraction of
+ *  the span (reading slot_hi from the ledger + genesis_slot / the density model from sonde-report.json), NEVER hot in
+ *  a draw. Projects the WHOLE scan's page count as max(linear, density):
+ *   · linear  = pagesSoFar / fraction, fraction = (slotHi - genesisSlot)/(oracleSlot - genesisSlot);
+ *   · density = trapezoidIntegral(model).projected (a tx count) / GTFA_PAGE_LIMIT (a full gTfA page holds
+ *     GTFA_PAGE_LIMIT txs), i.e. the per-segment integral converted to pages — NEVER density_max × span.
+ *  max keeps the higher (never under-stated) of the two. Fail-closed on invalid input — span <= 0, fraction <= 0, a
+ *  model with < 2 points, or points not strictly sorted by slot — THROWS, never a silent 0 masking an unbounded draw. */
+export function projectPagesAtFraction(slotHi: number, genesisSlot: number, oracleSlot: number, pagesSoFar: number,
+  densityModel: readonly { readonly slot: number; readonly density: number }[]): number {
+  const span = oracleSlot - genesisSlot;
+  if (!(span > 0)) throw new Error("bell/collect: projectPagesAtFraction span <= 0 (oracle_slot must exceed genesis_slot; H6 fail-closed, never 0)");
+  const fraction = (slotHi - genesisSlot) / span;
+  if (!(fraction > 0)) throw new Error("bell/collect: projectPagesAtFraction fraction <= 0 (slot_hi must exceed genesis_slot; H6 fail-closed, never 0)");
+  if (densityModel.length < 2) throw new Error("bell/collect: projectPagesAtFraction density model has < 2 points (cannot integrate; H6 fail-closed, never 0)");
+  for (let j = 1; j < densityModel.length; j++)
+    if (densityModel[j]!.slot <= densityModel[j - 1]!.slot) throw new Error("bell/collect: projectPagesAtFraction density model points are not strictly sorted by slot (H6 fail-closed, never 0)");
+  const linear = pagesSoFar / fraction;
+  const density = trapezoidIntegral(densityModel).projected / GTFA_PAGE_LIMIT;
+  return Math.max(linear, density);
+}
+
 // ---- CLI (--rebase-crosscheck; run-guarded main only) -------------------------------------------------------------
 /** Load a committed hybrid series (rebase-<MINT>.json) as the comparator's target: oracle_slot + oracle_triplet
  *  (the COMMITTED C-3 anchor, C-2) + events + `method`. Same loader offline (a --series-dir temp) and live (the
@@ -623,4 +678,68 @@ export async function runRebaseCrosscheckCli(call: JsonRpcCall, providers: reado
     per_mint: perMint, calls_used: callsUsed(), max_calls: maxCalls };
   writeFileSync(resolve(out, "crosscheck-report.json"), JSON.stringify(report, null, 2));
   process.stdout.write(`bell/rebase-crosscheck operators=${report.operators.join(",")} calls=${String(callsUsed())}/${String(maxCalls)} out=${out}\n`);
+}
+
+/** L-b1b-1 (PLI §3(c) sonde de density) — per wanted mint: MEASURE the genesis slot (1 gTfA `full` asc limit:1
+ *  slot.lte = the series' committed oracle_slot, NEVER date-estimated), sample DENSITY_POINTS uniform points on
+ *  [genesis_slot, oracle_slot] (1 gTfA `full` asc limit:GTFA_PAGE_LIMIT slot.gte = point each), read each page's
+ *  LOCAL density tx/slot, and trapezoid-integrate to a projected tx count N with a [min,max] envelope (Amendement
+ *  3(4)). Writes sonde-report.json (out of tree) + the SHARED budget.json — its calls_by_method.global is fed by the
+ *  b1a budgeted layer (callsByMethod), so Σ == calls_used across the sonde AND the later draw on the same --out. It
+ *  writes NEITHER a ledger-<MINT>.jsonl (a sparse point would poison resumeFromLedger) NOR a crosscheck-<MINT>.json.
+ *  Every call goes through the injected budgeted `call` (counted; a BudgetExceededError fail-closes, the finally still
+ *  persists the counter). gTfA is Helius-exclusive, so ONLY getTransactionsForAddress is metered. require_full_pages is
+ *  persisted so a subsequent STRICT crosscheck draw resuming on the same --out is not refused by the mode guard (:566). */
+export async function runDensityProbeCli(call: JsonRpcCall, providers: readonly string[], wanted: readonly string[],
+  seriesDir: string, out: string, opts: { readonly requireFullPages?: boolean },
+  callsUsed: () => number, callsByMethod: () => Record<string, number>, maxCalls: number): Promise<void> {
+  mkdirSync(out, { recursive: true });
+  const heliusOp = providers.find((u) => operatorOf(u) === "helius") ?? providers[0] ?? ""; // gTfA is Helius-exclusive
+  const prior = readPriorBudget(out);
+  const requireFullPages = opts.requireFullPages ?? true;
+  const byMint: Record<string, Record<string, number>> = { ...prior.byMint };
+  const retriesByMethod: Record<string, number> = { getTransactionsForAddress: 0, getTransaction: 0, ...prior.retries };
+  const gm = (): { getTransactionsForAddress: number; getTransaction: number } => ({ getTransactionsForAddress: 0, getTransaction: 0, ...callsByMethod() }); // global cumulative, both keys present
+  const writeBudget = (): void =>
+    writeFileSync(resolve(out, "budget.json"), JSON.stringify({ calls_used: callsUsed(), credits_worst_case: callsUsed() * WORST_CASE_CREDITS_PER_CALL,
+      pages: 0, calls_by_method: { global: gm(), by_mint: byMint }, retries_by_method: retriesByMethod, require_full_pages: requireFullPages }));
+  const gtfa = (address: string, slotFilter: Record<string, number>, limit: number): Promise<Record<string, unknown>> =>
+    call(heliusOp, "getTransactionsForAddress", [address, { transactionDetails: "full", sortOrder: "asc", limit, filters: { slot: slotFilter } }]).then(asObj);
+  const report: Record<string, unknown> = {};
+  try {
+    for (const tok of XSTOCKS.filter((t) => wanted.includes(t.symbol))) {
+      const symbol = tok.symbol;
+      const series = loadHybridSeries(seriesDir, symbol);
+      if (series === null) { report[symbol] = { error: "no_committed_series" }; continue; }
+      const oracleSlot = series.oracle_slot;
+      const t0 = Date.now();
+      const priorSlice = { getTransactionsForAddress: 0, getTransaction: 0, ...(prior.byMint[symbol] ?? {}) };
+      const before = gm(); // snapshot at mint start => the mint's slice is idempotent across resumes (calque runRebaseCrosscheckCli)
+      const setSlice = (): void => { const now = gm(); byMint[symbol] = {
+        getTransactionsForAddress: priorSlice.getTransactionsForAddress + (now.getTransactionsForAddress - before.getTransactionsForAddress),
+        getTransaction: priorSlice.getTransaction + (now.getTransaction - before.getTransaction) }; };
+      // genesis MEASURED (never date-estimated, M-b1b-11): the oldest tx <= oracle_slot (asc limit:1, slot.lte only).
+      const gFirst = normalizeBody(asArr((await gtfa(tok.address, { lte: oracleSlot }, 1)).data)[0]);
+      if (gFirst === null || gFirst.slot >= oracleSlot) { report[symbol] = { error: "no_measured_genesis", oracle_slot: oracleSlot }; setSlice(); writeBudget(); continue; }
+      const genesisSlot = gFirst.slot;
+      const pointSlots: number[] = [];
+      for (let j = 0; j < DENSITY_POINTS; j++) pointSlots.push(Math.round(genesisSlot + (j * (oracleSlot - genesisSlot)) / (DENSITY_POINTS - 1)));
+      if (pointSlots.some((s, i) => i > 0 && s <= pointSlots[i - 1]!)) { report[symbol] = { error: "degenerate_span", genesis_slot: genesisSlot, oracle_slot: oracleSlot }; setSlice(); writeBudget(); continue; }
+      const points: DensityPoint[] = [];
+      for (const pointSlot of pointSlots) {
+        const slots = asArr((await gtfa(tok.address, { gte: pointSlot }, GTFA_PAGE_LIMIT)).data)
+          .map((b) => normalizeBody(b)).filter((nb): nb is NonNullable<typeof nb> => nb !== null).map((nb) => nb.slot);
+        const tx = slots.length;
+        const span = tx > 0 ? Math.max(...slots) - Math.min(...slots) : 0; // page's measured slot span (fencepost lastSlot - firstSlot)
+        points.push({ slot: pointSlot, tx, span, density: span > 0 ? tx / span : 0 }); // LOCAL density tx/slot (PLI §3(c))
+      }
+      const integ = trapezoidIntegral(points);
+      report[symbol] = { genesis_slot: genesisSlot, oracle_slot: oracleSlot, points, n_projected: integ.projected, n_min: integ.min, n_max: integ.max, duration_ms: Date.now() - t0 };
+      setSlice(); writeBudget();
+    }
+  } finally {
+    writeBudget(); // durable: a mid-sonde BudgetExceededError still persists the cumulative counter (fail-closed)
+    writeFileSync(resolve(out, "sonde-report.json"), JSON.stringify(report, null, 2));
+  }
+  process.stdout.write(`bell/rebase-density operators=${[...new Set(providers.map(operatorOf))].join(",")} calls=${String(callsUsed())}/${String(maxCalls)} out=${out}\n`);
 }
