@@ -8,13 +8,13 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Lot | État | Étape / bloqueur | Worktree |
 |---|---|---|---|
 | -b3d-a contre-vérification | FUSIONNÉ `83da61d` (erratum `7aae8d7`) | — | — |
-| -b3d-b1a reprise/ledger/budget | EN COURS | pli G2 (2 trous de couverture) ; G2 `eeeeaef` PASS-AVEC-CORRECTIONS | `Monark-wt-b3db1a` |
+| -b3d-b1a reprise/ledger/budget | EN COURS | checkpoint-2 (validateur) ; pli G2 `f2f8808`, mutant :506 rejoué par l'orchestrateur, 569/569, R-25 858 | `Monark-wt-b3db1a` |
 | -b3d-b1b densité/projection | À VENIR | après b1a | — |
 | GARDE-HELIUS (client budgété unique, ledger de cycle) | EN COURS | pli checkpoint-1 (14 corrections) ; décisions 112-115 ; tarif Helius épinglé [lu] | — |
 | Course de contre-vérification | BLOQUÉ | GARDE-HELIUS + b1b | — |
 | -b3d-b2 post-tirage | À VENIR | après la course | — |
 | T-1a-iii-a1 univers Solana | FUSIONNÉ `9a2fca9` (G7, 573/573) | — | — |
-| -iii-a1-bis (ledger chaîné, sanitize, shim, drain) | EN COURS | G0 `b3acf20` ; checkpoint-1 (validateur) | `Monark-wt-a1bis` |
+| -iii-a1-bis (ledger chaîné, sanitize, shim, drain) | EN COURS | pli checkpoint-1 (13 corrections) | `Monark-wt-a1bis` |
 
 | R1 registre multi-émetteur | À VENIR | après -b3d-b1 (décision 97) | — |
 | T-1a-iv qualification émetteurs | À VENIR | après R1 (décision 93) | — |
@@ -69,4 +69,4 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-pli G2 b3d-b1a · G2 POOL-RPC-1a · G1 U-4b-1a · fusion Narabi -a+-b · pli G2 EXPORT-CLEAN · pli cp-1 GARDE-HELIUS · cp-1 -iii-a1-bis.
+cp-2 b3d-b1a · G2 POOL-RPC-1a · G1 U-4b-1a · fusion Narabi -a+-b · pli G2 EXPORT-CLEAN · pli cp-1 GARDE-HELIUS · pli cp-1 -iii-a1-bis.
