@@ -13,7 +13,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | -b3d-b1a reprise/ledger/budget | FUSIONNÉ `2c717f8` (G7, 596/596, R-25 858) | — | — |
 | -b3d-b1b densité/projection | FUSIONNÉ `f459cc2` (G7, 696 pass / 1 skip, eslint 0, ratchet 69/69, R-25 315) | Amendement 3 à committer seul avant la sonde | — |
 | GARDE-HELIUS (client budgété unique, ledger de cycle) | **1a FUSIONNÉ `88c63bb`** (G7, 688 pass / 1 skip déclaré, R-25 1 096, paquet `upcoming`) | **1b** (Bell consomme `openGuardedClient`) après b1b + (f) (mêmes fichiers) ; **2** (Ukemi) PRÊT à lancer | — |
-| -b3d-f condition (f) ITEM-A (payload chaîné) | EN COURS | G1 `291d389` ; cp-2 ACCEPTE-AVEC-CORRECTIONS (C-V-1 test-seul : vecteur littéral, édition en place) en pli ; G2 en cours | `Monark-wt-b3df` |
+| -b3d-f condition (f) ITEM-A (payload chaîné) | FUSIONNÉ `1fc89a9` (G7 16:06 UTC, 712 tests 0 fail, lint 0, ratchet 69/69, R-25 255, source `2c852f0c…`) | Amendement de format n°2 + ADR D1-octies dans le SHA ; C-F-4 = escalade investisseur au G0 de course ; `RefMod` arité 5 → GARDE-HELIUS-1b | — |
 | Course de contre-vérification | BLOQUÉ | GARDE-HELIUS-1b + b1b + (f) + Amendement 3 committé seul | — |
 | -b3d-b2 post-tirage | À VENIR | après la course | — |
 | T-1a-iii-a1 univers Solana | FUSIONNÉ `9a2fca9` (G7, 573/573) | — | — |
@@ -77,5 +77,5 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-AUCUN agent en vol (consigne investisseur 21/09 : ne rien relancer avant la bascule de compte ; kit `F:\MONARK SUITE\BASCULEMENT-COMPTE.md` §8).
-À reprendre : GARDE-HELIUS-2a pli C-R-1 committé `4585b20` → G2-delta ‖ passe validateur limitée → G7 → 2b · Bell -f pli `e453680` → constat + G7 (Amendement n°2) · Bell a1-bis : C-VD-1 BLOQUANTE (lint cassé par le pli) + C-R-1/2/4 en une passe → G7 · E-5 : ligne du run réel du 22/09 00:41 UTC.
+En vol (relancés 15:55 UTC, consigne « CONTINUE ») : G2-delta GARDE-HELIUS-2a (`dd9148f..4585b20`, worktree gelé) · pli final Bell a1-bis (C-VD-1 lint + C-R-1/2/4).
+À faire : GARDE-HELIUS-2a **C-R-3 bloquant** (tronquer APRÈS expurger, `transport.ts:128/:134`) à plier au retour de la G2-delta, clôture par la sonde `r2-leakforms.mts` (`leakedPrefixChars=0`) → G7 → 2b · Bell a1-bis : commit du pli (rejouer lint soi-même) → constat → G7 · E-5 : ligne du run réel du 22/09 00:41 UTC.
