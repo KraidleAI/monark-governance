@@ -79,6 +79,7 @@ test("origin_invalid_returns_403", async () => {
     await apexWired.body?.cancel();
     assert.notEqual(apexWired.status, 403, "an apex Origin passes the guard on the wired path");
   } finally {
+    server.closeAllConnections(); // C-G2D-1: destroy live sockets so no loopback handle survives --test-force-exit
     await new Promise<void>((resolve) => {
       server.close(() => { resolve(); });
     });
@@ -163,6 +164,7 @@ test("oversized_body_413_and_normal_tools_call_unaffected", async () => {
     assert.equal(mcp.status, 200, "the MCP tools/call (SSE) path still returns 200 through the bounded reader");
     assert.ok(mcp.raw.includes("\"yhat\""), "the MCP tools/call SSE body carries the computed cascade result (yhat)");
   } finally {
+    server.closeAllConnections(); // C-G2D-1: destroy live sockets so no loopback handle survives --test-force-exit
     await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
   }
 });
@@ -177,6 +179,7 @@ test("harness_binds_localhost_only", async () => {
     assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
     assert.equal(addr.address, "127.0.0.1", "must bind localhost only, never 0.0.0.0");
   } finally {
+    server.closeAllConnections(); // C-G2D-1: destroy live sockets so no loopback handle survives --test-force-exit
     await new Promise<void>((resolve) => {
       server.close(() => { resolve(); });
     });
@@ -230,6 +233,38 @@ test("serverInfo_version_is_single_source_and_never_one", async () => {
     assert.ok(serverInfo, "the initialize result must carry serverInfo");
     assert.equal(serverInfo.version, HARNESS_VERSION, `serverInfo.version must equal HARNESS_VERSION (single source); got "${String(serverInfo.version)}"`);
   } finally {
+    server.closeAllConnections(); // C-G2D-1: destroy live sockets so no loopback handle survives --test-force-exit
     await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
   }
+});
+
+// Test — C-G2D-1 drain (DETERMINISTIC half of the proof): after closeAllConnections()+close(), NO server
+// handle (TCPServerWrap) remains. Client sockets (undici keep-alive) close asynchronously, so we assert the
+// SERVER handle only — deterministic once the close() callback has fired. The intermittent-flake half is the
+// ×100 matrix under --test-force-exit (0 failures, power ≈ 0.966; G0 D4/C-10). No deterministic MUTANT reddens
+// here (the flake was 1/30, never isolated) — declared in G0 D4. Test 18 (universe) is already drained; test
+// 22 is spawnSync (no server handle) — both untouched by design.
+test("harness_server_drain_leaves_no_server_handle", async () => {
+  const server = startServer(0);
+  try {
+    await once(server, "listening");
+    const addr = server.address();
+    assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
+    // Open a real connection so closeAllConnections() has a live socket to destroy.
+    const cascade = JSON.stringify({ L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" });
+    await wiredPost(addr.port, "api.monarkgate.tech", "/cascade", cascade, "application/json");
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
+  }
+  // libuv releases the handle one loop iteration AFTER the close() callback, so poll a bounded number of
+  // macrotasks: a DRAINED server clears within a few ticks; a genuine leak never clears (the assertion fails).
+  // We assert the SERVER handle (TCPServerWrap) only — client sockets (undici keep-alive) close on their own
+  // async schedule, and their survival past force-exit is what the ×100 matrix (not this belt) rules out.
+  let kinds = process.getActiveResourcesInfo();
+  for (let i = 0; i < 50 && kinds.includes("TCPServerWrap"); i++) {
+    await new Promise<void>((resolve) => { setImmediate(resolve); });
+    kinds = process.getActiveResourcesInfo();
+  }
+  assert.equal(kinds.includes("TCPServerWrap"), false, `the server handle must clear after closeAllConnections()+close() (a leak never does); saw [${kinds.join(",")}]`);
 });

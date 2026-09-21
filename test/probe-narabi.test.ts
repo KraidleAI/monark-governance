@@ -328,6 +328,7 @@ test("probe_get_over_loopback_http_executes — an http:// GET on loopback execu
     assert.equal(rNoRetry.status, 0, "exit 0 on the single successful GET");
     assert.equal(okHits - beforeHits, 1, "EXACTLY one GET reached the server (zero under the N4 mutant)");
   } finally {
+    okServer.closeAllConnections(); // C-G2D-1: destroy live sockets so no loopback handle survives --test-force-exit
     await new Promise<void>((resolve) => okServer.close(() => resolve()));
   }
 

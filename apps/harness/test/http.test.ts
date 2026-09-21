@@ -161,6 +161,7 @@ test("http_mirror_routes_by_host_and_guards_origin", async () => {
     assert.equal(evil.status, 403, "the api. surface 403s a present-and-invalid Origin (guard before dispatch)");
     assert.equal((evil.json as { error?: string } | null)?.error, "invalid_origin");
   } finally {
+    server.closeAllConnections(); // C-G2D-1: destroy live sockets so no loopback handle survives --test-force-exit
     await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
   }
 });

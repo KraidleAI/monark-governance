@@ -6,14 +6,15 @@
 // All I/O is INJECTED (deps) so CA-11 tests run the WHOLE composition offline from a file fixture. The
 // live main() at the bottom is import.meta-guarded. The run NEVER commits (R-20) and NEVER touches a
 // public registry: everything stays `upcoming`.
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { makeBudgetedCall, assertOutsideRepo } from "./collect.ts";
-import { type JsonRpcCall, type TransportFault } from "./quorum.ts";
+import { BudgetExceededError, type JsonRpcCall, type TransportFault } from "./quorum.ts";
 import {
   SOLANA_PUBLIC_URL, ISSUER_HOST, assertHostAllowed, guardedRpcCall, makeUniverseBudget,
   readPriorCalls, serializeLedger, confirmMintIdentity, assertProvidersDistinctForQuorum,
   enumerateUniverse, foundingCalibration, buildUniverseArtifact, universeArtifactBytes, universeSha256,
-  foldPage, withUniverseRetry, HttpStatusError, RedirectBlockedError, retryAfterMs, scrubSecret,
+  foldPage, pageAssets, withUniverseRetry, HttpStatusError, RedirectBlockedError, retryAfterMs, scrubSecret,
+  chainedLedgerEntry, countIdentityEmptied, UNIVERSE_LEDGER_JOURNAL,
   type OnchainReadout,
 } from "./universe.ts";
 import { createHash } from "node:crypto";
@@ -32,6 +33,7 @@ export interface RunDeps {
   readonly env: NodeJS.ProcessEnv;
   readonly readFile: (p: string) => string;
   readonly writeFile: (p: string, data: string) => void;
+  readonly appendFile: (p: string, data: string) => void;   // C-G2-7: append-only journal (never writeFile, which overwrites)
   readonly exists: (p: string) => boolean;
   readonly mkdirp: (p: string) => void;
   readonly log?: (line: string) => void;
@@ -115,12 +117,30 @@ export async function runUniverse(argv: readonly string[], deps: RunDeps): Promi
   // uses a fixed operator string today, but the belt still scrubs the Chainstack node url (hex key in path)
   // from any produced file even if a future field interpolated it. scrubSecret is idempotent on clean data.
   const writeOut = (p: string, data: string): void => { deps.writeFile(p, scrubSecret(data, chainstack)); };
-  const priorCalls = readPriorCalls(a.ledger, deps.exists, deps.readFile);
+  // C-G2-7: the chained RUN-ledger journal lives beside the anchor (dirname(--ledger)); NO new CLI flag. The
+  // resume reader re-derives the chain, refuses a downward edit (anchor.calls < head), and CONTINUES the chain
+  // from its head (never GENESIS a 2nd time).
+  const ledgerJournal = join(dirname(a.ledger), UNIVERSE_LEDGER_JOURNAL);
+  const prior = readPriorCalls(a.ledger, ledgerJournal, deps.exists, deps.readFile);
+  let ledgerHead = prior.head;      // prev_entry_sha256 of the NEXT entry (GENESIS iff fresh)
+  let ledgerSeq = prior.seq;        // seq of the NEXT entry
+  let persistedCalls = prior.calls; // last calls_cumulative committed to the journal
 
   // Paced, retried low-level call; both GET and RPC fold into ONE APPELS budget (tick), one min-interval.
   const pacedInner: JsonRpcCall = async (u, m, p) => { await deps.sleep(a.minInterval); return withUniverseRetry(() => deps.call(u, m, p), { sleep: deps.sleep, now: deps.now }); };
-  const budget = makeUniverseBudget(a.maxCalls, priorCalls, makeBudgetedCall, pacedInner);
-  const persist = (): void => { writeOut(a.ledger, serializeLedger(budget.total())); };
+  const budget = makeUniverseBudget(a.maxCalls, prior.calls, makeBudgetedCall, pacedInner);
+  // persist(): ANCHOR-COUNTER FIRST (crash-conservative), then APPEND the chained journal entry — but only when
+  // the budget ADVANCED since the last entry (skip-if-unchanged: no empty entries). A crash between the two
+  // writes leaves anchor.calls >= head.calls_cumulative => over-count on resume, never under (C-1).
+  const persist = (): void => {
+    const total = budget.total();
+    writeOut(a.ledger, serializeLedger(total));
+    if (total > persistedCalls) {
+      const entry = chainedLedgerEntry(ledgerHead, ledgerSeq, total);
+      deps.appendFile(ledgerJournal, scrubSecret(JSON.stringify(entry) + "\n", chainstack));
+      ledgerHead = entry.entry_sha256; ledgerSeq += 1; persistedCalls = total;
+    }
+  };
   const guardedCall = guardedRpcCall(budget.call);
   const pagedGet: HttpGet = async (url) => { assertHostAllowed(url); budget.tick(); await deps.sleep(a.minInterval); return withUniverseRetry(() => deps.httpGet(url), { sleep: deps.sleep, now: deps.now }); };
 
@@ -140,6 +160,23 @@ export async function runUniverse(argv: readonly string[], deps: RunDeps): Promi
   } finally { persist(); }
   if (!exhausted) throw new Error(`bell/universe: reached --max-pages ${String(a.maxPages)} with no end anchor (exhaustion NOT proven; refuse to claim 'N pages')`);
 
+  // C-11: OBSERVATION-only probe of page+1 AFTER the proven end anchor. NEVER a STOP — the catch swallows
+  // HTTP/transport (incl. a 4xx past-end) and RE-THROWS only a BudgetExceededError (no budget fail-open). A
+  // DEDICATED paced GET with maxRetries:0 (pagedGet's default is 4; a 4xx past-end must not enter the retry
+  // path). Counts +1 GET on the budget; result = SHAPE/STATUS only (no content, C-10) => past_end_probe= in the
+  // provenance. It lifts the [gap] past-end of /public/assets on the first run WITHOUT being able to break a
+  // legitimate run (5a stays FORMED; the assertive probe awaits this first-hand measure).
+  let pastEndProbe = "not_run";
+  try {
+    const probeUrl = `https://${ISSUER_HOST}/api/v2/public/assets?pageSize=${String(a.pageSize)}&page=${String(page + 1)}`;
+    assertHostAllowed(probeUrl); budget.tick(); await deps.sleep(a.minInterval);
+    const probeRes = await withUniverseRetry(() => deps.httpGet(probeUrl), { sleep: deps.sleep, now: deps.now, maxRetries: 0 });
+    pastEndProbe = `array_len=${String(pageAssets(probeRes.json).length)}`;
+  } catch (e) {
+    if (e instanceof BudgetExceededError) throw e;            // never fail-open the budget
+    pastEndProbe = e instanceof HttpStatusError ? `http_${String(e.status)}` : "transport_error";
+  }
+
   // --- SAVE the issuer raw sha-pinned OUT OF REPO, BEFORE the oracle (the proof if the enumerator breaks) -
   const rawBody = lf(JSON.stringify({ schema: "bell-universe-issuer-raw-v1", host: ISSUER_HOST, endpoint: "/api/v2/public/assets", pageSize: a.pageSize, pages: page + 1, assets: rawAssets }, null, 0)) + "\n";
   const rawSha256 = sha256Hex(rawBody);
@@ -156,7 +193,9 @@ export async function runUniverse(argv: readonly string[], deps: RunDeps): Promi
       if (faults.some((f) => f.status === "HTTP 429")) { streak429 += 1; } else { streak429 = 0; }
       if (streak429 >= a.max429Streak) throw new Error(`bell/universe: ${String(a.max429Streak)} consecutive rate-limited (429) confirmations after honoring Retry-After — STOP fail-closed (ledger persisted)`);
       return readout;
-    } finally { persist(); } // persist ticks even when confirmMintIdentity throws (403/budget) — never under-count
+    } finally { persist(); } // persist in `finally` even when confirmMintIdentity throws (403/budget). C-1: this is
+    // WRITE-BEHIND at the persist granularity — a kill between a send and its persist under-counts <= 2 logical
+    // calls (one quorum-2 confirmation); the write-AHEAD is the GARDE-HELIUS cycle ledger, not this RUN ledger.
   };
   const { candidates, totalAssets, solanaAssets } = await enumerateUniverse(rawAssets, confirm);
   persist();
@@ -174,15 +213,18 @@ export async function runUniverse(argv: readonly string[], deps: RunDeps): Promi
   const artifactSha256 = universeSha256(body);
   const artifactPath = join(a.out, `universe-candidates-${a.date}.json`);
   writeOut(artifactPath, universeArtifactBytes(body));
-  writeOut(join(a.out, `PROVENANCE-univers-solana.md`), provenanceMd(a.date, providers, rawSha256, artifactSha256, totalAssets, solanaAssets, confirmed));
+  // persist the FINAL ledger entry BEFORE the provenance so the head line it carries is current (the artifact
+  // write ticks nothing; this is the skip-if-unchanged no-op unless a tail confirm advanced the budget).
   persist();
+  const identityEmptied = countIdentityEmptied(candidates);
+  writeOut(join(a.out, `PROVENANCE-univers-solana.md`), provenanceMd(a.date, providers, rawSha256, artifactSha256, totalAssets, solanaAssets, confirmed, ledgerHead, identityEmptied, pastEndProbe));
   log(scrubSecret(`artifact: universe-candidates-${a.date}.json sha256=${artifactSha256} confirmed=${String(confirmed)}/${String(solanaAssets)} calls=${String(budget.total())}`, chainstack));
   return { ok: true, artifactSha256, rawSha256, totalAssets, solanaAssets, confirmed, calls: budget.total(), calibration };
 }
 
 /** Provenance envelope (SEPARATE from the timestamp-free artifact body). Operators by DOMAIN only (never a
  *  key-bearing url — C-10); the Chainstack node is named by operator, its url never printed. */
-export function provenanceMd(date: string, providers: readonly string[], rawSha: string, artSha: string, total: number, solana: number, confirmed: number): string {
+export function provenanceMd(date: string, providers: readonly string[], rawSha: string, artSha: string, total: number, solana: number, confirmed: number, ledgerHead: string, identityEmptied: number, pastEndProbe: string): string {
   const operators = "solana-foundation (api.mainnet.solana.com) + chainstack (node url held in CHAINSTACK_SOLANA_URL, never printed)";
   return [
     `# PROVENANCE — Bell T-1a-iii-a1 universe candidates (${date})`,
@@ -192,6 +234,12 @@ export function provenanceMd(date: string, providers: readonly string[], rawSha:
     `- Zero Helius credit. Non-production RPC use; 429/Retry-After honored; 403 => hard stop.`,
     `- issuer raw sha256: ${rawSha}`,
     `- universe-candidates sha256 (canonical, timestamp-free body): ${artSha}`,
+    // FIXED form (parsable by the composition test C-5): the chained RUN-ledger head (informative audit, NOT a
+    // fail-closed control). identity_text_emptied = name/symbol fields the sanitizer emptied (C-7). past_end_probe
+    // = the OBSERVATION-only page+1 shape/status (C-11), never content.
+    `- ledger head sha256: ${ledgerHead}`,
+    `- identity_text_emptied: ${String(identityEmptied)}`,
+    `- past_end_probe: ${pastEndProbe}`,
     `- counts: total_assets=${String(total)}, solana_assets=${String(solana)}, confirmed=${String(confirmed)}.`,
     `- Field allowlist: on-chain identity + issuer identity only; NO price/value/volume. Nothing published; all upcoming.`,
     ``,
@@ -231,7 +279,7 @@ export const liveRpcCall: JsonRpcCall = async (url, method, params) => {
 /** Live entry: real fetch + fs, --out asserted OUTSIDE the repo. Any error is SCRUBBED before printing and
  *  the process exits 1 (fail-closed). Never runs under `node --test` (import.meta guard). */
 export async function main(argv: readonly string[], repoRoot: string): Promise<void> {
-  const { readFileSync, writeFileSync, existsSync, mkdirSync } = await import("node:fs");
+  const { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync } = await import("node:fs");
   const a = parseUniverseArgs(argv);
   assertOut(a.out, repoRoot);
   const chainstack = (process.env.CHAINSTACK_SOLANA_URL ?? "").trim();
@@ -239,6 +287,7 @@ export async function main(argv: readonly string[], repoRoot: string): Promise<v
     httpGet: liveHttpGet, call: liveRpcCall,
     sleep: (ms) => new Promise((r) => setTimeout(r, ms)), now: () => Date.now(), env: process.env,
     readFile: (p) => readFileSync(p, "utf8"), writeFile: (p, d) => { writeFileSync(p, d); },
+    appendFile: (p, d) => { appendFileSync(p, d); },
     exists: (p) => existsSync(p), mkdirp: (p) => { mkdirSync(p, { recursive: true }); },
     log: (line) => { process.stdout.write(scrubSecret(line, chainstack) + "\n"); },
   };

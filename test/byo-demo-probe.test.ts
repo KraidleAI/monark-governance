@@ -175,6 +175,7 @@ test("probe_byo_demo_loop_closes", async () => {
     assert.equal(obj(g2, "verdict")["calib_digest"], digest2, "perturbed-set tie: gate calib_digest == calibrate set_digest for the DIFFERENT scores");
     assert.notEqual(digest2, calibrate["set_digest"], "a different score set yields a different digest (the tie is not a constant)");
   } finally {
+    server.closeAllConnections(); // C-G2D-1: destroy live sockets so no loopback handle survives --test-force-exit
     await new Promise<void>((resolve) => {
       server.close(() => {
         resolve();

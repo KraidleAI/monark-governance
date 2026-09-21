@@ -142,17 +142,101 @@ export function makeUniverseBudget(maxCalls: number, priorCalls: number, mk: (ca
   return { call: b.call, tick: b.tick, calls: b.calls, total: () => priorCalls + b.calls() };
 }
 export interface BudgetLedger { readonly calls: number }
-/** Read the prior APPELS count from a ledger file. Absent => 0 (fresh). Malformed / invalid => THROW
- *  (fail-closed, C-G2D-2). Never re-chains from genesis silently. */
-export function readPriorCalls(path: string, exists: (p: string) => boolean, readFile: (p: string) => string): number {
-  if (!exists(path)) return 0;
-  let parsed: unknown;
-  try { parsed = JSON.parse(readFile(path)); } catch { throw new Error("bell/universe: budget ledger is malformed (fail-closed)"); }
-  const n = asObj(parsed).calls;
-  if (typeof n !== "number" || !Number.isFinite(n) || n < 0) throw new Error("bell/universe: budget ledger 'calls' is invalid (fail-closed)");
-  return n;
-}
+/** The COUNTER ANCHOR (budget.json {calls}) — written FIRST on every persist(). Unchanged shape. */
 export function serializeLedger(calls: number): string { return canonical({ calls }) + "\n"; }
+
+// ---- γ-prime chained RUN ledger (C-G2-7): tamper-EVIDENT, non-reducible APPELS journal -------------------
+// FORMAT declared INLINE, byte-identical to the calque `rebase-crosscheck.ts:110-149` (etude-suite): same
+// genesis, same `prev_entry_sha256`/`entry_sha256` names, same `entry_sha256 = sha(JSON.stringify(core))` in
+// FIELD-WRITE ORDER. LEDGER_GENESIS is REDECLARED (cited), never imported: universe deliberately does NOT
+// import rebase-crosscheck.ts in `src` (it is edited in-flight by -b3d-b1a; an `src` import would create a
+// conflict surface and pull its whole graph). The format is LOCKED BY A TEST (C-3,
+// `bell_universe_ledger_format_is_byte_identical_to_b3d`), not by this comment.
+//
+// BOUND MODEL (C-1, honest — R-21):
+//  · Order = ANCHOR-COUNTER FIRST, journal append SECOND (calque b3db1a rebase-crosscheck.ts:592-597). A crash
+//    in the window between the two writes leaves anchor.calls >= head.calls_cumulative — an OVER-count on
+//    resume, never under. Crash-CONSERVATIVE, not a write-ahead.
+//  · At the persist() granularity it is WRITE-BEHIND: persist() runs in `finally` AFTER the two quorum-2 sends
+//    (universe-cli.ts:159), so a kill between a send and its persist UNDER-counts <= 2 logical calls (one
+//    quorum-2 confirmation). The true write-AHEAD (append before fetch) is the GARDE-HELIUS CYCLE ledger, NOT
+//    this RUN ledger. Unit = LOGICAL TICKS (a retry under the tick does NOT increment, C-2); this RUN ledger
+//    serves resume-without-double-count and the run cap, it is NOT the source of the Chainstack reconciliation.
+//  · Threat model: tamper-EVIDENT for UNCOORDINATED edits only (a budget.json lowered by hand =>
+//    anchor.calls < head.calls_cumulative => throw; a journal line edited => verifyChain fails). It does NOT
+//    claim to catch a COORDINATED rewrite (truncate to K AND set anchor.calls = calls_cumulative(K)) — beyond
+//    "the operator's OWN clean ledger". Tamper-evident, NEVER "non-falsifiable". Exposure of a doctored resume
+//    is bounded by --max-calls per run (the in-process makeBudgetedCall counter depends on NO file).
+export const LEDGER_GENESIS = "0".repeat(64);
+/** The RUN-ledger journal filename. OUTSIDE the -b3d globs `^ledger-.*\.jsonl$` (ledgerPagesOnDisk,
+ *  rebase-crosscheck.ts:388) and `^(ledger|events|handoffs)-.*\.jsonl$` (hasResumeState, :395) so a shared
+ *  --out is never falsely read as -b3d resume state (C-13). Lives in dirname(--ledger); NO new CLI flag. */
+export const UNIVERSE_LEDGER_JOURNAL = "universe-budget-ledger.jsonl";
+export interface LedgerEntry { readonly prev_entry_sha256: string; readonly seq: number; readonly calls_cumulative: number; readonly entry_sha256: string }
+const ledgerSha256 = (s: string): string => createHash("sha256").update(s, "utf8").digest("hex");
+const isHex64 = (x: unknown): x is string => typeof x === "string" && /^[0-9a-f]{64}$/.test(x);
+/** sha256hex(JSON.stringify(core)) — the SAME discipline as the calque's module-local `sha`
+ *  (rebase-crosscheck.ts:40) applied to the core in FIELD-WRITE ORDER. NOT canonical() (which sorts keys):
+ *  byte-identity to -b3d depends on the write order (mutant M-format). */
+export function ledgerEntrySha256(core: Record<string, unknown>): string { return ledgerSha256(JSON.stringify(core)); }
+/** Build the next chained entry from the prior head sha. Core FIELD-WRITE ORDER = prev, seq, calls_cumulative
+ *  (mirrors the calque `{prev_entry_sha256, page, ...}`; page->seq, the page fields->calls_cumulative). */
+export function chainedLedgerEntry(prevSha: string, seq: number, callsCumulative: number): LedgerEntry {
+  const core = { prev_entry_sha256: prevSha, seq, calls_cumulative: callsCumulative };
+  return { ...core, entry_sha256: ledgerEntrySha256(core) };
+}
+/** Re-derive the whole chain INDEPENDENTLY (the "only proof" the chain engages every entry — leaked lesson
+ *  -b3d b3db1a:167-172: a verifier that RE-READS prev_entry_sha256 instead of RECOMPUTING sha(core) lets the
+ *  mutant that mutates it survive). Checks: field TYPES (hex64, integers >= 0); prev chained from GENESIS;
+ *  entry_sha256 == recomputed ledgerEntrySha256(core); calls_cumulative monotone non-decreasing (C-4). The core
+ *  is reconstructed EXPLICITLY in write order (never JSON.stringify of the parsed line). Returns {ok, head}. */
+export function verifyChain(entries: readonly unknown[]): { ok: boolean; head: string } {
+  let prev = LEDGER_GENESIS;
+  let lastCalls = -1;
+  for (const raw of entries) {
+    const e = asObj(raw);
+    if (!isHex64(e.prev_entry_sha256) || !isHex64(e.entry_sha256)) return { ok: false, head: prev };
+    if (!Number.isInteger(e.seq) || !Number.isInteger(e.calls_cumulative) || (e.calls_cumulative as number) < 0) return { ok: false, head: prev };
+    if (e.prev_entry_sha256 !== prev) return { ok: false, head: prev };
+    const core = { prev_entry_sha256: e.prev_entry_sha256, seq: e.seq, calls_cumulative: e.calls_cumulative };
+    if (ledgerEntrySha256(core) !== e.entry_sha256) return { ok: false, head: prev };
+    if ((e.calls_cumulative as number) < lastCalls) return { ok: false, head: prev };
+    lastCalls = e.calls_cumulative as number;
+    prev = e.entry_sha256;
+  }
+  return { ok: true, head: prev };
+}
+export interface PriorLedger { readonly calls: number; readonly head: string; readonly seq: number }
+/** Resume reader (fail-closed, C-G2D-2 + calque rebase-crosscheck.ts:403-419). Reads the counter ANCHOR
+ *  (budget.json {calls}) and the chained journal, and CONTINUES the chain from its head (never GENESIS a 2nd
+ *  time — mutant M-regenesis). Cases:
+ *   · neither anchor nor journal            => {0, GENESIS, 0}                 (fresh)
+ *   · journal present, anchor ABSENT        => throw                          (incoherent resume; M-absent)
+ *   · anchor present, journal absent/empty  => {anchor.calls, GENESIS, 0}     (LEGIT crash window pre-1st-append)
+ *   · both present                          => verifyChain (throw if !ok); anchor.calls >= head.calls_cumulative
+ *                                              (>=, NEVER ==: the crash window leaves the anchor AHEAD; == would
+ *                                              break post-crash resume, C-4). anchor.calls < head => throw
+ *                                              (downward edit). Any unreadable line => throw (no skip).
+ *  Honest residual: journal DELETION + anchor lowered = a COORDINATED rewrite (out of model; exposure <= --max-calls). */
+export function readPriorCalls(anchorPath: string, journalPath: string, exists: (p: string) => boolean, readFile: (p: string) => string): PriorLedger {
+  const anchorPresent = exists(anchorPath);
+  const lines = (exists(journalPath) ? readFile(journalPath) : "").split("\n").filter((l) => l.trim() !== "");
+  if (!anchorPresent) {
+    if (lines.length > 0) throw new Error("bell/universe: budget ledger journal present but the counter anchor is absent (fail-closed: a resume without its counter is incoherent)");
+    return { calls: 0, head: LEDGER_GENESIS, seq: 0 };
+  }
+  let parsed: unknown;
+  try { parsed = JSON.parse(readFile(anchorPath)); } catch { throw new Error("bell/universe: budget anchor is malformed (fail-closed)"); }
+  const anchorCalls = asObj(parsed).calls;
+  if (typeof anchorCalls !== "number" || !Number.isFinite(anchorCalls) || anchorCalls < 0) throw new Error("bell/universe: budget anchor 'calls' is invalid (fail-closed)");
+  if (lines.length === 0) return { calls: anchorCalls, head: LEDGER_GENESIS, seq: 0 };
+  const entries = lines.map((l, i) => { try { return JSON.parse(l) as unknown; } catch { throw new Error(`bell/universe: budget ledger journal line ${String(i)} is unreadable (fail-closed, no skip)`); } });
+  const v = verifyChain(entries);
+  if (!v.ok) throw new Error("bell/universe: budget ledger chain does not re-derive (fail-closed, tamper-evident)");
+  const headCalls = asObj(entries[entries.length - 1]).calls_cumulative as number;
+  if (anchorCalls < headCalls) throw new Error("bell/universe: budget anchor calls below the ledger head (downward edit detected, fail-closed)");
+  return { calls: anchorCalls, head: v.head, seq: entries.length };
+}
 
 // ---- On-chain identity confirmation (quorum-2, getAccountInfo) ------------------------------------
 export type IdentityState = "confirmed" | "identity_unconfirmed" | "unverified" | "no_quorum";
@@ -306,9 +390,38 @@ export function assertOnlyAllowedFields(rec: Record<string, unknown>): void {
   const allowed = new Set<string>(CANDIDATE_FIELDS);
   for (const k of Object.keys(rec)) if (!allowed.has(k)) throw new Error(`bell/universe: field '${k}' is not on the committable allowlist (B-11)`);
 }
+// ---- Identity-text sanitizer (C-G2-6) -------------------------------------------------------------
+/** `name`/`symbol` are FREE TEXT from the issuer list and ARE on the field allowlist (they are identity), so a
+ *  price could ride inside them past assertOnlyAllowedFields. EMPTY the field (never truncate to a sub-price)
+ *  when it is not plain identity: outside the value whitelist [A-Za-z0-9 .,&()+'-], longer than 64, or carrying
+ *  a `$`, a word-boundary currency code, or a decimal `\d+\.\d+`. The whitelist already excludes `$`; the
+ *  explicit monetary checks make the intent legible. DECLARED residual (C-7): a BARE integer ("TSLA 420")
+ *  PASSES — indistinguishable from "S&P 500" / "3M" / "SP500 xStock"; bounded (values come from the issuer's
+ *  public identity list, nothing published this round, reviewed before publication). DECLARED false-reject: a
+ *  legitimate decimal name ("Fund 2.5") is emptied. The count is surfaced as identity_text_emptied=N in the
+ *  provenance so a run that empties N fields is visible. */
+const IDENTITY_TEXT_ALLOWED = /^[A-Za-z0-9 .,&()+'-]*$/;
+const IDENTITY_CURRENCY_CODE = /\b(USD|EUR|GBP|CHF|JPY|CAD|AUD)\b/i;
+const IDENTITY_DECIMAL = /\d+\.\d+/;
+export function sanitizeIdentityText(s: string): string {
+  if (s.length > 64) return "";
+  if (!IDENTITY_TEXT_ALLOWED.test(s)) return "";     // covers `$` and any non-identity character
+  if (IDENTITY_CURRENCY_CODE.test(s)) return "";     // \b(USD|EUR|GBP|CHF|JPY|CAD|AUD)\b, case-insensitive
+  if (IDENTITY_DECIMAL.test(s)) return "";           // a price-shaped decimal
+  return s;
+}
+/** Count the name/symbol fields a run would EMPTY (surfaced as identity_text_emptied=N in the provenance). */
+export function countIdentityEmptied(candidates: readonly SolanaCandidate[]): number {
+  let n = 0;
+  for (const c of candidates) {
+    if (sanitizeIdentityText(c.name) !== c.name) n += 1;
+    if (sanitizeIdentityText(c.symbol) !== c.symbol) n += 1;
+  }
+  return n;
+}
 export function buildCandidateRecord(c: SolanaCandidate): Record<string, Json> {
   const rec: Record<string, Json> = {
-    symbol: c.symbol, name: c.name, mint: c.mint, network: c.network, mic: c.mic,
+    symbol: sanitizeIdentityText(c.symbol), name: sanitizeIdentityText(c.name), mint: c.mint, network: c.network, mic: c.mic,
     owner_program: c.onchain.owner, decimals: c.onchain.decimals, extension_names: [...c.onchain.extension_names],
     scaled_ui: c.onchain.scaled_ui, scaled_ui_authority: c.onchain.scaled_ui_authority,
     scaled_ui_unread: c.onchain.scaled_ui_unread, identity_state: c.onchain.state,

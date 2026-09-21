@@ -299,6 +299,7 @@ export async function buildTrace(): Promise<H5Trace> {
       },
     };
   } finally {
+    server.closeAllConnections(); // C-G2D-1: destroy live sockets so no loopback handle survives --test-force-exit
     await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
   }
 }
