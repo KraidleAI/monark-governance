@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { decodeSetAuthority, setAuthorityHandoffsFromTx, scanFullMint, compareToHybrid, canonicalListSha,
   chainedLedgerEntry, ledgerSha, verifyLedgerChain, loadHybridSeries, readPriorCalls, runRebaseCrosscheckCli,
+  runDensityProbeCli, projectPagesAtFraction, DENSITY_POINTS,
   SET_AUTHORITY_TAG, AUTHORITY_TYPE_SCALED_UI, GTFA_PAGE_LIMIT,
   type FullMintScan, type HybridSeries, type ScanSink, type LedgerRecord, type RetryFn } from "../src/rebase-crosscheck.ts";
 import { scanMethodFromMethod } from "../src/rebase-produce.ts";
@@ -597,14 +598,17 @@ function b1aStub(ascPages: Array<{ data: unknown[]; paginationToken: string | nu
 }
 const noDbB: DatabentoGet = () => Promise.resolve([]);
 const noPolyB: PolygonGet = () => Promise.resolve({ results: [] });
-const b1aDeps = (call: JsonRpcCall): Parameters<typeof runMain>[1] => ({ call, databentoGet: noDbB, polygonGet: noPolyB, env: { BELL_SOLANA_RPC: PROVIDERS.join(",") } as NodeJS.ProcessEnv, nowMs: 50000 });
+const b1aDeps = (call: JsonRpcCall): Parameters<typeof runMain>[1] => ({ call, databentoGet: noDbB, polygonGet: noPolyB, env: { BELL_SOLANA_RPC: PROVIDERS.join(",") }, nowMs: 50000 });
 const b1aArgs = (seriesDir: string, outDir: string, maxCalls: number, maxCredits = maxCalls * 10): string[] =>
   ["--rebase-crosscheck", "--pools", "SPYx", "--max-calls", String(maxCalls), "--max-credits", String(maxCredits), "--max-pages", "10", "--min-interval", "0", "--allow-short-pages", "--series-dir", seriesDir, "--out", outDir];
 const b1aSeries = (events: readonly MultiplierEvent[]): string =>
   JSON.stringify({ symbol: "SPYx", method: "hybrid-authority-scan (pending R-26 ratification)", oracle_slot: 45, oracle_triplet: B1A_TRIPLET, events });
-const readCC = (outDir: string): { comparator_verdict: { verdict: string; reason?: string }; scan_complete: boolean; pages: number;
-  calls_by_method: Record<string, number>; credits_recomputed: number; candidate_shas: Record<string, string>; set_authority_scan?: Record<string, unknown> } =>
-  JSON.parse(readFileSync(join(outDir, "crosscheck-SPYx.json"), "utf8"));
+type CrosscheckArtifact = { comparator_verdict: { verdict: string; reason?: string }; scan_complete: boolean; pages: number;
+  calls_by_method: Record<string, number>; credits_recomputed: number; candidate_shas: Record<string, string>; set_authority_scan?: Record<string, unknown> };
+// D9 ter §3: type the parsed artifact (no `any` return) so lint:ratchet's no-unsafe-return does not count it — the
+// out-of-scope resorption of the b1a-added ratchet violation folded into this lot (RENDU §7.5(b), error_origin G7 b1a).
+const readCC = (outDir: string): CrosscheckArtifact =>
+  JSON.parse(readFileSync(join(outDir, "crosscheck-SPYx.json"), "utf8")) as CrosscheckArtifact;
 
 // ---- L-b1a-6 / C-V-3: verifyLedgerChain re-derives the chain INDEPENDENTLY of the writer -----------------------------
 test("bell_crosscheck_ledger_chain_rederives_from_disk — verifyLedgerChain re-derives the head; a tampered prev/core fails closed (C-V-3)", () => {
@@ -1004,4 +1008,152 @@ test("bell_crosscheck_require_full_pages_absent_strict_resume_refused — a STRI
   // makes undefined PROCEED => this test reds, while the explicit-false mode_guard test stays green (a specific kill).
   await assert.rejects(runMain(b1aArgsStrict(sd, od, 10), b1aDeps(b1aStub([{ data: [cAB, cBB, cCB], paginationToken: null }]))),
     /built loosely/, "a strict resume of a field-less budget.json is refused (mutant `!== true`->`=== false` => undefined proceeds => no throw => reds)");
+});
+
+// ================= -b3d-b1b (density sonde + H6 out-of-process projection) — L-b1b-1 / L-b1b-2 =================
+// SYNTHETIC (checkpoint-1 C-16): invented mints/signatures/slots, NO on-chain constant. `densityStub` is gTfA-ONLY —
+// it THROWS on any non-gTfA method, structurally proving the sonde makes only getTransactionsForAddress calls (so
+// calls_by_method.getTransaction stays 0). A genesis probe (asc limit:1, slot.lte only, NO gte) returns the mint's
+// oldest body at `genesis`; a point page (asc limit:GTFA_PAGE_LIMIT, slot.gte=G) returns `txAt(G)` bodies spanning
+// [G, G + DSTUB_SPAN] => a LOCAL density tx/span the sonde reads back. NEVER a ledger record built here (orchestrator
+// constraint -f: no ledger core is pinned, no entry_sha256/ledger_sha256 asserted anywhere in this section).
+const DSTUB_SPAN = 10;
+function densityStub(byAddress: Record<string, { genesis: number; txAt: (pointSlot: number) => number }>): JsonRpcCall {
+  const bodyAt = (slot: number, sig: string): unknown =>
+    ({ slot, blockTime: slot * 100, transaction: { signatures: [sig], message: { accountKeys: [], instructions: [] } }, meta: { err: null, innerInstructions: [] } });
+  return (_url, method, params) => {
+    if (method !== "getTransactionsForAddress") throw new Error("density sonde must call only gTfA, saw: " + method);
+    const addr = String((params as unknown[])[0]);
+    const cfg = byAddress[addr]!;
+    const gte = ((params as unknown[])[1] as { filters?: { slot?: { gte?: number } } }).filters?.slot?.gte;
+    if (gte === undefined) return Promise.resolve({ data: [bodyAt(cfg.genesis, addr + "-gen")], paginationToken: null }); // genesis probe
+    const tx = cfg.txAt(gte), data: unknown[] = [];
+    for (let i = 0; i < tx; i++) data.push(bodyAt(i === tx - 1 && tx > 1 ? gte + DSTUB_SPAN : gte, addr + "-" + String(gte) + "-" + String(i)));
+    return Promise.resolve({ data, paginationToken: null });
+  };
+}
+const densitySeries = (sym: string, oracleSlot: number): string =>
+  JSON.stringify({ symbol: sym, method: "hybrid-authority-scan", oracle_slot: oracleSlot, oracle_triplet: ORACLE_TRIPLET, events: [] });
+
+// ---- L-b1b-1 / M-b1b-11 / M-b1b-14: the sonde MEASURES genesis + K=8 local densities => N with a [min,max] envelope --
+test("bell_density_projects_N_with_interval — the sonde MEASURES genesis + K=8 local densities and trapezoid-integrates to N with a [min,max] envelope (L-b1b-1)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-dn-s-")), od = mkdtempSync(join(tmpdir(), "bell-dn-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), densitySeries("SPYx", 800));
+  // genesis 100, oracle 800 => 8 points at 100,200,...,800 (step 100). txAt gives densities [1,2,3,4,3,2,1,0.5] (tx / span 10).
+  const txMap: Record<number, number> = { 100: 10, 200: 20, 300: 30, 400: 40, 500: 30, 600: 20, 700: 10, 800: 5 };
+  const budgeted = makeBudgetedCall(1000, densityStub({ [SPYX.address]: { genesis: 100, txAt: (s) => txMap[s] ?? 0 } }));
+  await runDensityProbeCli(budgeted.call, PROVIDERS, ["SPYx"], sd, od, { requireFullPages: true }, budgeted.calls, budgeted.callsByMethod, 1000);
+  const report = JSON.parse(readFileSync(join(od, "sonde-report.json"), "utf8")) as Record<string, { genesis_slot: number; oracle_slot: number; points: unknown[]; n_projected: number; n_min: number; n_max: number; duration_ms: number }>;
+  const r = report.SPYx!;
+  assert.equal(r.genesis_slot, 100, "genesis is MEASURED from the asc limit:1 probe (M-b1b-11: a date-estimate => != 100 => reds)");
+  assert.equal(r.oracle_slot, 800, "the series' committed oracle_slot bounds the span");
+  assert.equal(r.points.length, DENSITY_POINTS, "K=8 uniform sample points");
+  // trapezoid Σ (d_j+d_{j+1})/2·100 over 7 segments = 1575; min-envelope 1250; max-envelope 1900.
+  assert.equal(r.n_projected, 1575, "N_projected = the per-segment trapezoid integral (M-b1b-14: density_max × span => 2800 => reds)");
+  assert.equal(r.n_min, 1250, "N_min substitutes the min adjacent density per segment");
+  assert.equal(r.n_max, 1900, "N_max substitutes the max adjacent density per segment");
+  assert.ok(r.n_min <= r.n_projected && r.n_projected <= r.n_max, "the projection lies within its [min,max] envelope");
+  assert.equal(typeof r.duration_ms, "number", "the per-mint sonde duration is reported");
+  assert.equal(budgeted.calls(), 9, "1 genesis probe + 8 point pages = 9 gTfA calls (=> <= 36 for the 4 mints)");
+});
+
+// ---- L-b1b-1 / M-b1b-10: writes sonde-report.json + the SHARED budget.json (require_full_pages:true) but NEVER a ledger -
+test("bell_density_writes_budget_never_ledger — the sonde writes sonde-report.json + the shared budget.json (require_full_pages:true, pages:0) but NEVER a ledger/crosscheck artifact (L-b1b-1, M-b1b-10)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-dnl-s-")), od = mkdtempSync(join(tmpdir(), "bell-dnl-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), densitySeries("SPYx", 800));
+  // through the REAL CLI (runMain) so the --rebase-density branch + all three gate lines are exercised; default STRICT args.
+  const args = ["--rebase-density", "--pools", "SPYx", "--max-calls", "150", "--max-credits", "1500", "--min-interval", "0", "--series-dir", sd, "--out", od];
+  await runMain(args, b1aDeps(densityStub({ [SPYX.address]: { genesis: 100, txAt: () => 4 } })));
+  assert.ok(existsSync(join(od, "sonde-report.json")), "the sonde report is written");
+  assert.ok(existsSync(join(od, "budget.json")), "the shared budget.json is written");
+  assert.equal(existsSync(join(od, "ledger-SPYx.jsonl")), false, "NEVER a ledger-<MINT>.jsonl (M-b1b-10: writing one => resumeFromLedger would resume from a sparse point => reds)");
+  assert.equal(existsSync(join(od, "crosscheck-SPYx.json")), false, "NEVER a crosscheck-<MINT>.json (the sonde is not the draw)");
+  const budget = JSON.parse(readFileSync(join(od, "budget.json"), "utf8")) as { require_full_pages: boolean; pages: number };
+  // TUYAU proof: the sonde's budget.json feeds a subsequent STRICT crosscheck draw resuming on the SAME --out — it must
+  // declare require_full_pages:true, else the mixed-mode guard (rebase-crosscheck.ts:566) would refuse the first draw.
+  assert.equal(budget.require_full_pages, true, "budget.json declares require_full_pages:true (mixed-mode handoff to the strict draw)");
+  assert.equal(budget.pages, 0, "the sonde commits 0 ledger pages");
+});
+
+// ---- L-b1b-1 / M-b1b-12: --rebase-density requires --max-credits; --max-pages stays OPTIONAL for it (control) --------
+test("bell_density_requires_max_credits — --rebase-density is bounded in the CREDIT unit; --max-pages stays OPTIONAL for it (L-b1b-1, M-b1b-12)", () => {
+  assert.throws(() => parseArgs(["--rebase-density", "--pools", "SPYx", "--max-calls", "150"], ["SPYx"]), /--max-credits/,
+    "the density sonde requires --max-credits like the crosscheck (M-b1b-12: drop `|| rebaseDensity` from the gate => no throw => reds)");
+  // CONTROL (task: the gate is NOT added to --max-pages): --max-credits present + NO --max-pages parses, rebaseDensity true.
+  const parsed = parseArgs(["--rebase-density", "--pools", "SPYx", "--max-calls", "150", "--max-credits", "1500"], ["SPYx"]);
+  assert.equal(parsed.rebaseDensity, true, "--rebase-density parses (mode flag set)");
+  assert.equal(parsed.maxCredits, 1500, "the credit bound is honored; --max-pages was NOT required (unlike --rebase-crosscheck)");
+});
+
+// ---- L-b1b-1 / M-b1b-12b: Σ calls_by_method.global == calls_used, CUMULATIVE across a resume (prior + 2 mints) -------
+test("bell_density_feeds_global_calls_by_method — Σ calls_by_method.global == calls_used after the sonde, CUMULATIVE across a resume (L-b1b-1, M-b1b-12b)", async () => {
+  const m0 = XSTOCKS[0]!, m1 = XSTOCKS[1]!;
+  const sd = mkdtempSync(join(tmpdir(), "bell-dfg-s-")), od = mkdtempSync(join(tmpdir(), "bell-dfg-o-"));
+  writeFileSync(join(sd, `rebase-${m0.symbol}.json`), densitySeries(m0.symbol, 800));
+  writeFileSync(join(sd, `rebase-${m1.symbol}.json`), densitySeries(m1.symbol, 800));
+  // a PRIOR shared budget.json (an earlier sonde invocation): 4 cumulative gTfA, 0 ledger pages. The resume MUST seed
+  // calls_by_method.global from it (readPriorByMethod) — this is why `|| rebaseDensity` also gates priorByMethod.
+  writeFileSync(join(od, "budget.json"), JSON.stringify({ calls_used: 4, credits_worst_case: 40, pages: 0,
+    calls_by_method: { global: { getTransactionsForAddress: 4, getTransaction: 0 }, by_mint: {} }, retries_by_method: { getTransactionsForAddress: 0, getTransaction: 0 }, require_full_pages: true }));
+  const stub = densityStub({ [m0.address]: { genesis: 100, txAt: () => 3 }, [m1.address]: { genesis: 100, txAt: () => 3 } });
+  await runMain(["--rebase-density", "--pools", `${m0.symbol},${m1.symbol}`, "--max-calls", "150", "--max-credits", "1500", "--min-interval", "0", "--series-dir", sd, "--out", od], b1aDeps(stub));
+  const budget = JSON.parse(readFileSync(join(od, "budget.json"), "utf8")) as { calls_used: number; calls_by_method: { global: Record<string, number> } };
+  assert.equal(budget.calls_used, 22, "prior 4 + 2 mints × 9 gTfA = 22 cumulative calls");
+  assert.equal(Object.values(budget.calls_by_method.global).reduce((a, b) => a + b, 0), 22,
+    "Σ calls_by_method.global == calls_used (M-b1b-12b: a LOCAL per-mint counter => 9 != 22 => reds; un-gating priorByMethod => 18 != 22 => reds)");
+  assert.equal(budget.calls_by_method.global.getTransaction, 0, "the sonde makes ONLY gTfA calls (the stub throws otherwise) => getTransaction stays 0");
+});
+
+// ---- L-b1b (C-V-1): the EMITTED sonde-report.json points[] feed projectPagesAtFraction end-to-end via the real CLI ----
+test("bell_density_report_points_feed_projection — points[] EMITTED by runMain --rebase-density feed projectPagesAtFraction (real artifact, not a hand-built model; C-V-1)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-dpp-s-")), od = mkdtempSync(join(tmpdir(), "bell-dpp-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), densitySeries("SPYx", 800));
+  const txMap: Record<number, number> = { 100: 10, 200: 20, 300: 30, 400: 40, 500: 30, 600: 20, 700: 10, 800: 5 }; // densities [1,2,3,4,3,2,1,0.5], N=1575
+  const args = ["--rebase-density", "--pools", "SPYx", "--max-calls", "150", "--max-credits", "1500", "--min-interval", "0", "--series-dir", sd, "--out", od];
+  await runMain(args, b1aDeps(densityStub({ [SPYX.address]: { genesis: 100, txAt: (s) => txMap[s] ?? 0 } })));
+  // read the artifact the CLI WROTE (CA-11 durci: never a hand-built model) and take its EMITTED points[] {slot,tx,span,density}.
+  const report = JSON.parse(readFileSync(join(od, "sonde-report.json"), "utf8")) as Record<string, { genesis_slot: number; oracle_slot: number; points: { slot: number; tx: number; span: number; density: number }[]; n_projected: number }>;
+  const r = report.SPYx!;
+  // feed the EMITTED points to the pure H6 projection; at f=0.5 with pagesSoFar 0 the linear term is 0, so the returned
+  // value is the density term = trapezoid(emitted points)/GTFA_PAGE_LIMIT = the sonde's own n_projected/GTFA_PAGE_LIMIT.
+  const proj = projectPagesAtFraction(450, r.genesis_slot, r.oracle_slot, 0, r.points);
+  assert.equal(proj, r.n_projected / GTFA_PAGE_LIMIT, "the EMITTED points[] feed projectPagesAtFraction from the real artifact (M-b1b-15: points[] under another key => r.points undefined => reds)");
+  assert.equal(proj, 1.575, "the concrete pipe value on the fixture: n_projected 1575 / GTFA_PAGE_LIMIT 1000 = 1.575");
+});
+
+// ---- L-b1b (C-V-3): a BudgetExceededError mid-mint still persists the interrupted mint's by_mint slice (per-mint finally) --
+test("bell_density_by_mint_survives_budget_exhaustion — a BudgetExceededError mid-mint persists the mint's by_mint slice via the per-mint finally (C-V-3)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-dbe-s-")), od = mkdtempSync(join(tmpdir(), "bell-dbe-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), densitySeries("SPYx", 800));
+  // --max-calls 3: genesis(1) + point0(2) + point1(3) succeed; point2 is the 4th call => BudgetExceededError mid-points.
+  const args = ["--rebase-density", "--pools", "SPYx", "--max-calls", "3", "--max-credits", "1500", "--min-interval", "0", "--series-dir", sd, "--out", od];
+  await assert.rejects(runMain(args, b1aDeps(densityStub({ [SPYX.address]: { genesis: 100, txAt: () => 2 } }))), BudgetExceededError, "the budget stop is fatal (mid-mint)");
+  const budget = JSON.parse(readFileSync(join(od, "budget.json"), "utf8")) as { calls_used: number; calls_by_method: { global: Record<string, number>; by_mint: Record<string, Record<string, number>> } };
+  assert.equal(budget.calls_used, 3, "3 calls consumed before the stop");
+  assert.equal(Object.values(budget.calls_by_method.global).reduce((a, b) => a + b, 0), 3, "global == calls_used (always exact via the budgeted layer, independent of the finally)");
+  assert.equal(budget.calls_by_method.by_mint.SPYx?.getTransactionsForAddress, 3, "the interrupted mint's by_mint slice is preserved by the per-mint finally (M-b1b-16: drop setSlice from the finally => SPYx absent => reds)");
+});
+
+// ---- L-b1b-2 / M-b1b-13: projectPagesAtFraction = max(linear, density); fail-closed on invalid input ----------------
+test("bell_h6_projection_pure_function — projectPagesAtFraction = max(linear, density); density = trapezoid(model)/GTFA_PAGE_LIMIT; fail-closed on invalid input (L-b1b-2, M-b1b-13)", () => {
+  const model = [{ slot: 0, density: 2 }, { slot: 1000, density: 2 }]; // trapezoid (2+2)/2·1000 = 2000 tx => 2000/GTFA_PAGE_LIMIT = 2 pages
+  // (A) linear dominates: fraction 0.05, pagesSoFar 3 => linear 60 > density 2 => 60.
+  assert.equal(projectPagesAtFraction(50, 0, 1000, 3, model), 60, "linear = pagesSoFar/fraction dominates (M-b1b-13: min => 2 => reds)");
+  // (B) density dominates: fraction 0.5, pagesSoFar 0 => linear 0 < density 2 => 2.
+  assert.equal(projectPagesAtFraction(500, 0, 1000, 0, model), 2, "density = trapezoid/GTFA_PAGE_LIMIT dominates (M-b1b-13: min => 0 => reds)");
+  // fail-closed on invalid input (THROW, never a silent 0):
+  assert.throws(() => projectPagesAtFraction(500, 1000, 1000, 1, model), /span <= 0/, "oracle == genesis => span 0 => throw");
+  assert.throws(() => projectPagesAtFraction(0, 0, 1000, 1, model), /fraction <= 0/, "slot_hi == genesis => fraction 0 => throw");
+  assert.throws(() => projectPagesAtFraction(50, 0, 1000, 1, [{ slot: 0, density: 1 }]), /< 2 points/, "a < 2-point model cannot integrate => throw");
+  assert.throws(() => projectPagesAtFraction(50, 0, 1000, 1, [{ slot: 1000, density: 1 }, { slot: 0, density: 2 }]), /not strictly sorted/, "unsorted points => throw");
+});
+
+// ---- L-b1b-2 / M-b1b-14: the density term is the per-segment trapezoid integral, NEVER density_max × span -----------
+test("bell_h6_projection_rejects_max_times_span — the density term is the per-segment trapezoid integral, NEVER density_max × span (L-b1b-2, M-b1b-14)", () => {
+  // a model whose density spikes only at the end: the per-segment trapezoid is SMALL; density_max × span over-projects.
+  // With linear 0 (pagesSoFar 0), the density term is load-bearing => the mutant is observable.
+  const model = [{ slot: 0, density: 0 }, { slot: 500, density: 0 }, { slot: 1000, density: 12 }];
+  // trapezoid = (0+0)/2·500 + (0+12)/2·500 = 3000 tx => 3 pages. density_max × span = 12 × 1000 = 12000 => 12 pages.
+  assert.equal(projectPagesAtFraction(500, 0, 1000, 0, model), 3,
+    "the projection uses the trapezoid integral (3 pages), NEVER density_max × span (M-b1b-14: 12 pages => reds)");
 });

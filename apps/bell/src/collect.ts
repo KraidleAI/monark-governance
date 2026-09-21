@@ -26,7 +26,7 @@ import { readMintToken2022, porStatus, wrapperStatus, rebaseForMint, rebaseGateF
 import { multiplierAtMs, replayTriplet, decodeStateConfig, type MultiplierEvent } from "./rebase-trajectory.ts";
 import { runRebaseScanCli, scaledUiConfigBytes } from "./rebase-scan.ts";
 import { runRebaseProduceCli } from "./rebase-produce.ts";
-import { runRebaseCrosscheckCli, readPriorCalls, readPriorByMethod, WORST_CASE_CREDITS_PER_CALL } from "./rebase-crosscheck.ts";
+import { runRebaseCrosscheckCli, runDensityProbeCli, readPriorCalls, readPriorByMethod, WORST_CASE_CREDITS_PER_CALL } from "./rebase-crosscheck.ts";
 import { runDiscoverCli } from "./discover.ts";
 import { quorum2, signaturesSetKey, statusOf, withRetry, NoQuorumError, QuorumDisagreementError, ConcordantRevertError,
   BudgetExceededError, SolRpcError, type JsonRpcCall, type TransportFault } from "./quorum.ts";
@@ -435,8 +435,13 @@ export function parseArgs(argv: readonly string[], knownSymbols: readonly string
   // (worst-case, gTfA 10 cr/call) is REQUIRED for it and enforced fail-closed IN ADDITION to --max-calls, so the
   // calls-vs-credits confusion (writing 1500 where 150 was meant) is unrepresentable. Other branches keep Infinity.
   const rebaseCrosscheck = argv.includes("--rebase-crosscheck");
-  if (rebaseCrosscheck && argOf(argv, "--max-credits") === undefined)
-    throw new Error("bell/collect: --rebase-crosscheck requires --max-credits (worst-case credits, C-G2-1; e.g. --max-credits 6497500 for the draw, 1500 for the probe)");
+  // L-b1b-1 (fact 11): --rebase-density (the H6 sonde helper) meters a paid probe against the SAME 6.5 M-credit
+  // plafond, so it requires --max-credits too. It does NOT require --max-pages (a distinct, decoupled mode: it fetches
+  // exactly 1 page per sample point, never the draw's page-bounded pagination), so the --max-pages gate below is left
+  // keyed on rebaseCrosscheck alone.
+  const rebaseDensity = argv.includes("--rebase-density");
+  if ((rebaseCrosscheck || rebaseDensity) && argOf(argv, "--max-credits") === undefined)
+    throw new Error("bell/collect: --rebase-crosscheck/--rebase-density requires --max-credits (worst-case credits, C-G2-1; e.g. --max-credits 6497500 for the draw, 1500 for the probe)");
   const maxCredits = argOf(argv, "--max-credits") === undefined ? Infinity : num("--max-credits", 0);
   if (argOf(argv, "--max-credits") !== undefined && !(maxCredits > 0)) throw new Error("bell/collect: --max-credits must be > 0 (C-G2-1 fail-closed budget)");
   // C-G2D-1: a MISSING --max-pages defaults to 3 (the probe/discover default) => the crosscheck stops at 3 pages =>
@@ -454,7 +459,7 @@ export function parseArgs(argv: readonly string[], knownSymbols: readonly string
     wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo, maxCalls, maxCredits,
     rebaseScan: argv.includes("--rebase-scan"), rebaseTrajectory: argOf(argv, "--rebase-trajectory"),
     rebaseProduce: argv.includes("--rebase-produce"), authority: argOf(argv, "--authority"),
-    rebaseCrosscheck, seriesDir: argOf(argv, "--series-dir"),
+    rebaseCrosscheck, rebaseDensity, seriesDir: argOf(argv, "--series-dir"),
     allowShortPages: argv.includes("--allow-short-pages"),
     discover: argv.includes("--discover") };
 }
@@ -569,7 +574,7 @@ export interface RunDeps {
 }
 
 export async function runMain(argv: readonly string[], deps: RunDeps): Promise<void> {
-  const { out, toUtcMs, fromUtcMs, wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo, maxCalls, maxCredits, rebaseScan, rebaseTrajectory, rebaseProduce, authority, rebaseCrosscheck, seriesDir, allowShortPages, discover } = parseArgs(argv, POOLS.map((p) => p.baseSymbol), deps.nowMs);
+  const { out, toUtcMs, fromUtcMs, wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo, maxCalls, maxCredits, rebaseScan, rebaseTrajectory, rebaseProduce, authority, rebaseCrosscheck, rebaseDensity, seriesDir, allowShortPages, discover } = parseArgs(argv, POOLS.map((p) => p.baseSymbol), deps.nowMs);
   const repoRoot = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
   assertOutsideRepo(out, repoRoot);
 
@@ -580,10 +585,14 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
   // C-11: every Solana RPC call goes through the fail-closed budget (throws BudgetExceededError past --max-calls).
   // C-1 (-b3d): the --rebase-crosscheck branch is RESUMABLE — its budget is offset by the prior cumulative calls_used
   // (<out>/budget.json), so a second process cannot reset the ceiling. Every other branch resumes from 0 (unchanged).
-  const priorCalls = rebaseCrosscheck ? readPriorCalls(out) : 0;
+  // L-b1b-1: --rebase-density shares the SAME cumulative budget.json as the crosscheck draw (same --out), so BOTH the
+  // calls_used offset AND the per-method global seed resume for it too (else a 2nd density invocation on the same --out
+  // would break Σ calls_by_method.global == calls_used — the sonde's 4-invocation pattern, PLI cp-2). The plan's single
+  // "priorCalls gate" (fact 11, :589) predates b1a's C-B-3 split into these two lines; both take `|| rebaseDensity`.
+  const priorCalls = (rebaseCrosscheck || rebaseDensity) ? readPriorCalls(out) : 0;
   // C-B-3 (V-3): the per-method counter resumes cumulatively too — seed it from budget.json.calls_by_method.global so
   // the artifact's calls_by_method / credits_recomputed track calls_used across resumes (fact 4: else under-counted).
-  const priorByMethod = rebaseCrosscheck ? readPriorByMethod(out) : {};
+  const priorByMethod = (rebaseCrosscheck || rebaseDensity) ? readPriorByMethod(out) : {};
   // C-G2-1: the worst-case-credits cap (--max-credits) rides the SAME cumulative counter as --max-calls, so a shared
   // --out (probe then draw) bounds probe+draw JOINTLY in the credit unit (Infinity for the non-crosscheck branches).
   const budgeted = makeBudgetedCall(maxCalls, async (u, m, p) => { if (minInterval > 0) await sleep(minInterval); return deps.call(u, m, p); }, priorCalls, maxCredits, priorByMethod);
@@ -601,6 +610,13 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
   if (rebaseProduce) {
     if (authority === undefined) throw new Error("bell/collect: --rebase-produce needs --authority <base58> (the shared multiplier authority, read on-chain)");
     await runRebaseProduceCli(call, solProviders, wanted, authority, out, { maxPages }, budgeted.calls, maxCalls, faults); return;
+  }
+  // L-b1b-1 (PLI §3(c)): --rebase-density runs the H6 density sonde (genesis MEASURED + DENSITY_POINTS points/mint) and
+  // returns; it writes sonde-report.json + the SHARED budget.json (cumulative global calls_by_method) but NEVER a
+  // ledger/crosscheck artifact. Bounded in the credit unit on the SAME budget as the draw, so a shared --out is joint.
+  if (rebaseDensity) {
+    const dir = seriesDir ?? resolve(repoRoot, "apps/bell/test/fixtures/series/rebase");
+    await runDensityProbeCli(call, solProviders, wanted, dir, out, { requireFullPages: !allowShortPages }, budgeted.calls, budgeted.callsByMethod, maxCalls); return;
   }
   // L-2/L-3 (D1-quater, decision 67): --rebase-crosscheck re-scans each wanted mint's WHOLE body set (gTfA `full`,
   // bounded to the committed series' oracle_slot) and compares it to the committed hybrid series (STOP on divergence
