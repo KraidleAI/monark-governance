@@ -5,7 +5,11 @@
 // `openOperatorLedger`, `acquireLock`, `runUnlock` are NOT exported - tests reach them by relative import. The closed
 // export set is asserted by exports.test.ts (T2). No symbol returns/accepts an endpoint URL.
 export { openGuardedClient } from "./guarded.ts";
-export { BudgetExceededError, TransportError } from "./errors.ts";
+export { BudgetExceededError, TransportError, RpcError } from "./errors.ts";
+// GARDE-HELIUS-2b C-4: the SINGLE-SOURCE error vocabulary. apps/sentinel/src/ukemi/rpc2.ts IMPORTS these (the
+// apps -> packages direction is licit) and keeps NO second regex; the closed-vocabulary hint (D6) is built from the
+// SAME tokens, so `predicate(hint) === predicate(body)` holds and the recorder's range-split can never drift.
+export { isResultLimit, isPlanLimited, isRevertText, isRpcRevert, closedHint, ERROR_HINT_TOKENS } from "./classify.ts";
 export { runReconcile } from "./reconcile.ts";
 export { runCli } from "./cli.ts";
 export { verifyCycleLedger } from "./ledger.ts";
