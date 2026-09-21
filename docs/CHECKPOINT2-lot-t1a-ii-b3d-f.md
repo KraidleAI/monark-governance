@@ -87,3 +87,59 @@ Aucune escalade n'est due maintenant.
 **AM-1** — Attrapé : la suite ne distingue pas un engagement réel du payload d'un engagement de ses seules longueurs (M-f-5 survivant), ni une dérive de forme bilatérale (M-f-6). C-F-1 n'était pas prouvé par `runMain`. Manqué de mon checkpoint-1 : C-F-3 prescrivait « page_events édité (Initialize retiré) » et « +1 handoff », deux éditions qui changent la longueur. Le trou de test vient de ma prescription.
 
 **Modèle résolu (R-1) : `claude-fable-5-1`.**
+
+
+---
+
+# RÉ-ACCEPTATION SUR PIÈCES — Bell -b3d-f, HEAD `85d4db6` : **ACCEPTE** (conditionnée au PASS de la G2 séparée)
+
+**Validateur-humain, modèle résolu (R-1) : `claude-fable-5-1`.** J'ai rejoué sous `F:\tmp\cp2-b3df\head3\` depuis `git archive 85d4db6` (blobs HEAD). Aucune écriture dans le dépôt, aucun réseau, aucun `npm install`. `git status` est à 0 ligne avant et après.
+
+## Première ligne — blobs HEAD
+- `git show --stat 85d4db6` liste un seul fichier : `apps/bell/test/rebase-crosscheck.test.ts` (+39/−0).
+- Les blobs HEAD valent `8091ac06…` pour le test et `2c852f0c…` pour le source. Le source est **inchangé** depuis `291d389` ; ma copie extraite porte les mêmes sha.
+- Le pli ne touche que le test, donc pas de G2-delta (précédent -b3d-a).
+- **R-25** (pathspec `ci.yml:65`, base `f459cc2`) : `2 files changed, 183 insertions(+), 48 deletions(-)`, soit **231 ≤ 1 205**. Cela concorde avec l'annonce.
+
+## C-V-1 — vérifiée sur pièces et rejouée
+- **(ii) Vecteur littéral recalculé par moi** avec `vector.mjs` : `createHash` brut, aucun import du dépôt. J'ai reconstruit l'événement à la main (champs dans l'ordre de `ev(...)`, `blockTimeSec = slot·100`, bits f64 LE) et le core à 10 champs avec `payload_sha256` en dernier.
+  - `payload_sha256 = a3b346f0de060d33c20a461fcb40d600417f9b6f52282cd1a14fda69da40fd8e`
+  - `entry_sha256 = 1e47da9efc918af3a74e7239677bf29c15a0fb1316f6a1e5fb2f9156c58cfbf4`
+  - Les deux hex sont **identiques** aux littéraux du test. La forme pré-enregistrée de l'Amendement n°2 est donc exécutable et reproductible hors du code jugé. Ce sont des sha de données synthétiques, donc rien à signaler au titre de l'anti-close.
+- **(i)** Le sous-cas (d) modifie `multiplierBitsHex` en place, sans changer les longueurs et en gardant `entry_sha256`. La reprise est refusée par `runMain` et `budget.json` reste byte-identique. Aucun `crosscheck-SPYx.json` ni `-attempt` n'est écrit.
+- **(iii)** Le sous-cas (e) supprime `payload_sha256` sur disque. La reprise est refusée par `runMain`, avec les mêmes assertions de non-écriture.
+- **Mutants sur la copie HEAD** (référence non mutée 58/58, toutes restaurations byte-exactes) :
+  - **M-f-5** (longueurs seules) : 56/2, **TUÉ** par le vecteur et par (d).
+  - **M-f-6** (ordre des clés) : 57/1, **TUÉ** par le vecteur. Ces deux mutants survivaient à `291d389`.
+  - M-f-1 : 56/2, TUÉ.
+  - M-f-2 : 56/2, TUÉ. Le vecteur le tue désormais aussi.
+  - M-f-3 : 45/13, TUÉ.
+  - M-f-4 : 56/2, TUÉ, désormais aussi par `runMain` (e).
+  - refuse-always : 45/13, TUÉ.
+- **Oracle complet dans le worktree** :
+  - `npm run ci` : 699 tests, **698 pass, 0 fail, 1 skip** (`fetch_only_inside_client`, « until 1b », préexistant et déclaré), CI_EXIT=0.
+  - `lint` : EXIT 0.
+  - `lint:ratchet` : **69/69**, plafond inchangé.
+
+## Liste résiduelle fermée (non bloquante pour l'acceptation ; due au G7, dans le SHA de fusion)
+1. **Condition de régime B** : pas de G7 sans le PASS de la G2 séparée sur `291d389`. Si elle rend un défaut, je rejoue sur le périmètre touché.
+2. **C-V-2** : l'Amendement de format n°2 doit porter les 9 points exigés, soit :
+   - la formule et l'ordre des clés ;
+   - la forme écrite (JCS non retenue) ;
+   - le refus d'un record sans `payload_sha256`, sans migration ;
+   - l'ordre refus/écriture, y compris la création idempotente de répertoires ;
+   - `candidate_shas` hors chaîne ;
+   - le §5 en deux vérifications, la seconde **par ensemble `eventKey`**, jamais par recalcul de `payload_sha256` sur une page re-tirée ;
+   - le retrait du caveat ITEM-A ;
+   - M-b1a-7/9 inversés ;
+   - (f) notée « tenue par -f, sha de fusion ».
+   Il faut aussi la limite « (f) ne défait pas un re-hachage complet avant publication de `ledger_sha256` », et le §2 `7071484f…` recomputé avant et après. J'exige d'y lire les **deux hex du vecteur** comme valeur de référence de la spéc.
+3. **C-V-3** : déclencheur nommé **GARDE-HELIUS-1b** (`packages/rpc-guard/test/ledger-format-lock.test.ts:16-17`, arité 5, `[], []`).
+4. **C-V-4** : l'ancrage externe par page reste une **ESCALADE-INVESTISSEUR** au G0 de la course.
+5. **Persistance** : ajouter cette ré-acceptation au fichier de checkpoint-2 du lot.
+
+Aucune escalade n'est due.
+
+**AM-1** — Ce tour n'a rien révélé de nouveau : le pli est fidèle, et mes deux mutants qui survivaient sont maintenant tués par un vecteur que j'ai recalculé hors du code jugé. Une leçon à garder pour ma checklist : tout test d'intégrité par hachage doit comporter une édition à longueur égale et un vecteur de valeur attendue littéral, recalculé indépendamment du code.
+
+**Modèle résolu (R-1) : `claude-fable-5-1`.**
