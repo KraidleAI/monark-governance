@@ -64,7 +64,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 |---|---|
 | Maquette Bell (charte C) + landing 3D | REÇUE (`F:\MONARK SUITE\bell-design\` ; original non retouché dans `originaux\`) |
 | Maquette Ukemi | PRÊTE (`F:\PRODUITS\etude-2026-09-21\maquettes-release\ukemi.html`) ; 20 écarts Bell notés |
-| Logos : Bell (64), Ukemi concept 3 (103), Narabi concept A (104) | CHOISIS ; lettrage final en tracés LIVRÉ (`F:\MONARK SUITE\NOTE-serie-logos.md`, 10 SVG + `measures.json`, scripts rejouables) ; **6 points à arbitrer par l'investisseur** (note §6, dont largeur du bloc : 56 px recommandé vs ≈ 63,7 px) ; demande formée conditionnelle §7 (fontTools lu depuis un venv tiers) |
+| Logos : Bell (64), Ukemi concept 3 (103), Narabi concept A (104) | CHOISIS ; lettrage final en tracés LIVRÉ (`F:\MONARK SUITE\NOTE-serie-logos.md`, 10 SVG + `measures.json`, scripts rejouables) ; **CLOS — décision 120** (6 arbitrages = reco designer : 56 px, `#E8C468`, favicon `mark-small`, justifié sur l'encre, −2,4, accent gardé) |
 
 ## 6. EN ATTENTE DE L'INVESTISSEUR (une question à la fois, dans l'ordre)
 | # | Quoi | Bloque |
@@ -74,7 +74,6 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | ~~E-1b~~ | Retrait de LlamaRPC — CONFIRMÉ (décision 106) | — |
 | ~~F-1~~ | Polices OFL — TÉLÉCHARGÉES (décision 107, `F:MONARK SUITEonts`) | — |
 | R-25 | Garder 1 205 / passer à 1 600 par ADR / désactiver | rien (défaut : 1 205) |
-| Logos | Note §6 du designer : 6 arbitrages (largeur du bloc 56 vs ≈ 63,7 px, etc.) | finalisation des SVG de la série |
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
