@@ -446,7 +446,7 @@ function doExport(root, outDir) {
   }
   // D7 septies (iii): FAIL CLOSED on a reader-local Windows absolute path in any kept file, BEFORE any
   // write. Mirrors the doCheck guard so --check can never stay green while the real export writes a path
-  // (the fail-open class named at doCheck's R1 note). error_origin = worker: D7 left export:check blind.
+  // (the fail-open class named at doCheck's R1 note). error_origin = orchestrator (D7 design left export:check blind, same class as volet (i) of D7 septies).
   const pathViolations = windowsPathViolations(kept);
   if (pathViolations.length) {
     console.error("export FAILED — exported file(s) carry a reader-local Windows absolute path (D7 septies (iii)):");

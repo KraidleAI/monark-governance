@@ -124,7 +124,7 @@ Recherche de voisins survivants : §4 (`.mts`/`.svg`/sans-ext, `D:/` fin de lign
   commentaires L159/L160/L161 portent TOUS un chemin de lecteur littéral (`// F:\PRODUITS\...\u3-reads.jsonl`,
   `// C:\work\book.json`, `// F:/tmp/u1a-hard/book.json`) — la promesse ne vaut que pour le CODE (assemblé au
   runtime), pas pour les commentaires ;
-  (b) **fuite du chemin privé RÉEL** : uniquement L159, dont les segments `etude-2026-09-20` / `u3-raws-clean`
+  (b) **fuite du chemin privé RÉEL** : uniquement L159, dont les segments `[masqué]` / `[masqué]`
   sont les vrais noms de dossiers (L160/L161 sont fictifs). Un chemin fictif aurait suffi. Pas de fuite publique
   (root test non whitelisté), mais réintroduit dans le privé le chemin exact que le lot retire de PROVENANCE-u3.
   Correction : anonymiser L159.
