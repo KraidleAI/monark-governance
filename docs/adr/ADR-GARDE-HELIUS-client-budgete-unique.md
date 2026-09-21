@@ -330,3 +330,84 @@ data`** livré ici ; **`migration du recorder + grep`** = item formé (ci-dessou
   (`providerOf` rend un nom nu inchangé, `apps/sentinel/src/rpc.ts:34`, lecture seule, non touché). **Runbook (course Ukemi gardée)** : un crash laisse **N** verrous (un par opérateur demandé, keyless compris) ; la
   reprise fait **N** `runCli unlock --op <label>` (ligne `unlocked` chaînée, 0 crédit, ne déplace pas la fenêtre de rapprochement) AVANT tout
   `reconcile`.
+
+## Amendement GARDE-HELIUS-2b-ii - migration du recorder Ukemi sous le garde + grep CI (date 2026-09-21, worker `claude-opus-4-8[1m]`)
+
+- **Provenance** : worker G1 `claude-opus-4-8[1m]` (prefixe `claude-opus-4-8` conforme, effort max ; Opus 5 banni), 2026-09-21, worktree
+  `lot/garde-helius-2b-ii` (base `e7f22b8` sur `lot/etude-suite`) ; reviseur = orchestrateur (R-21). Aucun reseau (fetch bouchonne, cles
+  factices, hotes `.invalid`), aucun secret lu, aucun commit (R-20). Ce lot CONSOMME le paquet 2b-i (branche le recorder par un chemin servi +
+  e2e non-LLM) ; seam active (R-25 total 1322 > 1150) : 2b-ii-a (R-25 207) et 2b-ii-b (R-25 1125), les deux <= 1150 (voir la fin).
+
+- **R-B (portee du grep CI, VERBATIM) - RESTREINT A-6** : A-6 declarait l'elargissement de portee du grep `fetch_only_inside_client` a
+  `apps/sentinel/src/**` en 2b. Cet amendement le RESTREINT a **`apps/sentinel/src/ukemi/**` UNION `apps/sentinel/src/rpc.ts`** ;
+  `apps/sentinel/src/rpc.ts` est SCANNE (dans la portee) ET allowliste avec declencheur de retractation **NARABI-OPS-1d** (migration du job
+  quotidien Narabi sous le garde) ; `run.ts`/`timeline.ts` entrent en portee a NARABI-OPS-1d. Test in-suite `ukemi_src_clean_and_allowlist_load_bearing`
+  (job g3-verification via `npm test`, aucune etape `ci.yml`). Allowlist = `Map<path, declencheur>` ; non-vacuite PAR ENTREE (C-2 : scanner
+  chaque fichier allowliste seul, allowlist vide, rend >= 1 hit) + garde de portee (`ukemi/*.ts >= 8`) + double garde (l'entree allowlistee doit
+  etre dans la portee). Motif KEY etendu (C-1(c)) : `env.KEY`, `env["KEY"]`, `"KEY" in ...env`, destructuration `{...KEY...} = ...env`.
+
+- **R-D (ripple cross-lot `apps/bell/src/ethereum.ts:67`, VERBATIM)** : la signature canonique de `RpcError` est `(op, message, code, detail, unit, data)`.
+  Le site d'appel Bell devient `new RpcError(providerOf(url), json.error.message, json.error.code, "", "keyless", data)` :
+  `op = providerOf(url)` (un hote nu, JAMAIS l'URL qui pourrait porter une cle - hygiene C-10 Bell), `unit = "keyless"` (Bell n'introduit aucun banc
+  payant), `detail = ""`. UNE ligne ; `apps/bell` sinon INTACT (sa migration reste GARDE-HELIUS-1b) ; comptee dans R-25. Sans elle le typecheck
+  fusionne rougit.
+
+- **D-label = `chainstack` (decision 121)** : le label de l'operateur payant dans le journal/ledger/provenance est **`chainstack`** (l'operateur,
+  unique par compte ; le reseau est l'attribut `network`, ci-dessous). `archive-env` / `ARCHIVE_ENV_LABEL` / `operatorLabel` sont SUPPRIMES du
+  recorder (aucun consommateur casse - mesure M-17 : `concordance.ts` label-agnostique, `resume.ts:86` `case "meta": break`, `u4b-reduce.mjs:48`
+  ne lit que `provenance.book_digest`). `scrubUrls` / `applyExcludeOperators` sont SUPPRIMES aussi (le transport expurge tout message leve ;
+  `--operators`, liste d'inclusion explicite, remplace `--exclude-operator` : ne pas lister un operateur = l'exclure).
+
+- **R-A / cas `data === "0x"` (RESIDU (4) de l'amendement 2b-i tranche ; C-4)** : `isRpcRevert` (`classify.ts`) BENCHE une jambe PAYANTE dont
+  `data` est `"0x"` ou absente : `if (e.unit !== "keyless" && (e.data === undefined || e.data === "0x")) return false;`. Sous D6 deux reverts
+  payants distincts partagent le meme message a vocabulaire ferme ; sans un `.data` NON vide discriminant ils ne doivent pas etre lus comme un
+  seul fait on-chain. `revertKey` (`rpc2.ts`) est CONSERVE avec sa garde `!== "0x"` (le sous-cas keyless GHO V-4 - `"0x"` vs data absente, les
+  DEUX keyless - reste concordant : R-A ne touche que la branche payante, unit != keyless). Effet mesure (C-4) : a l'etat HEAD un bare-revert
+  chainstack face a un keyless produisait un FAUX DESACCORD (`onQuorum(false)` + `QuorumDisagreementError`) qui polluait `--concordance-out` ;
+  l'option 1 le remplace par un banc, qui pose `cooldownUntil` 25 s sur `chainstack` (`rpc2.ts` quorum2) par bare-revert - comportement NEUF,
+  narrow (chainstack ajoute en dernier), 0 RU. Teste via le transport reel (`paid_revert_with_empty_0x_data_is_benched`, fetch bouchonne) ;
+  mutant "0x traite present pour un payant" ROUGE. Option 2 (toucher `revertKey`) REJETEE : elle rougit `ukemi_revert_key_uses_data` (sous-cas mixed GHO V-4).
+
+- **C-GD-2 (formes transformees de la cle dans le corps) : FERME structurellement** (etat, pas ouvert) par D6 de 2b-i : pour un operateur payant,
+  le message leve ne reprend QUE l'indice a vocabulaire ferme (`closedHint`), jamais un octet du corps. Le recorder migre journalise `e.detail`
+  (indice ferme, payant) / redacte (keyless) + `e.data` validee, JAMAIS le corps brut (ni sur disque ni sur stderr) - le corps brut n'atteint
+  jamais `record.ts` (le transport est le seul a le voir). Un HTTP 400 payant journalise `http:400`, jamais `code:400` (journal par `e.name`, C-5).
+
+- **Clause 121 `network` - specification ecrite UNE FOIS (portee au G1 2b-ii par 121 ; cf. `docs/CHECKPOINT1-lot-garde-helius-1b.md` C-5).**
+  Cette clause SPECIFIE l'attribut `network` du plafond Chainstack PAR COMPTE ; elle est IMPLEMENTEE par le lot 1b-0 (PAS par 2b-ii : le recorder
+  2b-ii appelle `openGuardedClient` SANS `network` - defaut ETH ; 1b-0 porte l'adaptation minimale de chaque site consommateur, calque R-D,
+  comptee dans le R-25 de 1b-0, jamais un defaut silencieux a ETH). Options fermees (ruling orchestrateur) :
+  - (a) `network` est un parametre de COURSE d'`openGuardedClient` (`opts.network: "ethereum-mainnet" | "solana-mainnet"`, requis des qu'un operateur
+    multi-reseau est demande, fail-closed sinon) ; le transport resout `chainstack` vers `CHAINSTACK_<reseau>_URL` (absent => throw AVANT tout verrou).
+  - (b) la ligne ledger porte `network` comme champ SUPPLEMENTAIRE du core (apres `credits_derived`, avant `reason`) ; `verifyCycleLedger` recompute
+    sur les champs presents => les lignes 2b-ii sans `network` et les lignes neuves avec `network` chainent ensemble (test `cycle_ledger_mixes_legacy_and_network_lines`, du a 1b-0).
+  - (c) `reconcile` agregat inchange : borne dure sur le TOTAL du compte (121), `network` informatif.
+  - (d) consequence declaree : Bell (Solana) et Ukemi (ETH) partagent le verrou `chainstack.lock` => pas deux courses Chainstack simultanees
+    (fail-closed voulu ; runbook : `unlock` de l'autre course d'abord).
+  - (e) ripple sur tout consommateur fusionne avant 1b-0 (recorder 2b-ii `record.ts` ; scripts 2b-iii `u4-oracle-path.mjs`/`u4-redraw.mjs`
+    s'ils appellent `openGuardedClient`) : 1b-0 porte l'adaptation `network: "ethereum-mainnet"` de chaque site (R-D calque), comptee dans son R-25.
+
+- **Runbook (course Ukemi gardee) + verrou robuste** : le `finally` de `runRecorder` relache les N verrous demandes (keyless compris, meme sur
+  `BudgetExceededError`) via N `runCli unlock` (ligne `unlocked` chainee, 0 credit, ne deplace pas la fenetre de rapprochement). Un crash DUR
+  (SIGKILL/SIGTERM) laisse les N verrous `wx` tenus - fail-closed VOULU pour le recorder (jamais un blocage masque : le verrou est l'existence
+  du fichier, detectable ; contrainte NARABI-OPS-1d "un SIGTERM laisse le verrou wx tenu" - pour le recorder c'est le comportement recherche) ;
+  la reprise fait N `runCli unlock --op <label>` AVANT tout `reconcile`. L'ouverture du garde jette fail-closed dans les cas verrou-tenu / operateur
+  non resolu / config invalide ; pour le recorder c'est voulu (jamais une course a budget non garanti - fail-closed).
+
+- **Tuyau 2b-ii (regle Branchement) - registre R-C** : entree = argv (`--operators`, un `--cycle`, `--ledger-dir`, `--floor`, `--max-ru`,
+  `--method-caps`, `--max-calls`) + `deps.env` passe tel quel a `openGuardedClient` (le transport est le seul lecteur de cle) ; sortie =
+  `<ledger-dir>/<cycle>/chainstack.jsonl` (+ `.head`, `.lock`) + ledgers keyless (cout 0, comptes) + artefacts du recorder inchanges ; consommateur
+  SERVI = `runRecorder` reel -> N `runCli unlock` -> `runCli reconcile` (verdict + code de sortie). Test d'integration non-LLM =
+  `ukemi_record_then_unlock_then_reconcile_end_to_end` + `ukemi_record_spends_only_through_guard` (SEUL `globalThis.fetch` bouchonne, C-5 :
+  `openGuardedClient` reel, aucun faux client/transport). Registre : au G7 2b-ii le paquet + le recorder garde sont BRANCHES (consommateur servi +
+  e2e non-LLM transport->classify->record) ; ils passent `built` a la premiere course RAPPROCHEE (U-4b-1b) ; `upcoming` au registre public
+  jusque-la (R-C).
+
+- **Seam declare (C-3) + R-25 (pathspec `ci.yml:65` verbatim, base `e7f22b8`, `docs/**/*.md` exclus - cet amendement ne compte pas)** : total
+  a+b = 1322 > 1150 => seam active. 2b-ii-a (R-25 207) = `rpc2.ts` canonique (re-export `RpcError`/`BudgetExceededError`, import des trois
+  classifieurs de `classify.ts`, 0 classe/regex locale) + ripple de signature (`ukemi.test.ts`, `pool-rpc-1a.test.ts:121`, `ethereum.ts:67` R-D,
+  `record.ts:126`) + R-A (`classify.ts`) + tests D-4/identite-via-transport/R-A ; fusionnable SEUL (n'exige PAS la suppression de `makeBudgetedCall`).
+  2b-ii-b (R-25 1125) = migration `record.ts` (`openGuardedClient`, `--operators`, N unlock, journal par `e.name`) + grep CI + e2e + ripple des
+  tests. Les DEUX <= 1150 (pas d'escalade). Sous-couture disponible non requise : -b1 (record + tests + guard-record e2e) ~1036 / -b2 (grep) 89.
+  Ordre de commit (orchestrateur, R-20 : le worker ne committe pas) : commit 1 = arbre 2b-ii-a, commit 2 = 2b-ii-b par-dessus (les fichiers mixtes
+  `record.ts`/`ukemi.test.ts` empechent une scission par fichier ; les patchs A.patch puis B.patch sont fournis dans le rendu).

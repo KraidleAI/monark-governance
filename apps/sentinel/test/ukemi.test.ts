@@ -11,7 +11,6 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { recordBook, canonicalStringify, ukemiLineHash, type UkemiTimelineLine } from "../src/ukemi/book.ts";
 import { makeUkemiPool, NoQuorumError, RpcError, ConcordantRevertError, isRpcRevert, type UkemiReader, type LogEntry } from "../src/ukemi/rpc2.ts";
-import { defaultCall } from "../src/ukemi/record.ts";
 import { QuorumDisagreementError, type RpcCall } from "../src/rpc.ts";
 import { SEL, wordAddr, decodeUserAccountData, decUint } from "../src/ukemi/abi.ts";
 import { crossCheckHealthFactor, healthFactorFromBalances, percentMul, wadDiv, eligibleStatic } from "../src/ukemi/wadray.ts";
@@ -24,9 +23,9 @@ interface FixtureLog { blockNumber: string; logIndex: string; transactionHash: s
 interface Fixture { cluster: string; block: number; block_hash: string; block_ts: number; finalized_block: number; enumeration_logs: FixtureLog[]; calls: Record<string, string>; victim_vector: { address: string; getUserAccountData: string; getUserConfiguration: string; getUserEMode: string; aweth_balance: string }; }
 const FX = JSON.parse(readFileSync(join(HERE, "fixtures", "ukemi", "weth-book.fixture.json"), "utf8")) as Fixture;
 
-/** GARDE-HELIUS-2b-ii: build a KEYLESS canonical RpcError from the legacy (message, code, data?) shape (the quorum
- *  tests exercise revertKey / isRpcRevert / ConcordantRevertError on KEYLESS reverts; unit "keyless" so R-A's paid
- *  "0x" bench never triggers - the live GHO V-4 mixed case stays concordant). */
+/** GARDE-HELIUS-2b-ii: build a KEYLESS canonical RpcError from the legacy (message, code, data?) shape. The quorum
+ *  tests exercise revertKey / isRpcRevert / ConcordantRevertError on KEYLESS reverts (op/detail are immaterial;
+ *  unit "keyless" so the R-A paid-"0x"-bench never triggers - the live GHO V-4 mixed case stays concordant). */
 const rerr = (message: string, code: number, data?: string): RpcError => new RpcError("test-op", message, code, "", "keyless", data);
 
 // The pinned outputs of recording the reduced fixture (recomputed at write time; a drift reddens).
@@ -157,57 +156,10 @@ test("ukemi_is_rpc_revert_rejects_archive_miss", () => {
   assert.ok(isRpcRevert(rerr("execution reverted: out of gas", -32000)), "positive control: -32000 naming a revert");
 });
 
-// Non-LLM oracle on the REAL record.ts defaultCall (fetch → typed RpcError → quorum2 → book tolerance) — the link
-// neither the worker nor the G2 delta executed. globalThis.fetch is stubbed (fully typed, no `any`; restored in a
-// finally) to serve the fixture bytes over JSON-RPC (HTTP 200) and to answer description() per scenario. 7 cases.
-// Per-test 10s cap (checkpoint-2 V-1(b), orchestrator ruling 2026-09-19): case (c) serves a PERSISTENT 429, which a
-// correct bounded retry throws at once but an unbounded-retry regression (mutant R2) would loop on — { timeout: 10_000 }
-// reds it in ≤ 10s under R2 with --test-force-exit. In ukemi-record.test.ts, retry_is_bounded and the 5xx backoff-cap
-// test serve a 200 beyond retries+1, so R2 (which unbounds only the HTTP path) makes those two resolve and red in ms.
-test("ukemi_default_call_classifies_rpc_errors", { timeout: 10_000 }, async () => {
-  const eps4 = ["https://one.example", "https://two.example", "https://three.example", "https://four.example"];
-  const isDescData = (data: string): boolean => data.toLowerCase().startsWith(SEL.description.toLowerCase());
-  const jsonResp = (body: unknown, status = 200): Response => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-  type OnDesc = (url: string) => Response | null;
-  const original = globalThis.fetch;
-  const installStub = (onDesc: OnDesc): void => {
-    const stub = (input: string | URL, init?: RequestInit): Promise<Response> => {
-      const url = String(input);
-      const req = JSON.parse(typeof init?.body === "string" ? init.body : "{}") as { id: number; method: string; params: unknown[] };
-      const wrap = (result: unknown): Response => jsonResp({ jsonrpc: "2.0", id: req.id, result });
-      if (req.method === "eth_getBlockByNumber") return Promise.resolve(wrap({ hash: FX.block_hash, number: "0x" + FX.block.toString(16), timestamp: "0x" + FX.block_ts.toString(16) }));
-      if (req.method === "eth_getLogs") return Promise.resolve(wrap(FX.enumeration_logs));
-      const p = (req.params as ReadonlyArray<{ to: string; data: string }>)[0]!;
-      if (isDescData(p.data)) { const r = onDesc(url); if (r) return Promise.resolve(r); }
-      const v = FX.calls[`${p.to.toLowerCase()}|${p.data.toLowerCase()}`];
-      return Promise.resolve(v === undefined ? jsonResp({ jsonrpc: "2.0", id: req.id, error: { code: -32000, message: "fixture miss" } }) : wrap(v));
-    };
-    globalThis.fetch = stub as typeof globalThis.fetch;
-  };
-  const runBook = async (onDesc: OnDesc): Promise<{ book_digest: string; descs: string[] }> => {
-    installStub(onDesc);
-    const pool = makeUkemiPool({ call: defaultCall, ethCallProviders: eps4, getLogsProviders: eps4, minIntervalMs: 0 });
-    const r = await recordBook(CLUSTER_WETH, FX.block, pool);
-    const parsed = JSON.parse(canonicalStringify(r.book)) as { reserves: Array<{ oracle_description: string }> };
-    return { book_digest: r.book_digest, descs: parsed.reserves.map((x) => x.oracle_description) };
-  };
-  const revert3 = (): Response => jsonResp({ jsonrpc: "2.0", id: 1, error: { code: 3, message: "execution reverted" } });
-  try {
-    const base = await runBook(() => null);
-    assert.equal(base.book_digest, PIN.book_digest, "baseline via the real defaultCall reproduces the pinned digest");
-    const a = await runBook(() => revert3());
-    assert.deepEqual(a.descs, ["", "", ""], "(a) concordant code-3 revert on every description() ⇒ all \"\"");
-    assert.notEqual(a.book_digest, PIN.book_digest, "(a) emptying a digest field changes the digest");
-    const a2 = await runBook(() => jsonResp({ jsonrpc: "2.0", id: 1, error: { code: -32000, message: "execution reverted", data: "0x" } }));
-    assert.deepEqual(a2.descs, ["", "", ""], "(a') concordant -32000 revert ⇒ all \"\"");
-    await assert.rejects(() => runBook((url) => (url === eps4[0] ? null : revert3())), QuorumDisagreementError, "(b) value/revert split ⇒ abstain");
-    await assert.rejects(() => runBook((url) => (url === eps4[0] ? revert3() : jsonResp({ error: "rate limited" }, 429))), NoQuorumError, "(c) revert + HTTP 429 ⇒ no quorum");
-    await assert.rejects(() => runBook(() => jsonResp({ jsonrpc: "2.0", id: 1, error: { code: -32000, message: "header not found" } })), NoQuorumError, "(f) archive miss ⇒ transport ⇒ no quorum");
-    await assert.rejects(() => runBook(() => jsonResp({ jsonrpc: "2.0", id: 1, error: { message: "execution reverted" } })), NoQuorumError, "(i) JSON-RPC error without a code ⇒ transport (fail-safe)");
-  } finally {
-    globalThis.fetch = original;
-  }
-});
+// GARDE-HELIUS-2b-ii: the fetch -> typed RpcError -> quorum2 -> book path (formerly `ukemi_default_call_classifies_rpc_errors`,
+// on the removed record.ts `defaultCall`) is RETIRED here. It is superseded through the MIGRATED path in
+// apps/sentinel/test/ukemi-guard-record.test.ts (ukemi_record_full_book_reproduces_pin_through_guard, and the revert
+// scenarios via the concordance chain), which drives runRecorder over openGuardedClient with only globalThis.fetch stubbed (C-5).
 
 // ── 1 — the deliverable oracle: replay the reduced book, digest is bit-identical ────────────────────────
 test("sentinel2_book_identical_to_pull", async () => {

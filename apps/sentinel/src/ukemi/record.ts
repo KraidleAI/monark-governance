@@ -3,157 +3,41 @@
 // never the mutable head), records the full book, and writes the live G1 artifact (book + digest + provenance)
 // OUTSIDE the repo. The committed fixture is the reduced subset; the full book at B is this live artifact
 // (ADR-U1 D9). Provenance (endpoints, timing, calls, ukemi_sha, per-provider rpc errors) is OUTSIDE the digest.
-// Hardening (this lot, replacing the uncommitted G1 §5b wrapper): a BOUNDED transient retry on HTTP 429/5xx and
-// network/timeout faults (never infinite), a structured secret-free per-provider error log, and an enumeration
-// floor / politeness / retry budget all exposed on the CLI. Usage:
+// GARDE-HELIUS-2b-ii migration: EVERY RPC endpoint (paid AND keyless) is reached ONLY through @monark/rpc-guard
+// (meter + durable per-operator cycle ledger + lock). record.ts reads NO endpoint key; the operators come from an
+// EXPLICIT --operators list; retry is at the CALLER only (transient transport faults, never a revert/4xx/budget); a
+// secret-free per-provider journal is built from the transport's TYPED errors (never a raw body). Usage:
 //   node apps/sentinel/src/ukemi/record.ts --cluster susde-usde --block <B> --from-block <F> \
-//        --min-interval-ms 350 --retries 3 --backoff-ms 500 --out /tmp/u1a-hard/book.json
+//        --operators drpc.org,mevblocker.io,nodies.app,pocket.network,tenderly.co,chainstack \
+//        --ledger-dir <DIR> --cycle <ID> --floor <RU> --max-ru <RU> --max-calls <N> \
+//        --method-caps eth_call=300000,eth_getLogs=300000,eth_getBlockByNumber=300000 --out /tmp/u1a-hard/book.json
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, writeFileSync, appendFileSync, existsSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
-import { providerOf, type RpcCall } from "../rpc.ts";
-import { makeUkemiPool, ETH_CALL_PROVIDERS, GET_LOGS_PROVIDERS, RpcError, BudgetExceededError, operatorOf, type UkemiReader } from "./rpc2.ts";
+import type { RpcCall } from "../rpc.ts";
+import { makeUkemiPool, operatorOf, BudgetExceededError, type UkemiReader } from "./rpc2.ts";
+// GARDE-HELIUS-2b-ii migration: the recorder reaches every RPC endpoint (paid AND keyless) ONLY through the single
+// budgeted client. record.ts reads NO endpoint key: deps.env is passed AS-IS to openGuardedClient (the transport is
+// the sole key reader). The pool speaks LABELS (not URLs); the transport resolves label -> private URL internally.
+import { openGuardedClient, runCli, ETH_CALL_KEYLESS_LABELS, GET_LOGS_KEYLESS_LABELS, TransportError, type RunLimits, type OperatorLabel, type BudgetedClient } from "@monark/rpc-guard";
 import { recordBook, AbiMismatchError } from "./book.ts";
 import { clusterById, POOL, POOL_ADDRESSES_PROVIDER, ORACLE, type Cluster } from "./clusters.ts";
 import { SEL, TRANSFER_TOPIC0, wordAddr, wordAt, decAddress, decUint, decodeAddressArray, decodeReserveData, decodeUserConfig, transferRecipients } from "./abi.ts";
 import { makeResumeReader, assertResumeHoldersMatch, parseResumeLines, holdersDigestOf, type CacheLine, type ResumeReader } from "./resume.ts";
 
-/** The env-injected archive operator's PUBLISHED label (U-4a A-1 / C-5). `CHAINSTACK_ETH_URL` is added as an extra
- *  quorum leg (env, never printed); every published/provenance mention is this generic label — NOT its providerOf
- *  domain and NEVER the URL (which carries the key) — matching U-3's `meta.providers` convention (PROVENANCE-u3:46:
- *  the archive-env leg is present only when the env var is set, so the committed fixture stays env-independent). */
-export const ARCHIVE_ENV_LABEL = "archive-env";
-
-/** Strip every http(s) URL from a string (U-4a A-1 hygiene, MAST secret-leak): a leaked key always rides inside a
- *  URL (path or `?api-key=`), and a provider that echoes the request URL in a 4xx body would otherwise surface it
- *  in `rpc_errors[].message` (record.ts pre-U4 folded the body verbatim). Range-cap phrases carry no URL, so
- *  `isResultLimit` / `isPlanLimited` still classify correctly on the scrubbed text. `never_prints_endpoint_url`. */
-export function scrubUrls(s: string): string {
-  return s.replace(/https?:\/\/[^\s"'\\]+/gi, "<url>");
-}
-
-/** Map a live URL to its PUBLISHED operator label: the env archive leg → `archive-env`, every other → its
- *  providerOf domain (a bare host, never a key). The one place URLs become labels for provenance/journal. */
-export function operatorLabel(url: string, archiveEnvUrl: string | undefined): string {
-  return archiveEnvUrl !== undefined && url === archiveEnvUrl ? ARCHIVE_ENV_LABEL : providerOf(url);
-}
-
-/** Drop from a provider pool every URL whose operator is in `excluded` — matched by BOTH its providerOf domain
- *  (`mevblocker.io`) AND its published label (`archive-env`) so either name excludes it (U-4a D-5: a MEASURED
- *  degraded operator is removed, quorum-2 kept by the survivors). Empty `excluded` ⇒ the pool unchanged. */
-export function applyExcludeOperators(providers: readonly string[], excluded: readonly string[], archiveEnvUrl: string | undefined): string[] {
-  if (excluded.length === 0) return [...providers];
-  return providers.filter((u) => !excluded.includes(providerOf(u)) && !excluded.includes(operatorLabel(u, archiveEnvUrl)));
-}
+// D-label (RULED = `chainstack`, decision 121): the paid leg's operator label IS `chainstack` (the operator, unique
+// per account; the network is the `network` attribute). `archive-env` / `ARCHIVE_ENV_LABEL` / `operatorLabel` are
+// REMOVED (no consumer breaks: M-17). `scrubUrls` / `applyExcludeOperators` are REMOVED too: the transport now
+// expurgates every raised message (record.ts holds no raw body to scrub), and `--operators` (an explicit include
+// list) replaces `--exclude-operator` (not listing an operator IS excluding it).
 
 /** A structured, secret-free record of one provider's JSON-RPC / transport error (hardening, ADR-U1 D3/D9).
  *  `provider` is the REGISTRABLE DOMAIN (never the full URL, which could carry a key); `code`/`data` are present
  *  only for a typed JSON-RPC error, `http` only for a non-2xx response. Collected into the run artifact (D9,
  *  never committed) so a run's real per-provider error shapes are auditable against isRpcRevert. */
 export interface RpcErrorRecord { provider: string; method: string; http?: number; code?: number; message: string; data?: string; }
-
-export interface DefaultCallOpts {
-  retries?: number | undefined;   // bounded transient retries (HTTP 429/5xx, network/timeout). Total attempts = retries+1. NEVER infinite.
-  backoffMs?: number | undefined; // base backoff; wait = min(backoffMs * 2**attempt, backoffCapMs) (pass 0 in tests).
-  backoffCapMs?: number | undefined; // upper bound on ONE backoff wait (default 8000ms) so 2**attempt cannot explode.
-  timeoutMs?: number | undefined; // per-attempt abort (default 30s).
-  onRpcError?: ((rec: RpcErrorRecord) => void) | undefined; // structured per-provider error sink.
-}
-
-const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
-
-/** Exponential backoff for one retry attempt, upper-bounded so a large attempt count cannot produce an unbounded
- *  wait: min(backoffMs * 2**attempt, capMs). Pure and exported so the ceiling is asserted directly (V-1(c)). */
-export function backoffDelay(attempt: number, backoffMs: number, capMs: number): number {
-  return Math.min(backoffMs * 2 ** attempt, capMs);
-}
-
-/** Build a JSON-RPC round-trip (fetch) with BOUNDED transient retry and a structured error sink. Classification
- *  is unchanged from the raw path: a JSON-RPC `{error:{code,message,data}}` becomes a typed RpcError (the quorum
- *  then tells an EVM revert from a transport fault); a non-2xx / network / timeout is a transport Error. A typed
- *  RpcError is the node's deterministic answer and is NEVER retried; a HTTP 429/5xx or a network/timeout fault is
- *  transient and retried up to `retries` times with exponential backoff, then thrown (the quorum benches it). A
- *  non-2xx body is surfaced in the thrown message so getLogsVia can split a range-too-large HTTP 400. */
-export function makeDefaultCall(opts: DefaultCallOpts = {}): RpcCall {
-  const maxRetries = Math.max(0, opts.retries ?? 0);
-  const backoffMs = opts.backoffMs ?? 500;
-  const backoffCapMs = opts.backoffCapMs ?? 8000;
-  const timeoutMs = opts.timeoutMs ?? 30_000;
-  const onErr = opts.onRpcError;
-  return async (url, method, params) => {
-    const prov = providerOf(url);
-    for (let attempt = 0; ; attempt++) {
-      const ctl = new AbortController();
-      const to = setTimeout(() => { ctl.abort(); }, timeoutMs);
-      let res: Response;
-      try {
-        res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), signal: ctl.signal });
-      } catch (e) {
-        clearTimeout(to);
-        const message = scrubUrls(e instanceof Error ? e.message : String(e)); // no URL/key in the journal or throw
-        if (onErr) onErr({ provider: prov, method, message }); // network / timeout — transport, retryable
-        if (attempt < maxRetries) { await sleep(backoffDelay(attempt, backoffMs, backoffCapMs)); continue; }
-        throw new Error(message);
-      }
-      clearTimeout(to);
-      if (!res.ok) {
-        const body = scrubUrls((await res.text().catch(() => "")).replace(/\s+/g, " ").trim().slice(0, 160)); // scrub any echoed endpoint URL/key
-        if (onErr) onErr({ provider: prov, method, http: res.status, message: body });
-        if ((res.status === 429 || res.status >= 500) && attempt < maxRetries) { await sleep(backoffDelay(attempt, backoffMs, backoffCapMs)); continue; }
-        // Body surfaced so getLogsVia can split a range-too-large HTTP 400; a 4xx other than 429 is not retried.
-        throw new Error(`HTTP ${String(res.status)} ${prov}${body ? `: ${body}` : ""}`);
-      }
-      type JsonRpcResponse = { result?: unknown; error?: { code?: number; message?: string; data?: unknown } };
-      const bodyText = await res.text();
-      let json: JsonRpcResponse;
-      try {
-        json = JSON.parse(bodyText) as JsonRpcResponse;
-      } catch {
-        const snippet = scrubUrls(bodyText.replace(/\s+/g, " ").trim().slice(0, 160));
-        if (onErr) onErr({ provider: prov, method, http: 200, message: `non-JSON body: ${snippet}` });
-        // A non-JSON body from a JSON-RPC endpoint is a mis-route (wrong host / HTML error page), not a transient:
-        // retrying the same URL returns the same body, so throw (the quorum benches it). The body stays in the
-        // journal entry ONLY — keeping it out of the thrown message so it cannot trip isResultLimit downstream (V-1(d)).
-        throw new Error(`HTTP 200 non-JSON ${prov}`);
-      }
-      if (json.error) {
-        const data = typeof json.error.data === "string" ? json.error.data : undefined;
-        const emsg = scrubUrls(json.error.message ?? "rpc error"); // defensive: a node error message never carries our key, but scrub anyway
-        if (onErr) onErr({ provider: prov, method, code: json.error.code ?? 0, message: emsg, ...(data !== undefined ? { data } : {}) });
-        // A typed JSON-RPC error (EVM revert / method / server error) is deterministic ⇒ classified by the quorum, NOT retried.
-        // 2b-ii-a: RpcError is now the canonical 6-arg class re-exported by rpc2.ts (op, message, code, detail, unit, data).
-        throw new RpcError(prov, emsg, json.error.code ?? 0, "", "keyless", data);
-      }
-      return json.result;
-    }
-  };
-}
-
-/** The raw default round-trip (no retry): the fetch → RpcError | transport-Error classification path only. Tests
- *  drive THIS instance directly; the live recorder builds a HARDENED instance via makeDefaultCall({retries,...}). */
-export const defaultCall: RpcCall = makeDefaultCall();
-
-/** C-5 fail-closed RPC budget (calque Bell collect.ts:228 / quorum.ts:24). Wraps a call so that after `maxCalls`
- *  network calls every further call REJECTS with BudgetExceededError — fatal, re-thrown FIRST by the three rpc2
- *  guards (quorum2 / getLogsVia / finalized), so it is never benched into a no_quorum, split as a range-cap, or
- *  swallowed. Counts the TOTAL and a per-operator breakdown (by operatorLabel, so the orchestrator can confront the
- *  Chainstack dashboard). Pure/injectable: tests drive it offline; resume-cache HITS never reach it (no budget). */
-export function makeBudgetedCall(maxCalls: number, inner: RpcCall, archiveEnvUrl?: string): { call: RpcCall; total: () => number; byOperator: () => Record<string, number>; byMethod: () => Record<string, number> } {
-  let n = 0;
-  const per: Record<string, number> = {};
-  const perMethod: Record<string, number> = {};
-  const call: RpcCall = (u, m, p) => {
-    if (n >= maxCalls) return Promise.reject(new BudgetExceededError(`ukemi/record: --max-calls budget exceeded (C-5 fail-closed)`));
-    n += 1;
-    const label = operatorLabel(u, archiveEnvUrl);
-    per[label] = (per[label] ?? 0) + 1;
-    perMethod[m] = (perMethod[m] ?? 0) + 1;
-    return inner(u, m, p);
-  };
-  return { call, total: () => n, byOperator: () => ({ ...per }), byMethod: () => ({ ...perMethod }) };
-}
 
 /** sha256 of a text after CRLF→LF normalization (the prereg is compared LF-normalized: A-2/`--prereg-sha`). */
 export function lfSha256(text: string): string {
@@ -231,9 +115,14 @@ export interface UkemiArgs {
   resume: string | undefined;   // C-5 resume/inputs cache path (JSONL request→result, OUTSIDE the repo)
   preregSha: string | undefined; // A-2: the sha256 LF of docs/PLAN-u4-prereg.md, verified before any read
   filterOnly: boolean;          // D-3 two-stage go: stop after getUserConfiguration×quorum, report nAtRisk, no per-account read
-  slowOperators: string[];      // D-4: providerOf domains throttled to slowIntervalMs (a misbehaving operator raised alone)
+  slowOperators: string[];      // D-4: operator labels throttled to slowIntervalMs (a misbehaving operator raised alone)
   slowIntervalMs: number;       // D-4: interval for slowOperators (default 200)
-  excludeOperators: string[];   // D-5: providerOf domains / labels dropped from the pool (a measured-degraded operator; quorum-2 kept by survivors)
+  operators: string[];          // C-1: the EXPLICIT operator include list (labels). Not listing an operator EXCLUDES it (replaces --exclude-operator).
+  ledgerDir: string | undefined; // C-1(b) REQUIRED: the durable per-operator cycle ledger root (must pre-exist).
+  cycle: string | undefined;     // C-1(b) REQUIRED: ONE cycle id for EVERY requested operator (keyless included - closes D-keyless-cycle).
+  floor: number | undefined;     // C-1(b) REQUIRED: the chainstack cycle floor (RU read at the dashboard before the course).
+  maxRu: number | undefined;     // C-1(b) REQUIRED: the chainstack run cost cap (RU).
+  methodCaps: Record<string, number> | undefined; // C-1(b) REQUIRED: per-method attempt caps parsed from `k=v,k=v`.
   concordanceOut: string | undefined; // L-4: path for the per-operator-pair concordance jsonl; undefined ⇒ hook NO-OP (book_digest byte-identical)
 }
 
@@ -247,6 +136,18 @@ export function parseUkemiArgs(argv: readonly string[]): UkemiArgs {
     return n;
   };
   const reqInt = (k: string, d: number): number => optInt(k) ?? d;
+  // --method-caps "eth_call=300000,eth_getLogs=300000,eth_getBlockByNumber=300000" => Record; fail-closed on a bad entry.
+  const parseMethodCaps = (v: string | undefined): Record<string, number> | undefined => {
+    if (v === undefined) return undefined;
+    const out: Record<string, number> = {};
+    for (const pair of v.split(",")) {
+      const t = pair.trim(); if (t === "") continue;
+      const eq = t.indexOf("="); const k = eq >= 0 ? t.slice(0, eq).trim() : ""; const n = Number(eq >= 0 ? t.slice(eq + 1).trim() : "");
+      if (k === "" || !Number.isInteger(n) || n < 0) throw new Error(`ukemi/record: --method-caps entry must be 'method=<non-negative int>', got '${t}'`);
+      out[k] = n;
+    }
+    return out;
+  };
   return {
     cluster: arg("--cluster") ?? "weth",
     block: optInt("--block"),
@@ -262,7 +163,12 @@ export function parseUkemiArgs(argv: readonly string[]): UkemiArgs {
     filterOnly: argv.includes("--filter-only"),
     slowOperators: argAll("--slow-operator"),
     slowIntervalMs: reqInt("--slow-interval-ms", 200),
-    excludeOperators: argAll("--exclude-operator"),
+    operators: (arg("--operators") ?? "").split(",").map((s) => s.trim()).filter((s) => s.length > 0),
+    ledgerDir: arg("--ledger-dir"),
+    cycle: arg("--cycle"),
+    floor: optInt("--floor"),
+    maxRu: optInt("--max-ru"),
+    methodCaps: parseMethodCaps(arg("--method-caps")),
     concordanceOut: arg("--concordance-out"),
   };
 }
@@ -284,12 +190,11 @@ export interface RecorderDeps { readonly env: NodeJS.ProcessEnv; readonly now: (
 /** The live dependencies: the real process env and clock. Tests pass a frozen env + fixed clock. */
 export const realDeps: RecorderDeps = { env: process.env, now: () => Date.now() };
 
-/** L-4: fold one live concordance observation into the per-operator-PAIR tally (sorted key). The archive-env leg
- *  is relabelled to ARCHIVE_ENV_LABEL so the Chainstack domain never reaches the file (operators only, never a URL
- *  — C-1). Mutates `agg`. */
-function tallyConcordance(agg: Map<string, { concordant: number; discordant: number }>, opA: string, opB: string, concordant: boolean, archiveEnvUrl: string | undefined): void {
-  const relabel = (op: string): string => (archiveEnvUrl !== undefined && op === operatorOf(archiveEnvUrl) ? ARCHIVE_ENV_LABEL : op);
-  const pair = [relabel(opA), relabel(opB)].sort((x, y) => (x < y ? -1 : x > y ? 1 : 0)).join("|");
+/** L-4: fold one live concordance observation into the per-operator-PAIR tally (sorted key). `opA`/`opB` are already
+ *  operator labels (operatorOf, from quorum2 - never a URL, C-1); the paid leg's label is `chainstack` (D-label).
+ *  Mutates `agg`. */
+function tallyConcordance(agg: Map<string, { concordant: number; discordant: number }>, opA: string, opB: string, concordant: boolean): void {
+  const pair = [opA, opB].sort((x, y) => (x < y ? -1 : x > y ? 1 : 0)).join("|");
   const cur = agg.get(pair) ?? { concordant: 0, discordant: 0 };
   if (concordant) cur.concordant += 1; else cur.discordant += 1;
   agg.set(pair, cur);
@@ -312,9 +217,22 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
   const here = dirname(fileURLToPath(import.meta.url));
   const root = join(here, "..", "..", "..", "..");
 
-  // C-5: --max-calls REQUIRED and > 0 (fail-closed budget; calque Bell collect.ts:377-382).
-  if (args.maxCalls === undefined) throw new Error("ukemi/record: --max-calls is required (C-5 fail-closed RPC budget; e.g. --max-calls 300000)");
-  if (!(args.maxCalls > 0)) throw new Error("ukemi/record: --max-calls must be > 0 (C-5 fail-closed budget)");
+  // C-1(b): the SIX run inputs are REQUIRED WITHOUT condition (a keyless-only run passes them too; assertLimits only
+  // enforces a cap for a PAID operator that is actually requested - client.ts). record.ts reads NO env for operator
+  // selection (C-1): deps.env is passed AS-IS to openGuardedClient, whose transport is the sole endpoint-key reader.
+  const ledgerDir = args.ledgerDir;
+  if (ledgerDir === undefined) throw new Error("ukemi/record: --ledger-dir is required (C-1(b); the durable per-operator cycle ledger root, must pre-exist)");
+  const cycle = args.cycle;
+  if (cycle === undefined) throw new Error("ukemi/record: --cycle is required (C-1(b); ONE cycle id for every requested operator, keyless included)");
+  const floor = args.floor;
+  if (floor === undefined) throw new Error("ukemi/record: --floor is required (C-1(b); the chainstack cycle floor in RU, read at the dashboard before the course)");
+  const maxRu = args.maxRu;
+  if (maxRu === undefined) throw new Error("ukemi/record: --max-ru is required (C-1(b); the chainstack run cost cap in RU)");
+  const methodCaps = args.methodCaps;
+  if (methodCaps === undefined || Object.keys(methodCaps).length === 0) throw new Error("ukemi/record: --method-caps is required and non-empty (C-1(b); e.g. eth_call=300000,eth_getLogs=300000,eth_getBlockByNumber=300000)");
+  const maxCalls = args.maxCalls;
+  if (maxCalls === undefined) throw new Error("ukemi/record: --max-calls is required (C-5 fail-closed RPC budget; e.g. --max-calls 300000)");
+  if (!(maxCalls > 0)) throw new Error("ukemi/record: --max-calls must be > 0 (C-5 fail-closed budget)");
 
   // A-2: a supplied --prereg-sha MUST equal the sha256 LF of docs/PLAN-u4-prereg.md (proof the prereg was
   // committed and unchanged BEFORE the course; else U4-H1 would be post hoc).
@@ -323,51 +241,102 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
     if (actual !== args.preregSha) throw new Error(`ukemi/record: --prereg-sha ${args.preregSha} != docs/PLAN-u4-prereg.md LF sha ${actual} (A-2; commit the prereg first)`);
   }
 
-  // Extra quorum leg from the env archive endpoint (never printed), APPENDED LAST so the keyless quorum forms
-  // first and Chainstack is pulled only on a bench (minimises RU draw — RU/call undocumented, E-2). Then D-5:
-  // drop any --exclude-operator (a MEASURED degraded operator), and fail-closed if quorum-2 can no longer form.
-  const archiveEnvUrl = deps.env.CHAINSTACK_ETH_URL;
-  const ethCallProviders = applyExcludeOperators(archiveEnvUrl ? [...ETH_CALL_PROVIDERS, archiveEnvUrl] : [...ETH_CALL_PROVIDERS], args.excludeOperators, archiveEnvUrl);
-  const getLogsProviders = applyExcludeOperators(archiveEnvUrl ? [...GET_LOGS_PROVIDERS, archiveEnvUrl] : [...GET_LOGS_PROVIDERS], args.excludeOperators, archiveEnvUrl);
-  const distinct = (urls: readonly string[]): number => new Set(urls.map((u) => operatorOf(u))).size; // C-2: by OPERATOR ({nodies,pocket}=1)
-  if (distinct(ethCallProviders) < 2) throw new Error(`ukemi/record: eth_call quorum-2 needs >= 2 distinct operators after --exclude-operator (${String(distinct(ethCallProviders))} left)`);
-  if (distinct(getLogsProviders) < 2) throw new Error(`ukemi/record: eth_getLogs quorum-2 needs >= 2 distinct operators after --exclude-operator (${String(distinct(getLogsProviders))} left)`);
+  // C-1: the operators are an EXPLICIT include list (labels); NOT listing an operator EXCLUDES it (replaces
+  // --exclude-operator). Fail-closed on a label unknown to the recorder's ETH pools.
+  const KNOWN_ETH_LABELS = new Set<string>([...ETH_CALL_KEYLESS_LABELS, ...GET_LOGS_KEYLESS_LABELS, "chainstack"]);
+  if (args.operators.length === 0) throw new Error("ukemi/record: --operators <label,...> is required (C-1; e.g. drpc.org,mevblocker.io,nodies.app,pocket.network,tenderly.co,chainstack)");
+  for (const l of args.operators) if (!KNOWN_ETH_LABELS.has(l)) throw new Error(`ukemi/record: unknown operator '${l}' (not one of ${[...KNOWN_ETH_LABELS].join(", ")}), fail-closed`);
+  const requested = new Set(args.operators);
+
+  // Build the pool provider lists from LABELS: the keyless operators in PINNED order that were requested, then
+  // chainstack APPENDED LAST (so the keyless quorum forms first and chainstack is drawn only on a bench - minimises
+  // RU). The transport resolves each label -> its private URL internally; record.ts never holds a URL.
+  const csRequested = requested.has("chainstack");
+  const ethCallProviders = [...ETH_CALL_KEYLESS_LABELS.filter((l) => requested.has(l)), ...(csRequested ? ["chainstack"] : [])];
+  const getLogsProviders = [...GET_LOGS_KEYLESS_LABELS.filter((l) => requested.has(l)), ...(csRequested ? ["chainstack"] : [])];
+  const distinct = (labels: readonly string[]): number => new Set(labels.map((u) => operatorOf(u))).size; // C-2: by OPERATOR ({nodies,pocket}=1)
+  if (distinct(ethCallProviders) < 2) throw new Error(`ukemi/record: eth_call quorum-2 needs >= 2 distinct operators in --operators (${String(distinct(ethCallProviders))} left)`);
+  if (distinct(getLogsProviders) < 2) throw new Error(`ukemi/record: eth_getLogs quorum-2 needs >= 2 distinct operators in --operators (${String(distinct(getLogsProviders))} left)`);
+
+  // C-1: ONE --cycle for EVERY requested operator (keyless included - closes D-keyless-cycle). runCaps/cycleFloor are
+  // keyed by chainstack only (assertLimits checks a paid operator ONLY when requested); maxCalls is unit-agnostic.
+  const limits: RunLimits = { maxCalls, runCaps: { chainstack: maxRu }, methodCaps, cycleFloor: { chainstack: floor } };
+  const cycles = Object.fromEntries(args.operators.map((l) => [l, cycle]));
 
   const rpcErrors: RpcErrorRecord[] = [];
-  const errByOp: Record<string, number> = {}; // D-4: per-operator (providerOf domain) error tally for the 5%-rule monitor
-  const hardened = makeDefaultCall({ retries: args.retries, backoffMs: args.backoffMs, backoffCapMs: args.backoffCapMs, onRpcError: (r) => { rpcErrors.push(r); errByOp[r.provider] = (errByOp[r.provider] ?? 0) + 1; } });
-  const budgeted = makeBudgetedCall(args.maxCalls, hardened, archiveEnvUrl);
-  // L-4: the concordance sink is wired ONLY when --concordance-out is given (else onQuorum is undefined ⇒ NO-OP ⇒
-  // book_digest byte-identical). The aggregate is per operator PAIR; it is flushed in the finally below (M-7c: a
-  // parsed flag whose sink is NOT passed here leaves the aggregate empty ⇒ an empty file ⇒ reducer []).
+  const errByOp: Record<string, number> = {}; // D-4: per-operator error tally for the 5%-rule monitor (fed by the transport hook)
   const concordance = new Map<string, { concordant: number; discordant: number }>();
-  const onQuorum = args.concordanceOut !== undefined
-    ? (_label: string, opA: string, opB: string, concordant: boolean): void => { tallyConcordance(concordance, opA, opB, concordant, archiveEnvUrl); }
-    : undefined;
-  const basePool = makeUkemiPool({ call: budgeted.call, ethCallProviders, getLogsProviders, minIntervalMs: args.minIntervalMs, slowOperators: args.slowOperators, slowIntervalMs: args.slowIntervalMs, onQuorum });
-
-  // C-5 resume/inputs cache (JSONL request→result, OUTSIDE the repo). Fresh ⇒ write the meta line; append every
-  // MISS (a hit costs no budget). After the record, a cached holders line that disagrees ⇒ abstention.
-  let reader: UkemiReader = basePool;
-  let resumeReader: ResumeReader | undefined;
-  const opLabels = (urls: readonly string[]): string[] => { const s = urls.map((u) => operatorLabel(u, archiveEnvUrl)); return s.filter((v, i) => s.indexOf(v) === i); };
-  if (args.resume !== undefined) {
-    const resumePath = args.resume;
-    const fresh = !existsSync(resumePath);
-    const lines: CacheLine[] = fresh ? [] : parseResumeLines(readFileSync(resumePath, "utf8"));
-    if (fresh) {
-      const meta: CacheLine = { kind: "meta", schema: "ukemi-u4-inputs/1", model: "claude-opus-4-8[1m]", recorded_at_utc: new Date(deps.now()).toISOString(),
-        cluster: cluster.id, block: args.block ?? null, from_block: args.fromBlock ?? null, chain_id: "1",
-        providers: [...opLabels(ethCallProviders), ...opLabels(getLogsProviders)].filter((v, i, a) => a.indexOf(v) === i), prereg_sha: args.preregSha ?? null };
-      writeFileSync(resumePath, JSON.stringify(meta) + "\n");
-    }
-    resumeReader = makeResumeReader(basePool, lines, (line) => { appendFileSync(resumePath, JSON.stringify(line) + "\n"); });
-    reader = resumeReader;
-  }
-
+  // Attempt tally for PROVENANCE (calls/byOperator/byMethod) - NON-gating. The UNIT spend is client.spent().byOperator
+  // (RU for chainstack, 0 for keyless); this tally is a call COUNT, incremented per attempt (R retries => R+1).
+  const tally = { total: 0, byOperator: {} as Record<string, number>, byMethod: {} as Record<string, number> };
+  const budgeted = { total: (): number => tally.total, byOperator: (): Record<string, number> => ({ ...tally.byOperator }), byMethod: (): Record<string, number> => ({ ...tally.byMethod }) };
   // Live progress (mutated by the filter pass) so a BudgetExceededError stop can still report what was seen (D-3).
   const progress: FilterProgress = { holders: 0, config_read: 0, n_at_risk_config: 0 };
+  let client: BudgetedClient | undefined;
   try {
+    // The SOLE paid path: open the guarded client (real transport; deps.env passed AS-IS - record.ts reads no key).
+    // Locks + per-operator durable ledgers are acquired here; the transport error hook feeds the 5%-rule monitor.
+    client = openGuardedClient(deps.env, limits, ledgerDir, cycles, { onTransportError: (op) => { errByOp[op] = (errByOp[op] ?? 0) + 1; } });
+    const c = client;
+
+    // The `call` shim: route a LABEL -> client.call (meter + write-ahead ledger line + one transport attempt). Retry
+    // is AT THE CALLER ONLY (C-4/C-6(iii)): a transient TRANSPORT fault (Abort/network/429/>=500) is retried; an
+    // RpcError, a NonJsonBody, another 4xx (getLogsVia needs the 400 THROWN to split), and the budget stop are NEVER
+    // retried. R retries => R+1 client.call => R+1 write-ahead ledger lines. The rpc_errors journal is built HERE from
+    // the TYPED TransportError by e.name (C-5): never a raw body - e.detail is the closed hint (paid) / redacted
+    // (keyless), e.data the validated hex. Chainstack HTTP 400 => http:400, never code:400.
+    const call: RpcCall = async (label, method, params) => {
+      const op = label;
+      for (let attempt = 0; ; attempt++) {
+        tally.total += 1;
+        tally.byOperator[op] = (tally.byOperator[op] ?? 0) + 1;
+        tally.byMethod[method] = (tally.byMethod[method] ?? 0) + 1;
+        try {
+          return await c.call(op as OperatorLabel, method, params);
+        } catch (e) {
+          if (e instanceof BudgetExceededError) throw e; // fatal FIRST - never retried, never journaled as a transport fault
+          if (e instanceof TransportError) {
+            rpcErrors.push(
+              e.name === "HttpError"
+                ? { provider: op, method, message: e.detail, ...(e.code !== undefined ? { http: e.code } : {}) }
+                : e.name === "RpcError"
+                  ? { provider: op, method, message: e.detail !== "" ? e.detail : "rpc error", ...(e.code !== undefined ? { code: e.code } : {}), ...(e.data !== undefined ? { data: e.data } : {}) }
+                  : { provider: op, method, message: e.detail !== "" ? e.detail : e.name },
+            );
+            const transient = e.name === "AbortError" || e.name === "TypeError" || e.name === "NetworkError" || (e.name === "HttpError" && e.code !== undefined && (e.code === 429 || e.code >= 500));
+            if (transient && attempt < args.retries) { await new Promise((r) => setTimeout(r, Math.min(args.backoffMs * 2 ** attempt, args.backoffCapMs))); continue; }
+          }
+          throw e;
+        }
+      }
+    };
+
+    // L-4: the concordance sink is wired ONLY when --concordance-out is given (else onQuorum is undefined => NO-OP =>
+    // book_digest byte-identical). The aggregate is per operator PAIR; it is flushed in the finally below (M-7c).
+    const onQuorum = args.concordanceOut !== undefined
+      ? (_label: string, opA: string, opB: string, concordant: boolean): void => { tallyConcordance(concordance, opA, opB, concordant); }
+      : undefined;
+    const basePool = makeUkemiPool({ call, ethCallProviders, getLogsProviders, minIntervalMs: args.minIntervalMs, slowOperators: args.slowOperators, slowIntervalMs: args.slowIntervalMs, onQuorum });
+
+    // C-5 resume/inputs cache (JSONL request->result, OUTSIDE the repo). Fresh => write the meta line; append every
+    // MISS (a hit costs no budget => no client.call => 0 RU). After the record, a cached holders line that disagrees => abstention.
+    let reader: UkemiReader = basePool;
+    let resumeReader: ResumeReader | undefined;
+    const opLabels = (labels: readonly string[]): string[] => { const s = [...labels]; return s.filter((v, i) => s.indexOf(v) === i); };
+    if (args.resume !== undefined) {
+      const resumePath = args.resume;
+      const fresh = !existsSync(resumePath);
+      const lines: CacheLine[] = fresh ? [] : parseResumeLines(readFileSync(resumePath, "utf8"));
+      if (fresh) {
+        const meta: CacheLine = { kind: "meta", schema: "ukemi-u4-inputs/1", model: "claude-opus-4-8[1m]", recorded_at_utc: new Date(deps.now()).toISOString(),
+          cluster: cluster.id, block: args.block ?? null, from_block: args.fromBlock ?? null, chain_id: "1",
+          providers: [...opLabels(ethCallProviders), ...opLabels(getLogsProviders)].filter((v, i, a) => a.indexOf(v) === i), prereg_sha: args.preregSha ?? null };
+        writeFileSync(resumePath, JSON.stringify(meta) + "\n");
+      }
+      resumeReader = makeResumeReader(basePool, lines, (line) => { appendFileSync(resumePath, JSON.stringify(line) + "\n"); });
+      reader = resumeReader;
+    }
+
     const fin = await reader.finalized();
     const block = args.block ?? fin.block;
     if (block > fin.block) throw new Error(`ukemi/record: B=${String(block)} > finalized ${String(fin.block)} (look-ahead forbidden, ADR-U1 D7)`);
@@ -393,7 +362,7 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
         model: "claude-opus-4-8[1m]", recorded_at_utc: new Date(deps.now()).toISOString(), phase: "filter-only",
         endpoints: { eth_call: opLabels(ethCallProviders), eth_getLogs: opLabels(getLogsProviders) }, quorum: 2,
         params: { cluster: cluster.id, block, from_block: args.fromBlock ?? null, min_interval_ms: args.minIntervalMs, slow_operators: args.slowOperators, slow_interval_ms: args.slowIntervalMs, retries: args.retries, backoff_ms: args.backoffMs, backoff_cap_ms: args.backoffCapMs, max_calls: args.maxCalls, prereg_sha: args.preregSha ?? null, resume: args.resume !== undefined, filter_only: true },
-        calls: budgeted.total(), calls_by_operator: budgeted.byOperator(), calls_by_method: budgeted.byMethod(), errors_by_operator: errByOp, excluded_operators: args.excludeOperators, seconds, finalized_block: fin.block, ukemi_sha: ukemiSha(here),
+        calls: budgeted.total(), calls_by_operator: budgeted.byOperator(), calls_by_method: budgeted.byMethod(), errors_by_operator: errByOp, spent_by_operator: c.spent().byOperator, seconds, finalized_block: fin.block, ukemi_sha: ukemiSha(here),
         holders: fr.holders, holders_digest: fr.holders_digest, n_at_risk_config: fr.n_at_risk_config,
         excluded: { collateral_off: fr.excluded_collateral_off, no_debt: fr.excluded_no_debt }, projection_remaining_calls: 9 * fr.n_at_risk_config,
         rpc_error_count: rpcErrors.length, rpc_errors: rpcErrors,
@@ -422,7 +391,7 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
       model: "claude-opus-4-8[1m]", recorded_at_utc: new Date(deps.now()).toISOString(),
       endpoints: { eth_call: opLabels(ethCallProviders), eth_getLogs: opLabels(getLogsProviders) }, quorum: 2, // labels only, NEVER a URL (C-5)
       params: { cluster: cluster.id, block, from_block: args.fromBlock ?? null, min_interval_ms: args.minIntervalMs, retries: args.retries, backoff_ms: args.backoffMs, backoff_cap_ms: args.backoffCapMs, max_calls: args.maxCalls, prereg_sha: args.preregSha ?? null, resume: args.resume !== undefined },
-      calls: budgeted.total(), calls_by_operator: budgeted.byOperator(), calls_by_method: budgeted.byMethod(), errors_by_operator: errByOp, excluded_operators: args.excludeOperators, seconds, finalized_block: fin.block, ukemi_sha: ukemiSha(here),
+      calls: budgeted.total(), calls_by_operator: budgeted.byOperator(), calls_by_method: budgeted.byMethod(), errors_by_operator: errByOp, spent_by_operator: c.spent().byOperator, seconds, finalized_block: fin.block, ukemi_sha: ukemiSha(here),
       counts: res.counts, holders_digest: res.holders_digest, book_digest: res.book_digest,
       hf_findings: res.hf_findings, timeline: res.timeline,
       rpc_error_count: rpcErrors.length, rpc_errors: rpcErrors,
@@ -452,6 +421,16 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
     // L-4: flush the per-pair concordance ALWAYS (success, budget stop, or a disagreement throw), so a run that
     // abstains still leaves the observation it gathered before throwing. No-op when --concordance-out is absent.
     if (args.concordanceOut !== undefined) flushConcordance(args.concordanceOut, concordance, new Date(deps.now()).toISOString());
+    // Release the N per-operator locks openGuardedClient acquired (keyless included, even on a BudgetExceededError
+    // stop) via the SERVED `unlock` (a chained `unlocked` line + lock-file removal). Only if the client was built:
+    // if openGuardedClient threw, its own rollback already released any partial locks (guard, else we'd mask it). A
+    // HARD crash (SIGKILL) instead leaves the locks held - fail-closed, detectable; the runbook then does N `unlock`
+    // before `reconcile` (ADR). `readSnapshot` is unused by unlock.
+    if (client !== undefined) {
+      for (const op of client.operators()) {
+        runCli(["unlock", "--cycle", cycle, "--op", String(op), "--reason", "ukemi/record: course end (finally, N unlock)"], { ledgerDir, floor, readSnapshot: () => { throw new Error("ukemi/record: readSnapshot is not used by unlock"); } });
+      }
+    }
   }
 }
 
