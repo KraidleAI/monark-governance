@@ -36,7 +36,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Rattrapage `run.ts` (livelock ≥ ~12 j) | À VENIR | G0/ADR, AVANT E-5 | — |
 | Sonde VPS Bell | **DÉPLOYÉE** `c0027cb`, timer actif, premier mail réel délivré (tuyaux `built`) | — | — |
 | -1c `run.ts` rattrapage borné | FUSIONNÉ `c4981d0` (G7 14:06 UTC, 710 tests 0 fail, lint 0, ratchet 69/69, R-25 474, `run.ts` sha `54619a40…`) | 3 corrections G2 non bloquantes portées par -1d ; WIRED jusqu'à E-5 | — |
-| E-5 (VPS site, pool révisé + rattrapage borné) | EN COURS (GO durable, décision 119) | checklist 9 étapes du validateur, SHA `c4981d0` | — |
+| E-5 (VPS site, pool révisé + rattrapage borné) | DÉPLOYÉ `c4981d0` 14:14 UTC (hachés conformes, `TimeoutStartUSec=5min`, dry-run vert, rollback `/root/rollback-e5-20260921/`) | **premier run réel 22/09 00:41 UTC** ⇒ ligne JOURNAL « built » (pocket listé, `max_day_ms`) + tir sonde suivant | — |
 | -1d migration `rpc.ts` vers le garde | APRÈS le temps 1 | résiduel accepté (décision 118) ; second redéploiement | — |
 
 ## 3. Ukemi
