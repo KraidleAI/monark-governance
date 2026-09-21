@@ -22,9 +22,10 @@ import {
   DEFAULT_TIMEOUT_MS, DEFAULT_MAX_BYTES, DEFAULT_RETRIES, MAX_TIMEOUT_MS, MAX_MAX_BYTES, MAX_RETRIES,
   START_MARGIN_MS, transportBounds, SCHEMA, evaluate,
   encodeData, composeMail, smtpTransportPlan, sanitizeField, readPriorState, isEmailish, MAX_SMTP_DEADLINE_MS,
-  sendSmtp, smtpDeadlineMs, DEFAULT_SMTP_DEADLINE_MS, STATE_TIMEOUT_MS, STATE_RETRIES,
+  sendSmtp, smtpDeadlineMs, DEFAULT_SMTP_DEADLINE_MS, STATE_TIMEOUT_MS, STATE_RETRIES, parseTimeline,
 } from "../scripts/probe-narabi.mjs";
 import type { NarabiState } from "../scripts/probe-narabi.mjs";
+import { NARABI_SNAPSHOT } from "../apps/site/lib/narabi-snapshot.ts";
 
 const SELF = fileURLToPath(import.meta.url);
 // C-B-6: NO test may send a REAL mail. Every child spawned here gets an env with all SMTP_*/ALERT_* PURGED
@@ -700,6 +701,51 @@ test("probe_alert_composition_from_fixture — the real probe reads the fixture,
   } finally { await fake.close(); }
 });
 
+// ── C5 (CA-11 durci, MERGED tuyau -a x -b): a stale /narabi/state.json digest (from -1b-ii-b's cross-check)
+// DRIVES the -1b-ii-a SMTP alert. The WHOLE merged pipe EXECUTES from the real snapshot: real probe, URL mode
+// (GET1 timeline + DERIVED GET2 state.json), a VALID-but-STALE state.digest -> state_mismatch -> unhealthy ->
+// ONE captured loopback mail carrying `reason: state_mismatch`, exit 1. No pre-merge test crossed the -b
+// detection into the -a alert (the -b state test has no SMTP; the -a composition test only drove `lag`). ──
+test("probe_state_mismatch_drives_smtp_alert_merged — the merged detection+alert pipe: a real URL-mode probe over the snapshot with a stale /narabi/state.json cross-checks to state_mismatch (-1b-ii-b) and that unhealthy verdict drives EXACTLY ONE captured SMTP alert (-1b-ii-a) whose DATA body carries reason: state_mismatch; the -a state machine latches (alerted, last_alert_day), exit 1, delivered === 1 (C5, CA-11 durci of the a x b merge)", async () => {
+  const tl = NARABI_SNAPSHOT.timelineJsonl;
+  const lines = parseTimeline(tl);
+  const firstLine = lines.at(0);
+  assert.ok(firstLine, "the snapshot timeline has a first line");
+  // a REAL digest of the WRONG day (mirror probe-narabi-state.test.ts:91): a VALID but STALE state.json body.
+  const staleState = JSON.stringify({ ...JSON.parse(NARABI_SNAPSHOT.stateJson) as Record<string, unknown>, digest: firstLine.digest_T });
+  const NOW = "2026-09-19T10:35Z"; // last day 2026-09-18 present after 10:30 => NOT lagging: the state verdict is isolated
+  const http = createServer((req, res) => {
+    if (req.url === "/narabi/timeline.jsonl") { res.writeHead(200, { "content-type": "application/jsonl" }); res.end(tl); return; }
+    if (req.url === "/narabi/state.json") { res.writeHead(200, { "content-type": "application/json" }); res.end(staleState); return; }
+    res.writeHead(404); res.end();
+  });
+  await new Promise<void>((r) => { http.listen(0, "127.0.0.1", () => { r(); }); });
+  const httpPort = (http.address() as { port: number }).port;
+  const fake = await startFakeSmtp();
+  try {
+    const out = freshOut();
+    const r = await runProbeAt(out, ["--url", `http://127.0.0.1:${String(httpPort)}/narabi/timeline.jsonl`, "--now", NOW], smtpEnv(fake.port));
+    // DETECTION (-1b-ii-b): the DERIVED GET2 mismatched -> state_mismatch, checked, unhealthy, exit 1.
+    assert.equal(r.state.reason, "state_mismatch", "the stale DERIVED state.json cross-checks to state_mismatch (-1b-ii-b)");
+    assert.equal(r.state.state_checked, true, "the digest WAS compared (checked, differs)");
+    assert.equal(r.state.status, "unhealthy", "state_mismatch is unhealthy");
+    assert.equal(r.status, 1, "unhealthy exits 1");
+    // ALERT (-1b-ii-a): the -b verdict DROVE the state machine AND exactly one captured mail carrying the -b reason.
+    assert.equal(r.state.alerted, true, "the -a state machine latched alerted AFTER the 250 (it consumed the -b verdict)");
+    assert.equal(r.state.alert_error, null, "the alert was delivered (no alert_error)");
+    assert.equal(r.state.last_alert_day, "2026-09-19", "last_alert_day is the UTC day of --now");
+    assert.equal(fake.cap.delivered, 1, "EXACTLY one mail delivered on the state_mismatch (kills a maybeAlert that skips state_*)");
+    assert.equal(fake.cap.rcptTo.length, 1, "exactly one recipient");
+    assert.match(fake.cap.data, /condition: alert/, "the first mail is an alert");
+    assert.match(fake.cap.data, /reason: state_mismatch/, "the DATA body carries the -1b-ii-b reason (kills a composeMail that drops state_*)");
+    assert.doesNotMatch(r.stderr, /FATAL/, "the connector ran clean (no FATAL)");
+  } finally {
+    await fake.close();
+    http.closeAllConnections();
+    await new Promise<void>((r) => { http.close(() => { r(); }); });
+  }
+});
+
 // ── C-2: the alert is NEVER lost — a failed send retries next shot; alerted latches only after the 250 (M-ii-1) ──
 test("probe_alert_retries_until_delivered — a fake that rejects AUTH on the first connection then accepts sends EXACTLY ONE mail across two shots; alerted latches only after the 250, so the failed first shot retries (C-2; M-ii-1)", async () => {
   const fake = await startFakeSmtp({ authFailFirst: 1 });
@@ -1089,7 +1135,7 @@ test("probe_alert_mail_has_no_forbidden_vocab — the subject and body composed 
   const vocab = JSON.parse(readFileSync(join(REPO, "vocab-banned.json"), "utf8")) as { banned: { re: string }[]; scan: { sentinel: { banned: { re: string }[] } } };
   const banned = [...vocab.banned, ...vocab.scan.sentinel.banned].map((b) => new RegExp(b.re, "i"));
   const mailVocab = /partner|autonomous|guarantee|verified|score/i; // the mail-specific list (fact 12; 'score' also catches 'scores')
-  const reasons: (string | null)[] = ["lag", "chain_broken", "unreachable", "too_large", "insecure_url", "probe_error"];
+  const reasons: (string | null)[] = ["lag", "chain_broken", "unreachable", "too_large", "insecure_url", "probe_error", "state_mismatch", "state_unreachable"];
   const check = (kind: "alert" | "reminder" | "recovery", reason: string | null): void => {
     const { subject, message } = composeMail({
       from: "a@x.tld", to: "b@y.tld", nowIso: "2026-09-21T10:35:00.000Z", kind, status: kind === "recovery" ? "healthy" : "unhealthy",
