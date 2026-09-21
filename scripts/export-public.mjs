@@ -64,6 +64,11 @@ export const WHITELIST_FILES = [
   // the exported `tsc --noEmit` reds TS7016 (measured, H4). It declares only pure functions (English).
   "scripts/grep-forbidden.mjs", "scripts/grep-forbidden.d.mts", "scripts/lint-ratchet.mjs",
   "scripts/export-public.mjs", "scripts/lang-gate.mjs", "scripts/lang-exempt.json",
+  // scripts/assert-fleet-html.mjs (Lot CI-site, ADR-M003 D9 octies): the O-2 check the DERIVED public workflow
+  // runs in job g3-site (`node scripts/assert-fleet-html.mjs`), so it MUST ship or the public CI reds on an
+  // absent file (root test derived_workflow_run_paths_are_exported). Its .d.mts is governance-only (no exported
+  // .ts imports it, so the exported tsc never needs it) and is NOT whitelisted. English, built-ins only.
+  "scripts/assert-fleet-html.mjs",
   // The Narabi F2-B out-of-tool method (ADR-M008 Amendement bis, C-18): publish HOW the USDe series was
   // acquired and how the committed scores/digest are reproduced, so PROVENANCE-usde.md §6 "Reproduce" is not
   // hollow in public. Read-only public RPC, no key; English, no forbidden vocab (lang:gate + gate:vocab clean).

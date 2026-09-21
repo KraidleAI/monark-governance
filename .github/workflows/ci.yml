@@ -1,7 +1,7 @@
 # MONARK — CI gates (instantiated from an internal CI template;
 # concrete tools fixed by ADR-M003 D9 and its dated addenda).
-# Invariant (not parameterisable): EVERY job is BLOCKING. No `continue-on-error` (test 38 checks this
-# mechanically, ADR-M003 D11).
+# Invariant (not parameterisable): EVERY job is BLOCKING and UNCONDITIONAL. No `continue-on-error` and no
+# conditional `if` key on any job or step (test 38 checks BOTH mechanically; ADR-M003 D11 / D9 octies).
 #
 # Provenance of pinned action SHAs (never guessed — GitHub API `git/ref/tags/<tag>`, cross-checked
 # on 2026-09-05 and re-verified by independent review on 2026-09-06):
@@ -125,3 +125,28 @@ jobs:
           if-no-files-found: error
       - name: Dependency audit (high and above = failure)
         run: npm audit --audit-level=high
+
+  g3-site:
+    runs-on: ubuntu-latest
+    # Site build gate (ADR-M003 D9 octies). `next build` TYPECHECKS the apps/site TSX (excluded from the root
+    # `tsc --noEmit`, tsconfig.json:23-33 — the ONLY program that sees the site .tsx) and renders /fleet; the
+    # O-2 step then asserts the built HTML body carries each served note. Wired LOCALLY: this workflow triggers
+    # on pull_request only and the local --no-ff merges open no PR, so the composition is replayed from these
+    # `run:` lines locally at G2 / checkpoint-2, never validated by these merges. Blocking CONDITIONAL: it reds
+    # without blocking until g3-site joins the closed list of required status checks (branch protection, an
+    # orchestrator action; JOURNAL-PROVENANCE). timeout-minutes: measured job wall-time x3, capped <= 20
+    # (2026-09-20: npm ci ~15 s + next build ~22 s ~= 37 s => ~2 min => 5; parity with g1/g4/g6). 10 only on a
+    # sourced re-measure if the first cold run exceeds 100 s.
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install (lockfile must be present and consistent)
+        run: npm ci
+      - name: Build the storefront (typechecks apps/site TSX, invisible to the root tsc; a stray type reds)
+        run: npm run build -w @monark/site
+      - name: O-2 — assert the built /fleet HTML body carries each served note (scripts/assert-fleet-html.mjs)
+        run: node scripts/assert-fleet-html.mjs
