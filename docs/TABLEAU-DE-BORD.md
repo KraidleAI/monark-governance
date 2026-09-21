@@ -13,8 +13,8 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | GARDE-HELIUS (client budgété unique, ledger de cycle) | EN COURS | rédaction du G0 ; bloquant avant toute course Bell | — |
 | Course de contre-vérification | BLOQUÉ | GARDE-HELIUS + b1b | — |
 | -b3d-b2 post-tirage | À VENIR | après la course | — |
-| T-1a-iii-a1 univers Solana | EN COURS | checkpoint-2 REFUSÉ (clause anti-close, fixture) ; pli C-1..C-4 en cours ; ré-acceptation sur pièces | `Monark-wt-univers` |
-| -iii-a1-bis (C-G2-6/7, C-G2D-1/3) | À VENIR | BLOQUANT avant la 1ʳᵉ course (Chainstack facture l'usage supplémentaire — lu sur place) | — |
+| T-1a-iii-a1 univers Solana | FUSIONNÉ `9a2fca9` (G7, 573/573) | — | — |
+| -iii-a1-bis (C-G2-6/7, C-G2D-1/3) | PRÊT | BLOQUANT avant la 1ʳᵉ course univers | — |
 
 | R1 registre multi-émetteur | À VENIR | après -b3d-b1 (décision 97) | — |
 | T-1a-iv qualification émetteurs | À VENIR | après R1 (décision 93) | — |
@@ -68,4 +68,4 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-G2 b3d-b1a · G1 POOL-RPC-1a · G1 U-4b-1a · pli cp-2 univers · cp-2 Narabi -a · G2 EXPORT-CLEAN · G0 GARDE-HELIUS.
+G2 b3d-b1a · G1 POOL-RPC-1a · G1 U-4b-1a · cp-2 Narabi -a · G2 EXPORT-CLEAN · G0 GARDE-HELIUS · G0 -iii-a1-bis.
