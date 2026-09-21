@@ -435,3 +435,6 @@ Lecture investisseur (export `usage-top-drivers-current-credit-cycle.csv`, 2026-
 
 ### Décision investisseur 106 (2026-09-21, verbatim « retires les ») — escalade E-1 de POOL-RPC-1 LEVÉE
 - **Blast API** et **LlamaRPC** sont RETIRÉS du pool RPC Ethereum (sentinel servi + Ukemi + scripts non gelés), à exécuter par le lot POOL-RPC-1a sous gates ; Pocket remplace (jamais seul ; {nodies, pocket} = un opérateur). L-1/L-2 débloqués. Le téléchargement des polices (F-1) n'est PAS couvert par cette réponse — reste en attente.
+
+### Décision investisseur 107 (2026-09-21 05:26 UTC, verbatim « vous avez mon accord, téléchargez les »)
+- Polices OFL téléchargées depuis `raw.githubusercontent.com/google/fonts/main/ofl/` vers `F:\MONARK SUITE\fonts\` : `ArchivoBlack-Regular.ttf` (90 988 o, sha `dd9a89a019b4849f…`), `SpaceGrotesk-wght.ttf` (136 676 o, `acad6de1fc93436f…`), `JetBrainsMono-wght.ttf` (187 208 o, `48715a42ec242c21…`) + les trois `OFL-*.txt`. Finalisation vectorisée des logos Ukemi et Narabi lancée (designer, local, hors gates).

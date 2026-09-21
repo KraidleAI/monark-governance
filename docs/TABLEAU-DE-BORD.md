@@ -53,14 +53,14 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 |---|---|
 | Maquette Bell (charte C) + landing 3D | REÇUE (`F:\MONARK SUITE\bell-design\` ; original non retouché dans `originaux\`) |
 | Maquette Ukemi | PRÊTE (`F:\PRODUITS\etude-2026-09-21\maquettes-release\ukemi.html`) ; 20 écarts Bell notés |
-| Logos : Bell (64), Ukemi concept 3 (103), Narabi concept A (104) | CHOISIS ; lettrage définitif BLOQUÉ par le téléchargement des polices (décision 105) |
+| Logos : Bell (64), Ukemi concept 3 (103), Narabi concept A (104) | CHOISIS ; finalisation vectorisée EN COURS (designer) |
 
 ## 6. EN ATTENTE DE L'INVESTISSEUR
 | # | Quoi | Bloque |
 |---|---|---|
 | ~~E-1a~~ | Retrait de Blast API — CONFIRMÉ (décision 106) | — |
 | ~~E-1b~~ | Retrait de LlamaRPC — CONFIRMÉ (décision 106) | — |
-| F-1 | Autoriser le téléchargement des polices OFL (Archivo Black, Space Grotesk, JetBrains Mono, ~1 Mo, `github.com/google/fonts`) | lettrage final des logos, polices du site |
+| ~~F-1~~ | Polices OFL — TÉLÉCHARGÉES (décision 107, `F:MONARK SUITEonts`) | — |
 | R-25 | Garder 1 205 / passer à 1 600 par ADR / désactiver | rien (défaut : 1 205) |
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
