@@ -375,3 +375,6 @@ Validateur `claude-fable-5-1` (2026-09-20 23:41→23:53 UTC, artefacts `f5996a0`
 
 ### Décision investisseur 95 (2026-09-21, consigné 01:45 UTC, horloge)
 - **95 — GTM « registre des écarts de réouverture » ajouté à la roadmap Bell** (verbatim : « j'aime ton idée gtm BELL; ajoute la a la rodmap BELL »). `docs/ROADMAP-BELL.md` créé (paliers 0-3) : la thèse GTM y est le palier 2, étiquetée THÈSE tant que l'avis de l'advisor-marché (consultation en cours) n'est pas rendu ; rien n'entre dans le release ; le hook Uniswap v4 est une piste MONARK (palier 3), non planifiée. Faits lus sur place archivés sous `F:\PRODUITS\etude-2026-09-21\gtm-bell`.
+
+### Décision investisseur 96 (2026-09-21, consigné 01:59 UTC)
+- **96 — hooks Uniswap v4 : au PARKING** (verbatim : « pour le moment, les hooks ne m interessent pas vraiment, je te donnerai aprés d auters pistes, ce qui m interesse c est le GTM bell »). Le palier 3 de `docs/ROADMAP-BELL.md` reste une note instruite, sans suite ; aucune question écrite à Hookr ; le GTM Bell (palier 2) est la priorité de réflexion, toujours hors release.
