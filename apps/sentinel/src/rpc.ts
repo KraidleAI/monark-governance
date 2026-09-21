@@ -1,6 +1,6 @@
 // SENTINEL — off-tool daily job (ADR-M012, K-8): the harness never imports this; this never imports apps/harness/src/tools.
 //
-// Public RPC pool (read-only; optional keyed 9th operator via out-of-repo EnvironmentFile, ADR-NARABI-OPS-1) with per-endpoint cooldown and a QUORUM OF 2 on the value-bearing
+// Public RPC pool (read-only; optional keyed 8th operator via out-of-repo EnvironmentFile, ADR-NARABI-OPS-1) with per-endpoint cooldown and a QUORUM OF 2 on the value-bearing
 // reads (burns/mints via eth_getLogs, supply via totalSupply): two distinct endpoints must return the
 // SAME bytes or the window fails closed (ADR-M012 D1, test `sentinel_quorum_disagreement_fails_closed`).
 // The quorum read FALLS BACK round-robin over the pool, benching any endpoint that throws (same cooldown as
@@ -17,9 +17,10 @@ const ZERO40 = "0".repeat(40);
 const TOTAL_SUPPLY_SELECTOR = "0x18160ddd";
 
 export const PUBLIC_ENDPOINTS: readonly string[] = [
-  "https://ethereum-rpc.publicnode.com", "https://eth.llamarpc.com", "https://eth.drpc.org",
-  "https://rpc.mevblocker.io", "https://eth-mainnet.public.blastapi.io", "https://1rpc.io/eth",
+  "https://ethereum-rpc.publicnode.com", "https://eth.drpc.org",
+  "https://rpc.mevblocker.io", "https://1rpc.io/eth",
   "https://ethereum.publicnode.com", "https://eth.rpc.blxrbdn.com",
+  "https://eth.api.pocket.network",
 ];
 
 /** The provider behind an endpoint URL: its registrable domain (last two host labels), so two aliases of
@@ -54,7 +55,7 @@ function chainstackUrl(env: NodeJS.ProcessEnv): string | undefined {
   return u !== undefined && u.length > 0 ? u : undefined;
 }
 
-/** The RPC pool endpoints: the 8 public ones, plus the Chainstack URL when the env provides it — a ninth
+/** The RPC pool endpoints: the 7 public ones, plus the Chainstack URL when the env provides it — an eighth
  *  endpoint and a DISTINCT operator (`providerOf` -> `chainstack.com`) in the round-robin rotation (L-3).
  *  main passes this EXPLICITLY into `makeRpcPool({ endpoints })`, so the pool never reads the env itself. */
 export function poolEndpoints(env: NodeJS.ProcessEnv = process.env): readonly string[] {
@@ -62,7 +63,7 @@ export function poolEndpoints(env: NodeJS.ProcessEnv = process.env): readonly st
   return extra !== undefined ? [...PUBLIC_ENDPOINTS, extra] : [...PUBLIC_ENDPOINTS];
 }
 
-/** The endpoints as PUBLISHED in each line's provenance: the 8 public URLs UNCHANGED, plus the Chainstack
+/** The endpoints as PUBLISHED in each line's provenance: the 7 public URLs UNCHANGED, plus the Chainstack
  *  endpoint REDACTED to its origin (host only) — the operator is disclosed, the key never is (C-1).
  *  `hashedFields` excludes `endpoints`, so this is provenance only and does not touch `line_hash`. */
 export function publishedEndpoints(env: NodeJS.ProcessEnv = process.env): readonly string[] {

@@ -8,9 +8,16 @@
 // stubbed (fully typed, restored in a finally). No network here.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { makeDefaultCall, parseUkemiArgs, isMainModule, backoffDelay, type RpcErrorRecord } from "../src/ukemi/record.ts";
+import { makeDefaultCall, parseUkemiArgs, isMainModule, backoffDelay, runRecorder, type RpcErrorRecord, type RecorderDeps } from "../src/ukemi/record.ts";
 import { makeUkemiPool, RpcError, dedupLogs, type LogEntry } from "../src/ukemi/rpc2.ts";
+import { QuorumDisagreementError } from "../src/rpc.ts";
+import { reduceConcordance } from "../src/ukemi/concordance.ts";
+import { SEL } from "../src/ukemi/abi.ts";
+import { ORACLE } from "../src/ukemi/clusters.ts";
 import { fileURLToPath } from "node:url";
+import { tmpdir } from "node:os";
+import { readFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
 
 const jsonResp = (body: unknown, status = 200): Response => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
@@ -105,10 +112,10 @@ test("ukemi_record_logs_structured_errors", async () => {
 
 // The CLI exposes the enumeration floor, politeness, the bounded retry budget and the backoff cap (V-1(c)).
 test("ukemi_record_parses_cli_args", () => {
-  const a = parseUkemiArgs(["--cluster", "susde-usde", "--block", "23600000", "--from-block", "23598000", "--min-interval-ms", "350", "--retries", "3", "--backoff-ms", "250", "--backoff-cap-ms", "4000", "--out", "/tmp/x.json", "--max-calls", "300000", "--resume", "/tmp/u4a/U4-inputs.jsonl", "--prereg-sha", "9209cdab", "--filter-only", "--slow-operator", "drpc.org", "--slow-operator", "p2pify.com", "--slow-interval-ms", "250", "--exclude-operator", "mevblocker.io"]);
-  assert.deepEqual(a, { cluster: "susde-usde", block: 23600000, fromBlock: 23598000, minIntervalMs: 350, retries: 3, backoffMs: 250, backoffCapMs: 4000, out: "/tmp/x.json", maxCalls: 300000, resume: "/tmp/u4a/U4-inputs.jsonl", preregSha: "9209cdab", filterOnly: true, slowOperators: ["drpc.org", "p2pify.com"], slowIntervalMs: 250, excludeOperators: ["mevblocker.io"] });
+  const a = parseUkemiArgs(["--cluster", "susde-usde", "--block", "23600000", "--from-block", "23598000", "--min-interval-ms", "350", "--retries", "3", "--backoff-ms", "250", "--backoff-cap-ms", "4000", "--out", "/tmp/x.json", "--max-calls", "300000", "--resume", "/tmp/u4a/U4-inputs.jsonl", "--prereg-sha", "9209cdab", "--filter-only", "--slow-operator", "drpc.org", "--slow-operator", "p2pify.com", "--slow-interval-ms", "250", "--exclude-operator", "mevblocker.io", "--concordance-out", "/tmp/conc.jsonl"]);
+  assert.deepEqual(a, { cluster: "susde-usde", block: 23600000, fromBlock: 23598000, minIntervalMs: 350, retries: 3, backoffMs: 250, backoffCapMs: 4000, out: "/tmp/x.json", maxCalls: 300000, resume: "/tmp/u4a/U4-inputs.jsonl", preregSha: "9209cdab", filterOnly: true, slowOperators: ["drpc.org", "p2pify.com"], slowIntervalMs: 250, excludeOperators: ["mevblocker.io"], concordanceOut: "/tmp/conc.jsonl" });
   const d = parseUkemiArgs([]);
-  assert.deepEqual(d, { cluster: "weth", block: undefined, fromBlock: undefined, minIntervalMs: 200, retries: 2, backoffMs: 500, backoffCapMs: 8000, out: undefined, maxCalls: undefined, resume: undefined, preregSha: undefined, filterOnly: false, slowOperators: [], slowIntervalMs: 200, excludeOperators: [] });
+  assert.deepEqual(d, { cluster: "weth", block: undefined, fromBlock: undefined, minIntervalMs: 200, retries: 2, backoffMs: 500, backoffCapMs: 8000, out: undefined, maxCalls: undefined, resume: undefined, preregSha: undefined, filterOnly: false, slowOperators: [], slowIntervalMs: 200, excludeOperators: [], concordanceOut: undefined });
   assert.throws(() => parseUkemiArgs(["--block", "abc"]), /non-negative integer/, "a non-numeric flag fails closed");
   assert.throws(() => parseUkemiArgs(["--retries", "-1"]), /non-negative integer/, "a negative flag fails closed");
   assert.throws(() => parseUkemiArgs(["--backoff-cap-ms", "-5"]), /non-negative integer/, "the backoff cap fails closed too");
@@ -267,4 +274,54 @@ test("ukemi_record_backoff_cap_is_wired_at_network_fault_call_site", { timeout: 
   const uncapped = await measure(1_000_000);
   assert.ok(capped < 200, `backoffCapMs:1 bounds the real inter-attempt waits at the network-fault call-site (measured ${capped.toFixed(1)}ms; a cap-ignoring transport path would pay ~700ms)`);
   assert.ok(uncapped >= 600, `control: with the cap not binding, the three real transport-retry waits are ~700ms (measured ${uncapped.toFixed(1)}ms)`);
+});
+
+// L-4 — the concordance counter wired end-to-end (ADR-POOL-RPC-1): runRecorder(--concordance-out) drives the
+// quorum-2 pool through a stubbed fetch. drpc benches on a -32601 (not a revert) so POCKET enters the pair;
+// getPriceOracle CONCORDS and getReservesList DISCORDS (abstains) — the hook records BOTH before the throw, the
+// finally flushes ONE compact jsonl line per pair, and reduceConcordance folds it to counters. M-7c (flag parsed
+// but the sink NOT passed to makeUkemiPool) ⇒ empty aggregate ⇒ empty file ⇒ reducer [] ⇒ this reds. No URL written.
+test("ukemi_record_concordance_chain — args → runRecorder → jsonl → reduceConcordance yields a pocket pair with a concordant AND a discordant read, no URL in the file (L-4; M-7c)", async () => {
+  const B = 23545087;
+  const ORACLE_WORD = "0x" + "0".repeat(24) + ORACLE.slice(2).toLowerCase(); // a 32-byte word decoding to ORACLE
+  const out = join(tmpdir(), `pool1a-conc-${String(process.pid)}-${String(Date.now())}.jsonl`);
+  await withFetch((_a, req, url) => {
+    if (url.includes("drpc")) return jsonResp({ jsonrpc: "2.0", id: req.id, error: { code: -32601, message: "method not found" } }); // benched (not a revert) ⇒ pocket enters the pair
+    if (req.method === "eth_getBlockByNumber") return jsonResp({ jsonrpc: "2.0", id: req.id, result: { hash: "0x" + "11".repeat(32), number: "0x" + B.toString(16), timestamp: "0x66000000" } });
+    if (req.method === "eth_call") {
+      const data = (req.params as ReadonlyArray<{ data: string }>)[0]!.data.toLowerCase();
+      if (data === SEL.getPriceOracle) return jsonResp({ jsonrpc: "2.0", id: req.id, result: ORACLE_WORD });                                        // concordant across mevblocker + nodies
+      if (data === SEL.getReservesList) return jsonResp({ jsonrpc: "2.0", id: req.id, result: url.includes("mevblocker") ? "0x1234" : "0x5678" }); // DISCORDANT ⇒ abstains
+    }
+    return jsonResp({ jsonrpc: "2.0", id: req.id, result: "0x1" });
+  }, async () => {
+    const deps: RecorderDeps = { env: {}, now: () => 1_700_000_000_000 };
+    const argv = ["--cluster", "weth", "--block", String(B), "--max-calls", "50", "--filter-only", "--retries", "0", "--backoff-ms", "0", "--min-interval-ms", "0", "--concordance-out", out];
+    await assert.rejects(() => runRecorder(argv, deps), QuorumDisagreementError, "the discordant getReservesList abstains the run (fail-closed) — the hook recorded it first");
+  });
+  const raw = readFileSync(out, "utf8");
+  rmSync(out, { force: true });
+  assert.ok(!/https?:\/\//.test(raw) && !raw.toLowerCase().includes("http"), "the concordance file carries NO URL (operators only, C-1)");
+  assert.ok(!raw.includes("nodies"), "the nodies gateway is collapsed to 'pocket' in the pair (C-2), never named in the file");
+  const tally = reduceConcordance(raw);
+  assert.equal(tally.length, 1, "exactly one operator PAIR was observed (M-7c: an unwired sink ⇒ empty file ⇒ [] ⇒ this reds)");
+  const t = tally[0]!;
+  assert.equal(t.pair, "mevblocker.io|pocket", "the pair is mevblocker.io ↔ pocket (drpc benched on -32601 ⇒ pocket entered)");
+  assert.equal(t.concordant, 1, "getPriceOracle concorded (recorded)");
+  assert.equal(t.discordant, 1, "getReservesList discorded (recorded BEFORE the abstention throw)");
+  assert.equal(t.rate, 0.5, "rate = concordant/(concordant+discordant) = 1/2");
+});
+
+// C-2 — record.ts's fail-closed distinct() guard counts by OPERATOR (the plan names this guard explicitly): excluding
+// drpc + mevblocker leaves {nodies, pocket} = ONE operator, so the recorder REFUSES before any network read. M-4d
+// (distinct by providerOf) would count 2 domains, pass the guard, and reach finalized ⇒ a DIFFERENT message ⇒ this reds.
+test("ukemi_record_distinct_guard_by_operator — --exclude drpc+mevblocker leaves {nodies,pocket}=1 operator ⇒ fail-closed at the guard (C-2 record.ts; M-4d)", async () => {
+  await withFetch((_a, req) => jsonResp({ jsonrpc: "2.0", id: req.id, result: { hash: "0x" + "11".repeat(32), number: "0x1", timestamp: "0x1" } }), async () => {
+    const deps: RecorderDeps = { env: {}, now: () => 1_700_000_000_000 };
+    await assert.rejects(
+      () => runRecorder(["--cluster", "weth", "--max-calls", "10", "--exclude-operator", "drpc.org", "--exclude-operator", "mevblocker.io"], deps),
+      /eth_call quorum-2 needs >= 2 distinct operators/,
+      "the operator-distinct guard fails closed before any read (M-4d: providerOf would count 2 and reach finalized with a different message)",
+    );
+  });
 });

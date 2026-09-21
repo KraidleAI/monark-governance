@@ -1,4 +1,7 @@
 // scripts/census/u3-realized.mjs
+// POOL-RPC-1a NOTE (ADR-POOL-RPC-1, decision 106; Q2): FROZEN — NOT rerun as-is. It IMPORTS PUBLIC_ENDPOINTS, so it
+// inherits the revised (−Blast −Llama +Pocket) sentinel pool automatically; but CALL_EPS (l.271) feeds 1rpc into a
+// HEAVY eth_getLogs campaign by inheritance (falsifies SYNTHESE §1, L-6) ⇒ never replay as-is (sha-pinned outputs).
 // ============================================================================================
 // U-3 (Ukemi, ADR-M020 D1 (b)) — realized labels Y_{i,e} for the three observed Aave v3 core events
 // (e1 2025-02-21 sUSDe, e2 2025-10-10/11 WETH, e3 2026-01-19 sUSDe), decomposed into

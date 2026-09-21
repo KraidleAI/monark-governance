@@ -1,15 +1,26 @@
 // UKEMI (ADR-U1 D3) — quorum-2 RPC layer for the recorder, REUSING apps/sentinel/src/rpc.ts primitives
 // (providerOf, QuorumDisagreementError, RpcCall) WITHOUT modifying them (Narabi is LIVE, its anchor pinned).
 //
-// Quorum depends on the method (measured, M-1 §5 / census A §2): eth_call@B is served by {drpc, mevblocker,
-// blastapi, nodies}; eth_getLogs (wide) only by {drpc, mevblocker, tenderly}. A value read needs TWO DISTINCT
-// providers (by providerOf) with CONCORDANT outcomes: byte-identical value, or the same EVM revert (a real
+// Quorum depends on the method (measured, M-1 §5 / census A §2 + L-5 2026-09-21): eth_call@B by {drpc, mevblocker,
+// pocket} ({nodies.app, pocket.network} = ONE operator, C-2); eth_getLogs by {drpc, mevblocker, tenderly, pocket}
+// (Pocket archive getLogs byte-identical to MEV Blocker, L-5). A value read needs TWO DISTINCT operators (by
+// operatorOf) with CONCORDANT outcomes: byte-identical value, or the same EVM revert (a real
 // on-chain fact — ConcordantRevertError, tolerated only for description()). Disagreement ⇒ QuorumDisagreementError;
 // fewer than two ⇒ NoQuorumError. Either way the caller abstains the whole book (no partial book presented complete).
 // LOOK-AHEAD FORBIDDEN (ADR-U1 D7): every read carries an explicit block number; the `finalized` tag is read
 // only to gate B ≤ finalized; the mutable head tag is never requested (grep + test ukemi_no_latest_literal).
 import { createHash } from "node:crypto";
 import { providerOf, QuorumDisagreementError, type RpcCall } from "../rpc.ts";
+
+/** The INDEPENDENT operator behind an endpoint URL, for quorum-2 distinctness (C-2, ADR-POOL-RPC-1): like
+ *  providerOf but collapsing the two Pocket-backed gateways — the keyless `eth-pokt.nodies.app` and the public
+ *  `eth.api.pocket.network` both front the SAME Pocket Network (POKT) decentralised RPC, so counting them as two
+ *  would fake a quorum. Every OTHER domain is its own operator. providerOf stays the LOGGING form (a bare host,
+ *  never a key); operatorOf is the distinctness key for quorum2 / finalized / record.ts's fail-closed guard. */
+export function operatorOf(url: string): string {
+  const d = providerOf(url);
+  return d === "nodies.app" || d === "pocket.network" ? "pocket" : d;
+}
 
 /** No two distinct providers agreed on a read — the whole (cluster, B) book abstains, naming the read. */
 export class NoQuorumError extends Error {}
@@ -53,12 +64,12 @@ function revertKey(e: RpcError): string {
 export interface LogEntry { readonly blockNumber: string; readonly logIndex: string; readonly transactionHash: string; readonly topics: readonly string[]; readonly data: string; }
 
 const toHexBlock = (n: number): string => "0x" + BigInt(n).toString(16);
-const isResultLimit = (m: string): boolean => /more than|result|range is too|10000|query returned|limit exceeded|block range|too large|response size|maximum allowed|ranges? over/i.test(m);
+export const isResultLimit = (m: string): boolean => /more than|result|range is too|10000|query returned|limit exceeded|block range|too large|response size|maximum allowed|ranges? over|narrow your filter/i.test(m);
 // A drpc free-plan 400 body reads "ranges over 10000 blocks are not supported on free plan" — which isResultLimit
 // matches via "10000"/"ranges over" — yet the chunk was already 9990 blocks (< 10000) and drpc still returned it
 // 31 times on each live run (D9 weth/susde-live.json): the block is the PLAN, not the range, so splitting only
 // re-hits the same 400 down to the floor. Detect it and let the caller bench the provider once (V-1(e)).
-const isPlanLimited = (m: string): boolean => /free plan/i.test(m);
+export const isPlanLimited = (m: string): boolean => /free plan/i.test(m);
 
 function asLogs(x: unknown): LogEntry[] {
   if (!Array.isArray(x)) throw new Error("eth_getLogs: result is not an array");
@@ -121,6 +132,7 @@ export interface UkemiPoolOpts {
   chunk?: number;         // getLogs range chunk (census: 9990 ≤ common cap)
   slowOperators?: readonly string[]; // U-4a D-4: providerOf domains throttled to slowIntervalMs (the rest use minIntervalMs)
   slowIntervalMs?: number;           // interval for slowOperators (default 200) — used to raise a single misbehaving operator
+  onQuorum?: ((label: string, opA: string, opB: string, concordant: boolean) => void) | undefined; // L-4 concordance sink (operatorOf labels only, never a URL); undefined ⇒ NO-OP ⇒ book_digest byte-identical
 }
 
 /** The politeness interval for a provider domain: `slowIntervalMs` iff it is a slow operator, else `minIntervalMs`
@@ -168,20 +180,23 @@ export function makeUkemiPool(opts: UkemiReaderOpts): UkemiReader {
     let lastErr: Error | undefined;
     for (let i = 0; i < list.length && got.length < 2; i++) {
       const url = list[i];
-      if (url === undefined || seen.has(providerOf(url))) continue;
+      if (url === undefined || seen.has(operatorOf(url))) continue; // C-2: distinctness by OPERATOR ({nodies,pocket}=1)
       try {
         await polite(url);
         const val = await fetchOne(url);
-        got.push({ prov: providerOf(url), kind: "ok", key: "ok:" + keyOf(val), val });
-        seen.add(providerOf(url));
+        got.push({ prov: operatorOf(url), kind: "ok", key: "ok:" + keyOf(val), val });
+        seen.add(operatorOf(url));
       } catch (e) {
         if (e instanceof BudgetExceededError) throw e; // C-5: budget stop is fatal FIRST — never benched into no_quorum
-        if (isRpcRevert(e)) { got.push({ prov: providerOf(url), kind: "revert", key: "revert:" + revertKey(e) }); seen.add(providerOf(url)); }
+        if (isRpcRevert(e)) { got.push({ prov: operatorOf(url), kind: "revert", key: "revert:" + revertKey(e) }); seen.add(operatorOf(url)); }
         else { lastErr = e instanceof Error ? e : new Error(String(e)); cooldownUntil.set(url, Date.now() + 25_000); }
       }
     }
     const [a, b] = got;
     if (a === undefined || b === undefined) throw new NoQuorumError(`${label}: quorum needs 2 providers${lastErr ? ` (last: ${lastErr.message})` : ""}`);
+    // L-4 concordance hook (ADR-POOL-RPC-1): record whether the two DISTINCT operators agreed, BEFORE the
+    // disagreement throw, so a QuorumDisagreementError still leaves an observation. Operator labels only, never a URL.
+    opts.onQuorum?.(label, a.prov, b.prov, a.key === b.key);
     if (a.key !== b.key) throw new QuorumDisagreementError(`${label}: providers ${a.prov}/${b.prov} disagree`);
     if (a.kind === "revert") throw new ConcordantRevertError(`${label}: concordant revert across ${a.prov}/${b.prov}`);
     return a.val as T;
@@ -232,8 +247,8 @@ export function makeUkemiPool(opts: UkemiReaderOpts): UkemiReader {
       const seen = new Set<string>();
       for (let i = 0; i < list.length && got.length < 2; i++) {
         const url = list[i];
-        if (url === undefined || seen.has(providerOf(url))) continue;
-        try { await polite(url); const b = asBlock(await call(url, "eth_getBlockByNumber", ["finalized", false])); got.push({ block: b.number, ts: b.ts }); seen.add(providerOf(url)); }
+        if (url === undefined || seen.has(operatorOf(url))) continue; // C-2: distinctness by OPERATOR
+        try { await polite(url); const b = asBlock(await call(url, "eth_getBlockByNumber", ["finalized", false])); got.push({ block: b.number, ts: b.ts }); seen.add(operatorOf(url)); }
         catch (e) { if (e instanceof BudgetExceededError) throw e; cooldownUntil.set(url, Date.now() + 25_000); } // C-5: FIRST — else the bare catch swallows the budget stop
       }
       const [a, b] = got;
@@ -246,6 +261,9 @@ export function makeUkemiPool(opts: UkemiReaderOpts): UkemiReader {
 /** Alias kept explicit for the options type name used above. */
 export type UkemiReaderOpts = UkemiPoolOpts;
 
-/** Measured provider sets (M-1 §5 / census A §2). Domains match rpc.ts providerOf (registrable domain). */
-export const ETH_CALL_PROVIDERS: readonly string[] = ["https://eth.drpc.org", "https://rpc.mevblocker.io", "https://eth-mainnet.public.blastapi.io", "https://eth-pokt.nodies.app"];
-export const GET_LOGS_PROVIDERS: readonly string[] = ["https://eth.drpc.org", "https://rpc.mevblocker.io", "https://mainnet.gateway.tenderly.co"];
+/** Measured provider sets (M-1 §5 / census A §2 + L-5 2026-09-21, ADR-POOL-RPC-1, decision 106): −Blast −Llama,
+ *  +Pocket. eth_call: 4 URLs / 3 OPERATORS ({nodies.app, pocket.network} = one operator `pocket`, C-2/operatorOf).
+ *  getLogs: Tenderly KEPT (decision 102) + Pocket added (L-5 archive getLogs byte-identical to MEV Blocker) = 4
+ *  distinct operators. ORDER is load-bearing (quorum2 has no round-robin): the proven providers lead, Pocket trails. */
+export const ETH_CALL_PROVIDERS: readonly string[] = ["https://eth.drpc.org", "https://rpc.mevblocker.io", "https://eth-pokt.nodies.app", "https://eth.api.pocket.network"];
+export const GET_LOGS_PROVIDERS: readonly string[] = ["https://eth.drpc.org", "https://rpc.mevblocker.io", "https://mainnet.gateway.tenderly.co", "https://eth.api.pocket.network"];

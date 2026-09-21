@@ -1,4 +1,8 @@
 // usde-full-pull.mjs — F2-B calibration data acquisition (Narabi ADR-M008 D7bis, USDe/Ethena).
+// POOL-RPC-1a NOTE (ADR-POOL-RPC-1, decision 106; Q2): FROZEN — NOT rerun as-is. Blast API + LlamaRPC are retired
+// from the LIVE pools (apps/sentinel/src/rpc.ts, ukemi/rpc2.ts) ONLY; this script's hardcoded ENDPOINTS (l.31-33,
+// blast/llama/ankr/1rpc) is left byte-unchanged so the sha-pinned committed series stays reproducible (revisionism
+// proscribed). Never replay as-is: 1rpc's ~200 req/day would throttle a heavy campaign (SYNTHESE §1, L-6).
 // Motif = msusd-full-pull.mjs, RPC layer hardened (endpoint pool + per-endpoint cooldown on rate-limit,
 // getLogs split-on-result-limit). DAILY 24h UTC windows, read-only public RPCs (no key), resumable JSONL.
 // Per window: burns (Transfer->0x0), mints (Transfer 0x0->), supply_close/open (totalSupply), C1 identity,
