@@ -36,3 +36,119 @@
 
 ## MAST (résiduel)
 Sélection sur l'issue — contrée par D4 (gel élargi C-V-2) ; spécification ambiguë — liste fermée C-V-7 pré-enregistrée ; vérification non indépendante — CA-9 : le validateur recalcule sous une convention alternative (C-V-1 b) ; dérive de vocabulaire — `gate:vocab` ; dépense non gardée — D5.
+
+## Amendement daté 2026-09-21 (addendum GARDE-HELIUS-2 C-7)
+
+> **Provenance.** Rédaction : worker `claude-opus-4-8[1m]` (préfixe `claude-opus-4-8`
+> conforme, effort max ; Opus 5 banni), 2026-09-21, base `lot/etude-suite` HEAD
+> `2d3f5d8` (mesures reproductibles jointes, `MESURES.md`). **Insertion dans l'ADR par
+> l'orchestrateur `claude-fable-5-1` SEUL** (R-20 ; le worker ne committe pas). Réviseur =
+> orchestrateur (vérification adversariale R-21). **Aucune décision nouvelle** : cet
+> amendement ne fait que fixer, dater et rendre traçable ce que l'addendum GARDE-HELIUS-2
+> (faits C-3, D4 (iii), C-7, Protocole) et les décisions investisseur 118 et 121 disent
+> déjà. Il **formalise** — sans les ré-introduire — les clauses en ligne de D4 (`rpc.ts`)
+> et de D5 (« SUBSUMÉ ») déjà portées par le commit `798b4e9` (GARDE-HELIUS-2b-i G1).
+
+**État à l'ouverture de l'amendement (mesuré, régime B).** L'addendum C-7 exigeait un
+amendement daté de cet ADR portant (i) `rpc.ts` au gel D4 et (ii) « U-4b-0 subsumé » en D5.
+Le prereg DRAFT les notait absents (Q3) — constat pris à `430e99d` (ancêtre de HEAD sur
+`lot/etude-suite`, **antérieur à la fusion `8ba2cbc`**), où l'ADR (38 lignes) ne portait pas
+encore ces clauses (mesuré : 0 occurrence) : **le constat d'absence de Q3 était exact à
+`430e99d`** ; c'est la prémisse « jamais atterri » de la mission, héritée de Q3, qui est
+**périmée depuis `8ba2cbc`**. Depuis cette fusion, la **substance** de (i) et (ii) figure
+**en ligne** dans D4 et D5 (lignes 18-19), portée par `798b4e9` (G1 GARDE-HELIUS-2b-i,
+« ADR clauses ») — présente à `8aedd03` (base mission) comme au HEAD. Restent dus,
+et sont fixés ci-dessous : la valeur LF **complète** de `rpc.ts` recomputée avec sa preuve
+d'imports (§1) ; les SHA de fusion de GARDE-HELIUS-2 et la mise à jour de la ligne de tuyau
+(§2) ; la **contrainte d'ordre NARABI-OPS-1d** (§3) ; la **note « plafond par compte »
+(décision 121)** (§4).
+
+### 1. D4 (gel) — `apps/sentinel/src/rpc.ts` : valeur LF complète + preuve de la chaîne d'imports
+
+`apps/sentinel/src/rpc.ts` **figure au gel D4** (clause en ligne portée par `798b4e9` ;
+addendum C-3 : transitif de 2ᵉ niveau du jeu gelé). Cet amendement **fixe sa valeur LF
+complète**, recomputée par le worker depuis le blob HEAD sous la convention D4/AM-1
+(`git show HEAD:<f> | tr -d '\r' | sha256sum`) :
+
+```
+0e232519a18aaa43cb46bc5244472940cfac0c95f104bf3df70c36ccc1c65ca0  apps/sentinel/src/rpc.ts
+```
+
+- **Chaîne d'imports prouvée (mesurée, blob HEAD).** `apps/sentinel/src/ukemi/abi.ts`
+  **ligne 7** est, verbatim : `import { TRANSFER_TOPIC } from "../rpc.ts";`. La constante
+  importée est définie à `apps/sentinel/src/rpc.ts` **ligne 15** (constante littérale
+  exportée). `abi.ts` est lui-même gelé (C-V-2, `3376eb08...`) et importé par
+  `u4b-scores.mjs` et `u4b-reduce.mjs` ⇒ `rpc.ts` est un transitif du jeu gelé **par
+  `abi.ts:7`**.
+- **`rpc.ts` est une feuille.** Son seul `import` (ligne 12) est
+  `import { createHash } from "node:crypto";` — aucun import `src`. La fermeture transitive
+  gelée reste donc **fermée** : {`u4b-scores.mjs`, `u4b-reduce.mjs`, `record-u4b-calib.mjs`,
+  `wadray.ts`, `abi.ts`, `rpc.ts`, `l1-split.ts`} ∪ {`calib-digest.ts`, déjà
+  `contracts_frozen`}. Aucun import `src` non gelé ne subsiste.
+- **Preuve d'intégrité (régime B, AM-1).** Recompute effectué à HEAD
+  `2d3f5d85ee3c808723a0f948f89e73b6568aedb2`, la mission ayant été formée à HEAD
+  `8aedd03` ; le **seul** fichier modifié entre les deux est `docs/TABLEAU-DE-BORD.md`
+  (`git diff --name-only 8aedd03 2d3f5d8`). Les **7 fichiers gelés sont byte-identiques**
+  aux deux HEAD (les 3 valeurs complètes de D4 et les 4 préfixes D4/C-V-2 concordent ;
+  `rpc.ts` = valeur ci-dessus) — c'est la preuve « blobs HEAD inchangés » que D4 prescrit,
+  pas `git status`.
+- **Inchangé.** La clause D4 « à recomputer LF au commit du prereg » **reste due** : la
+  valeur ci-dessus est celle du HEAD `2d3f5d8` ; toute divergence au commit réel du prereg
+  = ÉCART = STOP (Q10).
+
+### 2. D5 — U-4b-0 « consommer `@monark/rpc-guard` » subsumé par GARDE-HELIUS-2 ; ligne de tuyau
+
+La clause D5 « **U-4b-0 (discover/calib) est SUBSUMÉ par GARDE-HELIUS-2** » (en ligne,
+`798b4e9` ; addendum D4 (iii)) est **précisée** par l'état de livraison de GARDE-HELIUS-2 :
+
+- **2a** (paquet `@monark/rpc-guard` multi-opérateur) : **fusionné `e98b54f`** ;
+- **2b-i** (moitié paquet : vocabulaire d'erreur à source unique, `RpcError` canonique,
+  indice fermé D6) : **fusionné `8ba2cbc`** ;
+- **2b-ii** (moitié migration : `record.ts` consomme `openGuardedClient` ; grep CI) :
+  **en cours** (G0 `docs/G0-lot-garde-helius-2b-ii.md`, checkpoint-1 en vol). C'est le
+  `GARDE-HELIUS-2b-migration` que D5 nomme comme condition de consommation (découpe
+  2b-i / 2b-ii du 2026-09-21 17:40 UTC, `docs/CHANTIERS.md`).
+
+Le sous-lot **« -0 (consommer `@monark/rpc-guard`) »** de la ligne de Statut est ce **même**
+U-4b-0 subsumé : le discover/calib de U-4b-1b consomme le recorder GARDÉ ; **aucun second
+compteur de budget** n'existe. La ligne de tuyau « épisode frais » de la table Tuyaux est
+**remplacée** par (colonne État mise à jour) :
+
+| Tuyau | Entrée (produit) | Sortie (consomme) | État | Test |
+|---|---|---|---|---|
+| épisode frais | `u4b-discover.mjs` (P-EPI, budget gardé) | book/D_e/labels frais | -1b (après POOL-RPC-1a, GARDE-HELIUS-2 : 2a `e98b54f` fusionné, 2b-i `8ba2cbc` fusionné, 2b-ii en cours ; prereg) | `u4b_episode_selection_is_deterministic` |
+
+### 3. Contrainte d'ordre — NARABI-OPS-1d ne fusionne pas pendant la fenêtre prereg → clôture de course
+
+`apps/sentinel/src/rpc.ts` étant **au gel D4** (§1), et **NARABI-OPS-1d** étant le lot qui
+**migre `rpc.ts` vers `@monark/rpc-guard`** (décision 118 ; addendum C-4 : allowlist du grep
+CI à déclencheur -1d) :
+
+- **NARABI-OPS-1d NE fusionne PAS entre le commit du prereg -1b et la clôture de la course.**
+  Sinon `rpc.ts` change, le gel est rompu, et il faut **re-geler + re-pré-enregistrer**
+  (prereg Q10). La course U-4b-1b se termine **AVANT** NARABI-OPS-1d.
+- **Cohérent avec la décision 118** : NARABI-OPS-1d est **APRÈS le release temps 1**
+  (« E-5 ⇐ -1c seulement » ; la migration de `rpc.ts` est un lot séparé, après le temps 1),
+  donc l'ordre naturel place déjà -1d après la course.
+- **Fait discriminant.** `record.ts` / `rpc2.ts` sont **hors** du gel (en aval du jeu gelé —
+  `docs/G0-lot-garde-helius-2b-ii.md` §3) ⇒ l'ordre 2b-ii ↔ prereg **ne crée pas** de
+  conflit. C'est `rpc.ts`, **dans** le gel et migré par -1d, qui impose cette contrainte
+  d'ordre.
+
+### 4. Note — plafond Chainstack PAR COMPTE (décision 121) ; A-4 lit le total du compte + la ligne `ethereum-mainnet`
+
+Le plafond de cycle Chainstack cité en D5 (« Chainstack 16 M RU, décision 115 ») est
+**précisé** par la décision 121 : c'est un plafond **par COMPTE**, tous réseaux confondus
+(`ethereum-mainnet` Ukemi + `solana-mainnet` Bell + tout autre). Conséquences portées au
+prereg -1b :
+
+- **un seul ledger** de cycle Chainstack, **une seule clé de cycle**, floor lu au tableau
+  de bord = **somme des réseaux** ;
+- le rapprochement **A-4 lit le total du compte ET la ligne `ethereum-mainnet`** (le job
+  quotidien Narabi et une éventuelle sonde Bell comptent dans le même plafond) ;
+- la ventilation par réseau est un **attribut du journal** (`network`), **jamais un second
+  plafond**.
+
+L'amendement de `ADR-GARDE-HELIUS-client-budgete-unique.md` (A-1 / A-4, clause « par
+compte ») **reste un item formé** (propriétaire orchestrateur, déclencheur G1 2b-ii,
+décision 121) — **hors** du présent ADR.
