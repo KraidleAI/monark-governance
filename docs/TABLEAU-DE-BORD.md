@@ -13,11 +13,11 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | -b3d-b1a reprise/ledger/budget | FUSIONNÉ `2c717f8` (G7, 596/596, R-25 858) | — | — |
 | -b3d-b1b densité/projection | FUSIONNÉ `f459cc2` (G7, 696 pass / 1 skip, eslint 0, ratchet 69/69, R-25 315) | Amendement 3 à committer seul avant la sonde | — |
 | GARDE-HELIUS (client budgété unique, ledger de cycle) | **1a FUSIONNÉ `88c63bb`** (G7, 688 pass / 1 skip déclaré, R-25 1 096, paquet `upcoming`) | **1b** (Bell consomme `openGuardedClient`) après b1b + (f) (mêmes fichiers) ; **2** (Ukemi) PRÊT à lancer | — |
-| -b3d-f condition (f) ITEM-A (payload chaîné) | EN COURS | G1 en cours (base `f459cc2`) ; C-F-4 : question investisseur au G0 de la course | `Monark-wt-b3df` |
+| -b3d-f condition (f) ITEM-A (payload chaîné) | EN COURS | G1 `291d389` ; cp-2 ACCEPTE-AVEC-CORRECTIONS (C-V-1 test-seul : vecteur littéral, édition en place) en pli ; G2 en cours | `Monark-wt-b3df` |
 | Course de contre-vérification | BLOQUÉ | GARDE-HELIUS-1b + b1b + (f) + Amendement 3 committé seul | — |
 | -b3d-b2 post-tirage | À VENIR | après la course | — |
 | T-1a-iii-a1 univers Solana | FUSIONNÉ `9a2fca9` (G7, 573/573) | — | — |
-| -iii-a1-bis (ledger chaîné, sanitize, shim, drain) | EN COURS | G1 (implémentation) ; plan plié `4f81f67` | `Monark-wt-a1bis` |
+| -iii-a1-bis (ledger chaîné, sanitize, shim, drain) | EN COURS | G1 `9992e5b` ; cp-2 ACCEPTE-AVEC-CORRECTIONS (C-V-1..4 bloquantes) ; G2 en cours ; flake D4 sourcé (`nodejs/node#56645`, Windows seul) | `Monark-wt-a1bis` |
 
 | R1 registre multi-émetteur | À VENIR | après -b3d-b1 (décision 97) | — |
 | T-1a-iv qualification émetteurs | À VENIR | après R1 (décision 93) | — |
@@ -35,7 +35,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | **-1b-ii (-a + -b fusionnés)** | FUSIONNÉ `c0027cb` (G7, 646/646, R-25 1 690 déclaré : deux unités relues) | — | — |
 | Rattrapage `run.ts` (livelock ≥ ~12 j) | À VENIR | G0/ADR, AVANT E-5 | — |
 | Sonde VPS Bell | **DÉPLOYÉE** `c0027cb`, timer actif, premier mail réel délivré (tuyaux `built`) | — | — |
-| -1c `run.ts` rattrapage borné | EN COURS | plan plié `5d177db` (ADR amendé avant code) ; G1 en cours | `Monark-wt-narabi1c` |
+| -1c `run.ts` rattrapage borné | EN COURS | G1 committé (2 fichiers, +440/−18, bloc d'écriture byte-identique, 7 mutants) ; **G2 ‖ checkpoint-2 en cours** ; puis G7 → E-5 (GO durable, décision 119) | `Monark-wt-narabi1c` |
 | E-5 (VPS site, pool révisé) | À VENIR | après -1c seulement (décision 118) ; go investisseur | — |
 | -1d migration `rpc.ts` vers le garde | APRÈS le temps 1 | résiduel accepté (décision 118) ; second redéploiement | — |
 
@@ -44,7 +44,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 |---|---|---|
 | U-4a | FUSIONNÉ `834a416` | — |
 | U-4b (absorbe U-4a-ii, décision 99) | **-1a FUSIONNÉ `006da8f`** (G7, 607/607, R-25 882, ADR-U4b) | -0 après GARDE-HELIUS-1a→2 et POOL-RPC-1a ; -1b : prereg (3 sha D4 + 3 transitifs, liste C-V-7, `--concordance-out`), `PR-U4-3-ter`, « agrégat ≠ Σ jambes » avant la course |
-| GARDE-HELIUS-2 (recorder Ukemi gardé, Chainstack en RU ; subsume U-4b-0) | EN COURS | addendum plié (C-1..C-7) ; **2a** (paquet) en G1 ; 2b (recorder) après fusion 2a |
+| GARDE-HELIUS-2 (recorder Ukemi gardé, Chainstack en RU ; subsume U-4b-0) | EN COURS | **2a** G1 committé `dd9148f` (17 fichiers, 23 mutants) ; G2 ‖ checkpoint-2 en cours ; 2b (recorder) après fusion 2a |
 | U-5 branchement outil servi | À VENIR | après U-4b |
 | U-6 book complet + course live | À VENIR | go investisseur |
 | U-7 biblio paginée, rejeu public | À VENIR | — |
@@ -56,7 +56,8 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | POOL-RPC-1a (pool RPC Ethereum) | FUSIONNÉ `6bb2f84` (G7, 663/663, R-25 469 ; SHA nommé pour E-5) | débloque GARDE-HELIUS-2, U-4b-0, U-4b-1b | — |
 | EXPORT-CLEAN (miroir public) | FUSIONNÉ `5b110c7` (G7, 577/577, R-25 458) | item : `export:check` en CI avant la fenêtre publique | — |
 | HELIUS-1 (incident) | CAUSE PROUVÉE | scripts de brouillon hors garde (ledger reset, throw retiré) ; reste : lot GARDE-HELIUS avant toute course Bell | — |
-| Clôture (cartographie, K-1, MWCB, export, `g3-site`) | À VENIR | en dernier | — |
+| CI-EXPORT-CHECK (petit lot : `export:check` fail-closed en CI, job r25) | EN COURS | G1 committé (+101) ; G2 en cours | `Monark-wt-cixcheck` |
+| Clôture temps 1 (cartographie Narabi + Ukemi, K-1, `g3-site`) | À VENIR | en dernier | — |
 
 ## 5. Site et marque (HORS GATES — décisions 62/101 ; en dernier, investisseur + orchestrateur)
 | Élément | État |
@@ -77,3 +78,4 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 
 ## 7. Agents en vol (à tenir à jour)
 G1 Narabi -1c · G1 GARDE-HELIUS-2a (priorité 1, temps 1) · G1 -b3d-f · G1 -iii-a1-bis (Bell, temps 2).
+Temps 1 : G2 ‖ cp-2 Narabi -1c · G2 ‖ cp-2 GARDE-HELIUS-2a · G2 CI-EXPORT-CHECK (petit lot). Temps 2 (Bell) : pli + G2 -b3d-f · G2 -iii-a1-bis.
