@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { existsSync, appendFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
-import { openGuardedClient, BudgetExceededError, TransportError, ETH_CALL_KEYLESS_LABELS, GET_LOGS_KEYLESS_LABELS } from "@monark/rpc-guard";
+import { openGuardedClient, BudgetExceededError, TransportError, ETH_CALL_KEYLESS_LABELS, GET_LOGS_KEYLESS_LABELS, isResultLimit } from "@monark/rpc-guard";
 import { makeClient, type OperatorClass, type RunLimits, type OperatorLabel } from "../src/client.ts";
 import { ensureCycleDir, openOperatorLedger } from "../src/ledger.ts";
 import { acquireLock, releaseLock, LockHeldError } from "../src/lock.ts";
@@ -208,10 +208,15 @@ test("transport_error_path_network_abort", async () => {
 });
 
 test("transport_error_path_http_non_ok_keeps_body", async () => {
-  // an HTTP 400 whose body a range-splitter needs (getLogsVia): the body is kept (scrubbed) in the message, code = status.
+  // D6: an HTTP 400 whose body a range-splitter needs (getLogsVia). For a PAID operator the CLOSED-vocabulary hint is
+  // reprised (never a raw body byte) and it PRESERVES the range-split signal: isResultLimit still fires, the sorted
+  // tokens are carried on `.detail`, and the non-token body words ("blocks are not supported") are dropped.
   const { err, seen } = await driveTransport(() => Promise.resolve(new Response("ranges over 10000 blocks are not supported", { status: 400 })));
   assert.ok(err instanceof TransportError && err.name === "HttpError" && err.code === 400, "HTTP non-ok => typed, code = status");
-  assert.match(err instanceof Error ? err.message : "", /ranges over 10000/, "the body is surfaced (a range-splitter needs it)");
+  const m = err instanceof Error ? err.message : "";
+  assert.ok(isResultLimit(m), "the closed hint preserves the range-split signal (a splitter needs it)");
+  assert.equal(err.detail, "10000, ranges over", "detail = the sorted closed hint (C-5), never a raw body byte");
+  assert.doesNotMatch(m, /blocks are not supported/, "the raw non-token body is NOT reprised (D6: closed vocabulary only)");
   noUrl(err);
   assert.deepEqual(seen, [["chainstack", "HttpError", 400]]);
 });

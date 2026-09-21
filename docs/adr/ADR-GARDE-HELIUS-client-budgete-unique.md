@@ -272,3 +272,44 @@ sur ce HEAD corrigé (rejeu P3-floor, P6, sonde bi-processus par `makeClient`+`c
   Oracle (état corrigé) : `npm run ci` vert (700+ tests) ; **28 mutants** (16 du lot 1a + 7 de 2a + 5 corrections C-V) ROUGES sur leur test nommé,
   restauration byte-exacte sha256 ; une erreur eslint **pré-existante** hors périmètre (`apps/bell/test/rebase-crosscheck.test.ts:600`) et un
   `lint:ratchet` **pré-existant** rouge (70/69, 0 dans `packages/rpc-guard/test`) déclarés, non corrigés.
+
+## Amendement GARDE-HELIUS-2b — surface d'erreur du transport (D6 + C-1..C-5), moitié PAQUET livrée (daté 2026-09-21, worker `claude-opus-4-8[1m]`)
+Ce lot 2b consomme le paquet (migration du recorder) et, ce faisant, a révélé des besoins SUR LE PAQUET (trois classifieurs, indice fermé, `.data`,
+journal sur disque) — travail « sur le paquet exécuté dans le lot de migration » (couture déclarée CA-2). **Découpe R-25 (mesurée)** : le 2b complet
+= paquet (317 ins + 35 del = **352**, mesuré) + migration (record.ts réécrit, rpc2.ts, grep, et la ripple dans 3 fichiers de test —
+`ukemi-record.test.ts`, `ukemi-u4a.test.ts`, `ukemi.test.ts` — qui dépendent des symboles supprimés `makeBudgetedCall`/`makeDefaultCall`/
+`operatorLabel`/`scrubUrls`/`ARCHIVE_ENV_LABEL`/`applyExcludeOperators`) ≈ **945** ⇒ total ≈ **1297 > 1150** (et > la projection 550-900 de
+l'orchestrateur). La **couture de repli pré-déclarée** (complément C-2 / addendum C-5) est activée : **`paquet : indice fermé + classe canonique +
+data`** livré ici ; **`migration du recorder + grep`** = item formé (ci-dessous).
+
+- **D6 (livré) — pour un opérateur PAYANT, `TransportError.message` = préambule fixe + code + indice à vocabulaire FERMÉ** (`ERROR_HINT_TOKENS`,
+  `packages/rpc-guard/src/classify.ts`), l'ENSEMBLE trié et dédupliqué des jetons CANONIQUES (littéraux) présents dans le corps (C-5) ; **aucun autre
+  octet du corps n'est repris**. Une clé (base64/hex, %-encodée, coupée par un blanc) ne peut pas être membre d'un ensemble fixe de phrases anglaises
+  et de « 10000 » ⇒ C-GD-2 et le résidu « clé coupée par un blanc » sont **FERMÉS STRUCTURELLEMENT** pour les payants (non bornés). Keyless : corps
+  **redacté** conservé (leurs URL sans secret ; diagnostic du quorum gratuit). `NonJsonBody` : **AUCUN indice**, payant ET keyless (C-2 : une page HTML
+  contenant « result » ne déclenche pas un découpage de plage).
+- **C-1(a) (livré) — classe `RpcError` canonique**, `packages/rpc-guard/src/errors.ts`, `extends TransportError`, exportée par `index.ts` (à
+  ré-exporter par `rpc2.ts` en migration) : le chemin JSON-RPC (erreur à HTTP 200) lève CETTE classe, donc `instanceof RpcError` du quorum vaut à travers
+  la frontière (`ConcordantRevertError` se forme). C-1(b) : `ERROR_HINT_TOKENS` inclut `execution reverted`/`revert` ; conformité couverte par
+  `isRevertText`.
+- **C-1(c) (livré) — `TransportError.data?`** validée `/^0x[0-9a-fA-F]*$/`, bornée `MAX_REVERT_DATA_HEX = 4096` caractères hex (au-delà ⇒ abandonnée),
+  et **abandonnée si elle CONTIENT l'hex UTF-8 d'une forme secrète de l'URL** (c-bis, mêmes cibles que `redact`, réutilisées verbatim) ; unparseable ⇒
+  abandonnée (fail-closed). Le message JSON-RPC keyless est exposé **SANS préambule** (concordance des reverts keyless sur le message).
+- **Résidus DÉCLARÉS** : (1) **un revert d'opérateur PAYANT SANS `.data` va au banc** (`isRpcRevert` rend faux) — jamais une concordance sur un indice
+  fermé (conservateur : banc, jamais un faux accord ; CA-7) ; (2) collision fail-closed de la cible c-bis (segments ≥ 3 car.) — n'abandonne qu'une `data`
+  (ne fait que bencher). `redact` reste en place (défense en profondeur + keyless + cibles de c-bis).
+- **Oracle (paquet)** : `npm run gate:vocab` / `typecheck` / `test` (58/58 rpc-guard, 753 pass suite) / `lint` / `lint:ratchet` (69/69) / `lang:gate`
+  tous verts ; **7 mutants** (jeton retiré, corps libre pour un payant, indice sur NonJsonBody, data non validée, data hex-de-clé, revert payant non
+  benché, identité de classe cassée) ROUGES sur leur test nommé, restauration byte-exacte sha256. `apps/**` + `scripts/**` **byte-identiques** à
+  `1a4fd55` (le gel U-4b et `rpc.ts` intacts). Registre : le paquet reste **`upcoming`** (2b-migration le branchera).
+- **Item formé à déclencheur — `GARDE-HELIUS-2b-migration`** (propriétaire : orchestrateur ; déclencheur : cette découpe R-25) : migrer le recorder
+  (`record.ts` : `makeBudgetedCall`/`makeDefaultCall`/`fetch` SUPPRIMÉS, `openGuardedClient`, retry UNIQUEMENT chez l'appelant — réessaie
+  `AbortError`/réseau, 429, ≥ 500, JAMAIS `RpcError`/`NonJsonBody`/autres 4xx/`BudgetExceededError` ; `finally` relâche **N** verrous demandés — keyless
+  compris, y compris sur `BudgetExceededError` — par N `runCli unlock` ; journal `rpc_errors` sur disque = `e.detail` (indice fermé) + `.data` validée,
+  JAMAIS le corps ni sur disque ni sur stderr ; arguments REQUIS `--ledger-dir`/`--cycle`/`--floor`/`--max-ru`/`--method-caps`, `--max-calls` et
+  `--concordance-out` conservés) ; `rpc2.ts` ré-exporte `RpcError`/`BudgetExceededError` du paquet et IMPORTE `isResultLimit`/`isPlanLimited`/
+  `isRpcRevert` (aucune seconde regex) ; grep CI actif sur `apps/sentinel/src/ukemi/**` (0 hit hors allowlist), allowlist à DEUX entrées dont
+  `apps/sentinel/src/rpc.ts` avec déclencheur **NARABI-OPS-1d**. Tests imposés et mutants de migration listés dans le rendu G1
+  (`F:\tmp\garde2b\RENDU-G1.md`). **Runbook (course Ukemi gardée)** : un crash laisse **N** verrous (un par opérateur demandé, keyless compris) ; la
+  reprise fait **N** `runCli unlock --op <label>` (ligne `unlocked` chaînée, 0 crédit, ne déplace pas la fenêtre de rapprochement) AVANT tout
+  `reconcile`.

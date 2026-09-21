@@ -13,7 +13,8 @@
 // This is the SOLE reader of a paid endpoint key (HELIUS_API_KEY, CHAINSTACK_ETH_URL) and the SOLE fetch site.
 import type { OperatorLabel, Transport, OperatorClass } from "./client.ts";
 import { heliusCredits, chainstackRu } from "./tariff.ts";
-import { TransportError } from "./errors.ts";
+import { TransportError, RpcError } from "./errors.ts";
+import { closedHint } from "./classify.ts";
 
 /** Cycle caps live in ONE place (decisions 112/115). Helius in CREDITS; Chainstack in RU. */
 export const HELIUS_CYCLE_CAP_CREDITS = 8_000_000;
@@ -22,6 +23,10 @@ export const CHAINSTACK_CYCLE_CAP_RU = 16_000_000;
 /** Default per-attempt transport timeout (C-5): an AbortController fires at this deadline so a hung endpoint cannot
  *  wedge a course. Tests inject a tiny value; the live default matches the recorder's record.ts:83 (30 s). */
 export const DEFAULT_TIMEOUT_MS = 30_000;
+
+/** D6 C-1(c-bis): the DECLARED upper bound on a reprised revert `.data` (in hex characters). Revert data is bounded by
+ *  its form (an ABI-encoded reason / custom-error selector), never a free-text channel; anything longer is dropped. */
+export const MAX_REVERT_DATA_HEX = 4096;
 
 /** Keyless ETH operator LABELS = providerOf domains of the recorder's free quorum URLs, PINNED to the same order as
  *  apps/sentinel/src/ukemi/rpc2.ts ETH_CALL_PROVIDERS / GET_LOGS_PROVIDERS (2b reconstructs the pool from these; the
@@ -78,42 +83,74 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
 
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const onErr = opts.onTransportError;
-  // Raise the CANONICAL typed transport fault (C-V-2). The message is SCRUBBED of every URL/key; the hook gets the
-  // label + error NAME + CODE only (never the URL). `detail` (a REDACTED server body/message) is kept in the message
-  // so a downstream getLogsVia can split a range on an HTTP 400 body.
-  // C-R-1: scrubUrls only strips http(s):// URLs, but a 401 body can echo `host/KEY` SCHEME-LESS, and the Chainstack
-  // key is a PATH SEGMENT of CHAINSTACK_ETH_URL (calque rpc.ts redactEndpoint: the key lives in the path/query). So
-  // for THIS operator we expunge from the body: the full URL, its scheme-less host+path, the host, every non-trivial
-  // path segment (the key), and every query value. FAIL-CLOSED: no url for the operator, or an unparseable url, means
-  // the body is NOT reprised at all (dropped) - the range-split hint is worth nothing next to a leaked key.
+  // D6 (GARDE-HELIUS-2b): for a PAID operator, the raised message reprises ONLY a CLOSED-vocabulary hint of the body
+  // (closedHint, classify.ts) - never a raw body byte - so a server-transformed key (C-GD-2, base64/hex) or a key
+  // split by a blank CANNOT appear (a key is not a member of a fixed set of English phrases). For a KEYLESS operator
+  // (no secret in its URL) the redacted body is reprised (the free-quorum diagnosis needs it). `redact` stays in place
+  // (defense in depth + keyless) and its target enumeration is REUSED to check a revert `.data` (C-1(c-bis)).
+  // C-R-1: a 401 body can echo `host/KEY` SCHEME-LESS, and the Chainstack key is a PATH SEGMENT of CHAINSTACK_ETH_URL.
   // Path tokens that are STRUCTURAL, never a secret (so "non-trivial" is structural, not a length guess): a key is any
   // OTHER path segment, of any length. A server body may echo a secret in a different CASE, PERCENT-encoded, or inside
   // JSON escaping - so we build ONE case-insensitive regex over every form (raw + encodeURIComponent + JSON-escaped).
   const TRIVIAL_SEG = new Set(["v1", "v2", "v3", "rpc", "eth", "api", "ws", "wss", "http", "https", "mainnet", "core", "node"]);
-  const redact = (op: string, detail: string): string => {
-    if (detail === "") return "";
+  // The secret FORMS of an operator's URL - the SINGLE enumeration used BOTH to redact a keyless body AND (C-1(c-bis))
+  // to check a revert `.data`. Returns undefined FAIL-CLOSED for an absent or unparseable url (the caller then drops
+  // the body / the data - we cannot prove the key is absent). Every form is >= 3 chars (a shorter target over-redacts).
+  const secretTargets = (op: string): string[] | undefined => {
     const url = urls.get(op);
-    if (url === undefined) return "";
+    if (url === undefined) return undefined;
     let u: URL;
-    try { u = new URL(url); } catch { return ""; } // FAIL-CLOSED: an unparseable operator url => the body is NOT reprised
+    try { u = new URL(url); } catch { return undefined; } // FAIL-CLOSED: an unparseable operator url
     const targets = new Set<string>([url, u.host, u.hostname, u.host + u.pathname, u.hostname + u.pathname]);
     for (const seg of u.pathname.split("/")) if (seg.length > 0 && !TRIVIAL_SEG.has(seg.toLowerCase())) { targets.add(seg); targets.add(encodeURIComponent(seg)); } // the key
     for (const v of u.searchParams.values()) if (v.length > 0) { targets.add(v); targets.add(encodeURIComponent(v)); } // api-key etc.
     if (u.username.length > 0) { targets.add(u.username); targets.add(encodeURIComponent(u.username)); } // C-GD-1: userinfo class (user:key@host)
     if (u.password.length > 0) { targets.add(u.password); targets.add(encodeURIComponent(u.password)); }
     for (const t of [...targets]) targets.add(JSON.stringify(t).slice(1, -1)); // the JSON-escaped form (a real body is JSON)
-    const escaped = [...targets].filter((t) => t.length >= 3).sort((a, b) => b.length - a.length).map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    return [...targets].filter((t) => t.length >= 3);
+  };
+  const redact = (op: string, detail: string): string => {
+    if (detail === "") return "";
+    const targets = secretTargets(op);
+    if (targets === undefined) return ""; // FAIL-CLOSED: no parseable url => the body is NOT reprised
+    const escaped = targets.sort((a, b) => b.length - a.length).map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
     const out = scrubUrls(detail);
     return escaped.length === 0 ? out : out.replace(new RegExp(escaped.join("|"), "gi"), "<redacted>");
   };
-  const raise = (op: string, name: string, code: number | undefined, rawDetail: string): never => {
-    if (onErr) onErr(op, name, code);
-    // C-R-3: REDACT the RAW body FIRST (a key straddling the 160th char is recognized in full), THEN collapse
-    // whitespace + truncate for display - never the reverse (a truncated key prefix would no longer match its target).
-    const clean = redact(op, rawDetail).replace(/\s+/g, " ").trim().slice(0, 160);
-    const codeStr = code !== undefined ? ` (code ${String(code)})` : "";
-    const detailStr = clean !== "" ? `: ${clean}` : "";
-    throw new TransportError(op, scrubUrls(`rpc-guard: ${name} for operator '${op}'${codeStr}${detailStr}`), name, code);
+  // C-1(c-bis): a revert `.data` is reprised only when it is BOUNDED HEX (never a free-text channel) that does not
+  // ITSELF carry the key's UTF-8 hex (yet another C-GD-2 form). Non-hex, over-long, key-carrying, or (fail-closed) an
+  // unparseable operator url => dropped (undefined). Same targets as redact, so the checks can never disagree.
+  const validateRevertData = (op: string, raw: unknown): string | undefined => {
+    if (typeof raw !== "string" || !/^0x[0-9a-fA-F]*$/.test(raw) || raw.length > MAX_REVERT_DATA_HEX) return undefined;
+    const targets = secretTargets(op);
+    if (targets === undefined) return undefined; // FAIL-CLOSED: cannot prove the key is absent
+    const low = raw.toLowerCase();
+    for (const t of targets) if (low.includes(Buffer.from(t, "utf8").toString("hex").toLowerCase())) return undefined;
+    return raw;
+  };
+  // D6: the DETAIL a raised error is allowed to carry (never the raw body). PAID => the closed-vocabulary hint ONLY;
+  // NonJsonBody => NOTHING, paid AND keyless (C-2: an HTML page carrying "result" must not trip a range split); KEYLESS
+  // (non-NonJson) => the redacted body, collapsed + truncated (C-R-3: redact the RAW body first, then collapse).
+  const detailOf = (op: string, name: string, rawDetail: string, paid: boolean): string =>
+    name === "NonJsonBody" ? "" : paid ? closedHint(rawDetail) : redact(op, rawDetail).replace(/\s+/g, " ").trim().slice(0, 160);
+  const raise = (op: string, name: string, code: number | undefined, rawDetail: string, rawData?: unknown): never => {
+    if (onErr) onErr(op, name, code); // the hook gets label + error NAME + CODE only, never the URL or the body
+    const unit = classes[op]?.unit ?? "keyless";
+    const paid = unit !== "keyless";
+    const detail = detailOf(op, name, rawDetail, paid);
+    const data = name === "RpcError" ? validateRevertData(op, rawData) : undefined;
+    // C-1(c): a KEYLESS RpcError exposes its SCRUBBED message WITHOUT the operator-label preamble, so two keyless
+    // providers' reverts can concord on the message (revertKey). Every other case: preamble + code + the closed detail.
+    let message: string;
+    if (name === "RpcError" && !paid) {
+      message = scrubUrls(detail !== "" ? detail : "rpc error");
+    } else {
+      const codeStr = code !== undefined ? ` (code ${String(code)})` : "";
+      const detailStr = detail !== "" ? `: ${detail}` : "";
+      message = scrubUrls(`rpc-guard: ${name} for operator '${op}'${codeStr}${detailStr}`);
+    }
+    if (name === "RpcError") throw new RpcError(op, message, code ?? 0, detail, unit, data);
+    throw new TransportError(op, message, name, code, detail, unit);
   };
   const transport: Transport = async (op, method, params) => {
     const url = urls.get(op);
@@ -128,18 +165,18 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
       return raise(op, e instanceof Error ? e.name : "NetworkError", undefined, "");
     } finally { clearTimeout(to); }
     if (!res.ok) {
-      // (2) HTTP non-ok: KEEP the body (RAW - raise redacts it before collapse+truncate) - getLogsVia splits a
-      //     too-large range on an HTTP 400 body; the hook gets the status.
+      // (2) HTTP non-ok: keep a CLOSED-vocabulary hint of the body (paid) so getLogsVia can still split a too-large
+      //     range on an HTTP 400; the hook gets the status. The RAW body never leaves this function.
       const body = await res.text().catch(() => "");
       return raise(op, "HttpError", res.status, body);
     }
     const text = await res.text();
-    let json: { result?: unknown; error?: { code?: number; message?: string } | null };
-    // (3) non-JSON body (a mis-routed HTML error page): a typed fault, not a silent value (RAW body - raise redacts first).
+    let json: { result?: unknown; error?: { code?: number; message?: string; data?: unknown } | null };
+    // (3) non-JSON body (a mis-routed HTML error page): a typed fault, not a silent value; NO hint at all (C-2).
     try { json = JSON.parse(text) as typeof json; } catch { return raise(op, "NonJsonBody", res.status, text); }
-    // (4) JSON-RPC error at HTTP 200: MUST throw (never resolve `undefined`, which two errored providers would read
-    //     as a concordant value); carries the JSON-RPC code so a downstream quorum can tell a revert from a fault.
-    if (json.error !== undefined && json.error !== null) return raise(op, "RpcError", json.error.code ?? 0, json.error.message ?? "rpc error");
+    // (4) JSON-RPC error at HTTP 200: MUST throw the canonical RpcError (never resolve `undefined`, which two errored
+    //     providers would read as concordant); carries the JSON-RPC code + the VALIDATED revert data (C-1(a)/(c)).
+    if (json.error !== undefined && json.error !== null) return raise(op, "RpcError", json.error.code ?? 0, json.error.message ?? "rpc error", json.error.data);
     return json.result;
   };
 

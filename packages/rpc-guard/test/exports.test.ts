@@ -49,9 +49,11 @@ test("public_api_freezes_the_prior_p3_floor", async () => {
 test("public_export_set_is_closed", async () => {
   const pub = await import("@monark/rpc-guard");
   assert.deepEqual(Object.keys(pub).sort(), [
-    "BudgetExceededError", "TransportError", "CHAINSTACK_CYCLE_CAP_RU", "CHAINSTACK_TARIFF_VERSION", "ETH_CALL_KEYLESS_LABELS",
+    "BudgetExceededError", "TransportError", "RpcError", "CHAINSTACK_CYCLE_CAP_RU", "CHAINSTACK_TARIFF_VERSION", "ETH_CALL_KEYLESS_LABELS",
     "GET_LOGS_KEYLESS_LABELS", "HELIUS_CYCLE_CAP_CREDITS", "HELIUS_TARIFF_VERSION", "chainstackRu",
     "heliusCredits", "openGuardedClient", "runCli", "runReconcile", "verifyCycleLedger",
+    // GARDE-HELIUS-2b C-4: the single-source error vocabulary (rpc2.ts imports these; NOT a paid path).
+    "isResultLimit", "isPlanLimited", "isRevertText", "isRpcRevert", "closedHint", "ERROR_HINT_TOKENS",
   ].sort(), "the public VALUE-export set drifted (no new paid path may be exported)");
   for (const forbidden of ["makeClient", "resolveOperators", "resolveConfig", "InMemorySink", "openOperatorLedger", "acquireLock", "runUnlock"]) {
     assert.ok(!(forbidden in pub), `${forbidden} must NOT be public (C-V-2)`);
