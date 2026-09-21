@@ -77,5 +77,5 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-Pli C-R-1 GARDE-HELIUS-2a (fuite de clé dans un corps repris, bloquant) · pli test C-G2-DELTA-1 Bell -f.
-Temps 1 : E-5 · G2 GARDE-HELIUS-2a (sur le G1) puis G2-delta. Temps 2 (Bell) : G2-delta ‖ ré-acceptation -iii-a1-bis (pli `72b3cb9`).
+AUCUN agent en vol (consigne investisseur 21/09 : ne rien relancer avant la bascule de compte ; kit `F:\MONARK SUITE\BASCULEMENT-COMPTE.md` §8).
+À reprendre : GARDE-HELIUS-2a pli C-R-1 committé `4585b20` → G2-delta ‖ passe validateur limitée → G7 → 2b · Bell -f pli `e453680` → constat + G7 (Amendement n°2) · Bell a1-bis : C-VD-1 BLOQUANTE (lint cassé par le pli) + C-R-1/2/4 en une passe → G7 · E-5 : ligne du run réel du 22/09 00:41 UTC.
