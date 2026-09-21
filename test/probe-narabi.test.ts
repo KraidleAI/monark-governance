@@ -1122,3 +1122,20 @@ test("g2_no_test_can_send_real_mail — childEnv strips SMTP_*/ALERT_* even when
   const src = readFileSync(SELF, "utf8");
   assert.equal((src.match(/\.\.\.process\.env/g) ?? []).length, 1, "the parent env is spread in exactly one place (only inside childEnv)");
 });
+
+// ── C-G2D-1: the FAILURE twin of no_residual_timer_handle — a CONNECT failure (a closed port) releases the single
+//    deadline timer via the connect-failure catch, which is the ONLY release point on this path (the conversation
+//    finally is never reached when the connect rejects), so the child still EXITS PROMPTLY. The pre-existing
+//    no_residual_timer_handle only pins the SUCCESS path (finally); this twin closes the gap on the failure path. ──
+test("probe_smtp_no_residual_timer_handle_on_connect_failure — the FAILURE twin: with a 30 s SMTP_DEADLINE_MS a CONNECT failure (a closed loopback port -> smtp_unreachable) STILL lets the child EXIT PROMPTLY, because the single deadline timer is cleared in the connect-failure catch — the ONLY release on this path, the conversation finally is never reached; a timer left armed there would keep the process alive to the 30 s deadline (C-G2D-1)", async () => {
+  const tmp = net.createServer(); await new Promise<void>((r) => { tmp.listen(0, "127.0.0.1", () => { r(); }); });
+  const closed = (tmp.address() as { port: number }).port; await new Promise<void>((r) => { tmp.close(() => { r(); }); });
+  const t0 = Date.now();
+  const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(closed, { SMTP_DEADLINE_MS: "30000" }), 20000);
+  const elapsed = Date.now() - t0;
+  assert.equal(r.state.alert_error, "smtp_unreachable", "the closed port fails the connect — this is the FAILURE path being timed (narabi.json is written before any hang)");
+  assert.equal(r.state.alerted, false, "a failed send keeps alerted:false (retry next shot)");
+  assert.equal(r.killed, false, "not SIGKILLed — the connect-failure catch cleared the single timer (mutant: clearT removed from that catch -> timer stays armed to the 30 s deadline > killMs -> SIGKILL -> killed:true)");
+  assert.ok(elapsed < 8000, `child exited well before the 30 s deadline (elapsed=${String(elapsed)}ms) — timer cleared in the connect-failure catch (mutant: not cleared -> lives to 30 s -> SIGKILL)`);
+  assert.equal(r.status, 1, "smtp_unreachable exits 1");
+});

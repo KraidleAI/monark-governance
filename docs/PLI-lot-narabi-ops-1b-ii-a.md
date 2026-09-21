@@ -149,6 +149,11 @@ reproductible.
 | `docs/adr/ADR-NARABI-OPS-1.md` | `b383fae2a6f3df5c8c1e1c7a7e025e79870b21570469e958fb651b6c4ea89795` | exclu R-25 (docs) |
 | `docs/RUNBOOK-sentinel.md` | `980b32bad6c6cd9dc4955a0c1f715564ef6555eda66ae11f6e1e92b5d9d1dcad` | exclu R-25 (docs) |
 
+> **NOTE (fold G2-delta, 2026-09-21) : le fold des corrections NON BLOQUANTES C-G2D-1/2 a AJOUTÉ un test (jumeau
+> échec) ⇒ `test/probe-narabi.test.ts` = `94b373fb…` (618/17), R-25 = 1094. Les shas `.mjs`/`.d.mts`/`.service`
+> ci-dessus restent INCHANGÉS. C'est la table « PLI G2-delta » (fin de fichier) qui fait foi pour le fichier test
+> et le R-25 ; celle-ci reste vraie pour `.mjs`/`.d.mts`/`.service`.**
+
 ## Table de correction : C-G2-n → `fichier:ligne` (après fold) → test → mutant RED → error_origin
 | # | Correction pliée | `fichier:ligne` | Test non-LLM | Mutant rejoué (RED) | error_origin |
 |---|---|---|---|---|---|
@@ -329,3 +334,113 @@ destructif via `git stash create`) :**
 
 ## Provenance
 Généré par l'IMPLÉMENTEUR G1 **`claude-opus-4-8[1m]`**, effort max, 2026-09-21, dans le worktree exclusif `F:\Monark-wt-narabi1b2a`. R-20 (aucun commit, aucun workflow déclenché, aucune action sortante — offline/loopback, `.invalid` non résolu, aucun mail réel ; scratch `F:\tmp\narabi1b2a\`, rien sur C:). R-21 (chaque affirmation porte son `fichier:ligne` first-hand ou sa mesure ; sha256 des livrables recalculés ; 18 mutants rejoués ROUGES). La vérification adversariale (G2 SMTP dédiée par relecteur Opus 4.8 séparé, C-NB-6), le verdict G7 et l'acceptation du validateur-humain restent chez l'orchestrateur.
+
+---
+
+# PLI G2-delta — fold des corrections NON BLOQUANTES du relecteur G2-DELTA (worker `claude-opus-4-8[1m]`, effort max, 2026-09-21)
+
+**Modèle résolu (R-1) : `claude-opus-4-8[1m]`** — préfixe `claude-opus-4-8` conforme, effort max ; Opus 5 banni, non utilisé. L'orchestrateur vérifie ce préfixe avant de consommer cette sortie comme preuve. Fold des deux corrections NON BLOQUANTES de `docs/G2-DELTA-lot-narabi-ops-1b-ii-a.md` (verdict PASS-AVEC-CORRECTIONS) : **C-G2D-1** (lacune d'oracle sur le chemin d'échec-connexion) et **C-G2D-2** (composition manuelle au merge -b). Worktree exclusif `F:\Monark-wt-narabi1b2a`, branche `lot/narabi-ops-1b-ii-a`, HEAD **`3829946`** (aucun commit). Horloge d'ouverture (`date -u`) : **2026-09-21T05:02:35Z**. R-20 : aucun commit, aucun rebase, aucune fusion, aucun workflow. Tout offline/loopback, sous `env -u SMTP_HOST -u SMTP_PORT -u SMTP_USER -u SMTP_PASS -u ALERT_TO -u ALERT_FROM` ; `.invalid` jamais résolu ; aucun vrai mail. Mutant : sauvegarde Buffer + restauration byte-exacte vérifiée sha256, **JAMAIS `git checkout`**. R-21 : chaque affirmation porte sa preuve `fichier:ligne` first-hand ou sa mesure reproductible.
+
+**Portée du fold (EXACTE) : le code de la sonde n'est PAS touché.** Le relecteur a établi que le `clearT(timer)` du catch `mjs:576` est CORRECT ; C-G2D-1 est une lacune d'ORACLE, comblée par un test seul ; C-G2D-2 est une précision de DOC (composition au merge -b, propriété de l'orchestrateur). Seuls `test/probe-narabi.test.ts` (+1 test) et ce PLI (docs, hors R-25) changent. Les shas `.mjs`/`.d.mts`/`.service` sont **INCHANGÉS** (== table PLI G2).
+
+## Modèle résolu PAR ÉTAPE (fold G2-delta)
+| Étape | Rôle | Modèle résolu | Effort |
+|---|---|---|---|
+| Orientation (lecture G2-DELTA/code/tests/PLI/-b) | worker | `claude-opus-4-8[1m]` | max |
+| Advisor intégré (avant écriture — placement/ordre/2×2/R-25/C-G2D-2) | advisor intégré (harness) | `claude-fable-5-1` | — |
+| C-G2D-1 : jumeau échec + replay mutant `:576` (RED, byte-exact) | worker | `claude-opus-4-8[1m]` | max |
+| C-G2D-2 : composition manuelle merge -b (ce PLI) | worker | `claude-opus-4-8[1m]` | max |
+| Oracles (suite complète ×2 + 10 passes) + R-25 + PLI | worker | `claude-opus-4-8[1m]` | max |
+
+## Livrables (sha256, `sha256sum`, 2026-09-21) — **FAIT FOI (supersede la table PLI G2 pour le seul fichier test)**
+| Fichier | sha256 | R-25 (ins/del vs `lot/narabi-ops-1b-i`) | Δ vs PLI G2 |
+|---|---|---|---|
+| `test/probe-narabi.test.ts` | `94b373fb34783f43e7c00cba11816540895e64391338404b5276842e58f71a9b` | 618 / 17 | **+17 ins** (jumeau échec) |
+| `scripts/probe-narabi.mjs` | `a6db4358255ada5de89817548d5b14d89fc773fa3858d27ad97e0b931899e964` | 335 / 17 | inchangé |
+| `scripts/probe-narabi.d.mts` | `e4cbc9fabc9f35d9785c72c660bfb42acbeecd1a11829d567a84905f35ff0fa3` | 74 / 3 | inchangé |
+| `deploy/monark-probe.service` | `a8bb73f80c2d980d432316918c7b3b8749f53996da08fc91ecd25b7cccdef648` | 16 / 14 | inchangé |
+| `docs/PLI-lot-narabi-ops-1b-ii-a.md` (ce fichier) | — | exclu R-25 (`docs/**/*.md`) | +section |
+
+## Table de correction : C-G2D-n → `fichier:ligne` → test → mutant RED → error_origin
+| # | Correction pliée | `fichier:ligne` | Test / preuve | Mutant rejoué | error_origin |
+|---|---|---|---|---|---|
+| **C-G2D-1** (test seul) | jumeau côté ÉCHEC de `no_residual_timer_handle` : le catch `:576` (`clearT(timer)`) est le SEUL point de libération du timer unique sur le chemin d'échec-connexion (le `finally :635` n'est jamais atteint) ; désormais épinglé | `test:1130` (nouveau) ; cible `mjs:576` (INCHANGÉ) | `probe_smtp_no_residual_timer_handle_on_connect_failure` : port fermé + `SMTP_DEADLINE_MS=30000` + killMs=20000 ⇒ `killed:false` + `elapsed<8000` (pristine 92,7 ms) | **`clearT` retiré du catch `:576`** ⇒ jumeau RED (`killed` actual:true, elapsed 20031 ms → SIGKILL) ; original SURVIT (PASS) | **worker G1** (lacune d'oracle, design timer-unique du fold) |
+| **C-G2D-2** (doc seul) | composition MANUELLE au merge -b : `test:434` auto-merge PROPRE (90→100 s) ; `service:25-31` NON conflictuel | ce PLI (section « Composition manuelle au merge -b » ci-dessous) ; cité `test:433-434`, `service:25-31`, `-b:mjs:69-70` | merge-tree first-hand (relecteur G2-DELTA) + constantes -b lues first-hand | N/A (arithmétique/doc) | **orchestrateur** (compose au merge -b) + précision de carte = worker G1 |
+
+## C-G2D-1 — mutant 2×2 rejoué (runner scratch `mutate-g2d.mjs`, restauration byte-exacte)
+Snapshot Buffer pristine (`sha256 a6db4358…`) → patch (assert : `find_count == 1`) → test sous `env -u SMTP_*/ALERT_*` → **restauration byte-exacte depuis le snapshot (JAMAIS `git checkout`)** → assert `sha256 après == avant`. Mutant reproductible sans le runner : remplacer l'UNIQUE `} catch (e) { clearT(timer); throw e; }` par `} catch (e) { throw e; }` (`mjs:576`).
+
+| | `probe_smtp_no_residual_timer_handle` (SUCCÈS, `finally :635`) | `…_on_connect_failure` (ÉCHEC, catch `:576`) |
+|---|---|---|
+| **PRISTINE** | ✔ PASS (108,6 ms) | ✔ PASS (92,97 ms) |
+| **MUTANT `clearT` retiré du catch `:576`** | ✔ **PASS** (126,8 ms — chemin succès intact, `finally` non muté) | ✖ **RED** (20029 ms : timer armé à 30 s > killMs 20 s ⇒ SIGKILL ⇒ `killed` actual:true / expected:false) |
+
+- Le mutant `:576` **ne tue QUE le jumeau** ; l'original (succès) SURVIT car le `clearT` du `finally :635` est intact — c'est exactement le « voisin survivant » que le G2-DELTA avait mesuré (pass=3), désormais épinglé. La lacune est comblée.
+- `find_count == 1` : `} catch (e) { clearT(timer); throw e; }` est UNIQUE dans `probe-narabi.mjs` (l'autre `clearT(timer)`, `finally :635`, a un contexte distinct).
+- **Le test décrit ses points de libération SÉMANTIQUEMENT** (« the connect-failure catch » / « the conversation finally »), SANS numéro de ligne dans le nom/commentaire/message — convention du fichier de test, et robuste au merge -b (qui décale les lignes `<576`) ; seul ce PLI (docs) cite `mjs:576`/`:635`.
+- sha256 `probe-narabi.mjs` **avant == après == `a6db4358…`** (restauration byte-exacte vérifiée par le runner).
+- Mécanisme validé first-hand : `main()` sort NATURELLEMENT (`process.exitCode = exitCode`, `mjs:709` ; jamais `process.exit()`) — un timer résiduel maintient donc le process en vie jusqu'à l'échéance ; sous le mutant le process vit à 30 s, borné par SIGKILL à 20 s (`killed:true`). narabi.json est écrit AVANT le hang (`smtp_unreachable`), d'où les deux assertions de contexte vertes même sous le mutant : le discriminant est `killed:false`.
+
+## Composition manuelle au merge -b (C-G2D-2 — actionnable, propriétaire orchestrateur, déclencheur = fusion -b)
+Deux imprécisions de la carte des conflits (A), corrigées ; toutes deux dans le sens SÛR (120 > pire cas), aucune ne bloque -a :
+
+**1. `test:434` (`worstCappedSec`) auto-merge PROPRE — git ne force PAS la composition (90→100 s).**
+- Formule actuelle (-a, `test:434`) : `worstCappedSec = ceil((MAX_TIMEOUT_MS*(MAX_RETRIES+1) + MAX_SMTP_DEADLINE_MS + START_MARGIN_MS)/1000)` = ceil((10 000·5 + 30 000 + 10 000)/1000) = **90 s**.
+- -b ne modifie PAS cette ligne (sa branche 2ᵉ GET est ailleurs) ⇒ à la fusion -b, `test.ts` auto-merge et `:434` survit à **90 s, SANS conflit signalé**. Or -b ajoute un 2ᵉ GET (state.json) : `STATE_TIMEOUT_MS = 5 000`, `STATE_RETRIES = 1` (lus first-hand `git show lot/narabi-ops-1b-ii-b:scripts/probe-narabi.mjs`, `-b:mjs:69-70`, tous deux `export const`) ⇒ GET₂ pire cas = 5 000·(1+1) = **10 s**. Le vrai pire cas combiné = GET₁ 50 + GET₂ 10 + SMTP 30 + marge 10 = **100 s**, que la formule fusionnée sous-estime de 10 s.
+- **Composition manuelle — ligne LITTÉRALE à poser au merge -b :**
+  `const worstCappedSec = Math.ceil((MAX_TIMEOUT_MS * (MAX_RETRIES + 1) + STATE_TIMEOUT_MS * (STATE_RETRIES + 1) + MAX_SMTP_DEADLINE_MS + START_MARGIN_MS) / 1000);` = **100 s**.
+  `STATE_TIMEOUT_MS`/`STATE_RETRIES` étant DÉJÀ exportés par -b (aucun export à ajouter), il reste à AJOUTER ces deux noms à la liste d'`import` du test au merge (le bloc d'import de -a ne les porte pas encore).
+- **Commentaire `test:433`** (« 50 + 30 + 10 = 90 s ») à recomposer en « 50 + 10 + 30 + 10 = 100 s » au même point.
+- Reste SÛR : `TimeoutStartSec = 120 > 100`. Mais un futur abaissement de `TimeoutStartSec` se fiant à la formule (90) casserait la marge — d'où la composition explicite.
+
+**2. `service:25-31` N'EST PAS un conflit (carte (A) sur-inclusive, sans risque).**
+- **-b ne touche PAS `deploy/monark-probe.service`** (vérifié first-hand : `git diff --name-only <merge-base> lot/narabi-ops-1b-ii-b -- deploy/monark-probe.service` = VIDE). ⇒ au merge -a×-b, seul -a modifie ce fichier ; `TimeoutStartSec=120` gagne proprement, AUCUN conflit sur `:25-31`.
+- La NOTE `service:30` (« -b ajoute un 2ᵉ GET, +10 s ⇒ 100 < 120, TimeoutStartSec reste 120 ») est DÉJÀ présente et EXACTE ⇒ rien à changer au fichier `.service` au merge -b.
+- **Correction de carte** : `service:25-31` = « non conflictuel » (pas « Conflit AVEC -b ») ; `test:434` = « auto-merge PROPRE → composition manuelle 90→100 s » (pas « conflit »).
+
+*(Items formés préexistants, non aggravés par ce fold, propriétaire orchestrateur, déclencheur = fusion -b : (i) `mjs:57` commentaire périmé « < TimeoutStartSec 90 s » — laissé intact, région -b `:50-72` ; (ii) -b a le MÊME défaut interne — son propre `worstCappedSec` (60 s) omet le terme GET₂.)*
+
+## Oracles (suite COMPLÈTE, sous `env -u SMTP_*/ALERT_*`)
+- `npm run ci` (`gate:vocab && typecheck && test`) : **exit 0** — `gate:vocab OK, 178 fichiers` ; `tsc --noEmit` **0** (le nouveau test `.ts` typecheck) ; suite **510 / 510 pass / 0 fail / 0 cancelled**.
+- `npm run test` (tous workspaces) : **510 / 510 pass / 0 fail / 0 cancelled**, exit 0 (baseline PLI G2 = 509 ; +1 jumeau).
+- `test/probe-narabi.test.ts` **× 10 passes** : tuple UNIQUE **46 / 46 pass / 0 fail / 0 cancelled, exit 0** (10/10 ; aucune flakiness ; 45 hérités + 1 jumeau).
+- `npx eslint test/probe-narabi.test.ts` : **0**. `node scripts/lint-ratchet.mjs` : **69/69** (0 violation ajoutée). `gate:vocab` : **OK, 178**.
+- `no_secret_in_repo` : **vert** — `s3cr3t-PONY-cell-42` absent de `scripts/` et `deploy/` (seuls hits = `test/probe-narabi.test.ts` + prose du relecteur `docs/G2-…`), aucun ajout par ce fold.
+- Fichiers interdits (delta -1b-i) NON touchés : `DEADLINE_UTC`, `deploy/monark-probe.timer`, oracles de deadline, `vocab-banned.json` (mon seul changement code = `test/probe-narabi.test.ts`).
+
+## R-25 (pathspec `STAT=` exacte de `.github/workflows/ci.yml:65`, contre `lot/narabi-ops-1b-i`)
+- **2-points arbre de travail** (inclut le jumeau non commité) `git diff --shortstat lot/narabi-ops-1b-i -- . <exclusions ci.yml>` = **1043 ins + 51 del = 1094** (identique vs merge-base `331c169`). Par fichier : `.mjs` 335/17, `.d.mts` 74/3, `.test.ts` **618/17** (601+17), `.service` 16/14. Docs (`docs/**/*.md`) exclus.
+- **3-points commit-only** `lot/narabi-ops-1b-i...HEAD` = **1077** (== PLI G2, confirme le fold inchangé à HEAD ; le +17 vit dans l'arbre de travail, comme les autres livrables avant commit).
+- **vs `ffe4b9d`** (base du fold G2, base nommée par la mission) `git diff --shortstat ffe4b9d -- . <exclusions>` = **217 ins + 42 del = 259** — c'est la TAILLE du fold G2 + ce delta G2-delta, PAS la métrique plafond (celle-ci se mesure vs `lot/narabi-ops-1b-i` = 1094).
+- **1094 ≤ 1205 (plafond), ≤ 1150 (cible), ≤ 1100 (seuil d'alerte)** — marge 111 sous le plafond, 6 sous le seuil d'alerte. Aucun dépassement, rien ne sort en item.
+
+## Reste dû (déclencheur + propriétaire — aucun « dû » nu, aucune dette nouvelle)
+- **Composition `worstCappedSec` au merge -b** (orchestrateur, déclencheur = fusion -b) : poser la ligne littérale 100 s ci-dessus + import `STATE_TIMEOUT_MS/STATE_RETRIES` + commentaire `test:433` 90→100. Git ne le force PAS.
+- **Commentaire `mjs:57` périmé** (orchestrateur, déclencheur = fusion -b qui re-touche `:50-72`) : « 90 s » → cohérent `TimeoutStartSec=120`.
+- **Carte des conflits** (orchestrateur) : `service:25-31` = non conflictuel ; `test:434` = auto-merge → composition manuelle.
+- **Côté code : néant.** C-G2D-1 est un test seul, C-G2D-2 une doc ; aucune procuration de document formée (aucun chiffre de seconde main introduit ; GET₂ 10 s des constantes -b lues first-hand).
+
+## Bloc JOURNAL (verbatim, un modèle résolu PAR ÉTAPE)
+```
+2026-09-21  NARABI-OPS-1b-ii-a  FOLD G2-DELTA  worker=claude-opus-4-8[1m](effort max)  HEAD=3829946
+  R-1 déclaré : claude-opus-4-8[1m] (préfixe claude-opus-4-8 conforme). Opus 5 banni, non utilisé.
+  Advisor intégré (claude-fable-5-1, harness) consulté AVANT écriture : append en fin de fichier (préserve les
+    lignes citées), ordre killed-avant-status, mutant 2×2 (original survit), R-25 lire STAT= ci.yml, C-G2D-2
+    ligne test:434 littérale + vérifier exports -b.
+  C-G2D-1 (test seul) : jumeau échec `…_on_connect_failure` (test:1130) — port fermé + SMTP_DEADLINE_MS=30000 +
+    killMs=20000, killed:false + elapsed<8000. Code sonde NON touché (:576 correct, lacune d'oracle).
+  C-G2D-2 (doc seul) : composition manuelle au merge -b — worstCappedSec 90->100 (terme GET2 STATE_TIMEOUT_MS*
+    (STATE_RETRIES+1)=10s, constantes -b exportees lues first-hand) ; service:25-31 non conflictuel (-b ne touche
+    pas le .service, verifie).
+  Livrables : test 94b373fb... (618/17) ; mjs a6db4358.../d.mts e4cbc9fa.../service a8bb73f8... INCHANGES (== PLI G2).
+  Oracles : npm run ci exit0 (vocab 178, tsc 0, test 510/510) ; npm run test 510/510 ; probe-narabi.test.ts
+    x10 = 46/46/0/0 ; eslint(test) 0 ; ratchet 69/69 ; no_secret vert.  R-25=1094<=1100(alerte)<=1150(cible)<=1205.
+  Mutant 2x2 : clearT retire du catch :576 => jumeau RED (killed:true) + original PASS ; restauration byte-exacte
+    (sha mjs avant==apres==a6db4358...), JAMAIS git checkout.
+  Interdits NON touches : DEADLINE_UTC, monark-probe.timer, oracles de deadline, vocab-banned.json.
+  R-20 : aucun commit/rebase/fusion/workflow. error_origin : C-G2D-1=worker G1, C-G2D-2=orchestrateur (assigne
+    au G7 par l'orchestrateur, non auto-declare).  Verification adversariale + G7 + validateur-humain = orchestrateur.
+```
+
+## Provenance
+Généré par l'IMPLÉMENTEUR G1 (fold G2-delta) **`claude-opus-4-8[1m]`**, effort max, 2026-09-21T05:02:35Z, worktree exclusif `F:\Monark-wt-narabi1b2a`, HEAD `3829946`. R-20 (aucun commit/rebase/fusion/workflow ; offline/loopback ; `.invalid` non résolu ; aucun mail réel ; scratch de session, rien sur C:). R-21 (chaque affirmation porte son `fichier:ligne` first-hand ou sa mesure : mutant 2×2 rejoué [jumeau RED `killed:true` 20031 ms / original PASS], restauration byte-exacte sha256 avant==après, suite 510/510, 10×46/46, R-25 1094 mesuré à la pathspec `ci.yml:65`, constantes -b `STATE_TIMEOUT_MS/STATE_RETRIES` lues first-hand, -b ne touche pas le `.service` vérifié). Advisor intégré (`claude-fable-5-1`) consulté avant travail substantiel. La vérification adversariale (R-21), le verdict G7 et l'acceptation du validateur-humain restent chez l'orchestrateur.
