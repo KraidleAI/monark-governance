@@ -31,7 +31,7 @@
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { resolve, dirname, join } from "node:path";
+import { resolve } from "node:path";
 import { percentMul } from "../../../apps/sentinel/src/ukemi/wadray.ts";
 import { decodeEModeCategoryData } from "../../../apps/sentinel/src/ukemi/abi.ts";
 
@@ -76,7 +76,11 @@ const maxScoreOf = (rows) => rows.reduce((m, r) => (BigInt(r.score) > m ? BigInt
 export function computeScoresU4b(book, oracle, u3lines) {
   const eventId = oracle.event_id;
   if (eventId === undefined) throw new Error("u4b-scores: oracle.event_id is REQUIRED (fail-closed — the frozen score code is episode-agnostic, C-12; a hard-coded episode would defeat the freeze)");
+  // (C-G2-2) the pre-B₀ anchor is REQUIRED and must be > 0: a missing/zero anchor would make every account "cross"
+  // at price 0 (garbage scoring), silently — in -1b the anchor is a real AnswerUpdated ≤ B₀ that could be absent.
+  if (oracle.anchor_price === undefined) throw new Error("u4b-scores: oracle.anchor_price is REQUIRED (fail-closed, C-G2-2 — a missing pre-B₀ anchor degenerates the first-crossing traversal)");
   const anchorPrice = BigInt(oracle.anchor_price);
+  if (anchorPrice <= 0n) throw new Error("u4b-scores: oracle.anchor_price must be > 0 (a zero/negative anchor makes every account 'cross' at price 0 — garbage scoring, C-G2-2)");
   const emodeParams = oracle.emode_params ?? {}; // { "1": { lt:"9500", bonus:"10100" }, ... }
   const usdtPrices = oracle.usdt_prices ?? {};
 
@@ -268,16 +272,23 @@ export function computeScoresU4b(book, oracle, u3lines) {
   };
 }
 
+/** Runner input paths — ALL required, NO episode default (C-G2-1): the frozen runner must be pointed at the
+ *  episode's fixtures explicitly, never silently at the e2 design set. Exported so the guard is unit-tested. */
+export function resolveRunnerInputs(argv) {
+  const book = argv[2], oracle = argv[3], u3 = argv[4];
+  if (book === undefined || oracle === undefined || u3 === undefined) throw new Error("u4b-scores runner: <book.json> <oracle.jsonl> <u3-realized.jsonl> paths are ALL REQUIRED (no e2 default — episode-agnostic, C-G2-1)");
+  return { book, oracle, u3 };
+}
+
 // ── runner (offline; reads the reduced u4b fixtures). Run-guard: never on import. ──
 if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
-  const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-  const U4B = join(ROOT, "apps", "sentinel", "test", "fixtures", "ukemi", "u4b");
-  const book = JSON.parse(readFileSync(process.argv[2] ?? join(U4B, "U4b-book-23545087.json"), "utf8"));
-  const oLines = readFileSync(process.argv[3] ?? join(U4B, "U4b-oracle-path-e2.jsonl"), "utf8").split(/\r?\n/).filter((l) => l.trim()).map((l) => JSON.parse(l));
+  const { book: bookPath, oracle: oraclePath, u3: u3Path } = resolveRunnerInputs(process.argv);
+  const book = JSON.parse(readFileSync(bookPath, "utf8"));
+  const oLines = readFileSync(oraclePath, "utf8").split(/\r?\n/).filter((l) => l.trim()).map((l) => JSON.parse(l));
   const anchor = oLines.find((l) => l.kind === "anchor");
   const meta = oLines.find((l) => l.kind === "meta");
   const updates = oLines.filter((l) => l.kind === "update");
-  const u3 = readFileSync(process.argv[4] ?? join(ROOT, "apps", "sentinel", "test", "fixtures", "ukemi", "u3", "U3-realized.jsonl"), "utf8").split(/\r?\n/).filter((l) => l.trim()).map((l) => JSON.parse(l));
+  const u3 = readFileSync(u3Path, "utf8").split(/\r?\n/).filter((l) => l.trim()).map((l) => JSON.parse(l));
   const oracle = { event_id: meta.event_id, anchor_price: anchor.price, updates, emode_params: meta.emode_params, usdt_prices: meta.usdt_prices };
   const out = computeScoresU4b(book, oracle, u3);
   process.stdout.write(JSON.stringify({ cellA: { n: out.cellA.n, qhat: out.cellA.qhat, calib_digest: out.cellA.calib_digest, strata: out.cellA.strata.map((s) => ({ k: s.strate, n: s.n, q: s.qhat })) }, cellB: { n: out.cellB.n, qhat: out.cellB.qhat, calib_digest: out.cellB.calib_digest }, census: out.census }, null, 2) + "\n");

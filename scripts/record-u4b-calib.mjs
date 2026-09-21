@@ -9,7 +9,7 @@
 //   node scripts/record-u4b-calib.mjs [--scores <U4b-scores.jsonl>] [--scale <bigint>]
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { resolve, dirname, join } from "node:path";
+import { resolve } from "node:path";
 import { calibDigest } from "@monark/contracts";
 import { splitQuantile } from "@monark/hikae";
 
@@ -25,8 +25,9 @@ if (calibDigest([0, 1]) !== "1e47beee7f4175a863385dc2f9c8278138e35f0caa43a5467a5
  *  on divergence); under_calib (n < nMin) ⇒ q̂ null, NEVER a clamped max. predictor_id is inherited from the
  *  fixture's cell-A key (episode-agnostic). Class A only (decision 108). */
 export function buildRegistryEntries(rowsA, opts = {}) {
-  const scale = BigInt(opts.scale ?? 1n);
-  const predictorBase = opts.predictorBase ?? "ukemi:realized-v2@eip155:1/aave-v3-core/weth-mono/UNSPECIFIED/A";
+  const scale = BigInt(opts.scale ?? 1n); // scale defaults to 1 (DECLARED method choice); never an episode default
+  const predictorBase = opts.predictorBase;
+  if (predictorBase === undefined) throw new Error("record-u4b-calib: predictorBase is REQUIRED (the class-A key from the scores meta cell_a.predictor_id — no silent default, C-G2-1 family)");
   if (scale <= 0n) throw new Error("record-u4b-calib: scale must be a positive bigint");
   const byStrate = new Map();
   for (const r of rowsA) { const k = Number(r.strate); if (!byStrate.has(k)) byStrate.set(k, []); byStrate.get(k).push(BigInt(r.score)); }
@@ -58,10 +59,18 @@ export function buildRegistryEntries(rowsA, opts = {}) {
   return entries;
 }
 
+/** --scores is REQUIRED, NO e2 default (C-G2-1): a bare `node record-u4b-calib.mjs` must NOT silently build a
+ *  registry from the e2 DESIGN set (never servable in -2). Exported so the guard is unit-tested. */
+export function resolveScoresPath(argv) {
+  const i = argv.indexOf("--scores");
+  const p = i >= 0 ? argv[i + 1] : undefined;
+  if (p === undefined) throw new Error("record-u4b-calib: --scores <U4b-scores.jsonl> is REQUIRED (no e2 default — the frozen generator is episode-agnostic, C-G2-1)");
+  return p;
+}
+
 function main() {
   const arg = (kk) => { const i = process.argv.indexOf(kk); return i >= 0 ? process.argv[i + 1] : undefined; };
-  const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-  const scoresPath = arg("--scores") ?? join(ROOT, "apps", "sentinel", "test", "fixtures", "ukemi", "u4b", "U4b-scores-e2.jsonl");
+  const scoresPath = resolveScoresPath(process.argv);
   const scale = BigInt(arg("--scale") ?? "1");
   const lines = readFileSync(scoresPath, "utf8").split(/\r?\n/).filter((l) => l.trim()).map((l) => JSON.parse(l));
   const meta = lines.find((l) => l.kind === "meta");

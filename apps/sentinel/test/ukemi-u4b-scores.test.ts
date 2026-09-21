@@ -11,8 +11,8 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { computeScoresU4b, strateOf, STRATA_CUTS, type U4bBook, type U4bOracle, type U4bU3Line } from "../../../scripts/census/u4b/u4b-scores.mjs";
-import { buildRegistryEntries } from "../../../scripts/record-u4b-calib.mjs";
+import { computeScoresU4b, strateOf, STRATA_CUTS, resolveRunnerInputs, type U4bBook, type U4bOracle, type U4bU3Line } from "../../../scripts/census/u4b/u4b-scores.mjs";
+import { buildRegistryEntries, resolveScoresPath } from "../../../scripts/record-u4b-calib.mjs";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const U4B = join(HERE, "fixtures", "ukemi", "u4b");
@@ -129,6 +129,29 @@ test("u4b_event_id_is_a_parameter — the frozen code is EPISODE-AGNOSTIC (C-12)
   assert.throws(() => computeScoresU4b(book, noEvt, u3), /event_id is REQUIRED/, "missing event_id ⇒ THROW (fail-closed, C-12)");
 });
 
+test("u4b_anchor_is_required_and_positive — a missing / zero / negative pre-B₀ anchor fails-closed (C-G2-2)", () => {
+  // In -1b the anchor is a real AnswerUpdated ≤ B₀ that COULD be absent/null; a zero anchor makes every account
+  // "cross" at price 0 (garbage scoring). The guard throws instead of scoring silently. Mutant: remove the guard
+  // ⇒ anchor "0" no longer throws (RED). Digests on e2 are untouched (the e2 anchor is the book WETH price > 0).
+  const { book, oracle, u3 } = load();
+  assert.throws(() => computeScoresU4b(book, { ...oracle, anchor_price: "0" }, u3), /must be > 0/, "anchor 0 ⇒ THROW (never garbage scoring at price 0)");
+  const neg: U4bOracle = { ...oracle, anchor_price: "-1" };
+  assert.throws(() => computeScoresU4b(book, neg, u3), /must be > 0/, "negative anchor ⇒ THROW");
+  const noAnchor: U4bOracle = { ...oracle };
+  delete (noAnchor as Partial<U4bOracle>).anchor_price;
+  assert.throws(() => computeScoresU4b(book, noAnchor, u3), /anchor_price is REQUIRED/, "missing anchor ⇒ THROW (explicit, not a bare TypeError)");
+});
+
+test("u4b_runner_and_generator_paths_are_required — NO e2 default in the CLI runners (C-G2-1)", () => {
+  // The frozen runner / generator must be pointed at the EPISODE's fixtures explicitly, never silently at the e2
+  // design set. Mutant: restore a default ⇒ these guards no longer throw (RED).
+  assert.throws(() => resolveRunnerInputs(["node", "s"]), /REQUIRED/, "no paths ⇒ THROW");
+  assert.throws(() => resolveRunnerInputs(["node", "s", "b", "o"]), /REQUIRED/, "only 2 of 3 paths ⇒ THROW");
+  assert.deepEqual(resolveRunnerInputs(["node", "s", "b", "o", "u"]), { book: "b", oracle: "o", u3: "u" }, "3 paths ⇒ resolved");
+  assert.throws(() => resolveScoresPath(["node", "s"]), /REQUIRED/, "no --scores ⇒ THROW (never the e2 design set)");
+  assert.equal(resolveScoresPath(["node", "s", "--scores", "x.jsonl"]), "x.jsonl", "--scores ⇒ resolved");
+});
+
 test("u4b_emode_bonus_sourced_from_emode_raw — m is the e-mode category bonus, not the reserve bonus (C-14, structural)", () => {
   // C-14 direct/structural guard: the per-account diagnostic m_bps (NOT in the digest) equals the e-mode category
   // bonus (10100) for an e-mode account and the reserve bonus (10500) for a non-e-mode account. The code mutant
@@ -193,8 +216,11 @@ test("u4b_registry_recomputes_from_scores_jsonl — generator maillon (class A o
   // Recompute the registry from the IN-REPO scores fixture (anti fixture-self-recording): read the class-A rows,
   // rebuild one entry per Mondrian stratum, assert n / p / q̂ / calib_digest / under_calib match the pins. Class B
   // is NOT emitted (decision investisseur 108: Class B is a formed item, not served).
-  const rowsA = jsonl<{ kind: string; strate: number; score: string }>(join(U4B, "U4b-scores-e2.jsonl")).filter((r) => r.kind === "score_a");
-  const e = buildRegistryEntries(rowsA, { scale: 1n }) as { strate: number; n: number; p: number; qhat: number; calib_digest: string; under_calib: boolean }[];
+  const lines = jsonl<{ kind: string; strate?: number; score?: string; cell_a?: { predictor_id: string } }>(join(U4B, "U4b-scores-e2.jsonl"));
+  const predictorBase = lines.find((l) => l.kind === "meta")?.cell_a?.predictor_id;
+  const rowsA = lines.filter((r): r is { kind: string; strate: number; score: string } => r.kind === "score_a");
+  const e = buildRegistryEntries(rowsA, { scale: 1n, predictorBase }) as { strate: number; n: number; p: number; qhat: number; calib_digest: string; under_calib: boolean; predictor_id: string }[];
+  assert.equal(e[0]?.predictor_id, "ukemi:realized-v2@eip155:1/aave-v3-core/weth-mono/e2-2025-10-10-weth/A/s0", "predictor_id inherits the cell-A key from the meta (episode-agnostic, no UNSPECIFIED default)");
   assert.deepEqual(e.map((x) => [x.strate, x.n, x.p, x.qhat, x.under_calib]), [
     [0, 363, 361, 199069846640, false],
     [1, 148, 148, 9315546795545, false],
@@ -206,11 +232,13 @@ test("u4b_registry_recomputes_from_scores_jsonl — generator maillon (class A o
   assert.equal(e[2]?.calib_digest, "0eca5077058a6b2bab453fe0b6ab7b244bff04da0127ae5851d37839701ab551", "strate 2");
   assert.equal(e[3]?.calib_digest, "0b58be960664f0e3cc0afbe43adb8efeb235a2292979e11fc6d8294c035c8bcb", "strate 3");
   // No stratum exceeds 2^53 on e2 (scale=1 exact); but the guard MUST fail-close on a > 2^53 score (mutant m).
-  assert.throws(() => buildRegistryEntries([{ strate: 3, score: (2n ** 53n + 1n).toString() }], { scale: 1n }), /exceeds 2\^53/, "a score > 2^53 with scale 1 ⇒ THROW, never a silent precision loss (C-9)");
+  assert.throws(() => buildRegistryEntries([{ strate: 3, score: (2n ** 53n + 1n).toString() }], { scale: 1n, predictorBase: "x" }), /exceeds 2\^53/, "a score > 2^53 with scale 1 ⇒ THROW, never a silent precision loss (C-9)");
   // And on an inexact scale (would corrupt the digest by truncation).
-  assert.throws(() => buildRegistryEntries([{ strate: 0, score: "5" }], { scale: 2n }), /not divisible by scale/, "inexact scale ⇒ THROW (C-9)");
+  assert.throws(() => buildRegistryEntries([{ strate: 0, score: "5" }], { scale: 2n, predictorBase: "x" }), /not divisible by scale/, "inexact scale ⇒ THROW (C-9)");
   // 2^53 itself is exactly representable ⇒ accepted.
-  assert.doesNotThrow(() => buildRegistryEntries([{ strate: 3, score: (2n ** 53n).toString() }], { scale: 1n }), "2^53 is the last exact float64 integer ⇒ accepted");
+  assert.doesNotThrow(() => buildRegistryEntries([{ strate: 3, score: (2n ** 53n).toString() }], { scale: 1n, predictorBase: "x" }), "2^53 is the last exact float64 integer ⇒ accepted");
+  // predictorBase is REQUIRED — no silent UNSPECIFIED default (C-G2-1 family, advisor closure).
+  assert.throws(() => buildRegistryEntries([{ strate: 0, score: "5" }], { scale: 1n }), /predictorBase is REQUIRED/, "missing predictorBase ⇒ THROW (never a silent UNSPECIFIED key)");
 });
 
 test("u4_e2_fixtures_byte_identical — U-4b did NOT regenerate the e2 u4/ fixtures (C-17)", () => {

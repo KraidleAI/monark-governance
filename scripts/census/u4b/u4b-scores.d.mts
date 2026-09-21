@@ -49,3 +49,5 @@ export function computeScoresU4b(book: U4bBook, oracle: U4bOracle, u3lines: read
 /** Mondrian strate of a ŷ (base 8-dec): cuts {2000e8, 100k$, 1M$} → 0..3. Server-side in -2 (C-10). */
 export function strateOf(yhat: bigint | string | number): number;
 export const STRATA_CUTS: bigint[];
+/** Runner input paths (argv[2..4]) — ALL required, no episode default (C-G2-1). Throws if any is absent. */
+export function resolveRunnerInputs(argv: readonly string[]): { book: string; oracle: string; u3: string };

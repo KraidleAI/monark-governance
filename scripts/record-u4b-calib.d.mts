@@ -13,5 +13,7 @@ export interface U4bRegistryEntry {
  *  (decision 108). */
 export function buildRegistryEntries(
   rowsA: ReadonlyArray<{ strate: number | string; score: string; [k: string]: unknown }>,
-  opts?: { scale?: bigint; predictorBase?: string },
+  opts?: { scale?: bigint; predictorBase?: string | undefined },
 ): U4bRegistryEntry[];
+/** --scores path — REQUIRED, no e2 default (C-G2-1). Throws if absent. */
+export function resolveScoresPath(argv: readonly string[]): string;
