@@ -1,6 +1,6 @@
 # TABLEAU DE BORD MONARK — état par chantier
 
-Mis à jour par l'orchestrateur à CHAQUE événement (retour d'agent, décision, fusion). Le détail et l'historique vivent dans `docs/CHANTIERS.md` ; ce fichier ne porte que l'ÉTAT COURANT. Dernière mise à jour : 2026-09-21 ~13:00 UTC — 10 lots fusionnés depuis minuit — régime B ; 9 lots fusionnés depuis minuit.
+Mis à jour par l'orchestrateur à CHAQUE événement (retour d'agent, décision, fusion). Le détail et l'historique vivent dans `docs/CHANTIERS.md` ; ce fichier ne porte que l'ÉTAT COURANT. Dernière mise à jour : 2026-09-21 ~12:00 UTC (horloge) — 11 lots fusionnés depuis minuit — régime B ; 9 lots fusionnés depuis minuit.
 
 Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (par quoi) · À VENIR.
 
@@ -9,8 +9,8 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 |---|---|---|---|
 | -b3d-a contre-vérification | FUSIONNÉ `83da61d` (erratum `7aae8d7`) | — | — |
 | -b3d-b1a reprise/ledger/budget | FUSIONNÉ `2c717f8` (G7, 596/596, R-25 858) | — | — |
-| -b3d-b1b densité/projection (helper K=8, Amendement 3) | EN COURS | G1 committé `8646c62` (602/602, 7 mutants, R-25 279 ; résorbe la dette g4 de b1a) ; G2 ‖ checkpoint-2 en cours | `Monark-wt-b3db1b` |
-| GARDE-HELIUS (client budgété unique, ledger de cycle) | EN COURS | **1a** : G2 FAIL ‖ cp-2 ACCEPTE-AVEC-CORRECTIONS (8 bloquantes, cap de cycle absorbé par le floor, transport exporté sans compteur) ; rulings pliés `bb88e74` ; pli du worker en cours → G2-delta + 2ᵉ cp-2 ; 1b (Bell) et 2 (Ukemi) après | `Monark-wt-garde1a` |
+| -b3d-b1b densité/projection (helper K=8, Amendement 3) | EN COURS | cp-2 ACCEPTE-AVEC-CORRECTIONS plié `8c82535` (604/604, 9 mutants, R-25 315) ; Amendement 3(4) corrigé `f4b0d9c` ; G2 + ré-acceptation en cours (repris après limite de session) | `Monark-wt-b3db1b` |
+| GARDE-HELIUS (client budgété unique, ledger de cycle) | **1a FUSIONNÉ `88c63bb`** (G7, 688 pass / 1 skip déclaré, R-25 1 096, paquet `upcoming`) | **1b** (Bell consomme `openGuardedClient`) après b1b + (f) (mêmes fichiers) ; **2** (Ukemi) PRÊT à lancer | — |
 | -b3d-f condition (f) ITEM-A (payload chaîné) | PLAN PLIÉ `c83ff2e` | G1 après fusion b1b (même fichier) ; **C-F-4 : question investisseur au G0 de la course** (ancrage par page) | à créer |
 | Course de contre-vérification | BLOQUÉ | GARDE-HELIUS-1b + b1b + (f) + Amendement 3 committé seul | — |
 | -b3d-b2 post-tirage | À VENIR | après la course | — |
@@ -71,4 +71,4 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-pli GARDE-HELIUS-1a · G2 ‖ cp-2 b3d-b1b · G1 -iii-a1-bis.
+G2 b3d-b1b · ré-acceptation cp-2 b3d-b1b · G1 -iii-a1-bis (tous trois repris après la limite de session de 11:4x UTC).
