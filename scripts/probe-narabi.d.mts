@@ -17,6 +17,10 @@ export const MAX_MAX_BYTES: number;
 export const MAX_RETRIES: number;
 export const START_MARGIN_MS: number;
 export const CHAINSTACK_PROVIDERS: readonly string[];
+// State cross-check bounds (sub-lot -1b-ii-b): the 2nd GET of /narabi/state.json.
+export const STATE_MAX_BYTES: number;
+export const STATE_TIMEOUT_MS: number;
+export const STATE_RETRIES: number;
 
 // ── -1b-ii-a (ALERT): SMTP conversation bounds ────────────────────────────────────────────────
 /** Hard cap on the SINGLE wall-clock deadline for the WHOLE SMTP exchange — connect + TLS handshake + conversation
@@ -28,14 +32,15 @@ export const SMTP_MAX_BYTES: number;
 
 /** narabi.json reason (DETECTION sub-lot; -1b-ii-b adds state_mismatch/state_unreachable). `null` = healthy. */
 export type ProbeReason =
-  | "lag" | "chain_broken" | "unreachable" | "too_large" | "insecure_url" | "probe_error" | null;
+  | "lag" | "chain_broken" | "unreachable" | "too_large" | "insecure_url" | "probe_error"
+  | "state_mismatch" | "state_unreachable" | null;
 
 /** The CLOSED set of alert-send outcomes recorded in narabi.json (-1b-ii-a, C-B-1). NEVER a raw server line. */
 export type AlertError =
   | "smtp_unconfigured" | "smtp_unreachable" | "smtp_timeout"
   | "smtp_tls_failed" | "smtp_auth_failed" | "smtp_rejected";
 
-/** narabi.json shape (schema 2, DETECTION + ALERT): the probe writes exactly this. */
+/** narabi.json shape (schema 2, DETECTION + ALERT + state cross-check): the probe writes exactly this. */
 export interface NarabiState {
   schema: number;
   checked_at: string;
@@ -52,7 +57,8 @@ export interface NarabiState {
   alerted: boolean;
   alert_error: AlertError | null;
   last_alert_day: string | null;
-  state_checked: boolean; // always false in -a (the 2nd GET cross-check lands in -1b-ii-b)
+  // -1b-ii-b state cross-check flag (trails the alert block to mirror the evaluate() base object order):
+  state_checked: boolean; // true iff the state.json digest was compared to the last line's digest_T
 }
 
 export function providerOf(url: string): string;
@@ -67,6 +73,8 @@ export function publishLatencySec(nowIso: string): number;
 export function parseTimeline(text: string): TimelineLine[];
 export function checkChain(lines: readonly TimelineLine[]): { ok: boolean; at: number };
 export function isLoopbackHost(hostname: string): boolean;
+/** The state.json URL derived from the timeline URL by basename replacement (-1b-ii-b, C-B-12). */
+export function deriveStateUrl(timelineUrl: string): string;
 
 export type TransportDecision = { ok: true } | { ok: false; reason: "insecure_url" };
 export function urlTransportAllowed(url: string): TransportDecision;
@@ -78,7 +86,10 @@ export function fetchTimeline(url: string, opts?: FetchOpts): Promise<FetchResul
 export interface TransportBounds { timeoutMs: number; maxBytes: number; retries: number }
 export function transportBounds(env?: Record<string, string | undefined>): TransportBounds;
 
-export interface EvaluateInput { text: string | null; nowIso: string; reachable: boolean; fetchReason?: string }
+/** The state cross-check input to evaluate (-1b-ii-b). undefined = not requested (state_checked stays false);
+ *  { ok:false } = 2nd GET failed or no comparable digest (-> state_unreachable); { ok:true, digest } = compare. */
+export type StateCheck = { ok: true; digest: string } | { ok: false };
+export interface EvaluateInput { text: string | null; nowIso: string; reachable: boolean; fetchReason?: string; stateCheck?: StateCheck | undefined }
 export function evaluate(input: EvaluateInput): NarabiState;
 
 // ── -1b-ii-a (ALERT): state read, content composition, SMTP transport ─────────────────────────
@@ -135,7 +146,7 @@ export interface SendSmtpInput {
 export function sendSmtp(input: SendSmtpInput): Promise<{ ok: true } | { ok: false; error: AlertError }>;
 
 export interface ProbeOpts {
-  file?: string; now?: string; url?: string; out?: string;
+  file?: string; now?: string; url?: string; out?: string; stateFile?: string;
   timeoutMs?: number; maxBytes?: number; retries?: number;
 }
 export function probe(opts?: ProbeOpts): Promise<{ state: NarabiState; exitCode: number }>;

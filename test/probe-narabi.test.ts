@@ -22,7 +22,7 @@ import {
   DEFAULT_TIMEOUT_MS, DEFAULT_MAX_BYTES, DEFAULT_RETRIES, MAX_TIMEOUT_MS, MAX_MAX_BYTES, MAX_RETRIES,
   START_MARGIN_MS, transportBounds, SCHEMA, evaluate,
   encodeData, composeMail, smtpTransportPlan, sanitizeField, readPriorState, isEmailish, MAX_SMTP_DEADLINE_MS,
-  sendSmtp, smtpDeadlineMs, DEFAULT_SMTP_DEADLINE_MS,
+  sendSmtp, smtpDeadlineMs, DEFAULT_SMTP_DEADLINE_MS, STATE_TIMEOUT_MS, STATE_RETRIES,
 } from "../scripts/probe-narabi.mjs";
 import type { NarabiState } from "../scripts/probe-narabi.mjs";
 
@@ -323,7 +323,15 @@ test("probe_chainstack_present_from_real_producer_line — the REAL run.ts produ
 test("probe_get_over_loopback_http_executes — an http:// GET on loopback executes and decides; a non-responding server yields unreachable within the timeout (never hangs); an oversize body is refused (C-6)", async () => {
   const body = readFileSync(FIXTURE, "utf8");
   let okHits = 0;
-  const okServer = createServer((_req, res) => { okHits++; res.writeHead(200, { "content-type": "application/jsonl" }); res.end(body); });
+  // -1b-ii-b: the probe now does a 2nd GET of the DERIVED /narabi/state.json (digest cross-check). Serve a
+  // matching state.json (digest === the last line's digest_T) so that GET succeeds and the verdict stays
+  // healthy; it is NOT counted in okHits, so `okHits - beforeHits === 1` still pins the N4 killer (retries=0 ->
+  // exactly one TIMELINE GET). If deriveStateUrl is mutated, GET2 falls into the else branch and okHits reddens too.
+  const okLastDigestT = (JSON.parse(body.replace(/\r\n/g, "\n").split("\n").filter((x) => x.trim()).at(-1) ?? "{}") as { digest_T: string }).digest_T;
+  const okServer = createServer((req, res) => {
+    if (req.url === "/narabi/state.json") { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify({ digest: okLastDigestT })); return; }
+    okHits++; res.writeHead(200, { "content-type": "application/jsonl" }); res.end(body);
+  });
   await new Promise<void>((resolve) => okServer.listen(0, "127.0.0.1", () => resolve()));
   try {
     const addr = okServer.address() as { port: number };
@@ -427,11 +435,12 @@ test("probe_timer_multiple_shots — the timer declares >= 3 post-deadline OnCal
   assert.ok(to, "TimeoutStartSec is set (C-6 per-start backstop)");
   const worstCaseSec = Math.ceil((DEFAULT_TIMEOUT_MS * (DEFAULT_RETRIES + 1)) / 1000);
   assert.ok(Number(to[1] ?? "0") >= worstCaseSec, `TimeoutStartSec (${to[1] ?? "?"}) must be >= code worst-case ${String(worstCaseSec)}s`);
-  // C-G2-7 + C-B-2 + C-G2-1: the env-tunable bounds are HARD-CAPPED, and TimeoutStartSec STRICTLY exceeds the CAPPED
-  // worst case = GET (timeout x (retries+1)) + the SINGLE wall-clock SMTP deadline (MAX_SMTP_DEADLINE_MS — ONE timer for
-  // connect+handshake+conversation, x1, NOT two sequential per-phase deadlines) + start margin. The single-deadline fix
-  // (C-G2-1) is what makes this x1 formula truthful: 50 + 30 + 10 = 90 s < 120, so a mis-set probe.env never kills mid-write.
-  const worstCappedSec = Math.ceil((MAX_TIMEOUT_MS * (MAX_RETRIES + 1) + MAX_SMTP_DEADLINE_MS + START_MARGIN_MS) / 1000);
+  // C-G2-7 + C-B-2 + C-G2-1 + C-G2-3 (merge -a x -b): the env-tunable bounds are HARD-CAPPED, and TimeoutStartSec
+  // STRICTLY exceeds the CAPPED COMBINED worst case = GET1 (timeout x (retries+1)) + GET2 (STATE_TIMEOUT_MS x
+  // (STATE_RETRIES+1), the -1b-ii-b state.json cross-check) + the SINGLE wall-clock SMTP deadline (MAX_SMTP_DEADLINE_MS
+  // — ONE timer for connect+handshake+conversation, x1, NOT two per-phase deadlines) + start margin: 50 + 10 + 30 + 10
+  // = 100 s < 120, so a mis-set probe.env never kills the probe mid-write (item d of the -a x -b merge, C-G2-3).
+  const worstCappedSec = Math.ceil((MAX_TIMEOUT_MS * (MAX_RETRIES + 1) + STATE_TIMEOUT_MS * (STATE_RETRIES + 1) + MAX_SMTP_DEADLINE_MS + START_MARGIN_MS) / 1000);
   assert.ok(Number(to[1] ?? "0") > worstCappedSec, `TimeoutStartSec (${to[1] ?? "?"}) must strictly exceed the CAPPED GET + single-deadline SMTP worst-case ${String(worstCappedSec)}s`);
   assert.equal(transportBounds({ PROBE_TIMEOUT_MS: "99999999" }).timeoutMs, MAX_TIMEOUT_MS, "PROBE_TIMEOUT_MS is hard-capped");
   assert.equal(transportBounds({ PROBE_RETRIES: "99999" }).retries, MAX_RETRIES, "PROBE_RETRIES is hard-capped");
