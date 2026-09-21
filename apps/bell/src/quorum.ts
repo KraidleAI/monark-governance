@@ -103,6 +103,31 @@ export async function quorum2<T>(
   return a.val as T;
 }
 
+const retrySleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+/** Bounded retry on a transient transport signal (HTTP 5xx / 429 / timeout, OR the `transport` catch-all — a
+ *  connection reset / `fetch failed` that statusOf cannot code, exactly the transient network fault a retry exists
+ *  for), deterministic backoff 400·(i+1) ms. A BudgetExceededError is NEVER retried (re-thrown at once); a
+ *  deterministic node error or an HTTP 4xx≠429 is re-thrown immediately. (A thrown code bug also classifies as
+ *  `transport`, so it backs off `tries` times then propagates — the plan's declared conservative direction; a real
+ *  process kill never throws, so it is out of scope.) `onRetry` fires once per retry actually taken (so a caller can
+ *  meter retries_by_method); the backoff `sleep` is injectable (offline tests pass a no-op). Lives here (not in
+ *  collect) so the crosscheck CLI can share it without a collect↔rebase-crosscheck import cycle (fact 10). */
+export async function withRetry<T>(fn: () => Promise<T>, opts: { tries?: number; onRetry?: () => void; sleep?: (ms: number) => Promise<void> } = {}): Promise<T> {
+  const tries = opts.tries ?? 4, slp = opts.sleep ?? retrySleep;
+  let last: unknown;
+  for (let i = 0; i < tries; i++) {
+    try { return await fn(); }
+    catch (e) {
+      if (e instanceof BudgetExceededError) throw e;
+      last = e;
+      if (!/HTTP 5|HTTP 429|timeout|transport/.test(statusOf(e))) throw e;
+      if (i < tries - 1) { opts.onRetry?.(); await slp(400 * (i + 1)); } // fact 9: skip the wasted sleep after the final attempt
+    }
+  }
+  throw last instanceof Error ? last : new Error("retry exhausted");
+}
+
 /** Canonical key of a SIGNATURE SET for the archival concordance (C-1, motif logsKey): sha256 of the sorted
  *  UNIQUE signatures. Two providers concord on the full enumeration iff these match — order-independent. */
 export function signaturesSetKey(signatures: readonly string[]): string {

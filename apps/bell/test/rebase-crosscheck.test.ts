@@ -8,19 +8,20 @@
 // state; M11 token-null accepted without anchors; M12 failed tx decoded; M13 SetAuthority CPI ignored; M14 fullmint⊆hybrid.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
+import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { decodeSetAuthority, setAuthorityHandoffsFromTx, scanFullMint, compareToHybrid, canonicalListSha,
-  chainedLedgerEntry, ledgerSha, loadHybridSeries, readPriorCalls, SET_AUTHORITY_TAG, AUTHORITY_TYPE_SCALED_UI,
-  type FullMintScan, type HybridSeries, type ScanSink } from "../src/rebase-crosscheck.ts";
+  chainedLedgerEntry, ledgerSha, verifyLedgerChain, loadHybridSeries, readPriorCalls, runRebaseCrosscheckCli,
+  SET_AUTHORITY_TAG, AUTHORITY_TYPE_SCALED_UI,
+  type FullMintScan, type HybridSeries, type ScanSink, type LedgerRecord, type RetryFn } from "../src/rebase-crosscheck.ts";
 import { scanMethodFromMethod } from "../src/rebase-produce.ts";
 import { makeBudgetedCall, parseArgs, runMain } from "../src/collect.ts";
 import { type DatabentoGet, type PolygonGet } from "../src/close.ts";
 import { XSTOCKS } from "../src/pools.ts";
 import { TOKEN_2022_PROGRAM } from "../src/rebase-scan.ts";
 import { f64BitsHexLE, replayTriplet, type MultiplierEvent } from "../src/rebase-trajectory.ts";
-import { BudgetExceededError, type JsonRpcCall, type TransportFault } from "../src/quorum.ts";
+import { BudgetExceededError, withRetry, type JsonRpcCall, type TransportFault } from "../src/quorum.ts";
 
 const PROVIDERS = ["https://mainnet.helius-rpc.com", "https://sol.core.chainstack.com"]; // operators helius, chainstack
 const MINT = "MintZZ111111111111111111111111111111111111", OTHER = "OtherMint22222222222222222222222222222222";
@@ -289,27 +290,37 @@ test("bell_crosscheck_ledger_is_chained_and_rederivable — the page ledger chai
   assert.equal(ledgerSha([p1, p2]), p2.entry_sha256, "the ledger head sha is the last entry's chained sha");
 });
 
-test("bell_crosscheck_committed_artifacts_replay — replay compareToHybrid on committed files reproduces the verdict + biconditional (C-5/CA-11)", () => {
-  // CA-11 durci: EXECUTE the composition from the input FILES (crosscheck-<MINT>.json + rebase-<MINT>.json), never a
-  // regex on source. Two synthetic mints: SPYx equal + method WITHOUT pending; NVDAx divergence + method WITH pending.
-  // Biconditional asserted per mint: `method` lacks "(pending" <=> the committed verdict is equal. Until the real
-  // race commits crosscheck-*.json under series/rebase/, this runs on a mkdtemp set (declared, checkpoint-1 C-16).
-  const dir = mkdtempSync(join(tmpdir(), "bell-crosscheck-"));
-  const writeMint = (sym: string, method: string, seriesEvents: MultiplierEvent[], scanEvents: MultiplierEvent[]): void => {
-    const oracleTriplet = replayTriplet(scanEvents, Number.MAX_SAFE_INTEGER)!; // anchored to the reference full-mint replay (H5 passes)
-    writeFileSync(join(dir, `rebase-${sym}.json`), JSON.stringify({ symbol: sym, method, oracle_slot: ORACLE_SLOT, oracle_triplet: oracleTriplet, events: seriesEvents }));
-    const verdict = compareToHybrid({ events: scanEvents, handoffs: [], complete: true, n: scanEvents.length, pages: 1, ledger: [] }, { symbol: sym, oracle_slot: ORACLE_SLOT, oracle_triplet: oracleTriplet, events: seriesEvents });
-    writeFileSync(join(dir, `crosscheck-${sym}.json`), JSON.stringify({ oracle_slot: ORACLE_SLOT, scan_complete: true, scan_reason: null, events: scanEvents, c3_oracle_triplet: oracleTriplet, comparator_verdict: verdict }));
+test("bell_crosscheck_committed_artifacts_replay — replay compareToHybrid on crosscheck-*.json WRITTEN by runMain reproduces the verdict + biconditional (C-V-9, CA-11 durci)", async () => {
+  // C-V-9 (CA-11 durci): the artefacts are produced by the REAL CLI (runMain --rebase-crosscheck), never hand-built;
+  // the test LOADS the crosscheck-*.json the code wrote, replays compareToHybrid, and asserts the verdict + the
+  // biconditional. m0 = equal (method WITHOUT pending); m1 = divergence (its series carries an EXTRA event; method WITH pending).
+  const m0 = XSTOCKS[0]!, m1 = XSTOCKS[1]!;
+  const sd = mkdtempSync(join(tmpdir(), "bell-cv9-s-")), od = mkdtempSync(join(tmpdir(), "bell-cv9-o-"));
+  const bodyOf = (addr: string, sig: string, slot: number, data: Uint8Array): unknown =>
+    ({ slot, blockTime: slot * 100, transaction: { signatures: [sig], message: { accountKeys: [addr, A_ADDR, TOKEN_2022_PROGRAM, OTHER, B_ADDR], instructions: [{ programIdIndex: 2, accounts: [0, 1], data: b58enc(data) }] } }, meta: { err: null, innerInstructions: [] } });
+  const bodies: Record<string, unknown> = {};
+  for (const m of [m0, m1]) { bodies[`${m.symbol}-i`] = bodyOf(m.address, `${m.symbol}-i`, 10, initBytes(1)); bodies[`${m.symbol}-u`] = bodyOf(m.address, `${m.symbol}-u`, 20, updBytes(1.5, 1500)); }
+  const evOf = (sym: string): MultiplierEvent[] => [ev("initialize", 1, 0, 10, 0, `${sym}-i`), ev("update", 1.5, 1500, 20, 0, `${sym}-u`)];
+  const triplet = replayTriplet(evOf(m0.symbol), Number.MAX_SAFE_INTEGER)!; // {1.5,1.5,1500} (signature-independent)
+  writeFileSync(join(sd, `rebase-${m0.symbol}.json`), JSON.stringify({ symbol: m0.symbol, method: "hybrid-authority-scan", oracle_slot: 45, oracle_triplet: triplet, events: evOf(m0.symbol) })); // equal
+  writeFileSync(join(sd, `rebase-${m1.symbol}.json`), JSON.stringify({ symbol: m1.symbol, method: "hybrid-authority-scan (pending R-26 ratification)", oracle_slot: 45, oracle_triplet: triplet, events: [...evOf(m1.symbol), ev("update", 1.6, 1600, 22, 0, `${m1.symbol}-x`)] })); // series has an extra event => divergence
+  const stub: JsonRpcCall = (_u, method, params) => {
+    throwOnState(method);
+    if (method === "getTransactionsForAddress") {
+      const sym = String((params as unknown[])[0]) === m0.address ? m0.symbol : m1.symbol;
+      if (((params as unknown[])[1] as { sortOrder: string }).sortOrder === "desc") return Promise.resolve({ data: [bodies[`${sym}-u`]], paginationToken: null });
+      return Promise.resolve({ data: [bodies[`${sym}-i`], bodies[`${sym}-u`]], paginationToken: null });
+    }
+    if (method === "getTransaction") return Promise.resolve(bodies[String((params as unknown[])[0])]);
+    throw new Error("unexpected " + method);
   };
-  writeMint("SPYx", "hybrid-authority-scan", EXPECTED_EVENTS, EXPECTED_EVENTS); // equal (sets match, H5 ok)
-  writeMint("NVDAx", "hybrid-authority-scan (pending R-26 ratification)", [...EXPECTED_EVENTS, ev("update", 1.6, 1600, 22, 0, "extraSig")], EXPECTED_EVENTS); // divergence (series has an extra event)
-  for (const sym of ["SPYx", "NVDAx"]) {
-    const series = loadHybridSeries(dir, sym)!;
-    const artifact = JSON.parse(readFileSync(join(dir, `crosscheck-${sym}.json`), "utf8")) as { events: MultiplierEvent[]; scan_complete: boolean; scan_reason: string | null; comparator_verdict: { verdict: string } };
-    // Faithful replay: reconstruct the scan's completeness from the committed fields (a real inconclusive mint replays as inconclusive).
+  await runMain(["--rebase-crosscheck", "--pools", `${m0.symbol},${m1.symbol}`, "--max-calls", "100", "--max-credits", "1000", "--max-pages", "10", "--min-interval", "0", "--allow-short-pages", "--series-dir", sd, "--out", od], b1aDeps(stub));
+  for (const m of [m0, m1]) {
+    const series = loadHybridSeries(sd, m.symbol)!;
+    const artifact = JSON.parse(readFileSync(join(od, `crosscheck-${m.symbol}.json`), "utf8")) as { events: MultiplierEvent[]; scan_complete: boolean; scan_reason: string | null; comparator_verdict: { verdict: string } };
     const replayed = compareToHybrid({ events: artifact.events, handoffs: [], complete: artifact.scan_complete, ...(artifact.scan_reason ? { reason: artifact.scan_reason } : {}), n: artifact.events.length, pages: 1, ledger: [] }, series);
-    assert.equal(replayed.verdict, artifact.comparator_verdict.verdict, `${sym}: replayed verdict == committed verdict`);
-    assert.equal(!series.method.includes("(pending"), replayed.verdict === "equal", `${sym}: method-without-pending <=> verdict equal (biconditional)`);
+    assert.equal(replayed.verdict, artifact.comparator_verdict.verdict, `${m.symbol}: replayed verdict == committed verdict (M-b1a-13: hand-built artifact would not prove the CLI composition)`);
+    assert.equal(!series.method.includes("(pending"), replayed.verdict === "equal", `${m.symbol}: method-without-pending <=> verdict equal (biconditional)`);
   }
 });
 
@@ -361,10 +372,12 @@ test("bell_crosscheck_runmain_resumes_budget_and_ledger — runMain --rebase-cro
   assert.equal((readJson("crosscheck-SPYx.json").comparator_verdict as { verdict: string }).verdict, "equal", "the resumed scan carries run-1's Initialize => complete => equal (mutant unseeded events => inconclusive => reds)");
   // C-G2-1: budget.json persists credits_worst_case = calls_used × 10 (6 × 10) — mutant dropping the ×10 reds.
   assert.equal(readJson("budget.json").credits_worst_case, 60, "budget.json persists worst-case credits = 6 calls × 10 (C-G2-1)");
-  // C-G2-3: the artifact's credits_recomputed = gTfA×10 + getTransaction×1 (run-2: 2 gTfA + 1 getTransaction = 21) — mutant N1 (drop ×10) reds.
+  // C-B-3/fact 4: calls_by_method is now CUMULATIVE across resumes (seeded from budget.json.calls_by_method.global), so
+  // run-2 carries run-1's 2 gTfA + 1 getTransaction PLUS run-2's 2 gTfA + 1 getTransaction => {4,2}; credits_recomputed
+  // = 4×10 + 2×1 = 42 (the old per-process {2,1}/21 under-counted the audit after a resume, C-V-2). Drop-the-×10 still reds.
   const cc = readJson("crosscheck-SPYx.json");
-  assert.deepEqual(cc.calls_by_method, { getTransactionsForAddress: 2, getTransaction: 1 }, "run-2 calls_by_method = 2 gTfA + 1 getTransaction");
-  assert.equal(cc.credits_recomputed, 21, "credits_recomputed = 2×10 + 1×1 = 21 (mutant: drop the ×10 => reds, C-G2-3)");
+  assert.deepEqual(cc.calls_by_method, { getTransactionsForAddress: 4, getTransaction: 2 }, "run-2 calls_by_method is CUMULATIVE = 4 gTfA + 2 getTransaction (fact 4)");
+  assert.equal(cc.credits_recomputed, 42, "credits_recomputed = 4×10 + 2×1 = 42 (cumulative; mutant: drop the ×10 => reds, C-G2-3)");
 });
 
 test("bell_crosscheck_readPriorCalls_fail_closed — missing budget.json => 0, malformed => throw (C-1)", () => {
@@ -500,7 +513,7 @@ test("bell_crosscheck_per_page_budget_survives_crash — a hard crash after a pa
       const p = (params as unknown[])[1] as { sortOrder: string };
       if (p.sortOrder === "desc") return Promise.resolve({ data: [bodies.updSig], paginationToken: null });
       ascHits += 1;
-      if (ascHits >= 2) throw new Error("simulated hard crash (process kill) mid-scan");
+      if (ascHits >= 2) throw new Error("HTTP 418 simulated hard crash (process kill) mid-scan"); // non-transient code => the retry does not loop it
       return Promise.resolve({ data: [cinit], paginationToken: "p2" });
     }
     if (method === "getTransaction") return Promise.resolve(bodies[String((params as unknown[])[0])]);
@@ -510,13 +523,16 @@ test("bell_crosscheck_per_page_budget_survives_crash — a hard crash after a pa
   const noPoly: PolygonGet = () => Promise.resolve({ results: [] });
   const env = { BELL_SOLANA_RPC: PROVIDERS.join(",") } as NodeJS.ProcessEnv;
   const args = ["--rebase-crosscheck", "--pools", "SPYx", "--max-calls", "100", "--max-credits", "1000", "--max-pages", "10", "--min-interval", "0", "--allow-short-pages", "--series-dir", seriesDir, "--out", outDir];
-  // the crash propagates out of runMain (crosscheck branch has no try/catch; scanFullMint rethrows non-budget errors).
+  // C-B-4: the crash carries a NON-transient code (HTTP 418, not 5xx/429/timeout/transport) so withRetry does not loop
+  // it; it propagates once and the `finally` writes the budget BEFORE it propagates (the try has no catch; scanFullMint
+  // rethrows non-budget errors).
   await assert.rejects(runMain(args, { call: crashOnP2, databentoGet: noDb, polygonGet: noPoly, env, nowMs: 25000 }), /simulated hard crash/, "the hard crash propagates (not swallowed)");
-  // The CLI's FINAL budget.json write was NEVER reached — yet budget.json exists at page 1's onPage count (calls_used
-  // 2 = p1 gTfA + initSig opB; pages 1). Deleting the per-page write (mutant) leaves NO budget.json => this test reds.
+  // C-B-4 (M-b1a-4a killer): the crash happens on the page-2 asc gTfA — its guard TICKED calls_used to 3 before the stub
+  // threw. The `finally` persists that (calls_used 3), so a resume can't under-count => overspend. pages stays 1 (the
+  // faulted page-2 is never committed, C-B-1). Removing the finally leaves the onPage value 2 => this test reds.
   const budget = JSON.parse(readFileSync(join(outDir, "budget.json"), "utf8")) as { calls_used: number; pages: number };
-  assert.equal(budget.pages, 1, "budget.json reflects exactly the one page persisted before the crash (per-page write)");
-  assert.equal(budget.calls_used, 2, "calls_used = page-1 gTfA + initSig opB re-read (persisted per page, not at the unreached final write)");
+  assert.equal(budget.pages, 1, "budget.json reflects exactly the one committed page (per-page write; the faulted page-2 is not committed)");
+  assert.equal(budget.calls_used, 3, "calls_used = 3 (p1 gTfA + initSig opB + p2 gTfA ticked) persisted by the finally (C-B-4; removing it => 2 => reds)");
 });
 
 // ---- C-G2D2-1: the calls_used == ledgerPages boundary is PINNED — a regression `<`->`<=` would FALSELY REFUSE a
@@ -552,4 +568,273 @@ test("bell_crosscheck_hasResumeState_events_or_handoffs_fail_closed — an event
   const hoDir = mkdtempSync(join(tmpdir(), "bell-budget-ho-"));
   writeFileSync(join(hoDir, "handoffs-SPYx.jsonl"), JSON.stringify({ newAuthorityHex: "aa", slot: 12 }) + "\n");
   assert.throws(() => readPriorCalls(hoDir), /resume state but no budget\.json/, "handoffs- alone (no budget.json/ledger) is an incoherent resume => throw (mutant drops `|handoffs` => reds)");
+});
+
+// ================= -b3d-b1a (reprise / ledger / budget) — checkpoint-1 corrections C-B-1..7 =================
+// Shared SYNTHETIC fixtures (checkpoint-1 C-16), h1.ts-shaped: init@10, updA@20, updB@30, updC@40 on the real SPYx mint
+// (K2), oracle_slot 45. NO network — the injected `call` returns hand-built pages/bodies. `b1aStub(faultOn)` makes op-B
+// getTransaction REJECT for one sig (HTTP 503) => a body-quorum fault on its page (the V-1 driver). All oracles execute
+// the composition through runMain / runRebaseCrosscheckCli from artefacts the CODE writes (CA-11 durci).
+const cinitB = jtx("initSig", 10, 1000, initBytes(1)), cAB = jtx("updA", 20, 2000, updBytes(1.5, 1500)),
+  cBB = jtx("updB", 30, 3000, updBytes(2, 2500)), cCB = jtx("updC", 40, 4000, updBytes(3, 3500));
+const B1A_BODIES: Record<string, unknown> = { initSig: cinitB, updA: cAB, updB: cBB, updC: cCB };
+const eInitB = ev("initialize", 1, 0, 10, 0, "initSig"), eAB = ev("update", 1.5, 1500, 20, 0, "updA"),
+  eBB = ev("update", 2, 2500, 30, 0, "updB"), eCB = ev("update", 3, 3500, 40, 0, "updC");
+const B1A_TRIPLET = replayTriplet([eInitB, eAB, eBB, eCB], Number.MAX_SAFE_INTEGER)!;
+function b1aStub(ascPages: Array<{ data: unknown[]; paginationToken: string | null }>, faultOn: string | null = null): JsonRpcCall {
+  let ai = 0;
+  return (_u, method, params) => {
+    throwOnState(method);
+    if (method === "getTransactionsForAddress") {
+      const p = (params as unknown[])[1] as { sortOrder: string; filters?: { slot?: { gte?: number } } };
+      if (p.sortOrder === "desc") return Promise.resolve({ data: [B1A_BODIES.updC], paginationToken: null });
+      const gte = p.filters?.slot?.gte, page = ascPages[ai++] ?? { data: [], paginationToken: null };
+      return Promise.resolve({ data: gte === undefined ? page.data : page.data.filter((b) => Number((b as { slot: number }).slot) >= gte), paginationToken: page.paginationToken });
+    }
+    if (method === "getTransaction") { const sig = String((params as unknown[])[0]); if (sig === faultOn) return Promise.reject(new Error("HTTP 503")); return Promise.resolve(B1A_BODIES[sig]); }
+    throw new Error("unexpected " + method);
+  };
+}
+const noDbB: DatabentoGet = () => Promise.resolve([]);
+const noPolyB: PolygonGet = () => Promise.resolve({ results: [] });
+const b1aDeps = (call: JsonRpcCall): Parameters<typeof runMain>[1] => ({ call, databentoGet: noDbB, polygonGet: noPolyB, env: { BELL_SOLANA_RPC: PROVIDERS.join(",") } as NodeJS.ProcessEnv, nowMs: 50000 });
+const b1aArgs = (seriesDir: string, outDir: string, maxCalls: number, maxCredits = maxCalls * 10): string[] =>
+  ["--rebase-crosscheck", "--pools", "SPYx", "--max-calls", String(maxCalls), "--max-credits", String(maxCredits), "--max-pages", "10", "--min-interval", "0", "--allow-short-pages", "--series-dir", seriesDir, "--out", outDir];
+const b1aSeries = (events: readonly MultiplierEvent[]): string =>
+  JSON.stringify({ symbol: "SPYx", method: "hybrid-authority-scan (pending R-26 ratification)", oracle_slot: 45, oracle_triplet: B1A_TRIPLET, events });
+const readCC = (outDir: string): { comparator_verdict: { verdict: string; reason?: string }; scan_complete: boolean; pages: number;
+  calls_by_method: Record<string, number>; credits_recomputed: number; candidate_shas: Record<string, string>; set_authority_scan?: Record<string, unknown> } =>
+  JSON.parse(readFileSync(join(outDir, "crosscheck-SPYx.json"), "utf8"));
+
+// ---- L-b1a-6 / C-V-3: verifyLedgerChain re-derives the chain INDEPENDENTLY of the writer -----------------------------
+test("bell_crosscheck_ledger_chain_rederives_from_disk — verifyLedgerChain re-derives the head; a tampered prev/core fails closed (C-V-3)", () => {
+  const p1 = chainedLedgerEntry("0".repeat(64), 1, [{ sig: "a", slot: 10 }, { sig: "b", slot: 10 }])!;
+  const p2 = chainedLedgerEntry(p1.entry_sha256, 2, [{ sig: "c", slot: 20 }])!;
+  const p3 = chainedLedgerEntry(p2.entry_sha256, 3, [{ sig: "d", slot: 30 }])!;
+  const ok = verifyLedgerChain([p1, p2, p3]);
+  assert.equal(ok.ok, true, "a valid chain re-derives");
+  assert.equal(ok.headSha, ledgerSha([p1, p2, p3]), "the re-derived head == ledger_sha256 (the §5 audit anchor)");
+  // a tampered prev_entry_sha256 in the MIDDLE breaks the link (M-b1a-7b: a writer core WITHOUT prev survived the old
+  // carried-field test — here the independent re-derivation reds).
+  assert.equal(verifyLedgerChain([p1, { ...p2, prev_entry_sha256: "f".repeat(64) }, p3]).ok, false, "a tampered prev_entry_sha256 mid-chain fails closed");
+  // a core field edited under a STALE entry_sha256 (the writer's sha kept) => recomputed hash != stored => fail closed.
+  assert.equal(verifyLedgerChain([{ ...p1, tx_count: 999 }]).ok, false, "a core field edited under a stale entry_sha256 fails closed");
+});
+
+test("bell_crosscheck_ledger_chain_rederives_ignoring_page_payload — page_events/page_handoffs never enter entry_sha256 (C-V-3/C-B-7)", () => {
+  const core1 = chainedLedgerEntry("0".repeat(64), 1, [{ sig: "a", slot: 10 }])!;
+  // TWO atomic records: SAME core, DIFFERENT payload => the same entry_sha256, and both re-derive (the payload rides
+  // OUTSIDE the hashed core). M-b1a-7/9 (hash the payload) reds: the two payloads would give two different hashes.
+  const recA: LedgerRecord = { ...core1, page_events: [ev("initialize", 1, 0, 10, 0, "a")], page_handoffs: [] };
+  const recB: LedgerRecord = { ...core1, page_events: [], page_handoffs: [{ mint: MINT, newAuthorityHex: null, currentAuthority: A_ADDR, slot: 10, instructionIndex: 0, signature: "a" }] };
+  assert.equal(recA.entry_sha256, recB.entry_sha256, "the payload does not change entry_sha256");
+  assert.equal(verifyLedgerChain([recA]).ok, true, "verify ignores page_events (mutant hashing the payload => reds)");
+  assert.equal(verifyLedgerChain([recB]).ok, true, "verify ignores page_handoffs");
+  assert.equal(verifyLedgerChain([recA]).headSha, verifyLedgerChain([recB]).headSha, "same head regardless of payload");
+});
+
+// ---- L-b1a-5 / C-B-5: a torn queue is truncated at resume; a corruption before the queue is fail-closed --------------
+test("bell_crosscheck_torn_queue_dropped_and_chain_verified — a torn tail is truncated + the chain re-derived at resume; a mid-file corruption throws (C-B-5)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-torn-s-")), od = mkdtempSync(join(tmpdir(), "bell-torn-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), b1aSeries([eInitB, eAB, eBB, eCB]));
+  const lf = join(od, "ledger-SPYx.jsonl");
+  // RUN 1: budget stop after page 1 (p1 gTfA + initSig opB + p2 gTfA = 3; updA opB is the 4th) => ONE valid record.
+  await runMain(b1aArgs(sd, od, 3), b1aDeps(b1aStub([{ data: [cinitB], paginationToken: "p2" }, { data: [cAB], paginationToken: null }])));
+  assert.equal(readFileSync(lf, "utf8").trim().split("\n").length, 1, "run-1 persisted one atomic record");
+  appendFileSync(lf, '{"prev_entry_sha256":"' + "0".repeat(64) + '","page":2,"slot'); // a crash mid-append: a TORN partial line
+  // RUN 2: resume. readJsonl truncates the torn tail; verifyLedgerChain re-derives the 1 clean record; scan completes.
+  await runMain(b1aArgs(sd, od, 10), b1aDeps(b1aStub([{ data: [cAB, cBB, cCB], paginationToken: null }])));
+  for (const l of readFileSync(lf, "utf8").trim().split("\n")) JSON.parse(l); // every remaining line re-parses (torn tail gone)
+  assert.equal(readCC(od).comparator_verdict.verdict, "equal", "the resume completed onto the re-derived chain => equal");
+  // a corruption BEFORE the queue (content after it) is fail-closed (never buried mid-file by a later append).
+  const od2 = mkdtempSync(join(tmpdir(), "bell-torn2-o-"));
+  const valid = readFileSync(lf, "utf8").trim().split("\n")[0]!;
+  writeFileSync(join(od2, "ledger-SPYx.jsonl"), valid + "\nNOT-JSON-MIDFILE\n" + valid + "\n");
+  writeFileSync(join(od2, "budget.json"), JSON.stringify({ calls_used: 9, credits_worst_case: 90, pages: 3 }));
+  await assert.rejects(runMain(b1aArgs(sd, od2, 10), b1aDeps(b1aStub([{ data: [], paginationToken: null }]))), /unreadable line before its queue/, "a corruption mid-file throws (M-b1a-5: tolerate it => reds)");
+});
+
+// ---- L-b1a-7 / C-B-6: candidate raws under candidates/<MINT>/ — re-derivation never mixes two mints -------------------
+test("bell_crosscheck_candidate_shas_per_mint — candidate raws live under candidates/<MINT>/; re-derivation never mixes two mints (C-B-6)", async () => {
+  const m0 = XSTOCKS[0]!, m1 = XSTOCKS[1]!; // two distinct mint addresses
+  const sd = mkdtempSync(join(tmpdir(), "bell-perm-s-")), od = mkdtempSync(join(tmpdir(), "bell-perm-o-"));
+  const initFor = (addr: string, sig: string): unknown =>
+    ({ slot: 10, blockTime: 1000, transaction: { signatures: [sig], message: { accountKeys: [addr, A_ADDR, TOKEN_2022_PROGRAM, OTHER, B_ADDR], instructions: [{ programIdIndex: 2, accounts: [0, 1], data: b58enc(initBytes(1)) }] } }, meta: { err: null, innerInstructions: [] } });
+  const bodies: Record<string, unknown> = { sig0: initFor(m0.address, "sig0"), sig1: initFor(m1.address, "sig1") };
+  const oracleTriplet = replayTriplet([ev("initialize", 1, 0, 10, 0, "x")], Number.MAX_SAFE_INTEGER)!;
+  for (const [sym, sig] of [[m0.symbol, "sig0"], [m1.symbol, "sig1"]] as const)
+    writeFileSync(join(sd, `rebase-${sym}.json`), JSON.stringify({ symbol: sym, method: "hybrid-authority-scan", oracle_slot: 25, oracle_triplet: oracleTriplet, events: [ev("initialize", 1, 0, 10, 0, sig)] }));
+  const stub: JsonRpcCall = (_u, method, params) => {
+    throwOnState(method);
+    if (method === "getTransactionsForAddress") {
+      const sig = String((params as unknown[])[0]) === m0.address ? "sig0" : "sig1";
+      return Promise.resolve({ data: [bodies[sig]], paginationToken: null }); // one short page; desc anchor = same body
+    }
+    if (method === "getTransaction") return Promise.resolve(bodies[String((params as unknown[])[0])]);
+    throw new Error("unexpected " + method);
+  };
+  const budgeted = makeBudgetedCall(1000, stub);
+  await runRebaseCrosscheckCli(budgeted.call, PROVIDERS, [m0.symbol, m1.symbol], sd, od, { maxPages: 10, requireFullPages: false }, budgeted.calls, budgeted.callsByMethod, 1000, []);
+  assert.ok(existsSync(join(od, "candidates", m0.symbol, "sig0.json")), "mint 0's candidate is under its OWN subdir");
+  assert.ok(existsSync(join(od, "candidates", m1.symbol, "sig1.json")), "mint 1's candidate is under its OWN subdir");
+  const cc0 = JSON.parse(readFileSync(join(od, `crosscheck-${m0.symbol}.json`), "utf8")) as { candidate_shas: Record<string, string> };
+  const cc1 = JSON.parse(readFileSync(join(od, `crosscheck-${m1.symbol}.json`), "utf8")) as { candidate_shas: Record<string, string> };
+  assert.deepEqual(Object.keys(cc0.candidate_shas), ["sig0"], "mint 0's candidate_shas is ITS sigs only (M-b1a-2: a flat readdir => contains sig1 => reds)");
+  assert.deepEqual(Object.keys(cc1.candidate_shas), ["sig1"], "mint 1's candidate_shas is ITS sigs only");
+});
+
+// A V-1 stub: op-B DISAGREES on updA's multiplier bits (body-quorum miss, no throw => retry-independent, fast) when
+// `wrongUpdA`; otherwise it serves the true bodies. Same asc/desc shape as b1aStub.
+function v1Stub(ascPages: Array<{ data: unknown[]; paginationToken: string | null }>, wrongUpdA: boolean): JsonRpcCall {
+  let ai = 0;
+  const wrongA = jtx("updA", 20, 2000, updBytes(9.9, 1500)); // op-B's bits (9.9) != op-A's (1.5) => body_quorum
+  return (_u, method, params) => {
+    throwOnState(method);
+    if (method === "getTransactionsForAddress") {
+      const p = (params as unknown[])[1] as { sortOrder: string; filters?: { slot?: { gte?: number } } };
+      if (p.sortOrder === "desc") return Promise.resolve({ data: [cCB], paginationToken: null });
+      const gte = p.filters?.slot?.gte, page = ascPages[ai++] ?? { data: [], paginationToken: null };
+      return Promise.resolve({ data: gte === undefined ? page.data : page.data.filter((b) => Number((b as { slot: number }).slot) >= gte), paginationToken: page.paginationToken });
+    }
+    if (method === "getTransaction") { const sig = String((params as unknown[])[0]); return Promise.resolve(wrongUpdA && sig === "updA" ? wrongA : B1A_BODIES[sig]); }
+    throw new Error("unexpected " + method);
+  };
+}
+
+// ---- L-b1a-1 / C-B-1 (root of V-1): a faulted page is NOT committed + STOP; the resume re-reads it => no false equal -
+test("bell_crosscheck_resume_after_decode_fault_is_not_equal — a body-quorum-faulted page is not committed; the resume re-reads it => never a false equal (C-B-1, V-1)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-v1-s-")), od = mkdtempSync(join(tmpdir(), "bell-v1-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), b1aSeries([eInitB, eBB, eCB])); // the SERIES is MISSING updA (>= 2 updates follow, so H5 concords)
+  // RUN 1: op-B disagrees on updA (body-quorum) => the [updA] page is discarded + STOP (never a sig without its event).
+  await runMain(b1aArgs(sd, od, 50), b1aDeps(v1Stub([{ data: [cinitB], paginationToken: "p2" }, { data: [cAB], paginationToken: "p3" }, { data: [cBB, cCB], paginationToken: null }], true)));
+  assert.equal(readCC(od).comparator_verdict.reason, "body_quorum", "run-1 stopped on the body-quorum fault");
+  assert.equal(readFileSync(join(od, "ledger-SPYx.jsonl"), "utf8").trim().split("\n").length, 1, "only the clean init page is committed (the faulted updA page is discarded)");
+  // RUN 2: op-B now agrees. The resume re-fetches from the last clean page (slot 10) => updA is re-read and decoded.
+  await runMain(b1aArgs(sd, od, 50), b1aDeps(v1Stub([{ data: [cAB, cBB, cCB], paginationToken: null }], false)));
+  const v = readCC(od);
+  assert.equal(v.scan_complete, true, "the resumed scan completed (init carried, end anchor, exhausted)");
+  assert.notEqual(v.comparator_verdict.verdict, "equal", "the full-mint saw updA (absent from the series) => NEVER equal (base code: false equal => reds)");
+  assert.equal(v.comparator_verdict.verdict, "divergence", "updA is missing-from-series => divergence (pending kept)");
+});
+
+test("bell_crosscheck_terminal_inconclusive_never_promotes — a body-quorum inconclusive relaunched under a persistent fault stays inconclusive (C-B-1)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-v1t-s-")), od = mkdtempSync(join(tmpdir(), "bell-v1t-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), b1aSeries([eInitB, eBB, eCB]));
+  await runMain(b1aArgs(sd, od, 50), b1aDeps(v1Stub([{ data: [cinitB], paginationToken: "p2" }, { data: [cAB], paginationToken: "p3" }], true)));
+  assert.equal(readCC(od).comparator_verdict.reason, "body_quorum", "run-1 is inconclusive:body_quorum");
+  // relaunch under the SAME persistent fault (op-B still disagrees) => still inconclusive, NEVER promoted to equal/complete.
+  await runMain(b1aArgs(sd, od, 50), b1aDeps(v1Stub([{ data: [cAB], paginationToken: "p3" }], true)));
+  const v = readCC(od);
+  assert.equal(v.scan_complete, false, "a collant inconclusive never becomes complete by relaunch");
+  assert.notEqual(v.comparator_verdict.verdict, "equal", "never promoted to equal");
+});
+
+// ---- L-b1a-2 / C-B-2 (V-2): a sealed equal artifact is never degraded by a mordant relaunch -------------------------
+test("bell_crosscheck_artifact_write_is_monotone — a sealed equal artifact is byte-identical after a mordant relaunch (C-B-2, V-2)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-v2-s-")), od = mkdtempSync(join(tmpdir(), "bell-v2-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), b1aSeries([eInitB, eAB, eBB, eCB]));
+  await runMain(b1aArgs(sd, od, 50), b1aDeps(b1aStub([{ data: [cinitB, cAB, cBB, cCB], paginationToken: null }])));
+  assert.equal(readCC(od).comparator_verdict.verdict, "equal", "run-1 is equal (sealed scan_complete:true)");
+  const before = readFileSync(join(od, "crosscheck-SPYx.json"), "utf8");
+  // RUN 2 under a mordant --max-credits (below the cumulative) => budget_exhausted => must NOT overwrite the sealed equal.
+  await runMain(b1aArgs(sd, od, 50, 30), b1aDeps(b1aStub([{ data: [cinitB, cAB, cBB, cCB], paginationToken: null }])));
+  assert.equal(readFileSync(join(od, "crosscheck-SPYx.json"), "utf8"), before, "the sealed equal artifact is byte-identical (M-b1a-14: unconditional overwrite => degraded => reds)");
+  assert.ok(existsSync(join(od, "crosscheck-SPYx-attempt.json")), "the degraded attempt is journaled to a -attempt sidecar");
+});
+
+// ---- L-b1a-3 / C-B-3 (V-3): Σ calls_by_method == calls_used, including the budget_exhausted path --------------------
+test("bell_crosscheck_calls_by_method_equals_calls_used — Σ calls_by_method == calls_used on a normal AND a budget_exhausted run (C-B-3, V-3)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-v3-s-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), b1aSeries([eInitB, eAB, eBB, eCB]));
+  const sumEqualsCalls = (od: string): void => {
+    const cc = readCC(od), b = JSON.parse(readFileSync(join(od, "budget.json"), "utf8")) as { calls_used: number };
+    assert.equal(Object.values(cc.calls_by_method).reduce((a, x) => a + x, 0), b.calls_used, "Σ calls_by_method == calls_used");
+  };
+  const odN = mkdtempSync(join(tmpdir(), "bell-v3n-o-"));
+  await runMain(b1aArgs(sd, odN, 50), b1aDeps(b1aStub([{ data: [cinitB, cAB, cBB, cCB], paginationToken: null }])));
+  sumEqualsCalls(odN); // (a) a normal, complete run
+  const od2 = mkdtempSync(join(tmpdir(), "bell-v3x-o-"));
+  await runMain(b1aArgs(sd, od2, 3), b1aDeps(b1aStub([{ data: [cinitB, cAB, cBB, cCB], paginationToken: null }])));
+  sumEqualsCalls(od2); // (b) budget_exhausted: the throwing call is NOT counted (M-b1a-3: count BEFORE the guard => Σ = calls_used+1 => reds)
+  assert.equal(readCC(od2).scan_complete, false, "the budget-exhausted run is inconclusive");
+});
+
+// ---- L-b1a-4 / C-B-4: the budget is durable on the ERROR path (finally), retries included ---------------------------
+test("bell_crosscheck_budget_persists_on_error_path — a throw on the desc end-anchor call still persists the budget via the finally (C-B-4)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-b4-s-")), od = mkdtempSync(join(tmpdir(), "bell-b4-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), b1aSeries([eInitB, eAB, eBB, eCB]));
+  // the asc page completes (1 page, 4 events); the DESC end-anchor call throws a NON-retryable hard error (outside onPage).
+  const descThrows: JsonRpcCall = (_u, method, params) => {
+    throwOnState(method);
+    if (method === "getTransactionsForAddress") {
+      if (((params as unknown[])[1] as { sortOrder: string }).sortOrder === "desc") return Promise.reject(new Error("HTTP 418 desc anchor hard fail"));
+      return Promise.resolve({ data: [cinitB, cAB, cBB, cCB], paginationToken: null });
+    }
+    if (method === "getTransaction") return Promise.resolve(B1A_BODIES[String((params as unknown[])[0])]);
+    throw new Error("unexpected " + method);
+  };
+  await assert.rejects(runMain(b1aArgs(sd, od, 50), b1aDeps(descThrows)), /desc anchor hard fail/, "the desc throw propagates");
+  const budget = JSON.parse(readFileSync(join(od, "budget.json"), "utf8")) as { calls_used: number; pages: number; retries_by_method: Record<string, number> };
+  assert.equal(budget.pages, 1, "the one committed page is persisted");
+  assert.equal(budget.calls_used, 6, "calls_used = p1 gTfA + 4 opB + desc gTfA (ticked before the throw), persisted by the finally (M-b1a-4a removing it => 5 => reds)");
+  assert.ok(budget.retries_by_method && typeof budget.retries_by_method.getTransaction === "number", "retries_by_method is persisted (M-b1a-4b: drop it => reds)");
+});
+
+// ---- L-b1a-8: a terminal resume is idempotent (semis reproduces the end anchor); only the budget grows --------------
+test("bell_crosscheck_resume_after_exhaustion_is_equal — a terminal resume reproduces the verdict/events/ledger; only the budget grows (L-b1a-8 semis, fact 3)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-rex-s-")), od = mkdtempSync(join(tmpdir(), "bell-rex-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), b1aSeries([eInitB, eAB, eBB, eCB]));
+  await runMain(b1aArgs(sd, od, 50), b1aDeps(b1aStub([{ data: [cinitB, cAB, cBB, cCB], paginationToken: null }])));
+  const a1 = JSON.parse(readFileSync(join(od, "crosscheck-SPYx.json"), "utf8")) as { comparator_verdict: { verdict: string }; events: unknown[]; n_exact: number; pages: number; ledger_sha256: string; calls_by_method: Record<string, number> };
+  const ledger1 = readFileSync(join(od, "ledger-SPYx.jsonl"), "utf8");
+  assert.equal(a1.comparator_verdict.verdict, "equal", "run-1 equal");
+  // RUN 2 terminal resume (empty asc page): semis reproduces ascLastSig from the last committed page => end anchor holds.
+  await runMain(b1aArgs(sd, od, 50), b1aDeps(b1aStub([{ data: [], paginationToken: null }])));
+  const a2 = JSON.parse(readFileSync(join(od, "crosscheck-SPYx.json"), "utf8")) as typeof a1;
+  assert.equal(a2.comparator_verdict.verdict, "equal", "the terminal resume is STILL equal (M-b1a-8a: drop the semis => end_anchor_mismatch => reds)");
+  assert.deepEqual(a2.events, a1.events, "events reproduced identically");
+  assert.equal(a2.pages, a1.pages, "pages is idempotent (fact 3: pages = ledger.length, not a +1-drifting counter; M-b1a-8b => reds)");
+  assert.equal(a2.ledger_sha256, a1.ledger_sha256, "ledger_sha256 reproduced (no second genesis chain)");
+  assert.equal(readFileSync(join(od, "ledger-SPYx.jsonl"), "utf8"), ledger1, "the ledger file is unchanged (0 new pages committed)");
+  const sum1 = Object.values(a1.calls_by_method).reduce((a, b) => a + b, 0), sum2 = Object.values(a2.calls_by_method).reduce((a, b) => a + b, 0);
+  assert.ok(sum2 > sum1, "only the budget (calls_by_method) grows across the re-verification resume");
+});
+
+// ---- L-b1a-8 retry (fact 9): a transient 429 recovers in-process without loss or double-count ----------------------
+test("bell_crosscheck_retry_on_429_resumes_without_loss_or_doublecount — a 429 on op-B is retried then succeeds; the page commits once, no event lost (L-b1a-8)", async () => {
+  let updBTries = 0, retries = 0;
+  const stub: JsonRpcCall = (_u, method, params) => {
+    throwOnState(method);
+    if (method === "getTransactionsForAddress") {
+      if (((params as unknown[])[1] as { sortOrder: string }).sortOrder === "desc") return Promise.resolve({ data: [cCB], paginationToken: null });
+      return Promise.resolve({ data: [cinitB, cAB, cBB, cCB], paginationToken: null });
+    }
+    if (method === "getTransaction") { const sig = String((params as unknown[])[0]); if (sig === "updB") { updBTries += 1; if (updBTries === 1) return Promise.reject(new Error("HTTP 429 rate")); } return Promise.resolve(B1A_BODIES[sig]); }
+    throw new Error("unexpected " + method);
+  };
+  const budgeted = makeBudgetedCall(1000, stub);
+  const retry: RetryFn = (fn, method) => withRetry(fn, { tries: 3, sleep: () => Promise.resolve(), onRetry: () => { retries += 1; void method; } });
+  const scan = await scanFullMint(budgeted.call, PROVIDERS, SPYX.address, 45, { maxPages: 10, requireFullPages: false }, {}, noopSink, [], retry);
+  assert.equal(scan.complete, true, "the transient 429 recovered => the scan completes (no loss)");
+  assert.equal(scan.events.length, 4, "all four events decoded (updB re-read succeeded on the retry)");
+  assert.equal(retries, 1, "exactly one retry taken");
+  assert.equal(updBTries, 2, "updB op-B attempted twice (429 then ok)");
+  assert.equal(scan.pages, 1, "the page committed exactly ONCE despite the retry (no double-count; pages = ledger.length)");
+});
+
+test("bell_withRetry_budget_and_nontransient_rethrow — withRetry retries 5xx/429, re-throws BudgetExceeded (even transient-looking) and 4xx at once (L-b1a-8, M-b1a-8c)", async () => {
+  const noSleep = { sleep: (): Promise<void> => Promise.resolve() };
+  // M-b1a-8c: a BudgetExceeded is re-thrown IMMEDIATELY even if its message looks transient — swallowing/retrying it
+  // would mask an overspend. Drop the `instanceof BudgetExceededError` guard => it is retried `tries` times => reds.
+  let bt = 0;
+  await assert.rejects(withRetry(() => { bt += 1; return Promise.reject(new BudgetExceededError("HTTP 503 lookalike budget")); }, { tries: 4, ...noSleep }), BudgetExceededError);
+  assert.equal(bt, 1, "BudgetExceeded is re-thrown at once, never retried (M-b1a-8c => bt=4 => reds)");
+  // a non-transient error (HTTP 4xx != 429) is re-thrown at once.
+  let e4 = 0;
+  await assert.rejects(withRetry(() => { e4 += 1; return Promise.reject(new Error("HTTP 404 not found")); }, { tries: 4, ...noSleep }), /HTTP 404/);
+  assert.equal(e4, 1, "a 4xx is not retried");
+  // a 429 IS retried, then succeeds on the 3rd attempt.
+  let ok = 0;
+  const r = await withRetry(() => { ok += 1; return ok < 3 ? Promise.reject(new Error("HTTP 429")) : Promise.resolve("ok"); }, { tries: 6, ...noSleep });
+  assert.equal(r, "ok"); assert.equal(ok, 3, "retried twice then succeeded");
 });
