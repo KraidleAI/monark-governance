@@ -13,6 +13,10 @@
 //   3. FRENCH .md RULE — a whitelisted .md that the (exempt-aware) language gate flags as French is
 //      EXCLUDED from the copy and REPORTED (not fatal): the root README.md carries only the exempt
 //      corpus proper name, so a raw accent check would wrongly drop it; the gate is exempt-aware.
+//   4. ORPHAN-DATA EXCLUSION (D7 septies) — config-driven (scripts/export-exclude-data.json) removal of
+//      `upcoming` data whose every test-consumer is export-excluded; NON-fatal, REPORTED; NEVER the blacklist.
+//   5. WINDOWS-PATH GUARD (D7 septies (iii)) — the export FAILS HARD (exit 1) if any kept file carries a
+//      reader-local drive path (F: / C: + separator + segment); mirrored in --check, regardless of scope.
 //
 // The first publication of KraidleAI/Monark is a deliberate maintainer decision. This
 // script only writes to a LOCAL --out directory; it never pushes and never touches a
@@ -146,6 +150,93 @@ export function loadExcludedTests(root) {
   return raw.tests.map(toPosix);
 }
 
+// ---- 2b'. ORPHAN DATA EXCLUSIONS (ADR-M004 D7 septies, 2026-09-21) --------------------------
+// A CLOSED, committed list of DATA files (fixtures/provenance) that must NOT be exported because their
+// every test-consumer is itself export-excluded — orphan `upcoming` data in the mirror. Initially the
+// U-4a Ukemi fixtures (apps/sentinel/test/fixtures/ukemi/u4/*, ~6.1 MB), whose only test reader
+// (ukemi-u4-scores.test.ts) is in export-exclude-tests.json. This is the DATA analogue of
+// EXCLUDE_TESTS_FILE — a config-driven, NON-FATAL, silent skip — NEVER STRUCTURAL_BLACKLIST (a whitelisted
+// path there fails the export HARD, exit 1, and diverges from test 42's own BLACKLIST mirror). FAIL-CLOSED:
+// a missing / unparseable list, or one whose `data` is not an array, ABORTS the export (exit 1). An empty
+// `data` array IS valid. The manifest records the data actually excluded under `excluded_data`. The safety
+// conditions — no excluded datum keeps an EXPORTED consumer, and no excluded test leaves an orphan fixture
+// exported — are asserted by test/export-hygiene.test.ts (guards a/b), off the export path.
+export const EXCLUDE_DATA_FILE = "scripts/export-exclude-data.json";
+
+export function loadExcludedData(root) {
+  const abs = join(root, EXCLUDE_DATA_FILE);
+  let raw;
+  try {
+    raw = JSON.parse(readFileSync(abs, "utf8"));
+  } catch (e) {
+    console.error(`export FAILED — ${EXCLUDE_DATA_FILE} is missing or unparseable (fail-closed, D7 septies): ${e.message}`);
+    process.exit(1);
+  }
+  if (!raw || typeof raw !== "object" || !Array.isArray(raw.data)) {
+    console.error(`export FAILED — ${EXCLUDE_DATA_FILE} must be an object with a "data" array (fail-closed, D7 septies).`);
+    process.exit(1);
+  }
+  return raw.data.map(toPosix);
+}
+
+// ---- 2b''. LOCAL WINDOWS ABSOLUTE PATH GUARD (ADR-M004 D7 septies (iii); PLI G2 2026-09-21) --
+// The export must carry NO reader-local absolute path (a poste path: a drive letter + ':' + separator,
+// with or without a following segment) — measured blind spot: export:check reported "0 forbidden path" on
+// an export that shipped one (u3 PROVENANCE:42). A drive path is a SINGLE drive letter (NOT the 'p' of
+// http://, which is preceded by a letter), then ':', then a separator — a DOUBLED backslash (the escaped
+// form a Windows path takes inside a JSON/JS string literal, checkpoint-2 C-4) OR a single '\' or '/' —
+// then EITHER a path-segment char OR whitespace / end-of-line (PLI G2 C-G2-3: a bare drive ROOT with no
+// segment is still reader-local, escaped or not). A SECOND separator immediately after (as in a scheme
+// '://') is neither a segment nor whitespace/EOL, so URLs stay spared. NOT matched: 'http(s)://',
+// 'file://', a single-letter 'x://host', a bare 'C:' in prose (no separator), a data: URI, or this regex's
+// own source (its ':' follows ']', not a letter). UNC '\\host\share' is OUT OF SCOPE (declared in G0 — it
+// is not a drive-letter path).
+export const WINDOWS_ABS_PATH_RE = /(?<![A-Za-z])[A-Za-z]:(?:\\\\|[\\/])(?:[\w.$~-]|\s|$)/;
+
+// Read `abs` as UTF-8 text, or null if it is BINARY. Binary = a NUL byte anywhere, OR an invalid UTF-8
+// sequence (TextDecoder fatal throws). The path guard scans TEXT by CONTENT, not by an extension allowlist
+// (PLI G2 C-G2-1: the old allowlist missed exported text in classes it did not enumerate). An
+// extensionless LICENSE, a .mts type surface and an .svg are all text and can each carry a reader-local
+// path; a .png / .jpg / .cbor is binary and carries none. Declared limit (G0): UTF-16 text has interleaved
+// NUL bytes, so it is classified binary here — no exported file is UTF-16.
+export function readTextOrNull(abs) {
+  const buf = readFileSync(abs);
+  if (buf.includes(0)) return null; // NUL byte => binary (png / jpg / cbor short-circuit here)
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(buf);
+  } catch {
+    return null; // invalid UTF-8 => binary
+  }
+}
+
+/** All Windows-absolute-path hits in `text` (1-based line/col + the matched snippet). */
+export function windowsAbsPathHits(text) {
+  const re = new RegExp(WINDOWS_ABS_PATH_RE.source, "g");
+  const hits = [];
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(lines[i])) !== null) {
+      hits.push({ line: i + 1, col: m.index + 1, snippet: lines[i].slice(m.index, m.index + 40) });
+    }
+  }
+  return hits;
+}
+
+/** Windows-absolute-path violations across a resolved (kept) file list: [{rel,line,col,snippet}].
+ *  Sweeps EVERY kept TEXT file (PLI G2 C-G2-1: text by content, not an extension allowlist); a binary kept
+ *  file (readTextOrNull === null: png / jpg / cbor) carries no textual path and is skipped. */
+export function windowsPathViolations(kept) {
+  const out = [];
+  for (const f of kept) {
+    const text = readTextOrNull(f.abs);
+    if (text === null) continue; // binary kept file — nothing textual to scan
+    for (const h of windowsAbsPathHits(text)) out.push({ rel: f.rel, ...h });
+  }
+  return out;
+}
+
 // Directory names NEVER copied to the public export: installed deps and build output. Added by Lot
 // F-public for apps/site (Next.js). A committed working tree lacks them, but a local `npm install` /
 // `next build` creates node_modules/.next/.turbo, and the whole-tree copy exercised by test 42 would
@@ -195,6 +286,7 @@ function walkFiles(absDir, relDir, out, skipFile) {
 /** Resolve the whitelist to concrete files under root; classify structural violations & French .md. */
 export function collectFiles(root) {
   const excludedTestPaths = new Set(loadExcludedTests(root)); // fail-closed (D7 addendum)
+  const excludedDataPaths = new Set(loadExcludedData(root)); // fail-closed (D7 septies)
   const candidates = [];
   const seen = new Set();
   const missingRequired = []; // D7 bis R2(a): fixed whitelist entries absent (and not tolerated).
@@ -259,20 +351,23 @@ export function collectFiles(root) {
   const structuralViolations = [];
   const frenchMd = [];
   const excludedTests = [];
+  const excludedData = []; // D7 septies: orphan `upcoming` data (config-driven, non-fatal), reported
   const dormantAppTests = []; // F-1 G2 O1: apps/site/test/** dropped (dormant detector), reported not fatal
   const kept = [];
   for (const c of candidates) {
     if (STRUCTURAL_BLACKLIST.some((re) => re.test(c.rel))) { structuralViolations.push(c.rel); continue; } // (1) fail-closed, FIRST
     if (excludedTestPaths.has(c.rel)) { excludedTests.push(c.rel); continue; } // (2) governance-only test (D7 addendum)
+    if (excludedDataPaths.has(c.rel)) { excludedData.push(c.rel); continue; } // (2') orphan upcoming data (D7 septies) — before the French-.md rule so an excluded provenance .md is dropped as DATA, not by language
     if (DORMANT_APP_TEST.test(c.rel)) { dormantAppTests.push(c.rel); continue; } // (2b) F-1 G2 O1: dormant honesty-lint detector, silent skip
     if (c.rel.toLowerCase().endsWith(".md") && isFileFrench(c.abs, maskers)) { frenchMd.push(c.rel); continue; } // (3) French .md, reported
     kept.push(c);
   }
   kept.sort((a, b) => (a.rel < b.rel ? -1 : 1));
   excludedTests.sort((a, b) => (a < b ? -1 : 1));
+  excludedData.sort((a, b) => (a < b ? -1 : 1));
   dormantAppTests.sort((a, b) => (a < b ? -1 : 1));
   missingRequired.sort((a, b) => (a < b ? -1 : 1));
-  return { kept, structuralViolations, frenchMd, excludedTests, dormantAppTests, missingRequired, maskers, pathMatchers };
+  return { kept, structuralViolations, frenchMd, excludedTests, excludedData, dormantAppTests, missingRequired, maskers, pathMatchers };
 }
 
 function sha256(abs) {
@@ -340,7 +435,7 @@ export function derivePublicWorkflow(raw) {
 
 // ---- WRITE mode ---------------------------------------------------------------------------
 function doExport(root, outDir) {
-  const { kept, structuralViolations, frenchMd, excludedTests, dormantAppTests, missingRequired } = collectFiles(root);
+  const { kept, structuralViolations, frenchMd, excludedTests, excludedData, dormantAppTests, missingRequired } = collectFiles(root);
   if (structuralViolations.length) {
     console.error("export FAILED — the whitelist selected forbidden path(s) (blacklist, D7):");
     for (const r of structuralViolations) console.error(`  ${r}`);
@@ -349,6 +444,15 @@ function doExport(root, outDir) {
   if (missingRequired.length) {
     console.error("export FAILED — required whitelist entr(ies) missing (fail-closed, D7 bis R2; no entry is tolerated absent since F-1 shipped apps/site):");
     for (const r of missingRequired) console.error(`  ${r}`);
+    process.exit(1);
+  }
+  // D7 septies (iii): FAIL CLOSED on a reader-local Windows absolute path in any kept file, BEFORE any
+  // write. Mirrors the doCheck guard so --check can never stay green while the real export writes a path
+  // (the fail-open class named at doCheck's R1 note). error_origin = orchestrator (D7 design left export:check blind, same class as volet (i) of D7 septies).
+  const pathViolations = windowsPathViolations(kept);
+  if (pathViolations.length) {
+    console.error("export FAILED — exported file(s) carry a reader-local Windows absolute path (D7 septies (iii)):");
+    for (const v of pathViolations) console.error(`  ${v.rel}:${v.line}:${v.col}  ${v.snippet}`);
     process.exit(1);
   }
   // Derive the public CI workflow up-front so a bad workflow fails CLOSED before anything is written
@@ -374,12 +478,16 @@ function doExport(root, outDir) {
     files.push({ path: f.rel, sha256: hash, bytes });
   }
   files.sort((a, b) => (a.path < b.path ? -1 : 1));
-  const manifest = { files, excluded_tests: excludedTests };
+  const manifest = { files, excluded_tests: excludedTests, excluded_data: excludedData };
   writeFileSync(join(outDir, "EXPORT-MANIFEST.json"), JSON.stringify(manifest, null, 2) + "\n");
   console.log(`export OK — ${files.length} file(s) -> ${outDir}`);
   if (excludedTests.length) {
     console.log(`  excluded ${excludedTests.length} governance-only test(s) (D7 addendum; see ${EXCLUDE_TESTS_FILE}):`);
     for (const r of excludedTests) console.log(`    - ${r}`);
+  }
+  if (excludedData.length) {
+    console.log(`  excluded ${excludedData.length} orphan upcoming data file(s) (D7 septies; see ${EXCLUDE_DATA_FILE}):`);
+    for (const r of excludedData) console.log(`    - ${r}`);
   }
   if (frenchMd.length) {
     console.log(`  excluded ${frenchMd.length} French .md (D7 French-.md rule; translate in the E-* lots):`);
@@ -389,7 +497,7 @@ function doExport(root, outDir) {
     console.log(`  excluded ${dormantAppTests.length} dormant apps/site test file(s) (F-1 G2 O1; not imported by any exported test):`);
     for (const r of dormantAppTests) console.log(`    - ${r}`);
   }
-  console.log("  EXPORT-MANIFEST.json written (files[].{path,sha256,bytes}, excluded_tests[]).");
+  console.log("  EXPORT-MANIFEST.json written (files[].{path,sha256,bytes}, excluded_tests[], excluded_data[]).");
 }
 
 // ---- CHECK mode ---------------------------------------------------------------------------
@@ -404,6 +512,14 @@ function doCheck(root, selectedScopes) {
   if (missingRequired.length) {
     console.error("check FAILED — required whitelist entr(ies) missing (fail-closed, D7 bis R2; no entry is tolerated absent since F-1 shipped apps/site):");
     for (const r of missingRequired) console.error(`  ${r}`);
+    bad = true;
+  }
+  // D7 septies (iii): a reader-local Windows absolute path in any kept file fails the check REGARDLESS of
+  // the language scope (a poste path is always wrong; not a per-scope translation concern).
+  const pathViolations = windowsPathViolations(kept);
+  if (pathViolations.length) {
+    console.error("check FAILED — exported file(s) carry a reader-local Windows absolute path (D7 septies (iii)):");
+    for (const v of pathViolations) console.error(`  ${v.rel}:${v.line}:${v.col}  ${v.snippet}`);
     bad = true;
   }
   // R1: exercise the workflow derivation so --check fails CLOSED on a workflow the real export could not

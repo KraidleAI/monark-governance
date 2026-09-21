@@ -35,5 +35,5 @@ applied to the WHOLE account's collateral — the same v0 simplification as `app
 ## Reproduce
 `node packages/ukemi/test/derive-weth-lattice-fixture.mjs` prints the fixture (LF). The committed file is that
 exact output: sha256 of the LF-normalized bytes = `89085f7c9d2b55341bf888427c95d7a580f9fa6679a0c779a31708cd3327c5dd`,
-asserted by `lattice_weth_fixture_replays_bit_identical`. The script resolves `@monark/monark` by module LOCATION (from the script path), not cwd: run from a foreign cwd (`F:/tmp`) it yields the identical sha256 `89085f7c…`, so the exported public CI (node_modules at the exported root after `npm ci`) replays it the same way. `series_pinned` is N/A (this fixtures root is not a
+asserted by `lattice_weth_fixture_replays_bit_identical`. The script resolves `@monark/monark` by module LOCATION (from the script path), not cwd: run from a foreign cwd (`/tmp`) it yields the identical sha256 `89085f7c…`, so the exported public CI (node_modules at the exported root after `npm ci`) replays it the same way. `series_pinned` is N/A (this fixtures root is not a
 SERIES_EXCLUDED_ROOT; the JSON counts in R-25).

@@ -162,9 +162,91 @@ prochaine publication du miroir public ; propriétaire : orchestrateur).** Le ch
   `export-exclude-tests.json` pour les fixtures) — **jamais** `STRUCTURAL_BLACKLIST` (échec dur exit 1 + divergence du
   miroir `BLACKLIST` de test 42) ;
 - (ii) **nettoyage de `apps/sentinel/test/fixtures/ukemi/u3/PROVENANCE-u3.md:42`** (un chemin de lecteur local
-  `F:\PRODUITS\etude-2026-09-20\u3-raws-clean\u3-reads.jsonl` toujours exporté) ;
+  `F:\PRODUITS\...` (real path recorded in the private PLI) toujours exporté) ;
 - (iii) **extension de `export:check` aux chemins de lecteur Windows** (`[A-Z]:\`) — **constat MESURÉ** : le gate rend
   « 0 forbidden path » sur un export qui en contient un (u3:42) ⇒ il est **AVEUGLE à cette classe**.
+
+### Addendum D7 septies — Lot EXPORT-CLEAN : données orphelines exclues, chemins de lecteur retirés, garde chemins Windows (2026-09-21)
+Résout les trois volets (i)/(ii)/(iii) formés en **D7 sexies**. Worker `claude-opus-4-8[1m]` (effort max), base
+`671b8f2`, worktree `lot/export-clean`. **Aucun** volet ne touche `STRUCTURAL_BLACKLIST` (échec dur exit 1 +
+divergence du miroir `BLACKLIST` de test 42).
+
+**(i) Mécanisme déclaratif d'exclusion des DONNÉES orphelines** — `scripts/export-exclude-data.json` (liste
+fermée `{reason, data:[…]}`, chargée fail-closed comme `export-exclude-tests.json` : fichier manquant /
+illisible / `data` non-tableau ⇒ exit 1 ; tableau vide LICITE). `collectFiles` classe une donnée exclue APRÈS
+la liste noire structurelle (fail-closed, en premier) et la liste des tests exclus, AVANT la règle `.md`
+français, dans un canal `excludedData` ; `EXPORT-MANIFEST.json` gagne `excluded_data[]`. Contenu (la fixture
+U-4a `upcoming` complète, cohérente) :
+`apps/sentinel/test/fixtures/ukemi/u4/{U4-book-23545087.json, U4-oracle-path-e2.jsonl, U4-scores-e2.jsonl,
+PROVENANCE-u4.md}`. Justification MESURÉE : leur seul consommateur de test est `ukemi-u4-scores.test.ts`
+(exclu) ; `U4-scores-e2.jsonl` est un artefact publié sans consommateur ; `PROVENANCE-u4.md` déclare les trois
+et serait un renvoi pendant. **u3 N'EST PAS exclu** : sa série est aussi consommée par le test racine
+`test/u3-realized.test.ts` (non exporté mais vivant) ⇒ « tous les consommateurs exclus » est FAUX pour u3 ;
+u3 reste exporté (volet ii). Test 42 gagne `manifest.excluded_data == cfg.data`. `error_origin` : orchestrateur
+(D7 n'avait pas branché l'exclusion des données au canal des tests).
+
+**Garde double, non-LLM** (`test/export-hygiene.test.ts`, racine, non exporté) : **(a)** aucune donnée de
+`export-exclude-data.json` n'a un consommateur EXPORTÉ (aucun `collectFiles(ROOT).kept` ne cite son basename ;
+mesuré vide) ; **(b)** aucun test exclu ne laisse une fixture dont TOUS les consommateurs de test (globs
+`package.json`, `test/` racine INCLUS) sont exclus, encore `kept`. Mutants : ajouter `weth-book.fixture.json`
+(consommé par le test exporté `ukemi.test.ts`) à la liste ⇒ (a) rouge ; retirer `U4-book-23545087.json` ⇒ (b)
+rouge.
+
+**(ii) Chemin de lecteur retiré de `PROVENANCE-u3.md:42`** — `F:\PRODUITS\…\u3-reads.jsonl` → jeton
+`<U3_RAWS_DIR>/u3-reads.jsonl` (même traitement que `PROVENANCE-u4.md`/`<U4_RAWS_DIR>`, D7 sexies) ; l'emplacement
+réel reste dans le PLI privé sous `docs/`, jamais exporté. **Re-pin sha** : `series_pinned_are_declared_and_hashed`
+n'hache QUE `.json/.jsonl/.csv` (`SERIES_DATA_EXTS`), jamais un `.md` ⇒ AUCUN pin test-gardé. Les seules
+occurrences des sha touchés sont des valeurs « après » de PLI de lots CLOS (`PLI-lot-u3.md`, `PLI-lot-u4a.md`) :
+non réécrites (falsifierait l'état de clôture). Transitions old→new au rendu.
+
+**(iii) Garde chemins Windows absolus dans `export:check` ET `export`** — fn exportée
+`windowsAbsPathHits(text)` (regex `(?<![A-Za-z])[A-Za-z]:[\\/][\w.$~-]` : lettre de lecteur unique — pas le
+`p` de `http://` — + `:` + `\`/`/` + segment). Balaie `kept` (texte, `.jsonl` inclus, `package-lock` non
+sauté). Fail-closed AVANT toute écriture dans `doExport` (classe fail-open nommée aux commentaires L409-411 du
+script), et échec de `doCheck` hors sélection de scope (un chemin de poste est toujours fautif). 5 hits mesurés
+sur l'export courant, tous corrigés : u3:42 (volet ii) + 4 chemins jetables (`record.ts:10`,
+`ukemi-record.test.ts:108-109`, `PROVENANCE-weth-book-lattice.md:38`) genericisés en POSIX `/tmp/…`. Négatifs
+couverts : `http://`, un `C:` de prose sans séparateur, une source de regex. Mutant : `if (false)` sur la garde
++ copie semée ⇒ rouge.
+
+**Branchement / dettes** : `export:check` absent de la CI reste l'item formé du 2026-09-20 (CI-site, propriétaire
+orchestrateur) — CITÉ, non re-formé ; la garde (iii) y atterrit à sa réalisation. Rejouabilité publique de la
+calibration U-4 (D7 sexies) inchangée : hors périmètre de ce lot.
+
+**PLI G2 — fold des constats C-G2-1..C-G2-4 (2026-09-21, worker `claude-opus-4-8[1m]` effort max ; revue
+`docs/G2-lot-export-clean.md`, PASS-AVEC-CORRECTIONS).** La garde (iii) est raffinée ; `error_origin` = worker
+(D7 septies avait laissé ces angles morts). Fichiers de code : `scripts/export-public.mjs`,
+`scripts/export-public.d.mts`, `test/export-hygiene.test.ts` (docs hors R-25).
+- **C-G2-1** — `windowsPathViolations` balaie désormais TOUT fichier KEPT **texte par CONTENU**
+  (`readTextOrNull` : octet NUL OU UTF-8 invalide ⇒ binaire, ignoré), et NON plus par une allowlist
+  d'extensions (`PATH_SCAN_TEXT_EXTS` retirée du `.mjs` et du `.d.mts`). L'ancienne allowlist manquait `.mts`
+  (`scripts/grep-forbidden.d.mts`), `.svg` (`apps/site/app/{icon,apple-icon}.svg`) et les fichiers SANS
+  extension (`LICENSE`, `skills/monark/LICENSE`, `apps/site/content/.gitkeep`) — tous exportés et texte.
+  Binaires ignorés (mesuré NUL/UTF-8 invalide) : `out/logo.png`, `out/banner.jpg`, `fixtures/s3-binance.lot.cbor`.
+  Le guard (a) de `export-hygiene.test.ts` (même filtre hérité) bascule sur le même balayage par contenu.
+- **C-G2-2** — test committé `export_windows_path_guard_bites_seeded_text_file` : SÈME un chemin de lecteur
+  dans une COPIE d'arbre entière (dans `.mts` + `LICENSE` sans extension) et exige exit 1 de `--out` ET de
+  `--check --scope root` (le scope root épingle le gate de langue au scope root, vert sur arbre propre : un
+  exit 1 après semis est donc attribuable à la garde CHEMINS seule ; `export:check` nu est aussi exit 0 sur
+  arbre propre — mesuré). Couvre la branche POSITIVE du mécanisme (pas seulement du contenu déjà présent).
+- **C-G2-3 (+ checkpoint-2 C-4)** — regex étendue `(?<![A-Za-z])[A-Za-z]:(?:\\\\|[\\/])(?:[\w.$~-]|\s|$)` :
+  après `:`, un séparateur **DOUBLÉ** (backslash échappé — la forme d'un chemin Windows dans un littéral de
+  chaîne JSON/JS, C-4) OU un simple `\`/`/` ; puis un segment OU un blanc / fin de ligne. Attrape donc une
+  RACINE de lecteur nue (`D:/`, `C:\`, échappée ou non) en fin de ligne / avant un blanc, ET la forme
+  échappée `"F:\\tmp\\x"` (angle mort mesuré au checkpoint-2 : 0 hit avant). Un second séparateur (`://`)
+  n'est ni segment ni blanc/EOL ⇒ URLs (`http://`, `x://host`) toujours épargnées. **Classe couverte** :
+  lettre + `:` + (`\` | `/` | `\\`) + (segment | blanc | EOL). **HORS PÉRIMÈTRE, déclaré** : UNC
+  `\\host\share` (pas de lettre de lecteur) ; segment non-ASCII (`[\w.$~-]` sans flag `u`, ex. `F:\Études`) ;
+  texte **UTF-16** (NUL entrelacés ⇒ classé binaire) — aucun fichier exporté n'est dans ces classes.
+- **C-G2-4** — `test/export-hygiene.test.ts` (racine, NON exporté) : commentaire rendu cohérent (les POSITIFS
+  sont assemblés au runtime ⇒ le CODE ne porte aucun chemin de lecteur littéral) ET le vrai nom de dossier
+  privé ANONYMISÉ (segments fictifs) — plus aucun `F:\PRODUITS\…` réel, même dans un test non exporté.
+- **Mutants PLI G2 + checkpoint-2** (sauvegarde + sha256, restauration byte-exacte, jamais `git checkout`) :
+  **M-3b** (`windowsPathViolations`→`[]`) ⇒ test C-G2-2 ROUGE + chemin semé shipped dans le miroir (1 occ.) ;
+  **allowlist restaurée** ⇒ test C-G2-2 ROUGE (`.mts`/`LICENSE` manqués) ; **fin de ligne** (regex revertie
+  en `[\w.$~-]`) ⇒ `windows_abs_path_matcher` ROUGE (positifs EOL), C-G2-2 vert ; **C-4 séparateur simple**
+  (regex revertie à `…:[\\/]…`) ⇒ `windows_abs_path_matcher` ROUGE (nouveau positif échappé `F:\\…`), le
+  semis à backslash simple reste vert.
 
 ### D8 — Lot E (English only) et R-25 (item 11)
 Scindé par package, une PR chacune, **aucun lot exempté** ; **hikae scindé `src` / `test`** (mesure §1.3) ; règle générale : si la mesure d'un lot dépasse 1 205, scission par répertoire (`src`, `test`, sous-répertoire `s2/`). **E-contracts ne touche jamais aux identifiants gelés** (test 0 `contracts_frozen`). Ordre : E-root (CI, scripts, tests racine) ∥ E-contracts → E-hikae-src → E-hikae-test → E-ukemi → E-atelier → E-monark.
@@ -278,3 +360,5 @@ Cadre le lot F-site-9 (mise à niveau DA « Console » B + illustration vivante 
 - **(d) Remplacement du pipeline de cartes de la home par le diagramme vivant SVG** (concept D v3, **pas** « le sas ») : porté dans `board.tsx` (données `fleet.ts`/`profiles.ts` + registre chaînes), **conservés** : `<aside>` panneau latéral, picker `PICKER_PROFILES`, `{CAVEAT}` ; clic pièce ⇒ chemin accentué + panneau (résout Q-1) ; clavier ; `prefers-reduced-motion` ; aucun chiffre ; commit/defer/abstain en couleurs seules. Intégration en **F-site-9a-ii**.
 - **(e) Polices OFL en `next/font/local`** : lève la réserve « fetch réseau au build » de D15 (C-2) — les polices Open Font License sont **vendorées** et chargées via `next/font/local`, build reproductible hors-ligne, plus de dépendance réseau à Google au build.
 `error_origin` = n/a (décision investisseur actée ; correction C-1 du checkpoint-1). Le présent addendum est commis avec **F-site-9a-i**, dont les livrables — `components/sas/{sas-model,sas-machine,sas-audit,use-sas-state}.ts` (purs, **zéro dépendance**) + tests racine `test/sas-*.test.ts` — **restent valides et alimentent le diagramme vivant** (BRIEF addendum 6 : « 9a-i … reste valide »), sous G1 `docs/G1-lot-fsite-9a-i.md`.
+
+**Complément D7 septies — 2026-09-21 (checkpoint-2 EXPORT-CLEAN, C-2)** : `error_origin` des volets — (i) données orphelines : orchestrateur (D7 sexies n'avait pas prévu le cas) ; (ii) chemin local exporté dans `PROVENANCE-u3.md:42` : worker U-3 (copie) + orchestrateur (G7 U-3 sans balayage) ; (iii) `export:check` aveugle aux chemins : orchestrateur (conception D7, même classe que (i)) ; pli G2 (garde par contenu, C-4 forme échappée `X:\…`) : worker EXPORT-CLEAN. Ce complément est un pur ajout daté ; les alinéas précédents restent tels quels.

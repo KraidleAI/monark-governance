@@ -20,6 +20,8 @@
  *       the frozen `schemas` scope, ADR-M001 D9-bis; apps/site is English-only, Lot F-public — a French
  *       string visible in a page, or in a frozen schema `description`, reds here);
  *   (d) packages/hikae/docs/ is absent (S2 reports excluded, D7) and the excluded tests are absent;
+ *   (d bis) manifest.excluded_data EQUALS scripts/export-exclude-data.json and those orphan `upcoming` data
+ *       files (the u4 fixtures) are absent from the output (ADR-M004 D7 septies);
  *   (e) `npm ci` then `npm run ci` INSIDE the export are BOTH exit 0 (the exported CI is green);
  *   (f) the exported .github/workflows/ci.yml is DERIVED (D7 bis R1): no `r25` at all (bare regex, =
  *       the `grep -c r25 = 0` oracle, subsumes the r25-taille-de-lot job), a `push` trigger under
@@ -68,9 +70,13 @@ interface ManifestEntry {
 interface Manifest {
   files: ManifestEntry[];
   excluded_tests: string[];
+  excluded_data: string[];
 }
 interface ExcludeConfig {
   tests: string[];
+}
+interface ExcludeDataConfig {
+  data: string[];
 }
 
 // Mirrors scripts/export-public.mjs STRUCTURAL_BLACKLIST (POSIX rel paths).
@@ -218,6 +224,18 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
     for (const t of expectedExcluded) {
       assert.ok(!existsSync(join(out, t)), `excluded test still present in output: ${t}`);
       assert.ok(!listed.has(t), `excluded test listed in manifest.files: ${t}`);
+    }
+
+    // (d bis) orphan-data exclusion is CONFIG-RELATIVE too (D7 septies): manifest.excluded_data == the committed
+    // scripts/export-exclude-data.json, and none of those files reach the output. The deeper safety conditions
+    // (no excluded datum keeps an exported consumer; no excluded test leaves an orphan) live in export-hygiene.test.ts.
+    const dataCfg = JSON.parse(readFileSync(join(ROOT, "scripts", "export-exclude-data.json"), "utf8")) as ExcludeDataConfig;
+    const expectedExcludedData = [...dataCfg.data].map(toPosix).sort();
+    assert.ok(Array.isArray(manifest.excluded_data), "manifest.excluded_data missing");
+    assert.deepEqual([...manifest.excluded_data].sort(), expectedExcludedData, "excluded_data must equal the committed config");
+    for (const d of expectedExcludedData) {
+      assert.ok(!existsSync(join(out, d)), `excluded datum still present in output: ${d}`);
+      assert.ok(!listed.has(d), `excluded datum listed in manifest.files: ${d}`);
     }
 
     // (f) the exported workflow is DERIVED, not copied verbatim (D7 bis R1 / mutant M5): no r25 at all
