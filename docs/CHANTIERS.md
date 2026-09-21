@@ -372,3 +372,6 @@ Validateur `claude-fable-5-1` (2026-09-20 23:41→23:53 UTC, artefacts `f5996a0`
 - Item `docs/RESSOURCES-HELIUS-2026-09-19.md:30` périmé = **item orchestrateur** (hors périmètre d'édition de ce lot ; **NON touché** ici).
 
 ---
+
+### Décision investisseur 95 (2026-09-21, consigné 01:45 UTC, horloge)
+- **95 — GTM « registre des écarts de réouverture » ajouté à la roadmap Bell** (verbatim : « j'aime ton idée gtm BELL; ajoute la a la rodmap BELL »). `docs/ROADMAP-BELL.md` créé (paliers 0-3) : la thèse GTM y est le palier 2, étiquetée THÈSE tant que l'avis de l'advisor-marché (consultation en cours) n'est pas rendu ; rien n'entre dans le release ; le hook Uniswap v4 est une piste MONARK (palier 3), non planifiée. Faits lus sur place archivés sous `F:\PRODUITS\etude-2026-09-21\gtm-bell`.
