@@ -28,12 +28,15 @@ const DEPLOY = join(REPO, "deploy");
 const TZ_EAST = "Etc/GMT-11"; // a non-UTC child TZ; toISOString stays UTC, so verdicts are TZ-invariant here
 
 // RUN_DURATION_D_SEC — the publishing run's wall clock, MEASURED by the orchestrator (I do not estimate D),
-// committed here as a named constant with its provenance (C-NB-5). D = 25.481 s (start 00:47:55 UTC, exit
-// 00:48:20 UTC on the VPS site, 2026-09-21), rounded UP to the whole second => 26. Provenance:
-// docs/JOURNAL-PROVENANCE.md:310 (G7 lot NARABI-OPS-1b-i, merge 9b178f3). That line's sha256 (LF-normalized,
-// no trailing newline) is 2d3158b2865e640cebe05ffb8a220cd7194f315809235bcbb9051eca925f9388 — reproduce with:
-//   node -e 'const l=require("node:fs").readFileSync("docs/JOURNAL-PROVENANCE.md","utf8").split("\n")[309]; \
-//            console.log(require("node:crypto").createHash("sha256").update(l,"utf8").digest("hex"))'
+// committed here as a named constant with its provenance (C-NB-5, C-G2-5). D = 25.481 s (publishing run of
+// 2026-09-21, start 00:47:55 UTC, exit 00:48:20 UTC on the VPS site), rounded UP to the whole second => 26.
+// Provenance is anchored on the JOURNAL CONTENT, not a line NUMBER (C-G2-5: a line inserted BEFORE it must not
+// silently re-point the reference): docs/JOURNAL-PROVENANCE.md carries the substring
+//   "mesure D = 25,481 s (run publiant 00:47:55→00:48:20 UTC"   (G7 lot NARABI-OPS-1b-i, merge 9b178f3).
+// Locate it by CONTENT:  grep -n "mesure D = 25,481 s" docs/JOURNAL-PROVENANCE.md   (as of 2026-09-21 it is
+// on line 310; that is a convenience, not the anchor). SECONDARY check — that line's sha256, LF-normalized,
+// without a trailing newline, is 2d3158b2865e640cebe05ffb8a220cd7194f315809235bcbb9051eca925f9388 (the CONTENT
+// above is primary; the number and the sha are secondary and may drift as the JOURNAL grows).
 const RUN_DURATION_D_SEC = 26;
 
 // EXPLICIT env with the mail/probe knobs PURGED (C-B-6): a SMTP_PASS / PROBE_URL in the orchestrator's ambient
@@ -260,4 +263,88 @@ test("probe_state_get_rss_and_worstcase_bounds — monark-probe.service covers t
   const worstSec = Math.ceil((MAX_TIMEOUT_MS * (MAX_RETRIES + 1) + STATE_TIMEOUT_MS * (STATE_RETRIES + 1) + START_MARGIN_MS) / 1000);
   assert.ok(Number(to[1] ?? "0") > worstSec,
     `TimeoutStartSec (${String(to[1] ?? "?")}) must strictly exceed the GET1+GET2 capped worst case ${String(worstSec)}s (a mis-set env can never get the probe killed mid state-check)`);
+});
+
+// ── PLI G2 mutant-killers (N-G2-1/2/3): three gaps the G2 reviewer's adversarial mutants SURVIVED on the frozen
+// suite (the delivered code is correct; these pin the missing teeth so a future regressive edit reds). ──────────
+
+// N-G2-3 (robustness, the most useful): the URL-mode 2nd GET must BIND maxBytes = STATE_MAX_BYTES at the call
+// site. Mien#2 pins the CONSTANT (via probe_state_get_rss_and_worstcase_bounds); this pins the RUNTIME BINDING —
+// that probe() actually passes STATE_MAX_BYTES to the state GET. Dropping it lets GET2 read up to MAX_MAX_BYTES
+// (8 MiB), so the two-body RSS could exceed MemoryMax=128M (OOM). Killer: serve a COHERENT-digest state.json of
+// STATE_MAX_BYTES+overhead bytes -> the bounded real GET2 refuses it too_large -> state_unreachable; a mutant
+// GET2 without the cap reads it whole and, since the digest matches, would go HEALTHY.
+test("probe_state_get2_binds_state_max_bytes — the URL-mode state cross-check GET passes maxBytes:STATE_MAX_BYTES, so an oversize (but coherent-digest) state.json is refused too_large -> state_unreachable, never read whole (kills N-G2-3: a GET2 without the maxBytes binding reads up to MAX_MAX_BYTES and, the digest matching, goes healthy — an RSS/OOM hazard on the two-body path)", async () => {
+  const tl = NARABI_SNAPSHOT.timelineJsonl;
+  const NOW = "2026-09-19T10:35Z"; // last day 2026-09-18 present after the deadline => not lagging; isolates the state verdict
+  const coherent = JSON.parse(NARABI_SNAPSHOT.stateJson) as Record<string, unknown>;
+  // valid JSON, COHERENT digest (so a mutant reading it whole matches -> healthy, not state_mismatch), padded
+  // just over STATE_MAX_BYTES so the bounded real GET2 refuses it too_large before parsing.
+  const oversize = JSON.stringify({ ...coherent, pad: "x".repeat(STATE_MAX_BYTES) });
+  assert.ok(Buffer.byteLength(oversize, "utf8") > STATE_MAX_BYTES, "the served state.json exceeds STATE_MAX_BYTES");
+  const server = createServer((req, res) => {
+    if (req.url === "/narabi/timeline.jsonl") { res.writeHead(200, { "content-type": "application/jsonl" }); res.end(tl); return; }
+    if (req.url === "/narabi/state.json") { res.writeHead(200, { "content-type": "application/json" }); res.end(oversize); return; }
+    res.writeHead(404); res.end();
+  });
+  const port = await listen(server);
+  try {
+    const r = await runProbeAsync(["--url", `http://127.0.0.1:${String(port)}/narabi/timeline.jsonl`, "--now", NOW]);
+    assert.equal(r.state.reason, "state_unreachable", "oversize state.json refused too_large by the bounded GET2 -> state_unreachable (mutant without the cap reads it whole, digest matches -> healthy)");
+    assert.equal(r.state.state_checked, false, "not checked (over the STATE_MAX_BYTES cap)");
+    assert.equal(r.state.status, "unhealthy", "unhealthy");
+    assert.equal(r.status, 1, "state_unreachable exits 1");
+  } finally { await close(server); }
+});
+
+// N-G2-1: the state.json digest MUST be a string; a numeric digest is not comparable -> state_unreachable (NOT
+// state_mismatch). stateDigestOf gates on `typeof d === "string"`; a mutant relaxing it to `d != null` accepts
+// 123, compares it to the hex digest_T, and mis-classifies as state_mismatch/state_checked:true.
+test("probe_state_digest_must_be_string — a numeric (non-string) state.json digest yields no comparable digest -> state_unreachable, state_checked:false (kills N-G2-1: a type guard relaxed to `d != null` accepts 123 and mis-reports state_mismatch)", async () => {
+  const tl = NARABI_SNAPSHOT.timelineJsonl;
+  const NOW = "2026-09-19T10:35Z";
+  const numericDigest = JSON.stringify({ ...JSON.parse(NARABI_SNAPSHOT.stateJson) as Record<string, unknown>, digest: 123 });
+  const server = createServer((req, res) => {
+    if (req.url === "/narabi/timeline.jsonl") { res.writeHead(200, { "content-type": "application/jsonl" }); res.end(tl); return; }
+    if (req.url === "/narabi/state.json") { res.writeHead(200, { "content-type": "application/json" }); res.end(numericDigest); return; }
+    res.writeHead(404); res.end();
+  });
+  const port = await listen(server);
+  try {
+    const r = await runProbeAsync(["--url", `http://127.0.0.1:${String(port)}/narabi/timeline.jsonl`, "--now", NOW]);
+    assert.equal(r.state.reason, "state_unreachable", "a non-string digest is not comparable -> state_unreachable (mutant `d != null` -> state_mismatch)");
+    assert.equal(r.state.state_checked, false, "not checked (no comparable STRING digest was obtained)");
+    assert.equal(r.state.status, "unhealthy", "unhealthy");
+    assert.equal(r.status, 1, "state_unreachable exits 1");
+  } finally { await close(server); }
+});
+
+// N-G2-2: the PROBE_STATE_URL override (addendum §2 / G0 C-B-12: env override, default = basename derivation) is
+// HONORED in place of the derived URL AND is subject to the SAME transport guard as GET1 (fetchTimeline ->
+// urlTransportAllowed, defense in depth :250). Proof in ONE assertion: point the override at http://127.1:<port>
+// — WHATWG normalizes the host to 127.0.0.1 so u.hostname passes isLoopbackHost, but rawUrlHost returns "127.1"
+// which fails the 4-octet loopback regex, so the guard REFUSES it (insecure_url) BEFORE any dial. Real: the
+// loopback server records EXACTLY ONE hit (GET1 only; the state GET never dialed) -> state_unreachable. A mutant
+// ignoring the override (deriveStateUrl(url) only) derives the CANONICAL loopback state.json, hits the server a
+// 2nd time, matches -> healthy. The single hit proves BOTH "refusal without request" and "same guard as GET1".
+test("probe_state_url_override_honored_and_guarded — the PROBE_STATE_URL override is used AND transport-guarded like GET1: a refused override (http://127.1, normalized host but rawUrlHost-refused) yields state_unreachable with EXACTLY one loopback hit (GET1 only, no state dial) (kills N-G2-2: a mutant ignoring the override derives the canonical state.json, hits a 2nd time, and goes healthy)", async () => {
+  const tl = NARABI_SNAPSHOT.timelineJsonl;
+  const NOW = "2026-09-19T10:35Z";
+  let hits = 0;
+  const server = createServer((req, res) => {
+    hits++;
+    if (req.url === "/narabi/state.json") { res.writeHead(200, { "content-type": "application/json" }); res.end(NARABI_SNAPSHOT.stateJson); return; }
+    res.writeHead(200, { "content-type": "application/jsonl" }); res.end(tl);
+  });
+  const port = await listen(server);
+  try {
+    const r = await runProbeAsync(
+      ["--url", `http://127.0.0.1:${String(port)}/narabi/timeline.jsonl`, "--now", NOW],
+      { PROBE_STATE_URL: `http://127.1:${String(port)}/narabi/state.json` }, // same host, a form -1b-i's guard refuses -> no dial
+    );
+    assert.equal(r.state.reason, "state_unreachable", "a refused PROBE_STATE_URL override -> state_unreachable (the override IS honored and IS transport-guarded like GET1)");
+    assert.equal(r.state.state_checked, false, "not checked (the override was refused before any dial)");
+    assert.equal(hits, 1, "EXACTLY one loopback hit: GET1 (timeline); the state GET was refused WITHOUT a request (a mutant ignoring the override derives the canonical URL and hits a 2nd time -> healthy)");
+    assert.equal(r.status, 1, "state_unreachable exits 1");
+  } finally { await close(server); }
 });

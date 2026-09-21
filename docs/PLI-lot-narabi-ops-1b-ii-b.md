@@ -134,8 +134,15 @@ GET₂). Non adjacente aux zones -a probables : helpers `runProbe`/`runProbeAsyn
    orchestrateur ; déclencheur : la fusion de -b. (MESURÉ, pas inféré : `everlasting` — un pattern GLOBAL,
    `vocab-banned.json:9` — injecté dans le fichier neuf ⇒ `gate:vocab` reste VERT « 181 fichiers, 0 claim » ⇒ le
    fichier n'est scanné par AUCUN scope ; restauré byte-exact. En régime normal, anglais propre, gate vert.)
-2. **Rehausse `monark-probe.service TimeoutStartSec` pour SMTP** — propriétaire -a/orchestrateur ; déclencheur : la
-   fusion -a (qui fixe `MAX_SMTP_DEADLINE_MS`). -b n'a pas besoin de la rehausse (GET₂ tient sous 90 s).
+2. **Assertion pire-cas COMBINÉ à la 2ᵉ fusion (C-G2-3, REFORMULÉ — ce n'est PAS une rehausse).** -a fixe
+   `monark-probe.service TimeoutStartSec=120` et `MAX_SMTP_DEADLINE_MS=30_000`. Le vrai pire cas combiné =
+   GET₁ (10 s × 5 = 50) + GET₂ (5 s × 2 = 10) + SMTP (30) + marge (10) = **100 s < 120 ⇒ AUCUNE rehausse
+   nécessaire** (l'item pré-pli « rehausser T_s » est SANS OBJET pour le budget ; -b tient déjà sous 90/120).
+   Le trou est que NI `probe_timer_multiple_shots` (-a : 120 > 90, sans GET₂) NI `probe_state_get_rss_and_worstcase_bounds`
+   (-b : 120 > 70, sans SMTP) ne pinne **120 > 100**. **Item de SECONDE FUSION** : étendre UNE des deux assertions
+   à `TimeoutStartSec > MAX_TIMEOUT_MS·(MAX_RETRIES+1) + STATE_TIMEOUT_MS·(STATE_RETRIES+1) + MAX_SMTP_DEADLINE_MS
+   + START_MARGIN_MS`. Propriétaire orchestrateur ; déclencheur : fusion de -a ET -b (la constante `MAX_SMTP_DEADLINE_MS`
+   vit en -a, absente de ce worktree — je ne peux pas écrire l'assertion combinée ici). **NE PAS toucher l'unité de la sonde** (instruction orchestrateur).
 3. **Course GET₁/GET₂ (C-NB-4)** — durcissement « relire la timeline une fois avant de conclure `state_mismatch` »
    NON codé en -b (ajouterait un GET₃ dans la dérivation `TimeoutStartSec` + RSS). Résiduel déclaré (flap
    auto-guéri, acceptable). Déclencheur : premier faux `state_mismatch` observé au déploiement ; propriétaire
@@ -149,8 +156,8 @@ GET₂). Non adjacente aux zones -a probables : helpers `runProbe`/`runProbeAsyn
 
 ## 6. Oracles (chiffres de la suite COMPLÈTE — leçon U-4a)
 
-- `npm run test` COMPLET : **509 tests, 509 pass, 0 fail** (base 504 + 5 tests -b), `exit 0`. Re-joué APRÈS
-  restauration des mutants : **509/509**.
+- `npm run test` COMPLET : **512 tests, 512 pass, 0 fail** (G1 = 509 ; **+3 tests killers G2** N-G2-1/2/3), `exit 0`.
+  Re-joué APRÈS restauration des 7 mutants : vert (voir §10.4).
 - `npm run typecheck` (`tsc --noEmit`) : **0 erreur** (avec `exactOptionalPropertyTypes` ; `EvaluateInput.stateCheck?: StateCheck | undefined`).
 - `eslint` fichiers touchés (`test/probe-narabi-state.test.ts`, `test/probe-narabi.test.ts`) : **0** (le `.mjs`/`.d.mts` sont ignorés par eslint).
 - `lint:ratchet` : **69/69** (plafond inchangé — le test neuf n'ajoute aucune violation de typage différé).
@@ -159,10 +166,14 @@ GET₂). Non adjacente aux zones -a probables : helpers `runProbe`/`runProbeAsyn
 - `lang:gate` : **OK, 0 hit français non exempté**.
 - `no-secret-in-repo` : dans la suite (509/509) — aucun secret (loopback/`.invalid`/snapshot public seulement).
 - **R-25** : `git diff --shortstat 57e9cbc -- <pathspec ci.yml:65>` (`docs/**/*.md` + fixtures + package-lock
-  exclus, fichier neuf via `git add -N`) = **379 insertions + 13 suppressions = 392 ≤ 1205**.
-- **Nouveaux tests -b (5)** tous VERTS : `probe_state_digest_cross_check`, `probe_state_unreachable_precedence`,
+  exclus) = **466 insertions + 13 suppressions = 479 ≤ 1205** (G1 = 392 ; les 3 tests killers G2 + la reformulation
+  du commentaire C-G2-5 ajoutent +87 au fichier `test/probe-narabi-state.test.ts` ; RUNBOOK et PLI sont `docs/**/*.md`,
+  EXCLUS). Chaque fichier revu ≤ 1205 (le plus gros compté = `test/probe-narabi-state.test.ts` à 350).
+- **Tests -b VERTS (8 = 5 G1 + 3 G2)** : G1 `probe_state_digest_cross_check`, `probe_state_unreachable_precedence`,
   `probe_get_retries_exactly_n_plus_one`, `probe_sentinel_timeoutstartsec_inter_unit_coherence`,
-  `probe_state_get_rss_and_worstcase_bounds`. Test hérité réconcilié `probe_get_over_loopback_http_executes` : VERT.
+  `probe_state_get_rss_and_worstcase_bounds` ; **G2** `probe_state_get2_binds_state_max_bytes` (N-G2-3),
+  `probe_state_digest_must_be_string` (N-G2-1), `probe_state_url_override_honored_and_guarded` (N-G2-2). Test hérité
+  réconcilié `probe_get_over_loopback_http_executes` : VERT.
 
 Environnement : dépendances installées par `npm ci --prefer-offline` (cache `F:\cache\npm`, 17 s, aucun réseau).
 
@@ -176,10 +187,12 @@ Environnement : dépendances installées par `npm ci --prefer-offline` (cache `F
 | `scripts/probe-narabi.d.mts` | `09d6a641527333cb07ce3586fc5517d472c9e62a8ae86f588f49280e9e83a258` |
 | `deploy/monark-sentinel.service` | `d70f88ccb11e276caa64b7715795e26266b4d98453f40f95504128e1a83a5433` |
 | `test/probe-narabi.test.ts` | `2d820136996f11406b62afedb449520ee2f1867b025e8beb95c14f927703308f` |
-| `test/probe-narabi-state.test.ts` | `4cd3e2387d0405d65bf10946dcad1e06a32936452f3633eef1de48c7c647abd9` |
-| `docs/adr/ADR-NARABI-OPS-1.md` | `db21d698d1c565e19830fe9c7746b9716078a164df48949c6492f389e372a2f5` |
-| `docs/RUNBOOK-sentinel.md` | `1bd93f8ff476a90fc3a3762d8ef2830bda1b1073c19b48e17184896281ef4d78` |
-| `docs/PLI-lot-narabi-ops-1b-ii-b.md` | (ce fichier) |
+| `test/probe-narabi-state.test.ts` | **G2 pli** `55e502220c4d781316c40de556516fc457476b9ea45cb62bdf98d5282a3fdda0` (G1 était `4cd3e238…` ; +3 tests killers + commentaire C-G2-5) |
+| `docs/adr/ADR-NARABI-OPS-1.md` | `db21d698d1c565e19830fe9c7746b9716078a164df48949c6492f389e372a2f5` (inchangé au pli) |
+| `docs/RUNBOOK-sentinel.md` | **G2 pli** `3a049053f9fc3c8baf07182b13c11461b4f1459d5be7283b6cdb982fb099ff07` (G1 était `1bd93f8f…` ; §6 « Start backstop » réécrit : deux modes de kill + réparations + préconditions) |
+| `scripts/probe-narabi.mjs` (re-vérifié post-mutants) | `1001c1cd1f5bb8e8cc131986295360a296c895487635e532509ca549d9d8058f` (== pristine ; 7 mutants restaurés byte-exact) |
+| `deploy/monark-sentinel.service` (re-vérifié post-mutant M-ii-14) | `d70f88ccb11e276caa64b7715795e26266b4d98453f40f95504128e1a83a5433` (== pristine) |
+| `docs/PLI-lot-narabi-ops-1b-ii-b.md` | (ce fichier ; sha final au gel par l'orchestrateur) |
 
 ---
 
@@ -188,15 +201,22 @@ Environnement : dépendances installées par `npm ci --prefer-offline` (cache `F
 > **sous-lot NARABI-OPS-1b-ii-b (durcissement DÉTECTION + borne démarrage sentinel)** — worktree
 > `F:\Monark-wt-narabi1b2b` (`lot/narabi-ops-1b-ii-b`, base `57e9cbc`), offline, effort max.
 > **Modèle résolu PAR ÉTAPE** : G1 (code + tests + docs) = worker **`claude-opus-4-8[1m]`**, 2026-09-21 ; G2
-> dédiée (relecteur Opus 4.8 SÉPARÉ, C-NB-6) = À VENIR ; checkpoint-2 = validateur-humain `claude-fable-5-1` = À
-> VENIR ; G7 + adjudications R-21 = orchestrateur `claude-fable-5-1` = À VENIR.
-> **Livré** : 2ᵉ GET borné `state.json` (dérivation par défaut du basename), `state_mismatch`/`state_unreachable`
+> dédiée (relecteur Opus 4.8 SÉPARÉ, C-NB-6) = **`claude-opus-4-8[1m]` FAITE** (PASS-AVEC-CORRECTIONS, `3fbf2b0`,
+> `docs/G2-lot-narabi-ops-1b-ii-b.md`) ; **pli G2 = worker `claude-opus-4-8[1m]`, 2026-09-21** (ce PLI §10) ;
+> checkpoint-2 = validateur-humain `claude-fable-5-1` = À VENIR ; G7 + adjudications R-21 = orchestrateur
+> `claude-fable-5-1` = À VENIR.
+> **Livré (G1)** : 2ᵉ GET borné `state.json` (dérivation par défaut du basename), `state_mismatch`/`state_unreachable`
 > (Q4) + précédence fermée, `state_checked`, tueur du réessai GET (M-ii-10), `monark-sentinel.service
 > TimeoutStartSec=300` (D=25,481 s ⇒ `RUN_DURATION_D_SEC=26`, E-5/décision 92), test inter-unités (bornes haute
-> ET basse), assertion RSS `13×(MAX_MAX_BYTES+STATE_MAX_BYTES)`. Oracles : suite complète **509/509**, typecheck 0,
-> gate:vocab 181, lint:ratchet 69/69, export:check + lang:gate 0 hit, **8 mutants ROUGES byte-exact** (M-ii-9,10,
-> 13,14,22 + 3 miens). **R-25 392/1205**. NON déployé ; E-5 (VPS site) accordé décision 92, à exécuter par
-> l'orchestrateur après G7 + checkpoint-2.
+> ET basse), assertion RSS `13×(MAX_MAX_BYTES+STATE_MAX_BYTES)`.
+> **Plié (G2)** : RUNBOOK §6 « Start backstop » RÉÉCRIT — DEUX modes de kill (A rattrapage-livelock ≥ ~12 j de
+> backlog, B ligne tronquée) avec symptômes journal + réparation exacte (drop-in `catchup.conf` / `--day` ; retrait
+> byte-exact de la ligne tronquée, vérif `--dry-run`) et précisions C-G2-2 ; **3 tests killers** N-G2-1/2/3 ;
+> provenance D ancrée sur le CONTENU (C-G2-5) ; **(ii) atténuation code `run.ts` NON faite — item formé** (motif :
+> invariant L-1 `run.ts:170-175`, hors périmètre G0 -b). Oracles : suite complète **512/512**, typecheck 0,
+> gate:vocab 181, lint:ratchet 69/69, export:check + lang:gate 0 hit, **7 mutants ROUGES byte-exact** (M-ii-9,10,14,22
+> + N-G2-1/2/3), `probe-narabi.mjs`/`monark-sentinel.service` == pristine. **R-25 479/1205**. NON déployé ; E-5
+> (VPS site) accordé décision 92, à exécuter par l'orchestrateur après G7 + checkpoint-2.
 
 ## 9. Bloc JOURNAL-PROVENANCE.md (verbatim, à consigner par l'ORCHESTRATEUR au G7)
 
@@ -210,3 +230,174 @@ Environnement : dépendances installées par `npm ci --prefer-offline` (cache `F
 > (Fable 5.1) consulté 3× AVANT écriture (coordination parallélisme, réconciliation test hérité GET₂). Sha256 des
 > fichiers en §7 du PLI. Reste dû = items formés (§5 PLI) : ajout du test neuf à `vocab-banned.json` à la fusion,
 > rehausse SMTP `monark-probe.service` (-a), G2 dédiée, déploiement E-5.
+
+> **2026-09-21 — G2 + pli G2 sous-lot NARABI-OPS-1b-ii-b** (UN MODÈLE RÉSOLU PAR ÉTAPE, déclaré par chaque agent) :
+> — **G2 dédiée** = relecteur SÉPARÉ à contexte frais **`claude-opus-4-8[1m]`** (effort max, n'a PAS écrit le code) :
+>   **PASS-AVEC-CORRECTIONS** (`3fbf2b0`, `docs/G2-lot-narabi-ops-1b-ii-b.md`) — code de -b correct et branché à un
+>   test d'intégration non-LLM ; 8 mutants worker ROUGES ; 3 mutants adversariaux SURVIVANTS (N-G2-1/2/3) ; défaut
+>   BLOQUANT avant E-5 : livelock de rattrapage non documenté (C-G2-1) ; R-25 392 ; 7 sha == PLI §7.
+> — **Pli G2** = worker à contexte frais **`claude-opus-4-8[1m]`** (effort max) : (i) RUNBOOK §6 « Start backstop »
+>   réécrit — DEUX modes de kill (A rattrapage-livelock, B ligne tronquée) + symptômes + réparations + précisions
+>   C-G2-2 ; N-G2-1/2/3 tués par 3 tests neufs ; C-G2-5 ancrage contenu ; C-G2-3/4 = items de fusion consignés.
+>   **(ii) atténuation code `run.ts` NON faite — item formé** (déclencheur : avant E-5 ; propriétaire orchestrateur ;
+>   motif : invariant L-1 `run.ts:170-175` + hors périmètre G0 de -b). Oracles post-pli : **512/512**, R-25
+>   **479/1205**, **7 mutants ROUGES byte-exact** (M-ii-9,10,14,22 + N-G2-1/2/3), `probe-narabi.mjs` +
+>   `monark-sentinel.service` re-vérifiés == pristine. Advisor intégré (Fable 5.1) consulté AVANT écriture (décision
+>   (ii), forme des 3 killers, spécificités RUNBOOK). `error_origin` proposé au G7 : C-G2-1/2/5 = **docs/couverture =
+>   worker** ; C-G2-3 = **couverture = worker + -a** ; C-G2-4 = **contrainte de scope G0** (item de fusion, pas un
+>   défaut du code). Sha256 post-pli en §7.
+> — **checkpoint-2** = validateur-humain **`claude-fable-5-1`** = À VENIR ; **G7 + adjudications R-21 + assignation
+>   `error_origin`** = orchestrateur **`claude-fable-5-1`** = À VENIR.
+
+---
+
+## 10. PLI G2 — pli de la revue G2 (`docs/G2-lot-narabi-ops-1b-ii-b.md`, relecteur séparé `claude-opus-4-8[1m]`, PASS-AVEC-CORRECTIONS)
+
+**Implémenteur du pli : worker `claude-opus-4-8[1m]`, effort max, 2026-09-21**, contexte frais, worktree EXCLUSIF
+`F:\Monark-wt-narabi1b2b` (HEAD `3fbf2b0`), scratch `F:\tmp\narabi1b2b\pli\`. **Modèle résolu (R-1) :
+`claude-opus-4-8[1m]`** — préfixe `claude-opus-4-8` conforme. R-20 : aucun commit / workflow / action sortante
+(tout loopback / `.invalid` ; tests sous `env -u SMTP_HOST -u SMTP_PORT -u SMTP_USER -u SMTP_PASS -u SMTP_TLS -u
+ALERT_TO -u ALERT_FROM -u PROBE_STATE_URL` ; mutants joués in-place puis restaurés BYTE-EXACT depuis `pli/bak/`,
+jamais `git checkout`, sha re-vérifié == pristine). R-21 : chaque fait porte son `fichier:ligne` first-hand ou sa
+mesure reproductible. **NON modifiés** : `vocab-banned.json`, `DEADLINE_UTC`, `deploy/monark-probe.{service,timer}`,
+et `run.ts` (voir §10.3).
+
+### 10.1 Table C-G2-n / N-G2-n → fichier:ligne → résolution → test → mutant → error_origin
+
+| # | Défaut / mutant | fichier:ligne (first-hand) | Résolution du pli | Test | Mutant | error_origin (proposé G7) |
+|---|---|---|---|---|---|---|
+| **C-G2-1 (i)** | livelock de rattrapage NON documenté (2ᵉ voie de kill), BLOQUANT avant E-5 | `run.ts:167,168,182-191` (mécanisme) ; `RUNBOOK-sentinel.md` §6 | RUNBOOK §6 « Start backstop » RÉÉCRIT : DEUX modes (A rattrapage, B ligne tronquée), symptômes journal (table de tri), réparation exacte de chacun (A : drop-in `catchup.conf` `TimeoutStartSec=infinity` OU `--day` un jour à la fois ; B : retrait byte-exact + vérif `--dry-run`) | n-a (docs) | n-a | **docs = worker** |
+| **C-G2-1 (ii)** | atténuation code (`MAX_CATCHUP_DAYS_PER_RUN`) | `run.ts:170-175` (invariant L-1) | **NON FAITE dans -b** — item formé (§10.7), motivé §10.3 | n-a | n-a | — (item formé) |
+| **C-G2-2** | RUNBOOK surdéclare l'auto-guérison / sous-déclare la permanence | `RUNBOOK-sentinel.md` §6 (Mode B) | « self-heals on the next run **THAT WRITES A LINE** » (garde `:182` `report.lines.length>0`) + « **EVERY** subsequent run FATALs in `loadState` (`:111`) **until** the torn line is removed » | n-a (docs) | n-a | **docs = worker** |
+| **C-G2-3** | aucun test ne pinne 120 > 100 (pire cas COMBINÉ) | `test/probe-narabi.test.ts` (-a) + `test/probe-narabi-state.test.ts:252` (-b) | **item de SECONDE FUSION reformulé** (§5.2) : étendre UNE assertion à `T_s > GET₁+GET₂+SMTP+marge` (**pas** rehausser T_s : 120 > 100 déjà) ; unité de la sonde **NON touchée** | (fusion) | (fusion) | **couverture = worker + -a** |
+| **C-G2-4** | scope `gate:vocab` ne couvre pas le test neuf | `vocab-banned.json:111` ; `scripts/grep-forbidden.mjs` | **item de fusion CONFIRMÉ** (§5.1) : ajouter `test/probe-narabi-state.test.ts` à `sentinel.files[]` + preuve par phrase interdite injectée. **Le G7 du lot COMBINÉ ne clôt PAS sans lui.** | (fusion, preuve) | (fusion) | **contrainte de scope G0** (pas un défaut code) |
+| **C-G2-5** | provenance D ancrée par n° de ligne (fragile) | `test/probe-narabi-state.test.ts:30-38` | ancrage sur le **CONTENU** : substring « `mesure D = 25,481 s (run publiant 00:47:55→00:48:20 UTC` » (grep), n° de ligne + sha en SECONDAIRE | (commentaire) | n-a | **docs = worker** |
+| **N-G2-3** (le + utile) | GET₂ sans `maxBytes: STATE_MAX_BYTES` (survivant) — risque RSS/OOM | `probe-narabi.mjs:412` | test neuf : `state.json` cohérent de `STATE_MAX_BYTES+overhead` octets ⇒ `too_large` ⇒ **`state_unreachable`** | `probe_state_get2_binds_state_max_bytes` | mutation « retirer `maxBytes` » ⇒ RED (mesuré) | **couverture = worker** |
+| **N-G2-2** | override `PROBE_STATE_URL` non testé (survivant) | `probe-narabi.mjs:411` | **TESTÉ, pas retiré** : usage prévu par l'addendum §2 (« env `PROBE_STATE_URL`, défaut = dérivation ») ; override honoré + soumis à la MÊME garde transport que GET₁ (`http://127.1` refusé par `rawUrlHost` ⇒ refus SANS requête, `hits===1`) | `probe_state_url_override_honored_and_guarded` | mutation « override ignoré » ⇒ RED (mesuré) | **couverture = worker** |
+| **N-G2-1** | type-guard `digest` non piné (survivant) | `probe-narabi.mjs:304` | test de type : `digest` numérique (`123`) ⇒ `{ok:false}` ⇒ **`state_unreachable`**, `state_checked:false` (nuance MESURÉE : `digest:""` reste `state_mismatch` — chaîne vide) | `probe_state_digest_must_be_string` | mutation « `d != null` » ⇒ RED (mesuré) | **couverture = worker** |
+
+### 10.2 Ma mesure du livelock de rattrapage (C-G2-1, re-mesurée sur le CODE — pas recopiée du relecteur)
+
+**Mécanisme (structural, first-hand `run.ts`).** `runDue` (`:75-92`) accumule les lignes de TOUS les jours dus
+(`dueList`) EN MÉMOIRE et ne retourne qu'APRÈS la boucle RPC (`:93`) ; `main` n'écrit qu'APRÈS le retour de
+`runDue`, en UN bloc (`:182` `if (report.lines.length > 0)` puis `:188` `appendFileSync`) — **aucun checkpoint
+par jour**. Donc un kill `TimeoutStartSec` PENDANT `runDue` (backlog multi-jours) n'écrit RIEN (pas de ligne
+tronquée non plus) : `timeline.jsonl` intact ⇒ point de reprise inchangé ⇒ le run suivant recompute la MÊME liste
+due (`:167`) ⇒ re-killé au même point ⇒ **aucune publication tant que le rattrapage dépasse `T_s=300 s`** (4
+créneaux + `Persistent`, aucun `Restart=`). **Distinct du mode ligne tronquée** (qui exige un kill dans la fenêtre
+d'append ~ms `:188-191`) : ce mode ne demande qu'un run > 300 s ⇒ plus probable dès qu'un backlog existe.
+
+**Mesures reproductibles (offline, aucun réseau).**
+- **Surcoût fixe = plancher, NÉGLIGEABLE.** `import(run.ts)` (graphe de modules + strip TS) mesuré 3× =
+  **119,9 / 111,7 / 109,6 ms** (`node performance.now()` autour d'un `await import`, run-guard non déclenché) ;
+  démarrage node nu ~40-50 ms ⇒ **F < 0,2 s**. Le fold de `loadState` (`:104-120`) est en millisecondes (chaque
+  ligne : `attest`+`step`, borné). ⇒ **D est dominé par le RPC** de `runDue`, pas par le CPU/démarrage.
+- **Ancre D = 25,481 s** (JOURNAL, ligne « `mesure D = 25,481 s (run publiant 00:47:55→00:48:20 UTC` », merge
+  `9b178f3`) pour un run traitant **1 jour dû** (T=3, ~4 lignes).
+- **Seuil = `N ≥ ⌈300 / 25,481⌉ = 12 jours` de backlog, BORNE INFÉRIEURE.** Modèle linéaire `N·D > T_s`. C'est un
+  **minorant** : `run.ts:72` remet la borne basse de recherche de bloc à `DEPLOY_BLOCK` à CHAQUE run et ne la
+  resserre qu'AU SEIN d'un run ⇒ D porte déjà la recherche de bloc la PLUS large ; les jours suivants d'un
+  rattrapage cherchent une plage plus étroite ⇒ le coût/jour réel BAISSE ⇒ `N·D` surestime le temps ⇒ **seuil réel
+  ≥ ~12 jours**. Ni « jamais » ni « toujours » : il faut ~une dizaine de jours d'indisponibilité (VPS ou pool RPC
+  à terre) AVEC un backlog en attente. (Même fait pour la réparation A.2 : chaque run `--day` repart de
+  `DEPLOY_BLOCK` ⇒ budgéter ~D par run.)
+- **Détecté, pas réparé (avant ce pli).** Surface gelée ⇒ la sonde voit `lag` ⇒ mail (avec -a) ; mais aucune
+  procédure de reprise au RUNBOOK pour ce mode. Le pli (i) la fournit.
+
+### 10.3 Adjudication (ii) — **NE PAS toucher `run.ts` en -b** ; item formé (recherche de solutions)
+
+**Décision : l'atténuation code n'est PAS faite dans -1b-ii-b.** Raison LOAD-BEARING (prouvée `fichier:ligne`),
+avant l'argument de périmètre :
+
+1. **Elle casse l'invariant L-1 (`run.ts:170-175`).** Le contrat de la fin-JSON est
+   `lag > 0 ⇔ report.stopped !== null ⇔ exit 1`, et `stopped === null ⇒ exit 0 ⇒ à jour OU en attente de finalité`
+   (le correctif de l'incident 2026-09-20 : un `exit 0` ne masque plus un jour bloqué). Borner la liste due par run
+   (`MAX_CATCHUP_DAYS_PER_RUN`, le design décrit par la mission = « un run traite moins de jours, écrit les mêmes
+   lignes plus tard ») force l'UN de deux bris : soit `lag=0 / exit 0` avec un backlog CACHÉ au-delà de la borne
+   (ré-introduit exactement le masquage que L-1 a supprimé), soit un état NEUF `lag>0 && stopped===null && exit 0`
+   que ni le contrat fin-JSON, ni l'enregistrement JOURNAL du RUNBOOK (`:203-206`), ni
+   `apps/sentinel/test/sentinel-retry.test.ts` [lu, ouvert first-hand `:158-203`] n'ont jamais vu — au contraire :
+   (b) `:163-166` pinne `catch-up ⇒ exit 0, stopped:null` (1 jour) ; (d) `:189-192` pinne un stop partiel
+   `exit 1, stopped:fetch_error:2026-09-19` (le VRAI lag restant reste visible) ; (e) `:199-203` montre `--dry-run`
+   parcourant TOUT le chemin fetch jusqu'au stop. **⇒ changement de la sémantique de RUN-REPORT : la condition
+   « aucun changement de sémantique » de la mission échoue en propre.**
+2. **Le design alternatif « flush incrémental par lot » (écrire après chaque lot DANS le run) a un effet de bord
+   non maîtrisé** : un `state.json` + copies publiques par lot fait **récurrer la fenêtre de course C-NB-4
+   `:190→:191` à chaque lot** (plus d'exposition à un `state_mismatch` transitoire pour la sonde) et **multiplie
+   la fenêtre de ligne tronquée** que la doc C-G2-2 décrit comme UN seul append ; il restructure le chemin d'E/S
+   critique au crash, dépasse vraisemblablement ~30 lignes, et sort du périmètre.
+3. **Périmètre G0 (doc 02 / AgileGates).** `run.ts` n'est PAS un livrable de -1b-ii-b (addendum §10.1 : les
+   livrables sont `probe-narabi.{mjs,d.mts}`, les tests, `monark-sentinel.service`, `monark-probe.service`, ADR,
+   RUNBOOK — jamais `run.ts`). Le relecteur G2 confirme `run.ts` **inchangé et correct** ; `error_origin` de C-G2-1
+   = **docs = worker** (omission de doc), pas un défaut de code. Une extension de périmètre passe par G0/ADR, pas
+   par un pli d'implémenteur.
+
+**Item formé (recherche de solutions documentée, pas un « dû » nu).** Deux esquisses pour l'orchestrateur à peser
+en G0 : **(A)** `MAX_CATCHUP_DAYS_PER_RUN` + un champ `remaining_lag` VRAI + une décision d'exit explicite (préserve
+l'observabilité L-1) ; **(B)** flush par lot avec ré-analyse de la fenêtre C-NB-4 et de la borne torn-line. **Les
+deux ALTÈRENT le contrat fin-JSON ou le profil de crash ⇒ G0/ADR requis.** Déclencheur : **avant le redéploiement
+E-5** ; propriétaire **orchestrateur**. **La doc (i) est due DE TOUTE FAÇON** : une borne par run n'aide PAS un
+seul jour dont le RPC dépasse 300 s (endpoints dégradés) — seul le drop-in `catchup.conf` le fait.
+
+### 10.4 Mutants rejoués au pli (7) — chacun ROUGE, restauré BYTE-EXACT (jamais `git checkout`)
+
+Backups `F:\tmp\narabi1b2b\pli\bak\` (pristines : `probe-narabi.mjs 1001c1cd…`, `monark-sentinel.service d70f88cc…`).
+Après CHAQUE mutant : `cp bak → fichier`, `sha256sum` re-vérifié == pristine. Worktree final propre
+(`git status` de `probe-narabi.mjs`/`monark-sentinel.service` = vide). Portée jouée = `test/probe-narabi-state.test.ts`.
+
+| Mutant | Mutation exacte | Fichier | Test qui rougit | Résultat |
+|---|---|---|---|---|
+| **M-ii-9** | branche `state_mismatch` neutralisée (`if (false) …`) | probe-narabi.mjs | `probe_state_digest_cross_check` | **RED** ✓ restauré |
+| **M-ii-10** | `attempt <= retries` → `<= retries + 1` | probe-narabi.mjs | `probe_get_retries_exactly_n_plus_one` | **RED** ✓ |
+| **M-ii-14** | `TimeoutStartSec=300` → `60` (< 3D) | monark-sentinel.service | `probe_sentinel_timeoutstartsec_inter_unit_coherence` | **RED** ✓ |
+| **M-ii-22** | `if (sx.reason !== null)` → `… && dayDiff(last.day, expectedLastDay(nowIso)) <= 0` | probe-narabi.mjs | `probe_state_unreachable_precedence` | **RED** ✓ |
+| **N-G2-1** | `typeof d === "string"` → `d != null` (`stateDigestOf`) | probe-narabi.mjs | `probe_state_digest_must_be_string` | **RED** ✓ (SURVIVAIT en G2) |
+| **N-G2-2** | `process.env.PROBE_STATE_URL ?? deriveStateUrl(url)` → `deriveStateUrl(url)` | probe-narabi.mjs | `probe_state_url_override_honored_and_guarded` | **RED** ✓ (SURVIVAIT en G2) |
+| **N-G2-3** | GET₂ SANS `maxBytes: STATE_MAX_BYTES` | probe-narabi.mjs | `probe_state_get2_binds_state_max_bytes` | **RED** ✓ (SURVIVAIT en G2) |
+
+*(M-ii-13 — borne HAUTE `T_s > deadline` — non re-rejoué ici : jumeau de M-ii-14 sur le MÊME test
+`probe_sentinel_timeoutstartsec_inter_unit_coherence`, déjà ROUGE en G1/G2. Les 3 killers N-G2-1/2/3 étaient VERTS
+sur la suite gelée — le code livré est CORRECT ; ils rougissent DÉSORMAIS un édit régressif futur.)*
+
+*Hypothèse de `probe_state_url_override_honored_and_guarded` (N-G2-2, déclarée pour le checkpoint-2)* : l'assertion
+`hits === 1` suppose que GET₁ réussit au 1ᵉʳ essai (`PROBE_RETRIES` défaut 2 ⇒ un reset transitoire ferait `hits`
+≥ 2 SANS le mutant). Sur un serveur loopback `node:http` en processus, GET₁ réussit déterministiquement au 1ᵉʳ
+contact (aucun reset injecté, contrairement à `probe_get_retries_exactly_n_plus_one`) ⇒ `hits === 1` est stable ;
+le mutant (override ignoré ⇒ URL canonique dérivée) ajoute un 2ᵉ hit servi ⇒ `hits === 2`, `healthy`. Discriminant.*
+
+### 10.5 Oracles post-pli (suite COMPLÈTE, sous `env -u SMTP_* ALERT_* PROBE_STATE_URL`)
+
+| Oracle | Commande | Résultat |
+|---|---|---|
+| `npm run test` COMPLET | script `test` (test/ + packages + harness + sentinel + bell) | **512 / 512 pass, 0 fail** (G1 509 + 3 killers) |
+| `typecheck` | `tsc --noEmit` | **0 erreur** (à re-jouer au gel — voir §10.5 note) |
+| `eslint` fichiers touchés | `eslint test/probe-narabi-state.test.ts` | **0** |
+| `lint:ratchet` | `node scripts/lint-ratchet.mjs` | **69/69** (plafond inchangé) |
+| `gate:vocab` | `node scripts/grep-forbidden.mjs` | **OK, 181 fichiers** (le test neuf reste HORS scope — C-G2-4, item de fusion) |
+| `export:check` | `node scripts/export-public.mjs --check` | **OK, 0 chemin interdit, 0 hit français** |
+| `lang:gate` | `node scripts/lang-gate.mjs` | **OK, 0 hit français non exempté** |
+| `no-secret-in-repo` | dans la suite (512/512) | aucun secret (loopback/`.invalid`/snapshot public) |
+| **R-25** | `git diff --shortstat 57e9cbc -- <pathspec ci.yml:65>` | **466 ins + 13 del = 479 ≤ 1205** (G1 392 ; RUNBOOK+PLI `docs/**/*.md` EXCLUS ; seuls les 3 killers + le commentaire C-G2-5 comptent, dans `test/probe-narabi-state.test.ts`) |
+
+### 10.6 Carte des conflits avec -1b-ii-a (`lot/narabi-ops-1b-ii-a`, HEAD `9fd3736`) — portée du relecteur au PLI
+
+Raffine §3 « Régions touchées » au niveau des BLOCS de conflit git (essai de fusion en LECTURE du relecteur,
+merge-base réelle `331c169`, intersection = 5 fichiers). **Ordre conseillé : -a PUIS -b.**
+
+| Fichier | Conflit git | Résolution attendue (orchestrateur, 2ᵉ fusion) |
+|---|---|---|
+| `scripts/probe-narabi.mjs` | **OUI (4 blocs)** | (1) **en-tête** : note schema-2 (-a) + mention `state_mismatch`/`state_unreachable` (-b) ; (2) **constantes** : UNION blocs SMTP (-a) ∪ STATE (-b) ; (3) **`evaluate`** : `base` de -a (champs alerte + `state_checked:false`) et **SUPPRIMER le `state_checked:false` en DOUBLE de -b** (dédup), signature = celle de -b (`+ stateCheck`), corps = cross-check de -b + `state_checked: sx.state_checked` dans les retours ; (4) **`parseArgs`** : `else if (t === "--state-file")` **AVANT** le `else { throw }` de -a (sinon `--state-file` lève « unknown flag ») |
+| `scripts/probe-narabi.d.mts` | **OUI (2 blocs)** | UNION : `NarabiState += state_checked` (les DEUX l'ajoutent ⇒ **dédup**) + `alerted`/`alert_error`/`last_alert_day` (-a) ; `ProbeReason += state_mismatch`/`state_unreachable` (-b) ; `StateCheck`, `EvaluateInput.stateCheck?`, `ProbeOpts.stateFile`, `deriveStateUrl`, `STATE_*` (-b) ; surface SMTP (-a) |
+| `test/probe-narabi.test.ts` | **NON (auto-merge)** | -b n'édite que `:310-318` (routage `okServer`) ; vérifier que le tueur N4 (`okHits-beforeHits===1`) reste VERT après fusion |
+| `docs/adr/ADR-NARABI-OPS-1.md` | **NON (auto-merge)** | positions disjointes ; revue sémantique : pas de doublon de ligne de tuyau |
+| `docs/RUNBOOK-sentinel.md` | **NON (auto-merge)** | -a étapes déploiement mail ; -b étape (8) + « Start backstop » (élargi au pli) ; **revue sémantique** : pas deux étapes « (8) » ni section dupliquée |
+| `vocab-banned.json` (hors 5 fichiers) | — | **C-G2-4** : ajouter `test/probe-narabi-state.test.ts` à `sentinel.files[]` + preuve phrase interdite |
+
+### 10.7 Reste dû (items formés — ZÉRO dette)
+1. **C-G2-4 / vocab-banned.json** (§5.1) — orchestrateur, à la fusion de -b ; **le G7 COMBINÉ ne clôt pas sans**.
+2. **C-G2-3 / assertion pire-cas combiné 120 > 100** (§5.2 reformulé) — orchestrateur, à la fusion de -a ET -b
+   (constante `MAX_SMTP_DEADLINE_MS` en -a).
+3. **C-G2-1 (ii) / atténuation `run.ts`** (§10.3) — orchestrateur, **avant E-5**, via G0/ADR (esquisses A/B fournies).
+4. **Course GET₁/GET₂ (C-NB-4)** (§5.3) — durcissement non codé ; déclencheur : 1er faux `state_mismatch` observé.
+5. **Déploiement E-5** (§5.5, décision 92) — orchestrateur, après G7 + checkpoint-2, RUNBOOK §6 par SHA.
+Aucun « dû » nu : chaque point est un item formé (propriétaire + déclencheur) ou une recherche documentée.
