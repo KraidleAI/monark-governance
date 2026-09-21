@@ -99,14 +99,18 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
     const targets = new Set<string>([url, u.host, u.hostname, u.host + u.pathname, u.hostname + u.pathname]);
     for (const seg of u.pathname.split("/")) if (seg.length > 0 && !TRIVIAL_SEG.has(seg.toLowerCase())) { targets.add(seg); targets.add(encodeURIComponent(seg)); } // the key
     for (const v of u.searchParams.values()) if (v.length > 0) { targets.add(v); targets.add(encodeURIComponent(v)); } // api-key etc.
+    if (u.username.length > 0) { targets.add(u.username); targets.add(encodeURIComponent(u.username)); } // C-GD-1: userinfo class (user:key@host)
+    if (u.password.length > 0) { targets.add(u.password); targets.add(encodeURIComponent(u.password)); }
     for (const t of [...targets]) targets.add(JSON.stringify(t).slice(1, -1)); // the JSON-escaped form (a real body is JSON)
     const escaped = [...targets].filter((t) => t.length >= 3).sort((a, b) => b.length - a.length).map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
     const out = scrubUrls(detail);
     return escaped.length === 0 ? out : out.replace(new RegExp(escaped.join("|"), "gi"), "<redacted>");
   };
-  const raise = (op: string, name: string, code: number | undefined, detail: string): never => {
+  const raise = (op: string, name: string, code: number | undefined, rawDetail: string): never => {
     if (onErr) onErr(op, name, code);
-    const clean = redact(op, detail);
+    // C-R-3: REDACT the RAW body FIRST (a key straddling the 160th char is recognized in full), THEN collapse
+    // whitespace + truncate for display - never the reverse (a truncated key prefix would no longer match its target).
+    const clean = redact(op, rawDetail).replace(/\s+/g, " ").trim().slice(0, 160);
     const codeStr = code !== undefined ? ` (code ${String(code)})` : "";
     const detailStr = clean !== "" ? `: ${clean}` : "";
     throw new TransportError(op, scrubUrls(`rpc-guard: ${name} for operator '${op}'${codeStr}${detailStr}`), name, code);
@@ -124,14 +128,15 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
       return raise(op, e instanceof Error ? e.name : "NetworkError", undefined, "");
     } finally { clearTimeout(to); }
     if (!res.ok) {
-      // (2) HTTP non-ok: KEEP the (scrubbed) body - getLogsVia splits a too-large range on an HTTP 400 body; hook gets the status.
-      const body = (await res.text().catch(() => "")).replace(/\s+/g, " ").trim().slice(0, 160);
+      // (2) HTTP non-ok: KEEP the body (RAW - raise redacts it before collapse+truncate) - getLogsVia splits a
+      //     too-large range on an HTTP 400 body; the hook gets the status.
+      const body = await res.text().catch(() => "");
       return raise(op, "HttpError", res.status, body);
     }
     const text = await res.text();
     let json: { result?: unknown; error?: { code?: number; message?: string } | null };
-    // (3) non-JSON body (a mis-routed HTML error page): a typed fault, not a silent value.
-    try { json = JSON.parse(text) as typeof json; } catch { return raise(op, "NonJsonBody", res.status, text.replace(/\s+/g, " ").trim().slice(0, 160)); }
+    // (3) non-JSON body (a mis-routed HTML error page): a typed fault, not a silent value (RAW body - raise redacts first).
+    try { json = JSON.parse(text) as typeof json; } catch { return raise(op, "NonJsonBody", res.status, text); }
     // (4) JSON-RPC error at HTTP 200: MUST throw (never resolve `undefined`, which two errored providers would read
     //     as a concordant value); carries the JSON-RPC code so a downstream quorum can tell a revert from a fault.
     if (json.error !== undefined && json.error !== null) return raise(op, "RpcError", json.error.code ?? 0, json.error.message ?? "rpc error");

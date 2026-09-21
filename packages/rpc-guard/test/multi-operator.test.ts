@@ -252,6 +252,31 @@ test("transport_error_drops_body_when_operator_url_unparseable", async () => {
   assert.doesNotMatch(err instanceof Error ? err.message : String(err), new RegExp(KEY), "an unparseable url must DROP the body, not reprise it raw");
 });
 
+test("transport_error_key_straddling_truncation_never_leaks", async () => {
+  // C-R-3: redact must see the RAW body, not the collapsed+truncated one, or a key crossing the 160th char leaks its
+  // prefix. The key starts at ~char 151 and straddles the 160-char truncation - on BOTH paths (HTTP non-ok, non-JSON).
+  const KEY = "FAKEKEY-STRADDLE-0123456789", HOST = "cs-node.example.invalid";
+  const env = { CHAINSTACK_ETH_URL: `https://${HOST}/${KEY}` };
+  const body = "x".repeat(150) + " " + KEY;
+  const noPrefix = (msg: string): void => { for (let n = KEY.length; n >= 4; n--) assert.ok(!msg.includes(KEY.slice(0, n)), `a >= 4-char prefix of the key leaked (n=${String(n)}): ${msg}`); };
+  const a = await driveTransport(() => Promise.resolve(new Response(body, { status: 400 })), 60, env); // path A: HTTP non-ok
+  assert.ok(a.err instanceof TransportError && a.err.code === 400 && a.err.name === "HttpError");
+  noPrefix(a.err instanceof Error ? a.err.message : "");
+  const b = await driveTransport(() => Promise.resolve(new Response(body, { status: 200 })), 60, env); // path B: non-JSON at 200
+  assert.ok(b.err instanceof TransportError && b.err.name === "NonJsonBody");
+  noPrefix(b.err instanceof Error ? b.err.message : "");
+});
+
+test("transport_error_never_echoes_operator_userinfo", async () => {
+  // C-GD-1: cover the userinfo class - if CHAINSTACK_ETH_URL carries user:key@host, a body echoing the credentials must not leak.
+  const USER = "csuser", PASS = "FAKEKEY-USERINFO-5w5w5w";
+  const env = { CHAINSTACK_ETH_URL: `https://${USER}:${PASS}@cs-node.example.invalid/rpc` };
+  const body = `401 unauthorized for ${USER}:${PASS} ; pass=${PASS}`;
+  const { err } = await driveTransport(() => Promise.resolve(new Response(body, { status: 401 })), 60, env);
+  assert.ok(err instanceof TransportError && err.code === 401);
+  assert.doesNotMatch(err instanceof Error ? err.message : "", /FAKEKEY-USERINFO/i, "the userinfo password (the operator key) leaked");
+});
+
 test("transport_error_path_json_rpc_error_never_resolves_undefined", async () => {
   // THE 1a bug: a JSON-RPC error at HTTP 200 used to return `.result` = undefined (two errored providers "concordant").
   const body = JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32000, message: "execution reverted" } });

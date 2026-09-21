@@ -208,6 +208,22 @@ sur ce HEAD corrigé (rejeu P3-floor, P6, sonde bi-processus par `makeClient`+`c
   transport est un point d'injection NEUF et INDÉPENDANT** ; il **ne remplace PAS** le classement du recorder : en 2b, le moniteur 5 %
   (`onRpcError`) **re-branche SON PROPRE puits** dessus (un re-câblage), le transport ne reprend pas sa logique de quorum/revert.
 
+- **A-3bis — C-R-3 (re-checkpoint, DEUX instances) : expurger AVANT de tronquer + userinfo + résidus déclarés.** Défaut mesuré : le corps
+  subissait le collapse `\s+` puis `slice(0, 160)` **AVANT** `redact` ⇒ une clé à cheval sur le 160ᵉ caractère n'était plus reconnue et son
+  préfixe fuyait (9 caractères mesurés). Fix : `raise` passe le corps **BRUT** à `redact`, puis collapse+tronque le RÉSULTAT (`transport.ts:107`) ;
+  les deux chemins (HTTP non-ok `:130`, non-JSON `:135`) passent le corps brut. **C-GD-1 (userinfo)** : `redact` cible aussi `u.username` et
+  `u.password` (formes brute, %-encodée, JSON-échappée) — la classe est couverte même si l'URL réelle n'en porte pas. Épinglé par
+  `transport_error_key_straddling_truncation_never_leaks` (les deux chemins, aucun préfixe ≥ 4 de la clé) et `transport_error_never_echoes_operator_userinfo`
+  (mutants **Y1** « tronquer avant expurger » et **Y2** « userinfo non expurgé » ROUGES ; sonde `r2-leakforms` rejouée ⇒ `leakedPrefixChars=0`
+  sur les deux chemins, corps 400 intact). `error_origin` : worker (C-V-2).
+  - **Résidu DÉCLARÉ 1 — clé fendue par un blanc DANS le corps brut** : un serveur qui insère un espace/retour ligne AU MILIEU de la clé qu'il
+    renvoie (`FAKE\nKEY`) n'est pas expurgeable par motif littéral (pathologique : la clé est alors elle-même cassée). Borne : le message n'est
+    **jamais publié**, il part au journal `rpcErrors` local (2b) ; non mitigé ici (un motif à `\s*` intercalé serait un risque ReDoS).
+  - **Résidu DÉCLARÉ 2 — C-GD-2 (ruling orchestrateur)** : une clé **transformée** par le serveur (base64/hex de la clé) n'est pas expurgeable par
+    motif. Borne identique (message → journal local, jamais publié). **Item formé** : « pour un opérateur PAYANT, ne JAMAIS reprendre le corps
+    hors code HTTP/RPC + indice de plage » — *déclencheur* = **G0 du lot 2b** (à trancher là : 2b consomme le corps 400 pour le découpage de
+    plage `getLogsVia`). NON implémenté ici (le retrait du corps casserait le découpage de plage sans le contrat 2b).
+
 - **A-4 — rapprochement mode AGRÉGAT DÉCLARÉ + course d'ÉTALONNAGE (D4 amendé ; C-V-3)** : la console Chainstack (page Statistics, FAITS pt 10)
   n'offre **aucune ventilation par méthode** — total RU par réseau et par jour seulement. `runReconcile(..., mode)` prend un mode DÉCLARÉ ;
   `Snapshot` gagne une forme agrégée `{ total_ru }` ; **EXACTEMENT un champ par mode** (`byMethod` XOR `total_ru`) — un snapshot croisé est
