@@ -64,7 +64,8 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Élément | État |
 |---|---|
 | Maquette Bell (charte C) + landing 3D | REÇUE (`F:\MONARK SUITE\bell-design\` ; original non retouché dans `originaux\`) |
-| Maquette Ukemi | PRÊTE (`F:\PRODUITS\etude-2026-09-21\maquettes-release\ukemi.html`) ; 20 écarts Bell notés |
+| Maquettes v2 temps 1 (logos finaux 120) | LIVRÉES `F:/PRODUITS/etude-2026-09-21/maquettes-release/v2/` (`ukemi.html`, `narabi.html`, `index.html` ; Bell `upcoming` sans logo ; 0 URL chargée, `gate:vocab` OK) ; note `NOTE-maquettes-v2.md` : 6 questions pour la relecture conjointe (vocabulaire « Aave » / « cascade » / « reference price » hérités de la v1, endpoints en clair, `mark-dark`, charte C en production) ; scripts `F:/MONARK SUITE/maquettes-v2-build/` |
+| Maquette Ukemi v1 | PRÊTE (`F:\PRODUITS\etude-2026-09-21\maquettes-release\ukemi.html`) ; 20 écarts Bell notés |
 | Logos : Bell (64), Ukemi concept 3 (103), Narabi concept A (104) | CHOISIS ; lettrage final en tracés LIVRÉ (`F:\MONARK SUITE\NOTE-serie-logos.md`, 10 SVG + `measures.json`, scripts rejouables) ; **CLOS — décision 120** (6 arbitrages = reco designer : 56 px, `#E8C468`, favicon `mark-small`, justifié sur l'encre, −2,4, accent gardé) |
 
 ## 6. EN ATTENTE DE L'INVESTISSEUR (une question à la fois, dans l'ordre)
