@@ -183,3 +183,69 @@ GAP mesuré pour Bell : **`CHAINSTACK_SOLANA_URL` (Chainstack Solana) NON résol
 ⇒ D-9 : migrer le `fetch` dans le transport SANS porter redirect:"manual"/3xx-typé/Retry-After/403-hard-stop/statusOf
   = régression SILENCIEUSE (tests `deps`-injectés restent verts). Déliverables + mutants en G0 §4-D-9 / §7.
 ```
+
+## ===== APPEND — PLI DU CHECKPOINT-1 (2026-09-21) — chiffres neufs, base HEAD `3350eec` =====
+
+### M13 — HEAD du pli + rappel du déplacement du tronc
+```
+$ git -C /f/Monark rev-parse HEAD        => 3350eec378c7afa7b013404ae7f2dc170b468088
+$ git -C /f/Monark rev-parse --abbrev-ref HEAD => lot/etude-suite
+```
+Chaîne de la base pendant les passes (commits docs seuls, 0 code, `git status --porcelain`=0) :
+`430e99d` (draft) → `4ee3285` → `8aedd03` (mission cp-1) → `4d102ca` → `51c4d9a` → **`3350eec`** (pli). Lignes RE-CONFIRMÉES stables.
+
+### M14 [C-6/C-10] — le 14ᵉ hit `undici` N'A PAS disparu : commentaire à `universe-cli.ts:268` (le draft disait faux)
+```
+$ grep -nE "\bundici\b" apps/bell/src/universe-cli.ts
+268:    // C-G2-3 (G2 fold): a 3xx is a HARD STOP, never followed (undici returns the real 3xx under redirect:"manual").
+```
+Décompte scanner reproduit (7 `fetch(` + 1 `undici` commentaire = 8 net ; + 6 clés = **14 hits**) :
+```
+$ grep -rnE "\bfetch\s*\(|\bundici\b|node:https?|\bchild_process\b" apps/bell/src | wc -l   => 8
+$ grep -rnE "env\.(CHAINSTACK_SOLANA_URL|BELL_SOLANA_RPC|CHAINSTACK_ETH_URL|HELIUS_API_KEY|POLYGON_API_KEY|DATABENTO_API_KEY)" apps/bell/src | wc -l => 6
+```
+⇒ 14 hits, PAS 13 ; le draft (§3.0, M1, M9) affirmait le 14ᵉ « disparu » — **corrigé au pli** (migré `:208`→`:268`,
+retiré par reformulation du commentaire ; le scanner ne saute pas les commentaires, `test:60-63`).
+
+### M15 [C-4] — `payload_sha256` est DÉJÀ la 10ᵉ clé du core à 3 args ⇒ « assérté 10ᵉ clé » ne tue pas le mutant arité 3
+```
+$ sed -n '165,166p' apps/bell/src/rebase-crosscheck.ts
+  const core = { prev_entry_sha256: prevSha, page, slot_lo, slot_hi, first_sig: txs[0]!.sig, last_sig: txs[txs.length - 1]!.sig,
+    tx_count: txs.length, tail_sigs_at_slot_hi: tail, list_sha256, payload_sha256: payloadSha(pageEvents, pageHandoffs) };
+```
+Core = 10 champs, `payload_sha256` en 10ᵉ position, quelle que soit l'arité de l'appel. À 3 args,
+`payloadSha(undefined,undefined)=sha('{}')` mais la clé EST là ⇒ une assertion « 10ᵉ clé présente » passe.
+⇒ L-1 corrigé (C-4) : assérter (i) la LISTE FERMÉE des 10 clés en ordre, (ii) `payload_sha256` RECOMPUTÉ sur un
+vecteur SYNTHÉTIQUE non vide `{page_events:[ev], page_handoffs:[ho]}`, (iii) `entry_sha256` recomputé. Mutant « arité 3 »
+⇒ (ii) ROUGE ; mutant « payload retiré (9 champs) » ⇒ (i) ROUGE.
+
+### M16 [C-12] — l'univers SONDE l'env pour choisir l'opérateur Chainstack (à supprimer : sous-ensemble par CLI)
+```
+$ grep -nE "deps\.env\.|process\.env\." apps/bell/src/universe-cli.ts
+111:  const chainstack = (deps.env.CHAINSTACK_SOLANA_URL ?? "").trim();
+297:  const chainstack = (process.env.CHAINSTACK_SOLANA_URL ?? "").trim();
+312:    const chainstack = (process.env.CHAINSTACK_SOLANA_URL ?? "").trim();
+```
+⇒ calque 2b-ii C-1 : `deps.env.CHAINSTACK_SOLANA_URL` disparaît (pas seulement le `fetch`) ; le sous-ensemble d'opérateurs
+vient du CLI (`--operators`). Test `universe_operator_subset_comes_from_cli_not_env`.
+
+### M17 [C-5/D-4] — décision investisseur 121 : cap Chainstack PAR COMPTE (verbatim)
+```
+$ sed -n '602,603p' docs/CHANTIERS.md
+### Décision investisseur 121 (2026-09-21 ~20:1x UTC, verbatim « A ») — plafond Chainstack PAR COMPTE
+- Le plafond ... 16 M RU ... par COMPTE, tous réseaux confondus (ethereum-mainnet Ukemi + solana-mainnet Bell ...) :
+  un seul ledger de cycle Chainstack, une seule clé de cycle, floor ... = somme des réseaux. Tranche la question D-4 ...
+  la ventilation par réseau est un attribut du journal (network), jamais un second plafond. ... Item : ADR-GARDE-HELIUS
+  A-1/A-4 à amender (clause « par compte »), déclencheur : G1 2b-ii (ledger Chainstack) — propriétaire orchestrateur.
+```
+⇒ D-4 TRANCHÉ : opérateur `chainstack` UNIQUE, `network` = attribut, un cap 16 M, `chainstack.lock` partagé Bell/Ukemi.
+
+### M18 — lock-test toujours VERT (re-run réel) : la vacuité (C-4) est un défaut de test, pas un rouge
+Le tronc a ENCORE avancé pendant le pli : `3350eec`→**`2d1d685`** (commit docs, `ledger-format-lock.test.ts` +
+`rebase-crosscheck.ts` byte-identiques). Run réel à `2d1d685` :
+```
+$ git rev-parse HEAD  => 2d1d68501f2976cc865b6b86d9e686496ddcb201
+$ TEMP=F:/tmp TMP=F:/tmp TMPDIR=F:/tmp node --test packages/rpc-guard/test/ledger-format-lock.test.ts
+✔ ledger_format_locked_to_rebase_crosscheck   ℹ tests 1  ℹ pass 1  ℹ fail 0   EXIT=0
+```
+⇒ vert à chaque base mesurée (`4ee3285`, `2d1d685`) ; la correction L-1/C-4 vise la VACUITÉ, pas un rouge.
