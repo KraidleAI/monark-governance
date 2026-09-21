@@ -70,6 +70,7 @@ keyed operator (Chainstack) whose URL lives OUTSIDE the repo (`/etc/monark/senti
 | `quorum_disagreement:D` | two endpoints disagreed (fail-closed) | 1 | days before D |
 | `unfinalized_to_block:D` | belt: `to_block > finalized` | 1 | days before D |
 | `c1_fail:D` | C1 identity broke (fail-closed) | 1 | days before D |
+| `catchup_budget` (sub-lot -1c, 2026-09-21) | the per-run TIME budget was exceeded BETWEEN two due days (the first due day is always attempted) | 1 | days processed before the stop (partial; the next slot resumes at prevDay+1) |
 | `--dry-run` (any of the above) | inspect only — same stop/exit semantics, nothing written | 0 or 1 (mirrors the run) | 0 |
 
 ## Tuyaux (ADR-M018 D3 — branchement)
@@ -113,6 +114,14 @@ The `probe → alerte` mail channel and the schema-2 state machine are sub-lot *
 
 ### Note dated 2026-09-21 (investor decision 109) — residual accepted
 The catch-up livelock residual (Mode A: a backlog of >= ~12 days is killed at every slot by `TimeoutStartSec=300`; repair procedure RUNBOOK section 6 Mode A; detected by the external probe as `lag`) is ACCEPTED by the investor (decision 109, verbatim « Redéployer avec ce résiduel »). The `run.ts` mitigation (bounded catch-up per run, which changes the run-report contract `lag>0 <=> stopped!==null <=> exit 1`) is a SEPARATE lot with its own G0/ADR (owner orchestrator, trigger: that lot's G0); it does not block the E-5 redeploy. The merged state -1b-ii (a + b) is deployed by the named G7 merge SHA (decision 72).
+
+### Amendment dated 2026-09-21 (sub-lot NARABI-OPS-1c, checkpoint-1 C8 - its own G0/ADR per investor decision 109) - bounded catch-up per run
+- **Context (measured, PLI -1b-ii-b section 10.2).** `runDue` accumulates every due day in memory and `main` writes only after it returns, so a `TimeoutStartSec=300` kill during a multi-day backlog writes nothing and the next slot recomputes the same due list (catch-up livelock, RUNBOOK section 6 Mode A). `D = 25.481 s` for one due day (ONE point, healthy pool) gives a threshold of about 12 backlog days.
+- **Decision.** A per-run TIME budget checked BETWEEN due days, with an injected clock: default 180 s, `MONARK_SENTINEL_BUDGET_S` integer 30..180 (else throw), first due day always attempted, stop = `stopped:"catchup_budget"` so the L-1 contract (`stopped != null <=> lag >= 1 <=> exit 1`) is unchanged; lines already produced are written by the existing single append block; the next timer slot resumes at prevDay+1. Inter-file invariant pinned by a test: `BUDGET_MAX_S (180) + MARGIN_MIN_S (120) <= TimeoutStartSec` read from `deploy/monark-sentinel.service`. The end JSON gains `elapsed_ms` and `max_day_ms`; the published LINE and its hash are unchanged.
+- **Rejected.** Per-day checkpoint writes inside `runDue` (changes the write/exit order and the torn-line window, Mode B); a fixed `--max-days` (does not protect against one slow day); `TimeoutStartSec=infinity` (loses the safety backstop); systemd `Restart=` (excluded by L-1).
+- **Pre-registered criterion of NO.** A production run showing `max_day_ms > 60 000` (half the margin) triggers a dated amendment re-deriving the default budget; margin = `max(120, ceil(k * D_max))`, `k = 4`, fixed before the code.
+- **Residual modes, DECLARED (decision 109 is REDUCED, not lifted).** (i) A-prime: a SINGLE day exceeding 300 s (slow pool without a fault, or a late `fetch_error`: `one()` may rotate 9 endpoints x 20 s = 180 s per call); (ii) a slow day exceeding the margin AFTER the budget stop loses the lines of that run. Both stay DETECTED (external probe: `lag`, mail, one reminder per UTC day) and are repaired by RUNBOOK section 6 A.1, which is KEPT. Closing (ii) (a hard intra-run deadline through `rpc.ts`) is a scope change: separate lot, trigger = first production `max_day_ms > 60 000`, owner orchestrator.
+- **Pipes.** Unchanged: `timeline.jsonl` / `state.json` -> `/narabi/` (site) and the Bell probe (`built`); no served consumer parses `stopped` values.
 
 ## Deferral of L-5 (C-11, R-25)
 
