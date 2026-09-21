@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { decodeSetAuthority, setAuthorityHandoffsFromTx, scanFullMint, compareToHybrid, canonicalListSha,
   chainedLedgerEntry, ledgerSha, verifyLedgerChain, loadHybridSeries, readPriorCalls, runRebaseCrosscheckCli,
-  SET_AUTHORITY_TAG, AUTHORITY_TYPE_SCALED_UI,
+  SET_AUTHORITY_TAG, AUTHORITY_TYPE_SCALED_UI, GTFA_PAGE_LIMIT,
   type FullMintScan, type HybridSeries, type ScanSink, type LedgerRecord, type RetryFn } from "../src/rebase-crosscheck.ts";
 import { scanMethodFromMethod } from "../src/rebase-produce.ts";
 import { makeBudgetedCall, parseArgs, runMain } from "../src/collect.ts";
@@ -837,4 +837,73 @@ test("bell_withRetry_budget_and_nontransient_rethrow — withRetry retries 5xx/4
   let ok = 0;
   const r = await withRetry(() => { ok += 1; return ok < 3 ? Promise.reject(new Error("HTTP 429")) : Promise.resolve("ok"); }, { tries: 6, ...noSleep });
   assert.equal(r, "ok"); assert.equal(ok, 3, "retried twice then succeeded");
+});
+
+// ---- L-b1a-1 / C-B-1 option (d): notFullPages = re-fetchable fault on the RAW page length (no ledger derivation) -----
+// A `filler` is a valid tx on the mint that decodes to NO 43/x event (empty instructions) => enumerated in the ledger/N,
+// never re-read on op-B. So a page of GTFA_PAGE_LIMIT raw txs costs 1 gTfA + op-B only for the real init/update.
+const nfKeys = [SPYX.address, A_ADDR, TOKEN_2022_PROGRAM, OTHER, B_ADDR];
+const nfFiller = (slot: number, sig: string): unknown =>
+  ({ slot, blockTime: slot * 100, transaction: { signatures: [sig], message: { accountKeys: nfKeys, instructions: [] } }, meta: { err: null, innerInstructions: [] } });
+const nfBulk = (count: number, startSlot: number, prefix: string): unknown[] => Array.from({ length: count }, (_, i) => nfFiller(startSlot + i, prefix + String(i)));
+const nfInit = jtx("nfInit", 10, 1000, initBytes(1)), nfUpd = jtx("nfUpd", 1008, 100800, updBytes(1.5, 1500)); // 43/0 + 43/1 on SPYx (op-B re-read)
+const nfOpB: Record<string, unknown> = { nfInit, nfUpd };
+// P1 = exactly GTFA_PAGE_LIMIT raw txs: init@10 + fillers + a 3-tx TAIL at slot 1007 (=> k=3 dedup on resume).
+const NF_P1 = [nfInit, ...nfBulk(GTFA_PAGE_LIMIT - 4, 11, "a"), nfFiller(1007, "t0"), nfFiller(1007, "t1"), nfFiller(1007, "t2")];
+const nfEvents = [ev("initialize", 1, 0, 10, 0, "nfInit"), ev("update", 1.5, 1500, 1008, 0, "nfUpd")];
+const nfSeries = JSON.stringify({ symbol: "SPYx", method: "hybrid-authority-scan (pending R-26 ratification)", oracle_slot: 3000, oracle_triplet: replayTriplet(nfEvents, Number.MAX_SAFE_INTEGER)!, events: nfEvents });
+const nfStub = (ascPages: Array<{ data: unknown[]; token: string | null }>, descBody: unknown): JsonRpcCall => {
+  let ai = 0;
+  return (_u, method, params) => {
+    throwOnState(method);
+    if (method === "getTransactionsForAddress") {
+      const p = (params as unknown[])[1] as { sortOrder: string; filters?: { slot?: { gte?: number } } };
+      if (p.sortOrder === "desc") return Promise.resolve({ data: [descBody], paginationToken: null });
+      const gte = p.filters?.slot?.gte, page = ascPages[ai++] ?? { data: [], token: null };
+      return Promise.resolve({ data: gte === undefined ? page.data : page.data.filter((b) => Number((b as { slot: number }).slot) >= gte), paginationToken: page.token });
+    }
+    if (method === "getTransaction") return Promise.resolve(nfOpB[String((params as unknown[])[0])]);
+    throw new Error("unexpected " + method);
+  };
+};
+const b1aArgsStrict = (seriesDir: string, outDir: string, maxCalls: number): string[] => // NO --allow-short-pages => requireFullPages true
+  ["--rebase-crosscheck", "--pools", "SPYx", "--max-calls", String(maxCalls), "--max-credits", String(maxCalls * 10), "--max-pages", "20", "--min-interval", "0", "--series-dir", seriesDir, "--out", outDir];
+
+test("bell_crosscheck_full_boundary_page_deduped_does_not_false_stop — a RAW-full page deduped on resume is NOT flagged not_full_pages (C-B-1 option d)", async () => {
+  assert.equal(NF_P1.length, GTFA_PAGE_LIMIT, "P1 is exactly a full page");
+  const sd = mkdtempSync(join(tmpdir(), "bell-nf1-s-")), od = mkdtempSync(join(tmpdir(), "bell-nf1-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), nfSeries);
+  const z = nfFiller(2005, "z");
+  // RUN 1 (strict, max-calls 2): P1 (RAW-full, non-final) committed; the P2 fetch hits the budget => resume needed.
+  await runMain(b1aArgsStrict(sd, od, 2), b1aDeps(nfStub([{ data: NF_P1, token: "p2" }], z)));
+  assert.equal(readFileSync(join(od, "ledger-SPYx.jsonl"), "utf8").trim().split("\n").length, 1, "run-1 committed exactly the full P1");
+  // RUN 2 (strict): the resumed boundary page is RAW-full (GTFA_PAGE_LIMIT) but its k=3 tail is deduped => pageTxs < limit.
+  const P2 = [nfFiller(1007, "t0"), nfFiller(1007, "t1"), nfFiller(1007, "t2"), nfUpd, ...nfBulk(GTFA_PAGE_LIMIT - 4, 1009, "b")];
+  await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(nfStub([{ data: P2, token: "p3" }, { data: [z], token: null }], z)));
+  assert.equal(readCC(od).scan_complete, true, "the RAW-full deduped page does NOT false-STOP => scan completes (M-b1a-1c: test on pageTxs.length post-dedup => not_full_pages => scan_complete:false => reds)");
+});
+
+test("bell_crosscheck_short_nonfinal_page_is_not_committed — a genuinely short non-final page is a re-fetchable fault, never committed (C-B-1 option d)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-nf2-s-")), od = mkdtempSync(join(tmpdir(), "bell-nf2-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), nfSeries);
+  const z = nfFiller(2005, "z"), shortP2 = nfBulk(400, 1009, "c"); // 400 raw < GTFA_PAGE_LIMIT, non-final
+  // RUN 1 (strict): P1 committed; P2 is genuinely short + non-final => NOT committed + STOP (not_full_pages).
+  await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(nfStub([{ data: NF_P1, token: "p2" }, { data: shortP2, token: "p3" }], z)));
+  assert.equal(readFileSync(join(od, "ledger-SPYx.jsonl"), "utf8").trim().split("\n").length, 1, "only P1 committed (short P2 discarded, M-b1a-1b: commit P2 => 2 entries => reds)");
+  const cc1 = readCC(od);
+  assert.equal(cc1.scan_complete, false, "not complete");
+  assert.equal(cc1.comparator_verdict.reason, "not_full_pages", "reason is not_full_pages (never sealed)");
+  // RESUME under the same persistent short page => still inconclusive, never promoted.
+  await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(nfStub([{ data: shortP2, token: "p3" }], z)));
+  assert.equal(readCC(od).scan_complete, false, "the resume is STILL inconclusive (a short page never seals)");
+});
+
+test("bell_crosscheck_require_full_pages_mode_guard — a STRICT resume of a ledger built under --allow-short-pages is fail-closed (C-B-1 mixed-mode)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-nf3-s-")), od = mkdtempSync(join(tmpdir(), "bell-nf3-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), b1aSeries([eInitB, eAB, eBB, eCB]));
+  // RUN 1 LOOSE (--allow-short-pages) => budget.json records require_full_pages:false.
+  await runMain(b1aArgs(sd, od, 50), b1aDeps(b1aStub([{ data: [cinitB, cAB, cBB, cCB], paginationToken: null }])));
+  assert.equal((JSON.parse(readFileSync(join(od, "budget.json"), "utf8")) as { require_full_pages: boolean }).require_full_pages, false, "run-1 persisted the loose mode");
+  // RUN 2 STRICT (no --allow-short-pages), SAME --out => the mode guard refuses (a loose ledger may hold a short page).
+  await assert.rejects(runMain(b1aArgsStrict(sd, od, 50), b1aDeps(b1aStub([{ data: [cinitB, cAB, cBB, cCB], paginationToken: null }]))), /built loosely/, "a strict resume of a loose ledger throws (guard removed => no throw => reds)");
 });

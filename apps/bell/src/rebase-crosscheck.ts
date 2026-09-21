@@ -56,6 +56,13 @@ export const CREDITS_PER_GTFA = 10;
 export const CREDITS_PER_GET_TX = 1;
 export const WORST_CASE_CREDITS_PER_CALL = CREDITS_PER_GTFA;
 
+/** Helius gTfA `full` page size: the `limit:` asked per page AND the completeness threshold. A page returned with
+ *  FEWER *raw* txs than this WHILE a next token exists is a short NON-FINAL page (C-8: full pages except the last). The
+ *  test uses the SAME constant, and the check is on the RAW `data.length` (never the post-dedup pageTxs.length) so a
+ *  full boundary page deduped on a resume is never falsely flagged. `notFullPages` is thus NOT derived from the ledger
+ *  and the §6 core stays 9 fields (no `raw_count`) — the resolution of the checkpoint-1 notFullPages consultation (d). */
+export const GTFA_PAGE_LIMIT = 1000;
+
 /** A decoded SetAuthority(ScaledUiAmount) payload, or null when the bytes are not that instruction. `newAuthorityHex`
  *  is the target authority (null = None, i.e. the authority is being REMOVED — definitive, §D). Pure. The presence
  *  byte gates the length exactly (COption<Pubkey>): 0 => 3 bytes, 1 => 35 bytes; any other => not decodable (null). */
@@ -233,7 +240,7 @@ export async function scanFullMint(call: JsonRpcCall, providers: readonly string
   const ledger: LedgerEntry[] = [...(resume.priorLedger ?? [])];
   let prevSha = ledgerSha(ledger), fetched = ledger.length, n = ledger.reduce((a, e) => a + e.tx_count, 0);
   let paginationToken: string | undefined;
-  let exhausted = false, notFullPages = false;
+  let exhausted = false;
   // fact 3: `pages` in the artifact is DERIVED from ledger.length (idempotent), so a terminal resume that fetches an
   // empty page does not drift it +1; `fetched` bounds the maxPages loop (counts every fetch, empty pages included).
   // C-B-1 (fact 1 SEMIS): seed the end-anchor cursor from the last committed page so a 0-page terminal resume still
@@ -243,7 +250,7 @@ export async function scanFullMint(call: JsonRpcCall, providers: readonly string
   try {
     while (fetched < maxPages) {
       const slotFilter: Record<string, number> = { lte: oracleSlot, ...(resume.resumeFromSlot !== undefined ? { gte: resume.resumeFromSlot } : {}) };
-      const params: readonly unknown[] = [mint, { transactionDetails: "full", sortOrder: "asc", limit: 1000, filters: { slot: slotFilter }, ...(paginationToken ? { paginationToken } : {}) }];
+      const params: readonly unknown[] = [mint, { transactionDetails: "full", sortOrder: "asc", limit: GTFA_PAGE_LIMIT, filters: { slot: slotFilter }, ...(paginationToken ? { paginationToken } : {}) }];
       const res = asObj(await retry(() => call(heliusOp, "getTransactionsForAddress", params), "getTransactionsForAddress"));
       const data = asArr(res.data);
       const pageTxs: { sig: string; slot: number }[] = [];
@@ -278,14 +285,21 @@ export async function scanFullMint(call: JsonRpcCall, providers: readonly string
         pageEvents.push(...evA);
       }
       if (pageFault !== null) return { events: sortEvents(events), handoffs, complete: false, reason: pageFault, n, pages: ledger.length, ledger };
+      const next = res.paginationToken;
+      const finalPage = typeof next !== "string" || next === "" || data.length === 0;
+      // C-B-1 (option d, notFullPages): under requireFullPages, a short NON-FINAL page (RAW data.length < GTFA_PAGE_LIMIT,
+      // tested BEFORE the boundary dedup) is a re-fetchable completeness fault => NOT committed + STOP (never a sig
+      // without proof its page was full). A full boundary page deduped to fewer txs keeps its RAW length = the limit, so
+      // a resume never falsely STOPs (the tx_count-based derivation the plan first prescribed WOULD have). A persistent
+      // short page stays inconclusive => escalate. --allow-short-pages commits it (offline oracle); the FINAL page (no
+      // token) may be short. `notFullPages` is no longer a process-local flag NOR ledger-derived (core §6 stays 9 fields).
+      if (requireFullPages && !finalPage && data.length < GTFA_PAGE_LIMIT) return { events: sortEvents(events), handoffs, complete: false, reason: "not_full_pages", n, pages: ledger.length, ledger };
       events.push(...pageEvents); handoffs.push(...pageHandoffs);
       n += pageTxs.length; // only a COMMITTED page counts toward N (a discarded faulted page never does)
       const entry = chainedLedgerEntry(prevSha, ledger.length + 1, pageTxs);
       if (entry) { ledger.push(entry); prevSha = entry.entry_sha256; sink.onPage(entry, ledger, pageEvents, pageHandoffs); }
       fetched += 1;
-      const next = res.paginationToken;
-      if (typeof next !== "string" || next === "" || data.length === 0) { exhausted = true; break; }
-      if (data.length < 1000) notFullPages = true; // a short non-final page (C-8; process-local, see the notFullPages consultation)
+      if (finalPage) { exhausted = true; break; }
       paginationToken = next;
     }
   } catch (e) {
@@ -302,12 +316,11 @@ export async function scanFullMint(call: JsonRpcCall, providers: readonly string
   const sorted = sortEvents(events);
   const sameSlotAmbiguous = hasSameSlotDiffSig(sorted);
   const startAnchor = sorted.some((e) => e.kind === "initialize");
-  // the three re-fetchable faults (block_time_null / body_quorum / non_monotonic) now RETURN early (C-B-1), so they can
-  // never be a lost process-local flag here; only exhaustion + anchors + same-slot + full-pages gate completeness.
-  const complete = exhausted && startAnchor && endAnchorOk && !sameSlotAmbiguous && (!requireFullPages || !notFullPages);
+  // the FOUR re-fetchable faults (block_time_null / body_quorum / non_monotonic / not_full_pages) now RETURN early
+  // (C-B-1), so none can be a lost process-local flag here; only exhaustion + anchors + same-slot gate completeness.
+  const complete = exhausted && startAnchor && endAnchorOk && !sameSlotAmbiguous;
   const reason = !exhausted ? "not_at_genesis" : sameSlotAmbiguous ? "same_slot_order_undecidable"
-    : !startAnchor ? "no_initialize_anchor" : !endAnchorOk ? "end_anchor_mismatch"
-    : requireFullPages && notFullPages ? "not_full_pages" : undefined;
+    : !startAnchor ? "no_initialize_anchor" : !endAnchorOk ? "end_anchor_mismatch" : undefined;
   return { events: sorted, handoffs, complete, n, pages: ledger.length, ledger, ...(reason !== undefined ? { reason } : {}) };
 }
 function sortEvents(events: readonly MultiplierEvent[]): MultiplierEvent[] {
@@ -522,13 +535,14 @@ export function readPriorByMethod(out: string): Record<string, number> {
 }
 /** C-B-4 / C-B-7: the prior per-mint call slices + cumulative retries_by_method from budget.json (reseeded so a resume
  *  keeps them cumulative). Missing/legacy => empty. */
-function readPriorBudget(out: string): { byMint: Record<string, Record<string, number>>; retries: Record<string, number> } {
+function readPriorBudget(out: string): { byMint: Record<string, Record<string, number>>; retries: Record<string, number>; requireFullPages: boolean | undefined } {
   const path = resolve(out, "budget.json");
-  if (!existsSync(path)) return { byMint: {}, retries: {} };
-  const raw = JSON.parse(readFileSync(path, "utf8")) as { calls_by_method?: { by_mint?: unknown }; retries_by_method?: unknown };
+  if (!existsSync(path)) return { byMint: {}, retries: {}, requireFullPages: undefined };
+  const raw = JSON.parse(readFileSync(path, "utf8")) as { calls_by_method?: { by_mint?: unknown }; retries_by_method?: unknown; require_full_pages?: unknown };
   const bm = raw.calls_by_method?.by_mint, rt = raw.retries_by_method;
   return { byMint: bm !== null && typeof bm === "object" ? (bm as Record<string, Record<string, number>>) : {},
-    retries: rt !== null && typeof rt === "object" ? (rt as Record<string, number>) : {} };
+    retries: rt !== null && typeof rt === "object" ? (rt as Record<string, number>) : {},
+    requireFullPages: typeof raw.require_full_pages === "boolean" ? raw.require_full_pages : undefined };
 }
 /** L-b1a-8: retry attempts for the DRAW. tries=6 => backoff <= Σ 400·(i+1), i=0..4 = 6.0 s (the wasted final sleep is
  *  skipped, fact 9). A probe / offline run uses the identity retry (no backoff). */
@@ -545,12 +559,18 @@ export async function runRebaseCrosscheckCli(call: JsonRpcCall, providers: reado
   mkdirSync(out, { recursive: true });
   const perMint: Record<string, unknown> = {};
   const prior = readPriorBudget(out);
+  const requireFullPages = opts.requireFullPages ?? true;
+  // C-B-1 mixed-mode guard (family of C-G2D-2): a ledger's short-page trust depends on the mode it was built under. A
+  // resume STRICTER than a prior LOOSER run cannot trust a ledger that may hold a short non-final page committed under
+  // --allow-short-pages => fail-closed throw (the reverse — a strict ledger read loosely — stays safe).
+  if (prior.requireFullPages === false && requireFullPages)
+    throw new Error("bell/collect: <out>/budget.json was written under --allow-short-pages (require_full_pages:false) but this resume is strict (C-B-1 fail-closed: a strict run cannot trust a ledger built loosely)");
   const byMint: Record<string, Record<string, number>> = { ...prior.byMint };
   const retriesByMethod: Record<string, number> = { getTransactionsForAddress: 0, getTransaction: 0, ...prior.retries };
   const gm = (): { getTransactionsForAddress: number; getTransaction: number } => ({ getTransactionsForAddress: 0, getTransaction: 0, ...callsByMethod() }); // global cumulative, both keys present
   const writeBudget = (pages: number): void =>
     writeFileSync(resolve(out, "budget.json"), JSON.stringify({ calls_used: callsUsed(), credits_worst_case: callsUsed() * WORST_CASE_CREDITS_PER_CALL,
-      pages, calls_by_method: { global: gm(), by_mint: byMint }, retries_by_method: retriesByMethod }));
+      pages, calls_by_method: { global: gm(), by_mint: byMint }, retries_by_method: retriesByMethod, require_full_pages: requireFullPages }));
   for (const tok of XSTOCKS.filter((t) => wanted.includes(t.symbol))) {
     const symbol = tok.symbol;
     const series = loadHybridSeries(seriesDir, symbol);
