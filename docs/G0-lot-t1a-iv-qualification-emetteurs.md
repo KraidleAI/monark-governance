@@ -218,3 +218,5 @@ Q0 (lecture sur place) = **orchestrateur** (navigateur), puis **lecteur Sonnet 5
 - **publicnode** (décision 89) : CONSERVÉ par décision de l'investisseur (« on a les droits ») — le verdict de lecture « non admise » de la SYNTHESE est surclassé pour les usages existants ; le plan d'opérateurs de ce lot reste la voie (A) (`api.mainnet.solana.com` + Chainstack Solana), inchangé.
 - **Cible de symboles** (décision 90) : aucun chiffre ; roadmap d'univers après la phase A.
 - **E-2 : EN ATTENTE.**
+
+- **E-2 RÉPONDUE — mêmes critères pour tous** (décision 93, 2026-09-21) : critères et seuils pré-enregistrés de T-1a-iii (C1-C6), sans seuil propre à Backpack, committés avant tout rejeu quorum-2 d'une donnée Backpack.
