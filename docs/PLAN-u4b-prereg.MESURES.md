@@ -128,6 +128,76 @@ Usages : `:181` `repayBase += toBase(...)`, `:182` `seizedBase += toBase(...)`, 
 
 ---
 
+# PASSE FINALE (pli par reprise, ~21:3x UTC) — mesures pour `PLAN-u4b-prereg.FINAL.md`
+
+## F1. Environnement (HEAD a de nouveau avancé)
+
+```
+branch: lot/etude-suite
+HEAD:   b38a3993bef8e30e4371c6c5ebd6e57cda36ef6a
+b38a399 est-il ancetre de HEAD ? OUI (== HEAD, mission demandait HEAD >= b38a399)
+```
+(Historique du tour, régime B : `430e99d` → `4ee3285` → `b38a399`. Le pli LANG-GATE-CI a fusionné `1f8b78e` entre-temps, CHANTIERS:605.)
+
+## F2. Recompute des 8 sha depuis blobs HEAD `b38a399` (7 gelés + labeler u3-realized.mjs)
+
+`git -C F:/Monark show "HEAD:$f" | tr -d '\r' | sha256sum | cut -d' ' -f1` :
+```
+9ad20666af878c630073d998c6d3bc0bca38017e73b406853bcc31c3f83feacf  scripts/census/u4b/u4b-scores.mjs
+a5e66cd387279f4696f09853633a553840dadc53979f78b94aa6f9af57a6fac0  scripts/census/u4b/u4b-reduce.mjs
+5733daeb7c8ee40ab0a657882bbe1a9bd03a00d4ddab99e01cfa052a1fbc31a3  scripts/record-u4b-calib.mjs
+7bee76fc96a9bc23bb5869ba89167ef58c0f1e8481ed0467ed445c0ee4de2322  apps/sentinel/src/ukemi/wadray.ts
+3376eb084f522cb25d708369efb9bc9d11f7b4598abdf4f36708bfd2c1ab2d66  apps/sentinel/src/ukemi/abi.ts
+9206df9189d3eba6af61ba3f4a0981b08d80b63f99d171ad3e5a01958164ffa3  packages/hikae/src/l1-split.ts
+0e232519a18aaa43cb46bc5244472940cfac0c95f104bf3df70c36ccc1c65ca0  apps/sentinel/src/rpc.ts
+755b3a38f0253edb464624f8cdaa52385d4f9e2f1227a7bd303653b618db2de4  scripts/census/u3-realized.mjs
+```
+
+**Comparaison à l'ADR (ruling Q2/Q11)** :
+- 3 valeurs complètes D4 (`9ad20666…`/`a5e66cd3…`/`5733daeb…`) ⇒ CONCORDANCE.
+- 3 préfixes D4/C-V-2 (`7bee76fc…`/`3376eb08…`/`9206df91…`) ⇒ CONCORDANCE.
+- `rpc.ts` `0e232519…` == **valeur COMPLÈTE de l'amendement ADR-U4b §1** (l.74) ⇒ CONCORDANCE (n'est plus « sans valeur ADR » : l'amendement C-7 est en ligne).
+- `u3-realized.mjs` `755b3a38…` == **`--labeler-sha` attendu** (ruling Q11, CHANTIERS:604 « `755b3a38…` aujourd'hui ») ⇒ CONCORDANCE.
+- **Aucun ÉCART sur les 8. Pas de STOP.** (Valeurs identiques à la 1ʳᵉ passe à `430e99d`/`4ee3285` pour les 7 gelés ; labeler ajouté ce tour.)
+
+## F3. Rulings et pins vérifiés (blobs HEAD / fichiers)
+
+- `docs/CHANTIERS.md:602-604` : décision 121 (plafond Chainstack PAR COMPTE) + puce rulings Q1-Q11 (~21:1x UTC). CHANTIERS:605 : GARDE-HELIUS-2b-ii « en cours » (G0 `51c4d9a`, cp-1 en vol) + sous-lot 2b-iii (scripts `u4-*` payants) ⇒ arguments recorder « confirmés au commit ».
+- `docs/adr/ADR-U4b-...md` amendement daté 2026-09-21 (§1 `rpc.ts` `0e232519…` complet ; §2 U-4b-0 subsumé, 2a `e98b54f`/2b-i `8ba2cbc` fusionnés, 2b-ii en cours ; §3 contrainte d'ordre NARABI-OPS-1d ; §4 décision 121 par compte). Q3 (constat DRAFT) périmé depuis `8ba2cbc`.
+- `docs/adr/ADR-U3-realized-labels.md` D1/D2 (convention de Y, adoptée 2026-09-20) — repris verbatim au §Y du FINAL.
+- `apps/sentinel/test/fixtures/ukemi/u3/PROVENANCE-u3.md:10` : `U3-realized.jsonl` = `b4d93590f07b21017abe8ec2d980dee1f258a968395eb32497e6f9543b6f3923` (pin Q11).
+- `AVIS-advisor-defi-prereg-u4b-1b-2026-09-21.md` : formulation C-V-7 CA (a) (§Q4, l.61), règle d'abstention (§Q11, l.44), bêta-binomial 5 % H-3 (§Q6, l.71-73), H-4 e2 11,1 %/12,7 % (l.76-77), H-5 dérivé nMin (l.79-80), « rien de servi ne dépend de ces trois constantes » (l.87) — repris verbatim au FINAL.
+
+## F4. Chemins fail-closed de la règle d'abstention (mesurés blob HEAD, cités par l'avis §Q11 l.23)
+
+`git -C F:/Monark show HEAD:scripts/census/u3-realized.mjs | sed -n '221,227p'` :
+```
+      first_block: Math.min(...blocks),
+      last_block: Math.max(...blocks),
+      repayment_native: repayNative.toString(),
+      seized_native: seizedNative.toString(),
+      repayment_base: abstain ? null : repayBase.toString(),   <-- l.225 : null si no_quorum
+      seized_base: abstain ? null : seizedBase.toString(),
+      deficit_base: deficitBase.toString(),
+```
+`git -C F:/Monark show HEAD:scripts/census/u4b/u4b-scores.mjs | sed -n '108,114p'` :
+```
+    let db = BigInt(p.deficit_base ?? "0");
+    if (db === 0n && Array.isArray(p.residual) && p.residual.includes("deficit_base_no_price")) {
+      const dn = BigInt(p.deficit_native ?? "0");
+      if (dn > 0n) {
+        if (lc(p.debt_asset) !== USDT) throw new Error(`u4b-scores: deficit_base_no_price on non-USDT asset ${String(p.debt_asset)} (fail-closed)`);   <-- l.112
+        const px = usdtPrices[String(p.first_block)];
+        if (px === undefined) throw new Error(`u4b-scores: no USDT price at block ${String(p.first_block)} ...`);
+```
+⇒ les deux `throw`/`null` que la règle d'abstention pré-enregistre sont confirmés première main (l.225 et l.112). L'avis les cite en §Q11 l.23 (pas dans la citation verbatim l.44) ⇒ au FINAL ils sont hors du guillemet.
+
+## F5. Marquage doc 03 (retouches finales, revue advisor)
+
+Corrigés au FINAL après revue : (1) bloc §Y D1/D2 = VERBATIM `ADR-U3:22-33` (reformatage retiré) ; (2) `u3-realized.mjs:225`/`u4b-scores.mjs:112` sortis de la citation d'abstention (note après le guillemet, avis l.23) ; (3) Barber 2023 = « [lu par advisor-defi, texte local, avis l.26] » (niveau attribué, non usurpé) ; (4) décision 121 = « portée orchestrateur, CHANTIERS:603 ; verbatim investisseur : "A" » (le seul verbatim de 121 est « A »).
+
+---
+
 ## 7. Localisation du « kit de passation §9.5 »
 
 `Glob **/*passation*` → aucun fichier. `grep "passation"` dans `docs/` → seules occurrences hors sujet (`PLAN-m008-f2b-usde.md:149`, `RAPPORT-passe-m014-edetector.md:65`). Recherche récursive sur `F:/tmp` : abandonnée (timeout, non porteuse). ⇒ le « kit de passation » est un artefact de handoff de l'orchestrateur **hors dépôt en lecture seule**. Source in-repo autoritaire pour figer `rpc.ts` = **addendum GARDE-HELIUS-2 C-3** (`docs/G0-ADDENDUM-lot-garde-helius-2.md:46` : « ajouté aux invariants … et ajouté à la liste de gel du prereg U-4b-1b (complète ADR-U4b D4 / C-V-2) »). Voir QUESTION Q2/Q3.
