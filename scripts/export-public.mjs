@@ -22,7 +22,7 @@
 // script only writes to a LOCAL --out directory; it never pushes and never touches a
 // remote.
 import { readFileSync, readdirSync, statSync, existsSync, mkdirSync, copyFileSync, writeFileSync } from "node:fs";
-import { join, dirname, resolve, basename, extname } from "node:path";
+import { join, dirname, resolve, basename } from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { loadExempt, scanFile, isFileFrench, classifyScope, scannable, pathExempt, SCOPES } from "./lang-gate.mjs";
@@ -179,18 +179,33 @@ export function loadExcludedData(root) {
   return raw.data.map(toPosix);
 }
 
-// ---- 2b''. LOCAL WINDOWS ABSOLUTE PATH GUARD (ADR-M004 D7 septies (iii)) --------------------
-// The export must carry NO reader-local absolute path (a poste path like F: or C: + a separator + a
-// segment) — measured blind spot: export:check reported "0 forbidden path" on an export that shipped one
-// (u3 PROVENANCE:42). A drive path is a SINGLE drive letter (NOT the 'p' of http://, which is preceded by a
-// letter), then ':', then '\' or '/', then a path-segment char. NOT matched: 'http(s)://', 'file://', a
-// bare 'C:' in prose (no separator), a data: URI, or a regex source (its ':' follows ']' not a letter).
-export const WINDOWS_ABS_PATH_RE = /(?<![A-Za-z])[A-Za-z]:[\\/][\w.$~-]/;
-// Text extensions the path guard scans. A superset of lang-gate's `scannable` — it adds `.jsonl` (data
-// series are text and could carry a path) and does NOT skip package-lock.json (a path can hide anywhere).
-export const PATH_SCAN_TEXT_EXTS = new Set([
-  ".ts", ".tsx", ".mjs", ".cjs", ".js", ".jsx", ".md", ".mdx", ".yml", ".yaml", ".json", ".jsonl", ".html", ".css", ".sh", ".txt",
-]);
+// ---- 2b''. LOCAL WINDOWS ABSOLUTE PATH GUARD (ADR-M004 D7 septies (iii); PLI G2 2026-09-21) --
+// The export must carry NO reader-local absolute path (a poste path: a drive letter + ':' + separator,
+// with or without a following segment) — measured blind spot: export:check reported "0 forbidden path" on
+// an export that shipped one (u3 PROVENANCE:42). A drive path is a SINGLE drive letter (NOT the 'p' of
+// http://, which is preceded by a letter), then ':', then '\' or '/', then EITHER a path-segment char OR
+// whitespace / end-of-line (PLI G2 C-G2-3: a bare drive ROOT with no segment is still reader-local). A
+// SECOND separator immediately after (as in a scheme '://') is neither a segment nor whitespace/EOL, so
+// URLs stay spared. NOT matched: 'http(s)://', 'file://', a single-letter 'x://host', a bare 'C:' in prose
+// (no separator), a data: URI, or this regex's own source (its ':' follows ']', not a letter). UNC
+// '\\host\share' is OUT OF SCOPE (declared in G0 — it is not a drive-letter path).
+export const WINDOWS_ABS_PATH_RE = /(?<![A-Za-z])[A-Za-z]:[\\/](?:[\w.$~-]|\s|$)/;
+
+// Read `abs` as UTF-8 text, or null if it is BINARY. Binary = a NUL byte anywhere, OR an invalid UTF-8
+// sequence (TextDecoder fatal throws). The path guard scans TEXT by CONTENT, not by an extension allowlist
+// (PLI G2 C-G2-1: the old allowlist missed exported text in classes it did not enumerate). An
+// extensionless LICENSE, a .mts type surface and an .svg are all text and can each carry a reader-local
+// path; a .png / .jpg / .cbor is binary and carries none. Declared limit (G0): UTF-16 text has interleaved
+// NUL bytes, so it is classified binary here — no exported file is UTF-16.
+export function readTextOrNull(abs) {
+  const buf = readFileSync(abs);
+  if (buf.includes(0)) return null; // NUL byte => binary (png / jpg / cbor short-circuit here)
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(buf);
+  } catch {
+    return null; // invalid UTF-8 => binary
+  }
+}
 
 /** All Windows-absolute-path hits in `text` (1-based line/col + the matched snippet). */
 export function windowsAbsPathHits(text) {
@@ -207,12 +222,15 @@ export function windowsAbsPathHits(text) {
   return hits;
 }
 
-/** Windows-absolute-path violations across a resolved (kept) file list: [{rel,line,col,snippet}]. */
+/** Windows-absolute-path violations across a resolved (kept) file list: [{rel,line,col,snippet}].
+ *  Sweeps EVERY kept TEXT file (PLI G2 C-G2-1: text by content, not an extension allowlist); a binary kept
+ *  file (readTextOrNull === null: png / jpg / cbor) carries no textual path and is skipped. */
 export function windowsPathViolations(kept) {
   const out = [];
   for (const f of kept) {
-    if (!PATH_SCAN_TEXT_EXTS.has(extname(f.rel).toLowerCase())) continue;
-    for (const h of windowsAbsPathHits(readFileSync(f.abs, "utf8"))) out.push({ rel: f.rel, ...h });
+    const text = readTextOrNull(f.abs);
+    if (text === null) continue; // binary kept file — nothing textual to scan
+    for (const h of windowsAbsPathHits(text)) out.push({ rel: f.rel, ...h });
   }
   return out;
 }

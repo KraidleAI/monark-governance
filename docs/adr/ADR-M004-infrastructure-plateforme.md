@@ -213,6 +213,35 @@ couverts : `http://`, un `C:` de prose sans séparateur, une source de regex. Mu
 orchestrateur) — CITÉ, non re-formé ; la garde (iii) y atterrit à sa réalisation. Rejouabilité publique de la
 calibration U-4 (D7 sexies) inchangée : hors périmètre de ce lot.
 
+**PLI G2 — fold des constats C-G2-1..C-G2-4 (2026-09-21, worker `claude-opus-4-8[1m]` effort max ; revue
+`docs/G2-lot-export-clean.md`, PASS-AVEC-CORRECTIONS).** La garde (iii) est raffinée ; `error_origin` = worker
+(D7 septies avait laissé ces angles morts). Fichiers de code : `scripts/export-public.mjs`,
+`scripts/export-public.d.mts`, `test/export-hygiene.test.ts` (docs hors R-25).
+- **C-G2-1** — `windowsPathViolations` balaie désormais TOUT fichier KEPT **texte par CONTENU**
+  (`readTextOrNull` : octet NUL OU UTF-8 invalide ⇒ binaire, ignoré), et NON plus par une allowlist
+  d'extensions (`PATH_SCAN_TEXT_EXTS` retirée du `.mjs` et du `.d.mts`). L'ancienne allowlist manquait `.mts`
+  (`scripts/grep-forbidden.d.mts`), `.svg` (`apps/site/app/{icon,apple-icon}.svg`) et les fichiers SANS
+  extension (`LICENSE`, `skills/monark/LICENSE`, `apps/site/content/.gitkeep`) — tous exportés et texte.
+  Binaires ignorés (mesuré NUL/UTF-8 invalide) : `out/logo.png`, `out/banner.jpg`, `fixtures/s3-binance.lot.cbor`.
+  Le guard (a) de `export-hygiene.test.ts` (même filtre hérité) bascule sur le même balayage par contenu.
+- **C-G2-2** — test committé `export_windows_path_guard_bites_seeded_text_file` : SÈME un chemin de lecteur
+  dans une COPIE d'arbre entière (dans `.mts` + `LICENSE` sans extension) et exige exit 1 de `--out` ET de
+  `--check --scope root` (le scope root épingle le gate de langue au scope root, vert sur arbre propre : un
+  exit 1 après semis est donc attribuable à la garde CHEMINS seule ; `export:check` nu est aussi exit 0 sur
+  arbre propre — mesuré). Couvre la branche POSITIVE du mécanisme (pas seulement du contenu déjà présent).
+- **C-G2-3** — regex étendue `(?<![A-Za-z])[A-Za-z]:[\\/](?:[\w.$~-]|\s|$)` : attrape aussi une RACINE de
+  lecteur nue (`D:/`, `C:\`) en fin de ligne / avant un blanc (segment absent). Un second séparateur (`://`)
+  n'est ni segment ni blanc/EOL ⇒ URLs (`http://`, `x://host`) toujours épargnées. **UNC `\\host\share` HORS
+  PÉRIMÈTRE** (ce n'est pas un chemin à lettre de lecteur ; non attrapé — déclaré). Limite déclarée : le texte
+  **UTF-16** a des octets NUL entrelacés ⇒ classé binaire ici ; aucun fichier exporté n'est UTF-16.
+- **C-G2-4** — `test/export-hygiene.test.ts` (racine, NON exporté) : commentaire rendu cohérent (les POSITIFS
+  sont assemblés au runtime ⇒ le CODE ne porte aucun chemin de lecteur littéral) ET le vrai nom de dossier
+  privé ANONYMISÉ (segments fictifs) — plus aucun `F:\PRODUITS\…` réel, même dans un test non exporté.
+- **Mutants PLI G2** (sauvegarde + sha256, restauration byte-exacte, jamais `git checkout`) : **M-3b**
+  (`windowsPathViolations`→`[]`) ⇒ test C-G2-2 ROUGE + chemin semé shipped dans le miroir (1 occ.) ;
+  **allowlist restaurée** ⇒ test C-G2-2 ROUGE (`.mts`/`LICENSE` manqués) ; **fin de ligne** (regex revertie
+  en `[\w.$~-]`) ⇒ `windows_abs_path_matcher` ROUGE (positifs EOL), C-G2-2 vert (le semis a un segment).
+
 ### D8 — Lot E (English only) et R-25 (item 11)
 Scindé par package, une PR chacune, **aucun lot exempté** ; **hikae scindé `src` / `test`** (mesure §1.3) ; règle générale : si la mesure d'un lot dépasse 1 205, scission par répertoire (`src`, `test`, sous-répertoire `s2/`). **E-contracts ne touche jamais aux identifiants gelés** (test 0 `contracts_frozen`). Ordre : E-root (CI, scripts, tests racine) ∥ E-contracts → E-hikae-src → E-hikae-test → E-ukemi → E-atelier → E-monark.
 

@@ -74,3 +74,27 @@
 ## 6. Provenance
 Généré par worker `claude-opus-4-8[1m]`, effort max, 2026-09-21, sur `671b8f2`. Réviseur : orchestrateur
 (`claude-fable-5-1`), vérification adversariale R-21. Zéro dette à la clôture (P5).
+
+## 7. PLI G2 — fold des constats C-G2-1..C-G2-4 (2026-09-21)
+Revue `docs/G2-lot-export-clean.md` (PASS-AVEC-CORRECTIONS). Worker `claude-opus-4-8[1m]`, effort max, aucun
+commit (R-20). Code touché (hors R-25 `docs/**/*.md`) : `scripts/export-public.mjs`,
+`scripts/export-public.d.mts`, `test/export-hygiene.test.ts`.
+- **C-G2-1** (renforce CA-5) : `windowsPathViolations` balaie tout fichier KEPT **texte par CONTENU**
+  (`readTextOrNull` : octet NUL OU UTF-8 invalide ⇒ binaire, ignoré), plus par allowlist d'extensions
+  (`PATH_SCAN_TEXT_EXTS` retirée). Ferme l'angle mort `.mts`/`.svg`/sans-extension (`grep-forbidden.d.mts`,
+  `icon.svg`/`apple-icon.svg`, `LICENSE`, `skills/monark/LICENSE`, `.gitkeep`) ; binaires ignorés `png`/`jpg`/`cbor`.
+  Guard (a) aligné. Preuve garde-ON : chemin semé dans `.d.mts` puis `LICENSE` ⇒ `export --out` ET
+  `export:check --scope root` exit 1 (restaurés byte-exact).
+- **C-G2-2** : test committé `export_windows_path_guard_bites_seeded_text_file` — SÈME un chemin dans une
+  copie d'arbre (`.mts` + `LICENSE`) et exige exit 1 de `--check` ET de `--out` (branche POSITIVE du
+  mécanisme, pas seulement du contenu). Isolation `--scope root` (vert sur arbre propre).
+- **C-G2-3** : regex `(?<![A-Za-z])[A-Za-z]:[\\/](?:[\w.$~-]|\s|$)` — attrape la RACINE de lecteur nue
+  (`D:/`, `C:\`) en fin de ligne / avant un blanc. **UNC `\\host\share` HORS PÉRIMÈTRE** (pas un chemin à
+  lettre de lecteur ; non attrapé — déclaré ici, C-G2-3). Limite déclarée : texte **UTF-16** (NUL entrelacés)
+  classé binaire ; aucun fichier exporté n'est UTF-16.
+- **C-G2-4** : `test/export-hygiene.test.ts` — commentaire cohérent (positifs assemblés au runtime ⇒ code
+  sans chemin littéral) ; vrai nom de dossier privé ANONYMISÉ (segments fictifs) — plus aucun `F:\PRODUITS\…` réel.
+- **Mutants PLI G2** (sauvegarde + sha256, restauration byte-exacte, jamais `git checkout`) : **M-3b**
+  (`windowsPathViolations`→`[]`) ⇒ C-G2-2 ROUGE + chemin semé shipped (1 occ.) ; **allowlist restaurée** ⇒
+  C-G2-2 ROUGE (`.mts`/`LICENSE` manqués) ; **fin de ligne** (regex revertie) ⇒ `windows_abs_path_matcher`
+  ROUGE (positifs EOL), C-G2-2 vert.
