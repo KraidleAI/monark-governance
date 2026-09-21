@@ -14,7 +14,7 @@
 // KEY HYGIENE (C-10): the Ethereum call throws `HTTP <status>` with NO url (record.ts:22 appends the url and
 // rpc2.ts:136 folds the message — since this call carries no url, the folded message stays key-free).
 import { makeUkemiPool, GET_LOGS_PROVIDERS, RpcError, type LogEntry } from "../../sentinel/src/ukemi/rpc2.ts";
-import type { RpcCall } from "../../sentinel/src/rpc.ts";
+import { providerOf, type RpcCall } from "../../sentinel/src/rpc.ts";
 import type { PoolRef } from "./pools.ts";
 import { vwapDecimal, type SessionGap } from "./gap.ts";
 import { sessionGap } from "./gap.ts";
@@ -64,7 +64,10 @@ export const bellEthCall: RpcCall = async (url, method, params) => {
     const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), signal: ctl.signal });
     if (!res.ok) throw new Error(`HTTP ${String(res.status)}`);
     const json = (await res.json()) as { result?: unknown; error?: { code?: number; message?: string; data?: unknown } };
-    if (json.error) throw new RpcError(json.error.message ?? "rpc error", json.error.code ?? 0, typeof json.error.data === "string" ? json.error.data : undefined);
+    // GARDE-HELIUS-2b-ii R-D: the canonical RpcError signature is (op, message, code, detail, unit, data). op =
+    // providerOf(url) (a bare host, NEVER the url which could carry a key - C-10 Bell hygiene); unit "keyless" (Bell
+    // introduces no paid bench); detail "". One line adapted; apps/bell is otherwise intact (its migration is 1b).
+    if (json.error) throw new RpcError(providerOf(url), json.error.message ?? "rpc error", json.error.code ?? 0, "", "keyless", typeof json.error.data === "string" ? json.error.data : undefined);
     return json.result;
   } finally { clearTimeout(to); }
 };

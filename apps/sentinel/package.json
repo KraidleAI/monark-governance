@@ -8,6 +8,7 @@
     "@monark/contracts": "0.0.0",
     "@monark/harness": "0.0.0",
     "@monark/hikae": "0.0.0",
-    "@monark/monark": "0.0.0"
+    "@monark/monark": "0.0.0",
+    "@monark/rpc-guard": "0.0.0"
   }
 }

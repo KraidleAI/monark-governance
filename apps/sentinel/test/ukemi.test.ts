@@ -24,6 +24,11 @@ interface FixtureLog { blockNumber: string; logIndex: string; transactionHash: s
 interface Fixture { cluster: string; block: number; block_hash: string; block_ts: number; finalized_block: number; enumeration_logs: FixtureLog[]; calls: Record<string, string>; victim_vector: { address: string; getUserAccountData: string; getUserConfiguration: string; getUserEMode: string; aweth_balance: string }; }
 const FX = JSON.parse(readFileSync(join(HERE, "fixtures", "ukemi", "weth-book.fixture.json"), "utf8")) as Fixture;
 
+/** GARDE-HELIUS-2b-ii: build a KEYLESS canonical RpcError from the legacy (message, code, data?) shape (the quorum
+ *  tests exercise revertKey / isRpcRevert / ConcordantRevertError on KEYLESS reverts; unit "keyless" so R-A's paid
+ *  "0x" bench never triggers - the live GHO V-4 mixed case stays concordant). */
+const rerr = (message: string, code: number, data?: string): RpcError => new RpcError("test-op", message, code, "", "keyless", data);
+
 // The pinned outputs of recording the reduced fixture (recomputed at write time; a drift reddens).
 const PIN = {
   book_digest: "034fbff9eb2ef08079ed478960fcfa86e0e4db6d1c3946156e9170358976b921",
@@ -65,7 +70,7 @@ const isDesc = (selector: string) => selector.startsWith(SEL.description.toLower
 // (a) UNANIMOUS revert on every description() ⇒ concordant ⇒ recorded "" ⇒ a book is produced (GHO-like source).
 test("ukemi_description_concordant_revert_tolerated_through_pool", async () => {
   let descCalls = 0;
-  const call = poolCall((selector) => { if (isDesc(selector)) { descCalls++; throw new RpcError("execution reverted", 3); } });
+  const call = poolCall((selector) => { if (isDesc(selector)) { descCalls++; throw rerr("execution reverted", 3); } });
   const r = await recordBook(CLUSTER_WETH, FX.block, poolOver(call));
   const parsed = JSON.parse(canonicalStringify(r.book)) as { reserves: Array<{ oracle_description: string }> };
   for (const rv of parsed.reserves) assert.equal(rv.oracle_description, "", "a concordant description() revert is recorded as \"\"");
@@ -80,28 +85,28 @@ test("ukemi_description_concordant_revert_tolerated_through_pool", async () => {
 
 // (b) revert on one provider / value on another ⇒ QuorumDisagreementError ⇒ the whole book abstains, never a digest.
 test("ukemi_description_disagreement_abstains_book", async () => {
-  const call = poolCall((selector, url) => { if (isDesc(selector) && url !== POOL_EPS[0]) throw new RpcError("execution reverted", 3); });
+  const call = poolCall((selector, url) => { if (isDesc(selector) && url !== POOL_EPS[0]) throw rerr("execution reverted", 3); });
   await assert.rejects(() => recordBook(CLUSTER_WETH, FX.block, poolOver(call)), QuorumDisagreementError, "a value/revert split on description() abstains the book");
 });
 
 // (c) revert on one provider / transport fault on the rest ⇒ fewer than 2 outcomes ⇒ NoQuorumError ⇒ abstain.
 test("ukemi_description_no_quorum_abstains_book", async () => {
-  const call = poolCall((selector, url) => { if (isDesc(selector)) { if (url === POOL_EPS[0]) throw new RpcError("execution reverted", 3); throw new Error("HTTP 429 rate limited"); } });
+  const call = poolCall((selector, url) => { if (isDesc(selector)) { if (url === POOL_EPS[0]) throw rerr("execution reverted", 3); throw new Error("HTTP 429 rate limited"); } });
   await assert.rejects(() => recordBook(CLUSTER_WETH, FX.block, poolOver(call)), NoQuorumError, "one revert + transport faults is a no-quorum, not a tolerated revert");
 });
 
 // (d) a CONCORDANT revert on getAssetPrice (a load-bearing digest field, NOT description) propagates ⇒ abstain, never a digest.
 test("ukemi_concordant_revert_on_price_field_abstains_book", async () => {
-  const call = poolCall((selector) => { if (selector.startsWith(SEL.getAssetPrice.toLowerCase())) throw new RpcError("execution reverted", 3); });
+  const call = poolCall((selector) => { if (selector.startsWith(SEL.getAssetPrice.toLowerCase())) throw rerr("execution reverted", 3); });
   await assert.rejects(() => recordBook(CLUSTER_WETH, FX.block, poolOver(call)), ConcordantRevertError, "tolerance is scoped to description(); getAssetPrice abstains");
 });
 
 // The explicit, testable revert criterion (ADR-U1 D3 amendment): code 3 (EIP-1474) or -32000 (node) naming a revert.
 test("ukemi_is_rpc_revert_criterion", () => {
-  assert.ok(isRpcRevert(new RpcError("execution reverted", 3)));
-  assert.ok(isRpcRevert(new RpcError("execution reverted: out of gas", -32000)));
-  assert.ok(!isRpcRevert(new RpcError("method not found", -32601)), "a non-revert JSON-RPC error benches (transport-classed)");
-  assert.ok(!isRpcRevert(new RpcError("rate limited", 429)), "a rate-limit is not a revert");
+  assert.ok(isRpcRevert(rerr("execution reverted", 3)));
+  assert.ok(isRpcRevert(rerr("execution reverted: out of gas", -32000)));
+  assert.ok(!isRpcRevert(rerr("method not found", -32601)), "a non-revert JSON-RPC error benches (transport-classed)");
+  assert.ok(!isRpcRevert(rerr("rate limited", 429)), "a rate-limit is not a revert");
   assert.ok(!isRpcRevert(new Error("HTTP 503 gateway")), "a transport fault is not a revert");
 });
 
@@ -115,7 +120,7 @@ test("ukemi_revert_does_not_bench_provider", async () => {
   const eps = ["https://one.example", "https://two.example", "https://three.example"];
   let phase: "revert" | "value" = "revert";
   const call: RpcCall = (url) => {
-    if (phase === "revert") return Promise.reject(new RpcError("execution reverted", 3));
+    if (phase === "revert") return Promise.reject(rerr("execution reverted", 3));
     if (url === eps[2]) return Promise.reject(new Error("HTTP 503 transport")); // third can never contribute in read2
     return Promise.resolve("0x64");
   };
@@ -130,14 +135,14 @@ test("ukemi_revert_does_not_bench_provider", async () => {
 // concordant (ConcordantRevertError); different data + same message ⇒ disagreement (QuorumDisagreementError).
 test("ukemi_revert_key_uses_data", async () => {
   const eps = ["https://one.example", "https://two.example"];
-  const sameData: RpcCall = (url) => Promise.reject(new RpcError(url === eps[0] ? "execution reverted: alpha" : "execution reverted: beta", 3, "0xdeadbeef"));
+  const sameData: RpcCall = (url) => Promise.reject(rerr(url === eps[0] ? "execution reverted: alpha" : "execution reverted: beta", 3, "0xdeadbeef"));
   await assert.rejects(() => makeUkemiPool({ call: sameData, ethCallProviders: eps, getLogsProviders: eps }).ethCall("0xa", "0xb", 1), ConcordantRevertError, "same revert data ⇒ concordant even if messages differ");
-  const diffData: RpcCall = (url) => Promise.reject(new RpcError("execution reverted", 3, url === eps[0] ? "0xaaaa" : "0xbbbb"));
+  const diffData: RpcCall = (url) => Promise.reject(rerr("execution reverted", 3, url === eps[0] ? "0xaaaa" : "0xbbbb"));
   await assert.rejects(() => makeUkemiPool({ call: diffData, ethCallProviders: eps, getLogsProviders: eps }).ethCall("0xa", "0xb", 1), QuorumDisagreementError, "different revert data ⇒ disagreement (abstain)");
   // The REAL GHO case (measured live, V-4): one provider returns data "0x", another returns NO data. The
   // `data !== "0x"` guard routes BOTH to the normalized message ⇒ concordant. Without that guard, "0x" vs the
   // message would disagree ⇒ the whole book would abstain a real on-chain fact. This sub-case is load-bearing.
-  const mixed: RpcCall = (url) => Promise.reject(url === eps[0] ? new RpcError("execution reverted", 3, "0x") : new RpcError("execution reverted", 3));
+  const mixed: RpcCall = (url) => Promise.reject(url === eps[0] ? rerr("execution reverted", 3, "0x") : rerr("execution reverted", 3));
   await assert.rejects(() => makeUkemiPool({ call: mixed, ethCallProviders: eps, getLogsProviders: eps }).ethCall("0xa", "0xb", 1), ConcordantRevertError, "data \"0x\" and absent-data both key on the message ⇒ concordant (the !== \"0x\" guard)");
 });
 
@@ -145,11 +150,11 @@ test("ukemi_revert_key_uses_data", async () => {
 // is transport (benched), not a revert; a code 3 with no revert word is not a revert either. Killer for the
 // mutation that drops the message clause. That clause is what separates a real revert from an archive miss.
 test("ukemi_is_rpc_revert_rejects_archive_miss", () => {
-  assert.equal(isRpcRevert(new RpcError("header not found", -32000)), false, "archive miss (header not found) is transport, not a revert");
-  assert.equal(isRpcRevert(new RpcError("missing trie node 0xabc (path ) <nil>", -32000)), false, "archive miss (missing trie node) is transport");
-  assert.equal(isRpcRevert(new RpcError("some node failure", 3)), false, "code 3 without a revert word is not classed a revert");
-  assert.ok(isRpcRevert(new RpcError("execution reverted", 3)), "positive control: code 3 naming a revert");
-  assert.ok(isRpcRevert(new RpcError("execution reverted: out of gas", -32000)), "positive control: -32000 naming a revert");
+  assert.equal(isRpcRevert(rerr("header not found", -32000)), false, "archive miss (header not found) is transport, not a revert");
+  assert.equal(isRpcRevert(rerr("missing trie node 0xabc (path ) <nil>", -32000)), false, "archive miss (missing trie node) is transport");
+  assert.equal(isRpcRevert(rerr("some node failure", 3)), false, "code 3 without a revert word is not classed a revert");
+  assert.ok(isRpcRevert(rerr("execution reverted", 3)), "positive control: code 3 naming a revert");
+  assert.ok(isRpcRevert(rerr("execution reverted: out of gas", -32000)), "positive control: -32000 naming a revert");
 });
 
 // Non-LLM oracle on the REAL record.ts defaultCall (fetch → typed RpcError → quorum2 → book tolerance) — the link

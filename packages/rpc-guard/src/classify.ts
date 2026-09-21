@@ -49,6 +49,10 @@ export function isRpcRevert(e: unknown): e is RpcError {
   if (!(e instanceof RpcError)) return false;
   if (!(e.code === 3 || e.code === -32000)) return false;
   if (!isRevertText(e.message)) return false;
-  if (e.unit !== "keyless" && e.data === undefined) return false; // C-1(c): a paid revert with no data is benched
+  // C-1(c) + GARDE-HELIUS-2b-ii R-A (D-"0x"): a PAID revert with no `.data` OR an empty `.data` ("0x") is BENCHED
+  // (returns false), never concorded. Under D6 two different paid reverts share the same closed-vocabulary message,
+  // so without a NON-empty discriminating `.data` they must not be read as one on-chain fact; "0x" (a bare revert
+  // with no reason) carries no discriminator. Keyless reverts (their scrubbed message IS the datum) are unaffected.
+  if (e.unit !== "keyless" && (e.data === undefined || e.data === "0x")) return false;
   return true;
 }

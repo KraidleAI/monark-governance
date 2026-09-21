@@ -118,7 +118,7 @@ test("pool_rpc_1a_pocket_getlogs_split_holds_5000 — the 7168-block recent wind
     const p = (params as ReadonlyArray<{ fromBlock: string; toBlock: string }>)[0]!;
     const from = parseInt(p.fromBlock, 16), to = parseInt(p.toBlock, 16), span = to - from + 1;
     if (url.includes("pocket")) {
-      if (span > 5000) return Promise.reject(new RpcError("query block range exceeds server limit, narrow your filter: 5000", -32602));
+      if (span > 5000) return Promise.reject(new RpcError("pocket.network", "query block range exceeds server limit, narrow your filter: 5000", -32602));
       served.push(span);
     }
     return Promise.resolve(from <= 1_000_000 && 1_000_000 <= to ? [log(1_000_000)] : []); // one burn, whatever the chunking
