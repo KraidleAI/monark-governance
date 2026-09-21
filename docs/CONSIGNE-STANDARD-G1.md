@@ -41,3 +41,4 @@ Objet : faire attraper AU G1 ce que les revues G2 / checkpoint-2 attrapent aujou
 - F-3 Déviations D-n déclarées au rendu, jamais un contournement ; blocage ou double échec ⇒ demande de consultation formée (R-26).
 
 Amendements : par ligne datée ci-dessous, à chaque récidive nouvelle relevée en G2/checkpoint-2.
+- 2026-09-22 — **G-1 (orchestrateur et rédacteurs de G0)** : tout plan ou ruling touchant une pièce PUBLIQUE (outil servi, liste d'outils, registre `built`/`upcoming`, README, skill, site, export) relit d'abord les décisions investisseur qui la nomment (`grep -n "<pièce>" docs/CHANTIERS.md`) et les cite. Récidive fondatrice : ruling U-4b-2 contre la décision 51, attrapé par le checkpoint-1.
