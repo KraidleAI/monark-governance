@@ -12,8 +12,9 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | -b3d-b1b densité/projection | À VENIR | après b1a | — |
 | Course de contre-vérification | BLOQUÉ | lot GARDE-HELIUS (client budgété unique, cap par méthode) | — |
 | -b3d-b2 post-tirage | À VENIR | après la course | — |
-| T-1a-iii-a1 univers Solana | EN COURS | G2-delta (relecteur séparé) | `Monark-wt-univers` |
-| -iii-a1-bis (C-G2-6/7, reprise) | À VENIR | après a1 | — |
+| T-1a-iii-a1 univers Solana | EN COURS | checkpoint-2 (validateur) ; G2-delta PASS-AVEC-CORRECTIONS plié `29ca01d` | `Monark-wt-univers` |
+| -iii-a1-bis (C-G2-6/7, C-G2D-1/3) | À VENIR | BLOQUANT avant la 1ʳᵉ course (Chainstack facture l'usage supplémentaire — lu sur place) | — |
+
 | R1 registre multi-émetteur | À VENIR | après -b3d-b1 (décision 97) | — |
 | T-1a-iv qualification émetteurs | À VENIR | après R1 (décision 93) | — |
 | -b1-bis-ii course fondatrice | À VENIR | — | — |
@@ -26,7 +27,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 |---|---|---|---|
 | -1b-i | FUSIONNÉ `9b178f3` | — | — |
 | -1b-ii-a alerte mail | EN COURS | G2-delta (relecteur séparé) ; pli `7f86882` | `Monark-wt-narabi1b2a` |
-| -1b-ii-b détection jour manquant | EN COURS | pli G2-delta (C-G2D-1..3) ; `b9e9675` | `Monark-wt-narabi1b2b` |
+| -1b-ii-b détection jour manquant | EN COURS | checkpoint-2 (validateur) ; pli `7b0459b`, mutants R/T rejoués par l'orchestrateur | `Monark-wt-narabi1b2b` |
 | Rattrapage `run.ts` (livelock ≥ ~12 j) | À VENIR | G0/ADR, AVANT E-5 | — |
 | Déploiements (sonde VPS Bell ; E-5 VPS site) | À VENIR | après G7 -a, -b, POOL-RPC-1a ; mot de passe SMTP posé par l'investisseur | — |
 
@@ -65,4 +66,4 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-G1 Bell -b3d-b1a · G2-delta univers · G2-delta Narabi -a · pli G2-delta Narabi -b · pli cp-1 POOL-RPC-1 · checkpoint-1 U-4b · audit HELIUS-1 · EXPORT-CLEAN.
+G1 Bell -b3d-b1a · cp-2 univers · G2-delta Narabi -a · cp-2 Narabi -b · pli cp-1 POOL-RPC-1 · cp-1 U-4b · EXPORT-CLEAN · logos finaux.
