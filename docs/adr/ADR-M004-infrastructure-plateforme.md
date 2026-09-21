@@ -162,7 +162,7 @@ prochaine publication du miroir public ; propriétaire : orchestrateur).** Le ch
   `export-exclude-tests.json` pour les fixtures) — **jamais** `STRUCTURAL_BLACKLIST` (échec dur exit 1 + divergence du
   miroir `BLACKLIST` de test 42) ;
 - (ii) **nettoyage de `apps/sentinel/test/fixtures/ukemi/u3/PROVENANCE-u3.md:42`** (un chemin de lecteur local
-  `F:\PRODUITS\etude-2026-09-20\u3-raws-clean\u3-reads.jsonl` toujours exporté) ;
+  `F:\PRODUITS\...` (real path recorded in the private PLI) toujours exporté) ;
 - (iii) **extension de `export:check` aux chemins de lecteur Windows** (`[A-Z]:\`) — **constat MESURÉ** : le gate rend
   « 0 forbidden path » sur un export qui en contient un (u3:42) ⇒ il est **AVEUGLE à cette classe**.
 
