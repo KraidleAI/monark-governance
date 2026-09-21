@@ -26,6 +26,13 @@ export function acquireLock(cycleDir: string, op: string): string {
   return lockPath;
 }
 
+/** Transient release WITHOUT a ledger line: `cli reconcile` acquires the lock only to guard its append against a
+ *  concurrent course writer (C-G2-4), then releases. `unlock` (below) is the EXPLICIT, ledgered course release. */
+export function releaseLock(cycleDir: string, op: string): void {
+  const lockPath = join(cycleDir, `${op}.lock`);
+  if (existsSync(lockPath)) unlinkSync(lockPath);
+}
+
 /** The served `unlock` release: append a chained `outcome=unlocked` line (verifyCycleLedger stays green) and remove
  *  the lock file. Explicit + consigned; the reason is recorded in the ledger. */
 export function runUnlock(ledger: CycleLedger, op: string, reason: string): CycleLedgerEntry {

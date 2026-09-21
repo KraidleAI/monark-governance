@@ -1,13 +1,11 @@
 // MONARK rpc-guard - the SERVED subcommand dispatch (C-6, Branchement rule). `runCli` is offline-testable (the fs
-// read is injected) and its verdict/exit-code is the CONSUMED output: the course reads the exit code, the provenance
-// journal reads the appended chained line. The integration tests T16/T17/T14 replay this composition end-to-end.
-//   reconcile --before <snap> --after <snap> --cycle <id>   (exit != 0 on NO-GO)
+// read is injected) and its verdict/exit-code is the CONSUMED output. The reconcile/unlock ledgers are PER-OPERATOR,
+// so both subcommands require --op. The integration tests T16/T17/T14 replay this composition end-to-end.
+//   reconcile --before <snap> --after <snap> --cycle <id> --op <label>   (exit != 0 on NO-GO)
 //   unlock    --cycle <id> --op <label> --reason <text>
-// A thin `bin` wrapper (process.argv + real fs) is a 1b wiring item; nothing installs this workspace package as a
-// bin at 1a (upcoming), so the served surface here is `runCli` under test.
-import { openCycleLedger } from "./ledger.ts";
+import { ensureCycleDir, openOperatorLedger } from "./ledger.ts";
 import { runReconcile, type Snapshot } from "./reconcile.ts";
-import { runUnlock } from "./lock.ts";
+import { acquireLock, releaseLock, runUnlock } from "./lock.ts";
 
 export interface CliDeps {
   readonly ledgerDir: string;
@@ -23,14 +21,19 @@ export function runCli(argv: readonly string[], deps: CliDeps): CliResult {
   const need = (name: string): string => { const v = arg(name); if (v === undefined) throw new Error(`rpc-guard: ${name} required (fail-closed)`); return v; };
   if (sub === "reconcile") {
     const cycle = need("--cycle");
-    const ledger = openCycleLedger(deps.ledgerDir, cycle, deps.floor);
-    const r = runReconcile(ledger, deps.readSnapshot(need("--before")), deps.readSnapshot(need("--after")), cycle);
-    return { exitCode: r.exitCode, verdict: r.verdict, ...(r.reason !== undefined ? { reason: r.reason } : {}) };
+    const op = need("--op");
+    const cycleDir = ensureCycleDir(deps.ledgerDir, cycle);
+    acquireLock(cycleDir, op); // C-G2-4: the reconcile APPEND is a write - guard it against a concurrent course writer
+    try {
+      const r = runReconcile(openOperatorLedger(cycleDir, op, deps.floor), deps.readSnapshot(need("--before")), deps.readSnapshot(need("--after")), cycle);
+      return { exitCode: r.exitCode, verdict: r.verdict, ...(r.reason !== undefined ? { reason: r.reason } : {}) };
+    } finally { releaseLock(cycleDir, op); }
   }
   if (sub === "unlock") {
     const cycle = need("--cycle");
-    const ledger = openCycleLedger(deps.ledgerDir, cycle, deps.floor);
-    runUnlock(ledger, need("--op"), need("--reason"));
+    const op = need("--op");
+    const ledger = openOperatorLedger(ensureCycleDir(deps.ledgerDir, cycle), op, deps.floor);
+    runUnlock(ledger, op, need("--reason"));
     return { exitCode: 0 };
   }
   throw new Error(`rpc-guard: unknown subcommand '${String(sub)}' (fail-closed)`);

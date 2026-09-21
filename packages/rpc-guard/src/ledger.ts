@@ -1,17 +1,19 @@
-// MONARK rpc-guard - the durable CYCLE ledger (GARDE-HELIUS task 2). Append-only, CHAINED, env-derived, OUTSIDE the
-// working dir. It lives under HELIUS_LEDGER_DIR/<cycle>/ledger.jsonl (decision 114), NEVER under --out (the exact
-// inverse of the HELIUS-1 defect universe-cli.ts:77 / universe.ts:147 where the ledger sat in --out and read absent
-// as 0). The parent HELIUS_LEDGER_DIR MUST pre-exist (C-8): we create only the <cycle> subdir; a ledger under an
-// auto-created parent is a phantom that a wrong path silently reinitialises.
+// MONARK rpc-guard - the durable PER-OPERATOR cycle ledger (GARDE-HELIUS task 2, C-V-8). Append-only, CHAINED,
+// env-derived, OUTSIDE the working dir. Files are keyed by (cycle, operator): <cycleDir>/<op>.jsonl (the chain),
+// <cycleDir>/<op>.head (the tamper-evident head sidecar), <cycleDir>/<op>.lock (the exclusive writer lock, ./lock.ts).
+// PER-OPERATOR is structural, not cosmetic: a shared ledger.jsonl with per-op locks would let run A (helius) and run
+// B (chainstack) append concurrently and FORK the chain - the exact C-9 hazard the lock exists to close. Separate
+// files close it by construction, and give a per-operator prior (C-V-9).
 //
-// The chaining is a BYTE-IDENTICAL calque of apps/bell/src/rebase-crosscheck.ts:136-148 (locked by
-// ledger-format-lock.test.ts): entry_sha256 = sha256(JSON.stringify(core)) with `prev_entry_sha256` as the FIRST
-// key of core. The unit is the REQUEST by (op, method); credits are DERIVED. `verifyCycleLedger` is replayed at
-// open: a broken chain / unreadable line is fail-closed (throw), NEVER read as 0 (calque readPriorCalls).
+// The chaining is a BYTE-IDENTICAL calque of apps/bell/src/rebase-crosscheck.ts:136-148 (ledger-format-lock.test.ts):
+// entry_sha256 = sha256(JSON.stringify(core)) with prev_entry_sha256 as the FIRST key of core. The unit is the
+// REQUEST by (op, method); credits are DERIVED. HEAD SIDECAR (C-V-8): the last entry's sha is persisted OUTSIDE the
+// chain after each append; a tail truncation (a valid chain PREFIX) is undetectable by chain replay alone, so at open
+// we require head == recomputed head (ledger present + head absent, or head != recomputed => throw, fail-closed).
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, appendFileSync } from "node:fs";
-import { join } from "node:path";
-import type { AttemptRecord, LedgerSink, Outcome } from "./client.ts";
+import { existsSync, mkdirSync, readFileSync, appendFileSync, writeFileSync } from "node:fs";
+import { join, basename } from "node:path";
+import type { AttemptRecord, Outcome } from "./client.ts";
 import { HELIUS_TARIFF_VERSION } from "./tariff.ts";
 
 export const LEDGER_GENESIS = "0".repeat(64);
@@ -29,13 +31,11 @@ export interface CycleLedgerEntry {
 }
 type CycleCore = Omit<CycleLedgerEntry, "prev_entry_sha256" | "entry_sha256">;
 
-/** Chain the next entry. entry_sha256 = sha256(JSON.stringify({prev_entry_sha256, ...core})). The prev sha is the
- *  FIRST key, exactly as the reference - this is what the format-lock test pins byte-for-byte. */
+/** entry_sha256 = sha256(JSON.stringify({prev_entry_sha256, ...core})); prev is the FIRST key (format-lock pins it). */
 export function chainCycleEntry(prevSha: string, core: CycleCore): CycleLedgerEntry {
   const full = { prev_entry_sha256: prevSha, ...core };
   return { ...full, entry_sha256: sha256Hex(JSON.stringify(full)) };
 }
-/** The chained head = the last entry's sha, or GENESIS for an empty ledger (calque ledgerSha). */
 export function ledgerHeadSha(entries: readonly CycleLedgerEntry[]): string {
   return entries.length ? entries[entries.length - 1]!.entry_sha256 : LEDGER_GENESIS;
 }
@@ -59,34 +59,56 @@ function readEntries(path: string): CycleLedgerEntry[] {
   return out;
 }
 
-export interface CycleLedger extends LedgerSink {
+/** The parent HELIUS_LEDGER_DIR must PRE-EXIST (C-8); we create only the <cycle> subdir. A ledger under an
+ *  auto-created parent is a phantom a wrong path silently reinitialises. Returns the cycle dir. */
+export function ensureCycleDir(ledgerDir: string, cycleId: string): string {
+  if (!existsSync(ledgerDir)) throw new Error(`rpc-guard: HELIUS_LEDGER_DIR '${ledgerDir}' does not pre-exist (fail-closed, C-8)`);
+  const cycleDir = join(ledgerDir, cycleId);
+  if (!existsSync(cycleDir)) mkdirSync(cycleDir);
+  return cycleDir;
+}
+
+export interface CycleLedger {
   readonly path: string;
+  readonly headPath: string;
   readonly cycleDir: string;
+  readonly op: string;
   entries(): readonly CycleLedgerEntry[];
+  priorAtOpen(): number;
+  append(rec: AttemptRecord): void;
   appendChained(outcome: Outcome, byOpMethod: Record<string, number>, credits: number, reason?: string): CycleLedgerEntry;
 }
 
-/** Open (create) the cycle ledger. prior = max(floor, sum credits_derived of `attempted`) - deleting/emptying the
- *  ledger can NEVER reopen the budget below the floor (the anti-reset invariant, T10). */
-export function openCycleLedger(dir: string, cycleId: string, floor: number): CycleLedger {
-  if (!existsSync(dir)) throw new Error(`rpc-guard: HELIUS_LEDGER_DIR '${dir}' does not pre-exist (fail-closed, C-8)`);
-  const cycleDir = join(dir, cycleId);
-  if (!existsSync(cycleDir)) mkdirSync(cycleDir);
-  const path = join(cycleDir, "ledger.jsonl");
-  const entries: CycleLedgerEntry[] = existsSync(path) ? readEntries(path) : [];
-  verifyCycleLedger(entries);
+/** Open (create) the PER-OPERATOR ledger under an existing <cycleDir>. prior_cycle is FROZEN at open =
+ *  max(floor, Sigma attempted credits) (C-V-1); the head sidecar makes a tail truncation fail-closed (C-V-8). */
+export function openOperatorLedger(cycleDir: string, op: string, floor: number): CycleLedger {
+  const cycleId = basename(cycleDir);
+  const path = join(cycleDir, `${op}.jsonl`);
+  const headPath = join(cycleDir, `${op}.head`);
+  const hasLedger = existsSync(path), hasHead = existsSync(headPath);
+  let entries: CycleLedgerEntry[] = [];
+  if (hasLedger) {
+    if (!hasHead) throw new Error(`rpc-guard: ledger '${op}.jsonl' present but head sidecar absent (tamper, fail-closed, C-V-8)`);
+    entries = readEntries(path);
+    verifyCycleLedger(entries);
+    if (readFileSync(headPath, "utf8").trim() !== ledgerHeadSha(entries)) throw new Error(`rpc-guard: head sidecar != recomputed head for '${op}' (tail truncation, fail-closed, C-V-8)`);
+  } else if (hasHead) {
+    throw new Error(`rpc-guard: head sidecar present but ledger '${op}.jsonl' absent (tamper, fail-closed, C-V-8)`);
+  }
   let head = ledgerHeadSha(entries);
+  const frozenPrior = Math.max(floor, entries.reduce((a, e) => a + (e.outcome === "attempted" ? e.credits_derived : 0), 0));
   const appendChained = (outcome: Outcome, byOpMethod: Record<string, number>, credits: number, reason?: string): CycleLedgerEntry => {
     const core: CycleCore = { cycle_id: cycleId, tariff_version: HELIUS_TARIFF_VERSION, by_op_method: byOpMethod, outcome, credits_derived: credits, ...(reason !== undefined ? { reason } : {}) };
     const entry = chainCycleEntry(head, core);
     appendFileSync(path, JSON.stringify(entry) + "\n");
     entries.push(entry); head = entry.entry_sha256;
+    writeFileSync(headPath, head); // head rewritten AFTER the append (C-V-8)
     return entry;
   };
   return {
-    path, cycleDir,
+    path, headPath, cycleDir, op,
     entries: () => entries,
-    priorCredits: () => Math.max(floor, entries.reduce((a, e) => a + (e.outcome === "attempted" ? e.credits_derived : 0), 0)),
+    priorAtOpen: () => frozenPrior,
     append: (rec: AttemptRecord) => { appendChained(rec.outcome, { [`${rec.op}|${rec.method}`]: 1 }, rec.credits, rec.reason); },
     appendChained,
   };

@@ -1,31 +1,76 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-// Resolve the package BY NAME (Node self-reference via the `exports` field). A third-party consumer sees exactly
-// this surface; a deep import is refused. Both are proven WITHOUT installing a node_modules symlink.
-import { operatorLabels } from "@monark/rpc-guard";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+// The SOLE public paid path (C-V-2). resolveOperators / makeClient / InMemorySink are NOT here (proven below).
+import { openGuardedClient, BudgetExceededError } from "@monark/rpc-guard";
+import { HELIUS, tmp } from "./harness.ts";
+import type { RunLimits } from "../src/client.ts";
 
-test("third_party_script_cannot_obtain_endpoint", async () => {
-  const mod = await import("@monark/rpc-guard");
-  // A distinctive fake endpoint: if any label/serialized surface leaked it, the token below would appear.
-  const env = { BELL_SOLANA_RPC: "https://example.invalid/SECRET-HELIUS", HELIUS_API_KEY: "fake-not-a-real-key" };
-  const labels = operatorLabels(env);
-  assert.ok(labels.length >= 1, "at least one operator label is exposed");
-  for (const l of labels) {
-    assert.doesNotMatch(String(l), /https?:|example\.invalid|SECRET|api-key/i, `label leaks an endpoint: ${String(l)}`);
-  }
-  // No exported symbol is itself a URL string.
-  for (const [k, v] of Object.entries(mod)) {
-    if (typeof v === "string") assert.doesNotMatch(v, /https?:\/\//, `exported '${k}' is a URL string`);
+const PROBE_ENV = { BELL_SOLANA_RPC: "https://example.invalid/HELIUS", HELIUS_API_KEY: "FAKEKEY-9z9z9z" };
+const PROBE_LIMITS: RunLimits = { maxCalls: 10, maxCredits: 1000, methodCaps: { getTransaction: 5 }, cycleFloor: 0 };
+
+test("public_api_never_reaches_fetch_without_a_ledger_line", async () => {
+  // P6 functional probe: patch globalThis.fetch (isolated per test process); at fetch time the write-ahead ledger
+  // line must already be on disk. No exported symbol lets a paid call bypass meter + commit.
+  const { dir, cleanup } = tmp();
+  const realFetch = globalThis.fetch;
+  const linesAtFetch: number[] = [];
+  globalThis.fetch = () => {
+    const p = join(dir, "cycle-probe", "helius.jsonl");
+    linesAtFetch.push(existsSync(p) ? readFileSync(p, "utf8").trim().split("\n").filter(Boolean).length : 0);
+    return Promise.resolve(new Response(JSON.stringify({ result: 1 }), { status: 200, headers: { "content-type": "application/json" } }));
+  };
+  try {
+    const client = openGuardedClient(PROBE_ENV, PROBE_LIMITS, dir, "cycle-probe");
+    await client.call(HELIUS, "getTransaction", [1]);
+    assert.deepEqual(linesAtFetch, [1], "every fetch is preceded by exactly its write-ahead ledger line (P6)");
+  } finally { globalThis.fetch = realFetch; cleanup(); }
+});
+
+test("public_api_freezes_the_prior_p3_floor", async () => {
+  // P3-floor THROUGH the public path (not just makeClient): the cycle cap is the decision-112 constant (8 M, fixed in
+  // transport.ts), so a floor of 7_999_990 trips the SECOND gTfA (10 cr): 7999990+0+10=8000000 passes, +10+10 refused.
+  // Proves openGuardedClient FREEZES the prior (C-V-1 on the public surface, per C-V-2).
+  const { dir, cleanup } = tmp();
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = () => { calls++; return Promise.resolve(new Response(JSON.stringify({ result: 1 }), { status: 200, headers: { "content-type": "application/json" } })); };
+  try {
+    const client = openGuardedClient(PROBE_ENV, { maxCalls: 10, maxCredits: 100_000_000, methodCaps: { getTransactionsForAddress: 100 }, cycleFloor: 7_999_990 }, dir, "cycle-p3");
+    await client.call(HELIUS, "getTransactionsForAddress", ["m"]);
+    await assert.rejects(client.call(HELIUS, "getTransactionsForAddress", ["m"]), (e: unknown) => e instanceof BudgetExceededError);
+    assert.equal(calls, 1, "the frozen prior (max(floor, 0)) is enforced through the PUBLIC API, not just makeClient");
+  } finally { globalThis.fetch = realFetch; cleanup(); }
+});
+
+test("public_export_set_is_closed", async () => {
+  const pub = await import("@monark/rpc-guard");
+  assert.deepEqual(Object.keys(pub).sort(), [
+    "BudgetExceededError", "CHAINSTACK_CYCLE_CAP_RU", "HELIUS_CYCLE_CAP_CREDITS", "HELIUS_TARIFF_VERSION",
+    "heliusCredits", "openGuardedClient", "runCli", "runReconcile", "verifyCycleLedger",
+  ].sort(), "the public VALUE-export set drifted (no new paid path may be exported)");
+  for (const forbidden of ["makeClient", "resolveOperators", "resolveConfig", "InMemorySink", "openOperatorLedger", "acquireLock", "runUnlock"]) {
+    assert.ok(!(forbidden in pub), `${forbidden} must NOT be public (C-V-2)`);
   }
 });
 
 test("exports_map_forbids_deep_import", async () => {
-  // Non-literal specifier so tsc does not statically resolve (and error on) the intentionally-blocked path; Node
-  // resolves it at runtime through the `exports` map and refuses it.
-  const deep: string = "@monark/rpc-guard/src/client.ts";
-  await assert.rejects(
-    () => import(deep),
-    (e: unknown) => (e as { code?: string }).code === "ERR_PACKAGE_PATH_NOT_EXPORTED",
-    "a deep import must be refused by the exports map",
-  );
+  const deep: string = "@monark/rpc-guard/src/client.ts"; // non-literal so tsc leaves it unresolved
+  await assert.rejects(() => import(deep), (e: unknown) => (e as { code?: string }).code === "ERR_PACKAGE_PATH_NOT_EXPORTED");
+});
+
+test("transport_error_never_carries_url_or_key", async () => {
+  // An unparseable endpoint => fetch throws a TypeError whose message + `.input` carry the url+key; the client
+  // rethrows a FRESH error with only label + error name (C-V-3). Offline: the parse fails before any dispatch.
+  const { dir, cleanup } = tmp();
+  try {
+    const client = openGuardedClient({ BELL_SOLANA_RPC: "not-a-url-scheme", HELIUS_API_KEY: "FAKEKEY-9z9z9z" }, PROBE_LIMITS, dir, "cycle-scrub");
+    await assert.rejects(client.call(HELIUS, "getTransaction", [1]), (e: unknown) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      assert.doesNotMatch(msg, /not-a-url-scheme|FAKEKEY|api-key/i, `error message leaks the endpoint: ${msg}`);
+      assert.equal((e as { input?: unknown }).input, undefined, "the rethrown error must not carry `.input`");
+      return e instanceof Error;
+    });
+  } finally { cleanup(); }
 });

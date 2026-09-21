@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { sha256Hex, ledgerHeadSha, chainCycleEntry, verifyCycleLedger, LEDGER_GENESIS } from "../src/index.ts";
+import { sha256Hex, ledgerHeadSha, chainCycleEntry, verifyCycleLedger, LEDGER_GENESIS } from "../src/ledger.ts";
 
 // LOCK the cycle-ledger chaining primitive to the reference it is a calque of (plan sect.3.2: "redeclare
 // byte-identical with a lock test"). The reference apps/bell/src/rebase-crosscheck.ts lives in the REPO but is NOT

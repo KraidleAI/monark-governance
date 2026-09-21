@@ -1,6 +1,6 @@
 // MONARK rpc-guard - Helius credit tariff, a CLOSED table, the sole home of the credit unit (C-7/C-14). The unit
 // of the ledger is the REQUEST per (operator, method); credits are DERIVED = requests * tariff(method). Pinned by
-// the orchestrator's on-site read of helius.dev/pricing (FAITS-tarification-helius-2026-09-21.md, decision 55):
+// the orchestrator's on-site read of helius.dev/pricing (FAITS-tarification-helius-2026-09-21.md; decisions 112/C-14):
 // "RPC calls are 1 credit with two exceptions: getProgramAccounts and archival calls are 10 credits. DAS calls
 // are 10 credits." Cross-checked against apps/bell/src/rebase-crosscheck.ts:55-56 (CREDITS_PER_GTFA=10,
 // CREDITS_PER_GET_TX=1). Version-stamped so the tariff is frozen in ONE place (ledger header `tariff_version`).
