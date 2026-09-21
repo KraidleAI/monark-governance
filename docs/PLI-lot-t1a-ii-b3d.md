@@ -370,3 +370,52 @@ Le **§3 (Sonde pré-tirage C-7)** gagne un point de **plénitude** : la plénit
 **Résolution par l'orchestrateur (2026-09-21, avant G7)** : C-V-2 = « relecture séparée des 2 lignes de source `rebase-crosscheck.ts:566-567` livrées par le pli `f2f8808` (G2-delta par instance séparée), à défaut exemption motivée dans le G7 » [lu transcript du validateur]. **Satisfaite** : G2-delta par reprise du relecteur G2 (régime B), verdict **PASS**, 4 cas de la garde justes, mutant `!== true → === false` ROUGE, voisin `existsSync` retiré ROUGE, aucune correction — persisté dans `docs/G2-DELTA-lot-t1a-ii-b3d-b1a.md` (verbatim récupéré du transcript, `.output` non persisté). Absent du brief du pli parce que déjà tenue au moment du brief.
 
 **§2 recomputé APRÈS ce pli** : `7071484f…7867` (inchangé — preuve empirique au rendu du worker).
+
+---
+## Amendement de FORMAT n°2 — le payload de page est ENGAGÉ par la chaîne (lot Bell -b3d-f, condition (f)) — orchestrateur `claude-fable-5-1`, 2026-09-21T16:02Z (heure lue `date -u`)
+
+**Placement (auditable).** Appendu en fin de fichier (calque du pli checkpoint-2 -b3d-b1a l.330) : §2 (H1..H6) et tous les renvois internes restent **byte-stables** ; cet amendement **amende §5 et §6 (et le point (1) de l'amendement de format du pli b1a, l.341-344) DANS CE TEXTE seulement**. Un lecteur de ces sections est renvoyé ici.
+
+**§2 (H1..H6) BYTE-IDENTIQUE** — sha256 de l'extrait `## 2.` → ligne avant le `---` **inchangé** `7071484f3444abe6c09b694f730ad2fcce2f00ea8c12e8cc39fc31806a3c7867`, recomputé par l'orchestrateur AVANT et APRÈS ce pli (méthode `awk '/^## 2\./{f=1} f&&/^---/{exit} f' docs/PLI-lot-t1a-ii-b3d.md | sha256sum`).
+
+**Écart de SÉQUENCE (déclaré, jamais rétrodaté).** Ce texte est rédigé APRÈS le code (G1 `291d389`, plis test seuls `85d4db6` et `e453680`) ; la spéc qui a PRÉCÉDÉ le code est la « Décision de conception : option A » du G0 (`docs/G0-lot-t1a-ii-b3d-f.md:21-25`, approuvée au checkpoint-1 `c83ff2e`, avant tout code). Cet amendement la porte au PLI à la date réelle, sans libellé « pré-enregistrement ». Aucune course de crosscheck n'a été tirée à ce jour (elle attend son GO investisseur) : aucun ledger de course n'existe dans l'un ou l'autre format, il n'y a rien à migrer.
+
+### (1) Core à DIX champs — formule exacte
+Par page, `core = { prev_entry_sha256, page, slot_lo, slot_hi, first_sig, last_sig, tx_count, tail_sigs_at_slot_hi[], list_sha256, payload_sha256 }` — les neuf champs §6 dans l'ordre d'écriture du writer, **puis `payload_sha256` en DERNIER**. 
+- `payload_sha256 = sha256(utf8(JSON.stringify({ page_events: <page_events>, page_handoffs: <page_handoffs> })))` — **ordre des clés de l'objet : `page_events` puis `page_handoffs`**, exactement.
+- `entry_sha256 = sha256(utf8(JSON.stringify(core)))` sur les dix champs ⇒ `entry_sha256` commet le payload ; `prev_entry_sha256` commet transitivement toutes les pages ; `ledger_sha256` = `entry_sha256` de la dernière page (calcul inchangé, sens renforcé).
+- La ligne persistée reste `{ ...core, entry_sha256, page_events, page_handoffs }`, une ligne par page.
+- **Supersède** la phrase de l.343 « `entry_sha256` … sur le SEUL core, JAMAIS sur `page_events`/`page_handoffs` » et « `verifyLedgerChain` STRIPE … avant de hacher » : le vérificateur **RECALCULE** `payload_sha256` depuis les `page_events`/`page_handoffs` relus, le place dans le core recomposé et compare à `entry_sha256` ; il ne fait jamais foi au champ `payload_sha256` stocké seul.
+
+### (2) Sémantique déclarée : forme écrite, ordre d'ingestion, writer unique ; JCS non retenue
+L'engagement porte sur l'**intégrité de la forme écrite** : les tableaux sont hachés **dans l'ordre d'ingestion** (jamais triés — `sortEvents` est interdit sur le payload), par un **writer unique** (ce CLI). Aucune canonicalisation sémantique : RFC 8785 (JCS) [abs] **non retenue**, motif : aucun consommateur non-JS de ce ledger, et l'idempotence `stringify∘parse∘stringify` tient pour les valeurs écrites (clés non entières, ordre d'insertion préservé, nombres finis / chaînes / null — ECMA-262 [abs]). Conséquence assumée : deux payloads sémantiquement égaux mais d'ordre différent ont des `payload_sha256` différents — voulu, l'ordre fait partie de ce qui est engagé.
+
+### (3) Vecteurs de référence de la spéc (littéraux, données SYNTHÉTIQUES, re-mesurés hors helper par la G2 au constat final sur `e453680`)
+Objets exacts : test `bell_crosscheck_ledger_chain_rederives_committing_page_payload` (`apps/bell/test/rebase-crosscheck.test.ts`) ; chaque hex ne vaut que pour ces octets et cet ordre.
+- Vecteur 0 (1 événement, 0 handoff) : `payload_sha256 = a3b346f0de060d33c20a461fcb40d600417f9b6f52282cd1a14fda69da40fd8e` ; `entry_sha256 = 1e47da9efc918af3a74e7239677bf29c15a0fb1316f6a1e5fb2f9156c58cfbf4`.
+- Vecteur 1 (deux événements NON triés `[evB, evA]` + un handoff) : `payload_sha256 = f2243f755fa55d8c564017c55b92debda4a5307cc6e5e6d1b5b5607a581ab1ff` ; `entry_sha256 = aa0f826b5755754b6b258ecac9b26e8a6ac83632981945a31d55b0981322a0dd`. Les mêmes événements TRIÉS donnent `194133c8…` (≠) : l'ordre des événements est épinglé.
+- Vecteur 2 (deux handoffs NON triés) : `payload_sha256 = f0a2d8a3d56eaaf6e2a3e55a9fb01c2dbd6c4578bbe6362ab28573b987e875c0` ; triés : `c3f4b460…` (≠) : l'ordre des handoffs est épinglé.
+
+### (4) Record sans `payload_sha256` : REFUSÉ, aucune migration
+Un record dont `payload_sha256` est absent (forme à neuf champs, ou altération qui l'a retiré) ⇒ `verifyLedgerChain` rend `ok:false` ; il n'est **jamais ignoré ni complété**. Aucun chemin de migration : un ledger à neuf champs est rejoué depuis zéro.
+
+### (5) Ordre refus / écriture à la reprise
+À une reprise sur ledger non re-dérivable (payload édité compris), **le refus (`chain does not re-derive`) précède toute écriture de `budget.json`, d'artefact `crosscheck-<MINT>.json` et de ligne de ledger**. Seule le précède la **création idempotente de répertoires** : DEUX `mkdirSync` (`<out>` puis `candidates/<MINT>/`), qui n'écrivent aucun octet porteur de verdict (à une vraie reprise ces répertoires existent déjà depuis le run 1 ; un `candidates/<MINT>/` vide n'alimente `deriveCandidateShas` que sur le chemin de succès). Pas de réordonnancement du source (ruling validateur (d), concur G2 C-G2-2).
+
+### (6) `candidate_shas` : HORS chaîne, déclaré
+`candidate_shas` (sha des corps candidats conservés hors dépôt) reste **en dehors** de la chaîne : ce sont des pins de pièces, pas un intrant du verdict. Un corps candidat altéré n'est donc PAS détecté par `ledger_sha256` ; il l'est par son sha dans l'artefact.
+
+### (7) §5 (audit) amendé : DEUX vérifications distinctes
+- **(i) Intégrité sur disque — par RECOMPUTE** : relire le ledger, recalculer `payload_sha256` de chaque ligne depuis ses `page_events`/`page_handoffs`, recomposer le core, recalculer `entry_sha256`, vérifier le chaînage et `ledger_sha256` publié.
+- **(ii) Vérité du payload — par ENSEMBLE `eventKey`** sur les pages re-tirées par l'auditeur : l'ensemble des clés d'événements (et de handoffs) re-décodés est comparé à celui du ledger. **JAMAIS par recalcul du `payload_sha256` d'une page re-tirée** : le dédoublonnage de frontière de page et l'ordre de réponse du fournisseur ne sont pas garantis identiques d'un tirage à l'autre, donc un hex différent sur une page re-tirée ne prouve aucune altération, et un hex égal n'est pas exigible.
+
+### (8) LIMITE déclarée (C-V-4 / C-F-4) — ce que (f) ne défait PAS
+(f) rend le verdict **non falsifiable par édition du payload sous un `entry_sha256` conservé**. (f) **ne défait pas un éditeur qui re-hache TOUTE la chaîne avant la publication de `ledger_sha256`** : tant que la tête n'est pas ancrée à l'extérieur, un re-hachage complet produit une chaîne cohérente. L'ancrage externe par page (C-F-4) **mord dès le premier record** et relève d'une **ESCALADE-INVESTISSEUR au G0 de la course** ; il n'est ni tranché ni contourné ici.
+
+### (9) Retraits et inversions (dits tels quels, jamais en silence)
+- Le **caveat ITEM-A** de C-V-1(vii) du pli b1a (« le verdict à la reprise reste falsifiable par édition de `page_events`/`page_handoffs` ») est **RETIRÉ PAR CE TEXTE** : le test `bell_crosscheck_resume_refuses_edited_payload` (sous-cas (a) événements, (b) handoffs, (c) contrôle non édité ⇒ `equal`, (d) édition à longueur égale) est vert.
+- Les mutants **M-b1a-7** et **M-b1a-9** du G0-b (`docs/G0-lot-t1a-ii-b3d-b.md:122-123, :153`) sont **INVERSÉS** : « core AVEC payload » est désormais la forme correcte ; le test `…rederives_ignoring_page_payload` est devenu `…rederives_committing_page_payload`. Notes datées portées aux lignes citées du G0-b.
+- La condition **(f)** du G0-b (`:239`) est notée « **tenue par le lot -f, sha de fusion** » (sha consigné dans `docs/G7-lot-t1a-ii-b3d-f.md`).
+
+### Item formé (C-V-3)
+`packages/rpc-guard/test/ledger-format-lock.test.ts:16-17` décrit encore `chainedLedgerEntry` en arité 3 (`RefMod`) ; le test reste vert (mesuré : oracle 699 tests 0 fail sur `e453680`) mais le type déclaré est périmé. **Déclencheur nommé : lot GARDE-HELIUS-1b** (synchroniser `RefMod` en arité 5 et passer `[], []`) ; propriétaire orchestrateur ; inscrit aux exigences d'entrée du G0 -1b. `error_origin` : orchestrateur (grep des consommateurs du G0 -f antérieur à la fusion de `rpc-guard`).
