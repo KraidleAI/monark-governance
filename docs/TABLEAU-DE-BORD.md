@@ -27,7 +27,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 |---|---|---|---|
 | -1b-i | FUSIONNÉ `9b178f3` | — | — |
 | -1b-ii-a alerte mail | EN COURS | pli G2-delta (C-G2D-1/2) ; puis checkpoint-2 | `Monark-wt-narabi1b2a` |
-| -1b-ii-b détection jour manquant | CHECKPOINT-2 OK (isolation) | fusion -a+-b = G2 + checkpoint-2 propres ; ESCALADE E-5 (résiduel livelock) | `Monark-wt-narabi1b2b` |
+| -1b-ii-b détection jour manquant | CHECKPOINT-2 OK (isolation) | fusion -a+-b = G2 + checkpoint-2 propres ; E-5 maintenu (décision 109) | `Monark-wt-narabi1b2b` |
 | Rattrapage `run.ts` (livelock ≥ ~12 j) | À VENIR | G0/ADR, AVANT E-5 | — |
 | Déploiements (sonde VPS Bell ; E-5 VPS site) | À VENIR | après G7 -a, -b, POOL-RPC-1a ; mot de passe SMTP posé par l'investisseur | — |
 
@@ -35,7 +35,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Lot | État | Étape / bloqueur |
 |---|---|---|
 | U-4a | FUSIONNÉ `834a416` | — |
-| U-4b (absorbe U-4a-ii, décision 99) | EN COURS | plan plié `2f4456f` ; **-1a** (score offline, gel) en G1 `Monark-wt-u4b1a` ; -0 après fusion POOL-RPC-1a ; -1b attend Q-1 |
+| U-4b (absorbe U-4a-ii, décision 99) | EN COURS | plan plié `2f4456f` ; **-1a** (score offline, gel) en G1 `Monark-wt-u4b1a` ; -0 après fusion POOL-RPC-1a ; -1b : classe A seule (108) |
 | U-5 branchement outil servi | À VENIR | après U-4b |
 | U-6 book complet + course live | À VENIR | go investisseur |
 | U-7 biblio paginée, rejeu public | À VENIR | — |
@@ -59,9 +59,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 ## 6. EN ATTENTE DE L'INVESTISSEUR (une question à la fois, dans l'ordre)
 | # | Quoi | Bloque |
 |---|---|---|
-| Q-1 | Ukemi : servir la seule classe A au release, classe B en item formé ? (reco : oui) | prereg U-4b |
-| Q-2 | Narabi : redéployer le sentinel avec le résiduel documenté (livelock ≥ ~12 j, réparation RUNBOOK §6) ou corriger `run.ts` d'abord ? (reco validateur : maintenir) | E-5 |
-| Q-3 | Clause anti-close : exempter les constantes d'état on-chain public déjà committées ? | rien (fixture purgée de toute façon) |
+| ~~Q-1..Q-4~~ | Ukemi classe A seule (108) ; Narabi E-5 maintenu (109) ; anti-close amendée pour les constantes on-chain (110) ; 4 fichiers u4 hors miroir (111) — TRANCHÉES | — |
 | ~~E-1a~~ | Retrait de Blast API — CONFIRMÉ (décision 106) | — |
 | ~~E-1b~~ | Retrait de LlamaRPC — CONFIRMÉ (décision 106) | — |
 | ~~F-1~~ | Polices OFL — TÉLÉCHARGÉES (décision 107, `F:MONARK SUITEonts`) | — |
