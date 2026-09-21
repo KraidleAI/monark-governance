@@ -22,6 +22,31 @@ const DEPLOY_BLOCK = 18_571_358;                 // USDe deploy — a safe lower
 const DEFAULT_DIR = "/var/lib/monark-sentinel";
 const nextDay = (day: string): string => new Date(new Date(day + "T00:00:00Z").getTime() + 86_400_000).toISOString().slice(0, 10);
 
+// Per-run TIME budget for the bounded catch-up (ADR-NARABI-OPS-1c). Checked BETWEEN due days so a multi-day
+// backlog can no longer be killed at the same point every slot (RUNBOOK section 6 Mode A): the first due day
+// is always attempted, later days stop once the budget is spent, the produced lines are written, and the next
+// timer slot resumes at prevDay+1. The margin below the unit TimeoutStartSec (deploy/monark-sentinel.service)
+// is pinned by the test sentinel_budget_below_unit_timeout: BUDGET_MAX_S + MARGIN_MIN_S <= TimeoutStartSec.
+export const BUDGET_DEFAULT_S = 180;
+export const BUDGET_MAX_S = 180;
+export const BUDGET_MIN_S = 30;
+export const MARGIN_MIN_S = 120;
+
+/**
+ * The catch-up budget in milliseconds from MONARK_SENTINEL_BUDGET_S. Absent => the 180 s default (the
+ * production unit does not set the key). Present => a plain integer in [BUDGET_MIN_S, BUDGET_MAX_S], else
+ * THROW at start-up (fail-closed): a mis-set budget must stop the run loudly, never silently starve the daily
+ * publication. This is the ONLY new env read; no clock env is read here or anywhere (sentinel_no_clock_env_is_read).
+ */
+export function budgetMsFromEnv(env: NodeJS.ProcessEnv): number {
+  const raw = env.MONARK_SENTINEL_BUDGET_S;
+  if (raw === undefined) return BUDGET_DEFAULT_S * 1000;
+  if (!/^\d+$/.test(raw)) throw new Error(`MONARK_SENTINEL_BUDGET_S must be an integer ${String(BUDGET_MIN_S)}..${String(BUDGET_MAX_S)} seconds (got ${JSON.stringify(raw)}).`);
+  const s = Number(raw);
+  if (s < BUDGET_MIN_S || s > BUDGET_MAX_S) throw new Error(`MONARK_SENTINEL_BUDGET_S out of range ${String(BUDGET_MIN_S)}..${String(BUDGET_MAX_S)} (got ${String(s)}).`);
+  return s * 1000;
+}
+
 interface Provenance { readonly endpoints: readonly string[]; readonly node_version: string; readonly sentinel_sha: string; }
 
 /**
@@ -60,37 +85,64 @@ export interface RunReport {
   stopped: string | null;
   lines: TimelineLine[];
   state: SentinelState;
+  elapsedMs: number;
+  maxDayMs: number;
+}
+
+/** Injected clock + budget for the bounded catch-up (ADR-NARABI-OPS-1c). `now` returns milliseconds. */
+export interface CatchupBudget {
+  now: () => number;
+  budgetMs: number;
 }
 
 /**
  * Process the due days against `rpc`, folding the engine forward from `state0`. Pure of filesystem: the CLI
  * `main` handles persistence. A C1/quorum failure stops the run (fail-closed) and leaves the rest as lag.
+ *
+ * When `opts` is given (ADR-NARABI-OPS-1c), a per-run TIME budget is checked BETWEEN due days: the FIRST due
+ * day is ALWAYS attempted; before any LATER day, if `now() - t0` STRICTLY exceeds `budgetMs`, the run stops
+ * with `stopped = "catchup_budget"` and the lines produced so far are returned (the caller writes them; the
+ * next timer slot resumes at prevDay+1, so a multi-day backlog progresses instead of being killed at the same
+ * point every slot). The clock is INJECTED, so there is no `Date.now`/`performance.now` in this function;
+ * `elapsedMs`/`maxDayMs` are measured off the same clock, the latter over each ATTEMPTED day (including one
+ * that stops on a fault), so a slow day shows up in the end JSON (the ADR pre-registered criterion of NO).
  */
-export async function runDue(state0: SentinelState, rpc: RpcPool, dueList: string[], hi: number, prov: Provenance): Promise<RunReport> {
+export async function runDue(state0: SentinelState, rpc: RpcPool, dueList: string[], hi: number, prov: Provenance, opts?: CatchupBudget): Promise<RunReport> {
   let state = state0;
   const lines: TimelineLine[] = [];
   let lo = DEPLOY_BLOCK; // safe lower bound; tightened to the previous window's to_block+1 as we advance
   let stopped: string | null = null;
   const processedDays: string[] = [];
+  const t0 = opts !== undefined ? opts.now() : 0;
+  let maxDayMs = 0;
+  let first = true;
   for (const day of dueList) {
-    let facts: WindowFacts;
+    if (opts !== undefined && !first && opts.now() - t0 > opts.budgetMs) { stopped = "catchup_budget"; break; }
+    first = false;
+    const dayStart = opts !== undefined ? opts.now() : 0;
     try {
-      facts = await fetchWindow(rpc, day, lo, hi);
-    } catch (e) {
-      stopped = e instanceof QuorumDisagreementError ? `quorum_disagreement:${day}` : `fetch_error:${day}:${(e as Error).message}`;
-      break;
+      let facts: WindowFacts;
+      try {
+        facts = await fetchWindow(rpc, day, lo, hi);
+      } catch (e) {
+        stopped = e instanceof QuorumDisagreementError ? `quorum_disagreement:${day}` : `fetch_error:${day}:${(e as Error).message}`;
+        break;
+      }
+      // ADR-M012 D1, literal: process a window only if to_block <= finalized (belt for the ts-based gate).
+      if (facts.toBlock > hi) { stopped = `unfinalized_to_block:${day}`; break; }
+      const r = attest(facts);
+      if (r.status === "c1_fail") { stopped = `c1_fail:${day}`; break; }
+      const out = step(state, facts, r, prov);
+      state = out.state;
+      lines.push(out.line);
+      processedDays.push(day);
+      lo = facts.toBlock + 1;
+    } finally {
+      if (opts !== undefined) { const dt = opts.now() - dayStart; if (dt > maxDayMs) maxDayMs = dt; }
     }
-    // ADR-M012 D1, literal: process a window only if to_block <= finalized (belt for the ts-based gate).
-    if (facts.toBlock > hi) { stopped = `unfinalized_to_block:${day}`; break; }
-    const r = attest(facts);
-    if (r.status === "c1_fail") { stopped = `c1_fail:${day}`; break; }
-    const out = step(state, facts, r, prov);
-    state = out.state;
-    lines.push(out.line);
-    processedDays.push(day);
-    lo = facts.toBlock + 1;
   }
-  return { processedDays, lag: dueList.length - processedDays.length, stopped, lines, state };
+  const elapsedMs = opts !== undefined ? opts.now() - t0 : 0;
+  return { processedDays, lag: dueList.length - processedDays.length, stopped, lines, state, elapsedMs, maxDayMs };
 }
 
 /** sha256 over the sorted bytes of the sentinel sources (no .git on the VPS; a stable build witness). */
@@ -156,6 +208,7 @@ export function j0SourceOf(j0: string | undefined, day: string | null, prevDay: 
 
 async function main(): Promise<void> {
   const { dryRun, day, dir } = parseArgs(process.argv.slice(2));
+  const budgetMs = budgetMsFromEnv(process.env); // fail-closed at start-up: a mis-set budget throws before any network.
   const srcDir = dirname(fileURLToPath(import.meta.url));
   const prov: Provenance = { endpoints: publishedEndpoints(), node_version: process.version, sentinel_sha: sentinelSha(srcDir) };
   const rpc = makeRpcPool({ endpoints: poolEndpoints() });
@@ -165,7 +218,7 @@ async function main(): Promise<void> {
   if (day !== null && !dryRun && state.prevDay !== null && nextDay(state.prevDay) !== day) throw new Error(`--day ${day} without --dry-run must be the next day (${nextDay(state.prevDay)}); plain run catches up, --dry-run inspects.`);
   const fin = await rpc.finalized();
   const due = dueDays(state.prevDay, fin.ts, startDay, day);
-  const report = await runDue(state, rpc, due, fin.block, prov);
+  const report = await runDue(state, rpc, due, fin.block, prov, { now: () => performance.now(), budgetMs });
   const summary = stateSummary(report.state);
   // L-1 (ADR-NARABI-OPS-1): exit NON-ZERO exactly when a stop PREVENTED catch-up — `report.stopped !== null`
   // (a fetch / quorum / c1 / unfinalized failure), so a oneshot exit-0 no longer masks a stalled day (the
@@ -177,7 +230,7 @@ async function main(): Promise<void> {
   // (prevDay+1), so the printed start is that, never the unused `j0 ?? today`. `chainstack`/`exit_code` (C-4/L-1).
   const j0Source = j0SourceOf(process.env.MONARK_SENTINEL_J0, day, state.prevDay);
   const effectiveStartDay = state.prevDay !== null ? nextDay(state.prevDay) : startDay;
-  console.log(JSON.stringify({ startDay: effectiveStartDay, j0Source, processedDays: report.processedDays, lag: report.lag, stopped: report.stopped, finalized: fin.block, T: report.state.tracker.t, chainstack: hasChainstack(), exit_code: exitCode, dryRun }, null, 2));
+  console.log(JSON.stringify({ startDay: effectiveStartDay, j0Source, processedDays: report.processedDays, lag: report.lag, stopped: report.stopped, finalized: fin.block, T: report.state.tracker.t, chainstack: hasChainstack(), exit_code: exitCode, dryRun, elapsed_ms: Math.round(report.elapsedMs), max_day_ms: Math.round(report.maxDayMs) }, null, 2));
   if (dryRun) { console.log("--dry-run: nothing written."); process.exitCode = exitCode; return; }
   if (report.lines.length > 0) {
     mkdirSync(dir, { recursive: true });
