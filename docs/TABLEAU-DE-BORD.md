@@ -8,7 +8,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Lot | État | Étape / bloqueur | Worktree |
 |---|---|---|---|
 | -b3d-a contre-vérification | FUSIONNÉ `83da61d` (erratum `7aae8d7`) | — | — |
-| -b3d-b1a reprise/ledger/budget | EN COURS | G2 (relecteur séparé) ; G1 + option d `f4ae59f`, 565/565, R-25 760 | `Monark-wt-b3db1a` |
+| -b3d-b1a reprise/ledger/budget | EN COURS | pli G2 (2 trous de couverture) ; G2 `eeeeaef` PASS-AVEC-CORRECTIONS | `Monark-wt-b3db1a` |
 | -b3d-b1b densité/projection | À VENIR | après b1a | — |
 | GARDE-HELIUS (client budgété unique, ledger de cycle) | EN COURS | G0 `b6b687b` ; checkpoint-1 (validateur) ; décisions 112-114 | — |
 | Course de contre-vérification | BLOQUÉ | GARDE-HELIUS + b1b | — |
@@ -27,8 +27,9 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Lot | État | Étape / bloqueur | Worktree |
 |---|---|---|---|
 | -1b-i | FUSIONNÉ `9b178f3` | — | — |
-| -1b-ii-a alerte mail | EN COURS | checkpoint-2 (validateur) ; pli G2-delta committé, mutant :576 rejoué par l'orchestrateur | `Monark-wt-narabi1b2a` |
-| -1b-ii-b détection jour manquant | CHECKPOINT-2 OK (isolation) | fusion -a+-b = G2 + checkpoint-2 propres ; E-5 maintenu (décision 109) | `Monark-wt-narabi1b2b` |
+| -1b-ii-a alerte mail | CHECKPOINT-2 OK (isolation) | 4 corrections docs pliées `68c849b` | `Monark-wt-narabi1b2a` |
+| -1b-ii-b détection jour manquant | CHECKPOINT-2 OK (isolation) | — |
+| **Fusion -a + -b** (`lot/narabi-ops-1b-ii`) | EN COURS | composition des 3 conflits (worker) → G2 + checkpoint-2 de l'état fusionné → G7 combiné | `Monark-wt-narabi1b2` | `Monark-wt-narabi1b2b` |
 | Rattrapage `run.ts` (livelock ≥ ~12 j) | À VENIR | G0/ADR, AVANT E-5 | — |
 | Déploiements (sonde VPS Bell ; E-5 VPS site) | À VENIR | après G7 -a, -b, POOL-RPC-1a ; mot de passe SMTP posé par l'investisseur | — |
 
@@ -68,4 +69,4 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-G2 b3d-b1a · G1 POOL-RPC-1a · G1 U-4b-1a · cp-2 Narabi -a · pli G2 EXPORT-CLEAN · cp-1 GARDE-HELIUS · G0 -iii-a1-bis.
+pli G2 b3d-b1a · G1 POOL-RPC-1a · G1 U-4b-1a · fusion Narabi -a+-b · pli G2 EXPORT-CLEAN · cp-1 GARDE-HELIUS · G0 -iii-a1-bis.

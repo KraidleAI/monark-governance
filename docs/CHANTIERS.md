@@ -478,3 +478,7 @@ CI complète sur l'arbre fusionné 573/573 ; R-25 1 195 ; checkpoint-2 REFUSE (a
 - **113** tolérance de rapprochement : borne dure `Δdashboard ≤ ledger_run` (sinon incident) + bande souple `ledger_run − Δdashboard ≤ max(50 cr, 0,5 % du run)` ; pré-enregistrée avant la 1ʳᵉ course.
 - **114** ledger de cycle dans un dossier `F:\` dédié : `F:\monark-ledger\` (créé ; `HELIUS_LEDGER_DIR` posé par l'orchestrateur, hors dépôt, sauvegardé avec MONARK SUITE).
 - Dépendances d'ordre retenues : fusion -b3d-b1a AVANT GARDE-HELIUS-1a ; POOL-RPC-1a AVANT le volet Ukemi (2) ; U-4b-0 devient « consommer `@monark/rpc-guard` ».
+
+### Narabi -1b-ii-a : checkpoint-2 ACCEPTE-AVEC-CORRECTIONS (4 docs, pliées `68c849b`) ; fusion -a + -b EN COURS (2026-09-21 ~07:00 UTC)
+- Validateur : 510/510 ×2, 46/46 ×5, 5 mutants tués par lui, R-25 1 094 ; échéance murale unique et absence de fuite vérifiées sur pièces ; registre `upcoming` correct. Corrections : `--now` J+2 au RUNBOOK (l'en-tête `Date:` du mail-déclencheur suit `--now`), digest local littéral + `read -rs`, sha JOURNAL, item (g) `mjs:57` ajouté à la sous-liste de l'état fusionné (`997853a` dans -b).
+- Fusion : worktree `Monark-wt-narabi1b2` (branche `lot/narabi-ops-1b-ii`, base `lot/etude-suite` avec -1b-i) ; -a fusionné `1886916` (ADR take-both par l'orchestrateur) ; -b en cours (3 conflits attendus) — composition par worker selon la carte (a)–(g), puis G2 + checkpoint-2 SUR L'ÉTAT FUSIONNÉ, puis G7 combiné, puis déploiements (sonde VPS Bell ; E-5 VPS site avec POOL-RPC-1a, décision 109).
