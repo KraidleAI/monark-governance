@@ -401,3 +401,73 @@ merge-base réelle `331c169`, intersection = 5 fichiers). **Ordre conseillé : -
 4. **Course GET₁/GET₂ (C-NB-4)** (§5.3) — durcissement non codé ; déclencheur : 1er faux `state_mismatch` observé.
 5. **Déploiement E-5** (§5.5, décision 92) — orchestrateur, après G7 + checkpoint-2, RUNBOOK §6 par SHA.
 Aucun « dû » nu : chaque point est un item formé (propriétaire + déclencheur) ou une recherche documentée.
+
+## 11. PLI G2-delta — pli des corrections C-G2D-1..3 (`docs/G2-DELTA-lot-narabi-ops-1b-ii-b.md`, relecteur séparé `claude-opus-4-8[1m]`, PASS-AVEC-CORRECTIONS)
+
+Pli des **trois corrections NON bloquantes** de la relecture-delta (worker `claude-opus-4-8[1m]`, effort max, contexte frais,
+`2026-09-21`, worktree `F:\Monark-wt-narabi1b2b`, HEAD `b9e9675`). N'écrase RIEN de §1-§10 : seuls `docs/RUNBOOK-sentinel.md`
+(C-G2D-1/2) et `test/probe-narabi-state.test.ts` (C-G2D-3) sont touchés ; `scripts/probe-narabi.mjs` **non modifié** (aucun
+défaut réel — la ligne 412 passe bien les 3 liaisons ; le trou était de COUVERTURE, pas de code). Tests sous
+`env -u SMTP_HOST -u SMTP_USER -u SMTP_PASS -u ALERT_TO -u PROBE_STATE_URL`, `node --test` flags package.json ; loopback seul.
+
+### 11.1 Table correction → `fichier:ligne` (post-pli) → preuve
+
+| Correction | `fichier:ligne` (post-pli) | Preuve (first-hand) | Niveau (R-21) |
+|---|---|---|---|
+| **C-G2D-1** signal inobservable | `docs/RUNBOOK-sentinel.md:187` | « RECURS every slot with the SAME `processedDays` never shrinking » (proxy jamais émis) REMPLACÉ par deux observables : col. journalctl « **NO new end-JSON** (run tué dans `runDue`, n'atteint jamais l'end-JSON `run.ts:180`, `processedDays` jamais imprimé) » + col. `tail -1` « **`day` never advances slot after slot** ». `run.ts:180` = le `console.log(JSON.stringify({… processedDays …}))` (lu, `apps/sentinel/src/run.ts:180`), APRÈS le retour de `runDue` (`:168`) ⇒ un kill DURANT `runDue` (`:168`, la boucle RPC multi-jours) ne l'atteint jamais. | lecture du code (`run.ts:168,180`) |
+| **C-G2D-2** `start` bloquant + `-f` | `docs/RUNBOOK-sentinel.md:220-224` | `systemctl start monark-sentinel.service` + `journalctl -f` séquentiel REMPLACÉ par `systemctl start **--no-block** …` puis `journalctl … -f` (suivi LIVE) + note « **Ctrl-C** après `wrote N line(s)` puis restaurer ». Fondé sur `deploy/monark-sentinel.service:15` (`Type=oneshot`, **sans** `RemainAfterExit` ⇒ un `start` nu BLOQUE jusqu'à la fin du run, un `-f` suivant n'observe qu'un run FINI). Mode B `:292-293` (post-pli ; start bloquant + `-n 20 --no-pager`) laissé INTACT (déjà correct pour un oneshot). **C-G2D-2 insère +3 lignes** (`journalctl -f` : `:221`→`:224`) ⇒ toute citation RUNBOOK `> :224` du G2-DELTA / §10 (pré-pli) se lit **+3** (ex. §6 « 172-297 » → « 172-300 » ; RUNBOOK total 329→**332** lignes). | validé par **lecture** de l'unit ; **non exécuté** (aucun systemd sur cet hôte Windows — jamais le VPS) |
+| **C-G2D-3** liaisons runtime non pinées | `test/probe-narabi-state.test.ts:363` (R), `:396` (T) | 2 killers ajoutés qui pinnent `retries: STATE_RETRIES` (R) et `timeoutMs: STATE_TIMEOUT_MS` (T) du GET₂ (`probe-narabi.mjs:412`). Mutants R/T rejoués : **SURVIVAIENT** avant, **ROUGES** après (§11.2). | rejeu du code (oracle non-LLM) |
+
+### 11.2 Mutants voisins R & T (rapport G2-delta §2) — rejoués : AVANT survit / APRÈS rouge, restauré BYTE-EXACT
+
+Protocole (jamais `git checkout`) : `cp bak/pristine → probe-narabi.mjs`, mutation `mutate.mjs` (exact-replace, **assert 1
+occurrence**), portée = `test/probe-narabi-state.test.ts`, restauration par copie du backup, `sha256` re-vérifié == pristine
+après CHAQUE mutant. Backup pristine `F:\tmp\claude\F--Monark\a7659644-0519-4943-8b82-d50d7405fe34\scratchpad\g2d-fold\bak\probe-narabi.mjs.pristine`, sha256 `1001c1cd…`.
+
+| Mutant | Mutation exacte (`probe-narabi.mjs:412`) | AVANT (suite gelée, 8 tests) | APRÈS (suite +2 killers, 10 tests) | Test qui rougit (SEUL) | `sha256` restauré |
+|---|---|---|---|---|---|
+| **R** | drop `, retries: STATE_RETRIES` | **SURVIT 8/8** (aucun test ne compte les tentatives du GET₂) | **ROUGE 9/1** — `actual: 'state_unreachable', expected: null` (mutant : `retries ← env PROBE_RETRIES=0` ⇒ 1 tentative ⇒ abandonne sur le reset ; réel : `STATE_RETRIES=1` ⇒ 2 tentatives, sert la 2ᵉ ⇒ healthy) | `probe_state_get2_binds_state_retries` (le T-killer reste VERT) | `1001c1cd…` == pristine ✓ |
+| **T** | drop `timeoutMs: STATE_TIMEOUT_MS, ` | **SURVIT 8/8** (aucun test ne mesure la deadline du GET₂) | **ROUGE 9/1** — `actual: 'state_unreachable', expected: null` (mutant : `timeout ← env 1000 ms < 3000 ms de délai serveur` ⇒ abort aux 2 tentatives ; réel : `STATE_TIMEOUT_MS=5000 ms` ⇒ lit le corps différé ⇒ healthy) | `probe_state_get2_binds_state_timeout` (le R-killer reste VERT) | `1001c1cd…` == pristine ✓ |
+
+**Séparation propre** : sous R seul le R-killer rougit, sous T seul le T-killer rougit (l'autre liaison restant intacte) —
+chaque mutant tue EXACTEMENT son test nommé (même propriété que N-G2-1/2/3). R est **déterministe** (compteur de hits, sans
+timing) ; T est temporel avec **~2000 ms de marge de chaque côté** (env 1000 < délai 3000 < STATE_TIMEOUT_MS 5000) et sert
+UNE requête d'état sans abort sur le chemin réel (`res.on("close")` annule tout envoi en attente si le client abandonne —
+aucun `write-after-abort`, vérifié : 0 occurrence dans le log du mutant T).
+
+*Marge T MESURÉE (non inférée)* : la durée PROPRE du T-killer est **stable à 3157–3299 ms sur les 10 runs** (y compris le run
+#3, 11,7 s GLOBAL — sa charge est sur les AUTRES tests du fichier : le T-killer y fait **3200,8 ms**). ~3200 ms ≈ le délai
+serveur 3000 ms + I/O ⇒ le GET₂ réel lit le corps différé ~1800 ms SOUS `STATE_TIMEOUT_MS`=5000, et le GET₁ n'a JAMAIS
+dépassé son budget (sinon la durée sauterait de ≥1000 ms par retry). Discriminant démontré, pas supposé.
+
+*Hypothèse latente déclarée (comme le paragraphe `hits===1` de N-G2-2, §10.4)* : `PROBE_TIMEOUT_MS=1000` plafonne AUSSI le
+GET₁ du T-killer ; la prémisse est qu'un `timeline.jsonl` de 4,7 Ko se sert en loopback en < 1000 ms (10× la latence typique),
+avec les **2 retries par défaut** (`PROBE_RETRIES` non posé) en filet. Un GET₁ dépassant 1 s aux **trois** tentatives ferait
+échouer le test en `unreachable` (pas en `state_unreachable`) — un mode d'échec DISTINCT de la régression de liaison timeout
+visée, donc jamais un faux vert du mutant T. Mesuré : 0/10 (durée T-killer plate à ~3,2 s).
+
+### 11.3 Oracles post-pli (décomptes exacts, re-exécutés — non recopiés)
+
+| Oracle | Commande | Résultat |
+|---|---|---|
+| Suite COMPLÈTE | `env -u … npm run test` | **tests 514 / pass 514 / fail 0 / skipped 0 / todo 0 / cancelled 0** (exit 0, 47,6 s) — G2-delta 512 + **2 killers** |
+| CI | `env -u … npm run ci` | exit 0 ; `gate:vocab` **OK — 181 fichier(s)** (inchangé : ni RUNBOOK ni le test d'état ne sont dans un scope scanné) ; `typecheck` **0 erreur** ; **514/514** |
+| Flakiness | `probe-narabi-state.test.ts` × 10 | **10/10 : 10 pass / 0 fail** chaque run (exit 0), 5,2–11,7 s ; **0 flake** (marge T tenue même sur le run le plus lent) |
+| **R-25** | `git diff --shortstat 57e9cbc -- <pathspec `STAT=` de `.github/workflows/ci.yml:65`>` | **535 ins + 13 del = 548 ≤ 1205** (pré-pli `57e9cbc...HEAD` = 466+13 = **479**, == G2-delta ; mes +69 lignes dans `test/probe-narabi-state.test.ts` ; **RUNBOOK+PLI `docs/**/*.md` EXCLUS** — `--stat` ne compte que le fichier de test parmi mes édits) |
+
+### 11.4 sha256 post-pli (état gelé du pli G2-delta) — SUPERSÈDE §7 pour ces DEUX fichiers uniquement
+
+`docs/RUNBOOK-sentinel.md` **`8f3486ed9254a551a61534b516de8fad1c850d6af244a219ed794aa3ac1e5123`** (supersède §7 `3a049053…`) ;
+`test/probe-narabi-state.test.ts` **`800e89bf2f1f23f4f7daa4a75c2786a4b7bd1107cc9ddc00c8060b9a416c0ff2`** (supersède §7 `55e50222…`) ;
+`scripts/probe-narabi.mjs` **`1001c1cd1f5bb8e8cc131986295360a296c895487635e532509ca549d9d8058f`** (INCHANGÉ, == §7). Les 5 autres
+fichiers de §7 sont byte-identiques. `git status` = seuls `docs/RUNBOOK-sentinel.md` et `test/probe-narabi-state.test.ts`
+modifiés (R-20 : aucun commit, aucun workflow ; le probe restauré == pristine).
+
+### 11.5 Provenance du pli G2-delta
+Worker **`claude-opus-4-8[1m]`**, effort max, contexte frais, `2026-09-21`. R-20 (aucun commit/workflow ; mutants R/T joués
+IN-PLACE puis restaurés BYTE-EXACT par copie du backup, `sha256` re-vérifié == pristine ; jamais `git checkout`/`stash`).
+R-21 (chaque fait porte son `fichier:ligne` first-hand ou sa mesure rejouée ; suite/CI/flakiness/R-25 re-exécutés). Advisor
+intégré (Fable 5.1) consulté AVANT l'écriture des killers (pièges intégrés : R-25 en arbre de travail vs `...HEAD`, réutilisation
+keep-alive undici sur le killer R, `write-after-abort` sur le killer T, niveau de vérification R-21 des docs, décalage +3
+lignes du RUNBOOK). Logs sous `F:\tmp\claude\F--Monark\a7659644-0519-4943-8b82-d50d7405fe34\scratchpad\g2d-fold\` :
+`mutate.mjs`, `bak\probe-narabi.mjs.pristine`, `logs\{after-pristine,after-mutantR,after-mutantT,full-test,ci,flake-1..10}.log`.

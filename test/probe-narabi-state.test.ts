@@ -348,3 +348,72 @@ test("probe_state_url_override_honored_and_guarded — the PROBE_STATE_URL overr
     assert.equal(r.status, 1, "state_unreachable exits 1");
   } finally { await close(server); }
 });
+
+// ── C-G2D-3 (G2-delta mutants R & T): the URL-mode 2nd GET binds ALL THREE of its transport bounds at the call
+// site (probe-narabi.mjs:412: { timeoutMs: STATE_TIMEOUT_MS, maxBytes: STATE_MAX_BYTES, retries: STATE_RETRIES }).
+// N-G2-3 above pins the maxBytes binding; the G2-delta reviewer found the retries and timeout bindings still
+// SURVIVED (dropping either lets GET2 fall back to the env-tunable transportBounds, defeating the env-INDEPENDENCE
+// the FIXED STATE_* values exist to guarantee — the worst-case-bounds assertion models the fixed values, so a
+// runtime drift to a widened env is invisible to it). These two killers red exactly those two drops. ─────────────
+
+// R (retries binding): pin PROBE_RETRIES=0 (so a mutant GET2 rebinding to env does ONE attempt) and reset the FIRST
+// state.json attempt then serve a coherent body. The real GET2 (retries:STATE_RETRIES=1 => 2 attempts, env-INDEP.)
+// rides its fixed retry and reads the body on the 2nd try -> healthy; a mutant (retries<-env 0 => 1 attempt) gives
+// up on the reset -> state_unreachable. Attempt count observed by a hit counter (deterministic, no timing).
+test("probe_state_get2_binds_state_retries — the URL-mode state cross-check GET passes retries:STATE_RETRIES, so it makes EXACTLY STATE_RETRIES+1 attempts INDEPENDENT of PROBE_RETRIES: with PROBE_RETRIES=0 a state.json that resets its first attempt then serves is still reached on the 2nd try -> healthy (kills the mutant dropping the retries binding: GET2 falls back to env 0 -> 1 attempt -> gives up on the reset -> state_unreachable)", async () => {
+  assert.ok(0 < STATE_RETRIES, "premise: STATE_RETRIES is a real retry budget (>0), so a first-attempt reset is survivable and the count differs from PROBE_RETRIES=0");
+  const tl = NARABI_SNAPSHOT.timelineJsonl;
+  const NOW = "2026-09-19T10:35Z"; // last day 2026-09-18 present after the deadline => not lagging; isolates the state verdict
+  let stateHits = 0;
+  const server = createServer((req, res) => {
+    if (req.url === "/narabi/timeline.jsonl") { res.writeHead(200, { "content-type": "application/jsonl" }); res.end(tl); return; }
+    if (req.url === "/narabi/state.json") {
+      stateHits++;
+      if (stateHits === 1) { req.socket.destroy(); return; } // reset the FIRST state attempt -> the probe retries
+      res.writeHead(200, { "content-type": "application/json" }); res.end(NARABI_SNAPSHOT.stateJson); return;
+    }
+    res.writeHead(404); res.end();
+  });
+  const port = await listen(server);
+  try {
+    // PROBE_RETRIES=0 makes a mutant GET2 (retries<-env) do ONE attempt; the real GET2 keeps STATE_RETRIES=1 => 2.
+    const r = await runProbeAsync(["--url", `http://127.0.0.1:${String(port)}/narabi/timeline.jsonl`, "--now", NOW], { PROBE_RETRIES: "0" });
+    assert.equal(r.state.reason, null, "the real GET2 survives the first-attempt reset via its FIXED retry (a mutant with 1 attempt gives up -> state_unreachable)");
+    assert.equal(r.state.status, "healthy", "coherent state read on the retried attempt -> healthy");
+    assert.equal(r.state.state_checked, true, "the cross-check ran and matched on the 2nd attempt");
+    assert.equal(stateHits, STATE_RETRIES + 1, `EXACTLY STATE_RETRIES+1 (${String(STATE_RETRIES + 1)}) state.json attempts, INDEPENDENT of PROBE_RETRIES=0 (a mutant binding to env makes ${String(0 + 1)})`);
+    assert.equal(r.status, 0, "exit 0");
+  } finally { await close(server); }
+});
+
+// T (timeout binding): pin PROBE_TIMEOUT_MS below STATE_TIMEOUT_MS and serve state.json after a delay BETWEEN the
+// two. The real GET2 (timeoutMs:STATE_TIMEOUT_MS=5000, env-INDEP.) waits and reads the body -> healthy; a mutant
+// (timeout<-env, shorter) aborts before the body arrives -> state_unreachable. Timing, with a ~2 s margin on each
+// side; the REAL path (the one that runs in the suite) serves ONE state request with no abort. res.on("close")
+// cancels any pending serve if the client aborts (the mutant path), so no write-after-abort.
+const ENV_TIMEOUT_MS = 1000;       // GET2's env fallback under the mutant — strictly below STATE_TIMEOUT_MS
+const STATE_SERVE_DELAY_MS = 3000; // ENV_TIMEOUT_MS < DELAY < STATE_TIMEOUT_MS: real waits it out, mutant aborts first
+test("probe_state_get2_binds_state_timeout — the URL-mode state cross-check GET passes timeoutMs:STATE_TIMEOUT_MS, so its deadline is INDEPENDENT of PROBE_TIMEOUT_MS: with PROBE_TIMEOUT_MS below STATE_TIMEOUT_MS and a state.json served after a delay between the two, the real GET2 waits its fixed 5 s and reads the body -> healthy (kills the mutant dropping the timeoutMs binding: GET2 falls back to the shorter env timeout, aborts before the body -> state_unreachable)", async () => {
+  assert.ok(ENV_TIMEOUT_MS < STATE_SERVE_DELAY_MS && STATE_SERVE_DELAY_MS < STATE_TIMEOUT_MS,
+    `premise: env ${String(ENV_TIMEOUT_MS)}ms < serve delay ${String(STATE_SERVE_DELAY_MS)}ms < STATE_TIMEOUT_MS ${String(STATE_TIMEOUT_MS)}ms (real waits, mutant aborts)`);
+  const tl = NARABI_SNAPSHOT.timelineJsonl;
+  const NOW = "2026-09-19T10:35Z"; // last day 2026-09-18 present after the deadline => not lagging; isolates the state verdict
+  const server = createServer((req, res) => {
+    if (req.url === "/narabi/timeline.jsonl") { res.writeHead(200, { "content-type": "application/jsonl" }); res.end(tl); return; }
+    if (req.url === "/narabi/state.json") {
+      const timer = setTimeout(() => { res.writeHead(200, { "content-type": "application/json" }); res.end(NARABI_SNAPSHOT.stateJson); }, STATE_SERVE_DELAY_MS);
+      res.on("close", () => { clearTimeout(timer); }); // client aborted (a mutant's shorter timeout) -> cancel the pending serve, no write-after-abort
+      return;
+    }
+    res.writeHead(404); res.end();
+  });
+  const port = await listen(server);
+  try {
+    // PROBE_TIMEOUT_MS reaches ONLY a mutant GET2 (the real GET2 keeps STATE_TIMEOUT_MS); GET1 serves instantly regardless.
+    const r = await runProbeAsync(["--url", `http://127.0.0.1:${String(port)}/narabi/timeline.jsonl`, "--now", NOW], { PROBE_TIMEOUT_MS: String(ENV_TIMEOUT_MS) });
+    assert.equal(r.state.reason, null, "the real GET2 waits its FIXED STATE_TIMEOUT_MS and reads the delayed body (a mutant aborts at the shorter env timeout -> state_unreachable)");
+    assert.equal(r.state.status, "healthy", "coherent state read within STATE_TIMEOUT_MS -> healthy");
+    assert.equal(r.state.state_checked, true, "the cross-check ran and matched");
+    assert.equal(r.status, 0, "exit 0");
+  } finally { await close(server); }
+});

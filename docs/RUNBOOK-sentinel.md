@@ -184,7 +184,7 @@ then verified with the `systemctl show` line in step (8).
 
 | At `journalctl -u monark-sentinel` | Mode | `tail -1 timeline.jsonl` | Repair |
 |---|---|---|---|
-| systemd `start operation timed out`, unit `failed`, **NO** `wrote N line(s)`, **NO** `sentinel FATAL`; RECURS every slot with the SAME `processedDays` never shrinking | **A. Catch-up livelock** (kill during the multi-day RPC loop) | PARSES as JSON (no torn line) | raise the timeout for ONE supervised run (A) |
+| systemd `start operation timed out`, unit `failed`, **NO** `wrote N line(s)`, **NO** `sentinel FATAL`; RECURS every slot with **NO new end-JSON** (the run is killed inside `runDue` and never reaches the end-JSON `run.ts:180`, so `processedDays` is never printed at all — an ABSENT observable, not a seen-but-unchanging one) | **A. Catch-up livelock** (kill during the multi-day RPC loop) | PARSES as JSON (no torn line) **and its `day` never advances slot after slot** | raise the timeout for ONE supervised run (A) |
 | `sentinel FATAL` + a `SyntaxError`/`JSON.parse` error at **EVERY** subsequent run, exit 1, nothing published | **B. Torn last line** (kill inside the ~ms append) | does **NOT** parse (partial JSON, no trailing newline) | remove the torn line (B) |
 
 #### Mode A — the catch-up livelock (a slow run turned into a PERMANENT outage)
@@ -217,8 +217,11 @@ mkdir -p /etc/systemd/system/monark-sentinel.service.d
 printf '[Service]\nTimeoutStartSec=infinity\n' > /etc/systemd/system/monark-sentinel.service.d/catchup.conf
 systemctl daemon-reload
 systemctl show -p TimeoutStartUSec monark-sentinel.service   # confirm it took: expect TimeoutStartUSec=infinity
-systemctl start monark-sentinel.service            # supervise it; do not walk away
-journalctl -u monark-sentinel -f                   # wait for "wrote N line(s); T=..."
+systemctl start --no-block monark-sentinel.service # --no-block: a Type=oneshot start (no RemainAfterExit, unit :15)
+                                                   # otherwise BLOCKS the shell until the run EXITS, so a following
+                                                   # -f would only attach to an ALREADY-finished run. --no-block
+                                                   # returns at once, so the -f below follows the run LIVE.
+journalctl -u monark-sentinel -f                   # follow it LIVE; wait for "wrote N line(s); T=...", then Ctrl-C
 # THEN restore the backstop — a FORGOTTEN drop-in silently DEFEATS T_s, and the committed inter-unit test
 # (probe_sentinel_timeoutstartsec_inter_unit_coherence) canNOT see a deployed drop-in:
 rm /etc/systemd/system/monark-sentinel.service.d/catchup.conf
