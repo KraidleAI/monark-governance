@@ -1,6 +1,6 @@
 # TABLEAU DE BORD MONARK — état par chantier
 
-Mis à jour par l'orchestrateur à CHAQUE événement (retour d'agent, décision, fusion). Le détail et l'historique vivent dans `docs/CHANTIERS.md` ; ce fichier ne porte que l'ÉTAT COURANT. Dernière mise à jour : 2026-09-21 ~09:15 UTC — régime B ; 7 lots fusionnés cette nuit.
+Mis à jour par l'orchestrateur à CHAQUE événement (retour d'agent, décision, fusion). Le détail et l'historique vivent dans `docs/CHANTIERS.md` ; ce fichier ne porte que l'ÉTAT COURANT. Dernière mise à jour : 2026-09-21 ~10:55 UTC — régime B ; 8 lots fusionnés depuis minuit.
 
 Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (par quoi) · À VENIR.
 
@@ -11,7 +11,8 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | -b3d-b1a reprise/ledger/budget | FUSIONNÉ `2c717f8` (G7, 596/596, R-25 858) | — | — |
 | -b3d-b1b densité/projection (helper K=8, Amendement 3, condition (f) ITEM-A) | PRÊT → G1 à lancer | plan = G0-lot-t1a-ii-b3d-b (checkpoint-1 `6d26117`) | à créer |
 | GARDE-HELIUS (client budgété unique, ledger de cycle) | EN COURS | plan plié `514ee1a` ; **1a** (paquet) en G1 ; 1b (Bell) PRÊT après 1a (b1a fusionnée) ; 2 (Ukemi) après POOL-RPC-1a | `Monark-wt-garde1a` |
-| Course de contre-vérification | BLOQUÉ | GARDE-HELIUS + b1b | — |
+| -b3d-f condition (f) ITEM-A (payload chaîné) | PLAN PLIÉ `c83ff2e` | G1 après fusion b1b (même fichier) ; **C-F-4 : question investisseur au G0 de la course** (ancrage par page) | à créer |
+| Course de contre-vérification | BLOQUÉ | GARDE-HELIUS-1b + b1b + (f) + Amendement 3 committé seul | — |
 | -b3d-b2 post-tirage | À VENIR | après la course | — |
 | T-1a-iii-a1 univers Solana | FUSIONNÉ `9a2fca9` (G7, 573/573) | — | — |
 | -iii-a1-bis (ledger chaîné, sanitize, shim, drain) | EN COURS | G1 (implémentation) ; plan plié `4f81f67` | `Monark-wt-a1bis` |
@@ -29,7 +30,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | -1b-i | FUSIONNÉ `9b178f3` | — | — |
 | -1b-ii-a alerte mail | CHECKPOINT-2 OK (isolation) | 4 corrections docs pliées `68c849b` | `Monark-wt-narabi1b2a` |
 | -1b-ii-b détection jour manquant | CHECKPOINT-2 OK (isolation) | — |
-| **Fusion -a + -b** (`lot/narabi-ops-1b-ii`) | EN COURS | C5 (test du tuyau fusionné) committé `57d5d69`, 612/612 ; G2 composition en cours ; ré-acceptation cp-2 fusionné → G7 combiné | `Monark-wt-narabi1b2` |
+| **Fusion -a + -b** (`lot/narabi-ops-1b-ii`) | EN COURS | G2 fusionné PASS (`d22c214`), C5 landé ; ré-acceptation cp-2 fusionné en cours → G7 combiné | `Monark-wt-narabi1b2` |
 | Rattrapage `run.ts` (livelock ≥ ~12 j) | À VENIR | G0/ADR, AVANT E-5 | — |
 | Déploiements (sonde VPS Bell ; E-5 VPS site) | À VENIR | après G7 -a, -b, POOL-RPC-1a ; mot de passe SMTP posé par l'investisseur | — |
 
@@ -37,7 +38,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Lot | État | Étape / bloqueur |
 |---|---|---|
 | U-4a | FUSIONNÉ `834a416` | — |
-| U-4b (absorbe U-4a-ii, décision 99) | EN COURS | **-1a** en G2 (G1 committé : 14 mutants, 559/559, R-25 821, 3 sha de gel) ; -0 après fusion POOL-RPC-1a ; -1b : prereg avec les sha de gel, classe A seule (108) |
+| U-4b (absorbe U-4a-ii, décision 99) | **-1a FUSIONNÉ `006da8f`** (G7, 607/607, R-25 882, ADR-U4b) | -0 après GARDE-HELIUS-1a→2 et POOL-RPC-1a ; -1b : prereg (3 sha D4 + 3 transitifs, liste C-V-7, `--concordance-out`), `PR-U4-3-ter`, « agrégat ≠ Σ jambes » avant la course |
 | U-5 branchement outil servi | À VENIR | après U-4b |
 | U-6 book complet + course live | À VENIR | go investisseur |
 | U-7 biblio paginée, rejeu public | À VENIR | — |
@@ -69,4 +70,4 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-ré-acceptation cp-2 POOL-RPC-1a · pli G2 + cp-2 U-4b-1a · G1 GARDE-HELIUS-1a · G2 composition Narabi · G1 -iii-a1-bis · (à lancer) G1 b3d-b1b.
+ré-acceptation cp-2 POOL-RPC-1a · ré-acceptation cp-2 Narabi fusionné · G1 GARDE-HELIUS-1a · G1 -iii-a1-bis · G1 b3d-b1b.
