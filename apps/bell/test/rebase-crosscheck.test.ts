@@ -518,3 +518,38 @@ test("bell_crosscheck_per_page_budget_survives_crash — a hard crash after a pa
   assert.equal(budget.pages, 1, "budget.json reflects exactly the one page persisted before the crash (per-page write)");
   assert.equal(budget.calls_used, 2, "calls_used = page-1 gTfA + initSig opB re-read (persisted per page, not at the unreached final write)");
 });
+
+// ---- C-G2D2-1: the calls_used == ledgerPages boundary is PINNED — a regression `<`->`<=` would FALSELY REFUSE a
+// ---- legitimate near-genesis resume (the false refusal the mission flags as worst-case), + the density-helper resume --
+test("bell_crosscheck_readPriorCalls_boundary_and_budget_only — calls_used == ledger pages resumes (not refused); a budget.json with zero ledger resumes cumulatively (C-G2D2-1)", () => {
+  const ledgerLine = (page: number): string => JSON.stringify({ prev_entry_sha256: "0".repeat(64), page, slot_lo: page, slot_hi: page, first_sig: "s", last_sig: "s", tx_count: 1, tail_sigs_at_slot_hi: ["s"], list_sha256: "x", entry_sha256: "y" }) + "\n";
+  // BOUNDARY: calls_used EXACTLY equal to the on-disk ledger pages (2 == 2) is a LEGITIMATE resume (k pages persisted
+  // with no getTransaction otherOp re-read — reachable near genesis) => ACCEPTED, never a throw. A regression to `<=`
+  // would falsely REFUSE it (throw on the equality), blocking the real draw (mutant N2 `< ledgerPages`->`<=` reds here).
+  const bnd = mkdtempSync(join(tmpdir(), "bell-budget-bnd-"));
+  writeFileSync(join(bnd, "ledger-SPYx.jsonl"), ledgerLine(1) + ledgerLine(2)); // 2 ledger pages on disk
+  writeFileSync(join(bnd, "budget.json"), JSON.stringify({ calls_used: 2, credits_worst_case: 20, pages: 2 }));
+  assert.equal(readPriorCalls(bnd), 2, "calls_used == 2 ledger pages is a valid resume, ACCEPTED (mutant `<`->`<=` throws here => reds)");
+  // the OTHER side of the boundary stays fail-closed: calls_used == pages - 1 (1 < 2) is a downward tamper => throw.
+  writeFileSync(join(bnd, "budget.json"), JSON.stringify({ calls_used: 1, credits_worst_case: 10, pages: 2 }));
+  assert.throws(() => readPriorCalls(bnd), /below the 2 ledger pages/, "calls_used == pages - 1 stays a refusal (the downward-tamper guard is intact)");
+  // DENSITY-HELPER SCENARIO (the density probe writes budget.json but NEVER a ledger-<MINT>.jsonl): budget.json present
+  // with consumed calls and ZERO ledger pages => resume ACCEPTED, cumulative counter preserved (calls_used >= 0 pages holds).
+  const dns = mkdtempSync(join(tmpdir(), "bell-budget-dns-"));
+  writeFileSync(join(dns, "budget.json"), JSON.stringify({ calls_used: 32, credits_worst_case: 320 }));
+  assert.equal(readPriorCalls(dns), 32, "budget-only (0 ledger pages) resumes with the cumulative counter intact");
+});
+
+// ---- C-G2D2-2: hasResumeState covers events-/handoffs- (not only ledger-): each alone, without budget.json, is a
+// ---- fail-closed incoherent resume, never read as a fresh 0 — pins the two branches the ledger-only case (a) misses --
+test("bell_crosscheck_hasResumeState_events_or_handoffs_fail_closed — an events- OR a handoffs- jsonl alone (no budget.json, no ledger) throws (C-G2D2-2)", () => {
+  // The ledger- branch of hasResumeState is pinned by bell_crosscheck_readPriorCalls_binds_to_ledger (a); these pin the
+  // events- and handoffs- branches, so a mutant dropping `events|handoffs` from the regex (reading a resume as a fresh 0
+  // instead of throwing) reds. BOTH exercised so removing EITHER alternative — not only both together — is caught.
+  const evDir = mkdtempSync(join(tmpdir(), "bell-budget-ev-"));
+  writeFileSync(join(evDir, "events-SPYx.jsonl"), JSON.stringify({ kind: "update", slot: 20 }) + "\n");
+  assert.throws(() => readPriorCalls(evDir), /resume state but no budget\.json/, "events- alone (no budget.json/ledger) is an incoherent resume => throw (mutant drops `events|` => returns 0 => reds)");
+  const hoDir = mkdtempSync(join(tmpdir(), "bell-budget-ho-"));
+  writeFileSync(join(hoDir, "handoffs-SPYx.jsonl"), JSON.stringify({ newAuthorityHex: "aa", slot: 12 }) + "\n");
+  assert.throws(() => readPriorCalls(hoDir), /resume state but no budget\.json/, "handoffs- alone (no budget.json/ledger) is an incoherent resume => throw (mutant drops `|handoffs` => reds)");
+});
