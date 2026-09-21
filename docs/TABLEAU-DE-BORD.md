@@ -35,8 +35,8 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | **-1b-ii (-a + -b fusionnés)** | FUSIONNÉ `c0027cb` (G7, 646/646, R-25 1 690 déclaré : deux unités relues) | — | — |
 | Rattrapage `run.ts` (livelock ≥ ~12 j) | À VENIR | G0/ADR, AVANT E-5 | — |
 | Sonde VPS Bell | **DÉPLOYÉE** `c0027cb`, timer actif, premier mail réel délivré (tuyaux `built`) | — | — |
-| -1c `run.ts` rattrapage borné | EN COURS | G1 committé (2 fichiers, +440/−18, bloc d'écriture byte-identique, 7 mutants) ; **G2 ‖ checkpoint-2 en cours** ; puis G7 → E-5 (GO durable, décision 119) | `Monark-wt-narabi1c` |
-| E-5 (VPS site, pool révisé) | À VENIR | après -1c seulement (décision 118) ; go investisseur | — |
+| -1c `run.ts` rattrapage borné | FUSIONNÉ `c4981d0` (G7 14:06 UTC, 710 tests 0 fail, lint 0, ratchet 69/69, R-25 474, `run.ts` sha `54619a40…`) | 3 corrections G2 non bloquantes portées par -1d ; WIRED jusqu'à E-5 | — |
+| E-5 (VPS site, pool révisé + rattrapage borné) | EN COURS (GO durable, décision 119) | checklist 9 étapes du validateur, SHA `c4981d0` | — |
 | -1d migration `rpc.ts` vers le garde | APRÈS le temps 1 | résiduel accepté (décision 118) ; second redéploiement | — |
 
 ## 3. Ukemi
@@ -77,5 +77,5 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-G1 Narabi -1c · G1 GARDE-HELIUS-2a (priorité 1, temps 1) · G1 -b3d-f · G1 -iii-a1-bis (Bell, temps 2).
-Temps 1 : G2 ‖ cp-2 Narabi -1c · G2 ‖ cp-2 GARDE-HELIUS-2a. Temps 2 (Bell) : pli + G2 -b3d-f · G2 -iii-a1-bis.
+Pli C-R-1 GARDE-HELIUS-2a (fuite de clé dans un corps repris, bloquant) · pli test C-G2-DELTA-1 Bell -f.
+Temps 1 : E-5 · G2 GARDE-HELIUS-2a (sur le G1) puis G2-delta. Temps 2 (Bell) : G2-delta ‖ ré-acceptation -iii-a1-bis (pli `72b3cb9`).
