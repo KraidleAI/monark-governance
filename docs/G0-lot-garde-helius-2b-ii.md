@@ -324,3 +324,9 @@ questions de valeur sont renvoyées à l'orchestrateur/investisseur.
 - **R-E scripts `u4-*.mjs`** : item formé D-u4scripts (provenance U-4a, hors CI) ; déclencheur : U-7 (rejeu public) ou première réexécution ; propriétaire orchestrateur.
 - **R-F exigences d'entrée C-G-1 / C-G-3 / C-R-3** : pliées dans 2b-i (`f4ecf14`, G2-delta en cours) ⇒ satisfaites si la G2-delta PASS ; C-GD-2 : « fermé structurellement par D6 ».
 - **R-G transitivité** : mesure M-1 acceptée (aucun STOP doctrinal) — à re-vérifier par le validateur au checkpoint-1 (CA-9).
+
+## RULINGS ORCHESTRATEUR sur le checkpoint-1 (2026-09-21 ~20:5x UTC ; avis `docs/CHECKPOINT1-lot-garde-helius-2b-ii.md`)
+- **C-9** : option **(α)** — sous-lot **2b-iii** : `scripts/u4-oracle-path.mjs` et `scripts/u4-redraw.mjs` (et tout script `u4-*` lisant une clé payante) migrent sous `openGuardedClient` ; déclencheur **AVANT la course U-4b-1b** ; aucun second résiduel payant hors garde n'est accepté (pas d'escalade : c'est la doctrine 119/HELIUS-1). Le grep CI (R-B) étend sa portée à `scripts/u4-*.mjs` au G1 de 2b-iii.
+- **C-3** : second seam PRÉ-DÉCLARÉ : **2b-ii-a** (rpc2 canonique, signatures, D-4, R-A) / **2b-ii-b** (`record.ts`, grep, e2e) ; activé si R-25 mesuré > 1 150 ; docs exclus.
+- C-1, C-2, C-4..C-8 : pliés tels quels par le worker de pli. D-label : les deux options sont présentées dans le pli, ruling orchestrateur à sa réception.
+- Ordre : LANG-GATE-CI fusionné → worktree 2b-ii (base ≥ `8ba2cbc` + lang-gate) → G1 2b-ii → 2b-iii → prereg → course.
