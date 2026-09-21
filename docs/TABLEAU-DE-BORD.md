@@ -1,6 +1,6 @@
 # TABLEAU DE BORD MONARK — état par chantier
 
-Mis à jour par l'orchestrateur à CHAQUE événement (retour d'agent, décision, fusion). Le détail et l'historique vivent dans `docs/CHANTIERS.md` ; ce fichier ne porte que l'ÉTAT COURANT. Dernière mise à jour : 2026-09-21 ~10:55 UTC — régime B ; 8 lots fusionnés depuis minuit.
+Mis à jour par l'orchestrateur à CHAQUE événement (retour d'agent, décision, fusion). Le détail et l'historique vivent dans `docs/CHANTIERS.md` ; ce fichier ne porte que l'ÉTAT COURANT. Dernière mise à jour : 2026-09-21 ~11:20 UTC — régime B ; 9 lots fusionnés depuis minuit.
 
 Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (par quoi) · À VENIR.
 
@@ -10,7 +10,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | -b3d-a contre-vérification | FUSIONNÉ `83da61d` (erratum `7aae8d7`) | — | — |
 | -b3d-b1a reprise/ledger/budget | FUSIONNÉ `2c717f8` (G7, 596/596, R-25 858) | — | — |
 | -b3d-b1b densité/projection (helper K=8, Amendement 3, condition (f) ITEM-A) | PRÊT → G1 à lancer | plan = G0-lot-t1a-ii-b3d-b (checkpoint-1 `6d26117`) | à créer |
-| GARDE-HELIUS (client budgété unique, ledger de cycle) | EN COURS | plan plié `514ee1a` ; **1a** (paquet) en G1 ; 1b (Bell) PRÊT après 1a (b1a fusionnée) ; 2 (Ukemi) après POOL-RPC-1a | `Monark-wt-garde1a` |
+| GARDE-HELIUS (client budgété unique, ledger de cycle) | EN COURS | **1a** G1 committé `9201c74` (952 lignes, 592/593, 12 mutants) ; G2 ‖ checkpoint-2 en cours ; 1b (Bell) après fusion 1a ; 2 (Ukemi) après POOL-RPC-1a | `Monark-wt-garde1a` |
 | -b3d-f condition (f) ITEM-A (payload chaîné) | PLAN PLIÉ `c83ff2e` | G1 après fusion b1b (même fichier) ; **C-F-4 : question investisseur au G0 de la course** (ancrage par page) | à créer |
 | Course de contre-vérification | BLOQUÉ | GARDE-HELIUS-1b + b1b + (f) + Amendement 3 committé seul | — |
 | -b3d-b2 post-tirage | À VENIR | après la course | — |
@@ -30,9 +30,9 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | -1b-i | FUSIONNÉ `9b178f3` | — | — |
 | -1b-ii-a alerte mail | CHECKPOINT-2 OK (isolation) | 4 corrections docs pliées `68c849b` | `Monark-wt-narabi1b2a` |
 | -1b-ii-b détection jour manquant | CHECKPOINT-2 OK (isolation) | — |
-| **Fusion -a + -b** (`lot/narabi-ops-1b-ii`) | EN COURS | G2 fusionné PASS (`d22c214`), C5 landé ; ré-acceptation cp-2 fusionné en cours → G7 combiné | `Monark-wt-narabi1b2` |
+| **-1b-ii (-a + -b fusionnés)** | FUSIONNÉ `c0027cb` (G7, 646/646, R-25 1 690 déclaré : deux unités relues) | — | — |
 | Rattrapage `run.ts` (livelock ≥ ~12 j) | À VENIR | G0/ADR, AVANT E-5 | — |
-| Déploiements (sonde VPS Bell ; E-5 VPS site) | À VENIR | après G7 -a, -b, POOL-RPC-1a ; mot de passe SMTP posé par l'investisseur | — |
+| Déploiements (sonde VPS Bell ; E-5 VPS site) | **PRÊT (sonde)** au SHA `c0027cb` ; E-5 après POOL-RPC-1a et le lot `run.ts` | mot de passe SMTP posé par l'investisseur (`read -rs`, RUNBOOK) ; go investisseur | — |
 
 ## 3. Ukemi
 | Lot | État | Étape / bloqueur |
@@ -70,4 +70,4 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-ré-acceptation cp-2 POOL-RPC-1a · ré-acceptation cp-2 Narabi fusionné · G1 GARDE-HELIUS-1a · G1 -iii-a1-bis · G1 b3d-b1b.
+ré-acceptation cp-2 POOL-RPC-1a · G2 ‖ cp-2 GARDE-HELIUS-1a · G1 -iii-a1-bis · G1 b3d-b1b.
