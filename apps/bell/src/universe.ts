@@ -43,7 +43,17 @@ export function hostOf(url: string): string { try { return new URL(url).hostname
  *  third only when operatorOf(url)===chainstack (so CHAINSTACK_SOLANA_URL=https://evil/x is refused). No
  *  url in the message (C-10). */
 export function assertHostAllowed(url: string): void {
-  const h = hostOf(url);
+  // C-G2-4 (G2 fold): require a PARSEABLE https url with a real host and NO userinfo BEFORE the allowlist
+  // branches. Before, hostOf()=="" for a non-url (a bare "chainstack") fell through to operatorOf()=="chainstack"
+  // and was ADMITTED, and an http: url was admitted too (its path key would leave in clear, and combined with a
+  // followed redirect an admitted host could be downgraded). No message interpolates `url` — it may be the
+  // Chainstack node url carrying a hex key in its path (C-10).
+  let u: URL;
+  try { u = new URL(url); } catch { throw new Error("bell/universe: request url is not parseable (refused before send)"); }
+  if (u.protocol !== "https:") throw new Error("bell/universe: request url is not https (refused before send)");
+  if (u.username !== "" || u.password !== "") throw new Error("bell/universe: request url carries userinfo (refused before send)");
+  const h = u.hostname.toLowerCase();
+  if (h === "") throw new Error("bell/universe: request url has no host (refused before send)");
   if (h === ISSUER_HOST || h === SOLANA_PUBLIC_HOST) return;
   if (operatorOf(url) === CHAINSTACK_OPERATOR) return;
   throw new Error("bell/universe: request host is not on the PLI allowlist (refused before send)");
@@ -84,6 +94,11 @@ export class HttpStatusError extends Error {
 /** 403 hard stop (mission: stricter than fiche 05 backoff). Subclasses BudgetExceededError so quorum2
  *  re-throws it immediately (never benched as a coverage fault) and the run stops fail-closed (exit 1). */
 export class Fatal403Error extends BudgetExceededError {}
+/** C-G2-3 (G2 fold): a 3xx redirect was returned on a live fetch. A redirect is NEVER followed — the allowlist
+ *  guards only the INITIAL url, so a followed 3xx could reach an off-allowlist host (and, for the RPC POST, carry
+ *  the request body there). Subclasses BudgetExceededError so quorum2 / withUniverseRetry re-throw it immediately
+ *  (a hard stop, no retry — a redirect is deterministic; retrying is pointless) and the run stops fail-closed. */
+export class RedirectBlockedError extends BudgetExceededError {}
 /** Parse a Retry-After header (delta-seconds or HTTP-date) to ms, bounded by capMs. Pure. */
 export function retryAfterMs(header: string | null | undefined, nowMs: number, capMs = 60_000): number | null {
   if (header == null) return null;
@@ -305,7 +320,11 @@ export function buildCandidateRecord(c: SolanaCandidate): Record<string, Json> {
 /** Timestamp-free artifact body (byte-exact replay): candidates sorted by mint, canonical serialization.
  *  Date/providers/fetch times live in a SEPARATE provenance envelope, never here. */
 export function buildUniverseArtifact(candidates: readonly SolanaCandidate[], counts: { totalAssets: number; solanaAssets: number }): Json {
-  const rows = candidates.map(buildCandidateRecord).sort((a, b) => str(a.mint).localeCompare(str(b.mint)));
+  // C-G2-1 (G2 fold): sort by UTF-16 CODE UNIT (the SAME discipline as digest.ts canonical()'s Object.keys().sort()),
+  // NOT localeCompare — localeCompare depends on the runtime ICU/locale, so the artifact body order (hence its pinned
+  // sha256) would differ between a dev box and ubuntu-latest. This explicit comparator is Array#sort's default
+  // string order made legible and locale-independent; the byte-exact-replay fixture is re-frozen to this order.
+  const rows = candidates.map(buildCandidateRecord).sort((a, b) => { const x = str(a.mint), y = str(b.mint); return x < y ? -1 : x > y ? 1 : 0; });
   const body: Json = {
     schema: "bell-universe-candidates-v1",
     candidates: rows as Json,

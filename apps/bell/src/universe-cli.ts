@@ -13,7 +13,7 @@ import {
   SOLANA_PUBLIC_URL, ISSUER_HOST, assertHostAllowed, guardedRpcCall, makeUniverseBudget,
   readPriorCalls, serializeLedger, confirmMintIdentity, assertProvidersDistinctForQuorum,
   enumerateUniverse, foundingCalibration, buildUniverseArtifact, universeArtifactBytes, universeSha256,
-  foldPage, withUniverseRetry, HttpStatusError, retryAfterMs, scrubSecret,
+  foldPage, withUniverseRetry, HttpStatusError, RedirectBlockedError, retryAfterMs, scrubSecret,
   type OnchainReadout,
 } from "./universe.ts";
 import { createHash } from "node:crypto";
@@ -42,7 +42,22 @@ function argOf(argv: readonly string[], k: string): string | undefined { const i
 /** Parse + validate the operator CLI, fail-closed. Pure. --out required (outside repo); --max-calls
  *  required and > 0 (C-11). --min-interval defaults to 286 ms (=> <= 3.5 req/s on api.mainnet.solana.com,
  *  fiche 05: 4 req/s is AT the ceiling). */
+/** The COMPLETE set of known CLI flags. Any other `--token` is a typo/unknown flag => fail-closed BEFORE any
+ *  write or call (C-G2-5 G2 fold): before, an unknown flag was silently ignored and its value fell back to the
+ *  default (e.g. a mistyped --max-pages ran at the 200 default, not the pre-registered 20). */
+const KNOWN_FLAGS: ReadonlySet<string> = new Set([
+  "--out", "--ledger", "--max-calls", "--min-interval", "--page-size", "--max-pages", "--max-429-streak", "--date",
+]);
+/** C-G2-5 (G2 fold): the pacing FLOOR (PLI §3: --min-interval 286 ms => <= 3.5 req/s logical, ~1.75/s per operator
+ *  under quorum-2). The rate ceiling now lives in CODE, not only in the typed command: --min-interval below the
+ *  floor (including 0, which would DISABLE pacing) is refused fail-closed. */
+export const MIN_INTERVAL_FLOOR_MS = 286;
 export function parseUniverseArgs(argv: readonly string[]) {
+  // C-G2-5: reject any unknown `--flag` BEFORE any parsing/write/call. Values (paths, dates, numbers) never
+  // start with "--", so scanning for unknown "--" tokens does not eat a value.
+  for (const tok of argv) {
+    if (tok.startsWith("--") && !KNOWN_FLAGS.has(tok)) throw new Error(`bell/universe: unknown flag '${tok}' (fail-closed; a typo must refuse BEFORE any write or call, C-G2-5)`);
+  }
   const num = (k: string, def: number): number => {
     const raw = argOf(argv, k);
     if (raw === undefined) return def;
@@ -55,11 +70,13 @@ export function parseUniverseArgs(argv: readonly string[]) {
   if (argOf(argv, "--max-calls") === undefined) throw new Error("bell/universe: --max-calls is required (fail-closed APPELS budget, C-11)");
   const maxCalls = num("--max-calls", 0);
   if (!(maxCalls > 0)) throw new Error("bell/universe: --max-calls must be > 0 (C-11 fail-closed budget)");
+  const minInterval = num("--min-interval", MIN_INTERVAL_FLOOR_MS);
+  if (minInterval < MIN_INTERVAL_FLOOR_MS) throw new Error(`bell/universe: --min-interval ${String(minInterval)} is below the ${String(MIN_INTERVAL_FLOOR_MS)} ms floor (pacing cannot be disabled, C-G2-5)`);
   return {
     out,
     ledger: argOf(argv, "--ledger") ?? join(out, "budget.json"),
     maxCalls,
-    minInterval: num("--min-interval", 286),
+    minInterval,
     pageSize: num("--page-size", 100),
     maxPages: num("--max-pages", 200),
     max429Streak: num("--max-429-streak", 5),
@@ -94,12 +111,16 @@ export async function runUniverse(argv: readonly string[], deps: RunDeps): Promi
   assertProvidersDistinctForQuorum(providers); // exit != 0 here if Chainstack absent — BEFORE any issuer page
 
   deps.mkdirp(a.out);
+  // C-G2-2 (G2 fold): a scrub BELT on EVERY write (ledger, raw, artifact, provenance). The provenance builder
+  // uses a fixed operator string today, but the belt still scrubs the Chainstack node url (hex key in path)
+  // from any produced file even if a future field interpolated it. scrubSecret is idempotent on clean data.
+  const writeOut = (p: string, data: string): void => { deps.writeFile(p, scrubSecret(data, chainstack)); };
   const priorCalls = readPriorCalls(a.ledger, deps.exists, deps.readFile);
 
   // Paced, retried low-level call; both GET and RPC fold into ONE APPELS budget (tick), one min-interval.
   const pacedInner: JsonRpcCall = async (u, m, p) => { await deps.sleep(a.minInterval); return withUniverseRetry(() => deps.call(u, m, p), { sleep: deps.sleep, now: deps.now }); };
   const budget = makeUniverseBudget(a.maxCalls, priorCalls, makeBudgetedCall, pacedInner);
-  const persist = (): void => { deps.writeFile(a.ledger, serializeLedger(budget.total())); };
+  const persist = (): void => { writeOut(a.ledger, serializeLedger(budget.total())); };
   const guardedCall = guardedRpcCall(budget.call);
   const pagedGet: HttpGet = async (url) => { assertHostAllowed(url); budget.tick(); await deps.sleep(a.minInterval); return withUniverseRetry(() => deps.httpGet(url), { sleep: deps.sleep, now: deps.now }); };
 
@@ -123,7 +144,7 @@ export async function runUniverse(argv: readonly string[], deps: RunDeps): Promi
   const rawBody = lf(JSON.stringify({ schema: "bell-universe-issuer-raw-v1", host: ISSUER_HOST, endpoint: "/api/v2/public/assets", pageSize: a.pageSize, pages: page + 1, assets: rawAssets }, null, 0)) + "\n";
   const rawSha256 = sha256Hex(rawBody);
   const rawPath = join(a.out, `issuer-assets-${a.date}.json`);
-  deps.writeFile(rawPath, rawBody);
+  writeOut(rawPath, rawBody);
   log(scrubSecret(`raw saved: issuer-assets-${a.date}.json sha256=${rawSha256} pages=${String(page + 1)} assets=${String(rawAssets.length)}`, chainstack));
 
   // --- Confirm each Solana mint on-chain (quorum-2), with a pre-registered 429-streak STOP -------------
@@ -152,8 +173,8 @@ export async function runUniverse(argv: readonly string[], deps: RunDeps): Promi
   const body = buildUniverseArtifact(candidates, { totalAssets, solanaAssets });
   const artifactSha256 = universeSha256(body);
   const artifactPath = join(a.out, `universe-candidates-${a.date}.json`);
-  deps.writeFile(artifactPath, universeArtifactBytes(body));
-  deps.writeFile(join(a.out, `PROVENANCE-univers-solana.md`), provenanceMd(a.date, providers, rawSha256, artifactSha256, totalAssets, solanaAssets, confirmed));
+  writeOut(artifactPath, universeArtifactBytes(body));
+  writeOut(join(a.out, `PROVENANCE-univers-solana.md`), provenanceMd(a.date, providers, rawSha256, artifactSha256, totalAssets, solanaAssets, confirmed));
   persist();
   log(scrubSecret(`artifact: universe-candidates-${a.date}.json sha256=${artifactSha256} confirmed=${String(confirmed)}/${String(solanaAssets)} calls=${String(budget.total())}`, chainstack));
   return { ok: true, artifactSha256, rawSha256, totalAssets, solanaAssets, confirmed, calls: budget.total(), calibration };
@@ -183,7 +204,11 @@ export const liveHttpGet: HttpGet = async (url) => {
   const ctl = new AbortController();
   const to = setTimeout(() => { ctl.abort(); }, 30_000);
   try {
-    const res = await fetch(url, { method: "GET", headers: { accept: "application/json" }, signal: ctl.signal });
+    const res = await fetch(url, { method: "GET", headers: { accept: "application/json" }, redirect: "manual", signal: ctl.signal });
+    // C-G2-3 (G2 fold): a 3xx is a HARD STOP, never followed (undici returns the real 3xx under redirect:"manual").
+    // This is BEFORE the generic !res.ok branch so a 302 becomes a re-thrown RedirectBlockedError, not a retried
+    // HttpStatusError(302). No url in the message (C-10).
+    if (res.status >= 300 && res.status < 400) throw new RedirectBlockedError("bell/universe: 3xx redirect on issuer GET — hard stop (never followed; the allowlist guards only the initial url, C-G2-3)");
     if (!res.ok) throw new HttpStatusError(res.status, retryAfterMs(res.headers.get("retry-after"), Date.now()));
     return { json: await res.json() };
   } finally { clearTimeout(to); }
@@ -193,7 +218,9 @@ export const liveRpcCall: JsonRpcCall = async (url, method, params) => {
   const ctl = new AbortController();
   const to = setTimeout(() => { ctl.abort(); }, 30_000);
   try {
-    const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), signal: ctl.signal });
+    const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), redirect: "manual", signal: ctl.signal });
+    // C-G2-3 (G2 fold): a 3xx is a HARD STOP — the request body must NEVER reach a redirected (off-allowlist) host.
+    if (res.status >= 300 && res.status < 400) throw new RedirectBlockedError("bell/universe: 3xx redirect on Solana RPC POST — hard stop (never followed; body must not reach a redirected host, C-G2-3)");
     if (!res.ok) throw new HttpStatusError(res.status, retryAfterMs(res.headers.get("retry-after"), Date.now()));
     const json = asObj(await res.json());
     if (json.error) throw new Error(asObj(json.error).message ? String(asObj(json.error).message) : "rpc error"); // scrubbed by statusOf

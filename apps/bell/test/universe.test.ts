@@ -25,11 +25,14 @@ import {
   accountIdentityKey, interpretAccount, confirmMintIdentity, assertProvidersDistinctForQuorum,
   enumerateUniverse, foundingCalibration, buildUniverseArtifact, buildCandidateRecord,
   assertOnlyAllowedFields, universeArtifactBytes, foldPage, solanaDeploymentAddress,
+  RedirectBlockedError, type SolanaCandidate, type OnchainReadout,
 } from "../src/universe.ts";
-import { runUniverse, parseUniverseArgs, type RunDeps, type HttpGetResult, type HttpGet } from "../src/universe-cli.ts";
+import { runUniverse, parseUniverseArgs, liveHttpGet, liveRpcCall, provenanceMd, type RunDeps, type HttpGetResult, type HttpGet } from "../src/universe-cli.ts";
 import { makeBudgetedCall } from "../src/collect.ts";
 import { BudgetExceededError, type JsonRpcCall } from "../src/quorum.ts";
 import { XSTOCKS, TOKEN_2022_PROGRAM } from "../src/pools.ts";
+import { createServer, type Server } from "node:http";
+import { spawnSync } from "node:child_process";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const FIX = fileURLToPath(new URL("./fixtures/universe/", import.meta.url));
@@ -287,7 +290,8 @@ test("bell_universe_cli_composes_from_file_to_artifact", async () => {
   const out = mkdtempSync(join(tmpdir(), "bell-univ-out-"));
   try {
     const argv = ["--out", out, "--max-calls", "1000", "--date", "2026-09-21", "--page-size", "100"];
-    const r = await runUniverse(argv, fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, out));
+    const logs: string[] = [];
+    const r = await runUniverse(argv, fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, out, { log: (l) => { logs.push(l); } }));
     assert.equal(r.ok, true);
     assert.equal(r.calibration.ok, true);
     assert.equal(r.solanaAssets, 7); assert.equal(r.confirmed, 5); assert.equal(r.totalAssets, 8);
@@ -299,9 +303,20 @@ test("bell_universe_cli_composes_from_file_to_artifact", async () => {
     assert.ok(existsSync(join(out, "PROVENANCE-univers-solana.md")));
     assert.equal(readPriorCalls(join(out, "budget.json"), existsSync, (p) => readFileSync(p, "utf8")), r.calls);
     assert.ok(r.calls >= 1 + 7 * 2, "one GET page + 2 confirmations per Solana mint counted in the budget");
-    // The provenance names operators by DOMAIN only and never prints the Chainstack url.
-    const prov = readFileSync(join(out, "PROVENANCE-univers-solana.md"), "utf8");
-    assert.equal(prov.includes("deadbeef"), false);
+    // C-G2-2: NO produced file (artifact, provenance, ledger, raw) and NO stdout line may carry the operator's
+    // paid-host pattern NOR the REAL test placeholder — not a vacuous "deadbeef" that appears nowhere.
+    const produced = [
+      artifact,
+      readFileSync(join(out, "PROVENANCE-univers-solana.md"), "utf8"),
+      readFileSync(join(out, "issuer-assets-2026-09-21.json"), "utf8"),
+      readFileSync(join(out, "budget.json"), "utf8"),
+      ...logs,
+    ];
+    assert.ok(logs.length > 0, "the run logged at least one line (the scrub is exercised, not vacuous)");
+    for (const s of produced) {
+      assert.equal(s.includes("tk-node-key-placeholder"), false, "no Chainstack key-path placeholder in any output/stdout");
+      assert.equal(s.includes("core.chainstack.com"), false, "no Chainstack operator host in any output/stdout");
+    }
   } finally { rmSync(out, { recursive: true, force: true }); }
 });
 
@@ -355,4 +370,118 @@ test("bell_universe_parse_args_fail_closed", () => {
   assert.throws(() => parseUniverseArgs(["--out", "F:/x", "--max-calls", "0"]), /must be > 0/);
   const a = parseUniverseArgs(["--out", "F:/x", "--max-calls", "1800"]);
   assert.equal(a.minInterval, 286); assert.equal(a.pageSize, 100); assert.equal(a.maxCalls, 1800);
+  // C-G2-5: an unknown/typo flag is fail-closed BEFORE any write or call (MUTANT: silently ignored => red).
+  assert.throws(() => parseUniverseArgs(["--out", "F:/x", "--max-calls", "10", "--maxpages", "20"]), /unknown flag/);
+  assert.throws(() => parseUniverseArgs(["--out", "F:/x", "--max-calls", "10", "--typo"]), /unknown flag/);
+  // C-G2-5: --min-interval below the 286 ms floor (0 would DISABLE pacing) is refused (MUTANT: accepted => red).
+  assert.throws(() => parseUniverseArgs(["--out", "F:/x", "--max-calls", "10", "--min-interval", "0"]), /floor/);
+  assert.throws(() => parseUniverseArgs(["--out", "F:/x", "--max-calls", "10", "--min-interval", "100"]), /floor/);
+  // The pre-registered race command parses cleanly (all flags known; 286 >= floor).
+  const pre = parseUniverseArgs(["--out", "F:/x", "--max-calls", "2000", "--min-interval", "286", "--page-size", "100", "--max-pages", "20", "--max-429-streak", "5", "--date", "2026-09-21"]);
+  assert.equal(pre.minInterval, 286); assert.equal(pre.maxPages, 20); assert.equal(pre.max429Streak, 5);
+});
+
+const confirmedReadout = (): OnchainReadout => ({
+  state: "confirmed", owner: TOKEN_2022_PROGRAM, decimals: 8, scaled_ui: false, scaled_ui_authority: null,
+  scaled_ui_unread: false, extension_names: [], permanent_delegate: null,
+});
+
+// ---- 16. C-G2-1: artifact order is UTF-16 CODE UNIT (locale-independent), never localeCompare ----------
+test("bell_universe_artifact_order_is_code_unit_not_locale", () => {
+  const mk = (symbol: string, mint: string): SolanaCandidate => ({ symbol, name: symbol, mint, network: "Solana", mic: null, onchain: confirmedReadout() });
+  // A mixed-case mint set: code-unit order (uppercase < lowercase) diverges from any locale collation.
+  const mints = ["Xso1", "Xsb1", "XsD1", "Xsc1", "aa1", "Ma1", "Za1"];
+  const body = buildUniverseArtifact(mints.map((m, i) => mk(`S${String(i)}`, m)), { totalAssets: mints.length, solanaAssets: mints.length }) as { candidates: { mint: string }[] };
+  const got = body.candidates.map((c) => c.mint);
+  // MUTANT N-1 (localeCompare): order MUST equal Array#sort's default (UTF-16 code unit, locale-independent).
+  assert.deepEqual(got, [...mints].sort(), "artifact candidate order is code-unit, not locale-dependent");
+});
+
+// ---- 17. C-G2-2: the provenance names operators by DOMAIN only — never the Chainstack node url (N-2) ----
+test("bell_universe_provenance_never_prints_operator_url", () => {
+  // The write path passes `providers` (providers[1] is the paid Chainstack url) to provenanceMd.
+  const prov = provenanceMd("2026-09-21", [SOLANA_PUBLIC_URL, CHAINSTACK], "rawsha", "artsha", 8, 7, 5);
+  // MUTANT N-2 (provenanceMd interpolates providers[1]): the host + key-path placeholder would appear here.
+  assert.equal(prov.includes("tk-node-key-placeholder"), false, "no Chainstack key-path in provenance");
+  assert.equal(prov.includes("core.chainstack.com"), false, "no Chainstack operator host in provenance");
+  assert.ok(prov.includes("chainstack (node url held"), "operator named by domain/word only, url held in the env");
+});
+
+// ---- 18. C-G2-3: the LIVE fetchers never follow a 3xx redirect (hard stop; body never reaches the target) -
+function portOf(srv: Server): number { const info = srv.address(); if (info === null || typeof info === "string") throw new Error("no tcp port"); return info.port; }
+function listen(srv: Server): Promise<number> { return new Promise((res) => { srv.listen(0, "127.0.0.1", () => { res(portOf(srv)); }); }); }
+test("bell_universe_live_fetch_does_not_follow_redirects", async () => {
+  let targetHits = 0;
+  // connection:close + drained close so undici keeps no loopback socket alive past --test-force-exit (libuv win crash).
+  const target = createServer((_req, res) => { targetHits += 1; res.writeHead(200, { "content-type": "application/json", connection: "close" }); res.end("{}"); });
+  await listen(target);
+  const redirector = createServer((_req, res) => { res.writeHead(302, { location: `http://127.0.0.1:${String(portOf(target))}/target`, connection: "close" }); res.end("go"); });
+  const redirPort = await listen(redirector);
+  const redirUrl = `http://127.0.0.1:${String(redirPort)}/`;
+  try {
+    // MUTANT (a) manual removed => 200, no throw; (b) 3xx-check removed => HttpStatusError, not RedirectBlockedError.
+    await assert.rejects(() => liveHttpGet(redirUrl), (e: unknown) => { assert.ok(e instanceof RedirectBlockedError && e instanceof BudgetExceededError, "3xx GET is a re-thrown hard stop"); return true; });
+    await assert.rejects(() => liveRpcCall(redirUrl, "getAccountInfo", []), (e: unknown) => { assert.ok(e instanceof RedirectBlockedError && e instanceof BudgetExceededError, "3xx RPC POST is a re-thrown hard stop"); return true; });
+    assert.equal(targetHits, 0, "the redirect target was NEVER requested (allowlist bypass via redirect blocked)");
+  } finally {
+    for (const s of [target, redirector]) { s.closeAllConnections(); await new Promise<void>((r) => { s.close(() => { r(); }); }); }
+  }
+});
+
+// ---- 19. C-G2-4: assertHostAllowed requires https + parseable + real host + no userinfo (no url in msg) --
+test("bell_universe_host_allowlist_requires_https_and_parseable_url", () => {
+  // http downgrade (x3: key in clear), bare non-url (was ADMITTED via operatorOf fallback), unparseable, userinfo, non-https.
+  for (const bad of [
+    "http://api.xstocks.fi/x", "http://api.mainnet.solana.com", "http://solana-mainnet.core.chainstack.com/tk-node-key-placeholder",
+    "chainstack", "not a url", "https://user:pw@api.xstocks.fi/x", "ftp://api.xstocks.fi/x",
+  ]) assert.throws(() => { assertHostAllowed(bad); }, /refused before send/, `refused: ${bad}`);
+  // C-10: no NEW message interpolates the url (it may be the paid Chainstack node url carrying a hex key).
+  try { assertHostAllowed("http://solana-mainnet.core.chainstack.com/tk-node-key-placeholder"); assert.fail("must throw"); }
+  catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    assert.equal(msg.includes("chainstack.com"), false, "no host in the message (C-10)");
+    assert.equal(msg.includes("tk-node-key-placeholder"), false, "no key-path in the message (C-10)");
+  }
+  // Regression (positives fully covered by test 6): the operator-admitted https Chainstack host still passes.
+  assert.doesNotThrow(() => { assertHostAllowed(CHAINSTACK); });
+});
+
+// ---- 20. C-G2-5 / N-4: every live call is preceded by >= min-interval of pacing (injected clock) --------
+test("bell_universe_paces_every_call_by_min_interval", async () => {
+  const out = mkdtempSync(join(tmpdir(), "bell-univ-pace-"));
+  try {
+    let clock = 0;
+    const callTimes: number[] = [];
+    const base = fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, out);
+    const deps: RunDeps = {
+      ...base,
+      sleep: (ms: number) => { clock += ms; return Promise.resolve(); },
+      now: () => clock,
+      httpGet: (u: string) => { callTimes.push(clock); return base.httpGet(u); },
+      call: (u: string, m: string, p: readonly unknown[]) => { callTimes.push(clock); return base.call(u, m, p); },
+    };
+    const r = await runUniverse(["--out", out, "--max-calls", "1000", "--date", "2026-09-21", "--min-interval", "286"], deps);
+    assert.equal(r.ok, true);
+    assert.ok(callTimes.length >= 1 + 7 * 2, "one page GET + 2 confirmations per Solana mint were made");
+    // MUTANT N-4 (pacing removed): each call is preceded by >= 286 ms of virtual time; deltas would collapse to 0.
+    assert.ok(callTimes.every((t, i) => (i === 0 ? t >= 286 : t - (callTimes[i - 1] ?? 0) >= 286)), "every live call is paced by >= min-interval (N-4)");
+    assert.equal(clock, callTimes.length * 286, "total virtual pacing == calls * min-interval (no retries, no unpaced call)");
+  } finally { rmSync(out, { recursive: true, force: true }); }
+});
+
+// ---- 22. C-G2-2 + C-G2-4: a non-https CHAINSTACK_SOLANA_URL STOPs at preflight; stderr carries NO secret ---
+test("bell_universe_cli_stops_on_non_https_chainstack_and_scrubs_stderr", () => {
+  const out = mkdtempSync(join(tmpdir(), "bell-univ-stderr-"));
+  try {
+    const cli = fileURLToPath(new URL("../src/universe-cli.ts", import.meta.url));
+    // Override CHAINSTACK_SOLANA_URL with an http (non-https) operator url; the real secret env is thus never used.
+    const r = spawnSync(process.execPath, [cli, "--out", out, "--max-calls", "10"],
+      { env: { ...process.env, CHAINSTACK_SOLANA_URL: "http://solana-mainnet.core.chainstack.com/tk-node-key-placeholder" }, encoding: "utf8" });
+    // C-G2-4 emergent STOP: http Chainstack refused at PREFLIGHT, before any page/write, zero network. Exit != 0.
+    assert.notEqual(r.status, 0, "a non-https CHAINSTACK_SOLANA_URL STOPs the run");
+    assert.match(r.stderr, /not https/, "the preflight refusal reason is surfaced on stderr");
+    // C-G2-2: stderr (the 6th produced surface) carries NO secret — the top-level .catch scrub belt holds.
+    assert.equal(r.stderr.includes("tk-node-key-placeholder"), false, "stderr carries no key-path (C-10)");
+    assert.equal(r.stderr.includes("core.chainstack.com"), false, "stderr carries no operator host (C-10)");
+  } finally { rmSync(out, { recursive: true, force: true }); }
 });
