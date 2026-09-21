@@ -56,7 +56,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | POOL-RPC-1a (pool RPC Ethereum) | FUSIONNÉ `6bb2f84` (G7, 663/663, R-25 469 ; SHA nommé pour E-5) | débloque GARDE-HELIUS-2, U-4b-0, U-4b-1b | — |
 | EXPORT-CLEAN (miroir public) | FUSIONNÉ `5b110c7` (G7, 577/577, R-25 458) | item : `export:check` en CI avant la fenêtre publique | — |
 | HELIUS-1 (incident) | CAUSE PROUVÉE | scripts de brouillon hors garde (ledger reset, throw retiré) ; reste : lot GARDE-HELIUS avant toute course Bell | — |
-| CI-EXPORT-CHECK (petit lot : `export:check` fail-closed en CI, job r25) | EN COURS | G1 committé (+101) ; G2 en cours | `Monark-wt-cixcheck` |
+| CI-EXPORT-CHECK (petit lot : `export:check` fail-closed en CI, job r25) | FUSIONNÉ `3df2f73` (G7, 698 tests 0 fail, lint 0, ratchet 69/69, R-25 89) | item `export:check` en CI : CLOS ; reste `lang:gate` en CI (CHANTIERS:222) | — |
 | Clôture temps 1 (cartographie Narabi + Ukemi, K-1, `g3-site`) | À VENIR | en dernier | — |
 
 ## 5. Site et marque (HORS GATES — décisions 62/101 ; en dernier, investisseur + orchestrateur)
@@ -78,4 +78,4 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 
 ## 7. Agents en vol (à tenir à jour)
 G1 Narabi -1c · G1 GARDE-HELIUS-2a (priorité 1, temps 1) · G1 -b3d-f · G1 -iii-a1-bis (Bell, temps 2).
-Temps 1 : G2 ‖ cp-2 Narabi -1c · G2 ‖ cp-2 GARDE-HELIUS-2a · G2 CI-EXPORT-CHECK (petit lot). Temps 2 (Bell) : pli + G2 -b3d-f · G2 -iii-a1-bis.
+Temps 1 : G2 ‖ cp-2 Narabi -1c · G2 ‖ cp-2 GARDE-HELIUS-2a. Temps 2 (Bell) : pli + G2 -b3d-f · G2 -iii-a1-bis.
