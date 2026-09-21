@@ -10,7 +10,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | -b3d-a contre-vérification | FUSIONNÉ `83da61d` (erratum `7aae8d7`) | — | — |
 | -b3d-b1a reprise/ledger/budget | EN COURS | G2 (relecteur séparé) ; G1 + option d `f4ae59f`, 565/565, R-25 760 | `Monark-wt-b3db1a` |
 | -b3d-b1b densité/projection | À VENIR | après b1a | — |
-| GARDE-HELIUS (client budgété unique, ledger de cycle) | EN COURS | rédaction du G0 ; bloquant avant toute course Bell | — |
+| GARDE-HELIUS (client budgété unique, ledger de cycle) | EN COURS | G0 `b6b687b` ; checkpoint-1 (validateur) ; décisions 112-114 | — |
 | Course de contre-vérification | BLOQUÉ | GARDE-HELIUS + b1b | — |
 | -b3d-b2 post-tirage | À VENIR | après la course | — |
 | T-1a-iii-a1 univers Solana | FUSIONNÉ `9a2fca9` (G7, 573/573) | — | — |
@@ -46,7 +46,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 |---|---|---|---|
 | CI-site | FUSIONNÉ `70212e2` | required check `g3-site` à la clôture | — |
 | POOL-RPC-1a (pool RPC Ethereum) | EN COURS | G1 (implémentation) ; plan plié `84c4df6` ; sonde L-5 VERTE | `Monark-wt-pool1a` |
-| EXPORT-CLEAN (miroir public) | EN COURS | G2 (relecteur séparé) ; G1 committé `74a0058` (export 10,4 → 4,25 Mo, 553/553, R-25 359) | `Monark-wt-xclean` |
+| EXPORT-CLEAN (miroir public) | EN COURS | pli G2 (garde étendue au texte non binaire) ; G2 `ab8de7e` | `Monark-wt-xclean` |
 | HELIUS-1 (incident) | CAUSE PROUVÉE | scripts de brouillon hors garde (ledger reset, throw retiré) ; reste : lot GARDE-HELIUS avant toute course Bell | — |
 | Clôture (cartographie, K-1, MWCB, export, `g3-site`) | À VENIR | en dernier | — |
 
@@ -68,4 +68,4 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-G2 b3d-b1a · G1 POOL-RPC-1a · G1 U-4b-1a · cp-2 Narabi -a · G2 EXPORT-CLEAN · G0 GARDE-HELIUS · G0 -iii-a1-bis.
+G2 b3d-b1a · G1 POOL-RPC-1a · G1 U-4b-1a · cp-2 Narabi -a · pli G2 EXPORT-CLEAN · cp-1 GARDE-HELIUS · G0 -iii-a1-bis.
