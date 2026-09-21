@@ -1,0 +1,35 @@
+# G0 — Sprint backlog lot NARABI-OPS-1c (`run.ts` : rattrapage BORNÉ par run — fin du livelock de rattrapage, Mode A)
+
+Orchestrateur `claude-fable-5-1`, 2026-09-21 12:1x UTC (horloge). Priorité 1 du release temps 1 (décision 117). Dernier lot de code Narabi avant le redéploiement E-5 (décisions 92/109 : UN seul redéploiement, au SHA nommé, après POOL-RPC-1a `6bb2f84` — tenu — et ce lot). Chemin SERVI en production (job quotidien) ⇒ gates complets : checkpoint-1 avant code, G2 ‖ checkpoint-2 (régime B), G7 avec `ci && lint && lint:ratchet`.
+
+## Objectif (une phrase)
+Un backlog de N jours ne peut plus transformer un run lent en panne permanente : `runDue` s'arrête PROPREMENT avant le couperet `TimeoutStartSec=300` de l'unité, écrit les jours déjà traités, sort en code 1, et le créneau suivant reprend au jour suivant — le rattrapage progresse à chaque créneau au lieu d'être tué au même point.
+
+## Faits [lu] (fichier:ligne à `5418860` ; mesures dans `docs/PLI-lot-narabi-ops-1b-ii-b.md` §10.2)
+1. `apps/sentinel/src/run.ts:75-93` `runDue` accumule les lignes de TOUS les jours dus en mémoire et ne retourne qu'après la boucle RPC ; `main` n'écrit qu'après (`:182-191`, un bloc `appendFileSync`). Un kill pendant `runDue` n'écrit RIEN ⇒ même liste due au run suivant ⇒ re-kill au même point (**livelock**, RUNBOOK §6 Mode A).
+2. Seuil mesuré : `D = 25,481 s` pour 1 jour dû (JOURNAL, merge `9b178f3`) ; `TimeoutStartSec=300` (`deploy/monark-sentinel.service`) ⇒ livelock dès `N ≥ ⌈300/25,481⌉ = 12` jours (minorant : la recherche de bloc se resserre au sein d'un run).
+3. Contrat du rapport de run (ADR-NARABI-OPS-1 L-1, `run.ts:169-175`) : `stopped !== null ⇔ lag ≥ 1 ⇔ exit 1` ; « Lines processed BEFORE a stop ARE written (partial catch-up) » (`:187`, C-6 cas b) — l'écriture partielle existe DÉJÀ pour les arrêts sur faute.
+4. Timer : 4 créneaux/jour + `Persistent` ; la sonde externe (déployée `c0027cb`) voit `lag` à 10:30 UTC et alerte par mail ; le résiduel Mode A est ACCEPTÉ pour E-5 (décision 109) — ce lot le SUPPRIME.
+5. Décision 69/anti-close : aucune donnée de prix ici ; les tests du sentinel sont offline (pool RPC injecté).
+
+## Décision de conception : **budget de TEMPS par run, vérifié ENTRE les jours** (arrêt = un `stopped` de plus, contrat L-1 INCHANGÉ)
+- `runDue(state, rpc, due, finBlock, prov, opts?)` reçoit `opts = { now: () => number, budgetMs: number }` (horloge injectée — test offline déterministe). Avant d'entamer chaque jour dû **après le premier**, si `now() − t0 > budgetMs` ⇒ arrêt propre : `stopped = "catchup_budget"`, `lag` = jours restants, les lignes déjà produites sont rendues. **Le premier jour dû est TOUJOURS tenté** (sinon un budget mal réglé affamerait la publication quotidienne normale).
+- `budgetMs` par défaut **180 000** (180 s) : marge `300 − 180 = 120 s` > coût d'un jour le plus large (`D = 25,5 s` mesuré ; marge ×4,7) — un jour entamé juste avant le seuil finit avant le couperet. Réglable par `MONARK_SENTINEL_BUDGET_S` (entier 30..240, hors bornes ⇒ throw au démarrage, fail-closed) ; la cohérence `budget + marge < TimeoutStartSec` est épinglée par un test inter-fichiers qui LIT `deploy/monark-sentinel.service` (calque `probe_sentinel_timeoutstartsec_inter_unit_coherence`).
+- **Contrat préservé** : `catchup_budget` est un `stopped` non nul ⇒ `lag ≥ 1` ⇒ exit 1 ⇒ le créneau suivant reprend à `prevDay+1` (déjà le comportement, `resolveStartDay`). Débit de rattrapage : ~7 jours/run × 4 créneaux ⇒ ~28 jours/jour. La sonde continue d'alerter tant que `lag > 0` (voulu : un rattrapage en cours est un état dégradé).
+- **Rejeté** : checkpoint par jour dans `runDue` (écriture à chaque jour) — change l'ordre write/exit et la fenêtre « ligne tronquée » (Mode B) sans nécessité ; `--max-days` fixe — ne protège pas d'un jour lent (pool RPC dégradé) ; `TimeoutStartSec=infinity` — perd le couperet de sûreté ; `Restart=` systemd — explicitement exclu par L-1.
+
+## Livrable L-1c-1 (périmètre FERMÉ)
+| Champ | Contenu |
+|---|---|
+| **Fichiers** | `apps/sentinel/src/run.ts` (`runDue` + `main` : lecture de l'env, horloge) ; `apps/sentinel/test/sentinel-run*.test.ts` (ou le fichier de tests existant de `runDue`) ; **docs par l'orchestrateur** : RUNBOOK §6 (Mode A : « supprimé par -1c ; procédure conservée pour un VPS déployé avant le SHA -1c »), ADR-NARABI-OPS-1 (note datée : résiduel 109 LEVÉ par -1c ; tuyau inchangé) |
+| **Tests (noms imposés)** | `sentinel_catchup_budget_stops_cleanly_between_days` (backlog 20 jours, horloge factice +30 s/jour, budget 180 s ⇒ 7 jours traités, `stopped:"catchup_budget"`, `lag:13`, lignes RENDUES, exit 1 via `main` sur un dir temporaire : `timeline.jsonl` porte 7 lignes chaînées valides) ; `sentinel_catchup_resumes_next_slot_without_gap` (2ᵉ run : repart à `prevDay+1`, aucune ligne dupliquée ni sautée, chaîne de hash continue — rejouée par `trackerReplay`) ; `sentinel_first_due_day_always_attempted` (budget épuisé dès t0 ⇒ le 1ᵉʳ jour est quand même traité) ; `sentinel_budget_env_is_validated` (hors 30..240 ou non entier ⇒ throw) ; `sentinel_budget_below_unit_timeout` (lit le `.service` : `budget_max(240) + D_mesuré… < TimeoutStartSec` — formule écrite dans le test) ; `sentinel_normal_day_unchanged` (1 jour dû : rapport byte-identique à l'actuel hors champs nouveaux — non-régression du job quotidien) |
+| **Mutants (ROUGES, restauration byte-exacte)** | garde de budget retirée ⇒ `…stops_cleanly…` rouge ; garde appliquée AVANT le 1ᵉʳ jour ⇒ `…first_due_day…` rouge ; `stopped` laissé `null` à l'arrêt budget ⇒ exit 0 ⇒ rouge (contrat L-1) ; lignes jetées à l'arrêt ⇒ rouge ; validation d'env retirée ⇒ rouge |
+| **Tuyau** | entrée : `timeline.jsonl` (état) + pool RPC ; sortie : lignes appendées + `state.json` + copie `public/` (inchangé) ; consommateurs servis : `/narabi/` (site) et la sonde Bell (`built`) ; état : `--dir` ; test d'intégration non-LLM : `…stops_cleanly…` + `…resumes_next_slot…` via `main` réel sur dir temporaire, pool RPC injecté |
+| **R-25** | projeté 120–220 (`ins+del`, pathspec `ci.yml:65`) |
+| **Invariants** | `PINNED_DIGEST 267cd991…`, fixture `narabi-timeline-2026-09-19.jsonl`, `NARABI_SNAPSHOT`, format de ligne et `lineHashOf` INCHANGÉS ; aucun changement de `rpc.ts` (POOL-RPC-1a) ; aucune dépendance nouvelle (R-8) ; aucun réseau en test |
+
+## Séquencement
+checkpoint-1 → G1 (worktree `lot/narabi-ops-1c`, base = HEAD `lot/etude-suite`) → G2 séparée ‖ checkpoint-2 → pli → G7 → **E-5** : redéploiement UNIQUE du VPS site au SHA de fusion de -1c (descendant de `6bb2f84` : `git merge-base --is-ancestor 6bb2f84 <sha-E-5>` == 0, critère C-8 de POOL-RPC-1a), par l'orchestrateur sur go investisseur (action sortante sur la production), `TimeoutStartSec` du VPS vérifié, première ligne JOURNAL post-déploiement listant `pocket` sans `llama`/`blast` ⇒ L-1 du pool passe `built`.
+
+## Risques (MAST)
+Régression du job quotidien — `sentinel_normal_day_unchanged` + premier jour toujours tenté ; horloge réelle dans les tests — horloge injectée, aucun `Date.now()` direct dans `runDue` ; budget ≥ couperet — test inter-fichiers ; contrat L-1 cassé — mutant `stopped:null`.
