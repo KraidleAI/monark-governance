@@ -17,7 +17,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Course de contre-vérification | BLOQUÉ | GARDE-HELIUS-1b + b1b + (f) + Amendement 3 committé seul | — |
 | -b3d-b2 post-tirage | À VENIR | après la course | — |
 | T-1a-iii-a1 univers Solana | FUSIONNÉ `9a2fca9` (G7, 573/573) | — | — |
-| -iii-a1-bis (ledger chaîné, sanitize, shim, drain) | EN COURS | G1 `9992e5b` ; cp-2 ACCEPTE-AVEC-CORRECTIONS (C-V-1..4 bloquantes) ; G2 en cours ; flake D4 sourcé (`nodejs/node#56645`, Windows seul) | `Monark-wt-a1bis` |
+| -iii-a1-bis (ledger chaîné, sanitize, shim, drain) | FUSIONNÉ `780a631` + correctif d'interaction `138df67` (G7 16:30 UTC, 720 tests 0 fail, lint 0, ratchet 69/69, R-25 721) | D4 re-diagnostiqué (défaut amont Node/Windows, item sourcé) ; phantom-fresh + CONV-2 → GARDE-HELIUS-1b | — |
 
 | R1 registre multi-émetteur | À VENIR | après -b3d-b1 (décision 97) | — |
 | T-1a-iv qualification émetteurs | À VENIR | après R1 (décision 93) | — |
@@ -77,5 +77,5 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-En vol (relancés 15:55 UTC, consigne « CONTINUE ») : G2-delta GARDE-HELIUS-2a (`dd9148f..4585b20`, worktree gelé) · pli final Bell a1-bis (C-VD-1 lint + C-R-1/2/4).
-À faire : GARDE-HELIUS-2a **C-R-3 bloquant** (tronquer APRÈS expurger, `transport.ts:128/:134`) à plier au retour de la G2-delta, clôture par la sonde `r2-leakforms.mts` (`leakedPrefixChars=0`) → G7 → 2b · Bell a1-bis : commit du pli (rejouer lint soi-même) → constat → G7 · E-5 : ligne du run réel du 22/09 00:41 UTC.
+En vol : pli C-R-3 GARDE-HELIUS-2a (expurger AVANT de tronquer + userinfo), relancé 16:25 UTC.
+À faire : GARDE-HELIUS-2a → commit du pli, sonde `r2-leakforms.mts` (`leakedPrefixChars=0`), mutant rouge, G7 → 2b → prereg U-4b-1b → course (GO 119) · Bell : GARDE-HELIUS-1b puis G0 de course (C-F-4 + plafond = questions investisseur) · E-5 : ligne du run réel du 22/09 00:41 UTC.
