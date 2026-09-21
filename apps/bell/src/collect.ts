@@ -26,9 +26,9 @@ import { readMintToken2022, porStatus, wrapperStatus, rebaseForMint, rebaseGateF
 import { multiplierAtMs, replayTriplet, decodeStateConfig, type MultiplierEvent } from "./rebase-trajectory.ts";
 import { runRebaseScanCli, scaledUiConfigBytes } from "./rebase-scan.ts";
 import { runRebaseProduceCli } from "./rebase-produce.ts";
-import { runRebaseCrosscheckCli, readPriorCalls, WORST_CASE_CREDITS_PER_CALL } from "./rebase-crosscheck.ts";
+import { runRebaseCrosscheckCli, readPriorCalls, readPriorByMethod, WORST_CASE_CREDITS_PER_CALL } from "./rebase-crosscheck.ts";
 import { runDiscoverCli } from "./discover.ts";
-import { quorum2, signaturesSetKey, statusOf, NoQuorumError, QuorumDisagreementError, ConcordantRevertError,
+import { quorum2, signaturesSetKey, statusOf, withRetry, NoQuorumError, QuorumDisagreementError, ConcordantRevertError,
   BudgetExceededError, SolRpcError, type JsonRpcCall, type TransportFault } from "./quorum.ts";
 import { signaturesUntil, extractPoolSwap, MAX_TX_VERSION, solanaEndpoints, type SigInfo, type SwapFill } from "./rpc.ts";
 import { providerOf } from "../../sentinel/src/rpc.ts";
@@ -294,34 +294,28 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 /** C-11 fail-closed RPC budget. Wraps a lower-level call: after `maxCalls` calls, every further call throws
  *  BudgetExceededError (a `bell/collect:` message, surfaced verbatim, exit 1) — the "> 1 M credits / 50 %
  *  quota" stop is now machine-enforced, not a human rule. Pure/injectable: the oracle drives it offline. */
-export function makeBudgetedCall(maxCalls: number, inner: JsonRpcCall, priorCalls = 0, maxCredits = Infinity): { call: JsonRpcCall; calls: () => number; credits: () => number; tick: () => void } {
+export function makeBudgetedCall(maxCalls: number, inner: JsonRpcCall, priorCalls = 0, maxCredits = Infinity, priorByMethod: Readonly<Record<string, number>> = {}): { call: JsonRpcCall; calls: () => number; credits: () => number; tick: () => void; callsByMethod: () => Record<string, number> } {
   let n = priorCalls; // C-1 (-b3d): a cross-process resume offsets the counter by the prior cumulative calls_used
-  const guard = (): void => {
+  const byMethod: Record<string, number> = { ...priorByMethod }; // C-B-3 (V-3): per-method count, cumulative + seeded on resume
+  const guard = (m?: string): void => {
     if (n >= maxCalls) throw new BudgetExceededError(`bell/collect: --max-calls budget of ${String(maxCalls)} exceeded (C-11 fail-closed)`);
     // C-G2-1: the SAME counter, expressed in WORST-CASE credits (every call = gTfA 10 cr), is capped fail-closed in
     // the SAME unit as the 6.5 M plafond — so a calls-vs-credits confusion cannot overspend (probe 150 calls = 1500 cr).
     if ((n + 1) * WORST_CASE_CREDITS_PER_CALL > maxCredits) throw new BudgetExceededError(`bell/collect: --max-credits budget of ${String(maxCredits)} worst-case credits exceeded (C-G2-1 fail-closed; 1 call = ${String(WORST_CASE_CREDITS_PER_CALL)} cr worst case)`);
     n += 1;
+    // C-B-3 (V-3 fix): count the method HERE — same instruction as `n += 1`, AFTER both throw-checks — so a
+    // budget_exhausted throw is NEVER counted and the invariant Σ callsByMethod == calls_used holds on that path too
+    // (the old rebase-crosscheck `counted` wrapper incremented BEFORE the guard => Σ = calls_used + 1 at exhaustion).
+    if (m !== undefined) byMethod[m] = (byMethod[m] ?? 0) + 1;
   };
   const call: JsonRpcCall = (u, m, p) => {
-    try { guard(); } catch (e) { return Promise.reject(e instanceof Error ? e : new Error(String(e))); }
+    try { guard(m); } catch (e) { return Promise.reject(e instanceof Error ? e : new Error(String(e))); }
     return inner(u, m, p);
   };
   // C-G2-7 (-b3b): the cash-close leg (Databento + Massive) folds into the SAME budget — a non-JsonRpcCall GET
   // ticks the counter before it fires, so the fail-closed stop covers every paid read, not just Solana RPC.
   const tick = (): void => { guard(); };
-  return { call, calls: () => n, credits: () => n * WORST_CASE_CREDITS_PER_CALL, tick };
-}
-
-/** Bounded retry on 429 / 5xx (transport), deterministic backoff, no url in any message. A BudgetExceededError
- *  is NOT a transport fault: it is re-thrown immediately (never retried, never counted as a fault). */
-async function withRetry<T>(fn: () => Promise<T>, tries = 4): Promise<T> {
-  let last: unknown;
-  for (let i = 0; i < tries; i++) {
-    try { return await fn(); }
-    catch (e) { if (e instanceof BudgetExceededError) throw e; last = e; const st = statusOf(e); if (!/HTTP 5|HTTP 429|timeout|transport/.test(st)) throw e; await sleep(400 * (i + 1)); }
-  }
-  throw last instanceof Error ? last : new Error("retry exhausted");
+  return { call, calls: () => n, credits: () => n * WORST_CASE_CREDITS_PER_CALL, tick, callsByMethod: () => ({ ...byMethod }) };
 }
 
 /** Live Solana fills for a pool with quorum (C-1): the signature SET must concord across 2 providers; bodies
@@ -587,9 +581,12 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
   // C-1 (-b3d): the --rebase-crosscheck branch is RESUMABLE — its budget is offset by the prior cumulative calls_used
   // (<out>/budget.json), so a second process cannot reset the ceiling. Every other branch resumes from 0 (unchanged).
   const priorCalls = rebaseCrosscheck ? readPriorCalls(out) : 0;
+  // C-B-3 (V-3): the per-method counter resumes cumulatively too — seed it from budget.json.calls_by_method.global so
+  // the artifact's calls_by_method / credits_recomputed track calls_used across resumes (fact 4: else under-counted).
+  const priorByMethod = rebaseCrosscheck ? readPriorByMethod(out) : {};
   // C-G2-1: the worst-case-credits cap (--max-credits) rides the SAME cumulative counter as --max-calls, so a shared
   // --out (probe then draw) bounds probe+draw JOINTLY in the credit unit (Infinity for the non-crosscheck branches).
-  const budgeted = makeBudgetedCall(maxCalls, async (u, m, p) => { if (minInterval > 0) await sleep(minInterval); return deps.call(u, m, p); }, priorCalls, maxCredits);
+  const budgeted = makeBudgetedCall(maxCalls, async (u, m, p) => { if (minInterval > 0) await sleep(minInterval); return deps.call(u, m, p); }, priorCalls, maxCredits, priorByMethod);
   const call = budgeted.call;
   // C-G2-7: the cash-close leg (Databento + Massive) folds into the SAME budget — each GET ticks before it fires.
   const budgetedDatabento: DatabentoGet = (path, key) => { budgeted.tick(); return deps.databentoGet(path, key); };
@@ -610,7 +607,7 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
   // / incompleteness). Budget cumulative across resumes (readPriorCalls offset). --series-dir defaults to the fixtures.
   if (rebaseCrosscheck) {
     const dir = seriesDir ?? resolve(repoRoot, "apps/bell/test/fixtures/series/rebase");
-    await runRebaseCrosscheckCli(call, solProviders, wanted, dir, out, { maxPages, requireFullPages: !allowShortPages }, budgeted.calls, maxCalls, faults); return;
+    await runRebaseCrosscheckCli(call, solProviders, wanted, dir, out, { maxPages, requireFullPages: !allowShortPages }, budgeted.calls, budgeted.callsByMethod, maxCalls, faults); return;
   }
   // L-1 (D1-sexies): --discover samples the founding window (--from-utc/--to-utc) at 3 points, tallies the founding
   // vaults, pairs the quote by owner, confirms quorum-2, and WRITES discovery-<MINT>.json out-of-repo (the served

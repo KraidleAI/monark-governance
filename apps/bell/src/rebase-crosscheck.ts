@@ -26,7 +26,7 @@ import { readFileSync, writeFileSync, appendFileSync, mkdirSync, existsSync, rea
 import { resolve, join } from "node:path";
 import { operatorOf } from "./operators.ts";
 import { MAX_TX_VERSION, type JsonRpcCall } from "./rpc.ts";
-import { type TransportFault, BudgetExceededError, statusOf } from "./quorum.ts";
+import { type TransportFault, BudgetExceededError, statusOf, withRetry } from "./quorum.ts";
 import { providerOf } from "../../sentinel/src/rpc.ts";
 import { base58Decode, eventsFromTx, flattenInstructions, keysOfJson, firstTwoDistinctOps, bodyEventKey,
   TOKEN_2022_PROGRAM } from "./rebase-scan.ts";
@@ -55,6 +55,13 @@ export const AUTHORITY_TYPE_SCALED_UI = 15;
 export const CREDITS_PER_GTFA = 10;
 export const CREDITS_PER_GET_TX = 1;
 export const WORST_CASE_CREDITS_PER_CALL = CREDITS_PER_GTFA;
+
+/** Helius gTfA `full` page size: the `limit:` asked per page AND the completeness threshold. A page returned with
+ *  FEWER *raw* txs than this WHILE a next token exists is a short NON-FINAL page (C-8: full pages except the last). The
+ *  test uses the SAME constant, and the check is on the RAW `data.length` (never the post-dedup pageTxs.length) so a
+ *  full boundary page deduped on a resume is never falsely flagged. `notFullPages` is thus NOT derived from the ledger
+ *  and the §6 core stays 9 fields (no `raw_count`) — the resolution of the checkpoint-1 notFullPages consultation (d). */
+export const GTFA_PAGE_LIMIT = 1000;
 
 /** A decoded SetAuthority(ScaledUiAmount) payload, or null when the bytes are not that instruction. `newAuthorityHex`
  *  is the target authority (null = None, i.e. the authority is being REMOVED — definitive, §D). Pure. The presence
@@ -148,6 +155,32 @@ export function ledgerSha(entries: readonly LedgerEntry[]): string {
   return entries.length ? entries[entries.length - 1]!.entry_sha256 : LEDGER_GENESIS;
 }
 
+/** The ATOMIC on-disk page record (§6 amended, C-B-7): the chained `LedgerEntry` PLUS the page's decoded payload
+ *  (`page_events`/`page_handoffs`, formerly the separate `events-`/`handoffs-<MINT>.jsonl`). ONE `appendFileSync` per
+ *  page = a single commit point, closing the fact-7 window where a page committed to the ledger before its events. The
+ *  payload is NEVER hashed: `entry_sha256` covers the §6 core alone, so the chain stays re-derivable (verifyLedgerChain). */
+export interface LedgerRecord extends LedgerEntry {
+  readonly page_events: readonly MultiplierEvent[];
+  readonly page_handoffs: readonly SetAuthorityHandoff[];
+}
+
+/** C-V-3: RE-DERIVE the chain from the on-disk records, INDEPENDENTLY of the writer — the sole proof that
+ *  `ledger_sha256` transitively commits every page (the prior test only checked the field was carried, never
+ *  recomputed it, so a mutant dropping `prev_entry_sha256` from the core survived). Each `entry_sha256` is recomputed
+ *  as sha(JSON.stringify(core)) over the §6 core ALONE (prev..list_sha256, in the writer's field order), STRIPPING
+ *  `page_events`/`page_handoffs`; `prev_entry_sha256` must thread from genesis. The §5 audit (CA-9) calls this on
+ *  `ledger-<MINT>.jsonl`. A tampered prev, a re-hash including the payload, or a broken link => { ok:false }. */
+export function verifyLedgerChain(entries: readonly LedgerEntry[]): { readonly ok: boolean; readonly headSha: string } {
+  let prev = LEDGER_GENESIS;
+  for (const e of entries) {
+    const core = { prev_entry_sha256: e.prev_entry_sha256, page: e.page, slot_lo: e.slot_lo, slot_hi: e.slot_hi,
+      first_sig: e.first_sig, last_sig: e.last_sig, tx_count: e.tx_count, tail_sigs_at_slot_hi: e.tail_sigs_at_slot_hi, list_sha256: e.list_sha256 };
+    if (e.prev_entry_sha256 !== prev || sha(JSON.stringify(core)) !== e.entry_sha256) return { ok: false, headSha: prev };
+    prev = e.entry_sha256;
+  }
+  return { ok: true, headSha: prev };
+}
+
 // ---- full-mint scan (gTfA `full` asc, bounded slot.lte = oracle_slot; resumable; fail-closed budget) --------------
 export interface ResumeState {
   readonly resumeFromSlot?: number;            // slot_hi of the last complete page (ledger) — sets filters.slot.gte
@@ -176,6 +209,12 @@ export interface ScanSink {
   onCandidate?(sig: string, body: unknown): void;
 }
 
+/** L-b1a-8 (fact 9): a bounded retry injected into the scan's calls. `method` names the call so the caller can meter
+ *  retries_by_method. The OFFLINE default is the identity (no retry, no backoff); production passes `withRetry`. Every
+ *  attempt goes through the SAME budgeted `call`, so a retry is counted and can neither exceed the budget nor
+ *  double-commit a page. */
+export type RetryFn = <T>(fn: () => Promise<T>, method: string) => Promise<T>;
+
 /** Scan a mint's WHOLE body set via gTfA `full` (asc, bounded slot.lte = oracle_slot), offline via the injected
  *  `call`. Per page: chain a ledger entry + persist via `onPage`; decode 43/x (eventsFromTx) and SetAuthority
  *  (setAuthorityHandoffsFromTx); re-read every 43/x candidate under quorum-2 on op B (bodyEventKey). Resume honours
@@ -186,7 +225,7 @@ export interface ScanSink {
  *  (option, default on) + no null blockTime + no body-quorum miss + no same-slot ambiguity (C-8). */
 export async function scanFullMint(call: JsonRpcCall, providers: readonly string[], mint: string, oracleSlot: number,
   opts: { readonly maxPages?: number; readonly requireFullPages?: boolean }, resume: ResumeState,
-  sink: ScanSink, faults: TransportFault[]): Promise<FullMintScan> {
+  sink: ScanSink, faults: TransportFault[], retry: RetryFn = (fn) => fn()): Promise<FullMintScan> {
   const ops = firstTwoDistinctOps(providers);
   if (ops === null) return { events: [], handoffs: [], complete: false, reason: "no_quorum", n: 0, pages: 0, ledger: [] };
   const heliusOp = providers.find((u) => operatorOf(u) === "helius") ?? ops[0]; // gTfA is Helius-exclusive
@@ -199,73 +238,90 @@ export async function scanFullMint(call: JsonRpcCall, providers: readonly string
   const events: MultiplierEvent[] = [...(resume.priorEvents ?? [])];
   const handoffs: SetAuthorityHandoff[] = [...(resume.priorHandoffs ?? [])];
   const ledger: LedgerEntry[] = [...(resume.priorLedger ?? [])];
-  let prevSha = ledgerSha(ledger), pages = ledger.length, n = ledger.reduce((a, e) => a + e.tx_count, 0);
+  let prevSha = ledgerSha(ledger), fetched = ledger.length, n = ledger.reduce((a, e) => a + e.tx_count, 0);
   let paginationToken: string | undefined;
-  let blockTimeNull = false, bodyQuorumFail = false, exhausted = false, notFullPages = false, nonMonotonic = false;
-  let lastSlotSeen = -1, ascLastSig = "";
+  let exhausted = false;
+  // fact 3: `pages` in the artifact is DERIVED from ledger.length (idempotent), so a terminal resume that fetches an
+  // empty page does not drift it +1; `fetched` bounds the maxPages loop (counts every fetch, empty pages included).
+  // C-B-1 (fact 1 SEMIS): seed the end-anchor cursor from the last committed page so a 0-page terminal resume still
+  // reproduces ascLastSig (else the end anchor fails forever). last.last_sig == the last enumerated tx's sig (:142).
+  const seed = resume.priorLedger?.at(-1);
+  let lastSlotSeen = seed ? seed.slot_hi : -1, ascLastSig = seed ? seed.last_sig : "";
   try {
-    while (pages < maxPages) {
+    while (fetched < maxPages) {
       const slotFilter: Record<string, number> = { lte: oracleSlot, ...(resume.resumeFromSlot !== undefined ? { gte: resume.resumeFromSlot } : {}) };
-      const params: readonly unknown[] = [mint, { transactionDetails: "full", sortOrder: "asc", limit: 1000, filters: { slot: slotFilter }, ...(paginationToken ? { paginationToken } : {}) }];
-      const res = asObj(await call(heliusOp, "getTransactionsForAddress", params));
+      const params: readonly unknown[] = [mint, { transactionDetails: "full", sortOrder: "asc", limit: GTFA_PAGE_LIMIT, filters: { slot: slotFilter }, ...(paginationToken ? { paginationToken } : {}) }];
+      const res = asObj(await retry(() => call(heliusOp, "getTransactionsForAddress", params), "getTransactionsForAddress"));
       const data = asArr(res.data);
       const pageTxs: { sig: string; slot: number }[] = [];
       const pageEvents: MultiplierEvent[] = [];
       const pageHandoffs: SetAuthorityHandoff[] = [];
+      // C-B-1 (option i, ROOT of V-1): a RE-FETCHABLE fault (a dropped/undecodable body, a body-quorum miss, an
+      // out-of-order slot) discards the WHOLE page and STOPS — committing its sig without its event, then resuming
+      // past it with the process-local flag reset, is exactly the false `equal` (fact 8). A resume re-fetches from the
+      // last CLEAN page's slot_hi (a transient fault resolves via the injected retry; a persistent one stays
+      // inconclusive => escalate, fail-closed). Never commit page P+1 after a fault on P (that loses P's txs => V-1).
+      let pageFault: string | null = null;
       for (const body of data) {
         const nb = normalizeBody(body);
-        if (nb === null) { blockTimeNull = true; continue; } // C-8: unusable body (null blockTime/slot) => inconclusive, never a skip
-        if (nb.blockTime == null) { blockTimeNull = true; continue; }
+        if (nb === null || nb.blockTime == null) { pageFault = "block_time_null"; break; } // C-8 unusable body => never a skip
         // resume dedupe (C-7 b): a boundary tx already ingested at the resume slot is dropped exactly once
         if (resume.resumeFromSlot !== undefined && nb.slot === resume.resumeFromSlot && (resume.tailSigsAtResumeSlot ?? []).includes(nb.sig)) continue;
-        if (nb.slot < lastSlotSeen) nonMonotonic = true; // asc order property (measured at the sonde, C-8)
+        if (nb.slot < lastSlotSeen) { pageFault = "non_monotonic"; break; } // asc order property (measured at the sonde, C-8)
         lastSlotSeen = nb.slot; ascLastSig = nb.sig;
         pageTxs.push({ sig: nb.sig, slot: nb.slot }); // enumerated (in the ledger/N) even if it did not execute
-        n += 1;
         if (asObj(asObj(nb.tx).meta).err != null) continue; // C-9: a FAILED tx did not execute its instructions => never decoded
         const hs = setAuthorityHandoffsFromTx(nb.sig, nb.slot, nb.blockTime, nb.tx, [mint]);
         for (const h of hs) pageHandoffs.push(h);
         const evA = eventsFromTx(nb.sig, nb.slot, nb.blockTime, nb.tx, mint);
         if (hs.length > 0 || (evA !== null && evA.length > 0)) sink.onCandidate?.(nb.sig, nb.tx); // C-5: keep only candidate raws
-        if (evA === null) { blockTimeNull = true; continue; }
+        if (evA === null) { pageFault = "block_time_null"; break; }
         if (evA.length === 0) continue; // not a 43/x-for-this-mint tx
         let txB: Record<string, unknown>;
-        try { txB = asObj(await call(otherOp, "getTransaction", [nb.sig, { maxSupportedTransactionVersion: MAX_TX_VERSION, encoding: "json" }])); }
-        catch (e) { if (e instanceof BudgetExceededError) throw e; faults.push({ provider: providerOf(otherOp), status: statusOf(e) }); bodyQuorumFail = true; continue; }
+        try { txB = asObj(await retry(() => call(otherOp, "getTransaction", [nb.sig, { maxSupportedTransactionVersion: MAX_TX_VERSION, encoding: "json" }]), "getTransaction")); }
+        catch (e) { if (e instanceof BudgetExceededError) throw e; faults.push({ provider: providerOf(otherOp), status: statusOf(e) }); pageFault = "body_quorum"; break; }
         const evB = eventsFromTx(nb.sig, Number(txB.slot), typeof txB.blockTime === "number" ? txB.blockTime : null, txB, mint);
-        if (evB === null || bodyEventKey(mint, evA) !== bodyEventKey(mint, evB)) { bodyQuorumFail = true; continue; }
+        if (evB === null || bodyEventKey(mint, evA) !== bodyEventKey(mint, evB)) { pageFault = "body_quorum"; break; }
         pageEvents.push(...evA);
       }
-      events.push(...pageEvents); handoffs.push(...pageHandoffs);
-      const entry = chainedLedgerEntry(prevSha, pages + 1, pageTxs);
-      if (entry) { ledger.push(entry); prevSha = entry.entry_sha256; sink.onPage(entry, ledger, pageEvents, pageHandoffs); }
-      pages += 1;
+      if (pageFault !== null) return { events: sortEvents(events), handoffs, complete: false, reason: pageFault, n, pages: ledger.length, ledger };
       const next = res.paginationToken;
-      if (typeof next !== "string" || next === "" || data.length === 0) { exhausted = true; break; }
-      if (data.length < 1000) notFullPages = true; // a short non-final page (C-8: full pages except the last)
+      const finalPage = typeof next !== "string" || next === "" || data.length === 0;
+      // C-B-1 (option d, notFullPages): under requireFullPages, a short NON-FINAL page (RAW data.length < GTFA_PAGE_LIMIT,
+      // tested BEFORE the boundary dedup) is a re-fetchable completeness fault => NOT committed + STOP (never a sig
+      // without proof its page was full). A full boundary page deduped to fewer txs keeps its RAW length = the limit, so
+      // a resume never falsely STOPs (the tx_count-based derivation the plan first prescribed WOULD have). A persistent
+      // short page stays inconclusive => escalate. --allow-short-pages commits it (offline oracle); the FINAL page (no
+      // token) may be short. `notFullPages` is no longer a process-local flag NOR ledger-derived (core §6 stays 9 fields).
+      if (requireFullPages && !finalPage && data.length < GTFA_PAGE_LIMIT) return { events: sortEvents(events), handoffs, complete: false, reason: "not_full_pages", n, pages: ledger.length, ledger };
+      events.push(...pageEvents); handoffs.push(...pageHandoffs);
+      n += pageTxs.length; // only a COMMITTED page counts toward N (a discarded faulted page never does)
+      const entry = chainedLedgerEntry(prevSha, ledger.length + 1, pageTxs);
+      if (entry) { ledger.push(entry); prevSha = entry.entry_sha256; sink.onPage(entry, ledger, pageEvents, pageHandoffs); }
+      fetched += 1;
+      if (finalPage) { exhausted = true; break; }
       paginationToken = next;
     }
   } catch (e) {
     if (!(e instanceof BudgetExceededError)) throw e; // any non-budget error propagates (fatalMessage scrubs it)
-    return { events: sortEvents(events), handoffs, complete: false, reason: "budget_exhausted", n, pages, ledger };
+    return { events: sortEvents(events), handoffs, complete: false, reason: "budget_exhausted", n, pages: ledger.length, ledger };
   }
   // end anchor (C-8): one desc page at slot.lte = oracle_slot; its newest sig must equal the asc run's last sig.
   let endAnchorOk = false;
   if (exhausted) {
-    const descRes = asObj(await call(heliusOp, "getTransactionsForAddress", [mint, { transactionDetails: "full", sortOrder: "desc", limit: 1, filters: { slot: { lte: oracleSlot } } }]));
+    const descRes = asObj(await retry(() => call(heliusOp, "getTransactionsForAddress", [mint, { transactionDetails: "full", sortOrder: "desc", limit: 1, filters: { slot: { lte: oracleSlot } } }]), "getTransactionsForAddress"));
     const descTop = normalizeBody(asArr(descRes.data)[0]);
     endAnchorOk = descTop !== null && descTop.sig === ascLastSig;
   }
   const sorted = sortEvents(events);
   const sameSlotAmbiguous = hasSameSlotDiffSig(sorted);
   const startAnchor = sorted.some((e) => e.kind === "initialize");
-  const complete = exhausted && startAnchor && endAnchorOk && !nonMonotonic && !blockTimeNull && !bodyQuorumFail
-    && !sameSlotAmbiguous && (!requireFullPages || !notFullPages);
-  const reason = !exhausted ? "not_at_genesis" : blockTimeNull ? "block_time_null" : bodyQuorumFail ? "body_quorum"
-    : sameSlotAmbiguous ? "same_slot_order_undecidable" : nonMonotonic ? "non_monotonic"
-    : !startAnchor ? "no_initialize_anchor" : !endAnchorOk ? "end_anchor_mismatch"
-    : requireFullPages && notFullPages ? "not_full_pages" : undefined;
-  return { events: sorted, handoffs, complete, n, pages, ledger, ...(reason !== undefined ? { reason } : {}) };
+  // the FOUR re-fetchable faults (block_time_null / body_quorum / non_monotonic / not_full_pages) now RETURN early
+  // (C-B-1), so none can be a lost process-local flag here; only exhaustion + anchors + same-slot gate completeness.
+  const complete = exhausted && startAnchor && endAnchorOk && !sameSlotAmbiguous;
+  const reason = !exhausted ? "not_at_genesis" : sameSlotAmbiguous ? "same_slot_order_undecidable"
+    : !startAnchor ? "no_initialize_anchor" : !endAnchorOk ? "end_anchor_mismatch" : undefined;
+  return { events: sorted, handoffs, complete, n, pages: ledger.length, ledger, ...(reason !== undefined ? { reason } : {}) };
 }
 function sortEvents(events: readonly MultiplierEvent[]): MultiplierEvent[] {
   return [...events].sort((a, b) => a.slot - b.slot || a.instructionIndex - b.instructionIndex);
@@ -418,64 +474,150 @@ export function readPriorCalls(out: string): number {
   return raw.calls_used;
 }
 
-/** Read a jsonl file as an array of parsed lines (empty when absent). */
+/** Read a jsonl file as parsed lines. C-B-5 (α): `appendFileSync` is not crash-atomic, so a process kill mid-append
+ *  leaves a TORN last line. ONLY the trailing torn line is repairable — it is dropped and the file TRUNCATED to its
+ *  last complete line (byte-exact prefix) before any further append, so the queue is the sole legitimate truncation
+ *  point. An unreadable line with content AFTER it is fail-closed (throw): a corruption in the body, never silently
+ *  skipped, so it cannot end up buried mid-file by a later append. */
 function readJsonl<T>(path: string): T[] {
   if (!existsSync(path)) return [];
-  return readFileSync(path, "utf8").split("\n").filter((l) => l.trim() !== "").map((l) => JSON.parse(l) as T);
+  const lines = readFileSync(path, "utf8").split("\n");
+  const out: T[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i]!;
+    if (l.trim() === "") continue;
+    try { out.push(JSON.parse(l) as T); }
+    catch {
+      if (lines.slice(i + 1).some((x) => x.trim() !== "")) throw new Error("bell/collect: " + path + " has an unreadable line before its queue (C-B-5 fail-closed: only a trailing torn line is repairable)");
+      writeFileSync(path, i > 0 ? lines.slice(0, i).join("\n") + "\n" : ""); // truncate the torn tail (byte-exact prefix)
+      break;
+    }
+  }
+  return out;
 }
-/** Resume state for a mint from its persisted state (ledger-/events-/handoffs-<MINT>.jsonl): the last ledger entry's
- *  slot_hi + tail sigs for the dedupe, AND the prior decoded ledger/events/handoffs so the resume is LOSSLESS (C-7 b:
- *  the run-1 Initialize is carried => start anchor holds; the ledger stays ONE chain). Missing/empty => {} (fresh). */
+/** Resume state for a mint from its persisted ATOMIC ledger (`ledger-<MINT>.jsonl`, C-B-7): the last record's slot_hi
+ *  + tail sigs for the dedupe, AND the prior decoded ledger/events/handoffs (from each record's `page_events`/
+ *  `page_handoffs`) so the resume is LOSSLESS (C-7 b: the run-1 Initialize is carried => start anchor holds; the ledger
+ *  stays ONE chain). C-B-5 belt: verifyLedgerChain re-derives the chain at EVERY resume; a broken chain (a corruption
+ *  past the repaired torn queue) is fail-closed, never resumed onto. Missing/empty => {} (fresh). */
 function resumeFromLedger(out: string, symbol: string): ResumeState {
-  const ledger = readJsonl<LedgerEntry>(resolve(out, `ledger-${symbol}.jsonl`));
-  if (ledger.length === 0) return {};
-  const last = ledger[ledger.length - 1]!;
-  return { resumeFromSlot: last.slot_hi, tailSigsAtResumeSlot: last.tail_sigs_at_slot_hi, priorLedger: ledger,
-    priorEvents: readJsonl<MultiplierEvent>(resolve(out, `events-${symbol}.jsonl`)),
-    priorHandoffs: readJsonl<SetAuthorityHandoff>(resolve(out, `handoffs-${symbol}.jsonl`)) };
+  const records = readJsonl<LedgerRecord>(resolve(out, `ledger-${symbol}.jsonl`));
+  if (records.length === 0) return {};
+  if (!verifyLedgerChain(records).ok) throw new Error("bell/collect: ledger-" + symbol + ".jsonl chain does not re-derive (C-B-5/C-V-3 fail-closed: a resume onto a broken chain is refused)");
+  const last = records[records.length - 1]!;
+  return { resumeFromSlot: last.slot_hi, tailSigsAtResumeSlot: last.tail_sigs_at_slot_hi, priorLedger: records,
+    priorEvents: records.flatMap((r) => [...r.page_events]), priorHandoffs: records.flatMap((r) => [...r.page_handoffs]) };
 }
 
-/** L-2/L-3 --rebase-crosscheck CLI (invoked by collect main()). Per wanted mint: scan the WHOLE body set (gTfA
- *  `full`, bounded to the SERIES' committed oracle_slot), persist a chained ledger + only candidate raws out of the
+/** C-B-6: re-derive the C-5 candidate sha-pins for ONE mint from its dedicated subdir `candidates/<MINT>/`, keyed by
+ *  signature (the filename stem). Read from disk (not an in-process map) so a terminal 0-page resume still recovers the
+ *  pins (the old per-process map wrote `{}` on such a resume), and per-mint so two mints can never mix (a flat readdir
+ *  would). Absent subdir => {} (no candidate seen yet). */
+function deriveCandidateShas(out: string, symbol: string): Record<string, string> {
+  const dir = resolve(out, "candidates", symbol);
+  if (!existsSync(dir)) return {};
+  const shas: Record<string, string> = {};
+  for (const f of readdirSync(dir)) if (f.endsWith(".json")) shas[f.slice(0, -5)] = sha(readFileSync(resolve(dir, f), "utf8"));
+  return shas;
+}
+
+/** C-B-3 / fact 4: the prior cumulative per-method counts from budget.json.calls_by_method.global (or {} — a fresh run
+ *  or a legacy budget.json without the field), so a resumed run continues the count cumulatively (Σ == calls_used and
+ *  credits_recomputed is not under-counted after a resume). */
+export function readPriorByMethod(out: string): Record<string, number> {
+  const path = resolve(out, "budget.json");
+  if (!existsSync(path)) return {};
+  const g = (JSON.parse(readFileSync(path, "utf8")) as { calls_by_method?: { global?: unknown } }).calls_by_method?.global;
+  if (g === null || typeof g !== "object") return {};
+  const bm: Record<string, number> = {};
+  for (const [k, v] of Object.entries(g)) if (typeof v === "number" && Number.isFinite(v) && v >= 0) bm[k] = v;
+  return bm;
+}
+/** C-B-4 / C-B-7: the prior per-mint call slices + cumulative retries_by_method from budget.json (reseeded so a resume
+ *  keeps them cumulative). Missing/legacy => empty. */
+function readPriorBudget(out: string): { byMint: Record<string, Record<string, number>>; retries: Record<string, number>; requireFullPages: boolean | undefined } {
+  const path = resolve(out, "budget.json");
+  if (!existsSync(path)) return { byMint: {}, retries: {}, requireFullPages: undefined };
+  const raw = JSON.parse(readFileSync(path, "utf8")) as { calls_by_method?: { by_mint?: unknown }; retries_by_method?: unknown; require_full_pages?: unknown };
+  const bm = raw.calls_by_method?.by_mint, rt = raw.retries_by_method;
+  return { byMint: bm !== null && typeof bm === "object" ? (bm as Record<string, Record<string, number>>) : {},
+    retries: rt !== null && typeof rt === "object" ? (rt as Record<string, number>) : {},
+    requireFullPages: typeof raw.require_full_pages === "boolean" ? raw.require_full_pages : undefined };
+}
+/** L-b1a-8: retry attempts for the DRAW. tries=6 => backoff <= Σ 400·(i+1), i=0..4 = 6.0 s (the wasted final sleep is
+ *  skipped, fact 9). A probe / offline run uses the identity retry (no backoff). */
+const RETRY_TRIES = 6;
+
+/** L-2/L-3 --rebase-crosscheck CLI (invoked by collect main()). Per wanted mint: scan the WHOLE body set (gTfA `full`,
+ *  bounded to the SERIES' committed oracle_slot), persist a chained ATOMIC ledger + only candidate raws out of the
  *  tree, compare to the committed series, and write the reduced crosscheck-<MINT>.json + a report. The budget is
- *  cumulative across resumes (readPriorCalls offset) and persisted per page. Domains/counts only, never a url/key. */
+ *  cumulative across resumes (readPriorCalls/readPriorByMethod offset), persisted per page AND in a `finally` (C-B-4),
+ *  and a sealed scan_complete:true artifact is NEVER degraded (C-B-2). Domains/counts only, never a url/key. */
 export async function runRebaseCrosscheckCli(call: JsonRpcCall, providers: readonly string[], wanted: readonly string[],
-  seriesDir: string, out: string, opts: { readonly maxPages?: number; readonly requireFullPages?: boolean }, callsUsed: () => number, maxCalls: number, faults: TransportFault[]): Promise<void> {
+  seriesDir: string, out: string, opts: { readonly maxPages?: number; readonly requireFullPages?: boolean },
+  callsUsed: () => number, callsByMethod: () => Record<string, number>, maxCalls: number, faults: TransportFault[]): Promise<void> {
   mkdirSync(out, { recursive: true });
-  mkdirSync(resolve(out, "candidates"), { recursive: true });
   const perMint: Record<string, unknown> = {};
+  const prior = readPriorBudget(out);
+  const requireFullPages = opts.requireFullPages ?? true;
+  // C-B-1 mixed-mode guard (family of C-G2D-2): a ledger's short-page trust depends on the mode it was built under. A
+  // resume STRICTER than a prior LOOSER run cannot trust a ledger that may hold a short non-final page committed under
+  // --allow-short-pages => fail-closed throw (the reverse — a strict ledger read loosely — stays safe).
+  if (requireFullPages && existsSync(resolve(out, "budget.json")) && prior.requireFullPages !== true)
+    throw new Error("bell/collect: <out>/budget.json is not proven require_full_pages:true (absent or --allow-short-pages) but this resume is strict (C-B-1/ITEM-C fail-closed: a strict run cannot trust a ledger built loosely)");
+  const byMint: Record<string, Record<string, number>> = { ...prior.byMint };
+  const retriesByMethod: Record<string, number> = { getTransactionsForAddress: 0, getTransaction: 0, ...prior.retries };
+  const gm = (): { getTransactionsForAddress: number; getTransaction: number } => ({ getTransactionsForAddress: 0, getTransaction: 0, ...callsByMethod() }); // global cumulative, both keys present
+  const writeBudget = (pages: number): void =>
+    writeFileSync(resolve(out, "budget.json"), JSON.stringify({ calls_used: callsUsed(), credits_worst_case: callsUsed() * WORST_CASE_CREDITS_PER_CALL,
+      pages, calls_by_method: { global: gm(), by_mint: byMint }, retries_by_method: retriesByMethod, require_full_pages: requireFullPages }));
   for (const tok of XSTOCKS.filter((t) => wanted.includes(t.symbol))) {
     const symbol = tok.symbol;
     const series = loadHybridSeries(seriesDir, symbol);
     if (series === null) { perMint[symbol] = { error: "no_committed_series" }; continue; }
-    const callsByMethod: Record<string, number> = { getTransactionsForAddress: 0, getTransaction: 0 };
-    const counted: JsonRpcCall = (u, m, p) => { callsByMethod[m] = (callsByMethod[m] ?? 0) + 1; return call(u, m, p); };
-    const ledgerPath = resolve(out, `ledger-${symbol}.jsonl`), eventsPath = resolve(out, `events-${symbol}.jsonl`), handoffsPath = resolve(out, `handoffs-${symbol}.jsonl`);
-    const candidateShas: Record<string, string> = {};
-    // Persist per PAGE (C-7 b lossless resume): the chained ledger entry, the page's decoded events + hand-offs, and
-    // the cumulative calls_used — so a crash/resume re-seeds the accumulators and cannot under-count or re-chain.
+    const ledgerPath = resolve(out, `ledger-${symbol}.jsonl`), candidateDir = resolve(out, "candidates", symbol);
+    mkdirSync(candidateDir, { recursive: true }); // C-B-6: candidate raws in a per-mint subdir (a flat readdir would mix 2 mints)
+    const resume = resumeFromLedger(out, symbol);
+    const priorSlice = { getTransactionsForAddress: 0, getTransaction: 0, ...(prior.byMint[symbol] ?? {}) };
+    const before = gm(); // snapshot at mint start => the mint's slice = priorSlice + (global now - before), recomputed idempotently
+    const setSlice = (): void => { const now = gm(); byMint[symbol] = {
+      getTransactionsForAddress: priorSlice.getTransactionsForAddress + (now.getTransactionsForAddress - before.getTransactionsForAddress),
+      getTransaction: priorSlice.getTransaction + (now.getTransaction - before.getTransaction) }; };
+    // L-b1a-8 retry (fact 9): tries=6, metered into retries_by_method (persisted via the finally, C-B-4). Every attempt
+    // goes through the SAME budgeted `call` => counted, and can neither exceed the budget nor double-commit a page.
+    const retry: RetryFn = (fn, method) => withRetry(fn, { tries: RETRY_TRIES, onRetry: () => { retriesByMethod[method] = (retriesByMethod[method] ?? 0) + 1; } });
+    let lastPages = resume.priorLedger?.length ?? 0;
     const sink: ScanSink = {
       onPage: (entry, ledger, pageEvents, pageHandoffs) => {
-        // C-G2D-2/C-G2D-4: persist the counter FIRST (before the ledger/events/handoffs appends) so a crash in the
-        // append window leaves calls_used >= on-disk ledger pages (a resume re-fetches the page; the budget over-counts
-        // by one, conservative) — never calls_used < pages, which readPriorCalls (C-G2D-2 b) reads as a tamper. `pages`
-        // binds budget.json to the ledger it covers; credits_worst_case stays calls_used x 10 (C-G2-1).
-        writeFileSync(resolve(out, "budget.json"), JSON.stringify({ calls_used: callsUsed(), credits_worst_case: callsUsed() * WORST_CASE_CREDITS_PER_CALL, pages: ledger.length }));
-        appendFileSync(ledgerPath, JSON.stringify(entry) + "\n");
-        for (const e of pageEvents) appendFileSync(eventsPath, JSON.stringify(e) + "\n");
-        for (const h of pageHandoffs) appendFileSync(handoffsPath, JSON.stringify(h) + "\n");
+        // C-G2D-2/C-G2D-4: counter FIRST (before the ledger append) so a crash in the append window leaves calls_used >=
+        // pages (a resume re-fetches; over-count by one, conservative). C-B-7: ONE atomic record per page = a single
+        // commit point (closes the fact-7 desync window); entry_sha256 stays over the core alone (verifyLedgerChain).
+        lastPages = ledger.length; setSlice(); writeBudget(ledger.length);
+        const record: LedgerRecord = { ...entry, page_events: pageEvents, page_handoffs: pageHandoffs };
+        appendFileSync(ledgerPath, JSON.stringify(record) + "\n");
       },
-      onCandidate: (sig, body) => { const b = JSON.stringify(body); candidateShas[sig] = sha(b); writeFileSync(resolve(out, "candidates", `${sig}.json`), b); },
+      onCandidate: (sig, body) => { writeFileSync(resolve(candidateDir, `${sig}.json`), JSON.stringify(body)); }, // C-B-6: candidate_shas re-derived from this per-mint subdir
     };
-    const scan = await scanFullMint(counted, providers, tok.address, series.oracle_slot, opts, resumeFromLedger(out, symbol), sink, faults);
-    writeFileSync(resolve(out, "budget.json"), JSON.stringify({ calls_used: callsUsed(), credits_worst_case: callsUsed() * WORST_CASE_CREDITS_PER_CALL, pages: scan.ledger.length })); // final cumulative (incl. the desc end-anchor call)
-    const verdict = compareToHybrid(scan, series);
-    const creditsRecomputed = (callsByMethod.getTransactionsForAddress ?? 0) * CREDITS_PER_GTFA + (callsByMethod.getTransaction ?? 0) * CREDITS_PER_GET_TX;
-    const artifact = { oracle_slot: series.oracle_slot, n_exact: scan.n, pages: scan.pages, ledger_sha256: ledgerSha(scan.ledger),
-      scan_complete: scan.complete, scan_reason: scan.reason ?? null, events: scan.events, c3_oracle_triplet: series.oracle_triplet,
-      comparator_verdict: verdict, calls_by_method: callsByMethod, credits_recomputed: creditsRecomputed, candidate_shas: candidateShas };
-    writeFileSync(resolve(out, `crosscheck-${symbol}.json`), JSON.stringify(artifact, null, 2));
-    perMint[symbol] = { verdict: verdict.verdict, complete: scan.complete, reason: scan.reason ?? null, n_exact: scan.n, pages: scan.pages, credits_recomputed: creditsRecomputed, handoffs: scan.handoffs.length };
+    let scan: FullMintScan | undefined;
+    try {
+      scan = await scanFullMint(call, providers, tok.address, series.oracle_slot, opts, resume, sink, faults, retry);
+      const verdict = compareToHybrid(scan, series);
+      const g = gm();
+      const creditsRecomputed = g.getTransactionsForAddress * CREDITS_PER_GTFA + g.getTransaction * CREDITS_PER_GET_TX;
+      const artifact = { oracle_slot: series.oracle_slot, n_exact: scan.n, pages: scan.pages, ledger_sha256: ledgerSha(scan.ledger),
+        scan_complete: scan.complete, scan_reason: scan.reason ?? null, events: scan.events, c3_oracle_triplet: series.oracle_triplet,
+        comparator_verdict: verdict, calls_by_method: g, credits_recomputed: creditsRecomputed, candidate_shas: deriveCandidateShas(out, symbol),
+        // fact 8: the L-5 gate (b2) reads this attestation; `source:"fullmint"` is the only value that closes a residual.
+        set_authority_scan: { scanned: scan.complete, authority_change_found: scan.handoffs.length > 0, through_slot: series.oracle_slot, source: "fullmint" } };
+      // C-B-2 (V-2): a sealed scan_complete:true artifact is NEVER degraded to false by a mordant relaunch — the sealed
+      // file stays byte-identical and the degraded attempt is journaled to a `-attempt` sidecar, never overwriting equal.
+      const artifactPath = resolve(out, `crosscheck-${symbol}.json`);
+      const sealed = existsSync(artifactPath) && (JSON.parse(readFileSync(artifactPath, "utf8")) as { scan_complete?: boolean }).scan_complete === true;
+      writeFileSync(sealed && !scan.complete ? resolve(out, `crosscheck-${symbol}-attempt.json`) : artifactPath, JSON.stringify(artifact, null, 2));
+      perMint[symbol] = { verdict: verdict.verdict, complete: scan.complete, reason: scan.reason ?? null, n_exact: scan.n, pages: scan.pages, credits_recomputed: creditsRecomputed, handoffs: scan.handoffs.length };
+    } finally {
+      setSlice(); writeBudget(scan?.ledger.length ?? lastPages); // C-B-4: budget durable on the error/desc path (retries included)
+    }
   }
   const report = { generated_at: new Date().toISOString(), operators: [...new Set(providers.map(operatorOf))],
     per_mint: perMint, calls_used: callsUsed(), max_calls: maxCalls };
