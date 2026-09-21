@@ -5,7 +5,7 @@
 // `openOperatorLedger`, `acquireLock`, `runUnlock` are NOT exported - tests reach them by relative import. The closed
 // export set is asserted by exports.test.ts (T2). No symbol returns/accepts an endpoint URL.
 export { openGuardedClient } from "./guarded.ts";
-export { BudgetExceededError } from "./errors.ts";
+export { BudgetExceededError, TransportError } from "./errors.ts";
 export { runReconcile } from "./reconcile.ts";
 export { runCli } from "./cli.ts";
 export { verifyCycleLedger } from "./ledger.ts";

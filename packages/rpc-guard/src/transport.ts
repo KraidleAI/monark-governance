@@ -13,6 +13,7 @@
 // This is the SOLE reader of a paid endpoint key (HELIUS_API_KEY, CHAINSTACK_ETH_URL) and the SOLE fetch site.
 import type { OperatorLabel, Transport, OperatorClass } from "./client.ts";
 import { heliusCredits, chainstackRu } from "./tariff.ts";
+import { TransportError } from "./errors.ts";
 
 /** Cycle caps live in ONE place (decisions 112/115). Helius in CREDITS; Chainstack in RU. */
 export const HELIUS_CYCLE_CAP_CREDITS = 8_000_000;
@@ -41,8 +42,9 @@ const KEYLESS_ETH: ReadonlyArray<readonly [string, string]> = [
 export const scrubUrls = (s: string): string => s.replace(/https?:\/\/[^\s"'\\]+/gi, "<url>");
 
 /** Transport options threaded from openGuardedClient (C-5). `onTransportError` is the injected error hook: it is
- *  called with the operator LABEL + the error NAME only, NEVER the URL (the 5%-rule monitor re-binds onto it in 2b). */
-export interface TransportOpts { readonly timeoutMs?: number; readonly onTransportError?: (op: string, errorName: string) => void; }
+ *  called with the operator LABEL + the error NAME + the CODE (HTTP status or JSON-RPC code, undefined for a bare
+ *  network fault), NEVER the URL (the 5%-rule monitor of the recorder re-binds ITS OWN sink onto this in 2b). */
+export interface TransportOpts { readonly timeoutMs?: number; readonly onTransportError?: (op: string, errorName: string, code: number | undefined) => void; }
 
 export interface Resolved {
   readonly classes: Readonly<Record<string, OperatorClass>>;
@@ -76,11 +78,14 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
 
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const onErr = opts.onTransportError;
-  const fail = (op: string, e: unknown): never => {
-    const name = e instanceof Error ? e.name : "Error";
-    if (onErr) onErr(op, name); // label + error NAME only, never the URL (secret-leak MAST)
-    // NEVER surface the fetch error's message or `.input` (they carry the url+key); a FRESH error, label + name only.
-    throw new Error(scrubUrls(`rpc-guard: transport error for operator '${op}' (${name})`));
+  // Raise the CANONICAL typed transport fault (C-V-2). The message is SCRUBBED of every URL/key; the hook gets the
+  // label + error NAME + CODE only (never the URL). `detail` (a scrubbed server body/message) is kept in the message
+  // so a downstream getLogsVia can split a range on an HTTP 400 body.
+  const raise = (op: string, name: string, code: number | undefined, detail: string): never => {
+    if (onErr) onErr(op, name, code);
+    const codeStr = code !== undefined ? ` (code ${String(code)})` : "";
+    const detailStr = detail !== "" ? `: ${scrubUrls(detail)}` : "";
+    throw new TransportError(op, scrubUrls(`rpc-guard: ${name} for operator '${op}'${codeStr}${detailStr}`), name, code);
   };
   const transport: Transport = async (op, method, params) => {
     const url = urls.get(op);
@@ -90,9 +95,23 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
     let res: Response;
     try {
       res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), signal: ctl.signal });
-    } catch (e) { return fail(op, e); } finally { clearTimeout(to); }
-    if (!res.ok) throw new Error(`rpc-guard: HTTP ${String(res.status)} for operator '${op}'`); // sanitized: no url/key
-    try { return (await res.json() as { result?: unknown }).result; } catch (e) { return fail(op, e); }
+    } catch (e) {
+      // (1) network / timeout / abort: NEVER surface e.message or e.input (they carry the url+key) - name only.
+      return raise(op, e instanceof Error ? e.name : "NetworkError", undefined, "");
+    } finally { clearTimeout(to); }
+    if (!res.ok) {
+      // (2) HTTP non-ok: KEEP the (scrubbed) body - getLogsVia splits a too-large range on an HTTP 400 body; hook gets the status.
+      const body = (await res.text().catch(() => "")).replace(/\s+/g, " ").trim().slice(0, 160);
+      return raise(op, "HttpError", res.status, body);
+    }
+    const text = await res.text();
+    let json: { result?: unknown; error?: { code?: number; message?: string } | null };
+    // (3) non-JSON body (a mis-routed HTML error page): a typed fault, not a silent value.
+    try { json = JSON.parse(text) as typeof json; } catch { return raise(op, "NonJsonBody", res.status, text.replace(/\s+/g, " ").trim().slice(0, 160)); }
+    // (4) JSON-RPC error at HTTP 200: MUST throw (never resolve `undefined`, which two errored providers would read
+    //     as a concordant value); carries the JSON-RPC code so a downstream quorum can tell a revert from a fault.
+    if (json.error !== undefined && json.error !== null) return raise(op, "RpcError", json.error.code ?? 0, json.error.message ?? "rpc error");
+    return json.result;
   };
 
   return { classes, transport };

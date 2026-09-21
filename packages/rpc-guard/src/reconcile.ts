@@ -18,8 +18,14 @@ import type { CycleLedger, CycleLedgerEntry } from "./ledger.ts";
  *  (Chainstack RU/day, FAITS pt 10). Exactly one is present, matching the declared reconcile mode. */
 export interface Snapshot { readonly cycle: string; readonly byMethod?: Readonly<Record<string, number>>; readonly total_ru?: number; }
 export type Verdict = "GO" | "NO-GO";
-export type ReconcileMode = "per-method" | "aggregate";
-export interface ReconcileResult { readonly verdict: Verdict; readonly reason?: string; readonly exitCode: number; readonly entry: CycleLedgerEntry; readonly mode: ReconcileMode; }
+/** "per-method" (Helius) | "aggregate" (Chainstack, soft band BLOCKS) | "aggregate-calibration" (Chainstack 1st course:
+ *  hard bound BLOCKS, soft over-count CONSIGNED, exit 0). C-V-3: the calibration course has a NAMED code path. */
+export type ReconcileMode = "per-method" | "aggregate" | "aggregate-calibration";
+export interface ReconcileResult { readonly verdict: Verdict; readonly reason?: string; readonly exitCode: number; readonly entry: CycleLedgerEntry; readonly mode: ReconcileMode; readonly softDeviation?: number; }
+
+/** Operators whose dashboard has NO per-method breakdown (FAITS pt 10) => reconcile REQUIRES an aggregate mode flag;
+ *  a per-method reconcile on such an operator is fail-closed (cli.ts). Chainstack today; extend at its trigger. */
+export const AGGREGATE_ONLY_OPERATORS: ReadonlySet<string> = new Set(["chainstack"]);
 
 /** ledger_run per method = Sigma credits_derived of the `attempted` lines AFTER the last `reconciled` line (windowed). */
 function ledgerRunSinceLastReconciled(ledger: CycleLedger, cycle: string): Record<string, number> {
@@ -36,14 +42,14 @@ function ledgerRunSinceLastReconciled(ledger: CycleLedger, cycle: string): Recor
 }
 
 export function runReconcile(ledger: CycleLedger, before: Snapshot, after: Snapshot, cycle: string, mode: ReconcileMode = "per-method"): ReconcileResult {
-  const finish = (verdict: Verdict, reason?: string): ReconcileResult => {
+  const finish = (verdict: Verdict, reason?: string, softDeviation?: number): ReconcileResult => {
     const entry = ledger.appendChained("reconciled", { [`reconcile|${verdict}`]: 1 }, 0, reason);
-    return { verdict, ...(reason !== undefined ? { reason } : {}), exitCode: verdict === "GO" ? 0 : 1, entry, mode };
+    return { verdict, ...(reason !== undefined ? { reason } : {}), exitCode: verdict === "GO" ? 0 : 1, entry, mode, ...(softDeviation !== undefined ? { softDeviation } : {}) };
   };
   if (before.cycle !== cycle || after.cycle !== cycle) return finish("NO-GO", "rollover");
   const run = ledgerRunSinceLastReconciled(ledger, cycle);
 
-  if (mode === "aggregate") {
+  if (mode === "aggregate" || mode === "aggregate-calibration") {
     // Chainstack Statistics has NO per-method breakdown (FAITS pt 10): the dashboard gives one total RU. A per-method
     // snapshot reaching a DECLARED-aggregate operator is FAIL-CLOSED (never silently coerced to a per-method bound).
     // EXACTLY ONE field per mode: a missing total_ru OR a stray byMethod is a NO-GO (never a silent field-ignore).
@@ -51,8 +57,16 @@ export function runReconcile(ledger: CycleLedger, before: Snapshot, after: Snaps
     if (before.byMethod !== undefined || after.byMethod !== undefined) return finish("NO-GO", "aggregate_mode_rejects_by_method");
     const ledgerTotal = Object.values(run).reduce((a, b) => a + b, 0); // Sigma conservative RU over the window
     const delta = after.total_ru - before.total_ru;
-    if (delta > ledgerTotal) return finish("NO-GO", "hard:total"); // billed RU above the conservative ledger = outside the guard
-    if (ledgerTotal - delta > Math.max(50, 0.005 * ledgerTotal)) return finish("NO-GO", "soft");
+    if (delta < 0) return finish("NO-GO", "negative_delta"); // C-V-5: a reset daily counter is NOT a soft over-count
+    if (delta > ledgerTotal) return finish("NO-GO", "hard:total"); // billed RU above the conservative ledger = outside the guard (BOTH modes)
+    const softOver = ledgerTotal - delta;
+    if (mode === "aggregate-calibration") {
+      // C-V-3: the 1st Chainstack course. The hard bound BLOCKS (above); the soft over-count is CONSIGNED (no verdict,
+      // exit 0) - a conservative 2-RU tariff over-counts a Global node, so the 2nd course's soft band is pre-registered
+      // from THIS softOver, not read by a human from a failing `soft` reason.
+      return finish("GO", `calibration_soft:${String(softOver)}`, softOver);
+    }
+    if (softOver > Math.max(50, 0.005 * ledgerTotal)) return finish("NO-GO", "soft");
     return finish("GO");
   }
 

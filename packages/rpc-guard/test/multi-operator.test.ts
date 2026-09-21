@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { existsSync, appendFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
-import { openGuardedClient, BudgetExceededError, ETH_CALL_KEYLESS_LABELS, GET_LOGS_KEYLESS_LABELS } from "@monark/rpc-guard";
+import { openGuardedClient, BudgetExceededError, TransportError, ETH_CALL_KEYLESS_LABELS, GET_LOGS_KEYLESS_LABELS } from "@monark/rpc-guard";
 import { makeClient, type OperatorClass, type RunLimits, type OperatorLabel } from "../src/client.ts";
 import { ensureCycleDir, openOperatorLedger } from "../src/ledger.ts";
 import { acquireLock, releaseLock, LockHeldError } from "../src/lock.ts";
@@ -19,25 +19,23 @@ const okFetch = (): Promise<Response> => Promise.resolve(new Response(JSON.strin
 
 test("two_paid_operators_keep_separate_priors_and_units", async () => {
   const { dir, cleanup } = tmp();
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = okFetch;
   try {
-    const cd = ensureCycleDir(dir, "cyc");
-    // helius: floor 15 / cap 25 in CREDITS (gTfA = 10). chainstack: floor 5 / cap 9 in RU (eth_call = 2). Distinct
-    // floors AND units AND caps; a SHARED scalar floor (mutant) would apply 15 to chainstack (> cap 9) and throw.
-    const ops = {
-      helius: { unit: "credits", credits: heliusCredits, cycleCap: 25 } as OperatorClass,
-      chainstack: { unit: "ru", credits: chainstackRu, cycleCap: 9 } as OperatorClass,
-    };
-    const limits: RunLimits = { maxCalls: 100, runCaps: { helius: 1000, chainstack: 1000 }, methodCaps: { getTransactionsForAddress: 100, eth_call: 100 }, cycleFloor: { helius: 15, chainstack: 5 } };
-    const ledgers = new Map([["helius", openOperatorLedger(cd, "helius", 15)], ["chainstack", openOperatorLedger(cd, "chainstack", 5)]]);
-    const client = makeClient({ operators: ops, limits }, ledgers, { transport: OK });
-    await client.call(HELIUS, "getTransactionsForAddress", ["m"]);        // helius 15+0+10 = 25 <= 25 => ok
-    await client.call(CHAINSTACK, "eth_call", [{}, "0x1"]);               // chainstack 5+0+2 = 7 <= 9 => ok
-    await client.call(CHAINSTACK, "eth_call", [{}, "0x1"]);               // chainstack 5+2+2 = 9 <= 9 => ok
-    await assert.rejects(client.call(HELIUS, "getTransactionsForAddress", ["m"]), (e: unknown) => e instanceof BudgetExceededError); // 15+10+10 = 35 > 25
-    await assert.rejects(client.call(CHAINSTACK, "eth_call", [{}, "0x1"]), (e: unknown) => e instanceof BudgetExceededError);        // 5+4+2 = 11 > 9
-    // spent is PER OPERATOR in the op's unit - RU (4) and credits (10) are NEVER summed (mutant "units merged" reds).
-    assert.deepEqual(client.spent().byOperator, { helius: 10, chainstack: 4 });
-  } finally { cleanup(); }
+    // C-V-1: through the PUBLIC path, so the FLOOR passed to `openOperatorLedger` in guarded.ts is under test (not just
+    // assertLimits). DISTINCT discriminating floors against the FIXED caps (helius 8M, chainstack 16M): helius floor
+    // 7_999_990 => the 2nd gTfA (10 cr) trips the cycle cap (1 transport); chainstack floor 15_999_990 => the 6th
+    // eth_call (2 RU) trips it (5 transports = 10 RU). A SHARED floor (mutant "first operator's floor for all") breaks
+    // one side: helius's floor on chainstack over-refuses, or chainstack's on helius under-refuses.
+    const limits: RunLimits = { maxCalls: 100, runCaps: { helius: 1_000_000_000, chainstack: 1_000_000_000 }, methodCaps: { getTransactionsForAddress: 100, eth_call: 100 }, cycleFloor: { helius: 7_999_990, chainstack: 15_999_990 } };
+    const client = openGuardedClient(ENV_BOTH, limits, dir, { helius: "cyc", chainstack: "cyc" });
+    await client.call(HELIUS, "getTransactionsForAddress", ["m"]);                                                                   // 7999990 + 0 + 10 = 8000000 <= 8M => ok
+    await assert.rejects(client.call(HELIUS, "getTransactionsForAddress", ["m"]), (e: unknown) => e instanceof BudgetExceededError);  // 7999990 + 10 + 10 > 8M
+    for (let i = 0; i < 5; i++) await client.call(CHAINSTACK, "eth_call", [{}, "0x1"]);                                              // 15999990 + 2i + 2; 5th = 16000000 (inclusive cap) => ok
+    await assert.rejects(client.call(CHAINSTACK, "eth_call", [{}, "0x1"]), (e: unknown) => e instanceof BudgetExceededError);         // 15999990 + 10 + 2 > 16M
+    // spent PER OPERATOR in the op's unit - credits (10) and RU (5 x 2 = 10) are NEVER summed (mutant "units merged" reds).
+    assert.deepEqual(client.spent().byOperator, { helius: 10, chainstack: 10 });
+  } finally { globalThis.fetch = realFetch; cleanup(); }
 });
 
 test("paid_operator_requires_cycle_cap", () => {
@@ -52,6 +50,52 @@ test("paid_operator_requires_cycle_cap", () => {
     assert.throws(mk("helius", { unit: "credits", credits: heliusCredits }), BudgetExceededError, "helius (credits) without a cycle cap");
     assert.doesNotThrow(mk("chainstack", { unit: "ru", credits: chainstackRu, cycleCap: 16_000_000 }), "chainstack WITH a cap constructs");
   } finally { cleanup(); }
+});
+
+test("run_caps_are_per_operator_at_the_meter", async () => {
+  // C-V-4: the run-cost cap is per OPERATOR at the METER (not just spent()). helius spends 50 credits under a high cap;
+  // a chainstack run cap of 4 RU then admits EXACTLY 2 eth_call (2 x 2), the 3rd refused - helius's spend never
+  // consumes chainstack's cap (mutant "run caps summed across operators" refuses the FIRST chainstack call).
+  const { dir, cleanup } = tmp();
+  try {
+    const cd = ensureCycleDir(dir, "cyc");
+    const ops = { helius: { unit: "credits", credits: heliusCredits, cycleCap: 8_000_000 } as OperatorClass, chainstack: { unit: "ru", credits: chainstackRu, cycleCap: 16_000_000 } as OperatorClass };
+    const limits: RunLimits = { maxCalls: 100, runCaps: { helius: 1000, chainstack: 4 }, methodCaps: { getTransactionsForAddress: 100, eth_call: 100 }, cycleFloor: { helius: 0, chainstack: 0 } };
+    const client = makeClient({ operators: ops, limits }, new Map([["helius", openOperatorLedger(cd, "helius", 0)], ["chainstack", openOperatorLedger(cd, "chainstack", 0)]]), { transport: OK });
+    for (let i = 0; i < 5; i++) await client.call(HELIUS, "getTransactionsForAddress", ["m"]); // 50 credits on helius (high cap)
+    await client.call(CHAINSTACK, "eth_call", [{}, "0x1"]);                                     // chainstack 0+2 <= 4 (mutant: 50+2 > 4 refuses)
+    await client.call(CHAINSTACK, "eth_call", [{}, "0x1"]);                                     // chainstack 2+2 = 4 <= 4 => ok
+    await assert.rejects(client.call(CHAINSTACK, "eth_call", [{}, "0x1"]), (e: unknown) => e instanceof BudgetExceededError); // 4+2 > 4 => run_credits
+    assert.deepEqual(client.spent().byOperator, { helius: 50, chainstack: 4 });
+  } finally { cleanup(); }
+});
+
+test("ledger_stamps_tariff_version_per_operator", () => {
+  // C-V-4: a chainstack ledger line carries "chainstack-...", a helius line "helius-..." (mutant "constant version" reds).
+  const { dir, cleanup } = tmp();
+  try {
+    const cd = ensureCycleDir(dir, "cyc");
+    const h = openOperatorLedger(cd, "helius", 0); h.appendChained("attempted", { "helius|getTransaction": 1 }, 1);
+    const c = openOperatorLedger(cd, "chainstack", 0); c.appendChained("attempted", { "chainstack|eth_call": 1 }, 2);
+    const hv = h.entries()[0]!.tariff_version, cv = c.entries()[0]!.tariff_version;
+    assert.notEqual(hv, cv, "tariff_version is PER OPERATOR (mutant: one constant for all)");
+    assert.match(hv, /^helius-/); assert.match(cv, /^chainstack-/);
+  } finally { cleanup(); }
+});
+
+test("keyless_operator_is_locked_when_requested", () => {
+  // ruling (h): a keyless operator now has a CHAINED ledger; two unlocked writers fork it. So EVERY requested operator
+  // is locked, keyless included (mutant "keyless never locked" reds here). Convention: cycles[keyless] = the paying
+  // operator's cycle of the course.
+  const { dir, cleanup } = tmp();
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = okFetch;
+  try {
+    const cd = ensureCycleDir(dir, "cyc");
+    openGuardedClient(ENV_BOTH, { maxCalls: 100, runCaps: { chainstack: 1000 }, methodCaps: { eth_call: 100 }, cycleFloor: { chainstack: 0 } }, dir, { chainstack: "cyc", "drpc.org": "cyc" });
+    assert.ok(existsSync(join(cd, "drpc.org.lock")), "a requested KEYLESS operator is locked (chained ledger integrity)");
+    assert.ok(existsSync(join(cd, "chainstack.lock")), "the paid operator is locked too");
+  } finally { globalThis.fetch = realFetch; cleanup(); }
 });
 
 test("keyless_method_attempts_never_spend_a_paid_method_cap", async () => {
@@ -135,25 +179,59 @@ test("prior_is_frozen_after_lock", () => {
   } finally { globalThis.fetch = realFetch; cleanup(); }
 });
 
-test("transport_timeout_aborts_and_hook_carries_label_and_error_name_never_url", async () => {
+// C-V-2: the FOUR transport failure paths each throw a TYPED TransportError carrying the CODE (HTTP status or JSON-RPC
+// code), a message SCRUBBED of every URL/key, and call the hook with (op, errorName, code). A JSON-RPC error at HTTP
+// 200 MUST throw (never resolve `undefined`, which two errored providers would read as concordant). Drives one paid
+// call and returns the thrown error + the hook observations.
+const CS_ENV = { CHAINSTACK_ETH_URL: "https://SECRET-KEY-9z9z.example.invalid/rpc" };
+const CS_LIMITS: RunLimits = { maxCalls: 100, runCaps: { chainstack: 1000 }, methodCaps: { eth_call: 100 }, cycleFloor: { chainstack: 0 } };
+async function driveTransport(fetchStub: typeof globalThis.fetch, timeoutMs = 60): Promise<{ err: unknown; seen: Array<[string, string, number | undefined]> }> {
   const { dir, cleanup } = tmp();
   const realFetch = globalThis.fetch;
-  // A fetch that hangs until its AbortSignal fires (the 10 ms timeout), then rejects with an AbortError.
-  globalThis.fetch = (_input, init) => new Promise<Response>((_resolve, reject) => {
-    init?.signal?.addEventListener("abort", () => { reject(new DOMException("aborted", "AbortError")); });
-  });
-  const seen: Array<[string, string]> = [];
+  globalThis.fetch = fetchStub;
+  const seen: Array<[string, string, number | undefined]> = [];
   try {
-    const limits: RunLimits = { maxCalls: 100, runCaps: { chainstack: 1000 }, methodCaps: { eth_call: 100 }, cycleFloor: { chainstack: 0 } };
-    const client = openGuardedClient({ CHAINSTACK_ETH_URL: "https://SECRET-KEY-9z9z.example.invalid/rpc" }, limits, dir,
-      { chainstack: "cyc" }, { timeoutMs: 10, onTransportError: (op, name) => { seen.push([op, name]); } });
-    await assert.rejects(client.call(CHAINSTACK, "eth_call", [{}, "0x1"]), (e: unknown) => {
-      const msg = e instanceof Error ? e.message : String(e);
-      assert.doesNotMatch(msg, /SECRET-KEY|example\.invalid/i, `the thrown error leaks the endpoint: ${msg}`);
-      return e instanceof Error;
-    });
-    assert.deepEqual(seen, [["chainstack", "AbortError"]], "the hook got the label + error NAME only, never the URL");
+    const client = openGuardedClient(CS_ENV, CS_LIMITS, dir, { chainstack: "cyc" }, { timeoutMs, onTransportError: (op, name, code) => { seen.push([op, name, code]); } });
+    let err: unknown;
+    try { await client.call(CHAINSTACK, "eth_call", [{}, "0x1"]); } catch (e) { err = e; }
+    return { err, seen };
   } finally { globalThis.fetch = realFetch; cleanup(); }
+}
+const noUrl = (e: unknown): void => { const m = e instanceof Error ? e.message : String(e); assert.doesNotMatch(m, /SECRET-KEY|example\.invalid|api-key/i, `error leaks the endpoint: ${m}`); };
+
+test("transport_error_path_network_abort", async () => {
+  // a fetch that hangs until its AbortSignal fires (the 10 ms timeout) then rejects with an AbortError.
+  const { err, seen } = await driveTransport((_input, init) => new Promise<Response>((_r, reject) => { init?.signal?.addEventListener("abort", () => { reject(new DOMException("aborted", "AbortError")); }); }), 10);
+  assert.ok(err instanceof TransportError && err.name === "AbortError" && err.code === undefined, "network/abort => typed TransportError, no code");
+  noUrl(err);
+  assert.deepEqual(seen, [["chainstack", "AbortError", undefined]], "hook got (label, error NAME, undefined code), never the URL");
+});
+
+test("transport_error_path_http_non_ok_keeps_body", async () => {
+  // an HTTP 400 whose body a range-splitter needs (getLogsVia): the body is kept (scrubbed) in the message, code = status.
+  const { err, seen } = await driveTransport(() => Promise.resolve(new Response("ranges over 10000 blocks are not supported", { status: 400 })));
+  assert.ok(err instanceof TransportError && err.name === "HttpError" && err.code === 400, "HTTP non-ok => typed, code = status");
+  assert.match(err instanceof Error ? err.message : "", /ranges over 10000/, "the body is surfaced (a range-splitter needs it)");
+  noUrl(err);
+  assert.deepEqual(seen, [["chainstack", "HttpError", 400]]);
+});
+
+test("transport_error_path_non_json_body", async () => {
+  const { err, seen } = await driveTransport(() => Promise.resolve(new Response("<html>502 Bad Gateway</html>", { status: 200 })));
+  assert.ok(err instanceof TransportError && err.name === "NonJsonBody" && err.code === 200, "a non-JSON 200 body => typed fault, not a silent value");
+  noUrl(err);
+  assert.deepEqual(seen, [["chainstack", "NonJsonBody", 200]]);
+});
+
+test("transport_error_path_json_rpc_error_never_resolves_undefined", async () => {
+  // THE 1a bug: a JSON-RPC error at HTTP 200 used to return `.result` = undefined (two errored providers "concordant").
+  const body = JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32000, message: "execution reverted" } });
+  const { err, seen } = await driveTransport(() => Promise.resolve(new Response(body, { status: 200, headers: { "content-type": "application/json" } })));
+  assert.ok(err instanceof TransportError, "a JSON-RPC error MUST throw, never resolve undefined");
+  assert.ok(err instanceof TransportError && err.name === "RpcError" && err.code === -32000, "carries the JSON-RPC code (a downstream quorum tells a revert from a fault)");
+  assert.match(err instanceof Error ? err.message : "", /execution reverted/);
+  noUrl(err);
+  assert.deepEqual(seen, [["chainstack", "RpcError", -32000]]);
 });
 
 test("keyless_eth_labels_pinned_to_recorder_order", async (t) => {

@@ -49,7 +49,7 @@ test("public_api_freezes_the_prior_p3_floor", async () => {
 test("public_export_set_is_closed", async () => {
   const pub = await import("@monark/rpc-guard");
   assert.deepEqual(Object.keys(pub).sort(), [
-    "BudgetExceededError", "CHAINSTACK_CYCLE_CAP_RU", "CHAINSTACK_TARIFF_VERSION", "ETH_CALL_KEYLESS_LABELS",
+    "BudgetExceededError", "TransportError", "CHAINSTACK_CYCLE_CAP_RU", "CHAINSTACK_TARIFF_VERSION", "ETH_CALL_KEYLESS_LABELS",
     "GET_LOGS_KEYLESS_LABELS", "HELIUS_CYCLE_CAP_CREDITS", "HELIUS_TARIFF_VERSION", "chainstackRu",
     "heliusCredits", "openGuardedClient", "runCli", "runReconcile", "verifyCycleLedger",
   ].sort(), "the public VALUE-export set drifted (no new paid path may be exported)");

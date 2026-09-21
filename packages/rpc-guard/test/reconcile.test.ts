@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { writeFileSync, readFileSync } from "node:fs";
+import { writeFileSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { runReconcile, runCli, verifyCycleLedger, type Snapshot } from "@monark/rpc-guard";
 import { ensureCycleDir, openOperatorLedger, type CycleLedger } from "../src/ledger.ts";
@@ -65,6 +65,61 @@ test("aggregate_mode_refuses_a_per_method_snapshot", () => {
     assert.equal(r2.verdict, "NO-GO"); assert.equal(r2.reason, "aggregate_mode_rejects_by_method");
     const r3 = runReconcile(led, { cycle: "cs2", byMethod: { eth_call: 0 }, total_ru: 0 }, { cycle: "cs2", byMethod: { eth_call: 5 }, total_ru: 5 }, "cs2", "per-method");
     assert.equal(r3.verdict, "NO-GO"); assert.equal(r3.reason, "per_method_mode_rejects_total_ru");
+  } finally { cleanup(); }
+});
+
+test("reconcile_aggregate_calibration_enforces_hard_bound_and_consigns_soft", () => {
+  // C-V-3: the 1st Chainstack course. `aggregate` BLOCKS on the 0.5% soft band; `aggregate-calibration` keeps the HARD
+  // bound but CONSIGNS the soft over-count and exits 0 (a code path, not a human reading a `soft` reason).
+  const { dir, cleanup } = tmp();
+  try {
+    const led = openOperatorLedger(ensureCycleDir(dir, "cal"), "chainstack", 0);
+    const seedRu = (n: number): void => { led.appendChained("attempted", { "chainstack|eth_call": 1 }, n); };
+    // aggregate: guard counted 200 RU, dashboard billed 100 => soft over-count 100 > band => NO-GO soft.
+    seedRu(200);
+    const agg = runReconcile(led, { cycle: "cal", total_ru: 0 }, { cycle: "cal", total_ru: 100 }, "cal", "aggregate");
+    assert.equal(agg.verdict, "NO-GO"); assert.equal(agg.reason, "soft");
+    // aggregate-calibration: SAME over-count, hard bound still holds (100 <= 200), soft CONSIGNED => GO exit 0, softDeviation 100.
+    seedRu(200);
+    const cal = runReconcile(led, { cycle: "cal", total_ru: 100 }, { cycle: "cal", total_ru: 200 }, "cal", "aggregate-calibration");
+    assert.equal(cal.verdict, "GO"); assert.equal(cal.exitCode, 0); assert.equal(cal.mode, "aggregate-calibration"); assert.equal(cal.softDeviation, 100);
+    // the HARD bound STILL blocks in calibration (mutant "calibration ignores the hard bound" reds here).
+    seedRu(50);
+    const bad = runReconcile(led, { cycle: "cal", total_ru: 200 }, { cycle: "cal", total_ru: 300 }, "cal", "aggregate-calibration"); // Delta 100 > window 50
+    assert.equal(bad.verdict, "NO-GO"); assert.equal(bad.reason, "hard:total"); assert.equal(bad.exitCode, 1);
+    // a reset daily counter DURING the calibration course is a named NO-GO too, never a consigned soft deviation.
+    seedRu(10);
+    const neg = runReconcile(led, { cycle: "cal", total_ru: 300 }, { cycle: "cal", total_ru: 280 }, "cal", "aggregate-calibration"); // Delta = -20
+    assert.equal(neg.verdict, "NO-GO"); assert.equal(neg.reason, "negative_delta");
+    verifyCycleLedger(led.entries());
+  } finally { cleanup(); }
+});
+
+test("aggregate_negative_delta_is_named", () => {
+  // C-V-5: a dashboard total that went DOWN (a reset daily counter) is NOT a soft over-count - a named NO-GO.
+  const { dir, cleanup } = tmp();
+  try {
+    const led = openOperatorLedger(ensureCycleDir(dir, "neg"), "chainstack", 0);
+    led.appendChained("attempted", { "chainstack|eth_call": 1 }, 100);
+    const r = runReconcile(led, { cycle: "neg", total_ru: 500 }, { cycle: "neg", total_ru: 480 }, "neg", "aggregate");
+    assert.equal(r.verdict, "NO-GO"); assert.equal(r.reason, "negative_delta");
+  } finally { cleanup(); }
+});
+
+test("chainstack_reconcile_requires_an_aggregate_mode_flag", () => {
+  // C-V-5: chainstack has no per-method dashboard (FAITS pt 10) => reconcile without an aggregate --mode is fail-closed
+  // BEFORE any lock; with --mode aggregate it runs.
+  const { dir, cleanup } = tmp();
+  try {
+    const cd = ensureCycleDir(dir, "csr");
+    openOperatorLedger(cd, "chainstack", 0).appendChained("attempted", { "chainstack|eth_call": 1 }, 10);
+    const bf = join(dir, "b.json"), af = join(dir, "a.json");
+    writeFileSync(bf, JSON.stringify({ cycle: "csr", total_ru: 0 })); writeFileSync(af, JSON.stringify({ cycle: "csr", total_ru: 10 }));
+    const deps = { ledgerDir: dir, floor: 0, readSnapshot: (p: string): Snapshot => JSON.parse(readFileSync(p, "utf8")) as Snapshot };
+    assert.throws(() => runCli(["reconcile", "--before", bf, "--after", af, "--cycle", "csr", "--op", "chainstack"], deps), /no per-method dashboard|--mode aggregate/);
+    assert.ok(!existsSync(join(cd, "chainstack.lock")), "the fail-closed reconcile left no lock");
+    const r = runCli(["reconcile", "--before", bf, "--after", af, "--cycle", "csr", "--op", "chainstack", "--mode", "aggregate"], deps);
+    assert.equal(r.exitCode, 0); assert.equal(r.verdict, "GO");
   } finally { cleanup(); }
 });
 
