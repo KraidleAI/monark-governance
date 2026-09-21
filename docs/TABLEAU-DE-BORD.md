@@ -1,6 +1,6 @@
 # TABLEAU DE BORD MONARK — état par chantier
 
-Mis à jour par l'orchestrateur à CHAQUE événement (retour d'agent, décision, fusion). Le détail et l'historique vivent dans `docs/CHANTIERS.md` ; ce fichier ne porte que l'ÉTAT COURANT. Dernière mise à jour : 2026-09-21 ~11:20 UTC — régime B ; 9 lots fusionnés depuis minuit.
+Mis à jour par l'orchestrateur à CHAQUE événement (retour d'agent, décision, fusion). Le détail et l'historique vivent dans `docs/CHANTIERS.md` ; ce fichier ne porte que l'ÉTAT COURANT. Dernière mise à jour : 2026-09-21 ~11:50 UTC — régime B ; 9 lots fusionnés depuis minuit.
 
 Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (par quoi) · À VENIR.
 
@@ -32,7 +32,8 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | -1b-ii-b détection jour manquant | CHECKPOINT-2 OK (isolation) | — |
 | **-1b-ii (-a + -b fusionnés)** | FUSIONNÉ `c0027cb` (G7, 646/646, R-25 1 690 déclaré : deux unités relues) | — | — |
 | Rattrapage `run.ts` (livelock ≥ ~12 j) | À VENIR | G0/ADR, AVANT E-5 | — |
-| Déploiements (sonde VPS Bell ; E-5 VPS site) | **PRÊT (sonde)** au SHA `c0027cb` ; E-5 après POOL-RPC-1a et le lot `run.ts` | mot de passe SMTP posé par l'investisseur (`read -rs`, RUNBOOK) ; go investisseur | — |
+| Sonde VPS Bell | **DÉPLOYÉE** `c0027cb`, timer actif, premier mail réel délivré (tuyaux `built`) | — | — |
+| E-5 (VPS site, pool révisé) | À VENIR | après POOL-RPC-1a + lot `run.ts` (G0 à écrire) | — |
 
 ## 3. Ukemi
 | Lot | État | Étape / bloqueur |

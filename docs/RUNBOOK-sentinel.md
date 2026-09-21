@@ -382,8 +382,7 @@ ssh -i ~/.ssh/monark_vps root@<bell> \
 The external probe (`scripts/probe-narabi.mjs`, units `deploy/monark-probe.{service,timer}`) reads the published
 `/narabi/timeline.jsonl` from the **Bell VPS** (a distinct host), recomputes the whole hash chain, checks that the
 last line is not older than J-1 at the 10:30 UTC deadline, and writes `narabi.json` (exit 1 iff unhealthy).
-**State (sub-lot -1b-i, merged). Alerting (mail, -1b-ii-a) and the state.json cross-check (-1b-ii-b) are merged in -1b-ii: code + non-LLM tests, NOT deployed.** The probe is deployed on Bell only after the G7 + checkpoint-2 of the MERGED state (investor decision 72), by SHA. Deadline basis: measured publishing run of 2026-09-21 (start 00:47:55 UTC, exit
+**DEPLOYED on Bell 2026-09-21 by G7 SHA `c0027cb` (investor decision 72): `/opt/monark-probe/probe-narabi.mjs` (sha `4e4338c0…`, `DEPLOYED-SHA` file), units installed, `monark-probe.timer` enabled (10:30/12:30/16:30 UTC), `/etc/monark/probe.env` posted by the investor (0600 root, digest verified), TLS 1.3 to `smtp.hostinger.com:465` verified, simulation shot as `probe` delivered the FIRST real mail (`alerted: true`, `alert_error: null`) — pipe `built` (decision 58, JOURNAL).** Deadline basis: measured publishing run of 2026-09-21 (start 00:47:55 UTC, exit
 00:48:20 UTC, 25.481 s wall clock, `chainstack: true`, 1 line written, T=3) => D <= 600 s, so 10:30 UTC is kept.
-**Residual, declared: a dead probe is silent** (no dead-man switch yet — formed item, trigger: G0 T-1b). Until the
-probe is deployed, monitor by hand: `curl -s https://monarkgate.tech/narabi/timeline.jsonl | tail -1` — the last
+**Residual, declared: a dead probe is silent** (no dead-man switch yet — formed item, trigger: G0 T-1b). Before the deploy the manual check was: `curl -s https://monarkgate.tech/narabi/timeline.jsonl | tail -1` — the last
 `day` should be yesterday (UTC) after 10:00.
