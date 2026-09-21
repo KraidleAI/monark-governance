@@ -242,6 +242,9 @@ test("transport_error_never_echoes_operator_key", async () => {
   ].join(" ; ");
   const { err, seen } = await driveTransport(() => Promise.resolve(new Response(body, { status: 401 })), 60, env);
   assert.ok(err instanceof TransportError && err.code === 401, "typed TransportError, code 401 preserved");
+  // C-G-4 / DEV-5: on the PAID path the detail is the closed hint; this body carries NO vocabulary token, so the hint
+  // (and thus any key leak) is structurally EMPTY - the doesNotMatch belts below now guard a proven-empty detail.
+  assert.equal(err.detail, "", "DEV-5: a paid body with no vocabulary token yields an EMPTY closed hint");
   const msg = err instanceof Error ? err.message : String(err);
   assert.doesNotMatch(msg, /FAKEKEY-PATH|FAKEKEY-QUERY/i, `an operator KEY leaked into the message: ${msg}`);
   assert.doesNotMatch(msg, /cs-node\.example\.invalid/i, `the operator HOST leaked into the message: ${msg}`);
@@ -254,6 +257,7 @@ test("transport_error_drops_body_when_operator_url_unparseable", async () => {
   const KEY = "FAKEKEY-RAW-7x7x7x";
   const { err } = await driveTransport(() => Promise.resolve(new Response(`401: not-a-url-${KEY} rejected`, { status: 401 })), 60, { CHAINSTACK_ETH_URL: `not-a-url-${KEY}` });
   assert.ok(err instanceof TransportError && err.code === 401);
+  assert.equal(err.detail, "", "C-G-4 / DEV-5: paid closed hint is empty (this body has no vocabulary token)");
   assert.doesNotMatch(err instanceof Error ? err.message : String(err), new RegExp(KEY), "an unparseable url must DROP the body, not reprise it raw");
 });
 
@@ -266,9 +270,11 @@ test("transport_error_key_straddling_truncation_never_leaks", async () => {
   const noPrefix = (msg: string): void => { for (let n = KEY.length; n >= 4; n--) assert.ok(!msg.includes(KEY.slice(0, n)), `a >= 4-char prefix of the key leaked (n=${String(n)}): ${msg}`); };
   const a = await driveTransport(() => Promise.resolve(new Response(body, { status: 400 })), 60, env); // path A: HTTP non-ok
   assert.ok(a.err instanceof TransportError && a.err.code === 400 && a.err.name === "HttpError");
+  assert.equal(a.err.detail, "", "C-G-4 / DEV-5: paid HttpError closed hint is empty (no vocabulary token)");
   noPrefix(a.err instanceof Error ? a.err.message : "");
   const b = await driveTransport(() => Promise.resolve(new Response(body, { status: 200 })), 60, env); // path B: non-JSON at 200
   assert.ok(b.err instanceof TransportError && b.err.name === "NonJsonBody");
+  assert.equal(b.err.detail, "", "C-G-4 / C-2: NonJsonBody emits no hint at all");
   noPrefix(b.err instanceof Error ? b.err.message : "");
 });
 
@@ -279,6 +285,7 @@ test("transport_error_never_echoes_operator_userinfo", async () => {
   const body = `401 unauthorized for ${USER}:${PASS} ; pass=${PASS}`;
   const { err } = await driveTransport(() => Promise.resolve(new Response(body, { status: 401 })), 60, env);
   assert.ok(err instanceof TransportError && err.code === 401);
+  assert.equal(err.detail, "", "C-G-4 / DEV-5: paid closed hint is empty (this userinfo body has no vocabulary token)");
   assert.doesNotMatch(err instanceof Error ? err.message : "", /FAKEKEY-USERINFO/i, "the userinfo password (the operator key) leaked");
 });
 

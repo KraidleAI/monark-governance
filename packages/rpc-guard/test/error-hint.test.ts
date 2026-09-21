@@ -42,8 +42,13 @@ test("closed_hint_is_sorted_deduplicated_canonical_tokens", () => {
   assert.deepEqual(sorted.split(", "), [...sorted.split(", ")].sort(), "the hint is sorted");
 });
 
-// C-4 / D6: the vocabulary is SINGLE-SOURCE, so every predicate agrees on the hint and on the body it was built from.
+// C-4 / D6 / C-R-3: the vocabulary is SINGLE-SOURCE, so every predicate agrees on the hint and on the body it was built
+// from - including the THREE bodies the recorder measured (apps/sentinel/test/pool-rpc-1a.test.ts:101-103, copied
+// LITERALLY, never imported: that file registers tests on import). Two Pocket range caps + a dRPC free-plan cap.
 test("error_vocabulary_single_source_conformance_hint_equals_body", () => {
+  const POCKET_5000 = "query block range exceeds server limit, narrow your filter: 5000";
+  const POCKET_10000 = "query exceeds max block range 10000";
+  const DRPC_FREE = "ranges over 10000 blocks are not supported on free plan";
   const bodies = [
     "query returned more than 10000 results",                       // range/result cap
     "ranges over 10000 blocks are not supported on free plan",      // plan-limited
@@ -51,6 +56,8 @@ test("error_vocabulary_single_source_conformance_hint_equals_body", () => {
     "block range is too large, narrow your filter",                 // range cap, two tokens
     "<html><body>502 Bad Gateway: no result here</body></html>",    // an HTML page carrying "result"
     "header not found",                                             // benign, no token
+    POCKET_5000, POCKET_10000, DRPC_FREE,                           // the measured recorder caps (rpc2 getLogsVia)
+    "Reverted: out of gas",                                         // a BARE revert (no "execution reverted")
   ];
   for (const b of bodies) {
     const h = closedHint(b);
@@ -58,6 +65,12 @@ test("error_vocabulary_single_source_conformance_hint_equals_body", () => {
     assert.equal(isPlanLimited(h), isPlanLimited(b), `isPlanLimited drift on '${b}' -> hint '${h}'`);
     assert.equal(isRevertText(h), isRevertText(b), `isRevertText drift on '${b}' -> hint '${h}'`);
   }
+  // C-R-3: the measured Pocket caps SPLIT (isResultLimit), the dRPC free plan BENCHES first (isPlanLimited precedence).
+  assert.ok(isResultLimit(POCKET_5000) && isResultLimit(POCKET_10000) && isResultLimit(DRPC_FREE), "the recorder range/plan caps all match isResultLimit");
+  assert.ok(isPlanLimited(DRPC_FREE) && !isPlanLimited(POCKET_5000) && !isPlanLimited(POCKET_10000), "only the free-plan cap is plan-limited (bench, not split)");
+  // C-R-3: a BARE revert (no "execution reverted") is revert text - the `revert` alternative is load-bearing (reds V12,
+  // which drops it). The conformance loop cannot catch this (both hint and body go false under V12, still equal).
+  assert.equal(isRevertText("Reverted: out of gas"), true, "a bare revert (no 'execution') is still revert text");
 });
 
 // D6: a PAID HTTP 400 body carrying BOTH a vocabulary token AND a fake base64 key surfaces the token, NEVER the key.
@@ -148,5 +161,72 @@ test("error_preamble_carries_no_vocabulary_token", () => {
     const codeStr = code !== undefined ? ` (code ${String(code)})` : "";
     const preamble = `rpc-guard: ${name} for operator '${op}'${codeStr}`;
     assert.equal(closedHint(preamble), "", `preamble carries a vocabulary token: '${preamble}'`);
+  }
+});
+
+// C-R-1: D6's structural closure must hold for BOTH paid operators (helius credits, chainstack ru), not chainstack alone.
+// A helius HTTP 400 whose body carries the API key, ITS base64 form, and a token surfaces ONLY the closed hint. Reds V1
+// (paid = op === "chainstack": helius then falls to the keyless redact path, which cannot strip a base64-transformed key).
+test("paid_helius_http_error_reprises_only_the_closed_hint", async () => {
+  const HKEY = "FAKEKEY-HELIUS-7q7q7q7q", HHOST = "sol.example.invalid";
+  const B64 = Buffer.from(HKEY, "utf8").toString("base64"); // the base64 form of the key (a C-GD-2 server transform)
+  const env = { BELL_SOLANA_RPC: `https://${HHOST}`, HELIUS_API_KEY: HKEY };
+  const err = await raiseVia(env, "helius", () => Promise.resolve(httpResp(`block range too large ${HKEY} ${B64} ${HHOST}`, 400)));
+  assert.ok(err instanceof TransportError && err.name === "HttpError" && err.code === 400, "typed HttpError, code 400");
+  const m = msgOf(err);
+  assert.ok(isResultLimit(m), "the range-split signal survives via the closed hint (helius too)");
+  assert.equal(err.detail, "block range, too large", "detail = the sorted closed hint only");
+  assert.ok(!m.includes(HKEY) && !m.includes(B64) && !m.includes(HHOST), `no helius key/base64/host byte reaches the message: ${m}`);
+});
+
+// C-R-4: redact must see the RAW keyless body, not the collapsed+truncated one. A drpc.org host at char ~150 straddles
+// the 160-char truncation; redacting the raw body strips it, truncating FIRST leaks a host prefix. Reds V2 (targets
+// removed => scrubUrls-only leaves a scheme-less host) and V3 (truncate before redact => the full host is no longer
+// matched). Keyless URLs carry no secret; this pins redact as defense in depth (its target enumeration feeds c-bis).
+test("keyless_host_after_truncation_is_redacted_on_the_raw_body", async () => {
+  const HHOST = "eth.drpc.org";
+  const err = await raiseVia({}, "drpc.org", () => Promise.resolve(httpResp("x".repeat(150) + " " + HHOST, 400)));
+  assert.ok(err instanceof TransportError && err.name === "HttpError" && err.code === 400);
+  const m = msgOf(err);
+  for (let n = HHOST.length; n >= 4; n--) assert.ok(!m.includes(HHOST.slice(0, n)), `a >= 4-char keyless host prefix leaked (n=${String(n)}): ${m}`);
+});
+
+// C-G-2: validateRevertData is FAIL-CLOSED on an unparseable operator url - secretTargets returns undefined, so the key
+// cannot be proven absent from the data, so the data is dropped. A parseable CS_ENV never exercises this branch. Reds
+// MY2. NOTE (measured): this mutation is byte-identical to the validator's V11, so this test reds V11 too. V11 "survived"
+// end-to-end only because openGuardedClient throws on the bad url BEFORE the RpcError path; raiseVia stubs fetch and
+// reaches validateRevertData. The gap the validator (V11) and the G2 (MY2) both found is closed by one test.
+test("revert_data_dropped_when_operator_url_unparseable", async () => {
+  const err = await raiseVia({ CHAINSTACK_ETH_URL: "not-a-url-FAKEKEY-9z" }, "chainstack", () => Promise.resolve(jsonResp({ jsonrpc: "2.0", id: 1, error: { code: 3, message: "execution reverted", data: "0xdeadbeef" } })));
+  assert.ok(err instanceof RpcError && err.code === 3, "the JSON-RPC path still throws the canonical RpcError");
+  assert.equal(err.data, undefined, "an unparseable operator url DROPS the revert data (fail-closed: the key cannot be proven absent)");
+});
+
+// C-R-3: isRpcRevert requires a JSON-RPC code in {3, -32000}. An RpcError with a code OUTSIDE that set is a rate/param
+// fault the quorum must bench, NOT a revert - even when its message carries revert text. Reds V9 and MY3 (code guard
+// removed => any revert-ish text would concord as a revert).
+test("rpc_revert_requires_the_json_rpc_code_3_or_minus_32000", async () => {
+  const err = await raiseVia({}, "drpc.org", () => Promise.resolve(jsonResp({ jsonrpc: "2.0", id: 1, error: { code: -32602, message: "execution reverted: bad params" } })));
+  assert.ok(err instanceof RpcError && err.code === -32602, "a non-revert-code JSON-RPC error is still a thrown RpcError");
+  assert.equal(isRpcRevert(err), false, "isRpcRevert is false for a code outside {3, -32000} despite revert text");
+});
+
+// C-G-1: pin C-4 STRUCTURALLY. Every alternative of every classifier regex must be a vocabulary token (ERROR_HINT_TOKENS),
+// so a predicate can never recognize a signal the closed hint cannot emit (a drift that splits, or fails to split, a range
+// the paid hint disagrees with). The one regex-form alternative, "ranges? over", is covered by its two literal expansions
+// ("range over" / "ranges over"), both in the table. Reds MY1 (adds "|block limit" to isResultLimit but not the table).
+test("error_vocabulary_regex_alternatives_are_all_hint_tokens", () => {
+  const tokens = new Set(ERROR_HINT_TOKENS);
+  const regexBody = (fn: (m: string) => boolean): string => { const g = fn.toString().match(/\/([^/]*)\/i/)?.[1]; assert.ok(g, "no case-insensitive regex literal in the predicate source"); return g; };
+  const covered = (alt: string): boolean => {
+    if (tokens.has(alt)) return true;
+    const q = alt.indexOf("?"); // expand a single optional-char quantifier: "ranges? over" -> "range over" | "ranges over"
+    if (q > 0) return tokens.has(alt.slice(0, q - 1) + alt.slice(q + 1)) && tokens.has(alt.slice(0, q) + alt.slice(q + 1));
+    return false;
+  };
+  for (const fn of [isResultLimit, isPlanLimited, isRevertText]) {
+    for (const alt of regexBody(fn).split("|")) {
+      assert.ok(covered(alt), `regex alternative '${alt}' is not a vocabulary token (C-4 drift: the closed hint could not emit it)`);
+    }
   }
 });
