@@ -189,6 +189,23 @@ then verified with the `systemctl show` line in step (8).
 
 #### Mode A — the catch-up livelock (a slow run turned into a PERMANENT outage)
 
+> **Status since sub-lot NARABI-OPS-1c (dated 2026-09-21): Mode A is REDUCED, not lifted.** `runDue` now checks a
+> per-run TIME budget BETWEEN due days (default 180 s; first due day always attempted) and stops cleanly with
+> `stopped:"catchup_budget"`, exit 1, and the lines already produced WRITTEN, so a multi-day backlog on a healthy
+> pool PROGRESSES at every slot instead of being killed at the same point. **New normal symptom during a
+> catch-up:** `stopped:"catchup_budget"` + exit 1 + `wrote N line(s)` at each slot = progress, NOT an outage; the
+> external probe still reports `lag` and mails once, then one reminder per UTC day, until caught up (intended).
+> **Repair A.1 below is KEPT** for the three residual cases: (A-prime) a SINGLE day longer than `T_s` (slow pool
+> without a fault, or a late `fetch_error`: `one()` may rotate 9 endpoints x 20 s); (ii) a slow day exceeding the
+> 120 s margin AFTER the budget stop (that run's lines are lost, same list next slot); (iii) the PREAMBLE —
+> `loadState` + the `finalized()` quorum run BEFORE the budget clock starts (`t0` is taken inside `runDue`), so
+> they are counted neither in the budget nor in `elapsed_ms`, and `180 + 120 = 300` leaves them no slack.
+> **Tuning:** `MONARK_SENTINEL_BUDGET_S` = integer 30..180 (anything else throws at start-up), set in a drop-in
+> with a DISTINCT filename (never `override.conf`, which holds `MONARK_SENTINEL_J0`). The production unit does
+> NOT set it (default 180). **Pre-registered criteria of NO (ADR-NARABI-OPS-1, -1c amendment):** a production run
+> with `max_day_ms > 60000`, OR systemd wall-clock duration minus `elapsed_ms` > 30000 ms, triggers a dated
+> amendment re-deriving the default budget (an amendment, not a rollback).
+
 `run.ts` processes EVERY due day (`dueDays` `:167`) inside ONE RPC-heavy loop (`runDue` `:75`-`:92`) and appends
 the whole batch ONLY after the loop, in one write (`:182`-`:191`) — there is **no per-day checkpoint**. So a
 `TimeoutStartSec` kill DURING the loop writes NOTHING (not even a torn line): `timeline.jsonl` is untouched, the
