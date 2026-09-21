@@ -18,7 +18,7 @@
       "data": { "program": "spl-token-2022", "space": 400, "parsed": { "type": "mint",
         "info": { "decimals": 8, "supply": "50000000000000", "isInitialized": true,
           "extensions": [
-            { "extension": "scaledUiAmountConfig", "state": { "authority": "S7vYFFsharedAUTHxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "multiplier": "1.0039", "newMultiplier": "1.0039", "newMultiplierEffectiveTimestamp": 1781755200 } },
+            { "extension": "scaledUiAmountConfig", "state": { "authority": "S7vYFFsharedAUTHxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "multiplier": "1.2345", "newMultiplier": "1.2345", "newMultiplierEffectiveTimestamp": 1723456701 } },
             { "extension": "pausableConfig", "state": { "authority": "PauseAuthxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "paused": false } } ] } } }
     } },
   "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh": {
@@ -29,7 +29,7 @@
       "data": { "program": "spl-token-2022", "space": 400, "parsed": { "type": "mint",
         "info": { "decimals": 8, "supply": "75000000000000", "isInitialized": true,
           "extensions": [
-            { "extension": "scaledUiAmountConfig", "state": { "authority": "S7vYFFsharedAUTHxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "multiplier": "1.0009", "newMultiplier": "1.0009", "newMultiplierEffectiveTimestamp": 1789000200 } } ] } } }
+            { "extension": "scaledUiAmountConfig", "state": { "authority": "S7vYFFsharedAUTHxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "multiplier": "1.2346", "newMultiplier": "1.2346", "newMultiplierEffectiveTimestamp": 1723456702 } } ] } } }
     } },
   "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp": {
     "context": { "slot": 1000 },
@@ -39,7 +39,7 @@
       "data": { "program": "spl-token-2022", "space": 400, "parsed": { "type": "mint",
         "info": { "decimals": 8, "supply": "90000000000000", "isInitialized": true,
           "extensions": [
-            { "extension": "scaledUiAmountConfig", "state": { "authority": "S7vYFFsharedAUTHxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "multiplier": "1.0027", "newMultiplier": "1.0027", "newMultiplierEffectiveTimestamp": 1786149000 } },
+            { "extension": "scaledUiAmountConfig", "state": { "authority": "S7vYFFsharedAUTHxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "multiplier": "1.2347", "newMultiplier": "1.2347", "newMultiplierEffectiveTimestamp": 1723456703 } },
             { "extension": "pausableConfig", "state": { "authority": "PauseAuthxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "paused": false } } ] } } }
     } },
   "GoogLxSynthMint1111111111111111111111111111": {
