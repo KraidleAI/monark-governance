@@ -321,7 +321,7 @@ destructif via `git stash create`) :**
     (deliver mjs:588 + factice fragment), C-G2-7 (ADR:83 + amendement + RUNBOOK section Bell — L-6b au lot),
     C-G2-8 (carte des conflits, merge-tree first-hand).
   Livrables (sha256 recalculés) : mjs a6db4358…, d.mts e4cbc9fa…, test 9197d866…, service a8bb73f8…,
-    ADR b383fae2…, RUNBOOK 6bc92b30…  (table Livrables PLI G2).
+    ADR b383fae2…, RUNBOOK 980b32ba…  (table Livrables PLI G2 ; corrigé au checkpoint-2, correction 3 — la valeur 6bc92b30… était une erreur de transcription).
   Oracles : npm test 509/509 ×3 (0 fail, 0 cancelled) ; tsc 0 ; eslint(test) 0 ; ratchet 69/69 ; vocab OK(178) ;
     export OK ; lang OK(0) ; no_secret_in_repo vert.  R-25=1077<=1150(cible)<=1205(plafond).
   Mutants : 11/11 ROUGES (M-ii-3/15/16/19/20 rejoués + C-G2-1a/3/4/5/6 + no-leak), restauration byte-exacte
@@ -444,3 +444,10 @@ Deux imprécisions de la carte des conflits (A), corrigées ; toutes deux dans l
 
 ## Provenance
 Généré par l'IMPLÉMENTEUR G1 (fold G2-delta) **`claude-opus-4-8[1m]`**, effort max, 2026-09-21T05:02:35Z, worktree exclusif `F:\Monark-wt-narabi1b2a`, HEAD `3829946`. R-20 (aucun commit/rebase/fusion/workflow ; offline/loopback ; `.invalid` non résolu ; aucun mail réel ; scratch de session, rien sur C:). R-21 (chaque affirmation porte son `fichier:ligne` first-hand ou sa mesure : mutant 2×2 rejoué [jumeau RED `killed:true` 20031 ms / original PASS], restauration byte-exacte sha256 avant==après, suite 510/510, 10×46/46, R-25 1094 mesuré à la pathspec `ci.yml:65`, constantes -b `STATE_TIMEOUT_MS/STATE_RETRIES` lues first-hand, -b ne touche pas le `.service` vérifié). Advisor intégré (`claude-fable-5-1`) consulté avant travail substantiel. La vérification adversariale (R-21), le verdict G7 et l'acceptation du validateur-humain restent chez l'orchestrateur.
+
+
+## PLI checkpoint-2 (orchestrateur `claude-fable-5-1`, 2026-09-21) — ACCEPTE-AVEC-CORRECTIONS, 4 corrections documentaires
+- C1 `RUNBOOK:212` : `--now` J+2 (`date -u -d '+2 days'`) au lieu de 2027-01-01 (l'en-tête `Date:` du mail-déclencheur suit `--now`). `error_origin` worker G1 (fold G2).
+- C2 `RUNBOOK:199` : pipeline de digest local littéral (même `printf`) + `read -rs SMTP_PASS`. `error_origin` worker G1.
+- C3 `PLI:324` : sha RUNBOOK du JOURNAL corrigé (`980b32ba…`). `error_origin` worker G1.
+- C4 : item (g) `probe-narabi.mjs:57` (commentaire « 60 s < 90 s » → 120 s, formule à quatre termes) ajouté à la sous-liste de l'état FUSIONNÉ (checkpoint-2 de -b) ; bloquant pour le G7 combiné, propriétaire orchestrateur.

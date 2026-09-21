@@ -196,7 +196,14 @@ printf 'SMTP_HOST=%s\nSMTP_PORT=465\nSMTP_TLS=implicit\nSMTP_USER=%s\nSMTP_PASS=
   | ssh -i ~/.ssh/monark_vps root@<bell> \
       'umask 077; install -d -m 0755 /etc/monark; cat > /etc/monark/probe.env; chown root:root /etc/monark/probe.env; chmod 0600 /etc/monark/probe.env'
 # Verify by DIGEST on both sides (never print the contents); the two hashes MUST match:
-#   printf '...' | sha256sum                                            # local
+#   printf 'SMTP_HOST=%s
+SMTP_PORT=465
+SMTP_TLS=implicit
+SMTP_USER=%s
+SMTP_PASS="%s"
+ALERT_FROM=%s
+ALERT_TO=%s
+' \n#     "$SMTP_HOST" "$SMTP_USER" "$PW_ESC" "$ALERT_FROM" "$ALERT_TO" | sha256sum   # local (same printf as above; read the password with `read -rs SMTP_PASS` so it never enters the shell history)
 #   ssh ... 'sha256sum /etc/monark/probe.env'                           # remote
 ```
 
@@ -209,7 +216,7 @@ shell (that leaks the secret into the shell's env); never point `--out` at the p
 # future --now forces the unhealthy path so the alert actually fires (this send IS the first real mail; see below).
 ssh -i ~/.ssh/monark_vps root@<bell> \
   'systemd-run --uid=probe --pipe --wait -p EnvironmentFile=/etc/monark/probe.env \
-     /usr/bin/env node /opt/monark-probe/probe-narabi.mjs --now 2027-01-01T12:00:00Z --out /tmp/probe-sim.json; \
+     /usr/bin/env node /opt/monark-probe/probe-narabi.mjs --now "$(date -u -d '+2 days' +%Y-%m-%dT12:00:00Z)" --out /tmp/probe-sim.json; \
    echo "exit=$?"; cat /tmp/probe-sim.json; rm -f /tmp/probe-sim.json'
 # Expect alert_error: null on a delivered mail, OR a CLOSED-set code (smtp_unconfigured | smtp_unreachable |
 # smtp_timeout | smtp_tls_failed | smtp_auth_failed | smtp_rejected) — NEVER a raw server line, NEVER SMTP_PASS.
