@@ -80,6 +80,36 @@ keyed operator (Chainstack) whose URL lives OUTSIDE the repo (`/etc/monark/senti
 | timer → run → timeline | `monark-sentinel.timer` (4 slots) | `timeline.jsonl` served at `/narabi/` (site parses it) | `/var/lib/monark-sentinel` | `sentinel_retry_replays_incident_and_exit_codes` (L-4, real `main` in subprocess) | built (code + test non-LLM); wired at deploy — proof = first-run JOURNAL entry (chainstack: true, 4 slots), RUNBOOK §6 (C-V-1) |
 | timeline → probe → `narabi.json` | published `timeline.jsonl` | `narabi.json` (read by the alert step, sub-lot -1b-ii) | `narabi.json` on the Bell VPS (probe state dir) | `probe_line_hash_equals_sentinel_lineHashOf`, `probe_narabi_detects_lag`, `probe_recomputes_full_chain`, `probe_chainstack_present_from_real_producer_line` (real producer run in a subprocess) | **code + test non-LLM (sub-lot NARABI-OPS-1b-i, amended 2026-09-21); NOT deployed — wired at the Bell deploy after -1b-ii, by SHA (decision 72)** |
 | probe → alerte | `narabi.json` (lag_days, ok) | alert channel | **upcoming** | — | investor picks the channel (mail / webhook / `/status`) — `upcoming → built` |
+| state.json → cross-check (probe) | published `state.json` (`run.ts:189-191`) | `narabi.json` `{state_checked, reason:state_mismatch\|state_unreachable}` on Bell | `narabi.json` on the Bell VPS | `probe_state_digest_cross_check` (oracle `NARABI_SNAPSHOT`, DEFAULT basename derivation), `probe_state_unreachable_precedence` | **code + test non-LLM (sub-lot NARABI-OPS-1b-ii-b); `upcoming` — wired at the Bell deploy, by SHA (decision 72)** |
+| `monark-sentinel.service` `TimeoutStartSec` | `RUN_DURATION_D_SEC` + `monark-sentinel.timer` | the sentinel unit on the **VPS SITE** | `deploy/monark-sentinel.service` | `probe_sentinel_timeoutstartsec_inter_unit_coherence` | **code + test non-LLM (sub-lot NARABI-OPS-1b-ii-b); wired at the VPS SITE redeploy — E-5, decision 92** |
+
+### Amendment 2026-09-21 (sub-lot NARABI-OPS-1b-ii-b — detection hardening; L-6b)
+
+The DETECTION probe gains a second bounded GET of the served `/narabi/state.json` and cross-checks its `digest`
+against the last timeline line's `digest_T` (the fact-5 invariant, measured VRAI on `NARABI_SNAPSHOT`), so a
+PARTIAL publication (the window `run.ts:190`→`:191` where the public timeline is fresh but `public/state.json`
+is still stale) is caught. Consequences:
+
+- **`narabi.json` `reason` closed set gains `state_mismatch` and `state_unreachable`** (Q4): the state digest
+  differs -> `state_mismatch`; the 2nd GET fails OR the body yields no comparable digest -> `state_unreachable`
+  (a DISTINCT reason from a GET₁ `unreachable`). Precedence, FIXED: cannot-evaluate (`insecure_url`/`unreachable`/
+  `too_large`/`probe_error`) > `chain_broken` > `state_unreachable` > `state_mismatch` > `lag`.
+- **`narabi.json` gains `state_checked: boolean`** (true iff the digest was compared). This joins the schema-2
+  shape whose `schema` bump (with `alerted`/`alert_error`/`last_alert_day`) is added by sub-lot -1b-ii-a; this
+  sub-lot did not touch the `SCHEMA` constant (kept as one edit at the -a/-b merge).
+- **The state.json URL is DERIVED by basename replacement** from the timeline URL (env `PROBE_STATE_URL`
+  overrides), so no extra config is needed (C-B-12). GET₂ is bounded on its own (`STATE_MAX_BYTES` 64 KiB,
+  `STATE_TIMEOUT_MS` 5 s, `STATE_RETRIES` 1 fixed) — the GET₁+GET₂ capped worst case stays under
+  `monark-probe.service TimeoutStartSec` without re-raising it.
+- **Residual, declared (C-NB-4)**: a publication landing in the sub-second window between GET₁ (timeline) and
+  GET₂ (state.json) can flag a transient `state_mismatch` that self-heals on the next shot; the flap is
+  acceptable. A hardening option (re-read the timeline once before concluding) is a FORMED item, trigger = first
+  observed false `state_mismatch` at deploy, owner orchestrator.
+- **`monark-sentinel.service` gains `TimeoutStartSec = max(300, ceil(3*D/60)*60) = 300 s`** (D = 25.481 s, the
+  measured publishing run; `RUN_DURATION_D_SEC=26`). It lives on the **VPS SITE** (not Bell), so its redeploy is
+  **E-5 (investor decision 92)**, per RUNBOOK §6.
+
+The `probe → alerte` mail channel and the schema-2 state machine are sub-lot **-1b-ii-a**.
 
 ## Deferral of L-5 (C-11, R-25)
 

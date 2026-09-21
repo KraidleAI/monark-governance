@@ -1,0 +1,263 @@
+// test/probe-narabi-state.test.ts — non-LLM oracle for sub-lot NARABI-OPS-1b-ii-b (DETECTION hardening): the
+// /narabi/state.json digest cross-check (2nd bounded GET, default basename derivation), the GET retry-count
+// killer, and the monark-sentinel start backstop. A NEW file, kept OFF test/probe-narabi.test.ts (which the
+// sibling sub-lot -1b-ii-a edits in parallel), so the second merge stays simple. Runs at the repo root under
+// `node --test`. No network: node:http loopback servers, `--file`, `--state-file`, and pure evaluate() calls.
+// Every subprocess gets an EXPLICIT env with SMTP_*/ALERT_*/PROBE_* PURGED (C-B-6) so no ambient var leaks in.
+import { test, after } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createServer } from "node:http";
+import type { Server } from "node:http";
+import { fileURLToPath } from "node:url";
+import { spawn } from "node:child_process";
+import {
+  evaluate, deriveStateUrl, parseTimeline,
+  DEADLINE_UTC_MINUTES, MAX_TIMEOUT_MS, MAX_MAX_BYTES, MAX_RETRIES, START_MARGIN_MS,
+  STATE_MAX_BYTES, STATE_TIMEOUT_MS, STATE_RETRIES,
+} from "../scripts/probe-narabi.mjs";
+import type { NarabiState, StateCheck } from "../scripts/probe-narabi.mjs";
+import { NARABI_SNAPSHOT } from "../apps/site/lib/narabi-snapshot.ts";
+
+const HERE = fileURLToPath(new URL(".", import.meta.url));
+const REPO = join(HERE, "..");
+const PROBE_MJS = join(REPO, "scripts", "probe-narabi.mjs");
+const DEPLOY = join(REPO, "deploy");
+const TZ_EAST = "Etc/GMT-11"; // a non-UTC child TZ; toISOString stays UTC, so verdicts are TZ-invariant here
+
+// RUN_DURATION_D_SEC — the publishing run's wall clock, MEASURED by the orchestrator (I do not estimate D),
+// committed here as a named constant with its provenance (C-NB-5). D = 25.481 s (start 00:47:55 UTC, exit
+// 00:48:20 UTC on the VPS site, 2026-09-21), rounded UP to the whole second => 26. Provenance:
+// docs/JOURNAL-PROVENANCE.md:310 (G7 lot NARABI-OPS-1b-i, merge 9b178f3). That line's sha256 (LF-normalized,
+// no trailing newline) is 2d3158b2865e640cebe05ffb8a220cd7194f315809235bcbb9051eca925f9388 — reproduce with:
+//   node -e 'const l=require("node:fs").readFileSync("docs/JOURNAL-PROVENANCE.md","utf8").split("\n")[309]; \
+//            console.log(require("node:crypto").createHash("sha256").update(l,"utf8").digest("hex"))'
+const RUN_DURATION_D_SEC = 26;
+
+// EXPLICIT env with the mail/probe knobs PURGED (C-B-6): a SMTP_PASS / PROBE_URL in the orchestrator's ambient
+// User-scope env must never reach a child. A FILTER (not a from-scratch env) keeps SystemRoot/PATH so node
+// still starts on Windows; explicit per-call overrides win over the purged base.
+function purgedEnv(explicit: Record<string, string> = {}): Record<string, string> {
+  const base = Object.fromEntries(
+    Object.entries(process.env).filter(([k]) => !/^(SMTP_|ALERT_|PROBE_)/i.test(k)),
+  ) as Record<string, string>;
+  return { ...base, TZ: TZ_EAST, ...explicit };
+}
+
+let scratch: string | null = null;
+let uniq = 0;
+function scratchDir(): string {
+  scratch ??= mkdtempSync(join(tmpdir(), "narabi-state-"));
+  return scratch;
+}
+// Clean up this suite's OWN mkdtemp (no narabi-state-* left behind).
+after(() => { if (scratch !== null) rmSync(scratch, { recursive: true, force: true }); });
+
+interface ProbeRun { status: number; state: NarabiState }
+/** Spawn the REAL probe .mjs (the only way to observe the real exit code) and return its exit + the narabi.json
+ *  it ALWAYS writes. env is EXPLICIT and purged (C-B-6). Async because the probe connects back to a server in
+ *  this process (a synchronous spawn would deadlock the event loop). */
+async function runProbeAsync(args: readonly string[], explicit: Record<string, string> = {}): Promise<ProbeRun> {
+  const out = join(scratchDir(), `narabi-${String(uniq++)}.json`);
+  const child = spawn(process.execPath, [PROBE_MJS, "--out", out, ...args], { cwd: REPO, env: purgedEnv(explicit) });
+  const status = await new Promise<number>((resolve) => { child.on("close", (code) => resolve(code ?? -1)); });
+  assert.ok(existsSync(out), "the probe must ALWAYS write narabi.json");
+  return { status, state: JSON.parse(readFileSync(out, "utf8")) as NarabiState };
+}
+
+function listen(server: Server): Promise<number> {
+  return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve((server.address() as { port: number }).port)));
+}
+function close(server: Server): Promise<void> {
+  server.closeAllConnections();
+  return new Promise((resolve) => server.close(() => resolve()));
+}
+
+// ── item 2 / C-B-12: 2nd GET of state.json (DERIVED path), digest cross-check vs the last line's digest_T ─────
+test("probe_state_digest_cross_check — the probe does a 2nd bounded GET of state.json DERIVED by basename replacement (ONE loopback server, NO PROBE_STATE_URL; C-B-12) and cross-checks state.digest against the last line's digest_T: the coherent snapshot => healthy; a state.json of another day => state_mismatch; --file without --state-file => state_checked:false; an injected --state-file is checked (item 2; kills M-ii-9)", async () => {
+  const tl = NARABI_SNAPSHOT.timelineJsonl;
+  const lines = parseTimeline(tl);
+  const lastLine = lines.at(-1);
+  assert.ok(lastLine, "the snapshot timeline has a last line");
+  const firstLine = lines.at(0);
+  assert.ok(firstLine, "the snapshot timeline has a first line");
+  const coherentState = NARABI_SNAPSHOT.stateJson;
+  // a REAL digest of the WRONG day: the 2026-09-17 line's digest_T (not a random hex) — a valid but stale state.
+  const trafiquedState = JSON.stringify({ ...JSON.parse(coherentState) as Record<string, unknown>, digest: firstLine.digest_T });
+  const NOW = "2026-09-19T10:35Z"; // last day 2026-09-18 present after the deadline => NOT lagging (isolates the state verdict)
+
+  assert.equal(deriveStateUrl("http://127.0.0.1:8080/narabi/timeline.jsonl"), "http://127.0.0.1:8080/narabi/state.json", "basename derivation");
+  assert.equal(lastLine.digest_T, (JSON.parse(coherentState) as { digest: string }).digest, "oracle: the coherent state's digest IS the last line's digest_T");
+
+  const serve = (stateBody: string): Server => createServer((req, res) => {
+    if (req.url === "/narabi/timeline.jsonl") { res.writeHead(200, { "content-type": "application/jsonl" }); res.end(tl); return; }
+    if (req.url === "/narabi/state.json") { res.writeHead(200, { "content-type": "application/json" }); res.end(stateBody); return; }
+    res.writeHead(404); res.end();
+  });
+
+  // (a) coherent: derived GET2 matches -> healthy.
+  const okServer = serve(coherentState);
+  const okPort = await listen(okServer);
+  try {
+    const r = await runProbeAsync(["--url", `http://127.0.0.1:${String(okPort)}/narabi/timeline.jsonl`, "--now", NOW]);
+    assert.equal(r.state.status, "healthy", "coherent state.digest === last.digest_T (DERIVED path, no PROBE_STATE_URL) -> healthy");
+    assert.equal(r.state.reason, null, "no reason");
+    assert.equal(r.state.state_checked, true, "the cross-check ran and matched");
+    assert.equal(r.status, 0, "exit 0");
+  } finally { await close(okServer); }
+
+  // (b) a state.json of another day -> state_mismatch (kills M-ii-9: cross-check skipped -> healthy).
+  const badServer = serve(trafiquedState);
+  const badPort = await listen(badServer);
+  try {
+    const r = await runProbeAsync(["--url", `http://127.0.0.1:${String(badPort)}/narabi/timeline.jsonl`, "--now", NOW]);
+    assert.equal(r.state.reason, "state_mismatch", "a state.json of another day -> state_mismatch (M-ii-9)");
+    assert.equal(r.state.status, "unhealthy", "unhealthy");
+    assert.equal(r.state.state_checked, true, "checked (compared, differs)");
+    assert.equal(r.status, 1, "state_mismatch exits 1");
+  } finally { await close(badServer); }
+
+  // (c) --file mode WITHOUT --state-file -> no cross-check, state_checked:false, still healthy (offline).
+  const tlFile = join(scratchDir(), "snap-timeline.jsonl");
+  writeFileSync(tlFile, tl);
+  const rNoState = await runProbeAsync(["--file", tlFile, "--now", NOW]);
+  assert.equal(rNoState.state.state_checked, false, "--file without --state-file -> no cross-check (the 8 inherited --file sub-cases stay green)");
+  assert.equal(rNoState.state.status, "healthy", "and healthy");
+
+  // (d) --file mode WITH --state-file -> the injected state.json is cross-checked (coherent healthy; wrong day mismatch).
+  const okStateFile = join(scratchDir(), "snap-state-ok.json");
+  writeFileSync(okStateFile, coherentState);
+  const rInjOk = await runProbeAsync(["--file", tlFile, "--state-file", okStateFile, "--now", NOW]);
+  assert.equal(rInjOk.state.state_checked, true, "--state-file injected and compared");
+  assert.equal(rInjOk.state.status, "healthy", "coherent injected state -> healthy");
+  const badStateFile = join(scratchDir(), "snap-state-bad.json");
+  writeFileSync(badStateFile, trafiquedState);
+  const rInjBad = await runProbeAsync(["--file", tlFile, "--state-file", badStateFile, "--now", NOW]);
+  assert.equal(rInjBad.state.reason, "state_mismatch", "an injected state.json of another day -> state_mismatch");
+  assert.equal(rInjBad.status, 1, "exit 1");
+
+  // (e) an oversize --state-file is refused (bounded like --file, C-G2-8): a COHERENT but too-large state.json
+  // is NOT read -> state_unreachable (kills the size-check-removed mutant: without the bound it reads it and,
+  // since the digest matches, would go healthy).
+  const bigStateFile = join(scratchDir(), "snap-state-big.json");
+  writeFileSync(bigStateFile, JSON.stringify({ ...JSON.parse(coherentState) as Record<string, unknown>, pad: "x".repeat(STATE_MAX_BYTES) }));
+  const rBig = await runProbeAsync(["--file", tlFile, "--state-file", bigStateFile, "--now", NOW]);
+  assert.equal(rBig.state.reason, "state_unreachable", "an oversize --state-file is refused (not read whole) -> state_unreachable");
+  assert.equal(rBig.state.state_checked, false, "not checked (over the byte cap)");
+});
+
+// ── item 2 / Q4: a failed 2nd GET is state_unreachable, and a state fault OUTRANKS lag (precedence, M-ii-22) ──
+test("probe_state_unreachable_precedence — a failed 2nd GET is state_unreachable (Q4), and a state fault OUTRANKS a lagging surface while a broken chain outranks the state fault: pure evaluate() pins chain_broken > state_unreachable > state_mismatch > lag (M-ii-22); a subprocess with a 404 state.json on a lagging surface records state_unreachable, never lag (CA-11 durci: the 404 case)", async () => {
+  const tl = NARABI_SNAPSHOT.timelineJsonl;
+  const lines = parseTimeline(tl);
+  const firstLine = lines.at(0);
+  assert.ok(firstLine, "the snapshot timeline has a first line");
+  const wrongDayDigest = firstLine.digest_T;
+  const LAG = "2026-09-25T12:00Z"; // well past the last day 2026-09-18 => lag_days > 0, so a lag-first mutant surfaces lag
+
+  // (a) PURE evaluate() precedence ladder (no I/O), on the real snapshot lines + synthetic stateCheck inputs.
+  const ev = (stateCheck: StateCheck | undefined): NarabiState => evaluate({ text: tl, nowIso: LAG, reachable: true, stateCheck });
+  assert.equal(ev({ ok: false }).reason, "state_unreachable", "state_unreachable outranks lag (M-ii-22)");
+  assert.equal(ev({ ok: true, digest: wrongDayDigest }).reason, "state_mismatch", "state_mismatch outranks lag");
+  assert.equal(ev(undefined).reason, "lag", "with no cross-check the verdict is lag (the ladder is state>lag, not state-always)");
+  // chain_broken outranks any state fault: tamper the last line's hashed field so its line_hash recompute diverges.
+  const tampered = lines.map((l, i) => (i === lines.length - 1 ? { ...l, mints: "9" + l.mints } : l));
+  const brokenText = tampered.map((l) => JSON.stringify(l)).join("\n");
+  assert.equal(evaluate({ text: brokenText, nowIso: LAG, reachable: true, stateCheck: { ok: false } }).reason, "chain_broken", "chain_broken outranks state_unreachable");
+
+  // (b) SUBPROCESS, CA-11 durci: real snapshot timeline 200, derived state.json 404 -> state_unreachable, not lag.
+  const server = createServer((req, res) => {
+    if (req.url === "/narabi/timeline.jsonl") { res.writeHead(200, { "content-type": "application/jsonl" }); res.end(tl); return; }
+    res.writeHead(404); res.end(); // /narabi/state.json (and anything else) 404s
+  });
+  const port = await listen(server);
+  try {
+    const r = await runProbeAsync(["--url", `http://127.0.0.1:${String(port)}/narabi/timeline.jsonl`, "--now", LAG]);
+    assert.equal(r.state.reason, "state_unreachable", "a 404 on the derived state.json -> state_unreachable, NOT lag (Q4)");
+    assert.equal(r.state.state_checked, false, "not checked (no comparable digest)");
+    assert.equal(r.state.status, "unhealthy", "unhealthy");
+    assert.equal(r.status, 1, "state_unreachable exits 1");
+  } finally { await close(server); }
+});
+
+// ── item 4: the GET loop makes EXACTLY retries+1 attempts on a failing surface (kills attempt <= retries+1) ──
+test("probe_get_retries_exactly_n_plus_one — the GET loop makes EXACTLY retries+1 attempts on a failing surface: a server that resets exactly retries+1 connections then WOULD serve yields unreachable at hits === retries+1 (real), never healthy at hits === retries+2 (kills M-ii-10, attempt <= retries+1); pinned at PROBE_RETRIES=0 AND =2; a closed port is unreachable (item 4)", async () => {
+  const tl = NARABI_SNAPSHOT.timelineJsonl;
+  const NOW = "2026-09-19T10:35Z";
+  // Resets the first `failCount` connections (the probe retries each), then WOULD serve a healthy surface.
+  const makeFlaky = (failCount: number): { server: Server; hits: () => number } => {
+    let hits = 0;
+    const server = createServer((req, res) => {
+      hits++;
+      if (hits <= failCount) { req.socket.destroy(); return; } // a connection reset -> the probe retries
+      if (req.url === "/narabi/state.json") { res.writeHead(200, { "content-type": "application/json" }); res.end(NARABI_SNAPSHOT.stateJson); return; }
+      res.writeHead(200, { "content-type": "application/jsonl" }); res.end(tl);
+    });
+    return { server, hits: () => hits };
+  };
+
+  for (const retries of [0, 2]) {
+    const { server, hits } = makeFlaky(retries + 1); // fail exactly retries+1 times
+    const port = await listen(server);
+    try {
+      const r = await runProbeAsync(["--url", `http://127.0.0.1:${String(port)}/narabi/timeline.jsonl`, "--now", NOW], { PROBE_RETRIES: String(retries) });
+      assert.equal(r.state.reason, "unreachable", `PROBE_RETRIES=${String(retries)}: the real code gives up after retries+1 attempts (a mutant reaches the serve on attempt retries+2 -> healthy)`);
+      assert.equal(r.state.status, "unhealthy", "unhealthy");
+      assert.equal(r.status, 1, "unreachable exits 1");
+      assert.equal(hits(), retries + 1, `EXACTLY retries+1 (${String(retries + 1)}) GET attempts reached the server (the mutant makes retries+2 = ${String(retries + 2)}, then a 3rd for state.json)`);
+    } finally { await close(server); }
+  }
+
+  // A closed port: connection refused on every attempt -> unreachable (no server accepts).
+  const dead = createServer(() => { /* never used */ });
+  const deadPort = await listen(dead);
+  await close(dead); // free the port so the probe hits ECONNREFUSED
+  const rDead = await runProbeAsync(["--url", `http://127.0.0.1:${String(deadPort)}/narabi/timeline.jsonl`, "--now", NOW], { PROBE_RETRIES: "0" });
+  assert.equal(rDead.state.reason, "unreachable", "a closed port is unreachable");
+  assert.equal(rDead.state.reachable, false, "no dial succeeded");
+  assert.equal(rDead.status, 1, "exit 1");
+});
+
+// ── item 3 / C-NB-5: monark-sentinel start backstop, inter-unit UTC coherence (both bounds) ──────────────────
+test("probe_sentinel_timeoutstartsec_inter_unit_coherence — monark-sentinel.service TimeoutStartSec (T_s) satisfies BOTH UTC bounds: HIGH so (last sentinel slot + RandomizedDelaySec + T_s) <= the probe DEADLINE (kills M-ii-13), LOW so T_s >= max(300, 3*RUN_DURATION_D_SEC) (kills M-ii-14, T_s < 3D), and equals the pre-registered formula max(300, ceil(3*D/60)*60) (item 3; C-NB-5)", () => {
+  const svc = readFileSync(join(DEPLOY, "monark-sentinel.service"), "utf8");
+  const timer = readFileSync(join(DEPLOY, "monark-sentinel.timer"), "utf8");
+  const tsMatch = /^TimeoutStartSec=(\d+)$/m.exec(svc);
+  assert.ok(tsMatch, "monark-sentinel.service pins TimeoutStartSec in whole seconds");
+  const Ts = Number(tsMatch[1] ?? "0");
+  const slots = [...timer.matchAll(/^OnCalendar=.*?(\d{2}):(\d{2}):\d{2}\s+UTC\s*$/gm)].map((m) => Number(m[1] ?? "0") * 60 + Number(m[2] ?? "0"));
+  assert.ok(slots.length >= 1, "the timer declares UTC OnCalendar slots");
+  const lastSlotMin = Math.max(...slots);
+  const jitterMatch = /^RandomizedDelaySec=(\d+)$/m.exec(timer);
+  assert.ok(jitterMatch, "the timer pins RandomizedDelaySec");
+  const jitterSec = Number(jitterMatch[1] ?? "0");
+
+  // HIGH bound (M-ii-13): the worst start instant must not cross the probe's freshness deadline (all UTC).
+  const worstStartSec = lastSlotMin * 60 + jitterSec + Ts;
+  assert.ok(worstStartSec <= DEADLINE_UTC_MINUTES * 60,
+    `worst start ${String(worstStartSec)}s (last slot ${String(lastSlotMin)}min + jitter ${String(jitterSec)}s + T_s ${String(Ts)}s) must be <= DEADLINE ${String(DEADLINE_UTC_MINUTES * 60)}s (M-ii-13)`);
+
+  // LOW bound (M-ii-14): T_s must be at least the pre-registered floor max(300, 3*D).
+  const lowBound = Math.max(300, 3 * RUN_DURATION_D_SEC);
+  assert.ok(Ts >= lowBound, `T_s ${String(Ts)} must be >= max(300, 3*D=${String(3 * RUN_DURATION_D_SEC)}) = ${String(lowBound)} (M-ii-14: T_s < 3D reds)`);
+
+  // and equals the pre-registered formula exactly (pins both directions).
+  const formula = Math.max(300, Math.ceil((3 * RUN_DURATION_D_SEC) / 60) * 60);
+  assert.equal(Ts, formula, `T_s must equal the pre-registered formula max(300, ceil(3*D/60)*60) = ${String(formula)}`);
+});
+
+// ── C-NB-7: monark-probe.service covers the SECOND GET (RSS for two bodies + worst-case timeout) ─────────────
+test("probe_state_get_rss_and_worstcase_bounds — monark-probe.service covers the state cross-check GET: MemoryMax >= 13 x (MAX_MAX_BYTES + STATE_MAX_BYTES) (two bodies possibly in flight, C-NB-7), and TimeoutStartSec strictly exceeds the GET1+GET2 capped worst case + margin, so a state_unreachable can never come from the unit killing the probe mid-check (+GET2, L-3b, satisfied by assertion not edit)", () => {
+  const svc = readFileSync(join(DEPLOY, "monark-probe.service"), "utf8");
+  const mem = /^MemoryMax=(\d+)M$/m.exec(svc);
+  assert.ok(mem, "monark-probe.service pins MemoryMax in MiB");
+  assert.ok(Number(mem[1] ?? "0") * 1024 * 1024 >= 13 * (MAX_MAX_BYTES + STATE_MAX_BYTES),
+    `MemoryMax (${String(mem[1] ?? "?")}M) must be >= 13 x (MAX_MAX_BYTES + STATE_MAX_BYTES) = ${String(13 * (MAX_MAX_BYTES + STATE_MAX_BYTES))} bytes (kills the STATE_MAX_BYTES-raised mutant; C-NB-7)`);
+  const to = /^TimeoutStartSec=(\d+)$/m.exec(svc);
+  assert.ok(to, "monark-probe.service pins TimeoutStartSec");
+  const worstSec = Math.ceil((MAX_TIMEOUT_MS * (MAX_RETRIES + 1) + STATE_TIMEOUT_MS * (STATE_RETRIES + 1) + START_MARGIN_MS) / 1000);
+  assert.ok(Number(to[1] ?? "0") > worstSec,
+    `TimeoutStartSec (${String(to[1] ?? "?")}) must strictly exceed the GET1+GET2 capped worst case ${String(worstSec)}s (a mis-set env can never get the probe killed mid state-check)`);
+});

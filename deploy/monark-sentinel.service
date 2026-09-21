@@ -27,6 +27,13 @@ EnvironmentFile=-/etc/monark/sentinel.env
 # MONARK_SENTINEL_J0 (drop-in) MUST be set to J0 BEFORE `systemctl enable` — the first run FAILS CLOSED
 # without it (ADR-M012 D5); the unit never silently publishes nothing. Node 24 strips TypeScript at load.
 ExecStart=/usr/bin/env node /opt/monark-harness/apps/sentinel/src/run.ts
+# Start backstop (ADR-NARABI-OPS-1b-ii-b item 3, C-NB-5): T_s = max(300, ceil(3*D/60)*60) with D = the publishing
+# run's wall clock = 25.481 s (RUN_DURATION_D_SEC=26 rounded up; JOURNAL-PROVENANCE.md:310, merge 9b178f3) => 300 s.
+# 300 s >> D so a kill can only fire far past a normal run; and if it ever lands in the ~ms timeline append
+# (run.ts:188), loadState recomputes from the timeline and fails CLOSED on a torn last line (never a served lie —
+# copies :190/:191 happen AFTER). Coherent with the timer: 09:30 last slot + 1800 s jitter + 300 s = 10:05 UTC << the
+# 10:30 UTC probe deadline (36300 s; probe_sentinel_timeoutstartsec_inter_unit_coherence). VPS SITE deploy = E-5 (decision 92).
+TimeoutStartSec=300
 # Least privilege (R-8 / M004 D0.3): a dedicated non-login user (RUNBOOK step 2), writing ONLY its state dir.
 User=sentinel
 Group=sentinel

@@ -307,7 +307,15 @@ test("probe_chainstack_present_from_real_producer_line — the REAL run.ts produ
 test("probe_get_over_loopback_http_executes — an http:// GET on loopback executes and decides; a non-responding server yields unreachable within the timeout (never hangs); an oversize body is refused (C-6)", async () => {
   const body = readFileSync(FIXTURE, "utf8");
   let okHits = 0;
-  const okServer = createServer((_req, res) => { okHits++; res.writeHead(200, { "content-type": "application/jsonl" }); res.end(body); });
+  // -1b-ii-b: the probe now does a 2nd GET of the DERIVED /narabi/state.json (digest cross-check). Serve a
+  // matching state.json (digest === the last line's digest_T) so that GET succeeds and the verdict stays
+  // healthy; it is NOT counted in okHits, so `okHits - beforeHits === 1` still pins the N4 killer (retries=0 ->
+  // exactly one TIMELINE GET). If deriveStateUrl is mutated, GET2 falls into the else branch and okHits reddens too.
+  const okLastDigestT = (JSON.parse(body.replace(/\r\n/g, "\n").split("\n").filter((x) => x.trim()).at(-1) ?? "{}") as { digest_T: string }).digest_T;
+  const okServer = createServer((req, res) => {
+    if (req.url === "/narabi/state.json") { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify({ digest: okLastDigestT })); return; }
+    okHits++; res.writeHead(200, { "content-type": "application/jsonl" }); res.end(body);
+  });
   await new Promise<void>((resolve) => okServer.listen(0, "127.0.0.1", () => resolve()));
   try {
     const addr = okServer.address() as { port: number };

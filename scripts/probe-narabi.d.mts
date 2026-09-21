@@ -17,12 +17,18 @@ export const MAX_MAX_BYTES: number;
 export const MAX_RETRIES: number;
 export const START_MARGIN_MS: number;
 export const CHAINSTACK_PROVIDERS: readonly string[];
+// State cross-check bounds (sub-lot -1b-ii-b): the 2nd GET of /narabi/state.json.
+export const STATE_MAX_BYTES: number;
+export const STATE_TIMEOUT_MS: number;
+export const STATE_RETRIES: number;
 
-/** narabi.json reason (DETECTION sub-lot). `null` = healthy. */
+/** narabi.json reason (`null` = healthy). -1b-ii-b adds the two state cross-check reasons. */
 export type ProbeReason =
-  | "lag" | "chain_broken" | "unreachable" | "too_large" | "insecure_url" | "probe_error" | null;
+  | "lag" | "chain_broken" | "unreachable" | "too_large" | "insecure_url" | "probe_error"
+  | "state_mismatch" | "state_unreachable" | null;
 
-/** narabi.json shape (schema 1, DETECTION): the probe writes exactly this. */
+/** narabi.json shape: schema 1 DETECTION + the -1b-ii-b `state_checked` cross-check flag (the `schema` bump
+ *  to 2 that this field joins is added by -1b-ii-a). */
 export interface NarabiState {
   schema: number;
   checked_at: string;
@@ -32,6 +38,7 @@ export interface NarabiState {
   reachable: boolean;
   chainstack_present: boolean;
   provider: string | null;
+  state_checked: boolean;
   status: "healthy" | "unhealthy";
   reason: ProbeReason;
   publish_latency: number | null;
@@ -49,6 +56,8 @@ export function publishLatencySec(nowIso: string): number;
 export function parseTimeline(text: string): TimelineLine[];
 export function checkChain(lines: readonly TimelineLine[]): { ok: boolean; at: number };
 export function isLoopbackHost(hostname: string): boolean;
+/** The state.json URL derived from the timeline URL by basename replacement (-1b-ii-b, C-B-12). */
+export function deriveStateUrl(timelineUrl: string): string;
 
 export type TransportDecision = { ok: true } | { ok: false; reason: "insecure_url" };
 export function urlTransportAllowed(url: string): TransportDecision;
@@ -60,11 +69,14 @@ export function fetchTimeline(url: string, opts?: FetchOpts): Promise<FetchResul
 export interface TransportBounds { timeoutMs: number; maxBytes: number; retries: number }
 export function transportBounds(env?: Record<string, string | undefined>): TransportBounds;
 
-export interface EvaluateInput { text: string | null; nowIso: string; reachable: boolean; fetchReason?: string }
+/** The state cross-check input to evaluate (-1b-ii-b). undefined = not requested (state_checked stays false);
+ *  { ok:false } = 2nd GET failed or no comparable digest (-> state_unreachable); { ok:true, digest } = compare. */
+export type StateCheck = { ok: true; digest: string } | { ok: false };
+export interface EvaluateInput { text: string | null; nowIso: string; reachable: boolean; fetchReason?: string; stateCheck?: StateCheck | undefined }
 export function evaluate(input: EvaluateInput): NarabiState;
 
 export interface ProbeOpts {
-  file?: string; now?: string; url?: string; out?: string;
+  file?: string; now?: string; url?: string; out?: string; stateFile?: string;
   timeoutMs?: number; maxBytes?: number; retries?: number;
 }
 export function probe(opts?: ProbeOpts): Promise<{ state: NarabiState; exitCode: number }>;

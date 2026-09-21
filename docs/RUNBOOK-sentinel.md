@@ -164,7 +164,38 @@ systemctl list-timers monark-sentinel.timer --no-pager   # next elapse MUST be c
 # (7) A restart during the day MAY fire a run at once: under Persistent=true ([abs], CHECKPOINT1 §2(2)) a
 #     newly-passed elapse since the last stored trigger can run immediately. HARMLESS by the L-4 replay (a no-op
 #     "nothing due", or a legitimate catch-up) — LOG it as the first run, do not be surprised by it.
+# (8) Start backstop verification (sub-lot NARABI-OPS-1b-ii-b, E-5 / investor decision 92): the shipped unit now
+#     carries TimeoutStartSec=300. Confirm it took effect (systemd prints microseconds, normalized):
+systemctl show -p TimeoutStartUSec monark-sentinel.service   # expect TimeoutStartUSec=5min (= 300 s)
 ```
+
+### Start backstop `TimeoutStartSec` (sub-lot NARABI-OPS-1b-ii-b — VPS SITE, E-5 / investor decision 92)
+
+`monark-sentinel.service` gains `TimeoutStartSec = max(300, ceil(3*D/60)*60) = 300 s`, where D = 25.481 s is the
+MEASURED publishing run (start 00:47:55 UTC, exit 00:48:20 UTC, 2026-09-21; `RUN_DURATION_D_SEC=26` rounded up;
+JOURNAL-PROVENANCE.md:310, merge `9b178f3`). This is a redeploy on the **VPS SITE** (`31.97.155.188`) — the
+service of production — so it is done ONLY under E-5 (decision 92), after G7 + checkpoint-2 of -1b-ii-b, by the
+named merge SHA (§6 above, never `main HEAD`), then verified with the `systemctl show` line in step (8).
+
+**Declared risk — a systemd kill mid-append on an append-only chained file.** If the start backstop ever fires
+while `run.ts` is writing (`:188` `appendFileSync` of the timeline, `:189` `state.json`, `:190`/`:191` the
+public copies), the private `timeline.jsonl` last line could be TORN. What bounds it, MEASURED on the code (not
+assumed):
+
+- **D (25 s) is far below T_s (300 s)**, and the four byte-writes at `:188`-`:191` take milliseconds, so a kill
+  can only land far past a normal run and the probability of landing inside the ~ms append window is negligible.
+- **A torn last line fails CLOSED, and is never served.** `loadState` (`run.ts:104-119`) does NOT read
+  `state.json` back — it RECOMPUTES the tracker state by folding EVERY timeline line through `step` (a
+  `JSON.parse` per line). A torn last line makes that `JSON.parse` throw, which bubbles to the run guard
+  (`run.ts:201`, `sentinel FATAL`, exit 1): the next run appends NOTHING after a torn line and publishes
+  nothing. The public copies happen only AFTER the append + state write (`:190`/`:191`), so a mid-append kill
+  leaves the SERVED surface at the last good state — never a torn line on the wire. The probe then observes
+  `lag` (a due day missing) and (with -1b-ii-a deployed) alerts. `state.json` is a DERIVED artifact, so a stale
+  or missing one self-heals on the next successful run (recomputed from the timeline).
+- **Recovery**: on a `sentinel FATAL` after a suspected kill, inspect the tail of
+  `/var/lib/monark-sentinel/timeline.jsonl`; a torn last line is removed by hand (it was never finalized), then
+  `systemctl start monark-sentinel.service` re-runs and catches up. This is an operational, fail-closed,
+  DETECTABLE condition, not a silent corruption.
 
 **First-run acceptance (G0 criterion 3 — a POSITIVE observable):** on the first healthy run read `journalctl -u
 monark-sentinel -n 40 --no-pager` and CHECK the end JSON shows **`chainstack: true`** (the env → pool → line leg

@@ -13,6 +13,8 @@
 // narabi.json (schema 1, DETECTION): { schema, checked_at, last_day, lag_days, chain_ok, reachable,
 //   chainstack_present, provider, status, reason, publish_latency }. WRITE-ONLY in -1b-i (no prior state is
 //   read back); the state-machine read path (alerted/alert_error) lands in -1b-ii, which bumps `schema`.
+//   Sub-lot -1b-ii-b ADDS `state_checked` (the /narabi/state.json digest cross-check flag) plus the reasons
+//   state_mismatch / state_unreachable; the `schema` bump to 2 they join is -1b-ii-a's (kept as one edit).
 import { createHash, randomBytes } from "node:crypto";
 import { readFileSync, writeFileSync, mkdirSync, statSync, renameSync, unlinkSync } from "node:fs";
 import { dirname } from "node:path";
@@ -57,6 +59,15 @@ export const MAX_TIMEOUT_MS = 10_000;
 export const MAX_MAX_BYTES = 8 * 1024 * 1024;
 export const MAX_RETRIES = 4;
 export const START_MARGIN_MS = 10_000;
+
+// State cross-check bounds (sub-lot -1b-ii-b): the SECOND GET, of /narabi/state.json, is bounded on its OWN.
+// state.json is a single tiny object (398 bytes measured — ADR-NARABI-OPS-1 fact 5), so a small byte cap, a
+// short timeout, and a FIXED 1-retry (env-independent, so no mis-set env can widen it) keep the GET1+GET2
+// capped worst case (50 s + 10 s + 10 s margin = 70 s) STRICTLY under monark-probe.service TimeoutStartSec=90
+// WITHOUT re-raising it (asserted by probe_state_get_rss_and_worstcase_bounds; the SMTP raise is -1b-ii-a's).
+export const STATE_MAX_BYTES = 64 * 1024; // 64 KiB — far above the 398-byte real state.json, far below MAX_MAX_BYTES
+export const STATE_TIMEOUT_MS = 5_000;    // short: state.json is tiny and same-origin as the timeline
+export const STATE_RETRIES = 1;           // one bounded retry (2 attempts), FIXED (not env-tunable)
 
 const DAY_MS = 86_400_000;
 
@@ -274,15 +285,50 @@ export async function fetchTimeline(url, opts = {}) {
   return { ok: false, reason: lastReason };
 }
 
-/** Pure decision over an already-obtained body. Precedence (cannot-evaluate > chain > lag): a transport
+/** The state.json URL derived from the timeline URL by BASENAME replacement (C-B-12): the last path segment
+ *  becomes `state.json`, everything else (scheme, host, port, parent path, query) is kept. Overridable with
+ *  env PROBE_STATE_URL. So `.../narabi/timeline.jsonl` -> `.../narabi/state.json` with NO extra config, which
+ *  is exactly what probe_state_digest_cross_check exercises (one loopback server, no PROBE_STATE_URL). */
+export function deriveStateUrl(timelineUrl) {
+  const u = new URL(timelineUrl);
+  u.pathname = u.pathname.replace(/[^/]*$/, "state.json");
+  return u.toString();
+}
+
+/** Extract the comparable digest from a state.json body: { ok:true, digest } ONLY when the body parses to an
+ *  object with a STRING `digest`; a parse failure or a missing/non-string digest is { ok:false } (we could
+ *  not obtain a digest to check against -> state_unreachable, NOT state_mismatch). */
+function stateDigestOf(text) {
+  try {
+    const d = JSON.parse(text)?.digest;
+    return typeof d === "string" ? { ok: true, digest: d } : { ok: false };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** Classify the state cross-check (precedence applied by the caller). `stateCheck` undefined = not requested
+ *  (--file with no --state-file) -> no verdict, state_checked:false. { ok:false } -> state_unreachable (the
+ *  2nd GET failed OR the body carried no comparable digest; Q4). { ok:true, digest } -> state_mismatch iff it
+ *  differs from the last line's digest_T (fact 5 invariant); otherwise checked-and-consistent. */
+function crossCheckVerdict(stateCheck, expectedDigestT) {
+  if (stateCheck === undefined) return { reason: null, state_checked: false };
+  if (!stateCheck.ok) return { reason: "state_unreachable", state_checked: false };
+  if (stateCheck.digest !== expectedDigestT) return { reason: "state_mismatch", state_checked: true };
+  return { reason: null, state_checked: true };
+}
+
+/** Pure decision over an already-obtained body (and an OPTIONAL state cross-check result). Precedence, FIXED
+ *  (advisor #8): cannot-evaluate > chain_broken > state_unreachable > state_mismatch > lag. A transport
  *  failure (unreachable/too_large/insecure_url) or a parse failure (probe_error) is unhealthy with no
- *  freshness verdict; a broken chain outranks lag (a rewrite makes last_day untrustworthy). */
-export function evaluate({ text, nowIso, reachable, fetchReason }) {
+ *  freshness verdict; a broken chain outranks a state fault, which outranks lag (a rewrite / a stale or
+ *  unreachable state.json makes the freshness verdict untrustworthy). `stateCheck` undefined = no cross-check. */
+export function evaluate({ text, nowIso, reachable, fetchReason, stateCheck }) {
   const checked_at = new Date(Date.parse(nowIso)).toISOString();
   const publish_latency = publishLatencySec(nowIso);
   const base = {
     schema: SCHEMA, checked_at, last_day: null, lag_days: null, chain_ok: false, reachable,
-    chainstack_present: false, provider: null, status: "unhealthy", reason: null, publish_latency,
+    chainstack_present: false, provider: null, state_checked: false, status: "unhealthy", reason: null, publish_latency,
   };
   if (!reachable) return { ...base, reason: fetchReason ?? "unreachable" };
   let lines;
@@ -299,11 +345,17 @@ export function evaluate({ text, nowIso, reachable, fetchReason }) {
   if (!chain.ok) {
     return { ...base, last_day: last.day, chainstack_present, provider, chain_ok: false, reason: "chain_broken" };
   }
+  // State cross-check (sub-lot -1b-ii-b): the served /narabi/state.json digest must equal the last line's
+  // digest_T. A state fault (unreachable/mismatch) outranks lag on the same surface, but not a broken chain.
+  const sx = crossCheckVerdict(stateCheck, last.digest_T);
+  if (sx.reason !== null) {
+    return { ...base, last_day: last.day, chainstack_present, provider, chain_ok: true, state_checked: sx.state_checked, reason: sx.reason };
+  }
   const expected = expectedLastDay(nowIso);
   const lag_days = dayDiff(last.day, expected); // > 0 STRICT means a due day is missing; <= 0 is healthy
   const healthy = lag_days <= 0;
   return {
-    ...base, last_day: last.day, lag_days, chain_ok: true, chainstack_present, provider,
+    ...base, last_day: last.day, lag_days, chain_ok: true, chainstack_present, provider, state_checked: sx.state_checked,
     status: healthy ? "healthy" : "unhealthy", reason: healthy ? null : "lag",
   };
 }
@@ -341,14 +393,37 @@ export async function probe(opts = {}) {
     text = null;
     fetchReason = "unreachable";
   }
+  // 2nd bounded GET / injected state (sub-lot -1b-ii-b): only when the timeline itself was obtained (a GET1
+  // failure is cannot-evaluate and evaluate ignores stateCheck). URL mode DERIVES the state.json URL by
+  // basename replacement (env PROBE_STATE_URL overrides; C-B-12); --file mode uses an OPTIONAL --state-file
+  // (absent -> no cross-check, state_checked stays false). Any failure to obtain a comparable digest is
+  // { ok:false } -> state_unreachable (Q4). Bounded exactly like the timeline read; never throws.
+  let stateCheck;
+  if (reachable) {
+    try {
+      if (opts.file !== undefined) {
+        if (opts.stateFile !== undefined) {
+          if (statSync(opts.stateFile).size > STATE_MAX_BYTES) stateCheck = { ok: false };
+          else stateCheck = stateDigestOf(readFileSync(opts.stateFile, "utf8"));
+        }
+      } else {
+        const url = opts.url ?? process.env.PROBE_URL ?? DEFAULT_URL;
+        const stateUrl = process.env.PROBE_STATE_URL ?? deriveStateUrl(url);
+        const sres = await fetchTimeline(stateUrl, { timeoutMs: STATE_TIMEOUT_MS, maxBytes: STATE_MAX_BYTES, retries: STATE_RETRIES });
+        stateCheck = sres.ok ? stateDigestOf(sres.text) : { ok: false };
+      }
+    } catch {
+      stateCheck = { ok: false };
+    }
+  }
   let state;
   try {
     if (!nowValid) throw new RangeError("invalid --now"); // -> probe_error with a real checked_at (C-G2-3)
-    state = evaluate({ text, nowIso, reachable, fetchReason });
+    state = evaluate({ text, nowIso, reachable, fetchReason, stateCheck });
   } catch {
     state = {
       schema: SCHEMA, checked_at: new Date(Date.parse(nowIso)).toISOString(), last_day: null, lag_days: null,
-      chain_ok: false, reachable, chainstack_present: false, provider: null, status: "unhealthy",
+      chain_ok: false, reachable, chainstack_present: false, provider: null, state_checked: false, status: "unhealthy",
       reason: "probe_error", publish_latency: publishLatencySec(nowIso),
     };
   }
@@ -381,6 +456,7 @@ function parseArgs(argv) {
     else if (t === "--now") { a.now = argv[++i]; }
     else if (t === "--url") { a.url = argv[++i]; }
     else if (t === "--out") { a.out = argv[++i]; }
+    else if (t === "--state-file") { a.stateFile = argv[++i]; } // -1b-ii-b: inject state.json for the --file cross-check
   }
   return a;
 }
