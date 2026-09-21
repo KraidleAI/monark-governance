@@ -315,3 +315,31 @@ Pré-vérifications machine (orchestrateur) : champs `AttestedPrice` ↔ `Temoig
   - **`error_origin` — findings G2 (C-G2-1..8)** : C-G2-1 **worker** ; C-G2-2 **worker** ; C-G2-3 **worker** ; C-G2-4 **worker** ; C-G2-5 **worker** ; C-G2-6 **plan (-1b-ii, plié par anticipation)** ; C-G2-7 **worker/plan** ; C-G2-8 **worker**.
   - **`error_origin` — observations G2 delta (C-G2D-1..4)** : C-G2D-1 **worker (couverture)** ; C-G2D-2 **worker** ; C-G2D-3 **worker/plan** ; C-G2D-4 **plan (-1b-ii)**.
   - **`error_origin` — corrections checkpoint-2 (C-V-1..3)** : **C-V-1 = `orchestrateur`** (adjudication prématurée de `PROBE_RETRIES=0` du 2026-09-20 18:47 UTC, portant sur un chemin qu'aucun oracle ne prouvait) **+ `worker`** (couverture manquante du chemin `retries=0`) ; **C-V-2 = `worker`** (couverture — trois gardes `evaluate()` non épinglées : lien `prev_line_hash`, `chainstack` dernière ligne, précédence `chain_broken`>`lag`) ; **C-V-3 = `worker`** (plafond d'octets 64 Mio incohérent avec `MemoryMax=128M`, RSS mesuré 247 MiB à 60 Mio).
+
+- **2026-09-21 00:55 UTC — G7 lot CI-site ACCEPTÉ, fusion `70212e2`** (orchestrateur `claude-fable-5-1`) ; arbre fusionné `npm run ci` 504/504 ; union `vocab-banned.json` ; bloc du lot (verbatim du PLI) :
+  > **lot CI-site** — worktree `F:\Monark-wt-cisite` (`lot/ci-site`, base `c9e7b4b`), offline, effort max.
+  > **Modèle résolu PAR ÉTAPE (C2-2)** :
+  > — **G0** (brouillon `dd058f0`, artefact `docs/G0-lot-ci-site.md`) : worker `claude-opus-4-8[1m]`, 2026-09-20.
+  > — **checkpoint-1** (`afd1efe`) : validateur-humain `claude-fable-5-1`.
+  > — **pli du G0** (fold C-1..C-14 + décision 77) : worker `claude-opus-4-8[1m]` ; **adjudications orchestrateur + commit** (`c9e7b4b`) : `claude-fable-5-1`. [Preuve primaire : le message de `c9e7b4b` porte les DEUX modèles — « (worker claude-opus-4-8) + orchestrator adjudications » — scindé ici ; le résumé de mission n'attribuait `c9e7b4b` qu'à `claude-fable-5-1`.]
+  > — **G1** (`03e7b6c`) : worker `claude-opus-4-8[1m]`.
+  > — **G2** (revue fraîche, relecteur SÉPARÉ, `5195378`) : `claude-opus-4-8[1m]`.
+  > — **pli G2** (`64cf0f6`, **instance distincte du G1** : worker `claude-opus-4-8[1m]` lancé séparément).
+  > — **consultations advisor intégré** (canal 1) : citées au PLI §6 (G1/pli-G2 et pli checkpoint-2).
+  > — **checkpoint-2** (2026-09-20 22:22→22:33 UTC, artefact `64cf0f6`) : validateur-humain `claude-fable-5-1` — ACCEPTE-AVEC-CORRECTIONS.
+  > — **ce pli (checkpoint-2)** : worker `claude-opus-4-8[1m]`, 2026-09-21.
+  > — **G2-delta (C2-4)** : FAITE — relecteur SÉPARÉ `claude-opus-4-8[1m]` sur `5195378..e5fbf72`, `docs/G2-DELTA-lot-ci-site.md`, PASS-AVEC-CORRECTIONS (C-G2D-1..3 non bloquantes ; `error_origin` = worker, pli checkpoint-2).
+  > — **Pli docs `b0bf54c`** : orchestrateur `claude-fable-5-1` (PLI §12, complément D9 octies, chiffres périmés).
+  > — **Confirmation légère du checkpoint-2** : validateur-humain `claude-fable-5-1` sur `b0bf54c` — ACCEPTE-AVEC-CORRECTIONS CC-1..CC-6 (docs seules ; `error_origin` CC-1 = orchestrateur : table sha non recalculée après un pli docs) ; pli CC par l'orchestrateur.
+  > — **G7** : À VENIR — orchestrateur.
+  > Fichiers : 11 code + 5 docs (PRODUCT-BOUNDARY, ADR-M003, ADR-M004, PLI, CHECKPOINT2) — sha256 en §1. R-25 **661/1205**
+  > (pathspec `ci.yml:65`, worktree vs base ; G1 504 + pli G2 97 + pli checkpoint-2 60). Oracles pli checkpoint-2 (copie
+  > `git archive HEAD` + overlay + `npm ci`, `TMP`→F:) : suite complète **486/486**, typecheck **0**, gate:vocab **177**,
+  > lint (fichier touché) 0 + lint:ratchet **69/69**, export:check + lang:gate **0 hit**, `next build` réel + O-2 EXTRAITE
+  > verts (CA-11 : `fleet.html` 61 163 o, 34 099 body chars), **7 mutants `if:`/`continue-on-error` rouges byte-exact**.
+  > ADR-M003 D9 octies (dé-sur-affirmé), ADR-M004 D7 ter amendé.
+  > **`error_origin`** : trou « `next build` absent de CI » = **orchestrateur** (checkpoint-2 E-registre V-3/O-2) ;
+  > C-G2-1/3/4 = **worker** ; C-G2-2 = **classe préexistante de l'invariant CI** (niveau job) + **spécification C-5
+  > checkpoint-1** (étape O-2) ; **O-1/O-2/O-3 = worker** (couverture perfectible ; aucun faux-vert sur l'artefact réel) ;
+  > **C2-1 = worker (pli G2)**, cause contributive **pli non relu** (adressée par C2-4) ; C2-6 = **trou antérieur au lot**
+  > (même fragilité d'ancrage sur `continue-on-error`, test 38).

@@ -306,3 +306,34 @@ Validateur `claude-fable-5-1` (2026-09-20 23:41→23:53 UTC, artefacts `f5996a0`
 - **Durée d'un run Narabi PUBLIANT non mesurée** (marge 10:30) — mesure après le créneau 00:30 UTC du 2026-09-21 AVANT le gel (critère DEADLINE ci-dessus). Propriétaire : orchestrateur ; déclencheur : créneau 00:30 UTC 2026-09-21.
 
 - **Observations closes (checkpoint-2, jugées sûres — C-D-5)** : `--now` sans valeur retombe sur l'horloge ; un BOM donne `probe_error` ; `https://user:pw@…` est admis par la garde pure. Aucun déclencheur : closes.
+
+### G7 — lot CI-site : ACCEPTÉ (orchestrateur `claude-fable-5-1`, 2026-09-21 00:55 UTC, horloge) — fusion `70212e2`
+- Fusion APRÈS NARABI-OPS-1b-i ; conflit attendu sur `vocab-banned.json` (ligne `scan.sentinel.files`) résolu par UNION (4 chemins de la sonde + `apps/sentinel/README.md`, `$comment` de -1b-i conservé) ; `gate:vocab` rejoué sur l'arbre fusionné : OK, 181 fichiers ; **`npm run ci` complet sur l'arbre fusionné : 504/504**. R-25 du lot : 661 (mesuré par le relecteur G2-delta et le validateur). Chaîne de revue : G2 fraîche (relecteur séparé Opus 4.8) → pli → checkpoint-2 (validateur : survivant `- if: false` trouvé) → pli → G2-delta (relecteur séparé) → confirmation légère → plis docs CC-1..6. État : `next build` + O-2 branchés LOCALEMENT, « bloquant (conditionnel) ».
+- **Items formés restants (propriétaire orchestrateur)** : required status check `g3-site` (action sortante, avant la première PR post-fusion) ; premier run réel sur runner Linux ET sur le miroir public ; vendoring des fontes (C-7) ; `export:check`/`lang:gate` absents de CI ; re-mesure du `timeout-minutes` ; oracle décision 69 sur `/bell/` (T-1b) ; ADR pour un `if:` légitime ; alignement du test 38 sur les commentaires de fin de ligne ; assertion sur structure YAML parsée ; durcissement `renderedBody` (`<style>`/`<title>`/`<textarea>`).
+
+#### Note de progression portée du PLI (verbatim)
+> **2026-09-20 — lot CI-site : G1 rendu, revue G2 (PASS-avec-corrections) pliée** (worker `claude-opus-4-8[1m]`, offline). `next build` branché LOCALEMENT en job CI
+> `g3-site` SÉPARÉ (build `npm run build -w @monark/site` PUIS O-2 `node scripts/assert-fleet-html.mjs`, même job,
+> `timeout-minutes: 5`, sans sous-chaîne `r25`, « bloquant (conditionnel) »). O-2 asserte le CORPS RENDU de
+> `apps/site/.next/server/app/fleet.html` (retrait `<script>`/`<noscript>`/`<template>` attrs+casse, décodage entités dont décimal, vacuité, fail-closed sur `<script>` non fermé). Dettes
+> soldées : `apps/sentinel/README.md` (décision 29 a), test 42(f′) (ADR-M004 D7 ter, tous corps retenus
+> byte-identiques), oracle décision 69 `no_cash_cross_provider_name_in_export` (test racine NON exporté).
+> R-25 = 661/1205 (pli checkpoint-2 : +60). 9 tests nommés + 30 mutants rouges byte-exact (13 G1 + 10 pli G2 + 7 pli
+> checkpoint-2 : `if:`/`continue-on-error` derrière tiret/guillemets/flow-mapping). **Pli checkpoint-2** (worker
+> `claude-opus-4-8[1m]`, checkpoint-2 `claude-fable-5-1` ACCEPTE-AVEC-CORRECTIONS `64cf0f6`) : détection
+> `if:`/`continue-on-error` élargie (C2-1/C2-6, 3 survivants tués), addendum D9 octies dé-sur-affirmé (liste exacte
+> des formes + résiduels), JOURNAL par modèle résolu. L-5 retiré (décision 77). Fusion APRÈS `lot/narabi-ops-1b-i`
+> (conflit `vocab-banned.json:111`) puis rejeu `gate:vocab`. **Items formés (propriétaire orchestrateur)** :
+> (5) **re-mesure `timeout-minutes`** — 5 posé ; 10 SEULEMENT par re-mesure sourcée si le 1ᵉʳ run à froid > 100 s
+> (déclencheur : 1ᵉʳ run CI `g3-site`) ; (6) **oracle décision 69 sur la surface servie `/bell/`** — l'oracle
+> « fichiers exportés » est livré ici (L-6) ; l'item T-1b reste pour `/bell/` (déclencheur : G0 T-1b / ajout
+> `apps/bell` à l'export) ; (7) **ADR pour un `if:` légitime** — l'invariant test 38 bannit tout `if:` conditionnel ;
+> un futur job qui en a besoin (p.ex. `if: github.event_name == 'push'`) passe par un ADR mettant à jour
+> `ci_gates_blocking_no_continue_on_error` ET `g3_site_builds_then_asserts_fleet_html` (déclencheur : 1ᵉʳ job
+> conditionnel envisagé) ; **(2, rappel)** le **1ᵉʳ run réel** nomme AUSSI le **miroir public** (composition côté
+> export non couverte par un test automatisé). Zéro dette.
+
+> **Items formés par la G2-delta (CC-3 ; déclencheur + propriétaire orchestrateur)** : (8) alignement du test 38 sur le retrait des commentaires de FIN de ligne (`hasDirective` ne saute que `^\s*#`) — déclencheur : prochain lot éditant le test 38 ; cette édition met AUSSI à jour le commentaire des résiduels `test/ci-gates.test.ts:55-59` (qui ne cite que la forme deux lignes) et le commentaire `:62-64` (« a comment … never reds » n'est vrai que pour un commentaire de ligne entière) [CC-6] ; (9) assertion sur STRUCTURE PARSÉE des directives `if` / `continue-on-error` — déclencheur : entrée d'un parseur YAML dans les dépendances, ou premier usage d'une forme résiduelle (clé complexe `? if`, clé à échappement, CR isolé, casse) ; (10) durcissement de `renderedBody` sur `<style>` / `<title>` / `<textarea>` — déclencheur : premier ajout de l'un d'eux portant du texte de note dans `apps/site`.
+
+### Décision investisseur 94 (2026-09-21, consigné 00:55 UTC)
+- **94 — conditions SIMPLES pour le release** (verbatim : « on met des conditions simples pour le moment, ce que tu m'avais proposé au début. pas de pays, pas d autre chose, jusqu ace que la société kraidle soit créé sur stripe atlas, ce qu'on fera ensemble »). Effets : (i) au release, Bell porte un DISCLAIMER court + des conditions courtes (faits attestés, pas un conseil ; « as is » ; signature = origine, pas vérité ; aucun endorsement ; rejeu = licence de close propre au lecteur) — AUCUN pays, AUCUNE forme juridique, AUCUN droit applicable tant que la société n'existe pas ; (ii) supersède l'apport « pays USA » de ce jour et SUSPEND le pli « éditeur US » ; (iii) item formé **LEGAL-ATLAS** : à la création de KraidleAI via Stripe Atlas (faite ensemble, investisseur + orchestrateur), compléter identité de l'éditeur, droit applicable, juridiction, notice de confidentialité complète, puis relecture juriste — déclencheur : société créée ; propriétaire : investisseur + orchestrateur. **Résiduel déclaré par l'orchestrateur** : le lien `mailto:` collecte des données personnelles (nom, mail, organisation) ; sans entité nommée, la mention de confidentialité courte désignera « the MONARK project » et la boîte de contact comme point de contact, avec finalité, durée (3 ans, CNIL [lu]) et droit d'opposition — c'est le minimum honnête ; une identité juridique complète reste due à LEGAL-ATLAS.
