@@ -213,6 +213,43 @@ couverts : `http://`, un `C:` de prose sans séparateur, une source de regex. Mu
 orchestrateur) — CITÉ, non re-formé ; la garde (iii) y atterrit à sa réalisation. Rejouabilité publique de la
 calibration U-4 (D7 sexies) inchangée : hors périmètre de ce lot.
 
+### Addendum CI-EXPORT-CHECK — `export:check` branché en CI (2026-09-21)
+L'item formé « `export:check` absent de la CI » ci-dessus est **CLOS**. Worker `claude-opus-4-8[1m]` (effort max),
+base HEAD de `lot/etude-suite` (`25bad38`), worktree `lot/ci-export-check`, régime petit lot (ADR-C01 amendement
+2026-09-21 : G1 + G2, sans checkpoint-2). `npm run export:check` (`package.json:21` = `node
+scripts/export-public.mjs --check`) tourne désormais dans `.github/workflows/ci.yml`, **fail-closed** (aucun
+`continue-on-error`), sans dépendance nouvelle (script à ZÉRO dépendance ; `actions/setup-node` déjà épinglé
+suffit, pas de `npm ci`).
+
+**Scope GLOBAL** (pas de `--scope`) : **mesuré exit 0 sur cette base** — 0 chemin interdit, 0 mot français
+non-exempté, les 12 scopes GATED (cohérent avec ADR-M010 : « 0 forbidden, 0 non-exempt French, all scopes
+GATED »). Le commentaire `lang-gate.mjs:37-42` (« global RED by design tant que E-hikae/ukemi/atelier/monark ne
+sont pas finis ») est donc PÉRIMÉ sur cette base (item de dérive doc ci-dessous). La clause « si seul le check
+scopé est vert » ne s'applique pas ; aucun commentaire « pourquoi le global n'est pas exigible » n'est ajouté.
+
+**Placement = job `r25-taille-de-lot`, PAS un job retenu (g3/g6)** — décision MESURÉE, pas de confort. `export:check`
+est un gate du dépôt SOURCE : il ÉCHOUE sur l'arbre exporté — sa config `scripts/export-exclude-tests.json` n'est
+pas whitelistée, donc `cd <export> && node scripts/export-public.mjs --check` ⇒ **exit 1** (mesuré). Or
+`derivePublicWorkflow` recopie tout job non-r25 **BYTE-IDENTIQUE** (imposé par `export_public_derived_jobs_are_byte_identical`,
+test 42(f')) dans le miroir public. Une étape en g3/g6 y serait donc recopiée et rougirait — un rouge latent de
+la CI publique exigeant une FUTURE modification de `derivePublicWorkflow` : dette différée, écartée par la règle
+zéro-dette. `export:check` est de la même catégorie « concern interne, pas vitrine » que la taille-de-lot
+(`export-public.mjs` L381-382) — donc dans le job que le derive RETIRE. Il est aussi délibérément HORS de `npm run
+ci`, précisément parce que test 42(e) rejoue `npm run ci` sur l'export.
+
+**Épingle non-LLM** : `ci_runs_export_check` (`test/ci-gates.test.ts`) lit `ci.yml` (aucun parseur YAML n'est
+dépendance du dépôt) et asserte, block-scopé sur r25 : présence de l'étape ; absence de `continue-on-error` ET de
+`if:` (garde G2 C-1 : un check requis SAUTÉ passe pour PASSANT sur GitHub, plus grave que `continue-on-error`) ;
+chaîne `package.json` → `export-public.mjs --check`. Mutants (restauration byte-exacte sha256 ; preuves RENDU-G1,
+à replier dans `docs/G1-lot-ci-export-check.md` par l'orchestrateur) : étape retirée/commentée/commande→`echo` ⇒
+présence ROUGE ; `continue-on-error: true` ⇒ COE ROUGE ; `if: false` sur r25 ⇒ garde `if:` ROUGE (M5a, trou fermé par C-1).
+
+**Items formés (dérive doc, propriétaire orchestrateur, déclencheur : fusion de ce lot)** : (a) `lang-gate.mjs:37-42`
+périmé (global mesuré vert) ; (b) le commentaire de `sentinel_readme_is_a_kept_export` (`test/ci-gates.test.ts`)
+porte la prémisse « lang:gate/export:check ne tournent pas en CI », désormais fausse pour `export:check` — la
+SUBSTANCE du test tient (`frenchMd` reste non-fatal : un README français serait encore exclu du miroir en
+silence), seul le commentaire est à corriger. Aucun des deux n'est dans le périmètre fermé de ce lot.
+
 **PLI G2 — fold des constats C-G2-1..C-G2-4 (2026-09-21, worker `claude-opus-4-8[1m]` effort max ; revue
 `docs/G2-lot-export-clean.md`, PASS-AVEC-CORRECTIONS).** La garde (iii) est raffinée ; `error_origin` = worker
 (D7 septies avait laissé ces angles morts). Fichiers de code : `scripts/export-public.mjs`,

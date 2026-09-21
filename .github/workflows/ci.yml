@@ -72,6 +72,20 @@ jobs:
             echo "::error::BLOCKED (VibeGates R-25): $CHANGED changed lines exceed the ADR bound of $VIBEGATES_PR_LIMIT. Split the PR."
             exit 1
           fi
+      # Public-mirror export hygiene (Lot CI-EXPORT-CHECK; item "export:check absent from CI",
+      # docs/G7-lot-export-clean.md / CHANTIERS:221; ADR-M004 D7 septies). export:check runs HERE, inside the
+      # internal-only lot-size job that scripts/export-public.mjs derivePublicWorkflow STRIPS from the derived
+      # public workflow: it is a SOURCE-repo gate that reds on the exported mirror (its config
+      # scripts/export-exclude-tests.json is not whitelisted -> exit 1, measured), the same "internal concern,
+      # not a storefront one" bucket as the lot-size gate above. A step in a retained job (g3/g6) would be copied
+      # byte-identical (test 42(f')) into the public mirror, where it reds. Global scope (no --scope): measured
+      # exit 0 on this base, 0 forbidden path / 0 non-exempt French, all scopes (ADR-M010). Zero-dependency node
+      # script, so setup-node alone suffices (no npm ci). Fail-closed: no continue-on-error.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - name: Public-mirror export hygiene check (ADR-M004 D7 septies; source repo only, stripped from the public workflow)
+        run: npm run export:check
 
   g3-verification:
     runs-on: ubuntu-latest

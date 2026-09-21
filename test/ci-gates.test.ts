@@ -186,6 +186,68 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
   );
 });
 
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+// Lot CI-EXPORT-CHECK (item "export:check absent from CI"; docs/G7-lot-export-clean.md / CHANTIERS:221;
+// ADR-M004 D7 septies "Branchement / dettes") — the public-mirror export hygiene gate `export:check` runs in
+// CI, fail-closed. It is wired into the internal-only r25-taille-de-lot job ON PURPOSE: scripts/export-public.mjs
+// derivePublicWorkflow STRIPS that whole job from the derived public workflow, and export:check is a SOURCE-repo
+// gate that reds on the exported mirror (its config scripts/export-exclude-tests.json is not whitelisted =>
+// exit 1, measured). A step in a retained job (g3/g6) would be copied byte-identical (test 42(f')) into the
+// public mirror where it reds. This test reads ci.yml as text (no YAML parser is a repo dependency — test 38's
+// note) and pins: the step is present, is not continue-on-error, and — through the package.json script chain —
+// invokes export-public.mjs --check. Named mutants (proofs + sha256 restore in this lot's RENDU-G1, to be folded
+// into docs/G1-lot-ci-export-check.md by the orchestrator): the step removed => the run-line assert reds; a
+// `continue-on-error: true` on the step => the COE assert reds.
+test("ci_runs_export_check — export:check wired fail-closed in the internal-only r25 job (Lot CI-EXPORT-CHECK)", () => {
+  // Block-scope on the r25 job key (2-space indent) up to the next 2-space job key or a column-0 key — the same
+  // idiom as the g4 ratchet block (test 38) and g3-site. Comments are NOT stripped here: hasDirective (below)
+  // skips full-comment lines itself, and the export:check run line carries no inline comment.
+  const r25Idx = LINES.findIndex((l) => /^  r25-taille-de-lot\s*:/.test(l));
+  assert.notEqual(r25Idx, -1, "job 'r25-taille-de-lot' missing from the workflow");
+  const r25Block: string[] = [];
+  for (let i = r25Idx + 1; i < LINES.length; i++) {
+    if (/^  \S/.test(LINES[i]!) || /^\S/.test(LINES[i]!)) break; // next 2-space job key or a column-0 key
+    r25Block.push(LINES[i]!);
+  }
+  assert.ok(r25Block.length > 0, "r25 job body is empty (false green)");
+
+  // (1) the export:check step is present. `npm run export:check` is the command measured green on this base
+  //     (exit 0, all scopes; ADR-M010). Mutant "step removed" => this reds.
+  assert.ok(
+    r25Block.some((l) => /^\s*run:\s*npm run export:check\s*$/.test(l)),
+    "the r25 job must run `npm run export:check` (public-mirror export hygiene); mutant: step removed => red",
+  );
+
+  // (2) fail-closed: no continue-on-error DIRECTIVE in the r25 block (a YAML key on a non-comment line; a prose
+  //     "continue-on-error" in a # comment stays allowed — hasDirective skips comment lines). Reuses test 38's
+  //     file-wide detector, block-scoped to r25. Mutant `continue-on-error: true` on the step => this reds.
+  assert.ok(
+    !hasDirective(r25Block, COE_DIRECTIVE_RE),
+    "the export:check step must carry no continue-on-error (fail-closed); mutant: a continue-on-error: true on the step => red",
+  );
+
+  // (2bis / G2 C-1) fail-closed on SKIP too: no `if:` directive in the r25 block. A SKIPPED required check
+  //     counts as PASSING on GitHub -- test 38 (1bis) calls this WORSE than continue-on-error -- so it is the
+  //     more severe dimension, and until now it was pinned only file-wide by test 38 (mutant `if: false` on r25
+  //     left THIS test green). Block-scoped sibling of the COE assert above (and of g3-site's if-guard). The
+  //     shell `if [ ... ]` and awk `{ if($i ~ ...` in this block carry no `:` after `if`, so IF_DIRECTIVE_RE
+  //     does not false-red them (G2-measured). Mutant `if: false` on the r25 job => this reds.
+  assert.ok(
+    !hasDirective(r25Block, IF_DIRECTIVE_RE),
+    "the r25 job/export:check step must carry no `if:` (a skipped required check counts as PASSING on GitHub); mutant: if: false on r25 => red",
+  );
+
+  // (3) the run line invokes export-public.mjs --check THROUGH the package.json script chain (npm run
+  //     export:check -> scripts["export:check"]). Pinning both ends keeps neither the CI run line nor the
+  //     underlying command able to drift silently ("appelle bien export-public.mjs --check").
+  const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> };
+  assert.equal(
+    pkg.scripts["export:check"],
+    "node scripts/export-public.mjs --check",
+    "package.json scripts['export:check'] must invoke export-public.mjs --check (the r25 run line calls it by name)",
+  );
+});
+
 // Lot V support (ADR-M003 D12) — the naked Hermes pattern of the monark scope is present and discriminating.
 // Unnumbered (D11 is a closed list): a regression lock so that the clawpump-hermes reformulation
 // does not drift silently. The end-to-end execution proof (grep of the gate
@@ -1358,9 +1420,10 @@ test("g3_site_builds_then_asserts_fleet_html — job g3-site runs the build THEN
 });
 
 // Lot CI-site (C-10) — the sentinel README is a REAL kept export file (model SECURITY.md, cra-b.test.ts). It is
-// scanned by public_surfaces_make_no_probative_claim and gate:vocab (scan.sentinel), but lang:gate/export:check
-// do NOT run in CI (formed item), so a FRENCH README would land in collectFiles().frenchMd and be dropped from
-// the export in SILENCE (export-public.mjs:263). This membership assertion is the CI teeth for that.
+// scanned by public_surfaces_make_no_probative_claim and gate:vocab (scan.sentinel). export:check now runs in CI
+// (Lot CI-EXPORT-CHECK, r25 job) but its French-.md rule is NON-fatal: a FRENCH README would land in
+// collectFiles().frenchMd and be dropped from the export in SILENCE (export-public.mjs:263), not a red -- and
+// lang:gate does not run in CI. So this membership assertion stays the CI teeth for a French README.
 test("sentinel_readme_is_a_kept_export — apps/sentinel/README.md is an English kept export file (C-10)", () => {
   const kept = new Set(collectFiles(ROOT).kept.map((f) => f.rel));
   assert.ok(

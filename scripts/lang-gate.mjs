@@ -36,9 +36,9 @@
 //
 // SCOPE: every run computes hit counts for ALL scopes (root, contracts, schemas, hikae, ukemi,
 // atelier, monark) — free input data for the E-* translation lots. `--scope a,b` only gates the EXIT
-// CODE: exit 1 iff a non-exempt hit falls in a selected scope. No --scope = global. For this gate
-// the E-hikae/ukemi/atelier/monark lots are NOT done, so global is RED by design; the lot's
-// oracle is `--scope root,contracts` = GREEN. The frozen `schemas` scope (ADR-M001 D9-bis) is
+// CODE: exit 1 iff a non-exempt hit falls in a selected scope. No --scope = global. As the E-*
+// translation lots landed, global went GREEN on this base (measured 2026-09-21: lang:gate global =
+// exit 0, 0 hit in every scope). The frozen `schemas` scope (ADR-M001 D9-bis) is
 // English-only and GATED alongside root,contracts (test 42 uses root,contracts,schemas,site).
 //
 // Usage: node scripts/lang-gate.mjs [--dir <path>] [--scope root,contracts] [--json]
