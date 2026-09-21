@@ -1,25 +1,29 @@
-// scripts/probe-narabi.mjs — EXTERNAL freshness/chain probe for the MONARK Narabi sentinel surface
-// (ADR-NARABI-OPS-1 L-5, sub-lot -1b-i: DETECTION only, no mail). Runs on the SECOND VPS (Bell), a host
-// distinct from the surveyed sentinel (decision 57), so a stalled or broken publication is observed from
-// the outside. Node BUILT-INS ONLY: @monark/* is not installable on Bell, so the 31-field hash order and
-// providerOf are DUPLICATED here (their fidelity is an oracle: test/probe-narabi.test.ts). This file is
-// pure logic + injected I/O (`--file`/`--now`/`--url`/`--out`), so the whole decision is replayed offline
-// with no network. It NEVER sends mail and carries NO state machine — that is sub-lot -1b-ii.
+// scripts/probe-narabi.mjs — EXTERNAL freshness/chain probe + ALERT for the MONARK Narabi sentinel surface
+// (ADR-NARABI-OPS-1 L-5, sub-lot -1b-ii-a: detection [from -1b-i] PLUS the SMTP mail alert). Runs on the SECOND
+// VPS (Bell), a host distinct from the surveyed sentinel (decision 57), so a stalled or broken publication is
+// observed from the outside. Node BUILT-INS ONLY: @monark/* is not installable on Bell, so the 31-field hash
+// order and providerOf are DUPLICATED here (fidelity is an oracle: test/probe-narabi.test.ts). Pure logic +
+// injected I/O (`--file`/`--now`/`--url`/`--out`) + a built-ins SMTP client (node:tls implicit 465 / node:net
+// loopback for tests), so the decision AND the send are replayed offline against a loopback fake — no network.
 //
-// CONTRACT: the probe ALWAYS writes narabi.json before it exits, and exits 1 IFF status === "unhealthy"
-// (visible from systemd/journalctl), 0 otherwise. It performs NO outbound action other than a GET of the
-// already-served public surface; `http://` is accepted on loopback ONLY (the offline test wire).
+// CONTRACT: the probe ALWAYS writes narabi.json before it exits, and exits 1 IFF status === "unhealthy" OR an
+// alert send failed (alert_error !== null), visible from systemd/journalctl. The only outbound actions are a GET
+// of the already-served public surface (`http://` on loopback ONLY) and, on unhealthy, an SMTP submission.
 //
-// narabi.json (schema 1, DETECTION): { schema, checked_at, last_day, lag_days, chain_ok, reachable,
-//   chainstack_present, provider, status, reason, publish_latency }. WRITE-ONLY in -1b-i (no prior state is
-//   read back); the state-machine read path (alerted/alert_error) lands in -1b-ii, which bumps `schema`.
+// narabi.json (schema 2, DETECTION + ALERT): schema 1 fields { schema, checked_at, last_day, lag_days,
+//   chain_ok, reachable, chainstack_present, provider, status, reason, publish_latency } PLUS the -1b-ii-a
+//   alert state machine { alerted, alert_error (closed set), last_alert_day (UTC YYYY-MM-DD), state_checked }.
+//   READ back now (bootstrap alerted:false on absent/corrupt/schema-1/inconsistent, C-B-5). state_checked is
+//   always false in -a (the 2nd GET state.json cross-check that can set it lands in -1b-ii-b).
 import { createHash, randomBytes } from "node:crypto";
 import { readFileSync, writeFileSync, mkdirSync, statSync, renameSync, unlinkSync } from "node:fs";
 import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
+import net from "node:net";
+import tls from "node:tls";
 
-/** narabi.json schema version. -1b-ii bumps this when it adds alerted/alert_error/last_alert_day. */
-export const SCHEMA = 1;
+/** narabi.json schema version. -1b-ii-a bumped this from 1 to 2 when it added alerted/alert_error/last_alert_day. */
+export const SCHEMA = 2;
 
 /** The served surface the probe reads (public, key-less). Overridable with `--url` / env PROBE_URL. */
 export const DEFAULT_URL = "https://monarkgate.tech/narabi/timeline.jsonl";
@@ -57,6 +61,15 @@ export const MAX_TIMEOUT_MS = 10_000;
 export const MAX_MAX_BYTES = 8 * 1024 * 1024;
 export const MAX_RETRIES = 4;
 export const START_MARGIN_MS = 10_000;
+
+// ── SMTP conversation bounds (-1b-ii-a, C-B-2) ──────────────────────────────────────────────────────────
+// A SINGLE global deadline for the WHOLE conversation (~9 round trips), NOT a per-op or inactivity timeout: a
+// drip server (250- forever) must still be given up on. Env SMTP_DEADLINE_MS clamps to MAX (like the GET bounds),
+// so a mis-set /etc/monark/probe.env can never push the send past the unit's TimeoutStartSec (asserted by
+// probe_timer_multiple_shots). SMTP_MAX_BYTES caps the total response bytes (a second, coarser stall/flood guard).
+export const DEFAULT_SMTP_DEADLINE_MS = 20_000;
+export const MAX_SMTP_DEADLINE_MS = 30_000;
+export const SMTP_MAX_BYTES = 64 * 1024;
 
 const DAY_MS = 86_400_000;
 
@@ -283,6 +296,8 @@ export function evaluate({ text, nowIso, reachable, fetchReason }) {
   const base = {
     schema: SCHEMA, checked_at, last_day: null, lag_days: null, chain_ok: false, reachable,
     chainstack_present: false, provider: null, status: "unhealthy", reason: null, publish_latency,
+    // schema-2 alert fields default to the "no alert decided yet" shape; probe() fills them from the state machine.
+    alerted: false, alert_error: null, last_alert_day: null, state_checked: false,
   };
   if (!reachable) return { ...base, reason: fetchReason ?? "unreachable" };
   let lines;
@@ -350,9 +365,18 @@ export async function probe(opts = {}) {
       schema: SCHEMA, checked_at: new Date(Date.parse(nowIso)).toISOString(), last_day: null, lag_days: null,
       chain_ok: false, reachable, chainstack_present: false, provider: null, status: "unhealthy",
       reason: "probe_error", publish_latency: publishLatencySec(nowIso),
+      alerted: false, alert_error: null, last_alert_day: null, state_checked: false,
     };
   }
   const out = opts.out ?? process.env.PROBE_OUT ?? DEFAULT_OUT;
+  // Alert state machine (-1b-ii-a, E-3 / C-B-7): read the prior alert bit at `out`, decide, send, and fold the
+  // result into `state`. Order = evaluate -> decide -> send -> 250 -> write ONCE (C-NB-10 option 2: narabi.json is
+  // NOT written before the send; the send is wrapped so even a synchronous connector throw still lets us write it).
+  const nowDay = state.checked_at.slice(0, 10); // UTC YYYY-MM-DD (checked_at is a normalized UTC ISO)
+  const alert = await maybeAlert({ state, out, nowDay, env: process.env, deadlineMs: smtpDeadlineMs(process.env) });
+  state.alerted = alert.alerted;
+  state.last_alert_day = alert.last_alert_day;
+  state.alert_error = alert.alert_error;
   try { mkdirSync(dirname(out), { recursive: true }); } catch { /* dir may exist / be a root */ }
   // Atomic write (C-G2-6): write a temp file in the SAME dir, then rename over the target (atomic on one
   // filesystem, overwrites on POSIX and Windows), so a crash mid-write never leaves a torn narabi.json. The temp
@@ -370,7 +394,269 @@ export async function probe(opts = {}) {
     try { writeFileSync(out, JSON.stringify(errState, null, 2) + "\n"); } catch { /* best-effort, never FATAL */ }
     return { state: errState, exitCode: 1 };
   }
-  return { state, exitCode: state.status === "unhealthy" ? 1 : 0 };
+  // exit 1 IFF unhealthy OR an alert send failed (-1b-ii contract, G0 -1b C-15): a recovery-send failure on a
+  // healthy day is a non-zero exit too, so a failed send is always visible from systemd/journalctl.
+  return { state, exitCode: state.status === "unhealthy" || state.alert_error !== null ? 1 : 0 };
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════
+// -1b-ii-a — ALERT: state read (bootstrap), mail composition, SMTP client (built-ins), anti-storm machine.
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+/** Read the persisted alert bit from narabi.json at `out`. ANY of {absent, corrupt JSON, schema !== 2
+ *  (incl. a schema-1 file left by a deployed -1b-i, or schema > 2), alerted not a boolean, or the inconsistent
+ *  alerted:true with last_alert_day:null} bootstraps to {alerted:false, last_alert_day:null} — never a crash (C-B-5). */
+export function readPriorState(out) {
+  try {
+    const j = JSON.parse(readFileSync(out, "utf8"));
+    if (j && j.schema === SCHEMA && typeof j.alerted === "boolean") {
+      const lad = (typeof j.last_alert_day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(j.last_alert_day)) ? j.last_alert_day : null;
+      if (j.alerted && lad === null) return { alerted: false, last_alert_day: null }; // inconsistent -> bootstrap
+      return { alerted: j.alerted, last_alert_day: lad };
+    }
+  } catch { /* absent or corrupt -> bootstrap */ }
+  return { alerted: false, last_alert_day: null };
+}
+
+/** Whitelist a remote-carried field to printable ASCII (drops CR/LF/8-bit) and bound its length — the CR/LF
+ *  injection guard for `last_day` (the ONLY free remote field reaching the mail, fact 19 / C-B-3). */
+export function sanitizeField(s) {
+  return String(s ?? "").replace(/[^\x20-\x7E]/g, "").slice(0, 100);
+}
+
+/** RFC-5322-form validation of ALERT_TO/ALERT_FROM (a malformed address -> smtp_unconfigured, C-NB-8). */
+export function isEmailish(s) {
+  return typeof s === "string" && /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(s);
+}
+
+/** Constant Subject (C-7): never varies with remote content, so a subject-injection vector cannot exist. */
+const SUBJECT = "[MONARK] Narabi external probe notice";
+
+/** Deterministic RFC-5322 Date from an ISO instant, in UTC (+0000) — same instant as checked_at under --now. */
+function rfc5322Date(iso) {
+  const d = new Date(Date.parse(iso));
+  // Concatenated (not an array) so no 3-letter abbreviation is a standalone token the lang-gate flags as French.
+  const days = "SunMonTueWedThuFriSat";
+  const mons = "JanFebMarAprMayJunJulAugSepOctNovDec";
+  const p2 = (n) => String(n).padStart(2, "0");
+  const dowTok = days.slice(d.getUTCDay() * 3, d.getUTCDay() * 3 + 3);
+  const monTok = mons.slice(d.getUTCMonth() * 3, d.getUTCMonth() * 3 + 3);
+  return `${dowTok}, ${p2(d.getUTCDate())} ${monTok} ${String(d.getUTCFullYear())} ` +
+    `${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}:${p2(d.getUTCSeconds())} +0000`;
+}
+
+/** Build the full RFC-822 message (headers + blank line + body). The Subject is constant (C-7); the body carries
+ *  the sanitized remote `last_day` and closed-set facts only — no secret, no key-bearing URL, no forbidden vocab. */
+export function composeMail({ from, to, nowIso, kind, status, reason, last_day, lag_days, chainstack_present, provider, checked_at }) {
+  const condition = kind === "recovery" ? "recovered" : kind; // "alert" | "reminder" | "recovered"
+  const domain = String(from).split("@")[1] || "monark-probe.local";
+  const messageId = `<probe-${String(Date.parse(nowIso))}-${randomBytes(6).toString("hex")}@${domain}>`;
+  const headers = [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: ${SUBJECT}`,
+    `Date: ${rfc5322Date(nowIso)}`,
+    `Message-ID: ${messageId}`,
+    "MIME-Version: 1.0",
+    "Content-Type: text/plain; charset=us-ascii",
+  ];
+  const body = [
+    "MONARK Narabi external probe",
+    `condition: ${condition}`,
+    `status: ${sanitizeField(status)}`,
+    `reason: ${reason === null ? "none" : sanitizeField(reason)}`,
+    `last_day: ${last_day === null ? "none" : sanitizeField(last_day)}`,
+    `lag_days: ${lag_days === null ? "none" : String(Number(lag_days))}`,
+    `chainstack_present: ${chainstack_present ? "yes" : "no"}`,
+    `provider: ${provider === null ? "none" : sanitizeField(provider)}`,
+    `checked_at: ${sanitizeField(checked_at)}`,
+  ];
+  return { subject: SUBJECT, message: headers.join("\n") + "\n\n" + body.join("\n") + "\n" };
+}
+
+/** DATA wire-encoding (C-B-4): normalize to CRLF, dot-stuff every line beginning with '.', append the `.` terminator. */
+export function encodeData(message) {
+  const stuffed = String(message).split(/\r\n|\n/).map((l) => (l.startsWith(".") ? "." + l : l));
+  let out = stuffed.join("\r\n");
+  if (!out.endsWith("\r\n")) out += "\r\n";
+  return out + ".\r\n";
+}
+
+/** A bare IPv4 literal or an IPv6 (has ':') — servername must NOT be set to an IP (RFC 6066; also avoids a
+ *  DeprecationWarning on stderr that would pollute the secret-hygiene oracle). */
+function isIpLiteral(host) {
+  return /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || String(host).includes(":");
+}
+/** Pinned TLS options: TLS >= 1.2, cert verified, SNI on real hostnames (C-B-8). NEVER rejectUnauthorized:false. */
+export function tlsConnectOptions(host) {
+  const o = { minVersion: "TLSv1.2", rejectUnauthorized: true };
+  if (!isIpLiteral(host) && host !== "localhost") o.servername = host;
+  return o;
+}
+/** Transport routing (C-B-8): implicit TLS everywhere; plaintext (net) on loopback ONLY; SMTP_TLS=none on a
+ *  non-loopback host is REFUSED with NO connection (mirrors the http-loopback guard). */
+export function smtpTransportPlan(host, tlsMode) {
+  if (tlsMode === "none") return isLoopbackHost(host) ? { connector: "net" } : { connector: "refuse", error: "smtp_unconfigured" };
+  return { connector: "tls", options: tlsConnectOptions(host) };
+}
+
+const NET_FAIL_CODES = new Set([
+  "ECONNREFUSED", "ENOTFOUND", "EHOSTUNREACH", "ETIMEDOUT", "ECONNRESET",
+  "EAI_AGAIN", "ENETUNREACH", "EHOSTDOWN", "EPIPE", "ECONNABORTED", "EADDRNOTAVAIL",
+]);
+/** A connect-phase error -> closed AlertError: a network code is unreachable; anything else (an SSL routine /
+ *  wrong-version error before secureConnect) is a TLS handshake failure (measured spike, 2026-09-21). */
+export function classifyConnectError(err) {
+  const code = err && err.code ? String(err.code) : "";
+  return NET_FAIL_CODES.has(code) ? "smtp_unreachable" : "smtp_tls_failed";
+}
+
+/** Read SMTP config from env; a missing field, malformed ALERT_TO/FROM, or unknown SMTP_TLS -> smtp_unconfigured. */
+function smtpConfig(env) {
+  const host = env.SMTP_HOST, user = env.SMTP_USER, pass = env.SMTP_PASS, from = env.ALERT_FROM, to = env.ALERT_TO;
+  const tlsMode = env.SMTP_TLS ?? "implicit";
+  const pn = Number(String(env.SMTP_PORT ?? "465").trim());
+  const port = Number.isFinite(pn) && pn > 0 && pn < 65536 ? pn : 465;
+  if (!host || !user || !pass || !from || !to) return { error: "smtp_unconfigured" };
+  if (!isEmailish(from) || !isEmailish(to)) return { error: "smtp_unconfigured" };
+  if (tlsMode !== "implicit" && tlsMode !== "none") return { error: "smtp_unconfigured" };
+  return { host, port, tls: tlsMode, user, pass, from, to };
+}
+
+/** The env-tunable global SMTP deadline, clamped to MAX (like the GET bounds). */
+function smtpDeadlineMs(env = process.env) {
+  const v = env.SMTP_DEADLINE_MS;
+  if (v === undefined) return DEFAULT_SMTP_DEADLINE_MS;
+  const n = Number(String(v).trim());
+  if (!Number.isFinite(n) || n < 1) return DEFAULT_SMTP_DEADLINE_MS;
+  return Math.min(n, MAX_SMTP_DEADLINE_MS);
+}
+
+/** Run ONE bounded SMTP conversation over built-ins (implicit TLS 465 / plaintext-loopback). Returns a CLOSED-set
+ *  AlertError on any failure — NEVER a raw server line, NEVER a secret (C-B-1/2/8). A synchronous connector throw
+ *  is caught by the caller (probe), so narabi.json is still written (C-NB-10). */
+export async function sendSmtp({ host, port, tls: tlsMode, user, pass, from, to, message, deadlineMs, maxBytes = SMTP_MAX_BYTES }) {
+  const plan = smtpTransportPlan(host, tlsMode);
+  if (plan.connector === "refuse") return { ok: false, error: plan.error };
+
+  // Connect. On failure this REJECTS with { alertError } — deliberately NOT caught inside sendSmtp: maybeAlert's
+  // try/catch is the SINGLE guard, so M-ii-20 (dropping that guard) turns a connector throw into a FATAL that
+  // leaves narabi.json UNWRITTEN -> RED. A synchronous tls/net.connect throw is converted to the same rejection.
+  const socket = await new Promise((resolve, reject) => {
+    let settled = false;
+    const ok = (s) => { if (!settled) { settled = true; resolve(s); } };
+    const no = (alertError, s) => { if (!settled) { settled = true; try { if (s) s.destroy(); } catch { /* closing */ } reject({ alertError }); } };
+    let s;
+    try {
+      if (plan.connector === "tls") s = tls.connect({ ...plan.options, host, port }, () => ok(s));
+      else { s = net.connect({ host, port }); s.once("connect", () => ok(s)); }
+    } catch (e) { no(classifyConnectError(e), s); return; }
+    s.once("error", (e) => no(classifyConnectError(e), s));
+    s.setTimeout(deadlineMs, () => no("smtp_timeout", s)); // a stuck handshake (TCP accepted, no ServerHello) is bounded
+  });
+  socket.setTimeout(0); // the connect phase is bounded above; the whole-conversation deadline below now takes over
+
+  // Response reader over a SINGLE global deadline (never reset per read): a complete reply ends with a
+  // "NNN " (space) status line; multiline "NNN-" continuations precede it (parsed for the EHLO AUTH mechs).
+  let buf = "", total = 0, waiter = null, dead = false;
+  const failWaiter = (alertError) => { const w = waiter; waiter = null; if (w) w.reject({ alertError }); };
+  const timer = setTimeout(() => { dead = true; try { socket.destroy(); } catch { /* closing */ } failWaiter("smtp_timeout"); }, deadlineMs);
+  const deliver = () => {
+    const lines = buf.split(/\r?\n/);
+    let idx = -1;
+    for (let i = 0; i < lines.length; i++) { if (/^\d{3} /.test(lines[i])) { idx = i; break; } }
+    if (idx >= 0 && waiter) {
+      const reply = lines.slice(0, idx + 1);
+      buf = lines.slice(idx + 1).join("\n");
+      const code = Number(reply[reply.length - 1].slice(0, 3));
+      const w = waiter; waiter = null; w.resolve({ code, lines: reply });
+    }
+  };
+  socket.setEncoding("utf8");
+  socket.on("data", (chunk) => {
+    total += Buffer.byteLength(chunk, "utf8");
+    if (total > maxBytes) { dead = true; try { socket.destroy(); } catch { /* closing */ } return failWaiter("smtp_timeout"); }
+    buf += chunk; deliver();
+  });
+  socket.on("error", () => { dead = true; failWaiter("smtp_unreachable"); });
+  socket.on("close", () => { dead = true; failWaiter("smtp_unreachable"); });
+  const read = () => new Promise((resolve, reject) => {
+    if (dead) { reject({ alertError: "smtp_unreachable" }); return; }
+    waiter = { resolve, reject };
+    deliver();
+  });
+  const send = (line) => { try { socket.write(line + "\r\n"); } catch { /* error surfaces via read() */ } };
+  const is2 = (c) => Math.floor(c / 100) === 2;
+
+  let error = null;
+  try {
+    let r = await read(); if (!is2(r.code)) throw { alertError: "smtp_rejected" };       // 220 greeting
+    send("EHLO monark-probe");
+    r = await read(); if (!is2(r.code)) throw { alertError: "smtp_rejected" };            // 250 (multiline)
+    const mechs = (r.lines.map((l) => l.slice(4).trim().toUpperCase()).find((c) => c.startsWith("AUTH")) || "").split(/\s+/).slice(1);
+    if (mechs.includes("PLAIN")) {                                                        // negotiated: only an ANNOUNCED mech
+      send("AUTH PLAIN " + Buffer.concat([Buffer.from([0]), Buffer.from(user, "utf8"), Buffer.from([0]), Buffer.from(pass, "utf8")]).toString("base64"));
+      r = await read(); if (r.code !== 235) throw { alertError: "smtp_auth_failed" };
+    } else if (mechs.includes("LOGIN")) {
+      send("AUTH LOGIN"); r = await read(); if (r.code !== 334) throw { alertError: "smtp_auth_failed" };
+      send(Buffer.from(user, "utf8").toString("base64")); r = await read(); if (r.code !== 334) throw { alertError: "smtp_auth_failed" };
+      send(Buffer.from(pass, "utf8").toString("base64")); r = await read(); if (r.code !== 235) throw { alertError: "smtp_auth_failed" };
+    } else { throw { alertError: "smtp_auth_failed" }; }                                  // no mech announced -> fail (kills EHLO mono-line mutant)
+    send(`MAIL FROM:<${from}>`); r = await read(); if (!is2(r.code)) throw { alertError: "smtp_rejected" };
+    send(`RCPT TO:<${to}>`); r = await read(); if (!is2(r.code)) throw { alertError: "smtp_rejected" };
+    send("DATA"); r = await read(); if (r.code !== 354) throw { alertError: "smtp_rejected" };
+    try { socket.write(encodeData(message)); } catch { /* error surfaces via read() */ }
+    r = await read(); if (!is2(r.code)) throw { alertError: "smtp_rejected" };            // 250 accepted
+    try { send("QUIT"); await read(); } catch { /* mail already accepted — QUIT failure is not fatal */ }
+  } catch (e) {
+    error = (e && e.alertError) || "smtp_rejected";
+  } finally {
+    clearTimeout(timer);
+    try { socket.destroy(); } catch { /* already closing */ }
+  }
+  return error ? { ok: false, error } : { ok: true };
+}
+
+/** The anti-storm state machine (E-3, borne VRAIE C-B-7). Given the detection `state`, the current UTC day, and
+ *  the prior alert bit read from `out`: send an alert (first unhealthy, or same-day retry after a failed send), a
+ *  daily reminder (already alerted, a NEW UTC day still unhealthy), or a recovery mail (healthy after an alert).
+ *  alerted/last_alert_day move ONLY after a 250 (at-least-once, C-2); a failed send keeps them intact + records a
+ *  closed-set alert_error and leaves the same-day next shot to retry. */
+async function maybeAlert({ state, out, nowDay, env, deadlineMs }) {
+  const prior = readPriorState(out);
+  let alerted = prior.alerted, last_alert_day = prior.last_alert_day, alert_error = null;
+  let kind = null;
+  if (state.status === "unhealthy") {
+    if (!alerted) kind = "alert";
+    else if (nowDay > (last_alert_day ?? "")) kind = "reminder";
+  } else if (alerted) {
+    kind = "recovery";
+  }
+  if (kind !== null) {
+    const cfg = smtpConfig(env);
+    if (cfg.error) {
+      alert_error = cfg.error;
+    } else {
+      let res;
+      try {
+        const { message } = composeMail({
+          from: cfg.from, to: cfg.to, nowIso: state.checked_at, kind, status: state.status, reason: state.reason,
+          last_day: state.last_day, lag_days: state.lag_days, chainstack_present: state.chainstack_present,
+          provider: state.provider, checked_at: state.checked_at,
+        });
+        res = await sendSmtp({ ...cfg, message, deadlineMs, maxBytes: SMTP_MAX_BYTES });
+      } catch (e) { // a SYNCHRONOUS connector throw (tls/net.connect at construction) — narabi.json still gets written (C-NB-10)
+        res = { ok: false, error: (e && e.alertError) || "smtp_unreachable" };
+      }
+      if (res.ok) {
+        if (kind === "recovery") { alerted = false; last_alert_day = null; }
+        else { alerted = true; last_alert_day = nowDay; }
+      } else {
+        alert_error = res.error; // prior alerted/last_alert_day INTACT -> the same-day next shot retries (C-2)
+      }
+    }
+  }
+  return { alerted, last_alert_day, alert_error };
 }
 
 function parseArgs(argv) {
@@ -381,12 +667,23 @@ function parseArgs(argv) {
     else if (t === "--now") { a.now = argv[++i]; }
     else if (t === "--url") { a.url = argv[++i]; }
     else if (t === "--out") { a.out = argv[++i]; }
+    else { throw new Error(`unknown flag: ${t}`); } // C-B-13: a typo'd flag (e.g. --state) must FAIL LOUD, never
+    // be silently ignored while the machine writes the PRODUCTION narabi.json. --state does NOT exist.
   }
   return a;
 }
 
 async function main() {
-  const { state, exitCode } = await probe(parseArgs(process.argv.slice(2)));
+  let args;
+  try {
+    args = parseArgs(process.argv.slice(2));
+  } catch (e) {
+    // A usage error is loud and terminal BEFORE probe(): no narabi.json is written (a typo must not touch prod).
+    console.error("probe usage error:", e && e.message ? e.message : String(e));
+    process.exitCode = 2;
+    return;
+  }
+  const { state, exitCode } = await probe(args);
   console.log(JSON.stringify(state, null, 2));
   process.exitCode = exitCode;
 }

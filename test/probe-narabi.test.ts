@@ -1,15 +1,16 @@
-// test/probe-narabi.test.ts — non-LLM oracle for the EXTERNAL Narabi probe (ADR-NARABI-OPS-1 -1b-i:
-// DETECTION). Runs at the REPO ROOT under `node --test` (test/*.test.ts glob), NOT under apps/sentinel/test
+// test/probe-narabi.test.ts — non-LLM oracle for the EXTERNAL Narabi probe + ALERT (ADR-NARABI-OPS-1
+// -1b-ii-a). Runs at the REPO ROOT under `node --test` (test/*.test.ts glob), NOT under apps/sentinel/test
 // (that tree is exported package-style and would drag the built-ins-only .mjs import into the public CI). It
 // imports the probe's pure functions (typed via scripts/probe-narabi.d.mts) and DRIVES the real .mjs as a
 // SUBPROCESS (the only way to observe the real process exit code), plus the REAL sentinel producer run.ts for
-// the Chainstack pipe (CA-11 durci). No network: a fetch stub / a node:http loopback server / `--file`.
+// the Chainstack pipe (CA-11 durci). No real network: a fetch stub / node:http + node:net loopback fakes / `--file`.
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:http";
+import net from "node:net";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync, spawn } from "node:child_process";
 import { hashedFields, lineHashOf as sentinelLineHashOf } from "../apps/sentinel/src/timeline.ts";
@@ -20,8 +21,19 @@ import {
   urlTransportAllowed, isLoopbackHost, fetchTimeline, DEADLINE_UTC, DEADLINE_UTC_MINUTES,
   DEFAULT_TIMEOUT_MS, DEFAULT_MAX_BYTES, DEFAULT_RETRIES, MAX_TIMEOUT_MS, MAX_MAX_BYTES, MAX_RETRIES,
   START_MARGIN_MS, transportBounds, SCHEMA, evaluate,
+  encodeData, composeMail, smtpTransportPlan, sanitizeField, readPriorState, isEmailish, MAX_SMTP_DEADLINE_MS,
 } from "../scripts/probe-narabi.mjs";
 import type { NarabiState } from "../scripts/probe-narabi.mjs";
+
+const SELF = fileURLToPath(import.meta.url);
+// C-B-6: NO test may send a REAL mail. Every child spawned here gets an env with all SMTP_*/ALERT_* PURGED
+// (a SMTP_PASS in the orchestrator's User-scope env, allowed by C-11, must never reach a child). This is the
+// ONLY place that spreads the parent env — g2_no_test_can_send_real_mail pins that (exactly one such spread below).
+const childEnv = (extra: Record<string, string> = {}): Record<string, string> => {
+  const e: Record<string, string> = { ...process.env } as Record<string, string>;
+  for (const k of Object.keys(e)) if (/^(SMTP_|ALERT_)/.test(k)) delete e[k];
+  return { ...e, TZ: TZ_EAST, ...extra };
+};
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const REPO = join(HERE, "..");
@@ -53,7 +65,7 @@ interface ProbeRun { status: number; stdout: string; stderr: string; state: Nara
 function runProbe(args: readonly string[], env: Record<string, string> = {}): ProbeRun {
   const out = join(scratchDir(), `narabi-${String(uniq++)}.json`);
   const r = spawnSync(process.execPath, [PROBE_MJS, "--out", out, ...args], {
-    cwd: REPO, env: { ...process.env, TZ: TZ_EAST, ...env }, encoding: "utf8", timeout: 60_000,
+    cwd: REPO, env: childEnv(env), encoding: "utf8", timeout: 60_000,
   });
   assert.ok(existsSync(out), `the probe must ALWAYS write narabi.json (stdout=${JSON.stringify(r.stdout)} stderr=${JSON.stringify(r.stderr)})`);
   const state = JSON.parse(readFileSync(out, "utf8")) as NarabiState;
@@ -64,7 +76,7 @@ function runProbe(args: readonly string[], env: Record<string, string> = {}): Pr
  *  spawnSync would freeze the parent event loop and deadlock (the server could not accept the child). */
 async function runProbeAsync(args: readonly string[], env: Record<string, string> = {}): Promise<ProbeRun> {
   const out = join(scratchDir(), `narabi-${String(uniq++)}.json`);
-  const child = spawn(process.execPath, [PROBE_MJS, "--out", out, ...args], { cwd: REPO, env: { ...process.env, TZ: TZ_EAST, ...env } });
+  const child = spawn(process.execPath, [PROBE_MJS, "--out", out, ...args], { cwd: REPO, env: childEnv(env) });
   const status = await new Promise<number>((resolve) => { child.on("close", (code) => resolve(code ?? -1)); });
   assert.ok(existsSync(out), "the probe must ALWAYS write narabi.json");
   const state = JSON.parse(readFileSync(out, "utf8")) as NarabiState;
@@ -153,6 +165,9 @@ test("probe_narabi_detects_lag — the UTC deadline grid sets expected_last_day;
       assert.equal(r.state.last_day, "2026-09-19", `[TZ=${TZ}] ${c.now}: last_day is the fixture's last`);
       assert.equal(r.state.chain_ok, true, `[TZ=${TZ}] ${c.now}: the fixture chain is intact`);
       assert.equal(r.state.schema, SCHEMA, `[TZ=${TZ}] ${c.now}: schema is versioned`);
+      // Q10 / C-B-6: with SMTP_*/ALERT_* purged, an unhealthy verdict tries to alert and records smtp_unconfigured
+      // (no send, no deepEqual on the whole state); a healthy verdict leaves alert_error null. schema is now 2.
+      assert.equal(r.state.alert_error, c.status === "unhealthy" ? "smtp_unconfigured" : null, `[TZ=${TZ}] ${c.now}: alert_error (Q10)`);
     }
   }
 });
@@ -275,10 +290,10 @@ function seedSentinelState(nLines: number): string {
 function runRealSentinel(stateDir: string, setChainstack: string | undefined): number {
   const l3 = readFileSync(FIXTURE, "utf8").replace(/\r\n/g, "\n").split("\n").filter((x) => x.trim())
     .map((l) => JSON.parse(l) as { to_block: number })[2];
-  const env: NodeJS.ProcessEnv = {
-    ...process.env, STUB_FIXTURE: FIXTURE,
+  const env = childEnv({
+    STUB_FIXTURE: FIXTURE,
     STUB_FIN_BLOCK: String((l3?.to_block ?? 0) + 5), STUB_FIN_TS: String(midnight("2026-09-20") + 3600),
-  };
+  });
   delete env.CHAINSTACK_ETH_URL; // a real key in the orchestrator's shell must never enter the child (mirror sentinel-retry:112)
   if (setChainstack !== undefined) env.CHAINSTACK_ETH_URL = setChainstack;
   const r = spawnSync(process.execPath, ["--import", stubUrl(), RUN_TS, "--state", stateDir], { cwd: REPO, env, encoding: "utf8", timeout: 60_000 });
@@ -390,7 +405,7 @@ test("probe_refuses_http_off_loopback — http:// is admitted ONLY on a strict l
 });
 
 // ── C-13: >= 3 post-deadline shots + Persistent; the service reads an optional env file and bounds its start ──
-test("probe_timer_multiple_shots — the timer declares >= 3 post-deadline OnCalendar shots (Persistent kept); the service uses a dedicated user, an optional env file, and a bounded TimeoutStartSec (C-13; C-6)", () => {
+test("probe_timer_multiple_shots — the timer declares >= 3 post-deadline OnCalendar shots (Persistent kept); the service uses a dedicated user, a REQUIRED env file (no leading '-', -1b-ii-a), and a bounded TimeoutStartSec (C-13; C-6; C-8)", () => {
   const timer = readFileSync(join(REPO, "deploy", "monark-probe.timer"), "utf8");
   const shots = [...timer.matchAll(/^OnCalendar=.*?(\d{2}):(\d{2}):\d{2}\s+UTC\s*$/gm)];
   assert.ok(shots.length >= 3, `>= 3 OnCalendar shots (got ${String(shots.length)})`);
@@ -400,7 +415,10 @@ test("probe_timer_multiple_shots — the timer declares >= 3 post-deadline OnCal
   assert.match(timer, /^Unit=monark-probe\.service$/m, "the timer drives monark-probe.service");
 
   const svc = readFileSync(join(REPO, "deploy", "monark-probe.service"), "utf8");
-  assert.match(svc, /^EnvironmentFile=-\/etc\/monark\/probe\.env$/m, "optional EnvironmentFile (leading '-', -1b-i needs no secret)");
+  // -1b-ii-a (C-8): the leading '-' is REMOVED — the ALERT probe MUST have its SMTP config, so a missing env file
+  // fails the start LOUDLY (kills the mutant that keeps the '-' and lets the probe run mute without a secret).
+  assert.match(svc, /^EnvironmentFile=\/etc\/monark\/probe\.env$/m, "REQUIRED EnvironmentFile (NO leading '-', -1b-ii-a needs the SMTP secret)");
+  assert.doesNotMatch(svc, /^EnvironmentFile=-/m, "the '-' (optional) prefix is gone in -1b-ii-a");
   assert.match(svc, /^User=probe$/m, "dedicated probe user");
   assert.match(svc, /^ReadWritePaths=\/var\/lib\/monark-probe$/m, "the state dir is the only writable path");
   assert.match(svc, /^ProtectSystem=strict$/m, "ProtectSystem=strict");
@@ -408,11 +426,11 @@ test("probe_timer_multiple_shots — the timer declares >= 3 post-deadline OnCal
   assert.ok(to, "TimeoutStartSec is set (C-6 per-start backstop)");
   const worstCaseSec = Math.ceil((DEFAULT_TIMEOUT_MS * (DEFAULT_RETRIES + 1)) / 1000);
   assert.ok(Number(to[1] ?? "0") >= worstCaseSec, `TimeoutStartSec (${to[1] ?? "?"}) must be >= code worst-case ${String(worstCaseSec)}s`);
-  // C-G2-7: the env-tunable bounds are HARD-CAPPED, and TimeoutStartSec STRICTLY exceeds the CAPPED worst case
-  // (timeout x (retries+1) + start margin), so a mis-set /etc/monark/probe.env can never get the job killed
-  // mid-write. The caps are real — a huge env value is clamped to MAX (read against the same unit the timer drives).
-  const worstCappedSec = Math.ceil((MAX_TIMEOUT_MS * (MAX_RETRIES + 1) + START_MARGIN_MS) / 1000);
-  assert.ok(Number(to[1] ?? "0") > worstCappedSec, `TimeoutStartSec (${to[1] ?? "?"}) must strictly exceed the CAPPED env worst-case ${String(worstCappedSec)}s`);
+  // C-G2-7 + C-B-2: the env-tunable bounds are HARD-CAPPED, and TimeoutStartSec STRICTLY exceeds the CAPPED worst
+  // case = GET (timeout x (retries+1)) + the SINGLE global SMTP deadline (MAX_SMTP_DEADLINE_MS) + start margin, so a
+  // mis-set /etc/monark/probe.env can never get the job killed mid-write. -1b-ii-a raised the unit to cover the send.
+  const worstCappedSec = Math.ceil((MAX_TIMEOUT_MS * (MAX_RETRIES + 1) + MAX_SMTP_DEADLINE_MS + START_MARGIN_MS) / 1000);
+  assert.ok(Number(to[1] ?? "0") > worstCappedSec, `TimeoutStartSec (${to[1] ?? "?"}) must strictly exceed the CAPPED GET+SMTP worst-case ${String(worstCappedSec)}s`);
   assert.equal(transportBounds({ PROBE_TIMEOUT_MS: "99999999" }).timeoutMs, MAX_TIMEOUT_MS, "PROBE_TIMEOUT_MS is hard-capped");
   assert.equal(transportBounds({ PROBE_RETRIES: "99999" }).retries, MAX_RETRIES, "PROBE_RETRIES is hard-capped");
   // C-V-3: the unit's MemoryMax must cover the worst-case RSS when a body fills the byte cap. Measured peak RSS at
@@ -469,7 +487,7 @@ test("probe_writes_narabi_json_atomically — the probe writes a temp file then 
   const dir = mkdtempSync(join(scratchDir(), "atomic-"));
   const out = join(dir, "narabi.json");
   const run = (): void => {
-    const r = spawnSync(process.execPath, [PROBE_MJS, "--out", out, "--file", FIXTURE, "--now", "2026-09-20T10:35Z"], { cwd: REPO, env: { ...process.env, TZ: TZ_EAST }, encoding: "utf8", timeout: 60_000 });
+    const r = spawnSync(process.execPath, [PROBE_MJS, "--out", out, "--file", FIXTURE, "--now", "2026-09-20T10:35Z"], { cwd: REPO, env: childEnv(), encoding: "utf8", timeout: 60_000 });
     assert.equal(r.status, 0, "healthy exit");
     assert.deepEqual(readdirSync(dir), ["narabi.json"], "only the final file remains — no .tmp residue (atomic rename)");
     const st = JSON.parse(readFileSync(out, "utf8")) as NarabiState; // complete, parseable JSON
@@ -502,7 +520,7 @@ test("probe_io_fault_cleans_tmp_and_falls_back — a rename I/O fault (injected)
   const inject = join(scratchDir(), "inject-rename-fail.mjs");
   writeFileSync(inject, RENAME_FAIL_SRC);
   const r = spawnSync(process.execPath, ["--import", pathToFileURL(inject).href, PROBE_MJS, "--out", out, "--file", FIXTURE, "--now", "2026-09-20T10:35Z"], {
-    cwd: REPO, env: { ...process.env, TZ: TZ_EAST }, encoding: "utf8", timeout: 60_000,
+    cwd: REPO, env: childEnv(), encoding: "utf8", timeout: 60_000,
   });
   assert.ok(existsSync(out), "narabi.json is STILL written (fallback direct write) despite the rename fault");
   const state = JSON.parse(readFileSync(out, "utf8")) as NarabiState;
@@ -537,4 +555,447 @@ test("probe_env_bounds_fall_back_to_default_not_zero — a blank/'0'/whitespace/
 test("probe_fetch_timeline_self_guards_transport — fetchTimeline refuses an off-loopback http URL ITSELF (insecure_url) with no dial, so a future direct caller cannot bypass the guard (C-G2D-4)", async () => {
   const res = await fetchTimeline("http://127.0.0.1.evil.invalid/narabi/timeline.jsonl", { retries: 0 });
   assert.deepEqual(res, { ok: false, reason: "insecure_url" }, "off-loopback http is refused by fetchTimeline itself, before any dial (mutant: self-guard removed -> .invalid DNS attempt -> unreachable -> red)");
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════
+// -1b-ii-a — ALERT: SMTP client, anti-storm state machine, secret hygiene, injection, TLS. ALL offline: a fake
+// SMTP server is a node:net LOOPBACK plaintext server (SMTP_TLS=none is admitted on loopback only), so no real
+// mail can ever leave and no cert is ever needed (C-B-6/C-B-8). Every child runs under childEnv() (secrets purged).
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════
+interface FakeCap { commands: string[]; auth: string[]; mailFrom: string | null; rcptTo: string[]; data: string; connections: number; delivered: number }
+interface FakeOpts {
+  announce?: string[]; authCode?: number; authFailFirst?: number; echoAuthOn535?: boolean; closeAfterAuth?: boolean;
+  drip?: boolean; silentAfterData?: boolean; neverGreet?: boolean;
+}
+interface FakeSmtp { port: number; cap: FakeCap; close: () => Promise<void> }
+
+async function startFakeSmtp(opts: FakeOpts = {}): Promise<FakeSmtp> {
+  const cap: FakeCap = { commands: [], auth: [], mailFrom: null, rcptTo: [], data: "", connections: 0, delivered: 0 };
+  const announce = opts.announce ?? ["PLAIN", "LOGIN"];
+  const server = net.createServer((sock) => {
+    cap.connections++;
+    const w = (s: string): void => { try { sock.write(s); } catch { /* client gone */ } };
+    if (opts.drip) { const t = setInterval(() => { w("250-drip\r\n"); }, 20); sock.on("close", () => { clearInterval(t); }); return; }
+    if (opts.neverGreet) return; // accept the socket, send nothing -> the probe's greeting read hits the global deadline
+    w("220 fake ESMTP\r\n");
+    let buf = "", dataBuf = "", inData = false, awaitUser = false, awaitPass = false;
+    const finishAuth = (): void => {
+      const code = (opts.authFailFirst !== undefined && cap.connections <= opts.authFailFirst) ? 535 : (opts.authCode ?? 235);
+      if (code === 235) { w("235 ok\r\n"); return; }
+      w(`535 auth failed${opts.echoAuthOn535 === true ? " " + cap.auth.join(" ") : ""}\r\n`);
+      if (opts.closeAfterAuth === true) { try { sock.destroy(); } catch { /* closing */ } }
+    };
+    sock.on("data", (chunk: Buffer) => {
+      if (inData) {
+        dataBuf += chunk.toString();
+        const end = dataBuf.indexOf("\r\n.\r\n");
+        if (end >= 0) { cap.data = dataBuf.slice(0, end); inData = false; if (opts.silentAfterData !== true) { cap.delivered++; w("250 queued\r\n"); } }
+        return;
+      }
+      buf += chunk.toString();
+      let nl = buf.indexOf("\r\n");
+      while (nl >= 0) {
+        const line = buf.slice(0, nl); buf = buf.slice(nl + 2); cap.commands.push(line);
+        const up = line.toUpperCase();
+        if (awaitUser) { cap.auth.push(line); awaitUser = false; awaitPass = true; w("334 UGFzc3dvcmQ6\r\n"); }
+        else if (awaitPass) { cap.auth.push(line); awaitPass = false; finishAuth(); }
+        else if (up.startsWith("EHLO")) { w(`250-fake\r\n250-AUTH ${announce.join(" ")}\r\n250 PIPELINING\r\n`); } // AUTH on a CONTINUATION line -> a mono-line parser misses it (M-ii-11)
+        else if (up.startsWith("AUTH PLAIN")) { cap.auth.push(line.slice("AUTH PLAIN".length).trim()); finishAuth(); }
+        else if (up.startsWith("AUTH LOGIN")) { awaitUser = true; w("334 VXNlcm5hbWU6\r\n"); }
+        else if (up.startsWith("MAIL FROM")) { cap.mailFrom = line; w("250 ok\r\n"); }
+        else if (up.startsWith("RCPT TO")) { cap.rcptTo.push(line); w("250 ok\r\n"); }
+        else if (up === "DATA") { inData = true; w("354 go\r\n"); }
+        else if (up === "QUIT") { w("221 bye\r\n"); try { sock.end(); } catch { /* closing */ } }
+        else { w("250 ok\r\n"); }
+        nl = buf.indexOf("\r\n");
+      }
+    });
+  });
+  await new Promise<void>((r) => { server.listen(0, "127.0.0.1", () => { r(); }); });
+  const port = (server.address() as { port: number }).port;
+  return { port, cap, close: () => new Promise<void>((r) => { server.close(() => { r(); }); }) };
+}
+
+const SMTP_PASS_VALUE = "s3cr3t-PONY-cell-42";
+/** SMTP env pointing the probe at a loopback fake (plaintext, admitted on loopback only). */
+const smtpEnv = (port: number, extra: Record<string, string> = {}): Record<string, string> => ({
+  SMTP_HOST: "127.0.0.1", SMTP_PORT: String(port), SMTP_TLS: "none",
+  SMTP_USER: "narabialerts@monarkgate.tech", SMTP_PASS: SMTP_PASS_VALUE,
+  ALERT_FROM: "narabialerts@monarkgate.tech", ALERT_TO: "narabialerts@monarkgate.tech", ...extra,
+});
+/** Spawn the real probe at a FIXED out (state persists across shots) and capture stdout/stderr. killMs>0 SIGKILLs a
+ *  hung child (bounds the M-ii-16 mutant, which under a drip server would never terminate on its own). */
+async function runProbeAt(out: string, args: readonly string[], env: Record<string, string> = {}, killMs = 0): Promise<ProbeRun & { killed: boolean }> {
+  const child = spawn(process.execPath, [PROBE_MJS, "--out", out, ...args], { cwd: REPO, env: childEnv(env) });
+  let stdout = "", stderr = "", killed = false;
+  child.stdout?.on("data", (d: Buffer) => { stdout += d.toString(); });
+  child.stderr?.on("data", (d: Buffer) => { stderr += d.toString(); });
+  const killer = killMs > 0 ? setTimeout(() => { killed = true; try { child.kill("SIGKILL"); } catch { /* gone */ } }, killMs) : null;
+  const status = await new Promise<number>((resolve) => { child.on("close", (code) => { resolve(code ?? -1); }); });
+  if (killer) clearTimeout(killer);
+  const state = (existsSync(out) ? JSON.parse(readFileSync(out, "utf8")) : null) as NarabiState;
+  return { status, stdout, stderr, state, killed };
+}
+const freshOut = (): string => join(scratchDir(), `narabi-${String(uniq++)}.json`);
+// The fixture's last line is 2026-09-19. All the state machine is DRIVEN BY STATE, so --now may move freely in time.
+const LAG_NOW = "2026-09-21T10:35Z";       // after 10:30 on 09-21 -> expected 09-20 -> lag -> unhealthy
+const LAG_MID = "2026-09-21T12:35Z";       // a second same-UTC-day shot, still unhealthy
+const LAG_PM = "2026-09-21T16:35Z";        // a third same-UTC-day shot, still unhealthy
+const LAG_NEXT_DAY = "2026-09-22T10:35Z";  // 09-22 -> expected 09-21 -> lag 2 -> unhealthy, a NEW UTC day
+const HEALTHY_NOW = "2026-09-20T10:35Z";   // expected 09-19 == last -> healthy
+const HEALTHY_SAME_DAY = "2026-09-21T00:15Z"; // BEFORE 10:30 on 09-21 -> expected 09-19 -> healthy, SAME UTC day as LAG_NOW
+
+// ── CA-11 durci: the WHOLE alert pipe EXECUTES from the real fixture -> real narabi.json -> a captured mail ──
+test("probe_alert_composition_from_fixture — the real probe reads the fixture, writes narabi.json, and on the ->unhealthy transition connects to a loopback SMTP fake that captures MAIL/RCPT/DATA carrying ALERT_TO + reason; a same-UTC-day re-run sends NO new mail; a state-driven recovery sends ONE 'recovered' mail then falls silent (CA-11; C-2/C-B-7)", async () => {
+  const fake = await startFakeSmtp();
+  try {
+    const out = freshOut();
+    const r1 = await runProbeAt(out, ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(fake.port));
+    assert.equal(r1.state.status, "unhealthy", "the fixture lags at LAG_NOW");
+    assert.equal(r1.state.alert_error, null, "the alert was delivered (no alert_error)");
+    assert.equal(r1.state.alerted, true, "alerted latches only AFTER the 250");
+    assert.equal(r1.state.last_alert_day, "2026-09-21", "last_alert_day is the UTC day");
+    assert.equal(r1.status, 1, "unhealthy exits 1");
+    assert.equal(fake.cap.delivered, 1, "exactly one mail delivered");
+    assert.equal(fake.cap.rcptTo.length, 1, "exactly one recipient");
+    assert.match(fake.cap.rcptTo[0] ?? "", /narabialerts@monarkgate\.tech/, "RCPT TO carries ALERT_TO");
+    assert.match(fake.cap.mailFrom ?? "", /narabialerts@monarkgate\.tech/, "MAIL FROM carries ALERT_FROM");
+    assert.match(fake.cap.data, /reason: lag/, "the DATA body carries the reason");
+    assert.match(fake.cap.data, /condition: alert/, "the first mail is an alert");
+    const r2 = await runProbeAt(out, ["--file", FIXTURE, "--now", LAG_PM], smtpEnv(fake.port));
+    assert.equal(r2.state.alerted, true, "still alerted");
+    assert.equal(fake.cap.delivered, 1, "a same-UTC-day re-run sends NO new mail (anti-storm)");
+    const r3 = await runProbeAt(out, ["--file", FIXTURE, "--now", HEALTHY_NOW], smtpEnv(fake.port));
+    assert.equal(r3.state.status, "healthy", "recovered surface");
+    assert.equal(r3.state.alerted, false, "recovery clears alerted");
+    assert.equal(r3.state.last_alert_day, null, "recovery clears last_alert_day");
+    assert.equal(r3.state.alert_error, null, "recovery mail delivered");
+    assert.equal(r3.status, 0, "a healthy recovery exits 0");
+    assert.equal(fake.cap.delivered, 2, "recovery sends exactly one more mail");
+    assert.match(fake.cap.data, /condition: recovered/, "the last mail is the recovery");
+    const r4 = await runProbeAt(out, ["--file", FIXTURE, "--now", HEALTHY_NOW], smtpEnv(fake.port));
+    assert.equal(r4.state.alerted, false, "still cleared");
+    assert.equal(fake.cap.delivered, 2, "a healthy, non-alerted run sends nothing");
+  } finally { await fake.close(); }
+});
+
+// ── C-2: the alert is NEVER lost — a failed send retries next shot; alerted latches only after the 250 (M-ii-1) ──
+test("probe_alert_retries_until_delivered — a fake that rejects AUTH on the first connection then accepts sends EXACTLY ONE mail across two shots; alerted latches only after the 250, so the failed first shot retries (C-2; M-ii-1)", async () => {
+  const fake = await startFakeSmtp({ authFailFirst: 1 });
+  try {
+    const out = freshOut();
+    const r1 = await runProbeAt(out, ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(fake.port));
+    assert.equal(r1.state.alert_error, "smtp_auth_failed", "first shot: AUTH rejected");
+    assert.equal(r1.state.alerted, false, "a failed send keeps alerted:false (kills M-ii-1: alerted set before 250)");
+    assert.equal(fake.cap.delivered, 0, "no mail delivered on the failed shot");
+    assert.equal(r1.status, 1, "a failed send exits 1");
+    const r2 = await runProbeAt(out, ["--file", FIXTURE, "--now", LAG_MID], smtpEnv(fake.port));
+    assert.equal(r2.state.alert_error, null, "second shot: delivered");
+    assert.equal(r2.state.alerted, true, "alerted now latched");
+    assert.equal(fake.cap.delivered, 1, "EXACTLY one mail across the two shots");
+  } finally { await fake.close(); }
+});
+
+// ── E-3 + C-B-7: one mail per UTC day of sustained outage; the FLAP (down/up/down same day) is a new incident each ──
+test("probe_alert_daily_reminder_once_per_utc_day — three same-UTC-day shots of a sustained outage send ONE mail, a new UTC day still down sends ONE reminder; a FLAP (down/up/down within one UTC day) sends THREE mails (the true bound is <=1 per shot, not <=2/day) (E-3; C-B-7; M-ii-8)", async () => {
+  const fake = await startFakeSmtp();
+  try {
+    const out = freshOut();
+    await runProbeAt(out, ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(fake.port));
+    assert.equal(fake.cap.delivered, 1, "first detection: 1 mail");
+    await runProbeAt(out, ["--file", FIXTURE, "--now", LAG_MID], smtpEnv(fake.port));
+    await runProbeAt(out, ["--file", FIXTURE, "--now", LAG_PM], smtpEnv(fake.port));
+    assert.equal(fake.cap.delivered, 1, "two more same-day shots: still 1 (kills 'reminder every shot')");
+    const rNext = await runProbeAt(out, ["--file", FIXTURE, "--now", LAG_NEXT_DAY], smtpEnv(fake.port));
+    assert.equal(rNext.state.last_alert_day, "2026-09-22", "the reminder advances last_alert_day");
+    assert.equal(fake.cap.delivered, 2, "a NEW UTC day still down: exactly 1 reminder (kills 'no reminder')");
+  } finally { await fake.close(); }
+  // FLAP: down (alert) -> up (recovery) -> down (a NEW alert) within a single UTC day = 3 mails.
+  const flap = await startFakeSmtp();
+  try {
+    const out = freshOut();
+    await runProbeAt(out, ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(flap.port));        // down -> alert
+    await runProbeAt(out, ["--file", FIXTURE, "--now", HEALTHY_SAME_DAY], smtpEnv(flap.port)); // up -> recovery (same UTC day)
+    await runProbeAt(out, ["--file", FIXTURE, "--now", LAG_PM], smtpEnv(flap.port));          // down -> a new alert
+    assert.equal(flap.cap.delivered, 3, "a flap in one UTC day is 3 mails (the flap is a new incident, C-B-7)");
+  } finally { await flap.close(); }
+});
+
+// ── C-3: a reason change while staying unhealthy the same UTC day sends NO new mail (M-ii-2) ──
+test("probe_alert_reason_change_same_day_no_mail — an unhealthy reason changing from lag to chain_broken within the same UTC day sends NO second mail (C-3; M-ii-2)", async () => {
+  const raw = readFileSync(FIXTURE, "utf8").replace(/\r\n/g, "\n").split("\n").filter((x) => x.trim());
+  const mid = JSON.parse(raw[1] ?? "{}") as TimelineLine;
+  const broken = join(scratchDir(), "reason-change-broken.jsonl");
+  writeFileSync(broken, [raw[0] ?? "", JSON.stringify({ ...mid, mints: "9" + String(mid.mints) }), raw[2] ?? ""].join("\n") + "\n");
+  const fake = await startFakeSmtp();
+  try {
+    const out = freshOut();
+    const r1 = await runProbeAt(out, ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(fake.port));
+    assert.equal(r1.state.reason, "lag", "first: lag");
+    assert.equal(fake.cap.delivered, 1, "1 mail on first detection");
+    const r2 = await runProbeAt(out, ["--file", broken, "--now", LAG_PM], smtpEnv(fake.port));
+    assert.equal(r2.state.reason, "chain_broken", "reason changed to chain_broken");
+    assert.equal(r2.state.alerted, true, "still alerted");
+    assert.equal(fake.cap.delivered, 1, "a same-day reason change sends NO new mail (kills M-ii-2)");
+  } finally { await fake.close(); }
+});
+
+// ── C-B-1: the SMTP secret (raw + the REAL wire AUTH tokens) never reaches stdout/stderr/narabi.json (M-ii-3/15) ──
+test("probe_secret_never_printed — a fake that echoes the AUTH payload in a 535 and closes mid-AUTH: the tokens REALLY captured on the wire (PLAIN token, both LOGIN tokens) plus the raw password are ALL absent from stdout/stderr/narabi.json; alert_error is the closed-set code, never the server line (C-B-1; M-ii-3/M-ii-15)", async () => {
+  for (const announce of [["PLAIN"], ["LOGIN"]]) {
+    const fake = await startFakeSmtp({ announce, authFailFirst: 99, echoAuthOn535: true, closeAfterAuth: true });
+    try {
+      const out = freshOut();
+      const r = await runProbeAt(out, ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(fake.port));
+      assert.equal(r.state.alert_error, "smtp_auth_failed", `${announce[0] ?? ""}: 535 -> smtp_auth_failed (a closed-set code, NOT the raw server line)`);
+      assert.ok(fake.cap.auth.length >= 1, "the fake captured the real AUTH token(s) on the wire");
+      const fileText = readFileSync(out, "utf8");
+      const secrets = [...fake.cap.auth, SMTP_PASS_VALUE, Buffer.from(SMTP_PASS_VALUE).toString("base64")];
+      for (const tok of secrets) {
+        assert.ok(tok.length > 0 && !r.stdout.includes(tok), `secret must be absent from stdout (${announce[0] ?? ""})`);
+        assert.ok(!r.stderr.includes(tok), `secret must be absent from stderr (${announce[0] ?? ""})`);
+        assert.ok(!fileText.includes(tok), `secret must be absent from narabi.json (${announce[0] ?? ""})`);
+      }
+    } finally { await fake.close(); }
+  }
+});
+
+// ── C-B-2: a SINGLE global deadline gives up on a drip server / a server silent after DATA (M-ii-16) ──
+test("probe_smtp_global_deadline — a drip server (250- forever) and a server silent after DATA both end as smtp_timeout with narabi.json written and exit 1, WITHIN the bound (a single global deadline, not a per-read inactivity timer that a drip keeps resetting) (C-B-2; M-ii-16)", async () => {
+  const drip = await startFakeSmtp({ drip: true });
+  try {
+    const out = freshOut();
+    const r = await runProbeAt(out, ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(drip.port, { SMTP_DEADLINE_MS: "500" }), 8000);
+    assert.equal(r.killed, false, "the global deadline ended the run (M-ii-16 inactivity-only would hang under the drip and be SIGKILLed)");
+    assert.equal(r.state.alert_error, "smtp_timeout", "a drip server is smtp_timeout");
+    assert.equal(r.status, 1, "smtp_timeout exits 1");
+  } finally { await drip.close(); }
+  const silent = await startFakeSmtp({ silentAfterData: true });
+  try {
+    const out = freshOut();
+    const r = await runProbeAt(out, ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(silent.port, { SMTP_DEADLINE_MS: "500" }), 8000);
+    assert.equal(r.state.alert_error, "smtp_timeout", "a server silent after DATA is smtp_timeout");
+    assert.equal(existsSync(out), true, "narabi.json written on timeout");
+    assert.equal(r.status, 1);
+  } finally { await silent.close(); }
+});
+
+// ── C-B-3: the remote `day` is CR/LF-sanitized before it reaches the body (the only free remote field) (M-ii-5) ──
+test("probe_smtp_injection_crlf_sanitized — a CRLF+dot+RCPT payload carried in the remote `day` produces exactly ONE message and ONE recipient with NO injected command; the sanitized value stays on the single last_day line (C-B-3; M-ii-5)", async () => {
+  // the sanitizer itself: CR/LF (and any 8-bit) are stripped, printable ASCII kept, so the field cannot break a line.
+  assert.equal(sanitizeField("2026-09-19\r\n.\r\nRCPT TO:<x>"), "2026-09-19.RCPT TO:<x>", "sanitizeField strips CR/LF, keeps printable ASCII");
+  const raw = readFileSync(FIXTURE, "utf8").replace(/\r\n/g, "\n").split("\n").filter((x) => x.trim());
+  const last = JSON.parse(raw[raw.length - 1] ?? "{}") as TimelineLine;
+  const evil = { ...last, day: "2026-09-19\r\n.\r\nRCPT TO:<evil@narabi-probe.invalid>" }; // breaks the chain, but last_day is still copied (fact 19)
+  const injFile = join(scratchDir(), "inject-day.jsonl");
+  writeFileSync(injFile, [...raw.slice(0, -1), JSON.stringify(evil)].join("\n") + "\n");
+  const fake = await startFakeSmtp();
+  try {
+    const out = freshOut();
+    const r = await runProbeAt(out, ["--file", injFile, "--now", LAG_NOW], smtpEnv(fake.port));
+    assert.equal(r.state.reason, "chain_broken", "the tampered day breaks the chain");
+    assert.equal(fake.cap.delivered, 1, "exactly one message");
+    assert.equal(fake.cap.rcptTo.length, 1, "exactly one recipient — no injected RCPT command");
+    assert.match(fake.cap.data, /^last_day: [^\r\n]*RCPT TO/m, "the injected text stayed on the single sanitized last_day line (kills M-ii-5: sanitize removed splits it onto its own line)");
+  } finally { await fake.close(); }
+});
+
+// ── C-B-4: the DATA encoder dot-stuffs and normalizes CRLF (pure) (M-ii-17) ──
+test("probe_smtp_dot_stuffing — the exported DATA encoder CRLF-normalizes, dot-stuffs a line starting with '.', dot-stuffs a lone '.', and appends the terminator (C-B-4; M-ii-17)", () => {
+  const enc = encodeData("normal line\n.leading\n.\nafter");
+  assert.ok(enc.endsWith("\r\n.\r\n"), "terminated by the DATA end sequence");
+  assert.match(enc, /^normal line\r\n/, "normal line unchanged, CRLF");
+  assert.match(enc, /\r\n\.\.leading\r\n/, "a line starting with '.' is dot-stuffed to '..' (kills M-ii-17)");
+  assert.match(enc, /\r\n\.\.\r\n/, "a lone '.' line is dot-stuffed to '..'");
+  assert.ok(!/[^\r]\n/.test(enc), "every LF is preceded by CR (no bare LF)");
+});
+
+// ── C-NB-8: mail headers are well-formed with a deterministic Date; ALERT_TO/FROM form is validated ──
+test("probe_smtp_headers_wellformed — composeMail emits From/To/constant Subject/deterministic UTC Date/Message-ID/MIME-Version/Content-Type and a blank line before the body; isEmailish validates address form (C-NB-8)", () => {
+  const { subject, message } = composeMail({
+    from: "a@x.tld", to: "b@y.tld", nowIso: "2026-09-21T10:35:00.000Z", kind: "alert", status: "unhealthy",
+    reason: "lag", last_day: "2026-09-19", lag_days: 1, chainstack_present: true, provider: "chainstack.com", checked_at: "2026-09-21T10:35:00.000Z",
+  });
+  assert.equal(subject, "[MONARK] Narabi external probe notice", "constant subject (C-7)");
+  assert.match(message, /^From: a@x\.tld$/m);
+  assert.match(message, /^To: b@y\.tld$/m);
+  assert.match(message, /^Subject: \[MONARK\] Narabi external probe notice$/m);
+  assert.match(message, /^Date: \w{3}, 21 Sep 2026 10:35:00 \+0000$/m, "deterministic UTC Date under nowIso");
+  assert.match(message, /^Message-ID: <probe-\d+-[0-9a-f]{12}@x\.tld>$/m);
+  assert.match(message, /^MIME-Version: 1\.0$/m);
+  assert.match(message, /^Content-Type: text\/plain; charset=us-ascii$/m);
+  assert.match(message, /\n\nMONARK Narabi external probe\n/, "a blank line separates headers from body");
+  assert.match(message, /^reason: lag$/m, "the body carries the reason");
+  for (const good of ["a@b.co", "narabialerts@monarkgate.tech"]) assert.equal(isEmailish(good), true, `valid: ${good}`);
+  for (const bad of ["no-at", "a@b", "a b@c.d", "", "a@@b.c"]) assert.equal(isEmailish(bad), false, `invalid: ${bad}`);
+});
+
+// ── C-B-8: implicit TLS to a plaintext server fails WITHOUT ever speaking EHLO/AUTH in the clear (M-ii-19) ──
+test("probe_smtp_implicit_tls_never_speaks_plaintext — SMTP_TLS=implicit to a node:net cleartext server fails the handshake (smtp_tls_failed) and the server receives the binary ClientHello but NEVER 'EHLO' or 'AUTH' in the clear (C-B-8; M-ii-19)", async () => {
+  let received = "";
+  // A cleartext greeting makes the client's TLS layer reject the first record fast (ERR_SSL_WRONG_VERSION_NUMBER),
+  // so the handshake FAILS instead of hanging; the client's ClientHello is still recorded first (measured spike).
+  const server = net.createServer((s) => { s.write("220 fake plaintext\r\n"); s.on("data", (d: Buffer) => { received += d.toString("latin1"); }); });
+  await new Promise<void>((r) => { server.listen(0, "127.0.0.1", () => { r(); }); });
+  try {
+    const port = (server.address() as { port: number }).port;
+    const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(port, { SMTP_TLS: "implicit", SMTP_DEADLINE_MS: "800" }), 8000);
+    assert.equal(r.state.alert_error, "smtp_tls_failed", "implicit TLS to a plaintext server fails the handshake");
+    assert.equal(r.status, 1);
+    assert.ok(received.length > 0, "the server did receive the TLS ClientHello bytes (a real attempt happened)");
+    assert.ok(!received.includes("EHLO"), "the probe NEVER sent EHLO in the clear (kills 'net.connect everywhere' / 'EHLO before TLS')");
+    assert.ok(!received.includes("AUTH"), "the probe NEVER sent AUTH in the clear");
+  } finally { await new Promise<void>((r) => { server.close(() => { r(); }); }); }
+});
+
+// ── C-B-8: TLS options are pinned and routing is correct (pure; no connection) (M-ii-7/12/4) ──
+test("probe_smtp_tls_options_pinned — implicit -> tls connector with {minVersion TLSv1.2, rejectUnauthorized:true, servername}; SMTP_TLS=none off-loopback -> refuse WITHOUT a connection; none on loopback -> net (C-B-8; M-ii-7/12/4)", () => {
+  assert.deepEqual(smtpTransportPlan("smtp.hostinger.tld", "implicit"), { connector: "tls", options: { minVersion: "TLSv1.2", rejectUnauthorized: true, servername: "smtp.hostinger.tld" } });
+  assert.deepEqual(smtpTransportPlan("smtp.hostinger.tld", "none"), { connector: "refuse", error: "smtp_unconfigured" }, "plaintext off-loopback is refused (kills M-ii-4)");
+  assert.deepEqual(smtpTransportPlan("127.0.0.1", "none"), { connector: "net" }, "plaintext on loopback literal is admitted (the test wire)");
+  assert.deepEqual(smtpTransportPlan("localhost", "none"), { connector: "net" }, "plaintext on localhost is admitted");
+});
+
+// ── C-B-8: SMTP_TLS=none off-loopback is refused BEFORE any connection, using a .invalid host (zero packets) ──
+test("probe_smtp_refuses_plaintext_off_loopback — SMTP_TLS=none with a non-loopback (.invalid) host is refused as smtp_unconfigured with NO connection; a guard-removed mutant would DNS-fail to smtp_unreachable instead (C-B-8; M-ii-4)", async () => {
+  const env = { SMTP_HOST: "narabi-smtp.invalid", SMTP_PORT: "465", SMTP_TLS: "none", SMTP_USER: "u@x.tld", SMTP_PASS: "p", ALERT_FROM: "u@x.tld", ALERT_TO: "u@x.tld" };
+  const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], env);
+  assert.equal(r.state.alert_error, "smtp_unconfigured", "off-loopback plaintext is refused with no dial (kills M-ii-4: guard removed -> smtp_unreachable via DNS)");
+  assert.equal(r.status, 1);
+});
+
+// ── fact 16: AUTH PLAIN and AUTH LOGIN are both negotiated from the EHLO announcement (M-ii-11) ──
+test("probe_smtp_auth_plain_and_login — the probe authenticates with whichever single mechanism the EHLO announces (PLAIN or LOGIN, on a continuation line) and delivers exactly one mail; a mono-line EHLO parser would miss the mechanism (fact 16; M-ii-11)", async () => {
+  for (const mech of ["PLAIN", "LOGIN"]) {
+    const fake = await startFakeSmtp({ announce: [mech] });
+    try {
+      const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(fake.port));
+      assert.equal(r.state.alert_error, null, `${mech}: negotiated and delivered (kills M-ii-11: mono-line parser misses AUTH -> smtp_auth_failed)`);
+      assert.equal(r.state.alerted, true, `${mech}: alerted`);
+      assert.equal(fake.cap.delivered, 1, `${mech}: exactly one mail`);
+      assert.ok(fake.cap.commands.some((c) => c.toUpperCase().startsWith(`AUTH ${mech}`)), `used AUTH ${mech}`);
+    } finally { await fake.close(); }
+  }
+});
+
+// ── C-8: a missing / malformed SMTP config is NOISY (smtp_unconfigured, exit 1), never silently skipped (M-ii-6) ──
+test("probe_smtp_unconfigured_is_noisy — an unhealthy verdict with no SMTP config, or a malformed ALERT_TO, records smtp_unconfigured and exits 1 (never a silent skip) (C-8; C-NB-8; M-ii-6)", async () => {
+  const r1 = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW]); // childEnv purges all SMTP_*/ALERT_*
+  assert.equal(r1.state.alert_error, "smtp_unconfigured", "no config -> smtp_unconfigured (kills M-ii-6: silent skip)");
+  assert.equal(r1.state.alerted, false, "unconfigured never latches alerted");
+  assert.equal(r1.status, 1, "noisy: exit 1");
+  const r2 = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], { SMTP_HOST: "127.0.0.1", SMTP_PORT: "2525", SMTP_TLS: "none", SMTP_USER: "u@x.tld", SMTP_PASS: "p", ALERT_FROM: "u@x.tld", ALERT_TO: "not-an-email" });
+  assert.equal(r2.state.alert_error, "smtp_unconfigured", "a malformed ALERT_TO is smtp_unconfigured (C-NB-8)");
+});
+
+// ── C-3 (SMTP transport): a closed SMTP port is smtp_unreachable; a server that never greets is smtp_timeout ──
+test("probe_smtp_unreachable_closed_port_and_timeout — a closed loopback SMTP port yields smtp_unreachable; a server that accepts but never greets yields smtp_timeout; both exit 1 (C-3 SMTP)", async () => {
+  const tmp = net.createServer(); await new Promise<void>((r) => { tmp.listen(0, "127.0.0.1", () => { r(); }); });
+  const closed = (tmp.address() as { port: number }).port; await new Promise<void>((r) => { tmp.close(() => { r(); }); });
+  const r1 = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(closed));
+  assert.equal(r1.state.alert_error, "smtp_unreachable", "a closed SMTP port is smtp_unreachable");
+  assert.equal(r1.status, 1);
+  const fake = await startFakeSmtp({ neverGreet: true });
+  try {
+    const r2 = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(fake.port, { SMTP_DEADLINE_MS: "500" }), 8000);
+    assert.equal(r2.state.alert_error, "smtp_timeout", "a server that never greets is smtp_timeout");
+    assert.equal(r2.status, 1);
+  } finally { await fake.close(); }
+});
+
+// ── C-B-5: an absent / corrupt / schema-1 / inconsistent prior state bootstraps to alerted:false, no crash (M-ii-18) ──
+test("probe_reads_missing_or_corrupt_state_as_bootstrap — readPriorState bootstraps to alerted:false on absent/corrupt/inconsistent/unknown-schema states and reads a valid schema-2 state; a corrupt prior does not crash the probe (C-B-5; M-ii-18)", async () => {
+  const dir = mkdtempSync(join(scratchDir(), "prior-"));
+  const p = join(dir, "narabi.json");
+  assert.deepEqual(readPriorState(p), { alerted: false, last_alert_day: null }, "absent -> bootstrap");
+  writeFileSync(p, "{not json"); assert.deepEqual(readPriorState(p), { alerted: false, last_alert_day: null }, "corrupt JSON -> bootstrap");
+  writeFileSync(p, JSON.stringify({ schema: 2, alerted: true, last_alert_day: null })); assert.deepEqual(readPriorState(p), { alerted: false, last_alert_day: null }, "alerted:true with day:null is inconsistent -> bootstrap");
+  writeFileSync(p, JSON.stringify({ schema: 99, alerted: true, last_alert_day: "2026-09-21" })); assert.deepEqual(readPriorState(p), { alerted: false, last_alert_day: null }, "unknown schema > 2 -> bootstrap");
+  writeFileSync(p, JSON.stringify({ schema: 2, alerted: true, last_alert_day: "2026-09-21" })); assert.deepEqual(readPriorState(p), { alerted: true, last_alert_day: "2026-09-21" }, "a valid schema-2 state is read");
+  // end-to-end: a corrupt prior does not crash the probe (M-ii-18)
+  const out = freshOut(); writeFileSync(out, "{corrupt");
+  const r = await runProbeAt(out, ["--file", FIXTURE, "--now", LAG_NOW]);
+  assert.equal(existsSync(out), true, "narabi.json still written despite a corrupt prior (kills M-ii-18)");
+  assert.equal(r.state.alerted, false, "corrupt prior -> bootstrap alerted:false");
+  assert.equal(r.state.alert_error, "smtp_unconfigured", "still decided to alert on the bootstrap");
+  assert.doesNotMatch(r.stderr, /FATAL/, "no crash on a corrupt prior state");
+});
+
+// ── Doute-4 (checkpoint-2 -1b-i): a schema-1 state left by a deployed -1b-i is read without crash, rewritten schema 2 ──
+test("probe_reads_schema1_state_without_crash — a schema-1 narabi.json (a deployed -1b-i format: KNOWN, neither absent nor corrupt) is read as bootstrap alerted:false without crash and rewritten as schema 2 (Doute-4)", async () => {
+  const out = freshOut();
+  writeFileSync(out, JSON.stringify({ schema: 1, checked_at: "2026-09-20T10:30:00.000Z", last_day: "2026-09-19", lag_days: 0, chain_ok: true, reachable: true, chainstack_present: false, provider: null, status: "healthy", reason: null, publish_latency: 0 }));
+  const r = await runProbeAt(out, ["--file", FIXTURE, "--now", HEALTHY_NOW]); // healthy -> no send
+  assert.equal(r.status, 0, "read without crash, healthy exits 0");
+  assert.equal(r.state.schema, 2, "rewritten as schema 2");
+  assert.equal(r.state.alerted, false, "bootstrap alerted:false from a schema-1 prior");
+  assert.doesNotMatch(r.stderr, /FATAL/, "no crash on a schema-1 prior");
+});
+
+// ── C-NB-10: every SMTP failure (incl. a connect failure = a synchronous connector throw path) leaves narabi.json written (M-ii-20) ──
+test("probe_smtp_failure_leaves_narabi_written — a 535-rejecting server and a closed port both leave narabi.json WRITTEN with a closed-set alert_error and exit 1, never an uncaught FATAL (C-NB-10; M-ii-20)", async () => {
+  const fake = await startFakeSmtp({ authFailFirst: 99 });
+  try {
+    const out = freshOut();
+    const r = await runProbeAt(out, ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(fake.port));
+    assert.equal(existsSync(out), true, "narabi.json written even when the send fails");
+    assert.equal(r.state.alert_error, "smtp_auth_failed");
+    assert.equal(r.state.alerted, false, "a failed send keeps alerted:false (retry next shot)");
+    assert.equal(r.status, 1);
+  } finally { await fake.close(); }
+  const tmp = net.createServer(); await new Promise<void>((r) => { tmp.listen(0, "127.0.0.1", () => { r(); }); });
+  const closed = (tmp.address() as { port: number }).port; await new Promise<void>((r) => { tmp.close(() => { r(); }); });
+  const out2 = freshOut();
+  const r2 = await runProbeAt(out2, ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(closed));
+  assert.equal(existsSync(out2), true, "narabi.json written on a connect failure (kills M-ii-20: connector throw -> FATAL -> unwritten)");
+  assert.equal(r2.state.alert_error, "smtp_unreachable");
+  assert.doesNotMatch(r2.stderr, /FATAL/, "the connector error was caught, not a FATAL");
+});
+
+// ── fact 12: the composed mail (subject + body) carries none of the forbidden vocab, for EVERY reason ──
+test("probe_alert_mail_has_no_forbidden_vocab — the subject and body composed for every reason (and recovery) match none of the mail-vocab list nor the GLOBAL/sentinel banned patterns loaded from vocab-banned.json (fact 12)", () => {
+  const vocab = JSON.parse(readFileSync(join(REPO, "vocab-banned.json"), "utf8")) as { banned: { re: string }[]; scan: { sentinel: { banned: { re: string }[] } } };
+  const banned = [...vocab.banned, ...vocab.scan.sentinel.banned].map((b) => new RegExp(b.re, "i"));
+  const mailVocab = /partner|autonomous|guarantee|verified|score/i; // the mail-specific list (fact 12; 'score' also catches 'scores')
+  const reasons: (string | null)[] = ["lag", "chain_broken", "unreachable", "too_large", "insecure_url", "probe_error"];
+  const check = (kind: "alert" | "reminder" | "recovery", reason: string | null): void => {
+    const { subject, message } = composeMail({
+      from: "a@x.tld", to: "b@y.tld", nowIso: "2026-09-21T10:35:00.000Z", kind, status: kind === "recovery" ? "healthy" : "unhealthy",
+      reason, last_day: "2026-09-19", lag_days: 3, chainstack_present: false, provider: "p2pify.com", checked_at: "2026-09-21T10:35:00.000Z",
+    });
+    const text = subject + "\n" + message;
+    assert.doesNotMatch(text, mailVocab, `mail-vocab clean for ${kind}/${String(reason)}`);
+    for (const re of banned) assert.ok(!re.test(text), `banned pattern ${re.source} must not match the ${kind}/${String(reason)} mail`);
+  };
+  for (const reason of reasons) { check("alert", reason); check("reminder", reason); }
+  check("recovery", null);
+});
+
+// ── C-B-13: an unknown CLI flag FAILS LOUD and writes NO narabi.json (a --state typo must never touch production) (M-ii-21) ──
+test("probe_rejects_unknown_flag — an unknown flag (e.g. --state) exits non-zero WITHOUT writing narabi.json; the known flags still work; --state does not exist (C-B-13; M-ii-21)", () => {
+  const out = join(scratchDir(), `unknown-flag-${String(uniq++)}.json`);
+  const r = spawnSync(process.execPath, [PROBE_MJS, "--out", out, "--state", "x", "--file", FIXTURE, "--now", LAG_NOW], { cwd: REPO, env: childEnv(), encoding: "utf8", timeout: 60_000 });
+  assert.notEqual(r.status, 0, "an unknown flag exits non-zero (kills M-ii-21: silently ignored)");
+  assert.equal(existsSync(out), false, "NO narabi.json is written on a usage error (a --state typo must not touch production)");
+  assert.match(r.stderr, /unknown flag/, "the error names the unknown flag (no secret)");
+  // the known flags still parse and run (a healthy run writes narabi.json, exit 0)
+  const ok = runProbe(["--file", FIXTURE, "--now", HEALTHY_NOW]);
+  assert.equal(ok.status, 0, "the known flags still work");
+});
+
+// ── C-B-6 G2 checkpoint: no test can send a real mail — secrets purged + the parent env spread exactly once ──
+test("g2_no_test_can_send_real_mail — childEnv strips SMTP_*/ALERT_* even when set on the parent, an explicit loopback override is kept, and this file spreads the parent env in EXACTLY ONE place (childEnv) so no spawn can smuggle a raw parent env past the purge (C-B-6)", () => {
+  const saved = { p: process.env.SMTP_PASS, t: process.env.ALERT_TO, h: process.env.SMTP_HOST };
+  process.env.SMTP_PASS = "leak"; process.env.ALERT_TO = "leak@x.tld"; process.env.SMTP_HOST = "smtp.real.tld";
+  try {
+    const e = childEnv();
+    for (const k of Object.keys(e)) assert.ok(!/^(SMTP_|ALERT_)/.test(k), `childEnv must strip ${k}`);
+    assert.equal(childEnv({ SMTP_HOST: "127.0.0.1" }).SMTP_HOST, "127.0.0.1", "an explicit loopback override is kept");
+  } finally {
+    for (const [k, v] of [["SMTP_PASS", saved.p], ["ALERT_TO", saved.t], ["SMTP_HOST", saved.h]] as const) {
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
+  }
+  const src = readFileSync(SELF, "utf8");
+  assert.equal((src.match(/\.\.\.process\.env/g) ?? []).length, 1, "the parent env is spread in exactly one place (only inside childEnv)");
 });

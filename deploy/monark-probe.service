@@ -1,10 +1,10 @@
-# systemd unit for the MONARK Narabi EXTERNAL probe (ADR-NARABI-OPS-1 L-5, sub-lot -1b-i: DETECTION only).
+# systemd unit for the MONARK Narabi EXTERNAL probe + ALERT (ADR-NARABI-OPS-1 L-5, sub-lot -1b-ii-a).
 # Orchestrator-deployed on the SECOND VPS (Bell), a host distinct from the surveyed sentinel (decision 57),
 # so a stalled or broken publication is observed from OUTSIDE. A Type=oneshot job driven by
 # monark-probe.timer (NOT a server): each run GETs the already-served public surface /narabi/timeline.jsonl,
-# recomputes the freshness grid + the full hash chain, writes narabi.json, and exits 1 IFF unhealthy. It
-# sends NO mail and holds NO alert state machine — that is sub-lot -1b-ii. Node BUILT-INS only (no npm on
-# Bell). 0 new dependency (R-8).
+# recomputes the freshness grid + the full hash chain, writes narabi.json, exits 1 IFF unhealthy OR the alert
+# send failed, and on an unhealthy transition sends ONE SMTP mail. Node BUILT-INS only (@monark/* is not
+# installable on Bell). 0 new runtime dependency (R-8).
 [Unit]
 Description=MONARK Narabi external probe - freshness + hash-chain check of the served /narabi/ surface (ADR-NARABI-OPS-1)
 Documentation=https://github.com/KraidleAI/monark
@@ -16,17 +16,17 @@ Type=oneshot
 # The probe ships as a single built-ins-only .mjs under /opt/monark-probe (git archive at deploy; RUNBOOK).
 WorkingDirectory=/opt/monark-probe
 Environment=PROBE_OUT=/var/lib/monark-probe/narabi.json
-# Optional out-of-repo env (a PROBE_URL override, nothing else in -1b-i). The leading `-` makes the file
-# OPTIONAL: the DETECTION probe needs NO secret — it reads a public, key-less surface — so an absent file is
-# fine and the probe uses the built-in DEFAULT_URL. In -1b-ii (mail) this `-` is REMOVED: a missing SMTP
-# config must fail the start loudly (C-8). The URL is never key-bearing and is never printed.
-EnvironmentFile=-/etc/monark/probe.env
+# Out-of-repo env carrying the SMTP secret + alert config (SMTP_HOST/PORT/USER/PASS/TLS, ALERT_FROM/TO) and any
+# PROBE_URL override. The leading `-` is REMOVED in -1b-ii-a (C-8): the ALERT probe MUST have its SMTP config, so a
+# missing /etc/monark/probe.env fails the start LOUDLY rather than running mute. The file is 0600 root:root, read by
+# PID 1 (C-NB-9); SMTP_PASS must be QUOTED (systemd's parser mangles " \ # spaces). Nothing here is ever printed.
+EnvironmentFile=/etc/monark/probe.env
 ExecStart=/usr/bin/env node /opt/monark-probe/probe-narabi.mjs
-# The GET is bounded in code: defaults give timeout x (retries+1) ~= 24 s, and even if /etc/monark/probe.env
-# mis-sets PROBE_TIMEOUT_MS/PROBE_RETRIES they are HARD-CAPPED (C-G2-7), so the fetch worst case stays <= 60 s
-# (10 s x 5 + 10 s margin). This coarse per-start backstop is kept STRICTLY above that capped worst case so a hung
-# or mis-configured run can never pend the job mid-write (asserted by probe_timer_multiple_shots; C-6).
-TimeoutStartSec=90
+# Bounded in code: the GET worst case (capped) is 10 s x (4+1) = 50 s (C-G2-7), and the SMTP conversation has a
+# SINGLE global deadline capped at MAX_SMTP_DEADLINE_MS = 30 s (C-B-2); even a mis-set /etc/monark/probe.env cannot
+# exceed either. This coarse per-start backstop is kept STRICTLY above the capped worst case GET + SMTP + margin =
+# 50 s + 30 s + 10 s = 90 s, so a hung or mis-configured run can never pend the job mid-write (probe_timer_multiple_shots).
+TimeoutStartSec=120
 # Least privilege (R-8): a dedicated non-login `probe` user whose ONLY writable path is its state dir.
 User=probe
 Group=probe
