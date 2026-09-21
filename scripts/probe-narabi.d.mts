@@ -19,7 +19,8 @@ export const START_MARGIN_MS: number;
 export const CHAINSTACK_PROVIDERS: readonly string[];
 
 // ── -1b-ii-a (ALERT): SMTP conversation bounds ────────────────────────────────────────────────
-/** Hard cap on the SINGLE global deadline for the WHOLE SMTP conversation (env SMTP_DEADLINE_MS clamps to this). */
+/** Hard cap on the SINGLE wall-clock deadline for the WHOLE SMTP exchange — connect + TLS handshake + conversation
+ *  (env SMTP_DEADLINE_MS clamps to this), ONE timer not two sequential per-phase deadlines (C-G2-1). */
 export const MAX_SMTP_DEADLINE_MS: number;
 export const DEFAULT_SMTP_DEADLINE_MS: number;
 /** Total byte cap on all SMTP responses in one conversation (a misbehaving/drip server can never fill memory). */
@@ -114,12 +115,23 @@ export function smtpTransportPlan(host: string, tlsMode: string): SmtpTransportP
 /** Map a connect-phase error to the closed AlertError set: network codes -> unreachable; else (SSL) -> tls_failed. */
 export function classifyConnectError(err: unknown): AlertError;
 
+/** The env-tunable global SMTP deadline (ms), clamped to MAX_SMTP_DEADLINE_MS; absent/blank/0/negative/NaN -> default (C-G2-5). */
+export function smtpDeadlineMs(env?: Record<string, string | undefined>): number;
+
+/** Injectable clock for sendSmtp's SINGLE wall-clock deadline (C-G2-1). Defaults to the real Date.now / setTimeout /
+ *  clearTimeout; a test injects a fake to fire the one deadline deterministically, without a real sleep. */
+export interface SmtpClock {
+  now?: () => number;
+  setTimeout?: (cb: () => void, ms: number) => unknown;
+  clearTimeout?: (t: unknown) => void;
+}
 export interface SendSmtpInput {
   host: string; port: number; tls: string; user: string; pass: string;
-  from: string; to: string; message: string; deadlineMs: number; maxBytes?: number;
+  from: string; to: string; message: string; deadlineMs: number; maxBytes?: number; clock?: SmtpClock;
 }
-/** Run one bounded SMTP conversation over built-ins (implicit TLS 465, AUTH PLAIN/LOGIN negotiated from EHLO).
- *  Returns a CLOSED-set error, NEVER a server line or a secret (C-B-1/2/8). */
+/** Run one bounded SMTP conversation over built-ins (implicit TLS 465, AUTH PLAIN/LOGIN negotiated from EHLO). ONE
+ *  wall-clock deadline covers connect + handshake + conversation (C-G2-1). Returns a CLOSED-set error, NEVER a
+ *  server line or a secret (C-B-1/2/8). */
 export function sendSmtp(input: SendSmtpInput): Promise<{ ok: true } | { ok: false; error: AlertError }>;
 
 export interface ProbeOpts {

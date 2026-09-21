@@ -22,10 +22,12 @@ Environment=PROBE_OUT=/var/lib/monark-probe/narabi.json
 # PID 1 (C-NB-9); SMTP_PASS must be QUOTED (systemd's parser mangles " \ # spaces). Nothing here is ever printed.
 EnvironmentFile=/etc/monark/probe.env
 ExecStart=/usr/bin/env node /opt/monark-probe/probe-narabi.mjs
-# Bounded in code: the GET worst case (capped) is 10 s x (4+1) = 50 s (C-G2-7), and the SMTP conversation has a
-# SINGLE global deadline capped at MAX_SMTP_DEADLINE_MS = 30 s (C-B-2); even a mis-set /etc/monark/probe.env cannot
-# exceed either. This coarse per-start backstop is kept STRICTLY above the capped worst case GET + SMTP + margin =
-# 50 s + 30 s + 10 s = 90 s, so a hung or mis-configured run can never pend the job mid-write (probe_timer_multiple_shots).
+# Bounded in code: the GET worst case (capped) is 10 s x (4+1) = 50 s (C-G2-7), and the SMTP send has a SINGLE
+# wall-clock deadline covering connect + TLS handshake + conversation, capped at MAX_SMTP_DEADLINE_MS = 30 s (C-B-2 /
+# C-G2-1 — ONE timer, not two sequential per-phase deadlines); even a mis-set /etc/monark/probe.env cannot exceed
+# either. This coarse per-start backstop stays STRICTLY above the capped worst case GET + SMTP + margin =
+# 50 s + 30 s + 10 s = 90 s < 120, so a hung/mis-configured run can never pend the job mid-write (probe_timer_multiple_shots).
+# NOTE for the -1b-ii-b merge: -b adds a 2nd GET (state.json, +10 s) -> 100 s < 120, so TimeoutStartSec stays 120 (no raise).
 TimeoutStartSec=120
 # Least privilege (R-8): a dedicated non-login `probe` user whose ONLY writable path is its state dir.
 User=probe

@@ -172,6 +172,64 @@ healthy run is a STOP-and-investigate. Then record the FIRST run of **each** of 
 `chainstack`, `exit_code`) — four entries, the wiring proof for ADR-NARABI-OPS-1's `env → rpc.ts pool` and
 `timer → run → timeline` pipes (decision 46).
 
+## Déploiement de la sonde (Bell) — sub-lot NARABI-OPS-1b-ii
+
+The external probe + mail alert ship as a single built-ins-only `scripts/probe-narabi.mjs` under
+`/opt/monark-probe`, driven by `deploy/monark-probe.{service,timer}`, on the **Bell VPS** (a host distinct from the
+sentinel, decision 57). Deploy ONLY after BOTH -1b-ii-a and -1b-ii-b have passed their gates, by the named G7 merge
+SHA (decision 72) — never a moving HEAD, never a lot worktree branch.
+
+**1. The SMTP secret is posted by the INVESTOR, out of band, via ssh STDIN** (never a command-line arg, never a
+git-tracked file, never `set -x`). `/etc/monark/probe.env` is `0600 root:root`, read by PID 1; the unit's
+`EnvironmentFile=/etc/monark/probe.env` has NO leading `-`, so a missing file fails the start LOUDLY (the alert
+probe MUST have its config). It carries `SMTP_HOST`, `SMTP_PORT=465`, `SMTP_TLS=implicit`, `SMTP_USER`,
+`SMTP_PASS`, `ALERT_FROM`, `ALERT_TO` (plus any `PROBE_URL` override).
+
+```bash
+# BY THE INVESTOR, from a shell where the secret already lives. QUOTE SMTP_PASS: systemd's EnvironmentFile parser
+# mangles an UNQUOTED value containing " \ # or spaces. This template backslash-escapes any " or \ inside the
+# password FIRST, then wraps it in double quotes. On a 535 (auth failed) at the first real mail, verify the QUOTING
+# first (a mangled password is the likeliest cause).
+PW_ESC=$(printf '%s' "$SMTP_PASS" | sed 's/[\\"]/\\&/g')   # escape backslash and double-quote before wrapping
+printf 'SMTP_HOST=%s\nSMTP_PORT=465\nSMTP_TLS=implicit\nSMTP_USER=%s\nSMTP_PASS="%s"\nALERT_FROM=%s\nALERT_TO=%s\n' \
+  "$SMTP_HOST" "$SMTP_USER" "$PW_ESC" "$ALERT_FROM" "$ALERT_TO" \
+  | ssh -i ~/.ssh/monark_vps root@<bell> \
+      'umask 077; install -d -m 0755 /etc/monark; cat > /etc/monark/probe.env; chown root:root /etc/monark/probe.env; chmod 0600 /etc/monark/probe.env'
+# Verify by DIGEST on both sides (never print the contents); the two hashes MUST match:
+#   printf '...' | sha256sum                                            # local
+#   ssh ... 'sha256sum /etc/monark/probe.env'                           # remote
+```
+
+**2. Simulate ONE shot as the `probe` user WITHOUT touching production.** Never `source` the env file in an agent
+shell (that leaks the secret into the shell's env); never point `--out` at the production `narabi.json`. Use
+`systemd-run` so the SAME `EnvironmentFile` is applied by systemd (not the shell), writing a THROWAWAY state file:
+
+```bash
+# A transient, isolated run as `probe`, reading the REAL env file via systemd, writing a scratch narabi.json. A
+# future --now forces the unhealthy path so the alert actually fires (this send IS the first real mail; see below).
+ssh -i ~/.ssh/monark_vps root@<bell> \
+  'systemd-run --uid=probe --pipe --wait -p EnvironmentFile=/etc/monark/probe.env \
+     /usr/bin/env node /opt/monark-probe/probe-narabi.mjs --now 2027-01-01T12:00:00Z --out /tmp/probe-sim.json; \
+   echo "exit=$?"; cat /tmp/probe-sim.json; rm -f /tmp/probe-sim.json'
+# Expect alert_error: null on a delivered mail, OR a CLOSED-set code (smtp_unconfigured | smtp_unreachable |
+# smtp_timeout | smtp_tls_failed | smtp_auth_failed | smtp_rejected) — NEVER a raw server line, NEVER SMTP_PASS.
+# NEVER `source /etc/monark/probe.env`; NEVER `--out /var/lib/monark-probe/narabi.json` (that is production).
+```
+
+**3. Verify the real transport once** — the handshake is real TLS 1.2+ on 465, and a wrong hostname is refused
+(cert verification is pinned `rejectUnauthorized:true`, not overridable by env, so a name mismatch is
+`smtp_tls_failed`, never a plaintext fallback):
+
+```bash
+ssh -i ~/.ssh/monark_vps root@<bell> \
+  'openssl s_client -connect "$SMTP_HOST":465 -servername "$SMTP_HOST" -brief </dev/null'   # expect a TLS 220 banner
+# A wrong SMTP_HOST in probe.env must fail the send as smtp_tls_failed (cert name mismatch), never speak plaintext.
+```
+
+**First real mail = the `upcoming → built` trigger (decision 58).** Record it in `docs/JOURNAL-PROVENANCE.md`
+(date, ALERT_TO domain, `alert_error: null`); that entry flips the `probe → alerte` pipe from `upcoming` to
+`built`. Until then the pipe stays `upcoming` in every public register.
+
 ## Operations
 
 - Logs: `journalctl -u monark-sentinel -f`

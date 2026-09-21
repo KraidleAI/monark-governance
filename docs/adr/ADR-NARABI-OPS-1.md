@@ -79,7 +79,7 @@ keyed operator (Chainstack) whose URL lives OUTSIDE the repo (`/etc/monark/senti
 | env → `rpc.ts` pool | `/etc/monark/sentinel.env` (orchestrator posts) | `poolEndpoints` → quorum | file, out-of-repo `root:sentinel 0640` | `sentinel_quorum_accepts_chainstack_as_distinct_operator`, `sentinel_chainstack_run_publishes_redacted_and_flags` | built (code + test non-LLM); wired at deploy — proof = first-run JOURNAL entry (chainstack: true, 4 slots), RUNBOOK §6 (C-V-1) |
 | timer → run → timeline | `monark-sentinel.timer` (4 slots) | `timeline.jsonl` served at `/narabi/` (site parses it) | `/var/lib/monark-sentinel` | `sentinel_retry_replays_incident_and_exit_codes` (L-4, real `main` in subprocess) | built (code + test non-LLM); wired at deploy — proof = first-run JOURNAL entry (chainstack: true, 4 slots), RUNBOOK §6 (C-V-1) |
 | timeline → probe → `narabi.json` | published `timeline.jsonl` | (probe, on the Bell VPS) | **absent — pli NARABI-OPS-1b** | `probe_line_hash_equals_sentinel_lineHashOf`, `probe_narabi_detects_lag` | **pli NARABI-OPS-1b** (deferred by C-11, R-25 target; formed item below) |
-| probe → alerte | `narabi.json` (lag_days, ok) | alert channel | **upcoming** | — | investor picks the channel (mail / webhook / `/status`) — `upcoming → built` |
+| probe → alerte | `narabi.json` schema 2 (status / `alerted` / `last_alert_day`, the probe writes it) | the SMTP alert step → one mail to the dedicated domain mailbox (decision 66) | `narabi.json` schema 2 on the Bell VPS (`alerted`, `last_alert_day`) | `probe_alert_composition_from_fixture`, `probe_alert_retries_until_delivered`, `probe_alert_daily_reminder_once_per_utc_day`, `probe_secret_never_printed`, `probe_smtp_global_deadline` | **code + test non-LLM (sub-lot NARABI-OPS-1b-ii-a); NOT deployed; `upcoming` until the first real mail (decision 58)** |
 
 ## Deferral of L-5 (C-11, R-25)
 
@@ -120,3 +120,19 @@ probe`, `OnCalendar` **≥ 10:30 UTC** (past the last slot's jitter). Open item:
 
 No gate is suspended (R-22). CA-11: nothing new is declared built (`fleet.ts` intact — Narabi was already built
 at go 4); the probe is an operations tool, `upcoming` with a declared pipe + trigger.
+
+## Amendment 2026-09-21 (sub-lot NARABI-OPS-1b-ii-a) — the `probe → alerte` channel is FIXED to SMTP mail
+
+The `probe → alerte` pipe's channel is decided: a plain SMTP mail (implicit TLS 465, Node built-ins only) to a
+dedicated mailbox on the domain (decision 66), sent by the probe on an unhealthy verdict. `alert_error` is a
+CLOSED set — `smtp_unconfigured | smtp_unreachable | smtp_timeout | smtp_tls_failed | smtp_auth_failed |
+smtp_rejected` — recorded in `narabi.json`, NEVER a raw server line and NEVER a secret. Per investor decision 88
+(E-4 = no exception) ONE mail covers ANY unhealthy state in that closed list (no per-reason mail), bounded to
+**≤ 1 mail per shot**: a same-UTC-day re-run sends nothing, a new UTC day still down sends one reminder, a
+recovery sends one "recovered" mail. The anti-storm state lives in `narabi.json` schema 2 (`alerted`,
+`last_alert_day`). The whole SMTP send is bounded by a SINGLE wall-clock deadline covering connect + TLS
+handshake + conversation (G2 correction C-G2-1). **Residual, declared: a dead probe is silent** — no dead-man
+switch yet (a formed item, owner orchestrator, trigger G0 T-1b). Deployed on Bell only after -1b-ii-a AND
+-1b-ii-b pass their gates, by SHA (decision 72); the first real mail is the `upcoming → built` trigger (decision
+58). Model pinned `claude-opus-4-8` (G1 + G2 dedicated reviewer), orchestrator `claude-fable-5-1`; error_origin
+assigned at G7.

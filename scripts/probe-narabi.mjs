@@ -63,8 +63,9 @@ export const MAX_RETRIES = 4;
 export const START_MARGIN_MS = 10_000;
 
 // ── SMTP conversation bounds (-1b-ii-a, C-B-2) ──────────────────────────────────────────────────────────
-// A SINGLE global deadline for the WHOLE conversation (~9 round trips), NOT a per-op or inactivity timeout: a
-// drip server (250- forever) must still be given up on. Env SMTP_DEADLINE_MS clamps to MAX (like the GET bounds),
+// A SINGLE wall-clock deadline for the WHOLE exchange — connect + TLS handshake + conversation (~9 RTs), ONE timer
+// not two sequential per-phase deadlines (C-G2-1): a drip reply/handshake must still be given up on. Env
+// SMTP_DEADLINE_MS clamps to MAX (like the GET bounds),
 // so a mis-set /etc/monark/probe.env can never push the send past the unit's TimeoutStartSec (asserted by
 // probe_timer_multiple_shots). SMTP_MAX_BYTES caps the total response bytes (a second, coarser stall/flood guard).
 export const DEFAULT_SMTP_DEADLINE_MS = 20_000;
@@ -523,8 +524,9 @@ function smtpConfig(env) {
   return { host, port, tls: tlsMode, user, pass, from, to };
 }
 
-/** The env-tunable global SMTP deadline, clamped to MAX (like the GET bounds). */
-function smtpDeadlineMs(env = process.env) {
+/** The env-tunable global SMTP deadline, clamped to MAX (like the GET bounds). Exported so its PLAFOND is pinned
+ *  by an oracle (C-G2-5): an SMTP_DEADLINE_MS above MAX_SMTP_DEADLINE_MS is clamped down, never honored raw. */
+export function smtpDeadlineMs(env = process.env) {
   const v = env.SMTP_DEADLINE_MS;
   if (v === undefined) return DEFAULT_SMTP_DEADLINE_MS;
   const n = Number(String(v).trim());
@@ -535,36 +537,55 @@ function smtpDeadlineMs(env = process.env) {
 /** Run ONE bounded SMTP conversation over built-ins (implicit TLS 465 / plaintext-loopback). Returns a CLOSED-set
  *  AlertError on any failure — NEVER a raw server line, NEVER a secret (C-B-1/2/8). A synchronous connector throw
  *  is caught by the caller (probe), so narabi.json is still written (C-NB-10). */
-export async function sendSmtp({ host, port, tls: tlsMode, user, pass, from, to, message, deadlineMs, maxBytes = SMTP_MAX_BYTES }) {
+export async function sendSmtp({ host, port, tls: tlsMode, user, pass, from, to, message, deadlineMs, maxBytes = SMTP_MAX_BYTES, clock }) {
   const plan = smtpTransportPlan(host, tlsMode);
   if (plan.connector === "refuse") return { ok: false, error: plan.error };
 
-  // Connect. On failure this REJECTS with { alertError } — deliberately NOT caught inside sendSmtp: maybeAlert's
-  // try/catch is the SINGLE guard, so M-ii-20 (dropping that guard) turns a connector throw into a FATAL that
-  // leaves narabi.json UNWRITTEN -> RED. A synchronous tls/net.connect throw is converted to the same rejection.
-  const socket = await new Promise((resolve, reject) => {
-    let settled = false;
-    const ok = (s) => { if (!settled) { settled = true; resolve(s); } };
-    const no = (alertError, s) => { if (!settled) { settled = true; try { if (s) s.destroy(); } catch { /* closing */ } reject({ alertError }); } };
-    let s;
-    try {
-      if (plan.connector === "tls") s = tls.connect({ ...plan.options, host, port }, () => ok(s));
-      else { s = net.connect({ host, port }); s.once("connect", () => ok(s)); }
-    } catch (e) { no(classifyConnectError(e), s); return; }
-    s.once("error", (e) => no(classifyConnectError(e), s));
-    s.setTimeout(deadlineMs, () => no("smtp_timeout", s)); // a stuck handshake (TCP accepted, no ServerHello) is bounded
-  });
-  socket.setTimeout(0); // the connect phase is bounded above; the whole-conversation deadline below now takes over
+  // C-G2-1: ONE wall-clock deadline for the WHOLE exchange — connection + TLS handshake + the ~9-round-trip
+  // conversation. A SINGLE timer, armed as an absolute instant BEFORE the connect and cleared ONLY when the
+  // exchange ends (the connect-failure catch OR the conversation finally, never a 2nd timer): (a) the worst case
+  // is deadlineMs, never 2x a per-phase deadline; (b) a drip handshake or drip reply cannot reset an inactivity
+  // (socket.setTimeout) timer; (c) no residual timer handle keeps the process alive after a successful send.
+  // `onDeadline` is the current phase's action — the SAME timer drives connect, then the conversation. The clock
+  // is injectable (default = real Date/setTimeout) so a test fires the deadline without a real sleep (C-G2-1).
+  const nowFn = clock?.now ?? Date.now;
+  const setT = clock?.setTimeout ?? setTimeout;
+  const clearT = clock?.clearTimeout ?? clearTimeout;
+  const deadlineAt = nowFn() + deadlineMs;
+  let onDeadline = null;
+  const timer = setT(() => { if (onDeadline) onDeadline(); }, Math.max(0, deadlineAt - nowFn()));
 
-  // Response reader over a SINGLE global deadline (never reset per read): a complete reply ends with a
+  // Connect. On failure this REJECTS with { alertError } — propagated (we only clear the timer here), NOT
+  // swallowed: maybeAlert's try/catch is the SINGLE guard, so M-ii-20 (dropping that guard) turns a connector
+  // throw into a FATAL that leaves narabi.json UNWRITTEN -> RED. A synchronous tls/net.connect throw becomes the
+  // same rejection. The single deadline above bounds a stuck TCP/TLS handshake (TCP accepted, no ServerHello).
+  let socket;
+  try {
+    socket = await new Promise((resolve, reject) => {
+      let settled = false;
+      const ok = (s) => { if (!settled) { settled = true; resolve(s); } };
+      const no = (alertError, s) => { if (!settled) { settled = true; try { if (s) s.destroy(); } catch { /* closing */ } reject({ alertError }); } };
+      let s;
+      onDeadline = () => no("smtp_timeout", s); // connect phase: the single timer fires -> give up the handshake
+      try {
+        if (plan.connector === "tls") s = tls.connect({ ...plan.options, host, port }, () => ok(s));
+        else { s = net.connect({ host, port }); s.once("connect", () => ok(s)); }
+      } catch (e) { no(classifyConnectError(e), s); return; }
+      s.once("error", (e) => no(classifyConnectError(e), s));
+    });
+  } catch (e) { clearT(timer); throw e; } // connect failed -> clear the single timer, then propagate to maybeAlert
+
+  // Response reader over the SAME single deadline (never reset per read): a complete reply ends with a
   // "NNN " (space) status line; multiline "NNN-" continuations precede it (parsed for the EHLO AUTH mechs).
   let buf = "", total = 0, waiter = null, dead = false;
   const failWaiter = (alertError) => { const w = waiter; waiter = null; if (w) w.reject({ alertError }); };
-  const timer = setTimeout(() => { dead = true; try { socket.destroy(); } catch { /* closing */ } failWaiter("smtp_timeout"); }, deadlineMs);
+  onDeadline = () => { dead = true; try { socket.destroy(); } catch { /* closing */ } failWaiter("smtp_timeout"); }; // conversation phase: the SAME single timer now fails the current read
   const deliver = () => {
     const lines = buf.split(/\r?\n/);
     let idx = -1;
-    for (let i = 0; i < lines.length; i++) { if (/^\d{3} /.test(lines[i])) { idx = i; break; } }
+    // C-G2-6: only a COMPLETE line (one FOLLOWED by a CRLF, i.e. NOT the trailing element after split) may resolve
+    // a reply, so a TCP segment boundary mid-line (e.g. "250 O" then "K\r\n") never resolves early on a partial line.
+    for (let i = 0; i < lines.length - 1; i++) { if (/^\d{3} /.test(lines[i])) { idx = i; break; } }
     if (idx >= 0 && waiter) {
       const reply = lines.slice(0, idx + 1);
       buf = lines.slice(idx + 1).join("\n");
@@ -611,7 +632,7 @@ export async function sendSmtp({ host, port, tls: tlsMode, user, pass, from, to,
   } catch (e) {
     error = (e && e.alertError) || "smtp_rejected";
   } finally {
-    clearTimeout(timer);
+    clearT(timer); // the SINGLE clearTimeout — here at the conversation end (or in the connect-failure catch above); never a 2nd timer
     try { socket.destroy(); } catch { /* already closing */ }
   }
   return error ? { ok: false, error } : { ok: true };

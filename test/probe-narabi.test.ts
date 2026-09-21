@@ -22,6 +22,7 @@ import {
   DEFAULT_TIMEOUT_MS, DEFAULT_MAX_BYTES, DEFAULT_RETRIES, MAX_TIMEOUT_MS, MAX_MAX_BYTES, MAX_RETRIES,
   START_MARGIN_MS, transportBounds, SCHEMA, evaluate,
   encodeData, composeMail, smtpTransportPlan, sanitizeField, readPriorState, isEmailish, MAX_SMTP_DEADLINE_MS,
+  sendSmtp, smtpDeadlineMs, DEFAULT_SMTP_DEADLINE_MS,
 } from "../scripts/probe-narabi.mjs";
 import type { NarabiState } from "../scripts/probe-narabi.mjs";
 
@@ -426,11 +427,12 @@ test("probe_timer_multiple_shots — the timer declares >= 3 post-deadline OnCal
   assert.ok(to, "TimeoutStartSec is set (C-6 per-start backstop)");
   const worstCaseSec = Math.ceil((DEFAULT_TIMEOUT_MS * (DEFAULT_RETRIES + 1)) / 1000);
   assert.ok(Number(to[1] ?? "0") >= worstCaseSec, `TimeoutStartSec (${to[1] ?? "?"}) must be >= code worst-case ${String(worstCaseSec)}s`);
-  // C-G2-7 + C-B-2: the env-tunable bounds are HARD-CAPPED, and TimeoutStartSec STRICTLY exceeds the CAPPED worst
-  // case = GET (timeout x (retries+1)) + the SINGLE global SMTP deadline (MAX_SMTP_DEADLINE_MS) + start margin, so a
-  // mis-set /etc/monark/probe.env can never get the job killed mid-write. -1b-ii-a raised the unit to cover the send.
+  // C-G2-7 + C-B-2 + C-G2-1: the env-tunable bounds are HARD-CAPPED, and TimeoutStartSec STRICTLY exceeds the CAPPED
+  // worst case = GET (timeout x (retries+1)) + the SINGLE wall-clock SMTP deadline (MAX_SMTP_DEADLINE_MS — ONE timer for
+  // connect+handshake+conversation, x1, NOT two sequential per-phase deadlines) + start margin. The single-deadline fix
+  // (C-G2-1) is what makes this x1 formula truthful: 50 + 30 + 10 = 90 s < 120, so a mis-set probe.env never kills mid-write.
   const worstCappedSec = Math.ceil((MAX_TIMEOUT_MS * (MAX_RETRIES + 1) + MAX_SMTP_DEADLINE_MS + START_MARGIN_MS) / 1000);
-  assert.ok(Number(to[1] ?? "0") > worstCappedSec, `TimeoutStartSec (${to[1] ?? "?"}) must strictly exceed the CAPPED GET+SMTP worst-case ${String(worstCappedSec)}s`);
+  assert.ok(Number(to[1] ?? "0") > worstCappedSec, `TimeoutStartSec (${to[1] ?? "?"}) must strictly exceed the CAPPED GET + single-deadline SMTP worst-case ${String(worstCappedSec)}s`);
   assert.equal(transportBounds({ PROBE_TIMEOUT_MS: "99999999" }).timeoutMs, MAX_TIMEOUT_MS, "PROBE_TIMEOUT_MS is hard-capped");
   assert.equal(transportBounds({ PROBE_RETRIES: "99999" }).retries, MAX_RETRIES, "PROBE_RETRIES is hard-capped");
   // C-V-3: the unit's MemoryMax must cover the worst-case RSS when a body fills the byte cap. Measured peak RSS at
@@ -565,7 +567,7 @@ test("probe_fetch_timeline_self_guards_transport — fetchTimeline refuses an of
 interface FakeCap { commands: string[]; auth: string[]; mailFrom: string | null; rcptTo: string[]; data: string; connections: number; delivered: number }
 interface FakeOpts {
   announce?: string[]; authCode?: number; authFailFirst?: number; echoAuthOn535?: boolean; closeAfterAuth?: boolean;
-  drip?: boolean; silentAfterData?: boolean; neverGreet?: boolean;
+  drip?: boolean; silentAfterData?: boolean; neverGreet?: boolean; flood?: boolean; fragmentAuthFinalLine?: boolean;
 }
 interface FakeSmtp { port: number; cap: FakeCap; close: () => Promise<void> }
 
@@ -574,8 +576,13 @@ async function startFakeSmtp(opts: FakeOpts = {}): Promise<FakeSmtp> {
   const announce = opts.announce ?? ["PLAIN", "LOGIN"];
   const server = net.createServer((sock) => {
     cap.connections++;
+    // C-G2-2: the probe sends a TCP RST when it destroys the socket on a timeout / byte-bound / recovery path, so
+    // the fake side's socket emits an 'error' (ECONNRESET); with NO listener node throws it uncaught and flakes the
+    // test process (measured 3/8 isolated, 1/6 in file by the reviewer). Swallow it — the assertions read `cap`.
+    sock.on("error", () => { /* peer RST after we're done capturing — intentionally ignored (C-G2-2) */ });
     const w = (s: string): void => { try { sock.write(s); } catch { /* client gone */ } };
     if (opts.drip) { const t = setInterval(() => { w("250-drip\r\n"); }, 20); sock.on("close", () => { clearInterval(t); }); return; }
+    if (opts.flood) { w("250-x\r\n".repeat(10000)); return; } // C-G2-4: > 64 KiB, no final "NNN " line, then silent -> the total-byte bound must cut it off
     if (opts.neverGreet) return; // accept the socket, send nothing -> the probe's greeting read hits the global deadline
     w("220 fake ESMTP\r\n");
     let buf = "", dataBuf = "", inData = false, awaitUser = false, awaitPass = false;
@@ -599,7 +606,12 @@ async function startFakeSmtp(opts: FakeOpts = {}): Promise<FakeSmtp> {
         const up = line.toUpperCase();
         if (awaitUser) { cap.auth.push(line); awaitUser = false; awaitPass = true; w("334 UGFzc3dvcmQ6\r\n"); }
         else if (awaitPass) { cap.auth.push(line); awaitPass = false; finishAuth(); }
-        else if (up.startsWith("EHLO")) { w(`250-fake\r\n250-AUTH ${announce.join(" ")}\r\n250 PIPELINING\r\n`); } // AUTH on a CONTINUATION line -> a mono-line parser misses it (M-ii-11)
+        else if (up.startsWith("EHLO")) {
+          // C-G2-6: AUTH on the FINAL "250 " line, split mid-token across two TCP segments (60 ms apart). A reader
+          // that resolves a reply on the trailing INCOMPLETE line reads "250 AUT" -> no AUTH mech -> smtp_auth_failed.
+          if (opts.fragmentAuthFinalLine) { w("250-fake\r\n250 AUT"); setTimeout(() => { w("H PLAIN\r\n"); }, 60); }
+          else w(`250-fake\r\n250-AUTH ${announce.join(" ")}\r\n250 PIPELINING\r\n`); // AUTH on a CONTINUATION line -> a mono-line parser misses it (M-ii-11)
+        }
         else if (up.startsWith("AUTH PLAIN")) { cap.auth.push(line.slice("AUTH PLAIN".length).trim()); finishAuth(); }
         else if (up.startsWith("AUTH LOGIN")) { awaitUser = true; w("334 VXNlcm5hbWU6\r\n"); }
         else if (up.startsWith("MAIL FROM")) { cap.mailFrom = line; w("250 ok\r\n"); }
@@ -780,6 +792,114 @@ test("probe_smtp_global_deadline — a drip server (250- forever) and a server s
   } finally { await silent.close(); }
 });
 
+// ── C-G2-1: a SINGLE wall-clock deadline covers connect + handshake + conversation (one timer, cleared in finally) ──
+test("probe_smtp_single_wall_clock_deadline_covers_whole_exchange — sendSmtp arms EXACTLY ONE timer (injected clock) for the WHOLE exchange; firing it DURING the conversation (past a real loopback connect + EHLO + AUTH) yields smtp_timeout and it is cleared in finally — no 2nd per-phase timer, no residual handle (C-G2-1)", async () => {
+  const timers: { cb: () => void; ms: number; cleared: boolean }[] = [];
+  const NOW = 1_000_000, DEADLINE = 40_000;
+  const clock = {
+    now: () => NOW,
+    setTimeout: (cb: () => void, ms: number) => { const t = { cb, ms, cleared: false }; timers.push(t); return t; },
+    clearTimeout: (t: unknown) => { if (t) (t as { cleared: boolean }).cleared = true; },
+  };
+  let gotAuth = false;
+  const server = net.createServer((sock) => {
+    sock.on("error", () => { /* peer RST on destroy (C-G2-2) */ });
+    sock.write("220 fake ESMTP\r\n");
+    let b = "";
+    sock.on("data", (d: Buffer) => {
+      b += d.toString(); let nl = b.indexOf("\r\n");
+      while (nl >= 0) {
+        const line = b.slice(0, nl); b = b.slice(nl + 2);
+        if (line.toUpperCase().startsWith("EHLO")) sock.write("250-fake\r\n250 AUTH PLAIN\r\n");
+        else if (line.toUpperCase().startsWith("AUTH")) gotAuth = true; // then SILENT -> only the deadline can end it
+        nl = b.indexOf("\r\n");
+      }
+    });
+  });
+  await new Promise<void>((r) => { server.listen(0, "127.0.0.1", () => { r(); }); });
+  const p = sendSmtp({ host: "127.0.0.1", port: (server.address() as { port: number }).port, tls: "none", user: "u@x.tld", pass: "p", from: "u@x.tld", to: "u@x.tld", message: "x\n", deadlineMs: DEADLINE, clock });
+  p.catch(() => { /* settled below via the timer; never an unhandled rejection */ });
+  try {
+    const t0 = Date.now();
+    while (!gotAuth && Date.now() - t0 < 4000) await new Promise((r) => setTimeout(r, 10));
+    assert.equal(gotAuth, true, "the client got past connect and into the conversation (sent AUTH)");
+    assert.equal(timers.length, 1, "EXACTLY ONE timer for the whole exchange (kills a reintroduced separate connect timer)");
+    assert.equal(timers[0]?.ms, DEADLINE, "the one timer is armed for the FULL deadline (connect+handshake+conversation)");
+    assert.equal(timers[0]?.cleared, false, "not cleared while the exchange is in flight");
+    timers[0]?.cb(); // fire the SINGLE deadline DURING the conversation phase
+    assert.deepEqual(await p, { ok: false, error: "smtp_timeout" }, "the one wall-clock deadline ends the CONVERSATION as smtp_timeout");
+    assert.equal(timers[0]?.cleared, true, "cleared in finally — no residual handle (kills the not-cleared mutant)");
+  } finally {
+    for (const t of timers) if (!t.cleared) t.cb();
+    await new Promise<void>((r) => { server.close(() => { r(); }); });
+  }
+});
+
+// ── C-G2-1: the connect/handshake phase is bounded by the SAME single deadline (a silent handshake gives up ~1x) ──
+test("probe_smtp_connect_deadline_bounds_handshake — a server that accepts TCP but never completes the implicit-TLS handshake is given up on as smtp_timeout within ~one deadline, narabi.json written, exit 1, NOT SIGKILLed (C-G2-1)", async () => {
+  // The server-side socket is PAUSED (no 'data' listener) so it never notices the child's disconnect; capture and
+  // destroy it in finally, else server.close() would wait for a connection the child already dropped.
+  let srvSock: net.Socket | undefined;
+  const server = net.createServer((sock) => { srvSock = sock; sock.on("error", () => { /* silent: no ServerHello */ }); });
+  await new Promise<void>((r) => { server.listen(0, "127.0.0.1", () => { r(); }); });
+  try {
+    const port = (server.address() as { port: number }).port, DEADLINE = 700, t0 = Date.now();
+    const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(port, { SMTP_TLS: "implicit", SMTP_DEADLINE_MS: String(DEADLINE) }), 8000);
+    const elapsed = Date.now() - t0;
+    assert.equal(r.killed, false, "bounded by the single deadline, not SIGKILLed (connect-deadline-removed -> hang -> SIGKILL)");
+    assert.equal(r.state.alert_error, "smtp_timeout", "a silent handshake is smtp_timeout");
+    assert.equal(r.status, 1, "exit 1");
+    assert.ok(elapsed < DEADLINE + 4000, `bounded within ~one deadline + child startup (elapsed=${String(elapsed)}ms)`);
+  } finally { srvSock?.destroy(); await new Promise<void>((r) => { server.close(() => { r(); }); }); }
+});
+
+// ── C-G2-1: after a SUCCESSFUL send the child exits promptly — the single timer is cleared, no residual handle ──
+test("probe_smtp_no_residual_timer_handle — with a 30 s SMTP_DEADLINE_MS a successful send still lets the child EXIT PROMPTLY: the single deadline timer is cleared in finally (a not-cleared timer would keep the process alive to 30 s) (C-G2-1)", async () => {
+  const fake = await startFakeSmtp();
+  try {
+    const t0 = Date.now();
+    const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(fake.port, { SMTP_DEADLINE_MS: "30000" }), 20000);
+    const elapsed = Date.now() - t0;
+    assert.equal(r.state.alerted, true, "the mail was delivered — this is the SUCCESS path being timed");
+    assert.equal(r.state.alert_error, null, "delivered, no error");
+    assert.equal(r.killed, false, "not SIGKILLed");
+    assert.ok(elapsed < 8000, `child exited well before the 30 s deadline (elapsed=${String(elapsed)}ms) — timer cleared (mutant: not cleared -> lives to 30 s -> SIGKILL)`);
+  } finally { await fake.close(); }
+});
+
+// ── C-G2-4: the total-byte bound cuts off a flood > SMTP_MAX_BYTES fast, before the deadline ──
+test("probe_smtp_byte_bound_stops_flood — a fake that floods > 64 KiB of never-terminating response is cut off as smtp_timeout FAST via the total-byte bound, well before the 20 s deadline, not SIGKILLed (C-G2-4)", async () => {
+  const fake = await startFakeSmtp({ flood: true });
+  try {
+    const t0 = Date.now();
+    const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(fake.port, { SMTP_DEADLINE_MS: "20000" }), 8000);
+    const elapsed = Date.now() - t0;
+    assert.equal(r.killed, false, "the byte bound stopped it (mutant: bound removed -> awaits the 20 s deadline > killMs -> SIGKILL -> killed:true)");
+    assert.equal(r.state.alert_error, "smtp_timeout", "flooding past SMTP_MAX_BYTES is smtp_timeout");
+    assert.equal(r.status, 1, "exit 1");
+    assert.ok(elapsed < 8000, `stopped by the byte bound well before the deadline (elapsed=${String(elapsed)}ms)`);
+  } finally { await fake.close(); }
+});
+
+// ── C-G2-5: smtpDeadlineMs clamps SMTP_DEADLINE_MS to its ceiling and falls back to the default otherwise ──
+test("probe_smtp_deadline_ms_is_capped — smtpDeadlineMs clamps an over-MAX SMTP_DEADLINE_MS DOWN to MAX_SMTP_DEADLINE_MS, passes a valid value, and defaults on absent/blank/zero/negative/non-numeric (C-G2-5)", () => {
+  assert.equal(smtpDeadlineMs({ SMTP_DEADLINE_MS: String(MAX_SMTP_DEADLINE_MS * 100) }), MAX_SMTP_DEADLINE_MS, "an over-MAX value clamps DOWN to MAX (kills the cap-removed mutant)");
+  assert.equal(smtpDeadlineMs({ SMTP_DEADLINE_MS: "5000" }), 5000, "a valid value passes through");
+  assert.equal(smtpDeadlineMs({}), DEFAULT_SMTP_DEADLINE_MS, "absent -> default");
+  for (const bad of ["", "  ", "0", "-1", "abc"]) assert.equal(smtpDeadlineMs({ SMTP_DEADLINE_MS: bad }), DEFAULT_SMTP_DEADLINE_MS, `blank/zero/negative/NaN -> default: ${JSON.stringify(bad)}`);
+});
+
+// ── C-G2-6: the reader resolves a reply only on a COMPLETE line (a fragmented "250 AUT"+"H PLAIN" must not resolve early) ──
+test("probe_smtp_reply_needs_complete_line — a fake that fragments the EHLO reply mid-token on the FINAL '250 ' line still delivers exactly one mail: the reader waits for the complete line before parsing the AUTH mechanism (C-G2-6)", async () => {
+  const fake = await startFakeSmtp({ fragmentAuthFinalLine: true });
+  try {
+    const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(fake.port), 8000);
+    assert.equal(r.state.alert_error, null, "the fragmented '250 AUT'+'H PLAIN' resolves to AUTH PLAIN and delivers (mutant: resolve on the incomplete line -> mech '250 AUT' -> no AUTH -> smtp_auth_failed)");
+    assert.equal(r.state.alerted, true, "alerted after the 250");
+    assert.equal(fake.cap.delivered, 1, "exactly one mail");
+  } finally { await fake.close(); }
+});
+
 // ── C-B-3: the remote `day` is CR/LF-sanitized before it reaches the body (the only free remote field) (M-ii-5) ──
 test("probe_smtp_injection_crlf_sanitized — a CRLF+dot+RCPT payload carried in the remote `day` produces exactly ONE message and ONE recipient with NO injected command; the sanitized value stays on the single last_day line (C-B-3; M-ii-5)", async () => {
   // the sanitizer itself: CR/LF (and any 8-bit) are stripped, printable ASCII kept, so the field cannot break a line.
@@ -827,7 +947,10 @@ test("probe_smtp_headers_wellformed — composeMail emits From/To/constant Subje
   assert.match(message, /\n\nMONARK Narabi external probe\n/, "a blank line separates headers from body");
   assert.match(message, /^reason: lag$/m, "the body carries the reason");
   for (const good of ["a@b.co", "narabialerts@monarkgate.tech"]) assert.equal(isEmailish(good), true, `valid: ${good}`);
-  for (const bad of ["no-at", "a@b", "a b@c.d", "", "a@@b.c"]) assert.equal(isEmailish(bad), false, `invalid: ${bad}`);
+  // C-G2-3: CR/LF must never pass isEmailish (envelope-injection guard on ALERT_TO/ALERT_FROM). The realistic payload
+  // "a@b.c\r\nRCPT TO:<x>" is already rejected by its space/<>; the CLEAN-tail "a@b.c\r\nx" / "a@b.c\nx" are what red
+  // the `\s`->literal-space mutant of isEmailish (mjs:429), which would otherwise let a bare \r\n through.
+  for (const bad of ["no-at", "a@b", "a b@c.d", "", "a@@b.c", "a@b.c\r\nRCPT TO:<x>", "a@b.c\r\nx", "a@b.c\nx"]) assert.equal(isEmailish(bad), false, `invalid: ${JSON.stringify(bad)}`);
 });
 
 // ── C-B-8: implicit TLS to a plaintext server fails WITHOUT ever speaking EHLO/AUTH in the clear (M-ii-19) ──
@@ -835,7 +958,7 @@ test("probe_smtp_implicit_tls_never_speaks_plaintext — SMTP_TLS=implicit to a 
   let received = "";
   // A cleartext greeting makes the client's TLS layer reject the first record fast (ERR_SSL_WRONG_VERSION_NUMBER),
   // so the handshake FAILS instead of hanging; the client's ClientHello is still recorded first (measured spike).
-  const server = net.createServer((s) => { s.write("220 fake plaintext\r\n"); s.on("data", (d: Buffer) => { received += d.toString("latin1"); }); });
+  const server = net.createServer((s) => { s.on("error", () => { /* peer RST on TLS-fail destroy — ignored (C-G2-2) */ }); s.write("220 fake plaintext\r\n"); s.on("data", (d: Buffer) => { received += d.toString("latin1"); }); });
   await new Promise<void>((r) => { server.listen(0, "127.0.0.1", () => { r(); }); });
   try {
     const port = (server.address() as { port: number }).port;
