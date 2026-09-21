@@ -111,6 +111,9 @@ is still stale) is caught. Consequences:
 
 The `probe → alerte` mail channel and the schema-2 state machine are sub-lot **-1b-ii-a**.
 
+### Note dated 2026-09-21 (investor decision 109) — residual accepted
+The catch-up livelock residual (Mode A: a backlog of >= ~12 days is killed at every slot by `TimeoutStartSec=300`; repair procedure RUNBOOK section 6 Mode A; detected by the external probe as `lag`) is ACCEPTED by the investor (decision 109, verbatim « Redéployer avec ce résiduel »). The `run.ts` mitigation (bounded catch-up per run, which changes the run-report contract `lag>0 <=> stopped!==null <=> exit 1`) is a SEPARATE lot with its own G0/ADR (owner orchestrator, trigger: that lot's G0); it does not block the E-5 redeploy. The merged state -1b-ii (a + b) is deployed by the named G7 merge SHA (decision 72).
+
 ## Deferral of L-5 (C-11, R-25)
 
 Measured at G1 (mid-lot, `git diff --shortstat eac7eea` under the ci.yml R-25 pathspec, untracked files

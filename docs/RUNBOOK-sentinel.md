@@ -134,9 +134,9 @@ compared with the archive's.
 ```bash
 cd /opt/monark-harness
 # (1) Ship the new tree: re-run RUNBOOK-harness.md step 1
-#     (`git archive <main HEAD> … apps packages … | ssh … tar xzf -`) — it now carries the updated apps/sentinel/.
+#     (`git archive <named G7 SHA, decision 72 — never a moving HEAD> … apps packages … | ssh … tar xzf -`) — it now carries the updated apps/sentinel/.
 npm ci                                        # refresh @monark/* workspace symlinks incl. @monark/sentinel
-test -f apps/sentinel/src/run.ts || echo "STOP: sentinel not shipped — re-archive apps/ from main HEAD"
+test -f apps/sentinel/src/run.ts || echo "STOP: sentinel not shipped — re-archive apps/ from the named G7 SHA"
 # (2) Copy BOTH units (the .timer changed: four OnCalendar slots + Persistent=true, ADR-NARABI-OPS-1 L-2).
 cp /opt/monark-harness/deploy/monark-sentinel.service /etc/systemd/system/
 cp /opt/monark-harness/deploy/monark-sentinel.timer   /etc/systemd/system/
@@ -245,7 +245,7 @@ NEXT=$(node -e 'const d=new Date(process.argv[1]+"T00:00:00Z");d.setUTCDate(d.ge
 systemd-run --uid=sentinel --pipe --wait \
   -p EnvironmentFile=/etc/monark/sentinel.env \
   -p Environment=MONARK_SENTINEL_DIR=/var/lib/monark-sentinel \
-  node /opt/monark-harness/apps/sentinel/src/run.ts --day "$NEXT"
+  /usr/bin/env node /opt/monark-harness/apps/sentinel/src/run.ts --day "$NEXT"
 # Repeat until `tail -1` shows yesterday (UTC). NOTE: a manual run at an arbitrary hour can overlap a probe
 # shot (10:30/12:30/16:30 UTC) and produce ONE transient state_mismatch mail that self-heals next shot (C-NB-4).
 ```
@@ -330,7 +330,8 @@ printf 'SMTP_HOST=%s\nSMTP_PORT=465\nSMTP_TLS=implicit\nSMTP_USER=%s\nSMTP_PASS=
   "$SMTP_HOST" "$SMTP_USER" "$PW_ESC" "$ALERT_FROM" "$ALERT_TO" \
   | ssh -i ~/.ssh/monark_vps root@<bell> \
       'umask 077; install -d -m 0755 /etc/monark; cat > /etc/monark/probe.env; chown root:root /etc/monark/probe.env; chmod 0600 /etc/monark/probe.env'
-# Verify by DIGEST on both sides (never print the contents); the two hashes MUST match:
+# Verify by DIGEST on both sides (never print the contents); the two hashes MUST match.
+# Read the password with `read -rs SMTP_PASS` BEFORE the printf above, so it never enters the shell history.
 #   printf 'SMTP_HOST=%s
 SMTP_PORT=465
 SMTP_TLS=implicit
@@ -338,7 +339,7 @@ SMTP_USER=%s
 SMTP_PASS="%s"
 ALERT_FROM=%s
 ALERT_TO=%s
-' \n#     "$SMTP_HOST" "$SMTP_USER" "$PW_ESC" "$ALERT_FROM" "$ALERT_TO" | sha256sum   # local (same printf as above; read the password with `read -rs SMTP_PASS` so it never enters the shell history)
+' "$SMTP_HOST" "$SMTP_USER" "$PW_ESC" "$ALERT_FROM" "$ALERT_TO" | sha256sum   # local (same printf as above)
 #   ssh ... 'sha256sum /etc/monark/probe.env'                           # remote
 ```
 
@@ -351,7 +352,7 @@ shell (that leaks the secret into the shell's env); never point `--out` at the p
 # future --now forces the unhealthy path so the alert actually fires (this send IS the first real mail; see below).
 ssh -i ~/.ssh/monark_vps root@<bell> \
   'systemd-run --uid=probe --pipe --wait -p EnvironmentFile=/etc/monark/probe.env \
-     /usr/bin/env node /opt/monark-probe/probe-narabi.mjs --now "$(date -u -d '+2 days' +%Y-%m-%dT12:00:00Z)" --out /tmp/probe-sim.json; \
+     /usr/bin/env node /opt/monark-probe/probe-narabi.mjs --now "$(date -u -d "+2 days" +%Y-%m-%dT12:00:00Z)" --out /tmp/probe-sim.json; \
    echo "exit=$?"; cat /tmp/probe-sim.json; rm -f /tmp/probe-sim.json'
 # Expect alert_error: null on a delivered mail, OR a CLOSED-set code (smtp_unconfigured | smtp_unreachable |
 # smtp_timeout | smtp_tls_failed | smtp_auth_failed | smtp_rejected) — NEVER a raw server line, NEVER SMTP_PASS.
@@ -388,9 +389,7 @@ ssh -i ~/.ssh/monark_vps root@<bell> \
 The external probe (`scripts/probe-narabi.mjs`, units `deploy/monark-probe.{service,timer}`) reads the published
 `/narabi/timeline.jsonl` from the **Bell VPS** (a distinct host), recomputes the whole hash chain, checks that the
 last line is not older than J-1 at the 10:30 UTC deadline, and writes `narabi.json` (exit 1 iff unhealthy).
-**State (sub-lot -1b-i, merged): code + non-LLM tests; NOT deployed.** Alerting (mail) and the daily reminder are
-sub-lot **-1b-ii**; the probe is deployed on Bell only after -1b-ii-a AND -1b-ii-b have passed their gates
-(investor decision 72), by SHA. Deadline basis: measured publishing run of 2026-09-21 (start 00:47:55 UTC, exit
+**State (sub-lot -1b-i, merged). Alerting (mail, -1b-ii-a) and the state.json cross-check (-1b-ii-b) are merged in -1b-ii: code + non-LLM tests, NOT deployed.** The probe is deployed on Bell only after the G7 + checkpoint-2 of the MERGED state (investor decision 72), by SHA. Deadline basis: measured publishing run of 2026-09-21 (start 00:47:55 UTC, exit
 00:48:20 UTC, 25.481 s wall clock, `chainstack: true`, 1 line written, T=3) => D <= 600 s, so 10:30 UTC is kept.
 **Residual, declared: a dead probe is silent** (no dead-man switch yet — formed item, trigger: G0 T-1b). Until the
 probe is deployed, monitor by hand: `curl -s https://monarkgate.tech/narabi/timeline.jsonl | tail -1` — the last

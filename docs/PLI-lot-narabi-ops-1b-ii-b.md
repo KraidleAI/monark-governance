@@ -471,3 +471,7 @@ intégré (Fable 5.1) consulté AVANT l'écriture des killers (pièges intégré
 keep-alive undici sur le killer R, `write-after-abort` sur le killer T, niveau de vérification R-21 des docs, décalage +3
 lignes du RUNBOOK). Logs sous `F:\tmp\claude\F--Monark\a7659644-0519-4943-8b82-d50d7405fe34\scratchpad\g2d-fold\` :
 `mutate.mjs`, `bak\probe-narabi.mjs.pristine`, `logs\{after-pristine,after-mutantR,after-mutantT,full-test,ci,flake-1..10}.log`.
+
+
+## Mise à jour (orchestrateur, 2026-09-21, décision 109) — item `run.ts`
+Le déclencheur « avant E-5 » de l'item d'atténuation `run.ts` (C-G2-1 (ii), §10.7) est SUPERSÉDÉ : décision investisseur 109 (« Redéployer avec ce résiduel ») — E-5 est maintenu avec le résiduel documenté (RUNBOOK §6 Mode A, détecté par la sonde) ; l'atténuation `run.ts` devient un LOT SÉPARÉ avec son propre G0/ADR (propriétaire orchestrateur, déclencheur = G0 de ce lot), non bloquant pour E-5.
