@@ -1,6 +1,6 @@
 # TABLEAU DE BORD MONARK — état par chantier
 
-Mis à jour par l'orchestrateur à CHAQUE événement (retour d'agent, décision, fusion). Le détail et l'historique vivent dans `docs/CHANTIERS.md` ; ce fichier ne porte que l'ÉTAT COURANT. Dernière mise à jour : 2026-09-21 ~12:00 UTC (horloge) — 11 lots fusionnés depuis minuit — régime B ; 9 lots fusionnés depuis minuit.
+Mis à jour par l'orchestrateur à CHAQUE événement (retour d'agent, décision, fusion). Le détail et l'historique vivent dans `docs/CHANTIERS.md` ; ce fichier ne porte que l'ÉTAT COURANT. Dernière mise à jour : 2026-09-21 ~12:00 UTC (horloge) — 12 lots fusionnés depuis minuit — régime B ; 9 lots fusionnés depuis minuit.
 
 **RELEASE EN DEUX TEMPS (décision 117)** : temps 1 = Narabi + Ukemi (priorité 1) ; temps 2 = Bell (avance en parallèle, reste `upcoming` au temps 1).
 
@@ -11,9 +11,9 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 |---|---|---|---|
 | -b3d-a contre-vérification | FUSIONNÉ `83da61d` (erratum `7aae8d7`) | — | — |
 | -b3d-b1a reprise/ledger/budget | FUSIONNÉ `2c717f8` (G7, 596/596, R-25 858) | — | — |
-| -b3d-b1b densité/projection (helper K=8, Amendement 3) | EN COURS | cp-2 ACCEPTE-AVEC-CORRECTIONS plié `8c82535` (604/604, 9 mutants, R-25 315) ; Amendement 3(4) corrigé `f4b0d9c` ; G2 + ré-acceptation en cours (repris après limite de session) | `Monark-wt-b3db1b` |
+| -b3d-b1b densité/projection | FUSIONNÉ `f459cc2` (G7, 696 pass / 1 skip, eslint 0, ratchet 69/69, R-25 315) | Amendement 3 à committer seul avant la sonde | — |
 | GARDE-HELIUS (client budgété unique, ledger de cycle) | **1a FUSIONNÉ `88c63bb`** (G7, 688 pass / 1 skip déclaré, R-25 1 096, paquet `upcoming`) | **1b** (Bell consomme `openGuardedClient`) après b1b + (f) (mêmes fichiers) ; **2** (Ukemi) PRÊT à lancer | — |
-| -b3d-f condition (f) ITEM-A (payload chaîné) | PLAN PLIÉ `c83ff2e` | G1 après fusion b1b (même fichier) ; **C-F-4 : question investisseur au G0 de la course** (ancrage par page) | à créer |
+| -b3d-f condition (f) ITEM-A (payload chaîné) | EN COURS | G1 en cours (base `f459cc2`) ; C-F-4 : question investisseur au G0 de la course | `Monark-wt-b3df` |
 | Course de contre-vérification | BLOQUÉ | GARDE-HELIUS-1b + b1b + (f) + Amendement 3 committé seul | — |
 | -b3d-b2 post-tirage | À VENIR | après la course | — |
 | T-1a-iii-a1 univers Solana | FUSIONNÉ `9a2fca9` (G7, 573/573) | — | — |
@@ -76,4 +76,4 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-G1 Narabi -1c · G1 GARDE-HELIUS-2a (priorité 1, temps 1) · G2 b3d-b1b · G1 -iii-a1-bis (Bell, temps 2).
+G1 Narabi -1c · G1 GARDE-HELIUS-2a (priorité 1, temps 1) · G1 -b3d-f · G1 -iii-a1-bis (Bell, temps 2).
