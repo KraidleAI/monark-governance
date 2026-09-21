@@ -8,9 +8,10 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Lot | État | Étape / bloqueur | Worktree |
 |---|---|---|---|
 | -b3d-a contre-vérification | FUSIONNÉ `83da61d` (erratum `7aae8d7`) | — | — |
-| -b3d-b1a reprise/ledger/budget | EN COURS | G1 rendu `93446f8` + correctif notFullPages (option d) en cours ; puis G2 | `Monark-wt-b3db1a` |
+| -b3d-b1a reprise/ledger/budget | EN COURS | G2 (relecteur séparé) ; G1 + option d `f4ae59f`, 565/565, R-25 760 | `Monark-wt-b3db1a` |
 | -b3d-b1b densité/projection | À VENIR | après b1a | — |
-| Course de contre-vérification | BLOQUÉ | lot GARDE-HELIUS (client budgété unique, cap par méthode) | — |
+| GARDE-HELIUS (client budgété unique, ledger de cycle) | EN COURS | rédaction du G0 ; bloquant avant toute course Bell | — |
+| Course de contre-vérification | BLOQUÉ | GARDE-HELIUS + b1b | — |
 | -b3d-b2 post-tirage | À VENIR | après la course | — |
 | T-1a-iii-a1 univers Solana | EN COURS | checkpoint-2 REFUSÉ (clause anti-close, fixture) ; pli C-1..C-4 en cours ; ré-acceptation sur pièces | `Monark-wt-univers` |
 | -iii-a1-bis (C-G2-6/7, C-G2D-1/3) | À VENIR | BLOQUANT avant la 1ʳᵉ course (Chainstack facture l'usage supplémentaire — lu sur place) | — |
@@ -26,7 +27,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Lot | État | Étape / bloqueur | Worktree |
 |---|---|---|---|
 | -1b-i | FUSIONNÉ `9b178f3` | — | — |
-| -1b-ii-a alerte mail | EN COURS | pli G2-delta (C-G2D-1/2) ; puis checkpoint-2 | `Monark-wt-narabi1b2a` |
+| -1b-ii-a alerte mail | EN COURS | checkpoint-2 (validateur) ; pli G2-delta committé, mutant :576 rejoué par l'orchestrateur | `Monark-wt-narabi1b2a` |
 | -1b-ii-b détection jour manquant | CHECKPOINT-2 OK (isolation) | fusion -a+-b = G2 + checkpoint-2 propres ; E-5 maintenu (décision 109) | `Monark-wt-narabi1b2b` |
 | Rattrapage `run.ts` (livelock ≥ ~12 j) | À VENIR | G0/ADR, AVANT E-5 | — |
 | Déploiements (sonde VPS Bell ; E-5 VPS site) | À VENIR | après G7 -a, -b, POOL-RPC-1a ; mot de passe SMTP posé par l'investisseur | — |
@@ -67,4 +68,4 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-G1 b3d-b1a (correctif d) · G1 POOL-RPC-1a · G1 U-4b-1a · pli cp-2 univers · pli G2-delta Narabi -a · G2 EXPORT-CLEAN.
+G2 b3d-b1a · G1 POOL-RPC-1a · G1 U-4b-1a · pli cp-2 univers · cp-2 Narabi -a · G2 EXPORT-CLEAN · G0 GARDE-HELIUS.
