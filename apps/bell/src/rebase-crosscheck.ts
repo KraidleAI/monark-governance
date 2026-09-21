@@ -718,24 +718,30 @@ export async function runDensityProbeCli(call: JsonRpcCall, providers: readonly 
       const setSlice = (): void => { const now = gm(); byMint[symbol] = {
         getTransactionsForAddress: priorSlice.getTransactionsForAddress + (now.getTransactionsForAddress - before.getTransactionsForAddress),
         getTransaction: priorSlice.getTransaction + (now.getTransaction - before.getTransaction) }; };
-      // genesis MEASURED (never date-estimated, M-b1b-11): the oldest tx <= oracle_slot (asc limit:1, slot.lte only).
-      const gFirst = normalizeBody(asArr((await gtfa(tok.address, { lte: oracleSlot }, 1)).data)[0]);
-      if (gFirst === null || gFirst.slot >= oracleSlot) { report[symbol] = { error: "no_measured_genesis", oracle_slot: oracleSlot }; setSlice(); writeBudget(); continue; }
-      const genesisSlot = gFirst.slot;
-      const pointSlots: number[] = [];
-      for (let j = 0; j < DENSITY_POINTS; j++) pointSlots.push(Math.round(genesisSlot + (j * (oracleSlot - genesisSlot)) / (DENSITY_POINTS - 1)));
-      if (pointSlots.some((s, i) => i > 0 && s <= pointSlots[i - 1]!)) { report[symbol] = { error: "degenerate_span", genesis_slot: genesisSlot, oracle_slot: oracleSlot }; setSlice(); writeBudget(); continue; }
-      const points: DensityPoint[] = [];
-      for (const pointSlot of pointSlots) {
-        const slots = asArr((await gtfa(tok.address, { gte: pointSlot }, GTFA_PAGE_LIMIT)).data)
-          .map((b) => normalizeBody(b)).filter((nb): nb is NonNullable<typeof nb> => nb !== null).map((nb) => nb.slot);
-        const tx = slots.length;
-        const span = tx > 0 ? Math.max(...slots) - Math.min(...slots) : 0; // page's measured slot span (fencepost lastSlot - firstSlot)
-        points.push({ slot: pointSlot, tx, span, density: span > 0 ? tx / span : 0 }); // LOCAL density tx/slot (PLI §3(c))
+      try {
+        // genesis MEASURED (never date-estimated, M-b1b-11): the oldest tx <= oracle_slot (asc limit:1, slot.lte only).
+        const gFirst = normalizeBody(asArr((await gtfa(tok.address, { lte: oracleSlot }, 1)).data)[0]);
+        if (gFirst === null || gFirst.slot >= oracleSlot) { report[symbol] = { error: "no_measured_genesis", oracle_slot: oracleSlot }; continue; }
+        const genesisSlot = gFirst.slot;
+        const pointSlots: number[] = [];
+        for (let j = 0; j < DENSITY_POINTS; j++) pointSlots.push(Math.round(genesisSlot + (j * (oracleSlot - genesisSlot)) / (DENSITY_POINTS - 1)));
+        if (pointSlots.some((s, i) => i > 0 && s <= pointSlots[i - 1]!)) { report[symbol] = { error: "degenerate_span", genesis_slot: genesisSlot, oracle_slot: oracleSlot }; continue; }
+        const points: DensityPoint[] = [];
+        for (const pointSlot of pointSlots) {
+          const slots = asArr((await gtfa(tok.address, { gte: pointSlot }, GTFA_PAGE_LIMIT)).data)
+            .map((b) => normalizeBody(b)).filter((nb): nb is NonNullable<typeof nb> => nb !== null).map((nb) => nb.slot);
+          const tx = slots.length;
+          const span = tx > 0 ? Math.max(...slots) - Math.min(...slots) : 0; // page's measured slot span (fencepost lastSlot - firstSlot)
+          points.push({ slot: pointSlot, tx, span, density: span > 0 ? tx / span : 0 }); // LOCAL density tx/slot (PLI §3(c))
+        }
+        const integ = trapezoidIntegral(points);
+        report[symbol] = { genesis_slot: genesisSlot, oracle_slot: oracleSlot, points, n_projected: integ.projected, n_min: integ.min, n_max: integ.max, duration_ms: Date.now() - t0 };
+      } finally {
+        // C-V-3 (calque runRebaseCrosscheckCli:618): a per-mint finally keeps THIS mint's by_mint slice + persists the
+        // budget on EVERY exit — a `continue` (no genesis / degenerate span) AND a BudgetExceededError thrown mid-points.
+        // global/calls_used stay exact via the budgeted layer regardless; the audit §5 reads global, by_mint is the slice.
+        setSlice(); writeBudget();
       }
-      const integ = trapezoidIntegral(points);
-      report[symbol] = { genesis_slot: genesisSlot, oracle_slot: oracleSlot, points, n_projected: integ.projected, n_min: integ.min, n_max: integ.max, duration_ms: Date.now() - t0 };
-      setSlice(); writeBudget();
     }
   } finally {
     writeBudget(); // durable: a mid-sonde BudgetExceededError still persists the cumulative counter (fail-closed)

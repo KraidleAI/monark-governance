@@ -1104,6 +1104,36 @@ test("bell_density_feeds_global_calls_by_method — Σ calls_by_method.global ==
   assert.equal(budget.calls_by_method.global.getTransaction, 0, "the sonde makes ONLY gTfA calls (the stub throws otherwise) => getTransaction stays 0");
 });
 
+// ---- L-b1b (C-V-1): the EMITTED sonde-report.json points[] feed projectPagesAtFraction end-to-end via the real CLI ----
+test("bell_density_report_points_feed_projection — points[] EMITTED by runMain --rebase-density feed projectPagesAtFraction (real artifact, not a hand-built model; C-V-1)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-dpp-s-")), od = mkdtempSync(join(tmpdir(), "bell-dpp-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), densitySeries("SPYx", 800));
+  const txMap: Record<number, number> = { 100: 10, 200: 20, 300: 30, 400: 40, 500: 30, 600: 20, 700: 10, 800: 5 }; // densities [1,2,3,4,3,2,1,0.5], N=1575
+  const args = ["--rebase-density", "--pools", "SPYx", "--max-calls", "150", "--max-credits", "1500", "--min-interval", "0", "--series-dir", sd, "--out", od];
+  await runMain(args, b1aDeps(densityStub({ [SPYX.address]: { genesis: 100, txAt: (s) => txMap[s] ?? 0 } })));
+  // read the artifact the CLI WROTE (CA-11 durci: never a hand-built model) and take its EMITTED points[] {slot,tx,span,density}.
+  const report = JSON.parse(readFileSync(join(od, "sonde-report.json"), "utf8")) as Record<string, { genesis_slot: number; oracle_slot: number; points: { slot: number; tx: number; span: number; density: number }[]; n_projected: number }>;
+  const r = report.SPYx!;
+  // feed the EMITTED points to the pure H6 projection; at f=0.5 with pagesSoFar 0 the linear term is 0, so the returned
+  // value is the density term = trapezoid(emitted points)/GTFA_PAGE_LIMIT = the sonde's own n_projected/GTFA_PAGE_LIMIT.
+  const proj = projectPagesAtFraction(450, r.genesis_slot, r.oracle_slot, 0, r.points);
+  assert.equal(proj, r.n_projected / GTFA_PAGE_LIMIT, "the EMITTED points[] feed projectPagesAtFraction from the real artifact (M-b1b-15: points[] under another key => r.points undefined => reds)");
+  assert.equal(proj, 1.575, "the concrete pipe value on the fixture: n_projected 1575 / GTFA_PAGE_LIMIT 1000 = 1.575");
+});
+
+// ---- L-b1b (C-V-3): a BudgetExceededError mid-mint still persists the interrupted mint's by_mint slice (per-mint finally) --
+test("bell_density_by_mint_survives_budget_exhaustion — a BudgetExceededError mid-mint persists the mint's by_mint slice via the per-mint finally (C-V-3)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-dbe-s-")), od = mkdtempSync(join(tmpdir(), "bell-dbe-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), densitySeries("SPYx", 800));
+  // --max-calls 3: genesis(1) + point0(2) + point1(3) succeed; point2 is the 4th call => BudgetExceededError mid-points.
+  const args = ["--rebase-density", "--pools", "SPYx", "--max-calls", "3", "--max-credits", "1500", "--min-interval", "0", "--series-dir", sd, "--out", od];
+  await assert.rejects(runMain(args, b1aDeps(densityStub({ [SPYX.address]: { genesis: 100, txAt: () => 2 } }))), BudgetExceededError, "the budget stop is fatal (mid-mint)");
+  const budget = JSON.parse(readFileSync(join(od, "budget.json"), "utf8")) as { calls_used: number; calls_by_method: { global: Record<string, number>; by_mint: Record<string, Record<string, number>> } };
+  assert.equal(budget.calls_used, 3, "3 calls consumed before the stop");
+  assert.equal(Object.values(budget.calls_by_method.global).reduce((a, b) => a + b, 0), 3, "global == calls_used (always exact via the budgeted layer, independent of the finally)");
+  assert.equal(budget.calls_by_method.by_mint.SPYx?.getTransactionsForAddress, 3, "the interrupted mint's by_mint slice is preserved by the per-mint finally (M-b1b-16: drop setSlice from the finally => SPYx absent => reds)");
+});
+
 // ---- L-b1b-2 / M-b1b-13: projectPagesAtFraction = max(linear, density); fail-closed on invalid input ----------------
 test("bell_h6_projection_pure_function — projectPagesAtFraction = max(linear, density); density = trapezoid(model)/GTFA_PAGE_LIMIT; fail-closed on invalid input (L-b1b-2, M-b1b-13)", () => {
   const model = [{ slot: 0, density: 2 }, { slot: 1000, density: 2 }]; // trapezoid (2+2)/2·1000 = 2000 tx => 2000/GTFA_PAGE_LIMIT = 2 pages
