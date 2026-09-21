@@ -14,7 +14,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Course de contre-vérification | BLOQUÉ | GARDE-HELIUS + b1b | — |
 | -b3d-b2 post-tirage | À VENIR | après la course | — |
 | T-1a-iii-a1 univers Solana | FUSIONNÉ `9a2fca9` (G7, 573/573) | — | — |
-| -iii-a1-bis (ledger chaîné, sanitize, shim, drain) | EN COURS | pli checkpoint-1 (13 corrections) | `Monark-wt-a1bis` |
+| -iii-a1-bis (ledger chaîné, sanitize, shim, drain) | EN COURS | G1 (implémentation) ; plan plié `4f81f67` | `Monark-wt-a1bis` |
 
 | R1 registre multi-émetteur | À VENIR | après -b3d-b1 (décision 97) | — |
 | T-1a-iv qualification émetteurs | À VENIR | après R1 (décision 93) | — |
@@ -46,7 +46,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Lot | État | Étape / bloqueur | Worktree |
 |---|---|---|---|
 | CI-site | FUSIONNÉ `70212e2` | required check `g3-site` à la clôture | — |
-| POOL-RPC-1a (pool RPC Ethereum) | EN COURS | G2 (relecteur séparé) ; G1 committé (565/565, 14 mutants, R-25 440) | `Monark-wt-pool1a` |
+| POOL-RPC-1a (pool RPC Ethereum) | EN COURS | checkpoint-2 (validateur) sur l'état plié `6ac398c` (ADR écrit, 567/567, R-25 469) ; puis G7 | `Monark-wt-pool1a` |
 | EXPORT-CLEAN (miroir public) | EN COURS | checkpoint-2 ACCEPTE-AVEC-CORRECTIONS ; C-1/C-2 docs pliées par l'orchestrateur ; C-4 (regex forme échappée) par reprise du worker ; puis G7 | `Monark-wt-xclean` |
 | HELIUS-1 (incident) | CAUSE PROUVÉE | scripts de brouillon hors garde (ledger reset, throw retiré) ; reste : lot GARDE-HELIUS avant toute course Bell | — |
 | Clôture (cartographie, K-1, MWCB, export, `g3-site`) | À VENIR | en dernier | — |
@@ -69,4 +69,4 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-pli docs b3d-b1a · G2 POOL-RPC-1a · G2 U-4b-1a · G1 GARDE-HELIUS-1a · G2 ‖ cp-2 fusion Narabi · pli C-4 EXPORT-CLEAN · pli cp-1 -iii-a1-bis.
+pli docs b3d-b1a · cp-2 POOL-RPC-1a · G2 U-4b-1a · G1 GARDE-HELIUS-1a · G2 fusion Narabi + pli C5 · pli C-4 EXPORT-CLEAN · G1 -iii-a1-bis.

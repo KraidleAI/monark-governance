@@ -497,3 +497,5 @@ CI complète sur l'arbre fusionné 573/573 ; R-25 1 195 ; checkpoint-2 REFUSE (a
 
 ### Décision investisseur 116 (2026-09-21 ~08:25 UTC, verbatim « B ») — cadence des gates
 - Option B retenue : (1) G2 ‖ checkpoint-2 en parallèle sur le même G1, ré-acceptation sur pièces par reprise ; (2) G2-delta par reprise du même relecteur ; (3) plis de plan par reprise de l'auteur ; (4) corrections docs par l'orchestrateur ; (5) régime « petit lot » (≤ 300 lignes, rien de servi/réseau/argent/secret/prix) sans checkpoint-2. Aucun gate retiré. `docs/adr/ADR-C01-amendement-2026-09-21-cadence.md`.
+- **Outillage (2026-09-21)** : quand le `.output` d'une tâche est vide, le verbatim de l'agent est récupérable dans `F:\tmp\claude\F--Monark\<session>\subagents\agent-<id>.jsonl` (dernier message assistant) — méthode à utiliser avant toute reconstruction (le pli GARDE-HELIUS a été reconstruit faute de l'avoir su ; le pli -iii-a1-bis a récupéré le verbatim).
+- -iii-a1-bis : plan plié `4f81f67`, G1 lancé (worktree `Monark-wt-a1bis`).
