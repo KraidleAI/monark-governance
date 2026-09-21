@@ -166,6 +166,53 @@ prochaine publication du miroir public ; propriétaire : orchestrateur).** Le ch
 - (iii) **extension de `export:check` aux chemins de lecteur Windows** (`[A-Z]:\`) — **constat MESURÉ** : le gate rend
   « 0 forbidden path » sur un export qui en contient un (u3:42) ⇒ il est **AVEUGLE à cette classe**.
 
+### Addendum D7 septies — Lot EXPORT-CLEAN : données orphelines exclues, chemins de lecteur retirés, garde chemins Windows (2026-09-21)
+Résout les trois volets (i)/(ii)/(iii) formés en **D7 sexies**. Worker `claude-opus-4-8[1m]` (effort max), base
+`671b8f2`, worktree `lot/export-clean`. **Aucun** volet ne touche `STRUCTURAL_BLACKLIST` (échec dur exit 1 +
+divergence du miroir `BLACKLIST` de test 42).
+
+**(i) Mécanisme déclaratif d'exclusion des DONNÉES orphelines** — `scripts/export-exclude-data.json` (liste
+fermée `{reason, data:[…]}`, chargée fail-closed comme `export-exclude-tests.json` : fichier manquant /
+illisible / `data` non-tableau ⇒ exit 1 ; tableau vide LICITE). `collectFiles` classe une donnée exclue APRÈS
+la liste noire structurelle (fail-closed, en premier) et la liste des tests exclus, AVANT la règle `.md`
+français, dans un canal `excludedData` ; `EXPORT-MANIFEST.json` gagne `excluded_data[]`. Contenu (la fixture
+U-4a `upcoming` complète, cohérente) :
+`apps/sentinel/test/fixtures/ukemi/u4/{U4-book-23545087.json, U4-oracle-path-e2.jsonl, U4-scores-e2.jsonl,
+PROVENANCE-u4.md}`. Justification MESURÉE : leur seul consommateur de test est `ukemi-u4-scores.test.ts`
+(exclu) ; `U4-scores-e2.jsonl` est un artefact publié sans consommateur ; `PROVENANCE-u4.md` déclare les trois
+et serait un renvoi pendant. **u3 N'EST PAS exclu** : sa série est aussi consommée par le test racine
+`test/u3-realized.test.ts` (non exporté mais vivant) ⇒ « tous les consommateurs exclus » est FAUX pour u3 ;
+u3 reste exporté (volet ii). Test 42 gagne `manifest.excluded_data == cfg.data`. `error_origin` : orchestrateur
+(D7 n'avait pas branché l'exclusion des données au canal des tests).
+
+**Garde double, non-LLM** (`test/export-hygiene.test.ts`, racine, non exporté) : **(a)** aucune donnée de
+`export-exclude-data.json` n'a un consommateur EXPORTÉ (aucun `collectFiles(ROOT).kept` ne cite son basename ;
+mesuré vide) ; **(b)** aucun test exclu ne laisse une fixture dont TOUS les consommateurs de test (globs
+`package.json`, `test/` racine INCLUS) sont exclus, encore `kept`. Mutants : ajouter `weth-book.fixture.json`
+(consommé par le test exporté `ukemi.test.ts`) à la liste ⇒ (a) rouge ; retirer `U4-book-23545087.json` ⇒ (b)
+rouge.
+
+**(ii) Chemin de lecteur retiré de `PROVENANCE-u3.md:42`** — `F:\PRODUITS\…\u3-reads.jsonl` → jeton
+`<U3_RAWS_DIR>/u3-reads.jsonl` (même traitement que `PROVENANCE-u4.md`/`<U4_RAWS_DIR>`, D7 sexies) ; l'emplacement
+réel reste dans le PLI privé sous `docs/`, jamais exporté. **Re-pin sha** : `series_pinned_are_declared_and_hashed`
+n'hache QUE `.json/.jsonl/.csv` (`SERIES_DATA_EXTS`), jamais un `.md` ⇒ AUCUN pin test-gardé. Les seules
+occurrences des sha touchés sont des valeurs « après » de PLI de lots CLOS (`PLI-lot-u3.md`, `PLI-lot-u4a.md`) :
+non réécrites (falsifierait l'état de clôture). Transitions old→new au rendu.
+
+**(iii) Garde chemins Windows absolus dans `export:check` ET `export`** — fn exportée
+`windowsAbsPathHits(text)` (regex `(?<![A-Za-z])[A-Za-z]:[\\/][\w.$~-]` : lettre de lecteur unique — pas le
+`p` de `http://` — + `:` + `\`/`/` + segment). Balaie `kept` (texte, `.jsonl` inclus, `package-lock` non
+sauté). Fail-closed AVANT toute écriture dans `doExport` (classe fail-open nommée aux commentaires L409-411 du
+script), et échec de `doCheck` hors sélection de scope (un chemin de poste est toujours fautif). 5 hits mesurés
+sur l'export courant, tous corrigés : u3:42 (volet ii) + 4 chemins jetables (`record.ts:10`,
+`ukemi-record.test.ts:108-109`, `PROVENANCE-weth-book-lattice.md:38`) genericisés en POSIX `/tmp/…`. Négatifs
+couverts : `http://`, un `C:` de prose sans séparateur, une source de regex. Mutant : `if (false)` sur la garde
++ copie semée ⇒ rouge.
+
+**Branchement / dettes** : `export:check` absent de la CI reste l'item formé du 2026-09-20 (CI-site, propriétaire
+orchestrateur) — CITÉ, non re-formé ; la garde (iii) y atterrit à sa réalisation. Rejouabilité publique de la
+calibration U-4 (D7 sexies) inchangée : hors périmètre de ce lot.
+
 ### D8 — Lot E (English only) et R-25 (item 11)
 Scindé par package, une PR chacune, **aucun lot exempté** ; **hikae scindé `src` / `test`** (mesure §1.3) ; règle générale : si la mesure d'un lot dépasse 1 205, scission par répertoire (`src`, `test`, sous-répertoire `s2/`). **E-contracts ne touche jamais aux identifiants gelés** (test 0 `contracts_frozen`). Ordre : E-root (CI, scripts, tests racine) ∥ E-contracts → E-hikae-src → E-hikae-test → E-ukemi → E-atelier → E-monark.
 

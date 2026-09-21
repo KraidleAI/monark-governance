@@ -39,7 +39,7 @@ pre-registered BEFORE any network call, C-10) and `--rawlogs` verified against `
   of `apps/sentinel/src/rpc.ts` (`drpc.org`, `mevblocker.io`, `blastapi.io`). `eth_getStorageAt` (EIP-1967 slot)
   resolves the Pool implementation at `B_first` (C-6); `eth_getLogs` (chunked <=2000 blocks) sources
   `DeficitCreated`; `eth_getTransactionReceipt` cross-checks underlying ERC-20 Transfers.
-- **Raw bytes OUT OF REPO**: `F:\PRODUITS\etude-2026-09-20\u3-raws-clean\u3-reads.jsonl` (concordant reads, domains
+- **Raw bytes OUT OF REPO**: `<U3_RAWS_DIR>/u3-reads.jsonl` (its location is recorded in the private lot PLI, never in an exported file; concordant reads, domains
   only, no URL/key), sha256 `0afaf605679c05b1efb476bf78fe4b614619589f5dd045a8b45d73b26344e154`.
 - **Reproducibility**: two independent full runs (a cached run and a from-scratch clean run, 1961 vs 2152 RPC
   calls) produced the four series BYTE-IDENTICALLY (the shas above). The three OUTPUT series

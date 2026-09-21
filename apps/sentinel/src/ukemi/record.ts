@@ -7,7 +7,7 @@
 // network/timeout faults (never infinite), a structured secret-free per-provider error log, and an enumeration
 // floor / politeness / retry budget all exposed on the CLI. Usage:
 //   node apps/sentinel/src/ukemi/record.ts --cluster susde-usde --block <B> --from-block <F> \
-//        --min-interval-ms 350 --retries 3 --backoff-ms 500 --out F:/tmp/u1a-hard/book.json
+//        --min-interval-ms 350 --retries 3 --backoff-ms 500 --out /tmp/u1a-hard/book.json
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, writeFileSync, appendFileSync, existsSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";

@@ -12,8 +12,17 @@ export interface CollectResult {
   structuralViolations: string[];
   frenchMd: string[];
   excludedTests: string[];
+  excludedData: string[];
   dormantAppTests: string[];
   missingRequired: string[];
+}
+export interface PathHit {
+  line: number;
+  col: number;
+  snippet: string;
+}
+export interface PathViolation extends PathHit {
+  rel: string;
 }
 
 /** The four per-package subpaths (src, test, package.json, README.md). */
@@ -36,3 +45,20 @@ export const CI_WORKFLOW_PATH: string;
  *  remove the r25 lot-size job, drop the governance-only comment; every retained job body stays byte-identical
  *  (asserted by test 42(f') / export_public_derived_jobs_are_byte_identical). Fail-closed on a missing block. */
 export function derivePublicWorkflow(raw: string): string;
+
+/** Committed config file names (fail-closed loaders below). */
+export const EXCLUDE_TESTS_FILE: string;
+export const EXCLUDE_DATA_FILE: string;
+/** The governance-only test files excluded from the export (scripts/export-exclude-tests.json). */
+export function loadExcludedTests(root: string): string[];
+/** The orphan `upcoming` data files excluded from the export (scripts/export-exclude-data.json, D7 septies). */
+export function loadExcludedData(root: string): string[];
+
+/** Reader-local Windows absolute path detector (D7 septies (iii)). */
+export const WINDOWS_ABS_PATH_RE: RegExp;
+/** Text extensions the path guard scans (superset of lang-gate `scannable`: adds .jsonl, keeps package-lock). */
+export const PATH_SCAN_TEXT_EXTS: Set<string>;
+/** All Windows-absolute-path hits in `text` (1-based line/col + matched snippet). */
+export function windowsAbsPathHits(text: string): PathHit[];
+/** Windows-absolute-path violations across a resolved (kept) file list. */
+export function windowsPathViolations(kept: CollectedFile[]): PathViolation[];
