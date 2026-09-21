@@ -64,7 +64,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 |---|---|
 | Maquette Bell (charte C) + landing 3D | REÇUE (`F:\MONARK SUITE\bell-design\` ; original non retouché dans `originaux\`) |
 | Maquette Ukemi | PRÊTE (`F:\PRODUITS\etude-2026-09-21\maquettes-release\ukemi.html`) ; 20 écarts Bell notés |
-| Logos : Bell (64), Ukemi concept 3 (103), Narabi concept A (104) | CHOISIS ; finalisation vectorisée EN COURS (designer) |
+| Logos : Bell (64), Ukemi concept 3 (103), Narabi concept A (104) | CHOISIS ; lettrage final en tracés LIVRÉ (`F:\MONARK SUITE\NOTE-serie-logos.md`, 10 SVG + `measures.json`, scripts rejouables) ; **6 points à arbitrer par l'investisseur** (note §6, dont largeur du bloc : 56 px recommandé vs ≈ 63,7 px) ; demande formée conditionnelle §7 (fontTools lu depuis un venv tiers) |
 
 ## 6. EN ATTENTE DE L'INVESTISSEUR (une question à la fois, dans l'ordre)
 | # | Quoi | Bloque |
@@ -74,9 +74,16 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | ~~E-1b~~ | Retrait de LlamaRPC — CONFIRMÉ (décision 106) | — |
 | ~~F-1~~ | Polices OFL — TÉLÉCHARGÉES (décision 107, `F:MONARK SUITEonts`) | — |
 | R-25 | Garder 1 205 / passer à 1 600 par ADR / désactiver | rien (défaut : 1 205) |
+| Logos | Note §6 du designer : 6 arbitrages (largeur du bloc 56 vs ≈ 63,7 px, etc.) | finalisation des SVG de la série |
 | **Firecrawl** | Connecter le connecteur Firecrawl au nouveau compte claude.ai (absent de la session du 21/09 18:00 UTC) ; puis l'orchestrateur relève l'UUID et réécrit les 22 agents s'il a changé | lecteurs/chercheurs (WebFetch seul en attendant) |
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-En vol (18:35 UTC) : **2b-i — PLI** (worker neuf, worktree `F:/Monark-wt-garde2b`, base `f0a6f1d` = code `798b4e9` + rapports G2/checkpoint-2 persistés). Revues rentrées 18:22 UTC : G2 **PASS-AVEC-CORRECTIONS** (C-G-1..5, aucune bloquante 2b-i) ; checkpoint-2 **ACCEPTE-AVEC-CORRECTIONS** (C-R-1 test helius D6 + C-R-2 ADR BLOQUANTS, clôture mécanique prescrite : mutant V1 rouge `FULL=1` + greps sur l'ADR ; C-R-3/C-R-4). Décision orchestrateur : TOUT plié dans 2b-i (R-25 352, marge). Rendu attendu `F:/tmp/garde2b-pli/RENDU-PLI.md` + `DELIVERED.sha256`. Ensuite : sha -c, lint rejoué, commit, clôture mécanique par l'orchestrateur, G2-delta, G7 sur l'arbre fusionné.
+En vol (18:55 UTC, fan-out investisseur « enchaîne en parallèle sur tous les chantiers ») :
+1. **2b-i PLI** (worker, worktree `F:/Monark-wt-garde2b`, base `f0a6f1d`) — revues rentrées 18:22 UTC : G2 **PASS-AVEC-CORRECTIONS** (C-G-1..5), checkpoint-2 **ACCEPTE-AVEC-CORRECTIONS** (C-R-1 test helius D6 + C-R-2 ADR BLOQUANTS, clôture mécanique : mutant V1 rouge `FULL=1` + greps ADR ; C-R-3/C-R-4) ; TOUT plié dans 2b-i. Rendu `F:/tmp/garde2b-pli/RENDU-PLI.md` ; ensuite sha -c, lint rejoué, commit (+ `docs/G1-lot-garde-helius-2b-i.md` = rendu G1 persisté, hors R-25), clôture mécanique, G2-delta, G7 arbre fusionné.
+2. **2b-ii G0 brouillon** (worker, docs seulement, `F:/tmp/garde2b-ii/`) — mesure la transitivité `record.ts`/`rpc2.ts` ↔ code de score gelé, blueprint §8, point `"0x"`, seconde couture. Puis checkpoint-1.
+3. **Prereg U-4b-1b brouillon** (worker, docs seulement, `F:/tmp/u4b-prereg/`) — à committer SEUL après 2b-ii (arguments du recorder gardé finaux).
+4. **GARDE-HELIUS-1b G0 brouillon** (worker, docs seulement, `F:/tmp/garde1b/`, temps 2) — code après 2b-ii.
+5. **LANG-GATE-CI G0 court** (worker, docs seulement, `F:/tmp/langgate/`) — miroir de CI-EXPORT-CHECK ; doit FUSIONNER avant l'ouverture du worktree 2b-ii (`ci.yml` partagé).
+Règles : tout worktree de code reçoit `F:/tmp/g2-garde2bi/mk-nm.ps1` et se retire par `rm-nm.ps1` (un `node_modules` reconstruit est un VRAI dossier de 220 jonctions : jamais `Remove-Item -Recurse`) ; checkpoint-1 validateur à la réception des brouillons 2/4/5. HORS portée (119) : course Bell + C-F-4, U-6, site, DNS, achats ; aucun chercheur/lecteur tant que Firecrawl est absent.
 À faire (temps 1) : G0 GARDE-HELIUS-2b → prereg U-4b-1b committé seul → course U-4b-1b (GO 119, plafonds actifs) → U-4b-2 → U-5 → U-6 (go) → U-7 · E-5 : ligne du run réel du 22/09 00:41 UTC · Bell (temps 2) : GARDE-HELIUS-1b puis G0 de course.
