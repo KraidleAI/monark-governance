@@ -226,6 +226,17 @@ test("ci_runs_export_check — export:check wired fail-closed in the internal-on
     "the export:check step must carry no continue-on-error (fail-closed); mutant: a continue-on-error: true on the step => red",
   );
 
+  // (2bis / G2 C-1) fail-closed on SKIP too: no `if:` directive in the r25 block. A SKIPPED required check
+  //     counts as PASSING on GitHub -- test 38 (1bis) calls this WORSE than continue-on-error -- so it is the
+  //     more severe dimension, and until now it was pinned only file-wide by test 38 (mutant `if: false` on r25
+  //     left THIS test green). Block-scoped sibling of the COE assert above (and of g3-site's if-guard). The
+  //     shell `if [ ... ]` and awk `{ if($i ~ ...` in this block carry no `:` after `if`, so IF_DIRECTIVE_RE
+  //     does not false-red them (G2-measured). Mutant `if: false` on the r25 job => this reds.
+  assert.ok(
+    !hasDirective(r25Block, IF_DIRECTIVE_RE),
+    "the r25 job/export:check step must carry no `if:` (a skipped required check counts as PASSING on GitHub); mutant: if: false on r25 => red",
+  );
+
   // (3) the run line invokes export-public.mjs --check THROUGH the package.json script chain (npm run
   //     export:check -> scripts["export:check"]). Pinning both ends keeps neither the CI run line nor the
   //     underlying command able to drift silently ("appelle bien export-public.mjs --check").
@@ -1409,9 +1420,10 @@ test("g3_site_builds_then_asserts_fleet_html — job g3-site runs the build THEN
 });
 
 // Lot CI-site (C-10) — the sentinel README is a REAL kept export file (model SECURITY.md, cra-b.test.ts). It is
-// scanned by public_surfaces_make_no_probative_claim and gate:vocab (scan.sentinel), but lang:gate/export:check
-// do NOT run in CI (formed item), so a FRENCH README would land in collectFiles().frenchMd and be dropped from
-// the export in SILENCE (export-public.mjs:263). This membership assertion is the CI teeth for that.
+// scanned by public_surfaces_make_no_probative_claim and gate:vocab (scan.sentinel). export:check now runs in CI
+// (Lot CI-EXPORT-CHECK, r25 job) but its French-.md rule is NON-fatal: a FRENCH README would land in
+// collectFiles().frenchMd and be dropped from the export in SILENCE (export-public.mjs:263), not a red -- and
+// lang:gate does not run in CI. So this membership assertion stays the CI teeth for a French README.
 test("sentinel_readme_is_a_kept_export — apps/sentinel/README.md is an English kept export file (C-10)", () => {
   const kept = new Set(collectFiles(ROOT).kept.map((f) => f.rel));
   assert.ok(

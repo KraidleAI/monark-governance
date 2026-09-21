@@ -238,10 +238,11 @@ zéro-dette. `export:check` est de la même catégorie « concern interne, pas v
 ci`, précisément parce que test 42(e) rejoue `npm run ci` sur l'export.
 
 **Épingle non-LLM** : `ci_runs_export_check` (`test/ci-gates.test.ts`) lit `ci.yml` (aucun parseur YAML n'est
-dépendance du dépôt) et asserte, block-scopé sur r25 : présence de l'étape ; absence de `continue-on-error` ;
-chaîne `package.json` → `export-public.mjs --check`. Mutants « étape retirée » (assert présence ROUGE) et
-« `continue-on-error: true` sur l'étape » (assert COE ROUGE) — restauration byte-exacte sha256 ; preuves dans le
-RENDU-G1 de ce lot, à replier dans `docs/G1-lot-ci-export-check.md` par l'orchestrateur.
+dépendance du dépôt) et asserte, block-scopé sur r25 : présence de l'étape ; absence de `continue-on-error` ET de
+`if:` (garde G2 C-1 : un check requis SAUTÉ passe pour PASSANT sur GitHub, plus grave que `continue-on-error`) ;
+chaîne `package.json` → `export-public.mjs --check`. Mutants (restauration byte-exacte sha256 ; preuves RENDU-G1,
+à replier dans `docs/G1-lot-ci-export-check.md` par l'orchestrateur) : étape retirée/commentée/commande→`echo` ⇒
+présence ROUGE ; `continue-on-error: true` ⇒ COE ROUGE ; `if: false` sur r25 ⇒ garde `if:` ROUGE (M5a, trou fermé par C-1).
 
 **Items formés (dérive doc, propriétaire orchestrateur, déclencheur : fusion de ce lot)** : (a) `lang-gate.mjs:37-42`
 périmé (global mesuré vert) ; (b) le commentaire de `sentinel_readme_is_a_kept_export` (`test/ci-gates.test.ts`)
