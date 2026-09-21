@@ -5,7 +5,8 @@
 // two_paid_operators_*, caps.test.ts). getLogs range-splitting / free-plan bench / chunk-cut dedup stay covered by
 // apps/sentinel/test/pool-rpc-1a.test.ts. The recorder's GUARDED composition (spends only through the guard, budget
 // refusal not retried, resume 0-RU, R+1 write-ahead ledger lines, e2e record->unlock->reconcile, N-unlock in the
-// finally, caller-only retry, the rpc_errors journal) is pinned in apps/sentinel/test/ukemi-guard-record.test.ts.
+// finally, caller-only retry, and the rpc_errors journal mapped by e.name - http for a paid HttpError (never code), code
+// for an RpcError - GARDE-HELIUS-2b-ii-c) is pinned in apps/sentinel/test/ukemi-guard-record.test.ts.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseUkemiArgs, isMainModule } from "../src/ukemi/record.ts";

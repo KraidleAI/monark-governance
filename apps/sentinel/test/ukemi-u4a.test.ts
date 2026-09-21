@@ -156,8 +156,9 @@ test("u4_resolve_interval_per_operator", () => {
 
 // GARDE-HELIUS-2b-ii: u4_exclude_operator_drops_degraded_keeps_quorum is RETIRED - applyExcludeOperators is removed;
 // operator selection is now an EXPLICIT --operators include list (not listing an operator excludes it). The include
-// list + the >= 2-distinct-operator fail-closed guard are pinned recorder-side in ukemi-guard-record.test.ts
-// (ukemi_record_operators_are_an_explicit_include_list) which drives runRecorder over the guard.
+// list is pinned recorder-side by ukemi_record_requires_the_six_run_inputs_and_validates_operators, and the
+// >= 2-distinct-operator (by operatorOf) fail-closed guard by ukemi_record_distinct_guard_by_operator - both in
+// ukemi-guard-record.test.ts driving runRecorder over the guard (GARDE-HELIUS-2b-ii-c C-G-2 / C-R-b3).
 
 // ── D_e (C-4/C-3) abi additions: COMPUTED selectors/topic + the e-mode decoder validated on REAL @B₀ bytes. The
 // AnswerUpdated topic0 reproduces the well-known Chainlink value via the self-tested keccak (signature proof);

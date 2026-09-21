@@ -164,7 +164,14 @@ test("u4_redraw_selects_by_book_digest_seed", async (t) => {
   const spec: string = "../../../scripts/census/u4-redraw.mjs";
   let selectIndices: (seed: string, n: number, k: number) => number[];
   try { ({ selectIndices } = (await import(spec)) as { selectIndices: (seed: string, n: number, k: number) => number[] }); }
-  catch { t.skip("until 2b-iii migrates scripts/census/u4-redraw.mjs under the guard (its module-level import of the removed record.ts transport symbols fails to link)"); return; }
+  catch (e) {
+    // C-R-b5: skip ONLY on the EXPECTED ESM link error - 2b-iii has not migrated u4-redraw.mjs yet, so its module-level
+    // `import { ... applyExcludeOperators ... } from record.ts` fails to link (SyntaxError "does not provide an export
+    // named ..."). ANY OTHER failure (a bogus path, a real regression in selectIndices) is RE-THROWN and stays RED - a
+    // bare catch would forever turn every import fault into a silent skip. A mutant that points `spec` elsewhere reds this.
+    if (e instanceof SyntaxError && /does not provide an export named/.test(e.message)) { t.skip("until 2b-iii migrates scripts/census/u4-redraw.mjs under the guard (its module-level import of a removed record.ts transport symbol fails to link)"); return; }
+    throw e;
+  }
   const bd = "695d862fd1560d5a0ae1349f358accd36ecf394437bd2f497fa1a0fae7d7ab09";
   assert.deepEqual(selectIndices(bd, 16096, 3), [3443, 12793, 15952], "account indices = the book_digest-seeded triplet (not hand-picked)");
   assert.deepEqual(selectIndices(`${bd}:updates`, 140, 3), [131, 68, 114], "AnswerUpdated indices drawn with a distinct seed suffix");

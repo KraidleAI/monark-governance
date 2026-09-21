@@ -410,4 +410,55 @@ data`** livré ici ; **`migration du recorder + grep`** = item formé (ci-dessou
   2b-ii-b (R-25 1125) = migration `record.ts` (`openGuardedClient`, `--operators`, N unlock, journal par `e.name`) + grep CI + e2e + ripple des
   tests. Les DEUX <= 1150 (pas d'escalade). Sous-couture disponible non requise : -b1 (record + tests + guard-record e2e) ~1036 / -b2 (grep) 89.
   Ordre de commit (orchestrateur, R-20 : le worker ne committe pas) : commit 1 = arbre 2b-ii-a, commit 2 = 2b-ii-b par-dessus (les fichiers mixtes
-  `record.ts`/`ukemi.test.ts` empechent une scission par fichier ; les patchs A.patch puis B.patch sont fournis dans le rendu).
+  `record.ts`/`ukemi.test.ts` empechent une scission par fichier ; les deux sous-lots sont les commits **`b0f35e6`** (2b-ii-a) puis **`53ab0fb`**
+  (2b-ii-b), fusionnes dans cet ordre - sources EN DEPOT, aucun renvoi hors depot vers un `.patch` du rendu, C-G-4).
+
+## Pli GARDE-HELIUS-2b-ii-c - corrections de TESTS et de DOCS du checkpoint-2 et du G2 (date 2026-09-22, worker `claude-opus-4-8[1m]`)
+
+- **Provenance** : worker de pli `claude-opus-4-8[1m]` (prefixe `claude-opus-4-8` conforme, effort max ; Opus 5 banni), 2026-09-22, worktree
+  `lot/garde-helius-2b-ii-c` (base `e00f965` = -b `53ab0fb` + rapports persistes) ; reviseur = orchestrateur (R-21). Aucun reseau (fetch bouchonne,
+  cles factices, hotes `.invalid`), aucun secret lu, aucun commit (R-20). **`packages/rpc-guard/src/**` et `apps/sentinel/src/ukemi/record.ts` sont
+  byte-identiques a `53ab0fb`** : ce pli ne touche QUE des tests et des docs (le CODE a ete juge JUSTE par les sondes du validateur au checkpoint-2).
+- **C-R-b1 (journal `rpc_errors`)** : le journal est desormais EPINGLE dans `ukemi-guard-record.test.ts` (a travers `runRecorder` reel, seul
+  `globalThis.fetch` bouchonne) : un HTTP 400/503 payant journalise `http:<statut>` jamais `code:` (`ukemi_record_journal_maps_paid_http_400_to_http_not_code`,
+  `..._maps_paid_5xx_to_http_and_keyless_rpc_to_code`), un RpcError KEYLESS journalise `code:` jamais `http:` (meme test) ; 0 caractere de cle
+  (brute/casse/hex/base64/base64url/%-encodee/partielle/userinfo/query) sur `--out`, les ledgers, stdout et stderr (indice ferme cote payant, corps
+  redacte cote keyless). Les mutants "http remplace par code", "`rpcErrors.push` neutralise" et "branche `e.name === RpcError` -> message" ROUGES.
+  **Precision mesuree (R-21, corrige la sonde §9(ii) du checkpoint-2)** : une course RpcError PAYANTE ne se TERMINE PAS (la jambe payante benchee
+  avec un seul keyless restant echoue au quorum `finalized`) ⇒ `--out` n'est jamais ecrit ⇒ l'entree journal payante RpcError n'est PAS observable
+  sur disque ; le SECRET est neanmoins ferme sur les surfaces d'echec (message leve + stderr + ledgers = 0 cle), epingle par
+  `ukemi_record_failed_paid_rpcerror_leaks_no_key_on_any_surface`. Le trou "journal durable sur course en echec" = item C-R-b7 ci-dessous.
+- **C-R-b2 (deux tuyaux servis)** : (a) l'e2e paye reconcilie un ledger NON VIDE avec vecteur discriminant
+  (`ukemi_record_e2e_paid_ledger_is_reconciled_go_and_hard_no_go` : `mevblocker.io,chainstack` ⇒ jambe payante tiree, `Sigma credits_derived ==
+  provenance.spent_by_operator.chainstack`, `reconcile aggregate-calibration` GO a `delta == ledger_run` et NO-GO `hard:total` a `+1`) ; l'e2e 6-op
+  epingle `chainstack attempted == 0` (chainstack en dernier) + 6 verrous relaches (tue "chainstack tire en premier"). (b) La chaine de concordance
+  servie est restauree (`ukemi_record_concordance_chain` : args `--concordance-out` -> `runRecorder` -> `onQuorum` -> `tallyConcordance` ->
+  `flushConcordance` (finally) -> `reduceConcordance`, un accord ET un desaccord, aucune URL) ; mutants "onQuorum debranche", "flush retire du
+  finally", "flush neutralise" ROUGES.
+- **C-R-b3 / C-G-2** : garde `>= 2 operateurs distincts` epinglee cote recorder (`ukemi_record_distinct_guard_by_operator` :
+  `--operators nodies.app,pocket.network` ⇒ un seul operateur `pocket` ⇒ refus fail-closed) ; retry 429 borne + plafond de backoff
+  (`ukemi_record_caller_retries_429_with_capped_backoff`) ; `operatorOf` sur LABELS nus (`ukemi_record_operatorof_collapses_pocket_on_bare_labels`).
+  Le commentaire faux de `ukemi-u4a.test.ts` (qui nommait un test inexistant) est corrige.
+- **C-R-b4 (motif KEY)** : le grep CI refuse les 6 evasions du checkpoint-2 - `env?.KEY`, `env?.["KEY"]`, le gabarit backtick `env[...KEY...]`, `Reflect.get(env,"KEY")`,
+  `Object.hasOwn(env,"KEY")` par regex etendues, et la forme ALIAS (`e = env; e.KEY`) par un scan de NOM NU applique a la SEULE portee ukemi
+  non-allowlistee (0 occurrence mesuree ; `rpc.ts` allowliste garde sa lecture legitime). Un mutant par forme (injecte dans `record.ts`) rougit
+  `ukemi_src_clean_and_allowlist_load_bearing`.
+- **C-R-b5 (skip DEV-1)** : le `catch` nu de `ukemi-u4-scores.test.ts` ne skippe QUE sur l'erreur de lien ESM attendue (`SyntaxError` /
+  "does not provide an export named"), toute autre erreur est re-levee (reste ROUGE) - la casse silencieuse hors CI est fermee.
+- **C-G-5 / E-1 - RESERVE au runbook (verrou non recuperable)** : la promesse du runbook ci-dessus ("la reprise fait N `runCli unlock`") a UNE
+  exception connue : un crash DANS la fenetre entre l'append du ledger (`packages/rpc-guard/src/ledger.ts:104`) et la reecriture du head-sidecar
+  (`ledger.ts:106`) laisse le head en retard d'une entree ⇒ `openOperatorLedger` fail-close (`head != recompute`, C-V-8) ⇒ `runCli unlock`
+  (`cli.ts:39`) JETTE AVANT de retirer le `.lock` ⇒ ce verrou n'est PAS recuperable par `unlock` seul (reparation manuelle du head requise).
+  Fenetre etroite, fail-closed intentionnel, **HERITE du paquet** (`ledger.ts` byte-identique en 2b-ii - non introduit ici). Caracterise (declaratif,
+  aucun mutant) par `ukemi_record_crash_between_append_and_head_leaves_lock_unrecoverable_by_unlock_KNOWN_DEFECT`. **Item forme** : durcir l'ordre
+  append/head du paquet (ecrire le head AVANT l'append, ou un chemin de re-sync du head) - **proprietaire : orchestrateur ; declencheur : G0 de
+  GARDE-HELIUS-1b-0** (le lot qui touche `packages/rpc-guard/src/ledger.ts`). Le commentaire `record.ts:427` (SIGKILL seul) est un residu cosmetique
+  aligne au meme item (l'ADR runbook dit deja SIGKILL/SIGTERM ; `record.ts` reste byte-identique a `53ab0fb`).
+- **C-R-b7 - item forme (journal de diagnostic durable)** : sur une course en ECHEC (exception, arret budget) le journal `rpc_errors` et
+  `errors_by_operator` ne sont ecrits nulle part de durable (seule la ligne stderr du BUDGET STOP porte les compteurs) : decider si le `finally`
+  ecrit un artefact de diagnostic pour une course payante non rejouable - **proprietaire : orchestrateur ; declencheur : AVANT la course U-4b-1b
+  (prereg)**. Non regressif (la base se comportait de meme).
+- **C-R-a1 (rappel)** : les paragraphes **R-A** (jambe payante `data === "0x"` benchee, cooldown 25 s) et **R-D** (ripple `apps/bell/src/ethereum.ts`)
+  vivent VERBATIM dans l'amendement 2b-ii ci-dessus (commit `53ab0fb`) : ils fusionnent au meme G7 que -a, la condition C-R-a1 est satisfaite.
+  **C-R-b6 (rappel, declencheur 1b-0)** : le test `cycle_ledger_mixes_legacy_and_network_lines` de la clause 121 part d'un ledger PRODUIT par
+  `runRecorder` (code 2b-ii reel), pas d'une ligne "legacy" fabriquee a la main.
