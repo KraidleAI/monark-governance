@@ -75,7 +75,8 @@ Objet : rendre le tirage **faisable et borné** avant de dépenser. **Résultats
 | -b1-bis-i (découverte + scanner) | ≤ 20 000 | G0 -b1-bis |
 | -b1-bis-ii (course fondatrice) | ≤ 1 000 000 | Q5 (décision 66) |
 | **-b3d « cet usage »** (full-mint + sonde ≤ 1 500 + audit ≤ 1 000) | **≤ 6 500 000** | décision 67 |
-| **Cumul pire cas** | **7 528 946 ≈ ~7,53 M / 10 M** | ~2,47 M de marge |
+| **T-1a-iii phase B** (ledger DÉDIÉ, hors tirage -b3d ; ligne ajoutée au checkpoint-2, C-V-6) | **≤ 50 000** | décision 83 (`F:\Monark\docs\CHANTIERS.md:248`, branche `lot/etude-suite`, lecture seule [lu]) |
+| **Cumul pire cas** | **7 578 946 ≈ ~7,58 M / 10 M** (7 528 946 avant la ligne décision 83, C-V-6) | 2 421 054 (~2,42 M) de marge |
 
 - **Prix de surconsommation (C-15, [lu] RESSOURCES-HELIUS l.5-6)** : 5 $/million, **autoscaling off**, limite mensuelle 0 $ ⇒ à 10 M le **système arrête** (dépassement bloqué, jamais facturé en silence) ; le vrai risque d'un cumul > 10 M est d'**affamer -b1-bis-ii**. Item : reconfirmer prix/limite au dashboard AVANT toute activation d'autoscaling.
 
@@ -153,7 +154,7 @@ Base `f654151`, HEAD `a6b86bd`, worktree `F:\Monark-wt-bellb3d`. Aucun appel ré
 - **density-probe helper — garde ledger (Amend. 1)** : le helper de densité (c) écrit `budget.json` (compteur partagé) mais **JAMAIS `ledger-<MINT>.jsonl`** (sinon `resumeFromLedger` saute le préfixe) ; déclencheur : câblage du helper avant la 1ʳᵉ page pleine ; propriétaire worker course/-b3d-b.
 - **Sonde point (g) — convention d'index** : recouper l'index sur ≥ 1 événement connu par mint avant le tirage, sinon STOP ; déclencheur : sonde C-7 avant le tirage ; propriétaire orchestrateur/course.
 - **`error_origin` C-G2-1** : worker PLI (§3/§7) + orchestrateur (A-4 a vérifié la division, pas l'unité) — à consigner au journal de provenance G7.
-- **Renvoi G0 (hors périmètre d'édition du pli, isolation)** : `docs/G0-lot-t1a-ii-b3d.md` H1/H2 (clé d'appariement incluant `instructionIndex`) et §Comparateur (`inconclusive:c3_mismatch`) **divergent désormais du code** (supersédés par PLI Amend. 1(2) DANS le texte PLI seulement). Le G0 étant hors périmètre de ce pli, un renvoi « → Amend. PLI-1 » ou une note ADR-T1aii est un **item orchestrateur** (déclencheur : checkpoint-2/G7 ; propriétaire orchestrateur) — jamais un dû nu.
+- **Renvoi G0 (hors périmètre d'édition du pli, isolation)** : `docs/G0-lot-t1a-ii-b3d.md` H1/H2 (clé d'appariement incluant `instructionIndex`) et §Comparateur (`inconclusive:c3_mismatch`) **divergent désormais du code** (supersédés par PLI Amend. 1(2) DANS le texte PLI seulement). Le G0 étant hors périmètre de ce pli, un renvoi « → Amend. PLI-1 » ou une note ADR-T1aii est un **item orchestrateur** (déclencheur : checkpoint-2/G7 ; propriétaire orchestrateur) — jamais un dû nu. **⇒ FAIT au checkpoint-2 (2026-09-21, C-V-5)** : une **ligne de renvoi datée** a été ajoutée EN TÊTE de `docs/G0-lot-t1a-ii-b3d.md` (corps non réécrit) — voir « §Pli checkpoint-2 » ci-dessous ; l'ADR D1-quater final (à venir, 4/4) portera la déviation + C-V-8 (item du registre durable).
 
 ---
 ## PLI G2 delta — pli des défauts C-G2D-1..4 (worker `claude-opus-4-8[1m]` effort max, 2026-09-20, pli G2 DELTA du sous-lot -b3d-a)
@@ -247,18 +248,81 @@ Pristine `rebase-crosscheck.ts` == worktree `72cfedfc28ffaa4925d41b04d329e766ee4
 
 ### JOURNAL de provenance (UN MODÈLE RÉSOLU PAR ÉTAPE ; R-20 : chaque commit est de l'ORCHESTRATEUR, jamais du worker)
 Chaîne mesurée `git log f654151..HEAD` (sujets + dates author UTC) + rôles/modèles du roster (CLAUDE.md mainteneur 2026-08-14 + amendements Fable 5.1). Le modèle listé = celui qui a **produit** l'artefact ; l'**orchestrateur Fable** (roster `claude-fable-5-1`, résolution effective **non vérifiable par ce worker**) exécute chaque `git commit` (R-20 ; le message porte `(worker claude-opus-4-8)` = producteur, PAS le committeur).
+
+> **Correction checkpoint-2 (2026-09-21, C-V-5)** : les heures de ce journal étiquetaient « UTC » des dates author en **fuseau +01:00** (`git log %aI`) — l'Amendement 1 (en-tête 21:16 UTC, `date -u`) y paraissait antérieur au commit G2. **Heures corrigées en UTC réel** (recompute de première main `TZ=UTC git log f654151..0585f88 --date=format-local:'%Y-%m-%dT%H:%M:%SZ'`, worker rédacteur checkpoint-2) : `cb25d60` 20:29:28Z, `87cc4d5` 20:29:29Z, `a6b86bd` 20:55:08Z, `eb54baa` 21:42:19Z, `0dd13ca` 2026-09-20T23:03:09Z, `266651c` 2026-09-21T00:14:53Z, `0585f88` 2026-09-21T00:42:14Z. Les en-têtes d'Amendement 1 (21:16 UTC) et 2 (22:49 UTC), écrits à `date -u`, étaient déjà en UTC réel et sont désormais cohérents (Amend. 1 21:16 > G2 20:55 ; Amend. 2 22:49 entre `eb54baa` 21:42 et `0dd13ca` 23:03). Chronologie de première main du validateur (avis, fuseau +01:00 → UTC) concordante : G2 début 20:30, commit G2 20:55, Amend. 1 21:16, `eb54baa` 21:42, Amend. 2 22:49, `0dd13ca` 23:03 ; amendements LÉGITIMES.
 | Étape | Modèle résolu (producteur) | Commit (par l'orchestrateur) | `error_origin` consignés |
 |---|---|---|---|
 | G0 (cadrage/ADR + Amend. checkpoint-1 C-1..C-16, A-1..A-6) | worker Opus `claude-opus-4-8[1m]` | `docs/G0-lot-t1a-ii-b3d.md` (pré-`cb25d60`) | — |
 | checkpoint-1 (acceptation du PLAN avant tout code) | validateur-humain Fable `claude-fable-5-1` (R-1 **déclarée** `CHECKPOINT1-lot-t1a-ii-b3d.md` l.3, commit `b238b18`) | `docs/CHECKPOINT1-lot-t1a-ii-b3d.md` | — |
 | pli checkpoint-1 (corrections C-1..C-16) | worker Opus `claude-opus-4-8[1m]` | **Amend. checkpoint-1 dans le G0** (`docs/G0-lot-t1a-ii-b3d.md` §Amendement, pli base `b238b18`, pré-`cb25d60`) | — |
-| pré-enregistrement H1..H6 (§2, committé **SEUL** avant tout tirage, CHANTIERS §F) | worker Opus `claude-opus-4-8[1m]` | **`cb25d60`** (2026-09-20 21:29 UTC) | — |
-| G1 (décodeur SetAuthority tag 6/type 15/CPI, scanner borné+ledger, comparateur 3 verdicts) | worker Opus `claude-opus-4-8[1m]` | **`87cc4d5`** (21:29) | — |
-| G2 fraîche (relecteur **SÉPARÉ**, contexte frais) | relecteur Opus `claude-opus-4-8[1m]` | **`a6b86bd`** (21:55) | relève C-G2-1..7 |
-| pli G2 (fold C-G2-1..7 ; Amend. 1) | worker Opus `claude-opus-4-8[1m]` | **`eb54baa`** (22:42) | **C-G2-1** = worker PLI §3/§7 **+ orchestrateur A-4** (A-4 a vérifié la division, PAS l'unité — PLI l.28/l.155) ; **C-G2-2..7** : `error_origin` **non consigné au PLI** — à assigner au G7 (ne pas inventer) |
+| pré-enregistrement H1..H6 (§2, committé **SEUL** avant tout tirage, CHANTIERS §F) | worker Opus `claude-opus-4-8[1m]` | **`cb25d60`** (2026-09-20 20:29 UTC) | — |
+| G1 (décodeur SetAuthority tag 6/type 15/CPI, scanner borné+ledger, comparateur 3 verdicts) | worker Opus `claude-opus-4-8[1m]` | **`87cc4d5`** (2026-09-20 20:29 UTC) | — |
+| G2 fraîche (relecteur **SÉPARÉ**, contexte frais) | relecteur Opus `claude-opus-4-8[1m]` | **`a6b86bd`** (2026-09-20 20:55 UTC) | relève C-G2-1..7 |
+| pli G2 (fold C-G2-1..7 ; Amend. 1) | worker Opus `claude-opus-4-8[1m]` | **`eb54baa`** (2026-09-20 21:42 UTC) | **C-G2-1** = worker PLI §3/§7 **+ orchestrateur A-4** (A-4 a vérifié la division, PAS l'unité — PLI l.28/l.155) ; **C-G2-2..7** : `error_origin` **non consigné au PLI** — à assigner au G7 (ne pas inventer) |
 | G2 delta (relecteur **SÉPARÉ**) | relecteur Opus `claude-opus-4-8[1m]` | (rapport archivé à `0dd13ca`) | relève C-G2D-1..4 |
-| pli G2 delta (fold C-G2D-1..4 ; Amend. 2) | worker Opus `claude-opus-4-8[1m]` | **`0dd13ca`** (2026-09-21 00:03 UTC) | **C-G2D-1** = worker PLI §7/§4 ; **C-G2D-2** = worker G1 (C-1, design `readPriorCalls`) ; **C-G2D-3** = worker/spéc L-4 (comparateur) ; **C-G2D-4** = worker (oracle) |
-| G2 delta-2 (relecteur **SÉPARÉ**, PASS-AVEC-CORRECTIONS) | relecteur Opus `claude-opus-4-8[1m]` | **`266651c`** (01:14) — HEAD | relève C-G2D2-1/2 (gaps d'oracle) + C-G2D2-3 (nit doc) |
-| **CE pli G2 delta-2** (fold C-G2D2-1..3, **TEST-SEUL**) | worker Opus `claude-opus-4-8[1m]` | **NON committé** (R-20 ; l'orchestrateur committera test + PLI) | **C-G2D2-1** = worker -b3d-a (oracle C-G2D-2) ; **C-G2D2-2** = worker -b3d-a (oracle C-G2D-2) ; **C-G2D2-3** = worker (hygiène doc) |
-| checkpoint-2 (acceptation + **re-exécution** CA-9 : delta Helius == 0, sha §2 `7071484f…`, unicité 32/32) | validateur-humain Fable (roster `claude-fable-5-1` ; résolution effective **non vérifiable par ce worker**) | **À VENIR** | — |
-| G7 (verdict orchestrateur + journal de provenance, assignation `error_origin`) | orchestrateur Fable (roster `claude-fable-5-1` ; résolution effective **non vérifiable par ce worker**) | **À VENIR** | assigne tous les `error_origin` ci-dessus |
+| pli G2 delta (fold C-G2D-1..4 ; Amend. 2) | worker Opus `claude-opus-4-8[1m]` | **`0dd13ca`** (2026-09-20 23:03 UTC) | **C-G2D-1** = worker PLI §7/§4 ; **C-G2D-2** = worker G1 (C-1, design `readPriorCalls`) ; **C-G2D-3** = worker/spéc L-4 (comparateur) ; **C-G2D-4** = worker (oracle) |
+| G2 delta-2 (relecteur **SÉPARÉ**, PASS-AVEC-CORRECTIONS) | relecteur Opus `claude-opus-4-8[1m]` | **`266651c`** (2026-09-21 00:14 UTC) | relève C-G2D2-1/2 (gaps d'oracle) + C-G2D2-3 (nit doc) |
+| pli G2 delta-2 (fold C-G2D2-1..3, **TEST-SEUL**) | worker Opus `claude-opus-4-8[1m]` | **`0585f88`** (2026-09-21 00:42 UTC) — committé par l'orchestrateur (R-20 ; le worker ne committe pas) | **C-G2D2-1** = worker -b3d-a (oracle C-G2D-2) ; **C-G2D2-2** = worker -b3d-a (oracle C-G2D-2) ; **C-G2D2-3** = worker (hygiène doc) |
+| checkpoint-2 (acceptation + **re-exécution** CA-9 : delta Helius == 0, sha §2 `7071484f…`, unicité 32/32, `npm run test` 506/506, budget rejoué runMain, 18 mutants) | validateur-humain Fable `claude-fable-5-1` (R-1 **déclarée** `docs/CHECKPOINT2-lot-t1a-ii-b3d-a.md`) | **FAIT** (2026-09-21 00:42→01:02 UTC, état `0585f88`) — **ACCEPTE-AVEC-CORRECTIONS** (G7 + fusion possibles une fois les corrections « avant G7 » pliées) | — |
+| **CE pli checkpoint-2** (fold corrections « avant G7 » + « avant SONDE » ; FORME les items « avant TIRAGE » ; **DOCS SEULS**, §2 BYTE-IDENTIQUE) | worker rédacteur Opus `claude-opus-4-8[1m]` | **NON committé** (R-20 ; l'orchestrateur committera le pli docs) | consigne C-V-1..C-V-9 + `error_origin` ci-dessous |
+| G7 (verdict orchestrateur + journal de provenance, assignation `error_origin`) | orchestrateur Fable (roster `claude-fable-5-1` ; résolution effective **non vérifiable par ce worker** ; **l'orchestrateur déclare son modèle résolu au G7**) | **À VENIR** | assigne tous les `error_origin` ci-dessus |
+
+---
+## Pli checkpoint-2 (DOCS SEULS) — fold C-V-4..C-V-8, renvoi G0, `error_origin` (worker rédacteur `claude-opus-4-8[1m]` effort max, 2026-09-21 01:15 UTC ; heure lue `date -u`)
+Base `f654151`, HEAD jugé `0585f88`, worktree `F:\Monark-wt-bellb3d`. **DOCS SEULS** : aucun fichier `apps/`/`test/`/`scripts/` touché. **§2 (H1..H6) BYTE-IDENTIQUE** — sha256 de l'extrait `## 2.` → ligne avant le `---` **inchangé** `7071484f3444abe6c09b694f730ad2fcce2f00ea8c12e8cc39fc31806a3c7867` (recomputé avant/après ce pli ; méthode `awk '/^## 2\./{f=1} f&&/^---/{exit} f' docs/PLI-lot-t1a-ii-b3d.md | sha256sum`). **R-20** : le worker ne committe pas. Aucun appel réseau. Avis validateur-humain `claude-fable-5-1` (2026-09-21 00:42→01:02 UTC, état `0585f88`, `docs/CHECKPOINT2-lot-t1a-ii-b3d-a.md`) : **ACCEPTE-AVEC-CORRECTIONS** — G7 hors ligne + fusion de -b3d-a possibles une fois les corrections « avant G7 » pliées ; SONDE sous conditions (§Conditions de la sonde) ; **TIRAGE bloqué par C-V-1..4** (§Registre durable). Le pli test-seul `0585f88` **n'exige PAS** de quatrième G2.
+
+### Corrections AVANT G7 (pliées ici, docs seuls)
+- **C-V-4 — item formé (résolution avant TIRAGE)** : H6 pré-enregistré (§2 : projection EN VOL à `f = 0,05`, STOP si projection > 6,5 M) n'a **NI implémentation NI item formé** ; les sous-plafonds §3(f) ne sont dans **AUCUNE commande** (§7 passe `--max-credits 6497500` à chaque mint). Item **formé maintenant** (registre durable, ligne 4) ; substitut SANS code = sous-plafonds **CUMULATIFS** par mint en `--max-credits` (le compteur partagé `budget.json` le permet) par un **Amendement 3** daté (§2 inchangé) — **NON rédigé ici** (écrit avec le pli source -b3d-b). `error_origin` : worker G1 + les trois G2 (tuyau pré-enregistré sans item).
+- **C-V-5 — heures du journal** : corrigées en UTC réel (le fuseau +01:00 était étiqueté « UTC ») — voir la note « Correction checkpoint-2 » du bloc **JOURNAL** ci-dessus (recompute de première main `TZ=UTC git log`). **Renvoi G0 FAIT** : ligne datée ajoutée EN TÊTE de `docs/G0-lot-t1a-ii-b3d.md` (H1/H2 + §Comparateur supersédés par Amend. 1(2)/2(3) dans le texte PLI ; DÉV-1 adjugée ; corps G0 non réécrit).
+- **C-V-7 — item A-6 (relecture décision 52) CONSIGNÉ FAIT** : `docs/CHANTIERS.md:117` (**DÉCISION INVESTISSEUR 52**, « le juriste fit GO ») couvre la publication des **séries réduites recalculées on-chain publiques** (VWAP, décomptes, digests dérivés des RPC Helius/Chainstack), **bruts hors dépôt sha-pinnés** (option c) [lu] — rien de plus dû.
+- **C-V-8 — exigence de l'ADR D1-quater à venir** : l'ADR final ne publiera **QUE si H1 STRICTE** (`fieldDiffs` **vides** sur 4/4) tient AUSSI, **en plus** de H1 relâchée (DÉV-1). Consigné comme exigence ; **l'ADR n'est PAS rédigé ici**.
+- **`error_origin` (assignés au checkpoint-2 ; confirmation au G7)** :
+
+| Défaut | `error_origin` |
+|---|---|
+| **C-G2-1** | worker PLI (§3/§7) + orchestrateur (A-4 a vérifié la division, PAS l'unité) |
+| **C-G2-2** | worker -b3d-a (déviation 3) + spéc G0 §Comparateur + validateur checkpoint-1 |
+| **C-G2-3/4/5/6** | worker -b3d-a (oracle G1) |
+| **C-G2-7** | worker G0 (clé H1 avec `instructionIndex` **sans convention établie**) + validateur checkpoint-1 + course -b3a (bruts non archivés) |
+| **C-G2D-1..4** | tels que consignés (§PLI G2 delta, table l.163-169) |
+| **C-G2D2-1..3** | tels que consignés (§PLI G2 delta-2, table l.203-208) |
+| **C-V-1** | worker G1 (C-7 b) + G2 + G2-delta + G2-delta-2 (reprise testée **seulement EN COURS de scan**) + validateur checkpoint-1 (C-8 n'exigeait pas le croisement **reprise × ancre**) |
+| **C-V-2** | worker du pli G2 + G2 (C-G2-3 n'exigeait pas le **cumul**) |
+| **C-V-3** | gap d'oracle (**code correct**) non attrapé par les trois G2 — à confirmer au G7 |
+| **C-V-4** | worker G1 + les trois G2 (tuyau pré-enregistré H6 sans item) |
+| **C-V-9** | test de rejeu construit à la main (non probant CA-11 durci) — à confirmer au G7 |
+
+- Item `docs/RESSOURCES-HELIUS-2026-09-19.md:30` périmé = **item orchestrateur** (hors périmètre d'édition de ce lot ; **NON touché** ici).
+
+---
+## Conditions de la sonde — checkpoint-2 (2026-09-21, AVANT SONDE ; §2 intouchée)
+- **C-V-6 — ligne décision 83 ajoutée à la table §4** (+50 000 cr, **ledger DÉDIÉ**, `F:\Monark\docs\CHANTIERS.md:248` [lu]) ⇒ **cumul 7 578 946 / 10 M** (marge 2 421 054).
+- **SONDE À 4 MINTS** : la commande §7 (`--max-pages 1 --max-calls 150 --max-credits 1500 --min-interval 250`, **MÊME `--out` = `F:/tmp/bell-b3d-run`**) est lancée pour **CHACUN des 4 mints** afin que le point (g) couvre **≥ 1 événement connu par mint** ; pire cas **~8 appels sur 150** :
+  ```
+  node apps/bell/src/collect.ts --rebase-crosscheck --pools TSLAx \
+    --max-pages 1 --max-calls 150 --max-credits 1500 --min-interval 250 \
+    --out F:/tmp/bell-b3d-run
+  # puis --pools AAPLx, --pools NVDAx, --pools SPYx (MÊME --out ⇒ budget cumulatif partagé)
+  ```
+- **Règle de calibrage partiel (bloquante pour l'enchaînement)** : seuls **(a)** (disponibilité de méthode), **(b)** (reprise sans perte) et **(g)** (convention d'index) sont **exécutables** ; **(c)** (densité) et **(d)** (débit) exigent le **helper de densité qui n'existe pas** (item registre durable, ligne 6) ⇒ **la sonde ne calibre PAS H6** et **le TIRAGE NE S'ENCHAÎNE PAS** après cette sonde.
+- **Conditions du GO de la sonde** :
+  1. **Lecture du tableau de bord Helius PAR L'INVESTISSEUR** — consommation du cycle + **delta gTfA depuis 2026-09-20 21:42 UTC** (= commit `eb54baa`, **référence de la contingence pré-enregistrée du PLI** : §« Exigences … au CHECKPOINT-2 (delta) » pt 1 « delta post-`eb54baa` == ZÉRO » + §« Contingence de checkpoint-2 ») ; **attendu delta = 0** ; non nul ⇒ **STOP + incident**. Aucune clé ni page à clé ne transite par un agent.
+  2. `F:/tmp/bell-b3d-run` **ABSENT** au départ.
+  3. `BELL_SOLANA_RPC` avec **deux opérateurs distincts**, sinon `no_quorum`.
+  4. **Commande exacte** (ci-dessus).
+  5. **Point (g)** : **STOP + consultation** si l'index est incohérent.
+  6. **Phase B de T-1a-iii** (50 000 cr, ledger dédié) **APRÈS** la sonde, **hors tirage**, lecture du tableau de bord **avant/après** (décision 84 ; `F:\Monark\docs\CHANTIERS.md:248` [lu]).
+
+---
+## Registre durable — items AVANT TIRAGE (checkpoint-2 ; FORMÉS, NON RÉSOLUS)
+Déclencheur « avant TIRAGE » ; porteur **-b3d-b** (pli source + **G2 fraîche** + checkpoint-2 delta), sauf mention. **Miroir durable** = ADR D1-quater (à venir, à 4/4) + `CHANTIERS.md` §E : **édités par l'ORCHESTRATEUR à la fusion** (garde d'écriture, G0 l.6) — ce registre PLI est la **source**, jamais un dû nu. Le **TIRAGE est BLOQUÉ** tant que 1-4, 6 ne sont pas résolus ; 7 est une condition de clôture post-tirage.
+
+| # | Item AVANT TIRAGE | Détail (fichier:ligne, correctif, test/mutant) | Déclencheur | Porteur |
+|---|---|---|---|---|
+| 1 | **C-V-1 — défaut SOURCE : reprise terminale + écrasement de `equal`** | Toute reprise APRÈS épuisement de la pagination rend `inconclusive:end_anchor_mismatch` **en permanence** ; relancer la même commande après un `equal` **ÉCRASE** l'artefact `equal` par `inconclusive` (la « reprise idempotente » du §7 est **fausse à l'état terminal**). Cause : `ascLastSig`/`lastSlotSeen` **locaux au process** (`rebase-crosscheck.ts:205`), affectés à `:222` après le `continue` de dédoublonnage `:220`, **jamais réensemencés depuis `priorLedger`**. Aggravant : **aucun `withRetry`** sur les appels gTfA de `scanFullMint` (un seul 429/5xx/timeout tue le process, sur ~540 000 appels). **Fail-closed** (jamais de faux `equal`, jamais de surdépense), récupérable ; sans correctif ⇒ **fausse escalade APRÈS la dépense**. Correctif ~2 lignes : **semer depuis `priorLedger.at(-1).last_sig`/`.slot_hi`** ; test « reprise après épuisement ⇒ `equal` » + mutant « semis retiré ⇒ rouge » ; **statuer sur le retry**. **Changement source ⇒ G2 fraîche.** | avant TIRAGE | -b3d-b |
+| 2 | **C-V-2 — `credits_recomputed`/`calls_by_method` par PROCESS, pas en cumul** | Mesuré : sonde 11, tirage 31, **vrai cumul 42** ; après relance l'artefact affiche **20** ⇒ l'audit §5 (delta dashboard vs `credits_recomputed`) serait **sous-compté dès la première reprise** — or sonde puis tirage **EST** une reprise. Correction : **persister `calls_by_method` en cumul dans `budget.json`**. | avant TIRAGE | -b3d-b |
+| 3 | **C-V-3 — engagement de chaîne du ledger non testé (gap d'oracle, CODE CORRECT)** | Mutant « `entry_sha256` sans `prev_entry_sha256` » **SURVIT 29/0** ; `…ledger_is_chained_and_rederivable` vérifie que le champ est **porté**, **jamais** ne **re-dérive** le hash ⇒ « `ledger_sha256` commet transitivement toutes les pages » (graine de l'audit C-5) n'est tenue par **aucun test**. Correction (**test seul**) + item « **vérificateur de chaîne depuis `ledger-<MINT>.jsonl`** » pour l'audit §5. | avant TIRAGE | -b3d-b |
+| 4 | **C-V-4 — résolution H6 (Amendement 3 OU code de projection)** | H6 pré-enregistré **sans implémentation ni item** (formé au G7). Résolution : **Amendement 3** daté (sous-plafonds **CUMULATIFS** par mint en `--max-credits`, compteur partagé ; §2 inchangé) **OU** code de projection EN VOL (`f = 0,05`, STOP si projection > 6,5 M). **Amendement 3 écrit avec le pli source, PAS ici.** | avant TIRAGE | -b3d-b/course |
+| 5 | **Ordre d'append `events-`/`handoffs-` vs `ledger-` — FERMÉ** | Nuance `rebase-crosscheck.ts:264-267` : **perte de l'`Initialize`** ⇒ `no_initialize_anchor` ; **perte d'un update** ⇒ `divergence` ; **les deux fail-closed** (au pire une FAUSSE escalade, jamais un faux `equal` ni une surdépense). **Item FERMÉ par argument** — **supersède** la formulation « ouverte » l.194/l.243 (ex-C-7b). Mutant de réordonnancement **conditionnel** à un seam de sink injectable (-b3d-b). | (FERMÉ) | -b3d-b |
+| 6 | **Helper de densité livré + (c) et (d) exécutés** | Le helper de densité (K=8 points, §3c) **n'existe pas** ⇒ (c) densité et (d) débit **non exécutables** à la sonde ⇒ **H6 non calibré, tirage non enchaîné**. Livrer le helper, exécuter (c)/(d). **Supersède** le déclencheur « avant la 1ʳᵉ page pleine » (l.122/l.154) : la livraison est **avant TIRAGE** (préalable à l'enchaînement sonde→tirage). | avant TIRAGE | -b3d-b/course |
+| 7 | **C-V-9 — `committed_artifacts_replay` non probant (CA-11 durci)** | `bell_crosscheck_committed_artifacts_replay` **construit l'artefact `crosscheck-*.json` à la main** par `writeMint` ⇒ non probant. Après le tirage, il doit **lire des `crosscheck-*.json` écrits PAR LE CLI**. Condition de la **clôture post-tirage**. | formé avant TIRAGE ; **rejeu à la clôture post-tirage** | -b3d-b (test) / course (rejeu) |
