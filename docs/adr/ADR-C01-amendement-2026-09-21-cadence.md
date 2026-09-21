@@ -18,3 +18,6 @@ Checkpoint-1 avant tout code ; relecture G2 fraîche avec mutants sur tout code 
 
 ## Conséquences immédiates
 Narabi fusion -a+-b : G2 + checkpoint-2 déjà lancés en parallèle (08:15 UTC). Bell -b3d-b1a : G2-delta par reprise du relecteur (C-V-2). EXPORT-CLEAN, -iii-a1-bis : candidats au régime petit lot pour leurs plis.
+
+## Complément 2026-09-21 ~12:30 UTC (orchestrateur) — « CI complète » au G7 = `npm run ci && npm run lint && npm run lint:ratchet`
+Mesuré : les fusions `--no-ff` locales de la nuit ont été vérifiées par `npm run ci` seul (gate:vocab + typecheck + test) ; le job GitHub `g4-architecture` (`ci.yml:100-101`) exige en plus `eslint .` et le ratchet de dette de typage (ADR-M003 D9 ter). Le G7 de Bell -b3d-b1a a fusionné une erreur eslint (`rebase-crosscheck.test.ts:600`) et une violation de ratchet (70/69) — attrapées par le G1 de b1b. `error_origin` : orchestrateur (G7). Règle (non discrétionnaire, effet immédiat) : l'oracle du G7 sur l'arbre fusionné est `npm run ci && npm run lint && npm run lint:ratchet` ; un G7 rendu sans les trois est un défaut du G7. Résorption : dans le lot b1b (correction hors périmètre déclarée).
