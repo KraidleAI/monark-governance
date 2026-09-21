@@ -649,6 +649,30 @@ test("bell_crosscheck_ledger_chain_rederives_committing_page_payload — page_ev
     "payload_sha256 == raw sha256(JSON.stringify({page_events:[the event], page_handoffs:[]})), a hard-coded literal (M-f-5 lengths-only / M-f-6 key-order => different hex => reds)");
   assert.equal(withEvents.entry_sha256, "1e47da9efc918af3a74e7239677bf29c15a0fb1316f6a1e5fb2f9156c58cfbf4",
     "entry_sha256 == raw sha256(JSON.stringify(core with payload_sha256 LAST)), a hard-coded literal (a degenerate payload commitment => different entry_sha256 => reds)");
+  // C-G2-DELTA-1: the 1-event/0-handoff vector above CANNOT pin ingestion order: sortEvents (or a sort of page_handoffs)
+  // over a <=1 element array is identity, so the literal is unchanged => a mutant that sorts page_events on BOTH sides
+  // (MINE-3) or sorts page_handoffs on BOTH sides (MINE-4) survives it. Two multi-element vectors close that gap. The two
+  // hex are RECOMPUTED as raw sha256(JSON.stringify({page_events,page_handoffs})) INDEPENDENTLY of the payloadSha helper
+  // (RENDU cites the node script). The objects are BESPOKE literals (NOT ev()/hexOf) so each hex is valid ONLY for these
+  // exact bytes/order; a worker rebuilding them from ev()/hexOf would get a different hex (declared trap).
+  const evA: MultiplierEvent = { kind: "initialize", multiplier: "1", multiplierBitsHex: "aa", effectiveTimestampSec: 0, blockTimeSec: 1000, slot: 10, instructionIndex: 0, signature: "a" };
+  const evB: MultiplierEvent = { kind: "update", multiplier: "1.5", multiplierBitsHex: "bb", effectiveTimestampSec: 1500, blockTimeSec: 2000, slot: 20, instructionIndex: 0, signature: "b" };
+  const ho1cc = { mint: "M", newAuthorityHex: "cc", currentAuthority: "A", slot: 20, instructionIndex: 1, signature: "b" };
+  const ho0dd = { mint: "M", newAuthorityHex: "dd", currentAuthority: "A", slot: 10, instructionIndex: 0, signature: "a" };
+  const ccTxs = [{ sig: "a", slot: 10 }, { sig: "b", slot: 20 }];
+  // Vector 1 (event INGESTION ORDER): events [evB, evA] NON-sorted + one handoff [ho1cc]. A sortEvents on BOTH sides folds
+  // [evB,evA] to [evA,evB] => the payload hex changes (194133c8... != f2243f755f...) => MINE-3 reds. The same literal also
+  // pins the written FORM (MINE-2 key permutation => different hex) and the array CONTENT (MINE-1 lengths-only => different hex).
+  const orderedEntry = chainedLedgerEntry("0".repeat(64), 1, ccTxs, [evB, evA], [ho1cc])!;
+  assert.equal(orderedEntry.payload_sha256, "f2243f755fa55d8c564017c55b92debda4a5307cc6e5e6d1b5b5607a581ab1ff",
+    "payload_sha256 pins the ingestion order of >=2 events: raw sha256 over [evB,evA] (sorted [evA,evB] => 194133c8... => MINE-3 reds; lengths-only => MINE-1 reds; key permutation => MINE-2 reds)");
+  assert.equal(orderedEntry.entry_sha256, "aa0f826b5755754b6b258ecac9b26e8a6ac83632981945a31d55b0981322a0dd",
+    "entry_sha256 folds that payload_sha256 as the 10th core field: raw sha256 over the core (a re-ordered or degenerate payload => different entry_sha256 => reds)");
+  // Vector 2 (handoff INGESTION ORDER): two handoffs [ho1cc(slot20), ho0dd(slot10)] NON-sorted. A sort of page_handoffs on
+  // BOTH sides folds them to [ho0dd, ho1cc] => the payload hex changes => MINE-4 reds (a single handoff cannot pin this).
+  const handoffOrderEntry = chainedLedgerEntry("0".repeat(64), 1, ccTxs, [evB, evA], [ho1cc, ho0dd])!;
+  assert.equal(handoffOrderEntry.payload_sha256, "f0a2d8a3d56eaaf6e2a3e55a9fb01c2dbd6c4578bbe6362ab28573b987e875c0",
+    "payload_sha256 pins the ingestion order of >=2 handoffs: raw sha256 over [ho1cc,ho0dd] (a slot-asc handoff sort => [ho0dd,ho1cc] => different hex => MINE-4 reds)");
   const recEvents: LedgerRecord = { ...withEvents, page_events: pe, page_handoffs: [] };
   assert.equal(verifyLedgerChain([recEvents]).ok, true, "a record whose payload re-derives its committed sha is ok");
   // SUBSTITUTE the payload but KEEP entry_sha256 (and its STORED payload_sha256) => the RE-DERIVED payload_sha256 differs
