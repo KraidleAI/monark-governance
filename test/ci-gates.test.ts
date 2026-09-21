@@ -248,6 +248,71 @@ test("ci_runs_export_check — export:check wired fail-closed in the internal-on
   );
 });
 
+// Root test `ci_runs_lang_gate` (Lot LANG-GATE-CI; ADR-M004 "Addendum LANG-GATE-CI"). Mirror of ci_runs_export_check
+// in its post-C-1 shape: the source-repo English-only gate `npm run lang:gate` is wired fail-closed in the
+// internal-only r25 job (the one derivePublicWorkflow STRIPS). Reads ci.yml as text (no YAML parser is a repo
+// dependency -- test 38's note) and pins, block-scoped to r25: the step is present, carries no continue-on-error and
+// no `if:`, and -- through the package.json script chain -- invokes scripts/lang-gate.mjs.
+// DECLARED REDUNDANCY (G0 section 3): asserts (2) continue-on-error and (3) `if:` scan the SAME r25 block as
+// ci_runs_export_check (2)/(2bis) and overlap test 38 file-wide; they are KEPT for symmetry with the model test and
+// so this test stays a self-sufficient contract if ci_runs_export_check is ever refactored. The non-redundant teeth
+// here are (1) lang:gate presence and (4) the package.json chain. Because this test copies the post-C-1 shape, the
+// `if:` guard is block-scoped from the start: the model's "M5a hole" (an `if: false` at JOB level that left
+// ci_runs_export_check green before C-1) never exists here -- no G2-delta is needed to add it. Named mutants (proofs
+// + sha256 restore in this lot's RENDU-G1, to be folded into docs/G1-lot-lang-gate-ci.md by the orchestrator): step
+// removed/commented/command->echo => presence reds (#fail=1); continue-on-error: true on the step => COE reds
+// (#fail=3); if: false on the r25 job or the step (and `if: ${{ false }}` / a condition) => the `if:` guard reds (#fail=3).
+test("ci_runs_lang_gate — lang:gate wired fail-closed in the internal-only r25 job (Lot LANG-GATE-CI)", () => {
+  // Block-scope on the r25 job key (2-space indent) up to the next 2-space job key or a column-0 key -- the same
+  // idiom as ci_runs_export_check and the g4 ratchet block (test 38). Comments are NOT stripped here: hasDirective
+  // (below) skips full-comment lines itself, and the lang:gate run line carries no inline comment.
+  const r25Idx = LINES.findIndex((l) => /^  r25-taille-de-lot\s*:/.test(l));
+  assert.notEqual(r25Idx, -1, "job 'r25-taille-de-lot' missing from the workflow");
+  const r25Block: string[] = [];
+  for (let i = r25Idx + 1; i < LINES.length; i++) {
+    if (/^  \S/.test(LINES[i]!) || /^\S/.test(LINES[i]!)) break; // next 2-space job key or a column-0 key
+    r25Block.push(LINES[i]!);
+  }
+  assert.ok(r25Block.length > 0, "r25 job body is empty (false green)");
+
+  // (1) the lang:gate step is present. `npm run lang:gate` is measured green on this base (exit 0, 12 scopes GATED,
+  //     0 non-exempt French; ADR-M004 D7). Mutant "step removed / commented / command -> echo" => this reds.
+  assert.ok(
+    r25Block.some((l) => /^\s*run:\s*npm run lang:gate\s*$/.test(l)),
+    "the r25 job must run `npm run lang:gate` (source-repo English-only gate); mutant: step removed => red",
+  );
+
+  // (2) fail-closed: no continue-on-error DIRECTIVE in the r25 block (a YAML key on a non-comment line; a prose
+  //     "continue-on-error" in a # comment stays allowed -- hasDirective skips comment lines). Reuses test 38's
+  //     file-wide detector, block-scoped to r25. DECLARED redundant with ci_runs_export_check (2) and test 38; kept
+  //     for symmetry / self-sufficiency. Mutant `continue-on-error: true` on the step => this reds.
+  assert.ok(
+    !hasDirective(r25Block, COE_DIRECTIVE_RE),
+    "the lang:gate step must carry no continue-on-error (fail-closed); mutant: a continue-on-error: true on the step => red",
+  );
+
+  // (3) fail-closed on SKIP too: no `if:` directive in the r25 block. A SKIPPED required check counts as PASSING on
+  //     GitHub -- test 38 (1bis) calls this WORSE than continue-on-error. Block-scoped sibling of the COE assert
+  //     above. The shell `if [ ... ]` and awk `{ if($i ~ ...` in this block carry no `:` after `if`, so
+  //     IF_DIRECTIVE_RE does not false-red them. DECLARED redundant with ci_runs_export_check (2bis) and test 38;
+  //     kept for symmetry / self-sufficiency; born post-C-1, so the guard exists from the start (no M5a hole).
+  //     Mutant `if: false` on the r25 job (or `if: ${{ false }}` / a condition on the step) => this reds.
+  assert.ok(
+    !hasDirective(r25Block, IF_DIRECTIVE_RE),
+    "the r25 job/lang:gate step must carry no `if:` (a skipped required check counts as PASSING on GitHub); mutant: if: false on r25 => red",
+  );
+
+  // (4) the run line invokes scripts/lang-gate.mjs THROUGH the package.json script chain (npm run lang:gate ->
+  //     scripts["lang:gate"]). Pinning both ends keeps neither the CI run line nor the underlying command able to
+  //     drift silently.
+  const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> };
+  assert.equal(
+    pkg.scripts["lang:gate"],
+    "node scripts/lang-gate.mjs",
+    "package.json scripts['lang:gate'] must invoke scripts/lang-gate.mjs (the r25 run line calls it by name)",
+  );
+});
+
 // Lot V support (ADR-M003 D12) — the naked Hermes pattern of the monark scope is present and discriminating.
 // Unnumbered (D11 is a closed list): a regression lock so that the clawpump-hermes reformulation
 // does not drift silently. The end-to-end execution proof (grep of the gate
@@ -1422,8 +1487,10 @@ test("g3_site_builds_then_asserts_fleet_html — job g3-site runs the build THEN
 // Lot CI-site (C-10) — the sentinel README is a REAL kept export file (model SECURITY.md, cra-b.test.ts). It is
 // scanned by public_surfaces_make_no_probative_claim and gate:vocab (scan.sentinel). export:check now runs in CI
 // (Lot CI-EXPORT-CHECK, r25 job) but its French-.md rule is NON-fatal: a FRENCH README would land in
-// collectFiles().frenchMd and be dropped from the export in SILENCE (export-public.mjs:263), not a red -- and
-// lang:gate does not run in CI. So this membership assertion stays the CI teeth for a French README.
+// collectFiles().frenchMd and be dropped from the export in SILENCE (export-public.mjs:263), not a red. lang:gate
+// now ALSO runs in CI (Lot LANG-GATE-CI, same r25 job) and gates the sentinel scope, so a French token in this
+// README reds there too; but a language gate does not assert file MEMBERSHIP, so this assertion stays the teeth for
+// the README being removed or renamed (the mutant below), doubling the lang:gate cover for the French case.
 test("sentinel_readme_is_a_kept_export — apps/sentinel/README.md is an English kept export file (C-10)", () => {
   const kept = new Set(collectFiles(ROOT).kept.map((f) => f.rel));
   assert.ok(

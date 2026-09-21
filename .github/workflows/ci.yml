@@ -84,6 +84,15 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
+      # Source-repo English-only gate (Lot LANG-GATE-CI; ADR-M004 "Addendum LANG-GATE-CI"). Runs HERE in the
+      # internal-only lot-size job that derivePublicWorkflow STRIPS. Placement is doctrine + symmetry with export:check,
+      # NOT a mirror-red forcing: unlike export:check, lang:gate does not red on the exported mirror (package.json,
+      # scripts/lang-gate.mjs and scripts/lang-exempt.json are whitelisted and the mirror is English-only --
+      # measured exit 0 on the mirror). Runs BEFORE export:check: export-public.mjs imports lang-gate.mjs, so
+      # gating the lower-level module first reports a stray token as a precise lang:gate hit. Reuses setup-node
+      # above; zero-dependency node script, no npm ci. Fail-closed: no continue-on-error, no if:.
+      - name: Language gate (source-repo English-only invariant, ADR-M004 D7; internal, stripped from the public workflow)
+        run: npm run lang:gate
       - name: Public-mirror export hygiene check (ADR-M004 D7 septies; source repo only, stripped from the public workflow)
         run: npm run export:check
 
