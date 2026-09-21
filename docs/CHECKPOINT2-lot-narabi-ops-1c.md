@@ -109,3 +109,62 @@ J'ai lu le RENDU `F:\tmp\narabi1c\RENDU-G1.md`, le diff de `run.ts`, le fichier 
 Ce que j'ai manqué : à signaler par l'orchestrateur a posteriori.
 
 Modèle résolu (R-1) : `claude-fable-5-1`, effort high.
+
+
+---
+
+# RÉ-ACCEPTATION SUR PIÈCES — NARABI-OPS-1c, HEAD `9ea1b05` (régime B)
+
+Validateur-humain `claude-fable-5-1`, 2026-09-21. Rejeu sur copie fraîche `git archive HEAD` sous `F:\tmp\cp2-narabi1c\wt3\` (sans `.git`, jonction `node_modules`, variables d'environnement purgées, aucun réseau).
+
+**Contrôle des blobs**
+- `run.ts` vaut toujours `54619a40…` : inchangé, c'est le sha de production prévu pour E-5.
+- `sentinel-catchup-budget.test.ts` vaut `46a2f726…` (+19/−3), conforme à l'annonce.
+
+**Suite complète**
+- `npm run ci` sort en 0 : `gate:vocab` sur 203 fichiers, `tsc` sans erreur, **701 tests, 700 pass, 0 fail**. Le seul skip est `fetch_only_inside_client`, pré-existant.
+- `eslint` sur le fichier de test : 0.
+- Le ratchet reste à 70/69, comme avant ce lot (pré-existant).
+- R-25 mesuré : 456 + 18 = **474**, sous le plafond de 1 205.
+
+**C1 — landée**
+- Le test `sentinel_budget_env_value_reaches_rundue` passe : vrai `main` en sous-processus, `BUDGET_S:"30"`, backlog de 20 jours. Il produit 2 jours traités, `lag:18`, `catchup_budget`, exit 1, `elapsed_ms==60000`.
+- Le fichier passe 12/12.
+- Mon mutant V-1 (`main` valide la variable mais passe la constante 180 000 à `runDue`) **rougit** ce test, et lui seul (11 pass, 1 fail). La restauration est byte-exacte (`54619a40…`).
+
+**C3 — landée**, vérifiée par trois mutants dans la copie :
+- **C3-A** : `.service` renommé alors que `deploy/` est présent. Le test échoue (`budget_below_unit_timeout`, 0 skip).
+- **C3-B** : répertoire `deploy/` absent, comme dans l'export public. Le test est sauté (1 skip) et les 11 autres passent.
+- **C3-C** : l'override `NARABI_SENTINEL_SERVICE_FILE` pointe vers un fichier inexistant. Le test échoue, il n'est plus sauté en silence.
+- Après restauration, `.service` est revenu à `d70f88cc…` et l'état final est 12/12.
+
+**C2 et RUNBOOK §6 — commit `feca317` sur `lot/etude-suite`, +18 lignes de docs**
+- **`ADR-NARABI-OPS-1.md`** déclare le résiduel (iii) :
+  - `t0` est pris dans `runDue` ;
+  - le préambule (`loadState` puis quorum `finalized()`, 20 s par endpoint qui pend) reste hors budget et hors `elapsed_ms` ;
+  - la marge est sans reste : `180 + 120 = 300 = TimeoutStartSec` ;
+  - seconde condition du critère de NON : durée murale systemd moins `elapsed_ms` > 30 000 ms ;
+  - compter le budget depuis le début de `main` est renvoyé à un lot séparé ;
+  - `error_origin` : validateur + orchestrateur.
+- **`RUNBOOK-sentinel.md:192`** :
+  - il écrit « REDUCED, not lifted » ;
+  - le nouveau symptôme normal est décrit : `catchup_budget` + exit 1 + `wrote N line(s)` = progression ;
+  - la sonde envoie un mail puis un rappel par jour UTC, et c'est voulu ;
+  - A.1 est CONSERVÉE pour A′, (ii) et (iii) ;
+  - le réglage est un entier 30..180 en drop-in dans un fichier distinct, jamais `override.conf` ;
+  - l'unité de production ne pose pas la variable ;
+  - les deux critères de NON figurent, avec la mention « an amendment, not a rollback ».
+- **Formulation interdite** : grep sur `supprim|removed by|lifted|eliminat`. Seule occurrence : « not lifted ».
+- **`bash -n`** : aucun bloc ajouté (0). Tous les blocs du RUNBOOK plié passent. Le seul hit est le placeholder `--day <J0-1>` à `:55`, antérieur au lot et étranger à celui-ci.
+
+**Non-écriture** : `git status` est vide sur `F:\Monark-wt-narabi1c` (`9ea1b05`) et sur `F:\Monark`. Les sha du dépôt sont inchangés.
+
+**Décision : ACCEPTE.** C1, C2 et C3 sont landées et falsifiées sur pièces. La liste résiduelle ne contient qu'une condition de procédure, que tu portes déjà : **C4**, la G2 séparée rendue PASS et consignée avant le G7.
+- Si elle trouve un bloquant qui touche `run.ts`, le sha `54619a40…` change. Il faut alors rejouer ce checkpoint-2 et le point 4 de la checklist E-5.
+- Si elle diverge de ma checklist : ESCALADE-INVESTISSEUR.
+
+**E-5** : la checklist (m) de mon avis précédent reste telle quelle. `run.ts` déployé = `54619a40…`. Le `.service` doit présenter `TimeoutStartSec=300`. La durée murale du premier run est à consigner, avec son écart à `elapsed_ms`. Le GO durable est la décision 119.
+
+**AM-1** : la checklist n'a rien attrapé de nouveau à ce tour. Les trois corrections sont vérifiées par rejeu et par mutants, pas par lecture. Ce qu'elle a manqué : à signaler par l'orchestrateur a posteriori.
+
+Modèle résolu (R-1) : `claude-fable-5-1`, effort high.
