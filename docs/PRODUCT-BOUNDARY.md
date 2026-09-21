@@ -64,6 +64,7 @@ Responsible = the maintainer for every row (one maintainer today).
 | `packages/contracts` | yes | git mirror | maintainer |
 | `packages/hikae` | yes | git mirror | maintainer |
 | `packages/monark` | yes | git mirror | maintainer |
+| `packages/rpc-guard` | yes | git mirror | maintainer |
 | `packages/ukemi` | yes | git mirror | maintainer |
 
 ## Not distributed (kept internal)
