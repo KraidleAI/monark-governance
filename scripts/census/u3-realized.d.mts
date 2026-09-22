@@ -54,6 +54,10 @@ export interface ReducedSeries {
 /** Pure reduction (no I/O, no network): decoded U3-inputs records -> the three canonical series. */
 export function reduceU3(records: readonly unknown[]): ReducedSeries;
 
+/** LiquidationCall topic0 (keccak of the event signature, self-tested at :57). Imported by the U-4b-1b-0 equality
+ *  test to prove liquidation-logs.mjs re-derives the SAME topic as this frozen labeler (decision 128 Q-D). */
+export const LIQ_TOPIC: string;
+
 /** Canonical JSONL of a row array: each row key-sorted, no whitespace, one per line, trailing newline iff non-empty. */
 export function canonicalJsonl(rows: readonly unknown[]): string;
 

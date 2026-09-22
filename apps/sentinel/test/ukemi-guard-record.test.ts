@@ -35,7 +35,11 @@ function tmpLedger(): { dir: string; cleanup: () => void } {
   return { dir, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
 }
 function argv(dir: string, cycle: string, operators: string, extra: string[] = [], maxRu = "1000000"): string[] {
-  return ["--ledger-dir", dir, "--cycle", cycle, "--floor", "0", "--max-ru", maxRu, "--max-calls", "500000", "--method-caps", METHOD_CAPS, "--operators", operators, "--min-interval-ms", "0", "--backoff-ms", "0", ...extra];
+  // Ruling 2026-09-22 (CHANTIERS.md:677): these are GENERIC recorder uses (mechanics: budget/ledger/retry/book/concordance),
+  // NOT a U-4b pre-registered course => --no-prereg-binding, so the suite survives once docs/PLAN-u4b-prereg.md is committed
+  // (C-4, committed ALONE per decision 128 — no test edit can ride with it). No-op today (default prereg file absent), keeps
+  // preregBound=false after C-4 (measured by a transient prereg-present simulation at the pli).
+  return ["--ledger-dir", dir, "--cycle", cycle, "--floor", "0", "--max-ru", maxRu, "--max-calls", "500000", "--method-caps", METHOD_CAPS, "--operators", operators, "--min-interval-ms", "0", "--backoff-ms", "0", "--no-prereg-binding", ...extra];
 }
 async function withFetch(stub: (input: string | URL, init?: RequestInit) => Promise<Response>, body: () => Promise<void>): Promise<void> {
   const real = globalThis.fetch;
@@ -65,8 +69,11 @@ test("ukemi_record_then_unlock_then_reconcile_end_to_end", async () => {
       const code = await runRecorder(argv(dir, "cyc", `${KEYLESS},chainstack`, ["--cluster", "weth", "--block", String(FX.block), "--out", out]), DEPS);
       assert.equal(code, 0, "the guarded full-book run succeeds");
     });
-    const book = JSON.parse(readFileSync(out, "utf8")) as { provenance: { book_digest: string } };
+    const book = JSON.parse(readFileSync(out, "utf8")) as { provenance: { book_digest: string; params: { prereg_binding: string } } };
     assert.equal(book.provenance.book_digest, PIN_BOOK_DIGEST, "the book reproduces the pinned digest THROUGH the guarded transport (fetch stubbed only)");
+    // Q-A ruling 2026-09-22: the provenance RECORDS prereg_binding — "none" here (default --prereg-file
+    // docs/PLAN-u4b-prereg.md is absent in the repo, so no binding is in effect). Kills the "prereg_binding not recorded" mutant.
+    assert.equal(book.provenance.params.prereg_binding, "none", "provenance.params records prereg_binding (\"none\" when no bound prereg file exists)");
     // C-R-b2(a): chainstack is APPENDED LAST, so with 5 keyless concording it is NEVER drawn - 0 attempted line in its
     // ledger (a paid course spends 0 RU when the keyless quorum forms). The "chainstack drawn first" mutant reorders
     // the pool => chainstack is drawn on every read => attempted > 0 => this reds.
@@ -308,13 +315,15 @@ test("ukemi_record_journal_maps_paid_5xx_to_http_and_keyless_rpc_to_code", async
     } finally { rmSync(out, { force: true }); cleanup(); } }
 });
 
-// C-R-b1 / mission point 1 (paid RpcError) + C-R-b7: a paid RpcError code 3 (message+data carry the key) forces the
-// draw with a broken keyless. MEASURED (probe, R-21): the quorum cannot survive a benched paid leg with only one
-// keyless left => the run FAILS at finalized => --out (thus the on-disk journal) is NEVER written. So this pins the
-// SECRET on the failed-course surfaces (the thrown message + stderr + every ledger file = 0 key char) and the finally
-// releases the locks; the ON-DISK paid-RpcError journal entry is NOT observable - that is exactly the C-R-b7 gap.
+// C-R-b1 / mission point 1 (paid RpcError) + C-R-b7 CLOSED (decision 128 Q-C): a paid RpcError code 3 (message+data
+// carry the key) forces the draw with a broken keyless. MEASURED (probe, R-21): the quorum cannot survive a benched
+// paid leg with only one keyless left => the run FAILS at finalized => the BOOK --out is NEVER written. Before decision
+// 128 the on-disk journal (rpc_errors/tally) was then LOST — the C-R-b7 gap. NOW <out>.diag.json is written on EVERY
+// failure path: this test proves the paid-RpcError journal entry is DURABLE, complete, and still 0 key char (the diag
+// is a NEW failed-course surface the closed-hint discipline must cover). +diag assertions (D-4).
 test("ukemi_record_failed_paid_rpcerror_leaks_no_key_on_any_surface", async () => {
   const { dir, cleanup } = tmpLedger(); const out = join(tmpdir(), `u2c-jfail-${String(process.pid)}-${String(Date.now())}.json`);
+  const diag = out + ".diag.json";
   let cs = 0; let thrown = ""; let io = "";
   const stub = ((input: string | URL, init?: RequestInit): Promise<Response> => {
     const s = String(input);
@@ -325,11 +334,37 @@ test("ukemi_record_failed_paid_rpcerror_leaks_no_key_on_any_surface", async () =
   try {
     io = await captured(async () => { await withFetch(stub, async () => { try { await runRecorder(argv(dir, "cyc", "drpc.org,mevblocker.io,chainstack", ["--cluster", "weth", "--block", String(FX.block), "--from-block", String(FX.block - 3000), "--filter-only", "--out", out, "--retries", "1"]), LEAK_DEPS); } catch (e) { thrown = e instanceof Error ? `${e.name}: ${e.message} ${JSON.stringify(e)}` : String(e); } }); });
     assert.ok(cs >= 1, "the paid leg was actually drawn (a keyless was broken to force it)");
-    assert.ok(thrown.length > 0, "the run FAILED (a benched paid leg with one keyless left cannot reach quorum) - so --out was never written");
-    assert.equal(existsSync(out), false, "no --out on a failed run => the paid-RpcError journal entry is NOT observable on disk (C-R-b7 gap: a durable diagnostic journal on a failed course is a formed item)");
-    assert.deepEqual(leaks(thrown + io + cycleFilesText(dir)), [], "0 key char in the thrown message, stderr, or ANY ledger file (the secret is closed even on a failed paid RpcError run)");
+    assert.ok(thrown.length > 0, "the run FAILED (a benched paid leg with one keyless left cannot reach quorum) - so the BOOK --out was never written");
+    assert.equal(existsSync(out), false, "the BOOK --out is NOT written on a failed run (never a truncated book as complete)");
+    // C-R-b7 CLOSED: the durable diagnostic journal <out>.diag.json IS written on the failed paid-RpcError course, and
+    // it CAPTURES the paid RpcError that was previously lost (mutant "diag not written" => this reds).
+    assert.equal(existsSync(diag), true, "<out>.diag.json is written on the failed paid-RpcError course (decision 128 Q-C closes C-R-b7)");
+    const d = JSON.parse(readFileSync(diag, "utf8")) as { error: { name: string; message: string }; rpc_errors: Array<{ provider: string; method: string; code?: number }>; calls_total: number; by_operator_method: { by_operator: Record<string, number>; by_method: Record<string, number> }; errors_by_operator: Record<string, number>; ukemi_sha: string };
+    for (const k of ["ts", "error", "calls_total", "by_operator_method", "rpc_errors", "errors_by_operator", "n_at_risk_seen", "prereg_sha", "labeler_sha", "ukemi_sha"]) assert.ok(k in (d as unknown as Record<string, unknown>), `diag has key ${k} (complete)`);
+    assert.ok(d.rpc_errors.some((e) => e.provider === "chainstack"), "the diag CAPTURES the paid chainstack RpcError (the exact journal C-R-b7 used to lose)");
+    assert.deepEqual(leaks(thrown + io + cycleFilesText(dir) + readFileSync(diag, "utf8")), [], "0 key char in the thrown message, stderr, ANY ledger file, OR the diag journal (closed-hint discipline covers the new failed-course surface)");
     for (const f of readdirSync(join(dir, "cyc"))) assert.ok(!f.endsWith(".lock"), `lock released by the finally on a thrown run: ${f}`);
-  } finally { rmSync(out, { force: true }); cleanup(); }
+  } finally { rmSync(out, { force: true }); rmSync(diag, { force: true }); cleanup(); }
+});
+
+// C-R-b7 (decision 128 Q-C): a BUDGET stop ALSO persists <out>.diag.json (complete, 0 key char), not only stderr; the
+// budget still returns 2 (never a truncated book as complete). Mutant "diag not written" reds the existsSync(diag).
+test("ukemi_record_budget_stop_writes_durable_diag_journal", async () => {
+  const { dir, cleanup } = tmpLedger();
+  const out = join(tmpdir(), `u4b0-bud-${String(process.pid)}-${String(Date.now())}.json`);
+  const diag = out + ".diag.json";
+  const stub = (input: string | URL): Promise<Response> => { void input; return Promise.resolve(jrpc({ hash: FX.block_hash, number: "0x1", timestamp: "0x1" })); };
+  try {
+    let code = -1;
+    await withFetch(stub, async () => { code = await runRecorder(argv(dir, "cyc", "mevblocker.io,chainstack", ["--cluster", "weth", "--block", "1", "--out", out], "1"), LEAK_DEPS); }); // --max-ru 1 => budget stop at finalized
+    assert.equal(code, 2, "a budget stop still returns exit 2");
+    assert.equal(existsSync(out), false, "the BOOK --out is NOT written on a budget stop");
+    assert.equal(existsSync(diag), true, "<out>.diag.json IS written on a budget stop (mutant 'diag not written' => this reds)");
+    const d = JSON.parse(readFileSync(diag, "utf8")) as Record<string, unknown> & { error: { name: string } };
+    for (const k of ["ts", "error", "calls_total", "by_operator_method", "rpc_errors", "errors_by_operator", "n_at_risk_seen", "prereg_sha", "labeler_sha", "ukemi_sha"]) assert.ok(k in d, `diag has key ${k} (complete)`);
+    assert.equal(d.error.name, "BudgetExceededError", "the diag names the budget error (the failure path is identified)");
+    assert.deepEqual(leaks(readFileSync(diag, "utf8") + cycleFilesText(dir)), [], "0 key char in the diag journal or the ledgers on a budget stop");
+  } finally { rmSync(out, { force: true }); rmSync(diag, { force: true }); cleanup(); }
 });
 
 // C-R-b2(b) / C-G-1: the concordance chain SERVED end-to-end (successor of the removed ukemi_record_concordance_chain):
@@ -393,7 +428,7 @@ test("ukemi_record_caller_retries_429_with_capped_backoff", async () => {
   const t0 = Date.now();
   try {
     await withFetch(stub, async () => {
-      await assert.rejects(() => runRecorder(["--ledger-dir", dir, "--cycle", "cyc", "--floor", "0", "--max-ru", "1000000", "--max-calls", "500000", "--method-caps", METHOD_CAPS, "--operators", "mevblocker.io,chainstack", "--min-interval-ms", "0", "--backoff-ms", "100000", "--backoff-cap-ms", "5", "--retries", "2", "--cluster", "weth", "--block", "1"], LEAK_DEPS));
+      await assert.rejects(() => runRecorder(["--ledger-dir", dir, "--cycle", "cyc", "--floor", "0", "--max-ru", "1000000", "--max-calls", "500000", "--method-caps", METHOD_CAPS, "--operators", "mevblocker.io,chainstack", "--min-interval-ms", "0", "--backoff-ms", "100000", "--backoff-cap-ms", "5", "--retries", "2", "--no-prereg-binding", "--cluster", "weth", "--block", "1"], LEAK_DEPS));
     });
     assert.equal(cs, 3, "a transient 429 is retried at the caller: retries=2 => 3 paid fetches (mutant '429 not retried' => 1 => reds)");
     assert.equal(attemptedLines(csLedger), 3, "R+1 write-ahead ledger lines (the budget counts each 429 attempt)");

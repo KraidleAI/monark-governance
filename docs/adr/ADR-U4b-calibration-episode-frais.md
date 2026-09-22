@@ -265,6 +265,7 @@ STRATE** (ŷ médian ≈ 1 $, poussière), pas du score ; q̂₀ mesure la gravi
 (F3 de l'avis), pas l'erreur de close factor. Ce n'est pas une dette : propriété mesurée,
 rapportée (clause 3), jamais un contournement.
 
+<<<<<<< HEAD
 ## Amendement daté 2026-09-22 (U-4b-2a — classe servie sur registre vide ; décisions 123/126)
 
 > Provenance. Rédaction : worker `claude-opus-4-8[1m]` (préfixe conforme, effort max ; Opus 5 banni),
@@ -293,3 +294,48 @@ rapportée (clause 3), jamais un contournement.
    meta.cell_a.predictor_id (invariants sous SCORE-1, delta D-6).
 ```
 
+=======
+## Amendement daté — 2026-09-22 (D4, liaison de course par CODE) — À INSÉRER par l'orchestrateur (R-20 ; le worker ne committe pas)
+
+Contexte : la phrase D4 en ligne « le script refuse sans `--prereg-sha` (garde `lfSha256`) » était **fausse au sens
+littéral avant décision 128** (`record.ts` comparait `--prereg-sha` à `docs/PLAN-u4-prereg.md`, le prereg U-4), puis
+**incomplète après le lot U-4b-1b-0** : mesuré au checkpoint-2 (P3c) et au G2, le code refusait *si un flag était fourni
+et ≠*, mais restait *optionnel par code sans le flag*. La question d'escalade (`docs/CHECKPOINT2-lot-u4b-1b-0.md` §5)
+a été **tranchée par l'orchestrateur le 2026-09-22** (`docs/CHANTIERS.md:677`, « Ruling orchestrateur … question
+d'escalade tranchee ») : **enforcement par CODE**. Cet amendement **supersède** la formulation proposée au
+checkpoint-2 C-3(a) (« la fourniture est exigée par le prereg §5a/§6, **pas par le code** »), désormais caduque.
+
+### Libellé D4 amendé (liaison prereg/labeler)
+
+Le recorder `apps/sentinel/src/ukemi/record.ts` lie la course au prereg ainsi :
+
+- **Refus quand fourni et ≠** : un `--prereg-sha` (resp. `--labeler-sha`) fourni **doit** égaler le sha256 **LF** de
+  `--prereg-file` (défaut `docs/PLAN-u4b-prereg.md`) (resp. de `scripts/census/u3-realized.mjs`, le labeler U-3 gelé) ;
+  sinon **refus nommé**.
+- **REQUIS par code dès que `docs/PLAN-u4b-prereg.md` existe** : dès que le fichier `--prereg-file` **existe sur
+  disque**, `--prereg-sha` **ET** `--labeler-sha` sont **obligatoires par code** (la phrase D4 « refuse sans
+  `--prereg-sha` » est ainsi rendue **vraie par code** — mais **conditionnée à l'existence du fichier**, pas
+  inconditionnelle). L'usage générique hors U-4b (U-1/susde) lève l'exigence par `--no-prereg-binding` **explicite**,
+  **écrit dans la provenance** (`prereg_binding: "none"`) ; le prereg -1b **interdit** `--no-prereg-binding` pour la
+  course weth. `--no-prereg-binding` ne lève que **l'exigence** : un sha fourni reste vérifié.
+- **Refus de garde = pré-vol** : tout refus des gardes ci-dessus survient **avant le client gardé** —
+  **0 appel** (fetch), **0 ligne de ledger**, **pas de diag** (`<out>.diag.json` n'est écrit que sur un échec
+  survenu APRÈS l'ouverture de la course, chemin `try`). Quand `docs/PLAN-u4b-prereg.md` **n'existe pas** (dépôt sans
+  prereg), les flags redeviennent optionnels par code (un `--prereg-sha` fourni avec `--prereg-file` absent reste un
+  **refus nommé** « does not exist », jamais un ENOENT nu).
+
+### Preuve (tuyaux + tests, au commit du lot au pli)
+
+- Tests (`apps/sentinel/test/ukemi-record-guard-binding.test.ts`) :
+  `ukemi_record_a_correct_prereg_and_labeler_sha_cross_both_guards` (contrôle positif : sha LF vrais ⇒ gardes
+  franchies, erreur suivante = quorum, 0 fetch) ; `ukemi_record_prereg_and_labeler_sha_are_mandatory_once_the_prereg_file_exists`
+  (fichier existant + flags absents ⇒ refus nommé, 0 ledger ; `--no-prereg-binding` lève l'exigence).
+- Provenance (`apps/sentinel/test/ukemi-guard-record.test.ts`, `ukemi_record_then_unlock_then_reconcile_end_to_end`) :
+  `provenance.params.prereg_binding == "none"` sur le chemin par défaut (prereg absent).
+- Mutants nommés ROUGES (harnais du pli, rejoué hors dépôt) : `prereg-guard-always-refuses`, `labeler-guard-always-refuses`,
+  `flags-absent-accepted`, `no-prereg-binding-parse-ignored`, `prereg-binding-not-recorded` (tous tués + restaurés byte-exact).
+
+Provenance de l'amendement : worker `claude-opus-4-8[1m]` effort max, 2026-09-22 ; source du ruling
+`docs/CHANTIERS.md:677` ; réviseur en amont = orchestrateur (R-21). Aucun `.mjs`/`.ts` du gel D4 modifié : les 9 sha LF
+de l'ADR §3 vérifiés byte-identiques avant/après le pli.
+>>>>>>> lot/u4b-1b-0
