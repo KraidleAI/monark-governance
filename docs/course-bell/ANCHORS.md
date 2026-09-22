@@ -35,7 +35,7 @@ Artefacts par frontière :
 | date_u | boundary | mint | manifest_sha256 | entry_sha256 | ledger_sha256 | commit | ots_ref |
 |---|---|---|---|---|---|---|---|
 | 2026-09-22T14:07:18Z | probe_end | n/a | `ea83d5460a41abca8ab2385c306602cb38a09edaf6b8c507cff48f1423e05803` | n/a | n/a | `c05e37c` | `probe_end-manifest.txt.ots` |
-| 2026-10-1XTHH:MM:SSZ | mint_start | TSLAx | `<…>` | n/a | n/a | `<…>` | `mint_start-TSLAx-manifest.txt.ots` |
+| 2026-09-22T14:11:33Z | mint_start | TSLAx | `58b83d36c0ba613900df879a3b4bd1ddb2ed300450ddb801d024810fc86e6c7d` | n/a | n/a | `e12ee3a` | `mint_start-TSLAx-manifest.txt.ots` |
 | 2026-10-1XTHH:MM:SSZ | mint_end | TSLAx | `<…>` | `<entry_sha256 dernière ligne ledger-TSLAx>` | `<ledger_sha256 crosscheck-TSLAx.json>` | `<…>` | `mint_end-TSLAx-manifest.txt.ots` |
 | … | … | … | … | … | … | … | … |
 | 2026-10-1XTHH:MM:SSZ | final | n/a | `<sha256 du manifest.txt final>` | n/a | n/a | `<…>` | `final-manifest.txt.ots` |
