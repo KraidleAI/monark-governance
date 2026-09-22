@@ -15,13 +15,18 @@
 import { providerOf } from "../../sentinel/src/rpc.ts";
 import { operatorOf } from "./operators.ts";
 import { createHash } from "node:crypto";
+// GARDE-HELIUS-1b-i (C-1): the CANONICAL budget-stop error is the PACKAGE's SINGLE class, re-exported here so
+// `instanceof BudgetExceededError` holds across the package boundary. A refusal from openGuardedClient (the meter)
+// is thus recognised as a budget STOP by quorum2 / withRetry / withUniverseRetry (never retried as a transport
+// fault => fail-open, the 3rd class-identity defect after 1a C-13 / 2b C-1). It is IMPORTED then re-exported: a
+// bare `export { BudgetExceededError } from "@monark/rpc-guard"` would NOT bind the name for THIS module's own
+// `instanceof` in quorum2/withRetry below (it would ReferenceError). The 8 Bell src files that import it FROM HERE
+// follow WITHOUT edit. Fatal403Error / RedirectBlockedError (universe.ts) subclass THIS canonical class.
+import { BudgetExceededError } from "@monark/rpc-guard";
 
 export type JsonRpcCall = (url: string, method: string, params: readonly unknown[]) => Promise<unknown>;
 
-/** The `--max-calls` RPC budget was reached (C-11 fail-closed). It is NOT a transport fault: quorum2 and the
- *  collector re-throw it immediately so it can never be swallowed as a `{provider,status}` fault and the run
- *  stops (exit 1), never presenting a budget-truncated pool as complete. */
-export class BudgetExceededError extends Error {}
+export { BudgetExceededError };
 /** Fewer than two distinct providers answered a read — the caller names it `no_quorum` and abstains. */
 export class NoQuorumError extends Error {}
 /** Two distinct providers answered but DISAGREED on the read key — fail-closed (a real divergence). */
