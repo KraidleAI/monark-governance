@@ -8,13 +8,13 @@
 // state; M11 token-null accepted without anchors; M12 failed tx decoded; M13 SetAuthority CPI ignored; M14 fullmint⊆hybrid.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, appendFileSync, copyFileSync, existsSync, mkdtempSync } from "node:fs";
+import { readFileSync, writeFileSync, appendFileSync, copyFileSync, existsSync, mkdtempSync, openSync, closeSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { decodeSetAuthority, setAuthorityHandoffsFromTx, scanFullMint, compareToHybrid, canonicalListSha,
   chainedLedgerEntry, ledgerSha, verifyLedgerChain, loadHybridSeries, readPriorCalls, runRebaseCrosscheckCli,
   runDensityProbeCli, projectPagesAtFraction, DENSITY_POINTS,
-  SET_AUTHORITY_TAG, AUTHORITY_TYPE_SCALED_UI, GTFA_PAGE_LIMIT,
+  SET_AUTHORITY_TAG, AUTHORITY_TYPE_SCALED_UI, GTFA_PAGE_LIMIT, DURABLE_FS,
   type FullMintScan, type HybridSeries, type ScanSink, type LedgerRecord, type RetryFn } from "../src/rebase-crosscheck.ts";
 import { scanMethodFromMethod } from "../src/rebase-produce.ts";
 import { makeBudgetedCall, parseArgs, runMain } from "../src/collect.ts";
@@ -1029,13 +1029,16 @@ test("bell_crosscheck_short_nonfinal_page_is_not_committed — a genuinely short
   writeFileSync(join(sd, "rebase-SPYx.json"), nfSeries);
   const z = nfFiller(2005, "z"), shortP2 = nfBulk(400, 1009, "c"); // 400 raw < GTFA_PAGE_LIMIT, non-final
   // RUN 1 (strict): P1 committed; P2 is genuinely short + non-final => NOT committed + STOP (not_full_pages).
-  await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(nfStub([{ data: NF_P1, token: "p2" }, { data: shortP2, token: "p3" }], z)));
+  // BELL-SHORTPAGE-1 (checkpoint-1 C-3): the probe of p3 SEES data ([z]) = a genuine truncation (an EMPTY probe + an equal
+  // anchor would be the provably-final case, bell_shortpage_*); before the lot the stub served nothing after P2.
+  await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(nfStub([{ data: NF_P1, token: "p2" }, { data: shortP2, token: "p3" }, { data: [z], token: null }], z)));
+  assert.equal((readSP(od).short_final_page_probe as { probe_empty: boolean }).probe_empty, false, "the STOP is the NON-EMPTY probe (data follows), not an anchor mismatch");
   assert.equal(readFileSync(join(od, "ledger-SPYx.jsonl"), "utf8").trim().split("\n").length, 1, "only P1 committed (short P2 discarded, M-b1a-1b: commit P2 => 2 entries => reds)");
   const cc1 = readCC(od);
   assert.equal(cc1.scan_complete, false, "not complete");
   assert.equal(cc1.comparator_verdict.reason, "not_full_pages", "reason is not_full_pages (never sealed)");
   // RESUME under the same persistent short page => still inconclusive, never promoted.
-  await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(nfStub([{ data: shortP2, token: "p3" }], z)));
+  await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(nfStub([{ data: shortP2, token: "p3" }, { data: [z], token: null }], z)));
   assert.equal(readCC(od).scan_complete, false, "the resume is STILL inconclusive (a short page never seals)");
 });
 
@@ -1112,7 +1115,10 @@ test("bell_crosscheck_short_page_transient_token_heals_on_resume — a not_full_
   const z = nfFiller(2005, "z"), shortP2 = nfBulk(400, 1009, "c"); // 400 raw < GTFA_PAGE_LIMIT, non-final => a TRANSIENT truncated page
   // RUN 1 (strict): P1 (RAW-full) committed; P2 arrives SHORT + non-final (a transient truncation) => not_full_pages STOP,
   // P2 NOT committed, artifact NOT sealed (scan_complete:false) — so a later resume can still upgrade it.
-  await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(nfStub([{ data: NF_P1, token: "p2" }, { data: shortP2, token: "p3" }], z)));
+  // BELL-SHORTPAGE-1: the probe of p3 SEES the truncated remainder ([z]) => the STOP stands (checkpoint-1 C-3: never green
+  // by the anchor alone).
+  await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(nfStub([{ data: NF_P1, token: "p2" }, { data: shortP2, token: "p3" }, { data: [z], token: null }], z)));
+  assert.equal((readSP(od).short_final_page_probe as { probe_empty: boolean }).probe_empty, false, "run-1: the probe saw data after the short page");
   assert.equal(readFileSync(join(od, "ledger-SPYx.jsonl"), "utf8").trim().split("\n").length, 1, "run-1 committed only P1 (the transient short P2 discarded)");
   assert.equal(readCC(od).comparator_verdict.reason, "not_full_pages", "run-1 stopped not_full_pages (never sealed)");
   assert.equal(readCC(od).scan_complete, false, "run-1 is not complete");
@@ -1437,4 +1443,170 @@ test("bell_crosscheck_guarded_nonjsonbody_200_gateway_html_is_retried_and_metere
   assert.equal(readCC(od).comparator_verdict.verdict, "equal", "the guarded crosscheck completed to `equal` AFTER a real NonJsonBody@200 (gateway HTML) was retried (mutant 'NonJsonBody removed from isTransient' => the run rejects = the exact TSLAx STOP => reds)");
   const budget = JSON.parse(readFileSync(join(od, "budget.json"), "utf8")) as { retries_by_method?: Record<string, number> };
   assert.ok((budget.retries_by_method?.getTransactionsForAddress ?? 0) >= 1, "the retry was METERED into budget.json retries_by_method.getTransactionsForAddress (the field that read 0 when TSLAx STOPped)");
+});
+
+// ================= BELL-SHORTPAGE-1 (decision 135(2); checkpoint-1 C-1..C-5; ruling C-6) ================================
+// Measured (docs/CHANTIERS.md, decision 135): Helius emitted a pagination token on TSLAx's LAST page (short) and the next
+// page was empty. Rule under require_full_pages: ONE probe of that token -> ONLY if RAW-empty, the C-8 end anchor -> ONLY
+// if equal, commit it as the final page; any other outcome STOPs not_full_pages, uncommitted. SYNTHETIC literals only
+// (anti-close: nothing of the real page 8 784 is copied). SP2 = the TSLAx SHAPE on the nf fixtures (RAW 180 < limit).
+// spStub wraps nfStub (the probe is the next asc page it serves) and RECORDS each asc request, so the probe's request is
+// asserted, never assumed. Named mutants + byIntended attribution: the lot's G1 rendu (mutants.mjs, TAP reporter).
+const SP2 = [nfUpd, ...nfBulk(179, 1009, "s")]; // RAW 180: nfUpd@1008 + fillers @1009..1187 (last "s178")
+const SP2_LAST = SP2[SP2.length - 1]!;
+type SpArtifact = CrosscheckArtifact & { n_exact: number; ledger_sha256: string; events: unknown[]; short_final_page_probe: unknown };
+const readSP = (od: string): SpArtifact => JSON.parse(readFileSync(join(od, "crosscheck-SPYx.json"), "utf8")) as SpArtifact;
+const reportProbe = (od: string): unknown =>
+  (JSON.parse(readFileSync(join(od, "crosscheck-report.json"), "utf8")) as { per_mint: Record<string, { short_final_page_probe?: unknown }> }).per_mint.SPYx?.short_final_page_probe;
+const spLedger = (od: string): LedgerRecord[] => readFileSync(join(od, "ledger-SPYx.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l) as LedgerRecord);
+const probeOf = (page: number, raw_len: number, probe_empty: boolean, end_anchor_ok: boolean, committed: boolean): Record<string, unknown> =>
+  ({ page, raw_len, probe_calls: 1, probe_empty, end_anchor_ok, committed });
+const sdNf = (): string => { const sd = mkdtempSync(join(tmpdir(), "bell-sp-s-")); writeFileSync(join(sd, "rebase-SPYx.json"), nfSeries); return sd; };
+const slotOf = (req: Record<string, unknown> | undefined): { lte?: number; gte?: number } =>
+  (req?.filters as { slot?: { lte?: number; gte?: number } } | undefined)?.slot ?? {};
+function spStub(ascPages: Array<{ data: unknown[]; token: string | null }>, descBody: unknown, seen: Array<Record<string, unknown>> = []): JsonRpcCall {
+  const inner = nfStub(ascPages, descBody);
+  return (u, method, params) => {
+    const p = (params as unknown[])[1] as Record<string, unknown> | undefined;
+    if (method === "getTransactionsForAddress" && p?.sortOrder === "asc") seen.push(p);
+    return inner(u, method, params);
+  };
+}
+
+test("bell_shortpage_probe_empty_and_anchor_equal_commits_the_final_page - strict runMain: P1 full+token, SP2 short (RAW 180)+token, the probe is EMPTY (it still carries a token), desc = SP2's last => SP2 committed as the final page, complete, equal; exactly ONE probe + ONE anchor (checkpoint-1 C-1, C-3 a)", async () => {
+  const sd = sdNf(), od = mkdtempSync(join(tmpdir(), "bell-sp-a-o-")), seen: Array<Record<string, unknown>> = [];
+  await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(spStub([{ data: NF_P1, token: "p2" }, { data: SP2, token: "p3" }, { data: [], token: "p4" }], SP2_LAST, seen)));
+  const cc = readSP(od), recs = spLedger(od);
+  assert.equal(cc.scan_complete, true, "the probe-proven short last page completes the scan (mutant: probe removed => not_full_pages => reds)");
+  assert.equal(cc.comparator_verdict.verdict, "equal", "full-mint (init + update) == the committed series");
+  assert.equal(cc.n_exact, GTFA_PAGE_LIMIT + SP2.length, "N = 1000 + 180: the short page is counted ONCE (mutant: exhausted without commit => 1000 => reds)");
+  assert.equal(cc.pages, 2, "pages = ledger.length = 2");
+  assert.ok(recs.length === 2 && recs[1]!.tx_count === SP2.length && recs[1]!.last_sig === "s178" && recs[1]!.prev_entry_sha256 === recs[0]!.entry_sha256, "SP2 is the 2nd chained record, ending on its last tx");
+  assert.deepEqual(cc.calls_by_method, { getTransactionsForAddress: 4, getTransaction: 2 }, "EXACTLY 2 pages + 1 probe + 1 anchor (mutants: second probe / anchor replayed => 5; probe made without a call => 3 => reds)");
+  assert.equal(seen.length, 3, "3 asc requests: P1, SP2, the probe");
+  assert.ok(slotOf(seen[2]).lte === 3000 && seen[2]!.limit === GTFA_PAGE_LIMIT && seen[2]!.sortOrder === "asc", "probe: slot.lte = oracle_slot, limit = GTFA_PAGE_LIMIT, asc");
+  assert.deepEqual(seen[2], { ...seen[1], paginationToken: "p3" }, "the probe replays SP2's request with SP2's token (mutants: no token / no slot.lte => reds)");
+  assert.deepEqual(cc.short_final_page_probe, probeOf(2, SP2.length, true, true, true), "provenance in crosscheck-SPYx.json (mutant: key written null => reds)");
+  assert.deepEqual(reportProbe(od), probeOf(2, SP2.length, true, true, true), "the SAME provenance in crosscheck-report.json per_mint (mutant: report key null => reds)");
+});
+
+test("bell_shortpage_probe_nonempty_stops_uncommitted_even_if_anchor_agrees - resumed strict run (the TSLAx r4 geometry): the first page is short (RAW 183 incl. 3 deduped boundary txs) + token, the probe returns 1 tx => STOP not_full_pages, ledger BYTE-identical, N unchanged, NO anchor asked - although the desc anchor would agree (checkpoint-1 C-3 b)", async () => {
+  const sd = sdNf(), od = mkdtempSync(join(tmpdir(), "bell-sp-b-o-"));
+  await runMain(b1aArgsStrict(sd, od, 2), b1aDeps(spStub([{ data: NF_P1, token: "p2" }], SP2_LAST))); // P1 committed; the SP2 fetch hits the budget
+  const before = readFileSync(join(od, "ledger-SPYx.jsonl"), "utf8"), resumed = [...NF_P1.slice(-3), ...SP2];
+  await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(spStub([{ data: resumed, token: "p3" }, { data: [nfFiller(1188, "x0")], token: null }], SP2_LAST)));
+  const cc = readSP(od);
+  assert.equal(cc.comparator_verdict.reason, "not_full_pages", "data follows the short page => STOP (mutants: non-empty probe taken as empty / probe skipped, anchor alone => complete => reds)");
+  assert.equal(readFileSync(join(od, "ledger-SPYx.jsonl"), "utf8"), before, "the ledger is BYTE-identical: the short page never reaches disk (mutant: commit before the probe => reds)");
+  assert.ok(cc.n_exact === GTFA_PAGE_LIMIT && cc.pages === 1 && cc.events.length === 1, "N / pages / events = the committed P1 only (mutant: probe data counted into N => 1001 => reds)");
+  assert.deepEqual(cc.short_final_page_probe, probeOf(2, resumed.length, false, false, false), "the STOP is traced as probe_empty:false (never mute)");
+  assert.deepEqual(cc.calls_by_method, { getTransactionsForAddress: 3, getTransaction: 2 }, "cumulative: run-1 P1 + run-2 page + probe; no anchor after a non-empty probe");
+});
+
+test("bell_shortpage_probe_empty_but_anchor_differs_commits_nothing - strict: the probe is EMPTY but the desc anchor's newest sig is NOT SP2's last => nothing committed, NOT exhausted, not_full_pages; the anchor is asked ONCE (checkpoint-1 C-1, C-3 c)", async () => {
+  const sd = sdNf(), od = mkdtempSync(join(tmpdir(), "bell-sp-c-o-"));
+  await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(spStub([{ data: NF_P1, token: "p2" }, { data: SP2, token: "p3" }, { data: [], token: null }], nfFiller(2005, "z"))));
+  const cc = readSP(od);
+  assert.ok(cc.scan_complete === false && cc.comparator_verdict.reason === "not_full_pages", "an unequal anchor refuses the page: not_full_pages (never end_anchor_mismatch after a commit)");
+  assert.ok(spLedger(od).length === 1 && cc.n_exact === GTFA_PAGE_LIMIT && cc.pages === 1, "SP2 NOT committed (mutant: commit before the anchor => 2 records, N 1180 => reds)");
+  assert.deepEqual(cc.short_final_page_probe, probeOf(2, SP2.length, true, false, false), "traced: probe empty, anchor unequal, nothing committed");
+  assert.deepEqual(cc.calls_by_method, { getTransactionsForAddress: 4, getTransaction: 2 }, "P1, SP2, probe, ONE anchor (not asked again after the loop)");
+});
+
+test("bell_shortpage_resume_then_short_final_page_then_idempotent_reverification - (1) partial ledger (budget stop after P1); (2) resume: the first page is short (RAW 183 incl. 3 deduped boundary txs) + token, probe empty, anchor equal => committed, complete; (3) terminal re-verification: RAW 1 deduped to 0 + token => probe empty, anchor equal, NOTHING committed: N, pages, ledger_sha256, ledger bytes UNCHANGED (checkpoint-1 C-3 d; mission e)", async () => {
+  const sd = sdNf(), od = mkdtempSync(join(tmpdir(), "bell-sp-d-o-")), s2: Array<Record<string, unknown>> = [], s3: Array<Record<string, unknown>> = [];
+  await runMain(b1aArgsStrict(sd, od, 2), b1aDeps(spStub([{ data: NF_P1, token: "p2" }], SP2_LAST)));
+  const resumed = [...NF_P1.slice(-3), ...SP2];
+  await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(spStub([{ data: resumed, token: "p3" }, { data: [], token: null }], SP2_LAST, s2)));
+  const a2 = readSP(od), ledger2 = readFileSync(join(od, "ledger-SPYx.jsonl"), "utf8");
+  assert.ok(a2.scan_complete && a2.comparator_verdict.verdict === "equal" && a2.n_exact === GTFA_PAGE_LIMIT + SP2.length && a2.pages === 2, "the resumed short last page is committed once (180 after the dedup) => complete, equal");
+  assert.deepEqual(s2[1], { ...s2[0], paginationToken: "p3" }, "the probe replays the resumed request: SAME filters.slot (lte AND gte) + the token");
+  assert.equal(slotOf(s2[1]).gte, 1007, "the probe carries the resume gte = P1's slot_hi (mutant: probe without gte => reds)");
+  assert.deepEqual(a2.short_final_page_probe, probeOf(2, resumed.length, true, true, true), "raw_len is the RAW length 183 (before the dedup)");
+  await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(spStub([{ data: [SP2_LAST], token: "q1" }], SP2_LAST, s3)));
+  const a3 = readSP(od);
+  assert.ok(a3.scan_complete && a3.comparator_verdict.verdict === "equal", "the terminal re-verification stays complete / equal");
+  assert.ok(a3.n_exact === a2.n_exact && a3.pages === a2.pages && a3.ledger_sha256 === a2.ledger_sha256, "N, pages, ledger_sha256 UNCHANGED (the probe never feeds N / pages)");
+  assert.equal(readFileSync(join(od, "ledger-SPYx.jsonl"), "utf8"), ledger2, "the ledger file is BYTE-identical (0 new tx => no record)");
+  assert.equal(slotOf(s3[1]).gte, 1187, "the probe carries the NEW resume gte = SP2's slot_hi");
+  assert.deepEqual(a3.short_final_page_probe, probeOf(3, 1, true, true, false), "RAW 1 (deduped to 0), committed:false (mutants: raw_len post-dedup / committed forced => reds)");
+});
+
+test("bell_shortpage_allow_short_pages_never_probes - --allow-short-pages: a short page + token is committed as before and the loop reads the next page itself; NO probe, provenance null (checkpoint-1 C-3 e; mission f)", async () => {
+  const sd = sdNf(), od = mkdtempSync(join(tmpdir(), "bell-sp-e-o-")), x0 = nfFiller(1188, "x0");
+  await runMain(b1aArgs(sd, od, 50), b1aDeps(spStub([{ data: NF_P1, token: "p2" }, { data: SP2, token: "p3" }, { data: [x0], token: null }], x0)));
+  const cc = readSP(od);
+  assert.ok(cc.scan_complete && spLedger(od).length === 3 && cc.n_exact === GTFA_PAGE_LIMIT + SP2.length + 1, "loose: SP2 AND the page after it are committed (mutant: probe also under --allow-short-pages => sees x0 => not_full_pages => reds)");
+  assert.ok(cc.short_final_page_probe === null && reportProbe(od) === null, "no probe => provenance null in the artifact AND the report");
+  assert.deepEqual(cc.calls_by_method, { getTransactionsForAddress: 4, getTransaction: 2 }, "P1, SP2, the x0 page, the anchor: the loose loop's own next page, no extra probe");
+});
+
+test("bell_shortpage_budget_bites_during_probe_or_anchor_commits_nothing - a BudgetExceededError on the probe (max-calls 4) OR on the probe-path anchor (max-calls 5) => budget_exhausted, SP2 NOT committed, no provenance (checkpoint-1 C-1, C-3 f; mission d)", async () => {
+  for (const maxCalls of [4, 5]) { // P1, opB init, SP2, opB upd = 4 calls; the 5th = the probe; the 6th = the anchor
+    const sd = sdNf(), od = mkdtempSync(join(tmpdir(), "bell-sp-f-o-"));
+    await runMain(b1aArgsStrict(sd, od, maxCalls), b1aDeps(spStub([{ data: NF_P1, token: "p2" }, { data: SP2, token: "p3" }, { data: [], token: null }], SP2_LAST)));
+    const cc = readSP(od), b = JSON.parse(readFileSync(join(od, "budget.json"), "utf8")) as { calls_used: number };
+    assert.equal(cc.comparator_verdict.reason, "budget_exhausted", `max-calls ${String(maxCalls)}: budget_exhausted (never swallowed)`);
+    assert.ok(spLedger(od).length === 1 && cc.n_exact === GTFA_PAGE_LIMIT, `max-calls ${String(maxCalls)}: SP2 NOT committed (mutants: commit before the probe / before the anchor => reds)`);
+    assert.ok(cc.short_final_page_probe === null && b.calls_used === maxCalls, `max-calls ${String(maxCalls)}: no provenance; calls_used = the cap (the refused call is not counted)`);
+  }
+});
+
+test("bell_shortpage_probe_metered_on_the_guarded_cycle_ledger - THROUGH the real guard (only globalThis.fetch stubbed): the probe is ONE attempted helius gTfA line (+10 cr): 4 lines, credits_recomputed 40; a tokenless short last page (Helius-conformant control) makes NO probe: 3 lines, 30 cr, provenance null (D-3; mission c)", async () => {
+  const run = async (token: string | null): Promise<{ cc: SpArtifact; gtfa: number; credits: number }> => {
+    const dir = mkdtempSync(join(tmpdir(), "bell-sp-g-")), sd = sdNf(), od = mkdtempSync(join(tmpdir(), "bell-sp-g-o-"));
+    await runGuardXc(b1aArgsStrict(sd, od, 50), spStub([{ data: NF_P1, token: "p2" }, { data: SP2, token }, { data: [], token: null }], SP2_LAST), dir);
+    const att = attemptedOf(join(dir, "cyc", "helius.jsonl"));
+    return { cc: readSP(od), gtfa: att.filter((l) => l.method === "getTransactionsForAddress").length, credits: att.reduce((a, l) => a + l.credits_derived, 0) };
+  };
+  const probed = await run("p3"), control = await run(null);
+  assert.ok(probed.cc.comparator_verdict.verdict === "equal" && control.cc.comparator_verdict.verdict === "equal", "both complete to equal through the guard");
+  assert.equal(probed.gtfa, 4, "the helius cycle ledger holds EXACTLY 4 gTfA lines: P1, SP2, the probe, the anchor (mutant: probe routed off the paid operator => 3 => reds)");
+  assert.ok(probed.credits === 40 && probed.cc.credits_recomputed === 40, "credits_recomputed = sum of the helius credits_derived = 40: the probe is billed +10 cr");
+  assert.deepEqual(probed.cc.short_final_page_probe, probeOf(2, SP2.length, true, true, true), "the guarded artifact carries the provenance");
+  assert.ok(control.gtfa === 3 && control.credits === 30 && control.cc.short_final_page_probe === null, "control: a tokenless short last page is final WITHOUT a probe (mutant: probe on a tokenless page => 4 lines => reds)");
+});
+
+test("bell_shortpage_probe_transient_error_is_retried - the probe goes through the injected retry: an HTTP 429 on its first attempt is retried ONCE (metered under getTransactionsForAddress), then the empty probe + the equal anchor complete (checkpoint-1 C-1: the probe under retry)", async () => {
+  let asc = 0;
+  const retries: Record<string, number> = {}, inner = spStub([{ data: NF_P1, token: "p2" }, { data: SP2, token: "p3" }, { data: [], token: null }], SP2_LAST);
+  const stub: JsonRpcCall = (u, method, params) => {
+    const p = (params as unknown[])[1] as { sortOrder?: string } | undefined;
+    if (method === "getTransactionsForAddress" && p?.sortOrder === "asc" && ++asc === 3) return Promise.reject(new Error("HTTP 429 rate")); // the probe's FIRST attempt
+    return inner(u, method, params);
+  };
+  const retry: RetryFn = (fn, method) => withRetry(fn, { tries: 3, sleep: () => Promise.resolve(), onRetry: () => { retries[method] = (retries[method] ?? 0) + 1; } });
+  const scan = await scanFullMint(stub, PROVIDERS, SPYX.address, 3000, { maxPages: 20 }, {}, noopSink, [], retry);
+  assert.equal(scan.complete, true, "the 429 on the probe healed in-process (mutant: probe outside the retry => the 429 propagates => reds)");
+  assert.deepEqual(retries, { getTransactionsForAddress: 1 }, "exactly ONE retry, metered under the probe's method (mutant: probe error swallowed as empty => no retry => reds)");
+  assert.deepEqual(scan.shortFinalPageProbe, probeOf(2, SP2.length, true, true, true), "the healed probe is traced like any empty probe");
+});
+
+// ---- ruling C-6 (orchestrator, after the 2026-09-22 power cut: ledger-AAPLx.jsonl kept 760 298 NUL bytes at its tail) ----
+test("bell_crosscheck_writes_are_durable_fsync_per_page_and_per_json - ruling C-6: through runMain, with DURABLE_FS wrapped by a counting spy, EACH committed ledger page is open(a) -> write -> fsync -> close (exactly 1 fsync per page) and EACH whole JSON (budget.json, crosscheck-SPYx.json, the report, the candidates) is written to <f>.tmp, fsynced, closed, THEN renamed over <f>; the production fsyncSync is the real one", async () => {
+  const orig = { ...DURABLE_FS };
+  const pfd = openSync(join(mkdtempSync(join(tmpdir(), "bell-fs-p-")), "x"), "w");
+  closeSync(pfd);
+  assert.throws(() => { orig.fsyncSync(pfd); }, /EBADF/, "DURABLE_FS.fsyncSync reaches the real fs.fsyncSync (mutant: production fsync made a no-op => no throw => reds)");
+  const log: Array<{ op: string; path: string }> = [], fdPath = new Map<number, string>();
+  const at = (fd: number): string => fdPath.get(fd) ?? "?";
+  Object.assign(DURABLE_FS, {
+    openSync: (p: string, f: "a" | "w"): number => { const fd = orig.openSync(p, f); fdPath.set(fd, resolve(p)); log.push({ op: `open:${f}`, path: resolve(p) }); return fd; },
+    writeFileSync: (fd: number, d: string): void => { log.push({ op: "write", path: at(fd) }); orig.writeFileSync(fd, d); },
+    fsyncSync: (fd: number): void => { log.push({ op: "fsync", path: at(fd) }); orig.fsyncSync(fd); },
+    closeSync: (fd: number): void => { log.push({ op: "close", path: at(fd) }); orig.closeSync(fd); },
+    renameSync: (a: string, b: string): void => { log.push({ op: "rename", path: resolve(a) }); orig.renameSync(a, b); },
+  });
+  try {
+    const sd = sdNf(), od = mkdtempSync(join(tmpdir(), "bell-fs-o-"));
+    await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(spStub([{ data: NF_P1, token: "p2" }, { data: SP2, token: "p3" }, { data: [], token: null }], SP2_LAST)));
+    const ops = (f: string): string[] => log.filter((e) => e.path === resolve(od, f)).map((e) => e.op);
+    assert.deepEqual(ops("ledger-SPYx.jsonl"), ["open:a", "write", "fsync", "close", "open:a", "write", "fsync", "close"], "each of the 2 committed pages: append -> fsync -> close, 1 fsync per page (mutants: fsync removed / fsync before write => reds)");
+    for (const f of ["budget.json", "crosscheck-SPYx.json", "crosscheck-report.json", join("candidates", "SPYx", "nfInit.json"), join("candidates", "SPYx", "nfUpd.json")]) {
+      const seq = ops(`${f}.tmp`);
+      assert.ok(seq.length >= 5 && seq.length % 5 === 0, `${f}: written through the durable path (>= 1 fsync per JSON)`);
+      for (let i = 0; i < seq.length; i += 5) assert.deepEqual(seq.slice(i, i + 5), ["open:w", "write", "fsync", "close", "rename"], `${f}: <f>.tmp write -> fsync -> close -> rename (mutants: fsync removed / rename first => reds)`);
+    }
+    assert.ok(verifyLedgerChain(spLedger(od)).ok && readSP(od).scan_complete, "the durable files are the real ones: the chain re-derives, the artifact is complete");
+  } finally { Object.assign(DURABLE_FS, orig); }
 });
