@@ -1,27 +1,20 @@
-// MONARK Bell — Solana JSON-RPC + first-hand swap extraction (ADR-B0 D2 i/iii). Calque of the sentinel
-// motif (apps/sentinel/src/rpc.ts): the low-level `call` is INJECTED, so CI runs offline against fixtures
-// (no network in this module) and the SAME code path runs live or against an archival provider.
+// MONARK Bell — Solana JSON-RPC swap extraction primitives (ADR-B0 D2 i/iii). Calque of the sentinel motif
+// (apps/sentinel/src/rpc.ts): the low-level `call` is INJECTED, so CI runs offline against fixtures (no network in
+// this module) and the SAME code path runs live.
 //
-// ENDPOINTS ARE ENV-DRIVEN (`BELL_SOLANA_RPC`, comma-separated). The founding jul-oct 2025 measurement
-// (D7 T-1a) needs archival depth the public pool cannot serve (spike §0: public bodies pruned to ~1-2 d,
-// or enumeration rate-limited ~1.4M sigs/pool). Once `HELIUS_API_KEY` exists, the founding run is ONE
-// command: `BELL_SOLANA_RPC=<helius-url> node ... ` — same digest, same code. No public key is logged:
-// callers pass Helius as an env URL; this module never prints a URL that could carry `?api-key=`.
+// GARDE-HELIUS-1b-ii: endpoints are NO LONGER resolved here. Since collect.ts consumes @monark/rpc-guard's
+// openGuardedClient, the `call` it injects speaks OPERATOR LABELS (helius / chainstack / solana-foundation) and the
+// guard's transport is the SOLE label -> URL site and the SOLE `fetch` (it appends any ?api-key from env). So the
+// env-driven `BELL_SOLANA_RPC`/`PUBLIC_SOLANA=mainnet-beta` list and the default `fetchCall` are REMOVED from this
+// module: the CONF-SRC-5 EXCLUDED mainnet-beta public host is gone (the guard resolves the keyless public
+// endpoint via the `solana-foundation` label -> the ADMITTED host api.mainnet.solana.com), and this module holds no
+// `fetch` and reads no key (T4). The functions below are pure over the injected `call`.
 import { readFileSync } from "node:fs";
 import type { PoolRef } from "./pools.ts";
 
-/** One JSON-RPC round-trip to a NAMED endpoint. Injected in tests; the default hits the public pool. */
-export type JsonRpcCall = (url: string, method: string, params: readonly unknown[]) => Promise<unknown>;
-
-/** Public read-only Solana endpoints (spike §0). mainnet-beta is the SOLE default (publicnode retired: it
- *  prunes old bodies) — so a read with no 2nd provider via BELL_SOLANA_RPC is no_quorum, fail-closed (C-1a). */
-export const PUBLIC_SOLANA: readonly string[] = [
-  "https://api.mainnet-beta.solana.com",
-];
-export function solanaEndpoints(env: NodeJS.ProcessEnv = process.env): readonly string[] {
-  const raw = (env.BELL_SOLANA_RPC ?? "").trim();
-  return raw ? raw.split(",").map((s) => s.trim()).filter(Boolean) : PUBLIC_SOLANA;
-}
+/** One JSON-RPC round-trip. The first argument is an OPERATOR LABEL (never a URL): the guard's transport resolves
+ *  it. Injected in tests (a stub keyed by label); collect.ts wires it to openGuardedClient.call. */
+export type JsonRpcCall = (op: string, method: string, params: readonly unknown[]) => Promise<unknown>;
 
 /** A first-hand fill: the SIGNED delta of a declared pool's two vaults in one transaction. `baseDelta`
  *  is the tokenized security (smallest units), `quoteDelta` the numeraire. Price = |quote|/|base| with
@@ -35,20 +28,6 @@ export interface SwapFill {
 
 const asObj = (x: unknown): Record<string, unknown> => (x && typeof x === "object" ? (x as Record<string, unknown>) : {});
 const asArr = (x: unknown): unknown[] => (Array.isArray(x) ? x : []);
-
-/** default network call (fetch). Bearer/api-key never appear here: the URL is opaque to this module. */
-export const fetchCall: JsonRpcCall = async (url, method, params) => {
-  const ctl = new AbortController();
-  const to = setTimeout(() => { ctl.abort(); }, 30_000);
-  try {
-    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), signal: ctl.signal });
-    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`);
-    const json = asObj(await res.json());
-    if (json.error) throw new Error(asObj(json.error).message ? String(asObj(json.error).message) : "rpc error");
-    return json.result;
-  } finally { clearTimeout(to); }
-};
 
 // Solana introduced versioned transactions beyond v0 (measured 2026-09-19: mainnet-beta AND publicnode
 // return `version: 1` for current pool swaps, and reject a request with maxSupportedTransactionVersion 0).

@@ -26,11 +26,12 @@ import { readMintToken2022, porStatus, wrapperStatus, rebaseForMint, rebaseGateF
 import { multiplierAtMs, replayTriplet, decodeStateConfig, type MultiplierEvent } from "./rebase-trajectory.ts";
 import { runRebaseScanCli, scaledUiConfigBytes } from "./rebase-scan.ts";
 import { runRebaseProduceCli } from "./rebase-produce.ts";
-import { runRebaseCrosscheckCli, runDensityProbeCli, readPriorCalls, readPriorByMethod, WORST_CASE_CREDITS_PER_CALL } from "./rebase-crosscheck.ts";
+import { runRebaseCrosscheckCli, runDensityProbeCli, readPriorCalls, readPriorByMethod, WORST_CASE_CREDITS_PER_CALL, CREDITS_PER_GTFA, CREDITS_PER_GET_TX } from "./rebase-crosscheck.ts";
 import { runDiscoverCli } from "./discover.ts";
 import { quorum2, signaturesSetKey, statusOf, withRetry, NoQuorumError, QuorumDisagreementError, ConcordantRevertError,
-  BudgetExceededError, SolRpcError, type JsonRpcCall, type TransportFault } from "./quorum.ts";
-import { signaturesUntil, extractPoolSwap, MAX_TX_VERSION, solanaEndpoints, type SigInfo, type SwapFill } from "./rpc.ts";
+  BudgetExceededError, type JsonRpcCall, type TransportFault } from "./quorum.ts";
+import { signaturesUntil, extractPoolSwap, MAX_TX_VERSION, type SigInfo, type SwapFill } from "./rpc.ts";
+import { openGuardedClient, runCli, BELL_SOLANA_METHODS, assertMethodCapsCover, type RunLimits, type OperatorLabel } from "@monark/rpc-guard";
 import { providerOf } from "../../sentinel/src/rpc.ts";
 import { operatorOf } from "./operators.ts";
 import { liveEthSwaps } from "./ethereum.ts";
@@ -275,19 +276,12 @@ export function collect(input: CollectInput): CollectResult {
 // ---- Live wiring (network; run-guarded main only, NOT run in CI) -----------------------------------------
 const UNDERLYING: Readonly<Record<string, string>> = { TSLAx: "TSLA", SPYx: "SPY", NVDAx: "NVDA", AAPLx: "AAPL", TSLAon: "TSLA" };
 
-/** Default Solana JSON-RPC call: throws SolRpcError (code) on a node error and `HTTP <status>` (NO url) on a
- *  transport fault — the url is opaque here, so no ?api-key can leak into a message (C-10). */
-export const bellSolanaCall: JsonRpcCall = async (url, method, params) => {
-  const ctl = new AbortController();
-  const to = setTimeout(() => { ctl.abort(); }, 30_000);
-  try {
-    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), signal: ctl.signal });
-    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`);
-    const json = (await res.json()) as { result?: unknown; error?: { code?: number; message?: string } };
-    if (json.error) throw new SolRpcError(json.error.message ?? "rpc error", json.error.code ?? 0);
-    return json.result;
-  } finally { clearTimeout(to); }
-};
+// GARDE-HELIUS-1b-ii: the raw `bellSolanaCall` (a local `fetch` POST + SolRpcError) is REMOVED. Every paid Solana call
+// now goes through openGuardedClient (built in runMain): the `call` shim routes an OPERATOR LABEL -> client.call
+// (meter + write-ahead cycle-ledger line + ONE transport attempt), and the guard's transport is the SOLE `fetch` and
+// the SOLE endpoint-key reader (T4). A JSON-RPC node error at HTTP 200 surfaces as the canonical @monark/rpc-guard
+// RpcError (isSolRevert reads its .code); a transport fault as a TransportError (statusOf reads .code). No url/key
+// can leak from this module (it holds neither).
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
@@ -405,6 +399,22 @@ function mintKey(result: unknown): Json {
 
 function argOf(argv: readonly string[], k: string): string | undefined { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : undefined; }
 
+/** GARDE-HELIUS-1b-ii: parse a `k=v,k=v` numeric CLI arg (--method-caps, --floor) into a Record. Absent/empty => {}.
+ *  A malformed pair or a non-finite value THROWS (fail-closed: a typo never silently drops a method cap or a floor,
+ *  which would fail-open the guard). */
+function parseKvNums(raw: string | undefined, flag: string): Record<string, number> {
+  if (raw === undefined || raw.trim() === "") return {};
+  const out: Record<string, number> = {};
+  for (const pair of raw.split(",").map((s) => s.trim()).filter(Boolean)) {
+    const eq = pair.indexOf("=");
+    const k = eq >= 0 ? pair.slice(0, eq).trim() : "";
+    const v = eq >= 0 ? Number(pair.slice(eq + 1).trim()) : NaN;
+    if (k === "" || !Number.isFinite(v)) throw new Error(`bell/collect: malformed ${flag} pair '${pair}' (need key=number)`);
+    out[k] = v;
+  }
+  return out;
+}
+
 /** V-1 (O-2): parse + VALIDATE the operator CLI, fail-closed. An unknown --pools symbol, a NaN/negative
  *  numeric, or --eth+TSLAon without a valid block range throws `bell/collect: …`; main() surfaces that
  *  message verbatim (V-3). Pure for a fixed nowMs (the only clock input), so the parse is replay-testable. */
@@ -461,7 +471,14 @@ export function parseArgs(argv: readonly string[], knownSymbols: readonly string
     rebaseProduce: argv.includes("--rebase-produce"), authority: argOf(argv, "--authority"),
     rebaseCrosscheck, rebaseDensity, seriesDir: argOf(argv, "--series-dir"),
     allowShortPages: argv.includes("--allow-short-pages"),
-    discover: argv.includes("--discover") };
+    discover: argv.includes("--discover"),
+    // GARDE-HELIUS-1b-ii: the guard-course inputs (the transport is the SOLE endpoint-key reader; collect reads no
+    // Solana key). Parsed here (optional), ENFORCED by runMain (calque record.ts). --operators is the explicit include
+    // list of operator LABELS (never solanaEndpoints/BELL_SOLANA_RPC); --floor/--method-caps are k=v.
+    ledgerDir: argOf(argv, "--ledger-dir"), cycle: argOf(argv, "--cycle"),
+    operators: (argOf(argv, "--operators") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+    floors: parseKvNums(argOf(argv, "--floor"), "--floor"), methodCaps: parseKvNums(argOf(argv, "--method-caps"), "--method-caps"),
+    maxRu: argOf(argv, "--max-ru") === undefined ? undefined : num("--max-ru", 0) };
 }
 
 /** CA-11 guard (pure, wired in main): a bell --out MUST be OUTSIDE the repo tree. win32 path.resolve keeps
@@ -564,71 +581,138 @@ export function loadTrajectories(path: string | undefined): Readonly<Record<stri
 
 /** C-2 (CA-11): the seams main() needs are injectable so the offline oracle drives the WHOLE composition — read
  *  Solana fills -> read the cash close (Databento EQUS.SUMMARY, cross-checked against Massive) -> collect() ->
- *  write state/provenance — and asserts on the PRODUCED artifacts, never on the source text. main() is a shell. */
+ *  write state/provenance — and asserts on the PRODUCED artifacts, never on the source text. main() is a shell.
+ *  GARDE-HELIUS-1b-ii (D-1): `call` is OPTIONAL and for the UNIT tests only — its ABSENCE (main() + the integration
+ *  oracle) builds openGuardedClient from `env` (the transport is the SOLE endpoint-key reader; the oracle stubs
+ *  `globalThis.fetch` only). `databentoGet`/`polygonGet` stay injected (the cash leg is NOT under the guard — 1b-iii). */
 export interface RunDeps {
-  readonly call: JsonRpcCall;          // raw Solana RPC (wrapped in the budget below); a stub offline
-  readonly databentoGet: DatabentoGet; // EQUS.SUMMARY reader (stub offline)
-  readonly polygonGet: PolygonGet;     // Massive reader — ADV + close cross (stub offline)
-  readonly env: NodeJS.ProcessEnv;     // BELL_SOLANA_RPC / POLYGON_API_KEY / DATABENTO_API_KEY / BELL_HALTS_CSV
+  readonly call?: JsonRpcCall;         // D-1: injected for OFFLINE UNIT tests ONLY; ABSENT => openGuardedClient (prod/integration)
+  readonly databentoGet: DatabentoGet; // EQUS.SUMMARY reader (stub offline; cash leg, 1b-iii)
+  readonly polygonGet: PolygonGet;     // Massive reader — ADV + close cross (stub offline; cash leg, 1b-iii)
+  readonly env: NodeJS.ProcessEnv;     // passed AS-IS to openGuardedClient + cash keys (POLYGON/DATABENTO) + BELL_HALTS_CSV
   readonly nowMs: number;              // the ONLY clock input (parseArgs default + generatedAt + staleness)
 }
 
 export async function runMain(argv: readonly string[], deps: RunDeps): Promise<void> {
-  const { out, toUtcMs, fromUtcMs, wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo, maxCalls, maxCredits, rebaseScan, rebaseTrajectory, rebaseProduce, authority, rebaseCrosscheck, rebaseDensity, seriesDir, allowShortPages, discover } = parseArgs(argv, POOLS.map((p) => p.baseSymbol), deps.nowMs);
+  const { out, toUtcMs, fromUtcMs, wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo, maxCalls, maxCredits, rebaseScan, rebaseTrajectory, rebaseProduce, authority, rebaseCrosscheck, rebaseDensity, seriesDir, allowShortPages, discover, ledgerDir, cycle, operators, floors, methodCaps, maxRu } = parseArgs(argv, POOLS.map((p) => p.baseSymbol), deps.nowMs);
   const repoRoot = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
   assertOutsideRepo(out, repoRoot);
-
-  const solProviders = solanaEndpoints(deps.env);
-  const polygonKey = deps.env.POLYGON_API_KEY ?? "";
+  const polygonKey = deps.env.POLYGON_API_KEY ?? ""; // cash leg (1b-iii): read here, NOT allowlisted from the guard
   const databentoKey = deps.env.DATABENTO_API_KEY ?? "";
   const faults: TransportFault[] = [];
-  // C-11: every Solana RPC call goes through the fail-closed budget (throws BudgetExceededError past --max-calls).
-  // C-1 (-b3d): the --rebase-crosscheck branch is RESUMABLE — its budget is offset by the prior cumulative calls_used
-  // (<out>/budget.json), so a second process cannot reset the ceiling. Every other branch resumes from 0 (unchanged).
-  // L-b1b-1: --rebase-density shares the SAME cumulative budget.json as the crosscheck draw (same --out), so BOTH the
-  // calls_used offset AND the per-method global seed resume for it too (else a 2nd density invocation on the same --out
-  // would break Σ calls_by_method.global == calls_used — the sonde's 4-invocation pattern, PLI cp-2). The plan's single
-  // "priorCalls gate" (fact 11, :589) predates b1a's C-B-3 split into these two lines; both take `|| rebaseDensity`.
+  // Resume seeds (crosscheck/density only): the a1-bis RUN ledger cumulative calls_used + per-method (provenance).
+  // The CYCLE ledger (the money guard, D-6) freezes its prior at open; --max-calls is a per-run attempt cap.
   const priorCalls = (rebaseCrosscheck || rebaseDensity) ? readPriorCalls(out) : 0;
-  // C-B-3 (V-3): the per-method counter resumes cumulatively too — seed it from budget.json.calls_by_method.global so
-  // the artifact's calls_by_method / credits_recomputed track calls_used across resumes (fact 4: else under-counted).
   const priorByMethod = (rebaseCrosscheck || rebaseDensity) ? readPriorByMethod(out) : {};
-  // C-G2-1: the worst-case-credits cap (--max-credits) rides the SAME cumulative counter as --max-calls, so a shared
-  // --out (probe then draw) bounds probe+draw JOINTLY in the credit unit (Infinity for the non-crosscheck branches).
-  const budgeted = makeBudgetedCall(maxCalls, async (u, m, p) => { if (minInterval > 0) await sleep(minInterval); return deps.call(u, m, p); }, priorCalls, maxCredits, priorByMethod);
-  const call = budgeted.call;
-  // C-G2-7: the cash-close leg (Databento + Massive) folds into the SAME budget — each GET ticks before it fires.
-  const budgetedDatabento: DatabentoGet = (path, key) => { budgeted.tick(); return deps.databentoGet(path, key); };
-  const budgetedPolygon: PolygonGet = (path, key) => { budgeted.tick(); return deps.polygonGet(path, key); };
+
+  // Build the budget primitives + provider LABELS. D-1: an injected deps.call is the OFFLINE UNIT path (the OLD
+  // makeBudgetedCall over the stub — NO guard, NO cycle ledger); its ABSENCE is the PRODUCTION/INTEGRATION path
+  // (openGuardedClient — THE migration; the oracle stubs globalThis.fetch only). The shared course body (branches +
+  // default, below) runs identically over these primitives. `release` releases the guard's N locks (no-op offline).
+  let call: JsonRpcCall;
+  let callsUsed: () => number;
+  let callsByMethod: () => Record<string, number>;
+  let ledgerCredits: () => number;
+  let budgetedDatabento: DatabentoGet;
+  let budgetedPolygon: PolygonGet;
+  let solProviders: readonly string[];
+  let release: () => void = () => {};
+  if (deps.call !== undefined) {
+    // OFFLINE UNIT (D-1): the OLD makeBudgetedCall budget over the injected stub. --operators labels or a default
+    // 2-operator list (the stub is keyed by method, ignoring the label); NO BELL_SOLANA_RPC read (T4). --max-credits
+    // keeps its worst-case ×10 meaning HERE (unit fixtures); the ledger-derived credits are the guarded path.
+    const injected = deps.call;
+    const budgeted = makeBudgetedCall(maxCalls, async (u, m, p) => { if (minInterval > 0) await sleep(minInterval); return injected(u, m, p); }, priorCalls, maxCredits, priorByMethod);
+    call = budgeted.call; callsUsed = budgeted.calls; callsByMethod = budgeted.callsByMethod;
+    // Offline has NO cycle ledger: reproduce the per-method tariff (a UNIT approximation of the ledger-derived credits
+    // the guarded path uses); the ledger-truth is proven by IT-3 (guard). Keeps credits_recomputed byte-stable offline.
+    ledgerCredits = () => { const bm = budgeted.callsByMethod(); return (bm.getTransactionsForAddress ?? 0) * CREDITS_PER_GTFA + (bm.getTransaction ?? 0) * CREDITS_PER_GET_TX; };
+    budgetedDatabento = (path, key) => { budgeted.tick(); return deps.databentoGet(path, key); };
+    budgetedPolygon = (path, key) => { budgeted.tick(); return deps.polygonGet(path, key); };
+    solProviders = operators.length > 0 ? operators : ["helius", "solana-foundation"];
+  } else {
+    // PRODUCTION / INTEGRATION — the guarded course inputs are REQUIRED (fail-closed; calque record.ts). --operators is
+    // the explicit include list of operator LABELS; the transport resolves each label -> its private URL and is the SOLE
+    // key reader. --max-credits -> the helius run cap (the worst-case ×10 recompute is REPLACED by the ledger's
+    // tariff-derived credits); --max-ru -> the chainstack run cap. opts.network:"solana-mainnet" is EXPLICIT.
+    if (ledgerDir === undefined) throw new Error("bell/collect: --ledger-dir is required (the durable per-operator cycle ledger root, must pre-exist; HELIUS-1)");
+    if (cycle === undefined) throw new Error("bell/collect: --cycle is required (ONE cycle id for every requested operator, keyless included)");
+    if (operators.length === 0) throw new Error("bell/collect: --operators <label,...> is required (explicit include list, e.g. helius,chainstack,solana-foundation)");
+    if (Object.keys(methodCaps).length === 0) throw new Error("bell/collect: --method-caps is required and non-empty (k=v; e.g. getSignaturesForAddress=200000,getTransaction=5000000,getAccountInfo=100000,getTransactionsForAddress=650000)");
+    // Fail-closed AT CONSTRUCTION: every Solana method Bell SENDS must carry a positive cap (never only at the 1st call).
+    assertMethodCapsCover(methodCaps, BELL_SOLANA_METHODS, "bell/collect");
+    if (operators.includes("helius") && !(maxCredits > 0 && maxCredits < Infinity)) throw new Error("bell/collect: --max-credits (> 0) is required when helius is in --operators (the helius run credit cap; tariff-derived)");
+    if (operators.includes("chainstack") && maxRu === undefined) throw new Error("bell/collect: --max-ru is required when chainstack is in --operators (the chainstack run RU cap; a Solana course passes --max-ru and opts.network solana-mainnet)");
+    const runCaps: Record<string, number> = {};
+    if (operators.includes("helius")) runCaps.helius = maxCredits;
+    if (operators.includes("chainstack")) runCaps.chainstack = maxRu!;
+    const limits: RunLimits = { maxCalls, runCaps, methodCaps, cycleFloor: floors };
+    const cycles = Object.fromEntries(operators.map((l) => [l, cycle]));
+    const errByOp: Record<string, number> = {};
+    // openGuardedClient's own rollback releases any partial lock on throw, so a build-time throw leaves nothing held.
+    const c = openGuardedClient(deps.env, limits, ledgerDir, cycles, { network: "solana-mainnet", onTransportError: (op) => { errByOp[op] = (errByOp[op] ?? 0) + 1; } });
+    const tally = { total: priorCalls, byMethod: { ...priorByMethod } as Record<string, number> };
+    // The `call` shim (calque record.ts:288): route a LABEL -> c.call (meter + write-ahead cycle-ledger line + ONE
+    // transport attempt). Retry is AT THE CALLER (withRetry / quorum2 iteration), NEVER here. A refusal
+    // (BudgetExceededError) is NOT counted (meter throws BEFORE commit => no `attempted` ledger line => Σ byMethod ==
+    // c.spent().attempts + prior, so the crosscheck's Σ calls_by_method == calls_used holds on the STOP path too).
+    call = async (op, method, params) => {
+      if (minInterval > 0) await sleep(minInterval);
+      try { const r = await c.call(op as OperatorLabel, method, params); tally.total += 1; tally.byMethod[method] = (tally.byMethod[method] ?? 0) + 1; return r; }
+      catch (e) { if (!(e instanceof BudgetExceededError)) { tally.total += 1; tally.byMethod[method] = (tally.byMethod[method] ?? 0) + 1; } throw e; }
+    };
+    callsUsed = (): number => tally.total;
+    callsByMethod = (): Record<string, number> => ({ ...tally.byMethod });
+    // CREDITS DERIVED FROM THE LEDGER: the helius run credits = Σ credits_derived of the helius cycle-ledger lines (getTransaction
+    // is drawn on the KEYLESS solana-foundation => 0 helius credit, so this is gTfA×10, NOT the old gTfA×10+getTx×1).
+    ledgerCredits = (): number => c.spent().byOperator.helius ?? 0;
+    // Cash leg (Databento + Massive): NOT a guard operator yet (1b-iii: own unit + allowlist, trigger "G0 course cash
+    // Bell"). Until then its GETs are attempt-bounded by the SAME --max-calls via a local tick that fail-closes against
+    // the client's attempt count (never a paid read past the budget). --max-credits governs helius via runCaps.helius.
+    let cashAttempts = 0;
+    const cashTick = (): void => { if (c.spent().attempts + cashAttempts + 1 > maxCalls) throw new BudgetExceededError(`bell/collect: --max-calls budget of ${String(maxCalls)} exceeded (cash leg, C-11 fail-closed)`); cashAttempts += 1; };
+    budgetedDatabento = (path, key) => { cashTick(); return deps.databentoGet(path, key); };
+    budgetedPolygon = (path, key) => { cashTick(); return deps.polygonGet(path, key); };
+    solProviders = operators;
+    // Release the N per-operator locks (keyless included) via the SERVED `unlock` (chained `unlocked` line + lock-file
+    // removal), calque record.ts:429. A HARD crash leaves them (fail-closed, detectable; runbook: N unlock before
+    // reconcile). cycle/ledgerDir are narrowed to string here (after the throws), so the closure captures them.
+    release = (): void => {
+      for (const op of c.operators()) {
+        runCli(["unlock", "--cycle", cycle, "--op", String(op), "--reason", "bell/collect: course end (finally, N unlock)"], { ledgerDir, floor: floors[op] ?? 0, readSnapshot: () => { throw new Error("bell/collect: readSnapshot is not used by unlock"); } });
+      }
+    };
+  }
   const providerDomains = [...new Set(solProviders.map(providerOf))];
+  try {
 
   // L-2 (D1-quater): --rebase-scan runs the multiplier-trajectory scan/probe mode (rebase-scan.ts) and returns;
   // it writes its trajectory + probe out-of-repo (never in the collect digest). The bodies stage is C-V-2-gated.
-  if (rebaseScan) { await runRebaseScanCli(call, solProviders, wanted, Math.floor(fromUtcMs / 1000), Math.floor(toUtcMs / 1000), out, { maxPages }, budgeted.calls, maxCalls, faults); return; }
+  if (rebaseScan) { await runRebaseScanCli(call, solProviders, wanted, Math.floor(fromUtcMs / 1000), Math.floor(toUtcMs / 1000), out, { maxPages }, callsUsed, maxCalls, faults); return; }
   // L-3 (C-8, D1-sexies): --rebase-produce runs the in-repo authority scanner and WRITES the loadable trajectory
   // file out-of-repo (the C-G2-2 runner is now in-repo, through the budget). --authority is REQUIRED (fail-closed).
   if (rebaseProduce) {
     if (authority === undefined) throw new Error("bell/collect: --rebase-produce needs --authority <base58> (the shared multiplier authority, read on-chain)");
-    await runRebaseProduceCli(call, solProviders, wanted, authority, out, { maxPages }, budgeted.calls, maxCalls, faults); return;
+    await runRebaseProduceCli(call, solProviders, wanted, authority, out, { maxPages }, callsUsed, maxCalls, faults); return;
   }
   // L-b1b-1 (PLI §3(c)): --rebase-density runs the H6 density sonde (genesis MEASURED + DENSITY_POINTS points/mint) and
   // returns; it writes sonde-report.json + the SHARED budget.json (cumulative global calls_by_method) but NEVER a
   // ledger/crosscheck artifact. Bounded in the credit unit on the SAME budget as the draw, so a shared --out is joint.
   if (rebaseDensity) {
     const dir = seriesDir ?? resolve(repoRoot, "apps/bell/test/fixtures/series/rebase");
-    await runDensityProbeCli(call, solProviders, wanted, dir, out, { requireFullPages: !allowShortPages }, budgeted.calls, budgeted.callsByMethod, maxCalls); return;
+    await runDensityProbeCli(call, solProviders, wanted, dir, out, { requireFullPages: !allowShortPages }, callsUsed, callsByMethod, maxCalls); return;
   }
   // L-2/L-3 (D1-quater, decision 67): --rebase-crosscheck re-scans each wanted mint's WHOLE body set (gTfA `full`,
   // bounded to the committed series' oracle_slot) and compares it to the committed hybrid series (STOP on divergence
   // / incompleteness). Budget cumulative across resumes (readPriorCalls offset). --series-dir defaults to the fixtures.
   if (rebaseCrosscheck) {
     const dir = seriesDir ?? resolve(repoRoot, "apps/bell/test/fixtures/series/rebase");
-    await runRebaseCrosscheckCli(call, solProviders, wanted, dir, out, { maxPages, requireFullPages: !allowShortPages }, budgeted.calls, budgeted.callsByMethod, maxCalls, faults); return;
+    await runRebaseCrosscheckCli(call, solProviders, wanted, dir, out, { maxPages, requireFullPages: !allowShortPages }, callsUsed, callsByMethod, ledgerCredits, maxCalls, faults); return;
   }
   // L-1 (D1-sexies): --discover samples the founding window (--from-utc/--to-utc) at 3 points, tallies the founding
   // vaults, pairs the quote by owner, confirms quorum-2, and WRITES discovery-<MINT>.json out-of-repo (the served
   // input FOUNDING_POOLS equals, C-4). --max-pages = N pages/point (PLI: 5). One command through the same budget.
-  if (discover) { await runDiscoverCli(call, solProviders, wanted, { fromSec: Math.floor(fromUtcMs / 1000), toSec: Math.floor(toUtcMs / 1000) }, out, { pagesPerPoint: maxPages }, budgeted.calls, maxCalls, faults); return; }
+  if (discover) { await runDiscoverCli(call, solProviders, wanted, { fromSec: Math.floor(fromUtcMs / 1000), toSec: Math.floor(toUtcMs / 1000) }, out, { pagesPerPoint: maxPages }, callsUsed, maxCalls, faults); return; }
 
   // C-10: a scanned trajectory (out-of-repo file) is CONSUMED here so the g_t rebase-aware path is a real main()
   // path, not a fixture. Absent file => every symbol falls back to rebase_unverified (fail-closed).
@@ -682,12 +766,18 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
   writeFileSync(resolve(out, "journal.json"), JSON.stringify(result.journal, null, 2));
   // provenance.json carries close_source (decision 53) + cash_request_digest + providers/quorum — a D9 artifact (out of tree, CA-11).
   writeFileSync(resolve(out, "provenance.json"), JSON.stringify(result.provenance, null, 2));
-  process.stdout.write(`bell/collect bell_sha=${result.bellSha} symbols=${String(symbols.length)} calls=${String(budgeted.calls())}/${String(maxCalls)} providers=${providerDomains.join(",")} out=${out}\n`);
+  process.stdout.write(`bell/collect bell_sha=${result.bellSha} symbols=${String(symbols.length)} calls=${String(callsUsed())}/${String(maxCalls)} providers=${providerDomains.join(",")} out=${out}\n`);
+  } finally {
+    // Runs on every exit (success, a branch's early `return`, or a throw). `release` is the guard path's N-unlock
+    // (no-op on the offline-unit path). A build-time openGuardedClient throw was covered by its own rollback.
+    release();
+  }
 }
 
-/** main() is a 3-line shell (C-2): the run-guarded default deps (real network + clock) into runMain. */
+/** main() is a shell (C-2): the run-guarded default deps (cash readers + real clock) into runMain; the guarded client
+ *  (real transport) is built INSIDE runMain from process.env (the transport is the sole endpoint-key reader). */
 async function main(): Promise<void> {
-  await runMain(process.argv.slice(2), { call: bellSolanaCall, databentoGet, polygonGet, env: process.env, nowMs: Date.now() });
+  await runMain(process.argv.slice(2), { databentoGet, polygonGet, env: process.env, nowMs: Date.now() });
 }
 
 /** V-3: a LOCAL fail-closed error (the `bell/collect:` prefix from parseArgs / assertOutsideRepo) is surfaced
