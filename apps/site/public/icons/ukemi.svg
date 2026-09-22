@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="MONARK Ukemi mark">
+<title>MONARK Ukemi mark</title>
+<style>@media (prefers-color-scheme:dark){.ink{stroke:#E9EBF2}.acc{stroke:#9AA2EE}.accf{fill:#9AA2EE}}</style>
+<g transform="translate(-8,-16) scale(1.25)" fill="none" stroke-linecap="round">
+<path d="M10,48 L54,48" class="ink" stroke="#14151B" stroke-width="3.2" opacity="0.4"/>
+<path d="M14,46 L15,28" class="ink" stroke="#14151B" stroke-width="4.8"/>
+<path d="M24,46 L28,29" class="ink" stroke="#14151B" stroke-width="4.8"/>
+<path d="M34,46 L42,32" class="ink" stroke="#14151B" stroke-width="4.8"/>
+<path d="M49,47 L49,19" class="acc" stroke="#5661C9" stroke-width="7.4"/>
+</g>
+<circle cx="53.25" cy="54" r="5" class="accf" fill="#5661C9"/>
+</svg>
