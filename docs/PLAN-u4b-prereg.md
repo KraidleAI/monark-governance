@@ -221,23 +221,48 @@ node apps/sentinel/src/ukemi/record.ts \
 ```
 **INTERDICTION pré-enregistrée (ruling 2026-09-22 04:4x)** : `--no-prereg-binding` **NE FIGURE PAS** dans cette ligne et est **INTERDIT pour la course weth** — sa présence dans la CLI/provenance = **D-n déclarée**, course **non servable** (l'opt-out n'est licite que pour l'usage générique hors U-4b, U-1/susde). Le recorder ne lit **AUCUNE clé pour la sélection d'opérateur** (`record.ts:318` : `deps.env` passé AS-IS à `openGuardedClient`, transport = seul lecteur de clé ; en-tête `:22-24`) ⇒ « aucune sonde d'env » est vrai **du recorder**. Séquence de fin de course : voir §6 (le `finally` fait déjà N `unlock` servi via `runCli`, `:486-499`).
 
-### (5b) Discover de l'épisode (§DISC, keyless-only, gardé — TÉMOIN)
+### (5b) Discover de l'épisode (§DISC, keyless-only, gardé — TÉMOIN) + (5b-bis) SÉLECTION + (5b-fill) + (5b-ter) — lot U-4b-1b-2 FUSIONNÉ (`cabe67f`, G7 `eda73ca`)
 
-`scripts/census/u4b/u4b-discover.mjs` (lot U-4b-1b-0 Q-D) exécute §DISC:30 (getLogs) + §DISC:34-40 (clustering `clusterWethLiquidations`), **keyless-only via le client GARDÉ** ; il ne fait PAS l'exclusion e2 / l'éligibilité / l'argmin (§DISC). Son `clusters` est un **TÉMOIN CONSULTATIF** ; la SÉLECTION est faite par le réducteur AVAL (`episode-selection.json`, item formé §7).
+Lignes FIGÉES du lot U-4b-1b-2 (amendement ADR-U4b daté 2026-09-22, tuyaux brut discover → sélecteur → labeler/prober/recorder ; testées par la chaîne réelle `apps/sentinel/test/u4b-chain.test.ts`). Le brut discover est écrit en deux phases (`getlogs-only` durable puis `complete`, `brut_sha256` recomputé) ; `block_ts` sous le sha ; `--block-operators` = pool d'archive keyless SANS pocket.network (élagage mesuré 2026-09-22 14:02 UTC) ; le témoin `clusters` reste CONSULTATIF (échec ⇒ `clusters:null` + `cluster_error`, exit 0). La SÉLECTION (§DISC:31, :42-46, :49-50) est HORS LIGNE (0 réseau) et produit `episode-selection.json` (B0 → §5a `--block`), `events-<id>.json` (→ §5d `--events`, sha des octets), `A-rawlogs-<id>.jsonl` (→ §5d `--rawlogs`, `rawlogs_sha256` → `--rawlogs-sha`). `--check-version` (H-1) et `--fill-ts` (ts manquant e2-adjacent) sont des sous-commandes GARDÉES keyless quorum-2 (refus fail-closed de tout opérateur payant). ORDRE de course mis à jour : (5b) discover → (5b-bis) sélection [→ (5b-fill) → (5b-bis)] → (5b-ter) version → (5a) recorder (`--block` = `episode.B0`) → (5d) labeler (`--events`/`--rawlogs`/`--rawlogs-sha` du sélecteur) → prober D_e (`--episode-file` ; `--usdt-blocks` dérivés des lignes deficit du labeler : ORDRE labeler → prober, D-n) → (5e) hors-ligne ; (5c) reconcile = gate séparée (décision 129).
 
 ```
-node scripts/census/u4b/u4b-discover.mjs \
-  --from-block 22803459 \                          # B_lo (§DISC : bascule feed WETH → SVR), borne getLogs basse (fromBlock, u4b-discover.mjs:60)
-  --to-block <finalized − 64 (§DISC B_hi), horodaté dans le brut> \   # toBlock, :61 ; to >= from (:62)
-  --event-id <id de travail, ex. weth-discover-<date>> \              # eventId req, :63
-  --operators drpc.org,mevblocker.io,tenderly.co,pocket.network \     # KEYLESS-ONLY (assertKeylessOperators :35-38 refuse chainstack/helius)
-  --ledger-dir <F:\monark-ledger\<cycle>\ — hors dépôt, DOIT pré-exister (assertLedgerDir :68)> \
-  --cycle <même id de cycle par compte (:69)> \
-  --max-calls <> 0 — budget fail-closed (:70-71)> \
-  --out <hors dépôt — brut déterministe (tri canonique + brut_sha256 :103) + clusters témoins> \
-  [--method-caps '{"eth_getLogs":<cap>,"eth_getBlockByNumber":<cap>}'] [--min-interval-ms 50]     # method-caps = objet JSON (:43-49), défaut min-interval 50 (:73)
+# (5b) discover — schéma v2, block_ts, --block-operators (ledger IMBRIQUÉ : --ledger-dir F:\monark-ledger --cycle <cycle>
+#      crée <ledger-dir>\<cycle>\ ; le prereg §5b « <F:\monark-ledger\<cycle>\> » est l'imbriqué, à désambiguïser)
+node scripts/census/u4b/u4b-discover.mjs --from-block 22803459 --to-block <finalized-64> --event-id weth-discover-<date> \
+  --operators drpc.org,mevblocker.io,tenderly.co,pocket.network \
+  --block-operators drpc.org,mevblocker.io,tenderly.co \                 # C-2 : blockAt sans pocket (élagage)
+  --ledger-dir F:\monark-ledger --cycle <cycle> --max-calls <n> --out <hors dépôt>
+
+# (5b-bis) réducteur de sélection (HORS LIGNE, 0 réseau ; --block-ts-extra si --fill-ts a tourné, cf. 5b-fill)
+node scripts/census/u4b/u4b-select-episode.mjs --discover <brut v2> \
+  --prereg-file docs/PLAN-u4b-prereg.md --prereg-sha <LF sha> --out <dir hors dépôt> \
+  [--n-min 50] [--e2-window 23545088,23557060] [--b-hi <to_block du brut>] [--block-ts-extra <sidecar 5b-fill>]
+#   -> <out>/episode-selection.json  (episode.B0 -> §5a --block ; events_file -> §5d --events ; rawlogs_sha256 -> §5d --rawlogs-sha ; block_ts_extra_sha256 si sidecar)
+#   -> <out>/events-<episode_id>.json  (le TABLEAU, C-V-4, consommé DIRECTEMENT par le labeler --events)
+#   -> <out>/A-rawlogs-<episode_id>.jsonl  (§5d --rawlogs)
+
+# (5b-fill) OPTIONNEL — SI 5b-bis refuse « brut has no ts for block N » (C-2, cluster e2-adjacent) : fill-ts gardé
+node scripts/census/u4b/u4b-select-episode.mjs --fill-ts --discover <brut v2> --out <dir hors dépôt> \
+  --operators drpc.org,mevblocker.io,tenderly.co --ledger-dir F:\monark-ledger --cycle <cycle> \
+  --max-calls <n> --method-caps '{"eth_getBlockByNumber":<cap>}'
+#   -> <out>/block-ts-extra.json (sha-lié) ; re-lancer 5b-bis avec --block-ts-extra <ce fichier> (0 réseau)
+
+# (5b-ter) contrôle de version (H-1, gardé keyless quorum-2, 1 eth_getStorageAt EIP-1967)
+node scripts/census/u4b/u4b-select-episode.mjs --check-version --episode-file <out>/episode-selection.json \
+  --operators drpc.org,mevblocker.io,tenderly.co --ledger-dir F:\monark-ledger --cycle <cycle> \
+  --max-calls <n> --method-caps '{"eth_getStorageAt":<cap>}' [--version-neutral-ref <doc si impl != v3.5.0 et diff [lu] NEUTRE>]
+#   version_ok=false SANS --version-neutral-ref => STOP H-1 (PR-U4-3-bis), JAMAIS d'avance silencieuse (C-5)
+
+# (prober D_e) paramétré par --episode-file (§DISC:28 feed-proxy conservé)
+node scripts/census/u4-oracle-path.mjs --episode-file <out>/episode-selection.json \
+  --prereg-file docs/PLAN-u4b-prereg.md --prereg-sha <LF sha> \
+  [--feed-proxy 0x5424384b256154046e9667ddfaaa5e550145215e] \           # DÉFAUT §DISC:28 (feed_proxy_source en provenance)
+  [--usdt-blocks <b1,b2>] --emode-categories <liste> | --book <U4-book> \
+  --raws-dir <hors dépôt> --ledger-dir F:\monark-ledger --cycle <cycle> --floor <F> --max-ru <R> --max-calls <n> --method-caps '{...}'
+#   --usdt-blocks ABSENT => usdt_prices {} + usdt_blocks_status "omitted" (C-7 ; blocs dérivables par
+#   usdtBlocksFromLabelerDeficit(U3-deficit.jsonl) — helper pur exporté ; ORDRE labeler -> prober, D-n déclarée)
 ```
-> **Deux formats `--method-caps` dans le runbook, à NE PAS unifier** : le recorder (5a) prend `k=v,k=v` (`record.ts`) ; `u4b-discover` (5b) prend un **objet JSON** (`u4b-discover.mjs:43-49`). Chaque outil garde son format. Le brut de discover NE porte PAS `prereg_sha`/`labeler_sha` (`u4b-discover.mjs:98-104`) ⇒ le sidecar daté les lie à son `brut_sha256`.
+Instances de la course du 2026-09-22 : `--cycle chainstack-2026-09-19`, `--ledger-dir F:\monark-ledger\chainstack-2026-09-19` (imbrication `<ledger-dir>\<cycle>\` = contrat du garde), `--to-block` = finalized − 64 lu à l'exécution et horodaté dans le brut.
 
 ### (5c) `reconcile` servi — via `bin/rpc-guard.mjs` (Q-E RÉSOLU) — GATE SÉPARÉE de comptabilité (décision 129), PAS une condition de clôture de course
 
