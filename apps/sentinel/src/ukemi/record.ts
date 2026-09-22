@@ -44,6 +44,12 @@ export function lfSha256(text: string): string {
   return createHash("sha256").update(text.replace(/\r\n/g, "\n"), "utf8").digest("hex");
 }
 
+/** Belt-and-suspenders URL strip for the durable diagnostic journal (Q-C/C-R-b7, calque @monark/rpc-guard
+ *  transport.ts:47 scrubUrls). The transport ALREADY expurgates every raised message (see the file header:
+ *  record.ts holds no raw body to scrub), and rpc_errors carry only the registrable domain + closed hint; this
+ *  guarantees `<out>.diag.json` carries 0 URL even for a non-transport throw. Reads NO env (record.ts reads no key). */
+const stripUrls = (s: string): string => s.replace(/https?:\/\/[^\s"'\\]+/gi, "<url>");
+
 /** Live progress of a filter pass, mutated in place so a BudgetExceededError stop can still report what was seen. */
 export interface FilterProgress { holders: number; config_read: number; n_at_risk_config: number; }
 /** The result of a filter-only pass (config-passing count = an UPPER bound of recordBook's final at_risk). */
@@ -113,7 +119,9 @@ export interface UkemiArgs {
   out: string | undefined;
   maxCalls: number | undefined; // C-5 fail-closed budget; REQUIRED (> 0) in main, undefined only pre-check
   resume: string | undefined;   // C-5 resume/inputs cache path (JSONL request→result, OUTSIDE the repo)
-  preregSha: string | undefined; // A-2: the sha256 LF of docs/PLAN-u4-prereg.md, verified before any read
+  preregSha: string | undefined; // A-2: the sha256 LF of the prereg file (--prereg-file), verified before any read
+  preregFile: string;            // A-2/Q-A (decision 128): the prereg the course is BOUND to (default docs/PLAN-u4b-prereg.md)
+  labelerSha: string | undefined; // Q-B (decision 128): the sha256 LF of scripts/census/u3-realized.mjs (the frozen U-3 labeler)
   filterOnly: boolean;          // D-3 two-stage go: stop after getUserConfiguration×quorum, report nAtRisk, no per-account read
   slowOperators: string[];      // D-4: operator labels throttled to slowIntervalMs (a misbehaving operator raised alone)
   slowIntervalMs: number;       // D-4: interval for slowOperators (default 200)
@@ -160,6 +168,8 @@ export function parseUkemiArgs(argv: readonly string[]): UkemiArgs {
     maxCalls: optInt("--max-calls"),
     resume: arg("--resume"),
     preregSha: arg("--prereg-sha"),
+    preregFile: arg("--prereg-file") ?? "docs/PLAN-u4b-prereg.md",
+    labelerSha: arg("--labeler-sha"),
     filterOnly: argv.includes("--filter-only"),
     slowOperators: argAll("--slow-operator"),
     slowIntervalMs: reqInt("--slow-interval-ms", 200),
@@ -216,6 +226,9 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
   const cluster = clusterById(args.cluster);
   const here = dirname(fileURLToPath(import.meta.url));
   const root = join(here, "..", "..", "..", "..");
+  // Q-C/C-R-b7: the durable diagnostic journal path — <out>.diag.json (or a tmp default when --out is absent). Fixed
+  // here so EVERY failure path in the try/catch below can persist the diagnosis (never lost to a console-only report).
+  const diagPath = (args.out ?? join(tmpdir(), `ukemi-${cluster.id}-${String(deps.now())}`)) + ".diag.json";
 
   // C-1(b): the SIX run inputs are REQUIRED WITHOUT condition (a keyless-only run passes them too; assertLimits only
   // enforces a cap for a PAID operator that is actually requested - client.ts). record.ts reads NO env for operator
@@ -234,11 +247,25 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
   if (maxCalls === undefined) throw new Error("ukemi/record: --max-calls is required (C-5 fail-closed RPC budget; e.g. --max-calls 300000)");
   if (!(maxCalls > 0)) throw new Error("ukemi/record: --max-calls must be > 0 (C-5 fail-closed budget)");
 
-  // A-2: a supplied --prereg-sha MUST equal the sha256 LF of docs/PLAN-u4-prereg.md (proof the prereg was
-  // committed and unchanged BEFORE the course; else U4-H1 would be post hoc).
+  // A-2 / Q-A (decision 128): a supplied --prereg-sha MUST equal the sha256 LF of the prereg the course is BOUND to
+  // (--prereg-file, default docs/PLAN-u4b-prereg.md) — proof the U-4b prereg was committed and unchanged BEFORE the
+  // course (else U4b-H* would be post hoc). Pre-decision-128 this compared to docs/PLAN-u4-prereg.md (the U-4 LIVRE
+  // prereg), so the ADR-U4b D4 sentence "the script refuses without --prereg-sha == sha of THIS file" was FALSE; the
+  // gate now binds the course to PLAN-u4b-prereg.md by CODE. A missing prereg file is a NAMED refusal, never an ENOENT.
   if (args.preregSha !== undefined) {
-    const actual = lfSha256(readFileSync(join(root, "docs", "PLAN-u4-prereg.md"), "utf8"));
-    if (actual !== args.preregSha) throw new Error(`ukemi/record: --prereg-sha ${args.preregSha} != docs/PLAN-u4-prereg.md LF sha ${actual} (A-2; commit the prereg first)`);
+    const preregPath = join(root, args.preregFile);
+    if (!existsSync(preregPath)) throw new Error(`ukemi/record: --prereg-file ${args.preregFile} does not exist (A-2/Q-A; commit the prereg first)`);
+    const actual = lfSha256(readFileSync(preregPath, "utf8"));
+    if (actual !== args.preregSha) throw new Error(`ukemi/record: --prereg-sha ${args.preregSha} != ${args.preregFile} LF sha ${actual} (A-2; commit the prereg first)`);
+  }
+  // Q-B (decision 128): a supplied --labeler-sha MUST equal the sha256 LF of scripts/census/u3-realized.mjs (the
+  // frozen U-3 labeler that re-derives the fresh Y labels). The label convention is frozen BEFORE the course (§Y);
+  // a post-course labeler edit would make the labels post-hoc and non-servable. Written into the provenance below.
+  if (args.labelerSha !== undefined) {
+    const labelerPath = join(root, "scripts", "census", "u3-realized.mjs");
+    if (!existsSync(labelerPath)) throw new Error(`ukemi/record: scripts/census/u3-realized.mjs does not exist (Q-B; the labeler must be present)`);
+    const actual = lfSha256(readFileSync(labelerPath, "utf8"));
+    if (actual !== args.labelerSha) throw new Error(`ukemi/record: --labeler-sha ${args.labelerSha} != scripts/census/u3-realized.mjs LF sha ${actual} (Q-B; freeze the labeler first)`);
   }
 
   // C-1: the operators are an EXPLICIT include list (labels); NOT listing an operator EXCLUDES it (replaces
@@ -361,7 +388,7 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
       const provenance = {
         model: "claude-opus-4-8[1m]", recorded_at_utc: new Date(deps.now()).toISOString(), phase: "filter-only",
         endpoints: { eth_call: opLabels(ethCallProviders), eth_getLogs: opLabels(getLogsProviders) }, quorum: 2,
-        params: { cluster: cluster.id, block, from_block: args.fromBlock ?? null, min_interval_ms: args.minIntervalMs, slow_operators: args.slowOperators, slow_interval_ms: args.slowIntervalMs, retries: args.retries, backoff_ms: args.backoffMs, backoff_cap_ms: args.backoffCapMs, max_calls: args.maxCalls, prereg_sha: args.preregSha ?? null, resume: args.resume !== undefined, filter_only: true },
+        params: { cluster: cluster.id, block, from_block: args.fromBlock ?? null, min_interval_ms: args.minIntervalMs, slow_operators: args.slowOperators, slow_interval_ms: args.slowIntervalMs, retries: args.retries, backoff_ms: args.backoffMs, backoff_cap_ms: args.backoffCapMs, max_calls: args.maxCalls, prereg_sha: args.preregSha ?? null, prereg_file: args.preregFile, labeler_sha: args.labelerSha ?? null, resume: args.resume !== undefined, filter_only: true },
         calls: budgeted.total(), calls_by_operator: budgeted.byOperator(), calls_by_method: budgeted.byMethod(), errors_by_operator: errByOp, spent_by_operator: c.spent().byOperator, seconds, finalized_block: fin.block, ukemi_sha: ukemiSha(here),
         holders: fr.holders, holders_digest: fr.holders_digest, n_at_risk_config: fr.n_at_risk_config,
         excluded: { collateral_off: fr.excluded_collateral_off, no_debt: fr.excluded_no_debt }, projection_remaining_calls: 9 * fr.n_at_risk_config,
@@ -390,7 +417,7 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
     const provenance = {
       model: "claude-opus-4-8[1m]", recorded_at_utc: new Date(deps.now()).toISOString(),
       endpoints: { eth_call: opLabels(ethCallProviders), eth_getLogs: opLabels(getLogsProviders) }, quorum: 2, // labels only, NEVER a URL (C-5)
-      params: { cluster: cluster.id, block, from_block: args.fromBlock ?? null, min_interval_ms: args.minIntervalMs, retries: args.retries, backoff_ms: args.backoffMs, backoff_cap_ms: args.backoffCapMs, max_calls: args.maxCalls, prereg_sha: args.preregSha ?? null, resume: args.resume !== undefined },
+      params: { cluster: cluster.id, block, from_block: args.fromBlock ?? null, min_interval_ms: args.minIntervalMs, retries: args.retries, backoff_ms: args.backoffMs, backoff_cap_ms: args.backoffCapMs, max_calls: args.maxCalls, prereg_sha: args.preregSha ?? null, prereg_file: args.preregFile, labeler_sha: args.labelerSha ?? null, resume: args.resume !== undefined },
       calls: budgeted.total(), calls_by_operator: budgeted.byOperator(), calls_by_method: budgeted.byMethod(), errors_by_operator: errByOp, spent_by_operator: c.spent().byOperator, seconds, finalized_block: fin.block, ukemi_sha: ukemiSha(here),
       counts: res.counts, holders_digest: res.holders_digest, book_digest: res.book_digest,
       hf_findings: res.hf_findings, timeline: res.timeline,
@@ -405,6 +432,33 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
       `  calls=${String(budgeted.total())}/${String(args.maxCalls)} by_operator={${perOp}} rpc_errors=${String(rpcErrors.length)} seconds=${seconds.toFixed(1)} ukemi_sha=${provenance.ukemi_sha}\n  out=${out}\n`);
     return 0;
   } catch (e) {
+    // Q-C / C-R-b7 (decision 128): a FAILED course must never lose its diagnosis. Persist a DURABLE diagnostic journal
+    // <out>.diag.json on EVERY failure path (BudgetExceededError, TransportError, RpcError, NoQuorumError, ABI, any
+    // other) BEFORE the exit/rethrow below — the JSON of provenance carrying rpc_errors was previously written ONLY on
+    // the success paths (:371/:400), so a non-budget throw lost rpc_errors/errByOp/tally (the C-R-b7 gap). Secret-free
+    // by construction (the transport scrubs every raised message; rpc_errors hold only the registrable domain + closed
+    // hint; the tally is counts) + a belt-and-suspenders URL strip. A write failure is consigned, NEVER masks e.
+    try {
+      // Prefer the SPECIFIC fault name when set (a TransportError carries e.name = HttpError/AbortError/RpcError…),
+      // else the constructor name (BudgetExceededError does not override .name, so e.name is the generic "Error";
+      // e.constructor.name identifies it — the established pattern, u4-oracle-path.mjs:123).
+      const errName = e instanceof Error ? (e.name !== "" && e.name !== "Error" ? e.name : e.constructor.name) : "unknown";
+      const diag = {
+        ts: new Date(deps.now()).toISOString(),
+        error: { name: errName, message: stripUrls(e instanceof Error ? e.message : String(e)) },
+        calls_total: budgeted.total(),
+        by_operator_method: { by_operator: budgeted.byOperator(), by_method: budgeted.byMethod() },
+        rpc_errors: rpcErrors,
+        errors_by_operator: errByOp,
+        n_at_risk_seen: progress.n_at_risk_config,
+        prereg_sha: args.preregSha ?? null,
+        labeler_sha: args.labelerSha ?? null,
+        ukemi_sha: ukemiSha(here),
+      };
+      writeFileSync(diagPath, JSON.stringify(diag, null, 2));
+    } catch (werr) {
+      process.stderr.write(`ukemi/record: FAILED to write diagnostic journal ${diagPath} (${werr instanceof Error ? werr.name : "error"}); diagnosis on stderr only\n`);
+    }
     // D-3: a budget stop must never lose information — report what was seen (nAtRisk so far, calls per operator/method).
     if (e instanceof BudgetExceededError) {
       const perOp = Object.entries(budgeted.byOperator()).map(([k, v]) => `${k}:${String(v)}`).join(",");
