@@ -5,6 +5,11 @@
 // on a broken body whose note survives only in the payload (measured, G0 finding 8 — a false GREEN). Fail-closed
 // if fleet.html is absent (exit 1, never a skip). Node 24, built-ins only.
 //
+// EXTENDED (lot SITE-RELEASE-1 sub-lot B, voie i): the SAME main() ALSO asserts the rendered /ukemi <main>
+// body via assertUkemiBody() — digit-free numeric-hole scan + served-state/conditional-clause presence +
+// interval/cascade/Bell/Aave absence. renderedBody()/assertFleetBody() are SHARED and UNCHANGED; the g3-site
+// `run:` line is unchanged (checkpoint-1 C-4). See the /ukemi extension block below.
+//
 // The pure function assertFleetBody() is import-free (built-ins only) — what test/site-build-fleet.test.ts
 // drives on a synthetic fixture. main() DYNAMICALLY imports apps/site/lib/fleet.ts (the SINGLE SOURCE of the
 // built set — the expected notes are NEVER duplicated here) to derive the expected notes, then reads the
@@ -95,9 +100,131 @@ export function assertFleetBody({ html, expectedHeader, expectedNotes }) {
   return { header: decodeEntities(expectedHeader), notes: expectedNotes.length, bodyChars: body.length };
 }
 
+/* ─────────────────────────── /ukemi extension (lot SITE-RELEASE-1 sub-lot B, voie i, G0 §18/B) ───────────
+ * The SAME next build renders ukemi.html and main() (below) reads it in the SAME run — the g3-site `run:` line
+ * (`node scripts/assert-fleet-html.mjs`) is UNCHANGED (checkpoint-1 C-4). assertUkemiBody() is pure/built-ins
+ * only, driven on synthetic fixtures by test/site-ukemi.test.ts and on the REAL artefact by g3-site. The
+ * expected sentences are imported from apps/site/lib/ukemi-copy.ts (NEVER gate.ts — the byte-identity of the
+ * served text to gate.ts is proven by the ROOT test site_ukemi_copy_equals_served_liq_text). renderedBody()
+ * and assertFleetBody() above are SHARED and UNCHANGED (disjointness: site-build-fleet.test.ts ∉ this lot). */
+
+/** The built /ukemi artefact, relative to the repo root — the FRESH `next build` output, never a stale .next. */
+export const UKEMI_HTML_REL = "apps/site/.next/server/app/ukemi.html";
+
+/** The conditional-coverage clause that MUST ride in the served /ukemi text (ADR-U4b D1; the tail of
+ *  LIQ_CONDITIONAL_SENTENCE). Its absence is an over-revendication (checkpoint-1 C-1, gate.ts:153-155). */
+export const UKEMI_CONDITIONAL_CLAUSE = "which the gate does not check";
+
+// Numeric-hole scan — PARITY with apps/site/test/honesty-lint.ts (regexes :50-52, algorithm scanText :74-89).
+// The three regexes are RECOPIED INLINE (C-1): a rendered numeric token is a violation UNLESS it belongs to an
+// allowed identifier or an ISO date. NO exempt list here (the /ukemi <main> is digit-free WITHOUT the 01-04
+// exemption — a STRICTER contract than honesty-lint's). site_ukemi_body_scan_and_carrier proves the parity.
+const NUMERIC_TOKEN = /\d+(?:[.,]\d+)*/g;
+const ALLOWED_ID = /\b(?:ADR-M\d+|R-\d+|CA-\d+|D\d+|HIP-\d+)\b/g;
+const ISO_DATE = /\b\d{4}-\d{2}-\d{2}\b/g;
+
+/** Char ranges [start,end) covered by an allowed identifier or an ISO date (parity: honesty-lint coveredRanges). */
+function coveredRanges(text) {
+  const ranges = [];
+  for (const re of [ALLOWED_ID, ISO_DATE]) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      if (m[0] !== undefined) ranges.push([m.index, m.index + m[0].length]);
+    }
+  }
+  return ranges;
+}
+
+/** Offending numeric tokens in a plain rendered-text string. PURE, built-ins only. Byte-for-byte the output of
+ *  honesty-lint.ts scanText(text, new Set()) — the scanner parity site_ukemi_body_scan_and_carrier asserts. */
+export function scanNumericTokens(text) {
+  const s = String(text);
+  const ranges = coveredRanges(s);
+  const out = [];
+  NUMERIC_TOKEN.lastIndex = 0;
+  let m;
+  while ((m = NUMERIC_TOKEN.exec(s)) !== null) {
+    const tok = m[0];
+    if (tok === undefined) continue;
+    const start = m.index;
+    const end = start + tok.length;
+    if (ranges.some(([a, b]) => start >= a && end <= b)) continue;
+    out.push(tok);
+  }
+  return out;
+}
+
+/** Extract the inner HTML of the first <main>...</main>. Fail-closed (throws) if absent or blank: the /ukemi
+ *  body lives in ONE <main> (the page component), ISOLATED from the shared layout <head>/SiteHeader/SiteFooter
+ *  and the next/font CSS (font-weight numbers) that renderedBody does NOT strip and that are ∉ this lot (M-24).
+ *  A build that dropped the <main> must never pass by absence of an assertion. */
+export function extractMain(body) {
+  const m = /<main\b[^>]*>([\s\S]*?)<\/main>/i.exec(String(body));
+  if (m === null) throw new Error("assert-ukemi: no <main>...</main> in the rendered /ukemi body (fail-closed)");
+  const inner = m[1] ?? "";
+  if (inner.trim().length === 0) throw new Error("assert-ukemi: the <main> subtree is empty/blank (vacuity guard, fail-closed)");
+  return inner;
+}
+
+/** The scan corpus of a <main> subtree: the rendered TEXT NODES (after stripping EVERY tag) PLUS the values of
+ *  the visible attributes alt/title/aria-label (captured BEFORE stripping) — the SAME corpus the numeric scan
+ *  and the presence/absence checks run on, so class/style/data-* numbers (in tags) never leak in. */
+export function mainCorpus(mainHtml) {
+  const s = String(mainHtml);
+  const attrs = [];
+  const re = /\b(?:alt|title|aria-label)\s*=\s*"([^"]*)"/gi;
+  let m;
+  while ((m = re.exec(s)) !== null) attrs.push(m[1] ?? "");
+  const text = s.replace(/<[^>]+>/g, " ");
+  return (text + " " + attrs.join(" ")).replace(/\s+/g, " ").trim();
+}
+
+/** Assert the rendered /ukemi <main> body is DIGIT-FREE and carries the served honest state + the whole
+ *  conditional sentence + the named clause, and NONE of interval/cascade/Bell/Aave. Pure, built-ins only;
+ *  THROWS on any failure (fail-closed). Vacuity-guarded like assertFleetBody. `expected` = the two DIGIT-FREE
+ *  served sentences from lib/ukemi-copy.ts: { emptyRegistrySentence, conditionalSentence }. */
+export function assertUkemiBody({ html, expected }) {
+  if (typeof html !== "string") throw new Error("assert-ukemi: html must be a string");
+  if (expected === null || typeof expected !== "object") throw new Error("assert-ukemi: expected must be an object (vacuity guard)");
+  const { emptyRegistrySentence, conditionalSentence } = expected;
+  for (const [k, v] of [["emptyRegistrySentence", emptyRegistrySentence], ["conditionalSentence", conditionalSentence]]) {
+    if (typeof v !== "string" || v.trim().length === 0)
+      throw new Error(`assert-ukemi: expected.${k} is empty/not-a-string (vacuity guard)`);
+  }
+
+  const body = renderedBody(html); // SHARED, UNCHANGED (fail-closed on an unclosed <script>)
+  const mainHtml = extractMain(body); // fail-closed if <main> absent/blank (isolates page body from layout, M-24)
+  const corpus = mainCorpus(mainHtml);
+  if (corpus.length === 0) throw new Error("assert-ukemi: <main> corpus empty after stripping (fail-closed)");
+
+  // (1) numeric-hole scan (C-1): 0 numeric tokens in the rendered <main> text + visible attrs.
+  const nums = scanNumericTokens(corpus);
+  if (nums.length)
+    throw new Error(`assert-ukemi: ${nums.length} numeric token(s) rendered in the /ukemi <main> (expected 0, digit-free): ${JSON.stringify(nums)}`);
+
+  // (2) presence (byte-identical): the served empty-registry state, the whole conditional sentence, the clause.
+  if (!corpus.includes(emptyRegistrySentence))
+    throw new Error(`assert-ukemi: the served empty-registry sentence is absent from the /ukemi <main>: ${JSON.stringify(emptyRegistrySentence)}`);
+  if (!corpus.includes(conditionalSentence))
+    throw new Error(`assert-ukemi: the served conditional sentence is absent from the /ukemi <main>: ${JSON.stringify(conditionalSentence)}`);
+  if (!corpus.includes(UKEMI_CONDITIONAL_CLAUSE))
+    throw new Error(`assert-ukemi: the clause ${JSON.stringify(UKEMI_CONDITIONAL_CLAUSE)} is absent from the /ukemi <main>`);
+
+  // (3) absence: interval (substring, A-9) + cascade/Bell/Aave (word-bounded) — over-revendication / wrong surface.
+  if (corpus.toLowerCase().includes("interval"))
+    throw new Error('assert-ukemi: "interval" rendered in the /ukemi <main> (the served region is an upper bound, never an interval — A-9)');
+  for (const [word, re] of [["cascade", /\bcascade\b/i], ["Bell", /\bBell\b/i], ["Aave", /\bAave\b/i]]) {
+    if (re.test(corpus)) throw new Error(`assert-ukemi: "${word}" rendered in the /ukemi <main> (forbidden on this surface)`);
+  }
+
+  return { mainChars: mainHtml.length, corpusChars: corpus.length, numericTokens: nums.length };
+}
+
 async function main() {
-  const abs = join(REPO_ROOT, ...FLEET_HTML_REL.split("/"));
-  if (!existsSync(abs)) {
+  // --- /fleet (O-2, UNCHANGED) ---
+  const fleetAbs = join(REPO_ROOT, ...FLEET_HTML_REL.split("/"));
+  if (!existsSync(fleetAbs)) {
     console.error(`assert-fleet-html: FAIL-CLOSED — ${FLEET_HTML_REL} not found. Run \`${SITE_BUILD_RUN}\` first (O-2 asserts on the fresh artefact, never a skip).`);
     process.exit(1);
   }
@@ -105,8 +232,27 @@ async function main() {
   const { FLEET_AGENTS } = await import(fleetUrl);
   const expectedNotes = FLEET_AGENTS.filter((a) => a.status === "built").map((a) => a.wiring.note);
   try {
-    const r = assertFleetBody({ html: readFileSync(abs, "utf8"), expectedHeader: FLEET_HEADER, expectedNotes });
+    const r = assertFleetBody({ html: readFileSync(fleetAbs, "utf8"), expectedHeader: FLEET_HEADER, expectedNotes });
     console.log(`assert-fleet-html OK — header + ${r.notes} served note(s) present in the rendered /fleet body (${r.bodyChars} body chars).`);
+  } catch (e) {
+    console.error(String(e instanceof Error ? e.message : e));
+    process.exit(1);
+  }
+
+  // --- /ukemi (voie i: same next build artefact, same main(), same `run:` line) ---
+  const ukemiAbs = join(REPO_ROOT, ...UKEMI_HTML_REL.split("/"));
+  if (!existsSync(ukemiAbs)) {
+    console.error(`assert-fleet-html: FAIL-CLOSED — ${UKEMI_HTML_REL} not found. Run \`${SITE_BUILD_RUN}\` first (asserts on the fresh /ukemi artefact, never a skip).`);
+    process.exit(1);
+  }
+  const ukemiUrl = pathToFileURL(join(REPO_ROOT, "apps", "site", "lib", "ukemi-copy.ts")).href;
+  const { LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_CONDITIONAL_SENTENCE } = await import(ukemiUrl);
+  try {
+    const r = assertUkemiBody({
+      html: readFileSync(ukemiAbs, "utf8"),
+      expected: { emptyRegistrySentence: LIQ_EMPTY_REGISTRY_SENTENCE, conditionalSentence: LIQ_CONDITIONAL_SENTENCE },
+    });
+    console.log(`assert-fleet-html OK — /ukemi <main> digit-free (${r.numericTokens} numeric tokens), served state + conditional clause present, no interval/cascade/Bell/Aave (${r.corpusChars} corpus chars).`);
   } catch (e) {
     console.error(String(e instanceof Error ? e.message : e));
     process.exit(1);

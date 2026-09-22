@@ -25,3 +25,21 @@ export function assertFleetBody(args: {
   expectedHeader: string;
   expectedNotes: readonly string[];
 }): { header: string; notes: number; bodyChars: number };
+
+/* ── /ukemi extension (lot SITE-RELEASE-1 sub-lot B, voie i) — governance-only, NOT whitelisted ── */
+/** The built /ukemi artefact, relative to the repo root (fresh `next build` output). */
+export const UKEMI_HTML_REL: string;
+/** The conditional-coverage clause that MUST ride in the served /ukemi text ("which the gate does not check"). */
+export const UKEMI_CONDITIONAL_CLAUSE: string;
+/** Offending numeric tokens in a plain rendered-text string; parity with honesty-lint.ts scanText(_, new Set()). */
+export function scanNumericTokens(text: string): string[];
+/** Inner HTML of the first <main>...</main>; throws (fail-closed) if absent or blank. */
+export function extractMain(body: string): string;
+/** The /ukemi <main> scan corpus: stripped text nodes + captured alt/title/aria-label values. */
+export function mainCorpus(mainHtml: string): string;
+/** Assert the rendered /ukemi <main> is digit-free and carries the served state + conditional clause, with no
+ *  interval/cascade/Bell/Aave; throws on failure (vacuity-guarded). */
+export function assertUkemiBody(args: {
+  html: string;
+  expected: { emptyRegistrySentence: string; conditionalSentence: string };
+}): { mainChars: number; corpusChars: number; numericTokens: number };
