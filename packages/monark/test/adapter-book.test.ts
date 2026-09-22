@@ -24,6 +24,10 @@ import {
   type BookError,
   type AttestedBookContext,
   type CanonicalEnvelope,
+  fromRealizedBook,
+  isRealizedError,
+  type RealizedBookSlice,
+  type RealizedOracleParams,
 } from "@monark/monark";
 import { serializeAttestedBook } from "@monark/contracts";
 import type { AttestedBook } from "@monark/contracts";
@@ -190,4 +194,86 @@ test("attested_book_quorum_required", () => {
   assert.match(over3.message, /exceeds the 2 distinct provider/, "guard counts distinct NAMES (2), not providers.length (4)");
   const subQuorum = expectError(fromAttestedBook(mutate((b) => { b["quorum"] = { required: 2, achieved: 1 }; })));
   assert.equal(subQuorum.reason, "non_evaluable", "not abstained yet achieved < required ⇒ non_evaluable");
+});
+
+// ── U-5a: the PURE per-account yhat producer `fromRealizedBook` (decision 123/132; G0 §2/§3; checkpoint-1 C-1). ──
+// SELF-CONTAINED synthetic vectors (D-2: non-empty, closed keys, HAND-RECOMPUTED value) for the pure-function
+// contract; the EXACT equality to the frozen module over the real 565 `score_a` rows / 16 096 accounts is the
+// export-excluded oracle (apps/sentinel/test/ukemi-producer-oracle.test.ts, Oracle A + Oracle B).
+const R_WETH = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
+const R_AWETH = "0x00000000000000000000000000000000000000a1";
+const R_VWETH = "0x00000000000000000000000000000000000000d1";
+const R_USDC = "0x00000000000000000000000000000000000000c0";
+const R_AUSDC = "0x00000000000000000000000000000000000000a2";
+const R_VUSDC = "0x00000000000000000000000000000000000000d2";
+/** Two reserves (WETH p0 = 100e8, USDC 1e8). WETH LT 8000, bonus 11000, e-mode category 1. */
+function baseReserves() {
+  return [
+    { asset: R_WETH, atoken: R_AWETH, variable_debt_token: R_VWETH, decimals: "18", liquidation_threshold_bps: "8000", liquidation_bonus_bps: "11000", reserve_emode_category: "1", price_base_8dec: "10000000000" },
+    { asset: R_USDC, atoken: R_AUSDC, variable_debt_token: R_VUSDC, decimals: "6", liquidation_threshold_bps: "8500", liquidation_bonus_bps: "10500", reserve_emode_category: "0", price_base_8dec: "100000000" },
+  ];
+}
+/** A mono-WETH account (1 WETH collateral = 100e8, 60 USDC debt = 60e8) with hf0 = 0.9e18 ⇒ crosses at the anchor. */
+function baseAccount() {
+  return {
+    address: "0x0000000000000000000000000000000000000001",
+    emode: "0",
+    balances: [{ token: R_AWETH, amount: "1000000000000000000" }, { token: R_VUSDC, amount: "60000000" }],
+    total_collateral_base: "10000000000", // = aWETH*p0/1e18 EXACTLY (mono-collateral WETH)
+    total_debt_base: "6000000000", // 60e8
+    current_liquidation_threshold_bps: "8000",
+    hf_onchain: "900000000000000000", // 0.9e18 < 1e18 ⇒ hfAt(anchor) = hf0 < 1e18 (H-7)
+  };
+}
+function baseParams(): RealizedOracleParams {
+  return { anchor_price: "10000000000", updates: [], emode_params: {} };
+}
+function baseBook(): RealizedBookSlice {
+  return { reserves: baseReserves(), account: baseAccount() };
+}
+
+test("u5_producer_crossing_recomputes_yhat_mbps_pstar", () => {
+  // HAND recompute: crosses at anchor (hfStar = 0.9e18). C_weth = 100e8 = 1e10 < T (2000e8) ⇒ gate FALSE ⇒
+  // CF = D_r(USDC) = 60e8 = 6e9; CA = C_weth*1e4/bonus = 1e10*1e4/11000 = 9090909090; yhat = min = 6e9.
+  const r = fromRealizedBook(baseBook(), baseParams());
+  assert.ok(!isRealizedError(r), "the synthetic mono-WETH account is evaluable");
+  if (isRealizedError(r)) return;
+  assert.equal(r.yhat, 6000000000n, "yhat = min(CF=60e8, CA) = 60e8 (gate off, C_weth < 2000e8)");
+  assert.equal(r.m_bps, "11000", "m_bps = the WETH collateral liquidation bonus (e-mode 0 reserve bonus)");
+  assert.equal(r.pstar, "10000000000", "pstar = the anchor price (crosses at the first path price, H-7)");
+});
+
+test("u5_producer_yhat0_no_crossing_is_a_prediction", () => {
+  // hf0 = 2e18 ⇒ never crosses on a single-anchor path ⇒ yhat 0 WITH m_bps/pstar null (Q-U5-7: a legitimate
+  // prediction, not a refusal).
+  const book = baseBook();
+  const acct = { ...book.account, hf_onchain: "2000000000000000000" };
+  const r = fromRealizedBook({ reserves: book.reserves, account: acct }, baseParams());
+  assert.ok(!isRealizedError(r) && r.ok, "no crossing is evaluable (yhat 0), never a refusal");
+  if (isRealizedError(r)) return;
+  assert.equal(r.yhat, 0n);
+  assert.equal(r.pstar, null);
+  assert.equal(r.m_bps, null);
+});
+
+test("u5_producer_refuses_named", () => {
+  const refusal = (book: RealizedBookSlice, params: RealizedOracleParams, reason: string) => {
+    const r = fromRealizedBook(book, params);
+    assert.ok(isRealizedError(r), `expected refusal ${reason}`);
+    if (isRealizedError(r)) assert.equal(r.reason, reason);
+  };
+  // WETH reserve absent.
+  refusal({ reserves: baseReserves().filter((x) => x.asset !== R_WETH), account: baseAccount() }, baseParams(), "weth_reserve_absent");
+  // anchor <= 0.
+  refusal(baseBook(), { ...baseParams(), anchor_price: "0" }, "anchor_not_positive");
+  // no aWETH collateral.
+  refusal({ reserves: baseReserves(), account: { ...baseAccount(), balances: [{ token: R_VUSDC, amount: "60000000" }] } }, baseParams(), "no_collateral");
+  // not mono-collateral WETH (residual != 0).
+  refusal({ reserves: baseReserves(), account: { ...baseAccount(), total_collateral_base: "20000000000" } }, baseParams(), "non_mono_weth");
+  // e-mode outside {0, WETH-category}.
+  refusal({ reserves: baseReserves(), account: { ...baseAccount(), emode: "2" } }, baseParams(), "emode_out_of_range");
+  // WETH-category e-mode but params missing.
+  refusal({ reserves: baseReserves(), account: { ...baseAccount(), emode: "1" } }, baseParams(), "emode_params_missing");
+  // Q-U5-6 guard: a non-zero balance token that is neither aWETH nor a carried vtoken (pruned reserves).
+  refusal({ reserves: baseReserves(), account: { ...baseAccount(), balances: [{ token: R_AWETH, amount: "1000000000000000000" }, { token: "0x00000000000000000000000000000000000000ff", amount: "1" }] } }, baseParams(), "unknown_balance_token");
 });

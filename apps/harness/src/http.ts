@@ -33,7 +33,7 @@ const TOOL_BY_NAME: ReadonlyMap<string, HarnessToolDescriptor> = new Map(
 export const MIRROR_OPERATIONS: readonly string[] = REGISTERED_TOOL_NAMES;
 
 /** Names of the tool-level errors the pure tools throw — surfaced as `400`, never a `500` with a stack. */
-const TOOL_ERROR_NAMES: ReadonlySet<string> = new Set(["HarnessToolError", "CascadeToolError", "AttestToolError", "CalibrateToolError"]);
+const TOOL_ERROR_NAMES: ReadonlySet<string> = new Set(["HarnessToolError", "CascadeToolError", "AttestToolError", "CalibrateToolError", "UkemiPredictToolError"]);
 
 function json(body: unknown, status = 200, extraHeaders?: Readonly<Record<string, string>>): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...JSON_HEADERS, ...(extraHeaders ?? {}) } });
