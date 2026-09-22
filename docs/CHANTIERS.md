@@ -722,7 +722,7 @@ CI complète sur l'arbre fusionné 573/573 ; R-25 1 195 ; checkpoint-2 REFUSE (a
 - (A) tests C-1..C-5 (composition par `main()` depuis l'artefact reel, `--operators`, casse, `--allow-paid` en provenance, `--prereg-sha`). (C) docs : amendement ADR §4 fixe a `docs/PLAN-u4b-prereg.md` ; prereg §5d reecrit depuis les flags reels ; items R-1/R-2.
 - Regime : lot lance sans checkpoint-1 (petit lot QF-2, cadence 116) - le checkpoint-2 vaut siege d'acceptation ; consigne pour la suite : tout re-gel D4 passe par cp-1 ET cp-2.
 
-### Rulings Bell go-1 (orchestrateur, 2026-09-22 ~06:50 UTC) — fiche `docs/course-bell/FICHE-GO-1.md`
+### Rulings Bell go-1 (orchestrateur, 2026-09-22 06:43 UTC) — fiche `docs/course-bell/FICHE-GO-1.md`
 - GO1-A (forme du snapshot reconcile Helius) : `per-method` / `byMethod` (defaut du code, `reconcile.ts:25,82` ; Helius a un dashboard par-methode ; `total_ru` = forme agregat Chainstack seule). Le ruling runbook "{cycle,total_ru}" du 1b est restreint a Chainstack. Les deux lectures dashboard (P3) portent les credits PAR METHODE, lus sur place par l'investisseur, jamais devines. Residu connu : `negative_delta` n'existe qu'en agregat -> defenses = garde `rollover` + P3 (2 lectures identiques).
 - GO1-B (manifeste `probe_end`) : chemins relatifs a la racine `--out` (`budget.json`, `sonde-report.json`, `ledger-<MINT>.jsonl`), sans prefixe `bell-b3d-run/` ; `ANCHORS.template.md:21` fait foi.
 - GO1-C : `--pools TSLAx,AAPLx,NVDAx,SPYx` REQUIS (defaut code = TSLAx seul, `collect.ts:429`) ; `BELL_SOLANA_RPC` retire dans toute recette fail-closed (il resout `helius` keyless, `transport.ts:93-95`) et PRESENT (presence seule, A-7) pour la sonde reelle.
