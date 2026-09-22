@@ -17,6 +17,9 @@
 //   2) getLogs(AnswerUpdated) on the resolved aggregator over [B0, B_last]  (price = topics[1], indexed int256).
 //   3) getAssetPrice(USDT) at each --usdt-blocks block (OPTIONAL; absent ⇒ usdt_prices {} + usdt_blocks_status "omitted").
 //   4) getEModeCategoryData(uint8) at B0 for each --emode-categories (or distinct nonzero e-mode in --book).
+//   1b) lot U-4b-1b-4 (R-I): the pre-B0 ANCHOR = the LAST AnswerUpdated <= B0 on aggregator()@B0 (receding lookback,
+//       ADDENDUM 2026-09-22 section 2), UNCONDITIONAL: none within the cap => exit 3, NO raw written (cp-1 C-4).
+// usdtBlocksFromLabelerDeficit (R-H) now reads the labeler's U3-realized.jsonl with the frozen scorer's own predicate.
 // OUT OF REPO raws (--raws-dir REQUIRED, C-8) + ledger; sha-pinned; NO key/URL printed. NO commit, NO workflow (R-20).
 // ============================================================================================
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
@@ -37,6 +40,42 @@ const USDT = "0xdac17f958d2ee523a2206206994597c13d831ec7";
 
 const sha256s = (s) => createHash("sha256").update(s, "utf8").digest("hex");
 const wordU = (n) => BigInt(n).toString(16).padStart(64, "0");
+
+// R-I (prereg :66 "Ancre pre-B0 = AnswerUpdated <= B0 reel", ADR-U4b D2; cp-1 C-4; ADDENDUM 2026-09-22 section 2): the
+// lookback is fixed A PRIORI. Depth D_k = 9990 * 2^(k-1) blocks (k = 1..6: 9990 ... 319680); window k fetches ONLY its new
+// part [B0 - D_k, B0 - D_(k-1) - 1] (window 1 = [B0 - 9990, B0]), never re-fetched, clamped at block 0, every getLogs chunk
+// (<= 9990 blocks) metered by the guard. Measured on the committed e2 fixture: largest gap between two consecutive
+// AnswerUpdated = 301 blocks (3636 s), so window 1 alone spans ~33 such gaps; the doubling only bounds the spend.
+export const PRE_B0_FIRST_DEPTH = 9990;
+export const DEFAULT_PRE_B0_MAX_WINDOWS = 6;
+/** Exit status of the named STOP "no AnswerUpdated <= B0 within the cap" (0 ok, 2 budget stop, 1 fatal). */
+export const EXIT_PRE_B0_ANCHOR_STOP = 3;
+
+/** The receding lookback windows [from, to] (inclusive, disjoint, newest first) for B0 and a window cap. PURE. */
+export function preB0Windows(B0, maxWindows, firstDepth = PRE_B0_FIRST_DEPTH) {
+  const out = [];
+  for (let k = 1; k <= maxWindows; k++) {
+    const to = k === 1 ? B0 : B0 - firstDepth * 2 ** (k - 2) - 1;
+    if (to < 0) break;
+    const from = Math.max(0, B0 - firstDepth * 2 ** (k - 1));
+    out.push([from, to]);
+    if (from === 0) break;
+  }
+  return out;
+}
+
+/** The LAST AnswerUpdated by (block, logIndex) with lo <= block <= hi, in the cp-1 C-4 field form (price = topics[1]
+ *  int256 decoded like updates[].price, round_id = topics[2]), or null. A log outside [lo, hi] is IGNORED: a node that
+ *  ignores the requested range can never hand an event of [B0, B_last] over as the anchor. PURE. */
+export function pickPreB0Anchor(logs, lo, hi) {
+  let best = null;
+  for (const l of logs) {
+    const block = parseInt(l.blockNumber, 16), logIndex = parseInt(l.logIndex, 16);
+    if (!(block >= lo && block <= hi)) continue;
+    if (best === null || block > best.block || (block === best.block && logIndex > best.logIndex)) best = { block, logIndex, l };
+  }
+  return best === null ? null : { price: decInt256(best.l.topics[1]).toString(), block: best.block, log_index: best.logIndex, round_id: decUint(best.l.topics[2]).toString() };
+}
 
 /** Verify a --prereg-file (default docs/PLAN-u4b-prereg.md) exists and its LF sha == --prereg-sha (order proof). */
 function verifyPrereg(arg) {
@@ -68,17 +107,33 @@ export function emodeCategoriesFromBook(book) {
   return [...cats].sort((x, y) => x - y);
 }
 
-/** Distinct USDT blocks from the labeler's U3-deficit.jsonl: lines {kind:"deficit", block, debt_asset} with debt_asset==
- *  USDT (D-1). A PURE helper the orchestrator runs to compute --usdt-blocks for the fresh episode (documented command);
- *  the prober itself takes --usdt-blocks (or omits the read). Returns sorted distinct blocks. */
-export function usdtBlocksFromLabelerDeficit(deficitJsonl) {
-  const blocks = new Set();
-  for (const line of String(deficitJsonl).split("\n")) {
-    if (!line.trim()) continue;
-    let o; try { o = JSON.parse(line); } catch { continue; }
-    if (o && o.kind === "deficit" && String(o.debt_asset).toLowerCase() === USDT && Number.isInteger(o.block)) blocks.add(o.block);
+/** R-H (runbook C-7; cp-1 C-1(ii)): the --usdt-blocks the FROZEN scorer needs, from the labeler's U3-realized.jsonl (NOT
+ *  U3-deficit.jsonl: its kinds are in_event/bad_debt_other_reserve/window_other/positive_control, never "deficit" -
+ *  measured on e2, the old helper returned []). `required` = distinct first_block of the lines matching the scorer's OWN
+ *  predicate (u4b-scores.mjs:109-116: deficit_base == 0, residual has "deficit_base_no_price", deficit_native > 0); such a
+ *  line on a NON-USDT debt makes the scorer throw, so it throws here (STOP at step 4, abstention rule prereg :87-89).
+ *  `optional` (only with inputsJsonl = U3-inputs.jsonl) = the USDT DeficitCreated blocks (kind "deficit") of the SAME
+ *  users: a COSTED read the scorer never uses (it reproduces the e2 usdt_prices keys). All events of the file are taken
+ *  (a superset of the scorer's event_id filter; the fresh labeler file holds one event). Sorted distinct; PURE. */
+export function usdtBlocksFromLabelerDeficit(realizedJsonl, inputsJsonl) {
+  const rows = (text, what) => String(text).split(/\r?\n/).filter((l) => l.trim() !== "").map((l, i) => {
+    try { return JSON.parse(l); } catch { throw new Error(`u4-oracle-path: ${what} line ${i + 1} is not JSON (fail-closed)`); }
+  });
+  const required = new Set(), users = new Set(), nonUsdt = [];
+  for (const o of rows(realizedJsonl, "U3-realized")) {
+    if (!(BigInt(o.deficit_base ?? "0") === 0n && Array.isArray(o.residual) && o.residual.includes("deficit_base_no_price") && BigInt(o.deficit_native ?? "0") > 0n)) continue;
+    if (String(o.debt_asset).toLowerCase() !== USDT) { nonUsdt.push(String(o.debt_asset)); continue; }
+    if (!Number.isInteger(o.first_block)) throw new Error(`u4-oracle-path: deficit_base_no_price line has no integer first_block (${String(o.first_block)}) (fail-closed)`);
+    required.add(o.first_block);
+    users.add(String(o.user).toLowerCase());
   }
-  return [...blocks].sort((x, y) => x - y);
+  if (nonUsdt.length > 0) throw new Error(`u4-oracle-path: ${nonUsdt.length} deficit_base_no_price line(s) on a NON-USDT debt asset (first: ${nonUsdt[0]}); the frozen scorer throws on them (u4b-scores.mjs:113) - STOP at step 4 (abstention rule), never a --usdt-blocks value`);
+  const optional = new Set();
+  if (inputsJsonl !== undefined) {
+    for (const o of rows(inputsJsonl, "U3-inputs")) if (o.kind === "deficit" && String(o.debt_asset).toLowerCase() === USDT && users.has(String(o.user).toLowerCase()) && Number.isInteger(o.block)) optional.add(o.block);
+  }
+  const sorted = (s) => [...s].sort((x, y) => x - y);
+  return { required: sorted(required), optional: sorted(optional), blocks: sorted(new Set([...required, ...optional])) };
 }
 
 /** The realized oracle path course. `deps = { env, now }` — deps.env is the ONLY env source (C-8); tests stub
@@ -98,6 +153,10 @@ export async function run(argv, deps) {
   if (maxCallsRaw === undefined) throw new Error("u4-oracle-path: --max-calls is required (fail-closed budget)");
   const maxCalls = Number(maxCallsRaw);
   if (!(Number.isInteger(maxCalls) && maxCalls > 0)) throw new Error("u4-oracle-path: --max-calls must be a positive integer");
+  // R-I: the lookback cap, OPTIONAL with the named default (ADDENDUM section 2: 6 windows); refused before any fetch.
+  const maxWindowsArg = arg("--pre-b0-max-windows");
+  const preB0MaxWindows = maxWindowsArg === undefined ? DEFAULT_PRE_B0_MAX_WINDOWS : Number(maxWindowsArg);
+  if (!(Number.isInteger(preB0MaxWindows) && preB0MaxWindows > 0)) throw new Error("u4-oracle-path: --pre-b0-max-windows must be a positive integer (fail-closed)");
 
   const feedProxyArg = arg("--feed-proxy");
   const feedProxy = (feedProxyArg ?? DEFAULT_FEED_PROXY).toLowerCase();
@@ -141,6 +200,25 @@ export async function run(argv, deps) {
     const aggB0 = decAddress(wordAt(aggB0raw, 0));
     const aggLast = decAddress(wordAt(aggLastRaw, 0));
     const phaseChange = aggB0.toLowerCase() !== aggLast.toLowerCase();
+
+    // 1b) R-I: pre-B0 anchor on aggB0 (receding lookback, every getLogs metered; UNCONDITIONAL, cp-1 C-4).
+    const callsBeforeAnchor = guarded.total();
+    let preB0Anchor = null;
+    let windowsTried = 0, searchedFrom = B0;
+    for (const [from, to] of preB0Windows(B0, preB0MaxWindows)) {
+      const logs = await pool.getLogsRange(aggB0, [ANSWER_UPDATED_TOPIC0], from, to);
+      cache.push({ kind: "getLogs", address: aggB0.toLowerCase(), topics: [ANSWER_UPDATED_TOPIC0], from, to, result: logs });
+      windowsTried += 1;
+      searchedFrom = from;
+      if (logs.some((l) => (l.topics[0] ?? "").toLowerCase() !== ANSWER_UPDATED_TOPIC0.toLowerCase())) throw new Error("u4-oracle-path: a pre-B0 log has topic0 != ANSWER_UPDATED_TOPIC0 (self-test failed)");
+      preB0Anchor = pickPreB0Anchor(logs, from, to);
+      if (preB0Anchor !== null) break;
+    }
+    const preB0Window = { from: searchedFrom, to: B0, windows_tried: windowsTried, calls: guarded.total() - callsBeforeAnchor };
+    if (preB0Anchor === null) {
+      process.stderr.write(`u4-oracle-path: PRE-B0 ANCHOR STOP - no AnswerUpdated <= B0 ${B0} on ${aggB0.toLowerCase()} over [${searchedFrom}, ${B0}] (${windowsTried} window(s), --pre-b0-max-windows ${preB0MaxWindows}, ${preB0Window.calls} calls); NO raw written - the book fallback is inadmissible for the -1b course (ADDENDUM 2026-09-22 section 2, cp-1 C-4).\n`);
+      return { status: EXIT_PRE_B0_ANCHOR_STOP };
+    }
 
     // 2) getLogs(AnswerUpdated) on the aggregator active in the window (aggB0; if a phase change, union both)
     const aggs = phaseChange ? [aggB0, aggLast] : [aggB0];
@@ -187,14 +265,15 @@ export async function run(argv, deps) {
     const provenance = {
       model: "claude-opus-4-8[1m]", recorded_at_utc: new Date(deps.now()).toISOString(), phase: "oracle-path-De",
       episode_id: episodeId, selection_sha256: selectionSha, prereg_sha: preregSha, prereg_file: preregFile,
-      endpoints: { eth_call: opLabels(ethCallLabels), eth_getLogs: opLabels(getLogsLabels) }, quorum: 2,
-      params: { proxy: feedProxy, feed_proxy_source: feedProxySource, weth: WETH, b0: B0, b_last: bLast, usdt_blocks: usdtBlocks, usdt_blocks_status: usdtBlocksStatus, emode_categories: emodeCategories, min_interval_ms: minIntervalMs, max_calls: maxCalls, prereg_sha: preregSha, prereg_file: preregFile, episode_id: episodeId, selection_sha256: selectionSha, excluded_operators: ["mevblocker.io"] },
+      endpoints: { eth_call: opLabels(ethCallLabels), eth_getLogs: opLabels(getLogsLabels) }, quorum: 2, pre_b0_anchor_window: preB0Window,
+      params: { proxy: feedProxy, feed_proxy_source: feedProxySource, weth: WETH, b0: B0, b_last: bLast, usdt_blocks: usdtBlocks, usdt_blocks_status: usdtBlocksStatus, emode_categories: emodeCategories, pre_b0_max_windows: preB0MaxWindows, min_interval_ms: minIntervalMs, max_calls: maxCalls, prereg_sha: preregSha, prereg_file: preregFile, episode_id: episodeId, selection_sha256: selectionSha, excluded_operators: ["mevblocker.io"] },
       calls: guarded.total(), calls_by_operator: guarded.byOperator(), calls_by_method: guarded.byMethod(),
       errors_by_operator: errByOp, rpc_error_count: rpcErrorCount, seconds, answer_updated_topic0: ANSWER_UPDATED_TOPIC0,
     };
     const raw = {
       provenance,
       aggregator: { at_b0: aggB0.toLowerCase(), at_b_last: aggLast.toLowerCase(), phase_change: phaseChange, abi_mismatch: phaseChange },
+      pre_b0_anchor: preB0Anchor,
       n_updates: updates.length, monotone_blocks: monotoneBlocks, p_min: pMin, p_max: pMax,
       first_update: updates[0] ?? null, last_update: updates[updates.length - 1] ?? null,
       usdt_prices: usdtPrices, emode_raw: emodeRaw, updates,
@@ -209,6 +288,7 @@ export async function run(argv, deps) {
     const perOp = Object.entries(guarded.byOperator()).map(([k, v]) => `${k}:${v}`).join(",");
     process.stdout.write(
       `u4-oracle-path episode=${episodeId} aggregator@B0=${aggB0.toLowerCase()} aggregator@Blast=${aggLast.toLowerCase()} phase_change=${phaseChange}\n` +
+      `  pre_b0_anchor block=${preB0Anchor.block} log_index=${preB0Anchor.log_index} price=${preB0Anchor.price} round_id=${preB0Anchor.round_id} windows_tried=${windowsTried}/${preB0MaxWindows} from=${searchedFrom} calls=${preB0Window.calls}\n` +
       `  n_updates=${updates.length} monotone_blocks=${monotoneBlocks} p_min=${pMin} p_max=${pMax} first_block=${updates[0]?.block} last_block=${updates[updates.length-1]?.block}\n` +
       `  usdt_blocks_status=${usdtBlocksStatus} usdt_prices=${JSON.stringify(usdtPrices)} emode_categories_read=${Object.keys(emodeRaw).length} feed_proxy_source=${feedProxySource}\n` +
       `  calls=${guarded.total()}/${maxCalls} by_operator={${perOp}} rpc_errors=${rpcErrorCount} errors_by_operator=${JSON.stringify(errByOp)} seconds=${seconds.toFixed(1)}\n` +
