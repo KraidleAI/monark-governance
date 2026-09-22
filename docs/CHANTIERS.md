@@ -688,3 +688,7 @@ CI complète sur l'arbre fusionné 573/573 ; R-25 1 195 ; checkpoint-2 REFUSE (a
 - Q-8 (b) : vocabulaire de statut UNIQUE : la pilule dit « built · day N of 7 before first reading » (pas « shipped ») - la relecture conjointe a valide la forme « day N of 7 », le mot de statut suit le registre gele.
 - Couture pre-declaree : SOUS-LOT A = Narabi + favicons (release Narabi), SOUS-LOT B = page `/ukemi` ; mesure reelle au G1 (borne 1 150).
 - Fait de plan : aucune route `/ukemi` n'existe (a creer et brancher) ; `fleet.ts` (cascade -> borne haute) et flip `built` de la borne haute restent U-4b-2b (decision 123).
+
+### Ruling orchestrateur (2026-09-22 04:58 UTC `date -u`) - QF-2 du prereg -1b : ordonnancement du sha du labeler
+- Le labeler `scripts/census/u3-realized.mjs` (gele `755b3a38...`) porte l'episode e2 en dur (`EVENTS`/`RAWLOGS_SHA`) ; pour l'episode frais il doit etre parametre, donc son sha change AVANT la course. Option (alpha) retenue : petit lot **U-4b-1b-1 « labeler parametre »** (arguments CLI pour l'episode/les logs bruts, defauts e2 CONSERVES, egalite byte-a-byte des labels e2 prouvee par test, keyless-only sous `env -u CHAINSTACK_ETH_URL` pendant la course), fusionne AVANT le commit du prereg ; le prereg §2 gele alors le nouveau blob et `--labeler-sha` = sa valeur. Option (beta) (la sonde seule gele le labeler) refusee : un gel hors prereg n'est pas un gel.
+- Ordre final avant la course : U-4b-1b-0 (outillage) -> U-4b-1b-1 (labeler) -> prereg committe SEUL (9 sha recomputes, regime B) -> floor lu sur place -> go-1.
