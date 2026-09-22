@@ -930,6 +930,10 @@ n'est PAS un trou de budget, c'est une asymetrie de PROVENANCE (le compteur RUN 
 est compte via `budgeted.calls()` (chemin partage). **Item forme** : sommer `callsUsed()` de la branche garde = tally Solana + `ethClient.spent().attempts`
 (ou deriver du CYCLE ledger des deux clients). Declencheur : la premiere course `--eth` rapprochee dont la provenance RUN doit refleter les tentatives
 ETH. Proprietaire : orchestrateur.
+**Borne de tentatives (re-checkpoint-2 2026-09-22, correction 1)** : le second client recoit le MEME `--max-calls` avec son propre compteur ;
+une course `--eth` peut donc totaliser jusqu'a **2 x `--max-calls` tentatives** (Solana + ETH). Aucune exposition d'argent (jambe ETH keyless
+0 RU ; helius/chainstack bornes par `runCaps` + caps de cycle), mais la borne de tentatives de la course est 2 x, pas 1 x, tant que cet item
+n'est pas plie. Meme declencheur.
 
 ### Pli-3 -- `collect.ts` release() deverrouille avec le scalaire `cycle` (item forme ; meme principe 1b0-E)
 `collect.ts` release() (et `universe-cli.ts` finally) deverrouillent chaque operateur avec `--cycle cycle` (le SCALAIRE), pas `cycles[op]`. C'est
