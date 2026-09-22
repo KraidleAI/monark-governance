@@ -462,3 +462,95 @@ data`** livré ici ; **`migration du recorder + grep`** = item formé (ci-dessou
   vivent VERBATIM dans l'amendement 2b-ii ci-dessus (commit `53ab0fb`) : ils fusionnent au meme G7 que -a, la condition C-R-a1 est satisfaite.
   **C-R-b6 (rappel, declencheur 1b-0)** : le test `cycle_ledger_mixes_legacy_and_network_lines` de la clause 121 part d'un ledger PRODUIT par
   `runRecorder` (code 2b-ii reel), pas d'une ligne "legacy" fabriquee a la main.
+  `record.ts`/`ukemi.test.ts` empechent une scission par fichier ; les patchs A.patch puis B.patch sont fournis dans le rendu).
+
+## Amendement date GARDE-HELIUS-2b-iii -- scripts de course U-4b sous le garde (2026-09-21, worker `claude-opus-4-8[1m]`)
+
+> **Provenance.** Worker G1 `claude-opus-4-8[1m]` (prefixe `claude-opus-4-8` conforme, effort max ; Opus 5 banni),
+> 2026-09-21, worktree `lot/garde-helius-2b-iii` (base originelle `e7f22b8`). Reviseur = orchestrateur (R-21,
+> verification adversariale) ; insertion/commit par l'orchestrateur SEUL (R-20). Aucun reseau (fetch bouchonne, cles
+> factices, hotes `.invalid`), aucun secret lu, aucun commit. Sous-lot **2b-iii** du ruling **C-9 (alpha)** de
+> `docs/G0-lot-garde-helius-2b-ii.md` (ANNEXE) ; realise l'item forme `GARDE-HELIUS-2b-migration` (ci-dessus) pour
+> les scripts de course, AVANT la course U-4b-1b.
+>
+> **Pli (2026-09-22, worker `claude-opus-4-8[1m]`) - REBASE sur 2b-ii-b `e00f965`** (ordre de fusion exige : -a ->
+> -b plie -> 2b-iii). Ferme les corrections checkpoint-2 (C-R-1..C-R-4 bloquantes) et G2 (C-G-1..C-G-4) : (C-R-1)
+> rejeu byte-identique par **sha de reference committes** (plus de blob de base, plus de `node_modules/.u4-before/`,
+> plus de SKIP en clone shallow) ; (C-R-2) test `u4_redraw_spends_only_through_guard` + spends-only de la jambe payante
+> independant de la cle ambiante (cle FACTICE, comptage des fetches par hote) ; (C-R-3) `--max-ru`/`--floor` prouves
+> CABLES (refus `run_credits`/`cycle_cap`) ; (C-R-4) regime payant declare + test de composition script -> ledger ->
+> `runCli reconcile` ; retrait du **pont d'identite** (2b-ii fusionne) ; **suppression** de `u4-probe.mjs`.
+
+**Objet.** Les scripts de la course U-4b-1b qui lisaient une cle payante hors garde -- `scripts/census/u4-oracle-path.mjs`
+(produit le D_e servi, `G0-lot-u4b.md:27`) et `scripts/census/u4-redraw.mjs` (controle live G2-delta, `:258`) --
+ne lisent plus AUCUNE variable d'env et ne font AUCUN `fetch` payant direct : chaque lecture (temoins keyless +
+la jambe payante `chainstack`) est metree DANS `@monark/rpc-guard`. Helper partage neuf : `scripts/census/u4-guard.mjs`.
+
+**Tuyau declare (regle de Branchement).**
+
+| Piece | Entree (produit) | Sortie (consomme) | Etat | Test d'integration non-LLM |
+|---|---|---|---|---|
+| scripts de course gardes (`u4-oracle-path.mjs`, `u4-redraw.mjs` via `u4-guard.mjs`) | argv (`--ledger-dir`/`--cycle`/`--floor`/`--max-ru`/`--method-caps`/`--max-calls`, `--with-chainstack`) + `process.env` passe tel quel a `openGuardedClient` | `<ledger-dir>/<cycle>/<op>.jsonl` (+ `.head`/`.lock`) write-ahead par operateur (payant + keyless) ; D_e / rapport de re-draw OUT OF REPO inchanges | **consommateurs** = la course U-4b-1b (orchestrateur) et `runCli reconcile` sur le ledger produit (verdict GO/NO-GO) ; `upcoming` au registre public jusqu'a la 1ere course rapprochee -- une piece n'est PAS "branchee" par un test (regle Branchement) | `test/guard-scripts-u4.test.ts` (clock gelee, seul `globalThis.fetch` bouchonne, cles factices `.invalid`) : rejeu byte-identique vs **sha de reference committes** (C-R-1 : plus de blob de base ni de SKIP shallow) ; fetches == lignes `attempted` du ledger, jambe payante (forcee, cle factice) metree dans `chainstack.jsonl` (fetches-hote-payant == lignes `chainstack`) ; `--max-ru`/`--floor` cables (refus `run_credits`/`cycle_cap`) ; **composition** e2e : script reel -> ledger sur disque -> `runCli reconcile` (GO a Delta == RU, NO-GO `hard:total` a +1) ; refus de budget = 1 ligne `refused`, non reessaye |
+
+**Etat.** Ledger de cycle durable, OUT OF REPO (decision 114, `--ledger-dir` doit pre-exister -- C-8, jamais `mkdir`) ;
+verrous `<op>.lock` releves en fin de course par **N** `runCli unlock` (helper `unlockAll`) ; un crash / SIGTERM laisse
+les verrous (fail-closed, jamais un blocage permanent : la reprise fait les memes N unlock -- note NARABI-OPS-1d).
+
+**Contrat de migration (chaque script).** Aucune lecture directe de cle ; aucun `fetch` payant direct ; args REQUIS
+sans defaut `--ledger-dir`/`--cycle`/`--floor`/`--max-ru`/`--method-caps` (+ `--max-calls` conserve, fail-closed) ;
+refus de budget = `BudgetExceededError` canonique, JAMAIS reessaye ; retry appelant borne aux transitoires seulement
+(AbortError/reseau, 429, >= 500 -- 3 pour oracle-path, 0 pour redraw), jamais `RpcError`/`NonJsonBody`/autres 4xx/budget.
+
+**Pont d'identite -- RETIRE au pli (declencheur "fusion 2b-ii" TIRE).** A la base originelle (`e7f22b8`, AVANT 2b-ii),
+`rpc2.ts` declarait ses PROPRES `BudgetExceededError` / `RpcError` et un shim de `u4-guard.mjs` convertissait paquet->pool.
+La fusion 2b-ii fait desormais RE-EXPORTER par `rpc2.ts` les classes du paquet (identite STRICTE : `rpc2.RpcError ===`
+paquet `RpcError`, test `u4_guard_error_classes_are_the_package_classes`). Le pont est donc **SUPPRIME** : `u4-guard.mjs`
+n'importe plus les classes d'erreur de `rpc2.ts` ; le shim consomme les erreurs du paquet directement (`instanceof
+PkgBudgetError`/`PkgRpcError`). Sans cette identite un revert concordant (`getEModeCategoryData`) deviendrait `NoQuorumError`
+au lieu de `ConcordantRevertError` (modification des octets du D_e, invisible sur une fixture succes-seul) -- le rejeu de
+reference inclut une categorie e-mode qui revert et verifie `emode_raw["8"] == ConcordantRevertError` (keyless).
+
+**Byte-identite (mesuree, C-R-1).** Sur fixture bouchonnee keyless-seule + clock gelee, la sortie des scripts migres est
+byte-identique au blob `e7f22b8`. Le rejeu ne charge PLUS le blob de base (il cassait a la fusion 2b-ii -- `record.ts`
+perd `makeBudgetedCall`/`applyExcludeOperators` -- et un SKIP en clone shallow masquait un oracle G7 rouge) : il compare
+la sortie migree a des **sha256 de reference committes** (`U4-oracle-path-e2.raw.json` = `76beb089...`, `U4-oracle-inputs.jsonl`
+= `5f3dcf2c...`, rapport re-draw = `ed2eaf59...`), recalcules a l'identique depuis le blob `e7f22b8` (`git archive`) ET
+depuis le script migre -- egalite PROUVEE, pas supposee (worker G1 + validateur les avaient mesures des la base). Glissement
+DECLARE : le tally passe au niveau TENTATIVE (= ledger, ADR-U4b D5) ; la jambe payante est labellisee `chainstack`
+(decision 121) au lieu de `archive-env` (n'apparait pas keyless-seule).
+
+**Regime payant (declare).** La byte-identite est le regime KEYLESS. Jambe payante forcee dans le quorum + revert sans
+raison (`data === "0x"`) : a la base originelle (`e7f22b8`, AVANT R-A) le D_e rendait un **`QuorumDisagreementError`** (faux
+desaccord C-4/"0x") la ou la base rendait `ConcordantRevertError` ; APRES la fusion 2b-ii (R-A benche la jambe payante a
+`"0x"` + `operatorOf` collapse les deux gateways Pocket en UN operateur) il rend **`NoQuorumError`**, JAMAIS
+`QuorumDisagreementError`. Le chemin NOMINAL (keyless, jambe payante ajoutee en dernier, non atteinte quand les temoins
+concordent) reste `ConcordantRevertError`. Assertion nommee dans `u4_oracle_path_paid_leg_is_metered_in_its_own_ledger`
+(`emode_raw["8"] == NoQuorumError`, `!= QuorumDisagreementError`), a rebasculer si l'issue R-A change. En aval une entree
+`emode_raw` en erreur est sautee par le reducteur (`typeof hex === "string"`) : degradation bruyante, jamais une valeur fausse.
+
+**Portee et items formes (zero dette nue).**
+- `u4-probe.mjs` (sonde de cout, cablee a e2) : **SUPPRIME au pli** (ruling C-9 alpha = archivage ; declencheur "fusion
+  2b-ii" TIRE : ses imports `makeDefaultCall`/`makeBudgetedCall`/`operatorLabel`/`applyExcludeOperators` de `record.ts`
+  ont disparu a la fusion, le module ne se charge plus ; hors du chemin de la course ; cite UNIQUEMENT par des documents
+  de PROVENANCE U-4a -- `docs/CHECKPOINT2-BIS-lot-u4a.md:25`, `docs/adr/ADR-U4-book-et-calibration.md` -- jamais par un
+  runbook/workflow/`package.json`, donc suppression + note plutot que migration, au plus petit diff). Son entree
+  d'allowlist du grep est RETIREE (l'allowlist est vide ; la forme `Map<path,declencheur>` demeure si une sonde revient).
+- `u4-oracle-path.mjs` et `u4-redraw.mjs` restent CABLES a e2 (`B0`/`BLAST`/`EMODE_CATEGORIES`/`PLAN-u4-prereg.md`) :
+  2b-iii migre la PLOMBERIE, ne rend PAS le script pret pour l'episode frais -- item forme, declencheur prereg -1b.
+- U-4b-0 items 0-2 (`meta.model` argument/env fail-closed) et 0-3 (puits `onTransportError` de re-draw, test
+  `u4_redraw_error_sink_records_operator_fault`) : NON co-traites par 2b-iii (ils changeraient les octets du rapport / des
+  args hors plomberie ; byte-identite prioritaire). ADR-U4b D5 declare U-4b-0 **SUBSUME** par GARDE-HELIUS-2 : ces items
+  sont donc RE-FORMES ici avec **proprietaire = orchestrateur** et **declencheur = le lot prereg -1b** qui parametre ces
+  scripts pour l'episode frais (AVANT la course U-4b-1b) ; ils RE-passeront alors sous les memes tests (grep + dynamique),
+  et les sha de reference de C-R-1 y seront re-epingles par decision explicite, jamais en silence.
+- Grep CI de 2b-iii : test SEPARE `test/guard-scripts-u4.test.ts`, portee `scripts/census/u4-*.mjs` (motifs
+  `fetch`/`node:http(s)`/`undici`/`child_process`/lecture de cle sous toutes formes + **nom LITTERAL de la cle en mot
+  entier**, ce qui epargne `CHAINSTACK_LABEL` + **liste FERMEE des specificateurs importes** des trois fichiers de course :
+  un import DIRECT de `apps/sentinel/src/rpc.ts` -- joignable seulement transitivement, le residuel-118 -- rougit). L'unification
+  avec le grep de 2b-ii (`apps/sentinel/src/ukemi/**`) reste un item forme pour le G7, declencheur : fusion des deux sous-lots.
+- Invariant de mission `git diff scripts/census VIDE` : INSATISFIABLE par construction (la migration en place touche
+  `scripts/census`, exigee par l'ANNEXE ET forcee par `apps/sentinel/test/ukemi-u4-scores.test.ts:14` qui importe
+  `selectIndices` de `u4-redraw.mjs`, protege) ; l'invariant reproductible est : `apps`/`packages`/`scripts/record-u4b-calib.mjs`/
+  sous-ensemble gele de `scripts/census` (u4b, u3-realized, u4-reduce, u4-scores, *.d.mts, aave-liquidations, burns-by-burner)/
+  `apps/sentinel/test/fixtures/ukemi` byte-identiques a `e7f22b8` (verifie), et l'ensemble migre de `scripts/census` =
+  exactement {`u4-oracle-path.mjs`, `u4-redraw.mjs`, `u4-guard.mjs`}. Gel D4 (7 sha) intact (recompute a `e7f22b8`).

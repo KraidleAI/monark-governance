@@ -2,26 +2,31 @@
 // ============================================================================================
 // U-4a (Ukemi, ADR-M020 D1 (b) + checkpoint-1 C-4 / C-12) — REALIZED ORACLE PATH course (D_e) for event e2.
 //
+// GARDE-HELIUS-2b-iii: every read (keyless witnesses + the paid archive leg) is metered INSIDE @monark/rpc-guard.
+// This script reads NO paid endpoint key and performs NO paid network round-trip directly; the guard owns both.
+// The paid `chainstack` leg is the EXPLICIT --with-chainstack switch (never an env probe), appended LAST, LABELS only.
+//
 // D_e = the series of Chainlink AnswerUpdated logs of the WETH/USD SVR feed over [B₀, B_last], used by A-4 to
 // recompute ŷ (eligible-static under D_e via HF at p_min). Reads (all quorum-2, budgeted, polite, mevblocker
-// excluded, env archive leg LAST and NEVER printed — labels only):
+// excluded):
 //   1) aggregator() on the EACAggregatorProxy 0x5424384b… at B₀ AND B_last (phase ≠ ⇒ abi_mismatch, C-4).
 //   2) getLogs(AnswerUpdated) on the resolved aggregator over [B₀, B_last]  (price = topics[1], indexed int256).
 //   3) getAssetPrice(USDT) at 23550406 AND 23550879 (C-12 / D-1) on the pinned AaveOracle.
 //   4) getEModeCategoryData(uint8) at B₀ for each distinct nonzero e-mode category in the book (RAW hex stored;
 //      decoded in abi.ts after inspecting real bytes — the return shape varies across Aave v3 versions).
-// Reuse (no modification) of the hardened pool from apps/sentinel/src/ukemi. OUT OF REPO raws; sha-pinned;
-// NO key/URL printed. NO commit, NO workflow (R-20). Fail-closed --max-calls; --prereg-sha mandatory (order).
+// Reuse (no modification) of the quorum-2 pool makeUkemiPool from apps/sentinel/src/ukemi/rpc2.ts, now driven by
+// operator LABELS routed to the guarded client. OUT OF REPO raws + ledger; sha-pinned; NO key/URL printed. NO
+// commit, NO workflow (R-20). REQUIRED fail-closed: --ledger-dir/--cycle/--floor/--max-ru/--method-caps/--max-calls;
+// --prereg-sha mandatory (order). This lot migrates the PLUMBING only; the script stays hardwired to e2 (item formed).
 // ============================================================================================
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve, relative, isAbsolute } from "node:path";
-import { makeDefaultCall, makeBudgetedCall, operatorLabel, applyExcludeOperators, lfSha256 } from "../../apps/sentinel/src/ukemi/record.ts";
-import { makeUkemiPool, ETH_CALL_PROVIDERS, GET_LOGS_PROVIDERS, BudgetExceededError } from "../../apps/sentinel/src/ukemi/rpc2.ts";
-import { providerOf } from "../../apps/sentinel/src/rpc.ts";
+import { makeUkemiPool, BudgetExceededError } from "../../apps/sentinel/src/ukemi/rpc2.ts";
 import { SEL, ANSWER_UPDATED_TOPIC0, decUint, decInt256, decAddress, wordAt, wordAddr } from "../../apps/sentinel/src/ukemi/abi.ts";
 import { POOL, ORACLE } from "../../apps/sentinel/src/ukemi/clusters.ts";
+import { lfSha256, buildLabelLists, distinctLabels, parseBudgetArgs, assertLedgerDir, openU4GuardedClient, makeGuardedPoolCall, unlockAll } from "./u4-guard.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..", "..");
@@ -47,20 +52,24 @@ async function main() {
   if (maxCallsRaw === undefined) throw new Error("u4-oracle-path: --max-calls is required (fail-closed budget)");
   const maxCalls = Number(maxCallsRaw);
   if (!(Number.isInteger(maxCalls) && maxCalls > 0)) throw new Error("u4-oracle-path: --max-calls must be a positive integer");
+  // GARDE-HELIUS-2b-iii: the guard budget arguments (all REQUIRED, fail-closed, no default) + the durable ledger dir.
+  const budget = parseBudgetArgs(arg, process.argv);
+  const ledgerDir = assertLedgerDir(budget.ledgerDir, ROOT);
   const rawsAbs = resolve(rawsDir);
   const rel = relative(ROOT, rawsAbs);
   if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))) throw new Error(`u4-oracle-path: --raws-dir under repo (CA-11): ${rawsAbs}`);
   mkdirSync(rawsAbs, { recursive: true });
 
-  const archiveEnvUrl = process.env.CHAINSTACK_ETH_URL;
-  const ethCallProviders = applyExcludeOperators(archiveEnvUrl ? [...ETH_CALL_PROVIDERS, archiveEnvUrl] : [...ETH_CALL_PROVIDERS], ["mevblocker.io"], archiveEnvUrl);
-  const getLogsProviders = applyExcludeOperators(archiveEnvUrl ? [...GET_LOGS_PROVIDERS, archiveEnvUrl] : [...GET_LOGS_PROVIDERS], ["mevblocker.io"], archiveEnvUrl);
-  const rpcErrors = [];
+  // Operators by LABEL (keyless witnesses, mevblocker excluded as the course does); the paid archive leg is the
+  // EXPLICIT --with-chainstack switch. Every read is metered inside @monark/rpc-guard (no direct paid round-trip).
+  const { ethCallLabels, getLogsLabels } = buildLabelLists({ withChainstack: budget.withChainstack, excluded: ["mevblocker.io"] });
+  let rpcErrorCount = 0;
   const errByOp = {};
-  const hardened = makeDefaultCall({ retries: 3, backoffMs: 500, backoffCapMs: 8000, onRpcError: (r) => { rpcErrors.push(r); errByOp[r.provider] = (errByOp[r.provider] ?? 0) + 1; } });
-  const budgeted = makeBudgetedCall(maxCalls, hardened, archiveEnvUrl);
-  const pool = makeUkemiPool({ call: budgeted.call, ethCallProviders, getLogsProviders, minIntervalMs, chunk: 9990 });
-  const opLabels = (urls) => [...new Set(urls.map((u) => operatorLabel(u, archiveEnvUrl)))];
+  const onTransportError = (op) => { rpcErrorCount += 1; errByOp[op] = (errByOp[op] ?? 0) + 1; };
+  const { client } = openU4GuardedClient({ env: process.env, ledgerDir, cycle: budget.cycle, floor: budget.floor, maxRu: budget.maxRu, methodCaps: budget.methodCaps, maxCalls, ethCallLabels, getLogsLabels, onTransportError });
+  const guarded = makeGuardedPoolCall(client, { retries: 3, backoffMs: 500, backoffCapMs: 8000 });
+  const pool = makeUkemiPool({ call: guarded.call, ethCallProviders: ethCallLabels, getLogsProviders: getLogsLabels, minIntervalMs, chunk: 9990 });
+  const opLabels = (labels) => distinctLabels(labels);
 
   const cache = []; // JSONL cache lines (resume/replay), same schema family as U4-inputs
   const t0 = Date.now();
@@ -116,17 +125,14 @@ async function main() {
     }
 
     const seconds = (Date.now() - t0) / 1000;
-    // Publish errors_by_operator with the env archive leg as its LABEL (never its providerOf domain, which could be
-    // chainstack.com / *.p2pify.com and trip the leak-control grep — cf. PLI D-8). calls_by_operator is already labelled.
-    const archiveDomain = archiveEnvUrl ? providerOf(archiveEnvUrl) : undefined;
-    const errorsByOperatorPub = {};
-    for (const [k, v] of Object.entries(errByOp)) errorsByOperatorPub[k === archiveDomain ? "archive-env" : k] = (errorsByOperatorPub[k === archiveDomain ? "archive-env" : k] ?? 0) + v;
+    // errors_by_operator is keyed by the OPERATOR LABEL directly (the guard's transport never exposes a URL/domain,
+    // so the former archive-env relabeling is gone); calls_by_operator / by_method come from the attempt tally.
     const provenance = {
       model: "claude-opus-4-8[1m]", recorded_at_utc: new Date().toISOString(), phase: "oracle-path-De",
-      endpoints: { eth_call: opLabels(ethCallProviders), eth_getLogs: opLabels(getLogsProviders) }, quorum: 2,
+      endpoints: { eth_call: opLabels(ethCallLabels), eth_getLogs: opLabels(getLogsLabels) }, quorum: 2,
       params: { proxy: PROXY, weth: WETH, b0: B0, b_last: BLAST, usdt_blocks: USDT_BLOCKS, emode_categories: EMODE_CATEGORIES, min_interval_ms: minIntervalMs, max_calls: maxCalls, prereg_sha: preregSha, excluded_operators: ["mevblocker.io"] },
-      calls: budgeted.total(), calls_by_operator: budgeted.byOperator(), calls_by_method: budgeted.byMethod(),
-      errors_by_operator: errorsByOperatorPub, rpc_error_count: rpcErrors.length, seconds, answer_updated_topic0: ANSWER_UPDATED_TOPIC0,
+      calls: guarded.total(), calls_by_operator: guarded.byOperator(), calls_by_method: guarded.byMethod(),
+      errors_by_operator: errByOp, rpc_error_count: rpcErrorCount, seconds, answer_updated_topic0: ANSWER_UPDATED_TOPIC0,
     };
     const raw = {
       provenance,
@@ -137,24 +143,29 @@ async function main() {
     };
     const rawPath = join(rawsAbs, "U4-oracle-path-e2.raw.json");
     const inputsPath = join(rawsAbs, "U4-oracle-inputs.jsonl");
-    const meta = { kind: "meta", schema: "ukemi-u4-oracle/1", model: "claude-opus-4-8[1m]", recorded_at_utc: provenance.recorded_at_utc, proxy: PROXY, b0: B0, b_last: BLAST, prereg_sha: preregSha, providers: [...opLabels(ethCallProviders), ...opLabels(getLogsProviders)].filter((v, i, a) => a.indexOf(v) === i) };
+    const meta = { kind: "meta", schema: "ukemi-u4-oracle/1", model: "claude-opus-4-8[1m]", recorded_at_utc: provenance.recorded_at_utc, proxy: PROXY, b0: B0, b_last: BLAST, prereg_sha: preregSha, providers: [...opLabels(ethCallLabels), ...opLabels(getLogsLabels)].filter((v, i, a) => a.indexOf(v) === i) };
     const inputsBody = [meta, ...cache].map((l) => JSON.stringify(l)).join("\n") + "\n";
     const rawBody = JSON.stringify(raw, null, 2) + "\n";
     writeFileSync(inputsPath, inputsBody);
     writeFileSync(rawPath, rawBody);
-    const perOp = Object.entries(budgeted.byOperator()).map(([k, v]) => `${k}:${v}`).join(",");
+    const perOp = Object.entries(guarded.byOperator()).map(([k, v]) => `${k}:${v}`).join(",");
     process.stdout.write(
       `u4-oracle-path e2 aggregator@B0=${aggB0.toLowerCase()} aggregator@Blast=${aggLast.toLowerCase()} phase_change=${phaseChange}\n` +
       `  n_updates=${updates.length} monotone_blocks=${monotoneBlocks} p_min=${pMin} p_max=${pMax} first_block=${updates[0]?.block} last_block=${updates[updates.length-1]?.block}\n` +
       `  usdt_prices=${JSON.stringify(usdtPrices)} emode_categories_read=${Object.keys(emodeRaw).length}\n` +
-      `  calls=${budgeted.total()}/${maxCalls} by_operator={${perOp}} rpc_errors=${rpcErrors.length} errors_by_operator=${JSON.stringify(errByOp)} seconds=${seconds.toFixed(1)}\n` +
+      `  calls=${guarded.total()}/${maxCalls} by_operator={${perOp}} rpc_errors=${rpcErrorCount} errors_by_operator=${JSON.stringify(errByOp)} seconds=${seconds.toFixed(1)}\n` +
       `  raw: ${rawPath} sha256=${sha256s(rawBody)}\n  inputs: ${inputsPath} sha256=${sha256s(inputsBody)}\n`);
   } catch (e) {
     if (e instanceof BudgetExceededError) {
-      process.stderr.write(`u4-oracle-path: BUDGET STOP after ${budgeted.total()} calls (--max-calls ${maxCalls}); NO partial path written — raise budget (R-26) and re-run.\n`);
-      process.exit(2);
+      // Controlled budget stop: soft exit (exitCode, not process.exit) so the finally below serves the N unlocks.
+      process.stderr.write(`u4-oracle-path: BUDGET STOP after ${guarded.total()} calls (${e.message}; --max-calls ${maxCalls}); NO partial path written - raise budget (R-26) and re-run.\n`);
+      process.exitCode = 2;
+      return;
     }
     throw e;
+  } finally {
+    // Served release of every operator this run locked (keyless included); a hard kill leaves them for resume unlock.
+    unlockAll(client, { ledgerDir, cycle: budget.cycle, floor: budget.floor, reason: "u4-oracle-path course end" });
   }
 }
 
