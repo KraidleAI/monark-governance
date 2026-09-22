@@ -707,3 +707,69 @@ independamment de ce ripple.
   mutants nommes KILLED, restauration byte-exacte (sha256), `git status` propre. Pli du checkpoint-2 (C-1..C-9) + G2
   (F-1..F-3) : C-1/C-2 BLOQUANTES pliees (voir Tuyaux 1b-0, 1b0-A corps GET verbatim, 1b0-C 403 structurel + 3xx GET ;
   +4 tests, +7 mutants). C-3 (conflit ADR a la fusion) reste mecanique G7.
+
+## Amendement date 2026-09-22 (GARDE-HELIUS-1b-i) - Bell consomme openGuardedClient (universe) ; reconcile mixte ETH+Solana pre-declare
+
+**Modele resolu (R-1)** : `claude-opus-4-8[1m]` (prefixe conforme, effort max ; Opus 5 banni). **Provenance** : worker Opus 4.8,
+worktree `F:\Monark-wt-garde1bi`, base `lot/etude-suite` @ `6114ce9` ; reviseur = orchestrateur (R-21, verification adversariale).
+R-20 : aucun commit, aucun workflow. Cet amendement RESOUT l'item ouvert 1b0-B (quel instantane rapproche un ledger mixte) et
+corrige l'attribution 1b-i FAUSSE de 1b0-E (le ripple `finally` du recorder est 1b-iii, pas 1b-i).
+
+### 1b-i-A - Ce que 1b-i branche (Tuyaux : entree / sortie / etat / test)
+| Piece | Entree (qui produit) | Sortie (qui consomme) | Etat (ou) | Test d'integration NON-LLM |
+|---|---|---|---|---|
+| `runUniverse` garde (`apps/bell/src/universe-cli.ts`) | `openGuardedClient(deps.env, limits, --ledger-dir, cycles, {network:"solana-mainnet"})` ; sous-ensemble `{solana-foundation, chainstack, xstocks-issuer}` par `--operators` (C-12, jamais une sonde d'env) ; retry AU-DESSUS du client (D-2) | course `universe` Bell GATEE (exit code) ; artefact `universe-candidates-*.json` hors depot | CYCLE ledger `<--ledger-dir>/<cycle>/{chainstack,solana-foundation,xstocks-issuer}.{jsonl,head,lock}` (chainstack `network`=solana-mainnet, 121) ; RUN ledger `<--out>/budget.json` + journal chaine (a1-bis PROVENANCE) | `universe_spends_only_through_guard` (espion `globalThis.fetch` : chaque fetch chainstack precede de sa ligne write-ahead SUR DISQUE ; les DEUX formes de corps issuer -- `{assets:[...]}` ET tableau nu -- verbatim vers foldPage, G7 1b-0 point 5) + `universe_budget_refusal_is_not_retried` + `universe_finally_unlocks_then_reconcile_goes` |
+
+- **Identite de classe (C-1)** : `apps/bell/src/quorum.ts` fait `import { BudgetExceededError } from "@monark/rpc-guard"; export { BudgetExceededError };`
+  (importe PUIS re-exporte -- un `export {X} from "..."` nu ne LIE PAS le nom pour le `instanceof` de quorum2/withRetry). Les 8 fichiers
+  src l'important de quorum.ts suivent SANS edition ; `Fatal403Error`/`RedirectBlockedError` sous-classent la canonique. `apps/bell/package.json`
+  declare `@monark/rpc-guard` (deps-hygiene ADR-M018 D1).
+- **withUniverseRetry porte les semantiques durcies (C-3/D-9)** : cle sur la `TransportError` du paquet (`name`+`code`+`retryAfterMs`) ;
+  403 -> Fatal403Error, 3xx -> RedirectBlockedError (hard stops jamais retentes), 429/5xx retentes en honorant Retry-After, RpcError/NonJsonBody/4xx!=429
+  re-jetes. La `HttpStatusError` Bell est SUPPRIMEE (une seule classe canonique, consigne C-1). Tests `bell_universe_retry_honors_retry_after_and_hard_stops_on_403`,
+  `transport_403_is_fatal_hard_stop`.
+- **RUN ledger CONSERVE (D-6)** : `makeUniverseBudget`/`makeBudgetedCall` retires du chemin de metrage ; le client est le SEUL compteur ;
+  `total = prior.calls + client.spent().attempts` (offset M17 par `universeRunCap`, throw si deja depense) ; anchor-first + journal chaine inchanges.
+  Test M-order `bell_universe_ledger_crash_between_writes_resumes_conservatively`.
+- **`assertHostAllowed` reduit a un test de LABEL (C-7)** : Bell ne parse plus d'URL ; la resolution d'hote + le controle structurel vivent
+  dans le transport du paquet (`resolveGetUrl` pour le GET). Tests 18/19 (fetchers live / parsing URL) RETIRES avec annotation D-4 (garantie
+  portee cote paquet `transport-hardening.test.ts` + `resolveGetUrl`).
+- **grep CI `apps/bell/src/**` (1b-i le CREE)** : `apps/bell/test/bell-src-clean.test.ts` scanne les fichiers 1b-i (universe-cli.ts, universe.ts)
+  pour `fetch(`/`node:http(s)`/`undici`/`child_process`/lecture de cle payante (4 formes + evasions) ; ACTIF (le full-scope
+  `fetch_only_inside_client` reste SKIP jusqu'au 1b-iii). Test `universe_src_clean_of_fetch_and_keys`.
+
+### 1b-i-B - Reconcile d'un ledger MIXTE ETH+Solana : PRE-DECLARATION (resout l'item ouvert 1b0-B)
+Sous 121 (un operateur `chainstack` par COMPTE, un cap 16 M RU, `network`=attribut), le premier reconcile d'une course Solana leve
+l'ambiguite de 1b0-B : **l'instantane du tableau de bord rapproche est le TOTAL DU COMPTE** = somme des totaux RU PAR RESEAU PAR JOUR
+(Chainstack Statistics n'a pas de ventilation par methode, FAITS pt 10) lus a UN instant. Cote ledger, `ledgerRunSinceLastReconciled`/`ledgerTotal`
+n'ont PAS de filtre reseau (somme du compte) : coherent avec un instantane total-compte. Mode `aggregate` (soft band BLOQUE) ; la PREMIERE
+course Solana est `aggregate-calibration` (hard bound BLOQUE, sur-comptage soft CONSIGNE, exit 0). `before` = le `after` de la course
+precedente. Le verrou `chainstack.lock` PARTAGE Bell(Solana)/Ukemi(ETH) serialise les courses. Preuve NON-LLM :
+`universe_finally_unlocks_then_reconcile_goes` (run -> N unlock -> `runCli reconcile --mode aggregate-calibration --before <snap> --after <snap>` -> GO).
+
+### 1b-i-C - Residus declares (zero dette nue, chacun a declencheur nomme)
+- **Wrapper de course scalaire `bin/rpc-guard.mjs --before <total> --after <total>` -- ITEM FORME + DEMANDE DE CONSULTATION** : verifie --
+  le bin (paquet, `packages/rpc-guard/bin/rpc-guard.mjs` -> `runCli`) prend `--before <chemin> --after <chemin>` = des FICHIERS d'instantane
+  JSON (`{cycle,total_ru}`), PAS des totaux SCALAIRES ; le bin est DANS LE PAQUET (non modifiable par 1b-i). Options : (i) un flag paquet
+  `--before-total/--after-total` ; (ii) un runbook de course qui ECRIT les deux fichiers JSON puis appelle le bin (zero code) ; (iii) un script
+  Bell hors perimetre 1b-i. RECOMMANDE : (ii). Declencheur : G0 de la premiere course Solana rapprochee ; proprietaire : orchestrateur. Le
+  chemin FICHIER est deja prouve (test 1b-i-B), donc AUCUN blocage a 1b-i.
+- **429-streak STOP precis apres 1b-ii (C-3)** : `statusOf` (quorum.ts, 1b-ii) lit encore un "HTTP <n>" Bell-local ; une `TransportError` 429 du
+  paquet code "transport" jusqu'a ce que 1b-ii porte `statusOf` sur `.code`, donc le compteur `streak429` est precis apres 1b-ii. Le retry par
+  appel (withUniverseRetry honore Retry-After, borne le 429 immediat) reste actif. Declencheur : G1 1b-ii.
+- **URL POST `http://` non verifiee cote paquet -- ITEM FORME** : le transport paquet impose https STRUCTURELLEMENT pour le GET (`resolveGetUrl`) ;
+  une `CHAINSTACK_*_URL` en `http://` atteint `fetch` POST sans controle de schema. Hors perimetre 1b-i (paquet). Declencheur : durcissement
+  transport paquet ; proprietaire : orchestrateur.
+- **RUN-anchor phantom-fresh borne (D-6)** : deplacer `--out` repart le compteur RUN a 0 (l'anchor vit par --out) ; la garde inter-run est le
+  CYCLE ledger (par --ledger-dir), inchange par un --out deplace (prouve par `universe_out_moved_on_resume_keeps_cycle_prior`). Borne par
+  `--max-calls` par run. Residu inchange depuis a1-bis/1b-0.
+- **Databento/Polygon** : residuel hors garde a declencheur "G0 course cash Bell" (1b-iii, ruling R-1) -- aucune course cash a 1b-i.
+
+### 1b-i-D - Couplages cross-lot DECLARES (fusion separee ; ordre 1b-0 -> 1b-i -> 1b-ii -> 1b-iii)
+- **quorum.ts (overlap PLANIFIE)** : 1b-i porte le re-export `BudgetExceededError` (C-1, AVANT IT-1) ; 1b-ii porte la SUPPRESSION de `SolRpcError`
+  + `statusOf`/`isSolRevert` sur `TransportError`/`RpcError` (C-3). Les deux editent quorum.ts (le G0 assigne C-1 a 1b-i, C-3 a 1b-ii). A la
+  fusion 1b-ii, integrer le re-export 1b-i.
+- **universe-cli.ts n'importe plus `makeBudgetedCall` de collect.ts** ; 1b-ii RETIRE `makeBudgetedCall` de collect.ts. 1b-i fusionne AVANT 1b-ii
+  => collect.ts garde son export jusque-la (aucun casse a la fusion 1b-i).
+- **grep test** : 1b-i CREE `bell-src-clean.test.ts` avec la liste `CLEANED = {universe-cli.ts, universe.ts}` ; 1b-ii ETEND `CLEANED`
+  (collect.ts/rebase-crosscheck.ts/quorum.ts/rpc.ts), 1b-iii (ethereum.ts/close.ts) puis UNIFIE tous les greps + de-skippe `fetch_only_inside_client`.
