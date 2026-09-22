@@ -123,7 +123,8 @@ export function makeDefaultCall(opts: DefaultCallOpts = {}): RpcCall {
         const emsg = scrubUrls(json.error.message ?? "rpc error"); // defensive: a node error message never carries our key, but scrub anyway
         if (onErr) onErr({ provider: prov, method, code: json.error.code ?? 0, message: emsg, ...(data !== undefined ? { data } : {}) });
         // A typed JSON-RPC error (EVM revert / method / server error) is deterministic ⇒ classified by the quorum, NOT retried.
-        throw new RpcError(emsg, json.error.code ?? 0, data);
+        // 2b-ii-a: RpcError is now the canonical 6-arg class re-exported by rpc2.ts (op, message, code, detail, unit, data).
+        throw new RpcError(prov, emsg, json.error.code ?? 0, "", "keyless", data);
       }
       return json.result;
     }

@@ -11,6 +11,14 @@
 // only to gate B ≤ finalized; the mutable head tag is never requested (grep + test ukemi_no_latest_literal).
 import { createHash } from "node:crypto";
 import { providerOf, QuorumDisagreementError, type RpcCall } from "../rpc.ts";
+// GARDE-HELIUS-2b-ii migration: the canonical JSON-RPC error class, the budget-stop class, and the SINGLE-SOURCE
+// error vocabulary now live in @monark/rpc-guard (the apps -> packages direction is licit). rpc2.ts IMPORTS them
+// and keeps NO second class or regex, so the transport's closed-vocabulary hint (D6) and the recorder's
+// range-split / plan-bench / revert decisions can never drift, and `instanceof RpcError` holds across the package
+// boundary (a transport-raised RpcError is the SAME class the quorum tests). It RE-EXPORTS them so existing
+// consumers keep importing from rpc2.ts (apps/bell/src/ethereum.ts, apps/sentinel/test/pool-rpc-1a.test.ts, ...).
+import { RpcError, BudgetExceededError, isResultLimit, isPlanLimited, isRpcRevert } from "@monark/rpc-guard";
+export { RpcError, BudgetExceededError, isResultLimit, isPlanLimited, isRpcRevert };
 
 /** The INDEPENDENT operator behind an endpoint URL, for quorum-2 distinctness (C-2, ADR-POOL-RPC-1): like
  *  providerOf but collapsing the two Pocket-backed gateways — the keyless `eth-pokt.nodies.app` and the public
@@ -25,34 +33,10 @@ export function operatorOf(url: string): string {
 /** No two distinct providers agreed on a read — the whole (cluster, B) book abstains, naming the read. */
 export class NoQuorumError extends Error {}
 
-/** The `--max-calls` RPC budget was reached (U-4a A-1, C-5 fail-closed; calque Bell quorum.ts:24). It is NOT a
- *  transport fault and NOT a revert: quorum2, getLogsVia and finalized re-throw it FIRST in their catch so it can
- *  never be benched into a NoQuorumError, split as a range-cap (its message must carry NO isResultLimit token
- *  either — belt), or swallowed by finalized's bare catch. The run stops (exit 1), never presenting a
- *  budget-truncated book as complete. Defined here so record.ts's makeBudgetedCall and the three pool guards
- *  share one type (no cycle; record.ts already imports rpc2.ts). */
-export class BudgetExceededError extends Error {}
-
-/** A JSON-RPC error response (the node returned `{error:{code,message,data}}`), NOT a transport failure. Carries
- *  the numeric code and optional revert data so the quorum can tell an EVM revert from a transport/rate fault. */
-export class RpcError extends Error {
-  readonly code: number;
-  readonly data: string | undefined;
-  constructor(message: string, code: number, data: string | undefined = undefined) { super(message); this.name = "RpcError"; this.code = code; this.data = data; }
-}
-
 /** >= 2 distinct providers returned the SAME revert for one read — a deterministic on-chain fact (e.g. an oracle
  *  source with no `description()`), NOT a no-quorum. The caller tolerates it ONLY where an absent field is a real
  *  datum (book.ts, `description()` ⇒ ""); everywhere else it abstains the whole book (ADR-U1 D3, V-1). */
 export class ConcordantRevertError extends Error {}
-
-/** Is this rejection an EVM execution revert (deterministic, identical across honest providers) rather than a
- *  transport/rate fault? Explicit, testable criterion (ADR-U1 D3 amendment 2026-09-19): a typed RpcError whose
- *  code is 3 (EIP-1474 "execution error") or -32000 (common node "server error" used for reverts) AND whose
- *  message names a revert. A revert counts toward the quorum and does NOT bench; anything else benches. */
-export function isRpcRevert(e: unknown): e is RpcError {
-  return e instanceof RpcError && (e.code === 3 || e.code === -32000) && /execution reverted|revert/i.test(e.message);
-}
 
 /** Identity of a revert for the quorum comparison: the revert DATA if present (custom-error selector / reason),
  *  else the message normalized (lower-cased, whitespace-collapsed). Two providers concord iff these match. */
@@ -64,12 +48,8 @@ function revertKey(e: RpcError): string {
 export interface LogEntry { readonly blockNumber: string; readonly logIndex: string; readonly transactionHash: string; readonly topics: readonly string[]; readonly data: string; }
 
 const toHexBlock = (n: number): string => "0x" + BigInt(n).toString(16);
-export const isResultLimit = (m: string): boolean => /more than|result|range is too|10000|query returned|limit exceeded|block range|too large|response size|maximum allowed|ranges? over|narrow your filter/i.test(m);
-// A drpc free-plan 400 body reads "ranges over 10000 blocks are not supported on free plan" — which isResultLimit
-// matches via "10000"/"ranges over" — yet the chunk was already 9990 blocks (< 10000) and drpc still returned it
-// 31 times on each live run (D9 weth/susde-live.json): the block is the PLAN, not the range, so splitting only
-// re-hits the same 400 down to the floor. Detect it and let the caller bench the provider once (V-1(e)).
-export const isPlanLimited = (m: string): boolean => /free plan/i.test(m);
+// isResultLimit (range/result-cap) and isPlanLimited (drpc free-plan) are imported+re-exported from
+// @monark/rpc-guard (single-source vocabulary): getLogsVia below splits on isResultLimit, benches on isPlanLimited.
 
 function asLogs(x: unknown): LogEntry[] {
   if (!Array.isArray(x)) throw new Error("eth_getLogs: result is not an array");
