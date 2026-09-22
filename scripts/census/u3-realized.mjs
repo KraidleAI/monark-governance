@@ -32,7 +32,7 @@
 import { readFileSync, existsSync, appendFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, relative, isAbsolute } from "node:path";
 import { providerOf, PUBLIC_ENDPOINTS, TRANSFER_TOPIC } from "../../apps/sentinel/src/rpc.ts";
 import { firstBlockAtOrAfter } from "../../apps/sentinel/src/windows.ts";
 import { keccak256, SEL, decUint, decAddress, wordAt, wordAddr, decString, decodeReserveData } from "../../apps/sentinel/src/ukemi/abi.ts";
@@ -277,7 +277,10 @@ export function sumRepaymentNative(realized) {
 // @monark/rpc-guard (dynamic import in the paid branch), so this script reads no key and no URL. A quorum "leg" is
 // { op, key, call }: `op` is the quorum-distinctness identity, `key` the cooldown key, `call(method, params)` the read.
 const KEYLESS_WITNESS_LABELS = new Set(["drpc.org", "mevblocker.io", "nodies.app", "pocket.network", "tenderly.co", "solana-foundation", "xstocks-issuer"]);
-const isPaidOperator = (label) => !KEYLESS_WITNESS_LABELS.has(label); // fail-closed: an unknown label is PAID (covers chainstack AND helius)
+const isPaidOperator = (label) => !KEYLESS_WITNESS_LABELS.has(label); // fail-closed: an unknown label is PAID (covers chainstack AND helius, incl. case variants)
+// POOL-RPC-1a L-6 (header :2-4): 1rpc.io in a HEAVY eth_getLogs campaign falsifies SYNTHESE; EXCLUDED from the default
+// keyless pool AND refused if named in --operators (fail-closed). `meta.providers` is a label set, not a sha pin.
+const EXCLUDED_OPERATORS = ["1rpc.io"];
 const scrubUrls = (s) => String(s ?? "").replace(/https?:\/\/[^\s"'\\]+/gi, "<url>"); // defense in depth on every logged message
 
 // ---- per-run mutable state: RESET by resetRunState() at the top of main() so repeated in-process runs never share it ----
@@ -411,7 +414,7 @@ export function parseArgs(argv) {
   const a = {
     rawlogs: "", rawlogsSha: RAWLOGS_SHA, events: EVENTS, episodeTag: null, out: null, operators: null,
     archiveOperator: null, allowPaid: false, minIntervalMs: 60, preregFile: "docs/PLAN-u3-prereg.md", preregSha: "",
-    maxCalls: 0, rawsDir: "F:\\PRODUITS\\etude-2026-09-20\\u3-raws", only: null,
+    maxCalls: 0, rawsDir: null, only: null,
     ledgerDir: null, cycle: null, floor: null, maxRu: null, methodCaps: null,
   };
   for (let i = 0; i < argv.length; i++) {
@@ -482,9 +485,24 @@ export async function main(deps) {
   if (!args.preregSha) throw new Error("--prereg-sha <lf sha of the prereg file> is required (C-10)");
   if (args.preregSha !== preregSha) throw new Error(`--prereg-sha ${args.preregSha} != computed LF sha ${preregSha} of ${args.preregFile} (C-10) — abort`);
 
+  // ---- C-6 (checkpoint-2): --out and --raws-dir are REQUIRED (no default); a path under the committed fixtures is
+  //      refused fail-closed — the old default clobbered the pinned e2 series (P14), and the old --raws-dir default
+  //      appended to the e2 raws. ----
+  if (!args.out) throw new Error("--out <dir OUT of apps/sentinel/test/fixtures/> is required (fail-closed, no default)");
+  if (!args.rawsDir) throw new Error("--raws-dir <dir, out of repo> is required (fail-closed, no default)");
+  const FIXTURES_DIR = join(REPO, "apps", "sentinel", "test", "fixtures");
+  const isUnder = (child, parent) => { const rel = relative(parent, resolve(child)); return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel)); };
+  if (isUnder(args.out, FIXTURES_DIR)) throw new Error(`--out ${resolve(args.out)} resolves under apps/sentinel/test/fixtures/; refused fail-closed (would clobber the pinned series)`);
+  if (isUnder(args.rawsDir, FIXTURES_DIR)) throw new Error(`--raws-dir ${resolve(args.rawsDir)} resolves under apps/sentinel/test/fixtures/; refused fail-closed`);
+
   // ---- resolve the quorum legs. KEYLESS-ONLY by default (CARTO-T1-1); a PAID archive leg is fail-closed. ----
   MAX_CALLS = args.maxCalls;
-  let keylessUrls = [...PUBLIC_ENDPOINTS];
+  // C-7 (checkpoint-2): EXCLUDED_OPERATORS is removed from the default keyless pool AND refused if named in --operators.
+  if (args.operators) {
+    const bad = args.operators.filter((o) => EXCLUDED_OPERATORS.includes(o));
+    if (bad.length) throw new Error(`--operators names EXCLUDED operator(s) [${bad.join(", ")}] (POOL-RPC-1a L-6); refused fail-closed`);
+  }
+  let keylessUrls = PUBLIC_ENDPOINTS.filter((u) => !EXCLUDED_OPERATORS.includes(providerOf(u)));
   if (args.operators) keylessUrls = keylessUrls.filter((u) => args.operators.includes(providerOf(u)));
   const keylessLegs = keylessUrls.map(makeKeylessLeg);
   let archiveLeg = null; let archiveUnlock = null;
@@ -652,7 +670,7 @@ export async function main(deps) {
     const records = [meta, ...inputs];
     const out = reduceU3(records);
 
-    const OUT = args.out ? resolve(args.out) : join(REPO, "apps", "sentinel", "test", "fixtures", "ukemi", "u3");
+    const OUT = resolve(args.out);
     mkdirSync(OUT, { recursive: true });
     const inputsJsonl = canonicalJsonl(records);
     const realizedJsonl = canonicalJsonl(out.realized);

@@ -13,7 +13,7 @@
 // equals the bare-array log's data). D-3: only globalThis.fetch is stubbed, never a fake client.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, copyFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
@@ -196,7 +196,7 @@ test("u3_rawlogs_sha_mismatch_refused", async () => {
 
 // -- (2d) a PAID --archive-operator (chainstack AND helius) refuses fail-closed without --allow-paid, 0 fetch. --
 test("u3_paid_archive_operator_refused_without_allow_paid", async () => {
-  for (const label of ["chainstack", "helius"]) {
+  for (const label of ["chainstack", "helius", "Chainstack", "HELIUS"]) { // case variants (C-3) redden M7 (exact-list isPaidOperator)
     const dir = mkdtempSync(join(tmpdir(), "u3-paid-"));
     const rawlogsPath = join(dir, "A-rawlogs.jsonl");
     writeFileSync(rawlogsPath, JSON.stringify({ block: 1, logIndex: 0, collateral: WETH, debt: USDC, user: USER, liquidator: LIQ, debtToCover: "1", liquidatedCollateralAmount: "1", receiveAToken: false, tx: TX }) + "\n");
@@ -222,4 +222,143 @@ test("u3_labeler_reads_no_env_at_module_scope", () => {
   assert.equal(envHits.length, 1, "process.env must appear EXACTLY once (the deps.env injection at the isMain entry)");
   assert.match(src, /main\(\{ env: process\.env, argv: process\.argv\.slice\(2\) \}\)/, "the sole process.env use must be the deps.env injection");
   assert.equal((src.match(/\benv\.(CHAINSTACK|HELIUS|POLYGON|DATABENTO|U3_MIN_INTERVAL_MS)/g) ?? []).length, 0, "no direct paid-key / interval env probe in the labeler");
+});
+
+// ============================================================================================
+// CHECKPOINT-2 PLI (2026-09-22) - C-1..C-7. Redden survivor mutants M7/M9/M10/M11/M12 + "default --out
+// reintroduced" + "1rpc.io admitted". Harness: F:\tmp\u4b1b1\mutants.mjs.
+// ============================================================================================
+
+// -- (C-1) composition from the REAL e2 artifact THROUGH main() (CA-11 durci). SKIPS NAMED where the out-of-repo
+//    artifacts are absent (A-rawlogs.jsonl is gitignored; the pinned raws live out of repo). --
+const REAL_RAWLOGS = join(HERE, "..", "docs", "census-2026-09-18", "data", "A-rawlogs.jsonl");
+const REAL_RAWS_PIN = "F:\\PRODUITS\\etude-2026-09-20\\u3-raws-clean\\u3-reads.jsonl";
+const REAL_PREREG = join(HERE, "..", "docs", "PLAN-u3-prereg.md");
+const FINALIZED_BLOCK = 26015906; // the course's finalized block = getPriceOracle/BASE_CURRENCY_UNIT cache key (raws 0afaf605)
+test("u4b_labels_replay_via_main_real_artifact", { skip: (existsSync(REAL_RAWLOGS) && existsSync(REAL_RAWS_PIN)) ? false : "real e2 artifacts absent (A-rawlogs.jsonl gitignored / u3-raws-clean out of repo)" }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "u3-e2-"));
+  try {
+    const rawsDir = join(dir, "raws"); mkdirSync(rawsDir, { recursive: true });
+    copyFileSync(REAL_RAWS_PIN, join(rawsDir, "u3-reads.jsonl")); // APPEND to the COPY, never the pin
+    const preregSha = lfShaOf(readFileSync(REAL_PREREG, "utf8"));
+    const outDir = join(dir, "out");
+    let n = 0; const realFetch = globalThis.fetch;
+    globalThis.fetch = ((_u: string, init?: { body?: string }): Promise<Response> => {
+      n += 1;
+      const req = JSON.parse(String(init?.body ?? "{}")) as RpcReq;
+      if (req.method === "eth_getBlockByNumber" && req.params[0] === "finalized") return Promise.resolve(okResp(req.id, { number: "0x" + FINALIZED_BLOCK.toString(16) }));
+      return Promise.resolve(failResp()); // anything else MUST be a cache hit; a real fetch => cache miss => the run fails
+    }) as unknown as typeof fetch;
+    try {
+      // --rawlogs-sha and --events DEFAULT (= the e2 values); real rawlogs + copy of the pinned raws => pure cache replay.
+      await main({ env: {}, argv: ["--rawlogs", REAL_RAWLOGS, "--prereg-file", REAL_PREREG, "--prereg-sha", preregSha, "--out", outDir, "--raws-dir", rawsDir, "--max-calls", "100000", "--min-interval-ms", "0"] });
+    } finally { globalThis.fetch = realFetch; }
+    const realizedText = readFileSync(join(outDir, "U3-realized.jsonl"), "utf8").replace(/\r\n/g, "\n");
+    assert.equal(lfShaOf(realizedText), B4D93590, "main() over the REAL A-rawlogs + pinned raws must reproduce U3-realized.jsonl byte-identically");
+    assert.equal(n, 2, "only the two finalized reads hit the network; every other read is a cache hit");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// -- (C-2) --operators filters the pool (M9) and a pool < 2 operators refuses with 0 fetch (M12). --
+test("u3_operators_filter_and_quorum_floor", async () => {
+  const req = await runSynthetic(["--operators", "drpc.org,mevblocker.io,pocket.network"]);
+  const providers = req.meta.providers as string[];
+  assert.deepEqual([...providers].sort(), ["drpc.org", "mevblocker.io", "pocket.network"], "meta.providers must equal the requested --operators set");
+  assert.ok(!providers.includes("1rpc.io"), "1rpc.io must never appear");
+  const dir = mkdtempSync(join(tmpdir(), "u3-quorum-"));
+  const rawlogsPath = join(dir, "A-rawlogs.jsonl");
+  writeFileSync(rawlogsPath, JSON.stringify({ block: 1, logIndex: 0, collateral: WETH, debt: USDC, user: USER, liquidator: LIQ, debtToCover: "1", liquidatedCollateralAmount: "1", receiveAToken: false, tx: TX }) + "\n");
+  const preregText = "# p\n"; const preregPath = join(dir, "prereg.md"); writeFileSync(preregPath, preregText);
+  const stub = makeStub(); const realFetch = globalThis.fetch; globalThis.fetch = stub.fetch;
+  try {
+    await assert.rejects(
+      main({ env: {}, argv: ["--rawlogs", rawlogsPath, "--rawlogs-sha", shaBufOf(rawlogsPath), "--prereg-file", preregPath, "--prereg-sha", lfShaOf(preregText), "--out", join(dir, "o"), "--raws-dir", join(dir, "r"), "--max-calls", "10", "--min-interval-ms", "0", "--operators", "nobody.invalid"] }),
+      /fewer than 2 quorum legs/,
+      "an --operators set matching < 2 providers must refuse fail-closed",
+    );
+  } finally { globalThis.fetch = realFetch; }
+  assert.equal(stub.calls(), 0, "the quorum-floor refusal must happen with 0 fetch");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+// -- (C-7) 1rpc.io is EXCLUDED from the default pool AND refused when named in --operators ("1rpc.io admitted"). --
+test("u3_default_pool_excludes_1rpc_and_refuses_naming_it", async () => {
+  const def = await runSynthetic();
+  assert.ok(!(def.meta.providers as string[]).includes("1rpc.io"), "the DEFAULT keyless pool must exclude 1rpc.io (POOL-RPC-1a L-6)");
+  const dir = mkdtempSync(join(tmpdir(), "u3-1rpc-"));
+  const rawlogsPath = join(dir, "A-rawlogs.jsonl");
+  writeFileSync(rawlogsPath, JSON.stringify({ block: 1, logIndex: 0, collateral: WETH, debt: USDC, user: USER, liquidator: LIQ, debtToCover: "1", liquidatedCollateralAmount: "1", receiveAToken: false, tx: TX }) + "\n");
+  const preregText = "# p\n"; const preregPath = join(dir, "prereg.md"); writeFileSync(preregPath, preregText);
+  const stub = makeStub(); const realFetch = globalThis.fetch; globalThis.fetch = stub.fetch;
+  try {
+    await assert.rejects(
+      main({ env: {}, argv: ["--rawlogs", rawlogsPath, "--rawlogs-sha", shaBufOf(rawlogsPath), "--prereg-file", preregPath, "--prereg-sha", lfShaOf(preregText), "--out", join(dir, "o"), "--raws-dir", join(dir, "r"), "--max-calls", "10", "--min-interval-ms", "0", "--operators", "1rpc.io,drpc.org"] }),
+      /EXCLUDED operator/,
+      "an --operators naming 1rpc.io must refuse fail-closed",
+    );
+  } finally { globalThis.fetch = realFetch; }
+  assert.equal(stub.calls(), 0, "the excluded-operator refusal must happen with 0 fetch");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+// -- (C-5) a wrong --prereg-sha refuses BEFORE any fetch (M11). --
+test("u3_prereg_sha_mismatch_refused", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "u3-prereg-"));
+  const rawlogsPath = join(dir, "A-rawlogs.jsonl");
+  writeFileSync(rawlogsPath, JSON.stringify({ block: 1, logIndex: 0, collateral: WETH, debt: USDC, user: USER, liquidator: LIQ, debtToCover: "1", liquidatedCollateralAmount: "1", receiveAToken: false, tx: TX }) + "\n");
+  const preregText = "# p\n"; const preregPath = join(dir, "prereg.md"); writeFileSync(preregPath, preregText);
+  const stub = makeStub(); const realFetch = globalThis.fetch; globalThis.fetch = stub.fetch;
+  try {
+    await assert.rejects(
+      main({ env: {}, argv: ["--rawlogs", rawlogsPath, "--rawlogs-sha", shaBufOf(rawlogsPath), "--prereg-file", preregPath, "--prereg-sha", "0".repeat(64), "--out", join(dir, "o"), "--raws-dir", join(dir, "r"), "--max-calls", "10", "--min-interval-ms", "0"] }),
+      /!= computed LF sha/,
+      "a wrong --prereg-sha must throw (C-10)",
+    );
+  } finally { globalThis.fetch = realFetch; }
+  assert.equal(stub.calls(), 0, "a prereg-sha mismatch must refuse BEFORE any network fetch");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+// -- (C-6) --out and --raws-dir are REQUIRED and refused under apps/sentinel/test/fixtures/ ("default --out reintroduced"). --
+test("u3_out_and_rawsdir_required_out_of_fixtures", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "u3-out-"));
+  const rawlogsPath = join(dir, "A-rawlogs.jsonl");
+  writeFileSync(rawlogsPath, JSON.stringify({ block: 1, logIndex: 0, collateral: WETH, debt: USDC, user: USER, liquidator: LIQ, debtToCover: "1", liquidatedCollateralAmount: "1", receiveAToken: false, tx: TX }) + "\n");
+  const preregText = "# p\n"; const preregPath = join(dir, "prereg.md"); writeFileSync(preregPath, preregText);
+  const base = ["--rawlogs", rawlogsPath, "--rawlogs-sha", shaBufOf(rawlogsPath), "--prereg-file", preregPath, "--prereg-sha", lfShaOf(preregText), "--max-calls", "10", "--min-interval-ms", "0"];
+  const FIX_OUT = join(FIX, "clobber"); // under apps/sentinel/test/fixtures/
+  const stub = makeStub(); const realFetch = globalThis.fetch; globalThis.fetch = stub.fetch;
+  try {
+    await assert.rejects(main({ env: {}, argv: [...base, "--raws-dir", join(dir, "r")] }), /--out .* is required/, "no --out must be refused (default would clobber the pinned series)");
+    await assert.rejects(main({ env: {}, argv: [...base, "--out", join(dir, "o")] }), /--raws-dir .* is required/, "no --raws-dir must be refused");
+    await assert.rejects(main({ env: {}, argv: [...base, "--out", FIX_OUT, "--raws-dir", join(dir, "r")] }), /resolves under apps\/sentinel\/test\/fixtures\/; refused fail-closed/, "--out under fixtures must be refused");
+    await assert.rejects(main({ env: {}, argv: [...base, "--out", join(dir, "o"), "--raws-dir", join(FIX, "raws")] }), /resolves under apps\/sentinel\/test\/fixtures\/; refused fail-closed/, "--raws-dir under fixtures must be refused");
+  } finally { globalThis.fetch = realFetch; }
+  assert.equal(stub.calls(), 0, "all --out/--raws-dir refusals must happen with 0 fetch");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+// -- (C-4) the PAID archive leg is WIRED offline with --allow-paid: meta.archive_operator/allow_paid written (M10). --
+test("u3_paid_archive_operator_wired_with_allow_paid", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "u3-arch-"));
+  try {
+    const rawlogsPath = join(dir, "A-rawlogs.jsonl");
+    writeFileSync(rawlogsPath, JSON.stringify({ block: 1000, logIndex: 0, collateral: WETH, debt: USDC, user: USER, liquidator: LIQ, debtToCover: "1000000", liquidatedCollateralAmount: "500000000000000000", receiveAToken: false, tx: TX }) + "\n");
+    const preregText = "# synthetic prereg (paid)\n"; const preregPath = join(dir, "prereg.md"); writeFileSync(preregPath, preregText);
+    const eventsPath = join(dir, "events.json");
+    writeFileSync(eventsPath, JSON.stringify([{ id: "syn-weth", collateral: WETH, clusterLo: 1000, clusterHi: 1000, preV33: false }]));
+    const ledgerDir = join(dir, "ledger"); mkdirSync(ledgerDir, { recursive: true }); // out of repo, pre-exists (CA-11)
+    const outDir = join(dir, "out");
+    const stub = makeStub(); const realFetch = globalThis.fetch; globalThis.fetch = stub.fetch;
+    try {
+      await main({
+        env: { CHAINSTACK_ETH_URL: "https://chainstack.example.invalid/key" }, // resolved ONLY inside rpc-guard; never fetched (stubbed)
+        argv: ["--events", eventsPath, "--rawlogs", rawlogsPath, "--rawlogs-sha", shaBufOf(rawlogsPath), "--prereg-file", preregPath, "--prereg-sha", lfShaOf(preregText), "--out", outDir, "--raws-dir", join(dir, "raws"), "--max-calls", "100000", "--min-interval-ms", "0", "--archive-operator", "chainstack", "--allow-paid", "--ledger-dir", ledgerDir, "--cycle", "cp2-c4", "--floor", "0", "--max-ru", "16000000", "--method-caps", '{"eth_call":100000,"eth_getBlockByNumber":100000,"eth_getStorageAt":100000,"eth_getLogs":100000,"eth_getTransactionReceipt":100000}'],
+      });
+    } finally { globalThis.fetch = realFetch; }
+    const meta = readJsonl(join(outDir, "U3-inputs.jsonl"))[0]!;
+    assert.equal(meta.archive_operator, "chainstack", "meta.archive_operator must record the paid leg");
+    assert.equal(meta.allow_paid, true, "meta.allow_paid must be true (written to provenance)");
+    assert.ok((meta.providers as string[]).includes("chainstack"), "chainstack must be a resolved operator on the quorum");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
