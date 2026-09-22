@@ -12,6 +12,12 @@
 //   - "aggregate" (Chainstack): the Statistics page has NO per-method breakdown, only a total RU per network per day
 //     (FAITS 2026-09-21 pt 10) => HARD bound on the TOTAL only. The mode is NAMED in the result. A per-method snapshot
 //     given in aggregate mode (or vice-versa) is FAIL-CLOSED (a NO-GO), never silently coerced.
+//     C-6 (1b-0 fold / decision 121): "per network per day" is the DASHBOARD granularity; the LEDGER side sums the
+//     ACCOUNT total across networks (one 16 M RU cap - reconcile reads the account total, `ledgerTotal` below has NO
+//     network filter). These are CONSISTENT today because every cycle course is SINGLE-network and only ETH is billed.
+//     A 121 MIXED account (Bell Solana + Ukemi ETH on ONE Chainstack account) makes "which total_ru snapshot
+//     reconciles an account-total ledger" AMBIGUOUS - an OPEN item (ADR 1b0-B), trigger: the FIRST reconcile of a
+//     Solana course (1b-i). NOT resolved here; the aggregate bound stays on the account total meanwhile.
 import type { CycleLedger, CycleLedgerEntry } from "./ledger.ts";
 
 /** A dashboard snapshot. `byMethod` is the per-method form (Helius credits); `total_ru` is the aggregate form

@@ -15,8 +15,12 @@ export { runCli } from "./cli.ts";
 export { verifyCycleLedger } from "./ledger.ts";
 export { heliusCredits, HELIUS_TARIFF_VERSION, chainstackRu, CHAINSTACK_TARIFF_VERSION } from "./tariff.ts";
 export { HELIUS_CYCLE_CAP_CREDITS, CHAINSTACK_CYCLE_CAP_RU, ETH_CALL_KEYLESS_LABELS, GET_LOGS_KEYLESS_LABELS } from "./transport.ts";
+// GARDE-HELIUS-1b-0 (D-8 / C-3c): the closed Bell-Solana method table + a construction-time --method-caps coverage
+// check the Bell client calls before a course opens (apps -> packages direction is licit; migrated at 1b-ii).
+export { BELL_SOLANA_METHODS, assertMethodCapsCover } from "./bell-methods.ts";
 // Types only (erased at runtime; absent from the closed VALUE export set).
 export type { OperatorLabel, Transport, OperatorClass, AttemptRecord, Outcome, RunLimits, ClientConfig, BudgetedClient } from "./client.ts";
+export type { TransportOpts, NetworkLabel } from "./transport.ts";
 export type { CycleLedger, CycleLedgerEntry } from "./ledger.ts";
 export type { Snapshot, Verdict, ReconcileResult, ReconcileMode } from "./reconcile.ts";
 export type { CliDeps, CliResult } from "./cli.ts";

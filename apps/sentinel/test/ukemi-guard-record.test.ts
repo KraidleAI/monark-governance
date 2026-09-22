@@ -18,7 +18,7 @@ import { reduceConcordance } from "../src/ukemi/concordance.ts";
 import { QuorumDisagreementError } from "../src/rpc.ts";
 import { SEL } from "../src/ukemi/abi.ts";
 import { ORACLE } from "../src/ukemi/clusters.ts";
-import { runCli, openGuardedClient, type RunLimits, type OperatorLabel } from "@monark/rpc-guard";
+import { runCli, openGuardedClient, verifyCycleLedger, type RunLimits, type OperatorLabel, type CycleLedgerEntry } from "@monark/rpc-guard";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const CS_HOST = "cs-node.example.invalid";
@@ -446,17 +446,20 @@ test("ukemi_record_e2e_paid_ledger_is_reconciled_go_and_hard_no_go", async () =>
   } finally { g.cleanup(); n.cleanup(); }
 });
 
-// C-G-5 / E-1 (CHARACTERISATION of a KNOWN defect - declarative, no mutant claimed). The ADR runbook promises N `unlock`
-// recover the locks; but a crash in the append(ledger.ts:104)->write-head(ledger.ts:106) window leaves the head sidecar
-// ONE entry behind, so openOperatorLedger fail-closes (head != recomputed, C-V-8) and `runCli unlock` THROWS before it
-// removes the `.lock` => that lock is NOT recoverable by `unlock` alone. This test REPRODUCES the state faithfully (append
-// a 2nd entry, then rewind the head sidecar to its post-E1 value) and pins the current behaviour. It does NOT touch
-// ledger.ts/cli.ts. Owner: orchestrator; trigger: G0 of GARDE-HELIUS-1b-0 (the lot that hardens the package's head/append
-// ordering). When 1b-0 lands the fix, THIS test flips - that is the trigger's acceptance signal.
-test("ukemi_record_crash_between_append_and_head_leaves_lock_unrecoverable_by_unlock_KNOWN_DEFECT", async () => {
+// C-G-5 / E-1 (RECOVERY, INVERTED from the 2b-ii-c KNOWN_DEFECT characterisation by GARDE-HELIUS-1b-0 - cross-lot
+// coupling DECLARED). The runbook promises N `unlock` recover the locks after a crash; the 2b-ii-c test pinned that a
+// crash in the append -> write-head window of ledger.ts left the head sidecar ONE entry behind, so `openOperatorLedger`
+// fail-closed (head != recomputed, C-V-8) and `runCli unlock` THREW before removing the `.lock` => the lock was NOT
+// recoverable by `unlock` alone. 1b-0 hardens openOperatorLedger with an explicit crash-in-window RECOVERY (head one
+// entry behind == the durable ledger's penultimate head => heal + continue; a tail truncation, head AHEAD, still
+// fail-closes). This test REPRODUCES the same crash state (append E2, rewind the head sidecar to its post-E1 value) and
+// now asserts the FLIP: `runCli unlock` recovers, appends the chained `unlocked` line, and removes the lock. The flip
+// IS the trigger's acceptance signal. Mutant "recovery removed" (ledger.ts head-behind fail-closes) reds this test.
+test("ukemi_record_crash_between_append_and_head_is_recovered_by_unlock", async () => {
   const { dir, cleanup } = tmpLedger();
   const cycleDir = join(dir, "cyc");
   const csHead = join(cycleDir, "chainstack.head");
+  const csLedger = join(cycleDir, "chainstack.jsonl");
   const limits: RunLimits = { maxCalls: 100, runCaps: { chainstack: 1_000_000 }, methodCaps: { eth_getBlockByNumber: 100 }, cycleFloor: { chainstack: 0 } };
   const stub = ((): Promise<Response> => Promise.resolve(jrpc({ hash: "0x" + "11".repeat(32), number: "0x1", timestamp: "0x1" }))) as typeof globalThis.fetch;
   const real = globalThis.fetch; globalThis.fetch = stub;
@@ -471,13 +474,15 @@ test("ukemi_record_crash_between_append_and_head_leaves_lock_unrecoverable_by_un
     // CRASH-IN-WINDOW: the process died AFTER appending E2 but BEFORE rewriting the head => head is one entry behind.
     writeFileSync(csHead, headAfterE1);
     assert.ok(existsSync(join(cycleDir, "chainstack.lock")), "the chainstack lock is held (the crash left it)");
-    // The runbook's N `runCli unlock` cannot recover THIS lock: openOperatorLedger throws on the stale head BEFORE the
-    // unlock removes the lock file. (KNOWN DEFECT, owner orchestrator, trigger 1b-0.)
-    assert.throws(
-      () => runCli(["unlock", "--cycle", "cyc", "--op", "chainstack", "--reason", "resume after crash"], { ledgerDir: dir, floor: 0, readSnapshot: () => { throw new Error("unused by unlock"); } }),
-      /head sidecar != recomputed head/,
-      "runCli unlock fail-closes on the stale head (C-V-8) - the append->head window is not crash-safe",
-    );
-    assert.ok(existsSync(join(cycleDir, "chainstack.lock")), "the lock is STILL held: `unlock` threw before removing it => NOT recoverable by unlock alone (the runbook RESERVE, item formed for 1b-0)");
+    // 1b-0 FIX: `runCli unlock` RECOVERS the crash-in-window (openOperatorLedger heals the one-behind head instead of
+    // fail-closing), appends the chained `unlocked` line, and REMOVES the lock => the runbook's N-unlock recovers it.
+    const r = runCli(["unlock", "--cycle", "cyc", "--op", "chainstack", "--reason", "resume after crash"], { ledgerDir: dir, floor: 0, readSnapshot: () => { throw new Error("unused by unlock"); } });
+    assert.equal(r.exitCode, 0, "runCli unlock RECOVERS the crash-in-window and returns exit 0 (mutant 'recovery removed' reds here)");
+    assert.ok(!existsSync(join(cycleDir, "chainstack.lock")), "the lock is RELEASED by unlock => recoverable after a crash, never a permanent block (E-1)");
+    const lines = readFileSync(csLedger, "utf8").split(/\r?\n/).filter((l) => l.trim() !== "");
+    assert.ok(lines.some((l) => l.includes('"outcome":"unlocked"')), "the unlock appended its chained `unlocked` line (E1, E2, then unlocked)");
+    const parsed = lines.map((l) => JSON.parse(l) as CycleLedgerEntry);
+    assert.doesNotThrow(() => verifyCycleLedger(parsed), "the chain re-derives end to end after the recovery (no entry lost)");
+    assert.equal(readFileSync(csHead, "utf8").trim(), parsed[parsed.length - 1]!.entry_sha256, "the head sidecar is HEALED to the true post-unlock head");
   } finally { globalThis.fetch = real; cleanup(); }
 });

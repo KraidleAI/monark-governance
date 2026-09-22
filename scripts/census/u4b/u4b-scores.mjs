@@ -26,7 +26,8 @@
 //        {2000e8,100k$,1M$}); B `liquidation-realized-given-liquidated` = {liquidated}. mono-collateral-WETH ONLY
 //        (X=0 exact: non_evaluable if total_collateral_base ≠ aWETH·p0/1e18 or aWETH=0). e-mode fail-closed to
 //        {0, WETH-category}: any other e-mode ⇒ non_evaluable (WETH∈category not verifiable off-line). score =
-//        |Y − ŷ| (base 8-dec, no clipping). Per-cell AND per-stratum calib_digest (sha256 of canonical rows).
+//        max(Y − ŷ, 0) — one-sided exceedance score, decision 126 (base 8-dec, clamped at 0). Per-cell AND
+//        per-stratum calib_digest (sha256 of canonical rows).
 // ============================================================================================
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -241,7 +242,7 @@ export function computeScoresU4b(book, oracle, u3lines) {
   const rowOf = (addr, v) => {
     const Y = Yby.get(addr) ?? 0n;
     const yhat = v.yhat ?? 0n;
-    const score = Y > yhat ? Y - yhat : yhat - Y;
+    const score = Y > yhat ? Y - yhat : 0n;
     return { address: addr, y: Y.toString(), yhat: yhat.toString(), score: score.toString(), liquidated: Y > 0n, strate: strateOf(yhat), m_bps: v.m_bps ?? null, pstar: v.pstar ?? null };
   };
   const rowsA = [], rowsB = [];

@@ -43,7 +43,7 @@ export interface U4bCensus {
 }
 export interface U4bResult { cellA: U4bCell; cellB: U4bCell; census: U4bCensus }
 /** PURE reducer (C-1/C-7/C-8/C-13/C-14): (reduced book B₀, D_e oracle path with pre-B₀ anchor, U3-realized e2
- *  labels) → per-account |Y−ŷ| scores at the per-account FIRST CROSSING p*, two Mondrian cells, per-cell +
+ *  labels) → per-account max(Y−ŷ,0) one-sided exceedance scores at the per-account FIRST CROSSING p*, two Mondrian cells, per-cell +
  *  per-stratum digests. Offline; the CI test replays it from the reduced fixtures. */
 export function computeScoresU4b(book: U4bBook, oracle: U4bOracle, u3lines: readonly U4bU3Line[]): U4bResult;
 /** Mondrian strate of a ŷ (base 8-dec): cuts {2000e8, 100k$, 1M$} → 0..3. Server-side in -2 (C-10). */

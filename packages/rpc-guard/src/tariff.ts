@@ -64,6 +64,15 @@ export const CHAINSTACK_ONE_RU_EVM = new Set<string>([
   "eth_blockNumber", "eth_chainId", "eth_getBlockByHash", "eth_getTransactionByHash",
   "eth_getTransactionReceipt", "eth_sendRawTransaction",
 ]);
+/** GARDE-HELIUS-1b-0 (D-5, FAITS pt 7 "any other Solana method = 1 RU"): the CLOSED, ENUMERATED set of Solana
+ *  methods a Bell course sends to a Chainstack Solana endpoint that are NOT on the archivable-Solana list, each
+ *  DERIVED 1 RU. Bell sends `getAccountInfo` on Solana (universe -iii-a1); the RU tariff THREW `unknown_method` for
+ *  it before 1b (a fail-closed refusal, but Bell cannot route it through Chainstack at all). This set is ENUMERATED,
+ *  never a blanket default of 1 (which would sub-count a 2-RU archival method the tariff forgot - the HELIUS-1
+ *  class). The test asserts it is DISJOINT from the two 2-RU Solana/EVM sets. */
+export const CHAINSTACK_ONE_RU_SOLANA = new Set<string>([
+  "getAccountInfo",
+]);
 
 /** RU for one Chainstack request of `method`. Prefix rule FIRST (FAITS pt 6: all debug_* / trace_* / arbtrace_*
  *  and eth_callMany are always 2 RU), then the closed sets. A method on NO closed list throws (fail-closed, calque
@@ -73,6 +82,7 @@ export function chainstackRu(method: string): number {
   if (CHAINSTACK_AGE_SENSITIVE_EVM.has(method)) return 2; // FAITS pt 4
   if (CHAINSTACK_ARCHIVABLE_SOLANA.has(method)) return 2; // FAITS pt 7
   if (CHAINSTACK_ONE_RU_EVM.has(method)) return 1;        // FAITS pt 4 tail (not age-sensitive)
+  if (CHAINSTACK_ONE_RU_SOLANA.has(method)) return 1;     // FAITS pt 7 tail (Solana, not archivable: getAccountInfo)
   throw new Error(`rpc-guard: Chainstack method '${method}' is absent from the closed RU tariff (fail-closed; calque Helius)`);
 }
 
