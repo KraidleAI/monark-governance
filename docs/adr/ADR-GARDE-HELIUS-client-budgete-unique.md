@@ -317,7 +317,7 @@ data`** livré ici ; **`migration du recorder + grep`** = item formé (ci-dessou
   `1a4fd55` (le gel U-4b et `rpc.ts` intacts). Registre : le paquet reste **`upcoming`** (2b-migration le branchera).
 - **Item formé à déclencheur — `GARDE-HELIUS-2b-migration`** (propriétaire : orchestrateur ; déclencheur : cette découpe R-25) : migrer le recorder
   (`record.ts` : `makeBudgetedCall`/`makeDefaultCall`/`fetch` SUPPRIMÉS, `openGuardedClient`, retry UNIQUEMENT chez l'appelant — réessaie
-  `AbortError`/réseau, 429, ≥ 500, JAMAIS `RpcError`/`NonJsonBody`/autres 4xx/`BudgetExceededError` ; `finally` relâche **N** verrous demandés — keyless
+  `AbortError`/réseau, 429, ≥ 500, `NonJsonBody` a 200/429/>=500 (amendement BELL-RETRY-1 2026-09-22 : retry borne, metre), JAMAIS `RpcError`/`NonJsonBody` 2xx!=200 ou 4xx!=429/autres 4xx/`BudgetExceededError` ; `finally` relâche **N** verrous demandés — keyless
   compris, y compris sur `BudgetExceededError` — par N `runCli unlock` ; journal `rpc_errors` sur disque = `e.detail` (indice fermé) + `.data` validée,
   JAMAIS le corps ni sur disque ni sur stderr ; arguments REQUIS `--ledger-dir`/`--cycle`/`--floor`/`--max-ru`/`--method-caps`, `--max-calls` et
   `--concordance-out` conservés) ; `rpc2.ts` ré-exporte `RpcError`/`BudgetExceededError` du paquet et IMPORTE `isResultLimit`/`isPlanLimited`/
@@ -499,7 +499,7 @@ les verrous (fail-closed, jamais un blocage permanent : la reprise fait les meme
 **Contrat de migration (chaque script).** Aucune lecture directe de cle ; aucun `fetch` payant direct ; args REQUIS
 sans defaut `--ledger-dir`/`--cycle`/`--floor`/`--max-ru`/`--method-caps` (+ `--max-calls` conserve, fail-closed) ;
 refus de budget = `BudgetExceededError` canonique, JAMAIS reessaye ; retry appelant borne aux transitoires seulement
-(AbortError/reseau, 429, >= 500 -- 3 pour oracle-path, 0 pour redraw), jamais `RpcError`/`NonJsonBody`/autres 4xx/budget.
+(AbortError/reseau, 429, >= 500 -- 3 pour oracle-path, 0 pour redraw), `NonJsonBody` a 200/429/>=500 retente (BELL-RETRY-1, cote Bell `quorum.ts` seulement — `withUniverseRetry` et `makeGuardedEthCall` restent a aligner : items R-BR3/R-BR4), jamais `RpcError`/autres 4xx/budget.
 
 **Pont d'identite -- RETIRE au pli (declencheur "fusion 2b-ii" TIRE).** A la base originelle (`e7f22b8`, AVANT 2b-ii),
 `rpc2.ts` declarait ses PROPRES `BudgetExceededError` / `RpcError` et un shim de `u4-guard.mjs` convertissait paquet->pool.
@@ -725,7 +725,7 @@ corrige l'attribution 1b-i FAUSSE de 1b0-E (le ripple `finally` du recorder est 
   src l'important de quorum.ts suivent SANS edition ; `Fatal403Error`/`RedirectBlockedError` sous-classent la canonique. `apps/bell/package.json`
   declare `@monark/rpc-guard` (deps-hygiene ADR-M018 D1).
 - **withUniverseRetry porte les semantiques durcies (C-3/D-9)** : cle sur la `TransportError` du paquet (`name`+`code`+`retryAfterMs`) ;
-  403 -> Fatal403Error, 3xx -> RedirectBlockedError (hard stops jamais retentes), 429/5xx retentes en honorant Retry-After, RpcError/NonJsonBody/4xx!=429
+  403 -> Fatal403Error, 3xx -> RedirectBlockedError (hard stops jamais retentes), 429/5xx retentes en honorant Retry-After, RpcError/NonJsonBody (NON aligne sur BELL-RETRY-1 : item R-BR3, declencheur = avant la phase B univers)/4xx!=429
   re-jetes. La `HttpStatusError` Bell est SUPPRIMEE (une seule classe canonique, consigne C-1). Tests `bell_universe_retry_honors_retry_after_and_hard_stops_on_403`,
   `transport_403_is_fatal_hard_stop`.
 - **RUN ledger CONSERVE (D-6)** : `makeUniverseBudget`/`makeBudgetedCall` retires du chemin de metrage ; le client est le SEUL compteur ;
@@ -971,3 +971,55 @@ Declencheur : PREMIERE observation en course (un `.lock` orphelin constate apres
   tue par "call omis au site") ; `bell_eth_course_refuses_keyless_labels_in_operators` + `bell_eth_course_fails_closed_without_eth_method_caps` (refus
   fail-closed AVANT tout verrou, 0 `.lock` ; tues par leurs mutants dedies) ; `bell_universe_429_streak_stops_fail_closed` (compose ; tue par 1b-ii
   "statusOf ignore .code" et le mutant dedie ">= -> >").
+
+# Amendement PROPOSÉ à ADR-GARDE-HELIUS — BELL-RETRY-1 : `NonJsonBody` (HTTP 200 + corps non-JSON) devient TRANSITOIRE (retry borné)
+
+- **Statut** : PROPOSÉ (worker G1). Ne touche AUCUN fichier du dépôt ; à folder par l'orchestrateur au G7 si accepté (R-20 : le worker ne committe pas). Cible : `docs/adr/ADR-GARDE-HELIUS-client-budgete-unique.md`.
+- **Provenance** : modèle épinglé `claude-opus-4-8[1m]`, effort max ; 2026-09-22 ; worktree `F:\Monark-wt-bellretry1` (branche `lot/bell-retry-1`, base `lot/etude-suite` @ `1f4b746`) ; réviseur : orchestrateur (G2 ‖ checkpoint-2 à suivre).
+- **Déclencheur** (journal de course, `docs/CHANTIERS.md:748`) : 14:21 UTC — le tirage Bell TSLAx a STOPpé fail-closed après 201 pages sur un `FATAL HTTP 200` = `TransportError` name `NonJsonBody` (corps non-JSON sur une réponse 200 Helius, transitoire fournisseur). Item formé `BELL-RETRY-1` (`docs/CHANTIERS.md:754`). `error_origin` : plan (classe d'erreur non qualifiée à la conception du retry, Amendement 2b).
+
+## Décision
+
+L'Amendement GARDE-HELIUS-2b déclarait (verbatim, ligne ADR ~320) : le retry chez l'appelant « réessaie `AbortError`/réseau, 429, ≥ 500, **JAMAIS** `RpcError`/**`NonJsonBody`**/autres 4xx/`BudgetExceededError` ». Cet amendement **révise la seule classe `NonJsonBody`** :
+
+- **`NonJsonBody` est TRANSITOIRE** (retry borné, backoff existant) **quand son statut (`.code`) est 200, 429, ou ≥ 500** (5xx : 502/503/504…). Un `NonJsonBody` sur un **4xx ≠ 429 reste FATAL** (re-jeté immédiatement).
+- Inchangé pour toutes les autres classes : `RpcError` (revert déterministe), `HttpError` 403 / autres 4xx, `BudgetExceededError` → jamais réessayés ; `AbortError`/réseau/`TypeError`, `HttpError` 429/≥500 → transitoires.
+
+**Fait de portée mesuré (à consigner, pour éviter le faux « manque » en G2)** : via CE transport, un `NonJsonBody` n'est atteignable qu'avec un code **2xx** — `transport.ts:229` route tout `!res.ok` (4xx/5xx) vers `HttpError` et `transport.ts:228` route un 3xx vers `RedirectBlocked`, AVANT le `JSON.parse` (`transport.ts:241`) qui seul lève `NonJsonBody` avec `.code = res.status`. Les arms **429/≥500** du prédicat sont donc **défensives** (pour tout autre producteur de la classe canonique) ; l'arm **200** est le cas réel (page HTML de passerelle à HTTP 200).
+
+**Étiquette de journal** (`statusOf`) : un `NonJsonBody` est étiqueté **`"non-json <status>"`** (ex. `non-json 200`), plus jamais `"HTTP 200"` — cette dernière **masquait la classe** (le « FATAL HTTP 200 » du journal). Placé AVANT la branche générique `.code` de `statusOf` (qui rendait `"HTTP 200"`).
+
+## Bornes et backoff (E-3)
+
+- Backoff déterministe **`400·(i+1) ms`** (inchangé, `quorum.ts` `withRetry`), `sleep` injectable (tests hors-ligne : no-op).
+- Bornes de retry inchangées, propres à l'appelant : **défaut `tries = 4`** (`withRetry`, ex. `collect.ts:353` corps de tx) ; **`RETRY_TRIES = 6`** pour le tirage cross-check (`rebase-crosscheck.ts:626/672`, le chemin qui a STOPpé). « retry borné 4 » de la mission = la borne par défaut. `onRetry` compté une fois par retry réellement pris ⇒ métré dans `budget.json.retries_by_method[<méthode>]` (le champ qui valait 0 quand TSLAx a STOPpé).
+
+## Tuyaux déclarés (règle Branchement, F-1)
+
+| Pièce | Entrée (qui produit) | Sortie (qui consomme) | État (où) | Test d'intégration (non-LLM) |
+|---|---|---|---|---|
+| `isTransient` (prédicat Bell) `apps/bell/src/quorum.ts` | `TransportError` du transport `@monark/rpc-guard` (`raise(op,"NonJsonBody",res.status,text)`) | `withRetry` (borne appelant) → `scanFullMint`/`collect` | pur (pas d'état) | `bell_crosscheck_guarded_nonjsonbody_200_gateway_html_is_retried_and_metered` (real `openGuardedClient`, seul `globalThis.fetch` bouchonné, corps HTML de passerelle @200) ; unités `bell_retry_nonjson_*` |
+| `statusOf` (étiquette) `apps/bell/src/quorum.ts` | `TransportError` (`.name`/`.code`) | journal `faults[].status` (`collect.ts:809` `journal.json`) ; `retries_by_method` métré via `onRetry` | fichier `budget.json`/`journal.json` sous `--out` | idem (`retries_by_method.getTransactionsForAddress >= 1` après recovery) |
+
+`packages/rpc-guard/src/**` **INTOUCHÉ** (le prédicat est côté Bell). Le transport lève déjà `NonJsonBody` avec `.code = res.status` (`errors.ts:38`, `transport.ts:193`) : aucune modification paquet nécessaire.
+
+## Résidus nommés à déclencheur (zéro dette nue)
+
+- **R-BR1 — `NonJsonBody` sur 201–299 (autres 2xx) reste FATAL.** Choix littéral de la mission (« 200/502/503/504 transitoire »). Un 204/206 à corps non-JSON n'est pas réessayé. *Non atteignable en pratique* (une page HTML de passerelle est un 200). **ÉPINGLÉ PAR TEST (checkpoint-2 C-2)** : la matrice `bell_retry_nonjson_transient_matrix_...` asserte 201 ET 204 fatals (n=1) ; le mutant V4 (`=== 200` élargi à `[200,300)`) rougit ⇒ ce n'est plus un résidu non testé mais un invariant épinglé. *Déclencheur restant* (élargir la doctrine) : décision d'admettre `code >= 200 && code < 300`. Propriétaire : orchestrateur.
+- **R-BR2 — le classifieur SYMÉTRIQUE côté Ukemi n'est PAS aligné.** `apps/sentinel/src/ukemi/record.ts:345` porte le MÊME prédicat transitoire **sans** la clause `NonJsonBody` (et `record.ts:322-323` exclut explicitement `NonJsonBody` du retry). Une course Ukemi (job Narabi, tirage de calibration) heurtant un `NonJsonBody@200` STOPperait **à l'identique**. HORS périmètre de ce lot (Bell-scoped ; `apps/sentinel/**` non touché). *Déclencheur* : prochain lot touchant `record.ts`, OU première occurrence d'un `NonJsonBody@200` sur une course Ukemi (alors STOP + lot immédiat, calque BELL-RETRY-1). Propriétaire : orchestrateur. `error_origin` : plan (Amendement 2b, même classe non qualifiée des deux côtés).
+
+## Mode MAST contré (checkpoint-2 C-5)
+
+**« vérification incorrecte »** (MAST catégorie 3 « vérification des tâches / Task Verification », FC3 — arXiv:2503.13657, via doc 06 §5/§6.4 [lu]) : une suite de tests VERTE qui ne **reproduit pas** le STOP réel de production. Contre-mesure de ce lot : **A-8** (le corps HTML de passerelle réel traverse le vrai `openGuardedClient` ⇒ le test exerce le chemin `transport → isTransient → withRetry → scanFullMint` réel) **+ M1b** (retirer la clause `NonJsonBody` fait REJETER `runMain` avec `NonJsonBody ... code 200` = le STOP TSLAx exact — le test d'intégration est vert PARCE QUE le STOP est reproductible sous mutation, jamais par vacuité).
+
+## Preuve (rendu G1, pli checkpoint-2)
+
+- Oracle (env `-u` clés payantes, A-7) : `gate:vocab`/`typecheck`/`lint`/`lint:ratchet`/`lang:gate`/`export:check` = exit 0 ; `test` = exit 0, **872 tests, 871 pass, 0 fail, 1 skip** (skip pré-existant conditionnel `u4b_labels_replay_via_main_real_artifact`, artefacts e2 réels hors dépôt, fichier non touché par ce lot).
+- **Mutants** (`mutants.mjs`, mutation source transitoire + restauration byte-exacte par sha) : **10 mutants, tous ROUGES, tous restaurés** (`NonJsonBody` retiré du prédicat [unité + cross-check garanti] ; 4xx admis ; 200 retiré ; 5xx retiré ; `statusOf` ancien libellé ; `onRetry` sur la dernière tentative ; retry non borné ; épuisement jette un `Error` générique ; **V4 checkpoint-2 C-2 : `=== 200` élargi à `[200,300)` ⇒ 201/204 deviennent transitoires ⇒ rougit la matrice, pin R-BR1**).
+- R-25 = **151** lignes (147+/4−, 3 fichiers ; pathspec `ci.yml:65` verbatim, docs exclus ; +8 au pli checkpoint-2 C-2) — < 300 attendu. Gel U-4b : **9/9 fichiers byte-identiques** AVANT==APRÈS.
+
+### Items formes au G2/checkpoint-2 de BELL-RETRY-1 (orchestrateur)
+- R-BR3 : `apps/bell/src/universe.ts:113` `withUniverseRetry` porte le meme predicat sans la clause NonJsonBody (VIVANT, consomme par `universe-cli.ts`). Declencheur : AVANT la phase B univers (50 000 cr, ledger dedie) ; forme recommandee : centraliser `isTransientTransport(name, code)` consomme par les 3 classifieurs Bell.
+- R-BR4 : `apps/bell/src/ethereum.ts:77` `makeGuardedEthCall` (jambe ETH). Declencheur : premiere course `--eth`.
+- R-BR2 -> lot UKEMI-RETRY-1 (precondition du depart de la course Ukemi).
+- Budget de cycle : sous RETRY_TRIES=6, une passerelle durablement cassee coute jusqu'a 6 tentatives metrees par faute avant STOP (contre 1) — marge du cycle Helius (10 M, consomme ~0,1 M) confirmee avant la fusion D-n.
