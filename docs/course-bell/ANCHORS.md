@@ -45,6 +45,7 @@ Artefacts par frontière :
 | 2026-09-22T16:51:20Z | mint_resume | TSLAx | `178f879ffbaf7d4329b332f7492ca8e58b92891bf2c0c0f1ddf3a1a49950f748` | n/a | n/a | `88cb5f9` | `mint_resume-TSLAx-3-manifest.txt.ots` | epoque retry : BELL-RETRY-1 fusionnee (`4db059e`, `quorum.ts` `5871b4b6`), arbre d'execution `b9b207b` |
 | 2026-09-22T19:11:46Z | mint_resume | TSLAx | `04c6c3bfc596a18069e43ea53e6fb2260965a93d1c444d4a5bebb1ef2d682c83` | n/a | n/a | `5a7c066` | `mint_resume-TSLAx-4-manifest.txt.ots` |
 | 2026-09-22T20:02:56Z | mint_start | AAPLx | `6c66b1b380a3be3d646d49943002901c22c8e43befdcadb47a74540ff88ab210` | n/a | n/a | `a2bdcac` | `mint_start-AAPLx-manifest.txt.ots` |
+| 2026-09-22T20:41:27Z | mint_resume | AAPLx | `9086f0e33e01c37465e9dc986289ee7bc7f4d1afdc051dafce9dc64a23885607` | n/a | n/a | `f841311` | `mint_resume-AAPLx-manifest.txt.ots` |
 
 - `entry_sha256` = `entry_sha256` de la dernière ligne de `ledger-<mint>.jsonl` **là où elle existe**, sinon `n/a`.
 - `ledger_sha256` = champ `ledger_sha256` de `crosscheck-<mint>.json` (à `mint_end`), sinon `n/a`.
