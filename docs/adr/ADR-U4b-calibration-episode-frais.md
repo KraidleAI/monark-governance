@@ -525,19 +525,20 @@ réponse non-2xx, et un `NonJsonBody` est un 2xx). **Calque exact de BELL-RETRY-
   transport**, assertés FATALS dans la matrice ; la borne 2xx≠200 du recorder est épinglée (chez Bell, V4 survivait).
 
 ### 5. Résidus formés (à déclencheur, zéro dette nue)
-- **R-U-1 (contradiction ADR-GARDE-HELIUS, TRANSITOIRE jusqu'au fold Bell C-1)** : `record.ts:322-323` cite
-  C-4/C-6(iii) ; `ADR-GARDE-HELIUS-client-budgete-unique.md:320,502` (NON révisé) dit « JAMAIS `NonJsonBody` ».
-  L'amendement PROPOSÉ de BELL-RETRY-1 (`F:\tmp\bellretry1\ADR-amendement.md` l.9-12, [lu]) révise la clause ~320 de
-  façon **DOCTRINE-GÉNÉRALE** (« le retry chez l'appelant … `NonJsonBody` transitoire à 200/429/≥500 ») ⇒ elle COUVRE
-  le recorder une fois foldée (le lot Bell ne fold que le CODE de `quorum.ts` ; le CODE du recorder est CE lot). **Hors
-  périmètre** (ce lot = ADR-U4b + `record.ts`). *Déclencheur* : au fold C-1 de BELL-RETRY-1, confirmer que la clause
-  ~320 révisée reste doctrine-générale (elle l'est, texte proposé) ; sinon (fold restreint à Bell) un 2e amendement
-  daté d'ADR-GARDE-HELIUS accompagne la fusion UKEMI-RETRY-1. Propriétaire : orchestrateur.
-- **R-U-2 (classifieurs symétriques non alignés)** : deux autres prédicats « `NonJsonBody` fatal » subsistent —
-  `scripts/census/u4-guard.mjs:120` (`if (raw.name === "NonJsonBody") return false;`) et `apps/bell/src/universe.ts:99,114`
-  (`withUniverseRetry`, « NonJsonBody … NOT retried »). HORS périmètre (record.ts seul). *Déclencheur* : 1re occurrence
-  sur le chemin census/redraw (u4-guard) ou la pagination Bell (universe.ts), OU un lot touchant ces fichiers.
-  Propriétaire : orchestrateur. `error_origin` : plan.
+- **R-U-1 (contradiction ADR-GARDE-HELIUS) — RÉSOLU** : le fold BELL-RETRY-1 est **FUSIONNÉ** (`lot/etude-suite` @
+  `4db059e`, G7 `docs/G7-lot-bell-retry-1.md`) ; `ADR-GARDE-HELIUS-client-budgete-unique.md:320` lit désormais «  …
+  `NonJsonBody` a 200/429/>=500 (amendement BELL-RETRY-1 2026-09-22 : retry borné, métré), JAMAIS … `NonJsonBody`
+  2xx!=200 ou 4xx!=429 … » — clause **DOCTRINE-GÉNÉRALE** de l'Amendement 2b dont le recorder (2b-ii) est le sujet ⇒
+  elle COUVRE `record.ts`. Le CODE du recorder est CE lot ; code et doctrine **CONCORDENT** désormais, plus de
+  contradiction. **Item CLOS.**
+- **R-U-2 (classifieur symétrique census non aligné)** : `scripts/census/u4-guard.mjs:136` (HEAD `lot/etude-suite` ;
+  `:120` sur la base `831a87b` — dérive de ligne) porte le même prédicat `if (raw.name === "NonJsonBody") return false;`.
+  HORS périmètre (ce lot = `record.ts` seul). Ses consommateurs de course sont **keyless-only par code** (discover /
+  select / fill-ts ; labeler CARTO-T1-1) ; le prober payant n'existe que via `--with-chainstack`, **ABSENT de la ligne
+  prereg** ⇒ jamais une précondition de course. *Déclencheur* : **après clôture de course ou à une frontière ancrée,
+  OU ajout de `--with-chainstack` à un pas u4-guard de la course** — jamais « 1re occurrence ». Propriétaire :
+  orchestrateur. `error_origin` : plan. (Le bras `apps/bell/src/universe.ts` `withUniverseRetry` est **R-BR3, déjà
+  formé côté Bell** `4db059e` — hors de ce résidu.)
 - **R-U-3 (branches défensives non atteignables)** : les branches `NonJsonBody` 429/≥500 sont défensives (via ce
   transport un `NonJsonBody` ne porte qu'un 2xx) ⇒ aucun mutant du chemin servi ne peut les rougir (comme les bras
   429/5xx de Bell). Gardées pour la fidélité du calque. *Déclencheur* : un changement de transport levant
