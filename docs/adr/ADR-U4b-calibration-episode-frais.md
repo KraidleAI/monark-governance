@@ -747,3 +747,308 @@ Valeur complète du sha #7 (AVANT == APRÈS) :
 - Au commit du pli : amendement D4 daté portant AVANT `0e232519…` / APRÈS' (recomputé). Si le prereg d'une calibration suivante a re-gelé `rpc.ts` entre-temps ⇒ STOP (re-gel et re-prereg, ou report). **Propriétaire** : orchestrateur.
 
 *(ADR-U4b n'est pas dans le gel du prereg §2 ; les docs sont exclus du décompte R-25 — `ci.yml:65`. Ajout pur : aucune valeur de référence existante n'est éditée.)*
+
+## Amendement daté 2026-09-22 (U-4b-1b-3) — décision **D-BORNE-1** « borne `to_block` » : sélecteur et `--fill-ts` bornés au domaine observé, sidecar INCRÉMENTAL reprenable (v3 = fold G7 : pli `d2e36ac` + micro-pli `1bcfbd7`)
+
+> **Numéro de décision : D-BORNE-1** (libellé libre). Le G1 laissait le numéro à l'orchestrateur (`docs/G1-lot-u4b-1b-3.md:36`) ; le checkpoint-2 l'a exigé (C-V-5, `docs/CHECKPOINT2-lot-u4b-1b-3.md:41`) ; le pli l'a fixé ; le ruling de fold le retient (`docs/CHANTIERS.md:895`). « D6 » et « D-6 » sont déjà pris dans cet ADR, avec des sens distincts : « indice fermé D6 » (l. 106) et « delta D-6 » (l. 293).
+
+> **Provenance.** G1 : worker `claude-opus-4-8[1m]` (effort max), commit de lot `801859f` (parent = merge-base avec
+> `lot/etude-suite` = `b900b4b`). Pli : worker `claude-opus-5-5[1m]` (effort max, décision 133), commit `d2e36ac`, journal
+> `docs/PLI-lot-u4b-1b-3.md` ; auteur du texte v2 de cet amendement. Micro-pli (test seul) : worker `claude-opus-5-5[1m]`,
+> commit `1bcfbd7`. **Fold v3 (ce texte)** : worker `claude-opus-5-5[1m]` (effort max), 2026-09-22 vers 23:4x UTC, docs
+> seulement, aucun commit (R-20) ; toutes les corrections dues sont repliées et tracées à leur source (§9). **Insertion par
+> l'orchestrateur `claude-fable-5-1` SEUL**, en queue de ce fichier, dans le commit du G7 ; réviseur = orchestrateur (R-21).
+> Cette v3 remplace la v2 et la v1 (aucune des deux n'a été foldée). Seuls `scripts/census/u4b/u4b-select-episode.mjs`
+> (+ `.d.mts`) et `apps/sentinel/test/u4b-select-episode.test.ts` bougent ; R-25 du lot cumulé `b900b4b...1bcfbd7` (pathspec
+> `ci.yml:65` verbatim) = **472** lignes (448 + / 24 −), sous `VIBEGATES_PR_LIMIT = 1205` (`ci.yml:43`) — mesuré au
+> micro-pli, rejoué par le G2-delta-2 et le re-checkpoint-2 (`docs/CHANTIERS.md:895`), re-mesuré au fold. Corps D1..D5 et
+> amendements antérieurs de cet ADR byte-identiques : ajout pur en fin de fichier.
+
+### 1. Chaîne de revue (ordre réel ; heure = `TZ=UTC git log` du commit porteur)
+| étape | acteur | objet (commit) | verdict et mesures | source en dépôt |
+|---|---|---|---|---|
+| G1 | worker `claude-opus-4-8[1m]` | `801859f` (18:23) | 5 tests, 8 mutants rouges, oracle 922/921/0/1 (worktree G1 ; sur clone frais de `801859f` : 926/925/0/1, checkpoint-2 et G2), R-25 221 | `docs/G1-lot-u4b-1b-3.md:21,24,27,30` |
+| checkpoint-1 | — | — | **ABSENT** : lot lancé sans checkpoint-1 ; CA-1..CA-5 rendus rétroactivement au checkpoint-2 ; `error_origin` orchestrateur | `docs/CHANTIERS.md:797` ; `docs/CHECKPOINT2-lot-u4b-1b-3.md:30` |
+| checkpoint-2 | validateur `claude-fable-5-1` | `801859f` ; persisté `3ba5a06` (18:43) | ACCEPTE-AVEC-CORRECTIONS (C-V-1 bloquante … C-V-6, item tmp + rename), conditionnel au G2, encore absent à cette heure ; 926/925/0/1 | `docs/CHECKPOINT2-lot-u4b-1b-3.md:12,18,36-43` |
+| G2 | relecteur `claude-opus-4-8[1m]` | `801859f` ; persisté `a41331b` (18:58) | PASS-AVEC-CORRECTIONS (C-G2-1..C-G2-3) ; 926/925/0/1 au 2ᵉ passage (1ᵉʳ passage : flake libuv `UV_HANDLE_CLOSING`, hors lot) | `docs/G2-lot-u4b-1b-3.md:13,83-87,104-110` |
+| pli | worker `claude-opus-5-5[1m]` | `d2e36ac` (19:58) | 934/933/0/1 ; 17 mutants tués par leur test nommé (TAP) ; R-25 443 ; A-6 11/11 | `docs/PLI-lot-u4b-1b-3.md:13-15` |
+| re-checkpoint-2 | validateur `claude-fable-5-1` | `d2e36ac` ; persisté `0440b23` (20:18) | ACCEPTE-AVEC-CORRECTIONS C-1..C-4 (au fold/G7), conditionnel au G2-delta ; erratum de son C-V-3 | `docs/CHECKPOINT2-lot-u4b-1b-3-re.md:16,29-41` |
+| G2-delta | relecteur `claude-opus-5-5[1m]`, instance séparée | `d2e36ac` ; persisté `66f75c2` (20:58) | PASS avec C-GD-1..C-GD-3 ; 934/933/0/1 sur le clone et sur deux fusions à blanc | `docs/G2-lot-u4b-1b-3-delta.md:7-22,229,248,254` |
+| micro-pli (test seul) | worker `claude-opus-5-5[1m]` | `1bcfbd7` (21:34) | 935/934/0/1 ; 25 mutants : 24 tués par leur test nommé (18 du cœur M1..M17 + D4, 6 supplémentaires D6, M18..M22), D7 déclaré équivalent ; R-25 472 | `docs/CHANTIERS.md:895` ; message du commit `1bcfbd7` ; décompte nominatif : `docs/G2-lot-u4b-1b-3-delta2.md` après re-persistance (note D-1) |
+| G2-delta-2 ‖ re-checkpoint-2 | même relecteur (contexte intact) ‖ validateur | `1bcfbd7` ; persistés `91a719b` (22:09) | PASS ‖ ACCEPTE ; 24/24 + D7 équivalent ; mutant VX-L2 du validateur rouge ; fusions à blanc `15fb00a` et `a703e24` : 947/945/0/2 (clones : rejeu e2 sauté) | chiffres : `docs/CHANTIERS.md:895` ; textes intégraux : `docs/G2-lot-u4b-1b-3-delta2.md`, `docs/CHECKPOINT2-lot-u4b-1b-3-re2.md` (note D-1) |
+| G7 | orchestrateur `claude-fable-5-1` | fusion de `1bcfbd7` + ce fold | oracle 7 gates sur l'arbre principal fusionné (note « compte G7 ») | entrée « G7 U-4b-1b-3 » de `docs/CHANTIERS.md` |
+
+- **Note D-1 (persistance).** Au commit `91a719b`, les deux revues du micro-pli ont reçu le bon titre mais, de la ligne 3 à
+  la fin, le corps des revues du PLI (`docs/G2-lot-u4b-1b-3-delta.md` et `docs/CHECKPOINT2-lot-u4b-1b-3-re.md`,
+  byte-identiques, mesuré au fold). Le G7 re-persiste leurs corps avant ce commit (acte orchestrateur) ;
+  `error_origin` : orchestrateur. La source en dépôt des verdicts et chiffres du micro-pli est `docs/CHANTIERS.md:895`.
+- **Note « compte G7 ».** Attendu sur l'arbre principal fusionné : N + 14, où N = compte de `lot/etude-suite` sur l'arbre
+  principal au moment de la fusion, et 14 = tests ajoutés par le lot (5 au G1, `docs/G1-lot-u4b-1b-3.md:21` ; 8 au pli,
+  `docs/PLI-lot-u4b-1b-3.md:13` ; 1 au micro-pli, 934 → 935, `docs/CHANTIERS.md:895`). Un seul skip attendu :
+  `sentinel_run_releases_chainstack_lock_on_sigterm` (win32), car l'arbre principal exécute le rejeu e2
+  (`docs/CHANTIERS.md:868`). Avec N = 937 (arbre principal après la fusion A-9-OUTILLE, `docs/CHANTIERS.md:903` ; aucun
+  fichier hors `docs/` modifié depuis `eab911a`, mesuré au fold), l'attendu est **951/950/0/1**. La valeur 947/946/0/1
+  (O2-1 du G2-delta-2, reprise `docs/CHANTIERS.md:895,907`) était calculée contre `a703e24` (933 + 14) ; la fusion
+  A-9-OUTILLE l'a rendue périmée (`error_origin` : orchestrateur). La mesure réelle est portée par l'entrée G7 de
+  `docs/CHANTIERS.md` et par le message du commit de fusion. Tout écart avec l'attendu = STOP avant commit.
+
+### 2. Constat mesuré (course réelle du 2026-09-22 ; corrigé au pli et au fold)
+- **discover v2** : brut `phase:complete`, 13 696 `LiquidationCall` sur `[22 803 459, 26 034 127]`
+  (`docs/CHANTIERS.md:771`, section « Decision 133 », l. 768). **`to_block` = 26 034 127 = finalized 26 034 191 − 64**
+  (ligne de lancement de 16:38:17 UTC, `docs/PLI-lot-u4b-1b-3.md:83` ; `docs/G2-lot-u4b-1b-3-delta.md:264`) : c'est la
+  règle `B_hi = finalized − 64` de §DISC:29 (`docs/PLAN-u4b-prereg.md:29`). `to_block` n'est donc **pas** la tête de chaîne :
+  les blocs au-delà existent.
+- **Arrêts du `--fill-ts` (C-GD-3 (c), O-D7).** Le journal (`docs/CHANTIERS.md:771-772`) consigne un 1ᵉʳ essai arrêté
+  sur un 429 de `mevblocker.io` après environ 2 700 appels keyless, puis « x3 STOP … malformed block » entre 17:01 et 17:24 UTC,
+  après environ 12 000 appels keyless chacun (« ~36 000 appels keyless perdus », 0 RU). Les journaux sur disque, relus par le
+  G2-delta (`docs/G2-lot-u4b-1b-3-delta.md:378-383`), disent autre chose : dernière erreur 429 `mevblocker.io` à 17:01,
+  `malformed block` à 17:09 et à 17:23, soit **2** arrêts `malformed block` confirmés. Les comptes d'appels (2 700,
+  12 000, 36 000) ne figurent que dans le journal, pas dans les journaux d'exécution, et ne sont pas re-mesurés. Aucun
+  sidecar n'a été écrit : chaque essai était tout-ou-rien (`docs/CHANTIERS.md:772`).
+- **Cause [lu au code]** : `clusterWethLiquidations` (gelé, `liquidation-logs.mjs:74`) borne la recherche de fenêtre à
+  `B_first + 60 000` (`hiSpan`, `:66`) ; pour un cluster qui s'ouvre en fin de plage, `firstBlockAtOrAfter` (gelé,
+  `windows.ts:50`) sonde des blocs `> to_block` **jusqu'au-delà de la tête** : c'est là, et seulement là, qu'un fournisseur
+  rend `null`, donc `asBlock` lève `malformed block` (`rpc2.ts:64`) et le quorum-2 devient impossible. `windows.ts:44-49`
+  pose la précondition que l'appelant borne `hi` par un bloc FINALISÉ ; `B_first + 60 000` ne l'est pas. Citations
+  vérifiées [lu] par le G2-delta (`docs/G2-lot-u4b-1b-3-delta.md:275-280`). `error_origin` de l'arrêt : plan (borne de
+  recherche non liée à `to_block`, `docs/CHANTIERS.md:772`).
+- **Corrections de texte (checkpoint-2 C-V-3) et mesure de fold (re-checkpoint-2 C-2, G2-delta C-GD-3 (d)).**
+  (a) La phrase du G1 « aucun bloc n'existe au-delà de `to_block` (tête de chaîne) » était **fausse** (point précédent) ;
+  corrigée au pli (`u4b-select-episode.mjs:87` et docstring `:323` : « NOT the chain head »,
+  `docs/G2-lot-u4b-1b-3-delta.md:261`).
+  (b) L'énoncé du checkpoint-2 « le `block_ts` du brut réel contient des ts `> to_block` »
+  (`docs/CHECKPOINT2-lot-u4b-1b-3.md:39`) est **faux comme fait mesuré**. Mesure en lecture seule sur le brut de la course
+  (hors dépôt par construction ; `brut_sha256` recalculé = porté = `2ffa3acf…3fa8`) : `block_ts` = **2 328 clés**, minimum
+  22 843 909, **maximum 24 565 504**, **0 clé `> to_block`** (et 0 clé `≥ to_block`) ; plus grand bloc d'enregistrement
+  26 029 710 ; provenance du témoin `calls 6000 / max_calls 6000`, `cluster_error: rpc-guard: run_calls` : le témoin a
+  épuisé son budget avant les clusters de fin de plage. Faite au pli (`docs/PLI-lot-u4b-1b-3.md:78-85`), refaite
+  indépendamment par le G2-delta (`docs/G2-lot-u4b-1b-3-delta.md:289-307`) et par le validateur, qui a rendu l'erratum de
+  son C-V-3 (`docs/CHECKPOINT2-lot-u4b-1b-3-re.md:24,29-30`) ; journalisée `docs/CHANTIERS.md:854`. Par CODE, un brut
+  **peut** porter de tels ts : le témoin de discover enregistre chaque `blockAt` sans borne (`u4b-discover.mjs:139`) et
+  `--to-block` est un argument libre, jamais comparé à `finalized` (`:73`). L'erratum **renforce** D-BORNE-1 : 26 029 710
+  est à moins de 60 000 blocs de `to_block`, donc un témoin non épuisé aurait sondé au-delà de `to_block` sur cette plage
+  même (`docs/CHECKPOINT2-lot-u4b-1b-3-re.md:30`).
+
+### 3. Décision D-BORNE-1 — le domaine de sélection est `[.., to_block]` ; au-delà, `+Infinity` sans lecture
+Lignes citées au bout du lot, `1bcfbd7` (blob LF du `.mjs` `20e1cf9d…3280`, inchangé par le micro-pli).
+1. **`tsOf(block > to_block) = +Infinity`, sans lecture réseau NI lecture de `block_ts`**, dans `reduceSelection` (hors
+   ligne, `:100`) ET `runFillTs` (gardé keyless, `:410`). Un ts `> to_block` éventuellement présent dans `block_ts` est
+   **ignoré délibérément** : c'est un **choix de domaine** (le domaine observé du brut, `B_hi` par défaut), pas un fait de
+   chaîne. La recherche binaire converge alors au plus à `to_block + 1`, donc `B_last ≤ to_block` ; aucun `blockAt` n'est émis
+   au-delà de `to_block` (l'arrêt `malformed block` disparaît). Le clamp vit **entièrement** dans les fermetures `tsOf`
+   injectées par `u4b-select-episode.mjs` : `windows.ts` et `liquidation-logs.mjs` restent intouchés (gel D4, §5).
+2. **Troncature étendue, fail-closed** : `complete ⟺ (B_last ≤ B_hi) ∧ (B_last < to_block)` ; code (`:111`)
+   `if (!(c.b_last <= bHi) || c.b_last >= toBlock) reasons.push("window_truncated")`. Le **seul** cas qui bascule
+   `complete → window_truncated` par rapport à la lecture non bornée du prereg est la frontière EXACTE
+   `firstBlockAtOrAfter == to_block + 1` (fenêtre finissant pile à `to_block`, indiscernable dans `[.., to_block]` d'une
+   fenêtre qui déborde). Avec `--b-hi < to_block`, le terme `to_block` est inerte : §DISC:44 s'applique verbatim. Arêtes
+   `== to_block`, `== to_block + 1`, `≥ to_block + 2` et `--b-hi < to_block` rejouées par le checkpoint-2
+   (`docs/CHECKPOINT2-lot-u4b-1b-3.md:22`).
+3. **Information investisseur (CA-2 du checkpoint-2)** : D-BORNE-1 est une **restriction** du prereg, jamais une
+   relaxation. Le seul cas basculant ne change l'épisode servi que si ce cluster de fin de plage est le **seul** éligible
+   (`episode = argmin B_first`, §DISC:49) ; il tombe alors dans **H-0 `no_fresh_episode`**, déjà pré-enregistré
+   (`docs/PLAN-u4b-prereg.md:95` : « NON ⇒ arrêt `no_fresh_episode`, item formé (élargir fenêtre / abaisser N_min = décision
+   investisseur), AUCUNE course »). Aucune valeur pinnée n'est touchée : aucun `selection_sha256` réel n'existe, le
+   `--fill-ts` n'a jamais complété (`docs/CHECKPOINT2-lot-u4b-1b-3.md:32`).
+4. **Variante écartée (fidélité exacte)** : autoriser la seule sonde `to_block + 1` (clamp à `> to_block + 1`, règle
+   §DISC:44 verbatim) déciderait exactement le cas-frontière du point 2. Écartée parce que (i) l'existence de `to_block + 1`
+   n'est pas garantie par le code : `--to-block` est un argument libre de `u4b-discover` (`u4b-discover.mjs:73`), non vérifié
+   contre `finalized`, et un brut à `to_block` = tête réintroduirait la sonde `null`, donc `malformed block` ; (ii) le passage
+   hors ligne exigerait `ts(to_block + 1)`, absent du brut réel (0 clé `> to_block`, §2) : un aller réseau de plus, hors du
+   domaine observé, pour tout cluster de fin de plage ; (iii) le gain est borné au chemin H-0 pré-enregistré (point 3). Coût
+   du choix retenu : au pire un H-0 sur un cas-frontière d'un bloc, jamais un épisode faux.
+5. **Sidecar `block-ts-extra.json` INCRÉMENTAL + REPRENABLE.** Réécrit tous les **N = 50** nouveaux ts (`FLUSH_EVERY`,
+   `:393`) et sur arrêt gracieux (`phase:"partial"`, `catch`, `:425`), une fois à la fin (`phase:"complete"`). **Chaque
+   écriture = `writeFileSync(tmp)` puis `renameSync(tmp, sidecar)` dans le même dossier** (`:397-399` ; nom temporaire
+   `<sidecar>.tmp-<pid>-<16 hex>`, calque de `scripts/probe-narabi.mjs` C-G2-6 / C-G2D-2), **sans `fsync`** (R-BORNE-2,
+   §6). L'item formé du checkpoint-2 « écriture `tmp + rename` » (`docs/CHECKPOINT2-lot-u4b-1b-3.md:43`) est **clos par
+   implémentation** (test + mutant M17). Au démarrage, un sidecar existant de MÊME `discover_sha` et self-sha valide
+   **amorce** `extra` (0 re-fetch des ts déjà lus) ; une relance sur un `complete` est **idempotente** (0 fetch, octets
+   identiques, même sha).
+6. **Ordre des refus (checkpoint-2 C-V-1, régression du lot corrigée au pli ; G2-delta C-GD-1).** Les **5 refus** qui ne
+   lisent que l'état local s'exécutent **avant** `openU4GuardedClient` (`:402`), qui pose les verrous
+   `<ledger>/<cycle>/<op>.lock` (`packages/rpc-guard/src/lock.ts`) : `to_block` non entier (`:366-367`), sidecar illisible
+   (`:378`), sidecar sans objet `block_ts_extra` (`:380`), self-sha (`:381`), `discover_sha` (`:382`) ; `mkdirSync(--out)`
+   (`:371`) et `kept` (`:385`) aussi. Entre l'ouverture et le `try` (`:419`) ne restent que des constructions de
+   fermetures, sans chemin de `throw` à la construction (`makeGuardedPoolCall` `:404`, `makeUkemiPool` `:405` ;
+   `docs/G2-lot-u4b-1b-3-delta.md:113-123`). Un refus de reprise ne laisse donc jamais le cycle verrouillé : le même cycle
+   se relance. Un sidecar illisible (JSON tronqué) est un refus **nommé** `SelectError` « `block-ts-extra sidecar
+   unreadable: …` », jamais une `SyntaxError` ; 0 fetch ; fichier laissé intact pour l'opérateur. Depuis le micro-pli, la
+   liberté de verrou est épinglée **refus par refus** (§8, ligne « Blocage par ressource »).
+7. **`phase` obligatoire (checkpoint-2 C-V-6 / G2 C-G2-3) et fixtures en forme réelle (G2-delta C-GD-2).**
+   `runSelect --block-ts-extra` refuse nommément tout sidecar dont `phase` ≠ `"complete"`, **phase absente comprise**
+   (`:217`, « `sidecar phase absent is not 'complete'` »). Motif : le seul producteur (`runFillTs`) écrit toujours `phase`,
+   et aucun sidecar réel n'existe (`docs/CHECKPOINT2-lot-u4b-1b-3-re.md:23`). La clémence de `assertBrutComplete` porte sur
+   les **bruts** legacy/synthétiques, un autre artefact. Les fixtures des tests de garde `u4b_select_refuses_a_tampered_block_ts_extra_sidecar`
+   et `u4b_select_refuses_a_block_ts_extra_sidecar_from_another_brut` portent désormais `phase:"complete"` (test `:171`,
+   `:183`) : chaque test isole SA garde (mutants M20 et M21, garde retirée : « Missing expected rejection »). Le mutant D7
+   (garde `phase` placée avant les gardes sha) est **déclaré équivalent pour la sûreté** et survit : un sidecar falsifié ou
+   étranger reste refusé dans les deux ordres, seul le message change (`docs/G2-lot-u4b-1b-3-delta.md:345-349` ;
+   `docs/CHANTIERS.md:895`). La **reprise** (`--fill-ts`) réutilise les données de tout sidecar au self-sha valide et de même
+   `discover_sha`, quelle que soit sa phase (réécrite au flush suivant).
+8. **`--min-interval-ms` par opérateur + tolérance 429** : inchangés depuis le G1 (retry borné du pool,
+   `makeGuardedPoolCall({retries:2})`, `:404` ; mutant `retries:0` rouge, M8). La valeur n'est pas validée (item O-D4, §7).
+
+### 4. Tuyaux (ADR-M018 ; règle de Branchement) — test de composition = intégration non-LLM, seul `globalThis.fetch` bouchonné
+| pièce | entrée (qui produit) | sortie (qui consomme) | état (où il vit) | tests qui prouvent la composition (`apps/sentinel/test/u4b-select-episode.test.ts` @ `1bcfbd7`) |
+|---|---|---|---|---|
+| `--fill-ts` reprenable, borné à `to_block` | brut discover v2 (`u4b-discover.mjs`) + sidecar antérieur optionnel (`partial`/`complete`, même `discover_sha`) | `block-ts-extra.json{phase}` → `runSelect --block-ts-extra` (hors ligne, 0 fetch) | `<out>/block-ts-extra.json` (hors dépôt, lié au `discover_sha`) ; temporaire `<sidecar>.tmp-<pid>-<hex>` transitoire ; verrous `<ledger>/<cycle>/<op>.lock` | G1 : `u4b_fill_ts_resolves_a_to_block_minus_1000_cluster_with_0_fetch_past_to_block` (`:472`), `u4b_fill_ts_is_incremental_and_resumable_after_a_quorum_kill` (`:486`), `u4b_fill_ts_writes_complete_which_select_accepts_and_select_refuses_a_partial` (`:515`), `u4b_fill_ts_quorum2_tolerates_a_transient_429_via_the_bounded_pool_retry` (`:536`) ; pli : `u4b_fill_ts_pre_open_refusals_hold_no_cycle_lock_and_the_same_cycle_relaunches` (`:567`), `u4b_fill_ts_refuses_a_torn_sidecar_by_name_with_0_fetch_and_no_lock` (`:595`), `u4b_fill_ts_flushes_a_durable_partial_every_50_new_ts_observed_mid_run` (`:613`), `u4b_fill_ts_replaces_the_sidecar_by_tmp_rename_never_in_place_and_leaves_no_tmp` (`:631`), `u4b_fill_ts_resume_refuses_a_sidecar_from_another_brut_by_name_with_0_fetch` (`:651`), `u4b_fill_ts_resume_refuses_a_falsified_sidecar_by_self_sha_with_0_fetch` (`:668`), `u4b_fill_ts_rerun_on_a_complete_sidecar_is_idempotent_0_fetch_identical_bytes` (`:709`) ; micro-pli : `u4b_fill_ts_resume_refuses_a_sidecar_without_block_ts_extra_object_by_name_with_0_fetch_and_no_lock` (`:686`) |
+| sélecteur — troncature `> to_block` sans réseau ; `phase` obligatoire | brut discover v2 (`block_ts`) + sidecar `complete` | `episode-selection.json` (`window_truncated`, `candidates[].reasons`) → prober `u4-oracle-path.mjs --episode-file` (vérifie `selection_sha256`) | `<out>/episode-selection.json` | G1 : `u4b_select_marks_a_to_block_minus_1000_cluster_window_truncated_offline_0_fetch` (`:450`) ; pli : `u4b_select_refuses_a_block_ts_extra_sidecar_without_phase_by_name` (`:731`) ; fixtures en forme réelle (C-GD-2) : `:166`, `:178`. **Composition sélecteur → prober NON rejouée** (CARTO-T1C-5, item §7) |
+
+État : 14 tests d'intégration non-LLM du lot (5 G1 + 8 pli + 1 micro-pli). Le `--fill-ts` n'a jamais complété sur la course
+réelle : ce tuyau de production n'est exercé qu'en test, donc `built` seulement à la première course rapprochée
+(`docs/CONSIGNE-STANDARD-G1.md:30`, D-3). Aucune surface publique ne le déclare `built`
+(`docs/CHECKPOINT2-lot-u4b-1b-3-re.md:26`).
+
+### 5. Gel D4 intact (A-6, régime B, LF)
+Les 9 fichiers gelés du prereg §2 + `scripts/census/u4b/liquidation-logs.mjs` + `apps/sentinel/src/windows.ts` sont
+byte-identiques entre `b900b4b` et `1bcfbd7` : **11/11** (mesuré au pli, `docs/PLI-lot-u4b-1b-3.md:141-144` ; au
+G2-delta, `docs/G2-lot-u4b-1b-3-delta.md:94-98` ; au micro-pli et au re-checkpoint-2, `docs/CHANTIERS.md:895` ; re-mesuré au
+fold par `git show 1bcfbd7:<f> | tr -d '\r' | sha256sum`) : `u4b-scores 2f9a31f6…`, `u4b-reduce a5e66cd3…`,
+`record-u4b-calib 5733daeb…`, `wadray 7bee76fc…`, `abi 3376eb08…`, `l1-split 9206df91…`, `rpc.ts 0e232519…`,
+`calib-digest 3603265d…`, labeler `u3-realized cb020425…` (= prereg §2), `liquidation-logs bf4eb293…`,
+`windows.ts b84827ae…`. Prereg `docs/PLAN-u4b-prereg.md` `1971d9b1…` inchangé ; cet ADR inchangé par le lot
+(`git diff --quiet b900b4b 1bcfbd7`).
+
+### 6. Résidus nommés (règle Dettes : items formés à déclencheur, jamais une dette nue)
+- **R-BORNE-1 — `phase` hors du `block_ts_extra_sha256`** (préserve la chaîne C-2 byte-stable). Direction
+  `complete → partial` : attrapée par la garde `phase` de `runSelect` (test + mutant M6). Direction **`partial → complete`**
+  (flip MANUEL, qu'une garde `phase` ne peut par définition pas voir) : le filet réel est le refus nommé « `brut has no ts
+  for block …` » de `reduceSelection` (hors ligne), car un partial authentique manque au moins un bloc nécessaire
+  (`flush("complete")` n'est écrit qu'après un clustering complet) — rejoué par le checkpoint-2 sur un partial de 60 entrées
+  (`docs/CHECKPOINT2-lot-u4b-1b-3.md:24`). **Cas inoffensif** : un kill APRÈS le dernier fetch (le partial détient déjà tous
+  les ts nécessaires) ; le flip rend alors la même sélection qu'un `complete` authentique, jamais une sélection fausse.
+  **Déclencheur** : un consommateur du sidecar autre que `runSelect` ⇒ lier `phase` sous un sha (ou signer le sidecar
+  entier). Propriétaire : orchestrateur.
+- **R-BORNE-2 — atomicité et durabilité du remplacement du sidecar sous Windows.**
+  - **Sources (C-GD-3 (a) ; traces en dépôt : `docs/PLI-lot-u4b-1b-3.md:69-72` et
+    `docs/course-bell/FAITS-win32-flush-rename-2026-09-22.md:18-34`)** :
+    (i) POSIX, IEEE Std 1003.1-2024 (Issue 8), `rename()` — `https://pubs.opengroup.org/onlinepubs/9799919799/functions/rename.html`,
+    lue par le pli le 2026-09-22 à 19:39:27 UTC (lecture seule), sha256 de la page
+    `06671610134b0a52cdf4dcdaf382f72fef85ef51088b8a52b8679c7f03829318` [lu par le pli ; classé [2nd] par le validateur,
+    `docs/CHECKPOINT2-lot-u4b-1b-3-re.md:25`] : l'entrée remplacée « shall remain visible to other threads throughout the
+    renaming operation and refer either to the file referred to by new or old » ; (trad.) elle reste visible pendant toute
+    l'opération et désigne soit l'ancien, soit le nouveau fichier.
+    (ii) libuv v1.51.0 (celle de Node v24.15.0), `src/win/fs.c` —
+    `https://raw.githubusercontent.com/libuv/libuv/v1.51.0/src/win/fs.c`, sha256
+    `60c76976514f427fa0be21c1c7986c2ab1d9e2e77b9d5bcf8c7ab99ed36b0693` : `fs__rename` (l. 2266-2273) appelle
+    `MoveFileExW(…, MOVEFILE_REPLACE_EXISTING)` seul, sans `MOVEFILE_WRITE_THROUGH` ni sémantique POSIX — [lu] par le pli
+    (vers 19:26 UTC), re-téléchargé par le validateur (même sha, `docs/CHECKPOINT2-lot-u4b-1b-3-re.md:25`), lu sur place
+    par l'orchestrateur à 22:24 UTC (même sha, FAITS `:27-34`).
+    (iii) Microsoft Learn, `MoveFileExW` — `https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexw` :
+    lue par le pli à 19:39:40 UTC, sha256 de la page `840ab81522b06162e5725b2941e7aa499053ac31417fe4dfe01110d856ad43a5`
+    (aucune mention d'atomicité dans le contenu ; les 2 occurrences de « atomic » sont des attributs HTML `aria-atomic`) ;
+    lue sur place par l'orchestrateur à 22:24 UTC (page « Last updated on 06/01/2023 ») : sans `MOVEFILE_WRITE_THROUGH`,
+    aucune garantie de persistance du renommage au retour de la fonction (FAITS `:18-25`).
+    Au fold, les sha256 des trois copies locales du pli ont été recalculés sans réseau : identiques aux trois valeurs
+    ci-dessus.
+  - **Ce qui en découle.**
+    (1) *Kill du processus pendant un flush* : sous POSIX, le nom désigne l'ancien ou le nouveau sidecar entier (i) ; sous
+    Windows, l'atomicité n'est pas documentée (ii)(iii). Pire cas **fail-closed** : sidecar illisible, donc refus nommé
+    (`:378` ; point 6 ; test `:595` + mutant M11), sans verrou tenu ni sélection fausse, au prix de la progression :
+    l'opérateur écarte le fichier et le remplissage repart de zéro (la reprise ne lit que `block-ts-extra.json`).
+    (2) *Coupure de courant* : la v2 plaçait la perte de courant hors du modèle de menace (« kill du processus »). Les faits
+    du 2026-09-22 l'y font entrer : deux coupures (`docs/CHANTIERS.md:864`, `:886`), fichiers réécrits en entier retrouvés
+    vides ou NUL (`:887`), ruling de classe « tout fichier réécrit en entier passe par tmp + fsync + rename », prononcé pour
+    GARDE-FSYNC-1 et BELL-SHORTPAGE-1 C-6 (`:889`). `flush` n'appelle pas `fsync` sur le temporaire avant `renameSync`
+    (`:397-399`) et `MoveFileExW` sans `MOVEFILE_WRITE_THROUGH` ne garantit pas la persistance du renommage (iii) : une
+    coupure pendant ou peu après un flush peut laisser un sidecar illisible, avec la même issue fail-closed que (1) (0 RU :
+    appels keyless seulement ; jamais une sélection fausse). Item R-BORNE-2-F (§7).
+    (3) *Re-checkpoint-2 C-4* : le `flush("partial")` du `catch` (`:425`) peut lui-même lever — `EPERM` sur `renameSync`
+    dès qu'un lecteur **quelconque** tient la cible ouverte (mesuré pour Node, Git-Bash, Python et PowerShell,
+    `docs/course-bell/RUNBOOK-supervision-tirage.md:7-21`, `docs/CHANTIERS.md:893` ; le libellé « lecteur non-Node » du
+    re-checkpoint-2, `docs/CHECKPOINT2-lot-u4b-1b-3-re.md:40`, est corrigé par cette mesure) — et masquer l'erreur
+    d'origine `e`. Fail-closed : le sidecar précédent reste entier (le renommage n'a pas eu lieu), le `finally` déverrouille
+    (`:429-430`). `probe-narabi` a un `try/catch` de repli ; le pli ne l'a pas repris. Replié sous le déclencheur de
+    R-BORNE-2, sans nouvel item (re-checkpoint-2 C-4).
+    (4) *G2-delta O-D3* : un échec transitoire du `rename` (antivirus, indexeur, tout lecteur : `EACCES`, `EPERM`, `EBUSY` ;
+    `graceful-fs` 4.2.11 réessaie ces codes jusqu'à 60 s, `docs/G2-lot-u4b-1b-3-delta.md:365-371`) ARRÊTE le `--fill-ts`,
+    fail-closed et reprenable : au plus 50 ts à refaire, un temporaire laissé dans `--out`. Analogue Bell, même motif :
+    R-SP-A / BELL-RENAME-RETRY-1 (`docs/CHANTIERS.md:894`).
+    (5) *Re-checkpoint-2 C-1 (VX-B)* : aucun test n'asserte que le temporaire vit dans `--out` (M17 prouve le remplacement
+    par `rename`, pas l'emplacement ; un temporaire hors volume ferait échouer le premier flush) ; le code est correct
+    (même dossier, `:397`) (`docs/CHECKPOINT2-lot-u4b-1b-3-re.md:20,37`).
+  - **Déclencheurs** (propriétaire : orchestrateur) : R-BORNE-2 (v2) — première reprise réelle sur un sidecar illisible
+    malgré `tmp + rename` ⇒ recherche documentée (`ReplaceFileW`, `FILE_RENAME_FLAG_POSIX_SEMANTICS`, `fsync` fichier +
+    dossier) ; couvre (1) et (3). Les items O-D3, R-BORNE-2-F et VX-B ont leur propre déclencheur (§7).
+  - L'atomicité sous crash réel n'est pas couvrable par un mutant d'exécution normale (même position que la sonde Narabi,
+    journal CHANTIERS NARABI-OPS-1b-i) ; M17 prouve le porteur (remplacement par `rename`, jamais de réécriture sur place) ;
+    le mutant D1 du G2-delta (copie puis suppression) est aussi tué par ce test (`docs/G2-lot-u4b-1b-3-delta.md:205,215-219`).
+- Comportement connu, sans action requise : un kill entre l'écriture du temporaire et le `rename` laisse
+  `block-ts-extra.json.tmp-<pid>-<hex>` dans `--out` ; jamais lu (la reprise ne lit que `block-ts-extra.json`), supprimable
+  à la main.
+
+### 7. Items formés (propriétaire : orchestrateur ; zéro « dû » nu)
+| item | contenu | déclencheur | `error_origin` | source en dépôt |
+|---|---|---|---|---|
+| **O-1** (élargi aux 4 sites) | refus nommé `SelectError` « `<flag> unreadable: …` » sur les 4 `JSON.parse` nus : `:196` (`runSelect`, discover), `:211` (`runSelect`, sidecar), `:270` (`runCheckVersion`, fichier d'épisode), `:356` (`runFillTs`, discover) ; aujourd'hui `SyntaxError` non nommée, fail-closed et sans effet de bord | prochain lot qui touche `u4b-select-episode.mjs`, ou première entrée réelle illisible | préexistant : G1 de U-4b-1b-2 (`2be517f`) | `docs/G2-lot-u4b-1b-3-delta.md:309-330,394` ; `docs/PLI-lot-u4b-1b-3.md:190-193` ; `docs/CHANTIERS.md:879` |
+| **O-D3** | retry borné `EACCES`/`EPERM`/`EBUSY` sur le `renameSync` du sidecar (motif `graceful-fs` ; même exigence que l'item Bell BELL-RENAME-RETRY-1, R-SP-A) | premier arrêt de ce type en course réelle | pli (mode d'échec arrivé avec tmp + rename) | `docs/G2-lot-u4b-1b-3-delta.md:365-371,395` ; `docs/CHANTIERS.md:879,893-894` |
+| **O-D4** | refus nommé si `!(Number.isFinite(v) && v >= 0)` pour `--min-interval-ms` (`:368` ; une valeur `NaN` désactive la politesse, `rpc2.ts:137-145`) ; sans effet sur la course prévue (valeur 150, `docs/CHANTIERS.md:844`) | prochain lot qui touche `runFillTs` ou `runCheckVersion` | préexistant : `2be517f` | `docs/G2-lot-u4b-1b-3-delta.md:372-375,396` ; `docs/CHANTIERS.md:879` |
+| **VX-B** (re-checkpoint-2 C-1) | test : le temporaire du flush vit dans `--out` (même dossier que le sidecar) | prochain lot qui touche `flush`, ou celui de R-BORNE-2 | pli (trou de test) | `docs/CHECKPOINT2-lot-u4b-1b-3-re.md:20,37` |
+| **C-4** (re-checkpoint-2) | `try/catch` de repli autour du `flush("partial")` du `catch` (`:425`), calque `probe-narabi` | celui de R-BORNE-2 (§6) | pli (calque incomplet) | `docs/CHECKPOINT2-lot-u4b-1b-3-re.md:40` ; `docs/CHANTIERS.md:893` |
+| **R-BORNE-2-F** (nouveau au fold) | `fsync` du temporaire dans `flush` avant `renameSync` (+ dossier si disponible) ; même exigence que BELL-SHORTPAGE-1 C-6 et GARDE-FSYNC-1 (lots en vol) | ruling de l'orchestrateur sur l'extension du ruling `docs/CHANTIERS.md:889` à `u4b-select-episode.mjs` (non tranchée par ce fold), ou G7 de GARDE-FSYNC-1, au premier des deux | design (pli : aucun `fsync`, modèle de menace limité au kill) + infrastructure (coupures) — même attribution que le précédent Bell (`docs/CHANTIERS.md:865`) | `docs/CHANTIERS.md:864,886-889` ; FAITS `:18-25` |
+| **CARTO-T1C-5** | test de composition `u4b_chain_select_to_oracle_path` : `runSelect` → `episode-selection.json` → `run()` du prober `u4-oracle-path.mjs`, seul `fetch` bouchonné | déclencheur initial « G7 de U-4b-1b-3 ou avant l'étape prober de la course, au premier des deux » ATTEINT à ce G7 sans le test (ni le pli ni le micro-pli ne l'ajoutent) ⇒ nouveau déclencheur = ruling de l'orchestrateur ; proposition : pli ou G7 de U-4b-1b-4 (lot qui touche le prober), ou avant l'étape 5 du RUNBOOK de la course Ukemi (prober, `docs/course-ukemi/RUNBOOK-course-ukemi-2026-09-22.md:355`), au premier des deux | G1 de U-4b-1b-2 (sélecteur `2be517f`, prober `--episode-file` `6930c7a` : composition non rejouée) | `docs/carto/CARTOGRAPHIE-TEMPS-1-2026-09-22.md:157,237,250` ; `docs/CHANTIERS.md:852` |
+| **O-FOLD-1** (relevé au fold) | la docstring de `runFillTs` porte encore le libellé du journal « ~12k lost keyless calls x3 » (`:324` ; déjà `:319` à `801859f`) : l'aligner sur les faits du §2 (1 arrêt 429 + 2 arrêts `malformed block` sur disque ; comptes d'appels du seul journal) | celui de O-1 (prochain lot qui touche `u4b-select-episode.mjs`) | orchestrateur (libellé `docs/CHANTIERS.md:772`, repris par le G1) | §2 ; `docs/G2-lot-u4b-1b-3-delta.md:378-383` |
+| **O-MP-1** (micro-pli) | trier les résidus TEMP laissés par un oracle complet (suites `bell-*`, `u2c-snap-*`, `atelier-vocab-*`, `ukemi-weth-*.diag.json` ; aucun en `u4b*`) : nettoyage `finally` ou résidu voulu | prochain lot qui touche `apps/bell/test` ou les tests u2c/ukemi concernés, ou prochaine passe d'hygiène disque | hors lot (suites préexistantes) | rendu du micro-pli (hors dépôt), repris dans l'entrée G7 de `docs/CHANTIERS.md` |
+| **O-MP-2** (micro-pli) | vérifier le serveur memstack (`ECONNREFUSED` au démarrage de la session du micro-pli) | avant la prochaine mission qui s'appuie sur memstack | infrastructure (`docs/CHANTIERS.md:866`) | idem ; au fold, `memory_stats` a répondu (2026-09-22 23:34 UTC) : proposé clos par cette mesure |
+
+Observations sans action (relecteurs) : O-D2 — toute valeur de `FLUSH_EVERY` qui divise 50 satisfait le test du flush
+périodique ; la durabilité annoncée (un kill perd au plus 50 ts) tient (`docs/G2-lot-u4b-1b-3-delta.md:361-364`). O-D8 —
+les nouveaux tests n'ont pas été rejoués sous Linux ; ils n'utilisent que des API Node portables (`:384-386`) ; toute
+exécution de CI reste sous la décision 136. O-1 du G2 — flake `UV_HANDLE_CLOSING` (libuv, win32, fin de suite complète),
+non reproduit au pli sur deux suites complètes (`docs/PLI-lot-u4b-1b-3.md:198`).
+
+### 8. MAST résiduel
+- **Vérification non indépendante / tests déclaratifs** — contré par : 25 mutants au harnais du lot, dont 24 tués chacun
+  par SON test nommé dans le TAP (A-11 ; 18 du cœur M1..M17 + D4, 6 supplémentaires D6, M18..M22) et D7 déclaré
+  équivalent, qui survit comme prévu ; rejoués par le G2-delta-2 et le re-checkpoint-2, avec le mutant VX-L2 du validateur,
+  rouge (`docs/CHANTIERS.md:895`) ; restauration byte-exacte. Mutants propres des relecteurs à chaque tour (G2 : 5,
+  `docs/G2-lot-u4b-1b-3.md:64-72` ; checkpoint-2 : 7, `docs/CHECKPOINT2-lot-u4b-1b-3.md:21` ; G2-delta : 9,
+  `docs/G2-lot-u4b-1b-3-delta.md:198-213` ; re-checkpoint-2 : 5, `docs/CHECKPOINT2-lot-u4b-1b-3-re.md:20`) : chaque
+  survivant est devenu une correction (C-G2-*, C-V-2, C-GD-1, C-GD-2) ou un item (VX-B).
+- **Perte d'état / terminaison prématurée (kill dur, coupure)** — contré par : flush périodique observé EN COURS de run
+  (M12), `tmp + rename` (M17 ; D1 du G2-delta), reprise sans re-fetch (M5), idempotence `complete` (M15) ; résidus
+  R-BORNE-2 (atomicité Windows non documentée) et R-BORNE-2-F (coupure sans `fsync`).
+- **Dérive de spécification** (lecture non bornée du prereg vs domaine observé) — contrée par : D-BORNE-1 déclarée comme
+  restriction, seul cas basculant nommé et borné à H-0 (point 3), variante exacte écartée avec motif (point 4) ; arêtes
+  `== to_block`, `== to_block + 1`, `≥ to_block + 2` et `--b-hi < to_block` rejouées par le checkpoint-2.
+- **Blocage par ressource** (verrou de cycle tenu après un refus ; C-GD-3 (b)) — contré par : les 5 refus locaux
+  s'exécutent avant l'ouverture du garde (point 6), mesuré refus par refus par la sonde du G2-delta : 6/6 sur `d2e36ac`,
+  1/6 sur `801859f` (`docs/G2-lot-u4b-1b-3-delta.md:141-150`). **Bloc entier** prouvé par M9 et M10 ; **refus par refus**,
+  épinglé pour `to_block` (M10, assertion `:578`), sidecar illisible (M11 et D5 du G2-delta, `:608`), `discover_sha` (D6,
+  `:583` et `:664`), self-sha (D4, `:682`) et « sans objet » (M18, `:702`) — les trois derniers depuis le micro-pli
+  (C-GD-1) ; relance du même cycle et libération de tous les verrous (`:590`, D8 du G2-delta). Sonde indépendante du
+  G2-delta-2 sur l'objet absent : 5/5 formes, 0 verrou (`docs/CHANTIERS.md:895`).
+
+### 9. Traçabilité des corrections repliées (chaque correction → sa source → son emplacement → son `error_origin`)
+| correction | source | où dans cette v3 | `error_origin` | état |
+|---|---|---|---|---|
+| C-V-1 (verrou tenu après un refus de reprise) | `docs/CHECKPOINT2-lot-u4b-1b-3.md:37` | §3 pt 6 ; §8 « Blocage » | G1 `801859f` (adjugé `docs/CHANTIERS.md:854`) | fermée au pli (M9-M11) ; refus par refus au micro-pli (D4, D6, M18) |
+| C-V-2 (3 tests manquants) | `:38` | §4 (tests `:613`, `:651`, `:668`) | G1 | fermée au pli (M12-M14) |
+| C-V-3 (a) « tête de chaîne » | `:39` | §2 (a) | G1 | fermée au pli |
+| C-V-3 (b) « ts > to_block dans le brut réel » | `:39` ; erratum `docs/CHECKPOINT2-lot-u4b-1b-3-re.md:29-30` | §2 (b) | revue checkpoint-2 (énoncé déduit du code sans mesure, reconnu `-re.md:30` ; `docs/G2-lot-u4b-1b-3-delta.md:307`) | erratum rendu ; mesure journalisée `docs/CHANTIERS.md:854` |
+| C-V-4 (texte R-BORNE-1) | `:40` | §6 R-BORNE-1 | G1 | fermée au pli |
+| C-V-5 (numéro, MAST) | `:41` | en-tête ; §8 | numéro : déféré par conception (`docs/G1-lot-u4b-1b-3.md:36` ; « pas un défaut », `docs/G2-lot-u4b-1b-3.md:98`) ; MAST absent : G1 | fermée au pli ; mise à jour au fold |
+| C-V-6 (`phase` du `.d.mts` vs code) | `:42` | §3 pt 7 | G1 | fermée au pli (M16) |
+| item tmp + rename | `:43` | §3 pt 5 ; §6 R-BORNE-2 | G1 (réécriture sur place) | clos par implémentation au pli (M17) |
+| C-G2-1 (gardes de reprise, idempotence) | `docs/G2-lot-u4b-1b-3.md:106` | §4 (`:651`, `:668`, `:709`) | G1 | fermée au pli (M13-M15) |
+| C-G2-2 (flush tous les 50) | `:108` | §4 (`:613`) | G1 | fermée au pli (M12) |
+| C-G2-3 (`phase` absente) | `:110` | §3 pt 7 | G1 | fermée au pli (absence refusée, M16) |
+| C-GD-1 (verrou refus par refus) | `docs/G2-lot-u4b-1b-3-delta.md:336-343` | §3 pt 6 ; §8 « Blocage » | pli | fermée au micro-pli (D4, D6, M18 ; `docs/CHANTIERS.md:895`) |
+| C-GD-2 (fixtures sans `phase`) | `:345-350` | §3 pt 7 | pli (fixtures `:166`/`:178` gardées sans `phase` après C-V-6, `docs/PLI-lot-u4b-1b-3.md:59`) | fermée au micro-pli (M20, M21 ; D7 équivalent) |
+| C-GD-3 (a) (sources de R-BORNE-2) | `:353` | §6 R-BORNE-2, « Sources » | pli (texte v2) | fermée au fold |
+| C-GD-3 (b) (ligne MAST « Blocage ») | `:354` | §8 | pli (texte v2) | fermée au fold |
+| C-GD-3 (c) (« ×3 STOP ») | `:355` ; O-D7 `:378-383` | §2 « Arrêts du `--fill-ts` » | orchestrateur (journal `docs/CHANTIERS.md:772`, repris par le G1 et le pli) | fermée au fold |
+| C-GD-3 (d) (journal de la mesure) | `:356` | §2 (b) | n-a (acte de fold prévu, pas un défaut) | faite : `docs/CHANTIERS.md:854` + §2 (b) |
+| re-checkpoint-2 C-1 (VX-B) | `docs/CHECKPOINT2-lot-u4b-1b-3-re.md:37` | §6 (5) ; §7 | pli (trou de test) | item formé |
+| re-checkpoint-2 C-2 (fold + journal) | `:38` | cette v3 ; §2 (b) | n-a (acte de fold, pas un défaut) | fold = cette v3 ; journal `docs/CHANTIERS.md:854` |
+| re-checkpoint-2 C-3 (`error_origin`, provenance du journal de pli) | `:39` | §9 ligne C-V-1 ; ligne de provenance ajoutée à `docs/PLI-lot-u4b-1b-3.md` | C-V-1 : G1 ; journal de pli réécrit sans déclaration : orchestrateur | fermée au G7 |
+| re-checkpoint-2 C-4 (flush du `catch`) | `:40` | §6 (3) ; §7 | pli ; libellé « lecteur non-Node » : revue re-checkpoint-2 (non mesuré ; corrigé par `docs/CHANTIERS.md:893`) | sous le déclencheur de R-BORNE-2 |
+| D-1 (persistance des revues du micro-pli) | mesure du fold | §1, note D-1 | orchestrateur (`91a719b`) | corps re-persistés au G7 |
+| compte G7 attendu | mesure du fold | §1, note « compte G7 » | orchestrateur (valeur calculée contre `a703e24`) | attendu recalculé (951/950/0/1) |
+| checkpoint-1 absent | `docs/CHANTIERS.md:797` | §1 | orchestrateur | déviation consignée |
+| arrêt du `--fill-ts` réel (motif du lot) | `docs/CHANTIERS.md:772` | §2 « Cause » | plan | corrigé par D-BORNE-1 |
+
+*(ADR-U4b n'est PAS dans le gel du prereg §2 ; les docs sont exclus du décompte R-25 — `ci.yml:65`. Cet amendement
+n'édite AUCUNE valeur de référence existante : il APPEND une section datée. Le worker ne committe pas (R-20) ;
+l'orchestrateur folde et committe au G7.)*
