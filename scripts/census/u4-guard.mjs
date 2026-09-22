@@ -6,17 +6,18 @@
 // of the migration so the two course scripts do not triplicate them:
 //   1) budget-arg parsing (--ledger-dir/--cycle/--floor/--max-ru/--method-caps/--max-calls), REQUIRED, fail-closed;
 //   2) openGuardedClient wiring (labels only, subset requested = the operators actually used);
-//   3) a pool-facing shim = attempt tally (provenance) + caller-side bounded retry + an identity BRIDGE;
+//   3) a pool-facing shim = attempt tally (provenance) + caller-side bounded retry;
 //   4) the N-operator served unlock (runCli) at course end.
 //
-// IDENTITY BRIDGE (load-bearing at this base, e7f22b8, BEFORE 2b-ii unifies rpc2.ts <- package):
-// apps/sentinel/src/ukemi/rpc2.ts still declares its OWN BudgetExceededError (:34) and RpcError (:38), and the
-// pool guards (quorum2/getLogsVia/finalized) test `e instanceof` those LOCAL classes. openGuardedClient raises
-// the PACKAGE classes. Without a bridge (a) a budget refusal is benched into a NoQuorumError instead of stopping
-// the run, and (b) a concordant on-chain revert is not recognised (isRpcRevert false) -> benched -> the D_e bytes
-// change (e.g. emode_raw[cat] flips ConcordantRevertError -> NoQuorumError). The shim converts package->pool for
-// BOTH classes, each GUARDED by `!(e instanceof PoolClass)` so the conversion becomes INERT after 2b-ii makes
-// rpc2 re-export the package classes (item formed: "remove the bridge at the 2b-ii merge").
+// CLASS IDENTITY (post 2b-ii merge, this rebased tree): apps/sentinel/src/ukemi/rpc2.ts now RE-EXPORTS the package
+// BudgetExceededError / RpcError (rpc2.RpcError === @monark/rpc-guard RpcError, asserted by the test
+// u4_guard_error_classes_are_the_package_classes), so the pool guards (quorum2/getLogsVia/finalized) test `e
+// instanceof` the SAME classes openGuardedClient raises. The identity BRIDGE that 2b-iii carried at its pre-rebase
+// base (e7f22b8, when rpc2 still declared its OWN classes) is therefore REMOVED here -- its item-formed trigger,
+// "the 2b-ii merge", has fired: this module no longer imports the pool error classes; the shim consumes the package
+// errors directly. A budget refusal is re-raised FIRST (never benched, never retried); a concordant on-chain revert
+// stays ConcordantRevertError (isRpcRevert recognises the package RpcError) so the D_e bytes are preserved (the
+// byte-identity replay verifies emode_raw["8"] == ConcordantRevertError on the keyless path).
 // No raw network round-trip here, no paid key read here: the guard owns both. Run-guarded scripts only.
 // ============================================================================================
 import { createHash } from "node:crypto";
@@ -27,7 +28,6 @@ import {
   BudgetExceededError as PkgBudgetError, RpcError as PkgRpcError, TransportError as PkgTransportError,
   ETH_CALL_KEYLESS_LABELS, GET_LOGS_KEYLESS_LABELS,
 } from "@monark/rpc-guard";
-import { BudgetExceededError as PoolBudgetError, RpcError as PoolRpcError } from "../../apps/sentinel/src/ukemi/rpc2.ts";
 
 /** sha256 of a text after CRLF->LF normalization (the prereg is compared LF-normalized: A-2 / --prereg-sha).
  *  Inlined here so the course scripts no longer depend on record.ts (2b-ii removes lfSha256 from record.ts). */
@@ -110,22 +110,12 @@ export function openU4GuardedClient({ env, ledgerDir, cycle, floor, maxRu, metho
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const backoffDelay = (attempt, baseMs, capMs) => Math.min(baseMs * 2 ** attempt, capMs);
 
-/** Convert a package error identity to the class the pool (rpc2.ts) recognises, so budget-first and isRpcRevert
- *  still hold at this base. Each conversion is guarded `!(e instanceof PoolClass)` so it is a NO-OP once 2b-ii
- *  makes rpc2 re-export the package classes (then package===pool and the wrong-arity `new PoolRpcError(...)` is
- *  never reached). Non-error inputs pass through. */
-function bridge(e) {
-  if (e instanceof PkgBudgetError && !(e instanceof PoolBudgetError)) return new PoolBudgetError(e.message);
-  if (e instanceof PkgRpcError && !(e instanceof PoolRpcError)) return new PoolRpcError(e.message, e.code, e.data);
-  return e;
-}
-
-/** Is a RAW (pre-bridge) error a TRANSIENT transport fault worth a caller retry? Retryable: a network/timeout/
- *  abort (code undefined) or an HTTP 429 / >= 500. NEVER: a JSON-RPC error/revert (deterministic), a NonJsonBody
- *  (a mis-route returns the same body), any other 4xx, or a budget refusal (fatal). Calque of the recorder's L-1. */
+/** Is a RAW error from the guarded client a TRANSIENT transport fault worth a caller retry? Retryable: a network/
+ *  timeout/abort (code undefined) or an HTTP 429 / >= 500. NEVER: a JSON-RPC error/revert (deterministic), a
+ *  NonJsonBody (a mis-route returns the same body), any other 4xx, or a budget refusal (fatal). Calque of L-1. */
 function isTransient(raw) {
-  if (raw instanceof PkgRpcError || raw instanceof PoolRpcError) return false;
-  if (raw instanceof PkgBudgetError || raw instanceof PoolBudgetError) return false;
+  if (raw instanceof PkgRpcError) return false;
+  if (raw instanceof PkgBudgetError) return false;
   if (raw instanceof PkgTransportError) {
     if (raw.name === "NonJsonBody") return false;
     if (raw.name === "HttpError") return raw.code === 429 || (typeof raw.code === "number" && raw.code >= 500);
@@ -136,9 +126,10 @@ function isTransient(raw) {
 
 /** Build the RpcCall the UkemiPool consumes. It routes every read through the guarded client (one attempt +
  *  one write-ahead ledger line per call, C-4), keeps an ATTEMPT-level tally for provenance (= the ledger; a
- *  caller retry counts each attempt, ADR-U4b D5), retries ONLY transient faults up to `retries` (0 = none),
- *  and BRIDGES the two package error identities to the pool's. A budget refusal is re-raised FIRST and NEVER
- *  retried; a refused call is NOT tallied (calque makeBudgetedCall: it rejected before the counter incremented). */
+ *  caller retry counts each attempt, ADR-U4b D5), and retries ONLY transient faults up to `retries` (0 = none).
+ *  A budget refusal (BudgetExceededError) is re-raised FIRST and NEVER retried; a refused call is NOT tallied
+ *  (calque makeBudgetedCall: it rejected before the counter incremented). Post 2b-ii the guarded client raises the
+ *  package error classes the pool already recognises (rpc2 re-exports them), so NO identity bridge is needed. */
 export function makeGuardedPoolCall(client, { retries = 0, backoffMs = 500, backoffCapMs = 8000 } = {}) {
   let n = 0;
   const per = {};
@@ -149,16 +140,12 @@ export function makeGuardedPoolCall(client, { retries = 0, backoffMs = 500, back
       let ok = false; let result; let raw;
       try { result = await client.call(label, method, params); ok = true; }
       catch (e) { raw = e; }
-      if (!ok) {
-        const b = bridge(raw);
-        if (b instanceof PoolBudgetError) throw b; // refused: NOT tallied, NEVER retried (fatal, re-raised FIRST by the pool)
-      }
+      if (!ok && raw instanceof PkgBudgetError) throw raw; // refused: NOT tallied, NEVER retried (fatal, re-raised FIRST)
       count(label, method); // committed attempt (success OR non-budget fault): tally at the attempt level
       if (ok) return result;
-      const bridged = bridge(raw);
-      if (bridged instanceof PoolRpcError) throw bridged; // deterministic revert / rpc error: never retried
+      if (raw instanceof PkgRpcError) throw raw; // deterministic revert / rpc error: never retried
       if (attempt < retries && isTransient(raw)) { await sleep(backoffDelay(attempt, backoffMs, backoffCapMs)); continue; }
-      throw bridged;
+      throw raw;
     }
   };
   return { call, total: () => n, byOperator: () => ({ ...per }), byMethod: () => ({ ...perMethod }) };

@@ -158,7 +158,7 @@ async function main() {
   } catch (e) {
     if (e instanceof BudgetExceededError) {
       // Controlled budget stop: soft exit (exitCode, not process.exit) so the finally below serves the N unlocks.
-      process.stderr.write(`u4-oracle-path: BUDGET STOP after ${guarded.total()} calls (--max-calls ${maxCalls}); NO partial path written — raise budget (R-26) and re-run.\n`);
+      process.stderr.write(`u4-oracle-path: BUDGET STOP after ${guarded.total()} calls (${e.message}; --max-calls ${maxCalls}); NO partial path written - raise budget (R-26) and re-run.\n`);
       process.exitCode = 2;
       return;
     }
