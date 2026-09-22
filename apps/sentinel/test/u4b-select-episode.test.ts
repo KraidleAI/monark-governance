@@ -168,7 +168,7 @@ test("u4b_select_refuses_a_tampered_block_ts_extra_sidecar", async () => {
   const o = mkdtempSync(join(tmpdir(), "u4bsel-bte-"));
   try {
     const df = JSON.parse(readFileSync(d.path, "utf8")) as { provenance: { brut_sha256: string } };
-    const sidecar = { schema: "ukemi-u4b-block-ts-extra/1", discover_sha: df.provenance.brut_sha256, n_extra: 0, block_ts_extra: {}, block_ts_extra_sha256: "deadbeef".repeat(8) }; // WRONG sha
+    const sidecar = { schema: "ukemi-u4b-block-ts-extra/1", phase: "complete", discover_sha: df.provenance.brut_sha256, n_extra: 0, block_ts_extra: {}, block_ts_extra_sha256: "deadbeef".repeat(8) }; // WRONG sha; real shape (phase "complete", C-GD-2): the sha guard ALONE refuses it
     const scPath = join(o, "block-ts-extra.json");
     writeFileSync(scPath, JSON.stringify(sidecar));
     await assert.rejects(runSelect([...selArgs(d, join(o, "sel")), "--block-ts-extra", scPath]), /block_ts_extra_sha256 mismatch/, "a tampered block-ts-extra sidecar (C-2) is refused fail-closed");
@@ -180,7 +180,7 @@ test("u4b_select_refuses_a_block_ts_extra_sidecar_from_another_brut", async () =
   const o = mkdtempSync(join(tmpdir(), "u4bsel-bte2-"));
   try {
     // sidecar whose self-sha is VALID but whose discover_sha points at a DIFFERENT brut (C-V-8, V-M12).
-    const sidecar = { schema: "ukemi-u4b-block-ts-extra/1", discover_sha: "f".repeat(64), n_extra: 0, block_ts_extra: {}, block_ts_extra_sha256: sha256Hex(canon({})) };
+    const sidecar = { schema: "ukemi-u4b-block-ts-extra/1", phase: "complete", discover_sha: "f".repeat(64), n_extra: 0, block_ts_extra: {}, block_ts_extra_sha256: sha256Hex(canon({})) }; // real shape (phase "complete", C-GD-2): the discover_sha guard ALONE refuses it
     const scPath = join(o, "block-ts-extra.json");
     writeFileSync(scPath, JSON.stringify(sidecar));
     await assert.rejects(runSelect([...selArgs(d, join(o, "sel")), "--block-ts-extra", scPath]), /sidecar belongs to another brut/, "a sidecar bound to another brut's discover_sha is refused (C-V-8, V-M12 reds)");
@@ -661,6 +661,7 @@ test("u4b_fill_ts_resume_refuses_a_sidecar_from_another_brut_by_name_with_0_fetc
       await assert.rejects(runFillTs(fillArgs(path, out, w.l, "fx"), FILL_DEPS), (e: unknown) => e instanceof SelectError && /belongs to another brut/.test(e.message), "a resume on another brut's sidecar is refused BY NAME (C-G2-1 hygiene; mutant M13 'resume discover_sha guard neutralized' => resumes and completes => reds)");
     });
     assert.equal(s.distinct.size, 0, "refused with 0 fetch");
+    assert.deepEqual(locksUnder(w.l), [], "no operator lock survives the discover_sha refusal: it runs before the guard opens (C-GD-1, refusal by refusal; mutant D6 'discover_sha refusal moved after openU4GuardedClient' => cycle locks held => reds)");
   } finally { w.done(); }
 });
 
@@ -678,6 +679,30 @@ test("u4b_fill_ts_resume_refuses_a_falsified_sidecar_by_self_sha_with_0_fetch", 
       await assert.rejects(runFillTs(fillArgs(path, out, w.l, "fs"), FILL_DEPS), (e: unknown) => e instanceof SelectError && /self-sha mismatch/.test(e.message), "a falsified resume sidecar is refused BY NAME (C-G2-1 material; mutant M14 'resume self-sha guard neutralized' => the falsified ts seeds the clustering => reds)");
     });
     assert.equal(s.distinct.size, 0, "refused with 0 fetch");
+    assert.deepEqual(locksUnder(w.l), [], "no operator lock survives the self-sha refusal: it runs before the guard opens (C-GD-1, refusal by refusal; mutant D4 'self-sha refusal moved after openU4GuardedClient' => cycle locks held => reds)");
+  } finally { w.done(); }
+});
+
+test("u4b_fill_ts_resume_refuses_a_sidecar_without_block_ts_extra_object_by_name_with_0_fetch_and_no_lock", async () => {
+  const w = scratch("u4bno");
+  try {
+    const path = writeDiscoverFile(w.dir, mkCluster(23_500_000, 3), 24_000_000, {});
+    const out = join(w.o, "fill"), scPath = join(out, "block-ts-extra.json");
+    mkdirSync(out, { recursive: true });
+    // phase "partial", THIS brut's discover_sha and the self-sha of what the resume reads when the object is missing
+    // (canon(null)): the self-sha and discover_sha guards would both PASS, so the object-shape guard ALONE refuses it.
+    const noObject = { schema: SIDECAR_SCHEMA, phase: "partial", discover_sha: brutShaOf(path), n_extra: 0, block_ts_extra_sha256: sha256Hex(canon(null)) };
+    for (const body of [JSON.stringify(noObject), JSON.stringify({ ...noObject, block_ts_extra: null })]) { // key absent, then null
+      writeFileSync(scPath, body);
+      let fetches = 0;
+      await withFetch((): Promise<Response> => { fetches++; return Promise.reject(new Error("offline: no fetch expected")); }, async () => {
+        await assert.rejects(runFillTs(fillArgs(path, out, w.l, "no"), FILL_DEPS), (e: unknown) => e instanceof SelectError && /with no block_ts_extra object/.test(e.message), "a sidecar without a block_ts_extra object is refused BY NAME (C-GD-1; mutant M19 'object guard removed' => every other guard passes, the guard opens => reds)");
+      });
+      assert.equal(fetches, 0, "refused with 0 fetch");
+      assert.deepEqual(locksUnder(w.l), [], "no operator lock survives the no-object refusal: it runs before the guard opens (C-GD-1; mutant M18 'no-object refusal moved after openU4GuardedClient' => cycle locks held => reds)");
+      assert.equal(existsSync(join(w.l, "no")), false, "the guard never opened: the cycle dir was never created");
+      assert.equal(readFileSync(scPath, "utf8"), body, "the refused sidecar is left byte-identical (no flush ran)");
+    }
   } finally { w.done(); }
 });
 
