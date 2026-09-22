@@ -41,11 +41,11 @@ test("bell_retry_nonjson_200_is_retried_then_succeeds_and_is_metered", async () 
 });
 
 // (2) the predicate matrix, by status. Transient (retried to exhaustion = `tries` attempts): 200, 429, and every 5xx
-// (502/503/504). Fatal (exactly ONE attempt, re-thrown at once): a 4xx != 429 (400, 404) AND a 2xx != 200 (201, 204 --
+// (500/502/503/504 -- 500 pins the >= 500 bound). Fatal (exactly ONE attempt, re-thrown at once): a 4xx != 429 (400, 404) AND a 2xx != 200 (201, 204 --
 // R-BR1, checkpoint-2 C-2). The transient set adds ONLY 200 to the existing HttpError set {429, >=500} -- matching the
 // mission's "200/502/503/504 transient, 4xx != 429 fatal"; the predicate is LITERAL `=== 200`, not a 2xx range.
 test("bell_retry_nonjson_transient_matrix_200_5xx_429_and_fatal_4xx", async () => {
-  for (const code of [200, 429, 502, 503, 504]) {
+  for (const code of [200, 429, 500, 502, 503, 504]) {
     let n = 0;
     await assert.rejects(() => withRetry(() => { n += 1; return Promise.reject(nonJson(code)); }, { tries: 3, ...noSleep }));
     assert.equal(n, 3, `a NonJsonBody@${String(code)} is TRANSIENT (retried tries=3 times; mutant '200 dropped' / '5xx dropped' => 1 => reds)`);
