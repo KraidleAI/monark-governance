@@ -10,7 +10,7 @@
 | Tranche réducteur pur | `1c7574acd325ab75e6760f50d6743e3d9d39cd5565abbf3d497d4884317a6ada` |
 | 8 autres sha gelés | recomputés 9/9 concordants sur `fef167d` (voir prereg §2) |
 | Floor Chainstack lecture n°1 (candidate) | 12 904 RU, 2026-09-22 05:22 UTC, `FAITS-floor-chainstack-2026-09-22.md` |
-| Floor Chainstack lecture n°2 (`<FLOOR-CHAINSTACK>`) | À REMPLIR par la lecture investisseur immédiatement avant le go — jamais devinée |
+| Floor Chainstack lecture n°2 (`<FLOOR-CHAINSTACK>`) | **12 916 RU**, lue sur place (session investisseur) 2026-09-22 13:5x UTC, `FAITS-floor-chainstack-n2-2026-09-22.md` |
 | Découverte / brut / sonde go-no-go | à renseigner au fil de la course (mêmes valeurs `prereg_sha`/`labeler_sha` que ci-dessus) |
 
 Commande de recompute : `git show 9e095a0:docs/PLAN-u4b-prereg.md | tr -d '\r' | sha256sum`.
