@@ -1,0 +1,83 @@
+# ETAT DE REPRISE — orchestrateur MONARK (Fable 5.1) — tenu a jour a chaque jalon
+
+> Objet : si la session courante tombe (limite 5 h, coupure, contexte), une session NEUVE reprend d'ici, avec
+> `docs/CHANTIERS.md` (journal complet, dernieres sections = etat le plus recent) et `~/.claude/CLAUDE.md` (regles).
+> Consigne investisseur du 2026-09-22 22:1x UTC : « qu'ils ecrivent au fil de l'eau — si on atteint la limite session de 5 h ».
+> Derniere mise a jour : **2026-09-22 22:1x UTC** (HEAD `lot/etude-suite` = voir `git log -1`).
+
+## 0. Decisions permanentes qui gouvernent la reprise
+- Decision 137 : TOUS les gos sont permanents (fusions G7, redeploiements harness/VPS, course Ukemi complete sous plafonds,
+  mints Bell restants, U-6 conditionnel mecanique). L'orchestrateur INFORME, ne demande jamais. Actes investisseur restants :
+  revocation cle Helius au verdict global, formulaire CoinGecko, facturation GitHub / repo prive, DNS Bell.
+- Decision 136 : ne JAMAIS declencher la CI GitHub sans prevenir l'investisseur (repo temporairement public).
+- Decision 133 : workers/chercheurs/lecteurs = `claude-opus-5-5` effort max (prefixe R-1 `claude-opus-5-5`) ; orchestrateur,
+  advisors, validateur = `claude-fable-5-1` ; `claude-opus-5` BANNI ; jamais un tier nu.
+- Securite : jamais afficher une cle (A-7) ; oracles sous `env -u HELIUS_API_KEY -u CHAINSTACK_ETH_URL -u CHAINSTACK_SOLANA_URL
+  -u CHAINSTACK_BASE_URL -u CHAINSTACK_BSC_URL -u CHAINSTACK_ROBINHOOD_URL -u POLYGON_API_KEY -u DATABENTO_API_KEY` ; la cle
+  Helius n'est lue QUE par le processus de tirage via PowerShell (`[Environment]::GetEnvironmentVariable('HELIUS_API_KEY','User')`,
+  longueur 36 verifiee, jamais imprimee) ; tout temporaire sur F:.
+- Zero dette (regle absolue) ; Branchement (« built » ⇔ chemin servi + test d'integration) ; R-25 ≤ 1 150 (CI 1 205) ;
+  R-13 (aucune ligne TAP `# todo` dans un commit) ; horodatages CHANTIERS depuis `TZ=UTC git log --date=iso-local`.
+
+## 1. Course Bell (tirage go-1, cycle `helius-2026-09-19`, floor 60 938)
+- FAIT : TSLAx COMPLET `equal` (8 784 pages, completion dans `F:\course-bell\bell-b3d-run-tslax-completion`) ; **AAPLx COMPLET
+  `equal`** (2 629 pages, N_exact 2 628 814 ; completion dans `F:\course-bell\bell-b3d-run-aaplx-completion` ; ancre
+  `mint_end-AAPLx` `244a903`).
+- EN COURS : **NVDAx r1**, lance 22:10:09 UTC depuis l'arbre EPINGLE `F:\Monark-wt-bellexec` (detache `a703e24`), dossier strict
+  `F:\course-bell\bell-b3d-run`, sous-caps 125 `--max-credits 1670000 --max-calls 167000 --max-pages 167000` ; pid dans
+  `F:\course-bell\go1\NVDAx.pid`, logs `F:\course-bell\go1\NVDAx-r1.{out,err}.log`. Projection 5 495 pages (max 7 620).
+- Supervision (RUNBOOK `docs/course-bell/RUNBOOK-supervision-tirage.md`) : `tasklist //FI "PID eq <pid>"` + `wc -l` du ledger
+  `ledger-NVDAx.jsonl` ; sous le code ANCIEN (pre-C-6) la lecture de `budget.json` est toleree mais inutile.
+- Fin de mint (processus sorti) : lire `crosscheck-report.json` :
+  - `complete:true` + `equal` ⇒ ancre `mint_end` : `bash F:\course-bell\go1\anchor.sh mint_end NVDAx ledger-NVDAx.jsonl crosscheck-NVDAx.json`
+    (commit + push + OTS + ligne ANCHORS automatiques) ;
+  - `not_full_pages` (page courte finale avec token, cas TSLAx/AAPLx) ⇒ procedure 135(a) : `cp -r bell-b3d-run bell-b3d-run-nvdax-completion`,
+    relancer la MEME commande avec `--allow-short-pages --out F:\course-bell\bell-b3d-run-nvdax-completion` (3 appels), puis
+    `ANCHOR_OUT=/f/course-bell/bell-b3d-run-nvdax-completion bash anchor.sh mint_end NVDAx …` ;
+  - crash / coupure ⇒ INCIDENT `docs/course-bell/INCIDENT-powercut-2026-09-22.md` §5 : `repair2.py` (queues NUL, head, budget.json
+    reconstruit), `rpc-guard … unlock --cycle helius-2026-09-19 --op helius|solana-foundation --reason …` (servi), ancre
+    `mint_resume` (`ANCHOR_SEQ=N`), relance (r+1) — depuis l'arbre epingle (ou le nouvel arbre si les 3 lots C-6 sont G7, cf. §3).
+- Ensuite SPYx (`--max-credits 2957000 --max-calls 295700 --max-pages 295700`, ancre `mint_start-SPYx` d'abord :
+  `bash anchor.sh mint_start SPYx budget.json ledger-AAPLx.jsonl ledger-NVDAx.jsonl ledger-SPYx.jsonl ledger-TSLAx.jsonl`),
+  puis -b3d-b2 post-tirage, lecture Helius n°3 (acte investisseur) au verdict global.
+- Commande de lancement (PowerShell, cwd = arbre d'execution) : voir CHANTIERS « NVDAx lance » ; ne jamais copier-coller une cle.
+
+## 2. Agents en vol (ids de sous-agents ; rendus recuperables par `python "F:/MONARK SUITE/persist.py" <id> "<prefixe 1re ligne>" <out> "<titre>"`)
+| Agent | id | Lot / role | Etat attendu |
+|---|---|---|---|
+| G1 U-4b-1b-4 (Opus 5.5) | `aa3ed1d7078497591` | outillage course (sonde cutoffTime `CutoffTimeSet`, prober pre_b0_anchor) `F:\Monark-wt-u4b1b4` | rendu G1 → G2 ‖ cp-2 → G7 |
+| G1 U-4b-STATS-1 (Opus 5.5) | `a63a3c73d4adcf630` | h3/h4/h6/report `F:\Monark-wt-u4bstats1` | idem |
+| G1 GARDE-FSYNC-1 (Opus 5.5) | `a770d3ec4e7ffca89` | rpc-guard fsync + tmp/rename + **rename-retry** `F:\Monark-wt-gfsync1` | idem ; C-1 cp-1 (repair-tail jamais une tete en avance) |
+| G2 BELL-SHORTPAGE-1 (Opus 5.5) | `a6118978970b2247f` | `lot/bell-shortpage-1` @ `e5dfbb4` | PASS attendu ; cp-2 deja ACCEPTE-AVEC-CORRECTIONS (C-1..C-5) |
+| G2 HARNESS-DESC-1 (Opus 5.5) | `a594ad5f6b690cbaa` | `lot/harness-desc-1` @ `906064b` | PASS attendu ; cp-2 deja ACCEPTE-AVEC-CORRECTIONS (C-V-1) |
+Rendus deja persistes : voir `docs/G1-*`, `docs/G2-*`, `docs/CHECKPOINT1-*`, `docs/CHECKPOINT2-*` (grep du nom de lot).
+
+## 3. G7 dus (ordre) et scripts prets
+1. **A-9-OUTILLE** (`lot/a9-outille` `649db8b` + micro-pli NON COMMITE dans `F:\Monark-wt-a9outille`, `test/vocab-harness-a9.test.ts`
+   sha `581af8e4…`) : verifier `F:\tmp\a9outille\orch\` (oracle 925/924/0/1, 15/15 mutants) → committer le micro-pli sur la
+   branche → fusion `--no-ff` dans `lot/etude-suite` → `python F:\tmp\a9outille\insert-adr.py` (ADR-U5a + ADR-M020 ; AJOUTER la
+   phrase ADR du rendu micro-pli a la fin de D-A9-1 et la ligne **A-13** dans `docs/CONSIGNE-STANDARD-G1.md`) → remplacer
+   l'item CHANTIERS « A-9-OUTILLE » (~:766) par l'item 1 → oracle sur `F:\Monark` → commit → push. AVANT HARNESS-DESC-1.
+2. **U-4b-1b-3** (`lot/u4b-1b-3` `1bcfbd7`, G2-delta-2 PASS, re-cp-2 ACCEPTE) : fusion + fold ADR v2 (`F:\tmp\u4b1b3\ADR-amendement-v2.md`)
+   avec D-BORNE-1, C-GD-3 (a)-(d), journal §3, `error_origin` C-V-1 = G1, items O-1/O-D3/O-D4/VX-B/C-4, CARTO-T1C-5 ; attendu sur
+   `F:\Monark` fusionne : 947/946/0/1. Puis RUNBOOK course Ukemi etape 1 (`--fill-ts` reel, operateurs drpc.org,nodies.app,mevblocker.io,
+   `--min-interval-ms 150`, ledger-dir `F:/monark-ledger/chainstack-2026-09-19`).
+3. **HARNESS-DESC-1** (`906064b`) apres G2 PASS : fusion (apres A-9) + insertion `F:\tmp\hdesc1\ADR-amendement.md` dans ADR-U4b (C-V-1)
+   → redeploiement harness a un SHA nomme (`/opt/monark-harness-redeploy.sh`, CA `scripts/verify-harness.mjs` 12/12,
+   `docs/deploy-CA-harness.json`, JOURNAL) — informer l'investisseur (137).
+4. **BELL-SHORTPAGE-1** (`e5dfbb4`) apres G2 PASS : fusion + insertion D1-nonies (`F:\tmp\bellsp1\ADR-amendement.md` + corrections
+   cp-2 C-1/C-2/C-3/C-5 + R-C6-2 corrige par le fait mesure EPERM + ruling R-SP-C) dans `docs/adr/ADR-T1aii-bell-collecteur-course-fondatrice.md`
+   (fin de fichier, apres l.396) ; puis lancer **BELL-RENAME-RETRY-1** (micro-lot code, worker Opus 5.5, cf. RUNBOOK supervision §3).
+5. **GARDE-FSYNC-1** : G1 → G2 ‖ cp-2 → G7.
+6. Deploiement C-6 vers l'arbre d'execution Bell : SEULEMENT quand BELL-SHORTPAGE-1 + GARDE-FSYNC-1 + BELL-RENAME-RETRY-1 sont
+   fusionnes, a une frontiere sans processus en vol (reprise post-crash ou `mint_end-NVDAx`) : re-epingler `F:\Monark-wt-bellexec`
+   (`git -C F:\Monark-wt-bellexec checkout --detach <sha>`, `mk-nm.ps1` si besoin), ligne ANCHORS « epoque shortpage » (sha).
+7. Puis : U-4b-1b-4 / U-4b-STATS-1 G2‖cp-2 → G7 ; course Ukemi (RUNBOOK `docs/course-ukemi/RUNBOOK-course-ukemi-2026-09-22.md`) ;
+   NARABI-OPS-1d pli §11-1 post-course + 2e redeploiement VPS ; U-4b-2b, U-5b, U-6 (conditionnel), U-7 ; cloture temps 1.
+
+## 4. Outillage (pieges mesures)
+- Scripts longs : ecrire un fichier (outil Write) puis l'executer ; le transport Bash mange `\x00` et reduit `\\` en `\` (A-13).
+- `node_modules` d'un worktree : `powershell -NoProfile -File F:\tmp\g2-garde2bi\mk-nm.ps1 -Tree <dir>` ; retrait `rm-nm.ps1`, jamais `rm -rf`.
+- Ancres : `F:\course-bell\go1\anchor.sh <boundary> <mint> <fichiers…>` (env `ANCHOR_SEQ`, `ANCHOR_OUT`).
+- Persistance des rendus d'agents : `persist.py` (ci-dessus). Les transcripts d'agents vivent dans
+  `C:\Users\KACIMI\.claude\projects\F--Monark\<session>\subagents\agent-<id>.jsonl`.
