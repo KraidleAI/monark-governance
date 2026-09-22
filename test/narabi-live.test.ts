@@ -4,7 +4,7 @@
 // from the sentinel's own formula (apps/sentinel/src/timeline.ts), so a drift between page and sentinel reds.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { NARABI_SNAPSHOT } from "../apps/site/lib/narabi-snapshot.ts";
@@ -269,11 +269,13 @@ test("narabi_glossary_under_calib_generic_digit_free — the glossary defines un
   assert.ok(readComponent().includes("{g.def}"), "narabi-live.tsx must render each glossary def as {g.def}");
 });
 
-test("narabi_icon_svg_local_no_remote_url — the per-route favicon is local + adaptive, loads nothing remote (ruling Q-3b)", () => {
-  const svg = readFileSync(join(ROOT, "apps", "site", "app", "narabi", "icon.svg"), "utf8");
+test("narabi_icon_static_public_local — the /narabi favicon is a static public asset, adaptive, loads nothing remote (ruling D-2)", () => {
+  // The favicon now lives in public/ (served at /icons/narabi.svg), NOT app/narabi/icon.svg. Reading it here
+  // is the mutant "favicon distant" target: inject a remote resource -> red.
+  const svg = readFileSync(join(ROOT, "apps", "site", "public", "icons", "narabi.svg"), "utf8");
   // Adaptive dark/light via prefers-color-scheme (never a second file, never a script).
   assert.match(svg, /@media\s*\(prefers-color-scheme/i, "the favicon must be adaptive (@media prefers-color-scheme)");
-  // 0 URL LOADED: no remote stylesheet/image/font. Mutant "favicon distant": inject a remote resource -> red.
+  // 0 URL LOADED: no remote stylesheet/image/font.
   assert.ok(!/url\(\s*["']?https?:/i.test(svg), "no CSS url(http…) load");
   assert.ok(!/@import/i.test(svg), "no @import");
   assert.ok(!/<image\b/i.test(svg), "no <image> raster load");
@@ -281,4 +283,31 @@ test("narabi_icon_svg_local_no_remote_url — the per-route favicon is local + a
   // The ONLY http(s) URI is the SVG xmlns namespace (a declaration, not a load).
   const httpHits = svg.match(/https?:\/\/[^"'\s>]+/g) ?? [];
   assert.deepEqual(httpHits, ["http://www.w3.org/2000/svg"], "the only URI is the SVG xmlns namespace, not a remote load");
+});
+
+test("narabi_icon_declared_not_under_narabi_path — the /narabi favicon is declared as a public path OUTSIDE /narabi/* (ruling D-2)", () => {
+  // Caddy path-matcher semantics (same as narabi_live_route_not_shadowed_by_caddy): "/narabi/*" shadows any
+  // path under "/narabi/". The static favicon MUST sit outside it, or the production file_server 404s it.
+  const shadowed = (route: string, matcher: string): boolean => {
+    const r = route.toLowerCase();
+    const m = matcher.toLowerCase();
+    if (m.endsWith("/*")) return r.startsWith(m.slice(0, -1));
+    if (m.endsWith("*")) return r.startsWith(m.slice(0, -1));
+    return r === m;
+  };
+  // The app/ route-icon MUST be gone (a file-based app/narabi/icon.svg would land on the shadowed /narabi/icon.svg).
+  assert.ok(!existsSync(join(ROOT, "apps", "site", "app", "narabi", "icon.svg")), "app/narabi/icon.svg must be removed (it would be shadowed at /narabi/icon.svg)");
+  // The icon href is READ from the /narabi page metadata (mutant "icon under /narabi/": point it under /narabi/ -> red).
+  const page = readFileSync(join(ROOT, "apps", "site", "app", "narabi", "page.tsx"), "utf8");
+  const iconsAt = page.indexOf("icons:");
+  assert.ok(iconsAt >= 0, "the /narabi metadata must declare icons");
+  const hrefMatch = page.slice(iconsAt).match(/["']([^"']*\.svg)["']/);
+  assert.ok(hrefMatch, "the /narabi metadata icons must declare an .svg href");
+  const href = hrefMatch[1];
+  assert.ok(href, "the icons href capture is non-empty");
+  assert.equal(href, "/icons/narabi.svg", "the declared favicon is the static public path /icons/narabi.svg");
+  assert.equal(shadowed(href, "/narabi/*"), false, "the favicon path must NOT be under /narabi/* (Caddy would 404 it)");
+  // The declared href resolves to a real file under public/ (a dangling href would 404 too).
+  const publicFile = join(ROOT, "apps", "site", "public", href.replace(/^\//, ""));
+  assert.ok(existsSync(publicFile), `the declared favicon must exist as a public asset (${href})`);
 });
