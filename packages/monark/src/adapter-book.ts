@@ -262,3 +262,252 @@ export function toAttestedBook(result: RecordedBook, ctx: AttestedBookContext): 
     observed_at: ctx.observed_at,
   };
 }
+
+// ============================================================================================
+// U-5a — PURE yhat producer `fromRealizedBook` (Ukemi liquidation-eligible-coverage, decision 123/132; G0
+// §2/§3; checkpoint-1 C-1). A no-I/O RE-IMPLEMENTATION of the PER-ACCOUNT close-factor yhat rule frozen in
+// `scripts/census/u4b/u4b-scores.mjs` (sha 2f9a31f6…, one of the 9 untouchable). It is NOT imported (that
+// module reads node:fs + apps/sentinel — a K-8 break here) but RE-DECLARED by value and proven EQUAL to the
+// frozen module by the equality oracles (Oracle A on the 565 committed `score_a` rows; Oracle B on the frozen
+// module LIVE over all 16 096 accounts — apps/sentinel/test, export-excluded).
+//
+// It emits `{yhat, m_bps, pstar}` ONLY (C-1): the stratum is derived DOWNSTREAM by the harness `ukemi-strata`
+// (no third copy of `strateOf`/STRATA_CUTS here), and the K-1 envelope (Prediction + provenance + label) is
+// built by the `ukemi-predict` tool. `yhat` is an EXACT bigint (base 8-dec); the tool converts it to a safe
+// JSON number fail-closed. NO `node:crypto`: the `book_digest` is an ECHO carried by the caller (a mono-account
+// slice cannot recompute the whole-book digest, and K-8 forbids it anyway), never recomputed here.
+// ============================================================================================
+
+/** One reserve of the realized book slice (all string base amounts, exactly as the u4b book carries them). */
+export interface RealizedReserve {
+  readonly asset: string;
+  readonly atoken: string;
+  readonly variable_debt_token: string;
+  readonly decimals: string;
+  readonly liquidation_threshold_bps: string;
+  readonly liquidation_bonus_bps: string;
+  readonly reserve_emode_category: string;
+  readonly price_base_8dec: string;
+}
+
+/** One (token, amount) balance of the account (aWETH collateral + every variable-debt token, u4b book form). */
+export interface RealizedBalance {
+  readonly token: string;
+  readonly amount: string;
+}
+
+/** The single account of a mono-account slice (exactly one per prediction; the tool enforces length === 1). */
+export interface RealizedAccount {
+  readonly address: string;
+  readonly emode: string;
+  readonly balances: readonly RealizedBalance[];
+  readonly total_collateral_base: string;
+  readonly total_debt_base: string;
+  readonly current_liquidation_threshold_bps: string;
+  readonly hf_onchain: string;
+}
+
+/** The computation input: ALL reserves (never pruned — Q-U5-6) + exactly one account. */
+export interface RealizedBookSlice {
+  readonly reserves: readonly RealizedReserve[];
+  readonly account: RealizedAccount;
+}
+
+/** One oracle-path update (block, log_index for the canonical order, price base 8-dec). */
+export interface RealizedOracleUpdate {
+  readonly block: number;
+  readonly log_index?: number;
+  readonly price: string;
+}
+
+/** The oracle path + decoded e-mode params — the SAME data the frozen runner passes as `oracle` (u4b-scores
+ *  runner: anchor.price -> anchor_price, meta.emode_params -> emode_params, update lines -> updates). */
+export interface RealizedOracleParams {
+  readonly anchor_price: string;
+  readonly updates: readonly RealizedOracleUpdate[];
+  readonly emode_params: Readonly<Record<string, { readonly lt: string; readonly bonus: string }>>;
+}
+
+/**
+ * Named, fail-closed refusals — the PER-ACCOUNT non-evaluable branches of the frozen scorer, surfaced (never a
+ * silent estimate). `weth_reserve_absent`/`anchor_not_positive` mirror the frozen fail-closed THROWS (a slice
+ * missing WETH or with a non-positive anchor); `no_collateral`/`non_mono_weth`/`emode_out_of_range`/
+ * `emode_params_missing` mirror the per-account `ne` classifications; `unknown_balance_token` is the Q-U5-6
+ * guard the FROZEN scorer does NOT have (it silently `continue`s an unknown token — correct only because the
+ * full book carries every reserve): a non-zero balance token that is neither aWETH nor a CARRIED variable-debt
+ * token means the caller pruned `reserves[]`, which would SILENTLY under-count yhat, so it fails closed.
+ */
+export type RealizedRefusalReason =
+  | "weth_reserve_absent"
+  | "anchor_not_positive"
+  | "no_collateral"
+  | "non_mono_weth"
+  | "emode_out_of_range"
+  | "emode_params_missing"
+  | "unknown_balance_token";
+
+/** An evaluable yhat point. `yhat` is an EXACT bigint (base 8-dec); m_bps/pstar are null only for no crossing. */
+export interface RealizedYhatOk {
+  readonly ok: true;
+  readonly yhat: bigint;
+  readonly m_bps: string | null;
+  readonly pstar: string | null;
+}
+/** A named, fail-closed refusal (no yhat emitted). */
+export interface RealizedYhatError {
+  readonly ok: false;
+  readonly reason: RealizedRefusalReason;
+  readonly message: string;
+}
+/** The yhat result: an evaluable point or a named refusal (discriminated on `ok`). */
+export type RealizedYhat = RealizedYhatOk | RealizedYhatError;
+
+/** True iff a `fromRealizedBook` result is the refusal branch (narrows the union). */
+export function isRealizedError(r: RealizedYhat): r is RealizedYhatError {
+  return r.ok === false;
+}
+
+// ── Frozen v3.5.0 constants (u4b-scores.mjs:39-48, RE-DECLARED by value; pinned by the equality oracles). ──
+const R_WAD = 10n ** 18n;
+const R_MAXU = 2n ** 256n - 1n;
+const R_WETH = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
+const R_T = 2000n * 10n ** 8n; // MIN_BASE_MAX_CLOSE_FACTOR_THRESHOLD = 2000e8
+const R_HF95 = 95n * 10n ** 16n; // CLOSE_FACTOR_HF_THRESHOLD = 0.95e18
+const R_CF_BPS = 5000n; // DEFAULT_LIQUIDATION_CLOSE_FACTOR = 0.5e4
+const rlc = (s: string): string => s.toLowerCase();
+
+/** PercentageMath.percentMul — half-up: (value·bps + 5000) / 1e4 (wadray.ts:21-23, re-declared, K-8). */
+function rPercentMul(value: bigint, bps: bigint): bigint {
+  return (value * bps + 5000n) / 10000n;
+}
+
+function refuse(reason: RealizedRefusalReason, message: string): RealizedYhat {
+  return { ok: false, reason, message };
+}
+
+/**
+ * The PER-ACCOUNT close-factor yhat (base 8-dec), at the per-account FIRST CROSSING p*, by the frozen v3.5.0
+ * rule (u4b-scores.mjs:88-225). PURE: a deterministic function of its typed arguments, no I/O, no clock, no
+ * crypto. Emits `{yhat, m_bps, pstar}` (C-1) — the stratum and the K-1 envelope are built by the caller. yhat =
+ * max over the account's debt reserves of min(CF_base, C_weth/m); WETH legs repriced at p*, non-WETH legs held
+ * at p0; e-mode fail-closed to {0, WETH-category}. A crossed account with every D_r floored to 0 yields yhat=0
+ * WITH p-star and m set (a legitimate prediction, Q-U5-7); no crossing yields yhat=0 with pstar/m_bps null.
+ */
+export function fromRealizedBook(book: RealizedBookSlice, params: RealizedOracleParams): RealizedYhat {
+  const wr = book.reserves.find((r) => rlc(r.asset) === R_WETH);
+  if (wr === undefined) return refuse("weth_reserve_absent", "WETH reserve absent from the book slice (fail-closed, u4b-scores.mjs:89)");
+  const anchorPrice = BigInt(params.anchor_price);
+  if (anchorPrice <= 0n) return refuse("anchor_not_positive", "oracle anchor_price must be > 0 (a zero/negative anchor degenerates the first-crossing traversal, C-G2-2)");
+
+  const p0 = BigInt(wr.price_base_8dec);
+  const aWeth = rlc(wr.atoken);
+  const vWeth = rlc(wr.variable_debt_token);
+  const wethBaseLT = BigInt(wr.liquidation_threshold_bps);
+  const wethBaseBonus = BigInt(wr.liquidation_bonus_bps);
+  const wethEmCat = BigInt(wr.reserve_emode_category);
+
+  // Reserve map by variable-debt token over ALL carried reserves (Q-U5-6: never pruned).
+  const resByV = new Map<string, { asset: string; price: bigint; dec: bigint }>();
+  for (const r of book.reserves) {
+    resByV.set(rlc(r.variable_debt_token), { asset: rlc(r.asset), price: BigInt(r.price_base_8dec), dec: BigInt(r.decimals) });
+  }
+
+  // Price path: pre-B0 anchor first, then the updates in (block, log_index) order.
+  const upd = params.updates.slice().sort((a, b) => a.block - b.block || (a.log_index ?? 0) - (b.log_index ?? 0));
+  const path: bigint[] = [anchorPrice, ...upd.map((u) => BigInt(u.price))];
+
+  const a = book.account;
+  const emode = BigInt(a.emode);
+  const totalColl0 = BigInt(a.total_collateral_base);
+  const totalDebt0 = BigInt(a.total_debt_base);
+  const avgLT = BigInt(a.current_liquidation_threshold_bps);
+  const hf0 = BigInt(a.hf_onchain);
+  const balOf = (tok: string): bigint => {
+    const x = a.balances.find((z) => rlc(z.token) === tok);
+    return x !== undefined ? BigInt(x.amount) : 0n;
+  };
+  const aWethBal = balOf(aWeth);
+  const vWethBal = balOf(vWeth);
+  const wethColl0 = (aWethBal * p0) / R_WAD;
+  const wethDebt0 = (vWethBal * p0) / R_WAD;
+
+  // Mono-collateral WETH, X = 0 EXACT (u4b-scores.mjs:145-150).
+  if (aWethBal === 0n) return refuse("no_collateral", "account holds no aWETH collateral (no_aweth, u4b-scores.mjs:148)");
+  const residual = totalColl0 - wethColl0;
+  if (residual !== 0n) return refuse("non_mono_weth", "account is not mono-collateral WETH (total_collateral_base != aWETH*p0/1e18, u4b-scores.mjs:150)");
+
+  // e-mode fail-closed to {0, WETH-category} (u4b-scores.mjs:155-161).
+  let ltWeth: bigint;
+  let bonusWeth: bigint;
+  if (emode === 0n) {
+    ltWeth = wethBaseLT;
+    bonusWeth = wethBaseBonus;
+  } else if (emode === wethEmCat) {
+    const e = params.emode_params[a.emode];
+    if (e === undefined) return refuse("emode_params_missing", `WETH e-mode category ${a.emode} params missing from emode_params (fail-closed, u4b-scores.mjs:159)`);
+    ltWeth = BigInt(e.lt);
+    bonusWeth = BigInt(e.bonus);
+  } else {
+    return refuse("emode_out_of_range", `e-mode ${a.emode} is outside {0, WETH-category ${wr.reserve_emode_category}} (non_evaluable_emode, u4b-scores.mjs:161)`);
+  }
+
+  // Q-U5-6 guard the frozen scorer LACKS: a non-zero balance token that is neither aWETH nor a carried
+  // variable-debt token means `reserves[]` was pruned ⇒ the frozen `continue` would SILENTLY under-count yhat.
+  // Fail closed. On the FULL book this never fires (the book carries every reserve) — proven by the oracles.
+  for (const bal of a.balances) {
+    if (BigInt(bal.amount) === 0n) continue;
+    const t = rlc(bal.token);
+    if (t !== aWeth && !resByV.has(t)) {
+      return refuse("unknown_balance_token", `balance token ${t} (amount > 0) is neither aWETH nor a carried variable-debt token — reserves[] is pruned; refuse rather than under-count yhat (Q-U5-6)`);
+    }
+  }
+
+  const riskAdj0 = rPercentMul(totalColl0, avgLT);
+  const hfAt = (p: bigint): bigint => {
+    const wc = (aWethBal * p) / R_WAD;
+    const wd = (vWethBal * p) / R_WAD;
+    const ra = riskAdj0 - rPercentMul(wethColl0, ltWeth) + rPercentMul(wc, ltWeth);
+    const td = totalDebt0 - wethDebt0 + wd;
+    if (td <= 0n) return R_MAXU;
+    if (riskAdj0 <= 0n) return 0n;
+    return (hf0 * (ra < 0n ? 0n : ra) * totalDebt0) / (riskAdj0 * td);
+  };
+
+  // First crossing along the path (anchor first).
+  let pStar: bigint | null = null;
+  let hfStar = 0n;
+  for (const p of path) {
+    const hf = hfAt(p);
+    if (hf < R_WAD) {
+      pStar = p;
+      hfStar = hf;
+      break;
+    }
+  }
+  if (pStar === null) return { ok: true, yhat: 0n, m_bps: null, pstar: null };
+
+  const C_weth = (aWethBal * pStar) / R_WAD;
+  const CA = (C_weth * 10000n) / bonusWeth; // collateral-availability cap C_weth / m, m = bonus/1e4
+  const wethDebtStar = (vWethBal * pStar) / R_WAD;
+  const D_tot = totalDebt0 - wethDebt0 + wethDebtStar;
+  const halfDtot = rPercentMul(D_tot, R_CF_BPS);
+
+  // yhat = max over debt reserves of min(CF_base, C_weth/m). One call liquidates ONE pair (MAX, never sum).
+  let yhat = 0n;
+  for (const bal of a.balances) {
+    const r = resByV.get(rlc(bal.token));
+    if (r === undefined) continue; // aWETH (collateral): not a debt leg.
+    const amt = BigInt(bal.amount);
+    if (amt === 0n) continue;
+    const isWeth = r.asset === R_WETH;
+    const priceR = isWeth ? pStar : r.price; // non-WETH legs held at p0; WETH leg repriced at p*.
+    const D_r = (amt * priceR) / 10n ** r.dec;
+    if (D_r === 0n) continue;
+    const gate = C_weth >= R_T && D_r >= R_T && hfStar > R_HF95;
+    const CF = gate ? (D_r < halfDtot ? D_r : halfDtot) : D_r;
+    const yb = CF < CA ? CF : CA;
+    if (yb > yhat) yhat = yb;
+  }
+
+  return { ok: true, yhat, m_bps: bonusWeth.toString(), pstar: pStar.toString() };
+}

@@ -38,5 +38,18 @@ export type { NarabiOutput, NarabiError, NarabiProvenance, NarabiAdapterErrorRea
 // form lives here (imported by apps/sentinel/src/ukemi, no second definition — C-1).
 export { fromAttestedBook, toAttestedBook, isBookError, BOOK_LABEL } from "./adapter-book.ts";
 export type { BookOutput, BookError, BookProvenance, BookAdapterErrorReason, AttestedBookContext, RecordedBook } from "./adapter-book.ts";
+// U-5a — the PURE per-account yhat producer (decision 123/132). Emits {yhat, m_bps, pstar} by the frozen
+// close-factor rule; the harness `ukemi-predict` tool builds the K-1 envelope and derives the stratum.
+export { fromRealizedBook, isRealizedError } from "./adapter-book.ts";
+export type {
+  RealizedBookSlice,
+  RealizedReserve,
+  RealizedBalance,
+  RealizedAccount,
+  RealizedOracleParams,
+  RealizedOracleUpdate,
+  RealizedYhat,
+  RealizedRefusalReason,
+} from "./adapter-book.ts";
 export { canonicalStringify, bookDigest, canonicalAttestedBook, attestedBookDigest, NonCanonicalNumberError } from "./book-canonical.ts";
 export type { Canon, CanonicalEnvelope } from "./book-canonical.ts";

@@ -33,6 +33,7 @@ test("harness_export_whitelisted", () => {
     "apps/harness/src/tools/gate.ts",
     "apps/harness/src/tools/cascade.ts",
     "apps/harness/src/tools/attest.ts",
+    "apps/harness/src/tools/ukemi-predict.ts",
     "apps/harness/test/http.test.ts",
     "apps/harness/test/openapi.test.ts",
   ];
