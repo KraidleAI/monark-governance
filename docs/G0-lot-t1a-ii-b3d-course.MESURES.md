@@ -155,3 +155,101 @@ Estimation option B ≈ **70-120 ins+del [à mesurer au G1]** ; borne comparable
 - `AMENDEMENT-3-texte-a-committer.md` — (A) : déjà committé seul `6c9fdaa`, STOP.
 - `G0-lot-t1a-ii-b3d-course.DRAFT.md` — (B) : brouillon du G0 de course.
 - `MESURES.md` — ce fichier.
+# MESURES — Bell course, PLI sur décisions 123/124/125 (APPEND à `docs/G0-lot-t1a-ii-b3d-course.MESURES.md`)
+
+> **Bloc d'APPEND** (worker `claude-opus-4-8[1m]`, effort max). À concaténer par l'orchestrateur à la suite de `docs/G0-lot-t1a-ii-b3d-course.MESURES.md`.
+> Base `F:\Monark` `lot/etude-suite` HEAD `7801083` (≥ `cabd3d5`). Lecture seule ; écritures uniquement sous `F:\tmp\bell-course\` ;
+> aucun réseau ; aucun secret lu (A-7 : aucune variable d'environnement affichée) ; rien sur `C:`. `[mesuré]` = sortie observée par ce worker ; `[2nd]` = valeur lue dans un doc.
+
+## Deliverable (C) — pli du G0 de course sur décisions 123/124/125
+
+### M-C0 — base + horloge [mesuré]
+```
+git -C F:/Monark rev-parse HEAD        -> 780108371d017c11ef289657977f0fe313c7f506  (7801083)
+git -C F:/Monark branch --show-current -> lot/etude-suite
+git -C F:/Monark status --short        -> (vide, propre)
+date -u +%Y-%m-%dT%H:%M:%SZ            -> 2026-09-22T00:53:46Z   (en-tête du PLIÉ ; récidive d'horloge CHANTIERS:616 évitée)
+```
+
+### M-C1 — décisions 123/124/125 en historique + 2b-ii fusionné + état 1b [mesuré]
+```
+git merge-base --is-ancestor cabd3d5 HEAD   -> vrai (125 ancêtre)
+git log --oneline : cabd3d5 = Decision 125 ; 5fbe1a2 = Decision 124 ; b43a779 (+8573e4c timestamp) = Decision 123
+2b-ii fusionné    : fec2848 "G7 GARDE-HELIUS-2b-ii ACCEPTED (merges ce41619, 5394dfe)"  (ancêtre de HEAD)
+1b : G0 PLIÉ d6af611 ; aucun G1 de sous-lot 1b (1b-0/i/ii/iii) atterri
+     git log --all | grep -iE "1b-0|1b-i|1b-ii|1b-iii" -> seulement des mentions (G0 d6af611, item 1b-0 dans 593c0c3), 0 G1 de sous-lot
+```
+⇒ **G-4 = EN VOL** : dépendance d'ordre « 1b après 2b-ii » LEVÉE par `fec2848` ; G1 1b-0 en vol (décision 122). N'est REMPLI qu'aux 4 sous-lots + G-4-bis vert.
+
+### M-C2 — §2 du PLI byte-identique à HEAD (frozen, NON touché) [mesuré]
+```
+awk '/^## 2\./{f=1} f&&/^---/{exit} f' docs/PLI-lot-t1a-ii-b3d.md | sha256sum
+  -> 7071484f3444abe6c09b694f730ad2fcce2f00ea8c12e8cc39fc31806a3c7867   (= la valeur enshrined ; inchangé)
+```
+
+### M-C3 — G0-b:236/:243 disent bien « 10 M » (défaut stale confirmé de première main) [mesuré]
+```
+sed -n '236p;243p' docs/G0-lot-t1a-ii-b3d-b.md
+ :236 -> "... cumul pire cas ≈ 7 610 938 / 10 M (marge ≈ 2,39 M) ..."
+ :243 -> "... cumul cycle > 10 M ; ... off => arrêt système à 10 M ..."
+```
+⇒ item formé « correction 10 M -> 8 M (décision 112) » confirmé par décision 125 ; note datée proposée (docs seuls ; ce worker écrit sous F:\tmp).
+
+### M-C4 — recompute du plafond + fractions cumulatives (décision 125) [mesuré]
+Entrées débit [2nd `docs/PLI-lot-t1a-ii-b3a.md:169-175`] ; barème gTfA 10 cr/1000 tx [2nd FAITS].
+```
+TSLAx  N=25 421 550  pages=25 422   corps=254 220   part 4,71 %   (cumul 4,71 %)
+AAPLx  N=51 348 555  pages=51 349   corps=513 490   part 9,52 %   (cumul 14,23 %)
+NVDAx  N=166 973 130 pages=166 974  corps=1 669 740 part 30,96 %  (cumul 45,19 %)
+SPYx   N=295 661 880 pages=295 662  corps=2 956 620 part 54,81 %  (cumul 100 %)
+Σ corps = 5 394 070   (enshrined Amend.3(3) = 5 394 670 ; Δ = 600, arrondi)
+sous-plafonds cumulatifs --max-credits (Amend.3(2)) : TSLAx 256170 / AAPLx 769170 / NVDAx 2439170 / SPYx 5396170
+plafond AUTORISÉ (décision 125) = 5 396 170 (= 1 500 sonde + 5 394 670)
+```
+**Deux conflations à ne pas faire** (présentées, jamais « corrigées ») :
+- décision 125(3) « premier point ~14 % (TSLAx) » : le 14,23 % mesuré est la frontière **TSLAx+AAPLx** (phrasé architecte), avant NVDAx (31 %)/SPYx (55 %).
+- « 6 497 500 (STOP H6) » : le §2 gelé STOPpe sur **projection > 6 500 000** ; 6 497 500 = `--max-credits` par commande (Amend.1). Marge corps sous 6 497 500 (SPYx cumul) = 1 101 330 [lu PLI:390].
+
+### M-C5 — code refs Bell ré-ancrés à HEAD 7801083 (post-2b-ii) [mesuré]
+```
+DENSITY_POINTS = 8                     rebase-crosscheck.ts:449   (commentaire :447-448 "1+DENSITY_POINTS=9 gTfA/mint => <=36/4 mints" ; échantillonnage :749)
+GTFA_PAGE_LIMIT = 1000                 rebase-crosscheck.ts:64
+runDensityProbeCli                     rebase-crosscheck.ts:715 ; écrit require_full_pages :721,:727 ; pages:0 ; NE lit PAS le prior
+  (contraste runRebaseCrosscheckCli:634 -> readPriorBudget:615-622 -> throw fail-closed :643-644)  => C-G2-3 CONFIRMÉ OUVERT
+--max-credits requis (throw)           collect.ts:443-444 (absent) ; :446 (>0) ; enforcement makeBudgetedCall:304 (BudgetExceededError)
+projectPagesAtFraction                 rebase-crosscheck.ts:487 (span>0/fraction>0/>=2 points, fail-closed)
+```
+2b-ii-a a fait « minimal Bell call-site adaptation » (`ce41619`) : les lignes ci-dessus ont bougé de ≤ 1 vs le DRAFT (`:303`->`:304`). **1b-ii réécrit la voie budgétaire** ⇒ [à RE-confirmer au G1 post-1b-ii] (G-4-bis, §11 du PLIÉ).
+
+### M-C6 — enveloppe de coût go-1 (points (a)/(b) inclus) [mesuré/dérivé]
+```
+K=8 : 1 + DENSITY_POINTS = 9 gTfA/mint × 4 = 36 gTfA = 360 cr (nominal)
++ (a) disponibilité : 1 page/mint = 4 gTfA = 40 cr
++ (b) reprise inter-process sur API réelle : quelques gTfA
+=> enveloppe attendue ~400-600 cr ; DUR ≤ 1 500 cr (réserve sonde, Amend.3(3))
+étalonnage (d) : ledger_run = Σ méthode × tarif RECOMPUTÉ du ledger de sonde (borné retries_by_method), jamais un "360 exact"
+```
+
+### M-C7 — texte de communication publique : vérif machine vocab + tiret [mesuré]
+```
+node F:/tmp/bell-course/vocab-check.mjs   (charge F:/Monark/vocab-banned.json : GLOBAL banned + tous scan.*.banned, drapeau i ; + classe tiret U+002D/2010-2015/2212)
+  -> PATTERNS TESTED: 76  (+1 dash class)
+  -> RESULT: 0 hit — CLEAN
+```
+Texte : `F:/tmp/bell-course/public-text.txt`. Rendu SANS tiret et SANS « verified » nu du libellé autorisé décision 124(5) (« counter-verified by a full-mint scan; chain head timestamped independently (OpenTimestamps) ») ; « independently » débloqué par l'option B. Émetteur (xStocks) NON nommé sur vitrine (F-2c C-4 ; « tokenized stock mints on Solana »).
+
+### M-C8 — bandes souples 113 par frontière de mint (décision 125(3)) [mesuré, sous-plafonds enshrined]
+```
+bande_k = max(50 ; 0,5 % × ledger_run_k) ; ledger_run_k réel <= sous-plafond => 0,5 % × sous-plafond = borne haute pré-enregistrée
+ TSLAx 0,5%×254 670  = 1 273   AAPLx 0,5%×513 000 = 2 565
+ NVDAx 0,5%×1 670 000= 8 350   SPYx  0,5%×2 957 000= 14 785
+ course entière 0,5%×5 394 670 = 26 973
+```
+Borne dure 113 : `Δdashboard ≤ ledger_run` (sinon incident) — appliquée PAR FRONTIÈRE (décision 125(3)), couplée au point d'arrêt §7.
+
+## Fichiers produits (sous F:\tmp\bell-course\)
+- `G0-lot-t1a-ii-b3d-course.PLIE.md` — (C) : le G0 de course PLIÉ (titre sans DRAFT), gates G-1..G-10, ancrage §5, go-1/go-2 §6, points d'arrêt §7, conditions architecte §8, calendrier §9, HORS + items formés §13, texte public §14.
+- `ANCHORS.template.md` — template du fichier d'ancres `docs/course-bell/ANCHORS.md` (format d'ancre freezable, manifeste de tête, procédure OTS abstraite, vérif tiers).
+- `public-text.txt` — texte de communication publique (anglais, sans tiret, vocab conforme).
+- `vocab-check.mjs` — vérificateur machine du texte public (rejouable).
+- `MESURES.md` — ce bloc d'append.
