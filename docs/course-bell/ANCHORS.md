@@ -46,6 +46,7 @@ Artefacts par frontière :
 | 2026-09-22T19:11:46Z | mint_resume | TSLAx | `04c6c3bfc596a18069e43ea53e6fb2260965a93d1c444d4a5bebb1ef2d682c83` | n/a | n/a | `5a7c066` | `mint_resume-TSLAx-4-manifest.txt.ots` |
 | 2026-09-22T20:02:56Z | mint_start | AAPLx | `6c66b1b380a3be3d646d49943002901c22c8e43befdcadb47a74540ff88ab210` | n/a | n/a | `a2bdcac` | `mint_start-AAPLx-manifest.txt.ots` |
 | 2026-09-22T20:41:27Z | mint_resume | AAPLx | `9086f0e33e01c37465e9dc986289ee7bc7f4d1afdc051dafce9dc64a23885607` | n/a | n/a | `f841311` | `mint_resume-AAPLx-manifest.txt.ots` |
+| 2026-09-22T21:45:43Z | mint_resume | AAPLx | `ff6b2dbaa5a778296c3d7e06ace8960abb6afb9e59a28dc34e5e20af84c3af38` | n/a | n/a | `4699db9` | `mint_resume-AAPLx-2-manifest.txt.ots` |
 
 - `entry_sha256` = `entry_sha256` de la dernière ligne de `ledger-<mint>.jsonl` **là où elle existe**, sinon `n/a`.
 - `ledger_sha256` = champ `ledger_sha256` de `crosscheck-<mint>.json` (à `mint_end`), sinon `n/a`.
