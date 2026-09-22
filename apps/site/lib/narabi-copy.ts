@@ -78,6 +78,7 @@ export const GLOSSARY: { term: string; def: string }[] = [
   { term: "pair", def: "evaluable, non evaluable or clipped: whether the window contributes a step." },
   { term: "calm-miss", def: "Share of calm pairs whose residual exceeded q₁, over the rolling window. Metadata for the criterion, never a tracker filter." },
   { term: "segment", def: "A run of unchanged sentinel parameters. Any change opens a new one, visibly." },
+  { term: "under_calib", def: "Too few calibration points for a population: the gate abstains for it, serving no region while its state is published. A named state, never a number." },
 ];
 
 export const FLEET_PLACE =

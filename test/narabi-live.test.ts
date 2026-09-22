@@ -4,7 +4,7 @@
 // from the sentinel's own formula (apps/sentinel/src/timeline.ts), so a drift between page and sentinel reds.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { NARABI_SNAPSHOT } from "../apps/site/lib/narabi-snapshot.ts";
@@ -12,6 +12,8 @@ import {
   parseState,
   parseTimeline,
   loadNarabi,
+  firstReadingLabel,
+  SERIES_MIN_STEPS,
   D8_SENTENCE,
   WHY_SEVEN,
   TRACKER_ADAPTS,
@@ -24,6 +26,9 @@ import {
   BOUND_TARGET,
   NARABI_ROUTE,
 } from "../apps/site/lib/narabi-live.ts";
+import type { NarabiState, TimelineLine } from "../apps/site/lib/narabi-live.ts";
+import { GLOSSARY } from "../apps/site/lib/narabi-copy.ts";
+import { FLEET_AGENTS } from "../apps/site/lib/fleet.ts";
 import {
   boundThm1,
   projectedBoundT,
@@ -187,4 +192,122 @@ test("narabi_live_route_not_shadowed_by_caddy — /narabi reaches Next; the stat
   assert.ok(matchers.some((m) => shadowed("/narabi/timeline.jsonl", m)), "Caddy must serve /narabi/timeline.jsonl");
   // Why /narabi/live was rejected: it IS under the matcher, so the file_server would 404 it (mutant target).
   assert.equal(shadowed("/narabi/live", "/narabi/*"), true, "a /narabi/live route would be shadowed by the file_server");
+});
+
+test("narabi_first_reading_label_reads_committed_t — the hero pill reads N from the committed state (ruling C-3/C-5/Q-8b)", () => {
+  const base = parseState(NARABI_SNAPSHOT.stateJson);
+  const lines = parseTimeline(NARABI_SNAPSHOT.timelineJsonl);
+  // The committed snapshot IS the T=1 series (tracker.t = 1, two published windows). N is READ from these bytes.
+  assert.equal(base.tracker.t, 1, "the committed snapshot is the T=1 series (N is read, not typed)");
+  assert.equal(lines.length, 2, "the committed snapshot publishes two daily windows");
+
+  // Q-8b: the status WORD follows the FROZEN fleet register ("built"), never the mockup's "shipped". The pure
+  // module cannot import fleet.ts (dual-compile), so the root test binds the pill prefix to the register here.
+  const narabi = FLEET_AGENTS.find((a) => a.name === "Narabi");
+  assert.ok(narabi, "the fleet register must carry a Narabi agent");
+  const statusWord = narabi.status; // "built" (fleet_register_built_set_is_frozen)
+  assert.equal(statusWord, "built", "Narabi is built in the frozen register (D-51/D-123)");
+
+  // Fully-typed synthetic states (no `any`): override tracker.t only. Two timeline lengths prove the
+  // published-branch N is lines.length, not a typed literal.
+  const at = (t: number): NarabiState => ({ ...base, tracker: { ...base.tracker, t } });
+  const first = lines[0];
+  assert.ok(first, "the committed timeline has at least one window");
+  const nineWindows: TimelineLine[] = Array.from({ length: 9 }, () => first);
+
+  const stepLabel = (t: number): string =>
+    `${statusWord} · step ${String(t)} of ${String(SERIES_MIN_STEPS)} before first reading`;
+  const publishedLabel = (n: number): string => `${statusWord} · ${String(n)} windows published`;
+
+  // t < SERIES_MIN_STEPS: "built · step N of 7 before first reading"; N = tracker.t, read from the state.
+  assert.equal(firstReadingLabel(base, lines), stepLabel(1), "t=1 (committed): step 1 of 7, N read from the snapshot");
+  assert.equal(firstReadingLabel(at(6), lines), stepLabel(6), "t=6: step 6 of 7 (a typed literal N would red here)");
+  // Boundary at EXACTLY SERIES_MIN_STEPS switches to the published-windows label — never a false "of 7" at T=7.
+  assert.equal(firstReadingLabel(at(SERIES_MIN_STEPS), lines), publishedLabel(2), "t=7: switches to N windows published (N = lines.length)");
+  assert.equal(firstReadingLabel(at(SERIES_MIN_STEPS), nineWindows), publishedLabel(9), "t=7: N follows lines.length, not a typed literal");
+  assert.equal(firstReadingLabel(at(SERIES_MIN_STEPS + 1), lines), publishedLabel(2), "past the horizon stays on the published-windows label");
+
+  // The pill status word equals the frozen register value, and is "built", never "shipped"/"day N".
+  for (const s of [base, at(6), at(SERIES_MIN_STEPS)]) {
+    const label = firstReadingLabel(s, lines);
+    assert.equal(label.split(" · ")[0], statusWord, "the pill status word must equal the frozen fleet register status (Q-8b)");
+    assert.ok(!/shipped/i.test(label), "the pill never says 'shipped' (ruling Q-8b)");
+    assert.ok(!/\bday\s+\d/i.test(label), "the pill never says 'day N' (M-15: the first published window was not evaluable)");
+  }
+
+  // CARRIER: the component renders the pill as {firstReadingLabel(...)} (never dead copy). Mutant: delete it -> red.
+  assert.ok(readComponent().includes("{firstReadingLabel("), "narabi-live.tsx must render {firstReadingLabel(state, lines)} in the hero");
+});
+
+test("narabi_first_reading_label_single_source_of_seven — the week length is SERIES_MIN_STEPS alone (ruling C-5, M-17)", () => {
+  const src = readFileSync(join(ROOT, "apps", "site", "lib", "narabi-live.ts"), "utf8");
+  // Extract the firstReadingLabel function (signature -> next top-level export); the docstring above is excluded.
+  const start = src.indexOf("export function firstReadingLabel");
+  assert.ok(start >= 0, "narabi-live.ts must export firstReadingLabel");
+  const nextExport = src.indexOf("\nexport ", start + 1);
+  const body = nextExport > start ? src.slice(start, nextExport) : src.slice(start);
+  // (a) the "7" is READ from SERIES_MIN_STEPS; (b) no bare digit 7 hard-coded in the label.
+  assert.ok(body.includes("SERIES_MIN_STEPS"), "firstReadingLabel must derive the week length from SERIES_MIN_STEPS");
+  assert.ok(!/\b7\b/.test(body), "firstReadingLabel must not hard-code the digit 7 (single source, C-5)");
+  // (c) SERIES_MIN_STEPS is the ONLY constant in the file bound to 7 — no duplicate week-length constant.
+  const sevenConsts = src.match(/\bconst\s+[A-Za-z_$][\w$]*\s*=\s*7\b/g) ?? [];
+  assert.deepEqual(sevenConsts, ["const SERIES_MIN_STEPS = 7"], "exactly one const is bound to 7: SERIES_MIN_STEPS");
+  // No duplicate week-length CONSTANT (a comment mentioning the forbidden name, as this file does, is fine).
+  assert.equal((src.match(/\bconst\s+WINDOW_BEFORE_FIRST_READING\b/g) ?? []).length, 0, "no WINDOW_BEFORE_FIRST_READING duplicate constant (C-5, M-17)");
+});
+
+test("narabi_glossary_under_calib_generic_digit_free — the glossary defines under_calib, generic + digit-free (ruling C-11, M-23)", () => {
+  const entry = GLOSSARY.find((g) => g.term === "under_calib");
+  assert.ok(entry, "GLOSSARY must define under_calib (it lived in the copy but was missing from the glossary — M-23)");
+  // Digit-free: the same numeric scanner behind root test 44. Mutant: put a digit in the def -> red.
+  assert.deepEqual(scanNumericText(entry.def, new Set<string>()), [], "the under_calib def must be digit-free");
+  // Generic English, NOT the Ukemi "stratum" vocabulary (C-11: the word lives generically on the Narabi page).
+  assert.ok(!/stratum/i.test(entry.def), "the under_calib def must be generic, never the Ukemi 'stratum' vocabulary");
+  assert.ok(/calib/i.test(entry.def), "the def must speak of calibration");
+  assert.ok(/abstain|withheld|withhold|no region|serving no/i.test(entry.def), "the def must state the withheld/abstained region");
+  // CARRIER: every glossary def renders as {g.def} in the component (a Fact value). Mutant: stop rendering -> red.
+  assert.ok(readComponent().includes("{g.def}"), "narabi-live.tsx must render each glossary def as {g.def}");
+});
+
+test("narabi_icon_static_public_local — the /narabi favicon is a static public asset, adaptive, loads nothing remote (ruling D-2)", () => {
+  // The favicon now lives in public/ (served at /icons/narabi.svg), NOT app/narabi/icon.svg. Reading it here
+  // is the mutant "favicon distant" target: inject a remote resource -> red.
+  const svg = readFileSync(join(ROOT, "apps", "site", "public", "icons", "narabi.svg"), "utf8");
+  // Adaptive dark/light via prefers-color-scheme (never a second file, never a script).
+  assert.match(svg, /@media\s*\(prefers-color-scheme/i, "the favicon must be adaptive (@media prefers-color-scheme)");
+  // 0 URL LOADED: no remote stylesheet/image/font.
+  assert.ok(!/url\(\s*["']?https?:/i.test(svg), "no CSS url(http…) load");
+  assert.ok(!/@import/i.test(svg), "no @import");
+  assert.ok(!/<image\b/i.test(svg), "no <image> raster load");
+  assert.ok(!/(?:href|src|xlink:href)\s*=\s*["']?https?:/i.test(svg), "no remote href/src/xlink:href");
+  // The ONLY http(s) URI is the SVG xmlns namespace (a declaration, not a load).
+  const httpHits = svg.match(/https?:\/\/[^"'\s>]+/g) ?? [];
+  assert.deepEqual(httpHits, ["http://www.w3.org/2000/svg"], "the only URI is the SVG xmlns namespace, not a remote load");
+});
+
+test("narabi_icon_declared_not_under_narabi_path — the /narabi favicon is declared as a public path OUTSIDE /narabi/* (ruling D-2)", () => {
+  // Caddy path-matcher semantics (same as narabi_live_route_not_shadowed_by_caddy): "/narabi/*" shadows any
+  // path under "/narabi/". The static favicon MUST sit outside it, or the production file_server 404s it.
+  const shadowed = (route: string, matcher: string): boolean => {
+    const r = route.toLowerCase();
+    const m = matcher.toLowerCase();
+    if (m.endsWith("/*")) return r.startsWith(m.slice(0, -1));
+    if (m.endsWith("*")) return r.startsWith(m.slice(0, -1));
+    return r === m;
+  };
+  // The app/ route-icon MUST be gone (a file-based app/narabi/icon.svg would land on the shadowed /narabi/icon.svg).
+  assert.ok(!existsSync(join(ROOT, "apps", "site", "app", "narabi", "icon.svg")), "app/narabi/icon.svg must be removed (it would be shadowed at /narabi/icon.svg)");
+  // The icon href is READ from the /narabi page metadata (mutant "icon under /narabi/": point it under /narabi/ -> red).
+  const page = readFileSync(join(ROOT, "apps", "site", "app", "narabi", "page.tsx"), "utf8");
+  const iconsAt = page.indexOf("icons:");
+  assert.ok(iconsAt >= 0, "the /narabi metadata must declare icons");
+  const hrefMatch = page.slice(iconsAt).match(/["']([^"']*\.svg)["']/);
+  assert.ok(hrefMatch, "the /narabi metadata icons must declare an .svg href");
+  const href = hrefMatch[1];
+  assert.ok(href, "the icons href capture is non-empty");
+  assert.equal(href, "/icons/narabi.svg", "the declared favicon is the static public path /icons/narabi.svg");
+  assert.equal(shadowed(href, "/narabi/*"), false, "the favicon path must NOT be under /narabi/* (Caddy would 404 it)");
+  // The declared href resolves to a real file under public/ (a dangling href would 404 too).
+  const publicFile = join(ROOT, "apps", "site", "public", href.replace(/^\//, ""));
+  assert.ok(existsSync(publicFile), `the declared favicon must exist as a public asset (${href})`);
 });
