@@ -176,14 +176,15 @@ test("ukemi_record_budget_refusal_is_not_retried", async () => {
 });
 
 // #5 R+1 ledger lines + #13 caller-retry SCOPE: a transient 503 is retried (retries+1 client.calls => retries+1 ledger
-// lines); an RpcError / HTTP 400 / NonJsonBody is NOT retried (exactly one). "retry swallows the refusal" is covered by #3.
+// lines); an RpcError / HTTP 400 is NOT retried (exactly one). A NonJsonBody@200 is now RETRIED (UKEMI-RETRY-1) - its
+// scope is pinned by ukemi_record_nonjsonbody_* below (the old "html not retried" arm asserted the exact contract this
+// lot inverts, so it moved to those stronger tests). "retry swallows the refusal" is covered by #3.
 test("ukemi_budget_counts_http_attempts_and_caller_retry_is_scoped", async () => {
-  const csResp = (kind: "503" | "rpc" | "400" | "html"): Response =>
+  const csResp = (kind: "503" | "rpc" | "400"): Response =>
     kind === "503" ? new Response("busy", { status: 503 })
       : kind === "400" ? new Response("bad", { status: 400 })
-        : kind === "html" ? new Response("<html>502</html>", { status: 200 })
-          : new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: 3, message: "execution reverted" } }), { status: 200, headers: { "content-type": "application/json" } });
-  const csFetchesFor = async (kind: "503" | "rpc" | "400" | "html", retries: number): Promise<{ csFetches: number; attempted: number }> => {
+        : new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: 3, message: "execution reverted" } }), { status: 200, headers: { "content-type": "application/json" } });
+  const csFetchesFor = async (kind: "503" | "rpc" | "400", retries: number): Promise<{ csFetches: number; attempted: number }> => {
     const { dir, cleanup } = tmpLedger();
     const csLedger = join(dir, "cyc", "chainstack.jsonl");
     let csFetches = 0;
@@ -194,7 +195,7 @@ test("ukemi_budget_counts_http_attempts_and_caller_retry_is_scoped", async () =>
   const t503 = await csFetchesFor("503", 2);
   assert.equal(t503.csFetches, 3, "a transient 503 is retried at the caller: retries=2 => 3 paid fetches");
   assert.equal(t503.attempted, 3, "R+1 write-ahead ledger lines (each retry re-enters client.call - the budget counts every HTTP attempt)");
-  for (const kind of ["rpc", "400", "html"] as const) {
+  for (const kind of ["rpc", "400"] as const) {
     const r = await csFetchesFor(kind, 5);
     assert.equal(r.csFetches, 1, `a ${kind} response is NOT retried (exactly one paid fetch) even with retries=5`);
     assert.equal(r.attempted, 1, `${kind}: exactly one ledger line (no caller retry)`);
@@ -546,4 +547,137 @@ test("ukemi_record_crash_between_append_and_head_is_recovered_by_unlock", async 
     assert.doesNotThrow(() => verifyCycleLedger(parsed), "the chain re-derives end to end after the recovery (no entry lost)");
     assert.equal(readFileSync(csHead, "utf8").trim(), parsed[parsed.length - 1]!.entry_sha256, "the head sidecar is HEALED to the true post-unlock head");
   } finally { globalThis.fetch = real; cleanup(); }
+});
+
+// UKEMI-RETRY-1 / A-8 (served path, real guard, ONLY globalThis.fetch stubbed) - the symmetric calque of BELL-RETRY-1
+// for the recorder (R-BR2). A NonJsonBody@200 (a gateway HTML page returned on an HTTP 200) is now RETRIED in place:
+// the FIRST chainstack fetch (finalized) returns a representative 502-gateway HTML page at HTTP 200 => the transport
+// raises NonJsonBody@200 => the caller retries (bounded) => the 2nd fetch serves the fixture => the finalized quorum
+// forms and the full book COMPLETES, reproducing the PIN. The retried fault is METERED in rpc_errors as "non-json 200"
+// (message-only; no http/code, a NonJsonBody is a 2xx) and the retry is COUNTED (calls_by_operator.chainstack >= 2, R+1 tally).
+// Mutant "clause retired" here makes the leg bench and, with only 2 operators, the quorum STARVES => the run rejects: a
+// TEST famine at 2 operators, NOT the course STOP. The lot's real COURSE value (avoiding a PAID draw on a correlated
+// keyless blip, 5 keyless + chainstack) is measured by ukemi_record_nonjsonbody_course_topology_... below (checkpoint-2 C-2).
+test("ukemi_record_nonjsonbody_200_gateway_html_is_retried_and_metered", async () => {
+  const { dir, cleanup } = tmpLedger();
+  const out = join(tmpdir(), `u-retry-nj200-${String(process.pid)}-${String(Date.now())}.json`);
+  let cs = 0;
+  const GATEWAY_HTML = "<!DOCTYPE html><html><head><title>502 Bad Gateway</title></head><body><h1>502 Bad Gateway</h1><p>The proxy server received an invalid response from an upstream server.</p></body></html>";
+  const stub = ((input: string | URL, init?: RequestInit): Promise<Response> => {
+    if (String(input).includes(CS_HOST)) { cs += 1; if (cs === 1) return Promise.resolve(new Response(GATEWAY_HTML, { status: 200, headers: { "content-type": "text/html" } })); }
+    return Promise.resolve(fxServe(parseReq(init)));
+  }) as typeof globalThis.fetch;
+  try {
+    await withFetch(stub, async () => {
+      assert.equal(await runRecorder(argv(dir, "cyc", "mevblocker.io,chainstack", ["--cluster", "weth", "--block", String(FX.block), "--out", out, "--retries", "2"]), DEPS), 0, "the NonJsonBody@200 is retried, then the fixture serves => the guarded full-book run COMPLETES");
+    });
+    const book = JSON.parse(readFileSync(out, "utf8")) as { provenance: { book_digest: string; calls_by_operator: Record<string, number> } };
+    assert.equal(book.provenance.book_digest, PIN_BOOK_DIGEST, "the book reproduces the PIN through the guarded transport after the in-place retry (mutant 'clause retired' => run rejects => never reaches here)");
+    assert.ok(cs >= 2, "the finalized chainstack read was fetched >= 2 times (the NonJsonBody@200 retry actually happened)");
+    assert.ok((book.provenance.calls_by_operator.chainstack ?? 0) >= 2, "R+1 tally: calls_by_operator.chainstack counts the extra retry attempt (>= 2; the retry is metered per operator, C-1)");
+    const j = rpcErrorsOf(out);
+    assert.equal(j.length, 1, "exactly ONE journal entry - the single NonJsonBody@200, retried then served (metered in rpc_errors)");
+    const e0 = j[0]!;
+    assert.equal(e0.provider, "chainstack", "the retried fault is attributed to the chainstack leg");
+    assert.equal(e0.method, "eth_getBlockByNumber", "the fault is on the finalized read (the first draw)");
+    assert.equal(e0.message, "non-json 200", "the diag label is 'non-json <code>' (UKEMI-RETRY-1), never the old bare 'NonJsonBody'");
+    assert.equal(e0.http, undefined, "no http field (RpcErrorRecord: http only for a non-2xx response; a NonJsonBody is a 2xx)");
+    assert.equal(e0.code, undefined, "no code field (code is for a JSON-RPC RpcError, not a NonJsonBody)");
+  } finally { rmSync(out, { force: true }); rmSync(out + ".diag.json", { force: true }); cleanup(); }
+});
+
+// UKEMI-RETRY-1 matrix (served path, real guard) - the caller-retry PREDICATE boundary. A NonJsonBody@200 is TRANSIENT
+// (retried to exhaustion => retries+1 fetches when it never recovers); a NonJsonBody at a 2xx!=200 (201, and 204 whose
+// empty body also fails JSON.parse) and an HttpError at a 4xx!=429 (400, 404) are FATAL (not retried => exactly ONE
+// fetch). Persistent on the chainstack leg, which quorum2 then benches => NoQuorumError (mevblocker alone) => the run
+// rejects; the DISCRIMINATOR is the fetch count. Kills: clause retired / 200 removed (200 -> 1); 2xx!=200 admitted
+// (201/204 -> retries+1); 4xx admitted (400/404 -> retries+1). 201/204 are transport-reachable, so R-BR1's analog is
+// PINNED for the recorder here (stronger than BELL-RETRY-1, whose 2xx!=200 boundary survived as V4).
+test("ukemi_record_nonjsonbody_transient_matrix", async () => {
+  const RETRIES = 3;
+  const resp = (kind: "200" | "201" | "204" | "400" | "404"): Response =>
+    kind === "200" ? new Response("<html>gateway</html>", { status: 200 })
+      : kind === "201" ? new Response("<html>created</html>", { status: 201 })
+        : kind === "204" ? new Response(null, { status: 204 })
+          : kind === "404" ? new Response("nope", { status: 404 })
+            : new Response("bad", { status: 400 });
+  const csFetchesFor = async (kind: "200" | "201" | "204" | "400" | "404"): Promise<{ csFetches: number; attempted: number }> => {
+    const { dir, cleanup } = tmpLedger();
+    const csLedger = join(dir, "cyc", "chainstack.jsonl");
+    let csFetches = 0;
+    const stub = (input: string | URL): Promise<Response> => { if (String(input).includes(CS_HOST)) { csFetches += 1; return Promise.resolve(resp(kind)); } return Promise.resolve(jrpc({ hash: FX.block_hash, number: "0x1", timestamp: "0x1" })); };
+    try { await withFetch(stub, async () => { await assert.rejects(() => runRecorder(argv(dir, "cyc", "mevblocker.io,chainstack", ["--cluster", "weth", "--block", "1", "--retries", String(RETRIES)]), DEPS)); }); return { csFetches, attempted: attemptedLines(csLedger) }; }
+    finally { cleanup(); }
+  };
+  const t200 = await csFetchesFor("200");
+  assert.equal(t200.csFetches, RETRIES + 1, "NonJsonBody@200 is TRANSIENT: retried to exhaustion => retries+1 paid fetches (mutant 'clause retired'/'200 removed' => 1 => reds)");
+  assert.equal(t200.attempted, RETRIES + 1, "200: retries+1 write-ahead ledger lines (each retry re-enters client.call - metered like the other transients)");
+  for (const kind of ["201", "204", "400", "404"] as const) {
+    const r = await csFetchesFor(kind);
+    assert.equal(r.csFetches, 1, `${kind} is FATAL (NonJsonBody 2xx!=200 / HttpError 4xx!=429): NOT retried => exactly 1 paid fetch even with retries=${String(RETRIES)} (mutant '2xx!=200 admitted'/'4xx admitted' => retries+1 => reds)`);
+    assert.equal(r.attempted, 1, `${kind}: exactly one ledger line (no caller retry)`);
+  }
+});
+
+// UKEMI-RETRY-1 (bound + metering) - a PERSISTENT NonJsonBody@200 is retried a BOUNDED number of times (retries=2 =>
+// exactly 3 fetches, 3 write-ahead ledger lines), then the leg is benched (quorum2) => NoQuorumError => the run stops
+// fail-closed. The DURABLE diag journal <out>.diag.json records THREE "non-json 200" entries (each retried attempt is
+// metered in rpc_errors, like the other transients) AND the R+1 tally is pinned (calls_total = 4, by_operator.chainstack
+// = 3). Kills: retry unbounded (bound+100 => 102 fetches), 'non compte' (fault not journaled => 0 entries), libelle
+// (message != "non-json 200"), V4 (tally.total not incremented on retries => calls_total 2 != 4). backoff-ms 0 => no sleep.
+test("ukemi_record_nonjsonbody_200_exhausts_bounded_and_journals", async () => {
+  const { dir, cleanup } = tmpLedger();
+  const csLedger = join(dir, "cyc", "chainstack.jsonl");
+  const out = join(tmpdir(), `u-retry-nj200x-${String(process.pid)}-${String(Date.now())}.json`);
+  const diag = out + ".diag.json";
+  let cs = 0;
+  const stub = (input: string | URL): Promise<Response> => { if (String(input).includes(CS_HOST)) { cs += 1; return Promise.resolve(new Response("<html>502 gateway</html>", { status: 200 })); } return Promise.resolve(jrpc({ hash: FX.block_hash, number: "0x1", timestamp: "0x1" })); };
+  try {
+    await withFetch(stub, async () => {
+      await assert.rejects(() => runRecorder(argv(dir, "cyc", "mevblocker.io,chainstack", ["--cluster", "weth", "--block", "1", "--out", out, "--retries", "2"]), DEPS), /quorum needs 2 providers/, "a persistent NonJsonBody@200 exhausts the bounded retry, then the leg benches => NoQuorumError (fail-closed)");
+    });
+    assert.equal(cs, 3, "retries=2 => exactly 3 chainstack fetches (BOUNDED; mutant 'retry unbounded' bound+100 => 102 => reds)");
+    assert.equal(attemptedLines(csLedger), 3, "3 write-ahead ledger lines (each retry re-enters client.call - the retry IS metered)");
+    assert.equal(existsSync(diag), true, "the durable diagnostic journal is written on the failed course (C-R-b7)");
+    const d = JSON.parse(readFileSync(diag, "utf8")) as { rpc_errors: Array<{ provider: string; method: string; message: string; http?: number; code?: number }>; calls_total: number; by_operator_method: { by_operator: Record<string, number>; by_method: Record<string, number> } };
+    const nj = d.rpc_errors.filter((e) => e.provider === "chainstack" && e.method === "eth_getBlockByNumber");
+    assert.equal(nj.length, 3, "THREE 'non-json 200' entries - each retried attempt is journaled (mutant 'non compte' => 0 => reds)");
+    assert.ok(nj.every((e) => e.message === "non-json 200"), "every entry is labelled 'non-json 200' (mutant libelle => reds)");
+    assert.ok(nj.every((e) => e.http === undefined && e.code === undefined), "message-only label (no http/code; a NonJsonBody is a 2xx)");
+    // C-1 (checkpoint-2): pin the "R+1 tally" claim on BOTH counters so the validator's V4 (mutates tally.total) reds.
+    assert.equal(d.calls_total, 4, "R+1 tally (total): every attempt counted - mevblocker 1 + chainstack 3 = 4 (kills V4 'tally.total not incremented on retries' => 2 != 4)");
+    assert.equal(d.by_operator_method.by_operator.chainstack, 3, "R+1 tally (per operator): chainstack counted 3x (retries=2 => 3 attempts, each re-enters client.call)");
+  } finally { rmSync(out, { force: true }); rmSync(diag, { force: true }); cleanup(); }
+});
+
+// UKEMI-RETRY-1 / C-2 (checkpoint-2) - the lot's VALUE on the REAL COURSE topology (prereg 5a: 5 keyless + chainstack
+// appended LAST). Two keyless eth_call legs (drpc, mevblocker) blip ONCE each with a gateway HTML page at HTTP 200 on
+// the same read (a CORRELATED provider blip). Golden: both are retried IN PLACE => the keyless quorum forms => the PAID
+// leg (chainstack) is NEVER drawn (0 fetch, 0 attempted ledger line) and the book reproduces the PIN. That is the
+// measured value of the lot: a correlated transient blip no longer forces a paid draw. Mutant "clause retired" => both
+// legs bench => the eth_call quorum falls to {pocket, chainstack} => the PAID leg IS drawn (cs > 0) => this reds. This
+// discriminates the change by VALUE (a paid draw avoided), not by the 2-operator famine of the A-8 mutant.
+test("ukemi_record_nonjsonbody_course_topology_correlated_blip_avoids_paid_draw", async () => {
+  const { dir, cleanup } = tmpLedger();
+  const out = join(tmpdir(), `u-retry-topo-${String(process.pid)}-${String(Date.now())}.json`);
+  const HTML = "<!DOCTYPE html><html><body><h1>502 Bad Gateway</h1></body></html>";
+  const blipped = new Set<string>();
+  let cs = 0;
+  const stub = ((input: string | URL, init?: RequestInit): Promise<Response> => {
+    const u = String(input);
+    if (u.includes(CS_HOST)) cs += 1;
+    for (const host of ["eth.drpc.org", "rpc.mevblocker.io"]) if (u.includes(host) && !blipped.has(host)) { blipped.add(host); return Promise.resolve(new Response(HTML, { status: 200, headers: { "content-type": "text/html" } })); }
+    return Promise.resolve(fxServe(parseReq(init)));
+  }) as typeof globalThis.fetch;
+  try {
+    await withFetch(stub, async () => {
+      assert.equal(await runRecorder(argv(dir, "cyc", `${KEYLESS},chainstack`, ["--cluster", "weth", "--block", String(FX.block), "--out", out, "--retries", "2"]), DEPS), 0, "the course completes (both correlated keyless blips retried in place, the keyless quorum forms)");
+    });
+    const book = JSON.parse(readFileSync(out, "utf8")) as { provenance: { book_digest: string; errors_by_operator: Record<string, number> } };
+    assert.equal(book.provenance.book_digest, PIN_BOOK_DIGEST, "the book reproduces the PIN on the 5-keyless course topology");
+    assert.equal(blipped.size, 2, "both keyless legs (drpc, mevblocker) blipped once each (a correlated blip on the same read)");
+    assert.equal(cs, 0, "the PAID leg (chainstack) was NEVER fetched - the blips were retried IN PLACE (mutant 'clause retired' => both bench => quorum falls to {pocket, chainstack} => cs > 0 => reds)");
+    assert.equal(attemptedLines(join(dir, "cyc", "chainstack.jsonl")), 0, "0 attempted line on the paid ledger (no paid draw induced by the correlated blip)");
+    assert.deepEqual(book.provenance.errors_by_operator, { "drpc.org": 1, "mevblocker.io": 1 }, "errors_by_operator counts each correlated blip once (D-4 5%-rule surface; keyed by operator label)");
+  } finally { rmSync(out, { force: true }); rmSync(out + ".diag.json", { force: true }); cleanup(); }
 });

@@ -319,11 +319,12 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
     const c = client;
 
     // The `call` shim: route a LABEL -> client.call (meter + write-ahead ledger line + one transport attempt). Retry
-    // is AT THE CALLER ONLY (C-4/C-6(iii)): a transient TRANSPORT fault (Abort/network/429/>=500) is retried; an
-    // RpcError, a NonJsonBody, another 4xx (getLogsVia needs the 400 THROWN to split), and the budget stop are NEVER
-    // retried. R retries => R+1 client.call => R+1 write-ahead ledger lines. The rpc_errors journal is built HERE from
-    // the TYPED TransportError by e.name (C-5): never a raw body - e.detail is the closed hint (paid) / redacted
-    // (keyless), e.data the validated hex. Chainstack HTTP 400 => http:400, never code:400.
+    // is AT THE CALLER ONLY (C-4/C-6(iii)): a transient TRANSPORT fault (Abort/network/429/>=500, AND a NonJsonBody at
+    // 200/429/>=500 - UKEMI-RETRY-1, calque BELL-RETRY-1) is retried; an RpcError, a NonJsonBody at 2xx!=200, another
+    // 4xx!=429 (getLogsVia needs the 400 THROWN to split), and the budget stop are NEVER retried. R retries => R+1
+    // client.call => R+1 write-ahead ledger lines. The rpc_errors journal is built HERE from the TYPED TransportError
+    // by e.name (C-5): never a raw body - e.detail is the closed hint (paid) / redacted (keyless), e.data the validated
+    // hex. Chainstack HTTP 400 => http:400, never code:400; a NonJsonBody => "non-json <code>".
     const call: RpcCall = async (label, method, params) => {
       const op = label;
       for (let attempt = 0; ; attempt++) {
@@ -340,9 +341,18 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
                 ? { provider: op, method, message: e.detail, ...(e.code !== undefined ? { http: e.code } : {}) }
                 : e.name === "RpcError"
                   ? { provider: op, method, message: e.detail !== "" ? e.detail : "rpc error", ...(e.code !== undefined ? { code: e.code } : {}), ...(e.data !== undefined ? { data: e.data } : {}) }
-                  : { provider: op, method, message: e.detail !== "" ? e.detail : e.name },
+                  : e.name === "NonJsonBody"
+                    ? { provider: op, method, message: "non-json " + String(e.code ?? "?") } // UKEMI-RETRY-1: diag label; no http (RpcErrorRecord: http only for a non-2xx; a NonJsonBody is a 2xx)
+                    : { provider: op, method, message: e.detail !== "" ? e.detail : e.name },
             );
-            const transient = e.name === "AbortError" || e.name === "TypeError" || e.name === "NetworkError" || (e.name === "HttpError" && e.code !== undefined && (e.code === 429 || e.code >= 500));
+            // UKEMI-RETRY-1 (calque BELL-RETRY-1 quorum.ts:isTransient): a NonJsonBody (HTTP 200 + non-JSON body, a
+            // gateway HTML page) is TRANSIENT at code 200/429/>=500, so a provider blip is retried in place instead of
+            // benching the leg (a bench that, once enough keyless legs bench, draws the paid leg and can STOP on
+            // NoQuorum). 2xx!=200 (201/204) and 4xx!=429 stay FATAL. The 429/>=500 arms are DEFENSIVE: via this
+            // transport a NonJsonBody only ever carries a 2xx (transport.ts:229 !ok->HttpError, :228 3xx, :241 parse).
+            const transient = e.name === "AbortError" || e.name === "TypeError" || e.name === "NetworkError"
+              || (e.name === "NonJsonBody" && e.code !== undefined && (e.code === 200 || e.code === 429 || e.code >= 500))
+              || (e.name === "HttpError" && e.code !== undefined && (e.code === 429 || e.code >= 500));
             if (transient && attempt < args.retries) { await new Promise((r) => setTimeout(r, Math.min(args.backoffMs * 2 ** attempt, args.backoffCapMs))); continue; }
           }
           throw e;

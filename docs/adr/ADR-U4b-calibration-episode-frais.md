@@ -612,3 +612,101 @@ cb020425…a205b41a1af scripts/census/u3-realized.mjs   (labeler)
 Concordent tous avec le prereg §2. AUCUN ÉCART. Les 3 fichiers touchés (`u4b-discover.mjs`, `u4-oracle-path.mjs`,
 `u4-guard.mjs`) sont HORS gel ; `u4-guard.mjs` gagne `canon`/`sha256Hex` (copie byte-identique de `liquidation-logs.mjs`,
 parité testée).
+
+## Amendement daté 2026-09-22 (UKEMI-RETRY-1 — `NonJsonBody@200` transitoire dans le recorder ; calque BELL-RETRY-1)
+
+> Cet amendement fixe, date et rend traçable la modification du **classifieur de retry du recorder**
+> `apps/sentinel/src/ukemi/record.ts` (le shim `call`), **PRÉCONDITION du départ de la course Ukemi** (jamais « 1re
+> occurrence »). Il naît de **R-BR2** (BELL-RETRY-1 checkpoint-2 §4 ; ruling orchestrateur 2026-09-22 15:42 UTC C-3,
+> `docs/CHANTIERS.md`) : le recorder portait le MÊME prédicat que Bell **sans** la clause `NonJsonBody`
+> (`record.ts:322-323` l'excluait). Provenance : worker `claude-opus-4-8[1m]`, effort max ; aucun commit (R-20) ;
+> `error_origin` : plan (classe d'erreur non qualifiée à la conception du retry du recorder).
+
+**Décision (D-n).** Un `NonJsonBody` (HTTP 200 + corps non-JSON, page HTML de passerelle ; fait de transport [lu]
+`packages/rpc-guard/src/transport.ts:241` `raise(op,"NonJsonBody",res.status,text)` ⇒ `.code = res.status`,
+atteignable **seulement sur un 2xx** : `:229` `!ok`→HttpError, `:228` 3xx→RedirectBlocked, AVANT `JSON.parse`) de
+**code 200/429/≥500** est désormais **TRANSITOIRE** (retry borné EXISTANT du recorder — shim `call`, `args.retries`
+défaut 2, backoff `backoffMs`/`backoffCapMs` ; R retries ⇒ R+1 `client.call` ⇒ R+1 lignes write-ahead ledger + R+1
+tally) ; **2xx≠200 (201/204) et 4xx≠429 (400/404) restent FATALS** ; libellé de diag
+`rpc_errors[].message = "non-json <code>"` (message SEUL, pas de champ `http` : `RpcErrorRecord` réserve `http` à une
+réponse non-2xx, et un `NonJsonBody` est un 2xx). **Calque exact de BELL-RETRY-1** (`apps/bell/src/quorum.ts`
+`isTransient`/`statusOf`). Les branches 429/≥500 sont **DÉFENSIVES** (via ce transport un `NonJsonBody` ne porte qu'un 2xx).
+
+### 1. `record.ts` est HORS gel — le prédicat est modifié AVANT la course (licite)
+- **Fait discriminant confirmé** [lu] : ce même ADR §3 (contrainte d'ordre NARABI-OPS-1d) dit verbatim
+  « `record.ts` / `rpc2.ts` sont **hors** du gel (en aval du jeu gelé) » ; et le **prereg §2** (les 8 sha gelés +
+  labeler) NE liste PAS `record.ts`. Trois confirmations indépendantes (prereg §2 ; BELL-RETRY-1 G1 §6 ; ce §3).
+- Modifier `record.ts` AVANT la course ne rompt donc AUCUN gel. Les 9 sha gelés sont **byte-identiques
+  AVANT==APRÈS** (recompute LF par le worker) et concordent au prereg §2 : `u4b-scores 2f9a31f6…`,
+  `u4b-reduce a5e66cd3…`, `record-u4b-calib 5733daeb…`, `wadray 7bee76fc…`, `abi 3376eb08…`, `l1-split 9206df91…`,
+  **`rpc.ts 0e232519…` INTOUCHÉ**, `calib-digest 3603265d…`, labeler `u3-realized cb020425…`.
+
+### 2. prereg §5a INCHANGÉ dans son contenu (note explicite exigée par la mission)
+- La ligne de commande FIGÉE du recorder (prereg §5a) est **inchangée dans son CONTENU** : `--prereg-sha` lie
+  `docs/PLAN-u4b-prereg.md`, `--labeler-sha` lie `scripts/census/u3-realized.mjs` ; **NI l'un NI l'autre ne lie le
+  contenu de `record.ts`** (aucun `--record-sha` n'existe). Les deux liaisons sont donc **INTACTES**.
+- Le diff sur `record.ts` est **+10 lignes nettes** (17 ajoutées, 7 retirées), inséré autour du shim `call`
+  (`record.ts:322-356`). Les **annotations de numéro de ligne** de §5a qui pointent APRÈS l'insertion (p.ex.
+  `:384-414`, `:403`, `:432`, `:466-467`, `:470`, `:489`) **dérivent de +10** ; celles AVANT l'insertion (`:239`,
+  `:247`, `:266-271`, `:297-298`) sont **inchangées**. Cette dérive est **attendue** (record.ts hors gel, modifié
+  avant la course) et **sans effet sur les flags/valeurs figés** de la commande §5a.
+- La provenance `ukemi_sha` (`record.ts:102-107`, sha sur `ukemi/**.ts`) **change** ; elle est **HORS du
+  `book_digest`** (en-tête ADR-U1 : « Provenance … is OUTSIDE the digest ») ⇒ le `book_digest` de la course est
+  **inaffecté** par ce lot.
+
+### 3. Tuyaux (règle de Branchement) et coût
+- **Entrée** : un `NonJsonBody@200` levé par le transport gardé pendant un read du recorder (quorum-2 `rpc2.ts`).
+- **Sortie** : le retry borné de l'appelant ré-émet le `client.call` (R+1 lignes write-ahead ledger + R+1 tally) ;
+  la faute est métrée dans `rpc_errors` en `non-json <code>` (chemin succès et diag).
+- **État** : le ledger durable par-opérateur/cycle (hors dépôt) + le JSON de run / `<out>.diag.json` (`rpc_errors`).
+- **Test de composition (non-LLM, chemin SERVI)** : `ukemi_record_nonjsonbody_200_gateway_html_is_retried_and_metered`
+  (VRAI `openGuardedClient`, seul `globalThis.fetch` bouchonné) — 1re réponse = HTML de passerelle à 200 ⇒ retry ⇒
+  2e = JSON ⇒ la course CONTINUE, `book_digest` = PIN, `rpc_errors` = un `non-json 200`. Matrice de prédicat +
+  épuisement borné : `ukemi_record_nonjsonbody_transient_matrix`, `ukemi_record_nonjsonbody_200_exhausts_bounded_and_journals`.
+- **Coût** (calque Bell §4 pt 2) : un retry sur la jambe payante (chainstack) coûte +1 appel métré (RU), borné
+  ×(R+1)/read par `--retries` ; `BudgetExceededError` **jamais** retenté (fatal d'abord) ; sous-plafonds enshrined
+  (`--max-ru`/`--max-calls`) tenus.
+- **`errors_by_operator` (D-4, monitor 5%-rule) — changement de sémantique CONSIGNÉ** (calque Bell checkpoint-2 C-4
+  pt 3) : le hook transport (`record.ts:318` ← `transport.ts:177`) incrémente `errByOp` à CHAQUE faute levée ⇒ un
+  `NonJsonBody@200` retenté l'incrémente jusqu'à R+1 fois (au lieu de 1-puis-bench). Même convention que 429/503, mais
+  un CHANGEMENT pour cette classe. `errByOp` est **affichage/provenance/diag SEUL** ([lu] `record.ts` : aucune
+  garde/`throw`/`if` dessus — `:399`/`:488` stderr, `:414`/`:443` provenance, `:474` diag), **PAS une garde-code** ⇒
+  effet borné. **Consigne** : toute lecture 5%-rule enjambant la fusion UKEMI-RETRY-1 lit ce changement de sémantique.
+
+### 4. Mécanique du STOP (honnêteté vs « STOPperait à l'identique »)
+- Contrairement au chemin Bell **lecture unique** `withRetry` (où un `NonJsonBody@200` persistant rejetait
+  immédiatement ⇒ STOP TSLAx), les reads du recorder sont **quorum-2** (`rpc2.ts` `quorum2`/`finalized`) : une faute
+  transport **BENCHE** la jambe (cooldown 25 s) et le quorum **se reforme** sur les autres — donc, à > 2 opérateurs,
+  un `NonJsonBody@200` isolé n'est PAS un STOP immédiat. Le STOP survient quand le bench affame le quorum (blip
+  corrélé sur ≥ N−1 jambes, ou sur une jambe nécessaire) ⇒ `NoQuorumError` + reprise manuelle. **Le classifieur est
+  identique (R-BR2) ; la valeur de l'amendement est d'éviter le bench — et le tirage payant qu'il peut induire une
+  fois ASSEZ de jambes keyless benchées** (chainstack est appendée EN DERNIER, `record.ts:293-295`, tirée seulement si
+  < 2 keyless répondent ; à 3 keyless eth_call {drpc,mevblocker,pocket} un bench isolé n'appelle PAS la jambe
+  payante — prereg §5a(e)) — **en réessayant le
+  blip transitoire SUR PLACE.**
+- **R-BR1 (analogue) PINNÉ** — plus fort que Bell : 201/204 sont des `NonJsonBody` 2xx≠200 **atteignables par le
+  transport**, assertés FATALS dans la matrice ; la borne 2xx≠200 du recorder est épinglée (chez Bell, V4 survivait).
+
+### 5. Résidus formés (à déclencheur, zéro dette nue)
+- **R-U-1 (contradiction ADR-GARDE-HELIUS) — RÉSOLU** : le fold BELL-RETRY-1 est **FUSIONNÉ** (`lot/etude-suite` @
+  `4db059e`, G7 `docs/G7-lot-bell-retry-1.md`) ; `ADR-GARDE-HELIUS-client-budgete-unique.md:320` lit désormais «  …
+  `NonJsonBody` a 200/429/>=500 (amendement BELL-RETRY-1 2026-09-22 : retry borné, métré), JAMAIS … `NonJsonBody`
+  2xx!=200 ou 4xx!=429 … » — clause **DOCTRINE-GÉNÉRALE** de l'Amendement 2b dont le recorder (2b-ii) est le sujet ⇒
+  elle COUVRE `record.ts`. Le CODE du recorder est CE lot ; code et doctrine **CONCORDENT** désormais, plus de
+  contradiction. **Item CLOS.**
+- **R-U-2 (classifieur symétrique census non aligné)** : `scripts/census/u4-guard.mjs:136` (HEAD `lot/etude-suite` ;
+  `:120` sur la base `831a87b` — dérive de ligne) porte le même prédicat `if (raw.name === "NonJsonBody") return false;`.
+  HORS périmètre (ce lot = `record.ts` seul). Ses consommateurs de course sont **keyless-only par code** (discover /
+  select / fill-ts ; labeler CARTO-T1-1) ; le prober payant n'existe que via `--with-chainstack`, **ABSENT de la ligne
+  prereg** ⇒ jamais une précondition de course. *Déclencheur* : **après clôture de course ou à une frontière ancrée,
+  OU ajout de `--with-chainstack` à un pas u4-guard de la course** — jamais « 1re occurrence ». Propriétaire :
+  orchestrateur. `error_origin` : plan. (Le bras `apps/bell/src/universe.ts` `withUniverseRetry` est **R-BR3, déjà
+  formé côté Bell** `4db059e` — hors de ce résidu.)
+- **R-U-3 (branches défensives non atteignables)** : les branches `NonJsonBody` 429/≥500 sont défensives (via ce
+  transport un `NonJsonBody` ne porte qu'un 2xx) ⇒ aucun mutant du chemin servi ne peut les rougir (comme les bras
+  429/5xx de Bell). Gardées pour la fidélité du calque. *Déclencheur* : un changement de transport levant
+  `NonJsonBody` sur un code non-2xx.
+
+*(ADR-U4b n'est PAS dans le gel du prereg §2 ; les docs sont exclus du décompte R-25 — `ci.yml:65`. Cet amendement
+n'édite AUCUNE valeur de sha de référence existante : il APPEND une section datée, donc le recompute du prereg §2
+reste vrai. Le worker ne committe pas (R-20) ; l'orchestrateur folde/committe au G7.)*

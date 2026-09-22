@@ -499,7 +499,7 @@ les verrous (fail-closed, jamais un blocage permanent : la reprise fait les meme
 **Contrat de migration (chaque script).** Aucune lecture directe de cle ; aucun `fetch` payant direct ; args REQUIS
 sans defaut `--ledger-dir`/`--cycle`/`--floor`/`--max-ru`/`--method-caps` (+ `--max-calls` conserve, fail-closed) ;
 refus de budget = `BudgetExceededError` canonique, JAMAIS reessaye ; retry appelant borne aux transitoires seulement
-(AbortError/reseau, 429, >= 500 -- 3 pour oracle-path, 0 pour redraw), `NonJsonBody` a 200/429/>=500 retente (BELL-RETRY-1, cote Bell `quorum.ts` seulement — `withUniverseRetry` et `makeGuardedEthCall` restent a aligner : items R-BR3/R-BR4), jamais `RpcError`/autres 4xx/budget.
+(AbortError/reseau, 429, >= 500 -- 3 pour oracle-path, 0 pour redraw), `NonJsonBody` a 200/429/>=500 retente (BELL-RETRY-1 cote Bell `quorum.ts` ; UKEMI-RETRY-1 cote recorder Ukemi `apps/sentinel/src/ukemi/record.ts` shim `call`, amendement ADR-U4b 2026-09-22 — `withUniverseRetry`, `makeGuardedEthCall` et `u4-guard.mjs:136` restent a aligner : items R-BR3/R-BR4/R-U-2), jamais `RpcError`/autres 4xx/budget.
 
 **Pont d'identite -- RETIRE au pli (declencheur "fusion 2b-ii" TIRE).** A la base originelle (`e7f22b8`, AVANT 2b-ii),
 `rpc2.ts` declarait ses PROPRES `BudgetExceededError` / `RpcError` et un shim de `u4-guard.mjs` convertissait paquet->pool.
