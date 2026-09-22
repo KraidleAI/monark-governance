@@ -18,7 +18,7 @@ import { sessionGap, sessionGapRebase, exceeds, vwapDecimal, fixed, GAP_PRECISIO
 import { rowsFromCsv, haltDelta, census, haltsSince, type HaltRow } from "./halts.ts";
 import { buildDigest, bellSha, assertNoClose, canonical, provenance as makeProvenance,
   type GapEntry, type Provenance, type CashCross } from "./digest.ts";
-import { readReferenceCloses, earliestPublishUtc, databentoGet, polygonGet,
+import { readReferenceCloses, earliestPublishUtc, databentoGet, polygonGet, readCashKeys,
   type PolygonGet, type DatabentoGet } from "./close.ts";
 import { newResidualCounts, RESIDUAL_CODES, type Residual, type ResidualCounts } from "./residuals.ts";
 import { poolVolumeBase, consolidatedAdv, volumeToAdvRatio } from "./volume.ts";
@@ -579,8 +579,9 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
   assertOutsideRepo(out, repoRoot);
 
   const solProviders = solanaEndpoints(deps.env);
-  const polygonKey = deps.env.POLYGON_API_KEY ?? "";
-  const databentoKey = deps.env.DATABENTO_API_KEY ?? "";
+  // GARDE-HELIUS-1b (C-6): the paid cash keys are read in the ALLOWLISTED cash module (close.ts), never here —
+  // collect.ts holds no `env.<paid-key>` read and is never on the scanner allowlist. The values are threaded on.
+  const { polygonKey, databentoKey } = readCashKeys(deps.env);
   const faults: TransportFault[] = [];
   // C-11: every Solana RPC call goes through the fail-closed budget (throws BudgetExceededError past --max-calls).
   // C-1 (-b3d): the --rebase-crosscheck branch is RESUMABLE — its budget is offset by the prior cumulative calls_used
