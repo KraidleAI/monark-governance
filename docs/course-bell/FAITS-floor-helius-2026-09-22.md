@@ -1,6 +1,6 @@
 # FAITS - floor Helius, lecture SUR PLACE n°1 (G0 course §G-8, decision 114 ; condition architecte (b) debit de fond nul)
 
-Orchestrateur Fable 5.1, Claude in Chrome (session investisseur), `https://dashboard.helius.dev/<org>/usage`, lu le 2026-09-22 05:27 UTC (`date -u`). Niveau : **[lu]** premiere main. La cle API est masquee sur le tableau de bord (verifie par l'investisseur) ; aucune page « API keys » ouverte.
+Orchestrateur Fable 5.1, Claude in Chrome (session investisseur), `https://dashboard.helius.dev/<org>/usage`, lu le 2026-09-22 05:24 UTC (`date -u`). Niveau : **[lu]** premiere main. La cle API est masquee sur le tableau de bord (verifie par l'investisseur) ; aucune page « API keys » ouverte.
 
 | Fait | Valeur lue |
 |---|---|
