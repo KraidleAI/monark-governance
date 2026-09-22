@@ -111,7 +111,7 @@ after(() => {
   }
 });
 
-interface EndJson { processedDays: string[]; lag: number; stopped: string | null; T: number; chainstack: boolean; exit_code: number; dryRun: boolean; }
+interface EndJson { processedDays: string[]; lag: number; stopped: string | null; T: number; chainstack: boolean; chainstack_guard: string; exit_code: number; dryRun: boolean; }
 interface RunResult { status: number; stdout: string; end: EndJson; }
 
 /** Spawn the REAL run.ts with the fetch stub. `CHAINSTACK_ETH_URL` is DELETED from the child env (so a real
@@ -121,6 +121,9 @@ interface RunResult { status: number; stdout: string; end: EndJson; }
 function runSentinel(stateDir: string, vars: Record<string, string>, setChainstack?: string, extraArgs: readonly string[] = []): RunResult {
   const env: NodeJS.ProcessEnv = { ...process.env, STUB_FIXTURE: FIXTURE, ...vars };
   delete env.CHAINSTACK_ETH_URL;
+  // NARABI-OPS-1d hygiene: the guarded leg's non-secret cycle keys must not leak in from the orchestrator shell
+  // (else a scenario meaning "no leg" could accidentally open one). A scenario sets them back via `vars`.
+  for (const k of ["CHAINSTACK_CYCLE_ID", "CHAINSTACK_ETH_ORIGIN", "CHAINSTACK_CYCLE_FLOOR"]) delete env[k];
   if (setChainstack !== undefined) env.CHAINSTACK_ETH_URL = setChainstack;
   const r = spawnSync(process.execPath, ["--import", stubUrl(), RUN_TS, "--state", stateDir, ...extraArgs], { cwd: REPO, env, encoding: "utf8", timeout: 60_000 });
   const stdout = r.stdout ?? "";
@@ -238,20 +241,20 @@ test("sentinel_never_prints_endpoint_url — an endpoint's key-bearing path neve
   }
 });
 
-// ── C-1 (served surface) + C-4: a run WITH the Chainstack env publishes a redacted endpoint, flags chainstack ─
-test("sentinel_chainstack_run_publishes_redacted_and_flags — the served line + stdout carry the host, never the key; end JSON chainstack=true (C-1 line/stdout, C-4)", () => {
+// ── C-1 (no leak) + NARABI-OPS-1d (D-degrade): CHAINSTACK_ETH_URL ALONE no longer opens the leg ───────────────
+test("sentinel_chainstack_url_alone_degrades_to_keyless — with CHAINSTACK_ETH_URL set but NO cycle config (CHAINSTACK_CYCLE_ID/ORIGIN absent), the guarded leg is unconfigured: the run publishes the 7 keyless endpoints, chainstack=false, chainstack_guard=unconfigured, and the key path never leaks (C-1; NARABI-OPS-1d D-degrade — supersedes the pre-migration 'URL alone flags chainstack + publishes a redacted 8th endpoint')", () => {
   const l3 = fixtureLines()[2]!;
   const dir = seedState(2);
-  const r = runSentinel(dir, { ...finVars(l3) }, FAKE_KEY_URL);
-  assert.equal(r.status, 0, "the run writes 2026-09-19");
-  assert.equal(r.end.chainstack, true, "end JSON flags chainstack (C-4)");
+  const r = runSentinel(dir, { ...finVars(l3) }, FAKE_KEY_URL); // sets CHAINSTACK_ETH_URL only (no cycle keys)
+  assert.equal(r.status, 0, "the run writes 2026-09-19 on the keyless quorum");
+  assert.equal(r.end.chainstack, false, "the URL alone no longer opens the leg (the guard needs the non-secret cycle config)");
+  assert.equal(r.end.chainstack_guard, "unconfigured", "no CHAINSTACK_CYCLE_ID/ORIGIN => the guarded leg is unconfigured (D-degrade)");
   assert.ok(!r.stdout.includes(SECRET_MARK), "the key path never appears in stdout (C-1 iii)");
   const tl = readFileSync(join(dir, "timeline.jsonl"), "utf8");
   assert.ok(!tl.includes(SECRET_MARK), "the key path never appears in a written line (C-1 ii)");
   const written = JSON.parse(tl.replace(/\r\n/g, "\n").split("\n").filter((x) => x.trim()).pop()!) as TimelineLine;
-  assert.equal(written.endpoints.length, PUBLIC_ENDPOINTS.length + 1, "the published line lists the 9th (redacted) endpoint");
-  assert.equal(written.endpoints[written.endpoints.length - 1], "https://rpc.example.test", "the 9th endpoint is published host-only");
-  assert.equal(written.line_hash, l3.line_hash, "endpoints are outside hashedFields, so line_hash is unchanged by the extra operator");
+  assert.equal(written.endpoints.length, PUBLIC_ENDPOINTS.length, "a degraded run publishes the 7 public endpoints only (C-6: no origin without an opened leg)");
+  assert.equal(written.line_hash, l3.line_hash, "endpoints are outside hashedFields, so line_hash is unchanged");
 });
 
 // ── L-3: the Chainstack endpoint is a DISTINCT operator accepted into the quorum ─────────────────────────

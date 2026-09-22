@@ -6,7 +6,7 @@
 // the Chainstack pipe (CA-11 durci). No real network: a fetch stub / node:http + node:net loopback fakes / `--file`.
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:http";
@@ -260,8 +260,8 @@ const supply = new Map();
 for (const w of W) { supply.set(w.to_block, BigInt(w.supply_close)); supply.set(w.from_block - 1, BigInt(w.s_open)); }
 globalThis.fetch = (url, init) => {
   const { method, params } = JSON.parse(init.body);
-  const ok = (result) => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ jsonrpc: "2.0", id: 1, result }) });
-  const fail = (status) => Promise.resolve({ ok: false, status, json: () => Promise.resolve({}) });
+  const ok = (result) => Promise.resolve({ ok: true, status: 200, headers: { get: () => null }, json: () => Promise.resolve({ jsonrpc: "2.0", id: 1, result }), text: () => Promise.resolve(JSON.stringify({ jsonrpc: "2.0", id: 1, result })) });
+  const fail = (status) => Promise.resolve({ ok: false, status, headers: { get: () => null }, json: () => Promise.resolve({}), text: () => Promise.resolve("{}") });
   if (method === "eth_getBlockByNumber") {
     const tag = params[0];
     if (tag === "finalized") return ok({ number: hex(Number(process.env.STUB_FIN_BLOCK)), timestamp: hex(Number(process.env.STUB_FIN_TS)) });
@@ -296,8 +296,16 @@ function runRealSentinel(stateDir: string, setChainstack: string | undefined): n
     STUB_FIXTURE: FIXTURE,
     STUB_FIN_BLOCK: String((l3?.to_block ?? 0) + 5), STUB_FIN_TS: String(midnight("2026-09-20") + 3600),
   });
-  delete env.CHAINSTACK_ETH_URL; // a real key in the orchestrator's shell must never enter the child (mirror sentinel-retry:112)
-  if (setChainstack !== undefined) env.CHAINSTACK_ETH_URL = setChainstack;
+  // NARABI-OPS-1d: the URL ALONE no longer opens the leg — the guarded leg needs the non-secret cycle config
+  // (CHAINSTACK_CYCLE_ID/ORIGIN) + a pre-existing ledger parent (C-8). A real key/config in the orchestrator's
+  // shell must never enter the child. `chain` is already an ORIGIN (scheme+host, no path) => providerOf chainstack.com.
+  for (const k of ["CHAINSTACK_ETH_URL", "CHAINSTACK_CYCLE_ID", "CHAINSTACK_ETH_ORIGIN", "CHAINSTACK_CYCLE_FLOOR"]) delete env[k];
+  if (setChainstack !== undefined) {
+    env.CHAINSTACK_ETH_URL = setChainstack;
+    env.CHAINSTACK_ETH_ORIGIN = setChainstack;
+    env.CHAINSTACK_CYCLE_ID = "chainstack-probe-test";
+    mkdirSync(join(stateDir, "ledger"), { recursive: true }); // C-8: the ledger parent must pre-exist (RUNBOOK install -d)
+  }
   const r = spawnSync(process.execPath, ["--import", stubUrl(), RUN_TS, "--state", stateDir], { cwd: REPO, env, encoding: "utf8", timeout: 60_000 });
   return r.status ?? -1;
 }
