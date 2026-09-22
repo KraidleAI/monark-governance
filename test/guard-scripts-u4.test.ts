@@ -27,13 +27,16 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { runCli } from "@monark/rpc-guard";
 import { selectIndices } from "../scripts/census/u4-redraw.mjs";
+import { canon, sha256Hex } from "../scripts/census/u4-guard.mjs";
 import { SEL, wordAddr } from "../apps/sentinel/src/ukemi/abi.ts";
 import { POOL } from "../apps/sentinel/src/ukemi/clusters.ts";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));      // <root>/test/this -> <root>
-// Computed (not hard-coded) from the CURRENT prereg so it cannot drift: the migrated scripts compare --prereg-sha to
-// lfSha256(docs/PLAN-u4-prereg.md), so this value matches by construction.
+// Computed (not hard-coded) from the CURRENT preregs so they cannot drift: u4-redraw still compares --prereg-sha to
+// lfSha256(docs/PLAN-u4-prereg.md); the PARAMETERISED u4-oracle-path (lot U-4b-1b-2) compares to docs/PLAN-u4b-prereg.md.
 const PREREG_SHA = createHash("sha256").update(readFileSync(join(ROOT, "docs", "PLAN-u4-prereg.md"), "utf8").replace(/\r\n/g, "\n"), "utf8").digest("hex");
+const PREREG_U4B = createHash("sha256").update(readFileSync(join(ROOT, "docs", "PLAN-u4b-prereg.md"), "utf8").replace(/\r\n/g, "\n"), "utf8").digest("hex");
+const WETH_ADDR = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
 const CENSUS = join(ROOT, "scripts", "census");
 const ACCT_HEX = "0x" + ["1000", "2000", "3000", "4000", "5000", "6000"].map((n) => BigInt(n).toString(16).padStart(64, "0")).join("");
 const AGG_ADDR = "0x" + "1".repeat(40);
@@ -44,19 +47,21 @@ const CAPS = '{"eth_call":100000,"eth_getLogs":100000}';
 const PAID_URL = "https://paid.example.invalid/FAKEKEY-u4t";
 const PAID_HOST = "paid.example.invalid";
 
-// COMMITTED REFERENCE OUTPUT sha (C-R-1). The base-blob replay is GONE (it broke at the 2b-ii merge - record.ts lost
-// makeBudgetedCall/applyExcludeOperators - and a shallow-checkout SKIP masked a red G7 oracle). These are the sha256 of
-// the migrated scripts' KEYLESS output on the stubbed fixture under the frozen clock, PROVEN byte-identical to the
-// e7f22b8 base. Recompute (frozen clock, keyless, the same preload as below):
-//   node --import <preload> scripts/census/u4-oracle-path.mjs --prereg-sha <lfSha256 of docs/PLAN-u4-prereg.md> \
-//     --max-calls 9999 --raws-dir <D> --ledger-dir <OUT-OF-REPO> --cycle replay --floor 0 --max-ru 1000000 \
-//     --method-caps '{"eth_call":100000,"eth_getLogs":100000}' ; sha256sum <D>/U4-oracle-path-e2.raw.json <D>/U4-oracle-inputs.jsonl
-// Measured independently: worker G1 + validator checkpoint-2 from the BASE blob (76beb089 / 5f3dcf2c), and this pli
-// from the MIGRATED script AND a `git archive e7f22b8` base recompute - all four agree (equality proven, not asserted).
+// COMMITTED REFERENCE OUTPUT sha. D-4 (lot U-4b-1b-2): the u4-oracle-path REFs are RE-BASELINED because the prober is now
+// PARAMETERISED (--episode-file / --prereg-file docs/PLAN-u4b-prereg.md), so its provenance carries new fields
+// (episode_id, selection_sha256, prereg_file, feed_proxy_source, usdt_blocks_status) and the prereg_sha is the U-4b one.
+//   − 76beb089… / 5f3dcf2c… (base e7f22b8; provenance pre-Q-D, prereg U-4, e2 constants HARD-CODED)
+//   + values below      (e2 via EXPLICIT flags; provenance +episode_id/selection_sha256/prereg_file; prereg U-4b)
+// The D_e DATA (aggregator, updates, usdt_prices, emode_raw) is byte-IDENTICAL — only provenance moved; the inline data
+// vector in the replay test asserts p_min/p_max/emode independently of the whole-file sha. u4-redraw is UNCHANGED.
+// Recompute (frozen clock, keyless, the preload below): node --import <preload> scripts/census/u4-oracle-path.mjs \
+//   --episode-file <e2 selection> --prereg-file docs/PLAN-u4b-prereg.md --prereg-sha <lf u4b> --raws-dir <D> --max-calls
+//   9999 --ledger-dir <OUT> --cycle replay --floor 0 --max-ru 1000000 --method-caps <caps> --usdt-blocks 23550406,23550879
+//   --emode-categories 1,2,3,4,8,11,13,15,17,19,21,23,24,27,28 ; sha256sum <D>/U4-oracle-path-e2.raw.json <D>/U4-oracle-inputs.jsonl
 const REF = {
-  ORACLE_RAW: "76beb0891fd61e8534bec99ef36fbf5552c556242bf864d5e3cb91200209ce8a",    // U4-oracle-path-e2.raw.json (full, frozen clock)
-  ORACLE_INPUTS: "5f3dcf2c8c48990ab493ef539642771e50c404d11865a44304a22b6507604dd8", // U4-oracle-inputs.jsonl
-  REDRAW_REPORT: "ed2eaf595851e2c96b94ce6bd27182a975e4afa9eb77a2270a87e67b36ee3059", // U4-redraw report (--out)
+  ORACLE_RAW: "4cc1e6a9c87938deb69e385d87be5154deae4fadf02a170fb359ddedd1d79510",       // U4-oracle-path-e2.raw.json (full, frozen clock; e2 via flags)
+  ORACLE_INPUTS: "6dee556d81e616f227d809e8db807f245089800568540a5568805f4595017329", // U4-oracle-inputs.jsonl
+  REDRAW_REPORT: "ed2eaf595851e2c96b94ce6bd27182a975e4afa9eb77a2270a87e67b36ee3059", // U4-redraw report (--out) — UNCHANGED
 };
 
 // ---- the offline preload (frozen clock + canned fetch). U4T_FAIL_DRPC benches drpc (forces the paid leg into the ----
@@ -146,10 +151,24 @@ function ledgerOutcomeCount(ledgerDir: string, cycle: string, outcome: string): 
 
 const prov = (rawPath: string): Record<string, unknown> => (JSON.parse(readFileSync(rawPath, "utf8")) as { provenance: Record<string, unknown> }).provenance;
 
-/** Oracle-path arg builder (guard budget args + optional overrides). */
-function oracleArgs(s: { dir: string; ledgerDir: string }, cycle: string, o: { maxCalls?: number; floor?: number; maxRu?: number; withChainstack?: boolean } = {}): string[] {
-  return ["--prereg-sha", PREREG_SHA, "--max-calls", String(o.maxCalls ?? 9999), "--raws-dir", join(s.dir, "raws"),
-    "--ledger-dir", s.ledgerDir, "--cycle", cycle, "--floor", String(o.floor ?? 0), "--max-ru", String(o.maxRu ?? 1000000),
+/** Write an e2 episode-selection.json (schema shape) with a VALID selection_sha256 into `dir`, return its path. The
+ *  parameterised u4-oracle-path reads episode.B0 / episode.B_last and verifies selection_sha256 (over the file minus
+ *  version_check/selection_sha256) — built with the SAME canon/sha256Hex the reducer uses (imported from u4-guard). */
+function writeE2Episode(dir: string): string {
+  const payload = { schema: "ukemi-u4b-episode-selection/1", episode: { id: "e2", B_first: 23545088, B_last: 23552238, B0: 23545087, n_distinct: 99, collateral: WETH_ADDR } };
+  const file = { ...payload, version_check: "pending", selection_sha256: sha256Hex(canon(payload)) };
+  const p = join(dir, "episode-selection.json");
+  writeFileSync(p, JSON.stringify(file, null, 2));
+  return p;
+}
+
+const EMODE_CATS = "1,2,3,4,8,11,13,15,17,19,21,23,24,27,28";
+/** Oracle-path arg builder — PARAMETERISED (lot U-4b-1b-2): e2 via --episode-file + explicit --usdt-blocks/--emode. */
+function oracleArgs(s: { dir: string; ledgerDir: string }, cycle: string, o: { maxCalls?: number; floor?: number; maxRu?: number; withChainstack?: boolean; ledgerDir?: string } = {}): string[] {
+  return ["--episode-file", writeE2Episode(s.dir), "--prereg-file", "docs/PLAN-u4b-prereg.md", "--prereg-sha", PREREG_U4B,
+    "--usdt-blocks", "23550406,23550879", "--emode-categories", EMODE_CATS,
+    "--max-calls", String(o.maxCalls ?? 9999), "--raws-dir", join(s.dir, "raws"),
+    "--ledger-dir", o.ledgerDir ?? s.ledgerDir, "--cycle", cycle, "--floor", String(o.floor ?? 0), "--max-ru", String(o.maxRu ?? 1000000),
     "--method-caps", CAPS, ...(o.withChainstack ? ["--with-chainstack"] : [])];
 }
 
@@ -186,19 +205,33 @@ function redrawArgs(s: { dir: string; ledgerDir: string }, cycle: string, o: { o
 // ============================================================================================================
 // 2) BYTE-IDENTITY - the migrated scripts reproduce the e7f22b8 output, verified vs COMMITTED reference sha (C-R-1).
 // ============================================================================================================
-test("u4_oracle_path_replay_is_byte_identical_to_base", () => {
+test("u4_oracle_path_e2_via_flags_is_deterministic_and_reproduces_the_De_data", () => {
   const s = scratch();
   try {
-    const raws = join(s.dir, "raws");
+    const raws = join(s.dir, "raws"), raws2 = join(s.dir, "raws2");
     const a = runScript(join(CENSUS, "u4-oracle-path.mjs"), oracleArgs(s, "replay"), { preloadUrl: s.preloadUrl });
     assert.equal(a.status, 0, `exit 0; stderr=${a.stderr}`);
-    // The D_e (full raw, frozen clock) and the resume cache are byte-identical to the base blob's output.
-    assert.equal(sha256File(join(raws, "U4-oracle-path-e2.raw.json")), REF.ORACLE_RAW, "U4-oracle-path-e2.raw.json must match the committed base reference sha");
-    assert.equal(sha256File(join(raws, "U4-oracle-inputs.jsonl")), REF.ORACLE_INPUTS, "U4-oracle-inputs.jsonl must match the committed base reference sha");
-    // The concordant revert on e-mode category 8 stays ConcordantRevertError (keyless-derived): without class identity
-    // it would flip to NoQuorumError - a change in the D_e bytes (already caught by the raw sha; named here for clarity).
-    const raw = JSON.parse(readFileSync(join(raws, "U4-oracle-path-e2.raw.json"), "utf8")) as { emode_raw: Record<string, { error?: string }> };
-    assert.equal(raw.emode_raw["8"]?.error, "ConcordantRevertError", "the concordant keyless revert must be recognised (class identity, no bridge needed post-2b-ii)");
+    // (i) the full raw + resume cache match the RE-BASELINED reference sha (parameterised prober, e2 via flags; D-4).
+    assert.equal(sha256File(join(raws, "U4-oracle-path-e2.raw.json")), REF.ORACLE_RAW, "U4-oracle-path-e2.raw.json must match the (re-baselined) reference sha");
+    assert.equal(sha256File(join(raws, "U4-oracle-inputs.jsonl")), REF.ORACLE_INPUTS, "U4-oracle-inputs.jsonl must match the (re-baselined) reference sha");
+    // (ii) DETERMINISM: a second run into a fresh raws-dir is byte-identical (frozen clock; no timing in the output).
+    const b = runScript(join(CENSUS, "u4-oracle-path.mjs"), oracleArgs(s, "replay2").map((x) => (x === join(s.dir, "raws") ? raws2 : x)), { preloadUrl: s.preloadUrl });
+    assert.equal(b.status, 0, `second run exit 0; stderr=${b.stderr}`);
+    assert.equal(sha256File(join(raws2, "U4-oracle-path-e2.raw.json")), REF.ORACLE_RAW, "the raw is byte-identical across two runs (deterministic)");
+    // (iii) INDEPENDENT D_e data vector (survives a whole-file sha change): p_min/p_max from the 3 stubbed updates, the
+    // parameterised bornes (episode B0/B_last), episode_id/selection_sha256 in the provenance, and the keyless concordant
+    // revert on e-mode 8 (class identity; a flip to NoQuorumError would change the bytes).
+    const raw = JSON.parse(readFileSync(join(raws, "U4-oracle-path-e2.raw.json"), "utf8")) as { p_min: string; p_max: string; n_updates: number; emode_raw: Record<string, { error?: string }>; provenance: { episode_id: string; selection_sha256: string; params: { b0: number; b_last: number; feed_proxy_source: string; usdt_blocks_status: string } } };
+    assert.equal(raw.p_min, "199000000000", "p_min == min of the 3 stubbed AnswerUpdated prices");
+    assert.equal(raw.p_max, "201000000000", "p_max == max of the 3 stubbed prices");
+    assert.equal(raw.n_updates, 3, "3 D_e updates decoded");
+    assert.equal(raw.emode_raw["8"]?.error, "ConcordantRevertError", "the concordant keyless revert is recognised (class identity)");
+    assert.equal(raw.provenance.params.b0, 23545087, "b0 came from episode.B0 (parameterised, not a hard-coded e2 default)");
+    assert.equal(raw.provenance.params.b_last, 23552238, "b_last came from episode.B_last");
+    assert.equal(raw.provenance.params.feed_proxy_source, "default §DISC:28", "feed_proxy kept its §DISC:28 default (documented)");
+    assert.equal(raw.provenance.params.usdt_blocks_status, "provided", "usdt_blocks provided via the explicit flag");
+    assert.equal(raw.provenance.episode_id, "e2", "provenance carries episode_id");
+    assert.ok(/^[0-9a-f]{64}$/.test(raw.provenance.selection_sha256), "provenance carries selection_sha256");
   } finally { s.cleanup(); }
 });
 
@@ -319,7 +352,7 @@ test("u4_oracle_path_floor_reaches_the_cycle_cap", () => {
 test("u4_oracle_path_requires_all_guard_budget_args", () => {
   const s = scratch();
   try {
-    const full = ["--prereg-sha", PREREG_SHA, "--max-calls", "9999", "--raws-dir", join(s.dir, "raws"), "--ledger-dir", s.ledgerDir, "--cycle", "req", "--floor", "0", "--max-ru", "1000000", "--method-caps", '{"eth_call":10}'];
+    const full = oracleArgs(s, "req");
     assert.equal(runScript(join(CENSUS, "u4-oracle-path.mjs"), full, { preloadUrl: s.preloadUrl }).status, 0, "full arg set must run");
     for (const drop of ["--ledger-dir", "--cycle", "--floor", "--max-ru", "--method-caps", "--max-calls"]) {
       const i = full.indexOf(drop);
@@ -384,10 +417,10 @@ test("u4_ledger_dir_must_be_outside_repo_and_preexist", () => {
   const strayInRepo = join(ROOT, "node_modules", "u4g-ledger-inrepo");
   try {
     // (a) a --ledger-dir UNDER the repo root (an EXISTING dir, so only the under-repo guard can reject it) is refused.
-    const inRepo = runScript(join(CENSUS, "u4-oracle-path.mjs"), ["--prereg-sha", PREREG_SHA, "--max-calls", "9999", "--raws-dir", join(s.dir, "raws"), "--ledger-dir", join(ROOT, "node_modules"), "--cycle", "u4g-inrepo", "--floor", "0", "--max-ru", "1000000", "--method-caps", CAPS], { preloadUrl: s.preloadUrl });
+    const inRepo = runScript(join(CENSUS, "u4-oracle-path.mjs"), oracleArgs(s, "u4g-inrepo", { ledgerDir: join(ROOT, "node_modules") }), { preloadUrl: s.preloadUrl });
     assert.notEqual(inRepo.status, 0, "a --ledger-dir under the repo root must be refused (CA-11 / E-2)");
     // (b) a --ledger-dir that does NOT pre-exist is refused (C-8: never mkdir a phantom parent).
-    const missing = runScript(join(CENSUS, "u4-oracle-path.mjs"), ["--prereg-sha", PREREG_SHA, "--max-calls", "9999", "--raws-dir", join(s.dir, "raws"), "--ledger-dir", join(s.dir, "does-not-exist"), "--cycle", "miss", "--floor", "0", "--max-ru", "1000000", "--method-caps", CAPS], { preloadUrl: s.preloadUrl });
+    const missing = runScript(join(CENSUS, "u4-oracle-path.mjs"), oracleArgs(s, "miss", { ledgerDir: join(s.dir, "does-not-exist") }), { preloadUrl: s.preloadUrl });
     assert.notEqual(missing.status, 0, "a --ledger-dir that does not pre-exist must be refused (C-8)");
     // and the refusal is the C-8 pre-exist GUARD (assertLedgerDir), not a downstream ENOENT: dropping that guard would
     // still fail (ensureCycleDir's non-recursive mkdir), so assert the SPECIFIC reason so the guard has a killer mutant.

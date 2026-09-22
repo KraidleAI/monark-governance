@@ -9,6 +9,7 @@
     "apps/harness/test/gate-liq-artifact.test.ts",
     "apps/sentinel/test/u4b-discover.test.ts",
     "apps/sentinel/test/u4b-liquidation-logs.test.ts",
-    "apps/sentinel/test/ukemi-record-guard-binding.test.ts"
+    "apps/sentinel/test/ukemi-record-guard-binding.test.ts",
+    "apps/sentinel/test/u4b-oracle-path.test.ts"
   ]
 }
