@@ -676,3 +676,15 @@ CI complète sur l'arbre fusionné 573/573 ; R-25 1 195 ; checkpoint-2 REFUSE (a
 ### Ruling orchestrateur (2026-09-22 04:4x UTC `date -u`) - U-4b-1b-0 checkpoint-2 ACCEPTE-AVEC-CORRECTIONS, question d'escalade tranchee
 - Question du validateur (`docs/CHECKPOINT2-lot-u4b-1b-0.md` §5) : les gardes `--prereg-sha`/`--labeler-sha` ne lient la course au prereg que si les flags sont fournis. Tranche : **obligatoires par CODE** des que le fichier `--prereg-file` (defaut `docs/PLAN-u4b-prereg.md`) EXISTE sur disque ; usage generique hors U-4b (U-1/susde) par `--no-prereg-binding` explicite, ecrit dans la provenance et interdit par le prereg -1b pour la course weth. Decision 128 Q-A tenue a la lettre (enforcement par code). Petit ajout au pli (C-1..C-3 + ceci), mutant « flags absents acceptes » ROUGE.
 - Rouges non signes hors diff (h5-e2e-probe, http.test.ts ; verts seuls et au 2e run) : nouvelle occurrence de l'item D4 environnement/amont Node, a consigner au G7.
+
+### Rulings orchestrateur (2026-09-22 04:50 UTC `date -u`) - G0 SITE-RELEASE-1 (`docs/G0-lot-site-release-1.DRAFT.md`), 8 questions fermees §12
+- Q-1 (b) : pas de durcissement global de `vocab-banned.json` maintenant (le retrait cascade est U-5b) ; `/ukemi` cascade-free prouve par passe sentinel + mutant A-9.
+- Q-2 (b) : la home ne change pas (badges lus du registre) ; la maquette index est un navigateur de maquettes.
+- Q-3 (b) : favicon PAR route (`app/narabi/icon.svg`, `app/ukemi/icon.svg`), adaptatif, local.
+- Q-4 (a) : a T >= 7 la pilule bascule en « built · N windows published » (N lu) ; jamais « of 7 » faux.
+- Q-5 (a) : prose SANS chiffre au temps 1 + etat honnete `under_calib` (aucune region sample rendue) ; item forme « figures design-set depuis record committe + manifeste », declencheur U-4b-2b.
+- Q-6 (b) : `g3-site` reste blocking conditional ; passage en status-check requis = action orchestrateur separee (branch protection), apres la release.
+- Q-7 (a) : `/ukemi` au temps 1 (page methode + etat honnete), regions vivantes a -2b.
+- Q-8 (b) : vocabulaire de statut UNIQUE : la pilule dit « built · day N of 7 before first reading » (pas « shipped ») - la relecture conjointe a valide la forme « day N of 7 », le mot de statut suit le registre gele.
+- Couture pre-declaree : SOUS-LOT A = Narabi + favicons (release Narabi), SOUS-LOT B = page `/ukemi` ; mesure reelle au G1 (borne 1 150).
+- Fait de plan : aucune route `/ukemi` n'existe (a creer et brancher) ; `fleet.ts` (cascade -> borne haute) et flip `built` de la borne haute restent U-4b-2b (decision 123).
