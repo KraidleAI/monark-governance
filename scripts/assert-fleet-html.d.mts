@@ -37,9 +37,10 @@ export function scanNumericTokens(text: string): string[];
 export function extractMain(body: string): string;
 /** The /ukemi <main> scan corpus: stripped text nodes + captured alt/title/aria-label values. */
 export function mainCorpus(mainHtml: string): string;
-/** Assert the rendered /ukemi <main> is digit-free and carries the served state + conditional clause, with no
- *  interval/cascade/Bell/Aave; throws on failure (vacuity-guarded). */
+/** Assert the rendered /ukemi <main> is digit-free, carries the served state + conditional clause + the
+ *  registry-status pill ("Ukemi <status>"), with no interval/cascade/Bell/Aave; throws on failure
+ *  (vacuity-guarded). `expected.status` is the real FLEET_AGENTS Ukemi status (C-1, kills mutant X5). */
 export function assertUkemiBody(args: {
   html: string;
-  expected: { emptyRegistrySentence: string; conditionalSentence: string };
-}): { mainChars: number; corpusChars: number; numericTokens: number };
+  expected: { emptyRegistrySentence: string; conditionalSentence: string; status: string };
+}): { mainChars: number; corpusChars: number; numericTokens: number; status: string };

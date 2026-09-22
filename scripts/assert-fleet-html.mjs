@@ -187,8 +187,8 @@ export function mainCorpus(mainHtml) {
 export function assertUkemiBody({ html, expected }) {
   if (typeof html !== "string") throw new Error("assert-ukemi: html must be a string");
   if (expected === null || typeof expected !== "object") throw new Error("assert-ukemi: expected must be an object (vacuity guard)");
-  const { emptyRegistrySentence, conditionalSentence } = expected;
-  for (const [k, v] of [["emptyRegistrySentence", emptyRegistrySentence], ["conditionalSentence", conditionalSentence]]) {
+  const { emptyRegistrySentence, conditionalSentence, status } = expected;
+  for (const [k, v] of [["emptyRegistrySentence", emptyRegistrySentence], ["conditionalSentence", conditionalSentence], ["status", status]]) {
     if (typeof v !== "string" || v.trim().length === 0)
       throw new Error(`assert-ukemi: expected.${k} is empty/not-a-string (vacuity guard)`);
   }
@@ -218,7 +218,18 @@ export function assertUkemiBody({ html, expected }) {
     if (re.test(corpus)) throw new Error(`assert-ukemi: "${word}" rendered in the /ukemi <main> (forbidden on this surface)`);
   }
 
-  return { mainChars: mainHtml.length, corpusChars: corpus.length, numericTokens: nums.length };
+  // (5) PILL carries the REAL fleet-register status (C-1, CA-11 hardened): the hero eyebrow "Ukemi" and the
+  // status pill render as ADJACENT siblings, so the <main> corpus carries "Ukemi <status>". A pill that STILL
+  // reads `.status` but FLIPS the value (mutant X5: `status === "built" ? "upcoming" : status`) reddens HERE
+  // on the ARTEFACT path — the source-only `.status` check (site_ukemi_reads_status_only) cannot catch a flip.
+  // `status` is derived by main() from the real FLEET_AGENTS (single source). (A pill HARD-CODED to a literal
+  // — not wired to `.status` — coincidentally matches the corpus here; it is caught at SOURCE by the
+  // `rendered.has("status")` carrier in site_ukemi_body_scan_and_carrier.)
+  const pillCarrier = "Ukemi " + status;
+  if (!corpus.includes(pillCarrier))
+    throw new Error(`assert-ukemi: the /ukemi <main> pill does not carry the registry status (expected carrier ${JSON.stringify(pillCarrier)}) — a flipped pill value (mutant X5)`);
+
+  return { mainChars: mainHtml.length, corpusChars: corpus.length, numericTokens: nums.length, status };
 }
 
 async function main() {
@@ -247,12 +258,19 @@ async function main() {
   }
   const ukemiUrl = pathToFileURL(join(REPO_ROOT, "apps", "site", "lib", "ukemi-copy.ts")).href;
   const { LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_CONDITIONAL_SENTENCE } = await import(ukemiUrl);
+  // Derive the pill status from the REAL fleet register (FLEET_AGENTS already imported above) — the SAME
+  // single source the page reads (C-1). Fail-closed if Ukemi is absent (a broken registry must not pass).
+  const ukemiAgent = FLEET_AGENTS.find((a) => a.name === "Ukemi");
+  if (!ukemiAgent) {
+    console.error("assert-fleet-html: FAIL-CLOSED — 'Ukemi' absent from FLEET_AGENTS (lib/fleet.ts); cannot derive the /ukemi pill status.");
+    process.exit(1);
+  }
   try {
     const r = assertUkemiBody({
       html: readFileSync(ukemiAbs, "utf8"),
-      expected: { emptyRegistrySentence: LIQ_EMPTY_REGISTRY_SENTENCE, conditionalSentence: LIQ_CONDITIONAL_SENTENCE },
+      expected: { emptyRegistrySentence: LIQ_EMPTY_REGISTRY_SENTENCE, conditionalSentence: LIQ_CONDITIONAL_SENTENCE, status: ukemiAgent.status },
     });
-    console.log(`assert-fleet-html OK — /ukemi <main> digit-free (${r.numericTokens} numeric tokens), served state + conditional clause present, no interval/cascade/Bell/Aave (${r.corpusChars} corpus chars).`);
+    console.log(`assert-fleet-html OK — /ukemi <main> digit-free (${r.numericTokens} numeric tokens), served state + conditional clause present, pill carries registry status ${JSON.stringify(r.status)}, no interval/cascade/Bell/Aave (${r.corpusChars} corpus chars).`);
   } catch (e) {
     console.error(String(e instanceof Error ? e.message : e));
     process.exit(1);

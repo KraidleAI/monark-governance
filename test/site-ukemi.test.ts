@@ -43,6 +43,7 @@ import {
 } from "../apps/harness/src/tools/gate.ts";
 import { assertUkemiBody, scanNumericTokens } from "../scripts/assert-fleet-html.mjs";
 import { scanText, scanSource, renderedTexts } from "../apps/site/test/honesty-lint.ts";
+import { FLEET_AGENTS } from "../apps/site/lib/fleet.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const read = (rel: string): string => readFileSync(join(ROOT, ...rel.split("/")), "utf8");
@@ -50,7 +51,13 @@ const UKEMI_PAGE_REL = "apps/site/components/ukemi/ukemi-page.tsx";
 const UKEMI_ROUTE_REL = "apps/site/app/ukemi/page.tsx";
 const UKEMI_ICON_REL = "apps/site/public/icons/ukemi.svg";
 const NO_EXEMPT = new Set<string>();
-const EXPECTED = { emptyRegistrySentence: LIQ_EMPTY_REGISTRY_SENTENCE, conditionalSentence: LIQ_CONDITIONAL_SENTENCE };
+// A-8 / C-1: read the pill status from the REAL fleet register (single source), never a hard-coded stub.
+const UKEMI_STATUS: string = (() => {
+  const a = FLEET_AGENTS.find((x) => x.name === "Ukemi");
+  if (a === undefined) throw new Error("site-ukemi.test: 'Ukemi' absent from FLEET_AGENTS (lib/fleet.ts)");
+  return a.status;
+})();
+const EXPECTED = { emptyRegistrySentence: LIQ_EMPTY_REGISTRY_SENTENCE, conditionalSentence: LIQ_CONDITIONAL_SENTENCE, status: UKEMI_STATUS };
 
 // A green <main> fixture composed from the REAL ukemi-copy exports, mirroring the page structure (advisor 2):
 // class/style carry digits (stripped by the scan), every rendered TEXT node is digit-free.
@@ -61,7 +68,7 @@ function greenMain(): string {
   const limits = LIMITS.map((l) => `<div><h3>${l.title}</h3><p>${l.detail}</p></div>`).join("");
   return (
     `<main class="mx-auto max-w-[1200px] px-6 py-16">` +
-    `<div>Ukemi</div><span>built</span>` +
+    `<div>Ukemi</div><span>${UKEMI_STATUS}</span>` +
     `<h1>${HERO_TITLE}</h1><p>${HERO_DEK}</p>` +
     `<div>${WHAT_LABEL}</div><ul>${li(IS_LIST)}</ul><ul>${li(IS_NOT_LIST)}</ul>` +
     `<div>${SERVED_LABEL}</div><p>${SERVED_STATE_LEAD}</p><p>${LIQ_EMPTY_REGISTRY_SENTENCE}</p>` +
@@ -186,7 +193,13 @@ test("site_ukemi_body_scan_and_carrier — assertUkemiBody fixtures + scanner pa
   redBody((h) => h.replace(REGION_NOTE, REGION_NOTE + " Aave"), /Aave/, "Aave reds");
   assert.throws(() => assertUkemiBody({ html: "<section>no main here</section>", expected: EXPECTED }), /no <main>/, "no <main> fails-closed");
   assert.throws(() => assertUkemiBody({ html: "<main>   </main>", expected: EXPECTED }), /empty\/blank/, "empty <main> fails-closed");
-  assert.throws(() => assertUkemiBody({ html: greenMain(), expected: { emptyRegistrySentence: "", conditionalSentence: LIQ_CONDITIONAL_SENTENCE } }), /vacuity/, "a blank expected sentence fails-closed");
+  assert.throws(() => assertUkemiBody({ html: greenMain(), expected: { emptyRegistrySentence: "", conditionalSentence: LIQ_CONDITIONAL_SENTENCE, status: UKEMI_STATUS } }), /vacuity/, "a blank expected sentence fails-closed");
+  assert.throws(() => assertUkemiBody({ html: greenMain(), expected: { emptyRegistrySentence: LIQ_EMPTY_REGISTRY_SENTENCE, conditionalSentence: LIQ_CONDITIONAL_SENTENCE, status: "" } }), /vacuity/, "a blank expected.status fails-closed (C-1)");
+  // C-1 / CA-11 — the built pill must carry the REAL registry status ("Ukemi <status>"). A flipped/altered
+  // pill value reds; an absent pill reds. This is the unit-level defense that kills mutant X5 (the harness
+  // also replays X5 on the build -> assert path). The source-only .status check cannot catch a value flip.
+  redBody((h) => h.replace(`>${UKEMI_STATUS}</span>`, ">flipped-status</span>"), /pill does not carry/, "a flipped pill value reds (X5)");
+  redBody((h) => h.replace(`<div>Ukemi</div><span>${UKEMI_STATUS}</span>`, ""), /pill does not carry/, "an absent pill reds (C-1)");
 
   // (c) SCANNER PARITY: the .mjs scan equals honesty-lint scanText(_, empty) byte-for-byte (idiom "the root
   // test asserts the identity", narabi-live.ts:31-32). Mutant: drift a regex in the .mjs => a fixture diverges.
@@ -204,6 +217,9 @@ test("site_ukemi_body_scan_and_carrier — assertUkemiBody fixtures + scanner pa
   const sf = parseTsx(UKEMI_PAGE_REL, comp);
   const rendered = jsxChildIdentifiers(sf);
   const imported = importedFrom(sf, "ukemi-copy");
+  // CA-11 branchement: the pill renders {status} from the register (wired to fleet.ts), never a hard-coded
+  // literal that would coincidentally match the artefact. Mutant M12 ({status} -> a literal) reds here.
+  assert.ok(rendered.has("status"), "the pill must render {status} from the fleet register (not a hard-coded literal — CA-11)");
   assert.ok(rendered.has("LIQ_EMPTY_REGISTRY_SENTENCE"), "positive carrier: {LIQ_EMPTY_REGISTRY_SENTENCE} renders as a JSX child");
   assert.ok(rendered.has("LIQ_CONDITIONAL_SENTENCE"), "positive carrier: {LIQ_CONDITIONAL_SENTENCE} renders as a JSX child");
   assert.ok(!rendered.has("LIQ_UPPER_BOUND_SENTENCE"), "negative carrier: LIQ_UPPER_BOUND_SENTENCE (carries '0') must NOT render");
