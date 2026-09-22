@@ -44,6 +44,16 @@ const CLOSED: ReadonlyArray<readonly [string, readonly string[]]> = [
   ["the accuracy is high", ["seed, n, "]],
 ];
 
+// The ALTERNATIVES written inside an A-9 rule (G2 C-G2-1, C-G2-2): each carries its own probe, else dropping it
+// survives every test (CONSIGNE D-1: an alternative without its probe is declarative). The spelled percentage
+// `per\s?cent` (announced by the rule's why, "99 percent") and the plural suffix of `probabilit\w*`. Row: [probe,
+// the CLOSED probe of its owning rule, the word the gate names]. Adding an alternative to a rule = a row here.
+const ALTERNATIVES: ReadonlyArray<readonly [string, string, string]> = [
+  ["covers 99 percent of cases", "95% of the time", "99 percent"],
+  ["90 per cent", "95% of the time", "90 per cent"],
+  ["the calibrated probabilities", "a probability of being right", "probabilities"],
+];
+
 /** Case-insensitive splice of `after` inside `sample` (every rule compiles with the `i` flag). */
 function spliceCI(sample: string, after: string, by: string): string {
   const i = sample.toLowerCase().indexOf(after.toLowerCase());
@@ -71,8 +81,10 @@ function walkTs(dir: string): string[] {
 // (b) of the mission: every named exemption is closed, exact and load-bearing. Per exemption: its lookbehind is in the
 // rule; its sample sits verbatim in the committed carrier; the sample PASSES; the same span without the prefix
 // REDDENS; no shorter word-suffix of the prefix exempts (no widening); the carrier is clean under the rule and
-// REDDENS once that lookbehind is removed. Per rule: no undeclared lookbehind remains. Mutants: `not-re-widened`
-// (lookbehind widened to `re-`), `undeclared-lookbehind`, `percent-rule-removed` => red here.
+// REDDENS once that lookbehind is removed. Per rule: no undeclared lookbehind remains, and each written ALTERNATIVE
+// reddens its own probe under that rule alone (G2 C-G2-1/C-G2-2). Mutants: `not-re-widened` (lookbehind widened to
+// `re-`), `undeclared-lookbehind`, `percent-rule-disabled`, `percent-spelled-dropped`, `probability-suffix-narrowed`
+// => red here.
 test("a9_harness_exemptions_are_named_closed_and_load_bearing", () => {
   const cfg = loadConfig();
   const h = harnessOf(cfg);
@@ -105,6 +117,14 @@ test("a9_harness_exemptions_are_named_closed_and_load_bearing", () => {
       assert.ok(scanText(carrierText, withoutThis).length >= 1, `removing the '${e.after}' exemption reddens ${e.carrier} (load-bearing)`);
     }
     assert.ok(!residual.includes("(?<!"), `no undeclared lookbehind in the '${probe}' rule`);
+  }
+  for (const [probe, closedProbe, word] of ALTERNATIVES) {
+    const owners = rules.filter((r) => new RegExp(r.re, "i").test(probe));
+    assert.equal(owners.length, 1, `exactly one A-9 rule reddens the alternative probe '${probe}'`);
+    const rule = owners[0];
+    assert.ok(rule !== undefined);
+    assert.ok(new RegExp(rule.re, "i").test(closedProbe), `'${probe}' is reddened by the rule of '${closedProbe}'`);
+    assert.deepEqual(scanText(probe, compilePatterns([rule])).map((x) => x.word), [word], `the gate names the whole alternative '${word}'`);
   }
   const all = [...compilePatterns(cfg.banned), ...compilePatterns(h.banned)];
   // checkpoint-1 C-1: 'interval' is the wire vocabulary (mode, region.kind, schema descriptions) -- NOT banned here.
