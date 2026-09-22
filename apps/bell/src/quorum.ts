@@ -61,9 +61,13 @@ export function isSolRevert(e: unknown): e is RpcError {
 export function statusOf(e: unknown): string {
   if (e instanceof RpcError) return "rpc " + String(e.code);
   if (e instanceof TransportError) {
+    // BELL-RETRY-1: a NonJsonBody (a 200 gateway HTML page, or a non-JSON body on any status) carries the HTTP status
+    // in .code; label it "non-json <status>" so the journal names the CLASS, never "HTTP 200" (which masked the fault
+    // that STOPped the TSLAx draw, 14:21 UTC). Placed BEFORE the generic .code branch (which would print "HTTP 200").
+    if (e.name === "NonJsonBody") return "non-json " + String(e.code ?? "?");
     if (e.code !== undefined) return "HTTP " + String(e.code); // HttpError / RedirectBlocked carry the HTTP status
     if (e.name === "AbortError") return "timeout";
-    return "transport"; // TypeError / NetworkError / NonJsonBody: no mappable HTTP code
+    return "transport"; // TypeError / NetworkError: no mappable HTTP code
   }
   const m = e instanceof Error ? e.message : String(e);
   const http = /\bHTTP\s+(\d{3})\b/.exec(m);
@@ -122,13 +126,17 @@ const retrySleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(
 /** C-3: is this fault worth a bounded retry? A CANONICAL TransportError is retried ONLY when it is a rate/abort/
  *  network/5xx fault by `.name`/`.code` — NEVER an RpcError (a deterministic node revert; RpcError extends
  *  TransportError so it is excluded FIRST), a 403, or another 4xx (calque record.ts:306, the recorder's transient
- *  rule). A NON-package Error (the cash leg's plain `HTTP <status>` from close.ts, not yet under the guard — 1b-iii)
- *  still classifies through the message-derived status token. A BudgetExceededError is handled by the caller before
- *  this (fatal first). */
+ *  rule). BELL-RETRY-1: a NonJsonBody is ALSO transient when its status is 200 (a gateway HTML page at HTTP 200, the
+ *  fault that STOPped the TSLAx draw) or 429/5xx; a NonJsonBody on a 4xx != 429 stays fatal. Via THIS transport a
+ *  NonJsonBody is reachable only with a 2xx code (transport.ts:229 routes 4xx/5xx to HttpError and 3xx to
+ *  RedirectBlocked BEFORE the JSON parse), so the 429/5xx arms are defensive for any other producer of the class. A
+ *  NON-package Error (the cash leg's plain `HTTP <status>` from close.ts, not yet under the guard -- 1b-iii) still
+ *  classifies through the message-derived status token. A BudgetExceededError is handled by the caller (fatal first). */
 function isTransient(e: unknown): boolean {
   if (e instanceof RpcError) return false; // a deterministic node error is never a transport retry
   if (e instanceof TransportError) {
     const n = e.name;
+    if (n === "NonJsonBody") return e.code !== undefined && (e.code === 200 || e.code === 429 || e.code >= 500);
     return n === "AbortError" || n === "TypeError" || n === "NetworkError" || (n === "HttpError" && e.code !== undefined && (e.code === 429 || e.code >= 500));
   }
   return /HTTP 5|HTTP 429|timeout|transport/.test(statusOf(e)); // cash-leg plain Error fallback (1b-iii migrates it)
