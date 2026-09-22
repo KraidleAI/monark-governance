@@ -67,7 +67,7 @@
           "cascade",
           "gate"
         ],
-        "response_sha256": "ffa194ffc55c715a2b6657ae024575e926356403d961926e6f23f53597e44a54"
+        "response_sha256": "b88cd06630582014c2ca569aa9f865593a933dea6e6848823b58716d17663141"
       }
     },
     {
@@ -107,7 +107,7 @@
         "content": [
           {
             "type": "text",
-            "text": "yhat is the estimated liquidable amount (a monetary quantity in the reference asset), a single point that HIKAE conformalizes downstream; no guarantee, no score. no cascade calibration is committed; the gate abstains (under_calib) on this class."
+            "text": "yhat is the estimated liquidable amount (a monetary quantity in the reference asset), a single point that HIKAE conformalizes downstream; no guarantee, no score. no cascade calibration is committed; the gate abstains (under_calib) on this class. This cascade tool is v0, replaced at U-5."
           }
         ],
         "structuredContent": {
@@ -468,7 +468,7 @@
         "content": [
           {
             "type": "text",
-            "text": "yhat is the estimated liquidable amount (a monetary quantity in the reference asset), a single point that HIKAE conformalizes downstream; no guarantee, no score. no cascade calibration is committed; the gate abstains (under_calib) on this class."
+            "text": "yhat is the estimated liquidable amount (a monetary quantity in the reference asset), a single point that HIKAE conformalizes downstream; no guarantee, no score. no cascade calibration is committed; the gate abstains (under_calib) on this class. This cascade tool is v0, replaced at U-5."
           }
         ]
       }

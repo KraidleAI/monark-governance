@@ -19,6 +19,7 @@ import { clearing, pbarOf } from "@monark/ukemi";
 import {
   runCascade,
   cascadeLiquidable,
+  cascadeHonestyText,
   CascadeToolError,
   CASCADE_TOOL_DESCRIPTION,
   CASCADE_MAX_NODES,
@@ -255,4 +256,15 @@ test("cascade_uses_bounded_fictitious_default_not_clearing_from_below", () => {
   // CORROBORATING only (NOT the oracle; generous bound so it cannot flake in CI): the bounded path returns
   // in ~2 ms measured; the OLD path took ~7 s. The deterministic read-count above is the real killer.
   assert.ok(elapsedMs < 2000, `bounded fictitious-default returns promptly: ${elapsedMs.toFixed(0)}ms (OLD path ~7000ms)`);
+});
+
+// 2a-5 (decision 123 / Q-NEW-2) -- the cascade served text carries the "v0, replaced at U-5" label (closing
+// the gap open since decision 51: the removal moves with the REAL producer at U-5, and the class stays served
+// v0 until then). It rides in BOTH the tools/list description AND the tools/call honesty text. Mutant (m):
+// remove the label from either ⇒ red. (No probability/banned vocab is introduced -- checked by
+// cascade_description_makes_no_probability_claim and the vocab gate.)
+test("cascade_description_declares_v0_replaced_at_u5", () => {
+  const LABEL = "v0, replaced at U-5";
+  assert.ok(CASCADE_TOOL_DESCRIPTION.includes(LABEL), "the tools/list description carries the v0-replaced-at-U-5 label");
+  assert.ok(cascadeHonestyText().includes(LABEL), "the tools/call honesty text carries the v0-replaced-at-U-5 label");
 });

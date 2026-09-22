@@ -36,7 +36,17 @@ import {
 import type { GateInput } from "@monark/hikae";
 import { assertClosedGateDecision, assertNoForbiddenKey } from "@monark/contracts";
 import type { GateDecision, Prediction, CoverageVerdict, AttestedPrice } from "@monark/contracts";
-import { BTC_DIR_CALIB, BTC_DIR_CALIB_PROVENANCE, lookupCommittedCalibration } from "../calibration.ts";
+import {
+  BTC_DIR_CALIB,
+  BTC_DIR_CALIB_PROVENANCE,
+  lookupCommittedCalibration,
+  UKEMI_LIQ_PREDICTOR_BASE,
+  hasCommittedCalibrationForClass,
+} from "../calibration.ts";
+// (ADR-U4b D1/D3/D4, decisions 108/126): the served Mondrian strata + the upper-bound region helper. A PURE
+// sibling at src/ (no I/O; imports only @monark/hikae), so importing it keeps the K-8 tools scan meaningful
+// and re-declares strateOf WITHOUT importing the frozen scorer (which reads node:fs + apps/sentinel, D-4).
+import { strateOf, liqUpperBoundRegion } from "../ukemi-strata.ts";
 // (ADR-M007 D7): the BYO path REUSES the calibrate constants — the score cap (single source) and
 // the K-1 honesty label (B-2: one constant, no paraphrase, no banned overclaim verb). Errors on the
 // gate BYO path are `HarnessToolError` (already ∈ http.ts TOOL_ERROR_NAMES ⇒ 400), NOT CalibrateToolError.
@@ -57,6 +67,20 @@ export const TASK_CASCADE = "cascade-liquidable-24h";
  * (calibration.ts USDE_STABLE_RUN_PREDICTOR_ID) conformalizes; every other key abstains under_calib.
  */
 export const TASK_STABLE_RUN = "stable-run-velocity-24h";
+
+/**
+ * Ukemi liquidation-eligible-coverage class (class A only, decision 108; ADR-U4b D1). Number yhat = the
+ * caller-carried liquidable amount (base 8-dec). The stratum k = strateOf(yhat) is derived SERVER-SIDE (the
+ * caller never picks it, C-10); alpha/nMin are SERVER-imposed (a divergent params value is a named 400). In
+ * U-4b-2a the registry is EMPTY of this class ⇒ every yhat abstains under_calib (no served coverage claimed).
+ */
+export const TASK_LIQ_ELIGIBLE = "liquidation-eligible-coverage";
+
+/** Server-imposed calibration params for the committed liq class (ADR-U4b D3; == the frozen generator
+ *  ALPHA/NMIN). A divergent `params.alpha`/`params.nMin` is a NAMED 400, never a silent override: the L3
+ *  gate reads `params.nMin`, so a divergent nMin would diverge the action (delta D-6, C-10). */
+export const LIQ_ALPHA = 0.01;
+export const LIQ_NMIN = 100;
 
 /** The one honesty sentence the `cascade` path MUST carry (K-4e). */
 export const CASCADE_UNCALIBRATED_SENTENCE =
@@ -106,6 +130,43 @@ export const STABLE_RUN_COMMITTED_CORE =
 export const STABLE_RUN_COMMITTED_SENTENCE =
   STABLE_RUN_COMMITTED_CORE + "; every other (task_class, predictor_id) abstains (under_calib)";
 
+/**
+ * SERVED text of the liquidation-eligible-coverage class (ADR-U4b D1; decision 126, borne haute; delta
+ * D-1). The served region is a conformal UPPER BOUND [0, yhat + qhat]; the wire `region.kind` stays
+ * "interval" (frozen contract) so "upper bound" is a property of THIS text, never a new kind, and the word
+ * "interval" is deliberately ABSENT from it (delta D-1; mutant (o) is scoped to this constant, not to the
+ * BYO clause of GATE_TOOL_DESCRIPTION nor to vocab-banned.json). No probability, no width/tightness claim.
+ */
+export const LIQ_UPPER_BOUND_SENTENCE =
+  "a conformal upper bound on the liquidable amount for the calibrated class; the lower edge is 0 by " +
+  "construction, not a calibrated bound; abstains (under_calib) outside it";
+
+/** The SERVER-imposed params, declared in the class description (checkpoint-1 C-7). */
+export const LIQ_REQUIREMENTS_SENTENCE = "this class requires alpha = 0.01, nMin = 100";
+
+/** H-3 honesty (checkpoint-1 C-8): calibrated on ONE recorded episode, no coverage claimed on any other
+ *  event, a YES on the exchangeability check licenses nothing more. ASCII only (lang:gate / export:check). */
+export const LIQ_H3_SENTENCE =
+  "calibrated on one recorded episode; no coverage is claimed on any other event; the H-3 " +
+  "exchangeability check is a report, a YES licenses nothing more";
+
+/** Conditional-coverage clause (ADR-U4b D1): the bound holds ONLY if yhat was produced by the frozen
+ *  close-factor rule on a mono-collateral WETH account at the first crossing, which the gate does not check.
+ *  Its ABSENCE is an over-revendication (mutant (h)); it MUST ride in the served text. */
+export const LIQ_CONDITIONAL_SENTENCE =
+  "the bound holds only if yhat was produced by the frozen close-factor rule on a mono-collateral WETH " +
+  "account at the first crossing, which the gate does not check";
+
+/** The FULL committed sentence for the SERVED (non-empty-registry) liq class (rendered by honestyText at
+ *  -2b). Carries the upper bound + the H-3 clause + the conditional clause; never "interval", never a
+ *  probability (u4b_liq_description_makes_no_probability_claim, u4b_liq_class_text_says_upper_bound_never_interval). */
+export const LIQ_COMMITTED_SENTENCE = `${LIQ_UPPER_BOUND_SENTENCE}; ${LIQ_H3_SENTENCE}; ${LIQ_CONDITIONAL_SENTENCE}`;
+
+/** Empty-registry (U-4b-2a) honesty: no calibration committed yet ⇒ abstains under_calib by construction.
+ *  Keyed on REGISTRY presence (hasCommittedCalibrationForClass), never on a client-key lookup (delta D-3). */
+export const LIQ_EMPTY_REGISTRY_SENTENCE =
+  "no liquidation-eligible-coverage calibration is committed yet; the gate abstains (under_calib) by construction";
+
 export const GATE_TOOL_NAME = "gate";
 
 /**
@@ -127,6 +188,7 @@ export const GATE_TOOL_DESCRIPTION =
   `synthetic — a plumbing fixture, not a measured predictor. For 'cascade-liquidable-24h' ${CASCADE_UNCALIBRATED_SENTENCE}. ` +
   `For 'stable-run-velocity-24h' (Narabi: a redemption-flow velocity forecast) the gate holds ${STABLE_RUN_COMMITTED_CORE}; ` +
   `for any other population, ${STABLE_RUN_UNCALIBRATED_SENTENCE}. ` +
+  `For '${TASK_LIQ_ELIGIBLE}' (Ukemi: a per-account liquidable-amount class, class A only) the served region is ${LIQ_UPPER_BOUND_SENTENCE}; ${LIQ_REQUIREMENTS_SENTENCE}; ${LIQ_H3_SENTENCE}; ${LIQ_CONDITIONAL_SENTENCE}. ` +
   "When the caller instead supplies a `calibration` (its own nonconformity scores plus a `mode`: `interval` " +
   "⇒ region [yhat - q̂, yhat + q̂], or `set` ⇒ a conformal set over caller `candidates`), the gate " +
   `conformalizes against THOSE caller-supplied scores (BYO): ${CALIBRATE_LABEL} ` +
@@ -489,6 +551,76 @@ function stableRunVerdict(prediction: Prediction, params: HarnessParams): Covera
 }
 
 /**
+ * liquidation-eligible-coverage verdict (ADR-U4b D1/D3, decisions 108/126; checkpoint-1 C-5/C-7/C-10, delta
+ * D-1/D-2). `yhat` is the caller-carried liquidable amount (base 8-dec). SERVER-owned: alpha/nMin are imposed
+ * (a divergent value is a NAMED 400 — the L3 gate reads `params.nMin`, so a divergent nMin would diverge the
+ * action); the stratum `k = strateOf(yhat)` is derived SERVER-side; the lookup key is re-derived
+ * `${UKEMI_LIQ_PREDICTOR_BASE}/s${k}` (the CLIENT predictor_id is IGNORED for this class). In U-4b-2a the
+ * registry is EMPTY of this class, so every yhat abstains `under_calib`. When a stratum is committed (U-4b-2b)
+ * with qhat > 0 the region is the conformal UPPER BOUND [0, yhat + qhat] (liqUpperBoundRegion, delta D-1);
+ * qhat = 0 abstains `under_calib` on the committed scores (delta D-2). Same primitive chain as stableRunVerdict
+ * (splitQuantile -> region -> buildVerdict), but the region is an upper bound, NOT the symmetric interval.
+ */
+function liqEligibleVerdict(prediction: Prediction, params: HarnessParams): CoverageVerdict {
+  const yhat = prediction.yhat as number; // dispatch narrowed typeof === "number"
+  // Domain (checkpoint-1 C-7): a non-negative SAFE integer. The frozen scorer THROWS on a non-integer; the
+  // server refuses FIRST with a named 400 (never a silent gate, never strateOf over a lossy float).
+  if (!Number.isSafeInteger(yhat) || yhat < 0) {
+    throw new HarnessToolError(
+      `task_class '${TASK_LIQ_ELIGIBLE}' expects yhat to be a non-negative safe integer (base 8-dec liquidable amount), got ${String(yhat)}`,
+    );
+  }
+  // alpha/nMin are SERVER-IMPOSED for this committed class (C-10 / delta D-6): divergent ⇒ a named 400.
+  if (params.alpha !== LIQ_ALPHA) {
+    throw new HarnessToolError(
+      `task_class '${TASK_LIQ_ELIGIBLE}' requires params.alpha = ${String(LIQ_ALPHA)} (server-imposed for the committed class), got ${String(params.alpha)}`,
+    );
+  }
+  if (params.nMin !== LIQ_NMIN) {
+    throw new HarnessToolError(
+      `task_class '${TASK_LIQ_ELIGIBLE}' requires params.nMin = ${String(LIQ_NMIN)} (server-imposed for the committed class), got ${String(params.nMin)}`,
+    );
+  }
+  const k = strateOf(yhat);
+  const predictorId = `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(k)}`;
+  const committed = lookupCommittedCalibration(TASK_LIQ_ELIGIBLE, predictorId);
+  if (committed === undefined) {
+    // EMPTY registry (U-4b-2a) OR an uncommitted stratum ⇒ honest abstention (empty scores, n_calib 0).
+    return underCalibVerdict({
+      taskClass: TASK_LIQ_ELIGIBLE, method: "split", alpha: params.alpha, scores: [],
+      residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
+      labelSchema: NUMERIC_LABEL_SCHEMA,
+    });
+  }
+  // Committed stratum (U-4b-2b): split-conformal qhat over the committed scores, then the UPPER-BOUND region.
+  const scores = committed.scores;
+  const split = splitQuantile(scores, params.alpha, params.nMin);
+  if ("reason" in split) {
+    // n < nMin or p > n ⇒ honest under_calib (fail-closed, mirror stableRunVerdict).
+    return underCalibVerdict({
+      taskClass: TASK_LIQ_ELIGIBLE, method: "split", alpha: params.alpha, scores,
+      residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
+      labelSchema: NUMERIC_LABEL_SCHEMA,
+    });
+  }
+  const region = liqUpperBoundRegion(yhat, split.qhat);
+  if (region.abstain) {
+    // qhat = 0 (delta D-2): the committed stratum calibrated no high margin ⇒ honest abstention on the
+    // committed scores (n_calib = n; coherent at L3 — reason==="under_calib" ⇒ ABSTAIN even at n>=nMin).
+    return underCalibVerdict({
+      taskClass: TASK_LIQ_ELIGIBLE, method: "split", alpha: params.alpha, scores,
+      residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
+      labelSchema: NUMERIC_LABEL_SCHEMA,
+    });
+  }
+  return buildVerdict({
+    taskClass: TASK_LIQ_ELIGIBLE, method: "split", alpha: params.alpha, scores,
+    region: region.region, qhat: split.qhat, abstain: false, reason: "covered",
+    residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
+  });
+}
+
+/**
  * The honesty text carried in the MCP tool result content (never inside the frozen decision, K-1).
  * B-1 (CRITICAL): keyed on the PRESENCE of calibration, NOT on `task_class` alone — a BYO decision on a
  * free-string class must NOT fall through to the CASCADE sentence (which would be false on the wire next
@@ -505,6 +637,15 @@ export function honestyText(taskClass: string, predictorId: string, isByo: boole
     return committed !== undefined
       ? `${STABLE_RUN_COMMITTED_SENTENCE}; B_t is caller-carried.`
       : `${STABLE_RUN_UNCALIBRATED_SENTENCE}; B_t is caller-carried.`;
+  }
+  if (taskClass === TASK_LIQ_ELIGIBLE) {
+    // Keyed on REGISTRY presence (delta D-3), NOT on lookupCommittedCalibration(TASK_LIQ, predictorId): the
+    // server ignores the client key for this class, and `honestyText` has no `yhat` to derive the stratum, so
+    // a per-key lookup would either surclaim "committed" for a non-served stratum or read "no calibration" for
+    // every naked id. In U-4b-2a the registry is empty ⇒ the honest empty-registry text.
+    return hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE)
+      ? `${LIQ_COMMITTED_SENTENCE}; B_t is caller-carried.`
+      : `${LIQ_EMPTY_REGISTRY_SENTENCE}; B_t is caller-carried.`;
   }
   return `${CASCADE_UNCALIBRATED_SENTENCE}; B_t is caller-carried.`;
 }
@@ -556,6 +697,9 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
     const overridesCommitted =
       taskClass === TASK_BTC_DIR ||
       taskClass === TASK_CASCADE ||
+      taskClass === TASK_LIQ_ELIGIBLE || // class-lock: the liq class is committed on the CLASS (server-imposed
+      // alpha/nMin + server-derived stratum), so a BYO `calibration` may never override it, even on the empty
+      // -2a registry where lookupCommittedCalibration would return undefined (mutant (c) drops this ⇒ RED).
       lookupCommittedCalibration(taskClass, prediction.predictor_id) !== undefined;
     if (overridesCommitted) {
       throw new HarnessToolError(
@@ -599,8 +743,17 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
     }
     verdict = stableRunVerdict(prediction, params);
     nCalib = verdict.n_calib; // 613 for the committed USDe key; 0 for any other population (under_calib)
+  } else if (taskClass === TASK_LIQ_ELIGIBLE) {
+    if (typeof prediction.yhat !== "number") {
+      throw new HarnessToolError(`task_class '${TASK_LIQ_ELIGIBLE}' expects a number yhat (liquidable amount), got ${typeof prediction.yhat}`);
+    }
+    verdict = liqEligibleVerdict(prediction, params);
+    nCalib = verdict.n_calib; // 0 on the empty -2a registry (under_calib); the committed count at -2b
   } else {
-    throw new HarnessToolError(`unknown task_class '${taskClass}' (known: ${TASK_BTC_DIR}, ${TASK_CASCADE}, ${TASK_STABLE_RUN}; or supply params.calibration for BYO)`);
+    // delta D-4: an unknown class (e.g. the class-B name, decision 108 keeps B out of service) ⇒ a
+    // HarnessToolError (⇒ 400 via http.ts), NEVER `under_calib`. The `known:` list carries no class-B name
+    // (D-2(a) grep=0), so the B name only appears as the unknown `'${taskClass}'`, never as a served class.
+    throw new HarnessToolError(`unknown task_class '${taskClass}' (known: ${TASK_BTC_DIR}, ${TASK_CASCADE}, ${TASK_STABLE_RUN}, ${TASK_LIQ_ELIGIBLE}; or supply params.calibration for BYO)`);
   }
 
   // ADR-M017 D2(iii)/D4(3) — attested `residual` seam (P1-b2). When a caller-carried `attested` is present

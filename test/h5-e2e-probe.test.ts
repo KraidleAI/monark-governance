@@ -59,7 +59,12 @@ const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url
  *  M012-f serverInfo.version -> HARNESS_VERSION 0.4.0; ADR-M012 D7 `stable-run-velocity-24h` clause; ADR-M008
  *  F2-B keyed committed/under_calib clause; ADR-M008 F1 stable-run sentence; the verdict summary in the gate
  *  `content` text; Lot C2 ADR-M007 D7 grew the `tools/list` bytes.) */
-const TRACE_SHA256_PINNED = "4ca37d5c731f33edb17b2cbe986a2bd7007df6371d1edf0b9352be70db8075f1";
+// Re-pinned 2026-09-22 for U-4b-2a: the `tools/list` bytes changed on TWO tool descriptions — the `gate`
+// description gained the served `liquidation-eligible-coverage` class clause (upper bound + alpha/nMin + H-3
+// + conditional coverage, ADR-U4b D1/decision 126) and the `cascade` description gained the "v0, replaced at
+// U-5" label (decision 123/Q-NEW-2). No served DECISION, `structuredContent`, `yhat`, or digest changes
+// (registry still empty of the liq class); the file grows 21859 -> 21943 bytes.
+const TRACE_SHA256_PINNED = "4ad9b340caa72463d3ff1e96880fa0b49e29e841c8e31e183f26b0fc85aa79e1";
 
 const DEMONSTRATIVE_LABEL = "real, notary Shōgen, demonstrative, not probative";
 

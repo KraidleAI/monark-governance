@@ -4,10 +4,11 @@
  * P1 DECLARES — it never VERIFIES — the consistency between a caller-carried `AttestedPrice.subject`
  * and the served `task_class`. The subject is the exact URL string the Shogen witness attested (e.g.
  * the Binance BTCUSDT ticker, fixtures/h5-e2e-trace.json:292); the rule is EXACT string membership in
- * a static, committed table, TOTAL over the three served classes (ADR-M017 D2(i), C'-2):
+ * a static, committed table, TOTAL over the FOUR served classes (ADR-M017 D2(i), C'-2; ADR-U4b D5):
  *   - btc-dir-15m             -> [ the Binance BTCUSDT ticker URL of the committed h5 fixture ]
  *   - stable-run-velocity-24h -> [] (Narabi attests flows, not prices; any attested is inconsistent, declared)
  *   - cascade-liquidable-24h  -> [] (a fixture class with no subject URL; any attested is inconsistent, declared)
+ *   - liquidation-eligible-coverage -> [] (the book is not an attested price feed; any attested is inconsistent, declared — ADR-U4b D5)
  * A class OUTSIDE the table is a BYO / free class: `attested` is not accepted for it in P1 (an item
  * formed, ADR-M017 D2(i)). No bytes are recomputed, no verifier is executed here (that is offline / the
  * Shogen verifier); "no temporal binding in P1" — `observed_at` is not compared.
@@ -23,14 +24,18 @@
 export const BINANCE_BTCUSDT_TICKER_URL = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT";
 
 /**
- * Committed subject-binding table, TOTAL over the three served task classes (ADR-M017 D2(i), C'-2).
- * A key PRESENT with `[]` is DISTINCT from a key ABSENT: the two feed the two distinct fail-closed
- * messages below (a "returns [] by default" mutant collapses them and reddens test (2) on the TEXT).
+ * Committed subject-binding table, TOTAL over the FOUR served task classes (ADR-M017 D2(i), C'-2; ADR-U4b
+ * D5). A key PRESENT with `[]` is DISTINCT from a key ABSENT: the two feed the two distinct fail-closed
+ * messages below (a "returns [] by default" mutant collapses them and reddens test (2) on the TEXT). The
+ * `liquidation-eligible-coverage` class is PRESENT with `[]` (the book is not an attested price feed), so
+ * any caller-carried `attested` on it fails closed with the "not consistent" text (mutant (j): drop the
+ * line ⇒ the class falls to the "not accepted for BYO" text ⇒ u4b_attested_not_accepted_for_liq_class reds).
  */
 export const ATTESTATION_BINDING: ReadonlyMap<string, readonly string[]> = new Map<string, readonly string[]>([
   ["btc-dir-15m", [BINANCE_BTCUSDT_TICKER_URL]],
   ["stable-run-velocity-24h", []],
   ["cascade-liquidable-24h", []],
+  ["liquidation-eligible-coverage", []],
 ]);
 
 /**

@@ -207,3 +207,24 @@ const COMMITTED_CALIBRATIONS: readonly CommittedCalibration[] = [
 export function lookupCommittedCalibration(taskClass: string, predictorId: string): CommittedCalibration | undefined {
   return COMMITTED_CALIBRATIONS.find((c) => c.taskClass === taskClass && c.predictorId === predictorId);
 }
+
+/**
+ * The committed cell-A predictor BASE for the `liquidation-eligible-coverage` class (task_class,
+ * predictor_id base). In U-4b-2a the registry above has NO liquidation-eligible-coverage entry (empty), so
+ * this base matches nothing and its exact value is behaviourally inert; U-4b-2b re-pins it to the FRESH
+ * episode's `meta.cell_a.predictor_id` literal and commits the K entries. The served lookup key is
+ * `${UKEMI_LIQ_PREDICTOR_BASE}/s${strateOf(yhat)}`, re-derived SERVER-SIDE (the CLIENT predictor_id is
+ * IGNORED for this class, delta D-3). The e2 DESIGN predictor_id is NEVER served (ADR-U4b D1), so it is
+ * deliberately NOT used here: a clearly-marked placeholder stands until -2b commits the fresh episode.
+ */
+export const UKEMI_LIQ_PREDICTOR_BASE = "ukemi:liquidation-eligible-coverage-uncommitted-until-u4b-2b";
+
+/**
+ * True iff at least one committed calibration exists for `taskClass` (REGISTRY level, delta D-3). The served
+ * honesty text of the liq class is keyed on THIS, never on a per-(task_class, predictor_id) lookup with the
+ * CLIENT key (which the server ignores): so the empty-registry text stays honest, and a future committed
+ * stratum does not surclaim "committed" for a NON-served stratum (mutant (h) extension).
+ */
+export function hasCommittedCalibrationForClass(taskClass: string): boolean {
+  return COMMITTED_CALIBRATIONS.some((c) => c.taskClass === taskClass);
+}
