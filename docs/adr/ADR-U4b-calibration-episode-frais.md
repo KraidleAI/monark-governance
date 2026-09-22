@@ -265,7 +265,6 @@ STRATE** (ŷ médian ≈ 1 $, poussière), pas du score ; q̂₀ mesure la gravi
 (F3 de l'avis), pas l'erreur de close factor. Ce n'est pas une dette : propriété mesurée,
 rapportée (clause 3), jamais un contournement.
 
-<<<<<<< HEAD
 ## Amendement daté 2026-09-22 (U-4b-2a — classe servie sur registre vide ; décisions 123/126)
 
 > Provenance. Rédaction : worker `claude-opus-4-8[1m]` (préfixe conforme, effort max ; Opus 5 banni),
@@ -294,7 +293,6 @@ rapportée (clause 3), jamais un contournement.
    meta.cell_a.predictor_id (invariants sous SCORE-1, delta D-6).
 ```
 
-=======
 ## Amendement daté — 2026-09-22 (D4, liaison de course par CODE) — À INSÉRER par l'orchestrateur (R-20 ; le worker ne committe pas)
 
 Contexte : la phrase D4 en ligne « le script refuse sans `--prereg-sha` (garde `lfSha256`) » était **fausse au sens
@@ -338,4 +336,116 @@ Le recorder `apps/sentinel/src/ukemi/record.ts` lie la course au prereg ainsi :
 Provenance de l'amendement : worker `claude-opus-4-8[1m]` effort max, 2026-09-22 ; source du ruling
 `docs/CHANTIERS.md:677` ; réviseur en amont = orchestrateur (R-21). Aucun `.mjs`/`.ts` du gel D4 modifié : les 9 sha LF
 de l'ADR §3 vérifiés byte-identiques avant/après le pli.
->>>>>>> lot/u4b-1b-0
+
+## Amendement 2026-09-22 (ruling QF-2 + pli checkpoint-2, lot U-4b-1b-1) — re-gel du labeler paramétré (gel déféré levé)
+
+> **Insertion dans `docs/adr/ADR-U4b-calibration-episode-frais.md` par l'orchestrateur `claude-fable-5-1` SEUL**
+> (R-20). Réviseur = orchestrateur (R-21). **Provenance** : worker `claude-opus-4-8[1m]` (préfixe conforme, effort
+> max ; Opus 5 banni), 2026-09-22. Worktree `F:\Monark-wt-u4b1b1` (`lot/u4b-1b-1`), base du pli **`2cbdea2`** (le
+> commit G1 du lot ; fork de `a56e739`). Aucun commit, aucun réseau, aucun workflow.
+> **Autorité** : ruling QF-2 (`docs/CHANTIERS.md`, option alpha — le paramétrage fusionne AVANT le commit du
+> prereg) + **pli checkpoint-2** (`docs/CHECKPOINT2-lot-u4b-1b-1.md`, ACCEPTE-AVEC-CORRECTIONS ; liste (B) C-6/C-7
+> **par code** RETENUE dans `docs/CHANTIERS.md`). QF-2 EST un re-gel : le blob que la course lie est gelé par le
+> prereg committé (le gel a lieu avant que la donnée fraîche existe — propre).
+> **A-6 (« ADR du gel intact ») est LEVÉE pour CE lot** par QF-2 (re-gel du **labeler, gel déféré**, ADR §3 ligne
+> « — », `755b3a38…`). Corps D1..D5 et amendements 2026-09-21 / 2026-09-22 (déc. 126, U-4b-2a) **byte-identiques** ;
+> le tableau AVANT/APRÈS ci-dessous prouve que **seul le sha du labeler bouge**.
+
+### 1. Objet du lot (précondition -1b, §Y / §5c-d, condition (i-a) ; + gardes de course par code, pli checkpoint-2)
+Le labeler `scripts/census/u3-realized.mjs` portait l'épisode e2/e1/e3 **en dur** (`EVENTS :73-77`, `RAWLOGS_SHA
+:43`, chemin prereg `:405-408`) et une **lecture de clé au SCOPE MODULE** (`ENV_ARCHIVE = process.env.CHAINSTACK_ETH_URL
+:273`, plus `process.env.U3_MIN_INTERVAL_MS :282`). Le lot :
+1. **Paramètre la SECTION LIVE** (défauts = valeurs e2) : `--events <json>` (défaut `EVENTS`), `--rawlogs-sha <sha>`
+   (défaut `RAWLOGS_SHA`), `--rawlogs <path>`, `--episode-tag`, `--prereg-file <path>`, `--operators <liste>`,
+   `--min-interval-ms`.
+2. **Supprime toute lecture d'env au scope module.** `--archive-operator <label>` OPTIONNEL, résolu **uniquement
+   dans `@monark/rpc-guard`** (`openGuardedClient`, import dynamique du chemin payant ; réutilise
+   `scripts/census/u4-guard.mjs`) : le script ne lit **ni URL ni clé**. **KEYLESS-ONLY par défaut** (CARTO-T1-1) ;
+   un opérateur **payant** (`chainstack`/`helius`, **et variantes de casse** `Chainstack`/`HELIUS`) est **refusé
+   fail-closed (0 fetch)** sans `--allow-paid`. `process.env` n'apparaît **qu'une fois** (injection
+   `main({ env: process.env, argv: process.argv.slice(2) })`).
+3. **Condition (i-a) : NON déclenchée.** Le **réducteur PUR** (`:81-267`) reste **byte-identique** — **aucun 9ᵉ sha
+   gelé requis**. Tranche `sed -n '/^\/\/ PURE REDUCER (exported/,/^\/\/ LIVE PULL (run-guarded/p' | tr -d '\r' |
+   sha256sum` = **`1c7574acd325ab75e6760f50d6743e3d9d39cd5565abbf3d497d4884317a6ada`** sur `git show a56e739:…` ET
+   sur le fichier livré.
+4. **Gardes de COURSE par CODE (pli checkpoint-2, liste (B), CA-9 : plus de garde par prompt)** :
+   - **C-6** — `--out` et `--raws-dir` sont **OBLIGATOIRES sans défaut** ; un `--out`/`--raws-dir` résolu **sous
+     `apps/sentinel/test/fixtures/`** est **refusé fail-closed** (l'ancien défaut écrasait les 4 séries pinnées, P14 ;
+     l'ancien `--raws-dir` appendait au raws e2).
+   - **C-7** — `EXCLUDED_OPERATORS = ["1rpc.io"]` **retiré du pool keyless par défaut** ET un `--operators` qui le
+     nomme est **refusé fail-closed** (le code contredisait son en-tête L-6, `:2-4` : 1rpc dans un `eth_getLogs`
+     lourd). `meta.providers` est un jeu de labels, pas un pin.
+
+### 2. Invariant behavioural (§Y ligne 88) et preuve d'égalité par `main()` (C-1, CA-11 durci)
+- `u4b_labels_replay` : `parseArgs([]).events` / `.rawlogsSha` = les valeurs e2 (comparées à un LITÉRAL) ; et
+  `reduceU3(U3-inputs)` reproduit `U3-realized.jsonl` byte-identique (sha LF `b4d93590…`).
+- **`u4b_labels_replay_via_main_real_artifact` (C-1)** : rejoue le VRAI `main()` sur le **brut A-rawlogs réel**
+  (`docs/census-2026-09-18/data/A-rawlogs.jsonl`, gitignoré) + une COPIE du raws pinné `0afaf605…`, `--rawlogs-sha`
+  et `--events` **par défaut**, `globalThis.fetch` bouchonné répondant au SEUL `eth_getBlockByNumber ["finalized"]`
+  (bloc `26015906`) ⇒ `U3-realized.jsonl` LF **`b4d93590…`** et **2 fetch** (cache-replay complet). SKIP NOMMÉ si
+  les bruts hors dépôt sont absents.
+
+### 3. D4 — re-gel : tableau des sha AVANT / APRÈS (recompute LF, worktree base `a56e739`)
+Seul le sha du **labeler** bouge ; les 8 gelés + `calib-digest.ts` restent **byte-identiques** (recompute
+base(`a56e739`) == livré, fichier par fichier).
+
+| # | Fichier gelé | AVANT (LF sha256) | APRÈS (LF sha256) | État |
+|---|---|---|---|---|
+| 1 | `scripts/census/u4b/u4b-scores.mjs` | `2f9a31f6…f51445c0` | idem | inchangé |
+| 2 | `scripts/census/u4b/u4b-reduce.mjs` | `a5e66cd3…57a6fac0` | idem | inchangé |
+| 3 | `scripts/record-u4b-calib.mjs` | `5733daeb…2a1fbc31a3` | idem | inchangé |
+| 4 | `apps/sentinel/src/ukemi/wadray.ts` | `7bee76fc…e4de2322` | idem | inchangé |
+| 5 | `apps/sentinel/src/ukemi/abi.ts` | `3376eb08…c1ab2d66` | idem | inchangé |
+| 6 | `packages/hikae/src/l1-split.ts` | `9206df91…8164ffa3` | idem | inchangé |
+| 7 | `apps/sentinel/src/rpc.ts` | `0e232519…c1c65ca0` | idem | inchangé |
+| 8 | `packages/contracts/src/calib-digest.ts` (contracts_frozen) | `3603265d…94c42380` | idem | inchangé |
+| 9 | `scripts/census/u3-realized.mjs` (**labeler ; gel déféré LEVÉ**) | `755b3a38…618db2de4` | `cb020425…a205b41a1af` | **RE-GELÉ (QF-2)** |
+
+Valeurs complètes du sha re-gelé (à recomputer au commit réel — **ÉCART = STOP**) :
+```
+AVANT  755b3a38f0253edb464624f8cdaa52385d4f9e2f1227a7bd303653b618db2de4  u3-realized.mjs
+APRES  cb0204250cce05f4846c7cfe821e72eecac22ffd636cfde4acff6a205b41a1af  u3-realized.mjs
+```
+Co-édités hors gel (non listés au §2) : `scripts/census/u3-realized.d.mts` `98f07672…` → `73030a72…` (surface de
+types) ; `test/u3-realized-param.test.ts` (gouvernance, non exporté).
+
+### 4. Ligne de commande FIGÉE du labeler pour le prereg §5c/§5d (KEYLESS-ONLY, CARTO-T1-1 ; gardes C-6/C-7 par CODE)
+```
+env -u CHAINSTACK_ETH_URL \                               # ceinture keyless-only (CARTO-T1-1)
+  node scripts/census/u3-realized.mjs \
+  --events      <episode FRAIS .json — [{id,collateral,clusterLo,clusterHi,preV33}] hors dépôt> \
+  --rawlogs     <A-rawlogs.jsonl de l'épisode FRAIS — hors dépôt> \
+  --rawlogs-sha <sha256 BRUT du fichier ci-dessus — épinglé> \
+  --prereg-file docs/PLAN-u4b-prereg.md \                 # RULING (3) : lie les labels frais au prereg -1b (fixé)
+  --prereg-sha  <sha256 LF de docs/PLAN-u4b-prereg.md> \
+  --operators   drpc.org,mevblocker.io,pocket.network,publicnode.com,blxrbdn.com \  # 1rpc.io EXCLU par code (C-7)
+  --out         <dossier FRAIS HORS DÉPÔT> \              # OBLIGATOIRE par code (C-6) ; sous fixtures/ => refus
+  --raws-dir    <bruts concordants HORS DÉPÔT> \          # OBLIGATOIRE par code (C-6)
+  --episode-tag <tag de l'épisode frais> \
+  --max-calls   <budget fail-closed>
+```
+- **`--archive-operator` ABSENT** pendant la course (keyless-only servi). La jambe payante n'existe que via
+  `--archive-operator chainstack --allow-paid` + budget gardé (`--ledger-dir`/`--cycle`/`--floor`/`--max-ru`/
+  `--method-caps`), refusée fail-closed sinon ; `meta.archive_operator`/`meta.allow_paid` écrits à la provenance.
+- **Plus de footgun `--out` / de décision `--prereg-file`** : le ruling (3) a fixé `--prereg-file` à
+  `docs/PLAN-u4b-prereg.md` et C-6 a rendu `--out`/`--raws-dir` obligatoires par code (P14 fermé). `--only` n'est
+  pas utilisé par la course.
+- **Correction prereg §5d** (C-9, propriétaire orchestrateur) : la note « sondes d'env `:273/:282` » est **PÉRIMÉE**
+  (ces sondes n'existent plus) ; la ligne figée du prereg doit être réécrite depuis ce §4 (flags réels + rulings
+  (1)-(4)), sans `--prereg-sha 835805cc…` (prereg U-3) ni `--only`.
+
+### 5. Tuyaux (F-1), gardes de course, et résidus formés (à déclencheur)
+- **Tuyaux** : entrée = `--events`/`--rawlogs` (produits par le discover + le réducteur de sélection d'épisode, §5b) ;
+  sortie = `--out/U3-realized.jsonl` FRAIS, consommé par `u4b-reduce --labels` (§5d, CLI réel `u4b-reduce.mjs:10-11,31`) ;
+  état = bruts concordants au `--raws-dir` (hors dépôt) ; **gardes** = C-6 (`--out`/`--raws-dir` obligatoires, hors
+  fixtures) + C-7 (1rpc.io exclu) **par code** ; test de composition depuis l'artefact RÉEL = `u4b_labels_replay_via_main_real_artifact`.
+- **Résidu R-1 (drift)** : `KEYLESS_WITNESS_LABELS` (garde payant défense-en-profondeur) duplique le jeu keyless de
+  `@monark/rpc-guard` (`transport.ts` `KEYLESS_ETH`/labels). **Déclencheur : première course figée** ⇒ resynchroniser
+  + test hôte. **Sévérité bornée** : `isPaidOperator = !KEYLESS_WITNESS_LABELS.has(label)` ⇒ tout label ABSENT du jeu
+  est traité PAYANT (refusé sans `--allow-paid`) — prouvé même pour les variantes de casse (`Chainstack`/`HELIUS`, test
+  C-3). Donc un drift = **sur-refus d'un témoin keyless**, JAMAIS l'admission fail-open d'un payant. (Mesuré checkpoint-2 :
+  le jeu ne contient ni `publicnode.com`, ni `blxrbdn.com`, ni `1rpc.io` ; sans effet, car la résolution passe par
+  `openGuardedClient`.)
+- **Résidu R-2 (garde de quorum)** : `CALL_LEGS.length < 2` compte les JAMBES, pas les `providerOf` DISTINCTS
+  (`--operators publicnode.com` = 2 URL / 1 op passe la garde puis échoue `no_quorum` après 1 fetch — refus tardif,
+  non silencieux, mesuré P11). **Déclencheur : première course figée** ⇒ durcir en compte d'`op` distincts.
