@@ -45,19 +45,20 @@
 ## 2. Agents en vol (ids de sous-agents ; rendus recuperables par `python "F:/MONARK SUITE/persist.py" <id> "<prefixe 1re ligne>" <out> "<titre>"`)
 | Agent | id | Lot / role | Etat attendu |
 |---|---|---|---|
-| G1 U-4b-1b-4 (Opus 5.5) | `aa3ed1d7078497591` | outillage course (sonde cutoffTime `CutoffTimeSet`, prober pre_b0_anchor) `F:\Monark-wt-u4b1b4` | rendu G1 → G2 ‖ cp-2 → G7 |
-| G1 U-4b-STATS-1 (Opus 5.5) | `a63a3c73d4adcf630` | h3/h4/h6/report `F:\Monark-wt-u4bstats1` | idem |
-| G1 GARDE-FSYNC-1 (Opus 5.5) | `a770d3ec4e7ffca89` | rpc-guard fsync + tmp/rename + **rename-retry** `F:\Monark-wt-gfsync1` | idem ; C-1 cp-1 (repair-tail jamais une tete en avance) |
-| G2 BELL-SHORTPAGE-1 (Opus 5.5) | `a6118978970b2247f` | `lot/bell-shortpage-1` @ `e5dfbb4` | PASS attendu ; cp-2 deja ACCEPTE-AVEC-CORRECTIONS (C-1..C-5) |
-| G2 HARNESS-DESC-1 (Opus 5.5) | `a594ad5f6b690cbaa` | `lot/harness-desc-1` @ `906064b` | PASS attendu ; cp-2 deja ACCEPTE-AVEC-CORRECTIONS (C-V-1) |
+| G2 U-4b-1b-4 (Opus 5.5) | `afdb550182047c179` | `lot/u4b-1b-4` @ `30a2eee` (G1 commite, R-25 795) ; rulings R-1b4-1/2 | rendu G2 → G7 (avec cp-2) |
+| cp-2 U-4b-1b-4 (validateur) | `a55d595455411a3a1` | idem, clones `F:\tmp\cp2-u4b1b4\` | ACCEPTE attendu → G7 |
+| G1 U-4b-STATS-1 (Opus 5.5) | `a63a3c73d4adcf630` | h3/h4/h6/report `F:\Monark-wt-u4bstats1` | rendu G1 → re-verif orchestrateur → commit → G2 ‖ cp-2 → G7 |
+| G1 GARDE-FSYNC-1 (Opus 5.5) | `a770d3ec4e7ffca89` | rpc-guard fsync + tmp/rename + **rename-retry** + test « tete en retard » `F:\Monark-wt-gfsync1` | idem ; C-1 cp-1 (repair-tail jamais une tete en avance) ; FAITS win32 transmis |
+| Micro-pli BELL-SHORTPAGE-1b (Opus 5.5) | `acf0e86ad990966c5` | `F:\Monark-wt-bellsp1` : tests C-G2-1/2/3 + rename-retry (R-SP-A) + 13 mutants ; rendu `F:\tmp\bellsp1\RENDU-MICROPLI-1b.md`, `ADR-DELTA-1b.md` | rendu → re-verif orchestrateur → commit → re-G2 (contexte intact `a6118978970b2247f`) + re-cp-2 (`a730448c2222b2962`) → G7 |
+| Fold ADR v3 U-4b-1b-3 (Opus 5.5, docs) | `a5c67a23641fcf55c` | livrables `F:\tmp\u4b1b3\fold\{ADR-amendement-v3.md, PLI-provenance-line.md, CHANTIERS-G7-entry.md, insert.py, RENDU.md}` | rendu → relecture orchestrateur → G7 U-4b-1b-3 (fusion `1bcfbd7` + `insert.py`) |
+| G2 HARNESS-DESC-1 (Opus 5.5) | `a594ad5f6b690cbaa` | `lot/harness-desc-1` @ `906064b` | PASS attendu ; cp-2 deja ACCEPTE-AVEC-CORRECTIONS (C-V-1) → G7 (`F:\tmp\hdesc1\insert-adr.py`) → redeploiement harness |
+Termines et persistes : G2 BELL-SHORTPAGE-1 (`docs/G2-lot-bell-shortpage-1.md`, PASS-AVEC-CORRECTIONS), G1 U-4b-1b-4 (`docs/G1-lot-u4b-1b-4.md`).
 Rendus deja persistes : voir `docs/G1-*`, `docs/G2-*`, `docs/CHECKPOINT1-*`, `docs/CHECKPOINT2-*` (grep du nom de lot).
 
 ## 3. G7 dus (ordre) et scripts prets
-1. **A-9-OUTILLE** (`lot/a9-outille` `649db8b` + micro-pli NON COMMITE dans `F:\Monark-wt-a9outille`, `test/vocab-harness-a9.test.ts`
-   sha `581af8e4…`) : verifier `F:\tmp\a9outille\orch\` (oracle 925/924/0/1, 15/15 mutants) → committer le micro-pli sur la
-   branche → fusion `--no-ff` dans `lot/etude-suite` → `python F:\tmp\a9outille\insert-adr.py` (ADR-U5a + ADR-M020 ; AJOUTER la
-   phrase ADR du rendu micro-pli a la fin de D-A9-1 et la ligne **A-13** dans `docs/CONSIGNE-STANDARD-G1.md`) → remplacer
-   l'item CHANTIERS « A-9-OUTILLE » (~:766) par l'item 1 → oracle sur `F:\Monark` → commit → push. AVANT HARNESS-DESC-1.
+1. ~~A-9-OUTILLE~~ **FAIT** (G7 : micro-pli `4ff171e`, fusion `eab911a`, docs `147d50f` — ADR-U5a/ADR-M020 inseres, CONSIGNE A-13,
+   CHANTIERS :766 remplace ; oracle `F:\Monark` 937/936/0/1). Worktree `F:\Monark-wt-a9outille` a retirer (`rm-nm.ps1` puis
+   `git worktree remove`).
 2. **U-4b-1b-3** (`lot/u4b-1b-3` `1bcfbd7`, G2-delta-2 PASS, re-cp-2 ACCEPTE) : fusion + fold ADR v2 (`F:\tmp\u4b1b3\ADR-amendement-v2.md`)
    avec D-BORNE-1, C-GD-3 (a)-(d), journal §3, `error_origin` C-V-1 = G1, items O-1/O-D3/O-D4/VX-B/C-4, CARTO-T1C-5 ; attendu sur
    `F:\Monark` fusionne : 947/946/0/1. Puis RUNBOOK course Ukemi etape 1 (`--fill-ts` reel, operateurs drpc.org,nodies.app,mevblocker.io,
