@@ -27,6 +27,7 @@ import { POOL } from "../../../apps/sentinel/src/ukemi/clusters.ts";
 import { decAddress } from "../../../apps/sentinel/src/ukemi/abi.ts";
 import { lfSha256, assertLedgerDir, openU4GuardedClient, makeGuardedPoolCall, unlockAll, distinctLabels } from "../u4-guard.mjs";
 import { WETH, clusterWethLiquidations, canon, sha256Hex } from "./liquidation-logs.mjs";
+import { assertKeylessOperators } from "./u4b-discover.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..", "..", ".."); // scripts/census/u4b -> repo root
@@ -156,6 +157,12 @@ function assertOutDir(outDir) {
   return abs;
 }
 
+/** C-V-9(ii): a brut carrying a `phase` MUST be "complete" ; a "getlogs-only" brut is an INTERRUPTED discover (durable
+ *  partial), never a course input — refuse by name. A phase-absent brut (legacy/synthetic) is accepted. */
+function assertBrutComplete(brut) {
+  if (brut.phase !== undefined && brut.phase !== "complete") throw new SelectError(`--discover brut phase '${brut.phase}' is not 'complete' - discover interrupted: re-run u4b-discover (the getlogs-only brut is a durable partial, never a course input)`);
+}
+
 /** Verify a --prereg-file (default docs/PLAN-u4b-prereg.md) exists and its LF sha256 == --prereg-sha (mandatory). */
 function verifyPrereg(argv) {
   const preregFile = arg(argv, "--prereg-file") ?? "docs/PLAN-u4b-prereg.md";
@@ -183,6 +190,7 @@ export async function runSelect(argv, _deps) {
   const discoverFile = JSON.parse(readFileSync(discoverPath, "utf8"));
   const brut = discoverFile.brut;
   if (!brut) throw new SelectError("--discover file has no `brut` (not a u4b-discover output?)");
+  assertBrutComplete(brut); // C-V-9(ii): reject an interrupted (getlogs-only) brut by name
   const carriedSha = discoverFile.provenance && discoverFile.provenance.brut_sha256;
   const recomputed = sha256Hex(canon(brut));
   if (recomputed !== carriedSha) throw new SelectError(`--discover brut_sha256 mismatch: recomputed ${recomputed} != carried ${String(carriedSha)} (fail-closed)`);
@@ -259,7 +267,8 @@ export async function runCheckVersion(argv, deps) {
   const neutralRef = arg(argv, "--version-neutral-ref");
 
   const operators = (arg(argv, "--operators") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-  if (operators.length < 2) throw new SelectError("--operators <label,...> needs >= 2 keyless archive operators (fail-closed; pocket.network prunes old headers, use e.g. drpc.org,mevblocker.io,tenderly.co)");
+  assertKeylessOperators(operators); // C-V-9(i): keyless-only by code (a paid 'chainstack'/'helius' reads a key, refused)
+  if (new Set(operators.map(operatorOf)).size < 2) throw new SelectError("--operators needs >= 2 DISTINCT keyless archive operators (fail-closed; pocket.network prunes old headers, use e.g. drpc.org,mevblocker.io,tenderly.co)");
   const ledgerDir = assertLedgerDir(arg(argv, "--ledger-dir") ?? "", ROOT);
   const cycle = arg(argv, "--cycle");
   if (!cycle) throw new SelectError("--cycle <id> is required (fail-closed)");
@@ -310,6 +319,7 @@ export async function runFillTs(argv, deps) {
   const e2Window = arg(argv, "--e2-window") !== undefined ? String(arg(argv, "--e2-window")).split(",").map((s) => Number(s.trim())) : DEFAULT_E2_WINDOW.slice();
   const [e2Lo, e2Hi] = e2Window;
   const operators = (arg(argv, "--operators") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  assertKeylessOperators(operators); // C-V-9(i): keyless-only by code (a paid 'chainstack'/'helius' is refused fail-closed)
   if (new Set(operators.map(operatorOf)).size < 2) throw new SelectError("--operators needs >= 2 DISTINCT keyless archive operators (fail-closed; pocket.network prunes old headers, use e.g. drpc.org,mevblocker.io,tenderly.co)");
   const ledgerDir = assertLedgerDir(arg(argv, "--ledger-dir") ?? "", ROOT);
   const cycle = arg(argv, "--cycle");
@@ -323,6 +333,7 @@ export async function runFillTs(argv, deps) {
   const discoverFile = JSON.parse(readFileSync(discoverPath, "utf8"));
   const brut = discoverFile.brut;
   if (!brut || !Array.isArray(brut.records) || !brut.block_ts) throw new SelectError("--discover brut/records/block_ts missing (schema v2 required)");
+  assertBrutComplete(brut); // C-V-9(ii): an interrupted (getlogs-only) brut is not a course input
   const recomputed = sha256Hex(canon(brut));
   if (recomputed !== (discoverFile.provenance && discoverFile.provenance.brut_sha256)) throw new SelectError("--discover brut_sha256 mismatch (fail-closed)");
 

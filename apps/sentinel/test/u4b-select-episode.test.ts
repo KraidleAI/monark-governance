@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
-import { runSelect, runCheckVersion, reduceSelection, buildSelection, buildARawlogs, compareCandidates, SelectError, SCHEMA, IMPL_V350 } from "../../../scripts/census/u4b/u4b-select-episode.mjs";
+import { runSelect, runCheckVersion, runFillTs, reduceSelection, buildSelection, buildARawlogs, compareCandidates, SelectError, SCHEMA, IMPL_V350 } from "../../../scripts/census/u4b/u4b-select-episode.mjs";
 import { WETH, clusterWethLiquidations, canon, sha256Hex, type LiquidationRecord } from "../../../scripts/census/u4b/liquidation-logs.mjs";
 import { canon as guardCanon, sha256Hex as guardSha } from "../../../scripts/census/u4-guard.mjs";
 import { parseArgs } from "../../../scripts/census/u3-realized.mjs";
@@ -170,6 +170,35 @@ test("u4b_select_refuses_a_tampered_block_ts_extra_sidecar", async () => {
     writeFileSync(scPath, JSON.stringify(sidecar));
     await assert.rejects(runSelect([...selArgs(d, join(o, "sel")), "--block-ts-extra", scPath]), /block_ts_extra_sha256 mismatch/, "a tampered block-ts-extra sidecar (C-2) is refused fail-closed");
   } finally { d.cleanup(); rmSync(o, { recursive: true, force: true }); }
+});
+
+test("u4b_select_refuses_a_block_ts_extra_sidecar_from_another_brut", async () => {
+  const d = await makeDiscover();
+  const o = mkdtempSync(join(tmpdir(), "u4bsel-bte2-"));
+  try {
+    // sidecar whose self-sha is VALID but whose discover_sha points at a DIFFERENT brut (C-V-8, V-M12).
+    const sidecar = { schema: "ukemi-u4b-block-ts-extra/1", discover_sha: "f".repeat(64), n_extra: 0, block_ts_extra: {}, block_ts_extra_sha256: sha256Hex(canon({})) };
+    const scPath = join(o, "block-ts-extra.json");
+    writeFileSync(scPath, JSON.stringify(sidecar));
+    await assert.rejects(runSelect([...selArgs(d, join(o, "sel")), "--block-ts-extra", scPath]), /sidecar belongs to another brut/, "a sidecar bound to another brut's discover_sha is refused (C-V-8, V-M12 reds)");
+  } finally { d.cleanup(); rmSync(o, { recursive: true, force: true }); }
+});
+
+test("u4b_fill_ts_and_select_refuse_a_paid_operator_and_an_interrupted_brut", async () => {
+  const d = await makeDiscover();
+  const o = mkdtempSync(join(tmpdir(), "u4bsel-cv9-")), ledger = mkdtempSync(join(tmpdir(), "u4bsel-cv9l-"));
+  try {
+    // C-V-9(i): --fill-ts is keyless-only by code — a paid 'chainstack' is refused (assertKeylessOperators).
+    await assert.rejects(runFillTs(["--fill-ts", "--discover", d.path, "--out", join(o, "fill"), "--operators", "drpc.org,chainstack", "--ledger-dir", ledger, "--cycle", "c", "--max-calls", "10", "--method-caps", '{"eth_getBlockByNumber":10}'], { env: {}, now: () => 1 }), /not a keyless|KEYLESS-ONLY/, "--fill-ts refuses a paid operator (C-V-9(i))");
+    // C-V-9(ii): an interrupted (getlogs-only) brut is refused by name by BOTH runSelect and runFillTs.
+    const df = JSON.parse(readFileSync(d.path, "utf8")) as { brut: Record<string, unknown> };
+    df.brut.phase = "getlogs-only";
+    const interrupted = join(o, "interrupted.json");
+    writeFileSync(interrupted, JSON.stringify(df));
+    const iArgs = ["--discover", interrupted, "--prereg-file", "docs/PLAN-u4b-prereg.md", "--prereg-sha", PREREG_LF, "--out", join(o, "sel")];
+    await assert.rejects(runSelect(iArgs), /discover interrupted|not 'complete'/, "runSelect refuses a getlogs-only brut by name (C-V-9(ii))");
+    await assert.rejects(runFillTs(["--fill-ts", "--discover", interrupted, "--out", join(o, "fill2"), "--operators", "drpc.org,mevblocker.io,tenderly.co", "--ledger-dir", ledger, "--cycle", "c2", "--max-calls", "10", "--method-caps", '{"eth_getBlockByNumber":10}'], { env: {}, now: () => 1 }), /discover interrupted|not 'complete'/, "runFillTs refuses a getlogs-only brut by name (C-V-9(ii))");
+  } finally { d.cleanup(); rmSync(o, { recursive: true, force: true }); rmSync(ledger, { recursive: true, force: true }); }
 });
 
 test("u4b_select_refuses_a_false_prereg_sha", async () => {
