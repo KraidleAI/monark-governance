@@ -184,13 +184,12 @@ export function runUkemiPredict(rawInput: unknown): UkemiPredictOutput {
   }
 
   // yhat -> a safe JSON number (base 8-dec integer). Fail closed BEFORE emission: the gate refuses a
-  // non-safe-integer yhat, and strateOf over a lossy float would mis-stratify (mutant (h)).
-  if (result.yhat > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw new UkemiPredictToolError(`yhat ${result.yhat.toString()} exceeds Number.MAX_SAFE_INTEGER (base 8-dec); refuse rather than serve a lossy region (C-9)`);
-  }
+  // non-safe-integer yhat, and strateOf over a lossy float would mis-stratify. Number(bigint) ROUNDS a value
+  // above 2^53 to a non-safe integer, caught here (checkpoint-2 C-4: mutant removing this guard reddens
+  // `u5_tool_refuses_yhat_over_safe_integer`).
   const yhat = Number(result.yhat);
   if (!Number.isSafeInteger(yhat) || yhat < 0) {
-    throw new UkemiPredictToolError(`yhat ${String(yhat)} is not a non-negative safe integer (base 8-dec)`);
+    throw new UkemiPredictToolError(`yhat ${result.yhat.toString()} is not a non-negative safe integer (base 8-dec); refuse rather than serve a lossy region (C-9)`);
   }
 
   const strate = strateOf(yhat);

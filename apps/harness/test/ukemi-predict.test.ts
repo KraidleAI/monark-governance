@@ -17,9 +17,10 @@ import { join } from "node:path";
 import { fromRealizedBook, isRealizedError } from "@monark/monark";
 import type { RealizedBookSlice, RealizedOracleParams, RealizedOracleUpdate, RealizedReserve, RealizedAccount } from "@monark/monark";
 import { findForbiddenKey } from "@monark/contracts";
-import { runUkemiPredict, UkemiPredictToolError, UKEMI_PREDICT_LABEL } from "../src/tools/ukemi-predict.ts";
+import { runUkemiPredict, UkemiPredictToolError, UKEMI_PREDICT_LABEL, ukemiPredictHonestyText, UKEMI_PREDICT_TOOL_DESCRIPTION } from "../src/tools/ukemi-predict.ts";
 import { ukemiPredictInputStandardSchema } from "../src/schema-projection.ts";
 import { runGate, TASK_LIQ_ELIGIBLE, LIQ_ALPHA, LIQ_NMIN, type HarnessParams } from "../src/tools/gate.ts";
+import { UKEMI_LIQ_PREDICTOR_BASE } from "../src/calibration.ts";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const FIXTURE = join(HERE, "..", "..", "sentinel", "test", "fixtures", "ukemi", "u5a", "U5a-book-slice.json");
@@ -155,6 +156,34 @@ test("u5_label_serves_the_five_elements", () => {
   assert.equal(findForbiddenKey({ label: L }), null, "label carries no forbidden key");
 });
 
+test("u5_served_phrases_have_no_surclaim", () => {
+  // A-9 (checkpoint-2 C-1): the SERVED honesty phrases carry NO probative surclaim (the harness vocab gate is
+  // blind to these in a tool constant). Mutant `a9-label-injection` reddens this; exempt spans stripped first.
+  const noSurclaim = (s: string, where: string): void => {
+    const stripped = s.replace(/never a probability/g, "").replace(/re-verified/g, "");
+    assert.ok(!stripped.includes("interval"), `${where}: no 'interval'`);
+    assert.ok(!/\bverified\b/.test(stripped), `${where}: no naked 'verified'`);
+    assert.ok(!stripped.includes("%"), `${where}: no '%'`);
+    assert.ok(!/\bprobabilit/.test(stripped), `${where}: no 'probability' outside 'never a probability'`);
+  };
+  noSurclaim(UKEMI_PREDICT_LABEL, "label");
+  noSurclaim(ukemiPredictHonestyText(), "honestyText");
+  noSurclaim(UKEMI_PREDICT_TOOL_DESCRIPTION, "toolDescription");
+});
+
+test("u5_tool_refuses_yhat_over_safe_integer", () => {
+  // C-4: a synthetic mono-WETH slice whose yhat (~1.818e16 = min(D_r, CA)) exceeds 2^53 => UkemiPredictToolError
+  // (never a lossy served region, C-9). Mutant `safe-integer-guard-removed` reddens this.
+  const W = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", AW = "0x" + "a1".repeat(20), VW = "0x" + "d1".repeat(20), C = "0x" + "c0".repeat(20), AC = "0x" + "a2".repeat(20), VC = "0x" + "d2".repeat(20);
+  const R = (asset: string, atoken: string, vt: string, decimals: string, lt: string, bo: string, ec: string, p: string) => ({ asset, atoken, variable_debt_token: vt, decimals, liquidation_threshold_bps: lt, liquidation_bonus_bps: bo, reserve_emode_category: ec, price_base_8dec: p });
+  const big = {
+    book: { schema: "ukemi-book/1", block: 1, book_digest: "a".repeat(64), reserves: [R(W, AW, VW, "18", "8000", "11000", "1", "10000000000"), R(C, AC, VC, "6", "8500", "10500", "0", "100000000")],
+      accounts: [{ address: "0x" + "1".repeat(40), emode: "0", balances: [{ token: AW, amount: "2000000000000000000000000" }, { token: VC, amount: "200000000000000" }], total_collateral_base: "20000000000000000", total_debt_base: "20000000000000000", current_liquidation_threshold_bps: "8000", hf_onchain: "900000000000000000" }] },
+    oracle: { schema: "ukemi-u4b-oracle/1", event_id: "synthetic", anchor_price: "10000000000", updates: [], emode_params: {} }, close_factor_version: "3.5.0", produced_at: "2026-01-01T00:00:00Z",
+  };
+  assert.throws(() => runUkemiPredict(big), (e: unknown) => e instanceof UkemiPredictToolError && /safe integer/i.test(e.message), "yhat > 2^53 => UkemiPredictToolError");
+});
+
 test("u5_tool_output_is_closed_and_block_and_digest_echoed", () => {
   const out = runUkemiPredict(inputFor(caseAt(evalCases, 0)));
   // Closed Prediction: exactly the 6 frozen keys (assertClosedPrediction runs in the tool; re-check the set).
@@ -169,6 +198,8 @@ test("u5_tool_output_is_closed_and_block_and_digest_echoed", () => {
   assert.equal(out.prediction.features_digest, FX.book_meta.book_digest, "features_digest echoes book_digest");
   assert.equal(out.provenance.book_digest, FX.book_meta.book_digest, "provenance.book_digest echoes book_digest");
   assert.equal(out.provenance.close_factor_version, "3.5.0", "protocol version served in provenance");
+  // C-6: the served predictor_id is BOUND to the derived stratum (kills `predictor-id-not-bound`; gate re-derives it).
+  assert.equal(out.prediction.predictor_id, `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(out.provenance.strate)}`, "predictor_id === base/s{strate}");
 });
 
 test("u5_input_schema_accepts_the_real_form", async () => {
@@ -181,6 +212,9 @@ test("u5_input_schema_accepts_the_real_form", async () => {
   // sanity: the real account DOES carry the A-8 optional keys (else the test would be vacuous).
   const acct = caseAt(evalCases, 0).account;
   assert.ok("user_config" in acct && "eligible_static" in acct, "the real account carries user_config/eligible_static (A-8 non-vacuous)");
+  // H-G2-1: the update lines and the oracle carry the A-8 optional keys too (else the schema check is vacuous).
+  assert.ok(FX.oracle.updates.length === 140 && FX.oracle.updates.every((u) => "round_id" in u && "updated_at" in u), "all 140 updates carry round_id/updated_at (A-8 non-vacuous)");
+  assert.ok(FX.oracle.usdt_prices !== undefined, "the oracle carries usdt_prices (A-8 non-vacuous)");
 });
 
 test("u5_tool_is_k8_pure", () => {

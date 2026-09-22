@@ -85,8 +85,16 @@ test("u5_producer_equals_frozen_module_all_accounts", () => {
 
   let inCell = 0;
   let others = 0;
+  const cnt = { no_collateral: 0, non_mono_weth: 0, emode_out_of_range: 0, crossed: 0, noCross: 0 };
   for (const account of book.accounts) {
     const r = fromRealizedBook(sliceOf(account), params);
+    // Producer per-branch classification (checkpoint-2 C-3): tie NAMED refusals to the frozen census.
+    if (isRealizedError(r)) {
+      if (r.reason === "no_collateral") cnt.no_collateral++;
+      else if (r.reason === "non_mono_weth") cnt.non_mono_weth++;
+      else if (r.reason === "emode_out_of_range") cnt.emode_out_of_range++;
+    } else if (r.pstar !== null) cnt.crossed++;
+    else cnt.noCross++;
     const row = cellA.get(account.address.toLowerCase());
     if (row !== undefined) {
       assert.ok(!isRealizedError(r), `${account.address}: in cell A ⇒ evaluable`);
@@ -103,6 +111,12 @@ test("u5_producer_equals_frozen_module_all_accounts", () => {
   }
   assert.equal(inCell, cellA.size, "every cell-A row matched by the producer");
   assert.equal(inCell + others, book.accounts.length, "all 16 096 accounts visited");
+  // C-3: producer per-branch classification == frozen census (named refusal on REAL data; kills `nonmono-not-refused`).
+  assert.equal(cnt.non_mono_weth, out.census.non_evaluable_x, "non_mono_weth == census.non_evaluable_x");
+  assert.equal(cnt.emode_out_of_range, out.census.non_evaluable_emode, "emode_out_of_range == census.non_evaluable_emode");
+  assert.equal(cnt.no_collateral, out.census.no_aweth, "no_collateral == census.no_aweth");
+  assert.equal(cnt.crossed, out.census.crossed, "crossed == census.crossed");
+  assert.equal(cnt.noCross, out.census.no_crossing, "no-cross == census.no_crossing");
 });
 
 test("u5_reduced_slice_expectations_match_committed_score_a", () => {
