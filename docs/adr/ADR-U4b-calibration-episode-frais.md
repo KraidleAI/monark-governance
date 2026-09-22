@@ -152,3 +152,115 @@ prereg -1b :
 L'amendement de `ADR-GARDE-HELIUS-client-budgete-unique.md` (A-1 / A-4, clause « par
 compte ») **reste un item formé** (propriétaire orchestrateur, déclencheur G1 2b-ii,
 décision 121) — **hors** du présent ADR.
+
+## Amendement daté 2026-09-22 (décision 126) — score UNILATÉRAL `max(Y − ŷ, 0)`, re-gel du sha #1, région servie = borne haute
+
+> **Provenance.** Rédaction : worker `claude-opus-4-8[1m]` (préfixe `claude-opus-4-8`
+> conforme, effort max ; Opus 5 banni), 2026-09-22, worktree `lot/u4b-score-1` base
+> `lot/etude-suite` @ `f26693f` (mesures reproductibles jointes au G1 `G1-lot-u4b-score-1.md`).
+> **Insertion dans l'ADR par l'orchestrateur `claude-fable-5-1` SEUL** (R-20 ; le worker ne
+> committe pas). Réviseur = orchestrateur (vérification adversariale R-21). **Autorité :
+> décision 126** (`docs/CHANTIERS.md`, orchestrateur sur délégation investisseur verbatim
+> « audite la décision de l advisor et tranche »), audit adversarial de l'avis advisor-defi
+> (`F:\PRODUITS\etude-2026-09-21\ukemi-u4b-prerequis\AVIS-advisor-defi-vacuite-region-A-options-2026-09-22.md`,
+> option 1). Les corps D1..D5 et l'amendement 2026-09-21 **restent byte-identiques** ; cet
+> amendement les SUPERSÈDE sur les seuls points ci-dessous (l'exigence de consigne « ADR du
+> gel intact » est levée pour CE lot par la décision 126, qui EST un re-gel ; le tableau
+> AVANT/APRÈS §3 prouve que seul le sha #1 a bougé).
+
+**Licéité.** Le prereg -1b n'est PAS committé (`docs/PLAN-u4b-prereg.md` absent, CANDIDAT seul) et aucune donnée fraîche n'a été tirée ⇒ la fenêtre est
+ouverte ; la FORME du score est fixée AVANT que la donnée fraîche existe (e2 = conception,
+C-12 ; anti « sélection sur l'issue », Barber-Candès-Ramdas-Tibshirani 2023 : la fonction de
+non-conformité S est fixée avant la calibration). Après la course -1b, ce changement serait
+post-hoc.
+
+### 1. D3 — score UNILATÉRAL
+`s = |Y − ŷ|` (D3) **devient** `s = max(Y − ŷ, 0)` (exceedance unilatérale, base 8-dec, clipée
+à 0). Motif : l'unilatérale fait de q̂ une statistique de la QUEUE des exceedances (l'erreur
+qui coûte — la liquidation dépasse le maximum liquidable en un appel), là où `|Y − ŷ|` mêle un
+percentile de ŷ. Validité split-conformal inchangée (couverture ≥ 1−α sous échangeabilité ;
+seule la borne SUPÉRIEURE `1−α+1/(n+1)` exigerait des résidus distincts — MONARK ne revendique
+que « ≥ 1−α »). Édition : `scripts/census/u4b/u4b-scores.mjs:245` (ligne 244 avant l'insertion du commentaire) + commentaire `:29-30` ;
+`u4b-reduce.mjs` et `record-u4b-calib.mjs` **OCTETS INCHANGÉS** (seule leur SORTIE change).
+
+### 2. Région servie = BORNE HAUTE `[0, ŷ + q̂_k]`, jamais un intervalle
+
+> **Champ de fil (précision checkpoint-2 C-2 / G2 C-3).** Le champ `region.kind` du contrat gelé `CoverageVerdict` reste le littéral `"interval"` (`packages/contracts/src/types.ts:207`, `schemas/coverage-verdict.schema.json`) : « borne haute / upper bound » qualifie la FORME servie (`lo = 0` par construction, `hi = ŷ + q̂_k`) et le TEXTE servi de la classe, jamais un nouveau `kind`. Aucun contrat gelé ne change (checkpoint-1 delta U-4b-2, D-1).
+La forme de la région servie : `[ŷ − q̂_k, ŷ + q̂_k]` **devient** `[0, ŷ + q̂_k]`. Texte servi :
+« upper bound », jamais « interval ». Conséquence à porter au `docs/G0-lot-u4b-2.DRAFT.md`
+(hors gel, non encore built ; non modifié par ce lot — lignes notées au G1) :
+`buildIntervalRegion(ŷ − q̂, ŷ + q̂)` → `buildIntervalRegion(0, ŷ + q̂)`.
+
+### 3. D4 — re-gel : tableau des sha AVANT / APRÈS (recompute LF, worktree base `f26693f`)
+Seul le sha #1 bouge ; la fermeture transitive reste **fermée et byte-identique**.
+
+| # | Fichier gelé | AVANT (LF sha256) | APRÈS (LF sha256) | État |
+|---|---|---|---|---|
+| 1 | `scripts/census/u4b/u4b-scores.mjs` | `9ad20666…f83feacf` | `2f9a31f6…f51445c0` | **RE-GELÉ** |
+| 2 | `scripts/census/u4b/u4b-reduce.mjs` | `a5e66cd3…57a6fac0` | idem | inchangé |
+| 3 | `scripts/record-u4b-calib.mjs` | `5733daeb…2a1fbc31a3` | idem | inchangé |
+| 4 | `apps/sentinel/src/ukemi/wadray.ts` | `7bee76fc…e4de2322` | idem | inchangé |
+| 5 | `apps/sentinel/src/ukemi/abi.ts` | `3376eb08…c1ab2d66` | idem | inchangé |
+| 6 | `packages/hikae/src/l1-split.ts` | `9206df91…8164ffa3` | idem | inchangé |
+| 7 | `apps/sentinel/src/rpc.ts` | `0e232519…c1c65ca0` | idem | inchangé |
+| 8 | `packages/contracts/src/calib-digest.ts` (contracts_frozen) | `3603265d…94c42380` | idem | inchangé |
+| — | `scripts/census/u3-realized.mjs` (labeler, gel déféré) | `755b3a38…618db2de4` | idem | inchangé |
+
+Valeurs complètes du sha re-gelé (worker ; **à recomputer au commit réel du prereg —
+ÉCART = STOP**) :
+```
+AVANT  9ad20666af878c630073d998c6d3bc0bca38017e73b406853bcc31c3f83feacf  u4b-scores.mjs
+APRÈS  2f9a31f614df05278dbf87353b07d405a016da8c3330968854731519f51445c0  u4b-scores.mjs
+```
+
+### 4. Digests de cellule et q̂ (recalcul orchestrateur, confirmé PAR EXÉCUTION et par recomputation indépendante)
+- Fixture `U4b-scores-e2.jsonl` : `84f8aa13…dec79971e` → `301d39fa806fd36a72cc446484aa4d04807a56ab603b1b69f464264550a126ad`
+  (recette PROVENANCE §3 EXACTE, bruts sha-pinnés inchangés `8f620f6c…` / `7b87f6d3…` ;
+  book/oracle **byte-identiques** ; census **IDENTIQUE** ; seuls le champ `score` et les
+  digests bougent — diff structuré au G1).
+- Cellule A : digest `dc9ab572…` → `2feb4ab057613925c9ed77dbec4f186044375b223d5ea520df3ec82d63524720` ;
+  cellule B : `89897a61…` → `07bb8e3b1f35a95f5679f013133cc3e87540e01177279ccfe9ec6f4f8dfb8b0f`.
+- q̂ par strate SERVIE (base 8-dec) : strate 0 `23169870364` (231,70 $), strate 1
+  `3609978241254` (36 099,78 $ = max, p=n=148) ; strates 2/3 `under_calib` (n < nMin=100).
+  (Les valeurs « 23170000000 / 3609978000000 » de la décision 126 étaient des **arrondis
+  d'affichage** ; les valeurs de fixture ci-dessus sont autoritaires.)
+- Registre (`record-u4b-calib` sur la fixture régénérée) : strate 0 q̂=`23169870364`
+  calib_digest `371f0577…` ; strate 1 q̂=`3609978241254` `624e21c7…` ; strate 2 `31654567…`
+  (under_calib) ; strate 3 `db51ef06…` (under_calib).
+
+### 5. Quatre clauses pré-enregistrées (portées dans la même édition du prereg -1b)
+1. **H-3** : « test exact bêta-binomial UNILATÉRAL, **CONSERVATEUR sous ex æquo** (atomes en 0
+   comptés couverts) » — sans elle, H-3 « scores continus i.i.d. » est FAUX (sous
+   l'unilatérale, [mesuré fixture régénérée] les scores nuls par strate = 344/363, 120/148,
+   38/46, 7/8 (509/565 au total) ⇒ `#{s ≤ q̂}` non
+   bêta-binomial ; le test « couverture trop basse » reste valide mais conservateur).
+2. **Condition d'épisode** : `n ≥ 199` par strate servie pour un q̂ **intérieur** (α=1 % ⇒
+   p = ⌈(n+1)·0,99⌉ < n ssi n ≥ 199), distincte de nMin=100 ; sinon q̂ = max rapporté tel
+   quel (sur e2, strate 1 n=148 < 199 ⇒ q̂ = max = `3609978241254`).
+3. **Rapport obligatoire, à côté de q̂₀** : (a) le compteur census `crossed_yhat_zero`
+   (comptes ayant FRANCHI mais dont tout `D_r` floore à 0 ⇒ ŷ=0) ; (b) l'ensemble
+   **{ŷ=0 ∧ liquidés}** **avec leur Y**, **sous-divisé par `pstar`** — `pstar=null`
+   (« liquidé sans franchissement » = no_crossing) et `pstar≠null` (franchi mais ŷ=0). La
+   strate 0 est gouvernée par ces échecs de règle, pas par l'erreur de close factor. Sur e2
+   [mesuré] : `crossed_yhat_zero` = **1** (compte franchi NON liquidé, hors cellule) ;
+   {ŷ=0 ∧ liquidés} = **3**, tous `pstar=null` (**3** sans franchissement / **0** franchi-ŷ0),
+   Y = 32 772,78 $ / 231,70 $ / 106 668,92 $ ; ces ensembles sont **DISJOINTS** sur e2 (donc
+   **3, pas 3−1**). q̂₀ = 231,70 $ EST le 3ᵉ échec de règle (`n − p = 2` en exclut deux).
+4. **Région servie** = borne haute `[0, ŷ + q̂_k]`, jamais un intervalle (§2).
+
+### 6. Item formé « calibration suivante » — Mondrian CONDITIONNEL-AU-LABEL (option 3)
+La vacuité résiduelle du mélange (la classe A mêle les comptes Y=0 et les liquidés) se traite
+par un **Mondrian conditionnel-au-label** {Y = 0} ∪ {Y > 0} (× strate de ŷ) — Vovk 2012
+Prop. 3 (validité conditionnelle à la catégorie, κ(·,(x,y)) := y). Sous l'unilatérale, la
+région servie de la catégorie {Y > 0} est `[0, ŷ + q̂_{B,k}]` (connexe) ⇒ **l'unilatérale est
+le prérequis de FORME de l'option 3** (le symétrique donnerait {0} ∪ [ŷ − q̂, ŷ + q̂],
+disconnexe, non représentable par `buildIntervalRegion`). **Item formé**, propriétaire
+orchestrateur, **déclencheur** : épisode frais avec ≥ 100 liquidés mono-WETH dans une strate
+(le code gelé émet déjà la cellule B ; le passage à « servie » = décision -2 + décision 108
+amendée, **sans re-gel supplémentaire** l'unilatérale étant adoptée aujourd'hui).
+
+### 7. Résiduel nommé
+La strate 0 reste large (largeur/ŷ médian ≈ ×227 sous l'unilatérale) — **propriété de la
+STRATE** (ŷ médian ≈ 1 $, poussière), pas du score ; q̂₀ mesure la gravité des échecs de règle
+(F3 de l'avis), pas l'erreur de close factor. Ce n'est pas une dette : propriété mesurée,
+rapportée (clause 3), jamais un contournement.
