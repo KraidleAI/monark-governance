@@ -35,6 +35,22 @@ export function lfSha256(text) {
   return createHash("sha256").update(text.replace(/\r\n/g, "\n"), "utf8").digest("hex");
 }
 
+/** Canonical JSON (keys sorted recursively, arrays in order, no whitespace) — a BYTE-IDENTICAL copy of
+ *  liquidation-logs.mjs `canon`, inlined here because the course scripts (u4-oracle-path.mjs) carry a CLOSED import
+ *  allowlist (test rpc-guard-fetch-only-inside-client `u4_scripts_clean_and_import_sources_closed`) that forbids
+ *  importing scripts/census/u4b/*. u4-oracle-path uses it to VERIFY episode-selection.json's selection_sha256; the two
+ *  copies are pinned byte-for-byte by the parity test `u4guard_canon_matches_liquidation_logs_canon` on a nested vector. */
+export function canon(obj) {
+  if (obj === null || typeof obj !== "object") return JSON.stringify(obj);
+  if (Array.isArray(obj)) return "[" + obj.map(canon).join(",") + "]";
+  return "{" + Object.keys(obj).sort().map((k) => JSON.stringify(k) + ":" + canon(obj[k])).join(",") + "}";
+}
+
+/** sha256 (hex) of a UTF-8 string — the digest paired with `canon` for the episode-selection.json sha check. */
+export function sha256Hex(s) {
+  return createHash("sha256").update(String(s), "utf8").digest("hex");
+}
+
 /** The paid operator label of this migration (decision 121: label of the OPERATOR, unique per account; the
  *  network is a journal attribute, never a second label). Appended LAST, as the archive leg was. */
 export const CHAINSTACK_LABEL = "chainstack";

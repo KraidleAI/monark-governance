@@ -1,23 +1,23 @@
 // scripts/census/u4-oracle-path.mjs
 // ============================================================================================
-// U-4a (Ukemi, ADR-M020 D1 (b) + checkpoint-1 C-4 / C-12) — REALIZED ORACLE PATH course (D_e) for event e2.
+// U-4b (Ukemi, ADR-U4b D_e; prereg §DISC Q-D) — REALIZED ORACLE PATH course (D_e) for the FRESH episode.
 //
-// GARDE-HELIUS-2b-iii: every read (keyless witnesses + the paid archive leg) is metered INSIDE @monark/rpc-guard.
-// This script reads NO paid endpoint key and performs NO paid network round-trip directly; the guard owns both.
-// The paid `chainstack` leg is the EXPLICIT --with-chainstack switch (never an env probe), appended LAST, LABELS only.
+// PARAMETERISED by the AVAL selector (lot U-4b-1b-2): --episode-file <episode-selection.json> supplies B0 (= B_first-1)
+// and B_last and is bound by its `selection_sha256` (verified here, 0 fetch on mismatch). The e2 CONCEPTION constants
+// (B0/B_last/USDT_BLOCKS/EMODE_CATEGORIES) are GONE — a fresh course must NEVER silently fall onto e2. The historical e2
+// run is reproduced only via the EXPLICIT flags (--episode-file <e2 selection>, --usdt-blocks, --emode-categories).
+// --feed-proxy KEEPS its §DISC:28 default (WETH/USD SVR proxy 0x5424384b…; D_e semantics == e2 — documented,
+// feed_proxy_source in the provenance).
 //
-// D_e = the series of Chainlink AnswerUpdated logs of the WETH/USD SVR feed over [B₀, B_last], used by A-4 to
-// recompute ŷ (eligible-static under D_e via HF at p_min). Reads (all quorum-2, budgeted, polite, mevblocker
-// excluded):
-//   1) aggregator() on the EACAggregatorProxy 0x5424384b… at B₀ AND B_last (phase ≠ ⇒ abi_mismatch, C-4).
-//   2) getLogs(AnswerUpdated) on the resolved aggregator over [B₀, B_last]  (price = topics[1], indexed int256).
-//   3) getAssetPrice(USDT) at 23550406 AND 23550879 (C-12 / D-1) on the pinned AaveOracle.
-//   4) getEModeCategoryData(uint8) at B₀ for each distinct nonzero e-mode category in the book (RAW hex stored;
-//      decoded in abi.ts after inspecting real bytes — the return shape varies across Aave v3 versions).
-// Reuse (no modification) of the quorum-2 pool makeUkemiPool from apps/sentinel/src/ukemi/rpc2.ts, now driven by
-// operator LABELS routed to the guarded client. OUT OF REPO raws + ledger; sha-pinned; NO key/URL printed. NO
-// commit, NO workflow (R-20). REQUIRED fail-closed: --ledger-dir/--cycle/--floor/--max-ru/--method-caps/--max-calls;
-// --prereg-sha mandatory (order). This lot migrates the PLUMBING only; the script stays hardwired to e2 (item formed).
+// GARDE-HELIUS-2b-iii: every read (keyless witnesses + the paid archive leg) is metered INSIDE @monark/rpc-guard. This
+// script reads NO paid endpoint key and performs NO paid round-trip directly; the guard owns both. `deps.env` is the ONLY
+// env source (C-8: no process.env in the body); the paid `chainstack` leg is the EXPLICIT --with-chainstack switch.
+// D_e reads (all quorum-2, budgeted, polite, mevblocker excluded):
+//   1) aggregator() on the EACAggregatorProxy (--feed-proxy) at B0 AND B_last (phase ≠ ⇒ abi_mismatch, C-4).
+//   2) getLogs(AnswerUpdated) on the resolved aggregator over [B0, B_last]  (price = topics[1], indexed int256).
+//   3) getAssetPrice(USDT) at each --usdt-blocks block (OPTIONAL; absent ⇒ usdt_prices {} + usdt_blocks_status "omitted").
+//   4) getEModeCategoryData(uint8) at B0 for each --emode-categories (or distinct nonzero e-mode in --book).
+// OUT OF REPO raws (--raws-dir REQUIRED, C-8) + ledger; sha-pinned; NO key/URL printed. NO commit, NO workflow (R-20).
 // ============================================================================================
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -26,59 +26,118 @@ import { dirname, join, resolve, relative, isAbsolute } from "node:path";
 import { makeUkemiPool, BudgetExceededError } from "../../apps/sentinel/src/ukemi/rpc2.ts";
 import { SEL, ANSWER_UPDATED_TOPIC0, decUint, decInt256, decAddress, wordAt, wordAddr } from "../../apps/sentinel/src/ukemi/abi.ts";
 import { POOL, ORACLE } from "../../apps/sentinel/src/ukemi/clusters.ts";
-import { lfSha256, buildLabelLists, distinctLabels, parseBudgetArgs, assertLedgerDir, openU4GuardedClient, makeGuardedPoolCall, unlockAll } from "./u4-guard.mjs";
+import { lfSha256, canon, sha256Hex, buildLabelLists, distinctLabels, parseBudgetArgs, assertLedgerDir, openU4GuardedClient, makeGuardedPoolCall, unlockAll } from "./u4-guard.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..", "..");
-const PROXY = "0x5424384b256154046e9667ddfaaa5e550145215e"; // WETH/USD SVR feed proxy (U3-sources e2, [lu])
+/** §DISC:28 — WETH/USD SVR feed proxy (U3-sources e2, [lu]); D_e semantics == e2. The default; --feed-proxy overrides. */
+const DEFAULT_FEED_PROXY = "0x5424384b256154046e9667ddfaaa5e550145215e";
 const WETH = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
 const USDT = "0xdac17f958d2ee523a2206206994597c13d831ec7";
-const B0 = 23545087, BLAST = 23552238;                       // prereg §1: B₀ = B_first−1, B_last
-const USDT_BLOCKS = [23550406, 23550879];                    // C-12 (realized line) + D-1 (DeficitCreated block)
-const EMODE_CATEGORIES = [1, 2, 3, 4, 8, 11, 13, 15, 17, 19, 21, 23, 24, 27, 28]; // distinct nonzero in book (offline census)
 
 const sha256s = (s) => createHash("sha256").update(s, "utf8").digest("hex");
-const arg = (k) => { const i = process.argv.indexOf(k); return i >= 0 ? process.argv[i + 1] : undefined; };
 const wordU = (n) => BigInt(n).toString(16).padStart(64, "0");
 
-async function main() {
+/** Verify a --prereg-file (default docs/PLAN-u4b-prereg.md) exists and its LF sha == --prereg-sha (order proof). */
+function verifyPrereg(arg) {
+  const preregFile = arg("--prereg-file") ?? "docs/PLAN-u4b-prereg.md";
   const preregSha = arg("--prereg-sha");
-  const maxCallsRaw = arg("--max-calls");
-  const rawsDir = arg("--raws-dir") ?? "F:/PRODUITS/etude-2026-09-20/u4-raws";
-  const minIntervalMs = arg("--min-interval-ms") !== undefined ? Number(arg("--min-interval-ms")) : 50;
   if (preregSha === undefined) throw new Error("u4-oracle-path: --prereg-sha is required (order proof)");
-  const actualPrereg = lfSha256(readFileSync(join(ROOT, "docs", "PLAN-u4-prereg.md"), "utf8"));
-  if (actualPrereg !== preregSha) throw new Error(`u4-oracle-path: --prereg-sha ${preregSha} != PLAN-u4-prereg.md LF sha ${actualPrereg}`);
+  const actual = lfSha256(readFileSync(join(ROOT, preregFile), "utf8"));
+  if (actual !== preregSha) throw new Error(`u4-oracle-path: --prereg-sha ${preregSha} != ${preregFile} LF sha ${actual}`);
+  return { preregFile, preregSha };
+}
+
+/** Read episode-selection.json, VERIFY selection_sha256 (over the file minus version_check/selection_sha256, C-5), and
+ *  return { B0, bLast, episodeId, selectionSha }. A mismatch is a fail-closed refusal (0 fetch). */
+export function parseEpisodeFile(path) {
+  const file = JSON.parse(readFileSync(path, "utf8"));
+  const { version_check: _vc, selection_sha256: carried, ...payload } = file;
+  const recomputed = sha256Hex(canon(payload));
+  if (recomputed !== carried) throw new Error(`u4-oracle-path: --episode-file selection_sha256 mismatch: recomputed ${recomputed} != carried ${String(carried)} (fail-closed, 0 fetch)`);
+  const ep = file.episode;
+  if (!ep || !Number.isInteger(ep.B0) || !Number.isInteger(ep.B_last)) throw new Error("u4-oracle-path: --episode-file episode.B0 / episode.B_last are not integers (fail-closed)");
+  return { B0: ep.B0, bLast: ep.B_last, episodeId: String(ep.id), selectionSha: carried };
+}
+
+/** Distinct nonzero e-mode categories from a recorder book (accounts[].emode, decimal string), sorted ascending. */
+export function emodeCategoriesFromBook(book) {
+  if (!book || !Array.isArray(book.accounts)) throw new Error("u4-oracle-path: --book has no accounts[] (fail-closed)");
+  const cats = new Set();
+  for (const a of book.accounts) { const c = Number(a.emode); if (Number.isInteger(c) && c > 0) cats.add(c); }
+  return [...cats].sort((x, y) => x - y);
+}
+
+/** Distinct USDT blocks from the labeler's U3-deficit.jsonl: lines {kind:"deficit", block, debt_asset} with debt_asset==
+ *  USDT (D-1). A PURE helper the orchestrator runs to compute --usdt-blocks for the fresh episode (documented command);
+ *  the prober itself takes --usdt-blocks (or omits the read). Returns sorted distinct blocks. */
+export function usdtBlocksFromLabelerDeficit(deficitJsonl) {
+  const blocks = new Set();
+  for (const line of String(deficitJsonl).split("\n")) {
+    if (!line.trim()) continue;
+    let o; try { o = JSON.parse(line); } catch { continue; }
+    if (o && o.kind === "deficit" && String(o.debt_asset).toLowerCase() === USDT && Number.isInteger(o.block)) blocks.add(o.block);
+  }
+  return [...blocks].sort((x, y) => x - y);
+}
+
+/** The realized oracle path course. `deps = { env, now }` — deps.env is the ONLY env source (C-8); tests stub
+ *  globalThis.fetch. Returns { status, rawPath, inputsPath } (status 2 = a controlled BUDGET STOP). */
+export async function run(argv, deps) {
+  const arg = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : undefined; };
+  const { preregFile, preregSha } = verifyPrereg(arg);
+
+  const episodePath = arg("--episode-file");
+  if (episodePath === undefined) throw new Error("u4-oracle-path: --episode-file <episode-selection.json> is required (fresh episode; e2 defaults are GONE)");
+  const { B0, bLast, episodeId, selectionSha } = parseEpisodeFile(episodePath);
+
+  const rawsDir = arg("--raws-dir");
+  if (rawsDir === undefined) throw new Error("u4-oracle-path: --raws-dir <dir, out of repo> is required (fail-closed, no default — the e2 default is GONE, C-8)");
+  const minIntervalMs = arg("--min-interval-ms") !== undefined ? Number(arg("--min-interval-ms")) : 50;
+  const maxCallsRaw = arg("--max-calls");
   if (maxCallsRaw === undefined) throw new Error("u4-oracle-path: --max-calls is required (fail-closed budget)");
   const maxCalls = Number(maxCallsRaw);
   if (!(Number.isInteger(maxCalls) && maxCalls > 0)) throw new Error("u4-oracle-path: --max-calls must be a positive integer");
-  // GARDE-HELIUS-2b-iii: the guard budget arguments (all REQUIRED, fail-closed, no default) + the durable ledger dir.
-  const budget = parseBudgetArgs(arg, process.argv);
+
+  const feedProxyArg = arg("--feed-proxy");
+  const feedProxy = (feedProxyArg ?? DEFAULT_FEED_PROXY).toLowerCase();
+  const feedProxySource = feedProxyArg === undefined ? "default §DISC:28" : "flag";
+
+  // --usdt-blocks OPTIONAL (C-7): absent => usdt_prices {} + usdt_blocks_status "omitted" (never a silent e2 default).
+  const usdtBlocks = arg("--usdt-blocks") !== undefined ? String(arg("--usdt-blocks")).split(",").map((s) => Number(s.trim())).filter((n) => Number.isInteger(n)) : [];
+  const usdtBlocksStatus = arg("--usdt-blocks") === undefined ? "omitted" : "provided";
+
+  // --emode-categories <list> OR --book <recorder book> (distinct nonzero); fail-closed if BOTH absent.
+  let emodeCategories;
+  if (arg("--emode-categories") !== undefined) emodeCategories = String(arg("--emode-categories")).split(",").map((s) => Number(s.trim())).filter((n) => Number.isInteger(n) && n > 0);
+  else if (arg("--book") !== undefined) emodeCategories = emodeCategoriesFromBook(JSON.parse(readFileSync(arg("--book"), "utf8")));
+  else throw new Error("u4-oracle-path: one of --emode-categories <list> or --book <recorder book> is required (fail-closed; the e2 EMODE_CATEGORIES default is GONE)");
+
+  // GARDE-HELIUS-2b-iii: the guard budget arguments (all REQUIRED, fail-closed) + the durable ledger dir.
+  const budget = parseBudgetArgs(arg, argv);
   const ledgerDir = assertLedgerDir(budget.ledgerDir, ROOT);
   const rawsAbs = resolve(rawsDir);
   const rel = relative(ROOT, rawsAbs);
   if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))) throw new Error(`u4-oracle-path: --raws-dir under repo (CA-11): ${rawsAbs}`);
   mkdirSync(rawsAbs, { recursive: true });
 
-  // Operators by LABEL (keyless witnesses, mevblocker excluded as the course does); the paid archive leg is the
-  // EXPLICIT --with-chainstack switch. Every read is metered inside @monark/rpc-guard (no direct paid round-trip).
   const { ethCallLabels, getLogsLabels } = buildLabelLists({ withChainstack: budget.withChainstack, excluded: ["mevblocker.io"] });
   let rpcErrorCount = 0;
   const errByOp = {};
   const onTransportError = (op) => { rpcErrorCount += 1; errByOp[op] = (errByOp[op] ?? 0) + 1; };
-  const { client } = openU4GuardedClient({ env: process.env, ledgerDir, cycle: budget.cycle, floor: budget.floor, maxRu: budget.maxRu, methodCaps: budget.methodCaps, maxCalls, ethCallLabels, getLogsLabels, onTransportError });
+  const { client } = openU4GuardedClient({ env: deps.env, ledgerDir, cycle: budget.cycle, floor: budget.floor, maxRu: budget.maxRu, methodCaps: budget.methodCaps, maxCalls, ethCallLabels, getLogsLabels, onTransportError });
   const guarded = makeGuardedPoolCall(client, { retries: 3, backoffMs: 500, backoffCapMs: 8000 });
   const pool = makeUkemiPool({ call: guarded.call, ethCallProviders: ethCallLabels, getLogsProviders: getLogsLabels, minIntervalMs, chunk: 9990 });
   const opLabels = (labels) => distinctLabels(labels);
 
   const cache = []; // JSONL cache lines (resume/replay), same schema family as U4-inputs
-  const t0 = Date.now();
+  const t0 = deps.now();
   try {
     // 1) aggregator() at both bornes
-    const aggB0raw = await pool.ethCall(PROXY, SEL.aggregator, B0);
-    const aggLastRaw = await pool.ethCall(PROXY, SEL.aggregator, BLAST);
-    cache.push({ kind: "ethCall", to: PROXY, data: SEL.aggregator, block: B0, result: aggB0raw });
-    cache.push({ kind: "ethCall", to: PROXY, data: SEL.aggregator, block: BLAST, result: aggLastRaw });
+    const aggB0raw = await pool.ethCall(feedProxy, SEL.aggregator, B0);
+    const aggLastRaw = await pool.ethCall(feedProxy, SEL.aggregator, bLast);
+    cache.push({ kind: "ethCall", to: feedProxy, data: SEL.aggregator, block: B0, result: aggB0raw });
+    cache.push({ kind: "ethCall", to: feedProxy, data: SEL.aggregator, block: bLast, result: aggLastRaw });
     const aggB0 = decAddress(wordAt(aggB0raw, 0));
     const aggLast = decAddress(wordAt(aggLastRaw, 0));
     const phaseChange = aggB0.toLowerCase() !== aggLast.toLowerCase();
@@ -87,8 +146,8 @@ async function main() {
     const aggs = phaseChange ? [aggB0, aggLast] : [aggB0];
     const rawLogs = [];
     for (const agg of aggs) {
-      const logs = await pool.getLogsRange(agg, [ANSWER_UPDATED_TOPIC0], B0, BLAST);
-      cache.push({ kind: "getLogs", address: agg.toLowerCase(), topics: [ANSWER_UPDATED_TOPIC0], from: B0, to: BLAST, result: logs });
+      const logs = await pool.getLogsRange(agg, [ANSWER_UPDATED_TOPIC0], B0, bLast);
+      cache.push({ kind: "getLogs", address: agg.toLowerCase(), topics: [ANSWER_UPDATED_TOPIC0], from: B0, to: bLast, result: logs });
       for (const l of logs) rawLogs.push(l);
     }
     // topic0 self-test + decode (price = topics[1] int256, roundId = topics[2], updatedAt = data)
@@ -103,17 +162,17 @@ async function main() {
     const pMax = prices.length ? prices.reduce((m, p) => (p > m ? p : m)).toString() : null;
     const monotoneBlocks = updates.every((u, i) => i === 0 || u.block >= updates[i - 1].block);
 
-    // 3) getAssetPrice(USDT) at both blocks (C-12 / D-1)
+    // 3) getAssetPrice(USDT) at each --usdt-blocks block (OPTIONAL; omitted => {})
     const usdtPrices = {};
-    for (const b of USDT_BLOCKS) {
+    for (const b of usdtBlocks) {
       const r = await pool.ethCall(ORACLE, SEL.getAssetPrice + wordAddr(USDT), b);
       cache.push({ kind: "ethCall", to: ORACLE, data: SEL.getAssetPrice + wordAddr(USDT), block: b, result: r });
       usdtPrices[b] = decUint(r).toString();
     }
 
-    // 4) getEModeCategoryData(uint8) at B₀ — RAW hex per category (decode later on real bytes)
+    // 4) getEModeCategoryData(uint8) at B0 — RAW hex per category (decode later on real bytes)
     const emodeRaw = {};
-    for (const cat of EMODE_CATEGORIES) {
+    for (const cat of emodeCategories) {
       const data = SEL.getEModeCategoryData + wordU(cat);
       try {
         const r = await pool.ethCall(POOL, data, B0);
@@ -124,13 +183,12 @@ async function main() {
       }
     }
 
-    const seconds = (Date.now() - t0) / 1000;
-    // errors_by_operator is keyed by the OPERATOR LABEL directly (the guard's transport never exposes a URL/domain,
-    // so the former archive-env relabeling is gone); calls_by_operator / by_method come from the attempt tally.
+    const seconds = (deps.now() - t0) / 1000;
     const provenance = {
-      model: "claude-opus-4-8[1m]", recorded_at_utc: new Date().toISOString(), phase: "oracle-path-De",
+      model: "claude-opus-4-8[1m]", recorded_at_utc: new Date(deps.now()).toISOString(), phase: "oracle-path-De",
+      episode_id: episodeId, selection_sha256: selectionSha, prereg_sha: preregSha, prereg_file: preregFile,
       endpoints: { eth_call: opLabels(ethCallLabels), eth_getLogs: opLabels(getLogsLabels) }, quorum: 2,
-      params: { proxy: PROXY, weth: WETH, b0: B0, b_last: BLAST, usdt_blocks: USDT_BLOCKS, emode_categories: EMODE_CATEGORIES, min_interval_ms: minIntervalMs, max_calls: maxCalls, prereg_sha: preregSha, excluded_operators: ["mevblocker.io"] },
+      params: { proxy: feedProxy, feed_proxy_source: feedProxySource, weth: WETH, b0: B0, b_last: bLast, usdt_blocks: usdtBlocks, usdt_blocks_status: usdtBlocksStatus, emode_categories: emodeCategories, min_interval_ms: minIntervalMs, max_calls: maxCalls, prereg_sha: preregSha, prereg_file: preregFile, episode_id: episodeId, selection_sha256: selectionSha, excluded_operators: ["mevblocker.io"] },
       calls: guarded.total(), calls_by_operator: guarded.byOperator(), calls_by_method: guarded.byMethod(),
       errors_by_operator: errByOp, rpc_error_count: rpcErrorCount, seconds, answer_updated_topic0: ANSWER_UPDATED_TOPIC0,
     };
@@ -141,26 +199,25 @@ async function main() {
       first_update: updates[0] ?? null, last_update: updates[updates.length - 1] ?? null,
       usdt_prices: usdtPrices, emode_raw: emodeRaw, updates,
     };
-    const rawPath = join(rawsAbs, "U4-oracle-path-e2.raw.json");
+    const rawPath = join(rawsAbs, `U4-oracle-path-${episodeId}.raw.json`);
     const inputsPath = join(rawsAbs, "U4-oracle-inputs.jsonl");
-    const meta = { kind: "meta", schema: "ukemi-u4-oracle/1", model: "claude-opus-4-8[1m]", recorded_at_utc: provenance.recorded_at_utc, proxy: PROXY, b0: B0, b_last: BLAST, prereg_sha: preregSha, providers: [...opLabels(ethCallLabels), ...opLabels(getLogsLabels)].filter((v, i, a) => a.indexOf(v) === i) };
+    const meta = { kind: "meta", schema: "ukemi-u4-oracle/1", model: "claude-opus-4-8[1m]", recorded_at_utc: provenance.recorded_at_utc, proxy: feedProxy, b0: B0, b_last: bLast, episode_id: episodeId, selection_sha256: selectionSha, prereg_sha: preregSha, providers: [...opLabels(ethCallLabels), ...opLabels(getLogsLabels)].filter((v, i, a) => a.indexOf(v) === i) };
     const inputsBody = [meta, ...cache].map((l) => JSON.stringify(l)).join("\n") + "\n";
     const rawBody = JSON.stringify(raw, null, 2) + "\n";
     writeFileSync(inputsPath, inputsBody);
     writeFileSync(rawPath, rawBody);
     const perOp = Object.entries(guarded.byOperator()).map(([k, v]) => `${k}:${v}`).join(",");
     process.stdout.write(
-      `u4-oracle-path e2 aggregator@B0=${aggB0.toLowerCase()} aggregator@Blast=${aggLast.toLowerCase()} phase_change=${phaseChange}\n` +
+      `u4-oracle-path episode=${episodeId} aggregator@B0=${aggB0.toLowerCase()} aggregator@Blast=${aggLast.toLowerCase()} phase_change=${phaseChange}\n` +
       `  n_updates=${updates.length} monotone_blocks=${monotoneBlocks} p_min=${pMin} p_max=${pMax} first_block=${updates[0]?.block} last_block=${updates[updates.length-1]?.block}\n` +
-      `  usdt_prices=${JSON.stringify(usdtPrices)} emode_categories_read=${Object.keys(emodeRaw).length}\n` +
+      `  usdt_blocks_status=${usdtBlocksStatus} usdt_prices=${JSON.stringify(usdtPrices)} emode_categories_read=${Object.keys(emodeRaw).length} feed_proxy_source=${feedProxySource}\n` +
       `  calls=${guarded.total()}/${maxCalls} by_operator={${perOp}} rpc_errors=${rpcErrorCount} errors_by_operator=${JSON.stringify(errByOp)} seconds=${seconds.toFixed(1)}\n` +
       `  raw: ${rawPath} sha256=${sha256s(rawBody)}\n  inputs: ${inputsPath} sha256=${sha256s(inputsBody)}\n`);
+    return { status: 0, rawPath, inputsPath };
   } catch (e) {
     if (e instanceof BudgetExceededError) {
-      // Controlled budget stop: soft exit (exitCode, not process.exit) so the finally below serves the N unlocks.
       process.stderr.write(`u4-oracle-path: BUDGET STOP after ${guarded.total()} calls (${e.message}; --max-calls ${maxCalls}); NO partial path written - raise budget (R-26) and re-run.\n`);
-      process.exitCode = 2;
-      return;
+      return { status: 2 };
     }
     throw e;
   } finally {
@@ -170,5 +227,7 @@ async function main() {
 }
 
 if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
-  main().catch((e) => { process.stderr.write(`FATAL ${e instanceof Error ? e.message : String(e)}\n`); process.exit(1); });
+  run(process.argv.slice(2), { env: process.env, now: () => Date.now() })
+    .then((r) => { if (r && r.status) process.exitCode = r.status; })
+    .catch((e) => { process.stderr.write(`FATAL ${e instanceof Error ? e.message : String(e)}\n`); process.exit(1); });
 }
