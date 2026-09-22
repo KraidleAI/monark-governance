@@ -178,6 +178,10 @@ test("u4b_liq_empty_registry_text_is_honest", () => {
 test("u4b_liq_class_text_says_upper_bound_never_interval", () => {
   assert.ok(LIQ_UPPER_BOUND_SENTENCE.includes("upper bound"), "the class text says 'upper bound'");
   assert.ok(!LIQ_COMMITTED_SENTENCE.includes("interval"), "the class text never says 'interval' (delta D-1, mutant (o))");
+  // checkpoint-2 C-2: the ONLY liq sentence actually served in -2a (empty registry) and the honesty text must not say
+  // 'interval' either -- an injection there survived the full suite before this assertion.
+  assert.ok(!LIQ_EMPTY_REGISTRY_SENTENCE.includes("interval"), "the empty-registry sentence never says 'interval' (C-2)");
+  assert.ok(!honestyText(TASK_LIQ_ELIGIBLE, "x", false).includes("interval"), "the served honesty text never says 'interval' (C-2)");
   assert.ok(GATE_TOOL_DESCRIPTION.includes(LIQ_UPPER_BOUND_SENTENCE), "the served tools/list description carries the class clause");
 });
 

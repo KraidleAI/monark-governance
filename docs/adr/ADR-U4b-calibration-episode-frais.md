@@ -23,8 +23,8 @@
 |---|---|---|---|---|
 | score-code gelé | `u4b-scores`/`u4b-reduce`/`record-u4b-calib` (sha D4) | `U4b-scores-e2.jsonl` → (à -2) `calibration.ts` | **-1a `upcoming`** (consommé par un test seul, C-V-5) | `u4b_scores_on_e2`, `u4b_registry_recomputes_from_scores_jsonl`, `_anchor_is_required_and_positive`, `_runner_and_generator_paths_are_required` |
 | épisode frais | `u4b-discover.mjs` (P-EPI, budget gardé) | book/D_e/labels frais | -1b (après POOL-RPC-1a, GARDE-HELIUS-2, prereg) | `u4b_episode_selection_is_deterministic` |
-| région servie | `calibration.ts` K entrées classe A + `strateOf` serveur | outil MCP `gate` → `GateDecision` | `built` **ssi** test servi vert (-2) | `u4b_gate_serves_region_from_real_artifact` |
-| cascade retrait | 8 fichiers gatés + `fleet.ts` (site, décision 101) | classe synthétique disparue | -2 | `no_cascade_class_in_harness` |
+| région servie (borne haute `[0, ŷ+q̂_k]`, décision 126) | `calibration.ts` K entrées classe A (registre VIDE en -2a, FRAIS en -2b) + `strateOf` serveur (`ukemi-strata.ts`) | outil MCP `gate` + `POST /gate` → `GateDecision` | `built` **ssi** test servi vert sur registre FRAIS (**-2b**) ; en -2a : servie, `under_calib` partout | `u4b_gate_serves_region_from_real_artifact` (-2a, abstention) puis 2b-4 (borne) |
+| cascade retrait | remplacement 4→4 par le producteur de ŷ `ukemi-predict` (décision 123 = D ; 51 à la lettre) | classe synthétique disparue, pierre tombale 410 | **U-5 / -5b** (plus -2) | `no_cascade_class_in_harness` (U-5) |
 
 ## Conséquences
 - Rien n'est `built` avant -2 ; registre public (site/README/skill) inchangé jusque-là.
@@ -264,3 +264,32 @@ La strate 0 reste large (largeur/ŷ médian ≈ ×227 sous l'unilatérale) — *
 STRATE** (ŷ médian ≈ 1 $, poussière), pas du score ; q̂₀ mesure la gravité des échecs de règle
 (F3 de l'avis), pas l'erreur de close factor. Ce n'est pas une dette : propriété mesurée,
 rapportée (clause 3), jamais un contournement.
+
+## Amendement daté 2026-09-22 (U-4b-2a — classe servie sur registre vide ; décisions 123/126)
+
+> Provenance. Rédaction : worker `claude-opus-4-8[1m]` (préfixe conforme, effort max ; Opus 5 banni),
+> 2026-09-22, base `lot/etude-suite` @ f0720ae. Insertion par l'orchestrateur `claude-fable-5-1` SEUL (R-20).
+> Aucune décision nouvelle : cet amendement fixe et trace la re-dérivation serveur de la clé + met à jour les
+> tuyaux :26-27 périmés sous 123/126. Réviseur = orchestrateur (R-21).
+
+1. Clé re-dérivée SERVEUR (déviation déclarée à ADR-M020 D1(b)). Pour la classe servie
+   `liquidation-eligible-coverage`, la clé de lookup committée est re-dérivée côté serveur
+   `UKEMI_LIQ_PREDICTOR_BASE + "/s" + strateOf(yhat)` ; le `predictor_id` PORTÉ PAR L'APPELANT est IGNORÉ
+   pour le lookup (le serveur ne fait jamais confiance à la strate/clé client — checkpoint-1 C-10). En -2a
+   `UKEMI_LIQ_PREDICTOR_BASE` est un placeholder (`ukemi:liquidation-eligible-coverage-uncommitted-until-u4b-2b`,
+   registre vide) ; -2b le re-épingle au littéral `meta.cell_a.predictor_id` de l'épisode FRAIS. Déviation
+   par rapport à ADR-M020 D1(b) : la classe (b) `liquidation-realized-given-oracle-path-24h` y nommait la clé
+   par population ; ici la classe A committée dérive la strate de ŷ, pas d'une clé client.
+
+2. Tuyaux :26-27 (périmés sous 123/126) réécrits. Ligne 27 « cascade retrait | 8 fichiers gatés + fleet.ts
+   | classe synthétique disparue | -2 | no_cascade_class_in_harness » devient « cascade retrait -> U-5/-5b
+   (le retrait bouge avec le PRODUCTEUR réel `fromRealizedBook`, décision 123) ; `no_cascade_class_in_harness`
+   à U-5 ». Ligne 26 « région servie … État -2 » devient « -2b » (après registre frais). Motif : décision 123
+   (le remplaçant de `cascade` = le producteur de ŷ, U-5) et décision 126 (score UNILATÉRAL max(Y-ŷ,0) ⇒
+   région servie = BORNE HAUTE [0, ŷ+q̂], jamais un intervalle symétrique ; le fil garde `region.kind:"interval"`).
+
+3. Score/sha D3/D4. Le re-gel du score (unilatéral, lot U-4b-SCORE-1) porte l'amendement D3/D4 avec les 8 sha
+   recomputés ; le présent amendement y RENVOIE sans les dupliquer. -2a ne lit du JSONL que yhat/strate/
+   meta.cell_a.predictor_id (invariants sous SCORE-1, delta D-6).
+```
+
