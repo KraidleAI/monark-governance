@@ -41,6 +41,7 @@ Artefacts par frontière :
 | 2026-10-1XTHH:MM:SSZ | final | n/a | `<sha256 du manifest.txt final>` | n/a | n/a | `<…>` | `final-manifest.txt.ots` |
 | 2026-09-22T14:22:42Z | mint_resume | TSLAx | `fd7564f5dda3db3059ef3efdc5f359143b29b32517c212df331b1b0a81624f25` | n/a | n/a | `f7b7bc5` | `mint_resume-TSLAx-manifest.txt.ots` |
 | 2026-09-22T14:45:45Z | mint_resume | TSLAx | `70f577a906e56801419880b88f31c38af3ca4f201014e9dfeaf6b48bdc4445e3` | n/a | n/a | `34ba979` | non horodatee (collision de nom `.ots` du 1er mint_resume ; remplacee par la ligne suivante, ANCHOR_SEQ=2) |
+| 2026-09-22T14:46:26Z | mint_resume | TSLAx | `70f577a906e56801419880b88f31c38af3ca4f201014e9dfeaf6b48bdc4445e3` | n/a | n/a | `ca05c1c` | `mint_resume-TSLAx-2-manifest.txt.ots` |
 
 - `entry_sha256` = `entry_sha256` de la dernière ligne de `ledger-<mint>.jsonl` **là où elle existe**, sinon `n/a`.
 - `ledger_sha256` = champ `ledger_sha256` de `crosscheck-<mint>.json` (à `mint_end`), sinon `n/a`.
