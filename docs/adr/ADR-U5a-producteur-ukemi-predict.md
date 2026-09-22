@@ -33,3 +33,126 @@ The tool is NOT a served endpoint in U-5a (4 tools kept). The branchement `produ
 3. **DECLARED residuals — equivalent mutants on the e2 / reduced data (checkpoint-2 G2 C-G2-1), NOT defects.** Two source edits are behaviourally EQUIVALENT on the committed data, so no test reddens them — measured, not overlooked: (a) the first-crossing boundary `hf < WAD` vs `hf <= WAD` — no e2 account has `hf(p) == 1e18` EXACTLY at a path price (H-7: `HF(anchor) == hf0`, and no crossing `hf0` equals 1e18), so the two forms agree on all 16 096 accounts; (b) `strateOf(yhat)` vs a cut shifted by +/-1 — no reduced-fixture yhat lies within +/-1 of a Mondrian cut {2000e8, 100k$, 1M$}. The boundary SEMANTICS are correct and pinned elsewhere (the frozen module's own bytes for (a); `apps/sentinel/test/ukemi-served-strateof.test.ts` boundary vectors for (b)). No trigger needed: an equivalent mutant on a fixed data set is not a coverage hole, it is declared here so a re-player does not read it as an escaped mutant.
 
 - Item 3 (complement G2-delta D-2, orchestrateur) : troisieme mutant equivalent declare — `sort-no-tiebreak` (chemin oracle pre-trie par (block, log_index), tri V8 stable ; le tiebreak du producteur est correct/defensif).
+
+## Amendment 2026-09-22 — A-9-OUTILLE: the harness served-vocabulary gate (static half + served half)
+
+> Proposed for insertion in `docs/adr/ADR-U5a-producteur-ukemi-predict.md` (the lot whose checkpoint-2 raised the
+> observation), with a one-line cross-reference in the MAST table of `docs/adr/ADR-M020-programme-ukemi.md`
+> (row "Dérive de spécification": "`gate:vocab` étendu ... (mutant : insertion ⇒ rouge)" — now tooled for the
+> harness served surface, see ADR-U5a amendment A-9-OUTILLE). Placement is the orchestrator's call.
+>
+> Provenance: worker `claude-opus-5-5[1m]` (effort max), 2026-09-22, base `b130852` (branch `lot/a9-outille`);
+> reviewer orchestrator `claude-fable-5-1` (R-21); checkpoint-1 `docs/CHECKPOINT1-lot-a9-outille.md`
+> APPROUVE-AVEC-CORRECTIONS C-1..C-8 (all folded here). Origin: formed item A-9-OUTILLE (`docs/CHANTIERS.md`,
+> checkpoint-2 U-5a observation: the V5 injection "verified 95% probability of liquidation within the interval."
+> into `UKEMI_PREDICT_LABEL` survived the suite AND `gate:vocab`, `docs/CHECKPOINT2-lot-u5a.md` l.24/52/71).
+> Investor decisions naming the piece (G-1): the SITE-RELEASE-1 ruling Q-1 (b) "no GLOBAL hardening of
+> `vocab-banned.json` now" is respected — every rule below is SCOPE-local (`scan.harness`), GLOBAL is untouched,
+> and `cascade` is not banned here (its removal stays U-5b).
+
+### Decisions
+- **D-A9-1 — four served-vocabulary rules on `scan.harness`** (`vocab-banned.json`), each carrying an
+  `exemptions` array (the marker of an A-9 rule): (1) naked `verified`; (2) `probability` outside a named
+  negation; (3) a numeric percentage `\d+(?:[.,]\d+)?\s*(?:%|per\s?cent\b)` — measured 0 hit in
+  `apps/harness/src` at `b130852`, so NO exemption; (4) `accuracy` (aligned on the `scan.site` ban). The rules
+  apply to every `apps/harness/src/**/*.ts` line, comments included (same walk as before: 220 files scanned
+  before and after). Known limit: a literal modulo `<digit> % <digit>` in harness source would redden the
+  percentage rule; none exists in scope (0 hit); a future one = an identifier/comment rewrite or an ADR line.
+  Every alternative written in rules (2) and (3) is carried by its own probe in `test/vocab-harness-a9.test.ts`
+  (`ALTERNATIVES`, test `a9_harness_exemptions_are_named_closed_and_load_bearing`: the probe is reddened by exactly
+  the owning rule, which names the whole word): the spelled percentage `per\s?cent` ("covers 99 percent of cases",
+  "90 per cent") and the plural suffix of `probabilit\w*` ("the calibrated probabilities"); mutants
+  `percent-spelled-dropped` and `probability-suffix-narrowed` are red by that test (G2 C-G2-1/C-G2-2, closed by the
+  test-only micro-pli). Adding an alternative to a rule = a row in `ALTERNATIVES`.
+- **D-A9-2 — exemption mechanism = (i), named lookbehinds** (the scope's existing negation-aware convention,
+  like `guarantee`/`probative`); **no `exemptPhrases` on the harness scope** (so `test/ci-gates.test.ts`
+  `vocab_adaptive_coverage_reddens` keeps asserting the ADR-M012 D8 sentence green with NO exemption, unchanged).
+  Each exemption is data next to its rule: the exact committed prefix `after` (case-insensitive, like every
+  rule), the `lookbehind` group exactly as written in `re`, the committed `carrier` file, an exact committed
+  `sample`, and its `why`. CLOSED list (8), pinned by `test/vocab-harness-a9.test.ts`:
+
+  | Rule | `after` (exact prefix) | Carrier (committed) | Why |
+  |---|---|---|---|
+  | verified | `not re-` | `apps/harness/src/tools/gate.ts` (`GATE_NON_REVERIFICATION_SENTENCE`, served in the gate tools/list description) | negation: the caller-carried attestation is NOT re-verified at call time (K-8, ADR-M017 D2(iv)) |
+  | verified | `committed Shōgen-` | `apps/harness/src/tools/attest.ts` (`ATTEST_TOOL_DESCRIPTION`) | past-tense descriptor of the ONE committed witness, checked once at capture; same sentence says the verifier is NOT executed at call time |
+  | verified | `committed, previously Shōgen-` | `apps/harness/src/tools/attest.ts` (`attestHonestyText`) | the same descriptor in the served MCP content |
+  | verified | `committed, previously ` | `fixtures/h5-e2e-trace.json` (step-6 note, recorded from `test/h5-trace-builder.ts`) | the same descriptor in the PINNED h5 trace; rewording it would re-pin `4ad9b340…` (forbidden, checkpoint-1 C-2) |
+  | probability | `never a ` | `apps/harness/src/tools/calibrate.ts` (`CALIBRATE_LABEL`, also in the gate BYO clause and `UKEMI_PREDICT_LABEL`) | the K-1 negation "never a probability of being right" (ADR-M007 D5) |
+  | probability | `not a ` | `fixtures/byo-demo-trace.json` (pinned BYO demo note; also the ADR-M012 D8 public sentence) | negation |
+  | probability | `no ` | `apps/harness/src/tools/gate.ts` (source comments) | negation; never a served phrase today |
+  | accuracy | `seed, n, ` | `apps/harness/src/calibration.ts` (`{ seed, n, accuracy, nCalib }`) | code identifier of the HIKAE S2a synthetic generator; never rendered |
+
+  The `Shōgen` lookbehinds tolerate a precomposed or decomposed macron (`Sh[oō̄]{1,2}gen`, written as JSON
+  `\u` escapes so `vocab-banned.json` gains no raw non-ASCII byte). Adding a rule or an exemption = an ADR line
+  AND the pinned table in the test.
+- **D-A9-3 — `interval` is NOT banned on the file scope** (checkpoint-1 C-1: it is the wire vocabulary of the
+  frozen contract — BYO `mode: "interval"`, `region.kind`, the schema descriptions; ADR-U4b delta D-1 scoped the
+  "never interval" rule to the liq class text). It is asserted ABSENT from every SERVED honesty carrier (MCP
+  content text + output `label`) by `harness_served_honesty_carriers_pass_vocab` (precedent
+  `u4b_liq_class_text_says_upper_bound_never_interval`). No contextual `interval` pattern is added (the founding V5
+  phrase is already caught by the verified/percent/probability rules, measured). `confidence` is NOT re-added
+  (already banned, C-5). The MCP `instructions` surface does not exist (`server.ts:92` builds
+  `new McpServer({ name, version })`) and is not claimed (C-5).
+- **D-A9-4 — CLI** (`scripts/grep-forbidden.mjs`): each hit is printed `FORBIDDEN VOCAB: <file>:<line>:<word>  <why>`
+  (`scanText` hits gain the matched `word`; `re.lastIndex` reset, stateless for a caller `/g` pattern); exit 1 on
+  any hit (fail-closed, unchanged); `scripts/grep-forbidden.d.mts` `VocabHit.word` added.
+- **D-A9-5 — zero served byte** (checkpoint-1 C-2): the nine hits the new rules raised on committed source were all
+  in COMMENTS (schema-projection.ts, attest.ts ×2, gate.ts ×2, ukemi-predict.ts ×3, calibrate.ts ×1) and were
+  reworded; the comment-stripped TypeScript emit of each touched file is byte-identical HEAD vs lot. The h5 pin
+  `4ad9b340…` (`test/h5-e2e-probe.test.ts:67`) is unchanged and `probe_harness_records_real_decision` is green
+  (the live tools/list and tools/call bytes equal the committed trace). No served sentence was rewritten; no real
+  surclaim was found (no escalation needed).
+
+### Tuyaux (ADR-M018 D3 / checkpoint-1 CA-11)
+| Tuyau | Entrée (produit par) | Sortie (consommée par) | État | Test d'intégration non-LLM |
+|---|---|---|---|---|
+| static served-vocabulary gate | every `apps/harness/src/**/*.ts` line (the constants as written: descriptions, schema descriptions, honesty sentences, refusal messages) | `npm run gate:vocab` (CI job g3, first command of `npm run ci`), exit 1 naming file:line:word | `vocab-banned.json` `scan.harness` (4 A-9 rules + 8 named exemptions) | `a9_harness_static_scope_wired_and_clean` (collectTargets wiring + steady state + scope-removal load-bearing), `a9_gate_vocab_cli_names_file_line_word` (the real CLI), `a9_harness_exemptions_are_named_closed_and_load_bearing` |
+| served tools/list gate | `HARNESS_TOOLS` rendered by the SDK through `createHarnessHandler()` (in-process, no socket) | `npm test` (CI g3): every string leaf of the real `tools/list` scanned; injection into each served tool description caught, naming the tool | same `scan.harness` rules | `harness_tool_descriptions_pass_vocab` (extended) |
+| served honesty carriers gate | `honestyText` / `cascadeHonestyText` / `attestHonestyText` / `calibrateHonestyText` as composed by the registry and served by a real `tools/call` (11 branch calls, delivered state) | `npm test`: served text === carrier (+ verdict summary), vocab-clean, never "interval" | same rules + the C-1 absence assertion | `harness_served_honesty_carriers_pass_vocab`; calibrate carriers extension in `calibrate_honesty_carriers_pass_the_negation_aware_vocab_gate` |
+
+### MAST (checkpoint-1 C-7)
+- **Vérification incorrecte** (the per-constant tests asserted PRESENCE only — U-5a C-1, U-4b-2a C-2): counter =
+  absence assertions on the served surface + attributed injection mutants (13, each killed by its intended test in
+  a TAP run, A-11), incl. the founding V5 replay and injections born OUTSIDE `apps/harness/src`
+  (`DEMONSTRATIVE_LABEL`) and into the COMPOSED `honestyText` output.
+- **Dérive de périmètre** (a worker "fixing" served phrases ⇒ `tools/list` bytes change ⇒ an h5 re-pin coupled to
+  U-5b): counter = served-bytes invariance, proven (comment-only edits, emitted JS identical, h5 pin green).
+
+### Items formés (déclencheur — zéro dette)
+1. **U-5b replay on `ukemi-predict`.** When `ukemi-predict` enters `HARNESS_TOOLS` (U-5b), the served tools/list
+   scan covers `UKEMI_PREDICT_TOOL_DESCRIPTION` automatically (the test iterates the real list; its first assertion
+   pins the served names to `REGISTERED_TOOL_NAMES`), and the in-test injection loop replays V5 into it. The U-5b
+   G1 must (a) show those rounds name `ukemi-predict`, and (b) add one `ukemi-predict` row to the CALLS table of
+   `harness_served_honesty_carriers_pass_vocab` (carrier = `ukemiPredictHonestyText()`). Owner: orchestrator (U-5b
+   G0/mission). Trigger: U-5b registration.
+2. **Refusal messages composed from `packages/monark` text.** `AttestToolError` (`attest.ts:53`) and
+   `UkemiPredictToolError` (`ukemi-predict.ts:180/183`) interpolate adapter messages written in
+   `packages/monark/src/adapter-{shogen,book}.ts`, which the harness A-9 rules do not scan (monark scope = GLOBAL +
+   its own bans). Measured today: 0 A-9 hit in those adapter messages; the attest refusal is unreachable in service
+   (no input, committed fixture) and ukemi-predict is not routed. Trigger: U-5b (ukemi-predict routed ⇒ its
+   refusals become served). Form: at U-5b, either add the A-9 rules to the monark scope for those two adapter files
+   or add the ukemi-predict refusal paths (MCP `isError` content) to the served carriers test. Owner: orchestrator.
+3. **`initialize` / `instructions`.** Not scanned because the surface does not exist (C-5). Trigger: the first
+   `instructions` field passed to `McpServer` (`server.ts:92`). Form: add the `initialize` result's string leaves
+   to the served scan in the same commit. Owner: the lot that adds it.
+- Declared boundaries (not debts): the HTTP/JSON mirror (`/openapi.json`, `/health`, the 405 hint) renders the
+  SAME registry descriptors/schemas plus literals written in `apps/harness/src/{http,openapi}.ts`, which the static
+  half scans; SDK-generated validation messages are not MONARK text. A standalone `node scripts/grep-forbidden.mjs`
+  stays exit 0 if `scan.harness` is deleted (measured under mutant `scope-harness-removed-config`); the pipeline is
+  fail-closed because `npm run ci` runs `npm test`, where `a9_harness_static_scope_wired_and_clean` reddens
+  (precedent: `vocab_sentinel_scope_scans_src_test_deploy`).
+
+### Fusion
+Admissible BEFORE U-5b under the checkpoint-1 conditions, all measured: no file under `apps/bell/**`, zero served
+byte (D-A9-5), `ukemi-predict` registration untouched (three COMMENT lines of `ukemi-predict.ts` only), item 1
+formed. Expected textual overlap with U-5b: comment lines of `ukemi-predict.ts` (20, 55-56, 205) and `gate.ts`
+(161-162, 174) — trivial. Decision: orchestrator.
+
+### Addendum d'insertion (orchestrateur `claude-fable-5-1`, G7 A-9-OUTILLE, 2026-09-22)
+- Chaîne de revue : checkpoint-1 APPROUVE-AVEC-CORRECTIONS C-1..C-8 (`docs/CHECKPOINT1-lot-a9-outille.md`) ; G1 `649db8b` (`docs/G1-lot-a9-outille.md`) ; G2 PASS-AVEC-CORRECTIONS (`docs/G2-lot-a9-outille.md`, relecteur `claude-opus-5-5[1m]`) ; checkpoint-2 ACCEPTE-AVEC-CORRECTIONS (`docs/CHECKPOINT2-lot-a9-outille.md`) ; micro-pli test-only C-G2-1/C-G2-2 (pointe `4ff171e`) : sondes `"covers 99 percent of cases"`, `"90 per cent"`, `"the calibrated probabilities"` ROUGES + mutants `percent-spelled-dropped`, `probability-suffix-narrowed` tués par leur test nommé (15 mutants au total).
+- **Précision D-A9-1** : le walk du scope harness = **15** fichiers `.ts` (`apps/harness/src/**`), base = lot ; « 220 » est le total CLI tous scopes.
+- **Limite déclarée D-A9-1 (checkpoint-2 C-V-2)** : `probabilistic` échappe au motif `probabilit\w*` (pas un trou V5 : « probabilistic guarantee » tombe sur `guarantee`) ; frontière écrite, pas une règle nouvelle.
+- **Frontière déclarée (G2 C-G2-3, forme (b))** : le scan servi de `tools/call` couvre `content[0].text` et `structuredContent.label` ; les autres feuilles de `structuredContent` (échos de l'appelant `tool`/`verdict.task_class`/`verdict.produced_at`, énumérations du contrat gelé `action`/`reason`/`verdict.method`/`verdict.region.kind`, identifiants/empreintes/jetons fermés nés de fixtures, ex. `attest` `price.residual[]`) ne sont PAS scannées A-9 (100 feuilles mesurées, 0 hit ; compensation = épingle h5 sur le chemin de démo). Déclencheur : premier champ de prose rédigé par MONARK hors `label` ⇒ liste FERMÉE de feuilles scannées + mutant d'injection (jamais un scan de toutes les feuilles : il mêlerait les échos de l'appelant).
+- **Item formé IF-1 (G2)** : la 4ᵉ exemption `verified` (`committed, previously `) n'a pour porteur qu'une note écrite par un test (`test/h5-trace-builder.ts:253`, trace h5 épinglée), mais s'applique à toute constante servie. Au prochain re-pin h5 (HARNESS-DESC-1, sinon U-5b) : reformuler la note en « previously Shōgen-verified » (3ᵉ exemption) et retirer la 4ᵉ (ligne ADR + table `CLOSED` du test ⇒ 7 exemptions). Propriétaire : orchestrateur.
+- **Items formés reportés** : 1 (rejeu `ukemi-predict`, U-5b), 2 (refus composés `packages/monark`, U-5b), 3 (`initialize`/`instructions`) — inchangés ; l'item CHANTIERS « A-9-OUTILLE » d'origine est remplacé par l'item 1.
+- **Ordre de fusion** : A-9 AVANT HARNESS-DESC-1 (le gate précède ce qu'il gate ; chevauchement de commentaires `gate.ts` trivial pour le second fusionné) ; U-4b-STATS-1 consomme `scanText` (champ `word` additif).

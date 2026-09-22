@@ -53,7 +53,7 @@ Ordre : U-1 ∥ U-3 (fan-out justifié par **isolation** : U-1 = code recorder +
 ## Modes d'échec MAST (checklist de risque résiduel, revue de sprint)
 | Mode | Où il menace | Contre-mesure |
 |---|---|---|
-| Dérive de spécification | vocabulaire « cascade », « Λ = 0 », « garantie » réapparaissant dans le code/texte | D2 + `gate:vocab` étendu aux mots interdits de ce programme (mutant : insertion ⇒ rouge) |
+| Dérive de spécification | vocabulaire « cascade », « Λ = 0 », « garantie » réapparaissant dans le code/texte | D2 + `gate:vocab` étendu aux mots interdits de ce programme (mutant : insertion ⇒ rouge) — outillé pour la surface SERVIE du harness (`tools/list` + `tools/call` réels, 4 règles A-9, 8 exemptions nommées) : amendement A-9-OUTILLE 2026-09-22 dans `ADR-U5a-producteur-ukemi-predict.md` |
 | Vérification incorrecte | sha d'artefact contenant un horodatage (M-2, corrigé en M-2b) ; recette `sed` fausse du prereg | verdict haché sans horodatage ; prereg = préfixe octet-exact vérifié par `head -c` |
 | Input d'agent contredit / ignoré | worker M-2b a **amendé** l'ordre intra-bloc supposé par l'advisor sur fait on-chain (bonne pratique à conserver) | tout avis advisor = conseil ; le fait mesuré prime ; consigné au G1 |
 | Terminaison prématurée | déclarer (c) « built » avant le test d'intégration U-6 ; `wiring` honnête jusque-là | CA-11 au checkpoint-2 de U-6 ; registre modifié seulement au G7 |
