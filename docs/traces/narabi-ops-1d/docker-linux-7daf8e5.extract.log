@@ -1,0 +1,22 @@
+node v24.21.0 Linux x86_64
+ok 1 - sentinel_chainstack_leg_writes_ledger_line_before_fetch — client.call write-aheads a chained ledger line (netwo
+ok 2 - sentinel_chainstack_leg_consumes_real_form_bodies — A-8 (C-3 full list): the guarded leg is fed bodies in the F
+ok 3 - sentinel_chainstack_caps_cover_the_g0_m7_stress_bound — the pinned caps NEVER refuse at the G0 M-7 borne haute 
+ok 4 - chainstack_refusal_degrades_to_keyless_quorum_not_stopped_day — a guarded REFUSAL (BudgetExceededError, a cap t
+ok 5 - sentinel_chainstack_leg_uses_20s_timeout — the guarded leg is opened with timeoutMs = KEYLESS_TIMEOUT_MS = 20 s
+ok 6 - sentinel_guard_open_error_classifier_is_a_closed_set — classifyGuardOpenError maps every open failure to the cl
+ok 7 - sentinel_chainstack_guard_ok_ledgers_publishes_origin_and_releases_lock — the REAL run.ts opens the leg, drives
+ok 8 - sentinel_guard_open_failure_degrades_to_keyless_and_publishes — with the cycle config present but the ledger PA
+ok 9 - sentinel_chainstack_floor_malformed_is_config_error — with the cycle + origin present but CHAINSTACK_CYCLE_FLOO
+ok 10 - sentinel_chainstack_origin_absent_is_unconfigured — with CHAINSTACK_CYCLE_ID present but CHAINSTACK_ETH_ORIGIN
+ok 11 - sentinel_run_re_acquires_lock_after_clean_exit — because run 1 released the cycle lock (finally), run 2 opens 
+ok 12 - sentinel_run_releases_chainstack_lock_on_sigterm — a SIGTERM (a TimeoutStartSec kill) fires run.ts's handler, 
+# tests 12
+# pass 12
+# fail 0
+# skipped 0
+✔ sentinel_run_releases_chainstack_lock_on_sigterm — a SIGTERM (a TimeoutStartSec kill) fires run.ts's handler, which runs the served unlock synchronously and exits, so the cycle lock is released 
+ℹ tests 933
+ℹ pass 857
+ℹ fail 75
+ℹ skipped 1

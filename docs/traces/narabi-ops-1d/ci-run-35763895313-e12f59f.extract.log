@@ -1,0 +1,5 @@
+2026-09-22T18:12:44.2215781Z ✔ sentinel_run_releases_chainstack_lock_on_sigterm — a SIGTERM (a TimeoutStartSec kill) fires run.ts's handler, which runs the served unlock synchronously and exits, so the cycle lock is released even on a kill. WIN32 SKIP is declared + NON-vacuous: on non-win32 (CI ubuntu-latest) the body RUNS; on win32 process.kill is a hard kill with no handler and the RUNBOOK unlock covers a SIGKILL (C-7) (429.492713ms)
+2026-09-22T18:13:39.3893883Z ℹ tests 931
+2026-09-22T18:13:39.3894290Z ℹ pass 930
+2026-09-22T18:13:39.3894485Z ℹ fail 0
+2026-09-22T18:13:39.3894900Z ℹ skipped 1
