@@ -83,7 +83,7 @@ test("u4b_scores_on_e2 — close factor at first crossing, two cells, pinned dig
 test("u4b_score_is_one_sided_exceedance — max(Y−ŷ,0): Y<ŷ ⇒ 0, Y>ŷ ⇒ Y−ŷ (decision 126; symmetric mutant RED)", () => {
   // Decision 126 re-gel: the score is the ONE-SIDED exceedance max(Y−ŷ,0), NOT the symmetric |Y−ŷ|. On e2 cell A
   // has 509 rows with Y<ŷ (must score exactly 0), 0 ties, 56 rows with Y>ŷ (score = Y−ŷ). Reverting
-  // u4b-scores.mjs:244 to the symmetric `yhat − Y` gives every Y<ŷ row a positive score ⇒ this test RED (and every
+  // u4b-scores.mjs:245 to the symmetric `yhat − Y` gives every Y<ŷ row a positive score ⇒ this test RED (and every
   // pinned cell/stratum digest RED). Non-vacuous: the 509 Y<ŷ rows are the discriminating population.
   const { book, oracle, u3 } = load();
   const rows = computeScoresU4b(book, oracle, u3).cellA.rows;

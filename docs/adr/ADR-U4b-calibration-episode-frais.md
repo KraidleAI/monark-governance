@@ -168,7 +168,7 @@ décision 121) — **hors** du présent ADR.
 > gel intact » est levée pour CE lot par la décision 126, qui EST un re-gel ; le tableau
 > AVANT/APRÈS §3 prouve que seul le sha #1 a bougé).
 
-**Licéité.** Le prereg -1b n'est PAS committé et 2b-iii n'est pas fusionné ⇒ la fenêtre est
+**Licéité.** Le prereg -1b n'est PAS committé (`docs/PLAN-u4b-prereg.md` absent, CANDIDAT seul) et aucune donnée fraîche n'a été tirée ⇒ la fenêtre est
 ouverte ; la FORME du score est fixée AVANT que la donnée fraîche existe (e2 = conception,
 C-12 ; anti « sélection sur l'issue », Barber-Candès-Ramdas-Tibshirani 2023 : la fonction de
 non-conformité S est fixée avant la calibration). Après la course -1b, ce changement serait
@@ -180,10 +180,12 @@ post-hoc.
 qui coûte — la liquidation dépasse le maximum liquidable en un appel), là où `|Y − ŷ|` mêle un
 percentile de ŷ. Validité split-conformal inchangée (couverture ≥ 1−α sous échangeabilité ;
 seule la borne SUPÉRIEURE `1−α+1/(n+1)` exigerait des résidus distincts — MONARK ne revendique
-que « ≥ 1−α »). Édition : `scripts/census/u4b/u4b-scores.mjs:244` + commentaire `:29` ;
+que « ≥ 1−α »). Édition : `scripts/census/u4b/u4b-scores.mjs:245` (ligne 244 avant l'insertion du commentaire) + commentaire `:29-30` ;
 `u4b-reduce.mjs` et `record-u4b-calib.mjs` **OCTETS INCHANGÉS** (seule leur SORTIE change).
 
 ### 2. Région servie = BORNE HAUTE `[0, ŷ + q̂_k]`, jamais un intervalle
+
+> **Champ de fil (précision checkpoint-2 C-2 / G2 C-3).** Le champ `region.kind` du contrat gelé `CoverageVerdict` reste le littéral `"interval"` (`packages/contracts/src/types.ts:207`, `schemas/coverage-verdict.schema.json`) : « borne haute / upper bound » qualifie la FORME servie (`lo = 0` par construction, `hi = ŷ + q̂_k`) et le TEXTE servi de la classe, jamais un nouveau `kind`. Aucun contrat gelé ne change (checkpoint-1 delta U-4b-2, D-1).
 La forme de la région servie : `[ŷ − q̂_k, ŷ + q̂_k]` **devient** `[0, ŷ + q̂_k]`. Texte servi :
 « upper bound », jamais « interval ». Conséquence à porter au `docs/G0-lot-u4b-2.DRAFT.md`
 (hors gel, non encore built ; non modifié par ce lot — lignes notées au G1) :
