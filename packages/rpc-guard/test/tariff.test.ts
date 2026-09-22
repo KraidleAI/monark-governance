@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { heliusCredits, HELIUS_TARIFF_VERSION, chainstackRu, CHAINSTACK_TARIFF_VERSION } from "../src/index.ts";
-import { CHAINSTACK_AGE_SENSITIVE_EVM, CHAINSTACK_ARCHIVABLE_SOLANA, CHAINSTACK_ONE_RU_EVM } from "../src/tariff.ts";
+import { CHAINSTACK_AGE_SENSITIVE_EVM, CHAINSTACK_ARCHIVABLE_SOLANA, CHAINSTACK_ONE_RU_EVM, CHAINSTACK_ONE_RU_SOLANA } from "../src/tariff.ts";
 
 test("unknown_method_fail_closed", () => {
   // the [lu] closed table (FAITS-tarification-helius-2026-09-21 + rebase-crosscheck.ts:55-56):
@@ -48,4 +48,20 @@ test("chainstack_tariff_is_conservative_and_closed", () => {
   assert.throws(() => chainstackRu("eth_totallyBogusUndocumented"), /absent from the closed RU tariff/);
   assert.throws(() => chainstackRu("getSomeUndocumentedSolana"), /absent from the closed RU tariff/);
   assert.equal(typeof CHAINSTACK_TARIFF_VERSION, "string");
+});
+
+test("chainstack_solana_getaccountinfo_is_one_ru", () => {
+  // D-5 (FAITS pt 7 "any other Solana method = 1 RU"): getAccountInfo (the Bell universe -iii-a1 method) is 1 RU on
+  // Chainstack Solana - it THREW `unknown_method` before 1b, so Bell could not route it through Chainstack at all.
+  assert.equal(chainstackRu("getAccountInfo"), 1, "getAccountInfo on Chainstack Solana = 1 RU (FAITS pt 7 tail)");
+  assert.ok(CHAINSTACK_ONE_RU_SOLANA.has("getAccountInfo"), "getAccountInfo is on the ENUMERATED 1-RU Solana set");
+  // the enumerated 1-RU Solana set is DISJOINT from both 2-RU sets (never double-priced; the guard cannot read the
+  // tip offline, so any archivable method stays 2 RU - conservative).
+  for (const m of CHAINSTACK_ONE_RU_SOLANA) {
+    assert.ok(!CHAINSTACK_ARCHIVABLE_SOLANA.has(m) && !CHAINSTACK_AGE_SENSITIVE_EVM.has(m), `${m} must be absent from the 2-RU lists`);
+    assert.equal(chainstackRu(m), 1, `${m} is a known non-archivable Solana method => 1 RU`);
+  }
+  // NOT a blanket default: an UNLISTED Solana method still fail-closes (mutant "getAccountInfo tariffed by default"
+  // = a catch-all `return 1` reds here - an unknown method would then price 1 instead of throwing, the HELIUS-1 class).
+  assert.throws(() => chainstackRu("getVoteAccountsUndocumented"), /absent from the closed RU tariff/, "an unlisted Solana method fail-closes, never a silent 1 RU default");
 });

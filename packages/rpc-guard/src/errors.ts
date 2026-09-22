@@ -27,14 +27,21 @@ export class TransportError extends Error {
   readonly detail: string;
   readonly unit: string;
   readonly data: string | undefined;
-  constructor(op: string, message: string, name: string, code: number | undefined, detail = "", unit = "keyless", data: string | undefined = undefined) {
+  // GARDE-HELIUS-1b-0 (D-9 / C-3b): the parsed Retry-After (ms) a rate-limited (429) or busy (503) response asked
+  // for, so the CALLER'S retry (never the transport, which makes ONE attempt) can honor the server's backoff. It is
+  // set at the transport from the header (parseRetryAfterMs) and is `undefined` for a fatal status (403) or a status
+  // that carries no header. The caller keys retry on `.code` + `.retryAfterMs`; a followed redirect / retried 403 is
+  // impossible because a 3xx surfaces as name "RedirectBlocked" and a 403 carries no Retry-After.
+  readonly retryAfterMs: number | undefined;
+  constructor(op: string, message: string, name: string, code: number | undefined, detail = "", unit = "keyless", data: string | undefined = undefined, retryAfterMs: number | undefined = undefined) {
     super(message);
-    this.name = name; // "AbortError" | "TypeError" | "HttpError" | "NonJsonBody" | "RpcError" | ...
+    this.name = name; // "AbortError" | "TypeError" | "HttpError" | "RedirectBlocked" | "NonJsonBody" | "RpcError" | ...
     this.op = op;
     this.code = code;
     this.detail = detail;
     this.unit = unit;
     this.data = data;
+    this.retryAfterMs = retryAfterMs;
   }
 }
 

@@ -462,3 +462,107 @@ data`** livré ici ; **`migration du recorder + grep`** = item formé (ci-dessou
   vivent VERBATIM dans l'amendement 2b-ii ci-dessus (commit `53ab0fb`) : ils fusionnent au meme G7 que -a, la condition C-R-a1 est satisfaite.
   **C-R-b6 (rappel, declencheur 1b-0)** : le test `cycle_ledger_mixes_legacy_and_network_lines` de la clause 121 part d'un ledger PRODUIT par
   `runRecorder` (code 2b-ii reel), pas d'une ligne "legacy" fabriquee a la main.
+
+## Amendement GARDE-HELIUS-1b-0 - le PAQUET pour que Bell consomme `openGuardedClient` (date 2026-09-22, worker `claude-opus-4-8[1m]`)
+
+- **Provenance** : worker G1 `claude-opus-4-8[1m]` (prefixe `claude-opus-4-8` conforme, effort max ; Opus 5 banni), 2026-09-22,
+  worktree `lot/garde-helius-1b-0` (base `5394dfe` = 2b-ii fusionne) ; reviseur = orchestrateur (R-21, verification adversariale
+  avant consommation). Aucun reseau (fetch bouchonne, cles factices, hotes `.invalid`), aucun secret lu ni affiche (A-7 : tout
+  oracle sous `env -u HELIUS_API_KEY -u CHAINSTACK_*_URL -u POLYGON_API_KEY -u DATABENTO_API_KEY`), aucun commit (R-20). Perimetre :
+  `packages/rpc-guard/**` + l'INVERSION declaree d'UN test de caracterisation `apps/sentinel/test/` (couplage cross-lot, ci-dessous) ;
+  `apps/**` sinon byte-identique a `5394dfe`, `scripts/**` intact, gel U-4b (7 sha + `u3-realized.mjs`) intact.
+
+### 1b0-A - Mode GET keyless `xstocks-issuer` (C-7, option beta ; ruling R-7)
+Le transport gagne des operateurs `kind:"http-get"` (ensemble `getOps`) : convention `method="GET"`, `params=[pathAndQuery]`, une
+seule cle de cap `xstocks-issuer|GET`. `assertHostAllowed` est STRUCTUREL dans le transport (`resolveGetUrl`) : le label ne resout
+QU'UN hote admis (`api.xstocks.fi`, calque `universe.ts:36` ISSUER_HOST, PLI/CONF-SRC-4) ; l'URL de requete = `new URL(pathAndQuery,
+base)` dont le host DOIT egaler l'hote admis (une `//evil` protocol-relative ou une `https://evil` absolue => host different =>
+throw ; https seul ; pas de userinfo). Keyless (cout 0, compte). Test `xstocks_issuer_get_uses_get_and_structural_host` ; mutant
+"controle d'hote structurel retire" ROUGE. L'allowlist d'hotes de `universe.ts` se reduit a un test de LABEL au 1b-i.
+
+### 1b0-B - Clause `network` "par compte" (decision 121, C-5) - SPEC ECRITE ICI
+121 confie la clause au G1 du sous-lot qui construit le ledger Chainstack ; 1b-0 touchant `ledger.ts`/`transport.ts`, la spec est
+ECRITE ici et 1b-i/2b-ii la CITENT. (a) `opts.network: "ethereum-mainnet" | "solana-mainnet"` est un parametre de COURSE de
+`openGuardedClient` ; le transport resout `chainstack` vers `CHAINSTACK_<reseau>_URL` : `solana-mainnet` => `CHAINSTACK_SOLANA_URL`,
+sinon `CHAINSTACK_ETH_URL`. **Compatibilite byte-identique (au lieu du ripple d'edition du recorder)** : `opts.network` ABSENT =>
+defaut `ethereum-mainnet` = le comportement pre-121 exact ; le recorder 2b-ii (qui ne passe PAS `opts.network`) resout
+`CHAINSTACK_ETH_URL` et n'ecrit AUCUN champ `network` => `apps/sentinel/src/record.ts` reste byte-identique (pas d'edition apps/**,
+conforme a l'invariant de perimetre 1b-0). RESIDU DECLARE : une course SOLANA doit passer `opts.network:"solana-mainnet"`
+EXPLICITEMENT (sinon `CHAINSTACK_SOLANA_URL` absent => `chainstack` non resolu => throw dans `openGuardedClient` AVANT tout verrou) -
+obligation portee et testee au 1b-i ; le defaut ETH silencieux n'existe QUE pour preserver la byte-identite du recorder. (b) La ligne
+ledger porte `network` en champ SUPPLEMENTAIRE du core, APRES `credits_derived`, AVANT `reason`, OMIS sur toute ligne
+helius/keyless et sur une ligne chainstack pre-121 (sans `opts.network`) ; `verifyCycleLedger` recompute sur les champs PRESENTS,
+donc une ligne legacy (sans `network`) et une ligne 121 (avec `network`) se chainent et se verifient dans le MEME ledger. Test
+`cycle_ledger_mixes_legacy_and_network_lines` : la ligne LEGACY est PRODUITE par la vraie pile `openGuardedClient -> makeClient ->
+commit -> appendChained` (network absent), pas fabriquee a la main - la MEME pile que le recorder 2b-ii (C-R-b6 satisfait ; le
+recorder emballe `openGuardedClient` sans `opts.network`). (c) `reconcile` inchange : la borne dure est sur le TOTAL du compte (16 M RU,
+121), `network` est informatif. (d) CONSEQUENCE DE VERROU DECLAREE : Bell (Solana) et Ukemi (ETH) partagent `chainstack.lock` (un
+operateur `chainstack` unique => un seul `<cycle>/chainstack.lock`) => pas deux courses Chainstack simultanees (fail-closed voulu ;
+runbook : `unlock` de l'autre course d'abord). Test `chainstack_one_account_cap_across_networks` (course ETH puis course Solana sur le
+meme `<cycle>/` => le 2e prior fige inclut le 1er : un cap 16 M par compte) ; mutants "ledger chainstack scinde par reseau (cap
+propre)" et "prior filtre par reseau (floor par reseau)" ROUGES.
+
+### 1b0-C - Semantiques durcies portees dans le transport (D-9, ruling R-7)
+Le transport 2b faisait un `fetch` POST-only SANS `redirect` (defaut `follow`) et NE LISAIT PAS `retry-after` : migrer le `fetch` dans
+le transport sans ces semantiques serait une regression SILENCIEUSE (les tests `deps`-injectes d'a1-bis restent verts pendant que le
+chemin live perd la protection). 1b-0 porte, avec un test + un mutant PAR semantique : (i) `redirect:"manual"` sur GET et POST => un
+3xx est un HARD STOP type `name:"RedirectBlocked"` + statut, jamais suivi, corps jamais lu ni transmis a l'hote redirige
+(`transport_3xx_is_hard_stop_never_followed` ; mutant "redirect suivi" ROUGE) ; (ii) `retryAfterMs` (parse delta-secondes ou HTTP-date,
+borne 60 s) sur `TransportError` pour un 429/503, que l'APPELANT honore - le transport ne reessaie jamais (une tentative,
+`transport_error_carries_retry_after_ms` ; mutant "en-tete non lu" ROUGE) ; (iii) un 403 conserve `code:403` SANS `retryAfterMs`
+(fatal, jamais rate-limite) : la composition 1b-i (`withUniverseRetry`) mappe `code:403 -> Fatal403Error` (sous-classe de
+`BudgetExceededError`) et ne reessaie JAMAIS (`transport_403_is_fatal_hard_stop` cote paquet ; mutant "403 avec retry-after par defaut
+(retryable)" ROUGE ; le hard-stop de composition reste teste au 1b-i, `universe.ts:122`).
+
+### 1b0-D - Recuperation du verrou crash-in-window (item i ; RESOUT la RESERVE C-G-5/E-1 ci-dessus)
+La RESERVE C-G-5/E-1 (verrou non recuperable par `unlock` apres un crash entre l'append et la reecriture du head-sidecar) est FERMEE.
+`openOperatorLedger` gagne une RECUPERATION explicite : si le head sur disque est en retard d'EXACTEMENT une entree (== le head de
+`entries.slice(0,-1)`, la penultieme), la derniere ligne a bien ete appended de facon durable (write-ahead honore) et seul le sidecar
+de tamper-evidence a pris du retard => RECUPERABLE : self-heal du sidecar, on continue. Distinct d'une TRONCATURE de queue (head en
+AVANCE, == la sha d'une entree RETIREE, jamais la penultieme du chain courant) qui reste fail-closed. La recuperation n'ELARGIT PAS le
+modele de menace C-V-8 : le sidecar ne defendait qu'un tamper PARTIEL (jsonl seul) ; un attaquant qui ecrit les DEUX fichiers gagne
+deja, et une troncature ne presente jamais la penultieme (`ledger.test.ts` C-V-8(c) tue le mutant "recuperation trop permissive").
+`runCli unlock` (qui ouvre le ledger AVANT de retirer le `.lock`) recupere donc apres un crash. Le test de caracterisation 2b-ii-c
+`ukemi_record_crash_between_append_and_head_leaves_lock_unrecoverable_by_unlock_KNOWN_DEFECT` est INVERSE (par ce lot, couplage
+cross-lot DECLARE) en test de RECUPERATION `ukemi_record_crash_between_append_and_head_is_recovered_by_unlock` (SEULE modification
+d'`apps/**`). Test paquet `ledger_recovers_crash_in_append_window_but_refuses_tail_truncation` ; mutants "recuperation retiree
+(head-behind fail-close)" [paquet ET inversion sentinel] et "recuperation trop permissive (heal toute divergence)" ROUGES.
+
+### 1b0-E - Deverrouillage PAR OPERATEUR (item ii ; ripple 1b-i)
+L'API rend DEJA le deverrouillage par operateur possible : `client.operators()` liste les labels, et le `cycles: Record<op,cycleId>`
+passe a `openGuardedClient` est detenu par l'appelant => `runCli(["unlock","--op",<op>,"--cycle",cycles[op],"--reason",r], deps)` par
+operateur. La recuperation 1b0-D rend cet `unlock` robuste apres un crash. **RIPPLE 1b-i (item forme, hors perimetre `apps/sentinel`
+de 1b-0)** : le `finally` du recorder deverrouille aujourd'hui avec la variable CLI `cycle` UNIQUE ; sous 121 il doit deverrouiller par
+`(op, cycles[op])` (le cycle propre a chaque operateur), jamais un `cycle` unique - a porter au sous-lot qui touche le recorder.
+
+### 1b0-F - Tarif, table de methodes, identite de classe, bin
+- **D-5** : `getAccountInfo` = 1 RU sur Chainstack Solana (FAITS pt 7, "any other Solana method = 1 RU"), via l'ensemble ENUMERE
+  `CHAINSTACK_ONE_RU_SOLANA` DISJOINT des deux sets 2-RU (jamais un defaut blanket qui casserait le fail-closed) ; il JETAIT
+  `unknown_method` avant 1b. Test `chainstack_solana_getaccountinfo_is_one_ru` ; mutant "blanket 1 RU (pas fail-closed)" ROUGE.
+- **C-3c / D-8** : `BELL_SOLANA_METHODS` = les 4 methodes Solana de Bell (`getSignaturesForAddress`, `getTransaction`,
+  `getAccountInfo`, `getTransactionsForAddress` - gTfA le vecteur HELIUS-1, cap le plus BAS) + `assertMethodCapsCover(caps, methods,
+  label)`, une verification a la CONSTRUCTION (une methode appelee non capee => throw avant la course, pas au 1er appel). Exportes
+  publiquement (Bell les consomme au 1b-ii). Test `bell_method_caps_table_covers_every_called_method` ; mutant "verif no-op" ROUGE.
+- **C-1** : `BudgetExceededError` canonique est DEJA exportee par le paquet (`errors.ts`, `index.ts`) ; le RE-EXPORT cote Bell
+  (`apps/bell/src/quorum.ts` fait `export { BudgetExceededError } from "@monark/rpc-guard"`) et le test
+  `universe_budget_refusal_is_not_retried` sont 1b-i (ils touchent `apps/bell`). RIEN a faire cote paquet en 1b-0 : deja canonique.
+- **`bin` (R-6)** : `packages/rpc-guard/bin/rpc-guard.mjs` (executable) cable a `runCli` (reconcile|unlock ; `--ledger-dir`/`--floor`
+  en args CLI explicites, jamais une sonde d'env). UPCOMING (le code de sortie n'a un consommateur SERVI qu'au 1b-i+ ; Branchement).
+
+### 1b0-G - Residus declares (zero dette nue)
+- **Crash au TOUT PREMIER append d'un cycle-ledger (residu de 1b0-D, item i)** : un crash entre le 1er append et sa 1re
+  ecriture de head laisse `ledger=[E1], head ABSENT` => `openOperatorLedger` fail-close (`head sidecar absent`,
+  INDISTINGUABLE d'un sidecar SUPPRIME) => `runCli unlock` ne recupere PAS ce verrou. Volontairement PAS recupere : heal
+  un head-absent admettrait une attaque supprime-head + tronque-jsonl. Fenetre etroite (1re ligne d'un cycle seul),
+  fail-closed voulu ; reparation manuelle du head au runbook. **Item forme, declencheur : observation en course**
+  (proprietaire : orchestrateur).
+- **T4 `fetch_only_inside_client` reste SKIP "until 1b"** : 1b-0 = PAQUET seul, AUCUNE migration `apps/bell/src/**` ; les 14 hits
+  restent ; le de-skip est 1b-iii (§7 du G0). Declare, non comble.
+- **C-2 voisin** : le paquet resout `solana-foundation` vers `api.mainnet.solana.com` (hote PLI admis) ; les LITTERAUX
+  `mainnet-beta` cote Bell (`rpc.ts:19` `PUBLIC_SOLANA`) restent un item 1b-ii (solde par la migration, a consigner alors).
+- **D-6 run-ledger phantom-fresh borne** : inchange (le run-ledger a1-bis subsiste, borne par `--max-calls`) ; le CYCLE-ledger
+  write-ahead est la garde inter-run - branche cote Bell au 1b-i.
+- **Databento/Polygon** : residuel payant hors garde a declencheur "G0 course cash Bell" (ruling R-1, 1b-iii) ; aucune course cash a 1b.
+- **Oracle (arbre du worktree, cles retirees)** : `npm run ci` exit 0 (773 tests / 771 pass / 0 fail / 2 skip attendus =
+  `u4_redraw` [2b-iii] + `fetch_only_inside_client` [until 1b-iii]) ; `lint` 0 ; `lint:ratchet` 69/69 ; `lang:gate` 0 ; `export:check`
+  OK ; R-25 vs `5394dfe` (pathspec `ci.yml:65`) mesure <= 1150 ; 14 mutants nommes KILLED, restauration byte-exacte (sha256).

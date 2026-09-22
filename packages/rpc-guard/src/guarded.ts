@@ -47,7 +47,10 @@ export function openGuardedClient(
     const ledgers = new Map<string, CycleLedger>();
     for (const label of Object.keys(selected)) {
       const dir = ensureCycleDir(ledgerDir, cycles[label]!); // HELIUS_LEDGER_DIR must pre-exist (C-8)
-      ledgers.set(label, openOperatorLedger(dir, label, limits.cycleFloor[label] ?? 0));
+      // 121 (C-5): the multi-network operator `chainstack` stamps `network` on its lines when the course declares one;
+      // every other operator (and a pre-121 chainstack course without opts.network) stamps none (legacy, byte-identical).
+      const network = label === "chainstack" ? opts.network : undefined;
+      ledgers.set(label, openOperatorLedger(dir, label, limits.cycleFloor[label] ?? 0, network));
     }
     return makeClient({ operators: selected, limits }, ledgers, { transport });
   } catch (e) {
