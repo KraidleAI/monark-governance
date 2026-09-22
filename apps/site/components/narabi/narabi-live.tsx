@@ -21,6 +21,7 @@ import {
   regimeWord,
   pairWord,
   isNil,
+  firstReadingLabel,
   projectedBoundDate,
   driftStatus,
   lagStatus,
@@ -121,6 +122,13 @@ export function NarabiLive({ publishSchedule }: { publishSchedule: string }) {
             narabi · sensor running · <span className="text-foreground">{data.source}</span>
           </span>
         </div>
+        {/* Status pill (ruling C-3): "built · step N of 7 before first reading" while t < SERIES_MIN_STEPS,
+            then "built · N windows published". N is read (never typed); the word "built" follows the frozen
+            register. min-w-0 + truncate is the overflow fallback for a narrow viewport. */}
+        <span className="inline-flex min-w-0 max-w-full items-center gap-2 self-start rounded-full border border-border bg-soft px-3 py-1 font-mono text-xs text-muted-foreground">
+          <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-monark-t" />
+          <span className="min-w-0 truncate text-foreground">{firstReadingLabel(state, lines)}</span>
+        </span>
         <h1 className="font-heading text-4xl font-semibold tracking-tight text-foreground">Narabi — daily</h1>
         <p className="max-w-2xl text-lg text-muted-foreground">{HERO_DEK}</p>
       </header>

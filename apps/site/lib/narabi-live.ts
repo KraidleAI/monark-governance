@@ -288,6 +288,24 @@ export function projectedBoundDate(state: NarabiState, lines: TimelineLine[]): P
   return { T, date: anchor ? addDays(anchor, T - 1) : null, assumption };
 }
 
+// The hero pill copy (ADR-M012 D4, ruling C-3). PURE and read-only. The status word is "built": it follows
+// the frozen fleet register (test/narabi-live.test.ts asserts this prefix equals FLEET_AGENTS' Narabi status,
+// ruling Q-8b), never the mockup's "shipped". Before the series is readable (t < SERIES_MIN_STEPS) the pill
+// says which step of the week we are on: N is state.tracker.t, a stepped evaluable pair — never "day N", since
+// the first published window was not evaluable (the tracker steps only on an evaluable pair). At or past the
+// horizon it says how many daily windows have been published (N = lines.length). The week length is
+// SERIES_MIN_STEPS, its SINGLE source — there is no separate WINDOW_BEFORE_FIRST_READING constant (ruling C-5).
+// Because /narabi is a client component, this label's N never reaches the built HTML (the server shell renders
+// "reading the published files…"); the non-LLM floor is this pure function plus the rendered carrier, and the
+// full DOM composition is the investor visual walk (named residual, ruling C-7).
+export function firstReadingLabel(state: NarabiState, lines: TimelineLine[]): string {
+  const t = state.tracker.t;
+  if (t < SERIES_MIN_STEPS) {
+    return `built · step ${String(t)} of ${String(SERIES_MIN_STEPS)} before first reading`;
+  }
+  return `built · ${String(lines.length)} windows published`;
+}
+
 export interface DriftStatus {
   value: number | null;
   threshold: number;

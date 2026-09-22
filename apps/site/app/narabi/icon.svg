@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="MONARK Narabi mark">
+<title>MONARK Narabi mark</title>
+<style>@media (prefers-color-scheme:dark){.ink{stroke:#E9EBF2}.acc{stroke:#E8C468}.accf{fill:#E8C468}}</style>
+<g transform="translate(-7.1,-13.82) scale(1.18)" fill="none" stroke-linecap="round">
+<path d="M11,49 L53,49" class="ink" stroke="#14151B" stroke-width="3.2" opacity="0.4"/>
+<path d="M15,47 L15,41" class="ink" stroke="#14151B" stroke-width="5.1"/>
+<path d="M24,47 L24,37" class="ink" stroke="#14151B" stroke-width="5.1"/>
+<path d="M33,47 L33,32" class="ink" stroke="#14151B" stroke-width="5.1"/>
+<path d="M42,47 L42,26" class="ink" stroke="#14151B" stroke-width="5.1"/>
+<path d="M51,47 L51,18" class="acc" stroke="#B8922E" stroke-width="5.8"/>
+<path d="M47,20 L51,15 L55,20" class="acc" stroke="#B8922E" stroke-width="4.2" stroke-linejoin="round"/>
+</g>
+<circle cx="53.08" cy="54" r="5" class="accf" fill="#B8922E"/>
+</svg>
