@@ -55,9 +55,12 @@ export function buildSelection(args: { census: SelectionCensus; preregSha: strin
 export function selectionSha(payload: Record<string, unknown>): string;
 export function runSelect(argv: readonly string[], deps?: Deps): Promise<{ out: string; rawOut: string; eventsOut: string; episodeId: string; selectionSha: string; file: Record<string, unknown> }>;
 export function runCheckVersion(argv: readonly string[], deps: Deps): Promise<{ versionOk: boolean; impl: string; block: number }>;
-/** The `--fill-ts` durable sidecar (C-2 / D-n): `phase` "partial" is a resumable checkpoint (rewritten every 50 new ts
- *  and on a graceful STOP), "complete" is the only phase runSelect --block-ts-extra accepts. `block_ts_extra_sha256` is
- *  over `block_ts_extra` only (not `phase`), keeping the C-2 sha chain byte-stable across a phase flip. */
+/** The `--fill-ts` durable sidecar (C-2 / D-BORNE-1): `phase` "partial" is a resumable checkpoint (rewritten every 50
+ *  new ts and on a graceful STOP), "complete" is the only phase runSelect --block-ts-extra accepts; `phase` is MANDATORY
+ *  (C-V-6: runSelect refuses an absent phase by name - no phase-less sidecar exists). Each write is tmp + rename. The
+ *  --fill-ts RESUME reuses the DATA of any self-sha-valid, same-discover_sha sidecar whatever its phase (rewritten on the
+ *  next flush). `block_ts_extra_sha256` is over `block_ts_extra` only (not `phase`), keeping the C-2 sha chain
+ *  byte-stable across a phase flip (R-BORNE-1: a hand-flip partial->complete is caught by the offline "no ts" refusal). */
 export interface BlockTsExtraSidecar {
   schema: string;
   phase: "partial" | "complete";

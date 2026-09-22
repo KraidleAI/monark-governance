@@ -6,7 +6,7 @@
 // CONSULTATIVE witness (computed WITHOUT e2 exclusion) and is NOT trusted here.
 //
 // OFFLINE by construction (0 network in the default `select` mode): tsOf comes from `brut.block_ts` (discover schema v2,
-// C-1). A needed block <= to_block absent from block_ts is a NAMED refusal (never a network read); a block > to_block is +Infinity (D-n) —
+// C-1). A needed block <= to_block absent from block_ts is a NAMED refusal (never a network read); a block > to_block is +Infinity (D-BORNE-1) —
 // naming exactly what u4b-discover must persist. Steps: (1) exclude every log with block in e2_window (§DISC:31); (2)
 // re-run the PURE `clusterWethLiquidations` on the e2-EXCLUDED set (the authoritative clustering); (3) eligibility
 // §DISC:42-46 (WETH ∧ B_last <= B_hi ∧ B_last < to_block else `window_truncated` ∧ distinct-liquidated >= N_min; version_ok OFFLINE ⇒
@@ -17,9 +17,10 @@
 // selection_sha256 (C-5/C-6). impl == v3.5.0 (0x97287a4f…) ⇒ version_ok:true; else false ⇒ STOP H-1 (PR-U4-3-bis),
 // unless `--version-neutral-ref <doc>` declares the diff [lu]-neutral (§DISC:56). NEVER auto-advances to a next candidate.
 // NO commit, NO workflow (R-20). Provenance: worker claude-opus-4-8[1m], effort max; reviewer = orchestrator (R-21).
+// Pli U-4b-1b-3 (checkpoint-2 C-V-1..C-V-6, G2 C-G2-1..3; 2026-09-22): worker claude-opus-5-5[1m], effort max.
 // ============================================================================================
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { createHash } from "node:crypto";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "node:fs";
+import { createHash, randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve, relative, isAbsolute, basename } from "node:path";
 import { operatorOf, BudgetExceededError, makeUkemiPool } from "../../../apps/sentinel/src/ukemi/rpc2.ts";
@@ -83,7 +84,7 @@ export async function reduceSelection({ brut, nMin, e2Window, bHi, blockTsExtra 
   if (!brut || typeof brut !== "object" || !Array.isArray(brut.records)) throw new SelectError("--discover brut.records missing or not an array (fail-closed)");
   const blockTs = brut.block_ts;
   if (!blockTs || typeof blockTs !== "object" || Array.isArray(blockTs)) throw new SelectError("--discover brut.block_ts missing — u4b-discover schema v2 required (C-1); the selector reads NO network");
-  const toBlock = Number(brut.to_block); // the RESOLVABLE bound (§DISC:44 B_hi default): no block exists past it yet (chain head)
+  const toBlock = Number(brut.to_block); // D-BORNE-1: the brut's OBSERVED bound (= B_hi = finalized - 64, prereg DISC:29), NOT the chain head
   if (!Number.isInteger(toBlock)) throw new SelectError(`--discover brut.to_block is not an integer (${String(brut.to_block)}); schema v2 required`);
   const [e2Lo, e2Hi] = e2Window;
   if (!(Number.isInteger(e2Lo) && Number.isInteger(e2Hi) && e2Lo <= e2Hi)) throw new SelectError(`--e2-window invalid [${e2Lo},${e2Hi}] (fail-closed)`);
@@ -93,9 +94,11 @@ export async function reduceSelection({ brut, nMin, e2Window, bHi, blockTsExtra 
   // tsOf from block_ts, then the OPTIONAL sidecar block_ts_extra (C-2: the e2-excluded re-clustering can probe blocks the
   // witness never read; `--fill-ts` fetches EXACTLY those into the sidecar). Still OFFLINE here: a block absent from BOTH
   // is a NAMED refusal pointing to `--fill-ts` (never a network read in the selector).
+  // D-BORNE-1: a block > to_block is +Infinity with NO read - a block_ts entry for it, if any, is IGNORED by domain
+  // choice (selection domain = [.., to_block]); the 24h window then closes at to_block (rationale: runFillTs docstring).
   const tsOf = (block) => {
-    if (block > toBlock) return Infinity; // D-n: no block past to_block (chain head), so +Infinity closes the 24h window
-    const t = blockTs[String(block)] ?? blockTsExtra[String(block)]; //     truncated at to_block WITHOUT a network read
+    if (block > toBlock) return Infinity; // D-BORNE-1 (offline): 0 read past the observed bound
+    const t = blockTs[String(block)] ?? blockTsExtra[String(block)];
     if (t === undefined || t === null) throw new SelectError(`brut has no ts for block ${block} - run \`u4b-select-episode --fill-ts\` to fetch the missing blocks into block-ts-extra.json (keyless quorum-2), then re-run with --block-ts-extra (C-2); the selector performs NO network read.`);
     return Number(t);
   };
@@ -105,7 +108,7 @@ export async function reduceSelection({ brut, nMin, e2Window, bHi, blockTsExtra 
   const residualOutsideWindow = nWethKept - sumMembers; // 0 by construction (greedy assigns every WETH record)
   const candidates = clusters.map((c) => {
     const reasons = [];
-    if (!(c.b_last <= bHi) || c.b_last >= toBlock) reasons.push("window_truncated"); // §DISC:44 (B_last <= B_hi) + D-n: the +Infinity clamp caps b_last at to_block, so a window whose 24h boundary can't be CONFIRMED within [.., to_block] (b_last == to_block) is truncated fail-closed
+    if (!(c.b_last <= bHi) || c.b_last >= toBlock) reasons.push("window_truncated"); // §DISC:44 (B_last <= B_hi) + D-BORNE-1: the +Infinity clamp caps b_last at to_block, so a window whose 24h boundary can't be CONFIRMED within [.., to_block] (b_last == to_block) is truncated fail-closed
     if (!(c.n_distinct_liquidated >= nMin)) reasons.push(`n_distinct_lt_n_min(${c.n_distinct_liquidated}<${nMin})`); // §DISC:46
     return { b_first: c.b_first, b_last: c.b_last, b0: c.b0, n_members: c.n_members, n_distinct: c.n_distinct_liquidated, addr_min: addrMinOf(c.members), eligible: reasons.length === 0, reasons };
   });
@@ -209,7 +212,9 @@ export async function runSelect(argv, _deps) {
     blockTsExtra = (sc && typeof sc.block_ts_extra === "object" && !Array.isArray(sc.block_ts_extra)) ? sc.block_ts_extra : (() => { throw new SelectError("--block-ts-extra: block_ts_extra missing/not an object (fail-closed)"); })();
     if (sha256Hex(canon(blockTsExtra)) !== sc.block_ts_extra_sha256) throw new SelectError(`--block-ts-extra: block_ts_extra_sha256 mismatch (tampered sidecar, fail-closed)`);
     if (sc.discover_sha !== recomputed) throw new SelectError(`--block-ts-extra: discover_sha ${String(sc.discover_sha)} != this brut ${recomputed} (sidecar belongs to another brut, fail-closed)`);
-    if (sc.phase !== undefined && sc.phase !== "complete") throw new SelectError(`--block-ts-extra: sidecar phase '${sc.phase}' is not 'complete' — --fill-ts was interrupted (a partial sidecar is a durable RESUME point, never a selection input); re-run --fill-ts to complete it`);
+    // C-V-6 (pli): `phase` is MANDATORY - --fill-ts always writes it and no phase-less sidecar exists - so an ABSENT phase
+    // is refused like a partial (assertBrutComplete's leniency is for legacy/synthetic phase-less BRUTS, another artifact).
+    if (sc.phase !== "complete") throw new SelectError(`--block-ts-extra: sidecar phase ${sc.phase === undefined ? "absent" : `'${String(sc.phase)}'`} is not 'complete' - --fill-ts was interrupted or the sidecar predates phase (a partial sidecar is a durable RESUME point, never a selection input); re-run --fill-ts to complete it`);
     blockTsExtraSha = sc.block_ts_extra_sha256;
   }
 
@@ -314,12 +319,20 @@ export async function runCheckVersion(argv, deps) {
  *  network-backed tsOf (block_ts first, else fetch blockAt over --operators, pocket-free) and writes a sha-linked
  *  sidecar block-ts-extra.json the offline pass then consumes via --block-ts-extra. Only globalThis.fetch touches the
  *  network (via the guarded client); the offline selector itself stays 0-fetch.
- *  D-n (2026-09-22, borne to_block): `b_hi` (default `brut.to_block`) IS the bound — a block > to_block does NOT exist yet
- *  (chain head), so tsOf returns +Infinity WITHOUT a network read (a probe past it returns `null` => "malformed block" =>
- *  quorum-fail STOP, measured on the real course, ~12k lost keyless calls x3). The 24h window then closes truncated at
- *  to_block. The sidecar is INCREMENTAL + RESUMABLE: rewritten every 50 new ts and on a graceful STOP (phase "partial"),
- *  once at the end (phase "complete"); a re-run with the same --out RESUMES from a partial (0 re-fetch); runSelect refuses
- *  a "partial" sidecar by name (§DISC:44 / ADR-U4b amendment D-n). */
+ *  D-BORNE-1 (ADR-U4b amendment 2026-09-22, lot U-4b-1b-3): tsOf returns +Infinity for every block > brut.to_block, with
+ *  NO network read. to_block is NOT the chain head: it is the discover bound B_hi = finalized - 64 (prereg DISC:29), so
+ *  blocks past it exist. The measured STOP ("malformed block", ~12k lost keyless calls x3) came from the window search
+ *  probing up to B_first+60000 (clusterWethLiquidations hiSpan) - PAST THE HEAD, where a provider returns `null`. A brut
+ *  MAY also carry ts for blocks > to_block (the discover witness records every blockAt it issues, unclamped); tsOf
+ *  IGNORES them by domain choice: the selection domain is [.., to_block]. The 24h window then closes at to_block, and
+ *  b_last == to_block is window_truncated (fail-closed). Rejected exact variant: allow the single probe to_block+1 (it
+ *  decides the one boundary case where the window ends exactly at to_block) - its existence is not guaranteed by code
+ *  (--to-block is a free discover argument), the offline pass would need its ts (absent from the real brut), and the
+ *  only case it flips changes the served episode solely when that cluster is the sole eligible one, i.e. the
+ *  pre-registered H-0 no_fresh_episode path. The sidecar is INCREMENTAL + RESUMABLE: rewritten (tmp + rename) every 50
+ *  new ts and on a graceful STOP (phase "partial"), once at the end (phase "complete"); a re-run with the same --out
+ *  RESUMES (0 re-fetch). Every refusal reading only local state runs BEFORE the guard locks the cycle (C-V-1).
+ *  runSelect refuses by name a sidecar whose phase is not "complete", an absent phase included (C-V-6). */
 export async function runFillTs(argv, deps) {
   const discoverPath = arg(argv, "--discover");
   if (!discoverPath) throw new SelectError("--discover <brut json> is required (fail-closed)");
@@ -347,20 +360,22 @@ export async function runFillTs(argv, deps) {
   const recomputed = sha256Hex(canon(brut));
   if (recomputed !== (discoverFile.provenance && discoverFile.provenance.brut_sha256)) throw new SelectError("--discover brut_sha256 mismatch (fail-closed)");
 
-  const { client } = openU4GuardedClient({ env: deps.env, ledgerDir, cycle, floor: 0, maxRu: 0, methodCaps, maxCalls, ethCallLabels: operators, getLogsLabels: operators });
-  const guarded = makeGuardedPoolCall(client, { retries: 2, backoffMs: 200, backoffCapMs: 4000 });
+  // C-V-1 (pli): EVERY refusal that reads only local state - to_block, the resume sidecar (read, parse, self-sha,
+  // discover_sha), the --out dir - runs BEFORE openU4GuardedClient locks the cycle, so no throw can land between the
+  // open and the try/finally{unlockAll}: a refused resume never leaves the cycle locked (the same cycle relaunches).
   const toBlock = Number(brut.to_block);
   if (!Number.isInteger(toBlock)) throw new SelectError(`--discover brut.to_block is not an integer (${String(brut.to_block)}); schema v2 required`);
   const minIntervalMs = arg(argv, "--min-interval-ms") !== undefined ? Number(arg(argv, "--min-interval-ms")) : 50;
-  const pool = makeUkemiPool({ call: guarded.call, ethCallProviders: operators, getLogsProviders: operators, minIntervalMs, chunk: 9990 });
   const blockTs = brut.block_ts;
   const extra = {};
   mkdirSync(outAbs, { recursive: true });
   const scPath = join(outAbs, "block-ts-extra.json");
   // RESUME (deliverable 2): a durable sidecar from a prior interrupted run (SAME discover_sha, valid self-sha) SEEDS
-  // `extra`, so the re-clustering re-fetches ONLY the blocks it still lacks. A tampered/foreign sidecar is refused BY NAME.
+  // `extra`, so the re-clustering re-fetches ONLY the blocks it still lacks. A torn/tampered/foreign sidecar is refused
+  // BY NAME (a SelectError, never a bare SyntaxError), with 0 fetch and the cycle unlocked.
   if (existsSync(scPath)) {
-    const prev = JSON.parse(readFileSync(scPath, "utf8"));
+    let prev;
+    try { prev = JSON.parse(readFileSync(scPath, "utf8")); } catch (e) { throw new SelectError(`--out block-ts-extra sidecar unreadable: ${e instanceof Error ? e.message : String(e)} (torn/corrupt; fail-closed; move it aside to restart the fill)`); }
     const prevExtra = (prev && typeof prev.block_ts_extra === "object" && !Array.isArray(prev.block_ts_extra)) ? prev.block_ts_extra : null;
     if (prevExtra === null) throw new SelectError("--out already holds a block-ts-extra.json with no block_ts_extra object (fail-closed; move it aside)");
     if (sha256Hex(canon(prevExtra)) !== prev.block_ts_extra_sha256) throw new SelectError("--out block-ts-extra.json self-sha mismatch (corrupt/tampered; fail-closed)");
@@ -370,18 +385,29 @@ export async function runFillTs(argv, deps) {
   const kept = brut.records.filter((r) => !(r.block >= e2Lo && r.block <= e2Hi)); // SAME e2-excluded set as the selector
   // INCREMENTAL durable sidecar: rewritten every N=50 NEW ts (phase "partial"), on a graceful STOP (partial), and at the
   // end (phase "complete", the only phase runSelect accepts). A "partial" is a resume point. block_ts_extra_sha256 is over
-  // `extra` (C-2 chain), NOT over `phase` (a hand-flip partial->complete is caught by the named refusal, not this sha).
+  // `extra` (C-2 chain), NOT over `phase`: a hand-flip partial->complete is caught OFFLINE by reduceSelection's named
+  // "no ts" refusal (a genuine partial lacks >= 1 needed block), or is harmless when the partial already holds every
+  // needed ts (a kill after the last fetch) - R-BORNE-1. Each write is tmp + rename in the SAME dir (calque of
+  // probe-narabi C-G2-6 / C-G2D-2): a process kill mid-write leaves the PREVIOUS sidecar whole under POSIX rename (NTFS:
+  // libuv MoveFileExW REPLACE_EXISTING, atomicity not documented by Microsoft - residual R-BORNE-2 of the ADR).
   const FLUSH_EVERY = 50;
   let sinceFlush = 0;
   const flush = (phase) => {
     const sidecar = { schema: "ukemi-u4b-block-ts-extra/1", phase, discover_sha: recomputed, n_extra: Object.keys(extra).length, block_ts_extra: extra, block_ts_extra_sha256: sha256Hex(canon(extra)) };
-    writeFileSync(scPath, JSON.stringify(sidecar, null, 2) + "\n");
+    const tmp = `${scPath}.tmp-${String(process.pid)}-${randomBytes(8).toString("hex")}`;
+    writeFileSync(tmp, JSON.stringify(sidecar, null, 2) + "\n");
+    renameSync(tmp, scPath);
     return sidecar;
   };
-  // lazy tsOf: block > to_block => +Infinity (D-n, no fetch: the malformed-block STOP fix); else block_ts -> extra -> fetch.
+  const { client } = openU4GuardedClient({ env: deps.env, ledgerDir, cycle, floor: 0, maxRu: 0, methodCaps, maxCalls, ethCallLabels: operators, getLogsLabels: operators });
+  // Between the open and the try: closure construction ONLY (makeGuardedPoolCall / makeUkemiPool have no throw path).
+  const guarded = makeGuardedPoolCall(client, { retries: 2, backoffMs: 200, backoffCapMs: 4000 });
+  const pool = makeUkemiPool({ call: guarded.call, ethCallProviders: operators, getLogsProviders: operators, minIntervalMs, chunk: 9990 });
+  // lazy tsOf: block > to_block => +Infinity with NO fetch (D-BORNE-1: never probe past the observed bound; the measured
+  // null / "malformed block" STOP came from probes up to B_first+60000, PAST THE HEAD); else block_ts -> extra -> fetch.
   // One clustering pass resolves EXACTLY the missing <= to_block blocks in order (each REAL ts fixes the binary search).
   const tsOf = async (block) => {
-    if (block > toBlock) return Infinity; // D-n: never probe past to_block (the block does not exist yet => malformed block)
+    if (block > toBlock) return Infinity; // D-BORNE-1 (fill-ts): 0 fetch past the observed bound
     const k = String(block);
     if (blockTs[k] !== undefined && blockTs[k] !== null) return Number(blockTs[k]);
     if (extra[k] !== undefined) return Number(extra[k]);
