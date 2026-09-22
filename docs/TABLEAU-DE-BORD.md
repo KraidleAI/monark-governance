@@ -35,8 +35,8 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | **-1b-ii (-a + -b fusionnés)** | FUSIONNÉ `c0027cb` (G7, 646/646, R-25 1 690 déclaré : deux unités relues) | — | — |
 | Rattrapage `run.ts` (livelock ≥ ~12 j) | À VENIR | G0/ADR, AVANT E-5 | — |
 | Sonde VPS Bell | **DÉPLOYÉE** `c0027cb`, timer actif, premier mail réel délivré (tuyaux `built`) | — | — |
-| -1c `run.ts` rattrapage borné | FUSIONNÉ `c4981d0` (G7 14:06 UTC, 710 tests 0 fail, lint 0, ratchet 69/69, R-25 474, `run.ts` sha `54619a40…`) | 3 corrections G2 non bloquantes portées par -1d ; WIRED jusqu'à E-5 | — |
-| E-5 (VPS site, pool révisé + rattrapage borné) | DÉPLOYÉ `c4981d0` 14:14 UTC (hachés conformes, `TimeoutStartUSec=5min`, dry-run vert, rollback `/root/rollback-e5-20260921/`) | **premier run réel 22/09 00:41 UTC** ⇒ ligne JOURNAL « built » (pocket listé, `max_day_ms`) + tir sonde suivant | — |
+| -1c `run.ts` rattrapage borné | FUSIONNÉ `c4981d0` (G7 14:06 UTC, 710 tests 0 fail, lint 0, ratchet 69/69, R-25 474, `run.ts` sha `54619a40…`) | **BUILT** (premier run réel 22/09 00:42 UTC : exit 0, `max_day_ms` 25 760, pocket listé) ; 3 corrections G2 non bloquantes portées par -1d | — |
+| E-5 (VPS site, pool révisé + rattrapage borné) | DÉPLOYÉ `c4981d0` 14:14 UTC (hachés conformes, `TimeoutStartUSec=5min`, dry-run vert, rollback `/root/rollback-e5-20260921/`) | **RUN RÉEL VERT 22/09 00:42 UTC** (JOURNAL) ⇒ pool L-1 + `catchup_budget` **built** ; reste : tir suivant de la sonde Bell (`healthy`, boîte vide) | — |
 | -1d migration `rpc.ts` vers le garde | APRÈS le temps 1 | résiduel accepté (décision 118) ; second redéploiement | — |
 
 ## 3. Ukemi
@@ -53,7 +53,7 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Lot | État | Étape / bloqueur | Worktree |
 |---|---|---|---|
 | CI-site | FUSIONNÉ `70212e2` | required check `g3-site` à la clôture | — |
-| POOL-RPC-1a (pool RPC Ethereum) | FUSIONNÉ `6bb2f84` (G7, 663/663, R-25 469 ; SHA nommé pour E-5) | débloque GARDE-HELIUS-2, U-4b-0, U-4b-1b | — |
+| POOL-RPC-1a (pool RPC Ethereum) | FUSIONNÉ `6bb2f84` ; **BUILT en production** (run réel E-5 22/09 : 8 endpoints dont pocket, sans llama/blast) | — | — |
 | EXPORT-CLEAN (miroir public) | FUSIONNÉ `5b110c7` (G7, 577/577, R-25 458) | item : `export:check` en CI avant la fenêtre publique | — |
 | HELIUS-1 (incident) | CAUSE PROUVÉE | scripts de brouillon hors garde (ledger reset, throw retiré) ; reste : lot GARDE-HELIUS avant toute course Bell | — |
 | CI-EXPORT-CHECK (petit lot : `export:check` fail-closed en CI, job r25) | FUSIONNÉ `3df2f73` (G7, 698 tests 0 fail, lint 0, ratchet 69/69, R-25 89) | item `export:check` en CI : CLOS | — |
@@ -79,6 +79,6 @@ Légende : FUSIONNÉ · EN COURS (étape) · PRÊT (peut démarrer) · BLOQUÉ (
 | Plus tard | mot de passe SMTP (au déploiement Narabi) ; go DNS Bell (T-1b) ; Stripe Atlas KraidleAI ; pièce Massive (2026-10-29) | à leur étape |
 
 ## 7. Agents en vol (à tenir à jour)
-En vol (00:1x UTC `date -u`, 1 agent) : **pli 2b-iii** (worktree `Monark-wt-garde2biii`, branche `lot/garde-helius-2b-iii-r` — à REBASER sur `5394dfe` avant commit ; C-R-1..4 bloquants mécaniques). Ensuite : sha -c, lint, commit, clôture mécanique (V2/V3/V12/V13 rouges avec clés retirées, sonde `compose.mjs`), G2-delta, G7 2b-iii (attendu : fail 0, skipped == 1, pont d'identité retiré, diff de cartographie), puis vacuité de la région classe A (advisor-defi) → prereg committé seul → floor lu → course. **E-5 : run réel 00:41 UTC à lire.** Décision 124 : ancrage Bell = B (OpenTimestamps aux frontières, go explicite avant le premier appel). Rotation des secrets : non retenue (rien de committé, vérifié). Décision 125 : plafond Bell 5 396 170 cr, go en deux temps. **Aucune question investisseur en attente.**
+En vol (00:1x UTC `date -u`, 1 agent) : **pli 2b-iii** (worktree `Monark-wt-garde2biii`, branche `lot/garde-helius-2b-iii-r` — à REBASER sur `5394dfe` avant commit ; C-R-1..4 bloquants mécaniques). Ensuite : sha -c, lint, commit, clôture mécanique (V2/V3/V12/V13 rouges avec clés retirées, sonde `compose.mjs`), G2-delta, G7 2b-iii (attendu : fail 0, skipped == 1, pont d'identité retiré, diff de cartographie), puis vacuité de la région classe A (advisor-defi) → prereg committé seul → floor lu → course. **E-5 : run réel VERT (JOURNAL), pool + rattrapage `built`.** Décision 124 : ancrage Bell = B (OpenTimestamps aux frontières, go explicite avant le premier appel). Rotation des secrets : non retenue (rien de committé, vérifié). Décision 125 : plafond Bell 5 396 170 cr, go en deux temps. **Aucune question investisseur en attente.**
 Règles : tout worktree de code reçoit `F:/tmp/g2-garde2bi/mk-nm.ps1` et se retire par `rm-nm.ps1` (jamais `Remove-Item -Recurse`). HORS portée (119) : course Bell + C-F-4, U-6, site, DNS, achats. Firecrawl : UUID `6fa0ba96-…` posé dans les 22 agents, effet au REDÉMARRAGE (aucun lecteur/chercheur avant).
 À faire (temps 1) : 2b-ii G2‖cp-2→G7 → 2b-iii idem → prereg committé seul → floor lu sur place → course U-4b-1b (GO 119) → U-4b-2 → U-5 → U-6 (go conditionnel pré-enregistré, 122) → U-7 → clôture (carto diff, K-1, g3-site, Linux) → site (relecture conjointe) · E-5 : run réel 22/09 00:41 UTC · Bell (temps 2, chevauché — 122) : 1b dès 2b-ii fusionné → G0 course (2 questions) → course → b2. Consigne standard G1 : `docs/CONSIGNE-STANDARD-G1.md` citée dans chaque mission.
