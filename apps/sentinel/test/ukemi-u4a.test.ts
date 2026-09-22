@@ -11,7 +11,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { makeDefaultCall, makeBudgetedCall, operatorLabel, scrubUrls, ARCHIVE_ENV_LABEL, enumerateAndCountAtRisk, applyExcludeOperators, type RpcErrorRecord } from "../src/ukemi/record.ts";
+// GARDE-HELIUS-2b-ii: makeDefaultCall / makeBudgetedCall / operatorLabel / scrubUrls / ARCHIVE_ENV_LABEL /
+// applyExcludeOperators are REMOVED from record.ts (transport + budget + key hygiene moved into @monark/rpc-guard).
+// Only enumerateAndCountAtRisk (the D-3 filter-only core) remains imported here. The budget-guard oracle below drives
+// an INLINE budgeted `call` (throws BudgetExceededError after N) - the pool-guard behaviour it pins (quorum2 /
+// finalized / getLogsVia re-throw the budget stop FIRST) is unchanged and still lives in makeUkemiPool.
+import { enumerateAndCountAtRisk } from "../src/ukemi/record.ts";
 import { makeUkemiPool, BudgetExceededError, resolveInterval, type UkemiReader, type LogEntry } from "../src/ukemi/rpc2.ts";
 import { recordBook } from "../src/ukemi/book.ts";
 import { CLUSTER_WETH } from "../src/ukemi/clusters.ts";
@@ -22,81 +27,44 @@ import type { RpcCall } from "../src/rpc.ts";
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const ROOT = join(HERE, "..", "..", ".."); // apps/sentinel/test -> repo root
 const ZERO_WORD = "0x" + "0".repeat(64);
-const jsonResp = (body: unknown, status = 200): Response => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
-async function withFetch(handler: (req: { id: number; method: string; params: unknown[] }, url: string) => Response, body: () => Promise<void>): Promise<void> {
-  const original = globalThis.fetch;
-  const stub = (input: string | URL, init?: RequestInit): Promise<Response> => {
-    const req = JSON.parse(typeof init?.body === "string" ? init.body : "{}") as { id: number; method: string; params: unknown[] };
-    return Promise.resolve(handler(req, String(input)));
-  };
-  globalThis.fetch = stub as typeof globalThis.fetch;
-  try { await body(); } finally { globalThis.fetch = original; }
-}
-
-// ── C-5: the budget stop is fatal and re-thrown FIRST — never benched into a no_quorum, split, or swallowed. The
-// budget is enforced by the REAL makeBudgetedCall; each read is a quorum over injected providers. Mutant "budget
-// swallowed" (drop the `instanceof BudgetExceededError` guard at rpc2 quorum2 or finalized) ⇒ NoQuorumError ⇒ red.
+// -- C-5: the budget stop is fatal and re-thrown FIRST - never benched into a no_quorum, split, or swallowed. Each
+// read is a quorum over injected providers; the budget is enforced by an INLINE budgeted call (the removed record.ts
+// makeBudgetedCall). Mutant "budget swallowed" (drop the `instanceof BudgetExceededError` guard at rpc2 quorum2 or
+// finalized) => NoQuorumError => red.
+// An INLINE budgeted call (calque of the removed record.ts makeBudgetedCall): throws BudgetExceededError after `max`.
+// The budget now lives in @monark/rpc-guard's client; this stub reproduces just the fail-closed shape the POOL guards
+// must re-throw FIRST - the property under test is makeUkemiPool's, not the client's.
+const budgetedCall = (max: number, inner: RpcCall): RpcCall => { let n = 0; return (u, m, p) => { if (n >= max) return Promise.reject(new BudgetExceededError("ukemi-u4a: budget")); n += 1; return inner(u, m, p); }; };
 test("u4_budget_fail_closed_not_swallowed", async () => {
   const okCall: RpcCall = () => Promise.resolve("0x2a"); // valid hex for asHex
   // eth_call: quorum needs 2 provider reads; budget 1 ⇒ the 2nd read throws budget ⇒ propagates (not no_quorum).
   {
-    const call = makeBudgetedCall(1, okCall).call;
+    const call = budgetedCall(1, okCall);
     const pool = makeUkemiPool({ call, ethCallProviders: ["https://a.example", "https://b.example"], getLogsProviders: ["https://a.example", "https://b.example"], minIntervalMs: 0 });
     await assert.rejects(() => pool.ethCall("0xto", "0xdata", 100), BudgetExceededError, "budget stop propagates from quorum2 — never benched into no_quorum");
   }
   // finalized: budget 1 ⇒ the 2nd finalized read throws budget ⇒ propagates (not swallowed by the bare catch).
   {
     const blockCall: RpcCall = () => Promise.resolve({ hash: ZERO_WORD, number: "0x64", timestamp: "0x1" });
-    const call = makeBudgetedCall(1, blockCall).call;
+    const call = budgetedCall(1, blockCall);
     const pool = makeUkemiPool({ call, ethCallProviders: ["https://a.example", "https://b.example"], getLogsProviders: ["https://a.example"], minIntervalMs: 0 });
     await assert.rejects(() => pool.finalized(), BudgetExceededError, "budget stop propagates from finalized — never swallowed");
   }
   // getLogsRange: budget 0 ⇒ the first getLogs read throws budget ⇒ propagates (not range-split to the floor).
   {
     const logsCall: RpcCall = () => Promise.resolve([]);
-    const call = makeBudgetedCall(0, logsCall).call;
+    const call = budgetedCall(0, logsCall);
     const pool = makeUkemiPool({ call, ethCallProviders: ["https://a.example"], getLogsProviders: ["https://a.example", "https://b.example"], minIntervalMs: 0 });
     await assert.rejects(() => pool.getLogsRange("0xabc", ["0xtopic"], 1, 100), BudgetExceededError, "budget stop propagates from getLogsVia — never split");
   }
 });
 
-// ── C-5 hygiene: a provider that echoes the request URL (with the api-key) in a 4xx body must NOT leak it into the
-// journal (rpc_errors[].message) or the thrown message — the pre-U4 code folded the body verbatim. scrubUrls
-// strips every http(s) URL; providerOf keeps only the bare domain. `never_prints_endpoint_url`.
-test("u4_never_prints_endpoint_url", async () => {
-  const FAKE = "https://x.chainstack.com/FAKEKEY_deadbeef";
-  const records: RpcErrorRecord[] = [];
-  await withFetch(() => jsonResp({ error: `unauthorized for ${FAKE}` }, 401), async () => {
-    const call = makeDefaultCall({ retries: 0, onRpcError: (r) => records.push(r) });
-    await assert.rejects(() => call(FAKE, "eth_call", [{ to: "0x0", data: "0x0" }]),
-      (e: unknown) => e instanceof Error && !e.message.includes("FAKEKEY") && !e.message.includes("x.chainstack.com/"));
-  });
-  const rec = records[0];
-  assert.ok(rec !== undefined, "one structured error was logged");
-  assert.equal(rec.provider, "chainstack.com", "the journal records the bare registrable domain, never the URL");
-  assert.ok(!rec.message.includes("FAKEKEY"), "the api-key never reaches the journal message");
-  assert.ok(!rec.message.includes("x.chainstack.com/"), "the endpoint URL is scrubbed from the journal message");
-  assert.ok(rec.message.includes("<url>"), "the URL is replaced by the <url> placeholder");
-  assert.ok(!JSON.stringify(records).includes("FAKEKEY"), "the serialized brut (provenance.rpc_errors) carries no key");
-  // Unit: scrubUrls leaves URL-free range-cap phrases intact (so isResultLimit/isPlanLimited still classify).
-  assert.equal(scrubUrls("ranges over 10000 blocks are not supported on free plan"), "ranges over 10000 blocks are not supported on free plan");
-  assert.equal(scrubUrls('body https://h/p?api-key=K end'), "body <url> end");
-});
-
-// ── C-5 budget accounting: total + per-OPERATOR breakdown; the env leg is counted as `archive-env`, keyless by
-// providerOf domain, so the orchestrator can confront the Chainstack dashboard.
-test("u4_budgeted_call_counts_per_operator_and_stops", async () => {
-  const inner: RpcCall = () => Promise.resolve("0x1");
-  const b = makeBudgetedCall(2, inner, "https://ethereum.core.chainstack.com/SECRET");
-  assert.equal(await b.call("https://eth.drpc.org", "eth_call", []), "0x1");
-  assert.equal(await b.call("https://ethereum.core.chainstack.com/SECRET", "eth_call", []), "0x1");
-  await assert.rejects(() => b.call("https://eth.drpc.org", "eth_call", []), BudgetExceededError, "the call past --max-calls fails closed");
-  assert.equal(b.total(), 2, "only the two admitted calls were counted");
-  assert.deepEqual(b.byOperator(), { "drpc.org": 1, [ARCHIVE_ENV_LABEL]: 1 }, "the env leg is 'archive-env'; keyless is its providerOf domain");
-  assert.equal(operatorLabel("https://ethereum.core.chainstack.com/SECRET", "https://ethereum.core.chainstack.com/SECRET"), ARCHIVE_ENV_LABEL);
-  assert.equal(operatorLabel("https://eth.drpc.org", "https://ethereum.core.chainstack.com/SECRET"), "drpc.org");
-});
+// GARDE-HELIUS-2b-ii: u4_never_prints_endpoint_url (makeDefaultCall + scrubUrls) and u4_budgeted_call_counts_per_operator_and_stops
+// (makeBudgetedCall + operatorLabel + ARCHIVE_ENV_LABEL) are RETIRED - the key-hygiene of a raised message and the
+// per-operator spend now live in @monark/rpc-guard: transport_error_never_echoes_operator_key / _drops_body_when_operator_url_unparseable
+// / _key_straddling_truncation_never_leaks (transport) and client.spent().byOperator / two_paid_operators_keep_separate_priors_and_units
+// (client). The recorder-side journal hygiene (never a raw body, by e.name) is pinned in ukemi-guard-record.test.ts.
 
 // ── C-5 resume: a HIT returns the cached bytes without touching the base (no budget spend); a MISS delegates and
 // is appended. Keys are case-insensitive on hex (a provider's format drift cannot force a re-read).
@@ -186,17 +154,11 @@ test("u4_resolve_interval_per_operator", () => {
   assert.equal(resolveInterval("drpc.org", 50, [], 200), 50, "empty slow set ⇒ minIntervalMs (mutant: slowOperators ignored ⇒ line 1 reds)");
 });
 
-// ── D-5 --exclude-operator: a MEASURED degraded operator is dropped from the pool; quorum-2 kept by survivors.
-// Excludable by providerOf domain OR by published label. Mutant "exclusion ignored" (returns the pool unchanged) ⇒ red.
-test("u4_exclude_operator_drops_degraded_keeps_quorum", () => {
-  const CHAIN = "https://x.core.chainstack.com/SECRET";
-  const eth = ["https://eth.drpc.org", "https://rpc.mevblocker.io", "https://eth-mainnet.public.blastapi.io", "https://eth-pokt.nodies.app", CHAIN];
-  const kept = applyExcludeOperators(eth, ["mevblocker.io"], CHAIN);
-  assert.ok(!kept.includes("https://rpc.mevblocker.io"), "the degraded operator is dropped (D-5)");
-  assert.equal(kept.length, 4, "the 4 survivors remain (drpc, blastapi, nodies, chainstack) — quorum-2 kept");
-  assert.equal(applyExcludeOperators(eth, ["archive-env"], CHAIN).includes(CHAIN), false, "the env leg is excludable by its published label too");
-  assert.deepEqual(applyExcludeOperators(eth, [], CHAIN), eth, "empty exclusion ⇒ pool unchanged");
-});
+// GARDE-HELIUS-2b-ii: u4_exclude_operator_drops_degraded_keeps_quorum is RETIRED - applyExcludeOperators is removed;
+// operator selection is now an EXPLICIT --operators include list (not listing an operator excludes it). The include
+// list is pinned recorder-side by ukemi_record_requires_the_six_run_inputs_and_validates_operators, and the
+// >= 2-distinct-operator (by operatorOf) fail-closed guard by ukemi_record_distinct_guard_by_operator - both in
+// ukemi-guard-record.test.ts driving runRecorder over the guard (GARDE-HELIUS-2b-ii-c C-G-2 / C-R-b3).
 
 // ── D_e (C-4/C-3) abi additions: COMPUTED selectors/topic + the e-mode decoder validated on REAL @B₀ bytes. The
 // AnswerUpdated topic0 reproduces the well-known Chainlink value via the self-tested keccak (signature proof);
