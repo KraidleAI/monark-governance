@@ -24,6 +24,9 @@ import {
   quorum2, BudgetExceededError, NoQuorumError, QuorumDisagreementError,
   type JsonRpcCall, type TransportFault,
 } from "./quorum.ts";
+// GARDE-HELIUS-1b-i (C-3/D-9): the CANONICAL typed transport fault raised by the guarded client's transport. Bell
+// keys its retry policy on it (name + code) instead of a Bell-local HttpStatusError (removed — one canonical class).
+import { TransportError } from "@monark/rpc-guard";
 import { operatorOf } from "./operators.ts";
 import { assertNoClose, canonical } from "./digest.ts";
 
@@ -37,26 +40,21 @@ export const ISSUER_HOST = "api.xstocks.fi";
 export const SOLANA_PUBLIC_HOST = "api.mainnet.solana.com";
 export const SOLANA_PUBLIC_URL = "https://api.mainnet.solana.com";
 export const CHAINSTACK_OPERATOR = "chainstack"; // the 3rd host is admitted by operator, not by raw env
+export const SOLANA_FOUNDATION_LABEL = "solana-foundation"; // the Solana Foundation public RPC (keyless, api.mainnet.solana.com)
+export const ISSUER_LABEL = "xstocks-issuer";               // the xStocks issuer public API (keyless HTTP GET witness, 1b-0 C-7)
+/** GARDE-HELIUS-1b-i (C-12): the universe course requests EXACTLY this operator SUBSET from the CLI (never probed
+ *  from env). openGuardedClient opens/locks ONLY these; the RPC quorum uses {solana-foundation, chainstack}, the
+ *  issuer GET uses {xstocks-issuer}. */
+export const UNIVERSE_OPERATORS: readonly string[] = [SOLANA_FOUNDATION_LABEL, CHAINSTACK_OPERATOR, ISSUER_LABEL];
 /** api.mainnet-beta.solana.com, publicnode and GeckoTerminal are NOT on this list (CONF-SRC-4/5). */
 export function hostOf(url: string): string { try { return new URL(url).hostname.toLowerCase(); } catch { return ""; } }
-/** Refuse (throw) BEFORE any send if the URL host is off the allowlist. Two literal public hosts; the
- *  third only when operatorOf(url)===chainstack (so CHAINSTACK_SOLANA_URL=https://evil/x is refused). No
- *  url in the message (C-10). */
-export function assertHostAllowed(url: string): void {
-  // C-G2-4 (G2 fold): require a PARSEABLE https url with a real host and NO userinfo BEFORE the allowlist
-  // branches. Before, hostOf()=="" for a non-url (a bare "chainstack") fell through to operatorOf()=="chainstack"
-  // and was ADMITTED, and an http: url was admitted too (its path key would leave in clear, and combined with a
-  // followed redirect an admitted host could be downgraded). No message interpolates `url` — it may be the
-  // Chainstack node url carrying a hex key in its path (C-10).
-  let u: URL;
-  try { u = new URL(url); } catch { throw new Error("bell/universe: request url is not parseable (refused before send)"); }
-  if (u.protocol !== "https:") throw new Error("bell/universe: request url is not https (refused before send)");
-  if (u.username !== "" || u.password !== "") throw new Error("bell/universe: request url carries userinfo (refused before send)");
-  const h = u.hostname.toLowerCase();
-  if (h === "") throw new Error("bell/universe: request url has no host (refused before send)");
-  if (h === ISSUER_HOST || h === SOLANA_PUBLIC_HOST) return;
-  if (operatorOf(url) === CHAINSTACK_OPERATOR) return;
-  throw new Error("bell/universe: request host is not on the PLI allowlist (refused before send)");
+/** GARDE-HELIUS-1b-i (C-7): the host allowlist is REDUCED to an operator-LABEL membership test. Bell no longer
+ *  parses/holds a URL — the guarded client's transport resolves each label to its private endpoint INTERNALLY and
+ *  enforces the admitted host STRUCTURALLY (resolveGetUrl for the GET witness; the POST url comes from env). This
+ *  belt refuses a call routed to a label outside the universe's fixed subset (defence-in-depth over the client's
+ *  own resolveOperators check); no URL can appear in the message (there is none). */
+export function assertHostAllowed(label: string): void {
+  if (!UNIVERSE_OPERATORS.includes(label)) throw new Error("bell/universe: operator label is not on the universe allowlist (refused before send)");
 }
 export const RPC_METHODS_ALLOWED: readonly string[] = ["getAccountInfo"]; // -iii-a1: this method only
 /** Refuse (throw BudgetExceededError, re-thrown by quorum2 => exit 1) BEFORE send on any other method. */
@@ -82,34 +80,24 @@ export function scrubSecret(s: string, ...secrets: readonly (string | undefined)
     .replace(/https?:\/\/[^\s"']*p2pify[^\s"']*/gi, "<redacted>");
 }
 
-// ---- Transport error typing + retry policy (Retry-After honored, HARD STOP on 403) ----------------
-/** A non-2xx HTTP status with the parsed Retry-After (ms) when present. Message is scrubbed ("HTTP <n>"),
- *  so statusOf() (quorum.ts) reads it and no url leaks (C-10). */
-export class HttpStatusError extends Error {
-  readonly status: number; readonly retryAfterMs: number | null;
-  constructor(status: number, retryAfterMs: number | null) {
-    super(`HTTP ${String(status)}`); this.name = "HttpStatusError"; this.status = status; this.retryAfterMs = retryAfterMs;
-  }
-}
-/** 403 hard stop (mission: stricter than fiche 05 backoff). Subclasses BudgetExceededError so quorum2
+// ---- Transport error typing + retry policy (Retry-After honored, HARD STOP on 403 / 3xx) ----------------
+// GARDE-HELIUS-1b-i (C-1/C-3/D-9): the Bell-local HttpStatusError is REMOVED (one canonical class, consigne C-1).
+// The guarded client's transport raises the PACKAGE's TransportError (name + code + retryAfterMs); withUniverseRetry
+// keys on it. Fatal403Error / RedirectBlockedError remain the Bell HARD-STOP markers — they SUBCLASS the canonical
+// BudgetExceededError (re-exported by quorum.ts) so quorum2 / the C-11 probe re-throw/swallow them by that type.
+/** 403 hard stop (mission: stricter than fiche 05 backoff). Subclasses the canonical BudgetExceededError so quorum2
  *  re-throws it immediately (never benched as a coverage fault) and the run stops fail-closed (exit 1). */
 export class Fatal403Error extends BudgetExceededError {}
-/** C-G2-3 (G2 fold): a 3xx redirect was returned on a live fetch. A redirect is NEVER followed — the allowlist
- *  guards only the INITIAL url, so a followed 3xx could reach an off-allowlist host (and, for the RPC POST, carry
- *  the request body there). Subclasses BudgetExceededError so quorum2 / withUniverseRetry re-throw it immediately
- *  (a hard stop, no retry — a redirect is deterministic; retrying is pointless) and the run stops fail-closed. */
+/** A 3xx redirect surfaced on a guarded call (transport name "RedirectBlocked"). A redirect is NEVER followed — the
+ *  structural host guard covers only the INITIAL host, so a followed 3xx could reach an off-host endpoint (and, for
+ *  the POST, carry the body there). Subclasses the canonical BudgetExceededError so quorum2 / withUniverseRetry
+ *  re-throw it immediately (a hard stop, no retry — a redirect is deterministic) and the run stops fail-closed. */
 export class RedirectBlockedError extends BudgetExceededError {}
-/** Parse a Retry-After header (delta-seconds or HTTP-date) to ms, bounded by capMs. Pure. */
-export function retryAfterMs(header: string | null | undefined, nowMs: number, capMs = 60_000): number | null {
-  if (header == null) return null;
-  const s = header.trim();
-  if (/^\d+$/.test(s)) return Math.min(Number(s) * 1000, capMs);
-  const d = Date.parse(s);
-  if (!Number.isNaN(d)) return Math.min(Math.max(0, d - nowMs), capMs);
-  return null;
-}
-/** Retry one call: honor Retry-After on 429, deterministic backoff on 5xx/timeout, HARD STOP on 403, and
- *  re-throw budget errors immediately. Injectable sleep/now so offline tests never actually wait. */
+/** Retry one call: honor Retry-After on 429, deterministic backoff on 5xx/timeout, HARD STOP on 403 and 3xx, and
+ *  re-throw budget errors immediately. GARDE-HELIUS-1b-i (C-3/D-9): the retryable signal is the PACKAGE's canonical
+ *  TransportError (openGuardedClient's transport), keyed on `.name` + `.code` (not a Bell HttpStatusError). ONLY a
+ *  transient TRANSPORT fault (Abort/network/429/>=500) is retried; a RpcError / NonJsonBody / a 4xx != 429 is
+ *  re-thrown at once (never a transient signal). Injectable sleep/now so offline tests never actually wait. */
 export async function withUniverseRetry<T>(
   fn: () => Promise<T>, deps: { readonly sleep: (ms: number) => Promise<void>; readonly now: () => number; readonly maxRetries?: number },
 ): Promise<T> {
@@ -118,28 +106,35 @@ export async function withUniverseRetry<T>(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try { return await fn(); }
     catch (e) {
-      if (e instanceof BudgetExceededError) throw e; // budget / already-fatal 403 => re-throw
-      if (e instanceof HttpStatusError && e.status === 403) throw new Fatal403Error("bell/universe: HTTP 403 hard stop (fail-closed)");
-      last = e;
-      if (attempt >= maxRetries) throw e instanceof Error ? e : new Error(String(e));
-      const ra = e instanceof HttpStatusError ? e.retryAfterMs : null;
-      await deps.sleep(ra ?? 400 * (attempt + 1));
+      if (e instanceof BudgetExceededError) throw e; // budget / already-fatal 403 / blocked redirect => re-throw
+      if (e instanceof TransportError) {
+        if (e.name === "RedirectBlocked") throw new RedirectBlockedError("bell/universe: 3xx redirect on a guarded call — hard stop (never followed, fail-closed)");
+        if (e.name === "HttpError" && e.code === 403) throw new Fatal403Error("bell/universe: HTTP 403 hard stop (fail-closed)");
+        const transient = e.name === "AbortError" || e.name === "TypeError" || e.name === "NetworkError" || (e.name === "HttpError" && e.code !== undefined && (e.code === 429 || e.code >= 500));
+        if (!transient) throw e; // RpcError / NonJsonBody / 4xx != 429 => NOT retried
+        last = e;
+        if (attempt >= maxRetries) throw e;
+        await deps.sleep(e.retryAfterMs ?? 400 * (attempt + 1)); // honour the server's Retry-After when present (C-3b)
+        continue;
+      }
+      throw e instanceof Error ? e : new Error(String(e)); // a non-TransportError is not a transient signal
     }
   }
   throw last instanceof Error ? last : new Error("retry exhausted");
 }
 
-// ---- Persistent APPELS budget (fail-closed, resume without double-count: C-G2-1, M17/M15 of -b3d-a) --
-export interface UniverseBudget { readonly call: JsonRpcCall; readonly tick: () => void; readonly calls: () => number; readonly total: () => number }
-/** Reuse makeBudgetedCall by CAP REDUCTION (B-5 authorizes importing tick()): the in-process counter runs
- *  0..(maxCalls-priorCalls) and total()=priorCalls+calls() is the M17 offset (no duplicated guard, no
- *  double-count on resume). priorCalls>=maxCalls => throws at construction (already spent). `inner` is the
- *  paced/retried low-level call. */
-export function makeUniverseBudget(maxCalls: number, priorCalls: number, mk: (cap: number, inner: JsonRpcCall) => { call: JsonRpcCall; calls: () => number; tick: () => void }, inner: JsonRpcCall): UniverseBudget {
+// ---- Persistent APPELS budget: the METER is now the guarded client (GARDE-HELIUS-1b-i) --------------
+// The in-process makeUniverseBudget/makeBudgetedCall counter is REMOVED: openGuardedClient meters + write-ahead
+// ledgers + caps every call (the cycle ledger is the inter-run money guard, D-6). The RUN ledger (budget.json +
+// chained journal) STAYS as a1-bis PROVENANCE, fed by total = priorCalls + client.spent().attempts.
+/** M17 offset, kept PURE (the metering itself is the client). The client's run cap for THIS run = maxCalls -
+ *  priorCalls (the RUN ledger's remaining attempts on a resume); a run already at/over its cap throws at
+ *  construction (never a 0-remaining course that spends). total() elsewhere = priorCalls + client.spent().attempts,
+ *  so a resume never double-counts and the M17 invariant (total = prior + this-run) holds. */
+export function universeRunCap(maxCalls: number, priorCalls: number): number {
   const remaining = maxCalls - priorCalls;
   if (!(remaining > 0)) throw new BudgetExceededError(`bell/universe: budget already spent (prior ${String(priorCalls)} >= max ${String(maxCalls)})`);
-  const b = mk(remaining, inner);
-  return { call: b.call, tick: b.tick, calls: b.calls, total: () => priorCalls + b.calls() };
+  return remaining;
 }
 export interface BudgetLedger { readonly calls: number }
 /** The COUNTER ANCHOR (budget.json {calls}) — written FIRST on every persist(). Unchanged shape. */

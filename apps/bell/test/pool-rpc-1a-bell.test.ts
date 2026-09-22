@@ -1,12 +1,15 @@
-// POOL-RPC-1a CA-9 (ADR-POOL-RPC-1, C-1) — Bell's Ethereum leg is a REAL consumer of GET_LOGS_PROVIDERS (the G0
-// source forgot it): apps/bell/src/ethereum.ts liveEthSwaps passes it to makeUkemiPool as ethCall AND getLogs
-// providers. This proves the tuyau by injection: the DEFAULT resolves GET_LOGS_PROVIDERS; an injected 2-distinct-
-// operator pool serves the TSLAon fills; and the injected {nodies,pocket} pair fails closed (inherits C-2). No net.
+// POOL-RPC-1a CA-9 (ADR-POOL-RPC-1, C-1) — Bell's Ethereum leg is a REAL consumer of the keyless getLogs providers
+// (the G0 source forgot it): apps/bell/src/ethereum.ts liveEthSwaps passes them to makeUkemiPool as ethCall AND
+// getLogs providers. This proves the tuyau by injection: the DEFAULT resolves GET_LOGS_KEYLESS_LABELS; an injected
+// 2-distinct-operator pool serves the TSLAon fills; and the injected {nodies,pocket} pair fails closed (inherits C-2).
+// GARDE-HELIUS-1b-iii D-4: the default provider set moved from the rpc2 URL list (GET_LOGS_PROVIDERS) to the package
+// LABEL list (GET_LOGS_KEYLESS_LABELS — the client resolves label->url); the injected seams use labels too. No net.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { liveEthSwaps, UNISWAP_V3_SWAP_TOPIC } from "../src/ethereum.ts";
 import { POOLS } from "../src/pools.ts";
-import { operatorOf, GET_LOGS_PROVIDERS, NoQuorumError } from "../../sentinel/src/ukemi/rpc2.ts";
+import { operatorOf, NoQuorumError } from "../../sentinel/src/ukemi/rpc2.ts";
+import { GET_LOGS_KEYLESS_LABELS } from "@monark/rpc-guard";
 import type { RpcCall } from "../../sentinel/src/rpc.ts";
 
 const POOL = POOLS.find((p) => p.chain === "ethereum")!; // TSLAon/USDC (Uniswap v3), the leg C-1 surfaced
@@ -21,12 +24,12 @@ test("bell_pool_rpc_1a_ca9_default_resolves_get_logs_providers — the Ethereum 
     if (method === "eth_getLogs") return Promise.resolve([]);
     return Promise.reject(new Error(`unexpected ${method}`));
   };
-  const fills = await liveEthSwaps(POOL, 1, 100, { call }); // no getLogsProviders ⇒ default resolution
+  const fills = await liveEthSwaps(POOL, 1, 100, { call }); // no getLogsProviders ⇒ default resolution (keyless LABELS)
   assert.equal(fills.length, 0, "an empty window yields no fills");
-  const opsSeen = new Set(seen.map(operatorOf));
+  const opsSeen = new Set(seen.map(operatorOf)); // `seen` now carries LABELS (drpc.org, ...), not urls (1b-iii)
   assert.ok(opsSeen.size >= 2, "the default pool formed a quorum of ≥ 2 distinct operators");
-  const allowed = new Set(GET_LOGS_PROVIDERS.map(operatorOf));
-  assert.ok([...opsSeen].every((op) => allowed.has(op)), "every operator hit resolves to GET_LOGS_PROVIDERS (the tuyau C-1)");
+  const allowed = new Set(GET_LOGS_KEYLESS_LABELS.map(operatorOf));
+  assert.ok([...opsSeen].every((op) => allowed.has(op)), "every operator hit resolves to GET_LOGS_KEYLESS_LABELS (the tuyau C-1, 1b-iii)");
 });
 
 // CA-9 (injection) — an injected 2-distinct-operator pool SERVES the TSLAon swap as a fill.
@@ -36,7 +39,7 @@ test("bell_pool_rpc_1a_ca9_injected_pool_serves_fills — opts.getLogsProviders 
     if (method === "eth_getBlockByNumber") return Promise.resolve({ hash: "0x" + "11".repeat(32), number: "0x1", timestamp: "0x66000000" });
     return Promise.reject(new Error(`unexpected ${method}`));
   };
-  const fills = await liveEthSwaps(POOL, 1, 100, { call: inj, getLogsProviders: ["https://eth.drpc.org", "https://rpc.mevblocker.io"] });
+  const fills = await liveEthSwaps(POOL, 1, 100, { call: inj, getLogsProviders: ["drpc.org", "mevblocker.io"] }); // labels (1b-iii)
   assert.equal(fills.length, 1, "the injected 2-operator pool served the swap as one fill");
   assert.equal(fills[0]!.signature, SWAP.transactionHash, "the fill carries the swap's tx hash (dedup key)");
 });
@@ -44,7 +47,7 @@ test("bell_pool_rpc_1a_ca9_injected_pool_serves_fills — opts.getLogsProviders 
 // CA-9 (never alone, inherits C-2) — the injected {nodies, pocket} pair = ONE operator ⇒ no quorum for Bell's leg.
 test("bell_pool_rpc_1a_ca9_nodies_pocket_pair_no_quorum — {nodies, pocket} injected = one operator ⇒ the Ethereum leg fails closed (CA-9; C-2)", async () => {
   const inj: RpcCall = (_url, method) => (method === "eth_getLogs" ? Promise.resolve([SWAP]) : Promise.reject(new Error("x")));
-  await assert.rejects(() => liveEthSwaps(POOL, 1, 100, { call: inj, getLogsProviders: ["https://eth-pokt.nodies.app", "https://eth.api.pocket.network"] }), NoQuorumError, "{nodies, pocket} = ONE operator (C-2) ⇒ no quorum, fail-closed");
+  await assert.rejects(() => liveEthSwaps(POOL, 1, 100, { call: inj, getLogsProviders: ["nodies.app", "pocket.network"] }), NoQuorumError, "{nodies, pocket} = ONE operator (C-2) ⇒ no quorum, fail-closed"); // labels (1b-iii)
 });
 
 // CA-9 (resilience, decision 102 margin — C-G2-3) — with the DEFAULT 4-operator GET_LOGS_PROVIDERS, a drpc transport

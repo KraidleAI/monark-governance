@@ -491,10 +491,13 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
     // stop) via the SERVED `unlock` (a chained `unlocked` line + lock-file removal). Only if the client was built:
     // if openGuardedClient threw, its own rollback already released any partial locks (guard, else we'd mask it). A
     // HARD crash (SIGKILL) instead leaves the locks held - fail-closed, detectable; the runbook then does N `unlock`
-    // before `reconcile` (ADR). `readSnapshot` is unused by unlock.
+    // before `reconcile` (ADR). `readSnapshot` is unused by unlock. GARDE-HELIUS-1b0-E ripple (decision 121): unlock
+    // each operator with ITS OWN cycle `cycles[op]`, NEVER the single `cycle` scalar, so a course locking >= 2
+    // operators on distinct cycle-ids releases each under its own cycle. `op` comes from client.operators() =
+    // Object.keys(cycles), so cycles[op] is always present (non-null asserted; throwing here would mask the outcome).
     if (client !== undefined) {
       for (const op of client.operators()) {
-        runCli(["unlock", "--cycle", cycle, "--op", String(op), "--reason", "ukemi/record: course end (finally, N unlock)"], { ledgerDir, floor, readSnapshot: () => { throw new Error("ukemi/record: readSnapshot is not used by unlock"); } });
+        runCli(["unlock", "--cycle", cycles[String(op)]!, "--op", String(op), "--reason", "ukemi/record: course end (finally, N unlock)"], { ledgerDir, floor, readSnapshot: () => { throw new Error("ukemi/record: readSnapshot is not used by unlock"); } });
       }
     }
   }

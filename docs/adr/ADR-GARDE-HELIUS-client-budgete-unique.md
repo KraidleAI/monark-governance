@@ -707,3 +707,263 @@ independamment de ce ripple.
   mutants nommes KILLED, restauration byte-exacte (sha256), `git status` propre. Pli du checkpoint-2 (C-1..C-9) + G2
   (F-1..F-3) : C-1/C-2 BLOQUANTES pliees (voir Tuyaux 1b-0, 1b0-A corps GET verbatim, 1b0-C 403 structurel + 3xx GET ;
   +4 tests, +7 mutants). C-3 (conflit ADR a la fusion) reste mecanique G7.
+
+## Amendement date 2026-09-22 (GARDE-HELIUS-1b-i) - Bell consomme openGuardedClient (universe) ; reconcile mixte ETH+Solana pre-declare
+
+**Modele resolu (R-1)** : `claude-opus-4-8[1m]` (prefixe conforme, effort max ; Opus 5 banni). **Provenance** : worker Opus 4.8,
+worktree `F:\Monark-wt-garde1bi`, base `lot/etude-suite` @ `6114ce9` ; reviseur = orchestrateur (R-21, verification adversariale).
+R-20 : aucun commit, aucun workflow. Cet amendement RESOUT l'item ouvert 1b0-B (quel instantane rapproche un ledger mixte) et
+corrige l'attribution 1b-i FAUSSE de 1b0-E (le ripple `finally` du recorder est 1b-iii, pas 1b-i).
+
+### 1b-i-A - Ce que 1b-i branche (Tuyaux : entree / sortie / etat / test)
+| Piece | Entree (qui produit) | Sortie (qui consomme) | Etat (ou) | Test d'integration NON-LLM |
+|---|---|---|---|---|
+| `runUniverse` garde (`apps/bell/src/universe-cli.ts`) | `openGuardedClient(deps.env, limits, --ledger-dir, cycles, {network:"solana-mainnet"})` ; sous-ensemble `{solana-foundation, chainstack, xstocks-issuer}` par `--operators` (C-12, jamais une sonde d'env) ; retry AU-DESSUS du client (D-2) | course `universe` Bell GATEE (exit code) ; artefact `universe-candidates-*.json` hors depot | CYCLE ledger `<--ledger-dir>/<cycle>/{chainstack,solana-foundation,xstocks-issuer}.{jsonl,head,lock}` (chainstack `network`=solana-mainnet, 121) ; RUN ledger `<--out>/budget.json` + journal chaine (a1-bis PROVENANCE) | `universe_spends_only_through_guard` (espion `globalThis.fetch` : chaque fetch chainstack precede de sa ligne write-ahead SUR DISQUE ; les DEUX formes de corps issuer -- `{assets:[...]}` ET tableau nu -- verbatim vers foldPage, G7 1b-0 point 5) + `universe_budget_refusal_is_not_retried` + `universe_finally_unlocks_then_reconcile_goes` |
+
+- **Identite de classe (C-1)** : `apps/bell/src/quorum.ts` fait `import { BudgetExceededError } from "@monark/rpc-guard"; export { BudgetExceededError };`
+  (importe PUIS re-exporte -- un `export {X} from "..."` nu ne LIE PAS le nom pour le `instanceof` de quorum2/withRetry). Les 8 fichiers
+  src l'important de quorum.ts suivent SANS edition ; `Fatal403Error`/`RedirectBlockedError` sous-classent la canonique. `apps/bell/package.json`
+  declare `@monark/rpc-guard` (deps-hygiene ADR-M018 D1).
+- **withUniverseRetry porte les semantiques durcies (C-3/D-9)** : cle sur la `TransportError` du paquet (`name`+`code`+`retryAfterMs`) ;
+  403 -> Fatal403Error, 3xx -> RedirectBlockedError (hard stops jamais retentes), 429/5xx retentes en honorant Retry-After, RpcError/NonJsonBody/4xx!=429
+  re-jetes. La `HttpStatusError` Bell est SUPPRIMEE (une seule classe canonique, consigne C-1). Tests `bell_universe_retry_honors_retry_after_and_hard_stops_on_403`,
+  `transport_403_is_fatal_hard_stop`.
+- **RUN ledger CONSERVE (D-6)** : `makeUniverseBudget`/`makeBudgetedCall` retires du chemin de metrage ; le client est le SEUL compteur ;
+  `total = prior.calls + client.spent().attempts` (offset M17 par `universeRunCap`, throw si deja depense) ; anchor-first + journal chaine inchanges.
+  Test M-order `bell_universe_ledger_crash_between_writes_resumes_conservatively`.
+- **`assertHostAllowed` reduit a un test de LABEL (C-7)** : Bell ne parse plus d'URL ; la resolution d'hote + le controle structurel vivent
+  dans le transport du paquet (`resolveGetUrl` pour le GET). Tests 18/19 (fetchers live / parsing URL) RETIRES avec annotation D-4 (garantie
+  portee cote paquet `transport-hardening.test.ts` + `resolveGetUrl`).
+- **grep CI `apps/bell/src/**` (1b-i le CREE)** : `apps/bell/test/bell-src-clean.test.ts` scanne les fichiers 1b-i (universe-cli.ts, universe.ts)
+  pour `fetch(`/`node:http(s)`/`undici`/`child_process`/lecture de cle payante (4 formes + evasions) ; ACTIF (le full-scope
+  `fetch_only_inside_client` reste SKIP jusqu'au 1b-iii). Test `universe_src_clean_of_fetch_and_keys`.
+
+### 1b-i-B - Reconcile d'un ledger MIXTE ETH+Solana : PRE-DECLARATION (resout l'item ouvert 1b0-B)
+Sous 121 (un operateur `chainstack` par COMPTE, un cap 16 M RU, `network`=attribut), le premier reconcile d'une course Solana leve
+l'ambiguite de 1b0-B : **l'instantane du tableau de bord rapproche est le TOTAL DU COMPTE** = somme des totaux RU PAR RESEAU PAR JOUR
+(Chainstack Statistics n'a pas de ventilation par methode, FAITS pt 10) lus a UN instant. Cote ledger, `ledgerRunSinceLastReconciled`/`ledgerTotal`
+n'ont PAS de filtre reseau (somme du compte) : coherent avec un instantane total-compte. Mode `aggregate` (soft band BLOQUE) ; la PREMIERE
+course Solana est `aggregate-calibration` (hard bound BLOQUE, sur-comptage soft CONSIGNE, exit 0). `before` = le `after` de la course
+precedente. Le verrou `chainstack.lock` PARTAGE Bell(Solana)/Ukemi(ETH) serialise les courses. Preuve NON-LLM :
+`universe_finally_unlocks_then_reconcile_goes` (run -> N unlock -> `runCli reconcile --mode aggregate-calibration --before <snap> --after <snap>` -> GO).
+
+### 1b-i-C - Residus declares (zero dette nue, chacun a declencheur nomme)
+- **Wrapper de course scalaire `bin/rpc-guard.mjs --before <total> --after <total>` -- ITEM FORME + DEMANDE DE CONSULTATION** : verifie --
+  le bin (paquet, `packages/rpc-guard/bin/rpc-guard.mjs` -> `runCli`) prend `--before <chemin> --after <chemin>` = des FICHIERS d'instantane
+  JSON (`{cycle,total_ru}`), PAS des totaux SCALAIRES ; le bin est DANS LE PAQUET (non modifiable par 1b-i). Options : (i) un flag paquet
+  `--before-total/--after-total` ; (ii) un runbook de course qui ECRIT les deux fichiers JSON puis appelle le bin (zero code) ; (iii) un script
+  Bell hors perimetre 1b-i. RECOMMANDE : (ii). Declencheur : G0 de la premiere course Solana rapprochee ; proprietaire : orchestrateur. Le
+  chemin FICHIER est deja prouve (test 1b-i-B), donc AUCUN blocage a 1b-i.
+- **429-streak STOP precis (C-3) -- REGLE au pli (declencheur G1 1b-ii echu, plie).** `statusOf` (quorum.ts) lit desormais le `.code`
+  canonique du paquet (1b-ii FUSIONNE), donc une `TransportError` 429 remonte en "HTTP 429" et le compteur `streak429` d'universe-cli.ts est
+  PRECIS (plus le "transport" pre-1b-ii). La composition 429-streak (429 en boucle + Retry-After, `--max-429-streak 2` => STOP fail-closed,
+  R+1 lignes ledger par confirmation, 0 `.lock`) est prouvee par le test non-LLM `bell_universe_429_streak_stops_fail_closed`
+  (`apps/bell/test/guard-pli-1b.test.ts`), tue par le mutant "statusOf ignore .code" et par le mutant dedie ">= -> >". Le commentaire
+  perime `universe-cli.ts` ("precis seulement apres 1b-ii") est corrige au pli. Le retry par appel (withUniverseRetry honore Retry-After,
+  borne le 429 immediat) reste actif.
+- **URL POST `http://` non verifiee cote paquet -- ITEM FORME** : le transport paquet impose https STRUCTURELLEMENT pour le GET (`resolveGetUrl`) ;
+  une `CHAINSTACK_*_URL` en `http://` atteint `fetch` POST sans controle de schema. Hors perimetre 1b-i (paquet). Declencheur : durcissement
+  transport paquet ; proprietaire : orchestrateur.
+- **RUN-anchor phantom-fresh borne (D-6)** : deplacer `--out` repart le compteur RUN a 0 (l'anchor vit par --out) ; la garde inter-run est le
+  CYCLE ledger (par --ledger-dir), inchange par un --out deplace (prouve par `universe_out_moved_on_resume_keeps_cycle_prior`). Borne par
+  `--max-calls` par run. Residu inchange depuis a1-bis/1b-0.
+- **Databento/Polygon** : residuel hors garde a declencheur "G0 course cash Bell" (1b-iii, ruling R-1) -- aucune course cash a 1b-i.
+
+### 1b-i-D - Couplages cross-lot DECLARES (fusion separee ; ordre 1b-0 -> 1b-i -> 1b-ii -> 1b-iii)
+- **quorum.ts (overlap PLANIFIE)** : 1b-i porte le re-export `BudgetExceededError` (C-1, AVANT IT-1) ; 1b-ii porte la SUPPRESSION de `SolRpcError`
+  + `statusOf`/`isSolRevert` sur `TransportError`/`RpcError` (C-3). Les deux editent quorum.ts (le G0 assigne C-1 a 1b-i, C-3 a 1b-ii). A la
+  fusion 1b-ii, integrer le re-export 1b-i.
+- **universe-cli.ts n'importe plus `makeBudgetedCall` de collect.ts** ; 1b-ii RETIRE `makeBudgetedCall` de collect.ts. 1b-i fusionne AVANT 1b-ii
+  => collect.ts garde son export jusque-la (aucun casse a la fusion 1b-i).
+- **grep test -- RECTIFIE au pli (checkpoint-2 1b-i-D).** La prediction "1b-ii/1b-iii ETENDENT `CLEANED`" N'A PAS eu lieu : sur l'arbre
+  fusionne `bell-src-clean.test.ts` garde `CLEANED = {universe-cli.ts, universe.ts}` (2 fichiers, inchange). Ce qui couvre TOUT `apps/bell/src`
+  est le grep RACINE `fetch_only_inside_client` (`test/rpc-guard-fetch-only-inside-client.test.ts`), que 1b-iii a UNIFIE en liste-de-racines et
+  DE-SKIPPE ; il SUBSUME les greps par-fichier. Trois greps Bell coexistent donc : la racine (list-of-roots, load-bearing), le per-fichier 1b-i
+  `universe_src_clean_of_fetch_and_keys` (bell-src-clean.test.ts) et le per-fichier 1b-ii `bell_1bii_src_files_clean_of_fetch_and_paid_keys`
+  (guard-collect-1bii.test.ts) -- couches etroites complementaires. **Item forme (non bloquant, la racine subsume)** : ranger les deux greps
+  par-fichier dans la racine unique. Declencheur : la prochaine passe qui EDITE un grep Bell (eviter d'entretenir trois greps). Proprietaire : orchestrateur.
+## Amendement date 2026-09-22 (GARDE-HELIUS-1b-ii) - Bell collect/crosscheck consomment openGuardedClient (versant Solana) [section INSEREE au pli checkpoint-2, C-G2-B]
+
+**Modele resolu (R-1)** : `claude-opus-4-8[1m]` (prefixe conforme, effort max ; Opus 5 banni). **Provenance** : worker G1 Opus 4.8,
+worktree `F:\Monark-wt-garde1bii`, base `lot/etude-suite` @ `6114ce9`. Texte propose au G1 1b-ii section 7.6 et INSERE par le pli du
+checkpoint-2 (C-G2-B : la section datee 1b-ii manquait de l'union ADR alors que la mission declare "ADR = union 1b-i/1b-ii/1b-iii").
+Reviseur = orchestrateur (R-21). R-20 : aucun commit.
+
+### 1b-ii-A - Ce que 1b-ii branche (Tuyaux : entree / sortie / etat / test)
+| Piece | Entree (qui produit) | Sortie (qui consomme) | Etat (ou) | Test d'integration NON-LLM |
+|---|---|---|---|---|
+| Bell `runMain` collect/crosscheck/discover/density sous `openGuardedClient` (versant Solana) | `openGuardedClient(deps.env, {maxCalls, runCaps:{helius:--max-credits, chainstack:--max-ru}, methodCaps, cycleFloor:--floor}, --ledger-dir, {op:--cycle}, {network:"solana-mainnet"})` EXPLICITE (fail-closed avant tout verrou si CHAINSTACK_SOLANA_URL absent) ; le shim `LABEL -> client.call` (metre + ligne ledger write-ahead + UNE tentative) ; retry AU-DESSUS (quorum2/withRetry, D-2) | courses collect/crosscheck/discover/density Bell GATEES (exit code ; state.json/provenance/journal hors depot) | CYCLE ledger `<--ledger-dir>/<cycle>/{helius,chainstack,solana-foundation}.{jsonl,head,lock}` ; RUN ledger `<--out>/budget.json` + `ledger-<MINT>.jsonl` (a1-bis, DERIVE du garde) | **IT-2** `collect_spends_only_through_guard` (chaque fetch helius paye precede de sa ligne write-ahead SUR DISQUE) ; **IT-3** `crosscheck_credits_derived_from_ledger` (credits = Sigma ledger, getTransaction keyless sur solana-foundation) ; reprise `bell_crosscheck_guarded_resume_without_loss_after_budget_stop` ; `solana_course_passes_network_explicit_and_fails_closed_without_solana_url` ; `bell_method_caps_missing_a_called_method_fails_closed_at_construction` ; `quorum_classifies_canonical_transport_errors` ; le D-1 `bell_course_reaches_fetch_only_via_openGuardedClient` (versant collect) |
+
+- **C-3 (vocabulaire d'erreur canonique)** : `quorum.ts` parle les erreurs canoniques du paquet ; `statusOf`/`withRetry`/`isSolRevert` lisent
+  `.code`/`.name` (jamais le message scrubbe) ; `SolRpcError` SUPPRIME (une seule classe canonique, consigne C-1). `--max-credits` -> `runCaps.helius`
+  (le worst-case x10 est REMPLACE par les credits tarifes du ledger, deplacement declare).
+- **RULING CR-2 (dual-path, ACCEPTE par l'orchestrateur 2026-09-22).** `makeBudgetedCall` (defini `collect.ts`) est CONSERVE pour la branche
+  HORS-LIGNE unite (D-1 : `deps.call` injecte -> l'ancien budget local sur le stub, NI garde NI cycle-ledger) et consomme par ~10 tests unitaires ;
+  le chemin PRODUCTION/INTEGRATION (deps.call ABSENT) construit `openGuardedClient`. La "suppression makeBudgetedCall" de la mission s'applique au
+  chemin PRODUCTION seul. `universe-cli.ts` (1b-i) ne l'importe plus. Ce n'est PAS du code mort (consommateur vivant offline, G2 note). Declencheur
+  de suppression du symbole : un nettoyage post-fusion qui porte les ~10 tests offline sur le garde. Proprietaire : orchestrateur.
+- **RULING CR-6 (dual-path, ACCEPTE).** Le RECOMPUTE LOCAL des credits (`g.gTfA*10 + g.getTx*1`) est SUPPRIME (les credits viennent du ledger,
+  `ledgerCredits()` = `client.spent().byOperator.helius`) ; le PARAMETRE `callsByMethod` est CONSERVE pour le comptage par-methode du `by_mint`
+  (provenance budget.json) et l'invariant `Sigma calls_by_method == calls_used` (test `bell_crosscheck_calls_by_method_equals_calls_used` inchange)
+  -- ce comptage n'est PAS un recompute de credits. Retrait TOTAL du parametre = item pour l'orchestrateur (declencheur : ruling "callsByMethod parametre retire").
+- **Cles cash (CR-4)** : `collect.ts` ne lit AUCUNE cle payante ; `readCashKeys(deps.env)` vit dans le module allowliste `close.ts` (1b-iii C-6).
+  Leg cash sous le garde = 1b-iii, declencheur "G0 course cash Bell".
+- **R-25 (corrige C-G2-D)** : **680** (536 ins + 144 del, 8 fichiers, base `6114ce9`, pathspec `ci.yml:65`) <= 1150. Le rendu G1 1b-ii section 3
+  annoncait 674 (ERREUR de -6 insertions) ; la valeur mesuree (G2 + message de commit) est 680.
+
+## Amendement date GARDE-HELIUS-1b-iii -- Bell close/eth + de-skip du grep + ripple recorder (2026-09-22, worker `claude-opus-4-8[1m]`)
+
+- **Provenance** : worker G1 `claude-opus-4-8[1m]` (prefixe `claude-opus-4-8` conforme, effort max ; Opus 5 banni), 2026-09-22,
+  worktree `lot/garde-helius-1biii` (base `6114ce9` = 1b-0 fusionne). Reviseur = orchestrateur (R-21, verification adversariale
+  avant consommation). Aucun reseau (fetch bouchonne, cles factices, hotes `.invalid`), aucun secret lu ni affiche (A-7 : tout
+  oracle sous `env -u HELIUS_API_KEY -u CHAINSTACK_*_URL -u POLYGON_API_KEY -u DATABENTO_API_KEY`), aucun commit (R-20). Perimetre :
+  `apps/bell/src/{ethereum,close,collect}.ts` + `apps/bell/package.json` + le ripple DECLARE d'`apps/sentinel/src/ukemi/record.ts`
+  (couplage cross-lot 1b0-E, ci-dessous) + les tests. Gel U-4b (9 sha ADR-U4b D4/section 3) byte-identique verifie AVANT/APRES.
+
+### 1biii-A -- Jambe ETH keyless BUDGETEE sous le client (D-7)
+`bellEthCall` (le `fetch` POST brut, `ethereum.ts:64`) est SUPPRIME ; `liveEthSwaps` exige un `opts.call` budgete (throw
+fail-closed sinon -- un leg non budgete rejoindrait la classe HELIUS-1) et son jeu de fournisseurs par defaut passe des URLs
+`GET_LOGS_PROVIDERS` aux LABELS `GET_LOGS_KEYLESS_LABELS` (le transport resout label->url). Nouveau `makeGuardedEthCall(client,
+opts)` : un `RpcCall` qui route `label -> client.call(LABEL, method, params)` (ligne ledger write-ahead PUIS une tentative,
+cout 0 RU keyless), retry AU SEUL appelant sur les transitoires (Abort/reseau/429/>=500 ; `BudgetExceededError` re-jete EN
+PREMIER, jamais un RpcError/4xx). R-D (2b-ii) CONSERVE structurellement : le transport construit le `RpcError` canonique
+avec op = le label nu et aucune cle ; `apps/bell` ne construit plus AUCUN `RpcError` (la ligne R-D d'`ethereum.ts:67` disparait
+avec `bellEthCall`, ses semantiques -- keyless, op = hote nu, zero fuite de cle -- restent portees par le paquet).
+
+### 1biii-B -- Cles cash deplacees dans le module allowliste (C-6)
+`readCashKeys(env)` est AJOUTE a `close.ts` (le SEUL module cash allowliste : il porte a la fois le GET payant et la lecture de
+cle) ; `collect.ts:582-583` (`env.POLYGON_API_KEY`/`env.DATABENTO_API_KEY`) sont REMPLACES par `readCashKeys(deps.env)`.
+`collect.ts` ne lit plus AUCUNE cle payante et n'est JAMAIS allowliste. Entree d'allowlist `Map<path, trigger>` :
+`apps/bell/src/close.ts` -> declencheur "G0 of the Bell cash course" (quotas/caps Databento+Polygon poses la, decision 115 / R-1).
+
+### 1biii-C -- De-skip + UNIFICATION du grep en liste de racines (E-3)
+`test/rpc-guard-fetch-only-inside-client.test.ts` gagne une LISTE DE RACINES unique (packages, apps/bell/src, ukemi+rpc.ts,
+scripts/census/u4-*.mjs) avec un `Map<path, trigger>` par racine ; le grep u4 de `test/guard-scripts-u4.test.ts` y est FOLD
+(supprime la-bas, non duplique ; item "unifier les deux tests de grep", G7 1b-0 section 5, discharge). Le test racine
+`fetch_only_inside_client` est DE-SKIPPE et itere la liste. Companions verts + tueurs de mutants (par racine, non-vacuite par
+entree + double garde) : `rpc_guard_package_src_...`, `ukemi_src_...`, `u4_scripts_clean_and_import_sources_closed`,
+`bell_cash_allowlist_load_bearing`, `ethereum_ts_clean_of_fetch_and_keys`, `collect_ts_clean_of_paid_key_reads`.
+
+### 1biii-D -- Ripple `finally` du recorder (1b0-E, ruling G7 1b-0 ; couplage cross-lot DECLARE)
+`apps/sentinel/src/ukemi/record.ts` : le `finally` deverrouille chaque operateur par `(op, cycles[String(op)])` -- son cycle
+PROPRE -- au lieu du scalaire `cycle` unique (decision 121). `op` provient de `client.operators()` = `Object.keys(cycles)`, donc
+`cycles[op]` est toujours present (asserte non-null ; un throw dans le finally masquerait l'issue de la course). Le recorder
+est byte-identique HORS de ce `finally` (prouve : sha des lignes 1-419 et de la queue main() identiques AVANT/APRES ; git diff
+= un seul hunk dans le finally). DECLARATIF : le recorder construit `cycles` depuis UN `--cycle`, donc `cycles[op] === cycle`
+aujourd'hui et le mutant `cycles[op] -> cycle` est behaviorally identique -- la killabilite exige des cycles PAR OPERATEUR au CLI
+(hors du perimetre "byte-identique hors finally"), item forme : proprietaire orchestrateur, declencheur = celui de 1b0-E (course
+recorder verrouillant >= 2 operateurs sur des cycle-ids distincts). Le test `ukemi_record_finally_unlocks_each_operator_under_
+its_own_cycle` prouve la NON-regression (chaque `unlocked` sous `<cycle>/<op>.jsonl`, aucun `.lock` restant) et est tue par le
+mutant "unlock sous un mauvais cycle" (non-vacuite).
+
+### Tuyaux 1b-iii (regle Branchement)
+| Piece | Entree (produit) | Sortie (consomme) | Etat (ou) | Test d'integration non-LLM |
+|---|---|---|---|---|
+| jambe ETH gardee (fonction `liveEthSwaps` + `makeGuardedEthCall`) | `makeGuardedEthCall(openGuardedClient(...))` sur labels keyless | LES APPELANTS de `liveEthSwaps` (la course collect `--eth`, cablee au pli C-G2-A, `collect.ts:736`) | ledger keyless `<dir>/<cycle>/<label>.jsonl` (cout 0, compte) | **IT-4** `eth_leg_budgeted_and_keyless` prouve `liveEthSwaps` EN ISOLATION (client construit a la main) ; la SORTIE servie "fill TSLAon dans state.json" est prouvee par `bell_collect_eth_leg_served_fills_state_through_guard` (pli, `runMain --eth` depuis l'argv reel, second client keyless) |
+| module cash allowliste | `readCashKeys(env)` (close.ts) | `readReferenceCloses` / la course cash Bell | -- (cle en argument, jamais en url/journal) | `collect_ts_clean_of_paid_key_reads` + `bell_cash_allowlist_load_bearing` |
+| de-skip CI unifie | liste de racines (packages/bell/ukemi/u4) | CI (rouge si un fetch/cle hors garde/allowlist) | -- | **T4** `fetch_only_inside_client` DE-SKIPPE (liste de racines) |
+| ripple recorder | `client.operators()` + `cycles[op]` | course Ukemi gardee (deverrouillage par op) | `<dir>/<cycle>/<op>.jsonl` (`unlocked`) | `ukemi_record_finally_unlocks_each_operator_under_its_own_cycle` |
+
+### Couplages cross-lot DECLARES (fusions separees ; l'orchestrateur reconcilie)
+- **`fetch_only_inside_client` est ROUGE en worktree 1b-iii DISJOINT** : les 9 hits residuels sont TOUS des fichiers 1b-i
+  (`universe-cli.ts:111/267/268/281/297/312`) et 1b-ii (`collect.ts:284`, `rpc.ts:22/44`) -- ZERO dans les fichiers de 1b-iii.
+  Il devient VERT sur l'arbre fusionne (demontre : en excluant ces 3 fichiers, la racine bell rend 0 hit). "0 fail" et "lever le
+  skip" ne peuvent PAS coexister pour 1b-iii en isolation = incoherence de plan (error_origin: plan), surfacee (jamais masquee en
+  gardant le skip). Demande de consultation formee au rendu G1.
+- **Site d'appel de la jambe ETH `collect.ts:651`** (`liveEthSwaps(ethPool, ethFrom, ethTo)` sans call budgete) est dans `runMain`
+  (perimetre 1b-ii). 1b-iii change la SIGNATURE (`opts.call` requis) ; le typecheck fusionne reste vert (call optionnel) et le leg
+  degrade en `faults[]` (try/catch `collect.ts:650-654`) tant que 1b-ii ne branche pas `{ call: makeGuardedEthCall(client) }`.
+  Contrat pour 1b-ii : passer le call garde (du `openGuardedClient` de `runMain`) a `liveEthSwaps`. Item forme, declencheur = G1 1b-ii.
+- **`apps/bell/package.json` declare `@monark/rpc-guard: 0.0.0`** (deps_hygiene ADR-M018 D1) + **`package-lock.json` synchronise**
+  (`npm install --package-lock-only --offline --ignore-scripts` : l'entree `packages["apps/bell"].dependencies` gagne
+  `@monark/rpc-guard`, calque de `apps/sentinel`) : besoin PARTAGE 1b-i/1b-ii/1b-iii (tous importent le paquet dans `apps/bell/src`).
+  1b-iii l'ajoute ; edition idempotente a dedupliquer a la fusion. Le lock est EXCLU du R-25 ; `npm ci --offline` (G0 section 9)
+  se rejoue sur l'arbre FUSIONNE (orchestrateur), pas dans le worktree symlinke.
+- **`test/rpc-guard-fetch-only-inside-client.test.ts` + `apps/bell/package.json`** sont edites par 1b-i aussi (grep bell, tests
+  par-fichier) : conflit de fusion attendu ; la version liste-de-racines de 1b-iii SUBSUME le grep bell de 1b-i (ne pas dupliquer).
+
+### Residus DECLARES (zero dette nue)
+- **Databento/Polygon** : residuel payant hors garde a declencheur "G0 course cash Bell" (R-1) ; aucune course cash a 1b (inchange).
+- **Killabilite du ripple 1b0-E** : item forme (ci-dessus), declencheur = cycles par operateur au CLI.
+- **Oracle (arbre worktree, cles retirees `env -u`)** : `gate:vocab` 0, `typecheck` 0, `test` 803/802/**1 fail**/0 skip (le seul
+  fail = `fetch_only_inside_client`, dependance cross-lot ci-dessus ; les 802 autres verts), `lint` 0, `lint:ratchet` 69/69,
+  `lang:gate` 0, `export:check` 0 ; R-25 vs `6114ce9` (pathspec `ci.yml:65`) = 349 ins + 116 del = **465** <= 1150 ; **10** mutants
+  nommes KILLED, restauration byte-exacte (sha256) ; gel U-4b (9 sha) intact. C-2 (`eth_leg_budget_refusal_is_not_retried`, mutant
+  M9) et C-3 (`eth_leg_retries_transient_but_not_403`, mutant M10) prouves sur `makeGuardedEthCall` (retry appelant scope).
+
+## Pli GARDE-HELIUS-1b (checkpoint-2 fold) -- cablage jambe ETH + section 1b-ii + tests imposes (2026-09-22, worker `claude-opus-4-8[1m]`)
+
+**Modele resolu (R-1)** : `claude-opus-4-8[1m]` (prefixe conforme, effort max ; Opus 5 banni). **Provenance** : worker Opus 4.8, worktree de
+fusion `F:\Monark-wt-garde1b` (branche `lot/garde-helius-1b` @ `14784ee`). Reviseur = orchestrateur (R-21). R-20 : aucun commit. Pli des 7
+points du ruling orchestrateur (CHANTIERS.md "GARDE-HELIUS-1b checkpoint-2") + corrections G2 (C-G2-A/B/D) sur l'arbre FUSIONNE.
+
+### Pli-1 -- Jambe ETH BRANCHEE a la course collect (C-G2-A ; error_origin: fold)
+Le site `collect.ts:736` appelait `liveEthSwaps(ethPool, ethFrom, ethTo)` SANS `opts.call` ; `liveEthSwaps` (1b-iii) exige un call budgete =>
+toute course `--eth` LEVAIT et etait capturee en `faults[]` (jambe ETH sans fill, fail-CLOSED mais non branchee). **Cause reelle (G2 C-G2-A)** :
+le client `c` de `runMain` n'ouvre QUE les `--operators` (Solana) ; les `GET_LOGS_KEYLESS_LABELS` (ETH) ne sont pas dans ses `cycles`. **Cablage** :
+un SECOND client garde `ethClient = openGuardedClient(deps.env, {maxCalls, runCaps:{}, methodCaps:{eth_getLogs,eth_getBlockByNumber}, cycleFloor:{}},
+--ledger-dir, {label:--cycle pour chaque GET_LOGS_KEYLESS_LABEL}, {})` (opts `{}` => `network` defaut "ethereum-mainnet", transport.ts:105 ; cout 0
+RU keyless, EXACTEMENT comme IT-4) ; `collect.ts:736` passe `{ call: makeGuardedEthCall(ethClient) }` sur la branche PRODUCTION/INTEGRATION.
+**Branche hors-ligne D-1 (declaree)** : `ethCall = call` (le call budgete injecte ; RpcCall === JsonRpcCall) -- la jambe ETH offline passe par
+`deps.call`, JAMAIS un `faults transport` silencieux. **CHANGEMENT DE CONTRAT (forme servie de `--eth`, avise le re-checkpoint)** : les labels
+keyless ETH ne se passent PLUS dans `--operators` (le second client les ouvre lui-meme) ; la forme servie d'une course `--eth` liste en `--operators`
+les seuls operateurs Solana. **Fail-closed a la construction, AVANT tout verrou** (l'ordre est critique : un throw APRES l'ouverture de `c` fuirait
+ses N verrous car `release` est encore un no-op) : (a) `--eth` avec TSLAon EXIGE `eth_getLogs`/`eth_getBlockByNumber` dans `--method-caps`
+(assertMethodCapsCover ne couvre que les methodes Solana) ; (b) AUCUN label keyless ETH ne peut figurer dans `--operators` -- sinon `c` le verrouille
+puis l'ouverture `wx` du client ETH collisionne (LockHeld) et fuit. La forme servie d'origine (validateur sonde sect.3(c), labels DANS `--operators`)
+REFUSE desormais par NOM (`must NOT be in --operators`), ZERO verrou pris (verifie : rejeu de la sonde => throw nomme, 0 fetch, 0 ledger, 0 `.lock`).
+Les deux refus ont leur test + mutant (`bell_eth_course_refuses_keyless_labels_in_operators`, `bell_eth_course_fails_closed_without_eth_method_caps`).
+**Garde anti-fuite residuelle** : l'ouverture d'`ethClient` (apres `c`) est sous `try/catch` -- un verrou orphelin REEL (LockHeld FS) libere les N verrous
+de `c` puis re-jette (motif distinct pour garder l'ancre V5 x1). **Release** : le `finally` deverrouille les N verrous des DEUX clients (Solana `c` +
+ETH keyless `ethClient`) ; la premiere boucle `c.operators()` est PRESERVEE byte-pour-byte (le mutant validateur V5 s'y ancre), la seconde boucle
+`ethClient.operators()` porte un motif distinct. **Preuve non-LLM** :
+`bell_collect_eth_leg_served_fills_state_through_guard` (`apps/bell/test/guard-pli-1b.test.ts`) : `runMain --eth` depuis l'argv reel, `fetch`
+bouchonne a corps de forme reelle (`eth_getLogs` SWAP + `eth_getBlockByNumber`), assertant ligne ledger keyless AVANT le fetch, fill TSLAon dans
+`state.json.digest.gaps` (n>=1) + timeline `n_fills>=1`, 0 `.lock`, 0 faute ethereum. Mutant "call omis au site d'appel" ROUGE. Commentaire
+`ethereum.ts` (ex-":89", "the collect.ts call site passes the client's call") CORRIGE (decrit les DEUX branches).
+
+### Pli-2 -- ASYMETRIE `callsUsed()` sur la branche garde (item forme, declare)
+`makeGuardedEthCall(ethClient)` appelle `ethClient.call` DIRECTEMENT, hors du shim Solana `tally.total += 1` (`collect.ts`) ; le `calls=` du stdout
+et le RUN-ledger a1-bis SOUS-COMPTENT donc les tentatives ETH (mesure : `calls=0` alors que 4 fetch ETH ont eu lieu). Le CYCLE ledger d'`ethClient`
+(`ethClient.spent().attempts`) enregistre CORRECTEMENT les 4 tentatives (cout 0 RU keyless) et `ethClient` fail-close son propre `maxCalls` : ce
+n'est PAS un trou de budget, c'est une asymetrie de PROVENANCE (le compteur RUN affiche ne somme pas la jambe ETH). Sur la branche hors-ligne, l'ETH
+est compte via `budgeted.calls()` (chemin partage). **Item forme** : sommer `callsUsed()` de la branche garde = tally Solana + `ethClient.spent().attempts`
+(ou deriver du CYCLE ledger des deux clients). Declencheur : la premiere course `--eth` rapprochee dont la provenance RUN doit refleter les tentatives
+ETH. Proprietaire : orchestrateur.
+
+### Pli-3 -- `collect.ts` release() deverrouille avec le scalaire `cycle` (item forme ; meme principe 1b0-E)
+`collect.ts` release() (et `universe-cli.ts` finally) deverrouillent chaque operateur avec `--cycle cycle` (le SCALAIRE), pas `cycles[op]`. C'est
+behaviorally CORRECT aujourd'hui (tous les operateurs partagent UN `--cycle`, `cycles = Object.fromEntries(operators.map(l => [l, cycle]))`), donc
+le mutant scalaire SURVIT (declaratif, comme le ripple recorder 1b0-E / V4). **Item forme** : porter le deverrouillage sur `cycles[op]` (le cycle
+propre a chaque operateur). Declencheur : celui de 1b0-E -- une course verrouillant >= 2 operateurs sur des cycle-ids DISTINCTS au CLI. Proprietaire : orchestrateur.
+
+### Pli-4 -- "reclaim d'un verrou orphelin apres crash hors fenetre" (item forme, NOMME au pli)
+Le ruling nomme cet item jusque-la implicite : un crash DUR (SIGKILL) laisse les `.lock` tenus (fail-closed, detectable) ; la recuperation
+1b0-D (`unlock`) recupere un verrou crash-EN-fenetre, mais un verrou ORPHELIN apres crash HORS fenetre (cycle clos, process mort) n'a pas de
+proprietaire de nettoyage automatique. **Item forme** : definir le reclaim d'un tel verrou orphelin (runbook `unlock` explicite ou detection par age).
+Declencheur : PREMIERE observation en course (un `.lock` orphelin constate apres un crash). Proprietaire : orchestrateur. (Voir aussi 1b0-G crash au 1er append, item distinct.)
+
+### Pli-5 -- Corrections de rendu R-25 (C-G2-D) et tuyaux 1b-iii
+- R-25 par sous-lot (mesure G2, pathspec `ci.yml:65`, base `6114ce9`) : 1b-i **1136**, 1b-ii **680** (rendu G1 disait 674), 1b-iii **465** (rendu G1
+  section 7 disait 415 ; sa section 3 disait deja 465). Valeurs corrigees dans la section 1b-ii ci-dessus et ici (les rendus G1 sont des artefacts
+  historiques hors depot ; l'ADR est le registre durable). error_origin : passation (CA-8).
+- Tuyaux 1b-iii : la ligne "jambe ETH gardee" declarait la sortie "fills TSLAon" prouvee par IT-4 ; corrige -- IT-4 prouve `liveEthSwaps` EN ISOLATION,
+  la sortie servie est prouvee par le nouvel IT collect->eth du pli.
+
+### Pli-6 -- Oracle, harnais, invariants (arbre fusionne+pli, cles retirees `env -u`)
+- **Oracle** (arbre fusionne+pli, `env -u`) : `npm run ci` exit 0 = **835 tests / 835 pass / 0 fail / 0 skip** (830 base + 5 tests du pli) ;
+  `lint` 0 ; `lint:ratchet` **69/69** ; `lang:gate` 0 ; `export:check` 0.
+- **Harnais unifie** `F:\tmp\garde1b\pli\mutants.mjs` : **43 mutants, 42 KILLED + 1 SURVIVED (V4 declaratif attendu), 0 bad**. Composition : 31 G1
+  applicables (1b-i 11 [M1 adapte a l'en-tete combine fusionne, coincide avec V1 -- declare] ; 1b-ii 10 [le mutant "cle Solana relue dans collect.ts"
+  est PLIE : son ancre a disparu au pli m3/m4 quand 1b-iii C-6 a deplace les cles vers `readCashKeys`/close.ts ; la propriete est re-tuee par 1b-iii M3
+  + V3] ; 1b-iii 10) + 7 validateur V1..V7 + G2 CL-1 (foldPage desenveloppe json.result, RESTE ROUGE) + le mien "call omis au site" + un mutant dedie
+  429-streak ">= -> >" + **2 refus fail-closed ETH** ("labels-in-operators check removed", "eth method-caps check removed") = **43**. Critere de kill =
+  le test nomme rapporte `fail >= 1` (jamais "exit != 0" seul) ; restauration byte-exacte sha256 ; `env -u`.
+- **Invariants** : `packages/rpc-guard/src/**` (12 fichiers) byte-identiques AVANT==APRES le harnais (M5/V2 mutent le paquet TRANSITOIREMENT, restaure) ;
+  les **9 sha geles U-4b** byte-identiques AVANT==APRES. Le pli n'edite QUE `apps/bell/src/{collect,ethereum,universe-cli}.ts` (cablage jambe ETH +
+  refus fail-closed a la construction + 2 commentaires), `apps/bell/test/guard-pli-1b.test.ts` (neuf, 5 tests) et cet ADR ; aucun fichier du paquet ni du gel U-4b.
+- **Tests du pli (5)** : `bell_course_reaches_fetch_only_via_openGuardedClient` (D-1, sonde sur les DEUX entrees servies universe + collect ; tue par
+  1b-i M5 versant universe et 1b-ii "guard bypassed" versant collect) ; `bell_collect_eth_leg_served_fills_state_through_guard` (C-G2-A, fill TSLAon ;
+  tue par "call omis au site") ; `bell_eth_course_refuses_keyless_labels_in_operators` + `bell_eth_course_fails_closed_without_eth_method_caps` (refus
+  fail-closed AVANT tout verrou, 0 `.lock` ; tues par leurs mutants dedies) ; `bell_universe_429_streak_stops_fail_closed` (compose ; tue par 1b-ii
+  "statusOf ignore .code" et le mutant dedie ">= -> >").

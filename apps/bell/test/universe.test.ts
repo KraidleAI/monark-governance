@@ -18,10 +18,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
-  ISSUER_HOST, SOLANA_PUBLIC_URL, SOLANA_PUBLIC_HOST, CANDIDATE_FIELDS, PRICE_LIKE_FIELD,
-  hostOf, assertHostAllowed, assertMethodAllowed, guardedRpcCall, scrubSecret,
-  retryAfterMs, withUniverseRetry, HttpStatusError, Fatal403Error,
-  makeUniverseBudget, readPriorCalls, serializeLedger,
+  ISSUER_HOST, SOLANA_PUBLIC_URL, CANDIDATE_FIELDS, PRICE_LIKE_FIELD,
+  assertHostAllowed, assertMethodAllowed, guardedRpcCall, scrubSecret,
+  withUniverseRetry, Fatal403Error, universeRunCap,
+  SOLANA_FOUNDATION_LABEL, CHAINSTACK_OPERATOR, ISSUER_LABEL,
+  readPriorCalls, serializeLedger,
   accountIdentityKey, interpretAccount, confirmMintIdentity, assertProvidersDistinctForQuorum,
   enumerateUniverse, foundingCalibration, buildUniverseArtifact, buildCandidateRecord,
   assertOnlyAllowedFields, universeArtifactBytes, foldPage, solanaDeploymentAddress,
@@ -32,11 +33,12 @@ import {
 // C-3: FORMAT-LOCK — import the -b3d calque TEST-SIDE ONLY (an import of test is NOT an `src` coupling). Used
 // only to prove universe's hashing DISCIPLINE is byte-identical; universe never imports rebase-crosscheck in src.
 import { LEDGER_GENESIS as B3D_LEDGER_GENESIS, chainedLedgerEntry as b3dChainedEntry, ledgerSha as b3dLedgerSha } from "../src/rebase-crosscheck.ts";
-import { runUniverse, parseUniverseArgs, liveHttpGet, liveRpcCall, provenanceMd, type RunDeps, type HttpGetResult, type HttpGet } from "../src/universe-cli.ts";
-import { makeBudgetedCall } from "../src/collect.ts";
+// GARDE-HELIUS-1b-i: runUniverse now composes the REAL openGuardedClient; the offline tests stub globalThis.fetch
+// (no fake client, no injected transport — D-1/D-3). liveHttpGet/liveRpcCall/HttpStatusError/makeUniverseBudget are gone.
+import { runUniverse, parseUniverseArgs, provenanceMd, type RunDeps, type RunResult } from "../src/universe-cli.ts";
 import { BudgetExceededError, type JsonRpcCall } from "../src/quorum.ts";
+import { TransportError, runCli } from "@monark/rpc-guard";
 import { XSTOCKS, TOKEN_2022_PROGRAM } from "../src/pools.ts";
-import { createServer, type Server } from "node:http";
 import { spawnSync } from "node:child_process";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
@@ -55,6 +57,52 @@ function concordantCall(map: Record<string, unknown>): JsonRpcCall {
 }
 const noop = async (): Promise<void> => {};
 const nowFixed = (): number => 1_700_000_000_000;
+
+// ---- GARDE-HELIUS-1b-i offline composition harness: REAL openGuardedClient, ONLY globalThis.fetch stubbed ------
+// The fetch stub routes the SAME per-page / per-mint response closures the pre-1b tests used onto globalThis.fetch:
+// an xstocks host => httpGet(url)'s json (200 body VERBATIM); any RPC host => call(url,method,params)'s result
+// (jsonrpc 200). A closure may reject with {httpStatus[, retryAfterMs]} to force a non-2xx, or throw for a network
+// fault (the client maps it to a TransportError name). No fake client, no injected transport (D-1/D-3).
+const CHAINSTACK_GUARD = "https://cs-node.example.invalid/tk-node-key-placeholder"; // .invalid host (A-4); fetch is stubbed
+const GUARD_ENV: Record<string, string | undefined> = { CHAINSTACK_SOLANA_URL: CHAINSTACK_GUARD };
+const METHOD_CAPS = "getAccountInfo=20000";
+const OPERATORS = "solana-foundation,chainstack,xstocks-issuer";
+/** Append the guarded-client flags to a universe argv (--ledger-dir = a PRE-EXISTING temp cycle dir). --floor
+ *  defaults to 0; a caller passes the 16 M RU cap to force a cycle_cap refusal (C-1). */
+function gArgs(argv: readonly string[], ledgerDir: string, cycle = "cyc", floor = "0"): string[] {
+  return [...argv, "--ledger-dir", ledgerDir, "--cycle", cycle, "--floor", floor, "--max-ru", "1000000", "--method-caps", METHOD_CAPS, "--operators", OPERATORS];
+}
+interface StatusReject { httpStatus: number; retryAfterMs?: number }
+type StubHttpGet = (url: string) => Promise<{ json: unknown }>;
+/** Reject a stub httpGet with a NON-2xx marker (an Error carrying httpStatus, so eslint prefer-promise-reject-errors
+ *  is satisfied); the adapter turns it into a real non-2xx Response the guarded client's transport then types. */
+const httpReject = (status: number, retryAfterMs?: number): Promise<never> => Promise.reject(Object.assign(new Error(`upstream ${String(status)}`), { httpStatus: status, ...(retryAfterMs !== undefined ? { retryAfterMs } : {}) }));
+function fetchAdapter(httpGet: StubHttpGet, call: JsonRpcCall): typeof globalThis.fetch {
+  return (async (input: string | URL, init?: RequestInit): Promise<Response> => {
+    const url = String(input);
+    const ok = (body: unknown): Response => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+    try {
+      if (url.includes("xstocks")) return ok((await httpGet(url)).json);            // issuer GET: body returned VERBATIM
+      const req = JSON.parse(typeof init?.body === "string" ? init.body : "{}") as { method: string; params: unknown[] };
+      return ok({ jsonrpc: "2.0", id: 1, result: await call(url, req.method, req.params) }); // RPC POST
+    } catch (e) {
+      const st = (e as Partial<StatusReject>).httpStatus;
+      if (typeof st === "number") {
+        const ra = (e as StatusReject).retryAfterMs;
+        return new Response("upstream", { status: st, headers: ra !== undefined ? { "retry-after": String(Math.ceil(ra / 1000)) } : {} });
+      }
+      throw e; // a genuine network fault (ECONNRESET) => fetch rejects => the client raises TransportError(name)
+    }
+  }) as typeof globalThis.fetch;
+}
+async function withFetch(stub: typeof globalThis.fetch, body: () => Promise<void>): Promise<void> {
+  const real = globalThis.fetch; globalThis.fetch = stub;
+  try { await body(); } finally { globalThis.fetch = real; }
+}
+/** A fresh PRE-EXISTING cycle ledger dir (mkdtemp => the parent exists, as ensureCycleDir requires). */
+function tmpLedgerDir(): string { return mkdtempSync(join(tmpdir(), "bell-univ-cyc-")); }
+/** The default issuer paginator: page 0 is the full fixture (< pageSize=100 => end anchor), later pages empty. */
+const defaultHttpGet: StubHttpGet = (url) => Promise.resolve({ json: Number(new URL(url).searchParams.get("page") ?? "0") === 0 ? issuerAssets() : [] });
 
 // ---- 1. Enumeration: identity from issuer list + ON-CHAIN confirm (never the issuer's word alone) -----
 test("bell_universe_enumerates_from_issuer_list_and_onchain", async () => {
@@ -132,7 +180,7 @@ test("bell_universe_quorum_miss_is_scaled_ui_unread", async () => {
   // chainstack provider throws transport (429) => only 1 outcome => NoQuorumError => no_quorum, fail-closed.
   const map = rpcMap();
   const oneDown: JsonRpcCall = (url, _m, params) => url.includes("chainstack")
-    ? Promise.reject(new HttpStatusError(429, 1000))
+    ? Promise.reject(new TransportError("chainstack", "rpc-guard: HttpError for operator 'chainstack' (code 429)", "HttpError", 429, "", "ru", undefined, 1000))
     : Promise.resolve(map[String((params as unknown[])[0])] ?? { value: null });
   const r = await confirmMintIdentity("XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB", PROVIDERS,
     async (u, m, p) => withUniverseRetry(() => oneDown(u, m, p), { sleep: noop, now: nowFixed, maxRetries: 1 }));
@@ -151,22 +199,21 @@ test("bell_universe_quorum_disagreement_is_unverified", async () => {
   assert.notEqual(accountIdentityKey(good), accountIdentityKey(impostor));
 });
 
-// ---- 6. Host allowlist: refuse BEFORE send (mainnet-beta / publicnode / gecko excluded) --------------
-test("bell_universe_host_allowlist_refuses_before_send", () => {
-  assert.doesNotThrow(() => { assertHostAllowed(`https://${ISSUER_HOST}/api/v2/public/assets`); });
-  assert.doesNotThrow(() => { assertHostAllowed(SOLANA_PUBLIC_URL); });
-  assert.doesNotThrow(() => { assertHostAllowed(CHAINSTACK); }); // operatorOf === chainstack
+// ---- 6. Label allowlist (C-7): assertHostAllowed is REDUCED to an operator-LABEL membership test ------
+test("bell_universe_label_allowlist_refuses_before_send", () => {
+  // The three universe operators are admitted; the host resolution + structural host check now live in the
+  // guarded client's transport (a URL never reaches Bell). A URL, a bare non-operator, mainnet-beta, an
+  // aggregator, an env pointing off-operator — none is a universe LABEL => refused.
+  for (const ok of [SOLANA_FOUNDATION_LABEL, CHAINSTACK_OPERATOR, ISSUER_LABEL]) assert.doesNotThrow(() => { assertHostAllowed(ok); });
   for (const bad of [
-    "https://api.mainnet-beta.solana.com", "https://solana-rpc.publicnode.com",
-    "https://api.geckoterminal.com/api/v2", "https://api.coingecko.com/onchain",
-    "https://evil.example/x", // MUTANT target: an env pointing off-operator is refused
-  ]) assert.throws(() => { assertHostAllowed(bad); }, /allowlist/, `host refused: ${hostOf(bad)}`);
-  // guardedRpcCall refuses off-host BEFORE the inner call fires.
+    `https://${ISSUER_HOST}/api/v2/public/assets`, SOLANA_PUBLIC_URL, CHAINSTACK, "helius", "publicnode",
+    "api.mainnet-beta.solana.com", "https://evil.example/x", // an env pointing off-operator is NOT a label
+  ]) assert.throws(() => { assertHostAllowed(bad); }, /allowlist/, `label refused: ${bad}`);
+  // guardedRpcCall refuses an off-allowlist LABEL BEFORE the inner call fires.
   let fired = false;
   const inner: JsonRpcCall = () => { fired = true; return Promise.resolve(null); };
-  assert.throws(() => guardedRpcCall(inner)("https://evil.example", "getAccountInfo", []), /allowlist/);
-  assert.equal(fired, false, "MUTANT: an off-allowlist host reaching the inner call must redden");
-  assert.equal(hostOf(SOLANA_PUBLIC_URL), SOLANA_PUBLIC_HOST);
+  assert.throws(() => guardedRpcCall(inner)("helius", "getAccountInfo", []), /allowlist/);
+  assert.equal(fired, false, "MUTANT: an off-allowlist label reaching the inner call must redden");
 });
 
 // ---- 7. Method allowlist: only getAccountInfo; else BudgetExceededError before send ------------------
@@ -182,15 +229,14 @@ test("bell_universe_method_allowlist_fail_closed", () => {
 });
 
 // ---- 8. Budget: fail-closed + resume WITHOUT double-count (C-G2-1, M17/M15) --------------------------
-test("bell_universe_budget_fail_closed_and_resumes_without_double_count", async () => {
-  // priorCalls offsets the cap: with max 5 and prior 3, only 2 more calls before BudgetExceededError.
-  const inner: JsonRpcCall = () => Promise.resolve(null);
-  const b = makeUniverseBudget(5, 3, makeBudgetedCall, inner);
-  await b.call("u", "getAccountInfo", []); await b.call("u", "getAccountInfo", []);
-  assert.equal(b.total(), 5, "MUTANT M17: total() must be priorCalls + calls(), not calls() alone");
-  await assert.rejects(() => b.call("u", "getAccountInfo", []), BudgetExceededError, "cap reached across resume");
-  // priorCalls >= maxCalls => refuse at construction (already spent).
-  assert.throws(() => makeUniverseBudget(5, 5, makeBudgetedCall, inner), BudgetExceededError);
+test("bell_universe_budget_fail_closed_and_resumes_without_double_count", () => {
+  // M17: the guarded client's run cap = maxCalls - priorCalls (this run's REMAINING attempts); total() elsewhere =
+  // priorCalls + client.spent().attempts, so a resume never double-counts. universeRunCap is the PURE offset.
+  assert.equal(universeRunCap(5, 3), 2, "MUTANT M17: run cap = maxCalls - priorCalls (remaining), not maxCalls alone");
+  assert.equal(universeRunCap(5, 0), 5);
+  // priorCalls >= maxCalls => refuse at construction (already spent) — never a 0-remaining course that re-spends.
+  assert.throws(() => universeRunCap(5, 5), BudgetExceededError, "already-spent (prior == max) refuses at construction");
+  assert.throws(() => universeRunCap(5, 6), BudgetExceededError, "already-spent (prior > max) refuses at construction");
   // Anchor reader (NO journal): absent => fresh; a valid anchor is READ (M15); malformed/invalid => throw.
   const dir = mkdtempSync(join(tmpdir(), "bell-univ-ledger-"));
   try {
@@ -263,38 +309,42 @@ test("bell_universe_ledger_chain_rederives_and_refuses_downward_edit", () => {
 const readJournal = (out: string): unknown[] =>
   readFileSync(join(out, UNIVERSE_LEDGER_JOURNAL), "utf8").split("\n").filter((l) => l.trim() !== "").map((l) => JSON.parse(l) as unknown);
 test("bell_universe_ledger_crash_between_writes_resumes_conservatively", async () => {
-  const runArgs = (out: string): string[] => ["--out", out, "--max-calls", "1000", "--date", "2026-09-21"];
-  // Injection A ("append LOST"): appendFile throws WITHOUT writing on the 3rd append => a real 2-entry chain
-  // exists, then the anchor (written FIRST) is AHEAD of the journal head. Resume must NOT throw (over-count,
-  // conservative). (This injection does NOT discriminate M-order; injection B below is the M-order killer.)
-  const outA = mkdtempSync(join(tmpdir(), "bell-univ-crashA-"));
+  const runArgs = (out: string, ld: string): string[] => gArgs(["--out", out, "--max-calls", "1000", "--date", "2026-09-21"], ld);
+  const stub = fetchAdapter(defaultHttpGet, concordantCall(rpcMap()));
+  // Injection A ("append LOST"): appendFile (the RUN journal, deps.appendFile — NOT the CYCLE ledger, which the
+  // client appends directly) throws WITHOUT writing on the 3rd append => a real 2-entry chain exists, then the
+  // anchor (written FIRST) is AHEAD of the journal head. Resume must NOT throw (over-count, conservative). Both runs
+  // share one CYCLE --ledger-dir (the crash's finally releases the N locks so the resume can re-acquire).
+  const outA = mkdtempSync(join(tmpdir(), "bell-univ-crashA-")); const ldA = tmpLedgerDir();
   try {
     let appends = 0;
-    const crash = fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, outA, {
-      appendFile: (p, d) => { appends += 1; if (appends === 3) throw new Error("SIMULATED crash: appendFile failed AFTER the anchor"); appendFileSync(p, d); },
+    await withFetch(stub, async () => {
+      await assert.rejects(() => runUniverse(runArgs(outA, ldA), fileDeps({
+        appendFile: (p, d) => { appends += 1; if (appends === 3) throw new Error("SIMULATED crash: appendFile failed AFTER the anchor"); appendFileSync(p, d); },
+      })), /SIMULATED crash/);
+      const resumed = await runUniverse(runArgs(outA, ldA), fileDeps());
+      assert.equal(resumed.ok, true, "C-6: a crash in the append window resumes WITHOUT throwing (anchor-first => over-count, conservative)");
+      assert.equal(verifyChain(readJournal(outA)).ok, true, "the resumed journal (run1 partial + run2) is ONE re-derivable chain");
     });
-    await assert.rejects(() => runUniverse(runArgs(outA), crash), /SIMULATED crash/);
-    const resumed = await runUniverse(runArgs(outA), fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, outA));
-    assert.equal(resumed.ok, true, "C-6: a crash in the append window resumes WITHOUT throwing (anchor-first => over-count, conservative)");
-    assert.equal(verifyChain(readJournal(outA)).ok, true, "the resumed journal (run1 partial + run2) is ONE re-derivable chain");
-  } finally { rmSync(outA, { recursive: true, force: true }); }
+  } finally { rmSync(outA, { recursive: true, force: true }); rmSync(ldA, { recursive: true, force: true }); }
 
-  // Injection B ("anchor LOST"): writeFile throws WITHOUT writing on the 3rd write to the ANCHOR path. Under
-  // correct order (anchor first) the append never lands => anchor == head => resume OK. Under M-order the append
-  // DID land => anchor < head => resume THROWS. This is the M-order KILLER: the assertion `resumed.ok === true`
-  // reddens when persist()'s order is swapped (append before the anchor).
-  const outB = mkdtempSync(join(tmpdir(), "bell-univ-crashB-"));
+  // Injection B ("anchor LOST"): writeFile throws WITHOUT writing on the 3rd write to the ANCHOR path. Under correct
+  // order (anchor first) the append never lands => anchor == head => resume OK. Under M-order the append DID land =>
+  // anchor < head => resume THROWS. This is the M-order KILLER: `resumed.ok === true` reddens when persist()'s order
+  // is swapped (append before the anchor).
+  const outB = mkdtempSync(join(tmpdir(), "bell-univ-crashB-")); const ldB = tmpLedgerDir();
   try {
     const anchorPath = join(outB, "budget.json");
     let anchorWrites = 0;
-    const crash = fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, outB, {
-      writeFile: (p, d) => { if (p === anchorPath) { anchorWrites += 1; if (anchorWrites === 3) throw new Error("SIMULATED crash: anchor write failed"); } writeFileSync(p, d); },
+    await withFetch(stub, async () => {
+      await assert.rejects(() => runUniverse(runArgs(outB, ldB), fileDeps({
+        writeFile: (p, d) => { if (p === anchorPath) { anchorWrites += 1; if (anchorWrites === 3) throw new Error("SIMULATED crash: anchor write failed"); } writeFileSync(p, d); },
+      })), /SIMULATED crash/);
+      const resumed = await runUniverse(runArgs(outB, ldB), fileDeps());
+      assert.equal(resumed.ok, true, "MUTANT M-order: anchor-first leaves anchor == head on an anchor-write crash => resume OK; swapping to append-first leaves anchor < head => resume throws => red");
+      assert.equal(verifyChain(readJournal(outB)).ok, true, "the resumed journal is ONE re-derivable chain");
     });
-    await assert.rejects(() => runUniverse(runArgs(outB), crash), /SIMULATED crash/);
-    const resumed = await runUniverse(runArgs(outB), fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, outB));
-    assert.equal(resumed.ok, true, "MUTANT M-order: anchor-first leaves anchor == head on an anchor-write crash => resume OK; swapping to append-first leaves anchor < head => resume throws => red");
-    assert.equal(verifyChain(readJournal(outB)).ok, true, "the resumed journal is ONE re-derivable chain");
-  } finally { rmSync(outB, { recursive: true, force: true }); }
+  } finally { rmSync(outB, { recursive: true, force: true }); rmSync(ldB, { recursive: true, force: true }); }
 });
 
 // ---- 8d. C-3: the ledger FORMAT is byte-identical to the -b3d calque (locked by TEST, not by comment) -----
@@ -335,7 +385,7 @@ test("bell_universe_pagination_persists_per_page_kill_window", async () => {
     let lastAnchor = 0;
     const anchorAtGet: number[] = []; // the anchor's calls value observed BEFORE each issuer GET
     let anchorAtFirstRpc = -1;        // the anchor's calls value observed at the FIRST confirm RPC
-    const httpGet = (url: string): Promise<HttpGetResult> => {
+    const httpGet: StubHttpGet = (url) => {
       anchorAtGet.push(lastAnchor);
       const p = Number(new URL(url).searchParams.get("page") ?? "0");
       // page 0 carries ONE Solana mint so a confirm RPC fires AFTER the probe (to observe the anchor there).
@@ -350,8 +400,9 @@ test("bell_universe_pagination_persists_per_page_kill_window", async () => {
       writeFileSync(pth, data);
     };
     const call: JsonRpcCall = () => { if (anchorAtFirstRpc < 0) anchorAtFirstRpc = lastAnchor; return Promise.resolve({ value: null }); };
-    await runUniverse(["--out", out, "--max-calls", "1000", "--page-size", "2", "--max-pages", "20", "--date", "2026-09-21"],
-      fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, out, { httpGet, writeFile, call }));
+    await withFetch(fetchAdapter(httpGet, call), async () => { await runUniverse(
+      gArgs(["--out", out, "--max-calls", "1000", "--page-size", "2", "--max-pages", "20", "--date", "2026-09-21"], tmpLedgerDir()),
+      fileDeps({ writeFile })); });
     // (i) pagination persists PER PAGE: before page p's GET (tick p+1) the anchor persisted by page p-1 equals p.
     // MUTANT (persist removed from the loop body): the anchor stays 0 until the loop `finally` => anchorAtGet=[0,0,..].
     for (let p = 1; p <= K; p++) assert.ok(anchorAtGet[p]! >= p, `at page ${String(p)}'s GET the anchor is >= ${String(p)}; saw ${String(anchorAtGet[p])}`);
@@ -366,22 +417,29 @@ test("bell_universe_pagination_persists_per_page_kill_window", async () => {
 
 // ---- 9. Retry: honor Retry-After on 429, HARD STOP on 403, re-throw budget errors -------------------
 test("bell_universe_retry_honors_retry_after_and_hard_stops_on_403", async () => {
-  assert.equal(retryAfterMs("2", nowFixed()), 2000);
-  assert.equal(retryAfterMs(null, nowFixed()), null);
-  assert.equal(retryAfterMs("120000", nowFixed(), 30_000), 30_000, "capped");
-  // 429 once (Retry-After 3s) then success: the injected sleep records 3000 ms (honored).
+  // GARDE-HELIUS-1b-i (C-3/D-9): withUniverseRetry keys on the PACKAGE's TransportError (name + code + retryAfterMs).
+  const T = (name: string, code: number | undefined, ra?: number): TransportError => new TransportError("op", `rpc-guard: ${name}`, name, code, "", "ru", undefined, ra);
+  // 429 once (Retry-After 3s carried by the TransportError) then success: the injected sleep records 3000 ms.
   const waited: number[] = [];
   const sleep = (ms: number): Promise<void> => { waited.push(ms); return Promise.resolve(); };
   let n = 0;
-  const flaky = (): Promise<string> => { n += 1; if (n === 1) return Promise.reject(new HttpStatusError(429, 3000)); return Promise.resolve("ok"); };
+  const flaky = (): Promise<string> => { n += 1; if (n === 1) return Promise.reject(T("HttpError", 429, 3000)); return Promise.resolve("ok"); };
   assert.equal(await withUniverseRetry(flaky, { sleep, now: nowFixed }), "ok");
-  assert.deepEqual(waited, [3000], "Retry-After honored");
+  assert.deepEqual(waited, [3000], "Retry-After (TransportError.retryAfterMs) honored");
   // 403 => Fatal403Error (a BudgetExceededError subclass) with NO retry.
-  const forbidden = (): Promise<never> => Promise.reject(new HttpStatusError(403, null));
-  await assert.rejects(() => withUniverseRetry(forbidden, { sleep: noop, now: nowFixed }), (e) => {
+  await assert.rejects(() => withUniverseRetry(() => Promise.reject(T("HttpError", 403)), { sleep: noop, now: nowFixed }), (e) => {
     assert.ok(e instanceof Fatal403Error && e instanceof BudgetExceededError, "MUTANT: 403 retried instead of hard stop must redden");
     return true;
   });
+  // 3xx => RedirectBlockedError (a BudgetExceededError subclass) with NO retry (never followed).
+  await assert.rejects(() => withUniverseRetry(() => Promise.reject(T("RedirectBlocked", 302)), { sleep: noop, now: nowFixed }), (e) => {
+    assert.ok(e instanceof RedirectBlockedError && e instanceof BudgetExceededError, "MUTANT: a 3xx followed/retried instead of hard stop must redden");
+    return true;
+  });
+  // A NON-transient TransportError (RpcError / a 4xx != 429) is re-thrown at ONCE (not retried).
+  let rpcCalls = 0;
+  await assert.rejects(() => withUniverseRetry(() => { rpcCalls += 1; return Promise.reject(T("RpcError", 3)); }, { sleep: noop, now: nowFixed }), TransportError);
+  assert.equal(rpcCalls, 1, "MUTANT: a non-transient fault retried must redden");
   // A budget error is re-thrown immediately, never retried.
   let calls = 0;
   const overBudget = (): Promise<never> => { calls += 1; return Promise.reject(new BudgetExceededError("x")); };
@@ -424,39 +482,42 @@ test("bell_universe_cli_refuses_unproven_exhaustion", async () => {
   const out = mkdtempSync(join(tmpdir(), "bell-univ-exh-"));
   try {
     // A server that ALWAYS returns a full page (distinct ids) => no end anchor within --max-pages => STOP.
-    const fullPage: HttpGet = (url) => {
+    const fullPage: StubHttpGet = (url) => {
       const p = Number(new URL(url).searchParams.get("page") ?? "0");
       return Promise.resolve({ json: [{ id: `p${String(p)}a`, deployments: [] }, { id: `p${String(p)}b`, deployments: [] }] });
     };
-    const deps = fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, out, { httpGet: fullPage });
     await assert.rejects(
-      () => runUniverse(["--out", out, "--max-calls", "100", "--page-size", "2", "--max-pages", "3"], deps),
+      () => runGuarded(["--out", out, "--max-calls", "100", "--page-size", "2", "--max-pages", "3"], { httpGet: fullPage }),
       /exhaustion NOT proven/, "MUTANT: accepting 'N pages' without an end anchor must redden");
   } finally { rmSync(out, { recursive: true, force: true }); }
 });
 
-// ---- 12. CA-11 durci: run the WHOLE composition from a FILE fixture through the real CLI entry --------
-function fileDeps(env: Record<string, string>, out: string, extra: Partial<RunDeps> = {}): RunDeps {
-  const map = rpcMap();
-  const assets = issuerAssets();
-  const httpGet = (url: string): Promise<HttpGetResult> => {
-    const page = Number(new URL(url).searchParams.get("page") ?? "0");
-    return Promise.resolve({ json: page === 0 ? assets : [] }); // one full page < pageSize=100 => end anchor
-  };
+// ---- 12. CA-11 durci: run the WHOLE composition from a FILE fixture through the REAL openGuardedClient --------
+/** Base offline deps (fs + fixed clock + GUARD_ENV). httpGet/call are supplied to the fetch adapter (runGuarded). */
+function fileDeps(extra: Partial<RunDeps> = {}): RunDeps {
   return {
-    httpGet, call: concordantCall(map), sleep: noop, now: nowFixed, env,
+    sleep: noop, now: nowFixed, env: GUARD_ENV,
     readFile: (p) => readFileSync(p, "utf8"), writeFile: (p, d) => { writeFileSync(p, d); },
     appendFile: (p, d) => { appendFileSync(p, d); },
     exists: (p) => existsSync(p), mkdirp: (p) => { mkdirSync(p, { recursive: true }); },
     ...extra,
   };
 }
+/** Run the WHOLE composition through the REAL openGuardedClient with ONLY globalThis.fetch stubbed (D-1/D-3): the
+ *  issuer GET + the quorum RPC hit the client's transport, which fetches; the adapter routes those to httpGet/call.
+ *  --ledger-dir is a fresh PRE-EXISTING temp cycle dir unless given. */
+async function runGuarded(argv: readonly string[], opts: { httpGet?: StubHttpGet; call?: JsonRpcCall; ledgerDir?: string } & Partial<RunDeps> = {}): Promise<RunResult> {
+  const { httpGet = defaultHttpGet, call = concordantCall(rpcMap()), ledgerDir = tmpLedgerDir(), ...depsExtra } = opts;
+  let r!: RunResult;
+  await withFetch(fetchAdapter(httpGet, call), async () => { r = await runUniverse(gArgs(argv, ledgerDir), fileDeps(depsExtra)); });
+  return r;
+}
 test("bell_universe_cli_composes_from_file_to_artifact", async () => {
   const out = mkdtempSync(join(tmpdir(), "bell-univ-out-"));
   try {
     const argv = ["--out", out, "--max-calls", "1000", "--date", "2026-09-21", "--page-size", "100"];
     const logs: string[] = [];
-    const r = await runUniverse(argv, fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, out, { log: (l) => { logs.push(l); } }));
+    const r = await runGuarded(argv, { log: (l) => { logs.push(l); } });
     assert.equal(r.ok, true);
     assert.equal(r.calibration.ok, true);
     assert.equal(r.solanaAssets, 7); assert.equal(r.confirmed, 5); assert.equal(r.totalAssets, 8);
@@ -503,39 +564,39 @@ test("bell_universe_cli_composes_from_file_to_artifact", async () => {
 // STOPs. Placed AFTER the raw save. maxRetries:0 (0 retry). Fatal403Error/RedirectBlockedError are swallowed.
 test("bell_universe_c11_probe_observes_never_stops_except_budget", async () => {
   const argv = (out: string, maxCalls: string): string[] => ["--out", out, "--max-calls", maxCalls, "--date", "2026-09-21"];
+  // Each closure feeds the fetch adapter (runGuarded); a page>0 rejects {httpStatus} => the client's transport
+  // returns that non-2xx => a typed TransportError; a plain Error => a network fault.
+  const past = (status: number): StubHttpGet => (url) =>
+    Number(new URL(url).searchParams.get("page") ?? "0") === 0 ? Promise.resolve({ json: issuerAssets() }) : httpReject(status);
   // (a) 404 past-end => run OK, past_end_probe=http_404, raw present, probe called ONCE (0 retry, maxRetries:0).
   const outA = mkdtempSync(join(tmpdir(), "bell-univ-p404-"));
   try {
     let probeCalls = 0;
-    const httpGet = (url: string): Promise<HttpGetResult> => {
+    const httpGet: StubHttpGet = (url) => {
       if (Number(new URL(url).searchParams.get("page") ?? "0") === 0) return Promise.resolve({ json: issuerAssets() });
-      probeCalls += 1; return Promise.reject(new HttpStatusError(404, null));
+      probeCalls += 1; return httpReject(404);
     };
-    const r = await runUniverse(argv(outA, "1000"), fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, outA, { httpGet }));
+    const r = await runGuarded(argv(outA, "1000"), { httpGet });
     assert.equal(r.ok, true, "MUTANT (probe catch removed): a 404 past-end must NOT stop the run");
     assert.equal(probeCalls, 1, "MUTANT (maxRetries:0 removed): the probe retries => probeCalls > 1 => red");
     assert.ok(existsSync(join(outA, "issuer-assets-2026-09-21.json")), "raw saved BEFORE the probe");
     assert.match(readFileSync(join(outA, "PROVENANCE-univers-solana.md"), "utf8"), /^- past_end_probe: http_404$/m, "404 recorded, run completed");
   } finally { rmSync(outA, { recursive: true, force: true }); }
-  // (b) 403 at the probe => run OK, past_end_probe=http_403 (Fatal403Error, a BudgetExceededError SUBCLASS, is
-  // swallowed at the probe), raw present.
+  // (b) 403 at the probe => run OK, past_end_probe=http_403 (Fatal403Error, a BudgetExceededError SUBCLASS, swallowed).
   const outB = mkdtempSync(join(tmpdir(), "bell-univ-p403-"));
   try {
-    const httpGet = (url: string): Promise<HttpGetResult> =>
-      Number(new URL(url).searchParams.get("page") ?? "0") === 0 ? Promise.resolve({ json: issuerAssets() }) : Promise.reject(new HttpStatusError(403, null));
-    const r = await runUniverse(argv(outB, "1000"), fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, outB, { httpGet }));
+    const r = await runGuarded(argv(outB, "1000"), { httpGet: past(403) });
     assert.equal(r.ok, true, "MUTANT (Fatal403Error not caught before the budget re-throw): a 403 past-end must NOT stop the run");
     assert.ok(existsSync(join(outB, "issuer-assets-2026-09-21.json")), "raw saved");
     assert.match(readFileSync(join(outB, "PROVENANCE-univers-solana.md"), "utf8"), /^- past_end_probe: http_403$/m, "403 recorded, run completed");
   } finally { rmSync(outB, { recursive: true, force: true }); }
   // (c) PURE budget cap at the probe => STOP. A page with NO Solana mint (0 confirms after the probe), --max-calls=1
-  // (only the page GET fits): the probe's budget.tick() throws a PURE BudgetExceededError => the run REJECTS. MUTANT
-  // (budget re-throw removed): the probe swallows it, the run reaches calibration and returns ok:false (no reject).
+  // (only the page GET fits): the probe's client.call refuses run_calls => a PURE BudgetExceededError => the run
+  // REJECTS. MUTANT (budget re-throw removed): the probe swallows it, the run reaches calibration (no reject).
   const outC = mkdtempSync(join(tmpdir(), "bell-univ-pcap-"));
   try {
-    const httpGet = (): Promise<HttpGetResult> =>
-      Promise.resolve({ json: [{ id: "evm-only", deployments: [{ network: "Ethereum", address: "0x0" }] }] });
-    await assert.rejects(() => runUniverse([...argv(outC, "1"), "--page-size", "100"], fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, outC, { httpGet })),
+    const evmOnly: StubHttpGet = () => Promise.resolve({ json: [{ id: "evm-only", deployments: [{ network: "Ethereum", address: "0x0" }] }] });
+    await assert.rejects(() => runGuarded([...argv(outC, "1"), "--page-size", "100"], { httpGet: evmOnly }),
       BudgetExceededError, "MUTANT (budget re-throw removed): a real budget cap at the probe must STOP => red");
     // C-R-1: the raw was saved BEFORE the probe, so it is PRESENT even after the budget STOP. MUTANT (raw save moved
     // AFTER the probe): the STOP happens before the raw is written => this reddens.
@@ -544,9 +605,7 @@ test("bell_universe_c11_probe_observes_never_stops_except_budget", async () => {
   // (d) C-R-1: a 3xx (RedirectBlockedError, a BudgetExceededError SUBCLASS) at the probe => run OK, redirect_blocked.
   const outD = mkdtempSync(join(tmpdir(), "bell-univ-predir-"));
   try {
-    const httpGet = (url: string): Promise<HttpGetResult> =>
-      Number(new URL(url).searchParams.get("page") ?? "0") === 0 ? Promise.resolve({ json: issuerAssets() }) : Promise.reject(new RedirectBlockedError("3xx past-end"));
-    const r = await runUniverse(argv(outD, "1000"), fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, outD, { httpGet }));
+    const r = await runGuarded(argv(outD, "1000"), { httpGet: past(302) });
     assert.equal(r.ok, true, "MUTANT (RedirectBlockedError not caught before the budget re-throw): a 3xx past-end must NOT stop the run");
     assert.match(readFileSync(join(outD, "PROVENANCE-univers-solana.md"), "utf8"), /^- past_end_probe: redirect_blocked$/m, "3xx recorded as redirect_blocked, run completed");
   } finally { rmSync(outD, { recursive: true, force: true }); }
@@ -554,9 +613,9 @@ test("bell_universe_c11_probe_observes_never_stops_except_budget", async () => {
   // re-throw): the run stops instead of recording transport_error => reddens.
   const outE = mkdtempSync(join(tmpdir(), "bell-univ-ptrans-"));
   try {
-    const httpGet = (url: string): Promise<HttpGetResult> =>
+    const httpGet: StubHttpGet = (url) =>
       Number(new URL(url).searchParams.get("page") ?? "0") === 0 ? Promise.resolve({ json: issuerAssets() }) : Promise.reject(new Error("ECONNRESET"));
-    const r = await runUniverse(argv(outE, "1000"), fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, outE, { httpGet }));
+    const r = await runGuarded(argv(outE, "1000"), { httpGet });
     assert.equal(r.ok, true, "a transport error past-end must NOT stop the run");
     assert.match(readFileSync(join(outE, "PROVENANCE-univers-solana.md"), "utf8"), /^- past_end_probe: transport_error$/m, "transport error recorded as transport_error, run completed");
   } finally { rmSync(outE, { recursive: true, force: true }); }
@@ -598,10 +657,8 @@ test("bell_universe_calibration_stop_writes_no_artifact", async () => {
   const out = mkdtempSync(join(tmpdir(), "bell-univ-stop-"));
   try {
     const assetsMinusFounder = (issuerAssets() as Record<string, unknown>[]).filter((a) => a.symbol !== "NVDAx");
-    const deps = fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, out, {
-      httpGet: (url: string) => Promise.resolve({ json: Number(new URL(url).searchParams.get("page") ?? "0") === 0 ? assetsMinusFounder : [] }),
-    });
-    const r = await runUniverse(["--out", out, "--max-calls", "1000", "--date", "2026-09-21"], deps);
+    const httpGet: StubHttpGet = (url) => Promise.resolve({ json: Number(new URL(url).searchParams.get("page") ?? "0") === 0 ? assetsMinusFounder : [] });
+    const r = await runGuarded(["--out", out, "--max-calls", "1000", "--date", "2026-09-21"], { httpGet });
     assert.equal(r.ok, false);
     assert.deepEqual([...r.calibration.missing], ["NVDAx"]);
     assert.equal(existsSync(join(out, "universe-candidates-2026-09-21.json")), false, "NO artifact on calibration fail");
@@ -611,37 +668,56 @@ test("bell_universe_calibration_stop_writes_no_artifact", async () => {
 
 // ---- 15. Preflight: two DISTINCT operators required BEFORE burning any issuer page -------------------
 test("bell_universe_preflight_requires_two_distinct_operators", async () => {
-  assert.doesNotThrow(() => { assertProvidersDistinctForQuorum(PROVIDERS); });
-  // mainnet-beta is refused at the HOST allowlist stage (excluded, CONF-SRC-4/5) before any operator check.
-  assert.throws(() => { assertProvidersDistinctForQuorum([SOLANA_PUBLIC_URL, "https://api.mainnet-beta.solana.com"]); }, /allowlist/);
-  // two solana-foundation hosts collapse to ONE operator => no quorum-2.
-  assert.throws(() => { assertProvidersDistinctForQuorum([SOLANA_PUBLIC_URL, SOLANA_PUBLIC_URL]); }, /operator/);
-  assert.throws(() => { assertProvidersDistinctForQuorum([SOLANA_PUBLIC_URL, ""]); }, /two RPC providers/);
-  // runUniverse with NO Chainstack env must STOP before any httpGet (spy not fired).
+  const LABELS = [SOLANA_FOUNDATION_LABEL, CHAINSTACK_OPERATOR];
+  assert.doesNotThrow(() => { assertProvidersDistinctForQuorum(LABELS); });
+  // a non-universe label (mainnet-beta) is refused at the LABEL allowlist stage (C-7), before the operator check.
+  assert.throws(() => { assertProvidersDistinctForQuorum([SOLANA_FOUNDATION_LABEL, "api.mainnet-beta.solana.com"]); }, /allowlist/);
+  // two solana-foundation labels collapse to ONE operator => no quorum-2.
+  assert.throws(() => { assertProvidersDistinctForQuorum([SOLANA_FOUNDATION_LABEL, SOLANA_FOUNDATION_LABEL]); }, /operator/);
+  assert.throws(() => { assertProvidersDistinctForQuorum([SOLANA_FOUNDATION_LABEL, ""]); }, /two RPC providers/);
+  // runUniverse with NO Chainstack env => openGuardedClient throws (chainstack not resolved) BEFORE any issuer fetch.
   const out = mkdtempSync(join(tmpdir(), "bell-univ-pre-"));
   try {
     let getFired = false;
-    const deps = fileDeps({}, out, { httpGet: () => { getFired = true; return Promise.resolve({ json: [] }); } });
-    await assert.rejects(() => runUniverse(["--out", out, "--max-calls", "100"], deps), /chainstack|operator|two RPC/);
-    assert.equal(getFired, false, "no issuer page fetched when the quorum cannot be formed");
+    const stub = fetchAdapter(() => { getFired = true; return Promise.resolve({ json: [] }); }, concordantCall(rpcMap()));
+    await withFetch(stub, () => assert.rejects(
+      () => runUniverse(gArgs(["--out", out, "--max-calls", "100"], tmpLedgerDir()), fileDeps({ env: {} })),
+      /chainstack|operator|resolved from env/));
+    assert.equal(getFired, false, "no issuer page fetched when the chainstack operator is not resolved from env");
   } finally { rmSync(out, { recursive: true, force: true }); }
 });
 
 // ---- CLI arg validation (fail-closed) ---------------------------------------------------------------
 test("bell_universe_parse_args_fail_closed", () => {
+  // GARDE-HELIUS-1b-i: the guarded-client inputs are REQUIRED, no default (B-4). A valid argv carries all of them.
+  const G = ["--ledger-dir", "F:/ld", "--cycle", "c", "--floor", "0", "--max-ru", "1000000", "--method-caps", "getAccountInfo=20000", "--operators", OPERATORS];
+  const full = ["--out", "F:/x", "--max-calls", "1800", ...G];
+  const drop = (flag: string): string[] => { const i = full.indexOf(flag); return [...full.slice(0, i), ...full.slice(i + 2)]; };
+  const swap = (flag: string, value: string): string[] => { const i = full.indexOf(flag); const c = [...full]; c[i + 1] = value; return c; };
   assert.throws(() => parseUniverseArgs(["--max-calls", "10"]), /--out is required/);
   assert.throws(() => parseUniverseArgs(["--out", "F:/x"]), /--max-calls is required/);
-  assert.throws(() => parseUniverseArgs(["--out", "F:/x", "--max-calls", "0"]), /must be > 0/);
-  const a = parseUniverseArgs(["--out", "F:/x", "--max-calls", "1800"]);
+  assert.throws(() => parseUniverseArgs(swap("--max-calls", "0")), /--max-calls must be > 0/);
+  const a = parseUniverseArgs(full);
   assert.equal(a.minInterval, 286); assert.equal(a.pageSize, 100); assert.equal(a.maxCalls, 1800);
+  assert.equal(a.ledgerDir, "F:/ld"); assert.equal(a.cycle, "c"); assert.equal(a.maxRu, 1000000);
+  assert.deepEqual(a.methodCaps, { getAccountInfo: 20000 });
+  assert.deepEqual(a.operators, ["solana-foundation", "chainstack", "xstocks-issuer"]);
+  // Each guarded-client input is REQUIRED (B-4): dropping it fails closed.
+  for (const [flag, re] of [["--ledger-dir", /--ledger-dir is required/], ["--cycle", /--cycle is required/], ["--floor", /--floor is required/], ["--max-ru", /--max-ru is required/], ["--method-caps", /--method-caps is required/], ["--operators", /--operators is required/]] as const) {
+    assert.throws(() => parseUniverseArgs(drop(flag)), re, `missing ${flag} fails closed`);
+  }
+  assert.throws(() => parseUniverseArgs(swap("--max-ru", "0")), /--max-ru must be > 0/);
+  // --operators must equal EXACTLY the universe subset (C-12): a partial or wrong set fails closed.
+  assert.throws(() => parseUniverseArgs(swap("--operators", "solana-foundation,chainstack")), /must be EXACTLY/);
+  assert.throws(() => parseUniverseArgs(swap("--operators", "solana-foundation,chainstack,helius")), /must be EXACTLY/);
   // C-G2-5: an unknown/typo flag is fail-closed BEFORE any write or call (MUTANT: silently ignored => red).
-  assert.throws(() => parseUniverseArgs(["--out", "F:/x", "--max-calls", "10", "--maxpages", "20"]), /unknown flag/);
-  assert.throws(() => parseUniverseArgs(["--out", "F:/x", "--max-calls", "10", "--typo"]), /unknown flag/);
+  assert.throws(() => parseUniverseArgs([...full, "--maxpages", "20"]), /unknown flag/);
+  assert.throws(() => parseUniverseArgs([...full, "--typo"]), /unknown flag/);
   // C-G2-5: --min-interval below the 286 ms floor (0 would DISABLE pacing) is refused (MUTANT: accepted => red).
-  assert.throws(() => parseUniverseArgs(["--out", "F:/x", "--max-calls", "10", "--min-interval", "0"]), /floor/);
-  assert.throws(() => parseUniverseArgs(["--out", "F:/x", "--max-calls", "10", "--min-interval", "100"]), /floor/);
+  assert.throws(() => parseUniverseArgs([...full, "--min-interval", "0"]), /floor/);
+  assert.throws(() => parseUniverseArgs([...full, "--min-interval", "100"]), /floor/);
   // The pre-registered race command parses cleanly (all flags known; 286 >= floor).
-  const pre = parseUniverseArgs(["--out", "F:/x", "--max-calls", "2000", "--min-interval", "286", "--page-size", "100", "--max-pages", "20", "--max-429-streak", "5", "--date", "2026-09-21"]);
+  const pre = parseUniverseArgs([...full, "--min-interval", "286", "--page-size", "100", "--max-pages", "20", "--max-429-streak", "5", "--date", "2026-09-21"]);
   assert.equal(pre.minInterval, 286); assert.equal(pre.maxPages, 20); assert.equal(pre.max429Streak, 5);
 });
 
@@ -676,44 +752,12 @@ test("bell_universe_provenance_never_prints_operator_url", () => {
   assert.match(prov, /^- past_end_probe: array_len=0$/m, "past_end_probe observation line (C-11)");
 });
 
-// ---- 18. C-G2-3: the LIVE fetchers never follow a 3xx redirect (hard stop; body never reaches the target) -
-function portOf(srv: Server): number { const info = srv.address(); if (info === null || typeof info === "string") throw new Error("no tcp port"); return info.port; }
-function listen(srv: Server): Promise<number> { return new Promise((res) => { srv.listen(0, "127.0.0.1", () => { res(portOf(srv)); }); }); }
-test("bell_universe_live_fetch_does_not_follow_redirects", async () => {
-  let targetHits = 0;
-  // connection:close + drained close so undici keeps no loopback socket alive past --test-force-exit (libuv win crash).
-  const target = createServer((_req, res) => { targetHits += 1; res.writeHead(200, { "content-type": "application/json", connection: "close" }); res.end("{}"); });
-  await listen(target);
-  const redirector = createServer((_req, res) => { res.writeHead(302, { location: `http://127.0.0.1:${String(portOf(target))}/target`, connection: "close" }); res.end("go"); });
-  const redirPort = await listen(redirector);
-  const redirUrl = `http://127.0.0.1:${String(redirPort)}/`;
-  try {
-    // MUTANT (a) manual removed => 200, no throw; (b) 3xx-check removed => HttpStatusError, not RedirectBlockedError.
-    await assert.rejects(() => liveHttpGet(redirUrl), (e: unknown) => { assert.ok(e instanceof RedirectBlockedError && e instanceof BudgetExceededError, "3xx GET is a re-thrown hard stop"); return true; });
-    await assert.rejects(() => liveRpcCall(redirUrl, "getAccountInfo", []), (e: unknown) => { assert.ok(e instanceof RedirectBlockedError && e instanceof BudgetExceededError, "3xx RPC POST is a re-thrown hard stop"); return true; });
-    assert.equal(targetHits, 0, "the redirect target was NEVER requested (allowlist bypass via redirect blocked)");
-  } finally {
-    for (const s of [target, redirector]) { s.closeAllConnections(); await new Promise<void>((r) => { s.close(() => { r(); }); }); }
-  }
-});
-
-// ---- 19. C-G2-4: assertHostAllowed requires https + parseable + real host + no userinfo (no url in msg) --
-test("bell_universe_host_allowlist_requires_https_and_parseable_url", () => {
-  // http downgrade (x3: key in clear), bare non-url (was ADMITTED via operatorOf fallback), unparseable, userinfo, non-https.
-  for (const bad of [
-    "http://api.xstocks.fi/x", "http://api.mainnet.solana.com", "http://solana-mainnet.core.chainstack.com/tk-node-key-placeholder",
-    "chainstack", "not a url", "https://user:pw@api.xstocks.fi/x", "ftp://api.xstocks.fi/x",
-  ]) assert.throws(() => { assertHostAllowed(bad); }, /refused before send/, `refused: ${bad}`);
-  // C-10: no NEW message interpolates the url (it may be the paid Chainstack node url carrying a hex key).
-  try { assertHostAllowed("http://solana-mainnet.core.chainstack.com/tk-node-key-placeholder"); assert.fail("must throw"); }
-  catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    assert.equal(msg.includes("chainstack.com"), false, "no host in the message (C-10)");
-    assert.equal(msg.includes("tk-node-key-placeholder"), false, "no key-path in the message (C-10)");
-  }
-  // Regression (positives fully covered by test 6): the operator-admitted https Chainstack host still passes.
-  assert.doesNotThrow(() => { assertHostAllowed(CHAINSTACK); });
-});
+// ---- 18/19 REMOVED (GARDE-HELIUS-1b-i, D-4 annotated) ------------------------------------------------------
+// liveHttpGet / liveRpcCall are DELETED: the guarded client's PRIVATE transport owns the only fetch, so the
+// "live 3xx never followed" guarantee is carried PACKAGE-side by transport-hardening.test.ts (D-9a
+// redirect:"manual" for GET and POST), and the URL-parse / host guard by resolveGetUrl (structural host, 1b-0
+// C-7). assertHostAllowed is now a LABEL test (test 6). No Bell surface parses a URL anymore, so the C-G2-3
+// (live redirect) and C-G2-4 (https/userinfo/parseable URL) tests have no Bell surface to exercise.
 
 // ---- 20. C-G2-5 / N-4: every live call is preceded by >= min-interval of pacing (injected clock) --------
 test("bell_universe_paces_every_call_by_min_interval", async () => {
@@ -721,15 +765,11 @@ test("bell_universe_paces_every_call_by_min_interval", async () => {
   try {
     let clock = 0;
     const callTimes: number[] = [];
-    const base = fileDeps({ CHAINSTACK_SOLANA_URL: CHAINSTACK }, out);
-    const deps: RunDeps = {
-      ...base,
-      sleep: (ms: number) => { clock += ms; return Promise.resolve(); },
-      now: () => clock,
-      httpGet: (u: string) => { callTimes.push(clock); return base.httpGet(u); },
-      call: (u: string, m: string, p: readonly unknown[]) => { callTimes.push(clock); return base.call(u, m, p); },
-    };
-    const r = await runUniverse(["--out", out, "--max-calls", "1000", "--date", "2026-09-21", "--min-interval", "286"], deps);
+    const rpc = concordantCall(rpcMap());
+    const httpGet: StubHttpGet = (u) => { callTimes.push(clock); return defaultHttpGet(u); };
+    const call: JsonRpcCall = (u, m, p) => { callTimes.push(clock); return rpc(u, m, p); };
+    const r = await runGuarded(["--out", out, "--max-calls", "1000", "--date", "2026-09-21", "--min-interval", "286"],
+      { httpGet, call, sleep: (ms: number) => { clock += ms; return Promise.resolve(); }, now: () => clock });
     assert.equal(r.ok, true);
     assert.ok(callTimes.length >= 1 + 7 * 2, "one page GET + 2 confirmations per Solana mint were made");
     // MUTANT N-4 (pacing removed): each call is preceded by >= 286 ms of virtual time; deltas would collapse to 0.
@@ -738,43 +778,14 @@ test("bell_universe_paces_every_call_by_min_interval", async () => {
   } finally { rmSync(out, { recursive: true, force: true }); }
 });
 
-// ---- 22. C-G2D-3 (C-8/C-9): the CLI NEVER egresses in CI, even if the https guard regressed ---------------
-test("bell_universe_cli_no_network_egress_under_shim", () => {
-  const cli = fileURLToPath(new URL("../src/universe-cli.ts", import.meta.url));
-  const shim = fileURLToPath(new URL("./helpers/no-network.mjs", import.meta.url));
-  // `--import <url>` is a node BINARY arg BEFORE the script (NOT execArgv, a fork() option spawnSync lacks). On
-  // Windows the file:// form (pathToFileURL) is required. Node strips `--import <url>` from process.argv, so
-  // argv[1] stays the CLI => the import.meta guard still fires (MEASURED [lu] F:\tmp\cp1-a1bis\, Node 24.15.0).
-  const run = (chainstackUrl: string, out: string) => spawnSync(process.execPath,
-    ["--import", pathToFileURL(shim).href, cli, "--out", out, "--max-calls", "10"],
-    { env: { ...process.env, CHAINSTACK_SOLANA_URL: chainstackUrl }, encoding: "utf8" });
-
-  // (a) placeholder `http` (non-https): STOP at PREFLIGHT (before any page/write) + the shim MARKER proves the
-  // stub is on the path (non-vacuity). The http Chainstack url is refused at preflight, before egress matters.
-  const outA = mkdtempSync(join(tmpdir(), "bell-univ-shimA-"));
-  try {
-    const r = run("http://solana-mainnet.core.chainstack.com/tk-node-key-placeholder", outA);
-    assert.match(r.stderr, /\[no-network shim armed\]/, "MUTANT (--import removed): the shim marker is absent => red (the stub must be wired)");
-    assert.match(r.stderr, /not https/, "the http preflight refusal STOPs the run (no network needed)");
-    assert.notEqual(r.status, 0, "exit != 0 on the http preflight STOP");
-    assert.equal(r.stderr.includes("tk-node-key-placeholder"), false, "stderr carries no key-path (C-10)");
-    assert.equal(r.stderr.includes("core.chainstack.com"), false, "stderr carries no operator host (C-10)");
-  } finally { rmSync(outA, { recursive: true, force: true }); }
-
-  // (b) placeholder `https`: the CLI PASSES the preflight and reaches the issuer GET => the shim throw is on
-  // stderr (`SHIM:`), exit != 0, ZERO connection => EXECUTED proof the egress is closed WITHOUT any real network
-  // (the G2-delta deviation :114-115 becomes unnecessary by construction). MUTANT (https sub-case, shim off the
-  // path): no `SHIM:` on stderr => red. (This sub-case retries ~4.3 s of REAL backoff — expected, not a hang.)
-  const outB = mkdtempSync(join(tmpdir(), "bell-univ-shimB-"));
-  try {
-    const r = run("https://solana-mainnet.core.chainstack.com/tk-node-key-placeholder", outB);
-    assert.match(r.stderr, /\[no-network shim armed\]/, "the shim is armed on the https sub-case too");
-    assert.match(r.stderr, /SHIM:/, "MUTANT: the https sub-case reaches the GET and the shim throw (SHIM:) is surfaced => egress closed, proven without real network");
-    assert.notEqual(r.status, 0, "exit != 0 (fail-closed) on the https sub-case");
-    assert.equal(r.stderr.includes("tk-node-key-placeholder"), false, "stderr carries no key-path (C-10)");
-    assert.equal(r.stderr.includes("core.chainstack.com"), false, "stderr carries no operator host (C-10)");
-  } finally { rmSync(outB, { recursive: true, force: true }); }
-});
+// ---- 22 REMOVED (GARDE-HELIUS-1b-i, D-4 annotated) ---------------------------------------------------------
+// The subprocess "CLI never egresses under a no-network shim" test spawned the CLI with a placeholder
+// CHAINSTACK_SOLANA_URL. Post-migration the CLI needs 6 more required flags (--ledger-dir/--cycle/--floor/--max-ru/
+// --method-caps/--operators) and a PRE-EXISTING cycle dir, and its old sub-case (a) (an http:// url refused at a
+// URL-parsing preflight) no longer exists (the preflight is LABEL-based; the http-vs-https POST-url check is a
+// FORMED ITEM against the PACKAGE transport). The no-egress guarantee is kept by test 23 (the shim blocks at the
+// `net` level, not just fetch) and by the D-1 guard test `bell_course_reaches_fetch_only_via_openGuardedClient`
+// (every course fetch goes to a client-resolved operator host; Bell src carries no fetch — grep test T4a).
 
 // ---- 23. C-V-5 (C-8): the shim blocks at the `net` level — http.request/https.request/net.connect/fetch ALL
 // blocked to a CLOSED loopback port (not just fetch). This is the test that test 22 could NOT provide (the CLI
@@ -795,4 +806,169 @@ test("bell_universe_no_network_shim_blocks_at_net_level", () => {
   const w = spawnSync(process.execPath, [probe], { encoding: "utf8", timeout: 20000 });
   const wout = JSON.parse((w.stdout.trim().split("\n").pop() ?? "{}")) as Record<string, string>;
   assert.match(wout["net"] ?? "", /ECONNREFUSED/, `witness (no shim): net.connect reaches the closed loopback port (ECONNREFUSED): ${String(wout["net"])}`);
+});
+
+// ==== GARDE-HELIUS-1b-i named guard tests: the composition through the REAL openGuardedClient (G0 §7) ============
+const cycLedger = (ld: string, op: string, cycle = "cyc"): string => join(ld, cycle, `${op}.jsonl`);
+const attemptedLines = (p: string): number => (existsSync(p) ? readFileSync(p, "utf8").split(/\r?\n/).filter((l) => l.includes('"outcome":"attempted"')).length : 0);
+const hasOutcome = (p: string, o: string): boolean => existsSync(p) && readFileSync(p, "utf8").includes(`"outcome":"${o}"`);
+const jbody = (v: unknown): Response => new Response(JSON.stringify(v), { status: 200, headers: { "content-type": "application/json" } });
+const rpcOk = (init?: RequestInit): Response => { const req = JSON.parse(typeof init?.body === "string" ? init.body : "{}") as { method: string; params: unknown[] }; return jbody({ jsonrpc: "2.0", id: 1, result: rpcMap()[String(req.params[0])] ?? { value: null } }); };
+
+// IT-1 (+ D-1): the whole course spends ONLY through the guard. Every PAID (chainstack) fetch is preceded by its
+// write-ahead ledger line ON DISK (P6); every fetch goes to a CLIENT-resolved operator host (Bell src has no fetch,
+// grep test T4a). BOTH issuer body forms — {assets:[…]} AND a BARE ARRAY — flow VERBATIM to foldPage (G7 1b-0 §5).
+test("universe_spends_only_through_guard", async () => {
+  for (const wrap of [true, false]) { // true => {assets:[…]} envelope; false => a BARE ARRAY body
+    const out = mkdtempSync(join(tmpdir(), "bell-univ-it1-")); const ld = tmpLedgerDir();
+    const csL = cycLedger(ld, "chainstack");
+    let csFetches = 0; let writeAheadOk = true; const hosts = new Set<string>();
+    const assets = issuerAssets();
+    const spy = ((input: string | URL, init?: RequestInit): Promise<Response> => {
+      const url = String(input); hosts.add(new URL(url).hostname);
+      if (url.includes("xstocks")) {
+        const page = Number(new URL(url).searchParams.get("page") ?? "0");
+        return Promise.resolve(jbody(page === 0 ? (wrap ? { assets } : assets) : (wrap ? { assets: [] } : [])));
+      }
+      if (url.includes("invalid")) { csFetches += 1; if (attemptedLines(csL) < csFetches) writeAheadOk = false; } // chainstack host
+      return Promise.resolve(rpcOk(init));
+    }) as typeof globalThis.fetch;
+    try {
+      let r!: RunResult;
+      await withFetch(spy, async () => { r = await runUniverse(gArgs(["--out", out, "--max-calls", "1000", "--date", "2026-09-21", "--page-size", "100"], ld), fileDeps()); });
+      assert.equal(r.ok, true, `both body forms compose to an artifact (wrap=${String(wrap)})`);
+      assert.equal(r.solanaAssets, 7, "the envelope AND the BARE ARRAY are read VERBATIM by pageAssets/foldPage (G7 1b-0 §5)");
+      assert.ok(csFetches >= 1, "chainstack was actually drawn (paid leg exercised)");
+      assert.ok(writeAheadOk, "MUTANT (append AFTER transport): every paid fetch is preceded by its write-ahead ledger line ON DISK");
+      assert.ok(attemptedLines(csL) >= csFetches, "the chainstack ledger carries >= 1 attempted line per paid fetch");
+      for (const h of hosts) assert.ok(h === "api.xstocks.fi" || h === "api.mainnet.solana.com" || h.includes("invalid"), `D-1: every fetch is to a client operator host (${h})`);
+    } finally { rmSync(out, { recursive: true, force: true }); rmSync(ld, { recursive: true, force: true }); }
+  }
+});
+
+// C-1: a budget refusal is LEDGERED (a chained `refused` line) and NEVER retried; the run STOPS (rejects). --floor at
+// the 16 M RU cap => the FIRST chainstack getAccountInfo (1 RU) refuses cycle_cap BEFORE the transport (0 paid fetch).
+test("universe_budget_refusal_is_not_retried", async () => {
+  const out = mkdtempSync(join(tmpdir(), "bell-univ-c1-")); const ld = tmpLedgerDir();
+  const csL = cycLedger(ld, "chainstack");
+  let csFetches = 0;
+  const spy = (async (input: string | URL, init?: RequestInit): Promise<Response> => {
+    const url = String(input);
+    if (url.includes("xstocks")) return jbody((await defaultHttpGet(url)).json);
+    if (url.includes("invalid")) csFetches += 1;
+    return rpcOk(init);
+  }) as typeof globalThis.fetch;
+  try {
+    await withFetch(spy, () => assert.rejects(
+      () => runUniverse(gArgs(["--out", out, "--max-calls", "1000", "--date", "2026-09-21"], ld, "cyc", "16000000"), fileDeps()),
+      BudgetExceededError, "a cycle_cap refusal STOPs the run (never a truncated universe as complete)"));
+    const refused = existsSync(csL) ? readFileSync(csL, "utf8").split(/\r?\n/).filter((l) => l.includes('"outcome":"refused"')).length : 0;
+    assert.equal(refused, 1, "MUTANT (local BudgetExceededError class restored): the refusal is retried => > 1 refused line");
+    assert.equal(csFetches, 0, "the refused call never reached the transport (0 paid fetch) and was NOT retried");
+  } finally { rmSync(out, { recursive: true, force: true }); rmSync(ld, { recursive: true, force: true }); }
+});
+
+// C-12: the operator SUBSET comes from the CLI (--operators), not an env probe. The env carries BELL_SOLANA_RPC +
+// HELIUS_API_KEY (helius IS resolvable) but --operators OMITS helius => openGuardedClient never opens/locks helius.
+test("universe_operator_subset_comes_from_cli_not_env", async () => {
+  const out = mkdtempSync(join(tmpdir(), "bell-univ-c12-")); const ld = tmpLedgerDir();
+  const env = { CHAINSTACK_SOLANA_URL: CHAINSTACK_GUARD, BELL_SOLANA_RPC: "https://helius.example.invalid", HELIUS_API_KEY: "FAKE-NOT-A-REAL-KEY" };
+  try {
+    let r!: RunResult;
+    await withFetch(fetchAdapter(defaultHttpGet, concordantCall(rpcMap())), async () => { r = await runUniverse(gArgs(["--out", out, "--max-calls", "1000", "--date", "2026-09-21"], ld), fileDeps({ env })); });
+    assert.equal(r.ok, true);
+    assert.equal(existsSync(join(ld, "cyc", "helius.jsonl")), false, "MUTANT (env probe restored): helius is resolvable from env but NOT requested => no helius ledger");
+    assert.equal(existsSync(join(ld, "cyc", "helius.lock")), false, "helius is never locked (not in --operators)");
+    for (const op of ["chainstack", "solana-foundation", "xstocks-issuer"]) assert.ok(existsSync(cycLedger(ld, op)), `${op} ledger opened (subset from --operators)`);
+  } finally { rmSync(out, { recursive: true, force: true }); rmSync(ld, { recursive: true, force: true }); }
+});
+
+// D-2: retry is ABOVE the client — R retries RE-ENTER client.call => R+1 write-ahead ledger lines (not one line for
+// a below-the-client retry). A single Solana mint, chainstack always 503 (transient) => maxRetries+1 = 5 attempts.
+test("universe_retry_counts_each_attempt", async () => {
+  const out = mkdtempSync(join(tmpdir(), "bell-univ-d2-")); const ld = tmpLedgerDir();
+  const csL = cycLedger(ld, "chainstack");
+  let csFetches = 0;
+  const oneMint = [{ id: "m", symbol: "Mx", name: "Mx", deployments: [{ network: "Solana", address: "MintXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" }] }];
+  const spy = ((input: string | URL, init?: RequestInit): Promise<Response> => {
+    const url = String(input);
+    if (url.includes("xstocks")) return Promise.resolve(jbody(Number(new URL(url).searchParams.get("page") ?? "0") === 0 ? oneMint : []));
+    if (url.includes("invalid")) { csFetches += 1; return Promise.resolve(new Response("busy", { status: 503 })); } // chainstack always 503 (transient)
+    return Promise.resolve(rpcOk(init));
+  }) as typeof globalThis.fetch;
+  try {
+    let r!: RunResult;
+    await withFetch(spy, async () => { r = await runUniverse(gArgs(["--out", out, "--max-calls", "1000", "--date", "2026-09-21"], ld), fileDeps()); });
+    assert.equal(r.ok, false, "the single mint is not a founder => calibration fails, but the retry counting is the point");
+    assert.equal(csFetches, 5, "a 503 retried 4x (maxRetries default) => 5 client.call => 5 chainstack fetches");
+    assert.equal(attemptedLines(csL), 5, "MUTANT (retry NOT re-entering the client): R+1=5 write-ahead ledger lines (each retry is a new attempted line)");
+  } finally { rmSync(out, { recursive: true, force: true }); rmSync(ld, { recursive: true, force: true }); }
+});
+
+// D-6: moving --out does NOT reset the CYCLE prior (the money guard lives in --ledger-dir). (a) a nonexistent
+// --ledger-dir throws BEFORE any lock (C-8). (b) run1 (outA) then run2 (outB, FRESH RUN ledger) on the SAME cycle =>
+// chainstack.jsonl ACCUMULATES; run2's RUN anchor starts fresh (declared phantom-fresh residual, bounded by --max-calls).
+test("universe_out_moved_on_resume_keeps_cycle_prior", async () => {
+  const stub = fetchAdapter(defaultHttpGet, concordantCall(rpcMap()));
+  // (a) the CYCLE dir MUST pre-exist (MUTANT "mkdirp(a.ledgerDir)": auto-creation => phantom-fresh => no throw => red).
+  const out0 = mkdtempSync(join(tmpdir(), "bell-univ-d6a-"));
+  const nonexistent = join(tmpdir(), `bell-univ-noexist-${String(process.pid)}-${String(Date.now())}`);
+  try {
+    await withFetch(stub, () => assert.rejects(() => runUniverse(gArgs(["--out", out0, "--max-calls", "1000"], nonexistent), fileDeps()), /does not pre-exist/));
+    assert.equal(existsSync(nonexistent), false, "the nonexistent --ledger-dir was NOT auto-created");
+  } finally { rmSync(out0, { recursive: true, force: true }); }
+  // (b) same ledger-dir/cycle across two moved --out dirs => the CYCLE ledger accumulates.
+  const ld = tmpLedgerDir(); const csL = cycLedger(ld, "chainstack");
+  const outA = mkdtempSync(join(tmpdir(), "bell-univ-d6A-")); const outB = mkdtempSync(join(tmpdir(), "bell-univ-d6B-"));
+  try {
+    await withFetch(stub, async () => {
+      const r1 = await runUniverse(gArgs(["--out", outA, "--max-calls", "1000", "--date", "2026-09-21"], ld), fileDeps());
+      const n1 = attemptedLines(csL);
+      const r2 = await runUniverse(gArgs(["--out", outB, "--max-calls", "1000", "--date", "2026-09-21"], ld), fileDeps());
+      const n2 = attemptedLines(csL);
+      assert.ok(r1.ok && r2.ok, "both runs succeed");
+      assert.ok(n1 >= 1 && n2 > n1, "the CYCLE ledger ACCUMULATES across moved --out (n2 > n1); moving --out never resets it");
+      const anchorB = JSON.parse(readFileSync(join(outB, "budget.json"), "utf8")) as { calls: number };
+      assert.ok(anchorB.calls >= 1, "run2's RUN anchor reflects its OWN count in the fresh --out (declared phantom-fresh residual, bounded by --max-calls; the CYCLE ledger is the inter-run guard)");
+    });
+  } finally { for (const d of [outA, outB, ld]) rmSync(d, { recursive: true, force: true }); }
+});
+
+// D-9b: a 403 on a guarded confirm is a FATAL hard stop — Fatal403Error (a BudgetExceededError subclass) re-thrown by
+// quorum2 => the run STOPS (rejects), NEVER retried. MUTANT (403 retried / not hard-stopped): the run continues.
+test("transport_403_is_fatal_hard_stop", async () => {
+  const out = mkdtempSync(join(tmpdir(), "bell-univ-d9b-")); const ld = tmpLedgerDir();
+  const spy = (async (input: string | URL, init?: RequestInit): Promise<Response> => {
+    const url = String(input);
+    if (url.includes("xstocks")) return jbody((await defaultHttpGet(url)).json);
+    if (url.includes("invalid")) return new Response("forbidden", { status: 403 }); // chainstack 403
+    return rpcOk(init);
+  }) as typeof globalThis.fetch;
+  try {
+    await withFetch(spy, () => assert.rejects(
+      () => runUniverse(gArgs(["--out", out, "--max-calls", "1000", "--date", "2026-09-21"], ld), fileDeps()),
+      (e: unknown) => { assert.ok(e instanceof Fatal403Error && e instanceof BudgetExceededError, "a 403 on a guarded call is a fatal hard stop (never retried)"); return true; }));
+  } finally { rmSync(out, { recursive: true, force: true }); rmSync(ld, { recursive: true, force: true }); }
+});
+
+// Reconcile e2e (+ finally-unlock): the run auto-unlocks all N operators (no .lock; an `unlocked` line each), then the
+// SERVED reconcile consumes the chainstack ledger. 121: aggregate on the ACCOUNT total_ru (Σ networks); the FIRST
+// Solana course is aggregate-calibration => GO (delta <= ledger_run). This is the "through to reconcile GO/NO-GO" tuyau.
+test("universe_finally_unlocks_then_reconcile_goes", async () => {
+  const out = mkdtempSync(join(tmpdir(), "bell-univ-rec-")); const ld = tmpLedgerDir();
+  try {
+    let r!: RunResult;
+    await withFetch(fetchAdapter(defaultHttpGet, concordantCall(rpcMap())), async () => { r = await runUniverse(gArgs(["--out", out, "--max-calls", "1000", "--date", "2026-09-21"], ld), fileDeps()); });
+    assert.equal(r.ok, true);
+    for (const op of ["solana-foundation", "chainstack", "xstocks-issuer"]) {
+      assert.ok(!existsSync(join(ld, "cyc", `${op}.lock`)), `MUTANT (finally without N unlock): ${op}.lock is released in the finally`);
+      assert.ok(hasOutcome(cycLedger(ld, op), "unlocked"), `${op}.jsonl carries the chained unlocked line`);
+    }
+    const ru = attemptedLines(cycLedger(ld, "chainstack")); // 1 RU per chainstack getAccountInfo
+    const before = join(out, "snap-b.json"); const after = join(out, "snap-a.json");
+    writeFileSync(before, JSON.stringify({ cycle: "cyc", total_ru: 0 })); writeFileSync(after, JSON.stringify({ cycle: "cyc", total_ru: ru }));
+    const rec = runCli(["reconcile", "--cycle", "cyc", "--op", "chainstack", "--mode", "aggregate-calibration", "--before", before, "--after", after], { ledgerDir: ld, floor: 0, readSnapshot: (p) => JSON.parse(readFileSync(p, "utf8")) as { cycle: string } });
+    assert.equal(rec.exitCode, 0, "reconcile (aggregate-calibration) GOes: account total_ru delta <= ledger_run, exit 0");
+    assert.equal(rec.verdict, "GO");
+  } finally { rmSync(out, { recursive: true, force: true }); rmSync(ld, { recursive: true, force: true }); }
 });

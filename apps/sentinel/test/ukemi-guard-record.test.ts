@@ -93,6 +93,32 @@ test("ukemi_record_then_unlock_then_reconcile_end_to_end", async () => {
   } finally { rmSync(out, { force: true }); cleanup(); }
 });
 
+// GARDE-HELIUS-1b0-E (ruling C-5, ripple carried by 1b-iii): the finally unlocks EACH requested operator under ITS OWN
+// cycle `cycles[op]` (record.ts, the SOLE line changed outside byte-identity), never the single `cycle` scalar. TODAY
+// the recorder builds `cycles` from ONE --cycle, so cycles[op] === cycle for every op and the change is behaviorally a
+// NO-OP: this test proves NO REGRESSION (each op's unlocked line lands in <ledgerDir>/<cycle>/<op>.jsonl, the per-op
+// path, no .lock left) but is DECLARATIVE for the ripple — the mutant `cycles[String(op)] -> cycle` yields the identical
+// value while every operator shares one cycle. KILLABILITY is an item formed (owner: orchestrator; trigger = 1b0-E's own
+// trigger: a recorder course locking >= 2 operators on DISTINCT cycle-ids, which needs per-operator cycles at the CLI —
+// outside this sub-lot's "byte-identical outside the finally" scope).
+test("ukemi_record_finally_unlocks_each_operator_under_its_own_cycle", async () => {
+  const { dir, cleanup } = tmpLedger();
+  const out = join(tmpdir(), `u1biii-unlock-${String(process.pid)}-${String(Date.now())}.json`);
+  const cycle = "cyc-1b0e";
+  const ops = ["mevblocker.io", "tenderly.co", "chainstack"];
+  try {
+    await withFetch((_i, init) => Promise.resolve(fxServe(parseReq(init))), async () => {
+      assert.equal(await runRecorder(argv(dir, cycle, ops.join(","), ["--cluster", "weth", "--block", String(FX.block), "--out", out]), DEPS), 0, "the guarded run succeeds");
+    });
+    for (const op of ops) {
+      // the unlocked line is chained into <ledgerDir>/<cycle>/<op>.jsonl — the per-op cycle path (cycles[op]); an unlock
+      // under a wrong cycle would leave this op's .lock held and write no unlocked line under <cycle>/<op>.jsonl.
+      assert.ok(!existsSync(join(dir, cycle, `${op}.lock`)), `${op}.lock released under its own cycle path (finally, cycles[op])`);
+      assert.ok(hasOutcome(join(dir, cycle, `${op}.jsonl`), "unlocked"), `${op}.jsonl (<cycle>/<op>) carries the chained unlocked line`);
+    }
+  } finally { rmSync(out, { force: true }); cleanup(); }
+});
+
 // #1 write-ahead: EVERY paid (chainstack) fetch is preceded by its ledger line ON DISK (checked INSIDE the fetch spy).
 // The "makeBudgetedCall restored" mutant (a local in-memory counter, no ledger line) reds the in-spy assertion.
 test("ukemi_record_spends_only_through_guard", async () => {

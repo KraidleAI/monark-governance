@@ -11,10 +11,14 @@
 //    (0xf6b111..103f, 18 dec) = BASE. A real swap decoded to amount0=-11300145 (USDC out), amount1=
 //    +27878301563019328 (TSLAon in) => ~405.34 USDC/TSLAon (a plausible TSLA price).
 //
-// KEY HYGIENE (C-10): the Ethereum call throws `HTTP <status>` with NO url (record.ts:22 appends the url and
-// rpc2.ts:136 folds the message — since this call carries no url, the folded message stays key-free).
-import { makeUkemiPool, GET_LOGS_PROVIDERS, RpcError, type LogEntry } from "../../sentinel/src/ukemi/rpc2.ts";
-import { providerOf, type RpcCall } from "../../sentinel/src/rpc.ts";
+// GARDE-HELIUS-1b-iii: the Ethereum leg is BUDGETED and KEYLESS. Every eth_getLogs / eth_getBlockByNumber goes through
+// @monark/rpc-guard (openGuardedClient) via makeGuardedEthCall — one write-ahead ledger line per attempt, cost 0
+// (keyless labels, counted). The raw-fetch bellEthCall is REMOVED (its fetch migrates INTO the client). KEY HYGIENE
+// (C-10) + R-D (2b-ii) are CONSERVED structurally: the transport builds the canonical RpcError with op = the bare
+// keyless label and no key, so no ?api-key can leak and apps/bell constructs no RpcError any more.
+import { makeUkemiPool, type LogEntry } from "../../sentinel/src/ukemi/rpc2.ts";
+import { type RpcCall } from "../../sentinel/src/rpc.ts";
+import { GET_LOGS_KEYLESS_LABELS, BudgetExceededError, TransportError, type BudgetedClient, type OperatorLabel } from "@monark/rpc-guard";
 import type { PoolRef } from "./pools.ts";
 import { vwapDecimal, type SessionGap } from "./gap.ts";
 import { sessionGap } from "./gap.ts";
@@ -55,29 +59,42 @@ export function ethSessionGap(fills: readonly SwapFill[], closeRef: number): Ses
   return sessionGap(fills, closeRef, 18, 6);
 }
 
-/** Default Ethereum JSON-RPC call for the quorum pool: throws `HTTP <status>` (NO url, unlike record.ts:22)
- *  on a transport fault and a typed RpcError on a node error, so no ?api-key can leak (C-10). */
-export const bellEthCall: RpcCall = async (url, method, params) => {
-  const ctl = new AbortController();
-  const to = setTimeout(() => { ctl.abort(); }, 30_000);
-  try {
-    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), signal: ctl.signal });
-    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`);
-    const json = (await res.json()) as { result?: unknown; error?: { code?: number; message?: string; data?: unknown } };
-    // GARDE-HELIUS-2b-ii R-D: the canonical RpcError signature is (op, message, code, detail, unit, data). op =
-    // providerOf(url) (a bare host, NEVER the url which could carry a key - C-10 Bell hygiene); unit "keyless" (Bell
-    // introduces no paid bench); detail "". One line adapted; apps/bell is otherwise intact (its migration is 1b).
-    if (json.error) throw new RpcError(providerOf(url), json.error.message ?? "rpc error", json.error.code ?? 0, "", "keyless", typeof json.error.data === "string" ? json.error.data : undefined);
-    return json.result;
-  } finally { clearTimeout(to); }
-};
+/** Build a BUDGETED, keyless eth-leg `RpcCall` from an open guarded client (GARDE-HELIUS-1b-iii, replaces the raw
+ *  bellEthCall). Every read routes label -> client.call(LABEL, method, params): a write-ahead ledger line THEN one
+ *  transport attempt, cost 0 (keyless). Retry is at the CALLER ONLY (mirror of the recorder, record.ts): a transient
+ *  TRANSPORT fault (Abort/network/429/>=500) is retried with capped backoff; an RpcError, another 4xx, and the budget
+ *  stop are NEVER retried (BudgetExceededError re-thrown FIRST). No ?api-key can leak: the transport raises the
+ *  canonical RpcError with op = the bare label, and this module never holds a url or a key (C-10 / R-D conserved). */
+export function makeGuardedEthCall(client: BudgetedClient,
+  opts: { retries?: number; backoffMs?: number; backoffCapMs?: number } = {}): RpcCall {
+  const retries = opts.retries ?? 2, backoffMs = opts.backoffMs ?? 500, backoffCapMs = opts.backoffCapMs ?? 8_000;
+  return async (label, method, params) => {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await client.call(label as OperatorLabel, method, params);
+      } catch (e) {
+        if (e instanceof BudgetExceededError) throw e; // fatal FIRST — never retried
+        const transient = e instanceof TransportError && (e.name === "AbortError" || e.name === "TypeError" || e.name === "NetworkError" || (e.name === "HttpError" && e.code !== undefined && (e.code === 429 || e.code >= 500)));
+        if (transient && attempt < retries) { await new Promise((r) => setTimeout(r, Math.min(backoffMs * 2 ** attempt, backoffCapMs))); continue; }
+        throw e;
+      }
+    }
+  };
+}
 
 /** Live TSLAon/USDC swaps over a block range with quorum-2 getLogs (makeUkemiPool, as-is). Network only
- *  (run-guarded main); returns SwapFills with per-block timestamps for session classification. */
+ *  (run-guarded main); returns SwapFills with per-block timestamps for session classification. GARDE-HELIUS-1b-iii:
+ *  `opts.call` is the BUDGETED guarded call (makeGuardedEthCall) and is REQUIRED — there is NO raw-fetch default any
+ *  more (fail-closed: an unbudgeted leg would rejoin the HELIUS-1 class). The default provider set is the KEYLESS
+ *  LABELS (the transport resolves label -> url). The collect.ts call site (GARDE-HELIUS-1b pli, C-G2-A) passes
+ *  makeGuardedEthCall over a SECOND keyless guarded client on the production/integration branch (deps.call absent),
+ *  and the budgeted injected deps.call on the offline-unit branch (D-1) - never an unbudgeted fetch on either. */
 export async function liveEthSwaps(pool: PoolRef, fromBlock: number, toBlock: number,
   opts: { call?: RpcCall; getLogsProviders?: readonly string[] } = {}): Promise<SwapFill[]> {
-  const p = makeUkemiPool({ call: opts.call ?? bellEthCall, ethCallProviders: opts.getLogsProviders ?? GET_LOGS_PROVIDERS,
-    getLogsProviders: opts.getLogsProviders ?? GET_LOGS_PROVIDERS, minIntervalMs: 200 });
+  const call = opts.call;
+  if (call === undefined) throw new Error("bell/ethereum: liveEthSwaps requires a budgeted opts.call (makeGuardedEthCall over openGuardedClient); no unbudgeted fetch default (GARDE-HELIUS-1b-iii)");
+  const providers = opts.getLogsProviders ?? GET_LOGS_KEYLESS_LABELS;
+  const p = makeUkemiPool({ call, ethCallProviders: providers, getLogsProviders: providers, minIntervalMs: 200 });
   const logs = await p.getLogsRange(pool.poolId, [UNISWAP_V3_SWAP_TOPIC], fromBlock, toBlock);
   const tsCache = new Map<number, number>();
   const fills: SwapFill[] = [];
