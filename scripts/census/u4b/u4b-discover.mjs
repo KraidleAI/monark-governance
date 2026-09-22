@@ -8,6 +8,9 @@
 // u4-oracle-path.mjs — NOT a raw fetch (that would be a second/zeroth budget counter D5 forbids, and a fetch site
 // outside transport.ts trips the CI grep B-5). The LiquidationCall logic (topic0, decode, cluster) is the SINGLE
 // source in liquidation-logs.mjs; the frozen labeler keeps its own copy (equality proven by test). Run-guarded.
+// SCOPE RESERVATION (C-3, checkpoint-2): u4b-discover does NOT implement §DISC:31 (e2 exclusion), :42-46 (N_min /
+// version_ok eligibility), :49 (argmin episode selection); `clusters` is a CONSULTATIVE witness only. The episode
+// selector (u4b_episode_selection_is_deterministic) is a separately-formed item, triggered by the prereg -1b.
 // ============================================================================================
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";

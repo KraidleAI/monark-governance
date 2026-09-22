@@ -122,6 +122,7 @@ export interface UkemiArgs {
   preregSha: string | undefined; // A-2: the sha256 LF of the prereg file (--prereg-file), verified before any read
   preregFile: string;            // A-2/Q-A (decision 128): the prereg the course is BOUND to (default docs/PLAN-u4b-prereg.md)
   labelerSha: string | undefined; // Q-B (decision 128): the sha256 LF of scripts/census/u3-realized.mjs (the frozen U-3 labeler)
+  noPreregBinding: boolean;      // Q-A ruling 2026-09-22 (CHANTIERS.md:677): EXPLICITLY lift the by-code --prereg-sha/--labeler-sha requirement for a non-U-4b generic use (U-1/susde); recorded prereg_binding:"none"
   filterOnly: boolean;          // D-3 two-stage go: stop after getUserConfiguration×quorum, report nAtRisk, no per-account read
   slowOperators: string[];      // D-4: operator labels throttled to slowIntervalMs (a misbehaving operator raised alone)
   slowIntervalMs: number;       // D-4: interval for slowOperators (default 200)
@@ -170,6 +171,7 @@ export function parseUkemiArgs(argv: readonly string[]): UkemiArgs {
     preregSha: arg("--prereg-sha"),
     preregFile: arg("--prereg-file") ?? "docs/PLAN-u4b-prereg.md",
     labelerSha: arg("--labeler-sha"),
+    noPreregBinding: argv.includes("--no-prereg-binding"),
     filterOnly: argv.includes("--filter-only"),
     slowOperators: argAll("--slow-operator"),
     slowIntervalMs: reqInt("--slow-interval-ms", 200),
@@ -247,13 +249,23 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
   if (maxCalls === undefined) throw new Error("ukemi/record: --max-calls is required (C-5 fail-closed RPC budget; e.g. --max-calls 300000)");
   if (!(maxCalls > 0)) throw new Error("ukemi/record: --max-calls must be > 0 (C-5 fail-closed budget)");
 
-  // A-2 / Q-A (decision 128): a supplied --prereg-sha MUST equal the sha256 LF of the prereg the course is BOUND to
+  // A-2 / Q-A (decision 128 + escalation ruling 2026-09-22, CHANTIERS.md:677): the course is BOUND to the prereg
   // (--prereg-file, default docs/PLAN-u4b-prereg.md) — proof the U-4b prereg was committed and unchanged BEFORE the
   // course (else U4b-H* would be post hoc). Pre-decision-128 this compared to docs/PLAN-u4-prereg.md (the U-4 LIVRE
-  // prereg), so the ADR-U4b D4 sentence "the script refuses without --prereg-sha == sha of THIS file" was FALSE; the
-  // gate now binds the course to PLAN-u4b-prereg.md by CODE. A missing prereg file is a NAMED refusal, never an ENOENT.
+  // prereg), so the ADR-U4b D4 sentence "the script refuses without --prereg-sha == sha of THIS file" was FALSE.
+  // RULING (escalation resolved): once the bound --prereg-file EXISTS on disk, --prereg-sha AND --labeler-sha are
+  // REQUIRED BY CODE — a missing flag is a PRE-FLIGHT refusal (0 client call, 0 ledger, no diag: thrown before the
+  // try below). --no-prereg-binding EXPLICITLY lifts this for a non-U-4b generic use (U-1/susde), recorded
+  // prereg_binding:"none" in the provenance (the U-4b prereg -1b forbids --no-prereg-binding for the weth course).
+  // It only lifts the REQUIREMENT: a --prereg-sha/--labeler-sha that IS supplied is still verified below. When the
+  // prereg file does NOT exist (a repo without it), the flags stay optional (a supplied --prereg-sha with a missing
+  // file is still a NAMED refusal). A missing prereg file is a NAMED refusal, never an ENOENT.
+  const preregPath = join(root, args.preregFile);
+  const preregBound = existsSync(preregPath) && !args.noPreregBinding;
+  const preregBinding = preregBound ? args.preregFile : "none";
+  if (preregBound && args.preregSha === undefined) throw new Error(`ukemi/record: --prereg-sha is required because ${args.preregFile} exists on disk (Q-A ruling 2026-09-22: the weth U-4b course is bound to the prereg by code; pass --no-prereg-binding for a non-U-4b use)`);
+  if (preregBound && args.labelerSha === undefined) throw new Error(`ukemi/record: --labeler-sha is required because ${args.preregFile} exists on disk (Q-A ruling 2026-09-22: the weth U-4b course is bound to the prereg by code; pass --no-prereg-binding for a non-U-4b use)`);
   if (args.preregSha !== undefined) {
-    const preregPath = join(root, args.preregFile);
     if (!existsSync(preregPath)) throw new Error(`ukemi/record: --prereg-file ${args.preregFile} does not exist (A-2/Q-A; commit the prereg first)`);
     const actual = lfSha256(readFileSync(preregPath, "utf8"));
     if (actual !== args.preregSha) throw new Error(`ukemi/record: --prereg-sha ${args.preregSha} != ${args.preregFile} LF sha ${actual} (A-2; commit the prereg first)`);
@@ -388,7 +400,7 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
       const provenance = {
         model: "claude-opus-4-8[1m]", recorded_at_utc: new Date(deps.now()).toISOString(), phase: "filter-only",
         endpoints: { eth_call: opLabels(ethCallProviders), eth_getLogs: opLabels(getLogsProviders) }, quorum: 2,
-        params: { cluster: cluster.id, block, from_block: args.fromBlock ?? null, min_interval_ms: args.minIntervalMs, slow_operators: args.slowOperators, slow_interval_ms: args.slowIntervalMs, retries: args.retries, backoff_ms: args.backoffMs, backoff_cap_ms: args.backoffCapMs, max_calls: args.maxCalls, prereg_sha: args.preregSha ?? null, prereg_file: args.preregFile, labeler_sha: args.labelerSha ?? null, resume: args.resume !== undefined, filter_only: true },
+        params: { cluster: cluster.id, block, from_block: args.fromBlock ?? null, min_interval_ms: args.minIntervalMs, slow_operators: args.slowOperators, slow_interval_ms: args.slowIntervalMs, retries: args.retries, backoff_ms: args.backoffMs, backoff_cap_ms: args.backoffCapMs, max_calls: args.maxCalls, prereg_sha: args.preregSha ?? null, prereg_file: args.preregFile, prereg_binding: preregBinding, labeler_sha: args.labelerSha ?? null, resume: args.resume !== undefined, filter_only: true },
         calls: budgeted.total(), calls_by_operator: budgeted.byOperator(), calls_by_method: budgeted.byMethod(), errors_by_operator: errByOp, spent_by_operator: c.spent().byOperator, seconds, finalized_block: fin.block, ukemi_sha: ukemiSha(here),
         holders: fr.holders, holders_digest: fr.holders_digest, n_at_risk_config: fr.n_at_risk_config,
         excluded: { collateral_off: fr.excluded_collateral_off, no_debt: fr.excluded_no_debt }, projection_remaining_calls: 9 * fr.n_at_risk_config,
@@ -417,7 +429,7 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
     const provenance = {
       model: "claude-opus-4-8[1m]", recorded_at_utc: new Date(deps.now()).toISOString(),
       endpoints: { eth_call: opLabels(ethCallProviders), eth_getLogs: opLabels(getLogsProviders) }, quorum: 2, // labels only, NEVER a URL (C-5)
-      params: { cluster: cluster.id, block, from_block: args.fromBlock ?? null, min_interval_ms: args.minIntervalMs, retries: args.retries, backoff_ms: args.backoffMs, backoff_cap_ms: args.backoffCapMs, max_calls: args.maxCalls, prereg_sha: args.preregSha ?? null, prereg_file: args.preregFile, labeler_sha: args.labelerSha ?? null, resume: args.resume !== undefined },
+      params: { cluster: cluster.id, block, from_block: args.fromBlock ?? null, min_interval_ms: args.minIntervalMs, retries: args.retries, backoff_ms: args.backoffMs, backoff_cap_ms: args.backoffCapMs, max_calls: args.maxCalls, prereg_sha: args.preregSha ?? null, prereg_file: args.preregFile, prereg_binding: preregBinding, labeler_sha: args.labelerSha ?? null, resume: args.resume !== undefined },
       calls: budgeted.total(), calls_by_operator: budgeted.byOperator(), calls_by_method: budgeted.byMethod(), errors_by_operator: errByOp, spent_by_operator: c.spent().byOperator, seconds, finalized_block: fin.block, ukemi_sha: ukemiSha(here),
       counts: res.counts, holders_digest: res.holders_digest, book_digest: res.book_digest,
       hf_findings: res.hf_findings, timeline: res.timeline,

@@ -35,7 +35,11 @@ function tmpLedger(): { dir: string; cleanup: () => void } {
   return { dir, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
 }
 function argv(dir: string, cycle: string, operators: string, extra: string[] = [], maxRu = "1000000"): string[] {
-  return ["--ledger-dir", dir, "--cycle", cycle, "--floor", "0", "--max-ru", maxRu, "--max-calls", "500000", "--method-caps", METHOD_CAPS, "--operators", operators, "--min-interval-ms", "0", "--backoff-ms", "0", ...extra];
+  // Ruling 2026-09-22 (CHANTIERS.md:677): these are GENERIC recorder uses (mechanics: budget/ledger/retry/book/concordance),
+  // NOT a U-4b pre-registered course => --no-prereg-binding, so the suite survives once docs/PLAN-u4b-prereg.md is committed
+  // (C-4, committed ALONE per decision 128 — no test edit can ride with it). No-op today (default prereg file absent), keeps
+  // preregBound=false after C-4 (measured by a transient prereg-present simulation at the pli).
+  return ["--ledger-dir", dir, "--cycle", cycle, "--floor", "0", "--max-ru", maxRu, "--max-calls", "500000", "--method-caps", METHOD_CAPS, "--operators", operators, "--min-interval-ms", "0", "--backoff-ms", "0", "--no-prereg-binding", ...extra];
 }
 async function withFetch(stub: (input: string | URL, init?: RequestInit) => Promise<Response>, body: () => Promise<void>): Promise<void> {
   const real = globalThis.fetch;
@@ -65,8 +69,11 @@ test("ukemi_record_then_unlock_then_reconcile_end_to_end", async () => {
       const code = await runRecorder(argv(dir, "cyc", `${KEYLESS},chainstack`, ["--cluster", "weth", "--block", String(FX.block), "--out", out]), DEPS);
       assert.equal(code, 0, "the guarded full-book run succeeds");
     });
-    const book = JSON.parse(readFileSync(out, "utf8")) as { provenance: { book_digest: string } };
+    const book = JSON.parse(readFileSync(out, "utf8")) as { provenance: { book_digest: string; params: { prereg_binding: string } } };
     assert.equal(book.provenance.book_digest, PIN_BOOK_DIGEST, "the book reproduces the pinned digest THROUGH the guarded transport (fetch stubbed only)");
+    // Q-A ruling 2026-09-22: the provenance RECORDS prereg_binding — "none" here (default --prereg-file
+    // docs/PLAN-u4b-prereg.md is absent in the repo, so no binding is in effect). Kills the "prereg_binding not recorded" mutant.
+    assert.equal(book.provenance.params.prereg_binding, "none", "provenance.params records prereg_binding (\"none\" when no bound prereg file exists)");
     // C-R-b2(a): chainstack is APPENDED LAST, so with 5 keyless concording it is NEVER drawn - 0 attempted line in its
     // ledger (a paid course spends 0 RU when the keyless quorum forms). The "chainstack drawn first" mutant reorders
     // the pool => chainstack is drawn on every read => attempted > 0 => this reds.
@@ -421,7 +428,7 @@ test("ukemi_record_caller_retries_429_with_capped_backoff", async () => {
   const t0 = Date.now();
   try {
     await withFetch(stub, async () => {
-      await assert.rejects(() => runRecorder(["--ledger-dir", dir, "--cycle", "cyc", "--floor", "0", "--max-ru", "1000000", "--max-calls", "500000", "--method-caps", METHOD_CAPS, "--operators", "mevblocker.io,chainstack", "--min-interval-ms", "0", "--backoff-ms", "100000", "--backoff-cap-ms", "5", "--retries", "2", "--cluster", "weth", "--block", "1"], LEAK_DEPS));
+      await assert.rejects(() => runRecorder(["--ledger-dir", dir, "--cycle", "cyc", "--floor", "0", "--max-ru", "1000000", "--max-calls", "500000", "--method-caps", METHOD_CAPS, "--operators", "mevblocker.io,chainstack", "--min-interval-ms", "0", "--backoff-ms", "100000", "--backoff-cap-ms", "5", "--retries", "2", "--no-prereg-binding", "--cluster", "weth", "--block", "1"], LEAK_DEPS));
     });
     assert.equal(cs, 3, "a transient 429 is retried at the caller: retries=2 => 3 paid fetches (mutant '429 not retried' => 1 => reds)");
     assert.equal(attemptedLines(csLedger), 3, "R+1 write-ahead ledger lines (the budget counts each 429 attempt)");

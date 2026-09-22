@@ -38,6 +38,12 @@ const jrpc = (result: unknown): Response => new Response(JSON.stringify({ jsonrp
 test("u4b_discover_refuses_a_paid_operator_keyless_only", () => {
   assert.throws(() => assertKeylessOperators(["drpc.org", "chainstack"]), /KEYLESS-ONLY|not a keyless/, "a PAID chainstack in --operators is refused fail-closed (mutant 'paid accepted' reds)");
   assert.throws(() => assertKeylessOperators(["drpc.org", "helius"]), /KEYLESS-ONLY|not a keyless/, "a PAID helius in --operators is refused fail-closed");
+  // O-1 (G2): case/space variants of a paid label AND an UNKNOWN paid label are refused too — the guard is a WHITELIST
+  // (only KEYLESS_LABELS pass), NOT a blacklist of {chainstack,helius}. Kills the "whitelist->blacklist" mutant M8,
+  // which would let a case variant ('Chainstack') or an unknown paid label ('alchemy') through.
+  for (const variant of ["Chainstack", "CHAINSTACK", " chainstack", "Helius", "alchemy"]) {
+    assert.throws(() => assertKeylessOperators(["drpc.org", variant]), /KEYLESS-ONLY|not a keyless/, `a paid/unknown label '${variant}' (case/space variant or unknown) is refused fail-closed (whitelist, not a {chainstack,helius} blacklist)`);
+  }
   assert.throws(() => assertKeylessOperators([]), /--operators .* is required/, "an empty --operators is refused");
   assert.deepEqual([...assertKeylessOperators(["drpc.org", "mevblocker.io", "tenderly.co", "pocket.network"])], ["drpc.org", "mevblocker.io", "tenderly.co", "pocket.network"], "a keyless-only include list is accepted");
   assert.ok(!KEYLESS_LABELS.includes("chainstack") && !KEYLESS_LABELS.includes("helius"), "no paid label is a keyless witness");

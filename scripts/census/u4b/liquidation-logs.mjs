@@ -55,7 +55,7 @@ export function decodeAndSort(logs) {
   return logs.map(decodeLiquidationCall).sort((a, b) => a.block - b.block || a.logIndex - b.logIndex);
 }
 
-/** Greedy WETH clustering, VERBATIM the §DISC / U-3 D2 rule (frozen labeler u3-realized.mjs:439-447): over the
+/** Greedy WETH clustering by the §DISC / U-3 D2 window rule (NOT a verbatim labeler copy: u3-realized.mjs:439-447 applies the window to PRE-COMMITTED clusterLo/clusterHi bounds and does not cluster): over the
  *  WETH-collateral records in (block, logIndex) order, each unassigned record opens a cluster [B_first, B_last] with
  *  B_last = firstBlockAtOrAfter(ts(B_first)+86400, ...) - 1 (windows.ts — the SAME function the labeler uses at :445);
  *  members = the WETH records in that window; B0 = B_first - 1 (the recorder --block, §DISC:52). `tsOf` is the injected
