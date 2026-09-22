@@ -36,7 +36,7 @@ Artefacts par frontière :
 |---|---|---|---|---|---|---|---|
 | 2026-09-22T14:07:18Z | probe_end | n/a | `ea83d5460a41abca8ab2385c306602cb38a09edaf6b8c507cff48f1423e05803` | n/a | n/a | `c05e37c` | `probe_end-manifest.txt.ots` |
 | 2026-09-22T14:11:33Z | mint_start | TSLAx | `58b83d36c0ba613900df879a3b4bd1ddb2ed300450ddb801d024810fc86e6c7d` | n/a | n/a | `e12ee3a` | `mint_start-TSLAx-manifest.txt.ots` |
-| 2026-10-1XTHH:MM:SSZ | mint_end | TSLAx | `<…>` | `<entry_sha256 dernière ligne ledger-TSLAx>` | `<ledger_sha256 crosscheck-TSLAx.json>` | `<…>` | `mint_end-TSLAx-manifest.txt.ots` |
+| 2026-09-22T20:02:44Z | mint_end | TSLAx | `a682b3b75d81bb2d715be70ec05e5ccd4d04f5beb92ae7b674972af5ea177171` | a0af1f207edd0d6cb428c4f785095ececfddb6e34018941c64544b01e32010aa |  | `d5d15e6` | `mint_end-TSLAx-manifest.txt.ots` |
 | … | … | … | … | … | … | … | … |
 | 2026-10-1XTHH:MM:SSZ | final | n/a | `<sha256 du manifest.txt final>` | n/a | n/a | `<…>` | `final-manifest.txt.ots` |
 | 2026-09-22T14:22:42Z | mint_resume | TSLAx | `fd7564f5dda3db3059ef3efdc5f359143b29b32517c212df331b1b0a81624f25` | n/a | n/a | `f7b7bc5` | `mint_resume-TSLAx-manifest.txt.ots` |
