@@ -1,6 +1,6 @@
 # FAITS - floor Chainstack, lecture SUR PLACE n°1 (regle 2026-09-20 ; prereg -1b §A-4, decision 121)
 
-Orchestrateur Fable 5.1, Claude in Chrome (session investisseur), `https://console.chainstack.com/statistics`, onglet Elastic Nodes, filtre « Past 2 months », lu le 2026-09-22 05:24 UTC (`date -u`). Niveau : **[lu]** premiere main. Aucune page portant une cle n'a ete ouverte (Projects, Statistics seulement). Bandeau de la page : « Data updates every few hours, not in real time. Today's figures are partial and continue to fill in through the day. »
+Orchestrateur Fable 5.1, Claude in Chrome (session investisseur), `https://console.chainstack.com/statistics`, onglet Elastic Nodes, filtre « Past 2 months », lu le 2026-09-22 05:22 UTC (`date -u`). Niveau : **[lu]** premiere main. Aucune page portant une cle n'a ete ouverte (Projects, Statistics seulement). Bandeau de la page : « Data updates every few hours, not in real time. Today's figures are partial and continue to fill in through the day. »
 
 ## Cycle (table « Number of RUs over billing periods | elastic nodes », 1 ligne)
 | Org ID | Org | Billing period start | Billing period end | plan | full RUs | archive RUs | debug | trace | Warp |
