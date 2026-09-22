@@ -55,5 +55,16 @@ export function buildSelection(args: { census: SelectionCensus; preregSha: strin
 export function selectionSha(payload: Record<string, unknown>): string;
 export function runSelect(argv: readonly string[], deps?: Deps): Promise<{ out: string; rawOut: string; eventsOut: string; episodeId: string; selectionSha: string; file: Record<string, unknown> }>;
 export function runCheckVersion(argv: readonly string[], deps: Deps): Promise<{ versionOk: boolean; impl: string; block: number }>;
-export function runFillTs(argv: readonly string[], deps: Deps): Promise<{ out: string; nExtra: number; sha: string }>;
+/** The `--fill-ts` durable sidecar (C-2 / D-n): `phase` "partial" is a resumable checkpoint (rewritten every 50 new ts
+ *  and on a graceful STOP), "complete" is the only phase runSelect --block-ts-extra accepts. `block_ts_extra_sha256` is
+ *  over `block_ts_extra` only (not `phase`), keeping the C-2 sha chain byte-stable across a phase flip. */
+export interface BlockTsExtraSidecar {
+  schema: string;
+  phase: "partial" | "complete";
+  discover_sha: string;
+  n_extra: number;
+  block_ts_extra: Record<string, number>;
+  block_ts_extra_sha256: string;
+}
+export function runFillTs(argv: readonly string[], deps: Deps): Promise<{ out: string; nExtra: number; sha: string; phase: "complete" }>;
 export function run(argv: readonly string[], deps: Deps): Promise<unknown>;
