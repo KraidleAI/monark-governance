@@ -5,7 +5,7 @@
 // globalThis.fetch is ever stubbed (D-3); the default `select` mode makes 0 fetch (offline, tested).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, linkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -55,7 +55,10 @@ async function makeDiscover(): Promise<{ dir: string; path: string; e2Tx: string
     e2a, e2b, nonWeth,
   ].sort((a, b) => a.block - b.block || a.logIndex - b.logIndex);
   const blockTs: Record<string, number> = {};
-  await clusterWethLiquidations(records, (b) => { blockTs[String(b)] = TS(b); return TS(b); });
+  // D-BORNE-1 clamp mirrored: block_ts records NO block > to_block (the selector's tsOf returns +Infinity past to_block), so the
+  // OFFLINE re-clustering probes the SAME <= to_block path the builder captured (else an end-of-range cluster like B4 would
+  // refuse "no ts" for a converge-path block the unclamped builder never recorded). B4 stays window_truncated (b_last=to_block).
+  await clusterWethLiquidations(records, (b) => { if (b > TO_BLOCK) return Infinity; blockTs[String(b)] = TS(b); return TS(b); });
   const brut = { schema: "ukemi-u4b-discover/2", event_id: "weth-discover-test", pool: "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2", liq_topic: "0xe413a321e8681d831f4dbccbca790d2952b56f977908e45be37335533e005286", from_block: FROM_BLOCK, to_block: TO_BLOCK, n_logs: records.length, records, block_ts: blockTs };
   const brutSha = sha256Hex(canon(brut));
   const dir = mkdtempSync(join(tmpdir(), "u4bsel-"));
@@ -165,7 +168,7 @@ test("u4b_select_refuses_a_tampered_block_ts_extra_sidecar", async () => {
   const o = mkdtempSync(join(tmpdir(), "u4bsel-bte-"));
   try {
     const df = JSON.parse(readFileSync(d.path, "utf8")) as { provenance: { brut_sha256: string } };
-    const sidecar = { schema: "ukemi-u4b-block-ts-extra/1", discover_sha: df.provenance.brut_sha256, n_extra: 0, block_ts_extra: {}, block_ts_extra_sha256: "deadbeef".repeat(8) }; // WRONG sha
+    const sidecar = { schema: "ukemi-u4b-block-ts-extra/1", phase: "complete", discover_sha: df.provenance.brut_sha256, n_extra: 0, block_ts_extra: {}, block_ts_extra_sha256: "deadbeef".repeat(8) }; // WRONG sha; real shape (phase "complete", C-GD-2): the sha guard ALONE refuses it
     const scPath = join(o, "block-ts-extra.json");
     writeFileSync(scPath, JSON.stringify(sidecar));
     await assert.rejects(runSelect([...selArgs(d, join(o, "sel")), "--block-ts-extra", scPath]), /block_ts_extra_sha256 mismatch/, "a tampered block-ts-extra sidecar (C-2) is refused fail-closed");
@@ -177,7 +180,7 @@ test("u4b_select_refuses_a_block_ts_extra_sidecar_from_another_brut", async () =
   const o = mkdtempSync(join(tmpdir(), "u4bsel-bte2-"));
   try {
     // sidecar whose self-sha is VALID but whose discover_sha points at a DIFFERENT brut (C-V-8, V-M12).
-    const sidecar = { schema: "ukemi-u4b-block-ts-extra/1", discover_sha: "f".repeat(64), n_extra: 0, block_ts_extra: {}, block_ts_extra_sha256: sha256Hex(canon({})) };
+    const sidecar = { schema: "ukemi-u4b-block-ts-extra/1", phase: "complete", discover_sha: "f".repeat(64), n_extra: 0, block_ts_extra: {}, block_ts_extra_sha256: sha256Hex(canon({})) }; // real shape (phase "complete", C-GD-2): the discover_sha guard ALONE refuses it
     const scPath = join(o, "block-ts-extra.json");
     writeFileSync(scPath, JSON.stringify(sidecar));
     await assert.rejects(runSelect([...selArgs(d, join(o, "sel")), "--block-ts-extra", scPath]), /sidecar belongs to another brut/, "a sidecar bound to another brut's discover_sha is refused (C-V-8, V-M12 reds)");
@@ -397,4 +400,350 @@ test("u4guard_canon_matches_liquidation_logs_canon", () => {
     assert.equal(guardCanon(v), canon(v), `u4-guard canon must match liquidation-logs canon (prober vs reducer sha parity) for ${JSON.stringify(v)}`);
     assert.equal(guardSha(guardCanon(v)), sha256Hex(canon(v)), "u4-guard sha256Hex(canon) must match liquidation-logs sha256Hex(canon)");
   }
+});
+
+// ============================================================================================================
+// (10) U-4b-1b-3 — `--fill-ts`/`runSelect` beyond to_block WITHOUT network (D-BORNE-1), INCREMENTAL resumable sidecar,
+// quorum-2 tolerates a transient 429. Only globalThis.fetch is ever stubbed. Mutants: F:\tmp\u4b1b3\mutants.mjs.
+// ============================================================================================================
+const FROM = 22_803_459;
+function writeDiscoverFile(dir: string, records: LiquidationRecord[], toBlock: number, blockTs: Record<string, number>): string {
+  const sorted = records.slice().sort((a, b) => a.block - b.block || a.logIndex - b.logIndex);
+  const brut = { schema: "ukemi-u4b-discover/2", phase: "complete", event_id: "weth-u4b1b3-test", pool: "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2", liq_topic: "0xe413a321e8681d831f4dbccbca790d2952b56f977908e45be37335533e005286", from_block: FROM, to_block: toBlock, n_logs: sorted.length, records: sorted, block_ts: blockTs };
+  const brutSha = sha256Hex(canon(brut));
+  const path = join(dir, "discover.json");
+  writeFileSync(path, JSON.stringify({ provenance: { brut_sha256: brutSha }, brut, clusters: null, cluster_error: null }, null, 2));
+  return path;
+}
+/** block_ts built with the SAME to_block clamp the selector uses (records NO block > to_block), so the offline
+ *  re-clustering finds every <= to_block block on its converge path (D-BORNE-1; else an end-of-range cluster refuses "no ts"). */
+async function clampedBlockTs(records: LiquidationRecord[], toBlock: number): Promise<Record<string, number>> {
+  const bt: Record<string, number> = {};
+  await clusterWethLiquidations(records, (b) => { if (b > toBlock) return Infinity; bt[String(b)] = TS(b); return TS(b); });
+  return bt;
+}
+/** eth_getBlockByNumber stub (ts=block*12). `failBeyond`: a block > N returns null (non-existent => asBlock "malformed
+ *  block" => quorum fail). `failAfterDistinct`: null once N distinct blocks were served (a kill). `transient429`: the
+ *  FIRST call to an operator whose URL includes that string returns HTTP 429, then 200 (a transient the pool retry heals).
+ *  `onFresh(n, before)` (pli, D-4 additive): called on the FIRST request of each not-yet-served block, `before` = the
+ *  distinct blocks already served - lets a test observe the DISK mid-run (clustering, binary search and quorum-2 are all
+ *  sequential awaits, so at before=50 the 50th ts has resolved and its synchronous periodic flush has run). */
+function blockStub(opts: { failBeyond?: number; failAfterDistinct?: number; transient429?: string; onFresh?: (n: number, before: number) => void } = {}): { stub: (i: string | URL, init?: RequestInit) => Promise<Response>; distinct: Set<number>; maxQueried: () => number } {
+  const distinct = new Set<number>(); let maxQ = -1; let rl = false;
+  const stub = (input: string | URL, init?: RequestInit): Promise<Response> => {
+    const req = JSON.parse(typeof init?.body === "string" ? init.body : "{}") as { method: string; params: unknown[] };
+    if (req.method !== "eth_getBlockByNumber") return Promise.resolve(jrpc(null));
+    const n = parseInt(String(req.params[0]), 16); if (n > maxQ) maxQ = n;
+    if (opts.onFresh !== undefined && !distinct.has(n)) opts.onFresh(n, distinct.size);
+    if (opts.transient429 !== undefined && String(input).includes(opts.transient429) && !rl) { rl = true; return Promise.resolve(new Response("rate limited", { status: 429 })); }
+    if (opts.failBeyond !== undefined && n > opts.failBeyond) return Promise.resolve(jrpc(null));
+    if (opts.failAfterDistinct !== undefined && !distinct.has(n) && distinct.size >= opts.failAfterDistinct) return Promise.resolve(jrpc(null));
+    distinct.add(n);
+    return Promise.resolve(jrpc({ hash: "0x" + n.toString(16).padStart(64, "0"), number: String(req.params[0]), timestamp: "0x" + (n * 12).toString(16) }));
+  };
+  return { stub, distinct, maxQueried: () => maxQ };
+}
+const fillArgs = (discover: string, out: string, ledger: string, cycle: string, ops = "drpc.org,mevblocker.io,tenderly.co"): string[] =>
+  ["--fill-ts", "--discover", discover, "--out", out, "--operators", ops, "--ledger-dir", ledger, "--cycle", cycle, "--max-calls", "1000000", "--method-caps", '{"eth_getBlockByNumber":1000000}', "--min-interval-ms", "0"];
+const OFF = (): Promise<Response> => Promise.reject(new Error("offline: the selector reads NO network"));
+
+test("u4b_select_marks_a_to_block_minus_1000_cluster_window_truncated_offline_0_fetch", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "u4btr-")), o = mkdtempSync(join(tmpdir(), "u4btr-o-"));
+  try {
+    const toBlock = 24_000_000;
+    const records = [...mkCluster(23_700_000, 50), ...mkCluster(toBlock - 1000, 55)]; // early COMPLETE winner + end-of-range
+    const path = writeDiscoverFile(dir, records, toBlock, await clampedBlockTs(records, toBlock));
+    let fetches = 0; const real = globalThis.fetch;
+    globalThis.fetch = (): Promise<Response> => { fetches++; return Promise.reject(new Error("offline")); };
+    try {
+      const r = await runSelect(["--discover", path, "--prereg-file", "docs/PLAN-u4b-prereg.md", "--prereg-sha", PREREG_LF, "--out", o], { env: {}, now: () => 1 });
+      const file = JSON.parse(readFileSync(r.out, "utf8")) as { episode: { B_first: number }; window_truncated: number; candidates: Array<{ b_first: number; b_last: number; eligible: boolean; reasons: string[] }> };
+      assert.equal(fetches, 0, "0 network: the +Infinity clamp resolves blocks past to_block WITHOUT a fetch (D-BORNE-1; mutant 'clamp removed' => 'no ts' refusal reds)");
+      assert.equal(file.episode.B_first, 23_700_000, "winner is the early COMPLETE cluster, not the truncated one");
+      const eor = file.candidates.find((c) => c.b_first === toBlock - 1000)!;
+      assert.equal(eor.b_last, toBlock, "the end-of-range b_last is CLAMPED to to_block (the resolvable bound)");
+      assert.deepEqual(eor.reasons, ["window_truncated"], "the to_block-1000 cluster is window_truncated (24h boundary unconfirmable within [.., to_block]; mutant 'drop b_last>=toBlock' => eligible reds)");
+      assert.equal(eor.eligible, false, "a window_truncated cluster is NOT eligible");
+      assert.equal(file.window_truncated, 1, "exactly one window_truncated cluster");
+    } finally { globalThis.fetch = real; }
+  } finally { rmSync(dir, { recursive: true, force: true }); rmSync(o, { recursive: true, force: true }); }
+});
+
+test("u4b_fill_ts_resolves_a_to_block_minus_1000_cluster_with_0_fetch_past_to_block", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "u4bfb-")), o = mkdtempSync(join(tmpdir(), "u4bfb-o-")), ledger = mkdtempSync(join(tmpdir(), "u4bfb-l-"));
+  try {
+    const toBlock = 24_000_000;
+    const path = writeDiscoverFile(dir, mkCluster(toBlock - 1000, 3), toBlock, {}); // empty block_ts => fill-ts must fetch
+    const s = blockStub({ failBeyond: toBlock }); // a block > to_block returns null (non-existent) => malformed if ever probed
+    let res: { nExtra: number; phase: string } | undefined;
+    await withFetch(s.stub, async () => { res = await runFillTs(fillArgs(path, join(o, "fill"), ledger, "fb"), { env: {}, now: () => 1 }); });
+    assert.equal(res!.phase, "complete", "fill-ts COMPLETES with no malformed-block STOP (mutant 'clamp removed' => probes past to_block => null => NoQuorum reds)");
+    assert.ok(s.maxQueried() <= toBlock, `0 fetch past to_block: max queried block ${s.maxQueried()} <= to_block ${toBlock}`);
+    assert.ok(res!.nExtra > 0, "fill-ts did fetch the <= to_block window blocks");
+  } finally { rmSync(dir, { recursive: true, force: true }); rmSync(o, { recursive: true, force: true }); rmSync(ledger, { recursive: true, force: true }); }
+});
+
+test("u4b_fill_ts_is_incremental_and_resumable_after_a_quorum_kill", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "u4bkr-")), o = mkdtempSync(join(tmpdir(), "u4bkr-o-"));
+  try {
+    const toBlock = 26_000_000;
+    const records = [23_000_000, 23_200_000, 23_400_000, 23_600_000, 23_800_000].flatMap((b) => mkCluster(b, 2)); // >60 distinct fetches, all <= to_block
+    const path = writeDiscoverFile(dir, records, toBlock, {});
+    const out = join(o, "fill"), scPath = join(out, "block-ts-extra.json");
+    // (1) KILL after 60 distinct ts (NoQuorum on the 61st): the partial is DURABLE on disk.
+    const k = blockStub({ failAfterDistinct: 60 }); const l1 = mkdtempSync(join(tmpdir(), "u4bkr-l1-"));
+    let killErr: unknown = null;
+    await withFetch(k.stub, async () => { try { await runFillTs(fillArgs(path, out, l1, "kill"), { env: {}, now: () => 1 }); } catch (e) { killErr = e; } });
+    rmSync(l1, { recursive: true, force: true });
+    assert.ok(killErr instanceof Error, "the 61st-block quorum fail stops the run");
+    assert.ok(existsSync(scPath), "a DURABLE partial sidecar persists after the kill (mutant 'flush skips partial' => no file reds)");
+    const partial = JSON.parse(readFileSync(scPath, "utf8")) as { phase: string; n_extra: number; block_ts_extra: Record<string, number>; block_ts_extra_sha256: string };
+    assert.equal(partial.phase, "partial", "the interrupted sidecar is phase 'partial'");
+    assert.equal(partial.n_extra, 60, "the partial holds exactly the 60 ts fetched before the kill");
+    assert.equal(sha256Hex(canon(partial.block_ts_extra)), partial.block_ts_extra_sha256, "the partial self-sha is valid");
+    // (2) RESUME: completes fetching ONLY the remaining blocks (the 60 partial ts are cached, not re-fetched).
+    const rs = blockStub({}); const l2 = mkdtempSync(join(tmpdir(), "u4bkr-l2-"));
+    let res: { nExtra: number; phase: string } | undefined;
+    await withFetch(rs.stub, async () => { res = await runFillTs(fillArgs(path, out, l2, "resume"), { env: {}, now: () => 1 }); });
+    rmSync(l2, { recursive: true, force: true });
+    assert.equal(res!.phase, "complete", "the resumed run completes");
+    assert.ok(res!.nExtra > 60, "the complete sidecar has more ts than the 60-entry partial");
+    assert.equal(rs.distinct.size, res!.nExtra - 60, "resume re-fetched ONLY the remaining blocks (mutant 'resume seeding removed' => refetches all => size==nExtra reds)");
+  } finally { rmSync(dir, { recursive: true, force: true }); rmSync(o, { recursive: true, force: true }); }
+});
+
+test("u4b_fill_ts_writes_complete_which_select_accepts_and_select_refuses_a_partial", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "u4bph-")), o = mkdtempSync(join(tmpdir(), "u4bph-o-")), ledger = mkdtempSync(join(tmpdir(), "u4bph-l-"));
+  try {
+    const toBlock = 24_000_000;
+    const path = writeDiscoverFile(dir, mkCluster(23_500_000, 50), toBlock, {}); // eligible winner; empty block_ts => fill-ts fetches
+    const s = blockStub({});
+    let fres: { out: string; phase: string } | undefined;
+    await withFetch(s.stub, async () => { fres = await runFillTs(fillArgs(path, join(o, "fill"), ledger, "ph"), { env: {}, now: () => 1 }); });
+    assert.equal(fres!.phase, "complete", "fill-ts writes phase 'complete' at the end (mutant 'final flush partial' => select refuses reds)");
+    const sc = JSON.parse(readFileSync(fres!.out, "utf8")) as { phase: string; block_ts_extra: Record<string, number>; block_ts_extra_sha256: string; discover_sha: string; schema: string; n_extra: number };
+    assert.equal(sc.phase, "complete", "the sidecar file is phase 'complete'");
+    const real = globalThis.fetch; globalThis.fetch = OFF;
+    try {
+      const sel = await runSelect(["--discover", path, "--prereg-file", "docs/PLAN-u4b-prereg.md", "--prereg-sha", PREREG_LF, "--out", join(o, "sel"), "--block-ts-extra", fres!.out], { env: {}, now: () => 1 });
+      assert.ok(existsSync(sel.out), "runSelect ACCEPTS a phase:complete sidecar (0 fetch)");
+      writeFileSync(fres!.out, JSON.stringify({ ...sc, phase: "partial" }, null, 2) + "\n"); // same data + self-sha, only phase flipped
+      await assert.rejects(runSelect(["--discover", path, "--prereg-file", "docs/PLAN-u4b-prereg.md", "--prereg-sha", PREREG_LF, "--out", join(o, "sel2"), "--block-ts-extra", fres!.out], { env: {}, now: () => 1 }), /sidecar phase 'partial' is not 'complete'/, "runSelect REFUSES a partial sidecar BY NAME (mutant 'phase check removed' => accepted reds)");
+    } finally { globalThis.fetch = real; }
+  } finally { rmSync(dir, { recursive: true, force: true }); rmSync(o, { recursive: true, force: true }); rmSync(ledger, { recursive: true, force: true }); }
+});
+
+test("u4b_fill_ts_quorum2_tolerates_a_transient_429_via_the_bounded_pool_retry", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "u4b429-")), o = mkdtempSync(join(tmpdir(), "u4b429-o-")), ledger = mkdtempSync(join(tmpdir(), "u4b429-l-"));
+  try {
+    const path = writeDiscoverFile(dir, mkCluster(23_500_000, 2), 24_000_000, {});
+    const s = blockStub({ transient429: "drpc.org" }); // the FIRST eth.drpc.org call 429s, then 200
+    let res: { phase: string } | undefined;
+    await withFetch(s.stub, async () => { res = await runFillTs(fillArgs(path, join(o, "fill"), ledger, "rt", "drpc.org,mevblocker.io"), { env: {}, now: () => 1 }); });
+    assert.equal(res!.phase, "complete", "a transient 429 on one of TWO operators is tolerated by the bounded pool retry; quorum-2 still forms (mutant 'retries:0' => benched => NoQuorum reds)");
+  } finally { rmSync(dir, { recursive: true, force: true }); rmSync(o, { recursive: true, force: true }); rmSync(ledger, { recursive: true, force: true }); }
+});
+
+// ============================================================================================================
+// (11) U-4b-1b-3 PLI - checkpoint-2 C-V-1 / C-V-2 / C-V-6 and G2 C-G2-1..3 closures, adapted from the reviewers'
+// throwaway harnesses (cp2-harness / cp2-lock / cp2-trunc, g2-demo-tests). Only globalThis.fetch is stubbed (D-3); a
+// torn or foreign sidecar is written to disk as STATE. Mutants M9..M17 of the lot harness (tap, named killer, A-11).
+// ============================================================================================================
+const SIDECAR_SCHEMA = "ukemi-u4b-block-ts-extra/1";
+const KILL_SET = [23_000_000, 23_200_000, 23_400_000, 23_600_000, 23_800_000]; // the kill test's set: > 60 distinct fetches
+const FILL_DEPS = { env: {}, now: (): number => 1 };
+type Sidecar = { schema: string; phase?: string; discover_sha: string; n_extra: number; block_ts_extra: Record<string, number>; block_ts_extra_sha256: string };
+/** A hand-written sidecar in runFillTs's schema, phase "partial", self-sha of `extra` unless `sha` overrides it. */
+const sidecarOf = (discoverSha: string, extra: Record<string, number>, sha: string = sha256Hex(canon(extra))): Sidecar =>
+  ({ schema: SIDECAR_SCHEMA, phase: "partial", discover_sha: discoverSha, n_extra: Object.keys(extra).length, block_ts_extra: extra, block_ts_extra_sha256: sha });
+/** Every operator lock under a ledger dir: the rpc-guard lock IS the file `<ledger>/<cycle>/<op>.lock` (lock.ts acquireLock). */
+const locksUnder = (ledger: string): string[] => readdirSync(ledger, { recursive: true, encoding: "utf8" }).filter((p) => p.endsWith(".lock"));
+const brutShaOf = (discoverPath: string): string => (JSON.parse(readFileSync(discoverPath, "utf8")) as { provenance: { brut_sha256: string } }).provenance.brut_sha256;
+function scratch(prefix: string): { dir: string; o: string; l: string; done: () => void } {
+  const dir = mkdtempSync(join(tmpdir(), `${prefix}-`)), o = mkdtempSync(join(tmpdir(), `${prefix}-o-`)), l = mkdtempSync(join(tmpdir(), `${prefix}-l-`));
+  return { dir, o, l, done: () => { for (const x of [dir, o, l]) rmSync(x, { recursive: true, force: true }); } };
+}
+
+test("u4b_fill_ts_pre_open_refusals_hold_no_cycle_lock_and_the_same_cycle_relaunches", async () => {
+  const w = scratch("u4bpo");
+  try {
+    const recs = mkCluster(23_500_000, 3);
+    const bad = writeDiscoverFile(mkdtempSync(join(w.dir, "bad-")), recs, 24_000_000.5, {}); // non-integer to_block, brut sha re-computed
+    const good = writeDiscoverFile(w.dir, recs, 24_000_000, {});
+    const out = join(w.o, "fill"), scPath = join(out, "block-ts-extra.json");
+    const s = blockStub({});
+    await withFetch(s.stub, async () => {
+      // (1) cycle c1, to_block guard: refused BEFORE the guard opens (mutant M10 'to_block check after open' => c1 locks held => reds).
+      await assert.rejects(runFillTs(fillArgs(bad, out, w.l, "c1"), FILL_DEPS), (e: unknown) => e instanceof SelectError && /brut\.to_block is not an integer/.test(e.message), "a non-integer to_block is refused BY NAME");
+      assert.deepEqual(locksUnder(w.l), [], "no operator lock survives the to_block refusal");
+      // (2) SAME cycle c1, a FOREIGN resume sidecar: refused BEFORE the guard opens (a lock left by (1) would surface as 'already locked').
+      mkdirSync(out, { recursive: true });
+      writeFileSync(scPath, JSON.stringify(sidecarOf("f".repeat(64), {})));
+      await assert.rejects(runFillTs(fillArgs(good, out, w.l, "c1"), FILL_DEPS), (e: unknown) => e instanceof SelectError && /belongs to another brut/.test(e.message), "the foreign resume sidecar is refused BY NAME, not 'already locked'");
+      assert.deepEqual(locksUnder(w.l), [], "no operator lock survives the resume refusal (mutant M9 'resume block after open' => c1 locks held => reds)");
+      assert.equal(existsSync(join(w.l, "c1")), false, "the guard never opened: the c1 cycle dir was never created");
+      assert.equal(s.distinct.size, 0, "both refusals made 0 fetch");
+      // (3) sidecar moved aside: the SAME cycle c1 relaunches and completes (cp-2 probe before the pli: 'already locked for this cycle').
+      rmSync(scPath);
+      const r = await runFillTs(fillArgs(good, out, w.l, "c1"), FILL_DEPS);
+      assert.equal(r.phase, "complete", "the same cycle c1 relaunches after both refusals and completes");
+      assert.deepEqual(locksUnder(w.l), [], "the completed run released every operator lock (unlockAll)");
+    });
+  } finally { w.done(); }
+});
+
+test("u4b_fill_ts_refuses_a_torn_sidecar_by_name_with_0_fetch_and_no_lock", async () => {
+  const w = scratch("u4btn");
+  try {
+    const path = writeDiscoverFile(w.dir, mkCluster(23_500_000, 3), 24_000_000, {});
+    const out = join(w.o, "fill"), scPath = join(out, "block-ts-extra.json");
+    mkdirSync(out, { recursive: true });
+    const torn = '{"schema":"ukemi-u4b-block-ts-extra/1","phase":"partial","block_ts_extra":{"235'; // cut mid-write (cp-2 probe of the in-place writer)
+    writeFileSync(scPath, torn);
+    let fetches = 0;
+    await withFetch((): Promise<Response> => { fetches++; return Promise.reject(new Error("offline: no fetch expected")); }, async () => {
+      await assert.rejects(runFillTs(fillArgs(path, out, w.l, "c1"), FILL_DEPS), (e: unknown) => e instanceof SelectError && /block-ts-extra sidecar unreadable: /.test(e.message), "a torn sidecar is a NAMED SelectError, never a bare SyntaxError (mutant M11 'bare JSON.parse' => reds)");
+    });
+    assert.equal(fetches, 0, "refused with 0 fetch");
+    assert.deepEqual(locksUnder(w.l), [], "the cycle is not locked: the refusal precedes the guard open");
+    assert.equal(readFileSync(scPath, "utf8"), torn, "the torn sidecar is left byte-identical (no flush ran), for the operator to inspect or move aside");
+  } finally { w.done(); }
+});
+
+test("u4b_fill_ts_flushes_a_durable_partial_every_50_new_ts_observed_mid_run", async () => {
+  const w = scratch("u4bpf");
+  try {
+    const path = writeDiscoverFile(w.dir, KILL_SET.flatMap((b) => mkCluster(b, 2)), 26_000_000, {});
+    const out = join(w.o, "fill"), scPath = join(out, "block-ts-extra.json");
+    let mid: Sidecar | null | undefined;
+    const s = blockStub({ onFresh: (_n, before) => { if (before === 50 && mid === undefined) mid = existsSync(scPath) ? JSON.parse(readFileSync(scPath, "utf8")) as Sidecar : null; } });
+    let r: { phase: string; nExtra: number } | undefined;
+    await withFetch(s.stub, async () => { r = await runFillTs(fillArgs(path, out, w.l, "pf"), FILL_DEPS); });
+    assert.ok(mid, "at the 51st distinct block a sidecar is ALREADY on disk, before any STOP/catch - the hard-kill defence (mutant M12 'FLUSH_EVERY 50 -> 1e9' => none => reds)");
+    assert.equal(mid.phase, "partial", "the mid-run sidecar is phase 'partial'");
+    assert.equal(mid.n_extra, 50, "it holds exactly the first 50 new ts");
+    assert.equal(sha256Hex(canon(mid.block_ts_extra)), mid.block_ts_extra_sha256, "its self-sha is valid: a hard kill at this point resumes from 50");
+    assert.equal(r!.phase, "complete", "the run then completes");
+    assert.ok(r!.nExtra > 50, "the run fetched past the first periodic flush");
+  } finally { w.done(); }
+});
+
+test("u4b_fill_ts_replaces_the_sidecar_by_tmp_rename_never_in_place_and_leaves_no_tmp", async () => {
+  const w = scratch("u4brn");
+  try {
+    const path = writeDiscoverFile(w.dir, KILL_SET.flatMap((b) => mkCluster(b, 2)), 26_000_000, {});
+    const out = join(w.o, "fill"), scPath = join(out, "block-ts-extra.json"), link = join(w.o, "mid-run-partial.json");
+    // Hard-link the periodic partial mid-run: a rename REPLACES the name and leaves the linked file intact; an in-place
+    // rewrite would show the final bytes through the link (POSIX link/rename semantics; measured identical on NTFS).
+    const s = blockStub({ onFresh: (_n, before) => { if (before === 50 && existsSync(scPath) && !existsSync(link)) linkSync(scPath, link); } });
+    let r: { phase: string } | undefined;
+    await withFetch(s.stub, async () => { r = await runFillTs(fillArgs(path, out, w.l, "rn"), FILL_DEPS); });
+    assert.equal(r!.phase, "complete", "the run completes");
+    assert.ok(existsSync(link), "the mid-run partial was hard-linked");
+    const linked = JSON.parse(readFileSync(link, "utf8")) as Sidecar;
+    assert.equal(linked.phase, "partial", "the linked mid-run file still reads 'partial': later flushes REPLACED the name by rename, never rewrote the file in place (mutant M17 'direct writeFileSync' => 'complete' through the link => reds)");
+    assert.equal(linked.n_extra, 50, "the linked file still holds the 50-ts partial");
+    assert.equal((JSON.parse(readFileSync(scPath, "utf8")) as Sidecar).phase, "complete", "the name holds the complete sidecar");
+    assert.deepEqual(readdirSync(out).filter((f) => f !== "block-ts-extra.json"), [], "no tmp residue in --out after a completed run (every tmp was renamed)");
+  } finally { w.done(); }
+});
+
+test("u4b_fill_ts_resume_refuses_a_sidecar_from_another_brut_by_name_with_0_fetch", async () => {
+  const w = scratch("u4bfx");
+  try {
+    const path = writeDiscoverFile(w.dir, mkCluster(23_500_000, 3), 24_000_000, {});
+    const out = join(w.o, "fill");
+    mkdirSync(out, { recursive: true });
+    // VALID self-sha and real-shaped data, but bound to ANOTHER brut: the only guard that can refuse it is discover_sha.
+    writeFileSync(join(out, "block-ts-extra.json"), JSON.stringify(sidecarOf("f".repeat(64), { "23500000": TS(23_500_000) })));
+    const s = blockStub({});
+    await withFetch(s.stub, async () => {
+      await assert.rejects(runFillTs(fillArgs(path, out, w.l, "fx"), FILL_DEPS), (e: unknown) => e instanceof SelectError && /belongs to another brut/.test(e.message), "a resume on another brut's sidecar is refused BY NAME (C-G2-1 hygiene; mutant M13 'resume discover_sha guard neutralized' => resumes and completes => reds)");
+    });
+    assert.equal(s.distinct.size, 0, "refused with 0 fetch");
+    assert.deepEqual(locksUnder(w.l), [], "no operator lock survives the discover_sha refusal: it runs before the guard opens (C-GD-1, refusal by refusal; mutant D6 'discover_sha refusal moved after openU4GuardedClient' => cycle locks held => reds)");
+  } finally { w.done(); }
+});
+
+test("u4b_fill_ts_resume_refuses_a_falsified_sidecar_by_self_sha_with_0_fetch", async () => {
+  const w = scratch("u4bfs");
+  try {
+    const path = writeDiscoverFile(w.dir, mkCluster(23_500_000, 3), 24_000_000, {});
+    const out = join(w.o, "fill");
+    mkdirSync(out, { recursive: true });
+    // THIS brut's discover_sha, a FALSIFIED ts for a block the clustering needs, the self-sha of the HONEST data (G2: material).
+    const honest = { "23500000": TS(23_500_000) }, falsified = { "23500000": TS(23_500_000) + 3600 };
+    writeFileSync(join(out, "block-ts-extra.json"), JSON.stringify(sidecarOf(brutShaOf(path), falsified, sha256Hex(canon(honest)))));
+    const s = blockStub({});
+    await withFetch(s.stub, async () => {
+      await assert.rejects(runFillTs(fillArgs(path, out, w.l, "fs"), FILL_DEPS), (e: unknown) => e instanceof SelectError && /self-sha mismatch/.test(e.message), "a falsified resume sidecar is refused BY NAME (C-G2-1 material; mutant M14 'resume self-sha guard neutralized' => the falsified ts seeds the clustering => reds)");
+    });
+    assert.equal(s.distinct.size, 0, "refused with 0 fetch");
+    assert.deepEqual(locksUnder(w.l), [], "no operator lock survives the self-sha refusal: it runs before the guard opens (C-GD-1, refusal by refusal; mutant D4 'self-sha refusal moved after openU4GuardedClient' => cycle locks held => reds)");
+  } finally { w.done(); }
+});
+
+test("u4b_fill_ts_resume_refuses_a_sidecar_without_block_ts_extra_object_by_name_with_0_fetch_and_no_lock", async () => {
+  const w = scratch("u4bno");
+  try {
+    const path = writeDiscoverFile(w.dir, mkCluster(23_500_000, 3), 24_000_000, {});
+    const out = join(w.o, "fill"), scPath = join(out, "block-ts-extra.json");
+    mkdirSync(out, { recursive: true });
+    // phase "partial", THIS brut's discover_sha and the self-sha of what the resume reads when the object is missing
+    // (canon(null)): the self-sha and discover_sha guards would both PASS, so the object-shape guard ALONE refuses it.
+    const noObject = { schema: SIDECAR_SCHEMA, phase: "partial", discover_sha: brutShaOf(path), n_extra: 0, block_ts_extra_sha256: sha256Hex(canon(null)) };
+    for (const body of [JSON.stringify(noObject), JSON.stringify({ ...noObject, block_ts_extra: null })]) { // key absent, then null
+      writeFileSync(scPath, body);
+      let fetches = 0;
+      await withFetch((): Promise<Response> => { fetches++; return Promise.reject(new Error("offline: no fetch expected")); }, async () => {
+        await assert.rejects(runFillTs(fillArgs(path, out, w.l, "no"), FILL_DEPS), (e: unknown) => e instanceof SelectError && /with no block_ts_extra object/.test(e.message), "a sidecar without a block_ts_extra object is refused BY NAME (C-GD-1; mutant M19 'object guard removed' => every other guard passes, the guard opens => reds)");
+      });
+      assert.equal(fetches, 0, "refused with 0 fetch");
+      assert.deepEqual(locksUnder(w.l), [], "no operator lock survives the no-object refusal: it runs before the guard opens (C-GD-1; mutant M18 'no-object refusal moved after openU4GuardedClient' => cycle locks held => reds)");
+      assert.equal(existsSync(join(w.l, "no")), false, "the guard never opened: the cycle dir was never created");
+      assert.equal(readFileSync(scPath, "utf8"), body, "the refused sidecar is left byte-identical (no flush ran)");
+    }
+  } finally { w.done(); }
+});
+
+test("u4b_fill_ts_rerun_on_a_complete_sidecar_is_idempotent_0_fetch_identical_bytes", async () => {
+  const w = scratch("u4bid");
+  try {
+    const path = writeDiscoverFile(w.dir, mkCluster(23_500_000, 3), 24_000_000, {});
+    const out = join(w.o, "fill");
+    type Fill = { out: string; nExtra: number; sha: string; phase: string };
+    const s1 = blockStub({});
+    let r1: Fill | undefined;
+    await withFetch(s1.stub, async () => { r1 = await runFillTs(fillArgs(path, out, w.l, "i1"), FILL_DEPS); });
+    assert.ok(s1.distinct.size > 0, "the first run fetched");
+    const bytes1 = readFileSync(r1!.out, "utf8");
+    const s2 = blockStub({});
+    let r2: Fill | undefined;
+    await withFetch(s2.stub, async () => { r2 = await runFillTs(fillArgs(path, out, w.l, "i2"), FILL_DEPS); });
+    assert.equal(s2.distinct.size, 0, "a re-run on a COMPLETE sidecar fetches ZERO blocks (G1 9(b); mutant M15 'a complete sidecar is not reseeded' => refetches => reds)");
+    assert.equal(r2!.phase, "complete", "the re-run stays complete");
+    assert.equal(r2!.nExtra, r1!.nExtra, "same n_extra");
+    assert.equal(r2!.sha, r1!.sha, "same block_ts_extra_sha256");
+    assert.equal(readFileSync(r2!.out, "utf8"), bytes1, "the sidecar bytes are identical after the idempotent re-run");
+  } finally { w.done(); }
+});
+
+test("u4b_select_refuses_a_block_ts_extra_sidecar_without_phase_by_name", async () => {
+  const w = scratch("u4bnp");
+  try {
+    const path = writeDiscoverFile(w.dir, mkCluster(23_500_000, 50), 24_000_000, {}); // an eligible winner
+    const s = blockStub({});
+    let fres: { out: string } | undefined;
+    await withFetch(s.stub, async () => { fres = await runFillTs(fillArgs(path, join(w.o, "fill"), w.l, "np"), FILL_DEPS); });
+    const scPath = fres!.out;
+    const sc = JSON.parse(readFileSync(scPath, "utf8")) as Sidecar; // a REAL fill-ts sidecar: valid self-sha + THIS brut's discover_sha
+    delete sc.phase; // so the only guard left to refuse it is the phase one (it runs after the sha and discover_sha guards)
+    writeFileSync(scPath, JSON.stringify(sc, null, 2) + "\n");
+    const sel = (d: string): string[] => ["--discover", path, "--prereg-file", "docs/PLAN-u4b-prereg.md", "--prereg-sha", PREREG_LF, "--out", join(w.o, d), "--block-ts-extra", scPath];
+    await withFetch(OFF, async () => {
+      await assert.rejects(runSelect(sel("sel1"), FILL_DEPS), (e: unknown) => e instanceof SelectError && /sidecar phase absent is not 'complete'/.test(e.message), "a phase-less sidecar is refused BY NAME (C-V-6 / C-G2-3; mutant M16 'absent phase accepted' => reds)");
+      writeFileSync(scPath, JSON.stringify({ ...sc, phase: "complete" }, null, 2) + "\n");
+      assert.ok(existsSync((await runSelect(sel("sel2"), FILL_DEPS)).out), "the SAME data with phase 'complete' is accepted: the refusal is about phase alone");
+    });
+  } finally { w.done(); }
 });
