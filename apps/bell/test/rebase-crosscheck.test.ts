@@ -1392,3 +1392,49 @@ test("bell_crosscheck_guarded_resume_without_loss_after_budget_stop", async () =
   const run2HeliusAtt = attemptedOf(hf).length;
   assert.ok(run2HeliusAtt > run1HeliusAtt, "the cycle helius.jsonl was APPENDED across runs (run-2's lines follow run-1's => the frozen prior at run-2 open included run-1's spend; a reset would drop run-1's lines => reds)");
 });
+
+// ==== BELL-RETRY-1: a NonJsonBody@200 (a REAL gateway HTML page at HTTP 200) is RETRIED on the guarded crosscheck ====
+// A-8 real-shape integration (real openGuardedClient, ONLY globalThis.fetch stubbed -- no fake client/transport): on the
+// FIRST asc gTfA the (paid) helius endpoint returns a REAL gateway error page -- an HTTP 200 response whose BODY is HTML
+// -- the exact TSLAx fault (journal de course 14:21 UTC). The transport's JSON.parse fails => TransportError name
+// "NonJsonBody", code 200 (transport.ts:241). Before this lot isTransient did not classify it transient => withRetry
+// rejected AT ONCE => the per-mint scan threw => runMain REJECTED (rebase-crosscheck.ts:685-704 has a finally but NO
+// catch = the STOP). After the fix the bounded retry (RETRY_TRIES=6, backoff 400*(i+1) ms) re-fetches (JSON), the scan
+// completes to `equal`, and the retry is METERED into budget.json retries_by_method.getTransactionsForAddress (the field
+// that read 0 on TSLAx). Mutant (mutants.mjs) "NonJsonBody removed from isTransient" => runMain rejects (the exact STOP)
+// => this reds.
+const GATEWAY_HTML_200 = "<!DOCTYPE html>\n<html>\n<head><title>502 Bad Gateway</title></head>\n<body bgcolor=\"white\">\n<center><h1>502 Bad Gateway</h1></center>\n<hr><center>cloudflare</center>\n</body>\n</html>\n";
+/** runMain --rebase-crosscheck via the REAL guard, but the FIRST asc gTfA POST returns a real gateway HTML page at HTTP
+ *  200 (=> NonJsonBody@200 in the transport); every other fetch (the retry, the desc anchor, getTransaction) is served
+ *  JSON from callStub. The HTML attempt does NOT consult callStub, so b1aStub's asc page pointer is untouched and the
+ *  retry gets page 1 (b1aStub advances by call, :592). */
+async function runGuardXcHtmlFirstGtfa(argv: readonly string[], callStub: JsonRpcCall, ledgerDir: string): Promise<void> {
+  const real = globalThis.fetch;
+  let htmlServed = false;
+  globalThis.fetch = (async (_i: string | URL, init?: RequestInit): Promise<Response> => {
+    const req = JSON.parse(typeof init?.body === "string" ? init.body : "{}") as { method: string; params?: unknown[] };
+    const opts1 = (req.params ?? [])[1] as { sortOrder?: string } | undefined;
+    if (!htmlServed && req.method === "getTransactionsForAddress" && opts1?.sortOrder === "asc") {
+      htmlServed = true; // ONE gateway hiccup on the first paid asc page: HTTP 200 + an HTML body (the real shape, A-8)
+      return new Response(GATEWAY_HTML_200, { status: 200, headers: { "content-type": "text/html" } });
+    }
+    const result = await callStub("op", req.method, req.params ?? []);
+    return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result }), { status: 200, headers: { "content-type": "application/json" } });
+  }) as typeof globalThis.fetch;
+  try {
+    await runMain([...argv, "--ledger-dir", ledgerDir, "--cycle", "cyc", "--operators", "helius,solana-foundation",
+      "--floor", "helius=0,solana-foundation=0", "--method-caps", CAPS_1BII], { databentoGet: noDbB, polygonGet: noPolyB, env: { BELL_SOLANA_RPC: "https://helius.invalid" }, nowMs: 50000 });
+  } finally { globalThis.fetch = real; }
+}
+
+test("bell_crosscheck_guarded_nonjsonbody_200_gateway_html_is_retried_and_metered", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "bell-njb-"));
+  const sd = mkdtempSync(join(tmpdir(), "bell-njbs-")), od = mkdtempSync(join(tmpdir(), "bell-njbo-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), b1aSeries([eInitB, eAB, eBB, eCB]));
+  await runGuardXcHtmlFirstGtfa(b1aArgs(sd, od, 50), b1aStub([{ data: [cinitB], paginationToken: "p2" }, { data: [cAB], paginationToken: "p3" }, { data: [cBB, cCB], paginationToken: null }]), dir);
+  // the guarded crosscheck RECOVERED from the NonJsonBody@200 (a real gateway HTML page) via the bounded retry, exactly
+  // as the TSLAx draw could not. Mutant "NonJsonBody removed" => runMain REJECTS at the await above (the exact STOP) => reds.
+  assert.equal(readCC(od).comparator_verdict.verdict, "equal", "the guarded crosscheck completed to `equal` AFTER a real NonJsonBody@200 (gateway HTML) was retried (mutant 'NonJsonBody removed from isTransient' => the run rejects = the exact TSLAx STOP => reds)");
+  const budget = JSON.parse(readFileSync(join(od, "budget.json"), "utf8")) as { retries_by_method?: Record<string, number> };
+  assert.ok((budget.retries_by_method?.getTransactionsForAddress ?? 0) >= 1, "the retry was METERED into budget.json retries_by_method.getTransactionsForAddress (the field that read 0 when TSLAx STOPped)");
+});
