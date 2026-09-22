@@ -229,14 +229,23 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
     if (!res.ok) {
       // (2b) HTTP non-ok: keep a CLOSED-vocabulary hint of the body (paid) so getLogsVia can still split a too-large
       //     range on an HTTP 400; the hook gets the status. C-3b: parse Retry-After (ms) so the CALLER can honour a
-      //     429/503 backoff - a FATAL 403 carries none (never retried). The RAW body never leaves this function.
+      //     429/503 backoff. C-2 (1b-0 fold): a FATAL 403 is NEVER retried, so it STRUCTURALLY carries no retryAfterMs
+      //     (the explicit `res.status === 403` guard, never the incidence of a header-less test 403). Raw body never leaves.
       const body = await res.text().catch(() => "");
-      return raise(op, "HttpError", res.status, body, undefined, parseRetryAfterMs(res.headers.get("retry-after")));
+      return raise(op, "HttpError", res.status, body, undefined, res.status === 403 ? undefined : parseRetryAfterMs(res.headers.get("retry-after")));
     }
     const text = await res.text();
-    let json: { result?: unknown; error?: { code?: number; message?: string; data?: unknown } | null };
-    // (3) non-JSON body (a mis-routed HTML error page): a typed fault, not a silent value; NO hint at all (C-2).
-    try { json = JSON.parse(text) as typeof json; } catch { return raise(op, "NonJsonBody", res.status, text); }
+    // (3) non-JSON body (a mis-routed HTML error page): a typed fault, not a silent value; NO hint at all (C-2). Both a
+    //     GET operator and a JSON-RPC POST parse here; only the SHAPE past this point differs (a GET body IS the payload).
+    let parsed: unknown;
+    try { parsed = JSON.parse(text) as unknown; } catch { return raise(op, "NonJsonBody", res.status, text); }
+    // (3-bis) GARDE-HELIUS-1b-0 (C-1, fold): a GET operator (xstocks-issuer) is NOT JSON-RPC - its 200 body IS the
+    //     payload ({assets:[...]} or a BARE ARRAY, never a `result` envelope), consumed VERBATIM by Bell's
+    //     pageAssets/foldPage (apps/bell/src/universe.ts:477-493, which reads array | {data|assets|items|results}).
+    //     Return it AS-IS: NO `.result` unwrap and NO JSON-RPC `error` control - either would resolve `undefined` on
+    //     EVERY real issuer body => pageAssets([]) => a page-0 end anchor => a SILENT empty universe (fail-open).
+    if (isGet) return parsed;
+    const json = parsed as { result?: unknown; error?: { code?: number; message?: string; data?: unknown } | null };
     // (4) JSON-RPC error at HTTP 200: MUST throw the canonical RpcError (never resolve `undefined`, which two errored
     //     providers would read as concordant); carries the JSON-RPC code + the VALIDATED revert data (C-1(a)/(c)).
     if (json.error !== undefined && json.error !== null) return raise(op, "RpcError", json.error.code ?? 0, json.error.message ?? "rpc error", json.error.data);

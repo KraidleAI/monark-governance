@@ -84,13 +84,21 @@ test("xstocks_issuer_get_uses_get_and_structural_host", async () => {
   // never escape to another host. Mutant "structural host check removed" reds (an off-host path would be fetched).
   const { transport } = resolveOperators({});
   let method = ""; let url = "";
-  await withFetch(((i: string | URL, init?: RequestInit) => { method = String(init?.method); url = String(i); return Promise.resolve(jrpc({ assets: [] })); }) as typeof globalThis.fetch, async () => {
+  // C-1 fold: the stub returns a REAL bare issuer body ({assets:[...]}), NOT a JSON-RPC envelope (the shape the issuer
+  // actually sends); the resolved value is asserted verbatim in xstocks_issuer_get_returns_body_verbatim_not_jsonrpc_unwrapped.
+  await withFetch(((i: string | URL, init?: RequestInit) => { method = String(init?.method); url = String(i); return Promise.resolve(new Response(JSON.stringify({ assets: [] }), { status: 200, headers: { "content-type": "application/json" } })); }) as typeof globalThis.fetch, async () => {
     await transport("xstocks-issuer" as OperatorLabel, "GET", ["/api/v2/public/assets?pageSize=100&page=0"]);
     assert.equal(method, "GET", "the issuer operator uses method=GET (C-7 beta)");
     assert.equal(url, "https://api.xstocks.fi/api/v2/public/assets?pageSize=100&page=0", "the GET URL is the pathAndQuery under the admitted host");
-    // STRUCTURAL host: a protocol-relative or an absolute off-host pathAndQuery is REFUSED before any fetch.
+    // STRUCTURAL host is EQUALITY (never endsWith/includes): an off-host pathAndQuery (protocol-relative + absolute) AND
+    // a LOOKALIKE - a SUFFIX `api.xstocks.fi.evil.invalid` (tricks includes/startsWith) and a PREFIX `xapi.xstocks.fi`
+    // (tricks endsWith) - are ALL refused before any fetch. Mutant "host check removed" (if(false)) reds every reject;
+    // mutant "host check relaxed to endsWith" reds the xapi.xstocks.fi rejects (endsWith would admit that prefix).
     await assert.rejects(transport("xstocks-issuer" as OperatorLabel, "GET", ["//evil.example.invalid/x"]), /off the admitted host/, "a protocol-relative host escape is refused (structural)");
     await assert.rejects(transport("xstocks-issuer" as OperatorLabel, "GET", ["https://evil.example.invalid/x"]), /off the admitted host/, "an absolute off-host url is refused (structural)");
+    await assert.rejects(transport("xstocks-issuer" as OperatorLabel, "GET", ["https://api.xstocks.fi.evil.invalid/x"]), /off the admitted host/, "a SUFFIX lookalike (api.xstocks.fi.evil.invalid) is refused (kills an includes/startsWith relaxation)");
+    await assert.rejects(transport("xstocks-issuer" as OperatorLabel, "GET", ["https://xapi.xstocks.fi/x"]), /off the admitted host/, "a PREFIX lookalike (xapi.xstocks.fi) is refused (kills an endsWith relaxation)");
+    await assert.rejects(transport("xstocks-issuer" as OperatorLabel, "GET", ["//xapi.xstocks.fi/x"]), /off the admitted host/, "the protocol-relative PREFIX lookalike (//xapi.xstocks.fi) is refused too");
   });
 });
 
@@ -144,6 +152,10 @@ test("cycle_ledger_mixes_legacy_and_network_lines", async () => {
     const lines = readFileSync(join(cd, "chainstack.jsonl"), "utf8").split(/\r?\n/).filter(Boolean).map((l) => JSON.parse(l) as CycleLedgerEntry);
     assert.equal(lines.length, 2);
     assert.ok(!("network" in lines[0]!), "line 1 (legacy, pre-121 course via the real guard stack) carries NO network field");
+    // C-8 (fold): PIN the CLOSED 7-key order of the legacy line - this is what "byte-identical to a 2b-ii recorder
+    // line" MEANS (no `network`, no `reason`), so the C-R-b6 premise is ASSERTED here, not merely replayed. Mutant
+    // "legacy chainstack line stamped default network" (guarded.ts opts.network ?? "ethereum-mainnet") adds an 8th key => reds.
+    assert.deepEqual(Object.keys(lines[0]!), ["prev_entry_sha256", "cycle_id", "tariff_version", "by_op_method", "outcome", "credits_derived", "entry_sha256"], "the legacy line pins the closed 7-key order (byte-identity: no network field, no reason)");
     assert.equal(lines[1]!.network, "solana-mainnet", "line 2 (121 course) carries network=solana-mainnet");
     assert.doesNotThrow(() => { verifyCycleLedger(lines); }, "the mixed legacy + network chain re-derives (verifyCycleLedger on present fields)");
     const reopen = openOperatorLedger(cd, "chainstack", 0, "solana-mainnet");
@@ -161,4 +173,84 @@ test("bell_method_caps_table_covers_every_called_method", () => {
     assert.throws(() => { assertMethodCapsCover(partial, BELL_SOLANA_METHODS, "bell-solana"); }, new RegExp(drop), `dropping ${drop} from --method-caps throws at construction (mutant 'coverage check no-op' reds)`);
   }
   assert.throws(() => { assertMethodCapsCover({ ...full, getAccountInfo: 0 }, BELL_SOLANA_METHODS, "bell-solana"); }, /getAccountInfo/, "a cap of 0 counts as uncovered (it would refuse every call)");
+});
+
+test("xstocks_issuer_get_returns_body_verbatim_not_jsonrpc_unwrapped", async () => {
+  // C-1 (1b-0 fold, BLOCKING): a GET operator's 200 body IS the payload ({assets:[...]} or a BARE ARRAY, never a
+  // JSON-RPC `result` envelope). The transport returns it VERBATIM (deep-equal), NEVER `json.result` (which is
+  // `undefined` on every real issuer body => pageAssets([]) => a page-0 end anchor => a SILENT empty universe,
+  // fail-open). Mutant "GET unwrapped as JSON-RPC" (if(isGet) => if(false), falls through to json.result) reds both.
+  const { transport } = resolveOperators({});
+  const objBody = { assets: [{ id: "AAPLx" }, { id: "TSLAx" }], page: 0 };
+  let got1: unknown;
+  await withFetch(() => Promise.resolve(new Response(JSON.stringify(objBody), { status: 200, headers: { "content-type": "application/json" } })), async () => {
+    got1 = await transport("xstocks-issuer" as OperatorLabel, "GET", ["/api/v2/public/assets?pageSize=100&page=0"]);
+  });
+  assert.deepEqual(got1, objBody, "the {assets:[...]} body is returned VERBATIM (mutant 'GET unwrapped as JSON-RPC' => undefined reds)");
+  const arrBody = [{ id: "AAPLx" }, { id: "TSLAx" }];
+  let got2: unknown;
+  await withFetch(() => Promise.resolve(new Response(JSON.stringify(arrBody), { status: 200, headers: { "content-type": "application/json" } })), async () => {
+    got2 = await transport("xstocks-issuer" as OperatorLabel, "GET", ["/api/v2/public/assets?pageSize=100&page=1"]);
+  });
+  assert.deepEqual(got2, arrBody, "a BARE ARRAY body is returned VERBATIM (never unwrapped to undefined)");
+});
+
+test("transport_403_carries_no_retry_after_even_with_header", async () => {
+  // C-2 (1b-0 fold, BLOCKING): a 403 is FATAL and NEVER retried, so it carries NO retryAfterMs EVEN when the server
+  // sends a Retry-After header. Before the fold the transport parsed Retry-After for ALL non-ok, so a 403 WITH a
+  // header resolved retryAfterMs=5000 (a documented-but-uncoded guarantee the header-less 403 test hid). The explicit
+  // `res.status === 403 ? undefined` guard forces undefined. Mutant "403 guard removed" (parse the header for 403 too) reds.
+  const { transport } = resolveOperators(HELIUS_ENV);
+  await withFetch(() => Promise.resolve(new Response("forbidden", { status: 403, headers: { "retry-after": "5" } })), async () => {
+    await assert.rejects(transport("helius" as OperatorLabel, "getTransaction", [1]), (e: unknown) => {
+      assert.ok(e instanceof TransportError);
+      assert.equal(e.code, 403);
+      assert.equal(e.retryAfterMs, undefined, "a 403 WITH retry-after:5 STILL carries retryAfterMs===undefined (structural; mutant '403 guard removed' => 5000 reds)");
+      return true;
+    });
+  });
+});
+
+test("transport_3xx_on_get_operator_is_hard_stop_never_followed", async () => {
+  // C-7 / F-2 (1b-0 fold): the GET operator (xstocks-issuer) ALSO sends redirect:"manual", so a 3xx is a typed HARD
+  // STOP (RedirectBlocked), never followed - the ADR 1b0-C invariant "a 3xx is NEVER followed" holds for GET as well
+  // as POST (2b-ii proved POST only). Mutant "redirect suivi on GET" (drop redirect:"manual" from the GET fetch) =>
+  // sawManual false => reds.
+  const { transport } = resolveOperators({});
+  let calls = 0; let sawManual = false;
+  await withFetch(((_i: string | URL, init?: RequestInit) => { calls += 1; if (init?.redirect === "manual") sawManual = true; return Promise.resolve(new Response(null, { status: 302, headers: { location: "https://evil.example.invalid/" } })); }) as typeof globalThis.fetch, async () => {
+    await assert.rejects(transport("xstocks-issuer" as OperatorLabel, "GET", ["/api/v2/public/assets?page=0"]), (e: unknown) => {
+      assert.ok(e instanceof TransportError);
+      assert.equal(e.name, "RedirectBlocked", "a 3xx on the GET operator surfaces as the typed hard-stop RedirectBlocked");
+      assert.equal(e.code, 302);
+      return true;
+    });
+  });
+  assert.ok(sawManual, "the GET fetch was called with redirect:'manual' (mutant 'redirect suivi on GET' => absent reds)");
+  assert.equal(calls, 1, "the redirect was NOT followed (exactly one fetch; the body never reached the Location host)");
+});
+
+test("universe_course_stamps_network_only_on_chainstack_not_helius", async () => {
+  // C-7 (1b-0 fold) / decision 121 (the IT-1 shape: ONE universe course carries helius + chainstack): opts.network
+  // stamps the `network` attribute ONLY on the multi-network operator chainstack. A course that passes opts.network AND
+  // runs BOTH helius (single-network paid) and chainstack must leave the HELIUS line with NO network field while the
+  // CHAINSTACK line carries it - network is a chainstack ledger ATTRIBUTE, never a blanket stamp. Mutant "network on
+  // every operator" (guarded.ts: drop the `label === "chainstack" ?` guard) => the helius line gains network => reds.
+  const { dir, cleanup } = tmp();
+  const cyc = "cyc-mixed-op";
+  const cd = join(dir, cyc);
+  const env = { ...HELIUS_ENV, CHAINSTACK_SOLANA_URL: "https://cs-sol.example.invalid/FAKE" };
+  const limits: RunLimits = { maxCalls: 100, runCaps: { helius: 1_000_000, chainstack: 1_000_000 }, methodCaps: { getTransaction: 100, getAccountInfo: 100 }, cycleFloor: { helius: 0, chainstack: 0 } };
+  try {
+    await withFetch(() => Promise.resolve(jrpc({ ok: 1 })), async () => {
+      const c = openGuardedClient(env, limits, dir, { helius: cyc, chainstack: cyc }, { network: "solana-mainnet" });
+      await c.call("helius" as OperatorLabel, "getTransaction", ["SIG"]);                                   // helius line, NO network
+      await c.call("chainstack" as OperatorLabel, "getAccountInfo", ["MINT", { encoding: "jsonParsed" }]);  // chainstack line, network
+      releaseLock(cd, "helius"); releaseLock(cd, "chainstack");
+    });
+    const heliusLines = readFileSync(join(cd, "helius.jsonl"), "utf8").split(/\r?\n/).filter(Boolean).map((l) => JSON.parse(l) as CycleLedgerEntry);
+    const chainstackLines = readFileSync(join(cd, "chainstack.jsonl"), "utf8").split(/\r?\n/).filter(Boolean).map((l) => JSON.parse(l) as CycleLedgerEntry);
+    assert.ok(!("network" in heliusLines[0]!), "the HELIUS line carries NO network field though the course passed opts.network (network is chainstack-only; mutant 'network on every operator' reds)");
+    assert.equal(chainstackLines[0]!.network, "solana-mainnet", "the CHAINSTACK line DOES carry network=solana-mainnet in the SAME course");
+  } finally { cleanup(); }
 });
