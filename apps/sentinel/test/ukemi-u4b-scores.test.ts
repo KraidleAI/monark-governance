@@ -1,6 +1,6 @@
 // UKEMI U-4b-1a (ADR-U4b; G0-lot-u4b §3/§4; checkpoint-1 C-1/C-7/C-8/C-13/C-14) — OFFLINE replay of the close-
 // factor score reducer from the committed u4b fixtures (reduced book B₀ + D_e oracle path WITH a pre-B₀ anchor +
-// U3-realized e2 labels): per-ACCOUNT |Y−ŷ| scores at the PER-ACCOUNT FIRST CROSSING p*, two Mondrian cells,
+// U3-realized e2 labels): per-ACCOUNT max(Y−ŷ,0) one-sided exceedance scores at the PER-ACCOUNT FIRST CROSSING p*, two Mondrian cells,
 // per-cell + per-stratum digests. e2 is the DESIGN set (never served). NO network. The pins below are the FROZEN
 // score-form (C-12). Input mutants (each ⇒ a cell digest / census shift) are in-test; the code mutants
 // (a ŷ=total_debt, b p_min, c 50%-always, d e-mode-bonus, g dust-AND, h Σ-not-max) are run by the worker with a
@@ -23,8 +23,8 @@ const WAD = 10n ** 18n;
 const lc = (s: string): string => s.toLowerCase();
 
 // FROZEN pins (measured on e2, U-4b-1a; the gel sha of the .mjs is in the rendu / -1b prereg).
-const CELL_A_DIGEST = "dc9ab572f02ba3a218941aca78b5d9886e22c62a1e07e678b482cb921edc5336";
-const CELL_B_DIGEST = "89897a61cbdb3e727b0a7d26e263613d6ce4a2442ef7219cf78213e64340eb62";
+const CELL_A_DIGEST = "2feb4ab057613925c9ed77dbec4f186044375b223d5ea520df3ec82d63524720";
+const CELL_B_DIGEST = "07bb8e3b1f35a95f5679f013133cc3e87540e01177279ccfe9ec6f4f8dfb8b0f";
 
 interface OMeta { kind: "meta"; event_id: string; emode_params: Record<string, { lt: string; bonus: string }>; usdt_prices: Record<string, string> }
 interface OAnchor { kind: "anchor"; price: string }
@@ -48,8 +48,8 @@ test("u4b_scores_on_e2 — close factor at first crossing, two cells, pinned dig
   const r = computeScoresU4b(book, oracle, u3);
   // cell A `liquidation-eligible-coverage` (Mondrian by ŷ size)
   assert.equal(r.cellA.n, 565, "cell A = {ŷ>0 at first crossing} ∪ {liquidated}, mono-collateral WETH only");
-  assert.equal(r.cellA.calib_digest, CELL_A_DIGEST, "cell A digest (canonical order, base 8-dec, no clipping)");
-  assert.equal(r.cellA.qhat, "145029844742724", "q̂_A = p-th smallest score (p=561), structural ~50% close factor, not the max");
+  assert.equal(r.cellA.calib_digest, CELL_A_DIGEST, "cell A digest (canonical order, base 8-dec, one-sided exceedance clamped at 0, decision 126)");
+  assert.equal(r.cellA.qhat, "1861718113769", "q̂_A whole-cell = p-th smallest one-sided score (p=561, n−p=4 excluded); pooled diagnostic — the served q̂ is per-stratum (decision 126)");
   assert.equal(r.cellA.p, 561);
   assert.deepEqual(r.cellA.strata.map((s) => [s.strate, s.n]), [[0, 363], [1, 148], [2, 46], [3, 8]], "Mondrian strata {<2000e8, <100k$, <1M$, ≥1M$}; strate 3 (n=8 < nMin) is under_calib");
   // cell B `liquidation-realized-given-liquidated`
@@ -78,6 +78,34 @@ test("u4b_scores_on_e2 — close factor at first crossing, two cells, pinned dig
   assert.equal(c.liquidated_not_in_book, 4);
   assert.equal(c.liquidated_non_evaluable, 86, "liquidated but multi-collateral or e-mode∉{0,1} ⇒ out of cells A and B, counted");
   assert.equal(c.deficit_lines_priced_from_usdt, 1);
+});
+
+test("u4b_score_is_one_sided_exceedance — max(Y−ŷ,0): Y<ŷ ⇒ 0, Y>ŷ ⇒ Y−ŷ (decision 126; symmetric mutant RED)", () => {
+  // Decision 126 re-gel: the score is the ONE-SIDED exceedance max(Y−ŷ,0), NOT the symmetric |Y−ŷ|. On e2 cell A
+  // has 509 rows with Y<ŷ (must score exactly 0), 0 ties, 56 rows with Y>ŷ (score = Y−ŷ). Reverting
+  // u4b-scores.mjs:244 to the symmetric `yhat − Y` gives every Y<ŷ row a positive score ⇒ this test RED (and every
+  // pinned cell/stratum digest RED). Non-vacuous: the 509 Y<ŷ rows are the discriminating population.
+  const { book, oracle, u3 } = load();
+  const rows = computeScoresU4b(book, oracle, u3).cellA.rows;
+  const under = rows.filter((r) => BigInt(r.y) < BigInt(r.yhat));
+  const over = rows.filter((r) => BigInt(r.y) > BigInt(r.yhat));
+  const ties = rows.filter((r) => BigInt(r.y) === BigInt(r.yhat));
+  assert.equal(under.length, 509, "cell A rows with Y<ŷ (the population the symmetric mutant would mis-score)");
+  assert.equal(over.length, 56, "cell A rows with genuine exceedance Y>ŷ");
+  assert.ok(under.every((r) => r.score === "0"), "every Y<ŷ account scores exactly 0 (one-sided clamp; symmetric mutant RED here)");
+  assert.ok(ties.every((r) => r.score === "0"), "every Y==ŷ account scores 0 = max(0,0)");
+  assert.ok(over.every((r) => r.score === (BigInt(r.y) - BigInt(r.yhat)).toString()), "every Y>ŷ account scores exactly Y−ŷ");
+  assert.ok(rows.every((r) => !r.score.startsWith("-")), "no negative score is ever emitted (clamped at 0)");
+});
+
+test("u4b_scores_fixture_kind_census — the decision-126 re-gel keeps the population (1 meta + 565 score_a + 99 score_b)", () => {
+  // Non-regression: changing the score must NOT change WHICH accounts are in the fixture — only the `score` field
+  // and the cell/stratum digests move. Count committed fixture lines by `kind`; a re-reduction that dropped or
+  // added a row (an eligibility change) would RED here. Pairs with the census-identical proof in the G1 rendu.
+  const lines = jsonl<{ kind: string }>(join(U4B, "U4b-scores-e2.jsonl"));
+  const byKind = lines.reduce<Record<string, number>>((m, l) => { m[l.kind] = (m[l.kind] ?? 0) + 1; return m; }, {});
+  assert.deepEqual(byKind, { meta: 1, score_a: 565, score_b: 99 }, "population unchanged by the one-sided re-gel");
+  assert.equal(lines.length, 665, "665 total lines");
 });
 
 test("u4b_scores_input_mutants_shift_digest — D_e / LT_W / e-mode-LT / Y (each ⇒ digest drift, non-tautological)", () => {
@@ -222,15 +250,15 @@ test("u4b_registry_recomputes_from_scores_jsonl — generator maillon (class A o
   const e = buildRegistryEntries(rowsA, { scale: 1n, predictorBase }) as { strate: number; n: number; p: number; qhat: number; calib_digest: string; under_calib: boolean; predictor_id: string }[];
   assert.equal(e[0]?.predictor_id, "ukemi:realized-v2@eip155:1/aave-v3-core/weth-mono/e2-2025-10-10-weth/A/s0", "predictor_id inherits the cell-A key from the meta (episode-agnostic, no UNSPECIFIED default)");
   assert.deepEqual(e.map((x) => [x.strate, x.n, x.p, x.qhat, x.under_calib]), [
-    [0, 363, 361, 199069846640, false],
-    [1, 148, 148, 9315546795545, false],
+    [0, 363, 361, 23169870364, false],
+    [1, 148, 148, 3609978241254, false],
     [2, 46, 47, null, true],
     [3, 8, 9, null, true],
   ], "per-stratum n / p / q̂ / under_calib (strata 2,3 abstain: n < nMin=100 ⇒ q̂ null via splitQuantile L1, never clamped)");
-  assert.equal(e[0]?.calib_digest, "8fa7f0f5f19db6b839a48b77bf5f79681b399be466cabebc6a83d4cbd7a9d50b", "strate 0 registry calibDigest (float64_be sorted, C5)");
-  assert.equal(e[1]?.calib_digest, "ffdcb597e81b32526d9fc5326d346b426f4b5b2a3fc64d73868968ad18e0a148", "strate 1 registry calibDigest");
-  assert.equal(e[2]?.calib_digest, "0eca5077058a6b2bab453fe0b6ab7b244bff04da0127ae5851d37839701ab551", "strate 2");
-  assert.equal(e[3]?.calib_digest, "0b58be960664f0e3cc0afbe43adb8efeb235a2292979e11fc6d8294c035c8bcb", "strate 3");
+  assert.equal(e[0]?.calib_digest, "371f0577030e19310741685512a09aaf3d3b9c7b68e346c3b122aff273f2b6fa", "strate 0 registry calibDigest (float64_be sorted, C5)");
+  assert.equal(e[1]?.calib_digest, "624e21c7bd50fc19a0ad92f2abef2adbd3ad1f589075b54069dd9def4c02e92f", "strate 1 registry calibDigest");
+  assert.equal(e[2]?.calib_digest, "31654567b10610b2d71986ff143440c5a6e2ab3f1c0ee9b60b189f25308c58cf", "strate 2");
+  assert.equal(e[3]?.calib_digest, "db51ef06dd1f82fcc7dbe5cb54803bfd083e56bc3fdd74e7241e4447cd0b165b", "strate 3");
   // No stratum exceeds 2^53 on e2 (scale=1 exact); but the guard MUST fail-close on a > 2^53 score (mutant m).
   assert.throws(() => buildRegistryEntries([{ strate: 3, score: (2n ** 53n + 1n).toString() }], { scale: 1n, predictorBase: "x" }), /exceeds 2\^53/, "a score > 2^53 with scale 1 ⇒ THROW, never a silent precision loss (C-9)");
   // And on an inexact scale (would corrupt the digest by truncation).
