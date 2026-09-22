@@ -121,7 +121,7 @@ after(() => {
 
 interface EndJson {
   startDay: string; j0Source: string; processedDays: string[]; lag: number; stopped: string | null;
-  finalized: number; T: number; chainstack: boolean; exit_code: number; dryRun: boolean;
+  finalized: number; T: number; chainstack: boolean; chainstack_guard: string; exit_code: number; dryRun: boolean;
   elapsed_ms: number; max_day_ms: number;
 }
 interface RunResult { status: number; stdout: string; stderr: string; end: EndJson | null; }
@@ -131,7 +131,9 @@ interface RunResult { status: number; stdout: string; stderr: string; end: EndJs
 // so a key or a budget in the orchestrator shell never leaks in. `end` is null when no run summary is printed.
 function runMain(stateDir: string, planPath: string, vars: Record<string, string>, extraArgs: readonly string[] = []): RunResult {
   const env: NodeJS.ProcessEnv = { ...process.env };
-  delete env.CHAINSTACK_ETH_URL;
+  // NARABI-OPS-1d hygiene: drop the paid key AND the non-secret guard cycle keys, so a shell carrying a cycle id
+  // cannot flip chainstack_guard from "unconfigured" to "ledger_error" in these keyless-only runs (mirror runSentinel).
+  for (const k of ["CHAINSTACK_ETH_URL", "CHAINSTACK_CYCLE_ID", "CHAINSTACK_ETH_ORIGIN", "CHAINSTACK_CYCLE_FLOOR"]) delete env[k];
   for (const k of Object.keys(env)) if (k.startsWith("MONARK_SENTINEL_")) delete env[k];
   Object.assign(env, { STUB_PLAN: planPath }, vars);
   const r = spawnSync(process.execPath, ["--import", stubUrl(), RUN_TS, "--state", stateDir, ...extraArgs], { cwd: REPO, env, encoding: "utf8", timeout: 90_000 });
@@ -266,22 +268,33 @@ test("sentinel_budget_boundary_is_strict — elapsed exactly equal to the budget
   assert.equal(report.lag, 0);
 });
 
-test("sentinel_max_day_ms_covers_a_faulting_day — max_day_ms measures the ATTEMPTED day even when it stops on a fault: its getLogs advances the clock before supplyAt rejects, and the per-day finally runs on break (ADR-NARABI-OPS-1c, superset of the mandated set)", async () => {
+test("sentinel_max_day_ms_covers_the_slowest_faulting_day — the FAULTING day is the SLOWEST (2xSTEP): max_day_ms measures it in the per-day finally even though it breaks before the step, so a 'measure on success only' mutant (which reports STEP, the earlier healthy day) reds (C-G2-2 hardened; ADR-NARABI-OPS-1c)", async () => {
   const days = Array.from({ length: 2 }, (_, k) => synthDay(k));
   const hi = B0 + 2 * P + 5;
   const clock: Clock = { t: CLOCK_BASE_MS };
   const base = directCall(clock, days, hi, midnight(addDays(DAY0, 2)) + 3600);
-  const faulty: RpcCall = (u, m, p) => (m === "eth_call" && parseInt(p[1] as string, 16) === days[1]!.to_block) ? Promise.reject(new Error("HTTP 500")) : base(u, m, p);
+  // Day 0 (healthy) advances STEP on its getLogs (base's first-sight); day 1 (faulting) advances ONE EXTRA STEP,
+  // guarded to fire exactly ONCE (getLogs is called per quorum provider), so the faulting day is deterministically
+  // 2xSTEP — strictly the widest — BEFORE supplyAt rejects. maxDayMs is taken in runDue's per-day `finally` (runs
+  // on break), so it MUST report 2xSTEP; a mutant that measures only PROCESSED days reports STEP (day 0) and reds.
+  let extraCharged = false;
+  const faulty: RpcCall = (u, m, p) => {
+    if (m === "eth_getLogs" && parseInt((p[0] as { fromBlock: string }).fromBlock, 16) === days[1]!.from_block && !extraCharged) { extraCharged = true; clock.t += STEP_MS; }
+    if (m === "eth_call" && parseInt(p[1] as string, 16) === days[1]!.to_block) return Promise.reject(new Error("HTTP 500"));
+    return base(u, m, p);
+  };
   const report = await runDue(initState(), makeRpcPool({ endpoints: ["stub://a", "stub://b"], call: faulty }), days.map((d) => d.day), hi, PROV, { now: () => clock.t, budgetMs: 10 * STEP_MS });
-  assert.deepEqual(report.processedDays, [addDays(DAY0, 0)], "the reachable day was processed");
+  assert.deepEqual(report.processedDays, [addDays(DAY0, 0)], "the reachable healthy day (STEP) was processed");
   assert.match(report.stopped ?? "", /^fetch_error:/, "the second day stops on the injected fault");
-  assert.equal(report.maxDayMs, STEP_MS, "the faulting day was measured (getLogs advanced the clock before supplyAt rejected; the finally ran on break)");
+  assert.equal(report.maxDayMs, 2 * STEP_MS, "the FAULTING day (2xSTEP) is the widest and IS measured (finally runs on break); a 'success-only' mutant reports STEP and reds");
 });
 
 test("sentinel_budget_env_is_validated — MONARK_SENTINEL_BUDGET_S is a plain integer in 30..180 or the run throws at start-up (fail-closed); boundaries and a real subprocess (C2; ADR-NARABI-OPS-1c)", () => {
   assert.equal(budgetMsFromEnv({ MONARK_SENTINEL_BUDGET_S: "30" }), 30_000, "30 is the low bound");
   assert.equal(budgetMsFromEnv({ MONARK_SENTINEL_BUDGET_S: "180" }), 180_000, "180 is the high bound");
-  for (const bad of ["29", "181", "0", "180.0", "abc", "", "-30", " 60", "60 "]) {
+  // C-G2-1: leading zeros are REFUSED ("0180"/"030" — a mutant reverting the regex to /^\d+$/ makes these parse to
+  // 180/30 (in range) => NO throw => this reds). Also the prior set (out-of-range, non-integer, signed, spaced).
+  for (const bad of ["29", "181", "0", "0180", "030", "180.0", "abc", "", "-30", " 60", "60 "]) {
     assert.throws(() => budgetMsFromEnv({ MONARK_SENTINEL_BUDGET_S: bad }), /MONARK_SENTINEL_BUDGET_S/, `${JSON.stringify(bad)} is rejected`);
   }
   const dir = freshStateDir();
@@ -336,13 +349,14 @@ test("sentinel_normal_day_unchanged — one due day (the incident morning) repro
   assert.equal(r.status, 0, "a normal single-day catch-up exits 0");
   const end = r.end;
   assert.ok(end !== null, `end JSON present. stderr=${JSON.stringify(r.stderr)}`);
-  assert.deepEqual(Object.keys(end).sort(), ["T", "chainstack", "dryRun", "elapsed_ms", "exit_code", "finalized", "j0Source", "lag", "max_day_ms", "processedDays", "startDay", "stopped"], "the end JSON is the prior keys + elapsed_ms + max_day_ms");
+  assert.deepEqual(Object.keys(end).sort(), ["T", "chainstack", "chainstack_guard", "dryRun", "elapsed_ms", "exit_code", "finalized", "j0Source", "lag", "max_day_ms", "processedDays", "startDay", "stopped"], "the end JSON is the prior keys + chainstack_guard (NARABI-OPS-1d D-degrade; D-4 annotated addition)");
   assert.deepEqual(end.processedDays, ["2026-09-19"], "the missing day is picked up");
   assert.equal(end.lag, 0);
   assert.equal(end.stopped, null, "nothing stopped it");
   assert.equal(end.finalized, l3.to_block + 5);
   assert.equal(end.T, 2, "T advances to 2");
   assert.equal(end.chainstack, false);
+  assert.equal(end.chainstack_guard, "unconfigured", "no Chainstack cycle keys in this run's env => the guarded leg is unconfigured (D-degrade), 7 keyless endpoints, served output unchanged");
   assert.equal(end.exit_code, 0);
   assert.equal(end.dryRun, false);
   assert.equal(end.startDay, "2026-09-19");
@@ -370,13 +384,16 @@ test("sentinel_dry_run_honours_budget_same_exit — --dry-run walks the same cat
   assert.equal(existsSync(join(dirDry, "state.json")), false, "--dry-run wrote no state.json");
 });
 
-test("sentinel_no_clock_env_is_read — run.ts reads only the three declared env keys (no clock env), and runDue references neither Date.now nor performance.now (C4; ADR-NARABI-OPS-1c)", () => {
+test("sentinel_no_clock_env_is_read — run.ts reads only the six declared env keys (no clock env), and runDue references neither Date.now nor performance.now (C4; NARABI-OPS-1d adds the 3 non-secret Chainstack cycle keys)", () => {
   const src = readFileSync(RUN_TS, "utf8");
   const keys = new Set<string>();
   const re = /(?:process\.env|\benv)\.([A-Za-z_][A-Za-z0-9_]*)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(src)) !== null) keys.add(m[1]!);
-  assert.deepEqual([...keys].sort(), ["MONARK_SENTINEL_BUDGET_S", "MONARK_SENTINEL_DIR", "MONARK_SENTINEL_J0"], "exactly the three declared env keys are read");
+  // D-4 (annotated update): NARABI-OPS-1d added CHAINSTACK_CYCLE_ID/CHAINSTACK_ETH_ORIGIN/CHAINSTACK_CYCLE_FLOOR
+  // (all NON-secret; decision 121 option 1). The SECRET endpoint URL (CHAINSTACK_ETH_URL) is read by
+  // @monark/rpc-guard's transport, NEVER by run.ts (fetch_only_inside_client proves run.ts carries no key read).
+  assert.deepEqual([...keys].sort(), ["CHAINSTACK_CYCLE_FLOOR", "CHAINSTACK_CYCLE_ID", "CHAINSTACK_ETH_ORIGIN", "MONARK_SENTINEL_BUDGET_S", "MONARK_SENTINEL_DIR", "MONARK_SENTINEL_J0"], "exactly the six declared env keys are read");
   for (const k of keys) assert.ok(!/CLOCK|TICK|WALL/i.test(k), `no clock env key (${k})`);
   const body = src.slice(src.indexOf("export async function runDue"), src.indexOf("function sentinelSha"));
   assert.ok(body.length > 0, "runDue is locatable in the source");

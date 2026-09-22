@@ -69,13 +69,16 @@ function scopeFiles(which: "apps" | "packages"): Array<[string, string]> {
   else for (const p of readdirSync(join(REPO, "packages"))) tsFiles(join(REPO, "packages", p, "src"), `packages/${p}/src`, out);
   return out;
 }
-/** R-B scope: apps/sentinel/src/ukemi/**.ts UNION apps/sentinel/src/rpc.ts. rpc.ts is scanned (in scope) AND
- *  allowlisted (trigger -1d) - the double guard: the allowlist entry must correspond to a file actually in scope. */
-function ukemiScope(): Array<[string, string]> {
+/** NARABI-OPS-1d: the sentinel scope is WIDENED from ukemi/**(+rpc.ts) to the WHOLE apps/sentinel/src/** — the
+ *  daily job (run.ts + the top-level modules + the new keyless-transport.ts) enters the fetch_only guarantee now
+ *  that its paid leg is metered through @monark/rpc-guard. Two allowlisted files (SENTINEL_ALLOW): rpc.ts (its
+ *  dead chainstackUrl/defaultCall/poolEndpoints/publishedEndpoints/hasChainstack are DELETED at the -1d rebase
+ *  once the U-4b freeze on rpc.ts lifts — that retraction is the formed item) and keyless-transport.ts (the sole
+ *  keyless fetch site; retraction trigger = the keyless pool itself migrates under the guard, route beta). Both
+ *  are scanned (in scope) AND allowlisted — the double guard: an allowlist entry must be a file actually in scope. */
+function sentinelScope(): Array<[string, string]> {
   const out: Array<[string, string]> = [];
-  tsFiles(join(REPO, "apps/sentinel/src/ukemi"), "apps/sentinel/src/ukemi", out);
-  const rpcAbs = join(REPO, "apps/sentinel/src/rpc.ts");
-  if (existsSync(rpcAbs)) out.push([rpcAbs, "apps/sentinel/src/rpc.ts"]);
+  tsFiles(join(REPO, "apps/sentinel/src"), "apps/sentinel/src", out);
   return out;
 }
 /** Hits = a forbidden pattern (net OR key, any form) on a scope file NOT in `allow`. Reads EVERY line, comments
@@ -99,6 +102,13 @@ function scan(files: ReadonlyArray<[string, string]>, allow: ReadonlySet<string>
 const CENSUS = join(REPO, "scripts", "census");
 // close.ts is the SINGLE allowlisted Bell cash module (C-6 / ruling R-1): it holds BOTH the paid GET and the key read.
 const BELL_ALLOW = new Map<string, string>([["apps/bell/src/close.ts", "G0 of the Bell cash course (R-1): Databento/Polygon quotas+caps posed there"]]);
+// NARABI-OPS-1d: the two allowlisted sentinel files. rpc.ts is FROZEN (ADR-U4b D4) so its dead paid-leg text stays
+// byte-identical until the -1d rebase (closure U-4b-1b), where it is deleted and this entry retracted; keyless-
+// transport.ts is the sole keyless fetch site (route alpha), retracted when the keyless pool migrates (route beta).
+const SENTINEL_ALLOW = new Map<string, string>([
+  ["apps/sentinel/src/rpc.ts", "NARABI-OPS-1d: dead chainstackUrl/defaultCall/poolEndpoints/publishedEndpoints/hasChainstack DELETED at the -1d rebase when the U-4b freeze on rpc.ts lifts (closure U-4b-1b)"],
+  ["apps/sentinel/src/keyless-transport.ts", "NARABI-OPS-1d route alpha: the sole keyless fetch site; retraction = the keyless pool migrates under the guard (route beta)"],
+]);
 // The u4 course scripts are .mjs: the whole-word key NAME is refused (naming the exact keys spares CHAINSTACK_LABEL), and
 // a DIRECT import of a paid-key/fetch module (apps/sentinel/src/rpc.ts, reachable only transitively) is forbidden (C-R-6).
 const U4_KEY: ReadonlyArray<RegExp> = [
@@ -131,7 +141,7 @@ interface Root { name: string; scope: () => Array<[string, string]>; allow: Map<
 const ROOTS: readonly Root[] = [
   { name: "packages/*/src", scope: () => scopeFiles("packages"), allow: new Map([["packages/rpc-guard/src/transport.ts", "the private default transport (sole key reader + fetch site)"]]), hits: () => scan(scopeFiles("packages"), new Set(["packages/rpc-guard/src/transport.ts"])) },
   { name: "apps/bell/src", scope: () => scopeFiles("apps"), allow: BELL_ALLOW, hits: () => scan(scopeFiles("apps"), new Set(BELL_ALLOW.keys())) },
-  { name: "apps/sentinel/src/ukemi(+rpc.ts)", scope: ukemiScope, allow: new Map([["apps/sentinel/src/rpc.ts", "NARABI-OPS-1d: the daily Narabi job's rpc.ts migrates under the guard"]]), hits: () => scan(ukemiScope(), new Set(["apps/sentinel/src/rpc.ts"]), true) },
+  { name: "apps/sentinel/src", scope: sentinelScope, allow: SENTINEL_ALLOW, hits: () => scan(sentinelScope(), new Set(SENTINEL_ALLOW.keys()), true) },
   { name: "scripts/census/u4-*.mjs", scope: u4Files, allow: U4_ALLOW, hits: () => scanWith(u4Files(), new Set(U4_ALLOW.keys()), NET, U4_KEY, U4_KEYNAME_RE) },
 ];
 
@@ -144,24 +154,28 @@ test("rpc_guard_package_src_clean_and_allowlist_load_bearing", () => {
   assert.ok(scan(pkgFiles, new Set()).length >= 1, "transport.ts must actually carry a fetch(/env.<key> so the allowlist is not vacuous");
 });
 
-// GARDE-HELIUS-2b-ii (R-B / C-1 / C-2): the recorder scope is CLEAN and its allowlist is load-bearing PER ENTRY.
-test("ukemi_src_clean_and_allowlist_load_bearing", () => {
-  const files = ukemiScope();
-  // Non-vacuity of SCOPE (M-13): >= 8 ukemi/*.ts scanned, so a mis-wired scope never passes vacuously.
+// GARDE-HELIUS-2b-ii (R-B / C-1 / C-2) + NARABI-OPS-1d (scope WIDENED to apps/sentinel/src/**): the sentinel src
+// is CLEAN and its allowlist (SENTINEL_ALLOW) is load-bearing PER ENTRY.
+test("sentinel_src_clean_and_allowlist_load_bearing", () => {
+  const files = sentinelScope();
+  // Non-vacuity of SCOPE: >= 8 ukemi/*.ts AND the top-level daily job are scanned, so a mis-wired scope never
+  // passes vacuously (a mutant "scope narrowed back to ukemi-only" reds via run.ts/keyless-transport.ts absence).
   const ukemiCount = files.filter(([, rel]) => rel.startsWith("apps/sentinel/src/ukemi/")).length;
   assert.ok(ukemiCount >= 8, `implausibly few ukemi/*.ts scanned (${String(ukemiCount)}); scope mis-wired`);
-  // The allowlist is a Map<path, retraction-trigger> (a bare Set hid the trigger). ONE entry today: rpc.ts (-1d).
-  const ALLOW = new Map<string, string>([["apps/sentinel/src/rpc.ts", "NARABI-OPS-1d: the daily Narabi job's rpc.ts migrates under the guard"]]);
-  // GREEN after migration: ukemi/** UNION rpc.ts, minus the allowlist, is 0 hit. A commented/coded fetch(/env.KEY in a
-  // ukemi source (e.g. the "makeDefaultCall restored" / any of the 6 key-access-form mutants) reds this. bareKeys=true
-  // (C-R-b4): on THIS scope the BARE key name is also refused (kills the alias evasion `e = env; e.KEY`; rpc.ts is
-  // allowlisted so its legitimate env.CHAINSTACK_ETH_URL read is exempt).
-  assert.deepEqual(scan(files, new Set(ALLOW.keys()), true), [], "a forbidden network/paid-key pattern (or a bare paid-key name) exists in ukemi/** outside the allowlist");
-  // C-2 non-vacuity PER ENTRY: scanning EACH allowlisted file ALONE with an empty allowlist yields >= 1 hit. An entry
-  // at 0 hit = its retraction trigger is reached => RED (mutant "allowlist widened without a trigger").
-  for (const [path, trigger] of ALLOW) {
+  for (const req of ["apps/sentinel/src/run.ts", "apps/sentinel/src/rpc.ts", "apps/sentinel/src/keyless-transport.ts", "apps/sentinel/src/timeline.ts", "apps/sentinel/src/windows.ts"]) {
+    assert.ok(files.some(([, rel]) => rel === req), `${req} must be in the widened apps/sentinel/src/** scope (NARABI-OPS-1d)`);
+  }
+  // GREEN after migration: apps/sentinel/src/**, minus the allowlist, is 0 hit. A commented/coded fetch(/env.KEY in
+  // ANY sentinel source (e.g. a "chainstackUrl read back into run.ts" or "keyless fetch inlined into run.ts" mutant)
+  // reds this. bareKeys=true (C-R-b4): the BARE key name is also refused on this scope (kills the alias evasion
+  // `e = env; e.KEY`; the two allowlisted files are exempt for their legitimate fetch/dead-key text).
+  assert.deepEqual(scan(files, new Set(SENTINEL_ALLOW.keys()), true), [], "a forbidden network/paid-key pattern (or a bare paid-key name) exists in apps/sentinel/src/** outside the allowlist");
+  // C-2 non-vacuity PER ENTRY: scanning EACH allowlisted file ALONE with an empty allowlist yields >= 1 hit. An
+  // entry at 0 hit = its retraction trigger is reached => RED (mutant "allowlist widened/kept without a trigger";
+  // for rpc.ts this reds at the -1d rebase once the dead fetch/env-read is deleted — the retraction is then due).
+  for (const [path, trigger] of SENTINEL_ALLOW) {
     const only = files.filter(([, rel]) => rel === path);
-    assert.ok(only.length === 1, `allowlist entry '${path}' (trigger: ${trigger}) is not in scope (mutant "rpc.ts removed from scope" => this reds - double guard)`);
+    assert.ok(only.length === 1, `allowlist entry '${path}' (trigger: ${trigger}) is not in scope (double guard)`);
     assert.ok(scan(only, new Set()).length >= 1, `allowlist entry '${path}' is VACANT (0 hit) - its retraction trigger (${trigger}) is reached; drop it`);
   }
   // Belt (C-1(c) + C-R-b4): the KEY regexes catch every ACCESS form - dot / optional-chain dot / bracket / optional-chain

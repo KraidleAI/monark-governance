@@ -2,7 +2,7 @@
 
 The **Narabi sentinel** is a daily `oneshot` job (`apps/sentinel/src/run.ts`) that reads the attested USDe
 redemption flow at finality, steps the M009 tracker, and publishes a replayable timeline at
-`monarkgate.tech/narabi/`. It is the FIRST outbound-network process on the VPS (public RPC, read-only; optional keyed 9th operator via out-of-repo EnvironmentFile, ADR-NARABI-OPS-1)
+`monarkgate.tech/narabi/`. It is the FIRST outbound-network process on the VPS (public RPC, read-only; optional keyed 8th operator via out-of-repo EnvironmentFile, ADR-NARABI-OPS-1)
 and writes ONLY its state dir. This runbook **mirrors `RUNBOOK-harness.md`**; only the deltas are here.
 
 **Who runs this:** the **orchestrator**, over the same SSH channel as the harness/vitrine
@@ -14,7 +14,7 @@ is J0+1; T counts live steps.
 - `deploy/monark-sentinel.service` — the `oneshot` unit (`User=sentinel`, `ReadWritePaths=/var/lib/monark-sentinel`).
 - `deploy/monark-sentinel.timer` — four same-day retry slots (00:30/03:30/06:30/09:30 UTC) + jitter, `Persistent=true` (ADR-NARABI-OPS-1 L-2).
 - `deploy/Caddyfile.monark-narabi.snippet` — the `handle_path /narabi/*` block to INSERT in the vitrine block.
-- `/etc/monark/sentinel.env` — NOT committed: the optional `CHAINSTACK_ETH_URL` (a distinct paid operator, ADR-NARABI-OPS-1 L-3). Posted by the orchestrator in step 4; absent, the run falls back to the 8 public endpoints and stays fail-closed.
+- `/etc/monark/sentinel.env` — NOT committed: the optional `CHAINSTACK_ETH_URL` (a distinct paid operator, ADR-NARABI-OPS-1 L-3). Posted by the orchestrator in step 4; absent, the run falls back to the 7 public endpoints and stays fail-closed. Since NARABI-OPS-1d the same file also carries the non-secret CHAINSTACK_CYCLE_ID / CHAINSTACK_ETH_ORIGIN / CHAINSTACK_CYCLE_FLOOR (§6-bis step 4).
 
 ---
 
@@ -88,9 +88,11 @@ printf '[Service]\nEnvironment=MONARK_SENTINEL_J0=<J0>\n' > /etc/systemd/system/
 #   Verify by DIGEST on BOTH sides (never print the file contents) — the two hashes MUST be identical:
 #   printf 'CHAINSTACK_ETH_URL=%s\n' "$CHAINSTACK_ETH_URL" | sha256sum                 # local
 #   ssh -i ~/.ssh/monark_vps root@31.97.155.188 'sha256sum /etc/monark/sentinel.env'  # remote
+#   (NARABI-OPS-1d) Once the -1d code is deployed (§6-bis) this file carries FOUR keys: post them TOGETHER with §6-bis step (4) — a URL-only `cat >` ERASES the cycle keys => chainstack_guard: "unconfigured".
 #   (The investor MAY post /etc/monark/sentinel.env themselves instead; this runbook accepts it identically.)
-#   Skipping this step is legal (the '-' on EnvironmentFile): the run falls back to the 8 public endpoints,
+#   Skipping this step is legal (the '-' on EnvironmentFile): the run falls back to the 7 public endpoints,
 #   fail-closed, and `chainstack:false` appears in the run's end JSON.
+#   (NARABI-OPS-1d) Once the -1d code is deployed (§6-bis) this file carries FOUR keys: post them TOGETHER with §6-bis step (4) — a URL-only `cat >` ERASES the cycle keys => chainstack_guard: "unconfigured".
 systemctl daemon-reload
 systemctl show -p Environment monark-sentinel.service   # MUST print MONARK_SENTINEL_J0=<J0> BEFORE enable --now
 systemctl show -p EnvironmentFiles monark-sentinel.service  # expect -/etc/monark/sentinel.env (the leading - = optional)
@@ -156,6 +158,7 @@ grep '^OnCalendar=' /etc/systemd/system/monark-sentinel.timer | cut -d= -f2- | \
 #     Then verify by DIGEST on BOTH sides — the two hashes MUST be identical (never print the contents):
 #   printf 'CHAINSTACK_ETH_URL=%s\n' "$CHAINSTACK_ETH_URL" | sha256sum                 # local
 #   ssh -i ~/.ssh/monark_vps root@31.97.155.188 'sha256sum /etc/monark/sentinel.env'  # remote
+#   (NARABI-OPS-1d) Once the -1d code is deployed (§6-bis) this file carries FOUR keys: post them TOGETHER with §6-bis step (4) — a URL-only `cat >` ERASES the cycle keys => chainstack_guard: "unconfigured".
 systemctl daemon-reload
 # (6) On an ALREADY-ACTIVE timer, `restart` is the safe default. (Whether `daemon-reload` alone recomputes the
 #     next elapse of an active timer is NOT verified here — no source consulted; the `restart` makes it moot.)
@@ -196,7 +199,7 @@ then verified with the `systemctl show` line in step (8).
 > catch-up:** `stopped:"catchup_budget"` + exit 1 + `wrote N line(s)` at each slot = progress, NOT an outage; the
 > external probe still reports `lag` and mails once, then one reminder per UTC day, until caught up (intended).
 > **Repair A.1 below is KEPT** for the three residual cases: (A-prime) a SINGLE day longer than `T_s` (slow pool
-> without a fault, or a late `fetch_error`: `one()` may rotate 9 endpoints x 20 s); (ii) a slow day exceeding the
+> without a fault, or a late `fetch_error`: `one()` may rotate 8 endpoints x 20 s); (ii) a slow day exceeding the
 > 120 s margin AFTER the budget stop (that run's lines are lost, same list next slot); (iii) the PREAMBLE —
 > `loadState` + the `finalized()` quorum run BEFORE the budget clock starts (`t0` is taken inside `runDue`), so
 > they are counted neither in the budget nor in `elapsed_ms`, and `180 + 120 = 300` leaves them no slack.
@@ -258,7 +261,7 @@ from `DEPLOY_BLOCK` (`:72`), so budget ~D per day and repeat, advancing the date
 LAST=$(tail -1 /var/lib/monark-sentinel/timeline.jsonl | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).day))')
 NEXT=$(node -e 'const d=new Date(process.argv[1]+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+1);process.stdout.write(d.toISOString().slice(0,10))' "$LAST")
 # Load the EnvironmentFile to KEEP the optional Chainstack key (the RUNBOOK-harness `sudo -u sentinel ... node`
-# form does NOT load it -> chainstack:false, the 8 public endpoints, still fail-closed and correct):
+# form does NOT load it -> chainstack:false, the 7 public endpoints, still fail-closed and correct):
 systemd-run --uid=sentinel --pipe --wait \
   -p EnvironmentFile=/etc/monark/sentinel.env \
   -p Environment=MONARK_SENTINEL_DIR=/var/lib/monark-sentinel \
@@ -323,6 +326,146 @@ healthy run is a STOP-and-investigate. Then record the FIRST run of **each** of 
 (00:30 / 03:30 / 06:30 / 09:30 UTC) in `docs/JOURNAL-PROVENANCE.md` — its end JSON (`processedDays`,
 `chainstack`, `exit_code`) — four entries, the wiring proof for ADR-NARABI-OPS-1's `env → rpc.ts pool` and
 `timer → run → timeline` pipes (decision 46).
+
+## 6-bis. Second redéploiement (lot NARABI-OPS-1d, décision 118) — jambe Chainstack gardée, sur le timer VIVANT
+
+Pré-enregistré au G7 de NARABI-OPS-1d (2026-09-22) ; implémente le G1 §13 et la correction C-5 du checkpoint-1 de -1d ; calque de l'E-5 (`docs/JOURNAL-PROVENANCE.md:353-357`) et du §6. **Ne pas exécuter avant P-1..P-4.** Tout se fait depuis le poste de l'orchestrateur, canal SSH habituel (`ssh -i ~/.ssh/monark_vps root@31.97.155.188`).
+
+### Préconditions (toutes vraies, sinon STOP)
+- **P-1** — Le pli §11-1 est fusionné (ADR-NARABI-OPS-1, amendement -1d, A.8-1) avec G2-delta PASS, re-checkpoint-2 ACCEPTE et G7 ; son **SHA de fusion NOMMÉ** est consigné dans `docs/JOURNAL-PROVENANCE.md` AVANT l'archive (décision 72). Jamais le SHA de fusion de -1d seul : UN seul second redéploiement (décision 118 ; option (b), C-V-0). Go permanent : décision 137 (`docs/CHANTIERS.md:858`, « 2e redeploiement VPS sentinelle (apres pli §11-1) ») — aucun go supplémentaire à demander.
+- **P-2** — Clôture du temps 1 et de la course U-4b-1b (G1 -1d §4 ; décision 118).
+- **P-3** — Valeurs lues, jamais devinées : `<CYCLE>` = le `cycle_id` Chainstack du compte pour la période de facturation courante, le MÊME que le `--cycle` des courses Ukemi (ruling 2026-09-22 04:3x UTC, option 1) ; `<FLOOR>` = total RU du COMPTE (somme des réseaux) lu SUR PLACE à la console Chainstack le jour même, entier sans séparateur (`run.ts:256` refuse tout autre format ⇒ `config_error`) et ≤ 16 000 000.
+- **P-4** — Hors créneau : `systemctl is-active monark-sentinel.service` affiche `inactive`, et l'heure n'est dans aucune fenêtre [créneau ; créneau + 35 min] (00:30 / 03:30 / 06:30 / 09:30 UTC, `RandomizedDelaySec=1800`, `TimeoutStartSec=300`).
+
+### Étapes
+```bash
+# (1) Hachés attendus — poste de l'orchestrateur, AVANT l'archive (calque E-5 : calculés depuis l'archive elle-même).
+SHA=<SHA de fusion NOMMÉ du pli 11-1>
+T=$(mktemp -d)
+git archive --format=tar "$SHA" apps packages deploy | tar -x -C "$T"
+( cd "$T" && sha256sum apps/sentinel/src/*.ts packages/rpc-guard/src/*.ts packages/rpc-guard/bin/rpc-guard.mjs \
+    deploy/monark-sentinel.service deploy/monark-sentinel.timer ) > expected-nops1d.sha256
+#     consigner le SHA et expected-nops1d.sha256 dans docs/JOURNAL-PROVENANCE.md.
+
+# (2) Sauvegarde de rollback — VPS, AVANT toute écriture (calque E-5 /root/rollback-e5-20260921/).
+B=/root/rollback-nops1d-$(date -u +%Y%m%d); install -d -m 0700 "$B"
+tar czf "$B/monark-harness-tree.tgz" --exclude=monark-harness/node_modules -C /opt monark-harness
+cp /etc/systemd/system/monark-sentinel.service /etc/systemd/system/monark-sentinel.timer "$B/"
+cp -a /etc/systemd/system/monark-sentinel.service.d "$B/"
+cp /var/lib/monark-sentinel/timeline.jsonl /var/lib/monark-sentinel/state.json "$B/"
+cp -a /opt/monark-harness/node_modules "$B/node_modules.pre-nops1d"
+sha256sum "$B/monark-harness-tree.tgz" "$B/timeline.jsonl" "$B/state.json"      # à consigner
+#     /etc/monark/sentinel.env N'ENTRE PAS dans la sauvegarde (secret).
+#     Relever le 8e endpoint publié par l'ancien code (une origine, non secrète) :
+tail -1 /var/lib/monark-sentinel/timeline.jsonl | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const e=JSON.parse(s).endpoints;console.log(e.length, e[7] ?? "(pas de 8e endpoint)")})'
+
+# (3) Parent du ledger — AVANT tout run ou dry-run gardé (C-8 : jamais auto-créé).
+install -d -o sentinel -g sentinel -m 0750 /var/lib/monark-sentinel/ledger
+stat -c '%a %U:%G' /var/lib/monark-sentinel/ledger        # attendu : 750 sentinel:sentinel
+#     sous ReadWritePaths=/var/lib/monark-sentinel (unité inchangée) ; hors public/ (Caddy ne sert que .../public).
+```
+- **(4) EnvironmentFile : le secret et les trois clés NON secrètes en UNE écriture.** Les `cat >` des §4 et §6 (5) RÉÉCRIVENT le fichier : poster l'URL seule EFFACERAIT les clés de cycle (⇒ `chainstack_guard: "unconfigured"`, jambe noire, publication keyless). Depuis le shell LOCAL de l'orchestrateur (où vit `$CHAINSTACK_ETH_URL`, décision 43), par ssh STDIN ; jamais `cat` du fichier distant, jamais `set -x` :
+```bash
+ORIGIN=$(node -e 'process.stdout.write(new URL(process.env.CHAINSTACK_ETH_URL).origin)')   # schéma + hôte (= rpc.ts:redactEndpoint), jamais le chemin porteur de clé
+printf '%s\n' "$ORIGIN"      # SEULE valeur affichée (non secrète) ; doit égaler le 8e endpoint relevé en (2)
+printf 'CHAINSTACK_ETH_URL=%s\nCHAINSTACK_CYCLE_ID=%s\nCHAINSTACK_ETH_ORIGIN=%s\nCHAINSTACK_CYCLE_FLOOR=%s\n' \
+  "$CHAINSTACK_ETH_URL" "<CYCLE>" "$ORIGIN" "<FLOOR>" \
+  | ssh -i ~/.ssh/monark_vps root@31.97.155.188 \
+      'umask 077; install -d -m 0750 -o root -g sentinel /etc/monark; cat > /etc/monark/sentinel.env; chown root:sentinel /etc/monark/sentinel.env; chmod 0640 /etc/monark/sentinel.env'
+# Empreintes des DEUX côtés (même printf localement) — les deux hachés DOIVENT être identiques :
+printf 'CHAINSTACK_ETH_URL=%s\nCHAINSTACK_CYCLE_ID=%s\nCHAINSTACK_ETH_ORIGIN=%s\nCHAINSTACK_CYCLE_FLOOR=%s\n' "$CHAINSTACK_ETH_URL" "<CYCLE>" "$ORIGIN" "<FLOOR>" | sha256sum
+ssh -i ~/.ssh/monark_vps root@31.97.155.188 'sha256sum /etc/monark/sentinel.env'
+```
+- **(5) Expédition, `npm ci`, contrôle des hachés, unités** (calque §6 (1)-(3), (6), (8)) :
+```bash
+git archive --format=tar.gz "$SHA" apps packages schemas fixtures package.json package-lock.json deploy scripts/verify-harness.mjs \
+  | ssh -i ~/.ssh/monark_vps root@31.97.155.188 "mkdir -p /opt/monark-harness && tar xzf - -C /opt/monark-harness"
+ssh -i ~/.ssh/monark_vps root@31.97.155.188 'cat > /root/expected-nops1d.sha256' < expected-nops1d.sha256
+# sur le VPS :
+cd /opt/monark-harness && npm ci && chown -R monark:monark .
+sha256sum -c /root/expected-nops1d.sha256            # TOUT « OK », sinon STOP (ré-expédier)
+cp deploy/monark-sentinel.service deploy/monark-sentinel.timer /etc/systemd/system/
+grep '^OnCalendar=' /etc/systemd/system/monark-sentinel.timer | cut -d= -f2- | \
+  while read -r e; do systemd-analyze calendar "$e" || echo "STOP: invalid OnCalendar '$e'"; done
+systemctl daemon-reload
+systemctl show -p TimeoutStartUSec monark-sentinel.service    # attendu TimeoutStartUSec=5min
+systemctl show -p EnvironmentFiles monark-sentinel.service    # attendu -/etc/monark/sentinel.env
+sudo -u sentinel node -e 'import("@monark/rpc-guard").then(m => console.log(typeof m.openGuardedClient, typeof m.runCli))'   # depuis /opt/monark-harness ; attendu : function function
+#     NE PAS redéposer le drop-in J0 (état non vide, j0Source: state). monark-harness NON redémarré (calque E-5) — consigner.
+```
+- **(6) Dry-run GARDÉ** (en `sentinel`, EnvironmentFile chargé par systemd ; le secret ne touche aucun shell) :
+```bash
+systemd-run --uid=sentinel --pipe --wait \
+  -p EnvironmentFile=/etc/monark/sentinel.env \
+  -p Environment=MONARK_SENTINEL_DIR=/var/lib/monark-sentinel \
+  /usr/bin/env node /opt/monark-harness/apps/sentinel/src/run.ts --dry-run
+ls /var/lib/monark-sentinel/ledger/<CYCLE>/                       # chainstack.jsonl + chainstack.head, AUCUN chainstack.lock
+tail -1 /var/lib/monark-sentinel/ledger/<CYCLE>/chainstack.jsonl   # "outcome":"unlocked" … "reason":"sentinel-daily-end"
+```
+  Depuis -1d le dry-run OUVRE la jambe (`run.ts:319`, avant tout test de `--dry-run`) : il prend et relâche le verrou et écrit de VRAIES lignes de ledger (une ligne `unlocked` ; des lignes `attempted`, facturées, s'il y a un jour dû), sans rien écrire dans `timeline.jsonl`/`state.json`. La forme `sudo -u sentinel … --dry-run` du §3 ne charge PAS l'EnvironmentFile : elle rend `unconfigured` et ne teste que le pool keyless. **Attendu** (JSON de fin) : `chainstack: true`, `chainstack_guard: "ok"`, `exit_code: 0`, `dryRun: true`, « --dry-run: nothing written. ». **STOP** (corriger puis rejouer ; sinon rollback) selon `chainstack_guard` : `unconfigured` ⇒ `CHAINSTACK_CYCLE_ID` ou `CHAINSTACK_ETH_ORIGIN` absent ou vide (étape 4) ; `config_error` ⇒ `<FLOOR>` non entier ou > 16 000 000 ; `ledger_error` ⇒ parent absent ou droits (étape 3) ; `lock_held` ⇒ verrou orphelin (réparation SIGKILL ci-dessous).
+- **(7) Armement** : `systemctl restart monark-sentinel.timer` puis `systemctl list-timers monark-sentinel.timer --no-pager`. Sous `Persistent=true` un run peut partir aussitôt (§6 (7)) : le consigner comme premier run.
+
+### Acceptation (critères pré-enregistrés ; `journalctl -u monark-sentinel -n 40 --no-pager`)
+- **(a) Tout run post-déploiement**, y compris « nothing due » : `exit_code 0`, `stopped null`, `chainstack true`, **`chainstack_guard "ok"`**, `elapsed_ms`/`max_day_ms` présents (`max_day_ms > 60000` ⇒ amendement -1c) ; unité `Deactivated successfully` ; **aucun `chainstack.lock`** après la désactivation ; dernière ligne du ledger `unlocked` / `sentinel-daily-end`. Un run « nothing due » ne tire en général pas la jambe : 0 ligne `attempted` y est normal (le `finalized()` d'un pool sain prend les deux premiers fournisseurs publics ; `rpc.ts:175-201`, ordre `run.ts:324`).
+- **(b) Premier run PUBLIANT** (en général le créneau 00:30 UTC suivant) : la nouvelle ligne de `timeline.jsonl` porte `endpoints` = les 7 URLs publiques dans l'ordre de `rpc.ts:19-24`, puis en 8ᵉ la valeur `ORIGIN` postée à l'étape (4) (égale au 8ᵉ endpoint relevé à l'étape (2)) ; le ledger gagne **≥ 1 ligne `attempted` portant `"network":"ethereum-mainnet"`** (la rotation de `one()`, `rpc.ts:155-170`, atteint l'entrée `chainstack` au plus tard au 6ᵉ `blockTs` d'un pool sain ; un jour publié en fait des dizaines, `windows.ts:50-58`) ; le tir suivant de la sonde Bell rend `healthy`, `chain_ok`, `state_checked: true`, **`chainstack_present: true`**.
+- **Consigner** dans `docs/JOURNAL-PROVENANCE.md` l'entrée (a), puis l'entrée (b) : cette dernière fait passer la jambe gardée `upcoming → built` (ADR-NARABI-OPS-1, amendement -1d, A.4), retire le chemin « env → `rpc.ts` pool », et la cartographie cesse de déclarer le résiduel 118.
+- **STOP + rollback** : `sentinel FATAL` ; `chainstack_guard` ≠ `ok` non corrigeable ; `.lock` résiduel après `Deactivated` sans SIGKILL ; 8ᵉ endpoint ≠ `ORIGIN`. **STOP et enquête, sans rollback automatique** : run PUBLIANT à 0 ligne `attempted`.
+
+### Rollback (calque E-5)
+Ré-expédier le SHA déployé AVANT (dernière entrée de déploiement de `docs/JOURNAL-PROVENANCE.md` ; à la rédaction : `c4981d0`, E-5, l. 353-355) ou restaurer `"$B/monark-harness-tree.tgz"` ; `npm ci` ; recopier les unités sauvegardées ; `systemctl daemon-reload && systemctl restart monark-sentinel.timer` ; contrôler les hachés consignés pour ce SHA (E-5 : `run.ts` `54619a40…`, `.service` `d70f88cc…`, `.timer` `d84a08b5…`). L'EnvironmentFile à 4 clés reste compatible avec l'ancien code (il ne lit que `CHAINSTACK_ETH_URL` ; les clés de cycle sont ignorées) ; `/var/lib/monark-sentinel/ledger/` reste en place (ni lu ni servi par l'ancien code). Un rollback RÉ-OUVRE le résiduel 118 (chemin payant hors garde) : le consigner.
+
+### Réparation après SIGKILL (D-lock iii)
+Symptôme : `chainstack_guard: "lock_held"` au JSON de fin (le run publie en keyless, jamais FATAL).
+```bash
+systemctl is-active monark-sentinel.service           # DOIT être inactive ou failed — jamais activating : ne JAMAIS déverrouiller un run vivant
+ls /var/lib/monark-sentinel/ledger/*/chainstack.lock  # exactement UN chemin, sinon STOP
+LOCK=$(ls /var/lib/monark-sentinel/ledger/*/chainstack.lock); CYCLE=$(basename "$(dirname "$LOCK")")
+cat "$LOCK"                                           # {pid, iso} (packages/rpc-guard/src/lock.ts:25), non secret : vérifier que ce pid n'existe plus (ps -p <pid>)
+cd /opt/monark-harness && sudo -u sentinel /usr/bin/env node packages/rpc-guard/bin/rpc-guard.mjs unlock \
+  --ledger-dir /var/lib/monark-sentinel/ledger --cycle "$CYCLE" --op chainstack --reason runbook-sigkill-unlock
+echo "exit=$?"; test ! -e "$LOCK" && echo "lock released"
+tail -1 "/var/lib/monark-sentinel/ledger/$CYCLE/chainstack.jsonl"   # "outcome":"unlocked" … "reason":"runbook-sigkill-unlock"
+```
+En `sentinel`, jamais root (un fichier de ledger appartenant à root ferait échouer les ajouts suivants ⇒ `ledger_error`). Si `unlock` échoue sur « head sidecar » ou « cycle ledger » (troncature, fail-closed C-V-8) : STOP, aucune réparation à la main, escalade orchestrateur.
+
+### Lecture du ledger pour le rapprochement A-4 (SSH, LECTURE SEULE ; ADR-GARDE-HELIUS, amendement -1d, -1d-C)
+Aux MÊMES instants que les lectures before/after du tableau de bord :
+```bash
+ssh -i ~/.ssh/monark_vps root@31.97.155.188 'd=/var/lib/monark-sentinel/ledger/<CYCLE>; if [ -e $d/chainstack.lock ]; then echo "RUN EN COURS: relire plus tard"; else wc -l < $d/chainstack.jsonl; cat $d/chainstack.head; echo; fi'
+#   épingle = (N lignes, tête). Contrôle de chaîne : la ligne N porte "entry_sha256" == la tête relevée.
+#   Compte entre deux épingles N1 < N2 (lignes attempted + network ethereum-mainnet) :
+ssh -i ~/.ssh/monark_vps root@31.97.155.188 "sed -n '$((N1+1)),${N2}p' /var/lib/monark-sentinel/ledger/<CYCLE>/chainstack.jsonl" \
+  | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const L=s.split("\n").filter(Boolean).map(l=>JSON.parse(l));console.log(L.filter(e=>e.outcome==="attempted"&&e.network==="ethereum-mainnet").length)})'
+```
+Résiduel A-4 (iv) = ce compte × 1 RU, **sous l'hypothèse H-FACT** (non établie : tant qu'elle ne l'est pas, 0 RU, et la contrainte « aucune fenêtre chevauchant un créneau » reste la règle) ; jamais `credits_derived`.
+
+### Changement de période de facturation Chainstack
+Période courante 19/09 → 19/10 (`docs/course-ukemi/FAITS-floor-chainstack-2026-09-22.md:25`) ; la suivante se lit sur place. À chaque bascule : réécrire `/etc/monark/sentinel.env` par l'étape (4) avec le nouveau `<CYCLE>` et le `<FLOOR>` lu sur place (`run.ts:250-252`) — aucun redémarrage (l'EnvironmentFile est relu à chaque run oneshot). À défaut, la jambe continue de ledgérer sous l'ancien cycle : publication intacte, attribution A-4 fausse.
+
+### Installation neuve (§2-§4) après NARABI-OPS-1d
+Si l'EnvironmentFile porte les clés de cycle, créer aussi le parent du ledger (étape (3)) avant le premier run ; le contrôle du §3 « must still be EMPTY (public/ only) » devient « public/ et ledger/ seulement ».
+
+### Correspondance des lignes `run.ts` citées par les Modes A/B (§6)
+Les références `run.ts:NNN` des l. 187-313 visent une version antérieure à -1c : elles ne correspondent ni au code déployé (`c4981d0`) ni à celui de -1d. Correspondance mesurée (`git show <c>:apps/sentinel/src/run.ts | grep -n`) :
+
+| RUNBOOK (l.) | Cité | Énoncé visé | `c4981d0` (déployé) | `7daf8e5` (2ᵉ redéploiement) |
+|---|---|---|---|---|
+| 187 | `run.ts:180` | JSON de fin | :233 | :350 |
+| 209, 212 | `:167` | `dueDays` | :220 | :335 |
+| 209 | `:75`-`:92` | boucle de `runDue` | :119-143 | :126-150 |
+| 210 | `:182`-`:191` | bloc d'écriture | :235-244 | :352-361 |
+| 220, 252 | `run.ts:72`, `:72` | `let lo = DEPLOY_BLOCK` | :113 | :120 |
+| 250, 257 | `run.ts:165` | contrôle `--day` = jour suivant | :218 | :333 |
+| 272, 275, 278, 279, 313 | `:188` | `appendFileSync` (timeline privée) | :241 | :358 |
+| 278, 279 | `:189` | écriture du `state.json` privé | :242 | :359 |
+| 277, 279, 313 | `:190`, `:191` | copies publiques | :243, :244 | :360, :361 |
+| 282 | `:104`-`:120` | `loadState` | :156-172 | :163-179 |
+| 283, 285, 302 | `:111` | `JSON.parse` par ligne | :163 | :170 |
+| 284, 302 | `:201` | garde de run (`sentinel FATAL`) | :254 | :375 |
+| 287 | `:182` | garde `report.lines.length > 0` | :235 | :352 |
+| 300-301 | `run.ts:162`, `:166`, `:181` | appel de `loadState`, 1ᵉʳ RPC `finalized()`, branche `--dry-run` | :215, :219, :234 | :330, :334, :351 |
+
+Avec -1d, `openChainstackLeg` (`:319`) s'exécute AVANT `loadState` ; il n'appelle aucun RPC (lecture de l'env, fichiers, verrou) et, dans la forme de vérification du Mode B (`sudo -u sentinel … --dry-run`, sans EnvironmentFile), rend `unconfigured` sans toucher au ledger : le « network-free » de la l. 300 reste vrai. Re-pointage en place des l. 187-313 : item formé (propriétaire orchestrateur ; déclencheur : prochaine édition du RUNBOOK, au plus tard le 2ᵉ redéploiement).
 
 ## Déploiement de la sonde (Bell) — sub-lot NARABI-OPS-1b-ii
 

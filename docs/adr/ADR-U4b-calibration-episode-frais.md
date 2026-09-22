@@ -710,3 +710,40 @@ réponse non-2xx, et un `NonJsonBody` est un 2xx). **Calque exact de BELL-RETRY-
 *(ADR-U4b n'est PAS dans le gel du prereg §2 ; les docs sont exclus du décompte R-25 — `ci.yml:65`. Cet amendement
 n'édite AUCUNE valeur de sha de référence existante : il APPEND une section datée, donc le recompute du prereg §2
 reste vrai. Le worker ne committe pas (R-20) ; l'orchestrateur folde/committe au G7.)*
+
+## Amendement daté 2026-09-22 (NARABI-OPS-1d, fusion option (b)) — D4 : `apps/sentinel/src/rpc.ts` AVANT == APRÈS ; la suppression du code mort est un item post-course
+
+> **Provenance.** Texte : worker `claude-opus-5-5[1m]` (effort max), 2026-09-22 ; recompute LF depuis les blobs (`git show <c>:<f> | tr -d '\r' | sha256sum`, régime B) aux commits `9e095a0` (commit du prereg), `f6442fe` (base du lot), `7daf8e5` (pointe du lot) et `de30eab` (`lot/etude-suite` à la rédaction). **Insertion par l'orchestrateur `claude-fable-5-1` SEUL** (R-20) ; réviseur = orchestrateur (R-21). Corrige le texte PROPOSÉ au G1 §12 de NARABI-OPS-1d (« APRÈS = recomputé au commit du rebase -1d »), devenu faux par le report du gel (G2 C-G2-1 ; checkpoint-2 C-V-4 ; ruling C-V-0 option (b), `docs/CHANTIERS.md:783` et `:786`).
+
+### 1. D4 — sha AVANT / APRÈS de la fusion NARABI-OPS-1d
+Aucun fichier gelé ne bouge : `git diff --name-only f6442fe 7daf8e5` = 8 fichiers, aucun du gel. Les 9 valeurs sont identiques aux quatre commits cités :
+
+| # | Fichier gelé | AVANT (`9e095a0` = `f6442fe`) | APRÈS (`7daf8e5` = arbre fusionné hors `docs/`) | État |
+|---|---|---|---|---|
+| 1 | `scripts/census/u4b/u4b-scores.mjs` | `2f9a31f6…f51445c0` | idem | inchangé |
+| 2 | `scripts/census/u4b/u4b-reduce.mjs` | `a5e66cd3…57a6fac0` | idem | inchangé |
+| 3 | `scripts/record-u4b-calib.mjs` | `5733daeb…1fbc31a3` | idem | inchangé |
+| 4 | `apps/sentinel/src/ukemi/wadray.ts` | `7bee76fc…e4de2322` | idem | inchangé |
+| 5 | `apps/sentinel/src/ukemi/abi.ts` | `3376eb08…c1ab2d66` | idem | inchangé |
+| 6 | `packages/hikae/src/l1-split.ts` | `9206df91…8164ffa3` | idem | inchangé |
+| 7 | `apps/sentinel/src/rpc.ts` | `0e232519…c1c65ca0` | idem | **inchangé — GELÉ ; exports payants devenus morts** |
+| 8 | `packages/contracts/src/calib-digest.ts` | `3603265d…94c42380` | idem | inchangé |
+| 9 | `scripts/census/u3-realized.mjs` (labeler) | `cb020425…5b41a1af` | idem | inchangé |
+
+Valeur complète du sha #7 (AVANT == APRÈS) :
+```
+0e232519a18aaa43cb46bc5244472940cfac0c95f104bf3df70c36ccc1c65ca0  apps/sentinel/src/rpc.ts
+```
+**À recomputer sur le commit de fusion réel** (`git show <fusion>:<f> | tr -d '\r' | sha256sum`) — tout écart = STOP.
+
+### 2. Contrainte d'ordre (§3 de l'amendement 2026-09-21, l. 121-136 ; prereg, « Préconditions dures » point 6)
+- Lettre (`docs/PLAN-u4b-prereg.md:367` ; l. 127-129 ci-dessus) : « NARABI-OPS-1d NE fusionne PAS entre le commit du prereg -1b et la clôture de la course. Sinon `rpc.ts` change, le gel est rompu ». Sous l'option (b), -1d fusionne DANS cette fenêtre (prereg committé `9e095a0`, course non close) ; mais `rpc.ts` et les 8 autres fichiers gelés sont byte-identiques (§1), et aucun fichier de la fermeture d'imports des scripts de course n'est touché (`run.ts` et `keyless-transport.ts` ne sont importés que par `run.ts` et par des tests sentinel ; `git grep` sur `scripts apps packages` @ `7daf8e5`). L'objet protégé est intact : le gel n'est PAS rompu, aucun re-gel.
+- **D-n à consigner** au PLI de la course U-4b-1b (le prereg, committé et lié par `--prereg-sha`, n'est PAS modifié) : « D-n (NARABI-OPS-1d, option (b), 2026-09-22) — fusion de `lot/narabi-ops-1d` @ `7daf8e5` pendant la fenêtre prereg → clôture, en écart à la LETTRE de la précondition 6 (`docs/PLAN-u4b-prereg.md:367`) ; 9 sha LF byte-identiques AVANT/APRÈS (ADR-U4b, amendement -1d §1) ; aucun fichier gelé ni aucune ligne de commande figée touchés. »
+- La SUPPRESSION du code mort de `rpc.ts` (pli §11-1) reste soumise à la lettre de §3.
+
+### 3. Item formé — pli §11-1 (post-course) et sha APRÈS' de `rpc.ts`
+- Contenu, sur `rpc.ts` : suppression de `chainstackUrl` (l. 50-56), `poolEndpoints` (l. 58-64), `publishedEndpoints` (l. 66-72), `hasChainstack` (l. 74-78), `defaultCall` (l. 121-133) et du défaut `opts.call ?? defaultCall` (l. 145). Ne touche ni `TRANSFER_TOPIC` (l. 15 ; importé par `abi.ts:7`, gelé) ni `PUBLIC_ENDPOINTS`/`providerOf` (importés par le labeler `u3-realized.mjs:36`, gelé).
+- **Déclencheur : clôture de la course U-4b-1b AU SENS DU GEL** — après l'exécution du hors-ligne du prereg §(5e) (`docs/PLAN-u4b-prereg.md:310` : « après la course ; sous la vérification des 9 sha par l'orchestrateur » ; `u4b-reduce` → `u4b-scores` → `record-u4b-calib`). `u4b-scores.mjs:37` et `u4b-reduce.mjs:19` importent `abi.ts`, qui importe `rpc.ts` (`abi.ts:7`) : modifier `rpc.ts` avant ces étapes romprait leur vérification (ÉCART = STOP). La clôture « sur les données » de la décision 129 ne suffit PAS.
+- Au commit du pli : amendement D4 daté portant AVANT `0e232519…` / APRÈS' (recomputé). Si le prereg d'une calibration suivante a re-gelé `rpc.ts` entre-temps ⇒ STOP (re-gel et re-prereg, ou report). **Propriétaire** : orchestrateur.
+
+*(ADR-U4b n'est pas dans le gel du prereg §2 ; les docs sont exclus du décompte R-25 — `ci.yml:65`. Ajout pur : aucune valeur de référence existante n'est éditée.)*
