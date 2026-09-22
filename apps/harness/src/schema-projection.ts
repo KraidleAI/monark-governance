@@ -38,7 +38,7 @@ import { CASCADE_MAX_NODES } from "./tools/cascade.ts";
 // (motif CASCADE_MAX_NODES). No cycle (this module -> calibrate; calibrate does no I/O, imports no schema).
 import { CALIBRATE_MAX_N } from "./tools/calibrate.ts";
 // Resource caps: single source in the pure ukemi-predict tool (motif CASCADE_MAX_NODES). No cycle (this
-// module -> ukemi-predict -> {gate,calibration,ukemi-strata}; none import back here — verified).
+// module -> ukemi-predict -> {gate,calibration,ukemi-strata}; none import back here — checked).
 import { UKEMI_PREDICT_MAX_RESERVES, UKEMI_PREDICT_MAX_UPDATES, UKEMI_PREDICT_MAX_BALANCES, UKEMI_BOOK_SCHEMA, UKEMI_ORACLE_SCHEMA, UKEMI_PREDICT_CLOSE_FACTOR_VERSION } from "./tools/ukemi-predict.ts";
 
 /** A JSON value (no `any`; keeps the type-checked linter happy end-to-end). */

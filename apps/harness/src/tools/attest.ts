@@ -4,7 +4,7 @@
  * Exposes the REAL Shōgen adapter (`fromShogen`, imported from `@monark/monark`, NEVER re-implemented): it
  * projects the ONE committed, sha256-pinned Shōgen witness (Binance BTCUSDT, self-notarized) into the
  * frozen `AttestedPrice`, wrapped in the K-1 envelope `{ price, provenance, label }`. The verifier is NOT
- * run at call time — this is a projection of an artifact that was verified once, at capture.
+ * run at call time — this is a projection of an artifact whose Shogen verification ran once, at capture.
  *
  * NO side effects (K-8): like everything under `src/tools/`, this file reads no file, opens no socket,
  * spawns no process, makes no network request, and writes no environment variable. The one fixture read
@@ -26,7 +26,7 @@ export const ATTEST_TOOL_NAME = "attest";
 /**
  * Tool description (N-4/K-9): declares the projection is of a COMMITTED, previously Shōgen-verified witness
  * and that the verifier is NOT executed at call time. It makes NO probative or call-time claim and carries
- * no banned honesty vocab; the only `verified` is the past-tense compound `Shōgen-verified`, a descriptor
+ * no banned honesty vocab; its only verification word is the past-tense compound in `committed Shōgen-verified`, a descriptor
  * of the committed artifact (asserted by `attest_makes_no_probative_claim`).
  */
 export const ATTEST_TOOL_DESCRIPTION =

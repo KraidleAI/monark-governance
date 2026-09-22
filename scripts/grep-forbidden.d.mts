@@ -14,6 +14,8 @@ export interface VocabHit {
   line: number;
   why: string;
   text: string;
+  /** The matched span (A-9-OUTILLE: the CLI names file:line:word). */
+  word: string;
 }
 
 /** Compile {re, why} rule strings into {re: RegExp('i'), why}. */

@@ -17,7 +17,7 @@
  * NO side effects (K-8): like everything under `src/tools/`, it imports no `node:fs`/`node:net`/
  * `node:child_process`, calls no `fetch`, writes no `process.env`, reads no clock, and does NO crypto — the
  * `book_digest` is an ECHO of the caller-carried digest (a mono-account slice cannot recompute the whole-book
- * digest, and K-8 forbids it), never recomputed or re-verified here. `produced_at` is INJECTED via the input.
+ * digest, and K-8 forbids it), never recomputed and not re-verified here. `produced_at` is INJECTED via the input.
  */
 import { fromRealizedBook, isRealizedError } from "@monark/monark";
 import type { RealizedBookSlice, RealizedOracleParams, RealizedReserve, RealizedAccount, RealizedOracleUpdate } from "@monark/monark";
@@ -52,8 +52,8 @@ export const UKEMI_PREDICT_MAX_BALANCES = 128;
 /**
  * The K-1 honesty label (checkpoint-1 C-8): English ASCII (lang:gate / export:check), carrying the SAME five
  * elements the G0 §2.5 clause requires — (1) the frozen close-factor rule v3.5.0, (2) the first crossing,
- * (3) non-WETH legs held at p0, (4) no coverage on any other event, (5) inputs caller-carried and NOT
- * re-verified — plus the stale-snapshot note and the closing honesty (no guarantee, no score). Lives on the
+ * (3) non-WETH legs held at p0, (4) no coverage on any other event, (5) inputs caller-carried and
+ * NOT re-verified — plus the stale-snapshot note and the closing honesty (no guarantee, no score). Lives on the
  * envelope, NEVER inside the frozen `Prediction` (K-1). Removing any one element reddens
  * `u5_label_serves_the_five_elements`. The honest "no guarantee" span is the vocab-exempt form (ADR-M007 B-3).
  */
@@ -202,7 +202,7 @@ export function runUkemiPredict(rawInput: unknown): UkemiPredictOutput {
     // "uncommitted-until-u4b-2b" (the served region is committed at -2b).
     predictor_id: `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(strate)}`,
     produced_at: input.produced_at,
-    // ECHO of the caller-carried digest (never recomputed, never re-verified; K-8) — a trace, not an attestation.
+    // ECHO of the caller-carried digest (never recomputed, not re-verified; K-8) — a trace, not an attestation.
     features_digest: input.book.book_digest,
   };
   const provenance: UkemiPredictProvenance = {

@@ -158,8 +158,8 @@ export const LIQ_CONDITIONAL_SENTENCE =
   "account at the first crossing, which the gate does not check";
 
 /** The FULL committed sentence for the SERVED (non-empty-registry) liq class (rendered by honestyText at
- *  -2b). Carries the upper bound + the H-3 clause + the conditional clause; never "interval", never a
- *  probability (u4b_liq_description_makes_no_probability_claim, u4b_liq_class_text_says_upper_bound_never_interval). */
+ *  -2b). Carries the upper bound + the H-3 clause + the conditional clause; never "interval",
+ *  never a probability (u4b_liq_description_makes_no_probability_claim, u4b_liq_class_text_says_upper_bound_never_interval). */
 export const LIQ_COMMITTED_SENTENCE = `${LIQ_UPPER_BOUND_SENTENCE}; ${LIQ_H3_SENTENCE}; ${LIQ_CONDITIONAL_SENTENCE}`;
 
 /** Empty-registry (U-4b-2a) honesty: no calibration committed yet ⇒ abstains under_calib by construction.
@@ -171,7 +171,7 @@ export const GATE_TOOL_NAME = "gate";
 
 /**
  * ADR-M017 D2(iv) — the non-re-verification sentence carried VERBATIM in the tool description (phrase C-8):
- * the attestation is DECLARED-consistent, never verified at call time (no verifier runs here, K-8); `attest`
+ * the attestation is DECLARED-consistent and not re-verified at call time (no verifier runs here, K-8); `attest`
  * has no input and cannot recompute or verify a caller-carried attestation. Kept as one constant so the
  * "non-re-verification phrase removed from the description" mutant reddens `gate_description_declares_non_reverification` (test (4)).
  */

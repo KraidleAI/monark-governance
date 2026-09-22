@@ -15,6 +15,16 @@
 // locally (site only); "high confidence" still reddens. Load-bearing + non-inert proof:
 // test/ci-gates.test.ts (imports scanText/compilePatterns without running this CLI).
 //
+// A-9-OUTILLE (harness scope): the rules that carry an `exemptions` array police the SERVED vocabulary (naked
+// verified, probability outside a named negation, a numeric percentage, accuracy). Their exemptions are NAMED
+// negation/descriptor lookbehinds written in the rule itself (closed list, proven one by one by
+// test/vocab-harness-a9.test.ts). This CLI is the static half (every apps/harness/src line, comments included);
+// the served half (the real tools/list and tools/call through createHarnessHandler) is scanned in-process by
+// apps/harness/test/registry.test.ts.
+//
+// Output: one line per hit `FORBIDDEN VOCAB: <file>:<line>:<word>  <why>` (the matched word is named), then the
+// offending line; exit 1 on any hit (fail-closed), exit 0 with the scanned-file count otherwise.
+//
 // Usage: node scripts/grep-forbidden.mjs [extra file or dir ...]   (CLI targets = GLOBAL patterns only)
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, extname, resolve } from "node:path";
@@ -50,8 +60,9 @@ function maskLine(line, maskers) {
 
 /**
  * Scan `text` line-by-line for the compiled vocab `patterns`, AFTER masking the closed
- * `exemptPhrases` (scope-local). Returns one hit {line, why, text} per (line, matching pattern).
- * Pure: no I/O, no process.exit — this is what the tests import.
+ * `exemptPhrases` (scope-local). Returns one hit {line, why, text, word} per (line, matching pattern), where
+ * `word` is the matched span (the CLI prints file:line:word). Pure: no I/O, no process.exit — this is what the
+ * tests import.
  */
 export function scanText(text, patterns, exemptPhrases = []) {
   const maskers = compilePhraseMaskers(exemptPhrases);
@@ -60,7 +71,9 @@ export function scanText(text, patterns, exemptPhrases = []) {
   for (let i = 0; i < lines.length; i++) {
     const masked = maskLine(lines[i], maskers);
     for (const { re, why } of patterns) {
-      if (re.test(masked)) out.push({ line: i + 1, why, text: lines[i] });
+      re.lastIndex = 0; // stateless even for a caller-supplied /g pattern
+      const m = re.exec(masked);
+      if (m !== null) out.push({ line: i + 1, why, text: lines[i], word: m[0] });
     }
   }
   return out;
@@ -148,6 +161,8 @@ export function collectTargets(root, config, cliArgs) {
 
   // The harness apps/harness/src (ADR-M005 D9 / K-3) — GLOBAL + harness-scoped honesty bans.
   // SOURCE only (not test/): a negative-control test may legitimately name a banned token in a fixture.
+  // (A-9-OUTILLE) The served-vocabulary rules apply to every line, comments included: a comment naming a banned
+  // word is reworded, never exempted by path. No exemptPhrases on this scope (lookbehind exemptions only).
   const harness = config.scan.harness;
   if (harness) {
     const harnessSrc = join(root, "apps", harness.package ?? "harness", "src");
@@ -248,9 +263,9 @@ function main() {
 
   let hits = 0;
   for (const { f, patterns, exemptPhrases } of targets) {
-    for (const { line, why, text } of scanText(readFileSync(f, "utf8"), patterns, exemptPhrases)) {
+    for (const { line, why, text, word } of scanText(readFileSync(f, "utf8"), patterns, exemptPhrases)) {
       hits++;
-      console.error(`FORBIDDEN VOCAB: ${f}:${line}  ${why}`);
+      console.error(`FORBIDDEN VOCAB: ${f}:${line}:${word}  ${why}`);
       console.error(`  > ${text.trim()}`);
     }
   }
