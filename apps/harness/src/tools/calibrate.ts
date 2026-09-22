@@ -16,7 +16,7 @@
  * identically in (1) the tool DESCRIPTION, (2) the MCP text `content` (`calibrateHonestyText()`), and
  * (3) the output `label`. Unlike `attest` (which replays a committed witness and is "demonstrative"),
  * `calibrate` COMPUTES a real quantile — but only UNDER an external hypothesis the caller alone owns,
- * so the label says exactly that and never claims a probability of being right.
+ * so the label says exactly that: never a probability of being right.
  *
  * FAIL-CLOSED (D4, inherited from `splitQuantile` and re-declared): `alpha ∉ (0,1)`, a non-finite
  * score, a bad `nMin`, or `n > CALIBRATE_MAX_N` ⇒ a `CalibrateToolError` (surfaced by the MCP/HTTP
