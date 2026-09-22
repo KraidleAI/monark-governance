@@ -182,9 +182,10 @@ test("bell_1bii_src_files_clean_of_fetch_and_paid_keys", () => {
   // collect.ts reads NO Solana endpoint key (helius/chainstack resolved by the transport); a mutant reintroducing one reds.
   const solanaKeyReads = collect.match(/\benv\s*[.[]\s*["']?(HELIUS_API_KEY|CHAINSTACK_[A-Z]+_URL|BELL_SOLANA_RPC)/g) ?? [];
   assert.deepEqual(solanaKeyReads, [], "collect.ts reads NO Solana endpoint key (BELL_SOLANA_RPC/HELIUS/CHAINSTACK) — the guard transport does");
-  // collect.ts reads EXACTLY the two DECLARED cash keys (1b-iii allowlist, trigger "G0 course cash Bell").
+  // Since 1b-iii (C-6) the cash keys are read in the ALLOWLISTED cash module (close.ts, readCashKeys): collect.ts reads
+  // NO paid key at all. (Before the 1b-iii merge this asserted exactly the two declared cash keys.)
   const cashKeyReads = (collect.match(/deps\.env\.(POLYGON_API_KEY|DATABENTO_API_KEY)/g) ?? []).sort();
-  assert.deepEqual(cashKeyReads, ["deps.env.DATABENTO_API_KEY", "deps.env.POLYGON_API_KEY"], "collect.ts reads ONLY the two DECLARED cash keys (1b-iii allowlist, trigger G0 course cash Bell)");
+  assert.deepEqual(cashKeyReads, [], "collect.ts reads NO cash key (moved to the allowlisted close.ts by 1b-iii C-6)");
   // CONF-SRC-5: the EXCLUDED host literal is GONE from rpc.ts (the guard resolves the keyless solana-foundation label ->
   // the ADMITTED host api.mainnet.solana.com). Mutant "restore mainnet-beta literal in rpc.ts" reds this.
   assert.equal(SRC("rpc.ts").includes("mainnet-beta.solana.com"), false, "CONF-SRC-5: the excluded host api.mainnet-beta.solana.com is removed from rpc.ts (the guard resolves solana-foundation -> the admitted api.mainnet.solana.com)");
