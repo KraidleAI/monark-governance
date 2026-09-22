@@ -449,3 +449,166 @@ env -u CHAINSTACK_ETH_URL \                               # ceinture keyless-onl
 - **Résidu R-2 (garde de quorum)** : `CALL_LEGS.length < 2` compte les JAMBES, pas les `providerOf` DISTINCTS
   (`--operators publicnode.com` = 2 URL / 1 op passe la garde puis échoue `no_quorum` après 1 fetch — refus tardif,
   non silencieux, mesuré P11). **Déclencheur : première course figée** ⇒ durcir en compte d'`op` distincts.
+
+# Amendement daté 2026-09-22 (lot U-4b-1b-2) — réducteur de SÉLECTION d'épisode, prober D_e paramétré, discover schéma v2 — À INSÉRER dans `docs/adr/ADR-U4b-calibration-episode-frais.md` par l'orchestrateur `claude-fable-5-1` SEUL (R-20)
+
+> **Provenance.** Rédaction : worker `claude-opus-4-8[1m]` (préfixe `claude-opus-4-8` conforme, effort max ; Opus 5 banni),
+> 2026-09-22, worktree `F:\Monark-wt-u4b1b2` (`lot/u4b-1b-2`), base `lot/etude-suite` @ `e60ea07`. Aucun commit, aucun
+> réseau, aucun workflow. Réviseur = orchestrateur (vérification adversariale R-21). **Autorité** : décision 128 Q-D
+> (item « réducteur de SÉLECTION » + « paramétrage du prober D_e »), + course-corrections orchestrateur du 2026-09-22
+> (Livrable C discover ; checkpoint-1 C-1..C-9). **Les 9 sha gelés (§2) sont byte-identiques avant/après** (recompute
+> ci-dessous) — ce lot ne touche AUCUN fichier du gel D4.
+
+## 1. Objet (résout Q-D partiellement ouvert dans le prereg §7 « Préconditions de COURSE »)
+
+Trois pièces, toutes **hors gel** :
+- **A — `scripts/census/u4b/u4b-select-episode.mjs` (+ `.d.mts`)** : le réducteur de SÉLECTION AVAL. Applique la RÈGLE
+  pré-enregistrée §DISC:31 (exclusion e2), :34-40 (clustering via la fonction PURE `clusterWethLiquidations`), :42-46
+  (éligibilité), :49-50 (argmin + tie-break) sur le **brut de découverte**, et écrit `episode-selection.json` +
+  `A-rawlogs-<episode_id>.jsonl`. **HORS LIGNE** (0 réseau) ; `version_ok` est une sous-commande gardée séparée.
+- **B — `scripts/census/u4-oracle-path.mjs`** : le prober D_e, **paramétré par `--episode-file`** ; les constantes e2
+  en dur (`B0`/`BLAST`/`USDT_BLOCKS`/`EMODE_CATEGORIES`) sont **SUPPRIMÉES** ; `--feed-proxy` conserve son défaut §DISC:28.
+- **C — `scripts/census/u4b/u4b-discover.mjs`** : schéma **v2** (course FATAL 2026-09-22) — le brut est écrit AVANT le
+  témoin, porte `block_ts`, et `blockAt` passe par `--block-operators` (pool sans pocket, qui élague les en-têtes anciens).
+
+## 2. TUYAUX (ADR-M018 ; règle de Branchement) — à ajouter à la table Tuyaux de l'ADR-U4b
+
+| Tuyau | Entrée (produit) | Sortie (consomme) | État | Test |
+|---|---|---|---|---|
+| discover brut v2 | `u4b-discover.mjs` (getLogs + `block_ts` de `blockAt`, gardé keyless) | `--discover` du réducteur A / du `--fill-ts` | `upcoming` jusqu'à la 1ʳᵉ course servie | `u4b_discover_over_a_log_fixture_is_deterministic`, `u4b_discover_writes_the_brut_even_when_the_witness_clustering_fails`, `u4b_discover_getlogs_only_brut_is_durable_before_the_witness` (C-V-3), `u4b_discover_refuses_fewer_than_2_distinct_block_operators` (H-2) |
+| block-ts extra (C-2) | `u4b-select-episode.mjs --fill-ts` (blockAt quorum-2 keyless gardé, pocket-free) | `block-ts-extra.json` (sha-lié) → `--block-ts-extra` du réducteur A | `upcoming` | `u4b_chain_e2_adjacent_missing_ts_resolved_by_fill_ts`, `u4b_select_refuses_a_tampered_block_ts_extra_sidecar` |
+| sélection d'épisode | réducteur A (`u4b-select-episode.mjs`) sur le brut v2 (+ `--block-ts-extra` optionnel) | `episode.B0` → `--block` du recorder (§5a) ; `events-<id>.json` (tableau) → `--events` du labeler (§5d) ; `episode.{B0,B_last}` + `selection_sha256` → `--episode-file` du prober B ; `rawlogs_sha256` + `A-rawlogs-<id>.jsonl` → `--rawlogs`/`--rawlogs-sha` du labeler | `upcoming` (consommé par le test de chaîne réel + la course) | `u4b_episode_selection_is_deterministic`, `u4b_select_events_compose_with_the_labeler_parseArgs_and_predicate` (C-2/C-4), `u4b_select_writes_A_rawlogs_with_a_matching_raw_sha256` (C-3), `u4b_chain_discover_to_select_far_from_e2` (C-4) |
+| version d'épisode (H-1) | `u4b-select-episode.mjs --check-version` (1 `eth_getStorageAt` EIP-1967 quorum-2 keyless, gardé) | `version_check` écrit dans `episode-selection.json` (selection_sha256 INCHANGÉ) | `upcoming` | `u4b_check_version_true_on_v350_and_leaves_selection_sha_unchanged`, `u4b_check_version_false_stops_H1_unless_neutral_ref` |
+| chemin D_e frais | prober B (`u4-oracle-path.mjs --episode-file`) | `U4-oracle-path-<tag>.raw.json` → `u4b-reduce --oracle-raw` (§5e) | `upcoming` | `u4b_oracle_path_composes_real_form_bodies_and_reads_episode_bornes` (A-8), `u4b_oracle_path_unions_both_aggregators_on_phase_change`, `u4_oracle_path_e2_via_flags_is_deterministic_and_reproduces_the_De_data` |
+
+Le **test d'intégration non-LLM de bout en bout COMMITTÉ** (règle de Branchement, C-V-4) est `apps/sentinel/test/u4b-chain.test.ts` :
+la sortie RÉELLE de `runDiscover` (fetch bouchonné, pool gardé réel) → `runSelect` : (a) loin de e2 ⇒ succès 0-fetch dans le
+sélecteur ; (b) un cluster dont la fenêtre 24 h chevauche la borne haute de e2 ⇒ le sélecteur REFUSE nommément, `--fill-ts`
+(keyless quorum-2) écrit `block-ts-extra.json`, puis `runSelect --block-ts-extra` SUCCÈDE (0 fetch). La composition C-2 se
+lit sur le fichier `events-<id>.json` réel via `parseArgs(--events)` du labeler + un **calque** (réimplémenté, non importé)
+de son prédicat `:548`. Aucune pièce n'est `built` avant la première course rapprochée (D-3).
+
+## 3. Schéma du brut de discover v2 (C-1) + écriture DURABLE (C-V-3) + résolution du ts manquant (C-V-2)
+
+`u4b-discover.mjs` (schéma `ukemi-u4b-discover/2`) écrit le brut **DEUX fois** avec un champ `phase` (C-V-3, option a) :
+d'abord **`phase:"getlogs-only"`** (`records` décodés + `block_ts:{}`), **DURABLE, avant tout `blockAt`** — un kill dur
+pendant les sondes de ts garde les ~650 getLogs ; puis réécrit **`phase:"complete"`** avec `block_ts:{<bloc>:<ts>}` =
+**chaque `eth_getBlockByNumber`** lu par le témoin, **`brut_sha256` recomputé à CHAQUE écriture**. Le clustering témoin
+est best-effort : en échec, `clusters:null` + `cluster_error` (URL-scrubbée), **sort 0** — le brut est la pièce, le témoin
+est consultatif (prereg §5b). `blockAt` passe par **`--block-operators`** (liste keyless explicite, ≥ 2 opérateurs
+DISTINCTS par `operatorOf`, fail-closed — H-2 ; sans pocket qui élague : mesuré « blocks are available from block 25771356 »
+pour un accès à 22849534).
+
+**C-2 (résolution du ts manquant — cul-de-sac fermé, phrase §3 corrigée).** Le réducteur A lit `tsOf` de `block_ts` puis
+du sidecar `block_ts_extra` (0 réseau). **Correction de la phrase précédente « l'épisode frais est loin de e2 donc
+`block_ts` le couvre » : INEXACTE** — le refus frappe **TOUT** cluster dont le départ change une fois e2 retiré, pas le
+seul gagnant ; le témoin clusterise l'ensemble COMPLET, le sélecteur l'ensemble e2-EXCLU, donc un cluster e2-adjacent
+(prereg §Y : 29 WETH dans `(23552238, 23557060]`) sonde des blocs jamais lus, et le décalage peut cascader. Le refus n'est
+donc PAS l'exception : il a un **chemin de code de résolution** — la sous-commande GARDÉE **`--fill-ts`** (quorum-2 keyless,
+`--operators` pocket-free, budget/ledger/cycle requis) re-clusterise avec un `tsOf` PARESSEUX à réseau qui récupère
+**exactement** les blocs manquants (dans le bon ordre : chaque ts réel corrige la recherche binaire) et écrit le sidecar
+**`block-ts-extra.json`** sha-lié (`block_ts_extra_sha256`, `discover_sha` lié au brut). Le passage hors ligne accepte
+**`--block-ts-extra <sidecar>`** (vérifie les deux sha, 0 réseau) et écrit `block_ts_extra_sha256` dans
+`episode-selection.json` (chaîne sha-liée). **Critère (validateur, cas b) VERT** : `u4b_chain_e2_adjacent_missing_ts_resolved_by_fill_ts`.
+Si `--fill-ts` n'a pas encore tourné, le sélecteur refuse NOMMÉment en pointant vers `--fill-ts` — jamais un appel réseau
+dans le sélecteur.
+
+## 4. Ligne de commande FIGÉE (pour le prereg §5 — item formé, propriétaire orchestrateur)
+
+Le prereg lui-même n'est PAS modifié par le worker (R-20). **Item formé « prereg §5b-bis / §5a `--block` / §5e `<tag>`
+alimentés par `episode-selection.json` »**, propriétaire orchestrateur, déclencheur « avant la course » :
+
+```
+# (5b) discover — schéma v2, block_ts, --block-operators (ledger IMBRIQUÉ : --ledger-dir F:\monark-ledger --cycle <cycle>
+#      crée <ledger-dir>\<cycle>\ ; le prereg §5b « <F:\monark-ledger\<cycle>\> » est l'imbriqué, à désambiguïser)
+node scripts/census/u4b/u4b-discover.mjs --from-block 22803459 --to-block <finalized-64> --event-id weth-discover-<date> \
+  --operators drpc.org,mevblocker.io,tenderly.co,pocket.network \
+  --block-operators drpc.org,mevblocker.io,tenderly.co \                 # C-2 : blockAt sans pocket (élagage)
+  --ledger-dir F:\monark-ledger --cycle <cycle> --max-calls <n> --out <hors dépôt>
+
+# (5b-bis) réducteur de sélection (HORS LIGNE, 0 réseau ; --block-ts-extra si --fill-ts a tourné, cf. 5b-fill)
+node scripts/census/u4b/u4b-select-episode.mjs --discover <brut v2> \
+  --prereg-file docs/PLAN-u4b-prereg.md --prereg-sha <LF sha> --out <dir hors dépôt> \
+  [--n-min 50] [--e2-window 23545088,23557060] [--b-hi <to_block du brut>] [--block-ts-extra <sidecar 5b-fill>]
+#   -> <out>/episode-selection.json  (episode.B0 -> §5a --block ; events_file -> §5d --events ; rawlogs_sha256 -> §5d --rawlogs-sha ; block_ts_extra_sha256 si sidecar)
+#   -> <out>/events-<episode_id>.json  (le TABLEAU, C-V-4, consommé DIRECTEMENT par le labeler --events)
+#   -> <out>/A-rawlogs-<episode_id>.jsonl  (§5d --rawlogs)
+
+# (5b-fill) OPTIONNEL — SI 5b-bis refuse « brut has no ts for block N » (C-2, cluster e2-adjacent) : fill-ts gardé
+node scripts/census/u4b/u4b-select-episode.mjs --fill-ts --discover <brut v2> --out <dir hors dépôt> \
+  --operators drpc.org,mevblocker.io,tenderly.co --ledger-dir F:\monark-ledger --cycle <cycle> \
+  --max-calls <n> --method-caps '{"eth_getBlockByNumber":<cap>}'
+#   -> <out>/block-ts-extra.json (sha-lié) ; re-lancer 5b-bis avec --block-ts-extra <ce fichier> (0 réseau)
+
+# (5b-ter) contrôle de version (H-1, gardé keyless quorum-2, 1 eth_getStorageAt EIP-1967)
+node scripts/census/u4b/u4b-select-episode.mjs --check-version --episode-file <out>/episode-selection.json \
+  --operators drpc.org,mevblocker.io,tenderly.co --ledger-dir F:\monark-ledger --cycle <cycle> \
+  --max-calls <n> --method-caps '{"eth_getStorageAt":<cap>}' [--version-neutral-ref <doc si impl != v3.5.0 et diff [lu] NEUTRE>]
+#   version_ok=false SANS --version-neutral-ref => STOP H-1 (PR-U4-3-bis), JAMAIS d'avance silencieuse (C-5)
+
+# (prober D_e) paramétré par --episode-file (§DISC:28 feed-proxy conservé)
+node scripts/census/u4-oracle-path.mjs --episode-file <out>/episode-selection.json \
+  --prereg-file docs/PLAN-u4b-prereg.md --prereg-sha <LF sha> \
+  [--feed-proxy 0x5424384b256154046e9667ddfaaa5e550145215e] \           # DÉFAUT §DISC:28 (feed_proxy_source en provenance)
+  [--usdt-blocks <b1,b2>] --emode-categories <liste> | --book <U4-book> \
+  --raws-dir <hors dépôt> --ledger-dir F:\monark-ledger --cycle <cycle> --floor <F> --max-ru <R> --max-calls <n> --method-caps '{...}'
+#   --usdt-blocks ABSENT => usdt_prices {} + usdt_blocks_status "omitted" (C-7 ; blocs dérivables par
+#   usdtBlocksFromLabelerDeficit(U3-deficit.jsonl) — helper pur exporté ; ORDRE labeler -> prober, D-n déclarée)
+```
+
+## 5. Déviations D-n déclarées (F-3)
+
+- **D-n (C-1)** : le brut v2 porte `block_ts` (nouveau champ vs le brut v1 du prereg §5b) ; la fixture des tests du
+  réducteur est « forme réelle + `block_ts` » (le champ que le témoin de discover persiste). Un `block_ts` manquant est
+  résolu par `--fill-ts` (C-2) ou, à défaut, refusé NOMMÉment — jamais de réseau dans le passage hors ligne.
+- **D-n (C-V-3, durable write)** : le brut est écrit `phase:"getlogs-only"` PUIS `phase:"complete"` ; `phase` entre dans
+  `brut_sha256`. Le message de commit PR-C et l'ADR §3 sont alignés sur ce code (« écrit avant le témoin » est désormais
+  VRAI : la 1ʳᵉ écriture précède tout `blockAt`).
+- **D-n (C-V-4, events file)** : le sélecteur écrit `events-<id>.json` (le TABLEAU) en plus de `episode-selection.json`
+  (un OBJET) ; seul le tableau est consommable par `parseEventsFile` du labeler. `events_file` référence le fichier.
+- **D-n (C-V-7, --out hors dépôt)** : `assertOutDir` refuse désormais tout `--out` sous la racine du dépôt (comme le
+  `--raws-dir` du prober), en plus du refus spécifique sous `apps/sentinel/test/fixtures/`.
+- **D-n (C-7 / ordre de course)** : le prober `--usdt-blocks` est dérivé des lignes `deficit_base_no_price` USDT de
+  `U3-realized.jsonl`/`U3-deficit.jsonl` (helper pur `usdtBlocksFromLabelerDeficit`) ⇒ le **labeler tourne AVANT le prober**.
+  À inscrire au prereg §5 (propriétaire orchestrateur).
+- **D-4 (prober)** : les sha de référence de `u4_oracle_path…` (`test/guard-scripts-u4.test.ts` `REF.ORACLE_RAW`/
+  `ORACLE_INPUTS`) sont **re-baselinés** (le prober paramétré porte une provenance enrichie : `episode_id`,
+  `selection_sha256`, `prereg_file`, `feed_proxy_source`, `usdt_blocks_status` ; `prereg_sha` = U-4b) ; les DONNÉES D_e
+  (aggregator, updates, usdt, emode) restent byte-identiques (vecteur inline dans le test).
+- **§DISC:50 tie-break** : « address min » (non spécifié au prereg) lu comme « min du `user` liquidé minuscule du cluster » ;
+  déclaré. Le tie-break est **inatteignable par construction** (le clustering glouton rend `B_first` strictement croissant) ;
+  implémenté (pré-enregistré) et testé directement comme comparateur défensif.
+- **`residual_outside_window` = INVARIANT, pas un compteur mesuré** : §DISC:40 le définit comme les records d'un cluster
+  hors `[B_first, B_last]` ; le clustering glouton assigne CHAQUE record WETH ⇒ **structurellement 0**. L'assertion `=== 0`
+  est un **garde-fou de régression** (une future ré-implémentation NON gloutonne le ferait rougir), PAS une preuve (D-2).
+  Les compteurs réellement mesurés = `n_excluded_e2`, `window_truncated`, `n_eligible`, `candidates`.
+
+## 6. MAST résiduel (C-9)
+
+- **Dérive de format de sortie** (le tuyau `episode-selection.json` porte plusieurs consommateurs aux contrats distincts :
+  labeler `--events`, prober `--episode-file`, recorder `--block`) — contré par : (a) le test de composition C-2
+  (`parseArgs(--events)` réel + prédicat `:548`) ; (b) `selection_sha256` calculé sur le fichier HORS
+  `version_check`/`selection_sha256` (C-5), vérifié par le prober (0 fetch au refus) ; (c) `rawlogs_sha256` = sha RAW des
+  octets d'`A-rawlogs`, tel que le labeler le vérifie (`update(rawBuf)`).
+- **Vérification non indépendante** — contré par : la parité `canon`/`sha256Hex` entre `liquidation-logs.mjs` (producteur)
+  et `u4-guard.mjs` (vérificateur allowlist-borné du prober) est **épinglée octet-à-octet** par
+  `u4guard_canon_matches_liquidation_logs_canon` ; C-4 asserte `B_last` réducteur == recalcul labeler sur les mêmes ts.
+- **Sélection sur l'issue** — contré par : le réducteur est HORS LIGNE et déterministe depuis `(prereg_sha, brut)` ;
+  `version_ok` est post-hoc et fail-closed (false ⇒ STOP, jamais d'avance vers un « meilleur » candidat).
+
+## 7. Recompute des 9 sha gelés (§2) — byte-identiques avant/après (régime B, `git show HEAD:… | tr -d '\r' | sha256sum`)
+
+```
+2f9a31f6…f51445c0  scripts/census/u4b/u4b-scores.mjs
+a5e66cd3…57a6fac0  scripts/census/u4b/u4b-reduce.mjs
+5733daeb…2a1fbc31a3 scripts/record-u4b-calib.mjs
+7bee76fc…e4de2322  apps/sentinel/src/ukemi/wadray.ts
+3376eb08…c1ab2d66  apps/sentinel/src/ukemi/abi.ts
+9206df91…8164ffa3  packages/hikae/src/l1-split.ts
+0e232519…c1c65ca0  apps/sentinel/src/rpc.ts
+3603265d…94c42380  packages/contracts/src/calib-digest.ts
+cb020425…a205b41a1af scripts/census/u3-realized.mjs   (labeler)
+```
+Concordent tous avec le prereg §2. AUCUN ÉCART. Les 3 fichiers touchés (`u4b-discover.mjs`, `u4-oracle-path.mjs`,
+`u4-guard.mjs`) sont HORS gel ; `u4-guard.mjs` gagne `canon`/`sha256Hex` (copie byte-identique de `liquidation-logs.mjs`,
+parité testée).
