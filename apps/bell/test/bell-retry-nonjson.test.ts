@@ -41,8 +41,9 @@ test("bell_retry_nonjson_200_is_retried_then_succeeds_and_is_metered", async () 
 });
 
 // (2) the predicate matrix, by status. Transient (retried to exhaustion = `tries` attempts): 200, 429, and every 5xx
-// (502/503/504). Fatal (exactly ONE attempt, re-thrown at once): a 4xx != 429 (400, 404). The transient set adds 200
-// to the existing HttpError set {429, >=500} -- matching the mission's "200/502/503/504 transient, 4xx != 429 fatal".
+// (502/503/504). Fatal (exactly ONE attempt, re-thrown at once): a 4xx != 429 (400, 404) AND a 2xx != 200 (201, 204 --
+// R-BR1, checkpoint-2 C-2). The transient set adds ONLY 200 to the existing HttpError set {429, >=500} -- matching the
+// mission's "200/502/503/504 transient, 4xx != 429 fatal"; the predicate is LITERAL `=== 200`, not a 2xx range.
 test("bell_retry_nonjson_transient_matrix_200_5xx_429_and_fatal_4xx", async () => {
   for (const code of [200, 429, 502, 503, 504]) {
     let n = 0;
@@ -53,6 +54,13 @@ test("bell_retry_nonjson_transient_matrix_200_5xx_429_and_fatal_4xx", async () =
     let n = 0;
     await assert.rejects(() => withRetry(() => { n += 1; return Promise.reject(nonJson(code)); }, { tries: 3, ...noSleep }));
     assert.equal(n, 1, `a NonJsonBody@${String(code)} (4xx != 429) is FATAL (exactly ONE attempt; mutant 'status 400 admitted' (>=500 -> >=400) => 3 => reds)`);
+  }
+  // R-BR1 (checkpoint-2 C-2): a NonJsonBody on a 2xx != 200 (201 Created, 204 No Content) stays FATAL. The predicate is
+  // LITERAL `=== 200`, not a 2xx range, so ONLY the gateway-HTML-at-200 case is transient. Pins the R-BR1 residue.
+  for (const code of [201, 204]) {
+    let n = 0;
+    await assert.rejects(() => withRetry(() => { n += 1; return Promise.reject(nonJson(code)); }, { tries: 3, ...noSleep }));
+    assert.equal(n, 1, `a NonJsonBody@${String(code)} (2xx != 200) is FATAL (exactly ONE attempt; mutant V4 '=== 200 widened to [200,300)' => 3 => reds)`);
   }
 });
 
