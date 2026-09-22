@@ -3,7 +3,7 @@
 Objet : faire attraper AU G1 ce que les revues G2 / checkpoint-2 attrapent aujourd'hui en récidive (mesuré sur les 18 lots du 21/09 : 5 à 9 corrections par lot, presque toutes de la liste ci-dessous). Aucun gate n'est retiré : G2 ‖ checkpoint-2, pli, G2-delta, G7 sur l'arbre fusionné restent intégraux. Cette consigne est CITÉE par l'orchestrateur dans chaque mission G1 et le rendu porte une section « Consigne standard : point par point » (fait / n-a avec motif).
 
 ## A. Environnement et preuve
-- A-1 Première ligne du rendu : « Modèle résolu : <id exact> » (R-1) ; stop si ce n'est pas `claude-opus-4-8…`.
+- A-1 Première ligne du rendu : « Modèle résolu : <id exact> » (R-1) ; stop si ce n'est pas `claude-opus-5-5…` (décision 133, 2026-09-22 ; `claude-opus-4-8` = roster antérieur).
 - A-2 `node_modules` du worktree reconstruit par `F:\tmp\g2-garde2bi\mk-nm.ps1` (`@monark/*` → le worktree) ; `require.resolve('@monark/rpc-guard')` dans le rendu. Retrait : `rm-nm.ps1`, jamais `Remove-Item -Recurse`.
 - A-3 Codes de retour capturés DIRECTEMENT (`cmd > log 2>&1; echo exit=$?`), jamais après un pipe ; oracle complet : `gate:vocab`, `typecheck`, `test` (compte pass/fail/skip), `lint`, `lint:ratchet`, `lang:gate`, `export:check`.
 - A-4 `DELIVERED.sha256` (chemins relatifs au worktree, tous les fichiers touchés) ; rendu sous `F:\tmp\<lot>\` ; aucun commit (R-20) ; rien sur `C:` ; aucun réseau (fetch bouchonné, clés factices, hôtes `.invalid`).
