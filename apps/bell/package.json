@@ -3,5 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "MONARK Bell (ADR-B0, lot T-1a) — off-tool collector for the tokenized-securities witness: recomputes session gap (i) and halt delta (ii) from first-hand on-chain fills + the NYSE halt CSV, emits a canonical digest. Node built-ins only; publishes nothing (T-1b) and never imports apps/harness/src."
+  "description": "MONARK Bell (ADR-B0, lot T-1a) — off-tool collector for the tokenized-securities witness: recomputes session gap (i) and halt delta (ii) from first-hand on-chain fills + the NYSE halt CSV, emits a canonical digest. Node built-ins + @monark/rpc-guard (GARDE-HELIUS-1b-ii budgeted client); publishes nothing (T-1b) and never imports apps/harness/src.",
+  "dependencies": {
+    "@monark/rpc-guard": "0.0.0"
+  }
 }

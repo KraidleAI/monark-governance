@@ -632,7 +632,14 @@ const RETRY_TRIES = 6;
  *  and a sealed scan_complete:true artifact is NEVER degraded (C-B-2). Domains/counts only, never a url/key. */
 export async function runRebaseCrosscheckCli(call: JsonRpcCall, providers: readonly string[], wanted: readonly string[],
   seriesDir: string, out: string, opts: { readonly maxPages?: number; readonly requireFullPages?: boolean },
-  callsUsed: () => number, callsByMethod: () => Record<string, number>, maxCalls: number, faults: TransportFault[]): Promise<void> {
+  callsUsed: () => number, callsByMethod: () => Record<string, number>, ledgerCredits: () => number, maxCalls: number, faults: TransportFault[]): Promise<void> {
+  // GARDE-HELIUS-1b-ii — CREDITS DERIVED FROM THE LEDGER (mission 1b-ii): `credits_recomputed` no longer RE-computes the tariff
+  // locally (g.gTfA*10 + g.getTx*1); it comes from `ledgerCredits()` = the guard's helius run credits (Σ credits_derived
+  // of the helius cycle-ledger lines, client.spent().byOperator.helius). This differs from the old local recompute
+  // whenever getTransaction is drawn on a KEYLESS operator (otherOp = solana-foundation, 0 credits): the ledger counts
+  // gTfA×10 only, the old recompute added getTx×1 that the account was never billed. `callsByMethod`/gm() are RETAINED
+  // (per-method call COUNT for by_mint provenance + the Σ calls_by_method == calls_used invariant) — that is NOT a credit
+  // recompute. Mutant "credits recomputed locally" (restore g.gTfA*10 + g.getTx*1 at the artifact) reds IT-3.
   mkdirSync(out, { recursive: true });
   const perMint: Record<string, unknown> = {};
   const prior = readPriorBudget(out);
@@ -680,7 +687,7 @@ export async function runRebaseCrosscheckCli(call: JsonRpcCall, providers: reado
       scan = await scanFullMint(call, providers, tok.address, series.oracle_slot, opts, resume, sink, faults, retry);
       const verdict = compareToHybrid(scan, series);
       const g = gm();
-      const creditsRecomputed = g.getTransactionsForAddress * CREDITS_PER_GTFA + g.getTransaction * CREDITS_PER_GET_TX;
+      const creditsRecomputed = ledgerCredits(); // DERIVED FROM THE LEDGER (guard helius credits_derived), not g.gTfA*10 + g.getTx*1 (mutant restores that => IT-3 reds)
       const artifact = { oracle_slot: series.oracle_slot, n_exact: scan.n, pages: scan.pages, ledger_sha256: ledgerSha(scan.ledger),
         scan_complete: scan.complete, scan_reason: scan.reason ?? null, events: scan.events, c3_oracle_triplet: series.oracle_triplet,
         comparator_verdict: verdict, calls_by_method: g, credits_recomputed: creditsRecomputed, candidate_shas: deriveCandidateShas(out, symbol),
@@ -719,6 +726,13 @@ export async function runDensityProbeCli(call: JsonRpcCall, providers: readonly 
   const heliusOp = providers.find((u) => operatorOf(u) === "helius") ?? providers[0] ?? ""; // gTfA is Helius-exclusive
   const prior = readPriorBudget(out);
   const requireFullPages = opts.requireFullPages ?? true;
+  // GARDE-HELIUS-1b-ii C-G2-3: the density probe PERSISTS require_full_pages to the SHARED budget.json (so a later
+  // strict crosscheck draw resuming on the same --out is not refused by that draw's mode guard, :643). It must READ the
+  // prior first: a STRICT probe (requireFullPages true) resuming a LOOSE budget.json (--allow-short-pages: false) would
+  // silently UPGRADE false -> true, defeating the crosscheck's :643 mixed-mode guard (a strict draw would then trust a
+  // ledger built loosely — fail-open). Calque of runRebaseCrosscheckCli:643-644: a strict-over-loose resume fail-closes.
+  if (requireFullPages && existsSync(resolve(out, "budget.json")) && prior.requireFullPages !== true)
+    throw new Error("bell/collect: <out>/budget.json is not proven require_full_pages:true (absent or --allow-short-pages) but this density probe is strict (C-G2-3 fail-closed: a strict probe cannot upgrade a ledger built loosely)");
   const byMint: Record<string, Record<string, number>> = { ...prior.byMint };
   const retriesByMethod: Record<string, number> = { getTransactionsForAddress: 0, getTransaction: 0, ...prior.retries };
   const gm = (): { getTransactionsForAddress: number; getTransaction: number } => ({ getTransactionsForAddress: 0, getTransaction: 0, ...callsByMethod() }); // global cumulative, both keys present

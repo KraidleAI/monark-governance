@@ -571,7 +571,7 @@ test("bell_crosscheck_hasResumeState_events_or_handoffs_fail_closed — an event
   assert.throws(() => readPriorCalls(hoDir), /resume state but no budget\.json/, "handoffs- alone (no budget.json/ledger) is an incoherent resume => throw (mutant drops `|handoffs` => reds)");
 });
 
-// ================= -b3d-b1a (reprise / ledger / budget) — checkpoint-1 corrections C-B-1..7 =================
+// ================= -b3d-b1a (resume / ledger / budget) — checkpoint-1 corrections C-B-1..7 =================
 // Shared SYNTHETIC fixtures (checkpoint-1 C-16), h1.ts-shaped: init@10, updA@20, updB@30, updC@40 on the real SPYx mint
 // (K2), oracle_slot 45. NO network — the injected `call` returns hand-built pages/bodies. `b1aStub(faultOn)` makes op-B
 // getTransaction REJECT for one sig (HTTP 503) => a body-quorum fault on its page (the V-1 driver). All oracles execute
@@ -815,7 +815,7 @@ test("bell_crosscheck_candidate_shas_per_mint — candidate raws live under cand
     throw new Error("unexpected " + method);
   };
   const budgeted = makeBudgetedCall(1000, stub);
-  await runRebaseCrosscheckCli(budgeted.call, PROVIDERS, [m0.symbol, m1.symbol], sd, od, { maxPages: 10, requireFullPages: false }, budgeted.calls, budgeted.callsByMethod, 1000, []);
+  await runRebaseCrosscheckCli(budgeted.call, PROVIDERS, [m0.symbol, m1.symbol], sd, od, { maxPages: 10, requireFullPages: false }, budgeted.calls, budgeted.callsByMethod, budgeted.credits, 1000, []);
   assert.ok(existsSync(join(od, "candidates", m0.symbol, "sig0.json")), "mint 0's candidate is under its OWN subdir");
   assert.ok(existsSync(join(od, "candidates", m1.symbol, "sig1.json")), "mint 1's candidate is under its OWN subdir");
   const cc0 = JSON.parse(readFileSync(join(od, `crosscheck-${m0.symbol}.json`), "utf8")) as { candidate_shas: Record<string, string> };
@@ -1194,6 +1194,28 @@ test("bell_density_projects_N_with_interval — the sonde MEASURES genesis + K=8
   assert.equal(budgeted.calls(), 9, "1 genesis probe + 8 point pages = 9 gTfA calls (=> <= 36 for the 4 mints)");
 });
 
+// ---- GARDE-HELIUS-1b-ii C-G2-3: the density probe reads the prior before persisting require_full_pages -------------
+test("bell_density_strict_probe_over_loose_budget_is_fail_closed — a STRICT --rebase-density resuming a LOOSE budget.json is refused (C-G2-3: never silently upgrade require_full_pages false->true, which would defeat the crosscheck :643 mixed-mode guard and let a strict draw trust a loosely-built ledger)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-c23-s-")), od = mkdtempSync(join(tmpdir(), "bell-c23-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), densitySeries("SPYx", 800));
+  // A LOOSE prior budget.json (--allow-short-pages => require_full_pages:false), as a loose crosscheck draw would leave.
+  writeFileSync(join(od, "budget.json"), JSON.stringify({ calls_used: 2, credits_worst_case: 20, pages: 0,
+    calls_by_method: { global: { getTransactionsForAddress: 2, getTransaction: 0 }, by_mint: {} }, retries_by_method: { getTransactionsForAddress: 0, getTransaction: 0 }, require_full_pages: false }));
+  const budgeted = makeBudgetedCall(1000, densityStub({ [SPYX.address]: { genesis: 100, txAt: () => 4 } }));
+  // a STRICT probe (requireFullPages true) over the loose prior => THROW BEFORE any call (mutant: remove the guard =>
+  // the probe silently upgrades false->true, no throw => this reds).
+  await assert.rejects(
+    runDensityProbeCli(budgeted.call, PROVIDERS, ["SPYx"], sd, od, { requireFullPages: true }, budgeted.calls, budgeted.callsByMethod, 1000),
+    /C-G2-3/,
+    "a strict density probe cannot upgrade a loose budget.json (C-G2-3 fail-closed)",
+  );
+  assert.equal(budgeted.calls(), 0, "the guard fires BEFORE any gTfA call (fail-closed at the door, not mid-probe)");
+  assert.equal((JSON.parse(readFileSync(join(od, "budget.json"), "utf8")) as { require_full_pages: boolean }).require_full_pages, false, "the loose mode is UNCHANGED (never upgraded to true by the refused strict probe)");
+  // a LOOSE probe over the loose prior is fine (no upgrade); the mode stays false.
+  await runDensityProbeCli(budgeted.call, PROVIDERS, ["SPYx"], sd, od, { requireFullPages: false }, budgeted.calls, budgeted.callsByMethod, 1000);
+  assert.equal((JSON.parse(readFileSync(join(od, "budget.json"), "utf8")) as { require_full_pages: boolean }).require_full_pages, false, "the loose probe keeps the loose mode (matched modes never fail-close)");
+});
+
 // ---- L-b1b-1 / M-b1b-10: writes sonde-report.json + the SHARED budget.json (require_full_pages:true) but NEVER a ledger -
 test("bell_density_writes_budget_never_ledger — the sonde writes sonde-report.json + the shared budget.json (require_full_pages:true, pages:0) but NEVER a ledger/crosscheck artifact (L-b1b-1, M-b1b-10)", async () => {
   const sd = mkdtempSync(join(tmpdir(), "bell-dnl-s-")), od = mkdtempSync(join(tmpdir(), "bell-dnl-o-"));
@@ -1293,4 +1315,80 @@ test("bell_h6_projection_rejects_max_times_span — the density term is the per-
   // trapezoid = (0+0)/2·500 + (0+12)/2·500 = 3000 tx => 3 pages. density_max × span = 12 × 1000 = 12000 => 12 pages.
   assert.equal(projectPagesAtFraction(500, 0, 1000, 0, model), 3,
     "the projection uses the trapezoid integral (3 pages), NEVER density_max × span (M-b1b-14: 12 pages => reds)");
+});
+
+// ==== GARDE-HELIUS-1b-ii: the crosscheck GUARDED end-to-end (real openGuardedClient, ONLY globalThis.fetch stubbed) ====
+// The b1a fixtures are served over the guard's transport: gTfA -> helius (paid, 10 cr), getTransaction -> the KEYLESS
+// solana-foundation (otherOp, 0 cr). Proves credits-derived-from-the-ledger (IT-3) and resume without loss after STOP (125).
+const CAPS_1BII = ["getSignaturesForAddress", "getTransaction", "getAccountInfo", "getTransactionsForAddress"].map((m) => `${m}=100000000`).join(",");
+const attemptedOf = (path: string, method?: string): Array<{ method: string; credits_derived: number }> =>
+  (existsSync(path) ? readFileSync(path, "utf8").split(/\r?\n/).filter((l) => l.includes('"outcome":"attempted"')).map((l) => {
+    const o = JSON.parse(l) as { by_op_method: Record<string, number>; credits_derived: number };
+    const key = Object.keys(o.by_op_method ?? {})[0] ?? ""; // "<op>|<method>"
+    return { method: key.split("|")[1] ?? "", credits_derived: o.credits_derived };
+  }) : []).filter((l) => method === undefined || l.method === method);
+const hasRefused = (path: string): boolean => existsSync(path) && readFileSync(path, "utf8").includes('"outcome":"refused"');
+/** runMain --rebase-crosscheck via the REAL guard; callStub served over globalThis.fetch (no fake client/transport). */
+async function runGuardXc(argv: readonly string[], callStub: JsonRpcCall, ledgerDir: string): Promise<void> {
+  const real = globalThis.fetch;
+  globalThis.fetch = (async (_i: string | URL, init?: RequestInit): Promise<Response> => {
+    const req = JSON.parse(typeof init?.body === "string" ? init.body : "{}") as { method: string; params?: unknown[] };
+    const result = await callStub("op", req.method, req.params ?? []);
+    return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result }), { status: 200, headers: { "content-type": "application/json" } });
+  }) as typeof globalThis.fetch;
+  try {
+    await runMain([...argv, "--ledger-dir", ledgerDir, "--cycle", "cyc", "--operators", "helius,solana-foundation",
+      "--floor", "helius=0,solana-foundation=0", "--method-caps", CAPS_1BII], { databentoGet: noDbB, polygonGet: noPolyB, env: { BELL_SOLANA_RPC: "https://helius.invalid" }, nowMs: 50000 });
+  } finally { globalThis.fetch = real; }
+}
+
+// IT-3 — crosscheck_credits_derived_from_ledger: the guarded crosscheck's credits_recomputed == Σ helius credits_derived
+// of the CYCLE LEDGER (gTfA×10; getTransaction is drawn on the KEYLESS solana-foundation => 0 helius credit), NOT the old
+// local recompute gTfA×10 + getTx×1. Mutant "credits recomputed locally" (restore g.gTfA*10 + g.getTx*1) => reds.
+test("crosscheck_credits_derived_from_ledger", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "bell-it3-"));
+  const sd = mkdtempSync(join(tmpdir(), "bell-it3s-")), od = mkdtempSync(join(tmpdir(), "bell-it3o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), b1aSeries([eInitB, eAB, eBB, eCB]));
+  await runGuardXc(b1aArgs(sd, od, 50), b1aStub([{ data: [cinitB], paginationToken: "p2" }, { data: [cAB], paginationToken: "p3" }, { data: [cBB, cCB], paginationToken: null }]), dir);
+  const cc = readCC(od);
+  assert.equal(cc.comparator_verdict.verdict, "equal", "the guarded crosscheck completed (verdict equal)");
+  const heliusAtt = attemptedOf(join(dir, "cyc", "helius.jsonl"));
+  const ledgerHelius = heliusAtt.reduce((a, l) => a + l.credits_derived, 0);
+  const gtfa = heliusAtt.filter((l) => l.method === "getTransactionsForAddress").length;
+  assert.ok(gtfa > 0 && ledgerHelius === gtfa * 10, "helius ledger credits = gTfA×10 (getTransaction on the keyless solana-foundation => 0 helius credit)");
+  assert.equal(cc.credits_recomputed, ledgerHelius, "credits_recomputed == Σ helius credits_derived of the cycle ledger (CREDITS DERIVED FROM THE LEDGER)");
+  const getTx = attemptedOf(join(dir, "cyc", "solana-foundation.jsonl"), "getTransaction").length;
+  assert.ok(getTx > 0, "getTransaction WAS drawn (on the keyless solana-foundation)");
+  assert.notEqual(cc.credits_recomputed, gtfa * 10 + getTx, "credits_recomputed is NOT the old local recompute gTfA×10 + getTx×1 (the mutant restoring it => this value => reds)");
+});
+
+// Resume (decision 125) — resume without loss after STOP: a guarded crosscheck STOPs on the helius run credit cap
+// (--max-credits => runCaps.helius), and a resume on the SAME cycle/ledger-dir/out completes to `equal` WITHOUT losing
+// the prior — the STOP is durably ledgered (helius.jsonl attempted + refused), the run-ledger (ledger-<MINT>.jsonl)
+// persists and RESUMES (grows, never resets), and the cycle helius.jsonl is APPENDED across runs (frozen prior at run-2
+// open includes run-1's spend). Mutant "resume resets the budget / prior not preserved" => reds.
+test("bell_crosscheck_guarded_resume_without_loss_after_budget_stop", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "bell-rep-"));
+  const sd = mkdtempSync(join(tmpdir(), "bell-reps-")), od = mkdtempSync(join(tmpdir(), "bell-repo-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), b1aSeries([eInitB, eAB, eBB, eCB]));
+  const lf = join(od, "ledger-SPYx.jsonl"), hf = join(dir, "cyc", "helius.jsonl");
+  // RUN 1: --max-credits 15 => helius runCap 15 => asc gTfA p1 (10) OK, asc gTfA p2 (10+10=20>15) REFUSED => 1 committed
+  // page, STOP (the desc end-anchor is never reached — budget_exhausted returns before it).
+  await runGuardXc(b1aArgs(sd, od, 50, 15), b1aStub([{ data: [cinitB], paginationToken: "p2" }, { data: [cAB], paginationToken: "p3" }, { data: [cBB, cCB], paginationToken: null }]), dir);
+  const run1Pages = readFileSync(lf, "utf8").trim().split("\n").filter((l) => l.trim() !== "").length;
+  // EXACTLY 1: the gTfA p2 refusal is a CANONICAL BudgetExceededError re-thrown FIRST by withRetry/quorum2 (C-1), so the
+  // scan STOPs — never retried 4x nor benched as a fault (a swallow would commit p2/p3 => run1Pages > 1). This is C-1
+  // proven ON THE CROSSCHECK PATH (the same fail-open class checkpoint-1 C-1 warned about).
+  assert.equal(run1Pages, 1, "run-1 committed EXACTLY 1 atomic record before the STOP (the budget refusal stopped the scan; a C-1 swallow would commit more pages)");
+  assert.ok(hasRefused(hf), "the STOP is durably LEDGERED as a refused line in the cycle helius.jsonl (never a silent truncation)");
+  const run1HeliusAtt = attemptedOf(hf).length;
+  assert.ok(run1HeliusAtt >= 1, "run-1 wrote >= 1 helius attempted line (the spent gTfA)");
+  assert.equal(existsSync(join(dir, "cyc", "helius.lock")), false, "run-1's finally released the helius lock (resume can re-acquire)");
+  // RUN 2: resume on the SAME cycle/ledger-dir/out, --max-credits 500 => completes. The resume stub serves the REMAINING
+  // pages (calque the offline resume test): the scanned page-1 is NOT re-fetched, the scan finishes onto the chain.
+  await runGuardXc(b1aArgs(sd, od, 50, 500), b1aStub([{ data: [cAB, cBB, cCB], paginationToken: null }]), dir);
+  assert.equal(readCC(od).comparator_verdict.verdict, "equal", "the resume COMPLETED onto the re-derived chain => equal (resume without loss)");
+  assert.ok(readFileSync(lf, "utf8").trim().split("\n").filter((l) => l.trim() !== "").length > run1Pages, "the run-ledger GREW across the resume (never reset: the prior pages persisted, only the remainder was scanned)");
+  const run2HeliusAtt = attemptedOf(hf).length;
+  assert.ok(run2HeliusAtt > run1HeliusAtt, "the cycle helius.jsonl was APPENDED across runs (run-2's lines follow run-1's => the frozen prior at run-2 open included run-1's spend; a reset would drop run-1's lines => reds)");
 });

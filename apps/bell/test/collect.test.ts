@@ -11,14 +11,14 @@ import { POOLS, XSTOCKS } from "../src/pools.ts";
 import { f64BitsHexLE, type MultiplierEvent } from "../src/rebase-trajectory.ts";
 import { earliestPublishUtc, type DatabentoGet, type PolygonGet } from "../src/close.ts";
 import { quorum2, signaturesSetKey, statusOf, isSolRevert, NoQuorumError, QuorumDisagreementError, ConcordantRevertError,
-  BudgetExceededError, SolRpcError, type JsonRpcCall, type TransportFault } from "../src/quorum.ts";
+  BudgetExceededError, type JsonRpcCall, type TransportFault } from "../src/quorum.ts";
+import { RpcError } from "@monark/rpc-guard"; // GARDE-HELIUS-1b-ii: the canonical node-error class (SolRpcError deleted)
 import { readMintToken2022, porStatus, wrapperStatus, supplyVsPoRStatement, rebaseGate, rebaseGateFromMint, rebaseForMint } from "../src/supply.ts";
 import { coverageDecision, foundingCourseCostFloorSigs } from "../src/coverage.ts";
 import { volumeToAdvRatio, poolVolumeBase } from "../src/volume.ts";
 import { assertNoClose, bellSha } from "../src/digest.ts";
 import { newResidualCounts, RESIDUAL_CODES } from "../src/residuals.ts";
-import { solanaEndpoints, PUBLIC_SOLANA, type SwapFill } from "../src/rpc.ts";
-import { providerOf } from "../../sentinel/src/rpc.ts";
+import { type SwapFill } from "../src/rpc.ts";
 import { operatorOf } from "../src/operators.ts";
 import { rowsFromCsv, type HaltRow } from "../src/halts.ts";
 import { classifySession, refCloseDateOf, etWallClockToUtcMs } from "../src/sessions.ts";
@@ -108,20 +108,13 @@ test("bell_no_quorum_on_single_provider", async () => {
   await assert.rejects(quorum2("x", ["https://a.solana.com"], ok, fetchOne, keyOf), NoQuorumError);
   // two ALIASES of one provider (providerOf collapses to solana.com) => still no quorum
   await assert.rejects(quorum2("x", ["https://a.solana.com", "https://b.solana.com"], ok, fetchOne, keyOf), NoQuorumError);
-  // C-1a: the DEFAULT endpoint list is a SINGLE provider (publicnode retired), so a read with no Helius
-  // override via BELL_SOLANA_RPC is no_quorum — fail-closed, not a silent Helius-less quorum.
-  const def = solanaEndpoints({});
-  assert.deepEqual([...def], ["https://api.mainnet-beta.solana.com"]);
-  assert.equal(providerOf(def[0]!), "solana.com");
-  assert.equal(new Set(def.map(providerOf)).size, 1, "the default is one distinct provider");
-  await assert.rejects(quorum2("default", def, ok, fetchOne, keyOf), NoQuorumError, "the default list alone is no_quorum");
   // two DISTINCT providers, concordant => the value
   assert.equal(await quorum2("x", ["https://api.mainnet-beta.solana.com", "https://mainnet.helius-rpc.com"], ok, fetchOne, keyOf), "V");
   // two distinct providers that DISAGREE => fail-closed
   const disagree: JsonRpcCall = (u) => Promise.resolve(u.includes("helius") ? "H" : "M");
   await assert.rejects(quorum2("x", ["https://api.mainnet-beta.solana.com", "https://mainnet.helius-rpc.com"], disagree, fetchOne, keyOf), QuorumDisagreementError);
   // concordant node error across two providers => ConcordantRevertError (a deterministic on-chain fact)
-  const revert: JsonRpcCall = () => Promise.reject(new SolRpcError("account not found", -32602));
+  const revert: JsonRpcCall = () => Promise.reject(new RpcError("solana-foundation", "account not found", -32602));
   await assert.rejects(quorum2("x", ["https://api.mainnet-beta.solana.com", "https://mainnet.helius-rpc.com"], revert, fetchOne, keyOf), ConcordantRevertError);
   // a symbol whose reader returned no_quorum is counted, with no gap entry for it
   const r = collect({ symbols: [{ symbol: "SPYx", chain: "solana", baseDec: 8, quoteDec: 6, fills: [], fillsResidues: ["no_quorum"], closeRefBySession: {}, advDailyVolumes: [] }],
@@ -156,25 +149,19 @@ test("bell_quorum_pair_two_operators", async () => {
 // ---- O-9: isSolRevert tells a deterministic node error from a transport/rate fault ---------------
 test("bell_is_sol_revert_transport_vs_deterministic", () => {
   // transport-like node codes BENCH (not a revert): -32005 behind/rate, -32004 slot not available, -32603 internal
-  for (const code of [-32005, -32004, -32603]) assert.equal(isSolRevert(new SolRpcError("transport-like", code)), false, `code ${String(code)} is transport`);
+  for (const code of [-32005, -32004, -32603]) assert.equal(isSolRevert(new RpcError("helius", "transport-like", code)), false, `code ${String(code)} is transport`);
   // deterministic node errors ARE reverts (identical across honest providers -> a concordant on-chain fact)
-  for (const code of [-32602, -32601, -32000, 0]) assert.equal(isSolRevert(new SolRpcError("deterministic", code)), true, `code ${String(code)} is deterministic`);
+  for (const code of [-32602, -32601, -32000, 0]) assert.equal(isSolRevert(new RpcError("helius", "deterministic", code)), true, `code ${String(code)} is deterministic`);
   // a plain transport Error (HTTP/timeout) is NEVER a revert
   assert.equal(isSolRevert(new Error("HTTP 429")), false);
   assert.equal(isSolRevert(new Error("abort/timeout")), false);
 });
 
-// ---- O-10: solanaEndpoints reads BELL_SOLANA_RPC (env override), fail-closed to the public default ---------
-test("bell_solana_endpoints_env_override", () => {
-  // default (no env): the SINGLE public archival endpoint (publicnode retired) -> one operator -> no_quorum by design
-  assert.deepEqual([...solanaEndpoints({})], [...PUBLIC_SOLANA]);
-  // BELL_SOLANA_RPC (comma-separated): trimmed, empties dropped -> the live quorum list (Helius + Chainstack)
-  const two = solanaEndpoints({ BELL_SOLANA_RPC: " https://mainnet.helius-rpc.com , https://solana-mainnet.core.chainstack.com ,, " });
-  assert.deepEqual([...two], ["https://mainnet.helius-rpc.com", "https://solana-mainnet.core.chainstack.com"]);
-  assert.equal(new Set([...two].map(operatorOf)).size, 2, "the override yields two distinct operators");
-  // a blank override falls back to the default (never an empty endpoint list)
-  assert.deepEqual([...solanaEndpoints({ BELL_SOLANA_RPC: "   " })], [...PUBLIC_SOLANA]);
-});
+// ---- O-10 REMOVED (GARDE-HELIUS-1b-ii): solanaEndpoints/PUBLIC_SOLANA are DELETED — Bell no longer reads
+// BELL_SOLANA_RPC to build a URL list; the guard transport resolves the operator LABELS (helius / chainstack /
+// solana-foundation), and the CONF-SRC-5 EXCLUDED host api.mainnet-beta.solana.com is gone. The label wiring is
+// proven by runMainOffline (real openGuardedClient) in guard-collect-1bii.test.ts; per-file cleanliness by
+// rpc_ts_clean_of_fetch_and_keys.
 
 // ---- (iv) PoR staleness + wrapper rate + Token-2022 readout --------------------------------------
 test("bell_por_staleness_and_wrapper_rate", () => {
@@ -440,7 +427,11 @@ test("bell_parseargs_fail_closed_and_wired", () => {
   const g = parseArgs(["--pools", "TSLAon", "--eth", "--eth-from-block", "9", "--eth-to-block", "20", "--max-calls", "500"], K, 1_000);
   assert.deepEqual([g.wanted, g.eth, g.ethFrom, g.ethTo, g.toUtcMs, g.maxCalls], [["TSLAon"], true, 9, 20, 1_000, 500]);
   assert.match(SRC, /parseArgs\(argv, POOLS\.map/);
-  assert.match(SRC, /makeBudgetedCall\(maxCalls,/); // wiring proof: main() enforces the budget through the wrapper
+  // GARDE-HELIUS-1b-ii wiring proof: runMain enforces the budget through openGuardedClient (not a local wrapper),
+  // and every Solana method is cap-covered at construction (assertMethodCapsCover). The integration proof is
+  // runMainOffline (real guard + fetch spy) in guard-collect-1bii.test.ts.
+  assert.match(SRC, /openGuardedClient\(deps\.env, limits, ledgerDir, cycles, \{ network: "solana-mainnet"/);
+  assert.match(SRC, /assertMethodCapsCover\(methodCaps, BELL_SOLANA_METHODS, "bell\/collect"\)/);
 });
 
 // ---- C-11 / O-12: the RPC budget is machine-enforced and fail-closed (never a swallowed fault) ------------

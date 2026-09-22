@@ -15,13 +15,24 @@
 import { providerOf } from "../../sentinel/src/rpc.ts";
 import { operatorOf } from "./operators.ts";
 import { createHash } from "node:crypto";
+// GARDE-HELIUS-1b-ii (C-3): quorum.ts speaks the CANONICAL @monark/rpc-guard error vocabulary. The migrated
+// collect.ts calls openGuardedClient, whose transport throws TransportError (rate/HTTP/abort/non-JSON) and RpcError
+// (a JSON-RPC node error at HTTP 200, `.code` = the node code). statusOf reads `.code`/`.name` (never the scrubbed
+// message), withRetry retries a TRANSIENT TransportError (429/5xx/abort/network) but NEVER a 403 / RpcError / budget
+// stop, and isSolRevert recognises a canonical RpcError with the Solana bench codes. Importing these is the
+// apps -> packages direction (licit). BudgetExceededError is RE-EXPORTED below (checkpoint-1 C-1, byte-identical to
+// the 1b-i line) so a client/collect refusal is the SAME class the quorum re-throws (never benched as a fault).
+import { TransportError, RpcError, BudgetExceededError } from "@monark/rpc-guard";
 
 export type JsonRpcCall = (url: string, method: string, params: readonly unknown[]) => Promise<unknown>;
 
-/** The `--max-calls` RPC budget was reached (C-11 fail-closed). It is NOT a transport fault: quorum2 and the
- *  collector re-throw it immediately so it can never be swallowed as a `{provider,status}` fault and the run
- *  stops (exit 1), never presenting a budget-truncated pool as complete. */
-export class BudgetExceededError extends Error {}
+/** The RPC budget was reached (fail-closed). It is NOT a transport fault: quorum2 / withRetry / the collector
+ *  re-throw it immediately so it can never be swallowed as a `{provider,status}` fault and the run stops (exit
+ *  != 0), never presenting a budget-truncated pool as complete. Re-exported from @monark/rpc-guard so a refusal
+ *  from openGuardedClient is the SAME class every `instanceof BudgetExceededError` here tests (checkpoint-1 C-1;
+ *  a per-file class would be caught as a fault, fail-open, typecheck-green). The 8 src files that import it from
+ *  quorum.ts follow unchanged. */
+export { BudgetExceededError } from "@monark/rpc-guard";
 /** Fewer than two distinct providers answered a read — the caller names it `no_quorum` and abstains. */
 export class NoQuorumError extends Error {}
 /** Two distinct providers answered but DISAGREED on the read key — fail-closed (a real divergence). */
@@ -30,27 +41,30 @@ export class QuorumDisagreementError extends Error {}
  *  fact, not a fault. The caller tolerates it only where an absent datum is meaningful; else it abstains. */
 export class ConcordantRevertError extends Error {}
 
-/** A typed JSON-RPC error (node returned {error:{code,message}}). The code lets the quorum tell a
- *  deterministic node error (identical across honest providers) from a transport/rate fault. The message is
- *  used for classification ONLY and is never surfaced by the quorum (key hygiene, C-10). */
-export class SolRpcError extends Error {
-  readonly code: number;
-  constructor(message: string, code: number) { super(message); this.name = "SolRpcError"; this.code = code; }
-}
-
-/** Is this a deterministic node error (concordant across honest providers), not a transport/rate fault?
- *  -32005 (node is behind / rate), -32004 (block/slot not available yet) and -32603 (internal) are transport-
- *  like and bench; other codes (invalid params, method not found, account-specific) are deterministic and
- *  count toward the quorum. Explicit, testable criterion (ADR-U1 D3 amendment, Solana flavour). */
-export function isSolRevert(e: unknown): e is SolRpcError {
-  return e instanceof SolRpcError && e.code !== -32005 && e.code !== -32004 && e.code !== -32603;
+/** Is this a deterministic node error (concordant across honest providers), not a transport/rate fault? The
+ *  canonical RpcError from @monark/rpc-guard carries the JSON-RPC `.code` (a node error at HTTP 200): -32005
+ *  (node is behind / rate), -32004 (block/slot not available yet) and -32603 (internal) are transport-like and
+ *  bench; other codes (invalid params, method not found, account-specific) are deterministic and count toward
+ *  the quorum. Same criterion as before (ADR-U1 D3 amendment, Solana flavour), on the ONE canonical class so
+ *  `instanceof RpcError` holds across the package boundary and ConcordantRevertError forms (C-3). The local
+ *  SolRpcError is DELETED (never a 2nd class — calque 2b-ii D-4). */
+export function isSolRevert(e: unknown): e is RpcError {
+  return e instanceof RpcError && e.code !== -32005 && e.code !== -32004 && e.code !== -32603;
 }
 
 /** A SANITIZED status token for the journal: an HTTP code, "timeout", an rpc code, or "transport" — NEVER
- *  the raw message. Even if an injected call throws `HTTP 429 https://x/?api-key=<uuid>`, only "HTTP 429" is
- *  extracted; a url-only message yields "transport". This is the load-bearing scrub of C-10. */
+ *  the raw message. C-3: a canonical error carries its status STRUCTURALLY, so read `.code`/`.name` — never the
+ *  scrubbed `TransportError.message` (`rpc-guard: HttpError for operator 'x'` has no digits => the old regex
+ *  yielded "transport", so a 403 looked retryable). An RpcError => `rpc <code>`; a TransportError (HttpError /
+ *  RedirectBlocked carry the HTTP status; AbortError => timeout; else transport). A NON-package Error (the cash
+ *  leg's plain `HTTP <status>`) still falls to the message regex. Load-bearing scrub of C-10 (no url/key). */
 export function statusOf(e: unknown): string {
-  if (e instanceof SolRpcError) return "rpc " + String(e.code);
+  if (e instanceof RpcError) return "rpc " + String(e.code);
+  if (e instanceof TransportError) {
+    if (e.code !== undefined) return "HTTP " + String(e.code); // HttpError / RedirectBlocked carry the HTTP status
+    if (e.name === "AbortError") return "timeout";
+    return "transport"; // TypeError / NetworkError / NonJsonBody: no mappable HTTP code
+  }
   const m = e instanceof Error ? e.message : String(e);
   const http = /\bHTTP\s+(\d{3})\b/.exec(m);
   if (http) return "HTTP " + String(http[1]);
@@ -105,14 +119,26 @@ export async function quorum2<T>(
 
 const retrySleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
-/** Bounded retry on a transient transport signal (HTTP 5xx / 429 / timeout, OR the `transport` catch-all — a
- *  connection reset / `fetch failed` that statusOf cannot code, exactly the transient network fault a retry exists
- *  for), deterministic backoff 400·(i+1) ms. A BudgetExceededError is NEVER retried (re-thrown at once); a
- *  deterministic node error or an HTTP 4xx≠429 is re-thrown immediately. (A thrown code bug also classifies as
- *  `transport`, so it backs off `tries` times then propagates — the plan's declared conservative direction; a real
- *  process kill never throws, so it is out of scope.) `onRetry` fires once per retry actually taken (so a caller can
- *  meter retries_by_method); the backoff `sleep` is injectable (offline tests pass a no-op). Lives here (not in
- *  collect) so the crosscheck CLI can share it without a collect↔rebase-crosscheck import cycle (fact 10). */
+/** C-3: is this fault worth a bounded retry? A CANONICAL TransportError is retried ONLY when it is a rate/abort/
+ *  network/5xx fault by `.name`/`.code` — NEVER an RpcError (a deterministic node revert; RpcError extends
+ *  TransportError so it is excluded FIRST), a 403, or another 4xx (calque record.ts:306, the recorder's transient
+ *  rule). A NON-package Error (the cash leg's plain `HTTP <status>` from close.ts, not yet under the guard — 1b-iii)
+ *  still classifies through the message-derived status token. A BudgetExceededError is handled by the caller before
+ *  this (fatal first). */
+function isTransient(e: unknown): boolean {
+  if (e instanceof RpcError) return false; // a deterministic node error is never a transport retry
+  if (e instanceof TransportError) {
+    const n = e.name;
+    return n === "AbortError" || n === "TypeError" || n === "NetworkError" || (n === "HttpError" && e.code !== undefined && (e.code === 429 || e.code >= 500));
+  }
+  return /HTTP 5|HTTP 429|timeout|transport/.test(statusOf(e)); // cash-leg plain Error fallback (1b-iii migrates it)
+}
+
+/** Bounded retry on a TRANSIENT transport signal (isTransient), deterministic backoff 400·(i+1) ms. A
+ *  BudgetExceededError is NEVER retried (re-thrown at once); a deterministic node error (RpcError) or an HTTP
+ *  4xx≠429 / 403 is re-thrown immediately (isTransient false). `onRetry` fires once per retry actually taken (so a
+ *  caller can meter retries_by_method); the backoff `sleep` is injectable (offline tests pass a no-op). Lives here
+ *  (not in collect) so the crosscheck CLI can share it without a collect↔rebase-crosscheck import cycle (fact 10). */
 export async function withRetry<T>(fn: () => Promise<T>, opts: { tries?: number; onRetry?: () => void; sleep?: (ms: number) => Promise<void> } = {}): Promise<T> {
   const tries = opts.tries ?? 4, slp = opts.sleep ?? retrySleep;
   let last: unknown;
@@ -121,7 +147,7 @@ export async function withRetry<T>(fn: () => Promise<T>, opts: { tries?: number;
     catch (e) {
       if (e instanceof BudgetExceededError) throw e;
       last = e;
-      if (!/HTTP 5|HTTP 429|timeout|transport/.test(statusOf(e))) throw e;
+      if (!isTransient(e)) throw e;
       if (i < tries - 1) { opts.onRetry?.(); await slp(400 * (i + 1)); } // fact 9: skip the wasted sleep after the final attempt
     }
   }
