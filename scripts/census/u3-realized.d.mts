@@ -62,3 +62,53 @@ export function canonicalJsonl(rows: readonly unknown[]): string;
 export function sumRepaymentNative(
   realized: readonly { event_id: string; debt_asset: string; repayment_native: string }[],
 ): Map<string, bigint>;
+
+// ---------------------------------------------------------------------------------------------
+// LOT U-4b-1b-1 (ruling QF-2): the LIVE section is parametrised. These symbols let a non-LLM test
+// assert the defaults equal the pinned e2 values and replay a synthetic episode, all offline. The
+// PURE reducer above is byte-identical to the pinned blob (condition (i-a): no 9th frozen sha).
+// ---------------------------------------------------------------------------------------------
+
+/** One pre-committed episode definition (prereg section 3) — the shape of a --events entry. */
+export interface EventDef {
+  id: string;
+  collateral: string;
+  clusterLo: number;
+  clusterHi: number;
+  preV33: boolean;
+}
+
+/** The pinned rawlogs sha256 (the --rawlogs-sha DEFAULT = the e2 value). */
+export const RAWLOGS_SHA: string;
+/** The pinned e2/e1/e3 episode definitions (the --events DEFAULT). */
+export const EVENTS: readonly EventDef[];
+
+/** Resolved labeler CLI arguments. Every default equals the pinned e2 value, so no argument is byte-identical. */
+export interface LabelerArgs {
+  rawlogs: string;
+  rawlogsSha: string;
+  events: readonly EventDef[];
+  episodeTag: string | null;
+  out: string | null;
+  operators: string[] | null;
+  archiveOperator: string | null;
+  allowPaid: boolean;
+  minIntervalMs: number;
+  preregFile: string;
+  preregSha: string;
+  maxCalls: number;
+  rawsDir: string;
+  only: string[] | null;
+  ledgerDir: string | null;
+  cycle: string | null;
+  floor: string | null;
+  maxRu: string | null;
+  methodCaps: string | null;
+}
+
+/** Parse the labeler CLI (reads a --events file when given; no network). */
+export function parseArgs(argv: readonly string[]): LabelerArgs;
+
+/** Run the live pull (network + disk). `env` is INJECTED — never read at module scope (the archive leg's key
+ *  is read only inside @monark/rpc-guard). Returns the run summary. */
+export function main(deps: { env: Record<string, string | undefined>; argv: readonly string[] }): Promise<unknown>;
