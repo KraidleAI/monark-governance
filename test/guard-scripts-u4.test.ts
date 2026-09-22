@@ -59,8 +59,8 @@ const PAID_HOST = "paid.example.invalid";
 //   9999 --ledger-dir <OUT> --cycle replay --floor 0 --max-ru 1000000 --method-caps <caps> --usdt-blocks 23550406,23550879
 //   --emode-categories 1,2,3,4,8,11,13,15,17,19,21,23,24,27,28 ; sha256sum <D>/U4-oracle-path-e2.raw.json <D>/U4-oracle-inputs.jsonl
 const REF = {
-  ORACLE_RAW: "4cc1e6a9c87938deb69e385d87be5154deae4fadf02a170fb359ddedd1d79510",       // U4-oracle-path-e2.raw.json (full, frozen clock; e2 via flags)
-  ORACLE_INPUTS: "6dee556d81e616f227d809e8db807f245089800568540a5568805f4595017329", // U4-oracle-inputs.jsonl
+  ORACLE_RAW: "8b0e3d69f27514a8d10c186bea1027a0631155e8999d85a4f9197f9782b98b6c",       // U4-oracle-path-e2.raw.json (full, frozen clock; e2 via flags)
+  ORACLE_INPUTS: "755a3d9124df14c7815866214a3a07c082adcdb2b6b12053264971a946a79fe1", // U4-oracle-inputs.jsonl
   REDRAW_REPORT: "ed2eaf595851e2c96b94ce6bd27182a975e4afa9eb77a2270a87e67b36ee3059", // U4-redraw report (--out) — UNCHANGED
 };
 
@@ -124,6 +124,11 @@ function runScript(scriptPath: string, args: string[], opts: { preloadUrl: strin
 }
 
 const sha256File = (p: string): string => createHash("sha256").update(readFileSync(p)).digest("hex");
+// The parameterised prober (U-4b-1b-2) writes the LIVE prereg sha into its provenance, so a whole-file golden would
+// redden on every docs-only edit of docs/PLAN-u4b-prereg.md (measured 2026-09-22: prereg §5b rewrite). The golden is
+// therefore taken over the raw with the prereg sha MASKED (the binding itself is asserted separately below).
+const sha256FileMaskingPreregSha = (p: string): string =>
+  createHash("sha256").update(readFileSync(p, "utf8").split(PREREG_U4B).join("<prereg_sha>"), "utf8").digest("hex");
 const hostsOf = (log: string): string[] => (existsSync(log) ? readFileSync(log, "utf8").split("\n").filter((l) => l.trim() !== "") : []);
 
 interface LedgerOp { attempted: number; ru: number; refused: Array<{ reason?: string }>; unlocked: number; }
@@ -212,12 +217,12 @@ test("u4_oracle_path_e2_via_flags_is_deterministic_and_reproduces_the_De_data", 
     const a = runScript(join(CENSUS, "u4-oracle-path.mjs"), oracleArgs(s, "replay"), { preloadUrl: s.preloadUrl });
     assert.equal(a.status, 0, `exit 0; stderr=${a.stderr}`);
     // (i) the full raw + resume cache match the RE-BASELINED reference sha (parameterised prober, e2 via flags; D-4).
-    assert.equal(sha256File(join(raws, "U4-oracle-path-e2.raw.json")), REF.ORACLE_RAW, "U4-oracle-path-e2.raw.json must match the (re-baselined) reference sha");
-    assert.equal(sha256File(join(raws, "U4-oracle-inputs.jsonl")), REF.ORACLE_INPUTS, "U4-oracle-inputs.jsonl must match the (re-baselined) reference sha");
+    assert.equal(sha256FileMaskingPreregSha(join(raws, "U4-oracle-path-e2.raw.json")), REF.ORACLE_RAW, "U4-oracle-path-e2.raw.json must match the (re-baselined) reference sha");
+    assert.equal(sha256FileMaskingPreregSha(join(raws, "U4-oracle-inputs.jsonl")), REF.ORACLE_INPUTS, "U4-oracle-inputs.jsonl must match the (re-baselined) reference sha");
     // (ii) DETERMINISM: a second run into a fresh raws-dir is byte-identical (frozen clock; no timing in the output).
     const b = runScript(join(CENSUS, "u4-oracle-path.mjs"), oracleArgs(s, "replay2").map((x) => (x === join(s.dir, "raws") ? raws2 : x)), { preloadUrl: s.preloadUrl });
     assert.equal(b.status, 0, `second run exit 0; stderr=${b.stderr}`);
-    assert.equal(sha256File(join(raws2, "U4-oracle-path-e2.raw.json")), REF.ORACLE_RAW, "the raw is byte-identical across two runs (deterministic)");
+    assert.equal(sha256FileMaskingPreregSha(join(raws2, "U4-oracle-path-e2.raw.json")), REF.ORACLE_RAW, "the raw is byte-identical across two runs (deterministic)");
     // (iii) INDEPENDENT D_e data vector (survives a whole-file sha change): p_min/p_max from the 3 stubbed updates, the
     // parameterised bornes (episode B0/B_last), episode_id/selection_sha256 in the provenance, and the keyless concordant
     // revert on e-mode 8 (class identity; a flip to NoQuorumError would change the bytes).
