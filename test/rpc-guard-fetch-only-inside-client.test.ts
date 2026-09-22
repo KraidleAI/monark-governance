@@ -10,19 +10,20 @@
  *   - apps/sentinel/src/ukemi/** UNION apps/sentinel/src/rpc.ts (GARDE-HELIUS-2b-ii R-B; GREEN after the recorder
  *     migration removed record.ts's fetch(/env read). Allowlist = apps/sentinel/src/rpc.ts, RETRACTION TRIGGER =
  *     NARABI-OPS-1d (the daily Narabi job migrates rpc.ts under the guard). run.ts/timeline.ts enter scope at -1d.
- *   - apps/bell/src/** stays RED (SKIP-until-1b) - its paid fetch(/key reads migrate at GARDE-HELIUS-1b.
+ *   - apps/bell/src/** enters scope at GARDE-HELIUS-1b; the full guarantee (fetch_only_inside_client) is DE-SKIPPED at
+ *     1b-iii and now iterates the unified ROOTS list. Allowlist = apps/bell/src/close.ts (the single cash module holding
+ *     both the paid GET and the key read, C-6; retraction trigger = "G0 of the Bell cash course", R-1).
+ *   - scripts/census/u4-*.mjs (the course scripts) is a root too (grep FOLDED here from guard-scripts-u4.test.ts).
  * KEY form is an ACCESS (dot, optional-chain dot, bracket, optional-chain bracket, template-literal bracket, `in`,
  * destructuring, Reflect.get, Object.hasOwn - C-R-b4). In the PACKAGES/BELL scopes the bare name is NOT refused (it
- * appears in comments: rpc.ts:5-8, universe.ts:43, ...) and would red by construction; on the UKEMI scope the bare name
- * IS refused too (bareKeys=true), killing the alias evasion `const e = env; e.KEY` - measured 0 bare-name occurrence in
- * ukemi/*.ts (rpc.ts is allowlisted, so its legitimate env.CHAINSTACK_ETH_URL read is exempt).
+ * appears in comments: rpc.ts:5-8, universe.ts:43, ...) and would red by construction; on the UKEMI + u4 scopes the bare
+ * name IS refused too, killing the alias evasion `const e = env; e.KEY` (rpc.ts allowlisted, so its env read is exempt).
  *
- * MEASURED HITS (apps/bell/src only, base e7f22b8, re-measured 2026-09-22 by this scanner = 14 total):
- *     [net]  close.ts:176, close.ts:191, collect.ts:284, ethereum.ts:64, rpc.ts:44, universe-cli.ts:267/268/281  (8 fetch(, migrate at 1b)
- *     [key]  collect.ts:582 (POLYGON_API_KEY), collect.ts:583 (DATABENTO_API_KEY), rpc.ts:22 (BELL_SOLANA_RPC),
- *            universe-cli.ts:111/297/312 (CHAINSTACK_SOLANA_URL)  (6 paid-key DOT reads, migrate at 1b)
- *     (the extended C-R-b4 forms - env?./optional-bracket/backtick/Reflect.get/Object.hasOwn - add 0 hits in apps/bell/src:
- *      all its key reads are dot form; bareKeys is NOT applied to the Bell scope. Re-measured.)
+ * MEASURED HITS after 1b-iii (apps/bell/src, base 6114ce9, this scanner): 1b-iii migrated 5 of the 14 (ethereum.ts:64
+ * fetch INTO the client; collect.ts:582/583 POLYGON/DATABENTO key reads MOVED to close.ts; close.ts fetch+key now
+ * ALLOWLISTED). The 9 residual hits are 1b-i's (universe-cli.ts:111/267/268/281/297/312) and 1b-ii's (collect.ts:284
+ * fetch, rpc.ts:22 BELL_SOLANA_RPC, rpc.ts:44 fetch) - so fetch_only_inside_client is RED in a DISJOINT 1b-iii worktree
+ * (a DECLARED cross-lot dependency) and GREEN only on the merged 1b tree. 0 residual is in 1b-iii's own files.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -92,6 +93,48 @@ function scan(files: ReadonlyArray<[string, string]>, allow: ReadonlySet<string>
   return hits;
 }
 
+// ---- GARDE-HELIUS-1b-iii: the unified ROOTS LIST. Folds the 2b-ii ukemi grep + the 2b-iii scripts/census/u4 grep + ----
+// ---- apps/bell/src + packages into ONE scan mechanism (a Map<path,trigger> allowlist per root). The full guarantee ----
+// ---- (fetch_only_inside_client, de-skipped below) iterates it; the per-root load-bearing companions reuse it. --------
+const CENSUS = join(REPO, "scripts", "census");
+// close.ts is the SINGLE allowlisted Bell cash module (C-6 / ruling R-1): it holds BOTH the paid GET and the key read.
+const BELL_ALLOW = new Map<string, string>([["apps/bell/src/close.ts", "G0 of the Bell cash course (R-1): Databento/Polygon quotas+caps posed there"]]);
+// The u4 course scripts are .mjs: the whole-word key NAME is refused (naming the exact keys spares CHAINSTACK_LABEL), and
+// a DIRECT import of a paid-key/fetch module (apps/sentinel/src/rpc.ts, reachable only transitively) is forbidden (C-R-6).
+const U4_KEY: ReadonlyArray<RegExp> = [
+  new RegExp(`\\benv\\s*\\.\\s*(CHAINSTACK_[A-Z0-9_]+|HELIUS_[A-Z0-9_]+)\\b`),
+  new RegExp(`\\benv\\s*\\[\\s*${Q}(CHAINSTACK_[A-Z0-9_]+|HELIUS_[A-Z0-9_]+)${Q}\\s*\\]`),
+  new RegExp(`${Q}(CHAINSTACK_[A-Z0-9_]+|HELIUS_[A-Z0-9_]+)${Q}\\s+in\\s+[A-Za-z_$][\\w$.]*`),
+  new RegExp(`\\{[^}]*\\b(CHAINSTACK_[A-Z0-9_]+|HELIUS_[A-Z0-9_]+)\\b[^}]*\\}\\s*=\\s*[^;]*\\benv\\b`),
+];
+const U4_KEYNAME_RE = new RegExp(`\\b(CHAINSTACK_(?:ETH|SOLANA|BASE|BSC|ROBINHOOD)_URL|HELIUS_API_KEY|BELL_SOLANA_RPC|POLYGON_API_KEY|DATABENTO_API_KEY)\\b`);
+const U4_ALLOW = new Map<string, string>(); // empty (u4-probe.mjs DELETED); the Map<path,trigger> form stays if a probe returns
+function u4Files(): Array<[string, string]> {
+  const out: Array<[string, string]> = [];
+  for (const f of readdirSync(CENSUS).filter((n) => /^u4-.*\.mjs$/.test(n)).sort()) out.push([join(CENSUS, f), f]);
+  return out;
+}
+/** Generic scan with explicit pattern sets. The .ts roots reuse NET/KEY/KEY_BARE via `scan`; the u4 root passes U4_KEY. */
+function scanWith(files: ReadonlyArray<[string, string]>, allow: ReadonlySet<string>, nets: ReadonlyArray<RegExp>, keys: ReadonlyArray<RegExp>, bareRe?: RegExp): string[] {
+  const hits: string[] = [];
+  for (const [abs, rel] of files) {
+    if (allow.has(rel)) continue;
+    readFileSync(abs, "utf8").split(/\r?\n/).forEach((ln, i) => {
+      for (const re of nets) if (re.test(ln)) hits.push(`${rel}:${String(i + 1)} [net]`);
+      for (const re of keys) if (re.test(ln)) hits.push(`${rel}:${String(i + 1)} [key]`);
+      if (bareRe && bareRe.test(ln)) hits.push(`${rel}:${String(i + 1)} [key-bare]`);
+    });
+  }
+  return hits;
+}
+interface Root { name: string; scope: () => Array<[string, string]>; allow: Map<string, string>; hits: () => string[]; }
+const ROOTS: readonly Root[] = [
+  { name: "packages/*/src", scope: () => scopeFiles("packages"), allow: new Map([["packages/rpc-guard/src/transport.ts", "the private default transport (sole key reader + fetch site)"]]), hits: () => scan(scopeFiles("packages"), new Set(["packages/rpc-guard/src/transport.ts"])) },
+  { name: "apps/bell/src", scope: () => scopeFiles("apps"), allow: BELL_ALLOW, hits: () => scan(scopeFiles("apps"), new Set(BELL_ALLOW.keys())) },
+  { name: "apps/sentinel/src/ukemi(+rpc.ts)", scope: ukemiScope, allow: new Map([["apps/sentinel/src/rpc.ts", "NARABI-OPS-1d: the daily Narabi job's rpc.ts migrates under the guard"]]), hits: () => scan(ukemiScope(), new Set(["apps/sentinel/src/rpc.ts"]), true) },
+  { name: "scripts/census/u4-*.mjs", scope: u4Files, allow: U4_ALLOW, hits: () => scanWith(u4Files(), new Set(U4_ALLOW.keys()), NET, U4_KEY, U4_KEYNAME_RE) },
+];
+
 test("rpc_guard_package_src_clean_and_allowlist_load_bearing", () => {
   const pkgFiles = scopeFiles("packages");
   assert.ok(pkgFiles.length > 5, `implausibly few package src files scanned (${String(pkgFiles.length)})`);
@@ -131,9 +174,65 @@ test("ukemi_src_clean_and_allowlist_load_bearing", () => {
   assert.ok(KEY_BARE.test(alias), "the ukemi-scope bare-name scan (KEY_BARE) refuses the alias form's bare key name - the 6th evasion");
 });
 
-// SKIP-until-1b: the FULL apps/bell/src guarantee. RED today (measured hits in the header). NOT made green by widening
-// the allowlist; un-skip when 1b migrates every paid fetch(/key read into the client.
-test("fetch_only_inside_client", { skip: "until 1b: apps/bell/src paid fetch(/env.<key> migrate into @monark/rpc-guard (see header)" }, () => {
-  const files = [...scopeFiles("apps"), ...scopeFiles("packages")];
-  assert.deepEqual(scan(files, ALLOWLIST), [], "a forbidden network/paid-key pattern exists outside the client");
+// GARDE-HELIUS-1b-iii — the u4 course-scripts grep, FOLDED here from guard-scripts-u4.test.ts (unification; removed
+// there, not duplicated). GREEN today (2b-iii migrated the scripts); killable (a re-introduced fetch/key/direct rpc
+// import reds). scripts/census/u4-*.mjs is the only .mjs root; it carries the closed import-source list (C-R-6).
+test("u4_scripts_clean_and_import_sources_closed", () => {
+  const u4 = ROOTS[3]!;
+  const files = u4.scope();
+  assert.ok(files.length >= 5, `expected >= 5 scripts/census/u4-*.mjs, got ${String(files.length)}`);
+  for (const req of ["u4-oracle-path.mjs", "u4-redraw.mjs", "u4-guard.mjs"]) assert.ok(files.some(([, rel]) => rel === req), `${req} must be in scope`);
+  assert.ok(!files.some(([, rel]) => rel === "u4-probe.mjs"), "u4-probe.mjs must be DELETED (dead after the 2b-ii merge)");
+  assert.deepEqual(u4.hits(), [], "scripts/census/u4-*.mjs must be clean of fetch(/node:http/undici/child_process/paid-key");
+  for (const [f, trigger] of U4_ALLOW) { // empty today; the per-entry non-vacuity form stays if a probe returns
+    const only = files.filter(([, rel]) => rel === f);
+    assert.ok(only.length === 1, `allowlisted ${f} (${trigger}) must be in scope`);
+    assert.ok(scanWith(only, new Set(), NET, U4_KEY, U4_KEYNAME_RE).length >= 1, `allowlist entry ${f} is VACANT (${trigger})`);
+  }
+  // CLOSED import-source list for the three course files (C-R-6): a DIRECT import of apps/sentinel/src/rpc.ts (the
+  // residual-118 paid leg, reachable only transitively via rpc2.ts/abi.ts) is forbidden.
+  const ALLOWED_IMPORTS = new Set(["node:crypto", "node:fs", "node:path", "node:url", "@monark/rpc-guard", "../../apps/sentinel/src/ukemi/rpc2.ts", "../../apps/sentinel/src/ukemi/abi.ts", "../../apps/sentinel/src/ukemi/clusters.ts", "../../apps/sentinel/src/ukemi/resume.ts", "./u4-guard.mjs"]);
+  for (const f of ["u4-oracle-path.mjs", "u4-redraw.mjs", "u4-guard.mjs"]) {
+    const specs = [...readFileSync(join(CENSUS, f), "utf8").matchAll(/\bfrom\s*["'`]([^"'`]+)["'`]/g)].map((m) => m[1]!);
+    assert.ok(specs.length >= 3, `${f}: import scan is vacuous (${String(specs.length)})`);
+    for (const spec of specs) assert.ok(ALLOWED_IMPORTS.has(spec), `${f} imports '${spec}', NOT in the closed allowed set (a direct paid-key/fetch module import is forbidden)`);
+  }
+});
+
+// GARDE-HELIUS-1b-iii — the Bell cash allowlist (close.ts) is load-bearing PER ENTRY + double guard. GREEN today.
+test("bell_cash_allowlist_load_bearing", () => {
+  const files = scopeFiles("apps");
+  assert.ok(files.length >= 8, `implausibly few apps/bell/src/*.ts scanned (${String(files.length)})`);
+  // C-6/C-2: each allowlisted cash file is IN scope AND alone yields >= 1 hit (it carries BOTH the paid GET and the key
+  // read). A mutant "allowlist widened to a CLEAN bell file (e.g. gap.ts)" reds here (the clean entry is vacant); a
+  // close.ts that stopped reading the key/fetch (migration away) would also red (its retraction trigger reached).
+  for (const [path, trigger] of BELL_ALLOW) {
+    const only = files.filter(([, rel]) => rel === path);
+    assert.ok(only.length === 1, `bell allowlist entry '${path}' (${trigger}) is not in scope (double guard)`);
+    assert.ok(scan(only, new Set()).length >= 1, `bell allowlist entry '${path}' is VACANT (0 hit); its retraction trigger (${trigger}) is reached`);
+  }
+});
+
+// GARDE-HELIUS-1b-iii per-file (my files ACTIVE + green NOW, while the full-scope roots test stays red until 1b-i/1b-ii):
+test("ethereum_ts_clean_of_fetch_and_keys", () => {
+  const eth = scopeFiles("apps").filter(([, rel]) => rel === "apps/bell/src/ethereum.ts");
+  assert.equal(eth.length, 1, "ethereum.ts must be in the bell scope");
+  assert.deepEqual(scan(eth, new Set()), [], "ethereum.ts carries no fetch(/net/paid-key — the ETH leg is budgeted through @monark/rpc-guard (a 'bellEthCall restored' mutant reds)");
+});
+test("collect_ts_clean_of_paid_key_reads", () => {
+  const col = scopeFiles("apps").filter(([, rel]) => rel === "apps/bell/src/collect.ts");
+  assert.equal(col.length, 1, "collect.ts must be in the bell scope");
+  // only the paid-KEY reads are 1b-iii's (moved to close.ts, C-6); collect.ts:284 [net] Solana fetch is 1b-ii's, not asserted here.
+  assert.deepEqual(scan(col, new Set()).filter((h) => h.endsWith("[key]")), [], "collect.ts carries no env.<paid-key> read (moved to close.ts; a 'cash keys read back in collect.ts' mutant reds)");
+});
+
+// GARDE-HELIUS-1b-iii — the DE-SKIPPED full guarantee, UNIFIED over the roots list (packages + apps/bell/src + ukemi +
+// scripts/census/u4). RED in a DISJOINT 1b-iii worktree at 6114ce9: the universe-cli.ts hits (1b-i) and the
+// collect.ts:284/rpc.ts hits (1b-ii) remain until those sub-lots merge — a DECLARED cross-lot dependency (0 residual is
+// in 1b-iii's OWN files: ethereum.ts migrated, close.ts allowlisted, collect.ts key reads moved). GREEN only on the
+// merged 1b tree; un-skipped (was: skip "until 1b") so the fusion is gated. "0 fail" and "de-skip" cannot BOTH hold for
+// 1b-iii in isolation (plan inconsistency, error_origin: plan) — surfaced, never hidden by keeping the skip.
+test("fetch_only_inside_client", () => {
+  const hits = ROOTS.flatMap((r) => r.hits().map((h) => `${r.name} :: ${h}`));
+  assert.deepEqual(hits, [], `a forbidden network/paid-key pattern exists outside the guard/allowlist (unified roots list):\n${hits.join("\n")}`);
 });

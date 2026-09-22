@@ -18,7 +18,7 @@ import { sessionGap, sessionGapRebase, exceeds, vwapDecimal, fixed, GAP_PRECISIO
 import { rowsFromCsv, haltDelta, census, haltsSince, type HaltRow } from "./halts.ts";
 import { buildDigest, bellSha, assertNoClose, canonical, provenance as makeProvenance,
   type GapEntry, type Provenance, type CashCross } from "./digest.ts";
-import { readReferenceCloses, earliestPublishUtc, databentoGet, polygonGet,
+import { readReferenceCloses, earliestPublishUtc, databentoGet, polygonGet, readCashKeys,
   type PolygonGet, type DatabentoGet } from "./close.ts";
 import { newResidualCounts, RESIDUAL_CODES, type Residual, type ResidualCounts } from "./residuals.ts";
 import { poolVolumeBase, consolidatedAdv, volumeToAdvRatio } from "./volume.ts";
@@ -597,8 +597,9 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
   const { out, toUtcMs, fromUtcMs, wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo, maxCalls, maxCredits, rebaseScan, rebaseTrajectory, rebaseProduce, authority, rebaseCrosscheck, rebaseDensity, seriesDir, allowShortPages, discover, ledgerDir, cycle, operators, floors, methodCaps, maxRu } = parseArgs(argv, POOLS.map((p) => p.baseSymbol), deps.nowMs);
   const repoRoot = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
   assertOutsideRepo(out, repoRoot);
-  const polygonKey = deps.env.POLYGON_API_KEY ?? ""; // cash leg (1b-iii): read here, NOT allowlisted from the guard
-  const databentoKey = deps.env.DATABENTO_API_KEY ?? "";
+  // GARDE-HELIUS-1b (C-6): the paid cash keys are read in the ALLOWLISTED cash module (close.ts), never here —
+  // collect.ts holds no `env.<paid-key>` read and is never on the scanner allowlist. The values are threaded on.
+  const { polygonKey, databentoKey } = readCashKeys(deps.env);
   const faults: TransportFault[] = [];
   // Resume seeds (crosscheck/density only): the a1-bis RUN ledger cumulative calls_used + per-method (provenance).
   // The CYCLE ledger (the money guard, D-6) freezes its prior at open; --max-calls is a per-run attempt cap.

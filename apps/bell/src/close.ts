@@ -33,6 +33,16 @@ export interface DatabentoOhlcvRecord { readonly hd?: { ts_event?: string | numb
 /** Databento timeseries GET seam: returns the parsed ohlcv-1d records for a single-symbol range request. */
 export type DatabentoGet = (pathAndQuery: string, apiKey: string) => Promise<readonly DatabentoOhlcvRecord[]>;
 
+/** GARDE-HELIUS-1b (C-6 / ruling R-1): close.ts is the SINGLE allowlisted cash module — it holds BOTH the paid GET
+ *  (databentoGet/polygonGet below) AND the paid-key read, so no other Bell module reads POLYGON_API_KEY /
+ *  DATABENTO_API_KEY (collect.ts is NEVER allowlisted; its :582-583 env reads MOVE here). The keys are threaded to
+ *  the GET seams as arguments (header only, never in a url, never printed — C-10). Empty string ⇒ that leg is
+ *  unavailable (Databento: the reference close abstains; Polygon: cash_cross_unavailable). The scanner allowlist
+ *  entry for close.ts carries the trigger "G0 of the Bell cash course" (quotas/caps posed then, decision 115 / R-1). */
+export function readCashKeys(env: NodeJS.ProcessEnv): { readonly polygonKey: string; readonly databentoKey: string } {
+  return { polygonKey: env.POLYGON_API_KEY ?? "", databentoKey: env.DATABENTO_API_KEY ?? "" };
+}
+
 /** Databento JSON `close` (a scaled-int STRING, 1e-9) -> the exact scaled BigInt. Shape-checked (never a float,
  *  never a raw-string compare — C-5). The value is never surfaced in an error (it is a close). */
 export function scaledFromDatabento(closeStr: string): bigint {

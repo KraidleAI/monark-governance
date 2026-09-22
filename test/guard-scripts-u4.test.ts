@@ -1,14 +1,13 @@
 // GARDE-HELIUS-2b-iii - the u4 course scripts spend ONLY through @monark/rpc-guard (rebased on 2b-ii-b e00f965).
 //
-// This test is SEPARATE from the 2b-ii recorder grep (test/rpc-guard-fetch-only-inside-client.test.ts) to stay
-// mergeable without conflict: its scope is scripts/census/u4-*.mjs; the two grep tests are unified at the G7 that
-// merges both sub-lots (item formed, trigger: G7 of the second fusion). Everything runs OFFLINE: a preload freezes
-// the clock and stubs globalThis.fetch with canned JSON-RPC (no network, fake .invalid endpoints, keys never read).
+// GARDE-HELIUS-1b-iii UNIFICATION: the u4 GREP (fetch/key/closed-import scan of scripts/census/u4-*.mjs) is FOLDED into
+// the unified roots list of test/rpc-guard-fetch-only-inside-client.test.ts (companion `u4_scripts_clean_and_import_
+// sources_closed` + the de-skipped `fetch_only_inside_client`). It is REMOVED here (moved, not duplicated) - the item
+// "unify the two grep tests" (G7 1b-0 §5, trigger: fusion of the sub-lots) is discharged. The REPLAY / spends / budget /
+// unlock / composition / class-identity oracles below STAY. Everything runs OFFLINE: a preload freezes the clock and
+// stubs globalThis.fetch with canned JSON-RPC (no network, fake .invalid endpoints, keys never read).
 //
-// It proves, on the ACTUAL migrated scripts:
-//  1) grep - no fetch/node:http(s)/undici/child_process/paid-key read (any form, incl. the literal key NAME) in
-//     scripts/census/u4-*.mjs, + a CLOSED import-source list for the three course files (a direct import of a paid
-//     key/fetch module - e.g. apps/sentinel/src/rpc.ts, reachable only transitively - is forbidden), fail-closed;
+// It proves, on the ACTUAL migrated scripts (the grep now lives in the unified roots test):
 //  2) byte-identity - the migrated oracle-path/redraw reproduce the e7f22b8 output; verified against COMMITTED
 //     reference sha (no base blob, no git, no shallow-checkout SKIP) recomputed from base AND migrated (see REF);
 //  3) spends only through the guard - every call is a write-ahead ledger line; the paid chainstack leg, forced into
@@ -180,59 +179,9 @@ function redrawArgs(s: { dir: string; ledgerDir: string }, cycle: string, o: { o
     ...(o.withChainstack ? ["--with-chainstack"] : [])];
 }
 
-// ============================================================================================================
-// 1) GREP - scripts/census/u4-*.mjs spend only through the guard (fail-closed, closed import-source list).
-// ============================================================================================================
-test("guard_scripts_u4_grep_fetch_and_key_only_through_guard", () => {
-  // Forbidden: a direct network round-trip, a raw http(s) client, a subprocess, or a paid-key read in ANY form -
-  // including the literal key NAME anywhere (an alias `e_ = process.env; e_.CHAINSTACK_ETH_URL` escapes the env.* forms).
-  const KEYNAME = "(CHAINSTACK_(?:ETH|SOLANA|BASE|BSC|ROBINHOOD)_URL|HELIUS_API_KEY|BELL_SOLANA_RPC|POLYGON_API_KEY|DATABENTO_API_KEY)";
-  const PATTERNS: Array<[string, RegExp]> = [
-    ["fetch(", /\bfetch\s*\(/],
-    ["node:http(s)", /node:https?\b/],
-    ["undici", /\bundici\b/],
-    ["child_process", /child_process/],
-    ["env.KEY (dot)", /\benv\s*\.\s*(CHAINSTACK_[A-Z0-9_]+|HELIUS_[A-Z0-9_]+)\b/],
-    ["env[\"KEY\"] (bracket)", /\benv\s*\[\s*["'`](CHAINSTACK_[A-Z0-9_]+|HELIUS_[A-Z0-9_]+)["'`]\s*\]/],
-    ["\"KEY\" in env", /["'`](CHAINSTACK_[A-Z0-9_]+|HELIUS_[A-Z0-9_]+)["'`]\s+in\s+[A-Za-z_$][\w$.]*/],
-    ["{ KEY } = env (destructure)", /\{[^}]*\b(CHAINSTACK_[A-Z0-9_]+|HELIUS_[A-Z0-9_]+)\b[^}]*\}\s*=\s*[^;]*\benv\b/],
-    ["literal key NAME (whole word, spares CHAINSTACK_LABEL)", new RegExp(`\\b${KEYNAME}\\b`)],
-  ];
-  // No allowlist: u4-probe.mjs is DELETED (its record.ts transport imports died at the 2b-ii merge and it is off the
-  // course path - ruling C-9 alpha; cited only by U-4a provenance docs). A Map<path,trigger> stays the form if one returns.
-  const ALLOWLIST = new Map<string, string>();
-
-  const files = readdirSync(CENSUS).filter((f) => /^u4-.*\.mjs$/.test(f)).sort();
-  // scope non-vacuity: the glob must have matched the migrated scripts + the reducers (a broken glob passes vacuously).
-  assert.ok(files.length >= 5, `expected >= 5 scripts/census/u4-*.mjs, got ${files.length}: ${files.join(",")}`);
-  for (const req of ["u4-oracle-path.mjs", "u4-redraw.mjs", "u4-guard.mjs"]) assert.ok(files.includes(req), `${req} must be in grep scope`);
-  assert.ok(!files.includes("u4-probe.mjs"), "u4-probe.mjs must be DELETED (dead after the 2b-ii merge; C-R-4 c-bis)");
-
-  const scan = (text: string): string[] => PATTERNS.filter(([, re]) => re.test(text)).map(([name]) => name);
-  for (const f of files) {
-    const hits = scan(readFileSync(join(CENSUS, f), "utf8"));
-    if (ALLOWLIST.has(f)) continue; // allowlisted files are checked for NON-VACUITY below, not for cleanliness
-    assert.deepEqual(hits, [], `${f} must be clean of paid-leak patterns, found: ${hits.join(", ")}`);
-  }
-  for (const [f] of ALLOWLIST) {
-    assert.ok(existsSync(join(CENSUS, f)), `allowlisted ${f} must exist (else retract the entry)`);
-    assert.ok(scan(readFileSync(join(CENSUS, f), "utf8")).length >= 1, `allowlist entry ${f} is VACANT: retract it`);
-  }
-
-  // CLOSED import-source list for the THREE course files (C-R-6): every `from "X"` must be in the allowed set. A DIRECT
-  // import of a paid-key/fetch module (apps/sentinel/src/rpc.ts - reachable only TRANSITIVELY via rpc2.ts/abi.ts, the
-  // residual-118 second paid leg) is forbidden. The `from "..."` capture is multi-line-safe (u4-guard's import spans lines).
-  const ALLOWED_IMPORTS = new Set([
-    "node:crypto", "node:fs", "node:path", "node:url", "@monark/rpc-guard",
-    "../../apps/sentinel/src/ukemi/rpc2.ts", "../../apps/sentinel/src/ukemi/abi.ts",
-    "../../apps/sentinel/src/ukemi/clusters.ts", "../../apps/sentinel/src/ukemi/resume.ts", "./u4-guard.mjs",
-  ]);
-  for (const f of ["u4-oracle-path.mjs", "u4-redraw.mjs", "u4-guard.mjs"]) {
-    const specs = [...readFileSync(join(CENSUS, f), "utf8").matchAll(/\bfrom\s*["'`]([^"'`]+)["'`]/g)].map((m) => m[1]!);
-    assert.ok(specs.length >= 3, `${f}: import scan is vacuous (${specs.length}) - a broken regex`);
-    for (const spec of specs) assert.ok(ALLOWED_IMPORTS.has(spec), `${f} imports '${spec}', NOT in the closed allowed set (a direct paid-key/fetch module import is forbidden; rpc.ts is reachable only transitively)`);
-  }
-});
+// 1) GREP - MOVED to test/rpc-guard-fetch-only-inside-client.test.ts (GARDE-HELIUS-1b-iii unification): the
+//    scripts/census/u4-*.mjs fetch/key/closed-import scan now lives in the unified roots list there (companion
+//    `u4_scripts_clean_and_import_sources_closed`). Not duplicated here.
 
 // ============================================================================================================
 // 2) BYTE-IDENTITY - the migrated scripts reproduce the e7f22b8 output, verified vs COMMITTED reference sha (C-R-1).

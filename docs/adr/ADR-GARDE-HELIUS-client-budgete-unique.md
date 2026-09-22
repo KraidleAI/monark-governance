@@ -773,3 +773,82 @@ precedente. Le verrou `chainstack.lock` PARTAGE Bell(Solana)/Ukemi(ETH) serialis
   => collect.ts garde son export jusque-la (aucun casse a la fusion 1b-i).
 - **grep test** : 1b-i CREE `bell-src-clean.test.ts` avec la liste `CLEANED = {universe-cli.ts, universe.ts}` ; 1b-ii ETEND `CLEANED`
   (collect.ts/rebase-crosscheck.ts/quorum.ts/rpc.ts), 1b-iii (ethereum.ts/close.ts) puis UNIFIE tous les greps + de-skippe `fetch_only_inside_client`.
+## Amendement date GARDE-HELIUS-1b-iii -- Bell close/eth + de-skip du grep + ripple recorder (2026-09-22, worker `claude-opus-4-8[1m]`)
+
+- **Provenance** : worker G1 `claude-opus-4-8[1m]` (prefixe `claude-opus-4-8` conforme, effort max ; Opus 5 banni), 2026-09-22,
+  worktree `lot/garde-helius-1biii` (base `6114ce9` = 1b-0 fusionne). Reviseur = orchestrateur (R-21, verification adversariale
+  avant consommation). Aucun reseau (fetch bouchonne, cles factices, hotes `.invalid`), aucun secret lu ni affiche (A-7 : tout
+  oracle sous `env -u HELIUS_API_KEY -u CHAINSTACK_*_URL -u POLYGON_API_KEY -u DATABENTO_API_KEY`), aucun commit (R-20). Perimetre :
+  `apps/bell/src/{ethereum,close,collect}.ts` + `apps/bell/package.json` + le ripple DECLARE d'`apps/sentinel/src/ukemi/record.ts`
+  (couplage cross-lot 1b0-E, ci-dessous) + les tests. Gel U-4b (9 sha ADR-U4b D4/section 3) byte-identique verifie AVANT/APRES.
+
+### 1biii-A -- Jambe ETH keyless BUDGETEE sous le client (D-7)
+`bellEthCall` (le `fetch` POST brut, `ethereum.ts:64`) est SUPPRIME ; `liveEthSwaps` exige un `opts.call` budgete (throw
+fail-closed sinon -- un leg non budgete rejoindrait la classe HELIUS-1) et son jeu de fournisseurs par defaut passe des URLs
+`GET_LOGS_PROVIDERS` aux LABELS `GET_LOGS_KEYLESS_LABELS` (le transport resout label->url). Nouveau `makeGuardedEthCall(client,
+opts)` : un `RpcCall` qui route `label -> client.call(LABEL, method, params)` (ligne ledger write-ahead PUIS une tentative,
+cout 0 RU keyless), retry AU SEUL appelant sur les transitoires (Abort/reseau/429/>=500 ; `BudgetExceededError` re-jete EN
+PREMIER, jamais un RpcError/4xx). R-D (2b-ii) CONSERVE structurellement : le transport construit le `RpcError` canonique
+avec op = le label nu et aucune cle ; `apps/bell` ne construit plus AUCUN `RpcError` (la ligne R-D d'`ethereum.ts:67` disparait
+avec `bellEthCall`, ses semantiques -- keyless, op = hote nu, zero fuite de cle -- restent portees par le paquet).
+
+### 1biii-B -- Cles cash deplacees dans le module allowliste (C-6)
+`readCashKeys(env)` est AJOUTE a `close.ts` (le SEUL module cash allowliste : il porte a la fois le GET payant et la lecture de
+cle) ; `collect.ts:582-583` (`env.POLYGON_API_KEY`/`env.DATABENTO_API_KEY`) sont REMPLACES par `readCashKeys(deps.env)`.
+`collect.ts` ne lit plus AUCUNE cle payante et n'est JAMAIS allowliste. Entree d'allowlist `Map<path, trigger>` :
+`apps/bell/src/close.ts` -> declencheur "G0 of the Bell cash course" (quotas/caps Databento+Polygon poses la, decision 115 / R-1).
+
+### 1biii-C -- De-skip + UNIFICATION du grep en liste de racines (E-3)
+`test/rpc-guard-fetch-only-inside-client.test.ts` gagne une LISTE DE RACINES unique (packages, apps/bell/src, ukemi+rpc.ts,
+scripts/census/u4-*.mjs) avec un `Map<path, trigger>` par racine ; le grep u4 de `test/guard-scripts-u4.test.ts` y est FOLD
+(supprime la-bas, non duplique ; item "unifier les deux tests de grep", G7 1b-0 section 5, discharge). Le test racine
+`fetch_only_inside_client` est DE-SKIPPE et itere la liste. Companions verts + tueurs de mutants (par racine, non-vacuite par
+entree + double garde) : `rpc_guard_package_src_...`, `ukemi_src_...`, `u4_scripts_clean_and_import_sources_closed`,
+`bell_cash_allowlist_load_bearing`, `ethereum_ts_clean_of_fetch_and_keys`, `collect_ts_clean_of_paid_key_reads`.
+
+### 1biii-D -- Ripple `finally` du recorder (1b0-E, ruling G7 1b-0 ; couplage cross-lot DECLARE)
+`apps/sentinel/src/ukemi/record.ts` : le `finally` deverrouille chaque operateur par `(op, cycles[String(op)])` -- son cycle
+PROPRE -- au lieu du scalaire `cycle` unique (decision 121). `op` provient de `client.operators()` = `Object.keys(cycles)`, donc
+`cycles[op]` est toujours present (asserte non-null ; un throw dans le finally masquerait l'issue de la course). Le recorder
+est byte-identique HORS de ce `finally` (prouve : sha des lignes 1-419 et de la queue main() identiques AVANT/APRES ; git diff
+= un seul hunk dans le finally). DECLARATIF : le recorder construit `cycles` depuis UN `--cycle`, donc `cycles[op] === cycle`
+aujourd'hui et le mutant `cycles[op] -> cycle` est behaviorally identique -- la killabilite exige des cycles PAR OPERATEUR au CLI
+(hors du perimetre "byte-identique hors finally"), item forme : proprietaire orchestrateur, declencheur = celui de 1b0-E (course
+recorder verrouillant >= 2 operateurs sur des cycle-ids distincts). Le test `ukemi_record_finally_unlocks_each_operator_under_
+its_own_cycle` prouve la NON-regression (chaque `unlocked` sous `<cycle>/<op>.jsonl`, aucun `.lock` restant) et est tue par le
+mutant "unlock sous un mauvais cycle" (non-vacuite).
+
+### Tuyaux 1b-iii (regle Branchement)
+| Piece | Entree (produit) | Sortie (consomme) | Etat (ou) | Test d'integration non-LLM |
+|---|---|---|---|---|
+| jambe ETH gardee | `makeGuardedEthCall(openGuardedClient(...))` sur labels keyless | course eth Bell (fills TSLAon) | ledger keyless `<dir>/<cycle>/<label>.jsonl` (cout 0, compte) | **IT-4** `eth_leg_budgeted_and_keyless` (openGuardedClient reel, seul `globalThis.fetch` bouchonne : chaque fetch precede de sa ligne ledger, 0 RU) |
+| module cash allowliste | `readCashKeys(env)` (close.ts) | `readReferenceCloses` / la course cash Bell | -- (cle en argument, jamais en url/journal) | `collect_ts_clean_of_paid_key_reads` + `bell_cash_allowlist_load_bearing` |
+| de-skip CI unifie | liste de racines (packages/bell/ukemi/u4) | CI (rouge si un fetch/cle hors garde/allowlist) | -- | **T4** `fetch_only_inside_client` DE-SKIPPE (liste de racines) |
+| ripple recorder | `client.operators()` + `cycles[op]` | course Ukemi gardee (deverrouillage par op) | `<dir>/<cycle>/<op>.jsonl` (`unlocked`) | `ukemi_record_finally_unlocks_each_operator_under_its_own_cycle` |
+
+### Couplages cross-lot DECLARES (fusions separees ; l'orchestrateur reconcilie)
+- **`fetch_only_inside_client` est ROUGE en worktree 1b-iii DISJOINT** : les 9 hits residuels sont TOUS des fichiers 1b-i
+  (`universe-cli.ts:111/267/268/281/297/312`) et 1b-ii (`collect.ts:284`, `rpc.ts:22/44`) -- ZERO dans les fichiers de 1b-iii.
+  Il devient VERT sur l'arbre fusionne (demontre : en excluant ces 3 fichiers, la racine bell rend 0 hit). "0 fail" et "lever le
+  skip" ne peuvent PAS coexister pour 1b-iii en isolation = incoherence de plan (error_origin: plan), surfacee (jamais masquee en
+  gardant le skip). Demande de consultation formee au rendu G1.
+- **Site d'appel de la jambe ETH `collect.ts:651`** (`liveEthSwaps(ethPool, ethFrom, ethTo)` sans call budgete) est dans `runMain`
+  (perimetre 1b-ii). 1b-iii change la SIGNATURE (`opts.call` requis) ; le typecheck fusionne reste vert (call optionnel) et le leg
+  degrade en `faults[]` (try/catch `collect.ts:650-654`) tant que 1b-ii ne branche pas `{ call: makeGuardedEthCall(client) }`.
+  Contrat pour 1b-ii : passer le call garde (du `openGuardedClient` de `runMain`) a `liveEthSwaps`. Item forme, declencheur = G1 1b-ii.
+- **`apps/bell/package.json` declare `@monark/rpc-guard: 0.0.0`** (deps_hygiene ADR-M018 D1) + **`package-lock.json` synchronise**
+  (`npm install --package-lock-only --offline --ignore-scripts` : l'entree `packages["apps/bell"].dependencies` gagne
+  `@monark/rpc-guard`, calque de `apps/sentinel`) : besoin PARTAGE 1b-i/1b-ii/1b-iii (tous importent le paquet dans `apps/bell/src`).
+  1b-iii l'ajoute ; edition idempotente a dedupliquer a la fusion. Le lock est EXCLU du R-25 ; `npm ci --offline` (G0 section 9)
+  se rejoue sur l'arbre FUSIONNE (orchestrateur), pas dans le worktree symlinke.
+- **`test/rpc-guard-fetch-only-inside-client.test.ts` + `apps/bell/package.json`** sont edites par 1b-i aussi (grep bell, tests
+  par-fichier) : conflit de fusion attendu ; la version liste-de-racines de 1b-iii SUBSUME le grep bell de 1b-i (ne pas dupliquer).
+
+### Residus DECLARES (zero dette nue)
+- **Databento/Polygon** : residuel payant hors garde a declencheur "G0 course cash Bell" (R-1) ; aucune course cash a 1b (inchange).
+- **Killabilite du ripple 1b0-E** : item forme (ci-dessus), declencheur = cycles par operateur au CLI.
+- **Oracle (arbre worktree, cles retirees `env -u`)** : `gate:vocab` 0, `typecheck` 0, `test` 803/802/**1 fail**/0 skip (le seul
+  fail = `fetch_only_inside_client`, dependance cross-lot ci-dessus ; les 802 autres verts), `lint` 0, `lint:ratchet` 69/69,
+  `lang:gate` 0, `export:check` 0 ; R-25 vs `6114ce9` (pathspec `ci.yml:65`) = 349 ins + 116 del = **465** <= 1150 ; **10** mutants
+  nommes KILLED, restauration byte-exacte (sha256) ; gel U-4b (9 sha) intact. C-2 (`eth_leg_budget_refusal_is_not_retried`, mutant
+  M9) et C-3 (`eth_leg_retries_transient_but_not_403`, mutant M10) prouves sur `makeGuardedEthCall` (retry appelant scope).
