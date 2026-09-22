@@ -24,11 +24,17 @@ import {
   LIQ_UPPER_BOUND_SENTENCE,
   LIQ_COMMITTED_SENTENCE,
   LIQ_EMPTY_REGISTRY_SENTENCE,
+  LIQ_REQUIREMENTS_SENTENCE,
+  LIQ_H3_SENTENCE,
+  LIQ_CONDITIONAL_SENTENCE,
+  describeGate,
   type HarnessParams,
 } from "../src/tools/gate.ts";
 import { hasCommittedCalibrationForClass } from "../src/calibration.ts";
 import { HARNESS_TOOLS, type GateEnvelope } from "../src/tools/registry.ts";
 import { handleJsonMirror } from "../src/http.ts";
+import { createHarnessHandler } from "../src/server.ts";
+import { compilePatterns, scanText } from "../../../scripts/grep-forbidden.mjs";
 
 /** The class-B name (decision 108: NEVER served). Assembled from parts so THIS test file naming it does not
  *  itself trip the src-scan below if the scan root ever widened; the scan is scoped to apps/harness/src only. */
@@ -182,7 +188,11 @@ test("u4b_liq_class_text_says_upper_bound_never_interval", () => {
   // 'interval' either -- an injection there survived the full suite before this assertion.
   assert.ok(!LIQ_EMPTY_REGISTRY_SENTENCE.includes("interval"), "the empty-registry sentence never says 'interval' (C-2)");
   assert.ok(!honestyText(TASK_LIQ_ELIGIBLE, "x", false).includes("interval"), "the served honesty text never says 'interval' (C-2)");
-  assert.ok(GATE_TOOL_DESCRIPTION.includes(LIQ_UPPER_BOUND_SENTENCE), "the served tools/list description carries the class clause");
+  // HARNESS-DESC-1 (checkpoint-1 C-3, D-4 re-scoped, not weakened): this line pinned the upper-bound clause in the SERVED
+  // description while the registry was empty (the CARTO-T1C-2 over-claim). The clause belongs to the COMMITTED state
+  // only: asserted on describeGate(true) here; its ABSENCE from the served empty-registry text is asserted by
+  // hdesc_served_gate_description_is_the_empty_registry_clause below.
+  assert.ok(describeGate(true).includes(LIQ_UPPER_BOUND_SENTENCE), "the committed-state (U-4b-2b) description carries the upper-bound class clause");
 });
 
 // 2a-2 (delta D-4) -- an unknown class (the class-B name, decision 108) ⇒ a HarnessToolError (⇒ 400 via the
@@ -242,4 +252,137 @@ test("u4b_attested_not_accepted_for_liq_class", () => {
       e.message.includes(TASK_LIQ_ELIGIBLE),
     "attested on the liq class ⇒ 'not consistent' (the class is present with [], mutant (j))",
   );
+});
+
+// ---------------------------------------------------------------------------- HARNESS-DESC-1 (CARTO-T1C-2)
+// The SERVED gate description is a PURE function of the liq REGISTRY state (describeGate, gate.ts). EMPTY registry
+// => the empty-registry sentence + the server-imposed params + the conditional rule, NEVER the upper-bound nor the
+// H-3 sentence (checkpoint-1 U-4b-2 C-1/C-7; checkpoint-1 HARNESS-DESC-1 C-1/C-2 + the orchestrator ruling on the
+// conditional rule). Negations are asserted on the liq SLICE (the whole description legitimately carries
+// "coverage"/"interval" in the USDe and BYO clauses), plus exact-sentence absences on the whole served text.
+
+const LIQ_LEAD = `For '${TASK_LIQ_ELIGIBLE}' (Ukemi: a per-account liquidable-amount class, class A only) `;
+/** Built HERE from the named constants (independent of describeGate): the two admissible liq clauses. */
+const EXPECTED_EMPTY_CLAUSE = `${LIQ_LEAD}${LIQ_EMPTY_REGISTRY_SENTENCE}; ${LIQ_REQUIREMENTS_SENTENCE}; ${LIQ_CONDITIONAL_SENTENCE}. `;
+const EXPECTED_COMMITTED_CLAUSE =
+  `${LIQ_LEAD}the served region is ${LIQ_UPPER_BOUND_SENTENCE}; ${LIQ_REQUIREMENTS_SENTENCE}; ${LIQ_H3_SENTENCE}; ${LIQ_CONDITIONAL_SENTENCE}. `;
+/** Closed list: committed-only words, none of which may appear in the liq clause of an EMPTY-registry description. */
+const COMMITTED_ONLY_WORDS = ["upper bound", "calibrated", "H-3", "no coverage is claimed", "the served region", "lower edge"];
+
+/** The liq clause of a gate description: from the class lead to the BYO clause (both anchors asserted, in order). */
+function liqSlice(description: string): string {
+  const i = description.indexOf(LIQ_LEAD);
+  const j = description.indexOf("When the caller instead");
+  assert.ok(i > -1 && j > i, "the liq clause is delimited in the description (non-vacuous slice)");
+  return description.slice(i, j);
+}
+
+type Obj = Record<string, unknown>;
+const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
+/** Every string leaf of a served JSON value (descriptions of tools AND of their schemas). */
+function stringLeaves(v: unknown): string[] {
+  if (typeof v === "string") return [v];
+  if (Array.isArray(v)) return (v as unknown[]).flatMap((x) => stringLeaves(x));
+  if (isObj(v)) return Object.values(v).flatMap((x) => stringLeaves(x));
+  return [];
+}
+
+/** The REAL tools/list result, IN-PROCESS through the stateless MCP handler (server.ts): no socket, no network. */
+async function servedToolsList(): Promise<Obj> {
+  const res = await createHarnessHandler().fetch(
+    new Request("http://mcp.monarkgate.tech/", {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+    }),
+  );
+  assert.equal(res.status, 200, "tools/list answers 200");
+  const raw = await res.text();
+  const data = raw.split(/\r?\n/).find((l) => l.startsWith("data:")); // SSE frame, or plain JSON
+  const reply = JSON.parse(data === undefined ? raw : data.slice("data:".length).trim()) as { result?: unknown };
+  assert.ok(isObj(reply.result), "tools/list returns a result object");
+  return reply.result;
+}
+
+// (i) REAL served path (checkpoint-1 HARNESS-DESC-1 C-2 (i); A-10 liage): the HARNESS_TOOLS descriptor, the REAL
+// tools/list and the served GET /openapi.json carry ONE and the same text, bound to its registry source, and on the
+// EMPTY registry its liq clause is EXACTLY the empty clause (EMPTY + REQ + COND), with no committed-only word and no
+// committed sentence anywhere in the served tools/list or openapi (every string leaf: tool AND schema descriptions,
+// checkpoint-1 C-9). Mutants: 'true' hard-coded in describeGate; the empty branch keeping the upper bound; the served
+// descriptor altered in registry.ts (registry read preserved); the openapi description altered => red.
+test("hdesc_served_gate_description_is_the_empty_registry_clause", async () => {
+  assert.equal(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), false, "the delivered registry is empty of the liq class");
+  const list = await servedToolsList();
+  const tools = Array.isArray(list["tools"]) ? (list["tools"] as unknown[]).filter(isObj) : [];
+  const listed = tools.find((t) => t["name"] === "gate")?.["description"];
+  assert.ok(typeof listed === "string", "tools/list serves a gate description");
+  const oaRes = await handleJsonMirror(new Request("http://api.monarkgate.tech/openapi.json"));
+  assert.equal(oaRes.status, 200, "GET /openapi.json answers 200");
+  const spec: unknown = await oaRes.json();
+  const paths = isObj(spec) && isObj(spec["paths"]) ? spec["paths"] : {};
+  const gatePath = isObj(paths["/gate"]) && isObj(paths["/gate"]["post"]) ? paths["/gate"]["post"] : {};
+  // liage (A-10): descriptor === tools/list === openapi === the text of the registry source.
+  assert.equal(GATE_TOOL.description, GATE_TOOL_DESCRIPTION, "the gate descriptor carries GATE_TOOL_DESCRIPTION");
+  assert.equal(listed, GATE_TOOL.description, "tools/list serves the descriptor's description");
+  assert.equal(gatePath["description"], listed, "/openapi.json serves the same gate description as tools/list");
+  assert.equal(listed, describeGate(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE)), "the served text is bound to the registry state");
+  const slice = liqSlice(listed);
+  assert.equal(slice, EXPECTED_EMPTY_CLAUSE, "the served liq clause is EXACTLY the empty-registry clause");
+  for (const s of [LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_REQUIREMENTS_SENTENCE, LIQ_CONDITIONAL_SENTENCE]) {
+    assert.ok(slice.includes(s), `the served liq clause carries: "${s}"`);
+  }
+  for (const w of COMMITTED_ONLY_WORDS) assert.ok(!slice.includes(w), `the served liq clause never says "${w}" on an empty registry`);
+  const leaves = [...stringLeaves(list), ...stringLeaves(spec)];
+  assert.ok(leaves.length >= 50, `the served leaves are scanned (non-vacuous), saw ${String(leaves.length)}`);
+  for (const s of [LIQ_UPPER_BOUND_SENTENCE, LIQ_H3_SENTENCE, LIQ_COMMITTED_SENTENCE, "calibrated on one recorded episode"]) {
+    assert.deepEqual(leaves.filter((l) => l.includes(s)), [], `no served tools/list or openapi leaf carries: "${s}"`);
+  }
+});
+
+// (ii) the PURE function in BOTH states (checkpoint-1 HARNESS-DESC-1 C-2 (ii)). NOT the CA-11 proof of U-4b-2b: one
+// registry state is observable per process (COMMITTED_CALIBRATIONS is a module constant); the -2b proof on the served
+// path is the item on G0 2b-7 (C-4). describeGate(true) is the pre-HARNESS-DESC-1 served text, byte-identical
+// (measured in the G1 report). Mutants: 'false' hard-coded in describeGate; H-3 or REQ dropped from a branch; the
+// branches inverted => red.
+test("hdesc_describe_gate_two_states", () => {
+  const full = describeGate(true);
+  const empty = describeGate(false);
+  assert.equal(liqSlice(full), EXPECTED_COMMITTED_CLAUSE, "registry non-empty: the committed clause (UPPER; REQ; H-3; COND)");
+  assert.equal(liqSlice(empty), EXPECTED_EMPTY_CLAUSE, "registry empty: the empty clause (EMPTY; REQ; COND)");
+  for (const s of [LIQ_UPPER_BOUND_SENTENCE, LIQ_REQUIREMENTS_SENTENCE, LIQ_H3_SENTENCE, LIQ_CONDITIONAL_SENTENCE]) {
+    assert.ok(full.includes(s), `describeGate(true) carries: "${s}"`);
+  }
+  assert.ok(!full.includes(LIQ_EMPTY_REGISTRY_SENTENCE), "describeGate(true) does not say the registry is empty");
+  for (const s of [LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_REQUIREMENTS_SENTENCE, LIQ_CONDITIONAL_SENTENCE]) {
+    assert.ok(empty.includes(s), `describeGate(false) carries: "${s}"`);
+  }
+  for (const s of [LIQ_UPPER_BOUND_SENTENCE, LIQ_H3_SENTENCE]) assert.ok(!empty.includes(s), `describeGate(false) never carries: "${s}"`);
+  // Only the liq clause depends on the registry: every other served clause is identical in both states.
+  assert.equal(full.split(EXPECTED_COMMITTED_CLAUSE).join(EXPECTED_EMPTY_CLAUSE), empty, "the two states differ ONLY by the liq clause");
+});
+
+// (iii) "interval" is absent from the liq clause in BOTH states (checkpoint-2 U-4b-2a C-2 lesson: an "interval" in the
+// description clause survived every semantic test and died only on the h5 byte pin). Mutant: "interval" injected into
+// the empty branch => red.
+test("hdesc_liq_clause_never_says_interval_in_both_states", () => {
+  for (const state of [false, true]) {
+    assert.ok(!/interval/i.test(liqSlice(describeGate(state))), `the liq clause never says "interval" (registryHasLiq=${String(state)})`);
+  }
+  // non-vacuous: the WHOLE description does carry "interval" (BYO clause), so it is the liq slice that is policed.
+  assert.ok(describeGate(false).includes("interval"), "the BYO clause keeps its wire word (the slice scope is load-bearing)");
+});
+
+// Both description states pass the repo vocabulary (GLOBAL + harness scope of vocab-banned.json): the served state AND
+// the U-4b-2b state, which is no longer served before -2b and would otherwise be policed by nothing (D-4: no check
+// dropped when the committed clause left the served text). Mutant: a banned word in the committed branch => red.
+test("hdesc_both_description_states_pass_vocab", () => {
+  const vocab = JSON.parse(readFileSync(fileURLToPath(new URL("../../../vocab-banned.json", import.meta.url)), "utf8")) as {
+    banned: { re: string; why: string }[];
+    scan: { harness: { banned: { re: string; why: string }[] } };
+  };
+  const patterns = [...compilePatterns(vocab.banned), ...compilePatterns(vocab.scan.harness.banned)];
+  assert.ok(scanText("confidence", patterns).length >= 1, "the harness scope bans 'confidence' (non-vacuous)");
+  for (const state of [false, true]) {
+    assert.deepEqual(scanText(describeGate(state), patterns), [], `describeGate(${String(state)}) is vocab-clean`);
+  }
 });

@@ -64,7 +64,13 @@ const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url
 // + conditional coverage, ADR-U4b D1/decision 126) and the `cascade` description gained the "v0, replaced at
 // U-5" label (decision 123/Q-NEW-2). No served DECISION, `structuredContent`, `yhat`, or digest changes
 // (registry still empty of the liq class); the file grows 21859 -> 21943 bytes.
-const TRACE_SHA256_PINNED = "4ad9b340caa72463d3ff1e96880fa0b49e29e841c8e31e183f26b0fc85aa79e1";
+// Re-pinned 2026-09-22 for HARNESS-DESC-1 (CARTO-T1C-2): the `tools/list` bytes changed on ONE tool description --
+// the `gate` description's `liquidation-eligible-coverage` clause now follows the liq registry state (describeGate):
+// on the EMPTY registry it serves the empty-registry sentence + alpha/nMin + the conditional rule, never the upper
+// bound nor the H-3 sentence. ONE field of the trace changes, the tools/list step's `response_sha256` (b88cd066... ->
+// 6b78a420...); no served DECISION, `structuredContent`, `content` text, `yhat`, or digest changes, and the
+// cascade/attest/calibrate descriptions are byte-identical; the file holds at 21943 bytes (prior pin 4ad9b340...).
+const TRACE_SHA256_PINNED = "90a21adf1f109d695bd99a5a3521b055b74daba02248de22defe79b070108252";
 
 const DEMONSTRATIVE_LABEL = "real, notary Shōgen, demonstrative, not probative";
 

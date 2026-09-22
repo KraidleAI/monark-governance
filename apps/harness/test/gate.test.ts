@@ -12,6 +12,7 @@ import {
   validateHarnessParams,
   HarnessToolError,
   GATE_TOOL_DESCRIPTION,
+  describeGate,
   GATE_NON_REVERIFICATION_SENTENCE,
   CASCADE_UNCALIBRATED_SENTENCE,
   STABLE_RUN_UNCALIBRATED_SENTENCE,
@@ -828,8 +829,11 @@ test("gate_description_makes_no_probative_claim", () => {
   // non-vacuous: the two masked phrases are actually present in the description (the masks are not vacuous).
   assert.match(GATE_TOOL_DESCRIPTION, /not re-verified at call time/, "mask 1 (not re-verified) is non-vacuous");
   assert.match(GATE_TOOL_DESCRIPTION, /does not see, store, or verify/, "mask 2 (does not verify) is non-vacuous");
-  // after masking exactly those licit negations, NO probative token survives in the gate description.
-  assert.ok(!PROBATIVE.test(scrub(GATE_TOOL_DESCRIPTION)), `the gate description makes no bare probative claim (scrubbed: "${scrub(GATE_TOOL_DESCRIPTION)}")`);
+  // after masking exactly those licit negations, NO probative token survives in the gate description: the SERVED
+  // text AND the U-4b-2b text describeGate(true) (HARNESS-DESC-1: no longer served before -2b, still policed; D-4).
+  for (const d of [GATE_TOOL_DESCRIPTION, describeGate(true)]) {
+    assert.ok(!PROBATIVE.test(scrub(d)), `the gate description makes no bare probative claim (scrubbed: "${scrub(d)}")`);
+  }
   // scope-lock (non-vacuous): a bare probative token injected OUTSIDE the licit phrases IS caught.
   assert.ok(
     PROBATIVE.test(scrub("the price is verified and live now, confidence high " + GATE_TOOL_DESCRIPTION)),
