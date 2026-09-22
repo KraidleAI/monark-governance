@@ -9,7 +9,11 @@
 // entry_sha256 = sha256(JSON.stringify(core)) with prev_entry_sha256 as the FIRST key of core. The unit is the
 // REQUEST by (op, method); credits are DERIVED. HEAD SIDECAR (C-V-8): the last entry's sha is persisted OUTSIDE the
 // chain after each append; a tail truncation (a valid chain PREFIX) is undetectable by chain replay alone, so at open
-// we require head == recomputed head (ledger present + head absent, or head != recomputed => throw, fail-closed).
+// we require head == recomputed head (ledger present + head absent, or head != recomputed => throw, fail-closed) -
+// EXCEPT the crash-in-append-window case (1b-0, item i): a head EXACTLY one entry behind (== the durable ledger's
+// penultimate head) is HEALED at open (the last line was durably appended, only the sidecar lagged); a tail truncation
+// (head AHEAD) stays fail-closed. Residual: a crash after the FIRST-ever append presents as head-absent (== a deleted
+// sidecar), which stays fail-closed (recovering it would admit a delete-head+truncate attack) - runbook manual repair.
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, appendFileSync, writeFileSync } from "node:fs";
 import { join, basename } from "node:path";
@@ -26,6 +30,12 @@ export interface CycleLedgerEntry {
   readonly by_op_method: Readonly<Record<string, number>>;
   readonly outcome: Outcome;
   readonly credits_derived: number;
+  // GARDE-HELIUS-1b-0 (C-5 / decision 121): for the multi-network operator `chainstack` (ONE operator per ACCOUNT,
+  // one 16 M RU cap across networks) the network is an ADDITIONAL core attribute (after credits_derived, before
+  // reason), NEVER a second operator/ledger/cap. It is OMITTED on every other line (helius/keyless) AND on a
+  // pre-121 chainstack line written without opts.network, so those stay byte-identical; verifyCycleLedger recomputes
+  // on the PRESENT fields, so a legacy (no-network) line and a network line chain and verify in the SAME ledger.
+  readonly network?: string;
   readonly reason?: string;
   readonly entry_sha256: string;
 }
@@ -81,7 +91,7 @@ export interface CycleLedger {
 
 /** Open (create) the PER-OPERATOR ledger under an existing <cycleDir>. prior_cycle is FROZEN at open =
  *  max(floor, Sigma attempted credits) (C-V-1); the head sidecar makes a tail truncation fail-closed (C-V-8). */
-export function openOperatorLedger(cycleDir: string, op: string, floor: number): CycleLedger {
+export function openOperatorLedger(cycleDir: string, op: string, floor: number, network?: string): CycleLedger {
   const cycleId = basename(cycleDir);
   const path = join(cycleDir, `${op}.jsonl`);
   const headPath = join(cycleDir, `${op}.head`);
@@ -91,7 +101,26 @@ export function openOperatorLedger(cycleDir: string, op: string, floor: number):
     if (!hasHead) throw new Error(`rpc-guard: ledger '${op}.jsonl' present but head sidecar absent (tamper, fail-closed, C-V-8)`);
     entries = readEntries(path);
     verifyCycleLedger(entries);
-    if (readFileSync(headPath, "utf8").trim() !== ledgerHeadSha(entries)) throw new Error(`rpc-guard: head sidecar != recomputed head for '${op}' (tail truncation, fail-closed, C-V-8)`);
+    const recomputed = ledgerHeadSha(entries);
+    const onDisk = readFileSync(headPath, "utf8").trim();
+    if (onDisk !== recomputed) {
+      // GARDE-HELIUS-1b-0 (item i, CP2 2b-ii C-G-5 / E-1): CRASH-IN-APPEND-WINDOW RECOVERY. A crash between the
+      // append (appendChained below) and the head-sidecar rewrite leaves the head EXACTLY ONE entry behind the
+      // durable ledger. That last line WAS durably appended (write-ahead honoured); only the tamper-evidence
+      // sidecar lagged, so the state is RECOVERABLE and is DISTINCT from a tail truncation, which leaves the head
+      // AHEAD of the ledger (== the sha of a REMOVED entry, never the penultimate of the CURRENT chain). Recover
+      // IFF the on-disk head == the head of all-but-the-last verified entry; anything else (head ahead, or matching
+      // a non-penultimate entry) stays fail-closed. Self-heal the sidecar so `runCli unlock` / reconcile / the next
+      // open are consistent - this is what makes a post-crash lock recoverable by `unlock` alone (the runbook
+      // RESERVE closed). It does NOT widen the C-V-8 threat model: the sidecar only ever defended a PARTIAL
+      // (jsonl-only) tamper; an attacker who writes BOTH files already wins, and a truncation never presents the
+      // penultimate head, so it still throws (ledger.test.ts C-V-8(c) keeps reddening the too-permissive mutant).
+      if (entries.length >= 1 && onDisk === ledgerHeadSha(entries.slice(0, -1))) {
+        writeFileSync(headPath, recomputed);
+      } else {
+        throw new Error(`rpc-guard: head sidecar != recomputed head for '${op}' (tail truncation, fail-closed, C-V-8)`);
+      }
+    }
   } else if (hasHead) {
     throw new Error(`rpc-guard: head sidecar present but ledger '${op}.jsonl' absent (tamper, fail-closed, C-V-8)`);
   }
@@ -99,7 +128,10 @@ export function openOperatorLedger(cycleDir: string, op: string, floor: number):
   const frozenPrior = Math.max(floor, entries.reduce((a, e) => a + (e.outcome === "attempted" ? e.credits_derived : 0), 0));
   const tariffVersion = tariffVersionOf(op); // per-operator (GARDE-HELIUS-2): a chainstack line never carries the helius version
   const appendChained = (outcome: Outcome, byOpMethod: Record<string, number>, credits: number, reason?: string): CycleLedgerEntry => {
-    const core: CycleCore = { cycle_id: cycleId, tariff_version: tariffVersion, by_op_method: byOpMethod, outcome, credits_derived: credits, ...(reason !== undefined ? { reason } : {}) };
+    // GARDE-HELIUS-1b-0 (C-5 / 121): stamp `network` (after credits_derived, before reason) ONLY when this operator
+    // ledger was opened FOR a network (chainstack under an explicit opts.network). Omitted otherwise => byte-identical
+    // legacy lines; a mixed ledger (legacy + network lines) chains + verifies (verifyCycleLedger recomputes present fields).
+    const core: CycleCore = { cycle_id: cycleId, tariff_version: tariffVersion, by_op_method: byOpMethod, outcome, credits_derived: credits, ...(network !== undefined ? { network } : {}), ...(reason !== undefined ? { reason } : {}) };
     const entry = chainCycleEntry(head, core);
     appendFileSync(path, JSON.stringify(entry) + "\n");
     entries.push(entry); head = entry.entry_sha256;
