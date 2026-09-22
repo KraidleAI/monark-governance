@@ -251,9 +251,10 @@ export async function runUniverse(argv: readonly string[], deps: RunDeps): Promi
       const faults: TransportFault[] = [];
       try {
         const readout = await confirmMintIdentity(mint, providers, guardedCall, faults);
-        // RESIDUAL (declared, 1b-i ADR): statusOf reads a Bell-local "HTTP <n>"; a package TransportError 429 codes
-        // as "transport" until 1b-ii ports statusOf to `.code` (C-3), so this streak counter is precise only after
-        // 1b-ii. The per-call retry (withUniverseRetry honours Retry-After, bounds the immediate 429) stays.
+        // GARDE-HELIUS-1b pli: statusOf (quorum.ts, 1b-ii MERGED) now reads the canonical TransportError `.code`, so a
+        // package 429 surfaces as "HTTP 429" and this streak counter is PRECISE (no longer the pre-1b-ii "transport").
+        // The composed 429-streak STOP is proven by the non-LLM test bell_universe_429_streak_stops_fail_closed. The
+        // per-call retry (withUniverseRetry honours Retry-After, bounds the immediate 429) stays.
         if (faults.some((f) => f.status === "HTTP 429")) { streak429 += 1; } else { streak429 = 0; }
         if (streak429 >= a.max429Streak) throw new Error(`bell/universe: ${String(a.max429Streak)} consecutive rate-limited (429) confirmations after honoring Retry-After — STOP fail-closed (ledger persisted)`);
         return readout;

@@ -86,7 +86,9 @@ export function makeGuardedEthCall(client: BudgetedClient,
  *  (run-guarded main); returns SwapFills with per-block timestamps for session classification. GARDE-HELIUS-1b-iii:
  *  `opts.call` is the BUDGETED guarded call (makeGuardedEthCall) and is REQUIRED — there is NO raw-fetch default any
  *  more (fail-closed: an unbudgeted leg would rejoin the HELIUS-1 class). The default provider set is the KEYLESS
- *  LABELS (the transport resolves label -> url); the collect.ts call site passes the client's call (item 1b-ii). */
+ *  LABELS (the transport resolves label -> url). The collect.ts call site (GARDE-HELIUS-1b pli, C-G2-A) passes
+ *  makeGuardedEthCall over a SECOND keyless guarded client on the production/integration branch (deps.call absent),
+ *  and the budgeted injected deps.call on the offline-unit branch (D-1) - never an unbudgeted fetch on either. */
 export async function liveEthSwaps(pool: PoolRef, fromBlock: number, toBlock: number,
   opts: { call?: RpcCall; getLogsProviders?: readonly string[] } = {}): Promise<SwapFill[]> {
   const call = opts.call;

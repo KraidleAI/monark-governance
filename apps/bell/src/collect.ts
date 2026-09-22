@@ -31,10 +31,10 @@ import { runDiscoverCli } from "./discover.ts";
 import { quorum2, signaturesSetKey, statusOf, withRetry, NoQuorumError, QuorumDisagreementError, ConcordantRevertError,
   BudgetExceededError, type JsonRpcCall, type TransportFault } from "./quorum.ts";
 import { signaturesUntil, extractPoolSwap, MAX_TX_VERSION, type SigInfo, type SwapFill } from "./rpc.ts";
-import { openGuardedClient, runCli, BELL_SOLANA_METHODS, assertMethodCapsCover, type RunLimits, type OperatorLabel } from "@monark/rpc-guard";
+import { openGuardedClient, runCli, BELL_SOLANA_METHODS, assertMethodCapsCover, GET_LOGS_KEYLESS_LABELS, type RunLimits, type OperatorLabel, type BudgetedClient } from "@monark/rpc-guard";
 import { providerOf } from "../../sentinel/src/rpc.ts";
 import { operatorOf } from "./operators.ts";
-import { liveEthSwaps } from "./ethereum.ts";
+import { liveEthSwaps, makeGuardedEthCall } from "./ethereum.ts";
 
 type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
 
@@ -618,6 +618,10 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
   let budgetedPolygon: PolygonGet;
   let solProviders: readonly string[];
   let release: () => void = () => {};
+  // GARDE-HELIUS-1b pli (C-G2-A): the ETH leg's budgeted call. OFFLINE (D-1) => the injected budgeted `call`;
+  // PRODUCTION/INTEGRATION => makeGuardedEthCall over a SECOND keyless client (built below). The throwing default is
+  // unreachable (both branches assign it; the ETH branch runs only under --eth) but keeps definite assignment.
+  let ethCall: JsonRpcCall = () => Promise.reject(new Error("bell/collect: eth leg call not wired"));
   if (deps.call !== undefined) {
     // OFFLINE UNIT (D-1): the OLD makeBudgetedCall budget over the injected stub. --operators labels or a default
     // 2-operator list (the stub is keyed by method, ignoring the label); NO BELL_SOLANA_RPC read (T4). --max-credits
@@ -631,6 +635,9 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
     budgetedDatabento = (path, key) => { budgeted.tick(); return deps.databentoGet(path, key); };
     budgetedPolygon = (path, key) => { budgeted.tick(); return deps.polygonGet(path, key); };
     solProviders = operators.length > 0 ? operators : ["helius", "solana-foundation"];
+    // D-1 (declared, C-G2-A): the offline ETH leg uses the SAME budgeted injected call (RpcCall === JsonRpcCall shape;
+    // the stub is keyed by method) — a DECLARED behaviour, never a silent transport fault.
+    ethCall = call;
   } else {
     // PRODUCTION / INTEGRATION — the guarded course inputs are REQUIRED (fail-closed; calque record.ts). --operators is
     // the explicit include list of operator LABELS; the transport resolves each label -> its private URL and is the SOLE
@@ -642,6 +649,16 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
     if (Object.keys(methodCaps).length === 0) throw new Error("bell/collect: --method-caps is required and non-empty (k=v; e.g. getSignaturesForAddress=200000,getTransaction=5000000,getAccountInfo=100000,getTransactionsForAddress=650000)");
     // Fail-closed AT CONSTRUCTION: every Solana method Bell SENDS must carry a positive cap (never only at the 1st call).
     assertMethodCapsCover(methodCaps, BELL_SOLANA_METHODS, "bell/collect");
+    // GARDE-HELIUS-1b pli (C-G2-A): the ETH leg runs on its OWN keyless client (built below on GET_LOGS_KEYLESS_LABELS).
+    // Validate BEFORE any lock -- a build-time throw AFTER `c` is open would leak `c`'s N locks (release is still a no-op
+    // here). (a) the two ETH methods must carry a --method-caps entry (assertMethodCapsCover covers only Solana methods);
+    // (b) NO keyless ETH label may appear in --operators: the Solana client `c` would lock it, then the ETH client's `wx`
+    // open would collide (LockHeld) and leak. The keyless labels are a FIXED constant, never operator-chosen -- the served
+    // form of a --eth course does NOT list them in --operators (contract changed at the pli; the old form refuses by name).
+    if (eth && wanted.includes("TSLAon")) {
+      for (const m of ["eth_getLogs", "eth_getBlockByNumber"]) if (!(m in methodCaps)) throw new Error(`bell/collect: --eth with TSLAon requires --method-caps to cover '${m}' (the keyless ETH leg's per-method attempt cap; assertMethodCapsCover covers only the Solana methods)`);
+      for (const lbl of GET_LOGS_KEYLESS_LABELS) if (operators.includes(lbl)) throw new Error(`bell/collect: --eth keyless label '${lbl}' must NOT be in --operators (the ETH leg opens its OWN keyless client on ${GET_LOGS_KEYLESS_LABELS.join("/")}; listing it in --operators double-locks the cycle, C-G2-A)`);
+    }
     if (operators.includes("helius") && !(maxCredits > 0 && maxCredits < Infinity)) throw new Error("bell/collect: --max-credits (> 0) is required when helius is in --operators (the helius run credit cap; tariff-derived)");
     if (operators.includes("chainstack") && maxRu === undefined) throw new Error("bell/collect: --max-ru is required when chainstack is in --operators (the chainstack run RU cap; a Solana course passes --max-ru and opts.network solana-mainnet)");
     const runCaps: Record<string, number> = {};
@@ -675,12 +692,37 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
     budgetedDatabento = (path, key) => { cashTick(); return deps.databentoGet(path, key); };
     budgetedPolygon = (path, key) => { cashTick(); return deps.polygonGet(path, key); };
     solProviders = operators;
+    // GARDE-HELIUS-1b pli (C-G2-A): the ETH leg is KEYLESS and runs on a SECOND guarded client whose cycles cover the
+    // GET_LOGS_KEYLESS_LABELS (drpc.org/mevblocker.io/tenderly.co/pocket.network). The Solana client `c` opens ONLY the
+    // --operators (Solana); it cannot serve the keyless ETH labels (that was the silent-fault bug: c.call on an unopened
+    // label => bare error => faults transport, 0 fill). Built like IT-4 (opts {} => network defaults to ethereum-mainnet,
+    // transport.ts:105; cost 0 RU keyless). The caps + no-labels-in-operators checks ran BEFORE `c` (fail-closed, no lock);
+    // the only residual build failure is a REAL orphan FS lock (LockHeld) => release `c`'s N locks (this course took them)
+    // then rethrow, so a build-time collision never leaks (distinct reason keeps the V5 release anchor exactly once).
+    let ethClient: BudgetedClient | undefined;
+    if (eth && wanted.includes("TSLAon")) {
+      const ethCycles = Object.fromEntries(GET_LOGS_KEYLESS_LABELS.map((l) => [l, cycle]));
+      const ethLimits: RunLimits = { maxCalls, runCaps: {}, methodCaps: { eth_getLogs: methodCaps.eth_getLogs!, eth_getBlockByNumber: methodCaps.eth_getBlockByNumber! }, cycleFloor: {} };
+      try {
+        ethClient = openGuardedClient(deps.env, ethLimits, ledgerDir, ethCycles, {});
+      } catch (e) {
+        for (const op of c.operators()) runCli(["unlock", "--cycle", cycle, "--op", String(op), "--reason", "bell/collect: eth client build failed, releasing solana locks"], { ledgerDir, floor: floors[op] ?? 0, readSnapshot: () => { throw new Error("bell/collect: readSnapshot is not used by unlock"); } });
+        throw e;
+      }
+      ethCall = makeGuardedEthCall(ethClient);
+    }
     // Release the N per-operator locks (keyless included) via the SERVED `unlock` (chained `unlocked` line + lock-file
     // removal), calque record.ts:429. A HARD crash leaves them (fail-closed, detectable; runbook: N unlock before
-    // reconcile). cycle/ledgerDir are narrowed to string here (after the throws), so the closure captures them.
+    // reconcile). cycle/ledgerDir are narrowed to string here (after the throws), so the closure captures them. The ETH
+    // keyless client's N locks are released too (C-G2-A), each under the same cycle scalar.
     release = (): void => {
       for (const op of c.operators()) {
         runCli(["unlock", "--cycle", cycle, "--op", String(op), "--reason", "bell/collect: course end (finally, N unlock)"], { ledgerDir, floor: floors[op] ?? 0, readSnapshot: () => { throw new Error("bell/collect: readSnapshot is not used by unlock"); } });
+      }
+      if (ethClient !== undefined) {
+        for (const op of ethClient.operators()) {
+          runCli(["unlock", "--cycle", cycle, "--op", String(op), "--reason", "bell/collect: eth leg course end (finally, N unlock)"], { ledgerDir, floor: floors[op] ?? 0, readSnapshot: () => { throw new Error("bell/collect: readSnapshot is not used by unlock"); } });
+        }
       }
     };
   }
@@ -733,7 +775,7 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
     const ethPool = POOLS.find((pp) => pp.chain === "ethereum" && pp.baseSymbol === "TSLAon");
     if (ethPool) {
       try {
-        const ethFills = await liveEthSwaps(ethPool, ethFrom, ethTo);
+        const ethFills = await liveEthSwaps(ethPool, ethFrom, ethTo, { call: ethCall });
         const advDailyVolumes = await advVolumes("TSLA", polygonKey, toUtcMs, faults, budgetedPolygon);
         built.push({ symbol: "TSLAon", chain: "ethereum", baseDec: 18, quoteDec: 6, fills: ethFills, fillsResidues: [], closeRefBySession: {}, advDailyVolumes });
       } catch (e) { faults.push({ provider: "ethereum", status: statusOf(e) }); }
