@@ -2,12 +2,15 @@
 
 <<DATE>>
 
-Secretary
+Via the Commission's internet comment form
+Vanessa A. Countryman, Secretary
 Securities and Exchange Commission
 100 F Street NE
 Washington, DC 20549-1090
 
-**Re: File No. 4-927 - Release No. 34-106402 (September 17, 2026): Questions 3 and 6**
+**Re: File No. 4-927 - Release No. 34-106402 (September 17, 2026): Questions 1, 3, 5 and 6**
+
+Dear Ms. Countryman:
 
 **Summary.** MONARK Bell keeps a public, signed record of how tokens that track U.S. equities trade on public ledgers, in particular while U.S. markets are closed, designed so that anyone can recompute it. On Questions 3 and 6, we report what Bell measures and suggest four properties that the Commission could expect from a TSV's publication under Section II.G, so that a third party could recompute what a venue reports; Bell applies them to its own records.
 
@@ -46,7 +49,7 @@ This statistic describes the size and frequency of off-hours deviations from the
 
 ## 3. What the Commission could expect from a TSV's publication
 
-In answer to the requests for modifications in Questions 3 and 6, we suggest four properties that the Commission could expect from a TSV's transaction data under Section II.G. None changes a limit; each lets a third party recompute what a venue reports.
+In answer to the requests for modifications in Questions 1, 3, 5 and 6, we suggest four properties that the Commission could expect from a TSV's transaction data under Section II.G. None changes a limit; each lets a third party recompute what a venue reports.
 
 - *Recomputable from the ledger.* Each published transaction identifies its on-chain transaction, so that a third party could recompute its price, size, time and direction from the public, permissionless ledger (Section II.A, p. 18), and its dollar value from the declared conversion method.
 - *Named abstention.* When a value cannot be established, the publication gives a named reason instead of an estimate, and counts such cases.
@@ -75,7 +78,7 @@ not from MONARK.
 State and timeline, including other symbols and the holiday regime:
 <<SERVI: url_state | attendu https://bell.monarkgate.tech/state.json, qui sert aussi les autres symboles, le régime holiday (ex-url_report, fondu) et les compteurs d'abstentions (champ residuals, ex-residual_counts) | preuve attendue : curl -sI sur l'URL, HTTP 200 au jour du dépôt, et test d'intégration non-LLM du chemin servi (règle Branchement) ; déclencheur : T-1b backend servi (DNS compris) ; phrases au présent qui en dépendent (RENDU-v3 §6) : « keeps a public, signed record », « Bell publishes g = », « Bell publishes the ratio », « counts abstentions in its published state file », « each ratio is published with its observation window », « Bell's records are published from a dedicated host » ; sinon pas de dépôt (NOTE-DEPOT C-1)>>,
 <<SERVI: url_timeline | attendu https://bell.monarkgate.tech/timeline.jsonl | preuve attendue : idem url_state ; déclencheur : T-1b backend servi ; phrases au présent qui en dépendent : « signed with an Ed25519 key whose public half is published » et la phrase sur la clé de signature (§3, paragraphe de l'hôte) ; sinon pas de dépôt (NOTE-DEPOT C-1)>>.
-Method (session bounds, formulas and periods, residual list), with links to the public key, the anchors and the replay code:
+Method (session bounds, formulas, periods, residuals), with the public key, the anchors and the replay code:
 <<SERVI: url_method | page /bell/method, hôte à confirmer par T-1b-site ; doit lier la clé publique, les manifestes et preuves OTS et le code de rejeu public (export apps/bell), et énoncer les périodes du ratio (fenêtre du numérateur, période du dénominateur) et la règle du jour du close | preuve attendue : curl -sI HTTP 200, liens effectifs vérifiés, validation visuelle investisseur (décision 73) ; sinon retirer « anyone can recompute », « bit for bit » et « with the published replay code », et réécrire « over a period stated in its method » et « by a published rule »>>.
 Contact:
 <<INVESTISSEUR: contact | adresse de contact publique, publiée sans expurgation (ordre p. 60) | source attendue : acte investisseur AI-9>>.
