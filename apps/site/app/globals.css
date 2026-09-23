@@ -12,8 +12,8 @@
  * HONEST: colour + typography + layout primitives only — no content, no numbers-as-claims, no assertions.
  *
  * Fonts: self-hosted OFL files via next/font/local (app/layout.tsx, app/fonts/*.ttf + OFL texts), exposing
- * --font-space-grotesk / --font-jetbrains-mono / --font-archivo-black; Newsreader (long-form, /writing) is kept
- * (ruling Q6) through --font-newsreader. No font, script, image or stylesheet is loaded from a remote host.
+ * --font-space-grotesk / --font-jetbrains-mono / --font-archivo-black / --font-newsreader (Newsreader: long-form
+ * serif, /writing, kept by ruling Q6). No font, script, image or stylesheet is loaded from a remote host.
  *
  * Base UI primitives (own-the-code): the two @custom-variant blocks the copied Button/Dialog reference
  * (data-open, data-closed) are inlined verbatim from shadcn/dist/tailwind.css (MIT). See COMPONENTS-PROVENANCE.md.
@@ -46,8 +46,9 @@
   --font-mono: var(--font-jetbrains-mono), ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --font-wordmark: var(--font-archivo-black), var(--font-sans);
   --font-serif: var(--font-newsreader), Georgia, "Times New Roman", serif;
-  /* Kanji secondary (display): Newsreader for latin glyphs, a CJK mincho stack for the kanji. */
-  --font-kanji: var(--font-newsreader), "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif JP", serif;
+  /* Kanji secondary (display): CJK mincho stack only (les éléments kanji ne portent aucun glyphe latin). */
+  /* Newsreader retirée de --font-kanji (ruling orchestrateur 2026-09-23, pli Newsreader §8.2) : la police ne porte aucun glyphe CJK, sa présence en tête forçait 451 664 octets de téléchargement sur / pour rien. */
+  --font-kanji: "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif JP", serif;
 
   /* Charter C ground (light) */
   --bg: #f2f3f7;
