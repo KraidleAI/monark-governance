@@ -62,7 +62,11 @@ export interface FilterResult { holders: number; holders_digest: string; n_at_ri
  *  reads are cached so the course HITs them (0 budget). `n_at_risk_config` does NOT apply the balanceOf>0
  *  exclusion, so it EQUALS recordBook.counts.at_risk + excluded_zero_balance (an upper bound; drift-guarded by
  *  test). It reuses abi decoders + clusters constants only — book.ts is NOT touched (PIN 034fbff9 intact). */
-export async function enumerateAndCountAtRisk(cluster: Cluster, block: number, reader: UkemiReader, opts: { fromBlock?: number | undefined } = {}, progress?: FilterProgress, onTick?: () => void): Promise<FilterResult> {
+export async function enumerateAndCountAtRisk(cluster: Cluster, block: number, reader: UkemiReader, opts: { fromBlock?: number | undefined; heartbeatEvery?: number | undefined } = {}, progress?: FilterProgress, onTick?: () => void): Promise<FilterResult> {
+  // UKEMI-HEARTBEAT-1: `opts.heartbeatEvery` (default 2000) is the onTick period in config reads; a value that is not
+  // an integer >= 1 is refused BEFORE any read (a `% 0` would silently mute the heartbeat - the fault this item fixes).
+  const every = opts.heartbeatEvery ?? 2000;
+  if (!Number.isInteger(every) || every < 1) throw new Error(`ukemi/record: heartbeatEvery must be an integer >= 1, got ${String(every)} (UKEMI-HEARTBEAT-1, fail-closed)`);
   const oracle = decAddress(wordAt(await reader.ethCall(POOL_ADDRESSES_PROVIDER, SEL.getPriceOracle, block), 0));
   if (oracle.toLowerCase() !== ORACLE.toLowerCase()) throw new AbiMismatchError(`oracle drift @${String(block)}: ${oracle} != ${ORACLE.toLowerCase()}`);
   const reservesList = decodeAddressArray(await reader.ethCall(POOL, SEL.getReservesList, block));
@@ -88,7 +92,7 @@ export async function enumerateAndCountAtRisk(cluster: Cluster, block: number, r
       progress.config_read += 1;
       // Operational heartbeat via onTick (gated ⇒ silent in tests): a multi-hour filter pass must be observable,
       // its partial nAtRisk AND per-operator call/error tallies visible (D-4 5%-rule monitoring) before it ends.
-      if (onTick !== undefined && progress.config_read % 2000 === 0) onTick();
+      if (onTick !== undefined && progress.config_read % every === 0) onTick();
     }
     if (!clusterIdx.some((i) => collateral.includes(i))) { excCollOff += 1; continue; }
     if (borrow.length === 0) { excNoDebt += 1; continue; }
@@ -133,6 +137,7 @@ export interface UkemiArgs {
   maxRu: number | undefined;     // C-1(b) REQUIRED: the chainstack run cost cap (RU).
   methodCaps: Record<string, number> | undefined; // C-1(b) REQUIRED: per-method attempt caps parsed from `k=v,k=v`.
   concordanceOut: string | undefined; // L-4: path for the per-operator-pair concordance jsonl; undefined ⇒ hook NO-OP (book_digest byte-identical)
+  heartbeatEvery: number;        // UKEMI-HEARTBEAT-1: filter-pass stderr heartbeat period in config reads (default 2000, >= 1); stderr ONLY, never written into the JSON
 }
 
 /** Parse the recorder CLI. Non-negative integers only for the numeric flags (fail-closed on a bad value). */
@@ -157,6 +162,9 @@ export function parseUkemiArgs(argv: readonly string[]): UkemiArgs {
     }
     return out;
   };
+  // UKEMI-HEARTBEAT-1 (C-1(b): an optional CLI argument, no env): 0 is refused here, pre-flight (optInt admits 0).
+  const heartbeatEvery = reqInt("--heartbeat-every", 2000);
+  if (heartbeatEvery < 1) throw new Error(`ukemi/record: --heartbeat-every must be >= 1, got '${String(heartbeatEvery)}' (UKEMI-HEARTBEAT-1, fail-closed)`);
   return {
     cluster: arg("--cluster") ?? "weth",
     block: optInt("--block"),
@@ -182,6 +190,7 @@ export function parseUkemiArgs(argv: readonly string[]): UkemiArgs {
     maxRu: optInt("--max-ru"),
     methodCaps: parseMethodCaps(arg("--method-caps")),
     concordanceOut: arg("--concordance-out"),
+    heartbeatEvery,
   };
 }
 
@@ -198,9 +207,20 @@ export function isMainModule(argv1: string | undefined, metaUrl: string): boolea
  *  clock. `exit` is NOT injected — runRecorder RETURNS an exit code so its `finally` (the concordance flush) always
  *  runs (process.exit would kill the finally); the thin `main` wrapper maps the code to process.exit. Declared
  *  deviation from the plan's literal "deps = env/now/exit" (R-21), chosen so a disagreement/budget stop still flushes. */
-export interface RecorderDeps { readonly env: NodeJS.ProcessEnv; readonly now: () => number; }
-/** The live dependencies: the real process env and clock. Tests pass a frozen env + fixed clock. */
-export const realDeps: RecorderDeps = { env: process.env, now: () => Date.now() };
+export interface RecorderDeps { readonly env: NodeJS.ProcessEnv; readonly now: () => number; readonly sleep?: (ms: number) => Promise<void>; }
+/** The real wait of the caller's in-place retry (UKEMI-RETRY-3: tests inject `sleep` and never actually wait). */
+const defaultSleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+/** The live dependencies: the real process env, clock and sleep. Tests pass a frozen env + fixed clock (+ a recording sleep). */
+export const realDeps: RecorderDeps = { env: process.env, now: () => Date.now(), sleep: defaultSleep };
+
+/** UKEMI-RETRY-3: the in-place retry wait (ms) after failed attempt `attempt` = `backoffMs * 2^attempt` FLOORED by the
+ *  parsed Retry-After when usable (defined, finite, > 0; transport parseRetryAfterMs, <= 60 s, never on a 403), then CAPPED
+ *  by `backoffCapMs` (a longer Retry-After is truncated - declared). Else the pre-RETRY-3 `min(backoff, cap)`. Pure. */
+export function retryWaitMs(attempt: number, backoffMs: number, backoffCapMs: number, retryAfterMs: number | undefined): number {
+  const backoff = backoffMs * 2 ** attempt;
+  const floored = retryAfterMs !== undefined && Number.isFinite(retryAfterMs) && retryAfterMs > 0 ? Math.max(retryAfterMs, backoff) : backoff;
+  return Math.min(floored, backoffCapMs);
+}
 
 /** L-4: fold one live concordance observation into the per-operator-PAIR tally (sorted key). `opA`/`opB` are already
  *  operator labels (operatorOf, from quorum2 - never a URL, C-1); the paid leg's label is `chainstack` (D-label).
@@ -319,9 +339,9 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
     const c = client;
 
     // The `call` shim: route a LABEL -> client.call (meter + write-ahead ledger line + one transport attempt). Retry
-    // is AT THE CALLER ONLY (C-4/C-6(iii)): a transient TRANSPORT fault (Abort/network/429/>=500, AND a NonJsonBody at
-    // 200/429/>=500 - UKEMI-RETRY-1, calque BELL-RETRY-1) is retried; an RpcError, a NonJsonBody at 2xx!=200, another
-    // 4xx!=429 (getLogsVia needs the 400 THROWN to split), and the budget stop are NEVER retried. R retries => R+1
+    // is AT THE CALLER ONLY (C-4/C-6(iii)): a transient TRANSPORT fault (Abort/network/408/429/>=500, AND a NonJsonBody
+    // at 200/408/429/>=500 - UKEMI-RETRY-1/-2, calque BELL-RETRY-1) is retried; an RpcError, a NonJsonBody at 2xx!=200,
+    // another 4xx (getLogsVia needs the 400 THROWN to split), and the budget stop are NEVER retried. R retries => R+1
     // client.call => R+1 write-ahead ledger lines. The rpc_errors journal is built HERE from the TYPED TransportError
     // by e.name (C-5): never a raw body - e.detail is the closed hint (paid) / redacted (keyless), e.data the validated
     // hex. Chainstack HTTP 400 => http:400, never code:400; a NonJsonBody => "non-json <code>".
@@ -348,12 +368,14 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
             // UKEMI-RETRY-1 (calque BELL-RETRY-1 quorum.ts:isTransient): a NonJsonBody (HTTP 200 + non-JSON body, a
             // gateway HTML page) is TRANSIENT at code 200/429/>=500, so a provider blip is retried in place instead of
             // benching the leg (a bench that, once enough keyless legs bench, draws the paid leg and can STOP on
-            // NoQuorum). 2xx!=200 (201/204) and 4xx!=429 stay FATAL. The 429/>=500 arms are DEFENSIVE: via this
-            // transport a NonJsonBody only ever carries a 2xx (transport.ts:229 !ok->HttpError, :228 3xx, :241 parse).
+            // NoQuorum). 2xx!=200 (201/204) and 4xx not in {408,429} stay FATAL. The 408/429/>=500 arms are DEFENSIVE: via
+            // this transport a NonJsonBody only ever carries a 2xx (transport.ts:229 !ok->HttpError, :228 3xx, :241 parse).
+            // UKEMI-RETRY-2: HTTP 408 (drpc "Request timeout on the free plan", essai 4 STOP 2026-09-23) is retried in place,
+            // never benched at once (2-operator eth_call pool: one bench = NoQuorum). UKEMI-RETRY-3: wait = retryWaitMs.
             const transient = e.name === "AbortError" || e.name === "TypeError" || e.name === "NetworkError"
-              || (e.name === "NonJsonBody" && e.code !== undefined && (e.code === 200 || e.code === 429 || e.code >= 500))
-              || (e.name === "HttpError" && e.code !== undefined && (e.code === 429 || e.code >= 500));
-            if (transient && attempt < args.retries) { await new Promise((r) => setTimeout(r, Math.min(args.backoffMs * 2 ** attempt, args.backoffCapMs))); continue; }
+              || (e.name === "NonJsonBody" && e.code !== undefined && (e.code === 200 || e.code === 408 || e.code === 429 || e.code >= 500))
+              || (e.name === "HttpError" && e.code !== undefined && (e.code === 408 || e.code === 429 || e.code >= 500));
+            if (transient && attempt < args.retries) { await (deps.sleep ?? defaultSleep)(retryWaitMs(attempt, args.backoffMs, args.backoffCapMs, e.retryAfterMs)); continue; }
           }
           throw e;
         }
@@ -397,9 +419,10 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
         const t = (Date.now() - t0) / 1000;
         const perOp = Object.entries(budgeted.byOperator()).map(([k, v]) => `${k}:${String(v)}`).join(",");
         const perErr = Object.entries(errByOp).map(([k, v]) => `${k}:${String(v)}`).join(",");
-        process.stderr.write(`  ..filter config_read=${String(progress.config_read)}/${String(progress.holders)} n_at_risk_config=${String(progress.n_at_risk_config)} rate=${(progress.config_read / Math.max(t, 0.001)).toFixed(2)}/s calls={${perOp}} errors={${perErr}}\n`);
+        // UKEMI-HEARTBEAT-1: same line (cumulative tallies) + the wall-clock t=<ISO> (deps.now); stderr ONLY - never stdout/JSON.
+        process.stderr.write(`  ..filter config_read=${String(progress.config_read)}/${String(progress.holders)} n_at_risk_config=${String(progress.n_at_risk_config)} rate=${(progress.config_read / Math.max(t, 0.001)).toFixed(2)}/s calls={${perOp}} errors={${perErr}} t=${new Date(deps.now()).toISOString()}\n`);
       };
-      const fr = await enumerateAndCountAtRisk(cluster, block, reader, { fromBlock: args.fromBlock }, progress, onTick);
+      const fr = await enumerateAndCountAtRisk(cluster, block, reader, { fromBlock: args.fromBlock, heartbeatEvery: args.heartbeatEvery }, progress, onTick);
       const seconds = (Date.now() - t0) / 1000;
       if (resumeReader !== undefined) {
         assertResumeHoldersMatch(fr.holders_digest, resumeReader);

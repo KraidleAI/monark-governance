@@ -13,11 +13,11 @@ import { mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync, existsSy
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runRecorder, type RecorderDeps } from "../src/ukemi/record.ts";
+import { runRecorder, retryWaitMs, enumerateAndCountAtRisk, type RecorderDeps } from "../src/ukemi/record.ts";
 import { reduceConcordance } from "../src/ukemi/concordance.ts";
 import { QuorumDisagreementError } from "../src/rpc.ts";
 import { SEL } from "../src/ukemi/abi.ts";
-import { ORACLE } from "../src/ukemi/clusters.ts";
+import { ORACLE, CLUSTER_WETH } from "../src/ukemi/clusters.ts";
 import { runCli, openGuardedClient, verifyCycleLedger, type RunLimits, type OperatorLabel, type CycleLedgerEntry } from "@monark/rpc-guard";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
@@ -680,4 +680,227 @@ test("ukemi_record_nonjsonbody_course_topology_correlated_blip_avoids_paid_draw"
     assert.equal(attemptedLines(join(dir, "cyc", "chainstack.jsonl")), 0, "0 attempted line on the paid ledger (no paid draw induced by the correlated blip)");
     assert.deepEqual(book.provenance.errors_by_operator, { "drpc.org": 1, "mevblocker.io": 1 }, "errors_by_operator counts each correlated blip once (D-4 5%-rule surface; keyed by operator label)");
   } finally { rmSync(out, { force: true }); rmSync(out + ".diag.json", { force: true }); cleanup(); }
+});
+
+// ---- UKEMI-RETRY-2/3 + HEARTBEAT-1 (course Ukemi, essai 4 STOP 2026-09-23T04:29:31Z). Served path only (REAL runRecorder
+// over the REAL openGuardedClient, ONLY globalThis.fetch stubbed); the in-place wait is observed via the injected
+// RecorderDeps.sleep (never waits). A-8: the drpc bodies are the source form journaled in the course diags (essai 4: the
+// 408 STOP; essai 2: 5 x 408 eth_call, 50 x 400 getLogs), served at their real status (the transport keeps no raw body).
+const DRPC_408_BODY = JSON.stringify({ id: 1, jsonrpc: "2.0", error: { message: "Request timeout on the free plan, please upgrade to paid plan", code: 30 } });
+const DRPC_400_BODY = JSON.stringify({ id: 1, jsonrpc: "2.0", error: { message: "ranges over 10000 blocks are not supported on free plan", code: 35 } });
+const COURSE_OPS = "drpc.org,tenderly.co,chainstack"; // essai 4/5 topology: eth_call pool = [drpc.org, chainstack] (2 operators)
+const FILTER_ARGS = ["--cluster", "weth", "--block", String(FX.block), "--filter-only"];
+const recSleep = (): { sleeps: number[]; sleep: (ms: number) => Promise<void> } => { const sleeps: number[] = []; return { sleeps, sleep: (ms) => { sleeps.push(ms); return Promise.resolve(); } }; };
+/** argv WITHOUT argv()'s pinned `--backoff-ms 0` (parseUkemiArgs keeps the FIRST occurrence of a flag). */
+const argvR = (dir: string, operators: string, extra: string[]): string[] =>
+  ["--ledger-dir", dir, "--cycle", "cyc", "--floor", "0", "--max-ru", "1000000", "--max-calls", "500000", "--method-caps", METHOD_CAPS, "--operators", operators, "--min-interval-ms", "0", "--no-prereg-binding", ...extra];
+/** Capture stdout and stderr SEPARATELY while tee-ing every byte to the real streams (same reason as captured()). */
+async function capturedSplit(fn: () => Promise<void>): Promise<{ out: string; err: string }> {
+  const buf = { out: "", err: "" }; const so = process.stdout.write.bind(process.stdout), se = process.stderr.write.bind(process.stderr);
+  const tee = (orig: typeof so, k: "out" | "err") => (s: string | Uint8Array, ...a: unknown[]): boolean => { buf[k] += String(s); return (orig as unknown as (...x: unknown[]) => boolean)(s, ...a); };
+  (process.stdout as unknown as Wr).write = tee(so, "out"); (process.stderr as unknown as Wr).write = tee(se, "err");
+  try { await fn(); } finally { (process.stdout as unknown as Wr).write = so; (process.stderr as unknown as Wr).write = se; }
+  return buf;
+}
+// groups: 1 config_read, 2 holders, 3 calls={...} body, 4 errors={...} body, 5 t=<ISO>
+const HB_LINE = /^ {2}\.\.filter config_read=(\d+)\/(\d+) n_at_risk_config=\d+ rate=[0-9.]+\/s calls=\{([^}]*)\} errors=\{([^}]*)\} t=(\S+)$/;
+const hbLines = (s: string): RegExpExecArray[] => s.split(/\r?\n/).map((l) => HB_LINE.exec(l)).filter((m): m is RegExpExecArray => m !== null);
+/** Parse a heartbeat tally body `op:n,op:n` (an operator label carries dots, never a colon) into a record. */
+const hbTally = (body: string | undefined): Record<string, number> => Object.fromEntries((body ?? "").split(",").filter((kv) => kv !== "").map((kv) => [kv.slice(0, kv.lastIndexOf(":")), Number(kv.slice(kv.lastIndexOf(":") + 1))]));
+
+// (a) UKEMI-RETRY-2 VALUE on the essai-5 topology (replays the essai-4 death): drpc's FIRST eth_call answers the real 408;
+// it is retried IN PLACE (one wait = the unchanged backoff 500 ms) and the full book completes on the PIN. Mutant "408
+// removed" => quorum2 benches drpc => eth_call pool = [chainstack] => NoQuorumError (the essai-4 STOP) => reds.
+test("ukemi_record_retry2_drpc_408_is_retried_in_place_course_topology_survives", async () => {
+  const { dir, cleanup } = tmpLedger();
+  const out = join(tmpdir(), `u-retry2-408-${String(process.pid)}-${String(Date.now())}.json`);
+  const { sleeps, sleep } = recSleep();
+  let failedKey: string | undefined; let failedKeyFetches = 0;
+  const stub = ((input: string | URL, init?: RequestInit): Promise<Response> => {
+    const req = parseReq(init);
+    if (String(input).includes("eth.drpc.org") && req.method === "eth_call") {
+      const key = JSON.stringify(req.params);
+      if (failedKey === undefined) { failedKey = key; failedKeyFetches += 1; return Promise.resolve(new Response(DRPC_408_BODY, { status: 408, headers: { "content-type": "application/json" } })); }
+      if (key === failedKey) failedKeyFetches += 1;
+    }
+    return Promise.resolve(fxServe(req));
+  }) as typeof globalThis.fetch;
+  try {
+    await withFetch(stub, async () => {
+      assert.equal(await runRecorder(argvR(dir, COURSE_OPS, ["--cluster", "weth", "--block", String(FX.block), "--out", out, "--retries", "2"]), { ...DEPS, sleep }), 0, "a single drpc 408 no longer STOPs the 2-operator eth_call course: retried in place, the full book completes");
+    });
+    const book = JSON.parse(readFileSync(out, "utf8")) as { provenance: { book_digest: string; errors_by_operator: Record<string, number> } };
+    assert.equal(book.provenance.book_digest, PIN_BOOK_DIGEST, "the book reproduces the PIN on the essai-5 topology after the in-place 408 retry");
+    assert.equal(failedKeyFetches, 2, "the 408'd read was fetched exactly twice on drpc: the 408, then the in-place retry (attempt count)");
+    assert.deepEqual(sleeps, [500], "exactly one in-place wait = the unchanged backoff 500*2^0 (this 408 carries no Retry-After)");
+    assert.deepEqual(book.provenance.errors_by_operator, { "drpc.org": 1 }, "the retried 408 is counted once for drpc (D-4 surface)");
+    assert.deepEqual(rpcErrorsOf(out), [{ provider: "drpc.org", method: "eth_call", message: DRPC_408_BODY, http: 408 }], "journaled by e.name as http:408 with the keyless redacted body (the source form)");
+  } finally { rmSync(out, { force: true }); rmSync(out + ".diag.json", { force: true }); cleanup(); }
+});
+
+// (b) UKEMI-RETRY-2 bound: a PERSISTENT 408 on the PAID leg (body = the fake key in every form: closed-hint discipline) is
+// retried EXACTLY --retries times (3 fetches, 3 ledger lines, 2 waits), then SURFACES: the leg is benched => NoQuorumError
+// (fail-closed, never an endless retry). Mutant "retry unbounded" (bound + 100) => 103 fetches => reds.
+test("ukemi_record_retry2_persistent_408_is_bounded_then_surfaces_and_leaks_nothing", async () => {
+  const { dir, cleanup } = tmpLedger();
+  const csLedger = join(dir, "cyc", "chainstack.jsonl");
+  const out = join(tmpdir(), `u-retry2-408x-${String(process.pid)}-${String(Date.now())}.json`);
+  const diag = out + ".diag.json";
+  const { sleeps, sleep } = recSleep();
+  let cs = 0; let thrown = "";
+  const stub = ((input: string | URL): Promise<Response> => { if (String(input).includes(CS_HOST)) { cs += 1; return Promise.resolve(new Response(KEY_BODY, { status: 408 })); } return Promise.resolve(jrpc({ hash: FX.block_hash, number: "0x1", timestamp: "0x1" })); }) as typeof globalThis.fetch;
+  try {
+    const io = await captured(async () => {
+      await withFetch(stub, async () => {
+        await runRecorder(argvR(dir, "mevblocker.io,chainstack", ["--cluster", "weth", "--block", "1", "--out", out, "--retries", "2"]), { ...LEAK_DEPS, sleep }).then(() => { thrown = "resolved"; }, (e: unknown) => { thrown = e instanceof Error ? e.message : String(e); });
+      });
+    });
+    assert.match(thrown, /quorum needs 2 providers/, "the exhausted 408 surfaces: the leg is benched => NoQuorumError (fail-closed)");
+    assert.equal(cs, 3, "--retries 2 => exactly 3 paid fetches (BOUNDED; mutant 'retry unbounded' => 103 => reds)");
+    assert.equal(attemptedLines(csLedger), 3, "3 write-ahead ledger lines (each retry re-enters client.call - metered)");
+    assert.deepEqual(sleeps, [500, 1000], "2 waits (backoff 500*2^0, 500*2^1), none after the final attempt");
+    const d = JSON.parse(readFileSync(diag, "utf8")) as { rpc_errors: Array<{ provider: string; http?: number; code?: number }> };
+    const cs408 = d.rpc_errors.filter((e) => e.provider === "chainstack");
+    assert.equal(cs408.length, 3, "each of the 3 attempts is journaled in the durable diag");
+    assert.ok(cs408.every((e) => e.http === 408 && e.code === undefined), "journaled as http:408, never code:408");
+    assert.deepEqual(leaks(thrown + io + cycleFilesText(dir) + readFileSync(diag, "utf8")), [], "0 key char in the thrown message, stdout/stderr, the ledgers or the diag (paid 408 detail = closed hint only)");
+  } finally { rmSync(out, { force: true }); rmSync(diag, { force: true }); cleanup(); }
+});
+
+// (c) UKEMI-RETRY-2 boundary: ONLY 408 joins. 400 (the real drpc plan-limited body getLogsVia must get THROWN, rpc2.ts:194),
+// 403, 407, 409 stay FATAL - 1 fetch, 0 wait, EVEN with a Retry-After; 408 => retries+1 fetches, each wait floored by its
+// Retry-After (RETRY-2 x RETRY-3). Mutant "4xx widened" (the 408 arm admits any 4xx) => 400/403/407/409 retried => reds.
+test("ukemi_record_retry2_4xx_boundary_only_408_is_transient", async () => {
+  const RETRIES = 3;
+  const run = async (status: number, body: string): Promise<{ drpc: number; sleeps: number[] }> => {
+    const { dir, cleanup } = tmpLedger();
+    const { sleeps, sleep } = recSleep();
+    let drpc = 0;
+    const stub = ((input: string | URL): Promise<Response> => { if (String(input).includes("eth.drpc.org")) { drpc += 1; return Promise.resolve(new Response(body, { status, headers: { "retry-after": "2" } })); } return Promise.resolve(jrpc({ hash: FX.block_hash, number: "0x1", timestamp: "0x1" })); }) as typeof globalThis.fetch;
+    try { await withFetch(stub, async () => { await assert.rejects(() => runRecorder(argvR(dir, COURSE_OPS, ["--cluster", "weth", "--block", "1", "--retries", String(RETRIES)]), { ...DEPS, sleep })); }); return { drpc, sleeps }; }
+    finally { cleanup(); }
+  };
+  const t408 = await run(408, DRPC_408_BODY);
+  assert.equal(t408.drpc, RETRIES + 1, "408 is TRANSIENT: retried to exhaustion => retries+1 drpc fetches");
+  assert.deepEqual(t408.sleeps, [2000, 2000, 2000], "each 408 wait = max(Retry-After 2000, backoff 500/1000/2000), under the 8000 cap");
+  for (const [status, body] of [[400, DRPC_400_BODY], [403, "forbidden"], [407, "proxy auth"], [409, "conflict"]] as const) {
+    const r = await run(status, body);
+    assert.equal(r.drpc, 1, `${String(status)} is FATAL: NOT retried => exactly 1 drpc fetch even with retries=${String(RETRIES)} (mutant '4xx widened' => retries+1 => reds)`);
+    assert.deepEqual(r.sleeps, [], `${String(status)}: no wait - a Retry-After on a fatal status never induces a retry`);
+  }
+});
+
+// (d) UKEMI-RETRY-3: wait = min(max(Retry-After, backoff), cap), observed via the injected sleep (~40 s requested, < 5 s
+// real). A persistent 429 + Retry-After: 5 (transport => 5000 ms), --retries 2. Kills "Retry-After ignored" ([0,0]), "cap
+// ignored" ([5000,5000] under cap 3000), "max -> min"; the pure pins cover the "defined, finite, > 0" guard (unreachable
+// through the transport, which only yields a finite value in [0, 60000]).
+test("ukemi_record_retry3_retry_after_floors_the_backoff_under_the_cap", async () => {
+  const run = async (extra: string[], headers: Record<string, string>): Promise<number[]> => {
+    const { dir, cleanup } = tmpLedger();
+    const { sleeps, sleep } = recSleep();
+    const stub = ((input: string | URL): Promise<Response> => Promise.resolve(String(input).includes(CS_HOST) ? new Response("rate limited", { status: 429, headers }) : jrpc({ hash: FX.block_hash, number: "0x1", timestamp: "0x1" }))) as typeof globalThis.fetch;
+    try { await withFetch(stub, async () => { await assert.rejects(() => runRecorder(argvR(dir, "mevblocker.io,chainstack", ["--cluster", "weth", "--block", "1", "--retries", "2", ...extra]), { ...DEPS, sleep })); }); return sleeps; }
+    finally { cleanup(); }
+  };
+  const t0 = Date.now();
+  assert.deepEqual(await run(["--backoff-ms", "0"], { "retry-after": "5" }), [5000, 5000], "Retry-After 5 s floors a zero backoff: every wait >= Retry-After");
+  assert.deepEqual(await run(["--backoff-ms", "0", "--backoff-cap-ms", "3000"], { "retry-after": "5" }), [3000, 3000], "the cap still bounds a longer Retry-After (truncated to --backoff-cap-ms, declared)");
+  assert.deepEqual(await run(["--backoff-ms", "8000", "--backoff-cap-ms", "30000"], { "retry-after": "5" }), [8000, 16000], "a backoff LONGER than Retry-After wins (max), still under the cap");
+  assert.deepEqual(await run(["--backoff-ms", "100"], {}), [100, 200], "no Retry-After => the backoff is unchanged (100*2^attempt)");
+  assert.ok(Date.now() - t0 < 5000, "no real wait: ~40 s of requested waits ran in < 5 s (the sleep is injected)");
+  // Pure pins, in order: none => pre-RETRY-3 formula; NaN and +Infinity ignored (never a NaN wait, never promoted to the
+  // cap); 0 (a past HTTP-date) leaves the backoff; the backoff itself stays capped (64000 -> 30000); above-cap truncated.
+  assert.deepEqual([undefined, Number.NaN, Number.POSITIVE_INFINITY].map((ra) => retryWaitMs(1, 1000, 30000, ra)).concat([retryWaitMs(0, 1000, 30000, 0), retryWaitMs(6, 1000, 30000, 5000), retryWaitMs(0, 1000, 30000, 45000)]), [2000, 2000, 2000, 1000, 30000, 30000], "retryWaitMs pure pins");
+});
+
+// (e) UKEMI-HEARTBEAT-1: period = --heartbeat-every (fixture = 4 holders): every 1 => 4 stderr lines 1/4..4/4 ending t=<ISO
+// of deps.now>; every 3 => one (3/4); default 2000 => none; none on stdout. A-10 liage: drpc answers its 2nd config read
+// with the real 408 once (retried): the CUMULATIVE errors={} shows it from line 2 on, and the last line's calls={}/errors={}
+// EQUAL the provenance tallies. Mutants "period hard-coded 2000", "t= dropped", "calls from byMethod", "errors emptied".
+test("ukemi_record_heartbeat1_period_is_the_flag_stderr_only_with_iso_t", async () => {
+  const T_ISO = new Date(DEPS.now()).toISOString();
+  type Prov = { calls_by_operator: Record<string, number>; errors_by_operator: Record<string, number> };
+  const run = async (extra: string[], blip = false): Promise<{ out: string; err: string; prov: Prov }> => {
+    const { dir, cleanup } = tmpLedger();
+    const out = join(tmpdir(), `u-hb1-${String(process.pid)}-${String(Date.now())}.json`);
+    let cfg = 0;
+    const stub = ((input: string | URL, init?: RequestInit): Promise<Response> => {
+      const req = parseReq(init);
+      const data = (req.params[0] as { data?: string } | undefined)?.data ?? "";
+      if (blip && String(input).includes("eth.drpc.org") && req.method === "eth_call" && data.startsWith(SEL.getUserConfiguration) && ++cfg === 2) return Promise.resolve(new Response(DRPC_408_BODY, { status: 408 }));
+      return Promise.resolve(fxServe(req));
+    }) as typeof globalThis.fetch;
+    try {
+      const io = await capturedSplit(async () => {
+        await withFetch(stub, async () => {
+          assert.equal(await runRecorder(argvR(dir, `${KEYLESS},chainstack`, [...FILTER_ARGS, "--out", out, ...extra]), { ...DEPS, sleep: recSleep().sleep }), 0, "the filter-only pass completes");
+        });
+      });
+      return { ...io, prov: (JSON.parse(readFileSync(out, "utf8")) as { provenance: Prov }).provenance };
+    } finally { rmSync(out, { force: true }); cleanup(); }
+  };
+  const every1 = await run(["--heartbeat-every", "1"], true);
+  const l1 = hbLines(every1.err);
+  assert.deepEqual(l1.map((m) => `${m[1] ?? ""}/${m[2] ?? ""}`), ["1/4", "2/4", "3/4", "4/4"], "--heartbeat-every 1 => ONE stderr line per config read (4 holders)");
+  assert.ok(l1.every((m) => m[5] === T_ISO), "each line ends t=<ISO of deps.now> (the injected wall clock)");
+  assert.deepEqual(l1.map((m) => hbTally(m[4])), [{}, { "drpc.org": 1 }, { "drpc.org": 1 }, { "drpc.org": 1 }], "errors={} is CUMULATIVE: the read-2 drpc 408 shows from line 2 on and never resets");
+  assert.deepEqual(every1.prov.errors_by_operator, { "drpc.org": 1 }, "the retried 408 is in the provenance tally too");
+  assert.deepEqual(hbTally(l1[3]?.[3]), every1.prov.calls_by_operator, "last line calls={} == provenance calls_by_operator (liage: same cumulative source)");
+  assert.deepEqual(hbTally(l1[3]?.[4]), every1.prov.errors_by_operator, "last line errors={} == provenance errors_by_operator (liage)");
+  assert.equal(hbLines(every1.out).length, 0, "stdout carries NO heartbeat line (stderr only)");
+  assert.deepEqual(hbLines((await run(["--heartbeat-every", "3"])).err).map((m) => m[1]), ["3"], "--heartbeat-every 3 => one line, at config_read 3");
+  assert.equal(hbLines((await run([])).err).length, 0, "default 2000 => no line on a 4-holder pass (the pre-lot period, unchanged)");
+});
+
+// (e') --heartbeat-every 0 is refused PRE-FLIGHT (0 fetch, no cycle dir => no lock/ledger line); mutant "0 accepted" =>
+// the client opens and reads before the in-core guard throws => reds. The in-core guard (% 0 = silent mute) is pinned too.
+test("ukemi_record_heartbeat1_zero_is_refused_preflight_and_in_the_filter_core", async () => {
+  const { dir, cleanup } = tmpLedger();
+  let fetches = 0;
+  try {
+    await withFetch((_i, init) => { fetches += 1; return Promise.resolve(fxServe(parseReq(init))); }, async () => {
+      await assert.rejects(() => runRecorder(argvR(dir, `${KEYLESS},chainstack`, [...FILTER_ARGS, "--heartbeat-every", "0"]), DEPS), /--heartbeat-every must be >= 1/, "--heartbeat-every 0 is refused fail-closed");
+    });
+    assert.equal(fetches, 0, "refused before any read (0 fetch)");
+    assert.equal(existsSync(join(dir, "cyc")), false, "refused before the guarded client opened (no cycle dir, no lock, no ledger line)");
+    let reads = 0;
+    const refuse = (): Promise<never> => { reads += 1; return Promise.reject(new Error("no read expected")); };
+    await assert.rejects(() => enumerateAndCountAtRisk(CLUSTER_WETH, FX.block, { ethCall: refuse, getLogsRange: refuse, blockAt: refuse, finalized: refuse }, { heartbeatEvery: 0 }), /heartbeatEvery must be an integer >= 1/, "the filter core refuses a 0 period itself (a % 0 would mute the heartbeat silently)");
+    assert.equal(reads, 0, "the in-core guard also refuses before any read");
+  } finally { cleanup(); }
+});
+
+// (f) HEARTBEAT-1 changes NOTHING but stderr: filter passes at every 1 and 2000 (same fixture, frozen clock) write the SAME
+// JSON (provenance minus the wall-clock `seconds`) and the SAME stdout summary; only stderr differs. The full book at
+// every 1 keeps the PIN (no tick on the book path: declarative for the tick). Mutants "heartbeat on stdout", "period
+// written into the provenance" red here.
+test("ukemi_record_heartbeat1_changes_nothing_but_stderr", async () => {
+  const out = join(tmpdir(), `u-hb1f-${String(process.pid)}-${String(Date.now())}.json`);
+  const REC = /^(ukemi\/record FILTER-ONLY | {2}calls=| {2}out=)/; // the recorder's OWN stdout lines (a lazily flushed reporter byte is ignored)
+  const pass = async (every: string): Promise<{ prov: Record<string, unknown>; stdout: string; hbErr: number; hbOut: number }> => {
+    const { dir, cleanup } = tmpLedger();
+    try {
+      const io = await capturedSplit(async () => {
+        await withFetch((_i, init) => Promise.resolve(fxServe(parseReq(init))), async () => {
+          assert.equal(await runRecorder(argvR(dir, `${KEYLESS},chainstack`, [...FILTER_ARGS, "--out", out, "--heartbeat-every", every]), DEPS), 0, "the filter-only pass completes");
+        });
+      });
+      const prov = (JSON.parse(readFileSync(out, "utf8")) as { provenance: Record<string, unknown> }).provenance;
+      delete prov.seconds; // the ONLY wall-clock field of the filter provenance
+      const stdout = io.out.split(/\r?\n/).filter((l) => REC.test(l)).join("\n").replace(/seconds=[0-9.]+/, "seconds=<t>");
+      return { prov, stdout, hbErr: hbLines(io.err).length, hbOut: hbLines(io.out).length };
+    } finally { rmSync(out, { force: true }); cleanup(); }
+  };
+  const a = await pass("1"), b = await pass("2000");
+  assert.equal(a.hbErr, 4, "every 1: the heartbeat fired on stderr (4 lines - the comparison below is not vacuous)");
+  assert.equal(b.hbErr, 0, "every 2000: no heartbeat line on a 4-holder pass");
+  assert.equal(a.hbOut + b.hbOut, 0, "no heartbeat line ever reaches stdout");
+  assert.deepEqual(a.prov, b.prov, "the output JSON (provenance minus the wall-clock seconds) is identical at 1 and 2000");
+  assert.ok(a.stdout.includes("FILTER-ONLY") && a.stdout.includes("  out="), "the recorder's stdout summary was captured (non-vacuous)");
+  assert.equal(a.stdout, b.stdout, "the stdout summary is identical at 1 and 2000 (modulo seconds=)");
+  const { dir, cleanup } = tmpLedger(); const bout = join(tmpdir(), `u-hb1b-${String(process.pid)}-${String(Date.now())}.json`);
+  try {
+    await withFetch((_i, init) => Promise.resolve(fxServe(parseReq(init))), async () => { assert.equal(await runRecorder(argvR(dir, `${KEYLESS},chainstack`, ["--cluster", "weth", "--block", String(FX.block), "--out", bout, "--heartbeat-every", "1"]), DEPS), 0); });
+    assert.equal((JSON.parse(readFileSync(bout, "utf8")) as { provenance: { book_digest: string } }).provenance.book_digest, PIN_BOOK_DIGEST, "book_digest = PIN at --heartbeat-every 1");
+  } finally { rmSync(bout, { force: true }); cleanup(); }
 });
