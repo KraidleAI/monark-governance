@@ -2379,3 +2379,133 @@ Paire du contrôle C-12 (C12-PIN) : copie RUNBOOK (exécutée par l'orchestrateu
   cachés, coûtent 1 keyless + 2 RU par lecture).
 - **PROV-MODEL-1** (item existant, supra :1857 ; report du déclencheur supra :2085) : NON déclenché par ce lot — son déclencheur est « le prochain lot recorder
   APRÈS le temps 2 » ; ce lot le précède (course en cours) ; `model: "claude-opus-4-8[1m]"` inchangé dans `record.ts`.
+
+## Amendement daté 2026-09-23 (PROBER-EXCLUDE-OP-1 — `--exclude-operator <étiquette>` répétable du prober `scripts/census/u4-oracle-path.mjs` : exclusion PAR ÉTIQUETTE dans un ensemble FERMÉ, garde de quorum par OPÉRATEURS distincts avant tout verrou ; décisions investisseur 148 (b) et 149 ; checkpoint-1 C-1..C-11) — inséré au G7 du 2026-09-23 (fusion `4b4d4b8`)
+
+### 1. Décision
+- **Flag additif** `--exclude-operator <étiquette>` (répétable) sur le prober, lu par `argAll` fermé sur l'`argv` de
+  `run(argv, deps)` (`u4-oracle-path.mjs:145`, jamais `process.argv`). Liste effective
+  `excluded = [...new Set(["mevblocker.io", ...cli])]` (`:197`) : le défaut de course `mevblocker.io` (exclusion
+  pré-enregistrée, `CHANTIERS.md:918`) reste PREMIER ; **sans le flag la liste, donc les octets de provenance, sont inchangés**
+  (preuve : golden `REF.ORACLE_RAW` / `REF.ORACLE_INPUTS` inchangés, test (c) ci-dessous ; le littéral `:183` d'origine est retiré).
+- **L'exclusion porte sur une ÉTIQUETTE** (label d'opérateur du transport), jamais sur un « opérateur » au sens de `operatorOf` :
+  `--exclude-operator pocket.network` retire l'étiquette `pocket.network` des deux pools ; **l'étiquette `nodies.app` (même réseau
+  POKT, `eth-pokt.nodies.app`) RESTE dans le pool eth_call** (voir §4).
+- **Garde d'étiquette (cp-1 C-11)** `EXCLUDE-OPERATOR LABEL GUARD` (`:190-196`) : ensemble FERMÉ admissible = toutes les étiquettes
+  que les pools peuvent contenir = `ETH_CALL_KEYLESS_LABELS ∪ GET_LOGS_KEYLESS_LABELS ∪ {chainstack}` (calculé par
+  `buildLabelLists({ withChainstack: true })`, `u4-guard.mjs:62-69` sur `packages/rpc-guard/src/transport.ts:36-37`) ; une étiquette
+  inconnue (faute de frappe) ou un flag final sans valeur ⇒ REFUS nommé, exit ≠ 0, jamais un no-op silencieux. Le message ne
+  reprend JAMAIS la valeur d'argv (il cite le rang de l'occurrence et l'ensemble fermé).
+- **Garde de quorum (cp-1 C-5)** `EXCLUDE-OPERATOR QUORUM GUARD` (`:199-203`) : `distinctOperators(ethCallLabels) >= 2 &&
+  distinctOperators(getLogsLabels) >= 2`, comptés avec la clé de distinction du pool lui-même, `rpc2.ts operatorOf`
+  (`nodies.app` + `pocket.network` = UN opérateur `pocket` ; `rpc2.ts:28-31` à `b9964ee` et `a79a902`). Ex. : `--exclude-operator
+  drpc.org` sans `--with-chainstack` laisse eth_call = {nodies.app, pocket.network} = 1 opérateur ⇒ refusé d'emblée.
+- **Les deux gardes précèdent `openU4GuardedClient`** (`:207`, qui prend les verrous et ouvre les ledgers,
+  `packages/rpc-guard/src/guarded.ts:36-49`) : un refus ne laisse ni verrou, ni ligne de ledger, ni appel réseau.
+- **Provenance** : `provenance.params.excluded_operators` = liste EFFECTIVE (`:289`, remplace le littéral) ; `provenance.endpoints`
+  (inchangé) porte les pools résultants.
+
+### 2. Tuyaux (règle de Branchement)
+| Tuyau | Entrée (qui produit) | Sortie (qui consomme) | État | Test qui prouve la composition |
+|---|---|---|---|---|
+| CLI → pools | `argv` de l'étape 5 (ligne RUNBOOK « passe 4 ») → `argAll` → garde d'étiquette → `excluded` | `buildLabelLists` → `ethCallLabels`/`getLogsLabels` → garde de quorum → `openU4GuardedClient` (opérateurs demandés) + `makeUkemiPool` (quorum-2) | aucun état nouveau ; ledgers sous `--ledger-dir` inchangés ; l'étiquette exclue n'est jamais demandée (ni verrou ni ledger) | `u4_oracle_path_exclude_operator_drops_pocket_and_reaches_chainstack` (CLI réel → `run(argv, deps)` → client gardé → ledger sur disque → raw ; seul `globalThis.fetch` bouchonné) |
+| provenance → lecteurs | `run()` écrit `params.excluded_operators` + `endpoints` dans le raw | Sidecar 5 et contrôle **C-9-ter** (RUNBOOK passe 4, §B) ; le réducteur `u4b-reduce.mjs:64-77 (lectures du raw du prober ; `:48` = raw du livre — citation corrigée, G2 C-G2-2)` ne lit NI `endpoints` NI `excluded_operators` (cp-1 M-3) ⇒ D_e ne dépend que des octets lus | raw hors dépôt (`--raws-dir`) | même test (a) : `excluded_operators` deep-equal `["mevblocker.io","pocket.network"]`, `endpoints` deep-equal les deux pools, 0 hôte `*.pocket.network`, ≥ 1 ligne ledger `chainstack|eth_getLogs` ; témoin positif sans flag dans le même test |
+| refus | `argv` inadmissible / pool affamé | stderr `FATAL … LABEL GUARD` / `… QUORUM GUARD`, exit 1 | aucun (0 verrou, 0 ledger, 0 fetch) | tests (b), (d), (e) |
+
+### 3. Motif mesuré (cp-1 C-10 : sources exactes ; le ledger ne journalise que `attempted|unlocked`, les issues viennent des logs)
+| Passe | Requêtes `eth_getLogs` à `pocket.network` (ledger) | Issue (source) |
+|---|---|---|
+| 1 (keyless) | lignes 11-13 : 3 (2 morceaux d'ancre + `[B0, B_last]`) | 3 concordantes : exit 0, raw `U4-oracle-path-weth-2025-09-22.raw.json` sha256 `c3954476eeb149c5…` (`calls_by_operator` : drpc.org 3, nodies.app 16, tenderly.co 3, pocket.network 3 ; `errors_by_operator` : drpc.org 1) |
+| 2 (relance identique) | lignes 15-17 : 3 | 2 concordantes (ancre trouvée) + 1 erreur : `prober.log` « FATAL eth_getLogs[23414968,23422118]: quorum needs 2 providers (last: old data not available due to pruning … history is available from block 25779042) », exit 1 15:50:55Z |
+| 3 (`--with-chainstack`) | lignes 19-21 : 3 | 2 concordantes + 1 discordante : `prober-passe3.log` « FATAL eth_getLogs[23414968,23422118]: providers tenderly.co/pocket disagree », exit 1 16:18:09Z |
+Ledger : `F:\monark-ledger\chainstack-2026-09-19\chainstack-2026-09-19\pocket.network.jsonl` (22 lignes ; sha256 `868e1b31c2670985…`
+à la lecture) — lignes 1-6 `eth_getBlockByNumber`, 9 = un `eth_getLogs` antérieur, 11-13/15-17/19-21 = 3 × 3 `eth_getLogs`, lignes
+7/8/10/14/18/22 `unlocked`. Bilan : 9 requêtes d'archive identiques, **7 concordantes, 1 erreur « pruning », 1 valeur discordante**
+(`CHANTIERS.md:1216` sur `lot/etude-suite` @ `958e08d`, avis advisor n°2) ⇒ `pocket.network` n'est pas « élagué à B0 » mais NON
+STATIONNAIRE (chaque requête routée vers un nœud différent) ; le corps discordant n'a pas été lu (A-7). Décisions : 148 (b)
+(`CHANTIERS.md:1203`, dépense Chainstack, option 1) et 149 (`CHANTIERS.md:1213-1215` @ `958e08d`, lot nommé).
+
+### 4. Pools résultants de la passe 4 et asymétrie getLogs / eth_call (cp-1 C-4)
+- `--exclude-operator pocket.network --with-chainstack` ⇒ **eth_call `[drpc.org, nodies.app, chainstack]`** (opérateurs drpc.org,
+  pocket via nodies.app, chainstack) ; **eth_getLogs `[drpc.org, tenderly.co, chainstack]`**. Formule interdite : « opérateur pocket
+  retiré » (elle décrit la D-n du recorder, essai 1) : l'opérateur POKT reste présent sur eth_call par l'étiquette `nodies.app`.
+- **`nodies.app` est CONSERVÉ et NÉCESSAIRE** : drpc refuse `eth_getLogs` (400 plan-limited, passes 1-3 : `errors_by_operator`
+  drpc.org 1 au raw passe 1) et `quorum2` le met au banc 25 s pour TOUTES les méthodes (`rpc2.ts:172` à `b9964ee`, `:216` à
+  `a79a902` ; item BENCH-PER-METHOD-1) ⇒ les 14 lectures e-mode n'ont de quorum que par `nodies.app` + `chainstack`. Fait mesuré à
+  la passe 1 : l'agrégateur @B0 et @B_last (lues AVANT le banc) ont concordé drpc.org + nodies.app (`calls_by_operator` drpc.org 3
+  = 2 eth_call + 1 getLogs refusé) ; nodies.app : 16 appels, 0 erreur de transport. **Quorum-2 avec chainstack reste l'autorité
+  fail-closed.**
+- **Asymétrie (pourquoi l'étiquette `pocket.network` et pas `nodies.app`)** : sur eth_call, `asHex` (`rpc2.ts:67-74` à `b9964ee`,
+  `:78-85` à `a79a902`) REJETTE `"0x"` et tout non-hex ⇒ un nœud sans l'état demandé (erreur ou `"0x"`) est mis au banc, jamais
+  décodé ; sur getLogs, `asLogs` (`rpc2.ts:54-61` à `b9964ee`, `:65-72` à `a79a902`) accepte TOUT tableau bien formé ⇒ un nœud
+  élagué ou en retard rend un tableau tronqué ou vide, valeur plausible : c'est exactement la discordance mesurée (§3). Résidu
+  (MAST, non mesuré) : un nœud eth_call qui ignorerait le bloc demandé rendrait un hex bien formé ; quorum-2 avec l'archive
+  chainstack le transforme en `QuorumDisagreementError` (FATAL visible, ou `{error}` sur une catégorie e-mode ⇒ C-9-ter exit 3).
+
+### 5. Désambiguïsation (cp-1 C-10)
+`RUNBOOK-course-ukemi-2026-09-22.md:294` (« `--exclude-operator` n'existe plus ») vise le RECORDER `apps/sentinel/src/ukemi/record.ts`
+(remplacé par la liste d'inclusion `--operators`, 2b-ii). Le flag de CE lot est celui du PROBER `scripts/census/u4-oracle-path.mjs`
+(nouveau), calque de celui du contrôle `scripts/census/u4-redraw.mjs:45-46,57,87-89` (U-4a).
+
+### 6. Base d'exécution (cp-1 C-3, ruling C-3 de l'orchestrateur) et invariants (A-6)
+- `u4-oracle-path.mjs` : blob IDENTIQUE à `b9964ee` et `a79a902` (sha256 `4ed4c31e99f148b9…`) ⇒ `<HEAD_E3>` = `b9964ee` + le commit
+  du lot donne le fichier livré (sha256 `03a80e2202903aaf…`, mesuré sur `git apply` du patch aux blobs `b9964ee`, après
+  normalisation LF).
+- `test/guard-scripts-u4.test.ts` : **blob DIFFÉRENT** entre `b9964ee` (`119f04e8…`) et `a79a902` (`6b1a7b95…`) — hunk de `ca9fa55`
+  (UKEMI-REVERT-1, test `u4_oracle_path_paid_leg_is_metered_in_its_own_ledger`, l.304-316), DISJOINT des hunks du lot ⇒ `git apply
+  --check` exit 0 ; résultat à `<HEAD_E3>` : sha256 LF `a74b77c0…` (≠ livré `dc61087e…` par ce seul hunk).
+- **Sha 0.6 dérivés entre `b9964ee` et `<HEAD_E3>`** : UN seul, `scripts/census/u4-oracle-path.mjs` `4ed4c31e` → `03a80e22`
+  (ce lot). `rpc2.ts` reste `92577c5a` (= passes 1-3 : `quorum2` INCHANGÉ entre les passes 1 et 4 ; il vaut `38210129` à
+  `a79a902`, CONC-1 + REVERT-1 — non repris à `<HEAD_E3>`) ; `record.ts` et le bin ne sont pas importés par le prober. Les 9 gelés
+  §2 + prereg `1971d9b1` : SAME (A-6 avant/après 9/9 + 36 chemins, écart 0). `operatorOf` existe à `b9964ee` (`rpc2.ts:28`).
+- Le labeler (étape 4, déjà close à `<HEAD_E2>`) n'importe pas le prober : les étapes 5-6 à `<HEAD_E3>` ne changent aucun octet lu
+  par l'étape 4.
+
+### 7. Modèle de faute → test nommé → mutant (D-1 ; 11/11 tués byIntended, TAP conservés)
+| Test (fichier `test/guard-scripts-u4.test.ts`) | Défaut couvert | Mutants tués |
+|---|---|---|
+| (a) `u4_oracle_path_exclude_operator_drops_pocket_and_reaches_chainstack` | exclusion non transmise ; provenance littérale ; ordre du défaut | M1, M3, M7 |
+| (b) `u4_oracle_path_exclude_operator_guard_refuses_single_witness_before_any_fetch` | garde retirée ; 2ᵉ occurrence perdue ; garde après les verrous ; clause getLogs omise | M2, M4, M5, M8 |
+| (c) `u4_oracle_path_default_excluded_operators_golden_unchanged` | défaut perdu sans flag (octets du golden) | M6 |
+| (d) `u4_oracle_path_exclude_operator_guard_counts_operators_not_labels` | garde par étiquette au lieu d'opérateur (C-5) | M9 |
+| (e) `u4_oracle_path_exclude_operator_unknown_label_is_refused_before_any_fetch` | étiquette inconnue acceptée ; flag final ignoré (C-11) | M10, M11 |
+
+### 8. Items (cp-1 C-7 ; propriétaire : orchestrateur ; zéro « dû » nu)
+- **PROBER-EMODE-FAILCLOSED-1** — déclencheur « réécriture docs-only du RUNBOOK avant reprise de l'étape 5 » ATTEINT : traité
+  EN DOCS par ce lot (contrôle **C-9-ter**, §B : exit 3 si une catégorie e-mode n'est pas une chaîne hex, dont
+  `typeof emode_raw["1"] !== "string"`). Le fail-closed EN CODE (le prober sort 0 en avalant un NoQuorum e-mode en `{error}`,
+  `u4-oracle-path.mjs:271-282`, catch `:279-281`) reste un item : hors périmètre fermé de ce lot ; déclencheur : premier lot hors course touchant le
+  prober (après la clôture de la course).
+- **BENCH-PER-METHOD-1** (re-formé) — motif : `cooldownUntil` par URL tous-méthodes (`rpc2.ts:172` à `b9964ee`) : le refus getLogs de
+  drpc met aussi son eth_call au banc 25 s. Déclencheur « prochain lot touchant le prober » atteint, mais `rpc2.ts` est interdit ici et
+  gelé de fait pendant la course (0.6) ⇒ **nouveau déclencheur : premier lot HORS course touchant `rpc2.ts`**.
+- **OBS-1** (littéral `model: "claude-opus-4-8[1m]"`, `u4-oracle-path.mjs:286,303`) — atteint une 2ᵉ fois. **Ruling proposé (report
+  motivé)** : hors périmètre additif ; le changer déplacerait les octets du golden et de la provenance EN COURS de course ;
+  l'exécutant réel de la passe 4 est consigné au Sidecar. Déclencheur : clôture de la course, premier lot touchant ensuite le prober.
+- **R-U-2 — DÉCLENCHÉ** (note datée ; corps `:697-704` inchangé, append seul) : le déclencheur « ajout de `--with-chainstack` à un
+  pas u4-guard de la course » est ATTEINT par la passe 3 (décision 148 (b)) et la passe 4. Motif du report : `u4-guard.mjs:136`
+  (`NonJsonBody` jamais retenté) est interdit à ce lot et le changer modifierait l'outil des étapes 4-5 en pleine course. **Borne** :
+  au plus 51 appels chainstack (D-n 148) ; issue VISIBLE et fail-closed : un `NonJsonBody` chainstack est benché par `quorum2` ⇒
+  `NoQuorumError` ⇒ FATAL exit 1, ou `{error}` sur une catégorie e-mode ⇒ C-9-ter exit 3 ⇒ STOP (jamais une valeur silencieuse).
+  Clôture : alignement de `u4-guard.mjs:136` sur la doctrine `ADR-GARDE-HELIUS-client-budgete-unique.md:320` au premier lot après la
+  clôture de la course, ou dès un premier `NonJsonBody` observé dans un diag du prober/census. `error_origin` : plan.
+- **HEAD_E3-TESTS-1** (nouveau) — les 5 tests du lot ont été exécutés à `a79a902` (où `rpc2.ts` = `38210129`), pas à `<HEAD_E3>`
+  (`rpc2.ts` = `92577c5a`) : aucun worktree `b9964ee` créé par le worker (consigne). Écarts `rpc2.ts` entre les deux : REVERT-1
+  `ca9fa55` (aucun test du lot n'asserte une issue de revert e-mode) et CONC-1 `dec704d` (cadence seulement ; aucun test du lot
+  n'asserte un temps). Déclencheur : création de `<HEAD_E3>`, AVANT la passe 4 — l'orchestrateur y rejoue
+  `node --test --test-reporter=tap test/guard-scripts-u4.test.ts` (20 tests) + l'oracle 7 portes.
+
+### 9. MAST résiduel (cp-1 §5)
+FM-1.2 (interdits touchés) : A-6 avant/après écart 0. FM-2.x (rétention de nodies.app non dite ; dérive `rpc2.ts`) : §4 et §6.
+FM-3.1 (exit 0 avec `emode_ok:false`) : C-9-ter exit 3. FM-3.3 (vérification incorrecte) : test (a) exécute la composition ; C-6 à
+l'octet. Sélection de témoins : clause négative de la D-n (aucune exclusion supplémentaire après la passe 4).
+
+### 10. Déviations (F-3)
+D-1 (worker) : G1 démarré en parallèle du checkpoint-1 (acte 149, fan-out) ⇒ garde par ÉTIQUETTE au PLAN, corrigée par C-5 avant
+tout rendu ; `error_origin` : plan. D-2 : mutants rejoués sur les 5 tests du lot (`--test-name-pattern`) et non sur la suite par
+mutant ; la suite complète tourne à l'oracle. `error_origin` : aucun.
+
+---
+
+> **G7 (2026-09-23, orchestrateur `claude-fable-5-1`)** : fusion `4b4d4b8` ; G2 `docs/G2-lot-prober-exclude-op-1.md` PASS-AVEC-CORRECTIONS (C-G2-1 : trois propriétés déclaratives — `argAll` sur l'`argv` de `run()`, déduplication, défaut en tête pour une étiquette qui trie avant `mevblocker.io` — non prouvées par test : item **PROBER-EXCLUDE-OP-TESTS-1** (propriétaire orchestrateur ; déclencheur : premier lot hors course touchant le prober ; tests (a') `QUORUM GUARD` en processus et (b') `--exclude-operator drpc.org` ×2 + `--with-chainstack` ⇒ `["mevblocker.io","drpc.org"]`) ; C-G2-2 citation `:64-77` corrigée ci-dessus et note RUNBOOK sur la forme `--exclude-operator=<étiquette>` ignorée en silence ; C-G2-3 : le compte « drpc.org 3 = 2 eth_call + 1 getLogs » du §4 a pour sources le ledger `drpc.org.jsonl` (passe 1 : l.141322-141324) et `errors_by_operator` du raw passe 1) ; cp-2 `docs/CHECKPOINT2-lot-prober-exclude-op-1.md` ACCEPTE-AVEC-CORRECTIONS (C2-1..C2-3 appliquées `dab6f91` avant la passe 4 ; C2-4 = cette insertion ; C2-5 provenance : générateur `claude-opus-5-5[1m]`, relecteur `claude-opus-5-5[1m]` instance séparée, validateur `claude-fable-5-1` ; `error_origin` D-1 = plan, « fichier de test identique » = plan ; C2-6 résidu V4 consigné) ; **passe 4 exécutée 18:19:21Z sur `a722035`, exit 0, C-9-ter et C-6 exit 0 — prédiction tenue** (Sidecar 5). Items datés : PROBER-EMODE-FAILCLOSED-1 (code, premier lot hors course), BENCH-PER-METHOD-1 (premier lot hors course touchant `rpc2.ts`), OBS-1 (clôture de la course), R-U-2 (déclenché, borné), HEAD_E3-TESTS-1 **CLOS** (E3 20/20 + oracle 7 × 0), EXPORT-TEST42-EPERM-1 (nettoyage best-effort `99c25cc`/`2482918`).
+

@@ -444,6 +444,8 @@ cd F:/Monark && env -u HELIUS_API_KEY -u CHAINSTACK_ETH_URL -u CHAINSTACK_SOLANA
 Testé (lecture seule) : raw passe 1 contre lui-même ⇒ `updates/pre_b0_anchor/aggregator` égaux, exit 3 par `emode_1_hex:false` ;
 copie synthétique e-mode hex ⇒ exit 0 ; même copie avec UN prix d'update +1 ⇒ `updates_equal:false`, exit 3.
 
+**Forme du flag (G2 C-G2-2, mesuré)** : seule la forme `--exclude-operator pocket.network` (deux jetons) est lue ; la forme `--exclude-operator=pocket.network` est IGNORÉE en silence (exit 0, `excluded_operators` = `["mevblocker.io"]`, pocket reste dans le pool) et ne serait rattrapée que par C-9-ter, après la dépense — vérifier `provenance.params.excluded_operators` dans le raw.
+
 **STOP + acte** : C-9-ter ≠ 0 ou C-6 ≠ 0 ⇒ STOP, consultation ; aucune passe 5 ni exclusion supplémentaire (retirer tenderly ensuite
 serait une sélection de témoins). `LABEL GUARD` / `QUORUM GUARD` au stderr ⇒ ligne mal recopiée : corriger la ligne, 0 appel dépensé.
 
