@@ -25,7 +25,12 @@ so the H5 trace is pinned HERE instead, the same way the `s3-binance.*` fixtures
   `attested`; grounding: ADR-M012 (i) / ADR-M017 D4(5)), and **regenerated 2026-09-19 for the ADR-M018 D4 lot** (E9: the served `cascade-liquidable-24h` NUMERIC-class under_calib region `label_schema` changed `up|down` -> `numeric` — every numeric (interval) caller now passes `NUMERIC_LABEL_SCHEMA`; the ONLY drift is that one region byte, both values 7 chars so the file holds at 15731 bytes; grounding: E9 / ADR-M018 D4), and **regenerated 2026-09-19 for ADR-EC H-attested (step 7 attested-gate added, mirror renumbered 8)** (a step 7 `attested-gate` was inserted after the step 6 `attest` — the served attest → gate tuyau: the gate carries the live `AttestedPrice` of step 6 and files its `residual` into `verdict.residual`, the decision otherwise byte-identical to step 5; the former HTTP mirror step is renumbered 8; `observed` gains `attested_gate_action`/`attested_gate_residual`; nothing above the step 6 `attest` changes, so the file grows 15731 -> 21859 bytes; grounding: ADR-EC E1 / C-7, ADR-M017 D2(iii)/D4(3)), and **regenerated 2026-09-22 for U-4b-2a** (the `gate`
   tool description gained the served `liquidation-eligible-coverage` class clause and the `cascade` description
   gained the "v0, replaced at U-5" label — changing only the `tools/list` step's bytes; the served decisions
-  are unchanged, the liq registry stays empty; grounding: ADR-U4b D1 / decisions 123/126, Q-NEW-2).
+  are unchanged, the liq registry stays empty; grounding: ADR-U4b D1 / decisions 123/126, Q-NEW-2), and
+  **regenerated 2026-09-22 for HARNESS-DESC-1** (CARTO-T1C-2: the `gate` tool description's
+  `liquidation-eligible-coverage` clause became a function of the liq registry state, so on the empty registry it
+  serves the empty-registry sentence, alpha/nMin and the conditional rule instead of the upper-bound and H-3
+  sentences -- changing only the `tools/list` step's `response_sha256`; grounding: ADR-U4b amendment
+  HARNESS-DESC-1, checkpoint-1 U-4b-2 C-1).
   Recorder: `scripts/record-h5-e2e-trace.mjs`.
 - **Reviewer**: independently reviewed and recorded before commit.
 
@@ -66,8 +71,13 @@ These statements live in the trace's `honesty` block and are re-asserted by
 
 - The tools read no clock (`produced_at`/`producedAt` are caller-carried); the ephemeral port is
   intentionally NOT recorded. Re-running the recorder reproduces the file byte-for-byte.
-- **sha256 (LF)** of `h5-e2e-trace.json`: `4ad9b340caa72463d3ff1e96880fa0b49e29e841c8e31e183f26b0fc85aa79e1`
-  (21943 bytes; **re-pinned 2026-09-22 for U-4b-2a** — the `tools/list` bytes changed on TWO tool
+- **sha256 (LF)** of `h5-e2e-trace.json`: `90a21adf1f109d695bd99a5a3521b055b74daba02248de22defe79b070108252`
+  (21943 bytes; **re-pinned 2026-09-22 for HARNESS-DESC-1** -- ONE field changed, the `tools/list` step's
+  `response_sha256` (`b88cd066...` -> `6b78a420...`): the `gate` description's liq clause now follows the registry
+  state (empty registry: empty-registry sentence + alpha/nMin + conditional rule, never the upper bound nor H-3);
+  the `cascade`/`attest`/`calibrate` descriptions, every served decision, `structuredContent`, `content` text,
+  `yhat` and digest are byte-identical, so the file holds at 21943 bytes. Prior re-pin 2026-09-22 for U-4b-2a
+  (`4ad9b340...`) — the `tools/list` bytes changed on TWO tool
   descriptions: the `gate` description gained the served `liquidation-eligible-coverage` class clause (upper
   bound + alpha/nMin + H-3 + conditional coverage; ADR-U4b D1 / decision 126) and the `cascade` description
   gained the "v0, replaced at U-5" label (decision 123 / Q-NEW-2); no served decision, `structuredContent`,

@@ -179,24 +179,45 @@ export const GATE_NON_REVERIFICATION_SENTENCE =
   "the attestation is carried by the caller and is not re-verified at call time (the verifier is not executed here); " +
   "`attest` only projects the committed witness — verify a caller-carried attestation offline with the Shōgen verifier";
 
-/** Tool description (K-4e / C-2): declares `synthetic` (btc-dir), the cascade sentence, AND the BYO path.
- *  The BYO carrier REUSES `CALIBRATE_LABEL` (B-2: one honesty constant, no paraphrase, no banned vocab). */
-export const GATE_TOOL_DESCRIPTION =
-  "Coverage-gated decision from the real HIKAE L3 policy (commit/defer/abstain) over a caller-carried " +
-  "authorization budget B_t. Dispatches on task_class. For 'btc-dir-15m' it conformalizes against a " +
-  "committed synthetic calibration derived from the HIKAE S2a instrument (seed 101, n=300 draw), declared " +
-  `synthetic — a plumbing fixture, not a measured predictor. For 'cascade-liquidable-24h' ${CASCADE_UNCALIBRATED_SENTENCE}. ` +
-  `For 'stable-run-velocity-24h' (Narabi: a redemption-flow velocity forecast) the gate holds ${STABLE_RUN_COMMITTED_CORE}; ` +
-  `for any other population, ${STABLE_RUN_UNCALIBRATED_SENTENCE}. ` +
-  `For '${TASK_LIQ_ELIGIBLE}' (Ukemi: a per-account liquidable-amount class, class A only) the served region is ${LIQ_UPPER_BOUND_SENTENCE}; ${LIQ_REQUIREMENTS_SENTENCE}; ${LIQ_H3_SENTENCE}; ${LIQ_CONDITIONAL_SENTENCE}. ` +
-  "When the caller instead supplies a `calibration` (its own nonconformity scores plus a `mode`: `interval` " +
-  "⇒ region [yhat - q̂, yhat + q̂], or `set` ⇒ a conformal set over caller `candidates`), the gate " +
-  `conformalizes against THOSE caller-supplied scores (BYO): ${CALIBRATE_LABEL} ` +
-  "A caller-carried `attested` price must declare a subject consistent with the committed task class " +
-  "(exact committed-URL membership; BYO classes do not accept `attested` in P1); " +
-  GATE_NON_REVERIFICATION_SENTENCE +
-  "; no temporal binding in P1. " +
-  "The gate only emits a decision; it never calls the named tool.";
+/**
+ * Tool description (K-4e / C-2): declares `synthetic` (btc-dir), the cascade sentence, AND the BYO path.
+ * The BYO carrier REUSES `CALIBRATE_LABEL` (B-2: one honesty constant, no paraphrase, no banned vocab).
+ * (HARNESS-DESC-1, CARTO-T1C-2; checkpoint-1 HARNESS-DESC-1 C-1/C-2) A PURE function of the REGISTRY state of the
+ * liq class: `registryHasLiq` is hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), the SAME registry-level key
+ * honestyText uses (delta D-3). EMPTY registry: the empty-registry sentence, the server-imposed params (their 400
+ * fires BEFORE the lookup, so it holds on an empty registry; checkpoint-1 U-4b-2 C-7) and the conditional rule
+ * (orchestrator ruling: a rule statement, not a coverage claim); NEVER the upper-bound sentence nor the H-3
+ * sentence, since nothing is calibrated in the served registry (checkpoint-1 U-4b-2 C-1, G0 2a-3). NON-EMPTY
+ * registry (U-4b-2b): the committed clause, byte-identical to the pre-HARNESS-DESC-1 text. Every other clause is
+ * the same in both states.
+ */
+export function describeGate(registryHasLiq: boolean): string {
+  const liqClause = registryHasLiq
+    ? `the served region is ${LIQ_UPPER_BOUND_SENTENCE}; ${LIQ_REQUIREMENTS_SENTENCE}; ${LIQ_H3_SENTENCE}; ${LIQ_CONDITIONAL_SENTENCE}`
+    : `${LIQ_EMPTY_REGISTRY_SENTENCE}; ${LIQ_REQUIREMENTS_SENTENCE}; ${LIQ_CONDITIONAL_SENTENCE}`;
+  return (
+    "Coverage-gated decision from the real HIKAE L3 policy (commit/defer/abstain) over a caller-carried " +
+    "authorization budget B_t. Dispatches on task_class. For 'btc-dir-15m' it conformalizes against a " +
+    "committed synthetic calibration derived from the HIKAE S2a instrument (seed 101, n=300 draw), declared " +
+    `synthetic — a plumbing fixture, not a measured predictor. For 'cascade-liquidable-24h' ${CASCADE_UNCALIBRATED_SENTENCE}. ` +
+    `For 'stable-run-velocity-24h' (Narabi: a redemption-flow velocity forecast) the gate holds ${STABLE_RUN_COMMITTED_CORE}; ` +
+    `for any other population, ${STABLE_RUN_UNCALIBRATED_SENTENCE}. ` +
+    `For '${TASK_LIQ_ELIGIBLE}' (Ukemi: a per-account liquidable-amount class, class A only) ${liqClause}. ` +
+    "When the caller instead supplies a `calibration` (its own nonconformity scores plus a `mode`: `interval` " +
+    "⇒ region [yhat - q̂, yhat + q̂], or `set` ⇒ a conformal set over caller `candidates`), the gate " +
+    `conformalizes against THOSE caller-supplied scores (BYO): ${CALIBRATE_LABEL} ` +
+    "A caller-carried `attested` price must declare a subject consistent with the committed task class " +
+    "(exact committed-URL membership; BYO classes do not accept `attested` in P1); " +
+    GATE_NON_REVERIFICATION_SENTENCE +
+    "; no temporal binding in P1. " +
+    "The gate only emits a decision; it never calls the named tool."
+  );
+}
+
+/** The SERVED description (registry.ts -> tools/list, openapi.ts -> /openapi.json): describeGate at the registry
+ *  state AT LOAD. COMMITTED_CALIBRATIONS is a module constant, so ONE state is observable per process; the switch to
+ *  the committed clause is automatic at the first committed liq entry (U-4b-2b, item on G0 2b-7). */
+export const GATE_TOOL_DESCRIPTION = describeGate(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE));
 
 /** One BYO candidate (set mode): a label and its caller-supplied nonconformity score. */
 export interface ByoCandidate {
