@@ -14,14 +14,72 @@
 // penultimate head) is HEALED at open (the last line was durably appended, only the sidecar lagged); a tail truncation
 // (head AHEAD) stays fail-closed. Residual: a crash after the FIRST-ever append presents as head-absent (== a deleted
 // sidecar), which stays fail-closed (recovering it would admit a delete-head+truncate attack) - runbook manual repair.
+// GARDE-FSYNC-1: every line, head and lock write is DURABLE (DURABLE_FS below); a power-cut NUL tail stays fail-closed
+// here ("malformed") and is repaired by the served `repair-tail` (./repair.ts, docs/RUNBOOK-rpc-guard.md).
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, appendFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, openSync, writeSync, fsyncSync, closeSync, renameSync, ftruncateSync, unlinkSync } from "node:fs";
 import { join, basename } from "node:path";
 import type { AttemptRecord, Outcome } from "./client.ts";
 import { tariffVersionOf } from "./tariff.ts";
 
 export const LEDGER_GENESIS = "0".repeat(64);
 export const sha256Hex = (s: string): string => createHash("sha256").update(s, "utf8").digest("hex");
+
+/** GARDE-FSYNC-1 (INCIDENT 2026-09-22: a power cut kept 9 460 lines and lost ~420 the process HAD appended - 211 008
+ *  NUL bytes at the tail - with the head sidecar AHEAD of the durable chain). A returned write sits in the OS cache until
+ *  fsync. Every write of this package goes through DURABLE_FS in a FIXED order: open -> write -> fsync -> close; a
+ *  whole-file replace (the head) writes <path>.tmp that way, THEN renames it over <path>. Never `{flush: true}`: the
+ *  node 24.15.0 writeFileSync UTF-8 fast path drops it silently (measured, ADR). MUTABLE on purpose - the test seam:
+ *  tests wrap these methods to journal the SEQUENCE through the real openGuardedClient/runCli, then restore them. NOT
+ *  exported by index.ts (closed export set, exports.test.ts). */
+export interface DurableFs {
+  openSync: (path: string, flags: "a" | "w" | "wx" | "r+") => number;
+  writeSync: (fd: number, data: string | Uint8Array) => void;
+  fsyncSync: (fd: number) => void;
+  closeSync: (fd: number) => void;
+  renameSync: (from: string, to: string) => void;
+  ftruncateSync: (fd: number, len: number) => void;
+  unlinkSync: (path: string) => void;
+  sleepSync: (ms: number) => void;
+}
+export const DURABLE_FS: DurableFs = {
+  openSync: (p, f) => openSync(p, f),
+  writeSync: (fd, d) => { const b = typeof d === "string" ? Buffer.from(d, "utf8") : d; for (let o = 0; o < b.length;) o += writeSync(fd, b, o, b.length - o); },
+  fsyncSync: (fd) => { fsyncSync(fd); },
+  closeSync: (fd) => { closeSync(fd); },
+  renameSync: (from, to) => { renameSync(from, to); },
+  ftruncateSync: (fd, len) => { ftruncateSync(fd, len); },
+  unlinkSync: (p) => { unlinkSync(p); },
+  sleepSync: (ms) => { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); },
+};
+/** open(flags) -> write -> fsync -> close: returns once the bytes were flushed to the device (fault model, ADR). */
+export function writeDurable(path: string, flags: "a" | "w" | "wx", data: string | Uint8Array): void {
+  const fd = DURABLE_FS.openSync(path, flags);
+  try { DURABLE_FS.writeSync(fd, data); DURABLE_FS.fsyncSync(fd); } finally { DURABLE_FS.closeSync(fd); }
+}
+/** E-3 (declared at the ADR): on win32, MoveFileExW(REPLACE_EXISTING) fails EPERM while ANY other handle holds the target
+ *  open (measured: 452 of 2000 renames under a concurrent reader; the orchestrator's probe, 22:0x UTC: Node, Git-Bash,
+ *  Python and PowerShell readers alike). BOUNDED retry: waits of min(10 * k, 100) ms (the graceful-fs polyfills.js win32
+ *  rename backoff) while the cumulated wait stays <= RENAME_MAX_WAIT_MS, then a NAMED fail-closed error - never an
+ *  in-place fallback (cut #2 left a head of 64 NUL bytes). The waits are synchronous: the append path is sync. */
+export const RENAME_MAX_WAIT_MS = 3000;
+/** Replace a whole small file: <path>.tmp written durably, THEN renamed over <path>. After a power cut the file is the
+ *  OLD or the NEW complete content, never a torn one (the tmp was fsynced first); the persistence of the rename itself is
+ *  NOT guaranteed by the API called (win32: MoveFileExW without MOVEFILE_WRITE_THROUGH -
+ *  docs/course-bell/FAITS-win32-flush-rename-2026-09-22.md), so a head ONE entry behind is healed at open. The
+ *  parent-directory fsync is NOT done (measured feasible on win32 with flag "r+" only; formed item, ADR). */
+export function replaceDurable(path: string, data: string): void {
+  const tmp = `${path}.tmp`;
+  writeDurable(tmp, "w", data);
+  for (let k = 1, waited = 0; ; k++) {
+    try { DURABLE_FS.renameSync(tmp, path); return; } catch (e) {
+      const code = (e as { code?: string }).code ?? "", wait = Math.min(10 * k, 100);
+      if (!["EPERM", "EACCES", "EBUSY"].includes(code)) throw e;
+      if (waited + wait > RENAME_MAX_WAIT_MS) throw Object.assign(new Error(`rpc-guard: rename of '${basename(tmp)}' refused ${String(k)} times over ${String(waited)} ms (${code}: another handle holds '${basename(path)}'; fail-closed, no in-place fallback)`), { code, cause: e });
+      DURABLE_FS.sleepSync(wait); waited += wait;
+    }
+  }
+}
 
 export interface CycleLedgerEntry {
   readonly prev_entry_sha256: string;
@@ -60,9 +118,10 @@ export function verifyCycleLedger(entries: readonly CycleLedgerEntry[]): void {
   }
 }
 
-function readEntries(path: string): CycleLedgerEntry[] {
+/** Parse the chain text, one entry per line. An unparseable line throws - a NUL tail included (trim() keeps U+0000). */
+export function parseEntries(text: string): CycleLedgerEntry[] {
   const out: CycleLedgerEntry[] = [];
-  for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
+  for (const line of text.split(/\r?\n/)) {
     if (line.trim() === "") continue;
     try { out.push(JSON.parse(line) as CycleLedgerEntry); } catch { throw new Error("rpc-guard: cycle ledger line is malformed (fail-closed)"); }
   }
@@ -99,7 +158,7 @@ export function openOperatorLedger(cycleDir: string, op: string, floor: number, 
   let entries: CycleLedgerEntry[] = [];
   if (hasLedger) {
     if (!hasHead) throw new Error(`rpc-guard: ledger '${op}.jsonl' present but head sidecar absent (tamper, fail-closed, C-V-8)`);
-    entries = readEntries(path);
+    entries = parseEntries(readFileSync(path, "utf8"));
     verifyCycleLedger(entries);
     const recomputed = ledgerHeadSha(entries);
     const onDisk = readFileSync(headPath, "utf8").trim();
@@ -116,7 +175,7 @@ export function openOperatorLedger(cycleDir: string, op: string, floor: number, 
       // (jsonl-only) tamper; an attacker who writes BOTH files already wins, and a truncation never presents the
       // penultimate head, so it still throws (ledger.test.ts C-V-8(c) keeps reddening the too-permissive mutant).
       if (entries.length >= 1 && onDisk === ledgerHeadSha(entries.slice(0, -1))) {
-        writeFileSync(headPath, recomputed);
+        replaceDurable(headPath, recomputed); // GARDE-FSYNC-1 C-4: the heal is durable too (tmp + fsync + rename)
       } else {
         throw new Error(`rpc-guard: head sidecar != recomputed head for '${op}' (tail truncation, fail-closed, C-V-8)`);
       }
@@ -124,6 +183,9 @@ export function openOperatorLedger(cycleDir: string, op: string, floor: number, 
   } else if (hasHead) {
     throw new Error(`rpc-guard: head sidecar present but ledger '${op}.jsonl' absent (tamper, fail-closed, C-V-8)`);
   }
+  // GARDE-FSYNC-1 C-4: a <op>.head.tmp left by a power cut between its fsync and its rename is an ORPHAN; the <op>.head
+  // on disk stays authoritative (at most one entry behind, healed above). Removed only once the pair is verified.
+  if (existsSync(`${headPath}.tmp`)) DURABLE_FS.unlinkSync(`${headPath}.tmp`);
   let head = ledgerHeadSha(entries);
   const frozenPrior = Math.max(floor, entries.reduce((a, e) => a + (e.outcome === "attempted" ? e.credits_derived : 0), 0));
   const tariffVersion = tariffVersionOf(op); // per-operator (GARDE-HELIUS-2): a chainstack line never carries the helius version
@@ -133,9 +195,9 @@ export function openOperatorLedger(cycleDir: string, op: string, floor: number, 
     // legacy lines; a mixed ledger (legacy + network lines) chains + verifies (verifyCycleLedger recomputes present fields).
     const core: CycleCore = { cycle_id: cycleId, tariff_version: tariffVersion, by_op_method: byOpMethod, outcome, credits_derived: credits, ...(network !== undefined ? { network } : {}), ...(reason !== undefined ? { reason } : {}) };
     const entry = chainCycleEntry(head, core);
-    appendFileSync(path, JSON.stringify(entry) + "\n");
+    writeDurable(path, "a", JSON.stringify(entry) + "\n"); // the LINE is durable BEFORE its head (C-V-8 order)
     entries.push(entry); head = entry.entry_sha256;
-    writeFileSync(headPath, head); // head rewritten AFTER the append (C-V-8)
+    replaceDurable(headPath, head); // head rewritten AFTER the durable append (C-V-8)
     return entry;
   };
   return {

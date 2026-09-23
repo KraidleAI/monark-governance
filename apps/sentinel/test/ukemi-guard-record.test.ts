@@ -7,6 +7,10 @@
 // explicit include list. Named mutants (replayed here): "makeBudgetedCall restored" (a local counter writes no ledger
 // line => write-ahead reds), "args made optional", "retry swallows the refusal", "retry under the tick", "finally
 // without keyless".
+// GARDE-FSYNC-1 pli-1 (ruling I-10): this file proves the recorder MECHANICS through the real guard (~13 000 ledger
+// appends); durability is proven with the REAL fsync by packages/rpc-guard/test/{durable,repair-tail}.test.ts. The
+// platter flush is a counting no-op in THIS process only (test-only support packages/rpc-guard/test/no-fsync.ts).
+import { flushesSkipped } from "../../../packages/rpc-guard/test/no-fsync.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
@@ -903,4 +907,10 @@ test("ukemi_record_heartbeat1_changes_nothing_but_stderr", async () => {
     await withFetch((_i, init) => Promise.resolve(fxServe(parseReq(init))), async () => { assert.equal(await runRecorder(argvR(dir, `${KEYLESS},chainstack`, ["--cluster", "weth", "--block", String(FX.block), "--out", bout, "--heartbeat-every", "1"]), DEPS), 0); });
     assert.equal((JSON.parse(readFileSync(bout, "utf8")) as { provenance: { book_digest: string } }).provenance.book_digest, PIN_BOOK_DIGEST, "book_digest = PIN at --heartbeat-every 1");
   } finally { rmSync(bout, { force: true }); cleanup(); }
+});
+
+// GARDE-FSYNC-1 pli-1: LAST test of the file - the no-fsync support engaged the SAME DURABLE_FS instance the recorder used
+// (a broken module identity would leave 0 here and cost ~275 s of real fsync on this file).
+test("ukemi_guard_record_skipped_the_platter_flush_nonvacuous", () => {
+  assert.ok(flushesSkipped() > 0, "the recorder's ledger appends went through the counting no-op flush");
 });

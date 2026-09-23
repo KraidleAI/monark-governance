@@ -3,7 +3,9 @@
 // so both subcommands require --op. The integration tests T16/T17/T14 replay this composition end-to-end.
 //   reconcile --before <snap> --after <snap> --cycle <id> --op <label>   (exit != 0 on NO-GO)
 //   unlock    --cycle <id> --op <label> --reason <text>
+//   repair-tail --cycle <id> --op <label> --reason <text>   (GARDE-FSYNC-1: exit 0 REPAIRED, exit 1 REFUSED <token>)
 import { ensureCycleDir, openOperatorLedger } from "./ledger.ts";
+import { runRepairTail } from "./repair.ts";
 import { runReconcile, AGGREGATE_ONLY_OPERATORS, type Snapshot } from "./reconcile.ts";
 import { acquireLock, releaseLock, runUnlock } from "./lock.ts";
 
@@ -40,5 +42,6 @@ export function runCli(argv: readonly string[], deps: CliDeps): CliResult {
     runUnlock(ledger, op, need("--reason"));
     return { exitCode: 0 };
   }
+  if (sub === "repair-tail") return runRepairTail(deps.ledgerDir, need("--cycle"), need("--op"), need("--reason"), deps.floor);
   throw new Error(`rpc-guard: unknown subcommand '${String(sub)}' (fail-closed)`);
 }

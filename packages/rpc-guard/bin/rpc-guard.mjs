@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // MONARK @monark/rpc-guard - the SERVED CLI executable (GARDE-HELIUS-1b-0, ruling R-6). Wires process.argv to runCli
-// (cli.ts, the offline-tested subcommand surface): reconcile | unlock. --ledger-dir and --floor are EXPLICIT CLI args
+// (cli.ts, the offline-tested subcommand surface): reconcile | unlock | repair-tail (GARDE-FSYNC-1, RUNBOOK-rpc-guard).
+// --ledger-dir and --floor are EXPLICIT CLI args
 // (never an env probe; B-4), snapshots are read from disk with JSON.parse, and the process EXIT CODE / printed verdict
 // IS the consumed output (a downstream course reads it). No secret is read here: runCli opens per-operator ledgers +
 // locks, never a paid endpoint. Node 24 strips the imported .ts at load. UPCOMING until a served course consumes this
