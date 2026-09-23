@@ -1,18 +1,17 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import { Newsreader } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 
 // Charter C typefaces (decision 145; OFL, decisions 105/107): Space Grotesk (variable) for the interface and
-// prose, JetBrains Mono (variable) for data, Archivo Black for the wordmarks. SELF-HOSTED from the committed OFL
-// files in app/fonts/ (licences beside them) through next/font/local — no font host is contacted, at build or at
-// run time. Newsreader (long-form serif, /writing) is KEPT (ruling Q6) and still comes from next/font/google:
-// fetched at BUILD time and then self-hosted by next/font (no runtime request); no local OFL copy of it exists
-// yet — procurement request formed in the lot report (SITE-CHARTE-C), which would move it to next/font/local.
+// prose, JetBrains Mono (variable) for data, Archivo Black for the wordmarks, Newsreader (variable, upright and
+// italic) for the long-form serif (/writing, KEPT by ruling Q6; OFL copy procured from google/fonts, decision 148).
+// All SELF-HOSTED from the committed OFL files in app/fonts/ (licences beside them) through next/font/local — no
+// font host is contacted, at build or at run time. Newsreader's fallback metrics are computed against Times New
+// Roman, the serif base the Google loader used for it (the next/font/local default, Arial, is sans-serif).
 const spaceGrotesk = localFont({
   src: "./fonts/SpaceGrotesk-wght.ttf",
   weight: "300 700",
@@ -31,12 +30,17 @@ const archivoBlack = localFont({
   variable: "--font-archivo-black",
   display: "swap",
 });
-const newsreader = Newsreader({
-  subsets: ["latin"],
-  weight: ["300", "400", "500"],
-  style: ["normal", "italic"],
+const newsreader = localFont({
+  src: [
+    { path: "./fonts/Newsreader-opsz-wght.ttf", weight: "200 800", style: "normal" },
+    { path: "./fonts/Newsreader-Italic-opsz-wght.ttf", weight: "200 800", style: "italic" },
+  ],
   variable: "--font-newsreader",
   display: "swap",
+  adjustFontFallback: "Times New Roman",
+  // Not preloaded (decision 146 ruling): from the root layout both files would be preloaded on every route. Measured:
+  // /writing and /products draw it; / also fetches the upright file (its kanji try this face first: no CJK glyph).
+  preload: false,
 });
 
 // Static metadata only (honesty lint scans title/description; no digits). No generateMetadata (gate

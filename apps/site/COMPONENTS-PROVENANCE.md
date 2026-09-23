@@ -93,6 +93,18 @@ Authored directly or copied byte-for-byte; no CLI, no npm dependency added.
   loaded by `next/font/local` in `app/layout.tsx`. SHA-256 of the fonts:
   `SpaceGrotesk-wght.ttf` `acad6de1…fbd79f72`, `JetBrainsMono-wght.ttf` `48715a42…193ffeda`,
   `ArchivoBlack-Regular.ttf` `dd9a89a0…39703180`.
+- `app/fonts/Newsreader-opsz-wght.ttf`, `app/fonts/Newsreader-Italic-opsz-wght.ttf`, `app/fonts/OFL-Newsreader.txt`
+  (investor decision 148, 2026-09-23) — Newsreader (Production Type), SIL Open Font License 1.1, copied
+  byte-for-byte from the public `google/fonts` repository, path `ofl/newsreader/` (branch `main`, fetched 2026-09-23;
+  the google/fonts commit was not recorded, the bytes are pinned by SHA-256 below), renamed without brackets like the
+  other font files (upstream names `Newsreader[opsz,wght].ttf`, `Newsreader-Italic[opsz,wght].ttf`, `OFL.txt`; the
+  licence text has no final newline upstream, kept as is). The family's `METADATA.pb` (not committed) names the
+  upstream source `productiontype/NewsReader` at commit `1ece6a8bfe5db1a2b90c76cc1fe5d3b2eed5dcf3`. SHA-256:
+  `Newsreader-opsz-wght.ttf` `8a08d13f8a6c0d51be379a60af84f945f65369a67e509ee3c3bdcc421254d7c1`,
+  `Newsreader-Italic-opsz-wght.ttf` `796668611f80b64d5adf182fde3b6f29ed83b4e7cbec7b96937e84ac01364792`,
+  `OFL-Newsreader.txt` `fdfad38143ec470553cae82a1e45320bdd1b9ec70415d37bd0171051d8a4ded8`. Variable axes (fvar):
+  wght 200–800, opsz 6–72. Loaded by `next/font/local` in `app/layout.tsx` with serif fallback metrics
+  (`adjustFontFallback: "Times New Roman"`); it replaces the build-time Google Fonts download of the same family.
 - `public/scene/blocks-hero.html` — the designer's vendored Canvas 2D hero scene (no library), copied from the
   charter C mock folder (`assets/3d/blocks-hero.html`, SHA-256 `1ef964e5…4ce64998`), then four changes, each
   commented in the file: the two projected clock labels are drawn only on a canvas at least 480 px wide (designer
