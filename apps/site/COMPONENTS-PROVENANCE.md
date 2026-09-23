@@ -104,3 +104,23 @@ Authored directly or copied byte-for-byte; no CLI, no npm dependency added.
 - `public/bell/anchors/` — written by `scripts/sync-bell-anchors.mjs` from the anchors register (manifests,
   OpenTimestamps proofs, `anchors.json`); pinned by the root test `bell_anchors_served_register_matches_source`.
 - `public/icons/bell.svg` — the Bell mark (designer favicon) with a dark-scheme rule, the `/icons/narabi.svg` pattern.
+
+## The MONARK noyau (pli SITE-NOYAU-1, investor delivery of 2026-09-23)
+
+Delivered by the investor as the archive `Monark animation concepts.zip` (SHA-256 `5c855327…3cced9d2`); its `site/` folder
+was read after checking that each unpacked file equals its archive entry byte for byte. No CLI, no npm dependency added.
+
+- `components/noyau/noyau-engine.ts` — the Canvas 2D engine (no library, no WebGL; its canvases draw no text), delivered
+  SHA-256 `30883757…587b0705`. Adapted: the group of an agent is the fleet register's own status word (`built` or
+  `upcoming`, formerly `built` or `named`), and the header comment no longer names the orbits.
+- `components/noyau/noyau.tsx` — the React client component, delivered SHA-256 `f1b28d93…dc972b9c`. Adapted for honesty:
+  the delivered file typed each agent's group by hand, with MONARK Bell drawn as built; the drawn set and each group are
+  now READ from the register (`lib/fleet.ts`: every `FLEET_AGENTS` entry, then `PRODUCTS` key `bell`), passed through
+  unchanged, so Bell (upcoming) sits on the dashed ring. A delivered agent that the register does not list was removed,
+  with its mark. The legend is English and holds the two register words only; the accessible name is English and lists
+  the register's built and upcoming names. Bell's mark is the `BellMark` of `components/lockups.tsx` (same geometry as the
+  delivered mark, accent read from the `--bell` token), so the page renders one Bell mark, not two.
+- Not copied: the delivered `components/marks/bell-mark.tsx` (a second `BellMark`, identical geometry, accent hard-coded)
+  and the mark of the agent absent from the register (its name is banned on the storefront by the site vocabulary scope).
+- `app/page.tsx` — the noyau replaces the cubes scene in the home hero; `app/bell/page.tsx` — the cubes scene
+  (`public/scene/blocks-hero.html`, unchanged, still served) and its legend are the hero visual of /bell.

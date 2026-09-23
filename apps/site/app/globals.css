@@ -388,10 +388,14 @@
 
   /* Landing modules (index mock). */
   .c-herowrap { position: relative; min-height: 520px; border-bottom: 1px solid var(--rule); overflow: hidden; }
-  .c-herowrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; pointer-events: none; opacity: 0.95; }
-  .c-veil { position: absolute; inset: 0; background: linear-gradient(90deg, var(--bg) 0 34%, color-mix(in oklch, var(--bg) 78%, transparent) 52%, transparent 100%); pointer-events: none; }
-  .c-herotext { position: relative; max-width: 1240px; margin: 0 auto; padding: 64px 28px 56px; }
-  .c-herotext .c-col { max-width: 600px; }
+  /* The MONARK noyau (pli SITE-NOYAU-1): the right part of the hero, beside the text column (no veil needed); the
+     text layer lets the pointer through outside its column so the noyau stays draggable. */
+  .c-herowrap .c-noyau { position: absolute; top: 0; right: 0; bottom: 0; width: 52%; }
+  .c-herotext { position: relative; max-width: 1240px; margin: 0 auto; padding: 64px 28px 56px; pointer-events: none; }
+  .c-herotext .c-col { max-width: 600px; pointer-events: auto; }
+  /* The vendored cubes scene, the /bell hero visual (moved from the home hero). */
+  .c-scene { position: relative; height: 360px; margin-top: 20px; border: 1px solid var(--rule); border-radius: var(--r-md); overflow: hidden; }
+  .c-scene iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; pointer-events: none; opacity: 0.95; }
   .c-herotext h1 { font-size: clamp(34px, 4.4vw, 54px); font-weight: 500; letter-spacing: -0.03em; line-height: 1.05; margin: 12px 0 0; }
   .c-dek { font-size: 17px; color: var(--tag-ink); max-width: 520px; margin-top: 16px; }
   .c-ctas { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
@@ -448,7 +452,7 @@
     .c-residual-row { grid-template-columns: 1fr; }
   }
   @media (max-width: 820px) {
-    .c-herowrap iframe { opacity: 0.45; }
+    .c-herowrap .c-noyau { opacity: 0.45; }
     .c-herotext .c-col { max-width: none; }
   }
   /* Mobile (designer NOTE-retouche-mobile points 1-5, 8, 14, 17 — applied, not deferred). */
@@ -466,8 +470,8 @@
     .c-steps, .c-props, .c-timeline { grid-template-columns: 1fr; }
     .c-h1 { font-size: 24px; }
     .c-herowrap { min-height: 0; display: flex; flex-direction: column; }
-    .c-herowrap iframe { position: static; height: 220px; opacity: 1; order: 2; }
-    .c-veil { display: none; }
+    .c-herowrap .c-noyau { position: relative; width: auto; height: 320px; opacity: 1; order: 2; }
+    .c-scene { height: 220px; }
     .c-herotext { padding: 40px 16px 28px; }
     .c-board-scroll .c-table { min-width: 640px; font-size: 11px; }
     .c-board-scroll th, .c-board-scroll td { padding: 6px 8px; }

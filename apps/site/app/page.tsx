@@ -7,6 +7,7 @@ import { AMBIENT, COST } from "@/lib/sim";
 import { NARABI_ROUTE } from "@/lib/narabi-live";
 import { FLEET_AGENTS, PRODUCTS } from "@/lib/fleet";
 import { NarabiLockup, UkemiLockup, BellLockup, BellMark } from "@/components/lockups";
+import { Noyau } from "@/components/noyau/noyau";
 import { ShogenMark } from "@/components/marks/shogen-mark";
 import { HikaeMark } from "@/components/marks/hikae-mark";
 import { UkemiMark } from "@/components/marks/ukemi-mark";
@@ -19,9 +20,10 @@ import { KyokusenMark } from "@/components/marks/kyokusen-mark";
 import { KoyomiMark } from "@/components/marks/koyomi-mark";
 import { GenkanMark } from "@/components/marks/genkan-mark";
 
-// Home — charter C landing (decision 145; mock index.html; rulings Q4/Q5): hero over the vendored Canvas 2D scene
-// (public/scene/blocks-hero.html, no library; reduced motion = one still frame), the sensors → gate → acts
-// pipeline with the first vertical, the three principles (production thesis, verbatim — its lower-case phrase
+// Home — charter C landing (decision 145; mock index.html; rulings Q4/Q5): hero beside the MONARK noyau
+// (components/noyau, investor delivery of 2026-09-23: Canvas 2D, no library; reduced motion = one still frame; the
+// agents it draws and their built/upcoming groups are READ from the register; the cubes scene moved to /bell), the
+// sensors → gate → acts pipeline with the first vertical, the three principles (production thesis, verbatim — its lower-case phrase
 // "no confidence field" is the R-E JSX-text carrier of the vocab exemption), the three product surfaces, the fleet
 // strip (id="fleet", the /roadmap renvoi target), then GateSim KEPT UNDER THE FOLD (ruling Q4) and the token
 // teaser. Every status is READ from the register (lib/fleet.ts), never typed; every count is a word derived from
@@ -63,15 +65,17 @@ export default function HomePage() {
   return (
     <main>
       <div className="c-herowrap">
-        <iframe src="/scene/blocks-hero.html" title="" aria-hidden="true" tabIndex={-1} loading="eager" />
-        <div className="c-veil" aria-hidden="true" />
+        <div className="c-noyau">
+          <Noyau className="h-full w-full" />
+        </div>
         <div className="c-herotext">
           <div className="c-col">
             <span className="c-label">a company of agent-products on one coverage-controlled gate</span>
-            <h1>It abstains so DeFi can act.</h1>
+            <h1>One engine. AI layers, DeFi layers.</h1>
             <p className="c-dek">
-              Sensors that attest, a gate that answers commit, defer or abstain over a region, acts that execute, and a
-              depletable authorization budget. Never a probability of being right.
+              MONARK is an engine: a coverage-controlled gate at the core, AI layers that read and attest, DeFi layers
+              that act on-chain. Built agents run on the orbits and meet the gate where they cross; upcoming ones wait
+              on the dashed ring. Each status comes from the fleet register.
             </p>
             <div className="c-ctas">
               <a className="c-btn c-btn--fill" href="#gate">
@@ -80,12 +84,6 @@ export default function HomePage() {
               <Link className="c-btn c-btn--line" href="/fleet">
                 Open the fleet
               </Link>
-            </div>
-            <div className="c-legend" aria-hidden="true">
-              <span><i style={{ background: "#FFFFFF", border: "1px solid var(--ink2)" }} />tokens, day side</span>
-              <span><i style={{ background: "var(--cash-close)" }} />cash market quoting</span>
-              <span><i style={{ background: "var(--token-print)" }} />tokens after the close</span>
-              <span><i style={{ background: "var(--token-print)", borderRadius: "50%" }} />one dot, one session record</span>
             </div>
           </div>
         </div>
