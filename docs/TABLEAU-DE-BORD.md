@@ -1,6 +1,7 @@
 # TABLEAU DE BORD MONARK — état par chantier
 
 Mis à jour par l'orchestrateur à CHAQUE événement (retour d'agent, décision, fusion). Le détail et l'historique vivent dans `docs/CHANTIERS.md` ; ce fichier ne porte que l'ÉTAT COURANT. Dernière mise à jour : 2026-09-22T20:28Z (orchestrateur, sur `lot/etude-suite` @ `50f78b0`) — brouillon worker `claude-opus-5-5[1m]` (19:50 UTC, `60b54c0`) relu et mis à jour — 13 G7 ACCEPTED le 22/09 (UTC, `git log`) — régime B. Session post-restart (décisions 133/134) : orchestrateur Fable 5.1 `claude-fable-5-1` ; workers, chercheurs et lecteurs Opus 5.5 `claude-opus-5-5` (effort `max` explicite).
+> **État courant : `docs/ETAT-REPRISE.md` (tenu à chaque événement). Ce tableau est un instantané daté du 2026-09-22T20:28Z (CARTO-T1F-3, forme D-2, 2026-09-23 11:55Z).**
 
 **RELEASE EN DEUX TEMPS (décision 117)** : temps 1 = Narabi + Ukemi (priorité 1) ; temps 2 = Bell (avance en parallèle, reste `upcoming` au temps 1).
 
