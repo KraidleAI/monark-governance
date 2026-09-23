@@ -1857,3 +1857,360 @@ et committe au G7.)*
 - **PROV-MODEL-1** : `model: "claude-opus-4-8[1m]"` codé en dur dans la méta d'un cache `--resume` neuf et dans les deux provenances (`record.ts`, 3 occurrences) — roster périmé (décision 133) ; hors `book_digest` (la méta est ignorée à la relecture, `resume.ts:86`). Hors liste fermée de ce lot. *Déclencheur* : prochain lot recorder (champ à dériver d'un argument, jamais d'une constante).
 
 *(ADR-U4b n'est pas dans le gel du prereg §2 ; les docs sont exclus du décompte R-25 — `ci.yml:65`. Ajout pur : aucune valeur de référence existante n'est éditée.)*
+
+## Amendement daté 2026-09-23 (UKEMI-CONC-1 — fenêtre bornée `--concurrency <n>` du recorder et portail de politesse FIFO par opérateur ; décision investisseur 140-bis ; fold G7 : G1 `dec704d` + back-merge `ce7bccf` + micro-pli 1b `2f1e728`) — inséré au G7 du 2026-09-23 (fusion `e1411cf`)
+
+> **Provenance.** Texte v1 : worker G1 `claude-opus-5-5[1m]` (effort max, décision 133), 2026-09-23 vers 05:4x UTC, rendu hors
+> dépôt (D-5 du G1 ; sha256 `8b56659160b763913fac879c3aaab7f1f12e41b6801ea71f9328bf412a039f9e`), base `lot/etude-suite` @ `2c276bb`.
+> Texte v2 : fold G7, worker `claude-opus-5-5[1m]` (effort max), 2026-09-23 07:57-08:33 UTC (C-G2-4 × 8, C-V-3 (i)-(iv) ; sha256
+> `6ae2ab29b6188fe463a81a4f3c060812697daf5014884c611249d5737a4c5f58`). **Texte v3 (ce texte)** : même worker, 2026-09-23 à partir de
+> 09:12 UTC, docs seulement, aucun commit (R-20) ; il intègre le micro-pli 1b (`2f1e728`), le re-checkpoint-2 du pli (C-V3-1 (i)-(vii))
+> et les rulings de l'orchestrateur du 2026-09-23 (UKEMI-GUARD-GATE-1, report de PROV-MODEL-1, garde de blob du temps 2, catégorie
+> `error_origin` « implémentation pli (outillage de preuve) »). Insertion, remplacement des marqueurs du G7, révision : orchestrateur
+> `claude-fable-5-1` seul (R-20, R-21). Générateur ≠ relecteurs : G2 et re-G2-delta = instances Opus 5.5 séparées à contexte frais ;
+> checkpoint-2 et re-checkpoint-2 = validateur-humain `claude-fable-5-1`, instances séparées ; indépendance déclarée
+> (`docs/G2-lot-ukemi-conc-1.md:17-18` ; `docs/CHECKPOINT2-lot-ukemi-conc-1.md:66` ; `docs/CHECKPOINT2-lot-ukemi-conc-1-1b.md:12`).
+> Décisions investisseur 140 / 140-bis (`docs/ETAT-REPRISE.md:137-138`). `error_origin` : proposés par correction (§11), ASSIGNÉS au G7.
+
+### 1. Chaîne de revue (ordre réel ; heure = `TZ=UTC git log` du commit porteur)
+
+| étape | artefact | verdict | commit (heure UTC) |
+|---|---|---|---|
+| G1 (worker `claude-opus-5-5[1m]`) | `docs/G1-lot-ukemi-conc-1.md` ; `pool.ts` et `prefetch.ts` (neufs), `rpc2.ts`, `record.ts`, `resume.ts` ; `apps/sentinel/test/ukemi-conc.test.ts` (11 tests) | 19/19 mutants du worker tués par leur test nommé ; oracle 7 × 0, 988/986/0/2 (clone frais) | `dec704d` sur `lot/ukemi-conc-1` (06:56:18), base `2c276bb` |
+| checkpoint-2 (validateur-humain `claude-fable-5-1`) | `docs/CHECKPOINT2-lot-ukemi-conc-1.md` | ACCEPTE-AVEC-CORRECTIONS C-V-1..C-V-3, conditionné au G2 PASS et à un re-G2-delta du micro-pli (§7, `:80`) | persisté `0383e5b` (06:56:32) |
+| G2 (relecteur `claude-opus-5-5[1m]`, contexte frais) | `docs/G2-lot-ukemi-conc-1.md` | PASS-AVEC-CORRECTIONS C-G2-1..C-G2-4 ; 15/18 mutants du relecteur tués par un test nommé, 3 survivants (G2M3b, G2M8, G2M19) ⇒ C-G2-2, C-G2-3 ; fusion à blanc sur `db86efc` : 0 conflit, oracle 7 × 0, 1053/1051/0/2 (clone frais) | persisté `8a05bab` (07:40:16) |
+| back-merge (orchestrateur ; option (β) du pli, `docs/PLI-lot-ukemi-conc-1-1b.md:20-35`) | fusion de `lot/etude-suite` @ `6aca053` dans le lot | AUTOMATIQUE : `git merge-tree --write-tree dec704d 6aca053` = `44008497d3cf…` = `ce7bccf^{tree}` (`docs/CHECKPOINT2-lot-ukemi-conc-1-1b.md:26` ; recomputé par ce fold sans écriture dans le dépôt) | `ce7bccf` (08:28:15) |
+| micro-pli 1b (worker `claude-opus-5-5[1m]`) | `docs/PLI-lot-ukemi-conc-1-1b.md` ; `record.ts` 3/3, `prefetch.ts` 6/4, `ukemi-conc.test.ts` +102 (11 → 13 tests) | C-V-1/C-V-2 (= C-G2-1), C-G2-1b, C-G2-2, C-G2-3 ; 15/15 mutants tués par leur test nommé, MV1/MV2 aussi au typecheck ; oracle 7 × 0 sur le produit de fusion, 1055/1053/0/2 (clone frais) ; worktree seul ROUGE par construction (D-1 du pli) | `2f1e728` (08:28:17) |
+| re-checkpoint-2 du pli (validateur-humain `claude-fable-5-1`) | `docs/CHECKPOINT2-lot-ukemi-conc-1-1b.md` | ACCEPTE-AVEC-CORRECTIONS C-V3-1..C-V3-3, conditionné au re-G2-delta PASS ; oracle 7 × 0 sur `2f1e728` et sur la fusion à blanc `defb0a7` ← `2f1e728` (0 conflit, 1055/1053/0/2) ; mutant distinct « `every: 2000` sur le seul préfetch livre » rouge sur le test C-V-2 (`:40`) | persisté `637dbb4` (09:02:49) |
+| re-G2-delta du pli (instance fraîche ; condition du checkpoint-2 `:80` et du re-checkpoint-2 `:62`) | `docs/G2-lot-ukemi-conc-1-1b.md — PASS, liste fermée vide (O-R1..O-R7)` | avant la fusion du G7 | — |
+| G7 (orchestrateur `claude-fable-5-1`) | fusion `--no-ff` de `2f1e728` et ce texte | preuves C-V3-3 (§8) | `e1411cf` |
+
+### 2. Décision
+
+- **`--concurrency <n>`** : argument CLI optionnel (aucune variable d'environnement, C-1(b)). Absent ⇒ **1 = le recorder séquentiel,
+  inchangé** — preuve différentielle du G2 contre l'arbre pré-lot : 10/10 scénarios, JSON (hors la clé déclarée
+  `provenance.concurrency`, D-8), diag, cache `--resume`, ledgers et SÉQUENCE des requêtes identiques ; seuls écarts : de TEMPS, F-1 et
+  F-2 levés (`docs/G2-lot-ukemi-conc-1.md:75-86`). Présent ⇒ entier décimal ≥ 1, sinon **refus pré-vol** avant client, verrou et ledger
+  (0 fetch, dossier ledger vide ; `docs/G2-lot-ukemi-conc-1.md:132-136`). Parsé hors `parseUkemiArgs` (`parseConcurrency`,
+  `apps/sentinel/src/ukemi/pool.ts` ; appel `record.ts:251` @ `2f1e728`, D-2).
+- **Préfetch borné, consommateurs INCHANGÉS** : à n > 1, `apps/sentinel/src/ukemi/prefetch.ts` rejoue le plan de lecture du
+  consommateur (passe de filtre ; `recordBook`) à travers le lecteur **mémoïsant** (cache `--resume`, ou mémo en RAM sans fichier) par
+  une fenêtre de n tâches ; puis le consommateur inchangé tourne séquentiellement sur des HIT. `book.ts` **non touché** (PIN
+  `034fbff9…`) ; l'agrégation reste celle du code d'origine, dans l'ordre des holders ⇒ `book`, `book_digest`, `holders_digest`,
+  `counts`, `hf_findings` (ordre compris), `timeline` et, en passe de filtre, `holders`, `holders_digest`, `n_at_risk_config`,
+  `excluded`, `projection_remaining_calls` **byte-identiques à n = 1 par construction** (G2 : 6/6 scénarios n = 1 contre n = 8, PIN de
+  la plage complète compris, `docs/G2-lot-ukemi-conc-1.md:88-95` ; checkpoint-2 : n = 1/3/8 sur un jeu que le worker n'avait pas
+  couvert, `docs/CHECKPOINT2-lot-ukemi-conc-1.md:33`). Écartés : boucle concurrente dans `recordBook` (invariant `book.ts`) ou dans
+  `enumerateAndCountAtRisk` (conflit certain avec UKEMI-RETRY-2/3).
+- **Portail de politesse partagé** (`makePoliteGate`, `apps/sentinel/src/ukemi/rpc2.ts`, remplace `polite`) : file FIFO par
+  opérateur (`providerOf`, D-4 inchangé) ; émission au plus tôt à `last + intervalle` sur l'horloge MONOTONE `performance.now()`
+  (re-testée après chaque minuteur, au plus 10 sommeils) ; `last` posé APRÈS l'émission ; suivant libéré avant la fin de l'appel.
+  Opérateurs DISTINCTS servis en parallèle et `--slow-operator` honoré À TRAVERS le portail : épinglés au pli 1b (C-G2-3 : deux blocs
+  ajoutés à `ukemi_conc_polite_gate_spaces_issues_per_operator_under_concurrency` ; G2M3b, G2M19, MS1 rouges). Le même portail couvre
+  les **retries** appelants du recorder (`attempt > 0`) ⇒ « ≤ 1 appel par `minIntervalMs` par opérateur » vaut retries compris (G2 :
+  0 écart sous l'intervalle, `Date` ou `performance.now` gelés compris, `docs/G2-lot-ukemi-conc-1.md:113-126`).
+- **Fenêtre** : ≤ n tâches en vol (n travailleurs, un curseur) ; résultats rangés par index d'entrée. **Première erreur (C-G2-4
+  point 4)** : la fenêtre s'arrête à la PREMIÈRE erreur dans le TEMPS. « Équivalent séquentiel » vaut pour la MÉCANIQUE (comme la boucle
+  séquentielle, aucune lecture n'est lancée après elle), PAS pour l'IDENTITÉ de l'erreur : à n > 1, le holder fautif et la classe de
+  l'erreur — donc le code de sortie (1 abstention, 2 arrêt budgétaire) et le diag — peuvent différer de ceux de n = 1 (D-9,
+  `docs/G1-lot-ukemi-conc-1.md:129-131`) ; les erreurs ultérieures, y compris un `BudgetExceededError` survenu pendant le drain, sont
+  listées dans `diag.pool.suppressed` (URL retirées, `record.ts:528` @ `2f1e728`), jamais relancées. **Arrêt à la frontière de
+  lecture** : une tâche multi-lectures (chemin livre, `prefetchBookReads`) teste le drapeau d'arrêt à CHAQUE lecture (`prefetch.ts:92`
+  @ `2f1e728`) — épinglé au pli 1b (C-G2-2, `ukemi_conc_book_stop_halts_each_task_at_its_next_read_and_ledgers_stay_chained`).
+  **Drain de toutes les tâches en vol AVANT de relancer** (F-5). Aucune sortie porteuse de digest n'est écrite sur un arrêt (inchangé :
+  le JSON de run n'est écrit que sur le chemin de succès ; un arrêt en course écrit `<out>.diag.json`, avec la clé `pool` à n > 1).
+  Cache `--resume` **single-flight** par clé (`resume.ts`) ; appends `appendFileSync` (une ligne complète par appel, sérialisée par le
+  fil JS unique).
+
+### 3. Modèle de faute (défaut → mécanisme → test nommé, mutant rouge)
+
+| Défaut | Mécanisme | Test (mutant) |
+|---|---|---|
+| **F-1** portail pré-lot : stamp APRÈS l'attente, sans file ⇒ deux appels concurrents au même opérateur passent ENSEMBLE (déjà à n = 1 : sous-plages `Promise.all` de `getLogsVia`) | FIFO + stamp après émission | `ukemi_conc_polite_gate_spaces_issues_per_operator_under_concurrency` (M7) |
+| **F-2** retry appelant hors portail | portail partagé | `ukemi_conc_retry_attempt_re_enters_the_gate` (M8) |
+| portail : une file UNIQUE pour tous les opérateurs (G2M3b) ; opérateur lent D-4 ignoré par le portail (G2M19) — trous de test mesurés au G2 (`docs/G2-lot-ukemi-conc-1.md:189,203-206`) | clé `providerOf` ; `resolveInterval` consulté dans le portail | `ukemi_conc_polite_gate_spaces_issues_per_operator_under_concurrency`, deux blocs ajoutés au pli 1b (G2M3b, G2M19 ; MS1 « portail partagé sans le jeu lent » ; `docs/PLI-lot-ukemi-conc-1-1b.md:62,99`) |
+| **ORACLE-HANG-1** (mesuré au G1) portail sur l'horloge murale : sous un `Date` GELÉ (preload de `test/guard-scripts-u4.test.ts`) le re-test ne finit jamais ⇒ `npm run test` pendu | horloge monotone + re-test borné | `ukemi_conc_polite_gate_uses_the_monotonic_clock_under_a_frozen_date` (M16) ; `test/guard-scripts-u4.test.ts` vert |
+| **F-5** ligne write-ahead APRÈS l'`unlocked` du `finally` (seconde instance de ledger ; l'appel tardif chaîne sur le head PÉRIMÉ ⇒ « prev mismatch » ⇒ l'essai suivant refuse d'ouvrir — famille CHAIN-1) | drain avant relance | `ukemi_conc_budget_stop_drains_before_unlock_and_ledgers_stay_chained` (M4b) ; `ukemi_conc_pool_first_error_stops_dispatch_and_drains_before_rethrow` (M4) ; `ukemi_conc_book_stop_halts_each_task_at_its_next_read_and_ledgers_stay_chained` (G2M1 : chaîne `drpc.org` cassée) |
+| lectures lancées après le stop — (a) au DISPATCH (chemin filtre : une lecture par tâche) ; (b) à la PROCHAINE LECTURE d'une tâche multi-lectures (chemin livre) — **C-G2-4 point 3** | (a) drapeau au dispatch ; (b) `signal.stopped` testé à chaque lecture | (a) `ukemi_conc_pool_first_error_stops_dispatch_and_drains_before_rethrow` (M3) et `ukemi_conc_budget_stop_drains_before_unlock_and_ledgers_stay_chained` (M3b : 43 `refused` au lieu de ≤ n, `docs/G1-lot-ukemi-conc-1.md:62-63`) ; (b) `ukemi_conc_book_stop_halts_each_task_at_its_next_read_and_ledgers_stay_chained` (G2M8 : 22 requêtes distinctes / 43 émissions après l'arrêt contre ≤ 7 / ≤ 14, `docs/PLI-lot-ukemi-conc-1-1b.md:61,98`) |
+| fenêtre non bornée ; agrégation dans l'ordre d'arrivée | n travailleurs ; `out[i]` | `ukemi_conc_pool_bounds_in_flight_and_keeps_input_order` (M1, M2 — propriété portée par la fenêtre : les compteurs sont commutatifs) |
+| double MISS d'une clé ; ligne entrelacée | single-flight ; append synchrone | `ukemi_conc_resume_reader_is_single_flight_per_key` (M13) ; `ukemi_conc_resume_under_concurrency_one_line_per_miss_and_replays` (M12) |
+| dérive du plan de préfetch ; préfetch non branché ; mémo absent | garde « 0 lecture réseau pendant `recordBook` » ; en vol 1 < · ≤ n sur le chemin servi ; totaux d'appels n = 8 == n = 1 | `ukemi_conc_book_prefetch_leaves_recordbook_zero_network_reads` (M9, M10, M15) ; `ukemi_conc_n8_filter_and_book_are_byte_identical_to_n1` (M11, M11b, M14) |
+| défaut ≠ 1 ; 0 accepté | `parseConcurrency` | `ukemi_conc_concurrency_is_optional_default_1_and_fail_closed` (M5, M6) |
+| battement du préfetch figé à 2 000 : `--heartbeat-every` accepté, validé puis IGNORÉ à n > 1 (ex-R-C-1 ; 0 ligne `..prefetch` à `--heartbeat-every 5`, `docs/CHECKPOINT2-lot-ukemi-conc-1.md:37`) ; compteurs de la passe de rejeu non remis à zéro (ex-R-C-2) ; `t=` absent de la ligne `..prefetch` | `every: args.heartbeatEvery` aux deux appels (`record.ts:438,476` @ `2f1e728`, C-V-1) ; `every` OBLIGATOIRE dans `PrefetchOpts` (`prefetch.ts:20`, C-G2-1b) ; `t=` ISO de `deps.now` (`record.ts:429`, C-G2-1b) | `ukemi_conc_heartbeat_every_paces_both_prefetches_and_the_replay_restarts_at_zero` (MV1-MV8, MT1, MT2 ; MV1/MV2 aussi au typecheck, TS2345 ; mutant distinct du re-checkpoint-2 « `every: 2000` sur le seul préfetch livre », `docs/CHECKPOINT2-lot-ukemi-conc-1-1b.md:40`) |
+
+**Budget (choix documenté)** : aucune lecture NOUVELLE après le stop ; les lectures en vol terminent — un appel déjà passé par `commit`
+finit son transport (ligne `attempted` écrite, write-ahead honoré), un appel qui atteint `meter` après l'épuisement est **refusé et
+ledgeré** (`refused`, 0 crédit) : le ledger de cycle compte les TENTATIVES, au plus une refusée par lecture en vol (≤ n). Plafonds tenus
+sous concurrence (vérification et incrément dans le même tour synchrone ; G2 b1-b4 : aucun dépassement,
+`docs/G2-lot-ukemi-conc-1.md:138-151`). **Tallies (C-G2-4 point 5)** : les tallies de provenance (`calls*`, `rpc_errors`,
+`errors_by_operator` ; NON-gating) sont égaux à n = 1 sauf R-C-3 **sur une course menée à terme** ; sur un ARRÊT, ils portent EN PLUS
+les appels des ≤ n − 1 lectures en vol au moment de la première erreur et ≤ n lignes `refused` (G2, `--method-caps eth_call=40` :
+7 `refused` à n = 8 contre 1 à n = 1 ; drpc 50 tentatives à n = 8 contre 44 à n = 1, keyless, bornées par `--max-calls`).
+
+### 4. Tuyaux (règle de Branchement)
+
+- *Entrée* : `--concurrency <n>` (ligne de course) → `parseConcurrency` → `runRecorder` (pré-vol) ; `--heartbeat-every <n>`
+  (UKEMI-HEARTBEAT-1) règle aussi la période du battement du préfetch (C-V-1).
+- *Sortie (C-G2-4 point 7 ; C-V3-1 (i))* : les MÊMES artefacts (JSON de run, `book`/`book_digest`, cache `--resume`,
+  `<out>.diag.json`) ; `provenance.concurrency` (hors digest, D-8 ; le consommateur gelé `scripts/census/u4b/u4b-reduce.mjs:41-48` ne
+  lit que `book` et `provenance.book_digest`) ; `diag.pool` (n > 1) ; battement stderr
+  `..prefetch pass=<filter|book> holders_done=… n_at_risk_config=… rate=…/s concurrency=… calls={…} errors={…} t=<ISO>`
+  émis **à la période `--heartbeat-every`** (holders dont la lecture de configuration est arrivée ; C-V-1, `record.ts:438,476` @
+  `2f1e728` ; avant le pli, figé à 2 000, `docs/G2-lot-ukemi-conc-1.md:217-224`) et horodaté **`t=` = ISO de `deps.now`** (C-G2-1b,
+  `record.ts:429` ; `realDeps.now = Date.now`, `record.ts:217`) ; sur le chemin servi, la période vient du seul parse
+  (`reqInt("--heartbeat-every", 2000)`, `record.ts:169-170`), `every` étant OBLIGATOIRE dans `PrefetchOpts` (`prefetch.ts:20`). Lecture
+  en course : débit réseau = Δ`calls` par opérateur / Δ`t` entre deux lignes ; règle 140-bis = Δ`errors` / Δ`calls` par opérateur entre
+  deux lignes ; `rate=` compte des holders, HIT du cache compris (piège `docs/ETAT-REPRISE.md:130`) ; `holders_done` devance d'au plus n
+  tâches les plans complets (le tick suit la lecture de configuration, `prefetch.ts:93-95` @ `2f1e728`) ; à n > 1 en `--filter-only`, la
+  passe inchangée qui suit REJOUE le cache et émet ses propres lignes `..filter`, qui repartent de `--heartbeat-every` (remise à zéro
+  épinglée : MV6, MV7) : du rejeu, pas du réseau.
+- *État* : cache `--resume` (hors dépôt) ou mémo en RAM ; ledgers de cycle par opérateur (inchangés).
+- *Tests de composition (non-LLM, chemin servi `runRecorder` sur le VRAI `openGuardedClient`, seul `globalThis.fetch` bouchonné, corps
+  JSON-RPC de forme réelle)* : `ukemi_conc_n8_filter_and_book_are_byte_identical_to_n1` (+ PIN à n = 8),
+  `ukemi_conc_budget_stop_drains_before_unlock_and_ledgers_stay_chained`, `ukemi_conc_resume_under_concurrency_one_line_per_miss_and_replays`,
+  `ukemi_conc_retry_attempt_re_enters_the_gate` ; au pli 1b : `ukemi_conc_heartbeat_every_paces_both_prefetches_and_the_replay_restarts_at_zero`
+  (battement des deux préfetchs, période, `t=`, remise à zéro du rejeu) et
+  `ukemi_conc_book_stop_halts_each_task_at_its_next_read_and_ledgers_stay_chained` (arrêt non budgétaire sur le chemin livre, ledgers
+  chaînés, `unlocked` dernier). Registre : branché ; « built » à la première course rapprochée (temps 2 à n > 1).
+- **Relation à R-U-5 (C-G2-4 point 2 ; `:1856` de cet ADR, amendement UKEMI-RETRY-2/3)** : à n > 1, le temps 2 A un battement — les
+  lignes `..prefetch pass=book` couvrent toute sa phase réseau (le `recordBook` qui suit rejoue le cache : 0 lecture réseau hors
+  R-C-3, garde `ukemi_conc_book_prefetch_leaves_recordbook_zero_network_reads`), à la période `--heartbeat-every`, horodatées `t=`
+  (C-V-1 et C-G2-1b appliqués au pli 1b `2f1e728`) ; la règle 140-bis y est évaluable. R-U-5 est donc satisfait pour toute course à
+  n > 1, dont la ligne de course du §6 ; à n = 1 (repli séquentiel), R-U-5 reste entier, déclencheur inchangé (`recordBook` sans
+  `onTick`). La ligne `:1856` n'est pas éditée (ajout pur).
+
+### 5. Portée : gel, invariants, ripple, déclencheur d'usage
+
+- **Gel D4 intact (A-6, régime B, LF)** : les 9 sha du prereg §2 (`docs/PLAN-u4b-prereg.md:116-124`) sont byte-identiques à
+  `dec704d`, `8a05bab`, `6aca053`, `2f1e728` et `3147249` (`git show <c>:<f> | tr -d '\r' | sha256sum`, 9/9, recomputé par ce fold),
+  à `2c276bb` (G1, G2, checkpoint-2) et sur le produit de la fusion à blanc `defb0a7` ← `2f1e728` (re-checkpoint-2, `:43`) ; au
+  commit de fusion : `9/9 SAME sur e1411cf (2f9a31f6, a5e66cd3, 5733daeb, 7bee76fc, 3376eb08, 9206df91, 0e232519, 3603265d, cb020425)`. `rpc.ts 0e232519…` et `book.ts` intouchés.
+- **Invariants (re-checkpoint-2 §9, `docs/CHECKPOINT2-lot-ukemi-conc-1-1b.md:83`)** : depuis le back-merge `ce7bccf`, la forme
+  littérale « diff vide contre `2c276bb` » n'est plus probante (elle compte le code d'`etude-suite` entré par le back-merge) ; formes
+  probantes, VIDES (recomputé par ce fold) sur `book.ts`, cet ADR, le prereg, `apps/sentinel/test/fixtures`, `package-lock.json`,
+  `packages`, `scripts`, `apps/bell` : `2c276bb..dec704d` et `6aca053..2f1e728`.
+- **Hors gel (C-G2-4 point 8)** : `record.ts` et `rpc2.ts` sont nommés hors gel par le §3 de l'amendement 2026-09-21 de cet ADR
+  (`:133-136`, « en aval du jeu gelé »). Ce §3 ne nomme PAS `resume.ts`, `pool.ts` ni `prefetch.ts` : ils sont hors gel parce
+  qu'absents du tableau des 9 gelés (prereg §2, `docs/PLAN-u4b-prereg.md:110-126`) et de la fermeture transitive du jeu gelé
+  (`docs/PLAN-u4b-prereg.md:130`) — aucun des 9 n'importe `record.ts`, `rpc2.ts`, `resume.ts`, `pool.ts` ni `prefetch.ts` (`git grep`
+  des lignes `import` des 9 à `8a05bab` et à `dec704d` : vide). Prereg §5a inchangé dans son contenu (aucun flag ne lie `record.ts` ;
+  ses annotations de ligne `record.ts:N` dérivent) ; `ukemi_sha` change (hors `book_digest`).
+- **Ripple complet (C-G2-4 point 6)** — consommateurs NON-test de `makeUkemiPool`, mesurés par `git grep -n makeUkemiPool` à `8a05bab`,
+  `6aca053`, `637dbb4` et `2f1e728` (fichiers non touchés par le lot : mêmes lignes sur l'arbre fusionné) ; le portail FIFO par
+  opérateur s'y applique dès qu'ils tournent sur un arbre qui contient ce lot :
+  - Bell : `apps/bell/src/ethereum.ts:97` (`minIntervalMs: 200`) ;
+  - outils de course : `scripts/census/u4-oracle-path.mjs:189` (prober de l'étape 5 ; `:130` à la base `2c276bb`),
+    `scripts/census/u4-redraw.mjs:92` (re-tirage indépendant U-4a, `minIntervalMs: 50` — **absent de la liste du G2, ajouté par le
+    fold**), `scripts/census/u4b/u4b-discover.mjs:106`, `scripts/census/u4b/u4b-probe-cutoff.mjs:97`,
+    `scripts/census/u4b/u4b-select-episode.mjs:405` ;
+  - effet : les appels concurrents à un même opérateur (sous-plages d'une scission `Promise.all` de `getLogsVia`) sont cadencés au lieu
+    de partir en rafale ; valeurs rendues inchangées (suites vertes sur l'arbre du lot et sur les fusions à blanc, dont
+    `test/guard-scripts-u4.test.ts`, prober sous `Date` gelé : `docs/G2-lot-ukemi-conc-1.md:214-216` ;
+    `docs/CHECKPOINT2-lot-ukemi-conc-1-1b.md:43`) ; les arbres d'exécution (course, Bell) étant épinglés, le portail n'y entre qu'au
+    ré-épinglage (R-C-5, §7) ;
+  - `record.ts` passe son portail PARTAGÉ par l'option `gate` (retries compris) ; les autres consommateurs reçoivent chacun un portail
+    propre (défaut `makePoliteGate(minIntervalMs, …)` de `makeUkemiPool`) qui ne cadence que les premiers essais (UKEMI-GUARD-GATE-1, §7).
+- **Déclencheur d'usage (C-G2-4 point 1)** : UKEMI-RETRY-2/3 + HEARTBEAT-1 est FUSIONNÉ (`12b6dcd`, docs `db86efc`) AVANT ce G7 : la
+  composition des deux lots se fait À CE G7 — R-C-1 et R-C-2, formés au G1 avec le déclencheur « G7 du second des deux lots », sont
+  APPLIQUÉS au pli 1b (`2f1e728`, C-V-1/C-V-2 = C-G2-1) ; ce ne sont plus des résidus (§7). Usage au temps 2 : ce G7 fusionné ; temps 1
+  COMPLET (ligne `holders` au cache `--resume`, `n_at_risk_config` = N mesuré) ; arbre d'exécution de la course ré-épinglé au sha de
+  fusion, avec la garde de blob du temps 2 (§7) ; C-12 exit 0 (acquis à l'étape 2c-bis, `docs/CHANTIERS.md:1024`) ; 0 verrou ; ligne
+  Sidecar 3b (go/no-go du temps 2, RUNBOOK étape 3b, `docs/course-ukemi/RUNBOOK-course-ukemi-2026-09-22.md:304`) écrite AVANT le
+  lancement, avec la ligne de course (§6), ses caps recalculés sur N mesuré et la pré-déclaration R-C-3. Option temps 1
+  (`docs/G1-lot-ukemi-conc-1.md:247-248`) : la même fenêtre vaut pour `--filter-only` si le temps 1 n'est pas fini au G7 (reprise par
+  `--resume`, les lectures en cache sont des HIT, 0 appel) — décision opératoire de l'orchestrateur, hors de ce texte.
+
+### 6. Débit et ligne de course du temps 2 (proposition du G1, à valider au Sidecar 3b avec N mesuré)
+
+- **Formule.** Pool `eth_call` pour `--operators drpc.org,tenderly.co,chainstack` = {drpc.org, chainstack}
+  (`ETH_CALL_KEYLESS_LABELS` sans tenderly, `packages/rpc-guard/src/transport.ts:36` ; `chainstack` ajouté par `record.ts`) ; chaque
+  lecture quorum-2 émet un appel sur CHACUN des deux ; le portail espace d'au moins `iv` = `--min-interval-ms` les émissions à un même
+  opérateur ⇒ **débit ≤ 1000 / iv lectures/s** (10/s à 100 ms), sous réserve que les deux opérateurs soient servis en parallèle (vrai
+  sur le doré, sonde g5 du G2 ; épinglé au pli 1b : bloc (1) de C-G2-3, G2M3b rouge). Avec une latence séquentielle L par lecture :
+  débit ≈ min(n / L, 1000 / iv) ⇒ saturation dès n ≥ n_sat = L × 1000 / iv ; au-delà, les travailleurs attendent dans la file du
+  portail (sain, sans gain) et seul le coût d'un arrêt croît (UKEMI-CONC-BOUND-1).
+- **Mesuré** (G2, battements horodatés `t=` de l'essai 5, même ligne d'opérateurs, 100 ms ; `docs/G2-lot-ukemi-conc-1.md:269-278` ;
+  recomputé par le fold sur les deux mêmes lignes) : compteur `chainstack` 535 → 3 535 entre `t=06:48:29.998Z` et `t=07:08:21.845Z` ⇒
+  3 000 lectures en 1 191,847 s = 2,517 lectures/s ⇒ **L = 0,397 s** ⇒ **n_sat = 3,97** à 100 ms (1,99 à 200 ms) : n = 8 sature le
+  plafond.
+- **Dérivé** : gain plafond à 100 ms = 10 / 2,517 = **× 3,97** — et non le « × 5-10 » estimé avant la mesure
+  (`docs/ETAT-REPRISE.md:138`).
+- **Extrapolé** (4,5 lectures par compte = projection `9 × N` appels du recorder / 2 jambes ; N du temps 1 NON terminé ; à remplacer par
+  N mesuré) : N = 67 191 × 3 160 / 14 000 = **15 166** (battement de l'essai 4b ; le G1 écrivait 15 190 : erratum O-2) ; 15 220 au
+  dernier battement de l'essai 5 lu par le G2 (21 500 → 4 870) ⇒ lectures du temps 2 ≈ 4,5 N ≈ 68 250 à 68 490 ⇒ **≈ 1,90 h au
+  plafond** (n = 8, 100 ms) contre **≈ 7,5 h en séquentiel** (× L) ; repli 140-bis à 200 ms (plafond 5/s) ⇒ ≈ 3,8 h.
+- **Ligne de course proposée** (G1, `docs/G1-lot-ukemi-conc-1.md:210-248`) — base : flags de l'essai 4b et deltas de l'essai 5 (D-n du
+  Sidecar 3, `docs/course-ukemi/SIDECAR-prereg-u4b-1b-2026-09-22.md:26`) ; écarts au RUNBOOK 3c
+  (`docs/course-ukemi/RUNBOOK-course-ukemi-2026-09-22.md:313`) : opérateurs de l'essai 5, `--concurrency 8`, retries, backoff et
+  battement de l'essai 5 — D-n à consigner au Sidecar 3b ; préfixe ENV-7 du RUNBOOK (étape 3) inchangé ; exécutée depuis l'arbre
+  d'exécution de la course ré-épinglé au sha de fusion :
+
+```
+node apps/sentinel/src/ukemi/record.ts \
+  --cluster weth --block 23414968 --from-block 16496792 \
+  --operators drpc.org,tenderly.co,chainstack \
+  --min-interval-ms 100 --concurrency 8 \
+  --retries 6 --backoff-ms 1000 --backoff-cap-ms 30000 --heartbeat-every 500 \
+  --ledger-dir F:/monark-ledger/chainstack-2026-09-19 --cycle chainstack-2026-09-19 --floor 12916 \
+  --max-ru <2 x EC> --max-calls <9 x N x 1.2> --method-caps eth_call=<EC>,eth_getLogs=6000,eth_getBlockByNumber=4000 \
+  --prereg-file docs/PLAN-u4b-prereg.md \
+  --prereg-sha 1971d9b14ce0adf8c617f23e2ed1e323d80224cf442636aba5f7cf5fc5892f49 \
+  --labeler-sha cb0204250cce05f4846c7cfe821e72eecac22ffd636cfde4acff6a205b41a1af \
+  --concordance-out F:/course-ukemi/record/concordance-book-23414968.jsonl \
+  --resume F:/course-ukemi/record/U4-inputs-23414968.jsonl \
+  --out F:/course-ukemi/record/U4-book-23414968.json
+```
+
+- **Caps (formule sur N, pas une hausse silencieuse ; à valider au Sidecar 3b avec N mesuré)** : `EC` ≥ 4,5 × N × 1,2 (tentatives
+  `eth_call` de la seule jambe payante, marge de retry 20 %) ; `--max-calls` ≥ 9 × N × 1,2 (+ énumération, RUNBOOK 3b `:306` ; toutes
+  jambes, retries compris — sémantique des bornes, `:1849` de cet ADR) ; `--max-ru` ≥ 2 RU × `EC` (2 RU par `eth_call` chainstack,
+  `:1849` ; `docs/ETAT-REPRISE.md:130`). Ordre de grandeur (EXTRAPOLATION, N = 15 166) : `EC` ≈ 81 900, `--max-calls` ≈ 163 800,
+  `--max-ru` ≈ 163 800 RU — à recalculer au Sidecar 3b sur N = `n_at_risk_config` du temps 1 complet, jamais repris tels quels.
+
+### 7. Items formés et résidus requalifiés (propriétaire : orchestrateur ; zéro « dû » nu)
+
+Requalifiés (C-V-3 (ii) ; C-V3-1 (iii)) : **R-C-1** (câbler `args.heartbeatEvery` dans l'option `every` des deux appels
+`prefetch…Reads`) et **R-C-2** (remise à zéro des compteurs après le préfetch de filtre) sont **appliqués au pli 1b (`2f1e728`, C-V-1 /
+C-V-2 = C-G2-1)** : R-C-1 = les deux lignes `every: args.heartbeatEvery` (`record.ts:438,476` @ `2f1e728`) ; R-C-2 fermé par test (MV6,
+MV7 rouges) ; leur déclencheur « G7 du second des deux lots » était déjà tiré (RETRY-2/3 fusionné `12b6dcd`) ; ce ne sont plus des résidus.
+
+| item | contenu | déclencheur | source |
+|---|---|---|---|
+| **UKEMI-CONC-BOUND-1** (O-3 du G2) | aucune borne haute sur n (fenêtre effective = min(n, holders)) : coût d'un arrêt O(n) — ≤ n `refused`, ≤ n − 1 lectures en vol, drain jusqu'à n × iv par opérateur par la file FIFO ; au-delà de n_sat (§6), n n'ajoute aucun débit ; issue : borne dans `parseConcurrency`, ou phrase datée « n ≤ 64 recommandé ; la ligne de course fixe n = 8 » | prochain lot touchant `pool.ts` | `docs/G2-lot-ukemi-conc-1.md:302-304` |
+| **UKEMI-CONC-EVERY-GUARD-1** (O-P1 du pli ; C-V3-1 (vi)) | `prefetch.ts` ne revérifie pas `every ≥ 1` (`tick`, `prefetch.ts:69-72` @ `2f1e728`) alors que le cœur séquentiel le fait (`record.ts:71-72`) : un `every: 0` y donnerait `% 0` ⇒ NaN ⇒ battement muet ; seul appelant de production = `args.heartbeatEvery`, refusé `< 1` au parse (`record.ts:169-170`, pré-vol) ; `every` OBLIGATOIRE et typé : aucun défaut caché | apparition d'un 2ᵉ appelant de production de `prefetchFilterReads` / `prefetchBookReads` (ajouter alors la garde en cœur, calque HEARTBEAT-1) | `docs/PLI-lot-ukemi-conc-1-1b.md:172-177` ; `docs/CHECKPOINT2-lot-ukemi-conc-1-1b.md:63` |
+| **R-C-3** | `description()` en revert concordant non cacheable ⇒ lue par le préfetch PUIS relue par `recordBook` : +2 `calls`, +2 `rpc_errors`, +1 `errors_by_operator` par opérateur et par réserve concernée, hors digest (mesuré : G2 `docs/G2-lot-ukemi-conc-1.md:93-95` ; checkpoint-2 `docs/CHECKPOINT2-lot-ukemi-conc-1.md:34`) ; **ajout du fold (lecture du code, non mesuré)** : +1 observation concordante par réserve concernée dans `--concordance-out` (hors digest), `onQuorum` étant appelé avant le `throw` du revert concordant (`quorum2`, `rpc2.ts:203,205` @ `2f1e728`) | PRÉDICTIF : pré-déclarer au Sidecar 3b que `calls_by_operator` dépassera la projection n = 1 de 2 × (réserves à `description()` en revert — GHO attendu, `apps/sentinel/src/ukemi/book.ts:82-83`) : pas une fuite ; alternative code (retirer la lecture `description` de `reserve()` dans `prefetch.ts`) au prochain lot touchant `prefetch.ts`, si le G7 la préfère | `docs/G1-lot-ukemi-conc-1.md:260-264` |
+| **R-C-4** | pas de recul global par opérateur sur 429 : le portail plafonne à 1 émission par intervalle, retries compris, mais pendant un épisode 429 les autres lectures en vol continuent au débit du portail | Δ`errors` d'un opérateur > 5 % de Δ`calls` entre deux battements au débit concurrent ⇒ règle d'arrêt 140-bis (200 ms, ou n plus petit) ; lot dédié si récurrent | `docs/G1-lot-ukemi-conc-1.md:265-267` |
+| **R-C-5** (étendu, C-G2-4 point 6) | le portail entre dans chaque consommateur de `makeUkemiPool` au ré-épinglage de son arbre d'exécution (liste §5) ; sorties inchangées (suites vertes) | Bell : prochaine frontière `mint_end` (déploiement Bell = événement séparé) ; outils de course : ré-épinglage de l'arbre d'exécution de l'étape qui les lance (prober de l'étape 5 : `u4-oracle-path.mjs`) | `docs/G1-lot-ukemi-conc-1.md:268-270` ; `docs/G2-lot-ukemi-conc-1.md:262-264` |
+| **UKEMI-GUARD-GATE-1** (ruling de l'orchestrateur, 2026-09-23 ; constat de lecture du fold v2) | F-2 n'est corrigé que dans le recorder : le retry appelant de `makeGuardedPoolCall` (`scripts/census/u4-guard.mjs:149-167`) repart après son backoff DANS le même appel au portail, donc hors cadence ; préexistant (même comportement sous l'ancien `polite`) ; borné par `retries` (0 par défaut) : un retry peut suivre de moins d'un intervalle l'émission précédente au même opérateur quand l'intervalle dépasse le backoff (500 ms au premier retry par défaut ; p. ex. `--min-interval-ms 1000` de la sonde (d), `docs/CHANTIERS.md:1024`) | prochain lot touchant `scripts/census/u4-guard.mjs`, OU toute course census lancée avec `retries > 0` ; propriétaire : orchestrateur | ruling de l'orchestrateur (entrée CHANTIERS du G7) |
+| **PROV-MODEL-1** (existant, `:1857` de cet ADR) | déclencheur « prochain lot recorder » ATTEINT par ce lot (il touche `record.ts`) ; **REPORTÉ** par ruling de l'orchestrateur, motif daté 2026-09-23 : mission du lot antérieure à la formation de l'item (lancée à 04:47Z, `docs/ETAT-REPRISE.md:145` ; item formé au G7 RETRY-2/3, 06:34Z, `docs/CHANTIERS.md:1007`), course en cours ; les 3 littéraux `claude-opus-4-8[1m]` restent (`record.ts:410,455,488` @ `2f1e728`) | NOUVEAU déclencheur : prochain lot recorder APRÈS le temps 2 ; propriétaire : orchestrateur | ruling de l'orchestrateur (entrée CHANTIERS du G7) |
+| **Garde de blob du temps 2** (item RUNBOOK ; ruling de l'orchestrateur) | le contrôle 0.6 du RUNBOOK (`docs/course-ukemi/RUNBOOK-course-ukemi-2026-09-22.md:95`) épingle `rpc2.ts 92577c5a` et `record.ts afa20f8c`, périmés par RETRY-2/3 et par ce lot (LF à `2f1e728` : `record.ts` `ceffc370…`, `rpc2.ts` `624bc437…`) ⇒ garde fail-closed des blobs `record.ts` et `rpc2.ts` en tête du script du temps 2 (calque du ruling (b) du G7 RETRY-2/3, `docs/CHANTIERS.md:1013`) ; 0.6 re-mesuré | Sidecar 3b (avant le lancement du temps 2) ; propriétaire : orchestrateur | ruling de l'orchestrateur (entrée CHANTIERS du G7) |
+| **O-2** (erratum G1) | N = 15 166 (et non 15 190) ; L = 0,397 s mesuré | repris au §6 ; ligne Sidecar 3b | `docs/G2-lot-ukemi-conc-1.md:300-301` |
+| **O-4** (C-V3-1 (v)) | commentaire périmé `apps/sentinel/test/ukemi-u4a.test.ts:149` (« polite() consults it » ; `polite` n'existe plus) ; **NON traité au pli 1b** (hors périmètre des 3 fichiers, `docs/PLI-lot-ukemi-conc-1-1b.md:63`) | prochain lot touchant `apps/sentinel/test/ukemi-u4a.test.ts` ; propriétaire : orchestrateur | `docs/G2-lot-ukemi-conc-1.md:305-306` ; `docs/CHECKPOINT2-lot-ukemi-conc-1-1b.md:63` |
+| **O-5** | hôtes de test `.example` (A-4 dit `.invalid`) : TLD réservé, jamais fetchés ; **NON aligné au pli 1b** : le pli n'a qu'AJOUTÉ des lignes (D-4 ; 0 ligne retirée) et ses 3 lignes ajoutées qui nomment un hôte utilisent aussi `.example` (mesuré par le fold : `git diff ce7bccf 2f1e728 -- apps/sentinel/test/ukemi-conc.test.ts`) | le déclencheur « prochaine édition du test » est ATTEINT sans alignement ⇒ re-formé : prochain lot autorisé à MODIFIER des lignes existantes de `apps/sentinel/test/ukemi-conc.test.ts` ; propriétaire : orchestrateur (confirmation au G7) | `docs/G2-lot-ukemi-conc-1.md:307` |
+| **O-6** | piège d'outil mesuré : `grep -c` d'un `$'\r'` via l'outil Bash compte toutes les lignes d'un fichier LF (famille A-13) ; fins de ligne à mesurer par node | proposition d'amendement A-13 de `docs/CONSIGNE-STANDARD-G1.md`, prochaine révision de la consigne | `docs/G2-lot-ukemi-conc-1.md:308-309` |
+| **O-7** (préexistant, inchangé) | une sous-plage sœur d'une scission `Promise.all` (`getLogsVia`) peut survivre au rejet de l'autre ; sur le chemin servi, `process.exit` (`record.ts:569,575` @ `2f1e728`) passe avant tout minuteur ⇒ aucune ligne après le `finally` ; seul un appelant programmatique gardant le processus vivant pourrait la voir | aucun pour la course ; à reprendre par tout lot qui appelle `runRecorder` dans un processus long ou qui touche `getLogsVia` | `docs/G2-lot-ukemi-conc-1.md:310-312` |
+| **O-P2** (pli) | bornes du test C-G2-2 ATTEINTES par le doré (7 = n − 1 requêtes distinctes ; 13 ≤ 14 émissions) : bornes STRUCTURELLES (fenêtre pleine), pas des seuils de temps ; 20/20 exécutions identiques ; les assertions temporelles de C-G2-3 (écart global < IV/2, ≥ 40 ms) sont passées vertes aux 3 exécutions du re-checkpoint-2 (limite déclarée, `docs/CHECKPOINT2-lot-ukemi-conc-1-1b.md:70`) | aucune action ; premier rouge non reproductible d'un test `ukemi_conc_*` en CI ⇒ item de robustesse temporelle (calque PROBE-SMTP-TIMING-1) | `docs/PLI-lot-ukemi-conc-1-1b.md:178-180` |
+| O-1 | commit `dec704d` posé pendant la revue du G2 ; tout re-vérifié sur `dec704d` | aucun (clos) | `docs/G2-lot-ukemi-conc-1.md:299` |
+
+### 8. Taille (R-25), compte et preuves du G7 (C-V-3 (iii) ; C-V3-1 (iv), (vii) ; C-V3-3)
+
+- **R-25 (C-V3-1 (vii))**, pathspec de `.github/workflows/ci.yml:65` VERBATIM (15 arguments, extraits par programme ; recomputé par ce
+  fold) : **forme CI de la PR `<pointe>...2f1e728` = 692** lignes (668 + / 24 −, 6 fichiers), identique pour les pointes `defb0a7`,
+  `6aca053`, `637dbb4` (même merge-base `6aca053` ; re-checkpoint-2 `docs/CHECKPOINT2-lot-ukemi-conc-1-1b.md:31`) ; delta brut du pli
+  `ce7bccf..2f1e728` = 118 (111 + / 7 −, 3 fichiers) ; lot au G1 `2c276bb...dec704d` = 588 (564 + / 24 −, historique ; mesuré par le G2
+  et le checkpoint-2, `docs/G2-lot-ukemi-conc-1.md:170-172`, `docs/CHECKPOINT2-lot-ukemi-conc-1.md:29`). Depuis le back-merge
+  `ce7bccf` (AUTOMATIQUE, §1), la forme `2c276bb...2f1e728` = 3 590 (3 501 + / 89 −, 35 fichiers) **n'est PAS le diff de PR** : elle
+  compte le code d'`etude-suite` entré par le back-merge. Bornes : 692 < 1 150 (STOP A-5) et < 1 205 (`VIBEGATES_PR_LIMIT`,
+  `.github/workflows/ci.yml:43`) ; 692 > 600, cible de la mission G1 (non-gate) : **déviation déclarée** (+104 net au pli, dont +102
+  lignes de test ; re-checkpoint-2 CA-10, `docs/CHECKPOINT2-lot-ukemi-conc-1-1b.md:58`). Note C-V-3 (iii) : le `R25.txt` du G1 portait
+  la forme ARBRE DE TRAVAIL (`git add -N` transitoire, D-7), le lot n'étant pas committé au rendu ; même valeur. Les rendus
+  `docs/G1-lot-*.md` sont exclus par le pathspec (les autres `docs/**/*.md` aussi).
+- **Compte attendu au G7 (C-V3-1 (iv))** : N + 13, où N = 1042 (arbre principal au G7 UKEMI-RETRY-2/3, 1042/1041/0/1,
+  `docs/CHANTIERS.md:1012` ; 1042/1040/0/2 en clone frais à `defb0a7`, re-checkpoint-2 `:43` ; aucune fusion NON docs de `db86efc` à
+  `3147249`, mesuré par ce fold) et 13 = 11 tests du G1 + 2 du pli (C-V-2, C-G2-2 ; C-G2-3 = blocs ajoutés à un test existant) ⇒
+  **1055/1054/0/1** sur l'arbre principal (un seul skip, `sentinel_run_releases_chainstack_lock_on_sigterm`, win32) et
+  **1055/1053/0/2** en clone frais (+1 skip : artefact e2 gitignoré) — 1055/1053/0/2 MESURÉ sur le produit de fusion par le pli
+  (`docs/PLI-lot-ukemi-conc-1-1b.md:14-15`) et par le re-checkpoint-2 (fusion à blanc `defb0a7` ← `2f1e728`, `:43`). Le 1054/1053/0/1
+  du checkpoint-2 (`docs/CHECKPOINT2-lot-ukemi-conc-1.md:61`) est SUPERSÉDÉ. Écart = STOP avant commit.
+- **Lots concurrents** (N à re-mesurer juste avant la fusion) : GARDE-FSYNC-1 (pli 3 PASS-AVEC-CORRECTIONS au re-G2-delta, pli 4
+  test-only lancé, `docs/CHANTIERS.md:1060` ; au pli 3 `9d85fb1`, 11 fichiers non docs dont `packages/rpc-guard/src/ledger.ts`,
+  `packages/rpc-guard/src/cli.ts` et `apps/sentinel/test/ukemi-guard-record.test.ts`, mesuré par le fold) et UKEMI-PRE5-TESTS
+  (`bbe8538`, 3 fichiers de test, « attendu N+3 », `docs/ETAT-REPRISE.md:152`) : s'ils fusionnent avant ce G7, N change ; pour
+  GARDE-FSYNC-1 (code du ledger), la fusion à blanc du re-checkpoint-2 ne serait plus représentative : re-simuler la fusion et rejouer
+  l'oracle 7 gates, dont `ukemi_conc_budget_stop_drains_before_unlock_and_ledgers_stay_chained` et
+  `ukemi_conc_book_stop_halts_each_task_at_its_next_read_and_ledgers_stay_chained` (chaîne du ledger de cycle).
+- **Preuves du G7 après la fusion RÉELLE (C-V3-3, `docs/CHECKPOINT2-lot-ukemi-conc-1-1b.md:65` ; écart = STOP)** : sha256 des 3
+  fichiers du pli sur l'arbre fusionné == `2f1e728` (`record.ts` `ceffc3703ab298e961bcb8b01262c8354c4872a5dbc3988e00b55d799b89dd42`,
+  blob `833db0da23d3e78db689ac2149053262289c6e4d` ; `prefetch.ts` `47bf52ce0b34bcb8d8ddda1eb298662cc47e3525fb9b29518c9bf1e54e6e0533` ;
+  `ukemi-conc.test.ts` `3acc52016596d212f07a3d7ff5baf6b43adccccf777345281a1d0429f076cf86`) ;
+  `git diff --quiet <fusion> 2f1e728 -- . ':(exclude)docs'` exit 0 (si la pointe a avancé en non-docs : re-fusion à blanc + oracle) ;
+  oracle 7 × 0 avec 1055/1054/0/1 ; A-6 9/9 (§5) — résultat :
+  `DELIVERED-pli1b-merged 3/3 OK ; git diff --quiet e1411cf 2f1e728 -- . :(exclude)docs exit 0 ; oracle 7 × exit 0, 1055/1054/0/1 (09:40-09:46Z)`.
+
+### 9. MAST résiduel (C-V-3 (i), C-V3-1 (ii) ; CA-5 parcourue a posteriori, faute de checkpoint-1)
+
+Topologie : un worker + oracle déterministe (motif RustAssistant, CA-4) ; revues G2 ‖ checkpoint-2, puis re-G2-delta ‖ re-checkpoint-2
+séparées. Modes plausibles → contre-mesure :
+- **Sur-lecture / répétition d'étape** (le préfetch relit ce que le consommateur relira) — garde « 0 lecture réseau pendant
+  `recordBook` » (`ukemi_conc_book_prefetch_leaves_recordbook_zero_network_reads`, M9/M10) ; seul écart connu = R-C-3 (revert non
+  cacheable, hors digest).
+- **Terminaison prématurée** (relance avant la fin des lectures en vol ⇒ ligne write-ahead après `unlocked`, CHAIN-1) — drain F-5 (M4,
+  M4b ; mutants DISTINCTS du checkpoint-2 et du G2, G2M1 : schéma CHAIN-1 reproduit sur disque) ; arrêt à la frontière de lecture du
+  chemin livre (C-G2-2, `ukemi_conc_book_stop_halts_each_task_at_its_next_read_and_ledgers_stay_chained`).
+- **Rétention d'information** (drapeau `--heartbeat-every` accepté puis ignoré à n > 1) — battement du préfetch câblé (C-V-1) et
+  horodaté (C-G2-1b), épinglé par `ukemi_conc_heartbeat_every_paces_both_prefetches_and_the_replay_restarts_at_zero`.
+- **Absence de recul global sur 429** — R-C-4 (règle d'arrêt 140-bis).
+- **Vérification incomplète** (ajout du fold, constats du G2 et du re-checkpoint-2) : 3 mutants survivaient aux 11 tests du lot ET à
+  93 tests existants (G2M3b, G2M8, G2M19) — tués au pli 1b par leurs tests nommés (harnais 15/15 byIntended,
+  `docs/PLI-lot-ukemi-conc-1-1b.md:101-130`) ; le re-checkpoint-2 a montré que son propre oracle C-V-2 (filtre seul) restait VERT sous
+  un câblage livre-seul erroné, que le test committé (volet livre) tue (`docs/CHECKPOINT2-lot-ukemi-conc-1-1b.md:40`) ; confirmation
+  indépendante : `re-G2-delta PASS : G2M1, G2M3b, G2M8, G2M19 tués 4/4 par leur tueur visé`.
+- **Vérification incorrecte (outillage)** : deux défauts du harnais du pli, attrapés avant son rendu et sans effet sur le code livré —
+  critère de type lisant la mauvaise ligne de `tsc` (MV1/MV2 notés survivants à tort) ; comptes faux d'un `node -e` passé par l'outil
+  Bash (A-13) — `error_origin` « implémentation pli (outillage de preuve) », catégorie acceptée par l'orchestrateur
+  (`docs/PLI-lot-ukemi-conc-1-1b.md:188-189`).
+- **Désalignement inter-lots** (ajout du fold) : lots CONC et RETRY/HEARTBEAT-1 planifiés en parallèle sur `record.ts`, composition
+  différée par conception (R-C-1 « au G7 du second lot ») ⇒ défaut de composition mesuré (0 battement du préfetch à n > 1) — replié au
+  pli 1b après le back-merge (C-G2-1, `error_origin` plan).
+
+### 10. Déviations et `error_origin`
+
+- **DEV-CP1 (datée 2026-09-23)** : pas de checkpoint-1 pour ce lot — plan = mission G1 sous les décisions investisseur 140 / 140-bis
+  (« option vitesse ») ; CA-1..CA-5 parcourues a posteriori par le checkpoint-2 sur le plan tel qu'exécuté
+  (`docs/CHECKPOINT2-lot-ukemi-conc-1.md:13`) ; à porter dans l'entrée CHANTIERS du G7 (`:62`) ; même forme que la déviation du G7
+  UKEMI-RETRY-2/3 (`docs/CHANTIERS.md:1012`). Conséquence : la ligne MAST (CA-5) manquait au texte v1 (C-V-3 (i), repliée au §9).
+  `error_origin` de la conséquence : plan.
+- **D-1..D-10 du G1** (`docs/G1-lot-ukemi-conc-1.md:95-133`) — D-1 préfetch borné, consommateurs inchangés ; D-2 `--concurrency` hors
+  `parseUkemiArgs` ; D-3 portail FIFO, horloge monotone, stamp après émission ; D-4 retry appelant cadencé ; D-5 amendement hors
+  arbre ; D-6 `npm ci --ignore-scripts` ; D-7 R-25 mesuré par un `git add -N` transitoire ; D-8 `provenance.concurrency` écrit aussi à
+  n = 1 ; D-9 première erreur dans le temps (précisée au §2) ; D-10 un caractère non ASCII dans une ligne de commentaire modifiée de
+  `rpc2.ts`. Décisions de conception déclarées, jugées cohérentes par le checkpoint-2 (CA-1, CA-8) et rejouées par le G2 ;
+  `error_origin` : n-a.
+- **D-1..D-4 du pli** (`docs/PLI-lot-ukemi-conc-1-1b.md:199-210`) — D-1 oracle du worktree SEUL rouge par construction
+  (`args.heartbeatEvery` n'existe qu'après la fusion de RETRY-2/3 ; oracle probant = produit de fusion) ; D-2 forme R-25 (§8) ; D-3
+  pointe d'`etude-suite` avancée par des commits docs seuls ; D-4 extension de mission en cours de route (C-G2-1b/2/3). Intégration
+  retenue : option (β), back-merge `ce7bccf` puis pli (`:20-35`). `error_origin` : n-a.
+- **R-25 692 > 600** (cible de la mission G1, non-gate) : déviation déclarée (§8).
+
+### 11. Traçabilité des corrections repliées (correction → source → emplacement → `error_origin` proposé → état)
+
+| correction | source | où | `error_origin` proposé | état |
+|---|---|---|---|---|
+| C-G2-1 = C-V-1 + C-V-2 (cœur R-C-1 : deux lignes `every:` ; test de composition ; ferme R-C-2) | `docs/G2-lot-ukemi-conc-1.md:292` ; `docs/CHECKPOINT2-lot-ukemi-conc-1.md:58-59,80` | §2, §3, §4, §7 | plan (lots planifiés en parallèle, composition différée par conception — G2, pli) | appliquée au pli 1b `2f1e728` (`record.ts:438,476` ; `ukemi_conc_heartbeat_every_paces_both_prefetches_and_the_replay_restarts_at_zero`) |
+| C-G2-1b (`t=` sur la ligne `..prefetch` ; `every` obligatoire dans `PrefetchOpts`) | `docs/G2-lot-ukemi-conc-1.md:293` | §3, §4 | plan (G2, pli) | appliquée au pli 1b (`record.ts:429` ; `prefetch.ts:20`) |
+| C-G2-2 (test d'arrêt non budgétaire sur le chemin livre, G2M8) | `:294` | §2, §3, §4 | implémentation G1 (tests) — G2, pli | appliquée au pli 1b (`ukemi_conc_book_stop_halts_each_task_at_its_next_read_and_ledgers_stay_chained`) |
+| C-G2-3 (assertions du portail, G2M3b et G2M19) | `:295` | §2, §3 | implémentation G1 (trou préexistant sur l'ancien `polite`, repris par la réécriture) — G2, pli | appliquée au pli 1b (deux blocs ajoutés au test du portail) |
+| C-G2-4 point 1 (RETRY-2/3 fusionné ; R-C-1 plié au G7) | `:251-252` | §5, §7 | plan (amendement écrit avant la fusion RETRY) — G2 | fermée par cette insertion |
+| C-G2-4 point 2 (relation à R-U-5) | `:253-254` | §4 | plan — G2 | fermée par cette insertion |
+| C-G2-4 point 3 (table : tueur de l'arrêt sur le chemin livre) | `:255-256` | §3 | implémentation G1 — G2 | fermée par cette insertion |
+| C-G2-4 point 4 (« première erreur » : mécanique contre identité, D-9) | `:257-259` | §2 | implémentation G1 — G2 | fermée par cette insertion |
+| C-G2-4 point 5 (tallies à l'arrêt) | `:260-261` | §3 | implémentation G1 — G2 | fermée par cette insertion |
+| C-G2-4 point 6 (ripple complet) | `:262-264` | §5, §7 (R-C-5) | implémentation G1 — G2 ; `u4-redraw.mjs:92` absent de la liste du G2 (constat du fold, vérification) | fermée par cette insertion |
+| C-G2-4 point 7 (battement « à la période `--heartbeat-every` » + `t=`) | `:265` | §4 | plan — G2 | fermée par cette insertion |
+| C-G2-4 point 8 (citation du hors-gel) | `:266-267` | §5 | implémentation G1 — G2 | fermée par cette insertion |
+| C-V-3 (i) ligne MAST | `docs/CHECKPOINT2-lot-ukemi-conc-1.md:60` | §9 | plan (DEV-CP1 : exigence CA-5 absente de la mission G1) — proposition du fold | fermée par cette insertion |
+| C-V-3 (ii) R-C-1 / R-C-2 requalifiés | `:60` | §5, §7 | = C-G2-1 (plan) | appliqués au pli 1b ; fermée par cette insertion |
+| C-V-3 (iii) note R-25 (forme verbatim) | `:60` | §8 | n-a (lot non committé au rendu du G1) | fermée par cette insertion |
+| C-V-3 (iv) insertion après l'amendement RETRY-2/3 | `:60` | position de ce texte | n-a | fermée (le script d'insertion vérifie que le dernier titre `## ` de l'ADR est celui de RETRY-2/3) |
+| C-V3-1 (i) tuyau « Sortie » : période `--heartbeat-every` + `t=` ISO de `deps.now` | `docs/CHECKPOINT2-lot-ukemi-conc-1-1b.md:63` | §4 | n-a (données du pli, postérieures au texte v2) | fermée par cette insertion |
+| C-V3-1 (ii) ligne MAST | `:63` | §9 | = C-V-3 (i) | fermée par cette insertion |
+| C-V3-1 (iii) R-C-1 / R-C-2 « appliqués au pli 1b » | `:63` | §5, §7 | = C-G2-1 (plan) | fermée par cette insertion |
+| C-V3-1 (iv) compte N + 13 | `:63` | §8 | n-a (le pli ajoute deux tests) | fermée par cette insertion |
+| C-V3-1 (v) O-4 résolu NON | `:63` | §7 | n-a (hors périmètre du pli) | item formé |
+| C-V3-1 (vi) UKEMI-CONC-EVERY-GUARD-1 | `:63` | §7 | n-a (observation O-P1 du pli) | item formé |
+| C-V3-1 (vii) R-25 en forme CI ; `2c276bb...` non probante | `:63` | §8 | n-a (conséquence du back-merge) | fermée par cette insertion |
+| C-V3-2 (entrée CHANTIERS : 3 items, `error_origin`, DEV-CP1, pointeurs) | `:64` | hors de ce texte | n-a | acte du G7 |
+| C-V3-3 (preuves après la fusion réelle) | `:65` | §8 | n-a | acte du G7 (marqueur du §8) |
+| défauts d'outillage de preuve du pli (critère de type du harnais ; `node -e` via l'outil Bash) | `docs/PLI-lot-ukemi-conc-1-1b.md:188-189` | §9 | **implémentation pli (outillage de preuve)** — catégorie ACCEPTÉE par l'orchestrateur | corrigés avant le rendu du pli |
+| UKEMI-GUARD-GATE-1 (ex-R-C-6 du v2) | ce texte (fold v2) ; ruling de l'orchestrateur | §5, §7 | n-a (préexistant, hors lot) | item formé |
+| PROV-MODEL-1 (déclencheur atteint) | `:1857` de cet ADR ; ruling de l'orchestrateur | §7 | n-a (mission antérieure à l'item) | reporté, nouveau déclencheur |
+| garde de blob du temps 2 (RUNBOOK 0.6) | ruling de l'orchestrateur | §5, §7 | n-a | item formé |
+| O-5 (déclencheur atteint sans alignement) | `docs/G2-lot-ukemi-conc-1.md:307` ; mesure du fold | §7 | n-a (D-4 du pli) | re-formé (confirmation au G7) |
+| compte pré-déclaré 1054/1053/0/1 | `docs/CHECKPOINT2-lot-ukemi-conc-1.md:61` | §8 | n-a (pré-déclaration antérieure au G2) | supersédé par N + 13 (mesuré) |
+| F-1 (portail pré-lot, défaut préexistant) | `docs/G1-lot-ukemi-conc-1.md:17-18,34-37` | §3 | plan (G1 ; cohérent, checkpoint-2 CA-8) | corrigée au G1 |
+| ORACLE-HANG-1 | `docs/G1-lot-ukemi-conc-1.md:69-78` | §3 | implémentation G1 (G1 ; cohérent, checkpoint-2 CA-8) | corrigée au G1 |
+| O-1..O-7, O-P2 | `docs/G2-lot-ukemi-conc-1.md:298-312` ; `docs/PLI-lot-ukemi-conc-1-1b.md:178-180` | §6 (O-2), §7 | voir §7 | voir §7 |
+
+*(ADR-U4b n'est PAS dans le gel du prereg §2 ; les docs sont exclus du décompte R-25 — `ci.yml:65`. Ajout pur : aucune valeur de
+référence existante n'est éditée, `:1856` (R-U-5) et `:1857` (PROV-MODEL-1) comprises. Le worker ne committe pas (R-20) ;
+l'orchestrateur folde et committe au G7.)*
