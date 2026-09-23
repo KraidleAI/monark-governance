@@ -4,7 +4,7 @@
 // <op>.head.tmp open(w)/write/fsync/close, THEN rename. Each G1 mutant (mutants.mjs) reds a NAMED test of this file.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { closeSync, existsSync, openSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, posix } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -204,28 +204,48 @@ process.stdout.write(String(n));`;
     assert.equal(r.status, 0, r.stderr);
     assert.equal(r.stdout, "5", "the production path flushes through node:fs itself: lock + 2 x (line + head.tmp)");
   } finally { cleanup(); }
-  // (2) STRUCTURE (G2 C-G2-4, re-G2 C-G2b-1): no production source reaches THIS package's off-switches - the DURABLE_FS
-  //     seam (src/ledger.ts), the no-fsync test support, an env read. The scan RESOLVES every literal specifier its
-  //     grammar reads (from, import, require, new URL, import.meta.resolve) - relative to the file; @monark/rpc-guard/<x>
-  //     and any node_modules/@monark/rpc-guard/<x> -> packages/rpc-guard/<x> - in every source under scripts/ and
-  //     {apps,packages}/*/{src,scripts,bin}. Outside this package's src/ and bin/, a target under packages/rpc-guard/src/
-  //     or test/ is a hit (G2 X1); inside, a target under test/, a `DURABLE_FS.<x> =` or a process.env read (ruling (a));
-  //     in bin/, ANY DURABLE_FS token or a src/ledger.ts target (re-G2 S6); anywhere, createRequire (re-G2 S3). No
+  // (2) STRUCTURE (G2 C-G2-4, re-G2 C-G2b-1, re-G2-delta C-G2c-1): no production source reaches THIS package's
+  //     off-switches - the DURABLE_FS seam (src/ledger.ts), the no-fsync test support, an env read. The grammar reads a
+  //     literal specifier after from, import, require, new URL or import.meta.resolve (comments included) in every
+  //     .ts .mts .cts .js .mjs .cjs source under scripts/ and {apps,packages}/*/{src,scripts,bin}. Its resolution is
+  //     LEXICAL, on the RAW source text: a specifier starting with "." is joined to the file's directory and normalised,
+  //     any other is kept verbatim; @monark/rpc-guard/<x> and any node_modules/@monark/rpc-guard/<x> ->
+  //     packages/rpc-guard/<x>. Node resolves the VALUE (after JS escapes) as a URL or, for require, a path, then keys
+  //     the module by its realpath. Outside this package's src/ and bin/, a target under packages/rpc-guard/src/ or test/
+  //     is a hit (G2 X1); inside, a target under test/, a `DURABLE_FS.<x> =` or a process.env read (ruling (a)); in
+  //     bin/, ANY DURABLE_FS token or a src/ledger.ts target (re-G2 S6); anywhere, the createRequire token (re-G2 S3).
+  //     Where the two resolutions part, the spelling is itself a hit (pli-4): a specifier with a backslash, a percent
+  //     sign, a TAB/LF/CR, or a C0 control or space at either end (what a literal's value, ECMA-262 12.9.4/12.9.6.2, or
+  //     the WHATWG URL parser, 4.4, drops or maps, and node's percent-decoding; a LF never reaches the capture); an
+  //     absolute or data: specifier ("/", a drive letter, file:, data:, any case - only a relative one is normalised
+  //     here); a `new URL` literal whose next token is neither ")" nor ", import.meta.url)" (resolved here against its
+  //     file); and a FILE without extension under these roots (node 24 loads it as ESM under "type": "module"). No
   //     bare-token rule outside bin/: apps/bell/src/rebase-crosscheck.ts declares Bell's OWN DURABLE_FS (2c276bb).
-  //     A static heuristic, declared - it does NOT see (a) a module outside these roots, loaded directly or through a
-  //     scanned one (re-G2 S7); (b) a specifier its grammar does not read, e.g. computed (re-G2 S8; path.join +
-  //     pathToFileURL) or handed over by an alias of import.meta.resolve or of URL, or by URL.parse; (c) the seam
-  //     re-exported by src/ under any name, then reached by a specifier that is no hit (re-cp-2 MV-14: index.ts + the
-  //     bare @monark/rpc-guard - not checked here; exports.test.ts public_export_set_is_closed pins index.ts's exports,
-  //     not another src/ module's); (d) in src/, a seam write not spelled `DURABLE_FS.<x> =` that part (1) does not run
-  //     (a function it does not call, a module only the bin loads); (e) a patch of node:fs itself (e.g. fsyncSync
-  //     replaced + module.syncBuiltinESMExports). Part (1) proves the module graph index.ts loads (all of src/, run
-  //     through openGuardedClient) and nothing else: the served bin (unlock, repair-tail, reconcile) and the course
-  //     scripts are covered ONLY by this scan.
+  //     A static heuristic, declared - it does NOT see (a) a module the scan does not read: outside these roots, loaded
+  //     directly or through a scanned one (re-G2 S7), or under them with another extension (import refuses an unknown
+  //     extension, require runs it as JavaScript: pli-4 W3); (b) a specifier its grammar does not read: computed (re-G2
+  //     S8; concatenation, a template substitution, path.join + pathToFileURL), cut by a raw LF (a template, a line
+  //     continuation: pli-4 W1, W2), or handed to a call it does not know (an alias of import.meta.resolve, of URL or of
+  //     createRequire - that one obtained without its token -, URL.parse, Reflect.construct(URL, ...), require.resolve:
+  //     pli-3 B1, B3, B4, re-G2-delta B6-B9); (c) the seam re-exported by src/ under any name, then reached by a
+  //     specifier that is no hit (re-cp-2 MV-14: index.ts + the bare @monark/rpc-guard - not checked here;
+  //     exports.test.ts public_export_set_is_closed pins index.ts's exports, not another src/ module's); (d) in src/, a
+  //     seam write not spelled `DURABLE_FS.<x> =` that part (1) does not run (a function it does not call, a module only
+  //     the bin loads); (e) a patch of node itself: node:fs (e.g. fsyncSync replaced + module.syncBuiltinESMExports), its
+  //     native binding (process.binding("fs").fsync - part (1) still counts 5: pli-4 W9) or the module loader (a
+  //     module.registerHooks hook: pli-4 W8); (f) a literal read and passed by the rules above whose module node resolves
+  //     otherwise than this lexical resolution: through a package.json field the scan does not read (a package.json
+  //     "imports" #name, or a directory's "main" for require: pli-4 W4, W5; a deep "exports" subpath is refused,
+  //     ERR_PACKAGE_PATH_NOT_EXPORTED, so not a vector: pli-4 W7), or through a symbolic link or junction reached by a
+  //     relative specifier (node keys a module by its realpath: pli-4 W6). Part (1) counts node:fs's JS fsyncSync
+  //     over the module graph index.ts loads (all of src/, run through openGuardedClient) and nothing else: the served
+  //     bin (unlock, repair-tail, reconcile) and the course scripts are covered ONLY by this scan.
   const hits: string[] = [], scanned: string[] = [], targets = new Set<string>();
   const workspaces = ["apps", "packages"].flatMap((w) => (existsSync(join(REPO, w)) ? readdirSync(join(REPO, w)).map((p) => `${w}/${p}`) : []));
   for (const root of ["scripts", ...workspaces.flatMap((p) => [`${p}/src`, `${p}/scripts`, `${p}/bin`])]) {
     if (!existsSync(join(REPO, root))) continue; // apps/bell, bin/ and most of scripts/ are not in the public mirror
+    for (const f of readdirSync(join(REPO, root), { recursive: true, encoding: "utf8" }).filter((x) => posix.extname(x.replace(/\\/g, "/")) === "" && statSync(join(REPO, root, x)).isFile()))
+      hits.push(`${root}/${f.replace(/\\/g, "/")}: a file without extension under the scanned roots (node loads it as ESM under "type": "module")`);
     for (const f of readdirSync(join(REPO, root), { recursive: true, encoding: "utf8" }).filter((x) => /\.[mc]?[jt]s$/.test(x))) {
       const rel = `${root}/${f.replace(/\\/g, "/")}`, text = readFileSync(join(REPO, root, f), "utf8");
       const own = /^packages\/rpc-guard\/(src|bin)\//.test(rel), inBin = rel.startsWith("packages/rpc-guard/bin/");
@@ -234,12 +254,16 @@ process.stdout.write(String(n));`;
         const spec = m[1] ?? "", target = (spec.startsWith(".") ? posix.normalize(posix.join(posix.dirname(rel), spec)) : spec.replace(/^@monark\/rpc-guard\//, "packages/rpc-guard/"))
           .replace(/^(?:.*\/)?node_modules\/@monark\/rpc-guard\//, "packages/rpc-guard/"); // the workspace link IS this package
         targets.add(target);
+        if (/[\\%\t\n\r]|^[\x00-\x20]|[\x00-\x20]$/.test(spec)) hits.push(`${rel}: imports a specifier not in canonical spelling ${JSON.stringify(spec)}`);
+        if (/^(?:\/|[a-z]:|file:|data:)/i.test(spec)) hits.push(`${rel}: imports an absolute or data: specifier ${JSON.stringify(spec)}`);
+        if (m[0].startsWith("new") && !/^\s*(?:\)|,\s*import\s*\.\s*meta\s*\.\s*url\s*\))/.test(text.slice(m.index + m[0].length)))
+          hits.push(`${rel}: imports ${JSON.stringify(spec)} by new URL against a base other than import.meta.url`);
         const internal = /(?:^|\/)packages\/rpc-guard\/(src|test)\//.exec(target)?.[1];
         if (internal === "test" || (internal === "src" && !own)) hits.push(`${rel}: imports ${target}`);
         else if (inBin && /(?:^|\/)packages\/rpc-guard\/src\/ledger\.ts/.test(target)) hits.push(`${rel}: the served bin imports ${target}`);
       }
       if (/no-fsync/.test(text)) hits.push(`${rel}: references the no-fsync test support`);
-      if (/\bcreateRequire\b/.test(text)) hits.push(`${rel}: mentions createRequire (a require under any alias)`);
+      if (/\bcreateRequire\b/.test(text)) hits.push(`${rel}: mentions createRequire (the token, under any import alias)`);
       if (inBin && /\bDURABLE_FS\b/.test(text)) hits.push(`${rel}: the served bin names the DURABLE_FS seam`);
       if (own && /DURABLE_FS\.\w+\s*=[^=]/.test(text)) hits.push(`${rel}: assigns the DURABLE_FS seam`);
       if (own && /process\.env/.test(text)) hits.push(`${rel}: reads process.env`);
