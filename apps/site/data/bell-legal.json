@@ -1,0 +1,60 @@
+{
+  "$comment": "Committed, hashed legal copy for /bell/terms and /bell/privacy (lot SITE-LEGAL-1; decisions 146, 147, 148). Only the spans that a site gate cannot carry verbatim in page source live here, rendered through apps/site/lib/bell-legal-load.ts after a sha256 check against apps/site/data/manifest.sha256.json: (i) the Terms table 'Words we do not use, and why', which names the very words the vocabulary and probative gates refuse on apps/site; (ii) two spans of the Privacy Notice that carry digits (a regulation article and a retention numeral), which the numeric honesty rule admits only from committed, hashed data (ADR-M004 D1, D11). Every string is verbatim from the validated drafts (lawyer's GO as drafted, decision 147): TERMS-OF-USE-draft.md sha256 5f11f0fe98334a4f587b549fec476488057499e5c423523b1decd39ca7131efd, PRIVACY-NOTICE-draft.md sha256 160826cbab3eaf39c913ca8473fcc90bfac66903ac70dd78fe43b062a6dff64e; the retention span opens its sentence once the drafting wrapper is removed, hence its capital letter; three 'why' cells (rows guarantee, live, SLA) are put in the future tense, a present tense about a path that is not served yet (reason 3 of the lot, orchestrator ruling of 2026-09-23), each edit applied exactly once by the generator and listed in the lot report; the table's second introductory sentence is replaced, for factual exactness, by the version measured true on the Service's pages (reason 6 of the lot, orchestrator ruling TERMS-WORDS-SENTENCE-1 of 2026-09-23, to be validated by the lawyer). The closed set of gate words and digits carried here is pinned by the root test test/bell-legal.test.ts.",
+  "privacy": {
+    "legal_basis_citation": "Article 6(1)(f) GDPR",
+    "retention_period": "Three (3) years"
+  },
+  "terms_words_scope_sentence": "On this Service's pages these words appear only in this list and in negations (for example \"never a score\").",
+  "terms_words_table": [
+    {
+      "avoid": "\"guarantee\"",
+      "why": "We do not promise outcomes; we will publish what we measured and say when we could not.",
+      "instead": "\"provided as is, without warranty of any kind\"; \"no warranty\""
+    },
+    {
+      "avoid": "\"verified\"",
+      "why": "A signature attests origin, not truth.",
+      "instead": "\"signed\"; \"recomputable\""
+    },
+    {
+      "avoid": "\"partner\" / \"partnership\"",
+      "why": "We are not affiliated with any issuer, venue, curator, or data provider.",
+      "instead": "\"no affiliation, endorsement, or sponsorship\""
+    },
+    {
+      "avoid": "\"autonomous\"",
+      "why": "Not a claim we make about this Service.",
+      "instead": "(not used)"
+    },
+    {
+      "avoid": "\"score\"",
+      "why": "We do not rate or rank instruments.",
+      "instead": "\"fact\"; \"measurement\""
+    },
+    {
+      "avoid": "\"live\" (used bare, as in \"live data\")",
+      "why": "We will publish on a defined schedule with disclosed latency, not a real-time promise.",
+      "instead": "\"published\"; \"current as of [timestamp]\""
+    },
+    {
+      "avoid": "\"free trial\" / \"trial\" / \"plan\" / \"pricing\"",
+      "why": "There is no trial, paid plan, or price on this Service today.",
+      "instead": "\"request a symbol\"; \"early access\" (not yet available)"
+    },
+    {
+      "avoid": "\"SLA\"",
+      "why": "We will publish uptime as a fact; we do not commit to a service level.",
+      "instead": "\"published uptime\"; \"no service-level commitment\""
+    },
+    {
+      "avoid": "\"compliant with [a named rule]\"",
+      "why": "We do not make regulatory-compliance claims on this Service.",
+      "instead": "(not used)"
+    },
+    {
+      "avoid": "any specific data provider's name",
+      "why": "Which sources we cross-check against is not published (decision 69, internal).",
+      "instead": "\"public inputs\"; \"our data sources\""
+    }
+  ]
+}
