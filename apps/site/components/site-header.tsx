@@ -77,7 +77,7 @@ export function SiteHeader() {
           ))}
         </nav>
         <button type="button" className="c-themebtn" onClick={toggleTheme} aria-label="Toggle dark theme">
-          theme · {theme}
+          {theme}
         </button>
       </header>
     </>
