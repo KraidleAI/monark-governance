@@ -107,3 +107,5 @@ Table des 14 modes : ADR §MAST. Les dominants :
 - Le checkpoint-1 est **rendu** : ACCEPTE-AVEC-CORRECTIONS C-1..C-10.
 - Ce backlog v2 est la preuve de pliage consignée pour l'émission des missions G1.
 - Le verdict G7 reste à l'orchestrateur (R-20).
+
+**Amendement daté 2026-09-23 (décision 155, lot BELL-HOST-ROOT-1)** : S-8 porte en plus `@home path /` + `redir @home https://monarkgate.tech/bell 302` (seule forme admise par le modèle fermé) ; contrôle 7 de la CA : `/` ⇒ 302 vers cette URL. Voir ADR-T1b-backend, amendement du 2026-09-23.

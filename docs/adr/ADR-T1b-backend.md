@@ -594,3 +594,13 @@ Actes documentaires dus par le checkpoint-2 PR-1 (`docs/CHECKPOINT2-lot-t1b-back
 - **Déviation déclarée (C-D-4)** : PR-1-ter n'a pas eu de G2 en instance séparée du rédacteur du patch (le patch a été écrit par le relecteur G2-delta lui-même, appliqué et prouvé par l'orchestrateur : 14/14 G2 + 9/9 y rejoués) — compensé par le checkpoint-2 delta (rejeu indépendant 6/6). error_origin → orchestrateur (choix de vitesse, décision 149).
 - **Item (C-D-5)** : le test 42 rouge de la pré-intégration (1/508) a été qualifié après coup : entrée supplémentaire sous charge (famille HTTP-TEST-CRASH-1), CI exportée verte sur la fusion et sur la pointe rejouées seules — pas d'item propre ; rattaché à HTTP-TEST-CRASH-1 (3 occurrences le 23/09).
 - **CA-11 (branchement)** : la fusion de PR-1 est licite ; le passage de Bell à `built` n'a lieu qu'à G-a + déploiement PR-3 + CA sur l'hôte (RUNBOOK étape 11).
+
+## Amendement daté 2026-09-23 — décision investisseur 155 (BELL-HOST-ROOT-1) : la racine de l'hôte redirige vers la page du site
+
+- **Fait** : `https://bell.monarkgate.tech/` répondait 404 (l'hôte ne sert que des fichiers) ; l'investisseur l'a lu comme « Bell n'est pas en ligne ».
+- **D10 (Caddy)** : le bloc `bell.monarkgate.tech` porte en plus, après les `header` et avant `file_server`, `@home path /` + `redir @home https://monarkgate.tech/bell 302` (matcher nommé exact, URL absolue `https://`, code `302` littéral, un seul `redir`). Le modèle fermé `test/bell-caddy.ts` n'admet que cette forme (S-8) ; ordre `header → redir → file_server` = ordre codé de Caddy v2.11.4 (lu : `caddyfile/directives.md`, `parseRedir`).
+- **D11 (CA, contrôle 7)** : « `GET /` n'est pas un listing » devient « `GET /` ⇒ 302 avec `Location` exactement `https://monarkgate.tech/bell` ; aucun listing sur les répertoires » ; la CA ne suit jamais une redirection (c07/c11 cohérents).
+- **D13.5** : la redirection n'est pas un accès restreint ; les chemins servis restent `state.json`, `timeline.jsonl`, `provenance.json`, `bell/pubkey.json`, `states/*`, `provenance/*`.
+- **§D12** : supersédé par l'amendement ADR-B0 du 2026-09-23 (décision 155) — Bell `built` au registre.
+- **Rejeu** : RUNBOOK étape 7 rejouée avec le blob du nouveau G7 (`G7-1.txt` conserve l'ancien ; `Caddyfile.bak-bell-2`), étape 8 attendu `302 0 https://monarkgate.tech/bell` pour `/` et `404` pour un chemin inexistant, puis étape 11 (CA).
+- **Items** : le second lecteur `apps/bell/test/helpers/bell-served.ts` ignore `redir` (piège : `fetch` suit les redirections — `redirect: "manual"` si modélisé un jour) ; aucun Caddy réel en local (validation par `caddy validate` sur l'hôte avant bascule).
