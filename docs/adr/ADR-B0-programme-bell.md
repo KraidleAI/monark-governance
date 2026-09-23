@@ -176,3 +176,133 @@ Rejeu **bit-identique** du digest. Mutants nommés, **rouge attendu** : **halt d
   recordée non-sha-backée + item -b1-bis ; C-G2-7 budget ETH/Massive → -b2b ; C-G2-8 hypothèse immuable énoncée.
   Oracles ciblés verts (49 tests bell, typecheck, lint/ratchet/lang/export, series_pinned, no_secret). Aucune g_t
   fondatrice produite. `error_origin` des corrections : rédacteur -b1 (C-G2-1/2/5) ; les autres = items formés.
+
+## Amendement 2026-09-23 — fait (iii) aligné sur l'ordre SEC 34-106402 II.F (lot BELL-ADV-1 ; items I-v3-1, I-G2-1, I-G2-3)
+
+**Objet.** D2 (iii) l.30 annonçait un « ADV consolidé mois précédent ». Le code de T-1a-ii calculait autre chose : un seul ratio par
+symbole ; au numérateur, le volume total de la fenêtre de collecte ; au dénominateur, la moyenne des barres journalières d'une fenêtre
+glissante de 45 jours calendaires se terminant à la fin de la collecte (`collect.ts` @ `d0535cb`, l.189-201 et l.383-392). Il abstenait
+sans nom ni compteur (`ratio_computed:false`) et convertissait sur un multiplicateur « 1 » par défaut si le mint était illisible.
+Le présent amendement remplace la définition de (iii) par la suivante. Le reste de la ligne D2 (iii) est inchangé : dédoublonnage par
+signature, jamais « le TSV est sous le plafond », dénominateur [2nd].
+
+**Source de la définition** (ordre SEC 34-106402, texte `F:\PRODUITS\etude-2026-09-19\txt\sec-34-106402-innovation-exemption.txt`,
+sha256 `adee69f6…b40d08d`, [lu]) :
+- II.F, p.24 l.897-906 : limites de 0,25 % (Tier 1) et 2,5 % (Tier 2) de « the average daily share volume during the prior month in the
+  relevant NMS stock as reported by an effective transaction reporting plan » ; le pourcentage se calcule avec, au numérateur, l'ADV du
+  jeton négocié sur le TSV et, au dénominateur, l'ADV de l'action (quotient ADV/ADV).
+- Note 67, p.24 : « as reported » = plans CTA/CQ et UTP (SIP).
+- Note 69, p.25 l.959-963 : « the next trade date will start concurrently with when trades must be reported to the SIP ».
+
+**Définition (code : `apps/bell/src/volume.ts`, `apps/bell/src/collect.ts`).**
+- **Unité de publication.** Une entrée `digest.volume[]` par **groupe de session** de Bell (`session`, `regime`, `session_date_et`),
+  c'est-à-dire les mêmes groupes que les écarts (i). `classifySession` rattache une heure hors séance au dernier jour de bourse. C'est la
+  lecture Bell de la note 69 : la journée de négoce ne change qu'à la reprise des déclarations au SIP. Hypothèse déclarée : le début de
+  cette journée est la pré-ouverture de 04:00 ET (item ADV-SIP-DAY-1).
+- **Numérateur (1re main).** S = Σ, sur les fills de la session, de |baseDelta| / 10^baseDec × m(t).
+  - m(t) = multiplicateur actions-par-jeton en vigueur au fill, établi par la MÊME preuve que g_t (la porte de rebase) :
+    `trajectory_known` ⇒ m(t) rejoué par fill ; `constant` ⇒ m ; `unverified` ⇒ non établi.
+  - Porte absente = jambe ETH TSLAon en course (sans porte ni mint, `collect.ts:827-828`) ou rejeu hors ligne (`buildSolanaSymbol` pose la porte pour les symboles Solana ; G2 C-2 (c)) ⇒ le multiplicateur lu sur le mint,
+    s'il se lit comme un nombre fini > 0.
+  - S est la même somme que le dénominateur en actions de `sessionGapRebase` (`gap.ts`).
+- **Dénominateur.** A = Σv / n_bars.
+  - Barres : Massive (ex-Polygon) `GET /v2/aggs/ticker/{U}/range/1/day/{AAAA-MM-01}/{AAAA-MM-dernier}?adjusted=false&sort=asc&limit=50`,
+    une requête par période ADV distincte.
+  - Période ADV : le **mois civil qui précède le mois de `session_date_et`** (janvier ⇒ décembre de l'année précédente).
+  - Datation : chaque barre est datée par la date ET de `t`. La page Massive « Custom Bars (OHLC) » [lu, 2026-09-23] décrit `t` ainsi :
+    « The Unix millisecond timestamp for the start of the aggregate window ». L'exemple de cette page vaut minuit ET.
+  - Exigence : les barres de la période couvrent **exactement** les jours de bourse NYSE de ce mois selon le calendrier committé
+    (`sessions.ts`) : une barre par jour, aucun jour en plus, aucun doublon, chaque `v` fini et > 0. En clair, `n_bars = n_trading_days`.
+  - `adjusted=false` = « as reported » (note 67). Le code d'avant utilisait `adjusted=true`. Résidu : ADV-SPLIT-1.
+- **Ratio.** `vol_ratio` = S / A, décimal à 10 chiffres. Forme retenue au titre d'I-G2-3 : « volume de session rapporté à l'ADV ».
+  - Unité : fraction d'une journée moyenne de bourse du mois ADV.
+  - Fidélité à II.F : c'est la composante **additive** du quotient ADV/ADV. La somme des `vol_ratio` des sessions d'un même
+    `session_date_et` donne le volume du jour rapporté à l'ADV du mois précédent. La moyenne de ces sommes sur les jours de bourse d'un
+    mois redonne la forme ADV/ADV. Le ratio par session n'est donc pas lui-même le quotient II.F. `formula` le dit, et le lecteur
+    reconstruit le quotient par somme puis moyenne.
+  - Forme écartée : le « volume journalier moyen de la session » (volume ÷ durée). Elle extrapole à 24 h le débit de quelques heures,
+    n'est pas additive et dépend des bornes de session (week-end en deux morceaux disjoints). Mutant M9 rouge.
+- **Abstentions (fail-closed, I-G2-1).** Chaque cause est nommée sur l'entrée (`abstain`, liste de TOUTES les causes) et comptée dans
+  `residuals`, par entrée. Il n'y a alors aucun `vol_ratio`. Jamais « 1 » par défaut, jamais de moyenne partielle.
+  - `no_adv` : barres absentes, incomplètes, en surnombre, dupliquées ou non positives, ou mois hors du calendrier committé.
+  - `no_multiplier` : mint absent ou illisible, porte `unverified`, aucun multiplicateur au fill.
+- **Garde ESC-1 c.** `CLOSE_KEY` exempte le COMPTEUR `no_adv` par `(?<!no_)adv`, sur le motif de `(?<!no_)close`, dans `digest.ts` ET
+  dans son double déclaré `apps/bell/scripts/bell-report.mjs`. L'égalité octet pour octet des deux littéraux est épinglée par un test.
+  Trou déclaré : une clé numérique `no_adv*` passerait ; l'ensemble des résidus est fermé. Une valeur `adv` numérique reste rouge.
+  `adv_period` est un objet `{year, month}`, non numérique.
+- **Objet publié** (l'ADV n'est jamais publié, C-6) :
+  - calculé : `{symbol, session, regime, session_date_et, window{from_utc_ms, to_utc_ms}, adv_period{year, month}, n, n_bars,
+    n_trading_days, formula, vol_ratio, multiplier_unit}` ;
+  - abstenu : les mêmes champs, sans `vol_ratio` ni `multiplier_unit`, avec `abstain: [...]`.
+  - `window` = premier et dernier fill de la session : un fait des fills, haché dans le digest. Les bornes de collecte restent dans
+    `state.window`.
+  - La provenance nomme la source : `sources.adv_source = "massive-aggs-range-1-day-unadjusted"` (calque `close_source`).
+- **Inchangés.** Le compteur par symbole `multiplier_unit` (lecture du mint ≠ 1, règle (iii)/(iv)) ; la phrase « jamais sous le
+  plafond » ; le caractère [2nd] du dénominateur. Que `v` soit le volume consolidé du SIP n'est PAS établi : la page Massive dit
+  « Aggregates are constructed exclusively from qualifying trades that meet specific conditions ». I-G2-5 reste ouvert.
+
+**Tuyaux (règle Branchement).**
+
+| Tuyau | Entrée (produit) | Sortie (consomme) | État | Test d'intégration non-LLM |
+|---|---|---|---|---|
+| ADV (iii) | `runMain` → `buildSolanaSymbol` / jambe ETH → `advBarsFor` (`collect.ts`) : GET Massive d'une période ADV (`advPeriodsForFills` → `advRangePath`), sous le budget de la jambe cash ; fills Solana (garde) / ETH | `collect()` → `state.json` écrit par `runMain` (hors dépôt, CA-11) : `digest.volume[]`, `residuals.no_adv` / `no_multiplier` ; `provenance.json` : `sources.adv_source` ; consommateur en dépôt : `apps/bell/scripts/bell-report.mjs` (somme des résidus, garde synchronisée) | aucun état persistant ; le calendrier committé `sessions.ts` (2025-01-01 → 2026-12-31) borne `n_trading_days` | `bell_adv_leg_is_wired_runmain_guard_real_polygon_get` (`apps/bell/test/bell-adv-1.test.ts`) : `runMain` → `openGuardedClient` réel + `polygonGet`/`databentoGet` réels, seul `globalThis.fetch` bouchonné, corps Massive de forme documentée (A-8) ; `bell_report_accepts_named_adv_residuals_in_sync` (`report.test.ts`) : `collect()` réel → state → rapport |
+
+Chemin servi : **aucun avant T-1b**. `state.json` n'est pas servi, et Bell reste `upcoming` dans tout registre public. Le tuyau est
+branché jusqu'au fichier écrit par `runMain` et jusqu'au rapport ; le panneau `/bell/` le consommera à T-1b
+(`bell_panel_reads_published_state`, D4).
+
+**Précondition d'entrée (à tenir par toute course qui doit remplir Q6).** Sur le code livré, `buildSolanaSymbol` pose toujours une
+porte. Sans `--rebase-trajectory`, cette porte est `rebaseForMint(mint)` = `unverified`. Une collecte sans fichier de trajectoire
+publie donc **100 % de `no_multiplier` et aucun ratio**, comme elle abstient déjà tous ses g_t (`rebase_unverified`). Les tirages go-1
+(`--rebase-crosscheck`) retournent AVANT la jambe volume (`collect.ts`, branches `--rebase-*` / `--discover`) et ne produisent aucun
+ratio. La course de Q6 est une collecte par défaut, lancée avec `--rebase-trajectory <fichier>` (fichier écrit par `--rebase-produce`,
+C-8, pour chaque mint de la fenêtre), avec une porte `constant` ou `trajectory_known` sur chaque mint. Sans elle, le remplissage de
+Q6 est impossible, et c'est visible dans `residuals.no_multiplier`.
+
+**Couverture exacte, conséquence à connaître.** Une seule journée de bourse sans barre Massive met TOUT le mois en `no_adv`, donc
+toutes les sessions dont c'est la période ADV. C'est voulu (D-4, fail-closed) et visible sur chaque entrée (`n_bars` contre
+`n_trading_days`).
+
+**Preuves.** 8 tests nouveaux (`bell-adv-1.test.ts`) + 1 (`report.test.ts`) ; 4 corps de test adaptés plus la fixture et les épingles (`collect.test.ts`, annotés D-4 ; G2 C-2 (b), aucune
+assertion affaiblie) ; 22 mutants tués par le test visé (A-11 ; G2 C-2 (a)) ; pli 1b `70bb716` (G2 C-1) : trois gardes fail-closed épinglées — G3 (barre d'un samedi substituée à un jour de bourse manquant ⇒ `no_adv`, test 2), G13/G14 (porte `trajectory_known` à m = 0 / m = +∞ ⇒ `no_multiplier`, test 3) — rejouées aux octets du G2 et tuées par le test visé ; G15 équivalent déclaré (masqué par la garde aval). Re-pin `PINNED_BELL_SHA` `0cfbed20…43d7` → `79a59086…7658f`, prouvé par
+SUBSTITUTION : l'entrée volume d'avant le lot, remise en place, avec les deux clés de résidu retirées, redonne `0cfbed20…`. Le lot ne
+change donc le digest qu'à ces deux endroits.
+
+**D-1 ACCEPTÉE (ruling orchestrateur 11:55 UTC, CHANTIERS ; G2 C-2 (d)) — écart initialement déclaré (`error_origin` : orchestrateur).** Le ruling de la mission dit en gras : « ADV du
+**mois civil précédent** la session ». Il ajoute entre parenthèses : « barres journalières consolidées du mois M−1 de la date du close de
+référence de la session, `refCloseDateOf` ». Pour une session pre ou regular du premier jour de bourse d'un mois, les deux divergent.
+Exemples : regular du 2025-10-01 ⇒ septembre par le texte en gras, août par la parenthèse (`refCloseDateOf` = 2025-09-30) ; regular du
+2026-01-02 ⇒ décembre 2025 contre novembre 2025. Arbitrage du worker en faveur de `session_date_et` (texte en gras) :
+- (i) le livrable 3 exige que « the prior month's … » redevienne vrai, ce que la parenthèse rendrait faux pour ces sessions ;
+- (ii) la note 69 fonde la convention d'ancrage ;
+- (iii) les sessions d'un même jour partagent alors un seul dénominateur (additivité) ;
+- (iv) il n'y a rien à anticiper : M−1 est clos avant toute session de M.
+
+L'alternative tient en une ligne (`collect.ts`, `const period = advPeriodOf(refCloseDateOf(g.session, g.anchor))`) ; le mutant M2 la
+rend rouge. Consultation advisor (outil intégré) : avis n°3 initial (« appliquer à la lettre ») retiré à la conciliation.
+
+**`error_origin`.**
+- Écart code ≠ ADR (fenêtre glissante, total de fenêtre, un ratio par symbole) et chemin fail-open (« 1 » par défaut,
+  `ratio_computed:false` sans résiduel) : **plan (lot T-1a-ii)**. Le fait (iii) n'avait ni spécification fail-closed ni test de période
+  (ruling CHANTIERS 07:29 UTC (b)).
+- Parenthèse contradictoire du ruling : **orchestrateur**.
+- Double de garde `bell-report.mjs` : il aurait refusé tout `state.json` portant `no_adv`. Détecté et corrigé au G1 de ce lot ; aucun
+  défaut livré (n-a).
+
+**Items formés (propriétaire, déclencheur ; aucun dû nu).**
+
+| Item | Objet | Propriétaire | Déclencheur |
+|---|---|---|---|
+| I-G2-5 (inchangé, ouvert) | Établir que `v` des agrégats Massive est le volume consolidé du SIP. Documents : méthodologie des agrégats Massive (conditions de vente retenues). Lu le 2026-09-23 : la page « Custom Bars (OHLC) » ne l'établit pas (« qualifying trades that meet specific conditions »). | orchestrateur (lecture sur place) ou chercheur | avant `/bell/method` et avant le remplissage de la lettre |
+| ADV-SIP-DAY-1 | Lire sur place le texte des plans CTA/UTP : à quelle heure « trades must be reported to the SIP » (début de la journée de négoce, note 69), contre la pré-ouverture 04:00 ET de `sessions.ts`. Usage : confirmer que `session_date_et` est la journée de négoce de l'ordre. | orchestrateur (lecture sur place) ou chercheur | avant que `/bell/method` énonce la règle du jour (T-1b), et avant le remplissage de la lettre |
+| ADV-SPLIT-1 | Un split entre le 1er jour de la période ADV et la session décale les unités : barres « as reported » non ajustées contre actions de la session au multiplicateur du fill. Non détecté. Recherche : ce que le multiplicateur SPL scaled-UI des xStocks absorbe (fiche `docs/biblio/bell/L-lecture-spl-token2022-scaled-ui-amount-2026-09-20.md`). | orchestrateur → worker T-2 | T-2 (corporate actions, ex-dates) ou premier split d'un sous-jacent couvert |
+| ADV-CAL-2027 | Le calendrier committé s'arrête au 2026-12-31. Dès le 2027-02-01, toute session a une période ADV hors calendrier ⇒ `no_adv` (fail-closed, visible). `classifySession` n'a pas de fermetures 2027 (préexistant). | orchestrateur | extension du calendrier 2027 (ligne d'ADR + contrôle de 1re main, `sessions.ts` l.13) avant le 2027-01-01 |
+| SUPPLY-READ-1 | `readMintToken2022` rend un multiplicateur « 1 » pour un compte sans info parsée (`supply.ts` l.67). Le ratio (iii) ne le consomme plus en course (la porte décide) ; la lecture (iv) et le compteur `multiplier_unit` le consomment encore. | orchestrateur | prochain lot touchant `supply.ts`, ou T-1b (supply rendue) |
+| TSLAON-MULT-1 | TSLAon (Ethereum) n'a aucune source de multiplicateur dans Bell ⇒ chaque session TSLAon s'abstient `no_multiplier` (avant : « 1 » silencieux). | orchestrateur (lecture sur place du facteur jeton/action Ondo GM) | T-2, ou la prochaine course `--eth` |
+| CASH-BUDGET-1 | La jambe cash (ADV et close) consigne un refus de budget comme une faute (`no_adv` / pas de close) au lieu d'arrêter la course. Préexistant. La dépense reste bornée : chaque tick suivant refuse. | orchestrateur | 1b-iii (jambe cash sous la garde) |
+| ADV-SESSION-CUT-1 | Une session coupée par les bornes de collecte est rapportée sur sa partie observée. C'est visible par `window` et `state.window`, mais aucun drapeau ne le signale. | orchestrateur | `/bell/method` (T-1b) doit l'énoncer, avec l'option d'un drapeau `session_complete` |
+| MASSIVE-HOST-1 | La page Massive donne `https://api.massive.com` ; le code garde `https://api.polygon.io` (jambes ADV et cross, inchangées par ce lot). Confirmer sur place que l'ancien hôte reste servi. | orchestrateur (lecture sur place) | G0 de la prochaine course cash payante |
+
+---
+
+> **Déviation datée (cp-2 C-V-2, 2026-09-23)** : lot conduit SANS checkpoint-1 (plan = mission orchestrateur sous les décisions 140/143 ; CA-1..CA-5 tenus ex post au checkpoint-2 ; modes MAST résiduels contrés par les 22 mutants et la D-1 écrite). Chaîne : G1 `290548c` → G2 (`docs/G2-lot-bell-adv-1.md`) ‖ cp-2 ACCEPTE-AVEC-CORRECTIONS (`docs/CHECKPOINT2-lot-bell-adv-1.md`) → pli 1b `70bb716` → re-G2-delta (`docs/G2-lot-bell-adv-1-pli1b.md`) → G7 fusion `adc3260`, oracle `7 × exit 0 — passe 1 (13:58→14:01Z) : 6 portes 0, porte test 1 (crash processus 0xC0000409 de apps/harness/test/http.test.ts, hors périmètre du lot, 1 080/1 078/1/1) ; http.test.ts seul 4/4 ; porte test rejouée 14:04:29Z : 1 083/1 082/0/1 = 1 074 + 9 ; item HTTP-TEST-CRASH-1` (attendu N + 9), R-25 795. C-V-3 (item, prochain lot touchant `digest.ts`) : le commentaire « a point for checkpoint-2 » de `digest.ts` renvoie désormais à l'amendement ADR-T1aii du 2026-09-19.

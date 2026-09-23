@@ -604,3 +604,20 @@ Les `error_origin` marqués « adjugé » sont ceux de l'orchestrateur au G7, re
 | observation re-G2 RUNBOOK §2 ; renvoi périmé du RUNBOOK §1 au coût de la v1 | `docs/G2-lot-bell-shortpage-1-1b.md:80` ; `docs/course-bell/RUNBOOK-supervision-tirage.md:28` | §10 RUNBOOK-SUP-1 | **orchestrateur** (RUNBOOK rédigé sur la v1) | item |
 | observation re-G2 sur `.github/workflows/ci.yml:24-27` | `docs/G2-lot-bell-shortpage-1-1b.md:81` | §10 CI-YML-1 | pré-existant, hors lot | item |
 
+## Amendement 2026-09-23 — fait (iii) : définition de D1 (l.16) remplacée (lot BELL-ADV-1)
+
+La cellule D1 du lot T-1a-ii-a (l.16) écrit « vs plafond = ADV consolidé mois précédent via Polygon `v2/aggs/ticker/{T}/range/1/day`
+([2nd] déclaré, unité actions, résidu `multiplier_unit`) ». Le code livré par ce lot n'y était pas conforme (fenêtre glissante de 45 jours,
+total de fenêtre, un ratio par symbole ; `error_origin` : plan T-1a-ii). La définition de (iii) est désormais celle de l'amendement
+ADR-B0 du 2026-09-23 (BELL-ADV-1). Rappel :
+- une entrée par session ;
+- `vol_ratio` = S / A ; S = volume de la session en actions, au multiplicateur en vigueur à chaque fill ; A = ADV du mois civil qui
+  précède `session_date_et`, en barres Massive `adjusted=false` couvrant exactement les jours de bourse du calendrier committé ;
+- abstentions `no_adv` et `no_multiplier` nommées et comptées ;
+- `window`, `adv_period`, `n_bars`, `n_trading_days`, `formula` publiés ; l'ADV n'est jamais publié.
+
+Les **tuyaux** et les **items** formés sont ceux de l'amendement ADR-B0 (même lot, même date). Les tests de D1 (l.16) restent verts ; le
+re-pin de `bell_collector_replays_fixture_bit_identical` est prouvé par substitution. Les deux abstentions sont fermées par les nouveaux
+tests de `apps/bell/test/bell-adv-1.test.ts`.
+
+---
