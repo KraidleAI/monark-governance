@@ -9,11 +9,17 @@ export const H3_LEVEL: Readonly<{ num: bigint; den: bigint }>;
 export const CALIB_ALPHA: Readonly<{ num: bigint; den: bigint }>;
 export const NMIN: number;
 export const E2_MIN_N: number;
+export const H4_THRESHOLD: Readonly<{ num: bigint; den: bigint }>;
+export const H5_K: number;
+export const H6_MAX_LAG: number;
+export const H2BIS_INTERIOR_N: number;
 export const VERDICTS: readonly string[];
 export const REFERENCE_REL: string;
 export const REFERENCE_SHA256_LF: string;
 export const PREREG_REL: string;
 export const PREREG_SHA256_LF: string;
+export const FORBIDDEN_FLAGS: readonly string[];
+export const SUMMARY_TEMPLATES: Readonly<Record<string, string>>;
 
 export class HypError extends Error {}
 
@@ -67,3 +73,82 @@ export interface H3Result {
 }
 export function h3Cell(label: string, fresh: { n: number; p: number | null; qhat: string | null }, freshScores: readonly bigint[], e2Scores: readonly bigint[]): H3Cell;
 export function computeH3(fresh: ParsedScores, reference: ParsedScores): H3Result;
+
+export interface MedianJson { median: RatJson; lower_middle: RatJson; upper_middle: RatJson }
+export interface H4Summary {
+  liquidated: number; multi_call: number; multi_call_fraction: RatJson | null;
+  sum_y: string; sum_after_first: string; sum_deficit_apart: string;
+  share_sum: RatJson | null; share_median: MedianJson | null;
+  multi_call_subset: { n: number; share_sum: RatJson | null; share_median: MedianJson | null };
+}
+export interface H4Result {
+  threshold: string;
+  class_a_liquidated: { n: number; multi_call: number; fraction: RatJson | null; verdict: "OUI" | "NON" | null };
+  all_liquidated: { n: number; multi_call: number; fraction: RatJson | null; verdict: "OUI" | "NON" | null };
+  reconciliation: { positions_reconciled: number; positions_abstained: number; calls_in_window: number; calls_not_in_window: number };
+  accounts_abstained: number;
+  pooled: H4Summary;
+  strata: Array<H4Summary & { strate: number }>;
+}
+export function computeH4(inputs: ReadonlyArray<Record<string, unknown>>, realized: ReadonlyArray<Record<string, unknown>>, fresh: ParsedScores, eventId: string): H4Result;
+
+export interface H6Classes {
+  n: number; in_events: number; equal_to_p0: number; outside: number;
+  lag_histogram: Record<string, number>; matched_on_anchor: number; max_lag: number | null;
+  lag_over_bound: number; lag_undefined: number;
+  violations: Array<{ block: number; value: string; lag: number | null }>;
+}
+export interface H6Result {
+  verdict: "OUI" | "NON";
+  max_lag_bound: number;
+  anchor: { block: number; price: string; source: string; book_fallback_d_n_path: boolean };
+  series: { n_updates: number; monotone_blocks: boolean; phase_change: boolean };
+  served_price_lines: number;
+  served_null_values: number;
+  served_blocks: H6Classes;
+  price_at_call_block: H6Classes;
+  bracket_condition_all_served_in_events_or_p0: boolean;
+  min_served: string | null;
+  min_events: string | null;
+  sample_note: string;
+}
+export function computeH6(inputs: ReadonlyArray<Record<string, unknown>>, oracleLines: ReadonlyArray<Record<string, unknown>>, eventId: string): H6Result;
+
+export interface LabelsResult { label_lines: number; labels_no_quorum_unresolved: number; residual_no_quorum: number; deficit_base_no_price_non_usdt: number; other_event_lines: number }
+export function computeLabels(realized: ReadonlyArray<Record<string, unknown>>, eventId: string): LabelsResult;
+
+export interface CensusHyps {
+  h2: { strata: Array<{ strate: number; n: number; n_min: number; under_calib: boolean }> };
+  h2bis: { strata: Array<{ strate: number; n: number; p: number | null; qhat: string | null; interior: boolean; n_ge_199: boolean; qhat_is_stratum_max: boolean }> };
+  q0_rule_failures: { crossed_yhat_zero: number; yhat_zero_liquidated: number; without_crossing: Array<{ address: string; y: string }>; crossed_yhat_zero_liquidated: Array<{ address: string; y: string; pstar: string }> };
+  h5: { population_mono_weth: number; k_h5: number; meets_k_h5: boolean; class_a_n: number };
+  h7: { pstar_is_anchor: number };
+}
+export function computeCensusHyps(fresh: ParsedScores): CensusHyps;
+
+export interface Clause359 { h3_no_NON_on_served_strata: boolean; labels_no_quorum_unresolved: number; condition_satisfied: boolean; h3_pooled_verdict_outside_condition: H3Verdict }
+export function clause359(h3: H3Result, labels: LabelsResult): Clause359;
+
+export interface ReportBody extends Partial<CensusHyps> {
+  event_id: string;
+  h3?: H3Result;
+  h4?: H4Result;
+  h6?: H6Result;
+  labels?: LabelsResult;
+  clause_359?: Clause359;
+  summary: string[];
+}
+export function buildSummary(body: Omit<ReportBody, "summary"> & { summary?: string[] }, c11: string): string[];
+export function canon(v: unknown): string;
+export function bodyDigest(body: unknown): string;
+
+export interface ReportDoc {
+  schema: string;
+  kind: "h3" | "h4" | "h6" | "report";
+  provenance: { tool: { rel: string; sha256_lf: string }; node: string; inputs: Record<string, { sha256_lf: string; bytes?: number; rel?: string }>; event_id: string };
+  body: ReportBody;
+  body_digest: string;
+}
+export function parseArgs(argv: readonly string[]): { cmd: "h3" | "h4" | "h6" | "report"; opts: Record<string, string> };
+export function toolSha256Lf(): string;
+export function runCli(argv: readonly string[]): { out: string; kind: string; body_digest: string };

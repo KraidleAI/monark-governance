@@ -1,27 +1,36 @@
-// U-4b-STATS-1 unit 1a (RUNBOOK ruling R-K; checkpoint-1 C-1..C-12) - the EXACT H-3 core of the offline tools for the
-// pre-registered hypotheses of docs/PLAN-u4b-prereg.md (:95-106). Oracles INDEPENDENT of the tool and ANTERIOR to it
-// (C-5): (i) the advisor Q6 masses (3.6 / 6.3 / 5.8 / 10.4 %), closed forms (hockey stick, Angelopoulos & Bates p.50
-// moments), an independent lgamma implementation and an exact enumeration with atoms; unit 1b adds (ii) ADR-U4
-// :104-112, (iii) 11/99 and 24/189, (iv) the exact reconciliation and (v) the report end to end. Export-excluded
-// (imports scripts/census/**, reads the upcoming u4b fixtures). NO network.
+// U-4b-STATS-1 (RUNBOOK ruling R-K; checkpoint-1 C-1..C-12) - OFFLINE tools for the pre-registered hypotheses H-3 /
+// H-4 / H-6 of docs/PLAN-u4b-prereg.md (:95-106) and the report feeding the pre-registered U-6 condition (:359).
+// Oracles are INDEPENDENT of the tool and ANTERIOR to it (C-5): (i) the advisor Q6 masses (3.6 / 6.3 / 5.8 / 10.4 %),
+// (ii) ADR-U4 :104-112 (177 of 179 served values in the series, 2 = p0, lags 26 / 6 / 5), (iii) 11/99 and 24/189,
+// (iv) exact reconciliation against repayment_base of the pinned U3-realized, (v) the report end to end on the
+// committed e2 fixtures, plus closed forms (hockey stick, Angelopoulos & Bates p.50 moments) and an independent
+// lgamma implementation. Export-excluded (imports scripts/census/**, reads the upcoming u4b fixtures). NO network.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import {
-  ROOT, H3_LEVEL, REFERENCE_REL, REFERENCE_SHA256_LF, PREREG_REL, HypError,
+  ROOT, H3_LEVEL, H6_MAX_LAG, REFERENCE_REL, REFERENCE_SHA256_LF, PREREG_REL, SUMMARY_TEMPLATES, HypError,
   rat, bbDistribution, bbLowerTail, rejectsAtLevel, pOfN, loadReferenceLines, extractC11Sentence, loadC11Sentence,
-  parseJsonl, parseScores, h3Cell, computeH3,
-  type Rat, type ParsedScores, type ScoreRow, type MetaCellA, type H3Result,
+  parseJsonl, parseScores, h3Cell, computeH3, computeH4, computeH6, computeLabels, clause359, buildSummary, parseArgs,
+  runCli,
+  type Rat, type ParsedScores, type ScoreRow, type MetaCellA, type ReportDoc, type H3Result,
 } from "../../../scripts/census/u4b/u4b-hyp.mjs";
+import { compilePatterns, scanText, type VocabRule } from "../../../scripts/grep-forbidden.mjs";
 
 const FIX = join(ROOT, "apps", "sentinel", "test", "fixtures", "ukemi");
 const P_SCORES_E2 = join(FIX, "u4b", "U4b-scores-e2.jsonl");
+const P_ORACLE_E2 = join(FIX, "u4b", "U4b-oracle-path-e2.jsonl");
+const P_INPUTS = join(FIX, "u3", "U3-inputs.jsonl");
+const P_REALIZED = join(FIX, "u3", "U3-realized.jsonl");
 const EP = "e2-2025-10-10-weth";
+const WETH = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
 /** sha256 of the C-11 sentence read from the prereg (the sentence itself is never typed in a source file). */
 const C11_SENTENCE_SHA256 = "b76dc9881b224a7ec4d67f9efea7cf6a037316773802c7d93398065b4a20cbac";
+/** Regression pin of the e2-vs-e2 report body (C-5 v); the provenance (tool sha) is OUTSIDE the digest. */
+const E2_REPORT_BODY_DIGEST = "49b138c3b0ea1c4debfd6276df898cb9e1379a93b676f0a9fe04fd04fb441d5f";
 
 type Line = Record<string, unknown>;
 const readLines = (p: string): Line[] => parseJsonl(readFileSync(p, "utf8"));
@@ -216,6 +225,13 @@ test("u4b_hyp_h3_verdict_enumeration_precedence_and_predicate", () => {
   const r2 = computeH3(fresh, e2Ok);
   assert.deepEqual(r2.strata.map((s) => s.verdict), ["OUI", "OUI", "UNDER_CALIB", "NON_TESTABLE_E2"]);
   assert.equal(r2.h3_no_NON_on_served_strata, true, "UNDER_CALIB / NON_TESTABLE_E2 never count as NON");
+  // VX-1 (cp-2 of unit 1a, C-V-3): fresh n < 100 AND e2 n < 50 on the SAME stratum => UNDER_CALIB wins over
+  // NON_TESTABLE_E2 (precedence pinned by a synthetic case, not only by the real e2 strata 2/3 of T11).
+  const r3 = computeH3(synthScores([range(1, 120), range(1, 120), range(1, 99), range(1, 99)], "ep-test"), synthScores([range(1, 60), range(1, 60), range(1, 60), range(1, 49)], "e2-test"));
+  assert.deepEqual(r3.strata.map((s) => s.verdict), ["OUI", "OUI", "UNDER_CALIB", "UNDER_CALIB"]);
+  const s3 = r3.strata[3];
+  assert.ok(s3 !== undefined);
+  assert.deepEqual([s3.verdict, s3.served, s3.fresh.n, s3.fresh.qhat, s3.e2.n], ["UNDER_CALIB", false, 99, null, 49], "fresh n=99 < 100 and e2 n=49 < 50 on one stratum => UNDER_CALIB (precedence)");
 });
 
 test("u4b_hyp_h3_one_sided_lower_tail_at_5_percent", () => {
@@ -404,4 +420,265 @@ test("u4b_hyp_c11_sentence_read_verbatim_from_pinned_prereg", () => {
   assert.equal(sha256(s), C11_SENTENCE_SHA256, "the C-11 sentence is the prereg span, byte for byte");
   const text = readFileSync(join(ROOT, PREREG_REL), "utf8");
   assert.throws(() => extractC11Sentence(text.replace("Texte servi (C-11)", "Texte servi (C-12)")), /prereg sha256 LF .* != pinned/, "an edited prereg is refused");
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// C-V-3 (cp-2 of unit 1a): the three upstream guards of parseScores, each refused BY NAME (HypError + its exact message)
+// at the pure function AND at the CLI boundary, with 0 write (no report file, nothing but the input in the directory).
+// The message is matched exactly: without the guard, the code downstream refuses with ANOTHER HypError (VX-3, VX-6)
+// or writes a report (VX-5), so a bare `instanceof HypError` would let the guard regress unseen.
+// ---------------------------------------------------------------------------------------------------------------
+const refusedWith = (needle: string) => (e: unknown): boolean => e instanceof HypError && e.message.includes(needle);
+function refusedAtCliWithoutWrite(lines: Line[], needle: string): void {
+  const dir = mkdtempSync(join(tmpdir(), "u4b-hyp-guard-"));
+  try {
+    const input = join(dir, "U4b-scores-tampered.jsonl"), out = join(dir, "hyp-report.json");
+    writeFileSync(input, lines.map((l) => JSON.stringify(l)).join("\n") + "\n");
+    assert.throws(() => runCli(["h3", "--scores", input, "--event-id", EP, "--out", out]), refusedWith(needle), `CLI refusal by name: ${needle}`);
+    assert.equal(existsSync(out), false, "0 write: the report file is never created");
+    assert.deepEqual(readdirSync(dir), ["U4b-scores-tampered.jsonl"], "0 write: the directory holds the input only");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+const withCellA = (lines: Line[], patch: (c: MetaCellA) => MetaCellA): Line[] => lines.map((l) => (l.kind === "meta" ? { ...l, cell_a: patch(l.cell_a as MetaCellA) } : l));
+
+test("u4b_hyp_parse_scores_refuses_rows_ne_meta_n_vx3", () => {
+  const lines = readLines(P_SCORES_E2);
+  assert.equal(parseScores(lines, EP, "fresh scores").rows.length, 565, "baseline: the committed fixture passes (565 rows = cell_a.n)");
+  const tampered = withCellA(lines, (c) => ({ ...c, n: c.n + 1 }));
+  const needle = "fresh scores: 565 score_a rows != cell_a.n 566";
+  assert.throws(() => parseScores(tampered, EP, "fresh scores"), refusedWith(needle), "rows != cell_a.n => named refusal");
+  refusedAtCliWithoutWrite(tampered, needle);
+});
+
+test("u4b_hyp_parse_scores_refuses_score_ne_exceedance_vx5", () => {
+  const lines = readLines(P_SCORES_E2);
+  const i = lines.findIndex((l) => l.kind === "score_a" && l.y === "0" && l.score === "0" && l.yhat !== "0");
+  assert.ok(i > 0, "a real score_a row with Y = 0 < yhat (an atom at 0) exists");
+  const address = String(lines[i]?.address);
+  const tampered = lines.map((l, j) => (j === i ? { ...l, score: "1" } : l));
+  const needle = `fresh scores: row ${address} score != max(Y - yhat, 0)`;
+  assert.throws(() => parseScores(tampered, EP, "fresh scores"), refusedWith(needle), "score != max(Y - yhat, 0) => named refusal");
+  refusedAtCliWithoutWrite(tampered, needle);
+});
+
+test("u4b_hyp_parse_scores_refuses_strata_ne_4_vx6", () => {
+  const lines = readLines(P_SCORES_E2);
+  assert.equal(parseScores(lines, EP, "fresh scores").cellA.strata.length, 4, "baseline: 4 a-priori strata");
+  const tampered = withCellA(lines, (c) => ({ ...c, strata: c.strata.slice(0, 3) }));
+  const needle = "fresh scores: cell_a.strata must list the 4 a-priori strata";
+  assert.throws(() => parseScores(tampered, EP, "fresh scores"), refusedWith(needle), "strata != 4 => named refusal");
+  refusedAtCliWithoutWrite(tampered, needle);
+});
+
+test("u4b_hyp_h4_e2_counts_reconciliation_and_shares", () => {
+  const inputs = readLines(P_INPUTS), realized = readLines(P_REALIZED);
+  const fresh = parseScores(readLines(P_SCORES_E2), EP, "fresh");
+  const h = computeH4(inputs, realized, fresh, EP);
+  // prior oracle (advisor Q6 :76): 11/99 class-A liquidated, 24/189 all liquidated have more than one call
+  assert.equal(h.class_a_liquidated.n, 99);
+  assert.equal(h.class_a_liquidated.multi_call, 11);
+  assert.equal(h.class_a_liquidated.verdict, "NON");
+  assert.equal(h.all_liquidated.n, 189);
+  assert.equal(h.all_liquidated.multi_call, 24);
+  assert.equal(h.all_liquidated.verdict, "NON");
+  assert.equal(h.reconciliation.positions_reconciled, 194, "every e2 position reconciles exactly with repayment_base (C-5 iv)");
+  assert.equal(h.reconciliation.positions_abstained, 0);
+  // independent recomputation of the per-stratum sum after the first call (floorDiv, (block, log_index) order)
+  type Call = { event_id: string; user: string; debt: string; block: number; log_index: number; debt_to_cover: string };
+  const dec = new Map((inputs.filter((l) => l.kind === "reserve") as Array<{ asset: string; decimals: number }>).map((r) => [r.asset, BigInt(r.decimals)]));
+  const px = new Map((inputs.filter((l) => l.kind === "price") as Array<{ asset: string; block: number; price: string }>).map((r) => [`${r.asset}|${String(r.block)}`, BigInt(r.price)]));
+  const byUser = new Map<string, Call[]>();
+  for (const c of inputs.filter((l) => l.kind === "call" && l.event_id === EP) as Call[]) byUser.set(c.user, [...(byUser.get(c.user) ?? []), c]);
+  const expectAfter = [0n, 0n, 0n, 0n];
+  for (const r of fresh.rows.filter((x) => x.liquidated)) {
+    const cs = (byUser.get(r.address) ?? []).slice().sort((x, z) => x.block - z.block || x.log_index - z.log_index);
+    for (const c of cs.slice(1)) expectAfter[r.strate] = (expectAfter[r.strate] ?? 0n) + (BigInt(c.debt_to_cover) * (px.get(`${c.debt}|${String(c.block)}`) ?? 0n)) / 10n ** (dec.get(c.debt) ?? 0n);
+  }
+  assert.deepEqual(h.strata.map((s) => s.sum_after_first), expectAfter.map(String));
+  assert.deepEqual(h.strata.map((s) => s.liquidated), [24, 51, 21, 3], "liquidated class-A accounts per stratum (= cell B strata)");
+  assert.equal(h.strata.map((s) => s.multi_call).reduce((a, x) => a + x, 0), 11);
+});
+
+test("u4b_hyp_h4_synthetic_first_call_deficit_and_abstention", () => {
+  const E = "ep-h4", DEBT = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
+  const A = "0x" + "a".repeat(40), B = "0x" + "b".repeat(40), C = "0x" + "c".repeat(40);
+  const call = (user: string, block: number, li: number, dtc: string): Line => ({ kind: "call", event_id: E, block, log_index: li, tx: "0x" + String(block), collateral: WETH, debt: DEBT, user, liquidator: "0x" + "9".repeat(40), debt_to_cover: dtc, liquidated_collateral: "1", receive_atoken: false, in_window: true });
+  const inputs: Line[] = [
+    { kind: "meta", events: [{ id: E }] },
+    { kind: "reserve", asset: DEBT, decimals: 6 },
+    { kind: "price", asset: DEBT, block: 10, price: "100000000" },
+    { kind: "price", asset: DEBT, block: 11, price: "100000000" },
+    { kind: "price", asset: DEBT, block: 12, price: "100000000" },
+    call(A, 12, 0, "3000000"), call(A, 10, 1, "1000000"), // A: first call = block 10 (1e8 base), then block 12 (3e8)
+    call(B, 11, 2, "2000000"),                            // B: one call
+    call(C, 13, 0, "5000000"),                            // C: no price at block 13 => position abstains
+  ];
+  const lineOf = (user: string, repay: string | null, deficit: string, n: number): Line => ({ event_id: E, user, debt_asset: DEBT, collateral_asset: WETH, n_calls: n, repayment_base: repay, deficit_base: deficit, residual: repay === null ? ["no_quorum"] : [] });
+  const realized: Line[] = [lineOf(A, "400000000", "50000000", 2), lineOf(B, "200000000", "0", 1), lineOf(C, null, "0", 1)];
+  const mkRow = (address: string, y: bigint): ScoreRow => ({ address, y, yhat: 1n, score: y - 1n, liquidated: true, strate: 0, pstar: null });
+  const fresh: ParsedScores = { ...synthScores([[], [], [], []], E), rows: [mkRow(A, 450000000n), mkRow(B, 200000000n), mkRow(C, 100000000n)] };
+  const h = computeH4(inputs, realized, fresh, E);
+  const s0 = h.strata[0];
+  assert.ok(s0 !== undefined);
+  assert.equal(s0.sum_after_first, "300000000", "A: only the call AFTER the first one (block 12) counts; the deficit does not");
+  assert.equal(s0.sum_deficit_apart, "50000000", "deficit reported apart");
+  assert.equal(s0.sum_y, "650000000");
+  assert.equal(s0.share_sum?.num + "/" + s0.share_sum?.den, "6/13", "sum share = 3e8 / (4.5e8 + 2e8)");
+  assert.equal(s0.share_median?.median.num + "/" + s0.share_median?.median.den, "1/3", "median of {2/3 (A), 0 (B)} = 1/3");
+  assert.equal(s0.multi_call_subset.share_sum?.num + "/" + s0.multi_call_subset.share_sum?.den, "2/3");
+  assert.equal(h.accounts_abstained, 1, "C (repayment_base null) is excluded from the shares and counted");
+  assert.equal(h.class_a_liquidated.n, 3);
+  assert.equal(h.class_a_liquidated.multi_call, 1);
+  assert.equal(h.reconciliation.positions_abstained, 1);
+  const bad = realized.map((l) => (l.user === A ? { ...l, repayment_base: "400000001" } : l));
+  assert.throws(() => computeH4(inputs, bad, fresh, E), /reconciliation failed/, "a per-call floor sum != repayment_base is refused");
+});
+
+test("u4b_hyp_h6_reproduces_adr_u4_on_e2", () => {
+  const h = computeH6(readLines(P_INPUTS), readLines(P_ORACLE_E2), EP);
+  // ADR-U4 :104-112 (anterior): 179 sampled blocks (price + price_prev), 177 in the series, 2 = p0.
+  assert.equal(h.served_blocks.n, 179);
+  assert.equal(h.served_blocks.in_events, 177);
+  assert.equal(h.served_blocks.equal_to_p0, 2);
+  assert.equal(h.served_blocks.outside, 0);
+  // the 107 getAssetPrice values at the call blocks: 69 current, lags 26 / 6 / 5, 1 = p0 before the first update.
+  assert.equal(h.price_at_call_block.n, 107);
+  assert.equal(h.price_at_call_block.matched_on_anchor, 1);
+  assert.deepEqual(h.price_at_call_block.lag_histogram, { "0": 70, "1": 26, "2": 6, "3": 5 });
+  assert.equal(h.served_blocks.max_lag, 3);
+  assert.equal(h.verdict, "OUI", "every served value in events U {p0} with lag <= 3");
+  assert.equal(h.anchor.source, "book_weth_price_base_8dec");
+  assert.equal(h.anchor.book_fallback_d_n_path, true, "the e2 anchor is the book fallback (the D-n path of C-7)");
+  assert.equal(h.min_served, h.min_events, "p_min bracket: min served == min events on e2");
+});
+
+test("u4b_hyp_h6_synthetic_lag_bound_membership_and_anchor", () => {
+  const E = "ep-h6";
+  const oracle: Line[] = [
+    { kind: "anchor", block: 100, price: "1000", source: "answer_updated_pre_b0" },
+    { kind: "meta", event_id: E, monotone_blocks: true, phase_change: false },
+    ...[101, 102, 103, 104, 105, 106].map((b, i) => ({ kind: "update", block: b, log_index: 0, price: String(1001 + i) })),
+  ];
+  const inputsWith = (priceAt107: string): Line[] => [
+    { kind: "call", event_id: E, block: 101 }, { kind: "call", event_id: E, block: 106 }, { kind: "call", event_id: E, block: 107 },
+    { kind: "price", asset: WETH, block: 101, price: "1000", price_prev: "1000" }, // p0 at 100 (lag 0) and at 101 (lag 1 on the anchor)
+    { kind: "price", asset: WETH, block: 106, price: "1006", price_prev: "1005" },
+    { kind: "price", asset: WETH, block: 107, price: priceAt107, price_prev: "1006" },
+  ];
+  const ok = computeH6(inputsWith("1003"), oracle, E);
+  assert.equal(ok.verdict, "OUI", "lag 3 at block 107 is within the bound");
+  assert.equal(ok.served_blocks.max_lag, 3);
+  const lag4 = computeH6(inputsWith("1002"), oracle, E);
+  assert.equal(H6_MAX_LAG, 3);
+  assert.equal(lag4.verdict, "NON", "lag 4 events exceeds the pre-registered bound of 3 => NON");
+  assert.equal(lag4.served_blocks.lag_over_bound, 1);
+  const outside = computeH6(inputsWith("999"), oracle, E);
+  assert.equal(outside.verdict, "NON", "a served value outside events U {p0} => NON");
+  assert.equal(outside.served_blocks.outside, 1);
+  assert.equal(ok.anchor.book_fallback_d_n_path, false);
+  assert.throws(() => computeH6(inputsWith("1003"), oracle, "other-episode"), /!= --event-id/);
+});
+
+test("u4b_hyp_report_e2_end_to_end_deterministic_body_digest", () => {
+  const dir = mkdtempSync(join(tmpdir(), "u4b-hyp-rep-"));
+  try {
+    const args = (out: string): string[] => ["report", "--scores", P_SCORES_E2, "--inputs", P_INPUTS, "--u3-realized", P_REALIZED, "--oracle-path", P_ORACLE_E2, "--event-id", EP, "--out", out];
+    const o1 = join(dir, "hyp-report-e2-a.json"), o2 = join(dir, "hyp-report-e2-b.json");
+    runCli(args(o1));
+    runCli(args(o2));
+    const t1 = readFileSync(o1, "utf8"), t2 = readFileSync(o2, "utf8");
+    assert.equal(t1, t2, "two runs => identical bytes (no clock, no absolute path)");
+    const doc = JSON.parse(t1) as ReportDoc;
+    assert.equal(doc.body_digest, E2_REPORT_BODY_DIGEST, "report body pinned (e2 on both sides)");
+    assert.equal(doc.provenance.tool.sha256_lf, sha256(readFileSync(join(ROOT, "scripts", "census", "u4b", "u4b-hyp.mjs"), "utf8").replace(/\r\n/g, "\n")), "C-4: the tool sha LF is in the report provenance");
+    assert.equal(doc.provenance.inputs.e2_comparison?.sha256_lf, REFERENCE_SHA256_LF);
+    assert.equal(doc.provenance.inputs.u3_realized?.sha256_lf, "b4d93590f07b21017abe8ec2d980dee1f258a968395eb32497e6f9543b6f3923", "the pinned U3-realized (PROVENANCE-u3.md:10)");
+    assert.deepEqual(doc.body.clause_359, { h3_no_NON_on_served_strata: true, labels_no_quorum_unresolved: 0, condition_satisfied: true, h3_pooled_verdict_outside_condition: "OUI" });
+    assert.equal(doc.body.h5?.population_mono_weth, 9452, "prereg :102 (e2 mono-WETH population)");
+    assert.equal(doc.body.q0_rule_failures?.yhat_zero_liquidated, 3, "prereg :99 (3 accounts, all without crossing)");
+    assert.equal(doc.body.q0_rule_failures?.without_crossing.length, 3);
+    assert.equal(doc.body.q0_rule_failures?.crossed_yhat_zero, 1);
+    assert.ok(!/\bgo\b/i.test(t1), "C-4: the report never carries a decision token");
+    assert.ok(!/[A-Za-z]:[\\/]/.test(t1) && !t1.includes(ROOT), "no absolute path in the artifact");
+    assert.throws(() => runCli(args(o1)), /already exists/, "an existing report is never overwritten");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("u4b_hyp_summary_vocabulary_gate_and_c11_sentence", () => {
+  const c11 = loadC11Sentence();
+  const vocab = JSON.parse(readFileSync(join(ROOT, "vocab-banned.json"), "utf8")) as { banned: VocabRule[]; scan: Record<string, { banned?: VocabRule[] }> };
+  const patterns = compilePatterns([
+    ...vocab.banned, ...(vocab.scan.harness?.banned ?? []), ...(vocab.scan.site?.banned ?? []), ...(vocab.scan.sentinel?.banned ?? []),
+    { re: "probab", why: "A-9: no probability wording" }, { re: "being\\s+right", why: "A-9" }, { re: "\\bgo\\b", why: "C-4: no decision token" },
+    { re: "\\bprove[sn]?\\b|\\bestablish|\\bcertif|\\bvalidates?\\b|\\blicen[cs]es?\\b", why: "C-11: over-claim" },
+  ]);
+  // served state 1: the e2 report file (OUI + UNDER_CALIB + every census line)
+  const dir = mkdtempSync(join(tmpdir(), "u4b-hyp-voc-"));
+  let lines: string[] = [];
+  try {
+    const out = join(dir, "r.json");
+    runCli(["report", "--scores", P_SCORES_E2, "--inputs", P_INPUTS, "--u3-realized", P_REALIZED, "--oracle-path", P_ORACLE_E2, "--event-id", EP, "--out", out]);
+    lines = (JSON.parse(readFileSync(out, "utf8")) as ReportDoc).body.summary;
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+  // served state 2: NON + NON_TESTABLE_E2 + UNDER_CALIB (synthetic H-3 body)
+  const fresh = synthScores([range(1, 120), range(1, 120), range(1, 99), range(1, 120)], "ep-test");
+  const e2 = synthScores([range(1, 60), [...range(1, 30), ...range(121, 150)], range(1, 60), range(1, 49)], "e2-test");
+  const synth = buildSummary({ event_id: "ep-test", h3: computeH3(fresh, e2) }, c11);
+  const all = [...lines, ...synth];
+  for (const text of all) assert.deepEqual(scanText(text, patterns), [], `vocabulary gate on served line: ${text}`);
+  for (const [k, tpl] of Object.entries(SUMMARY_TEMPLATES)) {
+    assert.deepEqual(scanText(tpl, patterns), [], `vocabulary gate on template ${k}`);
+    const prefix = tpl.split("{")[0] ?? tpl;
+    assert.ok(all.some((l) => l.startsWith(prefix)), `template ${k} is rendered in a tested served state`);
+  }
+  const h3Lines = all.filter((l) => l.startsWith("H-3 ") && /: (OUI|NON|UNDER_CALIB|NON_TESTABLE_E2) /.test(l));
+  assert.ok(h3Lines.some((l) => l.includes(": OUI ")) && h3Lines.some((l) => l.includes(": NON ")), "both OUI and NON lines are exercised");
+  for (const l of h3Lines) assert.equal(l.includes(c11), l.includes(": OUI "), `C-11 sentence on every OUI line and only there: ${l}`);
+});
+
+test("u4b_hyp_cli_refuses_forbidden_unknown_and_in_repo_flags", () => {
+  const base = ["--scores", "s", "--event-id", "e", "--out", "o"];
+  assert.deepEqual(parseArgs(["h3", ...base]).opts, { "--scores": "s", "--event-id": "e", "--out": "o" });
+  for (const f of ["--alpha", "--level", "--side", "--ref", "--reference", "--smoothed"]) {
+    assert.throws(() => parseArgs(["h3", ...base, f, "0.05"]), /forbidden/, `${f} is a pre-registered constant, never a flag`);
+  }
+  assert.throws(() => parseArgs(["h3", ...base, "--foo", "1"]), /unknown argument/);
+  assert.throws(() => parseArgs(["h3", "--scores", "s", "--event-id", "e"]), /--out is REQUIRED/);
+  assert.throws(() => parseArgs(["h3", ...base, "--scores", "t"]), /duplicate/);
+  assert.throws(() => parseArgs(["h5", ...base]), /sub-command/);
+  assert.throws(() => parseArgs(["report", "--scores", "s", "--inputs", "i", "--oracle-path", "o", "--event-id", "e", "--out", "x"]), /--u3-realized is REQUIRED/, "C-2: the labels are required by the report");
+  // in-repo --out: refused before any read or write; its parent does not exist, so even a regressed guard cannot
+  // write into the repository (it would fail on the missing parent instead).
+  const inRepoOut = join(ROOT, "u4b-hyp-no-such-dir", "hyp-report-inrepo.json");
+  assert.throws(() => runCli(["h3", "--scores", P_SCORES_E2, "--event-id", EP, "--out", inRepoOut]), /inside the repository/);
+  assert.equal(existsSync(inRepoOut), false, "nothing written inside the repository");
+  const dir = mkdtempSync(join(tmpdir(), "u4b-hyp-cli-"));
+  try {
+    assert.throws(() => runCli(["h3", "--scores", P_SCORES_E2, "--event-id", "not-e2", "--out", join(dir, "x.json")]), /!= --event-id/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("u4b_hyp_labels_no_quorum_counts_null_repayment_only", () => {
+  const E = "ep-lab";
+  const realized: Line[] = [
+    { event_id: E, user: "0x1", repayment_base: null, residual: ["no_quorum"] },
+    { event_id: E, user: "0x2", repayment_base: "5", residual: ["no_quorum", "partial_liquidation"] },
+    { event_id: E, user: "0x3", repayment_base: "7", residual: [] },
+    { event_id: "other", user: "0x4", repayment_base: null, residual: ["no_quorum"] },
+  ];
+  const l = computeLabels(realized, E);
+  assert.equal(l.labels_no_quorum_unresolved, 1, "C-2: unresolved = repayment_base null for the episode (u3-realized.mjs:226)");
+  assert.equal(l.residual_no_quorum, 2, "residual no_quorum counted apart");
+  assert.equal(l.other_event_lines, 1);
+  const h3: H3Result = { strata: [], pooled: { cell: "pooled class A", verdict: "OUI", served: true, fresh: { n: 100, p: 100, qhat: "1" }, e2: { n: 60 } }, served_strata: [], non_on_served_strata: [], h3_no_NON_on_served_strata: true };
+  const c = clause359(h3, l);
+  assert.equal(c.condition_satisfied, false, "an unresolved labels_no_quorum defeats the :359 condition");
+  assert.equal(c.labels_no_quorum_unresolved, 1);
+  // C-1 at the clause level: UNDER_CALIB and NON_TESTABLE_E2 strata never defeat the condition; a served NON does.
+  const fresh = synthScores([range(1, 120), range(1, 120), range(1, 99), range(1, 120)], "ep-test");
+  const clean = { ...l, labels_no_quorum_unresolved: 0 };
+  const ok = clause359(computeH3(fresh, synthScores([range(1, 60), range(1, 60), range(1, 60), range(1, 49)], "e2-test")), clean);
+  assert.deepEqual([ok.h3_no_NON_on_served_strata, ok.condition_satisfied], [true, true]);
+  const non = clause359(computeH3(fresh, synthScores([range(1, 60), [...range(1, 30), ...range(121, 150)], range(1, 60), range(1, 49)], "e2-test")), clean);
+  assert.deepEqual([non.h3_no_NON_on_served_strata, non.condition_satisfied], [false, false]);
 });
