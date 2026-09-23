@@ -258,7 +258,12 @@ function main() {
   for (const entry of readdirSync(MIRROR)) {
     if (entry !== ".git") rmSync(join(MIRROR, entry), { recursive: true, force: true });
   }
-  cpSync(stage, MIRROR, { recursive: true });
+  // Copy entry by entry: on this host (Node v24.15.0, win32) a single cpSync(stage, MIRROR) into the mirror clone exits the
+  // process silently with code 127 after the mirror was emptied, while the same copy per top-level entry succeeds
+  // (measured 2026-09-23, dry-runs 6-7 and a manual bisect; item RELEASE-CPSYNC-127-1). Same bytes, same layout.
+  for (const entry of readdirSync(stage)) {
+    cpSync(join(stage, entry), join(MIRROR, entry), { recursive: true });
+  }
   run("git add -A", MIRROR);
 
   // Identity guard: copy the source repo's committer identity, and refuse to publish under anything that
