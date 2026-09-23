@@ -1294,3 +1294,201 @@ ce qui était le risque nommé par le G2.
 - Ruling cp-2 §4 : `/ukemi` en ligne devient VRAIE ssi la CA `scripts/verify-harness.mjs` est verte après redéploiement (12/12 dont `gate_liq_call` et `mcp_gate_description_liq`, `tls.authorized`, `docs/deploy-CA-harness.json` régénéré, JOURNAL nommant le SHA) ; vérité datée `checked_at`, procédurale (RUNBOOK-harness étape 6). Observation (CARTO-T1C-1) : étendre la CA à COND et `n_calib`.
 - Items suivis : R-1b-1 (S1/S2, déclencheur SDK/`http.ts`), R-1b-2 (= O-6 : UPPER exigé absent par la CA ; prochaine modification de la CA), O-1b-G2-1 (ci-dessus), O-1b-G2-2 (durée du test (3) ; premier dépassement), extension §4 (c) (à -2b : re-dériver les 4 vecteurs, rejouer les 6 mutants), IF-1 (G2 A-9 : 4e exemption `verified` au re-pin h5 de ce lot ou de U-5b), O-1b-1/D4 (flake de niveau fichier, item D4 existant).
 - Ordre de fusion : après A-9-OUTILLE (`eab911a`) et U-4b-1b-3 (`b9eb62b`) ; avant le redéploiement du harness à un SHA nommé (décision 137 : investisseur informé).
+
+## Amendement daté 2026-09-23 (U-4b-1b-4 — outillage de course hors gel : ancre pré-B₀ réelle, helper `--usdt-blocks` sur la forme réelle, sonde (d) `s_cutoffTime` ; fold G7 : G1 `30a2eee` + micro-pli `206bc56`)
+
+> **Provenance.** G1 : worker `claude-opus-5-5[1m]` (effort max, décision 133), commit de lot `30a2eee` (parent = merge-base
+> avec `lot/etude-suite` = `030fe06`), rendu persisté `docs/G1-lot-u4b-1b-4.md`. Micro-pli U-4b-1b-4b (C-G2-1 code,
+> C-G2-2..C-G2-5 tests) : même worker, contexte intact, commit `206bc56`. Texte v1 de cet amendement : worker du G1, rendu
+> hors dépôt (sha256 `dbe6f780b7de8615592e4e1c389f12348b91f126c8797c6a28ef70b4782a6604`). **Fold G7 (ce texte)** : worker
+> `claude-opus-5-5[1m]` (effort max), 2026-09-23, repris à 04:23:26Z (`date -u`) après une coupure de session (429), docs
+> seulement, aucun commit (R-20) ; il replie les
+> corrections du checkpoint-2, du G2, du re-G2 et du re-checkpoint-2 et assigne un `error_origin` à chacune (§4, §9).
+> **Insertion par l'orchestrateur `claude-fable-5-1` SEUL**, en queue de ce fichier, dans le commit du G7 ; réviseur =
+> orchestrateur (R-21). Corps D1..D5 et amendements antérieurs byte-identiques : ajout pur en fin de fichier. Cet ADR n'est
+> pas dans le diff du lot (`git diff --quiet 030fe06 206bc56 -- docs/adr/ADR-U4b-calibration-episode-frais.md`). Lignes de
+> code citées au bout du lot (`206bc56`) : `scripts/census/u4-oracle-path.mjs` sha256 LF
+> `4ed4c31e99f148b9d6285926f010cd7beb5f3b686c70a9e7188b3c0c7f8f0d7a` ; `scripts/census/u4b/u4b-probe-cutoff.mjs` sha256 LF
+> `8bdb1478e7b3c107b91f5daa9c01642ef97956033ddaf72cfe29b3d73f19e56b` (version du G1 `30a2eee` :
+> `deffbb6b79e802875e5519801eacfce00299ac6b926eb09d400fd93f30c50a57` ; prober avant le lot :
+> `a2b39d0edf0d7ba4612ba67ddad0857faa61352198092ef6dad69953486975a8`) — mesures `git show <c>:<f> | tr -d '\r' | sha256sum`.
+
+### 1. Chaîne de revue (ordre réel ; heure = `TZ=UTC git log` du commit porteur)
+| étape | acteur | objet (commit) | verdict et mesures | source en dépôt |
+|---|---|---|---|---|
+| checkpoint-1 | validateur `claude-fable-5-1` | persisté `d841957` (20:39) | APPROUVE-AVEC-CORRECTIONS C-1..C-9 (toutes bloquantes sauf C-9) | `docs/CHECKPOINT1-lot-u4b-1b-4.md:1,49` |
+| FAITS + ADDENDUM daté | orchestrateur `claude-fable-5-1` | `030fe06` (20:57) | `s_cutoffTime` sans getter ⇒ événement `CutoffTimeSet` ; règle GO ssi `c_fresh == c_e2` ; lookback de l'ancre (cp-1 C-2/C-3/C-4) | `docs/course-ukemi/FAITS-dualaggregator-cutoff-2026-09-22.md` ; `docs/course-ukemi/ADDENDUM-sonde-d-ancre-pre-b0-2026-09-22.md` ; `docs/CHANTIERS.md:873-875` |
+| G1 | worker `claude-opus-5-5[1m]` | `30a2eee` (22:21) ; rendu persisté `097bc9e` (22:16) | 949/947/0/2 ; 25/25 mutants tués par leur test nommé ; R-25 795 ; A-6 14/14 ; re-vérifié par l'orchestrateur avant commit ; rulings R-1b4-1, R-1b4-2 | `docs/G1-lot-u4b-1b-4.md` ; `docs/CHANTIERS.md:904,923` |
+| checkpoint-2 | validateur `claude-fable-5-1` | `30a2eee` ; persisté `dde21eb` (23:45) | ACCEPTE-AVEC-CORRECTIONS C-V-1..C-V-4, conditionné au G2 ; 949/947/0/2 ; 25/25 + 7/7 mutants propres ; fusion à blanc 953/951/0/2 ; instance R-1b4-2 rejouée | `docs/CHECKPOINT2-lot-u4b-1b-4.md:13-19,25,28-32` |
+| G2 | relecteur `claude-opus-5-5[1m]`, instance séparée | `30a2eee` ; persisté `b147db0` (00:14) | PASS-AVEC-CORRECTIONS C-G2-1 (bloquante) .. C-G2-5 ; 13 mutants propres survivants, chacun tué par un prototype ; items I-2..I-6 | `docs/G2-lot-u4b-1b-4.md:35-54` ; intégral `docs/G2-lot-u4b-1b-4-integral.md` |
+| micro-pli U-4b-1b-4b | worker `claude-opus-5-5[1m]` (contexte intact) | `206bc56` (01:05) | 952/950/0/2 ; 39/39 (25 + 14) tués par leur test nommé ; même harnais AVANT sur `30a2eee` : les 13 survivent et MG13 = golden ; R-25 cumulé 903 ; export réel 330/330 identique | `docs/CHANTIERS.md:949,951` |
+| re-G2 ‖ re-checkpoint-2 | même relecteur (contexte intact) ‖ validateur | `206bc56` ; persistés `56e7730` (01:39) | PASS ‖ ACCEPTE-AVEC-CORRECTIONS (C-V-1..C-V-4 maintenues, C-V4b-1..C-V4b-3) ; 39/39 + 26/26 ; fusion à blanc sur `fad24ab` 977/975/0/2 | `docs/G2-lot-u4b-1b-4-4b.md` ; `docs/CHECKPOINT2-lot-u4b-1b-4-4b.md:24-27` ; `docs/CHANTIERS.md:957` |
+| G7 | orchestrateur `claude-fable-5-1` | fusion `--no-ff` de `206bc56` + ce fold | oracle 7 portes sur l'arbre principal fusionné (note « compte G7 ») | entrée « G7 U-4b-1b-4 » de `docs/CHANTIERS.md` |
+
+- **Note « compte G7 ».** Attendu sur l'arbre principal fusionné : N + 19, où N = compte de `lot/etude-suite` sur l'arbre
+  principal au moment de la fusion, et 19 = tests ajoutés par le lot (16 au G1 : 933 → 949 ; 3 au micro-pli : 949 → 952).
+  Un seul skip attendu, `sentinel_run_releases_chainstack_lock_on_sigterm` (win32) : l'arbre principal porte les artefacts
+  e2 que les clones n'ont pas (`docs/G2-lot-u4b-1b-4-4b.md:32-33`). Au re-G2, N = 958 (arbre principal au G7
+  HARNESS-DESC-1, 958/957/0/1, `docs/CHANTIERS.md:946`) ⇒ 977/976/0/1 ; depuis, la fusion de BELL-SHORTPAGE-1
+  (`2c276bb`, `apps/bell` seulement) a porté N à **977** (arbre principal mesuré au G7 BELL-SHORTPAGE-1, 977/976/0/1,
+  `docs/CHANTIERS.md:972`) ⇒ attendu **996/995/0/1** si aucune autre fusion non docs ne précède (GARDE-FSYNC-1,
+  UKEMI-RETRY-2 changeraient N : le remesurer juste avant la fusion de ce lot). Écart à N + 19 = STOP avant commit.
+
+### 2. Objet (trois pièces, toutes hors gel)
+- **A — ancre pré-B₀ réelle** (R-I ; prereg `:66`, D2 ; cp-1 C-4/C-5 ; ADDENDUM §2), `scripts/census/u4-oracle-path.mjs` :
+  dernier `AnswerUpdated` d'ordre `(block, logIndex)` de bloc ≤ B₀ sur `aggregator()@B₀` (`pickPreB0Anchor`, `:70`) ;
+  profondeurs `D_k = 9 990·2^(k−1)` (`PRE_B0_FIRST_DEPTH`, `:49`) ; fenêtre k = seule partie nouvelle
+  `[B₀ − D_k, B₀ − D_(k−1) − 1]`, fenêtre 1 = `[B₀ − 9 990, B₀]` (`preB0Windows`, `:55`), disjointes, jamais relues ;
+  plafond 6 fenêtres (`DEFAULT_PRE_B0_MAX_WINDOWS`, `:50` ; ≈ 320 k blocs) ; chaque morceau getLogs ≤ 9 990 compté au
+  `--max-calls`. **Inconditionnelle** : plafond épuisé ⇒ « PRE-B0 ANCHOR STOP » (`:219`), exit 3
+  (`EXIT_PRE_B0_ANCHOR_STOP`, `:52`), AUCUN raw ni inputs écrit : le repli `book_weth_price_base_8dec` du réducteur gelé
+  devient inatteignable pour la course -1b. Raw `pre_b0_anchor = {price, block, log_index, round_id}` (`:276` ; forme lue par
+  `u4b-reduce.mjs:66-69`) ; provenance `pre_b0_anchor_window = {from, to, windows_tried, calls}` (`:268`) et
+  `params.pre_b0_max_windows` ; flag OPTIONNEL `--pre-b0-max-windows` (défaut nommé 6 ; refusé avant tout fetch s'il n'est
+  pas un entier > 0, `:157-159`).
+- **B — helper `usdtBlocksFromLabelerDeficit(U3-realized[, U3-inputs])`** (R-H ; cp-1 C-1(ii) ; `:118`) : `required` =
+  `first_block` distincts des lignes au prédicat EXACT du scoreur gelé (`u4b-scores.mjs:109-116` : `deficit_base == 0`,
+  `residual ∋ deficit_base_no_price`, `deficit_native > 0`) ; une telle ligne sur une dette NON-USDT ⇒ refus nommé (le
+  scoreur gelé jette, `:113`) ; ligne non JSON ⇒ refus ; `optional` = blocs `DeficitCreated` USDT des mêmes comptes
+  (`U3-inputs`), lecture coûtée jamais lue par le scoreur. **Ruling R-1b4-1** : `<USDT_BLOCKS>` = `required` seuls ;
+  `optional` rapporté « déclaré, non lu » (`docs/CHANTIERS.md:904`).
+- **C — sonde (d) `scripts/census/u4b/u4b-probe-cutoff.mjs`** (+ `.d.mts`) (R-G ; ADDENDUM §1 ; cp-1 C-2/C-3/C-6) :
+  `s_cutoffTime` est `uint32 internal` sans getter (FAITS) ⇒ lecture par événements `CutoffTimeSet(uint32)` (topic0
+  `0xb24a681c…c1c4d1` calculé localement par le keccak auto-testé d'`abi.ts`, `:37` ; recalculé par un Keccak indépendant au
+  G2, `docs/G2-lot-u4b-1b-4.md:20`) sur l'agrégateur RÉSOLU `aggregator()@B_fresh` du proxy §DISC:28 (`:27`), égalité
+  assertée contre `0x7c7fdfca…` (`:29` ; sinon `aggregator_mismatch`, 0 scan) ; UN scan
+  `[22 076 041, max(B_fresh, 23 545 087)]` (`:31`, `:33`, `:98`) ; `B_fresh = episode.B0` du `--episode-file` sha-vérifié
+  (0 fetch sur écart) ; `decide` (`:64`) : **GO ssi `c_fresh` et `c_e2` existent et sont égaux**, sinon STOP (exit 3) ;
+  échec de lecture = scan incomplet = STOP nommé (`budget_stop`, `read_failed:<Classe>`) ; `--block`, `--finalized`,
+  `--target` refusés nommément ; `--operators`, `--ledger-dir`, `--cycle`, `--max-calls`, `--method-caps`, `--out` requis
+  sans défaut (`--ledger-dir` absent ou vide ⇒ refus nommé depuis le micro-pli, `:83-85`, C-G2-1) ; keyless quorum-2 via
+  `openU4GuardedClient`, env VIDE passé au garde (`:134`) ; sortie `<--out>/cutoff-<B_fresh>.json` hors dépôt (`--out` sous
+  le dépôt refusé), JAMAIS `episode-selection.json` (C-6). Écarts d'exécution vs ADDENDUM §1 : ADDENDUM-2 daté
+  (`docs/course-ukemi/ADDENDUM-2-sonde-d-ancre-pre-b0-2026-09-23.md`, même commit que cet amendement).
+
+### 3. Tuyaux (ADR-M018 ; règle de Branchement) — à ajouter à la table Tuyaux ; tests @ `206bc56`
+| pièce | entrée (qui produit) | sortie (qui consomme) | état (où il vit) | tests qui prouvent la composition (intégration non-LLM, seul `globalThis.fetch` bouchonné) |
+|---|---|---|---|---|
+| ancre pré-B₀ réelle | prober `u4-oracle-path.mjs` (lookback getLogs gardé keyless sur `aggregator()@B₀`) | `raw.pre_b0_anchor` → `u4b-reduce.mjs` GELÉ (`anchor.source = "answer_updated_pre_b0"`) → scoreur (`cell_a.anchor_price`) | raw hors dépôt (`--raws-dir`, RUNBOOK étape 5) ; `upcoming` | `u4b_anchor_and_usdt_blocks_compose_prober_to_frozen_reducer_and_scorer` (`apps/sentinel/test/u4b-oracle-path.test.ts:390` : prober réel → réducteur gelé en processus enfant → scoreur), `u4b_pre_b0_windows_recede_disjoint_and_the_anchor_is_the_last_event_at_or_below_B0` (`:278`), `u4b_oracle_path_pre_b0_anchor_found_after_widening` (`:292`), `u4b_oracle_path_pre_b0_anchor_cap_exhausted_stops_without_raw` (`:324`), `u4b_oracle_path_cli_exit_3_on_pre_b0_anchor_stop_without_raw` (`:348`, micro-pli), `u4b_oracle_path_pre_b0_max_windows_flag_is_refused_unless_positive_integer` (`:369`), `u4_oracle_path_e2_via_flags_is_deterministic_and_reproduces_the_De_data` (`test/guard-scripts-u4.test.ts:221`) |
+| `--usdt-blocks` | labeler `U3-realized.jsonl` (+ option `U3-inputs.jsonl`) → helper pur | `--usdt-blocks` du prober → `raw.usdt_prices` → réducteur → `usdtPrices[first_block]` du scoreur gelé | fichiers hors dépôt ; `upcoming` | `u4b_usdt_blocks_helper_on_real_e2_labels_is_what_the_frozen_scorer_reads` (`u4b-oracle-path.test.ts:240` : fixture e2 RÉELLE, lectures du scoreur observées par Proxy, digests A/B e2 inchangés, prédicat clause par clause depuis le micro-pli) + la composition `:390` |
+| sonde (d) | `u4b-probe-cutoff.mjs` (1 `eth_call aggregator()` + scan `CutoffTimeSet`, gardé keyless) | `cutoff-<B_fresh>.json` → contrôle C-12 (RUNBOOK, annexe C) → go/no-go de l'étape 3 (ADDENDUM §1 ; ADDENDUM-2 (h)) | fichier hors dépôt (`--out`, RUNBOOK étape 2c-bis) ; `upcoming` (consommateur = procédure, pas un chemin servi) | `u4b_probe_cutoff_go_when_equal_real_form_logs_full_range_and_C12_exit_0` (`apps/sentinel/test/u4b-probe-cutoff.test.ts:76`), `u4b_probe_cutoff_stop_when_the_cutoff_changed_after_e2` (`:105`), `u4b_probe_cutoff_empty_scan_is_a_named_stop_exit_3` (`:152`, micro-pli), `u4b_probe_cutoff_never_writes_the_selection_and_the_prober_still_accepts_it` (`:207`), `u4b_probe_cutoff_refuses_a_missing_ledger_dir_from_any_cwd` (`:267`, micro-pli), `u4b_probe_cutoff_cli_exit_code_is_0_on_GO_and_3_on_STOP` (`:297`) |
+
+État : aucune pièce `built` avant la première course rapprochée (`docs/CONSIGNE-STANDARD-G1.md:30`, D-3) ; aucun octet
+servi ne change (export réel identique 330/330, `docs/CHANTIERS.md:949` ; registre public inchangé). **Composition
+sélecteur → prober non rejouée par ce lot** : les épisodes des tests sont synthétiques (`writeEpisode`,
+`u4b-oracle-path.test.ts:73`, `u4b-probe-cutoff.test.ts:53`) ⇒ item CARTO-T1C-5 (§8).
+
+### 4. Déviations D-n déclarées (F-3) — numérotation du G1 (`docs/G1-lot-u4b-1b-4.md`, §9), adjugées « fondées » par le checkpoint-2 (`docs/CHECKPOINT2-lot-u4b-1b-4.md:25`) ; `error_origin` = grille du checkpoint-2, §4 (e)
+| D-n | contenu | `error_origin` |
+|---|---|---|
+| D-1 | mission (item 2) « ancre absente ⇒ champ absent + statut nommé » REMPLACÉE par cp-1 C-4 / ADDENDUM §2 : plafond épuisé ⇒ STOP nommé, exit 3, aucun raw | orchestrateur (lettre de la mission) |
+| D-2 | flag `--pre-b0-max-windows` (unité = fenêtre de l'ADDENDUM) au lieu de `--pre-b0-max-chunks` ; « morceau » = getLogs ≤ 9 990 | n-a (non-incident) |
+| D-3 | fenêtre 1 `[B₀ − 9 990, B₀]` = 9 991 blocs ⇒ 2 morceaux (ADDENDUM §2 : « un morceau ») ; bornes gardées littérales (elles définissent la donnée), +2 appels ; corrigé par l'ADDENDUM-2 (b) | orchestrateur (ADDENDUM) |
+| D-4 | mission (item 1 : `eth_call s_cutoffTime()` avec `--block`/`--finalized`/`--target`) remplacée par ADDENDUM §1 : scan d'événements, ces flags refusés nommément ; conséquence A-8 : le « vide » réel est un mot `data = 0x` ⇒ refus nommé (`read_failed:ProbeError`) ; un `0x` vide sur `aggregator()` est écarté par le pool ⇒ `NoQuorum` ⇒ STOP | planificateur (prereg `:186` : getter public supposé, non vérifié) |
+| D-5 | borne haute du scan `max(B_fresh, 23 545 087)` au lieu de « jusqu'à B_fresh » (ADDENDUM §1) — testée (épisode `B_fresh = 23 000 000`, changement à 23 300 000 ⇒ STOP ; mutant MG12 « scan arrêté à B_fresh » = faux GO, rouge) ; fixée avant la donnée et VIVE pour cette course (B0 = 23 414 968) : ADDENDUM-2 §0 (C-V4b-1) | orchestrateur (ADDENDUM) |
+| D-6 | oracle attendu de la mission « 921 + n / 1 skip » : base avancée (NARABI-OPS-1d) ⇒ 933/931/0/2 ; final 949 = 933 + 16, mêmes 2 skips nommés | n-a (non-incident) |
+| D-7 | `REF.ORACLE_RAW/ORACLE_INPUTS` de `test/guard-scripts-u4.test.ts` re-baselinés (`8b0e3d69…/755a3d91…` → `82544163…/e2c3ff88…`), deux mesures indépendantes (harnais du test ; CLI enfant sous le préchargement du test) ; données D_e de `[B₀, B_last]` inchangées ; re-mesurés par le checkpoint-2 (`docs/CHECKPOINT2-lot-u4b-1b-4.md:15`) | n-a (non-incident) |
+| D-8 | helper : entrée `U3-realized` (+ option `U3-inputs`), retour `{required, optional, blocks}`, refus nommé d'une ligne non-USDT ; l'assertion synthétique `kind:"deficit"` de `u4b_oracle_path_pure_helpers` est retirée (forme `U3-inputs`, jamais lue par le scoreur) et remplacée par le test sur la fixture e2 réelle ; prereg `:262-263` (« `usdtBlocksFromLabelerDeficit(U3-deficit.jsonl)` ») inexact : kinds mesurés sur e2 `{window_other: 24, in_event: 4}` ⇒ `[]` | planificateur (prereg `:262-263`) |
+| D-9 | base du worktree `3f6662f → 030fe06` (fast-forward sans commit, avant toute modification ; 8 fichiers NARABI-OPS-1d, aucun du lot) | n-a (non-incident) |
+| D-10 | opérateurs de la sonde : instance `drpc.org,mevblocker.io,tenderly.co` (ruling R-1b4-2, `docs/CHANTIERS.md:904` ; rejouée par le checkpoint-2, `docs/CHECKPOINT2-lot-u4b-1b-4.md:17`) au lieu des « opérateurs keyless du fill-ts » de l'ADDENDUM §1 ; motifs et effet borné : ADDENDUM-2 (f) et (g) | orchestrateur (ADDENDUM) |
+| O-6 | erratum du contrôle post-coupure n°2 « 0 octet NUL » : faux pour ce worktree (deux fichiers non committés entièrement NUL) ; reconstruction du prober byte-exacte confirmée par pièces ; sonde : code byte-exact, octets livrés (`deffbb6b`) postérieurs à la reconstruction et prouvés par les rejeux | orchestrateur + infrastructure (`docs/CHANTIERS.md:923` ; `docs/CHECKPOINT2-lot-u4b-1b-4.md:19`) |
+
+### 5. MAST résiduel (cp-1 C-8 ; mis à jour au fold)
+- **Spécification ambiguë** (`B_fresh`, règle absente) — contrée par l'ADDENDUM §1 et le code : `B_fresh = episode.B0`
+  sha-vérifié, `decide()` pure et testée ; mutant « règle inversée » (MG3) rouge ; `decide(null, null)` et `decide(30, null)`
+  ⇒ STOP épinglés depuis le micro-pli (R1, R6).
+- **Repli silencieux** (ancre) — contré par cp-1 C-4 : exit 3 sans raw ; MI4 (« STOP inatteignable ») et MI5 (« ancre non
+  écrite », rouge par la composition au réducteur gelé) rouges ; exit 3 de la CLI épinglé (R16).
+- **Vérification non indépendante** (helper testé sur une forme synthétique : le défaut R-H) — contrée par la fixture e2
+  RÉELLE, les lectures du scoreur gelé observées (Proxy) et le prédicat vérifié clause par clause (R10, R11, R12, R12b) ;
+  MH1..MH4 rouges.
+- **Dérive de format de sortie** (sonde écrite dans la sélection) — contrée par un fichier séparé ; MG4 rouge par le refus
+  sha du prober.
+- **Dépense non bornée** (lookback ×2, scan par morceaux) — plafonds a priori (6 fenêtres ; `--max-calls 1200`), chaque
+  morceau compté ; test d'épuisement qui compte les morceaux (MI7) ; plafond utilisé consigné (R9).
+- **Hypothèse non vérifiée** (getter public supposé au prereg) — FAITS lus sur place ; agrégateur résolu asserté (MG5) ;
+  topic0 calculé localement et recalculé indépendamment au G2.
+- **Vérification terminale incorrecte** (code de sortie) — test CLI 0/3 (MG9) ; refus d'argument ⇒ exit 1 sans fichier
+  (R4) ; C-12 relit le fichier indépendamment et son texte égale la constante `C12` du test (vérifié par le script
+  d'insertion du G7, item C12-PIN).
+- **Défaut silencieux d'un argument requis** (C-G2-1 : `arg("--ledger-dir") ?? ""` ⇒ ledger fantôme dans `<cwd>/<cycle>/`
+  hors racine, mesuré au G2) — contré par le refus nommé (`:83-85`) et un test CLI lancé depuis un cwd HORS dépôt avec un
+  `fetch` qui lève (`u4b-probe-cutoff.test.ts:267` ; MG13 rouge). Leçon du re-checkpoint-2 : tout `arg(...) ?? <défaut>`
+  d'un script de course se rejoue depuis un cwd hors dépôt (`docs/CHECKPOINT2-lot-u4b-1b-4-4b.md:30`).
+
+### 6. Gel D4 intact (A-6, régime B, LF) et invariants
+Les 9 gelés (prereg §2 ; tableau D4) — `u4b-scores 2f9a31f6…`, `u4b-reduce a5e66cd3…`, `record-u4b-calib 5733daeb…`,
+`wadray 7bee76fc…`, `abi 3376eb08…`, `l1-split 9206df91…`, `rpc.ts 0e232519…`, `calib-digest 3603265d…`, labeler
+`u3-realized cb020425…` — ainsi que le prereg `1971d9b1…`, l'ADDENDUM daté `eb7ad29b…` et les FAITS `4f23216d…` sont
+byte-identiques à `030fe06`, à `206bc56` et au HEAD de la cible (re-mesuré au fold par `git show <c>:<f> | tr -d '\r' |
+sha256sum`) ; A-6 14/14 au G1, au checkpoint-2, au micro-pli, au re-G2 et au re-checkpoint-2. Le 14ᵉ invariant de ces
+revues, le sélecteur `225d2304…`, est le blob de la BASE `030fe06` ; sur l'arbre fusionné, le sélecteur est `20e1cf9d…`
+(G7 U-4b-1b-3, Sidecar 0), non touché par ce lot. Fichiers du lot ∩ fichiers modifiés côté cible depuis `030fe06` = ∅
+(mesuré au fold) : les blobs fusionnés sont ceux de `206bc56`.
+
+### 7. Taille (R-25) — remplace la ligne « R-25 » du texte v1 (re-G2, re-checkpoint-2)
+R-25 du lot cumulé `030fe06...206bc56`, pathspec de `ci.yml:65` verbatim (15 arguments, extraits par programme) = **903**
+lignes (858 + / 45 −, 8 fichiers) ; dont G1 `030fe06...30a2eee` = 795 (751 + / 44 −) et micro-pli `30a2eee..206bc56` =
+126 (116 + / 10 −, 3 fichiers). Le cumul est inférieur à 795 + 126 parce que le pli modifie des lignes ajoutées au G1 : c'est
+une mesure, pas une somme. Mesuré au micro-pli, rejoué par le re-G2 et le re-checkpoint-2 (`docs/G2-lot-u4b-1b-4-4b.md:29` ;
+`docs/CHECKPOINT2-lot-u4b-1b-4-4b.md:16`), re-mesuré au fold sur les blobs committés. **Dépassement déclaré de la cible de
+mission** (800, cp-1 C-9, indicative), sous la règle STOP A-5 (1 150) et le plafond CI `VIBEGATES_PR_LIMIT = 1205`
+(`ci.yml:43`) ; le mot « dérogation » employé au journal pour 903 se lit ainsi (ruling de vocabulaire,
+`docs/CHANTIERS.md:958`). La couture PR-A / PR-B pré-déclarée au G1 est sans objet (ruling du G2, `docs/CHANTIERS.md:935`).
+
+### 8. Items formés (propriétaire : orchestrateur ; zéro « dû » nu)
+| item | contenu | déclencheur | `error_origin` | source en dépôt |
+|---|---|---|---|---|
+| **C-V4b-3 / VX-L2** (test seul) | épingler le refus d'un `--ledger-dir` SOUS la racine du dépôt pour la sonde, dans `u4b_probe_cutoff_refuses_before_any_fetch` (mutant du validateur « racine du garde neutralisée » : 0 test rouge ; code correct, `assertLedgerDir(ledgerArg, ROOT)`, `:85` ; pas de faux GO) | prochain pli de la sonde, ou micro-pli avant l'étape 2c-bis ; non bloquant pour la fusion | worker (trou de test du G1, non couvert par le micro-pli) | `docs/CHECKPOINT2-lot-u4b-1b-4-4b.md:15,27` |
+| **I-7** | filtrer par `[B₀, B_last]` les journaux du scan D_e du prober (`u4-oracle-path.mjs:226-237` : `getLogsRange(agg, …, B0, bLast)` sans filtre de bloc au retour) + test + mutant ; atténué aujourd'hui par le quorum (un seul témoin fautif ⇒ désaccord ⇒ STOP) | prochain lot qui touche le prober | G1 de U-4b-1b-2 (préexistant, non introduit par ce lot) | `docs/G2-lot-u4b-1b-4-4b.md:40` |
+| **CARTO-T1C-5** | test de composition `u4b_chain_select_to_oracle_path` : `runSelect` → `episode-selection.json` → `run()` du prober, seul `fetch` bouchonné | le déclencheur du ruling (b) du G7 U-4b-1b-3 (« G7 de U-4b-1b-4 OU avant l'étape 5 du RUNBOOK, au premier des deux », `docs/CHANTIERS.md:932`) est **ATTEINT à ce G7 sans le test** ⇒ nouveau déclencheur = ruling de l'orchestrateur (non tranché par ce fold) ; proposition : avant l'étape 5 (moitié restante du déclencheur), par un micro-pli test-only qui porte aussi C-V4b-3 | G1 de U-4b-1b-2 (composition non rejouée) ; non repris par ce lot (hors mission) | `docs/carto/CARTOGRAPHIE-TEMPS-1-2026-09-22.md:157,250` ; `docs/CHANTIERS.md:932` |
+| **OBS-1** | littéral `model: "claude-opus-4-8[1m]"` du prober (`u4-oracle-path.mjs:266,283`) = auteur historique du code, pas l'exécutant ⇒ `code_author` (la sonde neuve le porte déjà) | déclencheur du RUNBOOK (annexe O, « prochain lot touchant ces scripts ») ATTEINT par ce lot sans traitement (format du raw hors mission) ; ruling du G7 demandé par le checkpoint-2 (non tranché par ce fold) ; proposition : même déclencheur qu'I-7 | worker (déclencheur atteint, non traité, déclaré au G1) | `docs/CHECKPOINT2-lot-u4b-1b-4.md:32` ; RUNBOOK, annexe O |
+| **C12-PIN** | la constante `C12` (`apps/sentinel/test/u4b-probe-cutoff.test.ts:22`) et le contrôle C-12 du RUNBOOK sont deux copies d'un même texte : égalité VÉRIFIÉE par le script d'insertion du G7 (mesure ponctuelle) ; épingle durable = un test qui lit le RUNBOOK et compare | prochain pli de la sonde (avec C-V4b-3) | n-a (duplication de conception, déclarée au G1) | `docs/CHECKPOINT2-lot-u4b-1b-4.md:30` |
+| **PROBE-RATE-1** (opérationnel) | la sonde n'a pas de politesse ciblée par opérateur (`--min-interval-ms`, défaut 50 ms, s'applique à chaque fournisseur) alors que `mevblocker.io` a rendu 355 × HTTP 429 (13,5 % de ses `eth_call`) à l'essai 2 du recorder ; effet borné : `NoQuorum` ⇒ STOP `read_failed:*`, jamais un GO | premier STOP `read_failed:*` ou `budget_stop` de l'étape 2c-bis ⇒ relance après délai ou nouvelle instance consignée (R-26) | n-a (constat de course postérieur au G1) | `docs/course-ukemi/FAITS-mevblocker-2026-09-23.md` ; ADDENDUM-2 (g) |
+| **ceinture `decide(undefined, undefined)`** (observation) | `decide` rend GO sur `(undefined, undefined)` : inatteignable (les deux voies, R24/R25, sont tuées) ; une ceinture éventuelle va dans `decide` ET dans C-12 ET dans la constante `C12` du test (C-12 accepte aussi `undefined === undefined`) | observation sans item (re-G2) ; à reprendre par tout lot qui touche `decide` ou C-12 | n-a | `docs/G2-lot-u4b-1b-4-4b.md:42` |
+| **I-4** (A-13 dépendant du contexte) | la CONSIGNE A-13 précise : `\\b` et `\\$` réduits, `\\"` conservé (mesuré au G2) ; la prose aussi (récidive mesurée au rendu du micro-pli, 4 mentions corrigées) | prochaine révision de `docs/CONSIGNE-STANDARD-G1.md` | outillage (transport de l'outil Bash) ; récidive : worker | `docs/G2-lot-u4b-1b-4.md:52` ; `docs/G2-lot-u4b-1b-4-4b.md:41` |
+| **WORKTREE-DURABILITY-1** (cp-2 C-V-4) | commit WIP au rendu de tout G1 > 1 h (sources non committées perdues par une coupure : O-6) ; GARDE-FSYNC-1 (ledgers du garde) inchangé | tout G1 > 1 h, ou worktree non committé lors d'une coupure | infrastructure (coupures) ; rattachement initial à GARDE-FSYNC-1 : worker (hors domaine, cp-2 §4 (f)) | `docs/CHECKPOINT2-lot-u4b-1b-4.md:31` |
+| **I-5** | restaurations de golden des harnais de mutants sous la même discipline de durabilité | celui de WORKTREE-DURABILITY-1 | infrastructure | `docs/G2-lot-u4b-1b-4.md:53` ; `docs/CHANTIERS.md:935` |
+| **CARTO-T1C-7** | la couverture grep de la CI n'atteint pas `scripts/census/u4b/*.mjs` ; la sonde est couverte par son propre test B-5 (`u4b_probe_cutoff_script_is_keyless_clean_and_imports_closed`, `u4b-probe-cutoff.test.ts:318`) | item orchestrateur existant | préexistant | `docs/carto/CARTOGRAPHIE-TEMPS-1-2026-09-22.md:252` |
+
+### 9. Traçabilité des corrections repliées (chaque correction → sa source → son emplacement → son `error_origin`)
+| correction | source | où | `error_origin` | état |
+|---|---|---|---|---|
+| C-G2-1 (bloquante : `--ledger-dir` réellement requis) | `docs/G2-lot-u4b-1b-4.md:35` | §2 C, §5 ; code `u4b-probe-cutoff.mjs:83-85`, octets du prototype du G2 (`8bdb1478…`, `docs/G2-lot-u4b-1b-4-4b.md:10`) | worker G1 (affirmation « requis sans défaut » sans test tueur, `docs/G2-lot-u4b-1b-4.md:41`, confirmé par le re-checkpoint-2, CA-8) ; vérification : manqué par le checkpoint-2 initial (`docs/CHECKPOINT2-lot-u4b-1b-4-4b.md:30`) | fermée au micro-pli (MG13 rouge ; test `:267`) |
+| C-G2-2 | `docs/G2-lot-u4b-1b-4.md:36` | §5 | worker G1 | fermée au micro-pli (R1, R2, R6 ; tests `:128`, `:152`) |
+| C-G2-3 | `:37` | §5 | worker G1 | fermée au micro-pli (R3, R4, R17 ; tests `:220`, `:297`, `:318`) |
+| C-G2-4 | `:38` | §2 B, §3 | worker G1 | fermée au micro-pli (R10, R11, R12, R12b ; `u4b-oracle-path.test.ts:240`) |
+| C-G2-5 | `:39` | §2 A, §3 | worker G1 | fermée au micro-pli (R9, R13, R16 ; tests `:292`, `:348`) |
+| C-V-1 (insérer l'amendement ; `error_origin` par D-n) | `docs/CHECKPOINT2-lot-u4b-1b-4.md:28` | ce texte (§4 : 10 D-n + O-6) | texte v1 sans `error_origin` : worker G1 ; insertion : acte du G7 (n-a) | fermée par cette insertion |
+| C-V-2 (ADDENDUM-2 daté (a)-(e) + (f) + (g) ; deux sha au SIDECAR) | `:29` | `docs/course-ukemi/ADDENDUM-2-sonde-d-ancre-pre-b0-2026-09-23.md` (même commit) ; sha au SIDECAR avant 2c-bis | écarts de l'ADDENDUM (D-3, D-5, D-10) : orchestrateur ; (f) et (g) absents du complément proposé par le G1 : worker G1 | fichier : fermée à l'insertion ; ligne SIDECAR : acte orchestrateur avant 2c-bis |
+| C-V-3 (deltas RUNBOOK ; égalité C-12 / `C12`) | `:30` | deltas de `docs/course-ukemi/RUNBOOK-course-ukemi-2026-09-22.md` (même commit) ; égalité vérifiée par le script d'insertion ; épingle durable = C12-PIN | n-a (acte de fold prévu) | fermée à l'insertion |
+| C-V-4 (WORKTREE-DURABILITY-1) | `:31` | §8 | infrastructure ; rattachement : worker G1 | item formé |
+| OBS-1 (ruling au fold) | `:32` | §8 | worker G1 | ruling du G7 demandé |
+| C-V4b-1 (citation a priori de `max(B_fresh, 23 545 087)`) | `docs/CHECKPOINT2-lot-u4b-1b-4-4b.md:25` | ADDENDUM-2, §0 | n-a (exigence née de la chronologie de la course : aucune pièce antérieure à la sélection ne pouvait dater la donnée) | fermée à l'insertion |
+| C-V4b-2 (ligne SIDECAR « gel `<HEAD_E2>` » ; arbre d'exécution 2c-bis/5 épinglé) | `:26` | RUNBOOK §A (gel) et étapes 2c-bis/5 ; ligne SIDECAR (acte orchestrateur à `<HEAD_E2>`) | orchestrateur (ordre de fusion cp-1 C-7 non tenu, même racine qu'I-6) | ouverte jusqu'à la ligne SIDECAR ; aucune étape ≥ 2c-bis non commencée avant elle |
+| C-V4b-3 (VX-L2) | `:27` | §8 | worker (trou de test) | item formé |
+| I-6 (ordre fusion / course) | `docs/G2-lot-u4b-1b-4.md:45-47` ; ruling `docs/CHANTIERS.md:935` | RUNBOOK §A et 0.7 (D-n datée) ; ADDENDUM-2 (h) | orchestrateur (ordre de fusion cp-1 C-7 non tenu, au profit du démarrage de la course) | tranché : référence `<HEAD_E2>` |
+| I-2 (« déclaré, non lu » sans champ dans le code) | `docs/G2-lot-u4b-1b-4.md:50` | ligne Sidecar 5 du RUNBOOK | n-a (conception : ruling R-1b4-1) | fermée à l'insertion du RUNBOOK |
+| I-3 (compléter l'ADDENDUM avant d'inscrire son sha) | `:51` | ADDENDUM-2 séparé (checkpoint-2 §4 (b)) ; (b) corrige « un morceau » et `<N_PROBE>` | orchestrateur (ADDENDUM) | fermée à l'insertion |
+| épinglages du re-G2 (0.6 → `4ed4c31e` + sonde `8bdb1478` ; R-25 903) | `docs/G2-lot-u4b-1b-4-4b.md:37-39` | RUNBOOK 0.6 ; §7 | n-a (acte de fold prévu) | fermée à l'insertion |
+| chiffres périmés des livrables G1 (0.6 et ligne SIDECAR « outillage » citant `deffbb6b` ; ligne R-25 du texte v1) | `docs/CHECKPOINT2-lot-u4b-1b-4-4b.md:21,24` | RUNBOOK 0.6 et gabarit SIDECAR (`8bdb1478…`) ; §7 | worker (livrables du G1 antérieurs au micro-pli, relevés par lui-même au rendu du micro-pli) | fermée au fold |
+| O-6 | `docs/CHANTIERS.md:923` ; `docs/CHECKPOINT2-lot-u4b-1b-4.md:19` | §4 | orchestrateur + infrastructure | erratum consigné |
+
+*(ADR-U4b n'est PAS dans le gel du prereg §2 ; les docs sont exclus du décompte R-25 — `ci.yml:65`. Cet amendement n'édite
+AUCUNE valeur de référence existante : il APPEND une section datée. Le worker ne committe pas (R-20) ; l'orchestrateur folde
+et committe au G7.)*
+
+### Addendum d'insertion (orchestrateur `claude-fable-5-1`, G7 U-4b-1b-4, 2026-09-23)
+- Chaîne de revue : checkpoint-1 (`docs/CHECKPOINT1-lot-u4b-1b-4.md`, C-1..C-9) ; FAITS + ADDENDUM (`030fe06`) ; G1 `30a2eee`
+  (`docs/G1-lot-u4b-1b-4.md`, worker `claude-opus-5-5[1m]`) ; checkpoint-2 ACCEPTE-AVEC-CORRECTIONS
+  (`docs/CHECKPOINT2-lot-u4b-1b-4.md`, C-V-1..C-V-4) ; G2 PASS-AVEC-CORRECTIONS (`docs/G2-lot-u4b-1b-4.md`, intégral
+  `docs/G2-lot-u4b-1b-4-integral.md`, C-G2-1..C-G2-5) ; micro-pli U-4b-1b-4b `206bc56` ; re-G2 PASS
+  (`docs/G2-lot-u4b-1b-4-4b.md`) ; re-checkpoint-2 ACCEPTE-AVEC-CORRECTIONS (`docs/CHECKPOINT2-lot-u4b-1b-4-4b.md`,
+  C-V4b-1..C-V4b-3).
+- Insérés dans le MÊME commit que cet amendement : `docs/course-ukemi/ADDENDUM-2-sonde-d-ancre-pre-b0-2026-09-23.md`
+  (C-V-2, C-V4b-1) et les deltas de `docs/course-ukemi/RUNBOOK-course-ukemi-2026-09-22.md` (C-V-3, I-6, C-V4b-2) ;
+  l'ADDENDUM daté du 2026-09-22 (`eb7ad29b…`) et le prereg (`1971d9b1…`) restent byte-identiques.
+- Ordre de fusion : indépendant de GARDE-FSYNC-1 ; avant U-4b-STATS-1, dont la fusion forme `<HEAD_E2>` (ruling I-6,
+  `docs/CHANTIERS.md:935`) ; la ligne SIDECAR « gel `<HEAD_E2>` » (C-V4b-2) précède toute étape ≥ 2c-bis non commencée.
+- Rulings demandés au G7, non tranchés par ce fold : nouveau déclencheur de CARTO-T1C-5 ; OBS-1 ; statut de l'étape 3a
+  (lancée avant la sonde) vis-à-vis de l'ordre de l'ADDENDUM §1 (ADDENDUM-2 (h)).
