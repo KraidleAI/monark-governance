@@ -19,7 +19,7 @@ import { f64BitsHexLE, type MultiplierEvent } from "../src/rebase-trajectory.ts"
 import type { DatabentoGet, PolygonGet } from "../src/close.ts";
 import type { JsonRpcCall } from "../src/quorum.ts";
 import type { AdvDailyBar } from "../src/volume.ts";
-import { rechainRunTimeline } from "../scripts/bell-chain.mjs";
+import { canonical, rechainRunTimeline, sha256Hex } from "../scripts/bell-chain.mjs";
 import { BellPublishError, KEY_SHAPES, NOT_SERVED, WHITELIST, publishToDir, type Bounds, type PublishResult, type RefusalCode } from "../scripts/bell-publish.mjs";
 
 type Obj = Record<string, unknown>;
@@ -46,9 +46,9 @@ function fingerprint(root: string): string {
 const POOL = POOLS.find((p) => p.baseSymbol === "TSLAx" && p.chain === "solana")!;
 /** A 56-byte ScaledUiAmountConfig (multiplier m, effTs 0, new multiplier m), the base64 read of the C-3 anchor (collect.test.ts:73). */
 const stateB64 = (m: number): string => { const b = new Uint8Array(56), v = new DataView(b.buffer); v.setFloat64(32, m, true); v.setFloat64(48, m, true); return Buffer.from(b).toString("base64"); };
-/** ONE real runMain output, offline, --out outside the repo; `usdc` is the swap's quote leg (a distinct vwap, hence bell_sha). */
-async function runMainOut(usdc: bigint): Promise<string> {
-  const btMs = Date.UTC(2026, 8, 19, 13, 31, 4); // Sat 2026-09-19: weekend session, reference close 2026-09-18
+/** ONE real runMain output, offline, --out outside the repo; `usdc` is the swap's quote leg (a distinct vwap, hence bell_sha); `week` shifts session and close by 7 days. */
+async function runMainOut(usdc: bigint, week = 0): Promise<string> {
+  const btMs = Date.UTC(2026, 8, 19 + 7 * week, 13, 31, 4); // Sat 2026-09-19 (+ week): weekend session, reference close 2026-09-18 (+ week)
   const bal = (base: string, quote: string): Obj[] => [{ accountIndex: 0, uiTokenAmount: { amount: base } }, { accountIndex: 1, uiTokenAmount: { amount: quote } }];
   const swap = { slot: 1, transaction: { message: { accountKeys: [{ pubkey: POOL.vaultBase }, { pubkey: POOL.vaultQuote }] } },
     meta: { err: null, preTokenBalances: bal("1000000000", "5000000000"), postTokenBalances: bal("1100000000", String(5_000_000_000n - usdc * 1_000_000n)) } };
@@ -60,7 +60,7 @@ async function runMainOut(usdc: bigint): Promise<string> {
     throw new Error("unexpected " + method);
   };
   // synthetic cash close (never a real one); no cross-check key in env => the cross is "unavailable" (named, counted)
-  const databentoGet: DatabentoGet = () => Promise.resolve([{ hd: { ts_event: String(BigInt(Date.UTC(2026, 8, 18)) * 1_000_000n) }, close: "364000000000" }]);
+  const databentoGet: DatabentoGet = () => Promise.resolve([{ hd: { ts_event: String(BigInt(Date.UTC(2026, 8, 18 + 7 * week)) * 1_000_000n) }, close: "364000000000" }]);
   const polygonGet: PolygonGet = () => Promise.reject(new Error("not reached offline"));
   const base = tmp("t1b-run-"), out = join(base, "run"), traj = join(base, "traj.json");
   writeFileSync(traj, JSON.stringify({ TSLAx: { events: [{ kind: "initialize", multiplier: "1", multiplierBitsHex: f64BitsHexLE(1), effectiveTimestampSec: 0, blockTimeSec: 0, slot: 1, instructionIndex: 0, signature: "s1" }], scanComplete: true, scanMethod: "authority" } }));
@@ -69,7 +69,7 @@ async function runMainOut(usdc: bigint): Promise<string> {
   { call, databentoGet, polygonGet, env: { BELL_HALTS_CSV: join(HERE, "fixtures", "halts-tsla-synth.csv") }, nowMs: btMs + 86_400_000 });
   return out;
 }
-const RUN_A = await runMainOut(365n), RUN_B = await runMainOut(366n);
+const RUN_A = await runMainOut(365n), RUN_B = await runMainOut(366n), RUN_LATE = await runMainOut(367n, 1); // RUN_LATE: a week later
 
 interface Staged { state: string; inbox: string; run: (i: number) => string }
 /** A fresh state directory whose inbox holds ONE bundle: copies of the run directories as runMain wrote them. */
@@ -102,12 +102,14 @@ test("bell_publish_refuses_bell_sha_mismatch", () => {
   refuses(b, "provenance_binding_mismatch");
 });
 
-// ---- C-in-2: keys at every level (state, provenance read, run timeline records) within the whitelist; schema pinned ----
+// ---- C-in-2: keys at every level (state, provenance read, run timeline records) within the whitelist (own keys; close_source/adv_source never in the state); schema pinned ----
 test("bell_publish_refuses_unknown_state_field", () => {
   const cases: Array<[string, (o: Obj) => void, RegExp]> = [["state.json", (o) => { o.extra = "x"; }, /\.state\.extra$/],
     ["state.json", (o) => { ((o.digest as Obj).supply as Obj[])[0]!.foo = "x"; }, /\.state\.digest\.supply\[0\]\.foo$/],
     ["provenance.json", (o) => { (o.sources as Obj).foo = "x"; }, /\.provenance\.sources\.foo$/]];
   for (const [file, f, where] of cases) { const s = stage([RUN_A]); mutate(join(s.run(0), file), f); assert.match(refuses(s, "unknown_field"), where); }
+  for (const [k, v] of [["close_source", "a-named-source"], ["adv_source", "a-named-source"], ["constructor", {}], ["__proto__", {}]] as const) { // R-T1b-2: never in the state; OWN keys only
+    const s = stage([RUN_A]), p = join(s.run(0), "state.json"); writeFileSync(p, readFileSync(p, "utf8").replace(/^\{/, `{"${k}": ${JSON.stringify(v)},`)); assert.equal(refuses(s, "unknown_field"), `$.runs[0].state.${k}`); } // as TEXT: JSON.parse keeps "__proto__" an own key
   const r = stage([RUN_A]); // a record field, re-chained by the collector's own chainTimeline so only the whitelist can object
   const recs = readFileSync(join(RUN_A, "timeline.jsonl"), "utf8").trim().split("\n").map((l) => { const o = JSON.parse(l) as Obj; delete o.prev_line_hash; o.foo = "x"; return o; });
   writeFileSync(join(r.run(0), "timeline.jsonl"), chainTimeline(recs as Parameters<typeof chainTimeline>[0]).map((l) => JSON.stringify(l)).join("\n") + "\n");
@@ -133,9 +135,10 @@ test("bell_publish_refuses_unpublishable_session", () => {
   assert.ok(epu > 0, "the runMain fixture carries a g_t gated by earliest_publish_utc (non-vacuity)");
   assert.match(refuses(stage([RUN_A]), "session_not_yet_publishable", { clock: epu - 1 }), /gaps\[\d+\]\.earliest_publish_utc$/);
   assert.equal(publish(stage([RUN_A]), epu).status, "published", "published_at == earliest_publish_utc publishes (strict >)");
+  assert.match(refuses(stage([RUN_A, RUN_LATE]), "session_not_yet_publishable", { clock: epu }), /^\$\.runs\[1\]\.state\.digest\.gaps\[\d+\]\.earliest_publish_utc$/, "RUN_A publishable at epu, RUN_LATE not: the WHOLE bundle is refused");
 });
 
-// ---- C-in-8: no served string carries "://" or a credential shape; provider labels are bare (CP1 (i), decision 69) ----
+// ---- C-in-8: no served string (provenance, state.json, run records) carries "://" or a credential shape; provider labels are bare (CP1 (i), decision 69) ----
 test("bell_publish_refuses_url_or_key_shaped_string", () => {
   const url = ["https", "//x.invalid/r"].join(":"), uuid = ["deadbeef", "1234", "5678", "9abc", "def012345678"].join("-");
   const cases: Array<(o: Obj) => void> = [(o) => { ((o.providers as Obj).providers as unknown[])[0] = url; },
@@ -143,6 +146,11 @@ test("bell_publish_refuses_url_or_key_shaped_string", () => {
     (o) => { (o.sources as Obj).generated_at = "db" + "-" + "A1".repeat(12); },
     (o) => { ((o.providers as Obj).faults as unknown[]).push({ provider: "cash-data.example", status: "503" }); }];
   for (const f of cases) { const s = stage([RUN_A]); mutate(join(s.run(0), "provenance.json"), f); refuses(s, "url_or_key_shaped_string"); }
+  const st = stage([RUN_A]), d = readJson(join(RUN_A, "state.json")), rc = stage([RUN_A]); // every SERVED string: state.json (digest re-hashed), the run records (re-chained)
+  gaps(d)[0]!.vwap = url; d.bell_sha = sha256Hex(canonical(d.digest)); writeFileSync(join(st.run(0), "state.json"), JSON.stringify(d, null, 2)); mutate(join(st.run(0), "provenance.json"), (o) => { o.bellSha = d.bell_sha; });
+  const recs = readFileSync(join(RUN_A, "timeline.jsonl"), "utf8").trim().split("\n").map((l) => { const o = JSON.parse(l) as Obj; delete o.prev_line_hash; o.chain = url; return o; });
+  writeFileSync(join(rc.run(0), "timeline.jsonl"), chainTimeline(recs as Parameters<typeof chainTimeline>[0]).map((l) => JSON.stringify(l)).join("\n") + "\n");
+  assert.deepEqual([refuses(st, "url_or_key_shaped_string"), refuses(rc, "url_or_key_shaped_string")], ["$.runs[0].state.digest.gaps[0].vwap", "$.runs[0].timeline[0].chain"]);
   const guard = readFileSync(join(HERE, "..", "..", "..", "test", "no-secret-in-repo.test.ts"), "utf8");
   assert.equal(KEY_SHAPES[0]?.source, ":\\/\\/");
   for (const re of KEY_SHAPES.slice(1)) assert.ok(guard.includes(`re: /${re.source}/`), `${re.source}: a verbatim copy of test/no-secret-in-repo.test.ts`);
