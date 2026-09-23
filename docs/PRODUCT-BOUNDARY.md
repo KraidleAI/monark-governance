@@ -48,6 +48,16 @@ Responsible = the maintainer for every row (one maintainer today).
 | `out/mint.txt` | yes | git mirror, site | maintainer |
 | `out/logo.png` | yes | git mirror, site | maintainer |
 | `out/banner.jpg` | yes | git mirror, site | maintainer |
+| `apps/bell/package.json` | yes | git mirror | maintainer |
+| `apps/bell/keys/bell-keyring.json` | yes | git mirror, Bell host (trust root of the verifier) | maintainer |
+| `apps/bell/scripts/bell-chain.mjs` | yes | git mirror, Bell host (deployed tree) | maintainer |
+| `apps/bell/scripts/bell-chain.d.mts` | yes | git mirror | maintainer |
+| `apps/bell/scripts/bell-publish.mjs` | yes | git mirror, Bell host (deployed tree) | maintainer |
+| `apps/bell/scripts/bell-publish.d.mts` | yes | git mirror | maintainer |
+| `apps/bell/scripts/bell-verify.mjs` | yes | git mirror (third-party verifier of the Bell host) | maintainer |
+| `apps/bell/scripts/bell-verify.d.mts` | yes | git mirror | maintainer |
+| `scripts/verify-bell.mjs` | yes | git mirror (deployment conformity check of the Bell host) | maintainer |
+| `scripts/verify-bell.d.mts` | yes | git mirror | maintainer |
 
 ### Directories (whole-tree or package-style export)
 
@@ -72,16 +82,20 @@ Responsible = the maintainer for every row (one maintainer today).
 - Governance and provenance: `docs/**` (architecture decision records,
   `docs/JOURNAL-PROVENANCE.md`, gate reports, audits, and this document) — reviewed at the
   checkpoints, never exported (the structural blacklist in `scripts/export-public.mjs`).
-- The off-tool Bell collector `apps/bell` — not in the whitelist; its language gate runs on
-  the source tree, not on the export.
+- The off-tool Bell collector — `apps/bell/src/**`, `apps/bell/test/**`,
+  `apps/bell/scripts/bell-report.mjs` (+ `.d.mts`) — the Bell governance files `docs/RUNBOOK-bell.md`,
+  `docs/deploy-CA-bell.json`, the root Bell tests, and every `deploy/**` unit (the public export omits `deploy/`,
+  ADR-NARABI-OPS-1c C3): not in the whitelist (ADR-M004 D7 octies, 2026-09-24).
+  Only the Bell signed publication chain is distributed (rows above, file by file); the collector's language
+  gate runs on the source tree.
 - Root `test/**` and per-package `packages/*/docs/**` — not whitelisted.
 
 ## SBOM origin (why the tree matters)
 
 The CI SBOM (`npm sbom --sbom-format cyclonedx --omit dev --package-lock-only`, job
 `g6-compliance` in `.github/workflows/ci.yml`) is computed from the lockfile of the tree it
-runs in. The private governance tree carries packages the public mirror does not ship (for
-example `apps/bell`), so a private-tree SBOM is a superset of the public one. The SBOM
+runs in. The private governance tree carries sources the public mirror does not ship (for
+example the Bell collector `apps/bell/src`), so a private-tree SBOM is a superset of the public one. The SBOM
 published at a release is the SBOM of the PUBLIC repository where the tag lives — the
 distributed surface, not the governance tree. The component set is reproducible through
 `--package-lock-only` (183 components, CycloneDX 1.5, measured 2026-09-19); the serial
