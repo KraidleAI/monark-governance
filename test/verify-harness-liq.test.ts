@@ -12,9 +12,13 @@ import { once } from "node:events";
 import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { createServer, request as httpRequest } from "node:http";
 import type { Server as HttpServer } from "node:http";
-import { startServer } from "../apps/harness/src/server.ts";
-import { LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_H3_SENTENCE } from "../apps/harness/src/tools/gate.ts";
+import { API_HOST_PREFIX, startServer } from "../apps/harness/src/server.ts";
+import {
+  describeGate, GATE_TOOL_DESCRIPTION, LIQ_COMMITTED_SENTENCE, LIQ_CONDITIONAL_SENTENCE, LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_H3_SENTENCE,
+  TASK_BTC_DIR, TASK_CASCADE, TASK_LIQ_ELIGIBLE, TASK_STABLE_RUN,
+} from "../apps/harness/src/tools/gate.ts";
 
 const SCRIPT = fileURLToPath(new URL("../scripts/verify-harness.mjs", import.meta.url));
 
@@ -68,5 +72,99 @@ test("verify_harness_ca_passes_on_the_in_process_harness", async () => {
         resolve();
       });
     });
+  }
+});
+
+// (3) C-G2-1 (G2 HARNESS-DESC-1 sect. 6): the NEGATIVE control -- the CA must RED on over-claiming surfaces (D-1/D-2;
+// test (2) only proves the absence of a false alarm). System under test = the CA script run as deployed (child process).
+// Adversarial vector = a node:http PROXY on 127.0.0.1:0 (motif test/probe-narabi-state.test.ts serve()) in front of the
+// REAL in-process harness: every request passes through (real SDK SSE framing, real mirror bodies: A-8) except TWO rewrite
+// points, the served `gate` description in tools/list and the api. answer to the liq POST /gate; so the red set is a
+// CLOSED list and the non-zero exit is attributable to the liq checks (R-HD-2: any non-zero, not only 1). Vector ->
+// predicate it isolates: (alpha) pre-lot description + pre-2a 400 (form http.ts tool_error, message 1447c05 gate.ts:551);
+// (beta) EMPTY and H-3 both served + the real answer relabelled `covered` (!hasH3, reason); (gamma) lot description + the
+// real under_calib answer carrying the committed sentence INSTEAD of the empty-registry one (said); (delta) neither EMPTY
+// nor H-3 served, the defect class of the live pre-2a text (hasEmpty). Flip with the two CA checks at U-4b-2b (C-4 (c)).
+type Rewrite = (status: number, body: string) => { status: number; body: string };
+interface Vector { tag: string; description: string; liq: Rewrite; red: string[]; details: string }
+interface Seen { rewrites: number; liq: number }
+function overclaimingProxy(upstream: number, v: Vector, seen: Seen): HttpServer {
+  const served = JSON.stringify(GATE_TOOL_DESCRIPTION).slice(1, -1);
+  return createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => { chunks.push(c); });
+    req.on("end", () => {
+      const raw = Buffer.concat(chunks);
+      const text = raw.toString("utf8");
+      const api = (req.headers.host ?? "").startsWith(API_HOST_PREFIX);
+      const up = httpRequest({ host: "127.0.0.1", port: upstream, path: req.url, method: req.method, headers: req.headers, agent: false, timeout: 10000 }, (u) => {
+        const back: Buffer[] = [];
+        u.on("data", (c: Buffer) => { back.push(c); });
+        u.on("end", () => {
+          let out = { status: u.statusCode ?? 0, body: Buffer.concat(back).toString("utf8") };
+          if (api && req.url === "/gate" && text.includes(`"task_class":"${TASK_LIQ_ELIGIBLE}"`)) {
+            seen.liq += 1;
+            out = v.liq(out.status, out.body);
+          } else if (!api && text.includes(`"method":"tools/list"`)) {
+            if (out.body.split(served).length !== 2) out = { status: 500, body: "" }; // fail-closed: the SDK encoding moved
+            else { seen.rewrites += 1; out.body = out.body.replace(served, () => JSON.stringify(v.description).slice(1, -1)); }
+          }
+          res.writeHead(out.status, { "content-type": u.headers["content-type"] ?? "application/json" });
+          res.end(out.body);
+        });
+      });
+      up.on("error", () => { if (!res.headersSent) res.writeHead(502); res.end(); });
+      up.on("timeout", () => { up.destroy(new Error("upstream timeout")); });
+      up.end(raw);
+    });
+  });
+}
+const portOf = (s: HttpServer): number => {
+  const a = s.address();
+  assert.ok(a !== null && typeof a === "object", "address() must be an AddressInfo");
+  return a.port;
+};
+const shut = (s: HttpServer): Promise<void> => {
+  s.closeAllConnections();
+  return new Promise((resolve) => { s.close(() => { resolve(); }); });
+};
+
+test("verify_harness_ca_liq_checks_red_on_overclaiming_surfaces", async () => {
+  const esc = (s: string): string => JSON.stringify(s).slice(1, -1);
+  const message = `unknown task_class '${TASK_LIQ_ELIGIBLE}' (known: ${TASK_BTC_DIR}, ${TASK_CASCADE}, ${TASK_STABLE_RUN}; or supply params.calibration for BYO)`;
+  const both = ["gate_liq_call", "mcp_gate_description_liq"];
+  const vectors: Vector[] = [
+    { tag: "alpha", description: describeGate(true), liq: () => ({ status: 400, body: JSON.stringify({ error: "tool_error", operation: "gate", message }) }),
+      red: both, details: "status=400 reason=null empty_registry_text=null | status=200 empty_registry_sentence=false h3_sentence=true" },
+    { tag: "beta", description: describeGate(false).replace(LIQ_CONDITIONAL_SENTENCE, `${LIQ_H3_SENTENCE}; ${LIQ_CONDITIONAL_SENTENCE}`),
+      liq: (status, body) => ({ status, body: body.split(`"reason":"under_calib"`).join(`"reason":"covered"`) }),
+      red: both, details: "status=200 reason=covered empty_registry_text=true | status=200 empty_registry_sentence=true h3_sentence=true" },
+    { tag: "gamma", description: GATE_TOOL_DESCRIPTION, liq: (status, body) => ({ status, body: body.replace(esc(LIQ_EMPTY_REGISTRY_SENTENCE), () => esc(LIQ_COMMITTED_SENTENCE)) }),
+      red: ["gate_liq_call"], details: "status=200 reason=under_calib empty_registry_text=false | status=200 empty_registry_sentence=true h3_sentence=false" },
+    { tag: "delta", description: describeGate(false).replace(`${LIQ_EMPTY_REGISTRY_SENTENCE}; `, ""), liq: (status, body) => ({ status, body }),
+      red: ["mcp_gate_description_liq"], details: "status=200 reason=under_calib empty_registry_text=true | status=200 empty_registry_sentence=false h3_sentence=false" },
+  ];
+  const upstream: HttpServer = startServer(0);
+  try {
+    await once(upstream, "listening");
+    for (const v of vectors) {
+      const seen: Seen = { rewrites: 0, liq: 0 };
+      const proxy = overclaimingProxy(portOf(upstream), v, seen).listen(0, "127.0.0.1");
+      try {
+        await once(proxy, "listening");
+        const base = `http://127.0.0.1:${String(portOf(proxy))}`;
+        const r = await runCa(["--api", base, "--mcp", base, "--api-host", "api.monarkgate.tech"]);
+        const ca = JSON.parse(r.stdout) as Ca;
+        const detail = (name: string): string => String(ca.checks.find((c) => c.name === name)?.detail);
+        assert.deepEqual(ca.checks.filter((c) => !c.ok).map((c) => c.name), v.red, `(${v.tag}) the red CA checks are EXACTLY ${v.red.join(" + ")}`);
+        assert.equal(`${detail("gate_liq_call")} | ${detail("mcp_gate_description_liq")}`, v.details, `(${v.tag}) the CA read the intended vector`);
+        assert.deepEqual(seen, { rewrites: 2, liq: 1 }, `(${v.tag}) both tools/list rewritten, the one liq call intercepted`);
+        assert.notEqual(r.code, 0, `(${v.tag}) the CA exits non-zero (stderr: ${r.stderr.slice(0, 200)})`);
+      } finally {
+        await shut(proxy);
+      }
+    }
+  } finally {
+    await shut(upstream);
   }
 });
