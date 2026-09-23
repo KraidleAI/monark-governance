@@ -17,7 +17,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import type { RpcCall } from "../rpc.ts";
-import { makeUkemiPool, operatorOf, BudgetExceededError, type UkemiReader } from "./rpc2.ts";
+import { makeUkemiPool, makePoliteGate, operatorOf, BudgetExceededError, type UkemiReader } from "./rpc2.ts";
 // GARDE-HELIUS-2b-ii migration: the recorder reaches every RPC endpoint (paid AND keyless) ONLY through the single
 // budgeted client. record.ts reads NO endpoint key: deps.env is passed AS-IS to openGuardedClient (the transport is
 // the sole key reader). The pool speaks LABELS (not URLs); the transport resolves label -> private URL internally.
@@ -26,6 +26,9 @@ import { recordBook, AbiMismatchError } from "./book.ts";
 import { clusterById, POOL, POOL_ADDRESSES_PROVIDER, ORACLE, type Cluster } from "./clusters.ts";
 import { SEL, TRANSFER_TOPIC0, wordAddr, wordAt, decAddress, decUint, decodeAddressArray, decodeReserveData, decodeUserConfig, transferRecipients } from "./abi.ts";
 import { makeResumeReader, assertResumeHoldersMatch, parseResumeLines, holdersDigestOf, type CacheLine, type ResumeReader } from "./resume.ts";
+// UKEMI-CONC-1: the bounded window (--concurrency) and the per-account read plans it prefetches (the consumers below stay unchanged).
+import { parseConcurrency, type PoolReport } from "./pool.ts";
+import { prefetchFilterReads, prefetchBookReads } from "./prefetch.ts";
 
 // D-label (RULED = `chainstack`, decision 121): the paid leg's operator label IS `chainstack` (the operator, unique
 // per account; the network is the `network` attribute). `archive-env` / `ARCHIVE_ENV_LABEL` / `operatorLabel` are
@@ -245,6 +248,7 @@ function flushConcordance(path: string, agg: Map<string, { concordant: number; d
  *  flush has run. A disagreement / other fatal still throws (the wrapper's catch exits 1) — through the finally. */
 export async function runRecorder(argv: readonly string[], deps: RecorderDeps): Promise<number> {
   const args = parseUkemiArgs(argv);
+  const concurrency = parseConcurrency(argv); // UKEMI-CONC-1: default 1 = the sequential recorder; a bad value is a PRE-FLIGHT refusal
   const cluster = clusterById(args.cluster);
   const here = dirname(fileURLToPath(import.meta.url));
   const root = join(here, "..", "..", "..", "..");
@@ -331,12 +335,16 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
   const budgeted = { total: (): number => tally.total, byOperator: (): Record<string, number> => ({ ...tally.byOperator }), byMethod: (): Record<string, number> => ({ ...tally.byMethod }) };
   // Live progress (mutated by the filter pass) so a BudgetExceededError stop can still report what was seen (D-3).
   const progress: FilterProgress = { holders: 0, config_read: 0, n_at_risk_config: 0 };
+  const poolReport: PoolReport = { suppressed: [] }; // UKEMI-CONC-1: errors seen while the window drained after its first error (diag)
   let client: BudgetedClient | undefined;
   try {
     // The SOLE paid path: open the guarded client (real transport; deps.env passed AS-IS - record.ts reads no key).
     // Locks + per-operator durable ledgers are acquired here; the transport error hook feeds the 5%-rule monitor.
     client = openGuardedClient(deps.env, limits, ledgerDir, cycles, { onTransportError: (op) => { errByOp[op] = (errByOp[op] ?? 0) + 1; } });
     const c = client;
+    // UKEMI-CONC-1: ONE per-operator politeness gate, shared by the pool (every first attempt) and the retry below (every
+    // attempt > 0), so "<= 1 call per minIntervalMs per operator" holds for retries too, whatever --concurrency.
+    const gate = makePoliteGate(args.minIntervalMs, args.slowOperators, args.slowIntervalMs);
 
     // The `call` shim: route a LABEL -> client.call (meter + write-ahead ledger line + one transport attempt). Retry
     // is AT THE CALLER ONLY (C-4/C-6(iii)): a transient TRANSPORT fault (Abort/network/408/429/>=500, AND a NonJsonBody
@@ -352,7 +360,7 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
         tally.byOperator[op] = (tally.byOperator[op] ?? 0) + 1;
         tally.byMethod[method] = (tally.byMethod[method] ?? 0) + 1;
         try {
-          return await c.call(op as OperatorLabel, method, params);
+          return await (attempt === 0 ? c.call(op as OperatorLabel, method, params) : gate(op, () => c.call(op as OperatorLabel, method, params))); // UKEMI-CONC-1: a retry re-enters the gate
         } catch (e) {
           if (e instanceof BudgetExceededError) throw e; // fatal FIRST - never retried, never journaled as a transport fault
           if (e instanceof TransportError) {
@@ -387,7 +395,7 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
     const onQuorum = args.concordanceOut !== undefined
       ? (_label: string, opA: string, opB: string, concordant: boolean): void => { tallyConcordance(concordance, opA, opB, concordant); }
       : undefined;
-    const basePool = makeUkemiPool({ call, ethCallProviders, getLogsProviders, minIntervalMs: args.minIntervalMs, slowOperators: args.slowOperators, slowIntervalMs: args.slowIntervalMs, onQuorum });
+    const basePool = makeUkemiPool({ call, ethCallProviders, getLogsProviders, minIntervalMs: args.minIntervalMs, slowOperators: args.slowOperators, slowIntervalMs: args.slowIntervalMs, onQuorum, gate });
 
     // C-5 resume/inputs cache (JSONL request->result, OUTSIDE the repo). Fresh => write the meta line; append every
     // MISS (a hit costs no budget => no client.call => 0 RU). After the record, a cached holders line that disagrees => abstention.
@@ -407,14 +415,27 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
       resumeReader = makeResumeReader(basePool, lines, (line) => { appendFileSync(resumePath, JSON.stringify(line) + "\n"); });
       reader = resumeReader;
     }
+    // UKEMI-CONC-1: the prefetch needs a MEMOIZING reader; without --resume, an in-RAM memo (no file, no holders line).
+    if (concurrency > 1 && resumeReader === undefined) reader = makeResumeReader(basePool, [], () => undefined);
 
     const fin = await reader.finalized();
     const block = args.block ?? fin.block;
     if (block > fin.block) throw new Error(`ukemi/record: B=${String(block)} > finalized ${String(fin.block)} (look-ahead forbidden, ADR-U1 D7)`);
+    // UKEMI-CONC-1: the prefetch heartbeat (n > 1): cumulative holders done / config-passing seen / per-operator calls+errors.
+    const tickFor = (pass: string): (() => void) => {
+      const t0 = Date.now();
+      return () => {
+        const perOp = Object.entries(budgeted.byOperator()).map(([k, v]) => `${k}:${String(v)}`).join(","), perErr = Object.entries(errByOp).map(([k, v]) => `${k}:${String(v)}`).join(",");
+        process.stderr.write(`  ..prefetch pass=${pass} holders_done=${String(progress.config_read)}/${String(progress.holders)} n_at_risk_config=${String(progress.n_at_risk_config)} rate=${(progress.config_read / Math.max((Date.now() - t0) / 1000, 0.001)).toFixed(2)}/s concurrency=${String(concurrency)} calls={${perOp}} errors={${perErr}} t=${new Date(deps.now()).toISOString()}\n`);
+      };
+    };
 
     // D-3 STAGE 1 — filter-only: measure nAtRisk (config filter, no per-account read); cache config reads for the course.
     if (args.filterOnly) {
       const t0 = Date.now();
+      // UKEMI-CONC-1 (n > 1): warm every holder's config read through the window, then the UNCHANGED pass below replays
+      // from the cache (its own counters restart at 0: the prefetch's are only for a stop's diag and the heartbeat).
+      if (concurrency > 1) { await prefetchFilterReads(cluster, block, reader, { fromBlock: args.fromBlock, concurrency, progress, onTick: tickFor("filter"), every: args.heartbeatEvery, report: poolReport }); progress.config_read = 0; progress.n_at_risk_config = 0; }
       const onTick = (): void => {
         const t = (Date.now() - t0) / 1000;
         const perOp = Object.entries(budgeted.byOperator()).map(([k, v]) => `${k}:${String(v)}`).join(",");
@@ -437,6 +458,7 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
         calls: budgeted.total(), calls_by_operator: budgeted.byOperator(), calls_by_method: budgeted.byMethod(), errors_by_operator: errByOp, spent_by_operator: c.spent().byOperator, seconds, finalized_block: fin.block, ukemi_sha: ukemiSha(here),
         holders: fr.holders, holders_digest: fr.holders_digest, n_at_risk_config: fr.n_at_risk_config,
         excluded: { collateral_off: fr.excluded_collateral_off, no_debt: fr.excluded_no_debt }, projection_remaining_calls: 9 * fr.n_at_risk_config,
+        concurrency, // UKEMI-CONC-1: provenance only (the counts above are the unchanged pass's, identical for every n)
         rpc_error_count: rpcErrors.length, rpc_errors: rpcErrors,
       };
       const out = args.out ?? join(tmpdir(), `ukemi-filter-${cluster.id}-${String(block)}.json`);
@@ -449,6 +471,9 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
     }
 
     const t0 = Date.now();
+    // UKEMI-CONC-1 (n > 1): warm recordBook's per-holder read plan through the window; the UNCHANGED recordBook (book.ts
+    // not touched) then replays from the cache - book / book_digest / hf_findings order byte-identical by construction.
+    if (concurrency > 1) await prefetchBookReads(cluster, block, reader, { fromBlock: args.fromBlock, concurrency, progress, onTick: tickFor("book"), every: args.heartbeatEvery, report: poolReport });
     const res = await recordBook(cluster, block, reader, "GENESIS", { fromBlock: args.fromBlock });
     const seconds = (Date.now() - t0) / 1000;
 
@@ -466,6 +491,7 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
       calls: budgeted.total(), calls_by_operator: budgeted.byOperator(), calls_by_method: budgeted.byMethod(), errors_by_operator: errByOp, spent_by_operator: c.spent().byOperator, seconds, finalized_block: fin.block, ukemi_sha: ukemiSha(here),
       counts: res.counts, holders_digest: res.holders_digest, book_digest: res.book_digest,
       hf_findings: res.hf_findings, timeline: res.timeline,
+      concurrency, // UKEMI-CONC-1: provenance only, OUTSIDE the book / book_digest (identical for every n)
       rpc_error_count: rpcErrors.length, rpc_errors: rpcErrors,
     };
     const out = args.out ?? join(tmpdir(), `ukemi-book-${cluster.id}-${String(block)}.json`);
@@ -499,6 +525,7 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
         prereg_sha: args.preregSha ?? null,
         labeler_sha: args.labelerSha ?? null,
         ukemi_sha: ukemiSha(here),
+        ...(concurrency > 1 ? { pool: { concurrency, suppressed: poolReport.suppressed.map((s) => ({ name: s.name, message: stripUrls(s.message) })) } } : {}), // UKEMI-CONC-1
       };
       writeFileSync(diagPath, JSON.stringify(diag, null, 2));
     } catch (werr) {

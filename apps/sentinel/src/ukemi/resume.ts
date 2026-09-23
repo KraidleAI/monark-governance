@@ -81,6 +81,12 @@ export function makeResumeReader(base: UkemiReader, lines: readonly CacheLine[],
   const blockAtCache = new Map<string, { hash: string; ts: number }>();
   let finalizedCache: { block: number; ts: number } | undefined;
   let holdersDigest: string | undefined;
+  // UKEMI-CONC-1: SINGLE-FLIGHT per ethCall key. Under the bounded window (--concurrency n > 1) two concurrent MISSes of
+  // one key would each call the base (2 network reads) and append 2 lines; the second now JOINS the first (one base
+  // read, ONE appended line). A sequential caller (n=1) never overlaps => unchanged. A rejected read is not cached and
+  // leaves the map at settle (the next caller retries the base, as before). Appends stay synchronous (the caller's
+  // appendFileSync): one complete line per call, serialized by the single JS thread - never an interleaved line.
+  const inflight = new Map<string, Promise<string>>();
   for (const l of lines) {
     switch (l.kind) {
       case "meta": break;
@@ -97,9 +103,11 @@ export function makeResumeReader(base: UkemiReader, lines: readonly CacheLine[],
       const k = ethCallKey(to, data, block);
       const hit = ethCallCache.get(k);
       if (hit !== undefined) return hit;
-      const v = await base.ethCall(to, data, block);
-      ethCallCache.set(k, v); append({ kind: "ethCall", to, data, block, result: v });
-      return v;
+      const flying = inflight.get(k);
+      if (flying !== undefined) return flying;
+      const p = base.ethCall(to, data, block).then((v) => { ethCallCache.set(k, v); append({ kind: "ethCall", to, data, block, result: v }); return v; }).finally(() => { inflight.delete(k); });
+      inflight.set(k, p);
+      return await p;
     },
     async getLogsRange(address, topics, fromBlock, toBlock) {
       const k = getLogsKey(address, topics, fromBlock, toBlock);
