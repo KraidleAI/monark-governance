@@ -63,7 +63,7 @@ no trailing space · one final LF · lower-case hex digests
               <dt>date</dt>
               <dd>ISO date and time in UTC, as measured by the anchoring host</dd>
               <dt>last entry digest</dt>
-              <dd>the last line of the token&rsquo;s ledger where one exists, else n/a</dd>
+              <dd>the last line of the instrument&rsquo;s ledger where one exists, else n/a</dd>
               <dt>commit</dt>
               <dd>the git commit adding the line, the manifest and the proof (a private repository; the files are served here)</dd>
             </dl>
@@ -74,11 +74,11 @@ no trailing space · one final LF · lower-case hex digests
               <dt>probe_end</dt>
               <dd>budget file, first ledger page of the probe, probe report</dd>
               <dt>mint_start</dt>
-              <dd>budget file, ledgers already present (the token&rsquo;s own not yet written)</dd>
+              <dd>budget file, ledgers already present (the instrument&rsquo;s own not yet written)</dd>
               <dt>mint_resume</dt>
-              <dd>budget file, the token&rsquo;s partial ledger</dd>
+              <dd>budget file, the instrument&rsquo;s partial ledger</dd>
               <dt>mint_end</dt>
-              <dd>the token&rsquo;s complete ledger, its cross-check file</dd>
+              <dd>the instrument&rsquo;s complete ledger, its cross-check file</dd>
               <dt>final</dt>
               <dd>the four cross-check files, the cross-check report, the budget file</dd>
             </dl>

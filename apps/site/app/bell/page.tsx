@@ -13,7 +13,7 @@ import { loadBellServed, bellServedRepoRoot, BELL_HOST, BELL_TIMELINE_PATH, BELL
 export const metadata: Metadata = {
   title: "Bell · MONARK",
   description:
-    "MONARK Bell: a public, signed record of how tokens that track U.S. equities trade on a public ledger while U.S. markets are closed, served on its own host. A gap per session when its closing price can be read, a named abstention when it cannot, an anchored digest. Never a score, never a probability of being right.",
+    "MONARK Bell: a public, signed record of how tokenized U.S. equities trade on a public ledger while U.S. markets are closed, served on its own host. A gap per session when its closing price can be read, a named abstention when it cannot, an anchored digest. Never a score, never a probability of being right.",
   icons: { icon: [{ url: "/icons/bell.svg", type: "image/svg+xml" }] },
 };
 
@@ -37,11 +37,11 @@ export default function BellPage() {
         <div>
           <span className={bell.status === "built" ? "c-pill c-pill--built" : "c-pill c-pill--upcoming"}>{bell.status}</span>
           <h1 className="c-h1" style={{ marginTop: 12 }}>
-            While New York is closed, the tokens keep printing. Bell writes down what it reads, signed, and names what it could not.
+            While New York is closed, tokenized equities keep printing. Bell writes down what it reads, signed, and names what it could not.
           </h1>
         </div>
         <p className="c-lede">
-          A public, signed record of how tokens that track U.S. equities trade on a public ledger, in particular while U.S.
+          A public, signed record of how tokenized U.S. equities trade on a public ledger, in particular while U.S.
           markets are closed, written so that anyone can recompute it. The host is served and a first session record is
           published, signed and chained; how to check it, and against which key set, is on the method page. It carries no
           gap: its closing prices are not read (what is missing, below). Never a score, never a probability of being right.
@@ -53,9 +53,9 @@ export default function BellPage() {
         <iframe src="/scene/blocks-hero.html" title="" aria-hidden="true" tabIndex={-1} loading="eager" />
       </div>
       <div className="c-legend" aria-hidden="true">
-        <span><i style={{ background: "#FFFFFF", border: "1px solid var(--ink2)" }} />tokens, day side</span>
+        <span><i style={{ background: "#FFFFFF", border: "1px solid var(--ink2)" }} />tokenized equities, day side</span>
         <span><i style={{ background: "var(--cash-close)" }} />cash market quoting</span>
-        <span><i style={{ background: "var(--token-print)" }} />tokens after the close</span>
+        <span><i style={{ background: "var(--token-print)" }} />tokenized equities after the close</span>
         <span><i style={{ background: "var(--token-print)", borderRadius: "50%" }} />one dot, one session record</span>
       </div>
       <nav className="c-toc" aria-label="On this page" style={{ marginTop: 18 }}>
@@ -103,7 +103,7 @@ export default function BellPage() {
             <h2 className="c-h2">What is missing: the cash leg</h2>
             <p>
               No closing price is read into the first record, so it carries no gap: each of its sessions abstains with the
-              named residual <span className="c-mono">no_close_ref</span>. What it holds is the token side read from the
+              named residual <span className="c-mono">no_close_ref</span>. What it holds is the on-chain side read from the
               ledger, the volume ratios, and the residual counts, signed and chained.
             </p>
             <p className="c-muted c-small" style={{ marginTop: 10 }}>
@@ -125,14 +125,14 @@ export default function BellPage() {
               <li>
                 <span>+</span>
                 <span>
-                  <b>Four tokens.</b> TSLAx, AAPLx, NVDAx and SPYx, traded on public automated-market-maker pools on Solana.
+                  <b>Four tokenized equities.</b> TSLAx, AAPLx, NVDAx and SPYx, traded on public automated-market-maker pools on Solana.
                 </span>
               </li>
               <li>
                 <span>+</span>
                 <span>
                   <b>Not a tokenization venue.</b> These pools are not a TSV under the Commission&rsquo;s order, and Bell makes
-                  no representation that the tokens are Tokenized NMS Stock. The method, not this population, is designed to
+                  no representation that these instruments are Tokenized NMS Stock. The method, not this population, is designed to
                   apply to TSV pools.
                 </span>
               </li>
@@ -154,7 +154,7 @@ export default function BellPage() {
             </ul>
             <div className="c-feed" style={{ marginTop: 14 }} aria-hidden="true">
               <span className="c-sw c-sw--mint" />
-              <span>token prints, on chain</span>
+              <span>on-chain prints of tokenized equities</span>
               <span className="c-sw c-sw--lav" />
               <span>last consolidated close</span>
               <span className="c-sw c-sw--ink" />
@@ -174,7 +174,7 @@ export default function BellPage() {
                 <table className="c-table">
                   <thead>
                     <tr>
-                      <th className="c-label">token</th>
+                      <th className="c-label">instrument</th>
                       <th className="c-label">session · regime</th>
                       <th className="c-label">window · UTC</th>
                       <th className="c-label c-num">
@@ -238,7 +238,7 @@ export default function BellPage() {
             <p>
               For each session while the U.S. market is closed (weekday overnight, weekend, holiday), Bell will publish{" "}
               <span className="c-mono">g = ln(P_session / P_close)</span>: the volume-weighted average price of the
-              token&rsquo;s on-chain fills, per underlying share, against the last consolidated closing price. It will report
+              instrument&rsquo;s on-chain fills, per underlying share, against the last consolidated closing price. It will report
               the share of sessions where the gap exceeds a threshold, with the count of sessions behind the share.
             </p>
             <dl className="c-kv" style={{ marginTop: 12 }}>
@@ -264,7 +264,7 @@ export default function BellPage() {
             <h2 className="c-h2">Fact two · pool volume against consolidated daily volume</h2>
             <p>
               For each observation window, Bell will publish the ratio of the volume in its observed pools, recomputed from
-              on-chain swaps counted once per transaction and converted to shares with the on-chain shares-per-token
+              on-chain swaps counted once per transaction and converted to shares with the on-chain shares-per-unit
               multiplier, to the underlying stock&rsquo;s consolidated average daily share volume over a period stated in the
               method.
             </p>
@@ -366,7 +366,7 @@ export default function BellPage() {
               <tbody>
                 <tr>
                   <td>state.json</td>
-                  <td>the published state: window, digest, residual counts, per-token gaps and ratios, halt census; the first-measurement shares and counts per regime will be read from it</td>
+                  <td>the published state: window, digest, residual counts, per-instrument gaps and ratios, halt census; the first-measurement shares and counts per regime will be read from it</td>
                   <td><span className="c-pill c-pill--built">served</span></td>
                   <td><a href={BELL_HOST + BELL_STATE_PATH}>{BELL_STATE_PATH}</a></td>
                 </tr>

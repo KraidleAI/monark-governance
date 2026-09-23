@@ -168,13 +168,13 @@ export default function BellMethodPage() {
           <div className="c-card">
             <h2 className="c-h2">Fills</h2>
             <p className="c-muted">
-              A fill is one swap in one observed pool, read from the ledger: base delta b (token units) and quote delta q
+              A fill is one swap in one observed pool, read from the ledger: base delta b (units of the tokenized equity) and quote delta q
               (quote units), with the block time. Fills are <b>counted once per transaction signature</b>, so an aggregator
               route through a pool appears once. A session with no fill abstains with{" "}
               <span className="c-mono">no_fill_in_window</span>.
             </p>
             <h2 className="c-h2" style={{ marginTop: 16 }}>Price per share and gap</h2>
-            <pre className="c-formula">{`m(t)       = shares per token at block time t
+            <pre className="c-formula">{`m(t)       = shares per unit at block time t
              (on-chain multiplier)
 VWAP_share = Σ |q_i|  /  Σ ( |b_i| · m(t_i) )
 g          = ln ( VWAP_share / P_close )
@@ -190,9 +190,9 @@ exceeds(θ) = | VWAP_share − P_close | / P_close > θ`}</pre>
           </div>
           <div className="c-card">
             <h2 className="c-h2">Volume ratio</h2>
-            <pre className="c-formula">{`V_tokens   = Σ |b_i| in token units
+            <pre className="c-formula">{`V_onchain  = Σ |b_i| in units of the tokenized equity
              (numerator window, deduped fills)
-V_shares   = V_tokens · m
+V_shares   = V_onchain · m
 ADV        = mean of the daily consolidated
              share volumes over the
              denominator period
@@ -375,7 +375,7 @@ vol_ratio  = V_shares / ADV`}</pre>
           <div className="c-card">
             <h2 className="c-h2">What is anchored, and when</h2>
             <p className="c-muted">
-              At each boundary of a run (the end of the probe, the start, each resumption and the end of each token&rsquo;s
+              At each boundary of a run (the end of the probe, the start, each resumption and the end of each instrument&rsquo;s
               enumeration, and the final state), the boundary&rsquo;s manifest is submitted to OpenTimestamps. The proof is
               pending first, then upgraded to a Bitcoin attestation.
             </p>
@@ -449,7 +449,7 @@ vol_ratio  = V_shares / ADV`}</pre>
           </div>
           <div className="c-card">
             <h3 className="c-h3">Sample</h3>
-            <p className="c-muted">Four symbols of one token family on one chain, outside the TSV framework, over the stated windows. Results do not extend to other tokens, chains or venues.</p>
+            <p className="c-muted">Four symbols of one family of tokenized equities on one chain, outside the TSV framework, over the stated windows. Results do not extend to other instruments, chains or venues.</p>
           </div>
           <div className="c-card">
             <h3 className="c-h3">Not a certification</h3>
