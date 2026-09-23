@@ -6,26 +6,30 @@ import { AnchorsTable } from "@/components/bell/anchors-table";
 import { BellContact } from "@/components/bell/contact";
 import { Placeholder } from "@/components/placeholder";
 import { TERMS_ROUTE, PRIVACY_ROUTE } from "@/lib/bell-legal";
+import { loadBellServed, bellServedRepoRoot, BELL_HOST, BELL_TIMELINE_PATH, BELL_STATE_PATH, BELL_PUBKEY_PATH } from "@/lib/bell-served-load";
 
 // Static metadata only (no generateMetadata); digit-free (honesty lint §6b). Favicon = a static public asset
 // OUTSIDE /bell/ (the /narabi precedent, ruling D-2: a future Caddy handle_path /bell/* must not shadow it).
 export const metadata: Metadata = {
   title: "Bell · MONARK",
   description:
-    "MONARK Bell, upcoming: a public, signed record of how tokens that track U.S. equities trade on a public ledger while U.S. markets are closed. One gap per session, a named abstention when it cannot know, an anchored digest. Never a score, never a probability of being right.",
+    "MONARK Bell: a public, signed record of how tokens that track U.S. equities trade on a public ledger while U.S. markets are closed, served on its own host. A gap per session when its closing price can be read, a named abstention when it cannot, an anchored digest. Never a score, never a probability of being right.",
   icons: { icon: [{ url: "/icons/bell.svg", type: "image/svg+xml" }] },
 };
 
-// /bell — the product page (charter C mock bell.html, decisions 145/146). HONESTY: Bell is UPCOMING (status read
-// from the register, lib/fleet.ts); every figure is a NAMED placeholder (components/placeholder.tsx) until the
-// served state file exists; sentences that need a served path (state.json, timeline, key, replay code) are in the
-// future tense (SEC letter RENDU-v3 §6); the anchors table and its statuses are READ from the served files at
+// /bell — the product page (charter C mock bell.html, decisions 145/146; lot BELL-SERVED-1, decision 155). HONESTY:
+// the status is read from the register (lib/fleet.ts); the host, the key_id and the first record's seq, date and
+// line hash are READ from apps/site/data/bell-served.json (lib/bell-served-load.ts, hashed, written from the served
+// files by scripts/sync-bell-served.mjs), never typed; what is missing (the closing price, hence the gap) is said in
+// plain words; figures that are not served stay NAMED placeholders; the anchors table and its statuses are READ from the served files at
 // build time (lib/bell-anchors-load.ts), never typed. The "one record" table shows the SHAPE of a served row:
 // its regimes and residual states are illustrative, chosen to display each rendered state once.
 export default function BellPage() {
   const bell = PRODUCTS.find((p) => p.key === "bell");
   if (!bell) throw new Error("bell page: MONARK Bell is absent from PRODUCTS (lib/fleet.ts) — the register is the single source of its status");
   const anchors = loadAnchors();
+  const served = loadBellServed(bellServedRepoRoot());
+  const r = served.first_record;
 
   return (
     <main className="c-main">
@@ -33,13 +37,14 @@ export default function BellPage() {
         <div>
           <span className={bell.status === "built" ? "c-pill c-pill--built" : "c-pill c-pill--upcoming"}>{bell.status}</span>
           <h1 className="c-h1" style={{ marginTop: 12 }}>
-            While New York is closed, the tokens keep printing. Bell will write down the gap, and the reasons it could not.
+            While New York is closed, the tokens keep printing. Bell writes down what it reads, signed, and names what it could not.
           </h1>
         </div>
         <p className="c-lede">
-          A public, signed record, to come, of how tokens that track U.S. equities trade on a public ledger, in particular
-          while U.S. markets are closed, written so that anyone can recompute it. One number per session, a list of what is
-          missing, a digest. Never a score, never a probability of being right.
+          A public, signed record of how tokens that track U.S. equities trade on a public ledger, in particular while U.S.
+          markets are closed, written so that anyone can recompute it. The host is served and a first session record is
+          published, signed and chained; how to check it, and against which key set, is on the method page. It carries no
+          gap: its closing prices are not read (what is missing, below). Never a score, never a probability of being right.
         </p>
       </div>
       {/* Hero visual (pli SITE-NOYAU-1): the vendored Canvas 2D cubes scene, moved here from the home page with its
@@ -54,6 +59,7 @@ export default function BellPage() {
         <span><i style={{ background: "var(--token-print)", borderRadius: "50%" }} />one dot, one session record</span>
       </div>
       <nav className="c-toc" aria-label="On this page" style={{ marginTop: 18 }}>
+        <a href="#served">served</a>
         <a href="#measures">what Bell measures</a>
         <a href="#properties">four properties</a>
         <a href="#anchors">anchors</a>
@@ -62,9 +68,55 @@ export default function BellPage() {
         <Link href="/bell/method">method</Link>
       </nav>
 
+      <section className="c-section" id="served" aria-labelledby="l-served">
+        <span className="c-label" id="l-served">served · the host, the key and the first record</span>
+        <div className="c-grid c-grid--2">
+          <div className="c-card c-card--prov">
+            <dl className="c-kv">
+              <dt>host</dt>
+              <dd><a href={BELL_HOST}>{BELL_HOST}</a></dd>
+              <dt>timeline</dt>
+              <dd>
+                <a href={BELL_HOST + BELL_TIMELINE_PATH}>{BELL_TIMELINE_PATH}</a> · append-only, one signed line per
+                publication, each carrying the hash of the line before it
+              </dd>
+              <dt>state</dt>
+              <dd><a href={BELL_HOST + BELL_STATE_PATH}>{BELL_STATE_PATH}</a> · the latest published state</dd>
+              <dt>public key</dt>
+              <dd>
+                <a href={BELL_HOST + BELL_PUBKEY_PATH}>{BELL_PUBKEY_PATH}</a> · key_id{" "}
+                <span className="c-mono" style={{ overflowWrap: "anywhere" }}>{r.key_id}</span>
+              </dd>
+              <dt>first record</dt>
+              <dd>seq {r.seq} · published {r.published_at} (UTC)</dd>
+              <dt>its line hash</dt>
+              <dd className="c-mono" style={{ overflowWrap: "anywhere" }}>{r.line_hash}</dd>
+            </dl>
+            <p className="c-muted c-small" style={{ marginTop: 10, overflowWrap: "anywhere" }}>
+              Read from the served files at {served.read_at} (UTC), when this page&rsquo;s data was last written: timeline
+              body SHA-256 <span className="c-mono">{served.bodies_sha256.timeline}</span>, key set SHA-256{" "}
+              <span className="c-mono">{served.bodies_sha256.pubkey}</span>. The timeline grows with each publication; its
+              first line does not change.
+            </p>
+          </div>
+          <div className="c-card">
+            <h2 className="c-h2">What is missing: the cash leg</h2>
+            <p>
+              No closing price is read into the first record, so it carries no gap: each of its sessions abstains with the
+              named residual <span className="c-mono">no_close_ref</span>. What it holds is the token side read from the
+              ledger, the volume ratios, and the residual counts, signed and chained.
+            </p>
+            <p className="c-muted c-small" style={{ marginTop: 10 }}>
+              A signature attests origin, not truth: it shows that the holder of this key published these bytes, not that
+              they are right. How to check a line: <Link href="/bell/method#key">method · public key</Link>.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section className="c-section" id="measures" aria-labelledby="l-measures">
         <span className="c-label" id="l-measures">
-          what Bell measures · population and two facts <span className="c-tag c-tag--next">upcoming · not served yet</span>
+          what Bell measures · population and two facts <span className="c-tag c-tag--next">first record served · no gap in it</span>
         </span>
         <div className="c-grid">
           <div className="c-card">
@@ -113,9 +165,9 @@ export default function BellPage() {
           <div className="c-card c-card--accent">
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
               <span className="c-label" style={{ color: "var(--token-print)" }}>
-                one record · what a session row will hold
+                one record · what a session row holds
               </span>
-              <span className="c-state c-state--dashed">not served yet</span>
+              <span className="c-state c-state--dashed">shape, not data</span>
             </div>
             <div className="c-board" style={{ marginTop: 12 }}>
               <div className="c-board-scroll">
@@ -174,8 +226,8 @@ export default function BellPage() {
             </div>
             <p className="c-muted c-small" style={{ marginTop: 10 }}>
               Rows are the shape of a record, not data: each value is a named placeholder, and the regimes and residual
-              states are illustrative, chosen to display every rendered state once. Once served, the board would read{" "}
-              <span className="c-mono">state.json</span> and show what it holds, in this layout.
+              states are illustrative, chosen to display every rendered state once. The board does not read the served{" "}
+              <span className="c-mono">state.json</span>; its first record carries no gap (what is missing, above).
             </p>
           </div>
         </div>
@@ -237,8 +289,8 @@ export default function BellPage() {
 
       <section className="c-section" id="properties" aria-labelledby="l-props">
         <span className="c-label" id="l-props">
-          four properties · what Bell would apply to its own records once they are served{" "}
-          <span className="c-tag c-tag--next">upcoming</span>
+          four properties · what Bell applies to its own records; a part said in the future is not served yet{" "}
+          <span className="c-tag c-tag--next">in part upcoming</span>
         </span>
         <div className="c-props">
           <div className="c-card">
@@ -315,20 +367,20 @@ export default function BellPage() {
                 <tr>
                   <td>state.json</td>
                   <td>the published state: window, digest, residual counts, per-token gaps and ratios, halt census; the first-measurement shares and counts per regime will be read from it</td>
-                  <td><span className="c-pill c-pill--upcoming">upcoming</span></td>
-                  <td><Placeholder name="url_state" /></td>
+                  <td><span className="c-pill c-pill--built">served</span></td>
+                  <td><a href={BELL_HOST + BELL_STATE_PATH}>{BELL_STATE_PATH}</a></td>
                 </tr>
                 <tr>
                   <td>timeline.jsonl</td>
                   <td>an append-only timeline, chained line by line, each line signed</td>
-                  <td><span className="c-pill c-pill--upcoming">upcoming</span></td>
-                  <td><Placeholder name="url_timeline" /></td>
+                  <td><span className="c-pill c-pill--built">served</span></td>
+                  <td><a href={BELL_HOST + BELL_TIMELINE_PATH}>{BELL_TIMELINE_PATH}</a></td>
                 </tr>
                 <tr>
                   <td>public key (Ed25519)</td>
                   <td>the public half of the signing key, generated on the dedicated host</td>
-                  <td><span className="c-pill c-pill--upcoming">to be published</span></td>
-                  <td><Placeholder name="pubkey_ed25519" state="to be published" /></td>
+                  <td><span className="c-pill c-pill--built">served</span></td>
+                  <td><a href={BELL_HOST + BELL_PUBKEY_PATH}>{BELL_PUBKEY_PATH}</a></td>
                 </tr>
                 <tr>
                   <td>method page</td>
@@ -360,7 +412,8 @@ export default function BellPage() {
         </div>
         <p className="c-muted c-small" style={{ marginTop: 10 }}>
           A line moves from upcoming to served only when its path is served and covered by an integration test that replays
-          the composition end to end. Until then, nothing on this page is a claim about a served record.
+          the composition end to end. {bell.status === "built" ? <>Served today: {bell.served.note}.</> : null} The other
+          lines are not a claim about a served record.
         </p>
       </section>
 
@@ -368,7 +421,7 @@ export default function BellPage() {
           the Bell legal texts as drafted); publisher identity fields stay visible placeholders (decision 94). The full
           Terms of Use and Privacy Notice are linked at its foot (lot SITE-LEGAL-1). */}
       <section className="c-section" id="conditions" aria-labelledby="l-conditions">
-        <span className="c-label" id="l-conditions">conditions in short · they apply to Bell&rsquo;s records once they are published</span>
+        <span className="c-label" id="l-conditions">conditions in short · they apply to Bell&rsquo;s published records</span>
         <div className="c-card c-card--prov">
           <p>
             This page and the facts it links to are published as a public witness: signed, recomputable records, not
@@ -418,8 +471,8 @@ export default function BellPage() {
           <p className="c-muted c-small" style={{ marginTop: 12 }}>
             Provided as is, without warranty of any kind. Publisher: the MONARK project; legal entity{" "}
             <Placeholder name="legal_entity" state="to be decided" />, legal form <Placeholder name="legal_form" state="to be decided" />,
-            address <Placeholder name="publisher_address" state="to be decided" />. Nothing on this page is served as a Bell
-            record today (status above).
+            address <Placeholder name="publisher_address" state="to be decided" />. What is served as a Bell record today is
+            listed in the status above.
           </p>
           <p className="c-small" style={{ marginTop: 8 }}>
             Full texts: <Link href={TERMS_ROUTE}>Terms of Use</Link> · <Link href={PRIVACY_ROUTE}>Privacy Notice</Link>.

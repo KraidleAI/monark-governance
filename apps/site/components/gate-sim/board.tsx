@@ -436,7 +436,7 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
             See it on Products →
           </Link>
           <div style={{ ...mono, fontSize: 11, color: "var(--ink2)", lineHeight: 1.5 }}>
-            Every product is upcoming; each is a wiring of fleet agents on the same built gate.
+            MONARK Bell is built; every other product is upcoming, a wiring of fleet agents on the same built gate.
           </div>
         </aside>
       </div>

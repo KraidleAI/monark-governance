@@ -97,8 +97,8 @@ export default function HomePage() {
               <h3 className="c-h3"><ShogenMark /> sensors <span className="c-label">attest</span></h3>
               <p className="c-muted">
                 A sensor writes down what it saw, as bytes anyone can recompute: an attested price testimony (Shōgen), an
-                attested redemption flow (Narabi); an attested off-hours gap is what Bell will add (upcoming). No score rides
-                on it.
+                attested redemption flow (Narabi); Bell&rsquo;s signed off-hours record, whose gap needs a closing price that its
+                first record does not carry. No score rides on it.
               </p>
               <div className="c-states"><span className="c-tag">AttestedPrice</span><span className="c-tag">AttestedFlow</span></div>
             </div>
@@ -188,8 +188,8 @@ export default function HomePage() {
             <Link className="c-card" href="/bell" aria-label="MONARK Bell">
               <BellLockup className="c-logo" />
               <p className="c-muted">
-                A public, signed record, to come, of how tokens that track U.S. equities trade on a public ledger while U.S.
-                markets are closed: one gap per session, a named abstention when it cannot know, an anchored digest.
+                A public, signed record of how tokens that track U.S. equities trade on a public ledger while U.S. markets are
+                closed: a gap per session when its closing price can be read, a named abstention when it cannot, an anchored digest.
               </p>
               <div className="c-foot">
                 <span className={pill(bell.status, "c-pill--built")}>{bell.status}</span>
