@@ -1492,3 +1492,335 @@ et committe au G7.)*
   `docs/CHANTIERS.md:935`) ; la ligne SIDECAR « gel `<HEAD_E2>` » (C-V4b-2) précède toute étape ≥ 2c-bis non commencée.
 - Rulings demandés au G7, non tranchés par ce fold : nouveau déclencheur de CARTO-T1C-5 ; OBS-1 ; statut de l'étape 3a
   (lancée avant la sonde) vis-à-vis de l'ordre de l'ADDENDUM §1 (ADDENDUM-2 (h)).
+
+## Amendement daté 2026-09-23 (U-4b-STATS-1 — outils hors ligne H-3 / H-4 / H-6 et entrée de la clause prereg :359 ; fold G7 : trois segments first-parent `66141fb` → `4c5fa8d` → `c1e9e30`)
+
+> **Provenance.** Texte v1 : worker `claude-opus-5-5[1m]` (effort max, décision 133), 2026-09-22, rendu hors dépôt au
+> G1 (sha256 `3f3029d99bacd63e79811afb42f3c594f4813c9c93f8169c3d8a604cbc943e5a`), sur le checkpoint-1 C-1..C-12.
+> **Fold G7 (ce texte)** : worker `claude-opus-5-5[1m]` (effort max), 2026-09-23, docs seulement, aucun commit (R-20) ;
+> il replie les corrections des trois checkpoints-2 (1a, 1b, 1c), du G2 de 1a, du G2-delta de 1b, du micro-pli 1c et du
+> re-G2-delta de 1c, date le ruling Q-1 (a) et assigne un `error_origin` à chaque correction (§13). **Insertion par l'orchestrateur
+> `claude-fable-5-1` SEUL**, en queue de ce fichier, dans le commit du G7 ; réviseur = orchestrateur (R-21). Ajout pur :
+> aucune ligne existante n'est éditée (le renvoi `:207 → :402` est porté par le §14). Cet ADR n'est pas dans le diff du
+> lot (`git diff --quiet 50f78b0 c1e9e30 -- docs/adr/ADR-U4b-calibration-episode-frais.md`). Octets cités au bout du lot
+> (`c1e9e30` ; `git show <c>:<f> | tr -d '\r' | sha256sum`) : `scripts/census/u4b/u4b-hyp.mjs`
+> `65b0d8f9608969c670bd321d7613920c408ccf90bac4e067e990b93dad77fc25` (état 1a `564292d` = 1a-corr `66141fb` :
+> `50436e8f4a027a60a2d62278f078d0579cdc72dbb314edd8c3357d2900a6b8bd` ; état 1b `4c5fa8d` :
+> `07e25e197f1c57fe3ea14fe1c4c50e4ceeda476fd6150e39be8cf04a2760393e`) ; `scripts/census/u4b/u4b-hyp.d.mts`
+> `5a019059af4292169725f3cb1a48436f53cd4feb57530d865b293d954000f6d6` ; `apps/sentinel/test/u4b-hyp.test.ts`
+> `f8d8f3a61e8acf565f85282a55889859833bd1b98c27a07d7c4f0f9add4f05b3` (39 tests). Le prereg GELÉ
+> (`docs/PLAN-u4b-prereg.md`, sha256 LF `1971d9b14ce0adf8c617f23e2ed1e323d80224cf442636aba5f7cf5fc5892f49`) n'est pas
+> modifié ; aucun des 9 fichiers gelés du prereg §2 n'est touché (§11).
+
+### 1. Chaîne de revue (ordre réel ; heure = `TZ=UTC git log` du commit porteur)
+| étape | acteur | objet (commit) | verdict et mesures | source en dépôt |
+|---|---|---|---|---|
+| checkpoint-1 | validateur `claude-fable-5-1` | persisté `d841957` (2026-09-22 20:39) | APPROUVE-AVEC-CORRECTIONS C-1..C-12 (verdict fermé C-1, compteur de labels C-2, épinglages C-3, ordre C-4, oracles antérieurs C-5, RUNBOOK C-8, MAST C-10) | `docs/CHECKPOINT1-lot-u4b-stats-1.md:54-67` |
+| G1 (unité 1a) | worker `claude-opus-5-5[1m]` | `564292d` (23:26) ; rendu persisté `7c70826` (23:24) | STOP A-5 déclaré (lot entier 1 385 > 1 150) ⇒ couture 1a/1b pré-déclarée ; 1a : 933/932/0/1, 16/16 mutants tués par leur test nommé, R-25 640 ; incident coupure n°2 (outil non suivi entièrement NUL) : restauration octet-exacte, preuves régénérées | `docs/G1-lot-u4b-stats-1.md:14-45` |
+| ruling Q-1 | orchestrateur `claude-fable-5-1` | journalisé `7c70826` (2026-09-22 23:24), avant toute donnée fraîche | option (a), §5 | `docs/CHANTIERS.md:913` |
+| checkpoint-2 (1a) | validateur | `564292d` ; persisté `babd44d` (23:50) | ACCEPTE-AVEC-CORRECTIONS C-V-1..C-V-4, conditionné au G2 ; 933/932/0/1 ; 16/16 identiques au worker ; mutants propres VX-1..VX-8 : 3 survivants (gardes de `parseScores` sans test) | `docs/CHECKPOINT2-lot-u4b-stats-1-1a.md:9-16` |
+| G2 (1a) | relecteur `claude-opus-5-5[1m]`, instance séparée | `564292d` ; persisté `03e098c` (00:24) | PASS-AVEC-CORRECTIONS C-G2-1..C-G2-5 (tests seuls ; aucun comportement faux) ; 20 mutants propres ; items I-G2-1, I-G2-2 | `docs/G2-lot-u4b-stats-1-1a.md:18-32` ; `docs/G2-lot-u4b-stats-1-1a-integral.md:132-157` |
+| 1a-corr | worker (contexte intact) | `66141fb` (00:55), prototype du G2 à l'octet | 940/939/0/1 ; 28/28 byIntended ; fin du segment 1 (R-25 735) | message de `66141fb` ; `docs/G2-lot-u4b-stats-1-1b.md:35` |
+| 1b (v3) | worker | `4c5fa8d` (01:01) | 951/950/0/1 ; 58/58 byIntended (42 G1 + 4 VX + 12 G2) ; segment 2 (R-25 826) ; re-vérifié par l'orchestrateur avant commit | `docs/CHANTIERS.md:947,951` |
+| checkpoint-2 (1b) | validateur | `4c5fa8d` ; persisté `56e7730` (01:39) | ACCEPTE-AVEC-CORRECTIONS C-W-1..C-W-4, conditionné au G2-delta ; condition CA-6 de 1a levée ; VY-2 et VY-6 survivants ; réserve de vocabulaire sur 826 | `docs/CHECKPOINT2-lot-u4b-stats-1-1b.md:9-18` |
+| ruling de vocabulaire | orchestrateur | `56e7730` (01:39) | 826 = « dépassement déclaré de la cible de mission (D-4) » ; aucun gate franchi | `docs/CHANTIERS.md:958` |
+| G2-delta (1a-corr, 1b) | même relecteur que le G2 1a (contexte intact) | `66141fb`, `4c5fa8d` ; persisté `5423c0f` (01:58) | 1a-corr PASS ; 1b PASS-AVEC-CORRECTIONS C-G2D-1 (code) .. C-G2D-6 ; item I-G2D-1 ; prototype de correction sha256 `137b0b11b551b0bebe47b7cd1146d8b5cf6f12564272dbbb399c2a7dd98f4b07` | `docs/G2-lot-u4b-stats-1-1b.md:17-31` |
+| micro-pli 1c | worker (contexte intact) | `c1e9e30` (04:35) ; rendu persisté dans le même commit | prototype du G2 appliqué à l'octet + 2 tests `cw1_*` ; 960/959/0/1 ; mutants §8 ; segment 3 (R-25 178) | `docs/PLI-lot-u4b-stats-1-1c.md` |
+| re-checkpoint-2 (1c) | validateur | `c1e9e30` ; persisté `7154d18` (05:09) | ACCEPTE-AVEC-CORRECTIONS (C-W-2 à 3 segments, C-W-3 + C-G2D-2 (ii), I-G2D-1, C-W-4, I-V-1, note A-6), conditionné au re-G2-delta 1c ; défaut C-G2D-1 rejoué AVANT (écriture dans le dépôt) puis APRÈS (refus nommé) | `docs/CHECKPOINT2-lot-u4b-stats-1-1c.md:81-89,113` |
+| re-G2-delta (1c) | relecteur `claude-opus-5-5[1m]`, contexte frais | `c1e9e30` ; rendu clos 2026-09-23 05:18 UTC (sha256 du rendu hors dépôt `4ba3f05af35018bd31f7e0a454fecafa0a50088e5a28b3ff9ae45f1a3c0e1a09`), persisté `aa15a59` (05:21) dans `docs/G2-lot-u4b-stats-1-1c.md` (rendu à l'octet, plus un en-tête et un pied) | PASS-AVEC-CORRECTIONS ; **aucune correction du worker** ; correction unique **C-R1** (fusion : conflit du segment 1 sur la pointe `3bbbb06`, résolution par union, fichier sha256 `0b648e14…`, concordante avec §7) ; oracle de l'arbre fusionné à blanc 7 × 0, 1 035/1 033/0/2 (clone : 2 skips), 39 tests du lot verts ; observations O-A..O-F (§12) ; condition CA-6 du re-checkpoint-2 satisfaite | `docs/G2-lot-u4b-stats-1-1c.md` §4, §6, §7 |
+| G7 | orchestrateur `claude-fable-5-1` | fusions `--no-ff` `28ffb5b` (segment 1), `aeeed70` (segment 2), `b9964ee` (segment 3), toutes 2026-09-23 05:21 (§7) + ce fold | oracle 7 portes sur l'arbre principal fusionné (note « compte G7 ») | entrée « G7 U-4b-STATS-1 » de `docs/CHANTIERS.md` |
+
+- **Note « compte G7 ».** Attendu sur l'arbre principal fusionné : N + 39, où N = compte de `lot/etude-suite` sur
+  l'arbre principal juste avant la première fusion, et 39 = tests du lot, tous dans `apps/sentinel/test/u4b-hyp.test.ts`
+  (12 en 1a : 921 → 933 ; 7 en 1a-corr : → 940 ; 11 en 1b : → 951 ; 9 en 1c : → 960). N = **996** au G7 U-4b-1b-4
+  (`docs/CHANTIERS.md:983`, 996/995/0/1) ⇒ attendu **1035/1034/0/1** si aucune autre fusion non docs ne précède (sinon
+  remesurer N). Un seul skip attendu, `sentinel_run_releases_chainstack_lock_on_sigterm` (win32) : l'arbre principal
+  porte les artefacts e2 réels, donc `u4b_labels_replay_via_main_real_artifact` y tourne (les clones l'ignorent :
+  1016/1014/0/2 à la fusion à blanc du re-checkpoint-2, N = 977 ; 1 035/1 033/0/2 à celle du re-G2-delta 1c sur la
+  pointe `3bbbb06`, N = 996). Écart à N + 39 = STOP avant commit.
+
+### 2. Objet et décision
+- **Pièce** : `scripts/census/u4b/u4b-hyp.mjs` (+ `u4b-hyp.d.mts`) ; test `apps/sentinel/test/u4b-hyp.test.ts`, listé
+  dans `scripts/export-exclude-tests.json` (le test importe `scripts/census/**` et lit le prereg et des fixtures exclues
+  de l'export). L'outil est **pur** : il n'importe que `node:fs`, `node:crypto`, `node:url`, `node:path` et
+  `./u4b-scores.mjs` (gelé) ; aucun réseau, aucune variable d'environnement, aucune horloge ni aucun chemin absolu dans
+  une sortie ; la seule écriture est le rapport, une fois (`wx`), hors dépôt.
+- **Rôle** : produire hors ligne, après la course, les rapports des hypothèses pré-enregistrées H-3, H-4 et H-6
+  (prereg `:100-103`), et la sous-commande `report` qui porte l'**entrée** de la clause pré-enregistrée `:359`
+  (`body.clause_359`). L'orchestrateur applique cette entrée mécaniquement (décision 137) ; l'outil n'émet **jamais** de
+  jeton de décision (`u4b_hyp_report_e2_end_to_end_deterministic_body_digest`,
+  `u4b_hyp_summary_vocabulary_gate_and_c11_sentence`). CLI : `h3 | h4 | h6 | report` (`runCli`, `u4b-hyp.mjs:644`).
+- **Trois segments** (R-25 ; §7) : **1** = cœur exact H-3 (`564292d`) + épingles du G2 1a (`66141fb`) ; **2** = H-4,
+  H-6, labels, census, `report`, CLI, RUNBOOK étape 6d + tests des gardes VX du checkpoint-2 (`4c5fa8d`) ; **3** =
+  micro-pli 1c : correctif `outOfRepo` (C-G2D-1) + 7 tests `g2proto1b_*` + 2 tests `cw1_*` (`c1e9e30`). Le lot n'est clos
+  (G7) qu'après la fusion du segment 3 : avant, la chaîne servie à l'étape 6d n'est pas complète (règle Branchement).
+
+### 3. H-3 — statistique, loi nulle, décision, épinglages C-3 (inchangés depuis le texte v1, relus par le G2 1a)
+- **Statistique** (prereg `:100`) : K = #{ s ∈ lignes `score_a` de la fixture e2
+  `apps/sentinel/test/fixtures/ukemi/u4b/U4b-scores-e2.jsonl` (sha256 LF `301d39fa…`, `u4b-hyp.mjs:63-64`, vérifié à
+  chaque exécution, fail-closed, chemin fixe, sans flag) de la cellule : s ≤ q̂_frais }. Couverture **fermée**.
+- **Loi nulle** : BetaBinomial(N = n_e2, a = p, b = n + 1 − p), n = taille fraîche de la cellule,
+  p = ⌈(n+1)(1 − α)⌉, α = 1/100. *Dérivation* : sous échangeabilité des n + N scores à valeurs distinctes, les
+  positions des N valeurs e2 parmi les n + N statistiques d'ordre sont uniformes sur C(n+N, N) configurations ; K = j
+  ssi exactement j valeurs e2 précèdent la p-ième valeur fraîche, d'où
+  P(K = j) = C(p−1+j, j)·C(n−p+N−j, N−j) / C(n+N, N), qui est la loi BB(N, p, n+1−p) (a + b − 1 = n). Rationnels
+  exacts en BigInt ; masse totale = 1 vérifiée **exactement** (identité de Chu–Vandermonde ; refus nommé sinon ;
+  `bbDistribution`, `u4b-hyp.mjs:113`). Concordance [lu] : Angelopoulos & Bates, arXiv:2107.07511v6 — p.14
+  (couverture conditionnelle ~ Beta(n+1−l, l), l = ⌊(n+1)α⌋, donc n+1−l = p), p.49 (le compte suit une
+  BetaBinom(n_val, n+1−l, l)), p.50 (moments ; égalité exacte testée par
+  `u4b_hyp_bb_moments_match_angelopoulos_bates_p50`) ; PDF hors dépôt, sha256
+  `c69aa191d8363c25b36685db4adb7e6980e55ee39892fd3626206c16e1e0efa1` (versement : item I-2, §12). La dérivation a été
+  jugée « correcte et complète » par le G2 1a et recomputée hors outil par le G2 (code propre) et par le checkpoint-2
+  (fractions exactes) (`docs/G2-lot-u4b-stats-1-1a-integral.md:82-86` ; `docs/CHECKPOINT2-lot-u4b-stats-1-1a.md:23`).
+- **Ex æquo** (atomes en 0 : 509/565 sur e2, prereg `:100`) : on départage par des uniformes indépendantes ; les rangs
+  lexicographiques deviennent uniformes et le compte départagé suit exactement BB ; le compte fermé K le majore point par
+  point ((s_j, u_j) < (q̂, u\*) ⇒ s_j ≤ q̂), d'où P(K ≤ k) ≤ BB_CDF(k) : la p-value est super-uniforme sous H0, le test
+  est **valide et conservateur**. Analogue primaire [lu] : Vovk (2012), PMLR 25:475-490, §3 Prop. 2b, p. 478-479
+  (`docs/biblio/M012-h/fiche-vovk-2012.md`). Preuve exécutable : `u4b_hyp_atoms_keep_the_lower_tail_test_conservative`
+  (énumération exacte avec atomes, inégalité stricte observée).
+- **Décision** : p-value = P(K′ ≤ K), rationnel exact ; **NON ssi p-value ≤ 5/100** (`rejectsAtLevel`,
+  `u4b-hyp.mjs:142` ; A&B annexe A.1.1 [lu] : une p-value valide satisfait P_H(p ≤ t) ≤ t ; la frontière « ≤ » découle
+  de cette condition). Queue basse = « couverture trop basse ». Aucun lissage ni tie-break aléatoire : l'alternative
+  « smoothed » de `:100` n'est PAS adoptée. Exactitude épinglée là où le flottant ne sait pas trancher
+  (`g2proto_level_decision_exact_where_float_cannot_tell`).
+- **Verdicts** (C-1) : ensemble fermé `VERDICTS` = {OUI, NON, UNDER_CALIB, NON_TESTABLE_E2} (`u4b-hyp.mjs:60`),
+  consommé par les tests (`g2proto1b_verdicts_closed_set_c1` ; `cw1_verdicts_membership_on_the_written_report_t17` sur
+  le rapport ÉCRIT) ; précédence UNDER_CALIB > NON_TESTABLE_E2 > test. UNDER_CALIB : n_frais < 100, q̂ null du
+  producteur gelé (`u4b-scores.mjs:63-71`). NON_TESTABLE_E2 : n_e2 < 50 (`:100`) ; strates 2 et 3 d'e2 (46 et 8)
+  toujours ; frontière épinglée des deux côtés (`g2proto_e2_min_n_boundary_50_testable_49_not`).
+- **Épinglages C-3** : (i) cellule A poolée = `meta.cell_a.{n, p, qhat}` du producteur gelé
+  (`u4b-scores.mjs:266-270`) ; (ii) frontière « p-value ≤ 5/100 » ; (iii) `n`, `p` et `q̂` **lus** dans la méta gelée et
+  **assertés** — `p` = ⌈99(n+1)/100⌉ en BigInt, égal à l'expression gelée `Math.ceil((n+1)*0.99)` (`u4b-scores.mjs:65` ;
+  0 divergence sur n ∈ [1, 5·10⁷], mesuré au G2 1a) ; `n` = lignes fraîches de la cellule ; `q̂` = p-ième plus petit score
+  frais ; `strate` = `strateOf(yhat)` importée du fichier gelé ; `alpha = 0.01` et `n_min = 100` (gardes de dérive).
+  Toute incohérence = refus nommé (`HypError`), jamais un recalcul silencieux ; le câblage `computeH3` est épinglé
+  (`g2proto_tampered_meta_qhat_is_refused_through_computeH3`, `g2proto_producer_drift_n_min_and_score_guards_refuse`) ;
+  gardes amont de `parseScores` épinglées (`u4b_hyp_parse_scores_refuses_rows_ne_meta_n_vx3`,
+  `u4b_hyp_parse_scores_refuses_score_ne_exceedance_vx5`, `u4b_hyp_parse_scores_refuses_strata_ne_4_vx6`).
+- **Sur NON** (C-11) : k, n_e2, E[K] = n_e2·p/(n+1), couvertures observée, nominale et attendue sous H0, manque, écart et
+  p-value, chacun asserté contre sa forme close (`g2proto_c11_fields_on_non_cell_equal_closed_forms`). La borne
+  Σ w̃·d_TV (Barber, Candès, Ramdas & Tibshirani 2023, arXiv:2202.13415v5, Thm 2 [lu],
+  `docs/biblio/ukemi-modeL/L-lecture-tibshirani2019-barber2023.md`) est déclarée **non estimée** (aucun estimateur
+  pré-enregistré ; item I-1). **Texte servi (C-11)** : la phrase de `:100` est lue verbatim dans le prereg sha-épinglé et
+  figure sur chaque ligne OUI, et seulement là (`u4b_hyp_c11_sentence_read_verbatim_from_pinned_prereg`).
+
+### 4. H-4 (C-6) et H-6 (C-7)
+- **H-4** (`computeH4`, `u4b-hyp.mjs:283`) : appels de l'épisode ordonnés par (block, log_index) ; remboursement par
+  appel = `floorDiv` (ADR-U3 D1) ; rapprochement **exact** de chaque position (user, dette, collatéral) avec
+  `repayment_base` de U3-realized (sinon refus) ; positions `repayment_base: null` exclues et comptées ; numérateur = Σ des
+  appels **après le premier** ; dénominateur = `y` du JSONL de scores ; deficit rapporté **à part** ; médiane exacte (0 pour
+  un mono-appel) et Σ par strate ; sous-ensemble multi-appels en secondaire ; fractions multi-appels (cellule A et tous
+  les liquidés) contre 5/100, **NON ssi > 5/100** — frontière épinglée des deux côtés : 1/20 ⇒ OUI
+  (`g2proto1b_h4_boundaries_and_guards`), 5/99 ⇒ NON (`cw1_h4_boundary_just_above_5_over_100_is_NON`). e2 : 11/99 et
+  24/189, NON attendu (prereg `:101`) ; 194/194 positions rapprochées exactement.
+- **H-6** (`computeH6`, `u4b-hyp.mjs:392`) : valeurs servies = lignes `kind:"price"` WETH de U3-inputs aux blocs des
+  appels de l'épisode (`price` à b, `price_prev` à b−1 ; deux valeurs différentes au même bloc ⇒ refus) ; série = ancre
+  p0 + lignes `update` du oracle-path **réduit** ; NON ssi une valeur ∉ events ∪ {p0}, ou retard > 3 events, ou retard non
+  défini (épinglés : `u4b_hyp_h6_synthetic_lag_bound_membership_and_anchor`,
+  `g2proto1b_h6_future_value_and_same_block_conflict`) ; `anchor.source` rapporté (le repli `book_weth_price_base_8dec`
+  est inatteignable en course depuis U-4b-1b-4 : ancre pré-B₀ inconditionnelle, contrôle C-10-bis) ; biais d'échantillon
+  déclaré (valeurs aux seuls blocs de liquidation, `docs/adr/ADR-U4-book-et-calibration.md:106-107`). e2 : 179 valeurs,
+  177 ∈ events, 2 = p0, 0 hors série, retard max 3 (reproduit `docs/adr/ADR-U4-book-et-calibration.md:104-112`).
+
+### 5. Labels et clause :359 (C-2) — ruling Q-1 (a) daté
+- `labels_no_quorum_unresolved` = nombre de lignes de U3-realized de l'épisode dont `repayment_base === null`
+  (`u3-realized.mjs:226`) ; `residual ∋ no_quorum` est compté **à part** ; c'est le premier compteur qui constitue les
+  « non résolus » de `:359` (`u4b_hyp_labels_no_quorum_counts_null_repayment_only`).
+- `clause_359` (`clause359`, `u4b-hyp.mjs:576`) = {`h3_no_NON_on_served_strata` (NON compté sur les seules strates
+  **servies**, n_frais ≥ 100 ; UNDER_CALIB et NON_TESTABLE_E2 ne comptent jamais), `labels_no_quorum_unresolved`,
+  `condition_satisfied`, `h3_pooled_verdict_outside_condition`}.
+- **Ruling Q-1 (a), journalisé le 2026-09-22 à 23:24 UTC** (commit `7c70826`, `docs/CHANTIERS.md:913`), avant toute
+  donnée fraîche : la clause `:359` est lue à la lettre — « aucune strate SERVIE en NON au test H-3 » ; le q̂ poolé n'est
+  servi nulle part (G0-lot-u4b C-10) ; le verdict de la cellule A poolée est **rapporté hors condition** et, **s'il vaut
+  NON, porté à l'investisseur AVANT l'application mécanique de U-6** (information, pas STOP). L'option (b) (poolé dans la
+  condition) est refusée : ce serait un durcissement postérieur au prereg. Épinglé au niveau `computeH3`
+  (`g2proto_pooled_non_is_reported_outside_the_359_predicate_q1a`) et au niveau `clause359`
+  (`g2proto1b_clause359_pooled_non_outside_the_condition_q1a` : `{true, 0, true, "NON"}`). Ce paragraphe remplace
+  « demande formée Q-1 ; ruling attendu avant l'étape 6a » du texte v1 (C-V-2 / C-W-3).
+- **Observation** : `u4b-scores.mjs:120` fait `BigInt(p.repayment_base)` sur chaque ligne de l'épisode ; un label `null`
+  fait donc lever une exception au scoreur gelé (étape 6b). Si un rapport existe, `labels_no_quorum_unresolved` vaut
+  structurellement 0 pour le même fichier de labels : c'est une ceinture, dite telle quelle.
+
+### 6. Tuyaux (ADR-M018 ; règle de Branchement) — à ajouter à la table Tuyaux ; tests @ `c1e9e30`
+| pièce | entrée (qui produit) | sortie (qui consomme) | état (où il vit) | tests qui prouvent la composition (intégration non-LLM) |
+|---|---|---|---|---|
+| `u4b-hyp.mjs report` (segments 2-3) | `U4b-scores-<EP>.jsonl` et `U4b-oracle-path-<EP>.jsonl` (réducteur et scoreur gelés, étapes 6a-6b) ; `U3-inputs.jsonl` et `U3-realized.jsonl` (labeler, étape 4) ; fixture e2 (dépôt, sha `301d39fa…`) ; prereg (sha `1971d9b1…`) | `hyp-report-<EP>.json` hors dépôt (`--out` de l'étape 6d du RUNBOOK) → ligne « Sidecar 6 » → `body.clause_359` → application mécanique de la clause U-6 par l'orchestrateur (RUNBOOK étape 8, décision 137) | fichier écrit une fois (`wx`), hors dépôt, déterministe ; `body_digest` = sha256 du corps canonique (provenance hors digest) ; `upcoming` | `u4b_hyp_report_e2_end_to_end_deterministic_body_digest` (`apps/sentinel/test/u4b-hyp.test.ts:582` : fixtures committées réelles des deux côtés, digest épinglé `49b138c3…`, octets identiques sur 2 exécutions), `cw1_verdicts_membership_on_the_written_report_t17` (`:841`, lit le fichier ÉCRIT), `g2proto1b_clause359_pooled_non_outside_the_condition_q1a` (`:708`), `u4b_hyp_cli_refuses_forbidden_unknown_and_in_repo_flags` (`:639`), `g2proto1b_out_with_dotdot_named_child_is_inside_the_repository` (`:689`) |
+| cœur H-3 `computeH3` (segment 1) | JSONL de scores frais + fixture e2 | `report` (segment 2) | pur | `u4b_hyp_h3_e2_vs_e2_strata_and_pooled` (`:294`), `g2proto_pooled_non_is_reported_outside_the_359_predicate_q1a` (`:362`) |
+
+**Statut** : `upcoming` jusqu'à la première exécution de 6d sur l'épisode frais (item I-4) ; aucun octet servi ne change
+(export public rejoué : 328 fichiers, manifeste identique à celui du checkpoint-2 1b,
+`docs/CHECKPOINT2-lot-u4b-stats-1-1c.md:73` ; contre la base, seule la ligne `excluded_tests` du manifeste diffère,
+`docs/PLI-lot-u4b-stats-1-1c.md:95-101`) ; registre public inchangé.
+
+### 7. Taille (R-25) et ordre de fusion — trois segments first-parent (C-W-2, mise à jour du re-checkpoint-2)
+- R-25, pathspec de `ci.yml:65` verbatim (15 arguments), mesuré sur les commits et rejoué au fold par fusion à blanc sur
+  `lot/etude-suite` @ `7154d18` (forme CI `<parent 1 de la fusion>...<commit du lot>` et forme first-parent,
+  identiques) : **segment 1** `50f78b0..66141fb` = **735** (733 + / 2 −, 4 fichiers ; dont unité 1a 640) ; **segment 2**
+  `66141fb..4c5fa8d` = **826** (813 + / 13 −, 3 fichiers) ; **segment 3** `4c5fa8d..c1e9e30` = **178** (175 + / 3 −,
+  2 fichiers ; le rendu du pli, `.md`, est exclu). D'un bloc `50f78b0..c1e9e30` = 1 707 (1 705 + / 2 −) > 1 205 ⇒ trois
+  fusions `--no-ff` séparées sont OBLIGATOIRES (décision 25, `docs/CHANTIERS.md:94`) : `66141fb`, puis `4c5fa8d`, puis
+  `c1e9e30`, jamais un seul `merge` de la branche (linéaire : ce serait un segment unique de 1 707). Fusions réelles :
+  `28ffb5b`, `aeeed70`, `b9964ee` (2es parents `66141fb`, `4c5fa8d`, `c1e9e30`, dans cet ordre sur la chaîne
+  first-parent) ; R-25 relu au fold sur ces trois fusions : 735 / 826 / 178, identique.
+- **Gates non touchés** : STOP A-5 (1 150) et `VIBEGATES_PR_LIMIT = 1205` (`ci.yml:43`) ; 826 dépasse la seule cible de
+  mission (< 800) : « dépassement déclaré de la cible de mission (D-4) », ruling de vocabulaire
+  (`docs/CHANTIERS.md:958`) ; ni dérogation ni escalade (`docs/CHECKPOINT2-lot-u4b-stats-1-1c.md:80`).
+- **Conflit au segment 1** (fusion à blanc au fold sur `7154d18`) : `scripts/export-exclude-tests.json` a été modifié des
+  deux côtés depuis `50f78b0` (tronc : `30a2eee`, U-4b-1b-4, entrée `u4b-probe-cutoff.test.ts` ; lot : `564292d`, entrée
+  `u4b-hyp.test.ts`) ; deux régions (phrase `reason`, dernière entrée de `tests`). Résolution par **union** : la phrase du
+  lot est ajoutée après celle de U-4b-1b-4 ; l'entrée `apps/sentinel/test/u4b-hyp.test.ts` suit
+  `apps/sentinel/test/u4b-probe-cutoff.test.ts` ; blob attendu sha256
+  `0b648e14cd3e9964aba1375ec87b3281eeca9703e13a631a6e347f73f076de56` (15 entrées). Segments 2 et 3 : propres (le RUNBOOK
+  fusionne automatiquement ; delta fusionné = delta du lot). La fusion à blanc du re-checkpoint-2 (sur `38c767e`, avant
+  la fusion de U-4b-1b-4 : 0 conflit) n'est plus représentative ; le conflit était annoncé à l'entrée G7 de U-4b-1b-4
+  (`docs/CHANTIERS.md:988`) et il est mesuré indépendamment par le re-G2-delta 1c (C-R1, même union, même sha256,
+  pointe `3bbbb06`) ; il a été résolu ainsi à la fusion réelle `28ffb5b` (le fichier vaut `0b648e14…` à `b9964ee`). Blobs de l'arbre fusionné = blobs de `c1e9e30` pour les quatre fichiers propres au lot (outil, `.d.mts`,
+  test, rendu du pli).
+- **`<HEAD_E2>`** : la troisième fusion complète la composition de `<HEAD_E2>` (U-4b-1b-4 + U-4b-STATS-1 en trois
+  segments, plus toute fusion non docs intervenue entre-temps, chacune listée avec D-n : ruling I-6 et ruling (d) du G7
+  U-4b-1b-4, `docs/CHANTIERS.md:990`) : `<HEAD_E2>` = `b9964ee`, consigné par la ligne SIDECAR « gel `<HEAD_E2>` » du
+  2026-09-23 05:29:12 UTC (commit `5a7b76b`), qui inscrit aussi l'outil `65b0d8f9…` et l'arbre d'exécution
+  `<EXEC_TREE_E2>` épinglé à `b9964ee` ; elle précède toute étape ≥ 2c-bis non commencée.
+
+### 8. Mutants — harnais nommés (hors dépôt, sha256 des octets) et résultats
+| étape | harnais (sha256) | résultat |
+|---|---|---|
+| G1 1a | worker `mutants.mjs` (`619b620c…` au G1) | 16/16 tués par leur test nommé ; 1a+1b (patch) 42/42 |
+| checkpoint-2 1a | rejeu worker 16/16 ; `vx-mutants.mjs` (`e47f0e0f…` au §3.2 du rendu intégral ; fichier réécrit avant le rejeu final, `8e1baabc…` à la mesure du fold) | VX-1..8 : 5 tués ; VX-3/5/6 survivants ⇒ C-V-3 (fermée en 1b) |
+| G2 1a | `g2-mutants.mjs` (`239d8404…` au rendu du G2 1a ; fichier modifié depuis, `71b03a1a…` à la mesure du fold) | 20 mutants propres ; 16 survivent aux tests de 1a (G01 et G20 équivalents, G08/G09 tués par `lang:gate` en CI) ⇒ C-G2-1..C-G2-5 ; 12/12 visés tués par les prototypes |
+| 1b (v3) | worker v46 `mutants.mjs` (`9722de92…`) + phase B du G2 | 58/58 byIntended (42 G1 + 4 VX + 12 G2) |
+| checkpoint-2 1b | rejeux 46/46, 12/12, VX 8/8 ; `vy-mutants.mjs` (`ad21d889…`) | VY-1..8 : 5 tués, VY-7 équivalent (`wx`), VY-2 et VY-6 survivants ⇒ C-W-1 |
+| G2-delta 1b | `g2-mutants-1b.mjs` (`d4421f50…`) | 23 mutants propres : 9 tués byIntended sur `4c5fa8d` ; 14 non (13 survivants + D13) ⇒ C-G2D-1..C-G2D-6 ; tous tués par le prototype |
+| **arbre final `c1e9e30`** | v46 ré-ancré `mutants-1c.mjs` (**`7ca83ff9b67885305e953d40cf6c6bc0ac6630fe11089a43819cf066e49c9808`**, 1 ligne de diff vs `9722de92…` : ancre de M40) | **46/46** byIntended (M40 rouge sur T19 et sur `g2proto1b_out_with_dotdot_named_child_is_inside_the_repository`) |
+| | phase F du G2 `g2-mutants-1b-1c.mjs` (`8400251b47ab30290a72ee5e4b9b6c316fa8bed5c580868a23d44a90d02dd366`, copie chemins seuls de `d4421f50…`) | **15/15** byIntended (D02, D03, D04, D07, D08, D11, D12, D13, D15, D16, D19, D21, D22, D23, D24) |
+| | `vy-mutants-1c.mjs` (`560c469ef428c6ba521891f4df2c92300c41f24988d140a1b5187dfdcfccd3bc`, copie chemins seuls de `ad21d889…`) | **8/8** tués (VY-2, VY-6, VY-7 par les tests du prototype) |
+| | `cw1-mutants.mjs` (`eeb1a4974f91782afb150bf2794df723d2542a7805387927d62cb158e7dc5c8a`) | **4/4** byIntended après ; 0/4 avant (prototype seul) : les deux tests `cw1_*` sont nécessaires |
+| | re-checkpoint-2 : `vz-mutants.mjs` (`6099ca4c9ea9b28bd26cc3743ef588f1d875f42acca0af191c4af9eadcd013b1`) | **7** : 4 tués (VZ-2 régression C-G2D-1, VZ-4, VZ-5, VZ-6) ; VZ-1 équivalent de comportement, VZ-7 équivalent arithmétique ; **VZ-3 survit** (`isAbsolute(rel)` retiré : fail-closed, hors chemin servi) ⇒ item I-V-1 |
+
+Sur l'arbre final : 46 + 15 + 8 + 4 + 7 = 80 mutants distincts, 77 tués, 3 survivants qualifiés (2 équivalents, 1
+fail-closed formé en item). Les rejeux du re-checkpoint-2 sont identiques au worker (verdict, sha muté, ensemble des tests
+rouges ; `docs/CHECKPOINT2-lot-u4b-stats-1-1c.md:37-60`). **Consigne de rejeu** (condition du re-checkpoint-2, §5.1) :
+tout rejeu du harnais v46 sur un arbre qui contient C-G2D-1, fusion comprise, utilise `mutants-1c.mjs` `7ca83ff9…` ;
+`mutants.mjs` `9722de92…` s'arrête sur l'ancre de M40 (0 occurrence dans l'outil corrigé).
+
+### 9. Déviations D-n déclarées (F-3) et `error_origin`
+| D-n | contenu | `error_origin` |
+|---|---|---|
+| D-1 (G1) | couture R-25 : lot 1 385 (G1) puis 1 707 (fin) > 1 150 ⇒ unités séparées, aujourd'hui trois segments first-parent (§7) | dimensionnement du plan : planificateur + validateur du checkpoint-1 (R-25 attendu non chiffré ; `docs/CHECKPOINT2-lot-u4b-stats-1-1a.md:24`) |
+| D-2 (G1) | `--alpha` et `--reference` n'existent pas : constantes et chemin fixe sha-épinglé ; `--alpha 0.05` = refus nommé (C-10) | n-a (choix imposé par C-10) |
+| D-3 (G1) | H-6 lit le oracle-path **réduit** (ancre + `update`), non le brut du prober (C-5 ii / C-7) | n-a (choix imposé) |
+| D-4 (G1) | le compteur de labels vient de U3-realized, non de `census` (clé absente, mesuré au checkpoint-1 ; C-2) | n-a (choix imposé) |
+| D-5 (G1) | amendement livré en texte proposé, inséré par l'orchestrateur (ADR amendé sur le tronc après la base) | n-a (patron NARABI-OPS-1d) |
+| D-6 (G1) | ajouts déclarés : mutants M37-M42, T19 durci après l'effet de bord de M40, sous-commandes `h3`/`h4`/`h6`, en-têtes décrivant le lot | worker, toléré (checkpoint-2 1a, CA-7) |
+| D-4 (1b v3) | segment 2 = 826 > cible de mission 800 | dimensionnement du plan (déjà assigné au checkpoint-2 1a) ; vocabulaire : §7 |
+| D-1 (1c) | copie du harnais v46 : ancre de M40 ré-ancrée, seule ligne changée (le correctif C-G2D-1 réécrit la ligne visée) | n-a (conséquence mécanique ; acceptée minimale, `docs/CHECKPOINT2-lot-u4b-stats-1-1c.md:79`) |
+| D-C4 (fold) | ordre C-4 « brut frais existant avant la fusion ⇒ D-n » : la course a démarré avant les fusions (ruling I-6 ; fusions à 05:21 UTC) ; au fold (lecture `ls` seule du dossier de course, 2026-09-23 05:34 UTC, donc aussi à la fusion), seuls existent les bruts des étapes 1 à 3a (discover, sélection, cache du recorder `--filter-only`) et un dossier de sonde vide ; AUCUNE entrée de l'outil n'existe (labels de l'étape 4, brut du prober de l'étape 5, fixtures réduites et scores des étapes 6a-6b : dossiers absents) ⇒ l'outil est figé (`65b0d8f9…`, tests épinglés) avant que `U4b-scores-<EP>.jsonl` existe : l'anti-sélection visée par C-4 tient | orchestrateur (ordre course-avant-fusion, même racine que la D-n datée du RUNBOOK §A « Gel d'outillage ») |
+| D-F1 (fold) = C-R1 (re-G2 1c) | fusion à blanc du re-checkpoint-2 périmée (tronc `38c767e`) : conflit au segment 1 sur `7154d18` (fold) et sur `3bbbb06` (re-G2), résolu par union (§7) | orchestrateur (attendu « 0 conflit » de la mission non re-mesuré après la fusion de U-4b-1b-4 `da5d6e1`, assignation du re-G2 1c §6) ; cause structurelle O-E (§12) |
+
+### 10. MAST résiduel
+- **Dérive de spécification** : niveau, sens, couverture et fixture de référence sont des constantes ; les flags
+  `--alpha`, `--level`, `--side`, `--ref`, `--reference`, `--smoothed`, `--seed`, `--tie-break`, `--two-sided` et
+  `--n-min` sont refusés, de même que tout flag inconnu, en double ou manquant (M01-M03, M15, M39).
+- **Vérification circulaire** : oracles indépendants et antérieurs (masses de l'avis advisor-defi Q6, 3,6 / 5,8 / 6,3 /
+  10,4 % ; ADR-U4 :104-112 ; 11/99 et 24/189 ; rapprochement exact avec U3-realized épinglé ; lgamma indépendant ;
+  moments A&B p.50 ; énumération exacte avec atomes). L'épingle de régression T17 (digest produit par l'outil) n'est
+  jamais seule : les champs C-11 sont assertés contre leurs formes closes (C-G2-3).
+- **Vérification incomplète** (FM-3.2, mode résiduel des deux G2) : 0 survivant non qualifié sur l'arbre final (§8).
+- **Garde de chemin sondée d'un seul côté** (C-G2D-1, défaut de code réel : `<racine>/..x` écrit dans le dépôt, mesuré au
+  G2-delta et rejoué par le re-checkpoint-2) : correctif `rel === ".." || rel.startsWith(".." + sep) || isAbsolute(rel)`
+  (`u4b-hyp.mjs:629`) ; leçon consignée par le re-checkpoint-2 (AM-1) : toute garde de chemin se sonde sur ses formes
+  limites (`..x`, `..`, absolu, autre lecteur, séparateur) avant d'être déclarée épinglée.
+- **Perte d'historique** (coupures n°2 et 429) : états reconstitués depuis des sha consignés, jamais de mémoire ;
+  reconstruction de 1a prouvée octet-exacte par le G2 1a et le checkpoint-2 1a.
+
+### 11. Gel et invariants (A-6, régime B, LF)
+Les 9 fichiers gelés du prereg §2 (`u4b-scores 2f9a31f6…`, `u4b-reduce a5e66cd3…`, `record-u4b-calib 5733daeb…`,
+`wadray 7bee76fc…`, `abi 3376eb08…`, `l1-split 9206df91…`, `rpc.ts 0e232519…`, `calib-digest 3603265d…`, labeler
+`u3-realized cb020425…`) et le prereg `1971d9b1…` sont byte-identiques à `50f78b0`, à `c1e9e30` et sur l'arbre fusionné
+(fusion à blanc du fold sur `7154d18` ; fusion réelle `b9964ee`). Le gel A-6 du lot compte 13 invariants (ces 10, plus le sélecteur, le prober et
+cet ADR, mesurés à `50f78b0`) : 13/13 sur les blobs du lot à chaque revue ; sur l'arbre fusionné, **10/13**, les trois
+écarts venant du TRONC seul — sélecteur `20e1cf9d…` (G7 U-4b-1b-3), prober `4ed4c31e…` (G7 U-4b-1b-4, écart apparu
+après la mesure 11/13 du re-checkpoint-2 sur `38c767e`), ADR `9268ecb8…` (amendements antérieurs à celui-ci). Aucun
+fichier du lot n'est gelé ; le lot ne touche aucun des 13.
+
+### 12. Items formés (zéro « dû » nu)
+| item | contenu | porteur | déclencheur | source |
+|---|---|---|---|---|
+| **I-G2D-1** | le SIDECAR inscrit le sha256 LF du blob `scripts/census/u4b/u4b-hyp.mjs` de l'arbre fusionné = **`65b0d8f9608969c670bd321d7613920c408ccf90bac4e067e990b93dad77fc25`** (remplace `07e25e19…` de l'item I-3 du G1), les trois segments étant fusionnés AVANT l'étape 6a. **Première inscription FAITE** : ligne « gel `<HEAD_E2>` » du 2026-09-23 05:29:12 UTC (commit `5a7b76b`), avant toute étape ≥ 6 (C-4 satisfaite). Reste la **re-mesure à l'exécution** : la ligne « Sidecar 6 (pré-6a) » (RUNBOOK étape 6d, édit E-04) relit le blob dans l'arbre qui exécute l'étape 6 (garde contre une dérive d'arbre) ; autre valeur ⇒ STOP + D-n ; `provenance.tool.sha256_lf` du rapport doit l'égaler (la provenance est hors `body_digest`, qui reste `49b138c3…`) | orchestrateur | étape 6a (re-mesure) | `docs/G2-lot-u4b-stats-1-1b.md:28-31` ; `docs/CHECKPOINT2-lot-u4b-stats-1-1c.md:86` ; SIDECAR, ligne « gel `<HEAD_E2>` » |
+| **I-V-1** (test seul) | épingler `isAbsolute(rel)` de `outOfRepo` : un `--out` sur un autre lecteur, parent inexistant, doit échouer sur « parent directory does not exist » et non sur « inside the repository », sans écriture (tue VZ-3) ; même constat, indépendant, au re-G2-delta 1c (O-B, « durcissement facultatif, décision du G7 ») | worker | prochain pli test-only du lot OU prochain toucher d'`outOfRepo`, au premier des deux ; non bloquant (fail-closed, hors chemin servi) | `docs/CHECKPOINT2-lot-u4b-stats-1-1c.md:54,88` ; `docs/G2-lot-u4b-stats-1-1c.md` §7 |
+| **O-D** (test seul, facultatif) | lier le corps ÉCRIT au digest : recompute indépendant de `body_digest` depuis le fichier écrit dans T17 (aujourd'hui le digest est calculé sur le corps en mémoire ; `canon` rendrait un champ `undefined` non recomputable — détectable, jamais silencieux) | worker | même déclencheur qu'I-V-1 | O-2 du G2-delta 1b (rendu intégral) ; `docs/G2-lot-u4b-stats-1-1c.md` §7 (O-D) |
+| **O-A** | la garde `outOfRepo` est lexicale (`resolve` + `relative`) : un chemin du dépôt écrit par l'espace de noms de périphériques Win32 ou par un partage UNC n'est pas reconnu (même famille que O-4 du G2-delta 1b : jonctions) ; hors modèle de menace de l'outil (opérateur unique, `--out` du RUNBOOK) ; direction mesurée par le re-G2 : `realpathSync.native` + refus des chemins UNC | orchestrateur | extension du modèle de menace de la garde, ou réemploi du motif `outOfRepo` dans un nouveau lot | `docs/G2-lot-u4b-stats-1-1c.md` §5, §7 |
+| **O-E** | format du registre `scripts/export-exclude-tests.json` (une phrase `reason` unique + un tableau alimenté en fin) : toute paire de lots concurrents qui excluent chacun un test entre en conflit (cause structurelle de C-R1) ; décision d'architecture : (i) union documentée au G7 (retenue pour ce lot, §7) ou (ii) une entrée `{test, reason}` par test, en ordre trié | orchestrateur | prochain lot qui exclut un test de l'export | `docs/G2-lot-u4b-stats-1-1c.md` §4, §7 |
+| **C-W-4 (a) — procurement JKK** | **clos « non requis »** (motivé ; acte de l'orchestrateur à ce G7, option ouverte par le checkpoint-2 1a C-V-4) : la pmf BB(N, p, n+1−p) est établie ici par dérivation complète (§3), jugée correcte et complète par le G2 1a, recomputée hors outil par deux codes indépendants (G2, checkpoint-2), et sa loi est [lu] chez A&B (p.14, p.49) ; une référence encyclopédique n'ajouterait aucune vérification. Aucun identifiant (ISBN, DOI, section) n'est cité : non vérifiés dans la chaîne, et inutiles après clôture. Alternative (demande formée à un chercheur) : ruling du G7 | orchestrateur | ce G7 | `docs/CHECKPOINT2-lot-u4b-stats-1-1a.md:16` ; `docs/G1-lot-u4b-stats-1.md:398-402` |
+| **C-W-4 (b) = I-2** — versement A&B | verser au dépôt une fiche de lecture des passages cités (p.14, p.49, p.50, annexe A.1.1) d'Angelopoulos & Bates, arXiv:2107.07511v6, et ajouter la ligne du PDF (sha256 `c69aa191d8363c25b36685db4adb7e6980e55ee39892fd3626206c16e1e0efa1`) à `docs/biblio/ukemi-modeL/SOURCES-sha256.txt` (le dossier `pdf/` n'est pas suivi) ; la fiche hors dépôt existante (sha256 `b6565447aefce928d630bf658d68b9ddbdd0fefdd33249fe13ccdd6bb48bf1a2`) ne couvre pas ces pages | orchestrateur | ce G7 (était « G7 1a », échu) | `docs/G1-lot-u4b-stats-1.md:409` |
+| **C-W-4 (c) = I-G2-2** | chaîne d'import `u4b-hyp.mjs:36 → u4b-scores.mjs:37 → abi.ts:7 → rpc.ts:15` (`TRANSFER_TOPIC`) : l'outil de l'étape 6d dépend de `rpc.ts`, que le pli NARABI-OPS-1d §11-1 élague ⇒ ce pli inclut `u4b-hyp.mjs` dans sa liste de déclenchement ou préserve `TRANSFER_TOPIC` ; inscrit à la ligne NARABI-OPS-1d de l'étape 8 du RUNBOOK par ce G7 | orchestrateur | G0 du pli NARABI-OPS-1d §11-1 (déclencheur du pli : clôture de course, `docs/CHANTIERS.md:783`) | `docs/G2-lot-u4b-stats-1-1a.md:32` |
+| **I-1** | estimateur de la borne Barber 2023 Thm 2 (Σ w̃·d_TV) pour un NON servi : recherche de solutions, aucun estimateur improvisé | orchestrateur | premier NON sur une strate servie | `docs/G1-lot-u4b-stats-1.md:408` |
+| **I-4** | statut `built` de l'outil | orchestrateur | première exécution de 6d sur l'épisode frais | `docs/G1-lot-u4b-stats-1.md:411` |
+| **O-2** (observation) | le rapport est écrit une fois et déterministe : une coupure donne un échec détectable, jamais une entrée fausse silencieuse ; contrôle recommandé à 6d : rejouer vers un second `--out` et comparer les octets | orchestrateur | étape 6d | `docs/G1-lot-u4b-stats-1.md:416` |
+
+Fermés : Q-1 (ruling (a), §5) ; I-3 du G1 (remplacé par I-G2D-1) ; I-5 du G1 (recompte NUL des fichiers non suivis fait à
+23:22 UTC, `docs/CHANTIERS.md:912` ; règle durable = WORKTREE-DURABILITY-1 de l'amendement U-4b-1b-4) ; I-G2-1 (tranché par
+C-G2D-6 : `VERDICTS` consommé).
+
+### 13. Traçabilité des corrections repliées (correction → source → emplacement → `error_origin` → état)
+| correction | source | où | `error_origin` | état |
+|---|---|---|---|---|
+| C-1..C-12 (checkpoint-1) | `docs/CHECKPOINT1-lot-u4b-stats-1.md:56-67` | outil, tests, RUNBOOK 6d (G1 §6) | n-a (exigences de plan) | faites au G1 (`docs/G1-lot-u4b-stats-1.md:285-300`) |
+| C-V-1 (deux segments) | `docs/CHECKPOINT2-lot-u4b-stats-1-1a.md:13` | §7 | dimensionnement du plan | remplacée par C-W-2 puis par sa mise à jour à 3 segments |
+| C-V-2 (Q-1 daté ; renvoi `:207`) | `:14` | §5 ; §14 | orchestrateur (texte v1 antérieur au ruling) ; O-3 : orchestrateur (cohérence documentaire) | fermée à cette insertion |
+| C-V-3 (gardes VX-3/5/6 ; précédence VX-1) | `:15` | tests `u4b_hyp_parse_scores_refuses_*`, T7 | worker G1 (trous de preuve) ; manqué par le checkpoint-1 | fermée en 1b (`4c5fa8d`) |
+| C-V-4 | `:16` | §12 | n-a | reconduite par C-W-4 |
+| C-G2-1 (Q-1 (a) non épinglé) | `docs/G2-lot-u4b-stats-1-1a.md:18` | `g2proto_pooled_non_is_reported_outside_the_359_predicate_q1a` | orchestrateur (ruling journalisé après le G1, sans exigence de test) ; part worker : (a) déclaré implémenté sans épingle | fermée en 1a-corr ; volet `clause359` fermé en 1c |
+| C-G2-2 (lecture de q̂ par `computeH3`, gardes `n_min` et score) | `:19` | §3 | worker G1 | fermée en 1a-corr |
+| C-G2-3 (champs C-11 non assertés) | `:20` | §3 | worker G1 | fermée en 1a-corr |
+| C-G2-4 (décision flottante, fail-open dès n ≈ 12 000) | `:21` | §3 | worker G1 | fermée en 1a-corr |
+| C-G2-5 (frontière E2_MIN_N d'un seul côté) | `:22` | §3 | worker G1 | fermée en 1a-corr |
+| C-W-1 (a) (poolé NON au niveau `clause359`) | `docs/CHECKPOINT2-lot-u4b-stats-1-1b.md:15` | §5 | volet différé par le G2 1a (item, pas une faute) | fermée en 1c (`g2proto1b_clause359_pooled_non_outside_the_condition_q1a`) |
+| C-W-1 (b) (frontière H-4) | `:15` | §4 | worker (« NON ssi > 5/100 » écrit sans test) + checkpoint-1 (C-6 sans la frontière) | fermée en 1c (1/20 ⇒ OUI ; 5/99 ⇒ NON) |
+| C-W-1 (c) (consommateur de `VERDICTS`) | `:15` | §3 | worker G1 (export sans consommateur, I-G2-1) | fermée en 1c |
+| C-W-2 (fusions first-parent) | `:16` ; mise à jour `docs/CHECKPOINT2-lot-u4b-stats-1-1c.md:84` | §7 | dimensionnement du plan | acte du G7 (3 fusions) |
+| C-W-3 (ADR à l'insertion ; RUNBOOK `:501`) | `docs/CHECKPOINT2-lot-u4b-stats-1-1b.md:17` ; `docs/CHECKPOINT2-lot-u4b-stats-1-1c.md:85` | ce texte ; deltas du RUNBOOK (même commit) | orchestrateur (hunk RUNBOOK gardé tel quel en v3, sur ordre ; texte v1 antérieur au ruling) | fermée à cette insertion |
+| C-W-4 | `docs/CHECKPOINT2-lot-u4b-stats-1-1b.md:18` | §12 | n-a | (a) clos ; (b) et (c) formés |
+| C-G2D-1 (code : `outOfRepo`) | `docs/G2-lot-u4b-stats-1-1b.md:21` | §10 ; `u4b-hyp.mjs:629` | worker 1b (garde `startsWith("..")` sans séparateur) ; manqué par le checkpoint-2 1b | fermée en 1c (D19, D23, VY-7, VZ-2 rouges) |
+| C-G2D-2 (i) (Q-1 au niveau `clause359`) ; (ii) (phrase RUNBOOK `:501`) | `:22` | §5 ; delta RUNBOOK | orchestrateur (RUNBOOK-DELTA rédigé à 22:22 UTC, avant le ruling de 23:24 UTC) | (i) fermée en 1c ; (ii) fermée par les deltas du RUNBOOK de ce G7 |
+| C-G2D-3 (H-4 : départage, frontière, 3 gardes) | `:23` | §4 | worker 1b | fermée en 1c |
+| C-G2D-4 (H-6 : retard indéfini, conflit au même bloc) | `:24` | §4 | worker 1b | fermée en 1c |
+| C-G2D-5 (gardes census, compteur non-USDT) | `:25` | §4 | worker 1b | fermée en 1c |
+| C-G2D-6 (consommer `VERDICTS`) | `:26` | §3 | worker 1b | fermée en 1c |
+| I-G2D-1 | `:28` | §12 | n-a (conséquence de C-G2D-1 sur les octets de l'outil) | première inscription faite (`5a7b76b`) ; re-mesure à l'étape 6a (ligne « Sidecar 6 (pré-6a) ») |
+| I-V-1 (= O-B du re-G2 1c) | `docs/CHECKPOINT2-lot-u4b-stats-1-1c.md:88` | §12 | trou de preuve d'auteur (prototype du G2 + worker) sur une branche non exercée | formé |
+| C-R1 (re-G2 1c : conflit du segment 1) | `docs/G2-lot-u4b-stats-1-1c.md` §6 | §7 ; entrée G7 | orchestrateur (attendu non re-mesuré après `da5d6e1`) ; cause structurelle O-E | acte du G7 (union à la fusion réelle) |
+| O-A, O-D, O-E (re-G2 1c) | `docs/G2-lot-u4b-stats-1-1c.md` §6-7 | §12 | O-A, O-D : worker 1b d'origine (préexistants) ; O-E : structurel | formés |
+| note A-6 | `:89` | §11 | n-a (mouvements du tronc) | consignée ici (10/13 sur `7154d18`) |
+| incident NUL (coupure n°2) | `docs/G1-lot-u4b-stats-1.md:28-45` | G1 §1 | infrastructure + réécriture sans fsync + contrôle post-coupure limité aux fichiers suivis (orchestrateur) | clos (restauration prouvée ; I-5 fait) |
+| incident sans effet (`FETCH_HEAD`) | `docs/CHECKPOINT2-lot-u4b-stats-1-1c.md:123` | — | validateur (écriture dans `.git` du dépôt principal hors clause AM-2) | consigné |
+| incident sans effet (fold) | journal du fold | — | worker du fold (un `git status` d'orientation sans verrous optionnels désactivés a rafraîchi le cache stat de l'index du worktree du lot ; contenu inchangé) | consigné |
+
+### 14. Erratum documentaire O-3 — renvoi `:207 → :402` (C-V-2)
+La ligne `:207` de ce fichier (table « D4 — re-gel » de l'amendement décision 126, instantané daté où le labeler valait
+`755b3a38…618db2de4`, gel déféré) est antérieure au re-gel QF-2 : pour le labeler `scripts/census/u3-realized.mjs`, la
+valeur en vigueur est `cb0204250cce05f4846c7cfe821e72eecac22ffd636cfde4acff6a205b41a1af`, **re-gelée à `:402`** (tableau du
+lot U-4b-1b-1 ; recompute `:406-407`) et reprise à `:731` ; elle est celle du prereg §Y et §8c et de la ligne
+`--labeler-sha` du SIDECAR. Numéros de ligne mesurés dans ce fichier à `7154d18` (inchangés depuis `50f78b0` : les
+amendements s'ajoutent en queue). La ligne `:207` n'est pas éditée en place (ajout pur ; instantané daté conservé) ;
+l'annotation en place demandée à la lettre par le checkpoint-2 1a reste un ruling du G7.
+
+*(ADR-U4b n'est PAS dans le gel du prereg §2 ; les docs sont exclus du décompte R-25 — `ci.yml:65`. Cet amendement n'édite
+AUCUNE valeur de référence existante : il APPEND une section datée. Le worker ne committe pas (R-20) ; l'orchestrateur folde
+et committe au G7.)*
+
+### Addendum d'insertion (orchestrateur `claude-fable-5-1`, G7 U-4b-STATS-1, 2026-09-23)
+- Chaîne de revue : checkpoint-1 (`docs/CHECKPOINT1-lot-u4b-stats-1.md`, C-1..C-12) ; G1 (`docs/G1-lot-u4b-stats-1.md`,
+  worker `claude-opus-5-5[1m]`) ; checkpoint-2 1a (`docs/CHECKPOINT2-lot-u4b-stats-1-1a.md`, C-V-1..C-V-4) ; G2 1a
+  (`docs/G2-lot-u4b-stats-1-1a.md`, intégral `docs/G2-lot-u4b-stats-1-1a-integral.md`, C-G2-1..C-G2-5) ; checkpoint-2 1b
+  (`docs/CHECKPOINT2-lot-u4b-stats-1-1b.md`, C-W-1..C-W-4) ; G2-delta 1b (`docs/G2-lot-u4b-stats-1-1b.md`,
+  C-G2D-1..C-G2D-6, I-G2D-1) ; micro-pli 1c (`docs/PLI-lot-u4b-stats-1-1c.md`) ; re-checkpoint-2 1c
+  (`docs/CHECKPOINT2-lot-u4b-stats-1-1c.md`) ; re-G2-delta 1c (`docs/G2-lot-u4b-stats-1-1c.md`).
+- Insérés dans le MÊME commit que cet amendement : les deltas de `docs/course-ukemi/RUNBOOK-course-ukemi-2026-09-22.md`
+  (ligne R-K de §B ; à l'étape 6d, précondition d'ordre, ligne neuve « Sidecar 6 (pré-6a) » et ligne « Sidecar 6 » ;
+  phrase Q-1 (a) et item I-G2-2 à l'étape 8) ; le prereg (`1971d9b1…`) reste byte-identique.
+- Ordre de fusion : trois `merge --no-ff` first-parent, `66141fb` → `4c5fa8d` → `c1e9e30` (fusions `28ffb5b`, `aeeed70`,
+  `b9964ee`) ; conflit du segment 1 résolu par union (§7) ; `<HEAD_E2>` = `b9964ee` (§7).
+- Rulings demandés au G7, non tranchés par ce fold : clôture JKK « non requis » ou demande formée (§12) ; annotation en
+  place de `:207` ou erratum seul (§14) ; acceptation de la D-n D-C4 (§9) ; sort des durcissements facultatifs I-V-1
+  (= O-B) et O-D (§12).
