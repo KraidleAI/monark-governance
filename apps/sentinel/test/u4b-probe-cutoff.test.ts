@@ -231,6 +231,13 @@ test("u4b_probe_cutoff_refuses_before_any_fetch", async () => {
       await assert.rejects(runProbe(bad(["--operators", "helius,drpc.org"]), deps), /KEYLESS-ONLY/, "a paid operator (helius) is refused");
       await assert.rejects(runProbe(bad(["--operators", "nodies.app,pocket.network"]), deps), /2 DISTINCT/, "two gateways of ONE operator are refused");
       await assert.rejects(runProbe(bad(["--out", join(ROOT, "apps", "sentinel", "test", "fixtures", "ukemi", "probe")]), deps), /under the repo/, "--out under the repo (fixtures) is refused");
+      // C-V4b-3 (re-cp-2 U-4b-1b-4b; validator mutant VX-L2): a --ledger-dir UNDER the repo root is refused by the probe's own
+      // call site (assertLedgerDir(ledgerArg, ROOT)), by name, before any fetch, and BEFORE the tampered-episode case below.
+      // The path does not exist: a guard whose root is neutralised refuses on "does not pre-exist" instead (red here), so
+      // nothing is ever created in the repo, even on a mutated probe.
+      const underRepo = "u4bpc-ledger-under-repo-no-such-dir";
+      await assert.rejects(runProbe(bad(["--ledger-dir", join(ROOT, underRepo)]), deps), /--ledger-dir is under the repo root/, "a --ledger-dir under the repo root is refused by name (C-V4b-3)");
+      assert.equal(readdirSync(ROOT).includes(underRepo), false, "nothing created under the repo root");
       const f = JSON.parse(readFileSync(s.ep, "utf8")) as { episode: { B0: number } };
       f.episode.B0 += 1;
       writeFileSync(s.ep, JSON.stringify(f));
@@ -333,4 +340,17 @@ test("u4b_probe_cutoff_script_is_keyless_clean_and_imports_closed", () => {
   const specs = [...src.matchAll(/\bfrom\s*["'`]([^"'`]+)["'`]/g)].map((m) => m[1]!);
   assert.ok(specs.length >= 6, "import scan non-vacuous");
   for (const sp of specs) assert.ok(ALLOWED.has(sp), `import '${sp}' is not in the closed set`);
+});
+
+// ============================================================================================================
+// (9) C12-PIN (ADR-U4b amendment U-4b-1b-4 section 8; orchestrator ruling (a), micro-pli pre-etape 5): the node -e body of
+// control C-12 in the RUNBOOK annex C is, to the byte, the constant C12 of this file - two copies of one text (the G7
+// insertion measured the equality once). A drift of the RUNBOOK copy (the one the course executes) is red here; a
+// RUNBOOK whose C-12 line loses its anchor fails closed on the line count (never a vacuous pass).
+// ============================================================================================================
+test("u4b_probe_cutoff_c12_constant_is_the_runbook_control_verbatim", () => {
+  const rb = readFileSync(join(ROOT, "docs", "course-ukemi", "RUNBOOK-course-ukemi-2026-09-22.md"), "utf8").split(/\r?\n/);
+  const lines = rb.filter((l) => l.includes("C-12 exit=$?"));
+  assert.equal(lines.length, 1, "exactly one C-12 command line in the RUNBOOK (non-vacuous)");
+  assert.equal(/node -e '([^']*)' /.exec(lines[0]!)?.[1], C12, "RUNBOOK C-12 body === C12, byte for byte");
 });

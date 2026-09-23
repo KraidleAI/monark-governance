@@ -9,7 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, isAbsolute, relative, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import {
   ROOT, H3_LEVEL, H6_MAX_LAG, REFERENCE_REL, REFERENCE_SHA256_LF, PREREG_REL, SUMMARY_TEMPLATES, HypError, VERDICTS,
@@ -590,6 +590,14 @@ test("u4b_hyp_report_e2_end_to_end_deterministic_body_digest", () => {
     assert.equal(t1, t2, "two runs => identical bytes (no clock, no absolute path)");
     const doc = JSON.parse(t1) as ReportDoc;
     assert.equal(doc.body_digest, E2_REPORT_BODY_DIGEST, "report body pinned (e2 on both sides)");
+    // O-D (re-G2-delta 1c section 7 = O-2 of the G2 1b; ADR-U4b STATS-1 section 12): the WRITTEN body is bound to body_digest.
+    // An INDEPENDENT canonical serializer (keys sorted recursively, arrays in order, JSON primitives; nothing imported from
+    // the tool) recomputes the digest from the PARSED FILE: a written body that drifts from the digested in-memory body
+    // (mutant R12: pooled verdict NON in the file, OUI in the digest) is red here; a field `undefined` in the body would
+    // make this recompute differ as well (detectable, never silent). Outside the digest: schema, kind, provenance only.
+    const canonT = (v: unknown): string => (v === null || typeof v !== "object" ? JSON.stringify(v) : Array.isArray(v) ? "[" + v.map(canonT).join(",") + "]" : "{" + Object.keys(v).sort().map((k) => JSON.stringify(k) + ":" + canonT((v as Record<string, unknown>)[k])).join(",") + "}");
+    assert.equal(sha256(canonT(doc.body)), doc.body_digest, "O-D: body_digest recomputed from the WRITTEN body (independent serializer)");
+    assert.deepEqual(Object.keys(doc).sort(), ["body", "body_digest", "kind", "provenance", "schema"], "O-D: only schema, kind and provenance lie outside the digest (closed list)");
     assert.equal(doc.provenance.tool.sha256_lf, sha256(readFileSync(join(ROOT, "scripts", "census", "u4b", "u4b-hyp.mjs"), "utf8").replace(/\r\n/g, "\n")), "C-4: the tool sha LF is in the report provenance");
     assert.equal(doc.provenance.inputs.e2_comparison?.sha256_lf, REFERENCE_SHA256_LF);
     assert.equal(doc.provenance.inputs.u3_realized?.sha256_lf, "b4d93590f07b21017abe8ec2d980dee1f258a968395eb32497e6f9543b6f3923", "the pinned U3-realized (PROVENANCE-u3.md:10)");
@@ -852,4 +860,26 @@ test("cw1_verdicts_membership_on_the_written_report_t17", () => {
     for (const c of cells) assert.ok(VERDICTS.includes(c.verdict), `${c.cell}: ${c.verdict} is in the closed set C-1`);
     assert.ok(VERDICTS.includes(body.clause_359.h3_pooled_verdict_outside_condition), "the pooled verdict reported by the clause is in the closed set C-1");
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// I-V-1 (= O-B of the re-G2-delta 1c; cp-2 1c VZ-3; ADR-U4b STATS-1 section 12) - pins the isAbsolute(rel) clause of
+// outOfRepo. On win32 path.relative returns an ABSOLUTE path across drives: a --out on ANOTHER drive whose parent is absent
+// must be refused as "--out parent directory does not exist" (outside the repository, then fail-closed on the parent),
+// never as "inside the repository" (the VZ-3 regression), with 0 write. The drive letter differs from the repository's;
+// the case is asserted to reach the isAbsolute clause (rel absolute, not starting with "..": non-vacuous) and the parent's
+// absence is asserted BEFORE the call, so no guard - regressed or not - can write anything. POSIX: the clause is
+// unreachable (path.relative never returns an absolute path there) - declared skip, calque of the declared win32 skip of
+// sentinel_run_releases_chainstack_lock_on_sigterm.
+test("iv1_out_on_another_drive_with_missing_parent_is_refused_as_missing_parent_not_inside", { skip: process.platform === "win32" ? false : "isAbsolute(rel) is reachable only across win32 drives (POSIX path.relative never returns an absolute path)" }, () => {
+  const repo = resolve(import.meta.dirname, "..", "..", "..");
+  const drive = repo.slice(0, 1).toUpperCase() === "Z" ? "Y" : "Z";
+  const parent = resolve(`${drive}:/u4b-hyp-iv1-no-such-dir`);
+  const out = join(parent, "hyp-report-iv1.json");
+  const rel = relative(repo, out);
+  assert.ok(isAbsolute(rel) && !rel.startsWith(".."), `precondition: this --out reaches the isAbsolute clause (rel ${rel})`);
+  assert.equal(existsSync(parent), false, "precondition: the parent does not exist (nothing can be written, even by a regressed guard)");
+  assert.throws(() => runCli(["h3", "--scores", P_SCORES_E2, "--event-id", EP, "--out", out]),
+    (e: unknown) => e instanceof HypError && /--out parent directory does not exist/.test(e.message) && !/inside the repository/.test(e.message),
+    "refused on the missing parent (outside the repository), never as inside the repository");
+  assert.equal(existsSync(out), false, "nothing written");
 });
