@@ -19,9 +19,10 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { collectFiles } from "../scripts/export-public.mjs";
+import { publishedRun } from "../apps/bell/test/helpers/bell-served.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 
@@ -60,4 +61,17 @@ test("no_cash_cross_provider_name_in_export — no cash cross-check provider for
   for (const green of ["the token is also deployed on Polygon", "a large redemption window", "a polygonal mesh"]) {
     assert.ok(!PROVIDER_FORMS.some((p) => p.re.test(green)), `must stay green (no bare Polygon / adjective false-positive): ${green}`);
   }
+});
+
+// T-1b S-5 (f) (ADR-T1b-backend D5, R-T1b-2): the SAME forms (single source: PROVIDER_FORMS above) on every file Bell SERVES, as the
+// real publisher writes them from a REAL runMain run (offline) whose own provenance DOES name the ADV source with one of these
+// forms (non-vacuity): the projection drops it, nothing of it reaches public/.
+test("no_cash_cross_provider_name_on_bell_served_files", async () => {
+  const r = await publishedRun();
+  assert.ok(PROVIDER_FORMS.some((p) => p.re.test(JSON.stringify(r.d9Prov))), "the run's provenance (input, never served) carries a provider form");
+  const walk = (rel: string): string[] => readdirSync(join(r.pub, rel)).flatMap((n) => (statSync(join(r.pub, rel, n)).isDirectory() ? walk(join(rel, n)) : [join(rel, n)]));
+  const served = walk("");
+  assert.ok(served.length >= 6, `implausibly few served files (${served.length})`);
+  const hits = served.flatMap((f) => readFileSync(join(r.pub, f), "utf8").split(/\r?\n/).flatMap((line, i) => PROVIDER_FORMS.filter((p) => p.re.test(line)).map((p) => `public/${f}:${i + 1} [${p.why}]`)));
+  assert.deepEqual(hits, [], `a cash provider form on a Bell served file (decision 69):\n${hits.join("\n")}`);
 });

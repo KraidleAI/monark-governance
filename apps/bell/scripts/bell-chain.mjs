@@ -97,3 +97,78 @@ export function keyringOf(publicKey, validFromSeq) {
 }
 /** The public KeyObject of a keyring entry's JWK (public members only). */
 export const publicKeyOfJwk = (jwk) => createPublicKey({ key: { kty: "OKP", crv: "Ed25519", x: jwk.x }, format: "jwk" });
+
+// ---- S-6 (ADR D6, D9; C-9): the key schedule, shared by the publisher's start-up check and bell-verify.mjs ----
+const KINDS = new Set(["publication", "key_rotation", "key_revocation"]);
+const isJwk = (j) => j !== null && typeof j === "object" && j.kty === "OKP" && j.crv === "Ed25519" && typeof j.x === "string";
+/** The trust set of a bell-keyring-v1: Map key_id -> {x, revoked_from_seq?}; null when malformed (a key_id that is not the
+ *  sha256 of its 32 public bytes, a duplicate, no key). */
+export function trustOf(keyring) {
+  if (keyring === null || typeof keyring !== "object" || keyring.schema !== "bell-keyring-v1" || !Array.isArray(keyring.keys) || keyring.keys.length === 0) return null;
+  const m = new Map();
+  for (const k of keyring.keys) {
+    let id = null;
+    try { if (isJwk(k?.jwk)) id = keyIdOf(publicKeyOfJwk(k.jwk)); } catch { id = null; }
+    if (id === null || id !== k.key_id || m.has(id)) return null;
+    m.set(id, Number.isInteger(k.revoked_from_seq) ? { x: k.jwk.x, revoked_from_seq: k.revoked_from_seq } : { x: k.jwk.x });
+  }
+  return m;
+}
+/** Walk a bell-timeline-v1 under a trust set. Line n: schema, seq n, prev_line_hash chain from GENESIS, signer (key_id) in
+ *  the trust set, sig valid. Schedule: line 1's signer is the genesis key; a publication or a revocation is signed by the
+ *  ACTIVE key; a key_rotation names new_key (in the trust set, C-9) and carries sig_new under it (same signed bytes); a
+ *  cross-signed one is signed by the active key, a `continuity: "broken"` one (key lost) by the new key alone, reported in
+ *  `breaks`; the new key is then active. A key_revocation names a former key and revoked_from_seq in [1, its seq]. Lines
+ *  signed by a key revoked at their seq (timeline or trust set) are `voided` (attestation void, never a head for a reader).
+ *  Returns {ok: true, active, head, voided, breaks} (head = last publication line or null) or {ok: false, seq, reason}. */
+export function walkTimeline(lines, trust) {
+  let prev = GENESIS, active = null;
+  const revoked = new Map([...trust].filter(([, k]) => k.revoked_from_seq !== undefined).map(([id, k]) => [id, k.revoked_from_seq]));
+  const breaks = [], former = new Set(), keyOf = (x) => publicKeyOfJwk({ x });
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i], seq = i + 1, fail = (reason) => ({ ok: false, seq, reason });
+    if (l === null || typeof l !== "object" || l.schema !== "bell-timeline-v1" || l.seq !== seq || !KINDS.has(l.kind)) return fail("timeline_malformed");
+    if (l.prev_line_hash !== prev) return fail("chain_broken");
+    const rot = l.kind === "key_rotation", broken = rot && l.continuity === "broken";
+    if (rot && !trust.has(l.new_key_id)) return fail("rotation_key_not_in_keyring"); // C-9: a new key is trusted out of band only
+    const k = trust.get(l.key_id);
+    if (k === undefined) return fail("key_not_in_keyring");
+    if (!verifyLine(l, keyOf(k.x))) return fail("signature_invalid");
+    if (i === 0) active = l.key_id;
+    if (broken ? l.key_id !== l.new_key_id : l.key_id !== active) return fail("key_not_active");
+    if (rot) {
+      if (!(l.continuity === undefined || broken) || !isJwk(l.new_key) || l.new_key.x !== trust.get(l.new_key_id).x || l.new_key_id === active || former.has(l.new_key_id)) return fail("rotation_malformed");
+      if (!verifyLine({ ...l, sig: l.sig_new }, keyOf(l.new_key.x))) return fail("signature_invalid"); // sig_new is required
+      if (broken) breaks.push({ seq, lost_key_id: active, new_key_id: l.new_key_id });
+      former.add(active);
+      active = l.new_key_id;
+    }
+    if (l.kind === "key_revocation") {
+      const r = l.revoked_key_id, from = l.revoked_from_seq;
+      if (!former.has(r) || !Number.isInteger(from) || from < 1 || from > seq) return fail("revocation_malformed");
+      revoked.set(r, Math.min(revoked.get(r) ?? from, from));
+    }
+    prev = lineHash(l);
+  }
+  const voided = lines.filter((l) => l.seq >= (revoked.get(l.key_id) ?? Infinity)).map((l) => l.seq);
+  const pubs = lines.filter((l) => l.kind === "publication");
+  return { ok: true, active, head: pubs[pubs.length - 1] ?? null, voided, breaks };
+}
+/** The keyring DERIVED from its genesis entry and the timeline (the served /bell/pubkey.json): a rotation retires the active
+ *  key (valid_to_seq = its seq), or marks it lost (broken: valid_to_seq = seq - 1), and appends the new key active; a
+ *  revocation marks its key revoked from revoked_from_seq. Public members only, never `d`. Lines are those walkTimeline accepts. */
+export function deriveKeyring(genesis, lines) {
+  const keys = [{ key_id: genesis.key_id, jwk: { kty: "OKP", crv: "Ed25519", x: genesis.jwk.x }, valid_from_seq: 1, status: "active" }];
+  for (const l of lines) {
+    if (l.kind === "key_rotation") {
+      const old = keys.find((k) => k.status === "active"), broken = l.continuity === "broken";
+      Object.assign(old, broken ? { status: "lost", valid_to_seq: l.seq - 1 } : { status: "retired", valid_to_seq: l.seq });
+      keys.push({ key_id: l.new_key_id, jwk: { kty: "OKP", crv: "Ed25519", x: l.new_key.x }, valid_from_seq: l.seq, status: "active", ...(broken ? { continuity: "broken" } : {}) });
+    }
+    if (l.kind === "key_revocation") {
+      const k = keys.find((x) => x.key_id === l.revoked_key_id);
+      Object.assign(k, { status: "revoked", revoked_from_seq: Math.min(k.revoked_from_seq ?? l.revoked_from_seq, l.revoked_from_seq) });
+    }
+  }
+  return { schema: "bell-keyring-v1", keys };
+}
