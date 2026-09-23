@@ -49,13 +49,21 @@ const PROBE = `${sha("synthetic env")}  /etc/monark/probe.env\n${sha("sha")}  ./
 writeFileSync(at("probe-before.sha256"), PROBE);
 writeFileSync(at("probe-after.sha256"), PROBE);
 writeFileSync(at("probe-after-changed.sha256"), PROBE.replace(sha("probe"), sha("probe edited")));
-/** A verifier stub honouring the S-4 CLI interface: records its argv, exits `code`. */
-function stub(code: number): string {
-  const f = at(`stub-verify-${String(code)}.mjs`);
-  writeFileSync(f, `import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(at("argv.json"))}, JSON.stringify(process.argv.slice(2)));\nprocess.exit(${String(code)});\n`);
+/** A verifier stub honouring the CLI of PR-2 (`--url <u> --keyring <f>`; one JSON report line): records its argv, prints `status`,
+ *  exits `code`. */
+function stub(code: number, status: string): string {
+  const f = at(`stub-verify-${String(code)}-${status}.mjs`);
+  writeFileSync(f, `import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(at("argv.json"))}, JSON.stringify(process.argv.slice(2)));\n`
+    + `process.stdout.write(${JSON.stringify(JSON.stringify({ status }) + "\n")});\nprocess.exit(${String(code)});\n`);
   return f;
 }
-const STUB0 = stub(0), STUB1 = stub(1), BASE = capture("cap-base");
+const STUB0 = stub(0, "consistent_with_supplied_keyring"), STUB1 = stub(1, "consistent_with_supplied_keyring"), STUB_SELF = stub(0, "self_consistent_only");
+const BASE = capture("cap-base");
+/** Import mode (ruling C-5): a main Caddyfile serving another site plus `imports` import lines, and the dedicated file. */
+const importMode = (imports: number, dedicated: string) => (d: string): void => {
+  writeFileSync(join(d, "caddyfile-main"), `other.example {\n\trespond "other"\n}\n${"\nimport /etc/caddy/monark-bell.caddyfile\n".repeat(imports)}`);
+  writeFileSync(join(d, "caddyfile-dedicated"), dedicated);
+};
 interface Opts { keyring?: string; loaded?: string; after?: string; verifier?: string }
 const argv = (url: string, o: Opts = {}): string[] => ["--url", url, "--keyring", o.keyring ?? at("bell-keyring.json"), "--g7", G7, "--tree-digests",
   join(o.loaded ?? BASE, "tree.sha256"), "--loaded-config", o.loaded ?? BASE, "--probe-digests", at("probe-before.sha256"), o.after ?? at("probe-after.sha256"),
@@ -96,17 +104,47 @@ test("verify_bell_ca_checks_named_and_fail_closed", async () => {
   cases.push({ target: "c03_pubkey_equals_committed_keyring", run: onCaddy(CADDY_TEXT, { keyring: at("other-keyring.json") }) });
   cases.push({ target: "c04_provenance_json", run: onFile("provenance.json", reschema("provenance.json")) });
   cases.push({ target: "c05_bell_verify_keyring_root", run: onCaddy(CADDY_TEXT, { verifier: STUB1 }) });
+  cases.push({ target: "c05_bell_verify_keyring_root", why: "exit 0 but self_consistent_only", run: onCaddy(CADDY_TEXT, { verifier: STUB_SELF }) });
   cases.push({ target: "c06_acao_star", run: onCaddy(CADDY_TEXT.replace(/^\theader Access-Control-Allow-Origin.*\n/m, "")) });
   cases.push({ target: "c07_no_directory_listing", run: onCaddy(CADDY_TEXT.replace(/^\tfile_server$/m, "\tfile_server browse")) });
   cases.push({ target: "c08_cache_immutable_states_no_cache_current", run: onCaddy(CADDY_TEXT.replace("public, max-age=31536000, immutable", "no-cache")) });
+  cases.push({ target: "c08_cache_immutable_states_no_cache_current", why: "immutable on the current files",
+    run: onCaddy(CADDY_TEXT.replace('Cache-Control "no-cache"', 'Cache-Control "no-cache, immutable"')) });
   cases.push({ target: "c09_tls_authorized", run: onCaddy(CADDY_TEXT, {}, deps(false)) });
   cases.push({ target: "c10_no_private_material_served", run: onFile("signing-key.pem", `-----BEGIN ${"PRIVATE"} KEY-----\n`) });
+  const provPem = (): string => {
+    const o = JSON.parse(readFileSync(join(pub.publicDir, "provenance.json"), "utf8")) as Record<string, unknown>;
+    o.note = `-----BEGIN ${"PRIVATE"} KEY-----`;
+    return canonical(o) + "\n";
+  };
+  cases.push({ target: "c10_no_private_material_served", why: "private shape inside served provenance.json", run: onFile("provenance.json", provPem()) });
+  // G2 PR-3 C-2, probe cases P1..P3 of the reviewer (F:/tmp/g2-t1b-pr3/probe/); P4/P5 = the import-mode cases below and above.
+  const provJwkD = (): string => {
+    const o = JSON.parse(readFileSync(join(pub.publicDir, "provenance.json"), "utf8")) as Record<string, unknown>;
+    o.leak = { d: "A".repeat(43) };
+    return canonical(o) + "\n";
+  };
+  cases.push({ target: "c10_no_private_material_served", why: "P1 private JWK member d in served provenance.json", run: onFile("provenance.json", provJwkD()) });
+  const krUse = ((): string => {
+    const kr = JSON.parse(pub.keyringText) as { keys: { jwk: Record<string, string> }[] };
+    const k0 = kr.keys[0];
+    assert.ok(k0 !== undefined, "a keyring entry");
+    k0.jwk.use = "sig";
+    return canonical(kr) + "\n";
+  })();
+  writeFileSync(at("keyring-use.json"), krUse);
+  cases.push({ target: "c10_no_private_material_served", why: "P2 non-public JWK member in the served AND committed keyring (c03 stays green)",
+    run: () => withServedFile("bell/pubkey.json", krUse, onCaddy(CADDY_TEXT, { keyring: at("keyring-use.json") })) });
   const c11: [string, (d: string) => void][] = [
     ["tree digest differs", (d) => { writeFileSync(join(d, "tree.sha256"), readFileSync(join(d, "tree.sha256"), "utf8").replace(/^[0-9a-f]/, (c) => (c === "0" ? "1" : "0"))); }],
     ["loaded Caddyfile differs", (d) => { writeFileSync(join(d, "caddyfile-main"), CADDY_TEXT.replace("no-cache", "no-store")); }],
     ["installed unit copied then modified", (d) => { writeFileSync(join(d, "systemctl-cat.txt"), `# ${UNIT_INSTALLED}\n${UNIT_TEXT.replace("PrivateNetwork=yes", "PrivateNetwork=no")}`); }],
     ["drop-in present", (d) => { writeFileSync(join(d, "systemctl-cat.txt"), `# ${UNIT_INSTALLED}\n${UNIT_TEXT}\n# ${UNIT_INSTALLED}.d/override.conf\n[Service]\nPrivateNetwork=no\n`); }],
     ["NeedDaemonReload=yes", (d) => { writeFileSync(join(d, "need-daemon-reload.txt"), "yes\n"); }],
+    ["unit header not on line 1", (d) => { writeFileSync(join(d, "systemctl-cat.txt"), `\n# ${UNIT_INSTALLED}\n${UNIT_TEXT}`); }],
+    ["P3 extra file in the deployed tree", (d) => { writeFileSync(join(d, "tree.sha256"), readFileSync(join(d, "tree.sha256"), "utf8") + `${sha("x")}  ./apps/bell/scripts/extra.mjs\n`); }],
+    ["import mode: two import lines", importMode(2, CADDY_TEXT)],
+    ["import mode: dedicated file differs", importMode(1, CADDY_TEXT.replace("no-cache", "no-store"))],
   ];
   c11.forEach(([why, edit], i) => { cases.push({ target: "c11_loaded_config_equals_g7", why, run: onCaddy(CADDY_TEXT, { loaded: capture(`cap-${String(i)}`, edit) }) }); });
   cases.push({ target: "c12_probe_untouched", run: onCaddy(CADDY_TEXT, { after: at("probe-after-changed.sha256") }) });
@@ -115,8 +153,10 @@ test("verify_bell_ca_checks_named_and_fail_closed", async () => {
   assert.deepEqual(ok.ca?.checks.map((c) => c.name), [...CHECK_NAMES], "twelve checks, named, in order");
   assert.deepEqual(red(ok), [], `baseline: every check passes (${JSON.stringify(ok.ca?.checks.filter((c) => !c.ok))})`);
   assert.equal(ok.code, 0, "baseline exit 0");
-  assert.deepEqual(JSON.parse(readFileSync(at("argv.json"), "utf8")), [ok.ca?.url, "--keyring", at("bell-keyring.json")],
-    "check 5 calls the verifier CLI as `<url> --keyring <committed keyring>` (S-4 interface, C-9 root)");
+  assert.deepEqual(JSON.parse(readFileSync(at("argv.json"), "utf8")), ["--url", ok.ca?.url, "--keyring", at("bell-keyring.json")],
+    "check 5 calls the verifier CLI as `--url <url> --keyring <committed keyring>` (PR-2 runVerifyCli, C-9 root)");
+  const imp = await onCaddy(CADDY_TEXT, { loaded: capture("cap-import-ok", importMode(1, CADDY_TEXT)) })();
+  assert.deepEqual(red(imp), [], `import mode (one import line, dedicated == G7) passes: ${JSON.stringify(imp.ca?.checks.find((c) => c.name === "c11_loaded_config_equals_g7"))}`);
   assert.equal(new Set(cases.map((c) => c.target)).size, CHECK_NAMES.length, "every check has at least one isolated fault");
   for (const c of cases) {
     const r = await c.run();

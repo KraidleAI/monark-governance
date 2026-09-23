@@ -121,8 +121,16 @@ export function parseCaddyfile(text: string): CaddySite[] {
       continue;
     }
     cur.directives.push(head);
-    if (head === "root") cur.root = rest[rest.length - 1] ?? null;
-    else if (head === "file_server") { cur.fileServer = true; cur.browse = rest.includes("browse"); }
+    // Fail-closed (G2 PR-3 C-3): Caddy does not read a repeated root/file_server as "the last wins" (matched instances), so the
+    // subset admits ONE `root * <dir>` and ONE `file_server [browse]`; any duplicate or other token is refused, never modelled.
+    if (head === "root") {
+      if (cur.root !== null || rest.length !== 2 || rest[0] !== "*") throw new Error(`caddy model: root outside the subset (one "root * <dir>"): ${raw}`);
+      cur.root = rest[1] ?? null;
+    } else if (head === "file_server") {
+      if (cur.fileServer || rest.length > 1 || (rest.length === 1 && rest[0] !== "browse")) throw new Error(`caddy model: file_server outside the subset (one, [browse]): ${raw}`);
+      cur.fileServer = true;
+      cur.browse = rest.length === 1;
+    }
     else if (head === "header") {
       const m = rest[0] !== undefined && (rest[0].startsWith("@") || rest[0].startsWith("/")) ? rest[0] : null;
       const kv = m === null ? rest : rest.slice(1);

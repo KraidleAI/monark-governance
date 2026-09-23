@@ -63,7 +63,10 @@ test("bell_deploy_config_publish_unit_least_privilege_offline", () => {
   assert.ok(heap > 0 && heap < mem, `heap cap ${String(heap)} MiB < MemoryMax ${String(mem)} MiB, on the ExecStart line`);
   // Bindings: the credential ID is the exact file name bell-publish.mjs reads under $CREDENTIALS_DIRECTORY; the script run is in the CA's
   // deployed tree (check 11 (a)); the inbox and the state are under the only writable path.
-  const pub = read("apps/bell/scripts/bell-publish.mjs"), cred = /join\(credDir, "([^"]+)"\)/.exec(pub);
+  // The name the PUBLICATION path reads under $CREDENTIALS_DIRECTORY, in either real form: PR-1 `join(credDir, "<name>")`, PR-2
+  // `publishToDir({ ..., privateKey: load("<name>") })` with `load = (name) => ... join(credDir, name)` (the rotation's second
+  // credential, `newKey: load("bell-signing-key-new")`, is not the unit's).
+  const pub = read("apps/bell/scripts/bell-publish.mjs"), cred = /(?:join\(credDir, |privateKey: load\()"([^"]+)"\)/.exec(pub);
   assert.ok(cred !== null && SERVICE.LoadCredential?.startsWith(`${cred[1] ?? "?"}:`), "LoadCredential ID == the file name the publisher reads");
   assert.ok(BELL_TREE_PATHS.some((p) => EXEC.includes(` /opt/monark-bell/${p} `)), "ExecStart runs a file of the deployed tree");
   assert.ok(/--inbox \/var\/lib\/monark-bell\/inbox --state \/var\/lib\/monark-bell$/.test(EXEC), "inbox + state under ReadWritePaths");
@@ -122,10 +125,11 @@ test("bell_caddyfile_serves_public_dir_only_no_browse_cors", async () => {
 });
 
 const KEY_PATH = (SERVICE.LoadCredential ?? "").slice("bell-signing-key:".length);
-/** Every place `text` names the key path, as the command text between the last shell separator and the path. */
+/** Every place `text` names the key path, as the command text between the last shell separator and the path. A prose mention in
+ *  inline code (the path alone between two backticks) is not a use and is masked first. */
 function keyUses(text: string): string[] {
   const out: string[] = [];
-  for (const line of text.split("\n")) {
+  for (const line of text.split("`" + KEY_PATH + "`").join("`<key path>`").split("\n")) {
     for (let i = line.indexOf(KEY_PATH); i >= 0; i = line.indexOf(KEY_PATH, i + 1)) {
       const before = line.slice(0, i);
       const cut = Math.max(0, ...["&&", "||", ";", "|", "'", "`", "(", "{"].map((s) => { const j = before.lastIndexOf(s); return j < 0 ? 0 : j + s.length; }));
@@ -134,8 +138,10 @@ function keyUses(text: string): string[] {
   }
   return out;
 }
-/** The only commands allowed to name the key path: generate it, stat it, test it, shred it. Nothing that reads its bytes. */
-const ALLOWED_KEY_USES = [/^(?:umask 077 && )?node \S*\/bell-publish\.mjs --generate-key$/, /^stat -c "[^"]*"$/, /^shred -u$/, /^test -[fs]$/];
+/** The only uses allowed to name the key path: generate it, stat it, test it, shred it, hand it to systemd as a credential source
+ *  (read by PID 1, never displayed), or move the NEW key onto it (rotation R4). Nothing that reads, prints or copies its bytes. */
+const ALLOWED_KEY_USES = [/^(?:umask 077 && )?node \S*\/bell-publish\.mjs --generate-key$/, /^stat -c "[^"]*"$/, /^shred -u$/, /^test -[fs]$/,
+  /^systemd-run [^|;&]* -p LoadCredential=bell-signing-key:$/, /^mv \/etc\/monark\/bell\/signing-key-new\.pem$/];
 const fenced = (text: string): string => text.split("```").filter((_, i) => i % 2 === 1).join("\n");
 
 // S-11 hygiene (not a branching proof). Mutant: a step `cat /etc/monark/bell/signing-key.pem` (or any read of the key bytes) => red.
@@ -144,7 +150,7 @@ test("bell_runbook_never_prints_private_key", () => {
   assert.equal(KEY_PATH, "/etc/monark/bell/signing-key.pem", "the key path is the unit's LoadCredential source");
   assert.ok(uses.some((u) => u.endsWith("--generate-key")) && uses.some((u) => u.startsWith("stat ")), `the RUNBOOK names the key where it must (${String(uses.length)} uses)`);
   for (const u of uses) assert.ok(ALLOWED_KEY_USES.some((re) => re.test(u)), `the key path is only generated, stat-ed, tested or shredded; found: '${u}'`);
-  for (const bad of [`cat ${KEY_PATH}`, `ssh h 'head -c 99 ${KEY_PATH}'`, `sha256sum ${KEY_PATH}`, `xxd < ${KEY_PATH}`]) {
+  for (const bad of [`cat ${KEY_PATH}`, `ssh h 'head -c 99 ${KEY_PATH}'`, `sha256sum ${KEY_PATH}`, `xxd < ${KEY_PATH}`, `mv ${KEY_PATH} /tmp/k`, `cp ${KEY_PATH} /tmp/k`]) {
     assert.ok(keyUses(bad).some((u) => !ALLOWED_KEY_USES.some((re) => re.test(u))), `the checker reddens on: ${bad}`);
   }
   const code = fenced(text);

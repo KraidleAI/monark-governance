@@ -44,7 +44,7 @@ never kept a copy; nothing here claims more.
 | Gate | Condition | Piece (cited by the D-n JOURNAL) | State at writing (base `9cbf60e`) | Needed before |
 |---|---|---|---|---|
 | **G-a** | G7 of PR-1, PR-2, PR-3 | the three G7 documents + the merge SHA written to `/f/tmp/bell-dn/G7.txt` | open (this lot) | step 2 |
-| **G-b** | PR-B-DBN n° 8: EQUS.SUMMARY licence + FAQ "after 24 hours" read on site | a dated FAITS file under `docs/course-bell/` (URL, clock time, quote <= 25 words); offset confirmed, or a change lot G7 before G-e | **open** (no FAITS yet; CHANTIERS:72) | step 9 |
+| **G-b** | PR-B-DBN n° 8: EQUS.SUMMARY licence + FAQ "after 24 hours" read on site | `docs/course-bell/FAITS-databento-licence-24h-2026-09-23.md` (commit `9a5bddb`: historical T+1 without licence, offset 16:00 ET + 24 h confirmed) | **closed** (`9a5bddb`, 2026-09-23 18:1x UTC) | step 9 |
 | **G-c** | I-G2-2 (provider backups) + ESC-2 ruling | `docs/course-bell/FAITS-hostinger-backups-vps-bell-2026-09-23.md` + CHANTIERS 16:45 UTC (ruling R-T1b-3, decision 148) | **lifted** | step 4 |
 | **G-d** | DNS A `bell.monarkgate.tech -> 178.16.131.29` | CHANTIERS 13:50 UTC (TTL 300, created 13:49Z) + the resolver output of step 7, replayed at the D-n | **lifted** (replay due) | step 7 |
 | **G-e** | first bundle (Q6-COURSE-1 and/or -b1-bis-ii) | sha256 of the bundle manifest (step 9) + the course references (course JOURNAL, anchors) | open | step 9 |
@@ -55,8 +55,9 @@ before the first key (FAITS I-G2-2 section 3).
 
 **ESC-2 as ruled after I-G2-2 (G-c).** The Bell private key WILL be contained in the host provider's weekly automatic backups
 (image of the whole VPS; no path exclusion offered; 0 backup existed at the reading). Accepted and bounded: (1) the key is
-generated ON the Bell host by the orchestrator, never on the operator machine, never in the repo, root:root 0600, handed to
-the offline unit by `LoadCredential=`; (2) the fact is DECLARED in the ADR and on `/bell/method`: "the private key is contained
+generated ON the Bell host by the orchestrator, never on the operator machine, never in the repo, root:root 0600, at
+`/etc/monark/bell/signing-key.pem` (ruling D-1 (A) of the orchestrator: the path of the unit's `LoadCredential=` and of ADR D9;
+the `/etc/credstore/bell-ed25519.key` of the I-G2-2 FAITS section 3 (1) is superseded), handed to the offline unit by `LoadCredential=`; (2) the fact is DECLARED in the ADR and on `/bell/method`: "the private key is contained
 in the host provider's weekly backups"; any restore of a provider backup and any manual snapshot is an **exposure event =>
 immediate counter-signed rotation**, journaled in the served timeline; (3) **no manual snapshot is ever created**; (4) the
 committed keyring is the trust root (C-9); (5) item **BELL-KEY-ROTATION-CAL-1**: planned rotation at the first of an exposure
@@ -70,10 +71,12 @@ event or 90 days (owner orchestrator, trigger dated 2026-12-22).
 ssh -i ~/.ssh/monark_vps root@178.16.131.29 'hostname; systemctl --version | head -1; node -v; command -v node; npm -v; caddy version; systemctl is-active caddy; systemctl show -p ExecStart --value caddy; ufw status; timedatectl show -p NTPSynchronized --value; df -h /var/lib | tail -1; id bell; ls -d /var/lib/monark-bell /etc/monark/bell /opt/monark-bell; command -v sudo; systemctl list-units "monark-*" --all --no-pager; sha256sum /etc/caddy/Caddyfile; wc -l < /etc/caddy/Caddyfile'
 ```
 
-Expected (measured 2026-09-23 17:0x UTC, `FAITS-vps-bell-precheck-2026-09-23.md`): `bell`; `systemd 259 (259.5-0ubuntu3.4)` (>= 247,
-`LoadCredential=` exists since v247, systemd.exec(5)); `v24.21.0`; `/usr/bin/node`; `11.19.0`; `v2.11.4 ...`; `active`; an
-ExecStart carrying `/usr/bin/caddy run --environ --config /etc/caddy/Caddyfile`; ufw active with 22/tcp, 80/tcp, 443/tcp ALLOW IN
-(v4 and v6); `yes`; about 94G available; `id: 'bell': no such user`; three `No such file or directory`; `/usr/bin/sudo`;
+Expected, with the source of each value: measured 2026-09-23 17:0x UTC (`FAITS-vps-bell-precheck-2026-09-23.md`): `bell`;
+`systemd 259 (259.5-0ubuntu3.4)` (>= 247, `LoadCredential=` exists since v247, systemd.exec(5)); `v24.21.0`; `11.19.0`;
+`v2.11.4 ...`; `active`; an ExecStart carrying `/usr/bin/caddy run --environ --config /etc/caddy/Caddyfile`; ufw active with
+22/tcp, 80/tcp, 443/tcp ALLOW IN (v4 and v6); about 94G available; `id: 'bell': no such user`; three `No such file or directory`.
+NTP `yes`: `CHANTIERS.md:123` (2026-09-20, "NTP synchronisé"), not re-measured since. `command -v node` (expected `/usr/bin/node`)
+and `command -v sudo` (expected `/usr/bin/sudo`): NOT measured before, measured HERE first (write both to the JOURNAL);
 `monark-probe.timer` active (and the failed transient `run-p19072-i21642.service`: OUT OF SCOPE, item PROBE-SIM-UNIT-1, never
 reset in this lot); the Caddyfile digest (write it to the JOURNAL) and `21`.
 **STOP** if: systemd < 247; caddy not active; NTP not `yes`; the user `bell` or any of the three directories already exists
@@ -248,8 +251,8 @@ cd /f/Monark && node scripts/verify-bell.mjs --url https://bell.monarkgate.tech 
 
 Expected: `ca_exit=0` and `VERIFY OK - 12/12 checks passed (tls.authorized=true)`; `docs/deploy-CA-bell.json` written (12 checks,
 `tls.authorized: true`, the sha256 of every observed body and input). Checks: 1 `state.json` 200 + schema; 2 `timeline.jsonl` 200;
-3 `/bell/pubkey.json` == committed keyring; 4 `provenance.json` 200 + schema; 5 `bell-verify.mjs <url> --keyring <committed keyring>`
-exit 0 (trust root = the committed keyring, C-9); 6 ACAO `*`; 7 no listing; 8 `immutable` on `states/`, `no-cache` on the current
+3 `/bell/pubkey.json` == committed keyring; 4 `provenance.json` 200 + schema; 5 `bell-verify.mjs --url <url> --keyring <committed keyring>`
+exit 0 with status `consistent_with_supplied_keyring` (trust root = the committed keyring, C-9); 6 ACAO `*`; 7 no listing; 8 `immutable` on `states/`, `no-cache` on the current
 files; 9 `tls.authorized === true` (a skipped TLS never passes); 10 no private material served; 11 tree, loaded Caddyfile and
 loaded unit == `git cat-file blob <G7>:<path>`, one fragment, no drop-in, `NeedDaemonReload=no` (C-5); 12 probe digests unchanged.
 Any red check: **STOP**, no announcement; the named check says where; e.g. for check 11 (c),
@@ -258,9 +261,17 @@ The `.jsonl` Content-Type is recorded in `content_types` (CP1 point ii, measured
 
 ## 12. JOURNAL, then commit and push
 
-Commit `docs/deploy-CA-bell.json` with the keyring of step 5, run the FULL oracle on that tree (`npm run ci`, `npm run lint`,
-`npm run lint:ratchet`, `npm run lang:gate`, `npm run export:check`, the paid variables removed from the environment, A-7), and
-push only if all exit 0 (decision 136). The D-n JOURNAL-PROVENANCE entry cites EVERY piece: G-a (G7 documents + SHA), G-b (FAITS),
+Commit `docs/deploy-CA-bell.json` with the keyring of step 5 (orchestrator, R-20), then the FULL oracle on that tree, the paid
+variables removed from the environment of EVERY gate (A-7: the `env -u` wraps one `sh -c`, not only the first command), each exit
+code captured directly (A-3):
+
+```bash
+cd /f/Monark && env -u HELIUS_API_KEY -u CHAINSTACK_ETH_URL -u CHAINSTACK_SOLANA_URL -u CHAINSTACK_BASE_URL -u CHAINSTACK_BSC_URL -u CHAINSTACK_ROBINHOOD_URL -u POLYGON_API_KEY -u DATABENTO_API_KEY sh -c 'npm run ci > /f/tmp/bell-dn/o-ci.log 2>&1; echo ci=$?; npm run lint > /f/tmp/bell-dn/o-lint.log 2>&1; echo lint=$?; npm run lint:ratchet > /f/tmp/bell-dn/o-ratchet.log 2>&1; echo ratchet=$?; npm run lang:gate > /f/tmp/bell-dn/o-lang.log 2>&1; echo lang=$?; npm run export:check > /f/tmp/bell-dn/o-export.log 2>&1; echo export=$?'
+```
+
+Expected: `ci=0`, `lint=0`, `ratchet=0`, `lang=0`, `export=0`; the test summary at the end of `/f/tmp/bell-dn/o-ci.log` shows
+`fail 0` (tests / pass / skipped counts written to the JOURNAL). Then `git push` only if all five are 0 (decision 136).
+Rollback: before the push, the local commit is dropped (orchestrator); after the push, nothing that deletes: a corrective commit. The D-n JOURNAL-PROVENANCE entry cites EVERY piece: G-a (G7 documents + SHA), G-b (FAITS),
 G-c (FAITS + CHANTIERS 16:45 UTC), G-d (CHANTIERS 13:50 UTC + the step 7 resolver output), G-e (bundle digest + course
 references), the step 1 values, the `key_id`, the keyring commit, the CA JSON digest, the step 13 mirror digest. The public
 register is unchanged (Bell stays `upcoming`, ADR D12); "served" is an internal state from here.
@@ -272,7 +283,7 @@ mkdir -p /f/tmp/bell-dn/mirror && curl -sS https://bell.monarkgate.tech/timeline
 ```
 
 Expected: the digest, written to the JOURNAL; the orchestrator then keeps the file in its durable mirror (outside the repo, never
-under `F:/tmp` alone). This copy is what makes a later rewrite detectable (ADR D6).
+under `F:/tmp` alone). This copy is what makes a later rewrite detectable (ADR D6). Rollback: none (read-only; the mirror file is kept).
 
 ---
 
@@ -284,8 +295,28 @@ mirror `timeline-seq<n>.jsonl`). The same bundle twice publishes nothing (`nothi
 ## Key incidents (ADR D9, ESC-2)
 
 - **Exposure event** (a provider backup restored, any snapshot, a suspected leak, a host change): counter-signed rotation
-  IMMEDIATELY with the PR-2 tooling (`key_rotation` line signed by the old and the new key), the new public key committed to the
-  keyring and cited on `/bell/method`, JOURNAL entry. Never a manual snapshot.
+  IMMEDIATELY with the PR-2 tooling, in the order of item **KEYRING-COMMIT-AFTER-KEY-LINE-1** (PR-2 D-8; strict C-9 reading,
+  ruling cp-2 PR-2 C-V-7): FIRST the new PUBLIC key is committed AND pushed in `apps/bell/keys/bell-keyring.json`, THEN the
+  `key_rotation` line is signed by the old and the new key, THEN everything is verified (CA, `/bell/method`, JOURNAL). The reverse
+  order leaves `rotation_key_not_in_keyring` for every verifier holding the committed keyring, and CA checks red, until the
+  commit. Never a manual snapshot. Each act only while `monark-bell-publish.service` is not active (item BELL-STATE-LOCK-1 (i)):
+  (R1) new key ON the host, counted like step 4 (both counts 0), then `cat /root/bell-pubkey-new.out` (public part only):
+  `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'umask 077 && node /opt/monark-bell/apps/bell/scripts/bell-publish.mjs --generate-key /etc/monark/bell/signing-key-new.pem > /root/bell-pubkey-new.out; echo gen_exit=$?; grep -c PRIVATE /root/bell-pubkey-new.out; grep -c -E "[{,] *.d. *:" /root/bell-pubkey-new.out'`;
+  (R2) on the operator machine, the new PUBLIC key appended to the committed keyring and committed BEFORE the rotation, so a
+  third party's `--keyring` check never reddens on the new key (served keys within the supplied keyring):
+  `cd /f/Monark && node --input-type=module -e "import { readFileSync } from 'node:fs'; import { keyringOf, publicKeyOfJwk, canonical } from './apps/bell/scripts/bell-chain.mjs'; const [x, id] = process.argv.slice(1); const e = keyringOf(publicKeyOfJwk({ x }), 1).keys[0]; if (e.key_id !== id) { console.error('STOP: key_id mismatch'); process.exit(1); } const kr = JSON.parse(readFileSync('apps/bell/keys/bell-keyring.json', 'utf8')); kr.keys.push({ key_id: e.key_id, jwk: e.jwk }); console.log(canonical(kr));" '<x new>' '<key_id new>' > /f/tmp/bell-dn/keyring-r2.json && mv /f/tmp/bell-dn/keyring-r2.json apps/bell/keys/bell-keyring.json`, then
+  commit (R-20), full oracle (step 12), push (decision 136); (R3) starts only once that commit is pushed;
+  (R3) the rotation, one transient job with the unit's sandbox and BOTH credentials (the old key signs `sig`, the new key `sig_new`):
+  `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'test "$(systemctl is-active monark-bell-publish.service)" != active && systemd-run --wait --pipe --collect --uid=bell --gid=bell -p PrivateNetwork=yes -p NoNewPrivileges=yes -p ProtectSystem=strict -p ProtectHome=yes -p PrivateTmp=yes -p ReadWritePaths=/var/lib/monark-bell -p UMask=0022 -p LoadCredential=bell-signing-key:/etc/monark/bell/signing-key.pem -p LoadCredential=bell-signing-key-new:/etc/monark/bell/signing-key-new.pem /usr/bin/env node /opt/monark-bell/apps/bell/scripts/bell-publish.mjs --rotate --state /var/lib/monark-bell'`
+  -> one JSON line with `"status":"rotated"`; this transient form is not yet run on the host: a property that `systemd-run`
+  refuses must fail before the job starts (read its error, nothing is written);
+  (R4) the new key becomes the unit's key: `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'shred -u /etc/monark/bell/signing-key.pem && mv /etc/monark/bell/signing-key-new.pem /etc/monark/bell/signing-key.pem && stat -c "%a %U:%G" /etc/monark/bell/signing-key.pem'` -> `600 root:root`;
+  (R5) verification: commit the served `/bell/pubkey.json` bytes as `apps/bell/keys/bell-keyring.json` (the derived keyring:
+  statuses), then step 11 (CA 12/12), `/bell/method` cites the new key, JOURNAL entry; between (R2) and (R5) check 3 (served ==
+  committed) is red and check 5 is not (declared window).
+  A loss: (R1), (R2), then (R3) with `--rotate --broken` and only the `bell-signing-key-new` credential, then (R4) without
+  `shred` (the old file is gone: `mv /etc/monark/bell/signing-key-new.pem` onto the unit's path, then `stat`), then (R5); a
+  revocation (`--revoke <key_id> --from-seq <n>`, signed by the active key `bell-signing-key`, one credential) skips (R1), (R2) and (R4).
 - **Compromise**: `key_revocation` line signed by the new key; lines of the revoked key at `seq >= revoked_from_seq` are invalid;
   announced out of band (committed keyring, `/bell/method`, JOURNAL). Residual: the window before detection.
 - **Loss**: `key_rotation` with `continuity:"broken"`, accepted by verifiers ONLY because the new key is in the committed keyring

@@ -16,8 +16,10 @@
 //                     systemctl-cat.txt (`systemctl cat monark-bell-publish.service`), need-daemon-reload.txt
 //                     (`systemctl show -p NeedDaemonReload --value monark-bell-publish.service`)
 //   --probe-digests   the same sha256sum capture of /etc/monark/probe.env + /opt/monark-probe, before and after the D-n.
-// Check 5 runs the verifier through its CLI (backlog S-4): node <bell-verify> <url> --keyring <committed keyring>, exit 0 = the
-// whole publication verifies against that root. The CA JSON pins the sha256 of every input and every observed body.
+// Check 5 runs the verifier through its CLI (backlog S-4, PR-2 apps/bell/scripts/bell-verify.mjs runVerifyCli): node <bell-verify>
+// --url <url> --keyring <committed keyring>; it passes iff exit 0 AND the one-line JSON report says status
+// "consistent_with_supplied_keyring" (the verifier's own statement that the SUPPLIED keyring was the root, C-9). The CA JSON pins
+// the sha256 of every input and every observed body.
 import { createHash } from "node:crypto";
 import { execFile, execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -84,7 +86,7 @@ export const gitBlob = (repo, rev, path) => execFileSync("git", ["-C", repo, "ca
 /** Run the verifier CLI; resolves {code, stdout, stderr}. */
 function runVerifier(script, url, keyring) {
   return new Promise((done) => {
-    execFile(process.execPath, [script, url, "--keyring", keyring], { timeout: 180000, maxBuffer: MAX_BODY, encoding: "utf8" }, (e, stdout, stderr) => {
+    execFile(process.execPath, [script, "--url", url, "--keyring", keyring], { timeout: 180000, maxBuffer: MAX_BODY, encoding: "utf8" }, (e, stdout, stderr) => {
       done({ code: e === null ? 0 : typeof e.code === "number" ? e.code : 1, stdout, stderr });
     });
   });
@@ -105,7 +107,8 @@ export function parseDigests(text) {
 export function parseSystemctlCat(text) {
   const lines = text.split("\n"), headers = [];
   lines.forEach((l, i) => { const r = /^# (\/\S+)$/.exec(l); if (r !== null) headers.push({ index: i, path: r[1] }); });
-  return { headers, fragment: lines.slice(1, headers.length > 1 ? headers[1].index : lines.length).join("\n") };
+  const from = headers.length > 0 ? headers[0].index + 1 : 0, to = headers.length > 1 ? headers[1].index : lines.length;
+  return { headers, fragment: lines.slice(from, to).join("\n") };
 }
 const isListing = (r) => r.status === 200 && /state\.json|timeline\.jsonl|provenance|pubkey\.json|[0-9a-f]{64}\.json/.test(r.body.toString("utf8"));
 
@@ -153,7 +156,9 @@ export async function runCa(argv, deps = {}) {
   set("c04_provenance_json", pvJ?.schema === "bell-public-provenance-v1", `status=${String(pv.status ?? pv.error)} schema=${String(pvJ?.schema)}`);
 
   const v = existsSync(a.verifier) ? await runVerifier(a.verifier, a.url, a.keyring) : { code: null, stdout: "", stderr: "" };
-  set("c05_bell_verify_keyring_root", v.code === 0, v.code === null ? `verifier absent: ${a.verifier}` : `exit=${String(v.code)} stdout_sha256=${sha256(v.stdout)}`);
+  const vStatus = parseJson(v.stdout.trim())?.status;
+  set("c05_bell_verify_keyring_root", v.code === 0 && vStatus === "consistent_with_supplied_keyring",
+    v.code === null ? `verifier absent: ${a.verifier}` : `exit=${String(v.code)} status=${String(vStatus)} stdout_sha256=${sha256(v.stdout)}`);
 
   // The current state.json is a copy of its content-addressed immutable: fetch states/<sha256(state.json)>.json (checks 6, 8, 10).
   const stSha = ok200(st) ? sha256(st.body) : null, imm = stSha !== null ? await get(`/states/${stSha}.json`) : { error: "no state.json" };
