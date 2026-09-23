@@ -21,6 +21,9 @@ export interface KeyringKey {
   jwk: { kty: "OKP"; crv: "Ed25519"; x: string };
   valid_from_seq: number;
   status: string;
+  valid_to_seq?: number;
+  revoked_from_seq?: number;
+  continuity?: "broken";
 }
 export interface Keyring {
   schema: "bell-keyring-v1";
@@ -28,3 +31,13 @@ export interface Keyring {
 }
 export function keyringOf(publicKey: KeyObject, validFromSeq: number): Keyring;
 export function publicKeyOfJwk(jwk: { readonly x: string }): KeyObject;
+/** S-6: key_id -> {x, revoked_from_seq?}; null when the keyring is malformed. */
+export type Trust = Map<string, { x: string; revoked_from_seq?: number }>;
+export function trustOf(keyring: unknown): Trust | null;
+export type WalkReason = "timeline_malformed" | "chain_broken" | "rotation_key_not_in_keyring" | "key_not_in_keyring" | "signature_invalid"
+  | "key_not_active" | "rotation_malformed" | "revocation_malformed";
+export interface Break { seq: number; lost_key_id: string; new_key_id: string }
+export type WalkResult = { ok: true; active: string | null; head: Record<string, unknown> | null; voided: number[]; breaks: Break[] }
+  | { ok: false; seq: number; reason: WalkReason };
+export function walkTimeline(lines: readonly unknown[], trust: Trust): WalkResult;
+export function deriveKeyring(genesis: { readonly key_id: string; readonly jwk: { readonly x: string } }, lines: readonly unknown[]): Keyring;
