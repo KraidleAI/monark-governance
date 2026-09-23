@@ -26,8 +26,10 @@ export const CLOSE_SOURCE = "databento-equs-summary"; // decision 53: Databento 
 export const DATABENTO_HIST = "https://hist.databento.com"; // [2nd] PR-B-DBN; a real metadata.get_cost call confirms it
 export const DBN_UNDEF_PRICE = "9223372036854775807"; // INT64_MAX = Databento UNDEF_PRICE (no valid close)
 
-/** Massive/Polygon GET seam (moved here from collect.ts so both the ADV leg and the cross leg share one type). */
-export type PolygonGet = (pathAndQuery: string, apiKey: string) => Promise<{ results?: Array<{ v?: number; c?: number }> }>;
+/** Massive/Polygon GET seam (moved here from collect.ts so both the ADV leg and the cross leg share one type). `t` =
+ *  "The Unix millisecond timestamp for the start of the aggregate window" (Massive Custom Bars docs, [lu] 2026-09-23);
+ *  the ADV leg dates each daily bar by it (BELL-ADV-1). */
+export type PolygonGet = (pathAndQuery: string, apiKey: string) => Promise<{ results?: Array<{ v?: number; c?: number; t?: number }> }>;
 /** One Databento ohlcv-1d record (only the fields we read). `close` is the scaled-int STRING (encoding=json). */
 export interface DatabentoOhlcvRecord { readonly hd?: { ts_event?: string | number }; readonly ts_event?: string | number; readonly close?: string; readonly symbol?: string }
 /** Databento timeseries GET seam: returns the parsed ohlcv-1d records for a single-symbol range request. */
@@ -200,5 +202,5 @@ export function parseDatabentoJson(text: string): DatabentoOhlcvRecord[] {
 export const polygonGet: PolygonGet = async (pathAndQuery, apiKey) => {
   const res = await fetch(`https://api.polygon.io${pathAndQuery}`, { headers: { Authorization: `Bearer ${apiKey}` } });
   if (!res.ok) throw new Error(`HTTP ${String(res.status)}`);
-  return (await res.json()) as { results?: Array<{ v?: number; c?: number }> };
+  return (await res.json()) as { results?: Array<{ v?: number; c?: number; t?: number }> };
 };

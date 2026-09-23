@@ -6,14 +6,19 @@
 // `assertNoClose` walks the object and reddens on any key matching CLOSE_KEY whose value is a number/numeric
 // string -- catching camelCase (`refPrice`, `pRef`), the Polygon `prev` close leg (G2 fold C-3), AND the
 // consolidated ADV denominator of fact (iii) via `adv|share_volume|volume_ref` (bare) (T-1a-ii C-6).
-// TWO negation exemptions, same motif: `\bprev\b` (not bare `prev`) leaves the timeline key `prev_line_hash`
+// THREE negation exemptions, same motif: `\bprev\b` (not bare `prev`) leaves the timeline key `prev_line_hash`
 // (D2) green; `(?<!no_)close` leaves the NEGATED residual code `no_close_ref` (a counter, not a leaked close)
-// green. KNOWN HOLE (accepted, declared): a `no_close_*` numeric key would pass -- tolerated because residual
-// codes are a CLOSED set (residuals.ts), not free-form output. Mutants `bell_close_field_reddens` +
+// green; `(?<!no_)adv` (BELL-ADV-1) leaves the NEGATED residual code `no_adv` green the same way. The key
+// `adv_period` ({year, month}) is not numeric-valued and its children `year`/`month` are outside the pattern.
+// KNOWN HOLE (accepted, declared): a `no_close_*` or `no_adv*` numeric key would pass -- tolerated because residual
+// codes are a CLOSED set (residuals.ts), not free-form output. apps/bell/scripts/bell-report.mjs carries a
+// declared duplicate of CLOSE_KEY (a node-run .mjs cannot import this .ts): kept byte-equal, pinned by
+// report.test.ts. Mutants `bell_close_field_reddens` +
 // `bell_close_guard_catches_camelcase` + the T-1a-ii ratio killer redden on an injected close/ADV. (vwap/g_t
 // stay green; close is derivable from public vwap+g_t under ESC-1 (c). ADV is derivable from vol_ratio +
 // volumeBase -- the SAME derivation shape; only `vol_ratio` (no adv/share_volume/volume_ref substring) is
-// published. This extension of ESC-1 (c) to ADV is a point for checkpoint-2, not a ruling this file asserts.)
+// published as a number, with the non-numeric period `adv_period` and the counts `n_bars`/`n_trading_days`
+// (BELL-ADV-1). This extension of ESC-1 (c) to ADV is a point for checkpoint-2, not a ruling this file asserts.)
 import { createHash } from "node:crypto";
 import { type Residual } from "./residuals.ts";
 
@@ -30,7 +35,7 @@ export function canonical(v: Json): string {
   return "{" + keys.map((k) => JSON.stringify(k) + ":" + canonical(v[k] as Json)).join(",") + "}";
 }
 
-const CLOSE_KEY = /(?<!no_)close|ref[_]?price|p[_]?ref|reference|\bprev\b|adv|share_volume|volume_ref/i;
+const CLOSE_KEY = /(?<!no_)close|ref[_]?price|p[_]?ref|reference|\bprev\b|(?<!no_)adv|share_volume|volume_ref/i;
 const isNumericLike = (x: unknown): boolean =>
   typeof x === "number" || (typeof x === "string" && x.trim() !== "" && Number.isFinite(Number(x)));
 
