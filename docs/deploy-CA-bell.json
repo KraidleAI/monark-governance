@@ -1,0 +1,95 @@
+{
+  "schema": "bell-deploy-ca-v1",
+  "url": "https://bell.monarkgate.tech",
+  "g7": "496a5a8dc8f6b9bdbf28f61bab8257c88d71642b",
+  "checked_at": "2026-09-23T21:36:12.733Z",
+  "keyring_sha256": "beec868a9e7d8e396de0f0541ab20572a2159068e8102bb303cb9af368b6ef81",
+  "bell_verify_sha256": "14a7e07c116ef3be70a8168f6113f46a214e04ccaa40bcba85b179f755324e8b",
+  "inputs_sha256": {
+    "tree": "f9615db0fe56e2fad1e0c4c0d9b9677e2b9f1b5e792e21cd69d8894b7e02c1d7",
+    "probe_before": "82116283694ebd1e78c030f341afaea7bfdb5d6b4377165154c516b61a8c9588",
+    "probe_after": "82116283694ebd1e78c030f341afaea7bfdb5d6b4377165154c516b61a8c9588"
+  },
+  "bodies_sha256": {
+    "/state.json": "a828489f64f112c8026b7c38f3710b82af1c97245fdba10b16170e39aed7a240",
+    "/timeline.jsonl": "8dfd2b78c4ba06c61165b13f29929526b50339228a458e0c13a214281211b0ad",
+    "/bell/pubkey.json": "beec868a9e7d8e396de0f0541ab20572a2159068e8102bb303cb9af368b6ef81",
+    "/provenance.json": "4935a259b7d6c2ddd929b4ecd440b6918d103c76b8a42b364df1b505f041ea3b",
+    "/states/a828489f64f112c8026b7c38f3710b82af1c97245fdba10b16170e39aed7a240.json": "a828489f64f112c8026b7c38f3710b82af1c97245fdba10b16170e39aed7a240"
+  },
+  "content_types": {
+    "/state.json": "application/json",
+    "/timeline.jsonl": null,
+    "/bell/pubkey.json": "application/json",
+    "/provenance.json": "application/json",
+    "/states/a828489f64f112c8026b7c38f3710b82af1c97245fdba10b16170e39aed7a240.json": "application/json"
+  },
+  "checks": [
+    {
+      "name": "c01_state_json",
+      "ok": true,
+      "detail": "status=200 schema=bell-public-state-v1"
+    },
+    {
+      "name": "c02_timeline_jsonl",
+      "ok": true,
+      "detail": "status=200 lines=1"
+    },
+    {
+      "name": "c03_pubkey_equals_committed_keyring",
+      "ok": true,
+      "detail": "status=200 served_sha256=beec868a9e7d8e396de0f0541ab20572a2159068e8102bb303cb9af368b6ef81 committed_sha256=beec868a9e7d8e396de0f0541ab20572a2159068e8102bb303cb9af368b6ef81"
+    },
+    {
+      "name": "c04_provenance_json",
+      "ok": true,
+      "detail": "status=200 schema=bell-public-provenance-v1"
+    },
+    {
+      "name": "c05_bell_verify_keyring_root",
+      "ok": true,
+      "detail": "exit=0 status=consistent_with_supplied_keyring stdout_sha256=ae2d5a27c013d82ebd479eb97192c2326654d71926ee1ebd69d95aa7182a70c7"
+    },
+    {
+      "name": "c06_acao_star",
+      "ok": true,
+      "detail": "acao=*,*,*,*,*"
+    },
+    {
+      "name": "c07_no_directory_listing",
+      "ok": true,
+      "detail": "status=404,404,404,404"
+    },
+    {
+      "name": "c08_cache_immutable_states_no_cache_current",
+      "ok": true,
+      "detail": "immutable=true current_no_cache=true"
+    },
+    {
+      "name": "c09_tls_authorized",
+      "ok": true,
+      "detail": "authorized=true"
+    },
+    {
+      "name": "c10_no_private_material_served",
+      "ok": true,
+      "detail": "private_shape=false jwk_public_only=true served_private_paths=none"
+    },
+    {
+      "name": "c11_loaded_config_equals_g7",
+      "ok": true,
+      "detail": "tree=true caddy_replace=true unit_one_fragment_equal=true fragments=1 need_daemon_reload_no=true"
+    },
+    {
+      "name": "c12_probe_untouched",
+      "ok": true,
+      "detail": "before_sha256=82116283694ebd1e78c030f341afaea7bfdb5d6b4377165154c516b61a8c9588 after_sha256=82116283694ebd1e78c030f341afaea7bfdb5d6b4377165154c516b61a8c9588"
+    }
+  ],
+  "tls": {
+    "host": "bell.monarkgate.tech",
+    "authorized": true,
+    "issuer": "Let's Encrypt",
+    "valid_to": "Dec 22 20:34:35 2026 GMT"
+  }
+}
