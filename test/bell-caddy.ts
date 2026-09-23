@@ -2,7 +2,7 @@
  * Test helper (not a test file): a CLOSED-SUBSET model of Caddy v2 for deploy/Caddyfile.monark-bell (ADR-T1b-backend v2 D10,
  * backlog S-8/S-9). It parses the committed Caddyfile and serves a real publisher public/ directory on 127.0.0.1 with the
  * headers READ FROM THAT FILE, so the loopback tests exercise the committed configuration, not a copy. Subset: one site
- * block; `root [*] <dir>`; named matchers `@n path <p>...` and `@n not path <p>...`; `header [@n|/path] <Field> <value>`;
+ * block; `root [*] <dir>`; named matchers `@n path <p>...` and `@n not path <p>...`, each name defined ONCE; `header [@n|/path] <Field> <value>`;
  * `file_server [browse]`; ONE `redir @n https://<host>[/<path>] 302` whose `@n` is exactly `path /` (decision 155, lot
  * BELL-HOST-ROOT-1), any other redir form throws. Anything else is kept in `directives` (so a test can refuse it) and makes
  * `serveCaddy` throw (fail-closed: no server runs on a configuration this model does not understand). The live Caddy is
@@ -121,6 +121,10 @@ export function parseCaddyfile(text: string): CaddySite[] {
       const negate = rest[0] === "not";
       const body = negate ? rest.slice(1) : rest;
       if (body[0] !== "path" || body.length < 2) throw new Error(`caddy model: matcher outside the subset: ${raw}`);
+      // Fail-closed (G2 BELL-HOST-ROOT-1 C-2): a name defined twice is refused, never read as "the last wins". Caddy's semantics of
+      // a repeated named-matcher definition are not established here (no Caddy source read on it; docs matchers.md l.129 only says
+      // "a unique name"): the model refuses whatever Caddy does.
+      if (cur.matchers.has(head)) throw new Error(`caddy model: named matcher ${head} defined twice (outside the subset): ${raw}`);
       cur.matchers.set(head, { negate, paths: body.slice(1) });
       continue;
     }

@@ -200,17 +200,28 @@ IMPORT mode (only if the recorded file serves another site): the dedicated file 
 targeting that file. Rollback: restore the backup, remove the dedicated file, validate, reload.
 
 **REPLACE replay after a Caddyfile change** (decision 155, lot BELL-HOST-ROOT-1: `/` answers 302 to `https://monarkgate.tech/bell`).
-The file in place is the previous G7 blob (no other site on this host) => REPLACE again. First move `G7.txt` to the new G7
-(every command and CA check 11 read it), keeping the previous one; the tree and the unit are NOT re-shipped, so they must be
+REPLACE again, only if the file in place is the previous G7 blob (MEASURED below before the act, never assumed). First move
+`G7.txt` to the new G7 (every command and CA check 11 read it), keeping the previous one in `G7-1.txt`, written ONLY if absent
+(a rerun never overwrites this rollback pointer); the tree and the unit are NOT re-shipped, so they must be
 byte-identical at both G7s (measured for this lot: `git diff --stat 496a5a8 d7c60a2` on the two tree files, the unit and the
 Caddyfile is empty; of these four installed files, the lot changes only the Caddyfile):
 
 ```bash
-cp /f/tmp/bell-dn/G7.txt /f/tmp/bell-dn/G7-1.txt && git -C /f/Monark rev-parse --verify '<G7 merge commit of the lot>^{commit}' > /f/tmp/bell-dn/G7.txt && git -C /f/Monark diff --quiet "$(cat /f/tmp/bell-dn/G7-1.txt)" "$(cat /f/tmp/bell-dn/G7.txt)" -- apps/bell/scripts/bell-chain.mjs apps/bell/scripts/bell-publish.mjs deploy/monark-bell-publish.service; echo same_tree_and_unit=$?; cat /f/tmp/bell-dn/G7.txt
+{ [ -e /f/tmp/bell-dn/G7-1.txt ] || cp /f/tmp/bell-dn/G7.txt /f/tmp/bell-dn/G7-1.txt; } && git -C /f/Monark rev-parse --verify '<G7 merge commit of the lot>^{commit}' > /f/tmp/bell-dn/G7.txt && git -C /f/Monark diff --quiet "$(cat /f/tmp/bell-dn/G7-1.txt)" "$(cat /f/tmp/bell-dn/G7.txt)" -- apps/bell/scripts/bell-chain.mjs apps/bell/scripts/bell-publish.mjs deploy/monark-bell-publish.service; echo same_tree_and_unit=$?; cat /f/tmp/bell-dn/G7.txt
 ```
 
 Expected: `same_tree_and_unit=0` and the new SHA (else **STOP**: steps 2 and 6 are replayed at the new G7 first, or CA check 11
-is red). Then the SAME command as above, with a second backup:
+is red; a failed `rev-parse` leaves `G7.txt` empty: rerun this command with the right SHA, `G7-1.txt` is kept). Then the file
+in place, measured on the host against the Caddyfile blobs of both G7s, BEFORE any act:
+
+```bash
+H=$(ssh -i ~/.ssh/monark_vps root@178.16.131.29 'sha256sum /etc/caddy/Caddyfile' | cut -c1-64); S=unexpected; for f in G7 G7-1; do R=$(git -C /f/Monark rev-parse --verify "$(cat /f/tmp/bell-dn/$f.txt)^{commit}") || { S=unexpected; break; }; [ "$(git -C /f/Monark cat-file blob "$R:deploy/Caddyfile.monark-bell" | sha256sum | cut -c1-64)" = "$H" ] && S=$f; done; echo caddy_in_place=$S host=$H
+```
+
+Expected: `caddy_in_place=G7-1` (the previous G7 blob is in place) => the REPLACE below. `caddy_in_place=G7` => this replay
+already replaced the file: no REPLACE, go to step 8. `caddy_in_place=unexpected` (neither blob, or a pointer that is not a
+commit) => **STOP**: read the host (the recording command above); another site in the file => IMPORT mode, never a REPLACE. The REPLACE is the SAME command as above, with a
+second backup (taken only while the previous blob is in place, so a rerun after a failed `caddy validate` loses nothing):
 
 ```bash
 G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark cat-file blob "$G7:deploy/Caddyfile.monark-bell" | ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cp -p /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-bell-2 && umask 022 && cat > /etc/caddy/Caddyfile.new && caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile && mv /etc/caddy/Caddyfile.new /etc/caddy/Caddyfile && systemctl reload caddy && systemctl is-active caddy && sha256sum /etc/caddy/Caddyfile'
@@ -218,6 +229,8 @@ G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark cat-file blob "$G7:deploy/Ca
 
 Expected: `Valid configuration`; `active`; the digest equals the local `git cat-file blob` digest at the NEW G7; then step 8,
 then step 11 (fresh capture; CA 12/12 at the new G7). Rollback: `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cp -p /etc/caddy/Caddyfile.bak-bell-2 /etc/caddy/Caddyfile && caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy'`, then `cp /f/tmp/bell-dn/G7-1.txt /f/tmp/bell-dn/G7.txt`.
+A later replay (another lot) first removes `G7-1.txt`, once step 11 is 12/12 at the G7 in place, so that the pointer it keeps
+is that G7.
 
 ## 8. HTTPS constated (automatic certificate)
 

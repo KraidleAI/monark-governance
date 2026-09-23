@@ -13,13 +13,14 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import { execFile, execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
 import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash, generateKeyPairSync } from "node:crypto";
-import { parseCaddyfile, realPublication, serveCaddy, type CaddySite } from "./bell-caddy.ts";
-import { BELL_TREE_PATHS, CHECK_NAMES, UNIT_INSTALLED, gitBlob, runCa, type CaDeps, type CaResult } from "../scripts/verify-bell.mjs";
+import { headersFor, parseCaddyfile, realPublication, serveCaddy, type CaddySite } from "./bell-caddy.ts";
+import { BELL_ROOT_REDIRECT, BELL_TREE_PATHS, CHECK_NAMES, UNIT_INSTALLED, gitBlob, runCa, type CaDeps, type CaResult } from "../scripts/verify-bell.mjs";
 import { canonical, keyringOf } from "../apps/bell/scripts/bell-chain.mjs";
 
 const REPO = fileURLToPath(new URL("../", import.meta.url));
@@ -82,6 +83,24 @@ async function served<T>(caddyText: string, f: (url: string) => Promise<T>): Pro
     await new Promise<void>((r) => { srv.close(() => { r(); }); });
   }
 }
+/** G2 BELL-HOST-ROOT-1 C-1: a dedicated loopback server where `/` answers 301 with the EXACT Location and the site headers (only
+ *  the status differs from the committed 302); every other path goes to the committed site served by the model, whose handler is
+ *  reached through its `request` event (it never listens itself). The model and its `Redirect.code: 302` are untouched. */
+async function servedRoot301<T>(f: (url: string) => Promise<T>): Promise<T> {
+  const site: CaddySite | undefined = parseCaddyfile(CADDY_TEXT)[0];
+  assert.ok(site !== undefined, "one site block");
+  const inner = serveCaddy(site, pub.publicDir), rootHeaders = headersFor(site, "/");
+  const srv: Server = createServer((req, res) => {
+    if ((req.url ?? "/").split("?")[0] === "/") { res.writeHead(301, { ...rootHeaders, location: BELL_ROOT_REDIRECT }); res.end(); return; }
+    inner.emit("request", req, res);
+  }).listen(0, "127.0.0.1");
+  await once(srv, "listening");
+  const a = srv.address();
+  try { return await f(`http://127.0.0.1:${String(a !== null && typeof a === "object" ? a.port : 0)}`); } finally {
+    srv.closeAllConnections();
+    await new Promise<void>((r) => { srv.close(() => { r(); }); });
+  }
+}
 /** Rewrite ONE served file for the duration of `f` (restored byte-exact after). */
 async function withServedFile<T>(rel: string, content: string | null, f: () => Promise<T>): Promise<T> {
   const p = join(pub.publicDir, rel), before = existsSync(p) ? readFileSync(p) : null;
@@ -92,7 +111,8 @@ const reschema = (rel: string): string => { const o = JSON.parse(readFileSync(jo
 
 // S-9. Each of the 12 checks, put ALONE in failure over loopback, turns the CA red on EXACTLY that named check with exit code 1;
 // the untouched publication is 12/12 green with exit 0. Mutants (each red here): check 11 or 12 removed; installed unit body not
-// compared; drop-in not detected; NeedDaemonReload not read; exit 0 on failure.
+// compared; drop-in not detected; NeedDaemonReload not read; exit 0 on failure; c07 accepting a 301 on `/`, or not reading its
+// status (G2 BELL-HOST-ROOT-1 C-1).
 test("verify_bell_ca_checks_named_and_fail_closed", async () => {
   const cases: { target: string; why?: string; run: () => Promise<CaResult> }[] = [];
   const onCaddy = (text: string, o: Opts = {}, d: CaDeps = deps()) => (): Promise<CaResult> => served(text, (u) => runCa(argv(u, o), d));
@@ -109,6 +129,7 @@ test("verify_bell_ca_checks_named_and_fail_closed", async () => {
   cases.push({ target: "c07_no_directory_listing", run: onCaddy(CADDY_TEXT.replace(/^\tfile_server$/m, "\tfile_server browse")) });
   cases.push({ target: "c07_no_directory_listing", why: "redir removed: / is a 404", run: onCaddy(CADDY_TEXT.replace(/^\tredir .*\n/m, "")) });
   cases.push({ target: "c07_no_directory_listing", why: "/ redirected elsewhere", run: onCaddy(CADDY_TEXT.replace("https://monarkgate.tech/bell 302", "https://example.com/bell 302")) });
+  cases.push({ target: "c07_no_directory_listing", why: "C-1: / answers 301 with the exact Location, the 302 is required", run: () => servedRoot301((u) => runCa(argv(u), deps())) });
   cases.push({ target: "c08_cache_immutable_states_no_cache_current", run: onCaddy(CADDY_TEXT.replace("public, max-age=31536000, immutable", "no-cache")) });
   cases.push({ target: "c08_cache_immutable_states_no_cache_current", why: "immutable on the current files",
     run: onCaddy(CADDY_TEXT.replace('Cache-Control "no-cache"', 'Cache-Control "no-cache, immutable"')) });

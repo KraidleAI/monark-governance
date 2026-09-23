@@ -126,7 +126,8 @@ test("bell_caddyfile_serves_public_dir_only_no_browse_cors", async () => {
 
 // S-8, lot BELL-HOST-ROOT-1 (decision 155): the host root `/` EXACTLY answers 302 to the site's Bell page, with the site headers;
 // every other path is unchanged. Mutants (each red here): redir removed; matcher widened (`path /*`); code 301; target changed;
-// in the model, another redir form accepted, the redirect matched as a prefix, or served after file_server.
+// in the model, another redir form accepted, the redirect matched as a prefix, or served after file_server; a named matcher
+// defined twice accepted (G2 BELL-HOST-ROOT-1 C-2).
 test("bell_caddyfile_root_redirects_to_site_bell_page", async () => {
   const text = read(CADDY), site = siteOf(text);
   assert.equal(BELL_ROOT_REDIRECT, "https://monarkgate.tech/bell", "decision 155: the human page of Bell is the site's /bell");
@@ -152,6 +153,10 @@ test("bell_caddyfile_root_redirects_to_site_bell_page", async () => {
   for (const [from, to] of [["\t@home path /\n", "\t@home path /*\n"], ["\t@home path /\n", "\t@home not path /\n"], ["\t@home path /\n", "\t@home path / /index.html\n"],
     [line, "\tredir @nope https://monarkgate.tech/bell 302\n"]]) {
     assert.throws(() => parseCaddyfile(text.replace(from ?? "", to ?? "")), /is not exactly "path \/"/, `refused matcher: ${String(to).trim()}`);
+  }
+  // G2 C-2: `@home` defined twice is refused in either order (the model never picks one of the two definitions).
+  for (const twice of ["\t@home path /*\n\t@home path /\n", "\t@home path /\n\t@home path /*\n"]) {
+    assert.throws(() => parseCaddyfile(text.replace("\t@home path /\n", twice)), /named matcher @home defined twice/, `refused duplicate matcher: ${JSON.stringify(twice)}`);
   }
 });
 
