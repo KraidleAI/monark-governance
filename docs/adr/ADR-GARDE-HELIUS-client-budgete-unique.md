@@ -1063,3 +1063,105 @@ L'Amendement GARDE-HELIUS-2b déclarait (verbatim, ligne ADR ~320) : le retry ch
 ## Amendement daté 2026-09-23 (UKEMI-RETRY-2/3) — texte compagnon des lignes `:320` et `:502` (« JAMAIS … 4xx!=429 »)
 
 Pour le shim `call` du recorder Ukemi seul (`apps/sentinel/src/ukemi/record.ts`, hors gel prereg §2), `HttpError` **408** (et `NonJsonBody@408`, défensif, inatteignable par ce transport — R-U-3 étendu) rejoint les transitoires du retry appelant ; l'attente honore `retryAfterMs` (`min(max(Retry-After, backoff·2^attempt), cap)`, fonction pure `retryWaitMs`). Les autres 4xx restent JAMAIS retentés ; `RpcError`, `RedirectBlocked`, `BudgetExceededError` restent fatals. Les lignes `:320`/`:502` ne sont pas éditées : ce texte les amende. Classifieurs frères (Bell `quorum.ts` `isTransient`, `universe.ts` `withUniverseRetry`, census `u4-guard.mjs`) non alignés : item **R-U-4** (ADR-U4b, amendement UKEMI-RETRY-2/3), déclencheur nommé. Fusion `12b6dcd` (lot `dd44604`), G2 PASS-AVEC-CORRECTIONS, cp-2 ACCEPTE-AVEC-CORRECTIONS, `error_origin` plan.
+
+## (A) Amendement daté 2026-09-23 (lot UKEMI-REVERT-1, incident REVERT-PAID-1) — R-A-bis : revert PAYANT nu apparié à un témoin KEYLESS nu
+
+- **Provenance** : worker G1 `claude-opus-5-5[1m]` (préfixe conforme, décision 133), effort max, 2026-09-23, branche
+  `lot/ukemi-revert-1` (base `4a2f69f`) ; option A' de l'avis advisor (canal 2, Fable 5.1) retenue par le ruling
+  orchestrateur (décision 143) ; advisor intégré consulté après orientation et avant clôture ; réviseur = orchestrateur
+  (R-21). Aucun commit par le worker (R-20). Rendu : `docs/G1-lot-ukemi-revert-1.md`.
+
+- **Contexte (mesuré).** Le temps 2 de la course Ukemi (`record-t2.sh`, pool `eth_call` = {`drpc.org` keyless, `chainstack`
+  payant}) s'est arrêté fail-closed à 10:43:31Z (`NoQuorumError`, 182 appels ; `docs/CHANTIERS.md:1076-1082`) : `description()`
+  de la source d'oracle GHO (`0xd110cac5…fccd`, bloc 23414968) revert SANS raison — fait on-chain toléré par
+  `apps/sentinel/src/ukemi/book.ts:82-93` via `ConcordantRevertError` ; le revert keyless est un revert (`isRpcRevert` vrai),
+  le revert payant sans `.data` est benché par R-A (`packages/rpc-guard/src/classify.ts:56`, supra :361-369) ⇒ quorum à 1.
+  **Sonde G1 (2026-09-23 11:09Z, 2 RU, client gardé, ligne write-ahead + verrou + `unlock` servi, chaîne du ledger
+  revérifiée)** : les DEUX opérateurs répondent HTTP 200 `{"code":3,"message":"execution reverted"}` **sans clé `data`** ;
+  message exactement `execution reverted` des deux côtés (booléen seul côté payant, D6). **Fait structurel (D6)** :
+  `closedHint("execution reverted") === closedHint("execution reverted: <raison>")` = `"execution reverted, revert"` (pour une raison SANS jeton du vocabulaire fermé ; `execution reverted: result too large` ⇒ autre indice, G2 C-4b) ⇒ côté
+  PAYANT « nu » n'est décidable QUE par `.data` ; l'absence de raison n'est décidable que côté KEYLESS. Et `revertKey`
+  (`rpc2.ts:43-45`) compare les messages : préambule payant ≠ message keyless ⇒ même admis, le revert payant discorderait.
+
+- **Décision (R-A-bis).** (1) `classify.ts` : classifieur **ADDITIF** `isBareRevert(e)` — `RpcError` ∧ code ∈ {3, −32000}
+  ∧ `.data` validée absente ou `"0x"` ∧ texte normalisé (trim, minuscules, blancs repliés) SANS raison : keyless ⇒ `message`
+  === `"execution reverted"` ; payant (`unit` ≠ keyless, jamais un label) ⇒ `detail` === `closedHint("execution reverted")`.
+  `isRpcRevert` est **inchangé** (R-A reste vrai pour tout autre consommateur). Exporté par `index.ts` (classifieur, pas un
+  chemin payant). (2) `rpc2.ts` `quorum2` : un revert PAYANT nu n'est **ni benché ni refroidi** ; il est TENU, son opérateur
+  compte comme vu (C-2), et il n'est confronté qu'à un **revert KEYLESS unique** : témoin keyless NU ⇒ les deux re-clés à la
+  classe `revert:bare` ⇒ `ConcordantRevertError` ; keyless portant une `.data` VALIDÉE non vide ⇒ `QuorumDisagreementError` ; toute
+  autre issue (valeur, keyless ne différant que par un TEXTE de raison, revert payant, autre payant nu, rien) ⇒ non admis ⇒
+  `NoQuorumError`. Aucun message n'est comparé entre unités ; deux payants nus ne sont jamais concordés (D6) ; une paire
+  keyless + keyless garde le comportement antérieur. (3) `record.ts` : `rpc_errors[].data` devient l'**indicateur fermé**
+  `"absent" | "0x" | <longueur hex>` écrit sur CHAQUE entrée `RpcError`, jamais les octets (avant : l'hex validée, OMISE si
+  absente — le diag de l'incident était aveugle à la forme de `data`).
+
+- **Alternatives rejetées** : B (routage par sélecteur dans `record.ts` : fuite ABI dans l'enregistreur, contourne la règle au
+  lieu de la compléter) ; C (zéro code : chainstack apposé en DERNIER par construction, `record.ts:329`, aucune composition
+  sans code ne préserve la jambe payante) ; D (deux passes : un revert rejeté n'est pas caché, `resume.ts:86-87` — la passe
+  payante MISS et meurt à l'identique ; la réparer change le format `U4-inputs.jsonl`) ; « `data === "0x"` strict côté payant »
+  (préférence (iii) de l'avis) — **rejetée sur mesure** : le fil chainstack n'a PAS de `data`, le temps 2 mourrait à
+  l'identique ; « discordance pour un keyless à raison textuelle sans data » — rejetée : l'indice fermé payant ne voit pas la
+  raison, toute issue comparerait des messages entre unités et recréerait le faux désaccord que R-A a fermé (supra :365-367) ;
+  « champ indicateur AJOUTÉ, hex conservée dans `data` » — rejetée : la mission impose `data` = indicateur, jamais le corps ;
+  toucher `revertKey` — rejetée pour le même motif que l'option 2 de R-A.
+
+- **Tuyaux (règle Branchement, F-1).**
+
+  | pièce | entrée (producteur) | sortie (consommateur) | état | test de composition (non-LLM) |
+  |---|---|---|---|---|
+  | `isBareRevert` (`classify.ts`) | `RpcError` levée par `raise` (`transport.ts`) | `rpc2.ts` `quorum2` (branche tenue + `witnessOf`) | aucun (pur) | `packages/rpc-guard/test/bare-revert.test.ts` (4) + `apps/sentinel/test/ukemi-revert.test.ts` (a), (f) |
+  | appariement tenu (`rpc2.ts` `quorum2`) | shim `call` de `record.ts` → `client.call` → transport | `book.ts:88-93` (`""`), `prefetch.ts:46`, `onQuorum` → `--concordance-out` | local à la lecture ; AUCUN refroidissement posé | `ukemi-revert.test.ts` (a)-(f) + 4 oracles de pool par le garde |
+  | indicateur `rpc_errors[].data` (`record.ts`) | `TransportError.data` validée | provenance du livre + `<out>.diag.json` | fichiers de course | `ukemi-revert.test.ts` (a), (a'), (b), (e), (f) |
+  | appariement tenu — consommateurs `makeUkemiPool` à jambe payante | `scripts/census/u4-oracle-path.mjs:189`, `scripts/census/u4-redraw.mjs:92` (`--with-chainstack`) | `emode_raw` / rapport re-draw (e-mode 8 : `NoQuorumError` → `ConcordantRevertError`) | fichiers de census | `u4_oracle_path_paid_leg_is_metered_in_its_own_ledger` |
+
+  Consommateurs keyless-seuls INCHANGÉS par construction (`held` exige une unité ≠ keyless, `rpc2.ts:215`) : `apps/bell/src/ethereum.ts:97` (course Bell en cours), `scripts/census/u4b/u4b-discover.mjs:106`, `scripts/census/u4b/u4b-probe-cutoff.mjs:38` (G2 C-3).
+
+  Chemin SERVI : `node apps/sentinel/src/ukemi/record.ts` (`runRecorder`) ; tests = `runRecorder` réel, vrai
+  `openGuardedClient`, SEUL `globalThis.fetch` bouchonné, formes de fil MESURÉES (A-8). Registre : **branché**, « built » à la
+  première course rapprochée (relance du temps 2), pas avant.
+
+- **Conséquences.** Livre : `description()` à revert nu sur {drpc, chainstack} ⇒ `""` (comme une paire keyless). Coût : la
+  source revertante est lue DEUX fois par course à `--concurrency` > 1 (prefetch + relecture de `recordBook`, un revert n'est
+  jamais caché) ⇒ 2 × (1 keyless + 2 RU) par source revertante ; caps inchangés. E-3 : le revert payant tenu ne pose AUCUN
+  cooldown (R-A en posait 25 s) ; le cooldown 25 s des fautes est inchangé. Bascule pré-déclarée : `test/guard-scripts-u4.test.ts`
+  (e-mode 8, jambe payante forcée) `NoQuorumError` → `ConcordantRevertError` = l'issue keyless nominale ; même effet pour tout
+  consommateur de `makeUkemiPool` (`scripts/census/u4-*.mjs`) quand un revert payant nu rencontre un témoin keyless nu.
+  Surface journal : l'hex validée ne va plus dans `rpc_errors` ⇒ le résidu (3) de l'amendement 2b (supra :302-305) est
+  **fermé pour le journal** (il demeure en mémoire, pour `revertKey`).
+  **AMENDE supra :299-301 et :366-368** (`isRpcRevert` inchangé — faux pour un payant nu — mais `quorum2` TIENT ce revert, ni banc ni refroidissement, et ne le concorde qu'au témoin keyless nu ; « jamais un faux accord » borné par R-1) ; **SUPERSÈDE supra :522-529** (« Régime payant (déclaré) … il rend `NoQuorumError` … assertion nommée … `emode_raw["8"] ==
+  NoQuorumError` … à rebasculer si l'issue R-A change ») : l'issue R-A change ici ⇒ jambe payante forcée + revert sans raison
+  (`"0x"` sur tous les hôtes) ⇒ **`ConcordantRevertError`** (= le chemin nominal keyless), JAMAIS `QuorumDisagreementError` ;
+  l'assertion de `u4_oracle_path_paid_leg_is_metered_in_its_own_ledger` est rebasculée en conséquence (diff annoté au rendu G1,
+  D-4). La phrase « en aval une entrée `emode_raw` en erreur est sautée par le réducteur » reste vraie pour les autres issues.
+
+- **Résidus nommés (déclencheurs).** **R-1** (couvre les DEUX unités, G2 C-1) : une `.data` REJETÉE (payante OU keyless) par `validateRevertData` (non-chaîne, non-hex,
+  > 4096, hex d'une cible secrète) est indistinguable d'une `.data` ABSENTE (`RpcError.data === undefined` dans les deux cas) ⇒ un
+  tel revert est classé nu et peut s'apparier à un témoin keyless nu. Borné : le témoin doit être nu LUI-MÊME (message exact,
+  sans data VALIDÉE — une `data` rejetée est indiscernable d'une `data` absente, des deux côtés) ; l'issue n'est qu'un `ConcordantRevertError`, toléré sur `description()` seul (`""`), ailleurs le livre s'abstient ;
+  indiscernable à l'indicateur (`"absent"` couvre absent ET rejeté, comme le dit le code lui-même, `record.ts:48-51`). Item formé **REVERT-DATA-REJECTED-1** (propriétaire : orchestrateur ; déclencheur : le
+  prochain lot autorisé à modifier `packages/rpc-guard/src/transport.ts` / `errors.ts`, hors périmètre fermé de ce lot) :
+  marquer `data` rejetée À LA SOURCE et ne jamais tenir un revert payant dont la `data` a été rejetée, et ne jamais accepter comme témoin nu un revert keyless dont la `data` a été rejetée (G2 C-1). Caractérisation
+  épinglée (non une propriété vérifiée) : `ukemi_revert_r1_characterization_rejected_paid_data_pairs_as_bare`
+  (`apps/sentinel/test/ukemi-revert.test.ts`) — `data` payante = hex de la clé factice (rejetée) + témoin keyless nu ⇒
+  `ConcordantRevertError` AUJOURD'HUI ; le correctif de l'item DOIT retourner cette assertion (bascule pré-déclarée). **R-2** : la sonde a
+  mesuré UNE lecture (source GHO) ; les autres sources du livre complet ne sont pas mesurées — couvert par la falsification D-n
+  ci-dessous (un revert payant avec `data` ≠ absent/`"0x"` retombe sur le chemin `isRpcRevert` antérieur, fail-closed).
+  **R-3** : un témoin keyless « raison sans data » face à un payant nu ⇒ `NoQuorumError` (fail-closed, le diag le nomme) ;
+  déclencheur : son observation en course ⇒ consultation formée.
+
+- **`error_origin` (proposé ; assigné au G7)** : **test manquant** — la composition « jambe payante + lecture à revert toléré »
+  n'avait jamais été rejouée par un test d'intégration non-LLM (règle Branchement 2026-09-19 ; les tests de concordance de
+  revert étaient keyless) ; origine secondaire : **spec R-A muette** sur sa conséquence pour la seule lecture à revert toléré.
+  Pas un défaut du motif D6 (toujours valide) ni du plan 140. (`docs/CHANTIERS.md:1081` proposait « plan » ; à trancher au G7.)
+
+- **Preuves (rendu G1)** : 16 tests neufs (dont 1 caractérisation déclarative R-1) ; 16/16 mutants propres tués par leur test
+  NOMMÉ (TAP `not ok … - <nom>`, restauration byte-exacte vérifiée) ; oracle 7 portes × exit 0, 1 074/1 072/0/2 (= 1 058 + 16 ;
+  attendu au G7 : N + 16, N = compte de l'arbre principal avant la fusion) ; R-25 657 ; A-6 : 9 gelés + prereg `1971d9b1…` +
+  `book.ts`/`resume.ts`/`ukemi-guard-record.test.ts`/`transport.ts`/`errors.ts` byte-identiques ; fusion à blanc contre
+  `lot/garde-fsync-1` @ `9ea2e8b` : 0 conflit du lot (les 2 conflits connus etude-suite × GARDE sont hors lot) ; oracle de
+  l'arbre fusionné vert hors un rouge de contention (test 42, vert rejoué seul).
+
+---
+
+> **Corrections du checkpoint-2 (C-1, C-3, C-4 ; `docs/CHECKPOINT2-lot-ukemi-revert-1.md`), appliquées à l'insertion G7 (2026-09-23).** C-1 — consommateurs de `makeUkemiPool`/`quorum2` : `apps/bell/src/ethereum.ts:97` s'ajoute à la liste ; NON affecté par construction — la jambe ETH de Bell est keyless seule (`ethereum.ts:62-64`, `collect.ts:655-660`) et la branche « tenu en attente » exige `unit ≠ keyless`. C-3 — résidu R-3 (témoin gratuit « raison sans data » face à un payant nu ⇒ `NoQuorumError`) devient l'item **REVERT-REASON-WITNESS-1** (propriétaire orchestrateur ; déclencheur : première occurrence en course, lue dans `rpc_errors[].data` = `absent` avec message porteur d'une raison, ou prochain lot touchant `quorum2`). C-4 — `error_origin` UNIQUE au journal de provenance : **test manquant** (la composition « jambe payante × lecture à revert toléré » n'avait aucun test d'intégration non-LLM) ; origine secondaire : spec R-A muette sur ce cas ; la proposition « plan » de l'entrée CHANTIERS 10:55 UTC est SUPERSÉDÉE. Chaîne : G1 `ca9fa55` (+ rendu corrigé `c8d45e7`) → G2 PASS-AVEC-CORRECTIONS (C-1..C-4 appliquées au texte ci-dessus) (`docs/G2-lot-ukemi-revert-1.md`) ‖ cp-2 ACCEPTE-AVEC-CORRECTIONS → G7 fusion `c74b53f`, oracle `7 × exit 0, 1 074/1 073/0/1 (= 1 058 + 16), 13:05:53Z→13:09:48Z` (attendu N + 16), R-25 657 ; items G7 : TEST-NAME-HELD-1 (O-9 : renommer `paid_revert_with_empty_0x_data_is_benched`, déclencheur : prochain lot touchant `ukemi-revert.test.ts`), REVERT-WITNESS-CHAR-1 (test de caractérisation côté témoin keyless à `data` rejetée, même déclencheur) ; déviation datée : pas de checkpoint-1 (chemin critique, décision 143, avis advisor canal 2).

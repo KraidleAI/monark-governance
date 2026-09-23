@@ -2360,3 +2360,22 @@ Paire du contrôle C-12 (C12-PIN) : copie RUNBOOK (exécutée par l'orchestrateu
 | DEV-CP1 (pas de checkpoint-1) | `:44` | §4 | n-a (décisions 140/143) | déclarée |
 
 *(ADR-U4b n'est pas dans le gel du prereg §2 ; les docs sont exclus du décompte R-25 — `ci.yml:65`. Ajout pur : aucune valeur de référence existante n'est éditée. Les lignes d'items d'ADR-U4b suivantes (numéros à `0383e5b`, inchangés à `8ed6226`) sont CLOSES par ce texte, qui les cite, et ne sont pas éditées en place : CARTO-T1C-5 (`:990`, `:1444`), C-V4b-3 (`:1442`, pour l'enfant ordinaire ; la forme `..x` passe à GUARD-DOTDOT-1), C12-PIN (`:1446`), I-V-1 (`:1750`) et O-D (`:1751`) ; I-5 (`:1451`) est DATÉ par le §6. Le worker ne committe pas (R-20) ; l'orchestrateur folde et committe au G7.)*
+
+## (B) Note datée 2026-09-23 à ADR-U4b (lot UKEMI-REVERT-1)
+
+- **Gel D4 intact (A-6)** : `record.ts` et `rpc2.ts` sont HORS gel (supra :133-135, :1839) ; les 9 sha LF du prereg §2
+  (`docs/PLAN-u4b-prereg.md:116-124`) et le prereg `1971d9b1…` sont byte-identiques avant/après ; `book.ts` (PIN `034fbff9…`)
+  et `resume.ts` intouchés. `ukemi_sha` change (hors `book_digest`) ; le cache `--resume` du temps 1 reste valide (la méta est
+  ignorée à la relecture, `resume.ts:92`).
+- **Annotations de ligne** : `record.ts:N` dérive de +0 (N ≤ 41), `:42-43` modifiées en place (type `RpcErrorRecord`), +11
+  (44-353), `:354-355` commentaire, +12 (N ≥ 356) — p. ex. `:318` → `:329`, `:400-416` → `:412-428`, `:456-483` → `:468-495`,
+  `:558-562` → `:570-574`. `rpc2.ts` : `:43-45` inchangé ; `quorum2` `:181` → `:192`, le banc `:196` → `:216`.
+- **Tuyaux / tests** : cf. (A). La ligne §5a du prereg est inchangée dans son contenu.
+- **D-n à consigner au lancement du temps 2 corrigé (Sidecar 3)** : « D-n (UKEMI-REVERT-1, essai n+1, temps 2 payant post-lot) :
+  `description()` GHO ⇒ `ConcordantRevertError` drpc(nu) + chainstack(nu), 0 discordance sur ces lectures, cap RU inchangé ;
+  falsifié si la `data` chainstack ≠ `"0x"`/absente (indicateur `rpc_errors[].data` de la provenance ou du diag) ; l'indicateur `"absent"` couvre aussi une `data` rejetée (R-1) : la D-n ne falsifie que sur une `data` validée. »
+- **Relance** : `record-t2.sh` inchangé SAUF sa garde de blob (une garde par fichier porteur du correctif, valeurs à
+  re-mesurer sur le commit de fusion G7) ; `--resume` sur le cache du temps 1 (lectures réussies en cache ; les reverts, jamais
+  cachés, coûtent 1 keyless + 2 RU par lecture).
+- **PROV-MODEL-1** (item existant, supra :1857 ; report du déclencheur supra :2085) : NON déclenché par ce lot — son déclencheur est « le prochain lot recorder
+  APRÈS le temps 2 » ; ce lot le précède (course en cours) ; `model: "claude-opus-4-8[1m]"` inchangé dans `record.ts`.
