@@ -17,6 +17,7 @@ import assert from "node:assert/strict";
 import { readdirSync, statSync, readFileSync } from "node:fs";
 import { join, extname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createPublicKey, generateKeyPairSync } from "node:crypto";
 
 const REPO = fileURLToPath(new URL("../", import.meta.url));
 /** This detector file carries FAKE secret-shaped samples for its own non-vacuity check; it is the one
@@ -61,6 +62,14 @@ const SECRET_PATTERNS: ReadonlyArray<{ re: RegExp; name: string }> = [
   // required. `{20,}` after `db-` clears the real key (29 chars) but leaves the doc prose "prefix db-" green (no
   // 20-char alphanum run follows). `DATABENTO_API_KEY=<value>` inline is already covered by the *_API_KEY= shape.
   { re: /\bdb-[A-Za-z0-9]{20,}\b/, name: "Databento API key (db- prefix)" },
+  // ADR-T1b-backend D9 / backlog S-10 (T-1b PR-3): the Bell Ed25519 signing key in the two non-PEM forms Node exports. (1) A JWK
+  // private member "d" with a base64url value (43 chars for Ed25519): a PUBLIC JWK has no "d" and stays green. (2) A bare base64
+  // PKCS#8 DER: its fixed 16-byte Ed25519 prefix always encodes to the same 21 characters (built from the hex here, so this
+  // detector never carries the literal). The RFC 8032 KAT builds its key IN MEMORY (`d: b64(<hex>)`, no literal) and stays green
+  // with NO exception in this guard. Declared residual (B-3): a bare 32-byte seed in hex or base64url with no JWK/DER context is
+  // indistinguishable from a digest and is not matched.
+  { re: /"d"\s*:\s*"[A-Za-z0-9_-]{40,}"/, name: "JWK private member d (base64url)" },
+  { re: new RegExp(Buffer.from("302e020100300506032b657004220420", "hex").toString("base64").slice(0, 21)), name: "Ed25519 PKCS#8 DER (bare base64)" },
 ];
 
 interface Hit { file: string; pattern: string; line: number }
@@ -119,6 +128,14 @@ test("no_secret_in_repo", () => {
   assert.equal(fires("const k = process.env.HELIUS_API_KEY ?? \"\";"), false, "process.env.*_API_KEY access is not a secret");
   assert.equal(fires("second provider chainstack.com (archive from block 0)"), false, "a bare host mention is not a secret");
   assert.equal(fires("the POLYGON_API_KEY key (32 chars, never printed)"), false, "a prose key-name mention is not a secret");
+  // T-1b S-10: a private Ed25519 key GENERATED HERE (never committed) reddens as a JWK and as a bare PKCS#8 DER; its public JWK and
+  // the KAT's in-memory construction stay green. Mutant: the JWK entry (or the DER entry) removed => red.
+  const k = generateKeyPairSync("ed25519").privateKey;
+  assert.ok(fires(JSON.stringify(k.export({ format: "jwk" }))), "detects a private JWK (member d)");
+  assert.ok(fires(k.export({ format: "der", type: "pkcs8" }).toString("base64")), "detects a bare base64 Ed25519 PKCS#8 DER");
+  assert.equal(fires(JSON.stringify(createPublicKey(k).export({ format: "jwk" }))), false, "a public JWK (no d) is not a secret");
+  assert.equal(fires("const priv = createPrivateKey({ key: { kty: \"OKP\", crv: \"Ed25519\", d: b64(RFC8032_TEST1.secretKeyHex), x: b64(RFC8032_TEST1.publicKeyHex) }, format: \"jwk\" });"),
+    false, "the RFC 8032 KAT's in-memory key construction is not a secret (no exception needed)");
 
   const hits: Hit[] = [];
   const scanned = walk(REPO, "", hits);

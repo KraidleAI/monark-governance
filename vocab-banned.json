@@ -153,9 +153,9 @@
       "exemptPhrases": ["attest, gate, cascade, calibrate"]
     },
     "bell": {
-      "$comment": "(ADR-B0 D5): the off-tool Bell collector is scanned for the opposable interdicts of D1 — price band, 'verified' naked, 'guarantee', 'partner/partnership'. apps/bell/src by directory walk (.ts), SOURCE ONLY (not test/): the bell tests name these tokens as negative-control vocab mutants, so scanning test/ would red on the fixtures themselves. GLOBAL patterns also apply. 'verified' is negation-aware so the honest 'signed is not verified' (origin != truth, ADR-B0 D8/M017) stays green; the technical word 'verify'/'verification'/'confirmed' is never banned. Load-bearing wiring proof: apps/bell/test/bell.test.ts (bell_vocab_scope_reddens). Adding a pattern = an ADR line.",
-      "dirs": ["apps/bell/src"],
-      "extensions": [".ts"],
+      "$comment": "(ADR-B0 D5): the off-tool Bell collector is scanned for the opposable interdicts of D1 — price band, 'verified' naked, 'guarantee', 'partner/partnership'. apps/bell/src by directory walk (.ts), SOURCE ONLY (not test/): the bell tests name these tokens as negative-control vocab mutants, so scanning test/ would red on the fixtures themselves. GLOBAL patterns also apply. 'verified' is negation-aware so the honest 'signed is not verified' (origin != truth, ADR-B0 D8/M017) stays green; the technical word 'verify'/'verification'/'confirmed' is never banned. Load-bearing wiring proof: apps/bell/test/bell.test.ts (bell_vocab_scope_reddens). Adding a pattern = an ADR line. Extended by ADR-T1b-backend D13.7 (T-1b PR-3): apps/bell/scripts by the same walk, .mjs added (the publisher, chain and verifier scripts run by plain node and write the served files); the .d.mts sidecars carry no served text. Non-inert proof: apps/bell/test/bell.test.ts (bell_vocab_scope_covers_scripts).",
+      "dirs": ["apps/bell/src", "apps/bell/scripts"],
+      "extensions": [".ts", ".mjs"],
       "banned": [
         { "re": "(?<!not )(?<!no )\\bverified\\b", "why": "\"verified\" naked — Bell attests ORIGIN (signed), never that a fact is verified/true (ADR-B0 D1/D8, M017); 'not verified'/'no verified' stay green" },
         { "re": "\\bguarantee", "why": "\"guarantee(d/s)\" — no guarantee on the Bell surface; the honest word is 'bound' (ADR-B0 D1)" },
