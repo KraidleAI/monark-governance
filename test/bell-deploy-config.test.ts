@@ -124,39 +124,59 @@ test("bell_caddyfile_serves_public_dir_only_no_browse_cors", async () => {
   });
 });
 
-const KEY_PATH = (SERVICE.LoadCredential ?? "").slice("bell-signing-key:".length);
-/** Every place `text` names the key path, as the command text between the last shell separator and the path. A prose mention in
- *  inline code (the path alone between two backticks) is not a use and is masked first. */
+const KEY_PATH = (SERVICE.LoadCredential ?? "").slice("bell-signing-key:".length), NEW_KEY_PATH = "/etc/monark/bell/signing-key-new.pem";
+const rx = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** RUNBOOK-KEY-GLOB-1: ANY path under the key directory (the unit's key, the rotation's new key, a glob `*.pem`, any other file). */
+const KEY_DIR_PATH = /\/etc\/monark\/bell\/[^\s'"`;|&(){}<>]*/g;
+/** C-D-1: the CLOSED list of prose mentions that are not uses (the key's location, ruling D-1 (A)), each a whole phrase matched
+ *  across line wraps and present exactly once; only its path is masked. Any other mention, in prose or in code, is a use. */
+const PROSE_KEY_MENTIONS = [`root:root 0600, at \`${KEY_PATH}\` (ruling D-1 (A)`];
+const phrase = (p: string): RegExp => new RegExp(`\\b${p.split(" ").map(rx).join("\\s+")}`, "g");
+const SEP = ["&&", "||", ";", "|", "'", "`", "(", ")", "{", "}", ">"];
+/** Every place `text` names a path under the key directory, as the whole shell segment around it (from the last separator before
+ *  the path to the first one after it): the verb before AND the operands after are checked (`mv <new key> /tmp/k` is red). */
 function keyUses(text: string): string[] {
   const out: string[] = [];
-  for (const line of text.split("`" + KEY_PATH + "`").join("`<key path>`").split("\n")) {
-    for (let i = line.indexOf(KEY_PATH); i >= 0; i = line.indexOf(KEY_PATH, i + 1)) {
-      const before = line.slice(0, i);
-      const cut = Math.max(0, ...["&&", "||", ";", "|", "'", "`", "(", "{"].map((s) => { const j = before.lastIndexOf(s); return j < 0 ? 0 : j + s.length; }));
-      out.push(before.slice(cut).trim());
+  const masked = PROSE_KEY_MENTIONS.reduce((t, p) => t.replace(phrase(p), (m) => m.replace(KEY_PATH, "<key path>")), text);
+  for (const line of masked.split("\n")) {
+    for (const m of line.matchAll(KEY_DIR_PATH)) {
+      const before = line.slice(0, m.index), after = line.slice(m.index + m[0].length);
+      const cut = Math.max(0, ...SEP.map((s) => { const j = before.lastIndexOf(s); return j < 0 ? 0 : j + s.length; }));
+      const end = Math.min(after.length, ...SEP.map((s) => { const j = after.indexOf(s); return j < 0 ? after.length : j; }));
+      out.push((before.slice(cut) + m[0] + after.slice(0, end)).trim());
     }
   }
   return out;
 }
-/** The only uses allowed to name the key path: generate it, stat it, test it, shred it, hand it to systemd as a credential source
- *  (read by PID 1, never displayed), or move the NEW key onto it (rotation R4). Nothing that reads, prints or copies its bytes. */
-const ALLOWED_KEY_USES = [/^(?:umask 077 && )?node \S*\/bell-publish\.mjs --generate-key$/, /^stat -c "[^"]*"$/, /^shred -u$/, /^test -[fs]$/,
-  /^systemd-run [^|;&]* -p LoadCredential=bell-signing-key:$/, /^mv \/etc\/monark\/bell\/signing-key-new\.pem$/];
+/** The SIX uses allowed to name a key path (D-P2), each bound to the unit's key K or the rotation's new key N: generate it, stat it,
+ *  test it, shred it, hand K (and N) to systemd as credential sources of the publisher's rotation (read by PID 1, never displayed),
+ *  move N onto K (R4). Nothing that reads, prints or copies the bytes of a key. */
+const K = rx(KEY_PATH), N = rx(NEW_KEY_PATH), KN = `(?:${K}|${N})`;
+const ALLOWED_KEY_USES = [new RegExp(`^node \\S*/bell-publish\\.mjs --generate-key ${KN}$`), new RegExp(`^stat -c "[^"]*" ${KN}$`),
+  new RegExp(`^test -[fs] ${KN}$`), new RegExp(`^shred -u ${KN}(?: /root/bell-pubkey\\.out)?$`), new RegExp(`^mv ${N}(?: ${K})?$`),
+  new RegExp(`^systemd-run [^|;&'\`]* -p LoadCredential=bell-signing-key:${K}(?: -p LoadCredential=bell-signing-key-new:${N})? /usr/bin/env node \\S*/bell-publish\\.mjs --rotate --state /var/lib/monark-bell$`)];
 const fenced = (text: string): string => text.split("```").filter((_, i) => i % 2 === 1).join("\n");
+/** The RUNBOOK's two PROHIBITION passages, the only places allowed to NAME a forbidden form: the Conventions sentence (to its full
+ *  stop) and the "## Never" section (to the next `#`: fail-closed). The hygiene patterns cover all the rest, prose and inline code. */
+const PROHIBITIONS = [/\*\*The private key is never displayed, copied or hashed:\*\*[^.]*\./g, /\n## Never\n[^#]*/g];
 
 // S-11 hygiene (not a branching proof). Mutant: a step `cat /etc/monark/bell/signing-key.pem` (or any read of the key bytes) => red.
 test("bell_runbook_never_prints_private_key", () => {
   const text = read(RUNBOOK), uses = keyUses(text);
   assert.equal(KEY_PATH, "/etc/monark/bell/signing-key.pem", "the key path is the unit's LoadCredential source");
-  assert.ok(uses.some((u) => u.endsWith("--generate-key")) && uses.some((u) => u.startsWith("stat ")), `the RUNBOOK names the key where it must (${String(uses.length)} uses)`);
-  for (const u of uses) assert.ok(ALLOWED_KEY_USES.some((re) => re.test(u)), `the key path is only generated, stat-ed, tested or shredded; found: '${u}'`);
-  for (const bad of [`cat ${KEY_PATH}`, `ssh h 'head -c 99 ${KEY_PATH}'`, `sha256sum ${KEY_PATH}`, `xxd < ${KEY_PATH}`, `mv ${KEY_PATH} /tmp/k`, `cp ${KEY_PATH} /tmp/k`]) {
+  for (const p of PROSE_KEY_MENTIONS) assert.equal(text.match(phrase(p))?.length, 1, `the prose exemption is live and unique: ${p}`);
+  assert.ok(uses.some((u) => u.endsWith(`--generate-key ${KEY_PATH}`)) && uses.some((u) => u.startsWith("stat ")), `the RUNBOOK names the key where it must (${String(uses.length)} uses)`);
+  for (const u of uses) assert.ok(ALLOWED_KEY_USES.some((re) => re.test(u)), `a key path is only in one of the six allowed uses; found: '${u}'`);
+  for (const bad of [`cat ${KEY_PATH}`, `ssh h 'head -c 99 ${KEY_PATH}'`, `sha256sum ${KEY_PATH}`, `xxd < ${KEY_PATH}`, `mv ${KEY_PATH} /tmp/k`, `cp ${KEY_PATH} /tmp/k`,
+    `Record sha256sum \`${KEY_PATH}\` in the JOURNAL.`, "cat /etc/monark/bell/*.pem", `base64 ${NEW_KEY_PATH}`, `openssl pkey -in ${NEW_KEY_PATH}`,
+    `mv ${NEW_KEY_PATH} /tmp/k`, `systemd-run --pipe -p LoadCredential=bell-signing-key:${KEY_PATH} sh -c x`]) {
     assert.ok(keyUses(bad).some((u) => !ALLOWED_KEY_USES.some((re) => re.test(u))), `the checker reddens on: ${bad}`);
   }
-  const code = fenced(text);
-  assert.ok(code.length > 1000, "the RUNBOOK carries its commands in fenced blocks");
+  assert.ok(fenced(text).length > 1000, "the RUNBOOK carries its commands in fenced blocks");
+  let rest = text;
+  for (const re of PROHIBITIONS) { assert.equal(rest.match(re)?.length, 1, `one prohibition passage ${String(re)}`); rest = rest.replace(re, ""); }
   for (const re of [/\bset\s+-[a-zA-Z]*x/, /\b(?:ba)?sh\s+-[a-zA-Z]*x\b/, /\bprintenv\b/, /CREDENTIALS_DIRECTORY/, /\/run\/credentials\//]) {
-    assert.equal(re.test(code), false, `no ${String(re)} in a RUNBOOK command`);
+    assert.equal(re.test(rest), false, `no ${String(re)} in the RUNBOOK outside its prohibition passages (fenced, inline or prose)`);
   }
 });
 

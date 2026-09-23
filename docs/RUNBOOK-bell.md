@@ -30,7 +30,8 @@ missing at 23:00Z, the host goes online serving 404s and the publication waits (
 continuation) and carry no shell state between steps: the G7 SHA is read from `/f/tmp/bell-dn/G7.txt` in every command that
 needs it. Local scratch = `/f/tmp/bell-dn/` (outside the repo). **The private key is never displayed, copied or hashed:** no
 `cat`/`head`/`less`/`xxd`/`base64`/`openssl` on it, no `set -x`, no environment dump (consigne A-7); the only commands that name
-its path are `--generate-key`, `stat`, `test` and `shred` (pinned by `bell_runbook_never_prints_private_key`).
+its path, or the rotation's new key, are six: `--generate-key`, `stat`, `test`, `shred`, `systemd-run … -p LoadCredential=`
+(a credential source, read by PID 1) and the `mv` of the new key onto the unit's path (pinned by `bell_runbook_never_prints_private_key`).
 
 **Who can detect a rewrite (ADR D6, CP1 point iii).** A signed, chained timeline makes a later rewrite of a served line
 **detectable by whoever kept an earlier copy**: the operator mirror, whose sha256 is written to the JOURNAL after each publication
@@ -41,7 +42,7 @@ never kept a copy; nothing here claims more.
 
 ## 0. Gates and their pieces (C-8) — all precede step 9
 
-| Gate | Condition | Piece (cited by the D-n JOURNAL) | State at writing (base `9cbf60e`) | Needed before |
+| Gate | Condition | Piece (cited by the D-n JOURNAL) | State at writing (base `9a5bddb`) | Needed before |
 |---|---|---|---|---|
 | **G-a** | G7 of PR-1, PR-2, PR-3 | the three G7 documents + the merge SHA written to `/f/tmp/bell-dn/G7.txt` | open (this lot) | step 2 |
 | **G-b** | PR-B-DBN n° 8: EQUS.SUMMARY licence + FAQ "after 24 hours" read on site | `docs/course-bell/FAITS-databento-licence-24h-2026-09-23.md` (commit `9a5bddb`: historical T+1 without licence, offset 16:00 ET + 24 h confirmed) | **closed** (`9a5bddb`, 2026-09-23 18:1x UTC) | step 9 |
