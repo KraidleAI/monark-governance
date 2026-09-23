@@ -316,7 +316,7 @@ export const PRODUCTS: FleetProduct[] = [
     key: "bell",
     segment: "<<bell_segment>>",
     name: "MONARK Bell",
-    fn: "Keep a public, signed record of how tokens that track U.S. equities trade on a public ledger while U.S. markets are closed: a gap per session when its closing price can be read, a named abstention when it cannot, an anchored digest.",
+    fn: "Keep a public, signed record of how tokenized U.S. equities trade on a public ledger while U.S. markets are closed: a gap per session when its closing price can be read, a named abstention when it cannot, an anchored digest.",
     wiring: {
       sensor: "the collector's session reads of on-chain fills, each read on two operators",
       gate: "the publisher's closed checks: read quorum, earliest publication time, no closing price carried",

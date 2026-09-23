@@ -188,7 +188,7 @@ export default function HomePage() {
             <Link className="c-card" href="/bell" aria-label="MONARK Bell">
               <BellLockup className="c-logo" />
               <p className="c-muted">
-                A public, signed record of how tokens that track U.S. equities trade on a public ledger while U.S. markets are
+                A public, signed record of how tokenized U.S. equities trade on a public ledger while U.S. markets are
                 closed: a gap per session when its closing price can be read, a named abstention when it cannot, an anchored digest.
               </p>
               <div className="c-foot">
