@@ -1,6 +1,6 @@
 # Re-G2-delta — pli 3 du lot GARDE-FSYNC-1 (relecteur Opus 5.5, contexte frais)
 
-Persisté par l'orchestrateur le 2026-09-23 depuis `F:	mp\g2-gfsync1-3\G2-3.md` (sha256 c5c32380cde95871f7d3ebf1cf729f303a6e3c220ddb5399055a0d47657aa5cb). Verdict : PASS-AVEC-CORRECTIONS (C-G2c-1 forme (A'') → pli 4 ; C-G2c-2 → texte ADR ; C-G2c-3 → RUNBOOK pli 4).
+Persisté par l'orchestrateur le 2026-09-23 depuis `F:\tmp\g2-gfsync1-3\G2-3.md` (sha256 c5c32380cde95871f7d3ebf1cf729f303a6e3c220ddb5399055a0d47657aa5cb). Verdict : PASS-AVEC-CORRECTIONS (C-G2c-1 forme (A'') → pli 4 ; C-G2c-2 → texte ADR ; C-G2c-3 → RUNBOOK pli 4).
 
 ---
 

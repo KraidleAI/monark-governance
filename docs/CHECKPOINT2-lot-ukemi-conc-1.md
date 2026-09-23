@@ -1,6 +1,6 @@
 # Checkpoint-2 — lot UKEMI-CONC-1 (validateur-humain, Fable 5.1)
 
-Persisté par l'orchestrateur le 2026-09-23 depuis `F:	mp\cp2-ukemiconc\CP2.md` (sha256 38e7616388a640ed8c3e9e3abdf4afd1a05ee1937e2731496fdf16e8053a34db). Décision : ACCEPTE-AVEC-CORRECTIONS C-V-1..C-V-3 (conditionnée au G2). Lot committé sur `lot/ukemi-conc-1` @ `dec704d` après cet avis (mêmes octets, DELIVERED 6/6).
+Persisté par l'orchestrateur le 2026-09-23 depuis `F:\tmp\cp2-ukemiconc\CP2.md` (sha256 38e7616388a640ed8c3e9e3abdf4afd1a05ee1937e2731496fdf16e8053a34db). Décision : ACCEPTE-AVEC-CORRECTIONS C-V-1..C-V-3 (conditionnée au G2). Lot committé sur `lot/ukemi-conc-1` @ `dec704d` après cet avis (mêmes octets, DELIVERED 6/6).
 
 ---
 

@@ -1,6 +1,6 @@
 # Checkpoint-2 — lot UKEMI-RETRY-2/3 + HEARTBEAT-1 (validateur-humain, Fable 5.1)
 
-Persisté au G7 du 2026-09-23 depuis `F:	mp\cp2-ukemiretry\CP2.md` (sha256 08212ee34296bb82f50ae3d37f97b48e2c554237ef359fcc0cc8590d621a890a). Décision : ACCEPTE-AVEC-CORRECTIONS C-1..C-4.
+Persisté au G7 du 2026-09-23 depuis `F:\tmp\cp2-ukemiretry\CP2.md` (sha256 08212ee34296bb82f50ae3d37f97b48e2c554237ef359fcc0cc8590d621a890a). Décision : ACCEPTE-AVEC-CORRECTIONS C-1..C-4.
 
 ---
 

@@ -1,6 +1,6 @@
 # Re-checkpoint-2 — pli 3 du lot GARDE-FSYNC-1 (validateur-humain, Fable 5.1)
 
-Persisté par l'orchestrateur le 2026-09-23 depuis `F:	mp\cp2-gfsync1-3\CP2-3.md` (sha256 a9c2134bd01701aa4bad745d0451dd5f21b1ea6aeba7773bd765868c026c3e59). Décision : ACCEPTE-AVEC-CORRECTIONS (C-V-1 maintenue, C-V3-1..3, C-V-5 révisée), sous réserve du re-G2-delta.
+Persisté par l'orchestrateur le 2026-09-23 depuis `F:\tmp\cp2-gfsync1-3\CP2-3.md` (sha256 a9c2134bd01701aa4bad745d0451dd5f21b1ea6aeba7773bd765868c026c3e59). Décision : ACCEPTE-AVEC-CORRECTIONS (C-V-1 maintenue, C-V3-1..3, C-V-5 révisée), sous réserve du re-G2-delta.
 
 ---
 

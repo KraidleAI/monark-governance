@@ -1,6 +1,6 @@
 # Re-G2 — pli 2 du lot GARDE-FSYNC-1 (relecteur Opus 5.5, contexte frais)
 
-Persisté par l'orchestrateur le 2026-09-23 depuis `F:	mp\g2-gfsync1-2\G2-2.md` (sha256 55573dcb21e3855909857286c64ed384dbb5df934e4327523371b94f2682a0f7). Verdict : PASS-AVEC-CORRECTIONS (C-G2b-1, C-G2b-2 → pli 3 `9d85fb1`).
+Persisté par l'orchestrateur le 2026-09-23 depuis `F:\tmp\g2-gfsync1-2\G2-2.md` (sha256 55573dcb21e3855909857286c64ed384dbb5df934e4327523371b94f2682a0f7). Verdict : PASS-AVEC-CORRECTIONS (C-G2b-1, C-G2b-2 → pli 3 `9d85fb1`).
 
 ---
 

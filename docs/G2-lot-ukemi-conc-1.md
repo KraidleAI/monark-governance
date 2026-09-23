@@ -1,6 +1,6 @@
 # G2 — lot UKEMI-CONC-1 (relecteur Opus 5.5, contexte frais)
 
-Persisté par l'orchestrateur le 2026-09-23 depuis `F:	mp\g2-ukemiconc\G2.md` (sha256 7e235f9d749197853185d23c3d151840be7587dccbb38836e28936da63186f7c). Verdict : PASS-AVEC-CORRECTIONS (C-G2-1 = cp-2 C-V-1/C-V-2, C-G2-1b, C-G2-2, C-G2-3 → micro-pli 1b en vol ; C-G2-4 → texte ADR à l'insertion G7).
+Persisté par l'orchestrateur le 2026-09-23 depuis `F:\tmp\g2-ukemiconc\G2.md` (sha256 7e235f9d749197853185d23c3d151840be7587dccbb38836e28936da63186f7c). Verdict : PASS-AVEC-CORRECTIONS (C-G2-1 = cp-2 C-V-1/C-V-2, C-G2-1b, C-G2-2, C-G2-3 → micro-pli 1b en vol ; C-G2-4 → texte ADR à l'insertion G7).
 
 ---
 
