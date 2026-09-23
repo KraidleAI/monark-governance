@@ -1,7 +1,7 @@
 {
   "url": "https://api.monarkgate.tech",
   "mcp_url": "https://mcp.monarkgate.tech",
-  "checked_at": "2026-09-18T07:26:01.710Z",
+  "checked_at": "2026-09-23T00:54:20.288Z",
   "checks": [
     {
       "name": "health",
@@ -14,7 +14,7 @@
       "name": "openapi",
       "ok": true,
       "status": 200,
-      "sha256": "e22f301299c3f7dbd598d47e279e64974923e68145a4a26bad0dd7c6af5f162b",
+      "sha256": "ad4371217ba87b261e682d428ea58825be5f740e9082484914c9036daa3fe2ba",
       "detail": "paths=/gate,/cascade,/attest,/calibrate"
     },
     {
@@ -35,7 +35,7 @@
       "name": "mcp_tools_list",
       "ok": true,
       "status": 200,
-      "sha256": "3d3a89f88a7fa1f20ffc4cf9c3c8275dc9971e4b2fa07396031b49b26850655b",
+      "sha256": "8d3743c74f58c33d9b1bc13ce1653f8c8e97e9a35585d8446e62357e8f295b76",
       "detail": "tools=gate,cascade,attest,calibrate"
     },
     {
@@ -46,10 +46,24 @@
       "detail": "action=commit"
     },
     {
+      "name": "gate_liq_call",
+      "ok": true,
+      "status": 200,
+      "sha256": "db85941e2845029e4c6d1c3e49636265bad1f734448fb2ac5110d0a702389dcd",
+      "detail": "status=200 reason=under_calib empty_registry_text=true"
+    },
+    {
+      "name": "mcp_gate_description_liq",
+      "ok": true,
+      "status": 200,
+      "sha256": "8d3743c74f58c33d9b1bc13ce1653f8c8e97e9a35585d8446e62357e8f295b76",
+      "detail": "status=200 empty_registry_sentence=true h3_sentence=false"
+    },
+    {
       "name": "cascade_call",
       "ok": true,
       "status": 200,
-      "sha256": "11d1e7ed8e6b8fae5b4ed2c7053ad08e1461f0014350c8b88fd61c006bc1770e",
+      "sha256": "dc4ede52dc5b35efc2b3fdb0a82638454e6dbe27545387c79941292b7fa16576",
       "detail": "yhat=100"
     },
     {
