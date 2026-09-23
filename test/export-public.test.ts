@@ -331,8 +331,12 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
   } finally {
     // win32 under load (antivirus scan of the fresh export): rmSync can EPERM transiently -> bounded retries
     // (EXPORT-TEST42-EPERM-1, 3 occurrences 2026-09-23); the assertions above are unchanged.
-    rmSync(out, { recursive: true, force: true, maxRetries: 60, retryDelay: 1000 });
-    rmSync(src, { recursive: true, force: true, maxRetries: 60, retryDelay: 1000 });
+    // Cleanup is best-effort: the assertions above are the gate; a transient win32 lock (EPERM/EBUSY, antivirus scan
+    // of the fresh export under load, measured > 60 s on 2026-09-23) must not redden it. EXPORT-TEST42-EPERM-1.
+    for (const d of [out, src]) {
+      try { rmSync(d, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 }); }
+      catch (e) { console.warn(`export-public test: cleanup left ${d} (${(e as NodeJS.ErrnoException).code ?? e})`); }
+    }
   }
 });
 
