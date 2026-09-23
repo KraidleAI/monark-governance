@@ -192,11 +192,11 @@ test("bell_runbook_ships_the_ca_tree_and_the_unit_key_path", () => {
     for (const m of read(p).matchAll(/\bfrom\s+"(\.\/[^"]+)"/g)) assert.ok(BELL_TREE_PATHS.includes(`apps/bell/scripts/${(m[1] ?? "").slice(2)}`), `${p} imports ${String(m[1])}, shipped too`);
   }
   assert.ok(text.includes(`--generate-key ${KEY_PATH} `), "the key is generated at the unit's LoadCredential path");
-  const js = /node --input-type=module -e "([^"]+)" '<x>' '<key_id>'/.exec(text)?.[1];
+  const js = /node --input-type=module -e "([^"]+)" -- '<x>' '<key_id>'/.exec(text)?.[1]; // `--` : T4-KEYRING-DASH-1 (an `x` starting with `-` is not a node option)
   assert.ok(js !== undefined, "the keyring command is in the RUNBOOK");
   const served = readFileSync(`${PUB.publicDir}/bell/pubkey.json`, "utf8"), k = (JSON.parse(served) as { keys: { key_id: string; jwk: { x: string } }[] }).keys[0];
   assert.ok(k !== undefined, "a served key");
-  const run = (id: string): { status: number | null; stdout: string } => spawnSync(process.execPath, ["--input-type=module", "-e", js, k.jwk.x, id], { cwd: REPO, encoding: "utf8" });
+  const run = (id: string): { status: number | null; stdout: string } => spawnSync(process.execPath, ["--input-type=module", "-e", js, "--", k.jwk.x, id], { cwd: REPO, encoding: "utf8" });
   const good = run(k.key_id);
   assert.equal(good.status, 0, "the RUNBOOK keyring command exits 0");
   assert.equal(good.stdout, served, "RUNBOOK keyring bytes == the publisher's served /bell/pubkey.json");
