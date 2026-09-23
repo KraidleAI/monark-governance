@@ -371,19 +371,19 @@ export default function BellPage() {
                 <tr>
                   <td>method page</td>
                   <td>session bounds, formulas, periods, residuals, the public key, the anchors and the replay code; its definitions are pinned to the collector source by a test</td>
-                  <td><span className="c-pill c-pill--upcoming">upcoming</span></td>
+                  <td><span className="c-pill c-pill--built">served</span></td>
                   <td><Link href="/bell/method">/bell/method</Link></td>
                 </tr>
                 <tr>
                   <td>anchors · manifests and proofs</td>
                   <td>one manifest and one timestamp proof per boundary of the run, the register rendered, the status read from each proof file</td>
-                  <td><span className="c-pill c-pill--upcoming">upcoming</span></td>
+                  <td><span className="c-pill c-pill--built">served</span></td>
                   <td><Link href={ANCHORS_ROUTE}>{ANCHORS_ROUTE}</Link></td>
                 </tr>
                 <tr>
                   <td>replay code</td>
-                  <td>the collector core, exported so that a third party recomputes digests offline</td>
-                  <td><span className="c-pill c-pill--upcoming">to be exported</span></td>
+                  <td>the publisher, the chain library, the verifier and the public keyring are in the public mirror (check a line yourself); the collector core, so that a third party recomputes digests offline, is not exported yet</td>
+                  <td><span className="c-pill c-pill--upcoming">partial</span></td>
                   <td><Placeholder name="url_replay" state="to be exported" /></td>
                 </tr>
                 <tr>
