@@ -88,7 +88,10 @@ Use it for a ledger written by GARDE-FSYNC-1 code. It changes NO byte when it re
    `--before`) against `Sigma credits_derived` of the `attempted` lines between the previous `reconciled` line and the
    `reconciled` line of reason `repaired_in_window`, per method (`per-method` mode) or in total (`aggregate` modes), with
    that mode's criterion (`packages/rpc-guard/src/reconcile.ts` header: hard bound, then soft band). In the rollover
-   case there is NO hand computation: that reconcile's `--after` minus `--before` spans two cycles, which never subtract
+   case there is NO hand computation: one or both of that reconcile's snapshots carry a `cycle` other than `--cycle`
+   (`reconcile.ts:73`, together or separately - measured: re-G2 E13 with a `--before` of another cycle, re-G2-delta
+   pli-4 E13e with a `--before` AND an `--after` of the same other cycle, `docs/G2-lot-garde-fsync-1-4.md`), and a
+   snapshot of another cycle never subtracts against this ledger
    (`docs/adr/ADR-GARDE-HELIUS-client-budgete-unique.md` D4, C-7); the repaired window is closed by the `reconciled` line
    of reason `rollover`, its `NO-GO rollover` stands, and the computation resumes in the current cycle. After a `repaired_in_window`
    NO-GO, the NEXT reconcile takes as `--before` the snapshot that closed the repaired window (its `--after`): re-run
@@ -152,7 +155,9 @@ The first reconcile whose window contains a recorded repair answers `NO-GO repai
 that reconcile is a rollover, checked first (`reconcile.ts:73`): it then answers `NO-GO rollover` and
 `repaired_in_window` is never written (measured: re-G2 E13). Either way, the `reconciled` line it appends closes that
 window, independently of the orchestrator, and the numeric check of the repaired window is the orchestrator's hand
-computation (§3 step 6) — none in the rollover case: its two snapshots belong to two cycles, which never subtract
+computation (§3 step 6) — none in the rollover case: one or both of its snapshots carry a `cycle` other than `--cycle`
+(`reconcile.ts:73`; measured: re-G2 E13, re-G2-delta pli-4 E13e, `docs/G2-lot-garde-fsync-1-4.md`), and a snapshot of
+another cycle never subtracts against this ledger
 (`docs/adr/ADR-GARDE-HELIUS-client-budgete-unique.md` D4, C-7); the `reconciled` line of reason `rollover` closes the
 repaired window, its `NO-GO rollover` stands, and the computation resumes in the current cycle. A repair-journal
 line that is unreadable, or that

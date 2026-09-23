@@ -219,27 +219,48 @@ process.stdout.write(String(n));`;
   //     the WHATWG URL parser, 4.4, drops or maps, and node's percent-decoding; a LF never reaches the capture); an
   //     absolute or data: specifier ("/", a drive letter, file:, data:, any case - only a relative one is normalised
   //     here); a `new URL` literal whose next token is neither ")" nor ", import.meta.url)" (resolved here against its
-  //     file); and a FILE without extension under these roots (node 24 loads it as ESM under "type": "module"). No
-  //     bare-token rule outside bin/: apps/bell/src/rebase-crosscheck.ts declares Bell's OWN DURABLE_FS (2c276bb).
-  //     A static heuristic, declared - it does NOT see (a) a module the scan does not read: outside these roots, loaded
-  //     directly or through a scanned one (re-G2 S7), or under them with another extension (import refuses an unknown
-  //     extension, require runs it as JavaScript: pli-4 W3); (b) a specifier its grammar does not read: computed (re-G2
-  //     S8; concatenation, a template substitution, path.join + pathToFileURL), cut by a raw LF (a template, a line
-  //     continuation: pli-4 W1, W2), or handed to a call it does not know (an alias of import.meta.resolve, of URL or of
-  //     createRequire - that one obtained without its token -, URL.parse, Reflect.construct(URL, ...), require.resolve:
-  //     pli-3 B1, B3, B4, re-G2-delta B6-B9); (c) the seam re-exported by src/ under any name, then reached by a
-  //     specifier that is no hit (re-cp-2 MV-14: index.ts + the bare @monark/rpc-guard - not checked here;
-  //     exports.test.ts public_export_set_is_closed pins index.ts's exports, not another src/ module's); (d) in src/, a
-  //     seam write not spelled `DURABLE_FS.<x> =` that part (1) does not run (a function it does not call, a module only
-  //     the bin loads); (e) a patch of node itself: node:fs (e.g. fsyncSync replaced + module.syncBuiltinESMExports), its
-  //     native binding (process.binding("fs").fsync - part (1) still counts 5: pli-4 W9) or the module loader (a
-  //     module.registerHooks hook: pli-4 W8); (f) a literal read and passed by the rules above whose module node resolves
-  //     otherwise than this lexical resolution: through a package.json field the scan does not read (a package.json
-  //     "imports" #name, or a directory's "main" for require: pli-4 W4, W5; a deep "exports" subpath is refused,
-  //     ERR_PACKAGE_PATH_NOT_EXPORTED, so not a vector: pli-4 W7), or through a symbolic link or junction reached by a
-  //     relative specifier (node keys a module by its realpath: pli-4 W6). Part (1) counts node:fs's JS fsyncSync
-  //     over the module graph index.ts loads (all of src/, run through openGuardedClient) and nothing else: the served
-  //     bin (unlock, repair-tail, reconcile) and the course scripts are covered ONLY by this scan.
+  //     file); a FILE without extension under these roots (node 24 loads it as ESM under "type": "module"); and a
+  //     capture whose CLOSING quote is not its opening one (rule Q, pli-5, labelled and removable: the regex closes on
+  //     the first quote of ANY kind, so an inner quote of another kind ends it short - re-G2-delta pli-4 G1, G2 the
+  //     served bin). No bare-token rule outside bin/: apps/bell/src/rebase-crosscheck.ts declares Bell's OWN DURABLE_FS
+  //     (2c276bb). A static heuristic, DECLARED by its own hypotheses, each a FINITE list (no residue by example: three
+  //     enumerations were refuted in a row - S3-S9 pli-2, H1-H17 pli-3, ten forms pli-4 - so the closure is the
+  //     hypotheses, not the cases). It does NOT see (a) a module the scan does not read: outside these roots, loaded
+  //     directly or through a scanned one (measured: re-G2 S7), or under them with an extension the file glob does not
+  //     list - import refuses an unknown extension, require runs a foreign one as JavaScript (measured: pli-4 W3); (b)
+  //     a specifier the grammar's REGEX does not capture as a bare literal (hypothesis 1 - the regex IS the whole
+  //     reading: a keyword, an optional "(", blanks, one quote, then a capture up to the first quote of ANY kind or a
+  //     LF): a value not literal at that position - computed, or a comment / parenthesis / optional "?." between the
+  //     keyword and the literal, or a literal cut by a raw LF (measured: re-G2 S8; re-G2-delta pli-4 G3-G6; W1, W2);
+  //     OR a literal handed to one of the reading calls that are BINDINGS, not syntax (hypothesis 2 - they are exactly
+  //     four: require, the CJS wrapper parameter; URL, a global; import.meta.resolve, a property; and import.meta.url,
+  //     the base the `new URL` rule accepts - whereas import(...) and `import ... from` are syntax, not rebindable),
+  //     the binding rebound or aliased or reached without its token (measured: re-G2-delta pli-4 B7-B9, G7; require.resolve,
+  //     URL.parse, Reflect.construct(URL, ...), an alias of import.meta.resolve: pli-3 B1, B3, B4, re-G2-delta B6-B9);
+  //     (c) the seam re-exported by src/ under any name, then reached by a specifier that is no hit (re-cp-2 MV-14:
+  //     index.ts + the bare @monark/rpc-guard - not checked here; exports.test.ts public_export_set_is_closed pins
+  //     index.ts's exports, not another src/ module's); (d) in src/, a seam write not spelled `DURABLE_FS.<x> =` that
+  //     part (1) does not run (a function it does not call, a module only the bin loads); (e) a patch of node itself:
+  //     node:fs (fsyncSync replaced + module.syncBuiltinESMExports), its native binding (process.binding("fs").fsync -
+  //     part (1) still counts 5: pli-4 W9), the module loader (a module.registerHooks hook: pli-4 W8), or node's
+  //     RESOLUTION ENVIRONMENT the scan cannot read - NODE_PATH / GLOBAL_FOLDERS resolve a BARE require() specifier that
+  //     is no hit (node reads them at process start, not from the source; ESM ignores NODE_PATH), likewise
+  //     --preserve-symlinks / --conditions / a preload (measured: pli-5 W10 - a bare require("ledger.ts") under the
+  //     roots resolves to the seam through NODE_PATH; the deployment's environment, NOT the repository's - item D-P5-1);
+  //     (f) a literal
+  //     READ and passed by the rules above whose module node resolves OTHERWISE than this lexical resolution, through a
+  //     resolver input beyond the text, each a finite list: (hypothesis 3) a package.json field the scan does not read -
+  //     node reads exactly "name", "main", "type", "exports" and "imports" (measured: an "imports" #name or a
+  //     directory's "main" for require - pli-4 W4, W5; a deep "exports" subpath is refused, ERR_PACKAGE_PATH_NOT_EXPORTED,
+  //     so not a vector - pli-4 W7); (hypothesis 4) the realpath step - node keys a module by the real path of the
+  //     resolved file (measured: a symbolic link or junction reached by a relative specifier - pli-4 W6, re-G2-delta
+  //     F3b; F3 under the roots is killed by an artefact, not by a rule); (hypothesis 5) the case - the
+  //     node_modules/@monark/rpc-guard/ normalisation is case-sensitive, the file system is not, so a link spelled in
+  //     another case resolves through the workspace and realpath yields the canonical module (measured: re-G2-delta
+  //     pli-4 F4, F5 the served bin). Part (1) is the BEHAVIOURAL proof for the module graph index.ts loads ONLY (all
+  //     of src/, run through openGuardedClient - a real fsyncSync count in a fresh process). It does NOT prove the
+  //     served bin (unlock, repair-tail, reconcile) or the course scripts, covered here ONLY by this scan; their
+  //     behavioural proof - a real fsync counted under node --import on the bin - is item GARDE-FSYNC-BIN-1.
   const hits: string[] = [], scanned: string[] = [], targets = new Set<string>();
   const workspaces = ["apps", "packages"].flatMap((w) => (existsSync(join(REPO, w)) ? readdirSync(join(REPO, w)).map((p) => `${w}/${p}`) : []));
   for (const root of ["scripts", ...workspaces.flatMap((p) => [`${p}/src`, `${p}/scripts`, `${p}/bin`])]) {
@@ -256,6 +277,8 @@ process.stdout.write(String(n));`;
         targets.add(target);
         if (/[\\%\t\n\r]|^[\x00-\x20]|[\x00-\x20]$/.test(spec)) hits.push(`${rel}: imports a specifier not in canonical spelling ${JSON.stringify(spec)}`);
         if (/^(?:\/|[a-z]:|file:|data:)/i.test(spec)) hits.push(`${rel}: imports an absolute or data: specifier ${JSON.stringify(spec)}`);
+        if (m[0].at(-2 - spec.length) !== m[0].at(-1)) // rule Q (pli-5, ruling C-G2d-1), removable: opening quote != closing quote
+          hits.push(`${rel}: a specifier literal cut by a quote of another kind ${JSON.stringify(m[0].slice(-2 - spec.length))} (rule Q)`);
         if (m[0].startsWith("new") && !/^\s*(?:\)|,\s*import\s*\.\s*meta\s*\.\s*url\s*\))/.test(text.slice(m.index + m[0].length)))
           hits.push(`${rel}: imports ${JSON.stringify(spec)} by new URL against a base other than import.meta.url`);
         const internal = /(?:^|\/)packages\/rpc-guard\/(src|test)\//.exec(target)?.[1];
