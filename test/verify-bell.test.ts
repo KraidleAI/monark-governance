@@ -107,6 +107,8 @@ test("verify_bell_ca_checks_named_and_fail_closed", async () => {
   cases.push({ target: "c05_bell_verify_keyring_root", why: "exit 0 but self_consistent_only", run: onCaddy(CADDY_TEXT, { verifier: STUB_SELF }) });
   cases.push({ target: "c06_acao_star", run: onCaddy(CADDY_TEXT.replace(/^\theader Access-Control-Allow-Origin.*\n/m, "")) });
   cases.push({ target: "c07_no_directory_listing", run: onCaddy(CADDY_TEXT.replace(/^\tfile_server$/m, "\tfile_server browse")) });
+  cases.push({ target: "c07_no_directory_listing", why: "redir removed: / is a 404", run: onCaddy(CADDY_TEXT.replace(/^\tredir .*\n/m, "")) });
+  cases.push({ target: "c07_no_directory_listing", why: "/ redirected elsewhere", run: onCaddy(CADDY_TEXT.replace("https://monarkgate.tech/bell 302", "https://example.com/bell 302")) });
   cases.push({ target: "c08_cache_immutable_states_no_cache_current", run: onCaddy(CADDY_TEXT.replace("public, max-age=31536000, immutable", "no-cache")) });
   cases.push({ target: "c08_cache_immutable_states_no_cache_current", why: "immutable on the current files",
     run: onCaddy(CADDY_TEXT.replace('Cache-Control "no-cache"', 'Cache-Control "no-cache, immutable"')) });

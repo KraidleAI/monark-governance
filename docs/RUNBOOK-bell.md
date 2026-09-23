@@ -199,14 +199,35 @@ IMPORT mode (only if the recorded file serves another site): the dedicated file 
 `caddy validate --config /etc/caddy/Caddyfile` and `systemctl reload caddy`. CA check 11 (b) accepts exactly one `import` line
 targeting that file. Rollback: restore the backup, remove the dedicated file, validate, reload.
 
+**REPLACE replay after a Caddyfile change** (decision 155, lot BELL-HOST-ROOT-1: `/` answers 302 to `https://monarkgate.tech/bell`).
+The file in place is the previous G7 blob (no other site on this host) => REPLACE again. First move `G7.txt` to the new G7
+(every command and CA check 11 read it), keeping the previous one; the tree and the unit are NOT re-shipped, so they must be
+byte-identical at both G7s (measured for this lot: `git diff --stat 496a5a8 d7c60a2` on the two tree files, the unit and the
+Caddyfile is empty; of these four installed files, the lot changes only the Caddyfile):
+
+```bash
+cp /f/tmp/bell-dn/G7.txt /f/tmp/bell-dn/G7-1.txt && git -C /f/Monark rev-parse --verify '<G7 merge commit of the lot>^{commit}' > /f/tmp/bell-dn/G7.txt && git -C /f/Monark diff --quiet "$(cat /f/tmp/bell-dn/G7-1.txt)" "$(cat /f/tmp/bell-dn/G7.txt)" -- apps/bell/scripts/bell-chain.mjs apps/bell/scripts/bell-publish.mjs deploy/monark-bell-publish.service; echo same_tree_and_unit=$?; cat /f/tmp/bell-dn/G7.txt
+```
+
+Expected: `same_tree_and_unit=0` and the new SHA (else **STOP**: steps 2 and 6 are replayed at the new G7 first, or CA check 11
+is red). Then the SAME command as above, with a second backup:
+
+```bash
+G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark cat-file blob "$G7:deploy/Caddyfile.monark-bell" | ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cp -p /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-bell-2 && umask 022 && cat > /etc/caddy/Caddyfile.new && caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile && mv /etc/caddy/Caddyfile.new /etc/caddy/Caddyfile && systemctl reload caddy && systemctl is-active caddy && sha256sum /etc/caddy/Caddyfile'
+```
+
+Expected: `Valid configuration`; `active`; the digest equals the local `git cat-file blob` digest at the NEW G7; then step 8,
+then step 11 (fresh capture; CA 12/12 at the new G7). Rollback: `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cp -p /etc/caddy/Caddyfile.bak-bell-2 /etc/caddy/Caddyfile && caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy'`, then `cp /f/tmp/bell-dn/G7-1.txt /f/tmp/bell-dn/G7.txt`.
+
 ## 8. HTTPS constated (automatic certificate)
 
 ```bash
-curl -sS -o /dev/null -w "%{http_code} %{ssl_verify_result}" https://bell.monarkgate.tech/; echo; curl -sS -o /dev/null -w "%{http_code}" https://bell.monarkgate.tech/state.json; echo
+curl -sS -o /dev/null -w "%{http_code} %{ssl_verify_result} %{redirect_url}" https://bell.monarkgate.tech/; echo; curl -sS -o /dev/null -w "%{http_code}" https://bell.monarkgate.tech/no-such-file.json; echo
 ```
 
-Expected: `404 0` (no listing, certificate valid; retry after 30 s while ACME completes, at most 5 tries) and `404` (nothing
-published yet). **STOP** if the TLS result is not 0 after the retries: read `journalctl -u caddy -n 50 --no-pager` (no secret
+Expected: `302 0 https://monarkgate.tech/bell` (the host root sends a reader to the site's Bell page, decision 155, never a
+listing; certificate valid; retry after 30 s while ACME completes, at most 5 tries) and `404` (a path that does not exist).
+**STOP** if the TLS result is not 0 after the retries: read `journalctl -u caddy -n 50 --no-pager` (no secret
 there) before anything else. Rollback: the step 7 rollback. **Hosting is now online; steps 9-13 wait for G-b and G-e.**
 
 ## 9. The first bundle (gates G-b and G-e)
@@ -253,7 +274,7 @@ cd /f/Monark && node scripts/verify-bell.mjs --url https://bell.monarkgate.tech 
 Expected: `ca_exit=0` and `VERIFY OK - 12/12 checks passed (tls.authorized=true)`; `docs/deploy-CA-bell.json` written (12 checks,
 `tls.authorized: true`, the sha256 of every observed body and input). Checks: 1 `state.json` 200 + schema; 2 `timeline.jsonl` 200;
 3 `/bell/pubkey.json` == committed keyring; 4 `provenance.json` 200 + schema; 5 `bell-verify.mjs --url <url> --keyring <committed keyring>`
-exit 0 with status `consistent_with_supplied_keyring` (trust root = the committed keyring, C-9); 6 ACAO `*`; 7 no listing; 8 `immutable` on `states/`, `no-cache` on the current
+exit 0 with status `consistent_with_supplied_keyring` (trust root = the committed keyring, C-9); 6 ACAO `*`; 7 no listing, and `/` answers 302 with `Location: https://monarkgate.tech/bell` (decision 155); 8 `immutable` on `states/`, `no-cache` on the current
 files; 9 `tls.authorized === true` (a skipped TLS never passes); 10 no private material served; 11 tree, loaded Caddyfile and
 loaded unit == `git cat-file blob <G7>:<path>`, one fragment, no drop-in, `NeedDaemonReload=no` (C-5); 12 probe digests unchanged.
 Any red check: **STOP**, no announcement; the named check says where; e.g. for check 11 (c),

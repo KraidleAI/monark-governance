@@ -9,7 +9,8 @@
 // Twelve NAMED checks (CHECK_NAMES); "VERIFY OK" and exit 0 ONLY if all twelve pass, else "VERIFY FAILED: <names>" and exit 1
 // (a usage error exits 2). Check 9 needs a real TLS handshake with authorized === true: an http target is SKIPPED, and a
 // skipped TLS check never passes (it is never a go-live). The trust root of check 5 is the COMMITTED keyring (--keyring, C-9);
-// the served /bell/pubkey.json is only a cross-checked channel (check 3). Check 11 proves the configuration really LOADED on
+// the served /bell/pubkey.json is only a cross-checked channel (check 3). Check 7 also requires the host root `/` to answer 302
+// with Location BELL_ROOT_REDIRECT (decision 155, lot BELL-HOST-ROOT-1). Check 11 proves the configuration really LOADED on
 // the host (C-5) against `git cat-file blob <G7>:<path>`; its inputs are raw host captures (RUNBOOK step 11):
 //   --tree-digests    sha256sum lines of every file under /opt/monark-bell (paths relative to it)
 //   --loaded-config   a directory: caddyfile-main (/etc/caddy/Caddyfile), caddyfile-dedicated (import mode only),
@@ -40,6 +41,9 @@ export const BELL_TREE_PATHS = Object.freeze(["apps/bell/scripts/bell-chain.mjs"
 export const UNIT_NAME = "monark-bell-publish.service";
 export const UNIT_INSTALLED = `/etc/systemd/system/${UNIT_NAME}`;
 export const CADDY_DEDICATED = "/etc/caddy/monark-bell.caddyfile";
+/** The host root `/` sends a human reader to the site's Bell page (decision 155): the target of the Caddyfile's one `redir`
+ *  (bound by test S-8), required by check 7 on the live host. */
+export const BELL_ROOT_REDIRECT = "https://monarkgate.tech/bell";
 const MAX_BODY = 64 * 1024 * 1024; // = MAX_PUBLIC_STATE_BYTES of the publisher
 /** Private-key shapes that must never be served: a PEM private block, a JWK private member "d", a bare base64 Ed25519 PKCS#8 DER
  *  (its fixed 16-byte prefix 302e...0420 always encodes to the same 21 base64 characters; built from the hex, never a literal). */
@@ -166,7 +170,9 @@ export async function runCa(argv, deps = {}) {
   set("c06_acao_star", served.every((r) => ok200(r) && r.headers["access-control-allow-origin"] === "*"),
     `acao=${served.map((r) => String(r.headers?.["access-control-allow-origin"])).join(",")}`);
   const dirs = await Promise.all(["/", "/states/", "/provenance/", "/bell/"].map((p) => httpGet(a.url, p)));
-  set("c07_no_directory_listing", dirs.every((r) => r.error === undefined && !isListing(r)), `status=${dirs.map((r) => String(r.status ?? r.error)).join(",")}`);
+  const root = dirs[0], rootOk = root?.error === undefined && root?.status === 302 && root?.headers?.location === BELL_ROOT_REDIRECT;
+  set("c07_no_directory_listing", rootOk && dirs.every((r) => r.error === undefined && !isListing(r)),
+    `status=${dirs.map((r) => String(r.status ?? r.error)).join(",")} root_location=${String(root?.headers?.location)}`);
   const cc = (r) => String(r.headers?.["cache-control"] ?? "");
   const immOk = ok200(imm) && sha256(imm.body) === stSha && /\bimmutable\b/.test(cc(imm));
   const curOk = [st, tl, pk, pv].every((r) => ok200(r) && /\bno-cache\b/.test(cc(r)) && !/\bimmutable\b/.test(cc(r)));
