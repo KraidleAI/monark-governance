@@ -135,7 +135,7 @@ test("bell_publish_refuses_unpublishable_session", () => {
   assert.ok(epu > 0, "the runMain fixture carries a g_t gated by earliest_publish_utc (non-vacuity)");
   assert.match(refuses(stage([RUN_A]), "session_not_yet_publishable", { clock: epu - 1 }), /gaps\[\d+\]\.earliest_publish_utc$/);
   assert.equal(publish(stage([RUN_A]), epu).status, "published", "published_at == earliest_publish_utc publishes (strict >)");
-  assert.match(refuses(stage([RUN_A, RUN_LATE]), "session_not_yet_publishable", { clock: epu }), /^\$\.runs\[1\]\.state\.digest\.gaps\[\d+\]\.earliest_publish_utc$/, "RUN_A publishable at epu, RUN_LATE not: the WHOLE bundle is refused");
+  assert.match(refuses(stage([RUN_A, RUN_LATE, RUN_B]), "session_not_yet_publishable", { clock: epu }), /^\$\.runs\[1\]\.state\.digest\.gaps\[\d+\]\.earliest_publish_utc$/, "RUN_A publishable at epu, RUN_LATE not: the WHOLE bundle is refused");
 });
 
 // ---- C-in-8: no served string (provenance, state.json, run records) carries "://" or a credential shape; provider labels are bare (CP1 (i), decision 69) ----

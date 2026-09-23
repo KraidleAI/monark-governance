@@ -108,7 +108,7 @@ test("bell_publish_dir_fsync_after_rename", () => {
   assert.deepEqual(calls[commit + 1], { op: "fsyncDir", path: "" }, "the append's directory is fsynced");
   assert.ok(calls.slice(0, commit + 1).every((c) => !c.path.startsWith("public/")), "nothing written under public/ before the commit point");
   assert.deepEqual(calls.filter((c) => c.op === "open:a").map((c) => c.path), ["timeline.jsonl"], "the only append is the private timeline");
-  const tmps = calls.flatMap((c, i) => (c.from?.startsWith("staging/tmp-") ? [{ tmp: c.from, opened: calls.slice(0, i).findLastIndex((x) => x.op === "open:w" && x.path === c.from), renamed: i }] : []));
+  const tmps = calls.flatMap((c, i) => (c.from?.startsWith("staging/tmp-") ? [{ tmp: c.from, opened: calls.slice(0, i).findLastIndex((x) => x.op === "write" && x.path === c.from), renamed: i }] : []));
   assert.ok(tmps.length === 7 && tmps.every((r) => r.opened >= 0 && calls.slice(r.opened, r.renamed).some((x) => x.op === "fsync" && x.path === r.tmp)), `tmp -> fsync -> rename (ADR D8), 2 immutables + keyring + 4 served: ${JSON.stringify(tmps)}`);
 });
 
@@ -168,7 +168,7 @@ test("bell_publish_refuses_corrupt_existing_timeline", () => {
   const resign = (l: Obj): Obj => ({ ...l, sig: signLine(l, KEY) }), mid = resign({ ...l2, prev_line_hash: "f".repeat(64) });
   const cases: Array<[string, Obj[]]> = [["bad signature", [l1, { ...l2, sig: signLine({ ...l2, seq: 99 }, KEY) }]],
     ["broken chain", [l1, mid]], ["non-contiguous seq", [l1, resign({ ...l2, seq: 3 })]],
-    ["broken MIDDLE link (the next line re-chained onto it, re-signed)", [l1, mid, resign({ ...l3, prev_line_hash: lineHash(mid) })]]];
+    ["broken MIDDLE link (the next line re-chained onto it, re-signed)", [l1, mid, resign({ ...l3, prev_line_hash: lineHash(mid) })]], ["broken GENESIS link (line 1 re-signed)", [resign({ ...l1, prev_line_hash: "f".repeat(64) })]]];
   for (const [why, bad] of cases) {
     const s = tmp("t1b-cor-x-");
     cpSync(base, s, { recursive: true });
@@ -255,4 +255,5 @@ test("bell_publish_refuses_signing_key_not_in_keyring", () => {
   refuses(s, "signing_key_not_in_keyring", "a key that is not the active key", generateKeyPairSync("ed25519").privateKey);
   writeFileSync(join(s, "public", "bell", "pubkey.json"), canonical(keyringOf(generateKeyPairSync("ed25519").publicKey, 1)) + "\n"); // a tampered SERVED copy
   assert.deepEqual([stderrOf(() => { assert.equal(pub(s, { clock: () => T + 1 }).status, "published"); }), read(join(s, "public", "bell", "pubkey.json"))], ["bell/publish: rederived_public\n", read(join(s, "keyring.json"))], "start-up root = the PRIVATE keyring");
+  rmSync(join(s, "keyring.json")); refuses(s, "existing_timeline_corrupt", "keyring.json missing: the served copy is never the start-up root");
 });
