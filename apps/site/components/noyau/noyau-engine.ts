@@ -279,7 +279,12 @@ export class NoyauEngine {
       c.height = Math.round(h * dpr);
     }
     const reserve = this.o.reserveBottom ?? 0;
-    this.S = Math.max(24, Math.min((w / 2 - 48) / RG, (h / 2 - 34 - reserve / 2) / (RG * 0.8)));
+    // Optional width-relative cap, read from the CSS custom property --noyau-span on the container (unset or 0 = no
+    // cap): the outer ring's largest projected radius, RG * S * F / (F - RG), stays within span * w / 2, so the beads
+    // and their labels keep inside the opaque part of the edge mask. The site sets it on the desktop hero only.
+    const span = parseFloat(getComputedStyle(root).getPropertyValue("--noyau-span"));
+    const cap = span > 0 ? (span * w) / 2 / ((RG * F) / (F - RG)) : Infinity;
+    this.S = Math.max(24, Math.min((w / 2 - 48) / RG, (h / 2 - 34 - reserve / 2) / (RG * 0.8), cap));
     for (const a of agents) {
       const el = beads[a.id];
       if (!el) continue;
