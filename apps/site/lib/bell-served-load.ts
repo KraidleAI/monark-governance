@@ -16,15 +16,23 @@ const MANIFEST_REL = "apps/site/data/manifest.sha256.json";
 /** The one Bell host (ADR-T1b-backend D9, C-10: the site links it and serves no second copy of the key). */
 export const BELL_HOST = "https://bell.monarkgate.tech";
 export const BELL_TIMELINE_PATH = "/timeline.jsonl";
-export const BELL_STATE_PATH = "/state.json";
 export const BELL_PUBKEY_PATH = "/bell/pubkey.json";
 
+export interface BellServedSession { symbol: string; session: string; regime: string | null; n: number; vwap: string; volumeBase: string; abstain: string | null }
+export interface BellServedRun {
+  bell_sha: string; symbol: string; chain: string;
+  window: { from_utc_ms: number; to_utc_ms: number };
+  fills: number; sessions_count: number; quorum_coverage: string;
+  sessions: BellServedSession[]; residuals: Record<string, number>;
+}
 export interface BellServedData {
   host: string;
   read_at: string;
   first_record: { seq: number; published_at: string; line_hash: string; key_id: string };
-  bodies_sha256: { timeline: string; pubkey: string };
+  first_run: BellServedRun;
+  bodies_sha256: { timeline: string; pubkey: string; state: string };
 }
+export const BELL_STATE_PATH = "/state.json";
 
 /** The repository root while `next build` runs (cwd = apps/site), as lib/load-committed.ts documents. */
 export function bellServedRepoRoot(): string {
@@ -55,12 +63,38 @@ export function loadBellServed(rootDir: string): BellServedData {
   const actual = createHash("sha256").update(raw.replace(/\r\n/g, "\n"), "utf8").digest("hex");
   if (actual !== expected) throw new Error(`bell served: sha256 mismatch for ${BELL_SERVED_REL} (manifest ${expected}, actual ${actual})`);
 
-  const d = obj(JSON.parse(raw), ["$comment", "schema", "host", "read_at", "first_record", "bodies_sha256"], "file");
-  if (d.schema !== "monark-site-bell-served-v1") throw new Error("bell served: schema is not monark-site-bell-served-v1");
+  const d = obj(JSON.parse(raw), ["$comment", "schema", "host", "read_at", "first_record", "first_run", "bodies_sha256"], "file");
+  if (d.schema !== "monark-site-bell-served-v2") throw new Error("bell served: schema is not monark-site-bell-served-v2");
   if (d.host !== BELL_HOST) throw new Error(`bell served: host must be ${BELL_HOST}`);
   const r = obj(d.first_record, ["seq", "published_at", "line_hash", "key_id"], "first_record");
   if (typeof r.seq !== "number" || !Number.isInteger(r.seq) || r.seq < 1) throw new Error("bell served: first_record.seq must be a positive integer");
-  const b = obj(d.bodies_sha256, [BELL_TIMELINE_PATH, BELL_PUBKEY_PATH], "bodies_sha256");
+  const b = obj(d.bodies_sha256, [BELL_TIMELINE_PATH, BELL_PUBKEY_PATH, BELL_STATE_PATH], "bodies_sha256");
+  const DEC = /^-?\d+(?:\.\d+)?$/, LABEL = /^[a-z0-9][a-z0-9_-]*$/i;
+  const nonneg = (v: unknown, where: string): number => { if (typeof v !== "number" || !Number.isInteger(v) || v < 0) throw new Error(`bell served: ${where} must be a non-negative integer`); return v; };
+  const fr = obj(d.first_run, ["bell_sha", "symbol", "chain", "window", "fills", "sessions_count", "quorum_coverage", "sessions", "residuals"], "first_run");
+  const w = obj(fr.window, ["from_utc_ms", "to_utc_ms"], "first_run.window");
+  if (!Array.isArray(fr.sessions) || fr.sessions.length < 1) throw new Error("bell served: first_run.sessions must be a non-empty array");
+  const sessions = fr.sessions.map((x, i) => {
+    const g = obj(x, ["symbol", "session", "regime", "n", "vwap", "volumeBase", "abstain"], `first_run.sessions[${String(i)}]`);
+    return {
+      symbol: match(g.symbol, LABEL, "session symbol"), session: match(g.session, LABEL, "session"),
+      regime: g.regime === null ? null : match(g.regime, LABEL, "session regime"), n: nonneg(g.n, "session n"),
+      vwap: match(g.vwap, DEC, "session vwap"), volumeBase: match(g.volumeBase, DEC, "session volumeBase"),
+      abstain: g.abstain === null ? null : match(g.abstain, LABEL, "session abstain"),
+    };
+  });
+  if (fr.residuals === null || typeof fr.residuals !== "object" || Array.isArray(fr.residuals)) throw new Error("bell served: first_run.residuals must be an object");
+  const residuals: Record<string, number> = {};
+  for (const [k, v] of Object.entries(fr.residuals as Record<string, unknown>)) { if (!LABEL.test(k)) throw new Error("bell served: residual name is malformed"); residuals[k] = nonneg(v, `residual ${k}`); }
+  const first_run = {
+    bell_sha: match(fr.bell_sha, HEX64, "first_run.bell_sha"), symbol: match(fr.symbol, LABEL, "first_run.symbol"), chain: match(fr.chain, LABEL, "first_run.chain"),
+    window: { from_utc_ms: nonneg(w.from_utc_ms, "window.from_utc_ms"), to_utc_ms: nonneg(w.to_utc_ms, "window.to_utc_ms") },
+    fills: nonneg(fr.fills, "first_run.fills"), sessions_count: nonneg(fr.sessions_count, "first_run.sessions_count"),
+    quorum_coverage: match(fr.quorum_coverage, DEC, "first_run.quorum_coverage"), sessions, residuals,
+  };
+  if (first_run.window.to_utc_ms <= first_run.window.from_utc_ms) throw new Error("bell served: window must end after it starts");
+  if (first_run.sessions.length !== first_run.sessions_count) throw new Error("bell served: sessions_count must equal the number of session rows");
+  if (first_run.sessions.reduce((a, x) => a + x.n, 0) !== first_run.fills) throw new Error("bell served: fills must equal the sum of session n");
   return {
     host: BELL_HOST,
     read_at: match(d.read_at, ISO_UTC, "read_at"),
@@ -70,6 +104,7 @@ export function loadBellServed(rootDir: string): BellServedData {
       line_hash: match(r.line_hash, HEX64, "first_record.line_hash"),
       key_id: match(r.key_id, HEX64, "first_record.key_id"),
     },
-    bodies_sha256: { timeline: match(b[BELL_TIMELINE_PATH], HEX64, "bodies_sha256 timeline"), pubkey: match(b[BELL_PUBKEY_PATH], HEX64, "bodies_sha256 pubkey") },
+    first_run,
+    bodies_sha256: { timeline: match(b[BELL_TIMELINE_PATH], HEX64, "bodies_sha256 timeline"), pubkey: match(b[BELL_PUBKEY_PATH], HEX64, "bodies_sha256 pubkey"), state: match(b[BELL_STATE_PATH], HEX64, "bodies_sha256 state") },
   };
 }

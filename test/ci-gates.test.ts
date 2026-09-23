@@ -725,6 +725,10 @@ test("frozen_contract_fields_stay_dynamic — loaded contracts' required[] never
       "MONARK Verdict PRODUCT key (fleet register id), not the GateDecision `verdict` field; documented in fleet.ts' `key` doc comment",
     ],
     [
+      "apps/site/lib/bell-served-load.ts :: abstain",
+      "the Bell session row's own `abstain` field of the served bell-public-state-v1 (a residual name such as no_close_ref), read fail-closed from apps/site/data/bell-served.json — not the GateDecision `abstain` action",
+    ],
+    [
       "apps/site/lib/profiles.ts :: verdict",
       "the E-1 profile picker's productKey for the MONARK Verdict product (same registry id as fleet.ts), not the GateDecision `verdict` field — a product id, not a rendered contract field",
     ],

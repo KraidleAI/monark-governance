@@ -29,6 +29,8 @@ export default function BellPage() {
   if (!bell) throw new Error("bell page: MONARK Bell is absent from PRODUCTS (lib/fleet.ts) — the register is the single source of its status");
   const anchors = loadAnchors();
   const served = loadBellServed(bellServedRepoRoot());
+  const run = served.first_run;
+  const utc = (ms: number): string => new Date(ms).toISOString().replace("T", " ").slice(0, 16);
   const r = served.first_record;
 
   return (
@@ -165,10 +167,15 @@ export default function BellPage() {
           <div className="c-card c-card--accent">
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
               <span className="c-label" style={{ color: "var(--token-print)" }}>
-                one record · what a session row holds
+                the first record · {run.symbol} · seq {served.first_record.seq}
               </span>
-              <span className="c-state c-state--dashed">shape, not data</span>
+              <span className="c-pill c-pill--fact">read from the served state.json</span>
             </div>
+            <p className="c-muted c-small" style={{ marginTop: 8 }}>
+              Window {utc(run.window.from_utc_ms)} → {utc(run.window.to_utc_ms)} UTC · {run.fills} fills over {run.sessions_count} sessions on {run.chain} ·
+              quorum coverage {run.quorum_coverage} (share of transaction bodies read on both operators) · bell_sha{" "}
+              <span className="c-mono">{run.bell_sha.slice(0, 16)}…</span>
+            </p>
             <div className="c-board" style={{ marginTop: 12 }}>
               <div className="c-board-scroll">
                 <table className="c-table">
@@ -176,58 +183,37 @@ export default function BellPage() {
                     <tr>
                       <th className="c-label">instrument</th>
                       <th className="c-label">session · regime</th>
-                      <th className="c-label">window · UTC</th>
-                      <th className="c-label c-num">
-                        g = ln(P<sub>session</sub> / P<sub>close</sub>)
-                      </th>
-                      <th className="c-label c-num">vol_ratio</th>
-                      <th className="c-label">residuals</th>
-                      <th className="c-label c-num">reads</th>
+                      <th className="c-label c-num">fills</th>
+                      <th className="c-label c-num">on-chain VWAP (quote per unit)</th>
+                      <th className="c-label c-num">base volume (units)</th>
+                      <th className="c-label c-num">g = ln(P<sub>session</sub> / P<sub>close</sub>)</th>
+                      <th className="c-label">residual</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td><b style={{ color: "var(--token-print)" }}>TSLAx</b></td>
-                      <td>weekend</td>
-                      <td><Placeholder name="window_TSLAx_latest" /></td>
-                      <td className="c-num"><Placeholder name="g_TSLAx_latest" /></td>
-                      <td className="c-num"><Placeholder name="vol_ratio_TSLAx" /></td>
-                      <td><span className="c-tag">multiplier_unit</span></td>
-                      <td className="c-num"><Quorum answered="two" /></td>
-                    </tr>
-                    <tr>
-                      <td><b style={{ color: "var(--token-print)" }}>AAPLx</b></td>
-                      <td>overnight-weekday</td>
-                      <td><Placeholder name="window_AAPLx_latest" /></td>
-                      <td className="c-num"><Placeholder name="g_AAPLx_latest" /></td>
-                      <td className="c-num"><Placeholder name="vol_ratio_AAPLx" /></td>
-                      <td><span className="c-tag">multiplier_unit</span></td>
-                      <td className="c-num"><Quorum answered="two" /></td>
-                    </tr>
-                    <tr>
-                      <td><b style={{ color: "var(--token-print)" }}>NVDAx</b></td>
-                      <td>holiday</td>
-                      <td><Placeholder name="window_NVDAx_latest" /></td>
-                      <td className="c-num" colSpan={2}><span className="c-abstain">abstained: no_close_ref</span></td>
-                      <td><span className="c-tag">no_close_ref</span></td>
-                      <td className="c-num"><Quorum answered="two" /></td>
-                    </tr>
-                    <tr>
-                      <td><b style={{ color: "var(--token-print)" }}>SPYx</b></td>
-                      <td>weekend</td>
-                      <td><Placeholder name="window_SPYx_latest" /></td>
-                      <td className="c-num" colSpan={2}><span className="c-abstain">abstained: no_quorum</span></td>
-                      <td><span className="c-tag">no_quorum</span></td>
-                      <td className="c-num"><Quorum answered="one" /></td>
-                    </tr>
+                    {run.sessions.map((x) => (
+                      <tr key={x.session}>
+                        <td><b style={{ color: "var(--token-print)" }}>{x.symbol}</b></td>
+                        <td>{x.session}{x.regime !== null && x.regime !== x.session ? ` · ${x.regime}` : ""}</td>
+                        <td className="c-num">{x.n}</td>
+                        <td className="c-num c-mono">{x.vwap}</td>
+                        <td className="c-num c-mono">{x.volumeBase}</td>
+                        <td className="c-num">{x.abstain === null ? "—" : <span className="c-abstain">abstained: {x.abstain}</span>}</td>
+                        <td>{x.abstain === null ? "—" : <span className="c-tag">{x.abstain}</span>}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
             </div>
             <p className="c-muted c-small" style={{ marginTop: 10 }}>
-              Rows are the shape of a record, not data: each value is a named placeholder, and the regimes and residual
-              states are illustrative, chosen to display every rendered state once. The board does not read the served{" "}
-              <span className="c-mono">state.json</span>; its first record carries no gap (what is missing, above).
+              Every value above is copied from the served <span className="c-mono">state.json</span> bound to the signed head line (sha256), read at build and
+              hashed in the site manifest; nothing is typed by hand. VWAP and base volume are on-chain facts, not a price feed. The gap column abstains
+              on every session because the closing-price leg is off by design (what is missing, above). Run residuals:{" "}
+              {Object.entries(run.residuals).map(([k, v], idx) => (
+                <span key={k}>{idx > 0 ? " · " : ""}<span className="c-tag">{k}</span> {v}</span>
+              ))}
+              .
             </p>
           </div>
         </div>
@@ -501,15 +487,3 @@ export default function BellPage() {
   );
 }
 
-/** Quorum of reads, drawn as bars and said in words (never a digit, never a percentage). */
-function Quorum({ answered }: { answered: "one" | "two" }) {
-  return (
-    <span className="c-quorum">
-      <i aria-hidden="true">
-        <b />
-        <b className={answered === "two" ? undefined : "c-off"} />
-      </i>
-      {answered} of two
-    </span>
-  );
-}

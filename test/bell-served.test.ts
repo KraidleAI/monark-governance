@@ -22,7 +22,7 @@ const sha = (s: string | Buffer): string => createHash("sha256").update(s).diges
 const shaLf = (rel: string): string => sha(Buffer.from(readFileSync(join(ROOT, rel), "utf8").replace(/\r\n/g, "\n"), "utf8"));
 
 // Pins (read on the served host 2026-09-23T21:53Z by scripts/sync-bell-served.mjs; first line re-hashed independently).
-const PINNED_FILE_SHA256 = "da3c15d6c0d22e503860e4bf2d9f84f102420b13ffbc0a8f977a31436cc1f303";
+const PINNED_FILE_SHA256 = "c473570439ff029cf7d60e125d06e4dd106fb059594f9e1c421b70dfcd6d0897";
 const PINNED = {
   seq: 1,
   published_at: "2026-09-23T21:35:52.438Z",
@@ -70,7 +70,12 @@ test("bell_served_data_carries_no_market_value", () => {
     else if (v !== null && typeof v === "object") Object.values(v as Record<string, unknown>).forEach(walk);
   };
   walk(JSON.parse(raw));
-  assert.deepEqual(numbers, [PINNED.seq], "the only number in the file is seq");
+  // v2: the numbers are seq, the window bounds (ms), fills, sessions_count, each session's n and the residual counts —
+  // on-chain counts and instants only; VWAP, base volume and quorum coverage stay decimal STRINGS (served as such).
+  const d2 = JSON.parse(raw) as { first_run: { window: { from_utc_ms: number; to_utc_ms: number }; fills: number; sessions_count: number; sessions: { n: number }[]; residuals: Record<string, number> } };
+  const allowed = [PINNED.seq, d2.first_run.window.from_utc_ms, d2.first_run.window.to_utc_ms, d2.first_run.fills, d2.first_run.sessions_count, ...d2.first_run.sessions.map((x) => x.n), ...Object.values(d2.first_run.residuals)];
+  assert.deepEqual(numbers, allowed, "the only numbers in the file are seq, window bounds, fills, sessions_count, session n and residual counts");
+  assert.equal(d2.first_run.sessions.reduce((a, x) => a + x.n, 0), d2.first_run.fills, "fills = sum of session n");
   const PROVIDER_FORMS = [/\bmassive\b/i, /databento/i, /polygon\.io/i, /POLYGON_API_KEY/];
   const scanned = [BELL_SERVED_REL, "apps/site/app/bell/page.tsx", "apps/site/app/bell/method/page.tsx"];
   for (const rel of scanned) {

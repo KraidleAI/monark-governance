@@ -37,6 +37,7 @@ async function get(path) {
 async function main() {
   const timeline = await get("/timeline.jsonl");
   const pubkey = await get("/bell/pubkey.json");
+  const stateBuf = await get("/state.json");
   const readAt = new Date().toISOString();
   const committed = readFileSync(join(ROOT, KEYRING_REL));
   if (!pubkey.equals(committed)) fail("the served /bell/pubkey.json is not byte-identical to the committed keyring");
@@ -50,14 +51,39 @@ async function main() {
   const pk = publicKeyOfJwk(key.jwk);
   if (keyIdOf(pk) !== first.key_id) fail("the committed key does not hash to the key_id it is filed under");
   if (!verifyLine(first, pk)) fail("the first line's Ed25519 signature does not check under the committed key");
+  // The served state must be the one the signed head line names (sha256 binding), and the FIRST run of the first
+  // publication is copied as it is served: window, per-session fills / on-chain VWAP / base volume / abstention,
+  // non-zero residual counts. Strings stay strings (vwap, volumeBase); no value is recomputed or rounded here.
+  if (sha256(stateBuf) !== first.state_sha256) fail("the served /state.json is not the state the signed head line names");
+  const state = JSON.parse(stateBuf.toString("utf8"));
+  if (state.schema !== "bell-public-state-v1" || !Array.isArray(state.runs) || state.runs.length < 1) fail("state.json is not a bell-public-state-v1 with at least one run");
+  const run = state.runs[0];
+  const rec = (first.runs ?? []).find((x) => x.bell_sha === run.bell_sha)?.records?.[0];
+  if (rec === undefined) fail("the first timeline line carries no record for the first run of state.json");
+  const gaps = run.digest?.gaps;
+  if (!Array.isArray(gaps) || gaps.length < 1) fail("the first run has no session rows");
+  const sessions = gaps.map((g) => {
+    for (const k of ["session", "symbol", "n", "vwap", "volumeBase"]) if (g[k] === undefined || g[k] === null) fail(`session row without ${k}`);
+    if (!Number.isInteger(g.n) || g.n < 0) fail("session n is not a non-negative integer");
+    if (typeof g.vwap !== "string" || typeof g.volumeBase !== "string") fail("vwap / volumeBase must be served as decimal strings");
+    return { symbol: g.symbol, session: g.session, regime: g.regime ?? null, n: g.n, vwap: g.vwap, volumeBase: g.volumeBase, abstain: g.abstain ?? null };
+  });
+  const residuals = Object.fromEntries(Object.entries(run.digest?.residuals ?? {}).filter(([, v]) => typeof v === "number" && v > 0));
+  const first_run = {
+    bell_sha: run.bell_sha, symbol: rec.symbol, chain: rec.chain,
+    window: { from_utc_ms: run.window.from_utc_ms, to_utc_ms: run.window.to_utc_ms },
+    fills: rec.n_fills, sessions_count: rec.sessions, quorum_coverage: String(rec.quorum_coverage),
+    sessions, residuals,
+  };
   const out = {
     $comment:
-      "Committed, hashed facts about the SERVED Bell host, rendered by /bell and /bell/method through apps/site/lib/bell-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json (lot BELL-SERVED-1; decision 155). Written by scripts/sync-bell-served.mjs (source-repo tool) from two GETs: /timeline.jsonl and /bell/pubkey.json, after checking that the served key set equals the committed keyring and that the first line is a signed, genesis-chained publication at seq 1 under that keyring. first_record = that first line's seq, published_at, line_hash (sha256 of its canonical bytes) and key_id; bodies_sha256 = the sha256 of the two bodies as read at read_at (the timeline body grows with each publication; the first line does not change). No other field of the line is copied and no market value is read.",
-    schema: "monark-site-bell-served-v1",
+      "Committed, hashed facts about the SERVED Bell host, rendered by /bell and /bell/method through apps/site/lib/bell-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json (lot BELL-SERVED-1; decision 155). Written by scripts/sync-bell-served.mjs (source-repo tool) from three GETs: /timeline.jsonl, /bell/pubkey.json and /state.json (bound to the head line by sha256), after checking that the served key set equals the committed keyring and that the first line is a signed, genesis-chained publication at seq 1 under that keyring. first_record = that first line's seq, published_at, line_hash (sha256 of its canonical bytes) and key_id; bodies_sha256 = the sha256 of the two bodies as read at read_at (the timeline body grows with each publication; the first line does not change). first_run = the first run of the served state as served (window, per-session fills, on-chain VWAP and base volume as decimal strings, abstention, non-zero residual counts): on-chain facts, no closing price, no gap.",
+    schema: "monark-site-bell-served-v2",
     host: BELL_HOST,
     read_at: readAt,
     first_record: { seq: first.seq, published_at: first.published_at, line_hash: lineHash(first), key_id: first.key_id },
-    bodies_sha256: { "/timeline.jsonl": sha256(timeline), "/bell/pubkey.json": sha256(pubkey) },
+    first_run,
+    bodies_sha256: { "/timeline.jsonl": sha256(timeline), "/bell/pubkey.json": sha256(pubkey), "/state.json": sha256(stateBuf) },
   };
   const text = JSON.stringify(out, null, 2) + "\n";
   writeFileSync(join(ROOT, OUT_REL), text);
