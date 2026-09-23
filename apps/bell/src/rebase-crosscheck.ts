@@ -22,8 +22,8 @@
 // KEY HYGIENE (C-10): providerOf/operatorOf only; NEVER a url/key. The mint/authority are PUBLIC base58 (not secrets).
 // Raws (the ledger + only the 43/x and SetAuthority candidate bodies) are written OUT of the tree (--out, CA-11).
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync, appendFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, openSync, fsyncSync, closeSync, renameSync } from "node:fs";
+import { resolve, join, basename } from "node:path";
 import { operatorOf } from "./operators.ts";
 import { MAX_TX_VERSION, type JsonRpcCall } from "./rpc.ts";
 import { type TransportFault, BudgetExceededError, statusOf, withRetry } from "./quorum.ts";
@@ -57,10 +57,11 @@ export const CREDITS_PER_GET_TX = 1;
 export const WORST_CASE_CREDITS_PER_CALL = CREDITS_PER_GTFA;
 
 /** Helius gTfA `full` page size: the `limit:` asked per page AND the completeness threshold. A page returned with
- *  FEWER *raw* txs than this WHILE a next token exists is a short NON-FINAL page (C-8: full pages except the last). The
- *  test uses the SAME constant, and the check is on the RAW `data.length` (never the post-dedup pageTxs.length) so a
- *  full boundary page deduped on a resume is never falsely flagged. `notFullPages` is thus NOT derived from the ledger
- *  and adds NO field to the §6 core (no `raw_count`) — the resolution of the checkpoint-1 notFullPages consultation (d). */
+ *  FEWER *raw* txs than this WHILE a next token exists is a SHORT page (C-8: full pages except the last): under
+ *  requireFullPages it is committed ONLY when proven final (BELL-SHORTPAGE-1: an empty probe of that token AND the C-8
+ *  end anchor), else not_full_pages. The test uses the SAME constant, and the check is on the RAW `data.length` (never
+ *  the post-dedup pageTxs.length) so a full boundary page deduped on a resume is never falsely flagged. `notFullPages`
+ *  is thus NOT derived from the ledger and adds NO field to the ledger core (no `raw_count`): checkpoint-1 option (d). */
 export const GTFA_PAGE_LIMIT = 1000;
 
 /** A decoded SetAuthority(ScaledUiAmount) payload, or null when the bytes are not that instruction. `newAuthorityHex`
@@ -172,7 +173,7 @@ export function ledgerSha(entries: readonly LedgerEntry[]): string {
 }
 
 /** The ATOMIC on-disk page record (§6 amended, C-B-7): the chained `LedgerEntry` PLUS the page's decoded payload
- *  (`page_events`/`page_handoffs`, formerly the separate `events-`/`handoffs-<MINT>.jsonl`). ONE `appendFileSync` per
+ *  (`page_events`/`page_handoffs`, formerly the separate `events-`/`handoffs-<MINT>.jsonl`). ONE durable append (C-6) per
  *  page = a single commit point, closing the fact-7 window where a page committed to the ledger before its events. The
  *  payload is COMMITTED (lot -f, condition (f)): `entry_sha256` folds `payload_sha256 = payloadSha(page_events,
  *  page_handoffs)` as the 10th core field, and verifyLedgerChain RE-DERIVES that sha from the re-read payload — so an
@@ -213,6 +214,23 @@ export interface ResumeState {
   readonly priorEvents?: readonly MultiplierEvent[];
   readonly priorHandoffs?: readonly SetAuthorityHandoff[];
 }
+/** BELL-SHORTPAGE-1 (decision 135(2); checkpoint-1 C-1/C-5): provenance of the ONE probe a strict scan makes when a
+ *  page is short (RAW data.length < GTFA_PAGE_LIMIT) yet carries a next token. `page` = the ledger page it takes if
+ *  committed; `raw_len` = its RAW length (before the boundary dedup); `probe_empty` = the probe's RAW data.length is 0
+ *  (whatever token the probe carries); `end_anchor_ok` = the C-8 desc anchor equals the asc run's last sig (asked
+ *  only after an empty probe); `committed` = a ledger record was appended on this path (false on the not_full_pages
+ *  STOP, and on a terminal re-verification whose short page dedups to 0 txs). Written to crosscheck-<MINT>.json and
+ *  the report ONLY: the ledger core (ledger-format-lock) and LedgerRecord gain NO field. There the key is null when NO
+ *  probe decision was reached (cp-2 C-1): no short page with a token, OR a budget refusal on the probe (nothing emitted)
+ *  OR on the probe-path anchor (the paid probe call stays visible in calls_by_method and the cycle ledger); a resume re-probes. */
+export interface ShortFinalPageProbe {
+  readonly page: number;
+  readonly raw_len: number;
+  readonly probe_calls: 1;
+  readonly probe_empty: boolean;
+  readonly end_anchor_ok: boolean;
+  readonly committed: boolean;
+}
 export interface FullMintScan {
   readonly events: MultiplierEvent[];          // 43/x events, bounded slot <= oracle_slot, sorted, quorum-2 re-read
   readonly handoffs: SetAuthorityHandoff[];    // SetAuthority(ScaledUiAmount) hand-offs found (incl. CPI)
@@ -221,6 +239,7 @@ export interface FullMintScan {
   readonly n: number;                          // exact tx count under the bound (sub-product at exhaustion)
   readonly pages: number;
   readonly ledger: LedgerEntry[];
+  readonly shortFinalPageProbe?: ShortFinalPageProbe; // BELL-SHORTPAGE-1 provenance (absent when no probe was made)
 }
 /** The scan's out-of-tree sinks (C-5): `onPage` persists each chained ledger entry (per page, so a crash resumes
  *  without under-counting); `onCandidate` (optional) keeps the raw body of a 43/x or SetAuthority candidate — the
@@ -243,7 +262,8 @@ export type RetryFn = <T>(fn: () => Promise<T>, method: string) => Promise<T>;
  *  reported as `budget_exhausted` (complete=false) — the run STOPS, never presents a capped scan as complete (C-11
  *  spirit, plan L-2). Completeness = pagination exhausted + start anchor (an Initialize decoded) + end anchor (a desc
  *  page at slot.lte = oracle_slot whose newest sig == the asc run's last sig) + slot monotonicity + full pages
- *  (option, default on) + no null blockTime + no body-quorum miss + no same-slot ambiguity (C-8). */
+ *  (option, default on; a short page WITH a token is final only via an empty probe + the end anchor, BELL-SHORTPAGE-1)
+ *  + no null blockTime + no body-quorum miss + no same-slot ambiguity (C-8). */
 export async function scanFullMint(call: JsonRpcCall, providers: readonly string[], mint: string, oracleSlot: number,
   opts: { readonly maxPages?: number; readonly requireFullPages?: boolean }, resume: ResumeState,
   sink: ScanSink, faults: TransportFault[], retry: RetryFn = (fn) => fn()): Promise<FullMintScan> {
@@ -268,11 +288,23 @@ export async function scanFullMint(call: JsonRpcCall, providers: readonly string
   // reproduces ascLastSig (else the end anchor fails forever). last.last_sig == the last enumerated tx's sig (:142).
   const seed = resume.priorLedger?.at(-1);
   let lastSlotSeen = seed ? seed.slot_hi : -1, ascLastSig = seed ? seed.last_sig : "";
+  // BELL-SHORTPAGE-1: ONE builder for the asc page request, so the short-page probe replays EXACTLY the next page's
+  // request (mint, full, asc, GTFA_PAGE_LIMIT, filters.slot lte + resume gte) with the page's token.
+  const pageParams = (token: string | undefined): readonly unknown[] => [mint, { transactionDetails: "full", sortOrder: "asc", limit: GTFA_PAGE_LIMIT,
+    filters: { slot: { lte: oracleSlot, ...(resume.resumeFromSlot !== undefined ? { gte: resume.resumeFromSlot } : {}) } }, ...(token ? { paginationToken: token } : {}) }];
+  // C-8 end anchor: one desc page at slot.lte = oracle_slot; its newest sig must equal the asc run's last sig. Asked ONCE
+  // per scan: on the short-page path (inside the try: a budget refusal reads budget_exhausted, nothing committed) OR
+  // after exhaustion below, never both (endAnchorOk is set once).
+  const endAnchorMatches = async (): Promise<boolean> => {
+    const descRes = asObj(await retry(() => call(heliusOp, "getTransactionsForAddress", [mint, { transactionDetails: "full", sortOrder: "desc", limit: 1, filters: { slot: { lte: oracleSlot } } }]), "getTransactionsForAddress"));
+    const descTop = normalizeBody(asArr(descRes.data)[0]);
+    return descTop !== null && descTop.sig === ascLastSig;
+  };
+  let endAnchorOk: boolean | undefined;
+  let shortFinalPageProbe: ShortFinalPageProbe | undefined;
   try {
     while (fetched < maxPages) {
-      const slotFilter: Record<string, number> = { lte: oracleSlot, ...(resume.resumeFromSlot !== undefined ? { gte: resume.resumeFromSlot } : {}) };
-      const params: readonly unknown[] = [mint, { transactionDetails: "full", sortOrder: "asc", limit: GTFA_PAGE_LIMIT, filters: { slot: slotFilter }, ...(paginationToken ? { paginationToken } : {}) }];
-      const res = asObj(await retry(() => call(heliusOp, "getTransactionsForAddress", params), "getTransactionsForAddress"));
+      const res = asObj(await retry(() => call(heliusOp, "getTransactionsForAddress", pageParams(paginationToken)), "getTransactionsForAddress"));
       const data = asArr(res.data);
       const pageTxs: { sig: string; slot: number }[] = [];
       const pageEvents: MultiplierEvent[] = [];
@@ -311,38 +343,46 @@ export async function scanFullMint(call: JsonRpcCall, providers: readonly string
       // C-B-1 (option d, notFullPages): under requireFullPages, a short NON-FINAL page (RAW data.length < GTFA_PAGE_LIMIT,
       // tested BEFORE the boundary dedup) is a re-fetchable completeness fault => NOT committed + STOP (never a sig
       // without proof its page was full). A full boundary page deduped to fewer txs keeps its RAW length = the limit, so
-      // a resume never falsely STOPs (the tx_count-based derivation the plan first prescribed WOULD have). A persistent
-      // short page stays inconclusive => escalate. --allow-short-pages commits it (offline oracle); the FINAL page (no
-      // token) may be short. `notFullPages` is no longer a process-local flag NOR ledger-derived (adds no core §6 field).
-      if (requireFullPages && !finalPage && data.length < GTFA_PAGE_LIMIT) return { events: sortEvents(events), handoffs, complete: false, reason: "not_full_pages", n, pages: ledger.length, ledger };
+      // a resume never falsely STOPs. --allow-short-pages commits it (offline oracle, NO probe); a tokenless FINAL page may
+      // be short. BELL-SHORTPAGE-1 (decision 135(2), checkpoint-1 C-1) relaxes ONLY the provably-final case - Helius was
+      // measured to emit a token on a mint's last, short page (TSLAx page 8 784, CHANTIERS decision 135): ONE probe of
+      // that token with the SAME request; ONLY if it is RAW-empty (whatever token it returns) is the C-8 end anchor asked,
+      // and ONLY if the anchor equals the asc run's last sig (this page's last tx) is the page committed as the final one.
+      // Order probe -> anchor -> commit: no short page reaches disk under require_full_pages:true without that proof. The
+      // probe never feeds pageTxs / N / events / onPage / fetched; any other outcome STOPs not_full_pages, uncommitted.
+      let provenFinal = false;
+      if (requireFullPages && !finalPage && data.length < GTFA_PAGE_LIMIT) {
+        const probe = asObj(await retry(() => call(heliusOp, "getTransactionsForAddress", pageParams(next)), "getTransactionsForAddress"));
+        const probeEmpty = asArr(probe.data).length === 0;
+        endAnchorOk = probeEmpty && await endAnchorMatches();
+        shortFinalPageProbe = { page: ledger.length + 1, raw_len: data.length, probe_calls: 1, probe_empty: probeEmpty, end_anchor_ok: endAnchorOk, committed: endAnchorOk && pageTxs.length > 0 };
+        if (!endAnchorOk) return { events: sortEvents(events), handoffs, complete: false, reason: "not_full_pages", n, pages: ledger.length, ledger, shortFinalPageProbe };
+        provenFinal = true;
+      }
       events.push(...pageEvents); handoffs.push(...pageHandoffs);
       n += pageTxs.length; // only a COMMITTED page counts toward N (a discarded faulted page never does)
       const entry = chainedLedgerEntry(prevSha, ledger.length + 1, pageTxs, pageEvents, pageHandoffs);
       if (entry) { ledger.push(entry); prevSha = entry.entry_sha256; sink.onPage(entry, ledger, pageEvents, pageHandoffs); }
       fetched += 1;
-      if (finalPage) { exhausted = true; break; }
+      if (finalPage || provenFinal) { exhausted = true; break; }
       paginationToken = next;
     }
   } catch (e) {
     if (!(e instanceof BudgetExceededError)) throw e; // any non-budget error propagates (fatalMessage scrubs it)
     return { events: sortEvents(events), handoffs, complete: false, reason: "budget_exhausted", n, pages: ledger.length, ledger };
   }
-  // end anchor (C-8): one desc page at slot.lte = oracle_slot; its newest sig must equal the asc run's last sig.
-  let endAnchorOk = false;
-  if (exhausted) {
-    const descRes = asObj(await retry(() => call(heliusOp, "getTransactionsForAddress", [mint, { transactionDetails: "full", sortOrder: "desc", limit: 1, filters: { slot: { lte: oracleSlot } } }]), "getTransactionsForAddress"));
-    const descTop = normalizeBody(asArr(descRes.data)[0]);
-    endAnchorOk = descTop !== null && descTop.sig === ascLastSig;
-  }
+  // end anchor (C-8), unless the short-page path already asked it (moved there, never replayed: one desc call per scan).
+  if (exhausted && endAnchorOk === undefined) endAnchorOk = await endAnchorMatches();
   const sorted = sortEvents(events);
   const sameSlotAmbiguous = hasSameSlotDiffSig(sorted);
   const startAnchor = sorted.some((e) => e.kind === "initialize");
   // the FOUR re-fetchable faults (block_time_null / body_quorum / non_monotonic / not_full_pages) now RETURN early
   // (C-B-1), so none can be a lost process-local flag here; only exhaustion + anchors + same-slot gate completeness.
-  const complete = exhausted && startAnchor && endAnchorOk && !sameSlotAmbiguous;
+  const complete = exhausted && startAnchor && endAnchorOk === true && !sameSlotAmbiguous;
   const reason = !exhausted ? "not_at_genesis" : sameSlotAmbiguous ? "same_slot_order_undecidable"
     : !startAnchor ? "no_initialize_anchor" : !endAnchorOk ? "end_anchor_mismatch" : undefined;
-  return { events: sorted, handoffs, complete, n, pages: ledger.length, ledger, ...(reason !== undefined ? { reason } : {}) };
+  return { events: sorted, handoffs, complete, n, pages: ledger.length, ledger, ...(reason !== undefined ? { reason } : {}),
+    ...(shortFinalPageProbe !== undefined ? { shortFinalPageProbe } : {}) };
 }
 function sortEvents(events: readonly MultiplierEvent[]): MultiplierEvent[] {
   return [...events].sort((a, b) => a.slot - b.slot || a.instructionIndex - b.instructionIndex);
@@ -550,7 +590,85 @@ export function readPriorCalls(out: string): number {
   return raw.calls_used;
 }
 
-/** Read a jsonl file as parsed lines. C-B-5 (α): `appendFileSync` is not crash-atomic, so a process kill mid-append
+/** C-6 (orchestrator ruling after the 2026-09-22 power cut, measured: ledger-AAPLx.jsonl kept 760 298 NUL bytes at its
+ *  tail: pages appended but never flushed; budget.json said 1 222 pages vs 593 durable lines). The ONLY write primitives
+ *  of this module: every write goes through appendDurable / writeDurable below. A MUTABLE object on purpose, the test
+ *  seam: a test may wrap these methods (to count and order them through runMain) and MUST restore them. R-SP-A
+ *  (BELL-SHORTPAGE-1b): `renameSync` is writeDurable's rename = the BOUNDED retry below over `renameAttemptSync` (ONE raw
+ *  fs.renameSync), `sleepSync` is the BLOCKING wait between two attempts (the durable path is synchronous: onPage is
+ *  sync), and `renameRetryTotalMs` is the cap (production = RENAME_RETRY_TOTAL_MS; a test may lower it, then restores it). */
+export interface DurableFs {
+  openSync: (path: string, flags: "a" | "w") => number;
+  writeFileSync: (fd: number, data: string) => void;
+  fsyncSync: (fd: number) => void;
+  closeSync: (fd: number) => void;
+  renameSync: (from: string, to: string) => void;
+  renameAttemptSync: (from: string, to: string) => void;
+  sleepSync: (ms: number) => void;
+  renameRetryTotalMs: number;
+}
+/** R-SP-A (measured 2026-09-22, docs/course-bell/RUNBOOK-supervision-tirage.md s1): on win32 a rename onto a target held
+ *  open by ANY reader fails EPERM, because fs.renameSync is libuv's MoveFileExW(MOVEFILE_REPLACE_EXISTING) alone, with no
+ *  POSIX-semantics path from Node (docs/course-bell/FAITS-win32-flush-rename-2026-09-22.md s3-s4). The rename is thus
+ *  retried on these codes ONLY, after a wait of RENAME_RETRY_FIRST_WAIT_MS doubling up to RENAME_RETRY_MAX_WAIT_MS, while
+ *  the cumulated REQUESTED waits stay within RENAME_RETRY_TOTAL_MS (20 attempts, 19 waits at most); then a named
+ *  DurableWriteError, fail-closed. Never an in-place fallback: a truncate + write would lose the C-6 durability. The
+ *  values are declared at the ADR (E-3). */
+export const RENAME_RETRY_CODES: readonly string[] = ["EPERM", "EACCES", "EBUSY"];
+export const RENAME_RETRY_FIRST_WAIT_MS = 10;
+export const RENAME_RETRY_MAX_WAIT_MS = 200;
+export const RENAME_RETRY_TOTAL_MS = 3000;
+/** The named fail-closed error of an exhausted rename retry: the previous file is INTACT (the rename never happened);
+ *  `<file>.tmp` may remain (rewritten "w" by the next call, and no reader matches a "*.tmp" name). The `bell/collect:`
+ *  prefix makes fatalMessage surface it verbatim (a local fault: a base name and counts, never a url/key). */
+export class DurableWriteError extends Error {
+  readonly code: string;
+  readonly attempts: number;
+  readonly waitedMs: number;
+  constructor(file: string, code: string, attempts: number, waitedMs: number, cause: unknown) {
+    super(`bell/collect: durable write of ${file} refused: its rename still failed ${code} after ${String(attempts)} attempts and ${String(waitedMs)} ms of waits (cap reached); a reader holds the file open - fail-closed, the previous ${file} is intact (R-SP-A)`, { cause });
+    this.name = "DurableWriteError";
+    this.code = code;
+    this.attempts = attempts;
+    this.waitedMs = waitedMs;
+  }
+}
+/** writeDurable's rename (R-SP-A): ONE raw attempt; on a RENAME_RETRY_CODES code only, a blocking wait then another attempt
+ *  (waits RENAME_RETRY_FIRST_WAIT_MS x2 up to RENAME_RETRY_MAX_WAIT_MS, the last one clipped to the cap). The cap counts the
+ *  REQUESTED waits (deterministic; a real wait may overrun by about one clock tick, declared at the ADR). Cap reached =>
+ *  DurableWriteError. Any other error is re-thrown at once, unchanged (no retry, as before R-SP-A). */
+function renameWithBoundedRetry(from: string, to: string): void {
+  for (let attempts = 1, waited = 0, wait = RENAME_RETRY_FIRST_WAIT_MS; ; attempts++) {
+    try { DURABLE_FS.renameAttemptSync(from, to); return; } catch (e) {
+      const code = (e as { code?: unknown } | null)?.code;
+      if (typeof code !== "string" || !RENAME_RETRY_CODES.includes(code)) throw e;
+      const left = DURABLE_FS.renameRetryTotalMs - waited;
+      if (left <= 0) throw new DurableWriteError(basename(to), code, attempts, waited, e);
+      const w = Math.min(wait, left);
+      DURABLE_FS.sleepSync(w); waited += w; wait = Math.min(wait * 2, RENAME_RETRY_MAX_WAIT_MS);
+    }
+  }
+}
+export const DURABLE_FS: DurableFs = { openSync: (p, f) => openSync(p, f), writeFileSync: (fd, d) => { writeFileSync(fd, d); },
+  fsyncSync: (fd) => { fsyncSync(fd); }, closeSync: (fd) => { closeSync(fd); }, renameSync: (a, b) => { renameWithBoundedRetry(a, b); },
+  renameAttemptSync: (a, b) => { renameSync(a, b); }, sleepSync: (ms) => { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); },
+  renameRetryTotalMs: RENAME_RETRY_TOTAL_MS };
+/** Append ONE line durably: open "a" -> write the whole line -> fsync -> close; the caller goes on only once it is on disk. */
+function appendDurable(path: string, line: string): void {
+  const fd = DURABLE_FS.openSync(path, "a");
+  try { DURABLE_FS.writeFileSync(fd, line); DURABLE_FS.fsyncSync(fd); } finally { DURABLE_FS.closeSync(fd); }
+}
+/** Replace a WHOLE file durably: <path>.tmp opened "w" -> write -> fsync -> close, THEN rename over <path>, so a reader
+ *  sees the old OR the new complete file, never a torn one. The parent-directory fsync is NOT done (not portable to
+ *  win32, where the draw runs): declared at the ADR. No reader matches a "*.tmp" name (ledger/candidate filters). The
+ *  rename is DURABLE_FS.renameSync = renameWithBoundedRetry (R-SP-A): a held target delays it, never tears the file. */
+function writeDurable(path: string, content: string): void {
+  const tmp = `${path}.tmp`, fd = DURABLE_FS.openSync(tmp, "w");
+  try { DURABLE_FS.writeFileSync(fd, content); DURABLE_FS.fsyncSync(fd); } finally { DURABLE_FS.closeSync(fd); }
+  DURABLE_FS.renameSync(tmp, path);
+}
+
+/** Read a jsonl file as parsed lines. C-B-5 (α): an append is not crash-atomic (fsync or not), so a kill mid-append
  *  leaves a TORN last line. ONLY the trailing torn line is repairable — it is dropped and the file TRUNCATED to its
  *  last complete line (byte-exact prefix) before any further append, so the queue is the sole legitimate truncation
  *  point. An unreadable line with content AFTER it is fail-closed (throw): a corruption in the body, never silently
@@ -565,7 +683,7 @@ function readJsonl<T>(path: string): T[] {
     try { out.push(JSON.parse(l) as T); }
     catch {
       if (lines.slice(i + 1).some((x) => x.trim() !== "")) throw new Error("bell/collect: " + path + " has an unreadable line before its queue (C-B-5 fail-closed: only a trailing torn line is repairable)");
-      writeFileSync(path, i > 0 ? lines.slice(0, i).join("\n") + "\n" : ""); // truncate the torn tail (byte-exact prefix)
+      writeDurable(path, i > 0 ? lines.slice(0, i).join("\n") + "\n" : ""); // truncate the torn tail (byte-exact prefix, C-6 durable)
       break;
     }
   }
@@ -653,7 +771,7 @@ export async function runRebaseCrosscheckCli(call: JsonRpcCall, providers: reado
   const retriesByMethod: Record<string, number> = { getTransactionsForAddress: 0, getTransaction: 0, ...prior.retries };
   const gm = (): { getTransactionsForAddress: number; getTransaction: number } => ({ getTransactionsForAddress: 0, getTransaction: 0, ...callsByMethod() }); // global cumulative, both keys present
   const writeBudget = (pages: number): void =>
-    writeFileSync(resolve(out, "budget.json"), JSON.stringify({ calls_used: callsUsed(), credits_worst_case: callsUsed() * WORST_CASE_CREDITS_PER_CALL,
+    writeDurable(resolve(out, "budget.json"), JSON.stringify({ calls_used: callsUsed(), credits_worst_case: callsUsed() * WORST_CASE_CREDITS_PER_CALL,
       pages, calls_by_method: { global: gm(), by_mint: byMint }, retries_by_method: retriesByMethod, require_full_pages: requireFullPages }));
   for (const tok of XSTOCKS.filter((t) => wanted.includes(t.symbol))) {
     const symbol = tok.symbol;
@@ -678,9 +796,9 @@ export async function runRebaseCrosscheckCli(call: JsonRpcCall, providers: reado
         // commit point (closes the fact-7 desync window); entry_sha256 now commits page_events/page_handoffs via payload_sha256 (condition (f)).
         lastPages = ledger.length; setSlice(); writeBudget(ledger.length);
         const record: LedgerRecord = { ...entry, page_events: pageEvents, page_handoffs: pageHandoffs };
-        appendFileSync(ledgerPath, JSON.stringify(record) + "\n");
+        appendDurable(ledgerPath, JSON.stringify(record) + "\n"); // C-6: fsynced before the scan goes on
       },
-      onCandidate: (sig, body) => { writeFileSync(resolve(candidateDir, `${sig}.json`), JSON.stringify(body)); }, // C-B-6: candidate_shas re-derived from this per-mint subdir
+      onCandidate: (sig, body) => { writeDurable(resolve(candidateDir, `${sig}.json`), JSON.stringify(body)); }, // C-B-6: candidate_shas re-derived from this per-mint subdir
     };
     let scan: FullMintScan | undefined;
     try {
@@ -692,20 +810,25 @@ export async function runRebaseCrosscheckCli(call: JsonRpcCall, providers: reado
         scan_complete: scan.complete, scan_reason: scan.reason ?? null, events: scan.events, c3_oracle_triplet: series.oracle_triplet,
         comparator_verdict: verdict, calls_by_method: g, credits_recomputed: creditsRecomputed, candidate_shas: deriveCandidateShas(out, symbol),
         // fact 8: the L-5 gate (b2) reads this attestation; `source:"fullmint"` is the only value that closes a residual.
-        set_authority_scan: { scanned: scan.complete, authority_change_found: scan.handoffs.length > 0, through_slot: series.oracle_slot, source: "fullmint" } };
+        set_authority_scan: { scanned: scan.complete, authority_change_found: scan.handoffs.length > 0, through_slot: series.oracle_slot, source: "fullmint" },
+        // BELL-SHORTPAGE-1 (checkpoint-1 C-5): ADDITIVE, always present; null = NO probe decision reached (cp-2 C-1): no short
+        // page with a token, OR a budget refusal on the probe (nothing emitted) OR on the probe-path anchor (the paid probe
+        // call stays visible in calls_by_method and the cycle ledger; a resume re-probes). A mint end proven by the probe is
+        // thus told apart from a tokenless last page; this file's readers (the sealed check below, audits) ignore extra keys.
+        short_final_page_probe: scan.shortFinalPageProbe ?? null };
       // C-B-2 (V-2): a sealed scan_complete:true artifact is NEVER degraded to false by a mordant relaunch — the sealed
       // file stays byte-identical and the degraded attempt is journaled to a `-attempt` sidecar, never overwriting equal.
       const artifactPath = resolve(out, `crosscheck-${symbol}.json`);
       const sealed = existsSync(artifactPath) && (JSON.parse(readFileSync(artifactPath, "utf8")) as { scan_complete?: boolean }).scan_complete === true;
-      writeFileSync(sealed && !scan.complete ? resolve(out, `crosscheck-${symbol}-attempt.json`) : artifactPath, JSON.stringify(artifact, null, 2));
-      perMint[symbol] = { verdict: verdict.verdict, complete: scan.complete, reason: scan.reason ?? null, n_exact: scan.n, pages: scan.pages, credits_recomputed: creditsRecomputed, handoffs: scan.handoffs.length };
+      writeDurable(sealed && !scan.complete ? resolve(out, `crosscheck-${symbol}-attempt.json`) : artifactPath, JSON.stringify(artifact, null, 2));
+      perMint[symbol] = { verdict: verdict.verdict, complete: scan.complete, reason: scan.reason ?? null, n_exact: scan.n, pages: scan.pages, credits_recomputed: creditsRecomputed, handoffs: scan.handoffs.length, short_final_page_probe: scan.shortFinalPageProbe ?? null };
     } finally {
       setSlice(); writeBudget(scan?.ledger.length ?? lastPages); // C-B-4: budget durable on the error/desc path (retries included)
     }
   }
   const report = { generated_at: new Date().toISOString(), operators: [...new Set(providers.map(operatorOf))],
     per_mint: perMint, calls_used: callsUsed(), max_calls: maxCalls };
-  writeFileSync(resolve(out, "crosscheck-report.json"), JSON.stringify(report, null, 2));
+  writeDurable(resolve(out, "crosscheck-report.json"), JSON.stringify(report, null, 2));
   process.stdout.write(`bell/rebase-crosscheck operators=${report.operators.join(",")} calls=${String(callsUsed())}/${String(maxCalls)} out=${out}\n`);
 }
 
@@ -737,7 +860,7 @@ export async function runDensityProbeCli(call: JsonRpcCall, providers: readonly 
   const retriesByMethod: Record<string, number> = { getTransactionsForAddress: 0, getTransaction: 0, ...prior.retries };
   const gm = (): { getTransactionsForAddress: number; getTransaction: number } => ({ getTransactionsForAddress: 0, getTransaction: 0, ...callsByMethod() }); // global cumulative, both keys present
   const writeBudget = (): void =>
-    writeFileSync(resolve(out, "budget.json"), JSON.stringify({ calls_used: callsUsed(), credits_worst_case: callsUsed() * WORST_CASE_CREDITS_PER_CALL,
+    writeDurable(resolve(out, "budget.json"), JSON.stringify({ calls_used: callsUsed(), credits_worst_case: callsUsed() * WORST_CASE_CREDITS_PER_CALL,
       pages: 0, calls_by_method: { global: gm(), by_mint: byMint }, retries_by_method: retriesByMethod, require_full_pages: requireFullPages }));
   const gtfa = (address: string, slotFilter: Record<string, number>, limit: number): Promise<Record<string, unknown>> =>
     call(heliusOp, "getTransactionsForAddress", [address, { transactionDetails: "full", sortOrder: "asc", limit, filters: { slot: slotFilter } }]).then(asObj);
@@ -781,7 +904,7 @@ export async function runDensityProbeCli(call: JsonRpcCall, providers: readonly 
     }
   } finally {
     writeBudget(); // durable: a mid-sonde BudgetExceededError still persists the cumulative counter (fail-closed)
-    writeFileSync(resolve(out, "sonde-report.json"), JSON.stringify(report, null, 2));
+    writeDurable(resolve(out, "sonde-report.json"), JSON.stringify(report, null, 2));
   }
   process.stdout.write(`bell/rebase-density operators=${[...new Set(providers.map(operatorOf))].join(",")} calls=${String(callsUsed())}/${String(maxCalls)} out=${out}\n`);
 }
