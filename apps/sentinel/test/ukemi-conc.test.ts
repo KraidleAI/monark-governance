@@ -150,6 +150,26 @@ test("ukemi_conc_polite_gate_spaces_issues_per_operator_under_concurrency", asyn
     assert.equal(ts.length, 15, `${u}: 8 eth_call + 7 getLogs issues`);
     assert.ok(gaps.every((g) => g >= IV), `${u}: every issue >= ${String(IV)} ms after the previous one (gaps ${JSON.stringify(gaps)})`);
   }
+  // C-G2-3 (G2 UKEMI-CONC-1) (1) DISTINCT operators are NOT serialized (U-4a C-5: the gate keys by operator, never one global
+  // queue): some issue to one operator lands within IV/2 of an issue to the other. Mutant G2M3b (gate keyed globally) red.
+  const all = [...at.values()].flat().sort((x, y) => x - y), gmin = Math.min(...all.slice(1).map((t, k) => t - all[k]!));
+  assert.ok(gmin < IV / 2, `distinct operators proceed in parallel: global min gap ${gmin.toFixed(2)} ms < ${String(IV / 2)} ms`);
+  // (2) a slow operator (U-4a D-4) waits slowIntervalMs THROUGH makePoliteGate: the gate the pool builds from its options, AND
+  // the shared gate record.ts builds from --slow-operator on the served path. Mutant G2M19 (the gate ignores the slow set) red
+  // on both; mutant "record.ts builds its gate without the slow set" red on the served one.
+  const SLOW = 3 * IV, sa = new Map<string, number[]>();
+  const slowPool = makeUkemiPool({ call: (u) => { sa.set(u, [...(sa.get(u) ?? []), performance.now()]); return Promise.resolve("0x" + "33".repeat(32)); }, ethCallProviders: eps, getLogsProviders: eps, minIntervalMs: IV, slowOperators: ["b.example"], slowIntervalMs: SLOW });
+  await Promise.all(Array.from({ length: 4 }, (_, i) => slowPool.ethCall("0x" + "ab".repeat(20), "0x" + i.toString(16).padStart(8, "0"), 100)));
+  const sb = sa.get("https://b.example") ?? [], sg = sb.slice(1).map((t, k) => t - sb[k]!);
+  assert.ok(sb.length === 4 && sg.every((g) => g >= SLOW), `slowOperators: b.example issues >= ${String(SLOW)} ms apart (gaps ${JSON.stringify(sg)})`);
+  const IV2 = 10, SLOW2 = 40, hosts = new Map<string, number[]>(), dir = mkdtempSync(join(tmpdir(), "uconc-"));
+  try {
+    await withFetch((input, init) => { const h = new URL(String(input)).host; hosts.set(h, [...(hosts.get(h) ?? []), performance.now()]); return Promise.resolve(serve(FXD, init)); }, async () => {
+      assert.equal(await runRecorder([...argv(dir, String(IV2)), "--filter-only", "--from-block", String(FX.block - 100), "--concurrency", "4", "--slow-operator", "mevblocker.io", "--slow-interval-ms", String(SLOW2), "--out", join(dir, "s.json")], DEPS), 0, "the filter pass completes");
+    });
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+  const mv = hosts.get("rpc.mevblocker.io") ?? [], mg = mv.slice(1).map((t, k) => t - mv[k]!);
+  assert.ok(mv.length >= 5 && mg.every((g) => g >= SLOW2), `--slow-operator mevblocker.io on the served path: ${String(mv.length)} issues >= ${String(SLOW2)} ms apart (gaps ${JSON.stringify(mg)})`);
 });
 
 // ORACLE-HANG-1 regression - under a FROZEN Date (the guard-scripts-u4 preload freezes it) the gate still spaces issues on
@@ -321,4 +341,86 @@ test("ukemi_conc_budget_stop_drains_before_unlock_and_ledgers_stay_chained", asy
     }
     assert.ok(refused >= 1 && refused <= 8, `at most one refused attempt per in-flight read (no read launched after the stop): ${String(refused)}`);
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// C-G2-2 (G2 UKEMI-CONC-1) - a NON-budget stop on the BOOK path: a quorum disagreement on one holder's first read (clone 24,
+// mid-list: holders sort the clones first), n=8, a real gate (20 ms: reads queue at the gates when the stop fires). The run
+// rejects and its diag names the disagreement and the window; after a wait, EVERY operator ledger replays, `unlocked` is its
+// LAST line, no lock left; and every fetch issued after the stop belongs to a read already IN FLIGHT (a book task stops at its
+// NEXT read): at most n-1 distinct requests, at most 2 fetches each (quorum-2). Mutant G2M8 (the per-read stop check removed
+// from the book task: in-flight tasks unroll their WHOLE plan after the stop) red here; G2M1 (no drain) too.
+test("ukemi_conc_book_stop_halts_each_task_at_its_next_read_and_ledgers_stay_chained", async () => {
+  const D = synth(48), IV = 20, N = 8, dir = mkdtempSync(join(tmpdir(), "uconc-")), out = join(dir, "b.json");
+  const hw = wordAddr("0x" + (0xc0c0 + 24).toString(16).padStart(40, "0"));
+  const log: string[] = [];
+  let poisoned = 0, stopAt = -1;
+  const stub = (input: string | URL, init?: RequestInit): Promise<Response> => {
+    const req = parseReq(init), p = req.method === "eth_call" ? (req.params as ReadonlyArray<{ to: string; data: string }>)[0] : undefined;
+    log.push(p === undefined ? req.method : `${p.to.toLowerCase()}|${p.data.toLowerCase()}`);
+    if (p === undefined || !p.data.toLowerCase().includes(hw)) return Promise.resolve(serve(D, init));
+    poisoned++;
+    if (poisoned === 2) stopAt = log.length; // both legs of the poisoned read are answered: the disagreement (the stop) follows
+    return Promise.resolve(new URL(String(input)).host.includes("mevblocker") ? json({ jsonrpc: "2.0", id: 1, result: "0x" + "ab".repeat(32) }) : serve(D, init));
+  };
+  try {
+    await withFetch(stub, async () => {
+      await assert.rejects(() => runRecorder([...argv(dir, String(IV)), "--from-block", String(FX.block - 100), "--concurrency", String(N), "--out", out], DEPS), /disagree/, "the disagreement stops the course (fatal, non-budget)");
+    });
+    const diag = JSON.parse(readFileSync(out + ".diag.json", "utf8")) as { error: { name: string }; pool?: { concurrency: number } };
+    assert.deepEqual([diag.error.name, diag.pool?.concurrency], ["QuorumDisagreementError", N], "the diag names the disagreement and the window");
+    await sleep(IV * 20); // an undrained in-flight read would issue (and ledger) in this window, after the unlock
+    for (const op of ["drpc.org", "mevblocker.io"]) {
+      const entries = readFileSync(join(dir, "cyc", `${op}.jsonl`), "utf8").split("\n").filter((l) => l !== "").map((l) => JSON.parse(l) as CycleLedgerEntry);
+      assert.doesNotThrow(() => { verifyCycleLedger(entries); }, `${op}: the chain replays (no line on a stale head)`);
+      const u = entries.findIndex((e) => e.outcome === "unlocked");
+      assert.ok(u >= 0 && u === entries.length - 1, `${op}: unlocked is the LAST line (no attempted/refused after it)`);
+      assert.ok(!existsSync(join(dir, "cyc", `${op}.lock`)), `${op}: no lock left`);
+    }
+    const after = log.slice(stopAt), distinct = new Set(after).size;
+    assert.ok(stopAt > 0 && poisoned === 2 && after.length >= 1, `the stop fell mid-course with reads in flight (stop at fetch ${String(stopAt)}, ${String(after.length)} fetch(es) after it)`);
+    assert.ok(distinct <= N - 1 && after.length <= 2 * (N - 1), `no read launched after the stop: ${String(distinct)} distinct request(s), ${String(after.length)} fetch(es) after it (<= ${String(N - 1)}, <= ${String(2 * (N - 1))})`);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// C-V-1 + C-V-2 (cp-2 UKEMI-CONC-1; closes R-C-1 and R-C-2) + C-G2-1b - --heartbeat-every paces BOTH prefetch heartbeats on
+// the served path. --filter-only --concurrency 4 --heartbeat-every 5 over synth(48) (52 holders): exactly 10 stderr lines
+// `..prefetch pass=filter` (5/52 .. 50/52, concurrency=4, t=<ISO of deps.now> as the HEARTBEAT-1 line), ALL before the
+// unchanged replay pass, whose counters restart at zero: its `..filter` lines are exactly those of the n=1 run at the same
+// period (5/52 first). A full book at --concurrency 4: exactly 10 `..prefetch pass=book` lines (5/52 first). stderr is
+// TEE-captured (a swallowing redirect eats node:test's deferred TAP flushes, measured in ukemi-guard-record.test.ts
+// capturedSplit). Mutants "filter wiring removed", "book wiring removed", "period mis-passed" (filter, book), "config_read
+// reset removed", "config-passing reset removed", "filter prefetch ignores every", "t= dropped", "t= on the wall clock" red here.
+test("ukemi_conc_heartbeat_every_paces_both_prefetches_and_the_replay_restarts_at_zero", async () => {
+  const D = synth(48), TICKS = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map((k) => `${String(k)}/52`), T_ISO = new Date(DEPS.now()).toISOString();
+  // groups: 1 pass, 2 holders done, 3 holders, 4 config-passing seen, 5 concurrency, 6 t=<ISO>
+  const PRE = /^ {2}\.\.prefetch pass=(filter|book) holders_done=(\d+)\/(\d+) n_at_risk_config=(\d+) rate=[0-9.]+\/s concurrency=(\d+) calls=\{[^}]*\} errors=\{[^}]*\} t=(\S+)$/;
+  // groups: 1 config_read, 2 holders, 3 config-passing (a prefix: the replay line carries more fields after it)
+  const FIL = /^ {2}\.\.filter config_read=(\d+)\/(\d+) n_at_risk_config=(\d+) /;
+  type Wr = { write: unknown };
+  const stderrOf = async (every: string, extra: string[]): Promise<string[]> => {
+    let err = "";
+    const se = process.stderr.write.bind(process.stderr);
+    (process.stderr as unknown as Wr).write = (s: string | Uint8Array, ...a: unknown[]): boolean => { err += String(s); return (se as unknown as (...x: unknown[]) => boolean)(s, ...a); };
+    try { await record(D, ["--heartbeat-every", every, ...extra]); } finally { (process.stderr as unknown as Wr).write = se; }
+    return err.split(/\r?\n/);
+  };
+  const pre = (ls: string[], pass: string): RegExpExecArray[] => ls.map((l) => PRE.exec(l)).filter((m): m is RegExpExecArray => m !== null && m[1] === pass);
+  const fil = (ls: string[]): RegExpExecArray[] => ls.map((l) => FIL.exec(l)).filter((m): m is RegExpExecArray => m !== null);
+  const kinds = (ls: string[]): string => ls.map((l) => (PRE.test(l) ? "p" : FIL.test(l) ? "f" : "")).join("");
+  const done = (ms: RegExpExecArray[], a: number, b: number): string[] => ms.map((m) => `${m[a] ?? ""}/${m[b] ?? ""}`);
+  const f4 = await stderrOf("5", ["--filter-only", "--concurrency", "4"]), f1 = await stderrOf("5", ["--filter-only"]);
+  assert.deepEqual(done(pre(f4, "filter"), 2, 3), TICKS, "filter prefetch at --heartbeat-every 5: exactly 10 lines, 5/52 first");
+  assert.ok(pre(f4, "filter").every((m) => m[5] === "4" && Number(m[4]) <= Number(m[2]) && m[6] === T_ISO), "each prefetch line: concurrency=4, config-passing seen <= holders done, t=<ISO of deps.now>");
+  assert.equal(kinds(f4), "p".repeat(10) + "f".repeat(10), "every prefetch line precedes the replay pass");
+  assert.deepEqual(done(fil(f4), 1, 2), TICKS, "the replay pass restarts at zero: 5/52 first");
+  assert.deepEqual(fil(f4).map((m) => [m[1], m[3]]), fil(f1).map((m) => [m[1], m[3]]), "the replay pass prints EXACTLY the n=1 heartbeat (config_read AND config-passing restarted)");
+  assert.equal(kinds(f1), "f".repeat(10), "n=1: no prefetch line, 10 filter lines (the comparison above is not vacuous)");
+  // R-C-2 on BOTH counters: at --heartbeat-every 1 the replay's first tick fires BEFORE its first holder's tally (the filter
+  // core counts, ticks, then tallies), so a counter left un-reset shows at once (config_read 53/52, or a stale config-passing).
+  const e1 = fil(await stderrOf("1", ["--filter-only", "--concurrency", "4"]));
+  assert.deepEqual([e1.length, e1[0]?.[1], e1[0]?.[3]], [52, "1", "0"], "every 1: the replay's first line is config_read=1/52 n_at_risk_config=0 (both counters reset)");
+  const b4 = await stderrOf("5", ["--concurrency", "4"]);
+  assert.deepEqual(done(pre(b4, "book"), 2, 3), TICKS, "book prefetch at --heartbeat-every 5: exactly 10 lines, 5/52 first");
+  assert.ok(pre(b4, "book").every((m) => m[5] === "4" && m[6] === T_ISO), "each book prefetch line: concurrency=4, t=<ISO of deps.now>");
+  assert.equal(kinds(b4), "p".repeat(10), "the full book: the 10 book prefetch lines only (recordBook has no heartbeat)");
 });

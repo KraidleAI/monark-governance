@@ -15,7 +15,9 @@ import { runBounded, PoolStoppedError, type PoolReport, type PoolSignal } from "
 /** Live progress (structurally record.ts FilterProgress): holders, holders done, config-passing (cluster collateral ON
  *  and debt) seen - cumulative on arrival, so a stop still reports what was seen (diag n_at_risk_seen). */
 export interface PassProgress { holders: number; config_read: number; n_at_risk_config: number; }
-export interface PrefetchOpts { fromBlock?: number | undefined; concurrency: number; progress?: PassProgress | undefined; onTick?: (() => void) | undefined; every?: number | undefined; report?: PoolReport | undefined; }
+/** `every` (the heartbeat period in holders done) is REQUIRED: the one default lives in the CLI parse (--heartbeat-every,
+ *  record.ts), never a second copy here (C-G2-1b: a hidden default silently ignored the flag at n > 1). */
+export interface PrefetchOpts { fromBlock?: number | undefined; concurrency: number; progress?: PassProgress | undefined; onTick?: (() => void) | undefined; every: number; report?: PoolReport | undefined; }
 interface Head { reservesList: string[]; clusterIdx: number[]; holders: string[]; reserve: (i: number, signal: PoolSignal) => Promise<ReserveData>; }
 
 const NEVER: PoolSignal = { stopped: false };
@@ -63,7 +65,7 @@ async function head(cluster: Cluster, block: number, reader: UkemiReader, fromBl
 }
 
 /** Cumulative progress + heartbeat, in the order of the sequential filter loop (record.ts:87-96): count, tick, then
- *  the config-passing tally. `every` = the heartbeat period in holders done (2000 = the sequential cadence). */
+ *  the config-passing tally. `every` = the heartbeat period in holders done (the --heartbeat-every value). */
 function tick(p: PassProgress | undefined, passing: boolean, onTick: (() => void) | undefined, every: number): void {
   if (p === undefined) return;
   p.config_read += 1;
@@ -77,7 +79,7 @@ export async function prefetchFilterReads(cluster: Cluster, block: number, reade
   if (opts.progress) opts.progress.holders = holders.length;
   await runBounded(holders, opts.concurrency, async (h) => {
     const { collateral, borrow } = decodeUserConfig(decUint(await reader.ethCall(POOL, SEL.getUserConfiguration + wordAddr(h), block)), reservesList.length);
-    tick(opts.progress, clusterIdx.some((i) => collateral.includes(i)) && borrow.length > 0, opts.onTick, opts.every ?? 2000);
+    tick(opts.progress, clusterIdx.some((i) => collateral.includes(i)) && borrow.length > 0, opts.onTick, opts.every);
   }, opts.report);
 }
 
@@ -90,7 +92,7 @@ export async function prefetchBookReads(cluster: Cluster, block: number, reader:
     const rd = (to: string, data: string): Promise<string> => { if (signal.stopped) throw new PoolStoppedError(); return reader.ethCall(to, data, block); };
     const { collateral, borrow } = decodeUserConfig(decUint(await rd(POOL, SEL.getUserConfiguration + wordAddr(h))), reservesList.length);
     const passing = clusterIdx.some((i) => collateral.includes(i)) && borrow.length > 0;
-    tick(opts.progress, passing, opts.onTick, opts.every ?? 2000);
+    tick(opts.progress, passing, opts.onTick, opts.every);
     if (!passing) return;
     let total = 0n;
     for (let k = 0; k < cluster.collaterals.length; k++) {

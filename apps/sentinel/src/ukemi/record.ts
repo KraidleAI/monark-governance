@@ -426,7 +426,7 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
       const t0 = Date.now();
       return () => {
         const perOp = Object.entries(budgeted.byOperator()).map(([k, v]) => `${k}:${String(v)}`).join(","), perErr = Object.entries(errByOp).map(([k, v]) => `${k}:${String(v)}`).join(",");
-        process.stderr.write(`  ..prefetch pass=${pass} holders_done=${String(progress.config_read)}/${String(progress.holders)} n_at_risk_config=${String(progress.n_at_risk_config)} rate=${(progress.config_read / Math.max((Date.now() - t0) / 1000, 0.001)).toFixed(2)}/s concurrency=${String(concurrency)} calls={${perOp}} errors={${perErr}}\n`);
+        process.stderr.write(`  ..prefetch pass=${pass} holders_done=${String(progress.config_read)}/${String(progress.holders)} n_at_risk_config=${String(progress.n_at_risk_config)} rate=${(progress.config_read / Math.max((Date.now() - t0) / 1000, 0.001)).toFixed(2)}/s concurrency=${String(concurrency)} calls={${perOp}} errors={${perErr}} t=${new Date(deps.now()).toISOString()}\n`);
       };
     };
 
@@ -435,7 +435,7 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
       const t0 = Date.now();
       // UKEMI-CONC-1 (n > 1): warm every holder's config read through the window, then the UNCHANGED pass below replays
       // from the cache (its own counters restart at 0: the prefetch's are only for a stop's diag and the heartbeat).
-      if (concurrency > 1) { await prefetchFilterReads(cluster, block, reader, { fromBlock: args.fromBlock, concurrency, progress, onTick: tickFor("filter"), report: poolReport }); progress.config_read = 0; progress.n_at_risk_config = 0; }
+      if (concurrency > 1) { await prefetchFilterReads(cluster, block, reader, { fromBlock: args.fromBlock, concurrency, progress, onTick: tickFor("filter"), every: args.heartbeatEvery, report: poolReport }); progress.config_read = 0; progress.n_at_risk_config = 0; }
       const onTick = (): void => {
         const t = (Date.now() - t0) / 1000;
         const perOp = Object.entries(budgeted.byOperator()).map(([k, v]) => `${k}:${String(v)}`).join(",");
@@ -473,7 +473,7 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
     const t0 = Date.now();
     // UKEMI-CONC-1 (n > 1): warm recordBook's per-holder read plan through the window; the UNCHANGED recordBook (book.ts
     // not touched) then replays from the cache - book / book_digest / hf_findings order byte-identical by construction.
-    if (concurrency > 1) await prefetchBookReads(cluster, block, reader, { fromBlock: args.fromBlock, concurrency, progress, onTick: tickFor("book"), report: poolReport });
+    if (concurrency > 1) await prefetchBookReads(cluster, block, reader, { fromBlock: args.fromBlock, concurrency, progress, onTick: tickFor("book"), every: args.heartbeatEvery, report: poolReport });
     const res = await recordBook(cluster, block, reader, "GENESIS", { fromBlock: args.fromBlock });
     const seconds = (Date.now() - t0) / 1000;
 
