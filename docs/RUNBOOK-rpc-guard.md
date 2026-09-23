@@ -79,16 +79,20 @@ Use it for a ledger written by GARDE-FSYNC-1 code. It changes NO byte when it re
 5. Anchor (course anchors, if any) and journal: the record line + the backup folder's `SHA256SUMS.txt`.
 6. Reconcile: the next `reconcile` of this operator answers `NO-GO repaired_in_window` (its input is the repair journal
    `<op>.repair.jsonl`: a record whose `lines_after` is >= the window start flags the window, before any numeric bound,
-   in every mode). That NO-GO is emitted ONCE: it appends a `reconciled` line, which closes the repaired window at once,
-   whatever the orchestrator does next. The tool therefore NEVER computes the numeric bound of the repaired window: the
+   in every mode), UNLESS that `reconcile` is a rollover (a `--before` or `--after` whose `cycle` is not `--cycle`), checked FIRST
+   (`packages/rpc-guard/src/reconcile.ts:73`; the repair flag is `:74`): it then answers `NO-GO rollover`, its
+   `reconciled` line closes the repaired window, and `repaired_in_window` is never written (measured: re-G2 E13).
+   Either NO-GO is emitted ONCE: it appends a `reconciled` line, which closes the repaired window at once, whatever the
+   orchestrator does next. The tool therefore NEVER computes the numeric bound of the repaired window: the
    orchestrator computes it by hand and journals it — `Delta_dashboard` of that window (its `--after` minus its
    `--before`) against `Sigma credits_derived` of the `attempted` lines between the previous `reconciled` line and the
-   `reconciled` line of reason `repaired_in_window`, per method (`per-method` mode) or in total (`aggregate` modes), with
-   that mode's criterion (`packages/rpc-guard/src/reconcile.ts` header: hard bound, then soft band). The NEXT reconcile takes as
-   `--before` the snapshot that closed the repaired window (its `--after`): re-run with the SAME snapshots, it meets an
-   EMPTY window and answers `NO-GO hard:<method>` (`hard:total` in aggregate mode) as soon as that window's delta is
-   positive, with no real overrun (measured: G2 E11; pinned by the test
-   `repair_journal_of_a_real_repair_is_consumed_by_the_served_reconcile`).
+   `reconciled` line of reason `repaired_in_window` (in the rollover case the hand computation stops at the `reconciled`
+   line of reason `rollover`), per method (`per-method` mode) or in total (`aggregate` modes), with that mode's
+   criterion (`packages/rpc-guard/src/reconcile.ts` header: hard bound, then soft band). After a `repaired_in_window`
+   NO-GO, the NEXT reconcile takes as `--before` the snapshot that closed the repaired window (its `--after`): re-run
+   with the SAME snapshots, it meets an EMPTY window and answers `NO-GO hard:<method>` (`hard:total` in aggregate mode)
+   as soon as that window's delta is positive, with no real overrun (measured: G2 E11 for `hard:<method>`, re-G2 E12 for
+   `hard:total`; pinned by the test `repair_journal_of_a_real_repair_is_consumed_by_the_served_reconcile`).
 
 | Token | Meaning | Next step |
 |---|---|---|
@@ -105,7 +109,7 @@ Use it for a ledger written by GARDE-FSYNC-1 code. It changes NO byte when it re
 Interrupted repair (a `.bak` present and no record in `<op>.repair.jsonl` whose `bak_sha256.jsonl` is the sha of that
 `.bak`): compare `sha256sum <op>.jsonl` with the `.bak`. Equal: nothing was truncated — move the `.bak` files away and
 rerun. Different: the truncation happened but its record was never written, so `reconcile` does NOT see this repair (it
-would answer GO: measured, G2 E7). Verify by §4 step 2, then RECONSTITUTE the record — append the minimal record of §4
+does not flag the window: measured, G2 E7). Verify by §4 step 2, then RECONSTITUTE the record — append the minimal record of §4
 step 5 with `lines_after` = the number of complete lines of `<op>.jsonl.bak` before its NUL tail and `reason` =
 `reconstituted: interrupted repair-tail, <date -u>` — and journal it.
 
@@ -142,9 +146,12 @@ pre-GARDE-FSYNC-1 ledger may remove lines whose request WAS sent: the ledger und
 
 `reconcile` sees a repair ONLY through the repair journal `<op>.repair.jsonl`: after §3 the tool writes the record;
 after §4, or after an interrupted §3, only the record the orchestrator appended (§4 step 5; §3 "Interrupted repair").
-The first reconcile whose window contains a recorded repair answers `NO-GO repaired_in_window` exactly ONCE: the
-`reconciled` line it appends closes that window, independently of the orchestrator, and the numeric check of the
-repaired window is the orchestrator's hand computation (§3 step 6). A repair-journal line that is unreadable, or that
+The first reconcile whose window contains a recorded repair answers `NO-GO repaired_in_window` exactly ONCE, unless
+that reconcile is a rollover, checked first (`reconcile.ts:73`): it then answers `NO-GO rollover` and
+`repaired_in_window` is never written (measured: re-G2 E13). Either way, the `reconciled` line it appends closes that
+window, independently of the orchestrator, and the numeric check of the repaired window is the orchestrator's hand
+computation (§3 step 6; in the rollover case it stops at that `reconciled` line of reason `rollover`). A repair-journal
+line that is unreadable, or that
 has no NUMERIC `lines_after` (a free note, a number written as a string), flags EVERY window — fail-closed, it never
 rolls (measured: G2 E8) — until it is lifted: copy `<op>.repair.jsonl` with its sha into the backup folder, then either
 rewrite that line with a numeric `lines_after` (a real repair record) or remove it (not a repair record); journal it.
