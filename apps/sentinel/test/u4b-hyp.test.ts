@@ -304,6 +304,101 @@ test("u4b_hyp_h3_e2_vs_e2_strata_and_pooled", () => {
   assert.equal(r.strata[1]?.p_value?.dec12, "1.000000000000");
 });
 
+// ---- G2 PROTOTYPE killer tests (relecteur G2 U-4b-STATS-1 1a, throwaway clone, NOT delivered). Inserted BEFORE the
+// last test and using ONLY the existing imports, so that seam/1b.patch (header hunk :1-27, tail hunk at EOF) still
+// applies. Each test kills a G2 mutant that survives the delivered 1a tests (logs/g2-mutants-A.log).
+test("g2proto_c11_fields_on_non_cell_equal_closed_forms", () => {
+  // NON cell of the enumeration test (stratum 1): fresh n=120 => p=120, b=1 ; N=60 e2 values, k=30 covered. C-11
+  // closed forms: E[K] = N p/(n+1) = 7200/121 ; observed k/N = 1/2 ; nominal 99/100 ; H0 p/(n+1) = 120/121 ;
+  // shortfall E[K]-k = 3570/121 ; gap to nominal 99/100 - 1/2 = 49/100.
+  const c = h3Cell("t", { n: 120, p: 120, qhat: "120" }, range(1, 120), [...range(1, 30), ...range(121, 150)]);
+  assert.equal(c.verdict, "NON");
+  const q = (x: { num: string; den: string } | null | undefined): string => (x === null || x === undefined ? "absent" : `${x.num}/${x.den}`);
+  assert.deepEqual(c.null_law, { family: "beta-binomial", trials: 60, a: 120, b: 1 });
+  assert.equal(c.level, "5/100");
+  assert.equal(q(c.expected_covered), "7200/121");
+  assert.equal(q(c.coverage_observed), "1/2");
+  assert.equal(q(c.coverage_nominal), "99/100");
+  assert.equal(q(c.coverage_expected_h0), "120/121");
+  assert.equal(q(c.shortfall_vs_expected), "3570/121");
+  assert.equal(q(c.coverage_gap_vs_nominal), "49/100");
+});
+
+test("g2proto_atoms_ties_and_qhat_is_max_match_prereg_counts", () => {
+  // prereg :100 (measured, anterior): e2 zero scores 344/363 (stratum 0), 120/148 (stratum 1), 509/565 pooled ;
+  // prereg :98 (H-2bis): stratum 1 (n=148 < 199) => qhat = max ; stratum 0 (n=363) => interior.
+  const lines = readLines(P_SCORES_E2);
+  const r = computeH3(parseScores(lines, EP, "fresh"), parseScores(loadReferenceLines().lines, null, "ref"));
+  assert.equal(r.strata[0]?.e2.atoms_at_zero, 344);
+  assert.equal(r.strata[1]?.e2.atoms_at_zero, 120);
+  assert.equal(r.pooled.e2.atoms_at_zero, 509);
+  assert.equal(r.strata[0]?.fresh.qhat_is_max, false);
+  assert.equal(r.strata[1]?.fresh.qhat_is_max, true);
+  const sa = lines.filter((l) => l.kind === "score_a") as Array<{ strate: number; score: string }>;
+  const meta = lines.find((l) => l.kind === "meta") as { cell_a: MetaCellA };
+  for (const k of [0, 1]) {
+    const qh = meta.cell_a.strata[k]?.qhat;
+    assert.ok(qh !== null && qh !== undefined);
+    assert.equal(r.strata[k]?.e2.ties_at_qhat, sa.filter((x) => x.strate === k && BigInt(x.score) === BigInt(qh)).length, `ties at qhat, stratum ${String(k)}`);
+  }
+});
+
+test("g2proto_pooled_non_is_reported_outside_the_359_predicate_q1a", () => {
+  // Ruling Q-1 (a): the :359 predicate counts NON on SERVED strata only; the pooled verdict is reported apart.
+  // stratum 0 served (fresh n=120) but e2 n=49 => NON_TESTABLE_E2 ; stratum 1 fresh n=50 => UNDER_CALIB ; pooled:
+  // fresh n=170 (p=170, qhat=120), e2 = 49 values <= 120 and 60 values > 120 => k=49 of 109 => NON.
+  const r = computeH3(synthScores([range(1, 120), range(1, 50), [], []], "ep-q1"), synthScores([range(1, 49), range(121, 180), [], []], "e2-q1"));
+  assert.deepEqual(r.strata.map((s) => s.verdict), ["NON_TESTABLE_E2", "UNDER_CALIB", "UNDER_CALIB", "UNDER_CALIB"]);
+  assert.equal(r.pooled.verdict, "NON");
+  assert.deepEqual(r.non_on_served_strata, []);
+  assert.equal(r.h3_no_NON_on_served_strata, true, "a pooled NON never flips the :359 predicate (Q-1 (a))");
+});
+
+test("g2proto_tampered_meta_qhat_is_refused_through_computeH3", () => {
+  // C-3 (i)/(iii): qhat is READ from the frozen meta and ASSERTED - through computeH3, for a stratum AND the pooled cell.
+  const fresh = synthScores([range(1, 120), range(1, 120), range(1, 99), range(1, 120)], "ep-test");
+  const e2 = synthScores([range(1, 60), range(1, 60), range(1, 60), range(1, 49)], "e2-test");
+  assert.doesNotThrow(() => computeH3(fresh, e2));
+  const pooledTampered: ParsedScores = { ...fresh, cellA: { ...fresh.cellA, qhat: "1" } };
+  assert.throws(() => computeH3(pooledTampered, e2), /pooled class A: meta qhat 1 != \d+-th smallest/);
+  const stratumTampered: ParsedScores = { ...fresh, cellA: { ...fresh.cellA, strata: fresh.cellA.strata.map((s) => (s.strate === 0 ? { ...s, qhat: "1" } : s)) } };
+  assert.throws(() => computeH3(stratumTampered, e2), /stratum 0: meta qhat 1 != 120-th smallest/);
+  const lines = readLines(P_SCORES_E2);
+  const drift = lines.map((l) => (l.kind === "meta" ? { ...l, cell_a: { ...(l.cell_a as MetaCellA), n_min: 50 } } : l));
+  assert.throws(() => parseScores(drift, EP, "x"), /producer drift/, "n_min drift of the producer is refused (C-3 iii guard)");
+});
+
+test("g2proto_level_decision_exact_where_float_cannot_tell", () => {
+  // C-3 (ii) + exact arithmetic: p-values no IEEE-754 double separates from 1/20 are still decided exactly.
+  const big = 2n ** 60n;
+  assert.equal(Number(big + 1n) / Number(20n * big), 0.05, "sanity: in float the first value IS 0.05");
+  assert.equal(rejectsAtLevel(rat(big + 1n, 20n * big)), false, "(2^60+1)/(20*2^60) > 5/100 => OUI");
+  assert.equal(rejectsAtLevel(rat(big - 1n, 20n * big)), true, "(2^60-1)/(20*2^60) < 5/100 => NON");
+  // large fresh cell (n=20000, pooled N=565, k=554): exact p-value ~0.031 => NON, while num and den both overflow a
+  // double (Infinity/Infinity = NaN): a float decision would be FAIL-OPEN (NaN <= x is false => OUI).
+  const pv = bbLowerTail(565, pOfN(20000), 20001 - pOfN(20000), 554);
+  assert.ok(Number.isNaN(Number(pv.num) / Number(pv.den)), "sanity: the float ratio is NaN");
+  assert.equal(rejectsAtLevel(pv), true, "exact decision at production-scale magnitudes: NON");
+});
+
+test("g2proto_e2_min_n_boundary_50_testable_49_not", () => {
+  // prereg :100: e2 comparison stratum n < 50 => not testable ; n = 50 IS tested (both sides of E2_MIN_N pinned,
+  // as NMIN is pinned at 99/100 by the delivered tests).
+  const fr = range(1, 120);
+  const at50 = h3Cell("t", { n: 120, p: 120, qhat: "120" }, fr, range(1, 50));
+  assert.equal(at50.verdict, "OUI", "n_e2 = 50 is tested (all covered => OUI)");
+  assert.ok(at50.p_value !== null && at50.p_value !== undefined);
+  assert.equal(h3Cell("t", { n: 120, p: 120, qhat: "120" }, fr, range(1, 49)).verdict, "NON_TESTABLE_E2", "n_e2 = 49 => NON_TESTABLE_E2");
+});
+
+test("g2proto_producer_drift_n_min_and_score_guards_refuse", () => {
+  const lines = readLines(P_SCORES_E2);
+  const drift = lines.map((l) => (l.kind === "meta" ? { ...l, cell_a: { ...(l.cell_a as MetaCellA), n_min: 50 } } : l));
+  assert.throws(() => parseScores(drift, EP, "x"), /producer drift/);
+  const badScore = lines.map((l, i) => (l.kind === "score_a" && i === 1 ? { ...l, score: String(BigInt(String(l.score)) + 1n) } : l));
+  assert.throws(() => parseScores(badScore, EP, "x"), /score != max\(Y - yhat, 0\)/);
+});
+
 test("u4b_hyp_c11_sentence_read_verbatim_from_pinned_prereg", () => {
   const s = loadC11Sentence();
   assert.equal(sha256(s), C11_SENTENCE_SHA256, "the C-11 sentence is the prereg span, byte for byte");
