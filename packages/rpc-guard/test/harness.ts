@@ -5,6 +5,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { DURABLE_FS, ensureCycleDir, openOperatorLedger, type CycleLedger, type DurableFs } from "../src/ledger.ts";
 import { makeClient, type BudgetedClient, type ClientConfig, type Transport, type OperatorLabel, type RunLimits } from "../src/client.ts";
 import { heliusCredits } from "../src/tariff.ts";
@@ -36,6 +37,16 @@ export const childEnv = (): NodeJS.ProcessEnv => { const e = { ...process.env };
 export const FAKE_HELIUS_ENV = { BELL_SOLANA_RPC: "https://example.invalid/HELIUS", HELIUS_API_KEY: "FAKEKEY-9z9z9z" };
 export const ONE_METHOD_LIMITS: RunLimits = { maxCalls: 10, runCaps: { helius: 1000 }, methodCaps: { getTransaction: 5 }, cycleFloor: { helius: 0 } };
 export const okFetch = (): Promise<Response> => Promise.resolve(new Response(JSON.stringify({ result: 1 }), { status: 200, headers: { "content-type": "application/json" } }));
+/** GARDE-FSYNC-1 (C-8, G2 C-G2-1): a REAL writer - a child process runs openGuardedClient + n calls (fetch stubbed in
+ *  the child), then exits WITHOUT unlock: it dies holding the lock, its fsynced {pid, iso} names a dead pid. */
+export function realWriter(dir: string, cycle: string, n: number): SpawnSyncReturns<string> {
+  const index = new URL("../src/index.ts", import.meta.url).href;
+  const code = `const { openGuardedClient } = await import(${JSON.stringify(index)});
+globalThis.fetch = () => Promise.resolve(new Response('{"result":1}', { status: 200, headers: { "content-type": "application/json" } }));
+const c = openGuardedClient(${JSON.stringify(FAKE_HELIUS_ENV)}, ${JSON.stringify(ONE_METHOD_LIMITS)}, ${JSON.stringify(dir)}, { helius: ${JSON.stringify(cycle)} });
+for (let i = 0; i < ${String(n)}; i++) await c.call("helius", "getTransaction", [i]);`;
+  return spawnSync(process.execPath, ["--input-type=module", "-e", code], { env: childEnv(), encoding: "utf8" });
+}
 /** GARDE-FSYNC-1 (C-7): wrap the DURABLE_FS seam so every operation is journaled IN ORDER ("open:<flags>:<file>",
  *  "write:<file>", ...; base names), then delegated to `over` when given (fault injection) else to the real one. The
  *  caller MUST restore() in a finally. A COUNT cannot tell "fsync before write" from "write before fsync"; this can. */

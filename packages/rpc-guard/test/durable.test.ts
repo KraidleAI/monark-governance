@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { closeSync, existsSync, openSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { openGuardedClient, verifyCycleLedger } from "@monark/rpc-guard";
@@ -106,6 +106,16 @@ test("durable_head_rename_retries_a_sharing_violation_with_a_bounded_backoff", (
     const j3 = journal({ sleepSync: virtualSleep(slept), renameSync: () => { throw eperm("ENOENT"); } });
     try { assert.throws(() => re.appendChained("attempted", { "helius|getTransaction": 1 }, 1), /ENOENT/); } finally { j3.restore(); }
     assert.equal(j3.ops.filter((o) => o === RENAME).length, 1);
+    // (4) G2 C-G2-2(c): the two other transient codes declared at the ADR (D-FS-2, E-3) are retried exactly like (1).
+    for (const code of ["EACCES", "EBUSY"]) {
+      const l = openOperatorLedger(ensureCycleDir(dir, `c-${code}`), "helius", 0);
+      let left = 2;
+      const jc = journal({ sleepSync: virtualSleep([]), renameSync: (a, b) => { if (left-- > 0) throw eperm(code); renameSync(a, b); } });
+      let e: CycleLedgerEntry;
+      try { e = l.appendChained("attempted", { "helius|getTransaction": 1 }, 1); } finally { jc.restore(); }
+      assert.deepEqual(jc.ops.slice(6), ["fsync:helius.head.tmp", "close:helius.head.tmp", RENAME, "sleep:10", RENAME, "sleep:20", RENAME], code);
+      assert.equal(readFileSync(l.headPath, "utf8"), e.entry_sha256, code);
+    }
   } finally { cleanup(); }
 });
 
@@ -194,21 +204,35 @@ process.stdout.write(String(n));`;
     assert.equal(r.status, 0, r.stderr);
     assert.equal(r.stdout, "5", "the production path flushes through node:fs itself: lock + 2 x (line + head.tmp)");
   } finally { cleanup(); }
-  // (2) STRUCTURE: no production source switches the flush off - no assignment to the seam, no reference to the test
-  //     support, and (ruling (a)) no environment read in this package's sources. The roots include the PAID course
-  //     scripts that load the guard (scripts/census/u4-guard.mjs, u4b-discover.mjs, ...).
-  const hits: string[] = [], scanned: string[] = [];
-  for (const root of ["packages/rpc-guard/src", "apps/sentinel/src", "apps/bell/src", "apps/harness/src", "scripts"]) {
-    if (!existsSync(join(REPO, root))) continue; // apps/bell and most of scripts/ are not in the public mirror
-    for (const f of readdirSync(join(REPO, root), { recursive: true, encoding: "utf8" }).filter((x) => x.endsWith(".ts") || x.endsWith(".mjs"))) {
+  // (2) STRUCTURE (G2 C-G2-4): no production source can switch the flush off. index.ts does not export the seam, so a
+  //     production file reaches it ONLY by importing src/ledger.ts: the scan RESOLVES every module specifier (from,
+  //     import, require, new URL) of every source under scripts/ and {apps,packages}/*/{src,scripts,bin}. Outside this
+  //     package's src/ and bin/, a target under packages/rpc-guard/src/ or test/ is a hit (G2 X1: `import { DURABLE_FS
+  //     as SEAM }` + Object.assign); inside, a target under test/, a seam assignment or a process.env read (ruling (a)).
+  //     No bare-token rule: apps/bell/src/rebase-crosscheck.ts declares Bell's OWN DURABLE_FS (lot/etude-suite 2c276bb).
+  //     A computed specifier escapes a static scan (a heuristic, declared): part (1) is the proof on the production path.
+  const hits: string[] = [], scanned: string[] = [], targets = new Set<string>();
+  const workspaces = ["apps", "packages"].flatMap((w) => (existsSync(join(REPO, w)) ? readdirSync(join(REPO, w)).map((p) => `${w}/${p}`) : []));
+  for (const root of ["scripts", ...workspaces.flatMap((p) => [`${p}/src`, `${p}/scripts`, `${p}/bin`])]) {
+    if (!existsSync(join(REPO, root))) continue; // apps/bell, bin/ and most of scripts/ are not in the public mirror
+    for (const f of readdirSync(join(REPO, root), { recursive: true, encoding: "utf8" }).filter((x) => /\.[mc]?[jt]s$/.test(x))) {
       const rel = `${root}/${f.replace(/\\/g, "/")}`, text = readFileSync(join(REPO, root, f), "utf8");
+      const own = /^packages\/rpc-guard\/(src|bin)\//.test(rel);
       scanned.push(rel);
-      if (/DURABLE_FS\.\w+\s*=[^=]/.test(text)) hits.push(`${rel}: assigns the DURABLE_FS seam`);
+      for (const m of text.matchAll(/(?:\bfrom|\bimport|\brequire|\bnew URL)\s*\(?\s*["'`]([^"'`\n]+)["'`]/g)) {
+        const spec = m[1] ?? "", target = spec.startsWith(".") ? posix.normalize(posix.join(posix.dirname(rel), spec)) : spec.replace(/^@monark\/rpc-guard\//, "packages/rpc-guard/");
+        targets.add(target);
+        const internal = /(?:^|\/)packages\/rpc-guard\/(src|test)\//.exec(target)?.[1];
+        if (internal === "test" || (internal === "src" && !own)) hits.push(`${rel}: imports ${target}`);
+      }
       if (/no-fsync/.test(text)) hits.push(`${rel}: references the no-fsync test support`);
-      if (root === "packages/rpc-guard/src" && /process\.env/.test(text)) hits.push(`${rel}: reads process.env`);
+      if (own && /DURABLE_FS\.\w+\s*=[^=]/.test(text)) hits.push(`${rel}: assigns the DURABLE_FS seam`);
+      if (own && /process\.env/.test(text)) hits.push(`${rel}: reads process.env`);
     }
   }
   assert.ok(scanned.includes("packages/rpc-guard/src/ledger.ts") && scanned.includes("packages/rpc-guard/src/index.ts"), "the scan reached the package sources (non-vacuous)");
+  assert.ok(targets.has("packages/rpc-guard/src/ledger.ts"), "the specifier resolver maps the package's own ./ledger.ts (non-vacuous)");
   if (existsSync(join(REPO, "scripts/census/u4-guard.mjs"))) assert.ok(scanned.includes("scripts/census/u4-guard.mjs"), "the scan reached the paid course scripts (non-vacuous)");
+  if (existsSync(join(REPO, "packages/rpc-guard/bin"))) assert.ok(scanned.includes("packages/rpc-guard/bin/rpc-guard.mjs"), "the scan reached the served bin (non-vacuous)");
   assert.deepEqual(hits, [], "no production off-switch for the platter flush");
 });

@@ -40,11 +40,11 @@ function windowStart(es: readonly CycleLedgerEntry[]): number {
   for (let i = es.length - 1; i >= 0; i--) if (es[i]!.outcome === "reconciled") return i + 1;
   return 0;
 }
-/** GARDE-FSYNC-1 C-9 - the CONSUMER of <op>.repair.jsonl (written by repair-tail). A repair whose chain length after it
- *  (lines_after) reaches the current window (>= its start) => NO-GO `repaired_in_window`, decided BEFORE any numeric
- *  bound: a repaired ledger may have lost lines that were SENT (the pre-lot INCIDENT lost ~420) and the dashboard lags
- *  ("every few hours"), so a GO on it could be fail-open. The appended `reconciled` line rolls the window: the flag is
- *  per window, never permanent. An unreadable journal line counts as a repair (fail-closed). */
+/** GARDE-FSYNC-1 C-9 - the CONSUMER of <op>.repair.jsonl (repair-tail's records; a MANUAL repair only if its record is
+ *  appended, RUNBOOK-rpc-guard section 4). lines_after >= the window start => NO-GO `repaired_in_window` BEFORE any bound
+ *  (a repaired ledger may have lost SENT lines - pre-lot INCIDENT ~420 - and the dashboard lags). That NO-GO appends
+ *  `reconciled`: a NUMERIC lines_after flags ONE window (never bounded by this tool, RUNBOOK section 3). A line that is
+ *  unreadable or has no numeric lines_after flags EVERY window (fail-closed, never rolls) until lifted (section 5). */
 function repairedInWindow(ledger: CycleLedger): boolean {
   const p = join(ledger.cycleDir, `${ledger.op}.repair.jsonl`);
   if (!existsSync(p)) return false;
