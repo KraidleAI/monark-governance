@@ -64,10 +64,16 @@ Rendus deja persistes : voir `docs/G1-*`, `docs/G2-*`, `docs/CHECKPOINT1-*`, `do
 1. ~~A-9-OUTILLE~~ **FAIT** (G7 : micro-pli `4ff171e`, fusion `eab911a`, docs `147d50f` — ADR-U5a/ADR-M020 inseres, CONSIGNE A-13,
    CHANTIERS :766 remplace ; oracle `F:\Monark` 937/936/0/1). Worktree `F:\Monark-wt-a9outille` a retirer (`rm-nm.ps1` puis
    `git worktree remove`).
-2. **U-4b-1b-3** (`lot/u4b-1b-3` `1bcfbd7`, G2-delta-2 PASS, re-cp-2 ACCEPTE) : fusion + fold ADR v2 (`F:\tmp\u4b1b3\ADR-amendement-v2.md`)
-   avec D-BORNE-1, C-GD-3 (a)-(d), journal §3, `error_origin` C-V-1 = G1, items O-1/O-D3/O-D4/VX-B/C-4, CARTO-T1C-5 ; attendu sur
-   `F:\Monark` fusionne : 947/946/0/1. Puis RUNBOOK course Ukemi etape 1 (`--fill-ts` reel, operateurs drpc.org,nodies.app,mevblocker.io,
-   `--min-interval-ms 150`, ledger-dir `F:/monark-ledger/chainstack-2026-09-19`).
+2. ~~U-4b-1b-3~~ **FAIT** (G7 : fusion `b9eb62b`, docs `f28a184` = `<HEAD_E1>` ; ADR-U4b amendement v3 + PLI inseres ; oracle tronc
+   951/950/0/1). **Course Ukemi ETAPE 1 EN COURS** : `--fill-ts` reel lance 2026-09-23T00:00:24Z depuis `F:\Monark` @ `f28a184`
+   (script verbatim `F:\course-ukemi\fill-ts-4.sh`, detache ; pid `F:\course-ukemi\fill-ts-4.pid` = bash lanceur ; log
+   `F:\course-ukemi\logs\fill-ts-4.log`, fin marquee par une ligne `exit=<code> <date>` ; `<N_FILL>` 20 000). Supervision : log + ledgers
+   de cycle `F:\monark-ledger\chainstack-2026-09-19\chainstack-2026-09-19\*.jsonl` seulement — NE JAMAIS ouvrir
+   `F:\course-ukemi\select\block-ts-extra.json` ni `.tmp-*` pendant le run. A la fin : `exit=0` + stdout `phase=complete` ⇒ controle C-1
+   (RUNBOOK :150) + Sidecar 1 (SIDECAR fichier, ligne preparee) ⇒ etape 2 (selection) ; `exit=1` STOP partial ⇒ attendre 25 s, relancer
+   la MEME commande (reprise sans re-fetch) ; sidecar `unreadable`/`belongs to another brut` ⇒ le deplacer dans un dossier date, relancer.
+   Un `mint`/merge dans `F:\Monark` pendant le run est sans effet sur le processus charge, mais toute RELANCE tourne sur le HEAD du
+   moment : verifier 0.2 (blob selecteur `20e1cf9d…`) avant de relancer.
 3. **HARNESS-DESC-1** (`906064b`) apres G2 PASS : fusion (apres A-9) + insertion `F:\tmp\hdesc1\ADR-amendement.md` dans ADR-U4b (C-V-1)
    → redeploiement harness a un SHA nomme (`/opt/monark-harness-redeploy.sh`, CA `scripts/verify-harness.mjs` 12/12,
    `docs/deploy-CA-harness.json`, JOURNAL) — informer l'investisseur (137).
