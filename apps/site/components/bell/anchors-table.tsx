@@ -15,7 +15,7 @@ export function AnchorsTable({ view }: { view: AnchorsView }) {
             <tr>
               <th className="c-label">date · UTC</th>
               <th className="c-label">boundary</th>
-              <th className="c-label">token</th>
+              <th className="c-label">instrument</th>
               <th className="c-label">manifest digest</th>
               <th className="c-label">last entry digest</th>
               <th className="c-label">commit</th>
