@@ -17,6 +17,9 @@
 //  6) the served N-operator unlock + lock recovery; the ledger-dir guard;
 //  7) composition (Branchement rule) - real script -> ledger on disk -> served runCli reconcile (GO / NO-GO hard:total);
 //  8) class identity - rpc2 re-exports the package error classes (the identity bridge is REMOVED post 2b-ii).
+//  9) PROBER-EXCLUDE-OP-1 - --exclude-operator (repeatable, closed label set) reaches the pool; the label guard refuses an
+//     unknown label and the quorum guard (distinct OPERATORS, operatorOf) a starved method, both before any lock or network
+//     call; the default course keeps its golden bytes.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync, readdirSync } from "node:fs";
@@ -504,4 +507,120 @@ test("u4_guard_error_classes_are_the_package_classes", async () => {
   assert.equal(rpc2.BudgetExceededError, pkg.BudgetExceededError, "rpc2.BudgetExceededError must BE the package BudgetExceededError");
   // and u4-guard.mjs no longer imports the pool error classes (the bridge is gone: item-formed trigger "2b-ii merge" fired).
   assert.equal(readFileSync(join(CENSUS, "u4-guard.mjs"), "utf8").includes('} from "../../apps/sentinel/src/ukemi/rpc2.ts"'), false, "u4-guard.mjs must NOT import rpc2.ts error classes (identity bridge removed)");
+});
+
+// ============================================================================================================
+// 9) PROBER-EXCLUDE-OP-1 - --exclude-operator <label> (repeatable) on u4-oracle-path.mjs (course U-4b, step 5, pass 4).
+// ============================================================================================================
+/** Attempted ledger lines of operator `op` for RPC `method` (ledger key by_op_method "op|method") under <ledgerDir>/<cycle>/. */
+function attemptedByMethod(ledgerDir: string, cycle: string, op: string, method: string): number {
+  const f = join(ledgerDir, cycle, `${op}.jsonl`);
+  if (!existsSync(f)) return 0;
+  return readFileSync(f, "utf8").split(/\r?\n/).filter((l) => l.trim() !== "")
+    .map((l) => JSON.parse(l) as { outcome: string; by_op_method?: Record<string, number> })
+    .filter((e) => e.outcome === "attempted" && (e.by_op_method?.[`${op}|${method}`] ?? 0) > 0).length;
+}
+const isPocketHost = (h: string): boolean => h === "pocket.network" || h.endsWith(".pocket.network");
+
+test("u4_oracle_path_exclude_operator_drops_pocket_and_reaches_chainstack", () => {
+  const s = scratch();
+  try {
+    const env = { U4T_FAIL_DRPC: "1", CHAINSTACK_ETH_URL: PAID_URL };
+    // POSITIVE CONTROL (D-2, non-vacuity), same env and flags WITHOUT --exclude-operator: pocket.network IS fetched (it is
+    // the second getLogs witness next to tenderly.co), so chainstack never reaches the getLogs quorum.
+    const ctlHosts = join(s.dir, "hosts-ctl.log");
+    const ctl = runScript(join(CENSUS, "u4-oracle-path.mjs"), oracleArgs(s, "exclctl", { withChainstack: true }), { preloadUrl: s.preloadUrl, env: { ...env, U4T_FETCH_HOSTS: ctlHosts } });
+    assert.equal(ctl.status, 0, `control exit 0; stderr=${ctl.stderr}`);
+    assert.ok(hostsOf(ctlHosts).filter(isPocketHost).length > 0, "control: pocket.network is fetched without the flag (the host check below can see it)");
+    assert.equal(attemptedByMethod(s.ledgerDir, "exclctl", "chainstack", "eth_getLogs"), 0, "control: without the flag chainstack is never a getLogs witness (tenderly.co + pocket.network answer first)");
+    // THE FLAG, pass-4 shape: --exclude-operator pocket.network --with-chainstack, drpc benched (plan refusal stand-in).
+    const hostLog = join(s.dir, "hosts.log");
+    const raws = join(s.dir, "raws-excl");
+    const args = [...oracleArgs(s, "excl", { withChainstack: true }).map((x) => (x === join(s.dir, "raws") ? raws : x)), "--exclude-operator", "pocket.network"];
+    const a = runScript(join(CENSUS, "u4-oracle-path.mjs"), args, { preloadUrl: s.preloadUrl, env: { ...env, U4T_FETCH_HOSTS: hostLog } });
+    assert.equal(a.status, 0, `exit 0; stderr=${a.stderr}`);
+    const hosts = hostsOf(hostLog);
+    assert.ok(hosts.length > 0, "the course fetched (non-vacuous host log)");
+    assert.equal(hosts.filter(isPocketHost).length, 0, `no pocket.network fetch once excluded; hosts=${[...new Set(hosts)].join(",")}`);
+    assert.ok(attemptedByMethod(s.ledgerDir, "excl", "chainstack", "eth_getLogs") >= 1, "chainstack reaches the getLogs quorum (>= 1 attempted eth_getLogs ledger line)");
+    assert.equal(ledgerSummary(s.ledgerDir, "excl").ops["pocket.network"], undefined, "pocket.network is not even requested (no ledger)");
+    const p = prov(join(raws, "U4-oracle-path-e2.raw.json")) as { endpoints: { eth_call: string[]; eth_getLogs: string[] }; params: { excluded_operators: string[] } };
+    assert.deepEqual(p.params.excluded_operators, ["mevblocker.io", "pocket.network"], "provenance carries the EFFECTIVE excluded list, default first");
+    assert.deepEqual(p.endpoints.eth_getLogs, ["drpc.org", "tenderly.co", "chainstack"], "provenance: getLogs pool without pocket.network, chainstack last");
+    assert.deepEqual(p.endpoints.eth_call, ["drpc.org", "nodies.app", "chainstack"], "provenance: eth_call pool without pocket.network (nodies.app kept)");
+  } finally { s.cleanup(); }
+});
+
+test("u4_oracle_path_exclude_operator_guard_refuses_single_witness_before_any_fetch", () => {
+  const s = scratch();
+  try {
+    const fetchLog = join(s.dir, "fetches.log");
+    // pocket.network AND tenderly.co excluded (TWO occurrences of the flag), no --with-chainstack: eth_getLogs keeps ONE
+    // label (drpc.org) => refused. Reading only the first occurrence would leave drpc.org + tenderly.co and run.
+    const args = [...oracleArgs(s, "exclguard"), "--exclude-operator", "pocket.network", "--exclude-operator", "tenderly.co"];
+    const a = runScript(join(CENSUS, "u4-oracle-path.mjs"), args, { preloadUrl: s.preloadUrl, env: { U4T_FETCH_COUNTER: fetchLog } });
+    assert.notEqual(a.status, 0, "a single getLogs witness must be refused (fail-closed)");
+    assert.equal(hostsOf(fetchLog).length, 0, "0 fetch: the guard fires before any network call");
+    assert.match(a.stderr, /EXCLUDE-OPERATOR QUORUM GUARD/, "the refusal names the guard");
+    assert.match(a.stderr, /eth_getLogs \[drpc\.org\]/, "the refusal names the starved method pool (labels only)");
+    const sum = ledgerSummary(s.ledgerDir, "exclguard");
+    assert.deepEqual(Object.keys(sum.ops), [], "no ledger opened: the guard precedes openU4GuardedClient");
+    assert.deepEqual(sum.locks, [], "no lock taken: nothing is left to unlock after a refusal");
+    assert.equal(existsSync(join(s.dir, "raws", "U4-oracle-path-e2.raw.json")), false, "no raw written");
+  } finally { s.cleanup(); }
+});
+
+test("u4_oracle_path_exclude_operator_guard_counts_operators_not_labels", () => {
+  const s = scratch();
+  try {
+    const fetchLog = join(s.dir, "fetches.log");
+    // cp-1 C-5: drpc.org excluded, no --with-chainstack => eth_call keeps TWO labels (nodies.app, pocket.network) but ONE
+    // operator "pocket" (rpc2.ts operatorOf, the pool's own distinctness key) => quorum-2 impossible => refused up front.
+    const args = [...oracleArgs(s, "exclops"), "--exclude-operator", "drpc.org"];
+    const a = runScript(join(CENSUS, "u4-oracle-path.mjs"), args, { preloadUrl: s.preloadUrl, env: { U4T_FETCH_COUNTER: fetchLog } });
+    assert.notEqual(a.status, 0, "two labels of ONE operator must be refused (fail-closed)");
+    assert.equal(hostsOf(fetchLog).length, 0, "0 fetch: refused before any network call");
+    assert.match(a.stderr, /EXCLUDE-OPERATOR QUORUM GUARD/, "the refusal names the quorum guard");
+    assert.match(a.stderr, /eth_call \[nodies\.app,pocket\.network\]/, "the refusal names the starved eth_call pool (labels only)");
+    const sum = ledgerSummary(s.ledgerDir, "exclops");
+    assert.deepEqual(Object.keys(sum.ops), [], "no ledger opened");
+    assert.deepEqual(sum.locks, [], "no lock taken");
+  } finally { s.cleanup(); }
+});
+
+test("u4_oracle_path_exclude_operator_unknown_label_is_refused_before_any_fetch", () => {
+  const s = scratch();
+  try {
+    // cp-1 C-11: a typo (pocket.netwrok) must NEVER be a silent no-op that keeps pocket.network in the pools; nor may a
+    // trailing --exclude-operator without a value. Both are refused by the closed-set label guard, 0 fetch, 0 lock.
+    const cases: Array<{ cycle: string; tail: string[] }> = [
+      { cycle: "excltypo", tail: ["--exclude-operator", "pocket.netwrok"] },
+      { cycle: "excltrail", tail: ["--exclude-operator"] },
+    ];
+    for (const c of cases) {
+      const fetchLog = join(s.dir, `fetches-${c.cycle}.log`);
+      const a = runScript(join(CENSUS, "u4-oracle-path.mjs"), [...oracleArgs(s, c.cycle), ...c.tail], { preloadUrl: s.preloadUrl, env: { U4T_FETCH_COUNTER: fetchLog } });
+      assert.notEqual(a.status, 0, `${c.cycle}: an inadmissible --exclude-operator must be refused (fail-closed)`);
+      assert.equal(hostsOf(fetchLog).length, 0, `${c.cycle}: 0 fetch`);
+      assert.match(a.stderr, /EXCLUDE-OPERATOR LABEL GUARD/, `${c.cycle}: the refusal names the label guard`);
+      assert.equal(a.stderr.includes("pocket.netwrok"), false, `${c.cycle}: the refusal never echoes the argv value`);
+      const sum = ledgerSummary(s.ledgerDir, c.cycle);
+      assert.deepEqual([Object.keys(sum.ops), sum.locks], [[], []], `${c.cycle}: no ledger, no lock`);
+    }
+  } finally { s.cleanup(); }
+});
+
+test("u4_oracle_path_default_excluded_operators_golden_unchanged", () => {
+  const s = scratch();
+  try {
+    // WITHOUT --exclude-operator the effective list is the course default ["mevblocker.io"] (this exact order), so the raw
+    // and the resume cache are byte-identical to the committed goldens (prereg sha masked, as in section 2).
+    const a = runScript(join(CENSUS, "u4-oracle-path.mjs"), oracleArgs(s, "dflt"), { preloadUrl: s.preloadUrl });
+    assert.equal(a.status, 0, `exit 0; stderr=${a.stderr}`);
+    const raw = join(s.dir, "raws", "U4-oracle-path-e2.raw.json");
+    assert.equal(sha256FileMaskingPreregSha(raw), REF.ORACLE_RAW, "default course: the raw golden is unchanged");
+    assert.equal(sha256FileMaskingPreregSha(join(s.dir, "raws", "U4-oracle-inputs.jsonl")), REF.ORACLE_INPUTS, "default course: the inputs golden is unchanged");
+    const p = prov(raw) as { params: { excluded_operators: unknown } };
+    assert.deepEqual(p.params.excluded_operators, ["mevblocker.io"], "default excluded_operators == [mevblocker.io]");
+  } finally { s.cleanup(); }
 });

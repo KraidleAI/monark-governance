@@ -12,7 +12,8 @@
 // GARDE-HELIUS-2b-iii: every read (keyless witnesses + the paid archive leg) is metered INSIDE @monark/rpc-guard. This
 // script reads NO paid endpoint key and performs NO paid round-trip directly; the guard owns both. `deps.env` is the ONLY
 // env source (C-8: no process.env in the body); the paid `chainstack` leg is the EXPLICIT --with-chainstack switch.
-// D_e reads (all quorum-2, budgeted, polite, mevblocker excluded):
+// D_e reads (all quorum-2, budgeted, polite; excluded LABELS = mevblocker.io by default + each --exclude-operator <label>,
+// repeatable, closed label set, lot PROBER-EXCLUDE-OP-1; < 2 distinct operators left on a method => refused before any lock):
 //   1) aggregator() on the EACAggregatorProxy (--feed-proxy) at B0 AND B_last (phase ≠ ⇒ abi_mismatch, C-4).
 //   2) getLogs(AnswerUpdated) on the resolved aggregator over [B0, B_last]  (price = topics[1], indexed int256).
 //   3) getAssetPrice(USDT) at each --usdt-blocks block (OPTIONAL; absent ⇒ usdt_prices {} + usdt_blocks_status "omitted").
@@ -26,7 +27,7 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve, relative, isAbsolute } from "node:path";
-import { makeUkemiPool, BudgetExceededError } from "../../apps/sentinel/src/ukemi/rpc2.ts";
+import { makeUkemiPool, BudgetExceededError, operatorOf } from "../../apps/sentinel/src/ukemi/rpc2.ts";
 import { SEL, ANSWER_UPDATED_TOPIC0, decUint, decInt256, decAddress, wordAt, wordAddr } from "../../apps/sentinel/src/ukemi/abi.ts";
 import { POOL, ORACLE } from "../../apps/sentinel/src/ukemi/clusters.ts";
 import { lfSha256, canon, sha256Hex, buildLabelLists, distinctLabels, parseBudgetArgs, assertLedgerDir, openU4GuardedClient, makeGuardedPoolCall, unlockAll } from "./u4-guard.mjs";
@@ -140,6 +141,8 @@ export function usdtBlocksFromLabelerDeficit(realizedJsonl, inputsJsonl) {
  *  globalThis.fetch. Returns { status, rawPath, inputsPath } (status 2 = a controlled BUDGET STOP). */
 export async function run(argv, deps) {
   const arg = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : undefined; };
+  // every occurrence of a repeatable flag; a TRAILING flag yields undefined (then refused by the label guard, never ignored).
+  const argAll = (k) => { const out = []; for (let i = 0; i < argv.length; i++) if (argv[i] === k) out.push(argv[i + 1]); return out; };
   const { preregFile, preregSha } = verifyPrereg(arg);
 
   const episodePath = arg("--episode-file");
@@ -180,7 +183,24 @@ export async function run(argv, deps) {
   if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))) throw new Error(`u4-oracle-path: --raws-dir under repo (CA-11): ${rawsAbs}`);
   mkdirSync(rawsAbs, { recursive: true });
 
-  const { ethCallLabels, getLogsLabels } = buildLabelLists({ withChainstack: budget.withChainstack, excluded: ["mevblocker.io"] });
+  // PROBER-EXCLUDE-OP-1: each --exclude-operator <label> (repeatable, calque u4-redraw.mjs:57,87-89) EXCLUDES A LABEL and is
+  // ADDED to the course default mevblocker.io, kept FIRST: without the flag the list - hence the provenance bytes - is
+  // unchanged. Both guards below run BEFORE openU4GuardedClient (which takes the locks and opens the ledgers): a refusal
+  // leaves no lock, no ledger line and makes no network call. Their messages name labels only, never an argv value.
+  // EXCLUDE-OPERATOR LABEL GUARD (cp-1 C-11): the CLOSED admissible set = every label the pools can hold, i.e.
+  // ETH_CALL_KEYLESS_LABELS + GET_LOGS_KEYLESS_LABELS + chainstack (buildLabelLists, u4-guard.mjs:62-69 over transport.ts:36-37);
+  // an unknown label (a typo) or a trailing flag without a value is REFUSED, never a silent no-op.
+  const cliExcluded = argAll("--exclude-operator");
+  const admissible = new Set(Object.values(buildLabelLists({ withChainstack: true })).flat());
+  const unknownAt = cliExcluded.findIndex((l) => !admissible.has(l));
+  if (unknownAt >= 0) throw new Error(`u4-oracle-path: EXCLUDE-OPERATOR LABEL GUARD - --exclude-operator occurrence #${unknownAt + 1} is not an admissible operator label (closed set: ${[...admissible].join(",")}); refused before any lock or network call (fail-closed)`);
+  const excluded = [...new Set(["mevblocker.io", ...cliExcluded])];
+  const { ethCallLabels, getLogsLabels } = buildLabelLists({ withChainstack: budget.withChainstack, excluded });
+  // EXCLUDE-OPERATOR QUORUM GUARD (cp-1 C-5): quorum-2 needs >= 2 distinct OPERATORS per method once excluded, counted with
+  // the pool's own distinctness key rpc2.ts operatorOf (nodies.app + pocket.network = ONE operator "pocket"), so an exclusion
+  // that leaves an impossible quorum (e.g. drpc.org excluded: eth_call = nodies.app + pocket.network) is refused up front.
+  const distinctOperators = (labels) => new Set(labels.map((l) => operatorOf(l))).size;
+  if (!(distinctOperators(ethCallLabels) >= 2 && distinctOperators(getLogsLabels) >= 2)) throw new Error(`u4-oracle-path: EXCLUDE-OPERATOR QUORUM GUARD - quorum-2 needs >= 2 distinct operators per method (operatorOf: nodies.app + pocket.network = one) after --exclude-operator (eth_call [${ethCallLabels.join(",")}], eth_getLogs [${getLogsLabels.join(",")}]); refused before any lock or network call (fail-closed)`);
   let rpcErrorCount = 0;
   const errByOp = {};
   const onTransportError = (op) => { rpcErrorCount += 1; errByOp[op] = (errByOp[op] ?? 0) + 1; };
@@ -266,7 +286,7 @@ export async function run(argv, deps) {
       model: "claude-opus-4-8[1m]", recorded_at_utc: new Date(deps.now()).toISOString(), phase: "oracle-path-De",
       episode_id: episodeId, selection_sha256: selectionSha, prereg_sha: preregSha, prereg_file: preregFile,
       endpoints: { eth_call: opLabels(ethCallLabels), eth_getLogs: opLabels(getLogsLabels) }, quorum: 2, pre_b0_anchor_window: preB0Window,
-      params: { proxy: feedProxy, feed_proxy_source: feedProxySource, weth: WETH, b0: B0, b_last: bLast, usdt_blocks: usdtBlocks, usdt_blocks_status: usdtBlocksStatus, emode_categories: emodeCategories, pre_b0_max_windows: preB0MaxWindows, min_interval_ms: minIntervalMs, max_calls: maxCalls, prereg_sha: preregSha, prereg_file: preregFile, episode_id: episodeId, selection_sha256: selectionSha, excluded_operators: ["mevblocker.io"] },
+      params: { proxy: feedProxy, feed_proxy_source: feedProxySource, weth: WETH, b0: B0, b_last: bLast, usdt_blocks: usdtBlocks, usdt_blocks_status: usdtBlocksStatus, emode_categories: emodeCategories, pre_b0_max_windows: preB0MaxWindows, min_interval_ms: minIntervalMs, max_calls: maxCalls, prereg_sha: preregSha, prereg_file: preregFile, episode_id: episodeId, selection_sha256: selectionSha, excluded_operators: excluded },
       calls: guarded.total(), calls_by_operator: guarded.byOperator(), calls_by_method: guarded.byMethod(),
       errors_by_operator: errByOp, rpc_error_count: rpcErrorCount, seconds, answer_updated_topic0: ANSWER_UPDATED_TOPIC0,
     };
