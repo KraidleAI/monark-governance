@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import {
-  ROOT, H3_LEVEL, H6_MAX_LAG, REFERENCE_REL, REFERENCE_SHA256_LF, PREREG_REL, SUMMARY_TEMPLATES, HypError,
+  ROOT, H3_LEVEL, H6_MAX_LAG, REFERENCE_REL, REFERENCE_SHA256_LF, PREREG_REL, SUMMARY_TEMPLATES, HypError, VERDICTS,
   rat, bbDistribution, bbLowerTail, rejectsAtLevel, pOfN, loadReferenceLines, extractC11Sentence, loadC11Sentence,
   parseJsonl, parseScores, h3Cell, computeH3, computeH4, computeH6, computeLabels, clause359, buildSummary, parseArgs,
   runCli,
@@ -681,4 +681,175 @@ test("u4b_hyp_labels_no_quorum_counts_null_repayment_only", () => {
   assert.deepEqual([ok.h3_no_NON_on_served_strata, ok.condition_satisfied], [true, true]);
   const non = clause359(computeH3(fresh, synthScores([range(1, 60), [...range(1, 30), ...range(121, 150)], range(1, 60), range(1, 49)], "e2-test")), clean);
   assert.deepEqual([non.h3_no_NON_on_served_strata, non.condition_satisfied], [false, false]);
+});
+
+// ---- G2-delta PROTOTYPE killer tests (relecteur G2 U-4b-STATS-1 1b, throwaway clone, NOT delivered). Appended at the end,
+// existing imports only. Each test kills a G2 mutant of unit 1b that survives the delivered tests (logs/g2-mutants-1b-E.log),
+// except the first one, which is RED on the delivered tool (real defect C-G2D-1) and green once outOfRepo is fixed.
+test("g2proto1b_out_with_dotdot_named_child_is_inside_the_repository", () => {
+  const inRepo = (e: unknown): boolean => e instanceof HypError && /is inside the repository/.test(e.message);
+  // a child of the repository whose FIRST segment starts with ".." is INSIDE the repository (path.relative gives "..x")
+  assert.throws(() => runCli(["h3", "--scores", P_SCORES_E2, "--event-id", EP, "--out", join(ROOT, "..u4b-hyp-no-such-dir", "r.json")]), inRepo);
+  const inRoot = join(ROOT, "..u4b-hyp-inrepo-probe.json");
+  try {
+    assert.throws(() => runCli(["h3", "--scores", P_SCORES_E2, "--event-id", EP, "--out", inRoot]), inRepo);
+    assert.equal(existsSync(inRoot), false, "nothing written inside the repository");
+  } finally { rmSync(inRoot, { force: true }); }
+  // an existing report: the NAMED refusal (HypError), not only the fs EEXIST raised by the wx flag
+  const dir = mkdtempSync(join(tmpdir(), "u4b-hyp-ow-"));
+  try {
+    const out = join(dir, "r.json");
+    writeFileSync(out, "{}\n");
+    assert.throws(() => runCli(["h3", "--scores", P_SCORES_E2, "--event-id", EP, "--out", out]), (e: unknown) => e instanceof HypError && /already exists \(never overwritten\)/.test(e.message));
+    assert.equal(readFileSync(out, "utf8"), "{}\n", "the existing file is untouched");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("g2proto1b_clause359_pooled_non_outside_the_condition_q1a", () => {
+  // Ruling Q-1 (a) at the CLAUSE level: no served stratum at NON, pooled NON, labels resolved => condition satisfied and
+  // the pooled verdict is reported outside the condition.
+  const h3 = computeH3(synthScores([range(1, 120), range(1, 50), [], []], "ep-q1"), synthScores([range(1, 49), range(121, 180), [], []], "e2-q1"));
+  assert.equal(h3.pooled.verdict, "NON");
+  const c = clause359(h3, computeLabels([{ event_id: "ep-q1", user: "0x1", repayment_base: "5", residual: [] }], "ep-q1"));
+  assert.deepEqual(c, { h3_no_NON_on_served_strata: true, labels_no_quorum_unresolved: 0, condition_satisfied: true, h3_pooled_verdict_outside_condition: "NON" });
+});
+
+test("g2proto1b_h4_boundaries_and_guards", () => {
+  const E = "ep-h4b", DEBT = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
+  const user = (i: number): string => "0x" + (i + 1).toString(16).padStart(40, "0");
+  const call = (u: string, block: number, li: number, dtc: string): Line => ({ kind: "call", event_id: E, block, log_index: li, tx: "0x" + String(block), collateral: WETH, debt: DEBT, user: u, liquidator: "0x" + "9".repeat(40), debt_to_cover: dtc, liquidated_collateral: "1", receive_atoken: false, in_window: true });
+  const lineOf = (u: string, repay: string, n: number): Line => ({ event_id: E, user: u, debt_asset: DEBT, collateral_asset: WETH, n_calls: n, repayment_base: repay, deficit_base: "0", residual: [] });
+  const inputs: Line[] = [{ kind: "meta", events: [{ id: E }] }, { kind: "reserve", asset: DEBT, decimals: 6 }];
+  const realized: Line[] = [];
+  const rows: ScoreRow[] = [];
+  for (let i = 0; i < 20; i++) {
+    const b = 100 + i;
+    inputs.push({ kind: "price", asset: DEBT, block: b, price: "100000000" });
+    if (i === 0) {
+      // account 0: TWO calls in the SAME block, listed in the order OPPOSITE to log_index (3e8 at li 5, 1e8 at li 2)
+      inputs.push(call(user(0), b, 5, "3000000"), call(user(0), b, 2, "1000000"));
+      realized.push(lineOf(user(0), "400000000", 2));
+      rows.push({ address: user(0), y: 400000000n, yhat: 1n, score: 399999999n, liquidated: true, strate: 0, pstar: null });
+    } else {
+      inputs.push(call(user(i), b, 0, "1000000"));
+      realized.push(lineOf(user(i), "100000000", 1));
+      rows.push({ address: user(i), y: 100000000n, yhat: 1n, score: 99999999n, liquidated: true, strate: 0, pstar: null });
+    }
+  }
+  const fresh: ParsedScores = { ...synthScores([[], [], [], []], E), rows };
+  const h = computeH4(inputs, realized, fresh, E);
+  assert.equal(h.strata[0]?.sum_after_first, "300000000", "(block, log_index): the first call of account 0 is log_index 2 (1e8)");
+  assert.deepEqual([h.class_a_liquidated.n, h.class_a_liquidated.multi_call, h.class_a_liquidated.verdict], [20, 1, "OUI"], "1/20 = 5/100 is not above the threshold => OUI");
+  assert.deepEqual([h.all_liquidated.n, h.all_liquidated.multi_call, h.all_liquidated.verdict], [20, 1, "OUI"]);
+  const named = (re: RegExp) => (e: unknown): boolean => e instanceof HypError && re.test(e.message);
+  const lowY: ParsedScores = { ...fresh, rows: rows.map((r, i) => (i === 0 ? { ...r, y: 399999999n, score: 399999998n } : r)) };
+  assert.throws(() => computeH4(inputs, realized, lowY, E), named(/< sum of its repayments/), "y below the sum of the repayments => refused");
+  const badN = realized.map((l, i) => (i === 0 ? { ...l, n_calls: 3 } : l));
+  assert.throws(() => computeH4(inputs, badN, fresh, E), named(/n_calls 3 \(U3-realized\) != 2 in-window calls/), "n_calls mismatch => refused");
+  const orphan = [...realized, lineOf("0x" + "e".repeat(40), "1", 1)];
+  assert.throws(() => computeH4(inputs, orphan, fresh, E), named(/has no in-window call in U3-inputs/), "a realized line without a call => refused");
+});
+
+test("g2proto1b_h6_future_value_and_same_block_conflict", () => {
+  const E = "ep-h6b";
+  const oracle: Line[] = [
+    { kind: "anchor", block: 100, price: "1000", source: "answer_updated_pre_b0" },
+    { kind: "meta", event_id: E, monotone_blocks: true, phase_change: false },
+    ...[101, 102, 103, 104, 105, 106].map((b, i) => ({ kind: "update", block: b, log_index: 0, price: String(1001 + i) })),
+  ];
+  // price_prev at block 101 = 1005, a value of the series published only at block 105 (future): lag undefined => NON
+  const future = computeH6([{ kind: "call", event_id: E, block: 102 }, { kind: "price", asset: WETH, block: 102, price: "1002", price_prev: "1005" }], oracle, E);
+  assert.equal(future.verdict, "NON", "a served value matching only a FUTURE update has no past match => NON");
+  assert.equal(future.served_blocks.lag_undefined, 1);
+  assert.deepEqual(future.served_blocks.violations, [{ block: 101, value: "1005", lag: null }]);
+  // two different served values at the same block (price at 103 vs price_prev of block 104) => named refusal
+  const conflict: Line[] = [
+    { kind: "call", event_id: E, block: 103 }, { kind: "call", event_id: E, block: 104 },
+    { kind: "price", asset: WETH, block: 103, price: "1003", price_prev: "1002" },
+    { kind: "price", asset: WETH, block: 104, price: "1004", price_prev: "1004" },
+  ];
+  assert.throws(() => computeH6(conflict, oracle, E), (e: unknown) => e instanceof HypError && /two different served WETH values at block 103/.test(e.message));
+});
+
+test("g2proto1b_labels_deficit_base_no_price_non_usdt_only", () => {
+  const E = "ep-lab2", USDT_A = "0xdac17f958d2ee523a2206206994597c13d831ec7", DAI = "0x6b175474e89094c44da98b954eedeac495271d0f";
+  const realized: Line[] = [
+    { event_id: E, user: "0x1", debt_asset: USDT_A, repayment_base: "5", residual: ["deficit_base_no_price"] },
+    { event_id: E, user: "0x2", debt_asset: DAI, repayment_base: "5", residual: ["deficit_base_no_price"] },
+    { event_id: E, user: "0x3", debt_asset: DAI, repayment_base: "5", residual: ["deficit_base_no_price"] },
+  ];
+  assert.equal(computeLabels(realized, E).deficit_base_no_price_non_usdt, 2, "only the non-USDT deficit_base_no_price lines count");
+  assert.equal(computeLabels(readLines(P_REALIZED), EP).deficit_base_no_price_non_usdt, 0, "committed e2 labels: 0 (the frozen scorer throws otherwise, u4b-scores.mjs:113)");
+});
+
+test("g2proto1b_verdicts_closed_set_c1", () => {
+  // item I-G2-1: VERDICTS becomes load-bearing - it IS the closed set of C-1 / prereg :100, and every H-3 cell verdict
+  // produced (served, NON, UNDER_CALIB, NON_TESTABLE_E2, pooled, real e2) belongs to it.
+  assert.deepEqual([...VERDICTS], ["OUI", "NON", "UNDER_CALIB", "NON_TESTABLE_E2"]);
+  const fresh = synthScores([range(1, 120), range(1, 120), range(1, 99), range(1, 120)], "ep-test");
+  const e2 = synthScores([range(1, 60), [...range(1, 30), ...range(121, 150)], range(1, 60), range(1, 49)], "e2-test");
+  const real = computeH3(parseScores(readLines(P_SCORES_E2), EP, "fresh"), parseScores(loadReferenceLines().lines, null, "ref"));
+  const seen = new Set<string>();
+  for (const r of [computeH3(fresh, e2), real]) for (const c of [...r.strata, r.pooled]) { assert.ok(VERDICTS.includes(c.verdict), c.verdict); seen.add(c.verdict); }
+  assert.deepEqual([...seen].sort(), [...VERDICTS].sort(), "the four outcomes are all exercised");
+});
+
+test("g2proto1b_census_guards_refuse", () => {
+  const lines = readLines(P_SCORES_E2);
+  const dir = mkdtempSync(join(tmpdir(), "u4b-hyp-cen-"));
+  try {
+    const run = (ls: Line[], name: string): void => {
+      const input = join(dir, `${name}.jsonl`);
+      writeFileSync(input, ls.map((l) => JSON.stringify(l)).join("\n") + "\n");
+      runCli(["report", "--scores", input, "--inputs", P_INPUTS, "--u3-realized", P_REALIZED, "--oracle-path", P_ORACLE_E2, "--event-id", EP, "--out", join(dir, `${name}-report.json`)]);
+    };
+    const named = (re: RegExp) => (e: unknown): boolean => e instanceof HypError && re.test(e.message);
+    const popTamper = lines.map((l) => (l.kind === "meta" ? { ...l, census: { ...(l.census as Record<string, number>), accounts: Number((l.census as Record<string, number>).accounts) + 1 } } : l));
+    assert.throws(() => run(popTamper, "pop"), named(/H-5: population \d+ != crossed \+ no_crossing/), "H-5 population identity broken => refused");
+    const maxTamper = withCellA(lines, (c) => ({ ...c, strata: c.strata.map((s) => (s.strate === 1 ? { ...s, max_score: "1" } : s)) }));
+    assert.throws(() => run(maxTamper, "max"), named(/H-2bis: stratum 1 p == n but qhat != max_score/), "H-2bis qhat != stratum max when p == n => refused");
+    assert.deepEqual(readdirSync(dir).filter((n) => n.endsWith("-report.json")), [], "0 report written on a refusal");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ---- C-W-1 (checkpoint-2 of unit 1b), micro-pli 1c: the two C-W-1 items the G2 prototype above leaves open. (a) and the
+// side AT 5/100 of (b) are g2proto1b_clause359_* / g2proto1b_h4_*; each test below kills mutants that survive them
+// (harness cw1-mutants.mjs of the micro-pli: phase before = SURVIVED, phase after = KILLED byIntended).
+test("cw1_h4_boundary_just_above_5_over_100_is_NON", () => {
+  // (b) "NON iff > 5/100" (ADR section 3), the side ABOVE the boundary: 5/99 is the smallest fraction strictly above 1/20
+  // with fewer than 100 accounts, so a decision threshold drifting to 5/99, 6/100 or 10/100 while the reported threshold
+  // still reads 5/100 (the e2 fractions 1/9 and 8/63 stay NON, 1/20 stays OUI) turns it OUI (CW1-M1..M3).
+  const E = "ep-h4c", DEBT = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
+  const user = (i: number): string => "0x" + (i + 1).toString(16).padStart(40, "0");
+  const inputs: Line[] = [{ kind: "meta", events: [{ id: E }] }, { kind: "reserve", asset: DEBT, decimals: 6 }];
+  const realized: Line[] = [];
+  const rows: ScoreRow[] = [];
+  for (let i = 0; i < 99; i++) {
+    const b = 100 + i, n = i < 5 ? 2 : 1; // accounts 0..4: two calls in the same block => 5 multi-call accounts of 99
+    inputs.push({ kind: "price", asset: DEBT, block: b, price: "100000000" });
+    for (let j = 0; j < n; j++) inputs.push({ kind: "call", event_id: E, block: b, log_index: j, tx: "0x" + String(b), collateral: WETH, debt: DEBT, user: user(i), liquidator: "0x" + "9".repeat(40), debt_to_cover: "1000000", liquidated_collateral: "1", receive_atoken: false, in_window: true });
+    realized.push({ event_id: E, user: user(i), debt_asset: DEBT, collateral_asset: WETH, n_calls: n, repayment_base: String(100000000 * n), deficit_base: "0", residual: [] });
+    rows.push({ address: user(i), y: BigInt(100000000 * n), yhat: 1n, score: BigInt(100000000 * n) - 1n, liquidated: true, strate: 0, pstar: null });
+  }
+  const h = computeH4(inputs, realized, { ...synthScores([[], [], [], []], E), rows }, E);
+  assert.equal(h.threshold, "5/100", "the reported threshold");
+  for (const c of [h.class_a_liquidated, h.all_liquidated]) {
+    assert.deepEqual([c.n, c.multi_call, c.fraction?.num, c.fraction?.den, c.verdict], [99, 5, "5", "99", "NON"], "5/99 is above 5/100 => NON");
+  }
+});
+
+test("cw1_verdicts_membership_on_the_written_report_t17", () => {
+  // (c) VERDICTS (closed set C-1, prereg :100) consumed on the SERVED artifact of T17: every H-3 cell of the WRITTEN
+  // report (4 strata + pooled) and the pooled verdict reported by clause_359 belong to it (T11's cells: g2proto1b_verdicts_*).
+  const dir = mkdtempSync(join(tmpdir(), "u4b-hyp-cw1-"));
+  try {
+    const out = join(dir, "hyp-report-e2.json");
+    runCli(["report", "--scores", P_SCORES_E2, "--inputs", P_INPUTS, "--u3-realized", P_REALIZED, "--oracle-path", P_ORACLE_E2, "--event-id", EP, "--out", out]);
+    const body = (JSON.parse(readFileSync(out, "utf8")) as ReportDoc).body;
+    assert.ok(body.h3 !== undefined && body.clause_359 !== undefined, "the written report carries h3 and clause_359");
+    const cells = [...body.h3.strata, body.h3.pooled];
+    assert.equal(cells.length, 5, "4 strata + the pooled cell");
+    for (const c of cells) assert.ok(VERDICTS.includes(c.verdict), `${c.cell}: ${c.verdict} is in the closed set C-1`);
+    assert.ok(VERDICTS.includes(body.clause_359.h3_pooled_verdict_outside_condition), "the pooled verdict reported by the clause is in the closed set C-1");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

@@ -32,7 +32,7 @@
 import { readFileSync, writeFileSync, existsSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { dirname, join, resolve, relative, isAbsolute } from "node:path";
+import { dirname, join, resolve, relative, isAbsolute, sep } from "node:path";
 import { strateOf } from "./u4b-scores.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -626,7 +626,8 @@ export function parseArgs(argv) {
 function outOfRepo(p) {
   const abs = resolve(p);
   const rel = relative(ROOT, abs);
-  if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))) fail(`--out ${abs} is inside the repository (refused; reports live out of repo)`);
+  const outside = rel === ".." || rel.startsWith(".." + sep) || isAbsolute(rel); // a child named "..x" is INSIDE
+  if (rel === "" || !outside) fail(`--out ${abs} is inside the repository (refused; reports live out of repo)`);
   const parent = dirname(abs);
   if (!existsSync(parent) || !statSync(parent).isDirectory()) fail(`--out parent directory does not exist: ${parent}`);
   if (existsSync(abs)) fail(`--out ${abs} already exists (never overwritten)`);
