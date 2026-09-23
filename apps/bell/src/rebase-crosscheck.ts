@@ -23,7 +23,7 @@
 // Raws (the ledger + only the 43/x and SetAuthority candidate bodies) are written OUT of the tree (--out, CA-11).
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, openSync, fsyncSync, closeSync, renameSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { resolve, join, basename } from "node:path";
 import { operatorOf } from "./operators.ts";
 import { MAX_TX_VERSION, type JsonRpcCall } from "./rpc.ts";
 import { type TransportFault, BudgetExceededError, statusOf, withRetry } from "./quorum.ts";
@@ -220,7 +220,9 @@ export interface ResumeState {
  *  (whatever token the probe carries); `end_anchor_ok` = the C-8 desc anchor equals the asc run's last sig (asked
  *  only after an empty probe); `committed` = a ledger record was appended on this path (false on the not_full_pages
  *  STOP, and on a terminal re-verification whose short page dedups to 0 txs). Written to crosscheck-<MINT>.json and
- *  the report ONLY: the ledger core (ledger-format-lock) and LedgerRecord gain NO field. */
+ *  the report ONLY: the ledger core (ledger-format-lock) and LedgerRecord gain NO field. There the key is null when NO
+ *  probe decision was reached (cp-2 C-1): no short page with a token, OR a budget refusal on the probe (nothing emitted)
+ *  OR on the probe-path anchor (the paid probe call stays visible in calls_by_method and the cycle ledger); a resume re-probes. */
 export interface ShortFinalPageProbe {
   readonly page: number;
   readonly raw_len: number;
@@ -591,16 +593,66 @@ export function readPriorCalls(out: string): number {
 /** C-6 (orchestrator ruling after the 2026-09-22 power cut, measured: ledger-AAPLx.jsonl kept 760 298 NUL bytes at its
  *  tail: pages appended but never flushed; budget.json said 1 222 pages vs 593 durable lines). The ONLY write primitives
  *  of this module: every write goes through appendDurable / writeDurable below. A MUTABLE object on purpose, the test
- *  seam: a test may wrap these methods (to count and order them through runMain) and MUST restore them. */
+ *  seam: a test may wrap these methods (to count and order them through runMain) and MUST restore them. R-SP-A
+ *  (BELL-SHORTPAGE-1b): `renameSync` is writeDurable's rename = the BOUNDED retry below over `renameAttemptSync` (ONE raw
+ *  fs.renameSync), `sleepSync` is the BLOCKING wait between two attempts (the durable path is synchronous: onPage is
+ *  sync), and `renameRetryTotalMs` is the cap (production = RENAME_RETRY_TOTAL_MS; a test may lower it, then restores it). */
 export interface DurableFs {
   openSync: (path: string, flags: "a" | "w") => number;
   writeFileSync: (fd: number, data: string) => void;
   fsyncSync: (fd: number) => void;
   closeSync: (fd: number) => void;
   renameSync: (from: string, to: string) => void;
+  renameAttemptSync: (from: string, to: string) => void;
+  sleepSync: (ms: number) => void;
+  renameRetryTotalMs: number;
+}
+/** R-SP-A (measured 2026-09-22, docs/course-bell/RUNBOOK-supervision-tirage.md s1): on win32 a rename onto a target held
+ *  open by ANY reader fails EPERM, because fs.renameSync is libuv's MoveFileExW(MOVEFILE_REPLACE_EXISTING) alone, with no
+ *  POSIX-semantics path from Node (docs/course-bell/FAITS-win32-flush-rename-2026-09-22.md s3-s4). The rename is thus
+ *  retried on these codes ONLY, after a wait of RENAME_RETRY_FIRST_WAIT_MS doubling up to RENAME_RETRY_MAX_WAIT_MS, while
+ *  the cumulated REQUESTED waits stay within RENAME_RETRY_TOTAL_MS (20 attempts, 19 waits at most); then a named
+ *  DurableWriteError, fail-closed. Never an in-place fallback: a truncate + write would lose the C-6 durability. The
+ *  values are declared at the ADR (E-3). */
+export const RENAME_RETRY_CODES: readonly string[] = ["EPERM", "EACCES", "EBUSY"];
+export const RENAME_RETRY_FIRST_WAIT_MS = 10;
+export const RENAME_RETRY_MAX_WAIT_MS = 200;
+export const RENAME_RETRY_TOTAL_MS = 3000;
+/** The named fail-closed error of an exhausted rename retry: the previous file is INTACT (the rename never happened);
+ *  `<file>.tmp` may remain (rewritten "w" by the next call, and no reader matches a "*.tmp" name). The `bell/collect:`
+ *  prefix makes fatalMessage surface it verbatim (a local fault: a base name and counts, never a url/key). */
+export class DurableWriteError extends Error {
+  readonly code: string;
+  readonly attempts: number;
+  readonly waitedMs: number;
+  constructor(file: string, code: string, attempts: number, waitedMs: number, cause: unknown) {
+    super(`bell/collect: durable write of ${file} refused: its rename still failed ${code} after ${String(attempts)} attempts and ${String(waitedMs)} ms of waits (cap reached); a reader holds the file open - fail-closed, the previous ${file} is intact (R-SP-A)`, { cause });
+    this.name = "DurableWriteError";
+    this.code = code;
+    this.attempts = attempts;
+    this.waitedMs = waitedMs;
+  }
+}
+/** writeDurable's rename (R-SP-A): ONE raw attempt; on a RENAME_RETRY_CODES code only, a blocking wait then another attempt
+ *  (waits RENAME_RETRY_FIRST_WAIT_MS x2 up to RENAME_RETRY_MAX_WAIT_MS, the last one clipped to the cap). The cap counts the
+ *  REQUESTED waits (deterministic; a real wait may overrun by about one clock tick, declared at the ADR). Cap reached =>
+ *  DurableWriteError. Any other error is re-thrown at once, unchanged (no retry, as before R-SP-A). */
+function renameWithBoundedRetry(from: string, to: string): void {
+  for (let attempts = 1, waited = 0, wait = RENAME_RETRY_FIRST_WAIT_MS; ; attempts++) {
+    try { DURABLE_FS.renameAttemptSync(from, to); return; } catch (e) {
+      const code = (e as { code?: unknown } | null)?.code;
+      if (typeof code !== "string" || !RENAME_RETRY_CODES.includes(code)) throw e;
+      const left = DURABLE_FS.renameRetryTotalMs - waited;
+      if (left <= 0) throw new DurableWriteError(basename(to), code, attempts, waited, e);
+      const w = Math.min(wait, left);
+      DURABLE_FS.sleepSync(w); waited += w; wait = Math.min(wait * 2, RENAME_RETRY_MAX_WAIT_MS);
+    }
+  }
 }
 export const DURABLE_FS: DurableFs = { openSync: (p, f) => openSync(p, f), writeFileSync: (fd, d) => { writeFileSync(fd, d); },
-  fsyncSync: (fd) => { fsyncSync(fd); }, closeSync: (fd) => { closeSync(fd); }, renameSync: (a, b) => { renameSync(a, b); } };
+  fsyncSync: (fd) => { fsyncSync(fd); }, closeSync: (fd) => { closeSync(fd); }, renameSync: (a, b) => { renameWithBoundedRetry(a, b); },
+  renameAttemptSync: (a, b) => { renameSync(a, b); }, sleepSync: (ms) => { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); },
+  renameRetryTotalMs: RENAME_RETRY_TOTAL_MS };
 /** Append ONE line durably: open "a" -> write the whole line -> fsync -> close; the caller goes on only once it is on disk. */
 function appendDurable(path: string, line: string): void {
   const fd = DURABLE_FS.openSync(path, "a");
@@ -608,7 +660,8 @@ function appendDurable(path: string, line: string): void {
 }
 /** Replace a WHOLE file durably: <path>.tmp opened "w" -> write -> fsync -> close, THEN rename over <path>, so a reader
  *  sees the old OR the new complete file, never a torn one. The parent-directory fsync is NOT done (not portable to
- *  win32, where the draw runs): declared at the ADR. No reader matches a "*.tmp" name (ledger/candidate filters). */
+ *  win32, where the draw runs): declared at the ADR. No reader matches a "*.tmp" name (ledger/candidate filters). The
+ *  rename is DURABLE_FS.renameSync = renameWithBoundedRetry (R-SP-A): a held target delays it, never tears the file. */
 function writeDurable(path: string, content: string): void {
   const tmp = `${path}.tmp`, fd = DURABLE_FS.openSync(tmp, "w");
   try { DURABLE_FS.writeFileSync(fd, content); DURABLE_FS.fsyncSync(fd); } finally { DURABLE_FS.closeSync(fd); }
@@ -758,8 +811,10 @@ export async function runRebaseCrosscheckCli(call: JsonRpcCall, providers: reado
         comparator_verdict: verdict, calls_by_method: g, credits_recomputed: creditsRecomputed, candidate_shas: deriveCandidateShas(out, symbol),
         // fact 8: the L-5 gate (b2) reads this attestation; `source:"fullmint"` is the only value that closes a residual.
         set_authority_scan: { scanned: scan.complete, authority_change_found: scan.handoffs.length > 0, through_slot: series.oracle_slot, source: "fullmint" },
-        // BELL-SHORTPAGE-1 (checkpoint-1 C-5): ADDITIVE, always present (null = no probe), so a mint end proven by the probe
-        // is told apart from a tokenless last page; this file's readers (the sealed check below, audits) ignore extra keys.
+        // BELL-SHORTPAGE-1 (checkpoint-1 C-5): ADDITIVE, always present; null = NO probe decision reached (cp-2 C-1): no short
+        // page with a token, OR a budget refusal on the probe (nothing emitted) OR on the probe-path anchor (the paid probe
+        // call stays visible in calls_by_method and the cycle ledger; a resume re-probes). A mint end proven by the probe is
+        // thus told apart from a tokenless last page; this file's readers (the sealed check below, audits) ignore extra keys.
         short_final_page_probe: scan.shortFinalPageProbe ?? null };
       // C-B-2 (V-2): a sealed scan_complete:true artifact is NEVER degraded to false by a mordant relaunch — the sealed
       // file stays byte-identical and the degraded attempt is journaled to a `-attempt` sidecar, never overwriting equal.

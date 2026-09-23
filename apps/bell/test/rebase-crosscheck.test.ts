@@ -10,11 +10,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, writeFileSync, appendFileSync, copyFileSync, existsSync, mkdtempSync, openSync, closeSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, resolve, basename } from "node:path";
+import { performance } from "node:perf_hooks";
 import { decodeSetAuthority, setAuthorityHandoffsFromTx, scanFullMint, compareToHybrid, canonicalListSha,
   chainedLedgerEntry, ledgerSha, verifyLedgerChain, loadHybridSeries, readPriorCalls, runRebaseCrosscheckCli,
   runDensityProbeCli, projectPagesAtFraction, DENSITY_POINTS,
   SET_AUTHORITY_TAG, AUTHORITY_TYPE_SCALED_UI, GTFA_PAGE_LIMIT, DURABLE_FS,
+  DurableWriteError, RENAME_RETRY_CODES, RENAME_RETRY_FIRST_WAIT_MS, RENAME_RETRY_MAX_WAIT_MS, RENAME_RETRY_TOTAL_MS,
   type FullMintScan, type HybridSeries, type ScanSink, type LedgerRecord, type RetryFn } from "../src/rebase-crosscheck.ts";
 import { scanMethodFromMethod } from "../src/rebase-produce.ts";
 import { makeBudgetedCall, parseArgs, runMain } from "../src/collect.ts";
@@ -1609,4 +1611,240 @@ test("bell_crosscheck_writes_are_durable_fsync_per_page_and_per_json - ruling C-
     }
     assert.ok(verifyLedgerChain(spLedger(od)).ok && readSP(od).scan_complete, "the durable files are the real ones: the chain re-derives, the artifact is complete");
   } finally { Object.assign(DURABLE_FS, orig); }
+});
+
+// ================= BELL-SHORTPAGE-1b (micro-pli: G2 corrections C-G2-1/2/3 + R-SP-A) ====================================
+// The G2 review (docs/G2-lot-bell-shortpage-1.md s2) left nine mutants alive: G06/G07/G08/G23/G25 on the probe and on the
+// C-8 end anchor (the SOLE proof of the relaxed commit, decision 135(2)), G19/G20/G21/G22 on C-6 write sites. Each test
+// below is red on its named mutant (TAP byIntended, the micro-pli rendu). R-SP-A: the bounded rename retry of writeDurable.
+// SYNTHETIC literals only (anti-close), NO network (the injected `call` is a stub).
+/** Journal the durable sequence (open:<flags>:<base>, fsync, rename:<base>) through the REAL primitives; returns the restore. */
+function spyDurable(log: string[]): () => void {
+  const orig = { ...DURABLE_FS };
+  Object.assign(DURABLE_FS, {
+    openSync: (p: string, f: "a" | "w"): number => { log.push(`open:${f}:${basename(p)}`); return orig.openSync(p, f); },
+    fsyncSync: (fd: number): void => { log.push("fsync"); orig.fsyncSync(fd); },
+    renameSync: (a: string, b: string): void => { log.push(`rename:${basename(a)}`); orig.renameSync(a, b); },
+  });
+  return () => { Object.assign(DURABLE_FS, orig); };
+}
+
+// ---- C-G2-1 (consigne A-8): a NON-empty probe that CARRIES a token (the realistic truncated continuation) ------------
+test("bell_shortpage_probe_nonempty_with_token_stops_uncommitted - strict runMain: the probe of SP2's token returns data AND a next token (the realistic shape of a truncated continuation, consigne A-8) => STOP not_full_pages, SP2 NOT committed, NO anchor asked (G2 C-G2-1, mutant G06)", async () => {
+  const sd = sdNf(), od = mkdtempSync(join(tmpdir(), "bell-sp1b-p1-o-"));
+  await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(spStub([{ data: NF_P1, token: "p2" }, { data: SP2, token: "p3" }, { data: [nfFiller(1188, "x0")], token: "p4" }], SP2_LAST)));
+  const cc = readSP(od);
+  assert.equal(cc.comparator_verdict.reason, "not_full_pages", "data + a token after the short page => STOP (G06: a tokened probe read as empty => the anchor alone commits SP2 => reds)");
+  assert.ok(spLedger(od).length === 1 && cc.n_exact === GTFA_PAGE_LIMIT && cc.pages === 1, "SP2 NOT committed: one record, N = P1 only");
+  assert.deepEqual(cc.short_final_page_probe, probeOf(2, SP2.length, false, false, false), "traced: probe NOT empty, no anchor, nothing committed");
+  assert.deepEqual(cc.calls_by_method, { getTransactionsForAddress: 3, getTransaction: 2 }, "P1, SP2, the probe; NO desc anchor after a non-empty probe");
+});
+
+// ---- C-G2-2 (a): the C-8 anchor REQUEST pinned (desc, limit 1, slot.lte = oracle_slot, ONCE) on BOTH paths -----------
+test("bell_shortpage_anchor_request_pinned_on_both_paths - the C-8 end anchor request is RECORDED, never assumed: exactly ONE desc gTfA {full, desc, limit 1, filters.slot.lte = the oracle_slot 3000} on the probe path (SP2 + token) AND on the post-loop path (tokenless SP2) (G2 C-G2-2 a, mutants G07/G08)", async () => {
+  for (const tok of ["p3", null]) {
+    const sd = sdNf(), od = mkdtempSync(join(tmpdir(), "bell-sp1b-p2-o-")), desc: Array<Record<string, unknown>> = [];
+    const inner = spStub([{ data: NF_P1, token: "p2" }, { data: SP2, token: tok }, { data: [], token: null }], SP2_LAST);
+    const stub: JsonRpcCall = (u, method, params) => {
+      const p = (params as unknown[])[1] as Record<string, unknown> | undefined;
+      if (method === "getTransactionsForAddress" && p?.sortOrder === "desc") desc.push(p);
+      return inner(u, method, params);
+    };
+    await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(stub));
+    assert.equal(readSP(od).scan_complete, true, `token ${String(tok)}: the proven last page completes the scan`);
+    assert.deepEqual(desc, [{ transactionDetails: "full", sortOrder: "desc", limit: 1, filters: { slot: { lte: 3000 } } }], `token ${String(tok)}: ONE anchor, bounded by the oracle_slot (G07 lte = lastSlotSeen / G08 no slot filter => reds)`);
+  }
+});
+
+// ---- C-G2-2 (b): the anchor compares SIGNATURES; another tx at the SAME slot as SP2's last is not the proof ----------
+test("bell_shortpage_anchor_same_slot_other_sig_refuses - the probe is EMPTY but the desc anchor's newest tx is ANOTHER tx at the SAME slot (1187) as SP2's last: the anchor compares signatures, not slots => not_full_pages, SP2 NOT committed (G2 C-G2-2 b, mutant G23)", async () => {
+  const sd = sdNf(), od = mkdtempSync(join(tmpdir(), "bell-sp1b-p3-o-"));
+  assert.equal((SP2_LAST as { slot: number }).slot, 1187, "fixture: SP2's last tx sits at slot 1187");
+  await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(spStub([{ data: NF_P1, token: "p2" }, { data: SP2, token: "p3" }, { data: [], token: null }], nfFiller(1187, "zz"))));
+  const cc = readSP(od);
+  assert.ok(cc.scan_complete === false && cc.comparator_verdict.reason === "not_full_pages", "same slot, other signature => refused (G23: anchor weakened to descTop.slot <= lastSlotSeen => SP2 committed => reds)");
+  assert.ok(spLedger(od).length === 1 && cc.n_exact === GTFA_PAGE_LIMIT, "SP2 NOT committed");
+  assert.deepEqual(cc.short_final_page_probe, probeOf(2, SP2.length, true, false, false), "traced: probe empty, anchor unequal, nothing committed");
+});
+
+// ---- C-G2-2 (c): the anchor under the injected retry (checkpoint-1 C-1: probe AND anchor under retry(() => call(...))) --
+test("bell_shortpage_anchor_transient_error_is_retried_on_both_paths - the C-8 anchor goes through the injected retry: an HTTP 429 on its FIRST desc attempt is retried ONCE (metered under getTransactionsForAddress) and the scan completes, on the probe path AND on the post-loop path (G2 C-G2-2 c, mutant G25)", async () => {
+  for (const tok of ["p3", null]) {
+    let desc = 0;
+    const retries: Record<string, number> = {}, inner = spStub([{ data: NF_P1, token: "p2" }, { data: SP2, token: tok }, { data: [], token: null }], SP2_LAST);
+    const stub: JsonRpcCall = (u, method, params) => {
+      const p = (params as unknown[])[1] as { sortOrder?: string } | undefined;
+      if (method === "getTransactionsForAddress" && p?.sortOrder === "desc" && ++desc === 1) return Promise.reject(new Error("HTTP 429 rate"));
+      return inner(u, method, params);
+    };
+    const retry: RetryFn = (fn, method) => withRetry(fn, { tries: 3, sleep: () => Promise.resolve(), onRetry: () => { retries[method] = (retries[method] ?? 0) + 1; } });
+    const scan = await scanFullMint(stub, PROVIDERS, SPYX.address, 3000, { maxPages: 20 }, {}, noopSink, [], retry);
+    assert.equal(scan.complete, true, `token ${String(tok)}: the 429 on the anchor healed in-process (G25: anchor outside the retry => the 429 propagates => reds)`);
+    assert.deepEqual(retries, { getTransactionsForAddress: 1 }, `token ${String(tok)}: exactly ONE retry, metered under the anchor's method`);
+    assert.equal(desc, 2, `token ${String(tok)}: 2 desc attempts (the refused one + its retry), never replayed`);
+  }
+});
+
+// ---- C-G2-3 (a): ADR s4 order under C-6 - budget.json durable BEFORE each ledger line --------------------------------
+test("bell_crosscheck_budget_durable_before_each_ledger_line - ADR s4 order under C-6, through runMain: for EACH committed page, budget.json is durably REPLACED (its tmp renamed) after the previous ledger line and BEFORE this page's ledger line, so a cut between the two leaves calls_used >= pages (C-G2D-2/4) (G2 C-G2-3 a, mutant G19)", async () => {
+  const log: string[] = [], restore = spyDurable(log);
+  try {
+    const sd = sdNf(), od = mkdtempSync(join(tmpdir(), "bell-sp1b-p4-o-"));
+    await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(spStub([{ data: NF_P1, token: "p2" }, { data: SP2, token: "p3" }, { data: [], token: null }], SP2_LAST)));
+  } finally { restore(); }
+  const appends = log.map((e, i) => (e === "open:a:ledger-SPYx.jsonl" ? i : -1)).filter((i) => i >= 0);
+  assert.equal(appends.length, 2, "2 committed pages => 2 durable ledger appends");
+  let prev = -1;
+  for (const i of appends) {
+    const r = log.lastIndexOf("rename:budget.json.tmp", i);
+    assert.ok(r > prev && r < i, "budget.json renamed (durable) after the previous ledger line and before this one (G19: budget written AFTER the line => reds)");
+    prev = i;
+  }
+});
+
+// ---- C-G2-3 (b): the power-cut shape - a NUL tail truncated DURABLY at resume (readJsonl C-B-5 through writeDurable) -----
+test("bell_crosscheck_nul_tail_truncated_durably_on_resume - the 2026-09-22 power-cut shape (a NUL tail after a durable ledger line): the resume truncates it THROUGH writeDurable (tmp -> fsync -> rename), keeps the durable prefix byte-exact, and completes (G2 C-G2-3 b, mutant G20)", async () => {
+  const sd = sdNf(), od = mkdtempSync(join(tmpdir(), "bell-sp1b-p5-o-")), NUL = String.fromCharCode(0);
+  await runMain(b1aArgsStrict(sd, od, 2), b1aDeps(spStub([{ data: NF_P1, token: "p2" }], SP2_LAST)));
+  const lp = join(od, "ledger-SPYx.jsonl"), good = readFileSync(lp, "utf8");
+  appendFileSync(lp, NUL.repeat(4096));
+  assert.equal(readFileSync(lp).length, Buffer.byteLength(good, "utf8") + 4096, "the 4096-byte NUL tail is on disk before the resume");
+  const log: string[] = [], restore = spyDurable(log);
+  try {
+    await runMain(b1aArgsStrict(sd, od, 50), b1aDeps(spStub([{ data: [...NF_P1.slice(-3), ...SP2], token: "p3" }, { data: [], token: null }], SP2_LAST)));
+  } finally { restore(); }
+  const i = log.indexOf("open:w:ledger-SPYx.jsonl.tmp");
+  assert.ok(i >= 0 && log[i + 1] === "fsync" && log[i + 2] === "rename:ledger-SPYx.jsonl.tmp", "the NUL tail is truncated through writeDurable (G20: back to writeFileSync => no tmp, no fsync => reds)");
+  const after = readFileSync(lp, "utf8");
+  assert.ok(!after.includes(NUL) && after.startsWith(good), "the NUL tail is gone, the durable prefix kept byte-exact");
+  assert.equal(readSP(od).scan_complete, true, "the resume completes on the repaired ledger");
+});
+
+// ---- C-G2-3 (c): the density CLI's two whole-file writes (the last 2 of the module's 8 C-6 write sites) ----------------
+test("bell_density_writes_are_durable - through runMain --rebase-density: the density CLI's whole-file writes (the shared budget.json AND sonde-report.json) each go <f>.tmp open(w) -> fsync -> rename over <f> (the last 2 of the module's 8 C-6 write sites; G2 C-G2-3 c, mutants G21/G22)", async () => {
+  const sd = mkdtempSync(join(tmpdir(), "bell-sp1b-p6-s-")), od = mkdtempSync(join(tmpdir(), "bell-sp1b-p6-o-"));
+  writeFileSync(join(sd, "rebase-SPYx.json"), densitySeries("SPYx", 800));
+  const log: string[] = [], restore = spyDurable(log);
+  try {
+    await runMain(["--rebase-density", "--pools", "SPYx", "--max-calls", "150", "--max-credits", "1500", "--min-interval", "0", "--series-dir", sd, "--out", od], b1aDeps(densityStub({ [SPYX.address]: { genesis: 100, txAt: () => 4 } })));
+  } finally { restore(); }
+  for (const f of ["budget.json", "sonde-report.json"]) {
+    const i = log.indexOf(`open:w:${f}.tmp`);
+    assert.ok(i >= 0 && log[i + 1] === "fsync" && log[i + 2] === `rename:${f}.tmp`, `${f}: tmp -> fsync -> rename (G21/G22: back to writeFileSync => no tmp => reds)`);
+  }
+  assert.ok(existsSync(join(od, "sonde-report.json")) && !existsSync(join(od, "sonde-report.json.tmp")), "the real file is in place, no tmp left");
+});
+
+// ---- R-SP-A: the BOUNDED rename retry of writeDurable. Measured: docs/course-bell/RUNBOOK-supervision-tirage.md s1; why:
+// docs/course-bell/FAITS-win32-flush-rename-2026-09-22.md s3-s4 (fs.renameSync = MoveFileExW(MOVEFILE_REPLACE_EXISTING)
+// alone, so on win32 ANY open reader of the target makes the rename fail EPERM). The tests hold a REAL reader
+// (openSync(target, "r")): on win32 the real rename fails by itself; on POSIX (CI runs ubuntu) rename(2) replaces an open
+// target, so the seam emulates the measured win32 refusal WHILE the same real reader is held. The waits are driven by the
+// sleepSync hook (reader release, runaway breaker), never by a guessed sleep.
+const errnoErr = (code: string): Error => Object.assign(new Error(`${code}: synthetic rename refusal (test seam)`), { code });
+const sumOf = (xs: readonly number[]): number => xs.reduce((a, b) => a + b, 0);
+/** The b1a resume geometry: run 1 stops on the budget after ONE committed page (a 1-line ledger + budget.json). */
+async function rrFirstRun(tag: string): Promise<{ sd: string; od: string; bp: string; lp: string }> {
+  const sd = mkdtempSync(join(tmpdir(), `bell-${tag}-s-`)), od = mkdtempSync(join(tmpdir(), `bell-${tag}-o-`));
+  writeFileSync(join(sd, "rebase-SPYx.json"), b1aSeries([eInitB, eAB, eBB, eCB]));
+  await runMain(b1aArgs(sd, od, 3), b1aDeps(b1aStub([{ data: [cinitB], paginationToken: "p2" }, { data: [cAB], paginationToken: null }])));
+  return { sd, od, bp: join(od, "budget.json"), lp: join(od, "ledger-SPYx.jsonl") };
+}
+const rrResume = (sd: string, od: string): Promise<void> => runMain(b1aArgs(sd, od, 10), b1aDeps(b1aStub([{ data: [cAB, cBB, cCB], paginationToken: null }])));
+
+test("bell_durable_rename_retry_reader_released_then_succeeds - R-SP-A via runMain: a REAL reader holds budget.json during a resume; the rename is refused (EPERM: real on win32, emulated on POSIX while the reader is held), retried after waits of 10, 20, 40, 80, 160 ms, and SUCCEEDS once the reader is released (after >= 300 ms of waits): budget.json = the NEW content, no .tmp left, the run completes equal", async () => {
+  const { sd, od, bp } = await rrFirstRun("rr1");
+  const oldBudget = readFileSync(bp, "utf8"), attempts: boolean[] = [], waits: number[] = [];
+  let reader: number | undefined = openSync(bp, "r"), t0 = 0, heldMs = -1;
+  const orig = { ...DURABLE_FS };
+  Object.assign(DURABLE_FS, {
+    renameAttemptSync: (a: string, b: string): void => {
+      if (resolve(b) !== resolve(bp)) { orig.renameAttemptSync(a, b); return; }
+      if (attempts.length === 0) t0 = performance.now();
+      try {
+        if (process.platform !== "win32" && reader !== undefined) throw errnoErr("EPERM");
+        orig.renameAttemptSync(a, b);
+        attempts.push(true);
+      } catch (e) { attempts.push(false); throw e; }
+    },
+    sleepSync: (ms: number): void => {
+      waits.push(ms);
+      orig.sleepSync(ms);
+      if (reader !== undefined && sumOf(waits) >= 300) { closeSync(reader); reader = undefined; heldMs = performance.now() - t0; }
+    },
+  });
+  try { await rrResume(sd, od); } finally { Object.assign(DURABLE_FS, orig); if (reader !== undefined) closeSync(reader); }
+  assert.deepEqual(waits.slice(0, 5), [10, 20, 40, 80, 160], "the declared backoff while held: 10 ms doubling (R01: no retry => no wait => reds)");
+  assert.ok(attempts.length >= 2 && attempts.slice(0, 5).every((ok) => !ok) && attempts.includes(true), "refused while the reader was held (5 attempts), then a later attempt succeeded: >= 2 attempts counted");
+  assert.ok(heldMs >= 250, `the waits are REAL blocking waits: the reader was held ${String(Math.round(heldMs))} ms (>= 250) before its release`);
+  const nb = JSON.parse(readFileSync(bp, "utf8")) as { pages: number };
+  assert.ok(readFileSync(bp, "utf8") !== oldBudget && nb.pages === 2, "budget.json = the NEW content (2 pages), written once the reader let go");
+  assert.equal(existsSync(`${bp}.tmp`), false, "no .tmp left behind: the retried rename moved it");
+  assert.equal(readCC(od).comparator_verdict.verdict, "equal", "the run completes: the contention cost a delay, never a STOP");
+});
+
+test("bell_durable_rename_retry_cap_exhausted_fails_closed_named - R-SP-A via runMain: the reader is NEVER released and the cap is lowered to 300 ms by the seam => each refused write waits exactly 10, 20, 40, 80, 150 ms (sum = the cap, the last wait clipped) then throws the NAMED DurableWriteError (fail-closed): budget.json and the ledger stay BYTE-identical (not advanced), the duration is bounded, never an in-place fallback", async () => {
+  const { sd, od, bp, lp } = await rrFirstRun("rr2");
+  const oldBudget = readFileSync(bp, "utf8"), oldLedger = readFileSync(lp, "utf8"), reader = openSync(bp, "r"), waits: number[] = [];
+  let attempts = 0;
+  const orig = { ...DURABLE_FS };
+  Object.assign(DURABLE_FS, {
+    renameRetryTotalMs: 300,
+    renameAttemptSync: (a: string, b: string): void => {
+      if (resolve(b) === resolve(bp)) { attempts += 1; if (process.platform !== "win32") throw errnoErr("EPERM"); }
+      orig.renameAttemptSync(a, b);
+    },
+    sleepSync: (ms: number): void => {
+      waits.push(ms);
+      if (waits.length > 40 || sumOf(waits) > 1200) throw new Error("runaway: the rename retry did not stop at its cap");
+      orig.sleepSync(ms);
+    },
+  });
+  const t0 = performance.now();
+  try {
+    await assert.rejects(rrResume(sd, od), (e: unknown) => e instanceof DurableWriteError && e.name === "DurableWriteError" && e.message.startsWith("bell/collect:") && e.code === "EPERM" && e.attempts === 6 && e.waitedMs === 300,
+      "the NAMED fail-closed error once the cap is spent (R03: in-place writeFileSync fallback => the run proceeds => reds; R02: no cap => runaway => reds)");
+  } finally { Object.assign(DURABLE_FS, orig); closeSync(reader); }
+  const ms = performance.now() - t0;
+  assert.deepEqual(waits, [10, 20, 40, 80, 150, 10, 20, 40, 80, 150], "2 refused writes (the page's onPage, then the CLI finally), each waiting exactly 10+20+40+80+150 = 300 ms = the cap");
+  assert.equal(attempts, 12, "6 attempts per refused write (1 + 5 retries)");
+  assert.equal(readFileSync(bp, "utf8"), oldBudget, "budget.json NOT advanced: the previous file is intact (the rename never happened)");
+  assert.equal(readFileSync(lp, "utf8"), oldLedger, "the ledger NOT advanced: budget.json precedes the line (ADR s4 order), so the refused page never reaches disk");
+  assert.ok(ms < 2 * 300 + 3000, `bounded: ${String(Math.round(ms))} ms < 2 x cap + 3000 ms margin`);
+});
+
+test("bell_durable_rename_retry_codes_schedule_and_real_wait - R-SP-A: the declared values are the ones in force; EACCES and EBUSY are retried like EPERM; ENOENT (any other code) is re-thrown at once UNCHANGED with no wait; a target never released under the DEFAULT cap gives exactly 20 attempts and the declared waits (10 doubling up to 200 ms, the last clipped, sum 3000 ms); the production sleepSync really blocks", async () => {
+  assert.deepEqual([RENAME_RETRY_FIRST_WAIT_MS, RENAME_RETRY_MAX_WAIT_MS, RENAME_RETRY_TOTAL_MS, [...RENAME_RETRY_CODES]], [10, 200, 3000, ["EPERM", "EACCES", "EBUSY"]], "the values declared at the ADR (E-3) (R06: codes narrowed => reds)");
+  assert.equal(DURABLE_FS.renameRetryTotalMs, RENAME_RETRY_TOTAL_MS, "the production cap IS the named constant (R07: an unbound default => reds)");
+  const t = performance.now();
+  DURABLE_FS.sleepSync(30);
+  assert.ok(performance.now() - t >= 25, "the production sleepSync blocks for real (R05: a no-op sleep would spend the whole cap in microseconds => reds)");
+  const run = async (script: (n: number) => string | null): Promise<{ waits: number[]; attempts: number; err: unknown }> => {
+    const sd = mkdtempSync(join(tmpdir(), "bell-rr3-s-")), od = mkdtempSync(join(tmpdir(), "bell-rr3-o-")), bp = join(od, "budget.json"), waits: number[] = [];
+    writeFileSync(join(sd, "rebase-SPYx.json"), b1aSeries([eInitB, eAB, eBB, eCB]));
+    let attempts = 0, err: unknown = null;
+    const orig = { ...DURABLE_FS };
+    Object.assign(DURABLE_FS, {
+      renameAttemptSync: (a: string, b: string): void => {
+        if (resolve(b) === resolve(bp)) { const code = script(attempts); attempts += 1; if (code !== null) throw errnoErr(code); }
+        orig.renameAttemptSync(a, b);
+      },
+      sleepSync: (ms: number): void => { waits.push(ms); if (waits.length > 100) throw new Error("runaway"); }, // a VIRTUAL wait: the schedule, not the time
+    });
+    try { await runMain(b1aArgs(sd, od, 50), b1aDeps(b1aStub([{ data: [cinitB, cAB, cBB, cCB], paginationToken: null }]))); }
+    catch (e) { err = e; }
+    finally { Object.assign(DURABLE_FS, orig); }
+    return { waits, attempts, err };
+  };
+  const a = await run((n) => (n === 0 ? "EACCES" : n === 1 ? "EBUSY" : null));
+  assert.ok(a.err === null && a.attempts === 4, "EACCES then EBUSY are retried, the 3rd attempt succeeds and the run completes (+1 attempt: the CLI finally's write) (R06 => reds)");
+  assert.deepEqual(a.waits, [10, 20], "one wait per refused attempt");
+  const b = await run((n) => (n === 0 ? "ENOENT" : null));
+  assert.ok(b.err instanceof Error && (b.err as Error & { code?: string }).code === "ENOENT" && !(b.err instanceof DurableWriteError), "ENOENT propagates at once, UNCHANGED (R04: other codes retried => the run completes => reds)");
+  assert.deepEqual(b.waits, [], "no wait: never retried");
+  const c = await run(() => "EPERM");
+  const SCHEDULE = [10, 20, 40, 80, 160, ...Array.from({ length: 13 }, () => 200), 90];
+  assert.equal(sumOf(SCHEDULE), RENAME_RETRY_TOTAL_MS, "the declared schedule spends exactly the cap");
+  assert.ok(c.err instanceof DurableWriteError && c.err.attempts === 20 && c.err.waitedMs === 3000 && c.err.code === "EPERM", "20 attempts / 3000 ms of waits, then the named error");
+  assert.deepEqual(c.waits, [...SCHEDULE, ...SCHEDULE], "2 refused writes (onPage, then the CLI finally), each with the declared schedule");
 });
