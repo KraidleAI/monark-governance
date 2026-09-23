@@ -58,9 +58,15 @@ const PAID_HOST = "paid.example.invalid";
 //   --episode-file <e2 selection> --prereg-file docs/PLAN-u4b-prereg.md --prereg-sha <lf u4b> --raws-dir <D> --max-calls
 //   9999 --ledger-dir <OUT> --cycle replay --floor 0 --max-ru 1000000 --method-caps <caps> --usdt-blocks 23550406,23550879
 //   --emode-categories 1,2,3,4,8,11,13,15,17,19,21,23,24,27,28 ; sha256sum <D>/U4-oracle-path-e2.raw.json <D>/U4-oracle-inputs.jsonl
+// D-n (lot U-4b-1b-4, R-I, cp-1 C-5): RE-BASELINED again - the raw gains pre_b0_anchor + provenance.pre_b0_anchor_window +
+// params.pre_b0_max_windows, the inputs cache gains the lookback getLogs lines, and the preload gains one pre-B0 event with
+// range-honouring getLogs. The D_e DATA of [B0, B_last] is unchanged (p_min/p_max/n_updates/emode asserted inline below).
+//   - 8b0e3d69... / 755a3d91... (lot U-4b-1b-2, no anchor)
+//   + values below: measured TWICE independently - (A) this test harness, (B) a CLI child run of the prober under the
+//     preload extracted from this file, hashed with the same prereg-sha mask, two runs byte-identical (G1 rendu -1b-4).
 const REF = {
-  ORACLE_RAW: "8b0e3d69f27514a8d10c186bea1027a0631155e8999d85a4f9197f9782b98b6c",       // U4-oracle-path-e2.raw.json (full, frozen clock; e2 via flags)
-  ORACLE_INPUTS: "755a3d9124df14c7815866214a3a07c082adcdb2b6b12053264971a946a79fe1", // U4-oracle-inputs.jsonl
+  ORACLE_RAW: "8254416390d765dce9a2cec8481b759e2a55f47a48c70cc937de6d4ea4f300ae",       // U4-oracle-path-e2.raw.json (full, frozen clock; e2 via flags)
+  ORACLE_INPUTS: "e2c3ff889e6f8889e11759c2e152b6a9bfff1eef1c5095b022545dd7d842f076", // U4-oracle-inputs.jsonl
   REDRAW_REPORT: "ed2eaf595851e2c96b94ce6bd27182a975e4afa9eb77a2270a87e67b36ee3059", // U4-redraw report (--out) — UNCHANGED
 };
 
@@ -78,7 +84,9 @@ const word=(n)=>BigInt(n).toString(16).padStart(64,"0");
 const hexAddr="${AGG_ADDR.slice(0,2)}"+"0".repeat(24)+"1".repeat(40);
 const emodeHex="0x"+"00".repeat(160);
 const acctHex="${ACCT_HEX}";
-const UPDATES=[{block:23545100,price:200000000000n,round:1n,ts:1700000100n},{block:23546000,price:199000000000n,round:2n,ts:1700000200n},{block:23552200,price:201000000000n,round:3n,ts:1700000300n}];
+// U-4b-1b-4 (cp-1 C-5): ONE pre-B0 AnswerUpdated (block 23545000 <= B0 23545087; round 0 = the round before the first
+// in-window stub) and eth_getLogs honours fromBlock/toBlock, so the receding anchor lookback sees ONLY that event.
+const UPDATES=[{block:23545000,price:200500000000n,round:0n,ts:1700000000n},{block:23545100,price:200000000000n,round:1n,ts:1700000100n},{block:23546000,price:199000000000n,round:2n,ts:1700000200n},{block:23552200,price:201000000000n,round:3n,ts:1700000300n}];
 const answerLogs=UPDATES.map((u)=>({blockNumber:"0x"+u.block.toString(16),logIndex:"0x0",transactionHash:"0x"+"0".repeat(64),topics:[ANSWER_UPDATED,"0x"+word(u.price),"0x"+word(u.round)],data:"0x"+word(u.ts)}));
 const ok=(r)=>new Response(JSON.stringify({jsonrpc:"2.0",id:1,result:r}),{status:200,headers:{"content-type":"application/json"}});
 const rpcErr=(c,m,d)=>new Response(JSON.stringify({jsonrpc:"2.0",id:1,error:{code:c,message:m,...(d!==undefined?{data:d}:{})}}),{status:200,headers:{"content-type":"application/json"}});
@@ -96,7 +104,7 @@ globalThis.fetch=async(url,init)=>{
     if(sel===SEL_EMODE){ const cat=BigInt("0x"+data.slice(-64)); if(cat===8n) return rpcErr(3,"execution reverted","0x"); return ok(emodeHex); }
     if(sel===SEL_ACCT) return ok(acctHex);
     return ok("0x"+word(0)); }
-  if(method==="eth_getLogs"){ const t0=String((params[0].topics&&params[0].topics[0])||""); if(t0.toLowerCase()===ANSWER_UPDATED.toLowerCase()) return ok(answerLogs); return ok([]); }
+  if(method==="eth_getLogs"){ const q=params[0]; const t0=String((q.topics&&q.topics[0])||""); if(t0.toLowerCase()!==ANSWER_UPDATED.toLowerCase()) return ok([]); const lo=parseInt(q.fromBlock,16), hi=parseInt(q.toBlock,16); return ok(answerLogs.filter((l)=>{ const b=parseInt(l.blockNumber,16); return b>=lo&&b<=hi; })); }
   if(method==="eth_getBlockByNumber") return ok({hash:"0x"+"0".repeat(64),number:"0x1",timestamp:"0x1"});
   return ok(null);
 };
@@ -226,10 +234,14 @@ test("u4_oracle_path_e2_via_flags_is_deterministic_and_reproduces_the_De_data", 
     // (iii) INDEPENDENT D_e data vector (survives a whole-file sha change): p_min/p_max from the 3 stubbed updates, the
     // parameterised bornes (episode B0/B_last), episode_id/selection_sha256 in the provenance, and the keyless concordant
     // revert on e-mode 8 (class identity; a flip to NoQuorumError would change the bytes).
-    const raw = JSON.parse(readFileSync(join(raws, "U4-oracle-path-e2.raw.json"), "utf8")) as { p_min: string; p_max: string; n_updates: number; emode_raw: Record<string, { error?: string }>; provenance: { episode_id: string; selection_sha256: string; params: { b0: number; b_last: number; feed_proxy_source: string; usdt_blocks_status: string } } };
+    const raw = JSON.parse(readFileSync(join(raws, "U4-oracle-path-e2.raw.json"), "utf8")) as { p_min: string; p_max: string; n_updates: number; emode_raw: Record<string, { error?: string }>; pre_b0_anchor: unknown; provenance: { episode_id: string; selection_sha256: string; pre_b0_anchor_window: unknown; params: { b0: number; b_last: number; feed_proxy_source: string; usdt_blocks_status: string } } };
     assert.equal(raw.p_min, "199000000000", "p_min == min of the 3 stubbed AnswerUpdated prices");
     assert.equal(raw.p_max, "201000000000", "p_max == max of the 3 stubbed prices");
-    assert.equal(raw.n_updates, 3, "3 D_e updates decoded");
+    assert.equal(raw.n_updates, 3, "3 D_e updates decoded (the pre-B0 stub event stays OUT of [B0, B_last])");
+    // U-4b-1b-4 (R-I): the anchor = the stubbed pre-B0 event, found in window 1 [B0-9990, B0] (2 getLogs pieces of <= 9990
+    // blocks, quorum-2 => 4 calls) - an independent data vector next to the re-baselined whole-file sha.
+    assert.deepEqual(raw.pre_b0_anchor, { price: "200500000000", block: 23545000, log_index: 0, round_id: "0" }, "pre_b0_anchor = the LAST AnswerUpdated <= B0 (cp-1 C-4 form)");
+    assert.deepEqual(raw.provenance.pre_b0_anchor_window, { from: 23545087 - 9990, to: 23545087, windows_tried: 1, calls: 4 }, "lookback provenance (ADDENDUM section 2)");
     assert.equal(raw.emode_raw["8"]?.error, "ConcordantRevertError", "the concordant keyless revert is recognised (class identity)");
     assert.equal(raw.provenance.params.b0, 23545087, "b0 came from episode.B0 (parameterised, not a hard-coded e2 default)");
     assert.equal(raw.provenance.params.b_last, 23552238, "b_last came from episode.B_last");
