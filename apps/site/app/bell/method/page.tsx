@@ -12,12 +12,13 @@ import {
   type BellResidual,
 } from "@/lib/bell-method";
 import { BellContact } from "@/components/bell/contact";
+import { loadBellServed, bellServedRepoRoot, BELL_HOST, BELL_PUBKEY_PATH } from "@/lib/bell-served-load";
 import { Placeholder } from "@/components/placeholder";
 
 export const metadata: Metadata = {
   title: "Bell · method · MONARK",
   description:
-    "The MONARK Bell method: session bounds, the reference close day, formulas, periods and the closed list of residuals, then the public key, the anchors and the replay code. Upcoming; definitions pinned to the collector source.",
+    "The MONARK Bell method: session bounds, the reference close day, formulas, periods and the closed list of residuals, then the public key, how to check a line, the anchors and the replay code. Definitions pinned to the collector source.",
   icons: { icon: [{ url: "/icons/bell.svg", type: "image/svg+xml" }] },
 };
 
@@ -25,7 +26,8 @@ export const metadata: Metadata = {
 // pinned to the collector source (apps/bell/src) by the root test bell_method_facts_match_collector: the session
 // bounds and the calendar are READ from lib/bell-method.ts (never typed as literals here), the decimals too; the
 // residual list must cover the collector's closed list. Values that do not exist yet are named placeholders;
-// sentences that need a served path are in the future tense. Section ordinals are words, not digits.
+// sentences that need a path not served yet are in the future tense. Section ordinals are words, not digits. The key
+// URL and key_id are READ from apps/site/data/bell-served.json (lib/bell-served-load.ts; lot BELL-SERVED-1).
 function Residuals({ items, upcoming = false }: { items: readonly BellResidual[]; upcoming?: boolean }) {
   return (
     <>
@@ -43,6 +45,8 @@ export default function BellMethodPage() {
   const bell = PRODUCTS.find((p) => p.key === "bell");
   if (!bell) throw new Error("bell method page: MONARK Bell is absent from PRODUCTS (lib/fleet.ts)");
   const anchors = loadAnchors();
+  const served = loadBellServed(bellServedRepoRoot());
+  const pubkeyUrl = BELL_HOST + BELL_PUBKEY_PATH;
   const closures = BELL_CALENDAR.fullClosures;
   const halfDays = BELL_CALENDAR.halfDays;
 
@@ -150,7 +154,10 @@ export default function BellMethodPage() {
               cross-read cannot run, the session carries <span className="c-mono">cash_cross_unavailable</span>. A close that
               is missing or not positive abstains with <span className="c-mono">no_close_ref</span>.
             </p>
-            <p className="c-muted c-small" style={{ marginTop: 10 }}>Close values are never published.</p>
+            <p className="c-muted c-small" style={{ marginTop: 10 }}>
+              Close values are never published, and the close source is described here, not named. In the first served
+              record no close is read: each of its sessions abstains with <span className="c-mono">no_close_ref</span>.
+            </p>
           </div>
         </div>
       </section>
@@ -297,7 +304,7 @@ vol_ratio  = V_shares / ADV`}</pre>
             <ol className="c-ol">
               <li><b>Canonical bytes.</b> The digest object is serialised with sorted keys and no whitespace; <span className="c-mono">bell_sha</span> is its hash.</li>
               <li><b>Journal.</b> Each line of the collection journal carries the hash of the previous line&rsquo;s canonical bytes; a removed or edited line breaks the chain at recomputation.</li>
-              <li><b>Timeline.</b> <span className="c-mono">timeline.jsonl</span> will be append-only; each line will carry the previous line&rsquo;s hash and a signature over its canonical bytes.</li>
+              <li><b>Timeline.</b> <span className="c-mono">timeline.jsonl</span> is append-only; each line carries the previous line&rsquo;s hash and a signature over its canonical bytes.</li>
               <li><b>Provenance.</b> A separate file names the operators and the quorum for each read and the close source. It travels beside the digest and is not hashed into it.</li>
               <li><b>Manifests.</b> At each start, end and resumption of a run, a manifest lists the run&rsquo;s artifacts with their hashes, sorted, one per line; the manifest is what gets anchored (see <a href="#anchors">anchors</a>).</li>
             </ol>
@@ -313,9 +320,11 @@ vol_ratio  = V_shares / ADV`}</pre>
               <dt>algorithm</dt>
               <dd>Ed25519</dd>
               <dt>public key</dt>
-              <dd><Placeholder name="pubkey_ed25519" state="to be published" /></dd>
+              <dd style={{ overflowWrap: "anywhere" }}><a href={pubkeyUrl}>{pubkeyUrl}</a>, the one URL of the key; this site links it and serves no copy</dd>
+              <dt>key_id</dt>
+              <dd className="c-mono" style={{ overflowWrap: "anywhere" }}>{served.first_record.key_id}</dd>
               <dt>generated</dt>
-              <dd>on the dedicated host from which the records will be published, operated by MONARK</dd>
+              <dd>on the dedicated host from which the records are published, operated by MONARK</dd>
               <dt>signs</dt>
               <dd>each line of <span className="c-mono">timeline.jsonl</span>, over the line&rsquo;s canonical bytes</dd>
               <dt>rotation</dt>
@@ -323,12 +332,38 @@ vol_ratio  = V_shares / ADV`}</pre>
             </dl>
           </div>
           <div className="c-card">
-            <h2 className="c-h2">What a valid signature will tell you</h2>
+            <h2 className="c-h2">What a valid signature tells you</h2>
             <p className="c-muted">
               That the line was produced by the holder of this key, and that it has not been altered since. It says nothing
               about whether the line&rsquo;s content is true: truth is checked by recomputing the line from the ledger and from
               the reader&rsquo;s own close data (see <a href="#replay">replay code</a>). Independence from the venues and issuers
               measured: <Placeholder name="relation_commerciale" />; not independence from MONARK.
+            </p>
+          </div>
+        </div>
+        <div className="c-grid c-grid--2" style={{ marginTop: 20 }}>
+          <div className="c-card">
+            <h2 className="c-h2">How to check a line</h2>
+            <pre className="c-code" style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+              {"node apps/bell/scripts/bell-verify.mjs --url " + BELL_HOST + " --keyring apps/bell/keys/bell-keyring.json"}
+            </pre>
+            <p className="c-muted c-small" style={{ marginTop: 10 }}>
+              Run from the MONARK source tree, the reader-side verifier re-derives the chain and every signature of the
+              served timeline, the key schedule, and the binding of the state file to the head line. Its trust root is the
+              committed keyring <span className="c-mono">apps/bell/keys/bell-keyring.json</span>; the key served above is
+              only a cross-checked channel. Its success status reads <span className="c-mono">consistent_with_supplied_keyring</span>;
+              without a keyring it reports <span className="c-mono">self_consistent_only</span>, never an unqualified
+              success. Neither the verifier nor the keyring is in the public export today: the replay code below is marked
+              to be exported.
+            </p>
+          </div>
+          <div className="c-card">
+            <h2 className="c-h2">Detectable by whom</h2>
+            <p className="c-muted">
+              A rewrite of the timeline is detectable by whoever keeps an earlier copy: the operator&rsquo;s mirror, whose
+              SHA-256 is recorded in the operator journal after each publication, and any third-party copy of{" "}
+              <span className="c-mono">timeline.jsonl</span> or of the immutable state files. Keep a copy, and a later
+              change to a published line shows at recomputation.
             </p>
           </div>
         </div>

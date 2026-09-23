@@ -3,9 +3,10 @@
 // per-product UpcomingPanel read status FROM HERE; no status is hard-coded on those surfaces.
 //
 // Locked by the root test `fleet_register_built_set_is_frozen` (test/ci-gates.test.ts): the built
-// set is EXACTLY {Shōgen, Hikae, Ukemi, Narabi}; the seven other agents and all six products are upcoming
-// (MONARK Bell joined PRODUCTS as upcoming — ruling Q3, decision 146; the built set is unchanged).
-// Flipping any of those twelve to "built" reds that test (named mutant). That same test also freezes the
+// agents are EXACTLY {Shōgen, Hikae, Ukemi, Narabi}; the seven other agents are upcoming. Among the six
+// products, MONARK Bell alone is built (investor decision 155, lot BELL-SERVED-1: its host is served and its
+// first signed record is published; it joined PRODUCTS as upcoming by ruling Q3, decision 146) and the five
+// others are upcoming. Flipping any of those twelve upcoming entries reds that test (named mutant). It also freezes the
 // WIRING (ADR-M018 D2; ADR-EC E2/E6): each built agent's served_by is non-empty, its integration_test names
 // one real test per served leg, and only the digit-free `note` is rendered (/fleet); served_by and
 // integration_test stay unrendered (digit-bearing) wiring metadata.
@@ -77,14 +78,15 @@ export interface UpcomingFleetAgent extends FleetAgentCommon {
  *  the common shape; only a `status === "built"` narrow exposes `wiring`. */
 export type FleetAgent = BuiltFleetAgent | UpcomingFleetAgent;
 
-/** A product's wiring, shown as a sober sensor -> gate -> act schema in the placeholder. */
+/** A product's wiring, shown as a sober sensor -> gate -> act schema in the placeholder. Distinct from FleetWiring
+ *  (the served path + integration tests), which a BUILT product carries as `served` (ADR-B0 D4: W-1 != ProductWiring). */
 export interface ProductWiring {
   sensor: string;
   gate: string;
   act: string;
 }
 
-export interface FleetProduct {
+interface FleetProductCommon {
   /**
    * Stable product id / segment key. Usually not a frozen-contract field name; the one
    * coincidence is the verdict key (the MONARK Verdict product), which equals a GateDecision
@@ -102,8 +104,21 @@ export interface FleetProduct {
   wiring: ProductWiring;
   /** Generic "what it will connect" line (reachability lives here, not on the segment card). */
   connects: string;
-  status: FleetStatus;
 }
+
+/** A BUILT product MUST declare its served wiring (same contract and guard as a built agent's `wiring`). */
+export interface BuiltFleetProduct extends FleetProductCommon {
+  status: "built";
+  served: FleetWiring;
+}
+
+/** An UPCOMING product carries NO served wiring; a `served` on it is a type error. */
+export interface UpcomingFleetProduct extends FleetProductCommon {
+  status: "upcoming";
+  served?: never;
+}
+
+export type FleetProduct = BuiltFleetProduct | UpcomingFleetProduct;
 
 // The eleven fleet agents. Three engines (Shōgen, Hikae, Ukemi) are rendered by their bespoke Home panels;
 // the Ukemi panel reads its AgentCard status from THIS register (ADR-M018 single source of truth; pinned by
@@ -240,13 +255,16 @@ export const FLEET_AGENTS: FleetAgent[] = [
 // The shared gate node, named on every product wiring (the backbone, distinct from a product's engine
 // agent). C-1: MONARK Verdict names NO engine agent — its sensor and act stay generic.
 const GATE = "Hikae and the MONARK budget";
+/** The shared backbone gate, exported so a surface says "the same gate" only of it (decision 155: MONARK Bell's gate is its own). */
+export const SHARED_GATE = GATE;
 
-// The six products (fingers): each is a wiring of fleet agents, distinct from the engine agent, and
-// NONE is built today (ADR-M004 D14 invariant). Ordered as the home segment cards. A product opens its
-// placeholder from its segment card; products do NOT appear on /roadmap nor /fleet (the "four built, seven
-// on the roadmap" count stays true). MONARK Bell (ruling Q3, decision 146) is upcoming; its segment, wiring
-// and reach are NAMED PLACEHOLDERS `<<name>>` (to be written by the orchestrator), rendered as such by
-// components/placeholder.tsx RegisterText — never a typed value.
+// The six products (fingers): each is a wiring of fleet agents, distinct from the engine agent. Five are
+// upcoming; MONARK Bell is built (investor decision 155; the ADR-M004 D14 invariant "no product is built" is
+// amended by ADR, orchestrator's act). Ordered as the home segment cards. A product opens its placeholder
+// from its segment card; products do NOT appear on /roadmap nor /fleet (the "four built, seven on the
+// roadmap" count is about AGENTS and stays true). MONARK Bell's segment and reach stay NAMED PLACEHOLDERS
+// `<<name>>` (orchestrator-owned), rendered as such by components/placeholder.tsx RegisterText; its wiring
+// names the real pieces (collector reads, publisher checks, signed publication + reader-side verifier).
 export const PRODUCTS: FleetProduct[] = [
   {
     key: "firebreak",
@@ -298,9 +316,20 @@ export const PRODUCTS: FleetProduct[] = [
     key: "bell",
     segment: "<<bell_segment>>",
     name: "MONARK Bell",
-    fn: "Keep a public, signed record of how tokens that track U.S. equities trade on a public ledger while U.S. markets are closed: one gap per session, a named abstention when it cannot know, an anchored digest.",
-    wiring: { sensor: "<<bell_wiring_sensor>>", gate: "<<bell_wiring_gate>>", act: "<<bell_wiring_act>>" },
+    fn: "Keep a public, signed record of how tokens that track U.S. equities trade on a public ledger while U.S. markets are closed: a gap per session when its closing price can be read, a named abstention when it cannot, an anchored digest.",
+    wiring: {
+      sensor: "the collector's session reads of on-chain fills, each read on two operators",
+      gate: "the publisher's closed checks: read quorum, earliest publication time, no closing price carried",
+      act: "a signed, hash-chained publication on its own host, checked by the reader-side verifier",
+    },
     connects: "<<bell_connects>>",
-    status: "upcoming",
+    status: "built",
+    // Decision 155 (W-1): the served host, its deploy check (docs/deploy-CA-bell.json, produced by
+    // scripts/verify-bell.mjs, which runs the real reader-side verifier) and the site data read from it.
+    served: {
+      served_by: "https://bell.monarkgate.tech (timeline.jsonl, state.json, bell/pubkey.json); deploy check docs/deploy-CA-bell.json by scripts/verify-bell.mjs; site data apps/site/data/bell-served.json",
+      integration_test: ["verify_bell_ca_check5_runs_real_bell_verify", "bell_served_data_matches_deploy_ca"],
+      note: "a signed, hash-chained timeline served on its own host, checked end to end by a non-LLM reader-side verifier against the committed keyring",
+    },
   },
 ];

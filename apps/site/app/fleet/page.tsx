@@ -146,7 +146,7 @@ export default function FleetPage() {
         </div>
         <p className="c-muted c-small" style={{ marginTop: 10 }}>
           Products are wirings of these agents and live on <Link href="/products">/products</Link>, off the fleet count above;
-          MONARK Bell is listed there, upcoming.
+          MONARK Bell is listed there.
         </p>
       </section>
     </main>

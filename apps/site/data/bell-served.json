@@ -1,0 +1,16 @@
+{
+  "$comment": "Committed, hashed facts about the SERVED Bell host, rendered by /bell and /bell/method through apps/site/lib/bell-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json (lot BELL-SERVED-1; decision 155). Written by scripts/sync-bell-served.mjs (source-repo tool) from two GETs: /timeline.jsonl and /bell/pubkey.json, after checking that the served key set equals the committed keyring and that the first line is a signed, genesis-chained publication at seq 1 under that keyring. first_record = that first line's seq, published_at, line_hash (sha256 of its canonical bytes) and key_id; bodies_sha256 = the sha256 of the two bodies as read at read_at (the timeline body grows with each publication; the first line does not change). No other field of the line is copied and no market value is read.",
+  "schema": "monark-site-bell-served-v1",
+  "host": "https://bell.monarkgate.tech",
+  "read_at": "2026-09-23T21:53:28.042Z",
+  "first_record": {
+    "seq": 1,
+    "published_at": "2026-09-23T21:35:52.438Z",
+    "line_hash": "4a417cf02289b4968c17e7dc9f61c013bf04d62c77e541993a05a20a6965f47c",
+    "key_id": "30fd26e80efac0d93e1f82c5f4372354ec71e5294f36d946d5167ce0ef39c672"
+  },
+  "bodies_sha256": {
+    "/timeline.jsonl": "8dfd2b78c4ba06c61165b13f29929526b50339228a458e0c13a214281211b0ad",
+    "/bell/pubkey.json": "beec868a9e7d8e396de0f0541ab20572a2159068e8102bb303cb9af368b6ef81"
+  }
+}

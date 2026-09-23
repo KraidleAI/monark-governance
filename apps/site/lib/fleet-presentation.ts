@@ -117,13 +117,15 @@ export const INSIDE: Record<string, InsideBlock> = {
     kind: "upcoming",
     points: ["Kyokusen's Nelson-Siegel yield-curve fitting across maturities"],
   },
-  // MONARK Bell (upcoming; ruling Q3, decision 146) — method names only, from the Bell page copy (the four
-  // properties of the comment letter §3): no engine agent is named while its wiring is a placeholder.
+  // MONARK Bell (built; decision 155, lot BELL-SERVED-1; upcoming since ruling Q3, decision 146) — "What's inside"
+  // says only what is served today: the signed chained timeline and its reader-side check, the named abstentions
+  // (the first record abstains on every session: no closing price is read into it), the anchored journal. No gap
+  // is claimed: the cash leg is not connected (the /bell page says so in plain words).
   bell: {
-    kind: "upcoming",
+    kind: "built",
     points: [
-      "An off-hours gap per session: the volume-weighted average price of on-chain fills, per underlying share, against the last consolidated close",
-      "Named abstentions instead of estimates, each counted in the published state",
+      "A public timeline served on its own host, one signed, hash-chained line per publication, checked by a reader-side verifier against a committed keyring",
+      "Named abstentions instead of estimates, each counted in the published state; no closing price is read into the first record, so it carries no gap",
       "A hash-chained collection journal whose manifests are anchored to a public timestamp",
     ],
   },

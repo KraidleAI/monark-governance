@@ -10,7 +10,7 @@ import { insideFor } from "@/lib/fleet-presentation";
 export const metadata: Metadata = {
   title: "Products — MONARK",
   description:
-    "Market-facing MONARK products by the profile that needs them, and the artefacts sold to a named buyer. Every product is upcoming — a wiring of fleet agents on one gate.",
+    "Market-facing MONARK products by the profile that needs them, and the artefacts sold to a named buyer. MONARK Bell is built; every other product is upcoming — a wiring of fleet agents on one gate.",
 };
 
 // The /products route (server component). Two registers, two sections (design screen-label "Products" +
@@ -30,12 +30,12 @@ export default function ProductsPage() {
         </h1>
         <p className="max-w-2xl text-lg text-muted-foreground">
           A client installs one visible piece &mdash; the act that matches their need &mdash; while the
-          sensors and the gate stay behind it. Every product is upcoming: a wiring of fleet agents on the
-          same gate.
+          sensors and the gate stay behind it. MONARK Bell is built; every other product is upcoming: a wiring of
+          fleet agents on the same gate.
         </p>
       </section>
 
-      {/* The six products (fingers; MONARK Bell upcoming since ruling Q3) — fleet.ts is the source of truth for the
+      {/* The six products (fingers; MONARK Bell built since decision 155, upcoming from ruling Q3) — fleet.ts is the source of truth for the
           mapping and the status; a `<<name>>` register string renders as a named placeholder. */}
       <section className="mt-10">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

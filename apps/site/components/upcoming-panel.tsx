@@ -12,9 +12,9 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status-badge";
 import { SHEET } from "@/components/panel-shell";
 import { WhatInside } from "@/components/what-inside";
-import { RegisterText, placeholderName } from "@/components/placeholder";
+import { RegisterText } from "@/components/placeholder";
 import { insideFor } from "@/lib/fleet-presentation";
-import type { FleetProduct } from "@/lib/fleet";
+import { SHARED_GATE, type FleetProduct } from "@/lib/fleet";
 import { cn } from "@/lib/utils";
 
 /**
@@ -58,7 +58,9 @@ function WiringSchema() {
  * (MONARK Bell's segment, wiring and reach — ruling Q3) renders as a Placeholder, never as a value.
  */
 export function UpcomingPanel({ product }: { product: FleetProduct }) {
-  const gateIsPlaceholder = placeholderName(product.wiring.gate) !== null;
+  // "the same gate" is said ONLY of the shared backbone gate; a product with its own gate (MONARK Bell: the
+  // publisher's closed checks, decision 155) or a placeholder gate shows "Gate:" instead (never a borrowed claim).
+  const sharedGate = product.wiring.gate === SHARED_GATE;
   return (
     <Dialog>
       <article className="flex flex-col gap-2 rounded-xl border bg-card p-5">
@@ -70,12 +72,12 @@ export function UpcomingPanel({ product }: { product: FleetProduct }) {
         </div>
         <p className="text-sm text-muted-foreground">{product.fn}</p>
         <p className="text-xs text-muted-foreground">
-          {gateIsPlaceholder ? (
+          {sharedGate ? (
+            <>Cleared by the same gate: {product.wiring.gate}.</>
+          ) : (
             <>
               Gate: <RegisterText text={product.wiring.gate} />
             </>
-          ) : (
-            <>Cleared by the same gate: {product.wiring.gate}.</>
           )}
         </p>
         <div className="mt-auto pt-1">

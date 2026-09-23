@@ -31,7 +31,7 @@ import { compilePatterns, scanText, collectTargets } from "../scripts/grep-forbi
 import { collectFiles } from "../scripts/export-public.mjs";
 import { renderedTexts, scanText as scanNumericText, loadExemptFile, scanAppsSite } from "../apps/site/test/honesty-lint.ts";
 import { FLEET_AGENTS, PRODUCTS } from "../apps/site/lib/fleet.ts";
-import type { FleetStatus } from "../apps/site/lib/fleet.ts";
+import type { FleetStatus, FleetWiring } from "../apps/site/lib/fleet.ts";
 import type { AgentStatus } from "../apps/site/lib/status.ts";
 import { loadGateEnums } from "../apps/site/lib/gate-enums.ts";
 import { ACTION_COMMIT, ACTION_DEFER, ACTION_ABSTAIN, SENSOR_NODES, AMBIENT, decide, fresh, CAVEAT, gateJson, push } from "../apps/site/lib/sim.ts";
@@ -797,7 +797,7 @@ const WIRING_TEST_ROOTS_EXCLUDED: Record<string, string> = {
 // via {property access}, which the honesty lint (test 44) never flags, so a digit there would render
 // un-caught; we scan every rendered register string with the SAME detector here. (2) a consumption
 // check — the two new surfaces read status FROM the register, never hard-code a status attribute.
-test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narabi}; 13 others upcoming (F-2c C-2; ADR-M012 M012-e; Q3 decision 146)", () => {
+test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narabi} + product MONARK Bell; 12 others upcoming (F-2c C-2; ADR-M012 M012-e; Q3 decision 146; decision 155)", () => {
   // Compile-time: FleetStatus IS the honest AgentStatus vocabulary (both "built"|"upcoming"). The two
   // typed identity coercions only type-check if neither type adds or drops a member (a stray "live"
   // reds ONE of them under `npm run typecheck`). Called below so they are not unused.
@@ -822,19 +822,24 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narab
   // AMENDED 2026-09-23 (lot SITE-CHARTE-C; ruling Q3 of decision 146, CHANTIERS "amendement du test + statut
   // upcoming obligatoires"): MONARK Bell joins PRODUCTS as UPCOMING — five -> six products, twelve -> thirteen
   // upcoming. The built set above ({Shōgen, Hikae, Ukemi, Narabi}) is NOT touched.
+  // AMENDED 2026-09-23 (lot BELL-SERVED-1; investor decision 155 "passe built"): MONARK Bell is the ONE built product
+  // (host served, first signed record published, deploy check docs/deploy-CA-bell.json 12/12); the ADR-M004 D14
+  // invariant above is amended by ADR (orchestrator's act). The five other products stay upcoming.
+  const BUILT_PRODUCTS = ["bell"];
   assert.equal(PRODUCTS.length, 6, "exactly six products");
   for (const p of PRODUCTS) {
-    assert.equal(p.status, "upcoming", `product ${p.name} must be upcoming (the engine agent may be built, the product is not)`);
+    const expected = BUILT_PRODUCTS.includes(p.key) ? "built" : "upcoming";
+    assert.equal(p.status, expected, `product ${p.name} must be ${expected} (decision 155: MONARK Bell alone is built)`);
   }
 
-  // The register-wide count: exactly 4 built, exactly 13 upcoming (7 agents + 6 products). ADR-M012 M012-e:
+  // The register-wide count: exactly 4 built agents, exactly 12 upcoming (7 agents + 5 products). ADR-M012 M012-e:
   // Narabi flips upcoming→built at go 4 (off-tool sentinel running daily), so built is 4; MONARK Bell (ruling Q3,
-  // decision 146) adds one upcoming product, so upcoming is 13.
+  // decision 146) added one upcoming product (13), then flipped to built (decision 155), so upcoming is 12.
   const builtCount = FLEET_AGENTS.filter((a) => a.status === "built").length;
   const upcomingCount =
     FLEET_AGENTS.filter((a) => a.status === "upcoming").length + PRODUCTS.filter((p) => p.status === "upcoming").length;
   assert.equal(builtCount, 4, "exactly four agents are built");
-  assert.equal(upcomingCount, 13, "exactly thirteen upcoming (seven agents + six products)");
+  assert.equal(upcomingCount, 12, "exactly twelve upcoming (seven agents + five products)");
 
   // (0) package.json `description` is exported to the public mirror (scripts/export-public.mjs WHITELIST_FILES)
   // and carries the fleet count in free text — a surface the register does not drive (G2 M012-e C2: it still
@@ -860,6 +865,7 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narab
   }
   for (const p of PRODUCTS) {
     registryStrings.push(p.segment, p.name, p.fn, p.connects, p.wiring.sensor, p.wiring.gate, p.wiring.act);
+    if (p.status === "built") registryStrings.push(p.served.note);
   }
   const numericHits = registryStrings.flatMap((s) => scanNumericText(s, noExempt));
   assert.deepEqual(numericHits, [], `a register string carries a rendered numeric literal: ${JSON.stringify(numericHits)}`);
@@ -895,8 +901,13 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narab
     existsSync(dir) ? readdirSync(dir).filter((n) => n.endsWith(".test.ts")).map((n) => readFileSync(join(dir, n), "utf8")) : [],
   ).join("\n");
   assert.ok(testCorpus.length > 0, "no *.test.ts collected under the three test roots (false green)");
-  for (const a of FLEET_AGENTS) {
-    if (a.status !== "built") continue;
+  // Decision 155: a BUILT product carries the same served wiring (`served`), under the same guard.
+  const builtWirings: Array<{ name: string; wiring: FleetWiring }> = [
+    ...FLEET_AGENTS.flatMap((a) => (a.status === "built" ? [{ name: a.name, wiring: a.wiring }] : [])),
+    ...PRODUCTS.flatMap((p) => (p.status === "built" ? [{ name: p.name, wiring: p.served }] : [])),
+  ];
+  assert.ok(builtWirings.some((w) => w.name === "MONARK Bell"), "the built product MONARK Bell must be walked by the wiring guard");
+  for (const a of builtWirings) {
     assert.ok(a.wiring.served_by.trim().length > 0, `built agent ${a.name}: wiring.served_by must be non-empty (ADR-M018 D1(b))`);
     assert.ok(Array.isArray(a.wiring.integration_test), `built agent ${a.name}: integration_test must be a list (ADR-EC E2)`);
     assert.ok(a.wiring.integration_test.length >= 1, `built agent ${a.name}: integration_test must name at least one served leg (ADR-EC E2)`);
@@ -966,6 +977,10 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narab
   // Match the JSX EXPRESSION close `{…wiring.note}` (a prose mention of "wiring.note" in a comment has no
   // trailing `}`), so deleting the RENDER — not just the comment — reds this (measured false-green otherwise).
   assert.match(fleetPage.text, /wiring\.note\s*\}/, "the /fleet page must RENDER wiring.note as {…wiring.note} (ADR-EC E6 — else note is unwired metadata, CA-11)");
+  // Decision 155: the built product's `served.note` is rendered on /bell (same E6 rule; mutant: delete the render ⇒ red).
+  const bellPage = surfaces.find((s) => s.rel === "apps/site/app/bell/page.tsx");
+  assert.ok(bellPage, "apps/site/app/bell/page.tsx must be scanned (false green)");
+  assert.match(bellPage.text, /served\.note\s*\}/, "the /bell page must RENDER the built product's served.note as {…served.note} (ADR-EC E6, decision 155)");
 });
 
 // ────────────────────────────────────────────────────────────────────────────────────────────────
