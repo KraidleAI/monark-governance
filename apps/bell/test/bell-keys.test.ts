@@ -62,7 +62,7 @@ test("bell_key_rotation_cross_signed_verifies", async (t) => {
   writeFileSync(join(creds, "bell-signing-key"), K2.export({ type: "pkcs8", format: "pem" }));
   writeFileSync(join(creds, "bell-signing-key-new"), K3.export({ type: "pkcs8", format: "pem" }));
   const env: NodeJS.ProcessEnv = { ...process.env, CREDENTIALS_DIRECTORY: creds };
-  for (const a of [["--rotate", "--revoke", id1, "--from-seq", "1"], ["--revoke", id1, "--from-seq", "1", "--broken"], ["--generate-key"]]) { // C-8 (b): one mode, --broken
+  for (const a of [["--rotate", "--revoke", id1, "--from-seq", "1"], ["--revoke", id1, "--from-seq", "1", "--broken"], ["--generate-key"], ["--inbox", s, "--broken"], ["--generate-key", join(creds, "k"), "--rotate"], ["--rotate", "--state"]]) { // C-D-2 (b) // C-8 (b): one mode, --broken
     const u = spawnSync(process.execPath, [SCRIPT, ...a, "--state", s], { env, encoding: "utf8", cwd: creds }); // with --rotate only, never a flag as a value
     assert.deepEqual([u.status, u.stdout, /^bell\/publish: usage: /.test(u.stderr)], [1, "", true], a.join(" "));
   }
@@ -98,7 +98,7 @@ test("bell_revoked_key_lines_after_revocation_rejected", async () => {
   pub(oob, K1, "b0", 365n, 0);
   pub(oob, K1, "b1", 366n, 1);
   assert.equal(await check(oob, { schema: "bell-keyring-v1", keys: [{ ...keyringOf(K1, 1).keys[0], revoked_from_seq: 2 }] }), "head_signed_by_revoked_key: line 2");
-  for (const m of [{ revoked_from_seq: "2" }, { revoked_from_seq: 1.5 }, { revoked_from_seq: 0 }, {}]) { // C-9 (a): a malformed marker of the SUPPLIED keyring
+  for (const m of [{ revoked_from_seq: "2" }, { revoked_from_seq: 1.5 }, { revoked_from_seq: 0 }, {}, { status: "active", revoked_from_seq: "2" }]) { // C-D-1: whatever the status // C-9 (a): a malformed marker of the SUPPLIED keyring
     assert.equal(await check(oob, { schema: "bell-keyring-v1", keys: [{ ...keyringOf(K1, 1).keys[0], status: "revoked", ...m }] }), "keyring_invalid: the supplied keyring", JSON.stringify(m));
   }
   assert.equal(await check(oob, keyringOf(K1, 1)), "accepted");

@@ -136,7 +136,7 @@ test("bell_verify_without_keyring_reports_self_consistent_only", async (t) => {
   const bare = cli(), rooted = cli("--keyring", krFile);
   assert.deepEqual([bare.status, bare.out.status], [0, "self_consistent_only"]);
   assert.deepEqual([rooted.status, rooted.out.status], [0, "consistent_with_supplied_keyring"]);
-  for (const a of [["--keyring"], ["--keyring", "--dir"]]) { const u = cli(...a); assert.deepEqual([u.status, u.out, /^bell\/verify: usage: /.test(u.err)], [1, {}, true], `C-8 (a): ${a.join(" ")} is a usage error`); }
+  for (const a of [["--keyring"], ["--keyring", "--dir"], ["--url"]]) { /* C-D-2 (a) */ const u = cli(...a); assert.deepEqual([u.status, u.out, /^bell\/verify: usage: /.test(u.err)], [1, {}, true], `C-8 (a): ${a.join(" ")} is a usage error`); }
   const tampered = withLine(pub, 1, (l) => ({ ...l, seq: 9 })), bad = spawnSync(process.execPath, [SCRIPT, "--dir", tampered], { encoding: "utf8" });
   assert.deepEqual([bad.status, bad.stdout], [1, ""]);
   assert.match(bad.stderr, /^bell\/verify: timeline_malformed: line 1\r?\n$/);
