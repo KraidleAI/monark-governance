@@ -137,9 +137,28 @@ test("u4b_probe_cutoff_value_in_force_is_the_last_event_at_or_below_the_block", 
   assert.equal(decide(30, 30), "GO");
   assert.equal(decide(30, 45), "STOP", "inequality => STOP");
   assert.equal(decide(null, 30), "STOP", "a missing value => STOP");
+  assert.equal(decide(30, null), "STOP", "a missing c_e2 => STOP");
+  assert.equal(decide(null, null), "STOP", "NO value at all (an empty scan) => STOP, never GO (G2 C-G2-2)");
   assert.throws(() => decodeCutoffEvents([cutLog({ ...DEPLOY, data: "0x" })]), /not ONE 32-byte word/, "an EMPTY 0x data is refused by name");
   assert.throws(() => decodeCutoffEvents([cutLog({ ...DEPLOY, data: "0x" + "1".repeat(64) })]), /exceeds uint32/, "a word beyond uint32 is refused");
+  assert.equal(decodeCutoffEvents([cutLog({ ...DEPLOY, value: 0xffffffffn })])[0]!.cutoff_time, 4294967295, "2^32 - 1 (the largest uint32) is accepted");
+  assert.throws(() => decodeCutoffEvents([cutLog({ ...DEPLOY, value: 0x100000000n })]), /exceeds uint32/, "2^32 is refused: the uint32 bound is EXACT (G2 C-G2-2)");
   assert.throws(() => decodeCutoffEvents([{ ...cutLog(DEPLOY), topics: ["0x" + "0".repeat(64)] }]), /topic0 != CutoffTimeSet/, "a foreign topic0 is refused");
+});
+
+// ============================================================================================================
+// (3b) G2 C-G2-2: an EMPTY concordant scan (both witnesses return [] - e.g. two pruning gateways) is a NAMED STOP, exit 3, C-12 exit 3.
+// ============================================================================================================
+test("u4b_probe_cutoff_empty_scan_is_a_named_stop_exit_3", async () => {
+  const s = scratch();
+  try {
+    let r: { status: number; verdict: string; outPath: string } | undefined;
+    await withFetch(makeStub({ events: [] }), async () => { r = await runProbe(s.args(), { env: {}, now: () => 1 }); });
+    assert.equal(r!.status, EXIT_STOP, "no CutoffTimeSet at all => STOP (exit 3), never a GO");
+    const rep = readReport(r!.outPath);
+    assert.deepEqual({ verdict: rep.verdict, reason: rep.reason, c_fresh: rep.c_fresh, c_e2: rep.c_e2, n_events: rep.events.length }, { verdict: "STOP", reason: "no_event_at_or_below_block", c_fresh: null, c_e2: null, n_events: 0 }, "named reason, no value invented");
+    assert.equal(c12(r!.outPath), 3, "control C-12 => exit 3");
+  } finally { rmSync(s.dir, { recursive: true, force: true }); }
 });
 
 // ============================================================================================================
@@ -196,7 +215,7 @@ test("u4b_probe_cutoff_never_writes_the_selection_and_the_prober_still_accepts_i
 });
 
 // ============================================================================================================
-// (7) Refusals BEFORE any fetch: free block / target, paid or single operator, --out in the repo, tampered episode.
+// (7) Refusals BEFORE any fetch: free block / finalized / target, paid or single operator, --out in the repo, tampered episode.
 // ============================================================================================================
 test("u4b_probe_cutoff_refuses_before_any_fetch", async () => {
   const s = scratch();
@@ -207,6 +226,7 @@ test("u4b_probe_cutoff_refuses_before_any_fetch", async () => {
       const deps = { env: {}, now: () => 1 };
       await assert.rejects(runProbe(bad(["--block", "23600000"]), deps), /--block is refused/, "a free --block is refused");
       await assert.rejects(runProbe(bad(["--target", EXPECTED_AGGREGATOR]), deps), /--target is refused/, "a --target is refused (resolved by aggregator())");
+      await assert.rejects(runProbe([...s.args(), "--finalized"], deps), /--finalized is refused/, "--finalized is refused by name (G2 C-G2-3)");
       await assert.rejects(runProbe(bad(["--operators", "chainstack,drpc.org"]), deps), /KEYLESS-ONLY/, "a paid operator (chainstack) is refused");
       await assert.rejects(runProbe(bad(["--operators", "helius,drpc.org"]), deps), /KEYLESS-ONLY/, "a paid operator (helius) is refused");
       await assert.rejects(runProbe(bad(["--operators", "nodies.app,pocket.network"]), deps), /2 DISTINCT/, "two gateways of ONE operator are refused");
@@ -241,6 +261,26 @@ test("u4b_probe_cutoff_budget_refusal_is_not_retried_and_is_a_named_stop", async
 });
 
 // ============================================================================================================
+// (7a-bis) G2 C-G2-1 (M-15): a missing (or empty) --ledger-dir is an ARGUMENT refusal from ANY cwd. CLI child whose cwd is OUTSIDE the
+// repo (there resolve("") = the cwd would pass assertLedgerDir); its preload fetch records a marker then THROWS (no network possible).
+// ============================================================================================================
+test("u4b_probe_cutoff_refuses_a_missing_ledger_dir_from_any_cwd", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "u4bpc-cwd-"));
+  try {
+    const ep = writeEpisode(cwd), pre = join(cwd, "nonet.mjs");
+    writeFileSync(pre, "import { appendFileSync } from 'node:fs';\nglobalThis.fetch = async () => { appendFileSync(new URL('./fetched.txt', import.meta.url), 'x'); throw new Error('no network in this test'); };\n");
+    const args = ["--episode-file", ep, "--operators", OPS, "--cycle", "u4bpc", "--max-calls", "1200", "--method-caps", '{"eth_call":1200,"eth_getLogs":1200}', "--min-interval-ms", "0", "--out", join(cwd, "probe")];
+    for (const a of [args, [...args, "--ledger-dir", ""]]) {
+      let status = 0, stderr = "";
+      try { execFileSync(process.execPath, ["--import", pathToFileURL(pre).href, PROBE, ...a], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }); } catch (e) { status = (e as { status?: number }).status ?? -1; stderr = (e as { stderr?: string }).stderr ?? ""; }
+      assert.equal(status, 1, "a missing or empty --ledger-dir => exit 1 (argument refusal), whatever the cwd");
+      assert.match(stderr, /--ledger-dir .*is required/, "refused by name");
+    }
+    assert.deepEqual(readdirSync(cwd).sort(), ["episode-selection.json", "nonet.mjs"], "0 fetch (no fetched.txt), no phantom ledger <cwd>/u4bpc/, no verdict file");
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
+});
+
+// ============================================================================================================
 // (7b) The CLI (the runbook command) maps the verdict to its EXIT CODE: 0 on GO, 3 on STOP (never 0 on a STOP - the OBS-2
 // defect of --check-version is not reproduced). Child process under a fetch-stub preload (no network).
 // ============================================================================================================
@@ -259,9 +299,13 @@ test("u4b_probe_cutoff_cli_exit_code_is_0_on_GO_and_3_on_STOP", () => {
   try {
     const pre = join(s.dir, "preload.mjs");
     writeFileSync(pre, PRELOAD);
-    const cli = (mode: string): number => {
-      try { execFileSync(process.execPath, ["--import", pathToFileURL(pre).href, PROBE, ...s.args()], { cwd: ROOT, env: { ...process.env, U4PC_MODE: mode }, stdio: ["ignore", "pipe", "pipe"] }); return 0; } catch (e) { return (e as { status?: number }).status ?? -1; }
+    const cli = (mode: string, args = s.args()): number => {
+      try { execFileSync(process.execPath, ["--import", pathToFileURL(pre).href, PROBE, ...args], { cwd: ROOT, env: { ...process.env, U4PC_MODE: mode }, stdio: ["ignore", "pipe", "pipe"] }); return 0; } catch (e) { return (e as { status?: number }).status ?? -1; }
     };
+    const refused = s.args();
+    refused[refused.indexOf("--operators") + 1] = "chainstack,drpc.org";
+    assert.equal(cli("go", refused), 1, "CLI on an ARGUMENT refusal => exit 1 (never 0, never 3) (G2 C-G2-3)");
+    assert.deepEqual([readdirSync(s.dir).sort(), readdirSync(join(s.dir, "ledger"))], [["episode-selection.json", "ledger", "preload.mjs"], []], "no file on a refusal: no verdict dir, no ledger");
     assert.equal(cli("go"), 0, "CLI on GO => exit 0");
     assert.equal(cli("stop"), EXIT_STOP, "CLI on STOP => exit 3");
     assert.equal(readReport(join(s.out, `cutoff-${B0}.json`)).verdict, "STOP", "the CLI wrote the STOP file it exited on");
@@ -278,6 +322,13 @@ test("u4b_probe_cutoff_script_is_keyless_clean_and_imports_closed", () => {
   assert.ok(src.split("\n").length > 50, "the scanned file is the real probe (non-vacuous scope)");
   assert.deepEqual(scan(src), [], "no fetch/http/undici/child_process/process.env/paid-key name in the probe");
   assert.equal(scan(src + "\nconst x = await fetch(u);\n").length, 1, "the scanner is live (an injected fetch( is caught)");
+  // G2 C-G2-3 (R17): env is read in NO form - dot/optional, bracket, destructuring, Reflect.get - nor through an alias of process
+  // (closed set of members); every form is caught by the live scanner; the CLI line passes the LITERAL empty env.
+  const ENV_FORMS = [/\bprocess\s*\??\.\s*env\b/, /\bprocess\s*(?:\?\.)?\[\s*["'`]env["'`]\s*\]/, /\{[^}]*\benv\b[^}]*\}\s*=\s*(?:globalThis\.)?process\b/, /\bReflect\.get\(\s*(?:globalThis\.)?process\s*,/, /\bprocess\b(?!\s*\.\s*(?:argv|stdout|stderr|exitCode|exit)\b)/];
+  const envHits = (t: string): string[] => t.split(/\r?\n/).flatMap((l, i) => ENV_FORMS.filter((re) => re.test(l)).map((re) => `${String(i + 1)}:${re.source}`));
+  assert.deepEqual(envHits(src), [], "no access to the process env in any form, no alias of process");
+  for (const f of ['x = process["env"];', "x = process[`env`];", "x = process?.['env'];", "x = process?.env;", "const { env } = process;", 'Reflect.get(process, "env");', "const p = process;"]) assert.ok(envHits(f).length > 0, `scanner live on: ${f}`);
+  assert.equal(src.split("runProbe(process.argv.slice(2), { env: {}, now: () => Date.now() })").length - 1, 1, "the CLI line passes the LITERAL empty env {}");
   const ALLOWED = new Set(["node:fs", "node:url", "node:path", "../../../apps/sentinel/src/ukemi/rpc2.ts", "../../../apps/sentinel/src/ukemi/abi.ts", "../u4-guard.mjs", "../u4-oracle-path.mjs", "./u4b-discover.mjs"]);
   const specs = [...src.matchAll(/\bfrom\s*["'`]([^"'`]+)["'`]/g)].map((m) => m[1]!);
   assert.ok(specs.length >= 6, "import scan non-vacuous");

@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { run, parseEpisodeFile, emodeCategoriesFromBook, usdtBlocksFromLabelerDeficit, preB0Windows, pickPreB0Anchor, PRE_B0_FIRST_DEPTH, DEFAULT_PRE_B0_MAX_WINDOWS, EXIT_PRE_B0_ANCHOR_STOP } from "../../../scripts/census/u4-oracle-path.mjs";
@@ -40,8 +40,9 @@ const jrpc = (result: unknown): Response => new Response(JSON.stringify({ jsonrp
 const rpcRevert = (): Response => new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: 3, message: "execution reverted", data: "0x" } }), { status: 200, headers: { "content-type": "application/json" } });
 
 /** Stub answering with REAL-FORM hex bodies. Counts fetches. cat 8 reverts (concordant revert => emode_raw['8'].error).
- *  eth_getLogs returns ONLY the events inside [fromBlock, toBlock] (cp-1 C-5) and logs every requested range. */
-function makeStub(counter: { n: number }, events: readonly Ev[] = [PRE_B0, ...UPDATES], ranges: Array<[number, number]> = []): (input: string | URL, init?: RequestInit) => Promise<Response> {
+ *  eth_getLogs returns ONLY the events inside [fromBlock, toBlock] (cp-1 C-5) and logs every requested range;
+ *  ignoreFrom = a witness that IGNORES fromBlock (every event <= toBlock comes back - G2 C-G2-5). */
+function makeStub(counter: { n: number }, events: readonly Ev[] = [PRE_B0, ...UPDATES], ranges: Array<[number, number]> = [], ignoreFrom = false): (input: string | URL, init?: RequestInit) => Promise<Response> {
   return (_input, init) => {
     counter.n++;
     const req = JSON.parse(typeof init?.body === "string" ? init.body : "{}") as { method: string; params: unknown[] };
@@ -57,7 +58,7 @@ function makeStub(counter: { n: number }, events: readonly Ev[] = [PRE_B0, ...UP
       if (String((q.topics ?? [])[0] ?? "").toLowerCase() !== ANSWER_UPDATED_TOPIC0.toLowerCase()) return Promise.resolve(jrpc([]));
       const lo = parseInt(q.fromBlock, 16), hi = parseInt(q.toBlock, 16);
       ranges.push([lo, hi]);
-      return Promise.resolve(jrpc(events.filter((e) => e.block >= lo && e.block <= hi).map(mkLog)));
+      return Promise.resolve(jrpc(events.filter((e) => (ignoreFrom || e.block >= lo) && e.block <= hi).map(mkLog)));
     }
     if (req.method === "eth_getBlockByNumber") return Promise.resolve(jrpc({ hash: "0x" + "0".repeat(64), number: "0x1", timestamp: "0x1" }));
     return Promise.resolve(jrpc(null));
@@ -255,6 +256,20 @@ test("u4b_usdt_blocks_helper_on_real_e2_labels_is_what_the_frozen_scorer_reads",
   assert.equal(s.census.deficit_lines_priced_from_usdt, 1, "the one e2 USDT deficit line is priced from the required block");
   const nonUsdt = realized.split(/\r?\n/).map((l) => (l.includes("deficit_base_no_price") ? l.replace(USDT, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48") : l)).join("\n");
   assert.throws(() => usdtBlocksFromLabelerDeficit(nonUsdt), /NON-USDT debt asset/, "a NON-USDT deficit_base_no_price line (real form, asset swapped) is refused by name");
+  // G2 C-G2-4 (R11/R12/R12b): the predicate == the frozen scorer's CLAUSE BY CLAUSE on a non-empty boundary vector - the real labels +
+  // 3 copies of the REAL e2 line each failing exactly ONE clause (deficit_native 0 ; deficit_base > 0 ; flag absent), fed to BOTH.
+  const real = u3.find((l) => l.residual?.includes("deficit_base_no_price"))!;
+  const flag = real.residual ?? [], dn = real.deficit_native ?? "0";
+  const syn = (u: string, fb: number, db: string, n: string, residual: string[]): U4bU3Line => ({ ...real, user: "0x" + u.repeat(40), first_block: fb, deficit_base: db, deficit_native: n, residual });
+  const all = [...u3, syn("1", 23_550_001, "0", "0", flag), syn("2", 23_550_002, "5", dn, flag), syn("3", 23_550_003, "0", dn, flag.filter((f) => f !== "deficit_base_no_price"))];
+  const readB = new Set<string>();
+  const spyB = new Proxy({ ...(oracle.usdt_prices ?? {}), "23550001": "100000000", "23550002": "100000000", "23550003": "100000000" }, { get: (t, k): unknown => { if (typeof k === "string") readB.add(k); return Reflect.get(t, k) as unknown; } });
+  computeScoresU4b(book, { ...oracle, usdt_prices: spyB }, all);
+  assert.deepEqual([...readB].map(Number).sort(byNum), [23550406], "the frozen scorer reads ONLY the real line: each boundary line fails one clause");
+  assert.deepEqual(usdtBlocksFromLabelerDeficit(all.map((l) => JSON.stringify(l)).join("\n")).required, [23550406], "helper required == scorer reads, clause by clause (closed list)");
+  // G2 C-G2-4 (R10): a non-JSON line (a truncated write, or the NUL-wiped shape of the 2026-09-22 power cut) is REFUSED, never skipped.
+  assert.throws(() => usdtBlocksFromLabelerDeficit(realized + "\n{truncated"), /not JSON/, "a truncated line is refused");
+  assert.throws(() => usdtBlocksFromLabelerDeficit(realized + "\n" + String.fromCharCode(0).repeat(16)), /not JSON/, "a NUL line is refused");
 });
 
 // ============================================================================================================
@@ -281,14 +296,29 @@ test("u4b_oracle_path_pre_b0_anchor_found_after_widening", async () => {
     const deep: Ev = { block: B0 - 15_000, price: 197_000_000_000n, logIndex: 2, round: 5n };
     const ranges: Array<[number, number]> = [];
     let res: { status: number; rawPath?: string } | undefined;
-    await withFetch(makeStub({ n: 0 }, [deep, ...UPDATES], ranges), async () => { res = await run(baseArgs(dir, writeEpisode(dir), ["--emode-categories", "1"]), { env: {}, now: () => 1 }); });
+    await withFetch(makeStub({ n: 0 }, [deep, ...UPDATES], ranges), async () => { res = await run(baseArgs(dir, writeEpisode(dir), ["--emode-categories", "1", "--pre-b0-max-windows", "3"]), { env: {}, now: () => 1 }); });
     assert.equal(res!.status, 0, "anchor found => exit 0");
-    const raw = JSON.parse(readFileSync(res!.rawPath!, "utf8")) as { pre_b0_anchor: unknown; provenance: { pre_b0_anchor_window: { windows_tried: number; from: number } } };
+    const raw = JSON.parse(readFileSync(res!.rawPath!, "utf8")) as { pre_b0_anchor: unknown; provenance: { pre_b0_anchor_window: { windows_tried: number; from: number }; params: { pre_b0_max_windows: number } } };
     assert.deepEqual(raw.pre_b0_anchor, { price: "197000000000", block: B0 - 15_000, log_index: 2, round_id: "5" }, "the event of window 2 is the anchor");
     assert.equal(raw.provenance.pre_b0_anchor_window.windows_tried, 2, "found on the FIRST widening (window 2)");
     assert.equal(raw.provenance.pre_b0_anchor_window.from, B0 - 2 * PRE_B0_FIRST_DEPTH, "window 2 reaches depth 19980");
+    assert.equal(raw.provenance.params.pre_b0_max_windows, 3, "the provenance records the cap USED by this run, not the default (G2 C-G2-5)");
     assert.ok(ranges.some(([lo, hi]) => lo === B0 - 2 * PRE_B0_FIRST_DEPTH && hi === B0 - PRE_B0_FIRST_DEPTH - 1), "window 2 fetched ONLY its new part [B0-19980, B0-9991]");
   } finally { rmSync(dir, { recursive: true, force: true }); }
+  // G2 C-G2-5 (R13): both witnesses IGNORE fromBlock - the provenance stays consistent: the anchor lies INSIDE the reported window
+  // (block >= from) and is found in the window that contains it (the window-1 query also returns it, below its lower bound).
+  const dir2 = mkdtempSync(join(tmpdir(), "u4bop-wd2-"));
+  mkdirSync(join(dir2, "ledger"), { recursive: true });
+  try {
+    const deep: Ev = { block: B0 - 15_000, price: 197_000_000_000n, logIndex: 2, round: 5n };
+    let res: { status: number; rawPath?: string } | undefined;
+    await withFetch(makeStub({ n: 0 }, [deep, ...UPDATES], [], true), async () => { res = await run(baseArgs(dir2, writeEpisode(dir2), ["--emode-categories", "1"]), { env: {}, now: () => 1 }); });
+    assert.equal(res!.status, 0, "anchor found => exit 0");
+    const raw = JSON.parse(readFileSync(res!.rawPath!, "utf8")) as { pre_b0_anchor: { block: number }; provenance: { pre_b0_anchor_window: { windows_tried: number; from: number } } };
+    const w = raw.provenance.pre_b0_anchor_window;
+    assert.deepEqual({ block: raw.pre_b0_anchor.block, windows_tried: w.windows_tried, from: w.from }, { block: B0 - 15_000, windows_tried: 2, from: B0 - 2 * PRE_B0_FIRST_DEPTH }, "same anchor, found in window 2");
+    assert.ok(raw.pre_b0_anchor.block >= w.from, `the anchor ${String(raw.pre_b0_anchor.block)} lies inside the reported window (from ${String(w.from)})`);
+  } finally { rmSync(dir2, { recursive: true, force: true }); }
 });
 
 test("u4b_oracle_path_pre_b0_anchor_cap_exhausted_stops_without_raw", async () => {
@@ -311,6 +341,29 @@ test("u4b_oracle_path_pre_b0_anchor_cap_exhausted_stops_without_raw", async () =
     assert.ok(errs.some((e) => /PRE-B0 ANCHOR STOP/.test(e) && /NO raw written/.test(e)), "the STOP is named on stderr");
     assert.deepEqual(readdirSync(join(dir, "ledger", "u4bop")).filter((f) => f.endsWith(".lock")), [], "every lock released (the finally unlockAll ran)");
   } finally { process.stderr.write = realErr; rmSync(dir, { recursive: true, force: true }); }
+});
+
+// G2 C-G2-5 (R16): the prober CLI (the RUNBOOK step-5 command) maps the PRE-B0 ANCHOR STOP to EXIT 3 and writes no raw. Child
+// process under a fetch-stub preload (aggregator() = one address word; eth_getLogs always []): no network.
+test("u4b_oracle_path_cli_exit_3_on_pre_b0_anchor_stop_without_raw", () => {
+  const dir = mkdtempSync(join(tmpdir(), "u4bop-cli-"));
+  mkdirSync(join(dir, "ledger"), { recursive: true });
+  try {
+    const pre = join(dir, "stub.mjs");
+    writeFileSync(pre, [
+      "const ok = (r) => new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: r }), { status: 200, headers: { 'content-type': 'application/json' } });",
+      "globalThis.fetch = async (_u, init) => { const { method } = JSON.parse(init.body);",
+      "  if (method === 'eth_call') return ok('0x' + '0'.repeat(24) + 'a'.repeat(40));",
+      "  if (method === 'eth_getLogs') return ok([]);",
+      "  return ok(null); };",
+    ].join("\n"));
+    let status = 0, stderr = "";
+    const args = baseArgs(dir, writeEpisode(dir), ["--emode-categories", "1", "--pre-b0-max-windows", "1"]);
+    try { execFileSync(process.execPath, ["--import", pathToFileURL(pre).href, join(ROOT, "scripts", "census", "u4-oracle-path.mjs"), ...args], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }); } catch (e) { status = (e as { status?: number }).status ?? -1; stderr = (e as { stderr?: string }).stderr ?? ""; }
+    assert.equal(status, EXIT_PRE_B0_ANCHOR_STOP, "PRE-B0 ANCHOR STOP => CLI exit 3 (never 0)");
+    assert.match(stderr, /PRE-B0 ANCHOR STOP/, "the STOP is named on stderr");
+    assert.deepEqual([existsSync(join(dir, "raws", "U4-oracle-path-weth-fresh.raw.json")), existsSync(join(dir, "raws", "U4-oracle-inputs.jsonl"))], [false, false], "no raw, no inputs cache");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test("u4b_oracle_path_pre_b0_max_windows_flag_is_refused_unless_positive_integer", async () => {

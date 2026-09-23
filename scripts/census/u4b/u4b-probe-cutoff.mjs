@@ -80,7 +80,9 @@ export async function runProbe(argv, deps) {
   const operators = (arg("--operators") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   assertKeylessOperators(operators); // a paid operator reads a key: refused fail-closed
   if (new Set(operators.map(operatorOf)).size < 2) throw new ProbeError("u4b-probe-cutoff: --operators needs >= 2 DISTINCT keyless operators (quorum-2, fail-closed)");
-  const ledgerDir = assertLedgerDir(arg("--ledger-dir") ?? "", ROOT);
+  const ledgerArg = arg("--ledger-dir");
+  if (!ledgerArg) throw new ProbeError("u4b-probe-cutoff: --ledger-dir <dir, out of repo, pre-existing> is required (fail-closed, no default)");
+  const ledgerDir = assertLedgerDir(ledgerArg, ROOT);
   const cycle = arg("--cycle");
   if (!cycle) throw new ProbeError("u4b-probe-cutoff: --cycle <id> is required (fail-closed)");
   const maxCalls = Number(arg("--max-calls"));
