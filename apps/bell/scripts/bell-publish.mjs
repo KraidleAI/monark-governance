@@ -182,7 +182,7 @@ function inspect(stateDir, B) {
     try { keyring = deriveKeyring(genesis, lines); } catch { corrupt("the key lines of the private timeline do not derive a keyring"); }
   } else if (lines.length > 0) corrupt("keyring.json missing");
   if (lines.length > 0) { // the SAME walk as bell-verify.mjs, under the derived keyring: schema, seq, chain, signatures, key schedule
-    const w = walkTimeline(lines, trustOf(keyring));
+    const w = walkTimeline(lines, trustOf(keyring) ?? corrupt("the key lines of the private timeline derive a malformed keyring")); // C-9 (b): named, never a TypeError
     if (!w.ok) corrupt(`private line ${w.seq}: ${w.reason}`);
     if (lines[0].key_id !== genesis.key_id) corrupt("private line 1: not signed by the genesis key of keyring.json");
   }
@@ -364,7 +364,9 @@ export function runCli(argv) {
   const arg = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : undefined; };
   const inboxDir = arg("--inbox"), stateDir = arg("--state"), genPath = arg("--generate-key"), revoke = arg("--revoke");
   const mode = argv.includes("--generate-key") ? "generate" : argv.includes("--rotate") ? "rotate" : argv.includes("--revoke") ? "revoke" : "publish";
-  if (mode === "generate" ? !genPath : !stateDir || (mode === "publish" && !inboxDir) || (mode === "revoke" && !revoke)) {
+  const misuse = ["--inbox", "--state", "--generate-key", "--revoke", "--from-seq"].some((k) => argv.includes(k) && (argv[argv.indexOf(k) + 1] ?? "--").startsWith("--")) // C-8: a valued option
+    || ["--generate-key", "--rotate", "--revoke"].filter((k) => argv.includes(k)).length > 1 || (argv.includes("--broken") && mode !== "rotate"); // lacks its value (or takes a flag); >1 mode; --broken off --rotate
+  if (misuse || (mode === "generate" ? !genPath : !stateDir || (mode === "publish" && !inboxDir) || (mode === "revoke" && !revoke))) {
     process.stderr.write("bell/publish: usage: --inbox <dir> --state <dir> | --generate-key <file> | --rotate [--broken] --state <dir> | --revoke <key_id> --from-seq <n> --state <dir>\n");
     return 1;
   }

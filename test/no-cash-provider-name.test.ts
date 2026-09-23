@@ -74,4 +74,9 @@ test("no_cash_cross_provider_name_on_bell_served_files", async () => {
   assert.ok(served.length >= 6, `implausibly few served files (${served.length})`);
   const hits = served.flatMap((f) => readFileSync(join(r.pub, f), "utf8").split(/\r?\n/).flatMap((line, i) => PROVIDER_FORMS.filter((p) => p.re.test(line)).map((p) => `public/${f}:${i + 1} [${p.why}]`)));
   assert.deepEqual(hits, [], `a cash provider form on a Bell served file (decision 69):\n${hits.join("\n")}`);
+  // C-7 (R-T1b-2, BOTH fields): the key names close_source / adv_source and their VALUES, read from the input provenance (no new literal)
+  const src = (r.d9Prov.sources ?? {}) as Record<string, unknown>, forms = ["close_source", "adv_source"].flatMap((k): Array<[string, string]> => [[k, `${k} name`], [String(src[k]), `${k} value`]]);
+  assert.ok(typeof src.close_source === "string" && typeof src.adv_source === "string", "both sources are named in the run's input provenance (non-vacuity)");
+  const leaks = served.flatMap((f) => { const t = readFileSync(join(r.pub, f), "utf8").toLowerCase(); return forms.filter(([n]) => t.includes(n.toLowerCase())).map(([, w]) => `public/${f}: ${w}`); });
+  assert.deepEqual(leaks, [], "a cash source field (name or value) on a Bell served file (decision 69)");
 });

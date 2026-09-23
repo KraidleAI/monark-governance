@@ -121,7 +121,8 @@ export async function verifyServed({ source, keyring = null, bounds = VERIFY_BOU
 export async function runVerifyCli(argv) {
   const arg = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : undefined; };
   const url = arg("--url"), dir = arg("--dir"), kr = arg("--keyring");
-  if ((url === undefined) === (dir === undefined)) { process.stderr.write("bell/verify: usage: node bell-verify.mjs (--url <base> | --dir <dir>) [--keyring <file>]\n"); return 1; }
+  const dangling = ["--url", "--dir", "--keyring"].some((k) => argv.includes(k) && (argv[argv.indexOf(k) + 1] ?? "--").startsWith("--")); // C-8: never a silent root-less run
+  if (dangling || (url === undefined) === (dir === undefined)) { process.stderr.write("bell/verify: usage: node bell-verify.mjs (--url <base> | --dir <dir>) [--keyring <file>]\n"); return 1; }
   try {
     const keyring = kr === undefined ? null : parse(readFileSync(kr), "--keyring", "keyring_invalid");
     const report = await verifyServed({ source: url !== undefined ? urlSource(url) : dirSource(dir), keyring });

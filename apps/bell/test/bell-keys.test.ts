@@ -51,6 +51,8 @@ test("bell_key_rotation_cross_signed_verifies", async (t) => {
   rotateKey({ stateDir: bare, oldKey: K1, newKey: K2, clock: () => T_PUBLISH + 1 });
   const tl = join(bare, "public", "timeline.jsonl"), ls = lines(tl);
   assert.equal(await check(bare, servedKeyring(bare)), "accepted");
+  writeFileSync(tl, ls.map((l) => canonical(l.seq === 2 ? { ...l, sig_new: l.sig } : l) + "\n").join("")); // C-2: sig_new a copy of sig (the OLD key's)
+  assert.equal(await check(bare, servedKeyring(bare)), "signature_invalid: line 2", "C-2: sig_new is not the new key's signature");
   delete ls[1]!.sig_new;
   writeFileSync(tl, ls.map((l) => canonical(l) + "\n").join(""));
   assert.equal(await check(bare, servedKeyring(bare)), "signature_invalid: line 2", "a rotation line without sig_new");
@@ -60,10 +62,17 @@ test("bell_key_rotation_cross_signed_verifies", async (t) => {
   writeFileSync(join(creds, "bell-signing-key"), K2.export({ type: "pkcs8", format: "pem" }));
   writeFileSync(join(creds, "bell-signing-key-new"), K3.export({ type: "pkcs8", format: "pem" }));
   const env: NodeJS.ProcessEnv = { ...process.env, CREDENTIALS_DIRECTORY: creds };
+  for (const a of [["--rotate", "--revoke", id1, "--from-seq", "1"], ["--revoke", id1, "--from-seq", "1", "--broken"], ["--generate-key"]]) { // C-8 (b): one mode, --broken
+    const u = spawnSync(process.execPath, [SCRIPT, ...a, "--state", s], { env, encoding: "utf8", cwd: creds }); // with --rotate only, never a flag as a value
+    assert.deepEqual([u.status, u.stdout, /^bell\/publish: usage: /.test(u.stderr)], [1, "", true], a.join(" "));
+  }
+  assert.deepEqual([lines(join(s, "timeline.jsonl")).length, readdirSync(creds).length], [3, 2], "C-8 (b): no key line, no key file named after a flag");
   const cli = spawnSync(process.execPath, [SCRIPT, "--rotate", "--state", s], { env, encoding: "utf8" });
   assert.equal(cli.status, 0, cli.stderr);
   assert.deepEqual([(JSON.parse(cli.stdout) as Obj).status, (JSON.parse(cli.stdout) as Obj).key_id], ["rotated", id3]);
   assert.equal((await report(s, servedKeyring(s))).active_key_id, id3);
+  writeFileSync(join(s, "public", "bell", "pubkey.json"), canonical(keyringOf(K1, 1)) + "\n"); // C-3 (D-2 strict): the pre-rotation keyring served AND supplied
+  assert.equal(await check(s, keyringOf(K1, 1)), "rotation_key_not_in_keyring: line 2", "C-3: a counter-signed rotation to a key outside the supplied keyring");
 });
 
 // ---- (b) a revoked key: its lines at seq >= revoked_from_seq are void, from the timeline OR from the supplied keyring ----
@@ -89,7 +98,13 @@ test("bell_revoked_key_lines_after_revocation_rejected", async () => {
   pub(oob, K1, "b0", 365n, 0);
   pub(oob, K1, "b1", 366n, 1);
   assert.equal(await check(oob, { schema: "bell-keyring-v1", keys: [{ ...keyringOf(K1, 1).keys[0], revoked_from_seq: 2 }] }), "head_signed_by_revoked_key: line 2");
+  for (const m of [{ revoked_from_seq: "2" }, { revoked_from_seq: 1.5 }, { revoked_from_seq: 0 }, {}]) { // C-9 (a): a malformed marker of the SUPPLIED keyring
+    assert.equal(await check(oob, { schema: "bell-keyring-v1", keys: [{ ...keyringOf(K1, 1).keys[0], status: "revoked", ...m }] }), "keyring_invalid: the supplied keyring", JSON.stringify(m));
+  }
   assert.equal(await check(oob, keyringOf(K1, 1)), "accepted");
+  const priv = join(s, "timeline.jsonl"); // C-9 (b): a private rotation line whose new_key_id is not its key's => a NAMED start-up refusal, never a TypeError
+  writeFileSync(priv, lines(priv).map((l) => canonical(l.kind === "key_rotation" ? { ...l, new_key_id: "0".repeat(64) } : l) + "\n").join(""));
+  refuses(() => revokeKey({ stateDir: s, key: K2, revokedKeyId: id1, revokedFromSeq: 2, clock: () => T_PUBLISH + 9 }), "existing_timeline_corrupt");
 });
 
 // ---- (c) key LOST: continuity "broken", signed by the new key alone, accepted only if that key is in the SUPPLIED keyring ----

@@ -110,6 +110,7 @@ export function trustOf(keyring) {
     let id = null;
     try { if (isJwk(k?.jwk)) id = keyIdOf(publicKeyOfJwk(k.jwk)); } catch { id = null; }
     if (id === null || id !== k.key_id || m.has(id)) return null;
+    if (k.revoked_from_seq !== undefined ? !(Number.isInteger(k.revoked_from_seq) && k.revoked_from_seq >= 1) : k.status === "revoked") return null; // C-9: a malformed revocation marker is never ignored
     m.set(id, Number.isInteger(k.revoked_from_seq) ? { x: k.jwk.x, revoked_from_seq: k.revoked_from_seq } : { x: k.jwk.x });
   }
   return m;

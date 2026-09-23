@@ -178,6 +178,12 @@ test("bell_publish_refuses_corrupt_existing_timeline", () => {
     drop(s, "b2", 366n);
     refuses(s, "existing_timeline_corrupt", why);
   }
+  const mid = tmp("t1b-cor-x-"), l3 = resign({ ...l2, seq: 3, prev_line_hash: sha(canonical(l2)) }); // G2 PR-2 C-1 (g2-02b): line 1 altered AND re-signed by the
+  const three = [resign({ ...l1, runs: [] }), l2, l3].map((l) => canonical(l) + "\n").join(""); // key holder breaks the chain at line 2, NOT the last line
+  cpSync(base, mid, { recursive: true });
+  for (const f of ["timeline.jsonl", "public/timeline.jsonl"]) writeFileSync(join(mid, f), three);
+  drop(mid, "b2", 366n);
+  refuses(mid, "existing_timeline_corrupt", "a middle line re-signed by the key holder");
 });
 
 // ---- S-3 (d) / C-in-9: the same bundle twice => ONE line; the second call archives it and reports nothing_to_publish ----

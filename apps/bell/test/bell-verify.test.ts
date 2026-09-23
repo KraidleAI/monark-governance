@@ -13,6 +13,7 @@ import { createServer } from "node:http";
 import { generateKeyPairSync, type KeyObject } from "node:crypto";
 import { canonical, keyIdOf, keyringOf, signLine } from "../scripts/bell-chain.mjs";
 import { BellVerifyError, VERIFY_BOUNDS, dirSource, urlAllowed, urlSource, verifyServed } from "../scripts/bell-verify.mjs";
+import { rotateKey } from "../scripts/bell-publish.mjs";
 import { readJson, resealHead, serveDir, servedState, tmp, type Obj } from "./helpers/bell-served.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url)), SCRIPT = join(HERE, "..", "scripts", "bell-verify.mjs");
@@ -41,6 +42,7 @@ test("bell_verify_detects_middle_line_tamper", async () => {
   assert.equal(await check(pub), "accepted", "the untouched 4-line publication passes under the supplied keyring");
   const bad = withLine(pub, 2, (l) => { const runs = structuredClone(l.runs) as Array<{ records: Obj[] }>; runs[0]!.records[0]!.n_fills = 99; return { ...l, runs }; });
   assert.equal(await check(bad), "signature_invalid: line 2", "a record of line 2 altered: refused at line 2 (lines 3-4 and every immutable untouched)");
+  assert.equal(await check(withLine(pub, 2, (l) => resign({ ...l, runs: (l.runs as Obj[]).map((r) => ({ ...r, records: [] })) }, K))), "chain_broken: line 3", "C-1: line 2 altered AND re-signed by the key holder");
 });
 
 // ---- signatures: removed, by a key outside the keyring, or by another key under the genuine key_id ----
@@ -60,6 +62,10 @@ test("bell_verify_rejects_state_not_bound_by_head", async () => {
   const stale = copy(pub), l1 = lines(pub)[0]!;
   writeFileSync(join(stale, "state.json"), readFileSync(join(pub, "states", `${String(l1.state_sha256)}.json`)));
   assert.equal(await check(stale), "state_not_bound_by_head: line 2", "the previous (still signed) state served as current");
+  assert.equal(await check(flip(`states/${String(l1.state_sha256)}.json`)), "immutable_mismatch: line 1", "C-4: one byte of a NON-head immutable");
+  const one = servedState(K, 1).pub; // C-5: the key holder re-seals the envelope with a published_at other than its line's
+  resealHead(one, K, (s) => { s.published_at = new Date(0).toISOString(); });
+  assert.equal(await check(one), "envelope_mismatch: line 1", "C-5: the envelope's published_at differs from the line's");
 });
 
 // ---- bell_sha recomputed for EVERY run of every publication, the head re-signed by the key holder ----
@@ -81,7 +87,7 @@ test("bell_verify_refuses_redirect_and_offloopback_http", async () => {
     assert.throws(() => urlSource(u), (e: unknown) => e instanceof BellVerifyError && e.code === "insecure_url", u);
   }
   const { pub } = servedState(K, 1), target = await serveDir(pub, null);
-  const redirector = createServer((req, res) => { res.writeHead(302, { location: `${target.url}${req.url ?? "/"}` }); res.end(); });
+  const redirector = createServer((req, res) => { if ((req.url ?? "").startsWith("/mute/")) return; res.writeHead(302, { location: `${target.url}${req.url ?? "/"}` }); res.end(); }); // /mute/: silent (C-6)
   await new Promise<void>((r) => { redirector.listen(0, "127.0.0.1", () => { r(); }); });
   const a = redirector.address(), rUrl = `http://127.0.0.1:${String(a !== null && typeof a === "object" ? a.port : 0)}`;
   try {
@@ -90,6 +96,10 @@ test("bell_verify_refuses_redirect_and_offloopback_http", async () => {
     assert.equal(await outcome(verifyServed({ source: urlSource(rUrl), keyring: KR })), "redirect_refused: timeline.jsonl");
     assert.equal(target.seen.length, hits, "the redirect target is never requested");
     assert.equal(await outcome(verifyServed({ source: urlSource(target.url, { ...VERIFY_BOUNDS, MAX_BODY_BYTES: 64 }), keyring: KR })), "too_large: timeline.jsonl");
+    assert.equal(await outcome(verifyServed({ source: dirSource(pub, { ...VERIFY_BOUNDS, MAX_BODY_BYTES: 64 }), keyring: KR })), "too_large: timeline.jsonl", "C-6: directory source, body bound lowered");
+    assert.equal(await outcome(verifyServed({ source: dirSource(pub), keyring: KR, bounds: { ...VERIFY_BOUNDS, MAX_LINE_BYTES: 64 } })), "too_large: timeline line 1", "C-6: line bound lowered");
+    const hung = new Promise<string>((r) => { setTimeout(() => { r("hung"); }, 5000).unref(); }); // C-6: a race guard, never the 120 s test timeout
+    assert.equal(await Promise.race([outcome(verifyServed({ source: urlSource(`${rUrl}/mute`, { ...VERIFY_BOUNDS, TIMEOUT_MS: 200 }), keyring: KR })), hung]), "unreachable: timeline.jsonl", "C-6: silent server, timeout lowered");
   } finally { redirector.closeAllConnections(); redirector.close(); await target.close(); }
 });
 
@@ -105,6 +115,9 @@ test("bell_verify_trust_root_is_supplied_keyring_not_served_pubkey", async () =>
   writeFileSync(join(swapped, "bell", "pubkey.json"), readFileSync(join(impostor, "bell", "pubkey.json")));
   assert.equal(await check(swapped), `served_key_not_in_keyring: ${keyIdOf(X)}`);
   assert.equal(await check(pub), "accepted");
+  rotateKey({ stateDir: dirname(pub), oldKey: K, newKey: X, clock: () => Date.now() }); // C-3 (D-2 strict): a COUNTER-SIGNED rotation to X, outside KR,
+  writeFileSync(join(pub, "bell", "pubkey.json"), canonical(KR) + "\n"); // the pre-rotation keyring served: only the timeline can object
+  assert.equal(await check(pub), "rotation_key_not_in_keyring: line 2", "C-3: the counter-signature adds no trust");
 });
 
 // ---- without --keyring: "self_consistent_only", never the keyring-rooted status; the CLI says the same ----
@@ -123,6 +136,7 @@ test("bell_verify_without_keyring_reports_self_consistent_only", async (t) => {
   const bare = cli(), rooted = cli("--keyring", krFile);
   assert.deepEqual([bare.status, bare.out.status], [0, "self_consistent_only"]);
   assert.deepEqual([rooted.status, rooted.out.status], [0, "consistent_with_supplied_keyring"]);
+  for (const a of [["--keyring"], ["--keyring", "--dir"]]) { const u = cli(...a); assert.deepEqual([u.status, u.out, /^bell\/verify: usage: /.test(u.err)], [1, {}, true], `C-8 (a): ${a.join(" ")} is a usage error`); }
   const tampered = withLine(pub, 1, (l) => ({ ...l, seq: 9 })), bad = spawnSync(process.execPath, [SCRIPT, "--dir", tampered], { encoding: "utf8" });
   assert.deepEqual([bad.status, bad.stdout], [1, ""]);
   assert.match(bad.stderr, /^bell\/verify: timeline_malformed: line 1\r?\n$/);
