@@ -3,7 +3,8 @@
 // per-product UpcomingPanel read status FROM HERE; no status is hard-coded on those surfaces.
 //
 // Locked by the root test `fleet_register_built_set_is_frozen` (test/ci-gates.test.ts): the built
-// set is EXACTLY {Shōgen, Hikae, Ukemi, Narabi}; the seven other agents and all five products are upcoming.
+// set is EXACTLY {Shōgen, Hikae, Ukemi, Narabi}; the seven other agents and all six products are upcoming
+// (MONARK Bell joined PRODUCTS as upcoming — ruling Q3, decision 146; the built set is unchanged).
 // Flipping any of those twelve to "built" reds that test (named mutant). That same test also freezes the
 // WIRING (ADR-M018 D2; ADR-EC E2/E6): each built agent's served_by is non-empty, its integration_test names
 // one real test per served leg, and only the digit-free `note` is rendered (/fleet); served_by and
@@ -240,10 +241,12 @@ export const FLEET_AGENTS: FleetAgent[] = [
 // agent). C-1: MONARK Verdict names NO engine agent — its sensor and act stay generic.
 const GATE = "Hikae and the MONARK budget";
 
-// The five products (fingers): each is a wiring of fleet agents, distinct from the engine agent, and
+// The six products (fingers): each is a wiring of fleet agents, distinct from the engine agent, and
 // NONE is built today (ADR-M004 D14 invariant). Ordered as the home segment cards. A product opens its
-// placeholder from its segment card; products do NOT appear on /roadmap (the "four built, seven on the
-// roadmap" count stays true).
+// placeholder from its segment card; products do NOT appear on /roadmap nor /fleet (the "four built, seven
+// on the roadmap" count stays true). MONARK Bell (ruling Q3, decision 146) is upcoming; its segment, wiring
+// and reach are NAMED PLACEHOLDERS `<<name>>` (to be written by the orchestrator), rendered as such by
+// components/placeholder.tsx RegisterText — never a typed value.
 export const PRODUCTS: FleetProduct[] = [
   {
     key: "firebreak",
@@ -289,6 +292,15 @@ export const PRODUCTS: FleetProduct[] = [
     fn: "Hold a rate treasury steady as the yield curve moves.",
     wiring: { sensor: "the rate surface", gate: GATE, act: "hedge or rebalance" },
     connects: "It will connect to a rate venue and the treasury it steadies over HTTP or MCP.",
+    status: "upcoming",
+  },
+  {
+    key: "bell",
+    segment: "<<bell_segment>>",
+    name: "MONARK Bell",
+    fn: "Keep a public, signed record of how tokens that track U.S. equities trade on a public ledger while U.S. markets are closed: one gap per session, a named abstention when it cannot know, an anchored digest.",
+    wiring: { sensor: "<<bell_wiring_sensor>>", gate: "<<bell_wiring_gate>>", act: "<<bell_wiring_act>>" },
+    connects: "<<bell_connects>>",
     status: "upcoming",
   },
 ];

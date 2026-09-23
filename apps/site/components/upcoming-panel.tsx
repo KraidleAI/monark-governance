@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status-badge";
 import { SHEET } from "@/components/panel-shell";
 import { WhatInside } from "@/components/what-inside";
+import { RegisterText, placeholderName } from "@/components/placeholder";
 import { insideFor } from "@/lib/fleet-presentation";
 import type { FleetProduct } from "@/lib/fleet";
 import { cn } from "@/lib/utils";
@@ -53,19 +54,29 @@ function WiringSchema() {
  * Bibliography (a product that is not built has nothing built to show). Exactly ONE status signal — the
  * product-level Upcoming badge. The wiring names Ukemi / Hikae where they are the engine, with NO
  * "Built" pill on any node (C-10); MONARK Verdict stays generic (C-1). `status` flows from the fleet
- * register (lib/fleet.ts), never hard-coded here.
+ * register (lib/fleet.ts), never hard-coded here. A register string that is a named placeholder `<<name>>`
+ * (MONARK Bell's segment, wiring and reach — ruling Q3) renders as a Placeholder, never as a value.
  */
 export function UpcomingPanel({ product }: { product: FleetProduct }) {
+  const gateIsPlaceholder = placeholderName(product.wiring.gate) !== null;
   return (
     <Dialog>
       <article className="flex flex-col gap-2 rounded-xl border bg-card p-5">
         <div className="flex items-center gap-2">
-          <h3 className="font-heading text-base font-medium text-card-foreground">{product.segment}</h3>
+          <h3 className="font-heading text-base font-medium text-card-foreground">
+            <RegisterText text={product.segment} />
+          </h3>
           <StatusBadge status={product.status} className="ml-auto" />
         </div>
         <p className="text-sm text-muted-foreground">{product.fn}</p>
         <p className="text-xs text-muted-foreground">
-          Cleared by the same gate: Hikae and the MONARK budget.
+          {gateIsPlaceholder ? (
+            <>
+              Gate: <RegisterText text={product.wiring.gate} />
+            </>
+          ) : (
+            <>Cleared by the same gate: {product.wiring.gate}.</>
+          )}
         </p>
         <div className="mt-auto pt-1">
           <DialogTrigger render={<Button variant="outline" size="sm" />}>See {product.name}</DialogTrigger>
@@ -88,14 +99,22 @@ export function UpcomingPanel({ product }: { product: FleetProduct }) {
             <WiringSchema />
             <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
               <dt className="text-foreground">sensor</dt>
-              <dd>{product.wiring.sensor}</dd>
+              <dd>
+                <RegisterText text={product.wiring.sensor} />
+              </dd>
               <dt className="text-foreground">gate</dt>
-              <dd>{product.wiring.gate}</dd>
+              <dd>
+                <RegisterText text={product.wiring.gate} />
+              </dd>
               <dt className="text-foreground">act</dt>
-              <dd>{product.wiring.act}</dd>
+              <dd>
+                <RegisterText text={product.wiring.act} />
+              </dd>
             </dl>
           </div>
-          <p>{product.connects}</p>
+          <p>
+            <RegisterText text={product.connects} />
+          </p>
           <WhatInside block={insideFor(product.key)} />
           <p className="text-xs">To be announced.</p>
         </div>

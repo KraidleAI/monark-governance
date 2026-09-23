@@ -797,7 +797,7 @@ const WIRING_TEST_ROOTS_EXCLUDED: Record<string, string> = {
 // via {property access}, which the honesty lint (test 44) never flags, so a digit there would render
 // un-caught; we scan every rendered register string with the SAME detector here. (2) a consumption
 // check — the two new surfaces read status FROM the register, never hard-code a status attribute.
-test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narabi}; 12 others upcoming (F-2c C-2; ADR-M012 M012-e)", () => {
+test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narabi}; 13 others upcoming (F-2c C-2; ADR-M012 M012-e; Q3 decision 146)", () => {
   // Compile-time: FleetStatus IS the honest AgentStatus vocabulary (both "built"|"upcoming"). The two
   // typed identity coercions only type-check if neither type adds or drops a member (a stray "live"
   // reds ONE of them under `npm run typecheck`). Called below so they are not unused.
@@ -817,20 +817,24 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narab
     assert.equal(a.status, expected, `agent ${a.name} must be ${expected}`);
   }
 
-  // All five products are upcoming — a product is a wiring of fleet agents, never the engine, so it is
+  // All six products are upcoming — a product is a wiring of fleet agents, never the engine, so it is
   // never "built" (ADR-M004 D14 invariant), even when its engine agent (e.g. Ukemi) is built.
-  assert.equal(PRODUCTS.length, 5, "exactly five products");
+  // AMENDED 2026-09-23 (lot SITE-CHARTE-C; ruling Q3 of decision 146, CHANTIERS "amendement du test + statut
+  // upcoming obligatoires"): MONARK Bell joins PRODUCTS as UPCOMING — five -> six products, twelve -> thirteen
+  // upcoming. The built set above ({Shōgen, Hikae, Ukemi, Narabi}) is NOT touched.
+  assert.equal(PRODUCTS.length, 6, "exactly six products");
   for (const p of PRODUCTS) {
     assert.equal(p.status, "upcoming", `product ${p.name} must be upcoming (the engine agent may be built, the product is not)`);
   }
 
-  // The register-wide count: exactly 4 built, exactly 12 upcoming (7 agents + 5 products). ADR-M012 M012-e:
-  // Narabi flips upcoming→built at go 4 (off-tool sentinel running daily), so built is 4 and upcoming 12.
+  // The register-wide count: exactly 4 built, exactly 13 upcoming (7 agents + 6 products). ADR-M012 M012-e:
+  // Narabi flips upcoming→built at go 4 (off-tool sentinel running daily), so built is 4; MONARK Bell (ruling Q3,
+  // decision 146) adds one upcoming product, so upcoming is 13.
   const builtCount = FLEET_AGENTS.filter((a) => a.status === "built").length;
   const upcomingCount =
     FLEET_AGENTS.filter((a) => a.status === "upcoming").length + PRODUCTS.filter((p) => p.status === "upcoming").length;
   assert.equal(builtCount, 4, "exactly four agents are built");
-  assert.equal(upcomingCount, 12, "exactly twelve upcoming (seven agents + five products)");
+  assert.equal(upcomingCount, 13, "exactly thirteen upcoming (seven agents + six products)");
 
   // (0) package.json `description` is exported to the public mirror (scripts/export-public.mjs WHITELIST_FILES)
   // and carries the fleet count in free text — a surface the register does not drive (G2 M012-e C2: it still

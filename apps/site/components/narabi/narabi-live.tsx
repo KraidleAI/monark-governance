@@ -54,21 +54,30 @@ async function browserFetchText(url: string): Promise<string> {
   return res.text();
 }
 
-function Fact({ k, v, note, mono = true }: { k: string; v: string; note?: string; mono?: boolean }) {
+// `nowrap` (designer mobile point 11): a number cut over two lines reads as two numbers, so numeric facts scroll
+// in their cell instead of breaking; digests keep breaking (they are copied, not read).
+function Fact({ k, v, note, mono = true, nowrap = false }: { k: string; v: string; note?: string; mono?: boolean; nowrap?: boolean }) {
+  const ddClass = !mono
+    ? "mt-0.5 text-sm text-foreground"
+    : nowrap
+      ? "mt-0.5 overflow-x-auto whitespace-nowrap font-mono text-sm text-foreground"
+      : "mt-0.5 break-all font-mono text-sm text-foreground";
   return (
     <div className="border-t border-border py-2 first:border-t-0">
       <dt className="text-xs uppercase tracking-[0.06em] text-muted-foreground">{k}</dt>
-      <dd className={mono ? "mt-0.5 break-all font-mono text-sm text-foreground" : "mt-0.5 text-sm text-foreground"}>{v}</dd>
+      <dd className={ddClass}>{v}</dd>
       {note ? <p className="mt-0.5 text-xs text-muted-foreground">{note}</p> : null}
     </div>
   );
 }
 
+// Charter C (decision 145): charter cards + the fixed Narabi accent (var(--narabi), decision 120); the page's own
+// footer is gone — the site footer carries the four common phrases (ruling Q5, footers uniformised).
 function Card({ title, lede, children }: { title: string; lede?: string; children: ReactNode }) {
   return (
-    <section className="rounded-xl border border-border bg-card p-5">
-      <h2 className="font-heading text-base font-medium tracking-tight text-foreground">{title}</h2>
-      {lede ? <p className="mt-1 text-sm text-muted-foreground">{lede}</p> : null}
+    <section className="c-card">
+      <h2 className="c-h2">{title}</h2>
+      {lede ? <p className="c-muted c-small" style={{ marginTop: -6 }}>{lede}</p> : null}
       <div className="mt-3">{children}</div>
     </section>
   );
@@ -113,24 +122,23 @@ export function NarabiLive({ publishSchedule }: { publishSchedule: string }) {
   return (
     <div className="flex flex-col gap-8">
       {/* Hero */}
-      <header className="flex flex-col gap-3">
+      <header className="flex flex-col items-stretch gap-3">
         <div className="flex items-center gap-3">
-          <span className="text-monark-t">
+          <span className="text-foreground">
             <NarabiMark className="size-8" />
           </span>
-          <span className="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
+          <span className="c-label">
             narabi · sensor running · <span className="text-foreground">{data.source}</span>
           </span>
         </div>
         {/* Status pill (ruling C-3): "built · step N of 7 before first reading" while t < SERIES_MIN_STEPS,
             then "built · N windows published". N is read (never typed); the word "built" follows the frozen
             register. min-w-0 + truncate is the overflow fallback for a narrow viewport. */}
-        <span className="inline-flex min-w-0 max-w-full items-center gap-2 self-start rounded-full border border-border bg-soft px-3 py-1 font-mono text-xs text-muted-foreground">
-          <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-monark-t" />
-          <span className="min-w-0 truncate text-foreground">{firstReadingLabel(state, lines)}</span>
+        <span className="c-pill c-pill--shipped min-w-0 max-w-full self-start">
+          <span className="min-w-0 truncate">{firstReadingLabel(state, lines)}</span>
         </span>
-        <h1 className="font-heading text-4xl font-semibold tracking-tight text-foreground">Narabi — daily</h1>
-        <p className="max-w-2xl text-lg text-muted-foreground">{HERO_DEK}</p>
+        <h1 className="c-h1">Narabi — daily</h1>
+        <p className="c-lede" style={{ fontSize: 17 }}>{HERO_DEK}</p>
       </header>
 
       {/* Why seven steps + the printed bound */}
@@ -157,7 +165,7 @@ export function NarabiLive({ publishSchedule }: { publishSchedule: string }) {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {LEVELS.map((lv) => (
             <div key={lv.name} className="rounded-lg border border-border bg-soft p-4">
-              <div className="font-mono text-xs uppercase tracking-[0.08em] text-monark-t">{lv.name}</div>
+              <div className="c-label" style={{ color: "var(--narabi)" }}>{lv.name}</div>
               <p className="mt-1 text-sm font-medium text-foreground">{lv.claim}</p>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{lv.detail}</p>
             </div>
@@ -189,7 +197,7 @@ export function NarabiLive({ publishSchedule }: { publishSchedule: string }) {
       <div className="grid gap-8 lg:grid-cols-2">
         {/* Tracker state */}
         <Card title="Tracker state">
-          <blockquote className="border-l-2 border-monark-t pl-3 text-sm italic text-muted-foreground">
+          <blockquote className="border-l-2 pl-3 text-sm italic text-muted-foreground" style={{ borderColor: "var(--narabi)" }}>
             {D8_SENTENCE}
           </blockquote>
           <dl className="mt-3">
@@ -206,7 +214,7 @@ export function NarabiLive({ publishSchedule }: { publishSchedule: string }) {
               v={pb.date ? pb.date : "—"}
               note={pb.assumption}
             />
-            <Fact k="params" v={paramList} />
+            <Fact k="params" v={paramList} nowrap />
             <Fact k="digest" v={shortHash(state.digest, 8)} note="folds q₁, params and every stepped score" />
           </dl>
         </Card>
@@ -341,10 +349,6 @@ export function NarabiLive({ publishSchedule }: { publishSchedule: string }) {
           </dl>
         </Card>
       </div>
-
-      <footer className="border-t border-border pt-4 text-sm text-muted-foreground">
-        <p>{TRACKER_ADAPTS} No price, no gauge.</p>
-      </footer>
     </div>
   );
 }

@@ -35,7 +35,8 @@ export default function ProductsPage() {
         </p>
       </section>
 
-      {/* The five products (fingers) — fleet.ts is the source of truth for the mapping and the status. */}
+      {/* The six products (fingers; MONARK Bell upcoming since ruling Q3) — fleet.ts is the source of truth for the
+          mapping and the status; a `<<name>>` register string renders as a named placeholder. */}
       <section className="mt-10">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {PRODUCTS.map((p) => (
@@ -45,7 +46,7 @@ export default function ProductsPage() {
       </section>
 
       {/* Core products — the three VISAGE artefacts, each sold to a named buyer. Distinct
-          register (lib/visage.ts); never folded into PRODUCTS (keeps PRODUCTS.length === 5). */}
+          register (lib/visage.ts); never folded into PRODUCTS (PRODUCTS is frozen at six by the register test). */}
       <section className="mt-16">
         <h2 className="font-heading text-2xl font-medium tracking-tight text-foreground">Core products</h2>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">

@@ -13,8 +13,9 @@
 // (nodenext) and the Next bundler disagree on the relative specifier and no single form type-checks under
 // both; see lib/fleet.ts L9-16) — so test/visage-register.test.ts can import it under node:test and scan
 // every rendered string for a numeric hole (C-4). Keyed by a lowercase slug: the four built agents (incl.
-// Narabi, ADR-M012 M012-e), the seven roadmap agents (a.name.toLowerCase()), the five products
-// (product.key), the three visage (visage.key) — nineteen keys, checked exhaustively by the register test (non-inert).
+// Narabi, ADR-M012 M012-e), the seven roadmap agents (a.name.toLowerCase()), the six products
+// (product.key; MONARK Bell added upcoming, ruling Q3 decision 146), the three visage (visage.key) — twenty keys,
+// checked exhaustively by the register test (non-inert).
 
 export type InsideKind = "built" | "upcoming";
 
@@ -115,6 +116,16 @@ export const INSIDE: Record<string, InsideBlock> = {
   ballast: {
     kind: "upcoming",
     points: ["Kyokusen's Nelson-Siegel yield-curve fitting across maturities"],
+  },
+  // MONARK Bell (upcoming; ruling Q3, decision 146) — method names only, from the Bell page copy (the four
+  // properties of the comment letter §3): no engine agent is named while its wiring is a placeholder.
+  bell: {
+    kind: "upcoming",
+    points: [
+      "An off-hours gap per session: the volume-weighted average price of on-chain fills, per underlying share, against the last consolidated close",
+      "Named abstentions instead of estimates, each counted in the published state",
+      "A hash-chained collection journal whose manifests are anchored to a public timestamp",
+    ],
   },
 
   // ── The three visage artefacts — "What it will use": the decision's description, no engine named ──

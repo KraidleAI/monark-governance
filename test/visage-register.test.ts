@@ -3,13 +3,13 @@
  * the two data modules F-site-6 adds — lib/visage.ts (the three face-market artefacts) and
  * lib/fleet-presentation.ts (the Mod #1 "What's inside" / "What it will use" points). It locks:
  *   (1) exactly THREE visage, all `upcoming` (named mutant: flip one to "built" ⇒ red);
- *   (2) the storefront's GLOBAL upcoming count is FIFTEEN (twelve fleet-upcoming + three visage; Narabi
- *       flipped upcoming→built at go 4, ADR-M012 M012-e), AND the fleet register itself stays sixteen
- *       entries (eleven agents + five products) — re-derived from the registers, never hard-coded;
+ *   (2) the storefront's GLOBAL upcoming count is SIXTEEN (thirteen fleet-upcoming + three visage; Narabi
+ *       flipped upcoming→built at go 4, ADR-M012 M012-e; MONARK Bell added upcoming, ruling Q3 of decision
+ *       146), AND the fleet register itself is seventeen entries (eleven agents + six products);
  *   (3) a NUMERIC-HOLE closure (C-4): every rendered string of the two new modules — which render via
  *       {property access}/{point} and so escape the honesty lint (test 44) — carries zero numeric
  *       literal (named mutant: a digit in any point ⇒ red);
- *   (4) NON-INERT completeness: the INSIDE keys are EXACTLY the nineteen fleet/product/visage entities,
+ *   (4) NON-INERT completeness: the INSIDE keys are EXACTLY the twenty fleet/product/visage entities,
  *       the four built agents carry a "built" block and the fifteen others an "upcoming" block;
  *   (5) CONSUMPTION: the new register-driven surfaces read status FROM the registers, never a
  *       hard-coded status attribute (mirrors fleet_register_built_set_is_frozen; D15 requires the
@@ -31,7 +31,7 @@ import type { AgentStatus } from "../apps/site/lib/status.ts";
 const ROOT = join(import.meta.dirname, "..");
 const BUILT = ["shogen", "hikae", "ukemi", "narabi"]; // built agents' INSIDE slugs; shogen/hikae/ukemi have bespoke panels, narabi (ADR-M012 M012-e) is register-driven
 
-test("visage_register_is_frozen — three visage upcoming, global upcoming fifteen, numeric-hole closed (F-site-6 C-7; ADR-M012 M012-e)", () => {
+test("visage_register_is_frozen — three visage upcoming, global upcoming sixteen, numeric-hole closed (F-site-6 C-7; ADR-M012 M012-e; Q3 decision 146)", () => {
   // Compile-time: VisageStatus IS the honest AgentStatus/FleetStatus vocabulary (both "built"|"upcoming").
   // The coercions type-check only if no type adds or drops a member — a stray "live" reds one of them
   // under `npm run typecheck`. Called so they are not unused.
@@ -49,13 +49,15 @@ test("visage_register_is_frozen — three visage upcoming, global upcoming fifte
   );
   for (const v of VISAGE) assert.equal(v.status, "upcoming", `visage ${v.name} must be upcoming`);
 
-  // (2) "compte global 16" — both readings, re-derived from the registers.
+  // (2) "compte global" — both readings, re-derived from the registers. AMENDED 2026-09-23 (lot SITE-CHARTE-C;
+  // ruling Q3, decision 146): MONARK Bell joins PRODUCTS as upcoming — 12 -> 13 fleet upcoming, 15 -> 16 global,
+  // 16 -> 17 register entries; no status flips (the built set is locked by fleet_register_built_set_is_frozen).
   const fleetUpcoming =
     FLEET_AGENTS.filter((a) => a.status === "upcoming").length + PRODUCTS.filter((p) => p.status === "upcoming").length;
   const visageUpcoming = VISAGE.filter((v) => v.status === "upcoming").length;
-  assert.equal(fleetUpcoming, 12, "the fleet register is twelve upcoming (ADR-M012 M012-e: Narabi flipped upcoming→built)");
-  assert.equal(fleetUpcoming + visageUpcoming, 15, "global upcoming is fifteen (twelve fleet + three visage)");
-  assert.equal(FLEET_AGENTS.length + PRODUCTS.length, 16, "the fleet register stays sixteen entries (11 agents + 5 products)");
+  assert.equal(fleetUpcoming, 13, "the fleet register is thirteen upcoming (Narabi flipped upcoming→built; MONARK Bell added upcoming)");
+  assert.equal(fleetUpcoming + visageUpcoming, 16, "global upcoming is sixteen (thirteen fleet + three visage)");
+  assert.equal(FLEET_AGENTS.length + PRODUCTS.length, 17, "the fleet register is seventeen entries (11 agents + 6 products)");
 
   // (3) NUMERIC-HOLE closure — every rendered string of the two new modules carries zero numeric literal.
   const noExempt = new Set<string>();
@@ -74,8 +76,8 @@ test("visage_register_is_frozen — three visage upcoming, global upcoming fifte
     ...PRODUCTS.map((p) => p.key),
     ...VISAGE.map((v) => v.key),
   ].sort();
-  assert.equal(expectedKeys.length, 19, "nineteen entities (4 built + 7 upcoming agents + 5 products + 3 visage)");
-  assert.deepEqual(Object.keys(INSIDE).sort(), expectedKeys, "INSIDE must cover exactly the nineteen fleet/product/visage keys");
+  assert.equal(expectedKeys.length, 20, "twenty entities (4 built + 7 upcoming agents + 6 products + 3 visage)");
+  assert.deepEqual(Object.keys(INSIDE).sort(), expectedKeys, "INSIDE must cover exactly the twenty fleet/product/visage keys");
   for (const [key, block] of Object.entries(INSIDE)) {
     const expected = BUILT.includes(key) ? "built" : "upcoming";
     assert.equal(block.kind, expected, `INSIDE '${key}' must be a ${expected} block`);
