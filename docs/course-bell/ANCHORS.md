@@ -50,6 +50,7 @@ Artefacts par frontière :
 | 2026-09-22T22:09:36Z | mint_end | AAPLx | `8ba5f9c1e7cbb2b28c2ec5f0f9fcec66c2c818e8d34838245e2396804c3567d2` | 160637c5c761dc4e338a17bd0bee8b5eeb22900860bc80c2048cd00eb59af23b |  | `244a903` | `mint_end-AAPLx-manifest.txt.ots` |
 | 2026-09-22T22:09:44Z | mint_start | NVDAx | `c605eedd298ae0a565001509356ec9cc82d4a5821ef2917bea7a5e3ecad77ce6` | n/a | n/a | `cdd0244` | `mint_start-NVDAx-manifest.txt.ots` | epoque pre-shortpage : arbre d'execution EPINGLE `F:\Monark-wt-bellexec` (detache `a703e24` ; `apps/bell` + `packages/rpc-guard` byte-identiques a l'arbre qui a tire TSLAx/AAPLx) ; deploiement C-6/shortpage/rename-retry a la prochaine frontiere sans processus en vol (reprise post-crash ou `mint_end-NVDAx`), ligne « epoque shortpage » a cet evenement |
 | 2026-09-23T04:35:13Z | mint_end | NVDAx | `e2b8464b2c002e11c43f595a474bc9858eb900ea606ee7f68fe6f2fb3a6d5500` | 5fdac4617276a84143481c4a83d796bc09b45125e0c581f037ecfe81d5a69274 |  | `0cb07a5` | `mint_end-NVDAx-manifest.txt.ots` |
+| 2026-09-23T04:35:52Z | mint_start | SPYx | `b9d4628efbec1c36ab5e75866b13de99624ff38f1250f2886e1344af43d1a7d0` | n/a | n/a | `571eb9b` | `mint_start-SPYx-manifest.txt.ots` |
 
 - `entry_sha256` = `entry_sha256` de la dernière ligne de `ledger-<mint>.jsonl` **là où elle existe**, sinon `n/a`.
 - `ledger_sha256` = champ `ledger_sha256` de `crosscheck-<mint>.json` (à `mint_end`), sinon `n/a`.
