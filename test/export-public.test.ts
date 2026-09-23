@@ -335,7 +335,7 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
     // of the fresh export under load, measured > 60 s on 2026-09-23) must not redden it. EXPORT-TEST42-EPERM-1.
     for (const d of [out, src]) {
       try { rmSync(d, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 }); }
-      catch (e) { console.warn(`export-public test: cleanup left ${d} (${(e as NodeJS.ErrnoException).code ?? e})`); }
+      catch (e) { console.warn(`export-public test: cleanup left ${d} (${(e as NodeJS.ErrnoException).code ?? String(e)})`); }
     }
   }
 });
