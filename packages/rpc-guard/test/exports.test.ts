@@ -54,6 +54,9 @@ test("public_export_set_is_closed", async () => {
     "heliusCredits", "openGuardedClient", "runCli", "runReconcile", "verifyCycleLedger",
     // GARDE-HELIUS-2b C-4: the single-source error vocabulary (rpc2.ts imports these; NOT a paid path).
     "isResultLimit", "isPlanLimited", "isRevertText", "isRpcRevert", "closedHint", "ERROR_HINT_TOKENS",
+    // UKEMI-REVERT-1: the ADDITIVE bare-revert classifier (rpc2.ts quorum2 pairs a paid bare revert with a keyless bare
+    // witness; NOT a paid path - it takes an error, never an endpoint URL).
+    "isBareRevert",
     // GARDE-HELIUS-1b-0 (C-3c): the closed Bell-Solana method table + its construction-time --method-caps coverage
     // check (Bell imports these at 1b-ii; NOT a paid path - no symbol returns/accepts an endpoint URL).
     "BELL_SOLANA_METHODS", "assertMethodCapsCover",

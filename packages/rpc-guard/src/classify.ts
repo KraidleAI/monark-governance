@@ -56,3 +56,26 @@ export function isRpcRevert(e: unknown): e is RpcError {
   if (e.unit !== "keyless" && (e.data === undefined || e.data === "0x")) return false;
   return true;
 }
+
+// UKEMI-REVERT-1 (incident REVERT-PAID-1, 2026-09-23; ADR-GARDE-HELIUS amendment R-A-bis) - the BARE revert class,
+// ADDITIVE: `isRpcRevert` above is UNCHANGED (a paid bare revert stays benched for every other consumer); this predicate
+// only NAMES the class, so the recorder's quorum can pair a PAID bare revert with a KEYLESS witness that is itself bare.
+// A bare revert is a canonical RpcError whose code is 3 or -32000, which carries NO validated `.data` (absent, or the
+// empty "0x"), and whose NORMALIZED text (trimmed, lower-cased, whitespace-collapsed - calque rpc2.ts revertKey) is the
+// revert WITHOUT a reason:
+//   - KEYLESS: the scrubbed message (exposed without preamble, transport.ts raise) is EXACTLY "execution reverted";
+//   - PAID: the closed-vocabulary `detail` (D6) is EXACTLY closedHint("execution reverted") = "execution reverted, revert".
+// Under D6, closedHint("execution reverted") === closedHint("execution reverted: <reason>") (a reason is not vocabulary):
+// on the PAID side "bare" is decided by `.data` ALONE, the reason text is decidable only on the KEYLESS witness. That is
+// the structural reason the quorum admits a paid bare revert ONLY against a keyless bare witness and never compares
+// messages across units. Measured wire form (G1 probe 2026-09-23, description() of the GHO oracle source @23414968):
+// drpc.org AND chainstack both answer {code: 3, message: "execution reverted"} with NO `data` key. No regex here: the
+// closed vocabulary stays the three predicates above (C-4 structural test unchanged).
+const BARE_REVERT_TEXT = "execution reverted";
+const normalizedText = (s: string): string => s.trim().toLowerCase().replace(/\s+/g, " ");
+export function isBareRevert(e: unknown): e is RpcError {
+  if (!(e instanceof RpcError)) return false;
+  if (!(e.code === 3 || e.code === -32000)) return false;
+  if (!(e.data === undefined || e.data === "0x")) return false;
+  return e.unit === "keyless" ? normalizedText(e.message) === BARE_REVERT_TEXT : normalizedText(e.detail) === closedHint(BARE_REVERT_TEXT);
+}

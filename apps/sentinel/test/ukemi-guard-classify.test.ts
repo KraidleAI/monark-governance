@@ -4,7 +4,8 @@
 // RpcError, no fake client. They prove (1) the three classifiers rpc2.ts exposes ARE the package's (function
 // identity + hint-equals-body conformance on measured bodies), (2) `instanceof RpcError` holds across the package
 // boundary so a concordant revert still forms a ConcordantRevertError, and (3) R-A: a PAID revert with empty "0x"
-// data is BENCHED (D-"0x"). Named mutants (replayed from the transport): "local class + local isRpcRevert restored"
+// data is never concorded against a value (D-"0x"; held, not benched, since UKEMI-REVERT-1 - its pairing with a keyless
+// bare witness is proven in ukemi-revert.test.ts). Named mutants (replayed from the transport): "local class + local isRpcRevert restored"
 // (the pre-migration rpc2.ts) => identity broken => NoQuorumError; ""0x" treated present for a paid revert" => the
 // paid revert enters the quorum => QuorumDisagreementError.
 import { test } from "node:test";
@@ -83,11 +84,13 @@ test("ukemi_recorder_rpc_error_identity_holds_through_transport", async () => {
   } finally { cleanup(); }
 });
 
-// -- R-A / D-"0x" - a PAID (chainstack, unit "ru") revert whose data is empty "0x" is BENCHED, never concorded. Pool
-// [drpc.org(value), chainstack(revert "0x")]: drpc answers a value; chainstack's "0x" revert is benched => only one
-// operator answered => NoQuorumError. Mutant ""0x" treated present for a paid revert" (revert isRpcRevert=true) => the
-// paid revert enters the quorum keyed on its preamble message, which never equals the keyless value key =>
-// QuorumDisagreementError. Replayed FROM the transport (C-5): the stub serves {code:3,...,data:"0x"} on chainstack. --
+// -- R-A / D-"0x" - a PAID (chainstack, unit "ru") revert whose data is empty "0x" is never concorded against a VALUE.
+// Pool [drpc.org(value), chainstack(revert "0x")]: drpc answers a value; chainstack's "0x" revert (UKEMI-REVERT-1: HELD,
+// no longer benched, and admitted ONLY against a keyless bare-revert witness - there is none here) is not admitted =>
+// only one operator answered => NoQuorumError (the test name keeps the pre-R-A-bis wording). Mutant ""0x" treated present
+// for a paid revert" (revert isRpcRevert=true) => the paid revert enters the quorum keyed on its preamble message, which
+// never equals the keyless value key => QuorumDisagreementError. Replayed FROM the transport (C-5): the stub serves
+// {code:3,...,data:"0x"} on chainstack. --
 test("paid_revert_with_empty_0x_data_is_benched", async () => {
   const stub = (input: string | URL): Promise<Response> => {
     const url = String(input);

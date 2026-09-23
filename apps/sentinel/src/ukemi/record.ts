@@ -39,8 +39,19 @@ import { prefetchFilterReads, prefetchBookReads } from "./prefetch.ts";
 /** A structured, secret-free record of one provider's JSON-RPC / transport error (hardening, ADR-U1 D3/D9).
  *  `provider` is the REGISTRABLE DOMAIN (never the full URL, which could carry a key); `code`/`data` are present
  *  only for a typed JSON-RPC error, `http` only for a non-2xx response. Collected into the run artifact (D9,
- *  never committed) so a run's real per-provider error shapes are auditable against isRpcRevert. */
-export interface RpcErrorRecord { provider: string; method: string; http?: number; code?: number; message: string; data?: string; }
+ *  never committed) so a run's real per-provider error shapes are auditable against isRpcRevert / isBareRevert.
+ *  UKEMI-REVERT-1: `data` is the CLOSED indicator of the validated revert data (revertDataIndicator), written on EVERY
+ *  JSON-RPC error entry - never the data bytes (the pre-lot journal carried the validated hex and OMITTED the field when
+ *  absent, which left the REVERT-PAID-1 diag blind to the data form). */
+export interface RpcErrorRecord { provider: string; method: string; http?: number; code?: number; message: string; data?: "absent" | "0x" | number; }
+
+/** UKEMI-REVERT-1: the FORM of a JSON-RPC error's validated `.data`, never its bytes: "absent" (no validated data reached
+ *  the recorder - absent on the wire OR dropped by the transport's validateRevertData: indistinguishable here, declared
+ *  residual), "0x" (the empty data of a bare revert), or the hex LENGTH in characters including "0x" (bounded by the
+ *  transport's MAX_REVERT_DATA_HEX). Pure. */
+function revertDataIndicator(d: string | undefined): "absent" | "0x" | number {
+  return d === undefined ? "absent" : d === "0x" ? "0x" : d.length;
+}
 
 /** sha256 of a text after CRLF→LF normalization (the prereg is compared LF-normalized: A-2/`--prereg-sha`). */
 export function lfSha256(text: string): string {
@@ -351,8 +362,9 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
     // at 200/408/429/>=500 - UKEMI-RETRY-1/-2, calque BELL-RETRY-1) is retried; an RpcError, a NonJsonBody at 2xx!=200,
     // another 4xx (getLogsVia needs the 400 THROWN to split), and the budget stop are NEVER retried. R retries => R+1
     // client.call => R+1 write-ahead ledger lines. The rpc_errors journal is built HERE from the TYPED TransportError
-    // by e.name (C-5): never a raw body - e.detail is the closed hint (paid) / redacted (keyless), e.data the validated
-    // hex. Chainstack HTTP 400 => http:400, never code:400; a NonJsonBody => "non-json <code>".
+    // by e.name (C-5): never a raw body - e.detail is the closed hint (paid) / redacted (keyless), and (UKEMI-REVERT-1) the
+    // FORM of e.data ("absent" | "0x" | hex length), never its bytes. Chainstack HTTP 400 => http:400, never code:400; a
+    // NonJsonBody => "non-json <code>".
     const call: RpcCall = async (label, method, params) => {
       const op = label;
       for (let attempt = 0; ; attempt++) {
@@ -368,7 +380,7 @@ export async function runRecorder(argv: readonly string[], deps: RecorderDeps): 
               e.name === "HttpError"
                 ? { provider: op, method, message: e.detail, ...(e.code !== undefined ? { http: e.code } : {}) }
                 : e.name === "RpcError"
-                  ? { provider: op, method, message: e.detail !== "" ? e.detail : "rpc error", ...(e.code !== undefined ? { code: e.code } : {}), ...(e.data !== undefined ? { data: e.data } : {}) }
+                  ? { provider: op, method, message: e.detail !== "" ? e.detail : "rpc error", ...(e.code !== undefined ? { code: e.code } : {}), data: revertDataIndicator(e.data) } // UKEMI-REVERT-1: form only, never the bytes
                   : e.name === "NonJsonBody"
                     ? { provider: op, method, message: "non-json " + String(e.code ?? "?") } // UKEMI-RETRY-1: diag label; no http (RpcErrorRecord: http only for a non-2xx; a NonJsonBody is a 2xx)
                     : { provider: op, method, message: e.detail !== "" ? e.detail : e.name },

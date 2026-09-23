@@ -304,12 +304,15 @@ test("u4_oracle_path_paid_leg_is_metered_in_its_own_ledger", () => {
     assert.equal(hosts.length, totalAttempted, `total fetches (${hosts.length}) must equal total attempted ledger lines (${totalAttempted})`);
     assert.equal(paidFetches, sum.chainstack?.attempted ?? -1, `paid-host fetches (${paidFetches}) must equal chainstack attempted lines (${sum.chainstack?.attempted}) - nothing paid off-ledger`);
     assert.ok(paidFetches > 0, "the paid leg must actually be exercised");
-    // C-R-4(a): NAME the paid-leg e-mode issue at THIS base. Nominal (keyless) is ConcordantRevertError; with the paid
-    // leg forced + R-A benching its "0x" revert, the two Pocket gateways collapse to ONE operator => NoQuorumError. It is
-    // NEVER QuorumDisagreementError (the pre-2b-ii false-disagreement the merge's R-A closes). Flip if R-A's issue changes.
+    // C-R-4(a): NAME the paid-leg e-mode issue at THIS base. Nominal (keyless) is ConcordantRevertError. FLIPPED by
+    // UKEMI-REVERT-1 (R-A-bis, the flip this comment pre-declared): with the paid leg forced, chainstack's bare "0x" revert
+    // is no longer benched but HELD and paired with the KEYLESS bare witness (the Pocket gateways, ONE operator, same
+    // "0x" revert) => the same ConcordantRevertError as the keyless nominal (was NoQuorumError after R-A alone). It is
+    // still NEVER QuorumDisagreementError (the pre-2b-ii false disagreement stays closed: messages are never compared
+    // across units, both sides are keyed on the class "revert:bare").
     const emode = (JSON.parse(readFileSync(join(s.dir, "raws", "U4-oracle-path-e2.raw.json"), "utf8")) as { emode_raw: Record<string, { error?: string }> }).emode_raw["8"]?.error;
-    assert.equal(emode, "NoQuorumError", "paid-leg-forced e-mode 8 is NoQuorumError post-R-A (keyless-derived nominal stays ConcordantRevertError)");
-    assert.notEqual(emode, "QuorumDisagreementError", "the pre-2b-ii false disagreement (C-4/'0x') must be gone (R-A)");
+    assert.equal(emode, "ConcordantRevertError", "paid-leg-forced e-mode 8 is ConcordantRevertError post-R-A-bis (paid bare paired with the keyless bare witness; equals the keyless nominal)");
+    assert.notEqual(emode, "QuorumDisagreementError", "the pre-2b-ii false disagreement (C-4/'0x') must be gone (R-A, R-A-bis)");
   } finally { s.cleanup(); }
 });
 

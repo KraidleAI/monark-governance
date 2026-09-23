@@ -17,7 +17,7 @@ import { providerOf, QuorumDisagreementError, type RpcCall } from "../rpc.ts";
 // range-split / plan-bench / revert decisions can never drift, and `instanceof RpcError` holds across the package
 // boundary (a transport-raised RpcError is the SAME class the quorum tests). It RE-EXPORTS them so existing
 // consumers keep importing from rpc2.ts (apps/bell/src/ethereum.ts, apps/sentinel/test/pool-rpc-1a.test.ts, ...).
-import { RpcError, BudgetExceededError, isResultLimit, isPlanLimited, isRpcRevert } from "@monark/rpc-guard";
+import { RpcError, BudgetExceededError, isResultLimit, isPlanLimited, isRpcRevert, isBareRevert } from "@monark/rpc-guard";
 export { RpcError, BudgetExceededError, isResultLimit, isPlanLimited, isRpcRevert };
 
 /** The INDEPENDENT operator behind an endpoint URL, for quorum-2 distinctness (C-2, ADR-POOL-RPC-1): like
@@ -42,6 +42,17 @@ export class ConcordantRevertError extends Error {}
  *  else the message normalized (lower-cased, whitespace-collapsed). Two providers concord iff these match. */
 function revertKey(e: RpcError): string {
   return e.data !== undefined && e.data !== "0x" ? e.data.toLowerCase() : e.message.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** UKEMI-REVERT-1: the role a KEYLESS revert can play against a HELD paid bare revert (quorum2): "bare" (isBareRevert -
+ *  no validated data, text exactly "execution reverted") is the ONLY witness that admits it; "data" (a non-empty
+ *  validated `.data`) makes the pair a disagreement (the keyless node answered revert data the paid node did not);
+ *  "reason" (no data, but a reason TEXT) admits nothing - the paid closed hint cannot show a reason (D6), so neither a
+ *  concordance nor a discordance can be claimed without comparing messages across units. */
+function witnessOf(e: RpcError): "bare" | "data" | "reason" {
+  const asUnknown: unknown = e; // the single-source classifier decides "bare" FIRST (its type guard narrows this alias, not `e`)
+  if (isBareRevert(asUnknown)) return "bare";
+  return e.data !== undefined && e.data !== "0x" ? "data" : "reason";
 }
 
 /** A log as returned by eth_getLogs (the fields the recorder pins for the quorum digest + enumeration). */
@@ -179,8 +190,16 @@ export function makeUkemiPool(opts: UkemiReaderOpts): UkemiReader {
    *  differing keys (value vs revert, or two different values/reverts) ⇒ QuorumDisagreementError; fewer than two
    *  outcomes (transport faults are benched) ⇒ NoQuorumError. */
   async function quorum2<T>(label: string, providers: readonly string[], fetchOne: (url: string) => Promise<T>, keyOf: (v: T) => string): Promise<T> {
+    // UKEMI-REVERT-1 (incident REVERT-PAID-1, ADR-GARDE-HELIUS R-A-bis): a PAID bare revert (isBareRevert with a paid unit;
+    // isRpcRevert is false for it, R-A) is neither benched nor cooled down: it is HELD, its operator counts as seen (C-2),
+    // and it is admitted ONLY when the sole other outcome is a KEYLESS revert: a keyless BARE witness => both keyed
+    // "revert:bare" => ConcordantRevertError; a keyless revert carrying non-empty `.data` => keys differ =>
+    // QuorumDisagreementError. Anything else (a value, a keyless revert differing only by a reason TEXT, a paid revert,
+    // another paid bare revert, nothing) => not admitted => NoQuorumError. Messages are NEVER compared across units (a paid
+    // message is a closed hint, D6) and two paid bare reverts are NEVER concorded (D6). Keyless pairs are unchanged.
     const list = live(providers);
-    const got: Array<{ prov: string; kind: "ok" | "revert"; key: string; val?: T }> = [];
+    const got: Array<{ prov: string; kind: "ok" | "revert"; key: string; val?: T; witness?: "bare" | "data" | "reason" }> = [];
+    const held: string[] = []; // UKEMI-REVERT-1: operators whose PAID bare revert is held (never benched, never cooled down)
     const seen = new Set<string>();
     let lastErr: Error | undefined;
     for (let i = 0; i < list.length && got.length < 2; i++) {
@@ -192,9 +211,18 @@ export function makeUkemiPool(opts: UkemiReaderOpts): UkemiReader {
         seen.add(operatorOf(url));
       } catch (e) {
         if (e instanceof BudgetExceededError) throw e; // C-5: budget stop is fatal FIRST — never benched into no_quorum
-        if (isRpcRevert(e)) { got.push({ prov: operatorOf(url), kind: "revert", key: "revert:" + revertKey(e) }); seen.add(operatorOf(url)); }
+        if (isRpcRevert(e)) { got.push({ prov: operatorOf(url), kind: "revert", key: "revert:" + revertKey(e), ...(e.unit === "keyless" ? { witness: witnessOf(e) } : {}) }); seen.add(operatorOf(url)); }
+        else if (isBareRevert(e) && e.unit !== "keyless") { held.push(operatorOf(url)); seen.add(operatorOf(url)); lastErr = e; } // UKEMI-REVERT-1: HELD, no bench
         else { lastErr = e instanceof Error ? e : new Error(String(e)); cooldownUntil.set(url, Date.now() + 25_000); }
       }
+    }
+    // UKEMI-REVERT-1: admit ONE held paid bare revert against a sole KEYLESS revert (never against a value, a paid revert,
+    // or another paid bare revert). A bare witness re-keys BOTH to the class key "revert:bare" (no message comparison
+    // across units); a data witness keeps its data key, so the pair disagrees.
+    const w = got[0], p = held[0];
+    if (got.length === 1 && w !== undefined && p !== undefined && w.kind === "revert" && (w.witness === "bare" || w.witness === "data")) {
+      if (w.witness === "bare") w.key = "revert:bare";
+      got.push({ prov: p, kind: "revert", key: "revert:bare" });
     }
     const [a, b] = got;
     if (a === undefined || b === undefined) throw new NoQuorumError(`${label}: quorum needs 2 providers${lastErr ? ` (last: ${lastErr.message})` : ""}`);
