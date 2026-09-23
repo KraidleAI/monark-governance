@@ -5,6 +5,7 @@ export const BELL_TREE_PATHS: readonly string[];
 export const UNIT_NAME: string;
 export const UNIT_INSTALLED: string;
 export const CADDY_DEDICATED: string;
+export const BELL_ROOT_REDIRECT: string;
 export const PRIVATE_SHAPES: readonly RegExp[];
 export interface TlsObservation { host: string; authorized?: boolean; skipped?: boolean; reason?: string; issuer?: string | null; valid_to?: string | null; error?: string }
 export interface CaCheck { name: string; ok: boolean; detail: string }

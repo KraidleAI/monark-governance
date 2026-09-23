@@ -14,7 +14,7 @@ import type { Server } from "node:http";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { headersFor, parseCaddyfile, realPublication, serveCaddy, type CaddySite } from "./bell-caddy.ts";
-import { BELL_TREE_PATHS, UNIT_INSTALLED } from "../scripts/verify-bell.mjs";
+import { BELL_ROOT_REDIRECT, BELL_TREE_PATHS, UNIT_INSTALLED } from "../scripts/verify-bell.mjs";
 
 const REPO = fileURLToPath(new URL("../", import.meta.url));
 const read = (rel: string): string => readFileSync(REPO + rel, "utf8");
@@ -101,7 +101,7 @@ test("bell_caddyfile_serves_public_dir_only_no_browse_cors", async () => {
   assert.equal(site.address, "bell.monarkgate.tech");
   assert.equal(site.root, "/var/lib/monark-bell/public", "root == the publisher's public/ dir and nothing wider");
   assert.equal(site.root, `${/--state (\S+)$/.exec(EXEC)?.[1] ?? "?"}/public`, "root == <unit --state>/public (the publisher serves under join(stateDir, 'public'))");
-  assert.deepEqual([...new Set(site.directives)].sort(), ["file_server", "header", "root"], "closed directive set: no reverse_proxy, no log, no auth, no rewrite");
+  assert.deepEqual([...new Set(site.directives)].sort(), ["file_server", "header", "redir", "root"], "closed directive set: no reverse_proxy, no log, no auth, no rewrite; one redir (below)");
   assert.ok(site.fileServer && !site.browse, "file_server without browse");
   for (const p of [...PATHS.current, ...PATHS.immutable]) {
     const h = headersFor(site, p), cc = h["cache-control"] ?? "";
@@ -119,9 +119,45 @@ test("bell_caddyfile_serves_public_dir_only_no_browse_cors", async () => {
       assert.equal(r.status, 200, `${p} served`);
       assert.equal(r.headers["access-control-allow-origin"], "*", `${p} ACAO`);
     }
-    for (const p of ["/", "/states/", "/bell/"]) assert.equal((await get(port, p)).status, 404, `${p} is not a listing`);
+    for (const p of ["/states/", "/bell/"]) assert.equal((await get(port, p)).status, 404, `${p} is not a listing`);
     for (const p of ["/../keyring.json", "/%2e%2e/timeline.jsonl"]) assert.notEqual((await get(port, p)).status, 200, `${p} does not escape root`);
   });
+});
+
+// S-8, lot BELL-HOST-ROOT-1 (decision 155): the host root `/` EXACTLY answers 302 to the site's Bell page, with the site headers;
+// every other path is unchanged. Mutants (each red here): redir removed; matcher widened (`path /*`); code 301; target changed;
+// in the model, another redir form accepted, the redirect matched as a prefix, or served after file_server; a named matcher
+// defined twice accepted (G2 BELL-HOST-ROOT-1 C-2).
+test("bell_caddyfile_root_redirects_to_site_bell_page", async () => {
+  const text = read(CADDY), site = siteOf(text);
+  assert.equal(BELL_ROOT_REDIRECT, "https://monarkgate.tech/bell", "decision 155: the human page of Bell is the site's /bell");
+  assert.deepEqual(site.redirect, { matcher: "@home", path: "/", to: BELL_ROOT_REDIRECT, code: 302 }, "one redir: @home -> the CA's target, 302");
+  assert.deepEqual(site.matchers.get("@home"), { negate: false, paths: ["/"] }, "the redir matcher is exactly `path /`");
+  await withServer(serveCaddy(site, PUB.publicDir), async (port) => {
+    const root = await get(port, "/"), h = root.headers;
+    assert.deepEqual([root.status, h.location], [302, BELL_ROOT_REDIRECT], "/ => 302 Location https://monarkgate.tech/bell");
+    assert.deepEqual([h["access-control-allow-origin"], h["x-content-type-options"], h["cache-control"]], ["*", "nosniff", "no-cache"], "site headers on the 302");
+    for (const p of ["/state.json", "/bell/pubkey.json"]) {
+      const r = await get(port, p);
+      assert.deepEqual([r.status, r.headers.location], [200, undefined], `${p} unchanged: 200, not redirected`);
+    }
+    for (const p of ["/states/", "/bell/", "/no-such-file.json"]) assert.equal((await get(port, p)).status, 404, `${p} unchanged: 404`);
+  });
+  assert.ok(read(RUNBOOK).includes(`\`302 0 ${BELL_ROOT_REDIRECT}\``), "RUNBOOK step 8 expects `302 0 <target>` (curl %{redirect_url})");
+  // Fail-closed: every other redir form (the committed line replaced) and every other matcher is refused by the model.
+  const line = "\tredir @home https://monarkgate.tech/bell 302\n", u = "https://monarkgate.tech/bell";
+  for (const bad of [`\tredir @home ${u}\n`, `\tredir @home ${u} 301\n`, `\tredir @home ${u} temporary\n`, `\tredir / ${u} 302\n`, `\tredir ${u} 302\n`,
+    "\tredir @home /bell 302\n", `\tredir @home ${u.replace("https", "http")} 302\n`, `\tredir @home ${u}{uri} 302\n`, line + line]) {
+    assert.throws(() => parseCaddyfile(text.replace(line, bad)), /redir outside the subset/, `refused: ${bad.trim()}`);
+  }
+  for (const [from, to] of [["\t@home path /\n", "\t@home path /*\n"], ["\t@home path /\n", "\t@home not path /\n"], ["\t@home path /\n", "\t@home path / /index.html\n"],
+    [line, "\tredir @nope https://monarkgate.tech/bell 302\n"]]) {
+    assert.throws(() => parseCaddyfile(text.replace(from ?? "", to ?? "")), /is not exactly "path \/"/, `refused matcher: ${String(to).trim()}`);
+  }
+  // G2 C-2: `@home` defined twice is refused in either order (the model never picks one of the two definitions).
+  for (const twice of ["\t@home path /*\n\t@home path /\n", "\t@home path /\n\t@home path /*\n"]) {
+    assert.throws(() => parseCaddyfile(text.replace("\t@home path /\n", twice)), /named matcher @home defined twice/, `refused duplicate matcher: ${JSON.stringify(twice)}`);
+  }
 });
 
 const KEY_PATH = (SERVICE.LoadCredential ?? "").slice("bell-signing-key:".length), NEW_KEY_PATH = "/etc/monark/bell/signing-key-new.pem";

@@ -2,10 +2,11 @@
  * Test helper (not a test file): a CLOSED-SUBSET model of Caddy v2 for deploy/Caddyfile.monark-bell (ADR-T1b-backend v2 D10,
  * backlog S-8/S-9). It parses the committed Caddyfile and serves a real publisher public/ directory on 127.0.0.1 with the
  * headers READ FROM THAT FILE, so the loopback tests exercise the committed configuration, not a copy. Subset: one site
- * block; `root [*] <dir>`; named matchers `@n path <p>...` and `@n not path <p>...`; `header [@n|/path] <Field> <value>`;
- * `file_server [browse]`. Anything else is kept in `directives` (so a test can refuse it) and makes `serveCaddy` throw
- * (fail-closed: no server runs on a configuration this model does not understand). The live Caddy is checked by the CA at
- * the D-n (scripts/verify-bell.mjs checks 6-8); this model is declared as such, never as Caddy.
+ * block; `root [*] <dir>`; named matchers `@n path <p>...` and `@n not path <p>...`, each name defined ONCE; `header [@n|/path] <Field> <value>`;
+ * `file_server [browse]`; ONE `redir @n https://<host>[/<path>] 302` whose `@n` is exactly `path /` (decision 155, lot
+ * BELL-HOST-ROOT-1), any other redir form throws. Anything else is kept in `directives` (so a test can refuse it) and makes
+ * `serveCaddy` throw (fail-closed: no server runs on a configuration this model does not understand). The live Caddy is
+ * checked by the CA at the D-n (scripts/verify-bell.mjs checks 6-8); this model is declared as such, never as Caddy.
  */
 import { createServer } from "node:http";
 import type { Server } from "node:http";
@@ -64,6 +65,8 @@ export async function realPublication(): Promise<RealPublication> {
 
 export interface Matcher { readonly negate: boolean; readonly paths: readonly string[] }
 export interface HeaderRule { readonly matcher: string | null; readonly field: string; readonly value: string }
+/** The one admitted redirect: a named matcher that is exactly `path /`, an absolute https URL without placeholder, code 302. */
+export interface Redirect { readonly matcher: string; readonly path: string; readonly to: string; readonly code: 302 }
 export interface CaddySite {
   readonly address: string;
   readonly root: string | null;
@@ -71,6 +74,7 @@ export interface CaddySite {
   readonly headers: readonly HeaderRule[];
   readonly fileServer: boolean;
   readonly browse: boolean;
+  readonly redirect: Redirect | null;
   /** Every directive name in the block, in file order (named matcher definitions excluded). */
   readonly directives: readonly string[];
 }
@@ -101,22 +105,26 @@ function tokens(line: string): string[] {
 /** Parse the site blocks of a Caddyfile in the closed subset above (a nested block inside a site throws). */
 export function parseCaddyfile(text: string): CaddySite[] {
   const sites: CaddySite[] = [];
-  let cur: { address: string; root: string | null; matchers: Map<string, Matcher>; headers: HeaderRule[]; fileServer: boolean; browse: boolean; directives: string[] } | null = null;
+  let cur: { address: string; root: string | null; matchers: Map<string, Matcher>; headers: HeaderRule[]; fileServer: boolean; browse: boolean; redirect: Redirect | null; directives: string[] } | null = null;
   for (const raw of text.split(/\r?\n/)) {
     const t = tokens(raw);
     if (t.length === 0) continue;
     if (cur === null) {
       if (t.length !== 2 || t[1] !== "{") throw new Error(`caddy model: expected '<address> {', got: ${raw}`);
-      cur = { address: t[0] ?? "", root: null, matchers: new Map(), headers: [], fileServer: false, browse: false, directives: [] };
+      cur = { address: t[0] ?? "", root: null, matchers: new Map(), headers: [], fileServer: false, browse: false, redirect: null, directives: [] };
       continue;
     }
-    if (t.length === 1 && t[0] === "}") { sites.push(cur); cur = null; continue; }
+    if (t.length === 1 && t[0] === "}") { sites.push(closeRedirect(cur)); cur = null; continue; }
     if (t.includes("{") || t.includes("}")) throw new Error(`caddy model: nested block not in the subset: ${raw}`);
     const [head = "", ...rest] = t;
     if (head.startsWith("@")) {
       const negate = rest[0] === "not";
       const body = negate ? rest.slice(1) : rest;
       if (body[0] !== "path" || body.length < 2) throw new Error(`caddy model: matcher outside the subset: ${raw}`);
+      // Fail-closed (G2 BELL-HOST-ROOT-1 C-2): a name defined twice is refused, never read as "the last wins". Caddy's semantics of
+      // a repeated named-matcher definition are not established here (no Caddy source read on it; docs matchers.md l.129 only says
+      // "a unique name"): the model refuses whatever Caddy does.
+      if (cur.matchers.has(head)) throw new Error(`caddy model: named matcher ${head} defined twice (outside the subset): ${raw}`);
       cur.matchers.set(head, { negate, paths: body.slice(1) });
       continue;
     }
@@ -136,12 +144,32 @@ export function parseCaddyfile(text: string): CaddySite[] {
       const kv = m === null ? rest : rest.slice(1);
       if (kv.length !== 2) throw new Error(`caddy model: header form outside the subset: ${raw}`);
       cur.headers.push({ matcher: m, field: kv[0] ?? "", value: kv[1] ?? "" });
+    } else if (head === "redir") {
+      // Caddy reads `redir [<matcher>] <to> [<code>]` (default 302, `permanent` = 301, placeholders allowed); the subset is
+      // ONE form: named matcher + absolute https URL without placeholder + the literal 302. Its matcher is checked at `}`.
+      const [m = "", to = "", code = ""] = rest;
+      if (cur.redirect !== null || rest.length !== 3 || !m.startsWith("@") || !/^https:\/\/[a-z0-9.-]+(?:\/[A-Za-z0-9._~/-]*)?$/.test(to) || code !== "302") {
+        throw new Error(`caddy model: redir outside the subset (one "redir @<name> https://<host>[/<path>] 302"): ${raw}`);
+      }
+      cur.redirect = { matcher: m, path: "", to, code: 302 };
     }
   }
   if (cur !== null) throw new Error("caddy model: unclosed site block");
   return sites;
 }
 
+/** At `}`: the redirect's named matcher must be defined, not negated, and exactly `path /` (no `*`: Caddy's path matcher is exact
+ *  without it). Caddy also cleans dots and merges slashes before matching (`//` is redirected there); the model matches the
+ *  decoded path literally, a declared narrowing (no listing either way). */
+function closeRedirect<T extends { matchers: Map<string, Matcher>; redirect: Redirect | null }>(site: T): T {
+  if (site.redirect === null) return site;
+  const m = site.matchers.get(site.redirect.matcher);
+  if (m === undefined || m.negate || m.paths.length !== 1 || m.paths[0] !== "/") {
+    throw new Error(`caddy model: the redir matcher ${site.redirect.matcher} is not exactly "path /"`);
+  }
+  site.redirect = { ...site.redirect, path: "/" };
+  return site;
+}
 /** Caddy path-pattern subset: a trailing `*` is a prefix match, otherwise an exact match. */
 const pathMatches = (p: string, pattern: string): boolean => (pattern.endsWith("*") ? p.startsWith(pattern.slice(0, -1)) : p === pattern);
 /** The response headers the site sets on request path `p` (every header rule whose matcher matches). */
@@ -161,10 +189,11 @@ export function headersFor(site: CaddySite, p: string): Record<string, string> {
   return out;
 }
 
-const SUBSET = new Set(["root", "header", "file_server"]);
+const SUBSET = new Set(["root", "header", "redir", "file_server"]);
 /**
- * Serve `site` on 127.0.0.1:0 with its root REPLACED by `rootDir` (the committed root is a host path). GET/HEAD only; a
- * `..` segment is a 400; a directory is a listing only under `browse`, else a 404 (Caddy file_server without browse).
+ * Serve `site` on 127.0.0.1:0 with its root REPLACED by `rootDir` (the committed root is a host path). Caddy's order, whatever
+ * the file order: `header` (set at once, not deferred), then `redir` (any method; 302 + Location, no body, no Content-Type),
+ * then `file_server`: GET/HEAD only; a `..` segment is a 400; a directory is a listing only under `browse`, else a 404.
  */
 export function serveCaddy(site: CaddySite, rootDir: string): Server {
   const extra = site.directives.filter((d) => !SUBSET.has(d));
@@ -173,6 +202,7 @@ export function serveCaddy(site: CaddySite, rootDir: string): Server {
     let p: string;
     try { p = decodeURIComponent((req.url ?? "/").split("?")[0] ?? "/"); } catch { res.writeHead(400); res.end(); return; }
     const hs = headersFor(site, p);
+    if (site.redirect !== null && p === site.redirect.path) { res.writeHead(site.redirect.code, { ...hs, location: site.redirect.to }); res.end(); return; }
     if (req.method !== "GET" && req.method !== "HEAD") { res.writeHead(405, hs); res.end(); return; }
     if (p.split("/").includes("..") || p.includes("\\") || p.includes("\0")) { res.writeHead(400, hs); res.end(); return; }
     const f = join(rootDir, ...p.split("/").filter((s) => s !== ""));
