@@ -21,7 +21,8 @@ import { buildDigest, bellSha, assertNoClose, canonical, provenance as makeProve
 import { readReferenceCloses, earliestPublishUtc, databentoGet, polygonGet, readCashKeys,
   type PolygonGet, type DatabentoGet } from "./close.ts";
 import { newResidualCounts, RESIDUAL_CODES, type Residual, type ResidualCounts } from "./residuals.ts";
-import { poolVolumeBase, consolidatedAdv, volumeToAdvRatio } from "./volume.ts";
+import { poolVolumeBase, advPeriodOf, advPeriodsForFills, advRangePath, barDateET, periodAdv, periodBounds, sessionShareVolume,
+  volumeRatio, VOL_RATIO_FORMULA, ADV_SOURCE, type AdvDailyBar, type AdvPeriod } from "./volume.ts";
 import { readMintToken2022, porStatus, wrapperStatus, rebaseForMint, rebaseGateFromTrajectory, type MintReadout, type RebaseGate } from "./supply.ts";
 import { multiplierAtMs, replayTriplet, decodeStateConfig, type MultiplierEvent } from "./rebase-trajectory.ts";
 import { runRebaseScanCli, scaledUiConfigBytes } from "./rebase-scan.ts";
@@ -49,7 +50,8 @@ export interface SymbolInput {
   readonly quorumCoverage?: number; // sampled-body coverage rate (published with quorum_sampled)
   readonly closeRefBySession: Readonly<Record<string, number>>; // sessionDateET -> close (read, never stored)
   readonly crossBySession?: Readonly<Record<string, CashCross>>; // -b3b C-9: refCloseDate -> cross status (matched/unavailable/mismatch)
-  readonly advDailyVolumes: readonly number[]; // prior-month daily share volumes ([2nd] Polygon)
+  readonly advDailyVolumes: readonly AdvDailyBar[]; // BELL-ADV-1: DATED daily share volumes of the underlying ([2nd] Massive,
+                                                     // unadjusted); the core selects each session's ADV month (volume.ts)
   readonly mint?: MintReadout; // Token-2022 readout (iv)
   readonly porRelayed?: { readonly value: string; readonly updatedAtSec: number };
   readonly rebase?: RebaseGate; // C-6: pool-window multiplier gate (absent = not a founding window, no gate)
@@ -64,6 +66,7 @@ export interface CollectInput {
   readonly faults?: readonly TransportFault[]; // transport faults for the journal (providerOf only)
   readonly providers?: readonly string[]; // provider DOMAINS (providerOf), never urls
   readonly closeSource?: string; // C-7/decision 41: names the close provider in provenance (never a value)
+  readonly advSource?: string; // BELL-ADV-1: names the ADV bar source in provenance (calque closeSource, never a value)
   readonly cashRequestDigest?: string; // -b3b C-1/C-7: sha256 of the canonical cash-close request list (no key, no value)
   readonly cashCrossMismatchDays?: readonly string[]; // -b3b: "UNDERLYING:refDate" days that mismatched (provenance detail)
   readonly cashCrossUnavailableDays?: readonly string[]; // -b3b: "UNDERLYING:refDate" days the cross could not run (provenance detail)
@@ -98,6 +101,24 @@ function volumeBaseDecimal(fills: readonly SwapFill[], baseDec: number): string 
   return fixed((total * 10n ** BigInt(GAP_PRECISION)) / 10n ** BigInt(baseDec), GAP_PRECISION);
 }
 
+/** BELL-ADV-1 (I-G2-1 a): the shares-per-token multiplier that converts a session's token volume, per fill, from the
+ *  SAME evidence as the g_t path: trajectory_known => m(t) replayed per fill; constant => m; unverified => NOT established.
+ *  Gate ABSENT (replay/offline input; the live wiring always sets it, buildSolanaSymbol) => the mint readout's multiplier
+ *  when the mint is present and it parses to a finite number > 0. Otherwise null => the session's ratio abstains
+ *  no_multiplier (never a default "1", never the current readout standing in for an unverified history). */
+function ratioMultiplierOf(s: SymbolInput): ((blockTimeMs: number) => number | null) | null {
+  const rb = s.rebase;
+  if (rb !== undefined) {
+    if (rb.status === "unverified") return null;
+    if (rb.status === "trajectory_known") { const evs = rb.events; return (ms) => multiplierAtMs(evs, ms)?.value ?? null; }
+    const mc = Number(rb.multiplier);
+    return Number.isFinite(mc) && mc > 0 ? () => mc : null;
+  }
+  if (s.mint === undefined) return null;
+  const m = Number(s.mint.multiplier);
+  return Number.isFinite(m) && m > 0 ? () => m : null; // Number("") = 0 and Number("abc") = NaN both fail here
+}
+
 /** The pure core (ADR-T1aii D1 lot -a). Deterministic: same inputs ⇒ bit-identical bellSha (replay oracle). */
 export function collect(input: CollectInput): CollectResult {
   const counts: ResidualCounts = newResidualCounts();
@@ -126,7 +147,8 @@ export function collect(input: CollectInput): CollectResult {
     if (s.fills.length === 0 && !s.fillsResidues.includes("no_quorum")) bump("no_fill_in_window");
 
     const symGaps: GapEntry[] = [];
-    for (const g of [...groups.values()].sort((a, b) => a.anchor.localeCompare(b.anchor) || a.session.localeCompare(b.session))) {
+    const sortedGroups = [...groups.values()].sort((a, b) => a.anchor.localeCompare(b.anchor) || a.session.localeCompare(b.session));
+    for (const g of sortedGroups) {
       // C-6: a pool-window whose scaled-UI multiplier was not verified CONSTANT abstains every session
       // (carry the first-hand vwap, never a silently rescaled g_t). Absent gate = not a founding window.
       if (s.rebase?.status === "unverified") {
@@ -186,19 +208,33 @@ export function collect(input: CollectInput): CollectResult {
     }
     gapEntries.push(...symGaps);
 
-    // (iii) volume vs consolidated ADV — ratio only, ADV never carried (C-6). multiplier != 1 ⇒ unit residue.
-    const volumeBaseUnits = poolVolumeBase(s.fills);
-    const adv = consolidatedAdv(s.advDailyVolumes);
-    const multiplier = s.mint?.multiplier ?? "1";
-    let multiplierUnit = Number(multiplier) !== 1;
-    if (adv > 0 && s.fills.length > 0) {
-      const rr = volumeToAdvRatio(volumeBaseUnits, s.baseDec, adv, multiplier);
-      multiplierUnit = multiplierUnit || rr.multiplier_unit;
-      volumeEntries.push({ symbol: s.symbol, vol_ratio: rr.vol_ratio, multiplier_unit: multiplierUnit });
-    } else {
-      volumeEntries.push({ symbol: s.symbol, ratio_computed: false, multiplier_unit: multiplierUnit });
+    // (iii) BELL-ADV-1 (I-v3-1, I-G2-1, I-G2-3): ONE volume entry per session group (the same groups as the gaps).
+    // vol_ratio = the session's share volume (multiplier in effect at each fill) / the ADV of the calendar month before
+    // the session's ET trading day (volume.ts). Ratio only, the ADV is never carried (C-6). Each missing input is NAMED
+    // on the entry and COUNTED: no established multiplier => no_multiplier (never "1"); bars not covering exactly the
+    // month's trading days => no_adv (never a partial average). `window` = first/last fill of the session (a fact of the
+    // fills, hashed; the collection bounds live in state.window).
+    const mAt = ratioMultiplierOf(s);
+    for (const g of sortedGroups) {
+      const period = advPeriodOf(g.anchor);
+      const advR = periodAdv(s.advDailyVolumes, period);
+      const sh = mAt === null ? null : sessionShareVolume(g.fills, s.baseDec, mAt);
+      let from = Infinity, to = -Infinity;
+      for (const f of g.fills) { from = Math.min(from, f.blockTimeUtcMs); to = Math.max(to, f.blockTimeUtcMs); }
+      const entry: { [k: string]: Json } = { symbol: s.symbol, session: g.session, regime: g.regime, session_date_et: g.anchor,
+        window: { from_utc_ms: from, to_utc_ms: to }, adv_period: { year: period.year, month: period.month }, n: g.fills.length,
+        n_bars: advR.nBars, n_trading_days: advR.nTradingDays, formula: VOL_RATIO_FORMULA };
+      if (sh === null || "abstain" in advR) {
+        const abstain: Residual[] = [...(sh === null ? ["no_multiplier" as const] : []), ...("abstain" in advR ? ["no_adv" as const] : [])];
+        for (const r of abstain) bump(r);
+        volumeEntries.push({ ...entry, abstain });
+        continue;
+      }
+      volumeEntries.push({ ...entry, vol_ratio: volumeRatio(sh.shares, advR.adv), multiplier_unit: sh.multiplierUnit });
     }
-    if (multiplierUnit) bump("multiplier_unit");
+    // Unit residue (rule unchanged, iii/iv): the CURRENT mint readout's multiplier != 1. An absent mint raises none (its
+    // sessions abstain no_multiplier above; before BELL-ADV-1 it silently defaulted to "1").
+    if (s.mint !== undefined && Number(s.mint.multiplier) !== 1) bump("multiplier_unit");
 
     // (iv) supply readout (paused/permanentDelegate read-and-logged, not rendered — T-1b/T-2), PoR, wrappers.
     if (s.mint) {
@@ -257,6 +293,7 @@ export function collect(input: CollectInput): CollectResult {
   // COUNTS live in `residuals` (single counter source); these arrays are traceability detail only.
   const sources: Json = { generated_at: input.generatedAt,
     ...(input.closeSource !== undefined ? { close_source: input.closeSource } : {}),
+    ...(input.advSource !== undefined ? { adv_source: input.advSource } : {}),
     ...(input.cashRequestDigest !== undefined ? { cash_request_digest: input.cashRequestDigest } : {}),
     ...(input.cashCrossMismatchDays && input.cashCrossMismatchDays.length ? { cash_cross_mismatch_days: [...input.cashCrossMismatchDays] } : {}),
     ...(input.cashCrossUnavailableDays && input.cashCrossUnavailableDays.length ? { cash_cross_unavailable_days: [...input.cashCrossUnavailableDays] } : {}) };
@@ -376,19 +413,28 @@ export function refCloseDatesForFills(fills: readonly SwapFill[]): string[] {
   return [...set].sort();
 }
 
-/** Massive (Polygon.io, renamed 2025-10-30) prior-month daily SHARE volumes for an underlying (the ADV denominator
- *  of fact (iii)). -b3b: the reference CLOSE moved to close.ts `readReferenceCloses` (Databento EQUS.SUMMARY +
- *  Massive cross), so this leg no longer reads per-day closes — no double Polygon close fetch. Values are READ,
- *  never stored in an output (C-6). Key in the Authorization header, never the url (C-10). `get` is injectable. */
-async function advVolumes(underlying: string, polygonKey: string, toUtcMs: number,
-  faults: TransportFault[], get: PolygonGet = polygonGet): Promise<number[]> {
+/** Massive (Polygon.io, renamed 2025-10-30) DATED daily SHARE volumes of an underlying for fact (iii), BELL-ADV-1: ONE
+ *  GET per ADV period (the calendar month before each session's ET trading day, `advPeriodsForFills`), the exact month,
+ *  adjusted=false ("as reported", II.F) -- replacing the 45-day rolling window. Each bar is dated by the ET date of `t`
+ *  (start of the aggregate window); a bar without a finite t/v or dated outside the requested month is dropped, so the
+ *  core finds the month incomplete (no_adv). A transport fault => no bar for that month (no_adv), recorded as
+ *  {provider, status}. Values are READ, never stored in an output (C-6). Key in the Authorization header (C-10). */
+async function advBarsFor(underlying: string, periods: readonly AdvPeriod[], polygonKey: string,
+  faults: TransportFault[], get: PolygonGet = polygonGet): Promise<AdvDailyBar[]> {
   if (!polygonKey) return [];
-  try {
-    const to = new Date(toUtcMs), from = new Date(toUtcMs - 45 * 86_400_000);
-    const fmt = (d: Date): string => d.toISOString().slice(0, 10);
-    const bars = await withRetry(() => get(`/v2/aggs/ticker/${underlying}/range/1/day/${fmt(from)}/${fmt(to)}?adjusted=true&sort=asc&limit=60`, polygonKey));
-    return (bars.results ?? []).map((r) => r.v ?? 0).filter((v) => v > 0);
-  } catch (e) { faults.push({ provider: "polygon.io", status: statusOf(e) }); return []; }
+  const out: AdvDailyBar[] = [];
+  for (const p of periods) {
+    const { first, last } = periodBounds(p);
+    try {
+      const bars = await withRetry(() => get(advRangePath(underlying, p), polygonKey));
+      for (const r of bars.results ?? []) {
+        if (typeof r.t !== "number" || !Number.isFinite(r.t) || typeof r.v !== "number") continue;
+        const dateET = barDateET(r.t);
+        if (dateET >= first && dateET <= last) out.push({ dateET, v: r.v });
+      }
+    } catch (e) { faults.push({ provider: "polygon.io", status: statusOf(e) }); }
+  }
+  return out;
 }
 
 /** A stable identity key of a mint account for the quorum (supply drifts, so key the fields that do not). */
@@ -556,8 +602,10 @@ export async function buildSolanaSymbol(call: JsonRpcCall, providers: readonly s
         ? rebaseGateFromTrajectory(trajectory.events, window.fromSec, window.toSec, trajectory.scanComplete, trajectory.scanMethod)
         : { status: "unverified", residue: "rebase_unverified" })
     : rebaseForMint(mint);
-  // -b3b: the reference close is attached later by runMain (Databento cross-checked); here we read only the ADV.
-  const advDailyVolumes = await advVolumes(UNDERLYING[tok.symbol] ?? tok.symbol, polygonKey, toUtcMs, faults, getAdv);
+  // -b3b: the reference close is attached later by runMain (Databento cross-checked); here we read only the ADV bars,
+  // one month per distinct ADV period of the fills (BELL-ADV-1). `toUtcMs` is no longer read (the 45-day window ending
+  // at it is retired); the parameter stays for the positional callers.
+  const advDailyVolumes = await advBarsFor(UNDERLYING[tok.symbol] ?? tok.symbol, advPeriodsForFills(solved.fills), polygonKey, faults, getAdv);
   return { symbol: tok.symbol, chain: "solana", baseDec: tok.decimals, quoteDec: 6, fills: solved.fills,
     fillsResidues: [...solved.residues, ...mintResidues], quorumCoverage: solved.coverage, closeRefBySession: {}, advDailyVolumes,
     ...(mint ? { mint } : {}), rebase };
@@ -776,7 +824,7 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
     if (ethPool) {
       try {
         const ethFills = await liveEthSwaps(ethPool, ethFrom, ethTo, { call: ethCall });
-        const advDailyVolumes = await advVolumes("TSLA", polygonKey, toUtcMs, faults, budgetedPolygon);
+        const advDailyVolumes = await advBarsFor("TSLA", advPeriodsForFills(ethFills), polygonKey, faults, budgetedPolygon);
         built.push({ symbol: "TSLAon", chain: "ethereum", baseDec: 18, quoteDec: 6, fills: ethFills, fillsResidues: [], closeRefBySession: {}, advDailyVolumes });
       } catch (e) { faults.push({ provider: "ethereum", status: statusOf(e) }); }
     }
@@ -800,7 +848,7 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
   const csvPath = deps.env.BELL_HALTS_CSV;
   const haltRows: HaltRow[] = csvPath ? haltsSince(rowsFromCsv(readFileSync(csvPath, "utf8")), Object.values(UNDERLYING), new Date(fromUtcMs).toISOString().slice(0, 10)) : [];
   const result = collect({ symbols, haltRows, window: { fromUtcMs, toUtcMs }, nowSec: Math.floor(deps.nowMs / 1000), staleBoundSec: 26 * 3600,
-    generatedAt: new Date(deps.nowMs).toISOString(), faults, providers: providerDomains, closeSource: refCloses.close_source,
+    generatedAt: new Date(deps.nowMs).toISOString(), faults, providers: providerDomains, closeSource: refCloses.close_source, advSource: ADV_SOURCE,
     cashRequestDigest: refCloses.cash_request_digest, cashCrossMismatchDays: refCloses.cash_cross_mismatch_days, cashCrossUnavailableDays: refCloses.cash_cross_unavailable_days });
 
   mkdirSync(out, { recursive: true });

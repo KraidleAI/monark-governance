@@ -32,8 +32,10 @@ export function findStateFiles(dir) {
 // ANY state that still carries a numeric close/ADV field (a hand-built D9, or a future upstream regression). The
 // CLOSE_KEY regex is a DELIBERATE, declared DUPLICATE of apps/bell/src/digest.ts (a .mjs run by plain `node`
 // cannot import a .ts at runtime — no shared import possible); keep the two in sync. Mutant
-// bell_report_input_close_guard reddens on a leaked close/ADV.
-const CLOSE_KEY = /(?<!no_)close|ref[_]?price|p[_]?ref|reference|\bprev\b|adv|share_volume|volume_ref/i;
+// bell_report_input_close_guard reddens on a leaked close/ADV. BELL-ADV-1: `(?<!no_)adv` exempts the residual
+// COUNTER `no_adv` (every state.json now carries it), in sync with digest.ts; the byte-equality of the two regex
+// literals is pinned by report.test.ts (bell_report_accepts_named_adv_residuals_in_sync).
+const CLOSE_KEY = /(?<!no_)close|ref[_]?price|p[_]?ref|reference|\bprev\b|(?<!no_)adv|share_volume|volume_ref/i;
 const isNumericLike = (v) => typeof v === "number" || (typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v)));
 export function assertNoCloseLike(v, path = "$") {
   if (Array.isArray(v)) { v.forEach((e, i) => assertNoCloseLike(e, `${path}[${i}]`)); return; }

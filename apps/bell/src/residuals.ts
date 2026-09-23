@@ -42,6 +42,13 @@ export const COLLECTOR_RESIDUE_CODES = [
   "cash_cross_unavailable", // -b3b (C-9, Q3): the Massive cross could not run (no POLYGON_API_KEY / transport 5xx) for a
                        // reference-close day — DISTINCT from a mismatch and from no_close_ref; interim (a) publishes the
                        // Databento g_t with this residue + a per-session marker (escalation Q3(ii), error_origin orchestrateur)
+  "no_adv", // iii (BELL-ADV-1, I-G2-1 b): the daily bars of the session's ADV month (the calendar month before its ET
+            // trading day) do not cover EXACTLY that month's NYSE trading days (committed calendar): missing, extra,
+            // duplicate or non-positive bar, or a month outside the calendar. The session's ratio abstains, never a
+            // partial or fabricated denominator. Counted per session entry. digest.ts exempts `no_adv` like `no_close_ref`.
+  "no_multiplier", // iii (BELL-ADV-1, I-G2-1 a): the shares-per-token multiplier in effect at the session's fills is not
+            // established (mint absent or unparseable, rebase gate unverified, no multiplier at a fill). The session's
+            // ratio abstains, never a default "1". Counted per session entry.
 ] as const;
 
 /** The ONE closed list of residual codes (union). Iterated to build the counter and to check state.json. */

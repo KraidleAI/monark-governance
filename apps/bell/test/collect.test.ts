@@ -15,7 +15,7 @@ import { quorum2, signaturesSetKey, statusOf, isSolRevert, NoQuorumError, Quorum
 import { RpcError } from "@monark/rpc-guard"; // GARDE-HELIUS-1b-ii: the canonical node-error class (SolRpcError deleted)
 import { readMintToken2022, porStatus, wrapperStatus, supplyVsPoRStatement, rebaseGate, rebaseGateFromMint, rebaseForMint } from "../src/supply.ts";
 import { coverageDecision, foundingCourseCostFloorSigs } from "../src/coverage.ts";
-import { volumeToAdvRatio, poolVolumeBase } from "../src/volume.ts";
+import { poolVolumeBase, sessionShareVolume, volumeRatio, type AdvDailyBar } from "../src/volume.ts";
 import { assertNoClose, bellSha } from "../src/digest.ts";
 import { newResidualCounts, RESIDUAL_CODES } from "../src/residuals.ts";
 import { type SwapFill } from "../src/rpc.ts";
@@ -50,9 +50,22 @@ function tslaxInput(closeAnchor: number | null): SymbolInput {
     for (const f of fills) closeRefBySession[anchorKeyOf(f.blockTimeUtcMs)] = closeAnchor;
   }
   return { symbol: "TSLAx", chain: "solana", baseDec: 8, quoteDec: 6, fills, fillsResidues: [], quorumCoverage: 1,
-    closeRefBySession, advDailyVolumes: [1_000_000, 1_100_000, 900_000], mint };
+    closeRefBySession, advDailyVolumes: AUG_2026_BARS, mint };
 }
 const anchorKeyOf = (utcMs: number): string => classifySession(utcMs).sessionDateET;
+/** BELL-ADV-1: the fixture's session day is 2026-09-18 => its ADV month is August 2026 = 21 NYSE trading days (all
+ *  weekdays; no 2026 closure falls in August). The SAME three synthetic daily volumes as before, cycled over the 21
+ *  dated bars (7 x 3) => the same mean 1_000_000. Built from the weekday rule here, independently of volume.ts. */
+const AUG_2026_BARS: readonly AdvDailyBar[] = (() => {
+  const out: AdvDailyBar[] = [];
+  const vols = [1_000_000, 1_100_000, 900_000];
+  for (let d = 1; d <= 31; d++) {
+    const iso = `2026-08-${String(d).padStart(2, "0")}`;
+    const dow = new Date(`${iso}T12:00:00Z`).getUTCDay();
+    if (dow !== 0 && dow !== 6) out.push({ dateET: iso, v: vols[out.length % 3]! });
+  }
+  return out;
+})();
 
 /** L-4 (C-7): a synthetic 56-byte ScaledUiAmountConfig (authority 32 zero, then multiplier f64, effTs i64,
  *  new_multiplier f64, all little-endian) as base64 — the getAccountInfo(encoding:"base64") shape the C-3 anchor
@@ -76,8 +89,16 @@ function stateConfigB64(mult: number, effTs: number, newMult: number): string {
 // and (b) an `earliest_publish_utc` field on each FILLED gap entry (C-6, digest placement). Fixture BYTES unchanged;
 // PROOF BY SUBTRACTION (docs/PLI-lot-t1a-ii-b3b.md): stripping earliest_publish_utc from the gaps and the two
 // cash_* keys from residuals recomputes exactly the -b3a sha 126abfaed17630808942a0dafc0ff6f1f9acf375d8f7adc6487d8c1e9e2c06d3.
-const PINNED_BELL_SHA = "0cfbed20fc7ab4391b687d870452211cdce02c3cc19ab1cc8f0425a3c24743d7";
+// Re-pinned at BELL-ADV-1 (2026-09-23): (a) two more residual keys (`no_adv: 0`, `no_multiplier: 0`) and (b) the volume
+// array is now ONE entry per session group (window, adv_period, n_bars, n_trading_days, formula, vol_ratio) instead of one
+// per symbol. Fixture BYTES unchanged; the ADV input is now 21 DATED August-2026 bars with the same mean (AUG_2026_BARS).
+// PROOF BY SUBSTITUTION then subtraction (bell_pinned_sha_reduces_to_b3a_by_subtraction): putting back the pre-lot volume
+// entry (captured by running collect() on this fixture at d0535cb) and deleting the two keys recomputes the -b3b pin.
+const PINNED_BELL_SHA = "79a590861d651456c7a6b7d5d6ba21f72cc6f9d985bedb6d9738856b88d7658f";
+const PINNED_BELL_SHA_B3B = "0cfbed20fc7ab4391b687d870452211cdce02c3cc19ab1cc8f0425a3c24743d7"; // -b3b, recovered by substitution
 const PINNED_BELL_SHA_B3A = "126abfaed17630808942a0dafc0ff6f1f9acf375d8f7adc6487d8c1e9e2c06d3"; // -b3a, recovered by subtraction (b3b_subtraction test)
+/** The pre-BELL-ADV-1 volume entry of this fixture (collect() at d0535cb: window total over the undated 3-volume mean). */
+const PRE_LOT_VOLUME_ENTRY = { symbol: "TSLAx", vol_ratio: "0.0000019375", multiplier_unit: false };
 
 // ---- replay (bit-identical) ----------------------------------------------------------------------
 test("bell_collector_replays_fixture_bit_identical", () => {
@@ -267,7 +288,7 @@ test("bell_abstentions_counted", () => {
   const A: SymbolInput = { symbol: "AAPLx", chain: "solana", baseDec: 8, quoteDec: 6, fills: [], fillsResidues: ["no_quorum"], closeRefBySession: {}, advDailyVolumes: [] };
   const oneFill: SwapFill = { signature: "b1", blockTimeUtcMs: 1_789_824_710_000, baseDelta: 15_000_000n, quoteDelta: -54_000_000n };
   const B: SymbolInput = { symbol: "TSLAx", chain: "solana", baseDec: 8, quoteDec: 6, fills: [oneFill], fillsResidues: ["quorum_sampled"], quorumCoverage: 0.5,
-    closeRefBySession: {}, advDailyVolumes: [1000], mint: { symbol: "TSLAx", decimals: 8, supply: "100", multiplier: "2", paused: false, permanentDelegate: null, scaledAuthority: null, newMultiplier: "2", newMultiplierEffectiveTimestampSec: 0 } };
+    closeRefBySession: {}, advDailyVolumes: [], mint: { symbol: "TSLAx", decimals: 8, supply: "100", multiplier: "2", paused: false, permanentDelegate: null, scaledAuthority: null, newMultiplier: "2", newMultiplierEffectiveTimestampSec: 0 } };
   const halts: HaltRow[] = [
     { haltDate: "2026-09-15", haltTime: "10:00:00", symbol: "TSLA", name: "x", exchange: "Nasdaq", reason: "LULD pause", resumeDate: "2026-09-15", resumeTime: "" },
     { haltDate: "2026-09-15", haltTime: "11:00:00", symbol: "TSLA", name: "x", exchange: "Nasdaq", reason: "ZZZ unknown graphie", resumeDate: "2026-09-15", resumeTime: "11:05:00" },
@@ -280,6 +301,10 @@ test("bell_abstentions_counted", () => {
   assert.equal(c.por_unavailable, 2, "A + B");
   assert.equal(c.no_wrapper, 2, "A + B");
   assert.equal(c.multiplier_unit, 1, "B multiplier 2");
+  // BELL-ADV-1 (D-4: B's undated `[1000]` became `[]`, the element type is now a DATED bar): B's one session (2026-09-19 =>
+  // day 2026-09-18 => ADV month August 2026) has no bar => no_adv counted once; its multiplier "2" IS established.
+  assert.equal(c.no_adv, 1, "B: no dated ADV bar for August 2026 => no_adv, named and counted");
+  assert.equal(c.no_multiplier, 0, "B: mint multiplier 2 established (gate absent) => no no_multiplier");
   assert.equal(c.block_ts_vs_submission, 2, "two halts, standing residue (row-level, once per row)");
   assert.equal(c.resume_time_missing, 1, "one empty-resume halt");
   assert.equal(c.reason_unknown, 1, "one off-carte graphie");
@@ -335,14 +360,24 @@ test("bell_residual_map_is_single_source", () => {
 
 // ---- (iii) ratio killer + extended close/ADV guard ----------------------------------------------
 test("bell_ratio_killer_adv_and_unit", () => {
-  const vol = poolVolumeBase([{ signature: "x", blockTimeUtcMs: 1, baseDelta: 15_000_000n, quoteDelta: -54_000_000n }]);
+  const fills1: SwapFill[] = [{ signature: "x", blockTimeUtcMs: 1, baseDelta: 15_000_000n, quoteDelta: -54_000_000n }];
+  const vol = poolVolumeBase(fills1);
+  // D-4 (BELL-ADV-1): volumeToAdvRatio (window total x ONE current multiplier) is replaced by sessionShareVolume (per-fill
+  // multiplier) + volumeRatio. Every former assertion is kept on the new pair (none weakened) and three are added.
+  const s1 = sessionShareVolume(fills1, 8, () => 1), s2 = sessionShareVolume(fills1, 8, () => 2);
+  assert.ok(s1 !== null && s2 !== null, "an established multiplier converts");
+  assert.equal(s1.shares, Number(vol) / 1e8, "shares = |base| / 10^dec at m = 1 (the base volume poolVolumeBase counts)");
   // a changed ADV changes the ratio (killer): adv1 != adv2 => vol_ratio differs
-  assert.notEqual(volumeToAdvRatio(vol, 8, 1000, "1").vol_ratio, volumeToAdvRatio(vol, 8, 2000, "1").vol_ratio);
-  // a multiplier != 1 flips the unit residue; multiplier 1 does not
-  assert.equal(volumeToAdvRatio(vol, 8, 1000, "2").multiplier_unit, true);
-  assert.equal(volumeToAdvRatio(vol, 8, 1000, "1").multiplier_unit, false);
-  // adv must be > 0 (never a fabricated denominator)
-  assert.throws(() => volumeToAdvRatio(vol, 8, 0, "1"));
+  assert.notEqual(volumeRatio(s1.shares, 1000), volumeRatio(s1.shares, 2000));
+  // a multiplier != 1 flips the unit flag; multiplier 1 does not; and m = 2 doubles the shares (added)
+  assert.equal(s2.multiplierUnit, true);
+  assert.equal(s1.multiplierUnit, false);
+  assert.equal(s2.shares, 2 * s1.shares);
+  // adv must be > 0 (never a fabricated denominator); NaN too (added)
+  assert.throws(() => volumeRatio(s1.shares, 0));
+  assert.throws(() => volumeRatio(s1.shares, Number.NaN));
+  // no established multiplier at a fill => null (the caller abstains no_multiplier), never a default "1" (added)
+  assert.equal(sessionShareVolume(fills1, 8, () => null), null);
   // extended close/ADV guard (C-6): adv|share_volume|volume_ref (bare) redden; the ratio key vol_ratio does not
   assert.throws(() => assertNoClose({ adv: 1 }));
   assert.throws(() => assertNoClose({ advShares: 1 }));
@@ -586,11 +621,19 @@ test("bell_cash_cross_mismatch_is_a_named_residual", () => {
   assert.equal((unav.gaps.find((x) => "gT" in x) ?? {}).cash_cross, "unavailable");
 });
 
-// ---- re-pin proof: -b3b digest MINUS its additions recomputes the -b3a pin (by subtraction) ----
+// ---- re-pin proof (BELL-ADV-1, then -b3b): the digest with its per-session volume array SUBSTITUTED by the pre-lot
+// ---- entry and its two new residual keys removed recomputes the -b3b pin; MINUS the -b3b additions => the -b3a pin ----
 test("bell_pinned_sha_reduces_to_b3a_by_subtraction", () => {
   const r = collect({ symbols: [tslaxInput(364.5)], haltRows: [], window: { fromUtcMs: 0, toUtcMs: 0 }, nowSec: 1_800_000_000, staleBoundSec: 93600, generatedAt: "t" });
   assert.equal(r.bellSha, PINNED_BELL_SHA);
-  const d = JSON.parse(JSON.stringify(r.digest)) as { gaps: Array<Record<string, unknown>>; residuals: Record<string, number> };
+  const d = JSON.parse(JSON.stringify(r.digest)) as { gaps: Array<Record<string, unknown>>; residuals: Record<string, number>; volume: unknown[] };
+  // BELL-ADV-1 substitution: the lot changes the digest in exactly two places (the volume array, the residual map).
+  assert.equal(d.volume.length, 1, "one session group => one volume entry (else the substitution is not one-for-one)");
+  assert.ok(d.residuals.no_adv === 0 && d.residuals.no_multiplier === 0, "the fixture's ratio is computed (no abstention)");
+  d.volume = [PRE_LOT_VOLUME_ENTRY];
+  delete d.residuals.no_adv;
+  delete d.residuals.no_multiplier;
+  assert.equal(bellSha(d as unknown as Parameters<typeof bellSha>[0]), PINNED_BELL_SHA_B3B, "BELL-ADV-1 changed nothing else in the digest");
   assert.ok(d.gaps.some((g) => "earliest_publish_utc" in g), "a filled gap carries earliest_publish_utc (else the subtraction is vacuous)");
   for (const g of d.gaps) delete g.earliest_publish_utc;
   delete d.residuals.cash_cross_mismatch;
@@ -656,7 +699,11 @@ test("bell_close_databento_replays_synthetic_fixture", async () => {
   // synthetic fixtures (declared, in-memory): Databento returns a scaled-int close 364.0 for TSLA on the ref day;
   // Massive returns 364 (matched) for the cross and a volume for the ADV leg. NO real close is committed.
   const databentoGet: DatabentoGet = () => Promise.resolve([{ hd: { ts_event: String(BigInt(Date.UTC(2026, 8, 18)) * 1_000_000n) }, close: "364000000000" }]);
-  const polygonGet: PolygonGet = (path) => Promise.resolve(path.includes("adjusted=false") ? { results: [{ c: 364 }] } : { results: [{ v: 1_000_000, c: 364 }] });
+  // BELL-ADV-1: BOTH Massive legs are now adjusted=false, so the stub keys on the path SHAPE: a single-day range (from ==
+  // to) is the close cross; a month range is the ADV leg (here an UNDATED bar, no `t` => the month is incomplete => no_adv).
+  const polyPaths: string[] = [];
+  const isCrossPath = (p: string): boolean => /\/range\/1\/day\/(\d{4}-\d{2}-\d{2})\/\1\?/.test(p);
+  const polygonGet: PolygonGet = (path) => { polyPaths.push(path); return Promise.resolve(isCrossPath(path) ? { results: [{ c: 364 }] } : { results: [{ v: 1_000_000, c: 364 }] }); };
   // a scanned trajectory (constant m=1) so the gate is `constant` and collect() computes g_t (else it abstains).
   const outDir = mkdtempSync(join(tmpdir(), "bell-runmain-"));
   const trajPath = join(outDir, "traj.json");
@@ -684,6 +731,11 @@ test("bell_close_databento_replays_synthetic_fixture", async () => {
   // C-V-3 (O-1 / MV9): the halt CSV read by runMain reached collect() and produced a TSLAx bracket over the fill.
   const hd = (state.halt_deltas ?? []).find((x) => x.symbol === "TSLAx");
   assert.ok(hd && (hd.n_fills_in_window as number) >= 1, "BELL_HALTS_CSV -> runMain -> collect -> halt_deltas bracket over the fill");
+  // BELL-ADV-1 (added): ONE ADV GET for the ONE ADV month (session day 2026-09-18 => August 2026), unadjusted; the cross
+  // is the single-day shape. The month body carries no dated bar => the ratio abstains no_adv, counted in state.json.
+  assert.deepEqual(polyPaths.filter((p) => !isCrossPath(p)), ["/v2/aggs/ticker/TSLA/range/1/day/2026-08-01/2026-08-31?adjusted=false&sort=asc&limit=50"]);
+  assert.equal(polyPaths.filter(isCrossPath).length, 1, "one close cross for the one reference-close day");
+  assert.equal(state.residuals.no_adv, 1, "an undated ADV body is no_adv (named, counted), never a ratio");
   // no reference close leaks into ANY produced artifact (ESC-1 c).
   assert.doesNotThrow(() => { assertNoClose(state); });
   assert.doesNotThrow(() => { assertNoClose(prov.sources); });
