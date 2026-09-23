@@ -83,7 +83,7 @@ export function GateDiagram({
             x={SX}
             y={n.y + 30}
             textAnchor="middle"
-            fontFamily="'IBM Plex Mono', monospace"
+            fontFamily="var(--font-mono)"
             fontSize={11 * fs}
             fill="var(--ink2)"
           >
@@ -137,7 +137,7 @@ export function GateDiagram({
           x={GX}
           y={GY + 72}
           textAnchor="middle"
-          fontFamily="'Sora', sans-serif"
+          fontFamily="var(--font-sans)"
           fontSize={12 * fs}
           fontWeight={600}
           fill="var(--ink)"
@@ -148,7 +148,7 @@ export function GateDiagram({
           x={GX}
           y={GY + 72 + 18 * fs}
           textAnchor="middle"
-          fontFamily="'IBM Plex Mono', monospace"
+          fontFamily="var(--font-mono)"
           fontSize={10.5 * fs}
           fill="var(--ink2)"
         >
@@ -192,7 +192,7 @@ export function GateDiagram({
             <text
               x={OX + 22}
               y={o.y + 5}
-              fontFamily="'IBM Plex Mono', monospace"
+              fontFamily="var(--font-mono)"
               fontSize={12 * fs}
               fontWeight={on ? 600 : 400}
               fill={on ? o.colorVar : "var(--ink2)"}

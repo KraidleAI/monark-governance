@@ -2,18 +2,23 @@
 @import "tw-animate-css";
 
 /*
- * MONARK storefront design tokens (Shell & brand tokens).
- * Brand freeze 2026-09-07, applied here per ADR-M004 addendum D15: everything in Sora; paper #FAF7F2
- * ground / ink #1F1B16; IBM Plex Mono for data; Newsreader serif reserved for long-form reading; one
- * fixed accent per agent. This restyle re-values the EXISTING shadcn/Base UI token contract (same
- * names) onto the paper/ink palette so the current pages and panels re-theme without change, and adds
- * the brand tokens of MONARK.dc.html L14 (light) / L15 (dark).
- * HONEST: colour + typography tokens only — no content, no numbers-as-claims, no assertions.
+ * MONARK storefront design tokens — CHARTER C site-wide (investor decision 145, 2026-09-23; rulings 146).
+ * Source: the designer's candidate globals.css + assets/charte-c.css (charte C "Night market", Bell design
+ * handoff), both read from the local mock folder; the palette/typography of the 2026-09-07 brand freeze
+ * (ADR-M004 D15: Sora, paper/ink) is re-valued onto charter C. The shadcn/Base UI token contract keeps its
+ * NAMES, so the existing pages and panels re-theme without change; the legacy brand names (paper, soft, line,
+ * card, ok, defer, abst, focus) are kept as ALIASES re-pointed onto charter C (never removed: pages use them).
+ * Kept from the freeze: the parent mark M3 accent (#A6453E) and one fixed accent per agent / product.
+ * HONEST: colour + typography + layout primitives only — no content, no numbers-as-claims, no assertions.
  *
- * Base UI primitives (own-the-code): the two @custom-variant blocks the copied Button/Dialog
- * reference (data-open, data-closed) are inlined verbatim from shadcn/dist/tailwind.css (MIT). See
- * COMPONENTS-PROVENANCE.md. The dark variant stays a `.dark` class (ADR-M004 D15), driven by the client
- * theme provider.
+ * Fonts: self-hosted OFL files via next/font/local (app/layout.tsx, app/fonts/*.ttf + OFL texts), exposing
+ * --font-space-grotesk / --font-jetbrains-mono / --font-archivo-black; Newsreader (long-form, /writing) is kept
+ * (ruling Q6) through --font-newsreader. No font, script, image or stylesheet is loaded from a remote host.
+ *
+ * Base UI primitives (own-the-code): the two @custom-variant blocks the copied Button/Dialog reference
+ * (data-open, data-closed) are inlined verbatim from shadcn/dist/tailwind.css (MIT). See COMPONENTS-PROVENANCE.md.
+ * The dark variant stays a `.dark` class on <html>, set before first paint from the stored choice or, when
+ * none, from prefers-color-scheme (ruling Q5), and toggled by the header button (components/theme-provider).
  */
 
 @custom-variant dark (&:is(.dark *));
@@ -35,68 +40,124 @@
 :root {
   color-scheme: light;
 
-  /* Typography — the next/font/google variables are set on <html> by app/layout.tsx. */
-  --font-sans: var(--font-sora), system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
-    sans-serif;
+  /* Typography — charter C. The next/font/local variables are set on <html> by app/layout.tsx. */
+  --font-sans: var(--font-space-grotesk), system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-heading: var(--font-sans);
-  --font-mono: var(--font-ibm-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-wordmark: var(--font-archivo-black), var(--font-sans);
   --font-serif: var(--font-newsreader), Georgia, "Times New Roman", serif;
   /* Kanji secondary (display): Newsreader for latin glyphs, a CJK mincho stack for the kanji. */
   --font-kanji: var(--font-newsreader), "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif JP", serif;
 
-  /* Brand tokens — MONARK.dc.html L14 (light). One fixed accent per agent. */
-  --paper: #faf7f2;
-  --ink: #1f1b16;
-  --ink2: #665d52;
-  --line: rgba(31, 27, 22, 0.13);
-  --card: #fffdf9;
-  --soft: #f0ebe2;
+  /* Charter C ground (light) */
+  --bg: #f2f3f7;
+  --surface: #ffffff;
+  --ink: #14151b;
+  --ink2: #5e6375;
+  --rule: #dadde6;
+  --rule-soft: #eef0f5;
+  --tag-ink: #3c4053;
+  --tag-rule: #dadde6;
+  --regime-holiday: #b26a00;
+  --regime-holiday-bg: #fff1dc;
+
+  /* One fixed accent per product / mark */
+  --token-print: #0f8f74;
+  --token-print-bg: #e3f4ef;
+  --cash-close: #5b47c9;
+  --cash-close-bg: #ece8fb;
+  --bell: var(--token-print);
+  --bell-bg: var(--token-print-bg);
+  --narabi: #b8922e;
+  --narabi-bg: #f7efd9;
+  --ukemi: #5661c9;
+  --ukemi-bg: #eceefb;
   --monark: #a6453e;
   --monark-t: #a6453e;
   --shogen: #ff6b4a;
   --shogen-t: #c2432a;
   --hikae: #12857a;
   --hikae-t: #12857a;
-  --ukemi: #5661c9;
   --ukemi-t: #5661c9;
-  --ok: #12857a;
-  --defer: #8a6d3b;
-  --abst: #a6453e;
-  --focus: #12857a;
 
-  /* shadcn/Base UI token contract — re-valued onto the brand palette through var() chains, so `.dark`
-     only overrides the brand set above and every contract token below follows automatically. */
-  --background: var(--paper);
+  /* Legacy brand names still referenced by pages/panels — ALIASES re-pointed onto charter C */
+  --paper: var(--bg);
+  --card: var(--surface);
+  --soft: var(--rule-soft);
+  --line: var(--rule);
+  --ok: var(--hikae);
+  --defer: var(--regime-holiday);
+  --abst: var(--monark-t);
+  --focus: var(--token-print);
+
+  /* Charter C radii (distinct names: the Tailwind radius scale below stays the shadcn contract) */
+  --r-sm: 4px;
+  --r-md: 12px;
+  --r-pill: 999px;
+
+  /* shadcn/Base UI token contract — same names, re-valued through var() chains, so `.dark` only overrides
+     the charter set above and every contract token follows automatically. */
+  --background: var(--bg);
   --foreground: var(--ink);
   --card-foreground: var(--ink);
-  --popover: var(--card);
+  --popover: var(--surface);
   --popover-foreground: var(--ink);
   --primary: var(--ink);
-  --primary-foreground: var(--paper);
-  --secondary: var(--soft);
+  --primary-foreground: var(--bg);
+  --secondary: var(--rule-soft);
   --secondary-foreground: var(--ink);
-  --muted: var(--soft);
+  --muted: var(--rule-soft);
   --muted-foreground: var(--ink2);
-  --accent: var(--monark);
+  --accent: var(--token-print);
   --accent-foreground: var(--ink);
   --destructive: var(--abst);
-  --border: var(--line);
-  --input: var(--line);
+  --border: var(--rule);
+  --input: var(--rule);
   --ring: var(--focus);
   --chart-1: var(--hikae);
   --chart-2: var(--ukemi);
   --chart-3: var(--shogen);
   --chart-4: var(--monark);
   --chart-5: var(--defer);
-  --radius: 0.5rem;
-  --sidebar: var(--card);
+  --radius: 0.75rem;
+  --sidebar: var(--surface);
   --sidebar-foreground: var(--ink);
   --sidebar-primary: var(--ink);
-  --sidebar-primary-foreground: var(--paper);
-  --sidebar-accent: var(--soft);
+  --sidebar-primary-foreground: var(--bg);
+  --sidebar-accent: var(--rule-soft);
   --sidebar-accent-foreground: var(--ink);
-  --sidebar-border: var(--line);
+  --sidebar-border: var(--rule);
   --sidebar-ring: var(--focus);
+}
+
+.dark {
+  color-scheme: dark;
+  /* Charter C ground (dark) */
+  --bg: #0f1014;
+  --surface: #171920;
+  --ink: #e9ebf2;
+  --ink2: #8b90a3;
+  --rule: #262933;
+  --rule-soft: #1e212b;
+  --tag-ink: #c3c7d6;
+  --tag-rule: #33374a;
+  --regime-holiday: #ffb454;
+  --regime-holiday-bg: #33261b;
+  --token-print: #5ee6c2;
+  --token-print-bg: #12302a;
+  --cash-close: #b7a6ff;
+  --cash-close-bg: #221e3a;
+  --narabi: #e8c468;
+  --narabi-bg: #2e2712;
+  --ukemi: #9aa2ee;
+  --ukemi-bg: #1b1e33;
+  /* Text tints of the marks on the dark ground (brand freeze L15, kept for legibility; the mark accents
+     monark/shogen/hikae themselves are unchanged in dark). */
+  --monark-t: #e0766d;
+  --shogen-t: #ff8a6e;
+  --hikae-t: #3fbfb1;
+  --ukemi-t: #9aa2ee;
+  --ok: #3fbfb1;
 }
 
 @theme inline {
@@ -105,6 +166,7 @@
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
   --font-kanji: var(--font-kanji);
+  --font-wordmark: var(--font-wordmark);
 
   /* shadcn/Base UI colour contract (unchanged names — consumed by the existing components). */
   --color-sidebar-ring: var(--sidebar-ring);
@@ -139,8 +201,7 @@
   --color-foreground: var(--foreground);
   --color-background: var(--background);
 
-  /* Brand accents exposed as first-class utilities (bg-soft, text-hikae, text-monark-t, …) for the
-     shell and the later F-site lots. Additive — no existing utility changes. */
+  /* Brand accents as first-class utilities (bg-soft, text-hikae, text-monark-t, text-narabi, …). */
   --color-paper: var(--paper);
   --color-ink: var(--ink);
   --color-ink2: var(--ink2);
@@ -154,6 +215,8 @@
   --color-hikae-t: var(--hikae-t);
   --color-ukemi: var(--ukemi);
   --color-ukemi-t: var(--ukemi-t);
+  --color-narabi: var(--narabi);
+  --color-bell: var(--bell);
   --color-ok: var(--ok);
   --color-defer: var(--defer);
   --color-abst: var(--abst);
@@ -168,28 +231,6 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-.dark {
-  color-scheme: dark;
-  /* Brand tokens — MONARK.dc.html L15 (dark). Only the brand set is overridden; the shadcn contract
-     tokens reference these through var(), so they flip with the theme (e.g. primary becomes light ink
-     on the dark ground, matching the design's dark CTA). Base agent hues (monark/shogen/hikae/ukemi)
-     are unchanged in dark, as in the design; only their -t tint variants shift. */
-  --paper: #15120f;
-  --ink: #f2ede4;
-  --ink2: #aba296;
-  --line: rgba(242, 237, 228, 0.14);
-  --card: #1d1915;
-  --soft: #25201b;
-  --monark-t: #e0766d;
-  --shogen-t: #ff8a6e;
-  --hikae-t: #3fbfb1;
-  --ukemi-t: #9aa2ee;
-  --ok: #3fbfb1;
-  --defer: #c9a56a;
-  --abst: #e0766d;
-  --focus: #3fbfb1;
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -199,17 +240,18 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-size: 13px;
+    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
-  /* Design base styles — MONARK.dc.html L18/L20. Bare-element rules only; Tailwind utilities (a later
-     cascade layer) still win, so the existing `underline hover:text-foreground` links keep their look. */
+  /* Bare-element rules only; Tailwind utilities (a later cascade layer) still win. */
   a {
     color: var(--foreground);
     text-decoration: none;
   }
   a:hover {
-    color: var(--monark-t);
+    color: var(--token-print);
   }
   button {
     font-family: inherit;
@@ -217,12 +259,234 @@
   }
   :focus-visible {
     outline: 2px solid var(--focus);
-    outline-offset: 3px;
+    outline-offset: 2px;
     border-radius: 4px;
   }
 }
 
-/* Motion — MONARK.dc.html L21-25. Reduced-motion users get no animation or transition, anywhere. */
+/* Charter C components (namespaced `c-` so none collides with a Tailwind utility; source: the mock's
+   assets/charte-c.css, with its text-muted colour mapped to --ink2 because --muted is a shadcn surface token). */
+@layer components {
+  .c-main { max-width: 1240px; margin: 0 auto; padding: 0 28px 36px; min-width: 0; }
+  .c-section { padding-top: 36px; min-width: 0; max-width: 100%; }
+  .c-section > .c-label { display: block; margin-bottom: 12px; }
+  .c-mono { font-family: var(--font-mono); }
+  .c-muted { color: var(--ink2); }
+  .c-small { font-size: 12px; }
+  .c-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink2); }
+  .c-h1 { font-size: 30px; font-weight: 500; letter-spacing: -0.02em; margin: 0; line-height: 1.15; }
+  .c-h2 { font-size: 14px; font-weight: 600; margin: 0 0 12px; }
+  .c-h3 { font-size: 13px; font-weight: 600; margin: 0 0 6px; }
+  .c-lede { font-size: 14px; color: var(--ink2); max-width: 820px; }
+
+  .c-pill { display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: var(--r-pill); font-family: var(--font-mono); font-size: 11px; white-space: nowrap; }
+  .c-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .c-pill--built { background: color-mix(in oklch, var(--token-print) 18%, var(--bg)); color: var(--ink); }
+  .c-pill--built::before { background: var(--token-print); }
+  .c-pill--shipped { background: var(--narabi-bg); color: var(--ink); }
+  .c-pill--shipped::before { background: var(--narabi); }
+  .c-pill--ukemi { background: color-mix(in oklch, var(--ukemi) 18%, var(--bg)); color: var(--ink); }
+  .c-pill--ukemi::before { background: var(--ukemi); }
+  .c-pill--upcoming { background: color-mix(in oklch, var(--ink) 8%, var(--bg)); color: var(--ink2); }
+  .c-pill--upcoming::before { border: 1px solid var(--ink2); }
+  /* A fact read from a file (e.g. an attestation record in a proof): neutral, never the green of a `built` pill. */
+  .c-pill--fact { background: var(--surface); color: var(--ink); border: 1px solid var(--rule); }
+  .c-pill--fact::before { background: var(--ink2); }
+
+  .c-tag { display: inline-block; font-family: var(--font-mono); font-size: 11px; padding: 2px 8px; border: 1px solid var(--tag-rule); border-radius: var(--r-sm); color: var(--tag-ink); white-space: nowrap; margin: 2px 2px 2px 0; }
+  .c-tag--next { border-style: dashed; color: var(--ink2); }
+  .c-abstain { display: inline-block; border: 1px dashed var(--ink2); border-radius: var(--r-sm); padding: 2px 8px; color: var(--ink2); font-family: var(--font-mono); font-size: 12px; white-space: normal; }
+  .c-state { display: inline-block; font-family: var(--font-mono); font-size: 11px; padding: 2px 8px; border: 1px solid var(--ink); border-radius: var(--r-sm); }
+  .c-state--dashed { border-style: dashed; border-color: var(--ink2); color: var(--ink2); }
+  .c-quorum { display: inline-flex; gap: 8px; align-items: center; font-family: var(--font-mono); font-size: 11px; }
+  .c-quorum i { display: inline-flex; gap: 3px; }
+  .c-quorum b { width: 12px; height: 4px; border-radius: 2px; background: var(--ink); display: block; }
+  .c-quorum b.c-off { background: none; border: 1px solid var(--ink2); }
+
+  /* Named placeholder: the name in clear + an upcoming state, never a value (tinted like the mock's .ph). */
+  .c-ph { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 12px; color: var(--regime-holiday); background: var(--regime-holiday-bg); border-radius: var(--r-sm); padding: 0 6px; max-width: 100%; overflow-wrap: anywhere; vertical-align: baseline; }
+  .c-ph::before { content: ""; width: 6px; height: 6px; border-radius: 50%; border: 1px solid currentColor; flex: none; }
+  .c-ph__state { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.85; }
+
+  .c-card { border: 1px solid var(--rule); border-radius: var(--r-md); background: var(--surface); padding: 18px; min-width: 0; }
+  .c-card--prov { border-color: var(--ink); }
+  .c-card--accent { border-color: var(--token-print); }
+  .c-card--up { border-style: dashed; }
+  .c-kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-family: var(--font-mono); font-size: 12px; margin: 0; }
+  .c-kv dt { color: var(--ink2); margin: 0; }
+  .c-kv dd { margin: 0; overflow-wrap: anywhere; }
+  .c-kv dd .c-mono, .c-kv dd code { white-space: nowrap; overflow-x: auto; display: inline-block; max-width: 100%; vertical-align: bottom; }
+  .c-code { background: var(--bg); border-radius: 6px; padding: 10px 12px; font-family: var(--font-mono); font-size: 11px; line-height: 1.7; overflow-x: auto; white-space: pre; margin: 0; }
+  .c-formula { background: var(--bg); border-radius: 8px; padding: 12px 14px; font-family: var(--font-mono); font-size: 13px; line-height: 1.8; overflow-x: auto; white-space: pre-wrap; margin: 0; }
+  .c-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+  .c-list li { display: grid; grid-template-columns: 14px 1fr; gap: 8px; }
+  .c-list li > span:first-child { font-family: var(--font-mono); color: var(--ink2); }
+  .c-ol { margin: 0; padding-left: 22px; font-size: 13px; list-style: decimal outside; }
+  .c-ol li + li { margin-top: 8px; }
+  .c-ol li::marker { font-family: var(--font-mono); color: var(--ink2); }
+  .c-note { border-left: 3px solid var(--regime-holiday); padding: 6px 12px; color: var(--ink2); font-size: 12px; background: var(--regime-holiday-bg); border-radius: 0 6px 6px 0; }
+
+  .c-grid { display: grid; gap: 20px; }
+  .c-grid > * { min-width: 0; }
+  .c-grid--2 { grid-template-columns: 1fr 1fr; }
+  .c-grid--3 { grid-template-columns: repeat(3, 1fr); }
+  .c-grid--4 { grid-template-columns: repeat(4, 1fr); }
+  .c-hero { padding-top: 32px; display: grid; grid-template-columns: 1.3fr 1fr; gap: 40px; align-items: end; }
+  .c-hero--single { grid-template-columns: 1fr; }
+
+  .c-board { border: 1px solid var(--rule); border-radius: var(--r-md); background: var(--surface); overflow: hidden; min-width: 0; max-width: 100%; position: relative; }
+  .c-board-scroll { overflow-x: auto; }
+  .c-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12px; }
+  .c-table th { text-align: left; font-weight: 400; padding: 10px 14px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  .c-table td { padding: 10px 14px; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  .c-table tr:last-child td { border-bottom: 0; }
+  .c-num { text-align: right; }
+  .c-hatch { background: repeating-linear-gradient(135deg, transparent 0 6px, var(--rule-soft) 6px 7px); }
+
+  .c-steps { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--rule); border-radius: var(--r-md); background: var(--surface); overflow: hidden; }
+  .c-steps > div { padding: 16px 18px; border-right: 1px solid var(--rule-soft); }
+  .c-steps > div:last-child { border-right: 0; }
+  .c-steps b { display: block; font-weight: 600; margin: 4px 0; }
+  .c-props { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  .c-props .c-card { border-top: 3px solid var(--token-print); }
+  .c-props .c-card p { color: var(--ink2); margin-top: 6px; }
+  .c-timeline { display: grid; grid-template-columns: repeat(6, 1fr); border: 1px solid var(--rule); border-radius: var(--r-md); overflow: hidden; background: var(--surface); font-family: var(--font-mono); font-size: 11px; }
+  .c-timeline > div { padding: 12px 14px; border-right: 1px solid var(--rule-soft); }
+  .c-timeline > div:last-child { border-right: 0; }
+  .c-timeline b { display: block; font-weight: 500; margin-bottom: 4px; color: var(--ink); }
+  .c-timeline .c-off { background: color-mix(in oklch, var(--token-print) 10%, var(--surface)); }
+  .c-timeline .c-on { background: color-mix(in oklch, var(--cash-close) 10%, var(--surface)); }
+  .c-toc { display: flex; flex-wrap: wrap; gap: 8px 18px; font-family: var(--font-mono); font-size: 11px; color: var(--ink2); }
+  .c-residual-row { display: grid; grid-template-columns: 260px 1fr; gap: 8px 16px; padding: 8px 0; border-bottom: 1px solid var(--rule-soft); align-items: start; }
+  .c-residual-row:last-child { border-bottom: 0; }
+  .c-feed { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-family: var(--font-mono); font-size: 11px; }
+  .c-sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .c-sw--mint { background: var(--token-print); }
+  .c-sw--lav { background: var(--cash-close); }
+  .c-sw--ink { background: var(--ink); opacity: 0.35; }
+
+  /* Site chrome: site bar, header, footer, theme button (common to every page). */
+  .c-sitebar { display: flex; align-items: center; gap: 18px; padding: 6px 28px; border-bottom: 1px solid var(--rule-soft); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink2); flex-wrap: wrap; }
+  .c-sitebar a { color: var(--ink2); }
+  .c-sitebar a[aria-current] { color: var(--ink); }
+  .c-sitebar .c-right { margin-left: auto; text-transform: none; letter-spacing: 0; }
+  .c-header { display: flex; align-items: center; gap: 28px; padding: 12px 28px; border-bottom: 1px solid var(--rule); background: var(--bg); }
+  .c-brand { display: flex; align-items: center; gap: 10px; color: var(--ink); flex: none; }
+  .c-brand:hover { color: var(--ink); }
+  .c-logo { height: 56px; width: auto; display: block; }
+  .c-logo--monark { height: 32px; }
+  .c-nav { display: flex; gap: 20px; color: var(--ink2); flex-wrap: wrap; }
+  .c-nav a { color: var(--ink2); white-space: nowrap; }
+  .c-nav a[aria-current] { color: var(--ink); }
+  .c-themebtn { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: var(--r-pill); border: 1px solid var(--rule); background: var(--surface); color: var(--ink2); font-family: var(--font-mono); font-size: 11px; cursor: pointer; flex: none; }
+  .c-themebtn:hover { border-color: var(--token-print); color: var(--ink); }
+  .c-footer { border-top: 1px solid var(--rule); padding: 14px 28px 22px; font-family: var(--font-mono); font-size: 11px; color: var(--ink2); }
+  .c-footer__phrases { display: flex; gap: 10px 24px; flex-wrap: wrap; }
+  .c-footer__links { display: flex; gap: 8px 18px; flex-wrap: wrap; margin-top: 12px; }
+  .c-footer__links a { color: var(--ink2); }
+  .c-footer__links a:hover { color: var(--token-print); }
+
+  /* Landing modules (index mock). */
+  .c-herowrap { position: relative; min-height: 520px; border-bottom: 1px solid var(--rule); overflow: hidden; }
+  .c-herowrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; pointer-events: none; opacity: 0.95; }
+  .c-veil { position: absolute; inset: 0; background: linear-gradient(90deg, var(--bg) 0 34%, color-mix(in oklch, var(--bg) 78%, transparent) 52%, transparent 100%); pointer-events: none; }
+  .c-herotext { position: relative; max-width: 1240px; margin: 0 auto; padding: 64px 28px 56px; }
+  .c-herotext .c-col { max-width: 600px; }
+  .c-herotext h1 { font-size: clamp(34px, 4.4vw, 54px); font-weight: 500; letter-spacing: -0.03em; line-height: 1.05; margin: 12px 0 0; }
+  .c-dek { font-size: 17px; color: var(--tag-ink); max-width: 520px; margin-top: 16px; }
+  .c-ctas { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+  .c-btn { display: inline-flex; align-items: center; height: 40px; padding: 0 20px; border-radius: var(--r-pill); font-weight: 600; font-size: 14px; border: 1px solid var(--ink); color: var(--ink); }
+  .c-btn--fill { background: var(--ink); color: var(--bg); }
+  .c-btn--fill:hover { color: var(--bg); opacity: 0.9; }
+  .c-btn--line { background: color-mix(in oklch, var(--bg) 70%, transparent); }
+  .c-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 22px; font-family: var(--font-mono); font-size: 11px; color: var(--ink2); }
+  .c-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .c-pipe { display: grid; grid-template-columns: 1fr auto 1.2fr auto 1fr; gap: 12px; align-items: stretch; }
+  .c-pipe .c-arrow { display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); color: var(--ink2); font-size: 18px; }
+  .c-pipe h3 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .c-pipe h3 svg { width: 22px; height: 22px; color: var(--ink); }
+  .c-states { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .c-thesis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .c-thesis p { font-size: 17px; line-height: 1.5; margin-top: 10px; }
+  .c-products { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .c-products .c-card { display: flex; flex-direction: column; gap: 12px; }
+  .c-products a.c-card:hover { border-color: var(--token-print); color: inherit; }
+  .c-products .c-logo { height: 52px; }
+  .c-products .c-foot { margin-top: auto; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .c-token { display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px; align-items: center; }
+  .c-marks { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .c-markcell { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--rule); border-radius: var(--r-pill); padding: 4px 10px 4px 6px; font-family: var(--font-mono); font-size: 11px; color: var(--ink); }
+  .c-markcell svg { width: 22px; height: 22px; color: var(--ink); }
+  .c-markcell--up { border-style: dashed; color: var(--ink2); }
+  .c-markcell--bell { border-color: var(--bell); }
+
+  /* Fleet register module. */
+  .c-reg { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  .c-reg .c-card { display: flex; flex-direction: column; gap: 10px; }
+  .c-reg h3 { display: flex; align-items: center; gap: 10px; margin: 0; flex-wrap: wrap; font-size: 14px; font-weight: 600; }
+  .c-reg h3 svg { width: 28px; height: 28px; color: var(--ink); }
+  .c-reg .c-role { margin-left: auto; }
+  .c-reg .c-regnote { border-top: 1px solid var(--rule-soft); padding-top: 10px; color: var(--ink2); font-size: 12px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .c-card, .c-themebtn { transition: background 0.15s, border-color 0.15s; }
+  }
+  @media (max-width: 1024px) {
+    .c-props { grid-template-columns: 1fr 1fr; }
+    .c-timeline { grid-template-columns: repeat(3, 1fr); }
+    .c-timeline > div { border-bottom: 1px solid var(--rule-soft); }
+  }
+  @media (max-width: 960px) {
+    .c-pipe { grid-template-columns: 1fr; }
+    .c-pipe .c-arrow { transform: rotate(90deg); }
+    .c-thesis, .c-products, .c-token { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 860px) {
+    .c-hero, .c-grid--2, .c-grid--3, .c-grid--4, .c-reg { grid-template-columns: 1fr; }
+    .c-steps { grid-template-columns: 1fr 1fr; }
+    .c-steps > div { border-bottom: 1px solid var(--rule-soft); }
+    .c-residual-row { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 820px) {
+    .c-herowrap iframe { opacity: 0.45; }
+    .c-herotext .c-col { max-width: none; }
+  }
+  /* Mobile (designer NOTE-retouche-mobile points 1-5, 8, 14, 17 — applied, not deferred). */
+  @media (max-width: 720px) {
+    .c-header { flex-wrap: wrap; gap: 12px; padding: 12px 16px; }
+    .c-nav { order: 3; flex-basis: 100%; flex-wrap: nowrap; gap: 16px; overflow-x: auto; white-space: nowrap; padding-bottom: 2px; scrollbar-width: none; }
+    .c-nav::-webkit-scrollbar { display: none; }
+    .c-nav a { flex: 0 0 auto; }
+    .c-sitebar { padding: 6px 16px; }
+    .c-sitebar .c-right { margin-left: 0; flex-basis: 100%; text-align: left; }
+    .c-footer { padding-left: 16px; padding-right: 16px; }
+    .c-logo { height: 44px; }
+    .c-logo.c-logo--monark { height: 24px; } /* orchestrator ruling: MONARK horizontal 24 px under 720 px */
+    .c-main { padding: 0 16px 16px; }
+    .c-steps, .c-props, .c-timeline { grid-template-columns: 1fr; }
+    .c-h1 { font-size: 24px; }
+    .c-herowrap { min-height: 0; display: flex; flex-direction: column; }
+    .c-herowrap iframe { position: static; height: 220px; opacity: 1; order: 2; }
+    .c-veil { display: none; }
+    .c-herotext { padding: 40px 16px 28px; }
+    .c-board-scroll .c-table { min-width: 640px; font-size: 11px; }
+    .c-board-scroll th, .c-board-scroll td { padding: 6px 8px; }
+    .c-board-scroll { padding-top: 18px; }
+    .c-board-scroll::after { content: "scroll \2192"; position: absolute; right: 8px; top: 5px; font: 10px/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink2); }
+    .c-kv { grid-template-columns: 1fr; }
+    .c-kv dt { margin-top: 6px; }
+    /* designer point 19: the anchors register — the date wraps (day / time), the status column keeps a width */
+    .c-anchors td:first-child { white-space: normal; max-width: 11ch; }
+    .c-anchors td:last-child { min-width: 200px; max-width: 240px; }
+  }
+  @media (max-width: 480px) {
+    .c-reg h3 { flex-wrap: wrap; }
+    .c-reg .c-role { margin-left: 0; }
+  }
+}
+
+/* Motion — keyframes used by the illustrative gate sim (GateSim). Reduced-motion users get no animation or
+   transition, anywhere. */
 @keyframes rise {
   from {
     opacity: 0;
