@@ -39,10 +39,10 @@ const card: CSSProperties = {
   borderRadius: 22,
   background: "var(--card)",
 };
-const mono11Ink2: CSSProperties = { fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "var(--ink2)", lineHeight: 1.5 };
+const mono11Ink2: CSSProperties = { fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink2)", lineHeight: 1.5 };
 const readoutBox: CSSProperties = { border: "1px solid var(--line)", borderRadius: 12, padding: 14, background: "var(--card)" };
-const readoutLabel: CSSProperties = { fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "var(--ink2)", marginBottom: 6 };
-const readoutValue: CSSProperties = { fontFamily: "'IBM Plex Mono', monospace", fontSize: 15, minHeight: 22 };
+const readoutLabel: CSSProperties = { fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink2)", marginBottom: 6 };
+const readoutValue: CSSProperties = { fontFamily: "var(--font-mono)", fontSize: 15, minHeight: 22 };
 
 function Caveat() {
   return <div style={mono11Ink2}>{CAVEAT}</div>;
@@ -70,7 +70,7 @@ export function GateSim({ mode, actions, reasons, cost, ambient }: GateSimProps)
       <div style={{ ...card, borderRadius: 20, padding: 26, display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={mono11Ink2}>B_t over one illustrative epoch</div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, minWidth: 112 }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, minWidth: 112 }}>
             B_t = <span style={{ fontWeight: 500 }}>{sim.budgetText}</span>
           </div>
           <div style={{ flex: 1, minWidth: 160 }}>
@@ -85,7 +85,7 @@ export function GateSim({ mode, actions, reasons, cost, ambient }: GateSimProps)
                 display: "grid",
                 gridTemplateColumns: "auto 1fr auto",
                 gap: 12,
-                fontFamily: "'IBM Plex Mono', monospace",
+                fontFamily: "var(--font-mono)",
                 fontSize: 12,
                 padding: "8px 0",
                 borderTop: "1px solid var(--line)",
@@ -151,7 +151,7 @@ export function GateSim({ mode, actions, reasons, cost, ambient }: GateSimProps)
       <div style={{ padding: 28, display: "flex", flexDirection: "column", gap: 14, background: "var(--paper)" }}>
         <GateDiagram state={state} actions={actions} compact />
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, minWidth: 112 }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, minWidth: 112 }}>
             B_t = <span style={{ fontWeight: 500 }}>{sim.budgetText}</span>
           </div>
           <div style={{ flex: 1, minWidth: 160 }}>
@@ -175,7 +175,7 @@ export function GateSim({ mode, actions, reasons, cost, ambient }: GateSimProps)
             borderRadius: 12,
             padding: 14,
             background: "var(--card)",
-            fontFamily: "'IBM Plex Mono', monospace",
+            fontFamily: "var(--font-mono)",
             fontSize: 12,
             lineHeight: 1.55,
             overflow: "auto",

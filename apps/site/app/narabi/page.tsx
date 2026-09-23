@@ -35,7 +35,7 @@ function publishSchedule(): string {
 
 export default function NarabiPage() {
   return (
-    <main className="mx-auto max-w-[1200px] px-6 py-16">
+    <main className="c-main" style={{ paddingTop: 32 }}>
       <NarabiLive publishSchedule={publishSchedule()} />
     </main>
   );

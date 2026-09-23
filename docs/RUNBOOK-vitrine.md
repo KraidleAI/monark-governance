@@ -6,6 +6,7 @@ Mesuré sur le VPS le 2026-09-18 (lecture seule) : unité `monark.service`, `Wor
 Déploiement = action sortante sous go investisseur (ADR-M010) ; régime de contenu selon ADR-M013 (T0/T1/T2).
 
 ## Procédure (orchestrateur, depuis un `main` propre — jamais depuis un arbre portant les fichiers d'un autre lot)
+0. **Ancres Bell (lot SITE-CHARTE-C)** : après chaque nouvelle ancre (ou preuve mise à niveau) dans `docs/course-bell/`, relancer `node scripts/sync-bell-anchors.mjs` puis rebuild (`npm run build -w @monark/site`), et committer `apps/site/public/bell/anchors/` avec l'ancre — sinon le test `bell_anchors_served_register_matches_source` rougit.
 1. **Export propre** : `git worktree add --detach <scratch>/wt-<sha> <sha>` puis, depuis ce worktree, `node scripts/export-public.mjs --out <scratch>/site-<sha>`
    (même surface que le miroir public ; `apps/site` en marche complète). Vérifier `EXPORT-MANIFEST.json` et l'absence de `node_modules`/`.next`.
 2. **Sauvegarde VPS** : `ssh root@VPS 'tar czf /opt/monark-app.bak-$(date -u +%Y%m%d-%H%M).tgz -C /opt monark-app --exclude=monark-app/node_modules --exclude=monark-app/apps/site/.next'`.

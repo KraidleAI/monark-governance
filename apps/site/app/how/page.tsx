@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 };
 
 const section: CSSProperties = { maxWidth: 1200, margin: "0 auto" };
-const mono: CSSProperties = { fontFamily: "'IBM Plex Mono', monospace" };
+const mono: CSSProperties = { fontFamily: "var(--font-mono)" };
 const card: CSSProperties = { border: "1px solid var(--line)", borderRadius: 16, background: "var(--card)" };
 const eyebrow: CSSProperties = { ...mono, fontSize: 12, color: "var(--ink2)", textTransform: "uppercase", letterSpacing: ".06em" };
 const bodyText: CSSProperties = { color: "var(--ink2)", lineHeight: 1.55 };

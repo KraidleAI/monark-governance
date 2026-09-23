@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="MONARK Bell mark">
+<title>MONARK Bell mark</title>
+<style>@media (prefers-color-scheme:dark){.ink{fill:#E9EBF2}.acc{fill:#5EE6C2}}</style>
+<path class="ink" d="M8 40 A24 24 0 0 1 56 40 Z" fill="#14151B"/><rect class="ink" x="4" y="40" width="56" height="6" fill="#14151B"/><circle class="acc" cx="32" cy="55" r="6" fill="#0F8F74"/>
+</svg>

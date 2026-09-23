@@ -15,6 +15,7 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 const STORAGE_KEY = "monark-theme";
+const DARK_QUERY = "(prefers-color-scheme: dark)";
 
 function applyTheme(t: Theme): void {
   const root = document.documentElement;
@@ -22,23 +23,38 @@ function applyTheme(t: Theme): void {
   root.style.colorScheme = t;
 }
 
+function storedTheme(): Theme | null {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored === "dark" || stored === "light" ? stored : null;
+  } catch {
+    return null; // localStorage unavailable (privacy mode)
+  }
+}
+
+// Charter C (ruling Q5): the default is the visitor's system preference (prefers-color-scheme); the header
+// button records an explicit choice, which then wins. The pre-paint script in app/layout.tsx applies the same
+// rule before first paint, so there is no flash; this provider syncs React state from it on mount and follows
+// a live system change while no explicit choice is stored.
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  // SSR and the first client render both start "light" so the markup matches; an effect then syncs the
-  // real theme from the pre-hydration class / stored preference. The toggle glyph therefore settles on
-  // mount with no hydration mismatch (the <html> root carries suppressHydrationWarning).
+  // SSR and the first client render both start "light" so the markup matches; the effect then syncs the real
+  // theme from the pre-paint class (the <html> root carries suppressHydrationWarning).
   const [theme, setThemeState] = useState<Theme>("light");
   const [reducedMotion, setReducedMotion] = useState(false);
 
   useEffect(() => {
-    let initial: Theme = document.documentElement.classList.contains("dark") ? "dark" : "light";
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === "dark" || stored === "light") initial = stored;
-    } catch {
-      // localStorage unavailable (privacy mode); fall back to the class set by the pre-paint script.
-    }
+    const media = window.matchMedia(DARK_QUERY);
+    const initial: Theme = storedTheme() ?? (media.matches ? "dark" : "light");
     setThemeState(initial);
     applyTheme(initial);
+    const follow = (): void => {
+      if (storedTheme() !== null) return; // an explicit choice wins over the system
+      const next: Theme = media.matches ? "dark" : "light";
+      setThemeState(next);
+      applyTheme(next);
+    };
+    media.addEventListener("change", follow);
+    return () => media.removeEventListener("change", follow);
   }, []);
 
   useEffect(() => {

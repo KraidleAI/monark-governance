@@ -83,3 +83,24 @@ field / score", README l.67-71) uses that exact word and WILL redden the gate �
 be reworded, because the honesty claim *is* about the absence of a "confidence" field. Resolve by a
 scoped ADR: either a closed exempt phrase (the pattern used by `honesty-lint.exempt.json` /
 `scripts/lang-exempt.json`) or a negation-aware pattern. A formed pending, not a naked due.
+
+## Charter C assets (lot SITE-CHARTE-C, investor decisions 145/146, 2026-09-23)
+
+Authored directly or copied byte-for-byte; no CLI, no npm dependency added.
+
+- `app/fonts/` — OFL fonts copied byte-for-byte from the brand font folder (decisions 105/107), with their OFL
+  licence texts beside them (two of them normalised from CRLF to LF by `.gitattributes` on commit, text unchanged);
+  loaded by `next/font/local` in `app/layout.tsx`. SHA-256 of the fonts:
+  `SpaceGrotesk-wght.ttf` `acad6de1…fbd79f72`, `JetBrainsMono-wght.ttf` `48715a42…193ffeda`,
+  `ArchivoBlack-Regular.ttf` `dd9a89a0…39703180`.
+- `public/scene/blocks-hero.html` — the designer's vendored Canvas 2D hero scene (no library), copied from the
+  charter C mock folder (`assets/3d/blocks-hero.html`, SHA-256 `1ef964e5…4ce64998`), then four changes, each
+  commented in the file: the two projected clock labels are drawn only on a canvas at least 480 px wide (designer
+  mobile note, point 5); the still frame is redrawn after a resize under reduced motion (a resize clears the canvas);
+  the document declares both colour schemes (no opaque iframe backdrop under the dark theme); the night-side label
+  reads "closed · recording" (orchestrator ruling V4: it no longer names Bell, which is upcoming in public).
+- `components/lockups.tsx` — the MONARK, Narabi, Ukemi and Bell lock-ups, path data transcribed from the
+  designer's SVG files (decision 120 lettering; Q1 ruling), ink as `currentColor`, accent as the product token.
+- `public/bell/anchors/` — written by `scripts/sync-bell-anchors.mjs` from the anchors register (manifests,
+  OpenTimestamps proofs, `anchors.json`); pinned by the root test `bell_anchors_served_register_matches_source`.
+- `public/icons/bell.svg` — the Bell mark (designer favicon) with a dark-scheme rule, the `/icons/narabi.svg` pattern.

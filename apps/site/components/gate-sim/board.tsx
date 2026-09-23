@@ -85,7 +85,7 @@ const ACTS = NODES.filter((n) => n.role === "act");
 const GATE_NODE = NODES.find((n) => n.role === "gate");
 const GENKAN_NODE = NODES.find((n) => n.role === "distribution");
 
-const mono: CSSProperties = { fontFamily: "'IBM Plex Mono', monospace" };
+const mono: CSSProperties = { fontFamily: "var(--font-mono)" };
 const eyebrow: CSSProperties = {
   ...mono,
   fontSize: 11,
@@ -94,7 +94,7 @@ const eyebrow: CSSProperties = {
   color: "var(--ink2)",
   padding: "4px 6px",
 };
-const kanjiStyle: CSSProperties = { fontFamily: "'Newsreader', serif", color: "var(--ink2)", fontSize: 13 };
+const kanjiStyle: CSSProperties = { fontFamily: "var(--font-kanji)", color: "var(--ink2)", fontSize: 13 };
 const teaser: CSSProperties = { fontSize: 12, color: "var(--ink2)", lineHeight: 1.45 };
 const rowCenter: CSSProperties = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", rowGap: 4 };
 const markBox: CSSProperties = { width: 26, height: 26, flex: "none", display: "inline-flex" };
@@ -228,11 +228,12 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--hikae)" }} />
             commit · defer · abstain
           </div>
-          <h1 style={{ fontSize: "clamp(38px,4.8vw,62px)", lineHeight: 1.02, letterSpacing: "-.025em", fontWeight: 600, margin: "16px 0 18px", textWrap: "balance" }}>
+          {/* h2: the board now sits under the charter C landing hero (ruling Q4), which carries the page's h1. */}
+          <h2 style={{ fontSize: "clamp(38px,4.8vw,62px)", lineHeight: 1.02, letterSpacing: "-.025em", fontWeight: 600, margin: "16px 0 18px", textWrap: "balance" }}>
             It abstains,
             <br />
             so it can act.
-          </h1>
+          </h2>
           <p style={{ fontSize: 17, lineHeight: 1.55, color: "var(--ink2)", maxWidth: 520, margin: 0, textWrap: "pretty" }}>
             One engine, eleven agents, one plug per client. Sensors witness, an adapter shapes the
             testimony into a frozen <span style={{ ...mono, color: "var(--ink)" }}>Prediction</span>, the
