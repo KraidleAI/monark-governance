@@ -52,6 +52,7 @@ Artefacts par frontière :
 | 2026-09-23T04:35:13Z | mint_end | NVDAx | `e2b8464b2c002e11c43f595a474bc9858eb900ea606ee7f68fe6f2fb3a6d5500` | 5fdac4617276a84143481c4a83d796bc09b45125e0c581f037ecfe81d5a69274 |  | `0cb07a5` | `mint_end-NVDAx-manifest.txt.ots` |
 | 2026-09-23T04:35:52Z | mint_start | SPYx | `b9d4628efbec1c36ab5e75866b13de99624ff38f1250f2886e1344af43d1a7d0` | n/a | n/a | `571eb9b` | `mint_start-SPYx-manifest.txt.ots` |
 | 2026-09-23T04:38:36Z | mint_resume | SPYx | `0aaf72f6c32a996204feaf37bfb6984f24f3b219f331e9f6351a3ac56cd9ebae` | n/a | n/a | `2b28efe` | `mint_resume-SPYx-1-manifest.txt.ots` |
+| 2026-09-23T16:42:03Z | mint_resume | SPYx | `93661f9d3e4d59f2b02769d0e18bd6a9f3f5a94e30e60a2113014e4a585dc5f3` | n/a | n/a | `c86e71b` | `mint_resume-SPYx-2-manifest.txt.ots` |
 
 - `entry_sha256` = `entry_sha256` de la dernière ligne de `ledger-<mint>.jsonl` **là où elle existe**, sinon `n/a`.
 - `ledger_sha256` = champ `ledger_sha256` de `crosscheck-<mint>.json` (à `mint_end`), sinon `n/a`.
