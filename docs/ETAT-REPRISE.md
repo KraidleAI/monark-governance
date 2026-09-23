@@ -102,5 +102,8 @@ Rendus deja persistes : voir `docs/G1-*`, `docs/G2-*`, `docs/CHECKPOINT1-*`, `do
 - Scripts longs : ecrire un fichier (outil Write) puis l'executer ; le transport Bash mange `\x00` et reduit `\\` en `\` (A-13).
 - `node_modules` d'un worktree : `powershell -NoProfile -File F:\tmp\g2-garde2bi\mk-nm.ps1 -Tree <dir>` ; retrait `rm-nm.ps1`, jamais `rm -rf`.
 - Ancres : `F:\course-bell\go1\anchor.sh <boundary> <mint> <fichiers…>` (env `ANCHOR_SEQ`, `ANCHOR_OUT`).
-- Persistance des rendus d'agents : `persist.py` (ci-dessus). Les transcripts d'agents vivent dans
+- **Avant tout commit d'un rendu persiste** : `env -u <8 cles> node --test --test-reporter=tap test/no-secret-in-repo.test.ts` doit etre `ok`
+  (incident SECRET-SCAN-1 du 23/09 : un rendu citant des cles FACTICES en forme `CLE=valeur` a rougi la branche 3 commits durant ; le motif
+  accepte `\s*=\s*` et toute valeur ≥ 6 caracteres — ecrire « recoit une valeur factice », jamais une affectation).
+- Persistance des rendus d'agents : `persist-last.py` (DERNIER rendu d'un agent repris ; `persist.py` = plus long, perime). Les transcripts d'agents vivent dans
   `C:\Users\KACIMI\.claude\projects\F--Monark\<session>\subagents\agent-<id>.jsonl`.
