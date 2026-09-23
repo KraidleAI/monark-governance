@@ -113,12 +113,47 @@ export interface UkemiPoolOpts {
   slowOperators?: readonly string[]; // U-4a D-4: providerOf domains throttled to slowIntervalMs (the rest use minIntervalMs)
   slowIntervalMs?: number;           // interval for slowOperators (default 200) — used to raise a single misbehaving operator
   onQuorum?: ((label: string, opA: string, opB: string, concordant: boolean) => void) | undefined; // L-4 concordance sink (operatorOf labels only, never a URL); undefined ⇒ NO-OP ⇒ book_digest byte-identical
+  gate?: PoliteGate | undefined; // UKEMI-CONC-1: a SHARED politeness gate (record.ts routes its caller retries through the same one); undefined => built from minIntervalMs/slowOperators/slowIntervalMs
 }
 
 /** The politeness interval for a provider domain: `slowIntervalMs` iff it is a slow operator, else `minIntervalMs`
  *  (U-4a D-4). Pure/exported so the per-operator throttle is asserted directly (a global-only regression reds). */
 export function resolveInterval(domain: string, minIntervalMs: number, slowOperators: readonly string[], slowIntervalMs: number): number {
   return slowOperators.includes(domain) ? slowIntervalMs : minIntervalMs;
+}
+
+/** UKEMI-CONC-1 - the per-operator politeness GATE, safe under CONCURRENT reads (replaces the pre-lot `polite`, which
+ *  stamped `politeLast` AFTER its wait and did not queue: two concurrent callers read one stamp, slept the same delay
+ *  and passed TOGETHER - already at n=1 for the Promise.all range split of getLogsVia). `gate(url, fn)` ISSUES fn()
+ *  no sooner than `interval` ms (resolveInterval of the providerOf domain, D-4) after the previous call ISSUED to the
+ *  same operator: callers queue FIFO per operator, each waits until the MONOTONIC clock (performance.now: immune to a
+ *  frozen/mocked Date and to wall-clock steps - a frozen Date hung the guard-scripts-u4 prober test, UKEMI-CONC-1
+ *  ORACLE-HANG-1) reaches last + interval (re-checked after each timer, a timer may fire early; at most 10 sleeps, a
+ *  bound against a clock that would not advance), invokes fn() synchronously (the recorder's shim -> client.call ->
+ *  write-ahead line -> transport runs synchronously up to the HTTP request), stamps `last` AFTER that invocation, and
+ *  releases the next caller BEFORE the call settles (calls stay in flight together; only their ISSUES are spaced).
+ *  interval <= 0 => fn() directly (the fixture tests pass minIntervalMs 0). */
+export type PoliteGate = <T>(url: string, fn: () => Promise<T>) => Promise<T>;
+export function makePoliteGate(minIntervalMs: number, slowOperators: readonly string[] = [], slowIntervalMs = 200): PoliteGate {
+  const tail = new Map<string, Promise<void>>(); // per operator: the release of the LAST queued caller (FIFO chain)
+  const last = new Map<string, number>();        // per operator: performance.now() just AFTER the previous issue
+  return async <T>(url: string, fn: () => Promise<T>): Promise<T> => {
+    const dom = providerOf(url);
+    const interval = resolveInterval(dom, minIntervalMs, slowOperators, slowIntervalMs);
+    if (interval <= 0) return fn();
+    const prev = tail.get(dom) ?? Promise.resolve();
+    let release: () => void = () => undefined;
+    tail.set(dom, new Promise<void>((r) => { release = () => { r(); }; }));
+    let issued: Promise<T>;
+    try {
+      await prev;
+      const due = (last.get(dom) ?? -Infinity) + interval;
+      for (let k = 0, w = due - performance.now(); w > 0 && k < 10; k++, w = due - performance.now()) await new Promise((r) => setTimeout(r, Math.ceil(w)));
+      issued = fn();
+      last.set(dom, performance.now());
+    } finally { release(); }
+    return issued;
+  };
 }
 
 export function makeUkemiPool(opts: UkemiReaderOpts): UkemiReader {
@@ -130,19 +165,9 @@ export function makeUkemiPool(opts: UkemiReaderOpts): UkemiReader {
   const cooldownUntil = new Map<string, number>();
   // Politeness is PER PROVIDER (U-4a C-5), not one global gate: a single `last` throttled the whole pool to
   // 1000/minIntervalMs calls/s across ALL operators (5 operators under 200ms ⇒ 5 calls/s ⇒ ~16.7h for 300k),
-  // whereas each endpoint tolerates ≤ 300/min on its own. Key `last` by providerOf(url) so distinct operators
-  // proceed in parallel; the fixture tests pass minIntervalMs 0 and this stays a no-op for them.
-  const politeLast = new Map<string, number>();
-
-  const polite = async (url: string): Promise<void> => {
-    const dom = providerOf(url);
-    const interval = resolveInterval(dom, minIntervalMs, slowOperators, slowIntervalMs); // D-4: a slow operator waits longer
-    if (interval <= 0) return;
-    const prev = politeLast.get(dom) ?? 0;
-    const wait = prev + interval - Date.now();
-    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-    politeLast.set(dom, Date.now());
-  };
+  // whereas each endpoint tolerates ≤ 300/min on its own. The gate keys by providerOf(url) so distinct operators
+  // proceed in parallel, and (UKEMI-CONC-1) queues concurrent callers of ONE operator; minIntervalMs 0 = a no-op.
+  const gate = opts.gate ?? makePoliteGate(minIntervalMs, slowOperators, slowIntervalMs);
   const live = (providers: readonly string[]): string[] => {
     const up = providers.filter((u) => (cooldownUntil.get(u) ?? 0) <= Date.now());
     return up.length > 0 ? up : [...providers];
@@ -162,8 +187,7 @@ export function makeUkemiPool(opts: UkemiReaderOpts): UkemiReader {
       const url = list[i];
       if (url === undefined || seen.has(operatorOf(url))) continue; // C-2: distinctness by OPERATOR ({nodies,pocket}=1)
       try {
-        await polite(url);
-        const val = await fetchOne(url);
+        const val = await gate(url, () => fetchOne(url));
         got.push({ prov: operatorOf(url), kind: "ok", key: "ok:" + keyOf(val), val });
         seen.add(operatorOf(url));
       } catch (e) {
@@ -184,10 +208,9 @@ export function makeUkemiPool(opts: UkemiReaderOpts): UkemiReader {
 
   /** eth_getLogs on ONE endpoint, splitting the range on a result/range-cap error (recursively). */
   async function getLogsVia(url: string, address: string, topics: ReadonlyArray<string | null>, from: number, to: number, depth = 0): Promise<LogEntry[]> {
-    await polite(url);
     const params = [{ address, fromBlock: toHexBlock(from), toBlock: toHexBlock(to), topics }];
     try {
-      return asLogs(await call(url, "eth_getLogs", params));
+      return asLogs(await gate(url, () => call(url, "eth_getLogs", params)));
     } catch (e) {
       if (e instanceof BudgetExceededError) throw e; // C-5: FIRST — else its message could trip isResultLimit ⇒ endless split
       const msg = String((e as Error).message);
@@ -228,7 +251,7 @@ export function makeUkemiPool(opts: UkemiReaderOpts): UkemiReader {
       for (let i = 0; i < list.length && got.length < 2; i++) {
         const url = list[i];
         if (url === undefined || seen.has(operatorOf(url))) continue; // C-2: distinctness by OPERATOR
-        try { await polite(url); const b = asBlock(await call(url, "eth_getBlockByNumber", ["finalized", false])); got.push({ block: b.number, ts: b.ts }); seen.add(operatorOf(url)); }
+        try { const b = asBlock(await gate(url, () => call(url, "eth_getBlockByNumber", ["finalized", false]))); got.push({ block: b.number, ts: b.ts }); seen.add(operatorOf(url)); }
         catch (e) { if (e instanceof BudgetExceededError) throw e; cooldownUntil.set(url, Date.now() + 25_000); } // C-5: FIRST — else the bare catch swallows the budget stop
       }
       const [a, b] = got;
