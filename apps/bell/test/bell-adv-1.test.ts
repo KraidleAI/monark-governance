@@ -125,17 +125,25 @@ test("bell_no_adv_is_named_counted_and_ratio_absent", () => {
   assert.equal(b0.residuals.no_multiplier, 0, "the multiplier 1.5 is established");
   // Insufficient or malformed months: each one => no_adv on the Saturday session, never a partial average.
   const full = AUG25();
+  // G2 C-1 (mutant G3): a SATURDAY bar substituted for a missing trading day keeps the month's bar count AND its distinct
+  // date count (21 = the 21 trading days of Aug 2025); only the per-day calendar coverage (days.every) refuses it.
+  const satForMissingDay: AdvDailyBar[] = [...full.filter((x) => x.dateET !== "2025-08-15"), { dateET: "2025-08-16", v: 1_000_000 }];
+  assert.equal(new Date("2025-08-16T12:00:00Z").getUTCDay(), 6, "2025-08-16 is a Saturday");
+  assert.equal(new Set(satForMissingDay.map((x) => x.dateET)).size, 21, "21 distinct dates, as many as the trading days");
   const variants: Array<[string, AdvDailyBar[], number]> = [
     ["one trading day missing", full.filter((x) => x.dateET !== "2025-08-15"), 20],
     ["an extra bar on a Saturday", [...full, { dateET: "2025-08-16", v: 1_000_000 }], 22],
     ["a duplicated day in place of a missing one", [...full.filter((x) => x.dateET !== "2025-08-15"), { dateET: "2025-08-14", v: 1_000_000 }], 21],
     ["a zero-volume day", full.map((x) => (x.dateET === "2025-08-20" ? { dateET: x.dateET, v: 0 } : x)), 21],
+    ["a Saturday in place of a missing trading day", satForMissingDay, 21],
   ];
   for (const [label, bars, nBars] of variants) {
     const o = run([baseSym([sat], bars, mint15)]);
     assert.deepEqual(o.volume[0]?.abstain, ["no_adv"], label);
+    assert.ok(!("vol_ratio" in (o.volume[0] ?? {})), `${label}: no ratio without its denominator`);
     assert.equal(o.volume[0]?.n_bars, nBars, `${label}: n_bars reports the bars found`);
     assert.equal(o.residuals.no_adv, 1, label);
+    assert.equal(o.stateResiduals.no_adv, 1, `${label}: counted in the state.json view too`);
   }
   // A month outside the committed calendar (Dec 2024) is unknown => no_adv even with 22 plausible bars; n_trading_days null.
   const jan = fill("j", Date.UTC(2025, 0, 11, 15, 0, 0), 1); // Sat 2025-01-11 => day Fri 01-10 => December 2024
@@ -177,6 +185,18 @@ test("bell_no_multiplier_is_named_counted_never_one", () => {
   // T: a trajectory whose Initialize comes AFTER the fill => no multiplier at the fill => no_multiplier.
   const late: RebaseGate = { status: "trajectory_known", events: [ev("initialize", 1, Math.floor(f.blockTimeUtcMs / 1000) + 60, 1)], overwrittenPending: 0, residuals: [] };
   assert.deepEqual(abst({ mint: mintOf("1"), rebase: late }).volume[0]?.abstain, ["no_multiplier"]);
+  // G2 C-1 (mutants G13/G14): a trajectory_known gate whose Initialize sets m = 0 or m = +Infinity (bit-exact f64) at the
+  // fill => no_multiplier, never a published "0.0000000000" or "Infinity". Only the trajectory path reaches these guards of
+  // sessionShareVolume (the mint and constant branches filter m <= 0 and a non-finite m first); the legible mint (m = 1)
+  // never stands in for the gate.
+  for (const m of [0, Number.POSITIVE_INFINITY]) {
+    const bad: RebaseGate = { status: "trajectory_known", events: [ev("initialize", m, 0, 1)], overwrittenPending: 0, residuals: [] };
+    const o = abst({ mint: mintOf("1"), rebase: bad });
+    assert.equal(o.volume.length, 1, `trajectory m = ${String(m)}: one session entry`);
+    assert.deepEqual(o.volume[0]?.abstain, ["no_multiplier"], `trajectory m = ${String(m)}`);
+    assert.ok(o.volume.every((e) => !("vol_ratio" in e)), `trajectory m = ${String(m)}: no vol_ratio entry`);
+    assert.ok(o.residuals.no_multiplier === 1 && o.stateResiduals.no_multiplier === 1, `trajectory m = ${String(m)}: counted`);
+  }
   // Both inputs missing => BOTH named and BOTH counted (no silent second cause).
   const both = run([baseSym([f], [], {})]);
   assert.deepEqual(both.volume[0]?.abstain, ["no_multiplier", "no_adv"]);

@@ -103,7 +103,7 @@ function volumeBaseDecimal(fills: readonly SwapFill[], baseDec: number): string 
 
 /** BELL-ADV-1 (I-G2-1 a): the shares-per-token multiplier that converts a session's token volume, per fill, from the
  *  SAME evidence as the g_t path: trajectory_known => m(t) replayed per fill; constant => m; unverified => NOT established.
- *  Gate ABSENT (replay/offline input; the live wiring always sets it, buildSolanaSymbol) => the mint readout's multiplier
+ *  Gate ABSENT (live ETH TSLAon leg: no gate, no mint => no_multiplier; or offline replay) => the mint readout's multiplier
  *  when the mint is present and it parses to a finite number > 0. Otherwise null => the session's ratio abstains
  *  no_multiplier (never a default "1", never the current readout standing in for an unverified history). */
 function ratioMultiplierOf(s: SymbolInput): ((blockTimeMs: number) => number | null) | null {
