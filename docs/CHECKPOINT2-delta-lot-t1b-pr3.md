@@ -1,0 +1,61 @@
+# CHECKPOINT-2 DELTA — PR-3 du lot T-1b-backend, `lot/t1b-pr3` @ `5da8962` (= `bca7f5d` + pli bis `1353a79` + ter `5da8962`) — validateur-humain
+
+- **Modèle résolu** : `claude-fable-5-1` (préfixe conforme R-1).
+- **Date** : 2026-09-23, 21:00Z → 21:1xZ. Budget 25 min.
+- **Nature** : acceptation DELTA du livrable (siège PO) sur les deux commits ajoutés depuis mon avis `bca7f5d` (`F:\tmp\cp2-t1b-pr3\CP2.md`, sha256 `be86175e…`, persisté `docs/CHECKPOINT2-lot-t1b-pr3.md`) ; G7 reste à l’orchestrateur.
+- **Contexte frais** : aucun fil de travail lu ; artefacts seuls. Le G2-delta du pli C-V est PERSISTÉ (`docs/G2-delta-lot-t1b-pr3.md`, C-D-1, o04/o05/o07) et lu comme pièce du delta ; aucun G2 en vol lu. Rejeu sous `F:\tmp\cp2-t1b-pr3\delta\` (AM-2 ter) + copie `wt\` remise à `5da8962` + arbre fusionné mien `F:\tmp\cp2-t1b-pr2\tree2\` remis à PR-2 `55bcdac` + PR-3 `5da8962` ; ceinture A-7 `env -u` × 8 sur chaque exécution ; `TEMP/TMP/TMPDIR=F:/tmp/cp2-t1b-pr3/delta/tmp` ; aucune clé réelle (clés de test générées puis effacées, 0 `.pem` restant) ; aucun réseau ; aucun octet dans `F:\Monark*` ; aucun `git` mutatif.
+
+## 1. Artefacts et empreintes
+
+- Delta relu en entier : `git diff bca7f5d 5da8962` = 2 fichiers (`docs/RUNBOOK-bell.md` +5/−4, `test/bell-deploy-config.test.ts` +40/−20). `git hash-object` des 11 fichiers du lot == blobs `5da8962` **11/11** ; `git status` du worktree 0 ligne.
+- PR-2 : nouvelle pointe `55bcdac` (pli G2 C-1..C-9), 12 fichiers — **acceptée au G2 seulement, pas encore de cp-2 sur ce pli** (ma composition est prouvée contre cette tête, l’acceptation de la PR-2 elle-même reste due) ; **recouvrement PR-2 × PR-3 = 0 chemin**. Arbre fusionné `tree2` : chaque fichier == blob `55bcdac` (12/12) ou `5da8962` (11/11), vérifié par `hash-object`.
+- Rulings orchestrateur reçus : C-V-4 = item **BELL-CRED-ID-EXEC-1** (déclencheur « premier lot touchant `deploy/` »), non bloquant G-e — **conforme à mon avis** (l’étape 6 exécute la composition sur l’hôte) ; accepté tel que formé.
+
+## 2. Rejeux indépendants
+
+- **R-25 forme CI** (`64dbbd6...5da8962`, pathspec `ci.yml:65` verbatim + awk CI) : « 10 files changed, 1014 insertions(+), 4 deletions(-) » ⇒ **1 018 ≤ 1 150** (= attendu ; `delta\R25.txt`).
+- **Tests ciblés, copie `wt\` @ `5da8962`** : `test/bell-deploy-config.test.ts` **10 passages × 4/4, 0 fail** (`delta\tap\bdc-1..10.tap`) — **aucun faux positif** de C-D-1 sur le RUNBOOK livré ; `test/verify-bell.test.ts` 3 ok + 1 SKIP nommé (PR-2 absente, attendu).
+- **Oracle 7 portes, copie `wt\` @ `5da8962`** (`delta\oracle.log`, `delta\tap\o-test.tap`) : 21:02:24Z → 21:06:52Z : `gate:vocab` 0, `typecheck` 0, `test` 0 (**1 118 / 1 115 / 0 / 3 skipped**, 0 `not ok` ; test 42 `export_public_no_governance_no_french` **ok**, 193 s), `lint` 0, `lint:ratchet` 0, `lang:gate` 0, `export:check` 0 — **7 × exit 0**.
+- **Arbre fusionné (`55bcdac` + `5da8962`)** : `test/verify-bell.test.ts` **4/4, 0 skip** (contrôle 5 réel ok) ; `test/bell-deploy-config.test.ts` 4/4 (dont `bell_runbook_ships_the_ca_tree_and_the_unit_key_path` : la commande de trousseau du RUNBOOK, avec `--`, rejouée par le test contre la clé servie) ; E2E PR-2 4/4, 0 skip ; `bell-keys.test.ts` 8/8 (nouveaux tests du pli PR-2 inclus).
+- **T4-KEYRING-DASH-1 reproduit puis confirmé corrigé** (`delta\o3\t4-*.out|err`), JS de l’étape 5 EXTRAIT du RUNBOOK livré, `x` synthétique de 43 caractères base64url commençant par `-` : forme SANS `--` (ancienne) ⇒ **exit 9, stdout 0 octet, « bad option: -AAA… »** — c’est bien le trousseau VIDE à l’étape 5 ; forme AVEC `--` (5da8962) ⇒ **exit 1 « STOP: key_id mismatch »** (le `x` est lu comme positionnel ; avec un `key_id` cohérent la sortie serait le trousseau). **T4 corrigé.** Le test `bell_runbook_ships_the_ca_tree_and_the_unit_key_path` épingle désormais la forme `-- <x> <key_id>` (l.195) et l’exécute avec `--` (l.199).
+- **Étape 5 et R2 exécutées TELLES QU’ÉCRITES** (JS extrait du RUNBOOK @ `5da8962`, `--` inclus) sur `bell-chain.mjs` de PR-2 @ `55bcdac`, avec deux clés de scratch (`--generate-key` de PR-2 @ `55bcdac`, comptes `grep -c PRIVATE` / `[{,] *.d. *:` = 0/0, `.pem` effacés) : étape 5 ⇒ exit 0, `bell-keyring-v1`, 1 clé `active`/`valid_from_seq 1` ; `key_id` faux ⇒ « STOP », exit 1 ; R2 (cwd de scratch portant `apps/bell/keys/bell-keyring.json` + `bell-chain.mjs` copié) ⇒ exit 0, 2 clés, ancienne première, `trustOf` de PR-2 taille 2.
+- **Mes mutants du garde RUNBOOK (C-D-1 / RUNBOOK-KEY-GLOB-1), copie `wt\`, golden = blob `5da8962` (sha `a120d677…`), restauration relue au sha 6/6** (`delta\tap\mD*.tap`) :
+
+| id | mutation du RUNBOOK livré | verdict | rouge nommé |
+|---|---|---|---|
+| mD1 | prose « Record sha256sum `<clé>` in the JOURNAL. » (= o05 du G2-delta) | **KILLED** | `found: …/etc/monark/bell/signing-key.pem…` |
+| mD2 | `cat /etc/monark/bell/*.pem` dans un bloc (= g13) | **KILLED** | `found: cat /etc/monark/bell/*.pem` |
+| mD3 | `set -x` en ligne dans R3 (= o07) | **KILLED** | `no /\bset\s+-[a-zA-Z]*x/` |
+| mD4 | `base64 /etc/monark/bell/signing-key-new.pem` en ligne (= o04, second chemin) | **KILLED** | `found: base64 …signing-key-new.pem` |
+| mD5 | seconde mention en prose de la phrase exemptée D-1 (A) | **KILLED** | `prose exemption is live and unique` |
+| mD6 | `mv /etc/monark/bell/signing-key-new.pem /root/k` (copie de la nouvelle clé ailleurs) | **KILLED** | `found: mv …signing-key-new.pem /root/k` |
+
+- **Anti-close (lots Bell)**, plage complète `64dbbd6..5da8962` : 1 346 lignes ajoutées, **800 littéraux scannés, 0 coïncidence** (`delta\anticlose.log`). Aucune valeur citée. Anti-close bis : n-a.
+
+## 3. Confirme / infirme (demande de l’orchestrateur)
+
+- **C-V-5 servie : CONFIRMÉ.** `RUNBOOK-bell.md:33-34` énumère les six usages (« are six: `--generate-key`, `stat`, `test`, `shred`, `systemd-run … -p LoadCredential=` … and the `mv` of the new key onto the unit’s path ») = exactement `ALLOWED_KEY_USES` (6 regex, l.151-154), désormais liées au chemin K ou N (le verbe ET les opérandes sont contrôlés : mD6). En-tête §0 « base `9a5bddb` » = la cellule G-b. Déclaré == imposé.
+- **T4 corrigé : CONFIRMÉ** (reproduction exit 9 / trousseau vide sans `--` ; exit 1 nommé avec `--` ; étape 5 et R2 vertes telles qu’écrites ; test l.195/199 épingle la forme). **Scénario opérateur rejoué** (`deltao3keyring-dash*.{json,err}`) : `--generate-key` de PR-2 @ `55bcdac` répété jusqu’à un `x` commençant par `-` (309 tirages, clé de scratch effacée à chaque tour), puis le JS de l’étape 5 extrait du RUNBOOK avec `--` et le `key_id` cohérent ⇒ **exit 0, trousseau `bell-keyring-v1` à 1 clé dont le `x` commence par `-`** ; la même paire sans `--` ⇒ **exit 9, 0 octet** (« bad option »). Le piège est réel (≈ 1/64 des clés) et la correction produit le trousseau. Item T4-KEYRING-DASH-1 : clos par ce commit, à consigner au G7.
+- **C-D-1 sans faux positif : CONFIRMÉ.** 10/10 passages verts sur le RUNBOOK livré ; masque restreint à UNE mention énumérée (`PROSE_KEY_MENTIONS`, phrase entière, présence exactement 1 — mD5) ; les passages de prohibition (phrase des Conventions, section `## Never`) sont exactement 1 chacun et retirés avant les motifs `set -x`/`printenv`/`CREDENTIALS_DIRECTORY`, qui s’appliquent maintenant à TOUT le reste (prose, en ligne, blocs : mD3). Couverture `KEY_DIR_PATH` = tout chemin sous `/etc/monark/bell/` (mD2, mD4). Bornes des deux passages de prohibition, relues : `[^.]*.` (première phrase des Conventions, jusqu’au premier `.`) et `
+## Never
+[^#]*` (jusqu’au premier `#`) — un `.` ou un `#` DANS le passage (ex. « PKCS#8 ») rétrécit l’exemption et renvoie le reste aux motifs : fail-closed (faux positif possible, jamais un trou) ; une section ajoutée après `## Never` est bien contrôlée. Aucune réserve.
+
+## 4. Checklist (delta)
+
+- CA-1 conforme (chaque correction a son test et ses mutants : mD1..mD6, sonde T4) ; CA-2 conforme (aucune décision de valeur ; ruling C-V-4 → item accepté) ; CA-3 conforme (rattachement ADR D9/D10, items nommés) ; CA-4 n-a ; CA-5 conforme (résiduel FM-2 fermé ; BELL-SYSTEMD-RUN-ROTATION-1 inchangé) ; CA-6 conforme (oracle + mutants + commandes exécutées par moi) ; CA-7 conforme (T4-KEYRING-DASH-1 clos, BELL-CRED-ID-EXEC-1 formé avec déclencheur, RUNBOOK-KEY-GLOB-1 tiré et traité, O-D1/O-D3/O-D4 du G2-delta = items formés) ; CA-8 conforme AVEC RÉSERVE (`git log bca7f5d..5da8962` : auteur = committer = `Kraidle`, identité git de la session orchestrateur, pour les deux commits ; bis : worker Opus 5.5 déclaré par le message, +41/−20 = réécriture du garde par un worker ; ter : orchestrateur `claude-fable-5-1`, déclaré ≤ 10 lignes — mesuré +4/−4 (8 lignes, RUNBOOK l.146/308 + test l.195/199). Pour `5da8962`, **générateur = orchestrateur = G7** : les seuls yeux indépendants sont ce checkpoint et le G2 qui le couvrira. Le G2-delta persisté couvre `bca7f5d` seulement ; aucun G2 sur `1353a79..5da8962` n’est cité ni persisté ⇒ réserve §5. `error_origin` T4 → rédacteur G1 PR-3 (commande sans `--`), à assigner au G7) ; CA-9 conforme (rejeu sur mes copies, JS extrait du RUNBOOK livré, PR-2 @ `55bcdac`) ; CA-10 conforme (1 018 ≤ 1 150) ; CA-11 durci conforme (T-c exécuté 4/4 sans skip sur `55bcdac` + `5da8962` ; T-d = item BELL-CRED-ID-EXEC-1 rulé) ; anti-close conforme.
+
+## 5. Décision : **ACCEPTE** (delta) — aucune correction nouvelle, aucune ESCALADE-INVESTISSEUR
+
+Les deux commits font ce qu’ils annoncent et ferment C-V-5, C-D-1, RUNBOOK-KEY-GLOB-1 (o04/o07) et T4-KEYRING-DASH-1 avec preuve exécutée. **Sous réserve (CA-6 : oracle ET revue, jamais l’un sans l’autre) d’un G2-delta-2 PASS sur `1353a79..5da8962`** (non lu par moi ; instance séparée ; divergence G2/cp-2 ⇒ ESCALADE-INVESTISSEUR, frontière) — le G2-delta persisté ne couvre que `bca7f5d`. Conditions inchangées de mon avis `bca7f5d` : G7 après PR-2 (`55bcdac`, dont le cp-2 du pli reste dû), oracle 7 portes sur l’arbre fusionné RÉEL, actes G7 C-V-3 (a)(d)(e)(f) + assignation `error_origin` (dont T4). Aucun blocage G-e nouveau.
+
+AM-1 (ii) — attrapé : scénario opérateur T4 exécuté de bout en bout (clé réelle de scratch à `x` en `-`, exit 9/trousseau vide sans `--`, trousseau produit avec `--`) ; six mutants du garde tués dont la copie de la nouvelle clé ailleurs ; absence de G2 sur les deux commits (réserve §5). **Manqué au cp-2 `bca7f5d`, consigné ici** : T4 — j’avais exécuté l’étape 5 et R2 « telles qu’écrites » avec un `x` aléatoire et déclaré vert ; cette exécution ne couvre pas la classe `-…` (≈ 1/64 des clés) ; attrapé par l’orchestrateur. Leçon pour la checklist : une commande « exécutée telle qu’écrite » sur une valeur aléatoire ne prouve pas la classe d’entrée ; exécuter aussi la valeur adverse (préfixe `-`, vide, espace).
+
+## 6. Preuve AM-2 ter
+
+- `deltasha-before.txt` (21:01:14Z) == `deltasha-after.txt` (21:06:19Z), 13 fichiers (les 11 du lot + `bell-chain.mjs` + `bell-publish.mjs`), `diff` vide.
+- `F:Monark-wt-t1b-pr3` : HEAD `5da8962`, `git status --porcelain --untracked-files=all` 0 ligne aux deux instants ; `F:Monark-wt-t1b-pr2` : HEAD `55bcdac`, 0 ligne (lecture seule : `log`, `diff --name-only`, `show`, `rev-parse`, `hash-object`) ; `F:Monark` : HEAD `43205d5` (a avancé pendant le delta : commits de l’orchestrateur), 0 ligne ; aucune commande d’écriture ni `git` mutatif de ma part.
+- Écritures, TOUTES sous `F:	mp` : `F:	mpcp2-t1b-pr3delta` (`CP2.md`, `R25.txt`, `sha-before/after.txt`, `anticlose.{mjs,log}`, `oracle.log`, `o-*.log`, `tap` (bdc-1..10, vb, m-* × 4, mD1..mD6, o-test), `o3` (sorties PUBLIQUES de clés de scratch, trousseaux de scratch, `cwd` copie de `bell-chain.mjs` ; **0 `.pem` restant**), `tmp` (TEMP des tests), `wt-*` copies des 11 blobs) ; `F:	mpcp2-t1b-pr3wt` (11 fichiers remis à `5da8962` ; `docs/RUNBOOK-bell.md` muté 6 fois puis restauré au golden, sha relu `a120d677…` 6/6) ; `F:	mpcp2-t1b-pr2	ree2` (12 fichiers PR-2 remis à `55bcdac`, 2 fichiers PR-3 remis à `5da8962`, aucune mutation). Rien sur `C:`.
+- Exécutions de scratch SANS la ceinture ni `TEMP` redirigé, déclarées : les lectures `node -e` des sorties publiques (`out.txt`/`out2.txt`) et le contrôle `trustOf` final (built-ins seuls, aucune E/S hors `o3`). Non rejouées.
+- Chemin de rejeu (AM-2 ter) : `F:	mpcp2-t1b-pr3delta` ; copie `F:	mpcp2-t1b-pr3wt` ; arbre fusionné `F:	mpcp2-t1b-pr2	ree2`.
+
+Modèle résolu : claude-fable-5-1.
