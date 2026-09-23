@@ -361,7 +361,7 @@ chainstack(nu), 0 discordance sur ces lectures, cap RU inchangé ; falsifié si 
 **Test manquant** : la composition « jambe payante + lecture à revert toléré » n'avait jamais été rejouée par un test
 d'intégration non-LLM (règle Branchement 2026-09-19) — les tests de concordance de revert étaient keyless (F-5). Origine
 secondaire : **spec R-A muette** sur sa conséquence pour la seule lecture à revert toléré. Le motif D6 de R-A reste valide ; pas
-un défaut du plan 140 (`docs/CHANTIERS.md:1080` proposait « plan » : à trancher au G7).
+un défaut du plan 140 (`docs/CHANTIERS.md:1081` proposait « plan » : à trancher au G7).
 
 ## Résidus (zéro dette nue) — reportés tels quels dans l'amendement ADR
 
@@ -407,3 +407,5 @@ un défaut du plan 140 (`docs/CHANTIERS.md:1080` proposait « plan » : à tranc
 | E-3 | fait | cooldowns déclarés à l'ADR (payant nu tenu : aucun ; fautes : 25 s inchangé) |
 | F-1..F-3 | fait | tuyaux par pièce, aucun renvoi `F:\tmp` dans l'ADR ; ASCII dans les ajouts de sources ; D-1..D-4 déclarées |
 | G-1 | n/a (orchestrateur) | note : l'ensemble d'exports de `@monark/rpc-guard` gagne un CLASSIFIEUR (pas un chemin payant, commentaire de `exports.test.ts`) |
+
+> **Corrections G2 (2026-09-23, `docs/G2-lot-ukemi-revert-1.md`, appliquées au G7)** : C-1 R-1 couvre les deux unités (témoin keyless à `data` rejetée classé nu — indiscernable à l'indicateur) ; C-2 supersession étendue (AMENDE ADR-GARDE-HELIUS :299-301, :366-368) ; C-3 tuyaux `u4-oracle-path.mjs:189`, `u4-redraw.mjs:92` ajoutés, consommateurs keyless-seuls déclarés inchangés ; C-4 citations (`CHANTIERS.md:1081`, D6 qualifié, PROV-MODEL-1 :1857 + :2085). Texte corrigé porté par l'amendement inséré dans ADR-GARDE-HELIUS (A) et ADR-U4b (B).
