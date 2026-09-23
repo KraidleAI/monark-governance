@@ -112,8 +112,10 @@ export const EXCLUDE_NAMES = new Set(["package-lock.json", "lang-exempt.json", "
 // `skills` = the ClawHub skill artefacts under skills/ (ADR-M006 D5). English-only (the
 // SKILL.md/INTEGRATION.md are English); GATED so a French string in a published skill file reds.
 // `sentinel` = the off-tool Narabi sentinel apps/sentinel (English-only; exported package-style, ADR-M005
-// D10/D16), gated on the export by test 42. `bell` = the off-tool Bell collector apps/bell (English-only
-// source; NOT in the export whitelist, so gated on the SOURCE tree by test 42, not the export — C-11 i, ADR-EC).
+// D10/D16), gated on the export by test 42. `bell` = MONARK Bell apps/bell (English-only). Its signed publication
+// chain (scripts/ + keys/ + package.json) is exported FILE BY FILE (ADR-M004 D7 octies, decision 156) and gated on
+// the export by test 42 (c); the unexported remainder (the collector src/ + test/) stays gated on the SOURCE tree by
+// test 42 (c-bis) — C-11 i, ADR-EC.
 export const SCOPES = ["root", "contracts", "schemas", "hikae", "ukemi", "atelier", "monark", "site", "harness", "skills", "sentinel", "bell"];
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -138,7 +140,7 @@ export function classifyScope(rel) {
   if (p === "apps/site" || p.startsWith("apps/site/")) return "site"; // apps/site scope
   if (p === "apps/harness" || p.startsWith("apps/harness/")) return "harness"; // (K-3)
   if (p === "apps/sentinel" || p.startsWith("apps/sentinel/")) return "sentinel"; // (C-11 i, ADR-EC; apps/sentinel exported)
-  if (p === "apps/bell" || p.startsWith("apps/bell/")) return "bell"; // (C-11 i, ADR-EC; apps/bell source, not exported)
+  if (p === "apps/bell" || p.startsWith("apps/bell/")) return "bell"; // (C-11 i, ADR-EC; apps/bell: publication chain exported, collector not — ADR-M004 D7 octies)
   if (p === "skills" || p.startsWith("skills/")) return "skills"; // (ADR-M006 D5)
   if (p === "schemas" || p.startsWith("schemas/")) return "schemas"; // ADR-M001 D9-bis: frozen contract schemas, gated
   const m = /^packages\/([^/]+)\//.exec(p);

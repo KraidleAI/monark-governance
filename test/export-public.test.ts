@@ -169,6 +169,20 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
     }
     assert.ok(!files.includes("apps/harness/tsconfig.json"), "apps/harness/tsconfig.json must not be exported (package-style)");
 
+    // (j) (ADR-M004 D7 octies, decision 156, EXPORT-BELL-1) MONARK Bell ships its signed publication chain FILE BY FILE:
+    // the deployed tree, the third-party verifier and its committed public trust root. Mutant: drop the Bell block from
+    // WHITELIST_FILES => these vanish => red. The collector does NOT ship (decision-69 names, reader-local paths): no
+    // apps/bell/src or apps/bell/test path in the output. Mutant: whitelist "apps/bell" package-style => red here.
+    for (const rel of ["apps/bell/scripts/bell-chain.mjs", "apps/bell/scripts/bell-publish.mjs", "apps/bell/scripts/bell-verify.mjs", "apps/bell/keys/bell-keyring.json", "apps/bell/package.json", "scripts/verify-bell.mjs"]) {
+      assert.ok(files.includes(rel), `the Bell publication chain export must include ${rel}`);
+    }
+    const bellCollector = files.filter((f) => f.startsWith("apps/bell/src/") || f.startsWith("apps/bell/test/") || f === "apps/bell/scripts/bell-report.mjs");
+    assert.deepEqual(bellCollector, [], "the Bell collector must not be exported until EXPORT-BELL-1-PURGE (ADR-M004 D7 octies)");
+    // The public export omits deploy/ (ADR-NARABI-OPS-1c C3): the exported sentinel_budget_below_unit_timeout skips IFF deploy/
+    // is absent and reds on a present deploy/ without its unit (measured on this lot: one Bell deploy/ file shipped => exported
+    // CI 1 fail). Mutant: whitelist "deploy/Caddyfile.monark-bell" => red here, before (e).
+    assert.deepEqual(files.filter((f) => f.startsWith("deploy/")), [], "no deploy/ file may be exported (ADR-NARABI-OPS-1c C3)");
+
     // (F-public) build output / installed deps are never exported (WALK_SKIP_DIRS). A leaked .next would
     // ship build artefacts into the public storefront; a leaked node_modules would bloat it. Mutant:
     // remove the WALK_SKIP_DIRS skip in export-public.mjs walkFiles => the seeded .next/.turbo leak here.
@@ -272,16 +286,17 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
     //     The `skills` scope (Lot M006-B, ADR-M006 D5) does the same for the now-exported skills/ artefacts:
     //     a French string in an exported SKILL.md/INTEGRATION.md reds the export here.
     //     The `sentinel` scope (C-11 i, ADR-EC) gives the now-exported apps/sentinel (APP_PACKAGE_DIRS)
-    //     English-only teeth on the export.
+    //     English-only teeth on the export. The `bell` scope (ADR-M004 D7 octies) does the same for the exported
+    //     Bell publication chain (apps/bell/scripts + keys + package.json).
     execFileSync(
       process.execPath,
-      [join(ROOT, "scripts", "lang-gate.mjs"), "--dir", out, "--scope", "root,contracts,schemas,site,harness,skills,sentinel"],
+      [join(ROOT, "scripts", "lang-gate.mjs"), "--dir", out, "--scope", "root,contracts,schemas,site,harness,skills,sentinel,bell"],
       { cwd: ROOT, stdio: "pipe" },
     );
 
-    // (c-bis) C-11 i (ADR-EC): apps/bell is NOT in the export whitelist (APP_PACKAGE_DIRS / WHITELIST_DIRS),
-    //     so gating `bell` on the EXPORT `out` would be a false-green (0 files -> 0 hits). The real gate for
-    //     the bell source is the repo SOURCE tree: run lang-gate on ROOT with --scope sentinel,bell and assert
+    // (c-bis) C-11 i (ADR-EC): only the Bell publication chain is exported (ADR-M004 D7 octies); the collector
+    //     (apps/bell/src, apps/bell/test) is NOT, so gating it on the EXPORT `out` alone would be a false-green for
+    //     it. Its gate is the repo SOURCE tree: run lang-gate on ROOT with --scope sentinel,bell and assert
     //     green, so a French token in apps/bell/src (or apps/sentinel/src) reds CI here.
     execFileSync(
       process.execPath,
