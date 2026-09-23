@@ -1,8 +1,9 @@
 {
-  "$comment": "Tamper-evidence manifest for the committed data the MONARK site renders (ADR-M004 D1 / D11 test 44). Keys are repo-root-relative POSIX paths; values are the SHA-256 of each file after CRLF->LF normalization over UTF-8 bytes (mirrors fixtures/manifest.json and test/fixtures-root.test.ts, so the hash is OS-independent). Verified at load by apps/site/lib/load-committed.ts and by root test/site-honesty.test.ts. Regenerate after changing any listed file: node -e \"const{readFileSync}=require('fs'),{createHash}=require('crypto');console.log(createHash('sha256').update(readFileSync('fixtures/figures-sourced.json','utf8').replace(/\\r\\n/g,'\\n'),'utf8').digest('hex'))\". F-1 lists the figures only; F-2 adds apps/site/content/** (MDX) as it lands.",
+  "$comment": "Tamper-evidence manifest for the committed data the MONARK site renders (ADR-M004 D1 / D11 test 44). Keys are repo-root-relative POSIX paths; values are the SHA-256 of each file after CRLF->LF normalization over UTF-8 bytes (mirrors fixtures/manifest.json and test/fixtures-root.test.ts, so the hash is OS-independent). Verified at load by apps/site/lib/load-committed.ts and by root test/site-honesty.test.ts. Regenerate after changing any listed file: node -e \"const{readFileSync}=require('fs'),{createHash}=require('crypto');console.log(createHash('sha256').update(readFileSync('fixtures/figures-sourced.json','utf8').replace(/\\r\\n/g,'\\n'),'utf8').digest('hex'))\". F-1 lists the figures only; F-2 adds apps/site/content/** (MDX) as it lands. Lot SITE-LEGAL-1 adds apps/site/data/bell-legal.json (the legal spans a site gate cannot carry verbatim in page source), checked again at build time by apps/site/lib/bell-legal-load.ts before /bell/terms and /bell/privacy render it.",
   "algorithm": "sha256",
   "normalization": "crlf-to-lf-utf8",
   "files": {
-    "fixtures/figures-sourced.json": "15aad757d9f182ef203dd213bc20eaa8d18d03e9f602b61ef2359f162acb693e"
+    "fixtures/figures-sourced.json": "15aad757d9f182ef203dd213bc20eaa8d18d03e9f602b61ef2359f162acb693e",
+    "apps/site/data/bell-legal.json": "a8c7fc821828b9977e2202ef88e2af4aedd33d792d454b87600576b4c20c8728"
   }
 }

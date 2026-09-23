@@ -325,6 +325,15 @@
   .c-ol li + li { margin-top: 8px; }
   .c-ol li::marker { font-family: var(--font-mono); color: var(--ink2); }
   .c-note { border-left: 3px solid var(--regime-holiday); padding: 6px 12px; color: var(--ink2); font-size: 12px; background: var(--regime-holiday-bg); border-radius: 0 6px 6px 0; }
+  /* Bell legal pages (lot SITE-LEGAL-1): long-form legal text, one readable column; lists keep a plain bullet. */
+  .c-legal { max-width: 780px; font-size: 14px; line-height: 1.65; }
+  .c-legal-section { padding-top: 28px; scroll-margin-top: 16px; }
+  .c-legal-section > .c-h2 { font-size: 16px; margin-bottom: 10px; }
+  .c-legal p + p, .c-legal p + ul, .c-legal ul + p, .c-legal .c-legal-callout + p { margin-top: 10px; }
+  .c-legal ul { margin: 8px 0 0; padding-left: 20px; list-style: disc outside; }
+  .c-legal ul li + li { margin-top: 6px; }
+  .c-legal-callout { margin-top: 10px; border-left: 3px solid var(--ink); padding: 8px 14px; background: var(--surface); border-radius: 0 6px 6px 0; }
+  .c-legal a { text-decoration: underline; text-underline-offset: 2px; } /* a link in legal text is never colour-only */
 
   .c-grid { display: grid; gap: 20px; }
   .c-grid > * { min-width: 0; }

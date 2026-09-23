@@ -58,6 +58,11 @@ const LICIT: ReadonlyArray<readonly [string, string]> = [
   ["mechanism", "proven by recomputing the frozen decision"], // apps/site/app/token/page.tsx (watcher)
   ["skill-test", "verified end-to-end by"], // skills/monark/DEMO.md (ADR-M017 D3, adjudicated)
   ["provenance", "mutant verified"], // packages/atelier/README.md:22 — grep-forbidden test 26 mutant provenance (V-4)
+  // Lot SITE-LEGAL-1: a PROHIBITION of the validated Bell Terms of Use (section "Prohibited uses", lawyer's GO as
+  // drafted, decision 147) — the reader must not present a record as if the signature certified the fact; the span
+  // denies the probative reading, it does not make it (validated text, quoted in a negation; accepted by orchestrator
+  // ruling of 2026-09-23).
+  ["legal-text", "as if the signature certified the underlying fact"], // apps/site/app/bell/terms/page.tsx
 ];
 
 // SKIP applies at ANY depth (a dir named test/ or data/ anywhere is skipped) — same walk as

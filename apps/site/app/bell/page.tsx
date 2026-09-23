@@ -5,6 +5,7 @@ import { loadAnchors, ANCHORS_ROUTE } from "@/lib/bell-anchors-load";
 import { AnchorsTable } from "@/components/bell/anchors-table";
 import { BellContact } from "@/components/bell/contact";
 import { Placeholder } from "@/components/placeholder";
+import { TERMS_ROUTE, PRIVACY_ROUTE } from "@/lib/bell-legal";
 
 // Static metadata only (no generateMetadata); digit-free (honesty lint §6b). Favicon = a static public asset
 // OUTSIDE /bell/ (the /narabi precedent, ruling D-2: a future Caddy handle_path /bell/* must not shadow it).
@@ -339,7 +340,7 @@ export default function BellPage() {
                 <tr>
                   <td>contact</td>
                   <td>a public contact address on the domain, with a mail template</td>
-                  <td><span className="c-pill c-pill--upcoming">to be created</span></td>
+                  <td><span className="c-pill c-pill--fact">created</span></td>
                   <td><BellContact /></td>
                 </tr>
               </tbody>
@@ -353,7 +354,8 @@ export default function BellPage() {
       </section>
 
       {/* Short conditions (decision 94) — the validated disclaimer block, verbatim (decision 147: the lawyer's GO on
-          the Bell legal texts as drafted); publisher identity fields stay visible placeholders (decision 94). */}
+          the Bell legal texts as drafted); publisher identity fields stay visible placeholders (decision 94). The full
+          Terms of Use and Privacy Notice are linked at its foot (lot SITE-LEGAL-1). */}
       <section className="c-section" id="conditions" aria-labelledby="l-conditions">
         <span className="c-label" id="l-conditions">conditions in short · they apply to Bell&rsquo;s records once they are published</span>
         <div className="c-card c-card--prov">
@@ -407,6 +409,9 @@ export default function BellPage() {
             <Placeholder name="legal_entity" state="to be decided" />, legal form <Placeholder name="legal_form" state="to be decided" />,
             address <Placeholder name="publisher_address" state="to be decided" />. Nothing on this page is served as a Bell
             record today (status above).
+          </p>
+          <p className="c-small" style={{ marginTop: 8 }}>
+            Full texts: <Link href={TERMS_ROUTE}>Terms of Use</Link> · <Link href={PRIVACY_ROUTE}>Privacy Notice</Link>.
           </p>
         </div>
       </section>
