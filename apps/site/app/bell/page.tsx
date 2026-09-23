@@ -42,6 +42,17 @@ export default function BellPage() {
           missing, a digest. Never a score, never a probability of being right.
         </p>
       </div>
+      {/* Hero visual (pli SITE-NOYAU-1): the vendored Canvas 2D cubes scene, moved here from the home page with its
+          legend, same iframe (public/scene/blocks-hero.html, no library; reduced motion = one still frame). */}
+      <div className="c-scene">
+        <iframe src="/scene/blocks-hero.html" title="" aria-hidden="true" tabIndex={-1} loading="eager" />
+      </div>
+      <div className="c-legend" aria-hidden="true">
+        <span><i style={{ background: "#FFFFFF", border: "1px solid var(--ink2)" }} />tokens, day side</span>
+        <span><i style={{ background: "var(--cash-close)" }} />cash market quoting</span>
+        <span><i style={{ background: "var(--token-print)" }} />tokens after the close</span>
+        <span><i style={{ background: "var(--token-print)", borderRadius: "50%" }} />one dot, one session record</span>
+      </div>
       <nav className="c-toc" aria-label="On this page" style={{ marginTop: 18 }}>
         <a href="#measures">what Bell measures</a>
         <a href="#properties">four properties</a>
