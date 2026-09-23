@@ -1052,3 +1052,245 @@ non reproduit au pli sur deux suites complètes (`docs/PLI-lot-u4b-1b-3.md:198`)
 *(ADR-U4b n'est PAS dans le gel du prereg §2 ; les docs sont exclus du décompte R-25 — `ci.yml:65`. Cet amendement
 n'édite AUCUNE valeur de référence existante : il APPEND une section datée. Le worker ne committe pas (R-20) ;
 l'orchestrateur folde et committe au G7.)*
+
+## Amendement daté 2026-09-22 (HARNESS-DESC-1 — description servie de `gate` conditionnelle à l'état du registre ; CARTO-T1C-2) — À INSÉRER par l'orchestrateur (R-20)
+
+> **Provenance.** Rédaction : worker `claude-opus-5-5[1m]` (préfixe `claude-opus-5-5` conforme, décision 133 ; effort
+> max ; Opus 5 banni), 2026-09-22, base `lot/etude-suite` @ `153582f`, branche `lot/harness-desc-1` (worktree dédié).
+> **Insertion dans l'ADR par l'orchestrateur `claude-fable-5-1` SEUL** (R-20 ; le worker ne committe pas).
+> Réviseurs : orchestrateur (R-21), G2, checkpoint-2. **Aucune décision de valeur nouvelle** (checkpoint-1
+> HARNESS-DESC-1 CA-2) : cet amendement exécute le critère d'état déjà fixé par le checkpoint-1 U-4b-2 C-1
+> (`docs/CHECKPOINT1-lot-u4b-2.md:98`) et le G0 2a-3 (`docs/G0-lot-u4b-2.md:55`), avec les corrections C-1..C-9 du
+> checkpoint-1 HARNESS-DESC-1 (`docs/CHECKPOINT1-lot-harness-desc-1.md`) et le ruling orchestrateur sur la phrase
+> conditionnelle (C-1).
+
+### 1. Constat (mesuré à `153582f`, exécution des modules réels, sans réseau)
+
+`hasCommittedCalibrationForClass("liquidation-eligible-coverage") = false` (registre vide de la classe), alors que
+la description servie de l'outil `gate` — `GATE_TOOL_DESCRIPTION`, servie par `registry.ts:61` → `registerTool`
+(MCP `tools/list`) et par `openapi.ts:73` (`GET /openapi.json`) — portait `LIQ_UPPER_BOUND_SENTENCE` et
+`LIQ_H3_SENTENCE` (« calibrated on one recorded episode », `gate.ts:150`) et **ne** portait **pas**
+`LIQ_EMPTY_REGISTRY_SENTENCE` (cartographie temps 1, R-10 / CARTO-T1C-2 ; re-mesuré indépendamment par le
+checkpoint-1 et par le G1). `LIQ_H3_SENTENCE` est déclarative : rien n'est calibré dans le registre servi ⇒
+sur-revendication servie. Le test `apps/harness/test/gate-liq.test.ts:185` épinglait cette présence.
+
+### 2. Décision D-HD-1 (exécution de cp-1 U-4b-2 C-1 / G0 2a-3)
+
+La description servie de `gate` est une **fonction PURE de l'état du registre** :
+`describeGate(registryHasLiq: boolean)` (`gate.ts:194`) et
+`GATE_TOOL_DESCRIPTION = describeGate(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE))` (`gate.ts:220`),
+évaluée **au chargement** (même clé de niveau REGISTRE que `honestyText`, delta D-3).
+- **Registre vide** : clause liq = `LIQ_EMPTY_REGISTRY_SENTENCE` ; `LIQ_REQUIREMENTS_SENTENCE` (le 400 alpha/nMin est
+  levé AVANT le lookup, `gate.ts:574-583` à la base — vrai sur registre vide ; cp-1 U-4b-2 C-7) ;
+  `LIQ_CONDITIONAL_SENTENCE` (**ruling orchestrateur** : énoncé d'une règle, pas une revendication de couverture ;
+  le site la rend au temps 1, `ukemi-copy.ts`). **Jamais** `LIQ_UPPER_BOUND_SENTENCE` ni `LIQ_H3_SENTENCE`.
+- **Registre non vide (-2b)** : « the served region is » + UPPER ; REQ ; H3 ; COND — **byte-identique** au texte
+  pré-lot (sha256 de `describeGate(true)` = sha256 de l'ancienne `GATE_TOOL_DESCRIPTION` =
+  `5574450432b7252bb82a31e51eb01b707d286fc9bf4af425a2bf5bce787aed77`, 3 193 caractères).
+- **Aucune autre phrase servie modifiée** : dump avant/après de `tools/list` et de `/openapi.json` (arbre fusionné
+  à blanc avec `lot/etude-suite` @ `071b3ee`) ⇒ seul `gate.description` (tools/list) et `/gate` `post.description`
+  (openapi) diffèrent ; `cascade`/`attest`/`calibrate`, les schémas d'entrée/sortie de `gate`, `info.version`
+  (`0.4.0`) et `servers` sont byte-identiques. `honestyText` (texte `content` de `tools/call`) était déjà
+  conditionnel et n'est pas touché. Aucun bump de version, aucun changement du set d'outils, aucune publication
+  externe (décision 51 Q2 : changement de contenu dans le set de 4).
+
+### 3. Tuyaux (ADR-M018 ; règle de Branchement) — ligne à ajouter à la table Tuyaux (complète la ligne :26 « région servie »)
+
+| Tuyau | Entrée (produit) | Sortie (consomme) | État | Test |
+|---|---|---|---|---|
+| description servie de `gate` (classe liq) | `COMMITTED_CALIBRATIONS` (`calibration.ts:195`) → `hasCommittedCalibrationForClass` (`:228`) → `describeGate` → `GATE_TOOL_DESCRIPTION` (`gate.ts:194,220`) | `HARNESS_TOOLS[gate].description` (`registry.ts:61`) → `registerTool` → MCP `tools/list` ; `openapi.ts:73` → `GET /openapi.json` ; clients MCP/HTTP ; CA de déploiement `scripts/verify-harness.mjs` (`gate_liq_call`, `mcp_gate_description_liq`) ; trace h5 (`response_sha256` de `tools/list`) | constante de module évaluée au chargement : **UN état observable par processus** ; bascule automatique à la première entrée liq committée (-2b) | `hdesc_served_gate_description_is_the_empty_registry_clause` (chemin réel : descripteur + `tools/list` in-process + `/openapi.json`, liage A-10), `hdesc_describe_gate_two_states` (fonction pure, deux états — **n'est pas** la preuve CA-11 de -2b), `hdesc_liq_clause_never_says_interval_in_both_states`, `hdesc_both_description_states_pass_vocab`, `gate_description_makes_no_probative_claim` (étendu à `describeGate(true)`), `verify_harness_ca_passes_on_the_in_process_harness` (CA bout en bout hors réseau), `probe_harness_records_real_decision` (pin h5 `90a21adf…`) |
+
+Test de composition (non-LLM) : `hdesc_served_gate_description_is_the_empty_registry_clause` rejoue la composition
+registre → description → `tools/list` réel (SDK in-process, `createHarnessHandler`) → `/openapi.json` réel
+(`handleJsonMirror`) et asserte l'égalité des trois surfaces entre elles et à `describeGate(état du registre)`, la
+clause liq EXACTE (construite depuis les constantes, indépendamment de `describeGate`) et l'absence, sur toutes les
+feuilles chaîne servies, des phrases de couverture committées. La CA de déploiement rejoue le même contrôle sur la
+surface servie en ligne (`mcp_gate_description_liq`) et l'appel de la classe (`gate_liq_call` : 200, `under_calib`,
+phrase registre-vide dans `content`) — c'est ce contrôle qui prouve, après redéploiement (CARTO-T1C-1), la phrase
+« served through the gate » de `/ukemi`.
+
+### 4. Item formé -2b (checkpoint-1 HARNESS-DESC-1 C-4) — déclencheur : G1 de U-4b-2b ; propriétaire : orchestrateur (G0 -2b, ligne 2b-7)
+
+À la première entrée liq committée, dans le MÊME lot : (a) le test du chemin réel asserte sur le registre FRAIS
+que la description servie porte UPPER + REQ + H3 + COND et PAS EMPTY (le test actuel rougit par construction —
+sa précondition `hasCommittedCalibrationForClass === false` tombe — : tripwire, à re-scoper sur l'état committé,
+jamais supprimé) ; (b) re-pin h5 propre (`response_sha256` de `tools/list` rechange) ; (c) bascule des deux contrôles
+de la CA (`mcp_gate_description_liq` : H3 présent, EMPTY absent ; `gate_liq_call` : ŷ d'une strate committée ⇒
+`covered` avec `hi = ŷ + q̂_k`, ŷ d'une strate non committée ⇒ `under_calib`) ; (d) le survivant déclaré §6 (R-HD-1)
+y devient tuable. Ligne connexe à former au G0 -2b (2b-5/2b-7, note du checkpoint-1) : rien ne fait rougir le
+site quand le registre se remplit alors que `/ukemi` rend la phrase registre-vide comme état servi.
+
+### 5. `error_origin` de la déviation -2a (checkpoint-1 HARNESS-DESC-1 C-8)
+
+- **Générateur** : le G1 -2a a interpolé la clause committée (UPPER + H3) **sans condition** dans
+  `GATE_TOOL_DESCRIPTION`, contre son propre G0 (2a-3 : « upper bound » réservé au registre non vide ; description
+  -2a = REQ + phrase registre-vide) et contre le cp-1 U-4b-2 C-1 ; il a épinglé la sur-revendication par
+  `gate-liq.test.ts:185`.
+- **Vérification** : le G2 -2a et le checkpoint-2 -2a ont accepté la description sur un critère de **vocabulaire**
+  (« 0 interval / 0 probabilité » sur la tranche de 648 caractères, `docs/CHECKPOINT2-lot-u4b-2a.md:27`) au lieu du
+  critère d'**état** du cp-1 U-4b-2 C-1 (« la description ne contient aucune phrase de couverture »).
+- Détection : cartographie temps 1 (CARTO-T1C-2) ; le retard de déploiement (CARTO-T1C-1, confirmé sur place) a
+  empêché la publication en ligne de cette description.
+
+### 6. MAST (checkpoint-1 C-7) et résidus nommés
+
+- **Vérification incorrecte** (tests par présence seule, cp-2 -2a C-2) ⇒ assertions d'ABSENCE (liste fermée de mots
+  committés sur la tranche liq ; phrases committées exactes sur toutes les feuilles servies) + 25 mutants nommés,
+  tués chacun par son test attendu (A-11, TAP `not ok … - <nom>`), restaurés byte-exact.
+- **Dérive de périmètre** ⇒ invariance byte-à-byte des trois autres descriptions et de tous les autres champs servis
+  (dump avant/après, §2) ; la trace h5 ne change que d'UN champ (`response_sha256`), taille 21 943 octets inchangée.
+- **R-HD-1 (survivant déclaré, inobservable aujourd'hui)** : le site d'appel codé en dur
+  `GATE_TOOL_DESCRIPTION = describeGate(false)` est indiscernable du vrai liage sur registre vide (un état par
+  processus) ; il survit à toute la suite — mesuré par le G2 sur la suite COMPLÈTE (927/926/0/1 sous le mutant, `docs/G2-lot-harness-desc-1.md` §3.3 ; la preuve G1 ne couvrait que 5 fichiers). Il représente une CLASSE : toute expression fausse sur le registre
+  livré au site d'appel survit de même. Déclencheur : G1 -2b, item §4 (d), qui tue la classe en bloc. Garde
+  structurelle par lecture de source envisagée et écartée (déclarative au sens D-1, fragile au formatage).
+- **R-HD-2 (observation, pré-existence mesurée)** : sous win32, quand la CA ÉCHOUE, le script se termine par
+  l'assertion libuv `src\win\async.c` (code 3221226505) au lieu de 1 — mesuré 3/3 sur le script PRÉ-LOT (blob
+  `153582f`) comme sur celui du lot ; même assertion que celle déjà documentée à `test/h5-e2e-probe.test.ts:165`.
+  La sortie reste non nulle (fail-closed), le JSON de CA est imprimé avant, et le RUNBOOK traite déjà « ANY non-zero
+  exit » comme ROUGE (`docs/RUNBOOK-harness.md`, étape 6). **Item O-1b-G2-1 (re-G2 du micro-pli, `docs/G2-lot-harness-desc-1-1b.md` §5)** : sous win32, `process.exit()` après `fetch` finit TOUJOURS sur l'assertion libuv (code 3221226505 quel que soit l'argument) ⇒ le code de sortie est non discriminant ; remède MESURÉ = `process.exitCode = 1` puis retour (exit 1 sans assertion, exit 0 en succès), à appliquer aux deux sites de sortie de `scripts/verify-harness.mjs` puis resserrer le test (3) à `r.code === 1` — retire R-HD-2. Déclencheur : prochaine modification de la CA, au plus tard la bascule -2b ; propriétaire : orchestrateur.
+- **CA avant redéploiement** : contre le processus en ligne (antérieur à -2a, CARTO-T1C-1), les deux contrôles neufs
+  sont ROUGES par construction (classe inconnue ⇒ 400 ; description sans la phrase registre-vide) ; ils deviennent
+  verts au redéploiement à un SHA contenant ce lot. `docs/RUNBOOK-harness.md` (étape 6) énumère les deux contrôles
+  (modifié dans le lot).
+
+### 7. Liste fermée des porteurs (checkpoint-1 C-9, mesurée par grep des lignes NON commentaires de `apps/harness/src`)
+
+Phrases de couverture liq servies : `gate.ts` seul — `LIQ_UPPER_BOUND_SENTENCE` (`:140-142`), `LIQ_H3_SENTENCE`
+(`:149-151`) et leurs compositions `LIQ_COMMITTED_SENTENCE` (`:163` → `honestyText`, branche committée, déjà
+conditionnelle) et la branche pleine de `describeGate`. `LIQ_CONDITIONAL_SENTENCE` (`:156-158`) = règle (ruling).
+`schema-projection.ts` : **0** phrase de couverture liq. `ukemi-predict.ts:63` porte une NÉGATION (« no coverage is
+claimed here… ») dans un outil non enregistré (U-5b) : non porteur.
+
+### 8. ADR-M012 item (i) — clos
+
+Déclencheur (« prochain lot touchant `GATE_TOOL_DESCRIPTION` ») atteint ; la déduplication est déjà faite et épinglée
+(`apps/harness/test/gate.test.ts:535`, 0 occurrence de « every other » dans la description) et reste vraie dans les
+deux états ⇒ item consigné **clos**.
+
+### 9. Gel D4
+
+Les 9 sha gelés (§2 du prereg ; tableau D4 de cet ADR — re-gel décision 126, puis QF-2 :402-407) sont byte-identiques AVANT (blobs `153582f`) == APRÈS (disque du lot)
+== arbre fusionné à blanc (`071b3ee` + lot). Aucun fichier du gel ni cet ADR n'est dans le diff du lot.
+
+### 6-bis. Contrôle négatif de la CA de déploiement (micro-pli HARNESS-DESC-1b, correction G2 C-G2-1) — À INSÉRER par l'orchestrateur (R-20)
+
+Provenance : worker `claude-opus-5-5[1m]` (effort max, décision 133), 2026-09-22/23 UTC, base `906064b` (lot HARNESS-DESC-1),
+pli test seul. Source de la correction : `docs/G2-lot-harness-desc-1.md` §6 (C-G2-1). Aucun octet servi ne change
+(`apps/harness/src/**` et `scripts/verify-harness.mjs` intacts ; pin h5 `90a21adf…` inchangé). Placement proposé :
+après §6 (MAST et résidus nommés) ; l'extension de l'item §4 (c) est donnée à la fin de cette section.
+
+**Constat (G2, mesuré sur la suite complète).** On pouvait vider les prédicats des deux contrôles neufs de la CA
+sans faire rougir aucun test : G2-5a (`mcp_gate_description_liq` réduit à `res.status === 200`), G2-5b (`!hasH3`
+retiré) et G2-5c (`gate_liq_call` réduit à `ok: true`) survivaient. `verify_harness_ca_passes_on_the_in_process_harness`
+prouve seulement que la CA ne donne pas de fausse alarme. Il ne prouve pas qu'elle alarme.
+
+**Test ajouté (nommé).** `verify_harness_ca_liq_checks_red_on_overclaiming_surfaces` (`test/verify-harness-liq.test.ts`,
+test (3)).
+- Le système sous test est la CA elle-même, `scripts/verify-harness.mjs`, lancée en processus enfant comme au
+  déploiement.
+- Le vecteur adverse (D-2) est un mandataire `node:http` sur `127.0.0.1:0`. Il reprend le motif de
+  `test/probe-narabi-state.test.ts` (`serve()`) et se place devant le VRAI harness in-process (`startServer(0)`).
+- Toute requête passe à l'identique : trame SSE réelle du SDK, corps réels du miroir (A-8). Il y a exactement deux
+  points de réécriture :
+  - la description servie de `gate` dans `tools/list`. La chaîne JSON-échappée de `GATE_TOOL_DESCRIPTION` est
+    remplacée dans la trame réelle. Si elle n'y figure pas exactement une fois, le mandataire répond 500 (fail-closed) ;
+  - la réponse au `POST /gate` de la classe liq sur la surface `api.`.
+- Tous les littéraux sont liés par import (`describeGate`, `GATE_TOOL_DESCRIPTION`, `LIQ_*_SENTENCE`, `TASK_*`,
+  `API_HOST_PREFIX`) ; aucun n'est recopié.
+
+Quatre vecteurs. Chacun isole un prédicat :
+
+| Vecteur | Description servie | Réponse liq servie | Contrôles rouges attendus (liste FERMÉE) | Prédicat isolé |
+|---|---|---|---|---|
+| (alpha) | `describeGate(true)`, texte pré-lot : H-3 présent, EMPTY absent | **400** `{ error: "tool_error", operation: "gate", message: "unknown task_class …" }`, forme `apps/harness/src/http.ts:102`, message de `1447c05:apps/harness/src/tools/gate.ts:551` (processus pré-2a) | `gate_liq_call` + `mcp_gate_description_liq` | la vacance globale (G2-5a, G2-5c) |
+| (beta) | EMPTY **et** H-3 servis ensemble (état « empty-clause-keeps-coverage » du G2, restreint à EMPTY + REQ + H-3 + COND : UPPER omis volontairement, la CA ne le teste pas, cf. R-1b-2) | corps RÉEL 200 où `reason` passe de `under_calib` à `covered` ; la phrase registre-vide reste dans `content` | `gate_liq_call` + `mcp_gate_description_liq` | `!hasH3` (G2-5b) et `reason === "under_calib"` |
+| (gamma) | description du lot (`GATE_TOOL_DESCRIPTION`) | corps RÉEL 200 `under_calib` dont `content` porte `LIQ_COMMITTED_SENTENCE` À LA PLACE de la phrase registre-vide | `gate_liq_call` seul | `said === true` |
+| (delta) | description sans EMPTY ni H-3 (classe de défaut du texte en ligne pré-2a, qui ne porte aucune clause liq : CARTO-T1C-1) | corps RÉEL 200 (inchangé) | `mcp_gate_description_liq` seul | `hasEmpty` |
+
+Assertions pour chaque vecteur :
+- l'ensemble des contrôles rouges est ÉGAL à la liste fermée. Les 10 autres contrôles (alpha, beta) ou les 11 autres
+  (gamma, delta) restent verts : le mandataire est fidèle, et le rouge vient des seuls contrôles liq ;
+- le `detail` émis par la CA pour les deux contrôles liq est égal à la valeur attendue. C'est l'auto-preuve que la CA
+  a lu le vecteur voulu ;
+- les compteurs du mandataire valent `{ rewrites: 2, liq: 1 }` : il a bien réécrit les deux `tools/list` et
+  intercepté l'unique appel liq ;
+- l'exit de la CA est **≠ 0**, et non `=== 1`, à cause de R-HD-2. Mesuré sous win32 : 3221226505 pour les quatre
+  vecteurs.
+
+**Tuyaux (vérification).**
+
+| Tuyau | Entrée | Sortie | État | Test |
+|---|---|---|---|---|
+| contrôle négatif de la CA | `scripts/verify-harness.mjs` exécuté tel que déployé, contre le harness réel servi derrière le mandataire | verdict du test dans `npm test` (job CI `g3-verification`, `.github/workflows/ci.yml:99,111`) | sans état : ports éphémères `127.0.0.1`, serveurs fermés en `finally` (`closeAllConnections` + `close`) | le test nommé ci-dessus |
+
+**Mutants.** Chacun est tué par ce test, en byIntended A-11 (TAP `not ok … - verify_harness_ca_liq_checks_red_on_overclaiming_surfaces`).
+Les mutants sont restaurés à l'octet. Les vecteurs s'exécutent dans l'ordre alpha → beta → gamma → delta. Le premier
+vecteur rouge, lu dans le `error:` du TAP, prouve donc que les vecteurs précédents n'attrapaient pas le mutant.
+
+| Mutant (`scripts/verify-harness.mjs`) | Hunk | Premier vecteur rouge (assertion) |
+|---|---|---|
+| G2-5a (exigé) | `:253` `return { ok: res.status === 200 && hasEmpty && !hasH3,` → `return { ok: res.status === 200,` | (alpha) ensemble rouge ≠ `gate_liq_call + mcp_gate_description_liq` |
+| G2-5b (exigé) | `:253` même motif → `return { ok: res.status === 200 && hasEmpty,` | (beta) idem |
+| G2-5c (exigé) | `:240` `return { ok: res.status === 200 && reason === "under_calib" && said === true,` → `return { ok: true,` | (alpha) idem |
+| ca-reason-dropped (auto-déclaré) | `:240` `… && reason === "under_calib" && said === true,` → `… && said === true,` | (beta) idem |
+| ca-said-dropped (auto-déclaré) | `:240` ` && said === true,` → `,` | (gamma) ensemble rouge ≠ `gate_liq_call` |
+| ca-has-empty-dropped (auto-déclaré) | `:253` `hasEmpty && !hasH3,` → `!hasH3,` | (delta) ensemble rouge ≠ `mcp_gate_description_liq` |
+
+Résultats :
+- G2-5a, G2-5b et G2-5c survivaient avant ce pli sur `906064b`. Leurs octets mutés ont les mêmes sha que ceux du G2.
+- Les 25 mutants du G1 restent tués par leur test attendu (28/28 exigés), et les 3 auto-déclarés sont tués (3/3).
+- Les 8 mutants à tuer du G2 restent rouges.
+- Les 4 mutants CA du G1 font aussi rougir le nouveau test. Cela ne change pas leur attribution byIntended.
+
+**Résidus nommés (jamais tus).**
+- **R-1b-1, équivalents déclarés et mesurés comme survivants.** Il s'agit du retrait isolé de `res.status === 200`,
+  dans `gate_liq_call` (`:240`) et dans `mcp_gate_description_liq` (`:253`).
+  - Aucun producteur réel ne sert un statut ≠ 200 avec un corps que ces contrôles accepteraient.
+  - Côté miroir, le seul site qui émet `structuredContent` répond avec le statut par défaut 200
+    (`apps/harness/src/http.ts:98`).
+  - Côté SDK `@modelcontextprotocol/server@2.0.0`, une réponse de requête JSON-RPC (donc un `result` de `tools/list`)
+    est servie en 200 seulement, en SSE (`dist/index.mjs:754-756`) comme en JSON (`:893-897`). Une non-requête reçoit
+    202 sans corps (`:682`) ; une erreur reçoit un corps `{ jsonrpc, error, id: null }`, sans `result` (`:367-379`).
+  - Ces prédicats sont donc une défense en profondeur. Déclencheur de réexamen : un changement du SDK ou du miroir.
+- **R-1b-2, lacune O-6 (G2), mesurée.** La CA n'exige pas l'absence de `LIQ_UPPER_BOUND_SENTENCE` dans la
+  description. Une surface qui sert EMPTY + UPPER sans H-3 passe donc la CA.
+  - Mesure : branche vide + UPPER ⇒ les tests CA restent verts.
+  - Le défaut, s'il vient du code servi, est tué en dépôt par
+    `hdesc_served_gate_description_is_the_empty_registry_clause`.
+  - Aucun SHA servi connu ne porte cet état : pré-2a sans EMPTY, 2a..pré-lot avec H-3, lot vert (G2 §6).
+  - Ajouter l'absence d'UPPER est un changement de la CA, hors du périmètre de ce pli test-only.
+  - Item : propriétaire orchestrateur ; déclencheur = la prochaine modification de la CA, au plus tard la bascule
+    -2b (§4 (c)), où les deux prédicats sont réécrits de toute façon.
+
+**Extension de l'item §4 (c) (bascule -2b).** À la première entrée liq committée, dans le MÊME lot :
+- basculer les deux contrôles de la CA ;
+- re-dériver les QUATRE vecteurs et leurs listes fermées contre les prédicats de l'état committé. Exemples de surfaces
+  sur-revendicatrices à -2b : EMPTY servi alors qu'une calibration est committée ; H-3 absent ; `under_calib` sur une
+  strate committée ;
+- rejouer les six mutants de prédicats ci-dessus (G2-5a/b/c + les 3 auto-déclarés) contre la CA basculée.
+
+Sans cette bascule, le test (3) rougit par construction à -2b : en (gamma), `GATE_TOOL_DESCRIPTION` porterait H-3.
+C'est un fil-piège, à re-scoper et jamais à supprimer. Il empêche aussi qu'une bascule vacante de la CA passe la CI,
+ce qui était le risque nommé par le G2.
+
+**Observation (classe connue, pas de nouvel item).**
+- Pendant la vérification du pli, un rejeu du harnais G2 sous G2-5a a produit UNE fois un `not ok` de niveau fichier
+  sur `test/verify-harness-liq.test.ts`, sans le `not ok` nommé.
+- Le log n'est pas signé : le TAP brut n'avait pas été conservé.
+- Aucun des rejeux suivants ne l'a reproduit : 52 sous G2-5a, 40 sans mutant, 3 séquences G2 complètes avec TAP brut
+  conservé.
+- Rattachement par inférence : la classe D4 est documentée pour les fichiers de test à serveur sous `--test-force-exit`,
+  en local Windows, avec la CI ubuntu non exposée. Sources : `docs/CHANTIERS.md:586` et
+  `docs/CHECKPOINT2-lot-t1a-iii-a1-bis.md:63` (« échecs niveau fichier non signés »). L'item D4 existant la couvre
+  (propriétaire orchestrateur ; déclencheur : Node local portant le correctif amont, ou premier rouge de cette forme
+  sur ubuntu).
+- Le sens est fail-safe : un `not ok` nommé absent compte comme mutant NON tué, jamais comme une fausse mise à mort.
+
+**`error_origin` de C-G2-1 (re-cp-2 C-V-3, `docs/CHECKPOINT2-lot-harness-desc-1-1b.md`)** : générateur (G1 : test (2) positif seul, aucun contrôle négatif de la CA) + vérification (le cp-2 initial a accepté C-5 sur un rejeu rouge manuel hors dépôt sans exiger que la suite impose le négatif ; les mutants G2-5a/b/c l'ont prouvé).
+
+### Addendum d'insertion (orchestrateur `claude-fable-5-1`, G7 HARNESS-DESC-1, 2026-09-23)
+- Chaîne de revue : checkpoint-1 (`docs/CHECKPOINT1-lot-harness-desc-1.md`, C-1..C-9) ; G1 `906064b` (`docs/G1-lot-harness-desc-1.md`, intégral `docs/G1-lot-harness-desc-1-integral.md`, worker `claude-opus-5-5[1m]`) ; G2 PASS-AVEC-CORRECTIONS (`docs/G2-lot-harness-desc-1.md`, C-G2-1) ; checkpoint-2 ACCEPTE-AVEC-CORRECTIONS (`docs/CHECKPOINT2-lot-harness-desc-1.md`, C-V-1) ; micro-pli test-only `7cc6176` (contrôle négatif de la CA par mandataire loopback, 31/31 mutants) ; re-G2 PASS (`docs/G2-lot-harness-desc-1-1b.md`) ; re-checkpoint-2 ACCEPTE-AVEC-CORRECTIONS (`docs/CHECKPOINT2-lot-harness-desc-1-1b.md`, C-V-1 étendue = cette insertion, C-V-3 ci-dessus).
+- Ruling cp-2 §4 : `/ukemi` en ligne devient VRAIE ssi la CA `scripts/verify-harness.mjs` est verte après redéploiement (12/12 dont `gate_liq_call` et `mcp_gate_description_liq`, `tls.authorized`, `docs/deploy-CA-harness.json` régénéré, JOURNAL nommant le SHA) ; vérité datée `checked_at`, procédurale (RUNBOOK-harness étape 6). Observation (CARTO-T1C-1) : étendre la CA à COND et `n_calib`.
+- Items suivis : R-1b-1 (S1/S2, déclencheur SDK/`http.ts`), R-1b-2 (= O-6 : UPPER exigé absent par la CA ; prochaine modification de la CA), O-1b-G2-1 (ci-dessus), O-1b-G2-2 (durée du test (3) ; premier dépassement), extension §4 (c) (à -2b : re-dériver les 4 vecteurs, rejouer les 6 mutants), IF-1 (G2 A-9 : 4e exemption `verified` au re-pin h5 de ce lot ou de U-5b), O-1b-1/D4 (flake de niveau fichier, item D4 existant).
+- Ordre de fusion : après A-9-OUTILLE (`eab911a`) et U-4b-1b-3 (`b9eb62b`) ; avant le redéploiement du harness à un SHA nommé (décision 137 : investisseur informé).
