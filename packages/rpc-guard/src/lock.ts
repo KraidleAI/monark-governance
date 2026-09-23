@@ -4,9 +4,9 @@
 // gets EEXIST => fail-closed (aligned "Chainstack cap = one role at a time"). A stale lock after a crash STAYS held
 // (fail-closed, never a masked eternal block); release is the EXPLICIT served `unlock` subcommand, which appends a
 // chained `outcome=unlocked` line (consigned, never an automatic theft).
-import { openSync, writeSync, closeSync, existsSync, unlinkSync } from "node:fs";
+import { existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import type { CycleLedger, CycleLedgerEntry } from "./ledger.ts";
+import { DURABLE_FS, type CycleLedger, type CycleLedgerEntry } from "./ledger.ts";
 
 /** A second writer found the operator already locked for this cycle - fail-closed (not a budget stop, a concurrency
  *  stop; the caller must not proceed). */
@@ -17,12 +17,13 @@ export class LockHeldError extends Error {}
 export function acquireLock(cycleDir: string, op: string): string {
   const lockPath = join(cycleDir, `${op}.lock`);
   let fd: number;
-  try { fd = openSync(lockPath, "wx"); }
+  try { fd = DURABLE_FS.openSync(lockPath, "wx"); }
   catch (e) {
     if ((e as { code?: string }).code === "EEXIST") throw new LockHeldError(`rpc-guard: operator '${op}' is already locked for this cycle (fail-closed, C-9)`);
     throw e;
   }
-  try { writeSync(fd, JSON.stringify({ pid: process.pid, iso: new Date().toISOString() })); } finally { closeSync(fd); }
+  // GARDE-FSYNC-1: the {pid, iso} content is fsynced BEFORE close - repair-tail reads this pid to refuse a LIVE writer (C-2).
+  try { DURABLE_FS.writeSync(fd, JSON.stringify({ pid: process.pid, iso: new Date().toISOString() })); DURABLE_FS.fsyncSync(fd); } finally { DURABLE_FS.closeSync(fd); }
   return lockPath;
 }
 

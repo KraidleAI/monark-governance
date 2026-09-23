@@ -18,6 +18,8 @@
 //     A 121 MIXED account (Bell Solana + Ukemi ETH on ONE Chainstack account) makes "which total_ru snapshot
 //     reconciles an account-total ledger" AMBIGUOUS - an OPEN item (ADR 1b0-B), trigger: the FIRST reconcile of a
 //     Solana course (1b-i). NOT resolved here; the aggregate bound stays on the account total meanwhile.
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { CycleLedger, CycleLedgerEntry } from "./ledger.ts";
 
 /** A dashboard snapshot. `byMethod` is the per-method form (Helius credits); `total_ru` is the aggregate form
@@ -33,13 +35,29 @@ export interface ReconcileResult { readonly verdict: Verdict; readonly reason?: 
  *  a per-method reconcile on such an operator is fail-closed (cli.ts). Chainstack today; extend at its trigger. */
 export const AGGREGATE_ONLY_OPERATORS: ReadonlySet<string> = new Set(["chainstack"]);
 
+/** The reconcile WINDOW start: the index of the first entry AFTER the last `reconciled` line (0 when there is none). */
+function windowStart(es: readonly CycleLedgerEntry[]): number {
+  for (let i = es.length - 1; i >= 0; i--) if (es[i]!.outcome === "reconciled") return i + 1;
+  return 0;
+}
+/** GARDE-FSYNC-1 C-9 - the CONSUMER of <op>.repair.jsonl (written by repair-tail). A repair whose chain length after it
+ *  (lines_after) reaches the current window (>= its start) => NO-GO `repaired_in_window`, decided BEFORE any numeric
+ *  bound: a repaired ledger may have lost lines that were SENT (the pre-lot INCIDENT lost ~420) and the dashboard lags
+ *  ("every few hours"), so a GO on it could be fail-open. The appended `reconciled` line rolls the window: the flag is
+ *  per window, never permanent. An unreadable journal line counts as a repair (fail-closed). */
+function repairedInWindow(ledger: CycleLedger): boolean {
+  const p = join(ledger.cycleDir, `${ledger.op}.repair.jsonl`);
+  if (!existsSync(p)) return false;
+  const start = windowStart(ledger.entries());
+  return readFileSync(p, "utf8").split(/\r?\n/).filter((l) => l.trim() !== "").some((l) => {
+    try { const n = (JSON.parse(l) as { lines_after?: unknown }).lines_after; return typeof n !== "number" || n >= start; } catch { return true; }
+  });
+}
 /** ledger_run per method = Sigma credits_derived of the `attempted` lines AFTER the last `reconciled` line (windowed). */
 function ledgerRunSinceLastReconciled(ledger: CycleLedger, cycle: string): Record<string, number> {
   const es = ledger.entries();
-  let start = 0;
-  for (let i = es.length - 1; i >= 0; i--) if (es[i]!.outcome === "reconciled") { start = i + 1; break; }
   const out: Record<string, number> = {};
-  for (let i = start; i < es.length; i++) {
+  for (let i = windowStart(es); i < es.length; i++) {
     const e = es[i]!;
     if (e.outcome !== "attempted" || e.cycle_id !== cycle) continue;
     for (const key of Object.keys(e.by_op_method)) { const m = key.split("|")[1] ?? key; out[m] = (out[m] ?? 0) + e.credits_derived; }
@@ -53,6 +71,7 @@ export function runReconcile(ledger: CycleLedger, before: Snapshot, after: Snaps
     return { verdict, ...(reason !== undefined ? { reason } : {}), exitCode: verdict === "GO" ? 0 : 1, entry, mode, ...(softDeviation !== undefined ? { softDeviation } : {}) };
   };
   if (before.cycle !== cycle || after.cycle !== cycle) return finish("NO-GO", "rollover");
+  if (repairedInWindow(ledger)) return finish("NO-GO", "repaired_in_window"); // C-9, before any bound (both modes)
   const run = ledgerRunSinceLastReconciled(ledger, cycle);
 
   if (mode === "aggregate" || mode === "aggregate-calibration") {
