@@ -64,8 +64,19 @@ Rendus deja persistes : voir `docs/G1-*`, `docs/G2-*`, `docs/CHECKPOINT1-*`, `do
 1. ~~A-9-OUTILLE~~ **FAIT** (G7 : micro-pli `4ff171e`, fusion `eab911a`, docs `147d50f` — ADR-U5a/ADR-M020 inseres, CONSIGNE A-13,
    CHANTIERS :766 remplace ; oracle `F:\Monark` 937/936/0/1). Worktree `F:\Monark-wt-a9outille` a retirer (`rm-nm.ps1` puis
    `git worktree remove`).
-2. ~~U-4b-1b-3~~ **FAIT** (G7 : fusion `b9eb62b`, docs `f28a184` = `<HEAD_E1>` ; ADR-U4b amendement v3 + PLI inseres ; oracle tronc
-   951/950/0/1). **Course Ukemi ETAPE 1 EN COURS** : `--fill-ts` reel lance 2026-09-23T00:00:24Z depuis `F:\Monark` @ `f28a184`
+2. ~~U-4b-1b-3~~ **FAIT** (G7 : fusion `b9eb62b`, docs `f28a184` = `<HEAD_E1>`). **Course Ukemi : etapes 1, 2a, 2b, 2c FAITES**
+   (Sidecars 1-2 dans `docs/course-ukemi/SIDECAR-prereg-u4b-1b-2026-09-22.md` ; episode `weth-2025-09-22`, B0 23414968, H-1 OK).
+   **ETAPE 3a EN COURS** : recorder temps 1 `--filter-only` lance 2026-09-23T00:25:46Z (script verbatim `F:\course-ukemi\record-t1.sh`,
+   detache ; pid lanceur `F:\course-ukemi\record-t1.pid` ; log `F:\course-ukemi\logs\record-t1.log`, fin = ligne `exit=<code> <date>` ;
+   instances : floor 12916, max-ru 200000, max-calls 40000, caps eth_call=30000,eth_getLogs=6000,eth_getBlockByNumber=4000, from-block
+   16496792). Supervision : log + ledgers de cycle `F:\monark-ledger\chainstack-2026-09-19\chainstack-2026-09-19\*.jsonl` (append-only) ;
+   NE PAS ouvrir `F:\course-ukemi\record\*` pendant le run. A la fin (exit=0) : controle C-4 (RUNBOOK annexe C) sur
+   `F:\course-ukemi\record\U4-filter-23414968.json` ; noter holders_digest, n_at_risk_config, spent_by_operator.chainstack, ukemi_sha,
+   finalized_block ; Sidecar 3 ; **3b go/no-go temps 2** (MAX_CALLS_T2 = enumeration + 9 x n_at_risk_config + marge ; part Chainstack
+   projetee ≤ plafonds ; sinon STOP + consultation) ; puis 3c temps 2 (meme `--resume`, autre `--out`) — decision 137 couvre le go ;
+   `exit≠0` : lire le STOP nomme du RUNBOOK etape 3 (budget / NoQuorum / verrou) — jamais de relance silencieuse, journaliser d'abord.
+   Gel d'outillage : etapes 2c-bis (sonde (d)) et 5+ (prober/helper/H-3..H-6) exigent `<HEAD_E2>` = fusion U-4b-1b-4 (+ STATS-1) — ruling I-6.
+   Historique etape 1 : `--fill-ts` reel lance 2026-09-23T00:00:24Z depuis `F:\Monark` @ `f28a184`
    (script verbatim `F:\course-ukemi\fill-ts-4.sh`, detache ; pid `F:\course-ukemi\fill-ts-4.pid` = bash lanceur ; log
    `F:\course-ukemi\logs\fill-ts-4.log`, fin marquee par une ligne `exit=<code> <date>` ; `<N_FILL>` 20 000). Supervision : log + ledgers
    de cycle `F:\monark-ledger\chainstack-2026-09-19\chainstack-2026-09-19\*.jsonl` seulement — NE JAMAIS ouvrir
