@@ -85,9 +85,18 @@ Rendus deja persistes : voir `docs/G1-*`, `docs/G2-*`, `docs/CHECKPOINT1-*`, `do
    la MEME commande (reprise sans re-fetch) ; sidecar `unreadable`/`belongs to another brut` ⇒ le deplacer dans un dossier date, relancer.
    Un `mint`/merge dans `F:\Monark` pendant le run est sans effet sur le processus charge, mais toute RELANCE tourne sur le HEAD du
    moment : verifier 0.2 (blob selecteur `20e1cf9d…`) avant de relancer.
-3. **HARNESS-DESC-1** (`906064b`) apres G2 PASS : fusion (apres A-9) + insertion `F:\tmp\hdesc1\ADR-amendement.md` dans ADR-U4b (C-V-1)
-   → redeploiement harness a un SHA nomme (`/opt/monark-harness-redeploy.sh`, CA `scripts/verify-harness.mjs` 12/12,
-   `docs/deploy-CA-harness.json`, JOURNAL) — informer l'investisseur (137).
+3. ~~HARNESS-DESC-1~~ **FAIT** (G7 : fusion `ec56c35`, docs `bb41b6d`, redeploiement au SHA `bb41b6d`, CA 12/12 `0a3e9a72…`
+   commit `fb6720b`, JOURNAL `663f974`). Worktree `F:\Monark-wt-hdesc1` a retirer. Items ouverts : O-1b-G2-1 (exitCode CA),
+   R-1b-2 (UPPER), extension §4 (c) a -2b, IF-1 (A-9).
+3bis. **U-4b-1b-4** : G1 `30a2eee` + micro-pli 4b (3 fichiers NON commites dans `F:\Monark-wt-u4b1b4`, `F:\tmp\u4b1b4\DELIVERED.sha256`,
+   harnais 39 mutants `F:\tmp\u4b1b4\mutants.mjs`) : re-verif orchestrateur (`F:\tmp\u4b1b4\orch4b\`) → commit → re-G2
+   (`afdb550182047c179`) ‖ re-cp-2 (`a55d595455411a3a1`) → G7 : fusion + `F:\tmp\u4b1b4\ADR-amendement.md` (R-25 903, sha sonde
+   `8bdb1478…`) + ADDENDUM-2 date (PREREG-DELTA §1 + (f)(g), C-V-2) + RUNBOOK-DELTA §2 (C-V-3) → `<HEAD_E2>` (avec STATS-1) pour 2c-bis/5+.
+3ter. **U-4b-STATS-1** : `564292d` (1a) + **`66141fb` (1a-corr)** commites ; 1b-v3 applique NON commite (`F:\tmp\u4bstats1\seam\DELIVERED-1b-v3.sha256`) :
+   re-verif (`F:\tmp\u4bstats1\orch-v3\`) → commit 1b → G2-delta ‖ cp-2 (1b) → G7 en deux segments first-parent + ADR
+   `F:\tmp\u4bstats1\ADR-U4b-amendement-STATS-1.md` (I-B : 735/826, 58 mutants ; Q-1 date) + RUNBOOK-DELTA.
+3quater. **GARDE-FSYNC-1** : pli-1 rendu ; worker applique l'option Y (support de test exporte) → re-verif → commit G1+pli sur
+   `lot/garde-fsync-1` → G2 ‖ cp-2 → G7 (ADR `F:\tmp\gfsync1\ADR-amendement.md` dans ADR-GARDE-HELIUS, RUNBOOK-rpc-guard).
 4. **BELL-SHORTPAGE-1** (`e5dfbb4`) apres G2 PASS : fusion + insertion D1-nonies (`F:\tmp\bellsp1\ADR-amendement.md` + corrections
    cp-2 C-1/C-2/C-3/C-5 + R-C6-2 corrige par le fait mesure EPERM + ruling R-SP-C) dans `docs/adr/ADR-T1aii-bell-collecteur-course-fondatrice.md`
    (fin de fichier, apres l.396) ; puis lancer **BELL-RENAME-RETRY-1** (micro-lot code, worker Opus 5.5, cf. RUNBOOK supervision §3).
