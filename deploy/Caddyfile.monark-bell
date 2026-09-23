@@ -1,0 +1,25 @@
+# MONARK Bell - Caddy site for bell.monarkgate.tech (ADR-T1b-backend v2 D10; backlog S-8). Orchestrator-deployed by
+# docs/RUNBOOK-bell.md under ruling C-5: installed WHOLE, replaced in block, never edited in place. On a host whose
+# /etc/caddy/Caddyfile is the package default only (the Bell host, measured 2026-09-23 17:0x UTC), this file REPLACES it;
+# on a host that serves other sites it is installed at /etc/caddy/monark-bell.caddyfile and imported by ONE line.
+#
+# Static only: the served tree is the publisher's public/ directory (state.json, provenance.json, timeline.jsonl,
+# bell/pubkey.json, states/<sha256>.json, provenance/<sha256>.json). The public key is served by the SAME root at
+# /bell/pubkey.json (C-10), no special route. No directory listing (no browse), no proxy, no access log (C-2: the log
+# waits for its trigger, decision 78, item BELL-ACCESS-LOG-1). HTTPS is automatic once the A record points here.
+bell.monarkgate.tech {
+	root * /var/lib/monark-bell/public
+
+	# Every response: readable cross-origin by the site panel and by third parties (the data is public), never sniffed.
+	header Access-Control-Allow-Origin "*"
+	header X-Content-Type-Options "nosniff"
+
+	# Content-addressed immutables never change (their name is their sha256); the current files change at each
+	# publication and are revalidated. The two matchers are complementary, so no header rule depends on ordering.
+	@immutable path /states/* /provenance/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+	@current not path /states/* /provenance/*
+	header @current Cache-Control "no-cache"
+
+	file_server
+}

@@ -2,7 +2,9 @@
 // named mutants, each RED by construction on the reduced fixture. No network here (rpc.call injected).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { createPublicKey, generateKeyPairSync } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
 import { rowsFromCsv, haltDelta, census, haltsSince, type HaltRow } from "../src/halts.ts";
@@ -14,6 +16,7 @@ import { buildDigest, bellSha, assertNoClose, canonical, provenance, type GapEnt
 import { POOLS, CENSUS_V3_SHA256 } from "../src/pools.ts";
 import { readMintToken2022 } from "../src/supply.ts";
 import { scanText, compilePatterns, collectTargets } from "../../../scripts/grep-forbidden.mjs";
+import { PRIVATE_SHAPES } from "../../../scripts/verify-bell.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REDUCED = readFileSync(join(HERE, "fixtures", "halts-reduced.csv"), "utf8");
@@ -182,6 +185,22 @@ test("bell_no_secret_in_repo", () => {
   }
   assert.ok(SECRET.test('const k = "api-key=abcdef0123456789";')); // mutant: a real key context reddens
   assert.equal(SECRET.test("XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB"), false); // a base58 mint is NOT a secret
+  // T-1b S-10 (ADR-T1b-backend D9): the publisher's scripts and the committed keyring (apps/bell/keys, when present) carry neither
+  // a key context nor a PRIVATE key in any form the CA also refuses to serve (PRIVATE_SHAPES: PEM block, JWK "d", bare PKCS#8 DER).
+  // Non-vacuity on a key generated here (never committed); the KAT's in-memory JWK construction stays green, no exception.
+  const scripts = join(HERE, "..", "scripts"), keys = join(HERE, "..", "keys");
+  const files = [...readdirSync(scripts).map((f) => join(scripts, f)), ...(existsSync(keys) ? readdirSync(keys).map((f) => join(keys, f)) : [])];
+  assert.ok(files.length >= 6, `scripts scanned (${String(files.length)})`);
+  const priv = (s: string): boolean => PRIVATE_SHAPES.some((re) => re.test(s));
+  for (const f of files) {
+    const text = readFileSync(f, "utf8");
+    assert.equal(SECRET.test(text) || priv(text), false, `secret-shaped context or private key in ${f}`);
+  }
+  const k = generateKeyPairSync("ed25519").privateKey;
+  assert.ok(priv(JSON.stringify(k.export({ format: "jwk" }))), "a private JWK reddens"); // mutant: JWK shape removed => red
+  assert.ok(priv(k.export({ format: "der", type: "pkcs8" }).toString("base64")), "a bare PKCS#8 DER reddens");
+  assert.equal(priv(JSON.stringify(createPublicKey(k).export({ format: "jwk" }))), false, "a public JWK is not private");
+  assert.equal(priv("d: b64(RFC8032_TEST1.secretKeyHex)"), false, "the KAT's in-memory construction is not a key");
 });
 
 test("bell_vocab_scope_reddens", () => {
@@ -197,6 +216,27 @@ test("bell_vocab_scope_reddens", () => {
   const targets = collectTargets(ROOT, cfg, []) as { f: string }[];
   const bellFiles = targets.filter((t) => t.f.replace(/\\/g, "/").includes("apps/bell/src"));
   assert.ok(bellFiles.length >= 7, `bell src scanned (${bellFiles.length})`);
+});
+
+// T-1b S-10 (ADR-T1b-backend D13.7): the bell scope also walks apps/bell/scripts/*.mjs (the publisher writes the served files). A
+// naked "verified" planted in a scripts .mjs (temp root, same config) reddens under the bell rules; every real bell script and
+// source is at 0 hit. Mutants: apps/bell/scripts removed from `dirs`, or ".mjs" removed from `extensions` => red.
+test("bell_vocab_scope_covers_scripts", () => {
+  type Cfg = { scan: { bell: { banned: { re: string; why: string }[] } } };
+  const cfg = JSON.parse(readFileSync(join(ROOT, "vocab-banned.json"), "utf8")) as Cfg;
+  const bellRule = compilePatterns(cfg.scan.bell.banned)[0]?.re.source;
+  const tmpRoot = mkdtempSync(join(tmpdir(), "bell-vocab-"));
+  mkdirSync(join(tmpRoot, "packages"));
+  mkdirSync(join(tmpRoot, "apps", "bell", "scripts"), { recursive: true });
+  writeFileSync(join(tmpRoot, "apps", "bell", "scripts", "planted.mjs"), "// the served line is a verified witness\n");
+  const planted = collectTargets(tmpRoot, cfg, []).filter((t) => t.f.endsWith("planted.mjs"));
+  assert.equal(planted.length, 1, "a scripts .mjs is a bell-scope target");
+  assert.ok(planted[0]!.patterns.some((p) => p.re.source === bellRule), "scanned with the bell rules");
+  assert.ok(scanText(readFileSync(planted[0]!.f, "utf8"), planted[0]!.patterns).length > 0, "a naked 'verified' planted in apps/bell/scripts reddens");
+  const real = collectTargets(ROOT, cfg, []).filter((t) => t.f.replace(/\\/g, "/").includes("apps/bell/"));
+  const scriptTargets = real.filter((t) => t.f.replace(/\\/g, "/").includes("apps/bell/scripts/") && t.f.endsWith(".mjs"));
+  assert.ok(scriptTargets.length >= 3, `the real bell scripts are scanned (${String(scriptTargets.length)})`);
+  assert.deepEqual(real.flatMap((t) => scanText(readFileSync(t.f, "utf8"), t.patterns).map((h) => `${t.f}:${String(h.line)}`)), [], "the bell scope is at 0 hit");
 });
 
 // ---- session classification (calendar + DST) ------------------------------------------------------
