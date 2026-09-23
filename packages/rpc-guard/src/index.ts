@@ -10,6 +10,9 @@ export { BudgetExceededError, TransportError, RpcError } from "./errors.ts";
 // apps -> packages direction is licit) and keeps NO second regex; the closed-vocabulary hint (D6) is built from the
 // SAME tokens, so `predicate(hint) === predicate(body)` holds and the recorder's range-split can never drift.
 export { isResultLimit, isPlanLimited, isRevertText, isRpcRevert, closedHint, ERROR_HINT_TOKENS } from "./classify.ts";
+// UKEMI-REVERT-1: the ADDITIVE bare-revert class (isRpcRevert unchanged); rpc2.ts quorum2 pairs a PAID bare revert with a
+// KEYLESS bare witness. A classifier only - NOT a paid path (no symbol returns/accepts an endpoint URL).
+export { isBareRevert } from "./classify.ts";
 export { runReconcile } from "./reconcile.ts";
 export { runCli } from "./cli.ts";
 export { verifyCycleLedger } from "./ledger.ts";
