@@ -381,4 +381,4 @@ Pli des corrections du checkpoint-1 : même rédacteur, `claude-opus-5-5[1m]`, m
 ## Amendement daté du 2026-09-24 15:03 UTC (décision investisseur 198, orchestrateur `claude-fable-5-1`)
 
 - La condition portée par l'item BELL-OTS-NODE-VERIFY-1 et par la correction C-2 (« BELL-OTS-NODE-VERIFY-1 conditionne […] le dépôt SEC ») est **levée pour le dépôt de la lettre 4-927 v4 du 2026-09-24** : la lettre est déposée avec la clause « not checked against a node » et l'ancrage des publications « in preparation » (décision 192). 
-- Inchangé : le retrait de la clause « not checked against a node here » d'une surface servie reste conditionné par BELL-OTS-NODE-VERIFY-1 ; l'item reste ouvert pour tout dépôt ultérieur. SEC-L56-ANCHOR-1 est clos par la formule de la décision 192 (lettre v4 l.56).
+- Inchangé : le retrait de la clause « not checked against a node here » d'une surface servie reste conditionné par BELL-OTS-NODE-VERIFY-1 ; l'item reste ouvert pour tout dépôt ultérieur. SEC-L56-ANCHOR-1 est clos par la formule de la décision 192 (lettre v4 l.43 (l.56 dans la v3)).
