@@ -90,6 +90,23 @@ Aucun commit (R-20), aucun workflow déclenché. Artefacts hors dépôt : `F:\tm
   - 16:10:59Z → 16:11:41Z : 6 portes rejouées sur l'arbre final (G1 rempli) ; balayage A-7 (0 fichier, témoin positif vu).
   - ~16:12Z : advisor intégré en clôture : aucun blocage ; chiffres rafraîchis (R-25 en I-8, « ×5 » des résidus identiques,
     mesuré à 16:15:38Z, `pli4\residuals-x5.log`) ; puis `DELIVERED.sha256` et diffs. Avis, jamais verdict.
+- **Pli 5** (décision investisseur 205 ; même worktree, par-dessus le gel 3 bis `624550a`, sans commit ; §« Pli 5 ») :
+  - 19:12:41Z : ancrage (HEAD `624550a`, `git status` vide, blobs du gel 3 bis = livraison du pli des corrections, 14/14) ;
+    ligne `STAT=` à la l.71 ici, à la l.65 dans `lot/etude-suite` (texte identique) ; tête `lot/etude-suite` `c56c746`.
+  - ~19:14Z : relevé d'`apps/site` ; classe actuelle des 4 formes : UNDER (`pli5\family-now.log`).
+  - ~19:16Z : advisor intégré (conception des deux gardes, avant code).
+  - ~19:17Z : gardes écrites (+51 lignes en fin de fichier) ; 10/10 verts.
+  - 19:19:36Z → 19:19:39Z : 5 mutants de gardes, tués, restaurés à l'octet.
+  - ~19:20Z : `git merge-tree` (1 fichier en conflit) et `merge-file` sur la copie de travail (1 zone).
+  - 19:20:22Z → 19:20:44Z : build hors réseau (0 connexion), 19/19 identique au gel 3 bis, g3-site vert.
+  - 19:21:03Z → 19:22:10Z : oracle ; 19:22:24Z : R-25 et invariants.
+  - ~19:24Z : textes du G1 (I-9, I-10, I-6, I-8, D-15, D-20, Tuyaux) ; 19:25:02Z → 19:25:41Z : 6 portes rejouées sur l'arbre avec le G1 écrit ;
+    balayage A-7 (0 fichier, témoin vu).
+  - ~19:27Z : advisor intégré en clôture : le message de la garde 1 prétendait à la conformité ; reformulé (D-21), test +1
+    ligne (`58935e6e…`).
+  - 19:31:14Z → 19:32:17Z : oracle rejoué sur le test final (10/10, 224/224, 6 portes) ; 19:32:18Z → 19:32:21Z : 5 mutants
+    rejoués (`pli5\run2\`), tués, restaurés à l'octet ; R-25 = 546 ; fusion : 1 zone.
+  - ensuite : G1 mis à jour, `DELIVERED.sha256`, diffs, rendu `pli5\PLI-5.md`. Avis, jamais verdict.
 
 ## G2 pliée (2026-09-24, ~04:50Z → 05:2xZ ; rapport `F:\tmp\codeql-alerts-1\g2\G2-report.md`)
 
@@ -487,6 +504,45 @@ VALEUR D'ATTRIBUT (famille A1, attributs non modélisés : D3, R-c) est lue viva
 
 **Oracle** : §« Oracle du pli des corrections de la G2 de confirmation ».
 
+## Pli 5 (décision investisseur 205 ; 2026-09-24, ~19:12Z → 19:33Z ; test et texte seuls, gel 3 bis `624550a`)
+
+**Mandat.** Décision investisseur 205, « ok » à 19:15Z, transmise par l'orchestrateur. C'est l'option (iii) de l'escalade M-1 :
+- la décision 193 est élargie à toute la famille ;
+- pas de 4ᵉ pli de code ; la fusion vient ensuite ;
+- un lot séparé « scanner conforme » viendra plus tard.
+
+Ce pli est un pli de test et de texte seuls, sur le worktree, par-dessus le gel 3 bis : sans commit, et jamais `GIT_DIR`
+pour un test. Le scanner est inchangé (`fcbd28b0…`).
+
+| Point | Pli | Preuve |
+|---|---|---|
+| 1. G1, sous I-9 | La décision 205, datée, remplace « en attente d'élargissement ». La limite connue est la famille entière : R-a, R-c, ouvrante à texte brut dans un attribut, Att1. 0 forme nouvelle face au gel 2 ; 0 sur les 19 pages. Item I-10 SCANNER-CONFORME-1 formé. | §Items |
+| 2. Garde 1 | `rendered_body_known_limit_family_pinned` : une assertion par forme, avec les vecteurs exacts de `G2-CONFIRM.md` §M-1 (G-RaSkip, G-RcSkip, G-AttRaw) et Att1. Chaque forme doit être THROW ou UNDER (HA compté) ; une forme EXACT rougit avec « remove its exemption (I-9, decision 205) ». | Classe actuelle mesurée (`pli5\family-now.log`) : parse5 cache HA dans les 4 formes ; l'ANCIEN lève ; le GEL2 et le gel 3 bis donnent UNDER. Mutant MG5 tué. |
+| 3. Garde 2 | `site_raw_html_injection_points_pinned`, par un parcours de fichiers sans git. `node_modules` et `.next` sont exclus. Non-vacuité : au moins 20 `.tsx`, `app/layout.tsx` compris. Attendus : `dangerouslySetInnerHTML` dans les `.tsx` d'`apps/site` = `apps/site/app/layout.tsx x1` ; aucun `rehype-raw` ni `innerHTML =` dans un fichier d'`apps/site`. Toute autre occurrence rougit avec son chemin. | Mutants MG1 à MG4 tués (tableau §Mutants) ; garde verte même avec un `.next` frais présent (19:20Z). |
+| 4. Oracle | test du site 10/10, liste ciblée 224/224, 6 portes, build 19/19, R-25, fusion | §« Oracle du pli 5 », §R-25 |
+
+**Relevé d'`apps/site` avant écriture** (19:14Z, `grep` hors `node_modules` et `.next`) :
+- `dangerouslySetInnerHTML` : `apps/site/app/layout.tsx:67` (`<script dangerouslySetInnerHTML={{ __html: themeInit }} />`), une seule occurrence ;
+- `rehype-raw` : 0 fichier ;
+- `innerHTML =` : 0 fichier ;
+- 154 fichiers au total, aucun ignoré ni non suivi.
+
+**Fusion (C-5).**
+- `git merge-tree --write-tree --name-only lot/etude-suite lot/codeql-alerts-1` (`c56c746` contre `624550a`, base de fusion
+  `e7af51c`, `pli5\merge\merge-tree.out`) : exit 1, **1 fichier en conflit**, `test/site-build-fleet.test.ts`. Fusion
+  automatique pour `apps/bell/test/bell-served-e2e.test.ts`, `apps/bell/test/helpers/bell-served.ts` et `test/bell-caddy.ts`.
+  La commande écrit un arbre dans la base d'objets (`e31df968…`) ; aucune ref, aucun worktree touché.
+- `merge-tree` ne voit que les commits. Le delta du pli 5, non commité, est donc vérifié par `git merge-file` sur des copies
+  de blobs : **1 zone de conflit** (l.216 à 1388 du fichier fusionné) ; les gardes 1 et 2 (l.1345 et 1367) et L2adj
+  (l.1331) sont dedans.
+- Les imports de `node:fs` ne sont pas touchés : `lot/etude-suite` a déjà réécrit cette ligne, et une autre réécriture
+  ouvrirait une seconde zone de conflit. La garde 2 importe `readdirSync` et `sep` dans son corps (D-20).
+
+**R-25.** La ligne `STAT=` est la l.71 de `ci.yml` dans cet arbre et la l.65 dans `lot/etude-suite` ; leur texte est
+identique (même pathspec). §R-25.
+
+**Ceinture.** `pli5\ev.sh`, identique à `pli4\ev.sh` (texte de la mission, `NEXT_TELEMETRY_DISABLED=1` compris).
+
 ## Faits d'orientation (lus, avec ligne)
 
 - F-1 `.github/workflows/ci.yml` (base) : aucun bloc `permissions`, aucune occurrence de `write` ni de `permission` (grep
@@ -644,7 +700,8 @@ VALEUR D'ATTRIBUT (famille A1, attributs non modélisés : D3, R-c) est lue viva
   logée entre la fin navigateur et la fermante D3 : son contenu n'est pas vérifié et la clause 1 est contournée (G2 de
   confirmation, G-RaSkip `<style></style/><title></style><noscript></title><script></noscript>HA` : ANCIEN throw, LOT-V1 à
   PLI3 UNDER ; variantes `</style x>` et script fermé). Ce n'est donc PAS « sens fail-closed » : R-a déclaré, faux vert
-  possible, 0 sur les 19 pages (aucune fermante R-a d'élément à texte brut) ; décision jointe à I-9.
+  possible, 0 sur les 19 pages (aucune fermante R-a d'élément à texte brut) ; tranchée par la décision 205 (limite connue,
+  I-9 ; garde 1).
 - **D-16 (pli 3 : règle d'ambiguïté étendue par NOM, pas par étendue).** Une étendue de commentaire portant une ouvrante à
   texte brut lève, comme pour une ouvrante cachée, sans calculer le contenu de l'élément avalé. L'autre voie (vérifier ce
   contenu depuis l'ouvrante) exigeait un état partagé entre commentaires pour rester linéaire (N commentaires portant
@@ -671,6 +728,18 @@ VALEUR D'ATTRIBUT (famille A1, attributs non modélisés : D3, R-c) est lue viva
   - source ajoutée aux chiffres L-3 à 7 jetons ;
   - quatre ajouts de cohérence ;
   - l'ordre du journal du pli 3.
+- **D-20 (pli 5 : fusion et imports).**
+  - La garde 2 importe `readdirSync` (`node:fs`) et `sep` (`node:path`) dans son propre corps, par un import dynamique : la
+    ligne d'import de `node:fs` n'est pas touchée. `lot/etude-suite` l'a déjà réécrite ; une autre réécriture ouvrirait une
+    seconde zone de conflit, et une réécriture identique laisserait `statSync` sans usage (eslint).
+  - `git merge-tree --write-tree` écrit un arbre dans la base d'objets, sans ref : ce n'est pas un commit (R-20), mais c'est
+    une écriture ; déclarée.
+  - Aucun `git stash create` (qui écrirait un objet commit) ; aucun `GIT_DIR` pour un test.
+- **D-21 (pli 5 : message de la garde 1, advisor de clôture).** Un résultat EXACT (aucune levée, HA non compté) ne prouve
+  pas la conformité : un scanner qui PERD la charge donne le même résultat, et c'est exactement le mutant MG5. Le
+  commentaire et le message de la garde 1 disent donc les deux lectures (conforme ⇒ retirer l'exemption ; charge perdue ⇒
+  régression) et renvoient à un analyseur de niveau navigateur (I-10). La phrase « remove its exemption (I-9, decision
+  205) » est gardée telle quelle. Cascade rejouée sur le test final : test du site, liste ciblée, 6 portes, 5 mutants, fusion.
 
 ## Dismiss « false positive » des 8 sites non réécrits (texte anglais prêt à poser, une phrase par site)
 
@@ -853,7 +922,7 @@ AMÉLIORATIONS face à l'ANCIEN : Rb3, V1 (`<script` + U+000B : ANCIEN sur-retra
 - **I-6 R-H-RACINE (L-2)** — **CLOS SUR LA GRAMMAIRE D3** par la décision investisseur 187 (option B) et le pli 3 : clauses 1 à 3
   et règle d'ambiguïté étendue. Vérifié par énumération (E13 jusqu'à 7 jetons : 0 nouveau caché hors R-e face à l'ANCIEN,
   0 face au GEL2), 51 mutants et 19/19. Contournable hors grammaire D3 (G2 de confirmation M-1 : R-a et R-c d'un élément à
-  texte brut, ouvrante à texte brut en attribut ; 0 atteignable) : décision jointe à I-9. Reste à l'orchestrateur
+  texte brut, ouvrante à texte brut en attribut ; 0 atteignable) : tranchée par la décision 205 (I-9, I-10). Reste à l'orchestrateur
   l'amendement de D3 (« pas de `<style` », I-8).
 - **I-7 AMBIGUITE-VARIANTE-B** — déclencheur : décision de l'orchestrateur avant G7. Variante A retenue (ouvrantes) ;
   variante B (+ une fin `</template` dans l'étendue d'un commentaire dans un template) ferme les sur-retraits S1t/Rft au
@@ -872,9 +941,15 @@ AMÉLIORATIONS face à l'ANCIEN : Rb3, V1 (`<script` + U+000B : ANCIEN sur-retra
     sur la grammaire D3 (alphabet E13) ; classes exclues, chacune déclarée avec ses comptes : R-e, R-a (y compris texte
     brut), R-c (y compris texte brut), balises portant un `<` (A1, L-3).
   - La portée de D3 (iv) : grammaire du scanner, pas états échappés du navigateur (CP2b (b)(ii)).
-  - R-25 = 494 (491 au pli 3 ; +3 au pli des corrections de la G2 de confirmation).
-- **I-9 L-3 ATTRIBUT-SWALLOW** — déclencheur : décision de l'orchestrateur avant G7 (même lettre de D3 (iv) que L-2, hors
-  du mandat 187). Constat, mesures et option VARG : §« Pli 3 ». Options (recherche de solutions, non tranchée) :
+  - R-25 = 546 (491 au pli 3 ; 494 au pli des corrections de la G2 de confirmation ; 546 au pli 5).
+  - (viii) Décision investisseur 205 :
+    - exemption écrite de D3 (iv) pour la famille entière (R-a et R-c d'un élément à texte brut, ouvrante à texte brut en
+      attribut, Att1), limite connue épinglée par la garde 1 ;
+    - points d'injection de HTML brut du site épinglés par la garde 2 ;
+    - scanner conforme renvoyé à un lot séparé (I-10), qui renverserait le ruling « D3 maison ».
+- **I-9 L-3 ATTRIBUT-SWALLOW** — **TRANCHÉ par la décision investisseur 205** (ci-dessous). Déclencheur d'origine : décision
+  de l'orchestrateur avant G7 ; même lettre de D3 (iv) que L-2, hors du mandat 187. Constat, mesures et option VARG :
+  §« Pli 3 ». Options examinées :
   - (i) résidu déclaré, avec exemption écrite de D3 (iv) pour les valeurs d'attribut non modélisées (R-c, A1) ;
   - (ii) vérification « scripts d'abord » : ferme les formes à script non fermé (Att1), pas Att1c ; coût sur l'alphabet
     d'attribut jusqu'à 6 jetons : 10 393 séquences exactes lèvent (C2, Tn compris) ;
@@ -894,8 +969,29 @@ AMÉLIORATIONS face à l'ANCIEN : Rb3, V1 (`<script` + U+000B : ANCIEN sur-retra
   **Aucune n'est nouvelle face au gel 2** (LOT-V1, GEL1, GEL2 et GEL3 UNDER à l'identique). **0 sur les 19 pages** : aucune
   fermante R-a d'élément à texte brut, 0 écart de fin d'ouvrante ou de fin de contenu entre le scanner et parse5, aucun `<`
   dans une balise ouvrante. Le scanner n'est pas modifié : un 4ᵉ pli de code relèverait de l'escalade CP2b (a)-4.
-  **Décision investisseur 193** (transmise par l'orchestrateur) : option (i), résidu déclaré avec exemption écrite de D3 (iv) ;
-  son **élargissement à toute la famille** (L-3 et les trois formes M-1) est **en attente**.
+  **Décision investisseur 193** (transmise par l'orchestrateur) : option (i), résidu déclaré avec exemption écrite de D3 (iv).
+  **Décision investisseur 205** (2026-09-24, « ok » à 19:15Z, transmise par l'orchestrateur ; option (iii) de l'escalade M-1,
+  distincte de l'option (iii) ci-dessus) : la décision 193 (option (i), exemption écrite de D3 (iv)) est **élargie à toute
+  la famille**.
+  - **Limite connue** = la famille entière : R-a d'un élément à texte brut ; R-c sur l'ouvrante d'un élément à texte brut ;
+    ouvrante à texte brut dans une valeur d'attribut ; Att1 (ouvrante cachée dans une valeur d'attribut, L-3).
+  - **0 forme nouvelle face au gel 2** ; **0 sur les 19 pages**.
+  - Pas de 4ᵉ pli de code ; la fusion vient ensuite ; un scanner conforme fera l'objet d'un lot séparé (I-10).
+  - Épinglé au pli 5 par deux gardes non-LLM (`test/site-build-fleet.test.ts`) :
+    - garde 1, `rendered_body_known_limit_family_pinned` : chaque forme THROW ou UNDER ; EXACT ⇒ retirer l'exemption ;
+    - garde 2, `site_raw_html_injection_points_pinned` : `dangerouslySetInnerHTML` seulement dans
+      `apps/site/app/layout.tsx`, une fois ; 0 `rehype-raw` et 0 `innerHTML =` dans `apps/site`.
+- **I-10 SCANNER-CONFORME-1** (formé au pli 5, décision investisseur 205) — déclencheur : **décision investisseur**,
+  découplée de CodeQL (ni la fenêtre publique ni une alerte ne la déclenchent). Objet : un scanner conforme à la
+  tokenisation HTML, qui lève la limite connue d'I-9 (la famille entière) et les résidus d'I-4. Deux points connus :
+  - **parse5 serait une dépendance nouvelle** : vérification du registre AVANT installation (R-8). Elle renverse le ruling
+    du checkpoint-1 « D3 maison (pas `parse5`) » et appelle donc un ADR.
+  - **Le contrat de sortie du scanner est à réécrire.** `renderedBody` rend aujourd'hui le HTML privé de ses surfaces
+    cachées, balises génériques et attributs CONSERVÉS, parce que `extractMain` et `mainCorpus` lisent `<main …>` et les
+    attributs `alt`, `title` et `aria-label`. Un scanner fondé sur un arbre doit redéfinir ce contrat avec ses consommateurs
+    (g3-site sur /fleet et /ukemi).
+  À la clôture de cet item, la garde 1 passe à l'exact (l'exemption retirée) et la garde 2 est revue avec le nouveau
+  contrat.
 
 ## error_origin (C-3 bis ; doc 06 §4.3 : étage fautif ∈ {PLANIFICATEUR, IMPLEMENTEUR, RELECTEUR, ORACLE}, assigné au G7)
 
@@ -1213,7 +1309,19 @@ Rejoués au pli des corrections de la G2 de confirmation : **X12, X13** (mutants
 muté est identique à celui du relecteur (`58ec943d…`, `ea4cf9bf…`) et les restaurations sont octet-exactes
 (`pli4\before\`, `pli4\after\`).
 
-## Fichiers touchés (13 de code + ce journal) — sha256 octets bruts AVANT (base `e7af51c`) → APRÈS (état livré après le pli des corrections de la G2 de confirmation)
+Mutants des gardes du pli 5 : mini-harnais `pli5\mutants-guards-run.mjs`, qui est le harnais du pli 3 dont seul le tableau
+MUTANTS change (`pli5\run\`, 19:19:36Z → 19:19:39Z ; rejoués sur le test final, `pli5\run2\`, 19:32:18Z → 19:32:21Z, mêmes tueurs). **5/5 tués par le test visé, 5/5 restaurations octet-exactes** : sha
+avant = après sur les 5 fichiers (`pli5\mg.sha-*`), 0 `.mut-tmp`.
+
+| # | Mutation | Test tueur | Message du tueur |
+|---|---|---|---|
+| MG1 | `// dangerouslySetInnerHTML` planté dans `apps/site/app/fleet/page.tsx` | `site_raw_html_injection_points_pinned` | la liste reçue nomme `apps/site/app/fleet/page.tsx x1` |
+| MG2 | attribut du script de thème retiré d'`app/layout.tsx` | idem | liste reçue vide au lieu de `apps/site/app/layout.tsx x1` |
+| MG3 | `"rehype-raw"` planté dans `apps/site/package.json` | idem | la liste reçue nomme `apps/site/package.json` |
+| MG4 | `innerHTML =` planté dans `apps/site/app/fleet/page.tsx` | idem | la liste reçue nomme `apps/site/app/fleet/page.tsx` |
+| MG5 | le scanner rend sa sortie sans `HA` : les 4 formes deviennent EXACT | `rendered_body_known_limit_family_pinned` | « (G-RaSkip, R-a closer of a raw-text element) came out EXACT (no throw, HA not counted). Conformant on this known-limit form? Then remove its exemption (I-9, decision 205) … Payload lost? Then it is a regression. … » (au premier passage, avant D-21 : « … the scanner is now conformant … ») |
+
+## Fichiers touchés (13 de code + ce journal) — sha256 octets bruts AVANT (base `e7af51c`) → APRÈS (état livré après le pli 5)
 
 Le pli G2 a changé 4 fichiers ; leur sha LOT-V1 (livré au G1) : `scripts/assert-fleet-html.mjs` `6c0f7976…`,
 `test/site-build-fleet.test.ts` `04809f16…`, `apps/bell/test/bell-adv-1.test.ts` `250ea0af…`,
@@ -1224,6 +1332,8 @@ Le pli 3 a changé 3 fichiers ; leur sha au gel 2 `f33e6c5` : `scripts/assert-fl
 sont inchangés depuis le gel 2.
 Le pli des corrections de la G2 de confirmation a changé 1 fichier de code (test) : `test/site-build-fleet.test.ts` `b9de36e4…` → `a3df31fe…`
 (+3 lignes, m-1). Les 12 autres fichiers de code sont inchangés depuis le gel 3.
+Le pli 5 a changé 1 fichier de code (test) : `test/site-build-fleet.test.ts` `a3df31fe…` → `58935e6e…` (+52 lignes, gardes 1 et 2).
+Les 12 autres fichiers de code sont inchangés depuis le gel 3 bis.
 
 | Fichier | AVANT | APRÈS |
 |---|---|---|
@@ -1233,7 +1343,7 @@ Le pli des corrections de la G2 de confirmation a changé 1 fichier de code (tes
 | `packages/rpc-guard/test/error-hint.test.ts` | `8ba546cf808312ea72558582ff4037568bfc68284341e85c4dc6ed4afef0628c` | `f8543bb912f5f59966e3ddf433919c5d016d8e0e3d403fc47edafe38557ceb6e` |
 | `scripts/assert-fleet-html.mjs` | `ba1d8324b13c9e607d1d85e5b96444303a53e57cececfe9f6dc0d6d7b7da2cbc` | `fcbd28b03798e1fd6eba8ced14dbc9e2563373e71549fc58e0d3dac4f0f23bf8` |
 | `scripts/assert-fleet-html.d.mts` | `7c761adfdf1e30c708e64631759a018bc40fbef4f713c7a4f7b37d23b09be648` | `27cac187afc988a99789938d8a49fd134cd988aea4af9cf6f93b1dcea0c3e926` |
-| `test/site-build-fleet.test.ts` | `22798272df18871d56776afc38353c167e1c0aad84f52c0809320e8858e68936` | `a3df31fe06e193a3859a494669394f5cb15fd7a38cfe8276fd5a509a17a30a48` |
+| `test/site-build-fleet.test.ts` | `22798272df18871d56776afc38353c167e1c0aad84f52c0809320e8858e68936` | `58935e6e3bbac169959f4f52b7b7ffef75fbc8feb59cb51e3462da421a93392e` |
 | `apps/bell/test/bell-adv-1.test.ts` | `08415639d11559c487743395acbd55cddfe21e6e9188d7d0a4b34647b6d04f5b` | `b444efae2aa824e0ba2a4ed6f60a825cbdc62a3a7608c5ac0ad1ad4c87f3b00d` |
 | `apps/sentinel/test/ukemi-guard-record.test.ts` | `c05791b2996eea9c0ca9d98c94839207e09743cf3fb2ba2f0d3d7cf4b7d4d631` | `49f8c3ededdf2c6f787896be12fc81091e8d285fc2b24ebd990f6c45a00a489c` |
 | `apps/bell/test/helpers/bell-served.ts` | `3f79789a9e4f523e38954675fd6763a38db6e89b8892352774c22ef1e2bb7472` | `da10ff690170390719af985541b4692151a941d87ce8f989635fe51c5a9f2dc6` |
@@ -1276,6 +1386,12 @@ ajoutée (R-8 : `package.json`/`package-lock.json` intacts).
   - garde `/<script\b/i` + message présents verbatim ×1 ;
   - 0 CR ; 0 caractère non-ASCII ajouté dans le code ;
   - antislashs du test 36 → 37 (le `<\/template>` voulu de Rh1adj).
+- **Re-mesurés au pli 5** (19:22:24Z, scanner `fcbd28b0…` inchangé) :
+  - gel U-4b SAME ×9 ;
+  - tranche l.82-129 `c2f03ba8…` inchangée (les gardes sont ajoutées en fin de fichier) ;
+  - garde `/<script\b/i` + message présents verbatim ×1 ;
+  - 0 CR ; 0 caractère non-ASCII ajouté dans le code ; 0 TODO/FIXME ;
+  - antislashs du test 37 → 38 (le `\s` voulu de la regex `innerHTML`).
 
 ## Tuyaux (règle Branchement) — preuve par tuyau
 
@@ -1283,7 +1399,7 @@ ajoutée (R-8 : `package.json`/`package-lock.json` intacts).
 |---|---|---|---|
 | `ci.yml` → GitHub Actions | bloc `permissions` | jobs sous `contents: read` ; miroir dérivé idem | `ci_workflow_declares_least_privilege_permissions` (lit le fichier ET `derivePublicWorkflow`) ; test 42 (CI exportée verte) ; run vert de la fenêtre = I-1/I-3 |
 | `transport.ts` (`redact`) → quorum / journaux | corps d'erreur RPC keyless | corps rédigé | client gardé réel, seul `fetch` bouchonné : `error-hint.test.ts` `:145`, `:186`, test nouveau ; `multi-operator.test.ts:312-313` ; `ukemi-guard-record.test.ts` (`rpcErrorsOf`, corps keyless rédigé journalisé) ; 17 importeurs `rpc-guard` verts |
-| `assert-fleet-html.mjs` → `g3-site` | HTML rendu | texte contrôlé | `site-build-fleet.test.ts:82` (octet-identique) + `rendered_body_scanner_outcomes` (dont T1-T3, Rd, GM4, Tc, Tcase, Tws, Tx) + `rendered_body_comment_forms_and_template_depth` (B-2, L-1, M-2) + `rendered_body_raw_text_elements` (L-2, pli 3) + `site-ukemi.test.ts` (via `assertUkemiBody`) ; pli G2 : composition servie rejouée sur l'artefact RÉEL construit hors réseau (19/19 pages identiques, `node scripts/assert-fleet-html.mjs` exit 0) + énumération exhaustive contre oracle de référence (0 nouveau texte caché compté) ; pli G2 delta : 19/19 sur l'arbre final, énumération jusqu'à 7 jetons sur 15 et classement de chaque nouveau texte caché (0 inexpliqué) |
+| `assert-fleet-html.mjs` → `g3-site` | HTML rendu | texte contrôlé | `site-build-fleet.test.ts:82` (octet-identique) + `rendered_body_scanner_outcomes` (dont T1-T3, Rd, GM4, Tc, Tcase, Tws, Tx) + `rendered_body_comment_forms_and_template_depth` (B-2, L-1, M-2) + `rendered_body_raw_text_elements` (L-2, pli 3) + `rendered_body_known_limit_family_pinned` et `site_raw_html_injection_points_pinned` (gardes 1 et 2, décision 205) + `site-ukemi.test.ts` (via `assertUkemiBody`) ; pli G2 : composition servie rejouée sur l'artefact RÉEL construit hors réseau (19/19 pages identiques, `node scripts/assert-fleet-html.mjs` exit 0) + énumération exhaustive contre oracle de référence (0 nouveau texte caché compté) ; pli G2 delta : 19/19 sur l'arbre final, énumération jusqu'à 7 jetons sur 15 et classement de chaque nouveau texte caché (0 inexpliqué) |
 
 ## R-25 (A-5)
 
@@ -1310,6 +1426,11 @@ rogné.
 au gel 3 `6443dcc` : 1 fichier (`test/site-build-fleet.test.ts`), +3 ⇒ 3 (le G1 est exclu par la pathspec).
 Au-dessus de la fourchette indicative 150-300 de l'ADR, sous le seuil STOP A-5 (1 150) : mesuré, pas rogné.
 
+**Après le pli 5** (même pathspec verbatim : `ci.yml:71` dans cet arbre, `ci.yml:65` dans `lot/etude-suite`, ligne
+identique) : `13 files changed, 510 insertions(+), 36 deletions(-)` ⇒ **546**. Delta face au gel 3 bis `624550a` : 1 fichier
+(`test/site-build-fleet.test.ts`), +52 ⇒ 52. Au-dessus de la fourchette indicative 150-300 de l'ADR, sous le seuil STOP
+A-5 (1 150) : mesuré, pas rogné.
+
 ## Consigne standard : point par point
 
 - A-1 fait (l.1). A-2 fait (`npm ci`, D-8 ; `require.resolve` dans le worktree). A-3 fait pour l'oracle ; D-9 pour
@@ -1317,13 +1438,13 @@ Au-dessus de la fourchette indicative 150-300 de l'ADR, sous le seuil STOP A-5 (
 - A-4 fait : `F:\tmp\codeql-alerts-1\DELIVERED.sha256` (chemins relatifs au worktree) ; aucun commit ; rien sur C: (cache
   npm `F:\cache\npm`, `TEMP/TMP/TMPDIR=F:/tmp`) ; réseau : registre npm (`npm ci`) seulement ; tests en boucle locale
   (`127.0.0.1`) et `fetch` bouchonné.
-- A-5 fait (270 au G1 ; 313 après le pli G2 ; 392 après le pli G2 delta ; 491 après le pli 3 ; 494 après le pli des corrections de la G2 de confirmation). A-6 fait (9/9 avant/après + invariants, re-mesurés après chaque pli). A-7 fait
+- A-5 fait (270 au G1 ; 313 après le pli G2 ; 392 après le pli G2 delta ; 491 après le pli 3 ; 494 après le pli des corrections de la G2 de confirmation ; 546 après le pli 5). A-6 fait (9/9 avant/après + invariants, re-mesurés après chaque pli). A-7 fait
   (wrapper `ev.sh` ; build sous `pli\ev-build.sh` = `ev.sh` + `NEXT_TELEMETRY_DISABLED=1`), écart D-7 déclaré.
 - A-8 : le test D2 alimente le transport réel par un corps HTTP 400 texte, forme d'un corps d'erreur keyless ; les
   entrées D3 sont des chaînes synthétiques de forme React (fixtures existantes) ET, au pli, les 19 pages RÉELLEMENT
   construites par `next build` (I-2 clos).
 - A-9 / A-10 : n-a (aucune phrase servie ni valeur câblée vers une surface servie n'est modifiée).
-- A-11 fait (harnais TAP, `byIntended` : 14/14 au G1, 21/21 au pli G2, 39/39 au pli G2 delta, 51/51 au pli 3 ; X12 et X13 du relecteur tués après m-1). A-12 partiel, déclaré : chaque TAP de mutant porte node, fichier de
+- A-11 fait (harnais TAP, `byIntended` : 14/14 au G1, 21/21 au pli G2, 39/39 au pli G2 delta, 51/51 au pli 3 ; X12 et X13 du relecteur tués après m-1 ; 5/5 mutants des gardes au pli 5). A-12 partiel, déclaré : chaque TAP de mutant porte node, fichier de
   test, statut et sha muté ; l'identité de l'arbre (base `e7af51c` + diff non commité, épinglé par
   `DELIVERED.sha256`) est dans l'en-tête de ce journal, pas dans chaque en-tête de TAP. A-13 fait (sources à antislash par Edit/Write ; recomptes node
   `hunk-check.mjs`, `guard-check.mjs` ; deux recomptes bash faussés par le transport, refaits dans node).
@@ -1342,7 +1463,7 @@ Au-dessus de la fourchette indicative 150-300 de l'ADR, sous le seuil STOP A-5 (
 
 ## Oracle final (A-3 : codes capturés directement ; A-7 : `ev.sh`)
 
-Au G1, arbre LOT-V1, conservé pour l'histoire ; l'oracle qui fait foi pour l'arbre livré est celui du pli des corrections de la G2 de confirmation
+Au G1, arbre LOT-V1, conservé pour l'histoire ; l'oracle qui fait foi pour l'arbre livré est celui du pli 5
 (dernière sous-section). Commandes lancées depuis `F:\Monark-wt-codeql`, journaux sous `F:\tmp\codeql-alerts-1\final\` (03:30:44Z →
 03:43:54Z).
 
@@ -1406,7 +1527,7 @@ Journaux sous `F:\tmp\codeql-alerts-1\pli3\final\` (`*.log`, `*.tap`, `oracle.ti
 | g3-site sur artefact construit hors réseau (arbre du pli 3) | exit 0 ; 19/19 identiques sur 4 versions (§« Pli 3 ») |
 | 6 portes statiques rejouées après l'écriture de ce journal | exit 0 ×6 (14:47:13Z → 14:47:50Z, `pli3\final\post-g1-*.log`) |
 
-### Oracle du pli des corrections de la G2 de confirmation (test et texte ; scanner `fcbd28b0…` inchangé ; fait foi ; ceinture `pli4\ev.sh`)
+### Oracle du pli des corrections de la G2 de confirmation (test et texte ; scanner `fcbd28b0…` inchangé ; historique ; ceinture `pli4\ev.sh`)
 
 Journaux sous `F:\tmp\codeql-alerts-1\pli4\final\`, script `pli4\run-oracle4.sh` (séquentiel, aucun mutant actif), 16:08:16Z → 16:09:49Z (sha au lancement : scanner `fcbd28b0…`, test `a3df31fe…`).
 
@@ -1418,3 +1539,19 @@ Journaux sous `F:\tmp\codeql-alerts-1\pli4\final\`, script `pli4\run-oracle4.sh`
 | liste ciblée de la mission + ajouts D-10 (commande identique aux plis précédents) | exit 0 — **222 tests, 222 pass, 0 fail, 0 skip** (`targeted.tap`) |
 | build hors réseau, `renderedBody` face au build du gel 3 | 19/19 identiques, 0 connexion, g3-site exit 0 (§« G2 de confirmation pliée ») |
 | 6 portes rejouées sur l'arbre final (G1 rempli) | exit 0 ×6 (16:10:59Z → 16:11:41Z, `pli4\final\final-*.log`) |
+
+### Oracle du pli 5 (test et texte ; scanner `fcbd28b0…` inchangé ; fait foi ; ceinture `pli5\ev.sh`)
+
+Journaux sous `F:\tmp\codeql-alerts-1\pli5\final\`. Script `pli5\run-oracle5.sh` : celui du pli des corrections, dont seuls la
+ceinture et le dossier changent ; séquentiel, aucun mutant actif. 19:31:14Z → 19:32:17Z sur le test final ; sha au lancement : scanner
+`fcbd28b0…`, test `58935e6e…`. Premier passage 19:21:03Z → 19:22:10Z sur `86ffc5a8…` (avant D-21), mêmes résultats,
+journaux dans `final\first-run\`.
+
+| Porte / suite | Résultat |
+|---|---|
+| `test/site-build-fleet.test.ts` seul, avec les drapeaux du script `test` de `package.json` | exit 0 — **10 tests, 10 pass**, 0 fail (8 + les gardes 1 et 2) |
+| `npm run gate:vocab`, `typecheck`, `lint`, `lang:gate`, `export:check` | exit 0 ×5 (typecheck : 0 erreur) |
+| `npm run lint:ratchet` | exit 0 — `69/69` (plafond inchangé) |
+| liste ciblée (commande identique aux plis précédents) | exit 0 — **224 tests, 224 pass, 0 fail, 0 skip** (222 + les 2 gardes) |
+| build hors réseau, `renderedBody` face au build du gel 3 bis | 19/19 identiques, 0 connexion, g3-site exit 0 ; garde 2 verte avec `.next` présent |
+| 6 portes rejouées sur l'arbre final (G1 écrit) | exit 0 ×6 (19:25:02Z → 19:25:41Z, `pli5\final\final-*.log`) |

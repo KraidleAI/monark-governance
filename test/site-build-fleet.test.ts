@@ -321,3 +321,55 @@ test("rendered_body_raw_text_elements - a raw-text element holding a hidden-surf
   assert.equal(renderedBody("<style>a</style ><script>x</script>VA"), "<style>a</style >VA", "(Cls) a padded closer ends the element");
   assert.equal(renderedBody("<template><style></template x></style>HA</template>VA"), "VA", "(Rax) `</template x>` is no D3 closer (R-a)");
 });
+
+// Lot CODEQL-ALERTS-1, pli 5 (investor decision 205, 2026-09-24). Guard 1: the KNOWN LIMIT of the D3 scanner, pinned. Four
+// forms sit outside the D3 grammar (G2 de confirmation M-1, and L-3): a construct the scanner does not model (an R-a
+// closer of a raw-text element, an R-c `>` inside a quoted attribute of a raw-text opener, a raw-text or hidden opener in
+// an attribute value) makes it count a hidden payload where the two-pass regex order threw (parse5 hides HA in all four).
+// Decision 205 exempts the whole family from D3 (iv) (item I-9); a conformant scanner is a separate lot
+// (SCANNER-CONFORME-1). The scanner classifies each form THROW or UNDER (HA counted), never anything else: if one ever
+// comes out EXACT (no throw, HA not counted), either the scanner became conformant on it (this pin must go) or it lost
+// the payload (a regression); tell them apart with a browser-grade parser (SCANNER-CONFORME-1).
+test("rendered_body_known_limit_family_pinned - the four forms exempted by decision 205 stay THROW or UNDER; EXACT means the exemption must be removed (I-9, SCANNER-CONFORME-1)", () => {
+  const throwsOrCounts = (html: string): boolean => {
+    let out: string;
+    try {
+      out = renderedBody(html);
+    } catch {
+      return true; // THROW: fail-closed, within the exemption
+    }
+    return out.includes("HA"); // UNDER: the known limit; EXACT returns false
+  };
+  const exact = (form: string): string => `(${form}) came out EXACT (no throw, HA not counted). Conformant on this known-limit form? Then remove its exemption (I-9, decision 205) and assert the exact output instead. Payload lost? Then it is a regression. Tell them apart with a browser-grade parser (SCANNER-CONFORME-1).`;
+  assert.ok(throwsOrCounts("<style></style/><title></style><noscript></title><script></noscript>HA"), exact("G-RaSkip, R-a closer of a raw-text element"));
+  assert.ok(throwsOrCounts('<style title="x></style>"><noscript></style><script></noscript>HA'), exact("G-RcSkip, R-c on a raw-text opener"));
+  assert.ok(throwsOrCounts('<p title="<style>"></p><title></style><noscript></title><script></noscript>HA'), exact("G-AttRaw, raw-text opener in an attribute value"));
+  assert.ok(throwsOrCounts('<p title="<noscript>"><script></noscript>HA'), exact("Att1, hidden opener in an attribute value (L-3)"));
+});
+
+// Guard 2 (investor decision 205): the checks above read the BUILT html, whose text React escapes; raw html injected by
+// the site itself would bypass that escaping, whatever the scanner does. In apps/site, `dangerouslySetInnerHTML` appears
+// in the .tsx sources only in app/layout.tsx (the theme script, once), and `rehype-raw` and `innerHTML =` appear in no
+// file. A file walk (no git): node_modules and the build output .next are third-party or generated code, excluded. Any
+// other occurrence reds with its path; removing the theme script reds too (the pin holds both ways).
+test("site_raw_html_injection_points_pinned - dangerouslySetInnerHTML only in apps/site/app/layout.tsx (theme script, once), no rehype-raw and no innerHTML = in apps/site (decision 205, guard 2)", async () => {
+  const { readdirSync } = await import("node:fs");
+  const { sep } = await import("node:path");
+  const site = join(ROOT, "apps", "site");
+  const files = readdirSync(site, { recursive: true, withFileTypes: true })
+    .filter((d) => d.isFile())
+    .map((d) => join(d.parentPath, d.name).slice(site.length + 1).split(sep).join("/"))
+    .filter((rel) => !rel.split("/").some((seg) => seg === "node_modules" || seg === ".next"));
+  const tsx = files.filter((rel) => rel.endsWith(".tsx"));
+  assert.ok(tsx.includes("app/layout.tsx") && tsx.length >= 20, `the walk reached the site sources (non-vacuous): ${tsx.length} .tsx files`);
+  const sinks: string[] = [];
+  const raw: string[] = [];
+  for (const rel of files) {
+    const text = readFileSync(join(site, ...rel.split("/")), "utf8");
+    const n = rel.endsWith(".tsx") ? text.split("dangerouslySetInnerHTML").length - 1 : 0;
+    if (n) sinks.push(`apps/site/${rel} x${n}`);
+    if (text.includes("rehype-raw") || /innerHTML\s*=(?!=)/.test(text)) raw.push(`apps/site/${rel}`);
+  }
+  assert.deepEqual(sinks, ["apps/site/app/layout.tsx x1"], "dangerouslySetInnerHTML only in app/layout.tsx, once (the theme script)");
+  assert.deepEqual(raw, [], "no rehype-raw and no innerHTML = in apps/site");
+});
