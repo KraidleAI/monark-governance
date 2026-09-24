@@ -92,7 +92,7 @@ The labels are the point: they say what exists today and what is only named.
 
 The single public sentence for Narabi, verbatim:
 
-> Narabi runs an adaptive quantile tracker (Angelopoulos–Barber–Bates 2024, decaying step) on the attested daily USDe redemption flow: its state moves each 24h window from the realized outcome, and the bound it prints stays above the target until T = 1789 — stated plainly, not as a feature.
+> Narabi runs an adaptive quantile tracker (Angelopoulos–Barber–Bates 2024, decaying step) on the attested daily USDe redemption flow: its state moves each 24h window from the realized outcome, and the full timeline is published so anyone can replay it. What it carries is a deterministic long-run bound that tightens as windows accumulate, printed daily with T, not a per-window coverage, not a probability; the gate's committed calibration does not depend on the tracker state. Until the pre-registered drift criterion fires and an ADR says otherwise, the gate's region is still the committed static calibration: the tracker adapts, the gate does not yet.
 
 **What Narabi is NOT.** The bound printed daily is the Angelopoulos, Barber and Bates 2024 (Thm 1) quantity
 `(B + η₁)/(T·η_T)` with `c = B = 1/24` and `ε = 0.1`. The published region is the tracker's, not the gate's:
