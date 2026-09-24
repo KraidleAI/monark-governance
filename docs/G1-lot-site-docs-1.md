@@ -251,7 +251,7 @@ R25-SITE-DOCS-1, découpage proposé).
 | DOCS-SVG-BUILD-CHECK-1 | « au moins un schéma par page /docs » est épinglé au source (test) et mesuré sur le build par ce lot ; une assertion sur le HTML construit dans `scripts/assert-fleet-html.mjs` l'épinglerait au build | orchestrateur (famille ASSERT-FLEET-SITE5J-1) | prochaine révision d'`assert-fleet-html.mjs` |
 | TEST42-NETWORK-1 | le test 42 lance `npm ci` avec audit et scripts dans l'export pendant `npm test` : requêtes probables vers le registre (D9) ; piste : `npm ci --ignore-scripts --no-audit --offline` sur cache, à arbitrer (change le sens du contrôle « CI exportée verte ») | orchestrateur (gouvernance CI) | prochain lot ci-gates ou export |
 | CAPTURE-NET-1 | captures de revue faites sans `--disable-background-networking --disable-component-update` (D9) ; drapeaux appliqués aux captures livrées et aux scripts ; le trafic de fond de Chrome reste non mesuré (une capture réseau le mesurerait) | orchestrateur | prochaine campagne de captures |
-| BELL-SPYX-GAP-1 | observation : la ligne 2 servie porte pour SPYx, séance regular, un écart `gT` = -0.1314785368 (log-écart d'environ -12 %), affiché tel quel sur /docs/bell ; à confronter à la méthode (multiplicateur, clôture) | lot Bell | prochaine revue de publication Bell |
+| BELL-SPYX-GAP-1 | observation : la ligne 2 servie porte pour SPYx, séance regular, un écart `gT` = `[masqué]` (négatif, hors de la bande des huit autres lignes), affiché tel quel sur /docs/bell ; à confronter à la méthode (multiplicateur, clôture) | lot Bell | prochaine revue de publication Bell |
 
 ## 11. Consultations (R-26)
 

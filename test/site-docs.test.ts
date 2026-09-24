@@ -578,6 +578,12 @@ const honestLimitsParagraphs = (panelSource: string): string[] => {
 };
 test("shogen_served_scope_is_said_on_three_surfaces — one sentence, byte for byte, on MONARK Building, the Shōgen docs page and the Shōgen panel", () => {
   assert.equal(SHOGEN_SERVED_SCOPE, SHOGEN_SCOPE_TEXT, "the sentence is the investor's, byte for byte");
+  // C-2 (checkpoint-2): the sentence's state words are not read from the register, so the test couples them to it:
+  // Shōgen must be "built" and served by the attest tool; if the register entry changes, this test reds and the
+  // sentence is revisited (item SHOGEN-SCOPE-SENTENCE-1, closed by this coupling).
+  const shogen = FLEET_AGENTS.find((a) => a.name === "Shōgen");
+  assert.ok(shogen !== undefined && shogen.status === "built", "the register says Shōgen is built, as the sentence does");
+  assert.match(shogen.wiring.served_by, /^MCP attest/, "the register says the served piece is the attest tool, as the sentence does");
   const importsScope = (rel: string): boolean => importsFrom(sourceFile(rel), "@/lib/shogen-copy").includes("SHOGEN_SERVED_SCOPE");
   // (a) MONARK Building: the fleet layer carries it as its note, rendered right after the list of built pieces.
   const roadmap = read(ROADMAP);
@@ -668,19 +674,26 @@ const D8 = /\bproves?\b|\bproof that\b|tamper-?proof|\btrustless\b|at a point in
 // Decision 204 (investor, 2026-09-24, "on laisse proves"): the attestation-origin sentence keeps its verb. D8 is about
 // anchoring claims (a timestamp "proves" a fact); an attestation proving WHAT WAS SAID, never that it is true, is the
 // founding line of Shōgen (docs/02-vision.md of the Shōgen repository) and is allowed in exactly these two forms, pinned here.
-const D8_ALLOWED = [/An attestation proves what a source said, never that the source is right\./, /An attested testimony proves what was said/];
+const D8_ALLOWED = [/^An attestation proves what a source said, never that the source is right\.$/m, /^An attested testimony proves what was said, that its bytes hash as recorded, and that the attestor signed it\.$/m];
+// C-1 (checkpoint-2): the panel that carries the second allowed form is scanned too, so the entry is not inert.
+const SHOGEN_PANEL = "apps/site/components/shogen-panel.tsx";
 const stripAllowed = (s: string) => D8_ALLOWED.reduce((acc, re) => acc.replace(re, ""), s);
+/** The rendered text of one JSX paragraph, whitespace collapsed, one entry per sentence so the anchored forms match. */
+const sentencesOf = (s: string): string[] => s.replace(/\s+/g, " ").split(/(?<=\.)\s+/).map((x) => x.trim());
 
 test("docs_carry_no_ots_d8_forbidden_form — no 'proves', 'proof that', 'at a point in time' and the rest in the docs and MONARK Building", () => {
   const hits: string[] = [];
-  for (const rel of [...DOCS_TSX, ROADMAP]) for (const t of renderedOf(rel)) if (D8.test(stripAllowed(t.replace(/\s+/g, " ")))) hits.push(`${rel}: ${t.slice(0, 90)}`);
+  for (const rel of [...DOCS_TSX, ROADMAP]) for (const t of renderedOf(rel)) for (const sent of sentencesOf(t)) if (D8.test(stripAllowed(sent))) hits.push(`${rel}: ${t.slice(0, 90)}`);
   for (const rel of DOCS_LIBS) for (const l of literalsOf(sourceFile(rel))) if (D8.test(stripAllowed(l.text))) hits.push(`${rel}: ${l.text.slice(0, 90)}`);
+  for (const t of renderedOf(SHOGEN_PANEL)) for (const sent of sentencesOf(t)) if (D8.test(stripAllowed(sent))) hits.push(`${SHOGEN_PANEL}: ${sent.slice(0, 90)}`);
   for (const s of [SHOGEN_SERVED_SCOPE, ...jsonStrings(JSON.parse(read(DOCS_REFERENCES_REL)) as unknown)]) if (D8.test(s)) hits.push(`data: ${s.slice(0, 90)}`);
   assert.deepEqual(hits, [], `an OTS D8 forbidden form:\n${hits.join("\n")}`);
   assert.ok(D8.test("The anchor proves the record existed at a point in time."), "control: the review's mutant reds");
   assert.ok(!D8.test("download the manifest and its proof from the anchors register"), "control: the noun proof, for the file, stays green");
   assert.ok(!D8.test(stripAllowed("An attestation proves what a source said, never that the source is right.")), "control: the allowed attestation-origin sentence stays green");
-  assert.ok(D8.test(stripAllowed("An attestation proves what a source said, never that the source is right. The anchor proves the record existed.")), "control: any other proves still reds");
+  assert.ok(D8.test(stripAllowed("An attestation proves what a source said, never that the source is wrong.")), "control: a variant of the allowed sentence reds (anchored)");
+  assert.ok(sentencesOf("An attestation proves what a source said, never that the source is right. The anchor proves the record existed.").some((x) => D8.test(stripAllowed(x))), "control: any other proves still reds");
+  assert.ok(renderedOf(SHOGEN_PANEL).some((t) => /An attested testimony proves what was said/.test(t)), "control: the panel is scanned and carries the second allowed form");
 });
 
 // C-G2-11 decided: MakerDAO and Compound are banned on the storefront, with one exception, the verbatim cited figures of
