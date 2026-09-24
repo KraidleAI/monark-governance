@@ -13,10 +13,10 @@ several blades.** The handle is the **MONARK engine**, the AI side: a coverage-c
 emits `commit | defer | abstain` against a depletable authorization budget (`B_t`) — never a probability of
 being right — with the sensors that attest to what happened on chain, the frozen contracts they speak, the
 harness through which other AI agents reach it, and the agents that keep it adapted to DeFi as DeFi changes.
-The blades are the DeFi side: the **products derived from the engine**, each one grown from an empirical
+The blades are the DeFi side: the **on-chain applications it powers**, each one grown from an empirical
 study of on-chain data before it is served. The first is MONARK Bell; the others are research leads.
 
-Single token, single ticker (`MONARK`). The agents are **products, not tokens**. This repository is the
+Single token, single ticker (`MONARK`). The agents are **applications, not tokens**. This repository is the
 MONARK **tokenisation layer**, the **six frozen interface contracts** (the sixth, AttestedBook, upcoming
 until served) and the served pieces that let AI agents and DeFi meet on measured ground.
 
@@ -25,13 +25,13 @@ until served) and the served pieces that let AI agents and DeFi meet on measured
 The engine is eleven components: three sensors, one gate, one act, six distribution pieces. Each of them can
 serve both sides. **Left:** what it gives an AI agent connected to the MONARK MCP endpoint (today's four
 tools are `attest · gate · cascade · calibrate`; a component marked *planned* has no served tool yet).
-**Right:** what it gives the DeFi side — the products derived from the engine (in parentheses: the products
+**Right:** what it gives the DeFi side — the on-chain applications it powers (in parentheses: the applications
 on the site's diagram; *wired* = declared in the registry today, *can serve* = a lead, not a delivered link).
 
-| AI side — for an agent on our MCP | Component | DeFi side — DeFAI, for the products |
+| AI side — for an agent on our MCP | Component | DeFi side — DeFAI, for the applications |
 |---|---|---|
-| `attest`: an attested price testimony (bytes, hash, named residual hypotheses) the agent can cite instead of a scraped number — origin and bytes, never truth. | **Shōgen** — sensor, attested perception · *built* | A price a product can defend when it spends, hedges or de-risks (can serve: Warden, Softlanding, Firebreak, Ballast). |
-| `gate` + `calibrate`: the agent submits a claim and gets `commit \| defer \| abstain`, an auditable region and the budget left — never a probability of being right. | **Hikae** — the gate, coverage-controlled inference · *built* | The decision primitive of every product (wired: Firebreak, Warden, Softlanding, Verdict, Ballast). Bell's gate is its own closed publication check; a gate class for its off-hours gap is planned. |
+| `attest`: an attested price testimony (bytes, hash, named residual hypotheses) the agent can cite instead of a scraped number — origin and bytes, never truth. | **Shōgen** — sensor, attested perception · *built* | A price an application can defend when it spends, hedges or de-risks (can serve: Warden, Softlanding, Firebreak, Ballast). |
+| `gate` + `calibrate`: the agent submits a claim and gets `commit \| defer \| abstain`, an auditable region and the budget left — never a probability of being right. | **Hikae** — the gate, coverage-controlled inference · *built* | The decision primitive of every application (wired: Firebreak, Warden, Softlanding, Verdict, Ballast). Bell's gate is its own closed publication check; a gate class for its off-hours gap is planned. |
 | `cascade`: the agent asks what a lending book would liquidate along a price path; today the served class abstains (`under_calib`) until a committed calibration is served — stated on the wire. | **Ukemi** — act, liquidation-cascade survival · *built* | Reads the deleveraging queue or the position before it clears (wired: Firebreak, Softlanding). |
 | A daily, replayable redemption-flow timeline (`state.json`, `timeline.jsonl`) any agent can read, and the served gate class `stable-run-velocity-24h` through `gate`. | **Narabi** — sensor, redemption-run sensing · *built, served daily* | Early sensing of a stablecoin run for a treasury that holds the stable (can serve: Warden, Ballast). |
 | *planned*: attest a document or an event the agent must act on — bytes and hash, never a verdict on its truth. | **Mokugeki** — sensor, document / event attestation · *named* | The attested event a settled decision starts from (can serve: Verdict). |
@@ -40,7 +40,7 @@ on the site's diagram; *wired* = declared in the registry today, *can serve* = a
 | *planned*: quote and manage inventory for the agent's market-making. | **Kamae** — inventory market-making · *named* | Inventory-aware hedging for a treasury (can serve: Ballast). |
 | *planned*: read a PT / YT curve as an attested rate surface. | **Kyokusen** — PT / YT curve · *named* | The rate surface a rate treasury steadies against (can serve: Ballast). |
 | *planned*: the weekend / off-hours gap as a sensed quantity the agent can gate on. | **Koyomi** — weekend gap · *named* | The off-hours gap of tokenized equities, the very quantity Bell publishes (can serve: Bell). |
-| The door: discovery of the tools and the skill (MCP Registry `tech.monarkgate/monark`, `clawhub install monark`). | **Genkan** — the storefront / MCP entry point · *named* (the harness serves the door today) | Distribution of every product to the agents that consume it (can serve: all six). |
+| The door: discovery of the tools and the skill (MCP Registry `tech.monarkgate/monark`, `clawhub install monark`). | **Genkan** — the storefront / MCP entry point · *named* (the harness serves the door today) | Distribution of every application to the agents that consume it (can serve: all six). |
 
 **Measurement first.** No piece of MONARK is designed on a whiteboard and shipped. Each one starts as an
 empirical study — a recorded liquidation book at an archive block, a redemption-flow series measured on calm
@@ -93,7 +93,7 @@ The labels are the point: they say what exists today and what is only named.
 | AI | **Sensors and acts** | the engine's agents: sensors that attest, acts that execute, one token across all of them | **4 built** (Shōgen · Hikae · Ukemi · Narabi) · **7 named** |
 | AI | **Harness** — the door | the same engine made reachable *by other AI agents* over HTTP / MCP | **Built** — public 4-tool MCP endpoint (attest · gate · cascade · calibrate) + skill on ClawHub |
 | AI | **Adaptation agents** | agents that recalibrate, onboard protocols, track liquidation mechanics and watch data sources | **Roadmap** — named, not shipped |
-| DeFi | **Products** — derived from the engine | one product per DeFi need, served with its own published artefacts | **1 built** (MONARK Bell) · **5 research leads** |
+| DeFi | **Applications** — powered by the engine | one application per DeFi need, served with its own published artefacts | **1 built** (MONARK Bell) · **5 research leads** |
 
 ## The engine — AI side
 
@@ -134,14 +134,14 @@ per-window coverage, not a probability of being right, not a price call.
 transaction-cost analysis) · **Kamae** (inventory market-making) · **Kyokusen** (PT / YT curve) ·
 **Koyomi** (weekend gap) · **Genkan** (the storefront / MCP entry point).
 
-## The products — DeFi side
+## The applications — DeFi side
 
-Products are what the engine is put to work on. Each one is derived from the same gate and the same
+Applications are what the engine is put to work on. Each one is derived from the same gate and the same
 contracts, starts as an empirical study, and is served with its own published, replayable artefacts.
 
 **Built and served:**
 
-- **MONARK Bell** — the first product: a public, attested witness of **tokenized equities outside cash-market hours**: per
+- **MONARK Bell** — the first application: a public, attested witness of **tokenized equities outside cash-market hours**: per
   session (pre, regular, after, overnight, weekend), the on-chain fills at the declared pools, their VWAP and
   volume, the trading-halt census and the supply / proof-of-reserve residuals — published as a signed,
   hash-chained timeline at `https://bell.monarkgate.tech/` (`state.json`, `timeline.jsonl`,
@@ -156,12 +156,12 @@ contracts, starts as an empirical study, and is served with its own published, r
 - **MONARK Verdict** — turn a raw event call into a coverage-controlled, settled decision.
 - **MONARK Ballast** — named; scope under study.
 
-Each lead becomes a product the way Bell did: a study on chain data, a recorder, a frozen contract if one
+Each lead becomes an application the way Bell did: a study on chain data, a recorder, a frozen contract if one
 is needed, a served host with a signed timeline — then, and only then, `built`.
 
 ## Maturity criteria
 
-A component or a product is labelled `built` when all of the following hold; otherwise it is `named`:
+A component or an application is labelled `built` when all of the following hold; otherwise it is `named`:
 
 1. **A study first.** A measurement on chain data, pre-registered where it can be (hypotheses and thresholds
    written before the run), with its artefacts committed and hashed next to the code.
@@ -200,11 +200,11 @@ AI side — the MONARK engine
   harness (MCP / HTTP)  ·  adaptation agents: recalibrate · onboard · track · watch
                                         │
                                         ▼
-DeFi side — the products
+DeFi side — the applications
   MONARK Bell (built, served)  ·  Firebreak · Warden · Softlanding · Verdict · Ballast (research)
 ```
 
-Every product plugs into the same gate; every future sensor attests into the same contract shape; every
+Every application plugs into the same gate; every future sensor attests into the same contract shape; every
 change to the engine meets the same maturity criteria.
 
 ## Verify it yourself
@@ -316,10 +316,10 @@ packages/contracts  TS binding: types, closed-check, forbidden-keys, calib_diges
 packages/hikae      HAC-CP engine: L1 split / L2 monitor / L3 gate, interval conformer  (built)
 packages/ukemi      liquidation-cascade survival: clearing, liquidable                  (built)
 packages/monark     integration adapters: Shōgen→AttestedPrice, Narabi AttestedFlow→Prediction; canonical CBOR
-packages/atelier    local demo surface (not a shipped product)
+packages/atelier    local demo surface (not a shipped application)
 apps/harness        the MCP / HTTP harness — four tools over the frozen contracts (engine, AI side)
 apps/sentinel       off-tool sentinels: Narabi daily tracker; Ukemi liquidation-book recorder (engine, AI side)
-apps/bell           MONARK Bell — the first product (DeFi side): publisher, hash chain, verifier, public keyring
+apps/bell           MONARK Bell — the first application (DeFi side): publisher, hash chain, verifier, public keyring
 apps/site           public vitrine
 skills/monark       the integration skill (MIT-0)
 .github/workflows   CI (5 blocking jobs)
