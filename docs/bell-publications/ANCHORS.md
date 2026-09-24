@@ -6,4 +6,4 @@ Limite (D8) : une preuve OpenTimestamps établit qu'un manifeste existait avant 
 
 | date_u | seq | kind | line_hash | prefix_sha256 | manifest_sha256 | commit | ots_ref | note |
 |---|---|---|---|---|---|---|---|---|
-| 2026-09-24T13:37:02Z | 2 | publication | `ef3b06f2ff93951e200a6559b42ab66df5ac4aa38b86d3aa763c118c766f6464` | `fba1824d9dc4a9218246dc9dd14107f89a6f14d2250c62a6cea0e3db7ccfd28b` | `602ff93d60dbf10fe96b0b2cfcd5b8ff439d2d0019f4daa362e9dd6ad3f16946` | `<commit>` | `timeline-seq2-manifest.txt.ots` | ancre de rattrapage (D9.1, GO 188), couvre seq 1 par le préfixe ; preuve pendante (4 attestations, 0 bloc) au commit, upgrade à rejouer ; ligne écrite le 2026-09-24T14:16:24Z |
+| 2026-09-24T13:37:02Z | 2 | publication | `ef3b06f2ff93951e200a6559b42ab66df5ac4aa38b86d3aa763c118c766f6464` | `fba1824d9dc4a9218246dc9dd14107f89a6f14d2250c62a6cea0e3db7ccfd28b` | `602ff93d60dbf10fe96b0b2cfcd5b8ff439d2d0019f4daa362e9dd6ad3f16946` | `694e98b` | `timeline-seq2-manifest.txt.ots` | ancre de rattrapage (D9.1, GO 188), couvre seq 1 par le préfixe ; preuve pendante (4 attestations, 0 bloc) au commit, upgrade à rejouer ; ligne écrite le 2026-09-24T14:16:24Z |
