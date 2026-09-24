@@ -315,6 +315,9 @@ test("rendered_body_raw_text_elements - a raw-text element holding a hidden-surf
   assert.equal(renderedBody("<style></template></style>VA"), "<style></template></style>VA", "(Rtop) a template closer at top level closes nothing");
   assert.equal(renderedBody("<style><title></style><script>x</script>VA"), "<style><title></style>VA", "(Nest) a raw-text opener in the content is text");
   assert.equal(renderedBody("<template><style><title></style>HA</template>VA"), "VA", "(NestT) likewise in a template");
+  // A raw-text opener right after the previous raw-text closer is checked too: the skip ends AT that closer, never past it.
+  assert.throws(() => renderedBody("<style></style><style><noscript></style><script></noscript>HA"), /a <style> element holds a <noscript> opener/, "(L2adj) back-to-back raw-text elements");
+  assert.throws(() => renderedBody("<template><style></style><style></template></style>HA</template>VA"), /a <style> element in a <template> holds a <\/template>/, "(Rh1adj) likewise in a template");
   assert.equal(renderedBody("<style>a</style ><script>x</script>VA"), "<style>a</style >VA", "(Cls) a padded closer ends the element");
   assert.equal(renderedBody("<template><style></template x></style>HA</template>VA"), "VA", "(Rax) `</template x>` is no D3 closer (R-a)");
 });

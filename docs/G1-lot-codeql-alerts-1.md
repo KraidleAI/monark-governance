@@ -75,8 +75,21 @@ Aucun commit (R-20), aucun workflow déclenché. Artefacts hors dépôt : `F:\tm
   - 14:17:22Z → 14:30:47Z : oracle.
   - 14:29:53Z → 14:33:10Z : variante `<title>`, fuzz et énumération attribut (constat L-3).
   - ~14:34Z : sonde de temps.
-  - 14:46:48Z → 14:47:50Z : différentiel de commentaires sur le blob livré (0 désaccord), 6 portes rejouées après le G1.
   - ~14:41Z : G1, sha de passation (DELIVERED.sha256 du gel 3), diffs ; advisor intégré en clôture.
+  - 14:46:48Z → 14:47:50Z : différentiel de commentaires sur le blob livré (0 désaccord), 6 portes rejouées après le G1.
+- **Pli des corrections de la G2 de confirmation** (mission orchestrateur ; même worktree, par-dessus le gel 3 `6443dcc`,
+  sans commit ; §« G2 de confirmation pliée ») :
+  - 15:57:29Z : ancrage (HEAD `6443dcc`, `git status` vide, blobs du gel 3 = livraison du pli 3, 14/14) ; rapport lu.
+  - 16:00:46Z → 16:00:49Z : X12/X13 AVANT le diff : survivants, 8/8 (constat m-1 reproduit).
+  - ~16:01Z : diff m-1 appliqué (+3 lignes, = fichier `b` du relecteur).
+  - 16:01:45Z → 16:01:47Z : X12/X13 APRÈS : tués, restaurés à l'octet.
+  - ~16:02Z : fusion vérifiée contre `lot/etude-suite` `833dce9` (1 zone).
+  - 16:03:55Z → 16:04:33Z : build hors réseau (0 connexion), 19/19 identique au gel 3, g3-site vert.
+  - ~16:07Z : textes du G1 (M-2, m-2, m-3, M-1).
+  - 16:08:16Z → 16:09:49Z : oracle ; 16:10:04Z : R-25 et invariants.
+  - 16:10:59Z → 16:11:41Z : 6 portes rejouées sur l'arbre final (G1 rempli) ; balayage A-7 (0 fichier, témoin positif vu).
+  - ~16:12Z : advisor intégré en clôture : aucun blocage ; chiffres rafraîchis (R-25 en I-8, « ×5 » des résidus identiques,
+    mesuré à 16:15:38Z, `pli4\residuals-x5.log`) ; puis `DELIVERED.sha256` et diffs. Avis, jamais verdict.
 
 ## G2 pliée (2026-09-24, ~04:50Z → 05:2xZ ; rapport `F:\tmp\codeql-alerts-1\g2\G2-report.md`)
 
@@ -409,9 +422,70 @@ VALEUR D'ATTRIBUT (famille A1, attributs non modélisés : D3, R-c) est lue viva
   - 115 où le marqueur est jeté par le navigateur, la fin de l'entrée tombant dans une balise ou une valeur d'attribut
     ouverte (résidu R-t, toutes versions ; l'ANCIEN levait par accident sur 113).
 - Réalité : 0 valeur d'attribut contenant `<` sur les 19 pages.
+- Borne (G2 de confirmation) : la forme minimale compte 6 jetons ; jusqu'à 7 jetons, 100 séquences (§Résidus, L-3).
 - Option mesurée en instrument (`pli3\varg-assert-fleet-html.mjs`, hors lot) : une vérification « scripts d'abord » (toute
   ouvrante `<script` doit atteindre une fermante D3, sinon throw). Elle ferme les 2 L-3 et Att1, pas Att1c (script fermé).
   Coût sur cet alphabet : 10 393 séquences exactes lèvent (C2, Tn compris). Décision à l'orchestrateur (« Needs » du rendu).
+
+## G2 de confirmation pliée (2026-09-24, ~15:57Z → 16:15Z ; rapport `F:\tmp\codeql-alerts-1\g2-confirm\G2-CONFIRM.md`, gel 3 `6443dcc`)
+
+**Mandat.**
+- La G2 de confirmation a relu la plage `8229745..6443dcc`, code seul, en instance séparée. Verdict : ACCEPTE-AVEC-CORRECTIONS.
+- La mission de l'orchestrateur est de plier ses corrections sur le worktree, par-dessus le gel 3, sans commit :
+  - m-1, le test ;
+  - M-2, m-2 et m-3, le texte du G1 ;
+  - M-1, le texte du G1 sous I-9.
+- Le scanner n'est pas touché. C'est un pli de test et de texte seuls : selon la règle CP2b (a)-2, il ne rouvre ni le gel ni
+  un checkpoint-2, et le G7 re-contrôle les sha.
+- Lus avant tout pli :
+  - le rapport, 567 lignes, en particulier le §4 (corrections proposées) ;
+  - `proposed/site-build-fleet.test.ts.diff` et `proposed/prove-test-diff.log` ;
+  - `mutants/mutants-g2c.mjs` : X12 et X13, l.45-46 ;
+  - `enum/counts.out`.
+
+| Constat | Pli | Preuve |
+|---|---|---|
+| **m-1** : la borne du saut `lt < rawSeen` n'est épinglée par aucun test ; X12 (racine) et X13 (template), `<` → `<=`, survivent | 3 lignes après NestT (un commentaire, L2adj, Rh1adj), appliquées par `pli4\apply-test-diff.mjs` depuis le fichier de diff lui-même (lignes `+` lues, jamais ressaisies, contexte vérifié) ; résultat identique octet pour octet au fichier `b` du relecteur (`a3df31fe…`) | X12/X13 rejoués (mini-harnais `pli4\mutants-x12x13-*.mjs`, harnais du pli 3 dont seul le tableau MUTANTS change) : AVANT, sur le test du gel 3, survivants (8/8 verts, `pli4\before\`) ; APRÈS, tués par `rendered_body_raw_text_elements` (« (L2adj) back-to-back raw-text elements », « (Rh1adj) likewise in a template »), sha muté identique au relecteur (`58ec943d…`, `ea4cf9bf…`), scanner restauré `fcbd28b0…` et test `a3df31fe…` (sha avant = après, `pli4\x-after.sha-*`), 0 `.mut-tmp` |
+| **M-2** : déclarations fausses ou incomplètes (D-15, R-c, L-3, « Attributs », I-6, critère I-8) | textes du §4.2 posés en place | §Décisions (D-15), §Résidus, §Items |
+| **m-2** : `</template>` dans une valeur d'attribut, dans un template, ferme le template pour le scanner (UNDER ×5, préexistant) | ligne ajoutée à I-4 et à la liste des préexistants identiques | G-TplAttr du relecteur |
+| **m-3** : jetons `error_origin` du gabarit ; « plan contributif » n'est pas une valeur | valeurs écrites `PLANIFICATEUR` et `IMPLEMENTEUR` ; « plan contributif » devient une note | §error_origin |
+| **M-1** : trois formes hors grammaire D3 contournent le correctif L-2 | déclarées sous I-9, avec « aucune nouvelle face au gel 2, 0 sur 19 pages » et la décision investisseur 193 en attente d'élargissement | §Items I-9 |
+| m-4 (optionnel) : docstring de `rawTextEnd` | NON appliqué : le scanner n'est pas touché (mission ; risque D-11) ; la correction de D-15 suffit | — |
+
+**Écarts au texte proposé (D-19).**
+- R-c : « ×4 » devient « ×5 ». Les cinq versions sont mesurées exactes sur Tattr2 (`pli3\vectors-g2b-pli3.log`), et l'en-tête
+  de la liste compte cinq versions depuis le pli 3. Même mise à jour, mesurée, pour R-e, B1-B3, SR et Ra de la même liste
+  (`pli4\residuals-x5.log`).
+- Source ajoutée aux chiffres L-3 à 7 jetons : `g2-confirm\enum\counts.out`, lu.
+- Ajouts de cohérence :
+  - « sur la grammaire D3 » dans le bloc « CORRIGÉ par le pli 3 » ;
+  - un renvoi sur la borne dans le paragraphe L-3 du §« Pli 3 » ;
+  - m-2 déclaré aussi dans la liste des préexistants identiques ;
+  - les `error_origin` que la G2 de confirmation propose pour ses propres constats, recopiés comme non assignés ;
+  - l'ordre de deux lignes du journal du pli 3 rétabli.
+
+**Fusion (C-5)**, `git merge-file` en lecture seule sur des copies (`pli4\merge\`).
+- La tête de `lot/etude-suite` a encore avancé : `833dce9`.
+- `test/site-build-fleet.test.ts` : **1** zone de conflit, l.216 à 1336 du fichier fusionné ; les deux assertions ajoutées y
+  tombent (l.1331 et 1332). Aucune zone nouvelle.
+- `scripts/assert-fleet-html.mjs` et `.d.mts` : fusion propre.
+
+**Ceinture (D-18)** : tout node et tout npm de ce pli passent par `pli4\ev.sh`, la ceinture de la mission mot pour mot (ligne
+`exec` identique à `cp2b\ev.sh`) :
+- les 8 variables absentes, vérifié par un test de présence, jamais par leur valeur ;
+- TEMP, TMP et TMPDIR sur F: ;
+- `NEXT_TELEMETRY_DISABLED=1`.
+
+**Artefact réel.**
+- `next build` hors réseau : exit 0 de 16:03:55Z à 16:04:33Z, 19 routes ; moniteur `pli\netmon.ps1` : **0 connexion**, 24
+  processus node du build.
+- `renderedBody` identique au build du gel 3, page par page : **19/19** (empreintes de sortie de
+  `pli3\build\real-compare-pli3.log` contre `pli4\build\real-compare-pli4.log`, scanner `fcbd28b0…` des deux côtés) ;
+  ANCIEN = LOT-V1 = GEL2 = PLI3 sur 19/19.
+- g3-site : exit 0.
+- `.next` et `next-env.d.ts` retirés ensuite.
+
+**Oracle** : §« Oracle du pli des corrections de la G2 de confirmation ».
 
 ## Faits d'orientation (lus, avec ligne)
 
@@ -565,8 +639,12 @@ VALEUR D'ATTRIBUT (famille A1, attributs non modélisés : D3, R-c) est lue viva
   (trois clauses, garde linéaire) ; la clause 3 est séparable si l'orchestrateur la refuse.
 - **D-15 (pli 3 : fin du contenu = fermante D3).** Le contenu d'un élément à texte brut finit à sa première fermante D3
   (`closerEnd` : `</nom` + espaces facultatifs + `>`), comme pour `script` et `noscript`. `</style/>` et `</style x>`
-  finissent l'élément pour un navigateur (13.2.5.14), pas pour ce contrôle : le contenu vu est plus long, donc la vérification
-  plus large et plus de levées (sens fail-closed ; R-a déclaré).
+  finissent l'élément pour un navigateur (13.2.5.11, 13.2.5.14), pas pour ce contrôle : le contenu vu est plus long. La
+  vérification y est plus large, MAIS le saut `rawSeen` traite alors comme du texte l'ouvrante d'un élément à texte brut RÉEL
+  logée entre la fin navigateur et la fermante D3 : son contenu n'est pas vérifié et la clause 1 est contournée (G2 de
+  confirmation, G-RaSkip `<style></style/><title></style><noscript></title><script></noscript>HA` : ANCIEN throw, LOT-V1 à
+  PLI3 UNDER ; variantes `</style x>` et script fermé). Ce n'est donc PAS « sens fail-closed » : R-a déclaré, faux vert
+  possible, 0 sur les 19 pages (aucune fermante R-a d'élément à texte brut) ; décision jointe à I-9.
 - **D-16 (pli 3 : règle d'ambiguïté étendue par NOM, pas par étendue).** Une étendue de commentaire portant une ouvrante à
   texte brut lève, comme pour une ouvrante cachée, sans calculer le contenu de l'élément avalé. L'autre voie (vérifier ce
   contenu depuis l'ouvrante) exigeait un état partagé entre commentaires pour rester linéaire (N commentaires portant
@@ -581,6 +659,18 @@ VALEUR D'ATTRIBUT (famille A1, attributs non modélisés : D3, R-c) est lue viva
     locale (try/catch autour de `renderedBody`), aucun processus n'est lancé.
   - (d) Premier jet des vecteurs : Ex8 (attendu faux), Ru1 (marqueur contraire à la convention de l'oracle) et L2t (visible
     selon moi, caché selon parse5) ; corrigés avant tout code, 0 écart main/parse5 ensuite.
+- **D-18 (pli des corrections de la G2 de confirmation : ceinture).** Ce pli emploie `pli4\ev.sh`, la ceinture de la mission
+  mot pour mot. Écart déclaré, rétrospectif : aux plis 1 à 3, `F:\tmp\codeql-alerts-1\ev.sh` (tests, portes, énumérations)
+  ne posait pas `NEXT_TELEMETRY_DISABLED=1`. Les builds passaient par `pli\ev-build.sh`, qui le pose ; le moniteur réseau
+  a vu 0 connexion à chaque build. Aucune de ces commandes n'invoque Next : la variable ne les concerne pas, mais la
+  ceinture était incomplète au sens de la mission.
+- **D-19 (même pli : écarts au texte proposé).** Détail au §« G2 de confirmation pliée » :
+  - « ×5 » pour « ×4 » dans la ligne R-c (mesuré) ;
+  - « ×5 » (ou « cinq versions ») aussi pour R-e, B1-B3, SR et Ra dans la même liste : mesuré (Ret et Ra,
+    `pli3\vectors-g2b-pli3.log` ; B1-B3 et SR, `pli4\residuals-x5.log`) ;
+  - source ajoutée aux chiffres L-3 à 7 jetons ;
+  - quatre ajouts de cohérence ;
+  - l'ordre du journal du pli 3.
 
 ## Dismiss « false positive » des 8 sites non réécrits (texte anglais prêt à poser, une phrase par site)
 
@@ -626,17 +716,22 @@ mêmes vecteurs, rejoués avec une colonne PLI3 (`pli3\vectors-g2b-pli3.log`, `p
 L-2 (corrigées, ci-dessous) ; s'ajoutent L-3, R-t et la convention des attributs.
 
 Préexistants, IDENTIQUES ANCIEN = LOT-V1 = GEL = PLI2 = PLI3 (non revendiqués ; I-4) :
-- R-c `>` dans un attribut quoté d'une ouvrante : ouvrante close au premier `>` (Tattr2 exact ×4).
+- `</template>` dans une valeur d'attribut à l'intérieur d'un template (G2 de confirmation, m-2) : ferme le template pour le
+  scanner ; UNDER ×5, préexistant à l'ANCIEN (`<template><i title="</template>">HA</i></template>VA`).
 - R-e état double échappé d'un script (`<!--` puis `<script>` dans un script) : fermeture à la première `</script>`
-  (sous-retrait ; Ret UNDER ×4 ; alphabet du worker jusqu'à 7 jetons : 689 séquences UNDER chez le GEL comme chez PLI2).
+  (sous-retrait ; Ret UNDER ×5 ; alphabet du worker jusqu'à 7 jetons : 689 séquences UNDER chez le GEL comme chez PLI2).
 - R-h `</template>` logée dans la section CDATA d'un `svg` imbriqué dans un template (Rh9 : UNDER ×5 ; contenu étranger,
   non modélisé). Les autres R-h (`style`, `title`, `textarea`, `xmp`, `iframe`, `noembed`, `noframes`, `plaintext`,
   Rh1-Rh8) : CORRIGÉS par le pli 3 (ci-dessous).
-- B1-B3 commentaires « bogus » `<! x>`, `</ x>`, `<?x>` : cachés par un navigateur, copiés par les quatre versions.
-- SR `<template shadowrootmode=…>` : rendu par un navigateur, retiré par les quatre versions (OVER ×4).
-- Ra `</template x>` qui ferme un template pour le navigateur : OVER ×4.
+- B1-B3 commentaires « bogus » `<! x>`, `</ x>`, `<?x>` : cachés par un navigateur, copiés par les cinq versions.
+- SR `<template shadowrootmode=…>` : rendu par un navigateur, retiré par les cinq versions (OVER ×5).
+- Ra `</template x>` qui ferme un template pour le navigateur : OVER ×5.
 
 Préexistants, NON identiques (déclarés ; I-4) :
+- R-c `>` dans un attribut quoté d'une ouvrante : ouvrante close au premier `>` (Tattr2 exact ×5). Sur l'ouvrante d'un élément
+  à texte brut, NON identique : `<style title="x></style>"><noscript></style><script></noscript>HA` (ANCIEN throw, LOT-V1 à
+  PLI3 UNDER : la fermante logée dans l'attribut clôt le contenu vu, la clause 1 ne voit pas la `<noscript>`) ; 0 sur les 19
+  pages (fin d'ouvrante scanner = fin parse5 pour les 23 éléments à texte brut).
 - R-a dans un template, fermante hors grammaire D3 (`</script/>`, `</script x>`, `</template x>`) : Rat (ANCIEN OVER,
   LOT-V1 exact, GEL = PLI2 OVER), U10 (ANCIEN UNDER, LOT-V1 exact, GEL = PLI2 UNDER), U9 (ANCIEN exact, LOT-V1 UNDER,
   GEL = PLI2 throw) ; R-a avec imbrication (`<template><template></template></template x>A</template>` : LOT-V1 exact par
@@ -645,10 +740,13 @@ Préexistants, NON identiques (déclarés ; I-4) :
 - L-2 (ancien « R-h à la racine », CP2b (c)) : une ouvrante cachée logée dans un élément à texte brut, lue vivante par la
   passe unique, avalait l'ouvrante d'un `<script>` suivant (`<style><noscript></style><script></noscript>A` : ANCIEN throw,
   LOT-V1 = GEL = PLI2 UNDER) : CORRIGÉ par le pli 3 (throw nommé, ci-dessous).
-- L-3 (pli 3, constat nouveau, non plié ; I-9) : une ouvrante cachée logée dans une VALEUR D'ATTRIBUT (A1) avale une
-  ouvrante `<script>` réelle (Att1 `<p title="<noscript>"><script></noscript>HA` : ANCIEN throw ; Att1c, script fermé :
-  ANCIEN exact ; LOT-V1 = GEL2 = PLI3 UNDER). Mesure jusqu'à 6 jetons avec un contexte d'attribut : 2 séquences ; 0 sur
-  les 19 pages (aucune valeur d'attribut ne contient `<`).
+- L-3 (pli 3, constat nouveau, non plié ; I-9) : une ouvrante cachée logée dans une balise (valeur OU nom d'attribut, A1)
+  avale l'ouvrante réelle d'une surface cachée qui suit (`<script>`, et dès 7 jetons `<template>` et `<!--`) (Att1
+  `<p title="<noscript>"><script></noscript>HA` : ANCIEN throw ; Att1c, script fermé : ANCIEN exact ; LOT-V1 = GEL2 = PLI3
+  UNDER). Alphabet d'attribut : 2 séquences jusqu'à 6 jetons (forme minimale : 6 jetons), 100 jusqu'à 7 jetons (marqueur
+  dans une surface cachée réelle : 87 script/noscript, 4 template, 4 commentaire, 5 mixtes ; l'ANCIEN levait sur 98 ; G2 de
+  confirmation, `g2-confirm\enum\counts.out`). La famille comprend l'ouvrante à texte brut en attribut qui contourne la
+  clause 1 (G-AttRaw). 0 sur les 19 pages (aucun `<` dans une balise ouvrante).
 - R-t (pli 3, déclaré) : une balise ou une valeur d'attribut encore ouverte à la fin de l'entrée est jetée par le
   navigateur (fin d'entrée dans une balise) ; toutes les versions la copient quand elles ne lèvent pas (115 marqueurs sur
   l'alphabet d'attribut, l'ANCIEN levant par accident sur 113). Les pages construites sont des documents complets.
@@ -666,7 +764,8 @@ CORRIGÉ par le pli G2 delta (B-2, L-1 ; fin de commentaire du navigateur, 13.2.
 - Rb1 `<!-->` et Rb2 `<!--->` seuls (ANCIEN exact, LOT-V1 = GEL throw) : exacts ; Rb3 `--!>` seul (ANCIEN UNDER,
   LOT-V1 = GEL throw) : exact ; R-b4 `<!-->` puis un `-->` plus loin (OVER ×3) : exact.
 
-CORRIGÉ par le pli 3 (L-2, décision investisseur 187 ; éléments à texte brut vérifiés, trois clauses) :
+CORRIGÉ par le pli 3 (L-2, décision investisseur 187 ; éléments à texte brut vérifiés, trois clauses), sur la grammaire D3
+(contournements hors grammaire : M-1 de la G2 de confirmation, I-9) :
 - L-2 et ses variantes (les sept éléments à texte brut ou RCDATA, casse, attributs, script fermé plus loin, dans un
   template) : throw nommé (clause 1).
 - R-h dans un template, Rh1 à Rh8 (UNDER ×4 jusqu'au GEL2) : throw nommé (clause 2 ; clause 3 pour `plaintext`, qui ne se
@@ -695,7 +794,9 @@ CORRIGÉ par le pli 3 (L-2, décision investisseur 187 ; éléments à texte bru
   La règle d'ambiguïté étendue aux ouvrantes à texte brut fait aussi lever un vrai commentaire portant une telle ouvrante
   (Ca4) : E13 434 385, E15 1 027 518.
   Attributs : une ouvrante à texte brut dans une valeur d'attribut (`<p title="<style>">`) est lue comme un élément
-  (symétrie A1) ; il n'est jamais fermé, d'où un throw (clause 3), donc un faux rouge possible. Réel : 0 (§« Pli 3 »).
+  (symétrie A1). Jamais fermé : throw (clause 3), faux rouge possible. Fermé plus loin (par une fermante logée dans le
+  contenu d'un élément à texte brut réel) : son contenu fictif couvre l'ouvrante réelle, sautée par `rawSeen`, et la clause 1
+  est contournée, faux vert (G-AttRaw, famille L-3, I-9). Réel : 0 (§« Pli 3 »).
 
 Sur-retraits déclarés (texte visible retiré : faux vert possible pour les contrôles d'ABSENCE de /ukemi, doctrine D-1 (b)) :
 - R-f à la racine : `<!--` en texte brut ou en attribut suivi d'un `-->` sans ouvrante cachée entre les deux : l'étendue est
@@ -735,6 +836,8 @@ AMÉLIORATIONS face à l'ANCIEN : Rb3, V1 (`<script` + U+000B : ANCIEN sur-retra
   - R-a, y compris dans un template (Rat, U10, U9, et avec imbrication), et `</style/>` / `</style x>` pour les éléments à
     texte brut (D-15) ;
   - R-c, R-e, R-h du CDATA de `svg` (Rh9), R-t ;
+  - `</template>` dans une valeur d'attribut à l'intérieur d'un template : ferme le template pour le scanner ; UNDER ×5,
+    préexistant à l'ANCIEN (`<template><i title="</template>">HA</i></template>VA` ; G2 de confirmation, m-2) ;
   - B1-B3 (commentaires bogus), SR (`shadowrootmode`) ;
   - les sur-retraits R-f, S1, S1t, Rft ;
   - les levées déclarées : S1/S2/A1/Rf sans terminateur, règle d'ambiguïté sur un vrai commentaire portant une ouvrante
@@ -747,9 +850,11 @@ AMÉLIORATIONS face à l'ANCIEN : Rb3, V1 (`<script` + U+000B : ANCIEN sur-retra
   Même classe de routage par sous-chaîne, NON signalée par CodeQL, hors périmètre ADR (CA-5, R-25) :
   `ukemi-guard-record.test.ts:673` (`u.includes(host)` sur `["eth.drpc.org","rpc.mevblocker.io"]`) et les stubs
   `String(input).includes(CS_HOST)` du même fichier (hôte `.invalid` fixe).
-- **I-6 R-H-RACINE (L-2)** — **CLOS** par la décision investisseur 187 (option B) et le pli 3 (§« Pli 3 ») : clauses 1 à 3
+- **I-6 R-H-RACINE (L-2)** — **CLOS SUR LA GRAMMAIRE D3** par la décision investisseur 187 (option B) et le pli 3 : clauses 1 à 3
   et règle d'ambiguïté étendue. Vérifié par énumération (E13 jusqu'à 7 jetons : 0 nouveau caché hors R-e face à l'ANCIEN,
-  0 face au GEL2), 51 mutants et 19/19. Reste à l'orchestrateur l'amendement de D3 (« pas de `<style` », I-8).
+  0 face au GEL2), 51 mutants et 19/19. Contournable hors grammaire D3 (G2 de confirmation M-1 : R-a et R-c d'un élément à
+  texte brut, ouvrante à texte brut en attribut ; 0 atteignable) : décision jointe à I-9. Reste à l'orchestrateur
+  l'amendement de D3 (« pas de `<style` », I-8).
 - **I-7 AMBIGUITE-VARIANTE-B** — déclencheur : décision de l'orchestrateur avant G7. Variante A retenue (ouvrantes) ;
   variante B (+ une fin `</template` dans l'étendue d'un commentaire dans un template) ferme les sur-retraits S1t/Rft au
   prix de Tc et de 12 258 séquences exactes qui lèveraient (jusqu'à 7 jetons sur 15) ; instrument
@@ -763,9 +868,11 @@ AMÉLIORATIONS face à l'ANCIEN : Rb3, V1 (`<script` + U+000B : ANCIEN sur-retra
     toujours pas retirés, mais vérifiés. Une ouvrante cachée dans le contenu, un `</template>` dans le contenu en
     template, ou un élément jamais fermé ⇒ throw nommé ; la règle d'ambiguïté couvre aussi leurs ouvrantes.
   - Le critère d'acceptation, écrit comme changement de métrique (CP2b (b)) : « 0 nouveau caché face à l'ANCIEN HORS la
-    classe R-e, chaque cas classé contre parse5 ; 0 face au gel précédent », avec les comptes du pli 3 (E13 : 4, 4/4 R-e).
+    classe R-e, chaque cas classé contre parse5 ; 0 face au gel précédent », avec les comptes du pli 3 (E13 : 4, 4/4 R-e),
+    sur la grammaire D3 (alphabet E13) ; classes exclues, chacune déclarée avec ses comptes : R-e, R-a (y compris texte
+    brut), R-c (y compris texte brut), balises portant un `<` (A1, L-3).
   - La portée de D3 (iv) : grammaire du scanner, pas états échappés du navigateur (CP2b (b)(ii)).
-  - R-25 = 491.
+  - R-25 = 494 (491 au pli 3 ; +3 au pli des corrections de la G2 de confirmation).
 - **I-9 L-3 ATTRIBUT-SWALLOW** — déclencheur : décision de l'orchestrateur avant G7 (même lettre de D3 (iv) que L-2, hors
   du mandat 187). Constat, mesures et option VARG : §« Pli 3 ». Options (recherche de solutions, non tranchée) :
   - (i) résidu déclaré, avec exemption écrite de D3 (iv) pour les valeurs d'attribut non modélisées (R-c, A1) ;
@@ -774,30 +881,55 @@ AMÉLIORATIONS face à l'ANCIEN : Rb3, V1 (`<script` + U+000B : ANCIEN sur-retra
   - (iii) modéliser les valeurs d'attribut quotées des balises génériques (13.2.5.32 à 13.2.5.42) : ferme A1, R-c et Rf
     (Lb4, U5 et Byp2 deviendraient exacts), au prix d'un changement plus large (I-4).
   Réalité : 0 valeur d'attribut contenant `<` sur les 19 pages.
+  **M-1 (G2 de confirmation, `g2-confirm\G2-CONFIRM.md` §2)** : même famille (une construction hors de la grammaire D3 fait
+  compter un texte caché là où l'ANCIEN levait ou était exact). Trois formes contournent le correctif L-2 du pli 3, mesurées
+  contre parse5 (ANCIEN throw ou exact, LOT-V1 à GEL3 UNDER) :
+  - R-a sur un élément à texte brut : `<style></style/><title></style><noscript></title><script></noscript>HA` (aussi
+    `</style x>`, et le script fermé plus loin) ;
+  - R-c sur l'ouvrante d'un élément à texte brut : `<style title="x></style>"><noscript></style><script></noscript>HA` ;
+  - ouvrante à texte brut dans une valeur d'attribut :
+    `<p title="<style>"></p><title></style><noscript></title><script></noscript>HA`.
+  Mécanisme commun : le saut `rawSeen` traite comme du texte l'ouvrante d'un élément à texte brut RÉEL logée dans un
+  contenu que le scanner croit à texte brut ; le contenu de cet élément n'est jamais vérifié (clause 1 contournée).
+  **Aucune n'est nouvelle face au gel 2** (LOT-V1, GEL1, GEL2 et GEL3 UNDER à l'identique). **0 sur les 19 pages** : aucune
+  fermante R-a d'élément à texte brut, 0 écart de fin d'ouvrante ou de fin de contenu entre le scanner et parse5, aucun `<`
+  dans une balise ouvrante. Le scanner n'est pas modifié : un 4ᵉ pli de code relèverait de l'escalade CP2b (a)-4.
+  **Décision investisseur 193** (transmise par l'orchestrateur) : option (i), résidu déclaré avec exemption écrite de D3 (iv) ;
+  son **élargissement à toute la famille** (L-3 et les trois formes M-1) est **en attente**.
 
-## error_origin (C-3 bis ; doc 06 §4.3 : étage fautif ∈ {PLANIFICATEUR, IMPLÉMENTEUR, RELECTEUR, ORACLE}, assigné au G7)
+## error_origin (C-3 bis ; doc 06 §4.3 : étage fautif ∈ {PLANIFICATEUR, IMPLEMENTEUR, RELECTEUR, ORACLE}, assigné au G7)
 
 Assignés par l'orchestrateur (C-3 bis du checkpoint-2 bis, transmis au worker avec la décision 187 ; recopiés tels quels).
-« Plan » = PLANIFICATEUR et « génération » = IMPLÉMENTEUR, vocabulaire `ERROR_ORIGINS` du gabarit
-`templates\workflow-passe-agilegates.js` du corpus.
+Les valeurs sont écrites avec les jetons de `ERROR_ORIGINS` du gabarit `templates\workflow-passe-agilegates.js:38` du
+corpus : « plan » = `PLANIFICATEUR`, « génération » = `IMPLEMENTEUR`. Doc 06 §4.3 accentue « IMPLÉMENTEUR » : c'est une
+incohérence interne au corpus (G2 de confirmation, m-3), et les jetons du gabarit sont retenus pour la lecture machine.
 
 | Constat | error_origin | Objet |
 |---|---|---|
-| B-1 (G2) | génération (IMPLÉMENTEUR) | fin de template prise à la première `</template>` ; énoncé « strictly safer » repris de l'advisor |
-| A-r1 (G2) | génération (IMPLÉMENTEUR) | texte de dismiss #17 inexact (`subject` EST une URL) |
+| B-1 (G2) | génération (IMPLEMENTEUR) | fin de template prise à la première `</template>` ; énoncé « strictly safer » repris de l'advisor |
+| A-r1 (G2) | génération (IMPLEMENTEUR) | texte de dismiss #17 inexact (`subject` EST une URL) |
 | A-r2 (G2) | plan (PLANIFICATEUR) | numéros de ligne de l'ADR (l.61/l.70 ; `transport.ts` l.157) |
 | L-1 (G2 delta) | plan (PLANIFICATEUR) | l'ADR D3 fixait la grammaire littérale `<!-- … -->` |
-| B-2 (G2 delta) | génération (IMPLÉMENTEUR) | cette grammaire réemployée dans `templateEnd` |
-| M-2 (G2 delta) | génération (IMPLÉMENTEUR) | récursion non bornée |
-| D-11 (pli G2 delta) | génération (IMPLÉMENTEUR) | docstring lue par le balayage d'imports de `durable.test.ts` |
+| B-2 (G2 delta) | génération (IMPLEMENTEUR) | cette grammaire réemployée dans `templateEnd` |
+| M-2 (G2 delta) | génération (IMPLEMENTEUR) | récursion non bornée |
+| D-11 (pli G2 delta) | génération (IMPLEMENTEUR) | docstring lue par le balayage d'imports de `durable.test.ts` |
 
 Proposés par le worker, NON assignés (absents de la liste transmise ; l'orchestrateur tranche au G7) :
 
 | Constat | Lecture proposée | Motif |
 |---|---|---|
-| L-2 (CP2b (c)) | génération (IMPLÉMENTEUR), plan contributif | La passe unique (D-1, décision du worker) a retiré l'ordre « scripts d'abord » qui faisait lever l'ANCIEN sur toute ouvrante `<script` non fermée. Le périmètre « pas de `<style` » (M-24, plan) était le même pour l'ANCIEN, qui restait sûr ; le plan l'avait toutefois écrit sans analyse du texte brut. |
-| L-3 (pli 3, non plié) | génération (IMPLÉMENTEUR) | Même racine (passe unique), valeur d'attribut au lieu de texte brut. |
-| Rh1acc (pli 3) | génération (IMPLÉMENTEUR) | La fin de commentaire du pli G2 delta a levé le masque d'un R-h préexistant dans un template (ANCIEN et LOT-V1 exacts par accident). |
+| L-2 (CP2b (c)) | génération (IMPLEMENTEUR) | La passe unique (D-1, décision du worker) a retiré l'ordre « scripts d'abord » qui faisait lever l'ANCIEN sur toute ouvrante `<script` non fermée. Note, et non seconde valeur (doc 06 §4.3 assigne UN étage) : le périmètre « pas de `<style` » (M-24, plan) était le même pour l'ANCIEN, qui restait sûr ; le plan l'avait écrit sans analyse du texte brut. |
+| L-3 (pli 3, non plié) | génération (IMPLEMENTEUR) | Même racine (passe unique), valeur d'attribut au lieu de texte brut. |
+| Rh1acc (pli 3) | génération (IMPLEMENTEUR) | La fin de commentaire du pli G2 delta a levé le masque d'un R-h préexistant dans un template (ANCIEN et LOT-V1 exacts par accident). |
+
+Proposés par la G2 de confirmation pour ses propres constats (`g2-confirm\G2-CONFIRM.md` §3 (d)), NON assignés :
+
+| Constat | Lecture proposée | Motif du relecteur |
+|---|---|---|
+| M-1 | génération (IMPLEMENTEUR) | introduit à LOT-V1 (ANCIEN throw ou exact, LOT-V1 UNDER) |
+| M-2 | génération (IMPLEMENTEUR) | journal G1 |
+| m-1 | génération (IMPLEMENTEUR) | test manquant (borne du saut) |
+| m-2 | préexistant à l'ANCIEN, étage non attribuable au lot | — |
 
 ## Table des mutants (D-1, A-11, D-1-bis)
 
@@ -1075,7 +1207,13 @@ MR10-L2-plaintext-closable: 'Missing expected exception: (Pt) plaintext never en
 MR11-L2-raw-text-opener-in-content-also-thrown: 'assert-fleet-html: a <style> element holds a <title> opener (text to a browser, live markup to this scanner) - fail-closed'
 ```
 
-## Fichiers touchés (13 de code + ce journal) — sha256 octets bruts AVANT (base `e7af51c`) → APRÈS (état livré après le pli 3)
+Rejoués au pli des corrections de la G2 de confirmation : **X12, X13** (mutants du relecteur, `lt < rawSeen` → `lt <= rawSeen`,
+à la racine et dans un template). Sur le test du gel 3, ils survivent (8/8). Après le diff m-1, ils sont tués par
+`rendered_body_raw_text_elements` (« (L2adj) back-to-back raw-text elements », « (Rh1adj) likewise in a template ») ; le sha
+muté est identique à celui du relecteur (`58ec943d…`, `ea4cf9bf…`) et les restaurations sont octet-exactes
+(`pli4\before\`, `pli4\after\`).
+
+## Fichiers touchés (13 de code + ce journal) — sha256 octets bruts AVANT (base `e7af51c`) → APRÈS (état livré après le pli des corrections de la G2 de confirmation)
 
 Le pli G2 a changé 4 fichiers ; leur sha LOT-V1 (livré au G1) : `scripts/assert-fleet-html.mjs` `6c0f7976…`,
 `test/site-build-fleet.test.ts` `04809f16…`, `apps/bell/test/bell-adv-1.test.ts` `250ea0af…`,
@@ -1084,6 +1222,8 @@ Le pli G2 delta a changé 5 fichiers ; leur sha au gel `8229745` : `scripts/asse
 sont inchangés depuis le gel.
 Le pli 3 a changé 3 fichiers ; leur sha au gel 2 `f33e6c5` : `scripts/assert-fleet-html.mjs` `f40333f2…`, `scripts/assert-fleet-html.d.mts` `697275b7…`, `test/site-build-fleet.test.ts` `98871205…`. Les 10 autres fichiers de code
 sont inchangés depuis le gel 2.
+Le pli des corrections de la G2 de confirmation a changé 1 fichier de code (test) : `test/site-build-fleet.test.ts` `b9de36e4…` → `a3df31fe…`
+(+3 lignes, m-1). Les 12 autres fichiers de code sont inchangés depuis le gel 3.
 
 | Fichier | AVANT | APRÈS |
 |---|---|---|
@@ -1093,7 +1233,7 @@ sont inchangés depuis le gel 2.
 | `packages/rpc-guard/test/error-hint.test.ts` | `8ba546cf808312ea72558582ff4037568bfc68284341e85c4dc6ed4afef0628c` | `f8543bb912f5f59966e3ddf433919c5d016d8e0e3d403fc47edafe38557ceb6e` |
 | `scripts/assert-fleet-html.mjs` | `ba1d8324b13c9e607d1d85e5b96444303a53e57cececfe9f6dc0d6d7b7da2cbc` | `fcbd28b03798e1fd6eba8ced14dbc9e2563373e71549fc58e0d3dac4f0f23bf8` |
 | `scripts/assert-fleet-html.d.mts` | `7c761adfdf1e30c708e64631759a018bc40fbef4f713c7a4f7b37d23b09be648` | `27cac187afc988a99789938d8a49fd134cd988aea4af9cf6f93b1dcea0c3e926` |
-| `test/site-build-fleet.test.ts` | `22798272df18871d56776afc38353c167e1c0aad84f52c0809320e8858e68936` | `b9de36e44b3429f8d5deac0ba4580a775d94aa5dd0630f59ecb39ffa236980fb` |
+| `test/site-build-fleet.test.ts` | `22798272df18871d56776afc38353c167e1c0aad84f52c0809320e8858e68936` | `a3df31fe06e193a3859a494669394f5cb15fd7a38cfe8276fd5a509a17a30a48` |
 | `apps/bell/test/bell-adv-1.test.ts` | `08415639d11559c487743395acbd55cddfe21e6e9188d7d0a4b34647b6d04f5b` | `b444efae2aa824e0ba2a4ed6f60a825cbdc62a3a7608c5ac0ad1ad4c87f3b00d` |
 | `apps/sentinel/test/ukemi-guard-record.test.ts` | `c05791b2996eea9c0ca9d98c94839207e09743cf3fb2ba2f0d3d7cf4b7d4d631` | `49f8c3ededdf2c6f787896be12fc81091e8d285fc2b24ebd990f6c45a00a489c` |
 | `apps/bell/test/helpers/bell-served.ts` | `3f79789a9e4f523e38954675fd6763a38db6e89b8892352774c22ef1e2bb7472` | `da10ff690170390719af985541b4692151a941d87ce8f989635fe51c5a9f2dc6` |
@@ -1130,6 +1270,12 @@ ajoutée (R-8 : `package.json`/`package-lock.json` intacts).
   - garde `/<script\b/i` + message présents verbatim ×1 (`guard-check.mjs`) ;
   - 0 CR sur les 3 fichiers du pli ; 0 caractère non-ASCII ajouté dans le code ; 0 TODO/FIXME ;
   - antislashs du scanner 40 → 40 (le code nouveau n'en porte aucun), du test 33 → 36 (les trois `<\/template>` voulus).
+- **Re-mesurés au pli des corrections de la G2 de confirmation** (16:10:04Z, scanner `fcbd28b0…` inchangé) :
+  - gel U-4b SAME ×9 ;
+  - tranche l.82-129 `c2f03ba8…` inchangée (les deux assertions sont insérées dans le test du pli 3) ;
+  - garde `/<script\b/i` + message présents verbatim ×1 ;
+  - 0 CR ; 0 caractère non-ASCII ajouté dans le code ;
+  - antislashs du test 36 → 37 (le `<\/template>` voulu de Rh1adj).
 
 ## Tuyaux (règle Branchement) — preuve par tuyau
 
@@ -1160,6 +1306,10 @@ mesuré, pas rogné.
 Au-dessus de la fourchette indicative 150-300 de l'ADR, sous le seuil STOP A-5 (1 150) et la borne 1 205 : mesuré, pas
 rogné.
 
+**Après le pli des corrections de la G2 de confirmation** (même pathspec verbatim de `ci.yml:71`) : `13 files changed, 458 insertions(+), 36 deletions(-)` ⇒ **494**. Delta face
+au gel 3 `6443dcc` : 1 fichier (`test/site-build-fleet.test.ts`), +3 ⇒ 3 (le G1 est exclu par la pathspec).
+Au-dessus de la fourchette indicative 150-300 de l'ADR, sous le seuil STOP A-5 (1 150) : mesuré, pas rogné.
+
 ## Consigne standard : point par point
 
 - A-1 fait (l.1). A-2 fait (`npm ci`, D-8 ; `require.resolve` dans le worktree). A-3 fait pour l'oracle ; D-9 pour
@@ -1167,13 +1317,13 @@ rogné.
 - A-4 fait : `F:\tmp\codeql-alerts-1\DELIVERED.sha256` (chemins relatifs au worktree) ; aucun commit ; rien sur C: (cache
   npm `F:\cache\npm`, `TEMP/TMP/TMPDIR=F:/tmp`) ; réseau : registre npm (`npm ci`) seulement ; tests en boucle locale
   (`127.0.0.1`) et `fetch` bouchonné.
-- A-5 fait (270 au G1 ; 313 après le pli G2 ; 392 après le pli G2 delta ; 491 après le pli 3). A-6 fait (9/9 avant/après + invariants, re-mesurés après chaque pli). A-7 fait
+- A-5 fait (270 au G1 ; 313 après le pli G2 ; 392 après le pli G2 delta ; 491 après le pli 3 ; 494 après le pli des corrections de la G2 de confirmation). A-6 fait (9/9 avant/après + invariants, re-mesurés après chaque pli). A-7 fait
   (wrapper `ev.sh` ; build sous `pli\ev-build.sh` = `ev.sh` + `NEXT_TELEMETRY_DISABLED=1`), écart D-7 déclaré.
 - A-8 : le test D2 alimente le transport réel par un corps HTTP 400 texte, forme d'un corps d'erreur keyless ; les
   entrées D3 sont des chaînes synthétiques de forme React (fixtures existantes) ET, au pli, les 19 pages RÉELLEMENT
   construites par `next build` (I-2 clos).
 - A-9 / A-10 : n-a (aucune phrase servie ni valeur câblée vers une surface servie n'est modifiée).
-- A-11 fait (harnais TAP, `byIntended` : 14/14 au G1, 21/21 au pli G2, 39/39 au pli G2 delta, 51/51 au pli 3). A-12 partiel, déclaré : chaque TAP de mutant porte node, fichier de
+- A-11 fait (harnais TAP, `byIntended` : 14/14 au G1, 21/21 au pli G2, 39/39 au pli G2 delta, 51/51 au pli 3 ; X12 et X13 du relecteur tués après m-1). A-12 partiel, déclaré : chaque TAP de mutant porte node, fichier de
   test, statut et sha muté ; l'identité de l'arbre (base `e7af51c` + diff non commité, épinglé par
   `DELIVERED.sha256`) est dans l'en-tête de ce journal, pas dans chaque en-tête de TAP. A-13 fait (sources à antislash par Edit/Write ; recomptes node
   `hunk-check.mjs`, `guard-check.mjs` ; deux recomptes bash faussés par le transport, refaits dans node).
@@ -1192,7 +1342,7 @@ rogné.
 
 ## Oracle final (A-3 : codes capturés directement ; A-7 : `ev.sh`)
 
-Au G1, arbre LOT-V1, conservé pour l'histoire ; l'oracle qui fait foi pour l'arbre livré est celui du pli 3
+Au G1, arbre LOT-V1, conservé pour l'histoire ; l'oracle qui fait foi pour l'arbre livré est celui du pli des corrections de la G2 de confirmation
 (dernière sous-section). Commandes lancées depuis `F:\Monark-wt-codeql`, journaux sous `F:\tmp\codeql-alerts-1\final\` (03:30:44Z →
 03:43:54Z).
 
@@ -1240,7 +1390,7 @@ Journaux sous `F:\tmp\codeql-alerts-1\pli2\final\` (`final-*.log`, `final-*.tap`
 | `test/export-public.test.ts` (test 42) | exit 0 — 2/2 (08:00:03Z → 08:03:39Z) |
 | g3-site sur artefact construit hors réseau (arbre final) | exit 0 ; 19/19 identiques (§« G2 delta pliée ») |
 
-### Oracle du pli 3 (arbre du pli 3, scanner `fcbd28b0…` ; fait foi ; A-3 : codes capturés directement ; A-7 : `ev.sh`)
+### Oracle du pli 3 (arbre du pli 3, scanner `fcbd28b0…` ; historique ; A-3 : codes capturés directement ; A-7 : `ev.sh`)
 
 Journaux sous `F:\tmp\codeql-alerts-1\pli3\final\` (`*.log`, `*.tap`, `oracle.time`), script `pli3\run-oracle3.sh`
 (séquentiel, aucun mutant actif), 14:17:22Z → 14:30:47Z. `durable.test.ts` lancé seul d'abord, avant tout le reste
@@ -1255,3 +1405,16 @@ Journaux sous `F:\tmp\codeql-alerts-1\pli3\final\` (`*.log`, `*.tap`, `oracle.ti
 | `test/export-public.test.ts` (test 42) | exit 0 — 2/2 (14:23:50Z → 14:30:47Z) |
 | g3-site sur artefact construit hors réseau (arbre du pli 3) | exit 0 ; 19/19 identiques sur 4 versions (§« Pli 3 ») |
 | 6 portes statiques rejouées après l'écriture de ce journal | exit 0 ×6 (14:47:13Z → 14:47:50Z, `pli3\final\post-g1-*.log`) |
+
+### Oracle du pli des corrections de la G2 de confirmation (test et texte ; scanner `fcbd28b0…` inchangé ; fait foi ; ceinture `pli4\ev.sh`)
+
+Journaux sous `F:\tmp\codeql-alerts-1\pli4\final\`, script `pli4\run-oracle4.sh` (séquentiel, aucun mutant actif), 16:08:16Z → 16:09:49Z (sha au lancement : scanner `fcbd28b0…`, test `a3df31fe…`).
+
+| Porte / suite | Résultat |
+|---|---|
+| `test/site-build-fleet.test.ts` seul, avec les drapeaux du script `test` de `package.json` | exit 0 — **8 tests, 8 pass**, 0 fail (`site-alone.tap`) |
+| `npm run gate:vocab`, `typecheck`, `lint`, `lang:gate`, `export:check` | exit 0 ×5 (typecheck : 0 erreur) |
+| `npm run lint:ratchet` | exit 0 — `69/69` (plafond inchangé) |
+| liste ciblée de la mission + ajouts D-10 (commande identique aux plis précédents) | exit 0 — **222 tests, 222 pass, 0 fail, 0 skip** (`targeted.tap`) |
+| build hors réseau, `renderedBody` face au build du gel 3 | 19/19 identiques, 0 connexion, g3-site exit 0 (§« G2 de confirmation pliée ») |
+| 6 portes rejouées sur l'arbre final (G1 rempli) | exit 0 ×6 (16:10:59Z → 16:11:41Z, `pli4\final\final-*.log`) |
