@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { BellScene } from "@/components/bell-scene";
 import { PRODUCTS } from "@/lib/fleet";
 import { loadAnchors, ANCHORS_ROUTE } from "@/lib/bell-anchors-load";
 import { AnchorsTable } from "@/components/bell/anchors-table";
@@ -266,37 +267,35 @@ export default function BellPage() {
 
   return (
     <main className="c-main">
-      <div className="c-hero">
-        <div>
+      {/* Hero: the text and the scene side by side, one block, no frame (investor, 2026-09-24). The scene is the
+          native BellScene component (components/bell-scene.tsx), no iframe: its loop pauses out of view. */}
+      <div className="c-hero c-hero--bell">
+        <div className="c-hero__text">
           <span className={bell.status === "built" ? "c-pill c-pill--built" : "c-pill c-pill--upcoming"}>{bell.status}</span>
           <h1 className="c-h1" style={{ marginTop: 12 }}>
             While New York is closed, tokenized equities keep printing. Bell writes down what it reads, signed, and names what it could not.
           </h1>
+          <p className="c-lede">
+            A public, signed record of how tokenized U.S. equities trade on a public ledger, in particular while U.S.
+            markets are closed, written so that anyone can recompute it. The host is served and, as read at {served.read_at}{" "}
+            (UTC), its timeline holds {served.timeline.publications} signed{" "}
+            {plural(served.timeline.publications, "publication", "publications")}; how to check a line, and against which key
+            set, is on the method page.{" "}
+            {withGap.length > 0
+              ? `The latest record carries a gap for ${String(withGap.length)} of its ${String(sessions.length)} session rows.`
+              : allNoClose
+                ? "The latest record carries no gap: no closing price is read into it (what is missing, below)."
+                : `The latest record carries no gap: its session rows abstain (${abstentions}).`}{" "}
+            Never a score, never a probability of being right.
+          </p>
+          <div className="c-legend" aria-hidden="true">
+            <span><i style={{ background: "#FFFFFF", border: "1px solid var(--ink2)" }} />tokenized equities, day side</span>
+            <span><i style={{ background: "var(--cash-close)" }} />cash market quoting</span>
+            <span><i style={{ background: "var(--token-print)" }} />tokenized equities after the close</span>
+            <span><i style={{ background: "var(--token-print)", borderRadius: "50%" }} />one dot, one session record</span>
+          </div>
         </div>
-        <p className="c-lede">
-          A public, signed record of how tokenized U.S. equities trade on a public ledger, in particular while U.S.
-          markets are closed, written so that anyone can recompute it. The host is served and, as read at {served.read_at}{" "}
-          (UTC), its timeline holds {served.timeline.publications} signed{" "}
-          {plural(served.timeline.publications, "publication", "publications")}; how to check a line, and against which key
-          set, is on the method page.{" "}
-          {withGap.length > 0
-            ? `The latest record carries a gap for ${String(withGap.length)} of its ${String(sessions.length)} session rows.`
-            : allNoClose
-              ? "The latest record carries no gap: no closing price is read into it (what is missing, below)."
-              : `The latest record carries no gap: its session rows abstain (${abstentions}).`}{" "}
-          Never a score, never a probability of being right.
-        </p>
-      </div>
-      {/* Hero visual (pli SITE-NOYAU-1): the vendored Canvas 2D cubes scene, moved here from the home page with its
-          legend, same iframe (public/scene/blocks-hero.html, no library; reduced motion = one still frame). */}
-      <div className="c-scene">
-        <iframe src="/scene/blocks-hero.html" title="" aria-hidden="true" tabIndex={-1} loading="eager" />
-      </div>
-      <div className="c-legend" aria-hidden="true">
-        <span><i style={{ background: "#FFFFFF", border: "1px solid var(--ink2)" }} />tokenized equities, day side</span>
-        <span><i style={{ background: "var(--cash-close)" }} />cash market quoting</span>
-        <span><i style={{ background: "var(--token-print)" }} />tokenized equities after the close</span>
-        <span><i style={{ background: "var(--token-print)", borderRadius: "50%" }} />one dot, one session record</span>
+        <BellScene className="c-bellscene" />
       </div>
       <nav className="c-toc" aria-label="On this page" style={{ marginTop: 18 }}>
         <a href="#served">served</a>
