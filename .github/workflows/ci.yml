@@ -38,15 +38,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - name: R-25 one-off exception — integration PR 89 only (ADR-M003 D9 octies, investor decision 169, 2026-09-24)
-        if: github.event_name == 'pull_request' && github.event.pull_request.number == 89
-        run: |
-          echo "::notice::R-25 bound waived for integration PR 89 only (five days of lots, each within the bound in its own PR; ADR-M003 D9 octies). The guard is removed after the merge."
       - name: Bounded lot size (R-25 — DORA 2024 pp. 39-40, lot inflation degrades stability)
-        if: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.number == 89) }}
         env:
           VIBEGATES_PR_LIMIT: "1205" # ADR-M003 D9 (R-23: measured median of the 3 Phase 1 lots)
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
+          # ADR-M003 D9 octies (investor decision 169, 2026-09-24): one-off waiver for integration PR 89 only
+          # (five days of lots, each within the bound in its own cycle). A shell guard, never an `if:` directive
+          # (root test 38: a skipped required check counts as passing). Removed in the commit after the merge.
+          if [ "$PR_NUMBER" = "89" ]; then
+            echo "::notice::R-25 bound waived for integration PR 89 only (ADR-M003 D9 octies)."
+            exit 0
+          fi
           case "$VIBEGATES_PR_LIMIT" in
             ''|*[!0-9]*)
               echo '::error::R-25 not configured: set VIBEGATES_PR_LIMIT by a sourced ADR (R-23). Fail-closed.'
