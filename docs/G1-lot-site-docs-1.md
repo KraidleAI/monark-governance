@@ -423,3 +423,15 @@ I-G2-9 FIGURES-UNDERWATER-1.
   cette deuxième consultation, balayer le rendu pour les tirets longs, relire au code l'ordre intervalle de C-G2-1 (fait :
   `packages/hikae/src/l3-gate.ts:119-138`, largeur nulle ou négative puis budget puis largeur puis intention, conforme à la page),
   mettre `shogen-copy.ts` dans `DOCS_LIBS` (fait). Avis, jamais verdict.
+
+### 13.3 Gels 6 et 7, ligne datée 2026-09-24 21:35 UTC (C-V-3 du checkpoint-2 rejoué)
+
+- Gel 6 `711b7f1` (R25-CONTENT-1, décision 207) : générateur worker `claude-opus-5-5`, relu par la lentille D de la G2 fraîche
+  `0a632e5..711b7f1` (ACCEPTE, 12/12 mutants tués).
+- Gel 7 `f703e59` : pli des corrections de cette G2 fraîche par l'orchestrateur (`C-G2B-main.patch` et `C-G2B-2-overlapA.patch`
+  appliqués à l'octet ; décision 211, option A, avec deux assertions écrites par l'orchestrateur, tuées par le mutant M21b du
+  checkpoint-2 rejoué) ; lignes datées ADR-M013, ADR-BELL-OTS-ANCHOR-1, ce journal §13.2. Oracle sur l'arbre final : 8 portes à 0,
+  1 285 / 1 283 / 0 / 2.
+- Gel 8 : erratum ADR-M004 (C-V-1, patch du validateur appliqué à l'octet) et cette section.
+- `error_origin` des gels 3, 4, 5, 7 et 8 (écrits par l'orchestrateur, déviation de la règle « pliage par un worker ») :
+  orchestrateur ; mitigation : G2 fraîche `0a632e5..711b7f1` puis checkpoint-2 rejoué `0a632e5..f703e59`.
