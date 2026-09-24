@@ -90,8 +90,8 @@ export const KEY_SHAPES = Object.freeze([/:\/\//, /-----BEGIN (?:[A-Z0-9]+ )*PRI
   /\bgithub_pat_[0-9A-Za-z_]{40,}\b/, /\bxox[baprs]-[0-9A-Za-z-]{10,}\b/, /\bAIza[0-9A-Za-z_-]{35}\b/,
   /api[-_]?key["' ]*[=:]["' ]*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i, /(?:core\.)?chainstack\.com\/[0-9a-f]{32}/i,
   /p2pify\.com\/[0-9a-f]+/i, /\bBearer\s+[A-Za-z0-9._-]{16,}/, /\b[A-Z][A-Z0-9_]*_API_KEY\s*=\s*["']?[^\s"'#]{6,}/, /\bdb-[A-Za-z0-9]{20,}\b/]);
-/** CP1 point (i), under C-in-8: a served provider label is a bare providerOf label; a dotted host (e.g. a cash-data domain logged
- *  on a transport fault, collect.ts:435, close.ts:162) is refused like a url, never served (decision 69). */
+/** CP1 point (i), under C-in-8: a served provider label is bare: a providerOf operator label, or a cash-leg label naming the LEG
+ *  (cash-close, cash-crosscheck, adv-bars: ADR-BELL-CASH-LEG-1 D2); a dotted host is refused like a url, never served (decision 69). */
 const BARE_LABEL = /^[a-z0-9][a-z0-9-]*$/;
 function scanStrings(v, path) {
   if (typeof v === "string") { if (KEY_SHAPES.some((re) => re.test(v))) refuse("url_or_key_shaped_string", path); return; }

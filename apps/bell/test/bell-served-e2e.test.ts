@@ -93,3 +93,16 @@ test("bell_report_aggregate_equals_on_served_bundle", () => {
   const all = Object.values(onD9.byRegime);
   assert.ok(all.some((b) => b.withGt > 0) && all.some((b) => b.abstain > 0), "non-vacuity: a g_t and an abstention are aggregated");
 });
+
+// ---- C-2 (ADR-BELL-CASH-LEG-1): proof by the REAL publisher. A runMain whose cash-close reader rejects HTTP 400 (a synthetic key
+// is SET: with an empty key no request is emitted at all, C-4) writes the fault under its bare leg label into provenance.json, and
+// publishToDir PUBLISHES it (no url_or_key_shaped_string). Mutant: "databento.com" back at the close fault site of close.ts =>
+// publishedRun() throws bell/publish: url_or_key_shaped_string ($.runs[0].provenance.providers.faults[0].provider).
+test("bell_cash_fault_label_publishes_through_real_publisher", async () => {
+  const r = await publishedRun({ databentoGet: () => Promise.reject(new Error("HTTP 400")) });
+  const faults = (r.d9Prov.providers as Obj).faults;
+  assert.deepEqual(faults, [{ provider: "cash-close", status: "HTTP 400" }], "the run journals the cash fault under its generic label");
+  const served = readJson(join(r.pub, "provenance.json")), run0 = (served.runs as Obj[])[0];
+  assert.deepEqual((run0?.providers as Obj | undefined)?.faults, faults, "served as the run wrote it (the bare label passed the guard)");
+  assert.ok(((r.d9.digest as Obj).gaps as Obj[]).every((g) => g.abstain === "no_close_ref"), "no close read => every session abstains no_close_ref");
+});

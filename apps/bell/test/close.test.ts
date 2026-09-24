@@ -3,7 +3,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { scaledFromDatabento, scaledFromDecimal, earliestPublishUtc, cashRequestDigest, parseDatabentoJson,
-  dbnBarDateUtc, readReferenceCloses, databentoGetRangePath, DBN_UNDEF_PRICE, type DatabentoGet, type PolygonGet } from "../src/close.ts";
+  dbnBarDateUtc, readReferenceCloses, databentoGetRangePath, DBN_UNDEF_PRICE, CASH_CLOSE_LABEL, CASH_CROSS_LABEL, ADV_BARS_LABEL,
+  type DatabentoGet, type PolygonGet, type ReadClosesDeps } from "../src/close.ts";
+import { advBarsFor } from "../src/collect.ts";
 import { etWallClockToUtcMs } from "../src/sessions.ts";
 import { assertNoClose } from "../src/digest.ts";
 import type { TransportFault } from "../src/quorum.ts";
@@ -46,8 +48,8 @@ test("bell_earliest_publish_utc_close_plus_24h", () => {
 
 // ---- C-1/C-7: cash_request_digest is key-free, value-free, order-stable, and load-bearing ----
 test("bell_cash_request_digest_key_free_and_stable", () => {
-  const a = { provider: "databento.com", dataset: "EQUS.SUMMARY", schema: "ohlcv-1d", stype_in: "raw_symbol", symbols: ["TSLA"], start: "2026-09-18", end: "2026-09-19" };
-  const b = { provider: "polygon.io", symbols: ["TSLA"], start: "2026-09-18", end: "2026-09-18" };
+  const a = { provider: "cash-close", dataset: "EQUS.SUMMARY", schema: "ohlcv-1d", stype_in: "raw_symbol", symbols: ["TSLA"], start: "2026-09-18", end: "2026-09-19" };
+  const b = { provider: "cash-crosscheck", symbols: ["TSLA"], start: "2026-09-18", end: "2026-09-18" };
   const d = cashRequestDigest([a, b]);
   assert.match(d, /^[0-9a-f]{64}$/);
   assert.equal(cashRequestDigest([b, a]), d); // canonical + sorted => order-independent
@@ -93,8 +95,8 @@ test("bell_read_reference_closes_cross_matched_mismatch_unavailable", async () =
   // C-V-2 (MV6, C-7 imposed): the digest is the EXACT canonical list of requests ACTUALLY emitted (one Databento
   // range [day, day+1) + one Massive per-day). Dropping/altering a request changes it (mutant: request not pushed).
   assert.equal(m.cash_request_digest, cashRequestDigest([
-    { provider: "databento.com", dataset: "EQUS.SUMMARY", schema: "ohlcv-1d", stype_in: "raw_symbol", symbols: ["TSLA"], start: day, end: "2026-09-08" },
-    { provider: "polygon.io", symbols: ["TSLA"], start: day, end: day },
+    { provider: "cash-close", dataset: "EQUS.SUMMARY", schema: "ohlcv-1d", stype_in: "raw_symbol", symbols: ["TSLA"], start: day, end: "2026-09-08" },
+    { provider: "cash-crosscheck", symbols: ["TSLA"], start: day, end: day },
   ]));
 
   // mismatch: Massive 123.46 => NO close returned (session abstains downstream), day recorded, never an average.
@@ -134,4 +136,45 @@ test("bell_read_reference_closes_cross_matched_mismatch_unavailable", async () =
   const ud = await readReferenceCloses({ TSLA: [day] }, { databentoGet: undefDbn, polygonGet: massive(123.45), databentoKey: "k", polygonKey: "p", faults: [] });
   assert.ok(!(day in (ud.closeByUnderlying.TSLA ?? {})), "UNDEF_PRICE filtered => day absent (no garbage close)");
   assert.ok(!(day in (ud.crossByUnderlying.TSLA ?? {})), "no cross attempted on an absent close");
+});
+
+// ---- C-4 / D1 (ADR-BELL-CASH-LEG-1, CASH-KEYLESS-SKIP-1): an EMPTY Databento key emits NO request ----
+// The old path called the reader anyway (`Basic base64(":")` => HTTP 400 in the seq-1 journals). Now: no call, no fault,
+// the day absent (=> no_close_ref downstream), no request in the digest. Mutant: the skip removed => 1 call => red.
+test("bell_cash_keyless_emits_no_request", async () => {
+  const day = "2026-09-07";
+  let calls = 0;
+  const faults: TransportFault[] = [];
+  const dbn: DatabentoGet = () => { calls += 1; return Promise.reject(new Error("HTTP 400")); };
+  const r = await readReferenceCloses({ TSLA: [day] }, { databentoGet: dbn, polygonGet: () => Promise.reject(new Error("cross must not run")), databentoKey: "", polygonKey: "p", faults });
+  assert.equal(calls, 0, "no request is emitted without a key");
+  assert.deepEqual(faults, [], "no transport fault is journaled for a skipped leg");
+  assert.ok(!(day in (r.closeByUnderlying.TSLA ?? {})), "the day is absent => the session abstains no_close_ref");
+  assert.equal(r.cash_request_digest, cashRequestDigest([]), "nothing was emitted, nothing is digested");
+  // control: the SAME call with a key set reaches the reader (the skip is keyed on the key, not on the seam)
+  await readReferenceCloses({ TSLA: [day] }, { databentoGet: dbn, polygonGet: () => Promise.reject(new Error("cross must not run")), databentoKey: "k", polygonKey: "p", faults });
+  assert.deepEqual([calls, faults], [1, [{ provider: "cash-close", status: "HTTP 400" }]]);
+});
+
+// ---- D2 (ADR-BELL-CASH-LEG-1, C-3/C-11): every provider label the cash leg emits is BARE and GENERIC ----
+// Scoped to the provider FIELDS (what reaches provenance.json / journal.json), never to the file text. Every emission site
+// is driven: the close request (:170) + its transport fault (:173) + its shape fault (:178), the cross request (:181) + its
+// fault (:184), the ADV fault (collect.ts advBarsFor). Mutant: provider "databento.com" back at any site => red.
+test("bell_cash_labels_are_generic", async () => {
+  const generic = (l: string): boolean => /^[a-z0-9][a-z0-9-]*$/.test(l) && !/databento|polygon|massive/i.test(l);
+  assert.deepEqual([CASH_CLOSE_LABEL, CASH_CROSS_LABEL, ADV_BARS_LABEL], ["cash-close", "cash-crosscheck", "adv-bars"]);
+  for (const bad of ["databento.com", "polygon.io", "massive", "cash.close"]) assert.ok(!generic(bad), `the rule rejects ${bad} (non-vacuity)`);
+  const day = "2026-09-07", rec = { hd: { ts_event: nsOf(day) }, close: "123450000000" }; // SYNTHETIC (see above)
+  const faults: TransportFault[] = [];
+  const deps = (databentoGet: DatabentoGet, polygonGet: PolygonGet): ReadClosesDeps => ({ databentoGet, polygonGet, databentoKey: "k", polygonKey: "p", faults });
+  const cross: PolygonGet = () => Promise.resolve({ results: [{ c: 123.45 }] });
+  await readReferenceCloses({ TSLA: [day] }, deps(() => Promise.reject(new Error("HTTP 400")), cross)); // close transport fault
+  await readReferenceCloses({ TSLA: [day] }, deps(() => Promise.resolve([{ ...rec, close: "123.45" }]), cross)); // close shape fault
+  const x = await readReferenceCloses({ TSLA: [day] }, deps(() => Promise.resolve([rec]), () => Promise.reject(new Error("HTTP 503")))); // cross fault
+  await advBarsFor("TSLA", [{ year: 2026, month: 8 }], "p", faults, () => Promise.reject(new Error("HTTP 403"))); // ADV fault
+  assert.deepEqual(faults.map((f) => f.provider), ["cash-close", "cash-close", "cash-crosscheck", "adv-bars"], "one fault per site, each under its leg label");
+  for (const f of faults) assert.ok(generic(f.provider), `generic fault label: ${f.provider}`);
+  assert.equal(x.cash_request_digest, cashRequestDigest([ // the requests actually emitted carry the generic labels
+    { provider: "cash-close", dataset: "EQUS.SUMMARY", schema: "ohlcv-1d", stype_in: "raw_symbol", symbols: ["TSLA"], start: day, end: "2026-09-08" },
+    { provider: "cash-crosscheck", symbols: ["TSLA"], start: day, end: day }]));
 });

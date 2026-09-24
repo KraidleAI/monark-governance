@@ -243,6 +243,44 @@ listing; certificate valid; retry after 30 s while ACME completes, at most 5 tri
 **STOP** if the TLS result is not 0 after the retries: read `journalctl -u caddy -n 50 --no-pager` (no secret
 there) before anything else. Rollback: the step 7 rollback. **Hosting is now online; steps 9-13 wait for G-b and G-e.**
 
+## 8 bis. From seq 2: ONE day crossed dry, then the course (ADR-BELL-CASH-LEG-1, C-12) — before step 9
+
+Seq 1 abstained `no_close_ref` on every session (its launch scripts removed the Databento key). From seq 2 the cash leg is ON and
+its first LIVE cross-check has never been observed, so ONE reference day already publishable (16:00 ET + 24 h passed, e.g.
+`2026-09-15`, a reference day of mode W3) is crossed dry with the committed code of the course's execution tree `<EXEC_TREE>`
+(clean, at the G7 of the course, `node_modules` installed), the keys in the operator environment. Nothing but a cost and statuses
+is printed (never a key, never a close):
+
+```bash
+cd <EXEC_TREE> && node --input-type=module -e 'import { DATABENTO_HIST, databentoCostPath } from "./apps/bell/src/close.ts"; const d = process.argv[1], e = new Date(Date.parse(d + "T00:00:00Z") + 86400000).toISOString().slice(0, 10); const r = await fetch(DATABENTO_HIST + databentoCostPath(["TSLA"], d, e), { headers: { Authorization: "Basic " + Buffer.from((process.env.DATABENTO_API_KEY ?? "") + ":").toString("base64") } }); console.log(r.ok ? "cost_usd=" + Number(JSON.parse(await r.text())) : "HTTP " + r.status);' -- 2026-09-15
+```
+
+```bash
+cd <EXEC_TREE> && node --input-type=module -e 'import { readReferenceCloses, readCashKeys, databentoGet, polygonGet } from "./apps/bell/src/close.ts"; const k = readCashKeys(process.env), faults = []; const r = await readReferenceCloses({ TSLA: [process.argv[1]] }, { databentoGet, polygonGet, databentoKey: k.databentoKey, polygonKey: k.polygonKey, faults }); console.log(JSON.stringify({ cross: r.crossByUnderlying, faults }));' -- 2026-09-15
+```
+
+Expected: `cost_usd=<n>` with n <= 1 (the metadata call is free, PR-B-DBN Q7; the one-day range request of the second command is
+the only billed Databento call of this step), then exactly `{"cross":{"TSLA":{"2026-09-15":"matched"}},"faults":[]}`. **STOP** on anything else:
+`mismatch` (the two sources disagree on the scaled integer), `unavailable` (the cross-check key or host), a fault, or
+`{"cross":{},"faults":[]}` (no Databento key: nothing was requested). No course then; the investigation is named in the JOURNAL.
+Rollback: none (read-only).
+
+Then, for EVERY instrument of the sequence (decision 164: seq 2 = TSLAx + AAPLx + SPYx, one bundle, never mono-instrument), the
+course from the same tree: first the dry run (guards + the `metadata.get_cost` pre-flight, cap 1 USD, nothing written), then the
+same line without `Q6_DRYRUN=1`, detached (RUNBOOK-SUP-3), then its controls once the process has exited:
+
+```bash
+Q6_DRYRUN=1 Q6_SHA_G7=<G7 of the course> Q6_EXEC_TREE=<EXEC_TREE> Q6_TRAJ_FILE=<produced trajectory> Q6_TRAJ_SHA256=<its sha256> Q6_FLOOR_CHAINSTACK_RU=<floor> bash <EXEC_TREE>/apps/bell/ops/launch-q6.sh <MINT> <mode> --out <OUT>
+```
+
+```bash
+node <EXEC_TREE>/apps/bell/ops/q6-controls.mjs --variant fast --mint <MINT> --mode <mode> --out <OUT> --exec-tree <EXEC_TREE> --ledger-cycle-dir /f/monark-ledger/helius-2026-09-19 --seq1-state /f/course-bell/q6/<MINT>/state.json
+```
+
+Expected: `RESULT 0 FAIL`; **`PASS Q6-C14` (close_ref_present) is blocking** (C-6): a `no_close_ref` is admitted only on a session
+whose reference close is not yet publishable. A `WARN Q6-C15` (seq 1 differs) is written as a D-n line with its figures. Only then
+is the bundle assembled (step 9). Rollback: `<OUT>` is moved aside, never overwritten (the launcher refuses an existing state).
+
 ## 9. The first bundle (gates G-b and G-e)
 
 A bundle is ONE directory whose sub-directories are `runMain --out` directories exactly as written (`state.json`,
@@ -270,7 +308,9 @@ ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl start monark-bell-publish
 
 Expected: `start_exit=0`; one JSON line `{"status":"published","seq":1,"published_at":...,"state_sha256":...,"provenance_sha256":...,"line_hash":...}`
 (no secret in it); `0` (the bundle moved to `archive/`); `bell provenance provenance.json state.json states timeline.jsonl`; then
-`HTTP/2 200` twice (S-12). A refusal prints `bell/publish: <code>: <detail>` and writes nothing: fix the bundle, never the state.
+`HTTP/2 200` twice (S-12). A refusal prints `bell/publish: <code>: <detail>` and writes nothing: the bundle is RE-PRODUCED (a new
+course, section 8 bis), never edited by hand (no relabel of a provider label, no field edit: the seq 1 relabel is not repeated,
+ADR-BELL-CASH-LEG-1), and the state is never touched.
 Rollback: **none that deletes** (append-only, signed). A wrong publication is corrected by a NEW publication; serving can be
 stopped by the step 7 rollback; a rewrite would be detectable by the mirrors (see "Who can detect a rewrite").
 
@@ -324,8 +364,11 @@ under `F:/tmp` alone). This copy is what makes a later rewrite detectable (ADR D
 
 ## Next publications
 
-Steps 9 and 10 for the new bundle (`bundle-<n>`), step 11 (fresh host capture and probe capture) and steps 12-13 (JOURNAL,
-mirror `timeline-seq<n>.jsonl`). The same bundle twice publishes nothing (`nothing_to_publish`, exit 0).
+Section 8 bis (from seq 2: one day crossed dry, the course of every instrument, `PASS Q6-C14`), then steps 9 and 10 for the new
+bundle (`bundle-<n>`), step 11 (fresh host capture and probe capture) and steps 12-13 (JOURNAL,
+mirror `timeline-seq<n>.jsonl`). The same bundle twice publishes nothing (`nothing_to_publish`, exit 0). Until item
+BELL-SITE-SEQ2-1 lands, the CA of seq >= 2 is written OUT of the repo (`--out /f/tmp/bell-dn/deploy-CA-bell-seq<n>.json`, its
+sha256 in the JOURNAL) and `docs/deploy-CA-bell.json` stays seq 1 (ADR-BELL-CASH-LEG-1 C-1).
 
 ## Key incidents (ADR D9, ESC-2)
 
@@ -363,4 +406,5 @@ mirror `timeline-seq<n>.jsonl`). The same bundle twice publishes nothing (`nothi
 `cat`/`head`/`tail`/`less`/`xxd`/`od`/`base64`/`openssl` on the key file; `sha256sum` of the key; `set -x`; printing the
 environment; `systemctl enable` or `systemctl edit` on this unit; editing `/etc/caddy/Caddyfile` in place; a Caddy access log
 before decision 78's trigger (C-2, item BELL-ACCESS-LOG-1); cleaning `run-p19072-i21642.service` or touching `/opt/monark-probe`,
-`/etc/monark/probe.env`, `/var/lib/monark-probe` (CA check 12; item PROBE-SIM-UNIT-1).
+`/etc/monark/probe.env`, `/var/lib/monark-probe` (CA check 12; item PROBE-SIM-UNIT-1); editing a produced bundle by hand, a relabel
+included (a refused bundle is re-produced, section 10).
