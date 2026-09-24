@@ -8,8 +8,10 @@
 // replayed red by F:\tmp\siteB\mutants.mjs.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { createHash } from "node:crypto";
 import ts from "typescript";
 import {
   LIQ_UPPER_BOUND_SENTENCE,
@@ -34,16 +36,37 @@ import {
   METHOD_STEPS,
   LIMITS_LABEL,
   LIMITS,
+  COURSE_POINTER_LEAD,
+  COURSE_POINTER_LINK,
+  COURSE_POINTER_TAIL,
+  UKEMI_COURSE_ROUTE,
 } from "../apps/site/lib/ukemi-copy.ts";
+import * as UKEMI_COPY from "../apps/site/lib/ukemi-copy.ts";
+import { CASCADE_UNCALIBRATED_SENTENCE, LIQ_TASK_CLASS } from "../apps/site/lib/ukemi-panel-copy.ts";
+import * as UKEMI_PANEL_COPY from "../apps/site/lib/ukemi-panel-copy.ts";
+import { loadUkemiCourse, UKEMI_COURSE_REL, type UkemiCourse } from "../apps/site/lib/ukemi-course-load.ts";
+import { loadUkemiServed, UKEMI_SERVED_REL, type UkemiServed } from "../apps/site/lib/ukemi-served-load.ts";
+import { buildCourseView, type CourseView } from "../apps/site/lib/ukemi-course-view.ts";
 import {
   LIQ_UPPER_BOUND_SENTENCE as GATE_LIQ_UPPER_BOUND_SENTENCE,
   LIQ_H3_SENTENCE as GATE_LIQ_H3_SENTENCE,
   LIQ_CONDITIONAL_SENTENCE as GATE_LIQ_CONDITIONAL_SENTENCE,
   LIQ_EMPTY_REGISTRY_SENTENCE as GATE_LIQ_EMPTY_REGISTRY_SENTENCE,
+  LIQ_REQUIREMENTS_SENTENCE as GATE_LIQ_REQUIREMENTS_SENTENCE,
+  CASCADE_UNCALIBRATED_SENTENCE as GATE_CASCADE_UNCALIBRATED_SENTENCE,
+  TASK_LIQ_ELIGIBLE,
+  LIQ_ALPHA,
+  LIQ_NMIN,
+  runGate,
+  type HarnessParams,
 } from "../apps/harness/src/tools/gate.ts";
+import { ATTESTATION_BINDING } from "../apps/harness/src/attestation-binding.ts";
+import { hasCommittedCalibrationForClass } from "../apps/harness/src/calibration.ts";
+import { STRATA_CUTS_SERVED } from "../apps/harness/src/ukemi-strata.ts";
 import { assertUkemiBody, scanNumericTokens } from "../scripts/assert-fleet-html.mjs";
-import { scanText, scanSource, renderedTexts } from "../apps/site/test/honesty-lint.ts";
+import { scanText, scanSource, renderedTexts, loadExemptFile, exemptValues } from "../apps/site/test/honesty-lint.ts";
 import { FLEET_AGENTS } from "../apps/site/lib/fleet.ts";
+import { insideFor } from "../apps/site/lib/fleet-presentation.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const read = (rel: string): string => readFileSync(join(ROOT, ...rel.split("/")), "utf8");
@@ -75,6 +98,7 @@ function greenMain(): string {
     `<div aria-hidden="true"><span style="left:22%;width:44%">${BAR_UPPER_LABEL}</span>` +
     `<span style="left:22%">${BAR_YHAT_LABEL}</span><span>${BAR_FLOOR_LABEL}</span></div>` +
     `<p>${REGION_NOTE}</p><p>${CONDITIONAL_LEAD}</p><p>${LIQ_CONDITIONAL_SENTENCE}</p>` +
+    `<p>${COURSE_POINTER_LEAD} <a href="${UKEMI_COURSE_ROUTE}">${COURSE_POINTER_LINK}</a>${COURSE_POINTER_TAIL}</p>` +
     `<p>${STATES_NOTE}</p><p>${COVERAGE_NOTE}</p>` +
     `<div>${METHOD_LABEL}</div>${steps}` +
     `<div>${LIMITS_LABEL}</div>${limits}` +
@@ -168,6 +192,7 @@ test("site_ukemi_body_scan_and_carrier — assertUkemiBody fixtures + scanner pa
     ["COVERAGE_NOTE", COVERAGE_NOTE], ["BAR_UPPER_LABEL", BAR_UPPER_LABEL], ["BAR_YHAT_LABEL", BAR_YHAT_LABEL],
     ["BAR_FLOOR_LABEL", BAR_FLOOR_LABEL], ["STATES_NOTE", STATES_NOTE], ["METHOD_LABEL", METHOD_LABEL],
     ["LIMITS_LABEL", LIMITS_LABEL],
+    ["COURSE_POINTER_LEAD", COURSE_POINTER_LEAD], ["COURSE_POINTER_LINK", COURSE_POINTER_LINK], ["COURSE_POINTER_TAIL", COURSE_POINTER_TAIL],
     ["LIQ_EMPTY_REGISTRY_SENTENCE", LIQ_EMPTY_REGISTRY_SENTENCE], ["LIQ_CONDITIONAL_SENTENCE", LIQ_CONDITIONAL_SENTENCE],
   ];
   IS_LIST.forEach((t, i) => renderedProse.push([`IS_LIST_${i}`, t]));
@@ -244,9 +269,9 @@ test("site_ukemi_body_scan_and_carrier — assertUkemiBody fixtures + scanner pa
 });
 
 test("site_ukemi_reads_status_only — /ukemi reads ONLY status from the register, never line/wiring (C-6)", () => {
-  // The Ukemi register row's line ("Liquidation-cascade survival.") and wiring.note carry "cascade"
-  // (fleet.ts:155-166); rendering them reds assertUkemiBody \bcascade\b=0 and CANNOT be fixed by editing the
-  // frozen fleet.ts. So the component reads status ONLY. Mutant: add a .line / .wiring access => this reds.
+  // The Ukemi register row's wiring.note carries "cascade" (lib/fleet.ts); rendering it reds assertUkemiBody
+  // \bcascade\b=0. The /ukemi body keeps its own copy (lib/ukemi-copy.ts), so the component reads status ONLY.
+  // Mutant: add a .line / .wiring access => this reds.
   const comp = read(UKEMI_PAGE_REL);
   assert.ok(/\.status\b/.test(comp), "the component reads .status from the register (the built pill, C-6/D-51)");
   assert.ok(!/\.line\b/.test(comp), 'the component must NOT read .line (carries "cascade" — C-6)');
@@ -270,4 +295,840 @@ test("site_ukemi_icon_local_no_remote_url — favicon is a STATIC public SVG (no
   const route = read(UKEMI_ROUTE_REL);
   assert.ok(route.includes('"/icons/ukemi.svg"'), "the /ukemi page must declare its icon at the static /icons/ukemi.svg (metadata.icons)");
   assert.ok(!/["'`]\/ukemi\/icon/.test(route), "the icon must NOT be declared under /ukemi/ (Caddy handle_path shadow risk — ruling D-2)");
+});
+
+/* ─────────────────────────── /ukemi/course + served state (lot site-5j ukemi) ───────────────────────────
+ * The course page renders ONLY words composed by lib/ukemi-course-view.ts from two committed, hashed files: the course
+ * report copy (apps/site/data/ukemi-course.json) and the served state of the class (apps/site/data/ukemi-served.json).
+ * These tests pin every mapping to a named JSON path of those files, replay the loaders' fail-closed mutants on
+ * temporary copies, bind the served state to the harness registry, and forbid provider / operator names on the Ukemi
+ * surface (the literals live HERE, in a non-exported root test, never in an exported vocabulary file). */
+
+type Json = Record<string, unknown>;
+const obj = (v: unknown, where: string): Json => {
+  assert.ok(v !== null && typeof v === "object" && !Array.isArray(v), `${where} must be an object`);
+  return v as Json;
+};
+const list = (v: unknown, where: string): unknown[] => {
+  assert.ok(Array.isArray(v), `${where} must be an array`);
+  return v as unknown[];
+};
+const rawCourse = (): Json => obj(JSON.parse(read(UKEMI_COURSE_REL)) as unknown, "course file");
+const rawServed = (): Json => obj(JSON.parse(read(UKEMI_SERVED_REL)) as unknown, "served file");
+const sha256 = (s: string): string => createHash("sha256").update(s, "utf8").digest("hex");
+/** Independent re-implementation of the course tool's canonical JSON (keys sorted, no whitespace). */
+function canon(v: unknown): string {
+  if (v === null || typeof v !== "object") return JSON.stringify(v);
+  if (Array.isArray(v)) return "[" + v.map(canon).join(",") + "]";
+  const o = v as Json;
+  return "{" + Object.keys(o).sort().map((k) => JSON.stringify(k) + ":" + canon(o[k])).join(",") + "}";
+}
+/** 8-decimal rendering by BigInt (independent of the loader's string routine). */
+function dec8(intString: string): string {
+  const v = BigInt(intString);
+  return `${(v / 100000000n).toString()}.${(v % 100000000n).toString().padStart(8, "0")}`;
+}
+/** A temporary repo root holding a copy of the site manifest and the two Ukemi data files, rewritable per mutant. */
+function tmpRoot(): { root: string; write: (rel: string, value: Json) => void; cleanup: () => void } {
+  const root = mkdtempSync(join(tmpdir(), "ukemi-course-"));
+  mkdirSync(join(root, "apps", "site", "data"), { recursive: true });
+  const manifestRel = "apps/site/data/manifest.sha256.json";
+  const manifest = obj(JSON.parse(read(manifestRel)) as unknown, "manifest");
+  const files = obj(manifest.files, "manifest.files");
+  const write = (rel: string, value: Json): void => {
+    const text = JSON.stringify(value, null, 2) + "\n";
+    writeFileSync(join(root, ...rel.split("/")), text);
+    files[rel] = sha256(text);
+    writeFileSync(join(root, ...manifestRel.split("/")), JSON.stringify(manifest, null, 2) + "\n");
+  };
+  write(UKEMI_COURSE_REL, rawCourse());
+  write(UKEMI_SERVED_REL, rawServed());
+  return { root, write, cleanup: () => rmSync(root, { recursive: true, force: true }) };
+}
+/** Every string a view carries, flattened. */
+function viewStrings(v: CourseView): string[] {
+  const out: string[] = [v.eyebrow, v.served_lead, v.served_clause, v.served_note, v.unit_note, v.multi_call, v.reconciliation,
+    v.liquidated_amounts, v.oracle, v.oracle_anchor, v.population, v.zero_rule, v.labels, v.clause, v.report_digest,
+    v.report_digest_note, v.digests_note, ...v.reading];
+  if (v.oracle_bias !== null) out.push(v.oracle_bias);
+  for (const r of v.rows) out.push(r.label, r.range, r.points, r.bound, r.comparison, r.outcome, r.liquidated);
+  for (const d of v.digests) out.push(d.label, d.value);
+  out.push(v.zero_rule_accounts_lead, v.verification_summary, v.verification_lead, v.verification_gloss);
+  for (const a of v.zero_rule_accounts) out.push(a.address, a.href);
+  for (const p of v.verification) out.push(p.label, p.value);
+  return out;
+}
+/** Every numeric token carried by a JSON value: number leaves, and the numeric tokens inside string leaves. */
+function numericTokensOf(v: unknown, acc: Set<string>): Set<string> {
+  if (typeof v === "number") acc.add(String(v));
+  else if (typeof v === "string") for (const tok of v.match(/\d+(?:[.,]\d+)*/g) ?? []) acc.add(tok);
+  else if (Array.isArray(v)) for (const x of v) numericTokensOf(x, acc);
+  else if (v !== null && typeof v === "object") for (const x of Object.values(v as Json)) numericTokensOf(x, acc);
+  return acc;
+}
+
+test("site_ukemi_course_loader_maps_named_fields — every loaded value equals its JSON path in the hashed report copy", () => {
+  const raw = rawCourse();
+  const body = obj(raw.body, "body");
+  const c = loadUkemiCourse(ROOT);
+  // Digest: recomputed here with an independent canonical JSON (the recipe the page states in words).
+  assert.equal(c.body_digest, raw.body_digest);
+  assert.equal(sha256(canon(body)), c.body_digest, "body_digest must be the sha256 of the canonical JSON of body");
+  assert.equal(c.event_id, body.event_id);
+  const h3 = obj(body.h3, "h3");
+  const h2 = list(obj(body.h2, "h2").strata, "h2.strata");
+  const strata = list(h3.strata, "h3.strata");
+  assert.equal(c.strata.length, strata.length);
+  strata.forEach((s, i) => {
+    const o = obj(s, "stratum"), fresh = obj(o.fresh, "fresh"), e2 = obj(o.e2, "e2");
+    const x = c.strata[i];
+    assert.ok(x !== undefined);
+    assert.equal(x.n, fresh.n, `stratum ${String(i)} n = h3.strata[i].fresh.n`);
+    assert.equal(x.meets_floor, o.served, "meets_floor = the report flag h3.strata[i].served (committable, NOT a served state)");
+    assert.equal(x.n_min, obj(h2[i], "h2 row").n_min, "n_min = h2.strata[i].n_min");
+    assert.equal(x.outcome, o.verdict);
+    assert.equal(x.trials, e2.n, "trials = h3.strata[i].e2.n");
+    assert.equal(x.quantile_rank, fresh.p, "quantile_rank = h3.strata[i].fresh.p");
+    if (o.served === true) {
+      assert.equal(x.covered, e2.k_covered);
+      assert.equal(x.at_zero, e2.atoms_at_zero, "at_zero = h3.strata[i].e2.atoms_at_zero");
+      assert.equal(x.level, o.level);
+      assert.equal(x.bound_is_largest_score, fresh.qhat_is_max);
+      assert.equal(x.bound_margin, dec8(String(fresh.qhat)), "bound_margin = h3.strata[i].fresh.qhat in 8-decimal form");
+      assert.equal(x.cross_episode_bound, o.barber_thm2_bound);
+    } else {
+      assert.equal(x.covered, null);
+      assert.equal(x.bound_margin, null);
+    }
+  });
+  const pooled = obj(h3.pooled, "pooled"), pe = obj(pooled.e2, "pooled e2"), pf = obj(pooled.fresh, "pooled fresh");
+  assert.deepEqual([c.pooled.n, c.pooled.covered, c.pooled.trials, c.pooled.at_zero, c.pooled.outcome, c.pooled.level],
+    [pf.n, pe.k_covered, pe.n, pe.atoms_at_zero, pooled.verdict, pooled.level]);
+  assert.equal(c.pooled.bound_margin, dec8(String(pf.qhat)));
+  assert.deepEqual(c.committable, h3.served_strata, "committable = h3.served_strata");
+  const h6 = obj(body.h6, "h6"), sb = obj(h6.served_blocks, "h6 sampled");
+  assert.equal(c.h6.lag_bound, h6.max_lag_bound, "lag_bound = h6.max_lag_bound (the pre-registered bound)");
+  assert.equal(c.h6.sampled.max_lag, sb.max_lag, "sampled.max_lag = h6.served_blocks.max_lag (the MEASURED lag)");
+  assert.equal(c.h6.sampled.n, sb.n, "sampled.n = h6.served_blocks.n (the values checked)");
+  assert.equal(c.h6.series.n_updates, obj(h6.series, "series").n_updates, "series.n_updates = h6.series.n_updates (the series length)");
+  assert.equal(c.h6.anchor.price, dec8(String(obj(h6.anchor, "anchor").price)));
+  assert.equal(c.h6.sample_note_present, typeof h6.sample_note === "string");
+  const clause = obj(body.clause_359, "clause");
+  assert.deepEqual([c.clause_359.no_non_on_committable, c.clause_359.unresolved, c.clause_359.condition_satisfied],
+    [clause.h3_no_NON_on_served_strata, clause.labels_no_quorum_unresolved, clause.condition_satisfied]);
+  const h4 = obj(body.h4, "h4"), hp = obj(h4.pooled, "h4 pooled");
+  assert.deepEqual([c.h4.liquidated_amounts.sum, c.h4.liquidated_amounts.after_first_call, c.h4.liquidated_amounts.deficit_apart],
+    [dec8(String(hp.sum_y)), dec8(String(hp.sum_after_first)), dec8(String(hp.sum_deficit_apart))]);
+  const q0 = obj(body.q0_rule_failures, "q0");
+  assert.deepEqual(c.zero_rule.missed_amounts, list(q0.without_crossing, "q0 misses").map((m) => dec8(String(obj(m, "miss").y))));
+  // Provenance: digests only, NO path anywhere in the exported copy (a path would name a file absent from the mirror).
+  const prov = obj(raw.provenance, "provenance");
+  assert.deepEqual(Object.keys(prov).sort(), ["event_id", "inputs", "node", "tool"], "provenance carries digests only");
+  assert.deepEqual(Object.keys(obj(prov.tool, "tool")), ["sha256_lf"], "the tool entry carries its digest only (no rel path)");
+  const inputs = obj(prov.inputs, "inputs");
+  for (const [name, entry] of Object.entries(inputs)) assert.deepEqual(Object.keys(obj(entry, name)), ["sha256_lf"], `input ${name} carries its digest only`);
+  assert.equal(c.digests.tool, obj(prov.tool, "tool").sha256_lf);
+  assert.equal(c.digests.prereg, obj(inputs.prereg, "prereg").sha256_lf);
+  const walk = (v: unknown, path: string): void => {
+    if (v !== null && typeof v === "object") {
+      for (const [k, x] of Object.entries(v as Json)) {
+        assert.notEqual(k, "rel", `a path key rides at ${path}.${k}`);
+        walk(x, `${path}.${k}`);
+      }
+    }
+  };
+  walk(raw, "file");
+  // The a-priori stratum cuts shown are the SERVED cuts of the gate (base-currency integers, 8 decimals).
+  assert.deepEqual(c.strata_cuts.map((s) => Number(s.replace(".", ""))), [...STRATA_CUTS_SERVED], "display.strata_cuts = STRATA_CUTS_SERVED in 8-decimal form");
+});
+
+test("site_ukemi_course_loader_fails_closed — manifest, digest, outcome, amount, floor-flag and shape mutants red the loader", () => {
+  const t = tmpRoot();
+  try {
+    assert.doesNotThrow(() => loadUkemiCourse(t.root), "the unmodified copy loads");
+    const mutate = (f: (file: Json) => void, rehashBody: boolean): void => {
+      const file = rawCourse();
+      f(file);
+      if (rehashBody) file.body_digest = sha256(canon(file.body));
+      t.write(UKEMI_COURSE_REL, file);
+    };
+    const firstStratum = (f: Json, i: number): Json => obj(list(obj(obj(f.body, "body").h3, "h3").strata, "strata")[i], `stratum ${String(i)}`);
+    // (a) manifest mismatch: one byte changed after hashing.
+    t.write(UKEMI_COURSE_REL, rawCourse());
+    writeFileSync(join(t.root, ...UKEMI_COURSE_REL.split("/")), JSON.stringify(rawCourse(), null, 2) + "\n ");
+    assert.throws(() => loadUkemiCourse(t.root), /sha256 mismatch/, "a byte changed after hashing reds (manifest)");
+    // (b) body edited, digest NOT recomputed: the canonical-body check reds.
+    mutate((f) => { obj(obj(f.body, "body").h5, "h5").population_mono_weth = 1; }, false);
+    assert.throws(() => loadUkemiCourse(t.root), /canonical body/, "an edited body reds (body_digest recomputed at load)");
+    // (c) an outcome outside the pre-registered vocabulary.
+    mutate((f) => { firstStratum(f, 0).verdict = "MAYBE"; }, true);
+    assert.throws(() => loadUkemiCourse(t.root), /pre-registered outcome/, "an unknown outcome reds");
+    // (d) a display amount that does not render its source integer.
+    mutate((f) => { obj(f.display, "display").pooled_qhat = "1261.84298997"; }, false);
+    assert.throws(() => loadUkemiCourse(t.root), /does not render its source amount/, "a tampered display amount reds");
+    // (e) the report flag flipped against n / n_min (a stratum below the floor marked committable).
+    mutate((f) => { firstStratum(f, 3).served = true; }, true);
+    assert.throws(() => loadUkemiCourse(t.root), /floor flags/, "a floor flag that disagrees with n and n_min reds");
+    // (f) an extra top-level key (e.g. a path re-added beside the digests).
+    mutate((f) => { f.rel = "scripts/x.mjs"; }, false);
+    assert.throws(() => loadUkemiCourse(t.root), /must carry exactly/, "an extra top-level key reds");
+    // (g) the cross-episode statement changed: the page must never render an unknown claim.
+    mutate((f) => { obj(obj(obj(f.body, "body").h3, "h3").pooled, "pooled").barber_thm2_bound = "estimated"; }, true);
+    assert.throws(() => loadUkemiCourse(t.root), /not_estimated/, "an estimated cross-episode bound is not rendered silently");
+    // The report must agree with itself by the course tool's rules; each edit below is re-hashed (body_digest and
+    // manifest consistent), so only these checks catch it at build time.
+    const h6Of = (f: Json): Json => obj(obj(f.body, "body").h6, "h6");
+    // (h) J2: the measured lag lowered without its histogram.
+    mutate((f) => { obj(h6Of(f).served_blocks, "served_blocks").max_lag = 1; }, true);
+    assert.throws(() => loadUkemiCourse(t.root), /max_lag is not the largest lag/, "J2: a lag edited without its histogram reds");
+    // (i) J3: a committable stratum's outcome flipped without its p-value.
+    mutate((f) => { firstStratum(f, 0).verdict = "NON"; }, true);
+    assert.throws(() => loadUkemiCourse(t.root), /disagrees with its p-value/, "J3: an outcome edited without its p-value reds");
+    // (j) J3': outcome AND p-value flipped together, lists untouched: a NON on a committable stratum must be listed.
+    mutate((f) => { const s0 = firstStratum(f, 0); s0.verdict = "NON"; s0.p_value = { num: "1", den: "1000", dec12: "0.001000000000" }; }, true);
+    assert.throws(() => loadUkemiCourse(t.root), /non_on_served_strata/, "J3': an unlisted NON on a committable stratum reds");
+    // (k) the condition flipped against its two inputs.
+    mutate((f) => { obj(obj(f.body, "body").clause_359, "clause_359").condition_satisfied = false; }, true);
+    assert.throws(() => loadUkemiCourse(t.root), /condition disagrees with its two inputs/, "a condition flipped against its inputs reds");
+    // (l) an H-4 outcome flipped against its count at the threshold.
+    mutate((f) => { obj(obj(obj(f.body, "body").h4, "h4").all_liquidated, "all_liquidated").verdict = "OUI"; }, true);
+    assert.throws(() => loadUkemiCourse(t.root), /count at the threshold/, "an H-4 outcome edited without its count reds");
+    // (m) the H-6 outcome flipped against its violations.
+    mutate((f) => { h6Of(f).verdict = "NON"; }, true);
+    assert.throws(() => loadUkemiCourse(t.root), /h6 outcome disagrees/, "an H-6 outcome edited without its violations reds");
+  } finally {
+    t.cleanup();
+  }
+});
+
+test("site_ukemi_course_view_words_bound_to_files — committable never reads served; zeros, measured lag, bias, clause and served state ride from the files", () => {
+  const c = loadUkemiCourse(ROOT);
+  const s = loadUkemiServed(ROOT);
+  const v = buildCourseView(c, s);
+  const body = obj(rawCourse().body, "body");
+  const h6 = obj(body.h6, "h6"), sb = obj(h6.served_blocks, "h6 sampled");
+  // (1) The report flag never reads as a served state: no row carries the word "served".
+  for (const r of v.rows) assert.ok(!/\bserved\b/i.test(r.label + r.outcome), `row ${r.key} must not say served: ${r.label}`);
+  const first = v.rows[0];
+  assert.ok(first !== undefined && first.label.includes("meets the floor"), "a committable stratum reads 'meets the floor'");
+  // (2) The zero-scored trials ride next to every ratio.
+  const s0 = obj(list(obj(body.h3, "h3").strata, "strata")[0], "s0"), e2 = obj(s0.e2, "e2");
+  assert.equal(first.comparison, `${String(e2.k_covered)} / ${String(e2.n)} (${String(e2.atoms_at_zero)} scored zero)`);
+  // (3) The MEASURED lag and the pre-registered bound are both named, over the values actually checked.
+  assert.ok(v.oracle.includes(`Measured maximum lag ${String(sb.max_lag)} update`), "the measured lag = h6.served_blocks.max_lag");
+  assert.ok(v.oracle.includes(`pre-registered bound ${String(h6.max_lag_bound)} update`), "the bound = h6.max_lag_bound");
+  assert.ok(v.oracle.startsWith(`Oracle values the protocol read at the liquidation call blocks and at the block before each: ${String(sb.n)} values`), "the sample = h6.served_blocks.n (call blocks and the block before each)");
+  // (4) The declared sampling bias rides iff the report declares it, without its internal reference.
+  assert.equal(v.oracle_bias !== null, typeof h6.sample_note === "string");
+  assert.ok(v.oracle_bias === null || !/ADR|\d/.test(v.oracle_bias), "the bias sentence carries no internal reference");
+  // (5) No cross-episode coverage bound is estimated: stated with the outcomes.
+  assert.ok(v.reading.some((l) => l.includes("estimates no coverage bound across episodes")));
+  assert.ok(v.reading.some((l) => l.includes("largest calibration score observed")), "the stratum bound margin is named the largest score (fresh.p = fresh.n)");
+  // (6) The clause is bound to its fields (mutant: flip the no-NON flag => the words change) and says it changes nothing served.
+  assert.ok(v.clause.includes("(true)") && v.clause.includes("changes nothing that is served"));
+  const flipped: UkemiCourse = structuredClone(c);
+  flipped.clause_359.no_non_on_committable = false;
+  flipped.clause_359.condition_satisfied = false;
+  const vf = buildCourseView(flipped, s);
+  assert.notEqual(vf.clause, v.clause, "flipping h3_no_NON_on_served_strata changes the rendered clause");
+  assert.ok(vf.clause.includes("(false)") && vf.clause.includes("not satisfied"));
+  // (7) The served state is the synced served clause, verbatim; its note follows the registry state.
+  assert.equal(v.served_clause, s.liq_clause);
+  const committedServed: UkemiServed = { ...s, registry_state: "committed" };
+  assert.equal(v.served_note.includes("no stratum below is served"), s.registry_state === "empty");
+  assert.ok(!buildCourseView(c, committedServed).served_note.includes("no stratum below is served"), "a committed registry drops the not-served note");
+  // (8) Inverse of the digit-free gate, over the leaves the page READS: every numeric token the view renders is carried
+  // by a body leaf (never body.summary, never the internal reference of h6.sample_note), a display leaf, a provenance
+  // digest, body_digest, or a served leaf (never $comment). Set membership only closes the set; the golden test below
+  // pins each number to its JSON path and its position.
+  const course = rawCourse();
+  const readBody: Json = { ...obj(course.body, "body") };
+  delete readBody.summary;
+  const readH6: Json = { ...obj(readBody.h6, "body.h6") };
+  delete readH6.sample_note;
+  readBody.h6 = readH6;
+  const readServed: Json = { ...rawServed() };
+  delete readServed.$comment;
+  const allowed = new Set<string>();
+  for (const leafSet of [readBody, course.display, course.provenance, course.body_digest, readServed]) numericTokensOf(leafSet, allowed);
+  const summaryOnly = [...numericTokensOf(obj(course.body, "body").summary, new Set<string>())].filter((tok) => !allowed.has(tok));
+  assert.ok(summaryOnly.length > 0, "control: the summary carries numbers outside the allowed leaves (it is excluded, not merely unused)");
+  const exempt = exemptValues(loadExemptFile(ROOT));
+  for (const text of viewStrings(v)) {
+    for (const tok of scanText(text, exempt)) assert.ok(allowed.has(tok), `rendered numeric token ${tok} is carried by no field of the two files: ${JSON.stringify(text.slice(0, 60))}`);
+  }
+  // (9) The only account addresses rendered are the report's zero-rule accounts (body.q0_rule_failures.without_crossing,
+  // public on-chain accounts, shown with their explorer page by decision of the owner); never another address, never the
+  // report's summary lines (French quote, internal references). Mutant: render an address that is not a zero-rule
+  // account (or drop the explorer link) => red.
+  const summary = list(body.summary, "summary").map(String);
+  const zeroRuleAccounts = list(obj(body.q0_rule_failures, "q0").without_crossing, "without_crossing").map((m) => String(obj(m, "miss").address));
+  assert.deepEqual(v.zero_rule_accounts.map((a) => a.address), zeroRuleAccounts, "the rendered accounts are exactly the zero-rule accounts, in report order");
+  for (const a of v.zero_rule_accounts) assert.equal(a.href, `https://etherscan.io/address/${a.address}`, "each account links to its explorer page");
+  for (const text of viewStrings(v)) {
+    for (const addr of text.match(/0x[0-9a-f]{40}/gi) ?? []) assert.ok(zeroRuleAccounts.includes(addr), `an address outside the zero-rule accounts is rendered: ${addr}`);
+    for (const line of summary) assert.ok(!text.includes(line), "no report summary line is rendered");
+    assert.ok(!/licencie|\bADR\b|prereg line|decision \d/i.test(text), `no French or internal reference: ${text.slice(0, 60)}`);
+  }
+  // (10) The p-values ride only in the folded verification block, each with the exact gloss (decision of the owner).
+  assert.equal(v.verification_gloss, "exchangeability test p-value (beta-binomial), not a probability of being right");
+  const page = read("apps/site/app/ukemi/course/page.tsx");
+  assert.match(page, /<details[^>]*>\s*<summary[^>]*>\s*\{v\.verification_summary\}\s*<\/summary>/, "the verification block is a folded <details>");
+  assert.match(page, /\{p\.value\}<\/span> · \{v\.verification_gloss\}/, "each p-value renders beside the gloss");
+  const pvalues = v.verification.map((p) => p.value);
+  for (const text of viewStrings(v).filter((t) => !pvalues.includes(t))) {
+    for (const pv of pvalues) assert.ok(!text.includes(pv), `a p-value rides outside the verification block: ${text.slice(0, 60)}`);
+  }
+});
+
+test("site_ukemi_course_view_types_no_digit — the view module and the course page type no number (every number is a loaded field)", () => {
+  const viewRel = "apps/site/lib/ukemi-course-view.ts";
+  const sf = ts.createSourceFile(viewRel, read(viewRel), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const literals: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isImportDeclaration(node)) return; // module specifiers are not rendered
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) literals.push(node.text);
+    else if (ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) literals.push(node.text);
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  assert.ok(literals.length > 20, "the view module's literals were collected (false green)");
+  // The site's CLOSED exempt list (test 44) is the only escape: it lets the algorithm name SHA-256 ride, nothing else.
+  const exempt = exemptValues(loadExemptFile(ROOT));
+  for (const lit of literals) assert.deepEqual(scanText(lit, exempt), [], `a typed digit in the view module: ${JSON.stringify(lit)}`);
+  assert.ok(scanText("share at most 5/100", NO_EXEMPT).length > 0, "detector control: a typed digit is flagged");
+  const pageRel = "apps/site/app/ukemi/course/page.tsx";
+  assert.deepEqual(scanSource(read(pageRel), "tsx", NO_EXEMPT), [], "the course page renders no numeric literal");
+  const page = parseTsx(pageRel, read(pageRel));
+  assert.ok(jsxChildIdentifiers(page).has("LIQ_H3_SENTENCE"), "the H-3 caveat renders as {LIQ_H3_SENTENCE} (byte-identical to the gate module)");
+  const typed = renderedTexts(page).map((r) => r.text).join(" ").replace("what is served", "");
+  assert.ok(!/\bserved\b/.test(typed), "the page types no other 'served' claim");
+});
+
+test("site_ukemi_served_state_bound_to_harness_registry — synced served state = repository registry; clause = gate module text; loader fails closed", () => {
+  const s = loadUkemiServed(ROOT);
+  const committed = hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE);
+  // The site renders the EMPTY-registry sentence on /ukemi and the not-served note on /ukemi/course: both hold only
+  // while the harness registry carries no calibration for the class. At the commit this reds until the site follows.
+  assert.equal(s.registry_state, committed ? "committed" : "empty", "the synced served state must equal the harness registry state");
+  assert.equal(committed, false, "a liquidation-eligible-coverage calibration is committed in the harness: switch the /ukemi served sentence and re-sync");
+  const expected = committed
+    ? `the served region is ${GATE_LIQ_UPPER_BOUND_SENTENCE}; ${GATE_LIQ_REQUIREMENTS_SENTENCE}; ${GATE_LIQ_H3_SENTENCE}; ${GATE_LIQ_CONDITIONAL_SENTENCE}`
+    : `${GATE_LIQ_EMPTY_REGISTRY_SENTENCE}; ${GATE_LIQ_REQUIREMENTS_SENTENCE}; ${GATE_LIQ_CONDITIONAL_SENTENCE}`;
+  assert.equal(s.liq_clause, expected, "the synced clause is the gate module's clause for that state, verbatim");
+  assert.equal(s.served_class, TASK_LIQ_ELIGIBLE);
+  assert.equal(s.cascade_uncalibrated_sentence_served, true, "the served cascade text carries the sentence the fleet panel renders");
+  const t = tmpRoot();
+  try {
+    assert.doesNotThrow(() => loadUkemiServed(t.root));
+    t.write(UKEMI_SERVED_REL, { ...rawServed(), registry_state: "served" });
+    assert.throws(() => loadUkemiServed(t.root), /registry_state/, "an unknown registry state reds");
+    t.write(UKEMI_SERVED_REL, { ...rawServed(), registry_state: "committed" });
+    assert.throws(() => loadUkemiServed(t.root), /does not open with the committed clause/, "a state that disagrees with its clause reds");
+    t.write(UKEMI_SERVED_REL, { ...rawServed(), extra: 1 });
+    assert.throws(() => loadUkemiServed(t.root), /must carry exactly/, "an extra key reds");
+    t.write(UKEMI_SERVED_REL, rawServed());
+    writeFileSync(join(t.root, ...UKEMI_SERVED_REL.split("/")), JSON.stringify(rawServed(), null, 2) + "\n ");
+    assert.throws(() => loadUkemiServed(t.root), /sha256 mismatch/, "a byte changed after hashing reds");
+  } finally {
+    t.cleanup();
+  }
+});
+
+test("site_ukemi_prose_abstains_under_calib — no /ukemi sentence pairs under_calib with a deferral (served: abstain, reason under_calib)", () => {
+  const prose: string[] = [HERO_TITLE, HERO_DEK, REGION_NOTE, COVERAGE_NOTE, STATES_NOTE, SERVED_STATE_LEAD, COURSE_POINTER_LEAD, COURSE_POINTER_TAIL, ...IS_LIST, ...IS_NOT_LIST];
+  for (const st of METHOD_STEPS) prose.push(st.title, st.detail);
+  for (const l of LIMITS) prose.push(l.title, l.detail);
+  const pairs = (text: string): string[] => text.split(/(?<=[.;])\s+/).filter((x) => /under_calib/.test(x) && /\bdefer/i.test(x));
+  for (const text of prose) assert.deepEqual(pairs(text), [], `under_calib is an abstention, never a deferral: ${JSON.stringify(text.slice(0, 80))}`);
+  assert.equal(pairs("It defers, marked under_calib, when there are too few points.").length, 1, "detector control: the former sentence reds");
+  assert.ok(/abstain/i.test(STATES_NOTE) && /under_calib/.test(STATES_NOTE), "the states note names the abstention with under_calib");
+  // No unfulfilled promise and no unserved capability left bare.
+  for (const text of [HERO_TITLE, HERO_DEK, ...IS_LIST]) {
+    assert.ok(!/\battested\b/i.test(text), `'attested' before the book witness is served: ${text.slice(0, 60)}`);
+    assert.ok(!/anyone can recompute/i.test(text), `unfulfilled promise: ${text.slice(0, 60)}`);
+  }
+  assert.ok(/once a stratum is committed/.test(HERO_TITLE) && /once a stratum is committed/.test(HERO_DEK), "the capability is stated conditionally on the commit");
+  assert.ok(read(UKEMI_ROUTE_REL).includes("once a stratum is committed"), "the /ukemi metadata description states the bound conditionally on the commit");
+});
+
+test("site_ukemi_panel_served_text — panel copy byte-identical to the gate module; no interval; register line read, not typed", () => {
+  assert.equal(CASCADE_UNCALIBRATED_SENTENCE, GATE_CASCADE_UNCALIBRATED_SENTENCE, "the panel's cascade sentence equals the gate module's, byte for byte");
+  assert.equal(LIQ_TASK_CLASS, TASK_LIQ_ELIGIBLE, "the panel's class id equals the gate module's");
+  const rel = "apps/site/components/ukemi-panel.tsx";
+  const sf = parseTsx(rel, read(rel));
+  const children = jsxChildIdentifiers(sf);
+  for (const id of ["CASCADE_UNCALIBRATED_SENTENCE", "LIQ_TASK_CLASS", "UKEMI_LINE"]) assert.ok(children.has(id), `the panel renders {${id}}`);
+  const texts = renderedTexts(sf).map((r) => r.text);
+  for (const text of [...texts, CASCADE_UNCALIBRATED_SENTENCE]) assert.ok(!/interval/i.test(text), `A-9 on the panel: no 'interval' in ${JSON.stringify(text.slice(0, 60))}`);
+  const ukemi = FLEET_AGENTS.find((a) => a.name === "Ukemi");
+  assert.ok(ukemi !== undefined);
+  assert.ok(!texts.some((x) => x.includes(ukemi.line)), "the register line is read from lib/fleet.ts, never retyped in the panel");
+  assert.ok(!texts.some((x) => /to be announced/i.test(x)), "the published course is not announced as upcoming");
+  assert.ok(read(rel).includes("href={UKEMI_COURSE_ROUTE}"), "the Living proof block links the course page");
+  // No calibration adjective and no roadmap promise in a built block (the class is under_calib by construction; the
+  // served convention of the gate module excludes the marketing "calibrated" adjective and "V1").
+  for (const text of [...texts, CASCADE_UNCALIBRATED_SENTENCE, LIQ_TASK_CLASS]) {
+    assert.ok(!/\bcalibrated\b/i.test(text), `no 'calibrated' adjective in the panel: ${JSON.stringify(text.slice(0, 60))}`);
+    assert.ok(!/first version|to be replaced|\bV1\b/i.test(text), `no roadmap promise in the panel: ${JSON.stringify(text.slice(0, 60))}`);
+  }
+  // The served sentence ends "on this class": the JSX text right before it names the class it applies to.
+  const before = jsxTextBefore(sf, "CASCADE_UNCALIBRATED_SENTENCE");
+  assert.ok(/\bclass,\s*$/.test(before), `the served cascade sentence is preceded by its class: ${JSON.stringify(before.slice(-60))}`);
+  // The shared "What's inside" points may ride in the panel only if none contradicts the served cascade sentence (A-9
+  // "interval", or a gate that conforms the cascade): every insideFor("<key>") the panel calls is checked, so the block
+  // cannot return before its shared point is corrected.
+  const insideKeys: string[] = [];
+  const visitCalls = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "insideFor") {
+      const a = node.arguments[0];
+      assert.ok(a !== undefined && ts.isStringLiteral(a), "insideFor is called with a literal key");
+      insideKeys.push(a.text);
+    }
+    ts.forEachChild(node, visitCalls);
+  };
+  visitCalls(sf);
+  const contradicting = (points: readonly string[]): string[] => points.filter((p) => /interval/i.test(p) || /conformed by the gate/i.test(p));
+  for (const key of insideKeys) assert.deepEqual(contradicting(insideFor(key).points), [], `insideFor("${key}") contradicts the served cascade sentence`);
+  assert.equal(contradicting(["A conformal interval for the cascade, conformed by the gate", "Network clearing fixed point"]).length, 1, "detector control");
+  // Branchement: every prop the panel declares is passed by a page (an optional prop no page passes is an unwired piece).
+  const props = destructuredProps(sf, "UkemiPanel");
+  assert.ok(props.length > 0, "the panel's props were read (false green)");
+  const passed = new Set<string>();
+  const walkApp = (dir: string): void => {
+    for (const name of readdirSync(join(ROOT, ...dir.split("/")))) {
+      const child = `${dir}/${name}`;
+      if (statSync(join(ROOT, ...child.split("/"))).isDirectory()) walkApp(child);
+      else if (child.endsWith(".tsx")) for (const attr of jsxAttributesOf(parseTsx(child, read(child)), "UkemiPanel")) passed.add(attr);
+    }
+  };
+  walkApp("apps/site/app");
+  for (const p of props) assert.ok(passed.has(p), `the panel declares '${p}' but no page passes it (unwired piece)`);
+});
+
+test("site_ukemi_no_provider_or_operator_name — the Ukemi data files and sources name no data provider or RPC operator", () => {
+  // Literals confined to this NON-exported root test (an exported vocabulary file would publish them).
+  const FORMS = [/databento/i, /\bmassive\b/i, /polygon\.io/i, /helius/i, /chainstack/i, /tenderly/i, /drpc/i, /mevblocker/i, /nodies/i,
+    /pocket\.network/i, /blastapi/i, /publicnode/i, /llamarpc/i, /blxrbdn/i, /1rpc/i, /alchemy/i, /infura/i, /quicknode/i, /\bankr\b/i];
+  const files: string[] = [UKEMI_COURSE_REL, UKEMI_SERVED_REL, "apps/site/components/ukemi-panel.tsx", "apps/site/components/ukemi/ukemi-page.tsx"];
+  for (const name of readdirSync(join(ROOT, "apps", "site", "lib"))) if (/^ukemi-.*\.ts$/.test(name)) files.push(`apps/site/lib/${name}`);
+  const walk = (rel: string): void => {
+    for (const name of readdirSync(join(ROOT, ...rel.split("/")))) {
+      const child = `${rel}/${name}`;
+      if (statSync(join(ROOT, ...child.split("/"))).isDirectory()) walk(child);
+      else files.push(child);
+    }
+  };
+  walk("apps/site/app/ukemi");
+  assert.ok(files.length >= 9, "the Ukemi surface files were collected (false green)");
+  const hits: string[] = [];
+  for (const rel of files) for (const re of FORMS) if (re.test(read(rel))) hits.push(`${rel}: ${String(re)}`);
+  assert.deepEqual(hits, [], `a provider / operator name on the Ukemi surface:\n${hits.join("\n")}`);
+  assert.ok(FORMS.some((re) => re.test("--operators drpc.org,mevblocker.io")), "detector control");
+});
+
+/* ─────────────────────────── review round 2 of lot site-5j ukemi: golden view, recorded digest, vocabulary ───────────
+ * Each test below is killed by named mutants replayed on an isolated copy of the tree (never in place), with the sha256
+ * of every mutated file before and after (the runner and its log are archived with the lot report). */
+
+/** The JSX text immediately before the {ident} child that renders `ident` (empty when none). Comment-proof (AST). */
+function jsxTextBefore(sf: ts.SourceFile, ident: string): string {
+  let out: string | undefined;
+  const visit = (node: ts.Node): void => {
+    if (ts.isJsxElement(node) || ts.isJsxFragment(node)) {
+      const kids = node.children;
+      kids.forEach((k, i) => {
+        if (ts.isJsxExpression(k) && k.expression !== undefined && ts.isIdentifier(k.expression) && k.expression.text === ident) {
+          const prev = i > 0 ? kids[i - 1] : undefined;
+          out = prev !== undefined && ts.isJsxText(prev) ? prev.text : "";
+        }
+      });
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  assert.ok(out !== undefined, `{${ident}} is rendered as a JSX child`);
+  return out;
+}
+
+/** The names a function component destructures from its first parameter ({ a, b }: Props). */
+function destructuredProps(sf: ts.SourceFile, fn: string): string[] {
+  const names: string[] = [];
+  for (const st of sf.statements) {
+    if (!ts.isFunctionDeclaration(st) || st.name?.text !== fn) continue;
+    const first = st.parameters[0];
+    if (first !== undefined && ts.isObjectBindingPattern(first.name)) {
+      for (const el of first.name.elements) if (ts.isIdentifier(el.name)) names.push(el.name.text);
+    }
+  }
+  return names;
+}
+
+/** The attribute names passed to every <tag .../> or <tag ...> of a TSX source. */
+function jsxAttributesOf(sf: ts.SourceFile, tag: string): string[] {
+  const names: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if ((ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) && node.tagName.getText(sf) === tag) {
+      for (const a of node.attributes.properties) if (ts.isJsxAttribute(a)) names.push(a.name.getText(sf));
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return names;
+}
+
+/** The string a metadata initialiser renders: string literals joined by `+` (comment-proof). */
+function literalText(node: ts.Expression): string {
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
+  if (ts.isParenthesizedExpression(node)) return literalText(node.expression);
+  if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken) return literalText(node.left) + literalText(node.right);
+  throw new Error(`not a literal string expression: ${node.kind}`);
+}
+
+/** The title and description of the exported Next `metadata` object of a route (renderedTexts does not see them). */
+function metadataTexts(rel: string): string[] {
+  const sf = parseTsx(rel, read(rel));
+  const out: string[] = [];
+  for (const st of sf.statements) {
+    if (!ts.isVariableStatement(st)) continue;
+    for (const d of st.declarationList.declarations) {
+      if (!ts.isIdentifier(d.name) || d.name.text !== "metadata" || d.initializer === undefined || !ts.isObjectLiteralExpression(d.initializer)) continue;
+      for (const p of d.initializer.properties) {
+        if (ts.isPropertyAssignment(p) && ts.isIdentifier(p.name) && (p.name.text === "title" || p.name.text === "description")) out.push(literalText(p.initializer));
+      }
+    }
+  }
+  assert.equal(out.length, 2, `${rel}: the metadata title and description were read (false green)`);
+  return out;
+}
+
+/** Every string a module's exports carry (strings, arrays and objects of strings), for a whole-module scan. */
+function exportedStrings(mod: Record<string, unknown>): string[] {
+  const out: string[] = [];
+  const walk = (v: unknown): void => {
+    if (typeof v === "string") out.push(v);
+    else if (Array.isArray(v)) for (const x of v as unknown[]) walk(x);
+    else if (v !== null && typeof v === "object") for (const x of Object.values(v as Json)) walk(x);
+  };
+  for (const v of Object.values(mod)) walk(v);
+  return out;
+}
+
+const PANEL_REL = "apps/site/components/ukemi-panel.tsx";
+const COURSE_PAGE_REL = "apps/site/app/ukemi/course/page.tsx";
+
+/** GOLDEN of the course view: every string rebuilt from NAMED JSON PATHS of the two committed files, without the loaders
+ *  or the view module (8 decimals by BigInt, outcome words, stratum ranges from the harness's served cuts, all re-derived
+ *  here). A number read from the wrong path, two numbers exchanged, a row fed from the wrong H-4 population, or a drift
+ *  of a pinned wording (the design episode, accounts rather than positions for H-4) reds the deepEqual. */
+function goldenCourseView(raw: Json, served: Json): CourseView {
+  const body = obj(raw.body, "body");
+  const display = obj(raw.display, "display");
+  const prov = obj(raw.provenance, "provenance");
+  const inputs = obj(prov.inputs, "provenance.inputs");
+  const h3 = obj(body.h3, "body.h3");
+  const h3s = list(h3.strata, "body.h3.strata");
+  const h2s = list(obj(body.h2, "body.h2").strata, "body.h2.strata");
+  const h4 = obj(body.h4, "body.h4");
+  const h4s = list(h4.strata, "body.h4.strata");
+  const h6 = obj(body.h6, "body.h6");
+  const h5 = obj(body.h5, "body.h5");
+  const q0 = obj(body.q0_rule_failures, "body.q0_rule_failures");
+  const labels = obj(body.labels, "body.labels");
+  const clause = obj(body.clause_359, "body.clause_359");
+  const I = (v: unknown, where: string): string => {
+    assert.ok(typeof v === "number" && Number.isInteger(v), `${where} must be an integer`);
+    return String(v);
+  };
+  const S = (v: unknown, where: string): string => {
+    assert.ok(typeof v === "string", `${where} must be a string`);
+    return v;
+  };
+  const D8 = (v: unknown, where: string): string => dec8(S(v, where));
+  const count = (v: unknown, one: string, many: string, where: string): string => {
+    const t = I(v, where);
+    return `${t} ${t === "1" ? one : many}`;
+  };
+  const words = (o: unknown, lvl: string | null, floor: string | null): string => {
+    if (o === "OUI") return lvl === null ? "yes" : `yes (level ${lvl})`;
+    if (o === "NON") return lvl === null ? "no" : `no (level ${lvl})`;
+    if (o === "UNDER_CALIB") return floor === null ? "under_calib" : `under_calib (n below the floor of ${floor})`;
+    assert.equal(o, "NON_TESTABLE_E2", "a pre-registered outcome");
+    return "not testable (too few comparison trials)";
+  };
+  const cuts = [...STRATA_CUTS_SERVED].map((x) => dec8(String(x)));
+  const rangeOf = (k: number): string => {
+    const lo = k > 0 ? cuts[k - 1] : undefined;
+    const hi = cuts[k];
+    if (lo === undefined) return hi === undefined ? "all" : `below ${hi}`;
+    return hi === undefined ? `at least ${lo}` : `at least ${lo}, below ${hi}`;
+  };
+
+  const rows = h3s.map((x, k) => {
+    const s = obj(x, `body.h3.strata[${String(k)}]`), fresh = obj(s.fresh, "fresh"), e2 = obj(s.e2, "e2");
+    const floor = I(obj(h2s[k], `body.h2.strata[${String(k)}]`).n_min, "body.h2.strata[k].n_min");
+    const h4row = obj(h4s[k], `body.h4.strata[${String(k)}]`);
+    const meets = s.served === true;
+    const tested = meets && s.verdict !== "NON_TESTABLE_E2";
+    return {
+      key: `stratum-${I(s.strate, "strate")}`,
+      label: `stratum ${I(s.strate, "strate")}${meets ? " · meets the floor" : ""}`,
+      range: rangeOf(k),
+      points: `${I(fresh.n, "fresh.n")} (floor ${floor})`,
+      bound: meets ? D8(fresh.qhat, "fresh.qhat") : "none (below the floor)",
+      comparison: meets
+        ? `${I(e2.k_covered, "e2.k_covered")} / ${I(e2.n, "e2.n")} (${I(e2.atoms_at_zero, "e2.atoms_at_zero")} scored zero)`
+        : `not tested (below the floor); ${count(e2.n, "trial", "trials", "e2.n")} available`,
+      outcome: words(s.verdict, tested ? S(s.level, "level") : null, s.verdict === "UNDER_CALIB" ? floor : null),
+      liquidated: `${I(h4row.liquidated, "body.h4.strata[k].liquidated")} · ${I(h4row.multi_call, "body.h4.strata[k].multi_call")}`,
+    };
+  });
+  const pooled = obj(h3.pooled, "body.h3.pooled"), pf = obj(pooled.fresh, "pooled.fresh"), pe = obj(pooled.e2, "pooled.e2");
+  const classA = obj(h4.class_a_liquidated, "body.h4.class_a_liquidated"), all = obj(h4.all_liquidated, "body.h4.all_liquidated");
+  rows.push({
+    key: "pooled",
+    label: "pooled class A",
+    range: "all",
+    points: I(pf.n, "pooled.fresh.n"),
+    bound: D8(pf.qhat, "pooled.fresh.qhat"),
+    comparison: `${I(pe.k_covered, "pooled.e2.k_covered")} / ${I(pe.n, "pooled.e2.n")} (${I(pe.atoms_at_zero, "pooled.e2.atoms_at_zero")} scored zero)`,
+    outcome: `${words(pooled.verdict, S(pooled.level, "pooled.level"), null)}, reported outside the condition`,
+    liquidated: `${I(classA.n, "body.h4.class_a_liquidated.n")} · ${I(classA.multi_call, "body.h4.class_a_liquidated.multi_call")}`,
+  });
+
+  assert.equal(pooled.barber_thm2_bound, "not_estimated");
+  const reading: string[] = [
+    "What a yes means: the pre-registered exchangeability test with the design episode (the recorded episode the score was " +
+      "designed on, never served) did not reject at its stated level. It is not a coverage claim, and the report estimates " +
+      "no coverage bound across episodes.",
+    "A comparison trial scored exactly zero (the realized amount did not exceed the prediction) counts as covered whatever the " +
+      "bound; the number of such trials is shown next to each ratio.",
+  ];
+  for (const x of h3s) {
+    const s = obj(x, "stratum"), fresh = obj(s.fresh, "fresh");
+    if (s.served !== true || fresh.qhat === null) continue;
+    const k = I(s.strate, "strate"), margin = D8(fresh.qhat, "fresh.qhat"), rank = I(fresh.p, "fresh.p"), n = I(fresh.n, "fresh.n");
+    const tail = "If the stratum is committed as reported, the upper bound for a prediction in it is the prediction plus this margin.";
+    reading.push(
+      fresh.qhat_is_max === true
+        ? `Stratum ${k}: the quantile rank equals the number of calibration points (${rank} of ${n}), so its bound margin, ${margin}, is the largest calibration score observed. ${tail}`
+        : `Stratum ${k}: bound margin ${margin} (quantile rank ${rank} of ${n}). ${tail}`,
+    );
+  }
+  reading.push(
+    `Pooled class A: bound margin ${D8(pf.qhat, "pooled.fresh.qhat")} (quantile rank ${I(pf.p, "pooled.fresh.p")} of ${I(pf.n, "pooled.fresh.n")}${pf.qhat_is_max === true ? ", the largest calibration score" : ""}).`,
+  );
+
+  const rc = obj(h4.reconciliation, "body.h4.reconciliation"), hp = obj(h4.pooled, "body.h4.pooled");
+  const sb = obj(h6.served_blocks, "body.h6.served_blocks"), pc = obj(h6.price_at_call_block, "body.h6.price_at_call_block");
+  const series = obj(h6.series, "body.h6.series"), anc = obj(h6.anchor, "body.h6.anchor");
+  const misses = list(q0.without_crossing, "body.q0_rule_failures.without_crossing").map((m, i) => D8(obj(m, `miss ${String(i)}`).y, "miss.y"));
+  const committable = list(h3.served_strata, "body.h3.served_strata").map((k) => I(k, "served_strata entry"));
+  const lastCommittable = committable[committable.length - 1];
+  const committableWords =
+    lastCommittable === undefined ? "none" : committable.length === 1 ? `stratum ${lastCommittable}` : `strata ${committable.slice(0, -1).join(", ")} and ${lastCommittable}`;
+  const dg = (name: string): string => S(obj(inputs[name], `provenance.inputs.${name}`).sha256_lf, `provenance.inputs.${name}.sha256_lf`);
+  const accounts = list(q0.without_crossing, "body.q0_rule_failures.without_crossing").map((m, i) => S(obj(m, `miss ${String(i)}`).address, "miss.address"));
+  const verification = h3s
+    .map((x) => obj(x, "stratum"))
+    .filter((s) => s.served === true && s.verdict !== "NON_TESTABLE_E2")
+    .map((s) => ({ label: `stratum ${I(s.strate, "strate")} (level ${S(s.level, "level")})`, value: S(obj(s.p_value, "p_value").dec12, "p_value.dec12") }));
+  verification.push({ label: `pooled class A (level ${S(pooled.level, "pooled.level")})`, value: S(obj(pooled.p_value, "pooled.p_value").dec12, "pooled.p_value.dec12") });
+
+  return {
+    eyebrow: `calibration course · ${S(body.event_id, "body.event_id")} · hypothesis report of its offline steps`,
+    served_lead: `Served state of the class ${S(served.served_class, "served_class")}, as copied from the served gate description (${S(served.host, "host")}${S(served.path, "path")}) at ${S(served.read_at, "read_at")} and hashed in the site manifest; the live description may have changed since:`,
+    served_clause: S(served.liq_clause, "liq_clause"),
+    served_note:
+      served.registry_state === "committed"
+        ? "A calibration of this class is committed; the served clause above states the bound it carries. The report below is the offline course, not the served registry."
+        : `No calibration of this class is committed, so no stratum below is served. A stratum that meets the floor can be committed; committing it is a separate, recorded step. Meeting the floor in this report: ${committableWords}.`,
+    unit_note: `Amounts are ${S(display.unit, "display.unit")}; a stratum is a range of the predicted liquidable amount.`,
+    rows,
+    reading,
+    multi_call: `Accounts liquidated by more than one call, against the pre-registered threshold of a share at most ${S(h4.threshold, "body.h4.threshold")}: liquidated class-A accounts ${I(classA.multi_call, "class_a.multi_call")} of ${I(classA.n, "class_a.n")} → ${words(classA.verdict, null, null)}; all liquidated accounts ${I(all.multi_call, "all.multi_call")} of ${I(all.n, "all.n")} → ${words(all.verdict, null, null)}.`,
+    reconciliation: `Positions (account, debt asset, collateral asset) reconciled exactly: ${I(rc.positions_reconciled, "positions_reconciled")} (${I(rc.positions_abstained, "positions_abstained")} abstained); liquidation calls in the window: ${I(rc.calls_in_window, "calls_in_window")}, outside it: ${I(rc.calls_not_in_window, "calls_not_in_window")}; accounts abstained: ${I(h4.accounts_abstained, "accounts_abstained")}.`,
+    liquidated_amounts: `Liquidated amount in class A: ${D8(hp.sum_y, "h4.pooled.sum_y")}; of it, after the first call: ${D8(hp.sum_after_first, "h4.pooled.sum_after_first")}; deficit reported apart: ${D8(hp.sum_deficit_apart, "h4.pooled.sum_deficit_apart")}.`,
+    oracle: `Oracle values the protocol read at the liquidation call blocks and at the block before each: ${I(sb.n, "served_blocks.n")} values, ${I(sb.in_events, "served_blocks.in_events")} in the on-chain update series of ${count(series.n_updates, "update", "updates", "series.n_updates")}, ${I(sb.equal_to_p0, "served_blocks.equal_to_p0")} equal to the anchor, ${I(sb.outside, "served_blocks.outside")} outside. Measured maximum lag ${sb.max_lag === null ? "undefined" : count(sb.max_lag, "update", "updates", "served_blocks.max_lag")} (pre-registered bound ${count(h6.max_lag_bound, "update", "updates", "h6.max_lag_bound")}; ${I(sb.lag_over_bound, "served_blocks.lag_over_bound")} over it) → ${words(h6.verdict, null, null)}. At the call blocks themselves: ${I(pc.n, "price_at_call_block.n")} values, ${I(pc.in_events, "price_at_call_block.in_events")} in the series, maximum lag ${pc.max_lag === null ? "undefined" : I(pc.max_lag, "price_at_call_block.max_lag")}. Update blocks monotone: ${series.monotone_blocks === true ? "yes" : "no"}; phase change: ${series.phase_change === true ? "yes" : "no"}.`,
+    oracle_anchor: `Anchor: block ${I(anc.block, "anchor.block")}, price ${D8(anc.price, "anchor.price")}, taken from ${anc.source === "answer_updated_pre_b0" ? "the last oracle update before the reference block" : "the book's collateral price at the reference block (fallback)"}${h6.min_served === null ? "" : `; lowest value read ${D8(h6.min_served, "h6.min_served")}`}.`,
+    oracle_bias: typeof h6.sample_note === "string" && h6.sample_note.length > 0 ? "Declared bias: these values are sampled at and just before liquidation blocks only." : null,
+    population: `Population: ${count(h5.population_mono_weth, "mono-collateral WETH account", "mono-collateral WETH accounts", "h5.population_mono_weth")} (${h5.meets_k_h5 === true ? "meets" : "below"} the floor of ${I(h5.k_h5, "h5.k_h5")}); class A calibration points: ${I(h5.class_a_n, "h5.class_a_n")}.`,
+    zero_rule: `Zero predictions of the frozen rule: ${count(q0.crossed_yhat_zero, "account", "accounts", "q0.crossed_yhat_zero")} crossed the threshold on the path with a zero prediction; ${count(q0.yhat_zero_liquidated, "account", "accounts", "q0.yhat_zero_liquidated")} with a zero prediction liquidated (${String(misses.length)} that never crossed on the path${misses.length === 0 ? "" : `, amount ${misses.join(", ")}`}; ${String(list(q0.crossed_yhat_zero_liquidated, "q0.crossed_yhat_zero_liquidated").length)} that crossed).`,
+    zero_rule_accounts: accounts.map((a) => ({ address: a, href: `https://etherscan.io/address/${a}` })),
+    zero_rule_accounts_lead: `The ${accounts.length === 1 ? "account" : "accounts"} liquidated with a zero prediction that never crossed on the path, on Ethereum mainnet:`,
+    verification_summary: "verification",
+    verification_lead: "The p-value of the pre-registered exchangeability test with the design episode, for each tested row, as the report prints it:",
+    verification_gloss: "exchangeability test p-value (beta-binomial), not a probability of being right",
+    verification,
+    labels: `Realized labels: ${count(labels.label_lines, "label line", "label lines", "labels.label_lines")}; unresolved: ${I(labels.labels_no_quorum_unresolved, "labels_no_quorum_unresolved")}; no-quorum residuals: ${I(labels.residual_no_quorum, "residual_no_quorum")}; deficits without a price on an asset other than USDT: ${I(labels.deficit_base_no_price_non_usdt, "deficit_base_no_price_non_usdt")}; lines of another episode: ${I(labels.other_event_lines, "other_event_lines")}.`,
+    clause: `Pre-registered condition for the next step: no stratum that meets the floor failed the exchangeability test (${clause.h3_no_NON_on_served_strata === true ? "true" : "false"}); unresolved labels: ${I(clause.labels_no_quorum_unresolved, "clause.labels_no_quorum_unresolved")}; condition ${clause.condition_satisfied === true ? "satisfied" : "not satisfied"}. The pooled class A outcome (${words(clause.h3_pooled_verdict_outside_condition, null, null)}) is reported outside this condition. The condition changes nothing that is served.`,
+    report_digest: S(raw.body_digest, "body_digest"),
+    report_digest_note:
+      "SHA-256 of the canonical JSON of the report body (object keys sorted, no whitespace). Anyone can recompute it from the " +
+      "published copy of the report, apps/site/data/ukemi-course.json in the public repository.",
+    digests: [
+      { label: "course tool", value: S(obj(prov.tool, "provenance.tool").sha256_lf, "provenance.tool.sha256_lf") },
+      { label: "pre-registration", value: dg("prereg") },
+      { label: "fresh calibration scores", value: dg("scores") },
+      { label: "realized-label inputs", value: dg("u3_inputs") },
+      { label: "realized labels", value: dg("u3_realized") },
+      { label: "realized oracle path", value: dg("oracle_path") },
+      { label: "design-episode comparison scores", value: dg("e2_comparison") },
+    ],
+    digests_note:
+      "The course tool, the pre-registration and these input files are not in the public repository; their SHA-256 digests are " +
+      "published so that a copy can be checked against them.",
+  };
+}
+
+test("site_ukemi_course_view_golden — every string of /ukemi/course equals the string rebuilt from named JSON paths, in place", () => {
+  const c = loadUkemiCourse(ROOT), s = loadUkemiServed(ROOT);
+  const v = buildCourseView(c, s);
+  assert.deepEqual(v, goldenCourseView(rawCourse(), rawServed()), "the view equals the golden rebuilt from JSON paths (empty registry)");
+  assert.deepEqual(
+    buildCourseView(c, { ...s, registry_state: "committed" }),
+    goldenCourseView(rawCourse(), { ...rawServed(), registry_state: "committed" }),
+    "the view equals the golden (committed registry)",
+  );
+  // The comparison episode is the design episode, which is LATER than the course episode: never "earlier".
+  const pageSf = parseTsx(COURSE_PAGE_REL, read(COURSE_PAGE_REL));
+  const pageTexts = [...renderedTexts(pageSf).map((r) => r.text), ...metadataTexts(COURSE_PAGE_REL)];
+  for (const text of [...viewStrings(v), ...pageTexts]) assert.ok(!/\bearlier\b/i.test(text), `no 'earlier' episode: ${JSON.stringify(text.slice(0, 80))}`);
+  assert.ok(pageTexts.some((t) => t.includes("the design episode")), "the course page names the design episode");
+  // H-4 counts accounts; a position is (account, debt asset, collateral asset), a different count.
+  assert.ok(/\baccounts\b/.test(v.multi_call) && !/\bpositions\b/i.test(v.multi_call), "H-4 multi-call counts accounts");
+  assert.ok(v.reconciliation.startsWith("Positions (account, debt asset, collateral asset)"), "a position is named with its three parts");
+  // The unit's decimal count is the report's own: its summary lines (inside the digest-bound body, never rendered)
+  // declare the amounts "(base N-dec)"; display.decimals and the displayed unit label carry that same N.
+  const course = rawCourse();
+  const declared = new Set<string>();
+  for (const line of list(obj(course.body, "body").summary, "body.summary")) {
+    for (const m of String(line).matchAll(/\(base (\d+)-dec\)/g)) if (m[1] !== undefined) declared.add(m[1]);
+  }
+  const display = obj(course.display, "display");
+  assert.deepEqual([...declared], [String(display.decimals)], "display.decimals is the base decimal count the report declares");
+  assert.ok(typeof display.unit === "string" && display.unit.includes(`(${String(display.decimals)} decimals)`), "the unit label carries the declared decimal count");
+});
+
+/** The production record of the course (tracked in the source repository, omitted from the public export): the digest of
+ *  the report body as it was computed when the report was produced. Exactly one `body_digest <64 hex>` is recorded. */
+const PRODUCTION_RECORD_REL = "docs/course-ukemi/SIDECAR-prereg-u4b-1b-2026-09-22.md";
+function recordedBodyDigest(): string {
+  const found = new Set<string>();
+  for (const m of read(PRODUCTION_RECORD_REL).matchAll(/body_digest\s+([0-9a-f]{64})\b/g)) if (m[1] !== undefined) found.add(m[1]);
+  assert.equal(found.size, 1, `${PRODUCTION_RECORD_REL} must record exactly one body digest`);
+  const [d] = [...found];
+  assert.ok(d !== undefined);
+  return d;
+}
+
+test("site_ukemi_course_digest_bound_to_production_record — body_digest is the digest recorded when the report was produced", () => {
+  const recorded = recordedBodyDigest();
+  assert.equal(rawCourse().body_digest, recorded, "the site copy's body_digest is the recorded one (read from the record, never retyped)");
+  assert.equal(loadUkemiCourse(ROOT).body_digest, recorded);
+  // Why this binding is needed: a CONSISTENT edit (the measured lag lowered AND its histogram moved; body and manifest
+  // re-hashed) passes every check of the loader. Only the recorded digest catches it.
+  const t = tmpRoot();
+  try {
+    const file = rawCourse();
+    const sb = obj(obj(obj(file.body, "body").h6, "h6").served_blocks, "served_blocks");
+    const hist = obj(sb.lag_histogram, "lag_histogram");
+    const one = hist["1"], two = hist["2"];
+    assert.ok(typeof one === "number" && typeof two === "number", "the histogram carries lags 1 and 2");
+    hist["1"] = one + two;
+    delete hist["2"];
+    sb.max_lag = 1;
+    file.body_digest = sha256(canon(file.body));
+    t.write(UKEMI_COURSE_REL, file);
+    const mutated = loadUkemiCourse(t.root);
+    assert.equal(mutated.h6.sampled.max_lag, 1, "the loader accepts a consistent edit (by design: it checks agreement, not truth)");
+    assert.notEqual(mutated.body_digest, recorded, "the recorded digest reds on it");
+  } finally {
+    t.cleanup();
+  }
+});
+
+/** Every text of the Ukemi surface: the two copy modules' exports, the course view (both registry states), the served
+ *  clause, the JSX texts of the panel, the /ukemi body and both routes, and both routes' metadata. */
+function ukemiSurfaceTexts(): string[] {
+  const c = loadUkemiCourse(ROOT), s = loadUkemiServed(ROOT);
+  const texts: string[] = [
+    ...exportedStrings({ ...UKEMI_COPY }),
+    ...exportedStrings({ ...UKEMI_PANEL_COPY }),
+    ...viewStrings(buildCourseView(c, s)),
+    ...viewStrings(buildCourseView(c, { ...s, registry_state: "committed" })),
+    s.liq_clause,
+    ...metadataTexts(UKEMI_ROUTE_REL),
+    ...metadataTexts(COURSE_PAGE_REL),
+  ];
+  for (const rel of [PANEL_REL, UKEMI_PAGE_REL, UKEMI_ROUTE_REL, COURSE_PAGE_REL]) texts.push(...renderedTexts(parseTsx(rel, read(rel))).map((r) => r.text));
+  return texts;
+}
+/** Negated forms that may carry the word: "never a probability", "not a probability", "no probability". */
+const NEGATED_PROBABILITY = /\b(?:never|not|no)\s+(?:an?\s+)?probabilit(?:y|ies)\b/gi;
+const SURFACE_BANNED: ReadonlyArray<readonly [string, RegExp]> = [
+  ["verified", /\bverified\b/i],
+  ["guarantee", /\bguarantee(?:d|s)?\b/i],
+  ["partner", /\bpartners?(?:hip)?\b/i],
+  ["autonomous", /\bautonomous\b/i],
+  ["token", /\btokens?\b/i],
+  ["probability, not negated", /\bprobabilit(?:y|ies)\b/i],
+];
+function surfaceVocabularyHits(texts: readonly string[]): string[] {
+  const hits: string[] = [];
+  for (const raw of texts) {
+    const text = raw.replace(NEGATED_PROBABILITY, " ");
+    for (const [name, re] of SURFACE_BANNED) if (re.test(text)) hits.push(`${name}: ${JSON.stringify(raw.slice(0, 80))}`);
+  }
+  return hits;
+}
+
+test("site_ukemi_surface_vocabulary — no verified / guarantee / partner / autonomous / token on the Ukemi surface; probability only negated", () => {
+  const texts = ukemiSurfaceTexts();
+  assert.ok(texts.length > 60, `the Ukemi surface texts were collected (false green): ${String(texts.length)}`);
+  assert.deepEqual(surfaceVocabularyHits(texts), [], "a banned form on the Ukemi surface");
+  // detector controls: each banned form reds once; the negated probability and "tokenized" pass.
+  assert.equal(surfaceVocabularyHits(["a verified bound", "no guarantee", "our partners", "an autonomous agent", "the token", "a probability of being right"]).length, 6);
+  assert.deepEqual(surfaceVocabularyHits(["Never a probability of being right.", "not a probability that a bound is right", "tokenized equities"]), []);
+});
+
+/** Harness params accepted by the served liquidation-eligible-coverage class (alpha and nMin are server-imposed). */
+const LIQ_TEST_PARAMS: HarnessParams = {
+  remainingBudget: 0.1,
+  bFloor: 0,
+  tau: 1,
+  tauInterval: 1,
+  alpha: LIQ_ALPHA,
+  nMin: LIQ_NMIN,
+  intent: 1,
+  tool: "perps_order_preview",
+  clockOpen: true,
+};
+
+test("site_ukemi_prose_claims_conditional — 'calibrated' and 'coverage holds' only conditional or negated; no residuals promised", () => {
+  // The served facts the copy relies on: the class's verdict carries an empty residual list, and no attestation subject
+  // is bound to the class, so none can be filed into it. If either changes, this reds and the copy is revisited with it.
+  const d = runGate(
+    { schema_version: "1.0.0", task_class: TASK_LIQ_ELIGIBLE, yhat: 1, predictor_id: "ukemi:site-copy-check", produced_at: "2026-09-24T00:00:00Z" },
+    LIQ_TEST_PARAMS,
+  );
+  assert.deepEqual(d.verdict.residual, [], "the served liquidation-eligible-coverage verdict carries no residual");
+  assert.deepEqual(ATTESTATION_BINDING.get(TASK_LIQ_ELIGIBLE), [], "no attestation subject is bound to the class");
+  const served = new Set<string>([LIQ_UPPER_BOUND_SENTENCE, LIQ_H3_SENTENCE, LIQ_CONDITIONAL_SENTENCE, LIQ_EMPTY_REGISTRY_SENTENCE]);
+  const prose = [...exportedStrings({ ...UKEMI_COPY }).filter((t) => !served.has(t)), ...metadataTexts(UKEMI_ROUTE_REL)];
+  const panel = [...renderedTexts(parseTsx(PANEL_REL, read(PANEL_REL))).map((r) => r.text), ...exportedStrings({ ...UKEMI_PANEL_COPY })];
+  const RULES: ReadonlyArray<readonly [RegExp, RegExp]> = [
+    [/\bcalibrated\b/i, /\bnot a calibrated\b|\bfor a calibrated\b|\bonce a stratum is committed\b/i],
+    [/\bcoverage holds\b/i, /\bonce a stratum is committed\b/i],
+  ];
+  const unconditional = (texts: readonly string[]): string[] => {
+    const out: string[] = [];
+    for (const t of texts) for (const cl of t.split(/(?<=[.;])\s+/)) for (const [claim, cond] of RULES) if (claim.test(cl) && !cond.test(cl)) out.push(cl);
+    return out;
+  };
+  assert.deepEqual(unconditional(prose), [], "an unconditional calibration or coverage claim on /ukemi");
+  for (const t of [...prose, ...panel]) assert.ok(!/\bresiduals?\b/i.test(t), `a residual promised with the bound: ${JSON.stringify(t.slice(0, 90))}`);
+  // detector controls: the two former sentences red.
+  assert.equal(unconditional(["Not a claim about a new event: the measure is calibrated on one episode; exchangeability is named.",
+    "Coverage holds per stratum, under exchangeability with the calibration episode."]).length, 2);
 });

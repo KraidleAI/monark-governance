@@ -15,22 +15,28 @@ import { PanelBlock, SHEET } from "@/components/panel-shell";
 import { WhatInside } from "@/components/what-inside";
 import { insideFor } from "@/lib/fleet-presentation";
 import type { FrozenContract } from "@/lib/load-contract";
+import type { AgentStatus } from "@/lib/status";
 import { cn } from "@/lib/utils";
 
 /**
  * The built Hikae agent (the gate itself). Same 8-block template as Shōgen: blocks 1/2/4/6 BUILT,
  * blocks 3/5/7/8 UPCOMING. `contract` is the frozen CoverageVerdict shape Hikae emits, read server-side
  * from schemas/. Block 4 is the C8 honest limit: a monitor gives marginal, not
- * conditional, coverage — grounded in packages/hikae/README.md (L1/L2/L3 table) and src/l2-monitor.ts
- * ("MONITOR — no guarantee claimed"). No market number, no probability of being right is rendered.
+ * conditional, coverage — grounded in packages/hikae/README.md (L1/L2/L3 table) and src/l2-monitor.ts (the monitor
+ * makes no coverage claim). No market number, no probability of being right is rendered. `status` is
+ * the card's status READ from the fleet register by the /fleet page (server) and handed in as a prop. "Honest limits" (a
+ * built block) names what the served gate already carries: a committed calibration for its demonstration class, declared
+ * synthetic by the served description (a plumbing fixture, not a measured predictor) — pinned both ways against that
+ * description by the root test registry_notes_track_served_descriptions. "Living proof" stays upcoming and says only
+ * what is not shown yet.
  */
-export function HikaePanel({ contract }: { contract: FrozenContract }) {
+export function HikaePanel({ contract, status }: { contract: FrozenContract; status: AgentStatus }) {
   return (
     <Dialog>
       <AgentCard
         mark={<HikaeMark className="size-8" />}
         name="Hikae"
-        status="built"
+        status={status}
         action={<DialogTrigger render={<Button variant="outline" size="sm" />}>Open panel</DialogTrigger>}
       >
         Coverage-controlled inference &mdash; the gate itself.
@@ -45,8 +51,8 @@ export function HikaePanel({ contract }: { contract: FrozenContract }) {
         <div className="mt-2">
           <PanelBlock title="How it works" status="built">
             Hikae takes an upstream predictor&rsquo;s reading, conforms it into a coverage region, then
-            gates the act: commit, defer, or abstain against the MONARK budget. The product is the right
-            to act under attested coverage &mdash; and the right to hold no opinion.
+            gates the act: commit, defer, or abstain against the MONARK budget. What it delivers is the
+            right to act under attested coverage &mdash; and the right to hold no opinion.
           </PanelBlock>
           <PanelBlock title="How it is built" status="built">
             A conformal split turns the prediction into a set or an interval at a target coverage of one
@@ -58,20 +64,23 @@ export function HikaePanel({ contract }: { contract: FrozenContract }) {
             <p>
               Hikae is a monitor &mdash; a second-level check, not a promise about any single case. Its
               coverage holds on average over exchangeable calibration data at one minus a chosen
-              miscoverage level &alpha;; it is not conditional on the individual input, so the gate does
-              not guarantee conditional coverage, and &alpha; is that miscoverage level (coverage is one
+              miscoverage level &alpha;; it is not conditional on the individual input, so the gate makes
+              no conditional-coverage claim, and &alpha; is that miscoverage level (coverage is one
               minus &alpha;), not a probability that a given region is right.
             </p>
             <p className="mt-2">
-              The remaining-risk step is a monitoring statistic with no guarantee attached, and the error
+              The remaining-risk step is a monitoring statistic with no coverage claim attached, and the error
               on one committed act is not bounded by &alpha;. Hikae authorizes acts and can hold no
               opinion: it gates order tools, it never calls them, and profit and loss never enter the
               policy.
             </p>
+            <p className="mt-2">
+              The served <code>gate</code> tool decides against committed calibrations; the one behind its
+              demonstration class is declared synthetic, a plumbing fixture, not a measured predictor.
+            </p>
           </PanelBlock>
           <PanelBlock title="Living proof" status="upcoming">
-            Running tests and coverage become visible once the platform exposes them; a committed Hikae
-            sample is to be announced.
+            Running tests and coverage become visible once the platform exposes them.
           </PanelBlock>
           <PanelBlock title="Frozen contract" status="built">
             <p>

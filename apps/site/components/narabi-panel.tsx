@@ -17,22 +17,25 @@ import { WhatInside } from "@/components/what-inside";
 import { insideFor } from "@/lib/fleet-presentation";
 import { NARABI_ROUTE } from "@/lib/narabi-live";
 import type { FrozenContract } from "@/lib/load-contract";
+import type { AgentStatus } from "@/lib/status";
 import { cn } from "@/lib/utils";
 
 /**
- * The built Narabi sensor (redemption-run velocity, ADR-M012 M012-e). Same 8-block template as Hikae.
- * `contract` is the frozen AttestedFlow shape Narabi emits, read server-side from schemas/; the required
- * fields render via {field}, never hard-coded. "Living proof" links to the live daily timeline on the
- * bare /narabi route (F-site-10; NARABI_ROUTE reused). No market number, no rendered numeric literal, no
- * frozen-contract field name quoted; the tracker is adaptive, the committed gate region is not.
+ * The built Narabi sensor (redemption-run velocity). Same 8-block template as Hikae. `contract` is the frozen
+ * AttestedFlow shape Narabi emits, read server-side from schemas/; the required fields render via {field}, never
+ * hard-coded. `status` is the card's status READ from the fleet register by the /fleet page (server) and handed in as a
+ * prop; this client panel never imports the register. "Living proof" is a built block: the daily timeline it points to
+ * is served and published on the bare /narabi route (NARABI_ROUTE reused), and a served fact sits only in a built block.
+ * No market number, no rendered numeric literal, no frozen-contract field name quoted; the tracker is adaptive, the
+ * committed gate region is not.
  */
-export function NarabiPanel({ contract }: { contract: FrozenContract }) {
+export function NarabiPanel({ contract, status }: { contract: FrozenContract; status: AgentStatus }) {
   return (
     <Dialog>
       <AgentCard
         mark={<NarabiMark className="size-8" />}
         name="Narabi"
-        status="built"
+        status={status}
         action={<DialogTrigger render={<Button variant="outline" size="sm" />}>Open panel</DialogTrigger>}
       >
         Redemption-run velocity from the attested onchain flow &mdash; a replayable daily timeline.
@@ -70,7 +73,7 @@ export function NarabiPanel({ contract }: { contract: FrozenContract }) {
             </p>
           </PanelBlock>
           <PanelBlock title="Living proof" status="built">
-            The daily timeline is live &mdash;{" "}
+            The daily timeline is published &mdash;{" "}
             <Link href={NARABI_ROUTE} className="underline underline-offset-4">
               see it on the Narabi page
             </Link>
@@ -90,10 +93,12 @@ export function NarabiPanel({ contract }: { contract: FrozenContract }) {
             </ul>
           </PanelBlock>
           <PanelBlock title="How to connect" status="built">
-            Reachable now over HTTP and MCP through the <code>gate</code> tool at{" "}
-            <code>mcp.monarkgate.tech/mcp</code>, under the stable-run velocity class. The attested flow and
-            its timeline are served as plain files from the Narabi page. See For integrators for the add
-            one-liners.
+            Reachable now through the <code>gate</code> tool, under the stable-run velocity class: over MCP at{" "}
+            <code>mcp.monarkgate.tech/mcp</code>, and over the plain-HTTP mirror For integrators describes. See
+            For integrators for the add one-liners. The Narabi page serves two plain files: the timeline (the
+            facts of each daily window and the hash of its AttestedFlow) and the tracker state. The AttestedFlow
+            documents themselves are not served; the public sentinel code rebuilds each one from its window&rsquo;s
+            facts.
           </PanelBlock>
           <PanelBlock title="Traceability" status="built">
             Every step carries a per-line hash; the published timeline replays to the byte from its

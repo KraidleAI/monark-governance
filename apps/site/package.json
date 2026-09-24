@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "MONARK public storefront (Next.js). ADR-M004 D1/D2.",
+  "description": "MONARK public storefront (Next.js).",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

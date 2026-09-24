@@ -34,14 +34,14 @@ export const CHAMBERS: readonly Chamber[] = [
 /** The chamber ids in pipeline order — the ONE source the spine is built from. */
 export const CHAMBER_ORDER: readonly ChamberId[] = CHAMBERS.map((c) => c.id);
 
-// SPINE — the SINGLE, closed definition (checkpoint-1 C-7): the diagonal of the four chambers, with NO
+// SPINE — the SINGLE, closed definition: the diagonal of the four chambers, with NO
 // piece. The three VISAGE profiles light it alone. Defined exactly once, derived from CHAMBER_ORDER.
 export const SPINE: readonly ChamberId[] = CHAMBER_ORDER;
 
 /** MONARK is the whole sas — the container, never one of the pieces. */
 export const CONTAINER = "MONARK";
 
-// Piece -> chamber assignment BY NAME (investor assignment, MODELE-ILLUSTRATION §7). Hikae is the
+// Piece -> chamber assignment BY NAME (the owner's assignment, MODELE-ILLUSTRATION §7). Hikae is the
 // double filter (Calibrate AND Gate); every other piece sits in exactly one chamber. Keyed by the
 // register name so a rename in lib/fleet.ts surfaces as a piece with no chamber (caught by the root test),
 // never a silent copy of the register's role/status/line (those flow from the injected agent).
@@ -109,7 +109,7 @@ export function deriveProfiles(profiles: readonly PickerProfile[]): readonly Sas
 // Reason -> chamber. Keyed by the reason code (NOT a contract field). The commit code owns no chamber.
 // Consumers resolve BY INDEX against the loaded frozen enum via chamberForReasonIndex, so the table can
 // not drift from the frozen thirteen (the root test pins coverage + uniqueness of the twelve non-commit codes;
-// a surplus key outside the enum is unreachable by index and is not asserted — G2 C-4).
+// a surplus key outside the enum is unreachable by index and is not asserted).
 const REASON_CHAMBER: Readonly<Record<string, ChamberId>> = {
   non_evaluable: "attest",
   attestation_absent: "attest",

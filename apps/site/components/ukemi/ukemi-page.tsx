@@ -1,10 +1,10 @@
 // apps/site/components/ukemi/ukemi-page.tsx — the /ukemi body (temps 1: method + honest served state).
 // SERVER component, STATIC: no "use client", no fetch, no generateMetadata — so `next build` renders a real
-// apps/site/.next/server/app/ukemi.html that scripts/assert-fleet-html.mjs asserts on (CA-11, G0 §18/B).
+// apps/site/.next/server/app/ukemi.html that scripts/assert-fleet-html.mjs asserts on.
 //
-// HONESTY (G0 §5/§6/§7, checkpoint-1 C-1/C-6):
-//   - reads ONLY `status` from the fleet register (D-51/C-6). NEVER `line`/`wiring.note` — both carry
-//     "cascade" (fleet.ts:155-166); rendering them would red assertUkemiBody's \bcascade\b=0. No silent
+// HONESTY:
+//   - reads ONLY `status` from the fleet register. NEVER `line`/`wiring.note` — the note carries "cascade"
+//     (lib/fleet.ts); rendering it would red assertUkemiBody's \bcascade\b=0. No silent
 //     fallback: an absent Ukemi row throws, so a broken registry reds the build honestly.
 //   - the two SERVED sentences that ride at temps 1 are DIGIT-FREE and rendered each in a SINGLE {X} JSX
 //     child (C-1(b)): {LIQ_EMPTY_REGISTRY_SENTENCE} (the honest empty-registry state) and
@@ -13,9 +13,8 @@
 //     test's negative carrier forbids them in this file. They ride at U-4b-2b.
 //   - every other line is digit-free explanatory prose read from lib/ukemi-copy.ts by property/identifier
 //     (never a rendered numeric literal); the schematic upper-bound bar is aria-hidden with NO graduation.
-// CHARTER C (decision 145, lot SITE-CHARTE-C): charter cards/labels and the fixed Ukemi accent (var(--ukemi),
-// decision 120); content unchanged (the mock's SAMPLE values are not ported: fake values, and digits, never ride
-// on a served page). The site footer carries the four common phrases (ruling Q5).
+// CHARTER C: charter cards/labels and the fixed Ukemi accent (var(--ukemi)); content unchanged (the mock's SAMPLE values are not ported: fake values, and digits, never ride
+// on a served page). The site footer carries the four common phrases.
 import { FLEET_AGENTS } from "@/lib/fleet";
 import Link from "next/link";
 import {
@@ -39,6 +38,10 @@ import {
   METHOD_STEPS,
   LIMITS_LABEL,
   LIMITS,
+  UKEMI_COURSE_ROUTE,
+  COURSE_POINTER_LEAD,
+  COURSE_POINTER_LINK,
+  COURSE_POINTER_TAIL,
 } from "@/lib/ukemi-copy";
 
 const ACCENT = { color: "var(--ukemi)" } as const;
@@ -105,9 +108,8 @@ export function UkemiPage() {
           <p className="text-sm text-muted-foreground">{SERVED_STATE_LEAD}</p>
           <p className="mt-3 font-mono text-base text-foreground">{LIQ_EMPTY_REGISTRY_SENTENCE}</p>
           <p className="text-sm text-muted-foreground" style={{ marginTop: 10 }}>
-            The calibration course on one recorded lending episode is closed through its offline steps; its pre-registered verdicts,
-            counts and digests are on the <Link href="/ukemi/course">course page</Link>. One stratum can be committed to the served class;
-            that commit is the next step.
+            {COURSE_POINTER_LEAD} <Link href={UKEMI_COURSE_ROUTE}>{COURSE_POINTER_LINK}</Link>
+            {COURSE_POINTER_TAIL}
           </p>
 
           {/* Schematic upper-bound bar: from an open floor to the upper bound, y-hat marked inside; never a

@@ -19,12 +19,23 @@ import {
   STATE_MAX_BYTES, STATE_TIMEOUT_MS, STATE_RETRIES,
 } from "../scripts/probe-narabi.mjs";
 import type { NarabiState, StateCheck } from "../scripts/probe-narabi.mjs";
-import { NARABI_SNAPSHOT } from "../apps/site/lib/narabi-snapshot.ts";
+import { loadNarabiCapture } from "../apps/site/lib/narabi-capture-load.ts";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const REPO = join(HERE, "..");
 const PROBE_MJS = join(REPO, "scripts", "probe-narabi.mjs");
 const DEPLOY = join(REPO, "deploy");
+// The storefront's committed capture of the two served files, read through its manifest-checked loader.
+const NARABI_SNAPSHOT = loadNarabiCapture(REPO);
+// The committed capture (apps/site/data/narabi-capture.json) is RE-CAPTURED as the sentinel publishes, so its last
+// published day D is READ here, never typed: SNAP_NOW = D+1 just after the deadline (D present => not lagging, which
+// isolates the state verdict) and SNAP_LAG = D+2 after the deadline (D+1 missing => lag_days > 0). A routine re-capture
+// therefore never flips these verdicts (it used to be the literal 2026-09-19T10:35Z / 2026-09-25T12:00Z pair, true
+// only for the T=1 capture of 2026-09-19).
+const SNAP_LAST_DAY: string = parseTimeline(NARABI_SNAPSHOT.timelineJsonl).at(-1)?.day ?? "";
+const snapDayPlus = (n: number): string => new Date(Date.parse(SNAP_LAST_DAY + "T00:00:00Z") + n * 86_400_000).toISOString().slice(0, 10);
+const SNAP_NOW = `${snapDayPlus(1)}T10:35Z`;
+const SNAP_LAG = `${snapDayPlus(2)}T12:00Z`;
 const TZ_EAST = "Etc/GMT-11"; // a non-UTC child TZ; toISOString stays UTC, so verdicts are TZ-invariant here
 
 // RUN_DURATION_D_SEC — the publishing run's wall clock, MEASURED by the orchestrator (I do not estimate D),
@@ -89,7 +100,7 @@ test("probe_state_digest_cross_check — the probe does a 2nd bounded GET of sta
   const coherentState = NARABI_SNAPSHOT.stateJson;
   // a REAL digest of the WRONG day: the 2026-09-17 line's digest_T (not a random hex) — a valid but stale state.
   const trafiquedState = JSON.stringify({ ...JSON.parse(coherentState) as Record<string, unknown>, digest: firstLine.digest_T });
-  const NOW = "2026-09-19T10:35Z"; // last day 2026-09-18 present after the deadline => NOT lagging (isolates the state verdict)
+  const NOW = SNAP_NOW; // the capture's last day present after the deadline => not lagging; isolates the state verdict
 
   assert.equal(deriveStateUrl("http://127.0.0.1:8080/narabi/timeline.jsonl"), "http://127.0.0.1:8080/narabi/state.json", "basename derivation");
   assert.equal(lastLine.digest_T, (JSON.parse(coherentState) as { digest: string }).digest, "oracle: the coherent state's digest IS the last line's digest_T");
@@ -158,7 +169,7 @@ test("probe_state_unreachable_precedence — a failed 2nd GET is state_unreachab
   const firstLine = lines.at(0);
   assert.ok(firstLine, "the snapshot timeline has a first line");
   const wrongDayDigest = firstLine.digest_T;
-  const LAG = "2026-09-25T12:00Z"; // well past the last day 2026-09-18 => lag_days > 0, so a lag-first mutant surfaces lag
+  const LAG = SNAP_LAG; // one due day past the capture's last day => lag_days > 0, so a lag-first mutant surfaces lag
 
   // (a) PURE evaluate() precedence ladder (no I/O), on the real snapshot lines + synthetic stateCheck inputs.
   const ev = (stateCheck: StateCheck | undefined): NarabiState => evaluate({ text: tl, nowIso: LAG, reachable: true, stateCheck });
@@ -188,7 +199,7 @@ test("probe_state_unreachable_precedence — a failed 2nd GET is state_unreachab
 // ── item 4: the GET loop makes EXACTLY retries+1 attempts on a failing surface (kills attempt <= retries+1) ──
 test("probe_get_retries_exactly_n_plus_one — the GET loop makes EXACTLY retries+1 attempts on a failing surface: a server that resets exactly retries+1 connections then WOULD serve yields unreachable at hits === retries+1 (real), never healthy at hits === retries+2 (kills M-ii-10, attempt <= retries+1); pinned at PROBE_RETRIES=0 AND =2; a closed port is unreachable (item 4)", async () => {
   const tl = NARABI_SNAPSHOT.timelineJsonl;
-  const NOW = "2026-09-19T10:35Z";
+  const NOW = SNAP_NOW; // the capture's last day present after the deadline => not lagging; isolates the state verdict
   // Resets the first `failCount` connections (the probe retries each), then WOULD serve a healthy surface.
   const makeFlaky = (failCount: number): { server: Server; hits: () => number } => {
     let hits = 0;
@@ -276,7 +287,7 @@ test("probe_state_get_rss_and_worstcase_bounds — monark-probe.service covers t
 // GET2 without the cap reads it whole and, since the digest matches, would go HEALTHY.
 test("probe_state_get2_binds_state_max_bytes — the URL-mode state cross-check GET passes maxBytes:STATE_MAX_BYTES, so an oversize (but coherent-digest) state.json is refused too_large -> state_unreachable, never read whole (kills N-G2-3: a GET2 without the maxBytes binding reads up to MAX_MAX_BYTES and, the digest matching, goes healthy — an RSS/OOM hazard on the two-body path)", async () => {
   const tl = NARABI_SNAPSHOT.timelineJsonl;
-  const NOW = "2026-09-19T10:35Z"; // last day 2026-09-18 present after the deadline => not lagging; isolates the state verdict
+  const NOW = SNAP_NOW; // the capture's last day present after the deadline => not lagging; isolates the state verdict
   const coherent = JSON.parse(NARABI_SNAPSHOT.stateJson) as Record<string, unknown>;
   // valid JSON, COHERENT digest (so a mutant reading it whole matches -> healthy, not state_mismatch), padded
   // just over STATE_MAX_BYTES so the bounded real GET2 refuses it too_large before parsing.
@@ -302,7 +313,7 @@ test("probe_state_get2_binds_state_max_bytes — the URL-mode state cross-check 
 // 123, compares it to the hex digest_T, and mis-classifies as state_mismatch/state_checked:true.
 test("probe_state_digest_must_be_string — a numeric (non-string) state.json digest yields no comparable digest -> state_unreachable, state_checked:false (kills N-G2-1: a type guard relaxed to `d != null` accepts 123 and mis-reports state_mismatch)", async () => {
   const tl = NARABI_SNAPSHOT.timelineJsonl;
-  const NOW = "2026-09-19T10:35Z";
+  const NOW = SNAP_NOW; // the capture's last day present after the deadline => not lagging; isolates the state verdict
   const numericDigest = JSON.stringify({ ...JSON.parse(NARABI_SNAPSHOT.stateJson) as Record<string, unknown>, digest: 123 });
   const server = createServer((req, res) => {
     if (req.url === "/narabi/timeline.jsonl") { res.writeHead(200, { "content-type": "application/jsonl" }); res.end(tl); return; }
@@ -329,7 +340,7 @@ test("probe_state_digest_must_be_string — a numeric (non-string) state.json di
 // 2nd time, matches -> healthy. The single hit proves BOTH "refusal without request" and "same guard as GET1".
 test("probe_state_url_override_honored_and_guarded — the PROBE_STATE_URL override is used AND transport-guarded like GET1: a refused override (http://127.1, normalized host but rawUrlHost-refused) yields state_unreachable with EXACTLY one loopback hit (GET1 only, no state dial) (kills N-G2-2: a mutant ignoring the override derives the canonical state.json, hits a 2nd time, and goes healthy)", async () => {
   const tl = NARABI_SNAPSHOT.timelineJsonl;
-  const NOW = "2026-09-19T10:35Z";
+  const NOW = SNAP_NOW; // the capture's last day present after the deadline => not lagging; isolates the state verdict
   let hits = 0;
   const server = createServer((req, res) => {
     hits++;
@@ -363,7 +374,7 @@ test("probe_state_url_override_honored_and_guarded — the PROBE_STATE_URL overr
 test("probe_state_get2_binds_state_retries — the URL-mode state cross-check GET passes retries:STATE_RETRIES, so it makes EXACTLY STATE_RETRIES+1 attempts INDEPENDENT of PROBE_RETRIES: with PROBE_RETRIES=0 a state.json that resets its first attempt then serves is still reached on the 2nd try -> healthy (kills the mutant dropping the retries binding: GET2 falls back to env 0 -> 1 attempt -> gives up on the reset -> state_unreachable)", async () => {
   assert.ok(0 < STATE_RETRIES, "premise: STATE_RETRIES is a real retry budget (>0), so a first-attempt reset is survivable and the count differs from PROBE_RETRIES=0");
   const tl = NARABI_SNAPSHOT.timelineJsonl;
-  const NOW = "2026-09-19T10:35Z"; // last day 2026-09-18 present after the deadline => not lagging; isolates the state verdict
+  const NOW = SNAP_NOW; // the capture's last day present after the deadline => not lagging; isolates the state verdict
   let stateHits = 0;
   const server = createServer((req, res) => {
     if (req.url === "/narabi/timeline.jsonl") { res.writeHead(200, { "content-type": "application/jsonl" }); res.end(tl); return; }
@@ -397,7 +408,7 @@ test("probe_state_get2_binds_state_timeout — the URL-mode state cross-check GE
   assert.ok(ENV_TIMEOUT_MS < STATE_SERVE_DELAY_MS && STATE_SERVE_DELAY_MS < STATE_TIMEOUT_MS,
     `premise: env ${String(ENV_TIMEOUT_MS)}ms < serve delay ${String(STATE_SERVE_DELAY_MS)}ms < STATE_TIMEOUT_MS ${String(STATE_TIMEOUT_MS)}ms (real waits, mutant aborts)`);
   const tl = NARABI_SNAPSHOT.timelineJsonl;
-  const NOW = "2026-09-19T10:35Z"; // last day 2026-09-18 present after the deadline => not lagging; isolates the state verdict
+  const NOW = SNAP_NOW; // the capture's last day present after the deadline => not lagging; isolates the state verdict
   const server = createServer((req, res) => {
     if (req.url === "/narabi/timeline.jsonl") { res.writeHead(200, { "content-type": "application/jsonl" }); res.end(tl); return; }
     if (req.url === "/narabi/state.json") {

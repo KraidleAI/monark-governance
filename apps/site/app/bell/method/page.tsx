@@ -7,12 +7,26 @@ import {
   BELL_CALENDAR,
   BELL_DECIMALS,
   BELL_RESIDUALS_SESSIONS,
+  BELL_RESIDUALS_VOLUME,
   BELL_RESIDUALS_HALTS_RESERVES,
   BELL_RESIDUALS_UPCOMING,
+  BELL_RESIDUAL_CODES_LISTED,
+  BELL_PUBLIC_REPO_URL,
+  BELL_VOL_RATIO_FORMULA_DISPLAY,
   type BellResidual,
 } from "@/lib/bell-method";
 import { BellContact } from "@/components/bell/contact";
-import { loadBellServed, bellServedRepoRoot, BELL_HOST, BELL_PUBKEY_PATH } from "@/lib/bell-served-load";
+import {
+  loadBellServed,
+  bellServedRepoRoot,
+  thresholdsOf,
+  utcSeconds,
+  abstentionsOf,
+  BELL_HOST,
+  BELL_PUBKEY_PATH,
+  type BellServedRun,
+  type BellShape,
+} from "@/lib/bell-served-load";
 import { Placeholder } from "@/components/placeholder";
 
 export const metadata: Metadata = {
@@ -25,15 +39,32 @@ export const metadata: Metadata = {
 // /bell/method — the page the comment letter points to (mock bell-method.html). Every definition shown here is
 // pinned to the collector source (apps/bell/src) by the root test bell_method_facts_match_collector: the session
 // bounds and the calendar are READ from lib/bell-method.ts (never typed as literals here), the decimals too; the
-// residual list must cover the collector's closed list. Values that do not exist yet are named placeholders;
-// sentences that need a path not served yet are in the future tense. Section ordinals are words, not digits. The key
-// URL and key_id are READ from apps/site/data/bell-served.json (lib/bell-served-load.ts; lot BELL-SERVED-1).
-function Residuals({ items, upcoming = false }: { items: readonly BellResidual[]; upcoming?: boolean }) {
+// residual list must cover the collector's closed list, and a code still marked upcoming must not be in it. Every
+// served value (the key, the digests, the periods, the residual counts, the served schema, the thresholds named by the
+// served gap rows or the publisher's closed list, the collector revision) is READ from apps/site/data/bell-served.json
+// (lib/bell-served-load.ts); values that do not exist yet are named placeholders; sentences that need a path not served
+// yet are in the future tense. Section ordinals are words, not digits. The volume-ratio formula is restated in the words of
+// this page (lib/bell-method.ts), pinned clause by clause to the served string.
+/** A run's served counter for a residual code; a code without a counter throws (never a default count). */
+function countOf(run: BellServedRun, code: string): number {
+  const n = run.residuals[code];
+  if (n === undefined) throw new Error(`bell method page: the served run carries no counter for ${code}`);
+  return n;
+}
+
+function Residuals({ items, runs, upcoming = false }: { items: readonly BellResidual[]; runs: readonly BellServedRun[]; upcoming?: boolean }) {
   return (
     <>
       {items.map((r) => (
         <div key={r.code} className="c-residual-row">
-          <span className={upcoming ? "c-tag c-tag--next" : "c-tag"}>{r.code}</span>
+          <span>
+            <span className={upcoming ? "c-tag c-tag--next" : "c-tag"}>{r.code}</span>{" "}
+            {upcoming ? null : (
+              <span className="c-mono c-small">
+                {runs.map((run) => `${run.records.map((x) => x.symbol).join(" · ")} ${String(countOf(run, r.code))}`).join(" · ")}
+              </span>
+            )}
+          </span>
           <span className="c-muted c-small">{r.gloss}</span>
         </div>
       ))}
@@ -41,14 +72,48 @@ function Residuals({ items, upcoming = false }: { items: readonly BellResidual[]
   );
 }
 
+/** One served object of the publisher's closed list, as a line: name { key, key: shape, … }. */
+function schemaLine(name: string, shapes: Readonly<Record<string, BellShape>>): string {
+  const keys = Object.entries(shapes).map(([k, sh]) =>
+    sh === "scalar" ? k : sh === "scalar[]" ? `${k}: [ ]` : typeof sh === "string" ? `${k}: ${sh}` : `${k}: [${sh[0]}]`,
+  );
+  return `${name.padEnd(15)} { ${keys.join(", ")} }`;
+}
+
 export default function BellMethodPage() {
   const bell = PRODUCTS.find((p) => p.key === "bell");
   if (!bell) throw new Error("bell method page: MONARK Bell is absent from PRODUCTS (lib/fleet.ts)");
   const anchors = loadAnchors();
-  const served = loadBellServed(bellServedRepoRoot());
+  const served = loadBellServed(bellServedRepoRoot(), BELL_RESIDUAL_CODES_LISTED);
   const pubkeyUrl = BELL_HOST + BELL_PUBKEY_PATH;
   const closures = BELL_CALENDAR.fullClosures;
   const halfDays = BELL_CALENDAR.halfDays;
+  const head = served.head;
+  const runs = head.runs;
+  const symbolsOf = (run: BellServedRun): string => run.records.map((x) => x.symbol).join(" · ");
+  const sessions = runs.flatMap((r) => r.sessions);
+  const withGap = sessions.filter((x) => x.gT !== null).length;
+  const allNoClose = sessions.length > 0 && sessions.every((x) => x.abstain === "no_close_ref");
+  const abstentions = abstentionsOf(sessions).join(", ");
+  const servedThresholds = [...new Set(sessions.flatMap((x) => x.exceed.map((e) => e.threshold)))].sort((a, b) => a - b);
+  const thresholds = servedThresholds.length > 0 ? servedThresholds : thresholdsOf(Object.keys(served.served_schema.objects.gap ?? {}));
+  const hasVolume = runs.some((r) => r.volume.length > 0);
+  const periods = [...new Set(runs.flatMap((r) => r.volume.map((v) => `${String(v.adv_period.year)}-${String(v.adv_period.month).padStart(2, "0")}: ${String(v.n_bars)} daily bars for ${String(v.n_trading_days)} trading days`)))];
+  const residualSum = runs.reduce((a, r) => a + Object.values(r.residuals).reduce((x, y) => x + y, 0), 0);
+  const listed = new Set(BELL_RESIDUAL_CODES_LISTED);
+  for (const run of runs) for (const code of Object.keys(run.residuals)) if (!listed.has(code)) throw new Error(`bell method page: served residual ${code} is not in the page's list`);
+  const key = served.keyring.keys.find((k) => k.key_id === head.key_id);
+  const anchored = [head.state_sha256, ...runs.map((r) => r.bell_sha)].some((d) => anchors.listedDigests.includes(d));
+  const symbols = [...new Set(runs.flatMap((r) => r.records.map((x) => x.symbol)))];
+  const ss = served.served_schema;
+  const schemaText = [
+    `${"state.json".padEnd(15)} { ${ss.state_file.join(", ")} }   runs: one state per run`,
+    `${"provenance.json".padEnd(15)} { ${ss.provenance_file.join(", ")} }   runs: one provenance per run`,
+    `${"timeline line".padEnd(15)} { ${ss.timeline_line.join(", ")} }`,
+    `${"line run".padEnd(15)} { ${ss.timeline_run.join(", ")} }   records: [record]`,
+    ...Object.entries(ss.objects).map(([name, shapes]) => schemaLine(name, shapes)),
+  ].join("\n");
+  const rev = served.collector_revision;
 
   return (
     <main className="c-main">
@@ -155,8 +220,12 @@ export default function BellMethodPage() {
               is missing or not positive abstains with <span className="c-mono">no_close_ref</span>.
             </p>
             <p className="c-muted c-small" style={{ marginTop: 10 }}>
-              Close values are never published, and the close source is described here, not named. In the first served
-              record no close is read: each of its sessions abstains with <span className="c-mono">no_close_ref</span>.
+              The record has no closing-price field, and the close source is described here, not named.{" "}
+              {withGap > 0
+                ? `In the latest record a gap is computed for ${String(withGap)} of its ${String(sessions.length)} session rows.`
+                : allNoClose
+                  ? "In the latest record no close is read: each of its sessions abstains with no_close_ref."
+                  : `In the latest record no gap is computed: its session rows abstain (${abstentions}).`}
             </p>
           </div>
         </div>
@@ -180,7 +249,10 @@ VWAP_share = Σ |q_i|  /  Σ ( |b_i| · m(t_i) )
 g          = ln ( VWAP_share / P_close )
 exceeds(θ) = | VWAP_share − P_close | / P_close > θ`}</pre>
             <p className="c-muted c-small" style={{ marginTop: 10 }}>
-              θ takes the two thresholds of the first-measurement report, one percent and five percent. P_close is the
+              θ takes each threshold named by{" "}
+              {servedThresholds.length > 0 ? "the served gap rows" : "the publisher's closed list of gap keys"}:{" "}
+              {thresholds.map((k) => `${String(k)} percent`).join(", ")}
+              {servedThresholds.length === 0 ? " (no gap is served yet)" : ""}. P_close is the
               reference close of the day given under <a href="#refclose">reference close day</a>. When the multiplier is one
               over the whole pool window, the unrebased path is used. When the multiplier history is known and differs from
               one, the per-fill form above is used and the session carries <span className="c-mono">multiplier_unit</span>.
@@ -190,18 +262,18 @@ exceeds(θ) = | VWAP_share − P_close | / P_close > θ`}</pre>
           </div>
           <div className="c-card">
             <h2 className="c-h2">Volume ratio</h2>
-            <pre className="c-formula">{`V_onchain  = Σ |b_i| in units of the tokenized equity
-             (numerator window, deduped fills)
-V_shares   = V_onchain · m
-ADV        = mean of the daily consolidated
-             share volumes over the
-             denominator period
-vol_ratio  = V_shares / ADV`}</pre>
+            {hasVolume ? (
+              <pre className="c-formula">{BELL_VOL_RATIO_FORMULA_DISPLAY}</pre>
+            ) : (
+              <p className="c-muted">No volume entry is served in the latest record.</p>
+            )}
             <p className="c-muted c-small" style={{ marginTop: 10 }}>
-              Only the ratio will be published; the consolidated daily volume is never carried in the record. A denominator
-              that cannot be established produces no ratio and a named residual (<span className="c-mono">no_adv</span>,{" "}
-              <span className="c-mono">no_multiplier</span> <span className="c-tag c-tag--next">upcoming · in review</span>),
-              never a fabricated ratio.
+              The block above restates, clause by clause and in the words of this page, the formula string carried in each
+              volume entry of the served state; the restatement is pinned to that string by a test. The numerator is the
+              session&rsquo;s own fills, the denominator the month before the session date. The record has no
+              consolidated-volume field; a denominator that cannot be established produces no ratio and a named residual (
+              <span className="c-mono">no_adv</span>, <span className="c-mono">no_multiplier</span>), never a fabricated ratio.
+              The ratio values are not rendered on this site.
             </p>
             <h2 className="c-h2" style={{ marginTop: 16 }}>Shares per regime</h2>
             <pre className="c-formula">{`share(regime, θ) =
@@ -227,76 +299,75 @@ vol_ratio  = V_shares / ADV`}</pre>
           <div className="c-card">
             <h3 className="c-h3">Ratio numerator</h3>
             <p className="c-muted">
-              The collection window, in UTC: <Placeholder name="window_ratio" />, from{" "}
-              <span className="c-mono">state.window.from_utc_ms</span> to <span className="c-mono">state.window.to_utc_ms</span>.
-              The numerator is the total of that window; it is set against a daily denominator, and that difference of unit
-              is stated with the ratio.
+              Per session: the session&rsquo;s own pool fills, counted once per transaction, from its first fill to its last
+              (the session window, served with each entry). The run&rsquo;s observation window, in ledger time (UTC,{" "}
+              <span className="c-mono">state.window.from_utc_ms</span> to <span className="c-mono">state.window.to_utc_ms</span>):{" "}
+              {runs.map((r) => `${symbolsOf(r)} ${utcSeconds(r.window.from_utc_ms)} → ${utcSeconds(r.window.to_utc_ms)}`).join(" · ")}.
+              The numerator is set against a daily denominator; the unit is stated in the served formula.
             </p>
           </div>
           <div className="c-card">
-            <h3 className="c-h3">
-              Ratio denominator <span className="c-tag c-tag--next">upcoming · in review</span>
-            </h3>
+            <h3 className="c-h3">Ratio denominator</h3>
             <p className="c-muted">
-              The <b>previous calendar month</b>, to be published as <span className="c-mono">{"adv_period { year, month }"}</span>{" "}
-              = <Placeholder name="adv_period" />, with <span className="c-mono">n_bars</span> ={" "}
-              <Placeholder name="n_bars" /> daily bars and the <span className="c-mono">formula</span> string carried in the
-              record.
+              The <b>calendar month before the session date</b>, served as{" "}
+              <span className="c-mono">{"adv_period { year, month }"}</span>: {periods.join(" · ") || "no period served"}. The
+              daily bars (<span className="c-mono">n_bars</span>) must cover exactly the month&rsquo;s trading days (
+              <span className="c-mono">n_trading_days</span>), or the session&rsquo;s ratio abstains with{" "}
+              <span className="c-mono">no_adv</span>; the <span className="c-mono">formula</span> string is carried in each entry.
             </p>
           </div>
         </div>
-        <p className="c-note" style={{ marginTop: 12 }}>
-          At the date of this page, the collector computes the denominator over a different window than the previous calendar
-          month; a change in review aligns the code and adds the three fields above, which stay marked upcoming until then.
-        </p>
       </section>
 
       <section className="c-section" id="residuals" aria-labelledby="l-residuals">
-        <span className="c-label" id="l-residuals">residuals · the closed list; each one to be counted in state.json</span>
+        <span className="c-label" id="l-residuals">residuals · the closed list; each one counted in state.json</span>
         <div className="c-grid c-grid--2">
           <div className="c-card">
             <h2 className="c-h2">Sessions and reads</h2>
-            <Residuals items={BELL_RESIDUALS_SESSIONS} />
+            <Residuals items={BELL_RESIDUALS_SESSIONS} runs={runs} />
+            <h2 className="c-h2" style={{ marginTop: 16 }}>Volume ratio</h2>
+            <Residuals items={BELL_RESIDUALS_VOLUME} runs={runs} />
           </div>
           <div className="c-card">
             <h2 className="c-h2">Halts, reserves, wrappers</h2>
-            <Residuals items={BELL_RESIDUALS_HALTS_RESERVES} />
-            <h2 className="c-h2" style={{ marginTop: 16 }}>
-              Added by the change in review <span className="c-tag c-tag--next">upcoming</span>
-            </h2>
-            <Residuals items={BELL_RESIDUALS_UPCOMING} upcoming />
+            <Residuals items={BELL_RESIDUALS_HALTS_RESERVES} runs={runs} />
+            {BELL_RESIDUALS_UPCOMING.length > 0 ? (
+              <>
+                <h2 className="c-h2" style={{ marginTop: 16 }}>
+                  Not in the collector yet <span className="c-tag c-tag--next">upcoming</span>
+                </h2>
+                <Residuals items={BELL_RESIDUALS_UPCOMING} runs={runs} upcoming />
+              </>
+            ) : null}
           </div>
         </div>
         <p className="c-muted c-small" style={{ marginTop: 10 }}>
           A residual is a named reason the collector could not produce a clean fact. Each code has one runtime source; a
-          session carries its codes as words next to the number it qualifies, and <span className="c-mono">state.residuals</span>{" "}
-          will count each code, with <span className="c-mono">residual_total</span> as their sum. Codes marked upcoming are not
-          in the collector&rsquo;s closed list until the lot that adds them is merged and its integration test passes.
+          session carries its codes as words next to the number it qualifies, and each run&rsquo;s{" "}
+          <span className="c-mono">residuals</span> object in <span className="c-mono">state.json</span> counts every code of
+          the list. The counts beside each code are the latest record&rsquo;s, per instrument, as read from the host at{" "}
+          {served.read_at} (UTC), when this page&rsquo;s data was last written; the served counters sum to {residualSum}.
         </p>
       </section>
 
       <section className="c-section" id="digest" aria-labelledby="l-digest">
-        <span className="c-label" id="l-digest">digest and chain · what a published state will contain</span>
+        <span className="c-label" id="l-digest">digest and chain · the served schema, read from the publisher&rsquo;s closed list</span>
         <div className="c-grid c-grid--2">
           <div className="c-card">
-            <h2 className="c-h2">state.json</h2>
-            <pre className="c-code">{`{
-  "schema": "…",
-  "bell_sha": "`}<Placeholder name="bell_sha_latest" />{`",
-  "window": { "from_utc_ms": …, "to_utc_ms": … },
-  "residuals": { "<code>": <count>, … },
-  "residual_total": …,
-  "digest": {
-    "gaps":   [ { symbol, session, regime, ref_close_date,
-                  vwap, volume_base, n, g_t | abstain, … } ],
-    "halts":  { census },
-    "volume": [ { symbol, vol_ratio, multiplier_unit, … } ],
-    "supply": [ … ], "por": [ … ], "wrapper": [ … ]
-  }
-}`}</pre>
+            <h2 className="c-h2">What a published file contains</h2>
+            <pre className="c-code">{schemaText}</pre>
             <p className="c-muted c-small" style={{ marginTop: 10 }}>
-              Field names are the collector&rsquo;s; the shape shown is read from its source and will be replaced by the served
-              schema at publication. Close values, share volumes and any price-like key are refused by the digest guard.
+              The first four lines are the key lists of the files and of the signed line as served; the others are the
+              publisher&rsquo;s closed list of objects (a key outside its object, or an object outside the list, is refused
+              before publication). A scalar key is written bare, <span className="c-mono">[ ]</span> is a list of scalars and a
+              name is another object of the list. Schemas served: timeline <span className="c-mono">{served.timeline.schema}</span>,
+              state file <span className="c-mono">{head.state_schema}</span>, run{" "}
+              <span className="c-mono">{[...new Set(runs.map((r) => r.schema))].join(", ")}</span>, digest{" "}
+              <span className="c-mono">{[...new Set(runs.map((r) => r.digest_schema))].join(", ")}</span>, provenance file{" "}
+              <span className="c-mono">{head.provenance_schema}</span>, key set <span className="c-mono">{served.keyring.schema}</span>.
+              Close values, reference prices and consolidated volumes (a numeric value under any key naming a close, a
+              reference price, an average daily volume or a share volume) are refused by the digest guard; the on-chain VWAP
+              and base volume are carried.
             </p>
           </div>
           <div className="c-card">
@@ -304,9 +375,27 @@ vol_ratio  = V_shares / ADV`}</pre>
             <ol className="c-ol">
               <li><b>Canonical bytes.</b> The digest object is serialised with sorted keys and no whitespace; <span className="c-mono">bell_sha</span> is its hash.</li>
               <li><b>Journal.</b> Each line of the collection journal carries the hash of the previous line&rsquo;s canonical bytes; a removed or edited line breaks the chain at recomputation.</li>
-              <li><b>Timeline.</b> <span className="c-mono">timeline.jsonl</span> is append-only; each line carries the previous line&rsquo;s hash and a signature over its canonical bytes.</li>
-              <li><b>Provenance.</b> A separate file names the operators and the quorum for each read and the close source. It travels beside the digest and is not hashed into it.</li>
-              <li><b>Manifests.</b> At each start, end and resumption of a run, a manifest lists the run&rsquo;s artifacts with their hashes, sorted, one per line; the manifest is what gets anchored (see <a href="#anchors">anchors</a>).</li>
+              <li>
+                <b>Timeline.</b> <span className="c-mono">timeline.jsonl</span> is append-only; each line carries the previous
+                line&rsquo;s hash and a signature over its canonical bytes. The first line&rsquo;s previous-line hash is the
+                genesis value <span className="c-mono" style={{ overflowWrap: "anywhere" }}>{served.first_record.prev_line_hash}</span>;
+                the latest line is of kind <span className="c-mono">{head.kind}</span>, signed{" "}
+                <span className="c-mono" style={{ overflowWrap: "anywhere" }}>{head.sig}</span>.
+              </li>
+              <li>
+                <b>Provenance.</b> A separate file carries, per run, the start of the collection, the operators behind the reads
+                and the quorum, the faults logged and the digest of the closing-price request. It travels beside the digest and is
+                not hashed into it; the signed line names its SHA-256.
+              </li>
+              <li>
+                <b>Manifests.</b> At each start, end and resumption of the counter-verification run of the multiplier history, a
+                manifest lists the run&rsquo;s artifacts with their hashes, sorted, one per line; the manifest is what gets
+                anchored (see{" "}
+                <a href="#anchors">anchors</a>).{" "}
+                {anchored
+                  ? "An anchor manifest lists the latest published record's digests."
+                  : "No anchor manifest lists the latest published record's digests: it is signed and chained, not timestamp-anchored."}
+              </li>
             </ol>
           </div>
         </div>
@@ -322,13 +411,23 @@ vol_ratio  = V_shares / ADV`}</pre>
               <dt>public key</dt>
               <dd style={{ overflowWrap: "anywhere" }}><a href={pubkeyUrl}>{pubkeyUrl}</a>, the one URL of the key; this site links it and serves no copy</dd>
               <dt>key_id</dt>
-              <dd className="c-mono" style={{ overflowWrap: "anywhere" }}>{served.first_record.key_id}</dd>
+              <dd className="c-mono" style={{ overflowWrap: "anywhere" }}>{head.key_id}</dd>
+              <dt>status</dt>
+              <dd>
+                {key ? `${key.status} from seq ${String(key.valid_from_seq)}` : "not in the key set"}, read from the committed keyring,
+                byte-identical to the key set served as read at {served.read_at} (UTC)
+              </dd>
               <dt>generated</dt>
               <dd>on the dedicated host from which the records are published, operated by MONARK</dd>
+              <dt>backups</dt>
+              <dd>
+                a backup of the private key exists offline; restoring it is an exposure event, followed by an immediate
+                counter-signed rotation of the key, journaled in the served timeline
+              </dd>
               <dt>signs</dt>
               <dd>each line of <span className="c-mono">timeline.jsonl</span>, over the line&rsquo;s canonical bytes</dd>
               <dt>rotation</dt>
-              <dd><Placeholder name="key_rotation_policy" state="to be decided" /></dd>
+              <dd><Placeholder name="key_rotation_policy" state="to be published" /></dd>
             </dl>
           </div>
           <div className="c-card">
@@ -353,8 +452,8 @@ vol_ratio  = V_shares / ADV`}</pre>
               committed keyring <span className="c-mono">apps/bell/keys/bell-keyring.json</span>; the key served above is
               only a cross-checked channel. Its success status reads <span className="c-mono">consistent_with_supplied_keyring</span>;
               without a keyring it reports <span className="c-mono">self_consistent_only</span>, never an unqualified
-              success. The verifier, the publisher, its chain library and the public keyring are in the public export; the collector
-              (replay code below) is not exported yet.
+              success. The verifier, the publisher, its chain library and the public keyring are in the{" "}
+              <a href={BELL_PUBLIC_REPO_URL}>public repository</a>; the collector (replay code below) is not exported yet.
             </p>
           </div>
           <div className="c-card">
@@ -375,9 +474,10 @@ vol_ratio  = V_shares / ADV`}</pre>
           <div className="c-card">
             <h2 className="c-h2">What is anchored, and when</h2>
             <p className="c-muted">
-              At each boundary of a run (the end of the probe, the start, each resumption and the end of each instrument&rsquo;s
-              enumeration, and the final state), the boundary&rsquo;s manifest is submitted to OpenTimestamps. The proof is
-              pending first, then upgraded to a Bitcoin attestation.
+              At each boundary of the counter-verification run of the multiplier history of {anchors.mints.join(", ")} (the end
+              of the probe, the start, each resumption and the end of each instrument&rsquo;s enumeration, and the final
+              state), the boundary&rsquo;s manifest is submitted to OpenTimestamps. The proof is pending first, then upgraded to
+              a Bitcoin attestation.
             </p>
             <dl className="c-kv" style={{ marginTop: 12 }}>
               <dt>manifests and proofs</dt>
@@ -386,6 +486,12 @@ vol_ratio  = V_shares / ADV`}</pre>
               <dd>{anchors.rows.length} ({anchors.proofs} with a proof, {anchors.withoutProof} without)</dd>
               <dt>proofs with a Bitcoin record</dt>
               <dd>{anchors.withBitcoin} of {anchors.proofs}, read from the proof files when this page was built</dd>
+              <dt>the latest published record</dt>
+              <dd>
+                {anchored
+                  ? "its digests are listed in an anchor manifest"
+                  : "no anchor manifest lists its digests: it is signed and chained, not timestamp-anchored"}
+              </dd>
             </dl>
           </div>
           <div className="c-card">
@@ -412,8 +518,12 @@ vol_ratio  = V_shares / ADV`}</pre>
               arithmetic; the only check on a fact is the on-chain recompute.
             </p>
             <dl className="c-kv" style={{ marginTop: 12 }}>
-              <dt>published digest</dt>
-              <dd><Placeholder name="bell_sha_latest" /></dd>
+              {runs.map((r) => (
+                <div key={r.bell_sha} style={{ display: "contents" }}>
+                  <dt>published digest · {symbolsOf(r)}</dt>
+                  <dd className="c-mono" style={{ overflowWrap: "anywhere" }}>{r.bell_sha}</dd>
+                </div>
+              ))}
             </dl>
           </div>
           <div className="c-card">
@@ -449,7 +559,11 @@ vol_ratio  = V_shares / ADV`}</pre>
           </div>
           <div className="c-card">
             <h3 className="c-h3">Sample</h3>
-            <p className="c-muted">Four symbols of one family of tokenized equities on one chain, outside the TSV framework, over the stated windows. Results do not extend to other instruments, chains or venues.</p>
+            <p className="c-muted">
+              Designed for four symbols of one family of tokenized equities on one chain, outside the TSV framework, over the
+              stated windows; the latest published record covers {symbols.join(", ")}. Results do not extend to other
+              instruments, chains or venues.
+            </p>
           </div>
           <div className="c-card">
             <h3 className="c-h3">Not a certification</h3>
@@ -459,8 +573,8 @@ vol_ratio  = V_shares / ADV`}</pre>
         <dl className="c-kv" style={{ marginTop: 20 }}>
           <dt>this page</dt>
           <dd>
-            version <Placeholder name="method_version" />, dated <Placeholder name="method_date" />; source revision{" "}
-            <Placeholder name="method_commit" />
+            version dated {rev.committed_at.slice(0, 10)}, the date of the collector source revision it restates,{" "}
+            <span className="c-mono">{rev.commit.slice(0, 7)}</span>
           </dd>
           <dt>contact</dt>
           <dd><BellContact /></dd>

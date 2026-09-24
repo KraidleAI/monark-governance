@@ -1,12 +1,13 @@
-// apps/site/lib/bell-method.ts — the method facts rendered on /bell/method (lot SITE-CHARTE-C, decision 146).
+// apps/site/lib/bell-method.ts — the method facts rendered on /bell/method.
 //
 // These are DEFINITIONS of the collector (session bounds, the committed calendar, the decimal convention, the
 // closed list of residual codes), not measurements. The storefront cannot import the collector (apps/bell is not
 // in the public export), so they are restated here AND pinned to the collector source by the root test
 // test/bell-method.test.ts `bell_method_facts_match_collector`: the bounds are replayed through the collector's own
 // classifySession() at the minute they claim, the calendar sets and the decimals are compared for equality, and
-// the residual list must cover the collector's closed list exactly (codes marked upcoming may lag a lot that is
-// not merged). A drift in either place reds that test — never a silent divergence between the page and the code.
+// the residual list must cover the collector's closed list exactly, and a code still marked upcoming must NOT be in the
+// collector's closed list (a code that reached the collector is listed as served). A drift in either place reds that test
+// — never a silent divergence between the page and the code.
 // Pure data: no React/Next import, self-contained (shared by the page and the root test program).
 
 /** Eastern-Time session bounds (wall clock, daylight saving applied per date by the collector). */
@@ -48,7 +49,7 @@ export const BELL_RESIDUALS_SESSIONS: readonly BellResidual[] = [
   { code: "cash_cross_unavailable", gloss: "the cross-read of the close could not run for a reference day; distinct from a mismatch" },
   { code: "no_quorum", gloss: "fewer than two distinct operators answered a read" },
   { code: "quorum_sampled", gloss: "transaction bodies were compared on a deterministic sample, not the full set; the sampled share is stated" },
-  { code: "multiplier_unit", gloss: "the token unit and the share unit differ by a multiplier other than one" },
+  { code: "multiplier_unit", gloss: "the instrument's unit and the share unit differ by a multiplier other than one" },
   { code: "rebase_unverified", gloss: "the multiplier was not established constant or known across the pool window; the session abstains" },
   { code: "authority_scan_mono_operator", gloss: "the multiplier history was reconstructed through one operator's enumeration; an omission that would change the final state is caught, one that would not is not" },
   { code: "set_authority_unscanned", gloss: "the mint's authority-change history is not scanned; a self-cancelling change is the residual gap" },
@@ -59,13 +60,57 @@ export const BELL_RESIDUALS_HALTS_RESERVES: readonly BellResidual[] = [
   { code: "resume_date_gt_halt_date", gloss: "the resume date is later than the halt date; declared, and the window is still computed" },
   { code: "reason_unknown", gloss: "the halt reason does not map to a canonical reason family" },
   { code: "block_ts_vs_submission", gloss: "a standing residue on every halt delta: block time is the observed proxy for submission time, always declared" },
-  { code: "por_unavailable", gloss: "no first-hand proof-of-reserves source is named for a token" },
+  { code: "por_unavailable", gloss: "no public on-chain reserve feed is named for an instrument, so Bell does not recompute its reserves; an abstention of Bell, not a statement about the issuer's reserves" },
   { code: "por_stale", gloss: "the reserves value is older than the staleness bound" },
-  { code: "no_wrapper", gloss: "no wrapper or bridge contract is named for a token" },
+  { code: "no_wrapper", gloss: "no wrapper or bridge contract is named for an instrument" },
 ];
 
-/** Codes added by lot BELL-ADV-1 (in review at the date of this page): shown as upcoming until served. */
-export const BELL_RESIDUALS_UPCOMING: readonly BellResidual[] = [
-  { code: "no_adv", gloss: "no consolidated daily volume for the denominator period; no ratio is published" },
-  { code: "no_multiplier", gloss: "no shares-per-token multiplier readable for the window; no ratio is published" },
+/** The volume-ratio residuals (collector residuals.ts, counted per session entry since the first publication). */
+export const BELL_RESIDUALS_VOLUME: readonly BellResidual[] = [
+  { code: "no_adv", gloss: "the daily bars of the denominator month do not cover exactly its trading days; the session's ratio abstains, never a partial denominator" },
+  { code: "no_multiplier", gloss: "the shares-per-unit multiplier in effect at the session's fills is not established; the session's ratio abstains, never a default of one" },
 ];
+
+/** Codes of a change not yet in the collector's closed list, shown as upcoming until they are (none today). */
+export const BELL_RESIDUALS_UPCOMING: readonly BellResidual[] = [];
+
+/** Every served code the page lists, in page order (the closed list the loader checks each run's counters against). */
+export const BELL_RESIDUAL_CODES_LISTED: readonly string[] = [...BELL_RESIDUALS_SESSIONS, ...BELL_RESIDUALS_VOLUME, ...BELL_RESIDUALS_HALTS_RESERVES].map((r) => r.code);
+
+/** How the pages word each served proof-of-reserves status, keyed on the collector's status kinds (supply.ts PoRStatus): what
+ *  Bell did, never a statement about an issuer's reserves. "unavailable" is emitted when no relayed reserve value exists, and
+ *  none can while no public on-chain reserve feed is named in the collector's registry (every onchainFeed is null today);
+ *  test/bell-method.test.ts pins the kinds and that registry fact, so a named feed reds the test and this wording is re-read. */
+export const BELL_POR_KIND_GLOSS: Readonly<Record<string, string>> = {
+  unavailable: "not recomputed by Bell: no public on-chain reserve feed to recompute against (por_unavailable)",
+  stale: "not recomputed by Bell: the relayed reserve value is older than the staleness bound (por_stale)",
+  ok: "a relayed reserve value is read; Bell does not check it against the custodian",
+};
+
+/** The gloss of a served proof-of-reserves status; an unknown status throws (fail-closed: never a bare label). */
+export function porGloss(kind: string): string {
+  const g = BELL_POR_KIND_GLOSS[kind];
+  if (g === undefined) throw new Error(`bell method: no gloss for the served proof-of-reserves status ${kind}`);
+  return g;
+}
+
+/** The volume-ratio formula as the pages restate it. The served entries carry the collector's own string, whose wording of
+ *  the multiplier predates the storefront's vocabulary; this restatement says "shares per unit" and keeps every clause of
+ *  that string (S / A, the multiplier in effect at each fill, the unadjusted daily bars of adv_period, n_bars =
+ *  n_trading_days else no_adv, the unit). Pinned clause by clause to the served string by test/bell-method.test.ts. No
+ *  digit: the base delta b is already in units. */
+export const BELL_VOL_RATIO_FORMULA_DISPLAY = `vol_ratio  = S / A
+S          = Σ |b_i| · m(t_i) over the session's own pool
+             fills, from its first fill to its last
+m(t)       = shares per unit in effect at the fill
+A          = Σ v / n_bars over the unadjusted daily
+             consolidated share volumes v of the
+             underlying dated in adv_period
+adv_period = the calendar month before the session date;
+             n_bars = n_trading_days, else no_adv
+unit       = a fraction of one average trading day
+             of adv_period`;
+
+/** The public repository the export ships to (the verifier, the publisher, the chain library, the public keyring); equal to
+ *  the site footer's repository link (pinned by test/bell-method.test.ts). */
+export const BELL_PUBLIC_REPO_URL = "https://github.com/KraidleAI/monark";

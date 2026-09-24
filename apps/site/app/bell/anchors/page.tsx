@@ -6,11 +6,11 @@ import { AnchorsTable } from "@/components/bell/anchors-table";
 export const metadata: Metadata = {
   title: "Bell · anchors · MONARK",
   description:
-    "The MONARK Bell anchors register: one line per boundary of the first-measurement run, each manifest and each OpenTimestamps proof served beside it, the status of each line read from its proof file.",
+    "The MONARK Bell anchors register: one line per boundary of the counter-verification run of the multiplier history, each manifest and each OpenTimestamps proof served beside it, the status of each line read from its proof file.",
   icons: { icon: [{ url: "/icons/bell.svg", type: "image/svg+xml" }] },
 };
 
-// /bell/anchors (ruling Q2, decision 146): the governance register docs/course-bell/ANCHORS.md RENDERED (its real
+// /bell/anchors: the anchors register docs/course-bell/ANCHORS.md RENDERED (its real
 // lines, synced to public/bell/anchors/anchors.json by scripts/sync-bell-anchors.mjs and pinned to the source by the
 // root test bell_anchors_served_register_matches_source), the manifests and proofs served as files, and the status
 // of each line READ FROM ITS PROOF at build time. Counts and block heights render from that read (never a literal).
@@ -19,13 +19,18 @@ export default function BellAnchorsPage() {
   return (
     <main className="c-main">
       <section className="c-section" id="top">
-        <span className="c-label">/bell/anchors · manifests, proofs and the register · one line per boundary of the first-measurement run</span>
+        <span className="c-label">
+          /bell/anchors · manifests, proofs and the register · one line per boundary of the counter-verification run of the
+          multiplier history of {view.mints.join(", ")}
+        </span>
         <h1 className="c-h1" style={{ marginTop: 10 }}>Anchors</h1>
         <p className="c-lede" style={{ marginTop: 10 }}>
           At each start, end and resumption of a collection run, a manifest of the run&rsquo;s digests is submitted to a public
           timestamp (OpenTimestamps). The register below is the run&rsquo;s anchors register rendered; each manifest and each
           proof is served next to it. <b>What an anchor shows</b>: that the head of the chain existed before the date of the
-          anchor. <b>What it does not show</b>: where the pages came from, nor that the scan was executed.
+          anchor. <b>What it does not show</b>: where the pages came from, nor that the scan was executed. These anchors
+          timestamp the logs of that counter-verification run; a published Bell record is signed and chained on its own host
+          (<Link href="/bell#served">/bell · served</Link>).
         </p>
         <p className="c-mono c-small c-muted" style={{ marginTop: 10 }}>
           {view.rows.length} lines in the register · {view.proofs} proof files · {view.withBitcoin} with a Bitcoin block record ·{" "}

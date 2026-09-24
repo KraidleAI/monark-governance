@@ -7,9 +7,11 @@
  *       only when the file's sha256 equals the site manifest entry; a one-byte edit, or a file missing from the
  *       manifest, throws (fail-closed; test 44 (a) checks the same manifest entry independently).
  *   (2) bell_legal_data_gate_tokens_are_closed — EXACTLY what the data file carries that a gate would refuse: numeric
- *       tokens 6 and 1 (the GDPR article), 3 (the retention numeral), 69 (a decision number in the table); the site
- *       vocabulary hit "autonomous"; the probative hit "verified". Any other digit, banned word or probative word added
- *       to the data file reds here.
+ *       tokens 6 and 1 (the GDPR article), 3 (the retention numeral), and the six numbers of the Terms' first-served
+ *       instant (an ISO instant: the date part is not admitted when a time follows); the site vocabulary hits "guarante"
+ *       (the refused word of row one, since the site scope bans it in any form) and "autonomous"; the probative hit
+ *       "verified". Any other digit, banned word or probative word added to the data file reds here. The internal
+ *       cross-reference that closed row ten's 'why' cell is removed (deviation 7 of the Terms page); restoring it reds.
  *   (3) bell_legal_section_order_matches_the_validated_numbering — the ids are in the order of the validated texts,
  *       so the derived numbers equal the drafts' own ("## 8. Symbol requests", "## 4. Legal basis", "## 7. Your
  *       rights"), which the cross-references "§8", "§4" and "§7" rely on.
@@ -33,6 +35,20 @@ const PROBATIVE = /(?<!\bnot )(?<!\bno )(?<!\bnever )\b(?:verified|proven|certif
 
 test("bell_legal_loader_checks_the_manifest — sha256-checked, complete, fail-closed", () => {
   const data = loadBellLegal(ROOT);
+  // The instant the Terms text was first served: the switch of the storefront upload that shipped it (operator upload
+  // journal). Since then the text changed only by deviation 7 of the Terms page (an internal cross-reference removed from
+  // row ten, no obligation changed). Whether that change is material, and so re-dated to the switch instant of the upload
+  // that first serves it (Terms section 'Changes': "Material changes will be dated"), is item TERMS-REDATE-1 (owner:
+  // orchestrator; trigger: that upload). Until that ruling the committed date stays the first-served instant.
+  assert.equal(data.terms_last_updated_utc, "2026-09-23T19:49:17Z");
+  assert.equal(data.terms_words_table[9]?.why, "Which sources we cross-check against is not published.", "row ten's 'why' cell without the internal cross-reference");
+  for (const r of data.terms_words_table) {
+    for (const cell of [r.avoid, r.why, r.instead]) assert.doesNotMatch(cell, /\bdecisions? \d|\binternal\)/i, `an internal cross-reference in the Terms table: ${cell}`);
+  }
+  const terms = readFileSync(join(ROOT, "apps/site/app/bell/terms/page.tsx"), "utf8");
+  assert.match(terms, /legal\.terms_last_updated_utc/, "the Terms page reads the date from the hashed data file");
+  assert.ok(terms.includes("Last updated: {legal.terms_last_updated_utc.slice(0, 10)}."), "the Last updated line renders the loaded date, never a typed one");
+  assert.ok(!terms.includes("terms_published_date"), "the stale placeholder is gone");
   assert.equal(data.privacy.legal_basis_citation, "Article 6(1)(f) GDPR");
   assert.equal(data.privacy.retention_period, "Three (3) years");
   assert.equal(
@@ -65,6 +81,7 @@ test("bell_legal_loader_checks_the_manifest — sha256-checked, complete, fail-c
 test("bell_legal_data_gate_tokens_are_closed — exactly the refused spans, nothing else", () => {
   const data = loadBellLegal(ROOT);
   const fields: Array<[string, string]> = [
+    ["terms_last_updated_utc", data.terms_last_updated_utc],
     ["privacy.legal_basis_citation", data.privacy.legal_basis_citation],
     ["privacy.retention_period", data.privacy.retention_period],
     ["terms_words_scope_sentence", data.terms_words_scope_sentence],
@@ -72,7 +89,7 @@ test("bell_legal_data_gate_tokens_are_closed — exactly the refused spans, noth
   data.terms_words_table.forEach((r, i) => {
     fields.push([`terms_words_table[${i}].avoid`, r.avoid], [`terms_words_table[${i}].why`, r.why], [`terms_words_table[${i}].instead`, r.instead]);
   });
-  assert.equal(fields.length, 33, "two spans + one sentence + ten rows of three cells");
+  assert.equal(fields.length, 34, "one date + two spans + one sentence + ten rows of three cells");
 
   const cfg = JSON.parse(readFileSync(join(ROOT, "vocab-banned.json"), "utf8")) as {
     banned: { re: string; why: string }[];
@@ -93,10 +110,10 @@ test("bell_legal_data_gate_tokens_are_closed — exactly the refused spans, noth
   }
   assert.deepEqual(
     digits,
-    { "privacy.legal_basis_citation": ["6", "1"], "privacy.retention_period": ["3"], "terms_words_table[9].why": ["69"] },
+    { terms_last_updated_utc: ["2026", "09", "23", "19", "49", "17"], "privacy.legal_basis_citation": ["6", "1"], "privacy.retention_period": ["3"] },
     "numeric tokens carried by the legal data (honesty-lint detector, no exemption)",
   );
-  assert.deepEqual(vocab, { "terms_words_table[3].avoid": ["autonomous"] }, "site vocabulary hits carried by the legal data");
+  assert.deepEqual(vocab, { "terms_words_table[0].avoid": ["guarante"], "terms_words_table[3].avoid": ["autonomous"] }, "site vocabulary hits carried by the legal data");
   assert.deepEqual(probative, { "terms_words_table[1].avoid": ["verified"] }, "probative hits carried by the legal data");
 });
 
