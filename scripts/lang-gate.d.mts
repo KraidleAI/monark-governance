@@ -23,3 +23,10 @@ export interface Exemptions { maskers: RegExp[]; pathMatchers: RegExp[]; raw: un
 export function loadExempt(dir: string): Exemptions;
 /** Scan a file for non-exempt French hits (exempt-aware). Pure read; no process exit. */
 export function scanFile(abs: string, maskers: RegExp[]): LangHit[];
+
+// Added for the documentation route (/docs under apps/site): the walk skips a directory named `docs` at the repo root and
+// under packages/*, never under apps/site, where it is a route of the storefront. test/site-docs.test.ts pins both.
+/** True iff the walk skips the directory `name`, found inside the directory `relDir` (POSIX, relative to the scanned root). */
+export function skipDir(name: string, relDir: string): boolean;
+/** Every scannable text file under `dir`, as absolute and repo-relative POSIX paths, SKIP_DIRS applied through skipDir. */
+export function collectTextFiles(dir: string): { abs: string; rel: string }[];

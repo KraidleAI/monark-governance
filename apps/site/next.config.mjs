@@ -18,6 +18,11 @@ const nextConfig = {
     if (process.env.NODE_ENV !== "development") return [];
     return [{ source: "/narabi/:file(state.json|timeline.jsonl)", destination: "https://monarkgate.tech/narabi/:file" }];
   },
+  // /building is the page title of /roadmap (MONARK Building); the route keeps its address for the links that exist, and the
+  // alias redirects to it (temporary, so the canonical address can still change without a cached permanent redirect).
+  async redirects() {
+    return [{ source: "/building", destination: "/roadmap", permanent: false }];
+  },
   // Bell anchors: `.ots` is ALSO the OpenDocument spreadsheet-template extension, so the static
   // server would label an OpenTimestamps proof as a spreadsheet (measured locally). Serve the proofs as bytes to
   // download; manifests stay text/plain.

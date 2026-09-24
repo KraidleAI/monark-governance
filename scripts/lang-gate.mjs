@@ -228,7 +228,17 @@ export function isFileFrench(abs, maskers) {
   return scanFile(abs, maskers).length > 0;
 }
 
-/** Recursively collect scannable text files under dir, skipping SKIP_DIRS / excluded names. */
+/** True iff the walk skips a directory. `docs` is a governance directory (French reports, ADRs) at the repo root and under
+ *  packages/*, but under apps/site it is a ROUTE of the English storefront (/docs, the documentation section): that one is
+ *  scanned like every other apps/site directory, so a French word in it reddens the site scope. `relDir` is the POSIX path of
+ *  the directory that CONTAINS `name`, relative to the scanned root. */
+export function skipDir(name, relDir) {
+  if (!SKIP_DIRS.has(name)) return false;
+  if (name === "docs" && (relDir === "apps/site" || relDir.startsWith("apps/site/"))) return false;
+  return true;
+}
+
+/** Recursively collect scannable text files under dir, skipping SKIP_DIRS (see skipDir) / excluded names. */
 export function collectTextFiles(dir) {
   const out = [];
   const walk = (d) => {
@@ -236,7 +246,8 @@ export function collectTextFiles(dir) {
       const abs = join(d, name);
       const st = statSync(abs);
       if (st.isDirectory()) {
-        if (!SKIP_DIRS.has(name)) walk(abs);
+        const relDir = d.slice(dir.length + 1).replace(/\\/g, "/");
+        if (!skipDir(name, relDir)) walk(abs);
       } else {
         const rel = abs.slice(dir.length + 1).replace(/\\/g, "/");
         if (scannable(rel)) out.push({ abs, rel });
