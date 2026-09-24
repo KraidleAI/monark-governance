@@ -18,6 +18,12 @@ name: gates
 on:
   pull_request:
 
+# Least-privilege GITHUB_TOKEN (ADR-CODEQL-ALERTS-1 D1; CodeQL actions/missing-workflow-permissions): every job reads
+# the repository contents and nothing more. Widening it, here or per job, is an ADR decision; the root test
+# ci_workflow_declares_least_privilege_permissions pins this block (one block, after on:, no write scope).
+permissions:
+  contents: read
+
 jobs:
   g1-controle-generation:
     runs-on: ubuntu-latest

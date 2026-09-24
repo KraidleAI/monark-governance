@@ -153,7 +153,7 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
     if (detail === "") return "";
     const targets = secretTargets(op);
     if (targets === undefined) return ""; // FAIL-CLOSED: no parseable url => the body is NOT reprised
-    const escaped = targets.sort((a, b) => b.length - a.length).map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    const escaped = targets.sort((a, b) => b.length - a.length).map((t) => RegExp.escape(t)); // ES2025: each form matches LITERALLY, a '.' is never a wildcard (ADR-CODEQL-ALERTS-1 D2)
     const out = scrubUrls(detail);
     return escaped.length === 0 ? out : out.replace(new RegExp(escaped.join("|"), "gi"), "<redacted>");
   };

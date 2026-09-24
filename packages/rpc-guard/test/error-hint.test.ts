@@ -191,6 +191,18 @@ test("keyless_host_after_truncation_is_redacted_on_the_raw_body", async () => {
   for (let n = HHOST.length; n >= 4; n--) assert.ok(!m.includes(HHOST.slice(0, n)), `a >= 4-char keyless host prefix leaked (n=${String(n)}): ${m}`);
 });
 
+// ADR-CODEQL-ALERTS-1 D2 (C-V2-1): redact escapes every target form (RegExp.escape) before joining them into ONE regex,
+// so each form matches LITERALLY. A body carrying the host AND its dot-substituted look-alike `eth-drpc-org` (no target
+// form) redacts the host only (positive control) and keeps the look-alike verbatim. Mutant "escaping removed"
+// (`.map((t) => t)`): `eth.drpc.org` becomes a pattern whose dots match any char => the look-alike reads `<redacted>` too
+// => reds. A bare `drpc-org` would be inert (the operator label is never a target form), so it is not the witness.
+test("keyless_redact_matches_target_forms_literally_not_as_patterns", async () => {
+  const err = await raiseVia({}, "drpc.org", () => Promise.resolve(httpResp("x eth.drpc.org y eth-drpc-org z", 400)));
+  assert.ok(err instanceof TransportError && err.name === "HttpError" && err.code === 400, "typed keyless HttpError, code 400");
+  assert.equal(err.detail, "x <redacted> y eth-drpc-org z", "the host is redacted and its dot-substituted look-alike survives verbatim");
+  assert.ok(msgOf(err).endsWith("x <redacted> y eth-drpc-org z"), `the message carries the same detail: ${msgOf(err)}`);
+});
+
 // C-G-2: validateRevertData is FAIL-CLOSED on an unparseable operator url - secretTargets returns undefined, so the key
 // cannot be proven absent from the data, so the data is dropped. A parseable CS_ENV never exercises this branch. Reds
 // MY2. NOTE (measured): this mutation is byte-identical to the validator's V11, so this test reds V11 too. V11 "survived"

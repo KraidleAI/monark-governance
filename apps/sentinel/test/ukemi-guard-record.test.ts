@@ -711,6 +711,21 @@ const HB_LINE = /^ {2}\.\.filter config_read=(\d+)\/(\d+) n_at_risk_config=\d+ r
 const hbLines = (s: string): RegExpExecArray[] => s.split(/\r?\n/).map((l) => HB_LINE.exec(l)).filter((m): m is RegExpExecArray => m !== null);
 /** Parse a heartbeat tally body `op:n,op:n` (an operator label carries dots, never a colon) into a record. */
 const hbTally = (body: string | undefined): Record<string, number> => Object.fromEntries((body ?? "").split(",").filter((kv) => kv !== "").map((kv) => [kv.slice(0, kv.lastIndexOf(":")), Number(kv.slice(kv.lastIndexOf(":") + 1))]));
+/** Route a stubbed fetch by EXACT hostname, never by substring (ADR-CODEQL-ALERTS-1 D4; CodeQL #19-21): a substring test
+ *  also routes `https://evil.com/?x=eth.drpc.org`. URL.canParse guards a non-absolute input (never routed). File-local on
+ *  purpose: no helper is shared across test directories (the public mirror exports this file, not its neighbours). */
+const isHost = (input: string | URL, host: string): boolean => URL.canParse(String(input)) && new URL(String(input)).hostname === host;
+// The drpc stubs below route through isHost. Mutant "isHost reverted to String(input).includes(host)" => the decoys route
+// as drpc => reds here; so does a suffix match (`hostname.endsWith(host)`, G2 GM7) on `xeth.drpc.org`, and a dot-boundary
+// subdomain match (`endsWith("." + host)`, G2-delta GM7c) on `a.eth.drpc.org` (the recorder itself never fetches a decoy,
+// so this test is the stubs' own teeth).
+test("ukemi_record_stub_routes_drpc_by_exact_hostname", () => {
+  assert.equal(isHost("https://eth.drpc.org", "eth.drpc.org"), true, "the keyless drpc URL the recorder fetches routes as drpc");
+  assert.equal(isHost(new URL("https://eth.drpc.org"), "eth.drpc.org"), true, "a URL input routes too");
+  for (const decoy of ["https://evil.com/?x=eth.drpc.org", "https://eth.drpc.org.evil.com", "https://xeth.drpc.org", "https://a.eth.drpc.org", "https://evil.com/eth.drpc.org", "eth.drpc.org"]) {
+    assert.equal(isHost(decoy, "eth.drpc.org"), false, `a decoy never routes as drpc: ${decoy}`);
+  }
+});
 
 // (a) UKEMI-RETRY-2 VALUE on the essai-5 topology (replays the essai-4 death): drpc's FIRST eth_call answers the real 408;
 // it is retried IN PLACE (one wait = the unchanged backoff 500 ms) and the full book completes on the PIN. Mutant "408
@@ -722,7 +737,7 @@ test("ukemi_record_retry2_drpc_408_is_retried_in_place_course_topology_survives"
   let failedKey: string | undefined; let failedKeyFetches = 0;
   const stub = ((input: string | URL, init?: RequestInit): Promise<Response> => {
     const req = parseReq(init);
-    if (String(input).includes("eth.drpc.org") && req.method === "eth_call") {
+    if (isHost(input, "eth.drpc.org") && req.method === "eth_call") {
       const key = JSON.stringify(req.params);
       if (failedKey === undefined) { failedKey = key; failedKeyFetches += 1; return Promise.resolve(new Response(DRPC_408_BODY, { status: 408, headers: { "content-type": "application/json" } })); }
       if (key === failedKey) failedKeyFetches += 1;
@@ -780,7 +795,7 @@ test("ukemi_record_retry2_4xx_boundary_only_408_is_transient", async () => {
     const { dir, cleanup } = tmpLedger();
     const { sleeps, sleep } = recSleep();
     let drpc = 0;
-    const stub = ((input: string | URL): Promise<Response> => { if (String(input).includes("eth.drpc.org")) { drpc += 1; return Promise.resolve(new Response(body, { status, headers: { "retry-after": "2" } })); } return Promise.resolve(jrpc({ hash: FX.block_hash, number: "0x1", timestamp: "0x1" })); }) as typeof globalThis.fetch;
+    const stub = ((input: string | URL): Promise<Response> => { if (isHost(input, "eth.drpc.org")) { drpc += 1; return Promise.resolve(new Response(body, { status, headers: { "retry-after": "2" } })); } return Promise.resolve(jrpc({ hash: FX.block_hash, number: "0x1", timestamp: "0x1" })); }) as typeof globalThis.fetch;
     try { await withFetch(stub, async () => { await assert.rejects(() => runRecorder(argvR(dir, COURSE_OPS, ["--cluster", "weth", "--block", "1", "--retries", String(RETRIES)]), { ...DEPS, sleep })); }); return { drpc, sleeps }; }
     finally { cleanup(); }
   };
@@ -831,7 +846,7 @@ test("ukemi_record_heartbeat1_period_is_the_flag_stderr_only_with_iso_t", async 
     const stub = ((input: string | URL, init?: RequestInit): Promise<Response> => {
       const req = parseReq(init);
       const data = (req.params[0] as { data?: string } | undefined)?.data ?? "";
-      if (blip && String(input).includes("eth.drpc.org") && req.method === "eth_call" && data.startsWith(SEL.getUserConfiguration) && ++cfg === 2) return Promise.resolve(new Response(DRPC_408_BODY, { status: 408 }));
+      if (blip && isHost(input, "eth.drpc.org") && req.method === "eth_call" && data.startsWith(SEL.getUserConfiguration) && ++cfg === 2) return Promise.resolve(new Response(DRPC_408_BODY, { status: 408 }));
       return Promise.resolve(fxServe(req));
     }) as typeof globalThis.fetch;
     try {

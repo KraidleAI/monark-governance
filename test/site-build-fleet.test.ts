@@ -1190,3 +1190,204 @@ test("site_names_no_kitchen — no internal work vocabulary in ANY exported apps
   assert.notEqual(mutant, read(ROADMAP), "premise: the mutant applies");
   assert.notDeepEqual(kitchenHits(ROADMAP, mutant), [], "mutant sub-agents on /roadmap must red");
 });
+
+// Lot CODEQL-ALERTS-1 (ADR-CODEQL-ALERTS-1 D3; CodeQL #27 js/bad-tag-filter, #28/#29 js/incomplete-multi-character-
+// sanitization): renderedBody removes hidden blocks and comments with a one-pass scanner, never a regex filter. The five
+// outcomes the ADR fixes, fail-closed on EVERY unclosed surface, generic tags kept. Named mutants (G1): closer without
+// whitespace tolerance => (i) reds; `<script` output guard removed => (v) reds; `<!--` output guard removed => (iii)
+// reds; no throw on an unclosed block => (iv) reds. G2 fold (B-1, M-1): a template ends at its own `</template>`, not at
+// one inside a nested script/noscript (raw text) or a nested template (T1-T3, Rd); a closer name has a boundary (GM4).
+test("rendered_body_scanner_outcomes - the five ADR outcomes, fail-closed on unclosed surfaces, generic tags kept (ADR-CODEQL-ALERTS-1 D3)", () => {
+  // (i) `</script >` closes the block (the form the regex missed, CodeQL #27); any ASCII whitespace, any case, attributes.
+  assert.equal(renderedBody("<script>a</script >b"), "b", "(i) a closer padded by a space ends the block");
+  assert.equal(renderedBody("<SCRIPT data-x=1>a</Script\t\n>b"), "b", "(i) any ASCII whitespace and case, attributes tolerated");
+  // (GM4) the closer's name has a boundary too: `</scriptx>` closes nothing, the later `</script>` does.
+  assert.equal(renderedBody("<script>a</scriptx>b</script>c"), "c", "(GM4) `</scriptx>` is not a closer of <script>");
+  // (T1, T2, T3, Rd) template content is markup (WHATWG 13.2.6.4.16): a nested script/noscript is raw text, so a
+  // `</template>` inside it closes nothing; an unclosed nested block still throws, naming itself; templates nest.
+  assert.equal(renderedBody('<template><script>var s="</template>";</script>HIDDEN</template>VISIBLE'), "VISIBLE", "(T1) a </template> inside a nested <script> closes nothing");
+  assert.equal(renderedBody("<template><noscript></template>HIDDEN</noscript></template>VISIBLE"), "VISIBLE", "(T2) a </template> inside a nested <noscript> closes nothing");
+  assert.throws(() => renderedBody("<main>ok</main><template><script></template>HIDDEN"), /unclosed <script> block/, "(T3) an unclosed <script> nested in a <template> throws (ADR D3 (iv))");
+  assert.equal(renderedBody("<template><template></template>HIDDEN</template>VISIBLE"), "VISIBLE", "(Rd) a nested template closes its own </template> first");
+  // (G2-delta M-1) the template closer keeps D3's grammar on its own call path (templateEnd -> closerAt): any case, any
+  // ASCII whitespace before `>`, a name boundary; a comment in template content is consumed whole, so a `</template>`
+  // inside it closes nothing (Tc).
+  assert.equal(renderedBody("<TeMpLaTe><ScRiPt></TEMPLATE></sCrIpT>HA</TeMpLaTe>VA"), "VA", "(Tcase) the template closer is ASCII case-insensitive");
+  assert.equal(renderedBody("<template>HA</template \t\n\f\r>VA"), "VA", "(Tws) any ASCII whitespace may pad the template closer");
+  assert.equal(renderedBody("<template>HA</templatex>HB</template>VA"), "VA", "(Tx) `</templatex>` is not a template closer");
+  assert.equal(renderedBody("<template><!-- </template> -->HA</template>VA"), "VA", "(Tc) a </template> inside a comment in a template closes nothing");
+  // (ii) `<scr` is no opener; the complete block after it goes; the leftover text stays as is.
+  assert.equal(renderedBody("<scr<script>ipt>P</script>"), "<scr", "(ii) the scanner looks for an opener from the current position");
+  // (iii) a comment opener rebuilt from leftovers is caught on the OUTPUT (C-V2-2b).
+  assert.throws(() => renderedBody("<!-<!---->-"), /<!-- comment opener survived stripping/, "(iii) a residual <!-- throws");
+  // (iv) an unclosed hidden block or comment throws in the scanner (its payload would be counted as rendered text).
+  assert.throws(() => renderedBody("<script>"), /unclosed <script> block/, "(iv) an unclosed <script> throws");
+  for (const name of ["noscript", "template"]) {
+    assert.throws(() => renderedBody(`<main>body</main><${name}>hidden note`), new RegExp(`unclosed <${name}> block`), `(iv) an unclosed <${name}> throws (the regex left its text in the body)`);
+  }
+  assert.throws(() => renderedBody("<main>body</main><!-- open"), /unclosed <!-- comment/, "(iv) an unclosed comment throws");
+  // (v) a <script> rebuilt from leftovers is caught by the `<script` guard on the OUTPUT (C-V2-2a), never silenced.
+  assert.throws(() => renderedBody("<scr<script></script>ipt>"), /<script> tag survived stripping/, "(v) the output guard throws");
+  // Generic tags are KEPT (extractMain / mainCorpus read them): only hidden surfaces and comments go.
+  assert.equal(
+    renderedBody('<main class="m"><p title="t">x<!-- -->y</p><scripts>z</scripts></main>'),
+    '<main class="m"><p title="t">xy</p><scripts>z</scripts></main>',
+    "generic tags (a non-hidden <scripts> included) are kept verbatim",
+  );
+});
+
+// Lot CODEQL-ALERTS-1, G2-delta fold (B-2, L-1, M-2). A comment ends where a browser ends it (WHATWG 13.2.5.43, .44,
+// .50-.52): at once for `<!-->` and `<!--->`, else at the first `-->` or `--!>`. The `-->`-only grammar ran on past that
+// end, swallowed the opener of a LATER hidden surface, and the rest of its payload was counted (U1-U7, Lb1-Lb6). A `<!--`
+// in raw text or in an attribute value is no comment to a browser and the scanner cannot tell, so a comment span holding
+// a hidden-surface opener throws, naming it. Template nesting is bounded (a named throw, never a call-stack overflow).
+test("rendered_body_comment_forms_and_template_depth - browser comment closes, ambiguous comment spans fail closed, bounded nesting (G2-delta B-2, L-1, M-2)", () => {
+  // Abrupt closes (13.2.5.43/.44) and `--!>` (13.2.5.52) end the comment where a browser does.
+  assert.equal(renderedBody("<!-->VA"), "VA", "(Rb1) `<!-->` closes at once");
+  assert.equal(renderedBody("<!--->VA"), "VA", "(Rb2) `<!--->` closes at once");
+  assert.equal(renderedBody("<!-- HA --!>VA"), "VA", "(Rb3) `--!>` closes the comment");
+  assert.equal(renderedBody("<!-->VA<!-- -->"), "VA", "(Rb4) `<!-->` never pairs with a later `-->`");
+  assert.throws(() => renderedBody("<!--!>HA"), /unclosed <!-- comment/, "(Rb5) `<!--!>` closes nothing: only a `>` right after `<!--` does (13.2.5.43)");
+  // ... so a comment closed at once never swallows the opener of a later hidden surface (B-2 in a template, L-1 at top level).
+  assert.equal(renderedBody("<template><!--></template><script>--></template>HA</script>VA"), "VA", "(U1) `<!-->` in a template");
+  assert.equal(renderedBody("<template><!---></template><script>--></template>HA</script>VA"), "VA", "(U2) `<!--->` in a template");
+  assert.equal(renderedBody("<template><!-- x --!></template><script>--></template>HA</script>VA"), "VA", "(U3) `--!>` in a template");
+  assert.equal(renderedBody("<template><!--></template><noscript>--></template>HA</noscript>VA"), "VA", "(U7) same, via a <noscript>");
+  assert.equal(
+    renderedBody('<main><h2>How each built agent is served</h2></main><template><!--></template><script>self.__next_f.push([1,"-->"])</template>note only in payload</script>'),
+    "<main><h2>How each built agent is served</h2></main>",
+    "(U6) a note living only in the inline payload is never counted (G0 finding 8 shape)",
+  );
+  assert.equal(renderedBody("<!--><noscript>-->HA</noscript>VA"), "VA", "(Lb5) top level, <noscript>");
+  assert.equal(renderedBody("<!--><template>-->HA</template>VA"), "VA", "(Lb6) top level, <template>");
+  assert.equal(renderedBody("<template><!--></template>VA--></template>VB"), "VA--></template>VB", "(Rb4t) the template ends at its first closer");
+  // ... and a <script> left without a closer throws again (ADR D3 (iv)).
+  assert.throws(() => renderedBody("<template><!--></template><script>--></template>HA"), /unclosed <script> block/, "(U1b) unclosed <script> after a template");
+  assert.throws(() => renderedBody("<!--><script>-->HA"), /unclosed <script> block/, "(Lb1) unclosed <script> after `<!-->`");
+  assert.throws(() => renderedBody("<!-- x --!><script>-->HA"), /unclosed <script> block/, "(Lb2) unclosed <script> after `--!>`");
+  // A comment span holding a hidden-surface opener: a real comment hides the opener, a `<!--` in raw text (style,
+  // title..., M-24) or in an attribute value leaves it live. The scanner cannot tell: it throws, naming the opener.
+  assert.throws(() => renderedBody("<style><!--</style><script>-->HA"), /comment spans a <script> opener/, "(Lb3) `<!--` in a <style>");
+  assert.throws(() => renderedBody('<p title="<!--"></p><script>-->HA'), /comment spans a <script> opener/, "(Lb4) `<!--` in an attribute value");
+  assert.throws(() => renderedBody("<template><style><!--</style></template><script>--></template>HA</script>VA"), /comment spans a <script> opener/, "(U4) `<!--` in a <style> in a template");
+  assert.throws(() => renderedBody('<template><p title="<!--"></p></template><script>--></template>HA</script>VA'), /comment spans a <script> opener/, "(U5) `<!--` in an attribute value in a template");
+  assert.throws(() => renderedBody("<!--<script>-->VA"), /comment spans a <script> opener/, "(Ca1) opener right after `<!--`");
+  assert.throws(() => renderedBody("<!-- <noscript> -->VA"), /comment spans a <noscript> opener/, "(Ca2) a <noscript> opener");
+  assert.throws(() => renderedBody("<!-- <b> <template> -->VA"), /comment spans a <template> opener/, "(Ca3) an opener after a generic tag");
+  // Template nesting is bounded: 256 levels are followed, 257 throw a named error (never a RangeError of the call stack).
+  const nested = (n: number): string => "<template>".repeat(n) + "</template>".repeat(n) + "VDEEP";
+  assert.equal(renderedBody(nested(256)), "VDEEP", "(D256) 256 nested templates are followed");
+  assert.throws(() => renderedBody(nested(257)), /<template> nested deeper than 256 levels/, "(D257) deeper nesting throws, named");
+});
+
+// Lot CODEQL-ALERTS-1, pli 3 (L-2, investor decision 187). Raw-text elements (style, title, textarea, xmp, iframe,
+// noembed, noframes, plaintext: WHATWG 13.2.6.4.4, 13.2.6.4.7) hold TEXT to a browser; the scanner does not remove them
+// and reads their content as markup. Where that reading changes what it takes for hidden, it throws, named: a
+// hidden-surface opener in the content (live to the scanner, it swallowed a real surface that follows: the two-pass
+// regex order threw on `<style><noscript></style><script></noscript>...`, the single pass counted the payload), a
+// template closer in the content of an element in a template, an element never closed, and a comment span holding a
+// raw-text opener (the ambiguity rule).
+test("rendered_body_raw_text_elements - a raw-text element holding a hidden-surface opener, a template closer (in a template) or left unclosed, and a comment spanning a raw-text opener, fail closed (pli 3, L-2)", () => {
+  // Clause 1: a hidden-surface opener in the content.
+  assert.throws(() => renderedBody("<style><noscript></style><script></noscript>HA"), /a <style> element holds a <noscript> opener/, "(L2) the noscript read in the style swallowed the script opener");
+  assert.throws(() => renderedBody("<style><noscript></style><script></noscript>HA</script>VB"), /a <style> element holds a <noscript> opener/, "(L2c) same, the script closed later");
+  for (const name of ["title", "textarea", "xmp", "iframe", "noembed", "noframes"]) {
+    assert.throws(() => renderedBody(`<${name}><noscript></${name}><script></noscript>HA`), new RegExp(`a <${name}> element holds a <noscript> opener`), `(L2-${name}) every raw-text element`);
+  }
+  assert.throws(() => renderedBody("<STYLE type=x><NoScript></Style ><script></noscript>HA</script>VB"), /a <style> element holds a <noscript> opener/, "(L2case) any case, attributes, a padded closer");
+  assert.throws(() => renderedBody("<style>a<b>b<noscript></style><script></noscript>HA"), /a <style> element holds a <noscript> opener/, "(L2nf) the opener need not be the first tag");
+  assert.throws(() => renderedBody("<style><template></style><script></template>HA"), /a <style> element holds a <template> opener/, "(L2tpl) a template opener");
+  assert.throws(() => renderedBody("<style><script></style><noscript></script>HA</noscript>VB"), /a <style> element holds a <script> opener/, "(L2scr) a script opener");
+  assert.throws(() => renderedBody("<template><style><noscript></style><script></noscript>HA</script></template>VA"), /a <style> element holds a <noscript> opener/, "(L2t) inside a template too");
+  // Clause 2: in template content, a template closer in the content (R-h).
+  assert.throws(() => renderedBody("<template><style></template></style>HA</template>VA"), /a <style> element in a <template> holds a <\/template>/, "(Rh1)");
+  assert.throws(() => renderedBody("<template><title></template></title>HA</template>VA"), /a <title> element in a <template> holds a <\/template>/, "(Rh3)");
+  assert.throws(() => renderedBody("<template><textarea></template></textarea>HA</template>VA"), /a <textarea> element in a <template> holds a <\/template>/, "(Rh2)");
+  // Clause 3: an element never closed (plaintext never is, 13.2.6.4.7).
+  assert.throws(() => renderedBody("<main>body</main><style>note"), /an unclosed <style> element/, "(Ru1) its text would run to the end of the input");
+  assert.throws(() => renderedBody("<template><style></template><!-->HA-->"), /an unclosed <style> element/, "(Rh1acc) no longer hidden behind a comment");
+  assert.throws(() => renderedBody("<plaintext></plaintext><script>x</script>VA"), /an unclosed <plaintext> element/, "(Pt) plaintext never ends");
+  // A comment span holding a raw-text opener: if the <!-- is text or an attribute value, the element is live.
+  assert.throws(() => renderedBody("<style><!--</style><style>--><noscript></style><script></noscript>HA</script>VB"), /a <!-- comment spans a <style> opener/, "(Byp1) a <!-- in raw text");
+  assert.throws(() => renderedBody('<p title="<!--"></p><style>--><noscript></style><script></noscript>HA</script>VB'), /a <!-- comment spans a <style> opener/, "(Byp2) a <!-- in an attribute value");
+  assert.throws(() => renderedBody('<template><p title="<!--"></p><style>--></template>HA</style></template>VA'), /a <!-- comment spans a <style> opener/, "(Byp3) in a template");
+  assert.throws(() => renderedBody("<!-- <style> -->VA"), /a <!-- comment spans a <style> opener/, "(Ca4) a real comment holding one throws too: the scanner cannot tell");
+  // Exact cases kept: raw-text elements are copied verbatim, like every generic tag.
+  assert.equal(renderedBody("<style>body{color:red}</style>VA"), "<style>body{color:red}</style>VA", "(Ex1)");
+  assert.equal(renderedBody("<title>T</title>VA<textarea>x</textarea>VB"), "<title>T</title>VA<textarea>x</textarea>VB", "(Ex2)");
+  assert.equal(renderedBody("<style>a<b>c</style>VA"), "<style>a<b>c</style>VA", "(Ex3) a generic tag in the content");
+  assert.equal(renderedBody("<template><style>x</style>HA</template>VA"), "VA", "(Ex4) a closed style in a template");
+  assert.equal(renderedBody("<style><!-- a --></style>VA"), "<style></style>VA", "(Ex6) a comment inside, removed as before");
+  assert.equal(renderedBody('<main><style>.x{}</style><p>VA</p></main><script>self.__next_f.push([1,"HA"])</script>'), "<main><style>.x{}</style><p>VA</p></main>", "(Ex7) the page shape");
+  assert.equal(renderedBody("<style>x</style><noscript>HA</noscript>VA<template>HB</template>VB"), "<style>x</style>VAVB", "(Ex8)");
+  assert.equal(renderedBody("<styles>VA</styles><noscript>HA</noscript>VB"), "<styles>VA</styles>VB", "(Bnd) `<styles>` is no raw-text element");
+  assert.equal(renderedBody("<style></template></style>VA"), "<style></template></style>VA", "(Rtop) a template closer at top level closes nothing");
+  assert.equal(renderedBody("<style><title></style><script>x</script>VA"), "<style><title></style>VA", "(Nest) a raw-text opener in the content is text");
+  assert.equal(renderedBody("<template><style><title></style>HA</template>VA"), "VA", "(NestT) likewise in a template");
+  // A raw-text opener right after the previous raw-text closer is checked too: the skip ends AT that closer, never past it.
+  assert.throws(() => renderedBody("<style></style><style><noscript></style><script></noscript>HA"), /a <style> element holds a <noscript> opener/, "(L2adj) back-to-back raw-text elements");
+  assert.throws(() => renderedBody("<template><style></style><style></template></style>HA</template>VA"), /a <style> element in a <template> holds a <\/template>/, "(Rh1adj) likewise in a template");
+  assert.equal(renderedBody("<style>a</style ><script>x</script>VA"), "<style>a</style >VA", "(Cls) a padded closer ends the element");
+  assert.equal(renderedBody("<template><style></template x></style>HA</template>VA"), "VA", "(Rax) `</template x>` is no D3 closer (R-a)");
+});
+
+// Lot CODEQL-ALERTS-1, pli 5 (investor decision 205, 2026-09-24). Guard 1: the KNOWN LIMIT of the D3 scanner, pinned. Four
+// forms sit outside the D3 grammar (G2 de confirmation M-1, and L-3): a construct the scanner does not model (an R-a
+// closer of a raw-text element, an R-c `>` inside a quoted attribute of a raw-text opener, a raw-text or hidden opener in
+// an attribute value) makes it count a hidden payload where the two-pass regex order threw (parse5 hides HA in all four).
+// Decision 205 exempts the whole family from D3 (iv) (item I-9); a conformant scanner is a separate lot
+// (SCANNER-CONFORME-1). The scanner classifies each form THROW or UNDER (HA counted), never anything else: if one ever
+// comes out EXACT (no throw, HA not counted), either the scanner became conformant on it (this pin must go) or it lost
+// the payload (a regression); tell them apart with a browser-grade parser (SCANNER-CONFORME-1).
+test("rendered_body_known_limit_family_pinned - the four forms exempted by decision 205 stay THROW or UNDER; EXACT means the exemption must be removed (I-9, SCANNER-CONFORME-1)", () => {
+  const throwsOrCounts = (html: string): boolean => {
+    let out: string;
+    try {
+      out = renderedBody(html);
+    } catch (e) {
+      // THROW counts only as the scanner's OWN fail-closed, whose messages all start with this prefix; any other exception
+      // is a bug, not the exemption, and is rethrown (checkpoint-2 ter C-1).
+      if (e instanceof Error && e.message.startsWith("assert-fleet-html: ")) return true;
+      throw e;
+    }
+    return out.includes("HA"); // UNDER: the known limit; EXACT returns false
+  };
+  const exact = (form: string): string => `(${form}) came out EXACT (no throw, HA not counted). Conformant on this known-limit form? Then remove its exemption (I-9, decision 205) and assert the exact output instead. Payload lost? Then it is a regression. Tell them apart with a browser-grade parser (SCANNER-CONFORME-1).`;
+  assert.ok(throwsOrCounts("<style></style/><title></style><noscript></title><script></noscript>HA"), exact("G-RaSkip, R-a closer of a raw-text element"));
+  assert.ok(throwsOrCounts('<style title="x></style>"><noscript></style><script></noscript>HA'), exact("G-RcSkip, R-c on a raw-text opener"));
+  assert.ok(throwsOrCounts('<p title="<style>"></p><title></style><noscript></title><script></noscript>HA'), exact("G-AttRaw, raw-text opener in an attribute value"));
+  assert.ok(throwsOrCounts('<p title="<noscript>"><script></noscript>HA'), exact("Att1, hidden opener in an attribute value (L-3)"));
+});
+
+// Guard 2 (investor decision 205): the checks above read the BUILT html, whose text React escapes; raw html injected by
+// the site itself would bypass that escaping, whatever the scanner does. In apps/site, `dangerouslySetInnerHTML` appears
+// in the code sources (.tsx, .ts, .jsx, .js, .mjs; checkpoint-2 ter C-2) only in app/layout.tsx (the theme script,
+// once), and `rehype-raw` and `innerHTML =` appear in no
+// file. A file walk (no git): node_modules and the build output .next are third-party or generated code, excluded. Any
+// other occurrence reds with its path; removing the theme script reds too (the pin holds both ways).
+test("site_raw_html_injection_points_pinned - dangerouslySetInnerHTML only in apps/site/app/layout.tsx (theme script, once), no rehype-raw and no innerHTML = in apps/site (decision 205, guard 2)", async () => {
+  const { readdirSync } = await import("node:fs");
+  const { sep } = await import("node:path");
+  const site = join(ROOT, "apps", "site");
+  const files = readdirSync(site, { recursive: true, withFileTypes: true })
+    .filter((d) => d.isFile())
+    .map((d) => join(d.parentPath, d.name).slice(site.length + 1).split(sep).join("/"))
+    .filter((rel) => !rel.split("/").some((seg) => seg === "node_modules" || seg === ".next"));
+  const isCode = (rel: string): boolean => [".tsx", ".ts", ".jsx", ".js", ".mjs"].some((ext) => rel.endsWith(ext));
+  const tsx = files.filter((rel) => rel.endsWith(".tsx"));
+  assert.ok(tsx.includes("app/layout.tsx") && tsx.length >= 20, `the walk reached the site sources (non-vacuous): ${tsx.length} .tsx files`);
+  const sinks: string[] = [];
+  const raw: string[] = [];
+  for (const rel of files) {
+    const text = readFileSync(join(site, ...rel.split("/")), "utf8");
+    const n = isCode(rel) ? text.split("dangerouslySetInnerHTML").length - 1 : 0;
+    if (n) sinks.push(`apps/site/${rel} x${n}`);
+    if (text.includes("rehype-raw") || /innerHTML\s*=(?!=)/.test(text)) raw.push(`apps/site/${rel}`);
+  }
+  assert.deepEqual(sinks, ["apps/site/app/layout.tsx x1"], "dangerouslySetInnerHTML only in app/layout.tsx, once (the theme script)");
+  assert.deepEqual(raw, [], "no rehype-raw and no innerHTML = in apps/site");
+  // C-3 (checkpoint-2 ter, added at the merge into lot/etude-suite where it is true since 05c66aa): a raw .html document
+  // under public/ is served verbatim, outside the three sinks above; none is allowed (the /bell scene is a native component).
+  const rawHtml = files.filter((rel) => rel.startsWith("public/") && rel.endsWith(".html"));
+  assert.deepEqual(rawHtml, [], "no raw .html document under apps/site/public");
+});
