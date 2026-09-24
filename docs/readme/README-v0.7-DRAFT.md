@@ -341,5 +341,5 @@ Apache-2.0 — see [LICENSE](./LICENSE). The published integration skill is MIT-
 <!--
 GitHub "About" description (≤ 350 chars, draft to apply with `gh repo edit --description` on the public mirror, on investor go):
 
-MONARK — two sides, one engine. AI side: a coverage-controlled decision engine (commit | defer | abstain over a depletable budget, never a probability of being right) on six frozen contracts, reachable by AI agents over MCP/HTTP and kept adapted to DeFi. DeFi side: the products derived from it — MONARK Bell first. https://linktr.ee/monarkgate
+MONARK — two sides, one engine. AI side: a coverage-controlled decision engine (commit | defer | abstain over a depletable budget, never a probability of being right) on six frozen contracts, reachable by AI agents over MCP/HTTP, kept adapted to DeFi. DeFi side: the on-chain applications it powers — MONARK Bell first. https://linktr.ee/monarkgate
 -->
