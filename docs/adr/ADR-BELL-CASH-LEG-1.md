@@ -6,7 +6,7 @@
 
 ## Contexte mesuré (2026-09-24 01:1x UTC)
 - Clé Databento présente en scope User (longueur 32, jamais affichée, A-7) ; clé Massive/Polygon présente (recoupement interne, décision 69).
-- Bundles opérateur existants `F:/course-bell/q6/{TSLAx (W3), AAPLx (W3), SPYx (W4)}/` : fills et VWAP par session valides, `gaps[].abstain = "no_close_ref"`, `journal.json` avec `faults[{provider:"databento.com", status:"HTTP 400"}]` (Q6-C09-DATABENTO-1 : 400 et non 401 sans clé — profil à expliquer par le worker : réponse de `hist.databento.com` à une requête sans `Authorization`).
+- Bundles opérateur existants `F:/course-bell/q6/{TSLAx (W3), AAPLx (W3), SPYx (W4)}/` : fills et VWAP par session valides, `gaps[].abstain = "no_close_ref"`, `journal.json` avec `faults[{provider:"databento.com", status:"HTTP 400"}]` (Q6-C09-DATABENTO-1 : 400 et non 401 sans clé — **expliqué et mesuré** (C-4, G1 §4) : la requête partait avec `Authorization: Basic Og==`, base64 de `:` (identifiants vides), pas sans en-tête ; le skip à clé vide supprime l'appel).
 - `provenance.json` servi (seq 1) : `faults[0].provider = "databento"` (relabellisé à la main avant publication : le guard `bell-publish.mjs:93-139` refuse les hôtes pointés, `BARE_LABEL`) — contradiction publique avec les Terms servis (« avoid any specific data provider's name », `bell-legal.json:55`) : **FAULTS-PROVIDER-NAME-1 (b)**.
 - `close.ts:159` et `:170/:435` étiquettent les requêtes cash `provider: "databento.com"` / `"polygon.io"` (hôtes) ; `collect.ts:396` étiquette les fautes RPC par `providerOf(primary)` (étiquette nue : conforme).
 - Page `/bell/method` : seuils « 1/5 % » ; code `digest.ts:76` : `exceed1/exceed2/exceed5` (**METHOD-THRESHOLDS-1**).
