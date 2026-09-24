@@ -22,10 +22,10 @@ export const metadata: Metadata = {
 // the registers, never hard-coded. The design INVERTS the segment↔product mapping — we follow fleet.ts.
 export default function ProductsPage() {
   return (
-    <main className="mx-auto max-w-[1200px] px-6 py-16">
+    <main className="mx-auto max-w-[1440px] px-6 lg:px-10 py-16">
       <section className="flex flex-col gap-4">
         <div className="font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground">Products</div>
-        <h1 className="max-w-3xl font-heading text-4xl font-semibold tracking-tight text-foreground">
+        <h1 className="max-w-3xl font-heading text-4xl font-semibold lg:text-5xl tracking-tight text-foreground">
           Market-facing products, by the profile that needs them.
         </h1>
         <p className="max-w-2xl text-lg text-muted-foreground">

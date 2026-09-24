@@ -30,18 +30,19 @@ export default function TokenPage() {
   const root = join(process.cwd(), "..", "..");
   const { actions, reasons } = loadGateEnums(root);
   return (
-    <main className="mx-auto max-w-5xl px-6 py-16">
-      {/* Contract address first (investor request 2026-09-18): copyable field + copy button, before the
-          hero. The address is an identifier read (CA_ADDRESS), never a rendered numeric literal. */}
-      <div className="mb-10">
+    <main className="mx-auto max-w-[1440px] px-6 lg:px-10 py-16">
+      {/* Contract address as an ink band at the very top (restyle B / design L100-105): CaCopy reused
+          as-is — same strings, same CA_ADDRESS identifier read; only ca-copy.tsx styling changed. */}
+      <div className="mb-12">
         <CaCopy address={CA_ADDRESS} />
       </div>
 
-      {/* Hero (the token) + the mini B_t depletion sim (design L358-378). */}
-      <section className="grid gap-12 lg:grid-cols-2 lg:items-start">
+      {/* Hero 1.1fr/1fr (design L107-129): title + dek + It is / It is not on the left, the mini B_t
+          sim on the right. Stacks below 900px. */}
+      <section className="grid gap-10 min-[900px]:grid-cols-[1.1fr_1fr] min-[900px]:items-start">
         <div className="flex flex-col gap-6">
           <div className="font-mono text-xs uppercase tracking-wide text-monark-t">MONARK &middot; the token</div>
-          <h1 className="font-heading text-4xl font-semibold tracking-tight text-primary">
+          <h1 className="font-heading text-4xl font-semibold lg:text-5xl tracking-tight text-primary">
             A depletable authorization budget.
           </h1>
           <p className="max-w-xl text-lg text-ink2">
@@ -52,33 +53,15 @@ export default function TokenPage() {
             gate abstains &mdash; with reason{" "}
             <span className="font-mono text-foreground">budget_exhausted</span>.
           </p>
-          {/* The role of the token (investor request 2026-09-18): three duties, stated without a yield,
-              a price or a probability. The bond sentence is the investor's wording, verbatim. */}
-          <div className="rounded-2xl border bg-soft p-6">
-            <div className="mb-3 font-mono text-xs uppercase tracking-wide text-monark-t">The role of the token</div>
-            <ul className="flex flex-col gap-3 text-sm leading-7 text-foreground">
-              <li>
-                <span className="font-medium">Authorization budget</span> &mdash; MONARK is B_t, the metered
-                right to act. Every <span className="font-mono">commit</span> the gate emits spends it;{" "}
-                <span className="font-mono">defer</span> and <span className="font-mono">abstain</span> cost
-                nothing. When the budget is exhausted the gate abstains, and says so.
-              </li>
-              <li>
-                <span className="font-medium">Skin in the game to act</span> &mdash; an operator posts MONARK
-                as a bond to be authorized; a commit proven faulty is slashed (to the party it harmed, a
-                burn, and the watcher who proved it &mdash; never to the company).
-              </li>
-              <li>
-                <span className="font-medium">Watchers</span> &mdash; anyone can recompute a frozen decision
-                from its published bytes; a proven fault pays the watcher from the bond, not from the
-                company. The token is what makes the fleet answerable, not what makes it profitable.
-              </li>
-            </ul>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border bg-card p-5">
+          {/* It is / It is not, side by side with a 4px accent top border (design L112-115). Markers stay
+              CSS list discs (coloured) — the design's dot/cross glyphs would add rendered characters. */}
+          <div className="grid gap-3 min-[900px]:grid-cols-2">
+            <div
+              className="rounded-[14px] border bg-card p-5 shadow-sm"
+              style={{ borderTopWidth: 4, borderTopColor: "var(--ok)" }}
+            >
               <div className="mb-2 font-mono text-xs text-hikae-t">It is</div>
-              <ul className="list-disc pl-5 text-sm leading-7 text-foreground">
+              <ul className="list-disc pl-5 text-sm leading-7 text-foreground marker:text-hikae-t">
                 <li>a right-to-act, metered</li>
                 <li>spent only by commit</li>
                 <li>
@@ -89,9 +72,12 @@ export default function TokenPage() {
             </div>
             {/* "It is not" — Mod #2 reconciliation: drop "a stake" (the fleet now stakes), keep
                 yield / oracle / probability, add "idle staking". No yield promise (securities floor). */}
-            <div className="rounded-xl border bg-card p-5">
+            <div
+              className="rounded-[14px] border bg-card p-5 shadow-sm"
+              style={{ borderTopWidth: 4, borderTopColor: "var(--abst)" }}
+            >
               <div className="mb-2 font-mono text-xs text-abst">It is not</div>
-              <ul className="list-disc pl-5 text-sm leading-7 text-foreground">
+              <ul className="list-disc pl-5 text-sm leading-7 text-foreground marker:text-abst">
                 <li>a yield</li>
                 <li>idle staking</li>
                 <li>an oracle</li>
@@ -106,38 +92,68 @@ export default function TokenPage() {
         <GateSim mode="token" actions={actions} reasons={reasons} cost={COST} ambient={AMBIENT} />
       </section>
 
+      {/* The role of the token (investor request 2026-09-18): three duties as an ink band with three
+          columns (design L131-138). Restyle B moves it out of the hero. Section ordinals from the design
+          (01/02/03) are intentionally NOT rendered — they would be new digit tokens; the duties keep their
+          existing wording verbatim. The bond sentence is the investor's wording. */}
+      <section className="mt-16">
+        <div className="rounded-[18px] bg-ink px-8 py-8 text-paper">
+          <div className="mb-5 font-mono text-xs uppercase tracking-wide text-paper/70">The role of the token</div>
+          <div className="grid gap-6 text-sm leading-7 min-[900px]:grid-cols-3">
+            <div>
+              <span className="font-medium">Authorization budget</span> &mdash; MONARK is B_t, the metered
+              right to act. Every <span className="font-mono">commit</span> the gate emits spends it;{" "}
+              <span className="font-mono">defer</span> and <span className="font-mono">abstain</span> cost
+              nothing. When the budget is exhausted the gate abstains, and says so.
+            </div>
+            <div className="sm:border-l sm:border-paper/15 sm:pl-6">
+              <span className="font-medium">Skin in the game to act</span> &mdash; an operator posts MONARK
+              as a bond to be authorized; a commit proven faulty is slashed (to the party it harmed, a
+              burn, and the watcher who proved it &mdash; never to the company).
+            </div>
+            <div className="sm:border-l sm:border-paper/15 sm:pl-6">
+              <span className="font-medium">Watchers</span> &mdash; anyone can recompute a frozen decision
+              from its published bytes; a proven fault pays the watcher from the bond, not from the
+              company. The token is what makes the fleet answerable, not what makes it profitable.
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Tokenomics — Mod #2 (2026-09-10): the staking mechanism is revealed as UNDER DESIGN and USEFUL
           (tied to the fleet's work), with no profit-share and no yield promise; supply/distribution stay
-          to be announced. */}
+          to be announced. Restyle B: a 1.6fr card beside a 1fr well (design L142-154). */}
       <section className="mt-16">
         <h2 className="font-heading text-2xl font-medium tracking-tight text-foreground">Tokenomics</h2>
-        <div className="mt-6 rounded-2xl border bg-soft p-8">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h3 className="font-heading text-xl font-semibold text-foreground">The token</h3>
-            <span className="font-mono text-xs text-ink2">mechanics under design &mdash; details to be announced</span>
+        <div className="mt-6 grid items-stretch gap-3 min-[900px]:grid-cols-[1.6fr_1fr]">
+          <div className="rounded-[16px] border bg-card p-8 shadow-sm">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h3 className="font-heading text-xl font-semibold text-foreground">The token</h3>
+              <span className="font-mono text-xs text-ink2">mechanics under design &mdash; details to be announced</span>
+            </div>
+            <ul className="mt-5 flex flex-col gap-4 text-sm leading-7 text-foreground">
+              <li>
+                <span className="font-medium">Watchers earn</span> for catching a faulty commit; fault is
+                proven by recomputing the frozen decision.
+              </li>
+              <li>
+                A{" "}
+                <span className="font-medium">
+                  staker reward mechanism is under design &mdash; useful staking, tied to the fleet&rsquo;s
+                  work, not a passive payout.
+                </span>
+              </li>
+            </ul>
           </div>
-          <ul className="mt-5 flex flex-col gap-4 text-sm leading-7 text-foreground">
-            <li>
-              <span className="font-medium">Watchers earn</span> for catching a faulty commit; fault is
-              proven by recomputing the frozen decision.
-            </li>
-            <li>
-              A{" "}
-              <span className="font-medium">
-                staker reward mechanism is under design &mdash; useful staking, tied to the fleet&rsquo;s
-                work, not a passive payout.
-              </span>
-            </li>
-          </ul>
-        </div>
 
-        {/* Supply / distribution / replenishing B_t stay to be announced (Mod #2: only staking is
-            revealed today). */}
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl border bg-card p-6">
-          <p className="text-sm text-ink2">Supply, distribution, and the mechanics of replenishing B_t.</p>
-          <span className="rounded-xl border bg-soft px-4 py-2 font-mono text-sm text-foreground">
-            to be announced
-          </span>
+          {/* Supply / distribution / replenishing B_t stay to be announced (Mod #2: only staking is
+              revealed today) — a well beside the card. */}
+          <div className="flex flex-col justify-between gap-4 rounded-[16px] bg-soft p-8 shadow-inner">
+            <p className="text-sm leading-7 text-foreground">Supply, distribution, and the mechanics of replenishing B_t.</p>
+            <span className="self-start rounded-xl border bg-card px-4 py-2 font-mono text-sm text-foreground">
+              to be announced
+            </span>
+          </div>
         </div>
       </section>
     </main>
