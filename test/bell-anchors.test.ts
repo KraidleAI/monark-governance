@@ -10,19 +10,21 @@
  *       known answer (opentimestamps-client 0.7.2 `ots info`, recorded in the lot report) and fails closed on
  *       malformed bytes.
  * Mutants (named, measured in the lot report): change one digest in anchors.json => (1) reds; append a byte to a
- * served proof => (1) and (2) red.
+ * served proof => (1) and (2) red. ADR-BELL-OTS-ANCHOR-1 PR-A adds the publications register (served publications.json and its
+ * files; (1) covers both registers): T-2, the C-7 source assertion and the reader's named errors below; mutants in its G1.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
-import { parseAnchorsRegister, readOtsProof, anchorStatus, manifestDigests } from "../apps/site/lib/bell-anchors.ts";
-import type { AnchorsRegister } from "../apps/site/lib/bell-anchors.ts";
+import { parseAnchorsRegister, readOtsProof, anchorStatus, manifestDigests, parsePublicationAnchors, bindPublicationAnchor, manifestEntries } from "../apps/site/lib/bell-anchors.ts";
+import type { AnchorsRegister, PublicationAnchorsRegister } from "../apps/site/lib/bell-anchors.ts";
+import { WHITELIST_DIRS, WHITELIST_FILES } from "../scripts/export-public.mjs";
 
 const ROOT = join(import.meta.dirname, "..");
 const SERVED = join(ROOT, "apps", "site", "public", "bell", "anchors");
-const SOURCE = join(ROOT, "docs", "course-bell");
+const SOURCE = join(ROOT, "docs", "course-bell"), PUB = join(ROOT, "docs", "bell-publications");
 const sha256 = (buf: Uint8Array): string => createHash("sha256").update(buf).digest("hex");
 
 test("bell_anchors_served_register_matches_source — served register == ANCHORS.md real lines; proofs byte-equal; manifests hash to their digest", () => {
@@ -49,7 +51,53 @@ test("bell_anchors_served_register_matches_source — served register == ANCHORS
     assert.ok(proof.attestations.length >= 1, `${r.proof_file}: a proof carries at least one attestation`);
   }
   assert.ok(proofs >= 1, "no timestamped line served (false green)");
-  assert.deepEqual(new Set(readdirSync(SERVED)), expectedFiles, "the served directory holds exactly anchors.json + the lines' manifests and proofs");
+  for (const r of (JSON.parse(readFileSync(join(SERVED, "publications.json"), "utf8")) as PublicationAnchorsRegister).rows) if (r.proof_file !== null && r.manifest_file !== null) expectedFiles.add(r.proof_file).add(r.manifest_file);
+  assert.deepEqual(new Set(readdirSync(SERVED)), expectedFiles.add("publications.json"), "the served directory holds exactly anchors.json, publications.json and both registers' manifests and proofs");
+});
+
+// T-2 (tuyau P-4): publications.json IS the register (site's reader); served proofs are the committed ones; rows bind to the SERVED files.
+test("bell_publication_anchors_served_register_matches_source — publications.json == register rows; served manifests and proofs bind", () => {
+  const source = parsePublicationAnchors(readFileSync(join(PUB, "ANCHORS.md"), "utf8"));
+  const served = JSON.parse(readFileSync(join(SERVED, "publications.json"), "utf8")) as PublicationAnchorsRegister;
+  assert.deepEqual(served, { register: "docs/bell-publications/ANCHORS.md", rows: source }, "publications.json must equal the parsed register — run node scripts/sync-bell-anchors.mjs");
+  const bound = source.filter((r) => r.proof_file !== null && r.manifest_file !== null).map((r) => {
+    const manifest = readFileSync(join(SERVED, r.manifest_file ?? "")), proof = new Uint8Array(readFileSync(join(SERVED, r.proof_file ?? "")));
+    assert.deepEqual(proof, new Uint8Array(readFileSync(join(PUB, r.proof_file ?? ""))), `${String(r.proof_file)}: served proof must be the committed proof`);
+    bindPublicationAnchor(r, manifest.toString("utf8"), sha256(manifest), readOtsProof(proof));
+    return r.seq;
+  });
+  assert.ok(bound.length >= 1, "no timestamped publication row served (false green)");
+  // Until PR-B replaces the pages' `.some` (page.tsx:254), their loader stays blind to these files: seq 2 lists states/<head.state_sha256>.
+  assert.ok(!readFileSync(join(ROOT, "apps", "site", "lib", "bell-anchors-load.ts"), "utf8").includes("publications"), "the pages' loader reads no publication file yet");
+});
+
+// C-7: synthetic proofs only under test/fixtures/ (fixture-*); the source holds exactly its register and named files; test/ is not exported.
+test("bell_publication_anchors_source_holds_no_fixture", () => {
+  const named = parsePublicationAnchors(readFileSync(join(PUB, "ANCHORS.md"), "utf8")).flatMap((r) => (r.proof_file !== null && r.manifest_file !== null ? [r.manifest_file, r.proof_file] : []));
+  assert.deepEqual(new Set(readdirSync(PUB)), new Set(["ANCHORS.md", ...named]), "docs/bell-publications/ holds exactly ANCHORS.md and the files its rows name");
+  const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? walk(join(dir, d.name)) : [d.name]));
+  for (const dir of [PUB, SERVED, join(ROOT, "fixtures")]) assert.deepEqual(walk(dir).filter((n) => n.startsWith("fixture-")), [], `no fixture-* file under ${dir}`);
+  assert.ok(walk(join(ROOT, "test", "fixtures")).some((n) => /^fixture-.+\.ots$/.test(n)), "non-vacuity: the synthetic proofs live under test/fixtures/");
+  assert.ok(!WHITELIST_DIRS.includes("test") && !WHITELIST_FILES.some((f) => f.startsWith("test/")), "test/ stays out of the public export's whitelist");
+});
+
+// The publications reader fails closed with a named error, on mutated copies of the committed register, manifest and proof.
+test("bell_publication_anchors_reader_fails_closed_with_named_errors", () => {
+  const md = readFileSync(join(PUB, "ANCHORS.md"), "utf8"), [row] = parsePublicationAnchors(md);
+  assert.ok(row !== undefined && row.manifest_file !== null && row.proof_file !== null, "non-vacuity: a timestamped row");
+  const edit = (a: string, b: string): string => { assert.ok(md.includes(a), `the register carries ${a}`); return md.replace(a, b); };
+  for (const [mutated, re] of [[edit("| seq | kind |", "| kind | seq |"), /not the header/], [edit("| publication |", "| publish |"), /unknown kind 'publish'/],
+    [edit("| 2 | publication |", "| 02 | publication |"), /malformed seq/], [edit("`timeline-seq2-manifest.txt.ots`", "`timeline-seq3-manifest.txt.ots`"), /not the proof name of line 2/],
+    [edit("| `694e98b` |", "| `694e98b` | extra |"), /10 cells, not 9/]] as const) assert.throws(() => parsePublicationAnchors(mutated), re);
+  const bytes = readFileSync(join(PUB, row.manifest_file)), text = bytes.toString("utf8"), digest = sha256(bytes);
+  const proof = readOtsProof(new Uint8Array(readFileSync(join(PUB, row.proof_file)))), other = readOtsProof(new Uint8Array(readFileSync(join(SOURCE, "probe_end-manifest.txt.ots"))));
+  bindPublicationAnchor(row, text, digest, proof);
+  for (const [f, re] of [[() => bindPublicationAnchor({ ...row, line_hash: "0".repeat(64) }, text, digest, proof), /timeline\.jsonl#L2 differs from line_hash/],
+    [() => bindPublicationAnchor({ ...row, prefix_sha256: "0".repeat(64) }, text, digest, proof), /differs from prefix_sha256/],
+    [() => bindPublicationAnchor(row, text, sha256(Buffer.concat([bytes, Buffer.from("\n")])), proof), /do not hash to manifest_sha256/],
+    [() => bindPublicationAnchor(row, text.replace("timeline.jsonl#L2 ", "timeline.jsonl#L3 "), digest, proof), /does not have exactly the entries of publication line 2/],
+    [() => bindPublicationAnchor(row, text, digest, other), /does not timestamp manifest_sha256/], [() => manifestEntries(text.slice(0, -1)), /not LF-terminated/],
+    [() => manifestEntries(text.split("\n").reverse().join("\n").slice(1) + "\n"), /strictly increasing byte order/]] as const) assert.throws(f, re);
 });
 
 test("bell_ots_reader_matches_reference_client — known answer from `ots info` (probe_end) + fail-closed on malformed bytes", () => {

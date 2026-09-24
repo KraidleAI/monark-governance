@@ -113,8 +113,9 @@ Authored directly or copied byte-for-byte; no CLI, no npm dependency added.
   reads "closed · recording" (it no longer names Bell).
 - `components/lockups.tsx` — the MONARK, Narabi, Ukemi and Bell lock-ups, path data transcribed from the
   designer's SVG files, ink as `currentColor`, accent as the application's token.
-- `public/bell/anchors/` — written by `scripts/sync-bell-anchors.mjs` from the anchors register (manifests,
-  OpenTimestamps proofs, `anchors.json`); pinned by the root test `bell_anchors_served_register_matches_source`.
+- `public/bell/anchors/` — written by `scripts/sync-bell-anchors.mjs` from the two anchors registers, the course's and the
+  published records' (manifests, OpenTimestamps proofs, `anchors.json`, `publications.json`); pinned by the root tests
+  `bell_anchors_served_register_matches_source` and `bell_publication_anchors_served_register_matches_source`.
 - `public/icons/bell.svg` — the Bell mark (designer favicon) with a dark-scheme rule, the `/icons/narabi.svg` pattern.
 
 ## Bell legal texts (2026-09-23)
