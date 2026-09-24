@@ -82,6 +82,8 @@ async function check(o) {
     if (r.proof_file === null) { console.log(`seq ${r.seq} (${r.date_utc}): not timestamped`); continue; }
     const m = readFileSync(join(dir, r.manifest_file)), proof = lib.readOtsProof(new Uint8Array(readFileSync(join(dir, r.proof_file)))), st = lib.anchorStatus(proof);
     lib.bindPublicationAnchor(r, m.toString("utf8"), sha256(m), proof);
+    const l = copy?.parsed[r.seq - 1], files = lib.manifestEntries(m.toString("utf8")).map((e) => e.relpath).filter((p) => !p.startsWith("timeline.jsonl#")).join(" ");
+    if (l !== undefined && files !== (l.kind === "publication" ? `provenance/${l.provenance_sha256}.json states/${l.state_sha256}.json` : "")) fail(`seq ${r.seq}: the manifest's files are not those line ${r.seq} names`);
     const blocks = st.bitcoinHeights.length > 0 ? `Bitcoin block record(s) at height ${st.bitcoinHeights.join(", ")}` : "pending, no Bitcoin block record yet";
     console.log(`seq ${r.seq} ${r.proof_file}: bound to manifest ${r.manifest_sha256}; ${blocks}; ${st.pendingCalendars.length} calendar(s) pending (read from the file, not checked against a node)`);
   }

@@ -9,7 +9,8 @@ Hygiène : toute commande node/npm sous `env -u` des 8 variables payantes, `TEMP
 
 | Date | PR/commit | Modèle (identifiant épinglé exact) | Effort | Contexte fourni | Générateur | Réviseur | Verdict G2 |
 |---|---|---|---|---|---|---|---|
-| 2026-09-24 | PR-A du lot BELL-OTS-ANCHOR-1, non committée, base `1c78543` | `claude-opus-5-5` | max | ADR-BELL-OTS-ANCHOR-1 @ `7cffd34` + mission de l'orchestrateur (périmètre PR-A énuméré, oracle, R-25 cible 350) | worker | orchestrateur (R-21), puis G2 fraîche et checkpoint-2 (régime complet, D9.2) | en attente |
+| 2026-09-24 | PR-A du lot BELL-OTS-ANCHOR-1, non committée, base `1c78543` | `claude-opus-5-5` | max | ADR-BELL-OTS-ANCHOR-1 @ `7cffd34` + mission de l'orchestrateur (périmètre PR-A énuméré, oracle, R-25 cible 350) | worker | orchestrateur (R-21), puis G2 fraîche et checkpoint-2 (régime complet, D9.2) | G2 fraîche du 2026-09-24 (`claude-opus-5-5[1m]`, instance séparée ; `F:/tmp/ots-1/g2/G2-PR-A.md`, sha256 `699e8dc29bb57f388ea4469a16862deacd28ba4178071499afc09139b6160dd4`) : lentille A ACCEPTE-AVEC-CORRECTIONS, lentille B ACCEPTE-AVEC-CORRECTIONS ; corrections pliées (§14) |
+| 2026-09-24 | pli G2 de PR-A (C-G2-1 à C-G2-6), non committé, sur `45cefcc` | `claude-opus-5-5` | max | rapport G2 ci-dessus ; diff proposé `F:/tmp/ots-1/g2/prop/PROPOSED.diff` (sha256 `5df96e29ce75fa0f3131f36de19a08d2377a1516813af7bc2cc277c9f98682b8`) ; mission de pli de l'orchestrateur, reprise après la coupure de courant de 16:46Z | C-G2-1 à C-G2-4 : code et tests écrits par le relecteur G2 (diff validé sur copie), appliqués sans retouche (`git apply`) par le worker du pli ; C-G2-5 et C-G2-6 : worker du pli | orchestrateur (R-21), puis G2 de confirmation courte en contexte frais, par une instance distincte du relecteur G2 (auteur du code plié) et du worker du pli | en attente |
 
 `error_origin` proposés, à assigner au G7 : (a) `site_names_no_kitchen` rouge au premier passage complet (identifiant `ADR-…` dans un commentaire de `apps/site/lib/bell-anchors.ts`, fichier exporté) : génération, worker, attrapé par l'oracle avant livraison, corrigé ; (b) R-25 au-dessus de la cible (E-5) : planification (périmètre déplacé de PR-B vers PR-A) et génération.
 
@@ -59,7 +60,7 @@ Les 32 fichiers de course servis et `anchors.json` sont identiques octet pour oc
 | `npm test` complet | tests 1262, pass 1260, fail 0, skipped 2 (427 s) | tests 1266, pass 1264, fail 0, skipped 2 (+4 tests : l'outil, T-2, C-7, erreurs nommées) ; deux passages complets sur arbre gelé : 15:13:51Z-15:22:35Z, puis 15:23:59Z-15:35:19Z sur l'arbre final (après la phrase E-12 du RUNBOOK ; `o-test-final2.log` sha256 `26145d3a38889f864cceda30d1fc2a49275020dd6d886a6e6ad5a75d5e13947e`, 678 s) | `base-test.log`, `o-test-final.log`, `o-test-final2.log` |
 | `next build` (`.next` supprimé avant, comme la base) | exit 0 | exit 0, 20 pages statiques | `base-build.log`, `o-build.log` |
 | `node scripts/assert-fleet-html.mjs` | exit 0 | exit 0 (4 notes /fleet ; /ukemi sans chiffre) | `base-assert-fleet.log`, `o-assert-fleet.log` |
-| rendu (`renderedBody()` de chaque page construite) | 19 empreintes | **19 empreintes identiques** (fichier d'empreintes identique, sha256 `afe495cf…e938` des deux côtés) | `base-rendered.sha`, `after-rendered.sha` |
+| rendu (`renderedBody()` de chaque page construite) | 19 empreintes | **19 empreintes identiques** (fichier d'empreintes identique, sha256 `afe495cf…e938` des deux côtés) ; **erratum §14.3** : la méthode n'est pas stable d'un build à l'autre | `base-rendered.sha`, `after-rendered.sha` |
 
 ## 5. Rejeu G1 déclaré (C-5, D7 P-1, §7) sur la copie miroir réelle de seq 2
 
@@ -67,12 +68,12 @@ Les 32 fichiers de course servis et `anchors.json` sont identiques octet pour oc
 - Commande, entrée locale et sortie hors dépôt : `node scripts/anchor-bell-timeline.mjs --seq 2 --timeline F:/PRODUITS/bell-mirror/timeline-seq2-20260924T0841Z.jsonl --immutables F:/tmp/ots-1/pr-a/replay/immutables --mirror-sha fba1824d…d28b --line-hash ef3b06f2…6464 --out-dir <répertoire hors dépôt>` ; puis la même avec `--compare-url https://bell.monarkgate.tech` ; puis `--check --timeline <la même copie>` sur le registre réel.
 - Premier rejeu (outil avant compactage, 14:48:18Z-14:48:21Z) et rejeu de l'outil FINAL (sha256 `44b7d633…8dab`, 15:14:35Z-15:14:36Z), mêmes résultats : exit 0, manifeste de 457 octets, 4 lignes, sha256 **`602ff93d60dbf10fe96b0b2cfcd5b8ff439d2d0019f4daa362e9dd6ad3f16946`**, `cmp` identique octet pour octet à `docs/bell-publications/timeline-seq2-manifest.txt`, en entrée locale comme en mode de comparaison (« the served bytes are the local ones ») ; `--check` : exit 0, « seq 2 timeline-seq2-manifest.txt.ots: bound to manifest 602ff93d…; pending, no Bitcoin block record yet; 4 calendar(s) pending (read from the file, not checked against a node) » ; avec la copie de seq 1 (une ligne) : exit 1, « fewer than 2 LF-terminated lines » (attendu).
 - La ligne de registre imprimée par l'outil porte les trois digests de la ligne committée (`ef3b06f2…`, `fba1824d…`, `602ff93d…`) et le nom de preuve `timeline-seq2-manifest.txt.ots` ; le commit `694e98b` nommé par la ligne porte bien la paire (`git show 694e98b:docs/bell-publications/timeline-seq2-manifest.txt | sha256sum` = `602ff93d…`, preuve = `abfaf787…`), ce que le repli `git show` de la synchro suppose.
-- Contrôle complémentaire hors dépôt, ligne de clé (`F:/tmp/ots-1/pr-a/keyline-check.mjs`, sha256 `ca3c02a3…3237`, sortie `keyline-check.out`) : timeline synthétique de trois lignes (deux publications, puis une `key_rotation` contresignée, clés éphémères, trousseau à deux clés), `walkTimeline` ok ; l'outil sur `--seq 3` sans `--immutables` : exit 0, manifeste de deux entrées (`timeline.jsonl#L1-L3`, `timeline.jsonl#L3`) ; `bindPublicationAnchor` accepte la ligne de registre de `kind` `key_rotation` et refuse la même comme `publication` (« does not have exactly the entries of publication line 3 »). Ce chemin n'est pas dans `npm test` (item KEYLINE-TOOL-TEST-1).
+- Contrôle complémentaire hors dépôt, ligne de clé (`F:/tmp/ots-1/pr-a/keyline-check.mjs`, sha256 `ca3c02a3…3237`, sortie `keyline-check.out`) : timeline synthétique de trois lignes (deux publications, puis une `key_rotation` contresignée, clés éphémères, trousseau à deux clés), `walkTimeline` ok ; l'outil sur `--seq 3` sans `--immutables` : exit 0, manifeste de deux entrées (`timeline.jsonl#L1-L3`, `timeline.jsonl#L3`) ; `bindPublicationAnchor` accepte la ligne de registre de `kind` `key_rotation` et refuse la même comme `publication` (« does not have exactly the entries of publication line 3 »). Ce chemin n'est pas dans `npm test` (item KEYLINE-TOOL-TEST-1). **Pli G2** : il y est désormais (C-G2-3, §14.1).
 
 ## 6. Servir `publications.json` ne change aucune page
 
 - Le chargeur des pages (`apps/site/lib/bell-anchors-load.ts`) et les pages ne sont pas modifiés ; `listedDigests` ne réunit toujours que les manifestes de course ; l'épingle `anchored === false` de `test/bell-anchors.test.ts` reste verte.
-- Rendu identique sur les 19 pages (§4), dont `/bell`, `/bell/method` et `/bell/anchors` ; `assert-fleet-html` vert ; la route `/bell/anchors/:file(.+\.ots)` de `apps/site/next.config.mjs` couvre déjà la nouvelle preuve.
+- Rendu identique sur les 19 pages (§4 ; erratum §14.3), dont `/bell`, `/bell/method` et `/bell/anchors` ; `assert-fleet-html` vert ; la route `/bell/anchors/:file(.+\.ots)` de `apps/site/next.config.mjs` couvre déjà la nouvelle preuve.
 - Garde (E-9) : T-2 exige que le chargeur ne nomme pas « publications » tant que le `.some` des pages existe (mutant DM-8 rouge).
 - ADR §5 rejoué sur les fichiers servis de PR-A : `publications.json`, `timeline-seq2-manifest.txt` et `bell-anchors.ts` ne portent aucune des 12 formes fournisseurs de `test/bell-served.test.ts:158` ni aucune clé interdite de `:157` ; clés de `publications.json` : register, rows, date_utc, seq, kind, line_hash, prefix_sha256, manifest_sha256, commit, manifest_file, proof_file (la note opérateur, en français, n'est jamais copiée) ; le manifeste ne liste que des octets déjà servis (ligne, préfixe, deux immuables), aucun engagement sur un fichier non servi (ESC-1 (c)).
 
@@ -96,7 +97,7 @@ Mutants de code et de données, appliqués au dépôt, tests `test/bell-anchors.
 | CM-10 | parseur | ordre des relpaths non exigé | erreurs nommées |
 | CM-11 | parseur | digest de la preuve non lié | erreurs nommées |
 | CM-12 | parseur | nom de preuve d'un autre `seq` accepté | erreurs nommées |
-| CM-13 | synchro | liaison au moment de la synchro retirée | **aucun (survivant déclaré)** |
+| CM-13 | synchro | liaison au moment de la synchro retirée | **aucun (survivant déclaré)** ; tué au pli G2 (C-G2-1, §14.1) |
 | DM-1 | `publications.json` | un digest changé | T-2 |
 | DM-2 | preuve servie de seq 2 | un octet ajouté | T-2 |
 | DM-3 | `publications.json` | supprimé | (1) ensemble exact + T-2 |
@@ -142,20 +143,28 @@ Survivant CM-13, examiné : la synchro écrirait alors une ligne incohérente, m
 - **E-8 Ensemble exact** : l'extension de `test/bell-anchors.test.ts:52` est faite dans le test (1) (un seul ensemble exact pour le répertoire servi), T-2 ne le duplique pas.
 - **E-9 Garde ajoutée (hors ADR)** : la ligne de seq 2 liste `states/4564701a…08b9.json`, qui est `head.state_sha256` de `apps/site/data/bell-served.json` ; si le chargeur des pages lisait `publications.json` avant que PR-B retire le `.some` (`page.tsx:254`, `method/page.tsx:106`), la page dirait « an anchor manifest lists the latest record's digests » d'une preuve PENDANTE (défauts (i) et (ii) de l'ADR §1.2). T-2 exige donc que `bell-anchors-load.ts` ne nomme pas « publications » ; PR-B lève cette garde dans le même changement que `publicationAnchorState` et T-3.
 - **E-10 Registre** : seule la prose du registre (section « Format », D9.2) est écrite par le worker ; la ligne de seq 2 est intacte (T-2 la relit).
-- **E-11 Immuables de seq 2** : relus par GET pour le rejeu (§5) ; ils ne sont pas dans le miroir durable (item SEQ2-IMMUTABLES-MIRROR-1).
+- **E-11 Immuables de seq 2** : relus par GET pour le rejeu (§5) ; ils ne sont pas dans le miroir durable (item SEQ2-IMMUTABLES-MIRROR-1). **Clos** (pli G2, §14.4).
 - **E-12 Fenêtre de deux commits (13 bis)** : la ligne nomme le commit qui ajoute la paire, donc la paire est committée avant la ligne (comme `anchor.sh` et `694e98b` puis `1c78543`) ; entre les deux, `bell_publication_anchors_source_holds_no_fixture` est rouge (paire qu'aucune ligne ne nomme). Écrit dans la 13 bis, point 4, comme fenêtre déclarée (l'oracle complet tourne après le point 5). L'advisor proposait de le déclarer seulement et de laisser le pli au G2 ; plié directement (une phrase), puis les quatre fichiers de tests qui lisent le RUNBOOK et la suite complète relancés sur l'arbre final.
 - **E-13 Amendement amont** : `lot/etude-suite` porte depuis `3107730` (2026-09-24 15:03 UTC, décision 198) un amendement daté de l'ADR : la condition BELL-OTS-NODE-VERIFY-1 / C-2 est levée pour le seul dépôt SEC v4 ; SEC-L56-ANCHOR-1 est clos par la formule de la décision 192. Aucun effet sur PR-A (aucune surface servie ne change ; la clause « not checked against a node » est tenue par l'outil et le RUNBOOK) ; la worktree reste sur `1c78543` (aucun fichier commun).
+- **E-14 Fixture du test de P-1 (déclaré au pli G2, C-G2-6)** : l'ADR (D7, ligne P-1, l.231) nomme « la fixture signée à deux lignes construite par `test/bell-served.test.ts:274` ». Le test livré construit sa propre timeline (`served()`, `test/bell-anchor-timeline.test.ts:24-39`) avec une clé de test DÉTERMINISTE (l.21). La fixture de `test/bell-served.test.ts:274` n'est pas exportée et tire une clé aléatoire (`generateKeyPairSync`, l.275) : avec elle, le digest du manifeste changerait à chaque exécution, et les deux preuves synthétiques de `test/fixtures/`, qui doivent horodater CE digest (C-7), ne pourraient pas être épinglées. Les deux constructions diffèrent (lignes à `runs: []` contre états complets) : ce n'est pas une duplication au sens de R-3.
+- **E-15 Option `--keyring` de l'outil (déclarée au pli G2, C-G2-6)** : l'outil accepte `--keyring <fichier>` (`scripts/anchor-bell-timeline.mjs`, l.3 et l.37). Par défaut, il lit le trousseau committé `apps/bell/keys/bell-keyring.json`, et le RUNBOOK ne passe jamais l'option à l'outil (étape 13 bis, l.392 et l.434). L'option sert au test (clé de test hors trousseau). Elle n'affaiblit aucune affirmation servie : le trousseau servi et ses épingles sont inchangés, et le stamp reste un acte de l'orchestrateur. Selon la G2 (mutant G2-M5b, non rejoué au pli), ajouter la clé de test au trousseau committé fait rougir deux tests épinglés.
 
 ## 11. Items formés (aucun « dû » nu)
 
 | Id | Nature | Objet | Déclencheur | Propriétaire |
 |---|---|---|---|---|
 | **PRB-LOADER-GUARD-1** (nouveau) | code (PR-B) | retirer la garde de T-2 (E-9) dans le même changement que `publicationAnchorState`, le chargeur étendu et T-3 ; jamais avant | PR-B | orchestrateur, puis worker PR-B |
-| **SYNC-LINES-CHECK-1** (ADR D5) | code (PR-B) | la synchro refuse toute ligne dont le `line_hash` n'est pas celui de `lines[seq]` et tout `seq` au-delà de `lines[]` ; exige le schéma v4 de `bell-served.json` | PR-B | worker PR-B |
-| **KEYLINE-TOOL-TEST-1** (nouveau) | code (test) | ajouter au test de l'outil le cas d'une ligne `key_rotation` (manifeste de deux entrées, sans immuables), aujourd'hui vérifié hors dépôt seulement (§5) ; environ 12 lignes R-25 | décision R-25 de l'orchestrateur (E-5) : dans A1 en cas de découpage, sinon au pli du G2 | worker |
-| **SEQ2-IMMUTABLES-MIRROR-1** (nouveau) | procédure | verser au miroir durable `F:/PRODUITS/bell-mirror/` les deux immuables de seq 2 (copies volatiles `F:/tmp/ots-1/pr-a/replay/immutables/`, sha256 = noms, relus à 14:48:05Z), pour que le rejeu local de seq 2 ne dépende plus d'un GET | avant la prochaine fenêtre 13 bis | orchestrateur |
+| **SYNC-LINES-CHECK-1** (ADR D5), **étendu au pli G2** | code et décision (PR-B) | la synchro refuse toute ligne dont le `line_hash` n'est pas celui de `lines[seq]` et tout `seq` au-delà de `lines[]` ; exige le schéma v4 de `bell-served.json`. Extension (G2 §8, mutant G2-M7) : lier aussi les fichiers du manifeste aux immuables de la ligne. Décision de l'orchestrateur (`docs/CHANTIERS.md:1440` à `80eb2cf`) : `lines[]` portera `state_sha256` et `provenance_sha256` des lignes `publication` (amendement de D5 au G0 de PR-B) ; la synchro et T-2 exigeront alors les fichiers que `--check --timeline` exige depuis C-G2-2. Mesuré au pli : G2-M7 passe encore la synchro et T-2 (§14.1) | G0 de PR-B | orchestrateur, puis worker PR-B |
+| **KEYLINE-TOOL-TEST-1** (nouveau) — **CLOS au pli G2** (C-G2-3, §14.1) | code (test) | ajouter au test de l'outil le cas d'une ligne `key_rotation` (manifeste de deux entrées, sans immuables), aujourd'hui vérifié hors dépôt seulement (§5) ; environ 12 lignes R-25 | décision R-25 de l'orchestrateur (E-5) : dans A1 en cas de découpage, sinon au pli du G2 | worker |
+| **SEQ2-IMMUTABLES-MIRROR-1** (nouveau) — **CLOS** (§14.4) | procédure | verser au miroir durable `F:/PRODUITS/bell-mirror/` les deux immuables de seq 2 (copies volatiles `F:/tmp/ots-1/pr-a/replay/immutables/`, sha256 = noms, relus à 14:48:05Z), pour que le rejeu local de seq 2 ne dépende plus d'un GET | avant la prochaine fenêtre 13 bis | orchestrateur |
 | Upgrade de la preuve de seq 2 (ADR D9.1, C-6 (ii), existant) | procédure | toujours pendante (§5 : 4 calendriers, 0 bloc) ; upgrade après vérification de la copie durable, puis synchro, build, upload | fenêtre opérateur suivante | orchestrateur |
 | BELL-OTS-NODE-VERIFY-1, BELL-VERIFY-SCHEDULE-1, Q6-ANCHOR-1 (ADR §6) | inchangés (BELL-OTS-NODE-VERIFY-1 : condition levée pour le seul dépôt SEC v4, amendement de 15:03 UTC ; reste ouvert pour la clause servie) ; SEC-L56-ANCHOR-1 clos en amont (décision 192) | sans objet | ADR §6 et amendement | orchestrateur |
+| **RENDER-FINGERPRINT-NONDET-1** (G2 §8) | recherche et procédure | sur un même arbre, l'empreinte `renderedBody()` de `/bell/anchors` varie avec la position de `<meta name="next-size-adjust">` (§14.3). Toute affirmation « rendu identique » normalise cette balise, ou déclare N builds et exige l'égalité sur au moins l'un d'eux ; lire la documentation du rendu des métadonnées de Next 16 avant de choisir | prochaine affirmation « rendu identique » (G1 et G2 de PR-B) | orchestrateur |
+| **FIXTURE-GEN-VERSIONED-1** (G2 §8) | code | le générateur des preuves de fixture n'existe que hors dépôt (`F:/tmp/ots-1/pr-a/gen-fixtures.mjs`, volatil) ; PR-B (T-1) aura besoin d'autres preuves : versionner un générateur de test, ou construire les preuves dans le test par substitution de digest (motif de MP-9, C-G2-2) | G0 de PR-B | orchestrateur, puis worker PR-B |
+| **OTS-REF-STRICT-1** (G2 §8) | décision de conception | le parseur lit toute valeur d'`ots_ref` sans `.ots` comme « non horodatée » (règle de la course, D3) : une faute de frappe passe `--check` et la synchro, seuls C-7 et T-2 la voient (mutant G2-M6, mesure de la G2). Options : (a) garder (conforme à D3) ; (b) imposer `^not timestamped at <ISO Z>$` (recommandation de la G2) | G0 de PR-B | orchestrateur |
+| **PRB-BIND-IN-LOADER-1** (G2 §8) | condition PR-B | conséquence d'E-2 : le chargeur des pages appelle `bindPublicationAnchor` sur chaque ligne horodatée avant `publicationAnchorState` (sinon un état serait dérivé de lignes non liées) | PR-B | worker PR-B, relu au G2 de PR-B |
+| **SCRIPTS-STATIC-COVERAGE-1** (G2 §8) | recherche | les `.mjs` sont hors ESLint (`eslint.config.mjs:39`, `**/*.mjs` ignoré) et hors `tsc` (`include` de `tsconfig.json` sans `scripts/`) : l'outil et la synchro ne sont couverts que par les tests et `node --check`. Options : `checkJs` sur `scripts/` avec les `.d.mts` existants, ou garder et déclarer | prochain lot d'outillage CI | orchestrateur |
+| **TMP-HYGIENE-1** (G2 §8, hors lot) | code | des tests créent des répertoires temporaires sans les supprimer (une suite complète en laisse environ 600 sous `F:/tmp`, mesure de la G2) ; le test de l'outil nettoie depuis C-G2-3. Recoupe O-MP-1 (`docs/adr/ADR-U4b-calibration-episode-frais.md:992`) : un seul item à tenir. Le résidu antérieur à la coupure du 2026-09-24 a été retiré au pli (liste avant retrait dans le rendu du pli) | prochain lot qui touche les tests concernés | orchestrateur |
 
 ## 12. Sources et niveaux
 
@@ -177,3 +186,62 @@ Survivant CM-13, examiné : la synchro écrirait alors une ligne incohérente, m
 | `F:/tmp/ots-1/pr-a/keyline-check.mjs` | contrôle hors dépôt d'une ligne de clé (§5) | `ca3c02a36b4dbcb3c930aaa9ab7bcdf31f57dd8bafab845271d8f88a1f173237` |
 | `F:/tmp/ots-1/pr-a/assemble-g1.mjs` | assemblage de ce journal depuis ses parties rédigées | voir `DELIVERED.sha256` |
 | `F:/tmp/ots-1/pr-a/DELIVERED.sha256` | sha256 de chaque fichier livré | voir le fichier |
+
+## 14. Pli G2 (2026-09-24) : corrections C-G2-1 à C-G2-6, erratum
+
+- Cadre : la G2 fraîche `F:/tmp/ots-1/g2/G2-PR-A.md` (sha256 `699e8dc2…0dd4`), lue en entier, et ses corrections en liste fermée (son §1). Décisions de l'orchestrateur à `docs/CHANTIERS.md:1440` (`lot/etude-suite` à `80eb2cf`) : R-25 de 376 avalisé sans découpe A1/A2 (E-5), SYNC-LINES-CHECK-1 étendu, six items formés.
+- Worker du pli : `claude-opus-5-5[1m]` (R-1 conforme), effort max ; aucun commit, aucun workflow (R-20). Une coupure de courant a interrompu le pli (démarrage de la machine à 16:46:59Z). À la reprise, les 1 534 fichiers suivis ont été hachés : les seuls écarts face à `45cefcc` sont les cinq fichiers du pli.
+- Ce journal est gelé AVANT l'oracle du pli et ne porte pas ses chiffres (portes, `npm test`, build, export). Ils sont dans le rendu du pli, `F:/tmp/ots-1/pr-a/PLI-G2.md`, avec `DELIVERED.sha256` recalculé ; l'ancien est conservé en `DELIVERED-45cefcc.sha256` (sha256 `76436088…9c27`).
+
+### 14.1 Corrections pliées
+
+| Id | Objet | Fichiers (+/− du pli) | Mutant tué |
+|---|---|---|---|
+| C-G2-1 | test : la synchro refuse une ligne de publication non liée AVANT toute écriture (racine temporaire, répertoire servi inchangé) | `test/bell-anchors.test.ts` (+17/−1 avec C-G2-4) | CM-13 (liaison retirée de la synchro) |
+| C-G2-2 | `--check --timeline` exige que les entrées du manifeste hors `timeline.jsonl#` soient exactement `provenance/<provenance_sha256>.json states/<state_sha256>.json` de la ligne n (publication), aucune pour une ligne de clé ; test MP-9 | `scripts/anchor-bell-timeline.mjs` (+2/−0) ; test de l'outil | la ligne désactivée : MP-9 rouge ; G2-M7 sur la jambe opérateur |
+| C-G2-3 | test : ligne `key_rotation` contresignée (KEYLINE-TOOL-TEST-1), MP-10 (ligne annulée par une révocation), MP-11 (octets non canoniques) ; répertoires temporaires supprimés | `test/bell-anchor-timeline.test.ts` (+35/−3 avec C-G2-2) | V-1, V-2 |
+| C-G2-4 | la synchro refuse tout fichier source non régulier (`lstat`, aucun lien suivi) ; C-7 exige des fichiers réguliers sous `docs/bell-publications/` | `scripts/sync-bell-anchors.mjs` (+2/−1) ; `test/bell-anchors.test.ts` | G2-M8 (lien symbolique suivi) |
+| C-G2-5 | RUNBOOK, étape 13 : `timeline-seq<n>.jsonl` au lieu de `timeline-seq1.jsonl` (deux occurrences, même ligne) et `--fail` ajouté au `curl` ; la 13 bis lit `timeline-seq<n>.jsonl` (l.392, l.434) | `docs/RUNBOOK-bell.md` (+1/−1, exclu de R-25) | sans objet |
+| C-G2-6 | cet erratum : §1, §4, §5, §6, §7, §10 (E-11, E-14, E-15), §11, §14 | ce journal (exclu de R-25) | sans objet |
+
+Mesures faites sur le worktree plié avant le gel de ce journal, avec les exécuteurs de la G2 (`prop-kill.mjs`, `m7-prop.mjs`) dérivés par une seule substitution de chemins ; l'arbre est restauré à l'octet après chaque mutant.
+- CM-13 est rouge (C-G2-1). La ligne de C-G2-2 désactivée rend MP-9 rouge. V-1 (ligne annulée acceptée) et V-2 (octets non canoniques acceptés) sont rouges (MP-10, MP-11). Preuve source remplacée par un lien symbolique vers un fichier hors dépôt : synchro exit 1 avant écriture, répertoire servi inchangé, C-7 rouge (C-G2-4).
+- G2-M7 rejoué en entier : `--check --timeline` sort 1 (« the manifest's files are not those line 2 names ») ; la synchro sort 0 et les tests restent verts après elle. La jambe opérateur (13 bis, point 5) est fermée ; la synchro et T-2 restent aveugles jusqu'à SYNC-LINES-CHECK-1 étendu.
+- Chemin positif sur la donnée réelle : `--check --timeline` avec la copie durable de seq 2 (`F:/PRODUITS/bell-mirror/timeline-seq2-20260924T0841Z.jsonl`) et le registre committé sort 0, lié à `602ff93d…6946`. Les deux entrées de fichiers du manifeste égalent `provenance_sha256` et `state_sha256` de la ligne 2 réelle : la comparaison porte sur des valeurs, pas sur des champs absents.
+
+### 14.2 Fichiers modifiés par le pli et R-25
+
+| Fichier | sha256 au gel `45cefcc` (§2) | sha256 après pli |
+|---|---|---|
+| `scripts/anchor-bell-timeline.mjs` | `44b7d633…8dab` | `aa09e1430d64e65a17c46ee1efabd735b56fc118659c66f6069cd7bbe508c9fe` |
+| `scripts/sync-bell-anchors.mjs` | `e01ca3d3…ed1a` | `4bf6df1964072a3bce286f533bffdd4332d1d7ed682325aaa21509427059e391` |
+| `test/bell-anchor-timeline.test.ts` | `80593819…afd4` | `90e7bb2ede06b8da1e6f763999feba5536e6445a8af566c4279119388c28dc8f` |
+| `test/bell-anchors.test.ts` | `4baaee53…4d79` | `5a21114fe030cd2970af82f6b87fac99d38c265df934f29965cc78e8a7374576` |
+| `docs/RUNBOOK-bell.md` | `c3b9b9b4…0c6e` | `5ceec718b070c025122483ddb19c2df1f6dac883a86f250d28b3012fd751496c` |
+| ce journal | `5b1becee…2130` | `DELIVERED.sha256` recalculé (hors dépôt) |
+
+R-25 a été mesuré avant l'écriture de ce journal, qui est exclu du pathspec. Commande : `git diff --shortstat 1c78543 -- <pathspec>` sur l'arbre plié, avec le pathspec de `.github/workflows/ci.yml:65` recopié mot pour mot, puis l'`awk` de `:69`. Résultat : **11 fichiers, 409 insertions, 22 suppressions, soit 431 lignes** ; le même pathspec à `45cefcc` donne toujours 376. L'estimation « environ 437 » (376 + 61) compte deux fois les trois lignes de `test/bell-anchor-timeline.test.ts` (fichier nouveau) que le pli remplace.
+
+### 14.3 Erratum au §4 et au §6 : rendu
+
+- « 19 empreintes identiques (sha256 `afe495cf…e938` des deux côtés) » est vrai pour les builds du G1, mais la méthode n'est pas stable. Mesure de la G2 (`G2-PR-A.md` §4.5) : trois builds de la même tête (`.next` supprimé avant chacun) donnent deux fichiers d'empreintes, `afe495cf…e938` aux builds 1 et 2 et `2511b793…b8f2` au build 3 ; ce dernier égale son unique build de la base. La seule différence porte sur `bell/anchors.html` : la position de `<meta name="next-size-adjust" content=""/>` dans `<head>`.
+- Relu au pli sur les deux rendus sauvegardés par la G2 (`F:/tmp/ots-1/g2/logs/anchors-base.txt` et `anchors-head.txt`, 21 924 octets et une occurrence de la balise chacun) : ils sont identiques octet pour octet une fois la balise retirée.
+- La conclusion tient (PR-A ne change aucune page) ; la méthode est à corriger (item RENDER-FINGERPRINT-NONDET-1).
+
+### 14.4 Erratum : E-11 et tête amont
+
+- E-11 est clos : `F:/PRODUITS/bell-mirror/immutables/states/4564701a…08b9.json` (14 070 octets) et `provenance/ad8dd9b0…c39b.json` (1 202 octets) existent depuis 2026-09-24T15:37:00Z (date de création lue au pli), et le sha256 de chacun égale son nom. Le rejeu local de seq 2 ne dépend plus d'un GET.
+- La tête amont n'est plus `3107730` (en-tête, E-13) : `lot/etude-suite` était à `7f875c6` lors de la G2, puis à `80eb2cf` lors du pli. La base de fusion reste `1c78543`. Dans l'ADR, le seul changement amont reste l'amendement de 15:03 UTC déjà lu (E-13). Aucun des 9 fichiers modifiés en amont n'est commun avec PR-A et le pli.
+
+### 14.5 Items et `error_origin`
+
+- §11 mis à jour : KEYLINE-TOOL-TEST-1 et SEQ2-IMMUTABLES-MIRROR-1 clos ; SYNC-LINES-CHECK-1 étendu ; six items formés par l'orchestrateur à partir de la G2 (§8).
+- `error_origin` proposés par la G2 (son §9), à assigner au G7 : CM-13 survivant et V-1/V-2 sans test (génération) ; G2-M7 (conception de la liaison dans ADR D5, et génération) ; liens symboliques suivis (antérieur au lot, étendu par la génération) ; E-14 et E-15 non déclarés au G1 (génération) ; rendu non déterministe (méthode de vérification du G1).
+- Observation de revue, hors code du lot, à assigner au G7 (méthode de revue) : le rejeu G2-M5b de la G2 a lancé `test/verify-bell.test.ts` avec `GIT_DIR` pointé sur le dépôt principal. Le test (l.210-220 : `git init`, `git add unit.service`) a alors écrit dans l'index de ce dépôt. Preuves dans le rendu du pli.
+
+### 14.6 Sources lues pour le pli
+
+- [lu] `F:/tmp/ots-1/g2/G2-PR-A.md` (316 lignes) et `F:/tmp/ots-1/g2/prop/PROPOSED.diff` (144 lignes), en entier. Exécuteurs de la G2 `prop-kill.mjs` et `m7-prop.mjs`, relus au pli, avec des sha256 égaux à ceux de `F:/tmp/ots-1/g2/ARTIFACTS.sha256`.
+- [lu] `docs/CHANTIERS.md:1440-1441` à `80eb2cf` ; `docs/adr/ADR-BELL-OTS-ANCHOR-1.md` l.231 et `git diff 1c78543 80eb2cf` sur l'ADR.
+- [lu] dépôt : `test/bell-served.test.ts:272-280`, `test/bell-anchor-timeline.test.ts:15-40`, `scripts/anchor-bell-timeline.mjs` l.1-40 et l.73-100, `docs/RUNBOOK-bell.md` l.365, l.392 et l.434, `.github/workflows/ci.yml:60-72`, `eslint.config.mjs:34-47`, `tsconfig.json` (`include`), `test/verify-bell.test.ts:207-220`.
+- Mesures de la G2 citées sans rejeu au pli, avec leur source : les trois builds (§14.3), G2-M5b (E-15), G2-M6 (OTS-REF-STRICT-1), environ 600 entrées laissées sous `F:/tmp` par une suite complète (TMP-HYGIENE-1). Aucun autre chiffre de seconde main.

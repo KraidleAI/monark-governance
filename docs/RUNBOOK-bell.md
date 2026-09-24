@@ -362,7 +362,7 @@ register is unchanged (Bell stays `upcoming`, ADR D12); "served" is an internal 
 ## 13. Operator mirror (after EVERY publication, and after every key line)
 
 ```bash
-mkdir -p /f/tmp/bell-dn/mirror && curl -sS https://bell.monarkgate.tech/timeline.jsonl -o /f/tmp/bell-dn/mirror/timeline-seq1.jsonl && sha256sum /f/tmp/bell-dn/mirror/timeline-seq1.jsonl
+mkdir -p /f/tmp/bell-dn/mirror && curl -sS --fail https://bell.monarkgate.tech/timeline.jsonl -o /f/tmp/bell-dn/mirror/timeline-seq<n>.jsonl && sha256sum /f/tmp/bell-dn/mirror/timeline-seq<n>.jsonl
 ```
 
 For a publication line, also the two immutable files it names, at their served paths (`<state_sha256>` and `<provenance_sha256>`

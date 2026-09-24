@@ -6,14 +6,14 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, readdirSync, cpSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, readdirSync, cpSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { canonical, keyringOf, lineHash, signLine, GENESIS } from "../apps/bell/scripts/bell-chain.mjs";
-import { readOtsProof } from "../apps/site/lib/bell-anchors.ts";
+import { readOtsProof, bindPublicationAnchor } from "../apps/site/lib/bell-anchors.ts";
 
 const ROOT = join(import.meta.dirname, ".."), TOOL = join(ROOT, "scripts", "anchor-bell-timeline.mjs"), FIX = join(ROOT, "test", "fixtures");
 const sha = (b: string | Uint8Array): string => createHash("sha256").update(b).digest("hex");
@@ -69,9 +69,14 @@ test("bell_anchor_tool_writes_the_d1_manifest_from_local_input — offline; neve
   writeFileSync(join(imm, "states", `${f.s}.json`), "{}\n");
   writeFileSync(join(srv2, "timeline.jsonl"), Buffer.concat([f.timeline.subarray(0, 10), Buffer.from("X"), f.timeline.subarray(11)]));
   writeFileSync(other, canonical(keyringOf(generateKeyPairSync("ed25519").publicKey, 1)) + "\n");
+  // MP-10: the keyring marks the signing key revoked from seq 2 (line 2 voided); MP-11: line 2 re-serialized with one more space (same JSON).
+  const revoked = join(dir, "revoked.json"), nc = join(dir, "nc.jsonl"), ring1 = keyringOf(createPublicKey(KEY), 1), ncBuf = Buffer.from(`${canonical(f.lines[0])}\n${line2.replace('{"', '{ "')}\n`);
+  writeFileSync(revoked, canonical({ ...ring1, keys: ring1.keys.map((k) => ({ ...k, status: "revoked", revoked_from_seq: 2 })) }) + "\n");
+  writeFileSync(nc, ncBuf);
   for (const [o, re, root] of [[{ "--mirror-sha": sha(f.timeline.subarray(0, -1)) }, /do not hash to --mirror-sha/, undefined], [{ "--immutables": imm }, /states\/[0-9a-f]{64}\.json does not hash to its name/, undefined],
     [{ "--keyring": other }, /do not walk under the keyring \(seq 1: key_not_in_keyring\)/, undefined], [{ "--line-hash": lineHash(f.lines[0]) }, /does not hash to --line-hash/, undefined],
-    [{ "--compare-url": "https://bell.invalid" }, /the served timeline does not start with the local lines 1\.\.2/, srv2], [{ "--compare-url": "http://bell.invalid" }, /must be https/, srv]] as const) {
+    [{ "--compare-url": "https://bell.invalid" }, /the served timeline does not start with the local lines 1\.\.2/, srv2], [{ "--compare-url": "http://bell.invalid" }, /must be https/, srv],
+    [{ "--keyring": revoked }, /line 2 is voided by a key revocation/, undefined], [{ "--timeline": nc, "--mirror-sha": sha(ncBuf) }, /are not its canonical form/, undefined]] as const) {
     const r = run(args(o), root);
     assert.deepEqual([r.code, re.test(r.err), readdirSync(out)], [1, true, ["timeline-seq2-manifest.txt"]], `${String(re)}: exit 1, named, nothing written (${r.err})`);
   }
@@ -90,4 +95,31 @@ test("bell_anchor_tool_writes_the_d1_manifest_from_local_input — offline; neve
   writeFileSync(join(reg, "ANCHORS.md"), row(lineHash(f.lines[0]))); // MP-8
   const c8 = run(["--check", "--out-dir", reg]);
   assert.deepEqual([c8.code, /timeline\.jsonl#L2 differs from line_hash/.test(c8.err)], [1, true], c8.err);
+  // MP-9: a manifest whose states/ entry is not the file line 2 names (self-consistent, its proof rebuilt on its digest): --check --timeline refuses.
+  const m9 = manifest.replace(`states/${f.s}.json ${f.s}`, `states/${sha("x")}.json ${sha("x")}`), fx = readFileSync(join(FIX, "fixture-bell-seq2-pending.ots")), at = fx.indexOf(Buffer.from(sha(manifest), "hex"));
+  writeFileSync(join(reg, "timeline-seq2-manifest.txt"), m9);
+  writeFileSync(join(reg, "timeline-seq2-manifest.txt.ots"), Buffer.concat([fx.subarray(0, at), Buffer.from(sha(m9), "hex"), fx.subarray(at + 32)]));
+  writeFileSync(join(reg, "ANCHORS.md"), row(sha(line2)).replace(sha(manifest), sha(m9)));
+  const c9 = run(["--check", "--out-dir", reg, "--timeline", join(srv, "timeline.jsonl")]);
+  assert.deepEqual([c9.code, /not those line 2 names/.test(c9.err)], [1, true], c9.err);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+// KEYLINE-TOOL-TEST-1: a key_rotation line (cross-signed, trusted new key): a manifest of its two timeline entries only, bound as its kind.
+test("bell_anchor_tool_writes_a_key_line_manifest_without_immutables", () => {
+  const dir = mkdtempSync(join(tmpdir(), "bell-ots-key-")), out = join(dir, "out"), k2 = generateKeyPairSync("ed25519"), ring = keyringOf(createPublicKey(KEY), 1), e2 = keyringOf(k2.publicKey, 3).keys[0];
+  mkdirSync(out);
+  const f = served(dir), rot: Record<string, unknown> = { schema: "bell-timeline-v1", seq: 3, kind: "key_rotation", published_at: "2026-09-26T21:35:52.438Z", prev_line_hash: lineHash(f.lines[1]),
+    key_id: ring.keys[0]?.key_id ?? "", new_key_id: e2?.key_id ?? "", new_key: e2?.jwk };
+  const line3 = { ...rot, sig: signLine(rot, KEY), sig_new: signLine(rot, k2.privateKey) }, timeline = Buffer.concat([f.timeline, Buffer.from(canonical(line3) + "\n")]);
+  writeFileSync(join(dir, "timeline.jsonl"), timeline);
+  writeFileSync(join(dir, "keyring.json"), canonical({ ...ring, keys: [...ring.keys, e2] }) + "\n");
+  const r = spawnSync(process.execPath, [TOOL, "--seq", "3", "--timeline", join(dir, "timeline.jsonl"), "--mirror-sha", sha(timeline), "--line-hash", lineHash(line3), "--keyring", join(dir, "keyring.json"), "--out-dir", out], { cwd: ROOT, encoding: "utf8" });
+  const manifest = r.status === 0 ? readFileSync(join(out, "timeline-seq3-manifest.txt"), "utf8") : r.stderr;
+  assert.equal(manifest, `timeline.jsonl#L1-L3 ${sha(timeline)}\ntimeline.jsonl#L3 ${sha(canonical(line3))}\n`, "a key line's manifest lists its two timeline entries, no immutable");
+  const row = { date_utc: "2026-09-26T21:40:00Z", seq: 3, kind: "key_rotation" as const, line_hash: lineHash(line3), prefix_sha256: sha(timeline), manifest_sha256: sha(manifest), commit: "abcdef0",
+    manifest_file: "timeline-seq3-manifest.txt", proof_file: "timeline-seq3-manifest.txt.ots" }, proof = { hashOp: "sha256" as const, digestHex: sha(manifest), attestations: [] };
+  bindPublicationAnchor(row, manifest, sha(manifest), proof);
+  assert.throws(() => bindPublicationAnchor({ ...row, kind: "publication" }, manifest, sha(manifest), proof), /not have exactly the entries of publication line 3/);
+  rmSync(dir, { recursive: true, force: true });
 });

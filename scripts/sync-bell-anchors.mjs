@@ -15,7 +15,7 @@
 // nothing. Never a course file (ledger, budget, crosscheck): only manifests, proofs and the rendered table.
 // ADR-BELL-OTS-ANCHOR-1 D3 (tuyau P-4): the same for docs/bell-publications/ANCHORS.md into publications.json (parsePublicationAnchors,
 // its own `git show` directory), each row bound to its files (bindPublicationAnchor); an empty register or a name served twice fails too.
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, lstatSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -54,6 +54,7 @@ async function main() {
     }
     let manifest = null;
     const headAbs = join(ROOT, dir, r.manifest_file);
+    if (!lstatSync(proofAbs).isFile() || (existsSync(headAbs) && !lstatSync(headAbs).isFile())) { console.error(`sync-bell-anchors: FAIL-CLOSED — ${r.proof_file} or its manifest is not a regular file (no link is followed).`); process.exit(1); }
     if (existsSync(headAbs) && sha256(readFileSync(headAbs)) === r.manifest_sha256) manifest = readFileSync(headAbs);
     else {
       const atCommit = execFileSync("git", ["show", `${r.commit}:${dir}/${r.manifest_file}`], { cwd: ROOT });

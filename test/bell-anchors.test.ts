@@ -15,7 +15,9 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, mkdtempSync, cpSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { parseAnchorsRegister, readOtsProof, anchorStatus, manifestDigests, parsePublicationAnchors, bindPublicationAnchor, manifestEntries } from "../apps/site/lib/bell-anchors.ts";
@@ -76,9 +78,23 @@ test("bell_publication_anchors_source_holds_no_fixture", () => {
   const named = parsePublicationAnchors(readFileSync(join(PUB, "ANCHORS.md"), "utf8")).flatMap((r) => (r.proof_file !== null && r.manifest_file !== null ? [r.manifest_file, r.proof_file] : []));
   assert.deepEqual(new Set(readdirSync(PUB)), new Set(["ANCHORS.md", ...named]), "docs/bell-publications/ holds exactly ANCHORS.md and the files its rows name");
   const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? walk(join(dir, d.name)) : [d.name]));
+  assert.ok(readdirSync(PUB, { withFileTypes: true }).every((d) => d.isFile()), "docs/bell-publications/ holds regular files only (no link, no directory)");
   for (const dir of [PUB, SERVED, join(ROOT, "fixtures")]) assert.deepEqual(walk(dir).filter((n) => n.startsWith("fixture-")), [], `no fixture-* file under ${dir}`);
   assert.ok(walk(join(ROOT, "test", "fixtures")).some((n) => /^fixture-.+\.ots$/.test(n)), "non-vacuity: the synthetic proofs live under test/fixtures/");
   assert.ok(!WHITELIST_DIRS.includes("test") && !WHITELIST_FILES.some((f) => f.startsWith("test/")), "test/ stays out of the public export's whitelist");
+});
+
+// G2 CM-13: the sync binds each publication row BEFORE it writes. Temp root: the sync, the reader, both registers and the served set; the
+// course manifests at the bytes their rows name (the served copies), so no `git show` runs outside a repository.
+test("bell_publication_anchors_sync_refuses_an_unbound_row_before_writing", () => {
+  const tmp = mkdtempSync(join(tmpdir(), "bell-sync-")), out = join(tmp, "apps", "site", "public", "bell", "anchors"), snap = (): string[] => readdirSync(out).sort().map((n) => `${n} ${sha256(readFileSync(join(out, n)))}`);
+  for (const rel of ["scripts/sync-bell-anchors.mjs", "apps/site/lib/bell-anchors.ts", "docs/course-bell", "docs/bell-publications", "apps/site/public/bell/anchors"]) cpSync(join(ROOT, rel), join(tmp, rel), { recursive: true });
+  for (const r of parseAnchorsRegister(readFileSync(join(SOURCE, "ANCHORS.md"), "utf8"))) if (r.manifest_file !== null) cpSync(join(SERVED, r.manifest_file), join(tmp, "docs", "course-bell", r.manifest_file));
+  const reg = join(tmp, "docs", "bell-publications", "ANCHORS.md"), [row] = parsePublicationAnchors(readFileSync(reg, "utf8")), before = snap();
+  writeFileSync(reg, readFileSync(reg, "utf8").replace(`\`${row?.line_hash ?? ""}\``, `\`${"0".repeat(64)}\``));
+  const r = spawnSync(process.execPath, [join(tmp, "scripts", "sync-bell-anchors.mjs")], { cwd: tmp, encoding: "utf8" });
+  assert.deepEqual([r.status, /timeline\.jsonl#L2 differs from line_hash/.test(r.stderr), snap()], [1, true, before], `refused before any write: ${r.stderr}`);
+  rmSync(tmp, { recursive: true, force: true });
 });
 
 // The publications reader fails closed with a named error, on mutated copies of the committed register, manifest and proof.
