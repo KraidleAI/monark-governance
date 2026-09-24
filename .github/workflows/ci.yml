@@ -41,10 +41,16 @@ jobs:
       - name: Bounded lot size (R-25 — DORA 2024 pp. 39-40, lot inflation degrades stability)
         env:
           VIBEGATES_PR_LIMIT: "1205" # ADR-M003 D9 (R-23: measured median of the 3 Phase 1 lots)
+          VIBEGATES_CONTENT_LIMIT: "8000" # ADR-M013 amendment 2026-09-24 (investor decision 207; R-23: sourced there)
         run: |
           case "$VIBEGATES_PR_LIMIT" in
             ''|*[!0-9]*)
               echo '::error::R-25 not configured: set VIBEGATES_PR_LIMIT by a sourced ADR (R-23). Fail-closed.'
+              exit 1 ;;
+          esac
+          case "$VIBEGATES_CONTENT_LIMIT" in
+            ''|*[!0-9]*)
+              echo '::error::R-25 not configured: set VIBEGATES_CONTENT_LIMIT by a sourced ADR (R-23). Fail-closed.'
               exit 1 ;;
           esac
           # fetch-depth: 0 above provides the base history. A shallow clone (--depth=1) makes the diff fail
@@ -62,14 +68,29 @@ jobs:
 
           # Bell data series root apps/bell/test/fixtures/series/**/*.{json,jsonl,csv} (ADR-T1aii C-14, D9 sexies) is
           # excluded too; each pinned file is declared+hashed same-dir (root test `series_pinned_are_declared_and_hashed`).
-          STAT=$(git diff --shortstat "origin/${{ github.base_ref }}...HEAD" -- . ':(exclude)packages/*/docs/S2-*' ':(exclude)docs/G1-lot-*.md' ':(exclude)docs/G2-lot-*.md' ':(exclude,glob)docs/**/*.md' ':(exclude)package-lock.json' ':(exclude,glob)fixtures/**/*.json' ':(exclude,glob)fixtures/**/*.jsonl' ':(exclude,glob)fixtures/**/*.csv' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.json' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.jsonl' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.csv' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.json' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.jsonl' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.csv') || {
+          # Storefront CONTENT paths (ADR-M013 amendment 2026-09-24, investor decision 207; a CLOSED list held by the ADR)
+          # are excluded from this CODE count, whose bound stays VIBEGATES_PR_LIMIT, and counted apart by CONTENT_STAT
+          # below under VIBEGATES_CONTENT_LIMIT, with the same range, :(glob) magic and ins+del metric. Both counts are
+          # printed BEFORE either bound is evaluated, so a CODE overflow never hides the CONTENT count. Test 38
+          # (3bis)/(4quater) pins the bound, the two exact pathspec lists and their equality with the ADR list.
+          STAT=$(git diff --shortstat "origin/${{ github.base_ref }}...HEAD" -- . ':(exclude)packages/*/docs/S2-*' ':(exclude)docs/G1-lot-*.md' ':(exclude)docs/G2-lot-*.md' ':(exclude,glob)docs/**/*.md' ':(exclude)package-lock.json' ':(exclude,glob)fixtures/**/*.json' ':(exclude,glob)fixtures/**/*.jsonl' ':(exclude,glob)fixtures/**/*.csv' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.json' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.jsonl' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.csv' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.json' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.jsonl' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.csv' ':(exclude,glob)apps/site/app/docs/**' ':(exclude,glob)apps/site/components/docs/**' ':(exclude,glob)apps/site/lib/docs-*.ts' ':(exclude,glob)apps/site/data/docs-*.json' ':(exclude,glob)apps/site/app/roadmap/**') || {
             echo '::error::Gate R-25: diff not computable (no merge base?). Fail-closed.'
             exit 1
           }
+          CONTENT_STAT=$(git diff --shortstat "origin/${{ github.base_ref }}...HEAD" -- ':(glob)apps/site/app/docs/**' ':(glob)apps/site/components/docs/**' ':(glob)apps/site/lib/docs-*.ts' ':(glob)apps/site/data/docs-*.json' ':(glob)apps/site/app/roadmap/**') || {
+            echo '::error::Gate R-25 (content): diff not computable (no merge base?). Fail-closed.'
+            exit 1
+          }
           CHANGED=$(printf '%s\n' "$STAT" | awk '{ins=0; del=0; for(i=1;i<=NF;i++){ if($i ~ /insertion/) ins=$(i-1); if($i ~ /deletion/) del=$(i-1) } print ins+del+0}')
+          CONTENT_CHANGED=$(printf '%s\n' "$CONTENT_STAT" | awk '{ins=0; del=0; for(i=1;i<=NF;i++){ if($i ~ /insertion/) ins=$(i-1); if($i ~ /deletion/) del=$(i-1) } print ins+del+0}')
           echo "Changed lines: $CHANGED (ADR bound: $VIBEGATES_PR_LIMIT)"
+          echo "Content changed lines: $CONTENT_CHANGED (ADR bound: $VIBEGATES_CONTENT_LIMIT)"
           if [ "$CHANGED" -gt "$VIBEGATES_PR_LIMIT" ]; then
             echo "::error::BLOCKED (VibeGates R-25): $CHANGED changed lines exceed the ADR bound of $VIBEGATES_PR_LIMIT. Split the PR."
+            exit 1
+          fi
+          if [ "$CONTENT_CHANGED" -gt "$VIBEGATES_CONTENT_LIMIT" ]; then
+            echo "::error::BLOCKED (VibeGates R-25, content): $CONTENT_CHANGED changed content lines exceed the ADR bound of $VIBEGATES_CONTENT_LIMIT. Split the PR."
             exit 1
           fi
       # Public-mirror export hygiene (Lot CI-EXPORT-CHECK; item "export:check absent from CI",
