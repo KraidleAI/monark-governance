@@ -58,6 +58,20 @@ the response through the same review gates the engine was built under. Today tha
 workflow that builds and reviews this repository under human acceptance; the agents that will run it
 continuously are named directions, not delivered pieces (see the maturity table below).
 
+## What is served today
+
+Everything below is live, machine-readable, and replayable by a third party without an account:
+
+| Surface | What it serves | Who consumes it |
+|---|---|---|
+| `https://mcp.monarkgate.tech/mcp` · `https://api.monarkgate.tech/openapi.json` | The engine's four tools (`attest · gate · cascade · calibrate`) over MCP and a plain HTTP/JSON mirror; the served OpenAPI document states the served version | Any MCP-capable agent; the ClawHub skill |
+| `https://monarkgate.tech/narabi/state.json` · `timeline.jsonl` | Narabi's tracker state and its append-only, per-line hash-chained daily timeline (one line per window, with the blocks it was read from) | Anyone replaying the tracker; the site's `/narabi` page |
+| `https://bell.monarkgate.tech/state.json` · `timeline.jsonl` · `provenance.json` · `bell/pubkey.json` | MONARK Bell's signed publications: per-session fills, VWAP and volume for the listed tokenized equities, halt census, supply and proof-of-reserve residuals, the provenance of each run, the active Ed25519 key | Anyone verifying a publication; the site's `/bell` page |
+| `https://monarkgate.tech` | The vitrine: every number on it is read from a committed, hashed copy of the served files above — never typed | Readers |
+
+A surface that is not in this table is not served. A component that has no served surface is labelled
+*named*, not *built*, wherever it appears.
+
 ## The backbone — the gate
 
 Everything in MONARK plugs into one decision primitive. A sensor reads the world and attests to it; a
@@ -147,6 +161,40 @@ contracts, starts as an empirical study, and is served with its own published, r
 Each lead becomes a product the way Bell did: a study on chain data, a recorder, a frozen contract if one
 is needed, a served host with a signed timeline, an independent review — then, and only then, `built`.
 
+## How a piece becomes `built`
+
+The label is earned, never declared. A piece moves from *named* to *built* only when all of this holds:
+
+1. **A study first.** A measurement on chain data, pre-registered where it can be (hypotheses and thresholds
+   written before the run), with its artefacts committed and hashed next to the code.
+2. **A frozen contract** if the piece speaks a new shape (six today; a seventh would be an ADR, not a patch).
+3. **A served path.** Its output is consumed by a real surface — an MCP/HTTP tool, a published file, a
+   downstream piece — not only by a unit test or a demo.
+4. **A non-LLM integration test** that replays the composition end to end, and a deploy check that runs
+   the real reader-side verifier against the served host.
+5. **An independent review** of the lot by a fresh reviewer, an execution oracle (typecheck, tests, lint,
+   vocabulary and language gates, export check), and a closing verdict — with every residual item named
+   and owned, never left as a bare "to do".
+
+The same path applies to a change in the engine: a recalibration, a new recorder, a new residual hypothesis.
+
+## The studies behind the pieces
+
+- **Narabi** — attested redemption flow of a stablecoin, read at block finality; calibration measured on calm
+  windows and found non-stationary across half-years, which is why the served region says so instead of
+  claiming a coverage. A pre-registered drift criterion decides when the gate may move.
+- **Ukemi** — a lending protocol's liquidation book recorded at an archive block under a keyless RPC quorum,
+  health factors cross-checked in exact fixed-point arithmetic, liquidations replayed along recorded oracle
+  paths; hypotheses and outcomes of the calibration course are published on the site, digit for digit from
+  the hashed report.
+- **MONARK Bell** — a census of U.S. trading halts, session calendars with daylight-saving handling, the
+  on-chain fills of tokenized equities at their declared pools read on two operators, and a signed
+  publication protocol with an explicit earliest publication time.
+- **Shōgen and Hikae** — a testimony format that carries bytes and residual hypotheses instead of truth, and
+  a coverage-controlled gate whose region is auditable and whose budget is depletable.
+
+Where a study finds nothing, the piece says so: an `abstain`, a named residual, a counted absence.
+
 ## The interlocking (why the pieces work together)
 
 ```
@@ -162,6 +210,26 @@ DeFi side — the products
 
 Every product plugs into the same gate; every future sensor attests into the same contract shape; every
 change to the engine goes through the same gates the engine was built under.
+
+## Verify it yourself
+
+- **Bell.** Fetch `bell/pubkey.json`, then each line of `timeline.jsonl`: check its Ed25519 signature
+  against the active key, recompute `state_sha256` from the served state and `provenance_sha256` from the
+  served provenance, and follow `prev_line_hash` back to the genesis line. `scripts/verify-bell.mjs` does
+  exactly this with Node alone; the deploy check it produces is committed in this repo.
+- **Narabi.** Recompute every window from its `[from_block, to_block]` via `eth_getLogs` + `totalSupply`,
+  then re-derive `q` with the committed `trackerReplay` over the `s` column of `timeline.jsonl`.
+- **The site.** Every figure on `monarkgate.tech` is read from a file under `apps/site/data/` whose hash is
+  pinned in `manifest.sha256.json` and compared byte for byte to the served file by a test.
+
+## For agent builders
+
+1. Add the endpoint (`hermes` / `openclaw` one-liners below) or install the skill.
+2. Call `attest` for a price you must cite, `gate` for a claim you must act on, `cascade` for a lending
+   position you must protect, `calibrate` to bring your own scores.
+3. Read the answer as a region and a budget. On `abstain`, do nothing and say why — the reason is on the
+   wire. No confidence score exists to be misread.
+4. Read Bell and Narabi as files: they are published to be consumed by programs, not only by people.
 
 ## Six frozen contracts
 
