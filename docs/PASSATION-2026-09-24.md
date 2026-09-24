@@ -16,7 +16,7 @@ Ce dossier est écrit pour un orchestrateur Fable 5.1 qui reprend en contexte fr
 
 ## 1. PREMIÈRE TÂCHE : cartographie du branchement (règle Branchement, CLAUDE.md 2026-09-19)
 
-Livrable attendu : `docs/CARTOGRAPHIE-BRANCHEMENT-2026-09-24.md` — pour chaque pièce : entrée (qui produit), sortie (qui consomme), état (où il vit), chemin **servi**, test d'intégration **non-LLM** qui rejoue la composition, verdict « câblé / fixture / absent ». Puis écart avec le registre public (`apps/site/lib/fleet.ts`). Tout écart = dette (demande formée ou recherche), corrigée avant toute nouvelle pièce.
+Livrable attendu : `docs/CARTOGRAPHIE-BRANCHEMENT-2026-09-24.md` (repartir de la cartographie du 2026-09-18 : `docs/etude-suite-2026-09-18/CARTOGRAPHIE-code.md` et `FICHES-pieces.md`, à mettre à jour, pas à refaire) — pour chaque pièce : entrée (qui produit), sortie (qui consomme), état (où il vit), chemin **servi**, test d'intégration **non-LLM** qui rejoue la composition, verdict « câblé / fixture / absent ». Puis écart avec le registre public (`apps/site/lib/fleet.ts`). Tout écart = dette (demande formée ou recherche), corrigée avant toute nouvelle pièce.
 
 État connu au 2026-09-24 00:15Z (à VÉRIFIER, pas à recopier) :
 
@@ -76,7 +76,7 @@ Livrable attendu : `docs/CARTOGRAPHIE-BRANCHEMENT-2026-09-24.md` — pour chaque
 
 ## 7. MCP et SKILL — à mettre à jour APRÈS (décision investisseur 163, 2026-09-24 00:3x UTC : « signale-lui qu'on mettra à jour le MCP et le SKILL par la suite »)
 
-- **Serveur MCP MONARK** (`apps/harness`, version dans `apps/harness/src/version.ts` ; publié au registre MCP officiel sous l'espace de noms DNS `tech.monarkgate/monark`, listé actif depuis le 2026-09-11 ; `/openapi.json` servi par le harness, `mcp.` et `api.` sous `monarkgate.tech`, CA harness `docs/deploy-CA-harness.json` du 2026-09-23 00:54Z) : **il n'a PAS été touché par v0.5.0/v0.6.0**. À faire dans un lot dédié (G0/cp-1) : exposer Bell (lecture des fichiers servis + vérification par le trousseau committé) et l'état Ukemi servi ; bump de version + re-soumission au registre ; CA harness rejouée ; RUNBOOK-harness.
+- **Serveur MCP MONARK** (`apps/harness`, version dans `apps/harness/src/version.ts` ; publié au registre MCP officiel sous l'espace de noms DNS `tech.monarkgate/monark`, listé actif depuis le 2026-09-11 ; `/openapi.json` servi par le harness, `mcp.` et `api.` sous `monarkgate.tech`, CA harness `docs/deploy-CA-harness.json` du 2026-09-23 00:54Z) : **il n'a PAS été touché par v0.5.0/v0.6.0** — et `apps/harness/src/version.ts` porte encore `0.4.0` alors que son commentaire dit « Bumping this constant belongs to the SAME commit as the tag it names » : **écart déclaré** (les tags v0.5.0/v0.6.0 nomment le miroir, pas le harness servi ; à trancher dans le lot MCP : bump à la version du prochain tag + `/openapi.json` + registre). À faire dans un lot dédié (G0/cp-1) : exposer Bell (lecture des fichiers servis + vérification par le trousseau committé) et l'état Ukemi servi ; bump de version + re-soumission au registre ; CA harness rejouée ; RUNBOOK-harness.
 - **SKILL `skills/monark/`** (`SKILL.md`, `INTEGRATION.md`, `DEMO.md`) : décrit encore la flotte d'avant Bell servi ; à réécrire après le lot MCP (mêmes règles d'honnêteté que la vitrine : registre-driven, jamais un chiffre tapé, aucun fournisseur nommé) ; exporté dans le miroir public (scope `skills` du lang-gate/vocab).
 - Ordre : après la cartographie (§1) et la question R-22 (§0) ; avant la lettre SEC si le MCP doit être cité dedans (il ne l'est pas dans la v3).
 
