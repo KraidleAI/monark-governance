@@ -376,3 +376,9 @@ Pli des corrections du checkpoint-1 : même rédacteur, `claude-opus-5-5[1m]`, m
 - **Retouches hors de la liste D4, D5, D6, D7, D9, §6, §7 de l'orchestrateur, déclarées** : Statut (verdict et règle de lecture) ; engagement public (tweet versé) ; §0, lignes D4 et D5 (sinon contraires à C-3 et C-1) ; D2, étape 13 bis point 1 (la ligne que C-5 cite comme « :140 » de la version relue) ; §8, deux puces (tweet, relecture sur place) ; §9, note d'en-tête et point 4 (C-6 (iii) vise nommément « §9.4 ») ; §10 et §11 (sources et provenance du pli).
 - **Inchangé** : D1 ; D3 (le ruling L2 est la recommandation initiale) ; D8, hormis la règle de lecture ci-dessus ; §4 (MAST) ; §5 (anti-close, à rejouer au checkpoint-2 sur le diff) ; §0 bis.
 - **R-25** : estimation relevée de 450 à 600 vers 530 à 680 lignes pour les ajouts des corrections (D9), toujours sous le seuil STOP de 1 150.
+
+
+## Amendement daté du 2026-09-24 15:03 UTC (décision investisseur 198, orchestrateur `claude-fable-5-1`)
+
+- La condition portée par l'item BELL-OTS-NODE-VERIFY-1 et par la correction C-2 (« BELL-OTS-NODE-VERIFY-1 conditionne […] le dépôt SEC ») est **levée pour le dépôt de la lettre 4-927 v4 du 2026-09-24** : la lettre est déposée avec la clause « not checked against a node » et l'ancrage des publications « in preparation » (décision 192). 
+- Inchangé : le retrait de la clause « not checked against a node here » d'une surface servie reste conditionné par BELL-OTS-NODE-VERIFY-1 ; l'item reste ouvert pour tout dépôt ultérieur. SEC-L56-ANCHOR-1 est clos par la formule de la décision 192 (lettre v4 l.56).

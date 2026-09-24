@@ -1,6 +1,6 @@
 [INTERNAL DRAFT v4 - NOT FOR FILING. Every remaining double-angle placeholder is filled from an anchored artifact or an investor act before filing; each one names its source, and RENDU-v4.md lists its trigger and who provides it. Remove this line before filing.]
 
-<<DATE | date du dépôt, format « Month D, YYYY » | source : acte investisseur AI-4 (go de dépôt, NOTE-DEPOT §3)>>
+September 24, 2026
 
 Via the Commission's internet comment form
 Vanessa A. Countryman, Secretary
@@ -28,20 +28,7 @@ Question 3 asks how TSV trading could "potentially impact the liquidity, pricing
 
 *Question 3.* For each session (weekday overnight, weekend, holiday), Bell publishes g = ln(P_session / P_close), where P_session is the volume-weighted average price, per underlying share, of the token's on-chain fills, and P_close the last consolidated closing price, cross-read on a second source. We apply the Table 4 statistic of Cong, Landsman, Rabetti, Zhang and Zhao, "Tokenized Stocks" (SSRN 5937314, December 2025, p. 32): the share of observations deviating from the last close beyond a threshold.
 
-| Regime | Deviation from last close | Cong et al., Tesla xStock (share of hours) | Bell, TSLAx (share of sessions) |
-|---|---|---|---|
-| Weekday overnight | more than 1 percent | 71% | <<MESURE: t4_TSLAx_wkn_gt1 \| part des sessions overnight-weekday de TSLAx, parmi celles où g est calculé, telles que abs(exp(g)-1) est supérieur à 1/100 ; unité : part des sessions ; format : entier suivi du signe pour cent, arrondi depuis la valeur à 2 décimales du rapport (arrondi déclaré au remplissage) \| source attendue : docs/MESURE-FONDATRICE-bell-2026-09.md, ligne overnight-weekday, agrégat exceed1/withGt, produit par node apps/bell/scripts/bell-report.mjs --founding --d9 (D9 de la course -b1-bis-ii) ; déclencheur : course -b1-bis-ii terminée et ancrée, item #11 livré, et question licence tranchée avant tout remplissage (une part de sessions calculée à partir du close est-elle une valeur dérivée d'une source sous licence ? lecture du worker, RENDU-v4 §1) ; la publication seq 2 ne remplit pas ce champ (RENDU-v4 §3)>> |
-| Weekday overnight | more than 5 percent | 12% | <<MESURE: t4_TSLAx_wkn_gt5 \| idem, seuil : abs(exp(g)-1) supérieur à 5/100 \| source attendue : même rapport, agrégat exceed5/withGt ; même déclencheur>> |
-| Weekend | more than 1 percent | 15% | <<MESURE: t4_TSLAx_we_gt1 \| part des sessions weekend de TSLAx, parmi celles où g est calculé, telles que abs(exp(g)-1) est supérieur à 1/100 ; même unité et format \| source attendue : même rapport, ligne weekend, agrégat exceed1/withGt ; même déclencheur>> |
-| Weekend | more than 5 percent | 0% | <<MESURE: t4_TSLAx_we_gt5 \| idem, seuil 5/100 \| source attendue : même rapport, ligne weekend, agrégat exceed5/withGt ; même déclencheur>> |
-
-Cong et al.: share of observed hours, September-October 2025; they also report a 2 percent threshold. Bell: share of sessions over
-<<MESURE: window_TSLAx | fenêtre effective en dates UTC, format « July 1 to October 31, 2025 », ou bornes réduites par pool déclarées (ADR-T1aii C-11) | source attendue : provenance de la course -b1-bis-ii (bornes épinglées, ADR-T1aii D1-bis l.61) et docs/MESURE-FONDATRICE-bell-2026-09.md>>,
-with
-<<MESURE: n_TSLAx_wkn | nombre entier de sessions overnight-weekday avec g calculé (dénominateur des deux parts de la ligne) | source attendue : docs/MESURE-FONDATRICE-bell-2026-09.md, colonne « n with g_t », ligne overnight-weekday>>
-weekday overnight and
-<<MESURE: n_TSLAx_we | nombre entier de sessions weekend avec g calculé (dénominateur des deux parts de la ligne) | source attendue : même rapport, colonne « n with g_t », ligne weekend>>
-weekend sessions. Units, closing-price sources, samples and session definitions differ; the comparison is descriptive.
+For the Tesla xStock over September-October 2025, they report deviations beyond 1 percent in 71 percent of weekday-overnight hours and 15 percent of weekend hours, and beyond 5 percent in 12 and 0 percent; they also report a 2 percent threshold. Bell flags, for each session, whether the deviation exceeds 1, 2 or 5 percent. As of September 24, 2026, its published sessions include one weekday-overnight session for each of TSLAx and AAPLx and no weekend session, and no share is reported from them. Units, closing-price sources, samples and session definitions differ; any comparison is descriptive.
 
 This statistic describes the size and frequency of off-hours deviations from the last close. It measures no effect of overnight trading or of ten-minute reporting on the underlying market or on its opening, reopening or closing processes, and implies no causal link.
 
@@ -64,7 +51,7 @@ Bell applies these properties to its own records, outside the TSV framework:
 - *Dated periods.* Each gap is keyed to the trading day of its closing price by a published rule, and each ratio is published with its session window and the month of its denominator.
 
 Bell's records are published from a dedicated host operated by MONARK; the signing key is generated on it. We claim independence from the venues and issuers measured
-(<<INVESTISSEUR: relation_commerciale | déclaration à la date du dépôt, par exemple « no commercial relationship with the issuers or venues measured as of the filing date », texte exact de l'investisseur | source attendue : acte investisseur AI-5>>),
+(MONARK has no commercial relationship with the issuers or venues measured as of the filing date),
 not from MONARK.
 
 ## 4. Declared limits
@@ -81,8 +68,9 @@ https://bell.monarkgate.tech/timeline.jsonl.
 Method (session bounds, formulas, periods, residuals), with the public key and the anchors:
 https://monarkgate.tech/bell/method.
 Contact:
-<<INVESTISSEUR: contact | adresse de contact publique, publiée sans expurgation (ordre p. 60) ; candidat servi : bell@monarkgate.tech (pages /bell et /bell/method, lues le 2026-09-24) | source attendue : acte investisseur AI-9>>.
+bell@monarkgate.tech.
 
 Respectfully submitted,
 
-<<SIGNATAIRE | nom, titre, organisation, tels qu'ils apparaîtront de façon permanente dans le champ public « Commenter Name » | source : acte investisseur AI-3>>
+Stan E Malone
+Founder, MONARK
