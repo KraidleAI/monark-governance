@@ -665,14 +665,22 @@ test("shogen_gap_quotes_and_cites_the_chainlink_whitepaper — the passage, verb
 // point in time", "tamper-proof", "trustless", "anchored at publication", "verified by Bitcoin". Scanned over the rendered
 // text of the docs and of MONARK Building, the docs data and the bibliography. Kills the review's mutant MX-09.
 const D8 = /\bproves?\b|\bproof that\b|tamper-?proof|\btrustless\b|at a point in time|verified by bitcoin|anchored at publication/i;
+// Decision 204 (investor, 2026-09-24, "on laisse proves"): the attestation-origin sentence keeps its verb. D8 is about
+// anchoring claims (a timestamp "proves" a fact); an attestation proving WHAT WAS SAID, never that it is true, is the
+// founding line of Shōgen (docs/02-vision.md of the Shōgen repository) and is allowed in exactly these two forms, pinned here.
+const D8_ALLOWED = [/An attestation proves what a source said, never that the source is right\./, /An attested testimony proves what was said/];
+const stripAllowed = (s: string) => D8_ALLOWED.reduce((acc, re) => acc.replace(re, ""), s);
+
 test("docs_carry_no_ots_d8_forbidden_form — no 'proves', 'proof that', 'at a point in time' and the rest in the docs and MONARK Building", () => {
   const hits: string[] = [];
-  for (const rel of [...DOCS_TSX, ROADMAP]) for (const t of renderedOf(rel)) if (D8.test(t.replace(/\s+/g, " "))) hits.push(`${rel}: ${t.slice(0, 90)}`);
-  for (const rel of DOCS_LIBS) for (const l of literalsOf(sourceFile(rel))) if (D8.test(l.text)) hits.push(`${rel}: ${l.text.slice(0, 90)}`);
+  for (const rel of [...DOCS_TSX, ROADMAP]) for (const t of renderedOf(rel)) if (D8.test(stripAllowed(t.replace(/\s+/g, " ")))) hits.push(`${rel}: ${t.slice(0, 90)}`);
+  for (const rel of DOCS_LIBS) for (const l of literalsOf(sourceFile(rel))) if (D8.test(stripAllowed(l.text))) hits.push(`${rel}: ${l.text.slice(0, 90)}`);
   for (const s of [SHOGEN_SERVED_SCOPE, ...jsonStrings(JSON.parse(read(DOCS_REFERENCES_REL)) as unknown)]) if (D8.test(s)) hits.push(`data: ${s.slice(0, 90)}`);
   assert.deepEqual(hits, [], `an OTS D8 forbidden form:\n${hits.join("\n")}`);
   assert.ok(D8.test("The anchor proves the record existed at a point in time."), "control: the review's mutant reds");
   assert.ok(!D8.test("download the manifest and its proof from the anchors register"), "control: the noun proof, for the file, stays green");
+  assert.ok(!D8.test(stripAllowed("An attestation proves what a source said, never that the source is right.")), "control: the allowed attestation-origin sentence stays green");
+  assert.ok(D8.test(stripAllowed("An attestation proves what a source said, never that the source is right. The anchor proves the record existed.")), "control: any other proves still reds");
 });
 
 // C-G2-11 decided: MakerDAO and Compound are banned on the storefront, with one exception, the verbatim cited figures of

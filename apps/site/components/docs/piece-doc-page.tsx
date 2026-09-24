@@ -144,7 +144,7 @@ function ShogenGap({ name }: { name: string }) {
         {name}, fully developed, is an attested perception layer: it captures what each source said over an attested transport,
         types it into facts, aggregates facts into a quorum verdict, and attaches to that verdict a diversity certificate: the
         measured independence of the sources behind it, with shared upstreams, shared hosts and shared failures written down. The
-        whole is verifiable offline by a third party with no trust in {name}. An attestation shows what a source said, never that
+        whole is verifiable offline by a third party with no trust in {name}. An attestation proves what a source said, never that
         the source is right.
       </p>
     </DocSection>
