@@ -3,24 +3,25 @@ import { join } from "node:path";
 import { GateSim } from "@/components/gate-sim";
 import { CaCopy } from "@/components/token/ca-copy";
 import { loadGateEnums } from "@/lib/gate-enums";
-import { COST, AMBIENT } from "@/lib/sim";
+import { COST, AMBIENT, BT_SERVED_RULE, BT_FLOOR_RULE } from "@/lib/sim";
 
 // Static metadata only (honesty lint scans title/description; no digits). No generateMetadata (gate
 // no_generate_metadata_in_apps_site). "B_t" carries no digit; "yield"/"probability" are honest denials,
-// not claims. Mod #2 (2026-09-10): useful staking is under design — no yield, no profit-share, no figure.
+// not claims. Useful staking is under design — no yield, no profit-share, no figure. What the budget does is the
+// served rule (lib/sim.ts BT_SERVED_RULE): caller-carried, returned unchanged by the gate.
 export const metadata: Metadata = {
   title: "Token — MONARK",
   description:
-    "MONARK is a depletable authorization budget, B_t: spent only by commit, never a yield, never a probability of being right. Useful staking is under design.",
+    "MONARK is an authorization budget, B_t: carried by the caller and returned unchanged by the gate, never a yield, never a probability of being right. Useful staking is under design.",
 };
 
 // The /token route (server component). It reads the frozen action/reason enums from schemas/ at build
 // time (loadGateEnums; apps/site is the cwd under `next build`, the repo root is two levels up — mirrors
-// lib/load-contract.ts) and passes them to the client mini-sim island. R4 (owner F-site-7): the mount
-// passes cost={COST} from lib/sim, the SAME constant decide() spends, so the displayed per-commit cost
-// and the simulated depletion never diverge (one source of truth, D-4 contract). The island sits under
-// the layout's ThemeProvider, so useTheme resolves. Every number the sim shows is computed state / a call
-// (honest by construction, ADR-M004 D15); this page renders no numeric literal of its own.
+// lib/load-contract.ts) and passes them to the client mini-sim island. The mount passes cost={COST} from
+// lib/sim, the SAME constant decide() spends in the simulation, so the displayed per-commit cost and the simulated
+// depletion never diverge (one source of truth). The island sits under the layout's ThemeProvider, so useTheme
+// resolves. Every number the sim shows is computed state / a call (honest by construction); this page renders no
+// numeric literal of its own.
 // The MONARK token contract address (CA). Rendered via an identifier read ({CA_ADDRESS}) so the honesty
 // lint's numeric-token scan (rendered JSX text only) never sees its digits — the same injection path as
 // loadCommitted figures. Address + label only: no chain name, no market/price/CTA (securities floor).
@@ -31,8 +32,8 @@ export default function TokenPage() {
   const { actions, reasons } = loadGateEnums(root);
   return (
     <main className="mx-auto max-w-5xl px-6 py-16">
-      {/* Contract address first (investor request 2026-09-18): copyable field + copy button, before the
-          hero. The address is an identifier read (CA_ADDRESS), never a rendered numeric literal. */}
+      {/* Contract address first: copyable field + copy button, before the hero. The address is an identifier
+          read (CA_ADDRESS), never a rendered numeric literal. */}
       <div className="mb-10">
         <CaCopy address={CA_ADDRESS} />
       </div>
@@ -45,23 +46,17 @@ export default function TokenPage() {
             A depletable authorization budget.
           </h1>
           <p className="max-w-xl text-lg text-ink2">
-            MONARK carries B_t, the fleet&rsquo;s conformal authorization capacity. Each{" "}
-            <span className="font-mono text-foreground">commit</span> spends it;{" "}
-            <span className="font-mono text-foreground">defer</span> and{" "}
-            <span className="font-mono text-foreground">abstain</span> do not. When it is exhausted, the
-            gate abstains &mdash; with reason{" "}
-            <span className="font-mono text-foreground">budget_exhausted</span>.
+            B_t is the authorization budget, the right to act. {BT_SERVED_RULE}; {BT_FLOOR_RULE}.
           </p>
-          {/* The role of the token (investor request 2026-09-18): three duties, stated without a yield,
-              a price or a probability. The bond sentence is the investor's wording, verbatim. */}
+          {/* The role of the token: three duties, stated without a yield, a price or a probability. The bond
+              sentence is the owner's wording, verbatim. */}
           <div className="rounded-2xl border bg-soft p-6">
             <div className="mb-3 font-mono text-xs uppercase tracking-wide text-monark-t">The role of the token</div>
             <ul className="flex flex-col gap-3 text-sm leading-7 text-foreground">
               <li>
-                <span className="font-medium">Authorization budget</span> &mdash; MONARK is B_t, the metered
-                right to act. Every <span className="font-mono">commit</span> the gate emits spends it;{" "}
-                <span className="font-mono">defer</span> and <span className="font-mono">abstain</span> cost
-                nothing. When the budget is exhausted the gate abstains, and says so.
+                <span className="font-medium">Authorization budget</span> &mdash; MONARK is B_t, the right to
+                act, carried by the caller: the gate returns it unchanged with every decision, and abstains, saying
+                so, when it is below the caller&rsquo;s floor.
               </li>
               <li>
                 <span className="font-medium">Skin in the game to act</span> &mdash; an operator posts MONARK
@@ -80,15 +75,15 @@ export default function TokenPage() {
               <div className="mb-2 font-mono text-xs text-hikae-t">It is</div>
               <ul className="list-disc pl-5 text-sm leading-7 text-foreground">
                 <li>a right-to-act, metered</li>
-                <li>spent only by commit</li>
+                <li>carried by the caller, returned unchanged by the gate</li>
                 <li>
                   a field on every GateDecision: <span className="font-mono">remaining_budget</span>
                 </li>
                 <li>one token, one ticker</li>
               </ul>
             </div>
-            {/* "It is not" — Mod #2 reconciliation: drop "a stake" (the fleet now stakes), keep
-                yield / oracle / probability, add "idle staking". No yield promise (securities floor). */}
+            {/* "It is not" — yield / oracle / probability, and "idle staking" (the fleet stakes usefully). No
+                yield promise (securities floor). */}
             <div className="rounded-xl border bg-card p-5">
               <div className="mb-2 font-mono text-xs text-abst">It is not</div>
               <ul className="list-disc pl-5 text-sm leading-7 text-foreground">
@@ -102,13 +97,12 @@ export default function TokenPage() {
         </div>
 
         {/* Mini-sim B_t (mode="token"): budget + meter + decision log + "Push a reading" + the
-            illustrative caveat, all rendered by the F-site-3 island. R4: cost={COST}, ambient={AMBIENT}. */}
+            illustrative caveat and the served-budget note, all rendered by the sim island; cost={COST}, ambient={AMBIENT}. */}
         <GateSim mode="token" actions={actions} reasons={reasons} cost={COST} ambient={AMBIENT} />
       </section>
 
-      {/* Tokenomics — Mod #2 (2026-09-10): the staking mechanism is revealed as UNDER DESIGN and USEFUL
-          (tied to the fleet's work), with no profit-share and no yield promise; supply/distribution stay
-          to be announced. */}
+      {/* Tokenomics — the staking mechanism is said to be UNDER DESIGN and USEFUL (tied to the fleet's work),
+          with no profit-share and no yield promise; supply/distribution stay to be announced. */}
       <section className="mt-16">
         <h2 className="font-heading text-2xl font-medium tracking-tight text-foreground">Tokenomics</h2>
         <div className="mt-6 rounded-2xl border bg-soft p-8">
@@ -131,8 +125,7 @@ export default function TokenPage() {
           </ul>
         </div>
 
-        {/* Supply / distribution / replenishing B_t stay to be announced (Mod #2: only staking is
-            revealed today). */}
+        {/* Supply / distribution / replenishing B_t stay to be announced (only staking is described today). */}
         <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl border bg-card p-6">
           <p className="text-sm text-ink2">Supply, distribution, and the mechanics of replenishing B_t.</p>
           <span className="rounded-xl border bg-soft px-4 py-2 font-mono text-sm text-foreground">

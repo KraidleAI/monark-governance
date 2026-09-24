@@ -5,8 +5,9 @@ import Link from "next/link";
 import { loadContract, loadAttestedPriceContract } from "@/lib/load-contract";
 import { loadGateEnums } from "@/lib/gate-enums";
 import { GateSim } from "@/components/gate-sim";
-import { ACTION_DEFER, ACTION_ABSTAIN, AMBIENT, COST, decisionColorVar } from "@/lib/sim";
-import { OUTCOMES, REASON_GLOSS, REGION_KINDS } from "@/lib/how-copy";
+import { ACTION_DEFER, ACTION_ABSTAIN, AMBIENT, COST, BT_SERVED_RULE, decisionColorVar } from "@/lib/sim";
+import { OUTCOMES, REASON_GLOSS, REGION_KINDS, MEASURED_CLASS_RESERVE } from "@/lib/how-copy";
+import { NARABI_ROUTE } from "@/lib/narabi-live";
 
 // How it works — a SERVER shell around the one interactive island (the gate explainer,
 // GateSim mode="explainer"). Honesty by construction: (1) the third action word (a CoverageVerdict field)
@@ -195,9 +196,9 @@ export default function HowItWorksPage() {
           <div style={{ ...mono, fontSize: 12, color: "var(--ink2)" }}>remaining_budget · B_t</div>
           <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-.01em" }}>The budget, not a score</div>
           <div style={{ fontSize: 14.5, ...bodyText }}>
-            Every GateDecision carries what is left of the fleet&rsquo;s right to act. Commit spends it.
-            When it is gone the gate does not lower its bar — it emits {chip(actions, ACTION_ABSTAIN, "budget_exhausted")} until a
-            new epoch. Profit and loss never enter the policy.
+            Every GateDecision carries the budget back: {BT_SERVED_RULE}. When the B_t a caller sends is below that
+            caller&rsquo;s floor, the gate does not lower its bar — it emits {chip(actions, ACTION_ABSTAIN, "budget_exhausted")}.
+            Profit and loss never enter the policy.
           </div>
           <Link href="/token" style={{ fontSize: 14, color: "var(--monark-t)" }}>
             What B_t is and is not →
@@ -253,8 +254,8 @@ export default function HowItWorksPage() {
             <p style={{ margin: 0, ...bodyText }}>
               A liquidity vault installs Kaihi. A looping desk installs Ukemi. An agent runtime installs
               Genkan — the gate as a tool. Behind that one piece the sensors witness and Hikae authorizes;
-              the client never has to know their names, and MONARK appears only as the counter of commits
-              remaining.
+              the client never has to know their names, and MONARK appears only as the budget the caller
+              carries.
             </p>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -268,13 +269,13 @@ export default function HowItWorksPage() {
         </div>
       </section>
 
-      {/* Limits — guaranteed vs not vs where to read more. */}
+      {/* Limits — what the gate commits to vs not vs where to read more. */}
       <section style={{ borderTop: "1px solid var(--line)", background: "var(--soft)" }}>
         <div
           style={{ ...section, padding: "56px 24px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: 28 }}
         >
           <div>
-            <h2 style={{ fontSize: 24, letterSpacing: "-.02em", margin: "0 0 10px", fontWeight: 600 }}>What is guaranteed</h2>
+            <h2 style={{ fontSize: 24, letterSpacing: "-.02em", margin: "0 0 10px", fontWeight: 600 }}>What the gate commits to</h2>
             <p style={{ margin: 0, ...bodyText, fontSize: 15 }}>
               Coverage holds on average over exchangeable calibration data at one minus a chosen
               miscoverage level α. The gate reads the region and the budget through a closed policy; profit
@@ -287,6 +288,13 @@ export default function HowItWorksPage() {
               Coverage is not conditional on the individual input. The error on one committed act is not
               bounded by α. Hikae is a monitor — a second-level check, not a promise about any single case.
               It gates order tools; it never calls them.
+            </p>
+            <p style={{ margin: "10px 0 0", ...bodyText, fontSize: 15 }}>
+              {MEASURED_CLASS_RESERVE}{" "}
+              <Link href={NARABI_ROUTE} style={{ color: "var(--monark-t)" }}>
+                See the Narabi page
+              </Link>
+              .
             </p>
           </div>
           <div>

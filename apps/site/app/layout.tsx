@@ -6,9 +6,9 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 
-// Charter C typefaces (decision 145; OFL, decisions 105/107): Space Grotesk (variable) for the interface and
+// Charter C typefaces (OFL): Space Grotesk (variable) for the interface and
 // prose, JetBrains Mono (variable) for data, Archivo Black for the wordmarks, Newsreader (variable, upright and
-// italic) for the long-form serif (/writing, KEPT by ruling Q6; OFL copy procured from google/fonts, decision 148).
+// italic) for the long-form serif (/writing; OFL copy procured from google/fonts).
 // All SELF-HOSTED from the committed OFL files in app/fonts/ (licences beside them) through next/font/local — no
 // font host is contacted, at build or at run time. Newsreader's fallback metrics are computed against Times New
 // Roman, the serif base the Google loader used for it (the next/font/local default, Arial, is sans-serif).
@@ -38,7 +38,7 @@ const newsreader = localFont({
   variable: "--font-newsreader",
   display: "swap",
   adjustFontFallback: "Times New Roman",
-  // Not preloaded (decision 146 ruling): from the root layout both files would be preloaded on every route. Measured:
+  // Not preloaded: from the root layout both files would be preloaded on every route. Measured:
   // /writing and /products draw it; / also fetches the upright file (its kanji try this face first: no CJK glyph).
   preload: false,
 });
@@ -48,10 +48,10 @@ const newsreader = localFont({
 export const metadata: Metadata = {
   title: "MONARK",
   description:
-    "MONARK — a company of agent-products on one coverage-controlled gate that emits commit, defer, or abstain, and a depletable authorization budget.",
+    "MONARK — two sides, one engine. AI side: a coverage-controlled gate that emits commit, defer, or abstain over a depletable budget. DeFi side: the on-chain applications it powers, MONARK Bell first.",
 };
 
-// Apply the theme before first paint (ruling Q5): the stored explicit choice if any, else the system preference
+// Apply the theme before first paint: the stored explicit choice if any, else the system preference
 // (prefers-color-scheme). try/catch for privacy-mode safety. The client ThemeProvider then syncs React state.
 const themeInit =
   "(function(){try{var d=document.documentElement,s=null;try{s=localStorage.getItem('monark-theme')}catch(e){}var t=(s==='dark'||s==='light')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');if(t==='dark'){d.classList.add('dark')}d.style.colorScheme=t}catch(e){}})();";

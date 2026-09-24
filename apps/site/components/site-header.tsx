@@ -7,11 +7,11 @@ import { useTheme } from "@/components/theme-provider";
 import { MonarkLockup, NarabiLockup, UkemiLockup, BellLockup } from "@/components/lockups";
 import { NARABI_ROUTE } from "@/lib/narabi-live";
 
-// Charter C site chrome (decision 145; rulings 146): a thin SITE BAR (MONARK · Fleet · Narabi · Ukemi · Bell +
-// baseline) above the HEADER (lock-up + primary nav + theme button). The lock-up follows the route: the MONARK
-// horizontal lock-up (32 px, 24 px under 720 px — orchestrator ruling) on the company pages, the product lock-up
-// on /narabi, /ukemi and /bell*. Under 720 px the primary nav becomes a horizontally scrolling row instead of
-// disappearing (designer NOTE-retouche-mobile point 1: a hidden nav is a content cut). No status is written here.
+// Charter C site chrome: a thin SITE BAR (MONARK · Fleet · Narabi · Ukemi · Bell + baseline) above the HEADER
+// (lock-up + primary nav + theme button). The lock-up follows the route: the MONARK horizontal lock-up (32 px, 24 px
+// under 720 px) on the company pages, the application lock-up on /narabi, /ukemi and /bell*. Under 720 px the primary
+// nav becomes a horizontally scrolling row instead of disappearing (a hidden nav is a content cut). No status is written
+// here.
 const SITE_BAR: readonly { href: string; label: string }[] = [
   { href: "/", label: "MONARK" },
   { href: "/fleet", label: "Fleet" },
@@ -20,9 +20,10 @@ const SITE_BAR: readonly { href: string; label: string }[] = [
   { href: "/bell", label: "Bell" },
 ];
 
-// Primary nav — the company pages (MONARK.dc.html navDef, ADR-M004 D15 naming). Unchanged routes.
+// Primary nav — the company pages (MONARK.dc.html navDef). Unchanged routes; the /products route is labelled
+// "Applications" (the on-chain applications the engine powers).
 const NAV_ITEMS: readonly { href: string; label: string }[] = [
-  { href: "/products", label: "Products" },
+  { href: "/products", label: "Applications" },
   { href: "/fleet", label: "Fleet" },
   { href: "/how", label: "How it works" },
   { href: "/roadmap", label: "Roadmap" },

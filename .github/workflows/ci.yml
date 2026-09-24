@@ -18,6 +18,12 @@ name: gates
 on:
   pull_request:
 
+# Least-privilege GITHUB_TOKEN (ADR-CODEQL-ALERTS-1 D1; CodeQL actions/missing-workflow-permissions): every job reads
+# the repository contents and nothing more. Widening it, here or per job, is an ADR decision; the root test
+# ci_workflow_declares_least_privilege_permissions pins this block (one block, after on:, no write scope).
+permissions:
+  contents: read
+
 jobs:
   g1-controle-generation:
     runs-on: ubuntu-latest
@@ -43,18 +49,18 @@ jobs:
           VIBEGATES_PR_LIMIT: "1205" # ADR-M003 D9 (R-23: measured median of the 3 Phase 1 lots)
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          # ADR-M003 D9 octies (investor decision 169, 2026-09-24): one-off waiver for integration PR 89 only
-          # (five days of lots, each within the bound in its own cycle). A shell guard, never an `if:` directive
-          # (root test 38: a skipped required check counts as passing). Removed in the commit after the merge.
-          if [ "$PR_NUMBER" = "89" ]; then
-            echo "::notice::R-25 bound waived for integration PR 89 only (ADR-M003 D9 octies)."
-            exit 0
-          fi
           case "$VIBEGATES_PR_LIMIT" in
             ''|*[!0-9]*)
               echo '::error::R-25 not configured: set VIBEGATES_PR_LIMIT by a sourced ADR (R-23). Fail-closed.'
               exit 1 ;;
           esac
+          # ADR-M003 D9 octies (investor decision 210, 2026-09-24, "EXCEPTION 90"): one-off waiver for integration PR 90 only
+          # (the lots merged on lot/etude-suite since #89, each within the bound in its own cycle). A shell guard, never an
+          # `if:` directive (root test 38: a skipped required check counts as passing). Removed in the commit after the merge.
+          if [ "$PR_NUMBER" = "90" ]; then
+            echo "::notice::R-25 bound waived for integration PR 90 only (ADR-M003 D9 octies, decision 210)."
+            exit 0
+          fi
           # fetch-depth: 0 above provides the base history. A shallow clone (--depth=1) makes the diff fail
           # with "no merge base" (exit 128), which the `|| exit 1` below turns into an explicit fail-closed
           # (measured by the G2 delta review, TEST F, 2026-09-06).
@@ -109,6 +115,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: test/bell-served.test.ts (bell_served_collector_revision_is_a_collector_commit) reads the served
+          # collector revision with `git cat-file`; a shallow clone has no such object (PR #90, first CI run of that test).
+          fetch-depth: 0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"

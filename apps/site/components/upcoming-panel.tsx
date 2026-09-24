@@ -49,17 +49,16 @@ function WiringSchema() {
 }
 
 /**
- * A single UPCOMING product placeholder (ADR-M004 D14). A segment card opens
- * it. Honest and LIGHT: not the eight-block built template, and no Frozen contract / Living proof /
- * Bibliography (a product that is not built has nothing built to show). Exactly ONE status signal — the
- * product-level Upcoming badge. The wiring names Ukemi / Hikae where they are the engine, with NO
- * "Built" pill on any node (C-10); MONARK Verdict stays generic (C-1). `status` flows from the fleet
- * register (lib/fleet.ts), never hard-coded here. A register string that is a named placeholder `<<name>>`
- * (MONARK Bell's segment, wiring and reach — ruling Q3) renders as a Placeholder, never as a value.
+ * A single UPCOMING application placeholder. A segment card opens it. Honest and LIGHT: not the eight-block built
+ * template, and no Frozen contract / Living proof / Bibliography (an application that is not built has nothing built to
+ * show). Exactly ONE status signal — the application-level Upcoming badge. The wiring names Ukemi / Hikae where they are
+ * the engine, with NO "Built" pill on any node (C-10); MONARK Verdict stays generic. `status` flows from the fleet
+ * register (lib/fleet.ts), never hard-coded here. A register string that is a named placeholder `<<name>>` renders as a
+ * Placeholder, never as a value.
  */
 export function UpcomingPanel({ product }: { product: FleetProduct }) {
-  // "the same gate" is said ONLY of the shared backbone gate; a product with its own gate (MONARK Bell: the
-  // publisher's closed checks, decision 155) or a placeholder gate shows "Gate:" instead (never a borrowed claim).
+  // "the same gate" is said ONLY of the shared backbone gate; an application with its own gate (MONARK Bell: the
+  // publisher's closed checks) or a placeholder gate shows "Gate:" instead (never a borrowed claim).
   const sharedGate = product.wiring.gate === SHARED_GATE;
   return (
     <Dialog>
@@ -95,7 +94,7 @@ export function UpcomingPanel({ product }: { product: FleetProduct }) {
         </DialogHeader>
 
         <div className="mt-4 flex flex-col gap-4 text-sm text-muted-foreground">
-          <p>A product is a wiring of fleet agents; the agent is the engine.</p>
+          <p>An application is a wiring of fleet agents; the agent is the engine.</p>
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-foreground">Wiring</p>
             <WiringSchema />

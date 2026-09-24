@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils";
  * Presentational fleet-agent card (server-safe, usable inside a client panel too). `mark` is the
  * agent mark (ink = currentColor, set by the wrapper's text colour); `children` is the one-line
  * descriptor written as JSX so the honesty lint scans it. `action` is an optional footer slot — each
- * of the three built agents (Shōgen, Hikae, Ukemi) passes a panel trigger there; a card never carries
- * an "upcoming" badge.
+ * built agent's panel on /fleet (Shōgen, Hikae, Ukemi, Narabi) passes its panel trigger there. `status` is
+ * the register's word, handed in by the caller (never typed at a call site for a register agent).
  */
 export function AgentCard({
   mark,

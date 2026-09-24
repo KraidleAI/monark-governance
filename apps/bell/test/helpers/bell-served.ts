@@ -33,8 +33,10 @@ const stateConfigB64 = (mult: number, effTs: number, newMult: number): string =>
   v.setFloat64(32, mult, true); v.setBigInt64(40, BigInt(effTs), true); v.setFloat64(48, newMult, true);
   return Buffer.from(b).toString("base64");
 };
-/** runMain, offline, writes its four files into `out` (which must lie outside the repo); `work` holds the trajectory input. */
-export async function runMainInto(out: string, work: string): Promise<void> {
+/** runMain, offline, writes its four files into `out` (which must lie outside the repo); `work` holds the trajectory input.
+ *  `databentoGet` overrides the cash-close seam (C-2 of ADR-BELL-CASH-LEG-1: a rejecting reader); the synthetic keys are SET,
+ *  since an empty key emits no cash request at all (C-4). */
+export async function runMainInto(out: string, work: string, over: { databentoGet?: DatabentoGet } = {}): Promise<void> {
   const pool = POOLS.find((p) => p.baseSymbol === "TSLAx" && p.chain === "solana")!;
   const bal = (base: string, quote: string): Obj[] => [{ accountIndex: 0, uiTokenAmount: { amount: base } }, { accountIndex: 1, uiTokenAmount: { amount: quote } }];
   const swap = { slot: 1, transaction: { message: { accountKeys: [{ pubkey: pool.vaultBase }, { pubkey: pool.vaultQuote }] } },
@@ -58,7 +60,8 @@ export async function runMainInto(out: string, work: string): Promise<void> {
     { kind: "update", multiplier: "1.0039", multiplierBitsHex: f64BitsHexLE(1.0039), effectiveTimestampSec: EFF, blockTimeSec: EFF - 1000, slot: 2, instructionIndex: 0, signature: "u" }] } }));
   await runMain(["--pools", "TSLAx", "--max-calls", "100000", "--body-sample", "0", "--min-interval", "0", "--from-utc", String(F1 - 86_400_000),
     "--to-utc", String(F2 + 86_400_000), "--rebase-trajectory", traj, "--out", out],
-  { call, databentoGet, polygonGet, env: { POLYGON_API_KEY: "p", BELL_HALTS_CSV: join(HERE, "..", "fixtures", "halts-tsla-synth.csv") }, nowMs: F2 + 86_400_000 });
+  { call, databentoGet: over.databentoGet ?? databentoGet, polygonGet, env: { POLYGON_API_KEY: "p", DATABENTO_API_KEY: "k",
+    BELL_HALTS_CSV: join(HERE, "..", "fixtures", "halts-tsla-synth.csv") }, nowMs: F2 + 86_400_000 });
 }
 
 /** One bundle `name` of `runs` runs into <state>/inbox: REAL collect() outputs serialized as runMain writes them (collect.ts:855-859,
@@ -88,9 +91,9 @@ export function servedState(key: KeyObject, n: number, runs = 1): { state: strin
 
 export interface Published { base: string; state: string; pub: string; key: KeyObject; keyring: Keyring; d9: Obj; d9Prov: Obj }
 /** The composition T-a -> T-b: runMain --out <base>/inbox/b1/run0 (the bundle IS that directory as written), then publishToDir. */
-export async function publishedRun(): Promise<Published> {
+export async function publishedRun(over: { databentoGet?: DatabentoGet } = {}): Promise<Published> {
   const base = tmp("t1b-e2e-"), run = join(base, "inbox", "b1", "run0"), state = join(base, "state");
-  await runMainInto(run, base);
+  await runMainInto(run, base, over);
   const d9 = readJson(join(run, "state.json")), d9Prov = readJson(join(run, "provenance.json")); // the D9, parsed before the archive move
   const key = generateKeyPairSync("ed25519").privateKey;
   mkdirSync(state);
@@ -115,7 +118,7 @@ export function resealHead(pub: string, key: KeyObject, mutate: (state: Obj) => 
 
 // ---- the headers of deploy/Caddyfile.monark-bell (S-8, PR-3), READ from the file: a subset parser, fail-closed ----
 export const CADDYFILE = join(REPO, "deploy", "Caddyfile.monark-bell");
-export interface HeaderRule { match: (path: string) => boolean; name: string; value: string }
+export interface HeaderRule { matches: (path: string) => boolean; name: string; value: string }
 /** `header [<@named|/path>] <Name> <value>` and `header [...] { <Name> <value> ... }` at site level; named matchers
  *  `@n [not] path <glob>...` (inline or `@n { ... }`). Any other header form (+/-/>/? prefixes, a header nested in another
  *  block) THROWS: an unread header is never a silent green. Rules apply in file order (a later match overrides). */
@@ -144,14 +147,14 @@ export function caddyHeaderRules(text: string): HeaderRule[] {
   const rules: HeaderRule[] = [];
   for (const [i, t0, d] of heads) {
     if (d !== 1) throw new Error(`caddyfile: header nested in a block (line ${String(i + 1)})`);
-    let t = t0, match: (p: string) => boolean = () => true;
-    if (t[0]?.startsWith("@")) { const m = matchers.get(t[0]); if (m === undefined) throw new Error(`caddyfile: unknown matcher ${t[0]}`); match = m; t = t.slice(1); }
-    else if (t[0]?.startsWith("/")) { match = glob(t[0]); t = t.slice(1); }
+    let t = t0, matches: (p: string) => boolean = () => true;
+    if (t[0]?.startsWith("@")) { const m = matchers.get(t[0]); if (m === undefined) throw new Error(`caddyfile: unknown matcher ${t[0]}`); matches = m; t = t.slice(1); }
+    else if (t[0]?.startsWith("/")) { matches = glob(t[0]); t = t.slice(1); }
     const pairs: string[][] = [];
     if (t[0] === "{") { for (let j = i + 1; lines[j] !== "}"; j++) pairs.push(toks(lines[j]!)); } else pairs.push(t);
     for (const [name, value, ...more] of pairs) {
       if (name === undefined || value === undefined || more.length > 0 || /^[+\->?]/.test(name)) throw new Error(`caddyfile: unsupported header form: ${pairs.flat().join(" ")}`);
-      rules.push({ match, name, value });
+      rules.push({ matches, name, value });
     }
   }
   return rules;
@@ -168,7 +171,7 @@ export function serveDir(root: string, rules: readonly HeaderRule[] | null): Pro
     const p = (req.url ?? "/").split("?")[0] ?? "/", f = join(root, ...p.split("/").filter((s) => s !== ""));
     seen.push(p);
     const h: Record<string, string> = {};
-    for (const r of rules ?? []) if (r.match(p)) h[r.name] = r.value;
+    for (const r of rules ?? []) if (r.matches(p)) h[r.name] = r.value;
     const ok = !p.includes("..") && existsSync(f) && statSync(f).isFile();
     res.writeHead(ok ? 200 : 404, h);
     res.end(ok ? readFileSync(f) : undefined);

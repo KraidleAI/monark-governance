@@ -32,7 +32,7 @@ function storedTheme(): Theme | null {
   }
 }
 
-// Charter C (ruling Q5): the default is the visitor's system preference (prefers-color-scheme); the header
+// Charter C: the default is the visitor's system preference (prefers-color-scheme); the header
 // button records an explicit choice, which then wins. The pre-paint script in app/layout.tsx applies the same
 // rule before first paint, so there is no flash; this provider syncs React state from it on mount and follows
 // a live system change while no explicit choice is stored.

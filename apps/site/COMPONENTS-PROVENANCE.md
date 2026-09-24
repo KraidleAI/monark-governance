@@ -46,7 +46,7 @@ a foundation-scope, exact-pinning-clean result:
 The output was reverted by file copy (backup taken before the attempt); the lockfile was reconciled with
 `npm install`.
 
-## Base/preset resolved (2026-09-07, ADR-M004 D2-ter)
+## Base/preset resolved (2026-09-07)
 
 Runtime deps added by Base UI, all **pinned EXACT** (each = registry `latest` verified
 2026-09-07): `@base-ui/react 1.8.0`, `class-variance-authority 0.7.1`, `lucide-react 1.41.0`,
@@ -81,20 +81,20 @@ absent from `apps/site/package.json` and `package-lock.json` (test `no_base_ui_c
 The `site` scope bans `\bconfidence\b` (C6). MONARK's honest fleet-invariant copy ("no confidence
 field / score", README l.67-71) uses that exact word and WILL redden the gate — and it cannot simply
 be reworded, because the honesty claim *is* about the absence of a "confidence" field. Resolve by a
-scoped ADR: either a closed exempt phrase (the pattern used by `honesty-lint.exempt.json` /
+scoped, recorded decision: either a closed exempt phrase (the pattern used by `honesty-lint.exempt.json` /
 `scripts/lang-exempt.json`) or a negation-aware pattern. A formed pending, not a naked due.
 
-## Charter C assets (lot SITE-CHARTE-C, investor decisions 145/146, 2026-09-23)
+## Charter C assets (2026-09-23)
 
 Authored directly or copied byte-for-byte; no CLI, no npm dependency added.
 
-- `app/fonts/` — OFL fonts copied byte-for-byte from the brand font folder (decisions 105/107), with their OFL
+- `app/fonts/` — OFL fonts copied byte-for-byte from the brand font folder, with their OFL
   licence texts beside them (two of them normalised from CRLF to LF by `.gitattributes` on commit, text unchanged);
   loaded by `next/font/local` in `app/layout.tsx`. SHA-256 of the fonts:
   `SpaceGrotesk-wght.ttf` `acad6de1…fbd79f72`, `JetBrainsMono-wght.ttf` `48715a42…193ffeda`,
   `ArchivoBlack-Regular.ttf` `dd9a89a0…39703180`.
 - `app/fonts/Newsreader-opsz-wght.ttf`, `app/fonts/Newsreader-Italic-opsz-wght.ttf`, `app/fonts/OFL-Newsreader.txt`
-  (investor decision 148, 2026-09-23) — Newsreader (Production Type), SIL Open Font License 1.1, copied
+  (2026-09-23) — Newsreader (Production Type), SIL Open Font License 1.1, copied
   byte-for-byte from the public `google/fonts` repository, path `ofl/newsreader/` (branch `main`, fetched 2026-09-23;
   the google/fonts commit was not recorded, the bytes are pinned by SHA-256 below), renamed without brackets like the
   other font files (upstream names `Newsreader[opsz,wght].ttf`, `Newsreader-Italic[opsz,wght].ttf`, `OFL.txt`; the
@@ -110,32 +110,33 @@ Authored directly or copied byte-for-byte; no CLI, no npm dependency added.
   commented in the file: the two projected clock labels are drawn only on a canvas at least 480 px wide (designer
   mobile note, point 5); the still frame is redrawn after a resize under reduced motion (a resize clears the canvas);
   the document declares both colour schemes (no opaque iframe backdrop under the dark theme); the night-side label
-  reads "closed · recording" (orchestrator ruling V4: it no longer names Bell, which is upcoming in public).
+  reads "closed · recording" (it no longer names Bell).
 - `components/lockups.tsx` — the MONARK, Narabi, Ukemi and Bell lock-ups, path data transcribed from the
-  designer's SVG files (decision 120 lettering; Q1 ruling), ink as `currentColor`, accent as the product token.
-- `public/bell/anchors/` — written by `scripts/sync-bell-anchors.mjs` from the anchors register (manifests,
-  OpenTimestamps proofs, `anchors.json`); pinned by the root test `bell_anchors_served_register_matches_source`.
+  designer's SVG files, ink as `currentColor`, accent as the application's token.
+- `public/bell/anchors/` — written by `scripts/sync-bell-anchors.mjs` from the two anchors registers, the course's and the
+  published records' (manifests, OpenTimestamps proofs, `anchors.json`, `publications.json`); pinned by the root tests
+  `bell_anchors_served_register_matches_source` and `bell_publication_anchors_served_register_matches_source`.
 - `public/icons/bell.svg` — the Bell mark (designer favicon) with a dark-scheme rule, the `/icons/narabi.svg` pattern.
 
-## Bell legal texts (lot SITE-LEGAL-1, investor decisions 146/147/148, 2026-09-23)
+## Bell legal texts (2026-09-23)
 
-Copied from the legal drafts validated by the investor's lawyer ("as drafted", decision 147), outside this
+Copied from the legal drafts validated by counsel ("as drafted"), outside this
 repository: `TERMS-OF-USE-draft.md` (SHA-256 `5f11f0fe…a7131efd`), `PRIVACY-NOTICE-draft.md` (SHA-256
 `160826cb…a6dff64e`; both full values in the `$comment` of `data/bell-legal.json`), `MAILTO-TEMPLATE-draft.md`
 (SHA-256 `1ef97d7f…fc67070a`).
 
-- `app/bell/terms/page.tsx`, `app/bell/privacy/page.tsx` — the two texts, verbatim except for the deviations the lot
-  report lists one by one, each with its reason (notes to the lawyer removed, licence option left as a placeholder,
+- `app/bell/terms/page.tsx`, `app/bell/privacy/page.tsx` — the two texts, verbatim except for the deviations each page's
+  header comment lists one by one, each with its reason (notes to counsel removed, licence option left as a placeholder,
   present tense on non-served paths put in the future, no country, placeholders for fields still to decide).
 - `data/bell-legal.json` — generated by a script from the two drafts (the table "Words we do not use, and why" cell by
   cell, and two spans of the Privacy Notice found by exact search), not typed; listed with its SHA-256 in
   `data/manifest.sha256.json`, read by `lib/bell-legal-load.ts`; what it carries is pinned by `test/bell-legal.test.ts`.
-- `lib/bell-contact.ts` — the mail template's lists and body lines copied verbatim (country field dropped, decision 94);
+- `lib/bell-contact.ts` — the mail template's lists and body lines copied verbatim (country field dropped);
   the link equals the template's own encoded link up to two declared substitutions, pinned by `test/bell-contact.test.ts`.
 
-## The MONARK noyau (pli SITE-NOYAU-1, investor delivery of 2026-09-23)
+## The MONARK noyau (delivered on 2026-09-23)
 
-Delivered by the investor as the archive `Monark animation concepts.zip` (SHA-256 `5c855327…3cced9d2`); its `site/` folder
+Delivered as the archive `Monark animation concepts.zip` (SHA-256 `5c855327…3cced9d2`); its `site/` folder
 was read after checking that each unpacked file equals its archive entry byte for byte. No CLI, no npm dependency added.
 
 - `components/noyau/noyau-engine.ts` — the Canvas 2D engine (no library, no WebGL; its canvases draw no text), delivered
@@ -152,3 +153,5 @@ was read after checking that each unpacked file equals its archive entry byte fo
   and the mark of the agent absent from the register (its name is banned on the storefront by the site vocabulary scope).
 - `app/page.tsx` — the noyau replaces the cubes scene in the home hero; `app/bell/page.tsx` — the cubes scene
   (`public/scene/blocks-hero.html`, unchanged, still served) and its legend are the hero visual of /bell.
+
+- `components/bell-scene.tsx` (2026-09-24, orchestrateur `claude-fable-5-1`, investor request the same day: text and animation side by side, full size, one block, no frame) — the /bell hero scene rewritten as a native client component from `public/scene/blocks-hero.html` (removed the same day; its drawing, palette and four labels are carried over unchanged). Fixes the lag on scrolling back: the iframe's own loop kept running out of view; the component pauses its loop while out of the viewport (IntersectionObserver) and while the document is hidden, resumes from a wall clock capped at 0.1 s per frame, follows its container with a ResizeObserver, draws one still frame under reduced motion. Layout `.c-hero--bell` (globals.css): two columns on desktop, stacked on mobile (300 px). No library.

@@ -1,5 +1,5 @@
-// apps/site/lib/bell-legal.ts — routes and section order of the two Bell legal pages (lot SITE-LEGAL-1; decisions
-// 146, 147, 148). The TEXT of the pages is the validated legal text (the lawyer's GO "as drafted", decision 147),
+// apps/site/lib/bell-legal.ts — routes and section order of the two Bell legal pages. The TEXT of
+// the pages is the legal text validated by counsel (GO "as drafted"),
 // written in app/bell/terms/page.tsx and app/bell/privacy/page.tsx; this module only carries STRUCTURE.
 //
 // Section numbers are never typed: a section's number is its position in the ordered list below, so the heading

@@ -48,27 +48,191 @@ export function decodeEntities(s) {
     .replace(/&amp;/g, "&");
 }
 
-/** Isolate the RENDERED text body: strip every `<script>`, `<noscript>` and `<template>` block (attributes
- *  tolerated, case-insensitive) and React's `<!-- -->` comment markers, then decode entities. The inline RSC
- *  `<script>` payload carries the notes with LITERAL apostrophes (the false-green source), and a note living
- *  only inside a hidden `<noscript>`/`<template>` is likewise NOT rendered. Fail-closed on an UNCLOSED
- *  `<script>` (no matching `</script>`): its payload would otherwise leak into the body. */
+/** The hidden surfaces a browser never renders. Raw-text elements are not removed (D3, M-24): rawTextEnd checks them. */
+const HIDDEN_BLOCKS = ["script", "noscript", "template"];
+/** HTML's ASCII whitespace: it ends a tag name, and may pad an end tag before its `>` (`</script >`). */
+const HTML_SPACE = "\t\n\f\r ";
+/** ASCII-only lower-casing: HTML tag names are ASCII case-insensitive (String#toLowerCase is Unicode-aware). */
+const asciiLower = (s) => s.replace(/[A-Z]/g, (c) => c.toLowerCase());
+
+/** Elements whose content a browser reads as TEXT up to their own end tag, never as markup (WHATWG 13.2.6.4.4 "in
+ *  head": title as RCDATA, noframes and style as raw text; 13.2.6.4.7 "in body": textarea as RCDATA, xmp, iframe and
+ *  noembed as raw text, plaintext up to the end of the input; tokenizer states 13.2.5.2, 13.2.5.3, 13.2.5.5). They are
+ *  not removed (D3, M-24): the scanner reads their content as markup, and rawTextEnd checks where that reading is wrong. */
+const RAW_TEXT_ELEMENTS = ["style", "title", "textarea", "xmp", "iframe", "noembed", "noframes", "plaintext"];
+
+/** The name, among `names`, of the element whose opener starts at `lt` (`<name` + whitespace, `/` or `>`, ASCII
+ *  case-insensitive), else undefined. */
+function openerAt(html, lt, names) {
+  return names.find((n) => {
+    const next = html.charAt(lt + 1 + n.length);
+    return next !== "" && (HTML_SPACE + "/>").includes(next) && asciiLower(html.slice(lt + 1, lt + 1 + n.length)) === n;
+  });
+}
+
+/** The hidden-block name whose opener starts at `lt`, else undefined. */
+function hiddenOpenerAt(html, lt) {
+  return openerAt(html, lt, HIDDEN_BLOCKS);
+}
+
+/** The raw-text element name whose opener starts at `lt`, else undefined. */
+function rawTextOpenerAt(html, lt) {
+  return openerAt(html, lt, RAW_TEXT_ELEMENTS);
+}
+
+/** Index just past a `</name` + optional whitespace + `>` closer that starts AT `c` (ASCII case-insensitive), else -1. */
+function closerAt(html, name, c) {
+  if (!html.startsWith("</", c) || asciiLower(html.slice(c + 2, c + 2 + name.length)) !== name) return -1;
+  let k = c + 2 + name.length;
+  while (k < html.length && HTML_SPACE.includes(html.charAt(k))) k++;
+  return html.charAt(k) === ">" ? k + 1 : -1;
+}
+
+/** Index just past the first closer of `name` at or after `from`, else -1: the end of a script or noscript. Exact for
+ *  noscript (raw text, WHATWG 13.2.5.14 RAWTEXT end tag name state) and for plain script data (13.2.5.17); the escaped
+ *  and double-escaped script data states (13.2.5.18-13.2.5.31) are not modelled (residual R-e). */
+function closerEnd(html, name, from) {
+  for (let c = html.indexOf("</", from); c !== -1; c = html.indexOf("</", c + 2)) {
+    const end = closerAt(html, name, c);
+    if (end !== -1) return end;
+  }
+  return -1;
+}
+
+/** Index just past the closer (`</name` + optional whitespace + `>`, the D3 grammar) of the raw-text element whose opener
+ *  `<name` starts at `lt`, once its content is checked. A browser reads that content as text; the scanner reads it as
+ *  markup, which changes what it takes for hidden in three forms, each a named throw (pli 3, L-2, investor decision 187):
+ *  the element is never closed (plaintext never is, 13.2.6.4.7; its text would run to the end of the input, whatever
+ *  the scanner reads there); its content holds a hidden-surface opener (live to the scanner, that surface could run past
+ *  the element's end and swallow a real one that follows: the single pass counted the payload of
+ *  `<style><noscript></style><script></noscript>...`, where the two-pass regex order threw); in template content, its
+ *  content holds a template closer (the scanner would end the template there). A raw-text opener inside that content is
+ *  text as well: the caller skips it, up to the returned index, so each content is checked once. */
+function rawTextEnd(html, lt, name, inTemplate) {
+  const gt = html.indexOf(">", lt + 1 + name.length);
+  const end = gt === -1 || name === "plaintext" ? -1 : closerEnd(html, name, gt + 1);
+  if (end === -1) throw new Error(`assert-fleet-html: an unclosed <${name}> element (its text runs to the end of the input) - fail-closed`);
+  for (let q = html.indexOf("<", gt + 1); q !== -1 && q < end; q = html.indexOf("<", q + 1)) {
+    const hidden = hiddenOpenerAt(html, q);
+    if (hidden !== undefined) throw new Error(`assert-fleet-html: a <${name}> element holds a <${hidden}> opener (text to a browser, live markup to this scanner) - fail-closed`);
+    if (inTemplate && closerAt(html, "template", q) !== -1) throw new Error(`assert-fleet-html: a <${name}> element in a <template> holds a </template> (text to a browser, the template end to this scanner) - fail-closed`);
+  }
+  return end;
+}
+
+/** Index just past the comment that opens at `lt` (`<!--`), where a browser ends it (WHATWG 13.2.5.43-13.2.5.52): at once
+ *  for `<!-->` and `<!--->` (abrupt closing, 13.2.5.43/13.2.5.44), else just past the first `--` followed by `>` or `!>`
+ *  (`-->`, 13.2.5.51; `--!>`, 13.2.5.52); the `<!--`-inside-a-comment states (13.2.5.46-13.2.5.49) never move that end.
+ *  Unclosed: throws. A `<!--` in raw text (style, title, textarea..., M-24) or in an attribute value is no comment to a
+ *  browser, and the scanner cannot tell: when the span holds the opener of a hidden surface, one reading hides that
+ *  surface and the other runs it, so what follows the span cannot be classified - throw, naming the opener (G2-delta B-2
+ *  in a template, L-1 at top level: the span ran on into a later surface and the rest of its payload was counted). So
+ *  does the opener of a raw-text element (pli 3, L-2): live, its content is text to a browser, yet the scanner, resuming
+ *  after the span, would read the rest of it as markup, unchecked by rawTextEnd. */
+function commentEnd(html, lt) {
+  if (html.charAt(lt + 4) === ">") return lt + 5;
+  if (html.startsWith("->", lt + 4)) return lt + 6;
+  let close = html.indexOf("--", lt + 4);
+  while (close !== -1 && html.charAt(close + 2) !== ">" && !html.startsWith("!>", close + 2)) close = html.indexOf("--", close + 1);
+  if (close === -1) throw new Error("assert-fleet-html: an unclosed <!-- comment (no matching --> or --!>) - fail-closed");
+  for (let p = html.indexOf("<", lt + 4); p !== -1 && p < close; p = html.indexOf("<", p + 1)) {
+    const name = hiddenOpenerAt(html, p) ?? rawTextOpenerAt(html, p);
+    if (name !== undefined) throw new Error(`assert-fleet-html: a <!-- comment spans a <${name}> opener (a <!-- in raw text or an attribute value would leave it live) - fail-closed`);
+  }
+  return html.charAt(close + 2) === ">" ? close + 3 : close + 4;
+}
+
+/** Deepest <template> nesting the scanner follows (G2-delta M-2): templateEnd and surfaceEnd recurse once per level, and
+ *  without a bound the recursion reached the call-stack limit at 9 629 levels on Node v24.15.0 (a RangeError, fail-closed
+ *  by accident only). 256 sits far below that limit and far above any page (the built site carries no <template>);
+ *  deeper nesting throws, named. */
+const MAX_TEMPLATE_DEPTH = 256;
+
+/** Index just past the `</template>` that closes a template whose content starts at `from`, else -1. Its nesting level
+ *  is `depth` (1 at top level). Template content is MARKUP, not raw text (WHATWG 13.2.6.4.16 "in
+ *  template": script and template via the "in head" rules, noscript via "in body", i.e. raw text): a `</template>`
+ *  inside a nested script, noscript or comment closes nothing, and a nested template ends at its own closer. So every
+ *  nested surface is consumed WHOLE by surfaceEnd (recursively; it throws if unclosed) before a `</template>` is taken
+ *  (G2 B-1: taking the first one wherever it sat was a false green). Each raw-text element met in the content is
+ *  checked (rawTextEnd, template closer included) before its content is read like the rest. */
+function templateEnd(html, from, depth) {
+  if (depth > MAX_TEMPLATE_DEPTH) throw new Error(`assert-fleet-html: <template> nested deeper than ${MAX_TEMPLATE_DEPTH} levels - fail-closed`);
+  let rawSeen = -1; // just past the last raw-text element checked: a raw-text opener before it is its text
+  let lt = html.indexOf("<", from);
+  while (lt !== -1) {
+    const inner = surfaceEnd(html, lt, depth);
+    if (inner !== undefined) {
+      lt = html.indexOf("<", inner);
+      continue;
+    }
+    const end = closerAt(html, "template", lt);
+    if (end !== -1) return end;
+    const raw = lt < rawSeen ? undefined : rawTextOpenerAt(html, lt);
+    if (raw !== undefined) rawSeen = rawTextEnd(html, lt, raw, true);
+    lt = html.indexOf("<", lt + 1);
+  }
+  return -1;
+}
+
+/** The hidden surface that opens at `lt`: undefined if none, else the index just past its end; `depth` counts the
+ *  templates around `lt` (0 at top level). A comment ends where a browser ends it (commentEnd); a script or noscript at
+ *  its first closer; a template at its own closer (templateEnd). Opener: `<name` (ASCII case-insensitive) + whitespace,
+ *  `/` or `>`, attributes up to the next `>`; closer: `</name` + optional whitespace + `>`. Fail-closed: an unclosed
+ *  surface throws, naming the innermost unclosed one (its payload would count as rendered text). */
+function surfaceEnd(html, lt, depth) {
+  if (html.startsWith("<!--", lt)) return commentEnd(html, lt);
+  const name = hiddenOpenerAt(html, lt);
+  if (name === undefined) return undefined;
+  const gt = html.indexOf(">", lt + 1 + name.length);
+  const end = gt === -1 ? -1 : name === "template" ? templateEnd(html, gt + 1, depth + 1) : closerEnd(html, name, gt + 1);
+  if (end === -1) throw new Error(`assert-fleet-html: an unclosed <${name}> block (no matching </${name}>) - fail-closed`);
+  return end;
+}
+
+/** ONE left-to-right pass in document order, the order a browser tokenizes in (ADR-CODEQL-ALERTS-1 D3: replaces the
+ *  regex filters CodeQL flagged, #27-#29). Each COMPLETE hidden surface (surfaceEnd) is removed WHOLE, so a `<!--`
+ *  inside a payload never pairs with a `-->` in the body; every other byte, generic tags included, is copied verbatim
+ *  (extractMain / mainCorpus read the tags). The pass never re-scans its output, so a surface rebuilt from leftovers
+ *  (`<scr<script></script>ipt>`) stays there for renderedBody's guards. Each raw-text element met on the way is
+ *  checked (rawTextEnd) before its content is read like the rest. */
+function stripHiddenSurfaces(html) {
+  let out = "";
+  let copied = 0;
+  let rawSeen = -1; // just past the last raw-text element checked: a raw-text opener before it is its text
+  let lt = html.indexOf("<");
+  while (lt !== -1) {
+    const end = surfaceEnd(html, lt, 0);
+    if (end === undefined) {
+      const raw = lt < rawSeen ? undefined : rawTextOpenerAt(html, lt);
+      if (raw !== undefined) rawSeen = rawTextEnd(html, lt, raw, false);
+      lt = html.indexOf("<", lt + 1); // not a hidden surface: this `<` is copied with the text around it
+    } else {
+      out += html.slice(copied, lt);
+      copied = end;
+      lt = html.indexOf("<", end);
+    }
+  }
+  return out + html.slice(copied);
+}
+
+/** Isolate the RENDERED text body: remove every `<script>`, `<noscript>` and `<template>` block (attributes
+ *  tolerated, case-insensitive) and React's `<!-- -->` comment markers (stripHiddenSurfaces), then decode
+ *  entities. The inline RSC `<script>` payload carries the notes with LITERAL apostrophes (the false-green source),
+ *  and a note living only inside a hidden `<noscript>`/`<template>` is likewise NOT rendered. Fail-closed on an
+ *  UNCLOSED hidden block or comment, on a comment span holding a hidden-surface or raw-text opener, on a raw-text element
+ *  left unclosed or holding a hidden-surface opener (in a template, a template closer too), on <template> nesting past
+ *  MAX_TEMPLATE_DEPTH, and on a `<script` or `<!--` left in the output: a payload would otherwise leak into the body. */
 export function renderedBody(html) {
-  // Strip balanced <script> blocks FIRST (attributes + case tolerated via [^>]* and the gi flag), then the
-  // other hidden surfaces, then <!-- --> markers: a `<!--` inside a payload cannot then pair with a `-->` in
-  // the body and eat rendered text. (Next escapes `<` as an entity in inline scripts, so there is no bug on
-  // today's artefact - measured - but this order is the robust one.)
-  const noScript = String(html).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "");
-  // Fail-closed: a `<script` opening that survived the balanced strip has no `</script>`, so its inline
-  // payload (notes with LITERAL apostrophes) would leak into the body and a broken build could pass on the
-  // payload alone (a false GREEN, G0 finding 8). Throw rather than let it through.
+  const noScript = stripHiddenSurfaces(String(html));
+  // Fail-closed: a `<script` opening left in the output (no opener to the scanner, or rebuilt from leftovers such as
+  // `<scr<script></script>ipt>`) could carry an inline payload (notes with LITERAL apostrophes) into the body, and a
+  // broken build could pass on the payload alone (a false GREEN, G0 finding 8). Throw rather than let it through.
   if (/<script\b/i.test(noScript))
     throw new Error("assert-fleet-html: an unclosed <script> tag survived stripping (no matching </script>) - fail-closed");
-  const noHidden = noScript
-    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, "")
-    .replace(/<template\b[^>]*>[\s\S]*?<\/template>/gi, "");
-  const noComments = noHidden.replace(/<!--[\s\S]*?-->/g, "");
-  return decodeEntities(noComments);
+  // Fail-closed, symmetric (ADR-CODEQL-ALERTS-1 C-V2-2b): a `<!--` left in the output (rebuilt from leftovers such
+  // as `<!-<!---->-`) is markup this text check cannot classify; throw rather than count what it may hide.
+  if (noScript.includes("<!--")) throw new Error("assert-fleet-html: a <!-- comment opener survived stripping - fail-closed");
+  return decodeEntities(noScript);
 }
 
 /** Assert the rendered /fleet HTML body carries `expectedHeader` and each of `expectedNotes` at least once.

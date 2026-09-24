@@ -25,7 +25,7 @@ import {
   sendSmtp, smtpDeadlineMs, DEFAULT_SMTP_DEADLINE_MS, STATE_TIMEOUT_MS, STATE_RETRIES, parseTimeline,
 } from "../scripts/probe-narabi.mjs";
 import type { NarabiState } from "../scripts/probe-narabi.mjs";
-import { NARABI_SNAPSHOT } from "../apps/site/lib/narabi-snapshot.ts";
+import { loadNarabiCapture } from "../apps/site/lib/narabi-capture-load.ts";
 
 const SELF = fileURLToPath(import.meta.url);
 // C-B-6: NO test may send a REAL mail. Every child spawned here gets an env with all SMTP_*/ALERT_* PURGED
@@ -39,6 +39,8 @@ const childEnv = (extra: Record<string, string> = {}): Record<string, string> =>
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const REPO = join(HERE, "..");
+// The storefront's committed capture of the two served files, read through its manifest-checked loader.
+const NARABI_SNAPSHOT = loadNarabiCapture(REPO);
 const PROBE_MJS = join(REPO, "scripts", "probe-narabi.mjs");
 const RUN_TS = join(REPO, "apps", "sentinel", "src", "run.ts");
 const FIXTURE = join(REPO, "apps", "sentinel", "test", "fixtures", "narabi-timeline-2026-09-19.jsonl");
@@ -722,7 +724,11 @@ test("probe_state_mismatch_drives_smtp_alert_merged — the merged detection+ale
   assert.ok(firstLine, "the snapshot timeline has a first line");
   // a REAL digest of the WRONG day (mirror probe-narabi-state.test.ts:91): a VALID but STALE state.json body.
   const staleState = JSON.stringify({ ...JSON.parse(NARABI_SNAPSHOT.stateJson) as Record<string, unknown>, digest: firstLine.digest_T });
-  const NOW = "2026-09-19T10:35Z"; // last day 2026-09-18 present after 10:30 => NOT lagging: the state verdict is isolated
+  // The capture's last published day D is READ (the capture is re-taken as the sentinel publishes): NOW = D+1 just
+  // after the deadline => D present, NOT lagging, so the state verdict is isolated whatever the capture day.
+  const lastDay = lines.at(-1)?.day ?? "";
+  const nowDay = new Date(Date.parse(lastDay + "T00:00:00Z") + 86_400_000).toISOString().slice(0, 10);
+  const NOW = `${nowDay}T10:35Z`;
   const http = createServer((req, res) => {
     if (req.url === "/narabi/timeline.jsonl") { res.writeHead(200, { "content-type": "application/jsonl" }); res.end(tl); return; }
     if (req.url === "/narabi/state.json") { res.writeHead(200, { "content-type": "application/json" }); res.end(staleState); return; }
@@ -742,7 +748,7 @@ test("probe_state_mismatch_drives_smtp_alert_merged — the merged detection+ale
     // ALERT (-1b-ii-a): the -b verdict DROVE the state machine AND exactly one captured mail carrying the -b reason.
     assert.equal(r.state.alerted, true, "the -a state machine latched alerted AFTER the 250 (it consumed the -b verdict)");
     assert.equal(r.state.alert_error, null, "the alert was delivered (no alert_error)");
-    assert.equal(r.state.last_alert_day, "2026-09-19", "last_alert_day is the UTC day of --now");
+    assert.equal(r.state.last_alert_day, nowDay, "last_alert_day is the UTC day of --now");
     assert.equal(fake.cap.delivered, 1, "EXACTLY one mail delivered on the state_mismatch (kills a maybeAlert that skips state_*)");
     assert.equal(fake.cap.rcptTo.length, 1, "exactly one recipient");
     assert.match(fake.cap.data, /condition: alert/, "the first mail is an alert");

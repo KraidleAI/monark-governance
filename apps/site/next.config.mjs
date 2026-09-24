@@ -1,7 +1,7 @@
-// apps/site/next.config.mjs — Next.js App Router config for the MONARK storefront (ADR-M004 D2 addendum).
+// apps/site/next.config.mjs — Next.js App Router config for the MONARK storefront.
 // @next/mdx (Vercel-maintained) renders the committed MDX content pages; its peers @mdx-js/loader and
 // @mdx-js/react are pinned in package.json. No deployment config here — local `next dev` only;
-// hosting (Cloudflare + VPS) is the F-deploy increment (ADR-M004 Q2, out of this lot).
+// hosting (Cloudflare + VPS) is configured outside this repository.
 import createMDX from "@next/mdx";
 
 /** @type {import('next').NextConfig} */
@@ -18,7 +18,7 @@ const nextConfig = {
     if (process.env.NODE_ENV !== "development") return [];
     return [{ source: "/narabi/:file(state.json|timeline.jsonl)", destination: "https://monarkgate.tech/narabi/:file" }];
   },
-  // Bell anchors (lot SITE-CHARTE-C): `.ots` is ALSO the OpenDocument spreadsheet-template extension, so the static
+  // Bell anchors: `.ots` is ALSO the OpenDocument spreadsheet-template extension, so the static
   // server would label an OpenTimestamps proof as a spreadsheet (measured locally). Serve the proofs as bytes to
   // download; manifests stay text/plain.
   async headers() {

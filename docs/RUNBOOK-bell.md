@@ -243,6 +243,49 @@ listing; certificate valid; retry after 30 s while ACME completes, at most 5 tri
 **STOP** if the TLS result is not 0 after the retries: read `journalctl -u caddy -n 50 --no-pager` (no secret
 there) before anything else. Rollback: the step 7 rollback. **Hosting is now online; steps 9-13 wait for G-b and G-e.**
 
+## 8 bis. From seq 2: ONE day crossed dry, then the course (ADR-BELL-CASH-LEG-1, C-12) — before step 9
+
+Seq 1 abstained `no_close_ref` on every session (its launch scripts removed the Databento key). From seq 2 the cash leg is ON and
+its first LIVE cross-check has never been observed, so ONE reference day already publishable (16:00 ET + 24 h passed, e.g.
+`2026-09-15`, a reference day of mode W3) is crossed dry with the committed code of the course's execution tree `<EXEC_TREE>`
+(clean, at the G7 of the course, `node_modules` installed), the keys in the operator environment. Nothing but a cost and statuses
+is printed (never a key, never a close):
+
+```bash
+cd <EXEC_TREE> && node --input-type=module -e 'import { DATABENTO_HIST, databentoCostPath } from "./apps/bell/src/close.ts"; if (!process.env.DATABENTO_API_KEY) { console.log("no key"); process.exit(3); } const d = process.argv[1], e = new Date(Date.parse(d + "T00:00:00Z") + 86400000).toISOString().slice(0, 10); const r = await fetch(DATABENTO_HIST + databentoCostPath(["TSLA"], d, e), { headers: { Authorization: "Basic " + Buffer.from((process.env.DATABENTO_API_KEY ?? "") + ":").toString("base64") } }); if (!r.ok) { console.log("HTTP " + r.status); process.exit(3); } let v; try { v = JSON.parse(await r.text()); } catch { console.log("not JSON"); process.exit(3); } console.log("cost_usd=" + Number(v));' -- 2026-09-15
+```
+
+```bash
+cd <EXEC_TREE> && node --input-type=module -e 'import { readReferenceCloses, readCashKeys, databentoGet, polygonGet } from "./apps/bell/src/close.ts"; const k = readCashKeys(process.env), faults = []; const r = await readReferenceCloses({ TSLA: [process.argv[1]] }, { databentoGet, polygonGet, databentoKey: k.databentoKey, polygonKey: k.polygonKey, faults }); console.log(JSON.stringify({ cross: r.crossByUnderlying, faults }));' -- 2026-09-15
+```
+
+Expected: `cost_usd=<n>` with n <= 1 (the metadata call is free, PR-B-DBN Q7; the one-day range request of the second command is
+the only billed Databento call of this step; `no key` = STOP, nothing was requested; `HTTP <status>` or `not JSON` = STOP, no byte of
+the body printed, exit 3). Run the second command only after the first
+printed `cost_usd=<n>` with n <= 1. It prints exactly `{"cross":{"TSLA":{"2026-09-15":"matched"}},"faults":[]}`. **STOP** on anything else:
+`mismatch` (the two sources disagree on the scaled integer), `unavailable` (the cross-check key or host), a fault, or
+`{"cross":{},"faults":[]}` (no Databento key: nothing was requested). No course then; the investigation is named in the JOURNAL.
+Rollback: none (read-only).
+
+Then, for EVERY instrument of the sequence (decision 164: seq 2 = TSLAx + AAPLx + SPYx, one bundle, never mono-instrument), the
+course from the same tree: first the dry run (guards + the `metadata.get_cost` pre-flight, cap 1 USD, nothing written), then the
+same line without `Q6_DRYRUN=1`, detached (RUNBOOK-SUP-3), then its controls once the process has exited:
+
+```bash
+Q6_DRYRUN=1 Q6_SHA_G7=<G7 of the course> Q6_EXEC_TREE=<EXEC_TREE> Q6_TRAJ_FILE=<produced trajectory> Q6_TRAJ_SHA256=<its sha256> Q6_FLOOR_CHAINSTACK_RU=<floor> bash <EXEC_TREE>/apps/bell/ops/launch-q6.sh <MINT> <mode> --out <OUT>
+```
+
+```bash
+node <EXEC_TREE>/apps/bell/ops/q6-controls.mjs --variant fast --mint <MINT> --mode <mode> --out <OUT> --exec-tree <EXEC_TREE> --ledger-cycle-dir /f/monark-ledger/helius-2026-09-19 --seq1-state /f/course-bell/q6/<MINT>/state.json
+```
+
+Expected: `RESULT 0 FAIL`; **`PASS Q6-C14` (close_ref_present) is blocking** (C-6): a `no_close_ref` is admitted only on a session
+whose reference close is not yet publishable. Never `--now` here: it is an offline-test clock override, reported as `FAIL Q6-C00`.
+A `WARN Q6-C15` (seq 1 differs) is written as a D-n line with its figures, masked: the line prints the seq 1 and seq 2 VWAPs
+(`seq1=`, `seq2=`) on the console, and it is never pasted as printed into a document of the repository (the JOURNAL included): each
+VWAP takes the token `[masqué]` (checkpoint-2 observation). Only then is the bundle assembled (step 9). Rollback: `<OUT>` is moved
+aside, never overwritten (the launcher refuses an existing state).
+
 ## 9. The first bundle (gates G-b and G-e)
 
 A bundle is ONE directory whose sub-directories are `runMain --out` directories exactly as written (`state.json`,
@@ -270,7 +313,9 @@ ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl start monark-bell-publish
 
 Expected: `start_exit=0`; one JSON line `{"status":"published","seq":1,"published_at":...,"state_sha256":...,"provenance_sha256":...,"line_hash":...}`
 (no secret in it); `0` (the bundle moved to `archive/`); `bell provenance provenance.json state.json states timeline.jsonl`; then
-`HTTP/2 200` twice (S-12). A refusal prints `bell/publish: <code>: <detail>` and writes nothing: fix the bundle, never the state.
+`HTTP/2 200` twice (S-12). A refusal prints `bell/publish: <code>: <detail>` and writes nothing: the bundle is RE-PRODUCED (a new
+course, section 8 bis), never edited by hand (no relabel of a provider label, no field edit: the seq 1 relabel is not repeated,
+ADR-BELL-CASH-LEG-1), and the state is never touched.
 Rollback: **none that deletes** (append-only, signed). A wrong publication is corrected by a NEW publication; serving can be
 stopped by the step 7 rollback; a rewrite would be detectable by the mirrors (see "Who can detect a rewrite").
 
@@ -304,6 +349,9 @@ code captured directly (A-3):
 cd /f/Monark && env -u HELIUS_API_KEY -u CHAINSTACK_ETH_URL -u CHAINSTACK_SOLANA_URL -u CHAINSTACK_BASE_URL -u CHAINSTACK_BSC_URL -u CHAINSTACK_ROBINHOOD_URL -u POLYGON_API_KEY -u DATABENTO_API_KEY sh -c 'npm run ci > /f/tmp/bell-dn/o-ci.log 2>&1; echo ci=$?; npm run lint > /f/tmp/bell-dn/o-lint.log 2>&1; echo lint=$?; npm run lint:ratchet > /f/tmp/bell-dn/o-ratchet.log 2>&1; echo ratchet=$?; npm run lang:gate > /f/tmp/bell-dn/o-lang.log 2>&1; echo lang=$?; npm run export:check > /f/tmp/bell-dn/o-export.log 2>&1; echo export=$?'
 ```
 
+`apps/bell/test/bell-ops.test.ts` reads the removal list of the command above as the single source of the A-7 paid variables (the Q6
+launcher's removals are checked against it): reformatting that command line turns the test red (checkpoint-2, C-V-4).
+
 Expected: `ci=0`, `lint=0`, `ratchet=0`, `lang=0`, `export=0`; the test summary at the end of `/f/tmp/bell-dn/o-ci.log` shows
 `fail 0` (tests / pass / skipped counts written to the JOURNAL). Then `git push` only if all five are 0 (decision 136).
 Rollback: before the push, the local commit is dropped (orchestrator); after the push, nothing that deletes: a corrective commit. The D-n JOURNAL-PROVENANCE entry cites EVERY piece: G-a (G7 documents + SHA), G-b (FAITS),
@@ -311,21 +359,108 @@ G-c (FAITS + CHANTIERS 16:45 UTC), G-d (CHANTIERS 13:50 UTC + the step 7 resolve
 references), the step 1 values, the `key_id`, the keyring commit, the CA JSON digest, the step 13 mirror digest. The public
 register is unchanged (Bell stays `upcoming`, ADR D12); "served" is an internal state from here.
 
-## 13. Operator mirror (after EVERY publication)
+## 13. Operator mirror (after EVERY publication, and after every key line)
 
 ```bash
-mkdir -p /f/tmp/bell-dn/mirror && curl -sS https://bell.monarkgate.tech/timeline.jsonl -o /f/tmp/bell-dn/mirror/timeline-seq1.jsonl && sha256sum /f/tmp/bell-dn/mirror/timeline-seq1.jsonl
+mkdir -p /f/tmp/bell-dn/mirror && curl -sS --fail https://bell.monarkgate.tech/timeline.jsonl -o /f/tmp/bell-dn/mirror/timeline-seq<n>.jsonl && sha256sum /f/tmp/bell-dn/mirror/timeline-seq<n>.jsonl
 ```
 
-Expected: the digest, written to the JOURNAL; the orchestrator then keeps the file in its durable mirror (outside the repo, never
-under `F:/tmp` alone). This copy is what makes a later rewrite detectable (ADR D6). Rollback: none (read-only; the mirror file is kept).
+For a publication line, also the two immutable files it names, at their served paths (`<state_sha256>` and `<provenance_sha256>`
+are those of the step 10 JSON line): they are the local input of step 13 bis (ADR-BELL-OTS-ANCHOR-1 C-5). A key line names none.
+
+```bash
+cd /f/tmp/bell-dn/mirror && mkdir -p states provenance && curl -sS --fail https://bell.monarkgate.tech/states/<state_sha256>.json -o states/<state_sha256>.json && curl -sS --fail https://bell.monarkgate.tech/provenance/<provenance_sha256>.json -o provenance/<provenance_sha256>.json && sha256sum states/<state_sha256>.json provenance/<provenance_sha256>.json
+```
+
+Expected: the timeline digest, written to the JOURNAL; each immutable's digest equals its name. The orchestrator then keeps the
+files in its durable mirror (outside the repo, never under `F:/tmp` alone). This copy is what makes a later rewrite detectable
+(ADR D6). Rollback: none (read-only; the mirror files are kept).
+
+## 13 bis. OpenTimestamps timestamp of the new line (ADR-BELL-OTS-ANCHOR-1 D2; operator machine, orchestrator act)
+
+After step 13, for EVERY new line of the timeline (a publication, a `key_rotation`, a `key_revocation`), in the same operator
+window; never on the Bell host (no outbound call there, no Python). What it adds: a proof file which, once it records a Bitcoin
+block, shows that line n, and every line before it by its hash chain, existed before that block; it shows neither the instant of
+publication nor the truth of the facts (ADR D4, D8). The
+tool (`scripts/anchor-bell-timeline.mjs`) writes one manifest (ADR D1) and prints the stamp command; it never runs `git` nor `ots`.
+The steps below are in the order of ADR C-6: no upgrade before the durable copy.
+
+1. Manifest, from the local copies of step 13 (`--compare-url` also compares them with the served bytes; drop `--immutables`
+   for a key line; `<line_hash>` is the one the step 10 line, or the step R3 line, printed):
+
+```bash
+cd /f/Monark && node scripts/anchor-bell-timeline.mjs --seq <n> --timeline /f/tmp/bell-dn/mirror/timeline-seq<n>.jsonl --immutables /f/tmp/bell-dn/mirror --mirror-sha <step 13 digest> --line-hash <line_hash> --compare-url https://bell.monarkgate.tech
+```
+
+Expected: `anchor-bell-timeline OK`, then `manifest docs/bell-publications/timeline-seq<n>-manifest.txt sha256 <digest>` (a name
+already taken, by a manifest or its proof, moves to `timeline-seq<n>-<k>-manifest.txt`, k >= 2: never an overwrite), the stamp
+command of point 2 and the register row to fill. `FAIL-CLOSED`: STOP, nothing is written, nothing is stamped.
+
+2. Timestamp, in the frozen form of ruling GO1-F (CHANTIERS), then the date that becomes the row's `date_u`:
+
+```bash
+cd /f/Monark && PATH="/f/MONARK SUITE/ots/dll:/c/Program Files/Git/mingw64/bin:$PATH" "/f/MONARK SUITE/ots/venv/Scripts/ots" --cache /f/tmp/ots-cache stamp docs/bell-publications/timeline-seq<n>-manifest.txt; echo stamp_exit=$?; date -u +%Y-%m-%dT%H:%M:%SZ
+```
+
+Expected: `stamp_exit=0` and `timeline-seq<n>-manifest.txt.ots` next to the manifest: a PENDING proof (calendar records, no
+Bitcoin block yet). Fewer than 2 calendars answer: no proof; one more try in the same window, else remove the manifest (never
+committed without its proof; the tool rebuilds the same bytes from the step 13 copies) and write the row with `ots_ref` =
+`not timestamped at <date_u>` and `commit` = the current HEAD (no pair to commit); the next line's timestamp covers this one
+through the hash chain.
+
+3. Durable copy, IMMEDIATELY (the pending proof carries a random nonce: lost, it cannot be rebuilt); both digests to the JOURNAL:
+
+```bash
+cd /f/Monark/docs/bell-publications && T=$(date -u +%Y%m%dT%H%MZ) && cp -n timeline-seq<n>-manifest.txt /f/PRODUITS/bell-mirror/ots/timeline-seq<n>-manifest-$T.txt && cp -n timeline-seq<n>-manifest.txt.ots /f/PRODUITS/bell-mirror/ots/timeline-seq<n>-manifest-$T.txt.ots && sha256sum /f/PRODUITS/bell-mirror/ots/timeline-seq<n>-manifest-$T.txt /f/PRODUITS/bell-mirror/ots/timeline-seq<n>-manifest-$T.txt.ots
+```
+
+Expected: the manifest digest of point 1, and the proof's digest.
+
+4. Committed bytes = timestamped bytes (`.txt` is `text=auto eol=lf`, `.ots` is `binary`, `.gitattributes`):
+
+```bash
+cd /f/Monark && git add docs/bell-publications/timeline-seq<n>-manifest.txt docs/bell-publications/timeline-seq<n>-manifest.txt.ots && git cat-file blob :docs/bell-publications/timeline-seq<n>-manifest.txt | sha256sum && PATH="/f/MONARK SUITE/ots/dll:/c/Program Files/Git/mingw64/bin:$PATH" "/f/MONARK SUITE/ots/venv/Scripts/ots" --no-cache info docs/bell-publications/timeline-seq<n>-manifest.txt.ots | head -1
+```
+
+Expected: the staged digest, the `File sha256 hash:` of `ots info` and the digest of point 1 are one value. Then the commit of
+the pair (orchestrator, R-20); its short SHA is the row's `commit`. Declared window: until the row commit of point 5, `npm test`
+reds `bell_publication_anchors_source_holds_no_fixture` (the directory holds a pair that no row names yet); the full oracle runs
+after point 5. The same assertion reds on a `.bak` left in `docs/bell-publications/` (point 6).
+
+5. Register row, appended at the END of the table of `docs/bell-publications/ANCHORS.md` (the row point 1 printed, with the
+   `date_u` of point 2 and the `commit` of point 4), then the check, then the commit of the row:
+
+```bash
+cd /f/Monark && node scripts/anchor-bell-timeline.mjs --check --timeline /f/tmp/bell-dn/mirror/timeline-seq<n>.jsonl
+```
+
+Expected: `anchor-bell-timeline check OK`, each row bound to its manifest and proof ("pending" for the new one; read from the
+file, not checked against a node). Commit the row (orchestrator); push under the rule of step 12 (decision 136).
+
+6. Later, the upgrade, ONLY once the durable copy of point 3 exists (ADR C-6 (ii)):
+
+```bash
+cd /f/Monark && PATH="/f/MONARK SUITE/ots/dll:/c/Program Files/Git/mingw64/bin:$PATH" "/f/MONARK SUITE/ots/venv/Scripts/ots" --cache /f/tmp/ots-cache upgrade docs/bell-publications/timeline-seq<n>-manifest.txt.ots; echo upgrade_exit=$?; ls docs/bell-publications
+```
+
+Expected: `upgrade_exit=0` ("Timestamp complete": the file now records a Bitcoin block; complete is not a check against a node),
+or `upgrade_exit=1` with "Timestamp not complete": still pending, retry at a later window. When the client brought new data it
+renamed the old proof to `timeline-seq<n>-manifest.txt.ots.bak` before writing the new one: move that `.bak` to
+`/f/PRODUITS/bell-mirror/ots/` (a `.bak` left in place makes the next upgrade fail; never committed, never served), copy the new
+proof there too (digest to the JOURNAL), run the check of point 5, commit the upgraded proof (its git history is the record,
+ruling GO1-D), then `node scripts/sync-bell-anchors.mjs`, the storefront build and upload. Rollback of 13 bis: none that deletes
+a proof (a pending proof may still complete; a new stamp of the same line takes the `-<k>` name).
 
 ---
 
 ## Next publications
 
-Steps 9 and 10 for the new bundle (`bundle-<n>`), step 11 (fresh host capture and probe capture) and steps 12-13 (JOURNAL,
-mirror `timeline-seq<n>.jsonl`). The same bundle twice publishes nothing (`nothing_to_publish`, exit 0).
+Section 8 bis (from seq 2: one day crossed dry, the course of every instrument, `PASS Q6-C14`), then steps 9 and 10 for the new
+bundle (`bundle-<n>`), step 11 (fresh host capture and probe capture) and steps 12-13 (JOURNAL,
+mirror `timeline-seq<n>.jsonl` and the two immutable files of line n), then step 13 bis (the timestamp of line n, in the same
+window; its upgrade at a later window, after the durable copy). The same bundle twice publishes nothing (`nothing_to_publish`, exit 0). Until item
+BELL-SITE-SEQ2-1 lands, the CA of seq >= 2 is written OUT of the repo (`--out /f/tmp/bell-dn/deploy-CA-bell-seq<n>.json`, its
+sha256 in the JOURNAL) and `docs/deploy-CA-bell.json` stays seq 1 (ADR-BELL-CASH-LEG-1 C-1).
 
 ## Key incidents (ADR D9, ESC-2)
 
@@ -347,8 +482,9 @@ mirror `timeline-seq<n>.jsonl`). The same bundle twice publishes nothing (`nothi
   refuses must fail before the job starts (read its error, nothing is written);
   (R4) the new key becomes the unit's key: `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'shred -u /etc/monark/bell/signing-key.pem && mv /etc/monark/bell/signing-key-new.pem /etc/monark/bell/signing-key.pem && stat -c "%a %U:%G" /etc/monark/bell/signing-key.pem'` -> `600 root:root`;
   (R5) verification: commit the served `/bell/pubkey.json` bytes as `apps/bell/keys/bell-keyring.json` (the derived keyring:
-  statuses), then step 11 (CA 12/12), `/bell/method` cites the new key, JOURNAL entry; between (R2) and (R5) check 3 (served ==
-  committed) is red and check 5 is not (declared window).
+  statuses), then step 11 (CA 12/12), `/bell/method` cites the new key, JOURNAL entry, then step 13 (the timeline copy) and
+  step 13 bis (the timestamp of the key line, without `--immutables`: it bounds the instant of the rotation or revocation); between
+  (R2) and (R5) check 3 (served == committed) is red and check 5 is not (declared window).
   A loss: (R1), (R2), then (R3) with `--rotate --broken` and only the `bell-signing-key-new` credential, then (R4) without
   `shred` (the old file is gone: `mv /etc/monark/bell/signing-key-new.pem` onto the unit's path, then `stat`), then (R5); a
   revocation (`--revoke <key_id> --from-seq <n>`, signed by the active key `bell-signing-key`, one credential) skips (R1), (R2) and (R4).
@@ -363,4 +499,6 @@ mirror `timeline-seq<n>.jsonl`). The same bundle twice publishes nothing (`nothi
 `cat`/`head`/`tail`/`less`/`xxd`/`od`/`base64`/`openssl` on the key file; `sha256sum` of the key; `set -x`; printing the
 environment; `systemctl enable` or `systemctl edit` on this unit; editing `/etc/caddy/Caddyfile` in place; a Caddy access log
 before decision 78's trigger (C-2, item BELL-ACCESS-LOG-1); cleaning `run-p19072-i21642.service` or touching `/opt/monark-probe`,
-`/etc/monark/probe.env`, `/var/lib/monark-probe` (CA check 12; item PROBE-SIM-UNIT-1).
+`/etc/monark/probe.env`, `/var/lib/monark-probe` (CA check 12; item PROBE-SIM-UNIT-1); editing a produced bundle by hand, a relabel
+included (a refused bundle is re-produced, section 10); an OpenTimestamps stamp on the Bell host; an `ots upgrade` before the
+durable copy of the pending proof, a committed or served `.bak`, or an overwritten proof (step 13 bis).

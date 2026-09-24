@@ -3,7 +3,7 @@
 // ring for the upcoming agents. Dependency-free, no WebGL: two 2D canvases (behind / in front of the sphere)
 // plus DOM beads that carry the real marks, positioned every frame. Decorative motion only: the canvases
 // draw no text, no numbers, no claims. Honours reduced motion (a still frame, still draggable).
-// Investor delivery of 2026-09-23 (see COMPONENTS-PROVENANCE.md); adapted for the site: the group of an agent
+// Delivered on 2026-09-23 (see COMPONENTS-PROVENANCE.md); adapted for the site: the group of an agent
 // IS its fleet-register status word (lib/fleet.ts FleetStatus), passed through unchanged by noyau.tsx.
 
 export type ThemeName = "light" | "dark";

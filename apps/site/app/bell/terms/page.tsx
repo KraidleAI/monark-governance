@@ -14,23 +14,22 @@ export const metadata: Metadata = {
   icons: { icon: [{ url: "/icons/bell.svg", type: "image/svg+xml" }] },
 };
 
-// /bell/terms — the Terms of Use of MONARK Bell (lot SITE-LEGAL-1; decisions 146, 147, 148). The text is the validated
-// draft TERMS-OF-USE-draft.md (the lawyer's GO "as drafted", decision 147), VERBATIM except for the reasons below, every
-// deviation listed with its reason in the lot report: (1) notes to the lawyer and cross-references to draft files are
-// removed (a draft file name becomes the served route that carries the same text); (2) the licence of the published
-// files is not chosen here: the visible placeholder `licence_option` stands for options A and B; (3) in sections one,
-// two, five and seven and in three cells of the table, sentences in the present tense about a path that is not served
-// yet are put in the future, obligations unchanged (orchestrator ruling of 2026-09-23 for sections one, five and the
-// cells); (4) the table "Words we do not use, and why" is read from the committed, hashed data file through
-// lib/bell-legal-load.ts, because it names the words the site gates refuse; (5) no country (decision 94): the publisher
-// identity fields and the governing law stay visible placeholders; (6) factual exactness: the table's second
-// introductory sentence is replaced by the version measured true on the Service's pages, read from the same data
-// file (orchestrator ruling TERMS-WORDS-SENTENCE-1 of 2026-09-23; to be validated by the lawyer). The contact address is the box created by the investor (lib/bell-contact.ts),
-// shown as text. Section numbers and references come from lib/bell-legal.ts, never typed. Two validated phrases carry a
-// word a site gate refuses in any other context, quoted in a negation; each is masked by a closed, load-bearing
-// exemption naming the exact phrase (vocab-banned.json site.exemptPhrases; the LICIT list of
-// test/public-surfaces-honesty.test.ts), accepted by orchestrator ruling of 2026-09-23, and must stay on one physical
-// line below.
+// /bell/terms — the Terms of Use of MONARK Bell. The text is the draft TERMS-OF-USE-draft.md validated by counsel
+// (GO "as drafted"), VERBATIM except for the reasons below, each deviation with its reason: (1) notes to counsel and
+// cross-references to draft files are removed (a draft file name becomes the served route that carries the same text);
+// (2) the licence of the published files is not chosen here: the visible placeholder `licence_option` stands for options
+// A and B; (3) in sections one, two, five and seven and in three cells of the table, sentences in the present tense about
+// a path that is not served yet are put in the future, obligations unchanged; (4) the table "Words we do not use, and
+// why" is read from the committed, hashed data file through lib/bell-legal-load.ts, because it names the words the site
+// gates refuse; (5) no country: the publisher identity fields and the governing law stay visible placeholders; (6)
+// factual exactness: the table's second introductory sentence is replaced by the version measured true on the Service's
+// pages, read from the same data file (to be validated by counsel); (7) the internal cross-reference that closed the
+// 'why' cell of the data-provider row is removed, like the notes of (1) (to be validated by counsel). The contact address
+// is the box of the publisher (lib/bell-contact.ts), shown as text. Section numbers and references come from
+// lib/bell-legal.ts, never typed. Two validated phrases carry a word a site gate refuses in any other context, quoted in
+// a negation; each is masked by a closed, load-bearing exemption naming the exact phrase (vocab-banned.json
+// site.exemptPhrases), and must stay on one physical line below. The "Last updated" date is read from the same hashed
+// data file (the instant the Terms text was first served), never typed.
 export default function BellTermsPage() {
   const legal = loadBellLegal(siteRepoRoot());
   const T = TERMS_SECTIONS;
@@ -44,7 +43,7 @@ export default function BellTermsPage() {
             Terms of Use — MONARK Bell
           </h1>
           <p className="c-lede" style={{ marginTop: 12 }}>
-            Last updated: <Placeholder name="terms_published_date" state="to be published" />.
+            Last updated: {legal.terms_last_updated_utc.slice(0, 10)}.
           </p>
         </div>
       </div>

@@ -16,6 +16,7 @@ import { BellPublishError, publishToDir, revokeKey, rotateKey, type RefusalCode 
 import { BellVerifyError, dirSource, verifyServed } from "../scripts/bell-verify.mjs";
 import { operatorLabels, ETH_CALL_KEYLESS_LABELS, GET_LOGS_KEYLESS_LABELS } from "../../../packages/rpc-guard/src/transport.ts";
 import { T_PUBLISH, dropRun, readJson, tmp, type Obj } from "./helpers/bell-served.ts";
+import { ADV_BARS_LABEL, CASH_CLOSE_LABEL, CASH_CROSS_LABEL } from "../src/close.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url)), SCRIPT = join(HERE, "..", "scripts", "bell-publish.mjs");
 const gen = (): KeyObject => generateKeyPairSync("ed25519").privateKey;
@@ -151,8 +152,9 @@ test("bell_keygen_prints_public_only_refuses_overwrite", (t) => {
 test("bell_publish_bare_label_guard_pins_operator_vocabulary", () => {
   const keyless = new Set([...ETH_CALL_KEYLESS_LABELS, ...GET_LOGS_KEYLESS_LABELS]); // refused in --operators (collect.ts:708)
   const labels = operatorLabels({ BELL_SOLANA_RPC: "https://rpc.example.invalid", CHAINSTACK_ETH_URL: "https://cs.example.invalid" }).map(String);
-  const emitted = [...labels.filter((l) => !keyless.has(l)), "ethereum"].sort(); // + the ETH leg's fault label (collect.ts:829)
-  assert.deepEqual(emitted, ["chainstack", "ethereum", "helius", "solana-foundation", "xstocks-issuer"], "the labels a Bell provenance can carry");
+  // + the ETH leg's fault label (collect.ts:829) + the three cash-leg labels (ADR-BELL-CASH-LEG-1 C-11: they publish)
+  const emitted = [...labels.filter((l) => !keyless.has(l)), "ethereum", CASH_CLOSE_LABEL, CASH_CROSS_LABEL, ADV_BARS_LABEL].sort();
+  assert.deepEqual(emitted, ["adv-bars", "cash-close", "cash-crosscheck", "chainstack", "ethereum", "helius", "solana-foundation", "xstocks-issuer"], "the labels a Bell provenance can carry");
   const withLabel = (label: string, where: "providers" | "faults"): string => {
     const s = tmp("t1b-lbl-");
     dropRun(s, "b0", 365n);
@@ -162,7 +164,8 @@ test("bell_publish_bare_label_guard_pins_operator_vocabulary", () => {
     try { return publishToDir({ inboxDir: join(s, "inbox"), stateDir: s, privateKey: K1, clock: () => T_PUBLISH }).status; } catch (e) { return e instanceof BellPublishError ? e.code : "fatal"; }
   };
   for (const l of emitted) for (const w of ["providers", "faults"] as const) assert.equal(withLabel(l, w), "published", `${l} in ${w}`);
-  for (const l of [...keyless, "helius-rpc.com"]) for (const w of ["providers", "faults"] as const) assert.equal(withLabel(l, w), "url_or_key_shaped_string", `${l} in ${w}`);
+  // + the two host labels the cash leg emitted before D2 (seq 1 journals): refused, never served
+  for (const l of [...keyless, "helius-rpc.com", "databento.com", "polygon.io"]) for (const w of ["providers", "faults"] as const) assert.equal(withLabel(l, w), "url_or_key_shaped_string", `${l} in ${w}`);
 });
 
 // ---- C-V-2 (checkpoint-2 PR-1, mutant mv5): public/timeline.jsonl of the SAME length as the private one but different => refused ----

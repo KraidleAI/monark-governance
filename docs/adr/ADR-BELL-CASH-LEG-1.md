@@ -6,7 +6,7 @@
 
 ## Contexte mesuré (2026-09-24 01:1x UTC)
 - Clé Databento présente en scope User (longueur 32, jamais affichée, A-7) ; clé Massive/Polygon présente (recoupement interne, décision 69).
-- Bundles opérateur existants `F:/course-bell/q6/{TSLAx (W3), AAPLx (W3), SPYx (W4)}/` : fills et VWAP par session valides, `gaps[].abstain = "no_close_ref"`, `journal.json` avec `faults[{provider:"databento.com", status:"HTTP 400"}]` (Q6-C09-DATABENTO-1 : 400 et non 401 sans clé — profil à expliquer par le worker : réponse de `hist.databento.com` à une requête sans `Authorization`).
+- Bundles opérateur existants `F:/course-bell/q6/{TSLAx (W3), AAPLx (W3), SPYx (W4)}/` : fills et VWAP par session valides, `gaps[].abstain = "no_close_ref"`, `journal.json` avec `faults[{provider:"databento.com", status:"HTTP 400"}]` (Q6-C09-DATABENTO-1 : 400 et non 401 sans clé — **expliqué et mesuré** (C-4, G1 §4) : la requête partait avec `Authorization: Basic Og==`, base64 de `:` (identifiants vides), pas sans en-tête ; le skip à clé vide supprime l'appel).
 - `provenance.json` servi (seq 1) : `faults[0].provider = "databento"` (relabellisé à la main avant publication : le guard `bell-publish.mjs:93-139` refuse les hôtes pointés, `BARE_LABEL`) — contradiction publique avec les Terms servis (« avoid any specific data provider's name », `bell-legal.json:55`) : **FAULTS-PROVIDER-NAME-1 (b)**.
 - `close.ts:159` et `:170/:435` étiquettent les requêtes cash `provider: "databento.com"` / `"polygon.io"` (hôtes) ; `collect.ts:396` étiquette les fautes RPC par `providerOf(primary)` (étiquette nue : conforme).
 - Page `/bell/method` : seuils « 1/5 % » ; code `digest.ts:76` : `exceed1/exceed2/exceed5` (**METHOD-THRESHOLDS-1**).
@@ -26,6 +26,7 @@ Les scripts `launch-q6-fast-<MINT>.sh` (aujourd'hui dans `F:/tmp/q6course/`, vol
 ## Tuyaux (règle Branchement)
 | Tuyau | Entrée (qui produit) | Sortie (qui consomme) | État (où il vit) | Test d'intégration non-LLM |
 |---|---|---|---|---|
+| lanceur → collect (checkpoint-2, C-V-3) | `apps/bell/ops/launch-q6.sh` : environnement opérateur (les quatre clés de la course) + `Q6_*` exportés par l'orchestrateur (RUNBOOK §8 bis) | `apps/bell/src/collect.ts` (`runMain`) : `<OUT>/state.json`, `journal.json`, `provenance.json`, `timeline.jsonl` | `F:/course-bell/q6/<MINT>/` (hors dépôt) + journal `F:/course-bell/logs/q6-<MINT>.log` | non exécutable hors ligne (gardes machine + réseau). Substitution : l'invocation `launch-q6.sh:142-151` est octet pour octet celle de seq 1 (`F:/tmp/q6course/launch-q6-fast-{TSLAx,AAPLx,SPYx}.sh:128-137`, `cmp`, G1 §13) et ses 16 drapeaux existent dans `collect.ts` ; préfixe `env -u` (l.141) épinglé et pré-vol exécuté par `bell-ops.test.ts`. **I-3** : premier DRYRUN par l'orchestrateur ; **déclencheur** : course seq 2 |
 | close_ref → gap | `close.ts` (source cash, clé opérateur) | `collect.ts` `gaps[].gT` | bundle opérateur `F:/course-bell/q6/<MINT>/state.json` | Q6 C14 + test unitaire `gap` (close présent ⇒ gT, absent ⇒ `no_close_ref`) |
 | bundle → servi | `bell-publish.mjs` (hôte, clé Ed25519) | `bell.monarkgate.tech/state.json`, `timeline.jsonl` seq 2 | `/var/lib/monark-bell/public` | CA `scripts/verify-bell.mjs` 12 contrôles (`docs/deploy-CA-bell.json` rejoué) |
 | servi → vitrine | `scripts/sync-bell-served.mjs` | `apps/site/app/bell/*` | `apps/site/data/bell-served.json` + manifest | `test/bell-served.test.ts` (byte-exact vs servi), `test/bell-method.test.ts` (seuils) |
@@ -35,6 +36,7 @@ Dérive de spécification (afficher un close) : `assertNoClose` + guard `close_l
 
 ## Items formés (déclencheurs)
 - LAUNCH-SCRIPTS-COMMIT-1 → ce lot (D5). Q6-C09-DATABENTO-1 → expliqué par le worker (400 vs 401) et clos par D1. FAULTS-PROVIDER-NAME-1 (b) → D2. METHOD-THRESHOLDS-1 → D4. BELL-VERIFY-SCHEDULE-1 (CA planifiée) → lot suivant, hors périmètre. LIC-DBN-1 → dossier confidentiel hors dépôt (propriétaire investisseur, rappels 2026-11-24 / 2026-12-10). ESC-1-REWRITE (forme binnée) → repli, déclencheur = avis juriste défavorable.
+- **BELL-GAP-ANCHOR-1** (checkpoint-2, C-V-3) : C14 et C15 joignent un gap à sa date de séance par rang dans le seau (symbole, session, régime) et égalité de `n` (G1 §5). C'est exact sur une sortie du collecteur (tri stable) et fail-closed quand la garde `n` voit l'écart (M16), mais deux sessions du même seau et du même `n`, dans un état modifié hors collecteur, seraient appariées sans alerte. Correction : porter `session_date_et` dans `gaps[]`, un changement de digest (re-pin de `PINNED_BELL_SHA`, `collect.test.ts:97`) hors de ce lot → **propriétaire** : orchestrateur ; **déclencheur** : le prochain lot collecteur qui touche le digest.
 - Aucune dette nue ; aucun procurement nouveau.
 
 ## Oracle et R-25

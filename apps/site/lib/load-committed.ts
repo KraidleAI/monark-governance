@@ -1,5 +1,5 @@
 // apps/site/lib/load-committed.ts — the site renders numbers ONLY from committed, hashed data
-// (ADR-M004 D1 honesty rule / D11 test 44). This module verifies every file listed in
+// (the honesty rule / test 44). This module verifies every file listed in
 // apps/site/data/manifest.sha256.json against its committed SHA-256 before returning it, so a
 // tampered or drifted data file is caught at load time rather than silently rendered.
 import { readFileSync } from "node:fs";

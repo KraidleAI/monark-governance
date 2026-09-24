@@ -3,7 +3,7 @@
 // ADV, mint readouts, halt rows — quorum decided by the reader) and returns the digest, state.json body,
 // chained timeline, provenance and journal. CI drives it offline on fixtures; the same core runs live.
 //
-// KEY HYGIENE (C-10, MAST secret-leak): the journal and provenance carry `providerOf` ONLY — never a URL
+// KEY HYGIENE (C-10, MAST secret-leak): the journal and provenance carry bare labels ONLY (`providerOf`, close.ts cash legs) — never a URL
 // (a Helius URL holds ?api-key=<uuid>). The default network call throws `HTTP <status>` with NO url, and the
 // quorum records transport faults as {provider,status} (quorum.ts). record.ts:22 / rpc2.ts:136 fold the url
 // / the message; NEITHER is reproduced. CA-11: outputs are written OUTSIDE the git tree (--out, default
@@ -18,7 +18,7 @@ import { sessionGap, sessionGapRebase, exceeds, vwapDecimal, fixed, GAP_PRECISIO
 import { rowsFromCsv, haltDelta, census, haltsSince, type HaltRow } from "./halts.ts";
 import { buildDigest, bellSha, assertNoClose, canonical, provenance as makeProvenance,
   type GapEntry, type Provenance, type CashCross } from "./digest.ts";
-import { readReferenceCloses, earliestPublishUtc, databentoGet, polygonGet, readCashKeys,
+import { readReferenceCloses, earliestPublishUtc, databentoGet, polygonGet, readCashKeys, ADV_BARS_LABEL,
   type PolygonGet, type DatabentoGet } from "./close.ts";
 import { newResidualCounts, RESIDUAL_CODES, type Residual, type ResidualCounts } from "./residuals.ts";
 import { poolVolumeBase, advPeriodOf, advPeriodsForFills, advRangePath, barDateET, periodAdv, periodBounds, sessionShareVolume,
@@ -418,8 +418,8 @@ export function refCloseDatesForFills(fills: readonly SwapFill[]): string[] {
  *  adjusted=false ("as reported", II.F) -- replacing the 45-day rolling window. Each bar is dated by the ET date of `t`
  *  (start of the aggregate window); a bar without a finite t/v or dated outside the requested month is dropped, so the
  *  core finds the month incomplete (no_adv). A transport fault => no bar for that month (no_adv), recorded as
- *  {provider, status}. Values are READ, never stored in an output (C-6). Key in the Authorization header (C-10). */
-async function advBarsFor(underlying: string, periods: readonly AdvPeriod[], polygonKey: string,
+ *  {provider, status}. Values are READ, never stored in an output (C-6). Key in the Authorization header (C-10). Exported: D2 oracle. */
+export async function advBarsFor(underlying: string, periods: readonly AdvPeriod[], polygonKey: string,
   faults: TransportFault[], get: PolygonGet = polygonGet): Promise<AdvDailyBar[]> {
   if (!polygonKey) return [];
   const out: AdvDailyBar[] = [];
@@ -432,7 +432,7 @@ async function advBarsFor(underlying: string, periods: readonly AdvPeriod[], pol
         const dateET = barDateET(r.t);
         if (dateET >= first && dateET <= last) out.push({ dateET, v: r.v });
       }
-    } catch (e) { faults.push({ provider: "polygon.io", status: statusOf(e) }); }
+    } catch (e) { faults.push({ provider: ADV_BARS_LABEL, status: statusOf(e) }); } // D2: a bare generic leg label, never a host
   }
   return out;
 }

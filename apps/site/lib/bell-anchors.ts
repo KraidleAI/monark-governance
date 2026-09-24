@@ -1,5 +1,5 @@
-// apps/site/lib/bell-anchors.ts — the Bell anchors register, as served under /bell/anchors (ruling Q2, decision
-// 146), and a structural reader of OpenTimestamps proofs ("status per anchor read from the file").
+// apps/site/lib/bell-anchors.ts — the Bell anchors register, as served under /bell/anchors, and a structural
+// reader of OpenTimestamps proofs ("status per anchor read from the file").
 //
 // PURE — no Node/React/Next import, self-contained — so three programs share it: the /bell and /bell/anchors
 // pages (server components, build time), the sync script scripts/sync-bell-anchors.mjs, and the root test
@@ -94,6 +94,19 @@ export function parseAnchorsRegister(markdown: string): AnchorRow[] {
   }
   rows.sort((a, b) => (a.date_utc < b.date_utc ? -1 : a.date_utc > b.date_utc ? 1 : 0));
   return rows;
+}
+
+/** The digests a head manifest lists, one per "<relpath> <sha256hex>" line (what its anchor timestamps). Throws on a line
+ *  of another shape (fail-closed: a half-read manifest never decides whether a record is anchored). */
+export function manifestDigests(text: string): string[] {
+  const out: string[] = [];
+  for (const line of text.split("\n")) {
+    if (line === "") continue;
+    const m = /^\S+ ([0-9a-f]{64})$/.exec(line);
+    if (m?.[1] === undefined) throw new Error("anchors manifest: a line is not '<relpath> <sha256hex>'");
+    out.push(m[1]);
+  }
+  return out;
 }
 
 // ── OpenTimestamps proof reader ──
@@ -235,4 +248,82 @@ export function anchorStatus(proof: OtsProof): AnchorStatus {
     else if (a.kind === "pending") calendars.add(a.uri);
   }
   return { bitcoinHeights: [...heights].sort((x, y) => x - y), pendingCalendars: [...calendars].sort() };
+}
+
+// ── The publications register (docs/bell-publications/ANCHORS.md), served as publications.json by scripts/sync-bell-anchors.mjs;
+// separate from the course register above, whose boundary list stays closed. A row = one OpenTimestamps proof (pending, or recording a
+// Bitcoin block) of a manifest listing `timeline.jsonl#L<n>` (line n without its LF: its line_hash), `timeline.jsonl#L1-L<n>` (lines
+// 1..n with their LF) and, for a publication, the two files line n names. No anchoring state is derived here.
+
+export type PublicationKind = "publication" | "key_rotation" | "key_revocation";
+export const PUBLICATION_COLUMNS = ["date_u", "seq", "kind", "line_hash", "prefix_sha256", "manifest_sha256", "commit", "ots_ref", "note"] as const;
+/** `timeline-seq<n>-manifest.txt.ots`, or `timeline-seq<n>-<k>-manifest.txt.ots` (k >= 2) for a new timestamp of the same line. */
+const PUBLICATION_PROOF = /^timeline-seq([1-9]\d{0,8})(?:-(?:[2-9]|[1-9]\d{1,8}))?-manifest\.txt\.ots$/;
+
+export interface PublicationAnchorRow {
+  date_utc: string; seq: number; kind: PublicationKind; line_hash: string; prefix_sha256: string; manifest_sha256: string; commit: string;
+  /** Served file names under /bell/anchors/, or null when the row carries no proof (not timestamped). */
+  manifest_file: string | null; proof_file: string | null;
+}
+export interface PublicationAnchorsRegister { register: string; rows: PublicationAnchorRow[] }
+
+/** Parse the publications register: its header (PUBLICATION_COLUMNS) first, then EVERY table row is a real row (no template row);
+ *  a malformed row throws, naming its column. An `ots_ref` that is not a `.ots` name marks the row NOT timestamped (both files
+ *  null); a `.ots` name must be the proof name of the row's own seq, named once. Sorted by seq, then date. The files are bound by
+ *  bindPublicationAnchor. */
+export function parsePublicationAnchors(markdown: string): PublicationAnchorRow[] {
+  const rows: PublicationAnchorRow[] = [];
+  let header = false;
+  for (const line of markdown.split(/\r?\n/).filter((l) => l.startsWith("|"))) {
+    const cells = line.trim().replace(/^\||\|$/g, "").split("|").map(stripTicks);
+    if (cells.every((c) => /^:?-+:?$/.test(c))) continue;
+    if (!header && cells.join("|") !== PUBLICATION_COLUMNS.join("|")) throw new Error(`publications register: the first table row is not the header '${PUBLICATION_COLUMNS.join(" | ")}'`);
+    if (!header) { header = true; continue; }
+    const no = (why: string): never => { throw new Error(`publications register: row ${String(rows.length + 1)}: ${why}`); };
+    const [dateU = "", seq = "", kind = "", lineHash = "", prefix = "", manifest = "", commit = "", otsRef = ""] = cells, stamped = otsRef.endsWith(".ots");
+    if (cells.length !== PUBLICATION_COLUMNS.length) no(`${String(cells.length)} cells, not ${String(PUBLICATION_COLUMNS.length)}`);
+    if (!ISO_Z.test(dateU)) no(`date_u '${dateU}' is not an ISO-8601 Z instant`);
+    if (!/^[1-9]\d{0,8}$/.test(seq)) no(`malformed seq '${seq}'`);
+    if (!["publication", "key_rotation", "key_revocation"].includes(kind)) no(`unknown kind '${kind}'`);
+    for (const [k, v] of [["line_hash", lineHash], ["prefix_sha256", prefix], ["manifest_sha256", manifest]] as const) if (!HEX64.test(v)) no(`malformed ${k}`);
+    if (!SHORT_SHA.test(commit)) no(`malformed commit '${commit}'`);
+    if (stamped && PUBLICATION_PROOF.exec(otsRef)?.[1] !== seq) no(`ots_ref '${otsRef}' is not the proof name of line ${seq}`);
+    if (stamped && rows.some((r) => r.proof_file === otsRef)) no(`ots_ref '${otsRef}' is named twice`);
+    rows.push({ date_utc: dateU, seq: Number(seq), kind: kind as PublicationKind, line_hash: lineHash, prefix_sha256: prefix, manifest_sha256: manifest, commit,
+      manifest_file: stamped ? otsRef.slice(0, -".ots".length) : null, proof_file: stamped ? otsRef : null });
+  }
+  if (!header) throw new Error("publications register: no table");
+  return rows.sort((a, b) => a.seq - b.seq || (a.date_utc < b.date_utc ? -1 : a.date_utc > b.date_utc ? 1 : 0));
+}
+
+/** The entries of a publication manifest, in its format (printable-ASCII relpaths in strictly increasing byte order, lowercase
+ *  64-hex digests, LF line ends, a final LF); throws on any other shape. The course keeps manifestDigests. */
+export function manifestEntries(text: string): Array<{ relpath: string; digest: string }> {
+  const lines = text.split("\n");
+  if (lines.pop() !== "" || lines.length === 0) throw new Error("publication manifest: not LF-terminated lines");
+  const out = lines.map((line) => /^([!-~]+) ([0-9a-f]{64})$/.exec(line) ?? []).map(([, relpath, digest]) => {
+    if (relpath === undefined || digest === undefined) throw new Error("publication manifest: a line is not '<relpath> <sha256hex>'");
+    return { relpath, digest };
+  });
+  if (out.some((e, i) => i > 0 && !((out[i - 1]?.relpath ?? "") < e.relpath))) throw new Error("publication manifest: relpaths are not in strictly increasing byte order");
+  return out;
+}
+
+/** Bind a timestamped row to its files, one named error per requirement: the manifest bytes hash to manifest_sha256 (hashed by
+ *  the caller: no crypto here); the manifest has exactly the entries of the row's line (its two timeline entries and, for a
+ *  publication, one states/ and one provenance/ file, each named by its own digest); its `timeline.jsonl#L<seq>` entry is
+ *  line_hash (key and value), its `timeline.jsonl#L1-L<seq>` entry prefix_sha256; the proof timestamps manifest_sha256 with
+ *  sha256. The proof is read, not checked against a node. */
+export function bindPublicationAnchor(row: PublicationAnchorRow, manifestText: string, manifestSha256: string, proof: OtsProof): void {
+  const at = `publications register, seq ${String(row.seq)} (${row.manifest_file ?? "no proof"})`, no = (why: string): never => { throw new Error(`${at}: ${why}`); };
+  const lineKey = `timeline.jsonl#L${String(row.seq)}`, prefixKey = `timeline.jsonl#L1-L${String(row.seq)}`;
+  if (row.manifest_file === null || row.proof_file === null) no("a row without proof has no file to bind");
+  if (manifestSha256 !== row.manifest_sha256) no("the manifest bytes do not hash to manifest_sha256");
+  const entries = manifestEntries(manifestText), digestOf = (key: string): string | undefined => entries.find((e) => e.relpath === key)?.digest;
+  const shape = entries.map((e) => { const m = /^(states|provenance)\/([0-9a-f]{64})\.json$/.exec(e.relpath); return m?.[2] === e.digest ? `${m[1] ?? ""} file` : e.relpath; });
+  const want = [lineKey, prefixKey, ...(row.kind === "publication" ? ["provenance file", "states file"] : [])];
+  if (shape.sort().join("\n") !== want.sort().join("\n")) no(`the manifest does not have exactly the entries of ${row.kind} line ${String(row.seq)}`);
+  if (digestOf(lineKey) !== row.line_hash) no(`the manifest entry ${lineKey} differs from line_hash`);
+  if (digestOf(prefixKey) !== row.prefix_sha256) no(`the manifest entry ${prefixKey} differs from prefix_sha256`);
+  if (proof.hashOp !== "sha256" || proof.digestHex !== row.manifest_sha256) no("the proof does not timestamp manifest_sha256");
 }

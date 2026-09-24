@@ -1,0 +1,252 @@
+{
+ "schema": "monark-carto-branchement-flows-v1",
+ "head": "7224c79598687cfc027c875df9d2a835f4d9b52a",
+ "previous": { "carto": "docs/carto/flows-2026-09-23.json", "head": "d0535cb638ba87b78c56d48a061e220c1d6a1fd7" },
+ "bareme": "cable = consumer on a SERVED path (MCP/HTTP tool of apps/harness/src/server.ts, file published and read by a surface, real downstream served piece) AND a named non-LLM integration test replays the composition; fixture:test = only consumer is a test/fixture/demo; fixture:course = consumer is a course script, CLI or operator procedure; absent = announced pipe without code at HEAD. Procedure pairs (deploy, deploy check, operator sync) are marked present/tested/untested, outside the served-path bareme. Deployed column: SHA running, measured by git objects + journal + live reads.",
+ "pairs": [
+  {
+   "id": "P-N1", "piece": "Narabi", "producer": "apps/sentinel/src/run.ts (timer, host 31.97.155.188)", "artefact": "timeline.jsonl + state.json copied to /var/lib/monark-sentinel/public",
+   "consumer": "Caddy /narabi/* -> monarkgate.tech/narabi/{state.json,timeline.jsonl} -> site browser islands (narabi-live.tsx, narabi-freshness.tsx) + committed capture", "status": "cable",
+   "served_measured": "GET 200 at 2026-09-24T08:58:08Z; last line day 2026-09-23, T 6, sentinel_sha e73866a8, 7 endpoints; Last-Modified 00:52:37 GMT; state.digest = last.digest_T",
+   "deployed": "bb41b6d (sentinel_sha of the served line = sentinel-sha.mjs(bb41b6d) = sentinel-sha.mjs(7224c79))",
+   "evidence": [
+    { "file": "apps/sentinel/src/run.ts", "line": 358, "expect": "appendFileSync(tl, report.lines" },
+    { "file": "apps/sentinel/src/run.ts", "line": 360, "expect": "copyFileSync(tl, join(pub, \"timeline.jsonl\"))" },
+    { "file": "deploy/Caddyfile.monark-narabi.snippet", "line": 12, "expect": "root * /var/lib/monark-sentinel/public" },
+    { "file": "apps/site/components/narabi/narabi-live.tsx", "line": 77, "expect": "await fetch(url, { cache: \"no-store\" })" },
+    { "file": "apps/site/app/fleet/narabi-freshness.tsx", "line": 36, "expect": "await fetch(path, { cache: \"no-store\" })" },
+    { "file": "deploy/monark-sentinel.service", "line": 39, "expect": "/opt/monark-harness/apps/sentinel/src/run.ts" },
+    { "file": "deploy/monark-sentinel.service", "line": 19, "expect": "MONARK_SENTINEL_DIR=/var/lib/monark-sentinel" }
+   ],
+   "tests": [ { "kind": "test", "file": "test/narabi-live.test.ts", "name": "narabi_live_parses_real_state_shape" } ]
+  },
+  {
+   "id": "P-N2", "piece": "Narabi", "producer": "monarkgate.tech/narabi/timeline.jsonl + state.json (served)", "artefact": "narabi.json on the Bell host", "consumer": "scripts/probe-narabi.mjs (monark-probe.timer, host 178.16.131.29) -> SMTP alert",
+   "status": "cable", "served_measured": "not publicly readable (narabi.json outside any served root): result not confirmed", "deployed": "c0027cb (JOURNAL-PROVENANCE.md:351); closure 1 file, 0 changed to HEAD",
+   "evidence": [
+    { "file": "deploy/monark-probe.service", "line": 24, "expect": "/opt/monark-probe/probe-narabi.mjs" },
+    { "file": "scripts/probe-narabi.mjs", "line": 43, "expect": "DEADLINE_UTC = \"10:30\"" }
+   ],
+   "tests": [
+    { "kind": "test", "file": "test/probe-narabi.test.ts", "name": "probe_state_mismatch_drives_smtp_alert_merged" },
+    { "kind": "test", "file": "test/probe-narabi.test.ts", "name": "probe_alert_composition_from_fixture" },
+    { "kind": "test", "file": "test/probe-narabi.test.ts", "name": "probe_chainstack_present_from_real_producer_line" }
+   ]
+  },
+  {
+   "id": "P-N4", "piece": "Narabi", "producer": "apps/sentinel/src/flow.ts fromAttestedFlow + committed USDe calibration", "artefact": "Prediction", "consumer": "MCP gate class stable-run-velocity-24h",
+   "status": "cable", "served_measured": "served openapi and tools/list gate description name stable-run-velocity-24h (2026-09-24T08:58:09Z)", "deployed": "bb41b6d = HEAD on the harness closure (46 files, 0 changed)",
+   "evidence": [ { "file": "apps/sentinel/src/flow.ts", "line": 15, "expect": "fromAttestedFlow" } ],
+   "tests": [ { "kind": "test", "file": "apps/harness/test/gate.test.ts", "name": "gate_stable_run_usde_committed_region_A7b" } ]
+  },
+  {
+   "id": "P-N5", "piece": "Narabi", "producer": "apps/sentinel/src/run.ts guarded Chainstack leg", "artefact": "ledger under /var/lib/monark-sentinel/ledger", "consumer": "run.ts pool",
+   "status": "cable (code); executed in unconfigured mode", "served_measured": "served line of 2026-09-23: 7 endpoints, no chainstack origin (unconfigured)", "deployed": "bb41b6d",
+   "evidence": [
+    { "file": "apps/sentinel/src/run.ts", "line": 16, "expect": "@monark/rpc-guard" },
+    { "file": "apps/sentinel/src/run.ts", "line": 285, "expect": "cycleId === undefined" },
+    { "file": "apps/sentinel/src/run.ts", "line": 295, "expect": "openGuardedClient(process.env" }
+   ],
+   "tests": [
+    { "kind": "test", "file": "apps/sentinel/test/sentinel-chainstack-guard.test.ts", "name": "sentinel_chainstack_origin_absent_is_unconfigured" },
+    { "kind": "test", "file": "apps/sentinel/test/sentinel-chainstack-guard.test.ts", "name": "sentinel_guard_open_failure_degrades_to_keyless_and_publishes" },
+    { "kind": "test", "file": "apps/sentinel/test/sentinel-retry.test.ts", "name": "sentinel_chainstack_url_alone_degrades_to_keyless" }
+   ]
+  },
+  {
+   "id": "P-N7", "piece": "Narabi / harness", "producer": "harness redeploy (git archive apps/ + packages/ whole)", "artefact": "/opt/monark-harness", "consumer": "two units: monark-harness (server.ts) and monark-sentinel (run.ts)",
+   "status": "present, untested (procedure)", "served_measured": "sentinel closure 46 files: 8 changed between bb41b6d and HEAD (packages/rpc-guard/src), none covered by sentinel_sha", "deployed": "bb41b6d",
+   "evidence": [
+    { "file": "deploy/monark-harness.service", "line": 50, "expect": "/opt/monark-harness/apps/harness/src/server.ts" },
+    { "file": "deploy/monark-sentinel.service", "line": 39, "expect": "/opt/monark-harness/apps/sentinel/src/run.ts" },
+    { "file": "apps/sentinel/src/run.ts", "line": 156, "expect": "function sentinelSha(srcDir: string)" },
+    { "file": "apps/sentinel/src/run.ts", "line": 157, "expect": "filter((f) => f.endsWith(\".ts\"))" },
+    { "file": "apps/sentinel/src/timeline.ts", "line": 16, "expect": "@monark/harness/calibration" },
+    { "file": "docs/adr/ADR-U4b-2b-classe-servie.md", "line": 120, "expect": "ne couvre que" },
+    { "file": "docs/adr/ADR-U4b-2b-classe-servie.md", "line": 232, "expect": "**Préconditions** : gel de -2b" },
+    { "file": "docs/adr/ADR-U4b-2b-classe-servie.md", "line": 246, "expect": "Redéploiement du harness depuis ce SHA nommé" }
+   ],
+   "tests": []
+  },
+  {
+   "id": "P-S4", "piece": "Narabi -> site", "producer": "scripts/sync-narabi-served.mjs (operator)", "artefact": "apps/site/data/narabi-served.json", "consumer": "/narabi, freshness line of / and /fleet",
+   "status": "cable (committed data bound by test); freshness = operator act", "served_measured": "sync-narabi-served --check OK at 2026-09-24T09:01:20Z", "deployed": "site 3428dfa",
+   "evidence": [
+    { "file": "scripts/sync-narabi-served.mjs", "line": 56, "expect": "fetch(`${API_HOST}${OPENAPI_PATH}`" },
+    { "file": "scripts/sync-narabi-served.mjs", "line": 102, "expect": "process.argv.includes(\"--check\")" }
+   ],
+   "tests": [ { "kind": "test", "file": "test/narabi-live.test.ts", "name": "narabi_gate_facts_read_from_committed_sources" } ]
+  },
+  {
+   "id": "P-S5", "piece": "Narabi -> site", "producer": "scripts/sync-narabi-capture.mjs (operator)", "artefact": "apps/site/data/narabi-capture.json", "consumer": "/narabi server render (declared capture)",
+   "status": "cable (committed capture = served now); freshness = operator act", "served_measured": "sync-narabi-capture --check OK at 2026-09-24T09:01:19Z (capture 2026-09-24, T 6, prefix holds); served timeline sha = capture served sha", "deployed": "site 3428dfa",
+   "evidence": [
+    { "file": "scripts/sync-narabi-capture.mjs", "line": 27, "expect": "https://monarkgate.tech/narabi/" },
+    { "file": "scripts/sync-narabi-capture.mjs", "line": 102, "expect": "process.argv.includes(\"--check\")" }
+   ],
+   "tests": [ { "kind": "test", "file": "test/narabi-live.test.ts", "name": "narabi_live_parses_real_state_shape" } ]
+  },
+  {
+   "id": "P-U9", "piece": "Ukemi", "producer": "committed liquidation class registry (empty)", "artefact": "gate region lookup", "consumer": "MCP gate + POST /gate class liquidation-eligible-coverage",
+   "status": "cable, constant abstention (empty registry)", "served_measured": "served openapi + tools/list gate description carry LIQ_EMPTY_REGISTRY_SENTENCE, not the H-3 nor the upper-bound sentence", "deployed": "bb41b6d = HEAD",
+   "evidence": [ { "file": "apps/harness/src/tools/gate.ts", "line": 77, "expect": "TASK_LIQ_ELIGIBLE = \"liquidation-eligible-coverage\"" } ],
+   "tests": [ { "kind": "test", "file": "apps/harness/test/gate-liq-artifact.test.ts", "name": "u4b_gate_serves_region_from_real_artifact" } ]
+  },
+  {
+   "id": "P-U11", "piece": "Ukemi", "producer": "packages/ukemi via runCascade", "artefact": "Prediction (cascade-liquidable-24h)", "consumer": "MCP gate (abstains by construction)",
+   "status": "cable, vacuous", "served_measured": "tools/list and openapi carry cascade; cascade description says v0", "deployed": "bb41b6d = HEAD",
+   "evidence": [ { "file": "apps/harness/src/tools/registry.ts", "line": 85, "expect": "runCascade(input)" } ],
+   "tests": [ { "kind": "test", "file": "test/h5-e2e-probe.test.ts", "name": "probe_harness_records_real_decision" } ]
+  },
+  {
+   "id": "P-U8", "piece": "Ukemi", "producer": "u4b-reduce -> scores -> record-u4b-calib", "artefact": "committed s0 registry entries", "consumer": "apps/harness/src/calibration.ts",
+   "status": "absent (lot U-4b-2b in implementation, lot/u4b-2b = base 7957908, 0 commit)", "served_measured": "registry_state empty (served)", "deployed": "-", "evidence": [], "tests": []
+  },
+  {
+   "id": "P-S2", "piece": "Ukemi -> site", "producer": "scripts/sync-ukemi-served.mjs (operator)", "artefact": "apps/site/data/ukemi-served.json", "consumer": "/ukemi/course, /, /fleet",
+   "status": "cable (committed data bound by test); freshness = operator act; no --check mode", "served_measured": "live openapi sha = ukemi-served body_sha256 (read_at 2026-09-24T01:48:50Z)", "deployed": "site 3428dfa",
+   "evidence": [
+    { "file": "scripts/sync-ukemi-served.mjs", "line": 91, "expect": "fetch(`${API_HOST}${OPENAPI_PATH}`" },
+    { "file": "scripts/sync-ukemi-served.mjs", "line": 35, "expect": "apps/site/data/ukemi-served.json" }
+   ],
+   "tests": [ { "kind": "test", "file": "test/site-ukemi.test.ts", "name": "site_ukemi_served_state_bound_to_harness_registry" } ]
+  },
+  {
+   "id": "P-S3", "piece": "Ukemi -> site", "producer": "course report (u4b-hyp report, operator machine) -> scripts/sync-ukemi-course.mjs", "artefact": "apps/site/data/ukemi-course.json", "consumer": "/ukemi/course",
+   "status": "cable (committed copy bound by test to its production digest); source = course (fixture:course)", "served_measured": "/ukemi/course 200", "deployed": "site 3428dfa",
+   "evidence": [ { "file": "scripts/sync-ukemi-course.mjs", "line": 31, "expect": "apps/site/data/ukemi-course.json" } ],
+   "tests": [ { "kind": "test", "file": "test/site-ukemi.test.ts", "name": "site_ukemi_course_digest_bound_to_production_record" } ]
+  },
+  {
+   "id": "P-T1", "piece": "Shōgen", "producer": "attest (projection of the ONE committed witness s3-binance)", "artefact": "AttestedPrice in the attested envelope key", "consumer": "MCP gate (attested.residual into verdict.residual)",
+   "status": "cable; input = committed fixture (single capture, verifier not run at call time)", "served_measured": "openapi /gate request keys = prediction, params, attested; tools/list has attest and gate", "deployed": "bb41b6d = HEAD",
+   "evidence": [
+    { "file": "apps/harness/src/tools/registry.ts", "line": 40, "expect": "readonly attested?: AttestedPrice" },
+    { "file": "apps/harness/src/tools/registry.ts", "line": 68, "expect": "runGate(env.prediction, env.params, env.attested)" },
+    { "file": "apps/harness/src/shogen-fixture.ts", "line": 23, "expect": "s3-binance.lot.cbor" },
+    { "file": "apps/harness/src/tools/attest.ts", "line": 6, "expect": "The verifier is NOT" }
+   ],
+   "tests": [ { "kind": "test", "file": "apps/harness/test/gate.test.ts", "name": "gate_attested_concordant_files_residual" } ]
+  },
+  {
+   "id": "P-T2", "piece": "Hikae", "producer": "packages/hikae (split-conformal, L3 gate)", "artefact": "GateDecision", "consumer": "MCP gate/calibrate + JSON mirror",
+   "status": "cable", "served_measured": "tools/list = attest, calibrate, cascade, gate; openapi paths = /attest /calibrate /cascade /gate; info.version 0.4.0", "deployed": "bb41b6d = HEAD",
+   "evidence": [ { "file": "apps/harness/src/version.ts", "line": 22, "expect": "HARNESS_VERSION = \"0.4.0\"" } ],
+   "tests": [
+    { "kind": "test", "file": "test/h5-e2e-probe.test.ts", "name": "probe_harness_records_real_decision" },
+    { "kind": "test", "file": "test/byo-demo-probe.test.ts", "name": "probe_byo_demo_loop_closes" },
+    { "kind": "test", "file": "apps/harness/test/gate.test.ts", "name": "gate_stable_run_honesty_text_is_keyed_A2_A7f" },
+    { "kind": "test", "file": "apps/harness/test/registry.test.ts", "name": "mcp_tools_have_no_side_effects" }
+   ]
+  },
+  {
+   "id": "P-T4", "piece": "Harness", "producer": "scripts/verify-harness.mjs (operator)", "artefact": "docs/deploy-CA-harness.json", "consumer": "sync tools (sha binding) + tests",
+   "status": "present, tested (procedure)", "served_measured": "CA 12/12 at 2026-09-23T00:54:20Z; its openapi sha = live openapi sha", "deployed": "-",
+   "evidence": [],
+   "tests": [
+    { "kind": "test", "file": "test/verify-harness-liq.test.ts", "name": "verify_harness_ca_passes_on_the_in_process_harness" },
+    { "kind": "test", "file": "test/verify-harness-liq.test.ts", "name": "verify_harness_ca_liq_checks_red_on_overclaiming_surfaces" }
+   ]
+  },
+  {
+   "id": "P-S1", "piece": "Harness -> site", "producer": "scripts/sync-harness-served.mjs (operator)", "artefact": "apps/site/data/harness-served.json", "consumer": "/integrators, /console, /roadmap",
+   "status": "cable (committed data bound by test to CA and in-process harness); freshness = operator act; no --check mode", "served_measured": "live openapi sha and tools/list sha = harness-served bodies (read_at 2026-09-24T03:39:46Z)", "deployed": "site 3428dfa",
+   "evidence": [
+    { "file": "scripts/sync-harness-served.mjs", "line": 85, "expect": "redirect: \"manual\"" },
+    { "file": "scripts/sync-harness-served.mjs", "line": 38, "expect": "apps/site/data/harness-served.json" }
+   ],
+   "tests": [
+    { "kind": "test", "file": "test/harness-served.test.ts", "name": "harness_served_data_matches_in_process_harness" },
+    { "kind": "test", "file": "test/harness-served.test.ts", "name": "harness_served_data_matches_deploy_ca" }
+   ]
+  },
+  {
+   "id": "P-B1", "piece": "Bell", "producer": "apps/bell/src/collect.ts runMain via apps/bell/ops/launch-q6.sh (operator machine)", "artefact": "operator bundle (state, journal, provenance, timeline)", "consumer": "RUNBOOK-bell steps 9-12 (produce -> inbox) -> publisher",
+   "status": "cable (operator act): consumer = the served publisher, transfer by hand (RUNBOOK 9-12), no timer; composition collector -> publisher replayed by test", "served_measured": "seq 2 collected at 77153d5 (journal, 2nd), published 2026-09-24T08:41:21.864Z (served line, read)", "deployed": "exec tree 77153d5 (journal, 2nd)",
+   "evidence": [ { "file": "apps/bell/src/collect.ts", "line": 644, "expect": "export async function runMain" } ],
+   "tests": [
+    { "kind": "test", "file": "apps/bell/test/bell-ops.test.ts", "name": "bell_ops_controls_c14_c09_c11_c15_on_runmain_outputs" },
+    { "kind": "test", "file": "apps/bell/test/close.test.ts", "name": "bell_cash_labels_are_generic" }
+   ]
+  },
+  {
+   "id": "P-B4", "piece": "Bell", "producer": "apps/bell/scripts/bell-publish.mjs (oneshot, started by hand, PrivateNetwork, key by LoadCredential)", "artefact": "/var/lib/monark-bell/public", "consumer": "Caddy bell.monarkgate.tech (static) ; root / 302 to monarkgate.tech/bell",
+   "status": "cable", "served_measured": "GET 200 x4 at 08:58:10-12Z; 4 bodies = deploy CA = site data; / = 302 Location https://monarkgate.tech/bell", "deployed": "1eaeef9 (CA g7, check c11 tree=true); HEAD differs by a 2-line comment only",
+   "evidence": [
+    { "file": "deploy/monark-bell-publish.service", "line": 26, "expect": "/opt/monark-bell/apps/bell/scripts/bell-publish.mjs" },
+    { "file": "deploy/monark-bell-publish.service", "line": 27, "expect": "LoadCredential=bell-signing-key" },
+    { "file": "deploy/monark-bell-publish.service", "line": 43, "expect": "PrivateNetwork=yes" },
+    { "file": "deploy/Caddyfile.monark-bell", "line": 12, "expect": "root * /var/lib/monark-bell/public" },
+    { "file": "deploy/Caddyfile.monark-bell", "line": 30, "expect": "redir @home https://monarkgate.tech/bell 302" },
+    { "file": "apps/bell/scripts/bell-publish.mjs", "line": 139, "expect": "BARE_LABEL" }
+   ],
+   "tests": [
+    { "kind": "test", "file": "apps/bell/test/bell-served-e2e.test.ts", "name": "bell_publish_consumes_real_runmain_output_end_to_end" },
+    { "kind": "test", "file": "apps/bell/test/bell-served-e2e.test.ts", "name": "bell_cash_fault_label_publishes_through_real_publisher" },
+    { "kind": "test", "file": "test/bell-deploy-config.test.ts", "name": "bell_deploy_config_publish_unit_least_privilege_offline" },
+    { "kind": "test", "file": "test/bell-deploy-config.test.ts", "name": "bell_caddyfile_root_redirects_to_site_bell_page" },
+    { "kind": "test", "file": "test/no-cash-provider-name.test.ts", "name": "no_cash_cross_provider_name_on_bell_served_files" }
+   ]
+  },
+  {
+   "id": "P-B7", "piece": "Bell", "producer": "served host files", "artefact": "one-line JSON report", "consumer": "apps/bell/scripts/bell-verify.mjs with the committed keyring (reader side; CA check 5)",
+   "status": "cable", "served_measured": "verifier run offline on the live-read mirror (8 files) with apps/bell/keys/bell-keyring.json: consistent_with_supplied_keyring, 2 lines, head seq 2, 0 break", "deployed": "exported (release v0.6.0, journal)",
+   "evidence": [],
+   "tests": [ { "kind": "test", "file": "test/verify-bell.test.ts", "name": "verify_bell_ca_check5_runs_real_bell_verify" } ]
+  },
+  {
+   "id": "P-B8", "piece": "Bell", "producer": "scripts/verify-bell.mjs (operator, by hand)", "artefact": "docs/deploy-CA-bell.json", "consumer": "sync-bell-served (sha binding) + test",
+   "status": "present, tested (procedure); not scheduled", "served_measured": "CA 12/12 at 2026-09-24T08:41:49Z, g7 1eaeef9", "deployed": "-",
+   "evidence": [],
+   "tests": [ { "kind": "test", "file": "test/verify-bell.test.ts", "name": "verify_bell_ca_checks_named_and_fail_closed" } ]
+  },
+  {
+   "id": "P-B5", "piece": "Bell -> site", "producer": "scripts/sync-bell-served.mjs (operator, after each publication and CA)", "artefact": "apps/site/data/bell-served.json", "consumer": "/bell, /bell/method, /, /products",
+   "status": "cable (committed data bound by test to the CA and the latest publication); freshness = operator act; no --check mode", "served_measured": "read_at 2026-09-24T08:43:45Z; live bodies = bodies_sha256; /bell renders the seq 2 head line hash", "deployed": "site 3428dfa",
+   "evidence": [
+    { "file": "scripts/sync-bell-served.mjs", "line": 39, "expect": "fetch(`${BELL_HOST}${path}`" },
+    { "file": "scripts/sync-bell-served.mjs", "line": 81, "expect": "writeFileSync(join(ROOT, OUT_REL), text)" },
+    { "file": "apps/site/lib/fleet.ts", "line": 353, "expect": "served_by: \"https://bell.monarkgate.tech" },
+    { "file": "apps/site/lib/fleet.ts", "line": 354, "expect": "verify_bell_ca_check5_runs_real_bell_verify" }
+   ],
+   "tests": [
+    { "kind": "test", "file": "test/bell-served.test.ts", "name": "bell_served_data_matches_deploy_ca" },
+    { "kind": "test", "file": "test/bell-served.test.ts", "name": "bell_served_build_binds_the_latest_publication_not_the_first" },
+    { "kind": "test", "file": "test/bell-served.test.ts", "name": "bell_pages_render_served_values_never_typed" }
+   ]
+  },
+  {
+   "id": "P-B6", "piece": "Bell -> site", "producer": "scripts/sync-bell-anchors.mjs (operator)", "artefact": "apps/site/public/bell/anchors/", "consumer": "/bell/anchors",
+   "status": "cable (procedural anchoring upstream, BELL-OTS-ANCHOR-1 G0 in flight)", "served_measured": "/bell/anchors 200, anchors.json 200", "deployed": "site 3428dfa",
+   "evidence": [ { "file": "scripts/sync-bell-anchors.mjs", "line": 25, "expect": "apps/site/public/bell/anchors" } ],
+   "tests": [ { "kind": "test", "file": "test/bell-anchors.test.ts", "name": "bell_anchors_served_register_matches_source" } ]
+  },
+  {
+   "id": "P-U13", "piece": "rpc-guard", "producer": "packages/rpc-guard ledger (durable write-ahead, GARDE-FSYNC-1)", "artefact": "per-cycle ledgers (operator machine)", "consumer": "bin rpc-guard reconcile/unlock/repair-tail (operator CLI)",
+   "status": "fixture:course; in the sentinel's served closure as code only (sentinel runs unconfigured)", "served_measured": "-", "deployed": "bb41b6d on the VPS (8 files behind HEAD)",
+   "evidence": [],
+   "tests": [
+    { "kind": "test", "file": "apps/sentinel/test/ukemi-guard-record.test.ts", "name": "ukemi_record_e2e_paid_ledger_is_reconciled_go_and_hard_no_go" },
+    { "kind": "test", "file": "test/guard-scripts-u4.test.ts", "name": "u4_oracle_path_ledger_reconciles_through_served_runcli" },
+    { "kind": "test", "file": "packages/rpc-guard/test/repair-tail.test.ts", "name": "repair_tail_composition_power_cut_signature_to_unlock_and_reopen" }
+   ]
+  }
+ ],
+ "registry": [
+  { "entry": "Shōgen", "status": "built", "cite": { "file": "apps/site/lib/fleet.ts", "line": 137, "expect": "MCP attest → gate" } },
+  { "entry": "Hikae", "status": "built", "cite": { "file": "apps/site/lib/fleet.ts", "line": 152, "expect": "MCP gate (btc-dir-15m" } },
+  { "entry": "Ukemi", "status": "built", "cite": { "file": "apps/site/lib/fleet.ts", "line": 179, "expect": "MCP cascade → gate" } },
+  { "entry": "Narabi", "status": "built", "cite": { "file": "apps/site/lib/fleet.ts", "line": 211, "expect": "daily published sentinel at /narabi/" } },
+  { "entry": "MONARK Bell", "status": "built", "cite": { "file": "apps/site/lib/fleet.ts", "line": 349, "expect": "status: \"built\"" } },
+  { "entry": "fleet.ts comment on bespoke panels", "cite": { "file": "apps/site/lib/fleet.ts", "line": 122, "expect": "Three engines (Shōgen, Hikae, Ukemi) are rendered by their bespoke panels" } },
+  { "entry": "/fleet renders NarabiPanel", "cite": { "file": "apps/site/app/fleet/page.tsx", "line": 168, "expect": "<NarabiPanel contract={attestedFlowContract}" } },
+  { "entry": "harness README input", "cite": { "file": "apps/harness/README.md", "line": 14, "expect": "{ prediction, params }" } },
+  { "entry": "README AttestedBook keyless", "cite": { "file": "README.md", "line": 105, "expect": "keyless RPC quorum" } },
+  { "entry": "Bell Terms word not used", "cite": { "file": "apps/site/data/bell-legal.json", "line": 56, "expect": "any specific data provider's name" } },
+  { "entry": "seq 1 stays served", "cite": { "file": "docs/adr/ADR-BELL-CASH-LEG-1.md", "line": 20, "expect": "Seq 1 reste servi" } },
+  { "entry": "RPC operator bare labels deemed conformant (dated text)", "cite": { "file": "docs/adr/ADR-BELL-CASH-LEG-1.md", "line": 11, "expect": "(étiquette nue : conforme)" } },
+  { "entry": "seq 1 databento label = public contradiction with the Terms (dated text)", "cite": { "file": "docs/adr/ADR-BELL-CASH-LEG-1.md", "line": 10, "expect": "contradiction publique avec les Terms servis" } },
+  { "entry": "provider-name test forms = cash cross-check provider only", "cite": { "file": "test/no-cash-provider-name.test.ts", "line": 30, "expect": "const PROVIDER_FORMS" } },
+  { "entry": "timeline kinds (no erratum kind)", "cite": { "file": "apps/bell/scripts/bell-chain.mjs", "line": 102, "expect": "\"publication\", \"key_rotation\", \"key_revocation\"" } }
+ ]
+}

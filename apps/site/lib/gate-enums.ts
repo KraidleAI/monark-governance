@@ -1,5 +1,5 @@
 // apps/site/lib/gate-enums.ts — server-only, build-time read of the FROZEN gate-decision.schema.json
-// (ADR-M001 D5; ADR-M004 D15). It exposes the `action` and the reason enums so a client sim island can
+// It exposes the `action` and the reason enums so a client sim island can
 // receive them as PROPS without ever citing that third action word as a literal anywhere in apps/site:
 // that word is ALSO a required field of CoverageVerdict, so a quoted literal would red
 // test/ci-gates.test.ts `frozen_contract_fields_stay_dynamic`. commit / defer and the thirteen reason

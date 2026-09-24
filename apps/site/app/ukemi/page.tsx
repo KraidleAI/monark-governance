@@ -4,16 +4,15 @@ import { UkemiPage } from "@/components/ukemi/ukemi-page";
 // Static metadata only (no generateMetadata — no_generate_metadata_in_apps_site). DIGIT-FREE (honesty lint
 // scans title/description): the window is said in words, never "24h"; no sample number rides in the head.
 //
-// FAVICON as a STATIC public asset, NOT a route icon (ruling on sub-lot A deviation D-2, CHANTIERS
-// SITE-RELEASE-1-A): a file-based app/ukemi/icon.svg would be served under /ukemi/ and could be SHADOWED by a
+// FAVICON as a STATIC public asset, NOT a route icon: a file-based app/ukemi/icon.svg would be served under /ukemi/ and could be SHADOWED by a
 // Caddy `handle_path /ukemi/*` (as /narabi/* does). Declared here from apps/site/public/icons/ukemi.svg,
 // served at the static /icons path (outside any /ukemi/ path); the built head carries that icon href.
 export const metadata: Metadata = {
   title: "Ukemi — liquidation-eligible coverage · MONARK",
   description:
     "Ukemi, the liquidation-exposure measure: a lending book read at one declared block, the oracle price " +
-    "path the protocol consulted, and a conformal upper bound on the amount liquidated, per stratum, with " +
-    "its named residuals. Never a probability of being right. Read-only.",
+    "path the protocol consulted, and, once a stratum is committed, a conformal upper bound on the amount " +
+    "liquidated, per stratum. Never a probability of being right. Read-only.",
   icons: { icon: [{ url: "/icons/ukemi.svg", type: "image/svg+xml" }] },
 };
 

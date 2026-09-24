@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { sectionNumber } from "@/lib/bell-legal";
 
-// Numbered section and section reference of the Bell legal pages (lot SITE-LEGAL-1). The number is never typed: it is
+// Numbered section and section reference of the Bell legal pages. The number is never typed: it is
 // the section's position in its page's ordered id list (lib/bell-legal.ts), for the heading and for every reference,
 // so "§8" in a sentence and the "8." of its heading cannot disagree. The heading text is the validated title.
 

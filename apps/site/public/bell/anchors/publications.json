@@ -1,0 +1,6 @@
+{
+  "register": "docs/bell-publications/ANCHORS.md",
+  "rows": [
+    {"date_utc":"2026-09-24T13:37:02Z","seq":2,"kind":"publication","line_hash":"ef3b06f2ff93951e200a6559b42ab66df5ac4aa38b86d3aa763c118c766f6464","prefix_sha256":"fba1824d9dc4a9218246dc9dd14107f89a6f14d2250c62a6cea0e3db7ccfd28b","manifest_sha256":"602ff93d60dbf10fe96b0b2cfcd5b8ff439d2d0019f4daa362e9dd6ad3f16946","commit":"694e98b","manifest_file":"timeline-seq2-manifest.txt","proof_file":"timeline-seq2-manifest.txt.ots"}
+  ]
+}

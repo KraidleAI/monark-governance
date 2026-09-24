@@ -14,15 +14,14 @@ export const metadata: Metadata = {
   icons: { icon: [{ url: "/icons/bell.svg", type: "image/svg+xml" }] },
 };
 
-// /bell/privacy — the Privacy Notice of the Bell mail contact (lot SITE-LEGAL-1; decisions 146, 147, 148). The text is
-// the validated draft PRIVACY-NOTICE-draft.md (the lawyer's GO "as drafted", decision 147), VERBATIM except for the
-// reasons listed with each deviation in the lot report: (1) notes to counsel, the "PROPOSED" wrappers and the
+// /bell/privacy — the Privacy Notice of the Bell mail contact. The text is the draft PRIVACY-NOTICE-draft.md validated
+// by counsel (GO "as drafted"), VERBATIM except for these reasons, each with its deviation: (1) notes to counsel, the "PROPOSED" wrappers and the
 // cross-references to draft files are removed (the proposed legal basis and retention are the validated text); (5) no
-// country (decision 94): the country field of the template is gone (five fields, not six) and the controller's
-// identity stays visible placeholders. The contact address is the box created by the investor (lib/bell-contact.ts);
-// under decision 94 the contact box is also the point of contact for privacy questions. The two spans that carry
+// country: the country field of the template is gone (five fields, not six) and the controller's
+// identity stays visible placeholders. The contact address is the box of the publisher (lib/bell-contact.ts);
+// the contact box is also the point of contact for privacy questions. The two spans that carry
 // digits (a regulation article, a retention numeral) are read from the committed, hashed data file through
-// lib/bell-legal-load.ts (ADR-M004 D1: numbers only from committed, hashed data). Section numbers and references come
+// lib/bell-legal-load.ts (numbers only from committed, hashed data). Section numbers and references come
 // from lib/bell-legal.ts, never typed. The right to object is set apart in its own block (GDPR art. 21(4): "clearly
 // and separately"), with its words unchanged.
 export default function BellPrivacyPage() {

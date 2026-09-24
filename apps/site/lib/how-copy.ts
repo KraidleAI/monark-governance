@@ -27,7 +27,7 @@ export const OUTCOMES: readonly Outcome[] = [
   {
     tone: TONE_COMMIT,
     gloss:
-      "The intent lies inside a region small enough to act on, and budget remains. The act is authorized and B_t is spent.",
+      "The intent lies inside a region small enough to act on, and the budget the caller sent is not below the caller's floor. The act is authorized; B_t comes back as the caller sent it.",
   },
   {
     tone: TONE_DEFER,
@@ -53,17 +53,17 @@ export interface ReasonGloss {
  * contract field (see lib/sim.ts header: reason codes are cited as plain literals), so a literal key is
  * honest here. The page renders the code text FROM the loaded enum, never from these keys; the R2 test
  * pins keys == enum BOTH WAYS (a new reason with no gloss, or a phantom gloss, reds), so the rendered
- * grid can neither drift from nor outrun the frozen reason enum — "a new reason needs an ADR, not a
- * deploy" (design L238).
+ * grid can neither drift from nor outrun the frozen reason enum — a new reason needs a deliberate, versioned
+ * revision, not a deploy (design L238).
  */
 export const REASON_GLOSS: Record<string, ReasonGloss> = {
-  covered: { tone: TONE_COMMIT, gloss: "The intent lies inside a region small enough to act on, and budget remains." },
+  covered: { tone: TONE_COMMIT, gloss: "The intent lies inside a region small enough to act on, and the caller's budget is not below its floor." },
   set_too_large: { tone: TONE_DEFER, gloss: "The set holds every label — nothing is ruled out yet." },
   interval_too_wide: { tone: TONE_DEFER, gloss: "The interval is wider than the act can tolerate." },
   intent_not_in_region: { tone: TONE_ABSTAIN, gloss: "What you wanted to do is outside what coverage allows." },
   under_calib: { tone: TONE_ABSTAIN, gloss: "Too few calibration points to state a region at all." },
   no_label_schema: { tone: TONE_ABSTAIN, gloss: "The task declares no label schema to conform against." },
-  budget_exhausted: { tone: TONE_ABSTAIN, gloss: "B_t is spent. No bar is lowered; the gate waits for a new epoch." },
+  budget_exhausted: { tone: TONE_ABSTAIN, gloss: "The B_t the caller sent is below the caller's floor. No bar is lowered." },
   clock_expired: { tone: TONE_ABSTAIN, gloss: "The testimony is older than the task allows." },
   upstream_timeout: { tone: TONE_ABSTAIN, gloss: "The sensor did not answer in time." },
   attestation_absent: { tone: TONE_ABSTAIN, gloss: "No attestation reached the adapter." },
@@ -71,6 +71,23 @@ export const REASON_GLOSS: Record<string, ReasonGloss> = {
   binding_broken: { tone: TONE_ABSTAIN, gloss: "The prediction is not bound to the testimony it claims." },
   non_evaluable: { tone: TONE_ABSTAIN, gloss: "The input cannot be evaluated against the contract at all." },
 };
+
+/**
+ * The per-class reserve of "What is not" (rendered as {MEASURED_CLASS_RESERVE}): the one class calibrated on
+ * MEASURED flow is served with a narrower statement than the generic coverage statement above it. Every clause is an
+ * extract of the gate description the harness serves for that class (apps/harness/src/tools/gate.ts
+ * STABLE_RUN_COMMITTED_CORE), never a paraphrase: test/narabi-live.test.ts asserts each clause is a substring of
+ * it and that the whole is digit-free.
+ */
+export const MEASURED_CLASS_CLAUSES: readonly string[] = [
+  "the calibration is measured non-stationary across half-years",
+  "which is not assumed here",
+  "no coverage is measured",
+];
+export const MEASURED_CLASS_RESERVE =
+  "For the one class calibrated on measured flow, Narabi's redemption-flow velocity, the served description is narrower: " +
+  "the calibration is measured non-stationary across half-years, so the coverage above would need exchangeability, " +
+  "which is not assumed here; no coverage is measured.";
 
 export interface RegionKind {
   /** The mono eyebrow, e.g. "region · kind = set" (design L215/L223). */

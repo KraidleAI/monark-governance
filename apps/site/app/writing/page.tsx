@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-// Static metadata only (ADR-M004 D15 / honesty lint §6b): no digit in title/description, and NO
+// Static metadata only (honesty lint §6b): no digit in title/description, and NO
 // generateMetadata (gate no_generate_metadata_in_apps_site).
 export const metadata: Metadata = {
   title: "Writing — MONARK",

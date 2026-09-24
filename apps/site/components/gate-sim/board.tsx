@@ -13,18 +13,21 @@
 //      sourced engineKeys (lib/profiles.ts) light up; the gate + adapter (the backbone) always light.
 //
 // HONESTY. Columns come from FLEET_AGENTS BY ROLE (the frozen register); each card's teaser is a.line
-// verbatim, status is the register status via <StatusBadge>. kanji/accent are presentation-only
-// (lib/agents-presentation.ts). The aside's product wiring is read from PRODUCTS (fingers); the three
-// VISAGE profiles NAME + LINK their product (register + panel owned by F-site-6). No rendered numeric
+// verbatim, status is the register status via <StatusBadge>: the agent count of the statement is the register's
+// length (countWord), the backbone cards (adapter, calibrate) carry the gate's register status, the aside's badge is
+// the picked application's register status (PRODUCTS) or its artefact's (VISAGE), and the aside's closing line is the
+// register's status sentence (productStatusSentence). kanji/accent are presentation-only (lib/agents-presentation.ts).
+// What the budget does is the served rule (BT_SERVED_RULE, lib/sim.ts), never a spending claim. No rendered numeric
 // literal: the ordinals in the eyebrows ("04 · sensors" …) are closed-exempt (honesty-lint.exempt.json,
 // C-6 guard); the picker ordinal renders through a call (String(n).padStart), which the lint never flags.
 // No frozen-contract field name is quoted anywhere. The C-5 caveat renders here (R5).
 import { useEffect, useState, type ComponentType, type CSSProperties, type SVGProps } from "react";
 import Link from "next/link";
-import { FLEET_AGENTS, PRODUCTS, type FleetStatus } from "@/lib/fleet";
+import { FLEET_AGENTS, PRODUCTS, countWord, productStatusSentence, type FleetStatus } from "@/lib/fleet";
 import { AGENTS_PRESENTATION } from "@/lib/agents-presentation";
 import { PICKER_PROFILES } from "@/lib/profiles";
-import { CAVEAT, decisionColorVar } from "@/lib/sim";
+import { VISAGE } from "@/lib/visage";
+import { BT_SERVED_RULE, BUDGET_NOTE, CAVEAT, decisionColorVar } from "@/lib/sim";
 import { StatusBadge } from "@/components/status-badge";
 import { ShogenMark } from "@/components/marks/shogen-mark";
 import { HikaeMark } from "@/components/marks/hikae-mark";
@@ -134,8 +137,8 @@ function AgentMiniCard({
   active: boolean;
   dimmed: boolean;
   reduced: boolean;
-  /** an optional honest note on the card's REAL served pipe (ADR-EC C-11 vi: a built act feeds the gate
-   *  upstream — cascade → gate — it does not execute). Digit-free (no numeric-hole). */
+  /** an optional honest note on the card's REAL served pipe (a built act feeds the gate upstream — cascade → gate —
+   *  it does not execute). Digit-free (no numeric-hole). */
   pipe?: string;
 }) {
   const Mark = MARKS[node.key];
@@ -214,6 +217,9 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
     profile && profile.tier === "finger" && profile.productKey
       ? PRODUCTS.find((p) => p.key === profile.productKey)
       : undefined;
+  // The aside's status: the picked application's register status, or its artefact's (VISAGE), never a literal.
+  const visage = profile && profile.tier === "visage" ? VISAGE.find((v) => v.name === profile.productName) : undefined;
+  const asideStatus: FleetStatus | undefined = finger?.status ?? visage?.status;
 
   return (
     <section
@@ -228,17 +234,16 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--hikae)" }} />
             commit · defer · abstain
           </div>
-          {/* h2: the board now sits under the charter C landing hero (ruling Q4), which carries the page's h1. */}
+          {/* h2: the board sits under the charter C landing hero, which carries the page's h1. */}
           <h2 style={{ fontSize: "clamp(38px,4.8vw,62px)", lineHeight: 1.02, letterSpacing: "-.025em", fontWeight: 600, margin: "16px 0 18px", textWrap: "balance" }}>
             It abstains,
             <br />
             so it can act.
           </h2>
           <p style={{ fontSize: 17, lineHeight: 1.55, color: "var(--ink2)", maxWidth: 520, margin: 0, textWrap: "pretty" }}>
-            One engine, eleven agents, one plug per client. Sensors witness, an adapter shapes the
+            One engine, {countWord(NODES.length)} agents, one plug per client. Sensors witness, an adapter shapes the
             testimony into a frozen <span style={{ ...mono, color: "var(--ink)" }}>Prediction</span>, the
-            gate authorizes, an act executes — and B_t is spent only on{" "}
-            <span style={{ ...mono, color: "var(--ink)" }}>commit</span>. Never a probability of being right.
+            gate authorizes, an act executes — and {BT_SERVED_RULE}. Never a probability of being right.
           </p>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -308,7 +313,7 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
               <div style={cardStyle("var(--ukemi-t)", Boolean(profile), false, reducedMotion)}>
                 <div style={rowCenter}>
                   <span style={{ fontWeight: 600, fontSize: 14 }}>Adapter</span>
-                  <StatusBadge status="built" className="ml-auto" />
+                  {GATE_NODE ? <StatusBadge status={GATE_NODE.status} className="ml-auto" /> : null}
                 </div>
                 <div style={teaser}>
                   Typed attestations become one frozen shape. Sensors never speak to the gate directly;
@@ -319,7 +324,7 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
               <div style={cardStyle("var(--hikae-t)", Boolean(profile), false, reducedMotion)}>
                 <div style={rowCenter}>
                   <span style={{ fontWeight: 600, fontSize: 14 }}>calibrate · BYO</span>
-                  <StatusBadge status="built" className="ml-auto" />
+                  {GATE_NODE ? <StatusBadge status={GATE_NODE.status} className="ml-auto" /> : null}
                 </div>
                 <div style={teaser}>
                   Or bring your own nonconformity scores — the gate conforms against them. Any asset,
@@ -340,7 +345,7 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
                   </span>
                   <span style={{ fontWeight: 600, fontSize: 15 }}>Hikae</span>
                   <span style={kanjiStyle}>控え</span>
-                  <StatusBadge status={GATE_NODE?.status ?? "built"} className="ml-auto" />
+                  {GATE_NODE ? <StatusBadge status={GATE_NODE.status} className="ml-auto" /> : null}
                 </div>
                 <div style={teaser}>Conforms the reading into a coverage region, then decides.</div>
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
@@ -368,19 +373,16 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
                     <span style={{ ...kanjiStyle, fontSize: 12 }}>玄関</span>
                     <StatusBadge status={GENKAN_NODE.status} className="ml-auto" />
                   </div>
-                  <div style={teaser}>
-                    The storefront: the gate sold as a tool. Before every transfer, swap or sign —{" "}
-                    <span style={mono}>before_tool → GateDecision</span>, over MCP.
-                  </div>
+                  <div style={teaser}>{GENKAN_NODE.line}</div>
                 </div>
               ) : null}
             </div>
 
             <Lane label="commit · B_t" active={Boolean(profile)} reduced={reducedMotion} />
 
-            {/* acts — the execute layer is UPCOMING (ADR-EC C-11 vi): no act is served, the gate never
-                executes (D0 no-trade). The one BUILT act (Ukemi) is built because it FEEDS the gate upstream
-                (cascade → gate), not because it executes — its card says so; its register role stays "act". */}
+            {/* acts — the execute layer is UPCOMING: no act is served, the gate never executes (no trade). The one
+                BUILT act (Ukemi) is built because it FEEDS the gate upstream (cascade → gate), not because it
+                executes — its card says so; its register role stays "act". */}
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <div style={eyebrow}>02 · acts · execute (upcoming)</div>
               {ACTS.map((n) => (
@@ -397,9 +399,10 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
           </div>
 
           <div style={{ ...mono, fontSize: 11, color: "var(--ink2)", marginTop: 14, lineHeight: 1.5 }}>{CAVEAT}</div>
+          <div style={{ ...mono, fontSize: 11, color: "var(--ink2)", marginTop: 6, lineHeight: 1.5 }}>{BUDGET_NOTE}</div>
         </div>
 
-        {/* aside — the picked profile's product */}
+        {/* aside — the picked profile's application or artefact */}
         <aside
           className="lg:sticky lg:top-20"
           style={{ border: "1px solid var(--line)", borderRadius: 22, background: "var(--card)", padding: 22, display: "flex", flexDirection: "column", gap: 12 }}
@@ -411,7 +414,7 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
           <div style={{ border: "1px solid var(--line)", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
             <div style={rowCenter}>
               <span style={{ fontWeight: 600, fontSize: 14 }}>{profile?.productName}</span>
-              <StatusBadge status="upcoming" className="ml-auto" />
+              {asideStatus ? <StatusBadge status={asideStatus} className="ml-auto" /> : null}
             </div>
             {finger ? (
               <>
@@ -428,16 +431,14 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
               </>
             ) : (
               <div style={teaser}>
-                A VISAGE product. Its panel is on the Products page.
+                An artefact sold to a named buyer. Its panel is on the Applications page.
               </div>
             )}
           </div>
           <Link href="/products" style={{ fontSize: 14, color: "var(--monark-t)" }}>
-            See it on Products →
+            See it on Applications →
           </Link>
-          <div style={{ ...mono, fontSize: 11, color: "var(--ink2)", lineHeight: 1.5 }}>
-            MONARK Bell is built; every other product is upcoming, a wiring of fleet agents on the same built gate.
-          </div>
+          <div style={{ ...mono, fontSize: 11, color: "var(--ink2)", lineHeight: 1.5 }}>{productStatusSentence()}</div>
         </aside>
       </div>
     </section>
