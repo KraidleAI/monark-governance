@@ -5,6 +5,7 @@
   "files": {
     "fixtures/figures-sourced.json": "15aad757d9f182ef203dd213bc20eaa8d18d03e9f602b61ef2359f162acb693e",
     "apps/site/data/bell-legal.json": "a8c7fc821828b9977e2202ef88e2af4aedd33d792d454b87600576b4c20c8728",
+    "apps/site/data/ukemi-course.json": "555b77df6168166004f48d095af96eb27fb6f27f0a8d6ea2d80674674f250be5",
     "apps/site/data/bell-served.json": "c473570439ff029cf7d60e125d06e4dd106fb059594f9e1c421b70dfcd6d0897"
   }
 }

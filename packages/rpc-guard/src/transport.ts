@@ -10,7 +10,7 @@
 // paid operator, GARDE-HELIUS-2; ONE operator per ACCOUNT across networks - decision 121, opts.network picks
 // CHAINSTACK_ETH_URL | CHAINSTACK_SOLANA_URL) + the keyless witnesses: the Solana-Foundation public RPC, the free ETH
 // quorum providers the Ukemi recorder uses today as URLs (drpc/mevblocker/nodies/pocket/tenderly), and the xStocks
-// issuer public API (an HTTP GET witness, 1b-0 C-7), all resolved LABELS (0 cost, counted). Databento and Polygon stay
+// issuer public API (an HTTP GET witness, 1b-0 C-7), all resolved LABELS (0 cost, counted). The two cash-leg data sources stay
 // FORMED items (request caps land at their trigger, never guessed). This is the SOLE reader of a paid endpoint key
 // (HELIUS_API_KEY, CHAINSTACK_ETH_URL / CHAINSTACK_SOLANA_URL) and the SOLE fetch site.
 import type { OperatorLabel, Transport, OperatorClass } from "./client.ts";

@@ -17,6 +17,7 @@
 // decision 120); content unchanged (the mock's SAMPLE values are not ported: fake values, and digits, never ride
 // on a served page). The site footer carries the four common phrases (ruling Q5).
 import { FLEET_AGENTS } from "@/lib/fleet";
+import Link from "next/link";
 import {
   HERO_TITLE,
   HERO_DEK,
@@ -103,6 +104,11 @@ export function UkemiPage() {
         <div className="c-card" style={{ marginTop: 12, borderColor: "var(--ukemi)" }}>
           <p className="text-sm text-muted-foreground">{SERVED_STATE_LEAD}</p>
           <p className="mt-3 font-mono text-base text-foreground">{LIQ_EMPTY_REGISTRY_SENTENCE}</p>
+          <p className="text-sm text-muted-foreground" style={{ marginTop: 10 }}>
+            The calibration course on one recorded lending episode is closed through its offline steps; its pre-registered verdicts,
+            counts and digests are on the <Link href="/ukemi/course">course page</Link>. One stratum can be committed to the served class;
+            that commit is the next step.
+          </p>
 
           {/* Schematic upper-bound bar: from an open floor to the upper bound, y-hat marked inside; never a
               gauge, NO numeric graduation. aria-hidden + widths in style => outside the rendered-text scan. */}

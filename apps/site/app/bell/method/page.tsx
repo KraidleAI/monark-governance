@@ -353,8 +353,8 @@ vol_ratio  = V_shares / ADV`}</pre>
               committed keyring <span className="c-mono">apps/bell/keys/bell-keyring.json</span>; the key served above is
               only a cross-checked channel. Its success status reads <span className="c-mono">consistent_with_supplied_keyring</span>;
               without a keyring it reports <span className="c-mono">self_consistent_only</span>, never an unqualified
-              success. Neither the verifier nor the keyring is in the public export today: the replay code below is marked
-              to be exported.
+              success. The verifier, the publisher, its chain library and the public keyring are in the public export; the collector
+              (replay code below) is not exported yet.
             </p>
           </div>
           <div className="c-card">

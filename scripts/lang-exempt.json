@@ -56,6 +56,7 @@
     "§\\d*"
   ],
   "paths": [
-    "fixtures/s3-binance.*"
+    "fixtures/s3-binance.*",
+    "apps/site/data/ukemi-course.json"
   ]
 }
