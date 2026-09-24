@@ -268,3 +268,158 @@ passage. Avis, jamais verdict : G7 reste à l'orchestrateur.
 Empreintes : `F:\tmp\site-docs-1\DELIVERED.sha256` (fichiers du lot, chemins relatifs au worktree, puis preuves sous
 `F:\tmp\site-docs-1\`). Ce journal ne change aucun contrôle : `docs/**/*.md` est hors export, hors porte de langue et hors
 compte R-25.
+
+## 13. Pli de la G2 fraîche et des remarques de l'investisseur (2026-09-24)
+
+- **Générateur** : worker `claude-opus-5-5[1m]`, effort max, sur le gel 1 `0a632e5` (arbre propre au départ), sans commit (R-20),
+  sans `GIT_DIR` pour aucun test ; ceinture de la mission sur chaque contrôle ; serveurs et Chrome sur 127.0.0.1 seulement.
+- **Entrées** : rapport `F:\tmp\site-docs-1\g2\G2-SITE-DOCS-1.md` (ACCEPTE-AVEC-CORRECTIONS) ; correctifs
+  `C-G2-01-09.patch` (sha256 `64ed687189ea65deba88284e46be57d766e2045072b9be491f3f18dcd87ca5cb`) et `C-G2-10-vwap.patch`
+  (`2190c4462bbbb3cf180db02165d0c3f97c7a736f67ab2dc08be890a61d08d9f9`), égaux au rapport, appliqués tels quels par `git apply`
+  (18:00:18Z) ; décisions 1 à 6 de l'orchestrateur ; remarques de l'investisseur V-1, V-3, schéma fluide, V-4 ; whitepaper
+  Chainlink `F:\tmp\cl-wp.pdf` (sha256 `73300eda96e39870895468cf7a7b90616b37d5d7673671c89db1776c192ed2be`, 38 pages), texte
+  extrait par `pdftotext -layout` (`F:\tmp\site-docs-1\pli\chainlink\cl-wp.txt`, sha256
+  `e7f221b52d54c9b9b5a576b08e490c11ed774de0635d108b503229e4e254c8c9`), §4.1 (page 11) et §5.3 (page 19) relus par ce worker.
+
+### 13.1 Appliqué
+
+Tailles `git diff --numstat 0a632e5` (plus deux fichiers nouveaux) :
+
+| Fichier | +/- | Objet |
+|---|---|---|
+| `apps/site/app/docs/{bell,gate,glossary,verify}/page.tsx`, `docs.css`, `test/site-build-fleet.test.ts` (opérateurs), `test/site-docs.test.ts` (5 tests) | 5/3, 6/4, 2/2, 8/6, 3/0, 25/0, 75/0 | correctifs C-G2-1 à 10, tels quels |
+| `apps/site/lib/shogen-copy.ts` (nouveau) | 10/0 | V-1 : la phrase de l'investisseur, une constante |
+| `apps/site/app/roadmap/page.tsx` | 9/4 | V-1 (note de la couche des pièces, après la liste des pièces bâties) ; V-3 (« The smart pieces », « An engine that improves itself ») ; section du schéma sans défilement horizontal ; clé React `company` renommée `engine` |
+| `apps/site/components/docs/piece-doc-page.tsx` | 55/4 | V-1 en tête de « What is served today » (Shōgen) ; V-4 : section « The gap it fills » |
+| `apps/site/components/docs/schemas/shogen.tsx` (nouveau) | 72/0 | V-4 : un schéma « source A copies source B, same upstream » |
+| `apps/site/components/shogen-panel.tsx` | 2/0 | V-1 : deuxième paragraphe de « Honest limits » |
+| `apps/site/app/fleet/page.tsx` | 2/1 | V-3 : « Eleven smart pieces. Four built, seven on the roadmap. », comptes dérivés du registre |
+| `apps/site/components/docs/schemas/building.tsx`, `svg-kit.tsx` | 3/2, 3/2 | schéma de trajectoire fluide (`min={0}`, `maxWidth: 100%`) |
+| `apps/site/data/docs-references.json`, `manifest.sha256.json` | 21/2, 1/1 | œuvre `chainlink-2017`, tableau `quotes` (schéma v2), `$comment` ; empreinte repinée |
+| `apps/site/lib/docs-references-load.ts` | 41/10 | citations verbatim (au plus 25 mots, fail-closed), identifiant https, ids à chiffres |
+| `apps/site/lib/docs-pieces.ts` | 1/1 | Shōgen cite `chainlink-2017` |
+| `apps/site/lib/docs-vocab.ts`, `apps/site/app/docs/research/page.tsx` | 10/3, 5/1 | dérogation étiquetée du filtre de /docs/research (décision 3) |
+| `vocab-banned.json` | 3/1 | MakerDAO, Compound (portée `site`, F-2c C-4) et phrase du `$comment_platforms` |
+| `test/site-docs.test.ts` (pli), `test/site-build-fleet.test.ts` (pli) | 139/5, 1/1 | 6 tests nouveaux, collecte des ids à chiffres et des citations ; `smart pieces` ajouté à `TYPED_COUNT` |
+| `docs/adr/ADR-M013-vitrine-regimes.md`, `docs/adr/ADR-M004-infrastructure-plateforme.md` | 9/0, 15/0 | exception R-25 datée ; amendement D14 daté (MakerDAO, Compound) |
+
+### 13.2 Adaptations du texte dicté, déclarées
+
+- V-4, « faults are correlated across data sources » devient « faults may be correlated across data sources » : la source dit
+  « faults may be correlated across data sources » (§4.1, page 11 du PDF, ligne 28 du texte extrait de cette page).
+- V-4, « An attestation proves what a source said » devient « An attestation shows what a source said » : forme interdite D8
+  d'`ADR-BELL-OTS-ANCHOR-1` (« proves » à propos d'un fait), la même lecture qui a fondé C-G2-4 ; la garde D8 ajoutée
+  (`docs_carry_no_ots_d8_forbidden_form`) rougirait « proves ». Revenir au mot de l'investisseur demande de restreindre D8 aux
+  textes d'ancrage, et la garde avec.
+- V-4, la parenthèse « (Ellis, Juels, Nazarov, section 4.1, page 11) » est rendue au format de citation du site : « (Steve Ellis,
+  Ari Juels and Sergey Nazarov (2017), Section 4.1, page 11) », lien vers la bibliographie ; année, lieu et auteurs lus de la
+  bibliographie commitée (aucun chiffre tapé). « the first Chainlink whitepaper » : ordinal de version (v1.0), pas une primauté
+  de MONARK, même lecture que la G2 pour les autres « first ».
+- V-4, « Nine years later » : dérivé, `countWord` de l'année de l'énoncé (`GAP_STATED_ON = "2026-09-24"`) moins l'année de
+  l'œuvre. L'absence affirmée (« no such map is published ») est l'énoncé daté de l'investisseur, non vérifié ici (aucun réseau).
+- V-4, la citation : 13 mots, verbatim, §4.1, page 11 (lignes 31 à 33 du texte extrait de la page 11), entre guillemets, lue du
+  nouveau tableau `quotes` de la bibliographie. Niveau « read in part » = [lu] par sections, comme au §2.2.
+- V-4, id `chainlink-2017` : la regex d'id du chargeur et celles de la collecte du test acceptent désormais les chiffres ;
+  l'identifiant https est accepté (https seulement).
+- V-1, panneau Shōgen : la phrase est insérée en deuxième paragraphe de « Honest limits » ; les trois autres restent.
+- Décision 3 (C-G2-11) : le relecteur proposait deux règles et le retrait des figures par le filtre ; la décision garde les deux
+  figures sur /docs/research. Mécanisme de ce pli : une étiquette de dérogation que seules les deux règles portent, passée par la
+  seule page /docs/research ; une étiquette qu'aucune règle ne porte fait échouer le build.
+
+### 13.3 Tests ajoutés par le pli (en plus des 6 du correctif)
+
+`shogen_served_scope_is_said_on_three_surfaces`, `shogen_gap_quotes_and_cites_the_chainlink_whitepaper`,
+`docs_carry_no_ots_d8_forbidden_form` (garde D8 proposée par la G2, portée /docs et MONARK Building ; tue MX-09),
+`docs_research_alone_waives_the_cited_platform_names`, `fleet_and_building_say_smart_pieces_not_company`,
+`building_trajectory_is_fluid` ; `TYPED_COUNT` couvre `smart pieces` ; la collecte des citations du test de bibliographie couvre
+les ids à chiffres et `quoteById`.
+
+### 13.4 Mutants
+
+- Les 11 mutants de la G2 (ancres et remplacements repris de `g2\tools\mutants.mjs`), sur le worktree : 11 tués. Les 9 survivants
+  de la G2 meurent : MX-01, 02, 03, 06, 07, 09 par `test/site-docs.test.ts` ; MX-10 par `site_names_no_rpc_operator` ; **MX-04
+  et MX-05 seulement par les outils de la G2 exécutés dans cet oracle** (`svg-overflow.mjs` : texte sorti de sa boîte de 415 px ;
+  `links.mjs` : `/docs/pieces/ukemi -> /ukemi/courses`), aucune porte du dépôt ne les voit encore (items SVG-OVERFLOW-GATE-1,
+  DOCS-LINKS-GATE-1). MX-08 et MX-11 restent tués.
+- Les 11 mutants du pli (P-01 à P-11 : phrase V-1 retirée de Building, de la page Shōgen, reformulée ; citation détachée de son
+  œuvre, tapée à la main ; « proves » dans la section ; étiquette de dérogation dérivée ; MakerDAO tapé dans une source ;
+  « company » rétabli ; largeur minimale du schéma rétablie ; citation de plus de 25 mots) : 11 tués.
+- Les 21 mutants du gel 1, rejoués sur l'arbre final : 21 tués.
+- Restauration prouvée pour chacun (sha256 avant égal après) ; empreinte de l'arbre (22 fichiers, `git status`) identique avant
+  et après chaque campagne. Journaux : `F:\tmp\site-docs-1\pli\mutants-pli.json`, `mutants-gel1-replay.json`.
+
+### 13.5 Oracle
+
+Environnement : ceinture de la mission sur chaque contrôle (`F:\tmp\site-docs-1\controls.sh`, journaux par contrôle).
+
+| Passage | Arbre | typecheck | lint | lint:ratchet | gate:vocab | lang:gate | export:check | npm test | next build | assert-fleet-html |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `pli-final/` (18:41Z à 18:48Z) | code du pli et ADR datés (ce §13 ajouté ensuite, hors de tout contrôle) | 0 | 0 | 0 (69/69) | 0 | 0 | 0 | 0 | 0 (42 routes) | 0 |
+
+- `npm test` : 1 285 tests, 1 283 verts, 0 rouge, 2 ignorés (les deux de la référence) ; test 42 vert en 349 s ; les 12 tests nouveaux
+  (6 du correctif, 6 du pli) verts.
+- Export réel (`scripts/export-public.mjs --out F:\tmp\site-docs-1\pli\export`) : exit 0, 483 fichiers, 40 fichiers de la route
+  (`apps/site/app/docs`, `apps/site/components/docs`), aucun dossier `docs/` hors la route, 0 `.npmrc`/`.env*`, 0 chemin local ;
+  motifs de jetons : 0 hors la liste de détection de `apps/bell/scripts/bell-publish.mjs:90` (préexistante) ;
+  `EXPORT-MANIFEST.json` sha256 `44e8ff1245489eb608e4c34b22a873b059ae8ac5c4e0e82417f76c42a830b212`.
+- 375 px (outil `mobile375.mjs` de la G2, émulation CDP 375 × 812, sur le build de `pli-final/`) : **23/23 pages sans débordement**
+  (22 /docs et /roadmap) ; /fleet, /, /how conformes ; /bell 496 (préexistant, BELL-MOBILE-375-1).
+- SVG (`svg-overflow.mjs`, 1 280 px) : 23 pages, 39 SVG (38 et le nouveau), 642 textes, 0 hors de sa boîte, 0 coupé.
+- Liens (`links.mjs`) : **0 cassé** sur 1 784 liens internes (/docs et /roadmap) ; 0 sur 2 366 (42 pages du site).
+- Panneau Shōgen de /fleet ouvert par CDP (`F:\tmp\site-docs-1\pli\panel-check.mjs`) : la phrase V-1 est le deuxième paragraphe de
+  « Honest limits » (le panneau est rendu côté client : absent du HTML statique, présent dans le code client).
+- `/building` : 307 vers `/roadmap` sous `next start -H 127.0.0.1`.
+- Texte rendu (`F:\tmp\site-docs-1\pli\text-diff-pli.mjs`, base = HTML de `3436304`) : pages préexistantes identiques hors en-tête
+  et pied, sauf /fleet (le titre, V-3) et /roadmap (MONARK Building), changements voulus ; 22 pages nouvelles, 3 353 lignes.
+  Balayage des lignes ajoutées : 0 motif interne, 0 nom de source de données ou d'opérateur, 0 règle du vocabulaire hors les deux
+  noms dérogés (MakerDAO 2, Compound 2, dans les figures verbatim de /docs/research, seule page où ils paraissent) ; « Chainlink »
+  3 (l'auteur cité, autorisé par V-4 ; relevé par la liste de mon balayage, qui n'est pas une porte) ; 7 tirets longs (les textes
+  servis du harnais, HARNESS-TEXT-DASH-1) ; « probability of being right » toujours niée.
+- Après `pli-final/`, une ligne de test (`DOCS_LIBS` couvre aussi `apps/site/lib/shogen-copy.ts`, avis de la deuxième
+  consultation) : rejouée, `test/site-docs.test.ts` 21/21, typecheck 0, eslint du fichier 0, lint:ratchet 69/69.
+- R-25 (pathspec de `.github/workflows/ci.yml:65`, 18:59:02Z) : gel 1 6 490 ; pli 555 (suivis 420+/53-, nouveaux 82) ; lot
+  entier depuis `3436304` : 6 949 ; borne 1 205 ; exception datée d'ADR-M013.
+- Captures : `F:\tmp\site-docs-1\pli\svg\` (nouveau schéma en clair et en sombre, trajectoire et section « The gap it fills » à
+  375 px).
+
+### 13.6 Errata des §1 et §8 (G2, Needs 7)
+
+`test/export-public.test.ts` : 28/2 au commit (§1 : 26/1) ; fichiers suivis : 192/52 (§8 : 190/51) ; R-25 du gel 1 : 6 490
+(§8 : 6 471). Cause : la mesure du §8 précédait les dernières retouches du gel (commentaire du miroir d'export, +2/-1 ; ajouts de
+tests). Compte périmé, pas un écart de contenu : les blobs de `0a632e5` sont égaux au bloc 1 de `DELIVERED.sha256` (vérifié par la
+G2). Les numéros du §1 et du §8 restent tels quels, cet erratum les corrige.
+
+### 13.7 Items
+
+Soldés par ce pli : R25-SITE-DOCS-1 (exception datée d'ADR-M013, décision 2) ; DOCS-RESEARCH-PLATFORM-NAMES-1 (amendement daté
+d'ADR-M004 D14, décision 3) ; LANG-GATE-DOCS-ROUTE-1 et EXPORT-TEST-DOCS-ROUTE-1 (relus par la G2, C-G2-8 appliqué).
+
+| Item | Objet | Propriétaire | Déclencheur |
+|---|---|---|---|
+| SVG-OVERFLOW-GATE-1 (nouveau, décision 4) | l'outil `svg-overflow.mjs` de la G2 comme porte (MX-04 ne meurt que par lui) | orchestrateur | prochain lot site |
+| DOCS-LINKS-GATE-1 (nouveau, décision 4) | l'outil `links.mjs` de la G2 comme porte (MX-05 ne meurt que par lui) | orchestrateur | prochain lot site |
+| BELL-MOBILE-375-1 (nouveau, décision 4) | /bell déborde à 375 px (`scrollWidth` 496, 88 éléments, liste d'hôte `dt`/`dd`), hors lot | lot vitrine | prochaine édition de /bell |
+| SHOGEN-SCOPE-SENTENCE-1 (nouveau) | la phrase V-1 porte des mots d'état (« built and served », « not served yet ») écrits par l'investisseur, épinglés octet pour octet, non dérivés du registre : si le statut ou le câblage de Shōgen change dans `lib/fleet.ts`, la phrase est à revoir | lot vitrine | toute édition de l'entrée Shōgen du registre |
+| RENDERED-VOCAB-GATE-1 (nouveau) | les règles de vocabulaire couvrent les sources (`gate:vocab`) et les données filtrées par `siteVocabulary` ; une page future qui imprimerait des données commitées sans ce filtre leur échapperait (classe préexistante) ; un balayage du HTML construit, avec la dérogation documentée de /docs/research, la fermerait | orchestrateur | prochain lot site, avec les deux portes ci-dessus |
+| FLEET-PANEL-D8-1 (observation, rattachée à I-G2-3) | le premier paragraphe de « Honest limits » du panneau Shōgen (préexistant, base `3436304`) dit « An attested testimony proves what was said » : forme D8 selon la lecture large appliquée par C-G2-4 ; hors de la portée de la garde D8 (composants hors /docs) | lot OTS (portée de D8) | arbitrage de la portée de D8 ou prochaine édition du panneau |
+| R25-CI-GATE-1 (nouveau) | l'exception d'ADR-M013 ne change pas le job CI `r25-taille-de-lot` (fail-closed à 1 205) : une PR portant le lot sera rouge sur ce job | orchestrateur | avant l'ouverture de la PR |
+| V4-ABSENCE-CLAIM-1 (nouveau) | « no such map is published » : énoncé daté de l'investisseur, non vérifié par une recherche ici (aucun réseau) | investisseur, orchestrateur | avant l'upload |
+
+Items de la G2 laissés à leurs propriétaires : I-G2-3 (sa part /docs est désormais un test ; la part /bell/anchors reste au lot
+OTS), I-G2-5 UNIT-SERVICE-STRAY-1, I-G2-6 DOCS-NAV-COMBINING-1, I-G2-7 DOCS-RESEARCH-UNIT-1, I-G2-8 DOCS-PITCH-DECK-1,
+I-G2-9 FIGURES-UNDERWATER-1.
+
+### 13.8 Réseau, processus, consultations
+
+- Réseau : aucun appel sortant de ce worker ; exceptions déclarées : le test 42 du `npm test` complet lance `npm ci` et
+  `npm run ci` dans l'export (TEST42-NETWORK-1). Chrome sans tête lancé avec `--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE
+  127.0.0.1`, `--disable-background-networking`, `--disable-component-update`, profil temporaire sous `F:\tmp`.
+- Processus : `next start -H 127.0.0.1 -p 3107` (PID 10448) et Chrome CDP `127.0.0.1:9333` (PID 40964) pour les mesures ; `next
+  start -H 127.0.0.1 -p 3108` lancé et tué par le rejoueur de mutants pour MX-04 ; pour les mesures finales, `next start -H 127.0.0.1 -p 3107` (PID 37580) et Chrome CDP `127.0.0.1:9333` (PID 37676), arrêtés à 18:51:09Z ; aucun écouteur restant (relevé
+  `netstat`, `F:\tmp\site-docs-1\pli\listen.txt`).
+- R-26 : canal intégré (outil advisor du harnais), deux consultations. Avant l'oracle final : ordre de fin (contrôles complets,
+  export réel, remesure R-25, journal, rendu, empreintes) et déclarations à faire (outils contre portes pour MX-04 et MX-05,
+  mots changés du texte dicté, phrase V-1 non dérivée, forme D8 préexistante du panneau). Avant de déclarer la fin : consigner
+  cette deuxième consultation, balayer le rendu pour les tirets longs, relire au code l'ordre intervalle de C-G2-1 (fait :
+  `packages/hikae/src/l3-gate.ts:119-138`, largeur nulle ou négative puis budget puis largeur puis intention, conforme à la page),
+  mettre `shogen-copy.ts` dans `DOCS_LIBS` (fait). Avis, jamais verdict.

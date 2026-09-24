@@ -125,9 +125,9 @@ export default function DocsGlossaryPage() {
           <dt>hash chain</dt>
           <dd>Each published line carries the hash of the line before it, so a rewrite shows at recomputation: detectable, never certified.</dd>
           <dt>signature</dt>
-          <dd>Proof that a line comes from the holder of a key and is intact. It attests origin, not truth.</dd>
+          <dd>A check that a line comes from the holder of a key and is intact. It attests origin, not truth.</dd>
           <dt>anchor</dt>
-          <dd>A public timestamp of a manifest: proof that its bytes existed before a Bitcoin block, and nothing more.</dd>
+          <dd>A public timestamp of a manifest: it shows that its bytes existed before a Bitcoin block, and nothing more.</dd>
           <dt>off-hours gap</dt>
           <dd>How far the on-chain price per share of a tokenized equity strays from the reference close, per session.</dd>
           <dt>cash leg</dt>

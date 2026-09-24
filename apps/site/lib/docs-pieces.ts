@@ -51,7 +51,7 @@ export const PIECE_DOCS: Readonly<Record<string, PieceDoc>> = {
     },
     contracts: ["attested-price.schema.json"],
     notClaim: "that the price is true. A testimony attests origin and bytes, never truth.",
-    refs: ["fips-sha", "rfc-cbor", "qin-liquidations"],
+    refs: ["chainlink-2017", "fips-sha", "rfc-cbor", "qin-liquidations"],
     more: [
       { href: "/docs/gate#attestation", label: "Attestation in the gate" },
       { href: "/fleet#panels", label: "Its panel on the fleet page" },

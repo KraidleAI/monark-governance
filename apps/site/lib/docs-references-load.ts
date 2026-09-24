@@ -1,17 +1,20 @@
 // apps/site/lib/docs-references-load.ts: the bibliography of the documentation section, read fail-closed from the committed,
 // hashed file apps/site/data/docs-references.json. The file is read ONLY after its sha256 (CRLF to LF, UTF-8) equals the value
 // apps/site/data/manifest.sha256.json carries for it, then every entry is checked against a CLOSED shape: exactly its keys,
-// a reading level from the file's own closed list, an identifier in a known form, no duplicate id, and every quoted result
-// pointing at a listed work. An unlisted file, a hash mismatch, an extra key or a malformed value throws, so `next build`
-// reds rather than cite an unchecked work. Pages render the entries by property access: a year or a volume is a datum of
-// the entry, never typed on a page.
+// a reading level from the file's own closed list, an identifier in a known form (a DOI, an arXiv id or an https address),
+// no duplicate id, every quoted result pointing at a listed work, and every verbatim quote at most twenty-five words. An
+// unlisted file, a hash mismatch, an extra key, a malformed value or a longer quote throws, so `next build` reds rather than
+// cite an unchecked work. Pages render the entries by property access: a year or a volume is a datum of the entry, never
+// typed on a page.
 // Self-contained (node built-ins only, no alias or relative import): shared by the pages and the root test program.
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 
 export const DOCS_REFERENCES_REL = "apps/site/data/docs-references.json";
-export const DOCS_REFERENCES_SCHEMA = "monark-site-docs-references-v1";
+export const DOCS_REFERENCES_SCHEMA = "monark-site-docs-references-v2";
+/** The longest verbatim quote the pages may print from a work, in words. */
+export const DOCS_QUOTE_MAX_WORDS = 25;
 const MANIFEST_REL = "apps/site/data/manifest.sha256.json";
 
 /** One cited work. `title` is null when the title carries a word the site does not print; `title_note` then says why. */
@@ -35,15 +38,24 @@ export interface DocResult {
   statement: string;
 }
 
+/** One passage a page prints verbatim, between quotation marks, with where it sits in the work. */
+export interface DocQuote {
+  id: string;
+  ref: string;
+  locator: string;
+  text: string;
+}
+
 export interface DocsReferences {
   levels: string[];
   references: DocReference[];
   results: DocResult[];
+  quotes: DocQuote[];
 }
 
-const ID = /^[a-z][a-z-]*[a-z]$/;
+const ID = /^[a-z][a-z0-9-]*[a-z0-9]$/;
 const TEXT = /^[\x20-\x7e]{1,600}$/;
-const IDENTIFIER = /^(?:doi:10\.[0-9]{4,9}\/[\x21-\x7e]+|arXiv:[0-9]{4}\.[0-9]{4,5})$/;
+const IDENTIFIER = /^(?:doi:10\.[0-9]{4,9}\/[\x21-\x7e]+|arXiv:[0-9]{4}\.[0-9]{4,5}|https:\/\/[a-z0-9.-]+\/[\x21-\x7e]*)$/;
 
 function fail(why: string): never {
   throw new Error(`docs references: ${why}`);
@@ -81,9 +93,11 @@ function readListed(root: string): string {
 
 /** Read and check the bibliography; throws on any departure from the closed shape. */
 export function loadDocsReferences(root: string): DocsReferences {
-  const d = obj(JSON.parse(readListed(root)), ["$comment", "schema", "levels", "references", "results"], "file");
+  const d = obj(JSON.parse(readListed(root)), ["$comment", "schema", "levels", "references", "results", "quotes"], "file");
   if (d.schema !== DOCS_REFERENCES_SCHEMA) fail(`schema is not ${DOCS_REFERENCES_SCHEMA}`);
-  if (!Array.isArray(d.levels) || !Array.isArray(d.references) || !Array.isArray(d.results)) fail("levels, references and results must be arrays");
+  if (!Array.isArray(d.levels) || !Array.isArray(d.references) || !Array.isArray(d.results) || !Array.isArray(d.quotes)) {
+    fail("levels, references, results and quotes must be arrays");
+  }
   const levels = (d.levels as unknown[]).map((x, i) => text(x, /^[a-z ]{3,40}$/, `levels[${String(i)}]`));
   const references = (d.references as unknown[]).map((x, i): DocReference => {
     const w = `references[${String(i)}]`;
@@ -117,7 +131,17 @@ export function loadDocsReferences(root: string): DocsReferences {
     return { id: text(r.id, ID, `${w}.id`), ref, locator: text(r.locator, TEXT, `${w}.locator`), statement: text(r.statement, TEXT, `${w}.statement`) };
   });
   if (new Set(results.map((r) => r.id)).size !== results.length) fail("result ids must be unique");
-  return { levels, references, results };
+  const quotes = (d.quotes as unknown[]).map((x, i): DocQuote => {
+    const w = `quotes[${String(i)}]`;
+    const q = obj(x, ["id", "ref", "locator", "text"], w);
+    const ref = text(q.ref, ID, `${w}.ref`);
+    if (!ids.includes(ref)) fail(`${w}.ref names no listed work`);
+    const words = text(q.text, TEXT, `${w}.text`);
+    if (words.trim().split(/\s+/).length > DOCS_QUOTE_MAX_WORDS) fail(`${w}.text is longer than ${String(DOCS_QUOTE_MAX_WORDS)} words`);
+    return { id: text(q.id, ID, `${w}.id`), ref, locator: text(q.locator, TEXT, `${w}.locator`), text: words };
+  });
+  if (new Set(quotes.map((q) => q.id)).size !== quotes.length) fail("quote ids must be unique");
+  return { levels, references, results, quotes };
 }
 
 /** One work by id, fail-closed: a page that cites an unknown id fails the build. */
@@ -132,4 +156,11 @@ export function resultById(refs: DocsReferences, id: string): DocResult {
   const r = refs.results.find((x) => x.id === id);
   if (r === undefined) fail(`no result with id ${id}`);
   return r as DocResult;
+}
+
+/** One verbatim quote by id, fail-closed. */
+export function quoteById(refs: DocsReferences, id: string): DocQuote {
+  const q = refs.quotes.find((x) => x.id === id);
+  if (q === undefined) fail(`no quote with id ${id}`);
+  return q as DocQuote;
 }

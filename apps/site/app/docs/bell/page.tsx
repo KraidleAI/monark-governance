@@ -31,6 +31,8 @@ export default function DocsBellPage() {
   const anchored = [head.state_sha256, ...runs.map((r) => r.bell_sha)].some((d) => anchors.listedDigests.includes(d));
   const firstRun = runs[0];
   const firstSession = firstRun?.sessions[0];
+  // The example row without its on-chain price and volume: the documentation prints no market value (the Bell page prints them).
+  const shownSession = firstSession === undefined ? undefined : Object.fromEntries(Object.entries(firstSession as unknown as Record<string, unknown>).filter(([k]) => k !== "vwap" && k !== "volumeBase"));
   const toc = [
     { id: "what", label: "What Bell is" },
     { id: "why", label: "Why off hours" },
@@ -52,7 +54,7 @@ export default function DocsBellPage() {
 
       <DocSection id="what" title="What Bell is">
         <p>
-          MONARK Bell is the first application of the engine, on its DeFi side: {bell.segment}. It connects to {bell.connects}, and
+          MONARK Bell is an application of the engine, on its DeFi side: {bell.segment}. It connects to {bell.connects}, and
           it publishes from its own host, <a href={BELL_HOST}>{BELL_HOST}</a>. The
           register&rsquo;s served note: <em>{bell.served.note}</em>.
         </p>
@@ -229,8 +231,8 @@ export default function DocsBellPage() {
             </>
           }
         />
-        {firstSession !== undefined && firstRun !== undefined ? (
-          <JsonBlock value={firstSession} caption={<>one session row of the run {firstRun.records.map((x) => x.symbol).join(", ")}, as served in the state file</>} />
+        {shownSession !== undefined && firstRun !== undefined ? (
+          <JsonBlock value={shownSession} caption={<>one session row of the run {firstRun.records.map((x) => x.symbol).join(", ")}, as served in the state file, its on-chain price and volume left out (the Bell page prints them)</>} />
         ) : null}
         <p>
           To check a line yourself, follow the <Link href="/docs/verify">verification page</Link>: the key, the chain, the signatures,

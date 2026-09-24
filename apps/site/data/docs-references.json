@@ -1,6 +1,6 @@
 {
-  "$comment": "Committed bibliography of the documentation section (/docs), rendered through apps/site/lib/docs-references-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. One entry per work the pages cite, with the identity read on the work itself or on the project's reading note of it, and the reading level the project reached: read in full, read in part (targeted sections), abstract only, or not yet obtained. A year, a volume or an identifier is a datum of the entry, never a figure of MONARK. Two titles are not reproduced (title is null, title_note says why): each carries a word the site does not print. results holds the few statements the pages quote from a work, each with the reference, the place in the work and the statement in plain words; a formula there is the work's own. English only, no market value, no data-source name.",
-  "schema": "monark-site-docs-references-v1",
+  "$comment": "Committed bibliography of the documentation section (/docs), rendered through apps/site/lib/docs-references-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. One entry per work the pages cite, with the identity read on the work itself or on the project's reading note of it, and the reading level the project reached: read in full, read in part (targeted sections), abstract only, or not yet obtained. A year, a volume or an identifier is a datum of the entry, never a figure of MONARK. Two titles are not reproduced (title is null, title_note says why): each carries a word the site does not print. results holds the few statements the pages restate from a work, each with the reference, the place in the work and the statement in plain words; a formula there is the work's own. quotes holds the few passages a page prints verbatim between quotation marks, each at most twenty-five words, with the reference and the place in the work. English only, no market value, no name of a data source the project reads; the one oracle issuer named is the author of a cited work.",
+  "schema": "monark-site-docs-references-v2",
   "levels": ["read in full", "read in part", "abstract only", "not yet obtained"],
   "references": [
     {
@@ -246,6 +246,17 @@
       "used_for": "deterministic canonical bytes"
     },
     {
+      "id": "chainlink-2017",
+      "authors": "Steve Ellis, Ari Juels and Sergey Nazarov",
+      "year": 2017,
+      "title": "ChainLink: A Decentralized Oracle Network",
+      "title_note": null,
+      "venue": "Whitepaper v1.0, 4 September 2017",
+      "identifier": "https://research.chain.link/whitepaper-v1.pdf",
+      "level": "read in part",
+      "used_for": "faults correlated across data sources, one source copying another (Sections 4.1 and 5.3), and the research it proposed on mapping the independence of data sources"
+    },
+    {
       "id": "rfc-transparency",
       "authors": "B. Laurie, E. Messeri and R. Stradling",
       "year": 2021,
@@ -392,6 +403,14 @@
       "ref": "gatto-liquidation",
       "locator": "abstract",
       "statement": "In a looped lending book, the figure a stress test flags as at risk is liquidation-eligible debt; eligible debt is not executed volume, because a position is liquidated in parts and re-buffers; and executed volume is not protocol bad debt while nothing breaks the continuous price path."
+    }
+  ],
+  "quotes": [
+    {
+      "id": "source-independence",
+      "ref": "chainlink-2017",
+      "locator": "Section 4.1, page 11",
+      "text": "mapping and reporting the independence of data sources in an easily digestible way"
     }
   ]
 }

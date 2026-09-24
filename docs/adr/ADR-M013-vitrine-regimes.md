@@ -33,3 +33,12 @@
 - Amendement du validateur-humain : ses checkpoints ne sont **pas** convoqués en T0/T1 (règle inscrite ici, pas dans son fichier — AM-2).
 - Alternatives rejetées : (i) supprimer G2 en T0 — rejeté, « générateur ≠ relecteur » est ce qui a attrapé « split-conformal » sur /fleet (M012-e C1) ;
   (ii) tout garder en T2 — rejeté par l'investisseur (coût sans bénéfice sur du texte) ; (iii) régime au jugé sans critère écrit — rejeté (MAST FM-1.1).
+- **Exception R-25 datée du 2026-09-24, lot SITE-DOCS-1 (régime T2)** : décidée par l'orchestrateur au pli de la G2 fraîche
+  (rapport `F:\tmp\site-docs-1\g2\G2-SITE-DOCS-1.md`, §5). Lot de contenu (22 pages /docs et MONARK Building), relu à 100 % avec
+  ré-exécution. Gel 1 `0a632e5` : **6 490 lignes** (`git diff --shortstat 3436304...0a632e5` avec le pathspec de
+  `.github/workflows/ci.yml:65` ; borne 1 205 d'ADR-M003 D9). Non découpable sans réécrire les tests livrés
+  (`docs_pages_render_a_schema` exige au moins 20 pages ; `docs_pieces_and_navigation_match_the_register`, une page par section
+  et un dossier par pièce). Pli des corrections G2 et des remarques de l'investisseur, mesuré à part avec le même pathspec :
+  555 lignes (473 suivies, 82 nouvelles) ; lot entier depuis `3436304` : 6 949 lignes. Le commit de gel porte l'étiquette
+  `site[T2]` (§ Décision). Le job CI `r25-taille-de-lot` reste fail-closed à 1 205 : cette ligne documente l'exception, elle ne
+  relève pas la borne du job.

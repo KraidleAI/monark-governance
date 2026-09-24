@@ -124,11 +124,13 @@ export default function DocsGatePage() {
 
       <DocSection id="policy" title="The closed policy">
         <p>
-          The policy is a closed predicate with a declared order of priority, the same in the code and on this page. Its first No
-          ends the decision. When the region is too large, the gate waits while the decision window is open and abstains once it has
-          closed: waiting is an answer only while there is time.
+          The policy is a closed predicate with a declared order of priority. The schema draws the order the code declares for a set
+          of labels; for an interval the code declares another order: an interval of zero width abstains with under_calib first,
+          then the budget, then the width, and the intended value last. Its first No ends the decision. When the region is too
+          large, the gate waits while the decision window is open and abstains once it has closed: waiting is an answer only while
+          there is time.
         </p>
-        <Figure caption={<>The closed policy, in its declared order of priority. The codes are the frozen contract&rsquo;s.</>}>
+        <Figure caption={<>The closed policy for a set of labels, in its declared order of priority. The codes are the frozen contract&rsquo;s.</>}>
           <PolicySchema actions={actions} reasons={reasons} />
         </Figure>
         <p>

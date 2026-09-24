@@ -39,10 +39,11 @@ export type RegisterStatus = "built" | "upcoming";
 
 /** The frame of every schema: a responsive SVG with its accessible name. `label` is the one sentence a screen reader
  *  hears; the caption under the figure (Figure) says the rest. `min` keeps the text legible on a narrow screen, where
- *  the figure scrolls sideways instead of shrinking. */
+ *  the figure scrolls sideways inside its figure box instead of shrinking; `min={0}` makes a drawing fluid (it never
+ *  exceeds its container). */
 export function Diagram({ w, h, label, min = 640, children }: { w: number; h: number; label: string; min?: number; children: ReactNode }) {
   return (
-    <svg className="d-svg" viewBox={`0 0 ${String(w)} ${String(h)}`} role="img" aria-label={label} style={{ minWidth: min, width: "100%", height: "auto", display: "block" }} xmlns="http://www.w3.org/2000/svg">
+    <svg className="d-svg" viewBox={`0 0 ${String(w)} ${String(h)}`} role="img" aria-label={label} style={{ minWidth: min, maxWidth: "100%", width: "100%", height: "auto", display: "block" }} xmlns="http://www.w3.org/2000/svg">
       <title>{label}</title>
       {children}
     </svg>

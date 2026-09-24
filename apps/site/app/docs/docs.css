@@ -103,6 +103,9 @@
 .d-kv dt { color: var(--ink2); font-family: var(--font-mono); font-size: 12px; padding-top: 2px; }
 .d-kv dd { margin: 0; overflow-wrap: anywhere; }
 
+/* Long identifiers (hashes, keys, class ids) break anywhere instead of widening the page on a narrow screen. */
+.d-main code, .d-main .c-mono { overflow-wrap: anywhere; }
+
 /* Previous and next */
 .d-prevnext { margin-top: 56px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; border-top: 1px solid var(--rule); padding-top: 20px; }
 .d-prevnext__link { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--rule); border-radius: var(--r-md); padding: 12px 14px; color: var(--ink); background: var(--surface); }

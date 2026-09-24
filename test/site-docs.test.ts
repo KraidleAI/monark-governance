@@ -31,9 +31,10 @@ import { FLEET_AGENTS, PRODUCTS } from "../apps/site/lib/fleet.ts";
 import { DOCS_SECTIONS, DOCS_PIECES_ROOT, pieceSlug } from "../apps/site/lib/docs-nav.ts";
 import { PIECE_DOCS, ROLE_WORDS } from "../apps/site/lib/docs-pieces.ts";
 import { REASON_DOCS, POLICY_STEPS, CHAMBERS, ACTION_GLOSSES } from "../apps/site/lib/docs-gate.ts";
-import { loadDocsReferences, DOCS_REFERENCES_REL } from "../apps/site/lib/docs-references-load.ts";
+import { loadDocsReferences, DOCS_REFERENCES_REL, DOCS_QUOTE_MAX_WORDS } from "../apps/site/lib/docs-references-load.ts";
 import { siteVocabulary } from "../apps/site/lib/docs-vocab.ts";
 import { loadGateEnums } from "../apps/site/lib/gate-enums.ts";
+import { SHOGEN_SERVED_SCOPE } from "../apps/site/lib/shogen-copy.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const read = (rel: string): string => readFileSync(join(ROOT, ...rel.split("/")), "utf8");
@@ -56,7 +57,7 @@ function filesUnder(rel: string, exts: readonly string[]): string[] {
 
 const DOCS_PAGES = filesUnder("apps/site/app/docs", ["page.tsx"]);
 const DOCS_TSX = [...filesUnder("apps/site/app/docs", [".tsx"]), ...filesUnder("apps/site/components/docs", [".tsx"])];
-const DOCS_LIBS = ["apps/site/lib/docs-nav.ts", "apps/site/lib/docs-pieces.ts", "apps/site/lib/docs-gate.ts"];
+const DOCS_LIBS = ["apps/site/lib/docs-nav.ts", "apps/site/lib/docs-pieces.ts", "apps/site/lib/docs-gate.ts", "apps/site/lib/shogen-copy.ts"];
 const SCHEMA_FILES = filesUnder("apps/site/components/docs/schemas", [".tsx"]);
 const ROADMAP = "apps/site/app/roadmap/page.tsx";
 
@@ -379,15 +380,20 @@ test("docs_references_fail_closed_and_every_cited_work_exists", () => {
   // Every id a docs source cites, statically: <Cite refId="…" />, resultById(refs, "…"), refIds={[…]}.
   const cited: string[] = [];
   const results: string[] = [];
+  const quoted: string[] = [];
   for (const rel of DOCS_TSX) {
     const src = read(rel);
-    for (const m of src.matchAll(/refId="([a-z-]+)"/g)) cited.push(m[1] ?? "");
-    for (const m of src.matchAll(/resultById\([a-zA-Z]+(?:\(\))?, "([a-z-]+)"\)/g)) results.push(m[1] ?? "");
-    for (const m of src.matchAll(/refIds=\{\[([^\]]*)\]\}/g)) for (const q of (m[1] ?? "").matchAll(/"([a-z-]+)"/g)) cited.push(q[1] ?? "");
+    for (const m of src.matchAll(/refId="([a-z0-9-]+)"/g)) cited.push(m[1] ?? "");
+    for (const m of src.matchAll(/resultById\([a-zA-Z]+(?:\(\))?, "([a-z0-9-]+)"\)/g)) results.push(m[1] ?? "");
+    for (const m of src.matchAll(/refIds=\{\[([^\]]*)\]\}/g)) for (const q of (m[1] ?? "").matchAll(/"([a-z0-9-]+)"/g)) cited.push(q[1] ?? "");
+    for (const m of src.matchAll(/quoteById\([a-zA-Z]+(?:\(\))?, "([a-z0-9-]+)"\)/g)) quoted.push(m[1] ?? "");
   }
   assert.ok(cited.length >= 20 && results.length >= 5, "the citations are collected (false-green guard)");
   assert.deepEqual(cited.filter((c) => !ids.has(c)), [], "a page cites a work absent from the bibliography");
   assert.deepEqual(results.filter((r) => !resultIds.has(r)), [], "a page quotes a result absent from the bibliography");
+  const quoteIds = new Set(refs.quotes.map((q) => q.id));
+  assert.ok(quoted.length >= 1, "the verbatim quotes a page prints are collected (false-green guard)");
+  assert.deepEqual(quoted.filter((q) => !quoteIds.has(q)), [], "a page prints a quote absent from the bibliography");
   // Fail-closed in a temporary root.
   const tmp = mkdtempSync(join(tmpdir(), "docs-refs-"));
   try {
@@ -486,3 +492,206 @@ test("building_page_derives_now_and_keeps_its_alias — /roadmap is MONARK Build
   assert.match(cfg, /\{ source: "\/building", destination: "\/roadmap", permanent: false \}/, "the /building alias redirects to /roadmap");
 });
 
+
+// ── (11) G2 SITE-DOCS-1 additions: statuses in flags, conditionals and the colon form; the policy order; the components walk ──
+// C-G2-7 (a): a flow step whose source is a register name takes its "today" from that entry's status, never a typed boolean.
+test("docs_today_flags_of_register_steps_are_derived — a flow step named after a register entry is solid only if that entry is built", () => {
+  const bad: string[] = [];
+  for (const rel of DOCS_TSX) {
+    const sf = sourceFile(rel);
+    const visit = (n: ts.Node): void => {
+      if (ts.isObjectLiteralExpression(n)) {
+        const prop = (k: string): ts.PropertyAssignment | undefined =>
+          n.properties.find((p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && p.name.getText(sf) === k);
+        const today = prop("today");
+        const source = prop("source");
+        if (today !== undefined && source !== undefined && ts.isPropertyAccessExpression(source.initializer) && source.initializer.name.text === "name") {
+          const owner = source.initializer.expression.getText(sf);
+          const want = `${owner}.status === "built"`;
+          if (today.initializer.getText(sf).replace(/\s+/g, " ") !== want) bad.push(`${rel}: today of ${owner} is ${today.initializer.getText(sf)}`);
+        }
+      }
+      ts.forEachChild(n, visit);
+    };
+    visit(sf);
+  }
+  assert.deepEqual(bad, [], "a register step whose today flag is typed");
+});
+
+// C-G2-7 (b): no status literal anywhere inside a status prop (a conditional or a template evades literalStatusProps).
+test("docs_status_props_carry_no_status_literal — a status prop is the register value, never an expression holding a status word", () => {
+  const bad: string[] = [];
+  for (const rel of [...DOCS_TSX, ROADMAP]) {
+    const sf = sourceFile(rel);
+    const visit = (n: ts.Node): void => {
+      if (ts.isJsxAttribute(n) && n.name.getText(sf) === "status" && n.initializer !== undefined) {
+        const scan = (m: ts.Node): void => {
+          if ((ts.isStringLiteral(m) || ts.isNoSubstitutionTemplateLiteral(m)) && /^(?:built|upcoming)$/.test(m.text)) bad.push(`${rel}: ${n.getText(sf)}`);
+          ts.forEachChild(m, scan);
+        };
+        scan(n.initializer);
+      }
+      ts.forEachChild(n, visit);
+    };
+    visit(sf);
+  }
+  assert.deepEqual(bad, [], "a status word inside a status prop");
+});
+
+// C-G2-7 (c): the colon form of the Today lists ("Koyomi: built") typed in rendered text reds like the verb form.
+const TYPED_STATUS_COLON = new RegExp(`(?:${NAMES.map(escapeRe).join("|")})\\s*:\\s*(?:built|upcoming)\\b`, "i");
+test("docs_no_colon_form_status_typed — 'Name: built' is never typed next to a register name", () => {
+  const bad: string[] = [];
+  for (const rel of [...DOCS_TSX, ROADMAP]) for (const t of renderedOf(rel)) if (TYPED_STATUS_COLON.test(t.replace(/\s+/g, " "))) bad.push(`${rel}: ${t.slice(0, 80)}`);
+  assert.deepEqual(bad, [], "a status typed in the colon form");
+  assert.ok(TYPED_STATUS_COLON.test("Koyomi: built"), "control: the colon form reds");
+});
+
+// C-G2-1 pin: the drawn order is the order the code declares for a set region, and the page says the interval order apart.
+test("docs_policy_steps_follow_the_set_path_of_the_code — the schema's order is decide()'s set path; the page names the interval order", () => {
+  const src = read("packages/hikae/src/l3-gate.ts");
+  const body = src.slice(src.indexOf("function decide("), src.indexOf("function decideInterval("));
+  const setPath = body.slice(body.indexOf("`set` path"));
+  assert.ok(setPath.length > 0, "the set path of decide() is found (false-green guard)");
+  const order = [...setPath.matchAll(/reason: "([a-z_]+)"/g)].map((m) => m[1] ?? "");
+  const drawn = POLICY_STEPS.flatMap((p) => p.onNo).filter((c) => order.includes(c));
+  const codeOrder = order.filter((c, i) => order.indexOf(c) === i && drawn.includes(c));
+  assert.deepEqual(drawn.filter((c, i) => drawn.indexOf(c) === i), codeOrder, "the schema's order equals the code's set-path order");
+  assert.match(read("apps/site/app/docs/gate/page.tsx"), /for an interval the code declares another order/, "the page says the interval order apart");
+});
+
+// C-G2-8: the language gate walks the docs components too.
+test("lang_gate_walks_the_docs_components — apps/site/components/docs is walked, every component in it", () => {
+  assert.equal(skipDir("docs", "apps/site/components"), false, "the /docs components are walked");
+  const real = collectTextFiles(ROOT).map((f) => f.rel);
+  const comps = filesUnder("apps/site/components/docs", [".tsx"]);
+  assert.ok(comps.length > 0 && comps.every((c) => real.includes(c)), "every docs component is in the language gate's walk");
+});
+
+// ── (12) Pli of the review: the investor's visual validation of 2026-09-24, the D8 forms, the cited platform names ────────
+// V-1: what of Shōgen is served, one sentence, byte for byte, on its three surfaces.
+const SHOGEN_SCOPE_TEXT =
+  "What is built and served is the attest tool: one committed witness, its bytes, its hash and its named residual hypotheses. The full Shōgen sensor, which produces continuous testimonies across sources, is under test and is not served yet.";
+const honestLimitsParagraphs = (panelSource: string): string[] => {
+  const block = /<PanelBlock title="Honest limits" status="built">([\s\S]*?)<\/PanelBlock>/.exec(panelSource)?.[1] ?? "";
+  return [...block.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)].map((m) => (m[1] ?? "").trim());
+};
+test("shogen_served_scope_is_said_on_three_surfaces — one sentence, byte for byte, on MONARK Building, the Shōgen docs page and the Shōgen panel", () => {
+  assert.equal(SHOGEN_SERVED_SCOPE, SHOGEN_SCOPE_TEXT, "the sentence is the investor's, byte for byte");
+  const importsScope = (rel: string): boolean => importsFrom(sourceFile(rel), "@/lib/shogen-copy").includes("SHOGEN_SERVED_SCOPE");
+  // (a) MONARK Building: the fleet layer carries it as its note, rendered right after the list of built pieces.
+  const roadmap = read(ROADMAP);
+  assert.ok(importsScope(ROADMAP), "/roadmap imports the sentence");
+  assert.match(roadmap, /id: "fleet",[\s\S]*?note: <>\{SHOGEN_SERVED_SCOPE\}<\/>,[\s\S]*?id: "harness"/, "the fleet layer carries the sentence as its note");
+  assert.match(roadmap, /\{l\.detail\}<\/div>\s*\{l\.note !== undefined \? <p[^>]*>\{l\.note\}<\/p> : null\}/, "the layer rows render the note right after the list of built pieces");
+  // (b) The Shōgen docs page: at the head of what is served today, on that page only.
+  const piece = "apps/site/components/docs/piece-doc-page.tsx";
+  assert.ok(importsScope(piece), "the piece page imports the sentence");
+  assert.match(read(piece), /\{a\.status === "built" \? \(\s*<>\s*\{slug === "shogen" \? <p>\{SHOGEN_SERVED_SCOPE\}<\/p> : null\}/, "the sentence heads what is served today, on the Shōgen page");
+  // (c) The Shōgen panel on the fleet page: the second paragraph of "Honest limits".
+  const panel = "apps/site/components/shogen-panel.tsx";
+  assert.ok(importsScope(panel), "the Shōgen panel imports the sentence");
+  assert.equal(honestLimitsParagraphs(read(panel))[1], "{SHOGEN_SERVED_SCOPE}", "the sentence is the second paragraph of Honest limits");
+  // Mutant in memory: the sentence dropped from the panel reds.
+  const mutant = read(panel).replace("<p className=\"mt-2\">{SHOGEN_SERVED_SCOPE}</p>", "");
+  assert.notEqual(mutant, read(panel), "premise: the mutant applies");
+  assert.notEqual(honestLimitsParagraphs(mutant)[1], "{SHOGEN_SERVED_SCOPE}", "mutant: the panel without the sentence must red");
+});
+
+// V-3: the eleven pieces are "smart pieces" in the three sentences the investor named; "company" is said nowhere on the fleet
+// page or on MONARK Building (the wider rename of "agent" is a separate change).
+test("fleet_and_building_say_smart_pieces_not_company — the three renamed sentences, with derived counts", () => {
+  const FLEET = "apps/site/app/fleet/page.tsx";
+  const fleet = read(FLEET);
+  assert.match(
+    fleet,
+    /\{capitalized\(countWord\(built\.length \+ upcoming\.length\)\)\} smart pieces\. \{capitalized\(countWord\(built\.length\)\)\} built,\{" "\}\s*\{countWord\(upcoming\.length\)\} on the roadmap\./,
+    "the fleet page title says the smart pieces, every count derived",
+  );
+  const roadmapTexts = renderedOf(ROADMAP).map((t) => t.trim());
+  for (const name of ["The smart pieces", "An engine that improves itself"]) assert.ok(roadmapTexts.includes(name), `MONARK Building names the layer "${name}"`);
+  for (const rel of [FLEET, ROADMAP]) {
+    assert.deepEqual(renderedOf(rel).filter((t) => /\bcompany\b/i.test(t)), [], `${rel}: "company" is not said`);
+  }
+});
+
+// The trajectory of MONARK Building is fluid: no minimum width, no horizontal scroll bar around it (investor, 2026-09-24).
+test("building_trajectory_is_fluid — the schema scales to its container and its section has no horizontal scroll", () => {
+  assert.match(read("apps/site/components/docs/schemas/building.tsx"), /<Diagram w=\{980\} h=\{h\} min=\{0\} /, "the trajectory draws with no minimum width");
+  assert.match(read("apps/site/components/docs/svg-kit.tsx"), /style=\{\{ minWidth: min, maxWidth: "100%", width: "100%"/, "a drawing never exceeds its container");
+  const section = /<section className="([^"]*)">\s*<TrajectorySchema/.exec(read(ROADMAP));
+  assert.ok(section !== null, "the trajectory section is found (false-green guard)");
+  assert.doesNotMatch(section[1] ?? "", /overflow-x/, "no horizontal scroll bar around the trajectory");
+});
+
+// V-4: the gap the full Shōgen fills, with the passage of the first Chainlink whitepaper, verbatim, short and cited.
+test("shogen_gap_quotes_and_cites_the_chainlink_whitepaper — the passage, verbatim and short, from the listed work, on the Shōgen page", () => {
+  const refs = loadDocsReferences(ROOT);
+  const work = refs.references.find((r) => r.id === "chainlink-2017");
+  assert.ok(work !== undefined, "the bibliography lists the whitepaper");
+  assert.equal(work.authors, "Steve Ellis, Ari Juels and Sergey Nazarov");
+  assert.equal(work.year, 2017);
+  assert.equal(work.title, "ChainLink: A Decentralized Oracle Network");
+  assert.equal(work.identifier, "https://research.chain.link/whitepaper-v1.pdf");
+  const quote = refs.quotes.find((q) => q.id === "source-independence");
+  assert.ok(quote !== undefined && quote.ref === "chainlink-2017", "the quoted passage is the whitepaper's");
+  assert.equal(quote.text, "mapping and reporting the independence of data sources in an easily digestible way", "the passage, verbatim");
+  assert.equal(quote.locator, "Section 4.1, page 11");
+  assert.ok(quote.text.split(/\s+/).length <= DOCS_QUOTE_MAX_WORDS, "at most twenty-five words");
+  const piece = read("apps/site/components/docs/piece-doc-page.tsx");
+  assert.match(piece, /quoteById\(refs, "source-independence"\)/, "the page reads the passage from the bibliography");
+  assert.match(piece, /&ldquo;\{quote\.text\}\s*&rdquo;/, "the passage is printed between quotation marks");
+  assert.match(piece, /<Cite refId="chainlink-2017" \/>/, "the page cites the whitepaper where it quotes it");
+  assert.match(piece, /\{slug === "shogen" \? <ShogenGap name=\{a\.name\} \/> : null\}/, "the gap section is on the Shōgen page");
+  assert.ok(PIECE_DOCS.shogen?.refs.includes("chainlink-2017"), "the Shōgen page lists the whitepaper in its sources");
+  // Fail-closed: a passage longer than the bound throws at load (temporary root).
+  const tmp = mkdtempSync(join(tmpdir(), "docs-quote-"));
+  try {
+    mkdirSync(join(tmp, "apps", "site", "data"), { recursive: true });
+    const d = JSON.parse(read(DOCS_REFERENCES_REL)) as { quotes: { id: string; ref: string; locator: string; text: string }[] };
+    const first = d.quotes[0];
+    assert.ok(first !== undefined, "premise: a quote to lengthen");
+    const long = JSON.stringify({ ...d, quotes: [{ ...first, text: `${first.text} ${"and so on ".repeat(DOCS_QUOTE_MAX_WORDS)}`.trim() }] });
+    writeFileSync(join(tmp, ...DOCS_REFERENCES_REL.split("/")), long);
+    const sha = createHash("sha256").update(long.replace(/\r\n/g, "\n"), "utf8").digest("hex");
+    writeFileSync(join(tmp, "apps", "site", "data", "manifest.sha256.json"), JSON.stringify({ algorithm: "sha256", files: { [DOCS_REFERENCES_REL]: sha } }));
+    assert.throws(() => loadDocsReferences(tmp), /longer than/, "a passage over the bound throws");
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+// The OTS D8 forms (docs/adr/ADR-BELL-OTS-ANCHOR-1.md, "formes interdites"): "proves" or "proof that" about a fact, "at a
+// point in time", "tamper-proof", "trustless", "anchored at publication", "verified by Bitcoin". Scanned over the rendered
+// text of the docs and of MONARK Building, the docs data and the bibliography. Kills the review's mutant MX-09.
+const D8 = /\bproves?\b|\bproof that\b|tamper-?proof|\btrustless\b|at a point in time|verified by bitcoin|anchored at publication/i;
+test("docs_carry_no_ots_d8_forbidden_form — no 'proves', 'proof that', 'at a point in time' and the rest in the docs and MONARK Building", () => {
+  const hits: string[] = [];
+  for (const rel of [...DOCS_TSX, ROADMAP]) for (const t of renderedOf(rel)) if (D8.test(t.replace(/\s+/g, " "))) hits.push(`${rel}: ${t.slice(0, 90)}`);
+  for (const rel of DOCS_LIBS) for (const l of literalsOf(sourceFile(rel))) if (D8.test(l.text)) hits.push(`${rel}: ${l.text.slice(0, 90)}`);
+  for (const s of [SHOGEN_SERVED_SCOPE, ...jsonStrings(JSON.parse(read(DOCS_REFERENCES_REL)) as unknown)]) if (D8.test(s)) hits.push(`data: ${s.slice(0, 90)}`);
+  assert.deepEqual(hits, [], `an OTS D8 forbidden form:\n${hits.join("\n")}`);
+  assert.ok(D8.test("The anchor proves the record existed at a point in time."), "control: the review's mutant reds");
+  assert.ok(!D8.test("download the manifest and its proof from the anchors register"), "control: the noun proof, for the file, stays green");
+});
+
+// C-G2-11 decided: MakerDAO and Compound are banned on the storefront, with one exception, the verbatim cited figures of
+// /docs/research; the build-time filter of that page alone passes the waiver the two rules carry.
+test("docs_research_alone_waives_the_cited_platform_names — MakerDAO and Compound stay banned everywhere but the verbatim cited figures of /docs/research", () => {
+  const cfg = JSON.parse(read("vocab-banned.json")) as { scan: { site: { banned: { re: string; why: string }[] } } };
+  const TAG = "the verbatim Qin et al. figures of /docs/research";
+  const tagged = cfg.scan.site.banned.filter((r) => r.why.includes(TAG)).map((r) => r.re).sort();
+  assert.deepEqual(tagged, ["\\bCompound\\b", "\\bMakerDAO\\b"], "exactly the two platform rules carry the page's tag");
+  const strict = siteVocabulary(ROOT);
+  const research = siteVocabulary(ROOT, TAG);
+  for (const name of ["MakerDAO", "Compound"]) {
+    assert.equal(strict(`liquidatable on ${name}`), false, `${name} is banned without the waiver`);
+    assert.equal(research(`liquidatable on ${name}`), true, `${name} passes under the page's waiver`);
+  }
+  assert.equal(research("liquidated on Aave"), false, "the waiver lifts no other rule");
+  assert.throws(() => siteVocabulary(ROOT, "a tag no rule carries"), /no site rule carries the waiver/, "a stale waiver throws");
+  const sources = [...new Set([...filesUnder("apps/site/app", [".ts", ".tsx"]), ...filesUnder("apps/site/components", [".ts", ".tsx"]), ...filesUnder("apps/site/lib", [".ts"])])];
+  const passing = sources.filter((rel) => /siteVocabulary\(\s*[\w.()]+\s*,/.test(read(rel)));
+  assert.deepEqual(passing, ["apps/site/app/docs/research/page.tsx"], "only /docs/research passes a waiver");
+  assert.match(read("apps/site/app/docs/research/page.tsx"), new RegExp(`const CITED_FIGURES_WAIVER = "${escapeRe(TAG)}";`), "the page's tag is the rules' tag");
+});

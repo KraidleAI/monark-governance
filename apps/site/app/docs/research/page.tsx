@@ -35,9 +35,13 @@ function agent(name: string): FleetAgent {
   return a;
 }
 
+/** The waiver this page passes to the vocabulary filter of its figures: the site rules whose reason carries this tag (two
+ *  lending platforms the cited study names) are not applied to the verbatim figures of that study, on this page only. */
+const CITED_FIGURES_WAIVER = "the verbatim Qin et al. figures of /docs/research";
+
 export default function DocsResearchPage() {
   const root = docsRepoRoot();
-  const clean = siteVocabulary(root);
+  const clean = siteVocabulary(root, CITED_FIGURES_WAIVER);
   const allFigures = loadCommitted(root).figures;
   const figures = allFigures.filter((f) => clean(f.claim) && clean(f.qualifier) && clean(f.source));
   const withheld = allFigures.length - figures.length;

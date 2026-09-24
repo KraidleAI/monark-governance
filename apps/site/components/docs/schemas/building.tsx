@@ -1,6 +1,7 @@
 // apps/site/components/docs/schemas/building.tsx: the trajectory of MONARK Building, in three columns: what is under way now
 // (each item derived by the page from the register or the served data), what is in preparation next (intentions, with the date
-// they were written down, never a promised date) and the direction beyond. The words are handed in by the page.
+// they were written down, never a promised date) and the direction beyond. The words are handed in by the page. The drawing
+// is fluid (no minimum width): it scales to its container at any width, and the same items are listed as text below it.
 import { Diagram, Tx, Box, Arrow, TxBlock, lineCount, C } from "../svg-kit";
 
 export interface TrajectoryColumn {
@@ -18,7 +19,7 @@ export function TrajectorySchema({ columns }: { columns: readonly TrajectoryColu
   const h = Math.max(...heights) + 60;
   const tones = [C.commit, C.defer, C.ink2];
   return (
-    <Diagram w={980} h={h} label="The trajectory of MONARK Building: what is under way now, what is in preparation next, and the direction beyond.">
+    <Diagram w={980} h={h} min={0} label="The trajectory of MONARK Building: what is under way now, what is in preparation next, and the direction beyond.">
       {columns.map((c, i) => {
         const x = 20 + i * (w + gap);
         let cy = 92;

@@ -104,7 +104,8 @@ export default function FleetPage() {
         <div>
           <span className="c-label">fleet · register</span>
           <h1 className="c-h1" style={{ marginTop: 8 }}>
-            A company of agents. {capitalized(countWord(built.length))} built, {countWord(upcoming.length)} on the roadmap.
+            {capitalized(countWord(built.length + upcoming.length))} smart pieces. {capitalized(countWord(built.length))} built,{" "}
+            {countWord(upcoming.length)} on the roadmap.
           </h1>
           <p className="c-lede" style={{ fontSize: 17, marginTop: 12, maxWidth: 720 }}>
             The first vertical is built and served piece by piece and composed on the gate path. Every future act plugs into

@@ -12,6 +12,7 @@ import { loadUkemiCourse } from "@/lib/ukemi-course-load";
 import { loadNarabiCapture } from "@/lib/narabi-capture-load";
 import { captureData } from "@/lib/narabi-live";
 import { TrajectorySchema } from "@/components/docs/schemas/building";
+import { SHOGEN_SERVED_SCOPE } from "@/lib/shogen-copy";
 import { frozenContractsSummary } from "./frozen-contracts";
 import { agentPages, PANELS_HREF } from "../fleet/agent-pages";
 
@@ -29,6 +30,8 @@ interface Layer {
   name: ReactNode;
   what: ReactNode;
   detail: ReactNode;
+  /** An optional line under the detail: for the fleet layer, what of Shōgen is served (lib/shogen-copy.ts). */
+  note?: ReactNode;
   maturity: ReactNode;
   maturityTone: string;
 }
@@ -67,7 +70,7 @@ function layers(rootDir: string): Layer[] {
     {
       id: "fleet",
       n: <>Layer two</>,
-      name: <>Fleet: a company of agents</>,
+      name: <>The smart pieces</>,
       what: (
         <>
           Sensors that attest, the gate that authorizes, and acts that execute: one token across all of
@@ -79,6 +82,7 @@ function layers(rootDir: string): Layer[] {
           {listNames(built.map((a) => a.name))} built &middot; {countWord(upcoming.length)} named
         </>
       ),
+      note: <>{SHOGEN_SERVED_SCOPE}</>,
       maturity: (
         <>
           {capitalized(countWord(built.length))} built, {countWord(upcoming.length)} on the roadmap
@@ -104,9 +108,9 @@ function layers(rootDir: string): Layer[] {
       maturityTone: "border-hikae-t text-hikae-t",
     },
     {
-      id: "company",
+      id: "engine",
       n: <>Layer four</>,
-      name: <>A company that improves itself</>,
+      name: <>An engine that improves itself</>,
       what: <>Agents that rate, improve, and sell one another&rsquo;s applications.</>,
       detail: <>no date</>,
       maturity: <>Direction, unscheduled</>,
@@ -221,7 +225,7 @@ export default function RoadmapPage() {
       </section>
 
       {/* The trajectory: now (derived), next (intentions), longer term (direction). */}
-      <section className="mt-10 overflow-x-auto rounded-2xl border bg-card p-4">
+      <section className="mt-10 rounded-2xl border bg-card p-4">
         <TrajectorySchema
           columns={[
             { head: "Now", sub: "under way, read from the served files", items: now },
@@ -278,6 +282,7 @@ export default function RoadmapPage() {
               <div className="text-sm leading-relaxed text-ink2">
                 {l.what}
                 <div className="mt-2 font-mono text-xs text-foreground">{l.detail}</div>
+                {l.note !== undefined ? <p className="mt-2 text-xs leading-relaxed text-ink2">{l.note}</p> : null}
               </div>
               <span
                 className={`h-fit whitespace-nowrap rounded-full border px-3 py-1 font-mono text-xs ${l.maturityTone}`}

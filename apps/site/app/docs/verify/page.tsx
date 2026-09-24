@@ -12,8 +12,8 @@ import { docsRepoRoot } from "@/lib/docs-references-load";
 import { DocHeader, Toc, DocSection, Figure, Callout, PrevNext } from "@/components/docs/doc-kit";
 import { FlowSchema, type FlowStep } from "@/components/docs/schemas/flow";
 
-// /docs/verify (server component). The checks a third party can run with standard tools, and no MONARK account, software or
-// request. Every host, path, key id, digest and count is read from committed, hashed data (the Bell facts, the served anchors
+// /docs/verify (server component). The checks a third party can run with standard tools and no MONARK account; the files are
+// public and any copy serves; the signature check is a separate step through the open verifier. Every host, path, key id, digest and count is read from committed, hashed data (the Bell facts, the served anchors
 // register, the recorded trace); the token address is read at build from the committed public file out/mint.txt, the same
 // value a root test pins on the token page. Whether the published records are timestamp-anchored is derived from the anchors
 // register, never typed.
@@ -66,8 +66,9 @@ export default function DocsVerifyPage() {
       <DocHeader eyebrow="docs · verify it yourself" title="Do not trust us. Recompute.">
         <p>
           Everything MONARK publishes is set up so that you can recompute it with standard tools and a copy of the public files, with
-          no MONARK account, software or request. A signature attests origin, never truth: the check of a fact is always the
-          recompute from the ledger.
+          no MONARK account: the files are public, any copy serves. The signature check is a separate step, through the open verifier
+          of the public repository or your own implementation of the canonical form. A signature attests origin, never truth: the
+          check of a fact is always the recompute from the ledger.
         </p>
       </DocHeader>
       <Toc items={toc} />
@@ -159,8 +160,9 @@ export default function DocsVerifyPage() {
             the integrity checks in your browser.
           </li>
           <li>
-            <strong>The site&rsquo;s data.</strong> Every figure on this site is read from a file under <code>apps/site/data/</code>{" "}
-            whose hash is pinned in <code>manifest.sha256.json</code>; a mismatch stops the build.
+            <strong>The site&rsquo;s data.</strong> The facts these pages print are read from committed files, never typed. The data files
+            under <code>apps/site/data/</code>, the committed figures and the recorded traces are pinned by hash in
+            <code>manifest.sha256.json</code>; a mismatch stops the build.
           </li>
           <li>
             <strong>The gate&rsquo;s abstention.</strong> Call the gate outside a committed class and watch it abstain.
