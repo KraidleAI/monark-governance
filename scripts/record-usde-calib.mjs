@@ -14,10 +14,12 @@
 //
 // C-12 (forbidden surface purged): none of the banned counterfactual / timing-vs-price / attestation-verb
 // phrases (see vocab-banned.json scope narabi_docs); the retrospective is strictly factual —
-// `run_windows_above_q99` with BARE DATES. Two negative modes distinguished (C-13/C-14).
+// `run_windows_above_q99` with BARE DATES. Three negative modes distinguished (C-13/C-14 + ADR-M015 D1(a) undecidable).
 // Scratchpad discipline: the agent does NOT commit (R-20); the orchestrator commits the produced artifacts.
 import { readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { calibDigest } from "@monark/contracts";
 import { splitQuantile } from "@monark/hikae";
 import { fromAttestedFlow, isNarabiError, narabiPredictorId } from "@monark/monark";
@@ -68,8 +70,50 @@ function adapterVelocity(w) {
 }
 
 const dailyFrac = (w) => { const b = BigInt(w.burns), S = BigInt(w.supplyOpen); return S > 0n ? Number((b * 1000000n) / S) / 1e6 : Infinity; };
-function q(arr, p) { const s = [...arr].sort((a, b) => a - b), n = s.length, rank = Math.ceil((n + 1) * p); return rank > n ? Infinity : s[rank - 1]; }
+// Empirical p-quantile at rank ceil((n+1)*p). FAIL-CLOSED (ADR-M015 D1(a)): when the rank exceeds n the
+// quantile is UNDECIDABLE -> return null, NEVER Infinity. Infinity was silently masked (Number.isFinite) into
+// a "valid-but-retrospective-negative" verdict for every 50 <= n < 99 population, which is indecidable.
+function q(arr, p) { const s = [...arr].sort((a, b) => a - b), n = s.length, rank = Math.ceil((n + 1) * p); return rank > n ? null : s[rank - 1]; }
 const support = (arr, qq) => arr.filter((s) => s >= qq).length;
+// Smallest n for which the empirical p-quantile rank ceil((n+1)*p) is attainable (<= n); 99 at ALERT_P=0.99.
+const minPairsForQuantile = (p) => Math.ceil(p / (1 - p));
+
+// Closure decision (§5.1, pre-registered). Priority: support/degeneracy first, THEN q99 decidability (the
+// ADR-M015 D1(a) THIRD branch: an undecidable retrospective is not a negative one), THEN the run crossing.
+function closureOf(hasSupport, hasActivity, zeroWidth, q99Decidable, retro) {
+  if (hasSupport && hasActivity && !zeroWidth && q99Decidable && retro) return "COMMITTABLE";
+  if (!hasSupport || !hasActivity || zeroWidth) return "under_calib:insufficient-support-or-degenerate";
+  if (!q99Decidable) return "under_calib:retrospective-undecidable";
+  return "under_calib:valid-but-retrospective-negative";
+}
+// Self-tests (C-14 + ADR-M015 D1(a)) — every closure branch is reachable, on EVERY invocation (never vacuous).
+if (closureOf(true, true, false, true, false) !== "under_calib:valid-but-retrospective-negative")
+  throw new Error("record-usde-calib: 'valid-but-retrospective-negative' unreachable (C-14).");
+if (closureOf(true, true, false, false, false) !== "under_calib:retrospective-undecidable")
+  throw new Error("record-usde-calib: 'retrospective-undecidable' unreachable (ADR-M015 D1(a)).");
+if (closureOf(true, true, false, true, true) !== "COMMITTABLE")
+  throw new Error("record-usde-calib: COMMITTABLE unreachable with all conditions true (C-14).");
+
+/**
+ * PURE §5.1 committability decision (no I/O, no network), extracted for the ADR-M015 D1(a) oracle
+ * (test/record-usde-calib.test.ts). Inputs: calm-pair residual `scores`, run-window velocities, activity
+ * ratio `rho`. `q99_calm` is the calm-population q99 alert (the report field `q99_alert` = same value),
+ * null when the ALERT_P quantile rank exceeds n (n < 99 at 0.99) -> closure `retrospective-undecidable`.
+ */
+export function evaluateClosure({ scores, rho, runVelocities = [] }, cfg = {}) {
+  const alpha = cfg.alpha ?? ALPHA, alertP = cfg.alertP ?? ALERT_P, nMin = cfg.nMin ?? N_MIN, rhoMin = cfg.rhoMin ?? RHO_MIN;
+  const n = scores.length;
+  const q_hat = q(scores, 1 - alpha);
+  const q99_calm = q(scores, alertP);               // null when ceil((n+1)*alertP) > n (fail-closed, never Infinity)
+  const q99_decidable = q99_calm !== null;
+  const zero_width = !(q_hat > 0);
+  const enough_support = n >= nMin;
+  const enough_activity = rho >= rhoMin;
+  const retrospective_positive = q99_decidable && runVelocities.some((v) => v > q99_calm);
+  const closure = closureOf(enough_support, enough_activity, zero_width, q99_decidable, retrospective_positive);
+  const reason = q99_decidable ? null : `q99 needs n >= ${minPairsForQuantile(alertP)} calm pairs; got ${n}`;
+  return { n, q_hat, q99_calm, q99_decidable, zero_width, enough_support, enough_activity, retrospective_positive, closure, committable: closure === "COMMITTABLE", reason };
+}
 
 /** Consecutive-calm pairs: v̂_t = v_{t-24h}, s_t = |v_t − v̂_t| (adapter velocities). */
 function pairsFrom(days) {
@@ -100,39 +144,23 @@ function main() {
 
   const scores = pairsFrom(calmKept);                 // committable set (WITH stress exclusion)
   const scoresNoEx = pairsFrom(calmFloored);          // sensitivity (WITHOUT exclusion) — diagnostic only
-  const n = scores.length;
-  const qHat = q(scores, 1 - ALPHA), q99 = q(scores, ALERT_P);
   const sq = splitQuantile(scores, ALPHA, N_MIN);     // cross-check q̂ against the production L1 (anti-circularity)
   const qHatSplit = "qhat" in sq ? sq.qhat : null;
-  const zeroWidth = !(qHat > 0);
-  const crossOk = qHat === qHatSplit;
+
+  // §5.1 committability via the PURE decision (extracted; test/record-usde-calib.test.ts). ADR-M015 D1(a):
+  // for n < 99 the ALERT_P quantile is UNDECIDABLE (q99_calm null, closure retrospective-undecidable) instead
+  // of "valid-but-retrospective-negative". The n >= 99 path (USDe n=613) stays byte-identical.
+  const dec = evaluateClosure({ scores, rho, runVelocities: run.map((x) => x.v) });
+  const { n, q_hat: qHat, q99_calm, q99_decidable, zero_width: zeroWidth, retrospective_positive: retroPositive, closure, committable, reason } = dec;
+
   // Anti-circularity HARD invariant (NOT a §5.1 condition): the hand-rolled q̂ must equal the production L1.
+  const crossOk = qHat === qHatSplit;
   if (!crossOk) throw new Error(`record-usde-calib: q_hat hand-rolled (${qHat}) != splitQuantile L1 (${qHatSplit}) — anti-circularity FAILED.`);
 
   // Retrospective — factual, bare dates (C-12). §5.1.5 (tightened by the orchestrator in the PLAN): the run
-  // crosses iff >= 1 NAMED run window has v > q99_calm. This is a PRE-REGISTERED committability condition,
-  // NOT a diagnostic — §5.1 requires ALL conditions to hold, so it must gate `committable` (C-14).
-  const runAboveQ99 = run.map((x) => ({ day: x.day, v_t_per_hr: x.v, above_q99_calm: Number.isFinite(q99) && x.v > q99 }));
-  const enoughSupport = n >= N_MIN;
-  const enoughActivity = rho >= RHO_MIN;
-  const retroPositive = runAboveQ99.some((w) => w.above_q99_calm);
-
-  // The two negative modes stay DISTINCT and BOTH reachable (C-13/C-14): (a) support/activity/degeneracy;
-  // (b) valid support+activity+width BUT the run does not cross (§5.1.5 negative).
-  function closureOf(support, activity, zw, retro) {
-    if (support && activity && !zw && retro) return "COMMITTABLE";
-    if (!support || !activity || zw) return "under_calib:insufficient-support-or-degenerate";
-    return "under_calib:valid-but-retrospective-negative";
-  }
-  // Self-test (C-14): branch (b) IS reachable — support/activity/width OK, run does NOT cross ⇒ (b), never (a).
-  if (closureOf(true, true, false, false) !== "under_calib:valid-but-retrospective-negative") {
-    throw new Error("record-usde-calib: §5.1.5 vacuous — closure branch (b) 'valid-but-retrospective-negative' unreachable (C-14).");
-  }
-  if (closureOf(true, true, false, true) !== "COMMITTABLE") {
-    throw new Error("record-usde-calib: COMMITTABLE unreachable with all conditions true (C-14).");
-  }
-  const closure = closureOf(enoughSupport, enoughActivity, zeroWidth, retroPositive);
-  const committable = closure === "COMMITTABLE";
+  // crosses iff >= 1 NAMED run window has v > q99_calm, and ONLY when q99 is decidable. Pre-registered, gates
+  // `committable` (C-14). closureOf + its C-14/D1(a) reachability self-tests are now at module scope.
+  const runAboveQ99 = run.map((x) => ({ day: x.day, v_t_per_hr: x.v, above_q99_calm: q99_decidable && x.v > q99_calm }));
   const digest = committable ? calibDigest(scores) : null;
 
   const report = {
@@ -146,18 +174,18 @@ function main() {
     pairs_committable: n, n_min: N_MIN, alpha: ALPHA,
     q_hat_1_minus_alpha: qHat, q_hat_split_crosscheck: qHatSplit, q_hat_crosscheck_ok: crossOk,
     q_hat_support: Number.isFinite(qHat) ? support(scores, qHat) : 0,
-    q99_alert: q99, q99_support: Number.isFinite(q99) ? support(scores, q99) : 0,
+    q99_alert: q99_calm, q99_support: q99_decidable ? support(scores, q99_calm) : 0,
     sensitivity_without_stress_exclusion: { pairs: scoresNoEx.length, q_hat: q(scoresNoEx, 1 - ALPHA), q99: q(scoresNoEx, ALERT_P) },
-    zero_width_region: zeroWidth, retrospective_positive: retroPositive, committable, closure, calib_digest: digest,
+    zero_width_region: zeroWidth, retrospective_positive: retroPositive, committable, closure, reason, calib_digest: digest,
     run_windows_above_q99: runAboveQ99,
   };
   console.log(JSON.stringify(report, null, 2));
   if (committable) {
     writeFileSync(OUT_SCORES, JSON.stringify(scores));
-    console.log(`\nCOMMITTABLE: n=${n}, rho=${rho.toFixed(4)}, q_hat=${qHat}, q99=${q99}, calib_digest=${digest}`);
+    console.log(`\nCOMMITTABLE: n=${n}, rho=${rho.toFixed(4)}, q_hat=${qHat}, q99=${q99_calm}, calib_digest=${digest}`);
     console.log(`(pin this digest in apps/harness/src/calibration.ts USDE_STABLE_RUN_CALIB_DIGEST_PINNED; the orchestrator commits — R-20.)`);
   } else {
     console.log(`\nNON-COMMITTABLE (honest ${closure}). No fabricated region; the class stays under_calib.`);
   }
 }
-main();
+if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) main();

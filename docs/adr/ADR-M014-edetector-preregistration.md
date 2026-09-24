@@ -104,3 +104,22 @@ mécaniquement et toutes ratées) ; les premières semaines n'invitent aucun re-
 - [lu] Vovk 2012 (`fiche-vovk-2012.md`) : Prop. 1 p. 477 ; Prop. 2a p. 478 ; Prop. 2b p. 479.
 - [mesuré] advisor-defi 2026-09-18 (Bash vérification seule, fixture `7c33027a…`) : 616/63 ; semestres ; glissant-90 max 0,3000 (2025-04-30) ;
   CUSUM 9,5446 / 25,0809 ; table e-SR par p₀ ; Beta(61, 553) quantiles ; 336 calmes / 365 j.
+
+## Amendement 2026-09-18 (soir) — items (d) et (d′) tranchés par l'investisseur, sous avis advisor-defi (accord avec réserve)
+- **(d) — un seul déclencheur** de l'ADR de dérive : le critère pré-enregistré `rolling90_calm_miss ≥ 0,40` (ADR-M012 D6, phrase D8 au singulier).
+  L'e-détecteur n'est pas un second déclencheur ; l'union (chemin 2, D2) est écartée. Honnêteté : les deux rôles sont publiés côte à côte,
+  avec la phrase « rolling90 carries no false-alarm control » sur les mêmes surfaces que la phrase D3 ; le « ≈ 2,5 % par fenêtre » reste [abs]
+  binomial, par fenêtre de 90 paires, jamais converti en « par an » sans simulation.
+- **(d′) — aucune doctrine de décision, mais une règle de REPORTING pré-enregistrée** (réserve de l'advisor : sans elle, la lecture « e-SR non
+  franchi ⇒ phase connue » serait une citation sélective, alors que le non-franchissement est le cas *attendu* — délai ≈ 394 paires vs ≈ 70 j pour
+  rolling90). Tout ADR de dérive ouvert par rolling90 cite obligatoirement : (i) log M_SR **à la paire qui a fait tirer rolling90** et son max sur le
+  segment, le nombre de paires calmes du segment, le seuil log(1/alpha_arl) = 6,908 ; (ii) la phrase figée « a crossing is a controlled signal
+  (bound, Thm 2.4); a non-crossing is not evidence of absence (no delay bound off i.i.d.) » ; (iii) le segment e-SR n'est ni remis à zéro ni
+  re-paramétré dans l'ADR qui le lit (reset après décision, D1) ; (iv) l'ensemble des issues est énuméré d'avance {phase connue ; recalibration ;
+  indéterminé/attente}, choix libre parmi elles. Le lecteur sait d'avance ce qu'il verra, pas ce qui sera décidé.
+- **Vocabulaire dans tout ADR de dérive** : « bound on the average run length », jamais « guarantee » ; `alpha_arl`, jamais « α » ; « at least
+  1/alpha_arl = 1000 calm pairs between false alarms », jamais « false-alarm probability » sans horizon H ; « threshold crossed at calm pair n of
+  segment k », jamais « drift detected » ; unités en paires calmes, jamais en jours ; « e-process / e-detector », jamais « p-value » ; « design check,
+  no bound » conservé pour le 4,38 in-sample.
+- **Bascule** : si un franchissement devait un jour déclencher une action automatique, D2 tombe et le contrôle PFA (Rem. 2.7) devient obligatoire.
+- Rectificatif de renvoi : les « chemins 1/2 » sont portés par D2 de cet ADR, pas par `AVIS-advisor-defi-2e-cle-c-prime.md`.

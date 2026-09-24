@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "UKEMI — MONARK liquidation-cascade engine building-block (Phase 1): deterministic Eisenberg-Noe clearing + liquidable amount under shock (Eq. 3 Knife-edge), emitted as a numeric Prediction. Not a product, no guarantee.",
+  "description": "UKEMI — MONARK liquidation book primitives (Phase 1): deterministic Eisenberg-Noe clearing, static eligible amount under shock (Eq. 3 Knife-edge), and the cascade-cluster lattice (annex); emitted as a numeric Prediction. Not a product, no guarantee.",
+  "dependencies": { "@monark/contracts": "*" },
   "exports": { ".": "./src/index.ts" }
 }

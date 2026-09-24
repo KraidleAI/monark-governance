@@ -1,0 +1,2 @@
+Halt Date,Halt Time,Symbol,Name,Exchange,Reason,Resume Date,NYSE Resume Time
+2026-09-19,09:31:00,TSLA,"SYNTHETIC halt row - test fixture, not an NYSE event",Nasdaq,LULD Pause,2026-09-19,09:32:00

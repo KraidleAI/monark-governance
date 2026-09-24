@@ -1,0 +1,4 @@
+prereg_sha256 (full prereg file, before any measurement) = c0fc6ce2e283995444b031276c99e91f468572f239110612eb65a10d8acfaaf3
+frozen copy sha256                                   = c0fc6ce2e283995444b031276c99e91f468572f239110612eb65a10d8acfaaf3
+sed-truncation reproduction sha256                   = ece2150ff0b29e23dee9f58fe6db94780e0995129c61e929f4aff9e7fd888eab
+computed_before_measurement = true

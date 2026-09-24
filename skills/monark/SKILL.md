@@ -36,6 +36,17 @@ output field alike:
 MONARK offers no guarantee of availability. It does not predict prices and does not judge whether an
 act is legitimate; it gates the coverage of YOUR prediction and nothing else.
 
+### The `gate` envelope: `{prediction, params}`, and the optional `attested` intake
+
+`gate` takes `{prediction, params}` — both required, unchanged. It also accepts an OPTIONAL
+`attested: AttestedPrice` — an attested price testimony (origin and bytes, never truth). When present,
+only its named `residual` hypotheses are carried through to `verdict.residual`. `attested` never enters
+the coverage math and makes no claim that the price is true. `attested.subject` must be a URL committed
+for that `task_class` — a declared match checked for coherence, never a call-time re-derivation of the
+fact — and there is no temporal binding in this phase.
+A bring-your-own call that carries `attested` is refused (a BYO class has no committed subject), never
+accepted silently.
+
 ## Operational surface
 
 A public, unauthenticated endpoint, no availability commitment; bounded: n ≤ 10000 scores, request

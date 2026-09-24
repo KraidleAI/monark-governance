@@ -24,7 +24,7 @@ interface GateControlsProps {
 
 const labelStyle: CSSProperties = { display: "flex", flexDirection: "column", gap: 8, fontSize: 13 };
 const rowStyle: CSSProperties = { display: "flex", justifyContent: "space-between" };
-const monoInk2: CSSProperties = { fontFamily: "'IBM Plex Mono', monospace", color: "var(--ink2)" };
+const monoInk2: CSSProperties = { fontFamily: "var(--font-mono)", color: "var(--ink2)" };
 const rangeStyle: CSSProperties = { accentColor: "var(--hikae)", width: "100%", height: 32 };
 
 function pill(active: boolean): CSSProperties {
@@ -36,7 +36,7 @@ function pill(active: boolean): CSSProperties {
     background: active ? "var(--ink)" : "transparent",
     color: active ? "var(--paper)" : "var(--ink)",
     cursor: "pointer",
-    fontFamily: "'IBM Plex Mono', monospace",
+    fontFamily: "var(--font-mono)",
     fontSize: 13,
   };
 }
@@ -62,7 +62,7 @@ export function GateControls({
         <div style={{ fontSize: 13, color: "var(--ink2)" }}>
           {/* K-4(a): restore the design's task framing (design L171). */}
           Classification task, label schema{" "}
-          <span style={{ fontFamily: "'IBM Plex Mono', monospace" }}>up|down</span>. Move the reading,
+          <span style={{ fontFamily: "var(--font-mono)" }}>up|down</span>. Move the reading,
           widen the calibration spread, pick an intent — then push.
         </div>
       </div>

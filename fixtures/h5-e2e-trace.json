@@ -67,7 +67,7 @@
           "cascade",
           "gate"
         ],
-        "response_sha256": "118b92bd70b71583f6d7c9b2cd101a61bae59ce41d1247807e66de6ca1d06fb5"
+        "response_sha256": "6b78a42041ab7f1c75f94941ad7da5287e96ff66233e10004ea641e096e05224"
       }
     },
     {
@@ -107,7 +107,7 @@
         "content": [
           {
             "type": "text",
-            "text": "yhat is the estimated liquidable amount (a monetary quantity in the reference asset), a single point that HIKAE conformalizes downstream; no guarantee, no score. no cascade calibration is committed; the gate abstains (under_calib) on this class."
+            "text": "yhat is the estimated liquidable amount (a monetary quantity in the reference asset), a single point that HIKAE conformalizes downstream; no guarantee, no score. no cascade calibration is committed; the gate abstains (under_calib) on this class. This cascade tool is v0, replaced at U-5."
           }
         ],
         "structuredContent": {
@@ -176,7 +176,7 @@
             "region": {
               "kind": "set",
               "labels": [],
-              "label_schema": "up|down"
+              "label_schema": "numeric"
             },
             "qhat": null,
             "abstain": true,
@@ -325,6 +325,110 @@
     },
     {
       "n": 7,
+      "surface": "mcp",
+      "op": "tools/call",
+      "label": "attested-gate",
+      "tool": "gate",
+      "note": "the attestation is carried by the caller and is not re-verified at call time (the verifier is not executed here); `attest` only projects the committed witness — verify a caller-carried attestation offline with the Shōgen verifier; only `attested.residual` is filed into `verdict.residual`; the decision is otherwise unchanged",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 7,
+        "method": "tools/call",
+        "params": {
+          "name": "gate",
+          "arguments": {
+            "prediction": {
+              "schema_version": "1.0.0",
+              "task_class": "btc-dir-15m",
+              "yhat": "up",
+              "predictor_id": "internal:momentum-4c",
+              "produced_at": "2026-09-04T00:00:00Z"
+            },
+            "params": {
+              "bFloor": 0,
+              "tau": 1,
+              "tauInterval": 1,
+              "alpha": 0.1,
+              "nMin": 50,
+              "tool": "perps_order_preview",
+              "clockOpen": true,
+              "remainingBudget": 0.1,
+              "intent": "up"
+            },
+            "attested": {
+              "schema_version": "1.0.0",
+              "subject": "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+              "attestor": [
+                {
+                  "identity": "shogen:attestateur-de-demonstration-s3",
+                  "key": "6b32353620303336616165636232313162616466326633353933326164633231323638626561353833616431613334623965306630663437383135353763666539343832323731"
+                }
+              ],
+              "residual": [
+                "A(notary-neutrality)",
+                "A(self-attestation)",
+                "A(transport-check-delegated)"
+              ],
+              "transport": "tlsn-mpc/1",
+              "utterance": {
+                "hash": "c28a41ce87dafcd313d301ab56472b6f3cd1b3d81d903da787b0ca9dfffbeea0",
+                "bytes": "485454502f312e3120323030204f4b0d0a436f6e74656e742d547970653a206170706c69636174696f6e2f6a736f6e3b636861727365743d5554462d380d0a436f6e74656e742d4c656e6774683a2034350d0a436f6e6e656374696f6e3a20636c6f73650d0a446174653a205468752c2031332041756720323032362030343a31303a323920474d540d0a4163636573732d436f6e74726f6c2d416c6c6f772d4d6574686f64733a204745542c20484541442c204f5054494f4e530d0a5365727665723a206e67696e780d0a782d6d62782d757569643a2066326465393361312d643537332d343534332d383537342d3561663233303738326464380d0a782d6d62782d757365642d7765696768743a20370d0a782d6d62782d757365642d7765696768742d316d3a20370d0a5374726963742d5472616e73706f72742d53656375726974793a206d61782d6167653d33313533363030303b20696e636c756465537562646f6d61696e730d0a582d4672616d652d4f7074696f6e733a2053414d454f524947494e0d0a582d5873732d50726f74656374696f6e3a20313b206d6f64653d626c6f636b0d0a582d436f6e74656e742d547970652d4f7074696f6e733a206e6f736e6966660d0a436f6e74656e742d53656375726974792d506f6c6963793a2064656661756c742d737263202773656c66270d0a582d436f6e74656e742d53656375726974792d506f6c6963793a2064656661756c742d737263202773656c66270d0a582d5765624b69742d4353503a2064656661756c742d737263202773656c66270d0a43616368652d436f6e74726f6c3a206e6f2d63616368652c206e6f2d73746f72652c206d7573742d726576616c69646174650d0a507261676d613a206e6f2d63616368650d0a457870697265733a20300d0a4163636573732d436f6e74726f6c2d416c6c6f772d4f726967696e3a202a0d0a582d43616368653a204d6973732066726f6d20636c6f756466726f6e740d0a5669613a20312e312062626163663764346362313465653563313531323934393234636639656134652e636c6f756466726f6e742e6e65742028436c6f756446726f6e74290d0a582d416d7a2d43662d506f703a204d414435362d50320d0a582d416d7a2d43662d49643a204745565a37666d715f547131544a74654b493064313845466c38653777554d6d6e59754e54745f55342d6961736762714976743465673d3d0d0a0d0a7b2273796d626f6c223a2242544355534454222c227072696365223a2236333634332e3231303030303030227d"
+              },
+              "observed_at": {
+                "clock": "tlsn-mpc/1:connection_info.time",
+                "instant": 1786594228
+              },
+              "octets_recalcules": true,
+              "verifier_revision": "0fe3c32d35382b3f290a43c4156399ca4512bb89",
+              "sens_emis_digest": "4ad0e84b4f078e7ee62482ca86853c09e3c17bf074274168d65c024d1777e24b"
+            }
+          }
+        }
+      },
+      "response": {
+        "content": [
+          {
+            "type": "text",
+            "text": "synthetic — HIKAE S2a instrument draw (harness_version=fixtures-synth, seed=101, n=300, nCalib=150); 0/1 indicator scores; calib_digest=fcebed27fd3f9607bba94898f5ae4ebba548ced519d1d800b49890235358eda6; declared synthetic, a plumbing fixture, not a measured predictor (ADR-M005 D5, C-8). B_t is caller-carried. verdict action=commit reason=covered region={up} qhat=0 n_calib=150 calib_digest=fcebed27...58eda6"
+          }
+        ],
+        "structuredContent": {
+          "schema_version": "1.0.0",
+          "action": "commit",
+          "allow": true,
+          "tool": "perps_order_preview",
+          "intent": "up",
+          "verdict": {
+            "schema_version": "1.0.0",
+            "task_class": "btc-dir-15m",
+            "method": "split",
+            "alpha": 0.1,
+            "n_calib": 150,
+            "region": {
+              "kind": "set",
+              "labels": [
+                "up"
+              ],
+              "label_schema": "up|down"
+            },
+            "qhat": 0,
+            "abstain": false,
+            "reason": "covered",
+            "residual": [
+              "A(notary-neutrality)",
+              "A(self-attestation)",
+              "A(transport-check-delegated)"
+            ],
+            "calib_digest": "fcebed27fd3f9607bba94898f5ae4ebba548ced519d1d800b49890235358eda6",
+            "produced_at": "2026-09-04T00:00:00Z"
+          },
+          "remaining_budget": 0.1,
+          "reason": "covered"
+        }
+      }
+    },
+    {
+      "n": 8,
       "surface": "http",
       "op": "POST /cascade",
       "label": "cascade-mirror",
@@ -364,7 +468,7 @@
         "content": [
           {
             "type": "text",
-            "text": "yhat is the estimated liquidable amount (a monetary quantity in the reference asset), a single point that HIKAE conformalizes downstream; no guarantee, no score. no cascade calibration is committed; the gate abstains (under_calib) on this class."
+            "text": "yhat is the estimated liquidable amount (a monetary quantity in the reference asset), a single point that HIKAE conformalizes downstream; no guarantee, no score. no cascade calibration is committed; the gate abstains (under_calib) on this class. This cascade tool is v0, replaced at U-5."
           }
         ]
       }
@@ -380,6 +484,12 @@
     "btc_dir_calib_digest": "fcebed27fd3f9607bba94898f5ae4ebba548ced519d1d800b49890235358eda6",
     "attest_label": "real, notary Shōgen, demonstrative, not probative",
     "attest_sens_emis_digest": "4ad0e84b4f078e7ee62482ca86853c09e3c17bf074274168d65c024d1777e24b",
+    "attested_gate_action": "commit",
+    "attested_gate_residual": [
+      "A(notary-neutrality)",
+      "A(self-attestation)",
+      "A(transport-check-delegated)"
+    ],
     "mirror_matches_mcp_cascade": true
   }
 }

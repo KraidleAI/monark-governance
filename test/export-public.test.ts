@@ -20,6 +20,8 @@
  *       the frozen `schemas` scope, ADR-M001 D9-bis; apps/site is English-only, Lot F-public — a French
  *       string visible in a page, or in a frozen schema `description`, reds here);
  *   (d) packages/hikae/docs/ is absent (S2 reports excluded, D7) and the excluded tests are absent;
+ *   (d bis) manifest.excluded_data EQUALS scripts/export-exclude-data.json and those orphan `upcoming` data
+ *       files (the u4 fixtures) are absent from the output (ADR-M004 D7 septies);
  *   (e) `npm ci` then `npm run ci` INSIDE the export are BOTH exit 0 (the exported CI is green);
  *   (f) the exported .github/workflows/ci.yml is DERIVED (D7 bis R1): no `r25` at all (bare regex, =
  *       the `grep -c r25 = 0` oracle, subsumes the r25-taille-de-lot job), a `push` trigger under
@@ -56,6 +58,7 @@ import { mkdtempSync, rmSync, readFileSync, readdirSync, statSync, existsSync, c
 import { tmpdir } from "node:os";
 import { join, relative, dirname } from "node:path";
 import { createHash } from "node:crypto";
+import { derivePublicWorkflow } from "../scripts/export-public.mjs";
 
 const ROOT = join(import.meta.dirname, "..");
 
@@ -67,9 +70,13 @@ interface ManifestEntry {
 interface Manifest {
   files: ManifestEntry[];
   excluded_tests: string[];
+  excluded_data: string[];
 }
 interface ExcludeConfig {
   tests: string[];
+}
+interface ExcludeDataConfig {
+  data: string[];
 }
 
 // Mirrors scripts/export-public.mjs STRUCTURAL_BLACKLIST (POSIX rel paths).
@@ -162,6 +169,20 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
     }
     assert.ok(!files.includes("apps/harness/tsconfig.json"), "apps/harness/tsconfig.json must not be exported (package-style)");
 
+    // (j) (ADR-M004 D7 octies, decision 156, EXPORT-BELL-1) MONARK Bell ships its signed publication chain FILE BY FILE:
+    // the deployed tree, the third-party verifier and its committed public trust root. Mutant: drop the Bell block from
+    // WHITELIST_FILES => these vanish => red. The collector does NOT ship (decision-69 names, reader-local paths): no
+    // apps/bell/src or apps/bell/test path in the output. Mutant: whitelist "apps/bell" package-style => red here.
+    for (const rel of ["apps/bell/scripts/bell-chain.mjs", "apps/bell/scripts/bell-publish.mjs", "apps/bell/scripts/bell-verify.mjs", "apps/bell/keys/bell-keyring.json", "apps/bell/package.json", "scripts/verify-bell.mjs"]) {
+      assert.ok(files.includes(rel), `the Bell publication chain export must include ${rel}`);
+    }
+    const bellCollector = files.filter((f) => f.startsWith("apps/bell/src/") || f.startsWith("apps/bell/test/") || f === "apps/bell/scripts/bell-report.mjs");
+    assert.deepEqual(bellCollector, [], "the Bell collector must not be exported until EXPORT-BELL-1-PURGE (ADR-M004 D7 octies)");
+    // The public export omits deploy/ (ADR-NARABI-OPS-1c C3): the exported sentinel_budget_below_unit_timeout skips IFF deploy/
+    // is absent and reds on a present deploy/ without its unit (measured on this lot: one Bell deploy/ file shipped => exported
+    // CI 1 fail). Mutant: whitelist "deploy/Caddyfile.monark-bell" => red here, before (e).
+    assert.deepEqual(files.filter((f) => f.startsWith("deploy/")), [], "no deploy/ file may be exported (ADR-NARABI-OPS-1c C3)");
+
     // (F-public) build output / installed deps are never exported (WALK_SKIP_DIRS). A leaked .next would
     // ship build artefacts into the public storefront; a leaked node_modules would bloat it. Mutant:
     // remove the WALK_SKIP_DIRS skip in export-public.mjs walkFiles => the seeded .next/.turbo leak here.
@@ -219,6 +240,18 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
       assert.ok(!listed.has(t), `excluded test listed in manifest.files: ${t}`);
     }
 
+    // (d bis) orphan-data exclusion is CONFIG-RELATIVE too (D7 septies): manifest.excluded_data == the committed
+    // scripts/export-exclude-data.json, and none of those files reach the output. The deeper safety conditions
+    // (no excluded datum keeps an exported consumer; no excluded test leaves an orphan) live in export-hygiene.test.ts.
+    const dataCfg = JSON.parse(readFileSync(join(ROOT, "scripts", "export-exclude-data.json"), "utf8")) as ExcludeDataConfig;
+    const expectedExcludedData = [...dataCfg.data].map(toPosix).sort();
+    assert.ok(Array.isArray(manifest.excluded_data), "manifest.excluded_data missing");
+    assert.deepEqual([...manifest.excluded_data].sort(), expectedExcludedData, "excluded_data must equal the committed config");
+    for (const d of expectedExcludedData) {
+      assert.ok(!existsSync(join(out, d)), `excluded datum still present in output: ${d}`);
+      assert.ok(!listed.has(d), `excluded datum listed in manifest.files: ${d}`);
+    }
+
     // (f) the exported workflow is DERIVED, not copied verbatim (D7 bis R1 / mutant M5): no r25 at all
     //     (bare, = the `grep -c r25 = 0` oracle, subsumes the r25-taille-de-lot job), a `push` trigger
     //     under `on:`, >= 2 SHA-pinned actions, and no continue-on-error DIRECTIVE (a YAML key; the prose
@@ -252,9 +285,22 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
     //     a French word in an exported apps/harness .ts reds the export here.
     //     The `skills` scope (Lot M006-B, ADR-M006 D5) does the same for the now-exported skills/ artefacts:
     //     a French string in an exported SKILL.md/INTEGRATION.md reds the export here.
+    //     The `sentinel` scope (C-11 i, ADR-EC) gives the now-exported apps/sentinel (APP_PACKAGE_DIRS)
+    //     English-only teeth on the export. The `bell` scope (ADR-M004 D7 octies) does the same for the exported
+    //     Bell publication chain (apps/bell/scripts + keys + package.json).
     execFileSync(
       process.execPath,
-      [join(ROOT, "scripts", "lang-gate.mjs"), "--dir", out, "--scope", "root,contracts,schemas,site,harness,skills"],
+      [join(ROOT, "scripts", "lang-gate.mjs"), "--dir", out, "--scope", "root,contracts,schemas,site,harness,skills,sentinel,bell"],
+      { cwd: ROOT, stdio: "pipe" },
+    );
+
+    // (c-bis) C-11 i (ADR-EC): only the Bell publication chain is exported (ADR-M004 D7 octies); the collector
+    //     (apps/bell/src, apps/bell/test) is NOT, so gating it on the EXPORT `out` alone would be a false-green for
+    //     it. Its gate is the repo SOURCE tree: run lang-gate on ROOT with --scope sentinel,bell and assert
+    //     green, so a French token in apps/bell/src (or apps/sentinel/src) reds CI here.
+    execFileSync(
+      process.execPath,
+      [join(ROOT, "scripts", "lang-gate.mjs"), "--scope", "sentinel,bell"],
       { cwd: ROOT, stdio: "pipe" },
     );
 
@@ -298,7 +344,80 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
     // Guard against a false-empty green (e.g. a broken whitelist that exports no tests).
     assert.ok(nTests !== null && nTests >= 70, `exported CI ran an implausibly small suite: ${summary}`);
   } finally {
-    rmSync(out, { recursive: true, force: true });
-    rmSync(src, { recursive: true, force: true });
+    // win32 under load (antivirus scan of the fresh export): rmSync can EPERM transiently -> bounded retries
+    // (EXPORT-TEST42-EPERM-1, 3 occurrences 2026-09-23); the assertions above are unchanged.
+    // Cleanup is best-effort: the assertions above are the gate; a transient win32 lock (EPERM/EBUSY, antivirus scan
+    // of the fresh export under load, measured > 60 s on 2026-09-23) must not redden it. EXPORT-TEST42-EPERM-1.
+    for (const d of [out, src]) {
+      try { rmSync(d, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 }); }
+      catch (e) { console.warn(`export-public test: cleanup left ${d} (${(e as NodeJS.ErrnoException).code ?? String(e)})`); }
+    }
   }
+});
+
+// Extract every job body (the 2-space job key line through the line before the next job key) with the STRICT
+// key regex — the same one ci_jobs_have_timeout uses. Deliberately NOT /^ {2}\S/: an ORPHANED r25 body left by
+// a bad derivation is absorbed into a neighbour's body (never a spurious key), which is exactly what (f') must
+// catch.
+function jobBodies(text: string): Map<string, string[]> {
+  const lines = text.split(/\r?\n/);
+  const jobsIdx = lines.findIndex((l) => /^jobs\s*:/.test(l));
+  const out = new Map<string, string[]>();
+  if (jobsIdx === -1) return out;
+  const keys: { name: string; start: number }[] = [];
+  for (let i = jobsIdx + 1; i < lines.length; i++) {
+    const l = lines[i]!;
+    if (/^\S/.test(l) && !/^\s*#/.test(l)) break; // a column-0 non-comment key ends the jobs block
+    const m = /^  ([A-Za-z0-9_-]+)\s*:\s*$/.exec(l);
+    if (m && m[1]) keys.push({ name: m[1], start: i });
+  }
+  for (let j = 0; j < keys.length; j++) {
+    const end = j + 1 < keys.length ? keys[j + 1]!.start : lines.length;
+    out.set(keys[j]!.name, lines.slice(keys[j]!.start, end));
+  }
+  return out;
+}
+
+// -- L-4 / C-3 : the derived public workflow keeps every RETAINED job body byte-identical (test 42(f'); D7 ter)
+test("export_public_derived_jobs_are_byte_identical — every retained job body survives derivation unchanged (test 42(f'), ADR-M004 D7 ter amended)", () => {
+  const governance = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
+  const eol = governance.includes("\r\n") ? "\r\n" : "\n";
+  const derived = derivePublicWorkflow(governance);
+  const R25 = "r25-taille-de-lot";
+
+  // Mismatches between the retained governance job bodies and the derived job bodies (job set + line-by-line).
+  const mismatches = (govText: string, derText: string): string[] => {
+    const gov = jobBodies(govText);
+    const der = jobBodies(derText);
+    const retained = [...gov.keys()].filter((k) => k !== R25).sort();
+    const out: string[] = [];
+    if (JSON.stringify([...der.keys()].sort()) !== JSON.stringify(retained))
+      out.push(`job set: derived {${[...der.keys()].sort().join(",")}} != retained {${retained.join(",")}}`);
+    for (const name of retained) if (JSON.stringify(gov.get(name)) !== JSON.stringify(der.get(name))) out.push(`job '${name}' body differs after derivation`);
+    return out;
+  };
+
+  // Non-vacuity: >= 5 retained jobs (g1, g3-verification, g4, g6, g3-site) — the "job set == {…}" invariant of
+  // 42 is too weak; D7 ter (amended: ALL retained bodies, not just g1/g3/g4/g6) demands byte-identity.
+  const retainedCount = [...jobBodies(governance).keys()].filter((k) => k !== R25).length;
+  assert.ok(retainedCount >= 5, `expected >= 5 retained jobs, saw ${retainedCount}`);
+
+  // (f') the real derivation preserves every retained job body byte-for-byte (modulo EOL, which derive keeps).
+  assert.deepEqual(mismatches(governance, derived), [], "a retained job body changed under derivePublicWorkflow (42(f'))");
+
+  // Mutant M-42f' (D7 ter, finding 13): a col-2 INDENTED comment inside the r25 body stops the splice (/^ {2}\S/
+  // matches it) => only the r25 KEY is removed => the r25 body orphan is ABSORBED into the derived g1 body =>
+  // (f') reds. Bare `/r25/` (test 42(f)) stays GREEN (the orphan carries only "R-25", case-sensitive), so 42(f)
+  // alone MISSES this — which is why (f') exists.
+  const mutant = governance.replace(`  ${R25}:${eol}`, `  ${R25}:${eol}  # injected indented comment${eol}`);
+  assert.notEqual(mutant, governance, "mutant injection must change the source");
+  const mutantDerived = derivePublicWorkflow(mutant);
+  assert.ok(mismatches(mutant, mutantDerived).length > 0, "M-42f': an indented comment in r25 must red 42(f') (orphan absorbed into a retained body)");
+  assert.ok(!/r25/.test(mutantDerived), "M-42f' control: bare /r25/ (test 42(f)) stays green on the mutant — it MISSES the corruption");
+
+  // Mutant (single-byte corruption of a RETAINED body) => (f') reds — the class D7 ter closes ("a corrupted
+  // job body", not only "a lost job"). Simulated on the derived text (a derivation that mangles a kept job).
+  const corrupted = derived.replace("npm run lint && npm run lint:ratchet", "npm run lint &&  npm run lint:ratchet");
+  assert.notEqual(corrupted, derived, "byte-corruption must change the derived text");
+  assert.ok(mismatches(governance, corrupted).length > 0, "M-42f' (byte): a single-byte change in a retained job body must red 42(f')");
 });

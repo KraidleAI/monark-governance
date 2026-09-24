@@ -3,11 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "MONARK — cross-agent integration layer (the tokenised agent + price-oracle harness wiring). Phase 0: freezes the cross-agent gate signature only.",
+  "description": "MONARK — the cross-agent integration adapters over the frozen contracts: Shogen -> AttestedPrice and Narabi AttestedFlow -> Prediction (a redemption-velocity forecast), plus a canonical-CBOR decoder. Phase 2 (integration).",
   "exports": { ".": "./src/index.ts" },
   "dependencies": {
-    "@monark/contracts": "*",
-    "@monark/hikae": "*",
-    "@monark/ukemi": "*"
+    "@monark/contracts": "*"
   }
 }

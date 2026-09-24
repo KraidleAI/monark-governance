@@ -18,6 +18,20 @@ const nextConfig = {
     if (process.env.NODE_ENV !== "development") return [];
     return [{ source: "/narabi/:file(state.json|timeline.jsonl)", destination: "https://monarkgate.tech/narabi/:file" }];
   },
+  // Bell anchors (lot SITE-CHARTE-C): `.ots` is ALSO the OpenDocument spreadsheet-template extension, so the static
+  // server would label an OpenTimestamps proof as a spreadsheet (measured locally). Serve the proofs as bytes to
+  // download; manifests stay text/plain.
+  async headers() {
+    return [
+      {
+        source: "/bell/anchors/:file(.+\\.ots)",
+        headers: [
+          { key: "Content-Type", value: "application/octet-stream" },
+          { key: "Content-Disposition", value: "attachment" },
+        ],
+      },
+    ];
+  },
 };
 
 const withMDX = createMDX({});

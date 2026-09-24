@@ -36,9 +36,9 @@
 //
 // SCOPE: every run computes hit counts for ALL scopes (root, contracts, schemas, hikae, ukemi,
 // atelier, monark) — free input data for the E-* translation lots. `--scope a,b` only gates the EXIT
-// CODE: exit 1 iff a non-exempt hit falls in a selected scope. No --scope = global. For this gate
-// the E-hikae/ukemi/atelier/monark lots are NOT done, so global is RED by design; the lot's
-// oracle is `--scope root,contracts` = GREEN. The frozen `schemas` scope (ADR-M001 D9-bis) is
+// CODE: exit 1 iff a non-exempt hit falls in a selected scope. No --scope = global. As the E-*
+// translation lots landed, global went GREEN on this base (measured 2026-09-21: lang:gate global =
+// exit 0, 0 hit in every scope). The frozen `schemas` scope (ADR-M001 D9-bis) is
 // English-only and GATED alongside root,contracts (test 42 uses root,contracts,schemas,site).
 //
 // Usage: node scripts/lang-gate.mjs [--dir <path>] [--scope root,contracts] [--json]
@@ -111,7 +111,12 @@ export const EXCLUDE_NAMES = new Set(["package-lock.json", "lang-exempt.json", "
 // so French prose in a schema `description`/`title` reddens — the annotation-erratum door-hole closure.
 // `skills` = the ClawHub skill artefacts under skills/ (ADR-M006 D5). English-only (the
 // SKILL.md/INTEGRATION.md are English); GATED so a French string in a published skill file reds.
-export const SCOPES = ["root", "contracts", "schemas", "hikae", "ukemi", "atelier", "monark", "site", "harness", "skills"];
+// `sentinel` = the off-tool Narabi sentinel apps/sentinel (English-only; exported package-style, ADR-M005
+// D10/D16), gated on the export by test 42. `bell` = MONARK Bell apps/bell (English-only). Its signed publication
+// chain (scripts/ + keys/ + package.json) is exported FILE BY FILE (ADR-M004 D7 octies, decision 156) and gated on
+// the export by test 42 (c); the unexported remainder (the collector src/ + test/) stays gated on the SOURCE tree by
+// test 42 (c-bis) — C-11 i, ADR-EC.
+export const SCOPES = ["root", "contracts", "schemas", "hikae", "ukemi", "atelier", "monark", "site", "harness", "skills", "sentinel", "bell"];
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const byLenDesc = (a, b) => b.length - a.length || (a < b ? -1 : 1);
@@ -134,6 +139,8 @@ export function classifyScope(rel) {
   const p = rel.replace(/\\/g, "/");
   if (p === "apps/site" || p.startsWith("apps/site/")) return "site"; // apps/site scope
   if (p === "apps/harness" || p.startsWith("apps/harness/")) return "harness"; // (K-3)
+  if (p === "apps/sentinel" || p.startsWith("apps/sentinel/")) return "sentinel"; // (C-11 i, ADR-EC; apps/sentinel exported)
+  if (p === "apps/bell" || p.startsWith("apps/bell/")) return "bell"; // (C-11 i, ADR-EC; apps/bell: publication chain exported, collector not — ADR-M004 D7 octies)
   if (p === "skills" || p.startsWith("skills/")) return "skills"; // (ADR-M006 D5)
   if (p === "schemas" || p.startsWith("schemas/")) return "schemas"; // ADR-M001 D9-bis: frozen contract schemas, gated
   const m = /^packages\/([^/]+)\//.exec(p);

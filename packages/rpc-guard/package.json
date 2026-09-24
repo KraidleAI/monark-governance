@@ -1,0 +1,9 @@
+{
+  "name": "@monark/rpc-guard",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MONARK single budgeted RPC client (GARDE-HELIUS). One handle owns every paid endpoint: call(label, method, params) resolves label->private URL internally, meters credits by a closed per-operator tariff, ledgers each attempt write-ahead to a chained durable cycle ledger, and fail-closes on three caps (run, method, cycle). No exported symbol ever returns an endpoint URL. ADR-GARDE-HELIUS.",
+  "bin": { "rpc-guard": "./bin/rpc-guard.mjs" },
+  "exports": { ".": "./src/index.ts" }
+}

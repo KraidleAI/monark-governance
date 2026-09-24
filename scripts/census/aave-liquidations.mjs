@@ -1,4 +1,7 @@
 // scripts/census/aave-liquidations.mjs
+// POOL-RPC-1a NOTE (ADR-POOL-RPC-1, decision 106; frozen census): NOT rerun as-is. Blast/Llama appear here only in
+// the measured-provider COMMENTS (l.15-16), not an active pool; they are retired from the LIVE pools (rpc.ts,
+// rpc2.ts) ONLY. This census has sha-pinned outputs and is left byte-unchanged (revisionism proscribed).
 // ============================================================================================
 // Census (A) — Aave V3 Core liquidations on USDe/sUSDe(/PT) collateral (F1) and on USDe debt (F2).
 // Pre-registration: docs/PLAN-census-next-piece.md — A-H1 (F1 Σ debtToCover ≈ 0 on every UTC window

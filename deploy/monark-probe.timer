@@ -1,0 +1,26 @@
+# systemd timer for the MONARK Narabi external probe (ADR-NARABI-OPS-1 sub-lot -1b-i / C-13). THREE daily UTC
+# shots, all AFTER the freshness deadline (10:30 UTC = the last sentinel retry slot at 09:30 + its 1800 s
+# jitter + the publishing run's duration + publish latency): 10:30, then +2 h and +6 h, so a transient probe
+# or site hiccup is re-checked the SAME day rather than the next. Each shot re-reads the surface and rewrites
+# narabi.json; once healthy, later shots are no-ops. The first shot is >= the probe's DEADLINE constant
+# (coherence pinned by test probe_timer_oncalendar_ge_deadline; multi-shot by probe_timer_multiple_shots).
+# NOTE: 10:30 stays a DECLARED hypothesis until the orchestrator reads the 00:30 UTC 2026-09-21 journal to
+# measure the publishing run's duration (item, closed before the -1b-i freeze).
+[Unit]
+Description=MONARK Narabi external probe timer - post-deadline daily shots (ADR-NARABI-OPS-1)
+Documentation=https://github.com/KraidleAI/monark
+
+[Timer]
+# Separate OnCalendar expressions (systemd.timer: "May be specified more than once ... trigger whenever any
+# of the expressions elapse"). Verify each with `systemd-analyze calendar '<expr>'` (RUNBOOK). Every shot is
+# an explicit UTC time so a host-timezone drift can never move the deadline.
+OnCalendar=*-*-* 10:30:00 UTC
+OnCalendar=*-*-* 12:30:00 UTC
+OnCalendar=*-*-* 16:30:00 UTC
+# Persistent=true fires ONE catch-up run at boot if a shot was missed (never one per missed shot); the probe
+# is idempotent on narabi.json, so a duplicate shot is a harmless rewrite.
+Persistent=true
+Unit=monark-probe.service
+
+[Install]
+WantedBy=timers.target

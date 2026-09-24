@@ -1,0 +1,30 @@
+[
+  { "id": "evm-only-1", "symbol": "EVMONLYx", "name": "EVM Only xStock",
+    "underlying": { "symbol": "EVM", "exchange": { "mic": "XNAS" } },
+    "deployments": [ { "network": "Ethereum", "address": "0x00000000000000000000000000000000000000e1" } ] },
+  { "id": "google-1", "symbol": "GOOGLx", "name": "Alphabet xStock",
+    "underlying": { "symbol": "GOOGL", "exchange": { "mic": "XNAS" } },
+    "deployments": [
+      { "network": "Solana", "address": "GoogLxSynthMint1111111111111111111111111111" },
+      { "network": "Ethereum", "address": "0x00000000000000000000000000000000000000g1" } ] },
+  { "id": "impostor-1", "symbol": "FAKEx", "name": "Impostor xStock",
+    "underlying": { "symbol": "FAKE", "exchange": { "mic": "XNAS" } },
+    "deployments": [ { "network": "Solana", "address": "FakeXSynthMint11111111111111111111111111111" } ] },
+  { "id": "absent-1", "symbol": "GONEx", "name": "Absent Account xStock",
+    "underlying": { "symbol": "GONE", "exchange": null },
+    "deployments": [ { "network": "Solana", "address": "AbsentXSynthMint111111111111111111111111111" } ] },
+  { "id": "tsla-1", "symbol": "TSLAx", "name": "Tesla xStock",
+    "underlying": { "symbol": "TSLA", "exchange": { "mic": "XNAS" } },
+    "deployments": [
+      { "network": "Solana", "address": "XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB" },
+      { "network": "Ethereum", "address": "0x00000000000000000000000000000000000000t1" } ] },
+  { "id": "spy-1", "symbol": "SPYx", "name": "SP500 xStock",
+    "underlying": { "symbol": "SPY", "exchange": { "mic": "ARCX" } },
+    "deployments": [ { "network": "Solana", "address": "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W" } ] },
+  { "id": "nvda-1", "symbol": "NVDAx", "name": "NVIDIA xStock",
+    "underlying": { "symbol": "NVDA", "exchange": { "mic": "XNAS" } },
+    "deployments": [ { "network": "Solana", "address": "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh" } ] },
+  { "id": "aapl-1", "symbol": "AAPLx", "name": "Apple xStock",
+    "underlying": { "symbol": "AAPL", "exchange": { "mic": "XNAS" } },
+    "deployments": [ { "network": "Solana", "address": "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp" } ] }
+]

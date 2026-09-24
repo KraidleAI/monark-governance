@@ -239,6 +239,16 @@ test("calibrate_honesty_carriers_pass_the_negation_aware_vocab_gate", () => {
   assert.deepEqual(scanText("it makes NO probative or call-time claim", patterns), [], "'no probative' stays green (attest:28)");
   assert.deepEqual(scanText("asserted by attest_makes_no_probative_claim", patterns), [], "'no_probative' identifier stays green (attest:30)");
   assert.deepEqual(scanText("declared synthetic, not a measured predictor", patterns), [], "'predictor' stays green (only 'predicts' is banned)");
+
+  // (d) EXTENSION (A-9-OUTILLE, checkpoint-1 C-3): the served-vocabulary rules are live on these carriers. The
+  // label's own negation "Never a probability of being right." is what (a) keeps green (named lookbehind); a numeric
+  // probability-of-being-right claim in carrier form reddens on BOTH words. Mutant `never-a-lookbehind-dropped`
+  // (the lookbehind removed from the rule) => (a) reds on all three carriers.
+  assert.ok(hasBan(/probabilit/), "harness scope bans a probability outside a named negation (A-9-OUTILLE)");
+  assert.ok(hasBan(/verified/), "harness scope bans a naked 'verified' (A-9-OUTILLE)");
+  assert.ok(CALIBRATE_LABEL.includes("Never a probability of being right."), "the carrier holds the exempted negation (non-vacuous)");
+  const numeric = scanText("the supplied scores give a 95% probability of being right", patterns).map((h) => h.word.toLowerCase());
+  assert.deepEqual(numeric.sort(), ["95%", "probability"], "a numeric probability-of-being-right claim reddens (percent + probability)");
 });
 
 // Test — the tool NAME is the expected literal (a stray rename would drift the registry/route set).

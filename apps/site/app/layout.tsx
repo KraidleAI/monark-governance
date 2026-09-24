@@ -1,35 +1,46 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
-import { Sora, IBM_Plex_Mono, Newsreader } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 
-// Brand typefaces (ADR-M004 D15): Sora for logotypes/UI, IBM Plex Mono for data, Newsreader serif for
-// long-form reading. Self-hosted by next/font at build time, exposed as CSS variables consumed by
-// app/globals.css (--font-sora / --font-ibm-plex-mono / --font-newsreader).
-// RESERVE (D15, C-2): next/font/google fetches the font files from Google at BUILD time; they are not
-// pinned by hash, so an offline build reds here. The @fontsource alternative is left to a maintainer
-// decision — do not switch without instruction.
-const sora = Sora({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-sora",
+// Charter C typefaces (decision 145; OFL, decisions 105/107): Space Grotesk (variable) for the interface and
+// prose, JetBrains Mono (variable) for data, Archivo Black for the wordmarks, Newsreader (variable, upright and
+// italic) for the long-form serif (/writing, KEPT by ruling Q6; OFL copy procured from google/fonts, decision 148).
+// All SELF-HOSTED from the committed OFL files in app/fonts/ (licences beside them) through next/font/local — no
+// font host is contacted, at build or at run time. Newsreader's fallback metrics are computed against Times New
+// Roman, the serif base the Google loader used for it (the next/font/local default, Arial, is sans-serif).
+const spaceGrotesk = localFont({
+  src: "./fonts/SpaceGrotesk-wght.ttf",
+  weight: "300 700",
+  variable: "--font-space-grotesk",
   display: "swap",
 });
-const ibmPlexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-ibm-plex-mono",
+const jetbrainsMono = localFont({
+  src: "./fonts/JetBrainsMono-wght.ttf",
+  weight: "100 800",
+  variable: "--font-jetbrains-mono",
   display: "swap",
 });
-const newsreader = Newsreader({
-  subsets: ["latin"],
-  weight: ["300", "400", "500"],
-  style: ["normal", "italic"],
+const archivoBlack = localFont({
+  src: "./fonts/ArchivoBlack-Regular.ttf",
+  weight: "400",
+  variable: "--font-archivo-black",
+  display: "swap",
+});
+const newsreader = localFont({
+  src: [
+    { path: "./fonts/Newsreader-opsz-wght.ttf", weight: "200 800", style: "normal" },
+    { path: "./fonts/Newsreader-Italic-opsz-wght.ttf", weight: "200 800", style: "italic" },
+  ],
   variable: "--font-newsreader",
   display: "swap",
+  adjustFontFallback: "Times New Roman",
+  // Not preloaded (decision 146 ruling): from the root layout both files would be preloaded on every route. Measured:
+  // /writing and /products draw it; / also fetches the upright file (its kanji try this face first: no CJK glyph).
+  preload: false,
 });
 
 // Static metadata only (honesty lint scans title/description; no digits). No generateMetadata (gate
@@ -40,17 +51,16 @@ export const metadata: Metadata = {
     "MONARK — a company of agent-products on one coverage-controlled gate that emits commit, defer, or abstain, and a depletable authorization budget.",
 };
 
-// Apply the stored theme class before first paint, so a dark-mode visitor sees no light flash. Reads
-// localStorage only and defaults to the paper (light) brand when nothing is stored; wrapped in
-// try/catch for privacy-mode safety. The client ThemeProvider then syncs React state from this class.
+// Apply the theme before first paint (ruling Q5): the stored explicit choice if any, else the system preference
+// (prefers-color-scheme). try/catch for privacy-mode safety. The client ThemeProvider then syncs React state.
 const themeInit =
-  "(function(){try{if(localStorage.getItem('monark-theme')==='dark'){var e=document.documentElement;e.classList.add('dark');e.style.colorScheme='dark';}}catch(e){}})();";
+  "(function(){try{var d=document.documentElement,s=null;try{s=localStorage.getItem('monark-theme')}catch(e){}var t=(s==='dark'||s==='light')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');if(t==='dark'){d.classList.add('dark')}d.style.colorScheme=t}catch(e){}})();";
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html
       lang="en"
-      className={`${sora.variable} ${ibmPlexMono.variable} ${newsreader.variable} font-sans`}
+      className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} ${archivoBlack.variable} ${newsreader.variable} font-sans`}
       suppressHydrationWarning
     >
       <body>

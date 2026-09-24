@@ -1,0 +1,607 @@
+{
+  "$comment": "Site copy of the Ukemi U-4b course report (hyp-report-weth-2025-09-22.json, schema ukemi-u4b-hyp/1): body and body_digest as produced by scripts/census/u4b/u4b-hyp.mjs, provenance reduced to the tool sha (input paths omitted: they name export-excluded governance fixtures). Rendered by /ukemi/course through apps/site/lib/ukemi-course-load.ts after a sha256 check against the site manifest.",
+  "schema": "ukemi-u4b-hyp/1",
+  "kind": "report",
+  "provenance": {
+    "tool": {
+      "rel": "scripts/census/u4b/u4b-hyp.mjs",
+      "sha256_lf": "65b0d8f9608969c670bd321d7613920c408ccf90bac4e067e990b93dad77fc25"
+    },
+    "node": "v24.15.0",
+    "event_id": "weth-2025-09-22"
+  },
+  "body": {
+    "event_id": "weth-2025-09-22",
+    "h3": {
+      "strata": [
+        {
+          "strate": 0,
+          "cell": "stratum 0",
+          "fresh": {
+            "n": 170,
+            "p": 170,
+            "qhat": "126184298996",
+            "qhat_is_max": true
+          },
+          "e2": {
+            "n": 363,
+            "k_covered": 361,
+            "atoms_at_zero": 344,
+            "ties_at_qhat": 0
+          },
+          "served": true,
+          "verdict": "OUI",
+          "null_law": {
+            "family": "beta-binomial",
+            "trials": 363,
+            "a": 170,
+            "b": 1
+          },
+          "p_value": {
+            "num": "65703",
+            "den": "141778",
+            "dec12": "0.463421687426"
+          },
+          "level": "5/100",
+          "expected_covered": {
+            "num": "20570",
+            "den": "57",
+            "dec12": "360.877192982456"
+          },
+          "coverage_observed": {
+            "num": "361",
+            "den": "363",
+            "dec12": "0.994490358126"
+          },
+          "coverage_nominal": {
+            "num": "99",
+            "den": "100",
+            "dec12": "0.990000000000"
+          },
+          "coverage_expected_h0": {
+            "num": "170",
+            "den": "171",
+            "dec12": "0.994152046783"
+          },
+          "shortfall_vs_expected": {
+            "num": "-7",
+            "den": "57",
+            "dec12": "-0.122807017543"
+          },
+          "coverage_gap_vs_nominal": {
+            "num": "-163",
+            "den": "36300",
+            "dec12": "-0.004490358126"
+          },
+          "barber_thm2_bound": "not_estimated"
+        },
+        {
+          "strate": 1,
+          "cell": "stratum 1",
+          "fresh": {
+            "n": 21,
+            "p": 22,
+            "qhat": null
+          },
+          "e2": {
+            "n": 148
+          },
+          "verdict": "UNDER_CALIB",
+          "served": false
+        },
+        {
+          "strate": 2,
+          "cell": "stratum 2",
+          "fresh": {
+            "n": 10,
+            "p": 11,
+            "qhat": null
+          },
+          "e2": {
+            "n": 46
+          },
+          "verdict": "UNDER_CALIB",
+          "served": false
+        },
+        {
+          "strate": 3,
+          "cell": "stratum 3",
+          "fresh": {
+            "n": 4,
+            "p": 5,
+            "qhat": null
+          },
+          "e2": {
+            "n": 8
+          },
+          "verdict": "UNDER_CALIB",
+          "served": false
+        }
+      ],
+      "pooled": {
+        "cell": "pooled class A",
+        "fresh": {
+          "n": 205,
+          "p": 204,
+          "qhat": "126184298996",
+          "qhat_is_max": false
+        },
+        "e2": {
+          "n": 565,
+          "k_covered": 554,
+          "atoms_at_zero": 509,
+          "ties_at_qhat": 0
+        },
+        "served": true,
+        "verdict": "OUI",
+        "null_law": {
+          "family": "beta-binomial",
+          "trials": 565,
+          "a": 204,
+          "b": 2
+        },
+        "p_value": {
+          "num": "439555230418920762043",
+          "den": "3422589578549738780512",
+          "dec12": "0.128427677444"
+        },
+        "level": "5/100",
+        "expected_covered": {
+          "num": "57630",
+          "den": "103",
+          "dec12": "559.514563106796"
+        },
+        "coverage_observed": {
+          "num": "554",
+          "den": "565",
+          "dec12": "0.980530973451"
+        },
+        "coverage_nominal": {
+          "num": "99",
+          "den": "100",
+          "dec12": "0.990000000000"
+        },
+        "coverage_expected_h0": {
+          "num": "102",
+          "den": "103",
+          "dec12": "0.990291262135"
+        },
+        "shortfall_vs_expected": {
+          "num": "568",
+          "den": "103",
+          "dec12": "5.514563106796"
+        },
+        "coverage_gap_vs_nominal": {
+          "num": "107",
+          "den": "11300",
+          "dec12": "0.009469026548"
+        },
+        "barber_thm2_bound": "not_estimated"
+      },
+      "served_strata": [
+        0
+      ],
+      "non_on_served_strata": [],
+      "h3_no_NON_on_served_strata": true
+    },
+    "h4": {
+      "threshold": "5/100",
+      "class_a_liquidated": {
+        "n": 47,
+        "multi_call": 2,
+        "fraction": {
+          "num": "2",
+          "den": "47",
+          "dec12": "0.042553191489"
+        },
+        "verdict": "OUI"
+      },
+      "all_liquidated": {
+        "n": 72,
+        "multi_call": 4,
+        "fraction": {
+          "num": "1",
+          "den": "18",
+          "dec12": "0.055555555555"
+        },
+        "verdict": "NON"
+      },
+      "reconciliation": {
+        "positions_reconciled": 73,
+        "positions_abstained": 0,
+        "calls_in_window": 77,
+        "calls_not_in_window": 0
+      },
+      "accounts_abstained": 0,
+      "pooled": {
+        "liquidated": 47,
+        "multi_call": 2,
+        "multi_call_fraction": {
+          "num": "2",
+          "den": "47",
+          "dec12": "0.042553191489"
+        },
+        "sum_y": "184718051809934",
+        "sum_after_first": "4818904377058",
+        "sum_deficit_apart": "0",
+        "share_sum": {
+          "num": "2409452188529",
+          "den": "92359025904967",
+          "dec12": "0.026087890868"
+        },
+        "share_median": {
+          "median": {
+            "num": "0",
+            "den": "1",
+            "dec12": "0.000000000000"
+          },
+          "lower_middle": {
+            "num": "0",
+            "den": "1",
+            "dec12": "0.000000000000"
+          },
+          "upper_middle": {
+            "num": "0",
+            "den": "1",
+            "dec12": "0.000000000000"
+          }
+        },
+        "multi_call_subset": {
+          "n": 2,
+          "share_sum": {
+            "num": "4818904377058",
+            "den": "11692220999533",
+            "dec12": "0.412146193375"
+          },
+          "share_median": {
+            "median": {
+              "num": "2627802833200540567076033",
+              "den": "5774010691726334777239820",
+              "dec12": "0.455108757759"
+            },
+            "lower_middle": {
+              "num": "4692720078061",
+              "den": "11439857243195",
+              "dec12": "0.410207922905"
+            },
+            "upper_middle": {
+              "num": "126184298997",
+              "den": "252363756338",
+              "dec12": "0.500009592613"
+            }
+          }
+        }
+      },
+      "strata": [
+        {
+          "strate": 0,
+          "liquidated": 27,
+          "multi_call": 1,
+          "multi_call_fraction": {
+            "num": "1",
+            "den": "27",
+            "dec12": "0.037037037037"
+          },
+          "sum_y": "1381065174771",
+          "sum_after_first": "126184298997",
+          "sum_deficit_apart": "0",
+          "share_sum": {
+            "num": "42061432999",
+            "den": "460355058257",
+            "dec12": "0.091367374474"
+          },
+          "share_median": {
+            "median": {
+              "num": "0",
+              "den": "1",
+              "dec12": "0.000000000000"
+            },
+            "lower_middle": {
+              "num": "0",
+              "den": "1",
+              "dec12": "0.000000000000"
+            },
+            "upper_middle": {
+              "num": "0",
+              "den": "1",
+              "dec12": "0.000000000000"
+            }
+          },
+          "multi_call_subset": {
+            "n": 1,
+            "share_sum": {
+              "num": "126184298997",
+              "den": "252363756338",
+              "dec12": "0.500009592613"
+            },
+            "share_median": {
+              "median": {
+                "num": "126184298997",
+                "den": "252363756338",
+                "dec12": "0.500009592613"
+              },
+              "lower_middle": {
+                "num": "126184298997",
+                "den": "252363756338",
+                "dec12": "0.500009592613"
+              },
+              "upper_middle": {
+                "num": "126184298997",
+                "den": "252363756338",
+                "dec12": "0.500009592613"
+              }
+            }
+          }
+        },
+        {
+          "strate": 1,
+          "liquidated": 16,
+          "multi_call": 1,
+          "multi_call_fraction": {
+            "num": "1",
+            "den": "16",
+            "dec12": "0.062500000000"
+          },
+          "sum_y": "54362935700966",
+          "sum_after_first": "4692720078061",
+          "sum_deficit_apart": "0",
+          "share_sum": {
+            "num": "4692720078061",
+            "den": "54362935700966",
+            "dec12": "0.086322050447"
+          },
+          "share_median": {
+            "median": {
+              "num": "0",
+              "den": "1",
+              "dec12": "0.000000000000"
+            },
+            "lower_middle": {
+              "num": "0",
+              "den": "1",
+              "dec12": "0.000000000000"
+            },
+            "upper_middle": {
+              "num": "0",
+              "den": "1",
+              "dec12": "0.000000000000"
+            }
+          },
+          "multi_call_subset": {
+            "n": 1,
+            "share_sum": {
+              "num": "4692720078061",
+              "den": "11439857243195",
+              "dec12": "0.410207922905"
+            },
+            "share_median": {
+              "median": {
+                "num": "4692720078061",
+                "den": "11439857243195",
+                "dec12": "0.410207922905"
+              },
+              "lower_middle": {
+                "num": "4692720078061",
+                "den": "11439857243195",
+                "dec12": "0.410207922905"
+              },
+              "upper_middle": {
+                "num": "4692720078061",
+                "den": "11439857243195",
+                "dec12": "0.410207922905"
+              }
+            }
+          }
+        },
+        {
+          "strate": 2,
+          "liquidated": 4,
+          "multi_call": 0,
+          "multi_call_fraction": {
+            "num": "0",
+            "den": "1",
+            "dec12": "0.000000000000"
+          },
+          "sum_y": "128974050934197",
+          "sum_after_first": "0",
+          "sum_deficit_apart": "0",
+          "share_sum": {
+            "num": "0",
+            "den": "1",
+            "dec12": "0.000000000000"
+          },
+          "share_median": {
+            "median": {
+              "num": "0",
+              "den": "1",
+              "dec12": "0.000000000000"
+            },
+            "lower_middle": {
+              "num": "0",
+              "den": "1",
+              "dec12": "0.000000000000"
+            },
+            "upper_middle": {
+              "num": "0",
+              "den": "1",
+              "dec12": "0.000000000000"
+            }
+          },
+          "multi_call_subset": {
+            "n": 0,
+            "share_sum": null,
+            "share_median": null
+          }
+        },
+        {
+          "strate": 3,
+          "liquidated": 0,
+          "multi_call": 0,
+          "multi_call_fraction": null,
+          "sum_y": "0",
+          "sum_after_first": "0",
+          "sum_deficit_apart": "0",
+          "share_sum": null,
+          "share_median": null,
+          "multi_call_subset": {
+            "n": 0,
+            "share_sum": null,
+            "share_median": null
+          }
+        }
+      ]
+    },
+    "h6": {
+      "verdict": "OUI",
+      "max_lag_bound": 3,
+      "anchor": {
+        "block": 23414669,
+        "price": "444800000000",
+        "source": "answer_updated_pre_b0",
+        "book_fallback_d_n_path": false
+      },
+      "series": {
+        "n_updates": 42,
+        "monotone_blocks": true,
+        "phase_change": false
+      },
+      "served_price_lines": 35,
+      "served_null_values": 0,
+      "served_blocks": {
+        "n": 58,
+        "in_events": 57,
+        "equal_to_p0": 1,
+        "outside": 0,
+        "lag_histogram": {
+          "0": 48,
+          "1": 9,
+          "2": 1
+        },
+        "matched_on_anchor": 1,
+        "max_lag": 2,
+        "lag_over_bound": 0,
+        "lag_undefined": 0,
+        "violations": []
+      },
+      "price_at_call_block": {
+        "n": 35,
+        "in_events": 35,
+        "equal_to_p0": 0,
+        "outside": 0,
+        "lag_histogram": {
+          "0": 31,
+          "1": 4
+        },
+        "matched_on_anchor": 0,
+        "max_lag": 1,
+        "lag_over_bound": 0,
+        "lag_undefined": 0,
+        "violations": []
+      },
+      "bracket_condition_all_served_in_events_or_p0": true,
+      "min_served": "412072000000",
+      "min_events": "412072000000",
+      "sample_note": "served values are sampled at liquidation blocks only (ADR-U4:106-107 bias, declared)"
+    },
+    "h2": {
+      "strata": [
+        {
+          "strate": 0,
+          "n": 170,
+          "n_min": 100,
+          "under_calib": false
+        },
+        {
+          "strate": 1,
+          "n": 21,
+          "n_min": 100,
+          "under_calib": true
+        },
+        {
+          "strate": 2,
+          "n": 10,
+          "n_min": 100,
+          "under_calib": true
+        },
+        {
+          "strate": 3,
+          "n": 4,
+          "n_min": 100,
+          "under_calib": true
+        }
+      ]
+    },
+    "h2bis": {
+      "strata": [
+        {
+          "strate": 0,
+          "n": 170,
+          "p": 170,
+          "qhat": "126184298996",
+          "interior": false,
+          "n_ge_199": false,
+          "qhat_is_stratum_max": true
+        }
+      ]
+    },
+    "q0_rule_failures": {
+      "crossed_yhat_zero": 1,
+      "yhat_zero_liquidated": 1,
+      "without_crossing": [
+        {
+          "address": "0x0eed76536a7c2bb4b119e3e8a4c1edefc53ff9c1",
+          "y": "2090575766"
+        }
+      ],
+      "crossed_yhat_zero_liquidated": []
+    },
+    "h5": {
+      "population_mono_weth": 9034,
+      "k_h5": 100,
+      "meets_k_h5": true,
+      "class_a_n": 205
+    },
+    "h7": {
+      "pstar_is_anchor": 27
+    },
+    "labels": {
+      "label_lines": 73,
+      "labels_no_quorum_unresolved": 0,
+      "residual_no_quorum": 0,
+      "deficit_base_no_price_non_usdt": 0,
+      "other_event_lines": 0
+    },
+    "clause_359": {
+      "h3_no_NON_on_served_strata": true,
+      "labels_no_quorum_unresolved": 0,
+      "condition_satisfied": true,
+      "h3_pooled_verdict_outside_condition": "OUI"
+    },
+    "summary": [
+      "U-4b hypothesis report, episode weth-2025-09-22: offline tool; prereg lines 95-106 and 359; H-3, H-4 and H-5 are reporting thresholds, nothing served depends on them (prereg line 106).",
+      "H-3 exchangeability across episodes: exact beta-binomial lower-tail test at the pre-registered 5/100 level; k = e2 class-A exceedances at or below the fresh qhat; null law BetaBinomial(n_e2, p, n+1-p); atoms at 0 counted covered (conservative).",
+      "H-3 stratum 0: OUI (k=361 of n_e2=363, expected 360.877192982456 under exchangeability, p-value 0.463421687426; fresh n=170, p=170, qhat=126184298996). C-11: \"un OUI de H-3 ne licencie rien de plus\"",
+      "H-3 stratum 1: UNDER_CALIB (fresh n=21 below nMin=100: qhat null, stratum not served, not tested).",
+      "H-3 stratum 2: UNDER_CALIB (fresh n=10 below nMin=100: qhat null, stratum not served, not tested).",
+      "H-3 stratum 3: UNDER_CALIB (fresh n=4 below nMin=100: qhat null, stratum not served, not tested).",
+      "H-3 pooled class A: OUI (k=554 of n_e2=565, expected 559.514563106796 under exchangeability, p-value 0.128427677444; fresh n=205, p=204, qhat=126184298996). C-11: \"un OUI de H-3 ne licencie rien de plus\"",
+      "H-4 multi-call: 2 of 47 liquidated class-A accounts have more than one LiquidationCall (OUI against 5/100); all liquidated: 4 of 72 (NON); positions reconciled exactly: 73.",
+      "H-4 stratum 0: liquidated 27, multi-call 1; share of Y after the first call: sum 0.091367374474, median 0.000000000000; deficit reported apart: 0 (base 8-dec).",
+      "H-4 stratum 1: liquidated 16, multi-call 1; share of Y after the first call: sum 0.086322050447, median 0.000000000000; deficit reported apart: 0 (base 8-dec).",
+      "H-4 stratum 2: liquidated 4, multi-call 0; share of Y after the first call: sum 0.000000000000, median 0.000000000000; deficit reported apart: 0 (base 8-dec).",
+      "H-4 stratum 3: liquidated 0, multi-call 0; share of Y after the first call: sum n/a, median n/a; deficit reported apart: 0 (base 8-dec).",
+      "H-6 served series: OUI; 58 served values at liquidation blocks: 57 in the AnswerUpdated series, 1 equal to the anchor p0 (source answer_updated_pre_b0), 0 outside; max lag 2 events (bound 3); sample biased toward liquidation blocks.",
+      "H-2 stratum 0: n=170 (served).",
+      "H-2 stratum 1: n=21 (under_calib, not served).",
+      "H-2 stratum 2: n=10 (under_calib, not served).",
+      "H-2 stratum 3: n=4 (under_calib, not served).",
+      "H-2bis stratum 0: qhat is the stratum max (n below 199), reported as is.",
+      "Next to qhat0 (clause 3): crossed_yhat_zero=1; yhat=0 and liquidated: 1 accounts (1 without crossing, 0 crossed with yhat=0).",
+      "H-5: mono-collateral WETH population 9034 against k_H5 = nMin = 100 (met); class-A n=205.",
+      "H-7: pstar_is_anchor=27 (the identity HF == hf0 at p*=p0 is exercised by the frozen scorer tests).",
+      "Labels: 73 label lines for the episode; repayment_base null (labels_no_quorum, unresolved): 0; residual no_quorum: 0; deficit_base_no_price on a non-USDT asset: 0.",
+      "Clause 359 input (pre-registered U-6 condition, applied by the orchestrator, decision 137): no served stratum at NON = true; unresolved labels_no_quorum = 0; condition satisfied = true. Pooled class-A H-3 verdict OUI, reported outside this condition."
+    ]
+  },
+  "body_digest": "8ad53d1a83601045599f1117d69f1675a36112b856074a7902217d3f71e1d44f"
+}

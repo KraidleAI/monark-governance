@@ -1,12 +1,13 @@
 # MONARK — CI gates (instantiated from an internal CI template;
 # concrete tools fixed by ADR-M003 D9 and its dated addenda).
-# Invariant (not parameterisable): EVERY job is BLOCKING. No `continue-on-error` (test 38 checks this
-# mechanically, ADR-M003 D11).
+# Invariant (not parameterisable): EVERY job is BLOCKING and UNCONDITIONAL. No `continue-on-error` and no
+# conditional `if` key on any job or step (test 38 checks BOTH mechanically; ADR-M003 D11 / D9 octies).
 #
 # Provenance of pinned action SHAs (never guessed — GitHub API `git/ref/tags/<tag>`, cross-checked
 # on 2026-09-05 and re-verified by independent review on 2026-09-06):
 #   actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
 #   actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+#   actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1 (SBOM upload, Lot CRA-B; gh api repos/actions/upload-artifact/git/ref/tags/v7.0.1 -> object.type=commit, measured 2026-09-19)
 #
 # Delivery flow (ADR-M003 D9 bis): every lot lands through a pull request; `main` is protected.
 # A direct push produces no run (and `github.base_ref` would be empty for r25) — by design.
@@ -20,6 +21,11 @@ on:
 jobs:
   g1-controle-generation:
     runs-on: ubuntu-latest
+    # timeout-minutes on EVERY job (checkpoint-2 V-1(b)): a hung run (e.g. an unbounded recorder retry) cannot pend
+    # a job toward GitHub's 6h ceiling. Bound = measured job wall-time ×3, capped ≤ 20 (measured 2026-09-19: g3
+    # ~62s incl. npm ci ~16s + ~31s tests ⇒ 10; the other jobs are faster ⇒ 5). --test-timeout (package.json) is the
+    # finer per-test guard; this is the coarse per-job backstop.
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Pinned model identifiers only (R-1/R-4 — a bare tier resolves platform-side)
@@ -27,6 +33,7 @@ jobs:
 
   r25-taille-de-lot:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -34,7 +41,15 @@ jobs:
       - name: Bounded lot size (R-25 — DORA 2024 pp. 39-40, lot inflation degrades stability)
         env:
           VIBEGATES_PR_LIMIT: "1205" # ADR-M003 D9 (R-23: measured median of the 3 Phase 1 lots)
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
+          # ADR-M003 D9 octies (investor decision 169, 2026-09-24): one-off waiver for integration PR 89 only
+          # (five days of lots, each within the bound in its own cycle). A shell guard, never an `if:` directive
+          # (root test 38: a skipped required check counts as passing). Removed in the commit after the merge.
+          if [ "$PR_NUMBER" = "89" ]; then
+            echo "::notice::R-25 bound waived for integration PR 89 only (ADR-M003 D9 octies)."
+            exit 0
+          fi
           case "$VIBEGATES_PR_LIMIT" in
             ''|*[!0-9]*)
               echo '::error::R-25 not configured: set VIBEGATES_PR_LIMIT by a sourced ADR (R-23). Fail-closed.'
@@ -43,9 +58,19 @@ jobs:
           # fetch-depth: 0 above provides the base history. A shallow clone (--depth=1) makes the diff fail
           # with "no merge base" (exit 128), which the `|| exit 1` below turns into an explicit fail-closed
           # (measured by the G2 delta review, TEST F, 2026-09-06).
-          # Exclusions (ADR-M003 D9 + D9 quater): reproducible generated S2 artefacts, per-lot governance
-          # reports G1/G2 (governance, not code), and the lockfile.
-          STAT=$(git diff --shortstat "origin/${{ github.base_ref }}...HEAD" -- . ':(exclude)packages/*/docs/S2-*' ':(exclude)docs/G1-lot-*.md' ':(exclude)docs/G2-lot-*.md' ':(exclude)package-lock.json') || {
+          # Exclusions (ADR-M003 D9 + D9 quater + D9 sexies + D9 septies): reproducible generated S2 artefacts,
+          # ALL governance docs under docs/**/*.md (D9 septies — R-25 protects CODE review; docs are reviewed by
+          # the checkpoints; this subsumes the G1/G2 excludes above, kept for the D9 quater invariant; docs/**/*.mjs
+          # STAYS counted), the lockfile, and sha-pinned DATA SERIES (fixtures/**/*.{json,jsonl,csv} and
+          # apps/sentinel/test/fixtures/** — D9 sexies). The :(glob) magic is MANDATORY: in git's default pathspec
+          # mode `**` is not special and `*` crosses `/`, so the bare `fixtures/**/*.json` / `docs/**/*.md` match
+          # wrong/nothing (measured 2026-09-19: bare `git ls-files` => 0 / 73; `:(glob)docs/**/*.md` => 230). Every
+          # excluded data file is declared+hashed same-dir (root test `series_pinned_are_declared_and_hashed`); the
+          # docs/**/*.md pathspec is asserted by test 38 (4ter) and whitelisted from that series set-equality.
+
+          # Bell data series root apps/bell/test/fixtures/series/**/*.{json,jsonl,csv} (ADR-T1aii C-14, D9 sexies) is
+          # excluded too; each pinned file is declared+hashed same-dir (root test `series_pinned_are_declared_and_hashed`).
+          STAT=$(git diff --shortstat "origin/${{ github.base_ref }}...HEAD" -- . ':(exclude)packages/*/docs/S2-*' ':(exclude)docs/G1-lot-*.md' ':(exclude)docs/G2-lot-*.md' ':(exclude,glob)docs/**/*.md' ':(exclude)package-lock.json' ':(exclude,glob)fixtures/**/*.json' ':(exclude,glob)fixtures/**/*.jsonl' ':(exclude,glob)fixtures/**/*.csv' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.json' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.jsonl' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.csv' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.json' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.jsonl' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.csv') || {
             echo '::error::Gate R-25: diff not computable (no merge base?). Fail-closed.'
             exit 1
           }
@@ -55,9 +80,33 @@ jobs:
             echo "::error::BLOCKED (VibeGates R-25): $CHANGED changed lines exceed the ADR bound of $VIBEGATES_PR_LIMIT. Split the PR."
             exit 1
           fi
+      # Public-mirror export hygiene (Lot CI-EXPORT-CHECK; item "export:check absent from CI",
+      # docs/G7-lot-export-clean.md / CHANTIERS:221; ADR-M004 D7 septies). export:check runs HERE, inside the
+      # internal-only lot-size job that scripts/export-public.mjs derivePublicWorkflow STRIPS from the derived
+      # public workflow: it is a SOURCE-repo gate that reds on the exported mirror (its config
+      # scripts/export-exclude-tests.json is not whitelisted -> exit 1, measured), the same "internal concern,
+      # not a storefront one" bucket as the lot-size gate above. A step in a retained job (g3/g6) would be copied
+      # byte-identical (test 42(f')) into the public mirror, where it reds. Global scope (no --scope): measured
+      # exit 0 on this base, 0 forbidden path / 0 non-exempt French, all scopes (ADR-M010). Zero-dependency node
+      # script, so setup-node alone suffices (no npm ci). Fail-closed: no continue-on-error.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      # Source-repo English-only gate (Lot LANG-GATE-CI; ADR-M004 "Addendum LANG-GATE-CI"). Runs HERE in the
+      # internal-only lot-size job that derivePublicWorkflow STRIPS. Placement is doctrine + symmetry with export:check,
+      # NOT a mirror-red forcing: unlike export:check, lang:gate does not red on the exported mirror (package.json,
+      # scripts/lang-gate.mjs and scripts/lang-exempt.json are whitelisted and the mirror is English-only --
+      # measured exit 0 on the mirror). Runs BEFORE export:check: export-public.mjs imports lang-gate.mjs, so
+      # gating the lower-level module first reports a stray token as a precise lang:gate hit. Reuses setup-node
+      # above; zero-dependency node script, no npm ci. Fail-closed: no continue-on-error, no if:.
+      - name: Language gate (source-repo English-only invariant, ADR-M004 D7; internal, stripped from the public workflow)
+        run: npm run lang:gate
+      - name: Public-mirror export hygiene check (ADR-M004 D7 septies; source repo only, stripped from the public workflow)
+        run: npm run export:check
 
   g3-verification:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -71,6 +120,7 @@ jobs:
 
   g4-architecture:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -83,6 +133,7 @@ jobs:
 
   g6-compliance:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -90,5 +141,43 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci
+      # SBOM (CRA no-regret, ADR-CRA-B L-3): a CycloneDX bill of materials. --package-lock-only makes the
+      # COMPONENT SET reproducible (183 components, CycloneDX 1.5, measured 2026-09-19); without it the count
+      # drifts with the installed tree. serialNumber and metadata.timestamp are per-run, so the bytes are not
+      # reproducible. Not published to a tag here (release trigger, out of this lot). scripts/sbom.mjs mirrors
+      # THIS command locally; its SBOM_COMMAND is asserted against this run line by ci_publishes_sbom.
+      - name: Generate CycloneDX SBOM (npm sbom; ADR-CRA-B L-3)
+        run: npm sbom --sbom-format cyclonedx --omit dev --package-lock-only > sbom.cdx.json
+      - name: Upload SBOM artifact (per run)
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom-cyclonedx
+          path: sbom.cdx.json
+          if-no-files-found: error
       - name: Dependency audit (high and above = failure)
         run: npm audit --audit-level=high
+
+  g3-site:
+    runs-on: ubuntu-latest
+    # Site build gate (ADR-M003 D9 octies). `next build` TYPECHECKS the apps/site TSX (excluded from the root
+    # `tsc --noEmit`, tsconfig.json:23-33 — the ONLY program that sees the site .tsx) and renders /fleet; the
+    # O-2 step then asserts the built HTML body carries each served note. Wired LOCALLY: this workflow triggers
+    # on pull_request only and the local --no-ff merges open no PR, so the composition is replayed from these
+    # `run:` lines locally at G2 / checkpoint-2, never validated by these merges. Blocking CONDITIONAL: it reds
+    # without blocking until g3-site joins the closed list of required status checks (branch protection, an
+    # orchestrator action; JOURNAL-PROVENANCE). timeout-minutes: measured job wall-time x3, capped <= 20
+    # (2026-09-20: npm ci ~15 s + next build ~22 s ~= 37 s => ~2 min => 5; parity with g1/g4/g6). 10 only on a
+    # sourced re-measure if the first cold run exceeds 100 s.
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install (lockfile must be present and consistent)
+        run: npm ci
+      - name: Build the storefront (typechecks apps/site TSX, invisible to the root tsc; a stray type reds)
+        run: npm run build -w @monark/site
+      - name: O-2 — assert the built /fleet HTML body carries each served note (scripts/assert-fleet-html.mjs)
+        run: node scripts/assert-fleet-html.mjs

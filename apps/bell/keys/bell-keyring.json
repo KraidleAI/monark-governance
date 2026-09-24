@@ -1,0 +1,1 @@
+{"keys":[{"jwk":{"crv":"Ed25519","kty":"OKP","x":"JboRWhET6Prllqy6-slApqtgnJAqrogVFEC0PRMTT5c"},"key_id":"30fd26e80efac0d93e1f82c5f4372354ec71e5294f36d946d5167ce0ef39c672","status":"active","valid_from_seq":1}],"schema":"bell-keyring-v1"}

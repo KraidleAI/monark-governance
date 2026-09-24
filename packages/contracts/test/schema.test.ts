@@ -6,6 +6,7 @@ import type { ValidateFunction } from "ajv";
 import {
   validAttestedPrice,
   validAttestedFlow,
+  validAttestedBook,
   validPrediction,
   validVerdictSet,
   validVerdictInterval,
@@ -25,6 +26,7 @@ function load(name: string): any {
 const ID = {
   ap: "https://monark.local/schemas/attested-price.schema.json",
   af: "https://monark.local/schemas/attested-flow.schema.json",
+  ab: "https://monark.local/schemas/attested-book.schema.json",
   pred: "https://monark.local/schemas/prediction.schema.json",
   cv: "https://monark.local/schemas/coverage-verdict.schema.json",
   gd: "https://monark.local/schemas/gate-decision.schema.json",
@@ -49,6 +51,7 @@ addFormats(ajv);
 ajv.addSchema([
   load("attested-price.schema.json"),
   load("attested-flow.schema.json"),
+  load("attested-book.schema.json"),
   load("prediction.schema.json"),
   load("coverage-verdict.schema.json"),
   load("gate-decision.schema.json"),
@@ -60,7 +63,7 @@ function validator(id: string): ValidateFunction {
   return v;
 }
 
-test("all five schemas compile (valid JSON Schema; the $ref resolves)", () => {
+test("all six schemas compile (valid JSON Schema; the $ref resolves)", () => {
   assert.doesNotThrow(() => {
     for (const id of Object.values(ID)) validator(id);
   });
@@ -78,6 +81,8 @@ test("valid fixtures pass their schema", () => {
   assert.equal(vcv(validVerdictInterval()), true, JSON.stringify(vcv.errors));
   const vgd = validator(ID.gd);
   assert.equal(vgd(validGateDecision()), true, JSON.stringify(vgd.errors));
+  const vab = validator(ID.ab);
+  assert.equal(vab(validAttestedBook()), true, JSON.stringify(vab.errors));
 });
 
 test("schema rejects an unknown key (additionalProperties:false)", () => {
@@ -138,4 +143,101 @@ test("attested-flow rejects an unknown window and an unknown top-level key (clos
   const af = validAttestedFlow();
   assert.equal(validator(ID.af)({ ...af, window: "7d" }), false);
   assert.equal(validator(ID.af)({ ...af, peg_score: 0.9 }), false); // additionalProperties:false
+});
+
+// ---- AttestedBook (ADR-U1b D2/D2ter/D4) — the frozen source of truth, Ajv-executed.
+
+test("attested-book rejects a residual OUTSIDE the closed enum, an empty residual, and a duplicate (ADR-U1b D2ter)", () => {
+  const vab = validator(ID.ab);
+  assert.equal(vab({ ...validAttestedBook(), residual: ["price_as_read"] }), false); // out of the closed enum
+  assert.equal(vab({ ...validAttestedBook(), residual: [] }), false); // minItems:1 — no_third_party_verifier always present (C-10)
+  assert.equal(vab({ ...validAttestedBook(), residual: ["no_third_party_verifier", "no_third_party_verifier"] }), false); // uniqueItems
+});
+
+// V-6 (b), investor decision 2026-09-19: the frozen schema itself must FORCE `residual` to carry
+// `no_third_party_verifier` (ADR-U1b D2ter) via `"contains": {"const": ...}`, so the invariant is enforced,
+// not merely stated in the description. Before V-6 (b) an in-enum, unique, non-empty residual that OMITTED
+// it was ACCEPTED (the gap checkpoint-2 flagged). Mutant (delete the schema `contains` line) reddens (b)
+// below AND the contracts_frozen guard (schema sha != manifest).
+test("attested_book_residual_always_names_no_third_party_verifier", () => {
+  const vab = validator(ID.ab);
+  const base = validAttestedBook();
+  // (a) a residual that CARRIES no_third_party_verifier passes — alone, and alongside another residual.
+  assert.equal(vab({ ...base, residual: ["no_third_party_verifier"] }), true, JSON.stringify(vab.errors));
+  assert.equal(vab({ ...base, residual: ["no_third_party_verifier", "oracle_price_as_read"] }), true, JSON.stringify(vab.errors));
+  // (b) an in-enum, unique, non-empty residual that OMITS no_third_party_verifier is REFUSED, and the
+  // failing keyword is `contains` (enum/minItems/uniqueItems all pass here) — proof the NEW constraint bites.
+  assert.equal(vab({ ...base, residual: ["oracle_price_as_read"] }), false, "residual omitting no_third_party_verifier must be refused");
+  assert.ok(vab.errors?.some((e) => e.keyword === "contains"), `refusal must come from the contains keyword: ${JSON.stringify(vab.errors)}`);
+  assert.equal(vab({ ...base, residual: ["oracle_price_as_read", "rpc_quorum_2_keyless"] }), false, "multi-element residual still refused when no_third_party_verifier is absent");
+});
+
+// value ⇔ reason≠null (ADR-U1b D4, C-1): BOTH uncoupled directions rejected by the frozen schema `oneOf`.
+test("attested_book_abstain_coupling", () => {
+  const vab = validator(ID.ab);
+  const base = validAttestedBook();
+  // the two COUPLED shapes are the only valid ones:
+  assert.equal(vab({ ...base, abstain: { value: false, reason: null } }), true, "not-abstained ⇔ reason null");
+  assert.equal(vab({ ...base, abstain: { value: true, reason: "no_quorum" } }), true, JSON.stringify(vab.errors));
+  assert.equal(vab({ ...base, abstain: { value: true, reason: "abi_mismatch" } }), true);
+  assert.equal(vab({ ...base, abstain: { value: true, reason: "unfinalized_block" } }), true);
+  // both UNCOUPLED directions are refused:
+  assert.equal(vab({ ...base, abstain: { value: true, reason: null } }), false, "value true but reason null must fail");
+  assert.equal(vab({ ...base, abstain: { value: false, reason: "no_quorum" } }), false, "value false but reason non-null must fail");
+  // a reason outside the enum is refused too:
+  assert.equal(vab({ ...base, abstain: { value: true, reason: "boom" } }), false);
+});
+
+test("attested-book rejects a non-decimal base amount, a bad provider method, a sub-quorum, and an unknown key (closed)", () => {
+  const b = validAttestedBook();
+  assert.equal(validator(ID.ab)({ ...b, eligible: { ...b.eligible, debt_base: 1000 } }), false); // uint256 base = decimal STRING
+  assert.equal(validator(ID.ab)({ ...b, providers: [{ name: "x", method: "trace_call", ok: true }] }), false); // method enum
+  assert.equal(validator(ID.ab)({ ...b, quorum: { required: 1, achieved: 0 } }), false); // required >= 2
+  assert.equal(validator(ID.ab)({ ...b, block: { number: 1, hash: "a".repeat(64) } }), false); // block hash needs 0x
+  assert.equal(validator(ID.ab)({ ...b, price: "1" }), false); // additionalProperties:false — no price on the envelope
+});
+
+test("attested_book_description_may_be_empty", () => {
+  // ADR-U1b D2 amend (2026-09-19, pre-freeze): oracle_sources[].description is `^[ -~]*$` — the EMPTY
+  // string is admitted so a CONCORDANT-revert oracle description ("" at the digest, ADR-U1 D1 amendment,
+  // measured on-chain GHO fact) stays schema-valid; non-ASCII is still refused (still ASCII-printable).
+  const vab = validator(ID.ab);
+  const b = validAttestedBook();
+  const withDesc = (d: string) => ({
+    ...b,
+    oracle_sources: [{ asset: "0x" + "1".repeat(40), source: "0x" + "2".repeat(40), description: d }],
+  });
+  assert.equal(vab(withDesc("")), true, "empty description accepted (concordant revert, ADR-U1 D1)");
+  assert.equal(vab(withDesc("x")), true, "normal description accepted");
+  assert.equal(vab(withDesc("\u00e9")), false, "non-ASCII description refused (still ^[ -~]*$)");
+});
+
+// O-2 (ADR-U1b D2bis V-4, lot U-1b-b): SEMANTIC ajv probes on the FROZEN schema — the value constraints the
+// closed-check cannot express. Each asserts valid===false AND the EXPECTED error path/keyword, so removing that
+// one schema keyword (a mutant) reddens exactly this probe.
+test("attested_book_schema_subject_must_match_pattern (S1)", () => {
+  const vab = validator(ID.ab);
+  assert.equal(vab({ ...validAttestedBook(), subject: "https://monarkgate.tech" }), false, "a subject with no path segment (empty group) is refused");
+  assert.ok(vab.errors?.some((e) => e.instancePath === "/subject" && e.keyword === "pattern"), `refusal must be a subject pattern error: ${JSON.stringify(vab.errors)}`);
+});
+
+test("attested_book_schema_oracle_sources_unique (S2)", () => {
+  const vab = validator(ID.ab);
+  const s = { asset: "0x" + "1".repeat(40), source: "0x" + "2".repeat(40), description: "x" };
+  assert.equal(vab({ ...validAttestedBook(), oracle_sources: [s, { ...s }] }), false, "a duplicate oracle_source is refused");
+  assert.ok(vab.errors?.some((e) => e.keyword === "uniqueItems" && e.instancePath === "/oracle_sources"), `refusal must be a uniqueItems error: ${JSON.stringify(vab.errors)}`);
+});
+
+test("attested_book_schema_providers_min_items (S3)", () => {
+  const vab = validator(ID.ab);
+  assert.equal(vab({ ...validAttestedBook(), providers: [] }), false, "an empty providers array is refused (minItems:1)");
+  assert.ok(vab.errors?.some((e) => e.keyword === "minItems" && e.instancePath === "/providers"), `refusal must be a minItems error: ${JSON.stringify(vab.errors)}`);
+});
+
+test("attested_book_schema_required_key_missing (S6)", () => {
+  const vab = validator(ID.ab);
+  const b = { ...validAttestedBook() } as Record<string, unknown>;
+  delete b["book_digest"];
+  assert.equal(vab(b), false, "a missing required key is refused");
+  assert.ok(vab.errors?.some((e) => e.keyword === "required" && (e.message ?? "").includes("book_digest")), `refusal must name the missing required key: ${JSON.stringify(vab.errors)}`);
 });

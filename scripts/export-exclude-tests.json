@@ -1,4 +1,20 @@
 {
-  "reason": "governance-only tests (ADR-M004 D7 addendum 2026-09-06): they read files excluded from the public export",
-  "tests": ["packages/hikae/test/s2.test.ts"]
+  "reason": "governance/upcoming-only tests (ADR-M004 D7 addendum 2026-09-06): each reads or imports a file the public export omits (a governance doc excluded by the D7 blacklist, an upcoming scripts/census module that is not a public surface, or the export-excluded U-4b scores fixture apps/sentinel/test/fixtures/ukemi/u4b/U4b-scores-e2.jsonl of scripts/export-exclude-data.json). U-4b-2a adds two: ukemi-served-strateof.test.ts (imports scripts/census/u4b + reads the fixture) and gate-liq-artifact.test.ts (reads the fixture as the real-artifact branchement proof). U-4b-1b-0 adds three: u4b-discover.test.ts and u4b-liquidation-logs.test.ts (import scripts/census/u4b) and ukemi-record-guard-binding.test.ts (binds the course to the prereg file). U-4b-1b-2 adds two: u4b-select-episode.test.ts (imports scripts/census/u4b/u4b-select-episode.mjs + liquidation-logs.mjs, the AVAL episode selector) and u4b-oracle-path.test.ts (imports scripts/census/u4-oracle-path.mjs + u4-guard.mjs, the parameterised D_e prober — not a public surface). Checkpoint-2 adds one: u4b-chain.test.ts (imports scripts/census/u4b runDiscover/runSelect/runFillTs, the committed real chain). U-5a adds one: ukemi-producer-oracle.test.ts (imports the frozen scorer scripts/census/u4b + reads the export-excluded U-4b book/scores fixtures — the fromRealizedBook equality oracle A/B). U-4b-1b-4 adds one: u4b-probe-cutoff.test.ts (imports scripts/census/u4b/u4b-probe-cutoff.mjs + scripts/census/u4-oracle-path.mjs, the course probe (d) - not a public surface). U-4b-STATS-1 adds one: u4b-hyp.test.ts (imports scripts/census/u4b/u4b-hyp.mjs + the frozen scorer, reads the export-excluded U-4b scores/oracle fixtures and the prereg - the offline H-3/H-4/H-6 tools and the report feeding the pre-registered U-6 condition).",
+  "tests": [
+    "packages/hikae/test/s2.test.ts",
+    "apps/sentinel/test/ukemi-u4-governance.test.ts",
+    "apps/sentinel/test/ukemi-u4-scores.test.ts",
+    "apps/sentinel/test/ukemi-u4b-scores.test.ts",
+    "apps/sentinel/test/ukemi-served-strateof.test.ts",
+    "apps/harness/test/gate-liq-artifact.test.ts",
+    "apps/sentinel/test/u4b-discover.test.ts",
+    "apps/sentinel/test/u4b-liquidation-logs.test.ts",
+    "apps/sentinel/test/ukemi-record-guard-binding.test.ts",
+    "apps/sentinel/test/u4b-select-episode.test.ts",
+    "apps/sentinel/test/u4b-oracle-path.test.ts",
+    "apps/sentinel/test/u4b-chain.test.ts",
+    "apps/sentinel/test/ukemi-producer-oracle.test.ts",
+    "apps/sentinel/test/u4b-probe-cutoff.test.ts",
+    "apps/sentinel/test/u4b-hyp.test.ts"
+  ]
 }

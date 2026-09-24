@@ -1,0 +1,29 @@
+{
+  "symbol": "SPYx",
+  "founding_pool": {
+    "foundingPoolId": "Fae5dWVntUt6zbWu2voXxioDpMii7SqQwtsxBmoVCsHR",
+    "vaultBase": "EfmaMxuPJaU914gV9N8Z2sDTp249AtEASTLDZdhRsN37",
+    "vaultQuote": "5NbsTM8qKWA65oRjZpMARnnxpeR4rGiGdG9vPdCD3sem",
+    "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "quoteDec": 6,
+    "programId": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+    "dex": "unknown-program",
+    "quote_class": "usd",
+    "executable": true,
+    "authority_kind": "program"
+  },
+  "discovery_enumeration": "helius-gtfa-mono-operator",
+  "sampled_tx": 15000,
+  "window_total_tx": "unknown (>= floor)",
+  "vault_share_of_sample": {
+    "EfmaMxuPJaU914gV9N8Z2sDTp249AtEASTLDZdhRsN37": 0.45286666666666664,
+    "AixNGcZ8AUTqkt4HjMhxniQgHoE5APq7WEnig8ksWwGS": 0.26066666666666666,
+    "Cj3y7ixuKH5FR5xKBLbLDk9Mze33jrwWUvHbZL6qyaPn": 0.2478,
+    "Hfpwtfbjxtd1CayUHYkqe2S1aim5uYCjbFSEFN6qRokj": 0.0856,
+    "H51quEv6jy3nRKSNiradTrJFS9e9kbrvAJdtrbwGHpoT": 0.08413333333333334,
+    "98teFGQZSwcB6xexs3SiZ5ZBTUFyYM1Ls2URgehE8h7C": 0.07153333333333334,
+    "EoJb3b3Vt56G4zzHE4ZwnXnLkhJDwnDkNLCuxdCdAWHy": 0.0612
+  },
+  "candidates_below_threshold_count": 3558,
+  "measure_note": "In-repo committed measure (checkpoint-1 C-4 served input): founding_pool == FOUNDING_POOLS[SPYx] field-by-field (bell_founding_registry_equals_discovery_measure). vault_share_of_sample lists every vault at/above FOUNDING_DISCOVERY_THRESHOLD (0.05); founding_pool is the top-tally vault, its quote paired by owner. candidates_below_threshold reduced to a count; the full CLI DiscoveryFile (complete below-threshold address list) is the sha-pinned out-of-tree brut (see PROVENANCE-founding-discovery.md)."
+}

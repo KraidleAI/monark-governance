@@ -1,0 +1,10 @@
+{
+  "name": "@monark/bell",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MONARK Bell (ADR-B0) — tokenized-securities witness. scripts/ holds the signed publication chain (lot T-1b: bell-chain, bell-publish, bell-verify) and keys/ its committed public keyring; src/ holds the off-tool collector (lot T-1a: session gap (i) and halt delta (ii) from first-hand on-chain fills + the NYSE halt CSV, canonical digest), kept in the governance tree until its export lot. Node built-ins plus the single budgeted client @monark/rpc-guard (GARDE-HELIUS-1b); never imports apps/harness/src.",
+  "dependencies": {
+    "@monark/rpc-guard": "0.0.0"
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "$comment": "Committed, hashed facts about the SERVED Bell host, rendered by /bell and /bell/method through apps/site/lib/bell-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json (lot BELL-SERVED-1; decision 155). Written by scripts/sync-bell-served.mjs (source-repo tool) from three GETs: /timeline.jsonl, /bell/pubkey.json and /state.json (bound to the head line by sha256), after checking that the served key set equals the committed keyring and that the first line is a signed, genesis-chained publication at seq 1 under that keyring. first_record = that first line's seq, published_at, line_hash (sha256 of its canonical bytes) and key_id; bodies_sha256 = the sha256 of the two bodies as read at read_at (the timeline body grows with each publication; the first line does not change). first_run = the first run of the served state as served (window, per-session fills, on-chain VWAP and base volume as decimal strings, abstention, non-zero residual counts): on-chain facts, no closing price, no gap.",
+  "schema": "monark-site-bell-served-v2",
+  "host": "https://bell.monarkgate.tech",
+  "read_at": "2026-09-23T23:37:07.575Z",
+  "first_record": {
+    "seq": 1,
+    "published_at": "2026-09-23T21:35:52.438Z",
+    "line_hash": "4a417cf02289b4968c17e7dc9f61c013bf04d62c77e541993a05a20a6965f47c",
+    "key_id": "30fd26e80efac0d93e1f82c5f4372354ec71e5294f36d946d5167ce0ef39c672"
+  },
+  "first_run": {
+    "bell_sha": "f3b61af4aab1cdf31dc80c989d4ac246862cede9fbc2f90fb64e5aee90bfd1f6",
+    "symbol": "TSLAx",
+    "chain": "solana",
+    "window": {
+      "from_utc_ms": 1789545600000,
+      "to_utc_ms": 1789631999000
+    },
+    "fills": 3110,
+    "sessions_count": 4,
+    "quorum_coverage": "0.20006412311638347",
+    "sessions": [
+      {
+        "symbol": "TSLAx",
+        "session": "after",
+        "regime": null,
+        "n": 112,
+        "vwap": "359.7226625820",
+        "volumeBase": "64.8930199600",
+        "abstain": "no_close_ref"
+      },
+      {
+        "symbol": "TSLAx",
+        "session": "overnight-weekday",
+        "regime": "overnight-weekday",
+        "n": 268,
+        "vwap": "360.8284154216",
+        "volumeBase": "188.9103837300",
+        "abstain": "no_close_ref"
+      },
+      {
+        "symbol": "TSLAx",
+        "session": "pre",
+        "regime": null,
+        "n": 308,
+        "vwap": "365.7730758835",
+        "volumeBase": "162.8230969000",
+        "abstain": "no_close_ref"
+      },
+      {
+        "symbol": "TSLAx",
+        "session": "regular",
+        "regime": null,
+        "n": 2422,
+        "vwap": "360.5237278278",
+        "volumeBase": "1969.4086935300",
+        "abstain": "no_close_ref"
+      }
+    ],
+    "residuals": {
+      "no_close_ref": 4,
+      "no_wrapper": 1,
+      "por_unavailable": 1,
+      "quorum_sampled": 1
+    }
+  },
+  "bodies_sha256": {
+    "/timeline.jsonl": "8dfd2b78c4ba06c61165b13f29929526b50339228a458e0c13a214281211b0ad",
+    "/bell/pubkey.json": "beec868a9e7d8e396de0f0541ab20572a2159068e8102bb303cb9af368b6ef81",
+    "/state.json": "a828489f64f112c8026b7c38f3710b82af1c97245fdba10b16170e39aed7a240"
+  }
+}

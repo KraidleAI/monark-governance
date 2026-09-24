@@ -6,3 +6,8 @@
 # so the sha256 pinned in fixtures/PROVENANCE-s3-binance.md survives commit
 # deterministically instead of relying on git's content auto-detection (Lot I-a).
 *.cbor binary
+# OpenTimestamps proofs (served byte-identical under apps/site/public/bell/anchors/, pinned by
+# test/bell-anchors.test.ts) and the self-hosted OFL fonts: binary, never eol-normalized, same reason
+# as the CBOR batches above (Lot SITE-CHARTE-C).
+*.ots binary
+*.ttf binary

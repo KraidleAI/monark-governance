@@ -13,6 +13,8 @@
 // BOTH hosts, MCP tools/list returns the four tools, a REAL gate/cascade/attest/calibrate call, a gate BYO
 // call (C2: verdict.calib_digest === the calibrate set_digest + action commit, proving the loop), and — for
 // an https `--api` ONLY — the TLS certificate (issuer, expiry); an http `--api` (plain/local) SKIPS the TLS check.
+// HARNESS-DESC-1 (checkpoint-1 C-5): a liquidation-eligible-coverage gate call (200, under_calib on the empty registry)
+// and the served tools/list description of `gate` (empty-registry sentence present, H-3 sentence absent).
 // Then writes the CA
 //   { url, mcp_url, checked_at, checks:[{ name, ok, status, sha256 }], tls:{ issuer, valid_to, authorized } | { skipped } }
 // to stdout (and --out FILE), and exits non-zero on any failure. The per-check sha256 pins the exact
@@ -48,6 +50,18 @@ const GATE_BYO_BODY = {
   params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 2, alpha: 0.1, nMin: 5, intent: 0, tool: "perps_order_preview", clockOpen: true, calibration: { scores: CALIBRATE_BODY.scores, mode: "interval" } },
 };
 
+// HARNESS-DESC-1 (checkpoint-1 C-5): the liquidation-eligible-coverage class on the SERVED registry. yhat = a non-negative
+// safe integer (base 8-dec liquidable amount); alpha/nMin = the SERVER-imposed 0.01/100 (any other value is a named 400).
+// On the EMPTY registry the honest answer is abstain / under_calib, carrying the empty-registry sentence in `content`.
+const GATE_LIQ_BODY = {
+  prediction: { schema_version: "1.0.0", task_class: "liquidation-eligible-coverage", yhat: 5000, predictor_id: "ca:verify-harness", produced_at: "2026-09-04T00:00:00Z" },
+  params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.01, nMin: 100, intent: 1, tool: "perps_order_preview", clockOpen: true },
+};
+// BYTE-IDENTICAL to apps/harness/src/tools/gate.ts LIQ_EMPTY_REGISTRY_SENTENCE / LIQ_H3_SENTENCE (this script stays
+// zero-dependency; test/verify-harness-liq.test.ts asserts the equality). Flip both checks at U-4b-2b (registry non-empty).
+const LIQ_EMPTY_REGISTRY_SENTENCE = "no liquidation-eligible-coverage calibration is committed yet; the gate abstains (under_calib) by construction";
+const LIQ_H3_SENTENCE = "calibrated on one recorded episode; no coverage is claimed on any other event; the H-3 exchangeability check is a report, a YES licenses nothing more";
+
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 /** Set equality (order-independent): the two arrays carry EXACTLY the same members (B-2, no subset). */
 const sameSet = (a, b) => a.length === b.length && [...a].sort().join(",") === [...b].sort().join(",");
@@ -62,6 +76,13 @@ const mcpToolNames = (text) => {
     if (env && Array.isArray(env.result?.tools)) return env.result.tools.map((t) => t && t.name).filter((n) => typeof n === "string");
   }
   return null;
+};
+/** The served description of tool `name` in an MCP `tools/list` response (SSE-framed or plain JSON), else null. */
+const mcpToolDescription = (text, name) => {
+  const dataLine = text.split(/\r?\n/).find((l) => l.startsWith("data:"));
+  const env = parseJson(dataLine ? dataLine.slice("data:".length).trim() : text);
+  const tool = env && Array.isArray(env.result?.tools) ? env.result.tools.find((t) => t && t.name === name) : undefined;
+  return tool && typeof tool.description === "string" ? tool.description : null;
 };
 const jsonInit = (body) => ({ method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
@@ -207,6 +228,29 @@ async function main() {
     const j = parseJson(text);
     const action = j && j.structuredContent ? j.structuredContent.action : null;
     return { ok: res.status === 200 && ["commit", "defer", "abstain"].includes(action), detail: `action=${action}` };
+  }));
+
+  // HARNESS-DESC-1 (checkpoint-1 C-5): the liq class is SERVED through the gate (the /ukemi claim) and, on the empty
+  // registry, answers a 200 abstain/under_calib carrying the empty-registry sentence -- never a 400 (unknown class).
+  checks.push(await wiredCheck("gate_liq_call", `${api}/gate`, jsonInit(GATE_LIQ_BODY), apiHostHeader, (res, text) => {
+    const j = parseJson(text);
+    const reason = j && j.structuredContent ? j.structuredContent.reason : null;
+    const first = j && Array.isArray(j.content) ? j.content[0] : null;
+    const said = first && typeof first.text === "string" && first.text.includes(LIQ_EMPTY_REGISTRY_SENTENCE);
+    return { ok: res.status === 200 && reason === "under_calib" && said === true, detail: `status=${res.status} reason=${String(reason)} empty_registry_text=${String(said)}` };
+  }));
+
+  // ... and the served tools/list description of `gate` states the empty registry, never the H-3 sentence
+  // ("calibrated on one recorded episode", the over-claim CARTO-T1C-2 measured on the served text).
+  checks.push(await httpCheck("mcp_gate_description_liq", mcp, {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+  }, (res, text) => {
+    const d = mcpToolDescription(text, "gate");
+    const hasEmpty = d !== null && d.includes(LIQ_EMPTY_REGISTRY_SENTENCE);
+    const hasH3 = d !== null && d.includes(LIQ_H3_SENTENCE);
+    return { ok: res.status === 200 && hasEmpty && !hasH3, detail: `status=${res.status} empty_registry_sentence=${String(hasEmpty)} h3_sentence=${String(hasH3)}` };
   }));
 
   checks.push(await wiredCheck("cascade_call", `${api}/cascade`, jsonInit(CASCADE_BODY), apiHostHeader, (res, text) => {

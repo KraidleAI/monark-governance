@@ -1,0 +1,2350 @@
+{
+ "schema": "monark-carto-t1-course-closure-flows/1",
+ "note": "Temps-1 COURSE closure cartography (2026-09-23, HEAD d0535cb). Carried forward from docs/carto/flows-2026-09-22.json (sha df0d608a...) by relocate-flows.mjs (23 citations re-anchored, 4 ambiguous checked by hand, 3 rewritten), then updated here. EVERY {file,line,expect} is verified by graph.mjs (substring on that exact line of the d0535cb clone); EVERY {kind:test,file,name} is verified to exist as test(\"<name>\"...) in that file; {at_commit,...} citations are verified on git objects by verify-atcommit.mjs.",
+ "bareme": {
+  "cable": "the consumer is on a SERVED path (MCP/HTTP tool exposed by apps/harness/src/server.ts, a published file read by a surface, or a real downstream served piece) AND a named non-LLM integration test replays the composition (ADR-M018 D1).",
+  "fixture": "no served path. fixture:test = the only consumer is a test/fixture/demo; fixture:course = the consumer is a course/CLI/offline script (baseline bareme, CARTOGRAPHIE-TEMPS-1-BASELINE.md:24). Both are 'upcoming' for any register.",
+  "absent": "announced pipe with no code at HEAD.",
+  "deployed_dimension": "Does the SERVED process run the HEAD code of the pair? Measured on git objects + the repository journal only (no network, no SSH: on-site reading is an orchestrator act, rule 2026-09-20). Three vocabularies are kept apart: MEASURE (cable/fixture/absent), DEPLOYED (which SHA runs), and the ADR-internal labels (branche / built under the decision-129 reconcile gate)."
+ },
+ "execution_entries": [
+  {
+   "id": "X-HARNESS",
+   "what": "MCP + HTTP/JSON mirror (4 tools)",
+   "cite": {
+    "file": "deploy/monark-harness.service",
+    "line": 50,
+    "expect": "ExecStart=/usr/bin/env node --max-old-space-size=448 /opt/monark-harness/apps/harness/src/server.ts"
+   }
+  },
+  {
+   "id": "X-SENTINEL",
+   "what": "Narabi daily job (oneshot, 4 slots)",
+   "cite": {
+    "file": "deploy/monark-sentinel.service",
+    "line": 39,
+    "expect": "ExecStart=/usr/bin/env node /opt/monark-harness/apps/sentinel/src/run.ts",
+    "line_prev_2026_09_22": 29
+   }
+  },
+  {
+   "id": "X-PROBE",
+   "what": "Narabi external probe + SMTP alert, hosted on the Bell VPS",
+   "cite": {
+    "file": "deploy/monark-probe.service",
+    "line": 24,
+    "expect": "ExecStart=/usr/bin/env node /opt/monark-probe/probe-narabi.mjs"
+   },
+   "host": {
+    "file": "deploy/monark-probe.service",
+    "line": 2,
+    "expect": "SECOND VPS (Bell)"
+   }
+  },
+  {
+   "id": "X-CADDY-NARABI",
+   "what": "static /narabi/* from the sentinel public dir",
+   "cite": {
+    "file": "deploy/Caddyfile.monark-narabi.snippet",
+    "line": 11,
+    "expect": "handle_path /narabi/* {"
+   },
+   "root": {
+    "file": "deploy/Caddyfile.monark-narabi.snippet",
+    "line": 12,
+    "expect": "root * /var/lib/monark-sentinel/public"
+   }
+  },
+  {
+   "id": "X-SITE",
+   "what": "vitrine next start (/opt/monark-app)",
+   "cite": {
+    "file": "docs/RUNBOOK-vitrine.md",
+    "line": 3,
+    "expect": "WorkingDirectory=/opt/monark-app/apps/site"
+   }
+  },
+  {
+   "id": "X-CI-G3",
+   "what": "CI g3-verification (vocab + typecheck + tests)",
+   "cite": {
+    "file": ".github/workflows/ci.yml",
+    "line": 111,
+    "expect": "npm run gate:vocab && npm run typecheck && npm test"
+   }
+  },
+  {
+   "id": "X-CI-G3SITE",
+   "what": "CI g3-site (next build + assert-fleet-html), blocking CONDITIONAL",
+   "cite": {
+    "file": ".github/workflows/ci.yml",
+    "line": 173,
+    "expect": "npm run build -w @monark/site"
+   },
+   "assert": {
+    "file": ".github/workflows/ci.yml",
+    "line": 175,
+    "expect": "node scripts/assert-fleet-html.mjs"
+   },
+   "conditional": {
+    "file": ".github/workflows/ci.yml",
+    "line": 158,
+    "expect": "Blocking CONDITIONAL"
+   }
+  },
+  {
+   "id": "X-CI-R25",
+   "what": "CI r25 job carries lang:gate + export:check (stripped from the public workflow)",
+   "cite": {
+    "file": ".github/workflows/ci.yml",
+    "line": 95,
+    "expect": "run: npm run lang:gate"
+   },
+   "export": {
+    "file": ".github/workflows/ci.yml",
+    "line": 97,
+    "expect": "run: npm run export:check"
+   }
+  }
+ ],
+ "pairs": [
+  {
+   "id": "P-N1",
+   "product": "Narabi",
+   "producer": "apps/sentinel/src/run.ts",
+   "artefact": "timeline.jsonl (append) + state.json, copied to <state>/public/",
+   "consumer": "Caddy /narabi/* -> apps/site /narabi (loadNarabi, browser fetch; committed snapshot = declared fallback)",
+   "status": "cable",
+   "served_by": "published file read by a surface (/narabi)",
+   "evidence": [
+    {
+     "file": "apps/sentinel/src/run.ts",
+     "line": 358,
+     "expect": "appendFileSync(tl, report.lines",
+     "line_prev_2026_09_22": 241
+    },
+    {
+     "file": "apps/sentinel/src/run.ts",
+     "line": 359,
+     "expect": "JSON.stringify(summary, null, 2)",
+     "line_prev_2026_09_22": 242
+    },
+    {
+     "file": "apps/sentinel/src/run.ts",
+     "line": 360,
+     "expect": "copyFileSync(tl, join(pub,",
+     "line_prev_2026_09_22": 243
+    },
+    {
+     "file": "apps/sentinel/src/run.ts",
+     "line": 361,
+     "expect": "copyFileSync(join(dir,",
+     "line_prev_2026_09_22": 244
+    },
+    {
+     "file": "apps/site/lib/narabi-live.ts",
+     "line": 26,
+     "expect": "export const STATE_PATH"
+    },
+    {
+     "file": "apps/site/lib/narabi-live.ts",
+     "line": 27,
+     "expect": "export const TIMELINE_PATH"
+    },
+    {
+     "file": "apps/site/lib/narabi-live.ts",
+     "line": 154,
+     "expect": "export async function loadNarabi"
+    },
+    {
+     "file": "apps/site/components/narabi/narabi-live.tsx",
+     "line": 52,
+     "expect": "await fetch(url, { cache:"
+    },
+    {
+     "file": "apps/site/components/narabi/narabi-live.tsx",
+     "line": 83,
+     "expect": "void loadNarabi({ fetchText: browserFetchText, snapshot: NARABI_SNAPSHOT })"
+    },
+    {
+     "file": "apps/sentinel/src/run.ts",
+     "line": 328,
+     "expect": "sentinel_sha: sentinelSha(srcDir)"
+    },
+    {
+     "file": "apps/sentinel/src/run.ts",
+     "line": 157,
+     "expect": "const files = readdirSync(srcDir).filter((f) => f.endsWith(\".ts\")).sort();"
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "test/narabi-live.test.ts",
+     "name": "narabi_live_parses_real_state_shape"
+    }
+   ],
+   "extra_measure": "replay-narabi.mjs (this cartography): the HEAD producer (stubbed RPC, 0 network) -> public files -> site parser: pill 'built · step 2 of 7 before first reading'; line and state key sets IDENTICAL to the committed snapshot (34 = 34 keys) => the snapshot shape is current, only its values are old (P1 E10).",
+   "deployed": "journal: sentinel c4981d0 (E-5, JOURNAL-PROVENANCE.md:355), site db14e8a (TABLEAU-DE-BORD.md:41). Git objects: sentinel served closure (45 files) c4981d0..d0535cb = 17 files changed, bb41b6d..d0535cb = 0; site closure db14e8a..d0535cb = 0. The harness redeploy bb41b6d shipped apps/ whole (RUNBOOK-harness.md:48,66) into the sentinel's ExecStart tree => producer code on the VPS most likely HEAD since 2026-09-23 00:54Z (CARTO-T1F-1, to verify on site). Published effect predicted by the code: provenance only (endpoints 8->7, sentinel_sha a3ed49f4...->e73866a8...), line_hash unchanged (test sentinel_chainstack_url_alone_degrades_to_keyless asserts line_hash equality)."
+  },
+  {
+   "id": "P-N2",
+   "product": "Narabi",
+   "producer": "served /narabi/timeline.jsonl + derived /narabi/state.json",
+   "artefact": "narabi.json (probe state) -> ONE SMTP mail on an unhealthy transition",
+   "consumer": "scripts/probe-narabi.mjs on the Bell VPS -> investor mailbox",
+   "status": "cable",
+   "served_by": "real downstream piece (external probe + SMTP alert)",
+   "evidence": [
+    {
+     "file": "scripts/probe-narabi.mjs",
+     "line": 31,
+     "expect": "export const DEFAULT_URL"
+    },
+    {
+     "file": "scripts/probe-narabi.mjs",
+     "line": 308,
+     "expect": "export function deriveStateUrl(timelineUrl)"
+    },
+    {
+     "file": "scripts/probe-narabi.mjs",
+     "line": 465,
+     "expect": "renameSync(tmp, out)"
+    },
+    {
+     "file": "scripts/probe-narabi.mjs",
+     "line": 617,
+     "expect": "export async function sendSmtp("
+    },
+    {
+     "file": "scripts/probe-narabi.mjs",
+     "line": 723,
+     "expect": "async function maybeAlert("
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "test/probe-narabi.test.ts",
+     "name": "probe_state_mismatch_drives_smtp_alert_merged"
+    },
+    {
+     "kind": "test",
+     "file": "test/probe-narabi.test.ts",
+     "name": "probe_alert_composition_from_fixture"
+    },
+    {
+     "kind": "test",
+     "file": "test/probe-narabi.test.ts",
+     "name": "probe_chainstack_present_from_real_producer_line"
+    }
+   ],
+   "deployed": "probe c0027cb on the Bell VPS (JOURNAL-PROVENANCE.md:351); probe closure c0027cb..d0535cb = 0 file changed. ADR-NARABI-OPS-1.md item 8: chainstack_present:false is NOT alerted by the probe (co-modification out of lot) => a degraded sentinel run (CARTO-T1F-1) stays silent on the probe side"
+  },
+  {
+   "id": "P-N3",
+   "product": "Narabi",
+   "producer": "HEAD: run.ts:329 makeRpcPool({ endpoints, call: makeDispatchCall(leg.client) }) — public URLs -> keyless-transport.ts keylessCall; the paid label -> the guarded client (@monark/rpc-guard). rpc.ts keeps PUBLIC_ENDPOINTS + a DEAD paid path (chainstackUrl/defaultCall: 0 caller outside rpc.ts, frozen by ADR-U4b D4, allowlisted until the -1d rebase)",
+   "artefact": "in-process RPC results",
+   "consumer": "apps/sentinel/src/run.ts (served producer of P-N1)",
+   "status": "cable",
+   "served_by": "input of the served sentinel",
+   "evidence": [
+    {
+     "file": "apps/sentinel/src/rpc.ts",
+     "line": 19,
+     "expect": "export const PUBLIC_ENDPOINTS"
+    },
+    {
+     "file": "apps/sentinel/src/run.ts",
+     "line": 329,
+     "expect": "const rpc = makeRpcPool({ endpoints, call: makeDispatchCall(leg.client) });"
+    },
+    {
+     "file": "apps/sentinel/src/run.ts",
+     "line": 15,
+     "expect": "import { keylessCall, KEYLESS_TIMEOUT_MS } from \"./keyless-transport.ts\";"
+    },
+    {
+     "file": "apps/sentinel/src/rpc.ts",
+     "line": 54,
+     "expect": "env.CHAINSTACK_ETH_URL?.trim()"
+    },
+    {
+     "file": "test/rpc-guard-fetch-only-inside-client.test.ts",
+     "line": 109,
+     "expect": "NARABI-OPS-1d: dead chainstackUrl/defaultCall/poolEndpoints/publishedEndpoints/hasChainstack DELETED at the -1d rebase"
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/pool-rpc-1a.test.ts",
+     "name": "pool_rpc_1a_l1_pocket_through_unchanged_anchor"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/sentinel-retry.test.ts",
+     "name": "sentinel_chainstack_url_alone_degrades_to_keyless"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/sentinel-chainstack-guard.test.ts",
+     "name": "sentinel_chainstack_guard_ok_ledgers_publishes_origin_and_releases_lock"
+    }
+   ],
+   "paid_leg": "HEAD: the paid leg exists ONLY through @monark/rpc-guard (P-N5); rpc.ts:54 is dead text on the served path (decision-118 residual closed IN CODE by the -1d merge 3659181)",
+   "deployed": "per journal: c4981d0 (E-5, JOURNAL-PROVENANCE.md:355-357: 8 endpoints incl. chainstack). Per git objects: the harness redeploy at bb41b6d (JOURNAL-PROVENANCE.md:358) shipped apps/ whole into /opt/monark-harness, the sentinel ExecStart tree => most likely HEAD since 2026-09-23 00:54Z, in 'unconfigured' mode if the EnvironmentFile still carries the URL alone (RUNBOOK-sentinel.md:91) => 7 keyless endpoints, chainstack=false (test sentinel_chainstack_url_alone_degrades_to_keyless). NOT journaled => CARTO-T1F-1"
+  },
+  {
+   "id": "P-N4",
+   "product": "Narabi",
+   "producer": "apps/sentinel/src/flow.ts fromAttestedFlow (packages/monark adapter-narabi) + committed USDe calibration (apps/harness/src/calibration.ts)",
+   "artefact": "Prediction stable-run-velocity-24h",
+   "consumer": "MCP/HTTP gate (served class, one committed population)",
+   "status": "cable",
+   "served_by": "MCP gate",
+   "evidence": [
+    {
+     "file": "apps/sentinel/src/flow.ts",
+     "line": 15,
+     "expect": "fromAttestedFlow"
+    },
+    {
+     "file": "apps/sentinel/src/timeline.ts",
+     "line": 16,
+     "expect": "USDE_STABLE_RUN_CALIB"
+    },
+    {
+     "file": "apps/harness/src/tools/registry.ts",
+     "line": 68,
+     "expect": "runGate(env.prediction, env.params, env.attested)"
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/harness/test/gate.test.ts",
+     "name": "gate_stable_run_usde_committed_region_A7b"
+    }
+   ],
+   "deployed": "class served since the 2026-09-18 harness redeploy (JOURNAL-PROVENANCE.md:238)"
+  },
+  {
+   "id": "P-N5",
+   "product": "Narabi",
+   "producer": "run.ts guarded Chainstack leg (openGuardedClient) + keyless-transport.ts",
+   "artefact": "per-cycle ledger /var/lib/monark-sentinel/ledger + end-JSON chainstack_guard",
+   "consumer": "@monark/rpc-guard (first SERVED consumer of the package)",
+   "status": "cable",
+   "evidence": [
+    {
+     "file": "apps/sentinel/src/run.ts",
+     "line": 16,
+     "expect": "import { openGuardedClient, runCli, BudgetExceededError } from \"@monark/rpc-guard\";"
+    },
+    {
+     "file": "apps/sentinel/src/run.ts",
+     "line": 285,
+     "expect": "return { status: \"unconfigured\", release: () => {} };"
+    },
+    {
+     "file": "apps/sentinel/src/run.ts",
+     "line": 295,
+     "expect": "client = openGuardedClient(process.env, limits, ledgerDir, { chainstack: cycleId }"
+    },
+    {
+     "file": "apps/sentinel/src/run.ts",
+     "line": 350,
+     "expect": "chainstack_guard: leg.status"
+    },
+    {
+     "file": "deploy/monark-sentinel.service",
+     "line": 39,
+     "expect": "ExecStart=/usr/bin/env node /opt/monark-harness/apps/sentinel/src/run.ts"
+    }
+   ],
+   "served_by": "input of the served sentinel (run.ts is the ExecStart of deploy/monark-sentinel.service:39)",
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/sentinel-chainstack-guard.test.ts",
+     "name": "sentinel_chainstack_guard_ok_ledgers_publishes_origin_and_releases_lock"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/sentinel-chainstack-guard.test.ts",
+     "name": "sentinel_chainstack_origin_absent_is_unconfigured"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/sentinel-chainstack-guard.test.ts",
+     "name": "sentinel_guard_open_failure_degrades_to_keyless_and_publishes"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/sentinel-retry.test.ts",
+     "name": "sentinel_chainstack_url_alone_degrades_to_keyless"
+    }
+   ],
+   "merge": "3659181 (NARABI-OPS-1d, option (b), 2026-09-22 20:53Z; CHANTIERS.md:867)",
+   "graph": "served sentinel closure 32 -> 45 files: +keyless-transport.ts +12 packages/rpc-guard/src/*.ts (graph.json reachability)",
+   "deployed": "UNPLANNED, NOT JOURNALED, TO VERIFY ON SITE: bb41b6d (harness redeploy 2026-09-23 00:54Z) contains 3659181 (git merge-base --is-ancestor 7daf8e5 bb41b6d = 0) and ships apps/ whole; expected run.ts sha256 on the host = 45557d6e... (HEAD) instead of 54619a40... (E-5); plan said: production = c4981d0 until the 2nd redeploy after P-1..P-4 (ADR-NARABI-OPS-1.md:224,249; RUNBOOK-sentinel.md:335-338) => CARTO-T1F-1"
+  },
+  {
+   "id": "P-U1",
+   "product": "Ukemi",
+   "producer": "scripts/census/u4b/u4b-discover.mjs",
+   "artefact": "discover brut JSON (records + block_ts, brut_sha256)",
+   "consumer": "scripts/census/u4b/u4b-select-episode.mjs --discover",
+   "status": "fixture",
+   "fixture_kind": "course",
+   "evidence": [
+    {
+     "file": "scripts/census/u4b/u4b-discover.mjs",
+     "line": 128,
+     "expect": "writeFileSync(out, JSON.stringify(output, null, 2));"
+    },
+    {
+     "file": "scripts/census/u4b/u4b-select-episode.mjs",
+     "line": 196,
+     "expect": "JSON.parse(readFileSync(discoverPath,",
+     "line_prev_2026_09_22": 190
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/u4b-chain.test.ts",
+     "name": "u4b_chain_discover_to_select_far_from_e2"
+    }
+   ]
+  },
+  {
+   "id": "P-U2",
+   "product": "Ukemi",
+   "producer": "u4b-select-episode.mjs --fill-ts (guarded keyless quorum-2)",
+   "artefact": "block-ts-extra.json (self-sha + discover_sha bound)",
+   "consumer": "u4b-select-episode.mjs --block-ts-extra",
+   "status": "fixture",
+   "fixture_kind": "course",
+   "evidence": [
+    {
+     "file": "scripts/census/u4b/u4b-select-episode.mjs",
+     "line": 372,
+     "expect": "block-ts-extra.json",
+     "line_prev_2026_09_22": 361
+    },
+    {
+     "file": "scripts/census/u4b/u4b-select-episode.mjs",
+     "line": 208,
+     "expect": "const extraPath = arg(argv, \"--block-ts-extra\")",
+     "line_prev_2026_09_22": 202,
+     "relocation": "hand: nearest match 206 is a comment; the reader is :208"
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/u4b-chain.test.ts",
+     "name": "u4b_chain_e2_adjacent_missing_ts_resolved_by_fill_ts"
+    }
+   ],
+   "inflight": "U-4b-1b-3 (801859f): fill-ts bounded at to_block + resumable sidecar; no import-graph change"
+  },
+  {
+   "id": "P-U3",
+   "product": "Ukemi",
+   "producer": "u4b-select-episode.mjs",
+   "artefact": "episode-selection.json (selection_sha256)",
+   "consumer": "scripts/census/u4-oracle-path.mjs --episode-file (prober D_e)",
+   "status": "fixture",
+   "fixture_kind": "course",
+   "evidence": [
+    {
+     "file": "scripts/census/u4b/u4b-select-episode.mjs",
+     "line": 228,
+     "expect": "episode-selection.json",
+     "line_prev_2026_09_22": 219
+    },
+    {
+     "file": "scripts/census/u4b/u4b-select-episode.mjs",
+     "line": 233,
+     "expect": "writeFileSync(selPath,",
+     "line_prev_2026_09_22": 224
+    },
+    {
+     "file": "scripts/census/u4-oracle-path.mjs",
+     "line": 145,
+     "expect": "const episodePath = arg(",
+     "line_prev_2026_09_22": 90
+    },
+    {
+     "file": "scripts/census/u4-oracle-path.mjs",
+     "line": 93,
+     "expect": "JSON.parse(readFileSync(path,",
+     "line_prev_2026_09_22": 54
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/u4b-chain.test.ts",
+     "name": "u4b_chain_select_to_oracle_path"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/u4b-oracle-path.test.ts",
+     "name": "u4b_oracle_path_composes_real_form_bodies_and_reads_episode_bornes"
+    }
+   ],
+   "composition_gap": "CLOSED by 8ed6226 (UKEMI-PRE5-TESTS): apps/sentinel/test/u4b-chain.test.ts is the ONLY file importing both u4b-select-episode.mjs (:13) and u4-oracle-path.mjs (:14) (graph.json import_edges; 0 at 7b99737) => CARTO-T1C-5 closed by measure",
+   "real_course": "exercised in the real course: step 2c-bis probe (d) then C-12 exit 0 (06:44Z) before steps 3b/5 (journal CHANTIERS@4a2f69f l.1079); the prober step 5 is not reached yet"
+  },
+  {
+   "id": "P-U4",
+   "product": "Ukemi",
+   "producer": "u4b-select-episode.mjs",
+   "artefact": "events-<id>.json (+ A-rawlogs, byte sha)",
+   "consumer": "scripts/census/u3-realized.mjs --events (labeler)",
+   "status": "fixture",
+   "fixture_kind": "course",
+   "evidence": [
+    {
+     "file": "scripts/census/u4b/u4b-select-episode.mjs",
+     "line": 232,
+     "expect": "writeFileSync(eventsPath, eventsBody);",
+     "line_prev_2026_09_22": 223
+    },
+    {
+     "file": "scripts/census/u3-realized.mjs",
+     "line": 424,
+     "expect": "--events"
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/u4b-chain.test.ts",
+     "name": "u4b_chain_discover_to_select_far_from_e2"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/u4b-select-episode.test.ts",
+     "name": "u4b_select_events_compose_with_the_labeler_parseArgs_and_predicate"
+    }
+   ]
+  },
+  {
+   "id": "P-U5",
+   "product": "Ukemi",
+   "producer": "scripts/census/u3-realized.mjs (labeler, keyless; paid leg only via u4-guard)",
+   "artefact": "U3-realized.jsonl (+ inputs/sources/deficit)",
+   "consumer": "scripts/census/u4b/u4b-reduce.mjs --labels",
+   "status": "fixture",
+   "fixture_kind": "course",
+   "evidence": [
+    {
+     "file": "scripts/census/u3-realized.mjs",
+     "line": 680,
+     "expect": "U3-realized.jsonl"
+    },
+    {
+     "file": "scripts/census/u4b/u4b-reduce.mjs",
+     "line": 31,
+     "expect": "const bookRawPath = arg("
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "test/u3-realized-param.test.ts",
+     "name": "u4b_labels_replay"
+    },
+    {
+     "kind": "test",
+     "file": "test/u3-realized-param.test.ts",
+     "name": "u4b_labels_replay_via_main_real_artifact"
+    }
+   ],
+   "note": "u4b_labels_replay_via_main_real_artifact SKIPS in a clean clone (measured: test-full.tap 'real e2 artifacts absent'); the reduce step itself has no automated composition test from raws (raws out of repo) - DECLARED in ADR-U4b tuyaux (docs/adr/ADR-U4b-calibration-episode-frais.md:24: score code '-1a upcoming, consumed by a test alone')"
+  },
+  {
+   "id": "P-U6",
+   "product": "Ukemi",
+   "producer": "apps/sentinel/src/ukemi/record.ts (recorder, under openGuardedClient)",
+   "artefact": "{provenance, book} JSON + <out>.diag.json + resume file; guard ledger",
+   "consumer": "u4b-reduce.mjs --book-raw",
+   "status": "fixture",
+   "fixture_kind": "course",
+   "evidence": [
+    {
+     "file": "apps/sentinel/src/ukemi/record.ts",
+     "line": 24,
+     "expect": "import { openGuardedClient, runCli"
+    },
+    {
+     "file": "apps/sentinel/src/ukemi/record.ts",
+     "line": 498,
+     "expect": "writeFileSync(out, JSON.stringify({ provenance, book: res.book }, null, 2));",
+     "line_prev_2026_09_22": 449
+    },
+    {
+     "file": "apps/sentinel/src/ukemi/record.ts",
+     "line": 530,
+     "expect": "writeFileSync(diagPath",
+     "line_prev_2026_09_22": 480
+    },
+    {
+     "file": "apps/sentinel/src/ukemi/record.ts",
+     "line": 465,
+     "expect": "writeFileSync(out, JSON.stringify({ provenance }, null, 2));"
+    },
+    {
+     "file": "apps/sentinel/src/ukemi/record.ts",
+     "line": 449,
+     "expect": "assertResumeHoldersMatch(fr.holders_digest, resumeReader);"
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-guard-record.test.ts",
+     "name": "ukemi_record_then_unlock_then_reconcile_end_to_end"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-guard-record.test.ts",
+     "name": "ukemi_record_budget_stop_writes_durable_diag_journal"
+    }
+   ],
+   "real_course": "temps 1 of the recorder course = record.ts --filter-only on the pinned tree e1411cf (recorder closure e1411cf..d0535cb = 0 file): exit 0 10:41:25Z, n_at_risk_config 15452, calls 52251/160000, spent chainstack 52048 RU (CHANTIERS@4a2f69f l.1078); temps 2 (book path) STOP 10:43:31Z NoQuorumError after 182 calls (l.1080) => the book -> u4b-reduce --book-raw pair has NO real artefact yet"
+  },
+  {
+   "id": "P-U7",
+   "product": "Ukemi",
+   "producer": "scripts/census/u4-oracle-path.mjs (prober, via u4-guard)",
+   "artefact": "oracle-path inputs + raw (D_e)",
+   "consumer": "u4b-reduce.mjs --oracle-raw",
+   "status": "fixture",
+   "fixture_kind": "course",
+   "evidence": [
+    {
+     "file": "scripts/census/u4-oracle-path.mjs",
+     "line": 287,
+     "expect": "writeFileSync(rawPath, rawBody);",
+     "line_prev_2026_09_22": 208
+    },
+    {
+     "file": "scripts/census/u4-oracle-path.mjs",
+     "line": 32,
+     "expect": "./u4-guard.mjs",
+     "line_prev_2026_09_22": 29
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "test/guard-scripts-u4.test.ts",
+     "name": "u4_oracle_path_spends_only_through_guard"
+    },
+    {
+     "kind": "test",
+     "file": "test/guard-scripts-u4.test.ts",
+     "name": "u4_oracle_path_e2_via_flags_is_deterministic_and_reproduces_the_De_data"
+    }
+   ]
+  },
+  {
+   "id": "P-U8",
+   "product": "Ukemi",
+   "producer": "u4b-reduce.mjs -> U4b-scores-<tag>.jsonl -> scripts/record-u4b-calib.mjs buildRegistryEntries",
+   "artefact": "CommittedCalibration entries (class A, per stratum)",
+   "consumer": "apps/harness/src/calibration.ts (served registry of the liq class)",
+   "status": "absent",
+   "absent_reason": "0 liq entries at HEAD: hasCommittedCalibrationForClass('liquidation-eligible-coverage') === false (measured at runtime); entries land at U-4b-2b after the course",
+   "evidence": [
+    {
+     "file": "scripts/census/u4b/u4b-reduce.mjs",
+     "line": 85,
+     "expect": "U4b-scores-${episodeTag}.jsonl"
+    },
+    {
+     "file": "scripts/record-u4b-calib.mjs",
+     "line": 27,
+     "expect": "export function buildRegistryEntries(rowsA, opts = {})"
+    },
+    {
+     "file": "apps/harness/src/calibration.ts",
+     "line": 228,
+     "expect": "export function hasCommittedCalibrationForClass"
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-u4b-scores.test.ts",
+     "name": "u4b_registry_recomputes_from_scores_jsonl"
+    }
+   ]
+  },
+  {
+   "id": "P-U9",
+   "product": "Ukemi",
+   "producer": "committed e2 score rows (yhat by the frozen close-factor rule)",
+   "artefact": "Prediction liquidation-eligible-coverage",
+   "consumer": "MCP gate + HTTP mirror POST /gate (served class, EMPTY registry)",
+   "status": "cable",
+   "served_by": "MCP gate (code at HEAD); served effect = constant abstention under_calib",
+   "evidence": [
+    {
+     "file": "apps/harness/src/tools/gate.ts",
+     "line": 77,
+     "expect": "export const TASK_LIQ_ELIGIBLE"
+    },
+    {
+     "file": "apps/harness/src/tools/gate.ts",
+     "line": 607,
+     "expect": "lookupCommittedCalibration(TASK_LIQ_ELIGIBLE, predictorId)",
+     "line_prev_2026_09_22": 586
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/harness/test/gate-liq-artifact.test.ts",
+     "name": "u4b_gate_serves_region_from_real_artifact"
+    }
+   ],
+   "deployed": "YES: harness redeployed at bb41b6d (JOURNAL-PROVENANCE.md:358; deploy CA 12/12 incl. gate_liq_call + mcp_gate_description_liq); harness served closure bb41b6d..d0535cb = 0 file changed => CARTO-T1C-1 closed",
+   "runtime": "harness-runtime.mjs at d0535cb: liq registry committed = false; served gate description carries LIQ_EMPTY_REGISTRY_SENTENCE = true, LIQ_H3_SENTENCE = false; 2962 UTF-16 units = 2983 UTF-8 bytes (the journal's '2 983 caracteres' at JOURNAL-PROVENANCE.md:358 counts bytes)"
+  },
+  {
+   "id": "P-U10",
+   "product": "Ukemi",
+   "producer": "packages/monark/src/adapter-book.ts fromRealizedBook (U-5a)",
+   "artefact": "{yhat, m_bps, pstar} -> K-1 envelope via runUkemiPredict",
+   "consumer": "apps/harness/src/tools/ukemi-predict.ts -> gate",
+   "status": "fixture",
+   "fixture_kind": "test",
+   "evidence": [
+    {
+     "file": "apps/harness/src/tools/ukemi-predict.ts",
+     "line": 12,
+     "expect": "NOT REGISTERED in U-5a"
+    },
+    {
+     "file": "apps/harness/src/tools/ukemi-predict.ts",
+     "line": 22,
+     "expect": "import { fromRealizedBook, isRealizedError }"
+    },
+    {
+     "file": "apps/harness/src/schema-projection.ts",
+     "line": 42,
+     "expect": "import { UKEMI_PREDICT_MAX_RESERVES"
+    },
+    {
+     "file": "apps/harness/src/tools/registry.ts",
+     "line": 32,
+     "expect": "export const ALLOWED_TOOL_NAMES"
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/harness/test/ukemi-predict.test.ts",
+     "name": "u5_producer_predicts_then_gate_abstains_under_calib"
+    }
+   ],
+   "note": "the module is LOADED by the served harness process (schema-projection.ts:42 imports its caps constants; graph reachability) but runUkemiPredict is invoked only by tests; REGISTERED_TOOL_NAMES = [gate,cascade,attest,calibrate] (measured at runtime). Decisions 51/123 + ruling 14:48 option B (CHANTIERS.md:760): registration = U-5b."
+  },
+  {
+   "id": "P-U11",
+   "product": "Ukemi",
+   "producer": "packages/ukemi (clearing/lattice/liquidable) via apps/harness/src/tools/cascade.ts",
+   "artefact": "Prediction cascade-liquidable-24h",
+   "consumer": "MCP gate (abstains under_calib by construction)",
+   "status": "cable",
+   "served_by": "MCP cascade -> gate (the registered Ukemi wiring, fleet.ts:161)",
+   "evidence": [
+    {
+     "file": "apps/harness/src/tools/registry.ts",
+     "line": 85,
+     "expect": "runCascade(input)"
+    },
+    {
+     "file": "apps/harness/src/tools/cascade.ts",
+     "line": 92,
+     "expect": "v0, replaced at U-5"
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "test/h5-e2e-probe.test.ts",
+     "name": "probe_harness_records_real_decision"
+    }
+   ],
+   "deployed": "tool served since 2026-09-11; harness bb41b6d = HEAD for the served closure (0 file changed) => the 'v0, replaced at U-5' label (cascade.ts:92) is now served"
+  },
+  {
+   "id": "P-U12",
+   "product": "Ukemi",
+   "producer": "packages/monark/src/adapter-book.ts toAttestedBook",
+   "artefact": "AttestedBook (6th frozen contract)",
+   "consumer": "none in src (0 importer outside packages/monark + tests)",
+   "status": "fixture",
+   "fixture_kind": "test",
+   "evidence": [
+    {
+     "file": "packages/monark/src/adapter-book.ts",
+     "line": 232,
+     "expect": "export function toAttestedBook("
+    },
+    {
+     "file": "packages/monark/src/index.ts",
+     "line": 39,
+     "expect": "toAttestedBook"
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "packages/monark/test/adapter-book.test.ts",
+     "name": "attested_book_composition"
+    }
+   ],
+   "registry": "README.md:117 'Upcoming until served' => CONCORDANT"
+  },
+  {
+   "id": "P-U13",
+   "product": "Ukemi (guard)",
+   "producer": "@monark/rpc-guard ledger (write-ahead line + head sidecar)",
+   "artefact": "<ledger-dir>/<cycle>/<op>.jsonl + head",
+   "consumer": "reconcile / unlock (packages/rpc-guard/bin/rpc-guard.mjs -> cli.ts runCli)",
+   "status": "fixture",
+   "fixture_kind": "course",
+   "evidence": [
+    {
+     "file": "packages/rpc-guard/src/ledger.ts",
+     "line": 136,
+     "expect": "appendFileSync(path, JSON.stringify(entry)"
+    },
+    {
+     "file": "packages/rpc-guard/src/ledger.ts",
+     "line": 138,
+     "expect": "writeFileSync(headPath, head);"
+    },
+    {
+     "file": "packages/rpc-guard/src/cli.ts",
+     "line": 17,
+     "expect": "export function runCli"
+    },
+    {
+     "file": "packages/rpc-guard/bin/rpc-guard.mjs",
+     "line": 6,
+     "expect": "UPCOMING until a served course consumes this"
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-guard-record.test.ts",
+     "name": "ukemi_record_e2e_paid_ledger_is_reconciled_go_and_hard_no_go"
+    },
+    {
+     "kind": "test",
+     "file": "test/guard-scripts-u4.test.ts",
+     "name": "u4_oracle_path_ledger_reconciles_through_served_runcli"
+    }
+   ],
+   "note": "decision 129 (CHANTIERS.md:703): reconcile = separate gate conditioning ONLY the package's internal 'built'; bin/rpc-guard.mjs:6 still self-declares UPCOMING. In flight: GARDE-FSYNC-1 (lot/garde-fsync-1 @ 9ea2e8b, NOT merged) adds repair-tail -> <op>.repair.jsonl -> reconcile NO-GO repaired_in_window (see inflight)"
+  },
+  {
+   "id": "P-U14",
+   "product": "Ukemi (guard)",
+   "producer": "@monark/rpc-guard budgeted client (transport = sole paid-key reader)",
+   "artefact": "metered RPC results",
+   "consumer": "record.ts, rpc2.ts, u4-guard.mjs (-> u4-oracle-path, u4-redraw, u4b-discover, u4b-select, u3-realized dyn.), apps/bell/src x5",
+   "status": "cable (code, via P-N5) + fixture:course (recorder, prober, discover/select, labeler, Bell)",
+   "fixture_kind": "course",
+   "evidence": [
+    {
+     "file": "packages/rpc-guard/src/transport.ts",
+     "line": 96,
+     "expect": "const key = env.HELIUS_API_KEY;"
+    },
+    {
+     "file": "packages/rpc-guard/src/transport.ts",
+     "line": 106,
+     "expect": "env.CHAINSTACK_ETH_URL"
+    },
+    {
+     "file": "apps/sentinel/src/ukemi/rpc2.ts",
+     "line": 20,
+     "expect": "@monark/rpc-guard"
+    },
+    {
+     "file": "scripts/census/u4-guard.mjs",
+     "line": 30,
+     "expect": "@monark/rpc-guard"
+    },
+    {
+     "file": "scripts/census/u3-realized.mjs",
+     "line": 449,
+     "expect": "u4-guard.mjs"
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-guard-record.test.ts",
+     "name": "ukemi_record_spends_only_through_guard"
+    },
+    {
+     "kind": "test",
+     "file": "test/u3-realized-param.test.ts",
+     "name": "u3_paid_archive_operator_wired_with_allow_paid"
+    }
+   ],
+   "note": "graph reachability at d0535cb: 12 packages/rpc-guard/src files in the SERVED sentinel closure (0 at 7b99737) — the first served consumer is run.ts (P-N5); harness/site/probe closures: 0. The package is NOT named on any public surface (grep README/apps/site/skills/READMEs = 0)."
+  },
+  {
+   "id": "P-B1",
+   "product": "Bell (temps 2)",
+   "producer": "apps/bell/src/collect.ts + rebase-crosscheck.ts (course)",
+   "artefact": "state.json/timeline.jsonl/journal.json/provenance.json; ledger-<MINT>.jsonl, crosscheck-<MINT>.json, budget.json",
+   "consumer": "apps/bell/scripts/bell-report.mjs (docs report) + orchestrator anchors; NO served consumer",
+   "status": "fixture",
+   "fixture_kind": "course",
+   "evidence": [
+    {
+     "file": "apps/bell/src/collect.ts",
+     "line": 807,
+     "expect": "state.json"
+    },
+    {
+     "file": "apps/bell/src/collect.ts",
+     "line": 808,
+     "expect": "timeline.jsonl"
+    },
+    {
+     "file": "apps/bell/src/rebase-crosscheck.ts",
+     "line": 659,
+     "expect": "try { DURABLE_FS.writeFileSync(fd, line); DURABLE_FS.fsyncSync(fd); }"
+    },
+    {
+     "file": "apps/bell/scripts/bell-report.mjs",
+     "line": 120,
+     "expect": "docs/MESURE-FONDATRICE-bell-2026-09.md"
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/bell/test/guard-pli-1b.test.ts",
+     "name": "bell_course_reaches_fetch_only_via_openGuardedClient"
+    },
+    {
+     "kind": "test",
+     "file": "apps/bell/test/guard-pli-1b.test.ts",
+     "name": "bell_collect_eth_leg_served_fills_state_through_guard"
+    }
+   ],
+   "note": "Bell = pure sink: 0 import edge into apps/bell from outside; 0 Bell file in any served closure; no Bell unit in deploy/; 0 apps/bell file in the public export (collectFiles kept=327).",
+   "evidence_note": "per-mint ledger append moved to appendDurable (open/write/fsync) at BELL-SHORTPAGE-1 (merge 2c276bb); execution tree still pinned on a703e24 (R-SP-C)"
+  },
+  {
+   "id": "P-B2",
+   "product": "Bell (temps 2)",
+   "producer": "course ledger heads (out of repo) -> F:\\course-bell\\go1\\anchor.sh (OUT OF REPO)",
+   "artefact": "docs/course-bell/<boundary>-manifest.txt + .ots (OpenTimestamps, pending) + ANCHORS.md row",
+   "consumer": "none in code (procedural, decision 124 option B); verification code = formed item B-code",
+   "status": "fixture",
+   "fixture_kind": "course",
+   "evidence": [
+    {
+     "file": "docs/course-bell/ANCHORS.md",
+     "line": 37,
+     "expect": "| 2026-09-22T14:07:18Z | probe_end |"
+    },
+    {
+     "file": "docs/CHANTIERS.md",
+     "line": 634,
+     "expect": "**B-code**"
+    },
+    {
+     "file": "docs/CHANTIERS.md",
+     "line": 742,
+     "expect": "`ots upgrade` avant publication du verdict"
+    }
+   ]
+  },
+  {
+   "id": "P-B3",
+   "product": "Bell (temps 2) x Narabi",
+   "producer": "Bell VPS host",
+   "artefact": "hosts the Narabi probe (P-N2) only",
+   "consumer": "-",
+   "status": "absent",
+   "absent_reason": "no Bell service/timer/Caddyfile in deploy/ (measured: deploy/ = 7 files, none Bell); 'sonde VPS' on the Bell host = the NARABI probe",
+   "evidence": [
+    {
+     "file": "deploy/monark-probe.service",
+     "line": 2,
+     "expect": "SECOND VPS (Bell)"
+    }
+   ]
+  },
+  {
+   "id": "P-T1",
+   "product": "Shogen (registry built)",
+   "producer": "attest (fromShogen, committed witness)",
+   "artefact": "AttestedPrice carried as the optional 'attested' envelope key",
+   "consumer": "MCP gate: attested.residual filed into verdict.residual",
+   "status": "cable",
+   "served_by": "MCP attest -> gate (fleet.ts:123)",
+   "evidence": [
+    {
+     "file": "apps/harness/src/tools/registry.ts",
+     "line": 68,
+     "expect": "runGate(env.prediction, env.params, env.attested)"
+    },
+    {
+     "file": "apps/site/lib/fleet.ts",
+     "line": 123,
+     "expect": "MCP attest → gate (the attested envelope key"
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/harness/test/gate.test.ts",
+     "name": "gate_attested_concordant_files_residual"
+    }
+   ],
+   "deployed": "YES: bb41b6d served (JOURNAL-PROVENANCE.md:358); attestation-binding.ts in the served closure; closure bb41b6d..d0535cb = 0 file => CARTO-T1C-1 closed for the seam"
+  },
+  {
+   "id": "P-T2",
+   "product": "Hikae (registry built)",
+   "producer": "packages/hikae L1/L2/L3 via apps/harness gate + calibrate",
+   "artefact": "GateDecision / calibrate envelope",
+   "consumer": "MCP gate / calibrate (served)",
+   "status": "cable",
+   "served_by": "MCP gate, calibrate",
+   "evidence": [
+    {
+     "file": "apps/harness/src/tools/registry.ts",
+     "line": 58,
+     "expect": "export const HARNESS_TOOLS"
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "test/h5-e2e-probe.test.ts",
+     "name": "probe_harness_records_real_decision"
+    },
+    {
+     "kind": "test",
+     "file": "test/byo-demo-probe.test.ts",
+     "name": "probe_byo_demo_loop_closes"
+    },
+    {
+     "kind": "test",
+     "file": "apps/harness/test/gate.test.ts",
+     "name": "gate_stable_run_honesty_text_is_keyed_A2_A7f"
+    }
+   ]
+  },
+  {
+   "id": "P-T3",
+   "product": "transverse",
+   "producer": "scripts/export-public.mjs collectFiles (whitelist)",
+   "artefact": "public mirror tree (327 files kept at HEAD)",
+   "consumer": "scripts/release-public.mjs -> KraidleAI/Monark (orchestrator act)",
+   "status": "fixture",
+   "fixture_kind": "course",
+   "evidence": [
+    {
+     "file": ".github/workflows/ci.yml",
+     "line": 97,
+     "expect": "run: npm run export:check"
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "test/export-public.test.ts",
+     "name": "export_public_no_governance_no_french"
+    }
+   ],
+   "note": "export:check exit 0 at HEAD; exported: apps/bell 0, docs 0, scripts/census 0, deploy 0, packages/rpc-guard 26, apps/sentinel/src 15, ukemi-predict.ts 1; 13 tests export-excluded incl. gate-liq-artifact.test.ts and the u4b chain tests"
+  },
+  {
+   "id": "P-N6",
+   "product": "Narabi (site)",
+   "producer": "deploy/monark-sentinel.timer (repo file, read at BUILD time)",
+   "artefact": "publish-schedule string rendered in the /narabi lag line",
+   "consumer": "apps/site/app/narabi/page.tsx publishSchedule() -> NarabiLive",
+   "status": "cable (repo build) / FALLBACK in the deployed build",
+   "evidence": [
+    {
+     "file": "apps/site/app/narabi/page.tsx",
+     "line": 25,
+     "expect": "const unit = readFileSync(join(root,"
+    },
+    {
+     "file": "apps/site/app/narabi/page.tsx",
+     "line": 32,
+     "expect": "the daily schedule declared in monark-sentinel.timer"
+    },
+    {
+     "file": "scripts/export-public.mjs",
+     "line": 54,
+     "expect": "export const WHITELIST_DIRS"
+    },
+    {
+     "file": "docs/RUNBOOK-vitrine.md",
+     "line": 9,
+     "expect": "Export propre"
+    }
+   ],
+   "note": "schedule-replay.mjs (verbatim logic of page.tsx:22-34): repo tree -> '00:30 UTC, plus up to a 30-minute randomized delay (monark-sentinel.timer)'; export tree (node scripts/export-public.mjs --out, 328 files, deploy/ ABSENT) -> fallback 'the daily schedule declared in monark-sentinel.timer'. The vitrine is built from the export (RUNBOOK-vitrine.md:9). No test asserts the rendered schedule. => CARTO-T1C-10"
+  },
+  {
+   "id": "P-N7",
+   "product": "Narabi (deploy)",
+   "producer": "harness redeploy: git archive of apps/ packages/ schemas/ fixtures/ package.json package-lock.json deploy/ scripts/verify-harness.mjs (RUNBOOK-harness step 1)",
+   "artefact": "/opt/monark-harness/** on the site VPS (one tree for TWO units)",
+   "consumer": "monark-harness.service (server.ts) AND monark-sentinel.service (run.ts, oneshot re-reading its code at every timer slot)",
+   "status": "present, NO test (procedure; outside the served-path bareme: not 'cable')",
+   "served_by": "the deploy procedure itself",
+   "evidence": [
+    {
+     "file": "docs/RUNBOOK-harness.md",
+     "line": 48,
+     "expect": "- `apps/` and `packages/` ship **whole**"
+    },
+    {
+     "file": "docs/RUNBOOK-harness.md",
+     "line": 66,
+     "expect": "apps packages schemas fixtures package.json package-lock.json deploy scripts/verify-harness.mjs"
+    },
+    {
+     "file": "docs/RUNBOOK-sentinel.md",
+     "line": 26,
+     "expect": "## 1. Ship the sentinel tree (it rides inside the harness archive)"
+    },
+    {
+     "file": "deploy/monark-harness.service",
+     "line": 50,
+     "expect": "/opt/monark-harness/apps/harness/src/server.ts"
+    },
+    {
+     "file": "deploy/monark-sentinel.service",
+     "line": 39,
+     "expect": "/opt/monark-harness/apps/sentinel/src/run.ts"
+    },
+    {
+     "file": "docs/JOURNAL-PROVENANCE.md",
+     "line": 358,
+     "expect": "HARNESS REDÉPLOYÉ au SHA nommé `bb41b6d`"
+    },
+    {
+     "file": "docs/JOURNAL-PROVENANCE.md",
+     "line": 355,
+     "expect": "`monark-harness` NON redémarré"
+    },
+    {
+     "file": "docs/RUNBOOK-sentinel.md",
+     "line": 338,
+     "expect": "**P-4** — Hors créneau"
+    },
+    {
+     "file": "docs/RUNBOOK-sentinel.md",
+     "line": 336,
+     "expect": "**P-2** — Clôture du temps 1 et de la course U-4b-1b"
+    },
+    {
+     "file": "docs/adr/ADR-NARABI-OPS-1.md",
+     "line": 249,
+     "expect": "le seul autorisé par la décision 118"
+    },
+    {
+     "file": "scripts/verify-harness.mjs",
+     "line": 191,
+     "expect": "const checks = [];"
+    }
+   ],
+   "tests": [],
+   "gap": "no test and no CA check binds 'harness redeploy' to 'sentinel code unchanged': verify-harness.mjs carries 12 harness checks and 0 'sentinel' token; the redeploy's digest controls cover gate.ts / verify-harness.mjs / h5 fixture only (JOURNAL-PROVENANCE.md:358). The coupling IS documented for the sentinel's own deploy (RUNBOOK-sentinel.md:26-28, E-5 consigned the reverse effect on the harness process, JOURNAL-PROVENANCE.md:355) but not for a harness-only redeploy => CARTO-T1F-1 / CARTO-T1F-2",
+   "deployed": "exercised 2026-09-23 00:54Z at bb41b6d (inside the 00:30 slot window [00:30;01:05] of P-4)"
+  },
+  {
+   "id": "P-T4",
+   "product": "harness (deploy CA)",
+   "producer": "scripts/verify-harness.mjs (12 checks against api./mcp.)",
+   "artefact": "docs/deploy-CA-harness.json (sha 0a3e9a72..., commit fb6720b)",
+   "consumer": "the orchestrator's G7/redeploy acceptance (RUNBOOK-harness step 6)",
+   "status": "present, tested (procedure; outside the served-path bareme: not 'cable')",
+   "evidence": [
+    {
+     "file": "scripts/verify-harness.mjs",
+     "line": 235,
+     "expect": "checks.push(await wiredCheck(\"gate_liq_call\""
+    },
+    {
+     "file": "scripts/verify-harness.mjs",
+     "line": 245,
+     "expect": "checks.push(await httpCheck(\"mcp_gate_description_liq\""
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "test/verify-harness-liq.test.ts",
+     "name": "verify_harness_ca_passes_on_the_in_process_harness"
+    },
+    {
+     "kind": "test",
+     "file": "test/verify-harness-liq.test.ts",
+     "name": "verify_harness_ca_liq_checks_red_on_overclaiming_surfaces"
+    }
+   ],
+   "note": "scope = the harness only; the sentinel co-hosted in the same tree is outside the CA (CARTO-T1F-2)"
+  },
+  {
+   "id": "P-U15",
+   "product": "Ukemi (recorder, UKEMI-RETRY-2/3 + HEARTBEAT-1, merge 12b6dcd)",
+   "producer": "guarded transport TransportError (HttpError 408; retryAfterMs parsed)",
+   "artefact": "in-place caller retry after retryWaitMs; write-ahead ledger line per attempt; rpc_errors/errors_by_operator; stderr heartbeat t=<ISO>",
+   "consumer": "record.ts caller shim (runRecorder), then the cycle ledger and <out>.diag.json",
+   "status": "fixture",
+   "fixture_kind": "course",
+   "evidence": [
+    {
+     "file": "apps/sentinel/src/ukemi/record.ts",
+     "line": 222,
+     "expect": "export function retryWaitMs("
+    },
+    {
+     "file": "apps/sentinel/src/ukemi/record.ts",
+     "line": 385,
+     "expect": "(e.code === 408 || e.code === 429 || e.code >= 500)"
+    },
+    {
+     "file": "apps/sentinel/src/ukemi/record.ts",
+     "line": 386,
+     "expect": "if (transient && attempt < args.retries) { await (deps.sleep ?? defaultSleep)(retryWaitMs("
+    },
+    {
+     "file": "apps/sentinel/src/ukemi/record.ts",
+     "line": 169,
+     "expect": "const heartbeatEvery = reqInt(\"--heartbeat-every\", 2000);"
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-guard-record.test.ts",
+     "name": "ukemi_record_retry2_drpc_408_is_retried_in_place_course_topology_survives"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-guard-record.test.ts",
+     "name": "ukemi_record_retry2_persistent_408_is_bounded_then_surfaces_and_leaks_nothing"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-guard-record.test.ts",
+     "name": "ukemi_record_retry2_4xx_boundary_only_408_is_transient"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-guard-record.test.ts",
+     "name": "ukemi_record_retry3_retry_after_floors_the_backoff_under_the_cap"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-guard-record.test.ts",
+     "name": "ukemi_record_heartbeat1_period_is_the_flag_stderr_only_with_iso_t"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-guard-record.test.ts",
+     "name": "ukemi_record_heartbeat1_zero_is_refused_preflight_and_in_the_filter_core"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-guard-record.test.ts",
+     "name": "ukemi_record_heartbeat1_changes_nothing_but_stderr"
+    }
+   ],
+   "adr": "ADR-U4b amendment UKEMI-RETRY-2/3 (docs/adr/ADR-U4b-calibration-episode-frais.md:1828), Tuyaux :1846-1850",
+   "real_course": "temps 1 essai 6 on e1411cf (contains 12b6dcd): drpc errors 204 (0.78%) over 26227 calls, exit 0 (CHANTIERS@4a2f69f l.1078)"
+  },
+  {
+   "id": "P-U16",
+   "product": "Ukemi (recorder, UKEMI-CONC-1, merge e1411cf)",
+   "producer": "--concurrency <n> -> parseConcurrency -> prefetch window (pool.ts, prefetch.ts) through the MEMOISING reader (resume cache or RAM memo)",
+   "artefact": "same run JSON / book / book_digest / --resume cache / <out>.diag.json (+ provenance.concurrency, diag.pool); stderr ..prefetch heartbeat",
+   "consumer": "the UNCHANGED consumers (enumerateAndCountAtRisk, recordBook) replaying HITs; then u4b-reduce --book-raw (reads book + provenance.book_digest only)",
+   "status": "fixture",
+   "fixture_kind": "course",
+   "evidence": [
+    {
+     "file": "apps/sentinel/src/ukemi/record.ts",
+     "line": 251,
+     "expect": "const concurrency = parseConcurrency(argv);"
+    },
+    {
+     "file": "apps/sentinel/src/ukemi/record.ts",
+     "line": 438,
+     "expect": "if (concurrency > 1) { await prefetchFilterReads("
+    },
+    {
+     "file": "apps/sentinel/src/ukemi/record.ts",
+     "line": 476,
+     "expect": "if (concurrency > 1) await prefetchBookReads("
+    },
+    {
+     "file": "scripts/census/u4b/u4b-reduce.mjs",
+     "line": 48,
+     "expect": "book_digest: bookRaw.provenance.book_digest,"
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-conc.test.ts",
+     "name": "ukemi_conc_n8_filter_and_book_are_byte_identical_to_n1"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-conc.test.ts",
+     "name": "ukemi_conc_budget_stop_drains_before_unlock_and_ledgers_stay_chained"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-conc.test.ts",
+     "name": "ukemi_conc_resume_under_concurrency_one_line_per_miss_and_replays"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-conc.test.ts",
+     "name": "ukemi_conc_retry_attempt_re_enters_the_gate"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-conc.test.ts",
+     "name": "ukemi_conc_heartbeat_every_paces_both_prefetches_and_the_replay_restarts_at_zero"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-conc.test.ts",
+     "name": "ukemi_conc_book_stop_halts_each_task_at_its_next_read_and_ledgers_stay_chained"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-conc.test.ts",
+     "name": "ukemi_conc_book_prefetch_leaves_recordbook_zero_network_reads"
+    }
+   ],
+   "adr": "ADR-U4b amendment UKEMI-CONC-1 (:1861), section 4 Tuyaux (:1950): 'branche ; built a la premiere course rapprochee (temps 2 a n > 1)'",
+   "real_course": "temps 1 at --concurrency 8 on e1411cf: exit 0; temps 2 at n>1 STOPPED after 182 calls (CHANTIERS@4a2f69f l.1080) => the ADR's own 'built' rendezvous (first reconciled course, temps 2 at n>1) is NOT reached — a state, not a debt"
+  },
+  {
+   "id": "P-U17",
+   "product": "Ukemi (course, U-4b-1b-4 probe (d), merge da5d6e1)",
+   "producer": "scripts/census/u4b/u4b-probe-cutoff.mjs (1 eth_call aggregator() + CutoffTimeSet scan, guarded keyless)",
+   "artefact": "<--out>/cutoff-<B_fresh>.json (out of repo, never episode-selection.json)",
+   "consumer": "control C-12 of the course RUNBOOK (annex C) -> go/no-go of step 3 (procedure, not a served path)",
+   "status": "fixture",
+   "fixture_kind": "course",
+   "evidence": [
+    {
+     "file": "scripts/census/u4b/u4b-probe-cutoff.mjs",
+     "line": 124,
+     "expect": "cutoff-${bFresh}.json"
+    },
+    {
+     "file": "scripts/census/u4b/u4b-probe-cutoff.mjs",
+     "line": 125,
+     "expect": "writeFileSync(outPath, JSON.stringify(report, null, 2)"
+    },
+    {
+     "file": "docs/course-ukemi/RUNBOOK-course-ukemi-2026-09-22.md",
+     "line": 257,
+     "expect": "**Contrôle** : C-12 (annexe C)."
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/u4b-probe-cutoff.test.ts",
+     "name": "u4b_probe_cutoff_go_when_equal_real_form_logs_full_range_and_C12_exit_0"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/u4b-probe-cutoff.test.ts",
+     "name": "u4b_probe_cutoff_never_writes_the_selection_and_the_prober_still_accepts_it"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/u4b-probe-cutoff.test.ts",
+     "name": "u4b_probe_cutoff_cli_exit_code_is_0_on_GO_and_3_on_STOP"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/u4b-probe-cutoff.test.ts",
+     "name": "u4b_probe_cutoff_c12_constant_is_the_runbook_control_verbatim"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/u4b-probe-cutoff.test.ts",
+     "name": "u4b_probe_cutoff_script_is_keyless_clean_and_imports_closed"
+    }
+   ],
+   "real_course": "C-12 exit 0 at 06:44Z (CHANTIERS@4a2f69f l.1079)"
+  },
+  {
+   "id": "P-U18",
+   "product": "Ukemi (course, U-4b-1b-4 pre-B0 anchor + --usdt-blocks)",
+   "producer": "prober u4-oracle-path.mjs (receding getLogs lookback, guarded keyless) -> raw.pre_b0_anchor; helper --usdt-blocks from the labeler output",
+   "artefact": "U4-oracle-path raw (out of repo)",
+   "consumer": "u4b-reduce.mjs (FROZEN, reads oRaw.pre_b0_anchor) -> frozen scorer (cell_a.anchor_price)",
+   "status": "fixture",
+   "fixture_kind": "course",
+   "evidence": [
+    {
+     "file": "scripts/census/u4-oracle-path.mjs",
+     "line": 276,
+     "expect": "pre_b0_anchor: preB0Anchor,"
+    },
+    {
+     "file": "scripts/census/u4b/u4b-reduce.mjs",
+     "line": 66,
+     "expect": "const preB0 = oRaw.pre_b0_anchor;"
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/u4b-oracle-path.test.ts",
+     "name": "u4b_anchor_and_usdt_blocks_compose_prober_to_frozen_reducer_and_scorer"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/u4b-oracle-path.test.ts",
+     "name": "u4b_usdt_blocks_helper_on_real_e2_labels_is_what_the_frozen_scorer_reads"
+    }
+   ],
+   "real_course": "step 5 (prober) not reached (temps 2 stopped first)"
+  },
+  {
+   "id": "P-U19",
+   "product": "Ukemi (offline, U-4b-STATS-1, merges 28ffb5b/aeeed70/b9964ee)",
+   "producer": "scripts/census/u4b/u4b-hyp.mjs report (H-3/H-4/H-6 + clause :359 input)",
+   "artefact": "hyp-report-<EP>.json, written once (wx), out of repo, body_digest",
+   "consumer": "Sidecar 6 line -> body.clause_359 -> mechanical application of the U-6 clause by the orchestrator (RUNBOOK step 8, decision 137)",
+   "status": "fixture",
+   "fixture_kind": "course",
+   "evidence": [
+    {
+     "file": "scripts/census/u4b/u4b-hyp.mjs",
+     "line": 676,
+     "expect": "body.clause_359 = clause359(body.h3, body.labels);"
+    },
+    {
+     "file": "scripts/census/u4b/u4b-hyp.mjs",
+     "line": 685,
+     "expect": "writeFileSync(out, text, { flag: \"wx\" });"
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/u4b-hyp.test.ts",
+     "name": "u4b_hyp_report_e2_end_to_end_deterministic_body_digest"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/u4b-hyp.test.ts",
+     "name": "cw1_verdicts_membership_on_the_written_report_t17"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/u4b-hyp.test.ts",
+     "name": "g2proto1b_clause359_pooled_non_outside_the_condition_q1a"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/u4b-hyp.test.ts",
+     "name": "u4b_hyp_cli_refuses_forbidden_unknown_and_in_repo_flags"
+    }
+   ],
+   "adr": "ADR-U4b STATS-1 section 6 Tuyaux (:1644): upcoming until the first 6d run on the fresh episode (item I-4); its cited test lines are dated '@ c1e9e30' (drift +8 at d0535cb, titles unchanged)"
+  },
+  {
+   "id": "P-U20",
+   "product": "Ukemi (course: temps 1 -> temps 2)",
+   "producer": "record.ts --filter-only (temps 1): U4-filter-<B>.json (provenance incl. n_at_risk_config, holders_digest) + the --resume cache (holders line)",
+   "artefact": "record/U4-filter-23414968.json (sha 606c9f7a...) + cache, out of repo",
+   "consumer": "orchestrator 3b go/no-go (caps by formula on N) -> record-t2 (book path, --resume) -> U4-book-<B>.raw.json -> u4b-reduce --book-raw",
+   "status": "fixture",
+   "fixture_kind": "course",
+   "evidence": [
+    {
+     "file": "apps/sentinel/src/ukemi/record.ts",
+     "line": 465,
+     "expect": "writeFileSync(out, JSON.stringify({ provenance }, null, 2));"
+    },
+    {
+     "file": "apps/sentinel/src/ukemi/record.ts",
+     "line": 481,
+     "expect": "assertResumeHoldersMatch(res.holders_digest, resumeReader);"
+    },
+    {
+     "file": "apps/sentinel/src/ukemi/record.ts",
+     "line": 455,
+     "expect": "model: \"claude-opus-4-8[1m]\""
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-conc.test.ts",
+     "name": "ukemi_conc_resume_under_concurrency_one_line_per_miss_and_replays"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-record.test.ts",
+     "name": "ukemi_record_parses_cli_args"
+    }
+   ],
+   "journal": [
+    {
+     "at_commit": "4a2f69f",
+     "path": "docs/CHANTIERS.md",
+     "line_no": 1078,
+     "text": "`n_at_risk_config=15452`"
+    },
+    {
+     "at_commit": "4a2f69f",
+     "path": "docs/CHANTIERS.md",
+     "line_no": 1079,
+     "text": "3b go/no-go (acte orchestrateur, décision 143)"
+    },
+    {
+     "at_commit": "4a2f69f",
+     "path": "docs/CHANTIERS.md",
+     "line_no": 1080,
+     "text": "STOP 10:43:31Z, exit 1"
+    }
+   ],
+   "note": "PROV-MODEL-1 (existing item, deferred): the temps-1 output provenance carries model 'claude-opus-4-8[1m]' hard-coded (record.ts:410,455,488 — 3 occurrences) although the roster is Opus 5.5 since decision 133; hors book_digest"
+  },
+  {
+   "id": "P-U21",
+   "product": "Ukemi (recorder book path x paid leg) — INCIDENT REVERT-PAID-1",
+   "producer": "oracle source description() read (GHO fixed-price oracle reverts BARE, no data)",
+   "artefact": "RpcError code 3 without data from BOTH operators of the eth_call pool {drpc.org keyless, chainstack paid}",
+   "consumer": "rpc2.ts quorum (isRpcRevert) -> book.ts / prefetch.ts description() tolerance (ONLY ConcordantRevertError)",
+   "status": "fixture",
+   "fixture_kind": "course",
+   "composition_state": "the COMPOSITION paid-leg x bare-revert x description()-tolerance on the course topology is covered by NO test; the mechanism is pinned piecewise by 3 tests (see tests) => temps-2 STOP fail-closed 10:43:31Z",
+   "evidence": [
+    {
+     "file": "apps/sentinel/src/ukemi/book.ts",
+     "line": 82,
+     "expect": "GHO's fixed-price oracle reverts on it"
+    },
+    {
+     "file": "apps/sentinel/src/ukemi/book.ts",
+     "line": 91,
+     "expect": "if (!(e instanceof ConcordantRevertError)) throw e;"
+    },
+    {
+     "file": "apps/sentinel/src/ukemi/prefetch.ts",
+     "line": 46,
+     "expect": "try { await rd(source, SEL.description); } catch (e) { if (!(e instanceof ConcordantRevertError)) throw e; }"
+    },
+    {
+     "file": "packages/rpc-guard/src/classify.ts",
+     "line": 56,
+     "expect": "if (e.unit !== \"keyless\" && (e.data === undefined || e.data === \"0x\")) return false;"
+    },
+    {
+     "file": "apps/sentinel/src/ukemi/rpc2.ts",
+     "line": 195,
+     "expect": "if (isRpcRevert(e)) { got.push("
+    }
+   ],
+   "tests": [
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-guard-classify.test.ts",
+     "name": "paid_revert_with_empty_0x_data_is_benched"
+    },
+    {
+     "kind": "test",
+     "file": "test/guard-scripts-u4.test.ts",
+     "name": "u4_oracle_path_paid_leg_is_metered_in_its_own_ledger"
+    },
+    {
+     "kind": "test",
+     "file": "apps/sentinel/test/ukemi-guard-record.test.ts",
+     "name": "ukemi_budget_counts_http_attempts_and_caller_retry_is_scoped"
+    }
+   ],
+   "tests_note": "(1) pool level: [drpc value, chainstack bare revert] => NoQuorumError (designed R-A); (2) prober e-mode 8 with the paid leg forced => NoQuorumError NAMED (C-R-4(a)); (3) recorder book run with a stub returning a bare revert on every chainstack call => rejects, asserted for the RETRY SCOPE only. None composes description() with BOTH operators reverting (keyless revert = revert, paid bare revert = benched).",
+   "journal": [
+    {
+     "at_commit": "4a2f69f",
+     "path": "docs/CHANTIERS.md",
+     "line_no": 1081,
+     "text": "la lecture `description()` de l'oracle GHO fait un revert NU"
+    }
+   ],
+   "owner_item": "UKEMI-REVERT-1 (formed, CHANTIERS@4a2f69f l.1082) — not re-formed here; the missing composition test is the measured input for its G0"
+  }
+ ],
+ "registry": [
+  {
+   "id": "R-1",
+   "surface": "apps/site/lib/fleet.ts",
+   "claim": "Shogen built, served_by attest -> gate (attested envelope key)",
+   "cite": {
+    "file": "apps/site/lib/fleet.ts",
+    "line": 123,
+    "expect": "MCP attest → gate (the attested envelope key"
+   },
+   "measured": "cable (P-T1); harness deployed at bb41b6d = HEAD for the served closure (0 file changed)",
+   "verdict": "concordant (CARTO-T1C-1 closed)"
+  },
+  {
+   "id": "R-2",
+   "surface": "apps/site/lib/fleet.ts",
+   "claim": "Hikae built (3 served legs)",
+   "cite": {
+    "file": "apps/site/lib/fleet.ts",
+    "line": 138,
+    "expect": "MCP gate (btc-dir-15m committed decision; stable-run-velocity-24h; BYO calibration)"
+   },
+   "measured": "cable (P-T2)",
+   "verdict": "concordant"
+  },
+  {
+   "id": "R-3",
+   "surface": "apps/site/lib/fleet.ts",
+   "claim": "Ukemi built, served_by cascade -> gate, abstains under_calib by construction",
+   "cite": {
+    "file": "apps/site/lib/fleet.ts",
+    "line": 161,
+    "expect": "MCP cascade → gate (cascade-liquidable-24h; abstains under_calib by construction"
+   },
+   "measured": "cable, vacuous (P-U11)",
+   "verdict": "concordant (the /ukemi page describes the OTHER Ukemi leg, R-9)"
+  },
+  {
+   "id": "R-4",
+   "surface": "apps/site/lib/fleet.ts",
+   "claim": "Narabi built, 2 legs (published timeline; fromAttestedFlow -> gate)",
+   "cite": {
+    "file": "apps/site/lib/fleet.ts",
+    "line": 189,
+    "expect": "daily published sentinel at /narabi/ + fromAttestedFlow → gate"
+   },
+   "measured": "cable (P-N1, P-N4) + probe/mail leg cable (P-N2) not listed in wiring",
+   "verdict": "concordant"
+  },
+  {
+   "id": "R-5",
+   "surface": "README.md",
+   "claim": "public 4-tool MCP endpoint (attest · gate · cascade · calibrate)",
+   "cite": {
+    "file": "README.md",
+    "line": 42,
+    "expect": "public 4-tool MCP endpoint (attest · gate · cascade · calibrate)"
+   },
+   "measured": "REGISTERED_TOOL_NAMES = [gate,cascade,attest,calibrate]; openapi paths /gate /cascade /attest /calibrate (runtime)",
+   "verdict": "concordant"
+  },
+  {
+   "id": "R-6",
+   "surface": "README.md",
+   "claim": "AttestedBook upcoming until served (U-6); produced under a keyless RPC quorum",
+   "cite": {
+    "file": "README.md",
+    "line": 117,
+    "expect": "under a keyless RPC quorum"
+   },
+   "measured": "toAttestedBook 0 src consumer (P-U12) => upcoming concordant; the recorder quorum admits the guarded paid 'chainstack' (record.ts:309) AND the real temps-1 run used it (52048 RU, CHANTIERS@4a2f69f l.1078)",
+   "verdict": "upcoming concordant / latent ECART CARTO-T1C-4 (strengthened)",
+   "cite2": {
+    "file": "apps/sentinel/src/ukemi/record.ts",
+    "line": 309,
+    "expect": "const KNOWN_ETH_LABELS",
+    "line_prev_2026_09_22": 285
+   }
+  },
+  {
+   "id": "R-7",
+   "surface": "skills/monark/SKILL.md",
+   "claim": "Four tools - attest, gate, cascade, calibrate; the two built-in task classes + a third stable-run",
+   "cite": {
+    "file": "skills/monark/SKILL.md",
+    "line": 3,
+    "expect": "Four tools - attest, gate, cascade, calibrate."
+   },
+   "cite2": {
+    "file": "skills/monark/SKILL.md",
+    "line": 58,
+    "expect": "The two built-in `task_class` values"
+   },
+   "measured": "4 tools concordant; the served liq class (P-U9) is not named",
+   "verdict": "ECART (lag, declared at 2b-7) - CARTO-T1C-3 family"
+  },
+  {
+   "id": "R-8",
+   "surface": "apps/harness/README.md",
+   "claim": "gate input {prediction, params}; dispatch table btc-dir-15m / cascade-liquidable-24h / BYO",
+   "cite": {
+    "file": "apps/harness/README.md",
+    "line": 14,
+    "expect": "**Input** is an envelope"
+   },
+   "cite2": {
+    "file": "apps/harness/README.md",
+    "line": 27,
+    "expect": "| `cascade-liquidable-24h`"
+   },
+   "measured": "gate input keys [prediction, params, attested]; 4 task classes + BYO (gate.ts:756 known list)",
+   "verdict": "ECART CARTO-T1C-3"
+  },
+  {
+   "id": "R-9",
+   "surface": "apps/site /ukemi (lib/ukemi-copy.ts, deployed db14e8a)",
+   "claim": "The liquidation-eligible-coverage class is served through the gate",
+   "cite": {
+    "file": "apps/site/lib/ukemi-copy.ts",
+    "line": 102,
+    "expect": "The liquidation-eligible-coverage class is served through the gate."
+   },
+   "measured": "true in HEAD code (P-U9) AND in the served process (bb41b6d; CA gate_liq_call green, JOURNAL-PROVENANCE.md:358)",
+   "verdict": "concordant (CARTO-T1C-1 closed)"
+  },
+  {
+   "id": "R-10",
+   "surface": "MCP tools/list + openapi (gate description)",
+   "claim": "served gate description, liq clause conditional on the registry state (HARNESS-DESC-1)",
+   "cite": {
+    "file": "apps/harness/src/tools/gate.ts",
+    "line": 220,
+    "expect": "export const GATE_TOOL_DESCRIPTION = describeGate(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE));"
+   },
+   "cite2": {
+    "file": "apps/harness/src/tools/gate.ts",
+    "line": 150,
+    "expect": "calibrated on one recorded episode"
+   },
+   "measured": "runtime at d0535cb: registry empty; description carries LIQ_EMPTY_REGISTRY_SENTENCE, not LIQ_H3_SENTENCE (harness-runtime.out.json)",
+   "verdict": "concordant (CARTO-T1C-2 closed)"
+  },
+  {
+   "id": "R-11",
+   "surface": "apps/site /narabi pill",
+   "claim": "built · step N of 7 before first reading (N read)",
+   "cite": {
+    "file": "apps/site/lib/narabi-live.ts",
+    "line": 304,
+    "expect": "before first reading"
+   },
+   "measured": "N from the LIVE state (snapshot = fallback); HEAD producer -> site parser replay OK",
+   "verdict": "concordant"
+  },
+  {
+   "id": "R-12",
+   "surface": "README / site / skill / export / deploy",
+   "claim": "Bell (decision 117: upcoming in every public register of temps 1)",
+   "measured": "0 Bell/Kane mention in apps/site, README.md, skills, READMEs; 0 apps/bell file exported; 0 served-closure Bell file; no Bell unit",
+   "verdict": "concordant",
+   "cite": {
+    "file": "docs/CHANTIERS.md",
+    "line": 541,
+    "expect": "Bell reste `upcoming` dans TOUT registre public du temps 1"
+   }
+  },
+  {
+   "id": "R-13",
+   "surface": "README.md / apps/site/app/roadmap/page.tsx",
+   "claim": "six frozen contracts (the sixth, AttestedBook, upcoming until served)",
+   "cite": {
+    "file": "apps/site/app/roadmap/page.tsx",
+    "line": 40,
+    "expect": "the sixth, AttestedBook, upcoming until served"
+   },
+   "measured": "P-U12 fixture:test",
+   "verdict": "concordant"
+  },
+  {
+   "id": "R-14",
+   "surface": "fleet.ts wiring COMMENTS (not rendered)",
+   "claim": "test line refs h5-e2e-probe.test.ts:83, narabi-live.test.ts:45",
+   "cite": {
+    "file": "apps/site/lib/fleet.ts",
+    "line": 163,
+    "expect": "test/h5-e2e-probe.test.ts:83"
+   },
+   "measured": "actual test lines :96 and :50 (the frozen-register guard matches by NAME, green)",
+   "verdict": "nit - correction at 2b-5 (fleet.ts rewrite)"
+  },
+  {
+   "id": "R-15",
+   "surface": "home / (apps/site/app/page.tsx:95-98 panels)",
+   "claim": "Shogen, Hikae, Narabi panels status built (hard-coded literal); Ukemi panel reads the register",
+   "cite": {
+    "file": "apps/site/components/narabi-panel.tsx",
+    "line": 35,
+    "expect": "status=\"built\""
+   },
+   "cite2": {
+    "file": "apps/site/components/ukemi-panel.tsx",
+    "line": 43,
+    "expect": "status={UKEMI_STATUS}"
+   },
+   "cite3": {
+    "file": "apps/site/components/shogen-panel.tsx",
+    "line": 33,
+    "expect": "status=\"built\""
+   },
+   "cite4": {
+    "file": "apps/site/components/hikae-panel.tsx",
+    "line": 33,
+    "expect": "status=\"built\""
+   },
+   "cite5": {
+    "file": "apps/site/lib/fleet.ts",
+    "line": 111,
+    "expect": "rendered from the register, not a bespoke panel"
+   },
+   "measured": "the 3 literals equal the register today (concordant); no test binds them to FLEET_AGENTS (grep of test/ and apps/site/test = 0 reference to the three panel files); fleet.ts:111 says Narabi is 'not a bespoke panel' while page.tsx:98 renders NarabiPanel",
+   "verdict": "concordant today / latent drift -> CARTO-T1C-11"
+  },
+  {
+   "id": "R-16",
+   "surface": "docs/TABLEAU-DE-BORD.md (INTERNAL registry, not public)",
+   "claim": "'Mis a jour par l'orchestrateur a CHAQUE evenement'; -1d row 'EN COURS - G7 a rendre'",
+   "cite": {
+    "file": "docs/TABLEAU-DE-BORD.md",
+    "line": 42,
+    "expect": "**EN COURS — chaîne de revue COMPLÈTE, G7 à rendre**"
+   },
+   "cite2": {
+    "file": "docs/TABLEAU-DE-BORD.md",
+    "line": 3,
+    "expect": "Dernière mise à jour : 2026-09-22T20:28Z"
+   },
+   "measured": "-1d merged 3659181 (2026-09-22 20:53Z) and most likely running on the VPS (P-N5); 124 first-parent commits between the TABLEAU's last edit 153582f and d0535cb (git rev-list --count --first-parent); living state kept in docs/ETAT-REPRISE.md instead",
+   "verdict": "ECART (internal) -> CARTO-T1F-3"
+  }
+ ],
+ "paid_and_network_sites": {
+  "method": "coverage.mjs at HEAD (13 files with a network or paid-key site; test/rpc-guard-fetch-only-inside-client.test.ts roots)",
+  "key_reads_all_inside_a_root": [
+   {
+    "file": "packages/rpc-guard/src/transport.ts",
+    "line": 96,
+    "expect": "const key = env.HELIUS_API_KEY;",
+    "root": "packages/*/src [allowlisted]"
+   },
+   {
+    "file": "apps/bell/src/close.ts",
+    "line": 43,
+    "expect": "env.POLYGON_API_KEY",
+    "root": "apps/bell/src [allowlisted]"
+   },
+   {
+    "file": "apps/sentinel/src/rpc.ts",
+    "line": 54,
+    "expect": "env.CHAINSTACK_ETH_URL?.trim()",
+    "root": "apps/sentinel/src/ukemi(+rpc.ts) [allowlisted, trigger -1d]; accepted 118"
+   }
+  ],
+  "keyless_network_sites_outside_every_root": [
+   {
+    "file": "scripts/census/u3-realized.mjs",
+    "line": 310,
+    "expect": "await fetch(url,"
+   },
+   {
+    "file": "scripts/probe-narabi.mjs",
+    "line": 277,
+    "expect": "await fetch(url,"
+   },
+   {
+    "file": "apps/site/components/narabi/narabi-live.tsx",
+    "line": 52,
+    "expect": "await fetch(url, { cache:"
+   }
+  ],
+  "not_in_any_root_but_rpc_via_guard": "scripts/census/u4b/{u4b-discover,u4b-select-episode,liquidation-logs}.mjs: 0 direct fetch/key site (they import u4-guard.mjs); the u4 root is scripts/census/u4-*.mjs NON-recursive"
+ },
+ "baseline_oracle_s5": [
+  {
+   "id": "S5-a",
+   "expected": "2b-ii adds record.ts -> packages/rpc-guard/src/index.ts AND removes record.ts:328 env.CHAINSTACK",
+   "measured": "edge present (record.ts:24); 0 CHAINSTACK env read in record.ts",
+   "verdict": "PASS",
+   "cite": {
+    "file": "apps/sentinel/src/ukemi/record.ts",
+    "line": 24,
+    "expect": "import { openGuardedClient, runCli"
+   }
+  },
+  {
+   "id": "S5-b",
+   "expected": "2b-iii adds u4-oracle-path|redraw.mjs -> @monark/rpc-guard AND removes :55/:83 env.CHAINSTACK",
+   "measured": "no DIRECT edge: the scripts import scripts/census/u4-guard.mjs (u4-oracle-path.mjs:29, u4-redraw.mjs:27) which imports @monark/rpc-guard (u4-guard.mjs:26-30); env reads gone",
+   "verdict": "PASS on intent (transitive), literal wording of the baseline oracle NOT met (direct edge) - no action beyond this note",
+   "cite": {
+    "file": "scripts/census/u4-guard.mjs",
+    "line": 30,
+    "expect": "@monark/rpc-guard"
+   }
+  },
+  {
+   "id": "S5-c",
+   "expected": "apps/sentinel/src/rpc.ts:54 env.CHAINSTACK stays (accepted 118) until -1d",
+   "measured": "text present (frozen by ADR-U4b D4, allowlisted until the -1d rebase) but DEAD on the served path since the -1d merge 3659181 (run.ts injects makeDispatchCall; 0 caller of chainstackUrl/defaultCall outside rpc.ts)",
+   "verdict": "PASS (planned migration, decision 137 option (b))",
+   "cite": {
+    "file": "apps/sentinel/src/rpc.ts",
+    "line": 54,
+    "expect": "env.CHAINSTACK_ETH_URL?.trim()"
+   }
+  },
+  {
+   "id": "S5-d",
+   "expected": "CARTO-T1-1 resolved (labeler keyless-only or pre-registered)",
+   "measured": "labeler reads no key: paid leg only through u4-guard (dynamic import) and refused without --allow-paid",
+   "verdict": "PASS",
+   "cite": {
+    "file": "scripts/census/u3-realized.mjs",
+    "line": 280,
+    "expect": "const isPaidOperator"
+   },
+   "tests": [
+    {
+     "kind": "test",
+     "file": "test/u3-realized-param.test.ts",
+     "name": "u3_paid_archive_operator_refused_without_allow_paid"
+    }
+   ]
+  }
+ ],
+ "doc_citations": [
+  {
+   "file": "docs/JOURNAL-PROVENANCE.md",
+   "line": 245,
+   "expect": "commit `1447c05` → REDÉPLOIEMENT VPS"
+  },
+  {
+   "file": "docs/JOURNAL-PROVENANCE.md",
+   "line": 355,
+   "expect": "`monark-harness` NON redémarré"
+  },
+  {
+   "file": "docs/JOURNAL-PROVENANCE.md",
+   "line": 357,
+   "expect": "E-5 : PREMIER RUN RÉEL"
+  },
+  {
+   "file": "docs/JOURNAL-PROVENANCE.md",
+   "line": 351,
+   "expect": "Narabi sonde externe DÉPLOYÉE sur le VPS Bell"
+  },
+  {
+   "file": "docs/JOURNAL-PROVENANCE.md",
+   "line": 238,
+   "expect": "harnais VPS redéployé depuis `a31e66a`"
+  },
+  {
+   "file": "docs/CHANTIERS.md",
+   "line": 733,
+   "expect": "`/opt/monark-redeploy.sh` (swap atomique"
+  },
+  {
+   "file": "docs/JOURNAL-PROVENANCE.md",
+   "line": 197,
+   "expect": "la boucle SSH de l'agent (`/opt/monark-redeploy.sh`, clé `monark_vps` root ; systemd `monark`"
+  },
+  {
+   "file": "docs/RUNBOOK-harness.md",
+   "line": 222,
+   "expect": "/opt/monark-harness-redeploy.sh",
+   "line_prev_2026_09_22": 217
+  },
+  {
+   "file": "docs/CHANTIERS.md",
+   "line": 550,
+   "expect": "résiduel ACCEPTÉ"
+  },
+  {
+   "file": "docs/CHANTIERS.md",
+   "line": 703,
+   "expect": "Le reconcile devient une GATE SEPAREE"
+  },
+  {
+   "file": "docs/CHANTIERS.md",
+   "line": 760,
+   "expect": "OPTION (B)"
+  },
+  {
+   "file": "docs/CHANTIERS.md",
+   "line": 784,
+   "expect": "recent account payments have failed"
+  },
+  {
+   "file": "docs/CHANTIERS.md",
+   "line": 798,
+   "expect": "Le lot reste sur `lot/u4b-1b-3` @ `801859f`"
+  },
+  {
+   "file": "docs/CHANTIERS.md",
+   "line": 803,
+   "expect": "NON fusionne"
+  },
+  {
+   "file": "docs/CHANTIERS.md",
+   "line": 808,
+   "expect": "depot PUBLIC temporairement"
+  },
+  {
+   "file": "docs/CHANTIERS.md",
+   "line": 614,
+   "expect": "CARTOGRAPHIE BASELINE du temps 1"
+  },
+  {
+   "file": "docs/CHANTIERS.md",
+   "line": 627,
+   "expect": "(iii) relevé des appels externes à `cascade`"
+  },
+  {
+   "file": "docs/CHANTIERS.md",
+   "line": 766,
+   "expect": "Item forme A-9-OUTILLE"
+  },
+  {
+   "file": "docs/CHANTIERS.md",
+   "line": 84,
+   "expect": "**Lot K-1 clés Ed25519**"
+  },
+  {
+   "file": "apps/sentinel/src/flow.ts",
+   "line": 52,
+   "expect": "deadbeef"
+  },
+  {
+   "file": "docs/TABLEAU-DE-BORD.md",
+   "line": 68,
+   "expect": "required check `g3-site` à la clôture",
+   "line_prev_2026_09_22": 55
+  },
+  {
+   "file": "docs/TABLEAU-DE-BORD.md",
+   "line": 73,
+   "expect": "reste premier run Linux + required check",
+   "line_prev_2026_09_22": 60
+  },
+  {
+   "file": "docs/TABLEAU-DE-BORD.md",
+   "line": 79,
+   "expect": "Clôture temps 1 (diff de carto, K-1, `g3-site`)"
+  },
+  {
+   "file": "docs/G0-lot-u4b-2.md",
+   "line": 73,
+   "expect": "| 2b-7 |"
+  },
+  {
+   "file": "docs/G0-lot-u4b-2.md",
+   "line": 55,
+   "expect": "| 2a-3 |"
+  },
+  {
+   "file": "docs/CHECKPOINT1-lot-u4b-2.md",
+   "line": 98,
+   "expect": "la description ne contient aucune phrase de couverture"
+  },
+  {
+   "file": "apps/harness/test/gate-liq.test.ts",
+   "line": 195,
+   "expect": "describeGate(true).includes(LIQ_UPPER_BOUND_SENTENCE)"
+  },
+  {
+   "file": "docs/adr/ADR-U4b-calibration-episode-frais.md",
+   "line": 24,
+   "expect": "consommé par un test seul"
+  },
+  {
+   "file": "schemas/attested-book.schema.json",
+   "line": 5,
+   "expect": "Self-declared reading under keyless RPC quorum"
+  },
+  {
+   "file": "packages/monark/src/adapter-book.ts",
+   "line": 30,
+   "expect": "under keyless RPC quorum"
+  },
+  {
+   "file": "apps/bell/src/ethereum.ts",
+   "line": 19,
+   "expect": "import { makeUkemiPool"
+  },
+  {
+   "file": "docs/CHANTIERS.md",
+   "line": 811,
+   "expect": "Post-restart (19:5x UTC)"
+  },
+  {
+   "file": "docs/CHANTIERS.md",
+   "line": 805,
+   "expect": "G2 U-4b-1b-3 (19:1x UTC)"
+  }
+ ],
+ "head": "d0535cb638ba87b78c56d48a061e220c1d6a1fd7",
+ "previous": {
+  "head": "7b997370293ee529e192545f62bf21f655eee1bb",
+  "flows_sha256": "df0d608a9aa74d64b10fb0aa45ea8d2c06d1cfd5b0db99f6efa5f317e8c47ef5",
+  "graph_sha256": "95c114597b90ddc51412a59a16ab8a7fb71a98a1b55d9fff061d284dc5f0514f"
+ },
+ "t1c_items_state": [
+  {
+   "id": "CARTO-T1C-1",
+   "state": "CLOSED",
+   "evidence": "harness redeployed at bb41b6d with CA 12/12 (JOURNAL-PROVENANCE.md:358; CHANTIERS.md:946); served closure bb41b6d..d0535cb = 0 file"
+  },
+  {
+   "id": "CARTO-T1C-2",
+   "state": "CLOSED",
+   "evidence": "HARNESS-DESC-1 (merge ec56c35); runtime: description = empty-registry clause, no H-3 sentence"
+  },
+  {
+   "id": "CARTO-T1C-3",
+   "state": "OPEN",
+   "evidence": "apps/harness/README.md unchanged since 7b99737 (git diff = 0 line); trigger U-4b-2b unchanged"
+  },
+  {
+   "id": "CARTO-T1C-4",
+   "state": "OPEN (strengthened)",
+   "evidence": "the real temps-1 run spent the paid chainstack leg (52048 RU); trigger G0 U-6 unchanged"
+  },
+  {
+   "id": "CARTO-T1C-5",
+   "state": "CLOSED",
+   "evidence": "u4b_chain_select_to_oracle_path (merge 8ed6226); the only file importing both select and prober"
+  },
+  {
+   "id": "CARTO-T1C-6",
+   "state": "TREATED (tool choice)",
+   "evidence": "graph.mjs (AST) is the primary tool of this cartography; carto.mjs kept as cross-check: only_in_ast = 15 (13 at 7b99737), only_in_carto = 0"
+  },
+  {
+   "id": "CARTO-T1C-7",
+   "state": "OPEN (grown)",
+   "evidence": "coverage2.out.json: 10/15 scripts/census files outside every CI root (+u4b-hyp.mjs, +u4b-probe-cutoff.mjs since 7b99737); key reads outside roots = 0"
+  },
+  {
+   "id": "CARTO-T1C-8",
+   "state": "OPEN",
+   "evidence": "apps/site/lib/fleet.ts unchanged since 7b99737"
+  },
+  {
+   "id": "CARTO-T1C-9",
+   "state": "OPEN (recurrence)",
+   "evidence": "d55fbb7 'OTS entry timestamp corrected (07:14 UTC; PowerShell u format printed local time labelled Z)' = a further measured occurrence of the same class"
+  },
+  {
+   "id": "CARTO-T1C-10",
+   "state": "OPEN",
+   "evidence": "deploy/ still absent from the export (0 file in export-out, 333 files); apps/site unchanged"
+  },
+  {
+   "id": "CARTO-T1C-11",
+   "state": "OPEN",
+   "evidence": "panels unchanged (apps/site unchanged since 7b99737)"
+  }
+ ],
+ "t1f_items": [
+  {
+   "id": "CARTO-T1F-1",
+   "severity": "major",
+   "title": "harness redeploy bb41b6d = de facto 2nd sentinel redeploy (unplanned, not journaled; P-2 and P-4 false; P-1 not met by measured inference: rpc.ts still at the frozen sha 0e232519... at bb41b6d and d0535cb, whereas pli 11-1 = deletion of its dead code, ADR-U4b :742-744)",
+   "pairs": [
+    "P-N1",
+    "P-N3",
+    "P-N5",
+    "P-N7"
+   ],
+   "checks": [
+    "V-1 sha256 run.ts on host",
+    "V-2 chainstack_guard key in journalctl since 00:50Z",
+    "V-3 count of CHAINSTACK_CYCLE_ID lines (never the content)",
+    "V-4 sentinel_sha of the last published lines",
+    "V-5 systemctl show -p Result,ExecMainStatus (separates 'unconfigured' from a failed import)"
+   ]
+  },
+  {
+   "id": "CARTO-T1F-2",
+   "severity": "structural",
+   "title": "one deploy tree for two units; no exclusion, no sentinel digest control in the harness redeploy nor in its CA",
+   "pairs": [
+    "P-N7",
+    "P-T4"
+   ]
+  },
+  {
+   "id": "CARTO-T1F-3",
+   "severity": "internal register",
+   "title": "TABLEAU-DE-BORD stale since 2026-09-22T20:28Z while declared updated at every event",
+   "registry": [
+    "R-16"
+   ]
+  }
+ ],
+ "lots_du_jour": [
+  {
+   "lot": "UKEMI-RETRY-2/3 + HEARTBEAT-1",
+   "merge": "12b6dcd",
+   "adr": "ADR-U4b :1828",
+   "pipes": "P-U15",
+   "state": "present + tested (7 composition tests green in the d0535cb oracle); exercised in the real temps 1 (e1411cf)"
+  },
+  {
+   "lot": "UKEMI-CONC-1",
+   "merge": "e1411cf",
+   "adr": "ADR-U4b :1861, section 4 :1950",
+   "pipes": "P-U16",
+   "state": "present + tested (13 tests green); 'built' rendezvous (temps 2 at n>1) NOT reached: temps 2 stopped at 182 calls"
+  },
+  {
+   "lot": "UKEMI-PRE5-TESTS",
+   "merge": "8ed6226",
+   "adr": "fold NOT inserted at d0535cb (docs pending at the return of the fold, ETAT-REPRISE@4a2f69f l.154)",
+   "pipes": "P-U3",
+   "state": "present + tested (u4b_chain_select_to_oracle_path green; CARTO-T1C-5 closed); ADR text pending insertion"
+  },
+  {
+   "lot": "GARDE-FSYNC-1 (pli 4)",
+   "merge": "NOT MERGED (lot/garde-fsync-1 @ 9ea2e8b; re-G2-delta pli 4 in flight)",
+   "adr": "fold ADR-amendement-GARDE-FSYNC-1-final.md (out of repo), Tuyaux table",
+   "pipes": "inflight.garde_fsync_1",
+   "state": "absent at HEAD (in flight); pipes present + named tests on the lot tip (verified on git objects)"
+  },
+  {
+   "lot": "U-4b-STATS-1",
+   "merge": "28ffb5b, aeeed70, b9964ee",
+   "adr": "ADR-U4b :1496, section 6 :1644",
+   "pipes": "P-U19",
+   "state": "present + tested; upcoming until the first 6d run (item I-4)"
+  },
+  {
+   "lot": "(also since 7b99737) NARABI-OPS-1d",
+   "merge": "3659181",
+   "adr": "ADR-NARABI-OPS-1 -1d amendment",
+   "pipes": "P-N5, P-N3",
+   "state": "present + tested in code; deployment = CARTO-T1F-1"
+  },
+  {
+   "lot": "(also) U-4b-1b-4",
+   "merge": "da5d6e1",
+   "adr": "ADR-U4b :1298, section 3 :1369",
+   "pipes": "P-U17, P-U18",
+   "state": "present + tested; probe (d) exercised (C-12 exit 0)"
+  },
+  {
+   "lot": "(also) HARNESS-DESC-1",
+   "merge": "ec56c35",
+   "adr": "ADR-U4b :1056",
+   "pipes": "P-U9, R-10",
+   "state": "present + tested + deployed (bb41b6d)"
+  },
+  {
+   "lot": "(also) A-9-OUTILLE",
+   "merge": "eab911a",
+   "adr": "CHANTIERS.md:766 item",
+   "pipes": "test-only (vocab-harness-a9.test.ts, registry.test.ts)",
+   "state": "present + tested"
+  },
+  {
+   "lot": "(also) BELL-SHORTPAGE-1",
+   "merge": "2c276bb",
+   "adr": "ADR-T1aii D1-nonies",
+   "pipes": "P-B1",
+   "state": "present + tested; Bell execution tree still pinned a703e24 (R-SP-C)"
+  }
+ ],
+ "inflight": {
+  "garde_fsync_1": {
+   "tip": "9ea2e8b6e34f9c087e9bde6d308f61623ff5e681",
+   "merge_base_with_head": "66f75c2c4907f92f272fdbe7c28aa6bc417f36f8",
+   "graph_delta_lot_only": "+14 / -1 edges, +4 nodes (repair.ts, durable.test.ts, no-fsync.ts, repair-tail.test.ts); once merged repair.ts enters the SERVED sentinel closure (run.ts -> rpc-guard index -> cli.ts -> repair.ts) and the bin closure",
+   "anchors": [
+    {
+     "at_commit": "9ea2e8b",
+     "path": "packages/rpc-guard/src/cli.ts",
+     "line_no": 45,
+     "text": "if (sub === \"repair-tail\") return runRepairTail("
+    },
+    {
+     "at_commit": "9ea2e8b",
+     "path": "packages/rpc-guard/src/reconcile.ts",
+     "line_no": 74,
+     "text": "repaired_in_window"
+    }
+   ],
+   "tests": [
+    {
+     "at_commit": "9ea2e8b",
+     "path": "packages/rpc-guard/test/durable.test.ts",
+     "test_name": "durable_append_writes_the_line_then_the_head_in_order"
+    },
+    {
+     "at_commit": "9ea2e8b",
+     "path": "packages/rpc-guard/test/durable.test.ts",
+     "test_name": "durable_head_rename_outlasts_a_real_reader_then_fails_closed_without_fallback"
+    },
+    {
+     "at_commit": "9ea2e8b",
+     "path": "packages/rpc-guard/test/repair-tail.test.ts",
+     "test_name": "repair_tail_composition_power_cut_signature_to_unlock_and_reopen"
+    },
+    {
+     "at_commit": "9ea2e8b",
+     "path": "packages/rpc-guard/test/repair-tail.test.ts",
+     "test_name": "repair_tail_is_served_by_the_bin"
+    },
+    {
+     "at_commit": "9ea2e8b",
+     "path": "packages/rpc-guard/test/repair-tail.test.ts",
+     "test_name": "repair_journal_of_a_real_repair_is_consumed_by_the_served_reconcile"
+    }
+   ],
+   "declared_state": "@monark/rpc-guard stays upcoming in the register (decision 129); bin upcoming until a served course consumes its exit code",
+   "interaction_with_T1F_1": "its item I-1 (fsync of the parent directory) has the trigger 'before the 2nd VPS redeploy (Narabi leg under Linux)': if CARTO-T1F-1 is confirmed, that trigger's premise changed (in 'unconfigured' mode the sentinel writes no ledger, so no effect today)"
+  }
+ },
+ "expected_sentinel_sha": {
+  "method": "sentinel-sha.mjs: algorithm of run.ts:156-161 over git blobs (eol=lf)",
+  "c4981d0_E5": "a3ed49f4edcd661eca3ba118488f9f277455ce35277dbd98218a611fa664582d",
+  "bb41b6d_and_HEAD": "e73866a81bc8337a15d2d83d2798f47b3bd86d2f905eb8c1f1bd9d7e5748f286",
+  "run_ts_sha256": {
+   "c4981d0": "54619a40252f842a77ccf6dedc89c129d5a11eba764cd5018ff5dafa1d7d0ef3",
+   "bb41b6d_and_HEAD": "45557d6e12739449fdf679226b606aecb57d1abb1515ca7be672f0ee741df5db"
+  },
+  "sanity": "run.ts at c4981d0 = 54619a40... = the hash journaled at E-5 (JOURNAL-PROVENANCE.md:353) => the method reproduces a journaled value"
+ }
+}

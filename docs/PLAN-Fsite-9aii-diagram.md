@@ -1,7 +1,7 @@
 # PLAN — Lot F-site-9a-ii « diagramme vivant » : portage du concept D dans la home (`board.tsx`)
 
 > **G0 AgileGates (plan AVANT code).** Rattachement : `PLAN-Fsite-9-sas.md` (amendé 2026-09-18 : 3D abandonné), BRIEF addenda 6/6 bis,
-> concept validé par l'investisseur le 2026-09-18 (« validé, on éditera au rendu ») : `C:\Users\KACIMI\Downloads\MONARK SUITE\site-redesign\concepts\D\index.html`
+> concept validé par l'investisseur le 2026-09-18 (« validé, on éditera au rendu ») : `F:\MONARK SUITE\site-redesign\concepts\D\index.html`
 > (v3). Dépend de **9a-i** (modèle/machine/audit purs, worker en cours) et du **chercheur** (`data/AGENT-ECOSYSTEMS.md` + `assets/chains/`).
 > Statut : checkpoint-1 ACCEPTE-AVEC-CORRECTIONS (§8, foldées). **AMENDEMENT 2026-09-18 (investisseur : « ou tout simplement blockchain agnostic WEB2/WEB3 agents »)** :
 > la bande du bas ne liste **plus aucune blockchain ni marque** ; elle rend trois nœuds génériques « Web2 agents », « Web3 agents · any chain », « Your own agent »

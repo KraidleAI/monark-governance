@@ -121,7 +121,7 @@ Nous livrons en M009 la primitive **« quantile tracker »** d'Angelopoulos–Ba
   vide en cadence journalière avant ~10 ans ; en calme la primitive est soit inerte soit bang-bang selon `c` — propriété
   de la donnée (dormance), déclarée, pas masquée ; `Math.pow` : oracle épinglé sur Node (moteur de déploiement), déclaré.
 - **Items formés (règle Dettes, hors périmètre M009, à porter au JOURNAL)** : (a) `B_t` à `bFloor = 0` : P(B_t < 0)
-  35 % (t°=30) → 47 % (t°=365) par bruit binomial **[abs]**, préexistant à ACI — à mesurer sur traces S2 puis ADR-M002
+  35 % (t°=30) → 49,1 % (t°=365) par bruit binomial **[abs]** (binomiale au bord, ADR-M002 l.166 ; CHANTIERS §E), préexistant à ACI — à mesurer sur traces S2 puis ADR-M002
   D5/D6 ; (b) échangeabilité de la classe statique → phrase Barber Thm 2 (`w ≡ 1`, TV non estimable), 0 code ;
   (c) cadence horaire = **nouvelle `task_class`** (Mondrian), pas un réglage ; (d) `τ_interval = 1` (`gate.test.ts:425`)
   rend la règle de largeur inerte pour la classe statique (largeur ≤ 8.3e-4) — déclencheur : premier passage branche (a) ;

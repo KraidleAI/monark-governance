@@ -1,0 +1,14 @@
+{
+  "name": "lattice-scenario-a",
+  "note": "NOTE-treillis §1 scenario A: P0=100, D=0, lambda=0.004 (linear). Positions (pCrit,debt)=(105,20),(91,30),(85,40), sumB=90. Mechanical cascade Q_*=20 (position 1 tips at P0=100; price falls to 92; position 2 at pCrit=91 stays solvent), self-fulfilling run Q^*=90 (all three under water at P=64). Non-unique: the gap [20,90] is the coordination amplification.",
+  "p0": 100,
+  "drop": 0,
+  "lambda": 0.004,
+  "demand": "linear",
+  "positions": [
+    { "pCrit": 105, "debt": 20 },
+    { "pCrit": 91, "debt": 30 },
+    { "pCrit": 85, "debt": 40 }
+  ],
+  "expected": { "smallest": 20, "greatest": 90 }
+}

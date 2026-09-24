@@ -1,73 +1,45 @@
 import Link from "next/link";
-import { MonarkMark } from "@/components/marks/monark-mark";
 
-// Footer link columns — MONARK.dc.html L447-449. Routes land on the pages built by the later F-site
-// lots; the hrefs are correct now. "For integrators" -> /integrators (ADR-M004 D15).
-const COMPANY: readonly { href: string; label: string }[] = [
-  { href: "/fleet", label: "Fleet" },
-  { href: "/roadmap", label: "Roadmap" },
-  { href: "/token", label: "Token" },
+// Charter C common footer (charte-C.md §3; ruling Q5: the Narabi and Ukemi footers are uniformised on it): the
+// four fixed phrases, then the site links. No status, no number, no third-party name. The two legal phrases follow
+// the text validated by the investor's lawyer (decision 147; orchestrator ruling V1: "Facts witnessed, not investment
+// advice. A signature attests origin, not truth.", charter lower case kept); the other two are the charter's.
+const PHRASES: readonly string[] = [
+  "facts witnessed, not investment advice",
+  "a signature attests origin, not truth",
+  "no endorsement of or by any venue, issuer or data source",
+  "never a probability of being right",
 ];
-const BUILD: readonly { href: string; label: string }[] = [
+
+const LINKS: readonly { href: string; label: string }[] = [
+  { href: "/fleet", label: "Fleet register" },
   { href: "/products", label: "Products" },
   { href: "/how", label: "How it works" },
+  { href: "/roadmap", label: "Roadmap" },
+  { href: "/token", label: "Token" },
   { href: "/integrators", label: "For integrators" },
+  { href: "/writing", label: "Writing" },
 ];
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-border bg-soft">
-      <div className="mx-auto grid max-w-[1440px] grid-cols-[repeat(auto-fit,minmax(min(100%,200px),1fr))] gap-7 px-6 lg:px-10 pb-8 pt-12">
-        <div className="flex flex-col gap-3">
-          <Link href="/" className="flex items-center gap-2.5 font-semibold tracking-[0.06em]">
-            <MonarkMark className="size-[26px]" />
-            <span>MONARK</span>
-          </Link>
-          <p className="max-w-[300px] text-sm leading-relaxed text-muted-foreground">
-            It abstains, so it can act.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-2 text-sm">
-          <div className="mb-1 font-mono text-[12px] uppercase tracking-[0.06em] text-muted-foreground">
-            Company
-          </div>
-          {COMPANY.map((item) => (
-            <Link key={item.href} href={item.href}>
-              {item.label}
-            </Link>
-          ))}
-        </div>
-
-        <div className="flex flex-col gap-2 text-sm">
-          <div className="mb-1 font-mono text-[12px] uppercase tracking-[0.06em] text-muted-foreground">
-            Build
-          </div>
-          {BUILD.map((item) => (
-            <Link key={item.href} href={item.href}>
-              {item.label}
-            </Link>
-          ))}
-        </div>
-
-        <div className="flex flex-col gap-2 text-sm">
-          <div className="mb-1 font-mono text-[12px] uppercase tracking-[0.06em] text-muted-foreground">
-            Proof
-          </div>
-          <Link href="/console">
-            Console <span className="font-mono text-[10px] text-muted-foreground">UPCOMING</span>
-          </Link>
-          <Link href="/writing">Writing</Link>
-          <a href="https://github.com/KraidleAI/monark" target="_blank" rel="noreferrer">
-            GitHub
-          </a>
-        </div>
+    <footer className="c-footer">
+      <div className="c-footer__phrases">
+        {PHRASES.map((p) => (
+          <span key={p}>{p}</span>
+        ))}
       </div>
-
-      <div className="mx-auto flex max-w-[1440px] flex-wrap justify-between gap-3 px-6 lg:px-10 pb-7 font-mono text-[12px] text-muted-foreground">
-        <span>MONARK — a company of agent-products for DeFi and inference.</span>
-        <span>No confidence field, anywhere.</span>
-      </div>
+      <nav aria-label="Footer" className="c-footer__links">
+        {LINKS.map((item) => (
+          <Link key={item.href} href={item.href}>
+            {item.label}
+          </Link>
+        ))}
+        <Link href="/console">Console · upcoming</Link>
+        <a href="https://github.com/KraidleAI/monark" target="_blank" rel="noreferrer">
+          GitHub
+        </a>
+      </nav>
     </footer>
   );
 }

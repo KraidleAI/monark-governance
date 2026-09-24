@@ -1,0 +1,29 @@
+# CHECKPOINT-2 (LIVRABLE) — lot U-1a-hard-2, gel candidat `1d286f0` (`lot/u-1a-hard-2`, base `e8bcfe4`)
+Validateur-humain `claude-fable-5-1` (instance séparée, contexte frais), 2026-09-19 ; rejeux sous `F:\tmp\cp2-u1ahard2\` (AM-2 ter : `tree/` = `git archive`, `clone/` = clone `--no-hardlinks`, 19 mutants avec restauration `==PIN`, sondes CLI hors ligne) ; persisté par l'orchestrateur. **Décision : ACCEPTE-AVEC-CORRECTIONS — V-1 code bloquante avant fusion (pli worker → checkpoint-2 bis borné), V-2 doc, V-3 test racine bloquant avant release.**
+
+## Oracle rejoué (copie `git archive 1d286f0`, `npm ci`, aucun oracle en parallèle)
+`npm run ci` exit 0 : vocab 157, tsc 0, **343/343** (32 994 ms), lint 0, ratchet 69/69, lang-gate 0, export:check 0, `no_secret_in_repo` + `bell_no_secret_in_repo` verts. Delta `e66324b→1d286f0` tests-seuls vérifié par blob (`record.ts 223efafe`, `rpc2.ts 1af8f99` identiques ; sha `71c542e7…`/`720d399e…` = PIN G2).
+
+## V-1 (a)-(f) + V-5 rejoués
+(a) `isMainModule` : sonde important la vraie fonction (espacé/plain NEW=true, OLD=false ; `undefined`/mauvais module ⇒ false ; `main()` non tiré) ; CLI officielle `--cluster bogus` / `--retries -1` / `--backoff-cap-ms -5` ⇒ FATAL exit 1. (b) `timeout-minutes` 5/5 jobs ≤ 20 ; flags `--test-timeout=120000 --test-force-exit` présents ; mutant R2 tueur désigné rouge en 295 ms ; **paire complète sous R2 avec les flags de `package.json` : rouge, mais sortie à 120,4 s** (reproduit 4 fois, y compris avec le script du worker `r2-suite-measure.mjs` : SIGTERM à 30 s) — cause : `ukemi_record_backoff_cap_is_wired_at_call_site` (`ukemi-record.test.ts:229`, ajouté par le pli) pousse `makeDefaultCall({retries:3})` sur un 503 permanent **sans cap par-test** ; sous R2 il boucle jusqu'au `--test-timeout` global. Les 10,3/10,4 s du worker et de G2 datent de `e66324b`, avant le pli ; le PLI n'a pas re-mesuré. Correctif vérifié dans la copie : `{ timeout: 10_000 }` ⇒ paire rouge en **10,35 s**, test vert en 774 ms. Danger racine (pendaison 6 h) fermé ; critère « < 15 s » **non tenu au gel candidat**. (c) `backoffDelay` pure, cap câblé aux deux sleeps, mutants (c) et G2-2 rouges. (d) `res.text()` + `JSON.parse`, non-retryable motivé, mutants (d)/V-B rouges. (e) `isPlanLimited` avant `isResultLimit`, mutant rouge. (f) `dedupLogs` clé normalisée, mutants (f)/G2-1 rouges. V-5 : `gho-probe-raw.json` sha `38b9a609…` recomputé = worker/G2, domaines seuls ; PIN `034fbff9…b921` intact ; `book.ts` blob identique `e8bcfe4`/`1d286f0` ; recorder `upcoming` (aucun import hors `src/ukemi` + tests).
+**Mutants** : 19 rejoués (11 worker, G2-1, G2-2, V-A borne `<=`, V-B, V-G 429 : rouges) ; **survivants** V-C (snippet non verrouillé, commentaire `record.ts:86`), V-D (txHash non minusculé, `rpc2.ts:84`), V-E (cap ignoré au seul call-site réseau `record.ts:67`, lacune déclarée PLI §O-1).
+**CA-11** : ADR-EC ligne Tuyaux l.45 honnête (rien de « built ») mais périmée : « (6) » alors que 13 tests à `1d286f0` ; liste U-1a-hard-2 sans (c)/(e)/(f)/C-1/O-1.
+**R-25** (pathspec réel, ligne `STAT=` **58** à `1d286f0`, 55 à `bc1d1ad` — le brief disait 52) : `e8bcfe4...1d286f0` = 269 ; `lot/etude-suite...1d286f0` = **587** ; sans exclusion docs 897 ; tous < 1 205 ⇒ **fusion unique `lot/u-1a-hard-2 → etude-suite` licite**, règle O-2 par construction.
+**Fusion (clone)** : `merge-tree --write-tree` exit 0 contre `47ac040` et `bc1d1ad` (merge-base `a3f85f4`) ; intersection = `ci.yml` seul ; arbre fusionné : 5 `timeout-minutes` + exclusion `docs/**/*.md`, deux flags conservés.
+
+## Checklist
+CA-1..CA-5 conformes · **CA-6 correction V-1** · **CA-7 correction V-1/V-3** (« Reste : vide » du PLI faux ; invariants CI non verrouillés) · **CA-8 correction V-2** (ADR-EC périmée ; V-4 dû au G7) · CA-9 conforme · CA-10 conforme · CA-11 conforme sur le fond, correction doc V-2.
+
+## Corrections (liste fermée)
+- **V-1 (code, bloquante avant fusion ; `error_origin` = worker — pli tests-seuls sans re-mesure R2, « Reste : vide » ; secondaire orchestrateur — pli accepté sans G2 delta)** : `ukemi_record_backoff_cap_is_wired_at_call_site` doit sortir vite sous R2 — (i) `{ timeout: 10_000 }` (vérifié 10,35 s) ou (ii) stub 503 aux tentatives 0..3 puis 200. Corriger le commentaire `ukemi.test.ts:160` (« the only fetch-loop test »). **Re-mesure indépendante obligatoire** (paire sous R2 avec flags `package.json` < 15 s + 343/343) par checkpoint-2 bis borné.
+- **V-2 (doc, `error_origin` = orchestrateur)** : ADR-EC l.45 — « (6) » → 13 ; compléter la liste U-1a-hard-2 ((c), (e), (f), C-1, O-1) ; pointeur `ci.yml:52` → ligne `STAT=`.
+- **V-3 (test racine, bloquant avant release ; `error_origin` = worker)** : `timeout-minutes` sur chaque job (≤ 20) et les deux flags de `scripts.test` verrouillés par un oracle (précédent `test/ci-gates.test.ts`).
+- Non bloquants : V-E (call-site réseau, à porter dans le pli V-1), V-C, V-D (commentaires non verrouillés), V-4 dû au G7.
+- Règle §F apprise : **tout test qui exerce `makeDefaultCall`/`defaultCall` contre un stub transitoire persistant porte un cap par-test ou un stub-succès au-delà de `retries+1` ; tout pli touchant `ukemi*.test.ts` rejoue la mesure R2 de la paire — « tests-seuls » n'est pas « sans risque ».**
+
+## AM-1 / AM-2
+Attrapé : régression du critère (b) par un pli tests-seuls ; comptage ADR-EC périmé ; invariants CI vérifiés par inspection seule ; pointeur de ligne obsolète ; dérive d'`etude-suite` ×2 pendant le checkpoint. Preuve d'innocuité : sha des 6 fichiers du worktree avant = après ; `git status` vide sur les trois arbres ; écritures sous `F:\tmp\cp2-u1ahard2\` seulement.
+
+---
+## Suite donnée par l'orchestrateur
+V-1 + V-3 + V-E = pli **U-1a-hard-3** (worker, `lot/u-1a-hard-2`) → checkpoint-2 bis borné (re-mesure R2) → G7 (V-4 error_origin CLI no-op) → fusion unique sur `lot/etude-suite` ; V-2 plié par l'orchestrateur dans l'ADR-EC ; règle §F ajoutée à CHANTIERS.

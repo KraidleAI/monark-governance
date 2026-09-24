@@ -37,7 +37,7 @@ const LAYERS: {
         defer, or abstain.
       </>
     ),
-    detail: <>five frozen contracts &middot; Hikae + Ukemi engines &middot; CI</>,
+    detail: <>six frozen contracts (the sixth, AttestedBook, upcoming until served) &middot; Hikae + Ukemi engines &middot; CI</>,
     maturity: <>Built</>,
     maturityTone: "border-hikae-t text-hikae-t",
   },
@@ -90,13 +90,13 @@ const PHASES: { id: string; label: ReactNode; body: ReactNode; tone: string }[] 
   {
     id: "engines",
     label: <>Phase one &middot; closed</>,
-    body: <>Hikae and Ukemi engines, closed under independent review and a closing verdict.</>,
+    body: <>Hikae and Ukemi engines complete; interface frozen.</>,
     tone: "text-hikae-t",
   },
   {
     id: "integration",
     label: <>Phase two &middot; in progress</>,
-    body: <>Integration &mdash; the cross-agent gate and the token budget B_t wired through the fleet.</>,
+    body: <>Integration &mdash; the attested-price envelope on the served gate, its residual carried into the verdict, and the token budget B_t carried by the caller and echoed by the gate.</>,
     tone: "text-defer",
   },
 ];
@@ -167,8 +167,8 @@ export default function RoadmapPage() {
       <section className="mt-16">
         <h2 className="font-heading text-2xl font-medium tracking-tight text-foreground">Built</h2>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          The three engines are built end to end and closed under independent review, each with a full
-          panel on the{" "}
+          The three engines are built and served piece by piece, composed on the gate path and closed under
+          independent review, each with a full panel on the{" "}
           <Link href="/#fleet" className="underline underline-offset-4 hover:text-foreground">
             home page
           </Link>

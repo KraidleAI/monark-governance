@@ -166,7 +166,12 @@ It checks: `/health` and `/openapi.json` live; a present-and-invalid `Origin` �
 MCP `tools/list` returns the four tools (SET EQUALITY, not subset — B-2); a real `gate`, `cascade`,
 `attest`, and `calibrate` call; a **`gate_byo_call`** (Lot C2, ADR-M007 D7) that reuses the `calibrate`
 call's scores as `params.calibration` and asserts the live decision's `verdict.calib_digest` equals the
-live `calibrate` `set_digest` AND `action === "commit"` — proving the BYO loop end-to-end; and the TLS
+live `calibrate` `set_digest` AND `action === "commit"` — proving the BYO loop end-to-end; a **`gate_liq_call`**
+(HARNESS-DESC-1) that POSTs a `liquidation-eligible-coverage` decision (alpha 0.01, nMin 100) and asserts `200`,
+`reason === "under_calib"` and the empty-registry sentence in `content`; a **`mcp_gate_description_liq`** that
+asserts the served `tools/list` description of `gate` carries the empty-registry sentence and NOT the H-3
+sentence (both checks describe the EMPTY liq registry and flip at U-4b-2b, ADR-U4b amendment HARNESS-DESC-1, section 4;
+against a process older than U-4b-2a both are RED by design: the class is then an unknown task_class, a 400); and the TLS
 certificate (issuer, expiry). It writes the **conformity attestation** (URL, timestamp, per-check sha256,
 TLS cert) to the `--out` file and exits non-zero on any failure. Keep that file as the CA.
 

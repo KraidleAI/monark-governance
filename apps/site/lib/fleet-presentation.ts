@@ -13,8 +13,9 @@
 // (nodenext) and the Next bundler disagree on the relative specifier and no single form type-checks under
 // both; see lib/fleet.ts L9-16) — so test/visage-register.test.ts can import it under node:test and scan
 // every rendered string for a numeric hole (C-4). Keyed by a lowercase slug: the four built agents (incl.
-// Narabi, ADR-M012 M012-e), the seven roadmap agents (a.name.toLowerCase()), the five products
-// (product.key), the three visage (visage.key) — nineteen keys, checked exhaustively by the register test (non-inert).
+// Narabi, ADR-M012 M012-e), the seven roadmap agents (a.name.toLowerCase()), the six products
+// (product.key; MONARK Bell added upcoming, ruling Q3 decision 146), the three visage (visage.key) — twenty keys,
+// checked exhaustively by the register test (non-inert).
 
 export type InsideKind = "built" | "upcoming";
 
@@ -30,7 +31,7 @@ export const INSIDE: Record<string, InsideBlock> = {
   shogen: {
     kind: "built",
     points: [
-      "Cryptographic attestation: a verified testimony, emitted only after a passing verdict",
+      "Cryptographic attestation: an attested testimony, emitted only after a passing verdict",
       "Recomputable byte hashing — anyone re-derives the same hash",
       "Named residual hypotheses: the transport assumptions, stated, not hidden",
     ],
@@ -115,6 +116,18 @@ export const INSIDE: Record<string, InsideBlock> = {
   ballast: {
     kind: "upcoming",
     points: ["Kyokusen's Nelson-Siegel yield-curve fitting across maturities"],
+  },
+  // MONARK Bell (built; decision 155, lot BELL-SERVED-1; upcoming since ruling Q3, decision 146) — "What's inside"
+  // says only what is served today: the signed chained timeline and its reader-side check, the named abstentions
+  // (the first record abstains on every session: no closing price is read into it), the anchored journal. No gap
+  // is claimed: the cash leg is not connected (the /bell page says so in plain words).
+  bell: {
+    kind: "built",
+    points: [
+      "A public timeline served on its own host, one signed, hash-chained line per publication, checked by a reader-side verifier against a committed keyring",
+      "Named abstentions instead of estimates, each counted in the published state; no closing price is read into the first record, so it carries no gap",
+      "A hash-chained collection journal whose manifests are anchored to a public timestamp",
+    ],
   },
 
   // ── The three visage artefacts — "What it will use": the decision's description, no engine named ──

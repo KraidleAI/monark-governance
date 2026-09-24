@@ -15,13 +15,15 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { assertClosedPrediction, assertNoForbiddenKey } from "@monark/contracts";
-import { clearing, pbarOf, UKEMI_PREDICTOR_ID } from "@monark/ukemi";
+import { clearing, pbarOf } from "@monark/ukemi";
 import {
   runCascade,
   cascadeLiquidable,
+  cascadeHonestyText,
   CascadeToolError,
   CASCADE_TOOL_DESCRIPTION,
   CASCADE_MAX_NODES,
+  CASCADE_PREDICTOR_ID,
   type CascadeInput,
 } from "../src/tools/cascade.ts";
 import { CASCADE_INPUT_SCHEMA, CASCADE_OUTPUT_SCHEMA, cascadeInputStandardSchema, type Json } from "../src/schema-projection.ts";
@@ -63,7 +65,7 @@ test("cascade_returns_frozen_prediction", () => {
   assertNoForbiddenKey(p);
   assert.equal(p.schema_version, "1.0.0");
   assert.equal(p.task_class, "cascade-liquidable-24h");
-  assert.equal(p.predictor_id, UKEMI_PREDICTOR_ID);
+  assert.equal(p.predictor_id, CASCADE_PREDICTOR_ID);
   assert.equal(p.produced_at, "2026-09-04T00:00:00Z");
   assert.equal(typeof p.yhat, "number");
   assert.equal(p.yhat, 100, "at shock 0.2 only node 0 tips (90*0.8=72 < 100)");
@@ -254,4 +256,15 @@ test("cascade_uses_bounded_fictitious_default_not_clearing_from_below", () => {
   // CORROBORATING only (NOT the oracle; generous bound so it cannot flake in CI): the bounded path returns
   // in ~2 ms measured; the OLD path took ~7 s. The deterministic read-count above is the real killer.
   assert.ok(elapsedMs < 2000, `bounded fictitious-default returns promptly: ${elapsedMs.toFixed(0)}ms (OLD path ~7000ms)`);
+});
+
+// 2a-5 (decision 123 / Q-NEW-2) -- the cascade served text carries the "v0, replaced at U-5" label (closing
+// the gap open since decision 51: the removal moves with the REAL producer at U-5, and the class stays served
+// v0 until then). It rides in BOTH the tools/list description AND the tools/call honesty text. Mutant (m):
+// remove the label from either ⇒ red. (No probability/banned vocab is introduced -- checked by
+// cascade_description_makes_no_probability_claim and the vocab gate.)
+test("cascade_description_declares_v0_replaced_at_u5", () => {
+  const LABEL = "v0, replaced at U-5";
+  assert.ok(CASCADE_TOOL_DESCRIPTION.includes(LABEL), "the tools/list description carries the v0-replaced-at-U-5 label");
+  assert.ok(cascadeHonestyText().includes(LABEL), "the tools/call honesty text carries the v0-replaced-at-U-5 label");
 });

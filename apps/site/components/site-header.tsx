@@ -1,129 +1,85 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import type { ComponentType, SVGProps } from "react";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { MonarkMark } from "@/components/marks/monark-mark";
 import { useTheme } from "@/components/theme-provider";
+import { MonarkLockup, NarabiLockup, UkemiLockup, BellLockup } from "@/components/lockups";
 import { NARABI_ROUTE } from "@/lib/narabi-live";
 
-// Primary nav — MONARK.dc.html navDef (data model L712). "Integrators" routes to /integrators
-// (ADR-M004 D15 renamed the design's #/api to avoid the route-handler confusion). "Narabi" links the
-// freshly-shipped daily board (ADR-M012 D4), the one live sensor surface.
+// Charter C site chrome (decision 145; rulings 146): a thin SITE BAR (MONARK · Fleet · Narabi · Ukemi · Bell +
+// baseline) above the HEADER (lock-up + primary nav + theme button). The lock-up follows the route: the MONARK
+// horizontal lock-up (32 px, 24 px under 720 px — orchestrator ruling) on the company pages, the product lock-up
+// on /narabi, /ukemi and /bell*. Under 720 px the primary nav becomes a horizontally scrolling row instead of
+// disappearing (designer NOTE-retouche-mobile point 1: a hidden nav is a content cut). No status is written here.
+const SITE_BAR: readonly { href: string; label: string }[] = [
+  { href: "/", label: "MONARK" },
+  { href: "/fleet", label: "Fleet" },
+  { href: NARABI_ROUTE, label: "Narabi" },
+  { href: "/ukemi", label: "Ukemi" },
+  { href: "/bell", label: "Bell" },
+];
+
+// Primary nav — the company pages (MONARK.dc.html navDef, ADR-M004 D15 naming). Unchanged routes.
 const NAV_ITEMS: readonly { href: string; label: string }[] = [
   { href: "/products", label: "Products" },
   { href: "/fleet", label: "Fleet" },
-  { href: NARABI_ROUTE, label: "Narabi" },
   { href: "/how", label: "How it works" },
   { href: "/roadmap", label: "Roadmap" },
   { href: "/token", label: "Token" },
   { href: "/integrators", label: "Integrators" },
 ];
 
+interface Brand {
+  href: string;
+  label: string;
+  Lockup: ComponentType<SVGProps<SVGSVGElement>>;
+  className: string;
+}
+
+function brandFor(pathname: string): Brand {
+  if (isActive(pathname, NARABI_ROUTE)) return { href: NARABI_ROUTE, label: "MONARK Narabi", Lockup: NarabiLockup, className: "c-logo" };
+  if (isActive(pathname, "/ukemi")) return { href: "/ukemi", label: "MONARK Ukemi", Lockup: UkemiLockup, className: "c-logo" };
+  if (isActive(pathname, "/bell")) return { href: "/bell", label: "MONARK Bell", Lockup: BellLockup, className: "c-logo" };
+  return { href: "/", label: "MONARK", Lockup: MonarkLockup, className: "c-logo c-logo--monark" };
+}
+
 function isActive(pathname: string, href: string): boolean {
+  if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(href + "/");
 }
 
 export function SiteHeader() {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const closeMenu = (): void => setMenuOpen(false);
+  const brand = brandFor(pathname);
+  const { Lockup } = brand;
 
   return (
-    <header
-      className="sticky top-0 z-40 border-b border-border backdrop-blur-md"
-      style={{ background: "var(--paper)" }}
-    >
-      <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-5 px-6 lg:px-10">
-        <Link
-          href="/"
-          onClick={closeMenu}
-          className="flex items-center gap-2.5 text-[15px] font-semibold tracking-[0.06em]"
-        >
-          <MonarkMark className="size-[30px]" />
-          <span>MONARK</span>
-        </Link>
-
-        {/* Desktop nav — shown by breakpoint (lg), never by a JS width flag. */}
-        <nav aria-label="Primary" className="ml-3 hidden items-center gap-1 lg:flex">
-          {NAV_ITEMS.map((item) => {
-            const active = isActive(pathname, item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "whitespace-nowrap rounded-lg px-[11px] py-2 text-sm transition-colors hover:bg-soft",
-                  active ? "bg-soft-active text-foreground" : "text-muted-foreground",
-                )}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            onClick={toggleTheme}
-            aria-label="Toggle theme"
-            className="inline-flex size-9 items-center justify-center rounded-[10px] border border-border bg-transparent font-mono text-[13px] transition-colors hover:bg-soft"
-          >
-            {theme === "dark" ? "☾" : "☼"}
-          </button>
-
-          <Link
-            href="/integrators"
-            className="hidden h-9 items-center rounded-[10px] bg-primary px-3.5 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-85 sm:inline-flex"
-          >
-            For integrators
+    <>
+      <div className="c-sitebar">
+        {SITE_BAR.map((item) => (
+          <Link key={item.href} href={item.href} aria-current={isActive(pathname, item.href) ? "page" : undefined}>
+            {item.label}
           </Link>
-
-          {/* Mobile menu toggle — shown below lg; a toggle, not a width-state. */}
-          <button
-            type="button"
-            onClick={() => setMenuOpen((open) => !open)}
-            aria-label="Menu"
-            aria-expanded={menuOpen}
-            className="inline-flex h-9 items-center rounded-[10px] border border-border bg-transparent px-3 text-[13px] transition-colors hover:bg-soft lg:hidden"
-          >
-            {menuOpen ? "Close" : "Menu"}
-          </button>
-        </div>
+        ))}
+        <span className="c-right">it abstains so DeFi can act.</span>
       </div>
-
-      {menuOpen ? (
-        <nav
-          aria-label="Primary"
-          className="flex flex-col gap-0.5 border-t border-border bg-background px-4 pb-4 pt-2 lg:hidden"
-        >
+      <header className="c-header">
+        <Link className="c-brand" href={brand.href} aria-label={brand.label}>
+          <Lockup className={brand.className} />
+        </Link>
+        <nav aria-label="Primary" className="c-nav">
           {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={closeMenu}
-              aria-current={isActive(pathname, item.href) ? "page" : undefined}
-              className={cn(
-                "flex min-h-[44px] items-center rounded-lg px-2.5 text-base",
-                isActive(pathname, item.href) ? "text-foreground" : "text-muted-foreground",
-              )}
-            >
+            <Link key={item.href} href={item.href} aria-current={isActive(pathname, item.href) ? "page" : undefined}>
               {item.label}
             </Link>
           ))}
-          <Link
-            href="/integrators"
-            onClick={closeMenu}
-            className="flex min-h-[44px] items-center rounded-lg px-2.5 text-base text-monark-t"
-          >
-            For integrators
-          </Link>
         </nav>
-      ) : null}
-    </header>
+        <button type="button" className="c-themebtn" onClick={toggleTheme} aria-label="Toggle dark theme">
+          {theme}
+        </button>
+      </header>
+    </>
   );
 }

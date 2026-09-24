@@ -13,7 +13,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test \"test/*.test.ts\" \"packages/*/test/*.test.ts\" \"apps/harness/test/*.test.ts\" \"apps/sentinel/test/*.test.ts\"",
+    "test": "node --test --test-timeout=120000 --test-force-exit \"test/*.test.ts\" \"packages/*/test/*.test.ts\" \"apps/harness/test/*.test.ts\" \"apps/sentinel/test/*.test.ts\" \"apps/bell/test/*.test.ts\"",
     "gate:vocab": "node scripts/grep-forbidden.mjs",
     "lint": "eslint .",
     "lint:ratchet": "node scripts/lint-ratchet.mjs",

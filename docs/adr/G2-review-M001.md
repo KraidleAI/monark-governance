@@ -3,7 +3,7 @@
 frais** (réviseur ≠ générateur — le générateur est le worker Opus 4.8 de la session). Gate-0/R-1 : conforme.
 **Checklist** : `templates\checklist-revue-G2.md` du corpus, 100 %, revue 3 étapes AgileCoder.
 **Contexte fourni au relecteur (artefacts seuls)** : le dépôt `F:\Monark` intégral, `docs/adr/ADR-M001`,
-`docs/JOURNAL-PROVENANCE.md`, doc 02 + checklist G2, et `Downloads/grok 1/src/lib/hac-cp.ts` comme input de diff.
+`docs/JOURNAL-PROVENANCE.md`, doc 02 + checklist G2, et `F:/PRODUITS/downloads-monark/grok 1/src/lib/hac-cp.ts` comme input de diff.
 
 ## Preuve reproduite (pas crue)
 - **Oracle CI** : `npm run ci` re-exécuté → `gate:vocab OK` · `tsc --noEmit` propre · **tests 37 / pass 37 / fail 0**

@@ -1,7 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { COVERAGE_REASONS, GATE_ACTIONS, METHODS, ATTESTED_FLOW_RESIDUALS } from "../src/index.ts";
+import {
+  COVERAGE_REASONS,
+  GATE_ACTIONS,
+  METHODS,
+  ATTESTED_FLOW_RESIDUALS,
+  ATTESTED_BOOK_RESIDUALS,
+  ATTESTED_BOOK_ABSTAIN_REASONS,
+} from "../src/index.ts";
 
 // Closes G2 reserve M3: the enums are single-sourced in enums.ts; the JSON Schema
 // copies are asserted identical to it, so no silent drift between the two.
@@ -36,4 +43,14 @@ test("action enum: schema matches the TS single source", () => {
 test("attested-flow residual enum: schema matches the TS single source (ADR-M008 D3)", () => {
   const af = load("attested-flow.schema.json");
   assert.deepEqual(af.properties!.residual!.items!.enum, [...ATTESTED_FLOW_RESIDUALS]);
+});
+
+test("attested-book residual enum: schema matches the TS single source (ADR-U1b D2ter)", () => {
+  const ab = load("attested-book.schema.json");
+  assert.deepEqual(ab.properties!.residual!.items!.enum, [...ATTESTED_BOOK_RESIDUALS]);
+});
+
+test("attested-book abstain.reason enum: schema matches the TS single source, null included (ADR-U1b D4)", () => {
+  const ab = load("attested-book.schema.json");
+  assert.deepEqual(ab.properties!.abstain!.properties!.reason!.enum, [...ATTESTED_BOOK_ABSTAIN_REASONS]);
 });

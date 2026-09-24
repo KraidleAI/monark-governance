@@ -1,0 +1,119 @@
+{
+  "measure": "M-2b.4 oracle source bisection + governance + LST/LRT",
+  "model": "claude-opus-4-8[1m]",
+  "aave_oracle": "0x54586bE62E3c3580375aE3723C145253060Ca0C2",
+  "oracle_verified_via": "PoolAddressesProvider.getPriceOracle()",
+  "block_now": 26009084,
+  "bisection_range": [
+    21895693,
+    23545087
+  ],
+  "switches": {
+    "sUSDe": {
+      "asset": "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497",
+      "OLD_source": "0xb37ae8aba6c0c1bf2c509fc06e11aa4af29b665a",
+      "NEW_source": "0x42bc86f2f08419280a99d8fbea4672e7c30a86ec",
+      "desc_old": "Capped sUSDe / USDe / USD",
+      "desc_new": "Capped sUSDe / USDT / USD",
+      "lastOLD_block": 22002624,
+      "firstNEW_block": 22002625,
+      "switch_block": 22002625,
+      "switch_date_utc": "2025-03-08T14:01:47.000Z",
+      "contiguous_single_transition": true,
+      "intermediate_source": null,
+      "quorum_confirm": {
+        "block_22002624": {
+          "addr": "0xb37ae8aba6c0c1bf2c509fc06e11aa4af29b665a",
+          "quorum": 2
+        },
+        "block_22002625": {
+          "addr": "0x42bc86f2f08419280a99d8fbea4672e7c30a86ec",
+          "quorum": 2
+        }
+      },
+      "governance_onchain": {
+        "txHash": "0xbb810541258db350d632e9a22ed7d7547509c67b2585dbc7a64a76b6ac8e42e0",
+        "source_in_log": "0x42bc86f2f08419280a99d8fbea4672e7c30a86ec",
+        "tx_to": "0x6593c7de001fc8542bb1703532ee1e5aa0d458fd",
+        "tx_from": "0x31db4c2360d0fe6881c9015b11a93f4e7e78a3b0",
+        "n_logs_in_tx": 8,
+        "other_emitters": [
+          "0x54586be62e3c3580375ae3723c145253060ca0c2",
+          "0x5300a1a15135ea4dc7ad5a167152c01efc9b192a",
+          "0xe3c061981870c0c7b1f3c4f4bb36b95f1f260be6",
+          "0xdabad81af85554e9ae636395611c58f7ec1aaec5",
+          "0xba37f9edc52f57cafa3a13ddfd655797cc4fe257",
+          "0x6593c7de001fc8542bb1703532ee1e5aa0d458fd"
+        ]
+      }
+    },
+    "USDe": {
+      "asset": "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3",
+      "OLD_source": "0x55b6c4d3e8a27b8a1f5a263321b602e0fdeecc17",
+      "NEW_source": "0xc26d4a1c46d884cff6de9800b6ae7a8cf48b4ff8",
+      "desc_old": "Capped USDe / USD",
+      "desc_new": "Capped USDT/USD",
+      "lastOLD_block": 22002624,
+      "firstNEW_block": 22002625,
+      "switch_block": 22002625,
+      "switch_date_utc": "2025-03-08T14:01:47.000Z",
+      "contiguous_single_transition": true,
+      "intermediate_source": null,
+      "quorum_confirm": {
+        "block_22002624": {
+          "addr": "0x55b6c4d3e8a27b8a1f5a263321b602e0fdeecc17",
+          "quorum": 2
+        },
+        "block_22002625": {
+          "addr": "0xc26d4a1c46d884cff6de9800b6ae7a8cf48b4ff8",
+          "quorum": 2
+        }
+      },
+      "governance_onchain": {
+        "txHash": "0xbb810541258db350d632e9a22ed7d7547509c67b2585dbc7a64a76b6ac8e42e0",
+        "source_in_log": "0xc26d4a1c46d884cff6de9800b6ae7a8cf48b4ff8",
+        "tx_to": "0x6593c7de001fc8542bb1703532ee1e5aa0d458fd",
+        "tx_from": "0x31db4c2360d0fe6881c9015b11a93f4e7e78a3b0",
+        "n_logs_in_tx": 8,
+        "other_emitters": [
+          "0x54586be62e3c3580375ae3723c145253060ca0c2",
+          "0x5300a1a15135ea4dc7ad5a167152c01efc9b192a",
+          "0xe3c061981870c0c7b1f3c4f4bb36b95f1f260be6",
+          "0xdabad81af85554e9ae636395611c58f7ec1aaec5",
+          "0xba37f9edc52f57cafa3a13ddfd655797cc4fe257",
+          "0x6593c7de001fc8542bb1703532ee1e5aa0d458fd"
+        ]
+      }
+    }
+  },
+  "lst_lrt": {
+    "block_2025jan": 21626161,
+    "ts_2025jan_utc": "2025-01-14T23:59:59.000Z",
+    "assets": {
+      "wstETH": {
+        "asset": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+        "source_now": "0xe1d97bf61901b075e9626c8a2340a7de385861ef",
+        "desc_now": "Capped wstETH / stETH(ETH) / USD",
+        "source_2025jan": "0xb4ab0c94159bc2d8c133946e7241368fc2f2a010",
+        "listed_2025jan": true,
+        "changed_since_2025jan": true
+      },
+      "weETH": {
+        "asset": "0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee",
+        "source_now": "0x87625393534d5c102cadb66d37201df24cc26d4c",
+        "desc_now": "Capped weETH / eETH(ETH) / USD",
+        "source_2025jan": "0xf112af6f0a332b815fbef3ff932c057e570b62d3",
+        "listed_2025jan": true,
+        "changed_since_2025jan": true
+      },
+      "rsETH": {
+        "asset": "0xA1290d69c65A6Fe4DF752f95823fae25cB99e5A7",
+        "source_now": "0x7292c95a5f6a501a9c4b34f6393e221f2a0139c3",
+        "desc_now": "Capped rsETH / ETH / USD",
+        "source_2025jan": "0x47f52b2e43d0386cf161e001835b03ad49889e3b",
+        "listed_2025jan": true,
+        "changed_since_2025jan": true
+      }
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # FAITS-memo — vérification du mémo « Prochaine pièce après Narabi et ACI »
 
-Mémo source : `C:\Users\KACIMI\Downloads\00-prochaine-piece-apres-narabi-aci.md` (18 septembre 2026).
+Mémo source : `F:\PRODUITS\downloads-monark\00-prochaine-piece-apres-narabi-aci.md` (18 septembre 2026).
 Discipline : [lu]/[abs]/[2nd] ; chiffres copiés tels quels avec unité/date/URL ; NON TROUVÉ si applicable.
 
 ---

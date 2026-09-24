@@ -4,5 +4,6 @@
   "private": true,
   "type": "module",
   "description": "HIKAE — HAC-CP conformal engine (Phase 1). Phase 0: stub only.",
+  "dependencies": { "@monark/contracts": "*" },
   "exports": { ".": "./src/index.ts" }
 }

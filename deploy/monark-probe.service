@@ -1,0 +1,44 @@
+# systemd unit for the MONARK Narabi EXTERNAL probe + ALERT (ADR-NARABI-OPS-1 L-5, sub-lot -1b-ii-a).
+# Orchestrator-deployed on the SECOND VPS (Bell), a host distinct from the surveyed sentinel (decision 57),
+# so a stalled or broken publication is observed from OUTSIDE. A Type=oneshot job driven by
+# monark-probe.timer (NOT a server): each run GETs the already-served public surface /narabi/timeline.jsonl,
+# recomputes the freshness grid + the full hash chain, writes narabi.json, exits 1 IFF unhealthy OR the alert
+# send failed, and on an unhealthy transition sends ONE SMTP mail. Node BUILT-INS only (@monark/* is not
+# installable on Bell). 0 new runtime dependency (R-8).
+[Unit]
+Description=MONARK Narabi external probe - freshness + hash-chain check of the served /narabi/ surface (ADR-NARABI-OPS-1)
+Documentation=https://github.com/KraidleAI/monark
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# The probe ships as a single built-ins-only .mjs under /opt/monark-probe (git archive at deploy; RUNBOOK).
+WorkingDirectory=/opt/monark-probe
+Environment=PROBE_OUT=/var/lib/monark-probe/narabi.json
+# Out-of-repo env carrying the SMTP secret + alert config (SMTP_HOST/PORT/USER/PASS/TLS, ALERT_FROM/TO) and any
+# PROBE_URL override. The leading `-` is REMOVED in -1b-ii-a (C-8): the ALERT probe MUST have its SMTP config, so a
+# missing /etc/monark/probe.env fails the start LOUDLY rather than running mute. The file is 0600 root:root, read by
+# PID 1 (C-NB-9); SMTP_PASS must be QUOTED (systemd's parser mangles " \ # spaces). Nothing here is ever printed.
+EnvironmentFile=/etc/monark/probe.env
+ExecStart=/usr/bin/env node /opt/monark-probe/probe-narabi.mjs
+# Bounded in code: the GET worst case (capped) is 10 s x (4+1) = 50 s (C-G2-7), and the SMTP send has a SINGLE
+# wall-clock deadline covering connect + TLS handshake + conversation, capped at MAX_SMTP_DEADLINE_MS = 30 s (C-B-2 /
+# C-G2-1 — ONE timer, not two sequential per-phase deadlines); even a mis-set /etc/monark/probe.env cannot exceed
+# either. This coarse per-start backstop stays STRICTLY above the capped worst case GET1 + GET2 + SMTP + margin =
+# 50 s + 10 s + 30 s + 10 s = 100 s < 120 (four terms: the state.json GET2 of -1b-ii-b is 5 s x (1+1) = 10 s), so a
+# hung/mis-configured run can never pend the job mid-write (probe_timer_multiple_shots).
+TimeoutStartSec=120
+# Least privilege (R-8): a dedicated non-login `probe` user whose ONLY writable path is its state dir.
+User=probe
+Group=probe
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/monark-probe
+
+# Resource caps: a tiny read-only HTTP probe must not disturb anything else on Bell.
+CPUQuota=25%
+MemoryMax=128M
+TasksMax=64

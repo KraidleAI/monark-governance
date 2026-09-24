@@ -6,12 +6,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { assertClosedGateDecision, assertNoForbiddenKey, calibDigest } from "@monark/contracts";
-import type { Prediction, AttestedFlow } from "@monark/contracts";
+import type { Prediction, AttestedFlow, AttestedPrice, GateDecision } from "@monark/contracts";
 import {
   runGate,
   validateHarnessParams,
   HarnessToolError,
   GATE_TOOL_DESCRIPTION,
+  describeGate,
+  GATE_NON_REVERIFICATION_SENTENCE,
   CASCADE_UNCALIBRATED_SENTENCE,
   STABLE_RUN_UNCALIBRATED_SENTENCE,
   STABLE_RUN_COMMITTED_SENTENCE,
@@ -19,6 +21,8 @@ import {
   type HarnessParams,
 } from "../src/tools/gate.ts";
 import { HARNESS_TOOLS, type GateEnvelope } from "../src/tools/registry.ts";
+import { runAttest } from "../src/tools/attest.ts"; // ADR-M017 D4(3) / M018 D1(b): the REAL served attest -> gate tuyau
+import { BINANCE_BTCUSDT_TICKER_URL } from "../src/attestation-binding.ts";
 import { runCalibrate, CALIBRATE_LABEL } from "../src/tools/calibrate.ts";
 import {
   BTC_DIR_CALIB_PROVENANCE,
@@ -29,7 +33,7 @@ import {
   USDE_STABLE_RUN_TASK_CLASS,
   USDE_STABLE_RUN_CALIB_DIGEST_PINNED,
 } from "../src/calibration.ts";
-import { splitQuantile, buildIntervalRegion } from "@monark/hikae"; // ADR-M011: anti-circularity — prove L1 q̂ + NDG-1 region before runGate
+import { splitQuantile, buildIntervalRegion, NUMERIC_LABEL_SCHEMA, BTC_DIR_LABEL_SCHEMA } from "@monark/hikae"; // ADR-M011: anti-circularity — L1 q̂ + NDG-1 region before runGate; E9: label_schema constants
 import { fromAttestedFlow, isNarabiError } from "@monark/monark"; // A7: real flows via the adapter
 
 const GOOD_PARAMS: HarnessParams = {
@@ -355,6 +359,65 @@ test("gate_committed_classes_unchanged_without_calibration", () => {
   assert.equal(cascade.verdict.reason, "under_calib");
 });
 
+// Test (E9, the ADR-M018 D4 lot) — a NUMERIC (interval) class under `under_calib` carries an EMPTY `set`
+// region whose label_schema names the numeric nature (NUMERIC_LABEL_SCHEMA), NEVER the directional
+// `up|down` (an inert but dishonest octet on the served wire). The frozen coverage-verdict contract
+// requires a set region's label_schema to be non-empty (minLength 1), so a numeric class cannot OMIT it —
+// hence a class-honest schema rather than an empty one. Every reachable served numeric under_calib path is
+// enumerated; a btc-dir positive control shows the directional default is intact (E9 changed only the
+// numeric callers, not underCalibVerdict's default). Mutant: delete `labelSchema: NUMERIC_LABEL_SCHEMA`
+// in interval-conformer.ts `underCalib` (the `labelSchema: NUMERIC_LABEL_SCHEMA` line) — `npm run typecheck` stays GREEN (the default masks it,
+// exactly as workspace hoisting masked m1), and the cascade case below reds.
+test("numeric_under_calib_region_is_not_directional", () => {
+  const numericUnderCalib: { name: string; d: GateDecision }[] = [
+    // committed cascade: cascadeVerdict -> conformInterval({calib:[]}) -> interval-conformer underCalib helper
+    { name: "cascade committed (no calibration)", d: runGate(CASCADE_PRED, { ...GOOD_PARAMS, intent: 12345 }) },
+    // stable-run, NON-committed key: stableRunVerdict committed===undefined -> conformInterval -> underCalib helper
+    { name: "stable-run non-committed key", d: runGate(STABLE_RUN_PRED, { ...GOOD_PARAMS, intent: 0 }) },
+    // stable-run, USDe committed key but nMin > committed score count: split fails -> stableRunVerdict direct under_calib
+    {
+      name: "stable-run USDe key, nMin > n_committed",
+      d: runGate({ ...STABLE_RUN_PRED, predictor_id: USDE_STABLE_RUN_PREDICTOR_ID }, { ...GOOD_PARAMS, intent: 0, nMin: 10000 }),
+    },
+    // BYO interval, p>n split failure: byoVerdict split under_calib, labelSchema=NUMERIC from the interval-mode ternary
+    {
+      name: "byo interval p>n",
+      d: runGate(BYO_INTERVAL_PRED, { ...GOOD_PARAMS, intent: 0, nMin: 1, alpha: 0.05, calibration: { scores: [0.2, 0.4, 0.6, 0.8, 1.0], mode: "interval" } }),
+    },
+    // BYO interval, successful split but q-hat=0 zero-width NDG-1 abstention: byoVerdict interval NDG branch
+    {
+      name: "byo interval NDG zero-width",
+      d: runGate(BYO_INTERVAL_PRED, { ...GOOD_PARAMS, intent: 0, nMin: 10, calibration: { scores: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], mode: "interval" } }),
+    },
+    // committed USDe key, yhat absorbed to +Inf: stableRunVerdict zero-width NDG branch (G2 review of the cheap-gaps lot, C2:
+    // the served path a mutant on gate.ts:481 left green before this case was enumerated)
+    {
+      name: "stable-run committed key NDG zero-width",
+      d: runGate({ ...STABLE_RUN_PRED, predictor_id: USDE_STABLE_RUN_PREDICTOR_ID, yhat: 1e300 }, GOOD_PARAMS),
+    },
+  ];
+  for (const { name, d } of numericUnderCalib) {
+    assert.equal(d.verdict.reason, "under_calib", `${name}: expected an under_calib verdict`);
+    // Whole-region deepEqual (exact keys): empty set region, class-honest numeric label_schema.
+    assert.deepEqual(
+      d.verdict.region,
+      { kind: "set", labels: [], label_schema: NUMERIC_LABEL_SCHEMA },
+      `${name}: numeric under_calib region must be the empty set with a numeric label_schema`,
+    );
+  }
+
+  // Positive control — the directional default is INTACT: btc-dir under_calib (nMin above the committed
+  // synthetic n) still carries `up|down` (btcDirVerdict :390, underCalibVerdict default, unchanged by E9).
+  // If this reds, the fix wrongly retargeted the shared default instead of only the numeric callers.
+  const btc = runGate(BTC_PRED, { ...GOOD_PARAMS, nMin: 100000 });
+  assert.equal(btc.verdict.reason, "under_calib", "btc-dir with nMin above n ⇒ under_calib");
+  assert.deepEqual(
+    btc.verdict.region,
+    { kind: "set", labels: [], label_schema: BTC_DIR_LABEL_SCHEMA },
+    "btc-dir under_calib stays directional up|down (default intact)",
+  );
+});
+
 // ── Narabi / stable-run-velocity-24h — isolation of POPULATION on the wire (ADR-M008 D4/D5 + Amend. bis, C-10) ──
 
 const EMPTY_CALIB_DIGEST = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"; // calibDigest([])
@@ -467,6 +530,10 @@ test("gate_stable_run_honesty_text_is_keyed_A2_A7f", () => {
   // The tool description declares BOTH the committed USDe population AND the uncommitted-population sentence.
   assert.ok(GATE_TOOL_DESCRIPTION.includes(STABLE_RUN_UNCALIBRATED_SENTENCE), "the description declares the uncommitted-population sentence");
   assert.ok(GATE_TOOL_DESCRIPTION.includes("synthetic-dollar-whitelisted-redeem"), "the description names the committed USDe population");
+  // ADR-M012 item (i) dedup: the "every other ... abstains (under_calib)" queue is rendered ONCE (by the
+  // uncommitted clause), never twice — the description interpolates STABLE_RUN_COMMITTED_CORE (no queue).
+  // A mutant re-interpolating the full STABLE_RUN_COMMITTED_SENTENCE re-introduces "every other" ⇒ reds.
+  assert.equal((GATE_TOOL_DESCRIPTION.match(/every other/g) ?? []).length, 0, "M012(i): the committed sentence's 'every other' queue is deduped out of the description");
   assert.ok(STABLE_RUN_UNCALIBRATED_SENTENCE.includes("no stable-run velocity calibration is committed"));
   assert.ok(STABLE_RUN_UNCALIBRATED_SENTENCE.includes("under_calib"));
   assert.ok(STABLE_RUN_COMMITTED_SENTENCE.includes("committed"));
@@ -601,4 +668,175 @@ test("gate_byo_interval_float_absorption_is_under_calib_M011", () => {
   assert.equal(d.verdict.abstain, true);
   assert.equal(d.action, "abstain");
   assert.equal(d.reason, "under_calib");
+});
+
+// ---------------------------------------------------------------------------- ADR-M017 (attested in the gate)
+
+/** A minimal, schema-valid AttestedPrice carrying a chosen `subject` (only `subject` is read by the guard). */
+function attestedWith(subject: string): AttestedPrice {
+  return {
+    schema_version: "1.0.0",
+    subject,
+    attestor: [{ identity: "shogen:test-attestor", key: "6b6579" }],
+    residual: ["A(notary-neutrality)"],
+    transport: "https-demo",
+    utterance: { hash: "0".repeat(64) },
+    observed_at: { clock: "test-clock", instant: 0 },
+    octets_recalcules: true,
+    verifier_revision: "test-rev",
+  };
+}
+
+// Test (ADR-M017 D4(2)) — a caller-carried `attested` whose subject is NOT declared-consistent with the
+// served task_class is a fail-closed TOOL ERROR (HarnessToolError => 400, http.ts TOOL_ERROR_NAMES), never a
+// silent verdict. THREE cases; the MESSAGE TEXT is asserted (not the mere throw), so the mutant
+// "attestation-binding table returns [] by default" (which would answer 'not consistent' for a BYO class
+// instead of 'not accepted') reddens on case (1)'s text. The verifier is NOT run here (K-8): a declared
+// consistency check, never a verification.
+test("gate_attested_discordant_is_tool_error", () => {
+  // (1) a free / BYO class carrying `attested` (here also with a BYO calibration) => not accepted in P1.
+  const freePred: Prediction = { ...BTC_PRED, task_class: "caller-free-class-42", yhat: 0.5 };
+  assert.throws(
+    () =>
+      runGate(
+        freePred,
+        { ...GOOD_PARAMS, intent: 0, nMin: 5, calibration: { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], mode: "interval" } },
+        attestedWith("https://example.test/whatever"),
+      ),
+    (e: unknown) =>
+      e instanceof HarnessToolError &&
+      e.message.includes("not accepted for BYO classes") &&
+      e.message.includes("caller-free-class-42"),
+    "a free/BYO class with attested is a 400 naming 'not accepted for BYO classes' + the class",
+  );
+
+  // (2) btc-dir-15m with a DISCORDANT subject (a URL not in the committed list) => not consistent.
+  const discordant = "https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT";
+  assert.throws(
+    () => runGate(BTC_PRED, GOOD_PARAMS, attestedWith(discordant)),
+    (e: unknown) =>
+      e instanceof HarnessToolError &&
+      e.message.includes("not consistent") &&
+      e.message.includes(discordant) &&
+      e.message.includes("btc-dir-15m"),
+    "btc-dir-15m with a discordant subject is a 400 naming 'not consistent' + the subject + the class",
+  );
+
+  // (3) stable-run-velocity-24h binds to `[]` (Narabi attests flows, not prices) => ANY attested is 400 —
+  // even the exact Binance URL that is valid for btc-dir-15m is 'not consistent' for this class.
+  assert.throws(
+    () =>
+      runGate(
+        STABLE_RUN_PRED,
+        { ...GOOD_PARAMS, intent: 0 },
+        attestedWith("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"),
+      ),
+    (e: unknown) =>
+      e instanceof HarnessToolError &&
+      e.message.includes("not consistent") &&
+      e.message.includes("stable-run-velocity-24h"),
+    "stable-run-velocity-24h with any attested is a 400 naming 'not consistent' + the class",
+  );
+});
+
+// Test (ADR-M017 D4(4)) — the description carries the non-re-verification sentence VERBATIM (phrase (iv),
+// C-8) plus the "no temporal binding in P1" clause. Mutant: remove/blank the sentence in the description =>
+// red (motif gate.test.ts:112). Non-vacuous (motif gate.test.ts:113-117): the constant's OWN load-bearing
+// substrings are asserted too, so blanking the constant (not just the interpolation) also reddens.
+test("gate_description_declares_non_reverification", () => {
+  assert.ok(GATE_TOOL_DESCRIPTION.includes(GATE_NON_REVERIFICATION_SENTENCE), "the description carries phrase (iv) verbatim");
+  assert.ok(GATE_TOOL_DESCRIPTION.includes("no temporal binding in P1"), "the description declares 'no temporal binding in P1'");
+  assert.ok(GATE_NON_REVERIFICATION_SENTENCE.includes("not re-verified at call time"), "the sentence states it is not re-verified at call time");
+  assert.ok(GATE_NON_REVERIFICATION_SENTENCE.includes("the verifier is not executed here"), "the sentence states the verifier is not executed here");
+});
+
+// ─────────────────────────────────────────────────────── ADR-M017 P1-b2 (residual seam + guard order + K2-1)
+
+// Test (ADR-M017 D2(iii) / D4(3)) — the SERVED attest -> gate tuyau (ADR-M018 D1(b)). A caller-carried
+// `attested` whose subject IS the committed btc-dir-15m URL is DECLARED-consistent, so the gate does NOT
+// error and FILES `attested.residual` into `verdict.residual` (the traceability field the contract inherits
+// from AttestedPrice.residual). Driven THROUGH THE REGISTRY `run()` (not runGate directly) so a mutant
+// "registry calls runGate WITHOUT env.attested" reds (that would leave the tuyau unwired). The producer is
+// the REAL `runAttest()` witness — the SAME AttestedPrice the h5 trace's attest step carries (the probe
+// `probe_harness_records_real_decision` proves live == committed byte-for-byte).
+test("gate_attested_concordant_files_residual", () => {
+  const gateTool = HARNESS_TOOLS.find((t) => t.name === "gate");
+  assert.ok(gateTool, "the gate tool is registered");
+
+  const price = runAttest().price; // the committed Binance BTCUSDT witness (the real attest output)
+  assert.equal(price.subject, BINANCE_BTCUSDT_TICKER_URL, "the committed witness subject IS the Binance BTCUSDT URL (concordant with btc-dir-15m)");
+  // Pinned to the fixture's attest step (fixtures/h5-e2e-trace.json) — non-empty ⇒ the seam is non-vacuous.
+  assert.deepEqual(
+    price.residual,
+    ["A(notary-neutrality)", "A(self-attestation)", "A(transport-check-delegated)"],
+    "the committed witness residual == the fixture's attest step (non-empty ⇒ non-vacuous seam)",
+  );
+
+  const withAttested = gateTool.run({ prediction: BTC_PRED, params: GOOD_PARAMS, attested: price }).structured as unknown as GateDecision;
+  const without = gateTool.run({ prediction: BTC_PRED, params: GOOD_PARAMS }).structured as unknown as GateDecision;
+
+  // (a) D2(iii)/D4(3): attested.residual is FILED into verdict.residual (kills "residual:[] reintroduced"
+  //     and "attestation-binding table emptied", and "registry drops env.attested").
+  assert.deepEqual(withAttested.verdict.residual, price.residual, "attested.residual is filed into verdict.residual");
+  // (b) absent attested ⇒ verdict.residual stays [] (byte-identical at the function level, D4(5)).
+  assert.deepEqual(without.verdict.residual, [], "absent attested ⇒ verdict.residual stays []");
+  // (c) the seam is SURGICAL (residual is NOT an honesty carrier, M-2): masking residual, the two decisions
+  //     are byte-identical — action/reason/allow/region/qhat/... unchanged by the seam.
+  assert.deepEqual(
+    { ...withAttested, verdict: { ...withAttested.verdict, residual: [] } },
+    without,
+    "the seam touches ONLY verdict.residual — the decision is otherwise identical",
+  );
+});
+
+// Test — G2 F1: the GUARD ORDER (ADR-M017 D2(ii)): validateHarnessParams -> anti-override BYO -> attested
+// consistency -> dispatch. A prediction on a COMMITTED class (btc-dir-15m) carrying BOTH a BYO `calibration`
+// AND a DISCORDANT `attested` trips BOTH guards; the EARLIER one (anti-override BYO) must win. Asserted on
+// the message TEXT (a bare 400 would not discriminate the order): it names the committed-override and NOT the
+// attested "not consistent" text. Mutant m5 (swap the two guard blocks): the attested-consistency guard fires
+// first ⇒ the message becomes "not consistent" ⇒ this reds.
+test("gate_guard_order_byo_override_before_attested_F1", () => {
+  assert.throws(
+    () =>
+      runGate(
+        BTC_PRED,
+        { ...GOOD_PARAMS, calibration: { scores: [0.1, 0.2, 0.3], mode: "interval" } },
+        attestedWith("https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT"),
+      ),
+    (e: unknown) =>
+      e instanceof HarnessToolError &&
+      e.message.includes("must not override the committed") &&
+      !e.message.includes("not consistent"),
+    "anti-override BYO fires BEFORE attested-consistency (order D2(ii)); m5 (swap) reds on the message text",
+  );
+});
+
+// Test — K2-1 (checkpoint-2 b1): `gate:vocab` (scripts/grep-forbidden.mjs / vocab-banned.json) polices the
+// overclaim VERBS negation-aware (ADR-M007 B-3); it does NOT ban live/verified/probative. So, like attest's
+// N-4 guard, the gate description is policed HERE at the test level with the SAME PROBATIVE regex as
+// attest.test.ts:109 (byte-for-byte), AFTER masking the two LICIT negated phrases the mission names. NOTE
+// (auditable): the verb "verify" and the noun "verifier" do NOT match `\bverified\b` — the offline Shogen
+// verifier is NAMED, never claimed at call time — so they are NOT masked; the "does not ... verify" mask is
+// defensive (it removes no PROBATIVE hit today). Mutant: add a bare "verified"/"live" claim to the description
+// ⇒ it survives the scope-locked mask ⇒ red.
+test("gate_description_makes_no_probative_claim", () => {
+  const PROBATIVE = /\blive\b|\bverified\b|\bprobative\b|\bp_correct\b|\bconfidence\b/i; // attest.test.ts:109, byte-for-byte
+  const NOT_REVERIFIED = /not re-verified at call time/gi; // the gate DECLARES it does not re-verify ("re-verified" ⊃ "verified")
+  const DOES_NOT_VERIFY = /does not see, store, or verify/gi; // CALIBRATE_LABEL: "does not ... verify" (negated, defensive)
+  const scrub = (s: string): string =>
+    s.replace(NOT_REVERIFIED, (m) => " ".repeat(m.length)).replace(DOES_NOT_VERIFY, (m) => " ".repeat(m.length));
+
+  // non-vacuous: the two masked phrases are actually present in the description (the masks are not vacuous).
+  assert.match(GATE_TOOL_DESCRIPTION, /not re-verified at call time/, "mask 1 (not re-verified) is non-vacuous");
+  assert.match(GATE_TOOL_DESCRIPTION, /does not see, store, or verify/, "mask 2 (does not verify) is non-vacuous");
+  // after masking exactly those licit negations, NO probative token survives in the gate description: the SERVED
+  // text AND the U-4b-2b text describeGate(true) (HARNESS-DESC-1: no longer served before -2b, still policed; D-4).
+  for (const d of [GATE_TOOL_DESCRIPTION, describeGate(true)]) {
+    assert.ok(!PROBATIVE.test(scrub(d)), `the gate description makes no bare probative claim (scrubbed: "${scrub(d)}")`);
+  }
+  // scope-lock (non-vacuous): a bare probative token injected OUTSIDE the licit phrases IS caught.
+  assert.ok(
+    PROBATIVE.test(scrub("the price is verified and live now, confidence high " + GATE_TOOL_DESCRIPTION)),
+    "a bare probative claim outside the licit phrases must be caught",
+  );
 });

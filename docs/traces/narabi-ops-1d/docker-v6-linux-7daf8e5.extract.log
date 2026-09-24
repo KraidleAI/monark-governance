@@ -1,0 +1,7 @@
+node v24.21.0 Linux x86_64 paidkeys=0
+V6 exit=1 restored=true sha=45557d6e notok=[sentinel_run_releases_chainstack_lock_on_sigterm]
+not ok 12 - sentinel_run_releases_chainstack_lock_on_sigterm — a SIGTERM (a TimeoutStartSec kill) fires run.ts's handler, which runs the served unlock synchronously and exits, so the cycle lock is released even on a kill. WIN32 SKIP is declared + NON-vacuous: on non-win32 (CI ubuntu-latest) the body RUNS; on win32 process.kill is a hard kill with no handler and the RUNBOOK unlock covers a SIGKILL (C-7)
+  error: 'the child exited after SIGTERM (the handler ran then process.exit)'
+# tests 12
+# pass 11
+# fail 1

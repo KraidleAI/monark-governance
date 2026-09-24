@@ -5,7 +5,7 @@ import Link from "next/link";
 import { loadContract, loadAttestedPriceContract } from "@/lib/load-contract";
 import { loadGateEnums } from "@/lib/gate-enums";
 import { GateSim } from "@/components/gate-sim";
-import { ACTION_COMMIT, ACTION_DEFER, ACTION_ABSTAIN, AMBIENT, COST, decisionColorVar } from "@/lib/sim";
+import { ACTION_DEFER, ACTION_ABSTAIN, AMBIENT, COST, decisionColorVar } from "@/lib/sim";
 import { OUTCOMES, REASON_GLOSS, REGION_KINDS } from "@/lib/how-copy";
 
 // How it works — a SERVER shell around the one interactive island (the gate explainer,
@@ -27,33 +27,16 @@ export const metadata: Metadata = {
 };
 
 const section: CSSProperties = { maxWidth: 1200, margin: "0 auto" };
-const mono: CSSProperties = { fontFamily: "'IBM Plex Mono', monospace" };
+const mono: CSSProperties = { fontFamily: "var(--font-mono)" };
 const card: CSSProperties = { border: "1px solid var(--line)", borderRadius: 16, background: "var(--card)" };
 const eyebrow: CSSProperties = { ...mono, fontSize: 12, color: "var(--ink2)", textTransform: "uppercase", letterSpacing: ".06em" };
 const bodyText: CSSProperties = { color: "var(--ink2)", lineHeight: 1.55 };
-// Depth system (README Part 2 §3), expressed from tokens: shadows are the ink colour at low alpha
-// (color-mix), never a new hue; wells are bg-soft with an inset shadow.
-const cardShadow: CSSProperties = {
-  boxShadow:
-    "0 1px 2px color-mix(in oklab, var(--ink) 6%, transparent), 0 8px 24px -16px color-mix(in oklab, var(--ink) 25%, transparent)",
-};
-const well: CSSProperties = {
-  background: "var(--soft)",
-  borderRadius: 10,
-  boxShadow: "inset 0 1px 3px color-mix(in oklab, var(--ink) 12%, transparent)",
-};
-// A responsive multi-column grid that stacks on narrow viewports without a media query (inline styles
-// cannot carry one) — the /how idiom. Design column RATIOS are approximated by equal auto-fit tracks.
-const autoCols = (min: number): CSSProperties => ({
-  display: "grid",
-  gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, ${min}px), 1fr))`,
-});
 
 /** A decision chip "action · reason": the action WORD comes from the loaded enum by index (never a
  *  literal); the reason code is a plain literal (not a contract field). */
-function chip(actions: readonly string[], tone: number, reason: string, color?: string) {
+function chip(actions: readonly string[], tone: number, reason: string) {
   return (
-    <span style={{ ...mono, color: color ?? decisionColorVar(tone) }}>
+    <span style={{ ...mono, color: decisionColorVar(tone) }}>
       {actions[tone] ?? ""} · {reason}
     </span>
   );
@@ -69,6 +52,8 @@ export default function HowItWorksPage() {
   // (required[]), never hard-coded — the storefront cannot drift from the frozen contract. AttestedDoc is
   // not a frozen contract; AttestedFlow IS frozen (the fifth schema) but is a PARALLEL sensor, not a
   // pipeline stage — so the pipeline card renders only the one built attestation shape (AttestedPrice).
+  // AttestedBook is the SIXTH frozen schema (Ukemi's self-declared book reading), likewise a PARALLEL
+  // sensor and not a pipeline stage; it is upcoming until served, so it is not rendered here either.
   // `layer`/`what`/`absent` are ReactNode fragments (not raw strings), so the honesty lint (test 44)
   // scans their JSX text even though they sit in an array initializer — a numeric literal in this copy
   // reds (C-4 convention: rendered prose is JSX text). `contract.title` + `required[]` load dynamically.
@@ -102,64 +87,39 @@ export default function HowItWorksPage() {
   const setKind = REGION_KINDS[0];
   const intervalKind = REGION_KINDS[1];
 
-  // Reasons grouped by tone for the restyle-B layout (design L361-379): commit + defer on the left,
-  // abstain on the right. Codes still come FROM the frozen enum (loadGateEnums), filtered by their gloss
-  // tone; enum order is preserved within each group. The R2 test pins completeness/tone, not order.
-  const reasonsByTone = (t: number): string[] => reasons.filter((code) => REASON_GLOSS[code]?.tone === t);
-  const leftReasons = [...reasonsByTone(ACTION_COMMIT), ...reasonsByTone(ACTION_DEFER)];
-  const abstainReasons = reasonsByTone(ACTION_ABSTAIN);
-
-  // One reason card: code + its tone-word (from the loaded enum), with a 4px tone accent on the left edge.
-  const reasonCard = (code: string) => {
-    const meta = REASON_GLOSS[code];
-    if (!meta) return null; // unreachable: completeness pinned by the R2 root test
-    return (
-      <div
-        key={code}
-        style={{ ...card, borderRadius: 12, padding: "14px 16px", borderLeft: `4px solid ${decisionColorVar(meta.tone)}`, display: "flex", flexDirection: "column", gap: 6 }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-          <span style={{ ...mono, fontSize: 13, fontWeight: 500 }}>{code}</span>
-          <span style={{ ...mono, fontSize: 10, color: decisionColorVar(meta.tone), textTransform: "uppercase", letterSpacing: ".05em" }}>
-            {actions[meta.tone] ?? ""}
-          </span>
-        </div>
-        <div style={{ fontSize: 13, ...bodyText, lineHeight: 1.45 }}>{meta.gloss}</div>
-      </div>
-    );
-  };
-
   return (
     <main>
-      {/* Intro — 2-col (design L272-275): eyebrow + title left, dek right. Stacks on narrow. */}
-      <section style={{ ...section, padding: "64px 24px 32px", ...autoCols(340), gap: 40, alignItems: "end" }}>
-        <div>
-          <div style={eyebrow}>How it works</div>
-          <h1 style={{ fontSize: "clamp(34px,4.5vw,56px)", letterSpacing: "-.025em", fontWeight: 600, margin: "12px 0 0", maxWidth: 820 }}>
-            A coverage-controlled gate. It never says how likely it is to be right.
-          </h1>
-        </div>
-        <p style={{ fontSize: 18, ...bodyText, margin: 0 }}>
+      {/* Intro */}
+      <section style={{ ...section, padding: "64px 24px 32px" }}>
+        <div style={eyebrow}>How it works</div>
+        <h1 style={{ fontSize: "clamp(34px,4.5vw,56px)", letterSpacing: "-.025em", fontWeight: 600, margin: "12px 0 16px", maxWidth: 820 }}>
+          A coverage-controlled gate. It never says how likely it is to be right.
+        </h1>
+        <p style={{ fontSize: 18, ...bodyText, maxWidth: 720, margin: 0 }}>
           An upstream predictor gives a reading. Hikae conforms it into a coverage region at a target of
           one minus α. A closed gate policy reads that region and the remaining budget, and emits one of
           three words.
         </p>
       </section>
 
-      {/* The three outcomes — one tricolour band (design L277-281): each segment carries its tone colour
-          (commit / defer / abstain) with light text. Titles render from the loaded action enum, in frozen
-          order. */}
-      <section style={{ ...section, padding: "0 24px 48px" }}>
-        <div style={{ ...autoCols(240), gap: 0, borderRadius: 16, overflow: "hidden", border: "1px solid var(--line)" }}>
-          {OUTCOMES.map((o) => (
-            <div key={o.tone} style={{ background: decisionColorVar(o.tone), color: "var(--paper)", padding: 24 }}>
-              <div style={{ ...mono, fontSize: 15, fontWeight: 500, marginBottom: 10 }}>
-                {actions[o.tone] ?? ""}
-              </div>
-              <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.55 }}>{o.gloss}</p>
+      {/* The three outcomes — titles rendered from the loaded action enum, in frozen order. */}
+      <section
+        style={{
+          ...section,
+          padding: "0 24px 48px",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
+          gap: 14,
+        }}
+      >
+        {OUTCOMES.map((o) => (
+          <div key={o.tone} style={{ ...card, borderRadius: 16, padding: 22 }}>
+            <div style={{ ...mono, fontSize: 14, color: decisionColorVar(o.tone), fontWeight: 500, marginBottom: 8 }}>
+              {actions[o.tone] ?? ""}
             </div>
-          ))}
-        </div>
+            <p style={{ margin: 0, fontSize: 15, ...bodyText }}>{o.gloss}</p>
+          </div>
+        ))}
       </section>
 
       {/* Gate explainer — the one interactive island (controls + diagram + meter + read-outs + JSON view
@@ -181,20 +141,20 @@ export default function HowItWorksPage() {
           {pipeline.map((c) => (
             <div
               key={c.contract.title}
-              style={{ ...card, ...cardShadow, padding: 20, display: "flex", flexDirection: "column", gap: 10, borderTop: "3px solid var(--hikae-t)" }}
+              style={{ ...card, padding: 20, display: "flex", flexDirection: "column", gap: 10, borderTop: "3px solid var(--hikae-t)" }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <span style={eyebrow}>{c.layer}</span>
-                <span style={{ ...mono, fontSize: 10, padding: "2px 8px", borderRadius: 999, background: "var(--ok)", color: "var(--paper)", textTransform: "uppercase", letterSpacing: ".05em" }}>
+                <span style={{ ...mono, fontSize: 10, padding: "2px 8px", borderRadius: 999, border: "1px solid var(--hikae-t)", color: "var(--hikae-t)", textTransform: "uppercase", letterSpacing: ".05em" }}>
                   Built
                 </span>
               </div>
               <div style={{ ...mono, fontSize: 17, fontWeight: 500, color: "var(--hikae-t)" }}>{c.contract.title}</div>
               <div style={{ fontSize: 14, ...bodyText }}>{c.what}</div>
-              <div style={{ ...mono, ...well, fontSize: 11.5, color: "var(--ink)", lineHeight: 1.6, padding: 10 }}>
+              <div style={{ ...mono, fontSize: 11.5, color: "var(--ink)", lineHeight: 1.6, borderTop: "1px solid var(--line)", paddingTop: 10 }}>
                 {c.contract.required.join(" · ")}
               </div>
-              <div style={{ ...mono, fontSize: 11, color: "var(--abst)", marginTop: "auto" }}>{c.absent}</div>
+              <div style={{ ...mono, fontSize: 11, color: "var(--abst)" }}>{c.absent}</div>
             </div>
           ))}
         </div>
@@ -205,20 +165,20 @@ export default function HowItWorksPage() {
         style={{ ...section, padding: "0 24px 64px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 14 }}
       >
         {setKind ? (
-          <div style={{ ...card, ...cardShadow, borderRadius: 18, padding: 24, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ ...card, borderRadius: 18, padding: 24, display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ ...mono, fontSize: 12, color: "var(--ink2)" }}>{setKind.eyebrow}</div>
             <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-.01em" }}>{setKind.title}</div>
             <div style={{ fontSize: 14.5, ...bodyText }}>
               A direction call, a yes/no market, a venue choice. The region is the set of labels the
               calibration cannot rule out. One label is actionable. Every label → {chip(actions, ACTION_DEFER, "set_too_large")}.
             </div>
-            <pre style={{ margin: "auto 0 0", ...mono, ...well, padding: 12, fontSize: 12, lineHeight: 1.55, color: "var(--ink2)", whiteSpace: "pre", overflow: "auto" }}>
+            <pre style={{ margin: 0, ...mono, fontSize: 12, lineHeight: 1.55, color: "var(--ink2)", whiteSpace: "pre", overflow: "auto" }}>
               {setKind.example.join("\n")}
             </pre>
           </div>
         ) : null}
         {intervalKind ? (
-          <div style={{ ...card, ...cardShadow, borderRadius: 18, padding: 24, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ ...card, borderRadius: 18, padding: 24, display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ ...mono, fontSize: 12, color: "var(--ink2)" }}>{intervalKind.eyebrow}</div>
             <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-.01em" }}>{intervalKind.title}</div>
             <div style={{ fontSize: 14.5, ...bodyText }}>
@@ -226,49 +186,57 @@ export default function HowItWorksPage() {
               conformed into a low–high interval. Too wide → {chip(actions, ACTION_DEFER, "interval_too_wide")}. Intent
               outside → {chip(actions, ACTION_ABSTAIN, "intent_not_in_region")}.
             </div>
-            <pre style={{ margin: "auto 0 0", ...mono, ...well, padding: 12, fontSize: 12, lineHeight: 1.55, color: "var(--ink2)", whiteSpace: "pre", overflow: "auto" }}>
+            <pre style={{ margin: 0, ...mono, fontSize: 12, lineHeight: 1.55, color: "var(--ink2)", whiteSpace: "pre", overflow: "auto" }}>
               {intervalKind.example.join("\n")}
             </pre>
           </div>
         ) : null}
-        {/* The budget card as an ink block (design L355). Text is light; the abstain chip keeps its
-            semantic tone (var(--abst)), which is the design's #e0766d in dark mode. */}
-        <div style={{ borderRadius: 18, padding: 24, background: "var(--ink)", color: "var(--paper)", display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ ...mono, fontSize: 12, color: "color-mix(in oklab, var(--paper) 60%, var(--ink))" }}>remaining_budget · B_t</div>
+        <div style={{ ...card, borderRadius: 18, padding: 24, background: "var(--soft)", display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ ...mono, fontSize: 12, color: "var(--ink2)" }}>remaining_budget · B_t</div>
           <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-.01em" }}>The budget, not a score</div>
-          <div style={{ fontSize: 14.5, lineHeight: 1.55, color: "color-mix(in oklab, var(--paper) 88%, var(--ink))" }}>
+          <div style={{ fontSize: 14.5, ...bodyText }}>
             Every GateDecision carries what is left of the fleet&rsquo;s right to act. Commit spends it.
-            When it is gone the gate does not lower its bar — it emits{" "}
-            {chip(actions, ACTION_ABSTAIN, "budget_exhausted", "color-mix(in oklab, var(--abst) 55%, var(--paper))")} until a
+            When it is gone the gate does not lower its bar — it emits {chip(actions, ACTION_ABSTAIN, "budget_exhausted")} until a
             new epoch. Profit and loss never enter the policy.
           </div>
-          <Link href="/token" style={{ fontSize: 14, color: "var(--paper)", marginTop: "auto" }}>
+          <Link href="/token" style={{ fontSize: 14, color: "var(--monark-t)" }}>
             What B_t is and is not →
           </Link>
         </div>
       </section>
 
-      {/* Thirteen reasons, one enum — codes rendered FROM the frozen enum, glossed from lib/how-copy,
-          grouped by tone: commit + defer on the left, the abstain reasons in a grid on the right
-          (design L358-379). */}
+      {/* Thirteen reasons, one enum — codes rendered FROM the frozen enum, glossed from lib/how-copy. */}
       <section style={{ ...section, padding: "0 24px 72px" }}>
-        <div style={{ ...autoCols(340), gap: 40, alignItems: "end", marginBottom: 20 }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 10 }}>
-            <h2 style={{ fontSize: "clamp(26px,3vw,36px)", letterSpacing: "-.02em", fontWeight: 600, margin: 0 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end", gap: 16, flexWrap: "wrap", marginBottom: 20 }}>
+          <div>
+            <h2 style={{ fontSize: "clamp(26px,3vw,36px)", letterSpacing: "-.02em", fontWeight: 600, margin: "0 0 8px" }}>
               Thirteen reasons, one enum
             </h2>
-            <span style={{ ...mono, fontSize: 11, padding: "3px 9px", borderRadius: 999, background: "var(--ok)", color: "var(--paper)" }}>
-              Built · frozen schema
-            </span>
+            <p style={{ margin: 0, ...bodyText, fontSize: 16, maxWidth: 620 }}>
+              Every decision names why. The reason is a closed enum in the frozen contract — a new reason
+              needs a deliberate, versioned revision, not a deploy.
+            </p>
           </div>
-          <p style={{ margin: 0, ...bodyText, fontSize: 16 }}>
-            Every decision names why. The reason is a closed enum in the frozen contract — a new reason
-            needs a deliberate, versioned revision, not a deploy.
-          </p>
+          <span style={{ ...mono, fontSize: 11, padding: "3px 9px", borderRadius: 999, border: "1px solid var(--hikae-t)", color: "var(--hikae-t)" }}>
+            Built · frozen schema
+          </span>
         </div>
-        <div style={{ ...autoCols(320), gap: 12, alignItems: "start" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{leftReasons.map(reasonCard)}</div>
-          <div style={{ ...autoCols(200), gap: 10, alignItems: "start" }}>{abstainReasons.map(reasonCard)}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 10 }}>
+          {reasons.map((code) => {
+            const meta = REASON_GLOSS[code];
+            if (!meta) return null; // unreachable: completeness pinned by the R2 root test
+            return (
+              <div key={code} style={{ ...card, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                  <span style={{ ...mono, fontSize: 12.5, fontWeight: 500 }}>{code}</span>
+                  <span style={{ ...mono, fontSize: 10, color: decisionColorVar(meta.tone), textTransform: "uppercase", letterSpacing: ".05em" }}>
+                    {actions[meta.tone] ?? ""}
+                  </span>
+                </div>
+                <div style={{ fontSize: 13, ...bodyText, lineHeight: 1.45 }}>{meta.gloss}</div>
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -306,10 +274,7 @@ export default function HowItWorksPage() {
           style={{ ...section, padding: "56px 24px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: 28 }}
         >
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-              <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--ok)" }} />
-              <h2 style={{ fontSize: 24, letterSpacing: "-.02em", margin: 0, fontWeight: 600 }}>What is guaranteed</h2>
-            </div>
+            <h2 style={{ fontSize: 24, letterSpacing: "-.02em", margin: "0 0 10px", fontWeight: 600 }}>What is guaranteed</h2>
             <p style={{ margin: 0, ...bodyText, fontSize: 15 }}>
               Coverage holds on average over exchangeable calibration data at one minus a chosen
               miscoverage level α. The gate reads the region and the budget through a closed policy; profit
@@ -317,10 +282,7 @@ export default function HowItWorksPage() {
             </p>
           </div>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-              <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--abst)" }} />
-              <h2 style={{ fontSize: 24, letterSpacing: "-.02em", margin: 0, fontWeight: 600 }}>What is not</h2>
-            </div>
+            <h2 style={{ fontSize: 24, letterSpacing: "-.02em", margin: "0 0 10px", fontWeight: 600 }}>What is not</h2>
             <p style={{ margin: 0, ...bodyText, fontSize: 15 }}>
               Coverage is not conditional on the individual input. The error on one committed act is not
               bounded by α. Hikae is a monitor — a second-level check, not a promise about any single case.
@@ -328,10 +290,7 @@ export default function HowItWorksPage() {
             </p>
           </div>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-              <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--ink)" }} />
-              <h2 style={{ fontSize: 24, letterSpacing: "-.02em", margin: 0, fontWeight: 600 }}>Where to read more</h2>
-            </div>
+            <h2 style={{ fontSize: 24, letterSpacing: "-.02em", margin: "0 0 10px", fontWeight: 600 }}>Where to read more</h2>
             <p style={{ margin: 0, ...bodyText, fontSize: 15 }}>
               <Link href="/integrators" style={{ color: "var(--monark-t)" }}>
                 For integrators

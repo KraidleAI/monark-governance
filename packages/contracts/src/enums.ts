@@ -44,3 +44,35 @@ export const ATTESTED_FLOW_RESIDUALS = [
   "mint_wall",
 ] as const;
 export type AttestedFlowResidual = (typeof ATTESTED_FLOW_RESIDUALS)[number];
+
+/**
+ * AttestedBook residual assumptions (ADR-U1b D2ter) — a CLOSED enum, contract-specific (NOT the Shogen
+ * assumptions registry, borrows no identifier from it). A residual outside this set is a fail-closed
+ * refusal, never silent text. `no_third_party_verifier` is ALWAYS emitted (so `minItems:1` is never
+ * vacuous, C-10): AttestedBook is a self-declared reading, no verifier runs. Single runtime source; the
+ * JSON Schema enum is asserted identical to it (enums.test.ts). Extensible by ADR only (ADR-M008 D3 pattern).
+ */
+export const ATTESTED_BOOK_RESIDUALS = [
+  "no_third_party_verifier",
+  "oracle_price_as_read",
+  "oracle_source_as_read",
+  "rpc_quorum_2_keyless",
+  "block_timestamp_not_submission",
+  "emode_recompute_skipped",
+] as const;
+export type AttestedBookResidual = (typeof ATTESTED_BOOK_RESIDUALS)[number];
+
+/**
+ * AttestedBook `abstain.reason` (ADR-U1b D4) — a CLOSED enum that INCLUDES `null`. The coupling
+ * `value ⇔ reason≠null` (fatal-only, D4 total witness) is enforced STRUCTURALLY by the frozen schema
+ * (a `oneOf` on `abstain`), exercised in schema.test.ts (`attested_book_abstain_coupling`). `null` is
+ * kept IN this runtime source (listed first) so the JSON Schema enum is asserted identical to it WITHOUT
+ * any transformation (enums.test.ts), mirroring ATTESTED_FLOW_RESIDUALS.
+ */
+export const ATTESTED_BOOK_ABSTAIN_REASONS = [
+  null,
+  "no_quorum",
+  "abi_mismatch",
+  "unfinalized_block",
+] as const;
+export type AttestedBookAbstainReason = (typeof ATTESTED_BOOK_ABSTAIN_REASONS)[number];

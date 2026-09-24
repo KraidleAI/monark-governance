@@ -85,22 +85,22 @@ const ACTS = NODES.filter((n) => n.role === "act");
 const GATE_NODE = NODES.find((n) => n.role === "gate");
 const GENKAN_NODE = NODES.find((n) => n.role === "distribution");
 
-const mono: CSSProperties = { fontFamily: "'IBM Plex Mono', monospace" };
+const mono: CSSProperties = { fontFamily: "var(--font-mono)" };
 const eyebrow: CSSProperties = {
   ...mono,
-  fontSize: 12,
+  fontSize: 11,
   letterSpacing: ".06em",
   textTransform: "uppercase",
   color: "var(--ink2)",
   padding: "4px 6px",
 };
-const kanjiStyle: CSSProperties = { fontFamily: "'Newsreader', serif", color: "var(--ink2)", fontSize: 13 };
-const teaser: CSSProperties = { fontSize: 13, color: "var(--ink2)", lineHeight: 1.45 };
+const kanjiStyle: CSSProperties = { fontFamily: "var(--font-kanji)", color: "var(--ink2)", fontSize: 13 };
+const teaser: CSSProperties = { fontSize: 12, color: "var(--ink2)", lineHeight: 1.45 };
 const rowCenter: CSSProperties = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", rowGap: 4 };
 const markBox: CSSProperties = { width: 26, height: 26, flex: "none", display: "inline-flex" };
 const chip = (on: boolean, color: string): CSSProperties => ({
   ...mono,
-  fontSize: 11.5,
+  fontSize: 10.5,
   padding: "3px 7px",
   borderRadius: 6,
   border: `1px solid ${on ? color : "var(--line)"}`,
@@ -117,7 +117,7 @@ function cardStyle(accent: string, active: boolean, dimmed: boolean, reduced: bo
     display: "flex",
     flexDirection: "column",
     gap: 6,
-    opacity: dimmed ? 0.85 : 1,
+    opacity: dimmed ? 0.6 : 1,
     boxShadow: active ? `0 0 0 3px color-mix(in oklab, ${accent} 22%, transparent)` : "none",
     transition: reduced ? "none" : "all .35s",
   };
@@ -128,20 +128,19 @@ function AgentMiniCard({
   active,
   dimmed,
   reduced,
+  pipe,
 }: {
   node: BoardNode;
   active: boolean;
   dimmed: boolean;
   reduced: boolean;
+  /** an optional honest note on the card's REAL served pipe (ADR-EC C-11 vi: a built act feeds the gate
+   *  upstream — cascade → gate — it does not execute). Digit-free (no numeric-hole). */
+  pipe?: string;
 }) {
   const Mark = MARKS[node.key];
-  const style = cardStyle(node.accent, active, dimmed, reduced);
-  if (node.status === "built") {
-    // Built agents (Shōgen, Narabi, …) read as shipped: a stronger ink/45 edge, never dimmed (Diff B §4).
-    style.border = "1px solid color-mix(in oklab, var(--ink) 45%, transparent)";
-  }
   return (
-    <div style={style}>
+    <div style={cardStyle(node.accent, active, dimmed, reduced)}>
       <div style={rowCenter}>
         {Mark ? (
           <span style={markBox}>
@@ -153,6 +152,7 @@ function AgentMiniCard({
         <StatusBadge status={node.status} className="ml-auto" />
       </div>
       <div style={teaser}>{node.line}</div>
+      {pipe ? <div style={{ ...mono, fontSize: 10.5, color: "var(--ink2)" }}>{pipe}</div> : null}
     </div>
   );
 }
@@ -176,7 +176,7 @@ function Lane({ label, active, reduced }: { label: string; active: boolean; redu
       <span
         style={{
           ...mono,
-          fontSize: 10,
+          fontSize: 9,
           color: "var(--ink2)",
           background: "var(--card)",
           padding: "0 4px",
@@ -228,12 +228,13 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--hikae)" }} />
             commit · defer · abstain
           </div>
-          <h1 style={{ fontSize: "clamp(42px,5.4vw,76px)", lineHeight: 1.02, letterSpacing: "-.025em", fontWeight: 600, margin: "16px 0 18px", textWrap: "balance" }}>
+          {/* h2: the board now sits under the charter C landing hero (ruling Q4), which carries the page's h1. */}
+          <h2 style={{ fontSize: "clamp(38px,4.8vw,62px)", lineHeight: 1.02, letterSpacing: "-.025em", fontWeight: 600, margin: "16px 0 18px", textWrap: "balance" }}>
             It abstains,
             <br />
             so it can act.
-          </h1>
-          <p style={{ fontSize: 17, lineHeight: 1.55, color: "var(--ink)", maxWidth: 640, margin: 0, textWrap: "pretty" }}>
+          </h2>
+          <p style={{ fontSize: 17, lineHeight: 1.55, color: "var(--ink2)", maxWidth: 520, margin: 0, textWrap: "pretty" }}>
             One engine, eleven agents, one plug per client. Sensors witness, an adapter shapes the
             testimony into a frozen <span style={{ ...mono, color: "var(--ink)" }}>Prediction</span>, the
             gate authorizes, an act executes — and B_t is spent only on{" "}
@@ -286,7 +287,7 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
           style={{
             border: "1px solid var(--line)",
             borderRadius: 22,
-            background: "var(--card)",
+            background: "color-mix(in oklab, var(--card) 82%, transparent)",
             padding: 18,
           }}
         >
@@ -295,7 +296,7 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
             <div className="flex min-w-0 flex-1 flex-col gap-2.5">
               <div style={eyebrow}>04 · sensors · witness</div>
               {SENSORS.map((n) => (
-                <AgentMiniCard key={n.key} node={n} active={isLit(n.key)} dimmed={!isLit(n.key) && n.status !== "built"} reduced={reducedMotion} />
+                <AgentMiniCard key={n.key} node={n} active={isLit(n.key)} dimmed={!isLit(n.key)} reduced={reducedMotion} />
               ))}
             </div>
 
@@ -377,16 +378,25 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
 
             <Lane label="commit · B_t" active={Boolean(profile)} reduced={reducedMotion} />
 
-            {/* acts */}
+            {/* acts — the execute layer is UPCOMING (ADR-EC C-11 vi): no act is served, the gate never
+                executes (D0 no-trade). The one BUILT act (Ukemi) is built because it FEEDS the gate upstream
+                (cascade → gate), not because it executes — its card says so; its register role stays "act". */}
             <div className="flex min-w-0 flex-1 flex-col gap-2">
-              <div style={eyebrow}>02 · acts · execute</div>
+              <div style={eyebrow}>02 · acts · execute (upcoming)</div>
               {ACTS.map((n) => (
-                <AgentMiniCard key={n.key} node={n} active={isLit(n.key)} dimmed={!isLit(n.key) && n.status !== "built"} reduced={reducedMotion} />
+                <AgentMiniCard
+                  key={n.key}
+                  node={n}
+                  active={isLit(n.key)}
+                  dimmed={!isLit(n.key)}
+                  reduced={reducedMotion}
+                  pipe={n.status === "built" ? "feeds the gate (cascade → gate), not execute" : undefined}
+                />
               ))}
             </div>
           </div>
 
-          <div style={{ ...mono, fontSize: 12, color: "var(--ink2)", marginTop: 14, lineHeight: 1.5 }}>{CAVEAT}</div>
+          <div style={{ ...mono, fontSize: 11, color: "var(--ink2)", marginTop: 14, lineHeight: 1.5 }}>{CAVEAT}</div>
         </div>
 
         {/* aside — the picked profile's product */}
@@ -426,7 +436,7 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
             See it on Products →
           </Link>
           <div style={{ ...mono, fontSize: 11, color: "var(--ink2)", lineHeight: 1.5 }}>
-            Every product is upcoming; each is a wiring of fleet agents on the same built gate.
+            MONARK Bell is built; every other product is upcoming, a wiring of fleet agents on the same built gate.
           </div>
         </aside>
       </div>

@@ -160,12 +160,14 @@ test("export_includes_skills — skills/ whitelisted, SKILL.md exported, fail-cl
   assert.ok(!missingRequired.includes("skills"), "'skills' exists ⇒ not a fail-closed-missing entry");
 
   // (c) FAIL-CLOSED (M-4): a root that carries the fail-closed machinery collectFiles reads
-  //     (scripts/export-exclude-tests.json + scripts/lang-exempt.json) but NO skills/ must report 'skills'
-  //     as a missing required entry — so the whitelist can never point at an absent dir silently.
+  //     (scripts/export-exclude-tests.json + scripts/export-exclude-data.json + scripts/lang-exempt.json) but
+  //     NO skills/ must report 'skills' as a missing required entry — so the whitelist can never point at an
+  //     absent dir silently. export-exclude-data.json is a D7-septies fail-closed input, copied like the others.
   const tmp = mkdtempSync(join(tmpdir(), "monark-skills-fc-"));
   try {
     mkdirSync(join(tmp, "scripts"), { recursive: true });
     copyFileSync(join(ROOT, "scripts", "export-exclude-tests.json"), join(tmp, "scripts", "export-exclude-tests.json"));
+    copyFileSync(join(ROOT, "scripts", "export-exclude-data.json"), join(tmp, "scripts", "export-exclude-data.json"));
     copyFileSync(join(ROOT, "scripts", "lang-exempt.json"), join(tmp, "scripts", "lang-exempt.json"));
     const { missingRequired: mr } = collectFiles(tmp);
     assert.ok(mr.includes("skills"), "fail-closed: 'skills' absent from a tree ⇒ missingRequired (ADR-M006 M-4)");

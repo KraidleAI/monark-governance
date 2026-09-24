@@ -14,8 +14,18 @@ import { UkemiMark } from "@/components/marks/ukemi-mark";
 import { PanelBlock, SHEET } from "@/components/panel-shell";
 import { WhatInside } from "@/components/what-inside";
 import { insideFor } from "@/lib/fleet-presentation";
+import { FLEET_AGENTS } from "@/lib/fleet";
 import type { FrozenContract } from "@/lib/load-contract";
 import { cn } from "@/lib/utils";
+
+// The register (lib/fleet.ts) is the single source of truth for Ukemi's built/upcoming status (ADR-M018):
+// this bespoke Home panel READS it instead of hard-coding "built", so a register flip flows here. Fail-
+// closed: a missing entry throws at prerender rather than render a stale status (pinned by the root test
+// fleet_register_built_set_is_frozen, guard (5)).
+const UKEMI = FLEET_AGENTS.find((a) => a.name === "Ukemi");
+if (!UKEMI) throw new Error("Ukemi is absent from FLEET_AGENTS (register is the single source of truth)");
+// Read at module scope, where the fail-closed narrow above holds (closure capture would widen it back).
+const UKEMI_STATUS = UKEMI.status;
 
 /**
  * The built Ukemi agent (liquidation-cascade survival). Same 8-block template as Shōgen: blocks 1/2/4/6
@@ -24,24 +34,14 @@ import { cn } from "@/lib/utils";
  * when the recovery rates fall below full recovery — grounded in packages/ukemi/README.md ("Uniqueness
  * LOST once α < 1 or β < 1 ... we never claim uniqueness outside α = β = 1"). No market number is rendered.
  */
-export function UkemiPanel({ contract, showInside = false }: { contract: FrozenContract; showInside?: boolean }) {
-  const trigger = <DialogTrigger render={<Button variant="outline" size="sm" />}>Open panel</DialogTrigger>;
+export function UkemiPanel({ contract }: { contract: FrozenContract }) {
   return (
     <Dialog>
       <AgentCard
         mark={<UkemiMark className="size-8" />}
         name="Ukemi"
-        status="built"
-        action={
-          showInside ? (
-            <div className="flex flex-col gap-4">
-              <WhatInside block={insideFor("ukemi")} variant="well" />
-              {trigger}
-            </div>
-          ) : (
-            trigger
-          )
-        }
+        status={UKEMI_STATUS}
+        action={<DialogTrigger render={<Button variant="outline" size="sm" />}>Open panel</DialogTrigger>}
       >
         Liquidation-cascade survival.
       </AgentCard>

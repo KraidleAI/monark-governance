@@ -108,8 +108,235 @@ Observations O1-O3 : exemptions inertes conservées (elles documentent les clés
 ### D7 ter — Durcissement du test 42 (O1, checkpoint 2 Lot X, correction C1)
 Le test 42(f) certifie l'absence de `r25` et la présence de `push` mais **ne détecte ni la perte d'un job ni un corps de job corrompu** du workflow vitrine dérivé (la splice `/^ {2}\S/` s'arrête sur tout non-blanc en colonne 2 ; un commentaire indenté inséré laisserait un corps `r25` orphelin, YAML cassé, 42(f) encore vert). Durcissement dû = **assertion 42(f′)** : les **4 corps de job g1/g3/g4/g6 du workflow exporté sont byte-identiques à ceux de la source de gouvernance** (invariant « ensemble de jobs == {…} » trop faible). **Propriétaire** : le premier lot qui touche `.github/workflows/ci.yml`, au plus tard la première publication de `KraidleAI/monark`. Non bloquant pour le merge de gouvernance (le workflow dérivé commis est prouvé correct au checkpoint 2).
 
+**Amendement D7 ter — 2026-09-20 (lot CI-site, checkpoint-1 C-3)** : le lot CI-site ajoute un **5ᵉ** corps de job retenu (`g3-site`, ADR-M003 D9 octies). L'assertion **42(f′) est généralisée** : « les **4** corps de job g1/g3/g4/g6 » → « **TOUS les corps de job RETENUS** — toutes les clés de job de niveau 2 SAUF `r25-taille-de-lot` — sont byte-identiques (modulo EOL, que la dérivation préserve) entre `ci.yml` de gouvernance et la sortie de `derivePublicWorkflow` ». **Implémenté** : root test `export_public_derived_jobs_are_byte_identical` (`test/export-public.test.ts`) — extrait les corps de job par la clé **stricte** `/^  ([A-Za-z0-9_-]+)\s*:\s*$/` (**pas** `/^ {2}\S/`, afin qu'un corps `r25` orphelin laissé par une mauvaise dérivation soit ABSORBÉ dans un corps voisin et détecté) ; asserte `clés(dérivé) == clés(gouvernance) \ {r25}` puis `deepEqual` ligne à ligne par job ; non-vacuité `≥ 5` jobs retenus. **Mutants rouges rejoués (harnais mémoire)** : (a) commentaire col-2 indenté inséré dans le corps `r25` ⇒ splice `/^ {2}\S/` arrêtée tôt, orphelin absorbé dans le corps **g1** dérivé ⇒ **42(f′) ROUGE**, tandis que `grep -c r25` (42(f)) reste **VERT** (l'orphelin ne porte que « R-25 », sensible à la casse) — c'est précisément la raison d'être de 42(f′) ; (b) un octet modifié dans un corps retenu ⇒ 42(f′) ROUGE. L'échéance « premier lot touchant `.github/workflows/ci.yml` » est **soldée** par ce lot ; `error_origin` = orchestrateur (D7 ter posé sans implémentation). Livré par : lot CI-site (`docs/PLI-lot-ci-site.md`).
+
 ### D7 quater — Exemption des noms de test ADR à collision « _le_ = ≤ » (2026-09-07, consultation R-26 du worker E-ukemi)
 Le lot E-ukemi a atteint **0 hit sauf 2** sur `lang-gate --scope ukemi` : le nom de test gelé **`fictitious_default_le_n_rounds`** (ADR-M002 D11, Lot U test #19 ; `packages/ukemi/README.md`, `test/clearing.test.ts`), où le substring `le` = l'abréviation de **≤**, faux-positif de la fr-word `le`. Non renommable (défini en spec ADR-M002 + **enregistré verbatim** dans les provenances `docs/G1-lot-K.md`, `docs/G2-lot-U.md` : renommer romprait la traçabilité = contournement P5), non exemptable par un worker (`lang-exempt.json` = plume orchestrateur). **Même collision en hikae** : **`interval_lo_le_hi`** (ADR-M002 test #15, M5 `buildIntervalRegion` ; `packages/hikae/test/region-predictor.test.ts`). **Décision (option i du worker, tranchée une fois pour la classe)** : les deux noms sont ajoutés aux `terms` de `scripts/lang-exempt.json` — cohérent avec le traitement des identifiants gelés à collision française déjà exemptés (`score_de_confiance`, `verdict_de_verite`, `revision_amont_deleguee`). Le générateur Lot X ne couvrait que schémas/enums, jamais les noms de test définis par ADR — trou de classe, fermé ici. `error_origin` = générateur du gate (Lot X, angle mort de classe), attrapé par la discipline lang-gate. Bénéficie à E-ukemi **et** E-hikae (pas de fork ad-hoc).
+
+### Addendum D7 quinquies — SECURITY.md whitelisted (Lot CRA-B, 2026-09-19)
+`SECURITY.md` (repo root) is added to `WHITELIST_FILES` in `scripts/export-public.mjs`. Rationale: it is a
+public surface GitHub renders on the Security tab and researchers read, so the private repo must be its single
+source of truth (motif `out/mint.txt`). It is scanned by the root language gate (English) and, added
+EXPLICITLY to `surfaces()`, by `public_surfaces_make_no_probative_claim`; `cra_surfaces_stay_conditional`
+scans it for CRA over-claims. Tuyaux (branchement): SECURITY.md -> GitHub Security tab (served) + the export
+whitelist; `product_boundary_matches_export_list` asserts `collectFiles(ROOT).kept` contains it (mutant: drop
+the whitelist line => red). It carries no link into `docs/**` (not exported). The full policy ships in this lot
+(investor decisions 42-43, 2026-09-19): Reporting (GitHub Security Advisories only), Scope, Supported versions,
+Timelines (72 h acknowledgement, 90-day coordinated disclosure), Data. See ADR-CRA-B.
+
+### Addendum D7 sexies — U-4a governance/upcoming test exclusions + orphan fixtures (Lot U-4a, 2026-09-21)
+Two test files under `apps/sentinel/test/` are added to `scripts/export-exclude-tests.json` (the D7-addendum
+governance-only exclusion mechanism, NOT the structural blacklist), each because it reads or imports a file the
+public export deliberately omits. Found by the U-4a checkpoint-2 (C-V-1): `npm run test` had been deferred at
+G1, so test 42 (`export_public_no_governance_no_french`, assertion (e) = the exported CI) was RED and unseen.
+- `apps/sentinel/test/ukemi-u4-governance.test.ts` (seam α) — `u4_prereg_sha_matches_committed_plan` reads
+  `docs/PLAN-u4-prereg.md`, a governance file excluded by the D7 blacklist, so an exported run ENOENTs. The
+  prereg check was ISOLATED into this dedicated file (out of `ukemi-u4a.test.ts`), never a silent skip.
+- `apps/sentinel/test/ukemi-u4-scores.test.ts` (seam β) — imports `scripts/census/u4-scores.mjs` + its `.d.mts`
+  (the U-4 calibration reducer), which is not whitelisted, so the exported `tsc --noEmit` reds TS2307.
+  `scripts/census/**` is deliberately NOT whitelisted: Ukemi is `upcoming` (ADR-U4), the calibration recipe is
+  not yet a public surface. Consequence, stated plainly: **the U-4 calibration is not replayable from the public
+  mirror at this stage** (its reducer is not exported). Formed item « rejouabilité publique de la calibration
+  U-4 » — trigger: G0 U-7 / Ukemi publication; owner: orchestrator.
+- Fixtures `apps/sentinel/test/fixtures/ukemi/u4/*` (incl. `U4-book-23545087.json`, 5.96 MB) and
+  `PROVENANCE-u4.md` (its local F: raws path REMOVED as of `88d28a5`, replaced by a `<U4_RAWS_DIR>` placeholder —
+  checkpoint-2 bis C-VB-4, 2026-09-21; the real location stays in the private PLI under `docs/`, never exported) ARE
+  copied to the export via the `apps/sentinel/test` package-style walk. They are LEFT as-is (Option A, smallest coherent form): after the two
+  tests are excluded they are orphan data in the mirror, EXACTLY like the already-shipped
+  `apps/sentinel/test/fixtures/ukemi/u3/*` + `PROVENANCE-u3.md` (the u3 reducer test lives at repo root, never
+  exported) — an orphan state accepted at CHECKPOINT2-u3 (measured: the current export ships the u3 series + its
+  F:-path provenance). The u4 fixtures are NEVER added to `STRUCTURAL_BLACKLIST` (a whitelisted path there fails
+  the export hard, exit 1, and diverges from test 42's own BLACKLIST mirror). Test 42 assertion (d) compares
+  `manifest.excluded_tests` to this exact config; assertion (e) runs the exported CI green once the two tests are
+  excluded.
+Disjunction constraint (two pli commits α then β): `scripts/export-exclude-tests.json` is edited in BOTH — the
+governance test in the α-fix, the scores test in the β-fix — because assertion (d) requires
+`manifest.excluded_tests == cfg.tests` exactly and a path absent from the tree is never a candidate (pre-adding
+the β test would red the α-alone tree). `error_origin` = worker + orchestrator (same class as C-G2-1).
+
+**Addendum daté (checkpoint-2 bis, 2026-09-21) — item C-G2D-1 (b) porté ici (item formé ; déclencheur : AVANT la
+prochaine publication du miroir public ; propriétaire : orchestrateur).** Le chemin local u4 est **RETIRÉ** de
+`PROVENANCE-u4.md` depuis `88d28a5` (placeholder `<U4_RAWS_DIR>` ; l'emplacement réel reste dans le PLI privé sous
+`docs/`, jamais exporté). Trois volets restent formés :
+- (i) **mécanisme d'exclusion des DONNÉES orphelines `upcoming`** de l'export public (analogue de
+  `export-exclude-tests.json` pour les fixtures) — **jamais** `STRUCTURAL_BLACKLIST` (échec dur exit 1 + divergence du
+  miroir `BLACKLIST` de test 42) ;
+- (ii) **nettoyage de `apps/sentinel/test/fixtures/ukemi/u3/PROVENANCE-u3.md:42`** (un chemin de lecteur local
+  `F:\PRODUITS\...` (real path recorded in the private PLI) toujours exporté) ;
+- (iii) **extension de `export:check` aux chemins de lecteur Windows** (`[A-Z]:\`) — **constat MESURÉ** : le gate rend
+  « 0 forbidden path » sur un export qui en contient un (u3:42) ⇒ il est **AVEUGLE à cette classe**.
+
+### Addendum D7 septies — Lot EXPORT-CLEAN : données orphelines exclues, chemins de lecteur retirés, garde chemins Windows (2026-09-21)
+Résout les trois volets (i)/(ii)/(iii) formés en **D7 sexies**. Worker `claude-opus-4-8[1m]` (effort max), base
+`671b8f2`, worktree `lot/export-clean`. **Aucun** volet ne touche `STRUCTURAL_BLACKLIST` (échec dur exit 1 +
+divergence du miroir `BLACKLIST` de test 42).
+
+**(i) Mécanisme déclaratif d'exclusion des DONNÉES orphelines** — `scripts/export-exclude-data.json` (liste
+fermée `{reason, data:[…]}`, chargée fail-closed comme `export-exclude-tests.json` : fichier manquant /
+illisible / `data` non-tableau ⇒ exit 1 ; tableau vide LICITE). `collectFiles` classe une donnée exclue APRÈS
+la liste noire structurelle (fail-closed, en premier) et la liste des tests exclus, AVANT la règle `.md`
+français, dans un canal `excludedData` ; `EXPORT-MANIFEST.json` gagne `excluded_data[]`. Contenu (la fixture
+U-4a `upcoming` complète, cohérente) :
+`apps/sentinel/test/fixtures/ukemi/u4/{U4-book-23545087.json, U4-oracle-path-e2.jsonl, U4-scores-e2.jsonl,
+PROVENANCE-u4.md}`. Justification MESURÉE : leur seul consommateur de test est `ukemi-u4-scores.test.ts`
+(exclu) ; `U4-scores-e2.jsonl` est un artefact publié sans consommateur ; `PROVENANCE-u4.md` déclare les trois
+et serait un renvoi pendant. **u3 N'EST PAS exclu** : sa série est aussi consommée par le test racine
+`test/u3-realized.test.ts` (non exporté mais vivant) ⇒ « tous les consommateurs exclus » est FAUX pour u3 ;
+u3 reste exporté (volet ii). Test 42 gagne `manifest.excluded_data == cfg.data`. `error_origin` : orchestrateur
+(D7 n'avait pas branché l'exclusion des données au canal des tests).
+
+**Garde double, non-LLM** (`test/export-hygiene.test.ts`, racine, non exporté) : **(a)** aucune donnée de
+`export-exclude-data.json` n'a un consommateur EXPORTÉ (aucun `collectFiles(ROOT).kept` ne cite son basename ;
+mesuré vide) ; **(b)** aucun test exclu ne laisse une fixture dont TOUS les consommateurs de test (globs
+`package.json`, `test/` racine INCLUS) sont exclus, encore `kept`. Mutants : ajouter `weth-book.fixture.json`
+(consommé par le test exporté `ukemi.test.ts`) à la liste ⇒ (a) rouge ; retirer `U4-book-23545087.json` ⇒ (b)
+rouge.
+
+**(ii) Chemin de lecteur retiré de `PROVENANCE-u3.md:42`** — `F:\PRODUITS\…\u3-reads.jsonl` → jeton
+`<U3_RAWS_DIR>/u3-reads.jsonl` (même traitement que `PROVENANCE-u4.md`/`<U4_RAWS_DIR>`, D7 sexies) ; l'emplacement
+réel reste dans le PLI privé sous `docs/`, jamais exporté. **Re-pin sha** : `series_pinned_are_declared_and_hashed`
+n'hache QUE `.json/.jsonl/.csv` (`SERIES_DATA_EXTS`), jamais un `.md` ⇒ AUCUN pin test-gardé. Les seules
+occurrences des sha touchés sont des valeurs « après » de PLI de lots CLOS (`PLI-lot-u3.md`, `PLI-lot-u4a.md`) :
+non réécrites (falsifierait l'état de clôture). Transitions old→new au rendu.
+
+**(iii) Garde chemins Windows absolus dans `export:check` ET `export`** — fn exportée
+`windowsAbsPathHits(text)` (regex `(?<![A-Za-z])[A-Za-z]:[\\/][\w.$~-]` : lettre de lecteur unique — pas le
+`p` de `http://` — + `:` + `\`/`/` + segment). Balaie `kept` (texte, `.jsonl` inclus, `package-lock` non
+sauté). Fail-closed AVANT toute écriture dans `doExport` (classe fail-open nommée aux commentaires L409-411 du
+script), et échec de `doCheck` hors sélection de scope (un chemin de poste est toujours fautif). 5 hits mesurés
+sur l'export courant, tous corrigés : u3:42 (volet ii) + 4 chemins jetables (`record.ts:10`,
+`ukemi-record.test.ts:108-109`, `PROVENANCE-weth-book-lattice.md:38`) genericisés en POSIX `/tmp/…`. Négatifs
+couverts : `http://`, un `C:` de prose sans séparateur, une source de regex. Mutant : `if (false)` sur la garde
++ copie semée ⇒ rouge.
+
+**Branchement / dettes** : `export:check` absent de la CI reste l'item formé du 2026-09-20 (CI-site, propriétaire
+orchestrateur) — CITÉ, non re-formé ; la garde (iii) y atterrit à sa réalisation. Rejouabilité publique de la
+calibration U-4 (D7 sexies) inchangée : hors périmètre de ce lot.
+
+### Addendum CI-EXPORT-CHECK — `export:check` branché en CI (2026-09-21)
+L'item formé « `export:check` absent de la CI » ci-dessus est **CLOS**. Worker `claude-opus-4-8[1m]` (effort max),
+base HEAD de `lot/etude-suite` (`25bad38`), worktree `lot/ci-export-check`, régime petit lot (ADR-C01 amendement
+2026-09-21 : G1 + G2, sans checkpoint-2). `npm run export:check` (`package.json:21` = `node
+scripts/export-public.mjs --check`) tourne désormais dans `.github/workflows/ci.yml`, **fail-closed** (aucun
+`continue-on-error`), sans dépendance nouvelle (script à ZÉRO dépendance ; `actions/setup-node` déjà épinglé
+suffit, pas de `npm ci`).
+
+**Scope GLOBAL** (pas de `--scope`) : **mesuré exit 0 sur cette base** — 0 chemin interdit, 0 mot français
+non-exempté, les 12 scopes GATED (cohérent avec ADR-M010 : « 0 forbidden, 0 non-exempt French, all scopes
+GATED »). Le commentaire `lang-gate.mjs:37-42` (« global RED by design tant que E-hikae/ukemi/atelier/monark ne
+sont pas finis ») est donc PÉRIMÉ sur cette base (item de dérive doc ci-dessous). La clause « si seul le check
+scopé est vert » ne s'applique pas ; aucun commentaire « pourquoi le global n'est pas exigible » n'est ajouté.
+
+**Placement = job `r25-taille-de-lot`, PAS un job retenu (g3/g6)** — décision MESURÉE, pas de confort. `export:check`
+est un gate du dépôt SOURCE : il ÉCHOUE sur l'arbre exporté — sa config `scripts/export-exclude-tests.json` n'est
+pas whitelistée, donc `cd <export> && node scripts/export-public.mjs --check` ⇒ **exit 1** (mesuré). Or
+`derivePublicWorkflow` recopie tout job non-r25 **BYTE-IDENTIQUE** (imposé par `export_public_derived_jobs_are_byte_identical`,
+test 42(f')) dans le miroir public. Une étape en g3/g6 y serait donc recopiée et rougirait — un rouge latent de
+la CI publique exigeant une FUTURE modification de `derivePublicWorkflow` : dette différée, écartée par la règle
+zéro-dette. `export:check` est de la même catégorie « concern interne, pas vitrine » que la taille-de-lot
+(`export-public.mjs` L381-382) — donc dans le job que le derive RETIRE. Il est aussi délibérément HORS de `npm run
+ci`, précisément parce que test 42(e) rejoue `npm run ci` sur l'export.
+
+**Épingle non-LLM** : `ci_runs_export_check` (`test/ci-gates.test.ts`) lit `ci.yml` (aucun parseur YAML n'est
+dépendance du dépôt) et asserte, block-scopé sur r25 : présence de l'étape ; absence de `continue-on-error` ET de
+`if:` (garde G2 C-1 : un check requis SAUTÉ passe pour PASSANT sur GitHub, plus grave que `continue-on-error`) ;
+chaîne `package.json` → `export-public.mjs --check`. Mutants (restauration byte-exacte sha256 ; preuves RENDU-G1,
+à replier dans `docs/G1-lot-ci-export-check.md` par l'orchestrateur) : étape retirée/commentée/commande→`echo` ⇒
+présence ROUGE ; `continue-on-error: true` ⇒ COE ROUGE ; `if: false` sur r25 ⇒ garde `if:` ROUGE (M5a, trou fermé par C-1).
+
+**Items formés (dérive doc, propriétaire orchestrateur, déclencheur : fusion de ce lot)** : (a) `lang-gate.mjs:37-42`
+périmé (global mesuré vert) ; (b) le commentaire de `sentinel_readme_is_a_kept_export` (`test/ci-gates.test.ts`)
+porte la prémisse « lang:gate/export:check ne tournent pas en CI », désormais fausse pour `export:check` — la
+SUBSTANCE du test tient (`frenchMd` reste non-fatal : un README français serait encore exclu du miroir en
+silence), seul le commentaire est à corriger. Aucun des deux n'est dans le périmètre fermé de ce lot.
+
+**PLI G2 — fold des constats C-G2-1..C-G2-4 (2026-09-21, worker `claude-opus-4-8[1m]` effort max ; revue
+`docs/G2-lot-export-clean.md`, PASS-AVEC-CORRECTIONS).** La garde (iii) est raffinée ; `error_origin` = worker
+(D7 septies avait laissé ces angles morts). Fichiers de code : `scripts/export-public.mjs`,
+`scripts/export-public.d.mts`, `test/export-hygiene.test.ts` (docs hors R-25).
+- **C-G2-1** — `windowsPathViolations` balaie désormais TOUT fichier KEPT **texte par CONTENU**
+  (`readTextOrNull` : octet NUL OU UTF-8 invalide ⇒ binaire, ignoré), et NON plus par une allowlist
+  d'extensions (`PATH_SCAN_TEXT_EXTS` retirée du `.mjs` et du `.d.mts`). L'ancienne allowlist manquait `.mts`
+  (`scripts/grep-forbidden.d.mts`), `.svg` (`apps/site/app/{icon,apple-icon}.svg`) et les fichiers SANS
+  extension (`LICENSE`, `skills/monark/LICENSE`, `apps/site/content/.gitkeep`) — tous exportés et texte.
+  Binaires ignorés (mesuré NUL/UTF-8 invalide) : `out/logo.png`, `out/banner.jpg`, `fixtures/s3-binance.lot.cbor`.
+  Le guard (a) de `export-hygiene.test.ts` (même filtre hérité) bascule sur le même balayage par contenu.
+- **C-G2-2** — test committé `export_windows_path_guard_bites_seeded_text_file` : SÈME un chemin de lecteur
+  dans une COPIE d'arbre entière (dans `.mts` + `LICENSE` sans extension) et exige exit 1 de `--out` ET de
+  `--check --scope root` (le scope root épingle le gate de langue au scope root, vert sur arbre propre : un
+  exit 1 après semis est donc attribuable à la garde CHEMINS seule ; `export:check` nu est aussi exit 0 sur
+  arbre propre — mesuré). Couvre la branche POSITIVE du mécanisme (pas seulement du contenu déjà présent).
+- **C-G2-3 (+ checkpoint-2 C-4)** — regex étendue `(?<![A-Za-z])[A-Za-z]:(?:\\\\|[\\/])(?:[\w.$~-]|\s|$)` :
+  après `:`, un séparateur **DOUBLÉ** (backslash échappé — la forme d'un chemin Windows dans un littéral de
+  chaîne JSON/JS, C-4) OU un simple `\`/`/` ; puis un segment OU un blanc / fin de ligne. Attrape donc une
+  RACINE de lecteur nue (`D:/`, `C:\`, échappée ou non) en fin de ligne / avant un blanc, ET la forme
+  échappée `"F:\\tmp\\x"` (angle mort mesuré au checkpoint-2 : 0 hit avant). Un second séparateur (`://`)
+  n'est ni segment ni blanc/EOL ⇒ URLs (`http://`, `x://host`) toujours épargnées. **Classe couverte** :
+  lettre + `:` + (`\` | `/` | `\\`) + (segment | blanc | EOL). **HORS PÉRIMÈTRE, déclaré** : UNC
+  `\\host\share` (pas de lettre de lecteur) ; segment non-ASCII (`[\w.$~-]` sans flag `u`, ex. `F:\Études`) ;
+  texte **UTF-16** (NUL entrelacés ⇒ classé binaire) — aucun fichier exporté n'est dans ces classes.
+- **C-G2-4** — `test/export-hygiene.test.ts` (racine, NON exporté) : commentaire rendu cohérent (les POSITIFS
+  sont assemblés au runtime ⇒ le CODE ne porte aucun chemin de lecteur littéral) ET le vrai nom de dossier
+  privé ANONYMISÉ (segments fictifs) — plus aucun `F:\PRODUITS\…` réel, même dans un test non exporté.
+- **Mutants PLI G2 + checkpoint-2** (sauvegarde + sha256, restauration byte-exacte, jamais `git checkout`) :
+  **M-3b** (`windowsPathViolations`→`[]`) ⇒ test C-G2-2 ROUGE + chemin semé shipped dans le miroir (1 occ.) ;
+  **allowlist restaurée** ⇒ test C-G2-2 ROUGE (`.mts`/`LICENSE` manqués) ; **fin de ligne** (regex revertie
+  en `[\w.$~-]`) ⇒ `windows_abs_path_matcher` ROUGE (positifs EOL), C-G2-2 vert ; **C-4 séparateur simple**
+  (regex revertie à `…:[\\/]…`) ⇒ `windows_abs_path_matcher` ROUGE (nouveau positif échappé `F:\\…`), le
+  semis à backslash simple reste vert.
+
+### Addendum LANG-GATE-CI — `lang:gate` branché en CI (2026-09-21)
+Miroir exact du lot **CI-EXPORT-CHECK ci-dessus**. L'item formé « `lang:gate` absent de la CI » (CHANTIERS:222/:313/:587,
+déclencheur *avant la fenêtre publique*, propriétaire orchestrateur) sera **CLOS par l'orchestrateur au G7** — la
+clôture de CHANTIERS n'est jamais un acte du worker (aucune ligne de `docs/CHANTIERS.md` touchée par ce lot). Worker
+`claude-opus-4-8[1m]` (effort max), base `4ee3285` de `lot/etude-suite`, worktree `lot/lang-gate-ci`, régime petit lot
+(ADR-C01 amendement 2026-09-21 : G1 + G2, sans checkpoint-2 ; rien de servi/réseau/argent/secret/prix touché). `npm run
+lang:gate` (`package.json:23` = `node scripts/lang-gate.mjs`) tourne désormais dans `.github/workflows/ci.yml`,
+**fail-closed** (aucun `continue-on-error`, aucun `if:`), sans dépendance nouvelle (script à ZÉRO dépendance ;
+`actions/setup-node` déjà épinglé suffit, pas de `npm ci`), placé **avant** l'étape `export:check` (ordre de
+**diagnostic** : `export-public.mjs:28` importe `lang-gate.mjs`, module de plus bas niveau ; l'ordre n'est PAS forcé à
+l'exécution, les deux sont des scripts node indépendants).
+
+**Tuyaux (règle Branchement)** :
+- **Entrée** : `npm run lang:gate` (script existant), invoqué par le job CI **r25-taille-de-lot** de `ci.yml`.
+- **Sortie** : **statut de la PR** — le job r25 rougit le check si un hit français non-exempté tombe dans un scope gaté
+  (exit 1) ou sur erreur d'usage (exit 2 : `lang-exempt.json` absent / scope inconnu). Tout non-zéro = red, fail-closed.
+- **État** : **câblé localement** ; **servi au premier run réel sur runner Linux** (item CHANTIERS **existant** :222/:313,
+  propriétaire orchestrateur — pas une dette neuve ; résiduel Windows→Linux faible car `lang-gate.mjs` est du `node:fs`
+  pur). D'ici là la composition est rejouée localement au G1/G2.
+- **Test qui prouve la composition** (non-LLM) : `ci_runs_lang_gate` (`test/ci-gates.test.ts`) rejoue la chaîne `ci.yml`
+  (ligne `run:`, block-scopée r25) vers `package.json` (`scripts["lang:gate"]`) vers `scripts/lang-gate.mjs`. Oracle
+  d'exécution : `npm run lang:gate` = **exit 0** mesuré sur cette base (12 scopes GATED, 0 hit, ~418 fichiers scannés).
+
+**Placement = job `r25-taille-de-lot`, PAS un job retenu — DOCTRINE + symétrie, PAS un rouge-miroir.** Différence
+**MESURÉE** d'avec export:check : ce dernier est *forcé* en r25 parce qu'il ROUGIT sur le miroir exporté (sa config
+`export-exclude-tests.json` n'est pas whitelistée ⇒ exit 1). Pour `lang:gate` ce forçage **ne tient PAS**, mesuré au G1
+(arbre isolé `git archive HEAD`, étape `lang:gate` placée temporairement dans le job RETENU g6, `export --out`,
+inspection du miroir dérivé) : (a) le miroir dérivé RECOPIE bien l'étape d'un job retenu (`grep -c "npm run lang:gate"`
+= 1) ; (b) `node scripts/lang-gate.mjs` rejoué **SUR le miroir** = **exit 0** (`package.json` + `scripts/lang-gate.mjs`
++ `scripts/lang-exempt.json` sont whitelistés byte-identiques et le miroir est anglais-only). Un placement en job
+retenu serait donc une étape **verte** sur la CI publique, pas un rouge latent — donc **non forcé** au sens
+d'export:check. Le placement r25 repose sur la **doctrine** « concern interne, pas vitrine » (même catégorie que la
+taille-de-lot et export:check, `export-public.mjs` L381-382) et la **symétrie** avec CI-EXPORT-CHECK ; il garde ce gate
+d'hygiène source hors du workflow storefront dérivé. Confirmé côté r25 : le miroir dérivé retire le job r25
+(`grep -c r25` = 0), donc l'étape `lang:gate` en r25 est **absente** du miroir (non recopiée).
+
+**Épingle non-LLM** : `ci_runs_lang_gate` lit `ci.yml` (aucun parseur YAML n'est dépendance) et asserte, block-scopé
+sur r25 : présence de l'étape ; absence de `continue-on-error` ET de `if:` (les 4 formes de `if:` tuées, la clé étant
+ancrée indépendamment de la valeur) ; chaîne `package.json` vers `lang-gate.mjs`. Le test copie la forme **post-C-1** du
+modèle, donc le « trou M5a » (un `if: false` job-level laissant le test vert) **n'existe jamais** ici — aucune G2-delta
+requise. Les gardes (2)/(3) sont **redondantes déclarées** avec `ci_runs_export_check` (même `r25Block`) et test 38,
+gardées pour la symétrie et l'auto-suffisance du contrat. Mutants (arbre isolé, restauration byte-exacte sha256 ;
+preuves RENDU-G1, à replier dans `docs/G1-lot-lang-gate-ci.md` par l'orchestrateur) : étape
+retirée/commentée/commande→`echo` ⇒ présence ROUGE (#fail=1) ; `continue-on-error: true` ⇒ COE ROUGE (#fail=3) ;
+`if:` (job r25 ou étape, 4 formes) ⇒ garde `if:` ROUGE (#fail=3).
+
+**Item de dérive doc (propriétaire : ce lot, déclencheur : branchement) — CORRIGÉ EN LIGNE** : le commentaire de
+`sentinel_readme_is_a_kept_export` (`test/ci-gates.test.ts`) portait « lang:gate does not run in CI », désormais FAUX ;
+corrigé au fil (substance du test — l'assertion d'appartenance — inchangée : `lang:gate` gate bien le scope `sentinel`,
+mais n'asserte pas l'APPARTENANCE d'un fichier, donc le test garde ses dents pour un README retiré/renommé).
+**AUCUN** changement au scope `lang:gate` ni à `scripts/lang-exempt.json` (tout élargissement est un autre lot).
+`error_origin` = ce lot (prémisse rendue périmée par le branchement), surfacée et corrigée au G1.
 
 ### D8 — Lot E (English only) et R-25 (item 11)
 Scindé par package, une PR chacune, **aucun lot exempté** ; **hikae scindé `src` / `test`** (mesure §1.3) ; règle générale : si la mesure d'un lot dépasse 1 205, scission par répertoire (`src`, `test`, sous-répertoire `s2/`). **E-contracts ne touche jamais aux identifiants gelés** (test 0 `contracts_frozen`). Ordre : E-root (CI, scripts, tests racine) ∥ E-contracts → E-hikae-src → E-hikae-test → E-ukemi → E-atelier → E-monark.
@@ -223,3 +450,17 @@ Cadre le lot F-site-9 (mise à niveau DA « Console » B + illustration vivante 
 - **(d) Remplacement du pipeline de cartes de la home par le diagramme vivant SVG** (concept D v3, **pas** « le sas ») : porté dans `board.tsx` (données `fleet.ts`/`profiles.ts` + registre chaînes), **conservés** : `<aside>` panneau latéral, picker `PICKER_PROFILES`, `{CAVEAT}` ; clic pièce ⇒ chemin accentué + panneau (résout Q-1) ; clavier ; `prefers-reduced-motion` ; aucun chiffre ; commit/defer/abstain en couleurs seules. Intégration en **F-site-9a-ii**.
 - **(e) Polices OFL en `next/font/local`** : lève la réserve « fetch réseau au build » de D15 (C-2) — les polices Open Font License sont **vendorées** et chargées via `next/font/local`, build reproductible hors-ligne, plus de dépendance réseau à Google au build.
 `error_origin` = n/a (décision investisseur actée ; correction C-1 du checkpoint-1). Le présent addendum est commis avec **F-site-9a-i**, dont les livrables — `components/sas/{sas-model,sas-machine,sas-audit,use-sas-state}.ts` (purs, **zéro dépendance**) + tests racine `test/sas-*.test.ts` — **restent valides et alimentent le diagramme vivant** (BRIEF addendum 6 : « 9a-i … reste valide »), sous G1 `docs/G1-lot-fsite-9a-i.md`.
+
+**Complément D7 septies — 2026-09-21 (checkpoint-2 EXPORT-CLEAN, C-2)** : `error_origin` des volets — (i) données orphelines : orchestrateur (D7 sexies n'avait pas prévu le cas) ; (ii) chemin local exporté dans `PROVENANCE-u3.md:42` : worker U-3 (copie) + orchestrateur (G7 U-3 sans balayage) ; (iii) `export:check` aveugle aux chemins : orchestrateur (conception D7, même classe que (i)) ; pli G2 (garde par contenu, C-4 forme échappée `X:\…`) : worker EXPORT-CLEAN. Ce complément est un pur ajout daté ; les alinéas précédents restent tels quels.
+
+## Amendement daté 2026-09-23 — D14 : premier produit `built` (décision investisseur 155)
+
+L'invariant « aucun des produits n'est bâti » (D14, pinné par `test/ci-gates.test.ts` `fleet_register_built_set_is_frozen` et `apps/site/lib/fleet.ts` « NONE is built today ») est amendé : **MONARK Bell** passe `built` (registre `PRODUCTS`, `served: FleetWiring` obligatoire pour un produit built) sur le critère Branchement (hôte `bell.monarkgate.tech` servi, CA `docs/deploy-CA-bell.json` 12/12, première publication signée seq 1 le 2026-09-23T21:35:52Z). Le test est ré-épinglé (produits built = {bell}, `upcomingCount` 13 → 12). Les autres produits restent `upcoming` ; la Définition de fini ADR-B0 D8 (grade institutionnel, GTM, lettre SEC) reste l'objectif de la phase suivante — écart daté, items formés dans l'amendement ADR-B0 du même jour. Pur ajout daté ; les alinéas précédents restent tels quels.
+
+## Addendum D7 octies — 2026-09-24 : apps/bell exporté à v0.6.0, PARTIEL — chaîne de publication signée seule (décision investisseur 156, lot EXPORT-BELL-1)
+
+Worker `claude-opus-5-5[1m]` (effort max), base `259c1ef` de `lot/etude-suite`, worktree `lot/export-bell`. **Exporté, fichier par fichier** (entrées `WHITELIST_FILES` de `scripts/export-public.mjs`, jamais une marche de répertoire ni le mode paquet : un nouveau fichier `apps/bell` n'est exporté que nommé par une ligne de cet ADR) : `apps/bell/package.json` (description corrigée : l'ancienne affirmait « publishes nothing (T-1b) », fausse pour la chaîne exportée), `apps/bell/keys/bell-keyring.json` (trousseau PUBLIC, racine de confiance du vérificateur), `apps/bell/scripts/{bell-chain,bell-publish,bell-verify}.{mjs,d.mts}`, `scripts/verify-bell.{mjs,d.mts}` — 10 fichiers, tous mesurés anglais, sans chemin de lecteur, sans forme du fournisseur de la décision 69, sans PEM ni JWK `d`. C'est l'arbre déployé (`BELL_TREE_PATHS`) + le vérificateur tiers (tuyau T-c, ADR-T1b) + sa racine de confiance + la méthode de CA de déploiement.
+
+**Exclus nommément** (liste fermée au RENDU du lot ; aucune entrée dans `export-exclude-tests.json` ni `export-exclude-data.json` : ces fichiers ne sont jamais candidats) : (a) **formes du fournisseur de recoupement cash (décision 69)** : `apps/bell/src/{close,collect,digest,residuals,volume}.ts`, `apps/bell/scripts/bell-report.mjs`, tests `bell-adv-1`, `bell-src-clean`, `close`, `collect`, `guard-collect-1bii`, `report`, `helpers/bell-served.ts`, fixtures `spike/spike-measures.json`, `spike/PROVENANCE-spike.md` ; (b) **chemins de lecteur** (D7 septies (iii)) : `collect.ts`, `collect.test.ts`, `report.test.ts`, `universe.test.ts`, `helpers/no-network.mjs`, `PROVENANCE-{founding-discovery,rebase-course,spike}.md`, `spike/spike-poc-discovery.json`, `test/verify-bell.test.ts` ; (c) **`docs/**` jamais exporté** (miroir BLACKLIST de test 42 `(^|/)docs/` ; `PRODUCT-BOUNDARY.md`) : `docs/deploy-CA-bell.json`, `docs/RUNBOOK-bell.md` (ce dernier porte aussi 1 mot français, 1 chemin de lecteur, 1 forme décision 69) ; (d) **`test/**` racine jamais exporté** (auto-contrôle de `no_cash_cross_provider_name_in_export`) : `test/verify-bell.test.ts`, `test/bell-deploy-config.test.ts`, `test/bell-caddy.ts` ; (e) **le reste du collecteur** (`apps/bell/src/**`, `apps/bell/test/**`, `bell-report.d.mts`) : sans la purge de (a)/(b), le point d'entrée `runMain` et le rejeu ne peuvent pas partir ; exporter des fragments ne livrerait aucune capacité de rejeu ; (f) **`deploy/**` jamais exporté** (ADR-NARABI-OPS-1c C3) : `deploy/monark-bell-publish.service`, `deploy/Caddyfile.monark-bell` — **mesuré au lot** : les exporter rend `deploy/` présent dans le miroir, le test EXPORTÉ `sentinel_budget_below_unit_timeout` (saut SSI `deploy/` absent) exige alors `deploy/monark-sentinel.service` et rougit (CI exportée 507 tests, 1 échec ; test 42 (e) rouge à l'identique). Test 42 (j) asserte désormais 0 fichier `deploy/` exporté. `verify-bell.mjs` ne lit ces deux fichiers que par `git cat-file blob <G7>:deploy/…` (historique privé), jamais dans l'arbre.
+
+**Conséquence, dite en clair** : le « code de rejeu public » d'EXPORT-BELL-1 (ADR-T1b §D12) n'est **pas** livré par ce lot ; le miroir porte la chaîne qui produit et vérifie la surface servie, pas le collecteur. **Item formé EXPORT-BELL-1-PURGE** (propriétaire orchestrateur ; déclencheur : avant le remplissage d'`url_method`, inchangé ; régime complet, anti-close) : purge des formes décision 69 et des chemins de lecteur des fichiers (a)/(b), puis export du collecteur et de ses tests par lignes de cet ADR. **Item formé EXPORT-BELL-DEPLOY-1** (propriétaire orchestrateur ; déclencheur : toute demande de publier les unités Bell) : exporter `deploy/` exige une décision sur C3 (options : exporter aussi `deploy/monark-sentinel.service`, ce qui fait tourner le contrôle réel dans le miroir ; ou déplacer les fichiers Bell hors de `deploy/`, ce qui change les chemins `<G7>:deploy/…` de la CA, du RUNBOOK et de leurs tests — lot Bell) ; jamais un affaiblissement du saut du test sentinelle. Test 42 : assertion (j) (chaîne présente, collecteur absent, 0 `deploy/`) et scope `bell` ajouté à (c). `error_origin` : n/a (décision investisseur exécutée ; le périmètre partiel est dicté par des gardes existantes, mesurées au lot). Pur ajout daté ; les alinéas précédents restent tels quels.

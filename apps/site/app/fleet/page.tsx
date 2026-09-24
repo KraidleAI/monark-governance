@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
 import type { ComponentType, SVGProps } from "react";
 import { join } from "node:path";
+import Link from "next/link";
 import { ShogenPanel } from "@/components/shogen-panel";
 import { HikaePanel } from "@/components/hikae-panel";
 import { UkemiPanel } from "@/components/ukemi-panel";
+import { NarabiPanel } from "@/components/narabi-panel";
 import { PlaceholderPanel } from "@/components/placeholder-panel";
 import { loadAttestedPriceContract, loadContract } from "@/lib/load-contract";
-import { FLEET_AGENTS } from "@/lib/fleet";
+import { FLEET_AGENTS, type BuiltFleetAgent } from "@/lib/fleet";
 import { insideFor } from "@/lib/fleet-presentation";
 import { NARABI_ROUTE } from "@/lib/narabi-live";
+import { ShogenMark } from "@/components/marks/shogen-mark";
+import { HikaeMark } from "@/components/marks/hikae-mark";
+import { UkemiMark } from "@/components/marks/ukemi-mark";
 import { MokugekiMark } from "@/components/marks/mokugeki-mark";
 import { NarabiMark } from "@/components/marks/narabi-mark";
 import { KaihiMark } from "@/components/marks/kaihi-mark";
@@ -22,14 +27,14 @@ import { GenkanMark } from "@/components/marks/genkan-mark";
 export const metadata: Metadata = {
   title: "Fleet — MONARK",
   description:
-    "The MONARK fleet: three agents built end to end, the Narabi redemption sensor now running, and seven more named on the roadmap, on one shared gate.",
+    "The MONARK fleet: three agents built and served piece by piece and composed on the gate path, the Narabi redemption sensor now running, and seven more named on the roadmap, on one shared gate.",
 };
 
-// Marks for the register agents rendered here without a bespoke panel (F-site-2): the seven roadmap agents
-// and the built Narabi sensor (ADR-M012 M012-e, shown via builtSensors below), keyed by register name. None
-// carries a diacritic, so the INSIDE slug is a.name.toLowerCase() (Shōgen, a review-closed engine, has its
-// own panel).
+// Marks for every register agent, keyed by register name.
 const AGENT_MARKS: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
+  Shōgen: ShogenMark,
+  Hikae: HikaeMark,
+  Ukemi: UkemiMark,
   Mokugeki: MokugekiMark,
   Narabi: NarabiMark,
   Kaihi: KaihiMark,
@@ -40,130 +45,109 @@ const AGENT_MARKS: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   Genkan: GenkanMark,
 };
 
-// A built sensor's own live surface, keyed by register name (mirrors AGENT_MARKS): Narabi ships a daily
-// board at /narabi. A future built sensor adds its own route here; the link is absent for the rest.
-const AGENT_LIVE: Record<string, string> = {
-  Narabi: NARABI_ROUTE,
+// A built agent's own surface, keyed by register name: Narabi ships a daily board, Ukemi a method page.
+const AGENT_PAGE: Record<string, { href: string; label: string }> = {
+  Narabi: { href: NARABI_ROUTE, label: "see it live →" },
+  Ukemi: { href: "/ukemi", label: "page →" },
 };
 
-// The /fleet route (server component). It consumes the fleet register (lib/fleet.ts): the three engines
-// reuse their home-page panels (one source of truth, contracts read server-side from schemas/); any other
-// built agent (ADR-M012 M012-e: Narabi) renders from the register via the shared PlaceholderPanel; and the
-// seven upcoming agents each open a data-driven PlaceholderPanel carrying the sourced register line and the
-// Mod #1 "What it will use" block. Status flows from the register, never hard-coded here. The five products
-// are NOT here (they live on /products and behind the home segment cards), so "four built, seven on the
-// roadmap" stays true.
+// The /fleet route (server component) in charter C (decision 145; mock fleet.html; ruling Q3: /fleet = the
+// AGENTS, products stay on /products). It consumes the fleet register (lib/fleet.ts): the four built agents as
+// register cards carrying their digit-free served note (wiring.note, ADR-EC E6 — the O-2 header below is asserted
+// on the built HTML by scripts/assert-fleet-html.mjs), then the four built panels (the engines' eight-block panels
+// and the Narabi panel, contracts read server-side from schemas/), then the seven upcoming agents, each opening a
+// data-driven PlaceholderPanel. Status flows from the register, never hard-coded here.
 export default function FleetPage() {
   const root = join(process.cwd(), "..", "..");
   const attestedContract = loadAttestedPriceContract(root);
   const coverageContract = loadContract(root, "coverage-verdict.schema.json", "Hikae");
   const predictionContract = loadContract(root, "prediction.schema.json", "Ukemi");
-  const ENGINE_NAMES = new Set(["Shōgen", "Hikae", "Ukemi"]);
-  const builtSensors = FLEET_AGENTS.filter((a) => a.status === "built" && !ENGINE_NAMES.has(a.name));
+  const attestedFlowContract = loadContract(root, "attested-flow.schema.json", "Narabi");
+  const built = FLEET_AGENTS.filter((a): a is BuiltFleetAgent => a.status === "built");
   const upcoming = FLEET_AGENTS.filter((a) => a.status === "upcoming");
-  // One dashed upcoming card; grouped by FleetAgent.role into three columns below (design L72-90). The
-  // design's "sensor" / "act" / "distribution" column labels are NOT rendered — they would be new words.
-  const renderUpcoming = (a: (typeof FLEET_AGENTS)[number]) => {
-    const Mark = AGENT_MARKS[a.name];
-    return (
-      <PlaceholderPanel
-        key={a.name}
-        mark={Mark ? <Mark className="size-10" /> : undefined}
-        name={a.name}
-        line={a.line}
-        inside={insideFor(a.name.toLowerCase())}
-        status={a.status}
-      />
-    );
-  };
 
   return (
-    <main className="mx-auto max-w-[1440px] px-6 lg:px-10 py-16">
-      {/* Hero 2-col (design L31-37): eyebrow + title left, dek right; stacks below 900px. */}
-      <section className="grid gap-10 min-[900px]:grid-cols-[1.4fr_1fr] min-[900px]:items-end">
-        <div className="flex flex-col gap-4">
-          <div className="font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground">Fleet</div>
-          <h1 className="max-w-3xl font-heading text-4xl font-semibold lg:text-5xl tracking-tight text-foreground">
-            A company of agents. Four built, seven on the roadmap.
-          </h1>
+    <main className="c-main">
+      <div className="c-hero c-hero--single">
+        <div>
+          <span className="c-label">fleet · register</span>
+          <h1 className="c-h1" style={{ marginTop: 8 }}>A company of agents. Four built, seven on the roadmap.</h1>
+          <p className="c-lede" style={{ fontSize: 17, marginTop: 12, maxWidth: 720 }}>
+            The first vertical is built and served piece by piece and composed on the gate path. Every future act plugs into
+            the same gate; every future sensor attests into the same contract. A status word comes from the register, never
+            from this page.
+          </p>
         </div>
-        <p className="text-lg text-muted-foreground">
-          The first vertical is built end to end: Shōgen, then Hikae, then Ukemi. Every future act plugs
-          into the same gate; every future sensor attests into the same contract.
+      </div>
+
+      {/* Built — register cards with the digit-free served note (ADR-EC E6). Pinned by
+          fleet_register_built_set_is_frozen guard (6) and the O-2 artefact check — deleting the note render reds both. */}
+      <section className="c-section" id="built" aria-labelledby="l-built">
+        <span className="c-label" id="l-built">How each built agent is served</span>
+        <div className="c-reg">
+          {built.map((a) => {
+            const Mark = AGENT_MARKS[a.name];
+            const page = AGENT_PAGE[a.name];
+            return (
+              <div key={a.name} className="c-card">
+                <h3>
+                  {Mark ? <Mark /> : null}
+                  {a.name} <span className="c-tag c-role">{a.role}</span>
+                  <span className={a.name === "Narabi" ? "c-pill c-pill--shipped" : "c-pill c-pill--built"}>
+                    {a.name === "Narabi" ? `${a.status} · ships and runs daily` : a.status}
+                  </span>
+                </h3>
+                <p>{a.line}</p>
+                <p className="c-regnote">{a.wiring.note}</p>
+                {page ? (
+                  <Link className="c-mono c-small" href={page.href}>
+                    {page.label}
+                  </Link>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+        <p className="c-muted c-small" style={{ marginTop: 10 }}>
+          An agent is built only when its output is consumed by a served path and that path is replayed by a non-LLM
+          integration test. A component whose only consumer is a unit test, a fixture or a demo stays upcoming, whatever the
+          state of its code. The three engines are closed under independent review; the sensor ships and runs daily.
         </p>
       </section>
 
-      {/* Built — the three engines reuse their eight-block panels under the review-closed pill. Any other
-          built agent (ADR-M012 M012-e: Narabi, the redemption sensor) renders below via the shared
-          register-driven PlaceholderPanel, OUTSIDE that pill — it ships and runs daily, it is not a
-          Phase-one review-closed engine. The real Narabi panel is a designer lot (ADR-M012 D4). */}
-      <section className="mt-12">
-        <div className="mb-4 flex items-center gap-3">
-          <h2 className="font-heading text-xl font-medium tracking-tight text-foreground">Built</h2>
-          <span className="rounded-full border border-accent/50 px-2.5 py-0.5 font-mono text-xs text-muted-foreground">
-            closed under independent review
-          </span>
+      {/* The four built panels: how it works, how it is built, honest limits, the frozen contract (read from schemas/). */}
+      <section className="c-section" id="panels" aria-labelledby="l-panels">
+        <span className="c-label" id="l-panels">the built panels · how it works, how it is built, honest limits, frozen contract</span>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <ShogenPanel contract={attestedContract} />
+          <HikaePanel contract={coverageContract} />
+          <UkemiPanel contract={predictionContract} />
+          <NarabiPanel contract={attestedFlowContract} />
         </div>
-        <div className="grid gap-4 min-[900px]:grid-cols-3">
-          <ShogenPanel contract={attestedContract} showInside />
-          <HikaePanel contract={coverageContract} showInside />
-          <UkemiPanel contract={predictionContract} showInside />
-        </div>
-        {builtSensors.length > 0 ? (
-          <div className="mt-8">
-            <div className="mb-4 flex items-center gap-3">
-              <h3 className="font-heading text-base font-medium tracking-tight text-foreground">
-                Built &mdash; the redemption sensor
-              </h3>
-              <span className="rounded-full border border-border px-2.5 py-0.5 font-mono text-xs text-muted-foreground">
-                ships and runs daily
-              </span>
-            </div>
-            <div className="flex flex-col gap-4">
-              {builtSensors.map((a) => {
-                const Mark = AGENT_MARKS[a.name];
-                return (
-                  <PlaceholderPanel
-                    key={a.name}
-                    mark={Mark ? <Mark className="size-10" /> : undefined}
-                    name={a.name}
-                    line={a.line}
-                    inside={insideFor(a.name.toLowerCase())}
-                    status={a.status}
-                    liveHref={AGENT_LIVE[a.name]}
-                    liveLabel="See it live"
-                    wide
-                  />
-                );
-              })}
-            </div>
-          </div>
-        ) : null}
       </section>
 
-      {/* Upcoming — the seven roadmap agents. Named, not delivered; each opens its "What it will use"
-          placeholder. The one-line descriptor is the sourced register line (lib/fleet.ts), not the
-          design's unsourced copy. */}
-      <section className="mt-16">
-        <div className="mb-2 flex items-center gap-3">
-          <h2 className="font-heading text-xl font-medium tracking-tight text-foreground">Upcoming</h2>
-          <span className="rounded-full border border-border px-2.5 py-0.5 font-mono text-xs text-muted-foreground">
-            named, not delivered
-          </span>
+      {/* Upcoming — the seven roadmap agents: named, not delivered; each opens its "What it will use" placeholder. */}
+      <section className="c-section" id="upcoming" aria-labelledby="l-upcoming">
+        <span className="c-label" id="l-upcoming">upcoming · named, not delivered · one sentence each, no date, no segment, no metric</span>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {upcoming.map((a) => {
+            const Mark = AGENT_MARKS[a.name];
+            return (
+              <PlaceholderPanel
+                key={a.name}
+                mark={Mark ? <Mark className="size-10" /> : undefined}
+                name={a.name}
+                line={a.line}
+                inside={insideFor(a.name.toLowerCase())}
+                status={a.status}
+              />
+            );
+          })}
         </div>
-        <p className="mb-6 max-w-2xl text-sm text-muted-foreground">
-          One sentence on what each agent does. No date, no segment, no metric &mdash; nothing is claimed
-          for an agent that is not built.
+        <p className="c-muted c-small" style={{ marginTop: 10 }}>
+          Products are wirings of these agents and live on <Link href="/products">/products</Link>, off the fleet count above;
+          MONARK Bell is listed there.
         </p>
-        {/* Grouped by role (design L72-90): sensor (1fr) · act (3fr, 3-col grid) · distribution (1fr).
-            Stacks below 900px. */}
-        {/* Role order kept (sensor, act, distribution); one fluid grid so a card is never narrower than 240px
-            (the 1fr/3fr/1fr split squeezed the five act cards to ~170px and the badge overflowed). */}
-        <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))]">
-          {upcoming.filter((a) => a.role === "sensor").map(renderUpcoming)}
-          {upcoming.filter((a) => a.role === "act").map(renderUpcoming)}
-          {upcoming.filter((a) => a.role === "distribution").map(renderUpcoming)}
-        </div>
       </section>
     </main>
   );

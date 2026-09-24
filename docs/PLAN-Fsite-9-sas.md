@@ -8,7 +8,7 @@
 > Q-1 est résolue par D (pièces cliquables ⇒ panneau). Un plan 9a-ii réécrit sera soumis au checkpoint-1 avant code.
 
 > **G0 AgileGates (plan AVANT code).** Rattachement : campagne F-site (`PLAN-Fsite-lot.md`, lots 1-8 livrés) ; modèle validé par
-> l'investisseur le 2026-09-18 : `C:\Users\KACIMI\Downloads\MONARK SUITE\site-redesign\MODELE-ILLUSTRATION.md` (§1-§8 ; §3 rectifié C-2, §7 C-7).
+> l'investisseur le 2026-09-18 : `F:\MONARK SUITE\site-redesign\MODELE-ILLUSTRATION.md` (§1-§8 ; §3 rectifié C-2, §7 C-7).
 > **Checkpoint-1 validateur (2026-09-18) : ACCEPTE-AVEC-CORRECTIONS C-1..C-14 — toutes foldées ci-dessous ; question Q-1 routée à
 > l'investisseur (bloque 9a-ii, pas 9a-i).** Aucun déploiement sans go.
 

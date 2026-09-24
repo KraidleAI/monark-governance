@@ -1,0 +1,30 @@
+# Lecture — Credora (RedStone) : méthodologies publiques de notation DeFi (PR-UK-12) [lu]
+- **Identité** : RedStone Documentation, « Stage 3: Risk Intelligence › Credora › Methodologies », pages `DeFi Rating Scale`, `Loan Pairs with Isolated Collateral`, `Loan Pairs with Rehypothecated Collateral`, index `Methodologies` — https://docs.redstone.finance/docs/stage3-risk-intelligence/credora/methodologies/ (chemins `…/defi-rating-scale/`, `…/loans_pairs_with/isolated_collateral/`, `…/loans_pairs_with/rehypothecated_collateral/` ; pages sœurs non lues : `assets/` (framework-architecture, anchor-pd, modifiers), `vaults-pools/`, `liquidity-pools/`). Pages non datées ; « Edit this page » pointe vers un dépôt GitHub `redstone-finance/redstone-docs` **non public** (API : Not Found) — pas d'archive brute possible hors « Enregistrer sous ».
+- **Lu** le 2026-09-19 par l'orchestrateur dans le navigateur intégré (texte extrait ; **figures NON LUES** : courbe PD, distribution des rendements, beta-PERT). Compléments archivés : `credora-docs.html`, `credora-methodology-vaults.html` (blog 11 juin 2026) dans `etude-2026-09-19/sources-web-2026-09-19/`.
+- **Niveau** : [lu] pour les énoncés ; aucun chiffre de marché ; l'algorithme sous-jacent est déclaré propriétaire (« The underlying algorithm is proprietary. The methodology is open. »).
+
+## 1. Échelle et cible
+- **PSL = Probability of Significant Loss** : probabilité annualisée d'une perte **≥ 1 % du principal**. Échelle A+…D. Repères : USDC = A+ ; vaults/marchés Morpho commencent à A.
+- **Credora PD Curve** : courbe unique dérivée des taux de défaut réalisés à 1 an des émissions notées S&P/Moody's/Fitch, données ≥ 1990-2023, moyennées par cran, **interpolation exponentielle** (y = a·e^{bx}) ; crans CCC+/CCC-/CC/C obtenus par interpolation intermédiaire (agences agrègent C/CC/CCC). Le tableau DeFi discrétise la courbe, plages optimisées « là où opère la majorité de la DeFi ».
+
+## 2. Paires isolées (Morpho) — Monte Carlo
+- Simulation de **rendements quotidiens du prix de paire** (loan/collatéral), horizon **30 jours**, appliqués à des **tranches de LTV** ; paramètres directs : **LLTV**, **LIF** ; seuil « Low Allocation » = 30ᵉ percentile des allocations (≈ 300 k$ sur Morpho) ⇒ distribution de tranches empruntée à des marchés pairs (même LLTV, même classe stable-stable / stable-volatile).
+- **Trois types d'oracle (nomenclature Credora)** : *Dynamic* (prix de marché), *Fundamental* (taux de rachat, ex. stETH/ETH — liquidations seulement par accrual d'intérêt ; « Credora therefore models these markets as **hardcoded** — the more conservative treatment »), *Hardcoded* (prix fixe ⇒ méthodologie « No Liquidation »).
+- **Profil de rendement** : normal pour le non-extrême (vol. historique 30 j) ; **queues par GPD** au-delà d'un seuil déterminé sur 5 ans de données (gauche et droite) ; **défaut du collatéral** = PD (méthodo actif) × **LGD beta-PERT** par notation ; **rebalancing** = régression logistique (HF de la veille + variable binaire paire corrélée/non corrélée), impact = réduction fixe de LTV.
+- **Simulation de liquidation** : événements de déclenchement (LTV > LLTV) → **fonction en escalier** (3-21 pas intra-journaliers, agrégés par rang de notation interpolé, pas par moyenne de PSL) ; **liquidité** = courbes 1inch/0x (0-2 % de slippage, moyennes 30 j), hypothèse de stress « bank run : liquidité drainée sans renouvellement », ratio profondeur à 2 % / montants empruntés tous réseaux ; PSL mensuelle = part des simulations avec bad debt > 1 %, annualisée.
+- **No Liquidation pairs** (oracle fixe, ex. USD0/USDC, WBTC/cbBTC) : mouvement nécessaire = 100 % − LLTV ; PSL = P(défaut collatéral) × P(LGD > mouvement) + P(mouvement de marché soutenu > seuil).
+- **Modificateurs** : **Oracle Risk Modifier** (deux dimensions — hardcoded/misaligned, vendeur inconnu — crans 0 à **−0,6**, moyennés ; actifs investment-grade à rachat robuste avec feed du sous-jacent = non pénalisés) ; **Protocol Adjustment** : Final PSL = (PSL ajustée + PD protocole) − (PSL ajustée × PD protocole).
+
+## 3. Collatéral réhypothéqué (Aave, SparkLend, Euler clusters) — deux étapes
+- Étape 1 : PSL par paire virtuelle, collatéral « statique ». Étape 2 : les PSL de l'étape 1 deviennent des **PD augmentées** des collatéraux, re-simulation ⇒ « Collateral Risk = Collateral Default Risk + Outstanding Loans Risk », propagation récursive le long de la chaîne (ETH → USDC → DAI…). Modificateurs : oracle et protocole (paire) ; **Curator Adjustment** et **Guardian and Governance Adjustment** (vault/pool). Note finale par actif empruntable = agrégat pondéré sur toutes les paires où il est emprunté.
+
+## 4. Ce que cela apporte à MONARK (sans extrapoler)
+- **Convergence avec l'avis advisor-DeFi bis** : Credora traite explicitement les oracles « fondamentaux » (taux de rachat, LST/LRT, stables plafonnés) **comme des oracles codés** — donc pas de liquidation par le canal prix de marché, seulement par accrual ou par défaut du collatéral. C'est la même coupure structurelle (adaptateurs plafonnés Aave) que l'ADR-M020 pose pour sUSDe/USDe/LST.
+- **Précédent « opt-in curateur »** : la qualité du curateur/guardian est un **cran de notation** (Curator Adjustment) — un consommateur naturel d'une mesure tierce de classe (b)/(c) ; à instruire dans l'avis payeur, pas ici.
+- **Différence de nature avec Ukemi** : Credora produit une **probabilité** (PSL, PD) par simulation propriétaire — exactement ce que la doctrine MONARK ne publie jamais (« never a probability of being right ») ; Ukemi témoigne de faits recalculables (book attesté, éligible ≠ liquidé). Le contraste est un argument de positionnement, pas une critique.
+- **Vocabulaire** : la page emploie « cascading », « bank run » — motifs bannis sur les surfaces MONARK ; ne pas recopier.
+
+## 5. NON LU / procurements formés
+- Pages `assets/` (PD d'ancrage, modificateurs), `vaults-pools/`, `liquidity-pools/` : non lues (déclencheur : avis payeur / GTM Ukemi).
+- Figures (courbe PD, distributions) : non capturées.
+- Version datée des méthodologies : non disponible (dépôt privé) — à re-capturer à chaque usage.

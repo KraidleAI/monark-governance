@@ -3,7 +3,12 @@
  * Non-LLM oracle over the instantiated workflow `.github/workflows/ci.yml`: it MUST stay
  * blocking end-to-end and pinned. The test reads the file as text (no `act` run
  * required, D1) and fails if:
- *   (1) a `continue-on-error` appears (a job would stop being blocking);
+ *   (1) a `continue-on-error` DIRECTIVE appears (a job would stop being blocking);
+ *   (1bis) an `if:` DIRECTIVE appears on any job or step (SIBLING of (1)): a SKIPPED required check
+ *      (e.g. `if: false`) counts as PASSING on GitHub, so a stray `if:` silently unblocks a gate. Both (1)
+ *      and (1bis) detect the key behind a list dash (`- if:`), quotes (`"if":`), or a flow mapping
+ *      (`{ if: … }`) — not only at line-start (checkpoint-2 C2-1/C2-6); a prose mention in a `#` comment stays
+ *      allowed. Block-scoped sibling for g3-site in g3_site_builds_then_asserts_fleet_html.
  *   (2) a `uses:` action is not pinned by a 40-hex commit SHA (movable tag);
  *   (3) `VIBEGATES_PR_LIMIT` != "1205" (bound ADR-M003 D9);
  *   (4) the exclusion pathspec for generated S2 artefacts is missing from the R-25 count;
@@ -12,18 +17,21 @@
  *   (4bis) the G1/G2 governance reports are not excluded from the R-25 count (D9 quater);
  *   (7) job g4 does not literally carry `run: npm run lint && npm run lint:ratchet` (D9 quater).
  * Named mutant (G2 review): `continue-on-error: true` inserted => red; byte-exact
- * restoration (sha256 before/after) recorded in docs/G1-lot-V.md.
+ * restoration (sha256 before/after) recorded in docs/G1-lot-V.md. Checkpoint-2 (C2-1/C2-6): the widened
+ * detectors also red on `- if:`/`"if":`/`{ if: … }` and `'continue-on-error':`/`- continue-on-error:`.
  * Run by `npm test` in each worktree (outside per-lot counting).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, extname } from "node:path";
+import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { join, extname, dirname, basename } from "node:path";
 import ts from "typescript";
 import { compilePatterns, scanText, collectTargets } from "../scripts/grep-forbidden.mjs";
+import { collectFiles } from "../scripts/export-public.mjs";
 import { renderedTexts, scanText as scanNumericText, loadExemptFile, scanAppsSite } from "../apps/site/test/honesty-lint.ts";
 import { FLEET_AGENTS, PRODUCTS } from "../apps/site/lib/fleet.ts";
-import type { FleetStatus } from "../apps/site/lib/fleet.ts";
+import type { FleetStatus, FleetWiring } from "../apps/site/lib/fleet.ts";
 import type { AgentStatus } from "../apps/site/lib/status.ts";
 import { loadGateEnums } from "../apps/site/lib/gate-enums.ts";
 import { ACTION_COMMIT, ACTION_DEFER, ACTION_ABSTAIN, SENSOR_NODES, AMBIENT, decide, fresh, CAVEAT, gateJson, push } from "../apps/site/lib/sim.ts";
@@ -35,12 +43,65 @@ const ROOT = join(import.meta.dirname, "..");
 const WF = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
 const LINES = WF.split(/\r?\n/);
 
+// `if:` / `continue-on-error:` KEY detectors (checkpoint-2 C2-1/C2-6). No YAML parser is a repo dependency
+// (verified 2026-09-20: absent from every package.json and from node_modules), and none may be added; so these
+// are the robust TEXT detectors, hardened past a naive `/^\s*if\s*:/` that ancres the key at line-start only. A
+// key escapes that naive form behind a list dash (`- if:`), quotes (`"if":`/`'if':`), or inside a flow mapping
+// (`{ if: false }`, `{ …, if: false }`). Here a key-position OPENER is line-start+indent OR one of `- { ,`; the
+// token must be EXACTLY `if`/`continue-on-error` (optionally quoted) immediately followed by `:`, so the r25
+// shell `if [ … ]` and the g6 `if-no-files-found:` are NOT directives (measured green in the controls below).
+// The proposed checkpoint-2 form `^\s*(?:-\s+)?["']?if["']?\s*:` was EXTENDED to the `{ ,` openers because it
+// does NOT match a flow-mapping `{ if: … }` — a required-red mutant (measured: proposed matched=false on it).
+// Asserted forms (exact list, ADR-M003 D9 octies): block key (any indent); first key of a list item (`- key:`);
+// quoted key (`"key":`/`'key':`, with or without dash); flow mapping (`{ key: … }` / `{ …, key: … }`). Declared
+// residuals (no parser, NOT claimed): an explicit-key `? if` / `: false` split across two lines is not caught by
+// a single-line scan; a `, if:` substring inside a quoted string on a NON-comment code line would false-RED
+// (fail-closed-safe — resolvable by the formed item for a legitimate `if:`).
+const IF_DIRECTIVE_RE = /(?:^\s*|[-{,]\s*)["']?if["']?\s*:/;
+const COE_DIRECTIVE_RE = /(?:^\s*|[-{,]\s*)["']?continue-on-error["']?\s*:/;
+// A prose mention in a COMMENT is allowed (test 38 (1) promise; the template writes "No continue-on-error"). Skip
+// full-comment lines (`^\s*#`, the idiom of the `uses:` loop) before applying a detector, so a comment that
+// quotes `- if: false` to name a mutant never reds. (The g3-site block test strips inline comments separately.)
+const hasDirective = (lines: string[], re: RegExp): boolean =>
+  lines.some((l) => !/^\s*#/.test(l) && re.test(l));
+
 test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (test 38)", () => {
-  // (1) template invariant: no continue-on-error DIRECTIVE (a YAML key on a
-  //     non-comment line). A prose mention in a comment is allowed (the template itself
-  //     writes "No continue-on-error"); it is the `continue-on-error:` key that would unblock a job.
-  const coeDirective = LINES.some((l) => /^\s*continue-on-error\s*:/.test(l));
+  // (1) template invariant: no continue-on-error DIRECTIVE (a YAML key on a non-comment line). A prose mention
+  //     in a comment is allowed (the template itself writes "No continue-on-error"); it is the
+  //     `continue-on-error:` key that would unblock a job. Widened at checkpoint-2 (C2-6) to catch the key
+  //     behind a list dash or quotes (`- continue-on-error:`, `'continue-on-error':`) via COE_DIRECTIVE_RE.
+  const coeDirective = hasDirective(LINES, COE_DIRECTIVE_RE);
   assert.ok(!coeDirective, "continue-on-error directive present: a job would stop being blocking");
+
+  // (1bis) SIBLING of (1): no `if:` DIRECTIVE on any job or step (block-scoped absence is also asserted for
+  //   g3-site in g3_site_builds_then_asserts_fleet_html). The header invariant is "EVERY job is BLOCKING"; a
+  //   conditional job/step is not. This is WORSE than continue-on-error: a required check that is SKIPPED
+  //   (e.g. `if: false`) counts as PASSING on GitHub, so a stray `if:` silently unblocks a gate. Checkpoint-2
+  //   (C2-1): the pli-G2 form `/^\s*if\s*:/` ancred the key at line-start and let THREE idiomatic forms through
+  //   (`- if:` behind a list dash, `"if":` quoted, `{ if: … }` in a flow mapping — found by the validator).
+  //   IF_DIRECTIVE_RE catches all three; hasDirective skips `#` comment lines so prose stays allowed. No job
+  //   carries `if:` today; a future conditional job needs an ADR that updates this line (formed item, PLI §8).
+  const ifDirective = hasDirective(LINES, IF_DIRECTIVE_RE);
+  assert.ok(!ifDirective, "an `if:` directive is present: a conditional/SKIPPED required check counts as PASSING on GitHub (silent unblock); EVERY job must be unconditionally BLOCKING");
+  // Discriminating controls. GREEN (not directives): the r25 shell `if [ … ]`, the g6 `if-no-files-found:`, the
+  // word `if` inside a step name, and a PROSE mention in a `#` comment (tested through the COMPOSED detector
+  // `hasDirective` — the very function (1)/(1bis) call — which locks the "comment allowed" promise).
+  assert.ok(!IF_DIRECTIVE_RE.test('          if [ "$CHANGED" -gt "$VIBEGATES_PR_LIMIT" ]; then'), "control: a shell `if [ ... ]` is not an `if:` directive");
+  assert.ok(!IF_DIRECTIVE_RE.test("          if-no-files-found: error"), "control: `if-no-files-found:` is not an `if:` directive");
+  assert.ok(!IF_DIRECTIVE_RE.test("      - name: build if ready"), "control: the word `if` inside a step name is not an `if:` directive");
+  assert.ok(!hasDirective(["      # mutant note: `- if: false` on a step would red"], IF_DIRECTIVE_RE), "control: an `if:` quoted in a # comment stays allowed (test 38 (1) promise)");
+  assert.ok(!hasDirective(["      # prose: `- continue-on-error: true` is banned"], COE_DIRECTIVE_RE), "control: a continue-on-error quoted in a # comment stays allowed");
+  // RED (directives that MUST be caught): line-start, expr, list dash, quoted key, flow mapping, dash+quote
+  // (checkpoint-2 C2-1 + a worker mutant `- "if":` and a not-first flow key `{ …, if: … }`).
+  for (const red of ["        if: false", "    if: ${{ false }}", "      - if: false", '      "if": false', "      - { if: false, run: echo skip }", "      - { run: echo skip, if: false }", '      - "if": false']) {
+    assert.ok(IF_DIRECTIVE_RE.test(red), `control: \`${red.trim()}\` IS an if: directive (must be caught)`);
+  }
+  for (const red of ["        continue-on-error: true", "        'continue-on-error': true", "      - continue-on-error: true"]) {
+    assert.ok(COE_DIRECTIVE_RE.test(red), `control: \`${red.trim()}\` IS a continue-on-error directive (must be caught)`);
+  }
+  // Measured control (NOT a spec claim about YAML): a tab-indented key is caught regardless of YAML's stance on
+  // tabs. Case is case-SENSITIVE by design — `IF:` / `CONTINUE-ON-ERROR:` are different YAML keys and are NOT claimed.
+  assert.ok(IF_DIRECTIVE_RE.test("\tif: false"), "control (measured): a tab-indented `if:` is caught regardless of YAML's stance on tabs");
 
   // (2) every `uses:` action pinned by a 40-hex commit SHA (comment lines ignored).
   const usesRefs: string[] = [];
@@ -75,6 +136,15 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
   for (const ps of [":(exclude)docs/G1-lot-*.md", ":(exclude)docs/G2-lot-*.md"]) {
     assert.ok(WF.includes(ps), `pathspec ${ps} missing from the R-25 count (ADR-M003 D9 quater)`);
   }
+  // (4ter) governance docs under docs/ excluded from the R-25 count (ADR-M003 D9 septies, 2026-09-19,
+  //        investisseur 25: the integration PR is mostly docs — R-25 protects CODE review; docs are reviewed
+  //        by the checkpoints). The .md-only :(glob) pathspec keeps code/tests/schemas/scripts AND docs/**/*.mjs
+  //        counted. Matched WITH its single quotes (D9 sexies G2 C1: a bare includes is substring-fragile).
+  //        It subsumes (4bis) but (4bis) is kept for the D9 quater invariant. Mutant: drop it ⇒ this reds.
+  assert.ok(
+    WF.includes("':(exclude,glob)docs/**/*.md'"),
+    "docs/**/*.md exclusion pathspec missing from the R-25 count (ADR-M003 D9 septies)",
+  );
 
   // (5) delivery by PR (ADR-M003 D9 addendum 2026-09-05, option c): the workflow MUST trigger
   //     on pull_request. Block-scoped on the top-level key `on:` (lines indented up to the
@@ -113,6 +183,133 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
   assert.ok(
     g4Block.some((l) => /^\s*run:\s*npm run lint && npm run lint:ratchet\s*$/.test(l)),
     "job g4 must literally contain `run: npm run lint && npm run lint:ratchet` (ADR-M003 D9 quater)",
+  );
+});
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+// Lot CI-EXPORT-CHECK (item "export:check absent from CI"; docs/G7-lot-export-clean.md / CHANTIERS:221;
+// ADR-M004 D7 septies "Branchement / dettes") — the public-mirror export hygiene gate `export:check` runs in
+// CI, fail-closed. It is wired into the internal-only r25-taille-de-lot job ON PURPOSE: scripts/export-public.mjs
+// derivePublicWorkflow STRIPS that whole job from the derived public workflow, and export:check is a SOURCE-repo
+// gate that reds on the exported mirror (its config scripts/export-exclude-tests.json is not whitelisted =>
+// exit 1, measured). A step in a retained job (g3/g6) would be copied byte-identical (test 42(f')) into the
+// public mirror where it reds. This test reads ci.yml as text (no YAML parser is a repo dependency — test 38's
+// note) and pins: the step is present, is not continue-on-error, and — through the package.json script chain —
+// invokes export-public.mjs --check. Named mutants (proofs + sha256 restore in this lot's RENDU-G1, to be folded
+// into docs/G1-lot-ci-export-check.md by the orchestrator): the step removed => the run-line assert reds; a
+// `continue-on-error: true` on the step => the COE assert reds.
+test("ci_runs_export_check — export:check wired fail-closed in the internal-only r25 job (Lot CI-EXPORT-CHECK)", () => {
+  // Block-scope on the r25 job key (2-space indent) up to the next 2-space job key or a column-0 key — the same
+  // idiom as the g4 ratchet block (test 38) and g3-site. Comments are NOT stripped here: hasDirective (below)
+  // skips full-comment lines itself, and the export:check run line carries no inline comment.
+  const r25Idx = LINES.findIndex((l) => /^  r25-taille-de-lot\s*:/.test(l));
+  assert.notEqual(r25Idx, -1, "job 'r25-taille-de-lot' missing from the workflow");
+  const r25Block: string[] = [];
+  for (let i = r25Idx + 1; i < LINES.length; i++) {
+    if (/^  \S/.test(LINES[i]!) || /^\S/.test(LINES[i]!)) break; // next 2-space job key or a column-0 key
+    r25Block.push(LINES[i]!);
+  }
+  assert.ok(r25Block.length > 0, "r25 job body is empty (false green)");
+
+  // (1) the export:check step is present. `npm run export:check` is the command measured green on this base
+  //     (exit 0, all scopes; ADR-M010). Mutant "step removed" => this reds.
+  assert.ok(
+    r25Block.some((l) => /^\s*run:\s*npm run export:check\s*$/.test(l)),
+    "the r25 job must run `npm run export:check` (public-mirror export hygiene); mutant: step removed => red",
+  );
+
+  // (2) fail-closed: no continue-on-error DIRECTIVE in the r25 block (a YAML key on a non-comment line; a prose
+  //     "continue-on-error" in a # comment stays allowed — hasDirective skips comment lines). Reuses test 38's
+  //     file-wide detector, block-scoped to r25. Mutant `continue-on-error: true` on the step => this reds.
+  assert.ok(
+    !hasDirective(r25Block, COE_DIRECTIVE_RE),
+    "the export:check step must carry no continue-on-error (fail-closed); mutant: a continue-on-error: true on the step => red",
+  );
+
+  // (2bis / G2 C-1) fail-closed on SKIP too: no `if:` directive in the r25 block. A SKIPPED required check
+  //     counts as PASSING on GitHub -- test 38 (1bis) calls this WORSE than continue-on-error -- so it is the
+  //     more severe dimension, and until now it was pinned only file-wide by test 38 (mutant `if: false` on r25
+  //     left THIS test green). Block-scoped sibling of the COE assert above (and of g3-site's if-guard). The
+  //     shell `if [ ... ]` and awk `{ if($i ~ ...` in this block carry no `:` after `if`, so IF_DIRECTIVE_RE
+  //     does not false-red them (G2-measured). Mutant `if: false` on the r25 job => this reds.
+  assert.ok(
+    !hasDirective(r25Block, IF_DIRECTIVE_RE),
+    "the r25 job/export:check step must carry no `if:` (a skipped required check counts as PASSING on GitHub); mutant: if: false on r25 => red",
+  );
+
+  // (3) the run line invokes export-public.mjs --check THROUGH the package.json script chain (npm run
+  //     export:check -> scripts["export:check"]). Pinning both ends keeps neither the CI run line nor the
+  //     underlying command able to drift silently ("appelle bien export-public.mjs --check").
+  const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> };
+  assert.equal(
+    pkg.scripts["export:check"],
+    "node scripts/export-public.mjs --check",
+    "package.json scripts['export:check'] must invoke export-public.mjs --check (the r25 run line calls it by name)",
+  );
+});
+
+// Root test `ci_runs_lang_gate` (Lot LANG-GATE-CI; ADR-M004 "Addendum LANG-GATE-CI"). Mirror of ci_runs_export_check
+// in its post-C-1 shape: the source-repo English-only gate `npm run lang:gate` is wired fail-closed in the
+// internal-only r25 job (the one derivePublicWorkflow STRIPS). Reads ci.yml as text (no YAML parser is a repo
+// dependency -- test 38's note) and pins, block-scoped to r25: the step is present, carries no continue-on-error and
+// no `if:`, and -- through the package.json script chain -- invokes scripts/lang-gate.mjs.
+// DECLARED REDUNDANCY (G0 section 3): asserts (2) continue-on-error and (3) `if:` scan the SAME r25 block as
+// ci_runs_export_check (2)/(2bis) and overlap test 38 file-wide; they are KEPT for symmetry with the model test and
+// so this test stays a self-sufficient contract if ci_runs_export_check is ever refactored. The non-redundant teeth
+// here are (1) lang:gate presence and (4) the package.json chain. Because this test copies the post-C-1 shape, the
+// `if:` guard is block-scoped from the start: the model's "M5a hole" (an `if: false` at JOB level that left
+// ci_runs_export_check green before C-1) never exists here -- no G2-delta is needed to add it. Named mutants (proofs
+// + sha256 restore in this lot's RENDU-G1, to be folded into docs/G1-lot-lang-gate-ci.md by the orchestrator): step
+// removed/commented/command->echo => presence reds (#fail=1); continue-on-error: true on the step => COE reds
+// (#fail=3); if: false on the r25 job or the step (and `if: ${{ false }}` / a condition) => the `if:` guard reds (#fail=3).
+test("ci_runs_lang_gate — lang:gate wired fail-closed in the internal-only r25 job (Lot LANG-GATE-CI)", () => {
+  // Block-scope on the r25 job key (2-space indent) up to the next 2-space job key or a column-0 key -- the same
+  // idiom as ci_runs_export_check and the g4 ratchet block (test 38). Comments are NOT stripped here: hasDirective
+  // (below) skips full-comment lines itself, and the lang:gate run line carries no inline comment.
+  const r25Idx = LINES.findIndex((l) => /^  r25-taille-de-lot\s*:/.test(l));
+  assert.notEqual(r25Idx, -1, "job 'r25-taille-de-lot' missing from the workflow");
+  const r25Block: string[] = [];
+  for (let i = r25Idx + 1; i < LINES.length; i++) {
+    if (/^  \S/.test(LINES[i]!) || /^\S/.test(LINES[i]!)) break; // next 2-space job key or a column-0 key
+    r25Block.push(LINES[i]!);
+  }
+  assert.ok(r25Block.length > 0, "r25 job body is empty (false green)");
+
+  // (1) the lang:gate step is present. `npm run lang:gate` is measured green on this base (exit 0, 12 scopes GATED,
+  //     0 non-exempt French; ADR-M004 D7). Mutant "step removed / commented / command -> echo" => this reds.
+  assert.ok(
+    r25Block.some((l) => /^\s*run:\s*npm run lang:gate\s*$/.test(l)),
+    "the r25 job must run `npm run lang:gate` (source-repo English-only gate); mutant: step removed => red",
+  );
+
+  // (2) fail-closed: no continue-on-error DIRECTIVE in the r25 block (a YAML key on a non-comment line; a prose
+  //     "continue-on-error" in a # comment stays allowed -- hasDirective skips comment lines). Reuses test 38's
+  //     file-wide detector, block-scoped to r25. DECLARED redundant with ci_runs_export_check (2) and test 38; kept
+  //     for symmetry / self-sufficiency. Mutant `continue-on-error: true` on the step => this reds.
+  assert.ok(
+    !hasDirective(r25Block, COE_DIRECTIVE_RE),
+    "the lang:gate step must carry no continue-on-error (fail-closed); mutant: a continue-on-error: true on the step => red",
+  );
+
+  // (3) fail-closed on SKIP too: no `if:` directive in the r25 block. A SKIPPED required check counts as PASSING on
+  //     GitHub -- test 38 (1bis) calls this WORSE than continue-on-error. Block-scoped sibling of the COE assert
+  //     above. The shell `if [ ... ]` and awk `{ if($i ~ ...` in this block carry no `:` after `if`, so
+  //     IF_DIRECTIVE_RE does not false-red them. DECLARED redundant with ci_runs_export_check (2bis) and test 38;
+  //     kept for symmetry / self-sufficiency; born post-C-1, so the guard exists from the start (no M5a hole).
+  //     Mutant `if: false` on the r25 job (or `if: ${{ false }}` / a condition on the step) => this reds.
+  assert.ok(
+    !hasDirective(r25Block, IF_DIRECTIVE_RE),
+    "the r25 job/lang:gate step must carry no `if:` (a skipped required check counts as PASSING on GitHub); mutant: if: false on r25 => red",
+  );
+
+  // (4) the run line invokes scripts/lang-gate.mjs THROUGH the package.json script chain (npm run lang:gate ->
+  //     scripts["lang:gate"]). Pinning both ends keeps neither the CI run line nor the underlying command able to
+  //     drift silently.
+  const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> };
+  assert.equal(
+    pkg.scripts["lang:gate"],
+    "node scripts/lang-gate.mjs",
+    "package.json scripts['lang:gate'] must invoke scripts/lang-gate.mjs (the r25 run line calls it by name)",
   );
 });
 
@@ -243,6 +440,35 @@ test("vocab_sentinel_scope_scans_src_test_deploy — sentinel src/test/deploy ar
   for (const f of REQUIRED) {
     assert.ok(!strippedFiles.has(f), `removing scan.sentinel must drop ${f} from the walk (load-bearing)`);
   }
+});
+
+// ADR-NARABI-OPS-1 L-2 / C-2: the sentinel timer carries FOUR same-day retry slots (00:30/03:30/06:30/09:30
+// UTC), each a SEPARATE valid `OnCalendar=` line — never the invalid single-line comma list. Mutant: a single
+// slot (or the `00:30,03:30,…` form) => this reds. Persistent=true is kept (one boot catch-up, never one/slot).
+test("sentinel_timer_has_retry_slots — four valid OnCalendar= retry slots, Persistent kept (ADR-NARABI-OPS-1 L-2 / C-2)", () => {
+  const timer = readFileSync(join(ROOT, "deploy", "monark-sentinel.timer"), "utf8");
+  const slots = timer.split(/\r?\n/).filter((l) => /^OnCalendar=/.test(l));
+  assert.equal(slots.length, 4, "exactly four OnCalendar= slots (mutant: one slot => red)");
+  const times = slots.map((l) => {
+    const m = /^OnCalendar=\*-\*-\* (\d\d):30:00 UTC$/.exec(l);
+    assert.ok(m, `each slot is a valid '*-*-* HH:30:00 UTC' expression, got ${JSON.stringify(l)}`);
+    return m[1];
+  });
+  assert.deepEqual([...times].sort(), ["00", "03", "06", "09"], "the four slots are 00:30, 03:30, 06:30, 09:30 UTC");
+  assert.ok(/^Persistent=true$/m.test(timer), "Persistent=true kept (one boot catch-up, never one per missed slot)");
+  // C-2: the invalid single-line comma-list form must never be a directive (only allowed inside a # comment).
+  assert.ok(!timer.split(/\r?\n/).some((l) => /^OnCalendar=.*,/.test(l)), "no invalid comma-list OnCalendar directive");
+});
+
+// ADR-NARABI-OPS-1 L-2 / C-5: the service reads its optional Chainstack key from an OUT-OF-REPO EnvironmentFile
+// (leading `-` => absence is non-fatal; the base pool stays fail-closed). No key is inline. Mutant: drop the
+// EnvironmentFile line => red; an inline Environment= carrying a URL/key => red.
+test("sentinel_service_reads_env_file — optional out-of-repo EnvironmentFile, no inline key (ADR-NARABI-OPS-1 L-2 / C-5)", () => {
+  const svc = readFileSync(join(ROOT, "deploy", "monark-sentinel.service"), "utf8");
+  assert.ok(/^EnvironmentFile=-\/etc\/monark\/sentinel\.env$/m.test(svc), "EnvironmentFile=-/etc/monark/sentinel.env present (the '-' makes it optional)");
+  // The only inline Environment= directive is the state dir — never an endpoint/key.
+  const inlineEnv = svc.split(/\r?\n/).filter((l) => /^Environment=/.test(l));
+  assert.deepEqual(inlineEnv, ["Environment=MONARK_SENTINEL_DIR=/var/lib/monark-sentinel"], "the only inline Environment= is the state dir (no key)");
 });
 
 // Lot F-2a (PLAN F-2 §6e, C6) — the public storefront vocabulary gate (scope 'site') bans the README
@@ -499,6 +725,10 @@ test("frozen_contract_fields_stay_dynamic — loaded contracts' required[] never
       "MONARK Verdict PRODUCT key (fleet register id), not the GateDecision `verdict` field; documented in fleet.ts' `key` doc comment",
     ],
     [
+      "apps/site/lib/bell-served-load.ts :: abstain",
+      "the Bell session row's own `abstain` field of the served bell-public-state-v1 (a residual name such as no_close_ref), read fail-closed from apps/site/data/bell-served.json — not the GateDecision `abstain` action",
+    ],
+    [
       "apps/site/lib/profiles.ts :: verdict",
       "the E-1 profile picker's productKey for the MONARK Verdict product (same registry id as fleet.ts), not the GateDecision `verdict` field — a product id, not a rendered contract field",
     ],
@@ -544,6 +774,24 @@ test("no_coverage_level_alpha — α is never rendered as the coverage level in 
 });
 
 // ────────────────────────────────────────────────────────────────────────────────────────────────
+// ADR-EC E3 (checkpoint-1 C-5) — the test roots under which a built agent's wiring integration_test must
+// live, DERIVED from a documented rationale map, plus the documented EXCLUSION of packages/*/test/. A
+// served-pipe integration test lives at the repo root or under an app's test/ (it drives the served MCP wire
+// or a published surface); a package's OWN test/ is a UNIT test of that package (ADR-M018 D1), never a proof
+// of a served pipe — so packages/*/test/ is deliberately NOT a wiring root even though `npm test` runs it.
+// wiring_test_roots_exclusion_is_declared pins the ⇔ (roots ↔ rationale) + the exclusion; guard (3) of
+// fleet_register_built_set_is_frozen walks these roots.
+const WIRING_TEST_ROOTS = ["test", "apps/harness/test", "apps/sentinel/test"];
+const WIRING_TEST_ROOTS_RATIONALE: Record<string, string> = {
+  "test": "root integration/probe tests that drive the served MCP wire or a published surface (h5 probe, narabi-live, byo-demo)",
+  "apps/harness/test": "harness integration tests over the served gate tool / registry.run and the real MCP wire",
+  "apps/sentinel/test": "sentinel integration tests over the published timeline / recorded pull",
+};
+const WIRING_TEST_ROOTS_EXCLUDED: Record<string, string> = {
+  "packages/*/test": "package tests are UNIT tests of a package (ADR-M018 D1), never a served-pipe integration test — excluded from the wiring roots even though `npm test` runs them",
+};
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
 // Lot F-2c (ADR-M004 D14 / PLAN F-2c C-2) — the FLEET REGISTER is the single source of truth for what
 // is BUILT vs UPCOMING. This root test locks the invariant: the built set is EXACTLY {Shōgen, Hikae,
 // Ukemi, Narabi} (Narabi flipped upcoming→built at go 4, ADR-M012 M012-e); the seven other agents and all
@@ -553,7 +801,7 @@ test("no_coverage_level_alpha — α is never rendered as the coverage level in 
 // via {property access}, which the honesty lint (test 44) never flags, so a digit there would render
 // un-caught; we scan every rendered register string with the SAME detector here. (2) a consumption
 // check — the two new surfaces read status FROM the register, never hard-code a status attribute.
-test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narabi}; 12 others upcoming (F-2c C-2; ADR-M012 M012-e)", () => {
+test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narabi} + product MONARK Bell; 12 others upcoming (F-2c C-2; ADR-M012 M012-e; Q3 decision 146; decision 155)", () => {
   // Compile-time: FleetStatus IS the honest AgentStatus vocabulary (both "built"|"upcoming"). The two
   // typed identity coercions only type-check if neither type adds or drops a member (a stray "live"
   // reds ONE of them under `npm run typecheck`). Called below so they are not unused.
@@ -573,15 +821,24 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narab
     assert.equal(a.status, expected, `agent ${a.name} must be ${expected}`);
   }
 
-  // All five products are upcoming — a product is a wiring of fleet agents, never the engine, so it is
+  // All six products are upcoming — a product is a wiring of fleet agents, never the engine, so it is
   // never "built" (ADR-M004 D14 invariant), even when its engine agent (e.g. Ukemi) is built.
-  assert.equal(PRODUCTS.length, 5, "exactly five products");
+  // AMENDED 2026-09-23 (lot SITE-CHARTE-C; ruling Q3 of decision 146, CHANTIERS "amendement du test + statut
+  // upcoming obligatoires"): MONARK Bell joins PRODUCTS as UPCOMING — five -> six products, twelve -> thirteen
+  // upcoming. The built set above ({Shōgen, Hikae, Ukemi, Narabi}) is NOT touched.
+  // AMENDED 2026-09-23 (lot BELL-SERVED-1; investor decision 155 "passe built"): MONARK Bell is the ONE built product
+  // (host served, first signed record published, deploy check docs/deploy-CA-bell.json 12/12); the ADR-M004 D14
+  // invariant above is amended by ADR (orchestrator's act). The five other products stay upcoming.
+  const BUILT_PRODUCTS = ["bell"];
+  assert.equal(PRODUCTS.length, 6, "exactly six products");
   for (const p of PRODUCTS) {
-    assert.equal(p.status, "upcoming", `product ${p.name} must be upcoming (the engine agent may be built, the product is not)`);
+    const expected = BUILT_PRODUCTS.includes(p.key) ? "built" : "upcoming";
+    assert.equal(p.status, expected, `product ${p.name} must be ${expected} (decision 155: MONARK Bell alone is built)`);
   }
 
-  // The register-wide count: exactly 4 built, exactly 12 upcoming (7 agents + 5 products). ADR-M012 M012-e:
-  // Narabi flips upcoming→built at go 4 (off-tool sentinel running daily), so built is 4 and upcoming 12.
+  // The register-wide count: exactly 4 built agents, exactly 12 upcoming (7 agents + 5 products). ADR-M012 M012-e:
+  // Narabi flips upcoming→built at go 4 (off-tool sentinel running daily), so built is 4; MONARK Bell (ruling Q3,
+  // decision 146) added one upcoming product (13), then flipped to built (decision 155), so upcoming is 12.
   const builtCount = FLEET_AGENTS.filter((a) => a.status === "built").length;
   const upcomingCount =
     FLEET_AGENTS.filter((a) => a.status === "upcoming").length + PRODUCTS.filter((p) => p.status === "upcoming").length;
@@ -604,16 +861,22 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narab
   // a register string (e.g. a "53h" window) would be caught.
   const noExempt = new Set<string>();
   const registryStrings: string[] = [];
-  for (const a of FLEET_AGENTS) registryStrings.push(a.name, a.line);
+  for (const a of FLEET_AGENTS) {
+    registryStrings.push(a.name, a.line);
+    // ADR-EC E6: wiring.note is RENDERED (guard (4) tripwire lifted for this field), so it is scanned here
+    // (guard (4) contract: "add the wiring strings to the numeric scan above") AND by site-honesty.
+    if (a.status === "built") registryStrings.push(a.wiring.note);
+  }
   for (const p of PRODUCTS) {
     registryStrings.push(p.segment, p.name, p.fn, p.connects, p.wiring.sensor, p.wiring.gate, p.wiring.act);
+    if (p.status === "built") registryStrings.push(p.served.note);
   }
   const numericHits = registryStrings.flatMap((s) => scanNumericText(s, noExempt));
   assert.deepEqual(numericHits, [], `a register string carries a rendered numeric literal: ${JSON.stringify(numericHits)}`);
 
   // (2) CONSUMPTION — the two new surfaces render the badge FROM the register (status={...}), never a
-  // hard-coded status="built"/status="upcoming" attribute. The built F-2b panels are out of scope
-  // (their status is their own declared source of truth on the home page).
+  // hard-coded status="built"/status="upcoming" attribute. The Shōgen/Hikae F-2b panels keep their own
+  // declared status on the home page; the Ukemi panel now reads the register too (pinned by (5) below).
   const NEW_SURFACES = ["apps/site/app/roadmap/page.tsx", "apps/site/components/upcoming-panel.tsx"];
   const surfaces = siteSurfaces(join(ROOT, "apps", "site"));
   // Also catches the JSX-wrapped literal status={"built"} (G2-F2c reserve a), not just status="built".
@@ -625,6 +888,133 @@ test("fleet_register_built_set_is_frozen — built == {Shōgen,Hikae,Ukemi,Narab
       !hardCoded.test(surface.text),
       `${rel} must not hard-code a status attribute — read it from lib/fleet.ts (inert register otherwise)`,
     );
+  }
+
+  // (3) WIRING (ADR-M018 D1(b)(c)/D2; ADR-EC E2) — every built agent declares a SERVED path and a NON-EMPTY
+  // LIST of non-LLM integration tests, ONE id per served leg (Hikae 3, Narabi 2, Shōgen/Ukemi 1), each of
+  // which EXISTS. The FleetAgent union already makes a built-without-wiring / upcoming-with-wiring a COMPILE
+  // error (npm run typecheck, via this file's import of fleet.ts); this block additionally reds if served_by
+  // is empty, the list is empty, or any id names no real test. The declared test title may be bare (`"`) or
+  // suffixed (` — …`), so we match `test("<id>` followed by a quote OR ` — `. Roots come from WIRING_TEST_ROOTS
+  // (documented list, ADR-EC E3). Named mutants: integration_test:[] ⇒ reds (min 1); [""] ⇒ reds (bare-id
+  // regex); "no_such_test" ⇒ reds (declRe); a DUPLICATED id inside one agent's list ⇒ reds (intra-list
+  // uniqueness, G2 O-1 — inter-agent sharing stays licit); a title-suffixed id (m6,
+  // narabi_live_parses_real_state_shape) ⇒ green; drop `wiring` ⇒ typecheck reds.
+  const TEST_ROOTS = WIRING_TEST_ROOTS.map((r) => join(ROOT, ...r.split("/")));
+  const testCorpus = TEST_ROOTS.flatMap((dir) =>
+    existsSync(dir) ? readdirSync(dir).filter((n) => n.endsWith(".test.ts")).map((n) => readFileSync(join(dir, n), "utf8")) : [],
+  ).join("\n");
+  assert.ok(testCorpus.length > 0, "no *.test.ts collected under the three test roots (false green)");
+  // Decision 155: a BUILT product carries the same served wiring (`served`), under the same guard.
+  const builtWirings: Array<{ name: string; wiring: FleetWiring }> = [
+    ...FLEET_AGENTS.flatMap((a) => (a.status === "built" ? [{ name: a.name, wiring: a.wiring }] : [])),
+    ...PRODUCTS.flatMap((p) => (p.status === "built" ? [{ name: p.name, wiring: p.served }] : [])),
+  ];
+  assert.ok(builtWirings.some((w) => w.name === "MONARK Bell"), "the built product MONARK Bell must be walked by the wiring guard");
+  for (const a of builtWirings) {
+    assert.ok(a.wiring.served_by.trim().length > 0, `built agent ${a.name}: wiring.served_by must be non-empty (ADR-M018 D1(b))`);
+    assert.ok(Array.isArray(a.wiring.integration_test), `built agent ${a.name}: integration_test must be a list (ADR-EC E2)`);
+    assert.ok(a.wiring.integration_test.length >= 1, `built agent ${a.name}: integration_test must name at least one served leg (ADR-EC E2)`);
+    // O-1 (G2): each served leg is a DISTINCT test — a duplicated id inside one agent's list is a padded
+    // list, not a real second leg (inter-agent sharing, e.g. probe_harness_records_real_decision, stays licit).
+    assert.equal(
+      new Set(a.wiring.integration_test.map((s) => s.trim())).size,
+      a.wiring.integration_test.length,
+      `built agent ${a.name}: integration_test ids must be unique within the agent (one per served leg, ADR-EC E2 / G2 O-1)`,
+    );
+    for (const raw of a.wiring.integration_test) {
+      const t = raw.trim();
+      assert.match(t, /^[A-Za-z0-9_]+$/, `built agent ${a.name}: each integration_test must be a bare test identifier, got ${JSON.stringify(raw)}`);
+      // `t` is a bare identifier (validated above) ⇒ safe to interpolate. Accept a bare (`"`) or title-suffixed
+      // (` — …`) declaration: test("<id>" …) or test("<id> — …").
+      const declRe = new RegExp(`test\\(\\s*["']${t}(?:["']| — )`);
+      assert.ok(
+        declRe.test(testCorpus),
+        `built agent ${a.name}: integration_test '${t}' names no test("${t}" …) under ${WIRING_TEST_ROOTS.join(", ")} (ADR-M018 D1(c))`,
+      );
+    }
+  }
+
+  // (4) NUMERIC-HOLE tripwire for wiring (DECLARED LIMIT) — served_by carries task-class ids with digits
+  // (…-24h, btc-dir-15m). Like ACI.body, a wiring VALUE escapes BOTH the honesty lint (member access OR
+  // destructuring) and the register numeric scan above (name/line only). TRIPWIRE: no apps/site surface
+  // OTHER THAN lib/fleet.ts (where they are the FleetWiring field NAMES) may reference the identifiers
+  // `served_by`/`integration_test` — the bare-identifier scan catches member access {a.wiring.served_by}
+  // (m5) AND destructuring `const {served_by}=a.wiring` (A2, which the old `wiring\.served_by` regex missed).
+  // DECLARED LIMIT: a text regex canNOT close reflective leaks (Object.values(a.wiring) /
+  // JSON.stringify(a.wiring)). ADR-EC E6 lifts this tripwire for the DISTINCT digit-free `note` field ONLY
+  // (rendered on /fleet, scanned digit-free by guard (1) above + site-honesty); served_by/integration_test
+  // stay tripwired here (they carry digits, are never rendered).
+  const wiringIdent = /\b(?:served_by|integration_test)\b/;
+  const wiringLeakHits = surfaces
+    .filter((s) => (s.rel.endsWith(".ts") || s.rel.endsWith(".tsx")) && s.rel !== "apps/site/lib/fleet.ts" && wiringIdent.test(s.text))
+    .map((s) => s.rel);
+  assert.deepEqual(wiringLeakHits, [], `an apps/site surface (≠ lib/fleet.ts) references wiring identifiers served_by/integration_test (digit-hole tripwire) — ADR-W1 item (b) must land first: ${wiringLeakHits.join(", ")}`);
+
+  // (5) The bespoke Ukemi Home panel reads its AgentCard STATUS from the register (ADR-M018 single source of
+  // truth), not a hard-coded literal. NOT in NEW_SURFACES because its PanelBlock maturity attrs
+  // (status="built"/"upcoming" at l.56/61/67/80) are legitimately literal; we anchor to the FIRST `status`
+  // after `<AgentCard` (the AgentCard's own — mark/name carry no "status"), so those PanelBlock literals stay
+  // out of view. Named mutants: status="built" (m3) AND status={"built"} (A1, JSX-wrapped literal the old
+  // `stMatch[1]==="{"` check let pass) ⇒ both red; status={IDENTIFIER} ⇒ green.
+  const ukemiPanel = surfaces.find((s) => s.rel === "apps/site/components/ukemi-panel.tsx");
+  assert.ok(ukemiPanel, "ukemi-panel.tsx must be scanned (false green)");
+  assert.match(ukemiPanel.text, /from ["']@\/lib\/fleet["']/, "ukemi-panel must import the fleet register (single source of truth)");
+  const acIdx = ukemiPanel.text.indexOf("<AgentCard");
+  assert.ok(acIdx >= 0, "ukemi-panel must render an AgentCard (false green)");
+  const stIdx = ukemiPanel.text.indexOf("status", acIdx);
+  assert.ok(stIdx > acIdx, "the AgentCard must carry a status prop (false green)");
+  const acStatus = ukemiPanel.text.slice(stIdx); // anchored at the AgentCard's own status prop
+  // (a) not a hard-coded literal — attribute OR JSX-wrapped {"built"} (the guard (2) shape, anchored with ^).
+  assert.ok(
+    !/^status\s*=\s*\{?\s*["'](?:built|upcoming)["']/.test(acStatus),
+    'ukemi-panel AgentCard status must not be a hard-coded literal (status="built" or status={"built"}) — read it from the register',
+  );
+  // (b) it IS a register read: status={IDENTIFIER} (e.g. status={UKEMI_STATUS}).
+  assert.match(acStatus, /^status\s*=\s*\{\s*[A-Za-z_$][\w$.]*\s*\}/, "ukemi-panel AgentCard status must be status={IDENTIFIER} read from lib/fleet.ts");
+
+  // (6) CONSUMPTION of wiring.note (ADR-EC E6; branchement rule) — the /fleet page MUST render the digit-free
+  // note for the built agents. Without this render the note is inert metadata (MAST faux-vert / CA-11 unwired).
+  // Mutant: delete the note render on /fleet ⇒ this reds. (served_by/integration_test stay non-rendered, guard (4).)
+  const fleetPage = surfaces.find((s) => s.rel === "apps/site/app/fleet/page.tsx");
+  assert.ok(fleetPage, "apps/site/app/fleet/page.tsx must be scanned (false green)");
+  // Match the JSX EXPRESSION close `{…wiring.note}` (a prose mention of "wiring.note" in a comment has no
+  // trailing `}`), so deleting the RENDER — not just the comment — reds this (measured false-green otherwise).
+  assert.match(fleetPage.text, /wiring\.note\s*\}/, "the /fleet page must RENDER wiring.note as {…wiring.note} (ADR-EC E6 — else note is unwired metadata, CA-11)");
+  // Decision 155: the built product's `served.note` is rendered on /bell (same E6 rule; mutant: delete the render ⇒ red).
+  const bellPage = surfaces.find((s) => s.rel === "apps/site/app/bell/page.tsx");
+  assert.ok(bellPage, "apps/site/app/bell/page.tsx must be scanned (false green)");
+  assert.match(bellPage.text, /served\.note\s*\}/, "the /bell page must RENDER the built product's served.note as {…served.note} (ADR-EC E6, decision 155)");
+});
+
+// ────────────────────────────────────────────────────────────────────────────────────────────────
+// ADR-EC E3 (checkpoint-1 C-5) — the wiring TEST_ROOTS walked by guard (3) above ARE a documented list, and
+// the exclusion of packages/*/test/ is documented WITH a reason. Guard (3) derives its walk from
+// WIRING_TEST_ROOTS; this test pins that WIRING_TEST_ROOTS ⇔ the rationale map (neither drifts), that no
+// wiring root is a package test root, and that the packages/*/test/ exclusion carries a non-empty reason.
+// Mutant: add "packages/hikae/test" to WIRING_TEST_ROOTS without a rationale entry ⇒ (a) reds (⇔ broken);
+// add it WITH a rationale ⇒ (b) reds (a wiring root must not be a package test root). Proof + sha256 restore
+// in docs/G1-lot-e-registre.md. Run by `npm test`, OUTSIDE the per-lot R-25 count.
+test("wiring_test_roots_exclusion_is_declared — TEST_ROOTS ⇔ a documented list; packages/*/test excluded (ADR-EC E3, C-5)", () => {
+  // (a) ⇔ : the roots guard (3) walks are EXACTLY the documented (rationale) roots — a root added to the walk
+  //     without a rationale entry (or a rationale entry with no walked root) reds here.
+  assert.deepEqual(
+    [...WIRING_TEST_ROOTS].sort(),
+    Object.keys(WIRING_TEST_ROOTS_RATIONALE).sort(),
+    "WIRING_TEST_ROOTS must equal the keys of WIRING_TEST_ROOTS_RATIONALE (⇔ — no undocumented root, no orphan rationale)",
+  );
+  // (b) every included root carries a non-empty reason AND is NOT a package test root (packages/*/test/ is
+  //     the documented EXCLUSION, not an inclusion).
+  for (const [root, why] of Object.entries(WIRING_TEST_ROOTS_RATIONALE)) {
+    assert.ok(why.trim().length > 0, `wiring test root ${root} must carry a non-empty rationale`);
+    assert.doesNotMatch(root, /^packages\//, `packages/*/test is NOT a wiring root (it is documented as EXCLUDED): ${root}`);
+  }
+  // (c) the exclusion of packages/*/test/ is DECLARED, names a packages path, and carries a reason (why a
+  //     package unit test is not a served-pipe integration test — ADR-M018 D1).
+  assert.ok(Object.keys(WIRING_TEST_ROOTS_EXCLUDED).length >= 1, "the packages/*/test exclusion must be declared (ADR-EC E3)");
+  for (const [root, why] of Object.entries(WIRING_TEST_ROOTS_EXCLUDED)) {
+    assert.match(root, /^packages\//, `the documented exclusion must name a packages/*/test path: ${root}`);
+    assert.ok(why.trim().length > 0, `excluded root ${root} must carry a non-empty reason`);
   }
 });
 
@@ -907,4 +1297,227 @@ test("how_page_rendered_vocab_has_no_numeric_hole — region + reason copy carri
   // the page resolves the action WORD + colour by this index; an out-of-range tone would mis-label.
   const tones = [...OUTCOMES.map((o) => o.tone), ...Object.values(REASON_GLOSS).map((m) => m.tone)];
   for (const t of tones) assert.ok(t >= 0 && t < actions.length, `a How tone ${t} is outside the frozen action enum`);
+});
+
+// ---------------------------------------------------------------------------
+// Root test `series_pinned_are_declared_and_hashed` — ADR-M003 D9 sexies (Lot R-25-series).
+// The r25 job excludes sha-pinned DATA SERIES (fixtures/**/*.{json,jsonl,csv} and
+// apps/sentinel/test/fixtures/**, with :(glob) magic — the bare form matches NOTHING in git's default
+// pathspec mode, measured 2026-09-19) from the R-25 lot-size count. This root test is the safety
+// condition D9 sexies (a): EVERY excluded data file MUST be declared AND hashed in a same-dir declaration
+// — a PROVENANCE-*.md, or fixtures/manifest.json (a closed hashed set already enforced by
+// fixtures_root_valid, so the nine gate states are NOT duplicated). Reds on: an orphan file (added with no
+// declaration); an altered byte (recomputed sha != declaration); a CODE file (.ts/.mjs/.js) under an
+// excluded root (condition c — no code disguised as data). It also asserts SET EQUALITY between the
+// :(glob) exclusion pathspecs wired in ci.yml and the derived source of truth (SERIES_EXCLUDED_ROOTS x
+// exts) — neither a dropped nor an extra pathspec (checkpoint-2 C-1) — EXCEPT the D9 septies docs pathspec
+// ':(exclude,glob)docs/**/*.md' (governance docs, NOT a data series: whitelisted via NON_SERIES_GLOB, asserted
+// instead by test 38 (4ter)); M11 stays red for any OTHER unexpected :(glob) pathspec. Named mutants
+// (docs/G1-lot-r25-series.md): M3 fixtures/zz.json with no declaration => red; M2 two shas permuted in a
+// table => red; M4 fixtures/zz.ts => red; M5 book.json/full-book.json siblings each on its own line =>
+// GREEN (token match, C-2a); M6b a sha moved under `## History` => red (rule (ii) removed, C-2b); M8 one
+// byte added to a fixture => red; M1/M10 a pathspec losing ,glob => red; M11 a 7th pathspec in ci.yml =>
+// red. Run by `npm test`, OUTSIDE the per-lot R-25 count.
+// Single source of truth for the R-25 series exclusion (ADR-M003 D9 sexies). POSIX strings, so the
+// derived pathspecs are byte-identical on win32 and Linux CI (checkpoint-2 C-1); join(ROOT, rel) still
+// normalizes them for the FS walk, and the walk flips `\\`->`/` before comparing.
+const SERIES_EXCLUDED_ROOTS = ["fixtures", "apps/sentinel/test/fixtures", "apps/bell/test/fixtures/series"];
+const SERIES_DATA_EXTS = new Set([".json", ".jsonl", ".csv"]);
+const SERIES_CODE_EXTS = new Set([".ts", ".mts", ".cts", ".mjs", ".cjs", ".js"]);
+// The pathspecs the r25 job MUST carry — DERIVED from the roots x exts above (never a parallel hand-kept
+// list), so ci.yml and this test can be checked for SET EQUALITY (checkpoint-2 C-1, mutant M11: a 7th
+// :(glob) pathspec in ci.yml with no marched root here used to stay green). :(glob) is mandatory (the
+// bare form matches nothing — measured 2026-09-19).
+const SERIES_EXCLUDE_PATHSPECS = SERIES_EXCLUDED_ROOTS.flatMap((root) =>
+  [...SERIES_DATA_EXTS].map((ext) => `:(exclude,glob)${root}/**/*${ext}`),
+);
+
+function seriesWalk(absDir: string): string[] {
+  const out: string[] = [];
+  const stack: string[] = [absDir];
+  for (let cur = stack.pop(); cur !== undefined; cur = stack.pop()) {
+    for (const name of readdirSync(cur)) {
+      const abs = join(cur, name);
+      if (statSync(abs).isDirectory()) stack.push(abs);
+      else out.push(abs);
+    }
+  }
+  return out;
+}
+
+function seriesLfSha256(abs: string): string {
+  return createHash("sha256").update(readFileSync(abs, "utf8").replace(/\r\n/g, "\n"), "utf8").digest("hex");
+}
+
+test("series_pinned_are_declared_and_hashed — every R-25-excluded data file is declared + hashed same-dir (ADR-M003 D9 sexies)", () => {
+  // SET EQUALITY between the r25 job's :(glob) exclusion pathspecs and the derived source of truth —
+  // neither missing nor extra. `missing`: a required pathspec absent from ci.yml — matched on the FULL
+  // single-quoted token because ".json" is a substring of ".jsonl", so a bare includes stays green when
+  // the .json pathspec loses its ,glob (G2 C1, mutant M1/M10). `extra`: a :(glob) pathspec present in
+  // ci.yml whose root is NOT in SERIES_EXCLUDED_ROOTS — it would drop files from the R-25 count with no
+  // declaration guard here (checkpoint-2 C-1, mutant M11).
+  const wfGlobPathspecs = [...WF.matchAll(/'(:\(exclude,glob\)[^']+)'/g)]
+    .map((m) => m[1])
+    .filter((s): s is string => s !== undefined);
+  // ADR-M003 D9 septies: docs/**/*.md is a :(glob) exclusion that is NOT a data series — it excludes
+  // governance docs from the R-25 count (asserted by test 38 (4ter)), not a fixtures data series. Whitelist it
+  // from this series SET EQUALITY so it does not read as an "extra" data pathspec; mutant M11 stays intact for
+  // any OTHER unexpected :(glob) pathspec.
+  const NON_SERIES_GLOB = new Set([":(exclude,glob)docs/**/*.md"]);
+  const missing = SERIES_EXCLUDE_PATHSPECS.filter((ps) => !WF.includes("'" + ps + "'"));
+  const extra = [...new Set(wfGlobPathspecs)].filter(
+    (ps) => !SERIES_EXCLUDE_PATHSPECS.includes(ps) && !NON_SERIES_GLOB.has(ps),
+  );
+  assert.deepEqual(missing, [], `r25 job is missing exclusion pathspec(s): ${missing.join(", ")} (ADR-M003 D9 sexies)`);
+  assert.deepEqual(
+    extra,
+    [],
+    `r25 job carries :(glob) exclusion pathspec(s) with no marched root in SERIES_EXCLUDED_ROOTS: ${extra.join(", ")} ` +
+      `(add the root to the source of truth — ADR-M003 D9 sexies; G2 checkpoint-2 C-1 / mutant M11)`,
+  );
+
+  const checked = new Set<string>();
+  for (const rootRel of SERIES_EXCLUDED_ROOTS) {
+    const root = join(ROOT, rootRel);
+    if (!existsSync(root)) continue;
+    for (const abs of seriesWalk(root)) {
+      const rel = abs.slice(ROOT.length + 1).replace(/\\/g, "/");
+      const ext = extname(abs);
+
+      // Condition (c): no code disguised as a data series under an excluded root.
+      assert.ok(
+        !SERIES_CODE_EXTS.has(ext),
+        `code file under an R-25-excluded root: ${rel} — only .json/.jsonl/.csv data may live there (D9 sexies c)`,
+      );
+      if (!SERIES_DATA_EXTS.has(ext)) continue;
+
+      // Condition (a): declared + hashed in a same-dir declaration (its filename AND its LF sha256 present).
+      const dir = dirname(abs);
+      const self = basename(abs);
+      const sha = seriesLfSha256(abs);
+      const declFiles = readdirSync(dir)
+        .filter((n) => n !== self && (/^PROVENANCE-.*\.md$/.test(n) || n === "manifest.json"))
+        .map((n) => join(dir, n));
+      // Binding name<->sha (G2 R-25-series C2 + checkpoint-2 C-2): the sha must sit on the row/bullet that
+      // names THIS file, SAME LINE ONLY. A permuted table (each sha present SOMEWHERE in the document) is
+      // red (mutant perm). The former rule (ii) — "a heading above the sha names the file" — is REMOVED
+      // (checkpoint-2 C-2b): it bound ANY nameless sha line of the document, e.g. a historical sha under a
+      // `## History` heading (mutant M6b). Name matching is by TOKEN, delimited by line start/end, backtick,
+      // `|`, space, `/` or a parenthesis (checkpoint-2 C-2a): a PATH prefix (`fixtures/x/book.json`) still
+      // binds `book.json`, but a NAME prefix (`full-book.json`) does NOT bind the sibling `book.json`
+      // (mutant M5), nor does `book.json` bind inside `book.jsonl`. manifest.json is parsed by key.
+      const siblingData = readdirSync(dir).filter((n) => SERIES_DATA_EXTS.has(extname(n)));
+      const DELIM = "`| /()"; // token boundaries around a filename
+      const namesFile = (line: string, n: string): boolean => {
+        const esc = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return new RegExp(`(^|[${DELIM}])${esc}($|[${DELIM}])`).test(line);
+      };
+      const bindsSelf = (line: string): boolean => {
+        const named = siblingData.filter((n) => namesFile(line, n));
+        return named.length === 1 && named[0] === self;
+      };
+      const declaredIn = declFiles.find((d) => {
+        const text = readFileSync(d, "utf8");
+        if (basename(d) === "manifest.json") {
+          try {
+            const m = JSON.parse(text) as Record<string, unknown>;
+            return m[self] === sha;
+          } catch {
+            return false;
+          }
+        }
+        // Same-line only: one line carries BOTH this file's exact sha AND its (token-delimited) name.
+        return text.split(/\r?\n/).some((line) => line.includes(sha) && bindsSelf(line));
+      });
+      assert.ok(
+        declaredIn !== undefined,
+        `series file not declared+hashed same-dir: ${rel} (sha256 LF ${sha}). Add a PROVENANCE-*.md line in ` +
+          `${dir.slice(ROOT.length + 1).replace(/\\/g, "/")} carrying its filename and this exact sha (D9 sexies a).`,
+      );
+      checked.add(rel);
+    }
+  }
+
+  // Anchor both excluded roots concretely: a walk that silently reached nothing would be a false green.
+  assert.ok(checked.has("fixtures/usde-calib-series.json"), "walk did not reach the usde series (broken fixtures root?)");
+  assert.ok(
+    checked.has("apps/sentinel/test/fixtures/usde-boundary-blocks.json"),
+    "walk did not reach the sentinel boundary fixture (broken apps/sentinel/test/fixtures root?)",
+  );
+});
+
+// (checkpoint-2 V-1(b)/V-3, 2026-09-19) The CI hang backstops are LOCKED, not merely present by inspection: (a) EVERY
+// job under `jobs:` carries a job-level `timeout-minutes` <= 20 (a hung run — e.g. an unbounded recorder retry — cannot
+// pend a job toward GitHub's 6h ceiling); (b) package.json `scripts.test` carries both `--test-timeout=` (per-test
+// guard) and `--test-force-exit` (exit even if a handle leaks after the tests settle). Mutants (measured in the pli):
+// drop a job's timeout-minutes => red; set one to 30 => red; drop --test-force-exit => red. Job keys are the 2-space
+// entries of the top-level `jobs:` block (not a global regex); the timeout line is anchored at the 4-space (job) column
+// so a step-level (8-space) timeout-minutes cannot masquerade as the job backstop.
+test("ci_jobs_have_timeout_and_test_flags_locked — per-job timeout-minutes <= 20 + test guards (checkpoint-2 V-1(b)/V-3)", () => {
+  const jobsIdx = LINES.findIndex((l) => /^jobs\s*:/.test(l));
+  assert.notEqual(jobsIdx, -1, "top-level key 'jobs:' missing from the workflow");
+  const jobs: { name: string; start: number }[] = [];
+  for (let i = jobsIdx + 1; i < LINES.length; i++) {
+    const l = LINES[i]!;
+    if (/^\S/.test(l) && !/^\s*#/.test(l)) break; // a column-0 non-comment key ends the jobs block
+    const m = /^  ([A-Za-z0-9_-]+)\s*:\s*$/.exec(l); // a job key: exactly 2-space indent, bare `name:`
+    if (m && m[1]) jobs.push({ name: m[1], start: i });
+  }
+  assert.ok(jobs.length >= 5, `expected >= 5 jobs under jobs:, saw ${jobs.length} (${jobs.map((j) => j.name).join(",")})`);
+  for (let j = 0; j < jobs.length; j++) {
+    const end = j + 1 < jobs.length ? jobs[j + 1]!.start : LINES.length;
+    const block: string[] = [];
+    for (let i = jobs[j]!.start + 1; i < end; i++) block.push(LINES[i]!.replace(/#.*$/, ""));
+    const tmLine = block.find((l) => /^    timeout-minutes\s*:\s*\d+\s*$/.test(l)); // 4-space = job level (not an 8-space step)
+    assert.ok(tmLine, `job '${jobs[j]!.name}' has no job-level timeout-minutes (a hung run could pend it to GitHub's 6h ceiling; checkpoint-2 V-1(b))`);
+    const minutes = Number(tmLine.replace(/\D/g, ""));
+    assert.ok(minutes <= 20, `job '${jobs[j]!.name}' timeout-minutes=${minutes} exceeds the 20-minute backstop (checkpoint-2 V-1(b))`);
+  }
+  const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: { test: string } };
+  const testScript = pkg.scripts.test;
+  assert.match(testScript, /--test-timeout=\d+/, "scripts.test must carry --test-timeout=<ms> (the per-test hang guard, checkpoint-2 V-1(b))");
+  assert.ok(testScript.includes("--test-force-exit"), "scripts.test must carry --test-force-exit (exit even if a handle leaks after the tests settle)");
+});
+
+// Lot CI-site (ADR-M003 D9 octies) — the g3-site job's step order is load-bearing: `next build` must produce
+// apps/site/.next BEFORE the O-2 step reads it (else O-2 fails-closed on an absent artefact). The g3-site
+// per-job timeout-minutes (<= 20) is already covered by ci_jobs_have_timeout_and_test_flags_locked above
+// (6 jobs now). The build run-line pin (== SITE_BUILD_RUN) and O-2 soundness live in test/site-build-fleet.test.ts.
+test("g3_site_builds_then_asserts_fleet_html — job g3-site runs the build THEN O-2, in the same job, in order (C-5)", () => {
+  const idx = LINES.findIndex((l) => /^  g3-site\s*:/.test(l));
+  assert.notEqual(idx, -1, "job 'g3-site' missing from the workflow (mutant: g3-site removed => red)");
+  const block: string[] = [];
+  for (let i = idx + 1; i < LINES.length; i++) {
+    const l = LINES[i]!;
+    if (/^  \S/.test(l) || /^\S/.test(l)) break; // next 2-space job key or a column-0 key
+    block.push(l.replace(/#.*$/, "")); // strip end-of-line comments
+  }
+  // C-G2-2 (step-level, error_origin = C-5 spec) + checkpoint-2 C2-1: the g3-site block carries no `if:` on the
+  // job OR any step, in ANY form (block key, list-dash `- if:`, quoted `"if":`, flow mapping `{ if: … }`). An
+  // `if: false` on the O-2 step would run the job GREEN with zero assertion - dropping the very O-2 that C-5
+  // exists to protect. Block-scoped sibling of test 38's file-wide IF_DIRECTIVE_RE ban. The job-KEY line itself
+  // (LINES[idx], e.g. a flow `g3-site: { …, if: false }`) is scanned too, since the block loop starts at idx+1;
+  // block lines already had inline comments stripped above, so strip the key line the same way.
+  const ifScan = [LINES[idx]!.replace(/#.*$/, ""), ...block];
+  assert.ok(!ifScan.some((l) => IF_DIRECTIVE_RE.test(l)), "g3-site must carry no `if:` on the job or any step, in any form (dash/quoted/flow) - a conditional/SKIPPED required check counts as PASSING on GitHub (silent unblock)");
+  const buildIdx = block.findIndex((l) => /^\s*run:\s*npm run build -w @monark\/site\s*$/.test(l));
+  const o2Idx = block.findIndex((l) => /^\s*run:\s*node scripts\/assert-fleet-html\.mjs\s*$/.test(l));
+  assert.notEqual(buildIdx, -1, "g3-site must carry the `npm run build -w @monark/site` step (mutant: build step removed => red)");
+  assert.notEqual(o2Idx, -1, "g3-site must carry the O-2 step `node scripts/assert-fleet-html.mjs` (mutant: O-2 step removed => red)");
+  assert.ok(buildIdx < o2Idx, "the build step must come BEFORE the O-2 step within g3-site (mutant: order inverted => red)");
+});
+
+// Lot CI-site (C-10) — the sentinel README is a REAL kept export file (model SECURITY.md, cra-b.test.ts). It is
+// scanned by public_surfaces_make_no_probative_claim and gate:vocab (scan.sentinel). export:check now runs in CI
+// (Lot CI-EXPORT-CHECK, r25 job) but its French-.md rule is NON-fatal: a FRENCH README would land in
+// collectFiles().frenchMd and be dropped from the export in SILENCE (export-public.mjs:263), not a red. lang:gate
+// now ALSO runs in CI (Lot LANG-GATE-CI, same r25 job) and gates the sentinel scope, so a French token in this
+// README reds there too; but a language gate does not assert file MEMBERSHIP, so this assertion stays the teeth for
+// the README being removed or renamed (the mutant below), doubling the lang:gate cover for the French case.
+test("sentinel_readme_is_a_kept_export — apps/sentinel/README.md is an English kept export file (C-10)", () => {
+  const kept = new Set(collectFiles(ROOT).kept.map((f) => f.rel));
+  assert.ok(
+    kept.has("apps/sentinel/README.md"),
+    "apps/sentinel/README.md must be in collectFiles(ROOT).kept (mutant 'README removed / turned French' => not kept => red)",
+  );
 });

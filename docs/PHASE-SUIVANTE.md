@@ -11,7 +11,7 @@ go 3 sentinelle (J0 = 2026-09-17) · go 4 textes publics « adaptive » · go 5 
 page `/narabi/live`) · items formés ADR-M012 (a)(e)(g)(h)(i)(l) · seuil R-25 code-seul (ADR) · lot M012-d (quorum RPC).
 
 ## Action 1 — Étude de portefeuille (lot G0 dédié, aucun code)
-1. Inventaire des **11 produits** depuis les débuts de documentation fournis (`Downloads\MONARK SUITE\`, sous-produits,
+1. Inventaire des **11 produits** depuis les débuts de documentation fournis (`F:\MONARK SUITE\`, sous-produits,
    « autres produits monark », `NARABI`, `NARABI PHASE`) ; confirmer les **4 livrés** (gate/HIKAE, cascade/UKEMI,
    attest/Shōgen, Narabi/AttestedFlow) contre les docs.
 2. Pour chacun des 7 restants : fiche fermée — besoin (acheteur nommé), gap (whitespace vs encombré), dépendances aux

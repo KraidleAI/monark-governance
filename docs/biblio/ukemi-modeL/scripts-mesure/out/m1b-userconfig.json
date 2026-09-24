@@ -1,0 +1,29 @@
+{
+  "block": 23545087,
+  "provider": "drpc",
+  "users": [
+    {
+      "user": "0x552c4ad0849ab72c5b5ca4f30d216c8a654c07b4",
+      "collateral_reserves": 1,
+      "borrow_reserves": 1,
+      "used_reserves": 2,
+      "cfg": "0x0000000000000000000000000000000000000000000000000000000000010002"
+    },
+    {
+      "user": "0xe0c20053d20c8d6d6de243af2093b222eb3e9c03",
+      "collateral_reserves": 1,
+      "borrow_reserves": 1,
+      "used_reserves": 2,
+      "cfg": "0x0000000000000000000000000000000000000000000000000000000000000042"
+    },
+    {
+      "user": "0x00dbcc59e6bb596cf2a1cff9326c5f80618875c3",
+      "collateral_reserves": 1,
+      "borrow_reserves": 0,
+      "used_reserves": 1,
+      "cfg": "0x0000000000000000000000000000000000000000000000000000000000020000"
+    }
+  ],
+  "avg_used_reserves": 1.6666666666666667,
+  "note": "per-asset book via on-chain path = 1 getReservesList (global) + 67 getReserveData (global, token addrs) + per user: 1 getUserConfiguration + used_reserves balanceOf. Multiplier per account ~= 1 + used_reserves."
+}

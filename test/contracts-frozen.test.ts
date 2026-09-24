@@ -10,6 +10,11 @@
  * (schemas/attested-flow.schema.json, the 5th) + its TS binding in packages/contracts/src/** +
  * forbidden-keys extension (peg_score/p_depeg/nav) — a new file and new keys, the 4 existing
  * contracts unchanged.
+ * Re-baselined again by ADR-U1b D1: a NEW frozen contract `AttestedBook`
+ * (schemas/attested-book.schema.json, the 6th) + its TS binding in packages/contracts/src/**: a new file,
+ * NO forbidden-keys change (D1, the closed schema suffices), the 5 existing contracts byte-unchanged.
+ * Re-baselined again by ADR-U1b D2ter (lot U-1b-a-bis, investor decision V-6 (b)): `residual` now carries
+ * `contains: {const: "no_third_party_verifier"}` — one schema line, same schema_version (Option A), no new data key.
  * Run by `npm test` in EACH worktree (outside per-lot counting).
  */
 import { test } from "node:test";
@@ -53,7 +58,7 @@ function currentManifest(): Record<string, string> {
   return m;
 }
 
-test("contracts_frozen — schemas/ and packages/contracts/src/ identical to the Phase 0 manifest (357ef25)", () => {
+test("contracts_frozen — schemas/ and packages/contracts/src/ match the current frozen manifest (357ef25 baseline, re-pinned by ADR-M001 D9-bis + ADR-M008 D9 + ADR-U1b D1; not pure Phase 0)", () => {
   const now = currentManifest();
   const frozenKeys = Object.keys(FROZEN_MANIFEST).sort();
   const nowKeys = Object.keys(now).sort();
@@ -63,9 +68,9 @@ test("contracts_frozen — schemas/ and packages/contracts/src/ identical to the
   }
 });
 
-test("contracts_frozen — the manifest is not empty and covers the 6 schemas", () => {
+test("contracts_frozen — the manifest is not empty and covers the 7 schemas", () => {
   const keys = Object.keys(FROZEN_MANIFEST);
   assert.ok(keys.length >= 10, `manifest too short: ${keys.length}`);
   const schemas = keys.filter((k) => k.startsWith("schemas/")).length;
-  assert.equal(schemas, 6, "expected: 5 schemas (attested-price, attested-flow, prediction, coverage-verdict, gate-decision) + forbidden-keys.json");
+  assert.equal(schemas, 7, "expected: 6 schemas (attested-price, attested-flow, attested-book, prediction, coverage-verdict, gate-decision) + forbidden-keys.json");
 });

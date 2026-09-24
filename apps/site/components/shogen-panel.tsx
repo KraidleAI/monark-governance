@@ -24,47 +24,37 @@ import { cn } from "@/lib/utils";
  * / F-console yet). `contract` is the frozen AttestedPrice shape, read server-side from schemas/ (C7
  * decision on a committed Shogen sample: "to be announced").
  */
-export function ShogenPanel({ contract, showInside = false }: { contract: FrozenContract; showInside?: boolean }) {
-  const trigger = <DialogTrigger render={<Button variant="outline" size="sm" />}>Open panel</DialogTrigger>;
+export function ShogenPanel({ contract }: { contract: FrozenContract }) {
   return (
     <Dialog>
       <AgentCard
         mark={<ShogenMark className="size-8" />}
         name="Shōgen"
         status="built"
-        action={
-          showInside ? (
-            <div className="flex flex-col gap-4">
-              <WhatInside block={insideFor("shogen")} variant="well" />
-              {trigger}
-            </div>
-          ) : (
-            trigger
-          )
-        }
+        action={<DialogTrigger render={<Button variant="outline" size="sm" />}>Open panel</DialogTrigger>}
       >
-        Attested perception &mdash; a verified price testimony.
+        Attested perception &mdash; an attested price testimony.
       </AgentCard>
 
       <DialogContent className={cn(SHEET)}>
         <DialogHeader className="pr-8">
           <DialogTitle>Shōgen</DialogTitle>
-          <DialogDescription>Attested perception &mdash; a verified price testimony.</DialogDescription>
+          <DialogDescription>Attested perception &mdash; an attested price testimony.</DialogDescription>
         </DialogHeader>
 
         <div className="mt-2">
           <PanelBlock title="How it works" status="built">
-            sensor (attest) &rarr; the gate: Hikae and the MONARK budget &rarr; act (execute). The gate
+            sensor (attest) &rarr; the gate: Hikae and the MONARK budget &rarr; act (execute · upcoming). The gate
             emits commit, defer, or abstain.
           </PanelBlock>
           <PanelBlock title="How it is built" status="built">
-            A Rust verifier emits a verified testimony only after a passing verdict, then projects it
+            A Rust verifier emits an attested testimony only after its own verdict passes, then projects it
             onto the frozen contract.
           </PanelBlock>
           <WhatInside block={insideFor("shogen")} />
           <PanelBlock title="Honest limits" status="built">
             <p>
-              A verified testimony proves what was said, that its bytes hash as recorded, and that the
+              An attested testimony proves what was said, that its bytes hash as recorded, and that the
               attestor signed it.
             </p>
             <p className="mt-2">

@@ -20,6 +20,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { Server as HttpServer, IncomingHttpHeaders } from "node:http";
 import { startServer } from "../apps/harness/src/server.ts";
+import { GATE_NON_REVERIFICATION_SENTENCE } from "../apps/harness/src/tools/gate.ts";
 
 export const HOST_MCP = "mcp.monarkgate.tech";
 export const HOST_API = "api.monarkgate.tech";
@@ -224,16 +225,24 @@ export async function buildTrace(): Promise<H5Trace> {
 
     // 6) attest(Shōgen) -> AttestedPrice envelope: demonstrative, not probative.
     const attest = await mcpToolsCall(port, 6, "attest", {});
+    const at = structuredOf(attest);
+    const atPrice = field(at, "price");
 
-    // 7) HTTP/JSON mirror of cascade (api. Host) — both surfaces must agree.
+    // 7) gate(btc-dir-15m) CARRYING the LIVE attested price of step 6 — the SERVED attest -> gate tuyau
+    //    (ADR-M017 D2(iii)/D4(3)): the gate FILES attested.residual into verdict.residual and leaves the
+    //    decision otherwise unchanged. Same prediction/params object as step 5 (byte-identity by reference).
+    const gateAttestedArgs = { prediction: BTC_DIR_PREDICTION, params: gateBtcArgs.params, attested: atPrice };
+    const gateAttested = await mcpToolsCall(port, 7, "gate", gateAttestedArgs);
+
+    // 8) HTTP/JSON mirror of cascade (api. Host) — both surfaces must agree.
     const mirror = await mirrorCall(port, "/cascade", cascadeArgs);
 
     const mirrorMatches = JSON.stringify(structuredOf(mirror)) === JSON.stringify(cascadePrediction);
     const gc = structuredOf(gateCascade);
     const gb = structuredOf(gateBtc);
-    const at = structuredOf(attest);
+    const ga = structuredOf(gateAttested);
     const gbVerdict = field(gb, "verdict");
-    const atPrice = field(at, "price");
+    const gaVerdict = field(ga, "verdict");
 
     const steps: Step[] = [
       { n: 1, surface: "mcp", op: "initialize", request: initReq, result: { protocolVersion: initResult.protocolVersion, serverInfo: initResult.serverInfo } },
@@ -242,7 +251,8 @@ export async function buildTrace(): Promise<H5Trace> {
       { n: 4, surface: "mcp", op: "tools/call", label: "cascade-gate", tool: "gate", note: "cascade -> gate: no cascade calibration is committed, so the gate abstains (under_calib). This is the honest, expected result.", request: { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "gate", arguments: gateCascadeArgs } }, response: gateCascade },
       { n: 5, surface: "mcp", op: "tools/call", label: "btc-dir-gate", tool: "gate", note: "btc-dir-15m over the committed SYNTHETIC calibration (a plumbing fixture, not a measured predictor): the committed synthetic decision, demonstrative only.", request: { jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "gate", arguments: gateBtcArgs } }, response: gateBtc },
       { n: 6, surface: "mcp", op: "tools/call", label: "attest", tool: "attest", note: "Shōgen projection of one committed, previously verified witness; demonstrative, not probative; the verifier is not executed at call time.", request: { jsonrpc: "2.0", id: 6, method: "tools/call", params: { name: "attest", arguments: {} } }, response: attest },
-      { n: 7, surface: "http", op: "POST /cascade", label: "cascade-mirror", tool: "cascade", note: "HTTP/JSON mirror (api. Host): the same frozen structuredContent as the MCP surface.", request: { host: HOST_API, method: "POST", path: "/cascade", body: cascadeArgs }, response: mirror },
+      { n: 7, surface: "mcp", op: "tools/call", label: "attested-gate", tool: "gate", note: `${GATE_NON_REVERIFICATION_SENTENCE}; only \`attested.residual\` is filed into \`verdict.residual\`; the decision is otherwise unchanged`, request: { jsonrpc: "2.0", id: 7, method: "tools/call", params: { name: "gate", arguments: gateAttestedArgs } }, response: gateAttested },
+      { n: 8, surface: "http", op: "POST /cascade", label: "cascade-mirror", tool: "cascade", note: "HTTP/JSON mirror (api. Host): the same frozen structuredContent as the MCP surface.", request: { host: HOST_API, method: "POST", path: "/cascade", body: cascadeArgs }, response: mirror },
     ];
 
     return {
@@ -283,10 +293,13 @@ export async function buildTrace(): Promise<H5Trace> {
         btc_dir_calib_digest: gbVerdict !== null && typeof gbVerdict === "object" ? (gbVerdict as Record<string, unknown>)["calib_digest"] : undefined,
         attest_label: field(at, "label"),
         attest_sens_emis_digest: atPrice !== null && typeof atPrice === "object" ? (atPrice as Record<string, unknown>)["sens_emis_digest"] : undefined,
+        attested_gate_action: field(ga, "action"),
+        attested_gate_residual: gaVerdict !== null && typeof gaVerdict === "object" ? (gaVerdict as Record<string, unknown>)["residual"] : undefined,
         mirror_matches_mcp_cascade: mirrorMatches,
       },
     };
   } finally {
+    server.closeAllConnections(); // C-G2D-1: server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
     await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
   }
 }

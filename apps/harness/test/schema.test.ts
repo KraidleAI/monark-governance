@@ -8,7 +8,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { TOOL_INPUT_SCHEMA, TOOL_OUTPUT_SCHEMA, type Json } from "../src/schema-projection.ts";
+import { TOOL_INPUT_SCHEMA, TOOL_OUTPUT_SCHEMA, stripMeta, type Json } from "../src/schema-projection.ts";
 
 const SCHEMAS = fileURLToPath(new URL("../../../schemas/", import.meta.url));
 
@@ -102,4 +102,29 @@ test("tool_schema_equals_frozen_schema", () => {
   // it is the non-frozen, English, honest gate-parameter schema and keeps its descriptions.
   assertNoAnnotations(TOOL_OUTPUT_SCHEMA, "TOOL_OUTPUT_SCHEMA", false);
   assertNoAnnotations(predProj, "TOOL_INPUT_SCHEMA.properties.prediction", false);
+});
+
+// Test (ADR-M017 D4(1)) — the gate INPUT envelope carries `attested` as the frozen AttestedPrice, PROJECTED
+// (stripMeta) byte-for-byte the frozen file, kept OPTIONAL (required stays {prediction,params}); the envelope
+// property set is exactly {prediction, params, attested}. Mutants: `required` gains `attested`, or the
+// projection is left un-stripped (annotations survive) ⇒ red here (ADR-M017 D5).
+test("gate_attested_is_frozen_attested_price", () => {
+  const inputProps = asObj(TOOL_INPUT_SCHEMA["properties"], "input.properties");
+
+  // (a) envelope property set == {prediction, params, attested}, in insertion order (ADR-M017 D1).
+  assert.deepEqual(Object.keys(inputProps), ["prediction", "params", "attested"], "envelope keys == {prediction, params, attested}");
+
+  // (b) `attested` stays OPTIONAL — `required` is the frozen 2-tuple, unchanged.
+  assert.deepEqual(TOOL_INPUT_SCHEMA["required"], ["prediction", "params"], "required stays [prediction, params] (attested is OPTIONAL)");
+
+  // (c) the projected `attested` == the frozen attested-price schema, STRIPPED, byte-for-byte (the SAME
+  // mechanism as `prediction`): deepEqual for structure + JSON.stringify for byte/key-order parity.
+  const strippedFrozen = stripMeta(loadJson("attested-price.schema.json"));
+  const attestedProj = asObj(inputProps["attested"], "input.properties.attested");
+  assert.deepEqual(attestedProj, strippedFrozen, "attested projection == frozen AttestedPrice (stripped)");
+  assert.equal(JSON.stringify(attestedProj), JSON.stringify(strippedFrozen), "attested projection == frozen (stripped) byte-for-byte");
+
+  // (d) the closed contract + no leaked annotation survive the projection (C-1).
+  assert.equal(attestedProj["additionalProperties"], false, "projected attested stays a closed contract");
+  assertNoAnnotations(attestedProj, "TOOL_INPUT_SCHEMA.properties.attested", false);
 });
