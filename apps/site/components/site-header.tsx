@@ -21,14 +21,16 @@ const SITE_BAR: readonly { href: string; label: string }[] = [
 ];
 
 // Primary nav — the company pages (MONARK.dc.html navDef). Unchanged routes; the /products route is labelled
-// "Applications" (the on-chain applications the engine powers).
+// "Applications" (the on-chain applications the engine powers); the /roadmap route is labelled "Building" (the page is
+// MONARK Building, what is being built now, next and later), and /docs is the documentation section.
 const NAV_ITEMS: readonly { href: string; label: string }[] = [
   { href: "/products", label: "Applications" },
   { href: "/fleet", label: "Fleet" },
   { href: "/how", label: "How it works" },
-  { href: "/roadmap", label: "Roadmap" },
+  { href: "/roadmap", label: "Building" },
   { href: "/token", label: "Token" },
   { href: "/integrators", label: "Integrators" },
+  { href: "/docs", label: "Docs" },
 ];
 
 interface Brand {

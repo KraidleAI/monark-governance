@@ -11,7 +11,13 @@
  *      allowed. Block-scoped sibling for g3-site in g3_site_builds_then_asserts_fleet_html.
  *   (2) a `uses:` action is not pinned by a 40-hex commit SHA (movable tag);
  *   (3) `VIBEGATES_PR_LIMIT` != "1205" (bound ADR-M003 D9);
+ *   (3bis) `VIBEGATES_CONTENT_LIMIT` != "8000", or the ADR-M013 line that holds the CONTENT list (investor decision
+ *      207) is not unique or does not state that bound;
  *   (4) the exclusion pathspec for generated S2 artefacts is missing from the R-25 count;
+ *   (4quater) the r25 job does not run exactly two one-line counts: CODE = the D9 pathspec PLUS the five ADR-M013
+ *      CONTENT excludes (bound VIBEGATES_PR_LIMIT), CONTENT = those five paths only (bound VIBEGATES_CONTENT_LIMIT),
+ *      each with a numeric guard before any diff, the same ins+del metric, printed before either bound is evaluated,
+ *      and `::error::` + exit 1 on overflow (ADR-M013 amendment 2026-09-24, investor decision 207);
  *   (5) the `on:` trigger does not carry `pull_request` (delivery by PR — ADR-M003 D9 addendum 2026-09-05);
  *   (6) job g4 does not run the ratchet `npm run lint:ratchet` (ADR-M003 D9 ter §3, 2026-09-06).
  *   (4bis) the G1/G2 governance reports are not excluded from the R-25 count (D9 quater);
@@ -64,6 +70,42 @@ const COE_DIRECTIVE_RE = /(?:^\s*|[-{,]\s*)["']?continue-on-error["']?\s*:/;
 // quotes `- if: false` to name a mutant never reds. (The g3-site block test strips inline comments separately.)
 const hasDirective = (lines: string[], re: RegExp): boolean =>
   lines.some((l) => !/^\s*#/.test(l) && re.test(l));
+
+// ADR-M013 amendment 2026-09-24 (investor decision 207, lot R25-CONTENT-1): the R-25 bound of 1205 stays the CODE
+// bound; the storefront CONTENT lots are counted apart under VIBEGATES_CONTENT_LIMIT. The CONTENT paths are a CLOSED
+// list held by the ADR itself: read here from its UNIQUE line naming `VIBEGATES_CONTENT_LIMIT` (never a parallel
+// hand-kept list), so the ADR, the five CODE excludes and the five CONTENT pathspecs of the r25 job are coupled (test
+// 38 (4quater)); the same derived list whitelists the CODE excludes from the series set-equality
+// (series_pinned_are_declared_and_hashed). A second ADR line naming the variable (a later revision) makes the source
+// ambiguous: test 38 (3bis) reds until this anchor is updated. Root test/ is never exported (export-public.mjs
+// WHITELIST), so reading docs/adr/ here cannot reach the public mirror.
+const CONTENT_ADR_LINES = readFileSync(join(ROOT, "docs", "adr", "ADR-M013-vitrine-regimes.md"), "utf8")
+  .split(/\r?\n/)
+  .filter((l) => l.includes("`VIBEGATES_CONTENT_LIMIT`"));
+const CONTENT_ADR_LINE = CONTENT_ADR_LINES.length === 1 ? (CONTENT_ADR_LINES[0] ?? "") : "";
+const CONTENT_PATHS = [...CONTENT_ADR_LINE.matchAll(/`(apps\/site\/[^`\s]+)`/g)]
+  .map((m) => m[1])
+  .filter((s): s is string => s !== undefined);
+const CONTENT_CODE_EXCLUDES = CONTENT_PATHS.map((p) => `:(exclude,glob)${p}`);
+const CONTENT_PATHSPECS = CONTENT_PATHS.map((p) => `:(glob)${p}`);
+
+// One r25 count line `NAME=$(git diff --shortstat "origin/${{ github.base_ref }}...HEAD" -- <pathspecs>) || {` ->
+// { name, pathspecs } (single quotes removed); null for any other shape. Test 38 (4quater) also counts every
+// `git diff` code line, so an unparsed shape reds instead of escaping.
+const R25_DIFF_RE = /^\s*([A-Z_]+)=\$\(git diff --shortstat "origin\/\$\{\{ github\.base_ref \}\}\.\.\.HEAD" -- (.+)\) \|\| \{\s*$/;
+function parseR25Diff(line: string): { name: string; pathspecs: string[] } | null {
+  const m = R25_DIFF_RE.exec(line);
+  if (m === null || m[1] === undefined || m[2] === undefined) return null;
+  return { name: m[1], pathspecs: m[2].split(/\s+/).map((t) => t.replace(/^'(.*)'$/, "$1")) };
+}
+// One r25 metric line `NAME=$(printf '%s\n' "$SRC" | awk '<program>')` -> { name, src, program }; null otherwise.
+// `\x5c` is a literal backslash: the workflow carries the two characters backslash + n inside '%s\n'.
+const R25_METRIC_RE = /^\s*([A-Z_]+)=\$\(printf '%s\x5cn' "\$([A-Z_]+)" \| awk '(.+)'\)\s*$/;
+function parseR25Metric(line: string): { name: string; src: string; program: string } | null {
+  const m = R25_METRIC_RE.exec(line);
+  if (m === null || m[1] === undefined || m[2] === undefined || m[3] === undefined) return null;
+  return { name: m[1], src: m[2], program: m[3] };
+}
 
 test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (test 38)", () => {
   // (1) template invariant: no continue-on-error DIRECTIVE (a YAML key on a non-comment line). A prose mention
@@ -126,6 +168,23 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
   assert.ok(limits.length >= 1, "VIBEGATES_PR_LIMIT missing from the workflow (fail-closed not configured)");
   for (const v of limits) assert.equal(v, "1205", `VIBEGATES_PR_LIMIT = ${v} != 1205 (ADR-M003 D9)`);
 
+  // (3bis) VIBEGATES_CONTENT_LIMIT set to "8000" (ADR-M013 amendment 2026-09-24, investor decision 207) — and to
+  //        nothing else (the (3) idiom). The ADR holds exactly ONE line naming the variable (the coupling source of
+  //        (4quater)) and that line states the same bound (digit groups joined, "8 000" -> 8000), so a bound edited on
+  //        one side only reds (R-23: a revision goes through the ADR). Mutant `"8k"` in the env => this reds.
+  const contentLimits = [...WF.matchAll(/VIBEGATES_CONTENT_LIMIT\s*:\s*["']?([^"'\s#]+)["']?/g)]
+    .map((m) => m[1])
+    .filter((s): s is string => s !== undefined);
+  assert.ok(contentLimits.length >= 1, "VIBEGATES_CONTENT_LIMIT missing from the workflow (content bound not configured, ADR-M013 decision 207)");
+  for (const v of contentLimits) assert.equal(v, "8000", `VIBEGATES_CONTENT_LIMIT = ${v} != 8000 (ADR-M013, investor decision 207)`);
+  assert.equal(
+    CONTENT_ADR_LINES.length,
+    1,
+    "ADR-M013 must hold exactly ONE line naming `VIBEGATES_CONTENT_LIMIT` (the decision 207 amendment, source of the CONTENT list)",
+  );
+  const adrNumbers: readonly string[] = CONTENT_ADR_LINE.replace(/(\d)[ \u00a0\u202f](?=\d{3}(?!\d))/g, "$1").match(/\d+/g) ?? [];
+  assert.ok(adrNumbers.includes("8000"), "the ADR-M013 decision 207 line must state the 8000 bound the workflow carries (R-23)");
+
   // (4) exclusion pathspec for generated S2 artefacts present in the R-25 count (ADR-M003 D9).
   assert.ok(
     WF.includes(":(exclude)packages/*/docs/S2-*"),
@@ -145,6 +204,95 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
     WF.includes("':(exclude,glob)docs/**/*.md'"),
     "docs/**/*.md exclusion pathspec missing from the R-25 count (ADR-M003 D9 septies)",
   );
+
+  // (4quater) ADR-M013 amendment 2026-09-24 (investor decision 207, lot R25-CONTENT-1): the r25 job runs exactly TWO
+  //   `git diff --shortstat` counts over the same range, each on ONE line. (a) CODE `STAT=` = the pathspec of (4)/
+  //   (4bis)/(4ter) + the lockfile + the series excludes PLUS the five CONTENT excludes, bound VIBEGATES_PR_LIMIT;
+  //   (b) CONTENT `CONTENT_STAT=` = the five CONTENT paths only, bound VIBEGATES_CONTENT_LIMIT. The token lists are
+  //   EXACT (a dropped, extra or duplicated pathspec reds) and both derive from the ADR list, which must be five
+  //   distinct paths (the decision). Each count: a numeric guard BEFORE any diff, the SAME ins+del awk program, printed
+  //   BEFORE either bound is evaluated (a CODE overflow never hides the CONTENT count), and `::error::` + `exit 1` on
+  //   overflow. Mutants: a CONTENT path dropped from (b), from (a) or from the ADR line => red; `exit 1` removed from
+  //   an overflow branch => red.
+  const r25At = LINES.findIndex((l) => /^  r25-taille-de-lot\s*:/.test(l));
+  assert.notEqual(r25At, -1, "job 'r25-taille-de-lot' missing from the workflow");
+  const r25Code: string[] = []; // non-comment, non-blank lines of the r25 job, trimmed
+  for (let i = r25At + 1; i < LINES.length; i++) {
+    const l = LINES[i] ?? "";
+    if (/^  \S/.test(l) || /^\S/.test(l)) break; // next 2-space job key or a column-0 key
+    if (!/^\s*#/.test(l) && l.trim() !== "") r25Code.push(l.trim());
+  }
+  assert.equal(
+    r25Code.filter((l) => l.includes("git diff")).length,
+    2,
+    "the r25 job must run exactly two `git diff` counts: CODE and CONTENT (ADR-M013 decision 207)",
+  );
+  const diffs = r25Code.map(parseR25Diff).filter((d): d is { name: string; pathspecs: string[] } => d !== null);
+  assert.deepEqual(
+    diffs.map((d) => d.name),
+    ["STAT", "CONTENT_STAT"],
+    "the r25 counts must be, in order, CODE `STAT=` and CONTENT `CONTENT_STAT=`, each on ONE line over origin/<base>...HEAD",
+  );
+  assert.equal(CONTENT_PATHS.length, 5, `ADR-M013 decision 207 names five CONTENT paths; read ${CONTENT_PATHS.length}: ${CONTENT_PATHS.join(", ")}`);
+  assert.equal(new Set(CONTENT_PATHS).size, CONTENT_PATHS.length, "the ADR-M013 CONTENT paths must be distinct");
+  const sorted = (xs: readonly string[]): string[] => [...xs].sort();
+  const codeExpected = [
+    ".",
+    ":(exclude)packages/*/docs/S2-*",
+    ":(exclude)docs/G1-lot-*.md",
+    ":(exclude)docs/G2-lot-*.md",
+    ":(exclude,glob)docs/**/*.md",
+    ":(exclude)package-lock.json",
+    ...SERIES_EXCLUDE_PATHSPECS,
+    ...CONTENT_CODE_EXCLUDES,
+  ];
+  assert.deepEqual(
+    sorted(diffs[0]?.pathspecs ?? []),
+    sorted(codeExpected),
+    "(a) the CODE pathspec must be the D9 pathspec PLUS the five ADR-M013 CONTENT excludes (dropped, extra or duplicated token)",
+  );
+  assert.deepEqual(
+    sorted(diffs[1]?.pathspecs ?? []),
+    sorted(CONTENT_PATHSPECS),
+    "(b) the CONTENT pathspec must be exactly the five ADR-M013 CONTENT paths with :(glob) magic (dropped, extra or duplicated token)",
+  );
+  const metrics = r25Code
+    .map(parseR25Metric)
+    .filter((m): m is { name: string; src: string; program: string } => m !== null);
+  assert.deepEqual(
+    metrics.map((m) => `${m.name}<-${m.src}`),
+    ["CHANGED<-STAT", "CONTENT_CHANGED<-CONTENT_STAT"],
+    "each count must feed its own metric line: CHANGED from STAT, CONTENT_CHANGED from CONTENT_STAT",
+  );
+  assert.ok(metrics[0]?.program.includes("print ins+del+0"), "the CODE metric must stay ins+del (ADR-M003 D9)");
+  assert.equal(metrics[1]?.program, metrics[0]?.program, "both counts must use the SAME ins+del awk program");
+  const statAt = r25Code.findIndex((l) => l.startsWith("STAT=$(git diff"));
+  const firstIfAt = r25Code.findIndex((l) => l.startsWith("if [ "));
+  const between = (open: string, close: string): { at: number; body: string[] } => {
+    const at = r25Code.indexOf(open);
+    const end = at === -1 ? -1 : r25Code.indexOf(close, at + 1);
+    return { at, body: end === -1 ? [] : r25Code.slice(at + 1, end) };
+  };
+  for (const [count, bound] of [
+    ["CHANGED", "VIBEGATES_PR_LIMIT"],
+    ["CONTENT_CHANGED", "VIBEGATES_CONTENT_LIMIT"],
+  ] as const) {
+    const guard = between(`case "$${bound}" in`, "esac");
+    assert.ok(guard.at !== -1 && guard.at < statAt, `${bound}: numeric guard missing or placed after the first diff (fail-closed before any count)`);
+    assert.equal(guard.body[0], "''|*[!0-9]*)", `${bound}: the guard must reject an empty or non-numeric bound`);
+    assert.ok(
+      guard.body.some((l) => l.startsWith("echo '::error::")) && guard.body.includes("exit 1 ;;"),
+      `${bound}: an empty or non-numeric bound must emit ::error:: and exit 1`,
+    );
+    const printAt = r25Code.findIndex((l) => l.startsWith("echo ") && l.includes(`$${count} (ADR bound: $${bound})`));
+    assert.ok(printAt !== -1 && printAt < firstIfAt, `${count}: the count must be printed BEFORE either bound is evaluated`);
+    const overflow = between(`if [ "$${count}" -gt "$${bound}" ]; then`, "fi");
+    assert.notEqual(overflow.at, -1, `${count}: the overflow comparison against ${bound} is missing`);
+    assert.ok(
+      overflow.body.some((l) => l.startsWith('echo "::error::')) && overflow.body.includes("exit 1"),
+      `${count} > ${bound} must emit ::error:: and exit 1 (fail-closed)`,
+    );
+  }
 
   // (5) delivery by PR (ADR-M003 D9 addendum 2026-09-05, option c): the workflow MUST trigger
   //     on pull_request. Block-scoped on the top-level key `on:` (lines indented up to the
@@ -1362,8 +1510,10 @@ test("series_pinned_are_declared_and_hashed — every R-25-excluded data file is
   // ADR-M003 D9 septies: docs/**/*.md is a :(glob) exclusion that is NOT a data series — it excludes
   // governance docs from the R-25 count (asserted by test 38 (4ter)), not a fixtures data series. Whitelist it
   // from this series SET EQUALITY so it does not read as an "extra" data pathspec; mutant M11 stays intact for
-  // any OTHER unexpected :(glob) pathspec.
-  const NON_SERIES_GLOB = new Set([":(exclude,glob)docs/**/*.md"]);
+  // any OTHER unexpected :(glob) pathspec. ADR-M013 amendment 2026-09-24 (investor decision 207): the five storefront
+  // CONTENT excludes of the CODE count are not data series either; they are whitelisted from the SAME ADR-derived list
+  // that test 38 (4quater) couples to the workflow (never a hand-kept copy), so M11 stays red for any other one.
+  const NON_SERIES_GLOB = new Set([":(exclude,glob)docs/**/*.md", ...CONTENT_CODE_EXCLUDES]);
   const missing = SERIES_EXCLUDE_PATHSPECS.filter((ps) => !WF.includes("'" + ps + "'"));
   const extra = [...new Set(wfGlobPathspecs)].filter(
     (ps) => !SERIES_EXCLUDE_PATHSPECS.includes(ps) && !NON_SERIES_GLOB.has(ps),

@@ -79,7 +79,8 @@ interface ExcludeDataConfig {
   data: string[];
 }
 
-// Mirrors scripts/export-public.mjs STRUCTURAL_BLACKLIST (POSIX rel paths).
+// Mirrors scripts/export-public.mjs STRUCTURAL_BLACKLIST (POSIX rel paths), plus a catch-all over docs/ folders that the
+// script does not carry (defense in depth: this mirror is stricter than the script, never looser).
 const BLACKLIST: RegExp[] = [
   /^docs\/adr\//,
   /^docs\/G1-/, /^docs\/G2-/, /^docs\/G7-/,
@@ -87,8 +88,33 @@ const BLACKLIST: RegExp[] = [
   /^docs\/AUDIT-ENTREE\.md$/,
   /^docs\/JOURNAL-PROVENANCE\.md$/,
   /^docs\/R-P1-/,
-  /(^|\/)docs\//, // any docs/ directory, incl. packages/*\/docs (hikae S2)
+  // Any docs/ directory, incl. packages/*\/docs (hikae S2), EXCEPT the two storefront folders of the /docs route: the page
+  // tree apps/site/app/docs/ and its components apps/site/components/docs/ are public site content, exported like every
+  // other route (the script's own STRUCTURAL_BLACKLIST names no catch-all). Any other docs/ folder, under apps/site too,
+  // stays blacklisted. Pinned both ways by export_blacklist_keeps_governance_docs_and_lets_the_docs_route_ship below.
+  /^(?!apps\/site\/(?:app|components)\/docs\/)(?:[^/]+\/)*docs\//,
 ];
+
+test("export_blacklist_keeps_governance_docs_and_lets_the_docs_route_ship", () => {
+  const blocked = (rel: string): boolean => BLACKLIST.some((re) => re.test(rel));
+  // Governance and report folders stay blacklisted, wherever they sit.
+  for (const rel of [
+    "docs/adr/ADR-M001.md",
+    "docs/G1-lot-site-docs-1.md",
+    "docs/RUNBOOK-bell.md",
+    "packages/hikae/docs/S2-RAPPORT.md",
+    "apps/harness/docs/notes.md",
+    "apps/site/docs/notes.md",
+    "apps/site/app/docs-extra/docs/notes.md",
+    "apps/site/lib/docs/notes.md",
+  ]) {
+    assert.ok(blocked(rel), `${rel} must stay blacklisted`);
+  }
+  // The storefront /docs route and its components ship.
+  for (const rel of ["apps/site/app/docs/page.tsx", "apps/site/app/docs/pieces/hikae/page.tsx", "apps/site/app/docs/docs.css", "apps/site/components/docs/svg-kit.tsx", "apps/site/components/docs/schemas/gate.tsx"]) {
+    assert.ok(!blocked(rel), `${rel} is storefront content and must ship`);
+  }
+});
 
 function listFiles(dir: string): string[] {
   const out: string[] = [];

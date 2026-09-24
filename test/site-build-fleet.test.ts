@@ -384,7 +384,7 @@ test("registry_count_words_are_derived — agent, product and layer counts rende
   // /fleet, "four tools" or "the first four schemas" on /roadmap, "one of three words" on / => red. A tool count may come
   // back only DERIVED (the served tool list, once a committed, hashed copy of it is read by the page).
   const TYPED_COUNT =
-    /\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(?:built|on the roadmap|named|agents|more named|frozen contracts|layers|engines|tools|schemas|words|upcoming products|artefacts)\b/i;
+    /\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(?:built|on the roadmap|named|agents|smart pieces|more named|frozen contracts|layers|engines|tools|schemas|words|upcoming products|artefacts)\b/i;
   for (const rel of REGISTER_PAGES) {
     const texts = [...renderedOf(rel), ...metadataDescriptionLiterals(rel)];
     const hits = texts.filter((t) => TYPED_COUNT.test(t.replace(/\s+/g, " ")));
@@ -1390,4 +1390,29 @@ test("site_raw_html_injection_points_pinned - dangerouslySetInnerHTML only in ap
   // under public/ is served verbatim, outside the three sinks above; none is allowed (the /bell scene is a native component).
   const rawHtml = files.filter((rel) => rel.startsWith("public/") && rel.endsWith(".html"));
   assert.deepEqual(rawHtml, [], "no raw .html document under apps/site/public");
+});
+
+// G2 SITE-DOCS-1 (C-G2-9) — RPC operator names, confined like the data-source forms above: the literals live in this
+// non-exported root test file, so the guard does not publish the operator set. The operators the repository reads through
+// (measured in its code on 2026-09-24) and the operators of the review's list; "pocket" alone would hit "pocket knife" on
+// /docs, so that network is named by its token and full name. helius, chainstack and tenderly stay in the exported site scope.
+const OPERATOR_FORMS: { re: RegExp; why: string }[] = [
+  { re: /\bdrpc\b/i, why: "RPC operator" }, { re: /\bpublicnode\b/i, why: "RPC operator" }, { re: /\bllamarpc\b/i, why: "RPC operator" },
+  { re: /\bblastapi\b/i, why: "RPC operator" }, { re: /\bmevblocker\b/i, why: "RPC operator" }, { re: /\b1rpc\b/i, why: "RPC operator" },
+  { re: /\bankr\b/i, why: "RPC operator" }, { re: /\bpokt\b|\bpocket\s+network\b/i, why: "RPC operator" }, { re: /\balchemy\b/i, why: "RPC operator" },
+  { re: /\bquicknode\b/i, why: "RPC operator" }, { re: /\binfura\b/i, why: "RPC operator" }, { re: /\bkaiko\b/i, why: "market-data vendor" },
+  { re: /\bdune\b/i, why: "query vendor" },
+];
+test("site_names_no_rpc_operator — no operator or vendor name form in ANY exported apps/site file; the literals stay in this non-exported file", () => {
+  const siteFiles = collectFiles(ROOT).kept.filter((f) => f.rel.startsWith("apps/site/") && !BINARY_EXPORT.test(f.rel));
+  assert.ok(siteFiles.length >= 50, "the exported apps/site files are collected (false-green guard)");
+  const hits: string[] = [];
+  for (const f of siteFiles) {
+    const raw = readFileSync(f.abs, "utf8");
+    const views = [raw, neutralizeEscapes(raw)];
+    for (const form of OPERATOR_FORMS) if (views.some((v) => form.re.test(v))) hits.push(`${f.rel} [${form.why} ${String(form.re)}]`);
+  }
+  assert.deepEqual(hits, [], `an operator or vendor name on an exported apps/site file:\n${hits.join("\n")}`);
+  assert.ok(OPERATOR_FORMS.some((form) => form.re.test("read through drpc")), "control: an operator name reds");
+  assert.ok(!OPERATOR_FORMS.some((form) => form.re.test("Think of a pocket knife.")), "control: the pocket knife stays green");
 });

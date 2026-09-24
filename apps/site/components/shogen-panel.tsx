@@ -14,6 +14,7 @@ import { ShogenMark } from "@/components/marks/shogen-mark";
 import { PanelBlock, SHEET } from "@/components/panel-shell";
 import { WhatInside } from "@/components/what-inside";
 import { insideFor } from "@/lib/fleet-presentation";
+import { SHOGEN_SERVED_SCOPE } from "@/lib/shogen-copy";
 import type { FrozenContract } from "@/lib/load-contract";
 import type { AgentStatus } from "@/lib/status";
 import { cn } from "@/lib/utils";
@@ -60,6 +61,7 @@ export function ShogenPanel({ contract, status }: { contract: FrozenContract; st
               An attested testimony proves what was said, that its bytes hash as recorded, and that the
               attestor signed it.
             </p>
+            <p className="mt-2">{SHOGEN_SERVED_SCOPE}</p>
             <p className="mt-2">
               It does not claim the price is true: it keeps no confidence field and carries no price
               number &mdash; the number is read by a downstream Hikae-side adapter &mdash; and the named

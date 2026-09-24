@@ -1,0 +1,416 @@
+{
+  "$comment": "Committed bibliography of the documentation section (/docs), rendered through apps/site/lib/docs-references-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. One entry per work the pages cite, with the identity read on the work itself or on the project's reading note of it, and the reading level the project reached: read in full, read in part (targeted sections), abstract only, or not yet obtained. A year, a volume or an identifier is a datum of the entry, never a figure of MONARK. Two titles are not reproduced (title is null, title_note says why): each carries a word the site does not print. results holds the few statements the pages restate from a work, each with the reference, the place in the work and the statement in plain words; a formula there is the work's own. quotes holds the few passages a page prints verbatim between quotation marks, each at most twenty-five words, with the reference and the place in the work. English only, no market value, no name of a data source the project reads; the one oracle issuer named is the author of a cited work.",
+  "schema": "monark-site-docs-references-v2",
+  "levels": ["read in full", "read in part", "abstract only", "not yet obtained"],
+  "references": [
+    {
+      "id": "angelopoulos-bates-gentle",
+      "authors": "Anastasios N. Angelopoulos and Stephen Bates",
+      "year": 2023,
+      "title": "Conformal Prediction: A Gentle Introduction",
+      "title_note": null,
+      "venue": "Foundations and Trends in Machine Learning, vol. 16, no. 4, pp. 494-591",
+      "identifier": "arXiv:2107.07511",
+      "level": "read in part",
+      "used_for": "the split-conformal quantile and the meaning of marginal coverage"
+    },
+    {
+      "id": "vovk-conditional",
+      "authors": "Vladimir Vovk",
+      "year": 2012,
+      "title": "Conditional validity of inductive conformal predictors",
+      "title_note": null,
+      "venue": "Proceedings of the Asian Conference on Machine Learning, PMLR vol. 25, pp. 475-490",
+      "identifier": null,
+      "level": "read in part",
+      "used_for": "why coverage conditional on one input cannot be promised in general, and why a region is kept per category"
+    },
+    {
+      "id": "vovk-mondrian",
+      "authors": "Vladimir Vovk, David Lindsay, Ilia Nouretdinov and Alex Gammerman",
+      "year": 2003,
+      "title": null,
+      "title_note": "the title names the method with a word the site does not print; the paper is the working paper of the series below",
+      "venue": "On-line Compression Modelling Project (New Series), Working Paper 4",
+      "identifier": null,
+      "level": "read in full",
+      "used_for": "one region per category of a taxonomy fixed in advance, with validity per category and never per case"
+    },
+    {
+      "id": "abb-decaying",
+      "authors": "Anastasios N. Angelopoulos, Rina Foygel Barber and Stephen Bates",
+      "year": 2024,
+      "title": "Online conformal prediction with decaying step sizes",
+      "title_note": null,
+      "venue": "Proceedings of the International Conference on Machine Learning (ICML), PMLR vol. 235, pp. 1616-1630",
+      "identifier": "arXiv:2402.01139",
+      "level": "read in part",
+      "used_for": "the quantile tracker Narabi steps each day and the long-run bound it prints"
+    },
+    {
+      "id": "barber-beyond",
+      "authors": "Rina Foygel Barber, Emmanuel J. Candes, Aaditya Ramdas and Ryan J. Tibshirani",
+      "year": 2023,
+      "title": "Conformal Prediction Beyond Exchangeability",
+      "title_note": null,
+      "venue": "The Annals of Statistics, vol. 51, no. 2, pp. 816-845",
+      "identifier": "doi:10.1214/23-AOS2276",
+      "level": "read in part",
+      "used_for": "the sentence served with a class whose calibration is not exchangeable: no coverage is measured"
+    },
+    {
+      "id": "gibbs-candes-aci",
+      "authors": "Isaac Gibbs and Emmanuel J. Candes",
+      "year": 2021,
+      "title": "Adaptive Conformal Inference Under Distribution Shift",
+      "title_note": null,
+      "venue": "Advances in Neural Information Processing Systems (NeurIPS)",
+      "identifier": "arXiv:2106.00170",
+      "level": "read in part",
+      "used_for": "the online update the tracker descends from"
+    },
+    {
+      "id": "bates-rcps",
+      "authors": "Stephen Bates, Anastasios N. Angelopoulos, Lihua Lei, Jitendra Malik and Michael I. Jordan",
+      "year": 2021,
+      "title": "Distribution-Free, Risk-Controlling Prediction Sets",
+      "title_note": null,
+      "venue": "Journal of the ACM, vol. 68, no. 6, article 43",
+      "identifier": "doi:10.1145/3478535",
+      "level": "read in part",
+      "used_for": "the origin of the budget vocabulary only; the served budget is not that mechanism"
+    },
+    {
+      "id": "dunn-hierarchical",
+      "authors": "Robin Dunn, Larry Wasserman and Aaditya Ramdas",
+      "year": 2022,
+      "title": "Distribution-Free Prediction Sets for Two-Layer Hierarchical Models",
+      "title_note": null,
+      "venue": "Journal of the American Statistical Association",
+      "identifier": "doi:10.1080/01621459.2022.2060112",
+      "level": "read in part",
+      "used_for": "the minimum number of calibration points below which a population abstains"
+    },
+    {
+      "id": "chow-reject",
+      "authors": "C. K. Chow",
+      "year": 1970,
+      "title": "On Optimum Recognition Error and Reject Tradeoff",
+      "title_note": null,
+      "venue": "IEEE Transactions on Information Theory, vol. 16, no. 1, pp. 41-46",
+      "identifier": "doi:10.1109/TIT.1970.1054406",
+      "level": "read in part",
+      "used_for": "abstention as a first-class answer: trading errors for rejections"
+    },
+    {
+      "id": "eisenberg-noe",
+      "authors": "Larry Eisenberg and Thomas H. Noe",
+      "year": 2001,
+      "title": "Systemic Risk in Financial Systems",
+      "title_note": null,
+      "venue": "Management Science, vol. 47, no. 2, pp. 236-249",
+      "identifier": "doi:10.1287/mnsc.47.2.236.9835",
+      "level": "read in part",
+      "used_for": "the clearing fixed point of a network of obligations"
+    },
+    {
+      "id": "rogers-veraart",
+      "authors": "L. C. G. Rogers and L. A. M. Veraart",
+      "year": 2013,
+      "title": "Failure and Rescue in an Interbank Network",
+      "title_note": null,
+      "venue": "Management Science, vol. 59, no. 4, pp. 882-898",
+      "identifier": "doi:10.1287/mnsc.1120.1569",
+      "level": "read in part",
+      "used_for": "default costs, under which the fixed point need not be unique"
+    },
+    {
+      "id": "amini-uniqueness",
+      "authors": "Hamed Amini, Damir Filipovic and Andreea Minca",
+      "year": 2016,
+      "title": "Uniqueness of equilibrium in a payment system with liquidation costs",
+      "title_note": null,
+      "venue": "Operations Research Letters, vol. 44, no. 1, pp. 1-5",
+      "identifier": "doi:10.1016/j.orl.2015.10.005",
+      "level": "read in part",
+      "used_for": "when liquidation costs still leave a single equilibrium"
+    },
+    {
+      "id": "qin-liquidations",
+      "authors": "Kaihua Qin, Liyi Zhou, Pablo Gamito, Philipp Jovanovic and Arthur Gervais",
+      "year": 2021,
+      "title": "An Empirical Study of DeFi Liquidations: Incentives, Risks, and Instabilities",
+      "title_note": null,
+      "venue": "ACM Internet Measurement Conference (IMC)",
+      "identifier": "doi:10.1145/3487552.3487811",
+      "level": "read in part",
+      "used_for": "the scale of liquidations and why an attested price matters"
+    },
+    {
+      "id": "gatto-liquidation",
+      "authors": "Daniel Gatto",
+      "year": 2026,
+      "title": null,
+      "title_note": "the title names the lending protocol studied, which the site describes generically",
+      "venue": "SSRN working paper 7157638",
+      "identifier": null,
+      "level": "read in full",
+      "used_for": "eligible debt is not executed volume, and executed volume is not protocol bad debt"
+    },
+    {
+      "id": "cifuentes-ferrucci-shin",
+      "authors": "Rodrigo Cifuentes, Gianluigi Ferrucci and Hyun Song Shin",
+      "year": 2005,
+      "title": "Liquidity risk and contagion",
+      "title_note": null,
+      "venue": "Bank of England Working Paper 264",
+      "identifier": null,
+      "level": "read in full",
+      "used_for": "how forced sales into an inelastic market move the price a book is marked at"
+    },
+    {
+      "id": "diamond-dybvig",
+      "authors": "Douglas W. Diamond and Philip H. Dybvig",
+      "year": 1983,
+      "title": "Bank Runs, Deposit Insurance, and Liquidity",
+      "title_note": null,
+      "venue": "Journal of Political Economy, vol. 91, no. 3, pp. 401-419",
+      "identifier": "doi:10.1086/261155",
+      "level": "read in part",
+      "used_for": "the object Narabi senses: a run on a claim redeemable at face value"
+    },
+    {
+      "id": "goldstein-pauzner",
+      "authors": "Itay Goldstein and Ady Pauzner",
+      "year": 2005,
+      "title": "Demand-Deposit Contracts and the Probability of Bank Runs",
+      "title_note": null,
+      "venue": "The Journal of Finance, vol. 60, no. 3, pp. 1293-1327",
+      "identifier": "doi:10.1111/j.1540-6261.2005.00762.x",
+      "level": "read in part",
+      "used_for": "runs tied to fundamentals rather than to a coin toss between equilibria"
+    },
+    {
+      "id": "cong-tokenized",
+      "authors": "Cong, Landsman, Rabetti, Zhang and Zhao",
+      "year": 2025,
+      "title": "Tokenized Stocks",
+      "title_note": null,
+      "venue": "SSRN working paper 5937314",
+      "identifier": null,
+      "level": "read in full",
+      "used_for": "overnight and weekend deviations of tokenized equities from the last close"
+    },
+    {
+      "id": "french-weekend",
+      "authors": "Kenneth R. French",
+      "year": 1980,
+      "title": "Stock Returns and the Weekend Effect",
+      "title_note": null,
+      "venue": "Journal of Financial Economics, vol. 8, no. 1, pp. 55-69",
+      "identifier": "doi:10.1016/0304-405X(80)90021-5",
+      "level": "not yet obtained",
+      "used_for": "the historical antecedent of the weekend gap, cited as a name only until obtained"
+    },
+    {
+      "id": "fips-sha",
+      "authors": "National Institute of Standards and Technology",
+      "year": 2015,
+      "title": "Secure Hash Standard (SHS)",
+      "title_note": null,
+      "venue": "Federal Information Processing Standards Publication 180-4",
+      "identifier": null,
+      "level": "read in part",
+      "used_for": "the hash every record, line and digest is recomputed with"
+    },
+    {
+      "id": "rfc-eddsa",
+      "authors": "S. Josefsson and I. Liusvaara",
+      "year": 2017,
+      "title": "Edwards-Curve Digital Signature Algorithm (EdDSA)",
+      "title_note": null,
+      "venue": "IETF RFC 8032",
+      "identifier": null,
+      "level": "read in part",
+      "used_for": "the signature over each line of the Bell timeline"
+    },
+    {
+      "id": "rfc-cbor",
+      "authors": "C. Bormann and P. Hoffman",
+      "year": 2020,
+      "title": "Concise Binary Object Representation (CBOR)",
+      "title_note": null,
+      "venue": "IETF RFC 8949",
+      "identifier": null,
+      "level": "read in part",
+      "used_for": "deterministic canonical bytes"
+    },
+    {
+      "id": "chainlink-2017",
+      "authors": "Steve Ellis, Ari Juels and Sergey Nazarov",
+      "year": 2017,
+      "title": "ChainLink: A Decentralized Oracle Network",
+      "title_note": null,
+      "venue": "Whitepaper v1.0, 4 September 2017",
+      "identifier": "https://research.chain.link/whitepaper-v1.pdf",
+      "level": "read in part",
+      "used_for": "faults correlated across data sources, one source copying another (Sections 4.1 and 5.3), and the research it proposed on mapping the independence of data sources"
+    },
+    {
+      "id": "rfc-transparency",
+      "authors": "B. Laurie, E. Messeri and R. Stradling",
+      "year": 2021,
+      "title": "Certificate Transparency Version 2.0",
+      "title_note": null,
+      "venue": "IETF RFC 9162",
+      "identifier": null,
+      "level": "read in part",
+      "used_for": "an analogy only: an append-only, hash-chained log makes a rewrite detectable"
+    },
+    {
+      "id": "milionis-lvr",
+      "authors": "Jason Milionis, Ciamac C. Moallemi, Tim Roughgarden and Anthony Lee Zhang",
+      "year": 2022,
+      "title": "Automated Market Making and Loss-Versus-Rebalancing",
+      "title_note": null,
+      "venue": "working paper",
+      "identifier": "arXiv:2208.06046",
+      "level": "read in part",
+      "used_for": "what a liquidity pool loses to better-informed arbitrage, with fees tracked apart"
+    },
+    {
+      "id": "glosten-milgrom",
+      "authors": "Lawrence R. Glosten and Paul R. Milgrom",
+      "year": 1985,
+      "title": "Bid, Ask and Transaction Prices in a Specialist Market with Heterogeneously Informed Traders",
+      "title_note": null,
+      "venue": "Journal of Financial Economics, vol. 14, no. 1, pp. 71-100",
+      "identifier": null,
+      "level": "read in part",
+      "used_for": "informed flow and the spread it forces"
+    },
+    {
+      "id": "easley-vpin",
+      "authors": "David Easley, Marcos M. Lopez de Prado and Maureen O'Hara",
+      "year": 2012,
+      "title": "Flow Toxicity and Liquidity in a High-Frequency World",
+      "title_note": null,
+      "venue": "Review of Financial Studies, vol. 25, no. 5, pp. 1457-1493",
+      "identifier": null,
+      "level": "read in full",
+      "used_for": "a volume-synchronized measure of order-flow toxicity"
+    },
+    {
+      "id": "almgren-chriss",
+      "authors": "Robert Almgren and Neil Chriss",
+      "year": 2000,
+      "title": "Optimal Execution of Portfolio Transactions",
+      "title_note": null,
+      "venue": "Journal of Risk, vol. 3, no. 2",
+      "identifier": null,
+      "level": "read in part",
+      "used_for": "the trade-off between the expected cost and the variance of an execution"
+    },
+    {
+      "id": "perold-shortfall",
+      "authors": "Andre F. Perold",
+      "year": 1988,
+      "title": "The Implementation Shortfall: Paper versus Reality",
+      "title_note": null,
+      "venue": "The Journal of Portfolio Management, vol. 14, no. 3, pp. 4-9",
+      "identifier": "doi:10.3905/jpm.1988.409150",
+      "level": "not yet obtained",
+      "used_for": "the yardstick of an execution receipt, cited as a name only until obtained"
+    },
+    {
+      "id": "avellaneda-stoikov",
+      "authors": "Marco Avellaneda and Sasha Stoikov",
+      "year": 2008,
+      "title": "High-frequency trading in a limit order book",
+      "title_note": null,
+      "venue": "Quantitative Finance, vol. 8, no. 3, pp. 217-224",
+      "identifier": null,
+      "level": "read in full",
+      "used_for": "how inventory risk shifts the reservation price and widens the spread"
+    },
+    {
+      "id": "nelson-siegel",
+      "authors": "Charles R. Nelson and Andrew F. Siegel",
+      "year": 1987,
+      "title": "Parsimonious Modeling of Yield Curves",
+      "title_note": null,
+      "venue": "The Journal of Business (first as NBER Working Paper 1594)",
+      "identifier": null,
+      "level": "read in part",
+      "used_for": "a curve across maturities with few parameters"
+    },
+    {
+      "id": "saltzer-schroeder",
+      "authors": "Jerome H. Saltzer and Michael D. Schroeder",
+      "year": 1975,
+      "title": "The Protection of Information in Computer Systems",
+      "title_note": null,
+      "venue": "Proceedings of the IEEE, vol. 63, no. 9, pp. 1278-1308",
+      "identifier": null,
+      "level": "read in part",
+      "used_for": "least privilege and separation of privilege"
+    },
+    {
+      "id": "miller-robust",
+      "authors": "Mark S. Miller",
+      "year": 2006,
+      "title": "Robust Composition: Towards a Unified Approach to Access Control and Concurrency Control",
+      "title_note": null,
+      "venue": "PhD dissertation, Johns Hopkins University",
+      "identifier": null,
+      "level": "read in part",
+      "used_for": "object capabilities: authority passed as a reference, never assumed"
+    }
+  ],
+  "results": [
+    {
+      "id": "split-quantile",
+      "ref": "angelopoulos-bates-gentle",
+      "locator": "Section 1 and Theorem 1",
+      "statement": "Score how wrong the model was on n calibration points, take the ceiling of (n+1)(1-alpha), over n, empirical quantile of those scores as q-hat, and keep every answer whose score is at most q-hat. If the calibration points and the new point are exchangeable, the set contains the truth with probability at least 1-alpha, averaged over calibration and test points: marginal coverage."
+    },
+    {
+      "id": "type-wise",
+      "ref": "vovk-mondrian",
+      "locator": "abstract and Section 2",
+      "statement": "With a taxonomy fixed in advance, predictions for the examples of each type are wrong, in the long run, with relative frequency at most the significance level of that type: validity holds per type, never for an individual case."
+    },
+    {
+      "id": "beyond-exchangeability",
+      "ref": "barber-beyond",
+      "locator": "Theorem 2, unit weights",
+      "statement": "Without exchangeability, the same procedure still covers with probability at least 1-alpha minus a coverage gap, a term set by how far the data depart from exchangeability; the same holds for split conformal."
+    },
+    {
+      "id": "decaying-bound",
+      "ref": "abb-decaying",
+      "locator": "Theorem 1",
+      "statement": "For an arbitrary sequence of data, with bounded scores and step sizes that never increase, the average miscoverage of the tracker after T steps stays within a stated bound of the target; with steps that decay slowly enough, the bound shrinks as T grows."
+    },
+    {
+      "id": "reject-option",
+      "ref": "chow-reject",
+      "locator": "abstract and Section I",
+      "statement": "The performance of a recognition system is characterized by its error and reject tradeoff; when the reject option is exercised, some would-be correct answers are also turned into rejects, and the paper describes the optimum rejection rule for that tradeoff."
+    },
+    {
+      "id": "eligible-not-loss",
+      "ref": "gatto-liquidation",
+      "locator": "abstract",
+      "statement": "In a looped lending book, the figure a stress test flags as at risk is liquidation-eligible debt; eligible debt is not executed volume, because a position is liquidated in parts and re-buffers; and executed volume is not protocol bad debt while nothing breaks the continuous price path."
+    }
+  ],
+  "quotes": [
+    {
+      "id": "source-independence",
+      "ref": "chainlink-2017",
+      "locator": "Section 4.1, page 11",
+      "text": "mapping and reporting the independence of data sources in an easily digestible way"
+    }
+  ]
+}
