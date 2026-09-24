@@ -24,24 +24,14 @@ import { cn } from "@/lib/utils";
  * conditional, coverage — grounded in packages/hikae/README.md (L1/L2/L3 table) and src/l2-monitor.ts
  * ("MONITOR — no guarantee claimed"). No market number, no probability of being right is rendered.
  */
-export function HikaePanel({ contract, showInside = false }: { contract: FrozenContract; showInside?: boolean }) {
-  const trigger = <DialogTrigger render={<Button variant="outline" size="sm" />}>Open panel</DialogTrigger>;
+export function HikaePanel({ contract }: { contract: FrozenContract }) {
   return (
     <Dialog>
       <AgentCard
         mark={<HikaeMark className="size-8" />}
         name="Hikae"
         status="built"
-        action={
-          showInside ? (
-            <div className="flex flex-col gap-4">
-              <WhatInside block={insideFor("hikae")} variant="well" />
-              {trigger}
-            </div>
-          ) : (
-            trigger
-          )
-        }
+        action={<DialogTrigger render={<Button variant="outline" size="sm" />}>Open panel</DialogTrigger>}
       >
         Coverage-controlled inference &mdash; the gate itself.
       </AgentCard>

@@ -16,7 +16,6 @@ import { PanelBlock, SHEET } from "@/components/panel-shell";
 import { WhatInside } from "@/components/what-inside";
 import { insideFor } from "@/lib/fleet-presentation";
 import { NARABI_ROUTE } from "@/lib/narabi-live";
-import { LEVELS, WINDOW_STEPS, GATE, NOT_LIST } from "@/lib/narabi-copy";
 import type { FrozenContract } from "@/lib/load-contract";
 import { cn } from "@/lib/utils";
 
@@ -49,26 +48,9 @@ export function NarabiPanel({ contract }: { contract: FrozenContract }) {
 
         <div className="mt-2">
           <PanelBlock title="How it works" status="built">
-            <p>
-              Narabi reads the attested redemption flow &mdash; burns, mints and closing supply over a
-              declared block window, recomputable onchain &mdash; and steps a quantile tracker on the
-              realized outcome each window, publishing the whole timeline.
-            </p>
-            <ol className="mt-2 list-decimal space-y-1 pl-5">
-              {WINDOW_STEPS.map((st) => (
-                <li key={st} className="pl-1">{st}</li>
-              ))}
-            </ol>
-          </PanelBlock>
-          <PanelBlock title="What it measures" status="built">
-            <ul className="space-y-1.5">
-              {LEVELS.map((lv) => (
-                <li key={lv.name}>
-                  <span className="font-mono text-xs uppercase tracking-wide text-monark-t">{lv.name}</span>{" "}
-                  <span>{lv.claim}</span>
-                </li>
-              ))}
-            </ul>
+            Narabi reads the attested redemption flow &mdash; burns, mints and closing supply over a
+            declared block window, recomputable onchain &mdash; and steps a quantile tracker on the
+            realized outcome each window, publishing the whole timeline.
           </PanelBlock>
           <PanelBlock title="How it is built" status="built">
             An adaptive quantile tracker (Angelopoulos, Barber and Bates decaying step) is stepped on each
@@ -85,25 +67,6 @@ export function NarabiPanel({ contract }: { contract: FrozenContract }) {
             <p className="mt-2">
               The timeline is a replayable measurement of realized flow. No coverage is claimed on it, and
               it is never a probability of being right.
-            </p>
-            <p className="mt-2">
-              The bound printed with each step is a long-run quantity that stays above its target for a
-              long time; the page prints the projected day rather than hiding it. A drift opens a review,
-              never an automatic change.
-            </p>
-            <ul className="mt-2 space-y-1">
-              {NOT_LIST.map((n) => (
-                <li key={n} className="flex gap-2">
-                  <span aria-hidden className="text-muted-foreground">&times;</span>
-                  <span>{n}</span>
-                </li>
-              ))}
-            </ul>
-          </PanelBlock>
-          <PanelBlock title="What the gate does with it" status="built">
-            <p>{GATE.body}</p>
-            <p className="mt-2">
-              Task class <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-foreground">{GATE.cls}</code>
             </p>
           </PanelBlock>
           <PanelBlock title="Living proof" status="built">
@@ -133,10 +96,8 @@ export function NarabiPanel({ contract }: { contract: FrozenContract }) {
             one-liners.
           </PanelBlock>
           <PanelBlock title="Traceability" status="built">
-            Every step carries a per-line hash chained to the previous one, the sentinel version that
-            wrote it and the endpoints it read; the published timeline replays to the byte from its
-            committed source. A rewrite is detectable by anyone holding an older copy; the only guarantor
-            of the facts is the onchain recompute.
+            Every step carries a per-line hash; the published timeline replays to the byte from its
+            committed source.
           </PanelBlock>
         </div>
       </DialogContent>
