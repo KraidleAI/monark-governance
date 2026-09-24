@@ -20,12 +20,27 @@ Single token, single ticker (`MONARK`). The agents are **products, not tokens**.
 MONARK **tokenisation layer**, the **six frozen interface contracts** (the sixth, AttestedBook, upcoming
 until served) and the served pieces that let AI agents and DeFi meet on measured ground.
 
-## Two sides, one engine
+## Two sides, one engine — the eleven components
 
-| Side | What it is | Where it lives |
+The engine is eleven components: three sensors, one gate, one act, six distribution pieces. Each of them can
+serve both sides. **Left:** what it gives an AI agent connected to the MONARK MCP endpoint (today's four
+tools are `attest · gate · cascade · calibrate`; a component marked *planned* has no served tool yet).
+**Right:** what it gives the DeFi side — the products derived from the engine (in parentheses: the products
+on the site's diagram; *wired* = declared in the registry today, *can serve* = a lead, not a delivered link).
+
+| AI side — for an agent on our MCP | Component | DeFi side — DeFAI, for the products |
 |---|---|---|
-| **AI side — the MONARK engine (the DeFAI layer)** | Everything that decides: sensors that **attest** to what happened on chain (bytes, hash, named residual hypotheses), the gate that **authorizes** under coverage control, the six frozen, language-neutral contracts, the harness through which any AI agent reaches the engine (MCP / HTTP), and the adaptation agents that keep the engine current — recalibration when a measured drift criterion fires, onboarding of new protocols and venues, tracking of new liquidation mechanics, watch of the data sources the sensors depend on. | `schemas/`, `packages/*`, `apps/harness`, `apps/sentinel`, `skills/monark`, the build-and-review workflows that produce every lot of this repo |
-| **DeFi side — the products** | What the engine is put to work on: products derived from it, one per DeFi need, each served with its own published artefacts. **MONARK Bell** is the first (built, served). The others are development leads in research phase — named, not delivered. | `apps/bell` today; one app per product as each leaves research |
+| `attest`: an attested price testimony (bytes, hash, named residual hypotheses) the agent can cite instead of a scraped number — origin and bytes, never truth. | **Shōgen** — sensor, attested perception · *built* | A price a product can defend when it spends, hedges or de-risks (can serve: Warden, Softlanding, Firebreak, Ballast). |
+| `gate` + `calibrate`: the agent submits a claim and gets `commit \| defer \| abstain`, an auditable region and the budget left — never a probability of being right. | **Hikae** — the gate, coverage-controlled inference · *built* | The decision primitive of every product (wired: Firebreak, Warden, Softlanding, Verdict, Ballast). Bell's gate is its own closed publication check; a gate class for its off-hours gap is planned. |
+| `cascade`: the agent asks what a lending book would liquidate along a price path; today the served class abstains (`under_calib`) until a committed calibration is served — stated on the wire. | **Ukemi** — act, liquidation-cascade survival · *built* | Reads the deleveraging queue or the position before it clears (wired: Firebreak, Softlanding). |
+| A daily, replayable redemption-flow timeline (`state.json`, `timeline.jsonl`) any agent can read, and the served gate class `stable-run-velocity-24h` through `gate`. | **Narabi** — sensor, redemption-run sensing · *built, served daily* | Early sensing of a stablecoin run for a treasury that holds the stable (can serve: Warden, Ballast). |
+| *planned*: attest a document or an event the agent must act on — bytes and hash, never a verdict on its truth. | **Mokugeki** — sensor, document / event attestation · *named* | The attested event a settled decision starts from (can serve: Verdict). |
+| *planned*: ask, before routing a swap, whether the fill is exposed to LVR / toxic flow. | **Kaihi** — LVR / toxicity avoidance · *named* | The execution leg of a de-risk or a hedge that must not be picked off (can serve: Firebreak, Softlanding, Ballast). |
+| *planned*: execute a swap under transaction-cost analysis, with the gate's decision attached. | **Kessai** — swap execution, TCA · *named* | The act leg — de-risk, ease down, rebalance (can serve: Firebreak, Softlanding, Ballast). |
+| *planned*: quote and manage inventory for the agent's market-making. | **Kamae** — inventory market-making · *named* | Inventory-aware hedging for a treasury (can serve: Ballast). |
+| *planned*: read a PT / YT curve as an attested rate surface. | **Kyokusen** — PT / YT curve · *named* | The rate surface a rate treasury steadies against (can serve: Ballast). |
+| *planned*: the weekend / off-hours gap as a sensed quantity the agent can gate on. | **Koyomi** — weekend gap · *named* | The off-hours gap of tokenized equities, the very quantity Bell publishes (can serve: Bell). |
+| The door: discovery of the tools and the skill (MCP Registry `tech.monarkgate/monark`, `clawhub install monark`). | **Genkan** — the storefront / MCP entry point · *named* (the harness serves the door today) | Distribution of every product to the agents that consume it (can serve: all six). |
 
 **Measurement first.** No piece of MONARK is designed on a whiteboard and shipped. Each one starts as an
 empirical study — a recorded liquidation book at an archive block, a redemption-flow series measured on calm
