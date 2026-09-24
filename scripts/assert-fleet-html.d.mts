@@ -18,8 +18,10 @@ export const REPO_ROOT: string;
 export function decodeEntities(s: string): string;
 /** Strip `<script>`/`<noscript>`/`<template>` blocks (attributes + case tolerated) and comments (closed where a browser
  *  closes them, `<!-->` and `--!>` included) in one document-order pass, then decode entities: the rendered body.
- *  Throws (fail-closed) on an unclosed hidden block or comment, on a comment span holding a hidden-surface opener, on
- *  <template> nesting deeper than 256 levels, and on a `<script` or `<!--` left in the output. */
+ *  Throws (fail-closed) on an unclosed hidden block or comment, on a comment span holding a hidden-surface or raw-text
+ *  opener, on a raw-text element (style, title, textarea...) left unclosed or holding a hidden-surface opener (in a
+ *  template, a template closer too), on <template> nesting deeper than 256 levels, and on a `<script` or `<!--` left in
+ *  the output. */
 export function renderedBody(html: string): string;
 /** Assert the rendered /fleet body carries the header and each note >= 1; throws on failure (vacuity-guarded). */
 export function assertFleetBody(args: {

@@ -270,3 +270,51 @@ test("rendered_body_comment_forms_and_template_depth - browser comment closes, a
   assert.equal(renderedBody(nested(256)), "VDEEP", "(D256) 256 nested templates are followed");
   assert.throws(() => renderedBody(nested(257)), /<template> nested deeper than 256 levels/, "(D257) deeper nesting throws, named");
 });
+
+// Lot CODEQL-ALERTS-1, pli 3 (L-2, investor decision 187). Raw-text elements (style, title, textarea, xmp, iframe,
+// noembed, noframes, plaintext: WHATWG 13.2.6.4.4, 13.2.6.4.7) hold TEXT to a browser; the scanner does not remove them
+// and reads their content as markup. Where that reading changes what it takes for hidden, it throws, named: a
+// hidden-surface opener in the content (live to the scanner, it swallowed a real surface that follows: the two-pass
+// regex order threw on `<style><noscript></style><script></noscript>...`, the single pass counted the payload), a
+// template closer in the content of an element in a template, an element never closed, and a comment span holding a
+// raw-text opener (the ambiguity rule).
+test("rendered_body_raw_text_elements - a raw-text element holding a hidden-surface opener, a template closer (in a template) or left unclosed, and a comment spanning a raw-text opener, fail closed (pli 3, L-2)", () => {
+  // Clause 1: a hidden-surface opener in the content.
+  assert.throws(() => renderedBody("<style><noscript></style><script></noscript>HA"), /a <style> element holds a <noscript> opener/, "(L2) the noscript read in the style swallowed the script opener");
+  assert.throws(() => renderedBody("<style><noscript></style><script></noscript>HA</script>VB"), /a <style> element holds a <noscript> opener/, "(L2c) same, the script closed later");
+  for (const name of ["title", "textarea", "xmp", "iframe", "noembed", "noframes"]) {
+    assert.throws(() => renderedBody(`<${name}><noscript></${name}><script></noscript>HA`), new RegExp(`a <${name}> element holds a <noscript> opener`), `(L2-${name}) every raw-text element`);
+  }
+  assert.throws(() => renderedBody("<STYLE type=x><NoScript></Style ><script></noscript>HA</script>VB"), /a <style> element holds a <noscript> opener/, "(L2case) any case, attributes, a padded closer");
+  assert.throws(() => renderedBody("<style>a<b>b<noscript></style><script></noscript>HA"), /a <style> element holds a <noscript> opener/, "(L2nf) the opener need not be the first tag");
+  assert.throws(() => renderedBody("<style><template></style><script></template>HA"), /a <style> element holds a <template> opener/, "(L2tpl) a template opener");
+  assert.throws(() => renderedBody("<style><script></style><noscript></script>HA</noscript>VB"), /a <style> element holds a <script> opener/, "(L2scr) a script opener");
+  assert.throws(() => renderedBody("<template><style><noscript></style><script></noscript>HA</script></template>VA"), /a <style> element holds a <noscript> opener/, "(L2t) inside a template too");
+  // Clause 2: in template content, a template closer in the content (R-h).
+  assert.throws(() => renderedBody("<template><style></template></style>HA</template>VA"), /a <style> element in a <template> holds a <\/template>/, "(Rh1)");
+  assert.throws(() => renderedBody("<template><title></template></title>HA</template>VA"), /a <title> element in a <template> holds a <\/template>/, "(Rh3)");
+  assert.throws(() => renderedBody("<template><textarea></template></textarea>HA</template>VA"), /a <textarea> element in a <template> holds a <\/template>/, "(Rh2)");
+  // Clause 3: an element never closed (plaintext never is, 13.2.6.4.7).
+  assert.throws(() => renderedBody("<main>body</main><style>note"), /an unclosed <style> element/, "(Ru1) its text would run to the end of the input");
+  assert.throws(() => renderedBody("<template><style></template><!-->HA-->"), /an unclosed <style> element/, "(Rh1acc) no longer hidden behind a comment");
+  assert.throws(() => renderedBody("<plaintext></plaintext><script>x</script>VA"), /an unclosed <plaintext> element/, "(Pt) plaintext never ends");
+  // A comment span holding a raw-text opener: if the <!-- is text or an attribute value, the element is live.
+  assert.throws(() => renderedBody("<style><!--</style><style>--><noscript></style><script></noscript>HA</script>VB"), /a <!-- comment spans a <style> opener/, "(Byp1) a <!-- in raw text");
+  assert.throws(() => renderedBody('<p title="<!--"></p><style>--><noscript></style><script></noscript>HA</script>VB'), /a <!-- comment spans a <style> opener/, "(Byp2) a <!-- in an attribute value");
+  assert.throws(() => renderedBody('<template><p title="<!--"></p><style>--></template>HA</style></template>VA'), /a <!-- comment spans a <style> opener/, "(Byp3) in a template");
+  assert.throws(() => renderedBody("<!-- <style> -->VA"), /a <!-- comment spans a <style> opener/, "(Ca4) a real comment holding one throws too: the scanner cannot tell");
+  // Exact cases kept: raw-text elements are copied verbatim, like every generic tag.
+  assert.equal(renderedBody("<style>body{color:red}</style>VA"), "<style>body{color:red}</style>VA", "(Ex1)");
+  assert.equal(renderedBody("<title>T</title>VA<textarea>x</textarea>VB"), "<title>T</title>VA<textarea>x</textarea>VB", "(Ex2)");
+  assert.equal(renderedBody("<style>a<b>c</style>VA"), "<style>a<b>c</style>VA", "(Ex3) a generic tag in the content");
+  assert.equal(renderedBody("<template><style>x</style>HA</template>VA"), "VA", "(Ex4) a closed style in a template");
+  assert.equal(renderedBody("<style><!-- a --></style>VA"), "<style></style>VA", "(Ex6) a comment inside, removed as before");
+  assert.equal(renderedBody('<main><style>.x{}</style><p>VA</p></main><script>self.__next_f.push([1,"HA"])</script>'), "<main><style>.x{}</style><p>VA</p></main>", "(Ex7) the page shape");
+  assert.equal(renderedBody("<style>x</style><noscript>HA</noscript>VA<template>HB</template>VB"), "<style>x</style>VAVB", "(Ex8)");
+  assert.equal(renderedBody("<styles>VA</styles><noscript>HA</noscript>VB"), "<styles>VA</styles>VB", "(Bnd) `<styles>` is no raw-text element");
+  assert.equal(renderedBody("<style></template></style>VA"), "<style></template></style>VA", "(Rtop) a template closer at top level closes nothing");
+  assert.equal(renderedBody("<style><title></style><script>x</script>VA"), "<style><title></style>VA", "(Nest) a raw-text opener in the content is text");
+  assert.equal(renderedBody("<template><style><title></style>HA</template>VA"), "VA", "(NestT) likewise in a template");
+  assert.equal(renderedBody("<style>a</style ><script>x</script>VA"), "<style>a</style >VA", "(Cls) a padded closer ends the element");
+  assert.equal(renderedBody("<template><style></template x></style>HA</template>VA"), "VA", "(Rax) `</template x>` is no D3 closer (R-a)");
+});
