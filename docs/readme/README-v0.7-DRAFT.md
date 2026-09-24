@@ -79,7 +79,7 @@ The labels are the point: they say what exists today and what is only named.
   velocity adapter ship in this repo; the public endpoint serves the gate class `stable-run-velocity-24h`
   with **a committed calibration for one population** — USDe — measured on calm onchain redemption-flow
   windows. That calibration is **measured non-stationary** across half-years, so no per-window coverage is
-  claimed; the honesty sentence on the wire is the Barber, Candès, Ramdas and Tibshirani 2023 (Thm 2, unit
+  claimed; the honesty sentence on the wire is the Barber, Candes, Ramdas and Tibshirani 2023 (Thm 2, unit
   weights) wording — *no coverage is measured*. **Every other population abstains** (`under_calib`).
   An off-tool **daily** sentinel steps the tracker at block finality and publishes a replayable timeline at
   `https://monarkgate.tech/narabi/` (`state.json`, `timeline.jsonl`, per-line hash-chained).
