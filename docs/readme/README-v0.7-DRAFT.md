@@ -52,11 +52,9 @@ and gets an explicit `abstain` where nothing is measured — instead of a guess 
 
 **Kept adapted.** DeFi does not hold still: protocols upgrade, liquidation engines change shape, oracles
 and data feeds move, calibrations drift. The engine is built so that each of these is a *measured* event
-with a pre-registered response (a drift criterion, a new recorder, a new residual hypothesis, a re-frozen
-contract), and the engine's adaptation agents are the ones whose job is to detect those events and carry
-the response through the same review gates the engine was built under. Today that work is done by the
-workflow that builds and reviews this repository under human acceptance; the agents that will run it
-continuously are named directions, not delivered pieces (see the maturity table below).
+with a pre-registered response (a drift criterion, a new recorder, a new residual hypothesis, a versioned
+change to a contract). The adaptation agents are the part of the AI side that detects those events and
+prepares the response. They are on the roadmap, not yet shipped (see the maturity table below).
 
 ## What is served today
 
@@ -94,12 +92,12 @@ The labels are the point: they say what exists today and what is only named.
 | AI | **Backbone** — the gate | Hikae (coverage control) + the MONARK token's budget `B_t`; turns a sensor reading into `commit \| defer \| abstain` | **Built** — six frozen contracts (the sixth, AttestedBook, upcoming until served) |
 | AI | **Sensors and acts** | the engine's agents: sensors that attest, acts that execute, one token across all of them | **4 built** (Shōgen · Hikae · Ukemi · Narabi) · **7 named** |
 | AI | **Harness** — the door | the same engine made reachable *by other AI agents* over HTTP / MCP | **Built** — public 4-tool MCP endpoint (attest · gate · cascade · calibrate) + skill on ClawHub |
-| AI | **Adaptation agents** | agents that recalibrate, onboard protocols, track liquidation mechanics, watch sources, and review one another's lots | **Direction, unscheduled** — the build-and-review workflow exists; the continuous agents are named, not delivered |
+| AI | **Adaptation agents** | agents that recalibrate, onboard protocols, track liquidation mechanics and watch data sources | **Roadmap** — named, not shipped |
 | DeFi | **Products** — derived from the engine | one product per DeFi need, served with its own published artefacts | **1 built** (MONARK Bell) · **5 research leads** |
 
 ## The engine — AI side
 
-**Built** (each closed under an independent review and a closing verdict):
+**Built:**
 
 - **Shōgen** — attested perception: an attested price testimony — origin and bytes, never truth.
 - **Hikae** — coverage-controlled inference: the gate.
@@ -122,7 +120,7 @@ The single public sentence for Narabi, verbatim:
 **What Narabi is NOT.** The bound printed daily is the Angelopoulos, Barber and Bates 2024 (Thm 1) quantity
 `(B + η₁)/(T·η_T)` with `c = B = 1/24` and `ε = 0.1`. The published region is the tracker's, not the gate's:
 the gate keeps the committed static calibration and does **not** change until the pre-registered drift
-criterion (`rolling90_calm_miss ≥ 0.40`, evaluable after 90 calm pairs) fires and an ADR says so. Not a
+criterion (`rolling90_calm_miss ≥ 0.40`, evaluable after 90 calm pairs) fires and a published decision record says so. Not a
 per-window coverage, not a probability of being right, not a price call.
 
 **Replay them yourself.** Narabi: recompute every window from its `[from_block, to_block]` via
@@ -159,24 +157,22 @@ contracts, starts as an empirical study, and is served with its own published, r
 - **MONARK Ballast** — named; scope under study.
 
 Each lead becomes a product the way Bell did: a study on chain data, a recorder, a frozen contract if one
-is needed, a served host with a signed timeline, an independent review — then, and only then, `built`.
+is needed, a served host with a signed timeline — then, and only then, `built`.
 
-## How a piece becomes `built`
+## Maturity criteria
 
-The label is earned, never declared. A piece moves from *named* to *built* only when all of this holds:
+A component or a product is labelled `built` when all of the following hold; otherwise it is `named`:
 
 1. **A study first.** A measurement on chain data, pre-registered where it can be (hypotheses and thresholds
    written before the run), with its artefacts committed and hashed next to the code.
-2. **A frozen contract** if the piece speaks a new shape (six today; a seventh would be an ADR, not a patch).
-3. **A served path.** Its output is consumed by a real surface — an MCP/HTTP tool, a published file, a
-   downstream piece — not only by a unit test or a demo.
-4. **A non-LLM integration test** that replays the composition end to end, and a deploy check that runs
-   the real reader-side verifier against the served host.
-5. **An independent review** of the lot by a fresh reviewer, an execution oracle (typecheck, tests, lint,
-   vocabulary and language gates, export check), and a closing verdict — with every residual item named
-   and owned, never left as a bare "to do".
+2. **A frozen contract** if the piece speaks a new shape (six today; a seventh is a versioned change to the
+   interface, not a patch).
+3. **A served surface.** Its output is consumed by a live surface — an MCP/HTTP tool, a published file, a
+   downstream component — not only by a test or a demo.
+4. **An end-to-end integration test** that replays the composition, and a deployment check that runs the
+   reader-side verifier against the served host.
 
-The same path applies to a change in the engine: a recalibration, a new recorder, a new residual hypothesis.
+The same criteria apply to a change in the engine: a recalibration, a new recorder, a new residual hypothesis.
 
 ## The studies behind the pieces
 
@@ -201,7 +197,7 @@ Where a study finds nothing, the piece says so: an `abstain`, a named residual, 
 AI side — the MONARK engine
   sensors (attest)  →  the gate: Hikae + MONARK B_t  →  acts (execute · upcoming)
                             commit | defer | abstain
-  harness (MCP / HTTP)  ·  adaptation agents: recalibrate · onboard · track · watch · review
+  harness (MCP / HTTP)  ·  adaptation agents: recalibrate · onboard · track · watch
                                         │
                                         ▼
 DeFi side — the products
@@ -209,7 +205,7 @@ DeFi side — the products
 ```
 
 Every product plugs into the same gate; every future sensor attests into the same contract shape; every
-change to the engine goes through the same gates the engine was built under.
+change to the engine meets the same maturity criteria.
 
 ## Verify it yourself
 
@@ -284,10 +280,9 @@ No personal data is required to use the service (no account, e-mail, or wallet).
 
 ## Status
 
-**Phase two — integration, served piece by piece.** The contract freeze and the Hikae + Ukemi engines are
-**closed** under an independent review and a closing verdict; Narabi and MONARK Bell are served with
-published, replayable timelines. The public projection of this repo is produced by
-`scripts/export-public.mjs`; the private working history is not pushed.
+**Phase two — integration, served piece by piece.** The interface is frozen and the Hikae + Ukemi engines
+are complete; Narabi and MONARK Bell are served with published, replayable timelines. The public projection
+of this repository is produced by `scripts/export-public.mjs`.
 
 ## Run the gates
 
@@ -311,7 +306,7 @@ npm run ci   # vocabulary gate → typecheck (tsc strict) → tests (node:test)
   hash, control chars) that the TS types alone do not.
 - **Measured before served.** A piece reaches a public surface only with its study artefacts committed
   and hashed next to it (calibration digests, recorded fixtures with same-directory provenance, replayable
-  timelines) and an execution oracle — not a language model — as the proof of composition.
+  timelines) and an end-to-end execution test as the proof of composition.
 
 ## Layout
 
