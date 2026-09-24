@@ -161,7 +161,7 @@ export default function DocsVerifyPage() {
           </li>
           <li>
             <strong>The site&rsquo;s data.</strong> The facts these pages print are read from committed files, never typed. The data files
-            under <code>apps/site/data/</code>, the committed figures and the recorded traces are pinned by hash in
+            under <code>apps/site/data/</code>, the committed figures and the recorded traces are pinned by hash in{" "}
             <code>manifest.sha256.json</code>; a mismatch stops the build.
           </li>
           <li>

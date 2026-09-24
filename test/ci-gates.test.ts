@@ -182,7 +182,7 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
     1,
     "ADR-M013 must hold exactly ONE line naming `VIBEGATES_CONTENT_LIMIT` (the decision 207 amendment, source of the CONTENT list)",
   );
-  const adrNumbers: readonly string[] = CONTENT_ADR_LINE.replace(/(\d)[   ](?=\d{3}(?!\d))/g, "$1").match(/\d+/g) ?? [];
+  const adrNumbers: readonly string[] = CONTENT_ADR_LINE.replace(/(\d)[ \u00a0\u202f](?=\d{3}(?!\d))/g, "$1").match(/\d+/g) ?? [];
   assert.ok(adrNumbers.includes("8000"), "the ADR-M013 decision 207 line must state the 8000 bound the workflow carries (R-23)");
 
   // (4) exclusion pathspec for generated S2 artefacts present in the R-25 count (ADR-M003 D9).

@@ -307,7 +307,7 @@ Tailles `git diff --numstat 0a632e5` (plus deux fichiers nouveaux) :
 
 - V-4, « faults are correlated across data sources » devient « faults may be correlated across data sources » : la source dit
   « faults may be correlated across data sources » (§4.1, page 11 du PDF, ligne 28 du texte extrait de cette page).
-- V-4, « An attestation proves what a source said » devient « An attestation shows what a source said » : forme interdite D8
+- **Périmé au gel 3 (décision investisseur 204, « on laisse proves », 19:09 UTC ; annoté 2026-09-24 20:59 UTC, C-G2B-8)** : le point suivant est défait, la phrase sert « proves », forme épinglée dans `D8_ALLOWED`. Texte d'origine conservé pour l'historique : V-4, « An attestation proves what a source said » devenait « An attestation shows what a source said » : forme interdite D8
   d'`ADR-BELL-OTS-ANCHOR-1` (« proves » à propos d'un fait), la même lecture qui a fondé C-G2-4 ; la garde D8 ajoutée
   (`docs_carry_no_ots_d8_forbidden_form`) rougirait « proves ». Revenir au mot de l'investisseur demande de restreindre D8 aux
   textes d'ancrage, et la garde avec.
@@ -358,7 +358,7 @@ Environnement : ceinture de la mission sur chaque contrôle (`F:\tmp\site-docs-1
 
 - `npm test` : 1 285 tests, 1 283 verts, 0 rouge, 2 ignorés (les deux de la référence) ; test 42 vert en 349 s ; les 12 tests nouveaux
   (6 du correctif, 6 du pli) verts.
-- Export réel (`scripts/export-public.mjs --out F:\tmp\site-docs-1\pli\export`) : exit 0, 483 fichiers, 40 fichiers de la route
+- Export réel (`scripts/export-public.mjs --out F:\tmp\site-docs-1\pli\export`) : exit 0, 483 fichiers (**annoté 2026-09-24 20:59 UTC, C-G2B-8 / EXPORT-GITIGNORED-FILES-1** : ce compte incluait `apps/site/AGENTS.md` et `CLAUDE.md`, ignorés par git et présents dans l'arbre de travail ; l'export depuis l'arbre commité en compte 481), 40 fichiers de la route
   (`apps/site/app/docs`, `apps/site/components/docs`), aucun dossier `docs/` hors la route, 0 `.npmrc`/`.env*`, 0 chemin local ;
   motifs de jetons : 0 hors la liste de détection de `apps/bell/scripts/bell-publish.mjs:90` (préexistante) ;
   `EXPORT-MANIFEST.json` sha256 `44e8ff1245489eb608e4c34b22a873b059ae8ac5c4e0e82417f76c42a830b212`.
@@ -399,11 +399,11 @@ d'ADR-M004 D14, décision 3) ; LANG-GATE-DOCS-ROUTE-1 et EXPORT-TEST-DOCS-ROUTE-
 | SVG-OVERFLOW-GATE-1 (nouveau, décision 4) | l'outil `svg-overflow.mjs` de la G2 comme porte (MX-04 ne meurt que par lui) | orchestrateur | prochain lot site |
 | DOCS-LINKS-GATE-1 (nouveau, décision 4) | l'outil `links.mjs` de la G2 comme porte (MX-05 ne meurt que par lui) | orchestrateur | prochain lot site |
 | BELL-MOBILE-375-1 (nouveau, décision 4) | /bell déborde à 375 px (`scrollWidth` 496, 88 éléments, liste d'hôte `dt`/`dd`), hors lot | lot vitrine | prochaine édition de /bell |
-| SHOGEN-SCOPE-SENTENCE-1 (nouveau) | la phrase V-1 porte des mots d'état (« built and served », « not served yet ») écrits par l'investisseur, épinglés octet pour octet, non dérivés du registre : si le statut ou le câblage de Shōgen change dans `lib/fleet.ts`, la phrase est à revoir | lot vitrine | toute édition de l'entrée Shōgen du registre |
+| SHOGEN-SCOPE-SENTENCE-1 (nouveau ; **clos** au gel 4 par le couplage au registre, C-2 du cp-2, annoté 2026-09-24 20:59 UTC) | la phrase V-1 porte des mots d'état (« built and served », « not served yet ») écrits par l'investisseur, épinglés octet pour octet, non dérivés du registre : si le statut ou le câblage de Shōgen change dans `lib/fleet.ts`, la phrase est à revoir | lot vitrine | toute édition de l'entrée Shōgen du registre |
 | RENDERED-VOCAB-GATE-1 (nouveau) | les règles de vocabulaire couvrent les sources (`gate:vocab`) et les données filtrées par `siteVocabulary` ; une page future qui imprimerait des données commitées sans ce filtre leur échapperait (classe préexistante) ; un balayage du HTML construit, avec la dérogation documentée de /docs/research, la fermerait | orchestrateur | prochain lot site, avec les deux portes ci-dessus |
-| FLEET-PANEL-D8-1 (observation, rattachée à I-G2-3) | le premier paragraphe de « Honest limits » du panneau Shōgen (préexistant, base `3436304`) dit « An attested testimony proves what was said » : forme D8 selon la lecture large appliquée par C-G2-4 ; hors de la portée de la garde D8 (composants hors /docs) | lot OTS (portée de D8) | arbitrage de la portée de D8 ou prochaine édition du panneau |
-| R25-CI-GATE-1 (nouveau) | l'exception d'ADR-M013 ne change pas le job CI `r25-taille-de-lot` (fail-closed à 1 205) : une PR portant le lot sera rouge sur ce job | orchestrateur | avant l'ouverture de la PR |
-| V4-ABSENCE-CLAIM-1 (nouveau) | « no such map is published » : énoncé daté de l'investisseur, non vérifié par une recherche ici (aucun réseau) | investisseur, orchestrateur | avant l'upload |
+| FLEET-PANEL-D8-1 (observation, rattachée à I-G2-3 ; **clos** par le ruling D8 du gel 3, décision 204, annoté 2026-09-24 20:59 UTC) | le premier paragraphe de « Honest limits » du panneau Shōgen (préexistant, base `3436304`) dit « An attested testimony proves what was said » : forme D8 selon la lecture large appliquée par C-G2-4 ; hors de la portée de la garde D8 (composants hors /docs) | lot OTS (portée de D8) | arbitrage de la portée de D8 ou prochaine édition du panneau |
+| R25-CI-GATE-1 (nouveau ; **déplacé** au gel 6, lot R25-CONTENT-1, décision 207 : vert contre `lot/etude-suite`, rouge contre `main` par construction, annoté 2026-09-24 20:59 UTC) | l'exception d'ADR-M013 ne change pas le job CI `r25-taille-de-lot` (fail-closed à 1 205) : une PR portant le lot sera rouge sur ce job | orchestrateur | avant l'ouverture de la PR |
+| V4-ABSENCE-CLAIM-1 (nouveau ; **partiellement clos** au gel 5 par la décision 208 « we know of no such map being published » ; la seconde moitié « the overlap is not reported » reste ouverte, C-G2B-2, choix investisseur A/B, annoté 2026-09-24 20:59 UTC) | « no such map is published » : énoncé daté de l'investisseur, non vérifié par une recherche ici (aucun réseau) | investisseur, orchestrateur | avant l'upload |
 
 Items de la G2 laissés à leurs propriétaires : I-G2-3 (sa part /docs est désormais un test ; la part /bell/anchors reste au lot
 OTS), I-G2-5 UNIT-SERVICE-STRAY-1, I-G2-6 DOCS-NAV-COMBINING-1, I-G2-7 DOCS-RESEARCH-UNIT-1, I-G2-8 DOCS-PITCH-DECK-1,

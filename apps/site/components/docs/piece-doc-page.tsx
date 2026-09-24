@@ -127,7 +127,7 @@ function ShogenGap({ name }: { name: string }) {
         In September {work.year}, the first Chainlink whitepaper named the problem (<Cite refId="chainlink-2017" />, {quote.locator}):
         faults may be correlated across data sources, one feed quietly copying another. It proposed research into &ldquo;{quote.text}
         &rdquo;. {capitalized(countWord(years))} years later, we know of no such map being published: oracle networks aggregate feeds that may share
-        the same upstream, and the overlap is not reported.
+        the same upstream, and we know of none that reports the overlap next to its answer.
       </p>
       <Figure
         caption={

@@ -307,7 +307,6 @@ test("docs_data_is_clean — the docs data modules and the bibliography: no digi
   }
   for (const s of DOCS_SECTIONS.flatMap((x) => [x.label, x.blurb])) hits.push(...check("docs-nav", s, true));
   // The string literals of the docs sources that are not geometry or markup, digits included.
-  const MARKUP = new Set(["className", "d", "transform", "viewBox", "fill", "stroke", "fontFamily", "href", "key", "xmlns", "textAnchor", "fontStyle", "role", "strokeDasharray", "style", "id", "import", "refId", "slug", "aria-labelledby"]);
   for (const rel of [...DOCS_TSX, ...DOCS_LIBS, ROADMAP]) {
     for (const l of literalsOf(sourceFile(rel))) {
       if (l.attr !== null && MARKUP.has(l.attr)) continue;
@@ -584,6 +583,7 @@ test("shogen_served_scope_is_said_on_three_surfaces — one sentence, byte for b
   const shogen = FLEET_AGENTS.find((a) => a.name === "Shōgen");
   assert.ok(shogen !== undefined && shogen.status === "built", "the register says Shōgen is built, as the sentence does");
   assert.match(shogen.wiring.served_by, /^MCP attest/, "the register says the served piece is the attest tool, as the sentence does");
+  assert.equal(shogen.wiring.served_by, "MCP attest → gate (the attested envelope key; attested.residual filed into verdict.residual on the served gate)", "any change to the served wiring revisits the sentence (its second half says the full sensor is not served)");
   const importsScope = (rel: string): boolean => importsFrom(sourceFile(rel), "@/lib/shogen-copy").includes("SHOGEN_SERVED_SCOPE");
   // (a) MONARK Building: the fleet layer carries it as its note, rendered right after the list of built pieces.
   const roadmap = read(ROADMAP);
@@ -649,6 +649,10 @@ test("shogen_gap_quotes_and_cites_the_chainlink_whitepaper — the passage, verb
   assert.match(piece, /&ldquo;\{quote\.text\}\s*&rdquo;/, "the passage is printed between quotation marks");
   assert.match(piece, /<Cite refId="chainlink-2017" \/>/, "the page cites the whitepaper where it quotes it");
   assert.match(piece, /\{slug === "shogen" \? <ShogenGap name=\{a\.name\} \/> : null\}/, "the gap section is on the Shōgen page");
+  assert.match(piece, /years later, we know of no such map being published:/, "decision 208: the absence is stated as what we know");
+  assert.doesNotMatch(piece, /no such map is published/, "decision 208: never the universal form");
+  assert.match(piece, /and we know of none that reports the overlap next to its answer\./, "decision 211 (option A): the second half is also stated as what we know");
+  assert.doesNotMatch(piece, /the overlap is not reported/, "decision 211: never the unsourced universal on the overlap");
   assert.ok(PIECE_DOCS.shogen?.refs.includes("chainlink-2017"), "the Shōgen page lists the whitepaper in its sources");
   // Fail-closed: a passage longer than the bound throws at load (temporary root).
   const tmp = mkdtempSync(join(tmpdir(), "docs-quote-"));
@@ -679,19 +683,26 @@ const D8_ALLOWED = [/^An attestation proves what a source said, never that the s
 const SHOGEN_PANEL = "apps/site/components/shogen-panel.tsx";
 const stripAllowed = (s: string) => D8_ALLOWED.reduce((acc, re) => acc.replace(re, ""), s);
 /** The rendered text of one JSX paragraph, whitespace collapsed, one entry per sentence so the anchored forms match. */
+// String-literal attributes that carry geometry or markup, never public text (shared by the vocabulary and D8 scans; G2B, R-3).
+const MARKUP = new Set(["className", "d", "transform", "viewBox", "fill", "stroke", "fontFamily", "href", "key", "xmlns", "textAnchor", "fontStyle", "role", "strokeDasharray", "style", "id", "import", "refId", "slug", "aria-labelledby"]);
 const sentencesOf = (s: string): string[] => s.replace(/\s+/g, " ").split(/(?<=\.)\s+/).map((x) => x.trim());
 
 test("docs_carry_no_ots_d8_forbidden_form — no 'proves', 'proof that', 'at a point in time' and the rest in the docs and MONARK Building", () => {
   const hits: string[] = [];
   for (const rel of [...DOCS_TSX, ROADMAP]) for (const t of renderedOf(rel)) for (const sent of sentencesOf(t)) if (D8.test(stripAllowed(sent))) hits.push(`${rel}: ${t.slice(0, 90)}`);
+  // G2B: string literals rendered by property access (a TOC label, a constant) are public text too; markup is not.
+  for (const rel of [...DOCS_TSX, ROADMAP]) for (const l of literalsOf(sourceFile(rel))) if (l.attr === null || !MARKUP.has(l.attr)) for (const sent of sentencesOf(l.text)) if (D8.test(stripAllowed(sent))) hits.push(`${rel}: literal: ${sent.slice(0, 90)}`);
   for (const rel of DOCS_LIBS) for (const l of literalsOf(sourceFile(rel))) if (D8.test(stripAllowed(l.text))) hits.push(`${rel}: ${l.text.slice(0, 90)}`);
-  for (const t of renderedOf(SHOGEN_PANEL)) for (const sent of sentencesOf(t)) if (D8.test(stripAllowed(sent))) hits.push(`${SHOGEN_PANEL}: ${sent.slice(0, 90)}`);
+  let panelScanned = 0;
+  for (const t of renderedOf(SHOGEN_PANEL)) for (const sent of sentencesOf(t)) { panelScanned += 1; if (D8.test(stripAllowed(sent))) hits.push(`${SHOGEN_PANEL}: ${sent.slice(0, 90)}`); }
+  assert.ok(panelScanned >= 8, `control: the panel's rendered sentences are scanned (${String(panelScanned)})`);
   for (const s of [SHOGEN_SERVED_SCOPE, ...jsonStrings(JSON.parse(read(DOCS_REFERENCES_REL)) as unknown)]) if (D8.test(s)) hits.push(`data: ${s.slice(0, 90)}`);
   assert.deepEqual(hits, [], `an OTS D8 forbidden form:\n${hits.join("\n")}`);
   assert.ok(D8.test("The anchor proves the record existed at a point in time."), "control: the review's mutant reds");
   assert.ok(!D8.test("download the manifest and its proof from the anchors register"), "control: the noun proof, for the file, stays green");
   assert.ok(!D8.test(stripAllowed("An attestation proves what a source said, never that the source is right.")), "control: the allowed attestation-origin sentence stays green");
   assert.ok(D8.test(stripAllowed("An attestation proves what a source said, never that the source is wrong.")), "control: a variant of the allowed sentence reds (anchored)");
+  assert.ok(D8.test(stripAllowed("Not so: An attestation proves what a source said, never that the source is right.")), "control: the allowed form inside a longer sentence reds (the anchors are load-bearing)");
   assert.ok(sentencesOf("An attestation proves what a source said, never that the source is right. The anchor proves the record existed.").some((x) => D8.test(stripAllowed(x))), "control: any other proves still reds");
   assert.ok(renderedOf(SHOGEN_PANEL).some((t) => /An attested testimony proves what was said/.test(t)), "control: the panel is scanned and carries the second allowed form");
 });
@@ -715,4 +726,9 @@ test("docs_research_alone_waives_the_cited_platform_names — MakerDAO and Compo
   const passing = sources.filter((rel) => /siteVocabulary\(\s*[\w.()]+\s*,/.test(read(rel)));
   assert.deepEqual(passing, ["apps/site/app/docs/research/page.tsx"], "only /docs/research passes a waiver");
   assert.match(read("apps/site/app/docs/research/page.tsx"), new RegExp(`const CITED_FIGURES_WAIVER = "${escapeRe(TAG)}";`), "the page's tag is the rules' tag");
+  const researchSrc = read("apps/site/app/docs/research/page.tsx");
+  assert.equal((researchSrc.match(/siteVocabulary\(/g) ?? []).length, 1, "one vocabulary filter on the page");
+  assert.match(researchSrc, /siteVocabulary\(root, CITED_FIGURES_WAIVER\);/, "the page passes its constant, unchanged: a wider argument would widen the exception without an ADR line");
+  const figureReaders = sources.filter((rel) => /\bloadCommitted\(\s*[\w.()]+\s*\)/.test(read(rel)));
+  assert.deepEqual(figureReaders, ["apps/site/app/docs/research/page.tsx"], "only /docs/research reads the committed figures, the one page the waiver covers");
 });
