@@ -11,14 +11,16 @@
 # The inputs that name the G7 of the course are never committed (a commit cannot carry its own SHA); the orchestrator exports
 #   Q6_SHA_G7 (40 hex), Q6_EXEC_TREE (clean tree at Q6_SHA_G7, node_modules installed), Q6_TRAJ_FILE + Q6_TRAJ_SHA256 (a produce
 #   <= 12 h old) and Q6_FLOOR_CHAINSTACK_RU (canonical ledger sum + a declared margin). None is a secret: the DRYRUN line prints them.
-# Environment (C-5): the collector reads BELL_SOLANA_RPC (set below), HELIUS_API_KEY, CHAINSTACK_SOLANA_URL, POLYGON_API_KEY (the
-#   cross-check and the ADV bars) and DATABENTO_API_KEY (the reference close, D1: no longer removed). It ALSO reads
-#   CHAINSTACK_ETH_URL (the --eth leg only, never used here) and BELL_HALTS_CSV (halt rows, off for Q6 as in seq 1): those two,
-#   and only those, are removed. No key value is ever printed (A-7): lengths only.
+# Environment (C-5; least privilege, G2 M7): the collector reads BELL_SOLANA_RPC (set below), HELIUS_API_KEY, CHAINSTACK_SOLANA_URL,
+#   POLYGON_API_KEY (the cross-check and the ADV bars) and DATABENTO_API_KEY (the reference close, D1: no longer removed). Removed:
+#   what it reads but this course does not need (CHAINSTACK_ETH_URL, the --eth leg only; BELL_HALTS_CSV, off for Q6 as in seq 1)
+#   and the paid endpoints it never reads (CHAINSTACK_BASE_URL, CHAINSTACK_BSC_URL, CHAINSTACK_ROBINHOOD_URL). No key value is
+#   ever printed nor copied (A-7): xtrace is forced off and only lengths are taken.
 # After the exit: node "$Q6_EXEC_TREE/apps/bell/ops/q6-controls.mjs" --variant fast --mint <MINT> --mode <mode> --out <dir> \
 #   --exec-tree "$Q6_EXEC_TREE" --ledger-cycle-dir F:/monark-ledger/helius-2026-09-19 --seq1-state <seq 1 state.json>
 #   (exit 0 = no FAIL; C14 close_ref_present blocks the publication, C-6).
 set -u
+{ set +x; } 2>/dev/null
 usage() { echo "usage: bash launch-q6.sh <TSLAx|AAPLx|SPYx|NVDAx> <smoke|W1|W2|W3|W4> --out <dir>" >&2; exit 2; }
 MINT="${1:-}"; MODE="${2:-}"; OUT=""
 [ $# -ge 2 ] && shift 2 || usage
@@ -82,7 +84,8 @@ const key = process.env.DATABENTO_API_KEY ?? "";
 if (key === "") { console.error("cost pre-flight: no DATABENTO_API_KEY"); process.exit(3); }
 const res = await fetch(cl.DATABENTO_HIST + cl.databentoCostPath([sym], d[0], end), { headers: { Authorization: "Basic " + Buffer.from(key + ":").toString("base64") } });
 if (!res.ok) { console.error("cost pre-flight: HTTP " + res.status); process.exit(3); }
-const cost = Number(JSON.parse(await res.text()));
+let v; try { v = JSON.parse(await res.text()); } catch { console.error("cost pre-flight: not JSON"); process.exit(3); }
+const cost = Number(v);
 if (!Number.isFinite(cost)) { console.error("cost pre-flight: not a number"); process.exit(3); }
 console.log("cost_usd=" + cost);
 if (cost > Number(cap)) process.exit(4);'
@@ -106,12 +109,11 @@ cmp -s "${BASH_SOURCE[0]}" "$EXEC_TREE/apps/bell/ops/launch-q6.sh" || stop "this
 NODEV=$(node -p "process.versions.node" 2>/dev/null) || stop "node not found"
 [ "${NODEV%%.*}" = "24" ] || stop "node $NODEV (expected 24.x)"
 ( cd "$EXEC_TREE" && node -e 'const p=require.resolve("@monark/rpc-guard");if(!p.toLowerCase().startsWith((process.cwd()+require("path").sep).toLowerCase())){console.error("outside the tree: "+p);process.exit(3)}' ) || stop "@monark/rpc-guard does not resolve inside Q6_EXEC_TREE"
-HK="${HELIUS_API_KEY:-}"; PK="${POLYGON_API_KEY:-}"; CK="${CHAINSTACK_SOLANA_URL:-}"; DK="${DATABENTO_API_KEY:-}"
-[ "${#HK}" -eq 36 ] || stop "HELIUS_API_KEY length ${#HK} (expected 36)"
-[ "${#PK}" -eq 32 ] || stop "POLYGON_API_KEY length ${#PK} (expected 32)"
-[ "${#CK}" -eq 75 ] || stop "CHAINSTACK_SOLANA_URL length ${#CK} (expected 75, measured 2026-09-23)"
-[ "${#DK}" -eq 32 ] || stop "DATABENTO_API_KEY length ${#DK} (expected 32: the cash leg is ON, D1)"
-unset HK PK CK DK
+# lengths only, never a copy (G2 B2): each variable is tested set, then measured in place
+[ -n "${HELIUS_API_KEY+x}" ] && [ "${#HELIUS_API_KEY}" -eq 36 ] || stop "HELIUS_API_KEY absent or of length ${HELIUS_API_KEY+${#HELIUS_API_KEY}} (expected 36)"
+[ -n "${POLYGON_API_KEY+x}" ] && [ "${#POLYGON_API_KEY}" -eq 32 ] || stop "POLYGON_API_KEY absent or of length ${POLYGON_API_KEY+${#POLYGON_API_KEY}} (expected 32)"
+[ -n "${CHAINSTACK_SOLANA_URL+x}" ] && [ "${#CHAINSTACK_SOLANA_URL}" -eq 75 ] || stop "CHAINSTACK_SOLANA_URL absent or of length ${CHAINSTACK_SOLANA_URL+${#CHAINSTACK_SOLANA_URL}} (expected 75, measured 2026-09-23)"
+[ -n "${DATABENTO_API_KEY+x}" ] && [ "${#DATABENTO_API_KEY}" -eq 32 ] || stop "DATABENTO_API_KEY absent or of length ${DATABENTO_API_KEY+${#DATABENTO_API_KEY}} (expected 32: the cash leg is ON, D1)"
 [ -d "$LEDGER_DIR/$CYCLE" ] || stop "cycle directory $LEDGER_DIR/$CYCLE absent"
 if ls "$LEDGER_DIR/$CYCLE/"*.lock >/dev/null 2>&1; then stop "a lock is held in $LEDGER_DIR/$CYCLE (another Helius course is alive)"; fi
 if ls "$CANON_CS_CYCLE_DIR/"*.lock >/dev/null 2>&1; then stop "a lock is held in $CANON_CS_CYCLE_DIR: never two Chainstack courses at once (121 d)"; fi
@@ -136,7 +138,7 @@ echo "$HDR" >> "$LOG"
 echo "$HDR log=$LOG $TRAJ_CHECK" >> "$LOGDIR/q6-launch.log"
 cd "$EXEC_TREE" || stop "cd Q6_EXEC_TREE"
 export BELL_SOLANA_RPC="$HELIUS_ENDPOINT"
-env -u CHAINSTACK_ETH_URL -u BELL_HALTS_CSV \
+env -u CHAINSTACK_ETH_URL -u BELL_HALTS_CSV -u CHAINSTACK_BASE_URL -u CHAINSTACK_BSC_URL -u CHAINSTACK_ROBINHOOD_URL \
   node apps/bell/src/collect.ts --pools "$MINT" \
   --from-utc "$FROM" --to-utc "$TO" \
   --rebase-trajectory "$TRAJ_FILE" \

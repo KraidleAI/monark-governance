@@ -6,7 +6,8 @@
 // Usage (orchestrator, AFTER the node process has exited; refuses to read the cycle ledger while a .lock exists):
 //   node apps/bell/ops/q6-controls.mjs --mint TSLAx --mode W3 --out <the --out of the course> --exec-tree <EXEC_TREE> \
 //        [--variant fast] [--log F:/course-bell/logs/q6-TSLAx.log] [--ledger-cycle-dir F:/monark-ledger/helius-2026-09-19] \
-//        [--seq1-state <seq 1 state.json of this mint>] [--now <epoch ms>]
+//        [--seq1-state <seq 1 state.json of this mint>]
+//   (--now <epoch ms> is an OFFLINE-TEST clock override: never on a course; when present it is reported as FAIL Q6-C00.)
 // Prints one line per control: PASS|FAIL|WARN|INFO <id> <text>. Exit 0 iff no FAIL.
 // It reads ONLY: the four --out artifacts, the run log, the optional seq 1 state.json and (optional) the two cycle ledgers
 // (append-only; never the .head files). It imports digest.ts, sessions.ts and close.ts FROM THE EXEC TREE (the same code
@@ -15,6 +16,7 @@ import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
+import { spawnSync } from "node:child_process";
 
 const argv = process.argv.slice(2);
 const arg = (k, d) => { const i = argv.indexOf(k); return i >= 0 && argv[i + 1] !== undefined ? argv[i + 1] : d; };
@@ -43,7 +45,9 @@ if (OPS.length !== 2 || OPS[0] !== "helius") { process.stderr.write(`--operators
 const SMK = VARIANT === "fast" ? "fastsmoke" : "smoke";
 const LOG = arg("--log", MODE === "smoke" ? `F:/course-bell/logs/q6-${MINT}-${SMK}.log` : `F:/course-bell/logs/q6-${MINT}.log`);
 const LEDGER = arg("--ledger-cycle-dir");
-const NOW = arg("--now") !== undefined ? Number(arg("--now")) : Date.now(); // C14 clock (override: offline tests only)
+const NOW_I = argv.indexOf("--now"); // C14 clock; --now = an offline-test override, never a course control (G2 M1)
+const NOW = NOW_I >= 0 ? Number(argv[NOW_I + 1]) : Date.now();
+if (NOW_I >= 0 && !Number.isFinite(new Date(NOW).getTime())) { process.stderr.write("--now needs a finite epoch-ms value (offline tests only)\n"); process.exit(2); }
 const MAX_PAGES = 20000;                 // --max-pages of the launch script (all modes)
 const EXPECTED_ADV = { year: 2026, month: 8 };
 const EXPECTED_NTD = 21;                 // NYSE trading days of 2026-08 per the committed calendar (seq 1 q6-offline.out)
@@ -55,6 +59,12 @@ let fails = 0;
 const out = (lvl, id, txt) => { if (lvl === "FAIL") fails += 1; process.stdout.write(`${lvl} ${id} ${txt}\n`); };
 const sha = (buf) => createHash("sha256").update(buf).digest("hex");
 const readJson = (p) => JSON.parse(readFileSync(p, "utf8"));
+
+// ---- Q6-C00 provenance of the check itself (G2 M8, information only) and the test-only clock override (G2 M1) ----
+const git = (...a) => { const g = spawnSync("git", ["-C", EXEC, ...a], { encoding: "utf8", env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" } }); return g.status === 0 ? g.stdout : null; };
+const head = git("rev-parse", "HEAD")?.trim() ?? "unknown", porcelain = git("status", "--porcelain");
+out("INFO", "Q6-C00", `exec-tree=${EXEC} head=${head} worktree=${porcelain === null ? "unknown" : porcelain.trim() === "" ? "clean" : `dirty (${String(porcelain.trim().split("\n").length)} entries)`}`);
+if (NOW_I >= 0) out("FAIL", "Q6-C00", `clock override --now=${new Date(NOW).toISOString()}: offline tests only, never a course control`);
 
 // ---- Q6-C00 artifacts present + their sha256 (provenance of what was checked) ----
 const files = ["state.json", "journal.json", "provenance.json", "timeline.jsonl"];

@@ -252,7 +252,7 @@ its first LIVE cross-check has never been observed, so ONE reference day already
 is printed (never a key, never a close):
 
 ```bash
-cd <EXEC_TREE> && node --input-type=module -e 'import { DATABENTO_HIST, databentoCostPath } from "./apps/bell/src/close.ts"; const d = process.argv[1], e = new Date(Date.parse(d + "T00:00:00Z") + 86400000).toISOString().slice(0, 10); const r = await fetch(DATABENTO_HIST + databentoCostPath(["TSLA"], d, e), { headers: { Authorization: "Basic " + Buffer.from((process.env.DATABENTO_API_KEY ?? "") + ":").toString("base64") } }); console.log(r.ok ? "cost_usd=" + Number(JSON.parse(await r.text())) : "HTTP " + r.status);' -- 2026-09-15
+cd <EXEC_TREE> && node --input-type=module -e 'import { DATABENTO_HIST, databentoCostPath } from "./apps/bell/src/close.ts"; if (!process.env.DATABENTO_API_KEY) { console.log("no key"); process.exit(3); } const d = process.argv[1], e = new Date(Date.parse(d + "T00:00:00Z") + 86400000).toISOString().slice(0, 10); const r = await fetch(DATABENTO_HIST + databentoCostPath(["TSLA"], d, e), { headers: { Authorization: "Basic " + Buffer.from((process.env.DATABENTO_API_KEY ?? "") + ":").toString("base64") } }); console.log(r.ok ? "cost_usd=" + Number(JSON.parse(await r.text())) : "HTTP " + r.status);' -- 2026-09-15
 ```
 
 ```bash
@@ -260,7 +260,8 @@ cd <EXEC_TREE> && node --input-type=module -e 'import { readReferenceCloses, rea
 ```
 
 Expected: `cost_usd=<n>` with n <= 1 (the metadata call is free, PR-B-DBN Q7; the one-day range request of the second command is
-the only billed Databento call of this step), then exactly `{"cross":{"TSLA":{"2026-09-15":"matched"}},"faults":[]}`. **STOP** on anything else:
+the only billed Databento call of this step; `no key` = STOP, nothing was requested). Run the second command only after the first
+printed `cost_usd=<n>` with n <= 1. It prints exactly `{"cross":{"TSLA":{"2026-09-15":"matched"}},"faults":[]}`. **STOP** on anything else:
 `mismatch` (the two sources disagree on the scaled integer), `unavailable` (the cross-check key or host), a fault, or
 `{"cross":{},"faults":[]}` (no Databento key: nothing was requested). No course then; the investigation is named in the JOURNAL.
 Rollback: none (read-only).
@@ -278,8 +279,9 @@ node <EXEC_TREE>/apps/bell/ops/q6-controls.mjs --variant fast --mint <MINT> --mo
 ```
 
 Expected: `RESULT 0 FAIL`; **`PASS Q6-C14` (close_ref_present) is blocking** (C-6): a `no_close_ref` is admitted only on a session
-whose reference close is not yet publishable. A `WARN Q6-C15` (seq 1 differs) is written as a D-n line with its figures. Only then
-is the bundle assembled (step 9). Rollback: `<OUT>` is moved aside, never overwritten (the launcher refuses an existing state).
+whose reference close is not yet publishable. Never `--now` here: it is an offline-test clock override, reported as `FAIL Q6-C00`.
+A `WARN Q6-C15` (seq 1 differs) is written as a D-n line with its figures. Only then is the bundle assembled (step 9). Rollback:
+`<OUT>` is moved aside, never overwritten (the launcher refuses an existing state).
 
 ## 9. The first bundle (gates G-b and G-e)
 
