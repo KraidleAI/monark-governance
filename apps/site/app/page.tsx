@@ -70,12 +70,14 @@ export default function HomePage() {
         </div>
         <div className="c-herotext">
           <div className="c-col">
-            <span className="c-label">a company of agent-products on one coverage-controlled gate</span>
-            <h1>One engine. AI layers, DeFi layers.</h1>
+            <span className="c-label">two sides, one engine</span>
+            <h1>One engine. AI side, DeFi side.</h1>
             <p className="c-dek">
-              MONARK is an engine: a coverage-controlled gate at the core, AI layers that read and attest, DeFi layers
-              that act on-chain. Built agents run on the orbits and meet the gate where they cross; upcoming ones wait
-              on the dashed ring. Each status comes from the fleet register.
+              MONARK is one engine with two sides. The AI side is the engine itself: a coverage-controlled gate that
+              answers commit, defer or abstain, never a probability of being right, with the components that read,
+              attest and act around it. The DeFi side is the on-chain applications it powers, MONARK Bell first. Built
+              components run on the orbits and meet the gate where they cross; upcoming ones wait on the dashed ring.
+              Each status comes from the fleet register.
             </p>
             <div className="c-ctas">
               <a className="c-btn c-btn--fill" href="#gate">

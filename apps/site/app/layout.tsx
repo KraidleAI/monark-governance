@@ -48,7 +48,7 @@ const newsreader = localFont({
 export const metadata: Metadata = {
   title: "MONARK",
   description:
-    "MONARK — a company of agent-products on one coverage-controlled gate that emits commit, defer, or abstain, and a depletable authorization budget.",
+    "MONARK — two sides, one engine. AI side: a coverage-controlled gate that emits commit, defer, or abstain over a depletable budget. DeFi side: the on-chain applications it powers, MONARK Bell first.",
 };
 
 // Apply the theme before first paint (ruling Q5): the stored explicit choice if any, else the system preference
