@@ -115,6 +115,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: test/bell-served.test.ts (bell_served_collector_revision_is_a_collector_commit) reads the served
+          # collector revision with `git cat-file`; a shallow clone has no such object (PR #90, first CI run of that test).
+          fetch-depth: 0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
