@@ -64,7 +64,7 @@ const CHAIN = { walkTimeline, trustOf, lineHash };
 
 // Pins: written by scripts/sync-bell-served.mjs from the served host at 2026-09-24T02:00:59Z (read_at in the file); the first
 // line's facts re-hashed independently by the reader-side verifier (bell-verify.mjs, lines 1, head_seq 1) before this lot.
-const PINNED_FILE_SHA256 = "8929d847b26abe2fadb8317690066d0b00cbcacdc364da7d246b2360847527fa";
+const PINNED_FILE_SHA256 = "d93c687862e59a0efe763d77f9160c09ebb5b42edabe2a0e01932261bfbd4025";
 const PINNED_FIRST = {
   seq: 1,
   kind: "publication",
@@ -90,13 +90,21 @@ test("bell_served_first_record_and_latest_publication_pinned", () => {
   assert.deepEqual(d.first_record, PINNED_FIRST);
   assert.equal(d.first_record.prev_line_hash, GENESIS, "the first line is chained from the publisher's GENESIS");
   assert.equal(BELL_GENESIS, GENESIS, "the site's genesis value is the publisher's");
-  // Seq 1 is today both the first record and the latest publication: the head must be that same line.
-  assert.equal(d.timeline.lines, 1);
-  assert.equal(d.timeline.publications, 1);
-  assert.equal(d.head.seq, 1);
-  assert.equal(d.head.line_hash, PINNED_FIRST.line_hash);
-  assert.equal(d.head.runs.length, 1);
-  assert.equal(d.head.runs[0]?.bell_sha, "f3b61af4aab1cdf31dc80c989d4ac246862cede9fbc2f90fb64e5aee90bfd1f6");
+  // Seq 2 (2026-09-24T08:41:21.864Z, decision 184: TSLAx, AAPLx and SPYx published together) is the latest publication; the
+  // first record stays seq 1. Pins re-hashed from the served host by sync-bell-served (read_at in the file) and cross-checked
+  // against the publisher's status line (JOURNAL-PROVENANCE, D-n seq 2).
+  assert.equal(d.timeline.lines, 2);
+  assert.equal(d.timeline.publications, 2);
+  assert.equal(d.head.seq, 2);
+  assert.equal(d.head.line_hash, "ef3b06f2ff93951e200a6559b42ab66df5ac4aa38b86d3aa763c118c766f6464");
+  assert.equal(d.head.prev_line_hash, PINNED_FIRST.line_hash, "seq 2 chains from seq 1");
+  assert.equal(d.head.state_sha256, "4564701add6e4231a67912ef45c7db640cd76dfe88302a96bc0e7722090508b9");
+  assert.equal(d.head.provenance_sha256, "ad8dd9b023bdfafade328d7ada5d17ae53d0de2133fcdf808237409d136fc39b");
+  assert.deepEqual(d.head.runs.map((r) => r.bell_sha), [
+    "502720e32861c74d4d149a07a3375e61cd10868244401a8fc7faf1fae7f592c4",
+    "5fbb856db73eed59b95524f4ab508e311f56f5989c463d5c57eba8e781ce270b",
+    "5fde676ec83b66c7c8ca6c93cb86985c4d37da3f8af1a6a1fd47698e171c1663",
+  ], "three runs at the head: TSLAx W3, AAPLx W3, SPYx W4 (never a single instrument, investor rule)");
   const keyring = readJson<{ keys: Array<{ key_id: string; status: string; valid_from_seq: number }> }>("apps/bell/keys/bell-keyring.json");
   assert.deepEqual(d.keyring.keys, keyring.keys.map((k) => ({ key_id: k.key_id, status: k.status, valid_from_seq: k.valid_from_seq })), "key statuses = the committed keyring");
   assert.ok(keyring.keys.some((k) => k.key_id === d.head.key_id), "the latest line's key_id is in the committed keyring (trust root, C-9)");

@@ -2,7 +2,7 @@
   "schema": "bell-deploy-ca-v1",
   "url": "https://bell.monarkgate.tech",
   "g7": "1eaeef982166068ac7a4a4deeb74c9a6b07d0b0c",
-  "checked_at": "2026-09-23T23:34:17.110Z",
+  "checked_at": "2026-09-24T08:41:49.208Z",
   "keyring_sha256": "beec868a9e7d8e396de0f0541ab20572a2159068e8102bb303cb9af368b6ef81",
   "bell_verify_sha256": "14a7e07c116ef3be70a8168f6113f46a214e04ccaa40bcba85b179f755324e8b",
   "inputs_sha256": {
@@ -11,18 +11,18 @@
     "probe_after": "82116283694ebd1e78c030f341afaea7bfdb5d6b4377165154c516b61a8c9588"
   },
   "bodies_sha256": {
-    "/state.json": "a828489f64f112c8026b7c38f3710b82af1c97245fdba10b16170e39aed7a240",
-    "/timeline.jsonl": "8dfd2b78c4ba06c61165b13f29929526b50339228a458e0c13a214281211b0ad",
+    "/state.json": "4564701add6e4231a67912ef45c7db640cd76dfe88302a96bc0e7722090508b9",
+    "/timeline.jsonl": "fba1824d9dc4a9218246dc9dd14107f89a6f14d2250c62a6cea0e3db7ccfd28b",
     "/bell/pubkey.json": "beec868a9e7d8e396de0f0541ab20572a2159068e8102bb303cb9af368b6ef81",
-    "/provenance.json": "4935a259b7d6c2ddd929b4ecd440b6918d103c76b8a42b364df1b505f041ea3b",
-    "/states/a828489f64f112c8026b7c38f3710b82af1c97245fdba10b16170e39aed7a240.json": "a828489f64f112c8026b7c38f3710b82af1c97245fdba10b16170e39aed7a240"
+    "/provenance.json": "ad8dd9b023bdfafade328d7ada5d17ae53d0de2133fcdf808237409d136fc39b",
+    "/states/4564701add6e4231a67912ef45c7db640cd76dfe88302a96bc0e7722090508b9.json": "4564701add6e4231a67912ef45c7db640cd76dfe88302a96bc0e7722090508b9"
   },
   "content_types": {
     "/state.json": "application/json",
     "/timeline.jsonl": null,
     "/bell/pubkey.json": "application/json",
     "/provenance.json": "application/json",
-    "/states/a828489f64f112c8026b7c38f3710b82af1c97245fdba10b16170e39aed7a240.json": "application/json"
+    "/states/4564701add6e4231a67912ef45c7db640cd76dfe88302a96bc0e7722090508b9.json": "application/json"
   },
   "checks": [
     {
@@ -33,7 +33,7 @@
     {
       "name": "c02_timeline_jsonl",
       "ok": true,
-      "detail": "status=200 lines=1"
+      "detail": "status=200 lines=2"
     },
     {
       "name": "c03_pubkey_equals_committed_keyring",
@@ -48,7 +48,7 @@
     {
       "name": "c05_bell_verify_keyring_root",
       "ok": true,
-      "detail": "exit=0 status=consistent_with_supplied_keyring stdout_sha256=ae2d5a27c013d82ebd479eb97192c2326654d71926ee1ebd69d95aa7182a70c7"
+      "detail": "exit=0 status=consistent_with_supplied_keyring stdout_sha256=814b5794f4243c2c0bc0d6fbb150f819afb0940dcca47e4c51dd4ef9ce2712f1"
     },
     {
       "name": "c06_acao_star",

@@ -2,11 +2,11 @@
   "$comment": "Committed, hashed facts about the SERVED Bell host, rendered by /bell and /bell/method through apps/site/lib/bell-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. Written by scripts/sync-bell-served.mjs (source-repo tool) from the files the host serves: /timeline.jsonl walked line by line under the committed keyring (chain, signatures, key schedule), /bell/pubkey.json (byte-identical to the committed keyring), /state.json and /provenance.json (bound by sha256 to the latest signed publication line, the head), the immutable /states/<sha256>.json of the head and of the first record. first_record and head = the facts of those two lines (line_hash = sha256 of the canonical line). head.runs = every run of the latest publication as served: the signed records, the residual counts (every code), the per-session rows, the volume-ratio periods and definitions WITHOUT the ratio values, the supply readout, the proof-of-reserves status only, the wrappers, the halt census and deltas, and per run from the provenance: the start of the collection, the operator counts, the fault statuses (each marked as on a ledger operator or not; no label is kept), the closing-price request digest. keyring = key ids, statuses and first seq of the committed keyring. deploy_check = counts of the committed deploy check, captured on these same bodies. collector_revision = the last commit of the collector source. served_schema = the key lists of the served envelopes and the publisher's closed list of objects. bodies_sha256 = the sha256 of the four bodies as read at read_at.",
   "schema": "monark-site-bell-served-v3",
   "host": "https://bell.monarkgate.tech",
-  "read_at": "2026-09-24T02:00:59.202Z",
+  "read_at": "2026-09-24T08:43:45.173Z",
   "timeline": {
     "schema": "bell-timeline-v1",
-    "lines": 1,
-    "publications": 1
+    "lines": 2,
+    "publications": 2
   },
   "first_record": {
     "seq": 1,
@@ -22,20 +22,20 @@
     ]
   },
   "head": {
-    "seq": 1,
+    "seq": 2,
     "kind": "publication",
-    "published_at": "2026-09-23T21:35:52.438Z",
-    "line_hash": "4a417cf02289b4968c17e7dc9f61c013bf04d62c77e541993a05a20a6965f47c",
-    "prev_line_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "published_at": "2026-09-24T08:41:21.864Z",
+    "line_hash": "ef3b06f2ff93951e200a6559b42ab66df5ac4aa38b86d3aa763c118c766f6464",
+    "prev_line_hash": "4a417cf02289b4968c17e7dc9f61c013bf04d62c77e541993a05a20a6965f47c",
     "key_id": "30fd26e80efac0d93e1f82c5f4372354ec71e5294f36d946d5167ce0ef39c672",
-    "state_sha256": "a828489f64f112c8026b7c38f3710b82af1c97245fdba10b16170e39aed7a240",
-    "provenance_sha256": "4935a259b7d6c2ddd929b4ecd440b6918d103c76b8a42b364df1b505f041ea3b",
-    "sig": "WmxE_J5Nbnz_WMgiZMxMPOF5DnvB7RFrKFWwngvA1HvQ1ROQUGA-E8kW6qyRslrXwhJWNKH-u_2xRTUKjBS5BQ",
+    "state_sha256": "4564701add6e4231a67912ef45c7db640cd76dfe88302a96bc0e7722090508b9",
+    "provenance_sha256": "ad8dd9b023bdfafade328d7ada5d17ae53d0de2133fcdf808237409d136fc39b",
+    "sig": "p6WSevOLNoXGSv3Ge3IIWVFTFDcUFhAp0yoM9aI5X3BPAcjb7aSv6CE7kMr5EevB2HYiVnJjicF9Q2wotqffBA",
     "state_schema": "bell-public-state-v1",
     "provenance_schema": "bell-public-provenance-v1",
     "runs": [
       {
-        "bell_sha": "f3b61af4aab1cdf31dc80c989d4ac246862cede9fbc2f90fb64e5aee90bfd1f6",
+        "bell_sha": "502720e32861c74d4d149a07a3375e61cd10868244401a8fc7faf1fae7f592c4",
         "schema": "bell-state-v1",
         "digest_schema": "bell-digest-v1",
         "window": {
@@ -59,7 +59,7 @@
           "cash_cross_unavailable": 0,
           "multiplier_unit": 0,
           "no_adv": 0,
-          "no_close_ref": 4,
+          "no_close_ref": 0,
           "no_fill_in_window": 0,
           "no_multiplier": 0,
           "no_quorum": 0,
@@ -75,7 +75,12 @@
         },
         "sessions": [
           {
-            "abstain": "no_close_ref",
+            "cash_cross": "matched",
+            "earliest_publish_utc": 1789675200000,
+            "exceed1": 0,
+            "exceed2": 0,
+            "exceed5": 0,
+            "gT": "0.0045769277",
             "n": 112,
             "regime": null,
             "session": "after",
@@ -84,7 +89,12 @@
             "vwap": "359.7226625820"
           },
           {
-            "abstain": "no_close_ref",
+            "cash_cross": "matched",
+            "earliest_publish_utc": 1789675200000,
+            "exceed1": 0,
+            "exceed2": 0,
+            "exceed5": 0,
+            "gT": "0.0076461167",
             "n": 268,
             "regime": "overnight-weekday",
             "session": "overnight-weekday",
@@ -93,7 +103,12 @@
             "vwap": "360.8284154216"
           },
           {
-            "abstain": "no_close_ref",
+            "cash_cross": "matched",
+            "earliest_publish_utc": 1789588800000,
+            "exceed1": 1,
+            "exceed2": 1,
+            "exceed5": 0,
+            "gT": "0.0254545113",
             "n": 308,
             "regime": null,
             "session": "pre",
@@ -102,7 +117,12 @@
             "vwap": "365.7730758835"
           },
           {
-            "abstain": "no_close_ref",
+            "cash_cross": "matched",
+            "earliest_publish_utc": 1789588800000,
+            "exceed1": 1,
+            "exceed2": 0,
+            "exceed5": 0,
+            "gT": "0.0109991552",
             "n": 2422,
             "regime": null,
             "session": "regular",
@@ -195,7 +215,7 @@
             "multiplier": "1",
             "paused": false,
             "permanent_delegate": "5aMNNLQJwAEeoemTEMkv5NVjqKwvvefRYCQ5Z67HFvEq",
-            "supply": "22963671522680",
+            "supply": "22963669791888",
             "symbol": "TSLAx"
           }
         ],
@@ -218,16 +238,343 @@
         },
         "halt_deltas": [],
         "provenance": {
-          "generated_at": "2026-09-23T17:08:22.496Z",
+          "generated_at": "2026-09-24T06:22:18.349Z",
           "providers_distinct": 2,
           "quorum_required": 2,
-          "cash_request_digest": "2c78d230f6744181d8402ca217ebfb15bb9534680a3ed45b9189c3cf55de7871",
-          "faults": [
-            {
-              "status": "HTTP 400",
-              "ledger_operator": false
+          "cash_request_digest": "7683194700c5993462ce31e4b056e95bf000f83983c3625425f40065a0de08ea",
+          "faults": [],
+          "cash_cross_mismatch_days": [],
+          "cash_cross_unavailable_days": []
+        }
+      },
+      {
+        "bell_sha": "5fbb856db73eed59b95524f4ab508e311f56f5989c463d5c57eba8e781ce270b",
+        "schema": "bell-state-v1",
+        "digest_schema": "bell-digest-v1",
+        "window": {
+          "from_utc_ms": 1789545600000,
+          "to_utc_ms": 1789631999000
+        },
+        "records": [
+          {
+            "chain": "solana",
+            "n_fills": 2619,
+            "prev_line_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "quorum_coverage": "0.2",
+            "sessions": 4,
+            "symbol": "AAPLx"
+          }
+        ],
+        "residuals": {
+          "authority_scan_mono_operator": 0,
+          "block_ts_vs_submission": 0,
+          "cash_cross_mismatch": 0,
+          "cash_cross_unavailable": 0,
+          "multiplier_unit": 1,
+          "no_adv": 0,
+          "no_close_ref": 0,
+          "no_fill_in_window": 0,
+          "no_multiplier": 0,
+          "no_quorum": 0,
+          "no_wrapper": 1,
+          "por_stale": 0,
+          "por_unavailable": 1,
+          "quorum_sampled": 1,
+          "reason_unknown": 0,
+          "rebase_unverified": 0,
+          "resume_date_gt_halt_date": 0,
+          "resume_time_missing": 0,
+          "set_authority_unscanned": 0
+        },
+        "sessions": [
+          {
+            "cash_cross": "matched",
+            "earliest_publish_utc": 1789675200000,
+            "exceed1": 1,
+            "exceed2": 1,
+            "exceed5": 0,
+            "gT": "-0.0348331181",
+            "multiplierUsed": "1.0032690125398187",
+            "n": 588,
+            "regime": null,
+            "session": "after",
+            "symbol": "AAPLx",
+            "volumeBase": "87.9116853200",
+            "vwap": "322.0799187381"
+          },
+          {
+            "cash_cross": "matched",
+            "earliest_publish_utc": 1789675200000,
+            "exceed1": 0,
+            "exceed2": 0,
+            "exceed5": 0,
+            "gT": "0.0039546808",
+            "multiplierUsed": "1.0032690125398187",
+            "n": 901,
+            "regime": "overnight-weekday",
+            "session": "overnight-weekday",
+            "symbol": "AAPLx",
+            "volumeBase": "197.5567728300",
+            "vwap": "334.8181365612"
+          },
+          {
+            "cash_cross": "matched",
+            "earliest_publish_utc": 1789588800000,
+            "exceed1": 0,
+            "exceed2": 0,
+            "exceed5": 0,
+            "gT": "0.0009762779",
+            "multiplierUsed": "1.0032690125398187",
+            "n": 360,
+            "regime": null,
+            "session": "pre",
+            "symbol": "AAPLx",
+            "volumeBase": "46.9328316500",
+            "vwap": "332.7478504698"
+          },
+          {
+            "cash_cross": "matched",
+            "earliest_publish_utc": 1789588800000,
+            "exceed1": 0,
+            "exceed2": 0,
+            "exceed5": 0,
+            "gT": "0.0058649746",
+            "multiplierUsed": "1.0032690125398187",
+            "n": 770,
+            "regime": null,
+            "session": "regular",
+            "symbol": "AAPLx",
+            "volumeBase": "119.8549608800",
+            "vwap": "334.3785364973"
+          }
+        ],
+        "volume": [
+          {
+            "adv_period": {
+              "month": 8,
+              "year": 2026
+            },
+            "formula": "vol_ratio = S / A; S = sum over this session's pool fills (session, regime, session_date_et; first and last fill in window) of abs(baseDelta) / 10^baseDec * m, m = shares-per-token multiplier in effect at the fill; A = sum(v) / n_bars over the unadjusted daily bars of the underlying dated in adv_period = the calendar month before session_date_et, one bar per NYSE trading day (n_bars = n_trading_days, else no_adv); unit = fraction of one average trading day of adv_period",
+            "multiplier_unit": true,
+            "n": 588,
+            "n_bars": 21,
+            "n_trading_days": 21,
+            "regime": null,
+            "session": "after",
+            "session_date_et": "2026-09-16",
+            "symbol": "AAPLx",
+            "window": {
+              "from_utc_ms": 1789588827000,
+              "to_utc_ms": 1789603097000
             }
-          ],
+          },
+          {
+            "adv_period": {
+              "month": 8,
+              "year": 2026
+            },
+            "formula": "vol_ratio = S / A; S = sum over this session's pool fills (session, regime, session_date_et; first and last fill in window) of abs(baseDelta) / 10^baseDec * m, m = shares-per-token multiplier in effect at the fill; A = sum(v) / n_bars over the unadjusted daily bars of the underlying dated in adv_period = the calendar month before session_date_et, one bar per NYSE trading day (n_bars = n_trading_days, else no_adv); unit = fraction of one average trading day of adv_period",
+            "multiplier_unit": true,
+            "n": 901,
+            "n_bars": 21,
+            "n_trading_days": 21,
+            "regime": "overnight-weekday",
+            "session": "overnight-weekday",
+            "session_date_et": "2026-09-16",
+            "symbol": "AAPLx",
+            "window": {
+              "from_utc_ms": 1789603264000,
+              "to_utc_ms": 1789631982000
+            }
+          },
+          {
+            "adv_period": {
+              "month": 8,
+              "year": 2026
+            },
+            "formula": "vol_ratio = S / A; S = sum over this session's pool fills (session, regime, session_date_et; first and last fill in window) of abs(baseDelta) / 10^baseDec * m, m = shares-per-token multiplier in effect at the fill; A = sum(v) / n_bars over the unadjusted daily bars of the underlying dated in adv_period = the calendar month before session_date_et, one bar per NYSE trading day (n_bars = n_trading_days, else no_adv); unit = fraction of one average trading day of adv_period",
+            "multiplier_unit": true,
+            "n": 360,
+            "n_bars": 21,
+            "n_trading_days": 21,
+            "regime": null,
+            "session": "pre",
+            "session_date_et": "2026-09-16",
+            "symbol": "AAPLx",
+            "window": {
+              "from_utc_ms": 1789545649000,
+              "to_utc_ms": 1789565383000
+            }
+          },
+          {
+            "adv_period": {
+              "month": 8,
+              "year": 2026
+            },
+            "formula": "vol_ratio = S / A; S = sum over this session's pool fills (session, regime, session_date_et; first and last fill in window) of abs(baseDelta) / 10^baseDec * m, m = shares-per-token multiplier in effect at the fill; A = sum(v) / n_bars over the unadjusted daily bars of the underlying dated in adv_period = the calendar month before session_date_et, one bar per NYSE trading day (n_bars = n_trading_days, else no_adv); unit = fraction of one average trading day of adv_period",
+            "multiplier_unit": true,
+            "n": 770,
+            "n_bars": 21,
+            "n_trading_days": 21,
+            "regime": null,
+            "session": "regular",
+            "session_date_et": "2026-09-16",
+            "symbol": "AAPLx",
+            "window": {
+              "from_utc_ms": 1789565403000,
+              "to_utc_ms": 1789588766000
+            }
+          }
+        ],
+        "supply": [
+          {
+            "decimals": 8,
+            "multiplier": "1.0026642075893797",
+            "paused": false,
+            "permanent_delegate": "5aMNNLQJwAEeoemTEMkv5NVjqKwvvefRYCQ5Z67HFvEq",
+            "supply": "15376281327013",
+            "symbol": "AAPLx"
+          }
+        ],
+        "por": [
+          {
+            "kind": "unavailable",
+            "symbol": "AAPLx"
+          }
+        ],
+        "wrapper": [
+          {
+            "contracts": [],
+            "residue": "no_wrapper",
+            "symbol": "AAPLx"
+          }
+        ],
+        "halt_census": {
+          "empty_resume": 0,
+          "total": 0
+        },
+        "halt_deltas": [],
+        "provenance": {
+          "generated_at": "2026-09-24T06:40:53.082Z",
+          "providers_distinct": 2,
+          "quorum_required": 2,
+          "cash_request_digest": "a2adfa66040ef4f886624099c887792cb1c496c17e173384f2c4f52a398aee87",
+          "faults": [],
+          "cash_cross_mismatch_days": [],
+          "cash_cross_unavailable_days": []
+        }
+      },
+      {
+        "bell_sha": "5fde676ec83b66c7c8ca6c93cb86985c4d37da3f8af1a6a1fd47698e171c1663",
+        "schema": "bell-state-v1",
+        "digest_schema": "bell-digest-v1",
+        "window": {
+          "from_utc_ms": 1789565400000,
+          "to_utc_ms": 1789588799000
+        },
+        "records": [
+          {
+            "chain": "solana",
+            "n_fills": 2244,
+            "prev_line_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "quorum_coverage": "0.2",
+            "sessions": 1,
+            "symbol": "SPYx"
+          }
+        ],
+        "residuals": {
+          "authority_scan_mono_operator": 0,
+          "block_ts_vs_submission": 0,
+          "cash_cross_mismatch": 0,
+          "cash_cross_unavailable": 0,
+          "multiplier_unit": 1,
+          "no_adv": 0,
+          "no_close_ref": 0,
+          "no_fill_in_window": 0,
+          "no_multiplier": 0,
+          "no_quorum": 0,
+          "no_wrapper": 1,
+          "por_stale": 0,
+          "por_unavailable": 1,
+          "quorum_sampled": 1,
+          "reason_unknown": 0,
+          "rebase_unverified": 0,
+          "resume_date_gt_halt_date": 0,
+          "resume_time_missing": 0,
+          "set_authority_unscanned": 0
+        },
+        "sessions": [
+          {
+            "cash_cross": "matched",
+            "earliest_publish_utc": 1789588800000,
+            "exceed1": 1,
+            "exceed2": 1,
+            "exceed5": 1,
+            "gT": "-0.1314785368",
+            "multiplierUsed": "1.005714560286254",
+            "n": 2244,
+            "regime": null,
+            "session": "regular",
+            "symbol": "SPYx",
+            "volumeBase": "2519.0799001200",
+            "vwap": "667.8730226710"
+          }
+        ],
+        "volume": [
+          {
+            "adv_period": {
+              "month": 8,
+              "year": 2026
+            },
+            "formula": "vol_ratio = S / A; S = sum over this session's pool fills (session, regime, session_date_et; first and last fill in window) of abs(baseDelta) / 10^baseDec * m, m = shares-per-token multiplier in effect at the fill; A = sum(v) / n_bars over the unadjusted daily bars of the underlying dated in adv_period = the calendar month before session_date_et, one bar per NYSE trading day (n_bars = n_trading_days, else no_adv); unit = fraction of one average trading day of adv_period",
+            "multiplier_unit": true,
+            "n": 2244,
+            "n_bars": 21,
+            "n_trading_days": 21,
+            "regime": null,
+            "session": "regular",
+            "session_date_et": "2026-09-16",
+            "symbol": "SPYx",
+            "window": {
+              "from_utc_ms": 1789565419000,
+              "to_utc_ms": 1789588761000
+            }
+          }
+        ],
+        "supply": [
+          {
+            "decimals": 8,
+            "multiplier": "1.003909240011759",
+            "paused": false,
+            "permanent_delegate": "5aMNNLQJwAEeoemTEMkv5NVjqKwvvefRYCQ5Z67HFvEq",
+            "supply": "9523129058163",
+            "symbol": "SPYx"
+          }
+        ],
+        "por": [
+          {
+            "kind": "unavailable",
+            "symbol": "SPYx"
+          }
+        ],
+        "wrapper": [
+          {
+            "contracts": [],
+            "residue": "no_wrapper",
+            "symbol": "SPYx"
+          }
+        ],
+        "halt_census": {
+          "empty_resume": 0,
+          "total": 0
+        },
+        "halt_deltas": [],
+        "provenance": {
+          "generated_at": "2026-09-24T07:06:51.700Z",
+          "providers_distinct": 2,
+          "quorum_required": 2,
+          "cash_request_digest": "ce96cdfa6bdfb348c1864fd072b4fdadd919318012f1a5b230491280571c96d1",
+          "faults": [],
           "cash_cross_mismatch_days": [],
           "cash_cross_unavailable_days": []
         }
@@ -245,14 +592,14 @@
     ]
   },
   "deploy_check": {
-    "checked_at": "2026-09-23T23:34:17.110Z",
+    "checked_at": "2026-09-24T08:41:49.208Z",
     "checks_total": 12,
     "checks_passed": 12,
     "tls_authorized": true
   },
   "collector_revision": {
-    "commit": "70bb716c03627cb0b3a65a7ae75f40ee1ff73f34",
-    "committed_at": "2026-09-23T13:05:58.000Z"
+    "commit": "3bda2cad364fd151074de209c821fd0e4959cf7c",
+    "committed_at": "2026-09-24T02:24:30.000Z"
   },
   "served_schema": {
     "state_file": [
@@ -446,9 +793,9 @@
     }
   },
   "bodies_sha256": {
-    "/timeline.jsonl": "8dfd2b78c4ba06c61165b13f29929526b50339228a458e0c13a214281211b0ad",
+    "/timeline.jsonl": "fba1824d9dc4a9218246dc9dd14107f89a6f14d2250c62a6cea0e3db7ccfd28b",
     "/bell/pubkey.json": "beec868a9e7d8e396de0f0541ab20572a2159068e8102bb303cb9af368b6ef81",
-    "/state.json": "a828489f64f112c8026b7c38f3710b82af1c97245fdba10b16170e39aed7a240",
-    "/provenance.json": "4935a259b7d6c2ddd929b4ecd440b6918d103c76b8a42b364df1b505f041ea3b"
+    "/state.json": "4564701add6e4231a67912ef45c7db640cd76dfe88302a96bc0e7722090508b9",
+    "/provenance.json": "ad8dd9b023bdfafade328d7ada5d17ae53d0de2133fcdf808237409d136fc39b"
   }
 }
