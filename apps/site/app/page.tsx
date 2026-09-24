@@ -75,9 +75,7 @@ export default function HomePage() {
             <p className="c-dek">
               MONARK is one engine with two sides. The AI side is the engine itself: a coverage-controlled gate that
               answers commit, defer or abstain, never a probability of being right, with the components that read,
-              attest and act around it. The DeFi side is the on-chain applications it powers, MONARK Bell first. Built
-              components run on the orbits and meet the gate where they cross; upcoming ones wait on the dashed ring.
-              Each status comes from the fleet register.
+              attest and act around it. The DeFi side is the on-chain applications it powers.
             </p>
             <div className="c-ctas">
               <a className="c-btn c-btn--fill" href="#gate">
