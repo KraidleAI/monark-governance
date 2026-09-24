@@ -275,11 +275,11 @@ const GATE = "Hikae and the MONARK budget";
 export const SHARED_GATE = GATE;
 
 // The six applications (fingers), each distinct from the engine agent it may use; each upcoming one is cleared by the
-// shared gate. MONARK Bell is built on its own gate. Ordered as the home segment cards. /products renders the built
-// ones in their own section (app/products/built-product-card.tsx, a server component: the served wiring never reaches
+// shared gate. MONARK Bell is built on its own gate. Ordered as the home segment cards. /applications renders the built
+// ones in their own section (app/applications/built-application-card.tsx, a server component: the served wiring never reaches
 // a client component's props nor the page payload; this module itself still ships in a client chunk, because client
 // components such as the home noyau import the register) and each upcoming one as its UpcomingPanel; applications are
-// NOT listed on /roadmap nor /fleet (the agent counts there are about AGENTS; /fleet only points to /products with
+// NOT listed on /roadmap nor /fleet (the agent counts there are about AGENTS; /fleet only points to /applications with
 // counts derived from this array). MONARK Bell's segment and its connections are register values (the agents it
 // connects to are named through registerNames, so a renamed or removed agent fails the build); its wiring names the
 // real pieces (collector reads, publisher checks, signed publication + reader-side verifier).
@@ -411,7 +411,7 @@ export function upcomingProducts(): UpcomingFleetProduct[] {
 /** The status sentence of the applications, derived from PRODUCTS: which are built, then that every other one is
  *  upcoming — and, only while every upcoming one is cleared by the shared gate, that each is. It says no more than
  *  its predicate: the register backs "cleared by the shared gate" for every upcoming application, not that each wires a
- *  fleet agent besides the gate. Rendered by /products (lede + static metadata) and the home board's aside; pinned by
+ *  fleet agent besides the gate. Rendered by /applications (lede + static metadata) and the home board's aside; pinned by
  *  test/site-build-fleet.test.ts. */
 export function productStatusSentence(): string {
   const built = builtProducts();

@@ -5,21 +5,21 @@ import { WhatInside } from "@/components/what-inside";
 import type { InsideBlock } from "@/lib/fleet-presentation";
 import { capitalized, type BuiltFleetProduct } from "@/lib/fleet";
 
-// A BUILT application on /products (MONARK Bell). A SERVER component on purpose: it reads the product's served
+// A BUILT application on /applications (MONARK Bell). A SERVER component on purpose: it reads the product's served
 // wiring on the server and renders only its digit-free `served.note`, so the served wiring metadata never reaches a client
 // component's props nor the page payload. Everything shown comes from the register (lib/fleet.ts), the panel content
 // (lib/fleet-presentation.ts) or committed, hashed served facts handed in by the page — nothing is typed here. A register
 // string that is still a named placeholder `<<name>>` (Bell's segment and reach) renders as that placeholder in the state
 // "to be decided", never with the "upcoming" default next to the product's "built" pill.
 
-export interface BuiltProductLink {
+export interface BuiltApplicationLink {
   readonly href: string;
   readonly label: string;
   /** true for a URL on another host (a plain anchor), false for a site route. */
   readonly external: boolean;
 }
 
-export interface BuiltProductFact {
+export interface BuiltApplicationFact {
   readonly label: string;
   readonly value: string;
 }
@@ -32,7 +32,7 @@ function RegisterValue({ text }: { text: string }) {
   return name === null ? <>{text}</> : <Placeholder name={name} state={UNDECIDED} />;
 }
 
-export function BuiltProductCard({
+export function BuiltApplicationCard({
   product,
   inside,
   facts,
@@ -40,8 +40,8 @@ export function BuiltProductCard({
 }: {
   product: BuiltFleetProduct;
   inside: InsideBlock;
-  facts: readonly BuiltProductFact[];
-  links: readonly BuiltProductLink[];
+  facts: readonly BuiltApplicationFact[];
+  links: readonly BuiltApplicationLink[];
 }) {
   return (
     <article className="flex flex-col gap-3 rounded-xl border bg-card p-5">

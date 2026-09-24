@@ -259,7 +259,7 @@ export default function HowItWorksPage() {
             </p>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <Link href="/products" style={{ height: 44, padding: "0 18px", borderRadius: 12, background: "var(--ink)", color: "var(--paper)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 500 }}>
+            <Link href="/applications" style={{ height: 44, padding: "0 18px", borderRadius: 12, background: "var(--ink)", color: "var(--paper)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 500 }}>
               Find your profile and its plug
             </Link>
             <Link href="/" style={{ height: 44, padding: "0 18px", borderRadius: 12, border: "1px solid var(--line)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
