@@ -11,16 +11,16 @@
 # The inputs that name the G7 of the course are never committed (a commit cannot carry its own SHA); the orchestrator exports
 #   Q6_SHA_G7 (40 hex), Q6_EXEC_TREE (clean tree at Q6_SHA_G7, node_modules installed), Q6_TRAJ_FILE + Q6_TRAJ_SHA256 (a produce
 #   <= 12 h old) and Q6_FLOOR_CHAINSTACK_RU (canonical ledger sum + a declared margin). None is a secret: the DRYRUN line prints them.
-# Environment (C-5; least privilege, G2 M7): the collector reads BELL_SOLANA_RPC (set below), HELIUS_API_KEY, CHAINSTACK_SOLANA_URL,
-#   POLYGON_API_KEY (the cross-check and the ADV bars) and DATABENTO_API_KEY (the reference close, D1: no longer removed). Removed:
-#   what it reads but this course does not need (CHAINSTACK_ETH_URL, the --eth leg only; BELL_HALTS_CSV, off for Q6 as in seq 1)
-#   and the paid endpoints it never reads (CHAINSTACK_BASE_URL, CHAINSTACK_BSC_URL, CHAINSTACK_ROBINHOOD_URL). No key value is
-#   ever printed nor copied (A-7): xtrace is forced off and only lengths are taken.
+# Environment (C-5; least privilege: G2 M7, CP2): the collector reads BELL_SOLANA_RPC (set below), HELIUS_API_KEY, POLYGON_API_KEY (cross-check, ADV bars),
+#   CHAINSTACK_SOLANA_URL, DATABENTO_API_KEY (D1). Removed from its environment: CHAINSTACK_ETH_URL (--eth leg only), BELL_HALTS_CSV (off as in seq 1), the paid
+#   endpoints it never reads (CHAINSTACK_BASE_URL, _BSC_URL, _ROBINHOOD_URL), NODE_DEBUG, NODE_DEBUG_NATIVE (request URLs carry two credentials), NODE_OPTIONS (code
+#   preload); these three and the TLS switches NODE_TLS_REJECT_UNAUTHORIZED, NODE_EXTRA_CA_CERTS are unset for every node call (line 23). No key is printed nor copied (A-7).
 # After the exit: node "$Q6_EXEC_TREE/apps/bell/ops/q6-controls.mjs" --variant fast --mint <MINT> --mode <mode> --out <dir> \
 #   --exec-tree "$Q6_EXEC_TREE" --ledger-cycle-dir F:/monark-ledger/helius-2026-09-19 --seq1-state <seq 1 state.json>
 #   (exit 0 = no FAIL; C14 close_ref_present blocks the publication, C-6).
 set -u
 { set +x; } 2>/dev/null
+unset NODE_DEBUG NODE_DEBUG_NATIVE NODE_OPTIONS NODE_TLS_REJECT_UNAUTHORIZED NODE_EXTRA_CA_CERTS
 usage() { echo "usage: bash launch-q6.sh <TSLAx|AAPLx|SPYx|NVDAx> <smoke|W1|W2|W3|W4> --out <dir>" >&2; exit 2; }
 MINT="${1:-}"; MODE="${2:-}"; OUT=""
 [ $# -ge 2 ] && shift 2 || usage
@@ -138,7 +138,7 @@ echo "$HDR" >> "$LOG"
 echo "$HDR log=$LOG $TRAJ_CHECK" >> "$LOGDIR/q6-launch.log"
 cd "$EXEC_TREE" || stop "cd Q6_EXEC_TREE"
 export BELL_SOLANA_RPC="$HELIUS_ENDPOINT"
-env -u CHAINSTACK_ETH_URL -u BELL_HALTS_CSV -u CHAINSTACK_BASE_URL -u CHAINSTACK_BSC_URL -u CHAINSTACK_ROBINHOOD_URL \
+env -u CHAINSTACK_ETH_URL -u BELL_HALTS_CSV -u CHAINSTACK_BASE_URL -u CHAINSTACK_BSC_URL -u CHAINSTACK_ROBINHOOD_URL -u NODE_DEBUG -u NODE_DEBUG_NATIVE -u NODE_OPTIONS \
   node apps/bell/src/collect.ts --pools "$MINT" \
   --from-utc "$FROM" --to-utc "$TO" \
   --rebase-trajectory "$TRAJ_FILE" \

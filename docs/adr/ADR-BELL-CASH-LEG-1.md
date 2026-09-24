@@ -26,6 +26,7 @@ Les scripts `launch-q6-fast-<MINT>.sh` (aujourd'hui dans `F:/tmp/q6course/`, vol
 ## Tuyaux (règle Branchement)
 | Tuyau | Entrée (qui produit) | Sortie (qui consomme) | État (où il vit) | Test d'intégration non-LLM |
 |---|---|---|---|---|
+| lanceur → collect (checkpoint-2, C-V-3) | `apps/bell/ops/launch-q6.sh` : environnement opérateur (les quatre clés de la course) + `Q6_*` exportés par l'orchestrateur (RUNBOOK §8 bis) | `apps/bell/src/collect.ts` (`runMain`) : `<OUT>/state.json`, `journal.json`, `provenance.json`, `timeline.jsonl` | `F:/course-bell/q6/<MINT>/` (hors dépôt) + journal `F:/course-bell/logs/q6-<MINT>.log` | non exécutable hors ligne (gardes machine + réseau). Substitution : l'invocation `launch-q6.sh:142-151` est octet pour octet celle de seq 1 (`F:/tmp/q6course/launch-q6-fast-{TSLAx,AAPLx,SPYx}.sh:128-137`, `cmp`, G1 §13) et ses 16 drapeaux existent dans `collect.ts` ; préfixe `env -u` (l.141) épinglé et pré-vol exécuté par `bell-ops.test.ts`. **I-3** : premier DRYRUN par l'orchestrateur ; **déclencheur** : course seq 2 |
 | close_ref → gap | `close.ts` (source cash, clé opérateur) | `collect.ts` `gaps[].gT` | bundle opérateur `F:/course-bell/q6/<MINT>/state.json` | Q6 C14 + test unitaire `gap` (close présent ⇒ gT, absent ⇒ `no_close_ref`) |
 | bundle → servi | `bell-publish.mjs` (hôte, clé Ed25519) | `bell.monarkgate.tech/state.json`, `timeline.jsonl` seq 2 | `/var/lib/monark-bell/public` | CA `scripts/verify-bell.mjs` 12 contrôles (`docs/deploy-CA-bell.json` rejoué) |
 | servi → vitrine | `scripts/sync-bell-served.mjs` | `apps/site/app/bell/*` | `apps/site/data/bell-served.json` + manifest | `test/bell-served.test.ts` (byte-exact vs servi), `test/bell-method.test.ts` (seuils) |
@@ -35,6 +36,7 @@ Dérive de spécification (afficher un close) : `assertNoClose` + guard `close_l
 
 ## Items formés (déclencheurs)
 - LAUNCH-SCRIPTS-COMMIT-1 → ce lot (D5). Q6-C09-DATABENTO-1 → expliqué par le worker (400 vs 401) et clos par D1. FAULTS-PROVIDER-NAME-1 (b) → D2. METHOD-THRESHOLDS-1 → D4. BELL-VERIFY-SCHEDULE-1 (CA planifiée) → lot suivant, hors périmètre. LIC-DBN-1 → dossier `docs/juriste/` (propriétaire investisseur, rappels 2026-11-24 / 2026-12-10). ESC-1-REWRITE (forme binnée) → repli, déclencheur = avis juriste défavorable.
+- **BELL-GAP-ANCHOR-1** (checkpoint-2, C-V-3) : C14 et C15 joignent un gap à sa date de séance par rang dans le seau (symbole, session, régime) et égalité de `n` (G1 §5). C'est exact sur une sortie du collecteur (tri stable) et fail-closed quand la garde `n` voit l'écart (M16), mais deux sessions du même seau et du même `n`, dans un état modifié hors collecteur, seraient appariées sans alerte. Correction : porter `session_date_et` dans `gaps[]`, un changement de digest (re-pin de `PINNED_BELL_SHA`, `collect.test.ts:97`) hors de ce lot → **propriétaire** : orchestrateur ; **déclencheur** : le prochain lot collecteur qui touche le digest.
 - Aucune dette nue ; aucun procurement nouveau.
 
 ## Oracle et R-25

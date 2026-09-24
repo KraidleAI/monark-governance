@@ -252,7 +252,7 @@ its first LIVE cross-check has never been observed, so ONE reference day already
 is printed (never a key, never a close):
 
 ```bash
-cd <EXEC_TREE> && node --input-type=module -e 'import { DATABENTO_HIST, databentoCostPath } from "./apps/bell/src/close.ts"; if (!process.env.DATABENTO_API_KEY) { console.log("no key"); process.exit(3); } const d = process.argv[1], e = new Date(Date.parse(d + "T00:00:00Z") + 86400000).toISOString().slice(0, 10); const r = await fetch(DATABENTO_HIST + databentoCostPath(["TSLA"], d, e), { headers: { Authorization: "Basic " + Buffer.from((process.env.DATABENTO_API_KEY ?? "") + ":").toString("base64") } }); console.log(r.ok ? "cost_usd=" + Number(JSON.parse(await r.text())) : "HTTP " + r.status);' -- 2026-09-15
+cd <EXEC_TREE> && node --input-type=module -e 'import { DATABENTO_HIST, databentoCostPath } from "./apps/bell/src/close.ts"; if (!process.env.DATABENTO_API_KEY) { console.log("no key"); process.exit(3); } const d = process.argv[1], e = new Date(Date.parse(d + "T00:00:00Z") + 86400000).toISOString().slice(0, 10); const r = await fetch(DATABENTO_HIST + databentoCostPath(["TSLA"], d, e), { headers: { Authorization: "Basic " + Buffer.from((process.env.DATABENTO_API_KEY ?? "") + ":").toString("base64") } }); if (!r.ok) { console.log("HTTP " + r.status); process.exit(3); } let v; try { v = JSON.parse(await r.text()); } catch { console.log("not JSON"); process.exit(3); } console.log("cost_usd=" + Number(v));' -- 2026-09-15
 ```
 
 ```bash
@@ -260,7 +260,8 @@ cd <EXEC_TREE> && node --input-type=module -e 'import { readReferenceCloses, rea
 ```
 
 Expected: `cost_usd=<n>` with n <= 1 (the metadata call is free, PR-B-DBN Q7; the one-day range request of the second command is
-the only billed Databento call of this step; `no key` = STOP, nothing was requested). Run the second command only after the first
+the only billed Databento call of this step; `no key` = STOP, nothing was requested; `HTTP <status>` or `not JSON` = STOP, no byte of
+the body printed, exit 3). Run the second command only after the first
 printed `cost_usd=<n>` with n <= 1. It prints exactly `{"cross":{"TSLA":{"2026-09-15":"matched"}},"faults":[]}`. **STOP** on anything else:
 `mismatch` (the two sources disagree on the scaled integer), `unavailable` (the cross-check key or host), a fault, or
 `{"cross":{},"faults":[]}` (no Databento key: nothing was requested). No course then; the investigation is named in the JOURNAL.
@@ -280,8 +281,10 @@ node <EXEC_TREE>/apps/bell/ops/q6-controls.mjs --variant fast --mint <MINT> --mo
 
 Expected: `RESULT 0 FAIL`; **`PASS Q6-C14` (close_ref_present) is blocking** (C-6): a `no_close_ref` is admitted only on a session
 whose reference close is not yet publishable. Never `--now` here: it is an offline-test clock override, reported as `FAIL Q6-C00`.
-A `WARN Q6-C15` (seq 1 differs) is written as a D-n line with its figures. Only then is the bundle assembled (step 9). Rollback:
-`<OUT>` is moved aside, never overwritten (the launcher refuses an existing state).
+A `WARN Q6-C15` (seq 1 differs) is written as a D-n line with its figures, masked: the line prints the seq 1 and seq 2 VWAPs
+(`seq1=`, `seq2=`) on the console, and it is never pasted as printed into a document of the repository (the JOURNAL included): each
+VWAP takes the token `[masqué]` (checkpoint-2 observation). Only then is the bundle assembled (step 9). Rollback: `<OUT>` is moved
+aside, never overwritten (the launcher refuses an existing state).
 
 ## 9. The first bundle (gates G-b and G-e)
 
@@ -345,6 +348,9 @@ code captured directly (A-3):
 ```bash
 cd /f/Monark && env -u HELIUS_API_KEY -u CHAINSTACK_ETH_URL -u CHAINSTACK_SOLANA_URL -u CHAINSTACK_BASE_URL -u CHAINSTACK_BSC_URL -u CHAINSTACK_ROBINHOOD_URL -u POLYGON_API_KEY -u DATABENTO_API_KEY sh -c 'npm run ci > /f/tmp/bell-dn/o-ci.log 2>&1; echo ci=$?; npm run lint > /f/tmp/bell-dn/o-lint.log 2>&1; echo lint=$?; npm run lint:ratchet > /f/tmp/bell-dn/o-ratchet.log 2>&1; echo ratchet=$?; npm run lang:gate > /f/tmp/bell-dn/o-lang.log 2>&1; echo lang=$?; npm run export:check > /f/tmp/bell-dn/o-export.log 2>&1; echo export=$?'
 ```
+
+`apps/bell/test/bell-ops.test.ts` reads the removal list of the command above as the single source of the A-7 paid variables (the Q6
+launcher's removals are checked against it): reformatting that command line turns the test red (checkpoint-2, C-V-4).
 
 Expected: `ci=0`, `lint=0`, `ratchet=0`, `lang=0`, `export=0`; the test summary at the end of `/f/tmp/bell-dn/o-ci.log` shows
 `fail 0` (tests / pass / skipped counts written to the JOURNAL). Then `git push` only if all five are 0 (decision 136).

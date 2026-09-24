@@ -46,19 +46,36 @@ test("bell_ops_scripts_carry_no_secret_shape", () => {
   assert.ok(shapes.some((re) => re.test(ref)) && scan(ref).length === 0, "a ${VAR} reference is not a value");
 });
 
-// ---- D1 / C-5 / G2 M7: the launcher removes what the collector reads but this course does not need, and the paid endpoints of the A-7
-// list (RUNBOOK step 12) that the collector never reads (least privilege); the four credentials of the course stay. ----
+// ---- D1 / C-5 / G2 M7 / CP2 C-V-1: the env prefix of the collector call (and nothing else in the launcher) removes, in three closed
+// categories: what the collector reads but this course does not need; the paid endpoints of the A-7 list (RUNBOOK step 12) that it never
+// reads (least privilege); the node runtime diagnostics (NODE_DEBUG=fetch|undici prints every request URL into $LOG, and the Helius key
+// and the Chainstack credential ride in URLs: measured; NODE_DEBUG_NATIVE, its C++ counterpart; NODE_OPTIONS preloads code). The four
+// credentials of the course stay. CP2 decisions (a) and (b): the line right after the xtrace-off line unsets, for EVERY node call of the
+// launcher, those runtime diagnostics and the TLS switches (NODE_TLS_REJECT_UNAUTHORIZED disables certificate validation,
+// NODE_EXTRA_CA_CERTS adds trusted CAs: node --help), and nothing else; the -u of the collector call stay (double barrier). ----
 test("bell_ops_launch_unsets_only_read_unneeded_vars", () => {
-  const sh = readFileSync(LAUNCH, "utf8"), unset = [...sh.matchAll(/-u ([A-Z_]+)/g)].map((m) => m[1] ?? "").sort();
+  const sh = readFileSync(LAUNCH, "utf8"), call = /^env((?: -u [A-Z_]+)+) \\\n {2}node apps\/bell\/src\/collect\.ts /m.exec(sh);
+  assert.ok(call, "the env prefix of the collector call is found");
+  const unset = [...(call[1] ?? "").matchAll(/-u ([A-Z_]+)/g)].map((m) => m[1] ?? "").sort();
+  assert.deepEqual([...sh.matchAll(/-u ([A-Z_]+)/g)].map((m) => m[1] ?? "").sort(), unset, "every removal sits on the collector call");
   const paid = [...(/env((?: -u [A-Z_]+)+) sh -c/.exec(readFileSync(RUNBOOK, "utf8"))?.[1]?.matchAll(/-u ([A-Z_]+)/g) ?? [])].map((m) => m[1] ?? "");
   assert.equal(paid.length, 8, "the A-7 paid-variable list of RUNBOOK step 12");
   const src = join(REPO, "apps", "bell", "src"), code = [...readdirSync(src).filter((n) => n.endsWith(".ts")).map((n) => join(src, n)),
     join(REPO, "packages", "rpc-guard", "src", "transport.ts")].map((p) => readFileSync(p, "utf8")).join("\n");
   const reads = (v: string): boolean => new RegExp(`env\\.${v}\\b`).test(code), NEEDED = ["CHAINSTACK_SOLANA_URL", "DATABENTO_API_KEY", "HELIUS_API_KEY", "POLYGON_API_KEY"];
+  const RUNTIME = ["NODE_DEBUG", "NODE_DEBUG_NATIVE", "NODE_OPTIONS"]; // closed category: the node runtime diagnostics (CP2 C-V-1)
+  const TLS = ["NODE_EXTRA_CA_CERTS", "NODE_TLS_REJECT_UNAUTHORIZED"]; // closed category: the node TLS switches (CP2 decision b)
   for (const v of NEEDED) assert.ok(reads(v) && paid.includes(v), `${v}: read by the collector and needed by the course`);
-  assert.deepEqual(unset, [...paid.filter((v) => !NEEDED.includes(v)), "BELL_HALTS_CSV"].sort(), "removed = paid and unneeded + read and unneeded");
+  for (const v of RUNTIME) assert.ok(unset.includes(v) && !reads(v) && !paid.includes(v), `CP2 C-V-1: ${v} is removed from the collector's environment`);
+  assert.deepEqual(unset, [...paid.filter((v) => !NEEDED.includes(v)), "BELL_HALTS_CSV", ...RUNTIME].sort(), "removed = paid and unneeded + read and unneeded + runtime diagnostics");
   assert.deepEqual(unset.filter(reads), ["BELL_HALTS_CSV", "CHAINSTACK_ETH_URL"], "C-5: the two variables read by the collector and not needed here");
-  for (const v of unset) assert.ok(reads(v) || paid.includes(v), `${v}: read by the collector or a paid endpoint (never a fictitious removal)`);
+  for (const v of unset) assert.ok(reads(v) || paid.includes(v) || RUNTIME.includes(v), `${v}: read by the collector, a paid endpoint or a runtime diagnostic (never a fictitious removal)`);
+  const pro = /^\{ set \+x; \} 2>\/dev\/null\nunset ([A-Z_]+(?: [A-Z_]+)*)$/m.exec(sh), cleared = (pro?.[1] ?? "").trim().split(" ").filter(Boolean);
+  assert.ok(pro, "the line right after the xtrace-off line is the unset, before any node call");
+  assert.equal(sh.match(/^unset /gm)?.length, 1, "one unset line in the launcher");
+  for (const v of RUNTIME) assert.ok(cleared.includes(v), `CP2 decision (a): ${v} is unset for every node call of the launcher`);
+  for (const v of TLS) assert.ok(cleared.includes(v) && !reads(v) && !paid.includes(v) && !unset.includes(v), `CP2 decision (b): ${v} (TLS switch) is unset for every node call of the launcher`);
+  assert.deepEqual([...cleared].sort(), [...RUNTIME, ...TLS].sort(), "the unset line = runtime diagnostics + TLS switches, nothing else (never a credential)");
   assert.ok(!sh.includes("MASSIVE_API_KEY"), "C-5: no such variable in the code");
   assert.match(sh, /\[ -n "\$\{DATABENTO_API_KEY\+x\}" \] && \[ "\$\{#DATABENTO_API_KEY\}" -eq 32 \]/, "D1: the Databento key is required (its length only)");
   assert.match(sh, /\[ -e "\$OUT\/state\.json" \] && stop/, "C-9: an existing <out>/state.json stops the course");
@@ -109,8 +126,9 @@ test("bell_ops_cost_preflight_prints_only_the_cost", () => {
   assert.deepEqual([none.code, none.req], [3, null], "no key => no request at all");
 });
 
-// ---- G2 M2: the RUNBOOK dry-cross cost command (section 8 bis, command 1), run as written against the fetch stub, refuses to call without
-// a key (an empty key would send `Basic Og==`, the seq 1 profile); the billed second command is ordered after it; never --now on a course. ----
+// ---- G2 M2 (+ CP2 observation): the RUNBOOK dry-cross cost command (section 8 bis, command 1), run as written against the fetch stub,
+// refuses to call without a key (an empty key would send `Basic Og==`, the seq 1 profile), stops on an HTTP error or a non-JSON body
+// without printing a byte of it (the guard of G2 M5); the billed second command is ordered after it; never --now on a course. ----
 test("bell_runbook_dry_cross_cost_command_guards_the_key", () => {
   const rb = readFileSync(RUNBOOK, "utf8"), sec = rb.slice(rb.indexOf("## 8 bis."), rb.indexOf("## 9. "));
   const js = /node --input-type=module -e '([^']*databentoCostPath[^']*)' -- 2026-09-15/.exec(sec)?.[1] ?? "";
@@ -118,17 +136,19 @@ test("bell_runbook_dry_cross_cost_command_guards_the_key", () => {
   assert.match(sec, /Run the second command only after the first\s+printed `cost_usd=<n>` with n <= 1\./, "the billed command only after the cost is known");
   assert.match(sec, /Never `--now` here/, "the test-only clock override is excluded from a course");
   const dir = tmp("bell-rb-cost-"), stub = fetchStub(dir), req = join(dir, "req.json"), key = "d" + "b-" + "R8".repeat(14) + "r";
-  const run = (withKey: boolean): { code: number | null; out: string; req: Obj | null } => {
-    const env: NodeJS.ProcessEnv = { ...process.env, STUB_REQ: req, STUB_BODY: "0.0042", STUB_STATUS: "200" };
+  const run = (withKey: boolean, body = "0.0042", status = 200): { code: number | null; out: string; err: string; req: Obj | null } => {
+    const env: NodeJS.ProcessEnv = { ...process.env, STUB_REQ: req, STUB_BODY: body, STUB_STATUS: String(status) };
     delete env.DATABENTO_API_KEY;
     if (withKey) env.DATABENTO_API_KEY = key;
     writeFileSync(req, "null");
     const r = spawnSync(process.execPath, ["--import", stub, "--input-type=module", "-e", js, "--", "2026-09-15"], { cwd: REPO, env, encoding: "utf8" });
-    return { code: r.status, out: r.stdout, req: JSON.parse(readFileSync(req, "utf8")) as Obj | null };
+    return { code: r.status, out: r.stdout, err: r.stderr, req: JSON.parse(readFileSync(req, "utf8")) as Obj | null };
   };
-  assert.deepEqual(run(false), { code: 3, out: "no key\n", req: null }, "no key => no request");
-  assert.deepEqual(run(true), { code: 0, out: "cost_usd=0.0042\n", req: { url: DATABENTO_HIST + databentoCostPath(["TSLA"], "2026-09-15", "2026-09-16"),
-    auth: "Basic " + Buffer.from(key + ":").toString("base64") } }, "with the key: the one-day cost, the key as the Basic username");
+  const sent = { url: DATABENTO_HIST + databentoCostPath(["TSLA"], "2026-09-15", "2026-09-16"), auth: "Basic " + Buffer.from(key + ":").toString("base64") };
+  assert.deepEqual(run(false), { code: 3, out: "no key\n", err: "", req: null }, "no key => no request");
+  assert.deepEqual(run(true), { code: 0, out: "cost_usd=0.0042\n", err: "", req: sent }, "with the key: the one-day cost, the key as the Basic username");
+  assert.deepEqual(run(true, "{}", 401), { code: 3, out: "HTTP 401\n", err: "", req: sent }, "an HTTP error stops with its status only");
+  assert.deepEqual(run(true, "<html>upstream " + "q".repeat(40), 200), { code: 3, out: "not JSON\n", err: "", req: sent }, "a non-JSON body stops, no byte of it printed");
 });
 
 // ---- C-6 / C-4 / C-8 (+ G2 B1, M1, M6, M8): the controls on REAL runMain outputs (helpers/bell-served.ts: a weekend session whose reference
