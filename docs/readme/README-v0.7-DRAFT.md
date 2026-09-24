@@ -40,7 +40,7 @@ on the site's diagram; *wired* = declared in the registry today, *can serve* = a
 | *planned*: quote and manage inventory for the agent's market-making. | **Kamae** — inventory market-making · *named* | Inventory-aware hedging for a treasury (can serve: Ballast). |
 | *planned*: read a PT / YT curve as an attested rate surface. | **Kyokusen** — PT / YT curve · *named* | The rate surface a rate treasury steadies against (can serve: Ballast). |
 | *planned*: the weekend / off-hours gap as a sensed quantity the agent can gate on. | **Koyomi** — weekend gap · *named* | The off-hours gap of tokenized equities, the very quantity Bell publishes (can serve: Bell). |
-| The door: discovery of the tools and the skill (MCP Registry `tech.monarkgate/monark`, `clawhub install monark`). | **Genkan** — the storefront / MCP entry point · *named* (the harness serves the door today) | Distribution of every application to the agents that consume it (can serve: all six). |
+| The door: discovery of the tools and the skill (MCP Registry `tech.monarkgate/monark`). | **Genkan** — the storefront / MCP entry point · *named* (the harness serves the door today) | Distribution of every application to the agents that consume it (can serve: all six). |
 
 **Measurement first.** No piece of MONARK is designed on a whiteboard and shipped. Each one starts as an
 empirical study — a recorded liquidation book at an archive block, a redemption-flow series measured on calm
@@ -267,8 +267,6 @@ The engine is reachable by any MCP-capable agent over one public endpoint:
 
 - **MCP endpoint:** `https://mcp.monarkgate.tech/mcp` (HTTP/JSON mirror: `POST https://api.monarkgate.tech/{attest|gate|cascade|calibrate}`; the served `openapi.json` states the served version).
   Four tools: `attest · gate · cascade · calibrate`. Listed on the official MCP Registry as `tech.monarkgate/monark`.
-- **Skill:** an integration skill on ClawHub — `clawhub install monark` — carrying the same honesty
-  framing. The skill is MIT-0; the harness itself is Apache-2.0.
 - **Add it in one line:**
 
 ```bash
@@ -331,7 +329,6 @@ skills/monark       the integration skill (MIT-0)
 - **Bell (attested witness):** https://bell.monarkgate.tech
 - **Narabi (daily timeline):** https://monarkgate.tech/narabi/
 - **MCP endpoint:** https://mcp.monarkgate.tech/mcp (HTTP/JSON mirror: POST https://api.monarkgate.tech/{attest|gate|cascade|calibrate})
-- **Skill:** ClawHub — `clawhub install monark`
 - **Linktree:** https://linktr.ee/monarkgate
 
 ## License
