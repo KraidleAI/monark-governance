@@ -4,19 +4,18 @@ import {
   PROFILE_CHOICES,
   USE_CHOICES,
   CONSUMPTION_CHOICES,
-  mailtoHref,
 } from "@/lib/bell-contact";
 
-// Entry into relation for Bell (decision 78, amended by decision 94; lot SITE-LEGAL-1): ONE `mailto:` link to the
-// box on the domain, carrying the mail template validated by the investor's lawyer (decision 147), country field
-// dropped (decision 94). The address, the lists, the body and the encoding live in lib/bell-contact.ts (single
+// Entry into relation for Bell: the label links to the request section of the page (address as text, template as
+// text, and the one `mailto:` link of the site) so a click always lands somewhere, even in a browser with no mail
+// handler. The mail template is the one validated by the lawyer, country field dropped. The address, the lists, the body and the encoding live in lib/bell-contact.ts (single
 // source, pinned by the root test test/bell-contact.test.ts). The address is ALSO shown as text, and the template's
 // fields stay visible next to the link, as the template asks, for a mail client that does not fill the body.
 // Vocabulary "request a symbol / early access", never trial / plan / pricing.
 export function BellContact() {
   return (
     <span>
-      <a className="c-mono" href={mailtoHref()}>
+      <a className="c-mono" href="#request-a-symbol">
         {CONTACT_LABEL}
       </a>{" "}
       · <span className="c-mono">{CONTACT_ADDRESS}</span>

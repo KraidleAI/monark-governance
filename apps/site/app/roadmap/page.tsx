@@ -90,7 +90,7 @@ const PHASES: { id: string; label: ReactNode; body: ReactNode; tone: string }[] 
   {
     id: "engines",
     label: <>Phase one &middot; closed</>,
-    body: <>Hikae and Ukemi engines, closed under independent review and a closing verdict.</>,
+    body: <>Hikae and Ukemi engines complete; interface frozen.</>,
     tone: "text-hikae-t",
   },
   {

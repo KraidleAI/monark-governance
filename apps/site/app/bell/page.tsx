@@ -4,6 +4,7 @@ import { PRODUCTS } from "@/lib/fleet";
 import { loadAnchors, ANCHORS_ROUTE } from "@/lib/bell-anchors-load";
 import { AnchorsTable } from "@/components/bell/anchors-table";
 import { BellContact } from "@/components/bell/contact";
+import { BellRequestSection } from "@/components/bell/request-section";
 import { Placeholder } from "@/components/placeholder";
 import { TERMS_ROUTE, PRIVACY_ROUTE } from "@/lib/bell-legal";
 import { loadBellServed, bellServedRepoRoot, BELL_HOST, BELL_TIMELINE_PATH, BELL_STATE_PATH, BELL_PUBKEY_PATH } from "@/lib/bell-served-load";
@@ -483,6 +484,7 @@ export default function BellPage() {
           </div>
         </div>
       </section>
+      <BellRequestSection />
     </main>
   );
 }
