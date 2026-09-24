@@ -1,8 +1,8 @@
-// apps/site/components/lockups.tsx — the four MONARK lock-ups of charter C, lettering in PATHS (ruling Q1,
-// decision 146; geometry of the three "proposed" forms accepted by the orchestrator ruling of 2026-09-23).
-// Transcribed from the designer's local files (snapshot of 2026-09-23 13:18 UTC; sha256 recorded in the lot
-// report): lockups/monark-lockup-horizontal-light.svg (MONARK, header), lockups/monark-bell-lockup-stacked-light.svg
-// (Bell, handoff geometry), and the Narabi / Ukemi final lock-ups inlined in narabi.html / ukemi.html (decision 120).
+// apps/site/components/lockups.tsx — the four MONARK lock-ups of charter C, lettering in PATHS
+// (geometry of the three "proposed" forms accepted on 2026-09-23).
+// Transcribed from the designer's local files (snapshot of 2026-09-23 13:18 UTC; sha256 recorded
+// privately): lockups/monark-lockup-horizontal-light.svg (MONARK, header), lockups/monark-bell-lockup-stacked-light.svg
+// (Bell, handoff geometry), and the Narabi / Ukemi final lock-ups inlined in narabi.html / ukemi.html.
 // ONE svg per lock-up: the ink is `currentColor` and the accent is the product token (var(--narabi) / var(--ukemi)
 // / var(--bell)), so the light and dark variants of the designer's files (identical up to those two colours,
 // measured) are reproduced by the theme tokens instead of two inlined copies. The M3 point keeps #A6453E in both
@@ -15,7 +15,7 @@ const acc = (token: string): CSSProperties => ({ fill: token });
 const MONARK_H_WORD =
   "M147.4 112V94.64Q147.4 91.42 147.64 88.03Q147.89 84.63 148.17 82.32Q148.45 80.01 148.52 79.38H148.24L139.35 112H127.24L118.28 79.45H118Q118.07 80.08 118.38 82.35Q118.7 84.63 118.98 88.03Q119.26 91.42 119.26 94.64V112H105.05V63.84H126.89L134.17 91.63H134.45L141.66 63.84H162.73V112Z M219.09 87.92Q219.09 100.1 212.3 106.47Q205.51 112.84 193.05 112.84Q180.59 112.84 173.83 106.5Q167.08 100.17 167.08 87.92Q167.08 75.67 173.83 69.33Q180.59 63 193.05 63Q205.51 63 212.3 69.37Q219.09 75.74 219.09 87.92ZM182.9 85.68V90.16Q182.9 95.27 185.49 98.28Q188.08 101.29 193.05 101.29Q198.02 101.29 200.64 98.28Q203.27 95.27 203.27 90.16V85.68Q203.27 80.57 200.64 77.56Q198.02 74.55 193.05 74.55Q188.08 74.55 185.49 77.56Q182.9 80.57 182.9 85.68Z M258.86 112 238.62 88.62V112H224.42V63.84H237.93L258.16 87.57V63.84H272.37V112Z M311.3 112 309.27 105.21H292.4L290.37 112H274.55L292.12 63.84H310.11L327.68 112ZM295.62 94.43H306.05L301.01 77.28H300.73Z M366.89 91.84 377.6 112H360.24L351.7 94.43H345.96V112H330.49V63.84H359.96Q365.14 63.84 368.81 65.83Q372.49 67.83 374.34 71.22Q376.2 74.62 376.2 78.61Q376.2 83.02 373.82 86.59Q371.44 90.16 366.89 91.84ZM356.11 74.83H345.96V83.72H356.11Q357.93 83.72 359.19 82.42Q360.45 81.13 360.45 79.24Q360.45 77.35 359.19 76.09Q357.93 74.83 356.11 74.83Z M414.57 63.84H433.75L416.46 83.65L434.1 112H415.83L405.82 94.36L397.42 101.22V112H381.95V63.84H397.42V84.42Z";
 
-// The MONARK word shared by the stacked Narabi / Ukemi lock-ups (Bell x 0.8, decision 120).
+// The MONARK word shared by the stacked Narabi / Ukemi lock-ups (Bell x 0.8).
 const MONARK_PRODUCT_WORD =
   "M169.24 92V78.11Q169.24 75.54 169.44 72.82Q169.63 70.1 169.86 68.26Q170.08 66.41 170.14 65.9H169.91L162.8 92H153.11L145.94 65.96H145.72Q145.78 66.46 146.03 68.28Q146.28 70.1 146.5 72.82Q146.73 75.54 146.73 78.11V92H135.36V53.47H152.83L158.66 75.7H158.88L164.65 53.47H181.5V92Z M226.59 72.74Q226.59 82.48 221.16 87.58Q215.73 92.67 205.76 92.67Q195.79 92.67 190.39 87.6Q184.98 82.54 184.98 72.74Q184.98 62.94 190.39 57.87Q195.79 52.8 205.76 52.8Q215.73 52.8 221.16 57.9Q226.59 62.99 226.59 72.74ZM197.64 70.94V74.53Q197.64 78.62 199.71 81.02Q201.78 83.43 205.76 83.43Q209.74 83.43 211.84 81.02Q213.94 78.62 213.94 74.53V70.94Q213.94 66.86 211.84 64.45Q209.74 62.04 205.76 62.04Q201.78 62.04 199.71 64.45Q197.64 66.86 197.64 70.94Z M258.41 92 242.22 73.3V92H230.86V53.47H241.66L257.85 72.46V53.47H269.22V92Z M300.36 92 298.74 86.57H285.24L283.62 92H270.96L285.02 53.47H299.41L313.46 92ZM287.82 77.94H296.16L292.13 64.22H291.9Z M344.83 75.87 353.4 92H339.51L332.68 77.94H328.09V92H315.71V53.47H339.29Q343.43 53.47 346.37 55.07Q349.31 56.66 350.8 59.38Q352.28 62.1 352.28 65.29Q352.28 68.82 350.38 71.67Q348.47 74.53 344.83 75.87ZM336.21 62.26H328.09V69.38H336.21Q337.66 69.38 338.67 68.34Q339.68 67.3 339.68 65.79Q339.68 64.28 338.67 63.27Q337.66 62.26 336.21 62.26Z M382.98 53.47H398.32L384.49 69.32L398.6 92H383.98L375.98 77.89L369.26 83.38V92H356.88V53.47H369.26V69.94Z";
 
@@ -36,7 +36,7 @@ const BELL_WORD =
 
 type LockupProps = SVGProps<SVGSVGElement>;
 
-/** MONARK horizontal lock-up (M3 mark + MONARK word), header use (ruling: 32 px, 24 px under 720 px). */
+/** MONARK horizontal lock-up (M3 mark + MONARK word), header use (32 px, 24 px under 720 px). */
 export function MonarkLockup(props: LockupProps) {
   return (
     <svg viewBox="8.54 61.84 427.56 52.16" aria-hidden="true" focusable="false" {...props}>
@@ -60,7 +60,7 @@ export function MonarkLockup(props: LockupProps) {
   );
 }
 
-/** MONARK Narabi stacked lock-up (concept A, decision 104/120). */
+/** MONARK Narabi stacked lock-up (concept A). */
 export function NarabiLockup(props: LockupProps) {
   return (
     <svg viewBox="0 24 412 120" aria-hidden="true" focusable="false" {...props}>
@@ -81,7 +81,7 @@ export function NarabiLockup(props: LockupProps) {
   );
 }
 
-/** MONARK Ukemi stacked lock-up (concept 03, decision 103/120). */
+/** MONARK Ukemi stacked lock-up (concept 03). */
 export function UkemiLockup(props: LockupProps) {
   return (
     <svg viewBox="0 24 412 120" aria-hidden="true" focusable="false" {...props}>
@@ -100,7 +100,7 @@ export function UkemiLockup(props: LockupProps) {
   );
 }
 
-/** MONARK Bell stacked lock-up (concept 01 "Bauhaus", decision 64; the bell replaces the O). Framed with the
+/** MONARK Bell stacked lock-up (concept 01 "Bauhaus"; the bell replaces the O). Framed with the
  *  mock pages' viewBox (bell.html / index.html: 0 40 400 130), so it sits at the same visual size as there; the
  *  designer's final file frames the same paths tightly (0 61.84 382 98.16). */
 export function BellLockup(props: LockupProps) {

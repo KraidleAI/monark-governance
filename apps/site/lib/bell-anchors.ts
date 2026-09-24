@@ -1,5 +1,5 @@
-// apps/site/lib/bell-anchors.ts — the Bell anchors register, as served under /bell/anchors (ruling Q2, decision
-// 146), and a structural reader of OpenTimestamps proofs ("status per anchor read from the file").
+// apps/site/lib/bell-anchors.ts — the Bell anchors register, as served under /bell/anchors, and a structural
+// reader of OpenTimestamps proofs ("status per anchor read from the file").
 //
 // PURE — no Node/React/Next import, self-contained — so three programs share it: the /bell and /bell/anchors
 // pages (server components, build time), the sync script scripts/sync-bell-anchors.mjs, and the root test
@@ -94,6 +94,19 @@ export function parseAnchorsRegister(markdown: string): AnchorRow[] {
   }
   rows.sort((a, b) => (a.date_utc < b.date_utc ? -1 : a.date_utc > b.date_utc ? 1 : 0));
   return rows;
+}
+
+/** The digests a head manifest lists, one per "<relpath> <sha256hex>" line (what its anchor timestamps). Throws on a line
+ *  of another shape (fail-closed: a half-read manifest never decides whether a record is anchored). */
+export function manifestDigests(text: string): string[] {
+  const out: string[] = [];
+  for (const line of text.split("\n")) {
+    if (line === "") continue;
+    const m = /^\S+ ([0-9a-f]{64})$/.exec(line);
+    if (m?.[1] === undefined) throw new Error("anchors manifest: a line is not '<relpath> <sha256hex>'");
+    out.push(m[1]);
+  }
+  return out;
 }
 
 // ── OpenTimestamps proof reader ──

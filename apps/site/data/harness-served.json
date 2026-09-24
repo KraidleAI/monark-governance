@@ -1,0 +1,152 @@
+{
+  "$comment": "Committed, hashed facts about the SERVED MONARK harness, rendered by /integrators and /console through apps/site/lib/harness-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. Written by the source repository's sync tool (not part of this export) from the served bodies (api /health, /openapi.json, /gate, /calibrate, /attest, /cascade; mcp initialize and tools/list; the MCP registry entry), each body hashing to the sha256 the committed deploy check recorded. Text is copied as served, as closed clauses only; the one rule applied: internal reference tokens in parentheses are removed. No market value, no data-source name.",
+  "schema": "monark-site-harness-served-v1",
+  "read_at": "2026-09-24T03:39:46.604Z",
+  "version": "0.4.0",
+  "api": {
+    "url": "https://api.monarkgate.tech",
+    "openapi_path": "/openapi.json",
+    "health_path": "/health",
+    "surface": "http-json-mirror",
+    "openapi_version": "3.1.0",
+    "title": "MONARK harness — HTTP/JSON mirror"
+  },
+  "mcp": { "url": "https://mcp.monarkgate.tech/mcp", "remote_type": "streamable-http", "server_name": "monark" },
+  "tools": [
+    { "name": "attest", "note": "real, notary Shōgen, demonstrative, not probative" },
+    {
+      "name": "calibrate",
+      "note": "split-conformal quantile at miscoverage α over caller-supplied nonconformity scores"
+    },
+    { "name": "cascade", "note": "This cascade tool is v0" },
+    { "name": "gate", "note": "The gate only emits a decision; it never calls the named tool." }
+  ],
+  "gate_request": {
+    "required": [ "prediction", "params" ],
+    "optional": [ "attested" ],
+    "closed": true,
+    "params": [
+      {
+        "name": "remainingBudget",
+        "type": "number",
+        "required": true,
+        "text": "B_t — remaining authorization capacity (caller-owned)."
+      },
+      { "name": "bFloor", "type": "number", "required": true, "text": "B_floor threshold (>= 0)." },
+      { "name": "tau", "type": "number", "required": true, "text": "Set-size threshold for the `set` path (>= 0)." },
+      {
+        "name": "tauInterval",
+        "type": "number",
+        "required": true,
+        "text": "Width threshold for the `interval` path (>= 0)."
+      },
+      { "name": "alpha", "type": "number", "required": true, "text": "Target miscoverage in (0,1)." },
+      { "name": "nMin", "type": "integer", "required": true, "text": "Minimum calibration count (>= 1)." },
+      {
+        "name": "intent",
+        "type": "string | number | null",
+        "required": true,
+        "text": "The intent tested against the region."
+      },
+      { "name": "tool", "type": "string", "required": true, "text": "The NAMED gated tool (echoed, never invoked)." },
+      {
+        "name": "clockOpen",
+        "type": "boolean",
+        "required": true,
+        "text": "Whether the coverage window is still open (caller-owned)."
+      },
+      {
+        "name": "calibration",
+        "type": "object",
+        "required": false,
+        "text": "OPTIONAL BYO calibration: caller-supplied nonconformity scores + region mode. Present ⇒ the gate conformalizes on the caller's model, not a committed class."
+      }
+    ],
+    "byo_calibration": { "param": "calibration", "required": [ "scores", "mode" ], "optional": [ "candidates" ] }
+  },
+  "calibrate_contract": {
+    "request": { "required": [ "scores", "alpha", "nMin" ], "optional": [] },
+    "result": { "required": [ "qhat", "n", "alpha", "method", "set_digest", "label", "reason" ], "optional": [] }
+  },
+  "response_required": [ "structuredContent", "content" ],
+  "bounds": { "calibrate_scores": 10000, "gate_scores": 10000, "gate_candidates": 10000, "cascade_nodes": 64 },
+  "refusal": {
+    "invalid_status": "400",
+    "invalid_text": "Input failed the frozen schema, or the tool refused the input (never a silent result).",
+    "origin_status": "403",
+    "origin_text": "Origin present and not a monarkgate.tech origin."
+  },
+  "honesty": {
+    "calibrate_label": "split-conformal quantile at miscoverage α over caller-supplied nonconformity scores. MONARK does not see, store, or verify the caller's data or model, and does not validate that the supplied numbers are nonconformity scores of any model. Marginal 1−α coverage holds ONLY for future points exchangeable with the supplied scores; non-exchangeable data (e.g. distribution-shifted or time-ordered) voids it. Never a probability of being right.",
+    "bt_clause": "B_t is caller-carried",
+    "never_calls": "The gate only emits a decision; it never calls the named tool.",
+    "attested": [
+      "the attestation is carried by the caller",
+      "the verifier is not executed here",
+      "BYO classes do not accept `attested`"
+    ]
+  },
+  "classes": [
+    {
+      "class_id": "btc-dir-15m",
+      "state": "synthetic",
+      "clauses": [ "declared synthetic — a plumbing fixture, not a measured predictor" ]
+    },
+    {
+      "class_id": "cascade-liquidable-24h",
+      "state": "none",
+      "clauses": [ "no cascade calibration is committed; the gate abstains (under_calib) on this class" ]
+    },
+    {
+      "class_id": "stable-run-velocity-24h",
+      "state": "committed",
+      "clauses": [
+        "a committed stable-run velocity calibration for the USDe synthetic-dollar-whitelisted-redeem population",
+        "over calm-window redemption flow",
+        "the calibration is measured non-stationary across half-years",
+        "no coverage is measured",
+        "for any other population, no stable-run velocity calibration is committed for this population; the gate abstains (under_calib)"
+      ]
+    },
+    {
+      "class_id": "liquidation-eligible-coverage",
+      "state": "none",
+      "clauses": [
+        "no liquidation-eligible-coverage calibration is committed yet; the gate abstains (under_calib) by construction",
+        "this class requires alpha = 0.01, nMin = 100"
+      ]
+    }
+  ],
+  "byo_clause": "the gate conformalizes against THOSE caller-supplied scores (BYO)",
+  "attest": {
+    "label": "real, notary Shōgen, demonstrative, not probative",
+    "hypotheses": [ "A(notary-neutrality)", "A(self-attestation)", "A(transport-check-delegated)" ],
+    "channel": "tlsn-mpc/1",
+    "verifier_rev": "0fe3c32d35382b3f290a43c4156399ca4512bb89",
+    "observed_instant": 1786594228
+  },
+  "registry": {
+    "name": "tech.monarkgate/monark",
+    "version": "0.4.0",
+    "status": "active",
+    "published_at": "2026-09-18T05:49:22.850573Z",
+    "repository_url": "https://github.com/KraidleAI/monark"
+  },
+  "deploy_check": {
+    "checked_at": "2026-09-23T00:54:20.288Z",
+    "count": 12,
+    "ok_count": 12,
+    "tls_host": "api.monarkgate.tech",
+    "tls_valid_to": "Dec 10 04:57:46 2026 GMT"
+  },
+  "bodies_sha256": {
+    "/health": "d754b2feb82a3c45588e379d4d343c140ee8229d63f6771c940c27121c90f441",
+    "/openapi.json": "ad4371217ba87b261e682d428ea58825be5f740e9082484914c9036daa3fe2ba",
+    "tools/list": "8d3743c74f58c33d9b1bc13ce1653f8c8e97e9a35585d8446e62357e8f295b76",
+    "/gate": "793e0df9ec43b214747eea703f3d183b7e09a5fdcf0631f0f391a0b8a35bb8a9",
+    "/gate liquidation-eligible-coverage": "db85941e2845029e4c6d1c3e49636265bad1f734448fb2ac5110d0a702389dcd",
+    "/calibrate": "5a67ff502aaef51050048955cf7ca8e17011401235c6f7afaaf2b376f7a05e88",
+    "/attest": "aeeb34e020d93b21e31c676552d260ceffae1e79c69b56ba2b5c911079d6ad69",
+    "/cascade": "dc4ede52dc5b35efc2b3fdb0a82638454e6dbe27545387c79941292b7fa16576"
+  }
+}

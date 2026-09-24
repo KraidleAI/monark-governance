@@ -1,4 +1,4 @@
-// apps/site/lib/bell-legal-load.ts — build-time loader of the committed legal spans (lot SITE-LEGAL-1; server side).
+// apps/site/lib/bell-legal-load.ts — build-time loader of the committed legal spans (server side).
 // Reads apps/site/data/bell-legal.json ONLY after its sha256 (CRLF->LF, UTF-8) equals the value the site manifest
 // apps/site/data/manifest.sha256.json carries for it — the same tamper check as lib/load-committed.ts, which root
 // test 44 (a) also runs over every manifest entry. Then checks the shape. FAIL-CLOSED: an unlisted file, a hash
@@ -20,8 +20,10 @@ export interface BellWordsRow {
 }
 
 export interface BellLegalData {
+  /** The instant the current Terms text was first served (ISO UTC); rendered as the "Last updated" date. */
+  terms_last_updated_utc: string;
   privacy: { legal_basis_citation: string; retention_period: string };
-  /** The table's second introductory sentence (reason 6, orchestrator ruling TERMS-WORDS-SENTENCE-1). */
+  /** The table's second introductory sentence (reason 6: replaced for factual exactness). */
   terms_words_scope_sentence: string;
   terms_words_table: BellWordsRow[];
 }
@@ -48,11 +50,14 @@ export function loadBellLegal(rootDir: string): BellLegalData {
   const actual = createHash("sha256").update(raw.replace(/\r\n/g, "\n"), "utf8").digest("hex");
   if (actual !== expected) throw new Error(`bell legal: sha256 mismatch for ${BELL_LEGAL_REL} (manifest ${expected}, actual ${actual})`);
 
-  const data = JSON.parse(raw) as { privacy?: Record<string, unknown>; terms_words_scope_sentence?: unknown; terms_words_table?: unknown };
+  const data = JSON.parse(raw) as { terms_last_updated_utc?: unknown; privacy?: Record<string, unknown>; terms_words_scope_sentence?: unknown; terms_words_table?: unknown };
+  const updated = data.terms_last_updated_utc;
+  if (typeof updated !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(updated)) throw new Error("bell legal: terms_last_updated_utc must be an ISO UTC instant");
   const privacy = data.privacy ?? {};
   const rows = data.terms_words_table;
   if (!Array.isArray(rows) || rows.length === 0) throw new Error("bell legal: terms_words_table must be a non-empty array");
   return {
+    terms_last_updated_utc: updated,
     privacy: {
       legal_basis_citation: text(privacy.legal_basis_citation, "privacy.legal_basis_citation"),
       retention_period: text(privacy.retention_period, "privacy.retention_period"),

@@ -7,7 +7,7 @@ import { StatusBadge } from "@/components/status-badge";
 // Shared building blocks for the per-agent lateral panels (Shōgen / Hikae / Ukemi). Extracted so the
 // three panels do not each redefine the sheet geometry and the block primitive (own-the-code, one place).
 //
-// Base UI Dialog styled as a LATERAL panel (onboarding decision 0d186517 calls for a side panel that
+// Base UI Dialog styled as a LATERAL panel (the onboarding brief calls for a side panel that
 // keeps the segment context - not a page, not a centered modal). Appended after the base DialogContent
 // classes so twMerge resolves the position conflicts (top/left/translate/max-w/rounded).
 export const SHEET =

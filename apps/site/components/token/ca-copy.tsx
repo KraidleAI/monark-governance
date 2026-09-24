@@ -1,6 +1,6 @@
 "use client";
 
-// Contract address (CA) field with a copy button (investor request 2026-09-18, ADR-M013 T0). The
+// Contract address (CA) field with a copy button. The
 // address arrives as a prop from the server page (identifier read, never a rendered literal here), so
 // the honesty lint's numeric scan sees no digits in this file. Copy uses the Clipboard API when the
 // browser grants it; the field stays select-all so a manual copy always works. Label + address only:

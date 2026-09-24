@@ -1,7 +1,7 @@
 "use client";
 
 // apps/site/components/noyau/noyau.tsx
-// The MONARK "noyau" (investor delivery of 2026-09-23, see COMPONENTS-PROVENANCE.md), in place of the landing-page
+// The MONARK "noyau" (delivered on 2026-09-23, see COMPONENTS-PROVENANCE.md), in place of the landing-page
 // cubes. HONESTY (site adaptation): WHICH agents are drawn and the group of each are READ from the fleet register
 // (lib/fleet.ts, the single source of truth): every FLEET_AGENTS entry with its status, then MONARK Bell from
 // PRODUCTS (key "bell") with its status. The group handed to the engine IS the register status word ("built" |

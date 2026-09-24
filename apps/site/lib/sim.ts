@@ -1,9 +1,9 @@
-// apps/site/lib/sim.ts — the ILLUSTRATIVE gate-policy simulation (ADR-M004 D15). COST, ALPHA, budget,
+// apps/site/lib/sim.ts — the ILLUSTRATIVE gate-policy simulation. COST, ALPHA, budget,
 // AMBIENT and decide() are illustrative simulation parameters — NOT market figures, and NOT the real
-// engine parameters (ADR-M003 K carries the real per-class alpha). This is a plain const/logic module:
+// engine parameters (each served class carries its own alpha). This is a plain const/logic module:
 // no JSX, no DOM, no node: imports, so it is client-safe AND, being non-rendered, never a test-44
 // surface. Every number here (COST, ALPHA, the fresh() seeds, the AMBIENT readings, the timers' inputs)
-// is a module constant, never a rendered literal — the sim is honest by construction (ADR-M004 D15).
+// is a module constant, never a rendered literal — the sim is honest by construction.
 //
 // The three outcomes are represented by INDEX into the frozen gate-decision `action` enum
 // [commit, defer, abstain] (order pinned by the C-9 root test). The third action doubles as a
@@ -16,10 +16,10 @@ export const ACTION_COMMIT = 0;
 export const ACTION_DEFER = 1;
 export const ACTION_ABSTAIN = 2;
 
-/** Illustrative cost, in B_t, of one committed act (ADR-M004 D15 — not a market figure). */
+/** Illustrative cost, in B_t, of one committed act (not a market figure). */
 export const COST = 0.15;
-/** Illustrative target miscoverage level shown in the decision JSON (ADR-M004 D15; the real per-class
- *  value is ADR-M003 K, not this one). Coverage is one minus this level. */
+/** Illustrative target miscoverage level shown in the decision JSON (the real value is per served class, not this
+ *  one). Coverage is one minus this level. */
 export const ALPHA = 0.1;
 /** Frozen contract version echoed as a VALUE in the illustrative decision JSON (not a field name). */
 export const SCHEMA_VERSION = "1.0.0";
@@ -28,6 +28,22 @@ export const ELLIPSIS = "…";
 /** The C-5 illustrative caveat, rendered at EVERY sim mount (board / explainer / token). Kept here in the
  *  plain module so the R5 presence guard (test/ci-gates.test.ts) can import and assert its wording. */
 export const CAVEAT = "An illustrative simulation of the gate policy — not market activity";
+/** What the SERVED gate does with B_t, beside this simulation's spending; rendered next to CAVEAT at every mount. It
+ *  carries the served clause "B_t is caller-carried" verbatim (tied to apps/site/data/harness-served.json by the root
+ *  test harness_served_budget_note_carries_the_served_clause). B_t is a capacity, not a count (the served param text:
+ *  remaining authorization capacity, caller-owned); the served gate returns the caller's B_t as its remaining budget,
+ *  never depletes it. The note says only that: who spends B_t outside the gate is not a served fact. */
+export const BUDGET_NOTE =
+  "In this simulation each commit spends B_t. On the served gate, B_t is caller-carried: the caller keeps B_t and sends it, and the gate returns it unchanged.";
+/** The served B_t rule, said the same way on every page that states what the budget does (/, /token, /how and the home
+ *  board): the caller-carried clause of the served gate (apps/site/data/harness-served.json honesty.bt_clause) and what
+ *  the served gate does with it (packages/hikae/src/l3-gate.ts returns remaining_budget as received). Pinned by the root
+ *  test owner_decisions_of_2026_09_24_retired_wording_stays_out, which reds if a spending claim about the served gate
+ *  comes back on any exported site file. */
+export const BT_SERVED_RULE = "B_t is caller-carried: the caller keeps B_t and sends it with each call, and the gate returns it unchanged";
+/** When the served gate abstains on the budget: the B_t the caller sends is below the caller's own floor
+ *  (packages/hikae/src/l3-gate.ts, reason budget_exhausted). */
+export const BT_FLOOR_RULE = "when the B_t a caller sends is below that caller's floor, the gate abstains with the reason budget_exhausted";
 const EPSILON = 1e-9;
 /** Newest-first cap on the visible decision log. */
 const LOG_CAP = 6;
@@ -179,7 +195,12 @@ export function push(state: SimState, input: SimInput): SimState {
  * action word is resolved by INDEX (never a literal). Every object key is a bare identifier, so no frozen
  * contract field name is cited as a quoted literal. The numeric VALUES here (SCHEMA_VERSION, ALPHA,
  * remaining_budget, the task-class string) are the sim's illustrative output, rendered via a CALL
- * ({gateJson(...)}) — honest by construction (honesty-lint a8 + ADR-M004 D15 + the C-5 caveat).
+ * ({gateJson(...)}) — honest by construction (honesty-lint a8 + the C-5 caveat).
+ * The verdict is the coverage verdict, not the decision: a verdict is shown only when a region exists, so it did not
+ * abstain, and its reason is the region's own (set_too_large for a two-label set, covered otherwise) — an
+ * intent_not_in_region or budget_exhausted abstention is the decision's reason, as in the committed gate fixtures.
+ * No method and no residual are shown: the served class answers a different method and no residual without an
+ * attestation, so a typed value there would be a form the gate never serves.
  */
 export function gateJson(state: SimState, actions: readonly string[]): string {
   const region = state.labels
@@ -195,12 +216,10 @@ export function gateJson(state: SimState, actions: readonly string[]): string {
     verdict: region
       ? {
           task_class: "btc-dir-15m",
-          method: "hac-cp",
           alpha: ALPHA,
           region,
-          abstain: state.actionIndex === ACTION_ABSTAIN,
-          reason: state.reason ?? ELLIPSIS,
-          residual: ["assume:tls-notary", "assume:delegation"],
+          abstain: false,
+          reason: state.reason === "set_too_large" ? state.reason : "covered",
         }
       : ELLIPSIS,
     remaining_budget: round2(state.budget),

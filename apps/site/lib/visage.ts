@@ -1,5 +1,5 @@
-// apps/site/lib/visage.ts — the VISAGE register: the three face-market artefacts sold to a named buyer
-// (ADR-M004 addendum D15). Distinct from PRODUCTS (the five fingers) and
+// apps/site/lib/visage.ts — the VISAGE register: the three face-market artefacts sold to a named buyer.
+// Distinct from PRODUCTS (the five fingers) and
 // FLEET_AGENTS (the eleven budō agents): a VISAGE is a packaging sold to a buyer, and all three are
 // UPCOMING today. Copy, taglines and buyers are a product decision, NOT the
 // design's CORE blurbs — the design INVERTS the sense (it calls Threshold "the gate as a product"; the

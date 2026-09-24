@@ -1,14 +1,33 @@
 {
-  "$comment": "Site copy of the Ukemi U-4b course report (hyp-report-weth-2025-09-22.json, schema ukemi-u4b-hyp/1): body and body_digest as produced by scripts/census/u4b/u4b-hyp.mjs, provenance reduced to the tool sha (input paths omitted: they name export-excluded governance fixtures). Rendered by /ukemi/course through apps/site/lib/ukemi-course-load.ts after a sha256 check against the site manifest.",
+  "$comment": "Site copy of the Ukemi course hypothesis report (schema ukemi-u4b-hyp/1), written by the source repository's course sync tool (not in the public export) after checking that body_digest is the sha256 of the canonical JSON of body (keys sorted, no whitespace) and that the report names the course tool the source repository carries. body and body_digest are copied byte-for-byte; body.summary is never rendered. provenance keeps the digests only (tool, pre-registration and inputs, none of which is in the public export). display carries the amounts the page renders as exact decimal strings (base-currency integers, 8 decimals) with their unit, and the a-priori stratum cuts of the frozen scorer. Rendered by /ukemi/course through apps/site/lib/ukemi-course-load.ts after a sha256 check against the site manifest.",
   "schema": "ukemi-u4b-hyp/1",
   "kind": "report",
   "provenance": {
     "tool": {
-      "rel": "scripts/census/u4b/u4b-hyp.mjs",
       "sha256_lf": "65b0d8f9608969c670bd321d7613920c408ccf90bac4e067e990b93dad77fc25"
     },
     "node": "v24.15.0",
-    "event_id": "weth-2025-09-22"
+    "event_id": "weth-2025-09-22",
+    "inputs": {
+      "prereg": {
+        "sha256_lf": "1971d9b14ce0adf8c617f23e2ed1e323d80224cf442636aba5f7cf5fc5892f49"
+      },
+      "scores": {
+        "sha256_lf": "fd6fab7ebf5d2779b904494accab8916fac8293587ed24d21fb052cb024074a4"
+      },
+      "u3_inputs": {
+        "sha256_lf": "fc4440fe0fd3c95084b606d9b2a30f2156985ab4aaf9278ec14482a7c36aee1a"
+      },
+      "u3_realized": {
+        "sha256_lf": "e2d6c0e48f3503aed4e48d5041d6178ca28b8dc6db36c19ba534ccd4c5611837"
+      },
+      "oracle_path": {
+        "sha256_lf": "cc7f5cd9b7b93a319044514a1d150a805393e69c575314ff21b1cb9c6ddb0971"
+      },
+      "e2_comparison": {
+        "sha256_lf": "301d39fa806fd36a72cc446484aa4d04807a56ab603b1b69f464264550a126ad"
+      }
+    }
   },
   "body": {
     "event_id": "weth-2025-09-22",
@@ -603,5 +622,32 @@
       "Clause 359 input (pre-registered U-6 condition, applied by the orchestrator, decision 137): no served stratum at NON = true; unresolved labels_no_quorum = 0; condition satisfied = true. Pooled class-A H-3 verdict OUI, reported outside this condition."
     ]
   },
-  "body_digest": "8ad53d1a83601045599f1117d69f1675a36112b856074a7902217d3f71e1d44f"
+  "body_digest": "8ad53d1a83601045599f1117d69f1675a36112b856074a7902217d3f71e1d44f",
+  "display": {
+    "unit": "in the lending venue's oracle base currency (8 decimals)",
+    "decimals": 8,
+    "strata_cuts": [
+      "2000.00000000",
+      "100000.00000000",
+      "1000000.00000000"
+    ],
+    "strata_qhat": [
+      "1261.84298996",
+      null,
+      null,
+      null
+    ],
+    "pooled_qhat": "1261.84298996",
+    "liquidated_class_a": {
+      "sum_y": "1847180.51809934",
+      "sum_after_first": "48189.04377058",
+      "sum_deficit_apart": "0.00000000"
+    },
+    "anchor_price": "4448.00000000",
+    "min_served": "4120.72000000",
+    "min_events": "4120.72000000",
+    "zero_rule_missed_amounts": [
+      "20.90575766"
+    ]
+  }
 }

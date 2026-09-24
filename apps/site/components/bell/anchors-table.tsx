@@ -1,11 +1,12 @@
 import { Placeholder } from "@/components/placeholder";
 import { ANCHORS_ROUTE, shortDigest, utcLabel, type AnchorsView } from "@/lib/bell-anchors-load";
 
-// The anchors register table (ruling Q2): one line per boundary of the first-measurement run, read from the served
-// register, with each line's status READ FROM ITS PROOF FILE at build time (lib/bell-anchors-load.ts). Block
-// heights and counts render from that read, never from a literal (orchestrator ruling (3)). Boundaries not reached
-// yet (a started token without its end line, the final anchor) show as hatched upcoming lines with a named
-// placeholder for their date. Reading a proof is not verifying it: the reader checks it with an open client.
+// The anchors register table: one line per boundary of the counter-verification run of the multiplier history, read
+// from the served register, with each line's status READ FROM ITS PROOF FILE at build time (lib/bell-anchors-load.ts).
+// Block heights and counts render from that read, never from a literal. Boundaries without a line (a started
+// instrument without its end line, the final anchor) show as hatched lines with a named placeholder for their date;
+// the wording states what the register holds, never an activity it cannot show. Reading a proof is not verifying it:
+// the reader checks it with an open client.
 export function AnchorsTable({ view }: { view: AnchorsView }) {
   return (
     <div className="c-board">
@@ -91,7 +92,7 @@ export function AnchorsTable({ view }: { view: AnchorsView }) {
                 <td>mint_end</td>
                 <td>{m}</td>
                 <td colSpan={5}>
-                  <span className="c-abstain">run in progress: the line is added when the boundary is reached</span>
+                  <span className="c-abstain">no end line in the register yet</span>
                 </td>
               </tr>
             ))}

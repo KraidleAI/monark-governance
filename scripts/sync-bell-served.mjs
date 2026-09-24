@@ -1,28 +1,37 @@
 // scripts/sync-bell-served.mjs — write apps/site/data/bell-served.json from the files the Bell host SERVES (lot
-// BELL-SERVED-1). Node 24, built-ins + apps/bell/scripts/bell-chain.mjs only. SOURCE-REPO tool (not exported, like
-// scripts/sync-bell-anchors.mjs); run by the orchestrator BEFORE a storefront build:  node scripts/sync-bell-served.mjs
+// BELL-SERVED-1, v3: every run of the LATEST publication). Node 24, built-ins + the publisher's own modules only. SOURCE-REPO
+// tool (not exported, like scripts/sync-bell-anchors.mjs); run by the orchestrator BEFORE a storefront build, AFTER the deploy
+// check of the same bodies is committed (docs/deploy-CA-bell.json):  node scripts/sync-bell-served.mjs
 //
-// What it does, and nothing else: two GETs on the Bell host (https only, a redirect is refused, 200 only, body bounded)
-// — /timeline.jsonl and /bell/pubkey.json — then FAIL-CLOSED checks before any write:
-//   - the served key set is byte-identical to the committed keyring apps/bell/keys/bell-keyring.json (the trust root,
-//     ADR-T1b-backend D9 C-9; the served key is only a cross-checked channel);
-//   - the FIRST timeline line is schema bell-timeline-v1, seq 1, kind publication, chained from GENESIS, and its
-//     Ed25519 signature checks under a committed keyring key whose key_id it names (bell-chain.mjs verifyLine).
-// It writes ONLY: the host, the read time, the first line's seq, published_at, line_hash (sha256 of its canonical
-// bytes, ADR-T1b-backend D6) and key_id, and the sha256 of the two bodies as read. Nothing else of the line is copied
-// (its runs carry counts and a coverage ratio, which the site does not render), and no market value is read at all.
-// Output: LF, two-space JSON; it prints the CRLF->LF sha256 to set in apps/site/data/manifest.sha256.json.
+// What it reads, and nothing else: GETs on the Bell host (https only, a redirect is refused, 200 only, body bounded) of
+// /timeline.jsonl, /bell/pubkey.json, /state.json, /provenance.json, then /states/<sha256>.json of the latest publication
+// line and of the first line (the immutable copies those lines name); the committed keyring apps/bell/keys/bell-keyring.json
+// (the trust root); the committed deploy check docs/deploy-CA-bell.json; `git log -1 -- apps/bell/src` (the collector
+// revision the method page restates); the publisher's closed list of served objects (apps/bell/scripts/bell-publish.mjs
+// WHITELIST). Every check and the projection itself are buildBellServed() in apps/site/lib/bell-served-load.ts (pure, run
+// by the root test on a two-line fixture): the whole timeline is walked under the committed keyring (chain, signatures,
+// key schedule), the current state and provenance are bound to the LATEST publication line by sha256, the first record's
+// state is read at its immutable address, the deploy check must have been captured on these same bodies. It copies no
+// consolidated-volume ratio value, no provider label, no proof-of-reserves method or note, and no key. FAIL-CLOSED: any
+// check that does not hold exits 1 and writes nothing.
+// Output: LF, two-space JSON; it prints the CRLF->LF sha256 to set in apps/site/data/manifest.sha256.json (and to re-pin in
+// test/bell-served.test.ts).
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { createHash } from "node:crypto";
-import { fileURLToPath } from "node:url";
-import { GENESIS, lineHash, verifyLine, publicKeyOfJwk, keyIdOf } from "../apps/bell/scripts/bell-chain.mjs";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { walkTimeline, trustOf, lineHash } from "../apps/bell/scripts/bell-chain.mjs";
+import { WHITELIST } from "../apps/bell/scripts/bell-publish.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const BELL_HOST = "https://bell.monarkgate.tech";
 export const OUT_REL = "apps/site/data/bell-served.json";
 const KEYRING_REL = "apps/bell/keys/bell-keyring.json";
-const MAX_BYTES = 1024 * 1024; // the publisher's MAX_LINE_BYTES (bell-verify VERIFY_BOUNDS); the first line and the key set fit well under it
+const DEPLOY_CHECK_REL = "docs/deploy-CA-bell.json";
+const COLLECTOR_SRC = "apps/bell/src";
+const MAX_BYTES = 64 * 1024 * 1024; // the publisher's MAX_PUBLIC_STATE_BYTES (bell-publish.mjs BOUNDS); a line is bounded at 1 MiB
+const HEX64 = /^[0-9a-f]{64}$/;
 const sha256 = (b) => createHash("sha256").update(b).digest("hex");
 const fail = (why) => { console.error(`sync-bell-served: FAIL-CLOSED — ${why}; nothing written.`); process.exit(1); };
 
@@ -34,60 +43,43 @@ async function get(path) {
   return buf;
 }
 
-async function main() {
-  const timeline = await get("/timeline.jsonl");
-  const pubkey = await get("/bell/pubkey.json");
-  const stateBuf = await get("/state.json");
-  const readAt = new Date().toISOString();
-  const committed = readFileSync(join(ROOT, KEYRING_REL));
-  if (!pubkey.equals(committed)) fail("the served /bell/pubkey.json is not byte-identical to the committed keyring");
-  const keyring = JSON.parse(committed.toString("utf8"));
-  const first = JSON.parse(timeline.toString("utf8").split("\n")[0] ?? "");
-  if (first.schema !== "bell-timeline-v1" || first.seq !== 1 || first.kind !== "publication") fail("the first timeline line is not a bell-timeline-v1 publication at seq 1");
-  if (first.prev_line_hash !== GENESIS) fail("the first timeline line is not chained from GENESIS");
-  if (typeof first.published_at !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(first.published_at)) fail("published_at is not an ISO UTC instant");
-  const key = (keyring.keys ?? []).find((k) => k.key_id === first.key_id);
-  if (key === undefined) fail("the first line names a key_id absent from the committed keyring");
-  const pk = publicKeyOfJwk(key.jwk);
-  if (keyIdOf(pk) !== first.key_id) fail("the committed key does not hash to the key_id it is filed under");
-  if (!verifyLine(first, pk)) fail("the first line's Ed25519 signature does not check under the committed key");
-  // The served state must be the one the signed head line names (sha256 binding), and the FIRST run of the first
-  // publication is copied as it is served: window, per-session fills / on-chain VWAP / base volume / abstention,
-  // non-zero residual counts. Strings stay strings (vwap, volumeBase); no value is recomputed or rounded here.
-  if (sha256(stateBuf) !== first.state_sha256) fail("the served /state.json is not the state the signed head line names");
-  const state = JSON.parse(stateBuf.toString("utf8"));
-  if (state.schema !== "bell-public-state-v1" || !Array.isArray(state.runs) || state.runs.length < 1) fail("state.json is not a bell-public-state-v1 with at least one run");
-  const run = state.runs[0];
-  const rec = (first.runs ?? []).find((x) => x.bell_sha === run.bell_sha)?.records?.[0];
-  if (rec === undefined) fail("the first timeline line carries no record for the first run of state.json");
-  const gaps = run.digest?.gaps;
-  if (!Array.isArray(gaps) || gaps.length < 1) fail("the first run has no session rows");
-  const sessions = gaps.map((g) => {
-    for (const k of ["session", "symbol", "n", "vwap", "volumeBase"]) if (g[k] === undefined || g[k] === null) fail(`session row without ${k}`);
-    if (!Number.isInteger(g.n) || g.n < 0) fail("session n is not a non-negative integer");
-    if (typeof g.vwap !== "string" || typeof g.volumeBase !== "string") fail("vwap / volumeBase must be served as decimal strings");
-    return { symbol: g.symbol, session: g.session, regime: g.regime ?? null, n: g.n, vwap: g.vwap, volumeBase: g.volumeBase, abstain: g.abstain ?? null };
-  });
-  const residuals = Object.fromEntries(Object.entries(run.digest?.residuals ?? {}).filter(([, v]) => typeof v === "number" && v > 0));
-  const first_run = {
-    bell_sha: run.bell_sha, symbol: rec.symbol, chain: rec.chain,
-    window: { from_utc_ms: run.window.from_utc_ms, to_utc_ms: run.window.to_utc_ms },
-    fills: rec.n_fills, sessions_count: rec.sessions, quorum_coverage: String(rec.quorum_coverage),
-    sessions, residuals,
-  };
-  const out = {
-    $comment:
-      "Committed, hashed facts about the SERVED Bell host, rendered by /bell and /bell/method through apps/site/lib/bell-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json (lot BELL-SERVED-1; decision 155). Written by scripts/sync-bell-served.mjs (source-repo tool) from three GETs: /timeline.jsonl, /bell/pubkey.json and /state.json (bound to the head line by sha256), after checking that the served key set equals the committed keyring and that the first line is a signed, genesis-chained publication at seq 1 under that keyring. first_record = that first line's seq, published_at, line_hash (sha256 of its canonical bytes) and key_id; bodies_sha256 = the sha256 of the two bodies as read at read_at (the timeline body grows with each publication; the first line does not change). first_run = the first run of the served state as served (window, per-session fills, on-chain VWAP and base volume as decimal strings, abstention, non-zero residual counts): on-chain facts, no closing price, no gap.",
-    schema: "monark-site-bell-served-v2",
-    host: BELL_HOST,
-    read_at: readAt,
-    first_record: { seq: first.seq, published_at: first.published_at, line_hash: lineHash(first), key_id: first.key_id },
-    first_run,
-    bodies_sha256: { "/timeline.jsonl": sha256(timeline), "/bell/pubkey.json": sha256(pubkey), "/state.json": sha256(stateBuf) },
-  };
-  const text = JSON.stringify(out, null, 2) + "\n";
-  writeFileSync(join(ROOT, OUT_REL), text);
-  console.log(`sync-bell-served OK — ${OUT_REL} written (first record seq ${String(first.seq)}); manifest sha256 (CRLF->LF): ${sha256(Buffer.from(text.replace(/\r\n/g, "\n"), "utf8"))}`);
+/** The state sha256 the first line and the last publication line name (unverified here: buildBellServed re-walks the chain and
+ *  binds every byte it is given to the verified lines, so a wrong address only fails closed). */
+function immutableAddresses(timeline) {
+  const lines = timeline.toString("utf8").split("\n").filter((l) => l.length > 0).map((l) => { try { return JSON.parse(l); } catch { return fail("a timeline line is not JSON"); } });
+  const pubs = lines.filter((l) => l && l.kind === "publication");
+  const first = lines[0], head = pubs[pubs.length - 1];
+  if (first === undefined || head === undefined || !HEX64.test(String(first.state_sha256)) || !HEX64.test(String(head.state_sha256))) fail("the timeline names no publication state");
+  return { first: first.state_sha256, head: head.state_sha256 };
 }
 
-await main();
+async function main() {
+  const { buildBellServed } = await import(pathToFileURL(join(ROOT, "apps", "site", "lib", "bell-served-load.ts")).href);
+  const timeline = await get("/timeline.jsonl");
+  const pubkey = await get("/bell/pubkey.json");
+  const state = await get("/state.json");
+  const provenance = await get("/provenance.json");
+  const at = immutableAddresses(timeline);
+  const headStateImmutable = await get(`/states/${at.head}.json`);
+  const firstStateImmutable = at.first === at.head ? headStateImmutable : await get(`/states/${at.first}.json`);
+  const readAt = new Date().toISOString();
+  const [commit, committed] = execFileSync("git", ["log", "-1", "--format=%H%n%cI", "--", COLLECTOR_SRC], { cwd: ROOT, encoding: "utf8" }).trim().split("\n");
+  if (!/^[0-9a-f]{40}$/.test(commit ?? "") || committed === undefined || Number.isNaN(Date.parse(committed))) fail(`no commit found for ${COLLECTOR_SRC}`);
+  let out;
+  try {
+    out = buildBellServed({
+      readAt, timeline, pubkey, state, provenance, headStateImmutable, firstStateImmutable,
+      committedKeyring: readFileSync(join(ROOT, KEYRING_REL)),
+      deployCheck: JSON.parse(readFileSync(join(ROOT, DEPLOY_CHECK_REL), "utf8")),
+      collectorRevision: { commit, committed_at: new Date(committed).toISOString() },
+      whitelist: WHITELIST,
+    }, { walkTimeline, trustOf, lineHash });
+  } catch (e) {
+    fail(e instanceof Error ? e.message : String(e));
+  }
+  const text = JSON.stringify(out, null, 2) + "\n";
+  writeFileSync(join(ROOT, OUT_REL), text);
+  console.log(`sync-bell-served OK — ${OUT_REL} written (head seq ${String(out.head.seq)}, ${String(out.head.runs.length)} run(s), first record seq ${String(out.first_record.seq)}); manifest sha256 (CRLF->LF): ${sha256(Buffer.from(text.replace(/\r\n/g, "\n"), "utf8"))}`);
+}
+
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) await main();

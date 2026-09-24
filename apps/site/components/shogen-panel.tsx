@@ -15,22 +15,25 @@ import { PanelBlock, SHEET } from "@/components/panel-shell";
 import { WhatInside } from "@/components/what-inside";
 import { insideFor } from "@/lib/fleet-presentation";
 import type { FrozenContract } from "@/lib/load-contract";
+import type { AgentStatus } from "@/lib/status";
 import { cn } from "@/lib/utils";
 
 /**
- * The built Shōgen agent. Its fleet card carries a panel trigger; so do Hikae and Ukemi — the three
- * built agents each open the same 8-block template: blocks 1/2/4/6
- * are BUILT here; blocks 3/5/7/8 are declared UPCOMING (no committed bibliography / F-live / B-api|B-mcp
- * / F-console yet). `contract` is the frozen AttestedPrice shape, read server-side from schemas/ (C7
- * decision on a committed Shogen sample: "to be announced").
+ * The built Shōgen agent. Its fleet card carries a panel trigger; so do Hikae, Ukemi and Narabi — each built agent
+ * opens the same 8-block template. `contract` is the frozen AttestedPrice shape, read server-side from schemas/;
+ * `status` is the card's status READ from the fleet register by the /fleet page (server) and handed in as a prop, so
+ * this client panel never hard-codes it and never imports the register. "Honest limits" (a built block) restates the
+ * SERVED attest description (a projection of one committed, self-notarized witness; the verifier is not executed at call
+ * time), without the venue it names — pinned both ways by the root tests shogen_panel_restates_the_served_attest_limit
+ * and registry_notes_track_served_descriptions. "Living proof" stays upcoming and says only what is not shown yet.
  */
-export function ShogenPanel({ contract }: { contract: FrozenContract }) {
+export function ShogenPanel({ contract, status }: { contract: FrozenContract; status: AgentStatus }) {
   return (
     <Dialog>
       <AgentCard
         mark={<ShogenMark className="size-8" />}
         name="Shōgen"
-        status="built"
+        status={status}
         action={<DialogTrigger render={<Button variant="outline" size="sm" />}>Open panel</DialogTrigger>}
       >
         Attested perception &mdash; an attested price testimony.
@@ -62,10 +65,13 @@ export function ShogenPanel({ contract }: { contract: FrozenContract }) {
               number &mdash; the number is read by a downstream Hikae-side adapter &mdash; and the named
               residual hypotheses are exactly what is not verified.
             </p>
+            <p className="mt-2">
+              The served <code>attest</code> tool projects one committed witness, checked by Shōgen when it was
+              captured and self-notarized; the verifier is not executed at call time.
+            </p>
           </PanelBlock>
           <PanelBlock title="Living proof" status="upcoming">
-            Running tests and coverage become visible once the platform exposes them; a committed
-            Shōgen sample is to be announced.
+            Running tests and coverage become visible once the platform exposes them.
           </PanelBlock>
           <PanelBlock title="Frozen contract" status="built">
             <p>

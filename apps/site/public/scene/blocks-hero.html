@@ -1,13 +1,13 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MONARK · hero scene (vendored, local)</title>
 <style>html,body{margin:0;height:100%;background:transparent;overflow:hidden}canvas{display:block;width:100%;height:100%}
-/* lot SITE-CHARTE-C: declare both schemes, so an embedding page in dark mode does not get an opaque white iframe
+/* Declare both schemes, so an embedding page in dark mode does not get an opaque white iframe
    backdrop (a frame whose colour scheme differs from its embedder's is painted opaque; measured on the dark home). */
 :root{color-scheme:light dark}</style></head><body><canvas id="c"></canvas><script>
 const MINT='#0F8F74', MINT_L='#5EE6C2', LAV='#5B47C9', LAV_L='#B7A6FF', INK='#14151B', MUTED='#9FA3B5', RULE='#DADDE6', BG='#F2F3F7', SOFT='#E6E8EF';
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const cv = document.getElementById('c'), g = cv.getContext('2d');
 let W=0,H=0,DPR=1; function fit(){ DPR=Math.min(devicePixelRatio||1,2); W=innerWidth; H=innerHeight; cv.width=W*DPR; cv.height=H*DPR; g.setTransform(DPR,0,0,DPR,0,0); } fit();
-// lot SITE-CHARTE-C: resizing the canvas clears it; under reduced motion nothing redraws afterwards (no loop), so the
+// Resizing the canvas clears it; under reduced motion nothing redraws afterwards (no loop), so the
 // hero went blank after any resize (measured). Redraw the single still frame after a resize in that mode.
 addEventListener('resize', () => { fit(); if (reduced) { try { draw(8); } catch (e) { console.warn(e); } } });
 // camera: position, target; perspective projection
@@ -23,7 +23,7 @@ let t0=performance.now(); function loop(now){ if(W!==innerWidth||H!==innerHeight
 
 
 const SX=1, RAD=5.6, N=44, stamps=[], pulses=[]; let lastStamp=-1, gridSlot=0;
-const TICK=['TSLAx','NVDAx','AAPLx','SPYx']; // vendored copy (decision 145): labels restricted to the four tokens Bell measures
+const TICK=['TSLAx','NVDAx','AAPLx','SPYx']; // vendored copy: labels restricted to the four tokens Bell measures
 const fogA = z => Math.max(.55, Math.min(1, 1-(z-16)/16));
 function text(p, str, color, size, align){ const q=proj(p); if(q.z<=0) return; g.font = Math.min(13, Math.max(9, size*q.s/70))+'px "JetBrains Mono", ui-monospace, monospace'; g.fillStyle=color; g.textAlign=align||'center'; g.fillText(str, q.x, q.y); }
 function shadow(c, r){ const q=proj([c.x,-1.19,c.z]); if(q.z<=0) return; g.beginPath(); g.ellipse(q.x, q.y, Math.max(0,r*q.s), Math.max(0,r*q.s*.35), 0, 0, Math.PI*2); g.fillStyle = c.x*SX<0 ? 'rgba(94,230,194,.28)' : 'rgba(20,21,27,.22)'; g.fill(); }
@@ -38,10 +38,10 @@ function draw(t){
   // meridian + labels
   line([[0,-1.19,-10],[0,-1.19,10]], '#5E6375', 1.5);
   line([[0,-1.19,-RAD-1.2],[0,1.2,-RAD-1.2]], 'rgba(139,144,163,.6)', 1, [3,3]);
-  // lot SITE-CHARTE-C, designer NOTE-retouche-mobile point 5: the projected clock labels have no screen bound; on a
+  // Designer mobile note, point 5: the projected clock labels have no screen bound; on a
   // narrow canvas (the mobile band) they reach the edge and are cut, so they are drawn only when the canvas is >= 480.
   if (W >= 480) { text([0,1.5,-RAD-1.2], '16:00 ET · close', '#5E6375', 11); text([0,-1.5,RAD+1.6], '09:30 ET · open', '#5E6375', 11); }
-  // lot SITE-CHARTE-C, orchestrator ruling V4: the night-side label no longer names Bell (Bell is upcoming in public).
+  // The night-side label does not name Bell.
   text([5,-1.1,-8.6], 'cash market · quoting', LAV, 10); text([-5,-1.1,-8.6], 'closed · recording', MINT_L, 10);
   // cash tape (day side) with moving quote ticks
   const tape=[]; for(let i=0;i<=80;i++){ const a=-Math.PI*.44+i/80*Math.PI*.88; tape.push([Math.cos(a)*(RAD+.9)*SX, -1.1, -Math.sin(a)*(RAD+.9)]); } line(tape, LAV, 4);

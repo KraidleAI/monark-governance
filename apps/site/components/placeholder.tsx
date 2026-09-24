@@ -1,4 +1,4 @@
-// apps/site/components/placeholder.tsx — a NAMED placeholder (lot SITE-CHARTE-C; decision 146).
+// apps/site/components/placeholder.tsx — a NAMED placeholder.
 // A value that is not served yet is never typed by hand: the page shows the placeholder's NAME in clear plus its
 // state word ("upcoming" by default; "to be published" / "to be exported" / "to be created" / "to be decided"
 // where the mock says so). The real value arrives later from a served file (state.json, timeline.jsonl) or the
