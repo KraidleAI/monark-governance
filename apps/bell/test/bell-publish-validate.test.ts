@@ -59,14 +59,15 @@ async function runMainOut(usdc: bigint, week = 0): Promise<string> {
       ? { context: { slot: 9 }, value: { data: [stateB64(1), "base64"] } } : { context: { slot: 9 }, value: { data: { parsed: { info: { supply: "1000000000", decimals: 8, extensions: [] } } } } });
     throw new Error("unexpected " + method);
   };
-  // synthetic cash close (never a real one); no cross-check key in env => the cross is "unavailable" (named, counted)
+  // synthetic cash close (never a real one), read under a synthetic key (an empty key emits no request, C-4 of
+  // ADR-BELL-CASH-LEG-1); no cross-check key in env => the cross is "unavailable" (named, counted)
   const databentoGet: DatabentoGet = () => Promise.resolve([{ hd: { ts_event: String(BigInt(Date.UTC(2026, 8, 18 + 7 * week)) * 1_000_000n) }, close: "364000000000" }]);
   const polygonGet: PolygonGet = () => Promise.reject(new Error("not reached offline"));
   const base = tmp("t1b-run-"), out = join(base, "run"), traj = join(base, "traj.json");
   writeFileSync(traj, JSON.stringify({ TSLAx: { events: [{ kind: "initialize", multiplier: "1", multiplierBitsHex: f64BitsHexLE(1), effectiveTimestampSec: 0, blockTimeSec: 0, slot: 1, instructionIndex: 0, signature: "s1" }], scanComplete: true, scanMethod: "authority" } }));
   await runMain(["--pools", "TSLAx", "--max-calls", "100000", "--body-sample", "0", "--min-interval", "0", "--from-utc", String(btMs - 2 * 86_400_000),
     "--to-utc", String(btMs + 86_400_000), "--rebase-trajectory", traj, "--out", out],
-  { call, databentoGet, polygonGet, env: { BELL_HALTS_CSV: join(HERE, "fixtures", "halts-tsla-synth.csv") }, nowMs: btMs + 86_400_000 });
+  { call, databentoGet, polygonGet, env: { DATABENTO_API_KEY: "k", BELL_HALTS_CSV: join(HERE, "fixtures", "halts-tsla-synth.csv") }, nowMs: btMs + 86_400_000 });
   return out;
 }
 const RUN_A = await runMainOut(365n), RUN_B = await runMainOut(366n), RUN_LATE = await runMainOut(367n, 1); // RUN_LATE: a week later

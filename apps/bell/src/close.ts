@@ -25,6 +25,13 @@ export const OHLCV_SCHEMA = "ohlcv-1d";
 export const CLOSE_SOURCE = "databento-equs-summary"; // decision 53: Databento is THE cash-close source (named, never a value)
 export const DATABENTO_HIST = "https://hist.databento.com"; // [2nd] PR-B-DBN; a real metadata.get_cost call confirms it
 export const DBN_UNDEF_PRICE = "9223372036854775807"; // INT64_MAX = Databento UNDEF_PRICE (no valid close)
+/** D2 (ADR-BELL-CASH-LEG-1, C-3/C-11): the BARE, GENERIC labels carried by CashRequest.provider and TransportFault.provider
+ *  (hence provenance.json / journal.json). A label names the LEG, never a source nor a host (decision 69 + the served
+ *  Terms), so the publisher's BARE_LABEL guard serves it; stable, they enter the append-only chain. The label -> source
+ *  mapping is written in the ADR only. close_source / adv_source (NOT_SERVED) are unchanged (C-3). */
+export const CASH_CLOSE_LABEL = "cash-close"; // the consolidated reference close (range request + its faults)
+export const CASH_CROSS_LABEL = "cash-crosscheck"; // the per-day cross-check of that close
+export const ADV_BARS_LABEL = "adv-bars"; // the daily share-volume bars of fact (iii) (collect.ts advBarsFor)
 
 /** Massive/Polygon GET seam (moved here from collect.ts so both the ADV leg and the cross leg share one type). `t` =
  *  "The Unix millisecond timestamp for the start of the aggregate window" (Massive Custom Bars docs, [lu] 2026-09-23);
@@ -38,8 +45,10 @@ export type DatabentoGet = (pathAndQuery: string, apiKey: string) => Promise<rea
 /** GARDE-HELIUS-1b (C-6 / ruling R-1): close.ts is the SINGLE allowlisted cash module — it holds BOTH the paid GET
  *  (databentoGet/polygonGet below) AND the paid-key read, so no other Bell module reads POLYGON_API_KEY /
  *  DATABENTO_API_KEY (collect.ts is NEVER allowlisted; its :582-583 env reads MOVE here). The keys are threaded to
- *  the GET seams as arguments (header only, never in a url, never printed — C-10). Empty string ⇒ that leg is
- *  unavailable (Databento: the reference close abstains; Polygon: cash_cross_unavailable). The scanner allowlist
+ *  the GET seams as arguments (header only, never in a url, never printed — C-10). Empty string ⇒ that leg emits NO
+ *  request (C-4, CASH-KEYLESS-SKIP-1; a keyless Databento call used to send `Basic base64(":")` and draw HTTP 400):
+ *  Databento => the reference close abstains no_close_ref, no transport fault; Polygon => cash_cross_unavailable and
+ *  no ADV bar (no_adv). The scanner allowlist
  *  entry for close.ts carries the trigger "G0 of the Bell cash course" (quotas/caps posed then, decision 115 / R-1). */
 export function readCashKeys(env: NodeJS.ProcessEnv): { readonly polygonKey: string; readonly databentoKey: string } {
   return { polygonKey: env.POLYGON_API_KEY ?? "", databentoKey: env.DATABENTO_API_KEY ?? "" };
@@ -152,25 +161,27 @@ export async function readReferenceCloses(datesByUnderlying: Readonly<Record<str
   const requests: CashRequest[] = [];
   for (const underlying of Object.keys(datesByUnderlying).sort()) {
     const dates = [...(datesByUnderlying[underlying] ?? [])].sort();
-    if (dates.length === 0) continue;
+    // C-4 (CASH-KEYLESS-SKIP-1): an empty Databento key emits NO request, never a keyless call; every session of this
+    // underlying then abstains no_close_ref downstream, with no transport fault and nothing added to cash_request_digest.
+    if (dates.length === 0 || !deps.databentoKey) continue;
     closeByUnderlying[underlying] = {};
     crossByUnderlying[underlying] = {};
     const start = dates[0]!, endExclusive = addDaysIso(dates[dates.length - 1]!, 1);
-    requests.push({ provider: "databento.com", dataset: EQUS_DATASET, schema: OHLCV_SCHEMA, stype_in: "raw_symbol", symbols: [underlying], start, end: endExclusive });
+    requests.push({ provider: CASH_CLOSE_LABEL, dataset: EQUS_DATASET, schema: OHLCV_SCHEMA, stype_in: "raw_symbol", symbols: [underlying], start, end: endExclusive });
     let dbnByDate: Record<string, string> = {};
     try { dbnByDate = closeStringsByDate(await deps.databentoGet(databentoGetRangePath(underlying, start, endExclusive), deps.databentoKey)); }
-    catch (e) { deps.faults.push({ provider: "databento.com", status: statusOf(e) }); continue; }
+    catch (e) { deps.faults.push({ provider: CASH_CLOSE_LABEL, status: statusOf(e) }); continue; }
     for (const date of dates) {
       const dbnStr = dbnByDate[date];
       if (dbnStr === undefined) continue; // no official close that day => downstream no_close_ref (absent from the map)
       let dbnScaled: bigint;
-      try { dbnScaled = scaledFromDatabento(dbnStr); } catch (e) { deps.faults.push({ provider: "databento.com", status: statusOf(e) }); continue; }
+      try { dbnScaled = scaledFromDatabento(dbnStr); } catch (e) { deps.faults.push({ provider: CASH_CLOSE_LABEL, status: statusOf(e) }); continue; }
       const dbnClose = Number(dbnStr) / 1e9; // the number g_t consumes (never stored)
       if (!deps.polygonKey) { closeByUnderlying[underlying][date] = dbnClose; crossByUnderlying[underlying][date] = "unavailable"; cash_cross_unavailable_days.push(`${underlying}:${date}`); continue; }
-      requests.push({ provider: "polygon.io", symbols: [underlying], start: date, end: date });
+      requests.push({ provider: CASH_CROSS_LABEL, symbols: [underlying], start: date, end: date });
       let massiveC: number | undefined;
       try { massiveC = (await deps.polygonGet(`/v2/aggs/ticker/${underlying}/range/1/day/${date}/${date}?adjusted=false`, deps.polygonKey)).results?.[0]?.c; }
-      catch (e) { deps.faults.push({ provider: "polygon.io", status: statusOf(e) }); }
+      catch (e) { deps.faults.push({ provider: CASH_CROSS_LABEL, status: statusOf(e) }); }
       if (typeof massiveC !== "number") { closeByUnderlying[underlying][date] = dbnClose; crossByUnderlying[underlying][date] = "unavailable"; cash_cross_unavailable_days.push(`${underlying}:${date}`); continue; }
       if (dbnScaled === scaledFromDecimal(String(massiveC))) { closeByUnderlying[underlying][date] = dbnClose; crossByUnderlying[underlying][date] = "matched"; }
       else { crossByUnderlying[underlying][date] = "mismatch"; cash_cross_mismatch_days.push(`${underlying}:${date}`); }

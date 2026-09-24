@@ -48,7 +48,7 @@ async function runMainOut(usdc: bigint): Promise<string> {
   writeFileSync(traj, JSON.stringify({ TSLAx: { events: [{ kind: "initialize", multiplier: "1", multiplierBitsHex: f64BitsHexLE(1), effectiveTimestampSec: 0, blockTimeSec: 0, slot: 1, instructionIndex: 0, signature: "s1" }], scanComplete: true, scanMethod: "authority" } }));
   await runMain(["--pools", "TSLAx", "--max-calls", "100000", "--body-sample", "0", "--min-interval", "0", "--from-utc", String(btMs - 2 * 86_400_000),
     "--to-utc", String(btMs + 86_400_000), "--rebase-trajectory", traj, "--out", out],
-  { call, databentoGet, polygonGet, env: { BELL_HALTS_CSV: join(REPO, "apps", "bell", "test", "fixtures", "halts-tsla-synth.csv") }, nowMs: btMs + 86_400_000 });
+  { call, databentoGet, polygonGet, env: { DATABENTO_API_KEY: "k", BELL_HALTS_CSV: join(REPO, "apps", "bell", "test", "fixtures", "halts-tsla-synth.csv") }, nowMs: btMs + 86_400_000 });
   return out;
 }
 export interface RealPublication { stateDir: string; publicDir: string; privateKey: KeyObject; keyringText: string }
