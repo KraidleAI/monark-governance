@@ -62,7 +62,7 @@ Everything below is live, machine-readable, and replayable by a third party with
 
 | Surface | What it serves | Who consumes it |
 |---|---|---|
-| `https://mcp.monarkgate.tech/mcp` · `https://api.monarkgate.tech/openapi.json` | The engine's four tools (`attest · gate · cascade · calibrate`) over MCP and a plain HTTP/JSON mirror; the served OpenAPI document states the served version | Any MCP-capable agent; the ClawHub skill |
+| `https://mcp.monarkgate.tech/mcp` · `https://api.monarkgate.tech/openapi.json` | The engine's four tools (`attest · gate · cascade · calibrate`) over MCP and a plain HTTP/JSON mirror; the served OpenAPI document states the served version | Any MCP-capable agent |
 | `https://monarkgate.tech/narabi/state.json` · `timeline.jsonl` | Narabi's tracker state and its append-only, per-line hash-chained daily timeline (one line per window, with the blocks it was read from) | Anyone replaying the tracker; the site's `/narabi` page |
 | `https://bell.monarkgate.tech/state.json` · `timeline.jsonl` · `provenance.json` · `bell/pubkey.json` | MONARK Bell's signed publications: per-session fills, VWAP and volume for the listed tokenized equities, halt census, supply and proof-of-reserve residuals, the provenance of each run, the active Ed25519 key | Anyone verifying a publication; the site's `/bell` page |
 | `https://monarkgate.tech` | The vitrine: every number on it is read from a committed, hashed copy of the served files above — never typed | Readers |
@@ -91,7 +91,7 @@ The labels are the point: they say what exists today and what is only named.
 |---|---|---|---|
 | AI | **Backbone** — the gate | Hikae (coverage control) + the MONARK token's budget `B_t`; turns a sensor reading into `commit \| defer \| abstain` | **Built** — six frozen contracts (the sixth, AttestedBook, upcoming until served) |
 | AI | **Sensors and acts** | the engine's agents: sensors that attest, acts that execute, one token across all of them | **4 built** (Shōgen · Hikae · Ukemi · Narabi) · **7 named** |
-| AI | **Harness** — the door | the same engine made reachable *by other AI agents* over HTTP / MCP | **Built** — public 4-tool MCP endpoint (attest · gate · cascade · calibrate) + skill on ClawHub |
+| AI | **Harness** — the door | the same engine made reachable *by other AI agents* over HTTP / MCP | **Built** — public 4-tool MCP endpoint (attest · gate · cascade · calibrate)  |
 | AI | **Adaptation agents** | agents that recalibrate, onboard protocols, track liquidation mechanics and watch data sources | **Roadmap** — named, not shipped |
 | DeFi | **Applications** — powered by the engine | one application per DeFi need, served with its own published artefacts | **1 built** (MONARK Bell) · **5 research leads** |
 
