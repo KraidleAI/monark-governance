@@ -543,6 +543,31 @@ identique (même pathspec). §R-25.
 
 **Ceinture.** `pli5\ev.sh`, identique à `pli4\ev.sh` (texte de la mission, `NEXT_TELEMETRY_DISABLED=1` compris).
 
+## Pli 6 (corrections du checkpoint-2 ter ; 2026-09-24, ~19:58Z → 20:04Z ; test seul, gel 4 `7fb53dc`)
+- **C-1 (garde 1)** : `catch { return true; }` comptait toute exception comme THROW. Désormais seule une exception du
+  scanner, dont le message commence par `assert-fleet-html: ` (toutes les levées accessibles depuis `renderedBody`, l.114
+  à 234 du scanner), compte comme THROW ; toute autre exception est relancée. Mutant MG8 (le scanner lève
+  `RangeError("x")` sur Att1) : survivant avant, tué après (erreur `x` relancée).
+- **C-2 (garde 2)** : `dangerouslySetInnerHTML` est cherché dans tous les fichiers de code d'`apps/site` (`.tsx`, `.ts`,
+  `.jsx`, `.js`, `.mjs`), et non plus dans les seuls `.tsx`. Mutant MG9 (occurrence plantée dans `apps/site/lib/how-copy.ts`) :
+  survivant avant, tué après ; le message nomme `apps/site/lib/how-copy.ts x1`.
+- **C-3 (garde 2)** : non traité ici, par décision de la mission. `apps/site/public/scene/blocks-hero.html` est supprimé sur
+  `lot/etude-suite` (`05c66aa`, scène native) ; l'orchestrateur ajoutera l'assertion « 0 fichier `public/**/*.html` » à la
+  résolution de fusion, où elle est vraie. Relevé en lecture seule sur `lot/etude-suite` (`b8cc04f`) : 0 fichier `.html`
+  sous `apps/site/public` ; `dangerouslySetInnerHTML` seulement à `app/layout.tsx:67` ; 0 `rehype-raw` ; 0 `innerHTML =`.
+- Mutants : MG1 à MG7 (harnais du validateur, entrées recopiées octet pour octet, sha muté identique au validateur) et MG8,
+  MG9 : 9/9 tués par le test visé, 9/9 restaurations octet-exactes (7 fichiers, sha avant = après).
+- Le texte du §« Pli 5 » qui borne la garde 2 aux `.tsx` est à lire avec C-2 (extension aux `.ts`, `.jsx`, `.js`, `.mjs`).
+
+3. Fichiers touchés : ligne `test/site-build-fleet.test.ts`, APRÈS `e72e14ca8b0ab28f7931f7e953a3682dc85820165fc8d8bc061796672244eeb1`
+   (au gel 4 : `58935e6e…`) ; +9 −4.
+
+4. R-25 : après le pli 6, même pathspec verbatim (`ci.yml:71` ici, `ci.yml:65` dans `lot/etude-suite`, ligne identique) :
+   `13 files changed, 515 insertions(+), 36 deletions(-)` ⇒ **551** ; delta face au gel 4 : 13.
+
+5. Oracle du pli 6 (ceinture `pli6\ev.sh`) : test du site seul 10/10 ; liste ciblée 224/224 ; 6 portes exit 0 ; ratchet 69/69 ;
+   build hors réseau 0 connexion, 19/19 identique au gel 4 ; g3-site exit 0.
+
 ## Faits d'orientation (lus, avec ligne)
 
 - F-1 `.github/workflows/ci.yml` (base) : aucun bloc `permissions`, aucune occurrence de `write` ni de `permission` (grep
@@ -1555,3 +1580,7 @@ journaux dans `final\first-run\`.
 | liste ciblée (commande identique aux plis précédents) | exit 0 — **224 tests, 224 pass, 0 fail, 0 skip** (222 + les 2 gardes) |
 | build hors réseau, `renderedBody` face au build du gel 3 bis | 19/19 identiques, 0 connexion, g3-site exit 0 ; garde 2 verte avec `.next` présent |
 | 6 portes rejouées sur l'arbre final (G1 écrit) | exit 0 ×6 (19:25:02Z → 19:25:41Z, `pli5\final\final-*.log`) |
+
+## G7 — error_origin de la famille M-1 et de L-3 (2026-09-24 20:07 UTC, orchestrateur `claude-fable-5-1`, critère du checkpoint-2 ter)
+- Critère écrit : un défaut corrigeable dans la grammaire D3 est IMPLEMENTEUR (L-2 : corrigé par le pli 3) ; un défaut qui ne l'est pas sans changer de plan (I-10) est PLANIFICATEUR. Assignation : **L-3 (Att1) et les trois formes M-1 (R-a, R-c, ouvrante à texte brut dans un attribut) = PLANIFICATEUR** (conception D3, coupe maison, acceptée comme limite connue par la décision 205) ; L-2 = IMPLEMENTEUR ; Rh1acc (gel 2) = IMPLEMENTEUR ; C-1/C-2 du cp-2 ter (gardes trop larges) = IMPLEMENTEUR (pli 5) ; C-3 = PLANIFICATEUR (inventaire des portes brutes incomplet dans la mission de l'orchestrateur ; devenu vrai après `05c66aa`).
+- G2 courte annoncée à 19:11Z non tenue sur `6443dcc..7fb53dc` : règle CP2b (a)-2 (scanner octet-identique `fcbd28b0…` sur les trois gels) ; les tests des plis 5 et 6 sont relus à 100 % par le validateur (cp-2 ter) et éprouvés par MG1..MG9. Consigné, pas tu.

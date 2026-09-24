@@ -335,8 +335,11 @@ test("rendered_body_known_limit_family_pinned - the four forms exempted by decis
     let out: string;
     try {
       out = renderedBody(html);
-    } catch {
-      return true; // THROW: fail-closed, within the exemption
+    } catch (e) {
+      // THROW counts only as the scanner's OWN fail-closed, whose messages all start with this prefix; any other exception
+      // is a bug, not the exemption, and is rethrown (checkpoint-2 ter C-1).
+      if (e instanceof Error && e.message.startsWith("assert-fleet-html: ")) return true;
+      throw e;
     }
     return out.includes("HA"); // UNDER: the known limit; EXACT returns false
   };
@@ -349,7 +352,8 @@ test("rendered_body_known_limit_family_pinned - the four forms exempted by decis
 
 // Guard 2 (investor decision 205): the checks above read the BUILT html, whose text React escapes; raw html injected by
 // the site itself would bypass that escaping, whatever the scanner does. In apps/site, `dangerouslySetInnerHTML` appears
-// in the .tsx sources only in app/layout.tsx (the theme script, once), and `rehype-raw` and `innerHTML =` appear in no
+// in the code sources (.tsx, .ts, .jsx, .js, .mjs; checkpoint-2 ter C-2) only in app/layout.tsx (the theme script,
+// once), and `rehype-raw` and `innerHTML =` appear in no
 // file. A file walk (no git): node_modules and the build output .next are third-party or generated code, excluded. Any
 // other occurrence reds with its path; removing the theme script reds too (the pin holds both ways).
 test("site_raw_html_injection_points_pinned - dangerouslySetInnerHTML only in apps/site/app/layout.tsx (theme script, once), no rehype-raw and no innerHTML = in apps/site (decision 205, guard 2)", async () => {
@@ -360,13 +364,14 @@ test("site_raw_html_injection_points_pinned - dangerouslySetInnerHTML only in ap
     .filter((d) => d.isFile())
     .map((d) => join(d.parentPath, d.name).slice(site.length + 1).split(sep).join("/"))
     .filter((rel) => !rel.split("/").some((seg) => seg === "node_modules" || seg === ".next"));
+  const isCode = (rel: string): boolean => [".tsx", ".ts", ".jsx", ".js", ".mjs"].some((ext) => rel.endsWith(ext));
   const tsx = files.filter((rel) => rel.endsWith(".tsx"));
   assert.ok(tsx.includes("app/layout.tsx") && tsx.length >= 20, `the walk reached the site sources (non-vacuous): ${tsx.length} .tsx files`);
   const sinks: string[] = [];
   const raw: string[] = [];
   for (const rel of files) {
     const text = readFileSync(join(site, ...rel.split("/")), "utf8");
-    const n = rel.endsWith(".tsx") ? text.split("dangerouslySetInnerHTML").length - 1 : 0;
+    const n = isCode(rel) ? text.split("dangerouslySetInnerHTML").length - 1 : 0;
     if (n) sinks.push(`apps/site/${rel} x${n}`);
     if (text.includes("rehype-raw") || /innerHTML\s*=(?!=)/.test(text)) raw.push(`apps/site/${rel}`);
   }

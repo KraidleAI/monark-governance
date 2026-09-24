@@ -48,3 +48,8 @@ Oracle 7 portes + `npm test` seul (orchestrateur) ; R-25 ≈ 150-300 (< 1 205) ;
 
 ## Rulings du checkpoint-1 v1 (conservés)
 D3 maison (pas `parse5`) ; D4 égalité stricte de `hostname`, aucun suffixe ; point 3 escaladé.
+
+## Amendement (viii) — 2026-09-24 20:07 UTC, décision investisseur 205, G7 orchestrateur `claude-fable-5-1`
+- **D3, limite connue élargie** : la coupe maison des blocs à texte brut (`<script>`, `<style>`, `<title>`, `<noscript>`) est exacte sur la grammaire D3 et diverge du navigateur sur une famille de quatre formes hors grammaire : fermante malformée sur un élément à texte brut (R-a), guillemet dans l'ouvrante (R-c), ouvrante à texte brut dans une valeur d'attribut (L-3/Att1) et sa variante. Sur ces formes le scanner rend THROW ou UNDER, jamais EXACT (garde `rendered_body_known_limit_family_pinned`) ; mesuré : 0 forme nouvelle face au gel 2, 0 occurrence sur les 19 pages. D3 ne dit plus « pas de `<style` » ni « ≈ 40 lignes » : le scanner fait 494 lignes R-25 au gel 2.
+- **Porte brute unique** : `dangerouslySetInnerHTML` n'est admis que dans `apps/site/app/layout.tsx` (script de thème, une occurrence) ; `rehype-raw` et `innerHTML =` nulle part sous `apps/site` ; aucun fichier `.html` brut sous `apps/site/public` (garde `site_raw_html_injection_points_pinned`, complétée à la fusion par l'assertion « 0 `public/**/*.html` », vraie depuis `05c66aa`).
+- **Suite** : SCANNER-CONFORME-1 (tokenizer conforme, parse5 = R-8, ADR dédié, contrat `renderedBody` réécrit), lot séparé, déclencheur décision investisseur après la clôture Bell/Ukemi (décision 201).
