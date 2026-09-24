@@ -168,7 +168,7 @@ const PHASES: { id: string; label: ReactNode; body: ReactNode; tone: string }[] 
 // substance. Below (register-consuming): the built agents, each with its digit-free served note (wiring.note) and a link to
 // its panel on /fleet (every built agent has one there, section #panels) plus its own surface when it ships one; then the
 // upcoming agents as teasers. The agent lists stay here as well as on /fleet so the upcoming agents keep a rendered home here.
-// Applications are not listed one by one here: they live on the applications page (/products).
+// Applications are not listed one by one here: they live on the applications page (/applications).
 
 /** The day the intentions below were written down on this page (an ISO date, the honesty lint's allowed form). */
 const INTENTIONS_STATED = "2026-09-24";

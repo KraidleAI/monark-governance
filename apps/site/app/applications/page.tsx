@@ -12,15 +12,15 @@ import {
 import { VISAGE } from "@/lib/visage";
 import { insideFor } from "@/lib/fleet-presentation";
 import { loadBellServed, bellServedRepoRoot, BELL_HOST, BELL_TIMELINE_PATH } from "@/lib/bell-served-load";
-import { BuiltProductCard, type BuiltProductFact, type BuiltProductLink } from "./built-product-card";
+import { BuiltApplicationCard, type BuiltApplicationFact, type BuiltApplicationLink } from "./built-application-card";
 
 // The status sentence of the applications, DERIVED from the register (lib/fleet.ts productStatusSentence): used by the
 // static metadata AND the lede, so neither can drift from the register.
 const PRODUCT_STATUS_SENTENCE = productStatusSentence();
 
 // Static metadata only: no number in title/description (honesty lint §6b scans them), and NO generateMetadata (guard
-// no_generate_metadata_in_apps_site). The status sentence is derived from the register at build. The route keeps its
-// path; the page says "applications".
+// no_generate_metadata_in_apps_site). The status sentence is derived from the register at build. The route is
+// /applications; its former address redirects to it permanently (next.config.mjs).
 export const metadata: Metadata = {
   title: "Applications — MONARK",
   description: `The on-chain applications the MONARK engine powers, by the profile that needs them, and the artefacts sold to a named buyer. ${PRODUCT_STATUS_SENTENCE}`,
@@ -31,23 +31,23 @@ const PRODUCT_PAGE: Readonly<Record<string, string>> = { bell: "/bell" };
 
 /** The served facts a built application carries on this page, read from committed, hashed data (never typed): the
  *  latest signed publication (`head`) of the served timeline. */
-function factsFor(product: BuiltFleetProduct): BuiltProductFact[] {
+function factsFor(product: BuiltFleetProduct): BuiltApplicationFact[] {
   if (product.key !== "bell") return [];
   const record = loadBellServed(bellServedRepoRoot()).head;
   return [{ label: "latest signed record", value: `seq ${String(record.seq)} · published ${record.published_at} (UTC)` }];
 }
 
 /** Where a built application can be opened: its own page, then the served file anyone can read (Bell: the signed timeline). */
-function linksFor(product: BuiltFleetProduct): BuiltProductLink[] {
-  const links: BuiltProductLink[] = [];
+function linksFor(product: BuiltFleetProduct): BuiltApplicationLink[] {
+  const links: BuiltApplicationLink[] = [];
   const page = PRODUCT_PAGE[product.key];
   if (page !== undefined) links.push({ href: page, label: `Open ${product.name} →`, external: false });
   if (product.key === "bell") links.push({ href: BELL_HOST + BELL_TIMELINE_PATH, label: "the signed timeline →", external: true });
   return links;
 }
 
-// The /products route (server component), rendered as the applications page. Three registers, three sections: the BUILT
-// applications (lib/fleet.ts, status "built": MONARK Bell), each a server-rendered BuiltProductCard carrying its served
+// The /applications route (server component), rendered as the applications page. Three registers, three sections: the BUILT
+// applications (lib/fleet.ts, status "built": MONARK Bell), each a server-rendered BuiltApplicationCard carrying its served
 // note and served facts; the UPCOMING applications (fingers, status "upcoming"), each opening its C-10-safe UpcomingPanel
 // placeholder (only upcoming applications ever reach that panel, whose "to be announced" line and "a wiring of fleet
 // agents" sentence are true of them alone); and the THREE VISAGE artefacts (lib/visage.ts), each a PlaceholderPanel with
@@ -77,7 +77,7 @@ export default function ProductsPage() {
           </div>
           <div className="mt-4 grid max-w-3xl gap-4">
             {built.map((p) => (
-              <BuiltProductCard key={p.key} product={p} inside={insideFor(p.key)} facts={factsFor(p)} links={linksFor(p)} />
+              <BuiltApplicationCard key={p.key} product={p} inside={insideFor(p.key)} facts={factsFor(p)} links={linksFor(p)} />
             ))}
           </div>
         </section>

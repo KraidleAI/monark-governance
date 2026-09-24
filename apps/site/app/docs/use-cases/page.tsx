@@ -219,7 +219,7 @@ export default function DocsUseCasesPage() {
           </p>
         </Callout>
         <p>
-          Every application named here has its page on the <Link href="/products">applications page</Link>; every piece, on the{" "}
+          Every application named here has its page on the <Link href="/applications">applications page</Link>; every piece, on the{" "}
           <Link href="/docs/pieces">pieces page</Link>.
         </p>
       </DocSection>

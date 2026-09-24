@@ -73,7 +73,7 @@ function statusOf(name: string): "built" | "upcoming" {
   return a.status;
 }
 
-// The /fleet route (server component) in charter C (/fleet = the AGENTS, applications stay on /products). It consumes
+// The /fleet route (server component) in charter C (/fleet = the AGENTS, applications stay on /applications). It consumes
 // the fleet register (lib/fleet.ts): the built agents as register cards carrying their digit-free served note
 // (wiring.note — the O-2 header below is asserted on the built HTML by scripts/assert-fleet-html.mjs) and, where the
 // served gate states one, the served sentence of the agent's class (said while the committed served record,
@@ -189,7 +189,7 @@ export default function FleetPage() {
           })}
         </div>
         <p className="c-muted c-small" style={{ marginTop: 10 }}>
-          Applications are listed on the <Link href="/products">applications page</Link>, off the agent count above.
+          Applications are listed on the <Link href="/applications">applications page</Link>, off the agent count above.
           {productsBuilt.length > 0 ? (
             <>
               {" "}

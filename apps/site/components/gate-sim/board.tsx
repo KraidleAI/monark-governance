@@ -435,7 +435,7 @@ export function EngineBoard({ sim, actions }: { sim: UseGateSim; actions: readon
               </div>
             )}
           </div>
-          <Link href="/products" style={{ fontSize: 14, color: "var(--monark-t)" }}>
+          <Link href="/applications" style={{ fontSize: 14, color: "var(--monark-t)" }}>
             See it on Applications →
           </Link>
           <div style={{ ...mono, fontSize: 11, color: "var(--ink2)", lineHeight: 1.5 }}>{productStatusSentence()}</div>

@@ -20,8 +20,13 @@ const nextConfig = {
   },
   // /building is the page title of /roadmap (MONARK Building); the route keeps its address for the links that exist, and the
   // alias redirects to it (temporary, so the canonical address can still change without a cached permanent redirect).
+  // The applications page moved to /applications; its former address redirects to it permanently (the new address is
+  // final, so a cached permanent redirect is intended there).
   async redirects() {
-    return [{ source: "/building", destination: "/roadmap", permanent: false }];
+    return [
+      { source: "/building", destination: "/roadmap", permanent: false },
+      { source: "/products", destination: "/applications", permanent: true },
+    ];
   },
   // Bell anchors: `.ots` is ALSO the OpenDocument spreadsheet-template extension, so the static
   // server would label an OpenTimestamps proof as a spreadsheet (measured locally). Serve the proofs as bytes to
