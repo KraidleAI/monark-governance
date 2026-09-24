@@ -479,3 +479,5 @@ autre page, tout fichier source (`gate:vocab`) et toute autre donnée filtrée r
 règles ; la dérogation ne lève aucune autre règle) ; `vocab_site_scope_bans_third_party_platforms` reste inchangé et vert. Limite
 déclarée : les motifs sont compilés sans casse, le mot anglais « compound » rougit donc aussi (0 occurrence dans `apps/site` à
 l'ajout). DAI, un jeton et non une plateforme : non ajouté. Pur ajout daté ; les alinéas précédents restent tels quels.
+
+- **Ratification 2026-09-24 19:54 UTC (décision investisseur 206)** : l'amendement D14 ci-dessus (MakerDAO et Compound dans les figures citées de /docs/research, par étiquette de règle, cette page seule) est ratifié par l'investisseur ; ces noms sont des auteurs de figures citées, jamais des partenaires, et la dérogation ne s'étend à aucune autre page sans nouvelle ligne datée.
