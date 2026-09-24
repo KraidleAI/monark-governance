@@ -394,11 +394,12 @@ test("bell_adv_leg_is_wired_runmain_guard_real_polygon_get", async () => {
 
 // ADR-CODEQL-ALERTS-1 D4 (CodeQL #13): the D-3 stub above routes the Solana RPC by EXACT https host. Mutant "isHttpsHost
 // reverted to url.startsWith(`https://${host}`)" => the look-alike host routes => reds here; so does a suffix match
-// (`hostname.endsWith(host)`, G2 GM7b) on `xapi.mainnet.solana.com` (runMain itself never fetches a decoy, so this test
-// is the stub's own teeth).
+// (`hostname.endsWith(host)`, G2 GM7b) on `xapi.mainnet.solana.com`, and a dot-boundary subdomain match
+// (`endsWith("." + host)`, G2-delta GM7d) on `a.api.mainnet.solana.com` (runMain itself never fetches a decoy, so this
+// test is the stub's own teeth).
 test("bell_adv1_stub_routes_rpc_by_exact_https_host", () => {
   for (const host of [HELIUS_HOST, "api.mainnet.solana.com"]) assert.equal(isHttpsHost(`https://${host}/?k=1`, host), true, `https://${host} routes`);
-  for (const decoy of ["https://api.mainnet.solana.com.evil.com/", "https://xapi.mainnet.solana.com/", "https://evil.com/?x=api.mainnet.solana.com", "http://api.mainnet.solana.com", "api.mainnet.solana.com"]) {
+  for (const decoy of ["https://api.mainnet.solana.com.evil.com/", "https://xapi.mainnet.solana.com/", "https://a.api.mainnet.solana.com/", "https://evil.com/?x=api.mainnet.solana.com", "http://api.mainnet.solana.com", "api.mainnet.solana.com"]) {
     assert.equal(isHttpsHost(decoy, "api.mainnet.solana.com"), false, `a decoy never routes as the Solana RPC: ${decoy}`);
   }
 });

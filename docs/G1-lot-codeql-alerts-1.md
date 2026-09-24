@@ -46,6 +46,21 @@ Aucun commit (R-20), aucun workflow déclenché. Artefacts hors dépôt : `F:\tm
   g3-site vert ; `.next` et `next-env.d.ts` (artefacts ignorés, créés par le build) retirés ; 05:03:19Z → 05:04:33Z
   21 mutants, 21/21 tués ; 05:05:05Z → 05:16:56Z oracle final du pli (6 portes, ciblés 220/220, importeurs 230/2 skip/0,
   test 42 2/2). L'énoncé « strictly safer » de D-1 (citation de l'advisor) est RÉFUTÉ par G2 B-1 et RETIRÉ (D-1 réécrit).
+- **Pli G2 delta** (mission orchestrateur reçue après la revue G2 du delta, gel `8229745` commité ; même worktree,
+  par-dessus le gel, sans commit ; §« G2 delta pliée ») : ~07:05Z lecture du rapport `g2b\G2-delta-report.md` et de ses
+  artefacts ; 07:14:28Z copies du gel (`pli2\gel\`) ; ~07:15Z relecture [lu] des états commentaire 13.2.5.43-.52 ;
+  ~07:16Z advisor intégré (conception, avant code : variante A de la règle d'ambiguïté, bifurcation soumise) ; ~07:17Z
+  vecteurs validés contre parse5 (`pli2\vectors-pli2.mjs`, 28/28) puis écrits D'ABORD : rouges sur le gel (07:18:44Z) ;
+  ~07:20Z pli du scanner, fichiers touchés verts 52/52 ; 07:21Z PLI2 figé (`ea466fe3…`), variante B dérivée
+  (instrument) ; 07:22:16Z → 07:54:49Z énumération exhaustive jusqu'à 7 jetons (183 063 615 séquences, 15 tranches) ;
+  07:26:39Z → 07:27:17Z `next build` hors réseau (0 connexion), 19/19, g3-site vert ; 07:28:12Z → 07:29:21Z 6 portes ;
+  07:32:04Z → 07:32:41Z différentiel exhaustif de la grammaire des commentaires contre parse5 (0 désaccord) ; ~07:33Z fuzz
+  du relecteur rejoué ; ~07:37Z advisor intégré (fuzz : recadrage du critère, classement par accident) ; 07:41:16Z →
+  07:44:18Z 39 mutants ; 07:44Z oracle ciblé : 1 rouge (D-11), corrigé, identité prouvée ; 07:47:35Z → 07:50:19Z 39 mutants
+  rejoués sur l'arbre final ; 07:55:40Z → 08:03:39Z oracle final ; 07:55:35Z → 08:00:19Z classement exhaustif jusqu'à 7 jetons ; 08:04:09Z →
+  08:04:22Z build final hors réseau (0 connexion), 19/19, g3-site vert ; ~08:08Z advisor intégré en clôture (livrables
+  écrits) : aucun blocage ; deux retouches demandées, faites (P2 dans les améliorations, cette consultation au journal).
+  Avis, jamais verdict.
 
 ## G2 pliée (2026-09-24, ~04:50Z → 05:2xZ ; rapport `F:\tmp\codeql-alerts-1\g2\G2-report.md`)
 
@@ -87,7 +102,9 @@ Pas de modification de l'ADR (A-r2, numéros de ligne : réservé à l'orchestra
 
 - NOUVEAU texte caché compté (marqueur compté par la version récente et pas par l'autre) :
   - lot-v1 face à l'ancien : **514** séquences (B-1 retrouvé mécaniquement, ex. `<template><script></template>A3`) ;
-  - **pli face à l'ancien : 0 ; pli face à lot-v1 : 0**.
+  - **pli face à l'ancien : 0 ; pli face à lot-v1 : 0** — sur cet alphabet de 9 jetons et jusqu'à 6 jetons SEULEMENT
+    (borne corrigée au pli G2 delta, M-4) : au-delà, le G2 du delta a trouvé B-2 (U1b, 7 jetons avec `<!-->`) ; mesure
+    refaite jusqu'à 7 jetons sur 15, §« G2 delta pliée ».
 - Les 34 UNDER du pli (`pli\enum-pli-under.txt`) sont tous de la classe R-e (script double échappé) et tous aussi
   comptés par l'ancien, sur le même marqueur.
 - La hausse des throws est le fail-closed D-5 : ces séquences laissent un template, un noscript ou un commentaire
@@ -107,6 +124,115 @@ Pas de modification de l'ADR (A-r2, numéros de ligne : réservé à l'orchestra
   0 `<template`, 0 `<noscript`, autant de `<!--` que de `-->`, 0 fermante espacée ou attribuée.
 - g3-site `node scripts/assert-fleet-html.mjs` : **exit 0**. /fleet : en-tête et 4 notes, 33 813 caractères ;
   /ukemi : 0 jeton numérique, statut `built`, 4 678 caractères de corpus (`pli\g3-site.log`).
+
+## G2 delta pliée (2026-09-24, ~07:10Z → 08:07Z ; rapport `F:\tmp\codeql-alerts-1\g2b\G2-delta-report.md`, gel `8229745`)
+
+Mission orchestrateur reçue après la revue G2 du delta (même worktree, par-dessus le gel 1 commité, sans commit). Lus
+avant tout pli : le rapport (320 lignes), `g2b\vectors-under.log`, `g2b\vectors-g2b.log`, `g2b\enum\new-vs-old-L6.txt`,
+`g2b\killmatrix\killmatrix.out`, `g2b\depth-probe.log`. Règles relues [lu] par le worker sur la copie locale de la
+spécification (`g2\whatwg-parsing.html`, sha `de2e84b4…`) : les états commentaire 13.2.5.43 à 13.2.5.52 en entier, et
+la numérotation des états script data échappés et double échappés (13.2.5.18 à 13.2.5.31). Copies de référence figées
+sous `F:\tmp\codeql-alerts-1\pli2\` : `gel\` (les 6 fichiers au gel), `pli2-final-assert-fleet-html.mjs` (sha `f40333f2…`,
+l'arbre livré). Les instruments ont tourné sur la copie `pli2-assert-fleet-html.mjs` (sha `ea466fe3…`), qui ne diffère de
+la finale que par 2 lignes de commentaire (D-11) ; identité de comportement prouvée sur les 813 615 séquences E15 de 1 à
+5 jetons (`pli2\identity-check.log` : 813 615 sorties identiques, chaîne ou message levé, 0 différente).
+
+| Constat G2 delta | Pli | Preuve |
+|---|---|---|
+| **B-2** (bloquant) : dans un template, la branche commentaire (« `<!--` jusqu'à la première `-->` ») court au-delà de la fin réelle d'un commentaire abrupt, avale l'ouvrante d'une surface cachée POSTÉRIEURE et fait compter sa charge (U1-U7) ; U1b ne lève plus | `commentEnd(html, lt)` : fin de commentaire du navigateur, partout où la branche s'applique (racine et contenu de template) : `<!-->` et `<!--->` se ferment aussitôt (13.2.5.43/.44) ; sinon juste après le premier `--` suivi de `>` ou de `!>` (13.2.5.51/.52) ; les états « `<!--` dans un commentaire » (13.2.5.46-.49) ne déplacent pas cette fin ; non fermé : throw (message nommé `no matching --> or --!>`) | test nouveau `rendered_body_comment_forms_and_template_depth` : U1, U2, U3, U7 ⇒ `VA` ; U6 ⇒ l'en-tête seul ; U1b ⇒ throw `unclosed <script> block` ; Rb4t exact. Rouges sur le gel (`pli2\vectors-on-gel.log`, `pli2\red-on-gel.tap`), verts ensuite. Différentiel exhaustif de la seule grammaire contre parse5 (ci-dessous) : 0 désaccord |
+| **L-1** (décision orchestrateur : dans le périmètre, même correctif) | le même `commentEnd` sert à la racine | Lb1, Lb2 ⇒ throw `unclosed <script> block` (lettre de D3 (iv) rétablie) ; Lb5, Lb6 ⇒ `VA` ; Rb1 `<!-->`, Rb2 `<!--->`, Rb3 `--!>` seuls et Rb4 ⇒ exacts ; Rb5 `<!--!>` ⇒ throw (ne ferme rien, 13.2.5.43) |
+| `<!--` en texte brut ou en valeur d'attribut : règle explicite fail-closed demandée | le scanner ne voit ni le texte brut (M-24) ni les attributs : un `<!--` n'y est pas un commentaire pour le navigateur. Règle : si l'étendue d'un commentaire contient l'ouvrante d'une surface cachée (`<script`, `<noscript`, `<template` + frontière de nom, casse ASCII indifférente), les deux lectures divergent sur ce qui suit (l'une cache la surface, l'autre l'exécute) : throw nommé `a <!-- comment spans a <name> opener` | Lb3 (`<style>`), Lb4 (attribut), U4, U5 (dans un template), Ca1-Ca3 ⇒ throw nommé. Portée : les OUVRANTES seulement (variante A) ; la variante B (ouvrantes + une fin `</template` dans le contenu d'un template) est mesurée en instrument et laissée à l'arbitrage (§Résidus : S1t/Rft ; « Needs » du rendu) |
+| **M-1** : MT5, MT6, MT6b survivants | vecteurs Tcase, Tws (`</template \t\n\f\r>`), Tx (`</templatex>`), Tc (commentaire contenant `</template>` dans un template ⇒ `VA`) dans `rendered_body_scanner_outcomes` | MT5p, MT6, MT6b tués par le test visé (§Table des mutants, pli G2 delta) |
+| **M-2** : récursion non bornée (`RangeError` à 9 629 niveaux) | `MAX_TEMPLATE_DEPTH = 256` : `templateEnd(html, from, depth)` lève `<template> nested deeper than 256 levels` ; `depth` propagé par `surfaceEnd(html, lt, depth)` | D256 ⇒ `VDEEP`, D257 ⇒ throw nommé ; MC6, MC7, MC8 tués |
+| **M-3** : GM7c, GM7d survivants | leurres `https://a.eth.drpc.org` (ukemi) et `https://a.api.mainnet.solana.com/` (bell) | GM7c, GM7d tués ; GM7e, GM7f, GM7g aussi |
+| **M-4** : déclarations du G1 inexactes | §« G2 pliée » (borne d'alphabet), D-1, §Résidus, I-4 corrigés en place | ci-dessous et en place |
+| O-2 : docstring de `closerEnd` | « exact pour noscript (RAWTEXT) et le script data simple ; états échappé et double échappé (13.2.5.18-.31) non modélisés (R-e) » | diff |
+| O-1 : drapeau `doubleEscaped` de `pli\enum-under-list.mjs` (regex contiguë, faux sur 12 des 34 lignes) | le G1 n'a jamais conclu sur ce drapeau ; la classe R-e des 34 lignes est confirmée par le relecteur (34/34 sur l'arbre parse5) | `g2b\enum\re-signature.out` |
+
+**Grammaire des commentaires : différentiel exhaustif contre parse5** (`pli2\comment-grammar-diff.mjs`, sortie
+`pli2\comment-grammar-diff.log`). `commentEnd` (copie figée + une ligne `export`, `pli2\instr-commentEnd.mjs`) contre la
+fin du premier commentaire selon parse5 8.0.1 (copie du relecteur, intégrité sha512 vérifiée), pour `<!--` suivi de toutes
+les chaînes de 0 à 9 caractères sur `{-, !, >, <, x}` (les caractères qui pilotent les états 13.2.5.43-.52, `x` = tout
+autre). Fermé selon parse5 = même fin en ajoutant un `Z`, qui ne peut rien fermer. **2 441 406 chaînes : 708 219 fermées
+à la même position, 1 733 187 non fermées des deux côtés, 0 désaccord.** (Un premier critère, « erreur
+`eof-in-comment` », attribuait à tort au premier commentaire l'erreur d'un second `<!--` : instrument corrigé, écart
+déclaré.)
+
+**Énumération exhaustive, mécanisme du relecteur** (`pli2\enum\enum-pli2.mjs` : oracle `g2b\enum\p5oracle.mjs`
+importé tel quel, marqueurs `A${p}_`, alphabet de 15 jetons dans l'ordre du relecteur ; 15 tranches par premier jeton en
+parallèle, 07:22:16Z → 07:54:49Z ; fusion `pli2\enum\L7-merged.out`). Cinq implémentations : ANCIEN (`e7af51c`), LOT-V1, GEL
+(`8229745`), PLI2, et VARB (variante B de la règle d'ambiguïté, instrument hors lot). Quatre vues du même passage, selon
+les jetons employés : E15 (tout), E11 (les 9 du worker + `<!-->` + `--!>`, l'alphabet demandé), M9 (l'alphabet L7 du
+relecteur), W9 (les 9 du worker).
+
+| Vue (jusqu'à 7 jetons) | Séquences | PLI2 : exact / UNDER / OVER / UNDER+OVER / throw | PLI2 UNDER, toutes causes (GEL) | **NOUVEAU caché PLI2** face à l'ANCIEN / LOT-V1 / GEL | nouveau sur-retrait PLI2 face à l'ANCIEN / LOT-V1 / GEL |
+|---|---|---|---|---|---|
+| E15 | 183 063 615 | 45 819 869 / 44 537 / 348 663 / 228 / 136 850 318 | 44 765 (232 518) | **361 / 6 082 / 9 189** | 30 108 / 1 573 / 1 302 |
+| E11 | 21 435 887 | 4 209 865 / 1 148 / 0 / 0 / 17 224 874 | 1 148 (58 640) | **4 / 140 / 140** | 0 / 0 / 0 |
+| M9 | 5 380 839 | 1 348 238 / 730 / 0 / 0 / 4 031 871 | 730 (21 408) | **4 / 110 / 110** | 0 / 0 / 0 |
+| W9 | 5 380 839 | 780 686 / 689 / 0 / 0 / 4 599 464 | 689 (689) | **0 / 0 / 0** | 0 / 0 / 0 |
+
+Pour mémoire, UNDER de chaque version sur E15 : ANCIEN 13 721 008, LOT-V1 387 636, GEL 232 518, PLI2 44 765 ; sur W9 : ANCIEN 730 788, LOT-V1 22 691, GEL 689, PLI2 689. Variante B (instrument) : passe d'exact (chez PLI2) à throw sur 12 258 séquences E15 (E11 2 337, W9 471) ; nouveau sur-retrait face à l'ANCIEN 30 096 (PLI2 30 108). Coût de levée de PLI2 (exact chez X, throw chez PLI2) sur W9, où la règle d'ambiguïté est la seule différence avec le GEL : 154 920 face au GEL.
+
+**Classement de chaque nouveau texte caché compté** (`pli2\enum\enum-classify.mjs`, `fuzz-classify.mjs`, partition
+`partition.mjs`, vues `views.mjs`). Pour chaque séquence où PLI2 compte un marqueur caché `m` que X (ANCIEN, LOT-V1, GEL)
+ne comptait pas (X levait, ou ne gardait pas `m`) : S' = S avec `<!-->` → `<!---->` et `--!>` → `-->` (le navigateur lit
+chaque paire de la même façon comme jeton commentaire) ; « accident » = parse5 donne à S' les mêmes marqueurs visibles
+qu'à S ET X compte `m` sur S' : X ne manquait `m` que parce que SA grammaire des commentaires lisait mal une forme abrupte
+(levée « non fermé », ou texte coupé ailleurs), pas parce qu'il classait `m` juste. Le marqueur est alors caché par une
+construction hors modèle (R-h texte brut, R-a fermante, R-e double échappement), que X compte aussi.
+
+| Portée | Nouveau caché de PLI2 face à | Total | Accident, normalisation complète | Accident, normalisation partielle (seulement `<!-->`) | R-h (`<style>` en texte brut) compté à l'identique par LOT-V1 et le GEL | R-h, et accident pour LOT-V1 / GEL | Inexpliqué |
+|---|---|---|---|---|---|---|---|
+| ≤ 7 jetons, E15 | ANCIEN | 361 | 278 | 0 | 79 | 4 | **0** |
+| ≤ 7 jetons, E15 | LOT-V1 | 6 082 | 6 076 | 6 | — | — | **0** |
+| ≤ 7 jetons, E15 | GEL | 9 189 | 9 183 | 6 | — | — | **0** |
+| ≤ 7 jetons, E11 (M9) | ANCIEN / LOT-V1 / GEL | 4 / 140 / 140 (4 / 110 / 110) | 4 / 134 / 134 | 0 / 6 / 6 | 0 | 0 | **0** |
+| ≤ 7 jetons, W9 | les trois | 0 | — | — | — | — | **0** |
+| fuzz, 7 à 12 jetons (10^6) | ANCIEN / LOT-V1 / GEL | 26 / 135 / 165 | 20 / 134 / 164 | 0 / 1 / 1 | 4 / — / — | 2 / — / — | **0** |
+
+Sources : `pli2\enum\C7-partition.out`, `C7-views.out`, `C7-refine.out` (7 jetons, 9 276 enregistrements, classement
+07:55:35Z → 08:00:19Z) ; `pli2\enum\C6-all.jsonl` (6 jetons : 277 enregistrements, tous des accidents sauf 1, R-h
+compté aussi par LOT-V1 et le GEL) ; `fuzz-classify.jsonl`, `fuzz-refine.out`. Lecture :
+- les accidents à normalisation partielle sont des R-e : un `--!>` DANS le texte d'un script échappé n'équivaut pas à
+  `-->` (états script data échappés), donc seule la forme `<!-->` hors du script est normalisée ;
+- les 83 cas R-h face à l'ANCIEN sont des cas où l'ANCIEN levait par sa garde `<script` (sur une ouvrante fantôme logée
+  dans le texte brut d'un `<noscript>`, ou sur l'ouvrante réelle qu'une ouvrante lue dans un `<style>` avale) ;
+- le marqueur y est caché par un `<style>` que le scanner ne modélise pas (M-24) : dans un template (R-h déclaré) ou à la
+  racine (`<style><noscript></style><script></noscript>A`, R-h racine, préexistant depuis LOT-V1, « Needs »).
+
+Aucun de ces cas ne relève du mécanisme B-2/L-1 (une ouvrante avalée par un commentaire mal lu) : la fin de commentaire est
+celle du navigateur (différentiel ci-dessus) et toute étendue de commentaire contenant une ouvrante lève (règle
+d'ambiguïté). Le critère littéral « 0 nouveau caché face à l'ancien et face à lot-v1 » n'est donc pas atteignable par la
+seule correction de la grammaire des commentaires : cette correction retire des levées qui masquaient par hasard des
+résidus préexistants (« Needs » du rendu).
+
+**Fuzz du relecteur rejoué** (`g2b\enum\fuzz-ext.mjs` copié, seuls l'import de l'oracle et le chemin PLI changent,
+`pli2\enum\fuzz-ext-pli2.out` ; 10^6 échantillons de 7 à 12 jetons, graine `20260924`) : PLI2 nouveau caché face à LOT-V1
+135, face à l'ANCIEN 26, face aux deux 21 ; nouveau sur-retrait face à LOT-V1 80, face à l'ANCIEN 262. Classés
+(`pli2\enum\fuzz-classify.jsonl`, mêmes tirages : comptes identiques, contrôle) : 170 enregistrements ; face à LOT-V1 134
+accidents + 1 R-e hors normalisation ; face au GEL 164 + le même ; face à l'ANCIEN 20 accidents + 6 non-accidents, tous
+R-h (un `<noscript>` ou une fin `</template>` logés dans un `<style>` non modélisé) : les 4 à la racine sont comptés à
+l'identique par LOT-V1, GEL et PLI2 (préexistants depuis LOT-V1), les 2 autres sont des accidents pour LOT-V1 et le GEL.
+
+**Artefact réel** (arbre du pli avant D-11 ; identité de comportement ci-dessus)
+- Moniteur `pli\netmon.ps1` (inchangé) auto-testé sans réseau externe par la sonde locale du relecteur (serveur et client
+  node sur l'adresse non-loopback `192.168.100.2`, connexion tenue 3 s) : 2 connexions vues (`pli2\build\netmon-selftest.log`).
+- `npm run build -w @monark/site` sous `pli\ev-build.sh` : exit 0 de 07:26:39Z à 07:27:17Z, 19 routes ; moniteur : **0
+  connexion**, jusqu'à 24 processus node du build ; 6/6 configurations suivies inchangées ; `.next` et `next-env.d.ts`
+  (créé à 07:27:04Z, ignoré par git) retirés ensuite.
+- `renderedBody` ANCIEN = LOT-V1 = GEL = PLI2 octet pour octet sur les **19/19** pages (`pli2\build\real-compare4.log`) ;
+  empreintes de sortie identiques à celles des builds précédents (ex. /fleet `c943be8c…`) ; comptes : 0 `<template`,
+  0 `<!-->`, 0 `<!--->`, 0 `--!>`, 0 commentaire contenant un `<` (la règle d'ambiguïté ne peut s'y déclencher).
+- g3-site `node scripts/assert-fleet-html.mjs` : **exit 0** (/fleet 33 813 caractères, 4 notes ; /ukemi 0 jeton
+  numérique, statut `built`, 4 678 caractères). Rejoué sur l'arbre FINAL (après D-11) : `next build` exit 0 de 08:04:09Z à 08:04:22Z, moniteur 0 connexion (24 processus observés), 19/19 identiques ANCIEN = LOT-V1 = GEL = PLI2 final (`pli2\build\real-compare4-final.log`), g3-site exit 0 (`pli2\build\g3-site-final.log`) ; `.next` et `next-env.d.ts` retirés.
+
+**D-11 (incident mesuré, corrigé).** Premier oracle ciblé du pli (07:44Z) : 220 pass, **1 fail**,
+`durable_production_path_calls_the_real_node_fsync_and_has_no_off_switch` (`packages/rpc-guard/test/durable.test.ts:188`).
+Ce test balaie les sources à la recherche de `from` + guillemet + spécificateur + guillemet sur une même ligne ; la
+nouvelle docstring de `templateEnd` (« starts at `from`, else -1; `depth` is… ») lui présentait le « spécificateur »
+`, else -1; ` (espace finale : « canonical spelling »). Reformulée (2 lignes de commentaire, aucun code) ; le test repasse ;
+identité de comportement prouvée (ci-dessus) ; mutants, portes, oracle et build rejoués sur l'arbre final.
 
 ## Faits d'orientation (lus, avec ligne)
 
@@ -158,7 +284,8 @@ Pas de modification de l'ADR (A-r2, numéros de ligne : réservé à l'orchestra
   corps `x eth.drpc.org y eth-drpc-org z` ⇒ `detail === "x <redacted> y eth-drpc-org z"` (témoin positif + sosie intact).
 - **D3** `scripts/assert-fleet-html.mjs` : les regex de retrait l.61, l.68-69 et l.70 remplacées par un scanner maison
   (`stripHiddenSurfaces` + `hiddenOpenerAt` + `closerEnd` ; après le pli G2 : + `closerAt`, `surfaceEnd`, `templateEnd`
-  — la fin d'un `<template>` respecte l'imbrication, §« G2 pliée » ; non exportés, zéro dépendance) ; garde `/<script\b/i` et son
+  — la fin d'un `<template>` respecte l'imbrication, §« G2 pliée » ; après le pli G2 delta : + `commentEnd` et `MAX_TEMPLATE_DEPTH`,
+  §« G2 delta pliée » ; non exportés, zéro dépendance) ; garde `/<script\b/i` et son
   message CONSERVÉS octet pour octet, appliqués à la sortie du scanner ; garde nouvelle `<!--` résiduel ⇒ throw (C-V2-2b) ;
   `extractMain`/`mainCorpus` inchangés ; pas de `<style` (M-24). Docstring du jumeau `.d.mts` mise à jour (aucun symbole
   nouveau). Test nouveau `rendered_body_scanner_outcomes` (fin de `test/site-build-fleet.test.ts`) : (i) `b`,
@@ -173,7 +300,8 @@ Pas de modification de l'ADR (A-r2, numéros de ligne : réservé à l'orchestra
   et `bell_adv1_stub_routes_rpc_by_exact_https_host` (leurres : `https://evil.com/?x=eth.drpc.org`,
   `https://eth.drpc.org.evil.com`, `https://evil.com/eth.drpc.org`, entrée non absolue ; côté bell :
   `https://api.mainnet.solana.com.evil.com/`, `http://…`, requête, non absolue ; pli G2 M-1 : leurres SUFFIXE
-  `https://xeth.drpc.org` et `https://xapi.mainnet.solana.com/`). Les tests de course qui dépendent du
+  `https://xeth.drpc.org` et `https://xapi.mainnet.solana.com/` ; pli G2 delta M-3 : leurres SOUS-DOMAINE
+  `https://a.eth.drpc.org` et `https://a.api.mainnet.solana.com/`). Les tests de course qui dépendent du
   routage drpc réel (RETRY-2 408, HEARTBEAT-1) restent verts. Les 8 autres sites : NON touchés (§Dismiss).
 - **D5a** `apps/bell/test/helpers/bell-served.ts` : `HeaderRule.match` → `matches` (l.118, variable locale l.147-149,
   raccourci l.154, appel l.171) + `apps/bell/test/bell-served-e2e.test.ts:69`. `test/bell-caddy.ts:67` (autre
@@ -193,8 +321,11 @@ Pas de modification de l'ADR (A-r2, numéros de ligne : réservé à l'orchestra
   faux vert que l'ancien code n'avait pas, et un `<script>` jamais fermé dans un template ne levait plus, contre la
   lettre de D3 (iv) (G2 B-1 ; mesuré : 514 séquences de l'énumération où lot-v1 compte un texte caché que l'ancien ne
   comptait pas). Plié : `templateEnd` (§« G2 pliée »), après quoi l'énumération donne 0 cas face à l'ancien comme face
-  à lot-v1. La passe unique reste retenue : elle rapproche du navigateur X3, T4, C1, C2, K1 et P2 (G2, mesuré). Seule
-  la fin de `template` exigeait de respecter l'imbrication. Fondement de la passe unique : trois faits MESURÉS sur
+  à lot-v1 (sur l'alphabet de 9 jetons jusqu'à 6 : borne corrigée au pli G2 delta). La passe unique reste retenue. Au
+  pli G2, elle rapprochait du navigateur X3, T4, C1, C2, K1 et P2 ; au pli G2 delta, la règle d'ambiguïté fait lever
+  X1, X3, T4, C1 et P2 (un commentaire dont l'étendue contient une ouvrante cachée) : cet appui a disparu. Elle reste
+  fondée sur (a) ci-dessous (par construction, mesuré de nouveau : `visible-->`) et sur C2, K1, Tn, exacts chez PLI2 alors
+  que l'ANCIEN levait. Seule la fin de `template` exigeait de respecter l'imbrication. Faits MESURÉS au G1 sur
   `renderedBody` (`probe-d3-compare.txt`, ancien = blob HEAD `ba1d8324…`, qui EST l'ordre à deux passes) :
   (a) la propriété ex-l.57-60 (« un `<!--` d'une charge ne s'apparie pas à un `-->` du corps ») tient par construction —
   un bloc est consommé entier dès son ouvrante, qui précède sa charge ; mesuré : `<script>var a = "<!--";</script>visible-->`
@@ -233,6 +364,19 @@ Pas de modification de l'ADR (A-r2, numéros de ligne : réservé à l'orchestra
 - **D-10 (oracle élargi).** Lancés en plus de la liste de la mission, parce qu'ils exercent un fichier changé :
   `test/site-ukemi.test.ts` (`renderedBody`), `apps/bell/test/bell-verify.test.ts` (`serveDir`), `test/cra-b.test.ts`
   (`ci.yml`), les 17 autres importeurs de `rpc-guard` (D2), `test/export-public.test.ts` (test 42).
+- **D-11 (pli G2 delta : incident mesuré, corrigé).** Voir §« G2 delta pliée » : une docstring présentait au balayage
+  d'imports de `packages/rpc-guard/test/durable.test.ts:188` un faux spécificateur (`from` suivi d'un texte entre accents
+  graves sur la même ligne) ; rouge au premier oracle ciblé, reformulée (2 lignes de commentaire), identité de
+  comportement prouvée, tout rejoué sur l'arbre final.
+- **D-12 (pli G2 delta : portée de la règle d'ambiguïté).** Le scanner ne peut pas savoir si un `<!--` est un commentaire
+  ou du texte brut / une valeur d'attribut (M-24, R-c). Retenu : throw quand l'étendue contient une OUVRANTE de surface
+  cachée (le seul cas où la lecture change ce qui est CACHÉ après l'étendue : texte caché compté, famille B-2/L-1).
+  Écarté, mesuré et soumis à l'orchestrateur : étendre à une fin `</template` dans un template (variante B), qui ferme
+  aussi les sur-retraits S1t/Rft mais fait lever Tc et 12 258 séquences exactes de plus (§Résidus). Avis advisor
+  concordant (variante A, bifurcation soumise).
+- **D-13 (pli G2 delta : borne de profondeur).** `MAX_TEMPLATE_DEPTH = 256` : choix d'ingénierie, sans source externe
+  prétendue. Mesures : la récursion sans borne atteignait la limite de pile à 9 629 niveaux (Node v24.15.0, relecteur,
+  `g2b\depth-probe.log`) ; le site construit ne porte aucun `<template>` ; 256 niveaux passent, 257 lèvent (D256/D257).
 
 ## Dismiss « false positive » des 8 sites non réécrits (texte anglais prêt à poser, une phrase par site)
 
@@ -260,43 +404,78 @@ Replis prévus par l'ADR (à poser SEULEMENT si la re-analyse de la fenêtre gar
 
 ## Résidus déclarés (D3, grammaire ADR vs tokenizer HTML — non revendiqués)
 
-**Réécrit au pli G2 (M-2, M-3)** : l'ancienne phrase « identiques avant/après, aucune régression » était fausse (B-1).
-Chaque ligne est MESURÉE sur trois versions : ANCIEN (blob `e7af51c`), LOT-V1 (livré au G1), PLI. Sources :
-`pli\probe-residuals.log`, `pli\probe-old-vs-pli.log` (sonde G2 rejouée sur le pli), `probe-d3-compare.txt`. Le
-comportement navigateur suit les règles relues [lu] sur la copie G2 de la spécification (§« G2 pliée ») et, pour les
-commentaires bogus et `shadowrootmode`, la lecture de G2 (§13.2.5.42, §13.2.5.7). Aucune de ces formes n'existe dans
-les 19 pages construites (comptes G2 et `pli\real-compare.log` : 0 `<template`, 0 `<noscript`, 0 fermante espacée ou
-attribuée).
+**Réécrit au pli G2 delta (M-4)** : trois énoncés antérieurs étaient faux et sont retirés : « R-a et R-b4 IDENTIQUES
+ancien = lot-v1 = pli » (faux dans un template), « faux rouge possible, jamais faux vert » pour les écarts fail-closed
+(faux dès qu'un `-->` suit : sur-retrait ; et, avant ce pli, dès qu'une ouvrante suivait : L-1), et la liste R-h (incomplète).
+Chaque ligne est MESURÉE sur quatre versions : ANCIEN (blob `e7af51c`), LOT-V1 (livré au G1), GEL (`8229745`, pli G2),
+PLI2 (ce pli). Sources : `pli2\vectors-g2b-pli2.log` (les 37 vecteurs adverses du relecteur, colonne PLI2 ajoutée),
+`pli2\vectors-under-pli2.log` (U1-U10), `pli2\vectors-on-final.log` (les 28 vecteurs du pli), `pli\probe-residuals.log`,
+l'énumération et son classement (§« G2 delta pliée »). Verdict navigateur : règles relues [lu] (§« G2 pliée », §« G2
+delta pliée ») et oracle parse5 du relecteur (0 écart sur les vecteurs de ces trois fichiers). Aucune de ces formes
+n'existe dans les 19 pages construites (`pli2\build\real-compare4.log` : 0 `<template`, 0 forme abrupte, 0 commentaire
+contenant un `<` ; relecteur : 23 blocs texte brut ou RCDATA, aucun ne contient `<!--`, `-->`, `<script`, `template` ni
+`noscript`).
 
-Préexistants, IDENTIQUES ancien = lot-v1 = pli (non revendiqués ; I-4) :
-- R-a fermante avec attribut ou `/` (`</script foo>`) : une fermante plus loin est cherchée (sur-retrait si elle existe,
-  throw sinon).
-- R-b4 `<!-->` suivi d'un `-->` plus loin : sur-retrait (le navigateur ferme `<!-->` aussitôt, §13.2.5.43-44 lu par G2).
-- R-c `>` dans un attribut quoté d'une ouvrante : ouvrante close au premier `>`.
-- R-e état « double échappé » d'un script (`<!--` puis `<script>` dans un script) : fermeture à la première
-  `</script>` (sous-retrait). C'est la SEULE classe de texte caché compté que l'énumération trouve encore au pli :
-  34 séquences, toutes aussi comptées par l'ancien, sur le même marqueur.
-- R-h `</template>` dans un `<style>`, `<title>` ou `<textarea>` imbriqué dans un template : le scanner ne connaît que
-  `script`/`noscript` comme texte brut (M-24 : `<style` hors périmètre) ⇒ sous-retrait, UNDER ×3.
-- B1-B3 commentaires « bogus » `<! x>`, `</ x>`, `<?x>` : cachés par un navigateur (G2), copiés par les trois versions
-  (UNDER ×3).
-- SR `<template shadowrootmode=…>` (DOM de l'ombre déclaratif) : rendu par un navigateur (G2), retiré par les trois
-  versions (OVER ×3).
+Préexistants, IDENTIQUES ANCIEN = LOT-V1 = GEL = PLI2 (non revendiqués ; I-4) :
+- R-c `>` dans un attribut quoté d'une ouvrante : ouvrante close au premier `>` (Tattr2 exact ×4).
+- R-e état double échappé d'un script (`<!--` puis `<script>` dans un script) : fermeture à la première `</script>`
+  (sous-retrait ; Ret UNDER ×4 ; alphabet du worker jusqu'à 7 jetons : 689 séquences UNDER chez le GEL comme chez PLI2).
+- R-h `</template>` logée dans un élément à texte brut ou RCDATA imbriqué dans un template : `style`, `title`,
+  `textarea` (déjà déclarés), et, complétés au pli G2 delta, `xmp`, `iframe`, `noembed`, `noframes`, `plaintext`, et la
+  section CDATA d'un `svg` (Rh1-Rh9 : UNDER ×4) ; le scanner ne connaît que `script`/`noscript` comme texte brut (M-24).
+- B1-B3 commentaires « bogus » `<! x>`, `</ x>`, `<?x>` : cachés par un navigateur, copiés par les quatre versions.
+- SR `<template shadowrootmode=…>` : rendu par un navigateur, retiré par les quatre versions (OVER ×4).
+- Ra `</template x>` qui ferme un template pour le navigateur : OVER ×4.
 
-CORRIGÉ par le pli (lot-v1 : faux vert ou fail-open) :
-- R-d template imbriqué : ancien et lot-v1 UNDER, pli exact (vecteur Rd).
-- T1 / T2 `</template>` dans un `<script>`/`<noscript>` imbriqué : lot-v1 UNDER (régression B-1), ancien et pli exacts.
-- T3 `<script>` jamais fermé dans un template : lot-v1 aucun throw (régression B-1), ancien et pli throw.
+Préexistants, NON identiques (déclarés ; I-4) :
+- R-a dans un template, fermante hors grammaire D3 (`</script/>`, `</script x>`, `</template x>`) : Rat (ANCIEN OVER,
+  LOT-V1 exact, GEL = PLI2 OVER), U10 (ANCIEN UNDER, LOT-V1 exact, GEL = PLI2 UNDER), U9 (ANCIEN exact, LOT-V1 UNDER,
+  GEL = PLI2 throw) ; R-a avec imbrication (`<template><template></template></template x>A</template>` : LOT-V1 exact par
+  hasard, puisqu'il ignore l'imbrication ; GEL = PLI2 OVER). Aucun n'est nouveau face à l'ANCIEN côté texte caché (U10 :
+  l'ANCIEN comptait déjà) ; la correction relève de la grammaire des fermantes (I-4), hors de ce pli.
+- R-h à la racine, depuis LOT-V1 : une ouvrante cachée logée dans un `<style>` (texte brut) est lue comme vivante par la
+  passe unique et avale l'ouvrante d'un `<script>` suivant, dont la charge est comptée
+  (`<style><noscript></style><script></noscript>A`) : ANCIEN throw (sa garde `<script` après retrait des scripts),
+  LOT-V1 = GEL = PLI2 UNDER. C'est le seul nouveau texte caché face à l'ANCIEN qui ne soit pas un accident de grammaire
+  des commentaires (énumération jusqu'à 6 jetons : 1 séquence ; fuzz : 4 échantillons à la racine) ; il ne dépend pas de
+  ce pli (identique chez LOT-V1 et au GEL) ; I-4.
 
-Écarts FAIL-CLOSED déclarés (ancien : sans throw ; lot-v1 = pli : throw ⇒ faux rouge possible, jamais faux vert) :
-- Rb1 / Rb2 `<!-->` et `<!--->` seuls : fermés aussitôt par un navigateur, lus comme commentaire non fermé.
-- S1 / S2 `<!--` dans `<style>` (texte brut) ou `<title>` (RCDATA) : lu comme commentaire.
-- A1 `<noscript>` et Rf `<!--` en texte de valeur d'attribut : lus comme ouvrantes.
-- D-5 `<noscript>`, `<template>` ou commentaire non fermés (ancien : fail-OPEN, texte caché compté).
+CORRIGÉ par le pli G2 (B-1) : R-d template imbriqué (ANCIEN et LOT-V1 UNDER, GEL = PLI2 exacts) ; T1 / T2
+`</template>` dans un `<script>`/`<noscript>` imbriqué (LOT-V1 UNDER) ; T3 `<script>` jamais fermé dans un template
+(LOT-V1 sans throw).
 
-AMÉLIORATIONS (l'ancien comptait un texte caché ou sur-retirait ; lot-v1 = pli exacts ou throw) :
-- Rb3 `--!>` seul (ancien UNDER ⇒ throw) ; V1 `<script` + U+000B (ancien sur-retrait ⇒ throw) ; X3, T4, C1, C2, K1
-  (exacts, ancien OVER ou throw) ; P2 (exact).
+CORRIGÉ par le pli G2 delta (B-2, L-1 ; fin de commentaire du navigateur, 13.2.5.43/.44/.52) :
+- U1, U2, U3, U6, U7 (GEL UNDER) : exacts ; U1b (GEL sans throw) : throw ; Rb4t, Rb4t2, Rb3t (GEL OVER) : exacts ;
+- Lb1, Lb2 (LOT-V1 = GEL UNDER, sans throw) : throw `unclosed <script> block` ; Lb5, Lb6 (LOT-V1 = GEL UNDER) : exacts ;
+- Rb1 `<!-->` et Rb2 `<!--->` seuls (ANCIEN exact, LOT-V1 = GEL throw) : exacts ; Rb3 `--!>` seul (ANCIEN UNDER,
+  LOT-V1 = GEL throw) : exact ; R-b4 `<!-->` puis un `-->` plus loin (OVER ×3) : exact.
+
+Écarts FAIL-CLOSED déclarés (throw ⇒ faux rouge possible) :
+- S1 / S2 `<!--` dans `<style>` (texte brut) ou `<title>` (RCDATA), Rf `<!--` en valeur d'attribut, SANS terminateur
+  plus loin : commentaire non fermé ⇒ throw ; A1 `<noscript>` en valeur d'attribut ⇒ noscript non fermé ⇒ throw.
+- D-5 `<noscript>`, `<template>` ou commentaire non fermés (ANCIEN : fail-OPEN, texte caché compté).
+- Règle d'ambiguïté (pli G2 delta) : une étendue de commentaire contenant l'ouvrante d'une surface cachée ⇒ throw nommé.
+  Elle remplace un faux vert quand le `<!--` est en texte brut ou en attribut (Lb3, Lb4, U4, U5), et produit un faux
+  rouge sur un vrai commentaire portant une ouvrante (X3, T4, C1, P2, Tc2, Ca1-Ca3 : exacts au GEL, throw désormais).
+  Coût mesuré sur l'alphabet du worker jusqu'à 7 jetons, où cette règle est la seule différence de comportement entre
+  le GEL et PLI2 : 154 920 séquences (sur 5 380 839) passent d'exact à throw.
+- M-2 : plus de 256 templates imbriqués ⇒ throw nommé.
+
+Sur-retraits déclarés (texte visible retiré : faux vert possible pour les contrôles d'ABSENCE de /ukemi, doctrine D-1 (b)) :
+- R-f à la racine : `<!--` en texte brut ou en attribut suivi d'un `-->` sans ouvrante cachée entre les deux : l'étendue est
+  retirée ; identique à l'ANCIEN (sa regex de commentaires retirait la même étendue).
+- S1t / Rft dans un template : `<!--` en texte brut ou en attribut dont l'étendue contient la `</template>` réelle :
+  PLI2 OVER (le GEL aussi), ANCIEN et LOT-V1 exacts ⇒ NOUVEAU face à l'ANCIEN et à LOT-V1. La règle d'ambiguïté ne vise
+  que les ouvrantes (variante A) ; la variante B (étendue contenant aussi une fin `</template` dans un template ⇒ throw)
+  fermerait S1t/Rft mais ferait lever Tc (un vrai commentaire contenant `</template>`, exact au GEL et chez PLI2) ; mesure
+  de la variante B jusqu'à 7 jetons sur l'alphabet de 15 : 12 258 séquences de plus passent d'exact à throw, 12 sur-retraits
+  nouveaux face à l'ANCIEN en moins (30 108 → 30 096) ; arbitrage laissé à l'orchestrateur.
+- Agrégat jusqu'à 7 jetons : nouveau sur-retrait de PLI2 face à l'ANCIEN, LOT-V1 et au GEL = **0** sur les alphabets E11,
+  M9 et W9 ; sur E15 : 30 108, 1 573 et 1 302, et chacun porte `</template x>`, `</script/>`, `<style>` ou `</style>`
+  (R-a, R-h) — par construction des vues, puisque E15 privé de ces quatre jetons est E11.
+
+AMÉLIORATIONS face à l'ANCIEN : Rb3, V1 (`<script` + U+000B : ANCIEN sur-retrait ⇒ throw), C2, K1 exacts ; X3, T4, C1, P2
+(exacts au pli G2) lèvent désormais par la règle d'ambiguïté : l'ANCIEN les sur-retirait (X3, T4), levait (C1) ou laissait `<!--` dans sa sortie sans lever (P2 : `<!-- a VISIBLE`).
 
 ## Items formés (avec déclencheur)
 
@@ -311,20 +490,42 @@ AMÉLIORATIONS (l'ancien comptait un texte caché ou sur-retirait ; lot-v1 = pli
   `043fb46d…` lus : l'upload lit `ACTIONS_RUNTIME_TOKEN`, pas le `GITHUB_TOKEN`) ; partie exécution (job SBOM vert sous
   `contents: read`) : déclencheur = run de la prochaine fenêtre (I-1).
 - **I-4 ASSERT-FLEET-TOKENIZER-1** — déclencheur : tout HTML non produit par React/Next soumis à `renderedBody`, une
-  montée majeure de Next/React, ou une anomalie g3-site. Périmètre (pli G2 : + M-3 et R-h) : R-a, R-b4, R-c, R-e, R-h,
-  B1-B3 (commentaires bogus), SR (`shadowrootmode`), et les écarts fail-closed Rb1/Rb2/S1/S2/A1/Rf (§Résidus). Action :
-  re-mesurer ancien/nouveau (sondes `pli\probe-residuals.mjs`, `pli\enum-oracle.mjs`) et, si retenu par ADR, rendre
-  fail-closed ou fidèles les formes concernées (throw sur `</name` + espace/`/` hors grammaire, états double échappé,
-  texte brut `style`/`title`/`textarea` dans un template).
+  montée majeure de Next/React, ou une anomalie g3-site. Périmètre (pli G2 : + M-3 et R-h ; pli G2 delta : M-4) : R-a (y
+  compris dans un template : Rat, U10, U9, et avec imbrication), R-c, R-e, R-h étendu (`style`, `title`, `textarea`,
+  `xmp`, `iframe`, `noembed`, `noframes`, `plaintext`, CDATA de `svg`, dans un template ; à la racine, voir I-6),
+  B1-B3 (commentaires bogus), SR (`shadowrootmode`), les sur-retraits R-f, S1t, Rft, et les levées déclarées (S1/S2/A1/Rf
+  sans terminateur ; règle d'ambiguïté sur un vrai commentaire portant une ouvrante). Action : re-mesurer (sondes
+  `pli2\vectors-pli2.mjs`, `pli2\vectors-g2b-pli2.mjs`, énumération `pli2\enum\enum-pli2.mjs`, classement
+  `pli2\enum\enum-classify.mjs`) et, si retenu par ADR, rendre fail-closed ou fidèles les formes concernées (grammaire
+  complète des fermantes : `</name` + espace ou `/` hors grammaire D3 ; états script data échappés ; texte brut et RCDATA).
 - **I-5 SUBSTRING-STUBS-UNFLAGGED** — déclencheur : une alerte CodeQL sur l'un d'eux, ou le besoin d'un test à leurre.
   Même classe de routage par sous-chaîne, NON signalée par CodeQL, hors périmètre ADR (CA-5, R-25) :
   `ukemi-guard-record.test.ts:673` (`u.includes(host)` sur `["eth.drpc.org","rpc.mevblocker.io"]`) et les stubs
   `String(input).includes(CS_HOST)` du même fichier (hôte `.invalid` fixe).
+- **I-6 R-H-RACINE (L-2 proposé, pli G2 delta)** — déclencheur : décision de l'orchestrateur avant G7. Constat mesuré :
+  à la racine, une ouvrante cachée logée dans un `<style>` (texte brut, M-24) est lue comme vivante par la passe unique et
+  avale l'ouvrante d'un `<script>` suivant, dont la charge est comptée (`<style><noscript></style><script></noscript>A`) ;
+  l'ANCIEN levait (garde `<script` après retrait des scripts) ; LOT-V1 = GEL = PLI2 comptent (depuis LOT-V1, pas ce pli) ;
+  la forme contient un `<script>` sans `</script>` qui ne lève pas : même lecture de D3 (iv) que T3, U1b, Lb1. Comptes :
+  jusqu'à 7 jetons sur 15, 79 séquences comptées à l'identique par LOT-V1 et le GEL, plus 4 où un `<!-->` faisait lever
+  LOT-V1 et le GEL par accident ; fuzz : 6 échantillons. Réalité : 0 sur les 19 pages (2 `<style>`, aucun ne contient
+  `noscript`, `template` ni `<script`, relevé du relecteur). Options (recherche de solutions, non tranchée) : (i) résidu
+  déclaré, rattaché à I-4 ; (ii) amender M-24 : une étendue d'élément à texte brut ou RCDATA (`style`, `title`,
+  `textarea`, `xmp`, `iframe`, `noembed`, `noframes`, `plaintext`) contenant une ouvrante cachée, ou une fin `</template`
+  dans un template, lève (nommé) : ferme aussi R-h dans un template, au prix d'un amendement de D3 (« pas de `<style` »).
+- **I-7 AMBIGUITE-VARIANTE-B** — déclencheur : décision de l'orchestrateur avant G7. Variante A retenue (ouvrantes) ;
+  variante B (+ une fin `</template` dans l'étendue d'un commentaire dans un template) ferme les sur-retraits S1t/Rft au
+  prix de Tc et de 12 258 séquences exactes qui lèveraient (jusqu'à 7 jetons sur 15) ; instrument
+  `pli2\variantB-assert-fleet-html.mjs`, mesures §« G2 delta pliée » et §Résidus.
+- **I-8 ADR-D3-AMENDEMENT** — déclencheur : G7 (amendement de texte par l'orchestrateur, F-1). D3 écrit « les
+  commentaires `<!-- … -->` » : le scanner suit désormais la fin de commentaire du navigateur (13.2.5.43, .44, .51, .52),
+  lève sur une étendue de commentaire contenant une ouvrante cachée, et borne l'imbrication des templates à 256 ; X3, T4,
+  C1, P2 (exacts au pli G2) lèvent ; R-25 = 392 (fourchette indicative 150-300 dépassée, seuil STOP 1 150 tenu).
 
 ## Table des mutants (D-1, A-11, D-1-bis)
 
 Exécution 1 (G1, arbre LOT-V1) ci-dessous, conservée pour l'histoire ; l'exécution qui fait foi pour l'arbre livré est
-celle du pli (§ sous-section suivante).
+celle du pli G2 delta (dernière sous-section) ; celle du pli G2 (sous-section suivante) reste consignée.
 
 Harnais `F:\tmp\codeql-alerts-1\mutants.mjs` (A-11 : TAP, CRLF normalisé, tué SEULEMENT si `not ok … - <test attendu>` ;
 D-1-bis : golden copié d'abord, restauration par fichier temporaire + `fsync` + renommage, sha RE-LU après fermeture).
@@ -422,11 +623,108 @@ MT3-B1-unclosed-nested-surface-swallowed-in-template: 'Missing expected exceptio
 MT4-B1-nested-template-not-counted: (Rd) a nested template closes its own </template> first + actual - expected  + 'HIDDEN</template>VISIBLE' - 'VISIBLE' 
 ```
 
-## Fichiers touchés (13 de code + ce journal) — sha256 octets bruts AVANT (base `e7af51c`) → APRÈS (état livré après le pli G2)
+### Table des mutants du pli G2 delta (39 ; fait foi)
+
+Harnais `F:\tmp\codeql-alerts-1\pli2\mutants-pli2.mjs` = harnais du pli G2 épissé en node (entrées inchangées copiées octet pour
+octet ; MT1-MT4 adaptés à la signature `depth` ; les 8 mutants du relecteur (`g2b\mutants-own.mjs`, MT5 adapté,
+`testFiles` ramené au fichier du test visé) et 10 mutants du worker ajoutés), même protocole A-11 / D-1-bis. Deux exécutions :
+sur l'arbre du pli avant D-11 (`results-1790235858491.json`, 07:41:16Z → 07:44:18Z) et sur l'arbre FINAL (`results-1790236218935.json`, 07:47:35Z →
+07:50:19Z, fait foi) : **39/39 tués par le test visé, 39/39 restaurations octet-exactes**, statut de mise à mort identique
+aux deux exécutions pour les 39 ; sha muté identique au pli G2 pour les mutants des fichiers que ce pli ne touche pas.
+
+| # | Mutation | Test tueur | autres rouges | sha golden → muté | = pli G2 ? |
+|---|---|---|---|---|---|
+| M1-D1-block-removed | idem pli G2 | `ci_workflow_declares_least_privilege_permissions` → **rouge (tué)** | — | `207dfe808014…` → `0492396020ef…` | oui |
+| M2-D1-contents-write | idem pli G2 | `ci_workflow_declares_least_privilege_permissions` → **rouge (tué)** | — | `207dfe808014…` → `7c4805512a2a…` | oui |
+| M3-D1-job-level-write-all | idem pli G2 | `ci_workflow_declares_least_privilege_permissions` → **rouge (tué)** | — | `207dfe808014…` → `a6a3b25079e4…` | oui |
+| M4-D1-block-above-on | idem pli G2 | `ci_workflow_declares_least_privilege_permissions` → **rouge (tué)** | — | `207dfe808014…` → `59fbd6cb4279…` | oui |
+| M5-D2-escaping-removed | idem pli G2 | `keyless_redact_matches_target_forms_literally_not_as_patterns` → **rouge (tué)** | — | `64a84454b8e8…` → `0b31b77c6902…` | oui |
+| M6-D3-script-output-guard-removed | idem pli G2 | `rendered_body_scanner_outcomes` → **rouge (tué)** | — | `f40333f2317b…` → `cdfd81cfc976…` | non (fichier modifié par ce pli) |
+| M7-D3-comment-output-guard-removed | idem pli G2 | `rendered_body_scanner_outcomes` → **rouge (tué)** | — | `f40333f2317b…` → `541e2784d7dc…` | non (fichier modifié par ce pli) |
+| M8-D3-closer-without-whitespace | idem pli G2 | `rendered_body_scanner_outcomes` → **rouge (tué)** | — | `f40333f2317b…` → `8383836a7ea4…` | non (fichier modifié par ce pli) |
+| M9-D3-unclosed-block-fail-open | idem pli G2 | `rendered_body_scanner_outcomes` → **rouge (tué)** | `rendered_body_comment_forms_and_template_depth` | `f40333f2317b…` → `25ad6e97a48b…` | non (fichier modifié par ce pli) |
+| M10-D4-ukemi-isHost-includes | idem pli G2 | `ukemi_record_stub_routes_drpc_by_exact_hostname` → **rouge (tué)** | — | `49f8c3ededdf…` → `c7ff185c3738…` | non (fichier modifié par ce pli) |
+| M11-D4-bell-isHttpsHost-startsWith | idem pli G2 | `bell_adv1_stub_routes_rpc_by_exact_https_host` → **rouge (tué)** | — | `b444efae2aa8…` → `9dc3ac37f288…` | non (fichier modifié par ce pli) |
+| M12-D5b-escapeHtml-dropped | idem pli G2 | `bell_caddy_browse_listing_escapes_entry_names` → **rouge (tué)** | — | `3a76793ab6eb…` → `2c7b544326f3…` | oui |
+| M13-D5b-served-listing-unescaped | idem pli G2 | `bell_caddy_browse_listing_escapes_entry_names` → **rouge (tué)** | — | `3a76793ab6eb…` → `8bb2d2fa34d2…` | oui |
+| M14-D5a-rename-reverted-at-a-call-site | idem pli G2 | `npm run typecheck (exit 2)` → **rouge (tué)** | — | `da10ff690170…` → `345730e0a21c…` | oui |
+| GM4p-D3-closer-accepts-any-tail | idem pli G2 | `rendered_body_scanner_outcomes` → **rouge (tué)** | — | `f40333f2317b…` → `17cdcc7a12ad…` | non (fichier modifié par ce pli) |
+| GM7-D4-ukemi-hostname-suffix | idem pli G2 | `ukemi_record_stub_routes_drpc_by_exact_hostname` → **rouge (tué)** | — | `49f8c3ededdf…` → `e556f87c6d32…` | non (fichier modifié par ce pli) |
+| GM7b-D4-bell-hostname-suffix | idem pli G2 | `bell_adv1_stub_routes_rpc_by_exact_https_host` → **rouge (tué)** | — | `b444efae2aa8…` → `f5349d2ab44f…` | non (fichier modifié par ce pli) |
+| MT1p-B1-template-ends-at-first-closer | `surfaceEnd` : fin de template = première `</template>` (lot-v1) | `rendered_body_scanner_outcomes` → **rouge (tué)** | `rendered_body_comment_forms_and_template_depth` | `f40333f2317b…` → `e3e624d42df3…` | — (nouveau) |
+| MT2p-B1-nested-noscript-not-skipped-in-template | `templateEnd` : `<noscript>` imbriqué non sauté | `rendered_body_scanner_outcomes` → **rouge (tué)** | — | `f40333f2317b…` → `1743f6e534e0…` | — (nouveau) |
+| MT3p-B1-unclosed-nested-surface-swallowed-in-template | `templateEnd` : surface imbriquée non fermée avalée | `rendered_body_scanner_outcomes` → **rouge (tué)** | `rendered_body_comment_forms_and_template_depth` | `f40333f2317b…` → `e54b634799fa…` | — (nouveau) |
+| MT4p-B1-nested-template-not-counted | `templateEnd` : `<template>` imbriqué non compté | `rendered_body_scanner_outcomes` → **rouge (tué)** | `rendered_body_comment_forms_and_template_depth` | `f40333f2317b…` → `2b68632128bc…` | — (nouveau) |
+| MT5p-G2b-comment-not-skipped-in-template | `templateEnd` : commentaire non consommé (MT5 du relecteur) | `rendered_body_scanner_outcomes` → **rouge (tué)** | `rendered_body_comment_forms_and_template_depth` | `f40333f2317b…` → `4bbb38a1927d…` | — (nouveau) |
+| MT6-G2b-template-closer-exact-lowercase-no-space | fermante de template exacte, minuscule, sans espace (relecteur) | `rendered_body_scanner_outcomes` → **rouge (tué)** | — | `f40333f2317b…` → `56aea5749c3e…` | — (nouveau) |
+| MT6b-G2b-template-closer-no-name-boundary | fermante de template sans frontière de nom (relecteur) | `rendered_body_scanner_outcomes` → **rouge (tué)** | — | `f40333f2317b…` → `75eeb37cba50…` | — (nouveau) |
+| GM7c-G2b-ukemi-dot-boundary-subdomain | `isHost` : `=== host || endsWith("." + host)` (relecteur) | `ukemi_record_stub_routes_drpc_by_exact_hostname` → **rouge (tué)** | — | `49f8c3ededdf…` → `f0c7d2d9c453…` | — (nouveau) |
+| GM7d-G2b-bell-dot-boundary-subdomain | `isHttpsHost` : idem (relecteur) | `bell_adv1_stub_routes_rpc_by_exact_https_host` → **rouge (tué)** | — | `b444efae2aa8…` → `ed6d6db56493…` | — (nouveau) |
+| GM7e-G2b-ukemi-hostname-prefix | `isHost` : `startsWith(host)` (relecteur) | `ukemi_record_stub_routes_drpc_by_exact_hostname` → **rouge (tué)** | — | `49f8c3ededdf…` → `7cd1ca7884b9…` | — (nouveau) |
+| GM7f-G2b-bell-hostname-prefix | `isHttpsHost` : `startsWith(host)` (relecteur) | `bell_adv1_stub_routes_rpc_by_exact_https_host` → **rouge (tué)** | — | `b444efae2aa8…` → `bc94da5bfa66…` | — (nouveau) |
+| GM7g-G2b-ukemi-hostname-includes | `isHost` : `includes(host)` (relecteur) | `ukemi_record_stub_routes_drpc_by_exact_hostname` → **rouge (tué)** | — | `49f8c3ededdf…` → `2c8421595a2e…` | — (nouveau) |
+| MC1-B2-abrupt-empty-comment-not-closed | `<!-->` non fermé aussitôt (13.2.5.43) | `rendered_body_comment_forms_and_template_depth` → **rouge (tué)** | — | `f40333f2317b…` → `d238d4f0c6ee…` | — (nouveau) |
+| MC2-B2-abrupt-dash-comment-not-closed | `<!--->` non fermé aussitôt (13.2.5.44) | `rendered_body_comment_forms_and_template_depth` → **rouge (tué)** | — | `f40333f2317b…` → `1e2952eccfc4…` | — (nouveau) |
+| MC3-B2-bang-close-not-a-terminator | `--!>` n'est pas une fin (13.2.5.52) | `rendered_body_comment_forms_and_template_depth` → **rouge (tué)** | — | `f40333f2317b…` → `ded53865d093…` | — (nouveau) |
+| MC4-B2-ambiguous-span-rule-removed | règle d'ambiguïté retirée | `rendered_body_comment_forms_and_template_depth` → **rouge (tué)** | — | `f40333f2317b…` → `e83f381e340a…` | — (nouveau) |
+| MC5-B2-ambiguous-span-checks-first-tag-only | règle d'ambiguïté limitée à la première balise de l'étendue | `rendered_body_comment_forms_and_template_depth` → **rouge (tué)** | — | `f40333f2317b…` → `4c472c1d3497…` | — (nouveau) |
+| MC6-M2-depth-bound-removed | borne de profondeur retirée | `rendered_body_comment_forms_and_template_depth` → **rouge (tué)** | — | `f40333f2317b…` → `b3a07771b614…` | — (nouveau) |
+| MC7-M2-depth-bound-off-by-one | borne de profondeur décalée d'un cran (`>=`) | `rendered_body_comment_forms_and_template_depth` → **rouge (tué)** | — | `f40333f2317b…` → `465af993672e…` | — (nouveau) |
+| MC8-M2-depth-not-propagated-to-nested-surfaces | profondeur non propagée aux surfaces imbriquées | `rendered_body_comment_forms_and_template_depth` → **rouge (tué)** | — | `f40333f2317b…` → `7a7d6e5c7e24…` | — (nouveau) |
+| MC9-B2-terminator-search-overlaps-the-opener | recherche de la fin à partir de `lt + 2` (chevauche l'ouvrante) | `rendered_body_comment_forms_and_template_depth` → **rouge (tué)** | — | `f40333f2317b…` → `96744021d1d6…` | — (nouveau) |
+| MC10-B2-bang-close-length-wrong | longueur de `--!>` fausse (toujours `+ 3`) | `rendered_body_comment_forms_and_template_depth` → **rouge (tué)** | — | `f40333f2317b…` → `6ec0f5220667…` | — (nouveau) |
+
+Messages exacts (champ `error:` du TAP du test tueur ; M14 : ligne de `tsc`) :
+
+```
+M1-D1-block-removed: exactly ONE permissions key in the workflow (a job-level block overrides the workflow one), saw 0  0 !== 1 
+M2-D1-contents-write: the permissions block is exactly `contents: read` (read-only repository contents) + actual - expected  [ +   '  contents: write' -   '  contents: read' ] 
+M3-D1-job-level-write-all: exactly ONE permissions key in the workflow (a job-level block overrides the workflow one), saw 2  2 !== 1 
+M4-D1-block-above-on: 'permissions: must sit after the on: block and before jobs: (on=19, permissions=17, jobs=25)'
+M5-D2-escaping-removed: the host is redacted and its dot-substituted look-alike survives verbatim + actual - expected  + 'x <redacted> y <redacted> z' - 'x <redacted> y eth-drpc-org z' ^ 
+M6-D3-script-output-guard-removed: 'Missing expected exception: (v) the output guard throws'
+M7-D3-comment-output-guard-removed: 'Missing expected exception: (iii) a residual <!-- throws'
+M8-D3-closer-without-whitespace: 'assert-fleet-html: an unclosed <script> block (no matching </script>) - fail-closed'
+M9-D3-unclosed-block-fail-open: 'Missing expected exception: (T3) an unclosed <script> nested in a <template> throws (ADR D3 (iv))'
+M10-D4-ukemi-isHost-includes: a decoy never routes as drpc: https://evil.com/?x=eth.drpc.org  true !== false 
+M11-D4-bell-isHttpsHost-startsWith: a decoy never routes as the Solana RPC: https://api.mainnet.solana.com.evil.com/  true !== false 
+M12-D5b-escapeHtml-dropped: the name is escaped in the href value and in the text + actual - expected  + '<a href="a"b<c">a"b<c</a>' - '<a href="a&quot;b&lt;c">a&quot;b&lt;c</a>' ^ 
+M13-D5b-served-listing-unescaped: the SERVED listing carries the escaped name only + actual - expected  + `200 <a href="a&b'c.json">a&b'c.json</a>` - '200 <a href="a&amp;b&#39;c.json">a&amp;b&#39;c.json</a>' 
+M14-D5a-rename-reverted-at-a-call-site: apps/bell/test/helpers/bell-served.ts(171,40): error TS2551: Property 'match' does not exist on type 'HeaderRule'. Did you mean 'matches'?
+GM4p-D3-closer-accepts-any-tail: (GM4) `</scriptx>` is not a closer of <script>  'b</script>c' !== 'c' 
+GM7-D4-ukemi-hostname-suffix: a decoy never routes as drpc: https://xeth.drpc.org  true !== false 
+GM7b-D4-bell-hostname-suffix: a decoy never routes as the Solana RPC: https://xapi.mainnet.solana.com/  true !== false 
+MT1p-B1-template-ends-at-first-closer: (T1) a </template> inside a nested <script> closes nothing + actual - expected  + '";</script>HIDDEN</template>VISIBLE' - 'VISIBLE' 
+MT2p-B1-nested-noscript-not-skipped-in-template: (T2) a </template> inside a nested <noscript> closes nothing + actual - expected  + 'HIDDEN</noscript></template>VISIBLE' - 'VISIBLE' 
+MT3p-B1-unclosed-nested-surface-swallowed-in-template: 'Missing expected exception: (T3) an unclosed <script> nested in a <template> throws (ADR D3 (iv))'
+MT4p-B1-nested-template-not-counted: (Rd) a nested template closes its own </template> first + actual - expected  + 'HIDDEN</template>VISIBLE' - 'VISIBLE' 
+MT5p-G2b-comment-not-skipped-in-template: (Tc) a </template> inside a comment in a template closes nothing + actual - expected  + ' -->HA</template>VA' - 'VA' 
+MT6-G2b-template-closer-exact-lowercase-no-space: 'assert-fleet-html: an unclosed <template> block (no matching </template>) - fail-closed'
+MT6b-G2b-template-closer-no-name-boundary: 'assert-fleet-html: an unclosed <template> block (no matching </template>) - fail-closed'
+GM7c-G2b-ukemi-dot-boundary-subdomain: a decoy never routes as drpc: https://a.eth.drpc.org  true !== false 
+GM7d-G2b-bell-dot-boundary-subdomain: a decoy never routes as the Solana RPC: https://a.api.mainnet.solana.com/  true !== false 
+GM7e-G2b-ukemi-hostname-prefix: a decoy never routes as drpc: https://eth.drpc.org.evil.com  true !== false 
+GM7f-G2b-bell-hostname-prefix: a decoy never routes as the Solana RPC: https://api.mainnet.solana.com.evil.com/  true !== false 
+GM7g-G2b-ukemi-hostname-includes: a decoy never routes as drpc: https://eth.drpc.org.evil.com  true !== false 
+MC1-B2-abrupt-empty-comment-not-closed: 'assert-fleet-html: an unclosed <!-- comment (no matching --> or --!>) - fail-closed'
+MC2-B2-abrupt-dash-comment-not-closed: 'assert-fleet-html: an unclosed <!-- comment (no matching --> or --!>) - fail-closed'
+MC3-B2-bang-close-not-a-terminator: 'assert-fleet-html: an unclosed <!-- comment (no matching --> or --!>) - fail-closed'
+MC4-B2-ambiguous-span-rule-removed: 'Missing expected exception: (Lb3) `<!--` in a <style>'
+MC5-B2-ambiguous-span-checks-first-tag-only: 'Missing expected exception: (Lb3) `<!--` in a <style>'
+MC6-M2-depth-bound-removed: 'Missing expected exception: (D257) deeper nesting throws, named'
+MC7-M2-depth-bound-off-by-one: 'assert-fleet-html: <template> nested deeper than 256 levels - fail-closed'
+MC8-M2-depth-not-propagated-to-nested-surfaces: 'Missing expected exception: (D257) deeper nesting throws, named'
+MC9-B2-terminator-search-overlaps-the-opener: 'Missing expected exception: (Rb5) `<!--!>` closes nothing: only a `>` right after `<!--` does (13.2.5.43)'
+MC10-B2-bang-close-length-wrong: (Rb3) `--!>` closes the comment  '>VA' !== 'VA' 
+```
+
+## Fichiers touchés (13 de code + ce journal) — sha256 octets bruts AVANT (base `e7af51c`) → APRÈS (état livré après le pli G2 delta)
 
 Le pli G2 a changé 4 fichiers ; leur sha LOT-V1 (livré au G1) : `scripts/assert-fleet-html.mjs` `6c0f7976…`,
 `test/site-build-fleet.test.ts` `04809f16…`, `apps/bell/test/bell-adv-1.test.ts` `250ea0af…`,
 `apps/sentinel/test/ukemi-guard-record.test.ts` `3077bd84…`. Les 9 autres fichiers de code sont inchangés depuis le G1.
+Le pli G2 delta a changé 5 fichiers ; leur sha au gel `8229745` : `scripts/assert-fleet-html.mjs` `5b4359d6…`, `scripts/assert-fleet-html.d.mts` `26aaf6e4…`, `test/site-build-fleet.test.ts` `1f51285d…`, `apps/bell/test/bell-adv-1.test.ts` `b9db1f04…`, `apps/sentinel/test/ukemi-guard-record.test.ts` `9e053410…`. Les 8 autres fichiers de code
+sont inchangés depuis le gel.
 
 | Fichier | AVANT | APRÈS |
 |---|---|---|
@@ -434,11 +732,11 @@ Le pli G2 a changé 4 fichiers ; leur sha LOT-V1 (livré au G1) : `scripts/asser
 | `test/ci-gates.test.ts` | `96c4f563922784386dcdaf5ceb2bec4409d6528a27cf760edcd093696ab2f032` | `c010f60ecee1b2ec3b321a6ec41048bdfafc8fa61097f2abcf993f4b3e9a296b` |
 | `packages/rpc-guard/src/transport.ts` | `fa1b9f1b7afd4e624537b14ad42c59cd2938cdf22e38f60a53c4f9e172af8485` | `64a84454b8e8acd8c9f1cbb6347e0dc174f3a695573fa2d8ddbedbdbeb17385e` |
 | `packages/rpc-guard/test/error-hint.test.ts` | `8ba546cf808312ea72558582ff4037568bfc68284341e85c4dc6ed4afef0628c` | `f8543bb912f5f59966e3ddf433919c5d016d8e0e3d403fc47edafe38557ceb6e` |
-| `scripts/assert-fleet-html.mjs` | `ba1d8324b13c9e607d1d85e5b96444303a53e57cececfe9f6dc0d6d7b7da2cbc` | `5b4359d6df6364d36da7a4cf70a6e79b141199c3280ba97781c9a4c9397b9e3e` |
-| `scripts/assert-fleet-html.d.mts` | `7c761adfdf1e30c708e64631759a018bc40fbef4f713c7a4f7b37d23b09be648` | `26aaf6e4af6e5c09370ba74afcb49234df62350120a050fb5fc12ee5c849af39` |
-| `test/site-build-fleet.test.ts` | `22798272df18871d56776afc38353c167e1c0aad84f52c0809320e8858e68936` | `1f51285d99beecd9b6d6d5723924f2457b45a802f9c9b3542b3a4516c20ef0f5` |
-| `apps/bell/test/bell-adv-1.test.ts` | `08415639d11559c487743395acbd55cddfe21e6e9188d7d0a4b34647b6d04f5b` | `b9db1f0452264831448c29a0570ccaec9b265448301b492e895a144ca9b63719` |
-| `apps/sentinel/test/ukemi-guard-record.test.ts` | `c05791b2996eea9c0ca9d98c94839207e09743cf3fb2ba2f0d3d7cf4b7d4d631` | `9e053410b883092bf5425a9e0859d6a538657ec199326030ac3c3115ef7c0446` |
+| `scripts/assert-fleet-html.mjs` | `ba1d8324b13c9e607d1d85e5b96444303a53e57cececfe9f6dc0d6d7b7da2cbc` | `f40333f2317b3f27f41fcc68ecbb8f88d2b35df8bc119beea8d9f23c88eafc4b` |
+| `scripts/assert-fleet-html.d.mts` | `7c761adfdf1e30c708e64631759a018bc40fbef4f713c7a4f7b37d23b09be648` | `697275b7f322400733e3613aa863f31df995841c80ce456eca0ad3433b756a79` |
+| `test/site-build-fleet.test.ts` | `22798272df18871d56776afc38353c167e1c0aad84f52c0809320e8858e68936` | `98871205e0fe829d30c66c04141e1baf5f7e4a5e71832046d3a1e269cd9654e4` |
+| `apps/bell/test/bell-adv-1.test.ts` | `08415639d11559c487743395acbd55cddfe21e6e9188d7d0a4b34647b6d04f5b` | `b444efae2aa824e0ba2a4ed6f60a825cbdc62a3a7608c5ac0ad1ad4c87f3b00d` |
+| `apps/sentinel/test/ukemi-guard-record.test.ts` | `c05791b2996eea9c0ca9d98c94839207e09743cf3fb2ba2f0d3d7cf4b7d4d631` | `49f8c3ededdf2c6f787896be12fc81091e8d285fc2b24ebd990f6c45a00a489c` |
 | `apps/bell/test/helpers/bell-served.ts` | `3f79789a9e4f523e38954675fd6763a38db6e89b8892352774c22ef1e2bb7472` | `da10ff690170390719af985541b4692151a941d87ce8f989635fe51c5a9f2dc6` |
 | `apps/bell/test/bell-served-e2e.test.ts` | `68d286c66fc8c0b532c0ac25b8319e343c48f0cafb0099fa823fcdb54e60d122` | `bcc420732504d401a0aa240a8b33b947cc822b3380d2651be0daf9f0ebdee25a` |
 | `test/bell-caddy.ts` | `ca4f1d41c4b83af3c8d62aee3152cc5e193a83f6c18a1bb8bbd9528f4d374297` | `3a76793ab6ebc82e80d92e8d2178f121998302941275f5d6947993f64dd343f9` |
@@ -463,6 +761,10 @@ ajoutée (R-8 : `package.json`/`package-lock.json` intacts).
 - **Re-mesurés après le pli G2** (05:1xZ) : gel U-4b SAME ×9 ; tranche l.82-129 `c2f03ba8…` inchangée (les vecteurs du
   pli sont dans le test de FIN de fichier) ; garde `/<script\b/i` + message présents verbatim ×1 (`guard-check.mjs`) ;
   0 CR sur les 4 fichiers pliés ; 0 caractère non-ASCII ajouté.
+- **Re-mesurés après le pli G2 delta** (08:0xZ, arbre final, scanner `f40333f2…`) : gel U-4b SAME ×9 ; tranche
+  l.82-129 `c2f03ba8…` inchangée (les vecteurs ajoutés vont dans le test des issues D3 et dans un test nouveau, en fin
+  de fichier) ; garde `/<script\b/i` + message présents verbatim ×1 (`guard-check.mjs`) ; 0 CR sur les 5 fichiers du pli ;
+  0 caractère non-ASCII ajouté dans le code (`git diff -U0 e7af51c -- . ':(exclude)docs'`) ; 0 TODO/FIXME ajouté.
 
 ## Tuyaux (règle Branchement) — preuve par tuyau
 
@@ -470,7 +772,7 @@ ajoutée (R-8 : `package.json`/`package-lock.json` intacts).
 |---|---|---|---|
 | `ci.yml` → GitHub Actions | bloc `permissions` | jobs sous `contents: read` ; miroir dérivé idem | `ci_workflow_declares_least_privilege_permissions` (lit le fichier ET `derivePublicWorkflow`) ; test 42 (CI exportée verte) ; run vert de la fenêtre = I-1/I-3 |
 | `transport.ts` (`redact`) → quorum / journaux | corps d'erreur RPC keyless | corps rédigé | client gardé réel, seul `fetch` bouchonné : `error-hint.test.ts` `:145`, `:186`, test nouveau ; `multi-operator.test.ts:312-313` ; `ukemi-guard-record.test.ts` (`rpcErrorsOf`, corps keyless rédigé journalisé) ; 17 importeurs `rpc-guard` verts |
-| `assert-fleet-html.mjs` → `g3-site` | HTML rendu | texte contrôlé | `site-build-fleet.test.ts:82` (octet-identique) + `rendered_body_scanner_outcomes` (dont T1-T3, Rd, GM4) + `site-ukemi.test.ts` (via `assertUkemiBody`) ; pli G2 : composition servie rejouée sur l'artefact RÉEL construit hors réseau (19/19 pages identiques, `node scripts/assert-fleet-html.mjs` exit 0) + énumération exhaustive contre oracle de référence (0 nouveau texte caché compté) |
+| `assert-fleet-html.mjs` → `g3-site` | HTML rendu | texte contrôlé | `site-build-fleet.test.ts:82` (octet-identique) + `rendered_body_scanner_outcomes` (dont T1-T3, Rd, GM4, Tc, Tcase, Tws, Tx) + `rendered_body_comment_forms_and_template_depth` (B-2, L-1, M-2) + `site-ukemi.test.ts` (via `assertUkemiBody`) ; pli G2 : composition servie rejouée sur l'artefact RÉEL construit hors réseau (19/19 pages identiques, `node scripts/assert-fleet-html.mjs` exit 0) + énumération exhaustive contre oracle de référence (0 nouveau texte caché compté) ; pli G2 delta : 19/19 sur l'arbre final, énumération jusqu'à 7 jetons sur 15 et classement de chaque nouveau texte caché (0 inexpliqué) |
 
 ## R-25 (A-5)
 
@@ -481,6 +783,12 @@ Au G1 : `git diff --shortstat e7af51c` (pathspec de la mission et pathspec verba
 `bell-adv-1.test.ts` +4 −3). Au-dessus de la fourchette indicative 150-300 de l'ADR, sous la borne 1 205 et le seuil
 STOP A-5 (1 150) : mesuré, pas rogné.
 
+**Après le pli G2 delta** (même pathspec verbatim de `ci.yml:71`) : `13 files changed, 356 insertions(+), 36
+deletions(-)` ⇒ **392**. Delta face au gel `8229745` : 5 fichiers, +112 −33 (`assert-fleet-html.mjs` +49 −24,
+`site-build-fleet.test.ts` +51, `assert-fleet-html.d.mts`, `bell-adv-1.test.ts` et `ukemi-guard-record.test.ts` +4 −3
+chacun). Au-dessus de la fourchette indicative 150-300 de l'ADR, sous le seuil STOP A-5 (1 150) et la borne 1 205 :
+mesuré, pas rogné.
+
 ## Consigne standard : point par point
 
 - A-1 fait (l.1). A-2 fait (`npm ci`, D-8 ; `require.resolve` dans le worktree). A-3 fait pour l'oracle ; D-9 pour
@@ -488,13 +796,13 @@ STOP A-5 (1 150) : mesuré, pas rogné.
 - A-4 fait : `F:\tmp\codeql-alerts-1\DELIVERED.sha256` (chemins relatifs au worktree) ; aucun commit ; rien sur C: (cache
   npm `F:\cache\npm`, `TEMP/TMP/TMPDIR=F:/tmp`) ; réseau : registre npm (`npm ci`) seulement ; tests en boucle locale
   (`127.0.0.1`) et `fetch` bouchonné.
-- A-5 fait (270 au G1 ; 313 après le pli). A-6 fait (9/9 avant/après + invariants, re-mesurés après le pli). A-7 fait
+- A-5 fait (270 au G1 ; 313 après le pli G2 ; 392 après le pli G2 delta). A-6 fait (9/9 avant/après + invariants, re-mesurés après chaque pli). A-7 fait
   (wrapper `ev.sh` ; build sous `pli\ev-build.sh` = `ev.sh` + `NEXT_TELEMETRY_DISABLED=1`), écart D-7 déclaré.
 - A-8 : le test D2 alimente le transport réel par un corps HTTP 400 texte, forme d'un corps d'erreur keyless ; les
   entrées D3 sont des chaînes synthétiques de forme React (fixtures existantes) ET, au pli, les 19 pages RÉELLEMENT
   construites par `next build` (I-2 clos).
 - A-9 / A-10 : n-a (aucune phrase servie ni valeur câblée vers une surface servie n'est modifiée).
-- A-11 fait (harnais TAP, `byIntended` : 14/14 au G1, 21/21 au pli). A-12 partiel, déclaré : chaque TAP de mutant porte node, fichier de
+- A-11 fait (harnais TAP, `byIntended` : 14/14 au G1, 21/21 au pli G2, 39/39 au pli G2 delta). A-12 partiel, déclaré : chaque TAP de mutant porte node, fichier de
   test, statut et sha muté ; l'identité de l'arbre (base `e7af51c` + diff non commité, épinglé par
   `DELIVERED.sha256`) est dans l'en-tête de ce journal, pas dans chaque en-tête de TAP. A-13 fait (sources à antislash par Edit/Write ; recomptes node
   `hunk-check.mjs`, `guard-check.mjs` ; deux recomptes bash faussés par le transport, refaits dans node).
@@ -502,18 +810,19 @@ STOP A-5 (1 150) : mesuré, pas rogné.
   (énumération des cibles inchangée). B-4 tenu (aucune lecture d'env ajoutée). B-5 n-a (aucun site `fetch` nouveau).
   B-6 : `bell_adv1_stub_routes_rpc_by_exact_https_host` épingle l'hôte ADMIS `api.mainnet.solana.com` (mutant M11).
 - C-1..C-4 : n-a (classes d'erreur et classifieurs inchangés).
-- D-1 fait (14 mutants nommés au G1 ; 21 au pli, dont GM4p/GM7/GM7b et MT1-MT4 ; tous tués par le test visé). D-2
+- D-1 fait (14 mutants nommés au G1 ; 21 au pli G2, dont GM4p/GM7/GM7b et MT1-MT4 ; 39 au pli G2 delta, dont les 8 du
+  relecteur et MC1-MC10 ; tous tués par le test visé). D-2
   fait (vecteurs non vides, sorties exactes). D-3 fait (§Tuyaux). D-4 fait : aucune assertion retirée ni affaiblie —
   le diff des tests est additif, sauf les 4 conditions de stub rendues plus strictes et le renommage `match`→`matches`
-  ; au pli, uniquement des ajouts (5 vecteurs, 2 leurres).
+  ; aux plis G2 et G2 delta, uniquement des ajouts (vecteurs, leurres, un test nouveau).
 - E-1..E-3 : n-a. F-1 : l'ADR n'est pas modifié par le worker (tuyaux et résidus au présent journal ; report à l'ADR =
   orchestrateur). F-2 fait (0 non-ASCII ajouté, `gate:vocab` propre). F-3 fait (D-1..D-10). G-1 : n-a pour le worker.
   D-1-bis fait (restauration durable + relecture du sha).
 
 ## Oracle final (A-3 : codes capturés directement ; A-7 : `ev.sh`)
 
-Au G1, arbre LOT-V1, conservé pour l'histoire ; l'oracle qui fait foi pour l'arbre livré est celui du pli (sous-section
-suivante). Commandes lancées depuis `F:\Monark-wt-codeql`, journaux sous `F:\tmp\codeql-alerts-1\final\` (03:30:44Z →
+Au G1, arbre LOT-V1, conservé pour l'histoire ; l'oracle qui fait foi pour l'arbre livré est celui du pli G2 delta
+(dernière sous-section). Commandes lancées depuis `F:\Monark-wt-codeql`, journaux sous `F:\tmp\codeql-alerts-1\final\` (03:30:44Z →
 03:43:54Z).
 
 | Porte / suite | Résultat |
@@ -531,7 +840,7 @@ suivante). Commandes lancées depuis `F:\Monark-wt-codeql`, journaux sous `F:\tm
 `derivePublicWorkflow` lu directement (sortie `derived-head.txt`) : `on:` / `push:` / `pull_request:`, puis
 `permissions:` / `  contents: read`, puis `jobs:` ; 0 mention `r25` ; 1 clé `permissions`.
 
-### Oracle du pli G2 (arbre livré ; fait foi ; A-3 : codes capturés directement ; A-7 : `ev.sh`)
+### Oracle du pli G2 (historique ; A-3 : codes capturés directement ; A-7 : `ev.sh`)
 
 Journaux sous `F:\tmp\codeql-alerts-1\pli\final\` (05:05:05Z → 05:16:56Z), sur l'arbre plié, APRÈS les 21 mutants et
 leurs restaurations (sha `DELIVERED.sha256` relus OK).
@@ -544,3 +853,18 @@ leurs restaurations (sha `DELIVERED.sha256` relus OK).
 | importeurs de `rpc-guard` (liste G2 de 20 fichiers, `g2\rpcguard-importers-run.txt`) | exit 0 — 232 tests, 230 pass, 0 fail, 2 skip préexistants déclarés (`sentinel_run_releases_chainstack_lock_on_sigterm` SKIP win32 ; `u4b_labels_replay_via_main_real_artifact` SKIP artefacts e2 réels absents) — mêmes comptes que G2 |
 | `test/export-public.test.ts` (test 42) | exit 0 — 2/2 (05:10:28Z → 05:16:56Z) |
 | g3-site sur artefact construit hors réseau | exit 0 (§« G2 pliée ») |
+
+### Oracle du pli G2 delta (arbre FINAL, scanner `f40333f2…` ; fait foi ; A-3 : codes capturés directement ; A-7 : `ev.sh`)
+
+Journaux sous `F:\tmp\codeql-alerts-1\pli2\final\` (`final-*.log`, `final-*.tap`, `final-oracle.time`), 07:55:40Z →
+08:03:39Z, après les 39 mutants rejoués sur l'arbre final et leurs restaurations. Premier passage (07:44Z, avant D-11) :
+220 pass, 1 fail (`durable_production_path…`, D-11), corrigé ; tout ce qui suit est sur l'arbre final.
+
+| Porte / suite | Résultat |
+|---|---|
+| `npm run gate:vocab`, `typecheck`, `lint`, `lang:gate`, `export:check` | exit 0 ×5 (typecheck : 0 erreur) |
+| `npm run lint:ratchet` | exit 0 — `69/69` (plafond inchangé) |
+| liste ciblée de la mission + ajouts D-10 | exit 0 — **221 tests, 221 pass, 0 fail, 0 skip** (220 + le test nouveau `rendered_body_comment_forms_and_template_depth`) ; `durable_production_path_calls_the_real_node_fsync_and_has_no_off_switch` vert |
+| importeurs de `rpc-guard` (liste G2 de 20 fichiers) | exit 0 — 232 tests, 230 pass, 0 fail, 2 skip préexistants déclarés (mêmes que G2 et le pli G2) |
+| `test/export-public.test.ts` (test 42) | exit 0 — 2/2 (08:00:03Z → 08:03:39Z) |
+| g3-site sur artefact construit hors réseau (arbre final) | exit 0 ; 19/19 identiques (§« G2 delta pliée ») |

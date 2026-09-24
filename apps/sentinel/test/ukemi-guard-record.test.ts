@@ -716,12 +716,13 @@ const hbTally = (body: string | undefined): Record<string, number> => Object.fro
  *  purpose: no helper is shared across test directories (the public mirror exports this file, not its neighbours). */
 const isHost = (input: string | URL, host: string): boolean => URL.canParse(String(input)) && new URL(String(input)).hostname === host;
 // The drpc stubs below route through isHost. Mutant "isHost reverted to String(input).includes(host)" => the decoys route
-// as drpc => reds here; so does a suffix match (`hostname.endsWith(host)`, G2 GM7) on `xeth.drpc.org` (the recorder itself
-// never fetches a decoy, so this test is the stubs' own teeth).
+// as drpc => reds here; so does a suffix match (`hostname.endsWith(host)`, G2 GM7) on `xeth.drpc.org`, and a dot-boundary
+// subdomain match (`endsWith("." + host)`, G2-delta GM7c) on `a.eth.drpc.org` (the recorder itself never fetches a decoy,
+// so this test is the stubs' own teeth).
 test("ukemi_record_stub_routes_drpc_by_exact_hostname", () => {
   assert.equal(isHost("https://eth.drpc.org", "eth.drpc.org"), true, "the keyless drpc URL the recorder fetches routes as drpc");
   assert.equal(isHost(new URL("https://eth.drpc.org"), "eth.drpc.org"), true, "a URL input routes too");
-  for (const decoy of ["https://evil.com/?x=eth.drpc.org", "https://eth.drpc.org.evil.com", "https://xeth.drpc.org", "https://evil.com/eth.drpc.org", "eth.drpc.org"]) {
+  for (const decoy of ["https://evil.com/?x=eth.drpc.org", "https://eth.drpc.org.evil.com", "https://xeth.drpc.org", "https://a.eth.drpc.org", "https://evil.com/eth.drpc.org", "eth.drpc.org"]) {
     assert.equal(isHost(decoy, "eth.drpc.org"), false, `a decoy never routes as drpc: ${decoy}`);
   }
 });
