@@ -28,7 +28,7 @@ import { createHash } from "node:crypto";
 import { join, extname, dirname, basename } from "node:path";
 import ts from "typescript";
 import { compilePatterns, scanText, collectTargets } from "../scripts/grep-forbidden.mjs";
-import { collectFiles } from "../scripts/export-public.mjs";
+import { collectFiles, derivePublicWorkflow } from "../scripts/export-public.mjs";
 import { renderedTexts, scanText as scanNumericText, loadExemptFile, scanAppsSite } from "../apps/site/test/honesty-lint.ts";
 import { FLEET_AGENTS, PRODUCTS } from "../apps/site/lib/fleet.ts";
 import type { FleetStatus, FleetWiring } from "../apps/site/lib/fleet.ts";
@@ -1520,4 +1520,33 @@ test("sentinel_readme_is_a_kept_export — apps/sentinel/README.md is an English
     kept.has("apps/sentinel/README.md"),
     "apps/sentinel/README.md must be in collectFiles(ROOT).kept (mutant 'README removed / turned French' => not kept => red)",
   );
+});
+
+// Lot CODEQL-ALERTS-1 (ADR-CODEQL-ALERTS-1 D1; CodeQL alerts 7-12, actions/missing-workflow-permissions): the workflow
+// limits the GITHUB_TOKEN to read-only repository contents. ONE `permissions` key in the whole file (a job-level block
+// would override the workflow one), top-level, placed after the `on:` block and before `jobs:` (never between `on:` and
+// its keys: derivePublicWorkflow's on/pull_request needle would break), whose body is exactly `contents: read`; no
+// `write` token on any non-comment line (0 today, measured); and the DERIVED public workflow keeps the same block.
+// Named mutants (G1): block removed => red; `contents: write` => red; a job-level `permissions: write-all` => red; the
+// block moved above `on:` => red.
+test("ci_workflow_declares_least_privilege_permissions - one top-level contents: read block after on:, no write (ADR-CODEQL-ALERTS-1 D1)", () => {
+  const isCode = (l: string): boolean => !/^\s*#/.test(l);
+  const keyIdx = LINES.flatMap((l, i) => (isCode(l) && /^\s*["']?permissions["']?\s*:/.test(l) ? [i] : []));
+  assert.equal(keyIdx.length, 1, `exactly ONE permissions key in the workflow (a job-level block overrides the workflow one), saw ${String(keyIdx.length)}`);
+  const permIdx = keyIdx[0]!;
+  assert.match(LINES[permIdx]!, /^permissions:\s*$/, "the permissions key is TOP-LEVEL (column 0) and opens a block (no inline value such as read-all)");
+  const onIdx = LINES.findIndex((l) => /^on\s*:/.test(l));
+  const jobsIdx = LINES.findIndex((l) => /^jobs\s*:/.test(l));
+  assert.ok(onIdx !== -1 && onIdx < permIdx && permIdx < jobsIdx, `permissions: must sit after the on: block and before jobs: (on=${String(onIdx)}, permissions=${String(permIdx)}, jobs=${String(jobsIdx)})`);
+  const body: string[] = [];
+  for (let i = permIdx + 1; i < LINES.length; i++) {
+    const l = LINES[i]!;
+    if (/^\S/.test(l) && isCode(l)) break; // the next top-level key ends the block (test 38 idiom)
+    if (l.trim() !== "" && isCode(l)) body.push(l);
+  }
+  assert.deepEqual(body, ["  contents: read"], "the permissions block is exactly `contents: read` (read-only repository contents)");
+  assert.deepEqual(LINES.filter((l) => isCode(l) && /\bwrite(?:-all)?\b/.test(l)), [], "no write scope on any non-comment line of the workflow");
+  const derived = derivePublicWorkflow(WF).split(/\r?\n/);
+  const dIdx = derived.findIndex((l) => /^permissions:\s*$/.test(l));
+  assert.ok(dIdx !== -1 && derived[dIdx + 1] === "  contents: read", "the DERIVED public workflow keeps the least-privilege block (the mirror's CI is read-only too)");
 });

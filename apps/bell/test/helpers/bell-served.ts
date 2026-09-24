@@ -115,7 +115,7 @@ export function resealHead(pub: string, key: KeyObject, mutate: (state: Obj) => 
 
 // ---- the headers of deploy/Caddyfile.monark-bell (S-8, PR-3), READ from the file: a subset parser, fail-closed ----
 export const CADDYFILE = join(REPO, "deploy", "Caddyfile.monark-bell");
-export interface HeaderRule { match: (path: string) => boolean; name: string; value: string }
+export interface HeaderRule { matches: (path: string) => boolean; name: string; value: string }
 /** `header [<@named|/path>] <Name> <value>` and `header [...] { <Name> <value> ... }` at site level; named matchers
  *  `@n [not] path <glob>...` (inline or `@n { ... }`). Any other header form (+/-/>/? prefixes, a header nested in another
  *  block) THROWS: an unread header is never a silent green. Rules apply in file order (a later match overrides). */
@@ -144,14 +144,14 @@ export function caddyHeaderRules(text: string): HeaderRule[] {
   const rules: HeaderRule[] = [];
   for (const [i, t0, d] of heads) {
     if (d !== 1) throw new Error(`caddyfile: header nested in a block (line ${String(i + 1)})`);
-    let t = t0, match: (p: string) => boolean = () => true;
-    if (t[0]?.startsWith("@")) { const m = matchers.get(t[0]); if (m === undefined) throw new Error(`caddyfile: unknown matcher ${t[0]}`); match = m; t = t.slice(1); }
-    else if (t[0]?.startsWith("/")) { match = glob(t[0]); t = t.slice(1); }
+    let t = t0, matches: (p: string) => boolean = () => true;
+    if (t[0]?.startsWith("@")) { const m = matchers.get(t[0]); if (m === undefined) throw new Error(`caddyfile: unknown matcher ${t[0]}`); matches = m; t = t.slice(1); }
+    else if (t[0]?.startsWith("/")) { matches = glob(t[0]); t = t.slice(1); }
     const pairs: string[][] = [];
     if (t[0] === "{") { for (let j = i + 1; lines[j] !== "}"; j++) pairs.push(toks(lines[j]!)); } else pairs.push(t);
     for (const [name, value, ...more] of pairs) {
       if (name === undefined || value === undefined || more.length > 0 || /^[+\->?]/.test(name)) throw new Error(`caddyfile: unsupported header form: ${pairs.flat().join(" ")}`);
-      rules.push({ match, name, value });
+      rules.push({ matches, name, value });
     }
   }
   return rules;
@@ -168,7 +168,7 @@ export function serveDir(root: string, rules: readonly HeaderRule[] | null): Pro
     const p = (req.url ?? "/").split("?")[0] ?? "/", f = join(root, ...p.split("/").filter((s) => s !== ""));
     seen.push(p);
     const h: Record<string, string> = {};
-    for (const r of rules ?? []) if (r.match(p)) h[r.name] = r.value;
+    for (const r of rules ?? []) if (r.matches(p)) h[r.name] = r.value;
     const ok = !p.includes("..") && existsSync(f) && statSync(f).isFile();
     res.writeHead(ok ? 200 : 404, h);
     res.end(ok ? readFileSync(f) : undefined);

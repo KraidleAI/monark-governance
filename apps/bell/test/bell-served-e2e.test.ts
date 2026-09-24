@@ -66,7 +66,7 @@ test("bell_publish_consumes_real_runmain_output_end_to_end", async (t) => {
   const spec = caddyHeaderRules(["bell.monarkgate.tech {", "\troot * /var/lib/monark-bell/public", "\tfile_server", "\t@imm path /states/* /provenance/*",
     "\t@cur not path /states/* /provenance/*", "\theader {", "\t\tAccess-Control-Allow-Origin \"*\"", "\t\tX-Content-Type-Options nosniff", "\t}",
     "\theader @imm Cache-Control \"public, max-age=31536000, immutable\"", "\theader @cur Cache-Control no-cache", "}"].join("\n"));
-  const at = (p: string): Record<string, string> => Object.fromEntries(spec.filter((r) => r.match(p)).map((r) => [r.name, r.value]));
+  const at = (p: string): Record<string, string> => Object.fromEntries(spec.filter((r) => r.matches(p)).map((r) => [r.name, r.value]));
   assert.deepEqual(at("/states/x.json"), { "Access-Control-Allow-Origin": "*", "X-Content-Type-Options": "nosniff", "Cache-Control": "public, max-age=31536000, immutable" });
   assert.equal(at("/state.json")["Cache-Control"], "no-cache");
   assert.throws(() => caddyHeaderRules("b {\n\theader -Server\n}"), /unsupported header form/);

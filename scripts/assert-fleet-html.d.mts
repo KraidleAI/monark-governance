@@ -16,8 +16,9 @@ export const REPO_ROOT: string;
 
 /** Decode the HTML entities React emits (numeric decimal/hex + the named set), `&amp;` last. */
 export function decodeEntities(s: string): string;
-/** Strip `<script>`/`<noscript>`/`<template>` blocks (attributes + case tolerated) and `<!-- -->` markers,
- *  then decode entities: the rendered body. Throws (fail-closed) on an unclosed `<script>`. */
+/** Strip `<script>`/`<noscript>`/`<template>` blocks (attributes + case tolerated) and `<!-- -->` markers in one
+ *  document-order pass, then decode entities: the rendered body. Throws (fail-closed) on an unclosed hidden block or
+ *  comment, and on a `<script` or `<!--` left in the output. */
 export function renderedBody(html: string): string;
 /** Assert the rendered /fleet body carries the header and each note >= 1; throws on failure (vacuity-guarded). */
 export function assertFleetBody(args: {

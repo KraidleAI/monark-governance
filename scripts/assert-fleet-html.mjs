@@ -48,27 +48,117 @@ export function decodeEntities(s) {
     .replace(/&amp;/g, "&");
 }
 
-/** Isolate the RENDERED text body: strip every `<script>`, `<noscript>` and `<template>` block (attributes
- *  tolerated, case-insensitive) and React's `<!-- -->` comment markers, then decode entities. The inline RSC
- *  `<script>` payload carries the notes with LITERAL apostrophes (the false-green source), and a note living
- *  only inside a hidden `<noscript>`/`<template>` is likewise NOT rendered. Fail-closed on an UNCLOSED
- *  `<script>` (no matching `</script>`): its payload would otherwise leak into the body. */
+/** The hidden surfaces a browser never renders (M-24: `<style` is out of scope). */
+const HIDDEN_BLOCKS = ["script", "noscript", "template"];
+/** HTML's ASCII whitespace: it ends a tag name, and may pad an end tag before its `>` (`</script >`). */
+const HTML_SPACE = "\t\n\f\r ";
+/** ASCII-only lower-casing: HTML tag names are ASCII case-insensitive (String#toLowerCase is Unicode-aware). */
+const asciiLower = (s) => s.replace(/[A-Z]/g, (c) => c.toLowerCase());
+
+/** The hidden-block name whose opener starts at `lt` (`<name` + whitespace, `/` or `>`), else undefined. */
+function hiddenOpenerAt(html, lt) {
+  return HIDDEN_BLOCKS.find((n) => {
+    const next = html.charAt(lt + 1 + n.length);
+    return next !== "" && (HTML_SPACE + "/>").includes(next) && asciiLower(html.slice(lt + 1, lt + 1 + n.length)) === n;
+  });
+}
+
+/** Index just past a `</name` + optional whitespace + `>` closer that starts AT `c` (ASCII case-insensitive), else -1. */
+function closerAt(html, name, c) {
+  if (!html.startsWith("</", c) || asciiLower(html.slice(c + 2, c + 2 + name.length)) !== name) return -1;
+  let k = c + 2 + name.length;
+  while (k < html.length && HTML_SPACE.includes(html.charAt(k))) k++;
+  return html.charAt(k) === ">" ? k + 1 : -1;
+}
+
+/** Index just past the first closer of `name` at or after `from`, else -1: the end of a script or noscript, whose raw
+ *  text nests nothing (WHATWG 13.2.5.14 RAWTEXT / 13.2.5.17 script data end tag name state). */
+function closerEnd(html, name, from) {
+  for (let c = html.indexOf("</", from); c !== -1; c = html.indexOf("</", c + 2)) {
+    const end = closerAt(html, name, c);
+    if (end !== -1) return end;
+  }
+  return -1;
+}
+
+/** Index just past the `</template>` that closes a template whose content starts at `from`, else -1. Template content
+ *  is MARKUP, not raw text (WHATWG 13.2.6.4.16 "in template": script and template via the "in head" rules, noscript via
+ *  "in body", i.e. raw text): a `</template>` inside a nested script, noscript or comment closes nothing, and a nested
+ *  template ends at its own closer. So every nested surface is consumed WHOLE by surfaceEnd (recursively; it throws if
+ *  unclosed) before a `</template>` is taken (G2 B-1: taking the first one wherever it sat was a false green). */
+function templateEnd(html, from) {
+  let lt = html.indexOf("<", from);
+  while (lt !== -1) {
+    const inner = surfaceEnd(html, lt);
+    if (inner !== undefined) {
+      lt = html.indexOf("<", inner);
+      continue;
+    }
+    const end = closerAt(html, "template", lt);
+    if (end !== -1) return end;
+    lt = html.indexOf("<", lt + 1);
+  }
+  return -1;
+}
+
+/** The hidden surface that opens at `lt`: undefined if none, else the index just past its end. A comment ends at the
+ *  first `-->`; a script or noscript at its first closer; a template at its own closer (templateEnd). Opener: `<name`
+ *  (ASCII case-insensitive) + whitespace, `/` or `>`, attributes up to the next `>`; closer: `</name` + optional
+ *  whitespace + `>`. Fail-closed: an unclosed surface throws, naming the innermost unclosed one (its payload would
+ *  count as rendered text). */
+function surfaceEnd(html, lt) {
+  if (html.startsWith("<!--", lt)) {
+    const close = html.indexOf("-->", lt + 4);
+    if (close === -1) throw new Error("assert-fleet-html: an unclosed <!-- comment (no matching -->) - fail-closed");
+    return close + 3;
+  }
+  const name = hiddenOpenerAt(html, lt);
+  if (name === undefined) return undefined;
+  const gt = html.indexOf(">", lt + 1 + name.length);
+  const end = gt === -1 ? -1 : name === "template" ? templateEnd(html, gt + 1) : closerEnd(html, name, gt + 1);
+  if (end === -1) throw new Error(`assert-fleet-html: an unclosed <${name}> block (no matching </${name}>) - fail-closed`);
+  return end;
+}
+
+/** ONE left-to-right pass in document order, the order a browser tokenizes in (ADR-CODEQL-ALERTS-1 D3: replaces the
+ *  regex filters CodeQL flagged, #27-#29). Each COMPLETE hidden surface (surfaceEnd) is removed WHOLE, so a `<!--`
+ *  inside a payload never pairs with a `-->` in the body; every other byte, generic tags included, is copied verbatim
+ *  (extractMain / mainCorpus read the tags). The pass never re-scans its output, so a surface rebuilt from leftovers
+ *  (`<scr<script></script>ipt>`) stays there for renderedBody's guards. */
+function stripHiddenSurfaces(html) {
+  let out = "";
+  let copied = 0;
+  let lt = html.indexOf("<");
+  while (lt !== -1) {
+    const end = surfaceEnd(html, lt);
+    if (end === undefined) {
+      lt = html.indexOf("<", lt + 1); // not a hidden surface: this `<` is copied with the text around it
+    } else {
+      out += html.slice(copied, lt);
+      copied = end;
+      lt = html.indexOf("<", end);
+    }
+  }
+  return out + html.slice(copied);
+}
+
+/** Isolate the RENDERED text body: remove every `<script>`, `<noscript>` and `<template>` block (attributes
+ *  tolerated, case-insensitive) and React's `<!-- -->` comment markers (stripHiddenSurfaces), then decode
+ *  entities. The inline RSC `<script>` payload carries the notes with LITERAL apostrophes (the false-green source),
+ *  and a note living only inside a hidden `<noscript>`/`<template>` is likewise NOT rendered. Fail-closed on an
+ *  UNCLOSED hidden block or comment, and on a `<script` or `<!--` left in the output: a payload would otherwise
+ *  leak into the body. */
 export function renderedBody(html) {
-  // Strip balanced <script> blocks FIRST (attributes + case tolerated via [^>]* and the gi flag), then the
-  // other hidden surfaces, then <!-- --> markers: a `<!--` inside a payload cannot then pair with a `-->` in
-  // the body and eat rendered text. (Next escapes `<` as an entity in inline scripts, so there is no bug on
-  // today's artefact - measured - but this order is the robust one.)
-  const noScript = String(html).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "");
-  // Fail-closed: a `<script` opening that survived the balanced strip has no `</script>`, so its inline
-  // payload (notes with LITERAL apostrophes) would leak into the body and a broken build could pass on the
-  // payload alone (a false GREEN, G0 finding 8). Throw rather than let it through.
+  const noScript = stripHiddenSurfaces(String(html));
+  // Fail-closed: a `<script` opening left in the output (no opener to the scanner, or rebuilt from leftovers such as
+  // `<scr<script></script>ipt>`) could carry an inline payload (notes with LITERAL apostrophes) into the body, and a
+  // broken build could pass on the payload alone (a false GREEN, G0 finding 8). Throw rather than let it through.
   if (/<script\b/i.test(noScript))
     throw new Error("assert-fleet-html: an unclosed <script> tag survived stripping (no matching </script>) - fail-closed");
-  const noHidden = noScript
-    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, "")
-    .replace(/<template\b[^>]*>[\s\S]*?<\/template>/gi, "");
-  const noComments = noHidden.replace(/<!--[\s\S]*?-->/g, "");
-  return decodeEntities(noComments);
+  // Fail-closed, symmetric (ADR-CODEQL-ALERTS-1 C-V2-2b): a `<!--` left in the output (rebuilt from leftovers such
+  // as `<!-<!---->-`) is markup this text check cannot classify; throw rather than count what it may hide.
+  if (noScript.includes("<!--")) throw new Error("assert-fleet-html: a <!-- comment opener survived stripping - fail-closed");
+  return decodeEntities(noScript);
 }
 
 /** Assert the rendered /fleet HTML body carries `expectedHeader` and each of `expectedNotes` at least once.

@@ -189,6 +189,12 @@ export function headersFor(site: CaddySite, p: string): Record<string, string> {
   return out;
 }
 
+/** HTML-escape one directory entry for the `browse` listing (ADR-CODEQL-ALERTS-1 D5b; CodeQL #30 js/stored-xss): the five
+ *  characters that could close the `href` attribute or open a tag. `&` first, so no escape is escaped twice. */
+export const escapeHtml = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+/** The model's `browse` listing body: one link per entry, the name escaped in the `href` value AND in the link text. */
+export const listingHtml = (names: readonly string[]): string => names.map((n) => `<a href="${escapeHtml(n)}">${escapeHtml(n)}</a>`).join("\n");
+
 const SUBSET = new Set(["root", "header", "redir", "file_server"]);
 /**
  * Serve `site` on 127.0.0.1:0 with its root REPLACED by `rootDir` (the committed root is a host path). Caddy's order, whatever
@@ -210,7 +216,7 @@ export function serveCaddy(site: CaddySite, rootDir: string): Server {
     if (statSync(f).isDirectory()) {
       if (!site.browse) { res.writeHead(404, hs); res.end(); return; }
       res.writeHead(200, { ...hs, "content-type": "text/html; charset=utf-8" });
-      res.end(readdirSync(f).map((n) => `<a href="${n}">${n}</a>`).join("\n"));
+      res.end(listingHtml(readdirSync(f)));
       return;
     }
     const body = readFileSync(f);

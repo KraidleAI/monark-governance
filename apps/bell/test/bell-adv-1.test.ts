@@ -315,6 +315,9 @@ test("bell_no_adv_counter_passes_close_guard_adv_still_reddens", () => {
 // ADV request (exact month, adjusted=false, key in the header only), the entry (March 2026, 22 bars, 2.5 / 5e6), the
 // named source. A DST-naive bar date or a 45-day window or adjusted=true reddens here.
 const HELIUS_HOST = "helius.example.invalid";
+/** Route the stubbed RPC fetch by EXACT https host (ADR-CODEQL-ALERTS-1 D4; CodeQL #13): a `startsWith("https://<host>")`
+ *  prefix also admits `https://<host>.evil.com`. The https scheme stays pinned, as the prefix pinned it (never weaker). */
+const isHttpsHost = (url: string, host: string): boolean => URL.canParse(url) && new URL(url).protocol === "https:" && new URL(url).hostname === host;
 function stateConfigB64(mult: number): string {
   const b = new Uint8Array(56);
   const dv = new DataView(b.buffer);
@@ -341,7 +344,7 @@ test("bell_adv_leg_is_wired_runmain_guard_real_polygon_get", async () => {
       return Promise.resolve(json(massiveBody));
     }
     if (url.startsWith("https://hist.databento.com/")) return Promise.resolve(new Response("", { status: 200 })); // no close (fine)
-    if (url.startsWith(`https://${HELIUS_HOST}`) || url.startsWith("https://api.mainnet.solana.com")) {
+    if (isHttpsHost(url, HELIUS_HOST) || isHttpsHost(url, "api.mainnet.solana.com")) {
       const req = JSON.parse(typeof init?.body === "string" ? init.body : "{}") as { method: string; params: unknown[] };
       const rpc = (result: unknown): Promise<Response> => Promise.resolve(json({ jsonrpc: "2.0", id: 1, result }));
       if (req.method === "getSignaturesForAddress") return rpc([{ signature: "sig1", slot: 1, blockTime: btSec, err: null }]);
@@ -387,4 +390,15 @@ test("bell_adv_leg_is_wired_runmain_guard_real_polygon_get", async () => {
     JSON.parse(readFileSync(join(out, "state.json"), "utf8"), (_k, v: unknown) => { if (typeof v === "number") nums.push(v); return v; });
     assert.ok(nums.length > 0 && !nums.includes(5_000_000), "the ADV value itself (5e6) is never written as a number");
   } finally { rmSync(out, { recursive: true, force: true }); rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ADR-CODEQL-ALERTS-1 D4 (CodeQL #13): the D-3 stub above routes the Solana RPC by EXACT https host. Mutant "isHttpsHost
+// reverted to url.startsWith(`https://${host}`)" => the look-alike host routes => reds here; so does a suffix match
+// (`hostname.endsWith(host)`, G2 GM7b) on `xapi.mainnet.solana.com` (runMain itself never fetches a decoy, so this test
+// is the stub's own teeth).
+test("bell_adv1_stub_routes_rpc_by_exact_https_host", () => {
+  for (const host of [HELIUS_HOST, "api.mainnet.solana.com"]) assert.equal(isHttpsHost(`https://${host}/?k=1`, host), true, `https://${host} routes`);
+  for (const decoy of ["https://api.mainnet.solana.com.evil.com/", "https://xapi.mainnet.solana.com/", "https://evil.com/?x=api.mainnet.solana.com", "http://api.mainnet.solana.com", "api.mainnet.solana.com"]) {
+    assert.equal(isHttpsHost(decoy, "api.mainnet.solana.com"), false, `a decoy never routes as the Solana RPC: ${decoy}`);
+  }
 });

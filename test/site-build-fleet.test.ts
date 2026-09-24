@@ -181,3 +181,41 @@ test("derived_workflow_run_paths_are_exported — every scripts/enforcement path
   const notExported = [...cited].filter((p) => !kept.has(p));
   assert.deepEqual(notExported, [], `a DERIVED run: cites a path absent from the public export (mutant: drop it from WHITELIST_FILES): ${notExported.join(", ")}`);
 });
+
+// Lot CODEQL-ALERTS-1 (ADR-CODEQL-ALERTS-1 D3; CodeQL #27 js/bad-tag-filter, #28/#29 js/incomplete-multi-character-
+// sanitization): renderedBody removes hidden blocks and comments with a one-pass scanner, never a regex filter. The five
+// outcomes the ADR fixes, fail-closed on EVERY unclosed surface, generic tags kept. Named mutants (G1): closer without
+// whitespace tolerance => (i) reds; `<script` output guard removed => (v) reds; `<!--` output guard removed => (iii)
+// reds; no throw on an unclosed block => (iv) reds. G2 fold (B-1, M-1): a template ends at its own `</template>`, not at
+// one inside a nested script/noscript (raw text) or a nested template (T1-T3, Rd); a closer name has a boundary (GM4).
+test("rendered_body_scanner_outcomes - the five ADR outcomes, fail-closed on unclosed surfaces, generic tags kept (ADR-CODEQL-ALERTS-1 D3)", () => {
+  // (i) `</script >` closes the block (the form the regex missed, CodeQL #27); any ASCII whitespace, any case, attributes.
+  assert.equal(renderedBody("<script>a</script >b"), "b", "(i) a closer padded by a space ends the block");
+  assert.equal(renderedBody("<SCRIPT data-x=1>a</Script\t\n>b"), "b", "(i) any ASCII whitespace and case, attributes tolerated");
+  // (GM4) the closer's name has a boundary too: `</scriptx>` closes nothing, the later `</script>` does.
+  assert.equal(renderedBody("<script>a</scriptx>b</script>c"), "c", "(GM4) `</scriptx>` is not a closer of <script>");
+  // (T1, T2, T3, Rd) template content is markup (WHATWG 13.2.6.4.16): a nested script/noscript is raw text, so a
+  // `</template>` inside it closes nothing; an unclosed nested block still throws, naming itself; templates nest.
+  assert.equal(renderedBody('<template><script>var s="</template>";</script>HIDDEN</template>VISIBLE'), "VISIBLE", "(T1) a </template> inside a nested <script> closes nothing");
+  assert.equal(renderedBody("<template><noscript></template>HIDDEN</noscript></template>VISIBLE"), "VISIBLE", "(T2) a </template> inside a nested <noscript> closes nothing");
+  assert.throws(() => renderedBody("<main>ok</main><template><script></template>HIDDEN"), /unclosed <script> block/, "(T3) an unclosed <script> nested in a <template> throws (ADR D3 (iv))");
+  assert.equal(renderedBody("<template><template></template>HIDDEN</template>VISIBLE"), "VISIBLE", "(Rd) a nested template closes its own </template> first");
+  // (ii) `<scr` is no opener; the complete block after it goes; the leftover text stays as is.
+  assert.equal(renderedBody("<scr<script>ipt>P</script>"), "<scr", "(ii) the scanner looks for an opener from the current position");
+  // (iii) a comment opener rebuilt from leftovers is caught on the OUTPUT (C-V2-2b).
+  assert.throws(() => renderedBody("<!-<!---->-"), /<!-- comment opener survived stripping/, "(iii) a residual <!-- throws");
+  // (iv) an unclosed hidden block or comment throws in the scanner (its payload would be counted as rendered text).
+  assert.throws(() => renderedBody("<script>"), /unclosed <script> block/, "(iv) an unclosed <script> throws");
+  for (const name of ["noscript", "template"]) {
+    assert.throws(() => renderedBody(`<main>body</main><${name}>hidden note`), new RegExp(`unclosed <${name}> block`), `(iv) an unclosed <${name}> throws (the regex left its text in the body)`);
+  }
+  assert.throws(() => renderedBody("<main>body</main><!-- open"), /unclosed <!-- comment/, "(iv) an unclosed comment throws");
+  // (v) a <script> rebuilt from leftovers is caught by the `<script` guard on the OUTPUT (C-V2-2a), never silenced.
+  assert.throws(() => renderedBody("<scr<script></script>ipt>"), /<script> tag survived stripping/, "(v) the output guard throws");
+  // Generic tags are KEPT (extractMain / mainCorpus read them): only hidden surfaces and comments go.
+  assert.equal(
+    renderedBody('<main class="m"><p title="t">x<!-- -->y</p><scripts>z</scripts></main>'),
+    '<main class="m"><p title="t">xy</p><scripts>z</scripts></main>',
+    "generic tags (a non-hidden <scripts> included) are kept verbatim",
+  );
+});

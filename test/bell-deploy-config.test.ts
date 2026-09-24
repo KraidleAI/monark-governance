@@ -8,12 +8,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
-import { readFileSync, readdirSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
 import type { Server } from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { headersFor, parseCaddyfile, realPublication, serveCaddy, type CaddySite } from "./bell-caddy.ts";
+import { escapeHtml, headersFor, listingHtml, parseCaddyfile, realPublication, serveCaddy, type CaddySite } from "./bell-caddy.ts";
 import { BELL_ROOT_REDIRECT, BELL_TREE_PATHS, UNIT_INSTALLED } from "../scripts/verify-bell.mjs";
 
 const REPO = fileURLToPath(new URL("../", import.meta.url));
@@ -237,5 +239,34 @@ test("bell_runbook_ships_the_ca_tree_and_the_unit_key_path", () => {
   assert.equal(good.status, 0, "the RUNBOOK keyring command exits 0");
   assert.equal(good.stdout, served, "RUNBOOK keyring bytes == the publisher's served /bell/pubkey.json");
   assert.equal(run("0".repeat(64)).status, 1, "a key_id that is not sha256(x) is refused");
+});
+
+// ADR-CODEQL-ALERTS-1 D5b (CodeQL #30 js/stored-xss): the model's `browse` listing escapes each entry name in the href value
+// AND the link text. The name `a"b<c` is illegal on NTFS (writeFileSync -> ENOENT, measured on the worker's F: drive), so
+// it is proven on the pure listing; the SERVED branch is proven through serveCaddy with the NTFS-legal `a&b'c.json`.
+// Named mutant (G1): escapeHtml dropped from listingHtml => both the pure and the served asserts red.
+test("bell_caddy_browse_listing_escapes_entry_names", async () => {
+  assert.equal(escapeHtml(`&<>"'`), "&amp;&lt;&gt;&quot;&#39;", "the five characters, `&` first (never double-escaped)");
+  const html = listingHtml(['a"b<c']);
+  assert.equal(html, '<a href="a&quot;b&lt;c">a&quot;b&lt;c</a>', "the name is escaped in the href value and in the text");
+  assert.equal(html.split("<").length - 1, 2, "exactly the two tags <a> and </a>: the name opens none");
+  assert.equal(html.split('"').length - 1, 2, "exactly the two quotes of the href value: the name closes no attribute");
+  const dir = mkdtempSync(join(tmpdir(), "bell-caddy-browse-"));
+  try {
+    writeFileSync(join(dir, "a&b'c.json"), "{}");
+    const site = siteOf("b.example.invalid {\n\troot * /srv\n\tfile_server browse\n}");
+    assert.ok(site.browse, "the synthetic site lists directories (browse)");
+    await withServer(serveCaddy(site, dir), async (port) => {
+      const got = await new Promise<string>((done, fail) => {
+        request({ host: "127.0.0.1", port, path: "/", agent: false }, (res) => {
+          let body = "";
+          res.setEncoding("utf8");
+          res.on("data", (c: string) => { body += c; });
+          res.on("end", () => { done(`${String(res.statusCode)} ${body}`); });
+        }).on("error", fail).end();
+      });
+      assert.equal(got, `200 <a href="a&amp;b&#39;c.json">a&amp;b&#39;c.json</a>`, "the SERVED listing carries the escaped name only");
+    });
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
