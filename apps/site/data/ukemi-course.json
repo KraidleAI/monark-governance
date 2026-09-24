@@ -1,4 +1,5 @@
 {
+  "$comment": "Site copy of the Ukemi U-4b course report (hyp-report-weth-2025-09-22.json, schema ukemi-u4b-hyp/1): body and body_digest as produced by scripts/census/u4b/u4b-hyp.mjs, provenance reduced to the tool sha (input paths omitted: they name export-excluded governance fixtures). Rendered by /ukemi/course through apps/site/lib/ukemi-course-load.ts after a sha256 check against the site manifest.",
   "schema": "ukemi-u4b-hyp/1",
   "kind": "report",
   "provenance": {
@@ -7,32 +8,6 @@
       "sha256_lf": "65b0d8f9608969c670bd321d7613920c408ccf90bac4e067e990b93dad77fc25"
     },
     "node": "v24.15.0",
-    "inputs": {
-      "scores": {
-        "sha256_lf": "fd6fab7ebf5d2779b904494accab8916fac8293587ed24d21fb052cb024074a4",
-        "bytes": 47826
-      },
-      "u3_inputs": {
-        "sha256_lf": "fc4440fe0fd3c95084b606d9b2a30f2156985ab4aaf9278ec14482a7c36aee1a",
-        "bytes": 449084
-      },
-      "u3_realized": {
-        "sha256_lf": "e2d6c0e48f3503aed4e48d5041d6178ca28b8dc6db36c19ba534ccd4c5611837",
-        "bytes": 50254
-      },
-      "oracle_path": {
-        "sha256_lf": "cc7f5cd9b7b93a319044514a1d150a805393e69c575314ff21b1cb9c6ddb0971",
-        "bytes": 5868
-      },
-      "e2_comparison": {
-        "rel": "apps/sentinel/test/fixtures/ukemi/u4b/U4b-scores-e2.jsonl",
-        "sha256_lf": "301d39fa806fd36a72cc446484aa4d04807a56ab603b1b69f464264550a126ad"
-      },
-      "prereg": {
-        "rel": "docs/PLAN-u4b-prereg.md",
-        "sha256_lf": "1971d9b14ce0adf8c617f23e2ed1e323d80224cf442636aba5f7cf5fc5892f49"
-      }
-    },
     "event_id": "weth-2025-09-22"
   },
   "body": {

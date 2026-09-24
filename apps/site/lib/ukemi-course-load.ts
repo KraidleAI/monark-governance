@@ -47,6 +47,7 @@ export function loadUkemiCourse(rootDir: string): UkemiCourse {
   const actual = createHash("sha256").update(raw.replace(/\r\n/g, "\n"), "utf8").digest("hex");
   if (actual !== expected) throw new Error(`ukemi course: sha256 mismatch for ${UKEMI_COURSE_REL} (manifest ${expected}, actual ${actual})`);
   const file = rec(JSON.parse(raw), "file");
+  if ("$comment" in file && typeof file.$comment !== "string") throw new Error("ukemi course: $comment must be a string");
   if (file.schema !== "ukemi-u4b-hyp/1" || file.kind !== "report") throw new Error("ukemi course: not a ukemi-u4b-hyp/1 report");
   const body = rec(file.body, "body");
   const tool = rec(rec(file.provenance, "provenance").tool, "provenance.tool");
