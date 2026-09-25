@@ -48,7 +48,7 @@ const read = (rel: string): string => readFileSync(join(ROOT, rel), "utf8");
 const PINNED: Record<string, string> = {
   [HARNESS_SERVED_REL]: "7cf4b7cd49a8a0ce68338ead44557fa4a3986f669a5e3832cd3dbd2309790d63",
   [BYO_TRACE_REL]: "daf8d3eabacbc601e608d01936d02c0f7ba78dfb5a0d6f5741ecea5fb4eef6d2",
-  [H5_TRACE_REL]: "90a21adf1f109d695bd99a5a3521b055b74daba02248de22defe79b070108252",
+  [H5_TRACE_REL]: "0b32b33071b15c6e40ea529d87221fdade7bf4fb5f2171773802a85083569932", // re-pinned with the h5 re-record of U-4b-2b
 };
 
 interface Schema { required?: string[]; properties?: Record<string, Schema>; type?: string | string[]; description?: string; maxItems?: number; items?: Schema; additionalProperties?: unknown }

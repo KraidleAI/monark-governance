@@ -166,18 +166,34 @@ It checks: `/health` and `/openapi.json` live; a present-and-invalid `Origin` �
 MCP `tools/list` returns the four tools (SET EQUALITY, not subset — B-2); a real `gate`, `cascade`,
 `attest`, and `calibrate` call; a **`gate_byo_call`** (Lot C2, ADR-M007 D7) that reuses the `calibrate`
 call's scores as `params.calibration` and asserts the live decision's `verdict.calib_digest` equals the
-live `calibrate` `set_digest` AND `action === "commit"` — proving the BYO loop end-to-end; a **`gate_liq_call`**
-(HARNESS-DESC-1) that POSTs a `liquidation-eligible-coverage` decision (alpha 0.01, nMin 100) and asserts `200`,
-`reason === "under_calib"` and the empty-registry sentence in `content`; a **`mcp_gate_description_liq`** that
-asserts the served `tools/list` description of `gate` carries the empty-registry sentence and NOT the H-3
-sentence (both checks describe the EMPTY liq registry and flip at U-4b-2b, ADR-U4b amendment HARNESS-DESC-1, section 4;
-against a process older than U-4b-2a both are RED by design: the class is then an unknown task_class, a 400); and the TLS
-certificate (issuer, expiry). It writes the **conformity attestation** (URL, timestamp, per-check sha256,
-TLS cert) to the `--out` file and exits non-zero on any failure. Keep that file as the CA.
+live `calibrate` `set_digest` AND `action === "commit"` — proving the BYO loop end-to-end; three checks of the
+`liquidation-eligible-coverage` class on the **COMMITTED** liq registry (U-4b-2b, ADR-U4b-2b D4; they replaced the
+two empty-registry checks of HARNESS-DESC-1):
+- **`gate_liq_call`** POSTs a decision whose `yhat` lies in the committed stratum s0 (alpha 0.01, nMin 100, the body
+  unchanged since HARNESS-DESC-1) and asserts `200`, `verdict.reason === "covered"`, the upper bound
+  `verdict.region = { kind: "interval", lo: 0, hi: yhat + verdict.qhat }` with `verdict.qhat > 0` (read from the
+  verdict, never typed), `verdict.n_calib` = the committed stratum size and `verdict.calib_digest` = its C5 digest
+  (both fixed by value in the script, equal to `apps/harness/src/calibration.ts` by test), and the committed class text
+  in `content`, never the empty-registry sentence. The TOP-LEVEL `action` / `reason` are recorded in the detail next to
+  `verdict.reason` (under this body's `tauInterval 1` and open clock, L3 answers `defer` / `interval_too_wide`); they
+  are never required to read `covered`.
+- **`gate_liq_uncommitted_call`** puts `yhat` on the first served cut (stratum s1, not committed) and asserts `200`,
+  `action === "abstain"`, `verdict.reason === "under_calib"` and `verdict.n_calib === 0`.
+- **`mcp_gate_description_liq`** asserts that the served `tools/list` description of `gate` carries the committed
+  clause ENTIRE ("the served region is" + the upper-bound, requirements, H-3 and conditional sentences) and NOT the
+  empty-registry sentence.
+
+Against a process that still serves the EMPTY liq registry (any SHA before the U-4b-2b switch window, e.g. `bb41b6d`),
+`gate_liq_call` and `mcp_gate_description_liq` are RED by design: that surface is exactly vector alpha-2b of
+`test/verify-harness-liq.test.ts` (its response body hashes to the `gate_liq_call` sha256 of the CA recorded at
+`bb41b6d`). Against a process older than U-4b-2a, both liq calls are a 400 (unknown task_class). And the TLS
+certificate (issuer, expiry). It writes the **conformity attestation** (URL, timestamp, per-check sha256, TLS cert)
+to the `--out` file and exits **1** on any failure (it sets `process.exitCode` and returns; since U-4b-2b the exit is
+discriminating under win32 too, item O-1b-G2-1). Keep that file as the CA.
 
 **Deploy reserves — the green gate (Lot H6).** The deploy is GREEN only when BOTH hold:
-- the command **exits 0** AND its stderr prints `VERIFY OK`. Treat ANY non-zero exit as RED and read the
-  JSON `checks` array to find the failing check (on Windows an unavailable interpreter can surface as exit
+- the command **exits 0** AND its stderr prints `VERIFY OK` (13 of 13 checks). Treat ANY non-zero exit as RED and
+  read the JSON `checks` array to find the failing check (on Windows an unavailable interpreter can surface as exit
   `127` — still RED, never a pass); and
 - on the first real **https** run, the CA's `tls.authorized === true` (a genuine handshake to the live
   cert, not merely "fetch didn't throw"). An http/local target reports `tls.skipped` and does NOT satisfy
