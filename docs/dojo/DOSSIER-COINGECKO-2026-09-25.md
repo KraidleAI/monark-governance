@@ -38,3 +38,28 @@ MONARK is the token of the MONARK platform: a coverage-controlled inference engi
 3. Pas de campagne « when list » ; aucune annonce publique avant la réponse de CoinGecko.
 4. Le même dossier sert pour DEX Screener (profil de token : « Claim Your DEX Screener Token Profile », payant) et CoinMarketCap ; les deux sont des actes de l'investisseur.
 5. Après listing : ajouter le lien CoinGecko sur `/token` (lot vitrine T1, texte seul) et consigner la date.
+
+## 5. Vérification publique obligatoire (lu sur place le 2026-09-25, `support.coingecko.com` « Verification Guide for Listing/Update Requests », mis à jour « 5 months ago »)
+Ordre imposé par CoinGecko, à respecter à la lettre :
+1. **Avant** de remplir le formulaire : publier un post public depuis le compte officiel lié au site (X `@usemonark`) qui dit l'intention de soumettre une demande à CoinGecko, avec l'URL GeckoTerminal du projet et, en option, un pseudo Telegram de contact.
+2. Remplir le formulaire (Partners Platform) et coller l'URL de ce post dans le champ « Public Verification Link » (sinon dans « Additional Information »).
+3. À réception du courriel de confirmation avec l'identifiant `CLxxxxx`, **répondre au post d'origine** avec cet identifiant exact (« 🎫 Request ID: CLXXXXX »).
+4. CoinGecko vérifie le formulaire, le post, la réponse avec l'identifiant, et que le site et la documentation portent les mêmes informations que la demande.
+
+Faits : la paire MONARK/SOL est sur GeckoTerminal : `https://www.geckoterminal.com/solana/pools/GhCGq9qTCBWZvpBY4fzfvxvENWe1syryLuGACgj3Lhvg` (pool PumpSwap `GhCGq9qTCBWZvpBY4fzfvxvENWe1syryLuGACgj3Lhvg`). Le texte de description affiché par GeckoTerminal (métadonnées du token) dit « eleven agents » : vocabulaire antérieur à la décision 202 (« smart pieces », « agent » réservé au caller) ; item TOKEN-METADATA-WORDING-1 (propriétaire investisseur : les métadonnées du token sont éditées par le créateur du token ; déclencheur : avant la demande CoinGecko, pour que « site et documentation reflètent la même information »).
+
+Post de vérification (étape 1), prêt :
+```text
+📋 Preparing to submit our listing request to CoinGecko for MONARK.
+
+🔗 GeckoTerminal: https://www.geckoterminal.com/solana/pools/GhCGq9qTCBWZvpBY4fzfvxvENWe1syryLuGACgj3Lhvg
+
+Contract, pinned in our public repository:
+FYZcYCHSp8FzNba1UtDZydKKGosmxVNpFBiVuia38AhT
+
+No action needed on your side. We will share the page when it is live.
+```
+Réponse au post (étape 3), une fois l'identifiant reçu :
+```text
+🎫 Request ID: CLXXXXX
+```
