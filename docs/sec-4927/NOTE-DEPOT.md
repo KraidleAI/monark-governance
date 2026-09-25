@@ -79,3 +79,10 @@ Page `https://www.sec.gov/rules-regulations/public-comments/4-927` (navigateur i
 
 ## 6. Items formés liés au dépôt
 Renvoi : `RENDU.md` § « Items formés » (I-1 … I-13 : propriétaire, déclencheur, zéro dû nu).
+
+## 7. Mise en ligne observée (orchestrateur, lecture sur place, 2026-09-25 20:29 UTC)
+- Liste `https://www.sec.gov/rules-regulations/public-comments/4-927` : « Sept. 24, 2026 | Public Comment | Stan E. Malone, Founder, MONARK ».
+- Lien public de la lettre : `https://www.sec.gov/comments/4-927/4927-1073299-3717506.pdf` (PDF servi directement ; pas de page `.html`, dépôt « Comments attached »).
+- Preuve : GET 200, 122 152 octets, `Last-Modified: Fri, 25 Sep 2026 17:56:16 GMT`, sha256 `76261d1edd706027ed82587138f28c4267428ba5977c918ba5ef234cf66f512c` = copie déposée `F:/PRODUITS/sec-4927/LETTRE-4-927-v4-2026-09-24.pdf` (byte-identique).
+- Délai dépôt → mise en ligne : 24/09 16:18Z → 25/09 17:56Z (≈ 26 h). Dossier : 24 lettres au 25/09.
+- Suite (§5) : annonce X après relecture conjointe (décision 101) ; copie signée + `.ots` sur `bell.monarkgate.tech` sous go.
