@@ -442,6 +442,6 @@ Les dix corrections du checkpoint-1 sont pliées ; aucun point n'est laissé à 
 
 - D5, « Affichable après W », partie `/ukemi` : amendée par les décisions 216 et 217 (option (d)) et par ADR-UKEMI-DIGIT-1 : à l'état committé, la note « conformal » et, pour la strate committée, n, q̂₀ et le digest C5, lus de `ukemi-served.json` (`liq_verdict`) et de `ukemi-course.json`, jamais tapés ; le contrôle numérique de `assertUkemiBody` devient une liste fermée de chaînes (ADR-UKEMI-DIGIT-1 D-3). L'item UKEMI-DIGIT-GATE-1 (§7, `:317`) est clos par ce lot à son G7.
 
-## Erratum daté (proposé par le relecteur G2 du lot vitrine T2 UKEMI-DIGIT-1 ; à dater `date -u` et à committer par l'orchestrateur au pli)
+## Erratum daté (proposé par le relecteur G2 du lot vitrine T2 UKEMI-DIGIT-1 ; daté 2026-09-25 09:53 UTC (heure UTC du commit de pli `bb3e1c4`, `git log -1 --format=%aI`), committé par l'orchestrateur au pli)
 
 - C-G2-5 : la ligne de l'amendement du 2026-09-25 08:21 UTC (D5, partie `/ukemi`) nomme « n, q̂₀ et le digest C5 » ; la liste fermée de `/ukemi` porte aussi le jour de lecture (jour ISO de `read_at`, P-7 d'ADR-UKEMI-DIGIT-1), couvert par la règle des dates : lire « n, q̂₀, le digest C5 et le jour de lecture ». Aucune réécriture en place (FM-1.4).

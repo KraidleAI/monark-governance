@@ -340,7 +340,7 @@ Première rédaction close le 2026-09-25 à 07:30:54 UTC ; relecture par le réd
 - Lignes mises en cohérence sans correction propre : en-tête (Statut, Dates), §9 FM-2.2, §14.
 - Non plié ici, par attribution du rapport (§3, point 3) : l'exemple numérique littéral du commentaire de `decimal8Of` (`ukemi-course-load.ts:239`), constat hors lot que l'orchestrateur consigne.
 
-## Corrections G2 (amendement proposé par le relecteur G2 frais ; à dater `date -u` et à committer par l'orchestrateur au pli)
+## Corrections G2 (amendement proposé par le relecteur G2 frais ; daté 2026-09-25 09:53 UTC (heure UTC du commit de pli `bb3e1c4`, `git log -1 --format=%aI`), committé par l'orchestrateur au pli)
 
 > **Provenance.** Texte proposé par le relecteur G2 `claude-opus-5-5[1m]` (effort max, instance séparée, contexte frais) le 2026-09-25, revue de la plage `5db28a0..e625e3c` ; preuves et journaux sous `F:\tmp\udigit\g2\` (liste scellée `ARTIFACTS.sha256`) ; aucun commit (R-20).
 
