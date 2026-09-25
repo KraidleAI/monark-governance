@@ -67,7 +67,7 @@
           "cascade",
           "gate"
         ],
-        "response_sha256": "6b78a42041ab7f1c75f94941ad7da5287e96ff66233e10004ea641e096e05224"
+        "response_sha256": "b88cd06630582014c2ca569aa9f865593a933dea6e6848823b58716d17663141"
       }
     },
     {
@@ -269,7 +269,7 @@
       "op": "tools/call",
       "label": "attest",
       "tool": "attest",
-      "note": "Shōgen projection of one committed, previously verified witness; demonstrative, not probative; the verifier is not executed at call time.",
+      "note": "Shōgen projection of one committed, previously Shōgen-verified witness; demonstrative, not probative; the verifier is not executed at call time.",
       "request": {
         "jsonrpc": "2.0",
         "id": 6,

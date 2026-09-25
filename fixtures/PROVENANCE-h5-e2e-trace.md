@@ -30,7 +30,11 @@ so the H5 trace is pinned HERE instead, the same way the `s3-binance.*` fixtures
   `liquidation-eligible-coverage` clause became a function of the liq registry state, so on the empty registry it
   serves the empty-registry sentence, alpha/nMin and the conditional rule instead of the upper-bound and H-3
   sentences -- changing only the `tools/list` step's `response_sha256`; grounding: ADR-U4b amendment
-  HARNESS-DESC-1, checkpoint-1 U-4b-2 C-1).
+  HARNESS-DESC-1, checkpoint-1 U-4b-2 C-1), and **regenerated 2026-09-24 for U-4b-2b** (the liq registry holds the
+  committed stratum s0 of the fresh episode, so the `gate` description is the committed-state text again, byte-identical
+  to the pre-HARNESS-DESC-1 one; and item IF-1: the step-6 note reads "previously Shogen-verified", with the macron, so
+  the fourth `verified` exemption of vocab-banned.json is retired -- changing only the `tools/list` step's
+  `response_sha256` and that note; grounding: ADR-U4b-2b D4, ADR-U5a IF-1).
   Recorder: `scripts/record-h5-e2e-trace.mjs`.
 - **Reviewer**: independently reviewed and recorded before commit.
 
@@ -71,8 +75,13 @@ These statements live in the trace's `honesty` block and are re-asserted by
 
 - The tools read no clock (`produced_at`/`producedAt` are caller-carried); the ephemeral port is
   intentionally NOT recorded. Re-running the recorder reproduces the file byte-for-byte.
-- **sha256 (LF)** of `h5-e2e-trace.json`: `90a21adf1f109d695bd99a5a3521b055b74daba02248de22defe79b070108252`
-  (21943 bytes; **re-pinned 2026-09-22 for HARNESS-DESC-1** -- ONE field changed, the `tools/list` step's
+- **sha256 (LF)** of `h5-e2e-trace.json`: `0b32b33071b15c6e40ea529d87221fdade7bf4fb5f2171773802a85083569932`
+  (21951 bytes; **re-pinned 2026-09-24 for U-4b-2b** -- TWO fields changed: the `tools/list` step's `response_sha256`
+  (`6b78a420...` -> `b88cd066...`, the value it had before HARNESS-DESC-1: the committed-state `gate` description is
+  byte-identical to that text; measured alone, this change returns the whole file to `4ad9b340...`, 21943 bytes) and the
+  step-6 note (IF-1: "previously verified" -> "previously Shogen-verified" with the macron, +8 bytes); every served
+  decision, `structuredContent`, `content` text, `yhat` and digest is byte-identical (the trace calls no liq class).
+  Prior re-pin 2026-09-22 for HARNESS-DESC-1 (`90a21adf...`) -- ONE field changed, the `tools/list` step's
   `response_sha256` (`b88cd066...` -> `6b78a420...`): the `gate` description's liq clause now follows the registry
   state (empty registry: empty-registry sentence + alpha/nMin + conditional rule, never the upper bound nor H-3);
   the `cascade`/`attest`/`calibrate` descriptions, every served decision, `structuredContent`, `content` text,

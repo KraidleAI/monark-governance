@@ -1,7 +1,7 @@
 {
   "$comment": "Committed, hashed facts about the SERVED MONARK harness, rendered by /integrators and /console through apps/site/lib/harness-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. Written by the source repository's sync tool (not part of this export) from the served bodies (api /health, /openapi.json, /gate, /calibrate, /attest, /cascade; mcp initialize and tools/list; the MCP registry entry), each body hashing to the sha256 the committed deploy check recorded. Text is copied as served, as closed clauses only; the one rule applied: internal reference tokens in parentheses are removed. No market value, no data-source name.",
   "schema": "monark-site-harness-served-v1",
-  "read_at": "2026-09-24T03:39:46.604Z",
+  "read_at": "2026-09-25T03:26:05.861Z",
   "version": "0.4.0",
   "api": {
     "url": "https://api.monarkgate.tech",
@@ -110,10 +110,12 @@
     },
     {
       "class_id": "liquidation-eligible-coverage",
-      "state": "none",
+      "state": "committed",
       "clauses": [
-        "no liquidation-eligible-coverage calibration is committed yet; the gate abstains (under_calib) by construction",
-        "this class requires alpha = 0.01, nMin = 100"
+        "a conformal upper bound on the liquidable amount for the calibrated class; the lower edge is 0 by construction, not a calibrated bound; abstains (under_calib) outside it",
+        "this class requires alpha = 0.01, nMin = 100",
+        "calibrated on one recorded episode; no coverage is claimed on any other event; the H-3 exchangeability check is a report, a YES licenses nothing more",
+        "the bound holds only if yhat was produced by the frozen close-factor rule on a mono-collateral WETH account at the first crossing, which the gate does not check"
       ]
     }
   ],
@@ -133,18 +135,18 @@
     "repository_url": "https://github.com/KraidleAI/monark"
   },
   "deploy_check": {
-    "checked_at": "2026-09-23T00:54:20.288Z",
-    "count": 12,
-    "ok_count": 12,
+    "checked_at": "2026-09-25T03:24:23.912Z",
+    "count": 13,
+    "ok_count": 13,
     "tls_host": "api.monarkgate.tech",
     "tls_valid_to": "Dec 10 04:57:46 2026 GMT"
   },
   "bodies_sha256": {
     "/health": "d754b2feb82a3c45588e379d4d343c140ee8229d63f6771c940c27121c90f441",
-    "/openapi.json": "ad4371217ba87b261e682d428ea58825be5f740e9082484914c9036daa3fe2ba",
-    "tools/list": "8d3743c74f58c33d9b1bc13ce1653f8c8e97e9a35585d8446e62357e8f295b76",
+    "/openapi.json": "9e3176eae8893f05e7168f3c1e1b9e4dd4a1170a8a8a8f3cd933c94ff657a2ff",
+    "tools/list": "17602a13a00efa17c699a2e79ab2dfbac9fd4d91436ca3c7461259674e25b30a",
     "/gate": "793e0df9ec43b214747eea703f3d183b7e09a5fdcf0631f0f391a0b8a35bb8a9",
-    "/gate liquidation-eligible-coverage": "db85941e2845029e4c6d1c3e49636265bad1f734448fb2ac5110d0a702389dcd",
+    "/gate liquidation-eligible-coverage": "7922956678f3336c3d119ee0469ab483f549803d99165d685584e3df5d5a3243",
     "/calibrate": "5a67ff502aaef51050048955cf7ca8e17011401235c6f7afaaf2b376f7a05e88",
     "/attest": "aeeb34e020d93b21e31c676552d260ceffae1e79c69b56ba2b5c911079d6ad69",
     "/cascade": "dc4ede52dc5b35efc2b3fdb0a82638454e6dbe27545387c79941292b7fa16576"

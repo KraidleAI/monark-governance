@@ -32,7 +32,7 @@ on the site's diagram; *wired* = declared in the registry today, *can serve* = a
 |---|---|---|
 | `attest`: an attested price testimony (bytes, hash, named residual hypotheses) the agent can cite instead of a scraped number — origin and bytes, never truth. | **Shōgen** — sensor, attested perception · *built* | A price an application can defend when it spends, hedges or de-risks (can serve: Warden, Softlanding, Firebreak, Ballast). |
 | `gate` + `calibrate`: the agent submits a claim and gets `commit \| defer \| abstain`, an auditable region and the budget left — never a probability of being right. | **Hikae** — the gate, coverage-controlled inference · *built* | The decision primitive of every application (wired: Firebreak, Warden, Softlanding, Verdict, Ballast). Bell's gate is its own closed publication check; a gate class for its off-hours gap is planned. |
-| `cascade`: the agent asks what a lending book would liquidate along a price path; today the served class abstains (`under_calib`) until a committed calibration is served — stated on the wire. | **Ukemi** — act, liquidation-cascade survival · *built* | Reads the deleveraging queue or the position before it clears (wired: Firebreak, Softlanding). |
+| `cascade`: the agent asks what a lending book would liquidate along a price path (a transitional tool; it abstains, `under_calib`). Through `gate`, the class `liquidation-eligible-coverage` returns a conformal upper bound on a caller-carried liquidable amount in its committed stratum, calibrated on one recorded episode; the other strata abstain (`under_calib`) — stated on the wire. | **Ukemi** — act, liquidation-cascade survival · *built* | Reads the deleveraging queue or the position before it clears (wired: Firebreak, Softlanding). |
 | A daily, replayable redemption-flow timeline (`state.json`, `timeline.jsonl`) any agent can read, and the served gate class `stable-run-velocity-24h` through `gate`. | **Narabi** — sensor, redemption-run sensing · *built, served daily* | Early sensing of a stablecoin run for a treasury that holds the stable (can serve: Warden, Ballast). |
 | *planned*: attest a document or an event the agent must act on — bytes and hash, never a verdict on its truth. | **Mokugeki** — sensor, document / event attestation · *named* | The attested event a settled decision starts from (can serve: Verdict). |
 | *planned*: ask, before routing a swap, whether the fill is exposed to LVR / toxic flow. | **Kaihi** — LVR / toxicity avoidance · *named* | The execution leg of a de-risk or a hedge that must not be picked off (can serve: Firebreak, Softlanding, Ballast). |
@@ -102,8 +102,12 @@ The labels are the point: they say what exists today and what is only named.
 - **Shōgen** — attested perception: an attested price testimony — origin and bytes, never truth.
 - **Hikae** — coverage-controlled inference: the gate.
 - **Ukemi** — liquidation-cascade survival: a recorder reads a lending protocol's liquidation book at an
-  archive block under a keyless RPC quorum and digests it (the AttestedBook contract); the served gate class
-  abstains (`under_calib`) until a committed calibration is served — stated plainly, not hidden.
+  archive block under a keyless RPC quorum and digests it (the AttestedBook contract). The served gate class
+  `liquidation-eligible-coverage` holds a committed calibration for one stratum of one recorded episode: for a
+  caller-carried liquidable amount in that stratum it returns a conformal **upper bound** (the lower edge is 0 by
+  construction), and every other stratum abstains (`under_calib`). The bound holds only if the amount was produced by
+  the frozen close-factor rule, which the gate does not check, and no coverage is claimed on any other event — stated
+  plainly on the wire. The `cascade` tool is transitional and abstains by construction.
 - **Narabi** — redemption-run sensing. Its `AttestedFlow` attestation (the fifth frozen contract) and the
   velocity adapter ship in this repo; the public endpoint serves the gate class `stable-run-velocity-24h`
   with **a committed calibration for one population** — USDe — measured on calm onchain redemption-flow

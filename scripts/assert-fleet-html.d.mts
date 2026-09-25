@@ -41,10 +41,21 @@ export function scanNumericTokens(text: string): string[];
 export function extractMain(body: string): string;
 /** The /ukemi <main> scan corpus: stripped text nodes + captured alt/title/aria-label values. */
 export function mainCorpus(mainHtml: string): string;
-/** Assert the rendered /ukemi <main> is digit-free, carries the served state + conditional clause + the
- *  registry-status pill ("Ukemi <status>"), with no interval/cascade/Bell/Aave; throws on failure
- *  (vacuity-guarded). `expected.status` is the real FLEET_AGENTS Ukemi status (C-1, kills mutant X5). */
+/** The expectations of the built /ukemi page: the synced served state and the sentences it binds. */
+export interface UkemiExpected {
+  registryState: "empty" | "committed";
+  emptyRegistrySentence: string;
+  committedStateSentence: string;
+  conditionalSentence: string;
+  status: string;
+}
+/** Assert the rendered /ukemi <main> is digit-free, carries the sentence of the synced served state (and never the other
+ *  state's), the conditional clause and the registry-status pill ("Ukemi <status>"), with no interval/cascade/Bell/Aave;
+ *  throws on failure (vacuity-guarded). `expected.status` is the real FLEET_AGENTS Ukemi status (C-1, kills mutant X5). */
 export function assertUkemiBody(args: {
   html: string;
-  expected: { emptyRegistrySentence: string; conditionalSentence: string; status: string };
-}): { mainChars: number; corpusChars: number; numericTokens: number; status: string };
+  expected: UkemiExpected;
+}): { mainChars: number; corpusChars: number; numericTokens: number; status: string; registryState: "empty" | "committed" };
+/** What main() asserts on the built /ukemi page: the served state of the served-state file under `dataRoot` (default the
+ *  repo root) through the page's own loader, the sentences of lib/ukemi-copy.ts, the pill status of lib/fleet.ts. */
+export function ukemiExpected(dataRoot?: string): Promise<UkemiExpected>;

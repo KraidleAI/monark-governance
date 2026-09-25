@@ -172,20 +172,25 @@ export const FLEET_AGENTS: FleetAgent[] = [
     // from committed, hashed served data (apps/site/data/ukemi-served.json), never typed next to it.
     line: "Liquidation coverage, gated.",
     status: "built",
-    // cascade → gate on the served wire (h5 trace step 4). By construction the gate abstains under_calib
-    // (no cascade calibration committed) and the prediction content does not change the served decision
-    // (measured vacuity). The seam is real; its served effect is a constant abstention.
+    // Two served legs, declared only once the switched deploy CA is green and committed (fleet_ukemi_liq_leg_matches_
+    // deploy_ca binds them). (1) cascade → gate on the served wire (h5 trace step 4): by construction the gate abstains
+    // under_calib there (no cascade calibration committed), a constant abstention. (2) gate / POST /gate on the
+    // liquidation-eligible-coverage class: an upper bound [0, yhat + qhat] on the committed stratum of one recorded
+    // episode, the other strata under_calib; the producer of yhat is not served here.
     wiring: {
-      served_by: "MCP cascade → gate (cascade-liquidable-24h; abstains under_calib by construction)",
-      // One served leg: cascade → gate on the real MCP wire (h5 step 4), replayed by
-      // probe_harness_records_real_decision (test/h5-e2e-probe.test.ts). Its served effect is a constant
-      // abstention (measured vacuity) — the note says so without a number.
-      integration_test: ["probe_harness_records_real_decision"],
+      served_by: "MCP cascade → gate (cascade-liquidable-24h; abstains under_calib by construction) + MCP gate / POST /gate (liquidation-eligible-coverage: upper bound [0, yhat + qhat_k] on the committed stratum; the other strata under_calib)",
+      // One test per served leg: probe_harness_records_real_decision (test/h5-e2e-probe.test.ts) replays leg (1) on the
+      // real MCP wire; u4b_gate_serves_region_from_real_artifact (apps/harness/test/gate-liq-artifact.test.ts) replays
+      // leg (2) over every class-A row of the committed fresh series. fleet_ukemi_liq_leg_matches_deploy_ca
+      // (test/fleet-ukemi-liq-leg.test.ts) binds leg (2) to the committed deploy CA (CA-11 by test).
+      integration_test: ["probe_harness_records_real_decision", "u4b_gate_serves_region_from_real_artifact"],
       // "a transitional tool, to be replaced" restates, digit-free and nothing more, the SERVED cascade description ("This
       // cascade tool is v0, replaced at …", CASCADE_TOOL_DESCRIPTION): no successor is named here while none is served. The
       // exact clause is pinned both ways by registry_notes_track_served_descriptions (test/site-build-fleet.test.ts): the
-      // note carries it exactly while the served text declares the tool replaced.
-      note: "feeds the served gate through the cascade tool, a transitional tool, to be replaced; until a cascade calibration is committed it abstains by construction, replayed by an integration test",
+      // note carries it exactly, its closing semicolon included, while the served text declares the tool replaced.
+      // "calibrated on one recorded episode" restates the served H-3 clause of the class (LIQ_H3_SENTENCE); the note claims
+      // no coverage and names no number.
+      note: "feeds the served gate through the cascade tool, a transitional tool, to be replaced; it abstains by construction, and the gate serves an upper bound on the liquidable amount for the committed stratum of its liquidation class, calibrated on one recorded episode, while the other strata abstain; both legs replayed by integration tests",
     },
   },
   {
