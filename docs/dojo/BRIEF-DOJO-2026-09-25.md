@@ -43,3 +43,12 @@ Lecture de l'orchestrateur, effets sur le plan proposé :
 - Pièce 5 (jugement) : l'objet mesuré est la plage de décisions où l'agent casse (quand, sur quel signal, avec quel levier), pas le classement des bons ; la calibration avec MONARK se fait sur ces échecs.
 - Formation cyclique : un agent revient au Dōjō à chaque nouvel outil, task class ou stratégie ; aucun « diplôme » définitif.
 - Registre des task classes : un catalogue daté d'épisodes (source publique des données, fenêtre, ce qui s'y est passé, ce que l'agent devait éviter), à construire comme une bibliothèque, chaque épisode recomputable.
+
+## 6. Étude ouverte (investisseur, 2026-09-25, « c'est qu'une étude, pas encore décidé ») : les agents MONARK reliés à des NFT transférables, titre de propriété de l'agent
+Verbatim : « les agents monark seront reliés à des NFT, ces NFT seront transférables, et c'est le droit de propriété de l'agent, est-ce faisable ? »
+
+Avis de l'orchestrateur (faisable ; conditions) :
+- Technique : NFT Solana (standard Metaplex Core) = identité de l'agent ; la plateforme n'obéit qu'au propriétaire courant du NFT ; le transfert emporte mémoire, historique Dōjō, scores et budget d'inférence ; frappe au palier Egg. Une PR de taille moyenne, après la pièce 1.
+- Condition : le lien avec le hold. Trois modèles : (1) NFT seul (le hold ne sert qu'à obtenir le NFT ; un droit transférable crée un marché qui découple droit et détention, cf. lectures Lloyd 2023 Q5-5, Messias 2025) ; (2) **NFT + hold** (recommandé) : le NFT est le titre, l'agent n'entre au Dōjō que si le propriétaire du NFT tient au moins Egg sur son adresse ; un NFT vendu sans MONARK est un agent endormi ; (3) NFT + budget : le NFT porte le budget d'inférence acquis par les points, compatible avec (2).
+- À étudier avant décision : juridique (droit d'usage vs instrument si rendement ou classement monnayable ; juriste avec la pièce 1) ; marché (location d'agents, revente d'agents entraînés, tournois biaisés ; registre T étendu) ; données (propriété de ce que l'agent a appris, transfert intégral, effacement du vendeur) ; technique (un agent = un NFT = une clé ; vérification du propriétaire à chaque session).
+- Placement : pièce 2 (registre des agents), option « NFT d'agent » ; courte bibliographie (standards NFT Solana, comptes liés à un jeton, précédents d'agents-NFT) à lancer pendant l'implémentation de la pièce 1.
