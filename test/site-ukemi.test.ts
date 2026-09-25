@@ -1575,6 +1575,14 @@ test("site_ukemi_body_numbers_closed_list — the /ukemi body carries each figur
   }
   red(green.replace("</main>", `<p>${scanNumericTokens(digest)[0] ?? ""}</p></main>`), /numeric token/, "an extra token the digest already carries reds (a set comparison passes it)");
   red(green.replace("</main>", "<p>185 of 189</p></main>"), /numeric token/, "a typed count reds");
+  // Forms the scan cannot read red, fail-closed: a number inside angle brackets written as entities, a number after an
+  // encoded angle bracket, the same digits in full width (each derived from the first digest token, nothing typed).
+  const tok = scanNumericTokens(digest)[0] ?? "";
+  red(green.replace("</main>", `<p>&lt;${tok}&gt;</p></main>`), /angle bracket written as an entity/, "a number inside encoded angle brackets reds");
+  red(green.replace("</main>", `<p>n &lt; ${tok} points</p></main>`), /angle bracket written as an entity/, "a number after an encoded angle bracket reds");
+  red(green.replace("</main>", `<p>${[...tok].map((ch) => String.fromCodePoint(0xff10 + Number(ch))).join("")}</p></main>`), /non-ASCII digits/, "a number in full-width digits reds");
+  // Bounded occurrences only (C-2 i): the digest glued to one more hex letter is another string, not the figure.
+  red(greenMain("committed", [n, margin, "f" + digest, day]), /occurs 0 time/, "a figure glued to a letter reds (bounded occurrences only)");
   values.forEach((x, i) => {
     const without = greenMain("committed", values.map((y, j) => (j === i ? "" : y)));
     red(without, /occurs 0 time/, `figure ${String(i)} absent reds`);

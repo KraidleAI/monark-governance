@@ -428,7 +428,14 @@ export function assertUkemiBody({ html, expected }) {
       throw new Error(`assert-ukemi: the figure ${JSON.stringify(f.value)} (${f.source}) occurs ${String(hits.length)} time(s) as a bounded occurrence in the text of the /ukemi <main> (expected exactly once)`);
     rest = rest.slice(0, hits[0]) + " " + rest.slice(hits[0] + f.value.length);
   }
-  // (2c) no other number: the reduced text and the visible attribute values carry no numeric token.
+  // (2c) no other number: the reduced text and the visible attribute values carry no numeric token. Two forms the scan
+  // cannot read are refused first (fail-closed). An angle bracket written as an entity is decoded BEFORE the tags are
+  // stripped, so the strip swallows the text after it: a number inside "&lt;...&gt;", or after a "&lt;", is never
+  // scanned. A number written with non-ASCII digits (full-width, superscript) escapes \d. The /ukemi <main> has neither.
+  if (/&(?:lt|gt|#0*6[02]|#x0*3[ce]);/i.test(extractMain(stripHiddenSurfaces(String(html)))))
+    throw new Error("assert-ukemi: an angle bracket written as an entity in the /ukemi <main> would hide the text after it from the numeric scan (fail-closed)");
+  if (/(?![0-9])\p{N}/u.test(corpus))
+    throw new Error("assert-ukemi: a number written with non-ASCII digits in the /ukemi <main> escapes the numeric scan (fail-closed)");
   const nums = scanNumericTokens(rest + " " + parts.attrs.join(" "));
   if (nums.length)
     throw new Error(`assert-ukemi: ${nums.length} numeric token(s) rendered in the /ukemi <main> outside the closed list of figures: ${JSON.stringify(nums)}`);
