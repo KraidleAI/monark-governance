@@ -408,6 +408,8 @@ export const BELL_VERIFY_REL = "apps/site/.next/server/app/docs/verify.html";
 export const BELL_ANCHORS_REL = "apps/site/.next/server/app/bell/anchors.html";
 /** A fragment each state's sentence carries and no other state's does. */
 export const BELL_STATE_PRIMERS = { none: "not timestamp-anchored", pending: "the proof is pending: it records calendars", anchored: "the proof file records Bitcoin block" };
+/** The two D8 clauses every anchored sentence carries ("before" and the node clause), written here, not imported (C-G2-3). */
+export const BELL_ANCHORED_CLAUSES = ["existed before that block", "not checked against a node here"];
 
 /** Assert a rendered <main> carries the sentence of `state` and no primer of another state; with `state` null (a page that states no
  *  state), no primer at all and not the retired "in preparation". Throws on failure (vacuity-guarded). */
@@ -415,6 +417,7 @@ export function assertBellAnchorBody({ html, state, sentence }) {
   if (state !== null && !(typeof sentence === "string" && sentence.includes(BELL_STATE_PRIMERS[state] ?? "\u0000"))) throw new Error("assert-bell: the expected sentence does not carry its state's primer (vacuity guard)");
   const corpus = mainCorpus(extractMain(renderedBody(html)));
   if (state !== null && !corpus.includes(sentence)) throw new Error(`assert-bell: the ${state} sentence is absent from the rendered <main>: ${JSON.stringify(sentence)}`);
+  if (state === "anchored") for (const c of BELL_ANCHORED_CLAUSES) if (!sentence.includes(c)) throw new Error(`assert-bell: the anchored sentence lacks "${c}" (D8)`);
   const stray = Object.entries(BELL_STATE_PRIMERS).filter(([s, p]) => s !== state && corpus.includes(p)).map(([s]) => s);
   if (state === null && corpus.includes("in preparation")) stray.push("in preparation");
   if (stray.length > 0) throw new Error(`assert-bell: the rendered <main> states another state than ${String(state)}: ${stray.join(", ")}`);
@@ -430,10 +433,16 @@ export function bellStatusText(status) {
     : { label: "pending", detail: `${cal}, no block yet` };
 }
 
+/** The counts line of the publications section, recomputed here from each row's status (null: no proof), never from the view's totals. */
+export function bellCountsText(statuses) {
+  const n = (k, one, many) => `${String(k)} ${k === 1 ? one : many}`, proofs = statuses.filter((s) => s !== null);
+  return `${n(statuses.length, "line", "lines")} in the register · ${n(proofs.length, "proof file", "proof files")} · ${String(proofs.filter((s) => s.bitcoinHeights.length > 0).length)} with a Bitcoin block record · ${String(statuses.length - proofs.length)} without proof`;
+}
+
 /** Assert the rendered /bell/anchors carries, in the table row holding each manifest digest (title attribute), that row's status label and
  *  detail, and the latest-anchored line. `rows`: [{ manifest_sha256, label, detail }]. Throws on failure (vacuity-guarded). */
-export function assertBellPublicationsTable({ html, rows, latest }) {
-  if (!Array.isArray(rows) || rows.length === 0 || typeof latest !== "string" || latest.length === 0) throw new Error("assert-bell: no publication row or no latest line to check (vacuity guard)");
+export function assertBellPublicationsTable({ html, rows, latest, counts }) {
+  if (!Array.isArray(rows) || rows.length === 0 || typeof latest !== "string" || latest.length === 0 || typeof counts !== "string" || counts.length === 0) throw new Error("assert-bell: no publication row or no latest line to check (vacuity guard)");
   const main = extractMain(renderedBody(html));
   for (const r of rows) {
     const tr = main.split(/<tr\b/i).find((seg) => seg.includes(`title="${r.manifest_sha256}"`));
@@ -442,6 +451,7 @@ export function assertBellPublicationsTable({ html, rows, latest }) {
     if (!mainCorpus(tr).includes(want)) throw new Error(`assert-bell: the row of ${r.manifest_sha256} does not render ${JSON.stringify(want)}`);
   }
   if (!mainCorpus(main).includes(latest)) throw new Error(`assert-bell: the latest-anchored line is absent: ${JSON.stringify(latest)}`);
+  if (!mainCorpus(main).includes(counts)) throw new Error(`assert-bell: the register's counts are absent: ${JSON.stringify(counts)}`);
   return { rows: rows.length };
 }
 
@@ -504,7 +514,7 @@ async function main() {
     for (const rel of BELL_STATE_PAGES_REL) assertBellAnchorBody({ html: built(rel), state: state.state, sentence });
     assertBellAnchorBody({ html: built(BELL_VERIFY_REL), state: null, sentence: null });
     const rows = pubs.rows.map((x) => ({ manifest_sha256: x.manifest_sha256, ...bellStatusText(x.status) }));
-    assertBellPublicationsTable({ html: built(BELL_ANCHORS_REL), rows, latest: reader.latestAnchoredLine(state.latestAnchoredSeq) });
+    assertBellPublicationsTable({ html: built(BELL_ANCHORS_REL), rows, latest: reader.latestAnchoredLine(state.latestAnchoredSeq), counts: bellCountsText(pubs.rows.map((x) => x.status)) });
     console.log(`assert-fleet-html OK — Bell timestamp state ${JSON.stringify(state.state)}: its sentence on ${String(BELL_STATE_PAGES_REL.length)} pages and no other state's, none stated on /docs/verify, ${String(rows.length)} publication row(s) with the status read from the proof, the latest-anchored line as computed.`);
   } catch (e) {
     console.error(String(e instanceof Error ? e.message : e));

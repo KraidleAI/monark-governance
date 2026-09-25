@@ -78,9 +78,9 @@ export default function DocsVerifyPage() {
         <p>
           {capitalized(countWord(steps.length))} gestures on MONARK Bell&rsquo;s published record and on the token, in order. The last
           one is drawn dashed until a proof covering the latest published record carries a Bitcoin block: that state is read from the
-          anchors register.
+          publication register.
         </p>
-        <Figure caption={<>The gestures, in order. A dashed step does not exist yet for the published records; its state is derived from the served anchors register.</>}>
+        <Figure caption={<>The gestures, in order. A dashed step cannot be completed yet on the latest published record; its state is read from the publication register.</>}>
           <FlowSchema label="The verification gestures: the key, the chain, the signatures, the state files, the token address, the timestamps." steps={steps} footer="Keep a copy of the timeline: a later change to a published line shows at recomputation." />
         </Figure>
       </DocSection>

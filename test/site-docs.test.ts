@@ -689,14 +689,24 @@ const sentencesOf = (s: string): string[] => s.replace(/\s+/g, " ").split(/(?<=\
 // Ruling 214 (ADR-BELL-OTS-PRB T-B10): the guard covers the three Bell pages, the two anchors tables and the sentences of lib/bell-anchors.ts.
 const BELL_TSX = ["apps/site/app/bell/page.tsx", "apps/site/app/bell/method/page.tsx", "apps/site/app/bell/anchors/page.tsx", "apps/site/components/bell/anchors-table.tsx", "apps/site/components/bell/publication-anchors-table.tsx"];
 
-test("docs_carry_no_ots_d8_forbidden_form — no 'proves', 'proof that', 'at a point in time' and the rest in the docs and MONARK Building", () => {
-  const hits: string[] = [];
-  for (const rel of [...DOCS_TSX, ROADMAP, ...BELL_TSX]) for (const t of renderedOf(rel)) for (const sent of sentencesOf(t)) if (D8.test(stripAllowed(sent))) hits.push(`${rel}: ${t.slice(0, 90)}`);
+// C-G2-1 (G2 PR-B): ONE scan, used by the assertion and by its controls; a control run outside the scan proves the regex, not the
+// scope (a mutant that dropped BELL_TSX from the scanned lists survived it). `override` replaces one scanned file's text.
+const D8_TSX = [...DOCS_TSX, ROADMAP, ...BELL_TSX], D8_LIBS = [...DOCS_LIBS, "apps/site/lib/bell-anchors.ts"];
+function d8Hits(override: { rel: string; text: string } | null = null): string[] {
+  const hits: string[] = [], text = (rel: string): string | undefined => (override?.rel === rel ? override.text : undefined);
+  for (const rel of D8_TSX) for (const t of renderedOf(rel, text(rel))) for (const sent of sentencesOf(t)) if (D8.test(stripAllowed(sent))) hits.push(`${rel}: ${t.slice(0, 90)}`);
   // G2B: string literals rendered by property access (a TOC label, a constant) are public text too; markup is not.
-  for (const rel of [...DOCS_TSX, ROADMAP, ...BELL_TSX]) for (const l of literalsOf(sourceFile(rel))) if (l.attr === null || !MARKUP.has(l.attr)) for (const sent of sentencesOf(l.text)) if (D8.test(stripAllowed(sent))) hits.push(`${rel}: literal: ${sent.slice(0, 90)}`);
-  for (const rel of [...DOCS_LIBS, "apps/site/lib/bell-anchors.ts"]) for (const l of literalsOf(sourceFile(rel))) if (D8.test(stripAllowed(l.text))) hits.push(`${rel}: ${l.text.slice(0, 90)}`);
+  for (const rel of D8_TSX) for (const l of literalsOf(sourceFile(rel, text(rel)))) if (l.attr === null || !MARKUP.has(l.attr)) for (const sent of sentencesOf(l.text)) if (D8.test(stripAllowed(sent))) hits.push(`${rel}: literal: ${sent.slice(0, 90)}`);
+  for (const rel of D8_LIBS) for (const l of literalsOf(sourceFile(rel, text(rel)))) if (D8.test(stripAllowed(l.text))) hits.push(`${rel}: ${l.text.slice(0, 90)}`);
+  return hits;
+}
+
+test("docs_carry_no_ots_d8_forbidden_form — no 'proves', 'proof that', 'at a point in time' and the rest in the docs and MONARK Building", () => {
+  const hits = d8Hits();
   const bellMutant = read("apps/site/app/bell/page.tsx").replace("The signature shows who published the record and that it is intact;", "The signature proves who published the record and when;");
-  assert.ok(renderedOf("apps/site/app/bell/page.tsx", bellMutant).some((t) => sentencesOf(t).some((x) => D8.test(stripAllowed(x)))), "control: the retired /bell sentence reds (the Bell pages are scanned)");
+  assert.ok(d8Hits({ rel: "apps/site/app/bell/page.tsx", text: bellMutant }).some((h) => h.startsWith("apps/site/app/bell/page.tsx: ")), "control: the retired /bell sentence reds through the same scan (the Bell pages are scanned)");
+  const libMutant = read("apps/site/lib/bell-anchors.ts").replace("it is signed and chained, not timestamp-anchored", "the anchor proves it existed");
+  assert.ok(d8Hits({ rel: "apps/site/lib/bell-anchors.ts", text: libMutant }).some((h) => h.startsWith("apps/site/lib/bell-anchors.ts: ")), "control: a 'proves' in the state sentences reds through the same scan (bell-anchors.ts is scanned)");
   let panelScanned = 0;
   for (const t of renderedOf(SHOGEN_PANEL)) for (const sent of sentencesOf(t)) { panelScanned += 1; if (D8.test(stripAllowed(sent))) hits.push(`${SHOGEN_PANEL}: ${sent.slice(0, 90)}`); }
   assert.ok(panelScanned >= 8, `control: the panel's rendered sentences are scanned (${String(panelScanned)})`);
@@ -719,9 +729,9 @@ test("docs_state_the_bell_timestamp_as_bell_does — /docs/bell and /docs/use-ca
     assert.match(read(rel), /publicationAnchorState\((\w+)\.head, \1\.lines, loadPublications\(\1\.lines\)\.bound\)/, `${rel}: the state from the bound publication rows`);
     assert.doesNotMatch(read(rel), /listedDigests|timestamp-anchored yet|in preparation/, `${rel}: no retired derivation or wording`);
   }
-  assert.match(read("apps/site/app/docs/bell/page.tsx"), /<dt>timestamp anchor<\/dt>\s*<dd>\{publicationAnchorSentence\(anchorState\)\}<\/dd>/, "/docs/bell: /bell's label and sentence");
+  assert.match(read("apps/site/app/docs/bell/page.tsx"), /<dt>the latest record&rsquo;s timestamp anchor<\/dt>\s*<dd>\{publicationAnchorSentence\(anchorState\)\}<\/dd>/, "/docs/bell: the record named, /bell's sentence");
   const uses = read("apps/site/app/docs/use-cases/page.tsx"), verify = read("apps/site/app/docs/verify/page.tsx").replace(/\s+/g, " ");
-  assert.match(uses, /The latest record: \{publicationAnchorSentence\(anchorState\)\}\./, "/docs/use-cases: /bell's sentence");
+  assert.match(uses, /The latest record&rsquo;s timestamp status: \{publicationAnchorSentence\(anchorState\)\}\./, "/docs/use-cases: /bell's sentence");
   assert.ok(verify.includes("The published records are signed and chained. Their timestamp anchoring is read from the publication register: none, pending while the proof carries calendar attestations only, anchored once it carries a Bitcoin block; this gesture applies to an anchored line."), "/docs/verify: the tri-state text of the erratum");
   for (const [rel, text] of [["use-cases", uses], ["verify", verify]] as const) assert.match(text, /today: anchorState\.state === "anchored", source: "anchors register"/, `/docs/${rel}: the timestamp step is solid only when anchored`);
 });

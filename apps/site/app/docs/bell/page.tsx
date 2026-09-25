@@ -203,7 +203,7 @@ export default function DocsBellPage() {
             record; they timestamp the manifests of the counter-verification run of the multiplier history.{" "}
             <Link href={ANCHORS_ROUTE}>The register</Link>.
           </dd>
-          <dt>timestamp anchor</dt>
+          <dt>the latest record&rsquo;s timestamp anchor</dt>
           <dd>{publicationAnchorSentence(anchorState)}</dd>
         </dl>
       </DocSection>

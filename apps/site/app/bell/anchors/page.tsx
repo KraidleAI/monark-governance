@@ -69,7 +69,7 @@ export default function BellAnchorsPage() {
           depends on them until it records a block.
         </p>
         <p className="c-mono c-small c-muted" style={{ marginTop: 10 }}>
-          {pubs.rows.length} lines in the register · {pubs.proofs} proof files · {pubs.withBitcoin} with a Bitcoin block record ·{" "}
+          {pubs.rows.length} {pubs.rows.length === 1 ? "line" : "lines"} in the register · {pubs.proofs} {pubs.proofs === 1 ? "proof file" : "proof files"} · {pubs.withBitcoin} with a Bitcoin block record ·{" "}
           {pubs.withoutProof} without proof · {latestAnchoredLine(anchorState.latestAnchoredSeq)}
         </p>
         <PublicationAnchorsTable view={pubs} />

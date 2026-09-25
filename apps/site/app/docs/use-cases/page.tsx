@@ -163,7 +163,7 @@ export default function DocsUseCasesPage() {
         <Callout tone="today" title="Today">
           <StateList items={[bell, shogen]} />
           <p>
-            The latest record: {publicationAnchorSentence(anchorState)}.{" "}
+            The latest record&rsquo;s timestamp status: {publicationAnchorSentence(anchorState)}.{" "}
             The reader-side verifier and the public keyring are public; no oracle relays the record.
           </p>
         </Callout>

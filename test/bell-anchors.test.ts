@@ -141,6 +141,11 @@ test("bell_publication_anchor_composes_served_head_to_rendered_claim — the sta
     const block = publicationAnchorState(head, lines, load(tmp).bound);
     assert.deepEqual(block, recompute(tmp), "block copy: the pages' state is the recomputed one");
     assert.deepEqual([block.state, block.state === "anchored" ? [block.via_seq, block.earliestHeight] : []], ["anchored", [row.seq, 1]], "the fixture's block record is read");
+    // C-G2-9 (G2 PR-B): a row without proof is bound to lines[] by the loader too (E-B2-5); one beyond lines[] throws its named error.
+    const pubPath = join(tmp, "publications.json"), pubText = readFileSync(pubPath, "utf8");
+    writeFileSync(pubPath, JSON.stringify({ ...pub, rows: [...pub.rows, { ...row, seq: lines.length + 1, kind: "key_rotation", manifest_file: null, proof_file: null }] }));
+    assert.throws(() => load(tmp), new RegExp(`seq ${String(lines.length + 1)} is beyond the served lines`), "a row without proof beyond lines[] throws in the loader");
+    writeFileSync(pubPath, pubText);
     const man = readFileSync(join(tmp, row.manifest_file), "utf8"), pre = `timeline.jsonl#L1-L${String(row.seq)} `;
     writeFileSync(join(tmp, row.manifest_file), man.replace(pre + row.prefix_sha256, pre + (row.prefix_sha256.startsWith("0") ? "1" : "0") + row.prefix_sha256.slice(1)));
     assert.throws(() => load(tmp), /do not hash to manifest_sha256/, "M-5: a manifest byte changed: the loader throws");

@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { publicationAnchorState, publicationAnchorSentence, latestAnchoredLine, type BoundPublicationRow, type PublicationKind, type TimelineLineFacts } from "../apps/site/lib/bell-anchors.ts";
-import { assertBellAnchorBody, assertBellPublicationsTable, bellStatusText } from "../scripts/assert-fleet-html.mjs";
+import { assertBellAnchorBody, assertBellPublicationsTable, bellStatusText, bellCountsText } from "../scripts/assert-fleet-html.mjs";
 
 const H = (c: string): string => c.repeat(64);
 // lines[]: publication 1, publication 2 (the head), key_rotation 3, chained from the genesis value.
@@ -71,9 +71,14 @@ test("bell_anchor_state_assertions_drive_on_synthetic_html — M-6, M-10, M-11, 
   for (const bad of [pending, "Anchoring each published line with OpenTimestamps is in preparation"]) assert.throws(() => assertBellAnchorBody({ html: page(`<p>${bad}</p>`), state: null, sentence: null }), /states another state than null/);
   const status = { bitcoinHeights: [], pendingCalendars: ["a", "b", "c", "d"] }, want = { manifest_sha256: H("e"), ...bellStatusText(status) };
   assert.deepEqual([want.label, want.detail], ["pending", "4 calendar records, no block yet"]);
-  const table = (label: string, detail: string, latest: string): string => page(`<table><tr><td><span title="${H("e")}">x</span></td><td><span>${label}</span><div>${detail}</div></td></tr><tr><td><span title="${H("d")}">y</span></td><td>bitcoin attestation</td></tr></table><p>${latest}</p>`);
-  assert.doesNotThrow(() => assertBellPublicationsTable({ html: table("pending", "4 calendar records, no block yet", latestAnchoredLine(null)), rows: [want], latest: latestAnchoredLine(null) }));
-  assert.throws(() => assertBellPublicationsTable({ html: table("bitcoin attestation", "4 calendar records, no block yet", latestAnchoredLine(null)), rows: [want], latest: latestAnchoredLine(null) }), /does not render "pending 4 calendar records, no block yet"/, "M-11: a status not read from the proof");
-  assert.throws(() => assertBellPublicationsTable({ html: table("pending", "4 calendar records, no block yet", latestAnchoredLine(null)), rows: [want], latest: latestAnchoredLine(2) }), /latest-anchored line is absent/, "M-12: none yet rendered while line 2 records a block");
+  const counts = bellCountsText([status]), table = (label: string, detail: string, latest: string, c = counts): string => page(`<p>${c}</p><table><tr><td><span title="${H("e")}">x</span></td><td><span>${label}</span><div>${detail}</div></td></tr><tr><td><span title="${H("d")}">y</span></td><td>bitcoin attestation</td></tr></table><p>${latest}</p>`);
+  assert.doesNotThrow(() => assertBellPublicationsTable({ html: table("pending", "4 calendar records, no block yet", latestAnchoredLine(null)), rows: [want], latest: latestAnchoredLine(null), counts }));
+  assert.throws(() => assertBellPublicationsTable({ html: table("bitcoin attestation", "4 calendar records, no block yet", latestAnchoredLine(null)), rows: [want], latest: latestAnchoredLine(null), counts }), /does not render "pending 4 calendar records, no block yet"/, "M-11: a status not read from the proof");
+  assert.throws(() => assertBellPublicationsTable({ html: table("pending", "4 calendar records, no block yet", latestAnchoredLine(null)), rows: [want], latest: latestAnchoredLine(2), counts }), /latest-anchored line is absent/, "M-12: none yet rendered while line 2 records a block");
+  // C-G2-2 (G2 PR-B): the counts line is recomputed from the statuses, a pending proof never counted with a block; C-G2-3: the D8 clauses.
+  assert.equal(counts, "1 line in the register · 1 proof file · 0 with a Bitcoin block record · 0 without proof");
+  assert.throws(() => assertBellPublicationsTable({ html: table("pending", "4 calendar records, no block yet", latestAnchoredLine(null), "1 line in the register · 1 proof file · 1 with a Bitcoin block record · 0 without proof"), rows: [want], latest: latestAnchoredLine(null), counts }), /counts are absent/, "G2-B: a pending proof counted with a block");
+  const bare = "anchored: the proof file records Bitcoin block 5; read from the file when this page was built";
+  assert.throws(() => assertBellAnchorBody({ html: page(`<dd>${bare}</dd>`), state: "anchored", sentence: bare }), /lacks "existed before that block"/, "G2-C: an anchored sentence without its D8 clauses");
   assert.deepEqual(bellStatusText({ bitcoinHeights: [968149, 968150], pendingCalendars: ["a"] }), { label: "bitcoin attestation", detail: "earliest block 968149 · 2 block records · 1 calendar record pending" });
 });
