@@ -13,8 +13,11 @@
 // BOTH hosts, MCP tools/list returns the four tools, a REAL gate/cascade/attest/calibrate call, a gate BYO
 // call (C2: verdict.calib_digest === the calibrate set_digest + action commit, proving the loop), and — for
 // an https `--api` ONLY — the TLS certificate (issuer, expiry); an http `--api` (plain/local) SKIPS the TLS check.
-// HARNESS-DESC-1 (checkpoint-1 C-5): a liquidation-eligible-coverage gate call (200, under_calib on the empty registry)
-// and the served tools/list description of `gate` (empty-registry sentence present, H-3 sentence absent).
+// U-4b-2b (ADR-U4b-2b D4; switched from the HARNESS-DESC-1 empty-registry checks): the liquidation-eligible-coverage class
+// on the COMMITTED registry -- a gate call in the committed stratum s0 (200, verdict.reason covered, the upper bound
+// [0, yhat + qhat], the committed n_calib and C5 digest, the committed class text in `content`), a gate call in an
+// UNcommitted stratum (200, abstain, verdict.reason under_calib, n_calib 0), and the served tools/list description of
+// `gate` (the committed clause entire, the empty-registry sentence absent). 13 checks.
 // Then writes the CA
 //   { url, mcp_url, checked_at, checks:[{ name, ok, status, sha256 }], tls:{ issuer, valid_to, authorized } | { skipped } }
 // to stdout (and --out FILE), and exits non-zero on any failure. The per-check sha256 pins the exact
@@ -50,17 +53,38 @@ const GATE_BYO_BODY = {
   params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 2, alpha: 0.1, nMin: 5, intent: 0, tool: "perps_order_preview", clockOpen: true, calibration: { scores: CALIBRATE_BODY.scores, mode: "interval" } },
 };
 
-// HARNESS-DESC-1 (checkpoint-1 C-5): the liquidation-eligible-coverage class on the SERVED registry. yhat = a non-negative
-// safe integer (base 8-dec liquidable amount); alpha/nMin = the SERVER-imposed 0.01/100 (any other value is a named 400).
-// On the EMPTY registry the honest answer is abstain / under_calib, carrying the empty-registry sentence in `content`.
-const GATE_LIQ_BODY = {
+// The liquidation-eligible-coverage class on the SERVED registry (HARNESS-DESC-1 checkpoint-1 C-5; switched at U-4b-2b,
+// ADR-U4b-2b D4). yhat = a non-negative safe integer (base 8-dec liquidable amount); alpha/nMin = the SERVER-imposed
+// 0.01/100 (any other value is a named 400). The body of the committed call is UNCHANGED since HARNESS-DESC-1 (its
+// yhat lies in the committed stratum s0, below the first served cut); the second call puts yhat ON the first served cut,
+// so the server derives stratum s1, which the registry does not hold. No amount of the calibration is typed here:
+// q-hat is read from the served verdict. GATE_LIQ_BODY is this script's ONLY export (the run-guard below keeps the CLI
+// from running on import): scripts/sync-ukemi-served.mjs POSTs this very object, never a copy, so the served verdict it
+// records is the answer this check hashes as gate_liq_call (ADR-U4b-2b D5 point 1; G2 of U-4b-2b, M-1).
+export const GATE_LIQ_BODY = {
   prediction: { schema_version: "1.0.0", task_class: "liquidation-eligible-coverage", yhat: 5000, predictor_id: "ca:verify-harness", produced_at: "2026-09-04T00:00:00Z" },
   params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.01, nMin: 100, intent: 1, tool: "perps_order_preview", clockOpen: true },
 };
-// BYTE-IDENTICAL to apps/harness/src/tools/gate.ts LIQ_EMPTY_REGISTRY_SENTENCE / LIQ_H3_SENTENCE (this script stays
-// zero-dependency; test/verify-harness-liq.test.ts asserts the equality). Flip both checks at U-4b-2b (registry non-empty).
-const LIQ_EMPTY_REGISTRY_SENTENCE = "no liquidation-eligible-coverage calibration is committed yet; the gate abstains (under_calib) by construction";
+// == apps/harness/src/ukemi-strata.ts STRATA_CUTS_SERVED[0] (the first served cut: strateOf(cut) = 1).
+const LIQ_S1_CUT = 200000000000;
+const GATE_LIQ_UNCOMMITTED_BODY = {
+  prediction: { ...GATE_LIQ_BODY.prediction, yhat: LIQ_S1_CUT },
+  params: GATE_LIQ_BODY.params,
+};
+// BYTE-IDENTICAL to the served constants (this script stays zero-dependency; test/verify-harness-liq.test.ts
+// verify_harness_liq_literals_equal_served_constants asserts each equality): the five liq sentences of
+// apps/harness/src/tools/gate.ts, the committed C5 digest and size of stratum s0 of apps/harness/src/calibration.ts.
+const LIQ_UPPER_BOUND_SENTENCE = "a conformal upper bound on the liquidable amount for the calibrated class; the lower edge is 0 by construction, not a calibrated bound; abstains (under_calib) outside it";
+const LIQ_REQUIREMENTS_SENTENCE = "this class requires alpha = 0.01, nMin = 100";
 const LIQ_H3_SENTENCE = "calibrated on one recorded episode; no coverage is claimed on any other event; the H-3 exchangeability check is a report, a YES licenses nothing more";
+const LIQ_CONDITIONAL_SENTENCE = "the bound holds only if yhat was produced by the frozen close-factor rule on a mono-collateral WETH account at the first crossing, which the gate does not check";
+const LIQ_EMPTY_REGISTRY_SENTENCE = "no liquidation-eligible-coverage calibration is committed yet; the gate abstains (under_calib) by construction";
+const LIQ_S0_CALIB_DIGEST = "e7e673664c03e3c5d15956d864f8379b6fe4660ed689be38a85add95d4eff334";
+const LIQ_S0_N_CALIB = 170;
+// The committed clause of the served gate description (describeGate(true), gate.ts) and the committed class text of
+// `content` (LIQ_COMMITTED_SENTENCE, gate.ts), composed from the literals above exactly as the gate module composes them.
+const LIQ_COMMITTED_CLAUSE = `the served region is ${LIQ_UPPER_BOUND_SENTENCE}; ${LIQ_REQUIREMENTS_SENTENCE}; ${LIQ_H3_SENTENCE}; ${LIQ_CONDITIONAL_SENTENCE}`;
+const LIQ_COMMITTED_SENTENCE = `${LIQ_UPPER_BOUND_SENTENCE}; ${LIQ_H3_SENTENCE}; ${LIQ_CONDITIONAL_SENTENCE}`;
 
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 /** Set equality (order-independent): the two arrays carry EXACTLY the same members (B-2, no subset). */
@@ -230,27 +254,55 @@ async function main() {
     return { ok: res.status === 200 && ["commit", "defer", "abstain"].includes(action), detail: `action=${action}` };
   }));
 
-  // HARNESS-DESC-1 (checkpoint-1 C-5): the liq class is SERVED through the gate (the /ukemi claim) and, on the empty
-  // registry, answers a 200 abstain/under_calib carrying the empty-registry sentence -- never a 400 (unknown class).
+  // U-4b-2b (ADR-U4b-2b D4): the liq class is SERVED through the gate on the COMMITTED registry. A yhat of the committed
+  // stratum s0 answers 200 with verdict.reason covered and the conformal UPPER BOUND [0, yhat + qhat] (qhat read from the
+  // verdict, > 0), the committed n_calib and C5 digest, and the committed class text in `content` (never the empty-registry
+  // sentence). The coverage lives in verdict.reason: under this body (tauInterval 1, clock open) the L3 top-level answer is
+  // defer / interval_too_wide, recorded in the detail next to it (checkpoint-1 C-10), never required to be covered.
   checks.push(await wiredCheck("gate_liq_call", `${api}/gate`, jsonInit(GATE_LIQ_BODY), apiHostHeader, (res, text) => {
     const j = parseJson(text);
-    const reason = j && j.structuredContent ? j.structuredContent.reason : null;
+    const sc = j && j.structuredContent ? j.structuredContent : null;
+    const v = sc && sc.verdict ? sc.verdict : null;
+    const r = v && v.region ? v.region : null;
+    const vreason = v ? v.reason : null;
+    const bound = r !== null && r.kind === "interval" && r.lo === 0 && typeof v.qhat === "number" && v.qhat > 0 && r.hi === GATE_LIQ_BODY.prediction.yhat + v.qhat;
+    const nOk = v !== null && v.n_calib === LIQ_S0_N_CALIB;
+    const digestOk = v !== null && v.calib_digest === LIQ_S0_CALIB_DIGEST;
     const first = j && Array.isArray(j.content) ? j.content[0] : null;
-    const said = first && typeof first.text === "string" && first.text.includes(LIQ_EMPTY_REGISTRY_SENTENCE);
-    return { ok: res.status === 200 && reason === "under_calib" && said === true, detail: `status=${res.status} reason=${String(reason)} empty_registry_text=${String(said)}` };
+    const t = first && typeof first.text === "string" ? first.text : "";
+    const said = t.includes(LIQ_COMMITTED_SENTENCE) && !t.includes(LIQ_EMPTY_REGISTRY_SENTENCE);
+    return {
+      ok: res.status === 200 && vreason === "covered" && bound && nOk && digestOk && said,
+      detail: `status=${res.status} action=${String(sc ? sc.action : null)} reason=${String(sc ? sc.reason : null)} verdict_reason=${String(vreason)} upper_bound=${String(bound)} n_calib=${String(v ? v.n_calib : null)} digest_s0=${String(digestOk)} committed_text=${String(t.includes(LIQ_COMMITTED_SENTENCE))} empty_text=${String(t.includes(LIQ_EMPTY_REGISTRY_SENTENCE))}`,
+    };
   }));
 
-  // ... and the served tools/list description of `gate` states the empty registry, never the H-3 sentence
-  // ("calibrated on one recorded episode", the over-claim CARTO-T1C-2 measured on the served text).
+  // ... and a yhat of an UNcommitted stratum (s1: yhat on the first served cut) abstains under_calib with n_calib 0: the
+  // registry serves the committed stratum only, never a bound it does not hold (checkpoint-1 C-4).
+  checks.push(await wiredCheck("gate_liq_uncommitted_call", `${api}/gate`, jsonInit(GATE_LIQ_UNCOMMITTED_BODY), apiHostHeader, (res, text) => {
+    const j = parseJson(text);
+    const sc = j && j.structuredContent ? j.structuredContent : null;
+    const v = sc && sc.verdict ? sc.verdict : null;
+    const action = sc ? sc.action : null;
+    const vreason = v ? v.reason : null;
+    const n = v ? v.n_calib : null;
+    return {
+      ok: res.status === 200 && vreason === "under_calib" && n === 0 && action === "abstain",
+      detail: `status=${res.status} action=${String(action)} reason=${String(sc ? sc.reason : null)} verdict_reason=${String(vreason)} n_calib=${String(n)}`,
+    };
+  }));
+
+  // ... and the served tools/list description of `gate` carries the COMMITTED clause entire (upper bound, requirements,
+  // H-3, conditional rule: R-1b-2 closed, the upper bound is now required) and NOT the empty-registry sentence.
   checks.push(await httpCheck("mcp_gate_description_liq", mcp, {
     method: "POST",
     headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
   }, (res, text) => {
     const d = mcpToolDescription(text, "gate");
+    const hasClause = d !== null && d.includes(LIQ_COMMITTED_CLAUSE);
     const hasEmpty = d !== null && d.includes(LIQ_EMPTY_REGISTRY_SENTENCE);
-    const hasH3 = d !== null && d.includes(LIQ_H3_SENTENCE);
-    return { ok: res.status === 200 && hasEmpty && !hasH3, detail: `status=${res.status} empty_registry_sentence=${String(hasEmpty)} h3_sentence=${String(hasH3)}` };
+    return { ok: res.status === 200 && hasClause && !hasEmpty, detail: `status=${res.status} committed_clause=${String(hasClause)} empty_registry_sentence=${String(hasEmpty)}` };
   }));
 
   checks.push(await wiredCheck("cascade_call", `${api}/cascade`, jsonInit(CASCADE_BODY), apiHostHeader, (res, text) => {
@@ -310,7 +362,10 @@ async function main() {
   if (apiUrl.protocol === "https:" && tls.authorized !== true) failed.push("tls");
   if (failed.length) {
     console.error(`VERIFY FAILED: ${failed.join(", ")}`);
-    process.exit(1);
+    // O-1b-G2-1 (G2 HARNESS-DESC-1-1b, measured): under win32, process.exit() after fetch always ends on the libuv
+    // assertion (3221226505), so the code was not discriminating; setting exitCode and returning exits 1 cleanly.
+    process.exitCode = 1;
+    return;
   }
   console.error(tls.skipped === true ? "VERIFY OK — all checks passed (TLS skipped: http api target)." : "VERIFY OK — all checks passed.");
 }
@@ -319,6 +374,6 @@ async function main() {
 if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
   main().catch((error) => {
     console.error(`verify-harness crashed: ${String(error && error.message ? error.message : error)}`);
-    process.exit(1);
+    process.exitCode = 1; // O-1b-G2-1: no process.exit() after fetch (win32 libuv assertion)
   });
 }

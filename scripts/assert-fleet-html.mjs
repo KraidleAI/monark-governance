@@ -346,13 +346,17 @@ export function mainCorpus(mainHtml) {
 
 /** Assert the rendered /ukemi <main> body is DIGIT-FREE and carries the served honest state + the whole
  *  conditional sentence + the named clause, and NONE of interval/cascade/Bell/Aave. Pure, built-ins only;
- *  THROWS on any failure (fail-closed). Vacuity-guarded like assertFleetBody. `expected` = the two DIGIT-FREE
- *  served sentences from lib/ukemi-copy.ts: { emptyRegistrySentence, conditionalSentence }. */
+ *  THROWS on any failure (fail-closed). Vacuity-guarded like assertFleetBody. `expected` = the synced served state
+ *  (`registryState`, "empty" | "committed", from apps/site/data/ukemi-served.json) and the DIGIT-FREE sentences from
+ *  lib/ukemi-copy.ts: { registryState, emptyRegistrySentence, committedStateSentence, conditionalSentence, status }.
+ *  The presence rule is BOUND TO THAT STATE: its sentence rides, the other state's never. */
 export function assertUkemiBody({ html, expected }) {
   if (typeof html !== "string") throw new Error("assert-ukemi: html must be a string");
   if (expected === null || typeof expected !== "object") throw new Error("assert-ukemi: expected must be an object (vacuity guard)");
-  const { emptyRegistrySentence, conditionalSentence, status } = expected;
-  for (const [k, v] of [["emptyRegistrySentence", emptyRegistrySentence], ["conditionalSentence", conditionalSentence], ["status", status]]) {
+  const { registryState, emptyRegistrySentence, committedStateSentence, conditionalSentence, status } = expected;
+  if (registryState !== "empty" && registryState !== "committed")
+    throw new Error(`assert-ukemi: expected.registryState must be "empty" or "committed" (the synced served state), got ${JSON.stringify(registryState)} (fail-closed)`);
+  for (const [k, v] of [["emptyRegistrySentence", emptyRegistrySentence], ["committedStateSentence", committedStateSentence], ["conditionalSentence", conditionalSentence], ["status", status]]) {
     if (typeof v !== "string" || v.trim().length === 0)
       throw new Error(`assert-ukemi: expected.${k} is empty/not-a-string (vacuity guard)`);
   }
@@ -367,9 +371,15 @@ export function assertUkemiBody({ html, expected }) {
   if (nums.length)
     throw new Error(`assert-ukemi: ${nums.length} numeric token(s) rendered in the /ukemi <main> (expected 0, digit-free): ${JSON.stringify(nums)}`);
 
-  // (2) presence (byte-identical): the served empty-registry state, the whole conditional sentence, the clause.
-  if (!corpus.includes(emptyRegistrySentence))
-    throw new Error(`assert-ukemi: the served empty-registry sentence is absent from the /ukemi <main>: ${JSON.stringify(emptyRegistrySentence)}`);
+  // (2) presence (byte-identical), bound to the synced served state: that state's sentence rides and the other state's
+  // does not (a page that ignores the state reds on one of the two states); then the whole conditional sentence, the clause.
+  const [stateSentence, other, otherSentence] = registryState === "empty"
+    ? [emptyRegistrySentence, "committed", committedStateSentence]
+    : [committedStateSentence, "empty", emptyRegistrySentence];
+  if (!corpus.includes(stateSentence))
+    throw new Error(`assert-ukemi: the ${registryState}-state sentence of the synced served state is absent from the /ukemi <main>: ${JSON.stringify(stateSentence)}`);
+  if (corpus.includes(otherSentence))
+    throw new Error(`assert-ukemi: the ${other}-state sentence is rendered while the synced served state is ${registryState}: ${JSON.stringify(otherSentence)}`);
   if (!corpus.includes(conditionalSentence))
     throw new Error(`assert-ukemi: the served conditional sentence is absent from the /ukemi <main>: ${JSON.stringify(conditionalSentence)}`);
   if (!corpus.includes(UKEMI_CONDITIONAL_CLAUSE))
@@ -393,7 +403,23 @@ export function assertUkemiBody({ html, expected }) {
   if (!corpus.includes(pillCarrier))
     throw new Error(`assert-ukemi: the /ukemi <main> pill does not carry the registry status (expected carrier ${JSON.stringify(pillCarrier)}) — a flipped pill value (mutant X5)`);
 
-  return { mainChars: mainHtml.length, corpusChars: corpus.length, numericTokens: nums.length, status };
+  return { mainChars: mainHtml.length, corpusChars: corpus.length, numericTokens: nums.length, status, registryState };
+}
+
+/** What main() asserts on the built /ukemi page, read from the site's own modules (never typed here): the synced served
+ *  state through the page's own fail-closed loader (lib/ukemi-served-load.ts) on `dataRoot`, the state sentences and the
+ *  conditional sentence (lib/ukemi-copy.ts), the pill status (lib/fleet.ts). Throws fail-closed. */
+export async function ukemiExpected(dataRoot = REPO_ROOT) {
+  const lib = (f) => pathToFileURL(join(REPO_ROOT, "apps", "site", "lib", f)).href;
+  const { LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_COMMITTED_STATE_NOTE, LIQ_CONDITIONAL_SENTENCE } = await import(lib("ukemi-copy.ts"));
+  const { loadUkemiServed } = await import(lib("ukemi-served-load.ts"));
+  const { FLEET_AGENTS } = await import(lib("fleet.ts"));
+  const ukemiAgent = FLEET_AGENTS.find((a) => a.name === "Ukemi");
+  if (!ukemiAgent) throw new Error("assert-ukemi: 'Ukemi' absent from FLEET_AGENTS (lib/fleet.ts); cannot derive the /ukemi pill status (fail-closed)");
+  return {
+    registryState: loadUkemiServed(dataRoot).registry_state, emptyRegistrySentence: LIQ_EMPTY_REGISTRY_SENTENCE,
+    committedStateSentence: LIQ_COMMITTED_STATE_NOTE, conditionalSentence: LIQ_CONDITIONAL_SENTENCE, status: ukemiAgent.status,
+  };
 }
 
 async function main() {
@@ -420,21 +446,11 @@ async function main() {
     console.error(`assert-fleet-html: FAIL-CLOSED — ${UKEMI_HTML_REL} not found. Run \`${SITE_BUILD_RUN}\` first (asserts on the fresh /ukemi artefact, never a skip).`);
     process.exit(1);
   }
-  const ukemiUrl = pathToFileURL(join(REPO_ROOT, "apps", "site", "lib", "ukemi-copy.ts")).href;
-  const { LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_CONDITIONAL_SENTENCE } = await import(ukemiUrl);
-  // Derive the pill status from the REAL fleet register (FLEET_AGENTS already imported above) — the SAME
-  // single source the page reads (C-1). Fail-closed if Ukemi is absent (a broken registry must not pass).
-  const ukemiAgent = FLEET_AGENTS.find((a) => a.name === "Ukemi");
-  if (!ukemiAgent) {
-    console.error("assert-fleet-html: FAIL-CLOSED — 'Ukemi' absent from FLEET_AGENTS (lib/fleet.ts); cannot derive the /ukemi pill status.");
-    process.exit(1);
-  }
+  // The pill status from the REAL fleet register (the SAME single source the page reads, C-1) and the synced served
+  // state from the page's own loader: ukemiExpected() (fail-closed if Ukemi is absent or the served-state file fails).
   try {
-    const r = assertUkemiBody({
-      html: readFileSync(ukemiAbs, "utf8"),
-      expected: { emptyRegistrySentence: LIQ_EMPTY_REGISTRY_SENTENCE, conditionalSentence: LIQ_CONDITIONAL_SENTENCE, status: ukemiAgent.status },
-    });
-    console.log(`assert-fleet-html OK — /ukemi <main> digit-free (${r.numericTokens} numeric tokens), served state + conditional clause present, pill carries registry status ${JSON.stringify(r.status)}, no interval/cascade/Bell/Aave (${r.corpusChars} corpus chars).`);
+    const r = assertUkemiBody({ html: readFileSync(ukemiAbs, "utf8"), expected: await ukemiExpected() });
+    console.log(`assert-fleet-html OK — /ukemi <main> digit-free (${r.numericTokens} numeric tokens), ${r.registryState}-state sentence (synced served state) + conditional clause present, pill carries registry status ${JSON.stringify(r.status)}, no interval/cascade/Bell/Aave (${r.corpusChars} corpus chars).`);
   } catch (e) {
     console.error(String(e instanceof Error ? e.message : e));
     process.exit(1);

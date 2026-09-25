@@ -12,7 +12,7 @@
     "apps/site/data/ukemi-served.json": "25f35291f032adb5cd8de76d906f0fe8f00065dc4928821bfb85e4ae803ebe51",
     "apps/site/data/harness-served.json": "7cf4b7cd49a8a0ce68338ead44557fa4a3986f669a5e3832cd3dbd2309790d63",
     "fixtures/byo-demo-trace.json": "daf8d3eabacbc601e608d01936d02c0f7ba78dfb5a0d6f5741ecea5fb4eef6d2",
-    "fixtures/h5-e2e-trace.json": "90a21adf1f109d695bd99a5a3521b055b74daba02248de22defe79b070108252",
+    "fixtures/h5-e2e-trace.json": "0b32b33071b15c6e40ea529d87221fdade7bf4fb5f2171773802a85083569932",
     "apps/site/data/docs-references.json": "9adfeb45accfb471bf9ff813d0251698b87e65f521f26d3b50195000edef114b"
   }
 }

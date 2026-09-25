@@ -44,6 +44,9 @@ export interface UkemiStratum {
   bound_is_largest_score: boolean | null;
   /** The bound margin (fresh.qhat) as an exact decimal string of the display block; null below the floor. */
   bound_margin: string | null;
+  /** The same margin as the exact base-currency integer string of the report (fresh.qhat); null below the floor. It is
+   *  compared with the served verdict's bound margin (a string comparison, no amount typed). */
+  bound_margin_base: string | null;
   /** Trials on the design episode (e2.n), always reported. */
   trials: number;
   /** Covered trials (e2.k_covered) and, among them, trials scored exactly zero; null below the floor. */
@@ -310,6 +313,7 @@ export function loadUkemiCourse(rootDir: string): UkemiCourse {
       quantile_rank: int(fresh.p, "h3 fresh.p"),
       bound_is_largest_score: meets ? bool(fresh.qhat_is_max, "h3 fresh largest-score flag") : null,
       bound_margin: meets ? amount(shown, fresh.qhat, `strata_qhat[${String(i)}]`) : shown === null && fresh.qhat === null ? null : fail(`display.strata_qhat[${String(i)}] must be null below the floor`),
+      bound_margin_base: meets ? (typeof fresh.qhat === "string" && INT.test(fresh.qhat) ? fresh.qhat : fail(`h3 fresh.qhat of stratum ${String(i)} must be an integer string`)) : null,
       trials: int(e2.n, "h3 e2.n"),
       covered: meets ? int(e2.k_covered, "h3 e2.k_covered") : null,
       at_zero: meets ? int(e2.atoms_at_zero, "h3 e2.atoms_at_zero") : null,

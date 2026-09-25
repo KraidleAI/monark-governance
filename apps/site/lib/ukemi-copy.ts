@@ -20,8 +20,8 @@
 // LIQ_CONDITIONAL_SENTENCE (the "which the gate does not check" clause). LIQ_UPPER_BOUND_SENTENCE ("...is 0
 // by construction...") and LIQ_H3_SENTENCE ("...the H-3 exchangeability check...") carry DIGITS ("0", "H-3")
 // and are therefore CARRIED here but NEVER RENDERED at temps 1 — a negative carrier in the root test forbids
-// {LIQ_UPPER_BOUND_SENTENCE}/{LIQ_H3_SENTENCE} in the component. They ride live at U-4b-2b (calibration
-// committed), never sooner.
+// {LIQ_UPPER_BOUND_SENTENCE}/{LIQ_H3_SENTENCE} in the component. They ride only once the numbers this page may show
+// are ruled; until then a committed served state renders as LIQ_COMMITTED_STATE_NOTE, a digit-free restatement.
 
 /* ─────────────────────────── route (single source) ─────────────────────────── */
 export const UKEMI_ROUTE = "/ukemi";
@@ -67,10 +67,11 @@ export interface LimitCard {
 }
 
 // Tense and scope follow the served state without branching: each sentence is true while the registry is empty AND
-// once a stratum is committed (the served state itself rides as the served empty-registry sentence below, bound to
-// the harness registry by the root test). "attested" is not used before the book witness is served. No sentence
-// promises residuals with the bound: the served verdict of this class carries an empty residual list by construction
-// (no attestation is accepted for it), so a commit carries the region and the count, nothing more.
+// once a stratum is committed (the served state itself rides per the synced served-state file: the served
+// empty-registry sentence, or the committed restatement below; the file is bound to the harness registry by the root
+// test). "attested" is not used before the book witness is served. No sentence promises residuals with the bound: the
+// served verdict of this class carries an empty residual list by construction (no attestation is accepted for it), so a
+// commit carries the region and the count, nothing more.
 export const HERO_TITLE =
   "Eligible is not liquidated. Ukemi measures the difference; once a stratum is committed, the gate hands back an " +
   "upper bound on the amount liquidated, per stratum.";
@@ -109,6 +110,20 @@ export const SERVED_STATE_LEAD =
   "The liquidation-eligible-coverage class is served through the gate. Until a calibration is committed, " +
   "the honest output is a named state:";
 
+// COMMITTED served state (the switch of the class): the served clause of a committed class carries figures (the zero
+// lower edge, alpha, nMin, the H-3 name), so it is NOT rendered on this digit-free page until the numbers it may show
+// are ruled; the page says the state in the words below, never presented as the served text. /, /fleet
+// and /ukemi render it exactly while the committed, hashed, dated served-state file (apps/site/data/ukemi-served.json)
+// says "committed", the empty-registry sentence exactly while it says "empty" (root tests: site-ukemi, site-build).
+/** Digit-free framing that precedes the committed-state restatement. */
+export const SERVED_COMMITTED_LEAD =
+  "The liquidation-eligible-coverage class is served through the gate. In words, without the figures of the served " +
+  "clause, the served state is:";
+/** Digit-free restatement of the COMMITTED served state (not a served constant): it says only what that state serves. */
+export const LIQ_COMMITTED_STATE_NOTE =
+  "where a stratum's calibration is committed, the gate serves an upper bound on the liquidable amount; on every " +
+  "other stratum it abstains (under_calib)";
+
 /** Digit-free restatement of the upper-bound method (NOT the served constant, which carries a digit). */
 export const REGION_NOTE =
   "When a class holds enough calibration, the served region is a conformal upper bound on the amount " +
@@ -121,9 +136,9 @@ export const CONDITIONAL_LEAD = "The bound is conditional, and the condition is 
 export const COVERAGE_NOTE =
   "The strata, the coverage level and the minimum number of calibration points for a population are " +
   "written down before the run. A region is only ever emitted for a population that holds enough " +
-  "calibration points; outside it the answer is under_calib, with the count. The largest-amount stratum " +
-  "is expected to stay under_calib for a long time; the course page shows every stratum's count against " +
-  "its floor.";
+  "calibration points; outside it the answer is under_calib, and for a stratum that is not committed the served " +
+  "answer counts no calibration point. The largest-amount stratum is expected to stay under_calib for a long " +
+  "time; the course page shows every stratum's measured count against its floor.";
 
 /** The course pointer on /ukemi, split around its link (digit-free, count-free and true in both registry states). */
 export const COURSE_POINTER_LEAD =
@@ -147,8 +162,9 @@ export const STATES_NOTE =
   "The gate has three outputs, and every one of them is an answer. It commits, with the region, when the " +
   "population holds enough calibration points and the request falls inside a region narrow enough to act on. " +
   "It defers while its clock is open and the region is too wide to act on. It abstains otherwise, with a typed " +
-  "reason, for example: too few calibration points (under_calib: the region is withheld and the count is " +
-  "published), a missing or disputed input, a request outside the region, an exhausted budget.";
+  "reason, for example: too few calibration points (under_calib: the region is withheld, and on a stratum that " +
+  "is not committed the served answer counts no calibration point; the measured counts are on the course page), " +
+  "a missing or disputed input, a request outside the region, an exhausted budget.";
 
 export const METHOD_LABEL = "method, each step recomputable";
 export const METHOD_STEPS: readonly MethodStep[] = [
@@ -178,7 +194,8 @@ export const METHOD_STEPS: readonly MethodStep[] = [
     title: "Calibrate, then emit",
     detail:
       "A split-conformal upper bound per stratum at the pre-registered level. Too few points for a population: " +
-      "an abstention marked under_calib, with the count. Missing input: an abstention, with the reason.",
+      "an abstention marked under_calib; while the stratum is not committed the served answer counts no " +
+      "calibration point, and its measured count is on the course page. Missing input: an abstention, with the reason.",
   },
 ];
 

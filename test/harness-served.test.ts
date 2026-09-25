@@ -48,7 +48,7 @@ const read = (rel: string): string => readFileSync(join(ROOT, rel), "utf8");
 const PINNED: Record<string, string> = {
   [HARNESS_SERVED_REL]: "7cf4b7cd49a8a0ce68338ead44557fa4a3986f669a5e3832cd3dbd2309790d63",
   [BYO_TRACE_REL]: "daf8d3eabacbc601e608d01936d02c0f7ba78dfb5a0d6f5741ecea5fb4eef6d2",
-  [H5_TRACE_REL]: "90a21adf1f109d695bd99a5a3521b055b74daba02248de22defe79b070108252",
+  [H5_TRACE_REL]: "0b32b33071b15c6e40ea529d87221fdade7bf4fb5f2171773802a85083569932", // re-pinned with the h5 re-record of U-4b-2b
 };
 
 interface Schema { required?: string[]; properties?: Record<string, Schema>; type?: string | string[]; description?: string; maxItems?: number; items?: Schema; additionalProperties?: unknown }
@@ -172,7 +172,7 @@ test("harness_served_loader_is_fail_closed", () => {
     };
     put(good, true);
     assert.equal(loadHarnessServed(tmp).version, HARNESS_VERSION, "control: an intact copy loads");
-    writeFileSync(join(tmp, HARNESS_SERVED_REL), good.replace(`"ok_count": 12`, `"ok_count": 11`));
+    writeFileSync(join(tmp, HARNESS_SERVED_REL), good.replace(/"ok_count": (\d+)/, (_m, n: string) => `"ok_count": ${String(Number(n) - 1)}`));
     assert.throws(() => loadHarnessServed(tmp), /sha256 mismatch/, "a tampered file with the old manifest hash throws");
     put(good, false);
     assert.throws(() => loadHarnessServed(tmp), /not listed/, "an unlisted file throws");
@@ -423,4 +423,37 @@ test("harness_served_budget_note_carries_the_served_clause", () => {
   for (const rel of ["apps/site/components/gate-sim/index.tsx", "apps/site/components/gate-sim/board.tsx"]) {
     assert.match(read(rel), /\{BUDGET_NOTE\}/, `${rel} must render the budget note`);
   }
+});
+
+// UKEMI-SITE-SWITCH-1 (ADR-U4b-2b D5 point 3): the sync's liquidation-eligible-coverage row and call check follow the SERVED
+// registry state (the served /gate description carries exactly one of the two clauses), and the call is judged on
+// verdict.reason: under the deploy check's body the top-level reason is L3's action reason (defer on a covered bound too
+// wide for the body's tauInterval), so a sync reading it would refuse the switched harness. Replayed on this tree's
+// in-process answer (this tree commits the class, U-4b-2b). Mutant: read structuredContent.reason again => red.
+test("harness_served_sync_liq_row_follows_the_served_state", async () => {
+  const sync = await import("../scripts/sync-harness-served.mjs");
+  const gate = await import("../apps/harness/src/tools/gate.ts");
+  const { hasCommittedCalibrationForClass } = await import("../apps/harness/src/calibration.ts");
+  const { handleJsonMirror } = await import("../apps/harness/src/http.ts");
+  const { GATE_LIQ_BODY } = await import("../scripts/sync-ukemi-served.mjs");
+  assert.equal(sync.liqStateOf(gate.describeGate(false)), "none");
+  assert.equal(sync.liqStateOf(gate.describeGate(true)), "committed");
+  assert.equal(sync.liqStateOf(GATE_TOOL_DESCRIPTION), hasCommittedCalibrationForClass(gate.TASK_LIQ_ELIGIBLE) ? "committed" : "none", "the served description states this tree's registry");
+  assert.throws(() => sync.liqStateOf("no liquidation clause"), /neither/);
+  assert.throws(() => sync.liqStateOf(`${gate.describeGate(false)} ${gate.describeGate(true)}`), /both/);
+  for (const [state, registryHasLiq] of [["none", false], ["committed", true]] as const) {
+    const d = gate.describeGate(registryHasLiq);
+    const rows = sync.classesFor(state);
+    assert.deepEqual(rows.map((c) => c.class_id).sort(), [...d.matchAll(/For '([a-z0-9-]+)'/g)].map((m) => m[1]).sort(), `${state}: the closed class table is the served class list`);
+    for (const c of rows) for (const p of c.clauses) assert.ok(d.includes(p), `${state}: class ${c.class_id} clause not served: ${p}`);
+  }
+  const answer = await handleJsonMirror(new Request("http://api.monarkgate.tech/gate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(GATE_LIQ_BODY) }));
+  const liq = JSON.parse(await answer.text()) as { structuredContent: { reason: string; verdict: { reason: string } } };
+  assert.equal(liq.structuredContent.verdict.reason, "covered", "this tree serves the committed stratum to the deploy check's body");
+  assert.notEqual(liq.structuredContent.reason, liq.structuredContent.verdict.reason, "non-vacuous: the top-level reason is not the verdict reason");
+  assert.equal(sync.liqCallAgrees("committed", liq), true, "the switched answer agrees with the committed state (verdict.reason)");
+  assert.equal(sync.liqCallAgrees("none", liq), false, "the switched answer never passes for the empty-registry abstention");
+  const empty = { structuredContent: { reason: "under_calib", verdict: { reason: "under_calib", n_calib: 0 } }, content: [{ type: "text", text: gate.LIQ_EMPTY_REGISTRY_SENTENCE }] };
+  assert.equal(sync.liqCallAgrees("none", empty), true, "the empty-registry abstention agrees with the empty state");
+  assert.equal(sync.liqCallAgrees("committed", empty), false, "the empty-registry abstention never passes for the committed state");
 });
