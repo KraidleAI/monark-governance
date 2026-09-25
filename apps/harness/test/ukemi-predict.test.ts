@@ -20,7 +20,8 @@ import { findForbiddenKey } from "@monark/contracts";
 import { runUkemiPredict, UkemiPredictToolError, UKEMI_PREDICT_LABEL, ukemiPredictHonestyText, UKEMI_PREDICT_TOOL_DESCRIPTION } from "../src/tools/ukemi-predict.ts";
 import { ukemiPredictInputStandardSchema } from "../src/schema-projection.ts";
 import { runGate, TASK_LIQ_ELIGIBLE, LIQ_ALPHA, LIQ_NMIN, type HarnessParams } from "../src/tools/gate.ts";
-import { UKEMI_LIQ_PREDICTOR_BASE } from "../src/calibration.ts";
+import { UKEMI_LIQ_PREDICTOR_BASE, lookupCommittedCalibration } from "../src/calibration.ts";
+import { splitQuantile } from "@monark/hikae";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const FIXTURE = join(HERE, "..", "..", "sentinel", "test", "fixtures", "ukemi", "u5a", "U5a-book-slice.json");
@@ -107,21 +108,52 @@ test("u5_tool_output_equals_fromRealizedBook_same_bytes", () => {
   }
 });
 
-test("u5_producer_predicts_then_gate_abstains_under_calib", () => {
-  // Branchement at HEAD (checkpoint-1 C-3): the produced Prediction is gate-consumable; the liq registry is
-  // EMPTY, so the gate abstains under_calib (n_calib 0) for EVERY yhat. The "yhat varied => decision varies"
-  // (non-vacuity) assertion is a FORMED item with trigger = the -2b registry merge (rejoined in U-5b).
+test("u5_producer_predicts_then_gate_follows_the_committed_registry", () => {
+  // Branchement (checkpoint-1 C-3), re-scoped at the U-4b-2b registry commit (ADR-U4b-2b section 4, checkpoint-1 C-2;
+  // formerly u5_producer_predicts_then_gate_abstains_under_calib, which reddened by construction): the produced
+  // Prediction is gate-consumable and the gate FOLLOWS the committed registry. A produced yhat of the committed stratum
+  // s0 gets the upper bound [0, yhat + qhat] (qhat read from the verdict, equal to the registry quantile, never typed);
+  // under these params (tauInterval 0, clock open) the covered bound is too wide, so the decision defers
+  // (interval_too_wide). The produced yhat of stratum 3 abstains under_calib with n_calib 0. Non-vacuity, the item this
+  // comment reserved for the -2b registry merge: the decision varies with yhat (one distinct upper bound per s0 case,
+  // an abstention in s3). Public-surviving: only the exported U-5a slice (evalCases) and the exported registry are read.
   const params: HarnessParams = {
     remainingBudget: 1000, bFloor: 0, tau: 0, tauInterval: 0,
     alpha: LIQ_ALPHA, nMin: LIQ_NMIN, intent: null, tool: "ukemi-predict", clockOpen: true,
   };
+  const s0 = lookupCommittedCalibration(TASK_LIQ_ELIGIBLE, `${UKEMI_LIQ_PREDICTOR_BASE}/s0`);
+  assert.ok(s0 !== undefined, "the committed stratum s0 is in the registry");
+  const q = splitQuantile(s0.scores, LIQ_ALPHA, LIQ_NMIN);
+  assert.ok("qhat" in q, "the committed s0 is calibrated at the served alpha / nMin");
+  const upperBounds = new Set<number>();
+  let inS0 = 0, abstained = 0;
   for (const c of evalCases) {
     const out = runUkemiPredict(inputFor(c));
     const decision = runGate(out.prediction, params);
-    assert.equal(decision.reason, "under_calib", `${c.label}: empty liq registry ⇒ under_calib`);
-    assert.equal(decision.verdict.reason, "under_calib", `${c.label}: verdict under_calib`);
-    assert.equal(decision.verdict.n_calib, 0, `${c.label}: n_calib 0 (no committed scores)`);
+    const v = decision.verdict;
+    if (out.provenance.strate === 0) {
+      inS0++;
+      assert.equal(v.reason, "covered", `${c.label}: committed stratum s0 => covered`);
+      assert.equal(v.region.kind, "interval", `${c.label}: the wire kind stays interval`);
+      const yhat = out.prediction.yhat;
+      assert.equal(typeof yhat, "number", `${c.label}: the produced yhat is a number`);
+      if (v.region.kind !== "interval" || v.qhat === null || typeof yhat !== "number") continue;
+      assert.equal(v.region.lo, 0, `${c.label}: lower edge 0 (upper bound)`);
+      assert.equal(v.region.hi, yhat + v.qhat, `${c.label}: upper edge yhat + qhat`);
+      assert.equal(v.qhat, q.qhat, `${c.label}: the served qhat is the committed s0 quantile`);
+      assert.equal(decision.action, "defer", `${c.label}: L3 defers a bound wider than tauInterval`);
+      assert.equal(decision.reason, "interval_too_wide", `${c.label}: L3 reason interval_too_wide`);
+      upperBounds.add(v.region.hi);
+    } else {
+      assert.equal(out.provenance.strate, 3, `${c.label}: the only case outside s0 is the stratum-3 case of the slice`);
+      assert.equal(v.reason, "under_calib", `${c.label}: uncommitted stratum => under_calib`);
+      assert.equal(v.n_calib, 0, `${c.label}: n_calib 0 (no committed scores for stratum 3)`);
+      assert.equal(decision.action, "abstain", `${c.label}: abstains`);
+      abstained++;
+    }
   }
+  assert.ok(inS0 >= 3 && upperBounds.size === inS0, `the decision varies with yhat: ${String(upperBounds.size)} distinct upper bounds over ${String(inS0)} s0 cases`);
+  assert.ok(abstained >= 1, "and at least one abstention (stratum 3)");
 });
 
 test("u5_tool_refuses_named_400", () => {
