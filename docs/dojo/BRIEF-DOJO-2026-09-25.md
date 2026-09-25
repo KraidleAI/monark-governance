@@ -34,3 +34,12 @@ Statut : compréhension de l'orchestrateur (`claude-fable-5-1`) de ce que l'inve
 ## 4. Ce que je fais en attendant (autorisé par 221)
 - Bibliographie Dōjō : lacunes de la bibliothèque existante mesurées (fondamental quasi vide : 3 papiers ; rien sur les incitations de détention / score de hold ; rien sur les environnements de paper trading et l'évaluation d'agents LLM en trading ; peu sur les perps) ; téléchargement des papiers en accès ouvert sous `F:\PRODUITS\dojo\biblio\` avec index et niveau [lu]/[abs] ; demandes de procurement formées pour ce qui n'est pas ouvert.
 - Aucun code, aucun G0 avant la discussion.
+
+## 5. Complément de l'investisseur (2026-09-25, après-midi) : « ce sont les mauvais scores qui nous intéressent »
+Verbatim au plus près : « dans le cas où les agents ont de bons résultats dans le Dōjō, cet entraînement ne sert pas à grand-chose ; c'est pour cette raison que le Dōjō aura aussi des task classes, mais celles-ci sont des simulations d'épisodes passés sur le marché, où il y a eu des pièges, de grosses liquidations, de grosses pertes, des mouvements violents, des hacks. On doit pousser les agents à faire des erreurs ; c'est leur mauvais score qui nous intéresse, et c'est cette mauvaise plage de décision qui doit être isolée avec MONARK engine. Les agents pourront retourner au Dōjō à mesure que de nouveaux outils, task classes et stratégies sont mis en place. »
+
+Lecture de l'orchestrateur, effets sur le plan proposé :
+- Pièce 3 (environnement) : deux modes, le paper trading en temps réel ET le rejeu d'épisodes d'échec choisis (task classes). Le rejeu n'est pas un backtest de performance : c'est un banc d'épreuve où l'échec est le résultat attendu. La fuite de mémoire des modèles (Lopez-Lira 2025) reste à traiter : un épisode connu du modèle peut être « reconnu » plutôt que vécu ; à cadrer au G0 de la pièce 3 (épisodes postérieurs à la coupure, ou déguisés).
+- Pièce 5 (jugement) : l'objet mesuré est la plage de décisions où l'agent casse (quand, sur quel signal, avec quel levier), pas le classement des bons ; la calibration avec MONARK se fait sur ces échecs.
+- Formation cyclique : un agent revient au Dōjō à chaque nouvel outil, task class ou stratégie ; aucun « diplôme » définitif.
+- Registre des task classes : un catalogue daté d'épisodes (source publique des données, fenêtre, ce qui s'y est passé, ce que l'agent devait éviter), à construire comme une bibliothèque, chaque épisode recomputable.
