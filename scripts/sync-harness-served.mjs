@@ -29,6 +29,7 @@ import { CALIBRATE_LABEL } from "../apps/harness/src/tools/calibrate.ts";
 import {
   TASK_BTC_DIR, TASK_CASCADE, TASK_STABLE_RUN, TASK_LIQ_ELIGIBLE, CASCADE_UNCALIBRATED_SENTENCE, STABLE_RUN_COMMITTED_CORE,
   STABLE_RUN_UNCALIBRATED_SENTENCE, LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_REQUIREMENTS_SENTENCE, GATE_TOOL_DESCRIPTION,
+  LIQ_UPPER_BOUND_SENTENCE, LIQ_H3_SENTENCE, LIQ_CONDITIONAL_SENTENCE, LIQ_COMMITTED_SENTENCE,
 } from "../apps/harness/src/tools/gate.ts";
 import { DEMONSTRATIVE_LABEL } from "../packages/monark/src/adapter-shogen.ts";
 // The one declared text rule (internal reference tokens in parentheses removed), shared with the site loader and its test.
@@ -65,12 +66,38 @@ const STABLE_CALM = "over calm-window redemption flow";
 const STABLE_NONSTATIONARY = "the calibration is measured non-stationary across half-years";
 const STABLE_NO_COVERAGE = "no coverage is measured";
 for (const p of [STABLE_ONE, STABLE_CALM, STABLE_NONSTATIONARY, STABLE_NO_COVERAGE]) need(STABLE_RUN_COMMITTED_CORE.includes(p), `closed clause absent from the harness source: ${p}`);
-const CLASSES = [
+const BASE_CLASSES = [
   { class_id: TASK_BTC_DIR, state: "synthetic", clauses: [BTC_SYNTHETIC] },
   { class_id: TASK_CASCADE, state: "none", clauses: [CASCADE_UNCALIBRATED_SENTENCE] },
   { class_id: TASK_STABLE_RUN, state: "committed", clauses: [STABLE_ONE, STABLE_CALM, STABLE_NONSTATIONARY, STABLE_NO_COVERAGE, `for any other population, ${STABLE_RUN_UNCALIBRATED_SENTENCE}`] },
-  { class_id: TASK_LIQ_ELIGIBLE, state: "none", clauses: [LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_REQUIREMENTS_SENTENCE] },
 ];
+// The liquidation-eligible-coverage row FOLLOWS the SERVED registry state (switch window of the class): the served /gate
+// description carries exactly one of the two clauses the gate module composes (describeGate), and the row lists the closed
+// phrases of that state. The served liq answer must agree with the same state, judged on verdict.reason (the top-level
+// reason is L3's action reason: defer / interval_too_wide on a covered bound under the deploy check's body).
+const LIQ_EMPTY_CLAUSE = `${LIQ_EMPTY_REGISTRY_SENTENCE}; ${LIQ_REQUIREMENTS_SENTENCE}; ${LIQ_CONDITIONAL_SENTENCE}`;
+const LIQ_COMMITTED_CLAUSE = `the served region is ${LIQ_UPPER_BOUND_SENTENCE}; ${LIQ_REQUIREMENTS_SENTENCE}; ${LIQ_H3_SENTENCE}; ${LIQ_CONDITIONAL_SENTENCE}`;
+const LIQ_ROWS = {
+  none: { class_id: TASK_LIQ_ELIGIBLE, state: "none", clauses: [LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_REQUIREMENTS_SENTENCE] },
+  committed: { class_id: TASK_LIQ_ELIGIBLE, state: "committed", clauses: [LIQ_UPPER_BOUND_SENTENCE, LIQ_REQUIREMENTS_SENTENCE, LIQ_H3_SENTENCE, LIQ_CONDITIONAL_SENTENCE] },
+};
+/** The served liq registry state from the served /gate description (pure): exactly one clause must be served. */
+export function liqStateOf(gateDescription) {
+  const empty = gateDescription.includes(LIQ_EMPTY_CLAUSE), committed = gateDescription.includes(LIQ_COMMITTED_CLAUSE);
+  if (empty === committed) throw new Error(`the served /gate description carries ${empty ? "both" : "neither"} liquidation-eligible-coverage clause(s)`);
+  return committed ? "committed" : "none";
+}
+/** The closed class table for a served liq state (pure). */
+export const classesFor = (liqState) => [...BASE_CLASSES, LIQ_ROWS[liqState]];
+/** Does the served liq answer agree with the served state (pure)? verdict.reason and the content text, never the top-level reason. */
+export function liqCallAgrees(liqState, liqCall) {
+  const v = liqCall?.structuredContent?.verdict;
+  const text = typeof liqCall?.content?.[0]?.text === "string" ? liqCall.content[0].text : "";
+  if (liqState === "none") return v?.reason === "under_calib" && v?.n_calib === 0 && text.includes(LIQ_EMPTY_REGISTRY_SENTENCE);
+  const r = v?.region;
+  return v?.reason === "covered" && r?.kind === "interval" && r.lo === 0 && typeof v.qhat === "number" && v.qhat > 0 &&
+    text.includes(LIQ_COMMITTED_SENTENCE) && !text.includes(LIQ_EMPTY_REGISTRY_SENTENCE);
+}
 const BYO_CLAUSE = "the gate conformalizes against THOSE caller-supplied scores (BYO)";
 const NEVER_CALLS = "The gate only emits a decision; it never calls the named tool.";
 const BT_CLAUSE = "B_t is caller-carried";
@@ -140,6 +167,9 @@ async function main() {
   const desc = Object.fromEntries(list.map((t) => [t.name, t.description]));
   const gateOp = openapi.paths["/gate"].post;
   need(gateOp.description === desc.gate, "the /gate openapi description differs from the MCP tools/list description");
+  let liqState = "none";
+  try { liqState = liqStateOf(desc.gate); } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
+  const CLASSES = classesFor(liqState);
   const served = [...desc.gate.matchAll(/For '([a-z0-9-]+)'/g)].map((m) => m[1]);
   need(sameSet(served, CLASSES.map((c) => c.class_id)), `served classes {${served.join(", ")}} differ from the closed class list`);
   for (const c of CLASSES) for (const p of c.clauses) need(desc.gate.includes(p), `class ${c.class_id}: clause not served: ${p}`);
@@ -148,7 +178,7 @@ async function main() {
   need(desc.calibrate === CALIBRATE_LABEL && calCall.structuredContent.label === CALIBRATE_LABEL && calCall.content[0].text.startsWith(CALIBRATE_LABEL), "the calibrate label differs across its three carriers");
   need(desc.cascade.includes(TOOL_NOTES.cascade) && casCall.content[0].text.includes(TOOL_NOTES.cascade) && casCall.content[0].text.includes(CASCADE_UNCALIBRATED_SENTENCE), "the cascade v0 clause is not served");
   need(gateCall.content[0].text.includes(BT_CLAUSE) && gateCall.structuredContent.remaining_budget === GATE_BODY.params.remainingBudget, "the gate does not serve the caller-carried B_t clause and echo");
-  need(liqCall.structuredContent.reason === "under_calib" && liqCall.content[0].text.includes(LIQ_EMPTY_REGISTRY_SENTENCE), "the liquidation-eligible-coverage call is not the served empty-registry abstention");
+  need(liqCallAgrees(liqState, liqCall), `the liquidation-eligible-coverage call does not agree with the served ${liqState} registry (verdict.reason and content text)`);
   const att = attCall.structuredContent;
   need(att.label === DEMONSTRATIVE_LABEL && Array.isArray(att.price.residual) && att.price.residual.length > 0, "attest label or residual list not served as expected");
 

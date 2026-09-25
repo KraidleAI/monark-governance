@@ -16,7 +16,7 @@ import {
   capitalized,
   listNames,
 } from "@/lib/fleet";
-import { LIQ_EMPTY_REGISTRY_SENTENCE, UKEMI_ROUTE } from "@/lib/ukemi-copy";
+import { LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_COMMITTED_STATE_NOTE, UKEMI_ROUTE } from "@/lib/ukemi-copy";
 import { loadUkemiServed } from "@/lib/ukemi-served-load";
 import { loadBellServed, bellServedRepoRoot } from "@/lib/bell-served-load";
 import { frozenContractsSummary } from "@/app/roadmap/frozen-contracts";
@@ -47,9 +47,11 @@ import { GenkanMark } from "@/components/marks/genkan-mark";
 // page's own fixed cards; the ordinals 01-03 are closed-exempt; no typed figure. The surface cards read their copy from
 // the register and from served, committed data through fail-closed loaders: MONARK Bell's function, served note and the
 // publication instant of its latest signed record (apps/site/data/bell-served.json, `head`); Ukemi's register tagline, the
-// served class it is gated on and the served gate's own sentence for that class (apps/site/data/ukemi-served.json and
-// lib/ukemi-copy.ts, byte-identical to the served description); Narabi's freshness line, judged against the served
-// schedule (apps/site/data/narabi-served.json) with the committed capture declared until the files as served now are read.
+// served class it is gated on and the served state of that class as the synced record says it (apps/site/data/
+// ukemi-served.json): empty, the served gate's own sentence (lib/ukemi-copy.ts, byte-identical to the served
+// description); committed, its digit-free restatement (the served clause carries figures); Narabi's freshness line,
+// judged against the served schedule (apps/site/data/narabi-served.json) with the committed capture declared until the
+// files as served now are read.
 // What the budget does is said once, in the served words (BT_SERVED_RULE, lib/sim.ts).
 
 const MARKS: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
@@ -233,7 +235,9 @@ export default function HomePage() {
               <p className="c-mono c-small">served class · {ukemiServed.served_class}</p>
               {ukemiServed.registry_state === "empty" ? (
                 <p className="c-muted c-small">On the served gate today: {LIQ_EMPTY_REGISTRY_SENTENCE}.</p>
-              ) : null}
+              ) : (
+                <p className="c-muted c-small">On the served gate today: {LIQ_COMMITTED_STATE_NOTE}.</p>
+              )}
               <div className="c-foot">
                 <span className={pill(ukemi, "c-pill--ukemi")}>{ukemi}</span>
                 <span className="c-mono c-small">/ukemi →</span>

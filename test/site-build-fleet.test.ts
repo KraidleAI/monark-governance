@@ -504,15 +504,15 @@ test("home_cards_read_the_register_and_the_served_text — Bell card = register 
   const texts = renderedOf(HOME);
   assert.match(home, /<p className="c-muted">\{bell\.fn\}<\/p>/, "the Bell card renders the register function, not a typed copy");
   assert.match(home, /\{capitalized\(bell\.served\.note\)\}/, "the Bell card renders the register's served note");
-  // The Ukemi card: the register's tagline, then the served class it is gated on (committed, hashed served record), then
-  // the served gate's own sentence while the served registry is empty (byte-identical, lib/ukemi-copy.ts). Mutants: type
-  // the tagline or the class, or say the sentence unconditionally => red.
+  // The Ukemi card: the register's tagline, the served class it is gated on (committed, hashed served record), then the
+  // served state of that record: the served gate's own sentence while empty (byte-identical, lib/ukemi-copy.ts), its
+  // digit-free restatement while committed. Mutants: type the tagline or the class, or ignore the served state => red.
   assert.match(home, /<p className="c-muted">\{ukemiAgent\.line\}<\/p>/, "the Ukemi card's tagline is the register line");
   assert.match(home, /served class · \{ukemiServed\.served_class\}/, "the served class is read from the committed served record");
   assert.match(
     home,
-    /\{ukemiServed\.registry_state === "empty" \? \(\s*<p className="c-muted c-small">On the served gate today: \{LIQ_EMPTY_REGISTRY_SENTENCE\}\.<\/p>\s*\) : null\}/,
-    "the served gate's own sentence rides while the served registry is empty",
+    /\{ukemiServed\.registry_state === "empty" \? \(\s*<p className="c-muted c-small">On the served gate today: \{LIQ_EMPTY_REGISTRY_SENTENCE\}\.<\/p>\s*\) : \(\s*<p className="c-muted c-small">On the served gate today: \{LIQ_COMMITTED_STATE_NOTE\}\.<\/p>\s*\)\}/,
+    "the Ukemi line follows the served state: the served gate's own sentence while empty, its restatement while committed",
   );
   const ukemi = FLEET_AGENTS.find((a) => a.name === "Ukemi");
   assert.equal(ukemi?.line, "Liquidation coverage, gated.", "the register tagline of Ukemi (decision of the owner, 2026-09-24)");
@@ -675,20 +675,20 @@ test("registry_notes_track_served_descriptions — the register notes, the serve
   assert.doesNotMatch(ukemi.wiring.note, /\bproducer\b|\bsuccessor\b|\breplaced by\b/i, "no successor is named on the site while the served text names none");
   assert.ok(servedTransitional, "today the served cascade description declares the tool replaced at a later step");
 
-  // Ukemi's served state on / and /fleet: "On the served gate today: <sentence>" is rendered exactly while the served
-  // gate description carries that sentence (the site copy is byte-identical to the harness constant, lib/ukemi-copy.ts).
-  // Mutant: the served description stops carrying it (a liquidation calibration is committed) => red until both pages
-  // change.
+  // Ukemi's served state on / and /fleet follows the synced record (apps/site/data/ukemi-served.json): the served sentence
+  // (byte-identical, lib/ukemi-copy.ts) while it is empty. Trap: that record must say what the served gate description says
+  // (a calibration committed => red until the record is re-synced; both pages follow it). UKEMI-SITE-SWITCH-1.
   const servedLiq = GATE_TOOL_DESCRIPTION.includes(SITE_LIQ_SENTENCE);
   const home = read("apps/site/app/page.tsx");
   const fleet = read("apps/site/app/fleet/page.tsx");
-  assert.equal(/On the served gate today: \{LIQ_EMPTY_REGISTRY_SENTENCE\}\./.test(home), servedLiq, "/ renders the served liquidation sentence exactly while the served gate carries it");
+  const syncedEmpty = (JSON.parse(read("apps/site/data/ukemi-served.json")) as { registry_state?: unknown }).registry_state === "empty";
+  assert.equal(syncedEmpty && /=== "empty" \? \(\s*<p className="c-muted c-small">On the served gate today: \{LIQ_EMPTY_REGISTRY_SENTENCE\}\./.test(home), servedLiq, "/ renders the served liquidation sentence exactly while the served gate carries it");
   assert.equal(
-    /Ukemi: LIQ_EMPTY_REGISTRY_SENTENCE,/.test(fleet) && /On the served gate today: \{servedState\}\./.test(fleet),
+    syncedEmpty && /empty: \{ Ukemi: LIQ_EMPTY_REGISTRY_SENTENCE \},/.test(fleet) && /On the served gate today: \{servedState\}\./.test(fleet),
     servedLiq,
     "/fleet renders the served liquidation sentence exactly while the served gate carries it",
   );
-  assert.ok(servedLiq, "today the served gate description carries the empty-registry sentence");
+  assert.equal(servedLiq, syncedEmpty, "the served gate description carries the empty-registry sentence exactly while the synced record is empty");
 
   // Shōgen's panel (Honest limits): one committed, self-notarized witness — said iff the served attest description says it.
   const shogenPanel = flat("apps/site/components/shogen-panel.tsx");
@@ -886,9 +886,9 @@ test("fleet_page_reads_products_and_served_state — the products sentence is de
   // "live" used bare reads as a real-time promise (the Terms' "Words we do not use"); the page's own copy never uses it,
   // even as a verb. Mutant: "Products live on /products" => red.
   assert.ok(!texts.some((t) => /\blive\b/i.test(t)), "/fleet's own copy says 'live' bare");
-  assert.match(fleet, /Ukemi: LIQ_EMPTY_REGISTRY_SENTENCE,/);
+  assert.match(fleet, /empty: \{ Ukemi: LIQ_EMPTY_REGISTRY_SENTENCE \},\s*committed: \{ Ukemi: LIQ_COMMITTED_STATE_NOTE \},/);
   assert.match(fleet, /On the served gate today: \{servedState\}\./);
-  assert.match(fleet, /const servedState = ukemiServed\.registry_state === "empty" \? SERVED_STATE\[a\.name\] : undefined;/);
+  assert.match(fleet, /const servedState = SERVED_STATE\[ukemiServed\.registry_state\]\[a\.name\];/, "the /fleet line follows the synced served state");
   assert.match(fleet, /<NarabiFreshness schedule=\{narabiFreshness\.schedule\} capture=\{narabiFreshness\.capture\} \/>/);
   // The engines are described as /roadmap describes them, and nothing says how the work was reviewed.
   assert.ok(texts.some((t) => t.includes("Hikae and Ukemi engines complete; interface frozen.")), "/fleet uses /roadmap's engine sentence");

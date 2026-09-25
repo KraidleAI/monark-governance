@@ -24,7 +24,7 @@ import {
   IS_LIST,
   IS_NOT_LIST,
   SERVED_LABEL,
-  SERVED_STATE_LEAD,
+  SERVED_STATE_LEAD, SERVED_COMMITTED_LEAD, LIQ_COMMITTED_STATE_NOTE,
   REGION_NOTE,
   CONDITIONAL_LEAD,
   COVERAGE_NOTE,
@@ -61,9 +61,9 @@ import {
   type HarnessParams,
 } from "../apps/harness/src/tools/gate.ts";
 import { ATTESTATION_BINDING } from "../apps/harness/src/attestation-binding.ts";
-import { hasCommittedCalibrationForClass } from "../apps/harness/src/calibration.ts";
-import { STRATA_CUTS_SERVED } from "../apps/harness/src/ukemi-strata.ts";
-import { assertUkemiBody, scanNumericTokens } from "../scripts/assert-fleet-html.mjs";
+import { hasCommittedCalibrationForClass, lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE } from "../apps/harness/src/calibration.ts";
+import { STRATA_CUTS_SERVED, strateOf } from "../apps/harness/src/ukemi-strata.ts";
+import { assertUkemiBody, scanNumericTokens, ukemiExpected } from "../scripts/assert-fleet-html.mjs";
 import { scanText, scanSource, renderedTexts, loadExemptFile, exemptValues } from "../apps/site/test/honesty-lint.ts";
 import { FLEET_AGENTS } from "../apps/site/lib/fleet.ts";
 import { insideFor } from "../apps/site/lib/fleet-presentation.ts";
@@ -80,11 +80,11 @@ const UKEMI_STATUS: string = (() => {
   if (a === undefined) throw new Error("site-ukemi.test: 'Ukemi' absent from FLEET_AGENTS (lib/fleet.ts)");
   return a.status;
 })();
-const EXPECTED = { emptyRegistrySentence: LIQ_EMPTY_REGISTRY_SENTENCE, conditionalSentence: LIQ_CONDITIONAL_SENTENCE, status: UKEMI_STATUS };
+const EXPECTED = { registryState: "empty" as const, emptyRegistrySentence: LIQ_EMPTY_REGISTRY_SENTENCE, committedStateSentence: LIQ_COMMITTED_STATE_NOTE, conditionalSentence: LIQ_CONDITIONAL_SENTENCE, status: UKEMI_STATUS };
 
 // A green <main> fixture composed from the REAL ukemi-copy exports, mirroring the page structure (advisor 2):
 // class/style carry digits (stripped by the scan), every rendered TEXT node is digit-free.
-function greenMain(): string {
+function greenMain(state: "empty" | "committed" = "empty"): string {
   const li = (items: readonly string[]): string =>
     items.map((t) => `<li><span aria-hidden="true">+</span><span>${t}</span></li>`).join("");
   const steps = METHOD_STEPS.map((s) => `<div><div>${s.name}</div><div>${s.title}</div><p>${s.detail}</p></div>`).join("");
@@ -94,7 +94,7 @@ function greenMain(): string {
     `<div>Ukemi</div><span>${UKEMI_STATUS}</span>` +
     `<h1>${HERO_TITLE}</h1><p>${HERO_DEK}</p>` +
     `<div>${WHAT_LABEL}</div><ul>${li(IS_LIST)}</ul><ul>${li(IS_NOT_LIST)}</ul>` +
-    `<div>${SERVED_LABEL}</div><p>${SERVED_STATE_LEAD}</p><p>${LIQ_EMPTY_REGISTRY_SENTENCE}</p>` +
+    `<div>${SERVED_LABEL}</div>` + (state === "empty" ? `<p>${SERVED_STATE_LEAD}</p><p>${LIQ_EMPTY_REGISTRY_SENTENCE}</p>` : `<p>${SERVED_COMMITTED_LEAD}</p><p>${LIQ_COMMITTED_STATE_NOTE}</p>`) +
     `<div aria-hidden="true"><span style="left:22%;width:44%">${BAR_UPPER_LABEL}</span>` +
     `<span style="left:22%">${BAR_YHAT_LABEL}</span><span>${BAR_FLOOR_LABEL}</span></div>` +
     `<p>${REGION_NOTE}</p><p>${CONDITIONAL_LEAD}</p><p>${LIQ_CONDITIONAL_SENTENCE}</p>` +
@@ -193,7 +193,7 @@ test("site_ukemi_body_scan_and_carrier — assertUkemiBody fixtures + scanner pa
     ["BAR_FLOOR_LABEL", BAR_FLOOR_LABEL], ["STATES_NOTE", STATES_NOTE], ["METHOD_LABEL", METHOD_LABEL],
     ["LIMITS_LABEL", LIMITS_LABEL],
     ["COURSE_POINTER_LEAD", COURSE_POINTER_LEAD], ["COURSE_POINTER_LINK", COURSE_POINTER_LINK], ["COURSE_POINTER_TAIL", COURSE_POINTER_TAIL],
-    ["LIQ_EMPTY_REGISTRY_SENTENCE", LIQ_EMPTY_REGISTRY_SENTENCE], ["LIQ_CONDITIONAL_SENTENCE", LIQ_CONDITIONAL_SENTENCE],
+    ["LIQ_EMPTY_REGISTRY_SENTENCE", LIQ_EMPTY_REGISTRY_SENTENCE], ["LIQ_CONDITIONAL_SENTENCE", LIQ_CONDITIONAL_SENTENCE], ["SERVED_COMMITTED_LEAD", SERVED_COMMITTED_LEAD], ["LIQ_COMMITTED_STATE_NOTE", LIQ_COMMITTED_STATE_NOTE],
   ];
   IS_LIST.forEach((t, i) => renderedProse.push([`IS_LIST_${i}`, t]));
   IS_NOT_LIST.forEach((t, i) => renderedProse.push([`IS_NOT_LIST_${i}`, t]));
@@ -211,15 +211,15 @@ test("site_ukemi_body_scan_and_carrier — assertUkemiBody fixtures + scanner pa
   const redBody = (mutate: (h: string) => string, re: RegExp, label: string): void =>
     assert.throws(() => assertUkemiBody({ html: mutate(greenMain()), expected: EXPECTED }), re, label);
   redBody((h) => h.replace("</main>", "<p>185 of 189</p></main>"), /numeric token/, "a rendered digit reds (scan disabled mutant target)");
-  redBody((h) => h.replace(LIQ_EMPTY_REGISTRY_SENTENCE, "no calibration"), /empty-registry sentence is absent/, "empty-registry sentence removed reds");
+  redBody((h) => h.replace(LIQ_EMPTY_REGISTRY_SENTENCE, "no calibration"), /empty-state sentence of the synced served state is absent/, "empty-registry sentence removed reds");
   redBody((h) => h.replace(LIQ_CONDITIONAL_SENTENCE, "the bound holds only if it holds"), /conditional sentence is absent/, "conditional sentence removed reds");
   redBody((h) => h.replace(REGION_NOTE, REGION_NOTE + " cascade"), /cascade/, "cascade reds (line/wiring rendered)");
   redBody((h) => h.replace(REGION_NOTE, REGION_NOTE + " Bell"), /Bell/, "Bell reds");
   redBody((h) => h.replace(REGION_NOTE, REGION_NOTE + " Aave"), /Aave/, "Aave reds");
   assert.throws(() => assertUkemiBody({ html: "<section>no main here</section>", expected: EXPECTED }), /no <main>/, "no <main> fails-closed");
   assert.throws(() => assertUkemiBody({ html: "<main>   </main>", expected: EXPECTED }), /empty\/blank/, "empty <main> fails-closed");
-  assert.throws(() => assertUkemiBody({ html: greenMain(), expected: { emptyRegistrySentence: "", conditionalSentence: LIQ_CONDITIONAL_SENTENCE, status: UKEMI_STATUS } }), /vacuity/, "a blank expected sentence fails-closed");
-  assert.throws(() => assertUkemiBody({ html: greenMain(), expected: { emptyRegistrySentence: LIQ_EMPTY_REGISTRY_SENTENCE, conditionalSentence: LIQ_CONDITIONAL_SENTENCE, status: "" } }), /vacuity/, "a blank expected.status fails-closed (C-1)");
+  assert.throws(() => assertUkemiBody({ html: greenMain(), expected: { ...EXPECTED, emptyRegistrySentence: "" } }), /vacuity/, "a blank expected sentence fails-closed");
+  assert.throws(() => assertUkemiBody({ html: greenMain(), expected: { ...EXPECTED, status: "" } }), /vacuity/, "a blank expected.status fails-closed (C-1)");
   // C-1 / CA-11 — the built pill must carry the REAL registry status ("Ukemi <status>"). A flipped/altered
   // pill value reds; an absent pill reds. This is the unit-level defense that kills mutant X5 (the harness
   // also replays X5 on the build -> assert path). The source-only .status check cannot catch a value flip.
@@ -394,11 +394,11 @@ test("site_ukemi_course_loader_maps_named_fields — every loaded value equals i
       assert.equal(x.at_zero, e2.atoms_at_zero, "at_zero = h3.strata[i].e2.atoms_at_zero");
       assert.equal(x.level, o.level);
       assert.equal(x.bound_is_largest_score, fresh.qhat_is_max);
-      assert.equal(x.bound_margin, dec8(String(fresh.qhat)), "bound_margin = h3.strata[i].fresh.qhat in 8-decimal form");
+      assert.equal(x.bound_margin, dec8(String(fresh.qhat)), "bound_margin = h3.strata[i].fresh.qhat in 8-decimal form"); assert.equal(x.bound_margin_base, fresh.qhat, "bound_margin_base = h3.strata[i].fresh.qhat (exact integer string)");
       assert.equal(x.cross_episode_bound, o.barber_thm2_bound);
     } else {
       assert.equal(x.covered, null);
-      assert.equal(x.bound_margin, null);
+      assert.equal(x.bound_margin, null); assert.equal(x.bound_margin_base, null, "no base margin below the floor");
     }
   });
   const pooled = obj(h3.pooled, "pooled"), pe = obj(pooled.e2, "pooled e2"), pf = obj(pooled.fresh, "pooled fresh");
@@ -608,10 +608,10 @@ test("site_ukemi_course_view_types_no_digit — the view module and the course p
 test("site_ukemi_served_state_bound_to_harness_registry — synced served state = repository registry; clause = gate module text; loader fails closed", () => {
   const s = loadUkemiServed(ROOT);
   const committed = hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE);
-  // The site renders the EMPTY-registry sentence on /ukemi and the not-served note on /ukemi/course: both hold only
-  // while the harness registry carries no calibration for the class. At the commit this reds until the site follows.
+  // The site renders the served state of the synced file (/ukemi, /, /fleet, /ukemi/course), so the synced state must be
+  // the harness registry's: at a registry change this reds until the site is switched and re-synced (UKEMI-SITE-SWITCH-1).
   assert.equal(s.registry_state, committed ? "committed" : "empty", "the synced served state must equal the harness registry state");
-  assert.equal(committed, false, "a liquidation-eligible-coverage calibration is committed in the harness: switch the /ukemi served sentence and re-sync");
+  assert.equal(servedCarrierOf(s.registry_state), committed ? "LIQ_COMMITTED_STATE_NOTE" : "LIQ_EMPTY_REGISTRY_SENTENCE", "the /ukemi served sentence follows the harness registry state: switch it and re-sync");
   const expected = committed
     ? `the served region is ${GATE_LIQ_UPPER_BOUND_SENTENCE}; ${GATE_LIQ_REQUIREMENTS_SENTENCE}; ${GATE_LIQ_H3_SENTENCE}; ${GATE_LIQ_CONDITIONAL_SENTENCE}`
     : `${GATE_LIQ_EMPTY_REGISTRY_SENTENCE}; ${GATE_LIQ_REQUIREMENTS_SENTENCE}; ${GATE_LIQ_CONDITIONAL_SENTENCE}`;
@@ -623,8 +623,8 @@ test("site_ukemi_served_state_bound_to_harness_registry — synced served state 
     assert.doesNotThrow(() => loadUkemiServed(t.root));
     t.write(UKEMI_SERVED_REL, { ...rawServed(), registry_state: "served" });
     assert.throws(() => loadUkemiServed(t.root), /registry_state/, "an unknown registry state reds");
-    t.write(UKEMI_SERVED_REL, { ...rawServed(), registry_state: "committed" });
-    assert.throws(() => loadUkemiServed(t.root), /does not open with the committed clause/, "a state that disagrees with its clause reds");
+    t.write(UKEMI_SERVED_REL, { ...rawServed(), registry_state: s.registry_state === "empty" ? "committed" : "empty" });
+    assert.throws(() => loadUkemiServed(t.root), new RegExp(`does not open with the ${s.registry_state === "empty" ? "committed" : "empty"} clause`), "a state that disagrees with its clause reds");
     t.write(UKEMI_SERVED_REL, { ...rawServed(), extra: 1 });
     assert.throws(() => loadUkemiServed(t.root), /must carry exactly/, "an extra key reds");
     t.write(UKEMI_SERVED_REL, rawServed());
@@ -636,7 +636,7 @@ test("site_ukemi_served_state_bound_to_harness_registry — synced served state 
 });
 
 test("site_ukemi_prose_abstains_under_calib — no /ukemi sentence pairs under_calib with a deferral (served: abstain, reason under_calib)", () => {
-  const prose: string[] = [HERO_TITLE, HERO_DEK, REGION_NOTE, COVERAGE_NOTE, STATES_NOTE, SERVED_STATE_LEAD, COURSE_POINTER_LEAD, COURSE_POINTER_TAIL, ...IS_LIST, ...IS_NOT_LIST];
+  const prose: string[] = [HERO_TITLE, HERO_DEK, REGION_NOTE, COVERAGE_NOTE, STATES_NOTE, SERVED_STATE_LEAD, SERVED_COMMITTED_LEAD, LIQ_COMMITTED_STATE_NOTE, COURSE_POINTER_LEAD, COURSE_POINTER_TAIL, ...IS_LIST, ...IS_NOT_LIST];
   for (const st of METHOD_STEPS) prose.push(st.title, st.detail);
   for (const l of LIMITS) prose.push(l.title, l.detail);
   const pairs = (text: string): string[] => text.split(/(?<=[.;])\s+/).filter((x) => /under_calib/.test(x) && /\bdefer/i.test(x));
@@ -904,13 +904,22 @@ function goldenCourseView(raw: Json, served: Json): CourseView {
     "A comparison trial scored exactly zero (the realized amount did not exceed the prediction) counts as covered whatever the " +
       "bound; the number of such trials is shown next to each ratio.",
   ];
+  // COURSE-SERVED-FACTS-1: the served-state file may carry the dated served verdict (schema v2, liq_verdict).
+  const lv = served.liq_verdict !== undefined && served.liq_verdict !== null ? obj(served.liq_verdict, "liq_verdict") : null;
   for (const x of h3s) {
     const s = obj(x, "stratum"), fresh = obj(s.fresh, "fresh");
     if (s.served !== true || fresh.qhat === null) continue;
     const k = I(s.strate, "strate"), margin = D8(fresh.qhat, "fresh.qhat"), rank = I(fresh.p, "fresh.p"), n = I(fresh.n, "fresh.n");
+    if (served.registry_state === "committed" && lv !== null && lv.verdict_reason === "covered" && lv.stratum === s.strate && lv.calibration_points === fresh.n &&
+      lv.bound_margin_base === fresh.qhat && fresh.qhat_is_max === true && fresh.p === fresh.n) {
+      reading.push(
+        `Stratum ${k} is committed and served: the served verdict read at ${S(served.read_at, "read_at")} carries ${I(lv.calibration_points, "liq_verdict.calibration_points")} calibration points, fewer than the ${I(lv.interior_rank_min_n, "liq_verdict.interior_rank_min_n")} an interior quantile rank needs at the served level, so the quantile rank equals the number of calibration points (${rank} of ${n}) and the served bound margin, ${margin}, is the largest calibration score observed, reported as is. The served upper bound for a prediction in this stratum is the prediction plus this margin; served calibration digest ${S(lv.calibration_digest, "liq_verdict.calibration_digest")}.`,
+      );
+      continue;
+    }
     const tail = "If the stratum is committed as reported, the upper bound for a prediction in it is the prediction plus this margin.";
     reading.push(
-      fresh.qhat_is_max === true
+      fresh.qhat_is_max === true && fresh.p === fresh.n
         ? `Stratum ${k}: the quantile rank equals the number of calibration points (${rank} of ${n}), so its bound margin, ${margin}, is the largest calibration score observed. ${tail}`
         : `Stratum ${k}: bound margin ${margin} (quantile rank ${rank} of ${n}). ${tail}`,
     );
@@ -1131,4 +1140,309 @@ test("site_ukemi_prose_claims_conditional — 'calibrated' and 'coverage holds' 
   // detector controls: the two former sentences red.
   assert.equal(unconditional(["Not a claim about a new event: the measure is calibrated on one episode; exchangeability is named.",
     "Coverage holds per stratum, under exchangeability with the calibration episode."]).length, 2);
+});
+
+// COURSE-SERVED-FACTS-1 (ADR-U4b-2b D5, checkpoint-1 C-5 option (a) of the orchestrator): /ukemi/course states the H-2bis
+// status of the committed stratum IN THE PRESENT (n, the bound margin as the largest calibration score, the interior-rank
+// threshold, the served C5 digest) ONLY from the dated served verdict of the served-state file, and only when that verdict
+// agrees with the report; otherwise the conditional sentence stays (fail-closed). Tested on BOTH states: the committed file
+// of today (empty registry served, schema v1, no verdict) and the committed state as the sync would write it after the
+// switch window, derived by the sync's OWN pure functions from IN-PROCESS answers of this tree's harness (no network, no
+// typed value). Mutants: n_calib served != report n, q-hat served != report q-hat, another stratum => no served status;
+// under_calib under a committed state, covered under an empty one, a foreign digest => refused (loader or sync).
+// Folded from the G2 of U-4b-2b (2026-09-24): M-1, the served verdict rides on the body the deploy CA attests (ADR-U4b-2b D5
+// point 1): the CA runs here as deployed against this tree's in-process harness and its gate_liq_call digest is the digest
+// of the answer the sync reads for its body (one object with the CA's); the sync refuses a deploy check that did not
+// record that answer green; once the committed file carries a verdict (W step 5), its body digest must be the committed
+// CA's gate_liq_call digest. M-3, the tie case (rank below n, largest-score flag true) states no served status. M-5, a
+// served n_calib + 1 or q-hat + 1 is refused by the sync.
+test("site_ukemi_course_served_stratum_status_bound_to_served_verdict — the present-tense status of the committed stratum rides only on an agreeing dated served verdict", async () => {
+  const { handleJsonMirror } = await import("../apps/harness/src/http.ts");
+  const { startServer } = await import("../apps/harness/src/server.ts");
+  const { execFile } = await import("node:child_process");
+  const sync = await import("../scripts/sync-ukemi-served.mjs");
+  const { lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE, USDE_STABLE_RUN_CALIB_DIGEST_PINNED } = await import("../apps/harness/src/calibration.ts");
+  interface CaRecord { checks: Array<{ name: string; ok: boolean; sha256: string | null }> }
+  const liqShaOf = (ca: CaRecord): string | null | undefined => ca.checks.find((k) => k.name === "gate_liq_call")?.sha256;
+  const c = loadUkemiCourse(ROOT);
+  const x0 = c.strata.find((x) => x.meets_floor && x.bound_margin !== null);
+  assert.ok(x0 !== undefined && x0.bound_margin !== null, "the report has a stratum that meets the floor (non-vacuous)");
+  const SERVED = "is committed and served";
+  const conditional = (v: CourseView): boolean => v.reading.some((l) => l.startsWith(`Stratum ${String(x0.stratum)}: `) && l.includes("If the stratum is committed as reported"));
+  // (1) TODAY'S committed served-state file: the served status rides exactly on a dated covered verdict (after the switch
+  //     re-sync, W step 5), the conditional sentence exactly without one (empty registry served, schema v1, no verdict).
+  const today = loadUkemiServed(ROOT);
+  const vToday = buildCourseView(c, today);
+  const servedToday = today.registry_state === "committed" && today.liq_verdict?.verdict_reason === "covered";
+  assert.equal(vToday.reading.some((l) => l.includes(SERVED)), servedToday, "the served status rides exactly on a dated covered verdict");
+  assert.equal(conditional(vToday), !servedToday, "the conditional sentence of the committable stratum stays exactly without one");
+  if (today.liq_verdict !== null) {
+    // M-1: once the synced file carries a verdict (W step 5), its /gate body is the body the COMMITTED deploy CA recorded
+    // for gate_liq_call (vacant while the committed file is v1).
+    const committedCa = JSON.parse(read("docs/deploy-CA-harness.json")) as CaRecord;
+    assert.equal(today.liq_verdict.body_sha256, liqShaOf(committedCa), "the synced verdict's /gate body is the body the committed deploy CA recorded (gate_liq_call)");
+  }
+  if (today.liq_verdict !== null && today.liq_verdict.verdict_reason === "covered") {
+    // After the switch window the synced verdict must be the registry's committed stratum (its C5 digest).
+    const k = lookupCommittedCalibration(TASK_LIQ_ELIGIBLE, `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(today.liq_verdict.stratum)}`);
+    assert.equal(today.liq_verdict.calibration_digest, k?.digestPinned, "the synced served digest is the committed C5 of its stratum");
+  }
+  // (2) The COMMITTED state as the sync writes it: its pure functions over this tree's in-process answers.
+  const openapi = await (await handleJsonMirror(new Request("http://api.monarkgate.tech/openapi.json"))).text();
+  const gateText = await (await handleJsonMirror(new Request("http://api.monarkgate.tech/gate", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(sync.GATE_LIQ_BODY),
+  }))).text();
+  // M-1: the deploy CA, run as deployed (child process) against THIS tree's harness on 127.0.0.1 (no network, TLS skipped),
+  // records for gate_liq_call the sha256 of the very answer the sync reads for its body: bound now, not only at W.
+  const server = startServer(0);
+  let caText = "";
+  try {
+    await new Promise<void>((resolve) => {
+      server.once("listening", () => {
+        resolve();
+      });
+    });
+    const addr = server.address();
+    assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
+    const base = `http://127.0.0.1:${String(addr.port)}`;
+    const ran = await new Promise<{ code: number | null; stdout: string }>((resolve) => {
+      execFile(process.execPath, [join(ROOT, "scripts", "verify-harness.mjs"), "--api", base, "--mcp", base, "--api-host", "api.monarkgate.tech"], { encoding: "utf8", timeout: 60000 }, (error, stdout) => {
+        resolve({ code: error === null ? 0 : typeof error.code === "number" ? error.code : null, stdout });
+      });
+    });
+    assert.equal(ran.code, 0, "the deploy CA is green on this tree's in-process harness");
+    caText = ran.stdout;
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => {
+        resolve();
+      });
+    });
+  }
+  assert.equal(liqShaOf(JSON.parse(caText) as CaRecord), sha256(gateText), "the CA's gate_liq_call digest is the digest of the /gate answer to the sync's body");
+  const facts = sync.servedFacts(openapi);
+  assert.equal(facts.registry_state, "committed", "this tree serves the committed clause");
+  const verdict = sync.servedVerdictFacts(gateText, facts.registry_state, caText);
+  assert.equal(verdict.body_sha256, sha256(gateText), "the recorded body digest is the digest of the answer the verdict was read from");
+  const v2: Json = {
+    $comment: sync.COMMENT, schema: sync.SCHEMA, host: sync.API_HOST, path: sync.OPENAPI_PATH, read_at: today.read_at, served_class: TASK_LIQ_ELIGIBLE,
+    registry_state: facts.registry_state, liq_clause: facts.liq_clause, cascade_uncalibrated_sentence_served: facts.cascade_uncalibrated_sentence_served,
+    body_sha256: sha256(openapi), liq_verdict: { ...verdict },
+  };
+  const t = tmpRoot();
+  try {
+    t.write(UKEMI_SERVED_REL, v2);
+    const committed = loadUkemiServed(t.root);
+    assert.deepEqual(committed.liq_verdict, verdict, "the loader maps the synced verdict field by field");
+    const v = buildCourseView(c, committed);
+    assert.deepEqual(v, goldenCourseView(rawCourse(), v2), "the view equals the golden rebuilt from JSON paths (committed, v2)");
+    const line = v.reading.find((l) => l.includes(SERVED));
+    assert.ok(line !== undefined, "the committed stratum's served status is stated in the present");
+    for (const piece of [String(verdict.calibration_points), String(verdict.interior_rank_min_n), x0.bound_margin, verdict.calibration_digest, today.read_at]) {
+      assert.ok(line.includes(piece), `the served status carries ${piece}`);
+    }
+    assert.ok(verdict.calibration_points < verdict.interior_rank_min_n && x0.quantile_rank === x0.n, "the status is H-2bis: n below the interior-rank threshold, rank = n");
+    assert.ok(!conditional(v), "the conditional sentence of that stratum is replaced");
+    // M-3 (D5 point 2, the rank condition on its own): the tie case -- the report's quantile rank below n while its bound
+    // margin is still the largest score (ties at the top), the served verdict agreeing on n and q-hat -- states NO served
+    // status; the conditional sentence stays.
+    const tie: UkemiCourse = { ...c, strata: c.strata.map((x) => (x.stratum === x0.stratum ? { ...x, quantile_rank: x.n - 1 } : x)) };
+    const tied = tie.strata.find((x) => x.stratum === x0.stratum);
+    assert.ok(tied !== undefined && tied.bound_is_largest_score === true && tied.quantile_rank === tied.n - 1, "the tie case keeps the largest-score flag with the rank below n");
+    const vTie = buildCourseView(tie, committed);
+    assert.ok(!vTie.reading.some((l) => l.includes(SERVED)) && conditional(vTie), "a quantile rank below n => no served status, the conditional sentence stays");
+    assert.ok(!vTie.reading.some((l) => l.includes("quantile rank equals the number")), "UKEMI-VIEW-TIE-WORDING-1: a rank below n never reads as equal to n");
+    // (3) Mutants of the served verdict: each => no served status, the conditional sentence back (fail-closed).
+    const q = verdict.bound_margin_base;
+    assert.ok(q !== null, "the committed probe carries a q-hat");
+    const mutants: ReadonlyArray<readonly [string, Json]> = [
+      ["n_calib served differs from the report n", { ...verdict, calibration_points: verdict.calibration_points + 1 }],
+      ["q-hat served differs from the report q-hat", { ...verdict, bound_margin_base: String(BigInt(q) + 1n) }],
+      ["the verdict is about another stratum", { ...verdict, stratum: verdict.stratum + 1 }],
+    ];
+    for (const [why, lv] of mutants) {
+      t.write(UKEMI_SERVED_REL, { ...v2, liq_verdict: lv });
+      const vm = buildCourseView(c, loadUkemiServed(t.root));
+      assert.ok(!vm.reading.some((l) => l.includes(SERVED)) && conditional(vm), `${why} => no served status`);
+    }
+    // (4) The loader's closed, coherent shape (fail-closed).
+    t.write(UKEMI_SERVED_REL, { ...v2, liq_verdict: { ...verdict, verdict_reason: "under_calib", bound_margin_base: null, calibration_points: 0 } });
+    assert.throws(() => loadUkemiServed(t.root), /committed registry answers covered/, "under_calib under a committed state reds");
+    t.write(UKEMI_SERVED_REL, { ...v2, liq_verdict: { ...verdict, interior_rank_min_n: verdict.interior_rank_min_n - 1 } });
+    assert.throws(() => loadUkemiServed(t.root), /interior_rank_min_n/, "an interior-rank threshold that is not the rule's reds");
+    t.write(UKEMI_SERVED_REL, { ...v2, liq_verdict: { ...verdict, extra: 1 } });
+    assert.throws(() => loadUkemiServed(t.root), /liq_verdict must carry exactly/, "an extra verdict key reds");
+    // An empty-registry v1 record, built here (the committed file is empty before the switch re-sync, committed after).
+    const emptyV1: Json = { ...rawServed(), schema: "monark-site-ukemi-served-v1", registry_state: "empty", liq_clause: `${GATE_LIQ_EMPTY_REGISTRY_SENTENCE}; ${GATE_LIQ_REQUIREMENTS_SENTENCE}; ${GATE_LIQ_CONDITIONAL_SENTENCE}` };
+    delete emptyV1.liq_verdict;
+    t.write(UKEMI_SERVED_REL, { ...emptyV1, schema: sync.SCHEMA, liq_verdict: { ...verdict } });
+    assert.throws(() => loadUkemiServed(t.root), /empty registry answers under_calib/, "a covered verdict next to an empty registry reds");
+    const v1WithVerdict: Json = { ...emptyV1, liq_verdict: { ...verdict } };
+    t.write(UKEMI_SERVED_REL, v1WithVerdict);
+    assert.throws(() => loadUkemiServed(t.root), /must carry exactly/, "a v1 file cannot carry a verdict");
+  } finally {
+    t.cleanup();
+  }
+  // (5) The sync refuses a served verdict that is not this tree's committed stratum (foreign digest), and a verdict that
+  //     contradicts the served state.
+  const foreign = JSON.parse(gateText) as { structuredContent: { verdict: { calib_digest: string } } };
+  foreign.structuredContent.verdict.calib_digest = USDE_STABLE_RUN_CALIB_DIGEST_PINNED;
+  assert.throws(() => sync.servedVerdictFacts(JSON.stringify(foreign), "committed", caText), /not this tree's committed stratum/, "a foreign digest is refused");
+  assert.throws(() => sync.servedVerdictFacts(gateText, "empty", caText), /empty served registry must answer under_calib/, "a covered verdict under an empty description is refused");
+  // M-5: each agreement alone -- a served n_calib + 1, then a served q-hat + 1 (still a positive safe integer) -- is refused.
+  const bumped = (f: (v: { n_calib: number; qhat: number }) => void): string => {
+    const j = JSON.parse(gateText) as { structuredContent: { verdict: { n_calib: number; qhat: number } } };
+    f(j.structuredContent.verdict);
+    return JSON.stringify(j);
+  };
+  assert.throws(() => sync.servedVerdictFacts(bumped((v) => { v.n_calib += 1; }), "committed", caText), /not this tree's committed stratum/, "a served n_calib + 1 is refused");
+  assert.throws(() => sync.servedVerdictFacts(bumped((v) => { v.qhat += 1; }), "committed", caText), /not this tree's committed stratum/, "a served q-hat + 1 is refused");
+  // M-1: an answer the committed deploy check did not record, a check red on gate_liq_call, a check without it: refused.
+  const caWith = (f: (k: { ok: boolean; sha256: string | null }) => void): string => {
+    const j = JSON.parse(caText) as CaRecord;
+    for (const k of j.checks) if (k.name === "gate_liq_call") f(k);
+    return JSON.stringify(j);
+  };
+  const UNRECORDED = /deploy check recorded, green, for gate_liq_call/;
+  assert.throws(() => sync.servedVerdictFacts(gateText, "committed", caWith((k) => { k.sha256 = sha256(openapi); })), UNRECORDED, "an answer the deploy check did not record is refused");
+  assert.throws(() => sync.servedVerdictFacts(gateText, "committed", caWith((k) => { k.ok = false; })), UNRECORDED, "a deploy check red on gate_liq_call is refused");
+  assert.throws(() => sync.servedVerdictFacts(gateText, "committed", JSON.stringify({ checks: [] })), UNRECORDED, "a deploy check without gate_liq_call is refused");
+  assert.equal(sync.interiorRankMinN(LIQ_ALPHA), verdict.interior_rank_min_n, "the threshold is the sync's rule at the class alpha");
+  // (6) The sync's manifest write path (W step 5): the committed manifest is in the canonical form the writer requires, the
+  //     entry of the served-state file is rewritten and NO other line moves; a non-canonical manifest is refused.
+  const manifestText = read("apps/site/data/manifest.sha256.json");
+  const before = manifestText.split("\n"), after = sync.setManifestEntry(manifestText, sync.OUT_REL, sha256(openapi)).split("\n");
+  assert.equal(after.length, before.length, "the manifest keeps its line count");
+  const changed = after.filter((l, i) => l !== before[i]);
+  assert.equal(changed.length, 1, "exactly one manifest line changes");
+  assert.ok(changed[0] !== undefined && changed[0].trim().startsWith(`"${sync.OUT_REL}": "${sha256(openapi)}"`), "the changed line is the served-state entry with the new digest");
+  assert.throws(() => sync.setManifestEntry(manifestText.replace(/\n {2}"/g, "\n    \""), sync.OUT_REL, sha256(openapi)), /canonical/, "a non-canonical manifest is refused");
+});
+
+// ── UKEMI-SITE-SWITCH-1 (ADR-U4b-2b D5 points 1, 2, 4, 5 and the recommendation of its l.219) ─────────────────────────
+/** JSX child identifiers {IDENT} under a node, in source order (comment-proof). */
+function jsxIdsUnder(root: ts.Node): string[] {
+  const out: string[] = [];
+  const visit = (n: ts.Node): void => {
+    if (ts.isJsxExpression(n) && n.expression && ts.isIdentifier(n.expression) && (ts.isJsxElement(n.parent) || ts.isJsxFragment(n.parent))) out.push(n.expression.text);
+    ts.forEachChild(n, visit);
+  };
+  visit(root);
+  return out;
+}
+/** The served-state sentence /ukemi renders for a synced state (AST of the page): the page must hold ONE conditional
+ *  `….registry_state === "empty" ? (…) : (…)` whose branches render one state sentence each, and no state sentence
+ *  outside it; otherwise "unbound" (a page that ignores the synced state). Hoisted: the trap above calls it. */
+function servedCarrierOf(state: "empty" | "committed"): string {
+  const sf = parseTsx(UKEMI_PAGE_REL, read(UKEMI_PAGE_REL));
+  const ids = new Set(["LIQ_EMPTY_REGISTRY_SENTENCE", "LIQ_COMMITTED_STATE_NOTE"]);
+  const branches: string[][] = [];
+  const visit = (n: ts.Node): void => {
+    if (ts.isConditionalExpression(n) && ts.isBinaryExpression(n.condition) && n.condition.operatorToken.kind === ts.SyntaxKind.EqualsEqualsEqualsToken &&
+      n.condition.left.getText(sf).endsWith(".registry_state") && ts.isStringLiteral(n.condition.right) && n.condition.right.text === "empty") {
+      branches.push(jsxIdsUnder(n.whenTrue).filter((x) => ids.has(x)), jsxIdsUnder(n.whenFalse).filter((x) => ids.has(x)));
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  const all = jsxIdsUnder(sf).filter((x) => ids.has(x));
+  if (branches.length !== 2 || all.length !== 2 || branches.some((b) => b.length !== 1)) return `unbound ${JSON.stringify({ branches, all })}`;
+  return (state === "empty" ? branches[0] : branches[1])?.[0] ?? "unbound";
+}
+/** The body text of the root test named `name` in `rel` (AST), comments blanked (a commented-out trap counts as
+ *  removed), "" if absent. */
+function testBodyOf(rel: string, name: string): string {
+  return testBodyOfSource(rel, read(rel), name);
+}
+function testBodyOfSource(rel: string, src: string, name: string): string {
+  const sf = ts.createSourceFile(rel, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  let body = "";
+  const visit = (n: ts.Node): void => {
+    const [title, fn] = ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "test" ? n.arguments : [];
+    if (title !== undefined && fn !== undefined && ts.isStringLiteralLike(title) && (title.text === name || title.text.startsWith(`${name} `))) body = withoutComments(sf, fn);
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  return body;
+}
+/** The source text of `node` with every comment blanked: the comment ranges at each token's full start and end. */
+function withoutComments(sf: ts.SourceFile, node: ts.Node): string {
+  const text = sf.getFullText(), start = node.getStart(sf);
+  const chars = text.slice(start, node.end).split("");
+  const walk = (n: ts.Node): void => {
+    for (const r of [...(ts.getLeadingCommentRanges(text, n.pos) ?? []), ...(ts.getTrailingCommentRanges(text, n.end) ?? [])])
+      for (let i = Math.max(r.pos, start); i < Math.min(r.end, node.end); i++) chars[i - start] = " ";
+    for (const c of n.getChildren(sf)) walk(c);
+  };
+  walk(node);
+  return chars.join("");
+}
+const LIQ_CLAUSE_OF = {
+  empty: `${GATE_LIQ_EMPTY_REGISTRY_SENTENCE}; ${GATE_LIQ_REQUIREMENTS_SENTENCE}; ${GATE_LIQ_CONDITIONAL_SENTENCE}`,
+  committed: `the served region is ${GATE_LIQ_UPPER_BOUND_SENTENCE}; ${GATE_LIQ_REQUIREMENTS_SENTENCE}; ${GATE_LIQ_H3_SENTENCE}; ${GATE_LIQ_CONDITIONAL_SENTENCE}`,
+} as const;
+
+test("site_ukemi_served_state_carriers_follow_the_dated_served_state — /ukemi and its build check render the synced served state, read after the committed deploy check; the switch traps stay", async () => {
+  // (1) One state conditional on the page: empty => the served sentence verbatim, committed => its digit-free restatement.
+  assert.equal(servedCarrierOf("empty"), "LIQ_EMPTY_REGISTRY_SENTENCE", "the empty branch renders the served empty-registry sentence");
+  assert.equal(servedCarrierOf("committed"), "LIQ_COMMITTED_STATE_NOTE", "the committed branch renders the digit-free restatement");
+  assert.match(read(UKEMI_PAGE_REL), /const served = loadUkemiServed\(join\(process\.cwd\(\), "\.\.", "\.\."\)\);/, "the page reads the synced served-state file through its loader");
+  // (2) The build check binds the same state: a state's body passes under it, reds under the other; both sentences red.
+  const committedExpected = { ...EXPECTED, registryState: "committed" as const };
+  assert.doesNotThrow(() => assertUkemiBody({ html: greenMain("committed"), expected: committedExpected }), "a committed body passes under the committed state");
+  assert.throws(() => assertUkemiBody({ html: greenMain("committed"), expected: EXPECTED }), /empty-state sentence of the synced served state is absent/, "a committed body reds under the empty state");
+  assert.throws(() => assertUkemiBody({ html: greenMain("empty"), expected: committedExpected }), /committed-state sentence of the synced served state is absent/, "an empty body reds under the committed state");
+  assert.throws(() => assertUkemiBody({ html: greenMain("empty").replace("</main>", `<p>${LIQ_COMMITTED_STATE_NOTE}</p></main>`), expected: EXPECTED }), /committed-state sentence is rendered while the synced served state is empty/, "the other state's sentence reds");
+  assert.throws(() => assertUkemiBody({ html: greenMain(), expected: { ...EXPECTED, registryState: "served" as unknown as "empty" } }), /registryState/, "an unknown state fails closed");
+  // (3) main() reads the state of the served-state file through the page's loader: today's file, then each state.
+  assert.equal((await ukemiExpected()).registryState, loadUkemiServed(ROOT).registry_state, "main() asserts the state of the committed served-state file");
+  const t = tmpRoot();
+  try {
+    const base: Json = { ...rawServed(), schema: "monark-site-ukemi-served-v1" };
+    delete base.liq_verdict;
+    for (const st of ["committed", "empty"] as const) {
+      t.write(UKEMI_SERVED_REL, { ...base, registry_state: st, liq_clause: LIQ_CLAUSE_OF[st] });
+      assert.equal((await ukemiExpected(t.root)).registryState, st, `main() follows a ${st} served-state file`);
+    }
+  } finally {
+    t.cleanup();
+  }
+  // (4) Dated (ADR-U4b-2b l.219): the rendered state was read from the /openapi.json the committed deploy check attests, and
+  //     not before that check (a redeploy checked but not re-synced reds here).
+  const ca = JSON.parse(read("docs/deploy-CA-harness.json")) as { checked_at: string; checks: Array<{ name: string; sha256: string | null }> };
+  const served = loadUkemiServed(ROOT);
+  const dated = (v: { read_at: string; body_sha256: string }): boolean =>
+    v.body_sha256 === ca.checks.find((k) => k.name === "openapi")?.sha256 && Date.parse(v.read_at) >= Date.parse(ca.checked_at);
+  assert.ok(dated(served), `the synced served state (read ${served.read_at}) comes from the document the deploy check (${ca.checked_at}) attests, read after it`);
+  assert.ok(!dated({ ...served, read_at: new Date(Date.parse(ca.checked_at) - 1).toISOString() }), "detector control: a state read before the deploy check reds");
+  // (5) The switch traps are re-framed, never removed (D5 point 4): each still compares the repository's harness with the
+  //     synced or deploy-checked served state.
+  const TRAPS: ReadonlyArray<readonly [string, string, string]> = [
+    ["test/site-ukemi.test.ts", "site_ukemi_served_state_bound_to_harness_registry", 'assert.equal(s.registry_state, committed ? "committed" : "empty"'],
+    ["test/harness-served.test.ts", "harness_served_data_matches_in_process_harness", 'sha(JSON.stringify(buildOpenApi())), "the served openapi body is the in-process document'],
+    ["test/harness-served.test.ts", "harness_served_data_matches_in_process_harness", "assert.ok(GATE_TOOL_DESCRIPTION.includes(p), `class clause not served"],
+    ["test/narabi-live.test.ts", "narabi_gate_facts_read_from_committed_sources", "assert.equal(sha256(openapi), servedOpenapi.sha256"],
+    ["test/narabi-live.test.ts", "narabi_gate_facts_read_from_committed_sources", "assert.equal(NARABI_SERVED.gate.openapi_sha256, servedOpenapi.sha256"],
+    ["test/site-build-fleet.test.ts", "registry_notes_track_served_descriptions", 'assert.equal(syncedEmpty && /=== "empty"'],
+    ["test/site-build-fleet.test.ts", "registry_notes_track_served_descriptions", "assert.equal(servedLiq, syncedEmpty,"],
+    ["test/site-build-fleet.test.ts", "registry_notes_track_served_descriptions", "const servedLiq = GATE_TOOL_DESCRIPTION.includes(SITE_LIQ_SENTENCE);"],
+  ];
+  for (const [rel, name, needle] of TRAPS) assert.ok(testBodyOf(rel, name).includes(needle), `a switch trap was removed instead of re-framed: ${rel} ${name}: ${needle}`);
+  const probe = ['test("probe_trap - x", () => {', '  // assert.equal(a, b, "gone");', "  assert.ok(c); // kept", "});"].join("\n");
+  assert.ok(!testBodyOfSource("probe.ts", probe, "probe_trap").includes("assert.equal(a, b"), "detector control: a commented-out trap counts as removed");
+  assert.ok(testBodyOfSource("probe.ts", probe, "probe_trap").includes("assert.ok(c);"), "detector control: a live assertion is kept");
+});
+
+test("site_ukemi_count_wording_says_what_the_wire_serves — an uncommitted stratum is served counting no calibration point; the measured counts are on the course page (ADR-U4b-2b D5 point 5)", () => {
+  const yhat = STRATA_CUTS_SERVED[0];
+  assert.ok(yhat !== undefined && lookupCommittedCalibration(TASK_LIQ_ELIGIBLE, `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(strateOf(yhat))}`) === undefined, "the probe's stratum is not committed (non-vacuous)");
+  const d = runGate({ schema_version: "1.0.0", task_class: TASK_LIQ_ELIGIBLE, yhat, predictor_id: "ukemi:site-copy-check", produced_at: "2026-09-24T00:00:00Z" }, LIQ_TEST_PARAMS);
+  assert.equal(d.verdict.reason, "under_calib", "the uncommitted stratum abstains");
+  assert.equal(d.verdict.n_calib, 0, "the served answer on an uncommitted stratum counts no calibration point");
+  const calibrate = METHOD_STEPS.find((st) => st.name === "calibrate")?.detail ?? "";
+  for (const [name, text] of [["COVERAGE_NOTE", COVERAGE_NOTE], ["STATES_NOTE", STATES_NOTE], ["the calibrate step", calibrate]] as const) {
+    assert.ok(text.includes("counts no calibration point") && text.includes("course page"), `${name} says the wire counts no calibration point and where the measured counts are`);
+    assert.ok(!/the count is published|with the count\b/.test(text), `${name} carries a former count wording`);
+  }
 });
