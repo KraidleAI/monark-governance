@@ -161,6 +161,8 @@ Scripts et sorties sous `F:\tmp\ukemi-2b\impl\` (`DELIVERED.sha256`) : `probe-in
 - Mutants : les 34 de l'implémenteur et les 18 du pli (dont G2-4, G2-5, G2-7, G2-9, G2-10, G2-12, survivants au G2), tous tués, tous restaurés, empreinte d'arbre stable ; G2-13 reste équivalent (défense en profondeur, G2 §7.2).
 - R-25 (pathspec de `.github/workflows/ci.yml:65`, seuil `:71`) : -2b-i 986 (inchangé), -2b-ii 395, vitrine 458, chacun au plus 1 205.
 
+- **Renvoi daté 2026-09-25 00:25 UTC (FOLD-JOURNAL-POINTER-1, orchestrateur)** : les mesures de cette section ont été refaites sur l'état final du pli par l'auteur des constats G2 (instance séparée de l'auteur des corrections) : rapport `F:\tmp\ukemi-2b\fold\RAPPORT-PLI.md` (sha256 `73a9c34d5e765edce243ed386f66f7d7c1fedc5c15e6d2daafc5dd5c7315c386`), scellé `fold\FOLD.sha256` (`9e5ad80a…`), qui remplace `impl\DELIVERED.sha256` (réécrit par le pli, périmé ; original `impl\pre-pli\DELIVERED.sha256`). Arbre plié : 6 portes 0, `npm test` 1 267 / 1 261 / 4 / 2 (rouges = les quatre N-14) ; gel à deux commits 1 266 / 1 259 / 5 / 2 ; état W 1 268 / 1 260 / 6 / 2, B-1 corrigé (`registry_notes…` de nouveau à `:685`) ; mutants 34 + 18 + 2 tués ; R-25 -2b-i 986, -2b-ii 395, vitrine 458. Le commit vitrine (COURSE-SERVED-FACTS-1, 6 fichiers) reste non commité jusqu'à W étape 5 (lettre de l'ADR D5).
+
 ### 11.4 Items
 - Clôtures proposées au G7 : G2-U4B2B-CA-BIND-1, G2-U4B2B-CA-VEC-1, G2-U4B2B-RANK-1, G2-U4B2B-CA-EXIT-1, G2-U4B2B-SYNC-1, G2-U4B2B-G1-ERRATUM-1 (ce §11) ; G2-U4B2B-WFLEET-NOTE-1 pour sa part correctif.
 - ADR-U4B-2B-FOLD-1 (orchestrateur, déclencheur G7 du lot) plie en outre : le texte de note corrigé (ADR D3 `:174`), la liaison M-1 rétablie sous E-3, et le placement du commit vitrine à W étape 5.
