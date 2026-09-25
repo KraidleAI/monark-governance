@@ -25,6 +25,7 @@ import {
   IS_NOT_LIST,
   SERVED_LABEL,
   SERVED_STATE_LEAD, SERVED_COMMITTED_LEAD, LIQ_COMMITTED_STATE_NOTE,
+  FIGURES_LEAD, FIGURE_POINTS_LABEL, FIGURE_MARGIN_LABEL, BOUND_UNIT, FIGURE_MARGIN_NOTE, FIGURE_DIGEST_LABEL, DIGEST_NOTE,
   REGION_NOTE,
   CONDITIONAL_LEAD,
   COVERAGE_NOTE,
@@ -47,6 +48,7 @@ import * as UKEMI_PANEL_COPY from "../apps/site/lib/ukemi-panel-copy.ts";
 import { loadUkemiCourse, UKEMI_COURSE_REL, type UkemiCourse } from "../apps/site/lib/ukemi-course-load.ts";
 import { loadUkemiServed, UKEMI_SERVED_REL, type UkemiServed } from "../apps/site/lib/ukemi-served-load.ts";
 import { buildCourseView, type CourseView } from "../apps/site/lib/ukemi-course-view.ts";
+import { servedFiguresOf } from "../apps/site/lib/ukemi-served-figures.ts";
 import {
   LIQ_UPPER_BOUND_SENTENCE as GATE_LIQ_UPPER_BOUND_SENTENCE,
   LIQ_H3_SENTENCE as GATE_LIQ_H3_SENTENCE,
@@ -63,7 +65,7 @@ import {
 import { ATTESTATION_BINDING } from "../apps/harness/src/attestation-binding.ts";
 import { hasCommittedCalibrationForClass, lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE } from "../apps/harness/src/calibration.ts";
 import { STRATA_CUTS_SERVED, strateOf } from "../apps/harness/src/ukemi-strata.ts";
-import { assertUkemiBody, scanNumericTokens, ukemiExpected } from "../scripts/assert-fleet-html.mjs";
+import { assertUkemiBody, scanNumericTokens, ukemiExpected, renderedBody, extractMain, mainCorpus, type UkemiExpected } from "../scripts/assert-fleet-html.mjs";
 import { scanText, scanSource, renderedTexts, loadExemptFile, exemptValues } from "../apps/site/test/honesty-lint.ts";
 import { FLEET_AGENTS } from "../apps/site/lib/fleet.ts";
 import { insideFor } from "../apps/site/lib/fleet-presentation.ts";
@@ -80,11 +82,21 @@ const UKEMI_STATUS: string = (() => {
   if (a === undefined) throw new Error("site-ukemi.test: 'Ukemi' absent from FLEET_AGENTS (lib/fleet.ts)");
   return a.status;
 })();
-const EXPECTED = { registryState: "empty" as const, emptyRegistrySentence: LIQ_EMPTY_REGISTRY_SENTENCE, committedStateSentence: LIQ_COMMITTED_STATE_NOTE, conditionalSentence: LIQ_CONDITIONAL_SENTENCE, status: UKEMI_STATUS };
+const EXPECTED: UkemiExpected = { registryState: "empty", emptyRegistrySentence: LIQ_EMPTY_REGISTRY_SENTENCE, committedStateSentence: LIQ_COMMITTED_STATE_NOTE, conditionalSentence: LIQ_CONDITIONAL_SENTENCE, status: UKEMI_STATUS, figures: [] };
+
+/** The figures block of the committed branch as the page renders it, from the closed list's values in its order (n, bound
+ *  margin, digest, day); "" when no value is given. */
+function figuresBlock(values: readonly string[]): string {
+  if (values.length === 0) return "";
+  const [n = "", margin = "", digest = "", day = ""] = values;
+  return `<p>${FIGURES_LEAD} <span class="font-mono">${day}</span>:</p><ul><li><span class="font-mono">${n}</span> ${FIGURE_POINTS_LABEL}</li>` +
+    `<li>${FIGURE_MARGIN_LABEL} <span class="font-mono">${margin}</span> ${BOUND_UNIT}; ${FIGURE_MARGIN_NOTE}</li>` +
+    `<li>${FIGURE_DIGEST_LABEL} <span class="c-mono break-all">${digest}</span></li></ul><p>${DIGEST_NOTE}</p>`;
+}
 
 // A green <main> fixture composed from the REAL ukemi-copy exports, mirroring the page structure (advisor 2):
-// class/style carry digits (stripped by the scan), every rendered TEXT node is digit-free.
-function greenMain(state: "empty" | "committed" = "empty"): string {
+// class/style carry digits (stripped by the scan); in the committed state the figures `values` follow the note.
+function greenMain(state: "empty" | "committed" = "empty", values: readonly string[] = []): string {
   const li = (items: readonly string[]): string =>
     items.map((t) => `<li><span aria-hidden="true">+</span><span>${t}</span></li>`).join("");
   const steps = METHOD_STEPS.map((s) => `<div><div>${s.name}</div><div>${s.title}</div><p>${s.detail}</p></div>`).join("");
@@ -94,7 +106,7 @@ function greenMain(state: "empty" | "committed" = "empty"): string {
     `<div>Ukemi</div><span>${UKEMI_STATUS}</span>` +
     `<h1>${HERO_TITLE}</h1><p>${HERO_DEK}</p>` +
     `<div>${WHAT_LABEL}</div><ul>${li(IS_LIST)}</ul><ul>${li(IS_NOT_LIST)}</ul>` +
-    `<div>${SERVED_LABEL}</div>` + (state === "empty" ? `<p>${SERVED_STATE_LEAD}</p><p>${LIQ_EMPTY_REGISTRY_SENTENCE}</p>` : `<p>${SERVED_COMMITTED_LEAD}</p><p>${LIQ_COMMITTED_STATE_NOTE}</p>`) +
+    `<div>${SERVED_LABEL}</div>` + (state === "empty" ? `<p>${SERVED_STATE_LEAD}</p><p>${LIQ_EMPTY_REGISTRY_SENTENCE}</p>` : `<p>${SERVED_COMMITTED_LEAD}</p><p>${LIQ_COMMITTED_STATE_NOTE}</p>` + figuresBlock(values)) +
     `<div aria-hidden="true"><span style="left:22%;width:44%">${BAR_UPPER_LABEL}</span>` +
     `<span style="left:22%">${BAR_YHAT_LABEL}</span><span>${BAR_FLOOR_LABEL}</span></div>` +
     `<p>${REGION_NOTE}</p><p>${CONDITIONAL_LEAD}</p><p>${LIQ_CONDITIONAL_SENTENCE}</p>` +
@@ -194,6 +206,8 @@ test("site_ukemi_body_scan_and_carrier — assertUkemiBody fixtures + scanner pa
     ["LIMITS_LABEL", LIMITS_LABEL],
     ["COURSE_POINTER_LEAD", COURSE_POINTER_LEAD], ["COURSE_POINTER_LINK", COURSE_POINTER_LINK], ["COURSE_POINTER_TAIL", COURSE_POINTER_TAIL],
     ["LIQ_EMPTY_REGISTRY_SENTENCE", LIQ_EMPTY_REGISTRY_SENTENCE], ["LIQ_CONDITIONAL_SENTENCE", LIQ_CONDITIONAL_SENTENCE], ["SERVED_COMMITTED_LEAD", SERVED_COMMITTED_LEAD], ["LIQ_COMMITTED_STATE_NOTE", LIQ_COMMITTED_STATE_NOTE],
+    ["FIGURES_LEAD", FIGURES_LEAD], ["FIGURE_POINTS_LABEL", FIGURE_POINTS_LABEL], ["FIGURE_MARGIN_LABEL", FIGURE_MARGIN_LABEL], ["BOUND_UNIT", BOUND_UNIT],
+    ["FIGURE_MARGIN_NOTE", FIGURE_MARGIN_NOTE], ["FIGURE_DIGEST_LABEL", FIGURE_DIGEST_LABEL], ["DIGEST_NOTE", DIGEST_NOTE],
   ];
   IS_LIST.forEach((t, i) => renderedProse.push([`IS_LIST_${i}`, t]));
   IS_NOT_LIST.forEach((t, i) => renderedProse.push([`IS_NOT_LIST_${i}`, t]));
@@ -636,7 +650,8 @@ test("site_ukemi_served_state_bound_to_harness_registry — synced served state 
 });
 
 test("site_ukemi_prose_abstains_under_calib — no /ukemi sentence pairs under_calib with a deferral (served: abstain, reason under_calib)", () => {
-  const prose: string[] = [HERO_TITLE, HERO_DEK, REGION_NOTE, COVERAGE_NOTE, STATES_NOTE, SERVED_STATE_LEAD, SERVED_COMMITTED_LEAD, LIQ_COMMITTED_STATE_NOTE, COURSE_POINTER_LEAD, COURSE_POINTER_TAIL, ...IS_LIST, ...IS_NOT_LIST];
+  const prose: string[] = [HERO_TITLE, HERO_DEK, REGION_NOTE, COVERAGE_NOTE, STATES_NOTE, SERVED_STATE_LEAD, SERVED_COMMITTED_LEAD, LIQ_COMMITTED_STATE_NOTE, COURSE_POINTER_LEAD, COURSE_POINTER_TAIL, ...IS_LIST, ...IS_NOT_LIST,
+    FIGURES_LEAD, FIGURE_POINTS_LABEL, FIGURE_MARGIN_LABEL, BOUND_UNIT, FIGURE_MARGIN_NOTE, FIGURE_DIGEST_LABEL, DIGEST_NOTE];
   for (const st of METHOD_STEPS) prose.push(st.title, st.detail);
   for (const l of LIMITS) prose.push(l.title, l.detail);
   const pairs = (text: string): string[] => text.split(/(?<=[.;])\s+/).filter((x) => /under_calib/.test(x) && /\bdefer/i.test(x));
@@ -1386,25 +1401,31 @@ const LIQ_CLAUSE_OF = {
 test("site_ukemi_served_state_carriers_follow_the_dated_served_state — /ukemi and its build check render the synced served state, read after the committed deploy check; the switch traps stay", async () => {
   // (1) One state conditional on the page: empty => the served sentence verbatim, committed => its digit-free restatement.
   assert.equal(servedCarrierOf("empty"), "LIQ_EMPTY_REGISTRY_SENTENCE", "the empty branch renders the served empty-registry sentence");
-  assert.equal(servedCarrierOf("committed"), "LIQ_COMMITTED_STATE_NOTE", "the committed branch renders the digit-free restatement");
+  assert.equal(servedCarrierOf("committed"), "LIQ_COMMITTED_STATE_NOTE", "the committed branch renders the restatement (its figures follow it)");
   assert.match(read(UKEMI_PAGE_REL), /const served = loadUkemiServed\(join\(process\.cwd\(\), "\.\.", "\.\."\)\);/, "the page reads the synced served-state file through its loader");
   // (2) The build check binds the same state: a state's body passes under it, reds under the other; both sentences red.
-  const committedExpected = { ...EXPECTED, registryState: "committed" as const };
-  assert.doesNotThrow(() => assertUkemiBody({ html: greenMain("committed"), expected: committedExpected }), "a committed body passes under the committed state");
-  assert.throws(() => assertUkemiBody({ html: greenMain("committed"), expected: EXPECTED }), /empty-state sentence of the synced served state is absent/, "a committed body reds under the empty state");
+  const committedExpected = await ukemiExpected();
+  assert.equal(committedExpected.registryState, "committed", "the synced served state is committed: the committed expectations are the real ones");
+  const committedValues = committedExpected.figures.map((f) => f.value);
+  assert.doesNotThrow(() => assertUkemiBody({ html: greenMain("committed", committedValues), expected: committedExpected }), "a committed body passes under the committed state");
+  assert.throws(() => assertUkemiBody({ html: greenMain("committed", committedValues), expected: EXPECTED }), /empty-state sentence of the synced served state is absent/, "a committed body reds under the empty state");
   assert.throws(() => assertUkemiBody({ html: greenMain("empty"), expected: committedExpected }), /committed-state sentence of the synced served state is absent/, "an empty body reds under the committed state");
   assert.throws(() => assertUkemiBody({ html: greenMain("empty").replace("</main>", `<p>${LIQ_COMMITTED_STATE_NOTE}</p></main>`), expected: EXPECTED }), /committed-state sentence is rendered while the synced served state is empty/, "the other state's sentence reds");
   assert.throws(() => assertUkemiBody({ html: greenMain(), expected: { ...EXPECTED, registryState: "served" as unknown as "empty" } }), /registryState/, "an unknown state fails closed");
-  // (3) main() reads the state of the served-state file through the page's loader: today's file, then each state.
-  assert.equal((await ukemiExpected()).registryState, loadUkemiServed(ROOT).registry_state, "main() asserts the state of the committed served-state file");
+  // (3) main() reads the state of the served-state file through the page's loader: today's file, then each state (the
+  //     committed v2 file, an empty v1 file); a committed file without its served verdict (v1) is refused.
+  assert.equal(committedExpected.registryState, loadUkemiServed(ROOT).registry_state, "main() asserts the state of the committed served-state file");
   const t = tmpRoot();
   try {
     const base: Json = { ...rawServed(), schema: "monark-site-ukemi-served-v1" };
     delete base.liq_verdict;
-    for (const st of ["committed", "empty"] as const) {
-      t.write(UKEMI_SERVED_REL, { ...base, registry_state: st, liq_clause: LIQ_CLAUSE_OF[st] });
+    const files: Array<[string, Json]> = [["committed", rawServed()], ["empty", { ...base, registry_state: "empty", liq_clause: LIQ_CLAUSE_OF.empty }]];
+    for (const [st, file] of files) {
+      t.write(UKEMI_SERVED_REL, file);
       assert.equal((await ukemiExpected(t.root)).registryState, st, `main() follows a ${st} served-state file`);
     }
+    t.write(UKEMI_SERVED_REL, { ...base, registry_state: "committed", liq_clause: LIQ_CLAUSE_OF.committed });
+    await assert.rejects(ukemiExpected(t.root), /no served verdict/, "a committed v1 file (no served verdict) is refused");
   } finally {
     t.cleanup();
   }
@@ -1445,4 +1466,180 @@ test("site_ukemi_count_wording_says_what_the_wire_serves — an uncommitted stra
     assert.ok(text.includes("counts no calibration point") && text.includes("course page"), `${name} says the wire counts no calibration point and where the measured counts are`);
     assert.ok(!/the count is published|with the count\b/.test(text), `${name} carries a former count wording`);
   }
+});
+
+/* ─────────── /ukemi, committed state: the note and the figures of the committed stratum, under a closed list ───────────
+ * The note says "conformal"; n, the bound margin, the calibration digest and the day are read from the two committed,
+ * hashed files, never typed; the build check holds them as a closed list of exact strings, each rendered exactly once in
+ * the text, and no other number. Every altered value below is derived from the loaded files (no amount is typed). */
+
+test("site_ukemi_committed_note_says_conformal_upper_bound — the committed-state note is the ruled text, word for word; the unit label is the report's", () => {
+  // The artefact check compares the built page with this constant itself: only this pin sees "conformal" go.
+  assert.equal(LIQ_COMMITTED_STATE_NOTE, "where a stratum's calibration is committed, the gate serves a conformal upper bound on the liquidable amount; on every other stratum it abstains (under_calib)");
+  assert.ok(!/\benough\b/i.test(LIQ_COMMITTED_STATE_NOTE), "no 'enough points' reserve in the note");
+  assert.deepEqual(scanText(LIQ_COMMITTED_STATE_NOTE, NO_EXEMPT), [], "the note carries no digit");
+  assert.ok(loadUkemiCourse(ROOT).unit.startsWith(BOUND_UNIT + " ("), "BOUND_UNIT is the report's unit label up to its decimal count (not rendered)");
+});
+
+test("site_ukemi_served_figures_read_from_the_two_files — the figures of the committed stratum are fields of the two files, read, never copied; a disagreement throws", () => {
+  const c = loadUkemiCourse(ROOT), s = loadUkemiServed(ROOT), v = s.liq_verdict;
+  assert.ok(s.registry_state === "committed" && v !== null && v.bound_margin_base !== null, "a committed served state with its covered verdict (non-vacuous)");
+  const base = v.bound_margin_base, k = v.stratum;
+  const fresh = obj(obj(list(obj(obj(rawCourse().body, "body").h3, "h3").strata, "h3.strata")[k], "h3 stratum k").fresh, "fresh");
+  // (1) The real files: each figure is its field; the margin also rebuilt by BigInt (dec8, independent of the loader).
+  assert.deepEqual(servedFiguresOf(s, c), {
+    points: String(v.calibration_points), boundMargin: dec8(base), readDate: s.read_at.slice(0, 10),
+    digest: lookupCommittedCalibration(TASK_LIQ_ELIGIBLE, `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(k)}`)?.digestPinned,
+  });
+  assert.equal(String(v.calibration_points), String(fresh.n), "the served count is the report's count of the stratum");
+  assert.equal(dec8(base), list(obj(rawCourse().display, "display").strata_qhat, "strata_qhat")[k], "the margin is display.strata_qhat of the stratum");
+  // (2) In-memory objects, each change derived from the loaded ones.
+  const figuresOf = (sv: UkemiServed, cv: UkemiCourse = c) => (): unknown => servedFiguresOf(sv, cv);
+  const withV = (lv: Partial<NonNullable<UkemiServed["liq_verdict"]>>): UkemiServed => ({ ...s, liq_verdict: { ...v, ...lv } });
+  const shifted = String(BigInt(base) + 1n), below = c.strata.find((x) => !x.meets_floor);
+  assert.ok(below !== undefined, "the report has a stratum below its floor");
+  assert.throws(figuresOf(withV({ calibration_points: v.calibration_points + 1 })), /calibration points/, "a served n + 1 throws");
+  assert.throws(figuresOf(withV({ bound_margin_base: shifted })), /bound margin/, "a served margin + 1 throws");
+  assert.throws(figuresOf(withV({ stratum: below.stratum })), /floor/, "a verdict moved to a stratum below its floor throws");
+  assert.throws(figuresOf({ ...s, liq_verdict: null }), /no served verdict/, "a committed state without its verdict throws");
+  assert.equal(servedFiguresOf({ ...s, registry_state: "empty" }, c), null, "an empty registry has no figure");
+  assert.equal(servedFiguresOf(s, { ...c, pooled: { ...c.pooled, bound_margin: dec8(shifted) } })?.boundMargin, dec8(base), "a pooled margin apart from the stratum's never replaces it");
+  const agreed = { ...c, strata: c.strata.map((x) => (x.stratum === k ? { ...x, n: x.n + 1, bound_margin: dec8(shifted), bound_margin_base: shifted } : x)) };
+  const moved = servedFiguresOf(withV({ calibration_points: v.calibration_points + 1, bound_margin_base: shifted }), agreed);
+  assert.deepEqual([moved?.points, moved?.boundMargin], [String(v.calibration_points + 1), dec8(shifted)], "the figures follow the two files when they agree");
+  const other = sha256(v.calibration_digest);
+  assert.equal(servedFiguresOf(withV({ calibration_digest: other }), c)?.digest, other, "another digest is rendered as read");
+  // (3) No string literal of the module carries a digit; (4) its imports are types only.
+  const rel = "apps/site/lib/ukemi-served-figures.ts";
+  const literals: string[] = [], typeOnly: boolean[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isImportDeclaration(node)) typeOnly.push(node.importClause?.isTypeOnly === true);
+    else if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) literals.push(node.text);
+    else ts.forEachChild(node, visit);
+  };
+  visit(ts.createSourceFile(rel, read(rel), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS));
+  assert.ok(literals.length > 5 && typeOnly.length > 0, "the module's literals and imports were read (false green)");
+  for (const lit of literals) assert.deepEqual(scanText(lit, NO_EXEMPT), [], `a typed digit in the figures module: ${JSON.stringify(lit)}`);
+  assert.ok(typeOnly.every(Boolean), "the figures module imports types only");
+});
+
+test("site_ukemi_figures_render_only_in_the_committed_branch — the four figures are JSX children of the committed branch, once each, and read nowhere else", () => {
+  const sf = parseTsx(UKEMI_PAGE_REL, read(UKEMI_PAGE_REL));
+  const reads = (root: ts.Node, childrenOnly: boolean): string[] => {
+    const out: string[] = [];
+    const visit = (n: ts.Node): void => {
+      if (ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "figures") {
+        const p = n.parent;
+        if (!childrenOnly || (ts.isJsxExpression(p) && (ts.isJsxElement(p.parent) || ts.isJsxFragment(p.parent)))) out.push(n.name.text);
+      }
+      ts.forEachChild(n, visit);
+    };
+    visit(root);
+    return out.sort();
+  };
+  const committed: ts.Node[] = [];
+  const find = (n: ts.Node): void => {
+    if (ts.isConditionalExpression(n) && ts.isBinaryExpression(n.condition) && n.condition.left.getText(sf).endsWith(".registry_state") &&
+      ts.isStringLiteral(n.condition.right) && n.condition.right.text === "empty") committed.push(n.whenFalse);
+    ts.forEachChild(n, find);
+  };
+  find(sf);
+  const branch = committed[0], four = ["boundMargin", "digest", "points", "readDate"];
+  assert.ok(branch !== undefined && committed.length === 1, "one served-state conditional on the page");
+  // Children of the committed branch, once each; and no other read of a figure in the file: an attribute (title, alt,
+  // aria-label), the empty branch or a second rendering would add a read, or take a child away.
+  assert.deepEqual(reads(branch, true), four, "each figure is a JSX child of the committed branch, once");
+  assert.deepEqual(reads(sf, false), four, "no figure is read anywhere else on the page");
+  for (const [name, mod] of [["servedFiguresOf", "ukemi-served-figures"], ["loadUkemiCourse", "ukemi-course-load"]] as const) assert.ok(importedFrom(sf, mod).has(name), `the page imports ${name}`);
+});
+
+test("site_ukemi_body_numbers_closed_list — the /ukemi body carries each figure of the closed list exactly once, in its text, and no other number", async () => {
+  const exp = await ukemiExpected();
+  const values = exp.figures.map((f) => f.value);
+  const [n = "", margin = "", digest = "", day = ""] = values;
+  assert.ok(exp.registryState === "committed" && values.length === 4 && [n, margin, digest, day].every((x) => x.length > 0), "the closed list of the committed stratum: n, margin, digest, day");
+  const check = (html: string, expected: UkemiExpected = exp): ReturnType<typeof assertUkemiBody> => assertUkemiBody({ html, expected });
+  const red = (html: string, re: RegExp, why: string, expected: UkemiExpected = exp): void => {
+    assert.throws(() => check(html, expected), re, why);
+  };
+  const green = greenMain("committed", values), sorted = (a: readonly string[]): string[] => [...a].sort();
+  const tokens = values.flatMap((x) => scanNumericTokens(x)), r = check(green);
+  assert.deepEqual([r.figures, r.numericTokens, r.figureTokens], [values.length, 0, tokens.length]);
+  assert.deepEqual(sorted(scanNumericTokens(mainCorpus(extractMain(renderedBody(green))))), sorted(tokens), "nothing more, nothing less: the corpus tokens are the figures' tokens (multiset)");
+  // A short value that is also a bounded part of a longer one (n set to the year of the day, then to the integer part of
+  // the margin) counts once, longest value first; present twice outside the longer one, it reds.
+  for (const short of [day.slice(0, 4), margin.split(".")[0] ?? ""]) {
+    const vals = [short, margin, digest, day], expShort: UkemiExpected = { ...exp, figures: exp.figures.map((f, i) => (i === 0 ? { ...f, value: short } : f)) };
+    assert.doesNotThrow(() => check(greenMain("committed", vals), expShort), "a short value inside a longer one counts once");
+    red(greenMain("committed", vals).replace("</main>", `<p>${short}</p></main>`), /occurs 2 time/, "a short value twice outside the longer one reds", expShort);
+  }
+  red(green.replace("</main>", `<p>${scanNumericTokens(digest)[0] ?? ""}</p></main>`), /numeric token/, "an extra token the digest already carries reds (a set comparison passes it)");
+  red(green.replace("</main>", "<p>185 of 189</p></main>"), /numeric token/, "a typed count reds");
+  // Forms the scan cannot read red, fail-closed: a number inside angle brackets written as entities, a number after an
+  // encoded angle bracket, the same digits in full width (each derived from the first digest token, nothing typed).
+  const tok = scanNumericTokens(digest)[0] ?? "";
+  red(green.replace("</main>", `<p>&lt;${tok}&gt;</p></main>`), /angle bracket written as an entity/, "a number inside encoded angle brackets reds");
+  red(green.replace("</main>", `<p>n &lt; ${tok} points</p></main>`), /angle bracket written as an entity/, "a number after an encoded angle bracket reds");
+  red(green.replace("</main>", `<p>${[...tok].map((ch) => String.fromCodePoint(0xff10 + Number(ch))).join("")}</p></main>`), /non-ASCII digits/, "a number in full-width digits reds");
+  // Bounded occurrences only (C-2 i): the digest glued to one more hex letter is another string, not the figure.
+  red(greenMain("committed", [n, margin, "f" + digest, day]), /occurs 0 time/, "a figure glued to a letter reds (bounded occurrences only)");
+  values.forEach((x, i) => {
+    const without = greenMain("committed", values.map((y, j) => (j === i ? "" : y)));
+    red(without, /occurs 0 time/, `figure ${String(i)} absent reds`);
+    red(green.replace("</main>", `<p>${x}</p></main>`), /occurs 2 time/, `figure ${String(i)} rendered twice reds`);
+    red(without.replace("</main>", `<span title="${x}"></span></main>`), /occurs 0 time/, `figure ${String(i)} only in a title reds (an attribute is not text)`);
+    if (scanNumericTokens(x).length > 0) red(green.replace("</main>", `<span title="${x}"></span></main>`), /numeric token/, `figure ${String(i)} also in a title reds`);
+  });
+  const SWAP: Record<string, string> = { a: "b", b: "a", c: "d", d: "c", e: "f", f: "e" };
+  const swapped = digest.replace(/[a-f]/g, (ch) => SWAP[ch] ?? ch);
+  assert.ok(swapped !== digest && sorted(scanNumericTokens(swapped)).join() === sorted(scanNumericTokens(digest)).join(), "letters swapped: same tokens, another string");
+  const altered = [["a digest cut in half", [n, margin, digest.slice(0, digest.length / 2), day]], ["a digest with letters swapped", [n, margin, swapped, day]], ["n + 1", [String(Number(n) + 1), margin, digest, day]]] as const;
+  for (const [why, vals] of altered) red(greenMain("committed", vals), /occurs 0 time/, `${why} reds`);
+  red(greenMain("empty").replace("</main>", `<p>${n}</p></main>`), /numeric token/, "a figure in an empty served state reds", EXPECTED);
+  red(green, /vacuity guard/, "an empty closed list in a committed state reds", { ...exp, figures: [] });
+  red(green, /vacuity guard/, "a blank value reds", { ...exp, figures: exp.figures.map((f, i) => (i === 0 ? { ...f, value: " " } : f)) });
+  red(greenMain(), /carries no figure/, "a closed list in an empty served state reds", { ...EXPECTED, figures: exp.figures });
+});
+
+test("site_ukemi_expected_figures_follow_the_committed_files — the build check's closed list is read from the two committed files by their loaders; a disagreement or a committed v1 file throws", async () => {
+  const raw = rawServed(), lv = obj(raw.liq_verdict, "liq_verdict"), k = lv.stratum, base = lv.bound_margin_base;
+  assert.ok(typeof k === "number" && typeof base === "string" && typeof lv.calibration_points === "number" && typeof raw.read_at === "string", "a committed v2 file");
+  const fresh = obj(obj(list(obj(obj(rawCourse().body, "body").h3, "h3").strata, "h3.strata")[k], "h3 stratum k").fresh, "fresh");
+  // n from the report; the margin rebuilt by BigInt from the served integer (dec8, not the loaders' routine); the digest
+  // and the day from the served file.
+  assert.deepEqual((await ukemiExpected()).figures.map((f) => f.value), [String(fresh.n), dec8(base), lv.calibration_digest, raw.read_at.slice(0, 10)]);
+  const t = tmpRoot();
+  try {
+    const v1: Json = { ...raw, schema: "monark-site-ukemi-served-v1" };
+    delete v1.liq_verdict;
+    const refused: Array<[string, Json]> = [
+      ["a served n + 1", { ...raw, liq_verdict: { ...lv, calibration_points: lv.calibration_points + 1 } }],
+      ["a served margin + 1", { ...raw, liq_verdict: { ...lv, bound_margin_base: String(BigInt(base) + 1n) } }],
+      ["a committed v1 file (no verdict)", { ...v1, registry_state: "committed", liq_clause: LIQ_CLAUSE_OF.committed }],
+    ];
+    for (const [why, file] of refused) {
+      t.write(UKEMI_SERVED_REL, file);
+      await assert.rejects(ukemiExpected(t.root), /cannot be read/, `${why} is refused`);
+    }
+    t.write(UKEMI_SERVED_REL, { ...v1, registry_state: "empty", liq_clause: LIQ_CLAUSE_OF.empty });
+    assert.deepEqual((await ukemiExpected(t.root)).figures, [], "an empty served state has no figure");
+  } finally {
+    t.cleanup();
+  }
+});
+
+test("site_ukemi_build_check_derives_figures_apart — the build check reads the two files through their loaders, never through the page's figures module", () => {
+  const src = read("scripts/assert-fleet-html.mjs");
+  for (const f of ["ukemi-course-load.ts", "ukemi-served-load.ts"]) assert.ok(src.includes(`await import(lib("${f}"))`), `the build check imports ${f} by file URL`);
+  assert.ok(!src.includes("ukemi-served-figures"), "the build check never names the page's figures module (an error common to both would stay green)");
+});
+
+test("site_ukemi_digest_note_says_what_the_gate_returns — two answers on the committed stratum carry one calibration digest, the served one", () => {
+  const v = loadUkemiServed(ROOT).liq_verdict, cut = STRATA_CUTS_SERVED[0];
+  assert.ok(v !== null && cut !== undefined, "a dated served verdict and the first served cut");
+  const digests = [1, cut - 1].map((yhat) => {
+    assert.equal(strateOf(yhat), v.stratum, "the probe falls in the stratum of the served verdict");
+    return runGate({ schema_version: "1.0.0", task_class: TASK_LIQ_ELIGIBLE, yhat, predictor_id: "ukemi:site-copy-check", produced_at: "2026-09-24T00:00:00Z" }, LIQ_TEST_PARAMS).verdict.calib_digest;
+  });
+  assert.deepEqual(digests, [v.calibration_digest, v.calibration_digest], `the page says: ${DIGEST_NOTE}`);
 });

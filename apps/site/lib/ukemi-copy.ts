@@ -12,16 +12,19 @@
 //       injection on EACH of the four. LIQ_REQUIREMENTS_SENTENCE is DELIBERATELY OMITTED from the carried set
 //       (it says "alpha = 0.01, nMin = 100" — digits — and temps 1 is digit-free, Q-5a); the closed set is 4.
 //   (2) The EXPLANATORY PROSE (hero, is/is-not, method, limits, served-state framing). All DIGIT-FREE and
-//       ASCII (the numeric-hole scan of the rendered <main> must be 0; F-2). This is honest restatement, not
-//       the served constant: the byte-identical anchor is register (1).
+//       ASCII (the numeric-hole scan of the rendered <main> admits no number outside the closed list of figures;
+//       F-2). This is honest restatement, not the served constant: the byte-identical anchor is register (1).
 //
 // WHICH SERVED CONSTANTS RENDER: only the two DIGIT-FREE ones ride in the body —
 // LIQ_EMPTY_REGISTRY_SENTENCE (the temps-1 served state: the registry is empty ⇒ under_calib) and
 // LIQ_CONDITIONAL_SENTENCE (the "which the gate does not check" clause). LIQ_UPPER_BOUND_SENTENCE ("...is 0
 // by construction...") and LIQ_H3_SENTENCE ("...the H-3 exchangeability check...") carry DIGITS ("0", "H-3")
-// and are therefore CARRIED here but NEVER RENDERED at temps 1 — a negative carrier in the root test forbids
-// {LIQ_UPPER_BOUND_SENTENCE}/{LIQ_H3_SENTENCE} in the component. They ride only once the numbers this page may show
-// are ruled; until then a committed served state renders as LIQ_COMMITTED_STATE_NOTE, a digit-free restatement.
+// and are therefore CARRIED here but NEVER RENDERED — a negative carrier in the root test forbids
+// {LIQ_UPPER_BOUND_SENTENCE}/{LIQ_H3_SENTENCE} in the component: their numbers are outside the closed list this page
+// may show. A committed served state renders as LIQ_COMMITTED_STATE_NOTE, a digit-free restatement, then the figures
+// of the committed stratum (calibration points, bound margin, calibration digest, and the day they were read), read
+// from the two committed, hashed files by lib/ukemi-served-figures.ts, never typed: the labels that frame them here
+// carry no digit.
 
 /* ─────────────────────────── route (single source) ─────────────────────────── */
 export const UKEMI_ROUTE = "/ukemi";
@@ -111,8 +114,9 @@ export const SERVED_STATE_LEAD =
   "the honest output is a named state:";
 
 // COMMITTED served state (the switch of the class): the served clause of a committed class carries figures (the zero
-// lower edge, alpha, nMin, the H-3 name), so it is NOT rendered on this digit-free page until the numbers it may show
-// are ruled; the page says the state in the words below, never presented as the served text. /, /fleet
+// lower edge, alpha, nMin, the H-3 name) outside the closed list of numbers /ukemi may show, so it is NOT rendered; the
+// page says the state in the words below, never presented as the served text, then /ukemi shows the figures of the
+// committed stratum, read from the two committed, hashed files. /, /fleet
 // and /ukemi render it exactly while the committed, hashed, dated served-state file (apps/site/data/ukemi-served.json)
 // says "committed", the empty-registry sentence exactly while it says "empty" (root tests: site-ukemi, site-build).
 /** Digit-free framing that precedes the committed-state restatement. */
@@ -121,8 +125,24 @@ export const SERVED_COMMITTED_LEAD =
   "clause, the served state is:";
 /** Digit-free restatement of the COMMITTED served state (not a served constant): it says only what that state serves. */
 export const LIQ_COMMITTED_STATE_NOTE =
-  "where a stratum's calibration is committed, the gate serves an upper bound on the liquidable amount; on every " +
-  "other stratum it abstains (under_calib)";
+  "where a stratum's calibration is committed, the gate serves a conformal upper bound on the liquidable amount; on " +
+  "every other stratum it abstains (under_calib)";
+
+// The figures block of the committed branch (/ukemi only): these labels frame the figures of the committed stratum, which
+// lib/ukemi-served-figures.ts reads from the served verdict and the course report and the page renders by property
+// access. The labels carry no digit, so every number of that block is a figure of the closed list.
+/** Lead of the figures block; the day the served verdict was read follows it. */
+export const FIGURES_LEAD = "On the committed stratum, as read from the served gate on";
+export const FIGURE_POINTS_LABEL = "calibration points";
+export const FIGURE_MARGIN_LABEL = "bound margin";
+/** Unit of the bound margin: the course report's unit label without its decimal count (the root test binds the two). */
+export const BOUND_UNIT = "in the lending venue's oracle base currency";
+export const FIGURE_MARGIN_NOTE = "the upper bound for a prediction in this stratum is the prediction plus this margin";
+export const FIGURE_DIGEST_LABEL = "calibration digest";
+/** What the served calibration digest is: only what the gate serves with it (the root test replays two answers). */
+export const DIGEST_NOTE =
+  "The calibration digest identifies the calibration points this bound is computed from; the gate returns it with " +
+  "every answer on this stratum, so an answer can be matched to its calibration.";
 
 /** Digit-free restatement of the upper-bound method (NOT the served constant, which carries a digit). */
 export const REGION_NOTE =

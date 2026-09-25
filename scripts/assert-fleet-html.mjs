@@ -6,7 +6,7 @@
 // if fleet.html is absent (exit 1, never a skip). Node 24, built-ins only.
 //
 // EXTENDED (lot SITE-RELEASE-1 sub-lot B, voie i): the SAME main() ALSO asserts the rendered /ukemi <main>
-// body via assertUkemiBody() — digit-free numeric-hole scan + served-state/conditional-clause presence +
+// body via assertUkemiBody() — closed list of figures, no other number + served-state/conditional-clause presence +
 // interval/cascade/Bell/Aave absence. renderedBody()/assertFleetBody() are SHARED and UNCHANGED; the g3-site
 // `run:` line is unchanged (checkpoint-1 C-4). See the /ukemi extension block below.
 // EXTENDED (ADR-BELL-OTS-PRB T-B9, T-3b): the same main() asserts the Bell timestamp state of the latest published record on the
@@ -283,8 +283,9 @@ export const UKEMI_CONDITIONAL_CLAUSE = "which the gate does not check";
 
 // Numeric-hole scan — PARITY with apps/site/test/honesty-lint.ts (regexes :50-52, algorithm scanText :74-89).
 // The three regexes are RECOPIED INLINE (C-1): a rendered numeric token is a violation UNLESS it belongs to an
-// allowed identifier or an ISO date. NO exempt list here (the /ukemi <main> is digit-free WITHOUT the 01-04
-// exemption — a STRICTER contract than honesty-lint's). site_ukemi_body_scan_and_carrier proves the parity.
+// allowed identifier or an ISO date. NO exempt list here (outside its closed list of figures, read from the committed
+// files, the /ukemi <main> is digit-free WITHOUT the 01-04 exemption — a STRICTER contract than honesty-lint's).
+// site_ukemi_body_scan_and_carrier proves the parity.
 const NUMERIC_TOKEN = /\d+(?:[.,]\d+)*/g;
 const ALLOWED_ID = /\b(?:ADR-M\d+|R-\d+|CA-\d+|D\d+|HIP-\d+)\b/g;
 const ISO_DATE = /\b\d{4}-\d{2}-\d{2}\b/g;
@@ -346,32 +347,62 @@ export function mainCorpus(mainHtml) {
   return (text + " " + attrs.join(" ")).replace(/\s+/g, " ").trim();
 }
 
-/** Assert the rendered /ukemi <main> body is DIGIT-FREE and carries the served honest state + the whole
- *  conditional sentence + the named clause, and NONE of interval/cascade/Bell/Aave. Pure, built-ins only;
- *  THROWS on any failure (fail-closed). Vacuity-guarded like assertFleetBody. `expected` = the synced served state
- *  (`registryState`, "empty" | "committed", from apps/site/data/ukemi-served.json) and the DIGIT-FREE sentences from
- *  lib/ukemi-copy.ts: { registryState, emptyRegistrySentence, committedStateSentence, conditionalSentence, status }.
+/** The two parts of mainCorpus kept apart for the closed list of /ukemi (same captures): the TEXT NODES (every tag
+ *  stripped, whitespace collapsed) and the visible attribute values. A figure counts in the text only; an attribute
+ *  value only ever joins the remainder that must carry no number. */
+function mainTextAndAttrs(mainHtml) {
+  const s = String(mainHtml);
+  const attrs = [];
+  const re = /\b(?:alt|title|aria-label)\s*=\s*"([^"]*)"/gi;
+  let m;
+  while ((m = re.exec(s)) !== null) attrs.push(m[1] ?? "");
+  return { text: s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(), attrs };
+}
+
+/** An ASCII letter or digit: an occurrence of a figure is bounded when neither neighbour is one (an end counts as none). */
+const ASCII_ALNUM = /[0-9A-Za-z]/;
+/** Start index of EVERY bounded occurrence of `value` in `text` (indexOf resumed one past each start, never the first
+ *  alone). No regular expression is built from the value. */
+function boundedOccurrences(text, value) {
+  const out = [];
+  for (let i = text.indexOf(value); i !== -1; i = text.indexOf(value, i + 1)) {
+    if (!ASCII_ALNUM.test(text.charAt(i - 1)) && !ASCII_ALNUM.test(text.charAt(i + value.length))) out.push(i);
+  }
+  return out;
+}
+
+/** Assert the rendered /ukemi <main> body carries no number outside its closed list of figures, the served honest
+ *  state + the whole conditional sentence + the named clause, and NONE of interval/cascade/Bell/Aave. Pure, built-ins
+ *  only; THROWS on any failure (fail-closed). Vacuity-guarded like assertFleetBody. `expected` = the synced served state
+ *  (`registryState`, "empty" | "committed", from apps/site/data/ukemi-served.json), the DIGIT-FREE sentences from
+ *  lib/ukemi-copy.ts and the closed list of figures read from the committed files (ukemiExpected):
+ *  { registryState, emptyRegistrySentence, committedStateSentence, conditionalSentence, status, figures }.
  *  The presence rule is BOUND TO THAT STATE: its sentence rides, the other state's never. */
 export function assertUkemiBody({ html, expected }) {
   if (typeof html !== "string") throw new Error("assert-ukemi: html must be a string");
   if (expected === null || typeof expected !== "object") throw new Error("assert-ukemi: expected must be an object (vacuity guard)");
-  const { registryState, emptyRegistrySentence, committedStateSentence, conditionalSentence, status } = expected;
+  const { registryState, emptyRegistrySentence, committedStateSentence, conditionalSentence, status, figures } = expected;
   if (registryState !== "empty" && registryState !== "committed")
     throw new Error(`assert-ukemi: expected.registryState must be "empty" or "committed" (the synced served state), got ${JSON.stringify(registryState)} (fail-closed)`);
   for (const [k, v] of [["emptyRegistrySentence", emptyRegistrySentence], ["committedStateSentence", committedStateSentence], ["conditionalSentence", conditionalSentence], ["status", status]]) {
     if (typeof v !== "string" || v.trim().length === 0)
       throw new Error(`assert-ukemi: expected.${k} is empty/not-a-string (vacuity guard)`);
   }
+  // (1) the closed list: none in an empty served state; in a committed one, a non-empty list of non-blank values and
+  // sources (a value need not carry a digit: each is matched as a whole string).
+  if (!Array.isArray(figures)) throw new Error("assert-ukemi: expected.figures must be an array (vacuity guard)");
+  if (registryState === "empty" && figures.length > 0) throw new Error("assert-ukemi: an empty served state carries no figure (expected.figures must be empty)");
+  const blank = (s) => typeof s !== "string" || s.trim().length === 0;
+  if (registryState === "committed" && (figures.length === 0 || figures.some((f) => f === null || typeof f !== "object" || blank(f.value) || blank(f.source))))
+    throw new Error("assert-ukemi: expected.figures of a committed served state is empty or holds a blank value or source (vacuity guard)");
 
   const body = renderedBody(html); // SHARED, UNCHANGED (fail-closed on an unclosed <script>)
   const mainHtml = extractMain(body); // fail-closed if <main> absent/blank (isolates page body from layout, M-24)
   const corpus = mainCorpus(mainHtml);
   if (corpus.length === 0) throw new Error("assert-ukemi: <main> corpus empty after stripping (fail-closed)");
-
-  // (1) numeric-hole scan (C-1): 0 numeric tokens in the rendered <main> text + visible attrs.
-  const nums = scanNumericTokens(corpus);
-  if (nums.length)
-    throw new Error(`assert-ukemi: ${nums.length} numeric token(s) rendered in the /ukemi <main> (expected 0, digit-free): ${JSON.stringify(nums)}`);
+  const parts = mainTextAndAttrs(mainHtml);
+  if ((parts.text + " " + parts.attrs.join(" ")).replace(/\s+/g, " ").trim() !== corpus)
+    throw new Error("assert-ukemi: the text nodes and attribute values do not recompose the <main> corpus (fail-closed)");
 
   // (2) presence (byte-identical), bound to the synced served state: that state's sentence rides and the other state's
   // does not (a page that ignores the state reds on one of the two states); then the whole conditional sentence, the clause.
@@ -386,6 +417,28 @@ export function assertUkemiBody({ html, expected }) {
     throw new Error(`assert-ukemi: the served conditional sentence is absent from the /ukemi <main>: ${JSON.stringify(conditionalSentence)}`);
   if (!corpus.includes(UKEMI_CONDITIONAL_CLAUSE))
     throw new Error(`assert-ukemi: the clause ${JSON.stringify(UKEMI_CONDITIONAL_CLAUSE)} is absent from the /ukemi <main>`);
+
+  // (2b) each figure exactly once, as a bounded occurrence of the TEXT NODES (never an attribute), longest value first,
+  // each searched in the text already reduced by the longer ones, so a short value inside a longer one counts once.
+  let rest = parts.text;
+  const ordered = figures.map((f, i) => ({ f, i })).sort((a, b) => b.f.value.length - a.f.value.length || a.i - b.i);
+  for (const { f } of ordered) {
+    const hits = boundedOccurrences(rest, f.value);
+    if (hits.length !== 1)
+      throw new Error(`assert-ukemi: the figure ${JSON.stringify(f.value)} (${f.source}) occurs ${String(hits.length)} time(s) as a bounded occurrence in the text of the /ukemi <main> (expected exactly once)`);
+    rest = rest.slice(0, hits[0]) + " " + rest.slice(hits[0] + f.value.length);
+  }
+  // (2c) no other number: the reduced text and the visible attribute values carry no numeric token. Two forms the scan
+  // cannot read are refused first (fail-closed). An angle bracket written as an entity is decoded BEFORE the tags are
+  // stripped, so the strip swallows the text after it: a number inside "&lt;...&gt;", or after a "&lt;", is never
+  // scanned. A number written with non-ASCII digits (full-width, superscript) escapes \d. The /ukemi <main> has neither.
+  if (/&(?:lt|gt|#0*6[02]|#x0*3[ce]);/i.test(extractMain(stripHiddenSurfaces(String(html)))))
+    throw new Error("assert-ukemi: an angle bracket written as an entity in the /ukemi <main> would hide the text after it from the numeric scan (fail-closed)");
+  if (/(?![0-9])\p{N}/u.test(corpus))
+    throw new Error("assert-ukemi: a number written with non-ASCII digits in the /ukemi <main> escapes the numeric scan (fail-closed)");
+  const nums = scanNumericTokens(rest + " " + parts.attrs.join(" "));
+  if (nums.length)
+    throw new Error(`assert-ukemi: ${nums.length} numeric token(s) rendered in the /ukemi <main> outside the closed list of figures: ${JSON.stringify(nums)}`);
 
   // (3) absence: interval (substring, A-9) + cascade/Bell/Aave (word-bounded) — over-revendication / wrong surface.
   if (corpus.toLowerCase().includes("interval"))
@@ -405,22 +458,52 @@ export function assertUkemiBody({ html, expected }) {
   if (!corpus.includes(pillCarrier))
     throw new Error(`assert-ukemi: the /ukemi <main> pill does not carry the registry status (expected carrier ${JSON.stringify(pillCarrier)}) — a flipped pill value (mutant X5)`);
 
-  return { mainChars: mainHtml.length, corpusChars: corpus.length, numericTokens: nums.length, status, registryState };
+  const figureTokens = figures.reduce((n, f) => n + scanNumericTokens(f.value).length, 0);
+  return { mainChars: mainHtml.length, corpusChars: corpus.length, numericTokens: nums.length, figures: figures.length, figureTokens, status, registryState };
+}
+
+/** The closed list of figures /ukemi may render for the served state, computed apart from the page's figures module:
+ *  n from the course report, the bound margin from the served integer (the course loader's exact 8-decimal rendering),
+ *  the digest and the day from the served-state file; none while the registry is empty. Throws on a committed state
+ *  without a served verdict, a served stratum absent from the report or below its floor, or calibration points or a
+ *  bound margin on which the two files disagree. */
+function ukemiFigures(served, course, decimal8Of) {
+  if (served.registry_state === "empty") return [];
+  const fail = (msg) => {
+    throw new Error(`assert-ukemi: ${msg}; the figures of /ukemi cannot be read (fail-closed)`);
+  };
+  const v = served.liq_verdict;
+  if (v === null) fail("the committed served state carries no served verdict (a v1 file)");
+  const x = course.strata.find((s) => s.stratum === v.stratum);
+  if (x === undefined || !x.meets_floor) fail(`the served stratum ${String(v.stratum)} is absent from the course report or below its floor`);
+  if (x.n !== v.calibration_points) fail("the served calibration points are not the course report's count");
+  if (v.bound_margin_base === null || v.bound_margin_base !== x.bound_margin_base) fail("the served bound margin is not the course report's");
+  return [
+    { value: String(x.n), source: `ukemi-course.json h3.strata[${String(v.stratum)}].fresh.n` },
+    { value: decimal8Of(v.bound_margin_base), source: "ukemi-served.json liq_verdict.bound_margin_base, in 8 decimals" },
+    { value: v.calibration_digest, source: "ukemi-served.json liq_verdict.calibration_digest" },
+    { value: served.read_at.slice(0, 10), source: "ukemi-served.json read_at, its day" },
+  ];
 }
 
 /** What main() asserts on the built /ukemi page, read from the site's own modules (never typed here): the synced served
  *  state through the page's own fail-closed loader (lib/ukemi-served-load.ts) on `dataRoot`, the state sentences and the
- *  conditional sentence (lib/ukemi-copy.ts), the pill status (lib/fleet.ts). Throws fail-closed. */
+ *  conditional sentence (lib/ukemi-copy.ts), the pill status (lib/fleet.ts), and the closed list of figures from the
+ *  served-state file and the course report (lib/ukemi-course-load.ts), both through their fail-closed loaders. Throws
+ *  fail-closed. */
 export async function ukemiExpected(dataRoot = REPO_ROOT) {
   const lib = (f) => pathToFileURL(join(REPO_ROOT, "apps", "site", "lib", f)).href;
   const { LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_COMMITTED_STATE_NOTE, LIQ_CONDITIONAL_SENTENCE } = await import(lib("ukemi-copy.ts"));
   const { loadUkemiServed } = await import(lib("ukemi-served-load.ts"));
+  const { loadUkemiCourse, decimal8Of } = await import(lib("ukemi-course-load.ts"));
   const { FLEET_AGENTS } = await import(lib("fleet.ts"));
   const ukemiAgent = FLEET_AGENTS.find((a) => a.name === "Ukemi");
   if (!ukemiAgent) throw new Error("assert-ukemi: 'Ukemi' absent from FLEET_AGENTS (lib/fleet.ts); cannot derive the /ukemi pill status (fail-closed)");
+  const served = loadUkemiServed(dataRoot);
   return {
-    registryState: loadUkemiServed(dataRoot).registry_state, emptyRegistrySentence: LIQ_EMPTY_REGISTRY_SENTENCE,
+    registryState: served.registry_state, emptyRegistrySentence: LIQ_EMPTY_REGISTRY_SENTENCE,
     committedStateSentence: LIQ_COMMITTED_STATE_NOTE, conditionalSentence: LIQ_CONDITIONAL_SENTENCE, status: ukemiAgent.status,
+    figures: ukemiFigures(served, loadUkemiCourse(dataRoot), decimal8Of),
   };
 }
 
@@ -509,7 +592,7 @@ async function main() {
   // state from the page's own loader: ukemiExpected() (fail-closed if Ukemi is absent or the served-state file fails).
   try {
     const r = assertUkemiBody({ html: readFileSync(ukemiAbs, "utf8"), expected: await ukemiExpected() });
-    console.log(`assert-fleet-html OK — /ukemi <main> digit-free (${r.numericTokens} numeric tokens), ${r.registryState}-state sentence (synced served state) + conditional clause present, pill carries registry status ${JSON.stringify(r.status)}, no interval/cascade/Bell/Aave (${r.corpusChars} corpus chars).`);
+    console.log(`assert-fleet-html OK — /ukemi <main>: ${String(r.figures)} figure(s) of the closed list, ${String(r.numericTokens)} numeric token outside it; ${r.registryState}-state sentence (synced served state) + conditional clause present, pill carries registry status ${JSON.stringify(r.status)}, no interval/cascade/Bell/Aave (${r.corpusChars} corpus chars, ${String(r.figureTokens)} numeric token(s) carried by the figures).`);
   } catch (e) {
     console.error(String(e instanceof Error ? e.message : e));
     process.exit(1);
