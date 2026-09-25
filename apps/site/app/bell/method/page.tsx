@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PRODUCTS } from "@/lib/fleet";
-import { ANCHORS_ROUTE, loadAnchors } from "@/lib/bell-anchors-load";
+import { ANCHORS_ROUTE, loadAnchors, loadPublications } from "@/lib/bell-anchors-load";
+import { publicationAnchorState, publicationAnchorSentence } from "@/lib/bell-anchors";
 import {
   BELL_SESSION_BOUNDS_ET as B,
   BELL_CALENDAR,
@@ -44,7 +45,9 @@ export const metadata: Metadata = {
 // served gap rows or the publisher's closed list, the collector revision) is READ from apps/site/data/bell-served.json
 // (lib/bell-served-load.ts); values that do not exist yet are named placeholders; sentences that need a path not served
 // yet are in the future tense. Section ordinals are words, not digits. The volume-ratio formula is restated in the words of
-// this page (lib/bell-method.ts), pinned clause by clause to the served string.
+// this page (lib/bell-method.ts), pinned clause by clause to the served string. The latest published record's timestamp state is derived
+// from the bound publication rows (publicationAnchorState) and worded once (publicationAnchorSentence); the manifest keys shown are read
+// from the served manifest.
 /** A run's served counter for a residual code; a code without a counter throws (never a default count). */
 function countOf(run: BellServedRun, code: string): number {
   const n = run.residuals[code];
@@ -103,7 +106,8 @@ export default function BellMethodPage() {
   const listed = new Set(BELL_RESIDUAL_CODES_LISTED);
   for (const run of runs) for (const code of Object.keys(run.residuals)) if (!listed.has(code)) throw new Error(`bell method page: served residual ${code} is not in the page's list`);
   const key = served.keyring.keys.find((k) => k.key_id === head.key_id);
-  const anchored = [head.state_sha256, ...runs.map((r) => r.bell_sha)].some((d) => anchors.listedDigests.includes(d));
+  const pubs = loadPublications(served.lines), anchorState = publicationAnchorState(served.head, served.lines, pubs.bound), keyed = pubs.bound[pubs.bound.length - 1];
+  const [prefixKey, lineKey] = (keyed?.entries ?? []).map((e) => e.relpath).filter((r) => r.startsWith("timeline.jsonl#"));
   const symbols = [...new Set(runs.flatMap((r) => r.records.map((x) => x.symbol)))];
   const ss = served.served_schema;
   const schemaText = [
@@ -391,10 +395,8 @@ exceeds(θ) = | VWAP_share − P_close | / P_close > θ`}</pre>
                 <b>Manifests.</b> At each start, end and resumption of the counter-verification run of the multiplier history, a
                 manifest lists the run&rsquo;s artifacts with their hashes, sorted, one per line; the manifest is what gets
                 anchored (see{" "}
-                <a href="#anchors">anchors</a>).{" "}
-                {anchored
-                  ? "An anchor manifest lists the latest published record's digests."
-                  : "No anchor manifest lists the latest published record's digests: it is signed and chained, not timestamp-anchored."}
+                <a href="#anchors">anchors</a>). The latest published record&rsquo;s timestamp status is stated under anchors, below; it
+                is read from the proof file when one is served.
               </li>
             </ol>
           </div>
@@ -469,7 +471,7 @@ exceeds(θ) = | VWAP_share − P_close | / P_close > θ`}</pre>
       </section>
 
       <section className="c-section" id="anchors" aria-labelledby="l-anchors">
-        <span className="c-label" id="l-anchors">anchors · public timestamps of the run&rsquo;s manifests</span>
+        <span className="c-label" id="l-anchors">anchors · public timestamps of the run&rsquo;s manifests and of the published records</span>
         <div className="c-grid c-grid--2">
           <div className="c-card">
             <h2 className="c-h2">What is anchored, and when</h2>
@@ -487,11 +489,7 @@ exceeds(θ) = | VWAP_share − P_close | / P_close > θ`}</pre>
               <dt>proofs with a Bitcoin record</dt>
               <dd>{anchors.withBitcoin} of {anchors.proofs}, read from the proof files when this page was built</dd>
               <dt>the latest published record</dt>
-              <dd>
-                {anchored
-                  ? "its digests are listed in an anchor manifest"
-                  : "no anchor manifest lists its digests: it is signed and chained, not timestamp-anchored"}
-              </dd>
+              <dd>{publicationAnchorSentence(anchorState)}</dd>
             </dl>
           </div>
           <div className="c-card">
@@ -503,6 +501,36 @@ exceeds(θ) = | VWAP_share − P_close | / P_close > θ`}</pre>
               <li>Where a ledger is published (<span className="c-tag c-tag--next">to be published</span>), recompute the digests of the artifacts the manifest lists, and re-pull one page from the chain to compare.</li>
               <li>Bound: an anchor shows the log head existed before that block. It does not show where the pages came from, nor that the scan ran. The commit is a second, weaker witness.</li>
             </ol>
+          </div>
+          <div className="c-card">
+            <h2 className="c-h2">Anchors of published records</h2>
+            <p className="c-muted">
+              For each timestamped line of the timeline, a manifest lists the line&rsquo;s hash, the hash of the timeline up to that line
+              and, for a publication, the digests of the two files the line names. The manifest&rsquo;s SHA-256 is submitted to
+              OpenTimestamps. The proof is pending first; once a calendar has included it in a Bitcoin block, the proof file records that
+              block.
+            </p>
+            <p className="c-muted">
+              <b>Check one yourself.</b> Download the manifest and its proof. Hash line n of the timeline without its line feed: it must
+              equal the manifest&rsquo;s line digest. Hash the first n lines with their line feeds: it must equal the manifest&rsquo;s prefix
+              digest. Hash the manifest: it must equal the digest the proof carries. Run an open OpenTimestamps client on the proof against
+              a Bitcoin node of your choice: it names the block before which the manifest existed. No MONARK account, key or software is
+              needed for that check; the files are public, any copy serves. The signature check is a separate step.
+            </p>
+            <p className="c-muted">
+              <b>Bound.</b> An anchor shows that the line, and every line before it, existed before that block. It does not show that the
+              facts are true, when the record was published, when its data was collected, or that no other line was ever timestamped. A
+              pending proof depends on a calendar until it records a block.
+            </p>
+            <p className="c-muted">
+              In a manifest, the line key hashes that one line without its line feed: its digest is the line&rsquo;s hash. The prefix key
+              hashes every line from the first to that one, each with its line feed.
+              {keyed !== undefined && lineKey !== undefined && prefixKey !== undefined ? (
+                <>
+                  {" "}The served manifest of line {keyed.row.seq} carries <code>{lineKey}</code> and <code>{prefixKey}</code>.
+                </>
+              ) : null}
+            </p>
           </div>
         </div>
       </section>
@@ -577,7 +605,7 @@ exceeds(θ) = | VWAP_share − P_close | / P_close > θ`}</pre>
             <span className="c-mono">{rev.commit.slice(0, 7)}</span>
           </dd>
           <dt>contact</dt>
-          <dd><BellContact /></dd>
+          <dd><BellContact href="/bell#request-a-symbol" /></dd>
         </dl>
       </section>
     </main>

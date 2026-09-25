@@ -59,3 +59,21 @@ export function assertUkemiBody(args: {
 /** What main() asserts on the built /ukemi page: the served state of the served-state file under `dataRoot` (default the
  *  repo root) through the page's own loader, the sentences of lib/ukemi-copy.ts, the pill status of lib/fleet.ts. */
 export function ukemiExpected(dataRoot?: string): Promise<UkemiExpected>;
+
+/* ── Bell: the timestamp state of the latest published record (T-3b) ── */
+/** The built pages that state it, the verification page (states none), the anchors page (the publications table). */
+export const BELL_STATE_PAGES_REL: string[];
+export const BELL_VERIFY_REL: string;
+export const BELL_ANCHORS_REL: string;
+/** A fragment each state's sentence carries and no other state's does. */
+export const BELL_STATE_PRIMERS: { none: string; pending: string; anchored: string };
+/** The two D8 clauses an anchored sentence must carry, as literals of the script. */
+export const BELL_ANCHORED_CLAUSES: string[];
+/** The counts line of the publications section, recomputed from each row's status (null: no proof). */
+export function bellCountsText(statuses: ReadonlyArray<{ bitcoinHeights: number[]; pendingCalendars: string[] } | null>): string;
+/** Assert the rendered <main> carries the sentence of `state` and no other state's primer (state null: none at all); throws on failure. */
+export function assertBellAnchorBody(args: { html: string; state: "none" | "pending" | "anchored" | null; sentence: string | null }): { state: string | null; corpusChars: number };
+/** The status label and detail the anchors tables render for a row, recomputed from the proof's status. */
+export function bellStatusText(status: { bitcoinHeights: number[]; pendingCalendars: string[] } | null): { label: string; detail: string };
+/** Assert each publication row renders its status label and detail beside its manifest digest, and the latest-anchored line; throws. */
+export function assertBellPublicationsTable(args: { html: string; rows: ReadonlyArray<{ manifest_sha256: string; label: string; detail: string }>; latest: string; counts: string }): { rows: number };

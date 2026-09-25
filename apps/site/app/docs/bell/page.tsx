@@ -3,14 +3,16 @@ import Link from "next/link";
 import { PRODUCTS } from "@/lib/fleet";
 import { BELL_SESSION_BOUNDS_ET, BELL_RESIDUAL_CODES_LISTED, BELL_PUBLIC_REPO_URL } from "@/lib/bell-method";
 import { loadBellServed, bellServedRepoRoot, BELL_HOST, BELL_TIMELINE_PATH, BELL_PUBKEY_PATH, BELL_STATE_PATH, BELL_PROVENANCE_PATH } from "@/lib/bell-served-load";
-import { loadAnchors, ANCHORS_ROUTE } from "@/lib/bell-anchors-load";
+import { loadAnchors, loadPublications, ANCHORS_ROUTE } from "@/lib/bell-anchors-load";
+import { publicationAnchorState, publicationAnchorSentence } from "@/lib/bell-anchors";
 import { DocHeader, StatusPill, Toc, DocSection, Figure, Callout, JsonBlock, Cite, RefList, PrevNext } from "@/components/docs/doc-kit";
 import { BellDaySchema, BellPipelineSchema, CashLegSchema, BellChainSchema } from "@/components/docs/schemas/bell";
 
 // /docs/bell (server component). MONARK Bell's status, function, wiring and served note are read from the fleet register;
 // the session bounds from lib/bell-method.ts (pinned to the collector by a root test); every served fact (the lines, the key,
 // the runs of the latest record, their sessions and residuals) from the committed, hashed copy of what the Bell host serves
-// (apps/site/data/bell-served.json, fail-closed loader); the anchors from the served anchors register. No value is typed.
+// (apps/site/data/bell-served.json, fail-closed loader); the anchors from the served anchors register, and the latest record's timestamp
+// state from the bound publication rows, in the one wording /bell renders (publicationAnchorSentence). No value is typed.
 export const metadata: Metadata = {
   title: "MONARK Bell · Docs · MONARK",
   description:
@@ -28,7 +30,7 @@ export default function DocsBellPage() {
   const withGap = sessions.filter((s) => s.gT !== null);
   const symbols = [...new Set(runs.flatMap((r) => r.records.map((x) => x.symbol)))];
   const key = served.keyring.keys.find((k) => k.key_id === head.key_id);
-  const anchored = [head.state_sha256, ...runs.map((r) => r.bell_sha)].some((d) => anchors.listedDigests.includes(d));
+  const anchorState = publicationAnchorState(served.head, served.lines, loadPublications(served.lines).bound);
   const firstRun = runs[0];
   const firstSession = firstRun?.sessions[0];
   // The example row without its on-chain price and volume: the documentation prints no market value (the Bell page prints them).
@@ -199,11 +201,10 @@ export default function DocsBellPage() {
           <dd>
             {anchors.rows.length} lines in the anchors register, {anchors.withBitcoin} of {anchors.proofs} proofs carrying a Bitcoin block
             record; they timestamp the manifests of the counter-verification run of the multiplier history.{" "}
-            {anchored
-              ? "An anchor manifest lists the latest record's digests."
-              : "No anchor manifest lists the latest record's digests: it is signed and chained, not timestamp-anchored yet."}{" "}
             <Link href={ANCHORS_ROUTE}>The register</Link>.
           </dd>
+          <dt>the latest record&rsquo;s timestamp anchor</dt>
+          <dd>{publicationAnchorSentence(anchorState)}</dd>
         </dl>
       </DocSection>
 

@@ -1,5 +1,6 @@
 // scripts/sync-bell-served.mjs — write apps/site/data/bell-served.json from the files the Bell host SERVES (lot
-// BELL-SERVED-1, v3: every run of the LATEST publication). Node 24, built-ins + the publisher's own modules only. SOURCE-REPO
+// BELL-SERVED-1; v4, ADR-BELL-OTS-PRB D-B2: every run of the LATEST publication, and lines[], the facts of every walked line, which
+// scripts/sync-bell-anchors.mjs binds each anchor row to). Node 24, built-ins + the publisher's own modules only. SOURCE-REPO
 // tool (not exported, like scripts/sync-bell-anchors.mjs); run by the orchestrator BEFORE a storefront build, AFTER the deploy
 // check of the same bodies is committed (docs/deploy-CA-bell.json):  node scripts/sync-bell-served.mjs
 //
@@ -14,8 +15,9 @@
 // state is read at its immutable address, the deploy check must have been captured on these same bodies. It copies no
 // consolidated-volume ratio value, no provider label, no proof-of-reserves method or note, and no key. FAIL-CLOSED: any
 // check that does not hold exits 1 and writes nothing.
-// Output: LF, two-space JSON; it prints the CRLF->LF sha256 to set in apps/site/data/manifest.sha256.json (and to re-pin in
-// test/bell-served.test.ts).
+// Output: LF, two-space JSON; it sets the CRLF->LF sha256 of that file as its entry of apps/site/data/manifest.sha256.json, every
+// other byte kept (setManifestEntry, SYNC-MANIFEST-WRITE-1), and prints it to re-pin in test/bell-served.test.ts. Run it BEFORE
+// scripts/sync-bell-anchors.mjs, which refuses an anchor row beyond lines[].
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { createHash } from "node:crypto";
@@ -27,6 +29,7 @@ import { WHITELIST } from "../apps/bell/scripts/bell-publish.mjs";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const BELL_HOST = "https://bell.monarkgate.tech";
 export const OUT_REL = "apps/site/data/bell-served.json";
+const MANIFEST_REL = "apps/site/data/manifest.sha256.json";
 const KEYRING_REL = "apps/bell/keys/bell-keyring.json";
 const DEPLOY_CHECK_REL = "docs/deploy-CA-bell.json";
 const COLLECTOR_SRC = "apps/bell/src";
@@ -54,7 +57,7 @@ function immutableAddresses(timeline) {
 }
 
 async function main() {
-  const { buildBellServed } = await import(pathToFileURL(join(ROOT, "apps", "site", "lib", "bell-served-load.ts")).href);
+  const { buildBellServed, setManifestEntry } = await import(pathToFileURL(join(ROOT, "apps", "site", "lib", "bell-served-load.ts")).href);
   const timeline = await get("/timeline.jsonl");
   const pubkey = await get("/bell/pubkey.json");
   const state = await get("/state.json");
@@ -65,7 +68,7 @@ async function main() {
   const readAt = new Date().toISOString();
   const [commit, committed] = execFileSync("git", ["log", "-1", "--format=%H%n%cI", "--", COLLECTOR_SRC], { cwd: ROOT, encoding: "utf8" }).trim().split("\n");
   if (!/^[0-9a-f]{40}$/.test(commit ?? "") || committed === undefined || Number.isNaN(Date.parse(committed))) fail(`no commit found for ${COLLECTOR_SRC}`);
-  let out;
+  let out, text, sha, manifest;
   try {
     out = buildBellServed({
       readAt, timeline, pubkey, state, provenance, headStateImmutable, firstStateImmutable,
@@ -74,12 +77,15 @@ async function main() {
       collectorRevision: { commit, committed_at: new Date(committed).toISOString() },
       whitelist: WHITELIST,
     }, { walkTimeline, trustOf, lineHash });
+    text = JSON.stringify(out, null, 2) + "\n";
+    sha = sha256(Buffer.from(text.replace(/\r\n/g, "\n"), "utf8"));
+    manifest = setManifestEntry(readFileSync(join(ROOT, MANIFEST_REL), "utf8"), OUT_REL, sha); // checked before either write
   } catch (e) {
     fail(e instanceof Error ? e.message : String(e));
   }
-  const text = JSON.stringify(out, null, 2) + "\n";
   writeFileSync(join(ROOT, OUT_REL), text);
-  console.log(`sync-bell-served OK — ${OUT_REL} written (head seq ${String(out.head.seq)}, ${String(out.head.runs.length)} run(s), first record seq ${String(out.first_record.seq)}); manifest sha256 (CRLF->LF): ${sha256(Buffer.from(text.replace(/\r\n/g, "\n"), "utf8"))}`);
+  writeFileSync(join(ROOT, MANIFEST_REL), manifest);
+  console.log(`sync-bell-served OK — ${OUT_REL} written (head seq ${String(out.head.seq)}, ${String(out.head.runs.length)} run(s), ${String(out.lines.length)} line(s), first record seq ${String(out.first_record.seq)}); its ${MANIFEST_REL} entry set to ${sha} (CRLF->LF): re-pin PINNED_FILE_SHA256 in test/bell-served.test.ts`);
 }
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) await main();

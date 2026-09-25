@@ -37,6 +37,7 @@ import {
   shiftDecimal,
   sessionRowsOf,
   abstentionsOf,
+  setManifestEntry,
   BELL_SERVED_REL,
   BELL_HOST,
   BELL_GENESIS,
@@ -64,7 +65,8 @@ const CHAIN = { walkTimeline, trustOf, lineHash };
 
 // Pins: written by scripts/sync-bell-served.mjs from the served host at 2026-09-24T02:00:59Z (read_at in the file); the first
 // line's facts re-hashed independently by the reader-side verifier (bell-verify.mjs, lines 1, head_seq 1) before this lot.
-const PINNED_FILE_SHA256 = "d93c687862e59a0efe763d77f9160c09ebb5b42edabe2a0e01932261bfbd4025";
+// v4 (ADR-BELL-OTS-PRB D-B12): the sync now writes the manifest entry itself; this pin is re-set to the sha256 it prints.
+const PINNED_FILE_SHA256 = "8bf1424bc988689458dac1902cb443d7d395141e8969afc27672ab16de309f53";
 const PINNED_FIRST = {
   seq: 1,
   kind: "publication",
@@ -81,6 +83,20 @@ test("bell_served_data_is_listed_and_hash_pinned", () => {
   const manifest = readJson<{ files: Record<string, string> }>(MANIFEST_REL);
   assert.equal(manifest.files[BELL_SERVED_REL], shaLf(BELL_SERVED_REL), "manifest entry must equal the file's CRLF->LF sha256");
   assert.equal(shaLf(BELL_SERVED_REL), PINNED_FILE_SHA256, "bell-served.json changed: re-run scripts/sync-bell-served.mjs AND re-pin here");
+});
+
+// SYNC-MANIFEST-WRITE-1 (for this sync only): the sync sets its own entry of the site manifest; on an in-memory copy, only that value changes.
+test("bell_served_sync_sets_its_manifest_entry_only", () => {
+  const text = readFileSync(join(ROOT, MANIFEST_REL), "utf8"), files = readJson<{ files: Record<string, string> }>(MANIFEST_REL).files, next = "a".repeat(64);
+  const out = setManifestEntry(text, BELL_SERVED_REL, next);
+  assert.equal(out, text.replace(`"${BELL_SERVED_REL}": "${files[BELL_SERVED_REL] ?? "?"}"`, `"${BELL_SERVED_REL}": "${next}"`), "every other byte is kept");
+  assert.deepEqual(JSON.parse(out), { ...(JSON.parse(text) as object), files: { ...files, [BELL_SERVED_REL]: next } });
+  for (const [t, rel, v, why] of [[text, "apps/site/data/absent.json", next, "an unlisted file"], [text + text, BELL_SERVED_REL, next, "a file listed twice"], [text, BELL_SERVED_REL, "0xz", "a value that is not a sha256"]] as const) {
+    assert.throws(() => setManifestEntry(t, rel, v), /does not list/, `${why} is refused, nothing added`);
+  }
+  const sync = readFileSync(join(ROOT, "scripts", "sync-bell-served.mjs"), "utf8");
+  assert.match(sync, /manifest = setManifestEntry\(readFileSync\(join\(ROOT, MANIFEST_REL\), "utf8"\), OUT_REL, sha\);/, "the sync computes the entry before any write");
+  assert.match(sync, /writeFileSync\(join\(ROOT, OUT_REL\), text\);\n\s+writeFileSync\(join\(ROOT, MANIFEST_REL\), manifest\);/, "and writes it with the file");
 });
 
 test("bell_served_first_record_and_latest_publication_pinned", () => {
@@ -100,6 +116,10 @@ test("bell_served_first_record_and_latest_publication_pinned", () => {
   assert.equal(d.head.prev_line_hash, PINNED_FIRST.line_hash, "seq 2 chains from seq 1");
   assert.equal(d.head.state_sha256, "4564701add6e4231a67912ef45c7db640cd76dfe88302a96bc0e7722090508b9");
   assert.equal(d.head.provenance_sha256, "ad8dd9b023bdfafade328d7ada5d17ae53d0de2133fcdf808237409d136fc39b");
+  // lines[] (v4) = the facts of both served lines, pinned through the two pinned lines above (ADR-BELL-OTS-PRB §1.1, re-derived offline
+  // from the durable mirror copy of the timeline, sha256 fba1824d…d28b, in the lot's G1).
+  assert.deepEqual(d.lines, [d.first_record, d.head].map((l) => ({ seq: l.seq, kind: "publication", line_hash: l.line_hash, prev_line_hash: l.prev_line_hash,
+    state_sha256: l.state_sha256, provenance_sha256: l.provenance_sha256 })), "lines[] carries the first record and the head, in order, and nothing else");
   assert.deepEqual(d.head.runs.map((r) => r.bell_sha), [
     "502720e32861c74d4d149a07a3375e61cd10868244401a8fc7faf1fae7f592c4",
     "5fbb856db73eed59b95524f4ab508e311f56f5989c463d5c57eba8e781ce270b",
@@ -140,7 +160,7 @@ test("bell_served_collector_revision_is_a_collector_commit", () => {
 
 // Every path of a number in the file (array indices as []): counts, instants, identifiers — never a market value.
 const NUMBER_PATHS = new Set([
-  "timeline.lines", "timeline.publications", "first_record.seq", "head.seq",
+  "timeline.lines", "timeline.publications", "lines[].seq", "first_record.seq", "head.seq",
   "head.runs[].window.from_utc_ms", "head.runs[].window.to_utc_ms",
   "head.runs[].records[].n_fills", "head.runs[].records[].sessions",
   ...RESIDUAL_CODES.map((c) => `head.runs[].residuals.${c}`),
@@ -156,7 +176,8 @@ const NUMBER_PATHS = new Set([
 const FORBIDDEN_KEYS = new Set(["vol_ratio", "provider", "providers", "method", "note", "statement", "close_source", "adv_source", "jwk", "x", "d"]);
 // Provider and third-party forms (the audit list): never on the data file or on a Bell storefront source.
 const PROVIDER_FORMS = [/\bmassive\b/i, /databento/i, /polygon/i, /POLYGON_API_KEY/, /helius/i, /chainstack/i, /tenderly/i, /drpc/i, /chainlink/i, /network firm/i, /hostinger/i, /\bpocket\b/i];
-const SCANNED = [BELL_SERVED_REL, ...PAGES, "apps/site/app/bell/anchors/page.tsx", "apps/site/components/bell/anchors-table.tsx", "apps/site/lib/bell-served-load.ts", "apps/site/lib/bell-method.ts", "apps/site/lib/bell-anchors-load.ts"];
+const SCANNED = [BELL_SERVED_REL, ...PAGES, "apps/site/app/bell/anchors/page.tsx", "apps/site/components/bell/anchors-table.tsx", "apps/site/lib/bell-served-load.ts", "apps/site/lib/bell-method.ts", "apps/site/lib/bell-anchors-load.ts",
+  "apps/site/components/bell/publication-anchors-table.tsx", "apps/site/lib/bell-publications-load.ts", "apps/site/public/bell/anchors/publications.json"];
 
 function walkJson(v: unknown, path: string, onNumber: (p: string) => void, onKey: (k: string, p: string) => void): void {
   if (typeof v === "number") onNumber(path);
@@ -238,6 +259,25 @@ test("bell_served_loader_is_fail_closed", () => {
     assert.throws(() => loadBellServed(tmp, RESIDUAL_CODES), /closed list/, "a run that does not count every residual code throws");
     put(JSON.stringify({ ...d, extra: 1 }), true);
     assert.throws(() => loadBellServed(tmp), /exactly/, "an extra top-level key throws");
+    // lines[] (v4): each mutant is hashed into the manifest, so only the loader's own checks refuse it (L-2..L-8; L-1 is in the build test).
+    type Line = Record<string, unknown>;
+    const L = (d as unknown as { lines: Line[] }).lines, tl = d.timeline as Record<string, unknown>, at1 = (f: (l: Line) => Line): Line[] => L.map((l, i) => (i === 1 ? f(l) : l));
+    const third = { seq: 3, kind: "publication", line_hash: "c".repeat(64), prev_line_hash: L[1]?.line_hash, state_sha256: "d".repeat(64), provenance_sha256: "e".repeat(64) };
+    const noState = (l: Line): Line => Object.fromEntries(Object.entries(l).filter(([k]) => k !== "state_sha256"));
+    for (const [lines, timeline, re, why] of [
+      [at1((l) => ({ ...l, prev_line_hash: "0".repeat(64) })), tl, /lines\[1\] is not chained/, "L-2 a prev_line_hash that is not the line_hash before it"],
+      [at1((l) => ({ ...l, seq: 3 })), tl, /lines\[1\] must be line 2/, "L-3 a gap in seq"],
+      [at1((l) => ({ seq: 2, kind: "note", line_hash: l.line_hash, prev_line_hash: l.prev_line_hash })), tl, /lines\[1\] must be line 2, of a closed kind/, "L-3 bis a kind outside the closed list"],
+      [at1((l) => ({ ...l, line_hash: "a".repeat(64) })), tl, /facts of the first record and of the head/, "L-4 the head's line_hash differs"],
+      [at1(noState), tl, /lines\[1\] must carry exactly/, "L-5 a publication without state_sha256"],
+      [at1((l) => ({ ...l, kind: "key_rotation" })), tl, /lines\[1\] must carry exactly/, "L-6 a key line with state_sha256"],
+      [[...L, third], { ...tl, lines: 3, publications: 3 }, /publication line follows the head/, "L-7 a publication after the head"],
+      [L, { ...tl, lines: 3 }, /count the timeline's lines/, "L-8 fewer lines than the timeline counts"],
+      [L, { ...tl, publications: 1 }, /count the timeline's lines and publications/, "L-8 bis more publication lines than the timeline counts"],
+    ] as const) {
+      put(JSON.stringify({ ...d, timeline, lines }), true);
+      assert.throws(() => loadBellServed(tmp), re, `${why} throws even when hashed`);
+    }
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -315,6 +355,7 @@ interface Built {
   first_record: { seq: number; line_hash: string; symbols: string[] };
   head: { seq: number; line_hash: string; prev_line_hash: string; runs: Array<{ bell_sha: string; records: Array<{ symbol: string; quorum_coverage: string | null }>; volume: Array<Record<string, unknown>>; por: Array<Record<string, unknown>>; provenance: { faults: Array<{ status: string; ledger_operator: boolean }>; cash_request_digest: string | null } }> };
   timeline: { lines: number; publications: number };
+  lines: unknown[];
   served_schema: { objects: unknown };
 }
 
@@ -326,6 +367,8 @@ test("bell_served_build_binds_the_latest_publication_not_the_first", () => {
   const out = buildBellServed(f.input, CHAIN) as unknown as Built;
   assert.equal(out.timeline.lines, 2);
   assert.equal(out.timeline.publications, 2);
+  // L-1: lines[] = the facts of every walked line, recomputed here from the signed fixture lines (state and provenance: publications only).
+  assert.deepEqual(out.lines, f.lines.map((l) => ({ seq: l.seq, kind: l.kind, line_hash: lineHash(l), prev_line_hash: l.prev_line_hash, state_sha256: l.state_sha256, provenance_sha256: l.provenance_sha256 })), "lines[] equals a recomputation");
   assert.equal(out.first_record.seq, 1);
   assert.equal(out.first_record.line_hash, lineHash(first));
   assert.deepEqual(out.first_record.symbols, ["TSLAx"]);
@@ -427,7 +470,7 @@ test("bell_pages_render_served_values_never_typed", () => {
   const method = readFileSync(join(ROOT, PAGES[1] ?? ""), "utf8");
   assert.match(bell, /bellStatePathOf\(head\.state_sha256\)/, "/bell links the immutable state by its loaded digest");
   assert.match(bell, /head\.runs|runs\.map\(\(run\) =>/, "/bell renders every run of the latest publication");
-  assert.match(bell, /anchors\.listedDigests/, "/bell derives the anchoring of the latest record from the served manifests");
+  assert.match(bell, /publicationAnchorState\(served\.head, served\.lines, /, "/bell derives the latest record's timestamp state from the bound publication rows");
   assert.match(method, /r\.bell_sha/, "/bell/method renders the published digests by property access (B02)");
   assert.match(method, /thresholdsOf\(/, "/bell/method derives the thresholds from the served schema (B22)");
   assert.match(method, /\{schemaText\}/, "/bell/method renders the served schema block (B21)");

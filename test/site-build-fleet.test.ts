@@ -997,7 +997,10 @@ test("register_bell_fn_and_narabi_note_say_what_is_served — Bell's function en
     assert.doesNotMatch(s, /anchored digest/i, `the register says "anchored digest": ${s}`);
     assert.doesNotMatch(s, /byte-exact/i, `the register says "byte-exact": ${s}`);
   }
-  assert.ok(read("apps/site/app/bell/page.tsx").includes("not timestamp-anchored"), "/bell says signed and chained, not timestamp-anchored");
+  // The state sentences live in lib/bell-anchors.ts (the none sentence word for word); /bell renders the state's sentence through the
+  // function (ADR-BELL-OTS-PRB P-2; the built page is asserted by scripts/assert-fleet-html.mjs, T-3b).
+  assert.ok(read("apps/site/lib/bell-anchors.ts").includes("none: no anchor manifest lists the latest record's digests; it is signed and chained, not timestamp-anchored"), "the none sentence: signed and chained, not timestamp-anchored");
+  assert.match(read("apps/site/app/bell/page.tsx"), /<dd>\{publicationAnchorSentence\(anchorState\)\}<\/dd>/, "/bell renders the state's sentence through the function");
   const narabi = builtAgents().find((a) => a.name === "Narabi");
   assert.ok(narabi?.wiring.note.includes("its committed capture keeps each line's endpoint count only"), "Narabi's note says what the capture keeps");
   // The served Bell files the host serves are all named in the (unrendered) wiring.

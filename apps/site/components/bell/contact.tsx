@@ -11,11 +11,12 @@ import {
 // handler. The mail template is the one validated by the lawyer, country field dropped. The address, the lists, the body and the encoding live in lib/bell-contact.ts (single
 // source, pinned by the root test test/bell-contact.test.ts). The address is ALSO shown as text, and the template's
 // fields stay visible next to the link, as the template asks, for a mail client that does not fill the body.
-// Vocabulary "request a symbol / early access", never trial / plan / pricing.
-export function BellContact() {
+// Vocabulary "request a symbol / early access", never trial / plan / pricing. A page that does not render the request section (the
+// method page) passes the section's address on /bell.
+export function BellContact({ href = "#request-a-symbol" }: { href?: string }) {
   return (
     <span>
-      <a className="c-mono" href="#request-a-symbol">
+      <a className="c-mono" href={href}>
         {CONTACT_LABEL}
       </a>{" "}
       · <span className="c-mono">{CONTACT_ADDRESS}</span>

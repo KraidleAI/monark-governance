@@ -116,6 +116,9 @@ Authored directly or copied byte-for-byte; no CLI, no npm dependency added.
 - `public/bell/anchors/` — written by `scripts/sync-bell-anchors.mjs` from the two anchors registers, the course's and the
   published records' (manifests, OpenTimestamps proofs, `anchors.json`, `publications.json`); pinned by the root tests
   `bell_anchors_served_register_matches_source` and `bell_publication_anchors_served_register_matches_source`.
+- `components/bell/publication-anchors-table.tsx` — authored directly: the anchors table of the published records, one row per
+  timestamped line of the timeline (`publications.json` read through `lib/bell-publications-load.ts`); its status cell is the
+  `AnchorStatusCell` of `components/bell/anchors-table.tsx`, shared with the course table (one wording, not a copy).
 - `public/icons/bell.svg` — the Bell mark (designer favicon) with a dark-scheme rule, the `/icons/narabi.svg` pattern.
 
 ## Bell legal texts (2026-09-23)
