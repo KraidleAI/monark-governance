@@ -1,9 +1,10 @@
-// apps/site/lib/bell-served-load.ts — the committed facts about the SERVED Bell host (v3: every
-// run of the latest publication). Two halves, one closed shape:
+// apps/site/lib/bell-served-load.ts — the committed facts about the SERVED Bell host (v4: every
+// run of the latest publication, and lines[], the facts of every timeline line). Two halves, one closed shape:
 //   - buildBellServed(): the PURE projection the source-repo sync (scripts/sync-bell-served.mjs) applies to the bytes it
 //     read on the host. It walks the WHOLE timeline under the committed keyring (the chain functions are injected), binds
 //     /state.json and /provenance.json to the LATEST publication line by sha256, reads the first record's state at its
-//     immutable path, and copies the served fields of every run of the latest publication. It never copies a consolidated
+//     immutable path, copies the facts of every walked line (lines[]: the anchors sync binds each anchor row to them),
+//     and copies the served fields of every run of the latest publication. It never copies a consolidated
 //     volume ratio, a provider label, a proof-of-reserves method or note, or a key: those are read and dropped here.
 //   - loadBellServed(): the build-time loader. It reads apps/site/data/bell-served.json ONLY after its sha256 (CRLF->LF,
 //     UTF-8) equals the site manifest entry, then checks the CLOSED shape (every level carries exactly its keys, formats
@@ -16,7 +17,7 @@ import { createHash } from "node:crypto";
 import { join } from "node:path";
 
 export const BELL_SERVED_REL = "apps/site/data/bell-served.json";
-export const BELL_SERVED_SCHEMA = "monark-site-bell-served-v3";
+export const BELL_SERVED_SCHEMA = "monark-site-bell-served-v4";
 const MANIFEST_REL = "apps/site/data/manifest.sha256.json";
 /** The one Bell host (the site links it and serves no second copy of the key). */
 export const BELL_HOST = "https://bell.monarkgate.tech";
@@ -57,6 +58,8 @@ export interface BellServedLine {
   seq: number; kind: string; published_at: string; line_hash: string; prev_line_hash: string; key_id: string;
   state_sha256: string; provenance_sha256: string;
 }
+/** lines[i] = the facts of timeline line i + 1 as walked; only a publication names its state and provenance files. */
+export interface BellServedTimelineLine { seq: number; kind: string; line_hash: string; prev_line_hash: string; state_sha256?: string; provenance_sha256?: string }
 export interface BellServedSession {
   symbol: string; session: string; regime: string | null; n: number; vwap: string; volumeBase: string;
   abstain: string | null; gT: string | null; exceed: Array<{ threshold: number; exceeded: number }>;
@@ -92,6 +95,7 @@ export interface BellServedData {
   host: string;
   read_at: string;
   timeline: { schema: string; lines: number; publications: number };
+  lines: BellServedTimelineLine[];
   first_record: BellServedLine & { symbols: string[] };
   head: BellServedLine & { sig: string; state_schema: string; provenance_schema: string; runs: BellServedRun[] };
   keyring: { schema: string; keys: Array<{ key_id: string; status: string; valid_from_seq: number }> };
@@ -212,6 +216,8 @@ function lineOf(v: Record<string, unknown>, where: string): BellServedLine {
   };
 }
 const LINE_KEYS = ["seq", "kind", "published_at", "line_hash", "prev_line_hash", "key_id", "state_sha256", "provenance_sha256"] as const;
+/** The publisher's closed list of line kinds (apps/bell/scripts/bell-chain.mjs KINDS; this module imports nothing). */
+const LINE_KINDS: readonly string[] = ["publication", "key_rotation", "key_revocation"];
 
 function sessionOf(v: unknown, where: string): BellServedSession {
   const g = objSub(v, BELL_SESSION_KEYS, ["symbol", "session", "regime", "vwap", "volumeBase", "n"], where);
@@ -358,7 +364,7 @@ export function loadBellServed(rootDir: string, residualCodes: readonly string[]
   const actual = createHash("sha256").update(raw.replace(/\r\n/g, "\n"), "utf8").digest("hex");
   if (actual !== expected) fail(`sha256 mismatch for ${BELL_SERVED_REL} (manifest ${String(expected)}, actual ${actual})`);
 
-  const d = obj(JSON.parse(raw) as unknown, ["$comment", "schema", "host", "read_at", "timeline", "first_record", "head", "keyring", "deploy_check",
+  const d = obj(JSON.parse(raw) as unknown, ["$comment", "schema", "host", "read_at", "timeline", "lines", "first_record", "head", "keyring", "deploy_check",
     "collector_revision", "served_schema", "bodies_sha256"], "file");
   if (d.schema !== BELL_SERVED_SCHEMA) fail(`schema is not ${BELL_SERVED_SCHEMA}`);
   if (d.host !== BELL_HOST) fail(`host must be ${BELL_HOST}`);
@@ -380,11 +386,26 @@ export function loadBellServed(rootDir: string, residualCodes: readonly string[]
   if (first.seq !== 1 || first.prev_line_hash !== BELL_GENESIS) fail("first_record must be the genesis-chained line at seq 1");
   if (head.seq < first.seq || head.seq > timeline.lines || timeline.publications > timeline.lines) fail("head, first record and timeline counts disagree");
   if (head.seq === first.seq && head.line_hash !== first.line_hash) fail("a head at seq 1 must be the first record");
+  // lines[]: line i + 1 of a closed kind, chained from the genesis value, the head's and the first record's facts, no publication after
+  // the head (the head is the latest publication); only a publication carries its state and provenance digests.
+  const lines = arr(d.lines, "lines", (x, i): BellServedTimelineLine => {
+    const w = `lines[${String(i)}]`, pub = isObj(x) && x.kind === "publication";
+    const e = obj(x, ["seq", "kind", "line_hash", "prev_line_hash", ...(pub ? ["state_sha256", "provenance_sha256"] : [])], w);
+    if (e.seq !== i + 1 || !LINE_KINDS.includes(String(e.kind))) fail(`${w} must be line ${String(i + 1)}, of a closed kind`);
+    const facts = { seq: i + 1, kind: String(e.kind), line_hash: str(e.line_hash, HEX64, `${w}.line_hash`), prev_line_hash: str(e.prev_line_hash, HEX64, `${w}.prev_line_hash`) };
+    return pub ? { ...facts, state_sha256: str(e.state_sha256, HEX64, `${w}.state_sha256`), provenance_sha256: str(e.provenance_sha256, HEX64, `${w}.provenance_sha256`) } : facts;
+  });
+  const factsOf = (l: BellServedTimelineLine | BellServedLine | undefined): string => (l === undefined ? "" : [l.seq, l.kind, l.line_hash, l.prev_line_hash, l.state_sha256, l.provenance_sha256].join());
+  if (lines.length !== timeline.lines || lines.filter((l) => l.kind === "publication").length !== timeline.publications) fail("lines must count the timeline's lines and publications");
+  lines.forEach((l, k) => { if (l.prev_line_hash !== (k === 0 ? BELL_GENESIS : lines[k - 1]?.line_hash)) fail(`lines[${String(k)}] is not chained to the line before it`); });
+  if (factsOf(lines[first.seq - 1]) !== factsOf(first) || factsOf(lines[head.seq - 1]) !== factsOf(head)) fail("lines must carry the facts of the first record and of the head");
+  if (lines.slice(head.seq).some((l) => l.kind === "publication")) fail("a publication line follows the head (the head is the latest publication)");
   const checksTotal = int(dc.checks_total, "deploy_check.checks_total", 1);
   const out: BellServedData = {
     host: BELL_HOST,
     read_at: str(d.read_at, ISO_UTC, "read_at"),
     timeline,
+    lines,
     first_record: first,
     head,
     keyring: {
@@ -413,6 +434,14 @@ export function loadBellServed(rootDir: string, residualCodes: readonly string[]
   if (out.bodies_sha256.state !== head.state_sha256 || out.bodies_sha256.provenance !== head.provenance_sha256) fail("the bodies read must be the ones the latest line names");
   if (!out.keyring.keys.some((k) => k.key_id === head.key_id) || !out.keyring.keys.some((k) => k.key_id === first.key_id)) fail("every signing key must be in the key set");
   return out;
+}
+
+/** The site manifest text with the entry of `rel` set to `sha256`, every other byte kept: the served-data sync writes the entry it used
+ *  to print. Throws unless the text lists `rel` exactly once with a 64-hex value (fail-closed: nothing is added or reordered). */
+export function setManifestEntry(text: string, rel: string, sha256: string): string {
+  const key = `${JSON.stringify(rel)}: "`, at = text.indexOf(key), v = at + key.length;
+  if (!HEX64.test(sha256) || at < 0 || text.includes(key, v) || !HEX64.test(text.slice(v, v + 64)) || text[v + 64] !== '"') fail(`the site manifest does not list ${rel} once with a sha256`);
+  return text.slice(0, v) + sha256 + text.slice(v + 64);
 }
 
 // ── The projection applied by the sync (pure; the chain functions of the publisher are injected) ──
@@ -529,11 +558,15 @@ export function buildBellServed<T>(input: BellServedBuildInput, deps: BellChainD
   const keyringObj = obj(keyring, ["schema", "keys"], "the committed keyring");
   return {
     $comment:
-      "Committed, hashed facts about the SERVED Bell host, rendered by /bell and /bell/method through apps/site/lib/bell-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. Written by scripts/sync-bell-served.mjs (source-repo tool) from the files the host serves: /timeline.jsonl walked line by line under the committed keyring (chain, signatures, key schedule), /bell/pubkey.json (byte-identical to the committed keyring), /state.json and /provenance.json (bound by sha256 to the latest signed publication line, the head), the immutable /states/<sha256>.json of the head and of the first record. first_record and head = the facts of those two lines (line_hash = sha256 of the canonical line). head.runs = every run of the latest publication as served: the signed records, the residual counts (every code), the per-session rows, the volume-ratio periods and definitions WITHOUT the ratio values, the supply readout, the proof-of-reserves status only, the wrappers, the halt census and deltas, and per run from the provenance: the start of the collection, the operator counts, the fault statuses (each marked as on a ledger operator or not; no label is kept), the closing-price request digest. keyring = key ids, statuses and first seq of the committed keyring. deploy_check = counts of the committed deploy check, captured on these same bodies. collector_revision = the last commit of the collector source. served_schema = the key lists of the served envelopes and the publisher's closed list of objects. bodies_sha256 = the sha256 of the four bodies as read at read_at.",
+      "Committed, hashed facts about the SERVED Bell host, rendered by /bell and /bell/method through apps/site/lib/bell-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. Written by scripts/sync-bell-served.mjs (source-repo tool) from the files the host serves: /timeline.jsonl walked line by line under the committed keyring (chain, signatures, key schedule), /bell/pubkey.json (byte-identical to the committed keyring), /state.json and /provenance.json (bound by sha256 to the latest signed publication line, the head), the immutable /states/<sha256>.json of the head and of the first record. first_record and head = the facts of those two lines (line_hash = sha256 of the canonical line). lines = the facts of every walked line, in order: seq, kind, line_hash, prev_line_hash and, for a publication, its state and provenance digests (the anchors sync binds each anchor row to them). head.runs = every run of the latest publication as served: the signed records, the residual counts (every code), the per-session rows, the volume-ratio periods and definitions WITHOUT the ratio values, the supply readout, the proof-of-reserves status only, the wrappers, the halt census and deltas, and per run from the provenance: the start of the collection, the operator counts, the fault statuses (each marked as on a ledger operator or not; no label is kept), the closing-price request digest. keyring = key ids, statuses and first seq of the committed keyring. deploy_check = counts of the committed deploy check, captured on these same bodies. collector_revision = the last commit of the collector source. served_schema = the key lists of the served envelopes and the publisher's closed list of objects. bodies_sha256 = the sha256 of the four bodies as read at read_at.",
     schema: BELL_SERVED_SCHEMA,
     host: BELL_HOST,
     read_at: input.readAt,
     timeline: { schema: head.schema, lines: lines.length, publications: lines.filter((l) => isObj(l) && l.kind === "publication").length },
+    lines: lines.map((x) => {
+      const l = isObj(x) ? x : fail("a timeline line is not an object");
+      return { seq: l.seq, kind: l.kind, line_hash: deps.lineHash(l), prev_line_hash: l.prev_line_hash, ...(l.kind === "publication" ? { state_sha256: l.state_sha256, provenance_sha256: l.provenance_sha256 } : {}) };
+    }),
     first_record: { ...lineFacts(firstLine), symbols: firstSymbols },
     head: { ...lineFacts(head), sig: head.sig, state_schema: state.schema, provenance_schema: prov.schema, runs },
     keyring: { schema: keyringObj.schema, keys: arr(keyringObj.keys, "the committed keyring keys", (x) => { const k = isObj(x) ? x : fail("a keyring key"); return { key_id: k.key_id, status: k.status, valid_from_seq: k.valid_from_seq }; }) },

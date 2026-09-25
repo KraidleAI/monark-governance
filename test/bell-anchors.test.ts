@@ -12,22 +12,49 @@
  * Mutants (named, measured in the lot report): change one digest in anchors.json => (1) reds; append a byte to a
  * served proof => (1) and (2) red. ADR-BELL-OTS-ANCHOR-1 PR-A adds the publications register (served publications.json and its
  * files; (1) covers both registers): T-2, the C-7 source assertion and the reader's named errors below; mutants in its G1.
+ * ADR-BELL-OTS-PRB PR-B1 (T-B3): every sync test runs on syncRoot() (a copy refusing any link, removed in `finally`); T-2 binds each row
+ * to lines[] of the site data; the sync refuses an unbound row or a link before any write (S-1..S-11, CM-13) and, on the intact copy,
+ * rewrites the served set byte for byte (C-V-1).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync, mkdtempSync, cpSync, writeFileSync, rmSync } from "node:fs";
+import { readFileSync, readdirSync, mkdtempSync, cpSync, writeFileSync, rmSync, lstatSync, mkdirSync, renameSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { spawnSync } from "node:child_process";
-import { join } from "node:path";
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
+import { join, dirname } from "node:path";
 import { createHash } from "node:crypto";
-import { parseAnchorsRegister, readOtsProof, anchorStatus, manifestDigests, parsePublicationAnchors, bindPublicationAnchor, manifestEntries } from "../apps/site/lib/bell-anchors.ts";
+import { parseAnchorsRegister, readOtsProof, anchorStatus, manifestDigests, parsePublicationAnchors, bindPublicationAnchor, bindPublicationRowToLines, manifestEntries } from "../apps/site/lib/bell-anchors.ts";
 import type { AnchorsRegister, PublicationAnchorsRegister } from "../apps/site/lib/bell-anchors.ts";
+import { loadBellServed } from "../apps/site/lib/bell-served-load.ts";
 import { WHITELIST_DIRS, WHITELIST_FILES } from "../scripts/export-public.mjs";
 
 const ROOT = join(import.meta.dirname, "..");
 const SERVED = join(ROOT, "apps", "site", "public", "bell", "anchors");
 const SOURCE = join(ROOT, "docs", "course-bell"), PUB = join(ROOT, "docs", "bell-publications");
 const sha256 = (buf: Uint8Array): string => createHash("sha256").update(buf).digest("hex");
+const OUT_REL = "apps/site/public/bell/anchors";
+const SYNC_SOURCES = ["scripts/sync-bell-anchors.mjs", "apps/site/lib/bell-anchors.ts", "apps/site/lib/bell-served-load.ts", "docs/course-bell", "docs/bell-publications", OUT_REL,
+  "apps/site/data/bell-served.json", "apps/site/data/manifest.sha256.json"];
+
+/** A temporary root holding what the sync reads, the course manifests at the bytes their rows name (the served copies: no `git show`
+ *  outside a repository). TEST-CPSYNC-SYMLINK-1: a link anywhere in a copied source is refused (lstat, recursive) BEFORE any copy, since
+ *  cpSync would copy it as a link. The caller removes `tmp` in `finally`. */
+function syncRoot(): { tmp: string; snap: () => string[]; run: () => SpawnSyncReturns<string> } {
+  const noLink = (abs: string): void => {
+    const st = lstatSync(abs);
+    assert.ok(!st.isSymbolicLink(), `${abs} is a link: refused before any copy`);
+    if (st.isDirectory()) for (const n of readdirSync(abs)) noLink(join(abs, n));
+  };
+  for (const rel of SYNC_SOURCES) noLink(join(ROOT, rel));
+  const tmp = mkdtempSync(join(tmpdir(), "bell-sync-")), out = join(tmp, OUT_REL);
+  for (const rel of SYNC_SOURCES) cpSync(join(ROOT, rel), join(tmp, rel), { recursive: true });
+  for (const r of parseAnchorsRegister(readFileSync(join(SOURCE, "ANCHORS.md"), "utf8"))) if (r.manifest_file !== null) cpSync(join(SERVED, r.manifest_file), join(tmp, "docs", "course-bell", r.manifest_file));
+  return {
+    tmp,
+    snap: () => readdirSync(out).sort().map((n) => `${n} ${sha256(readFileSync(join(out, n)))}`),
+    run: () => spawnSync(process.execPath, [join(tmp, "scripts", "sync-bell-anchors.mjs")], { cwd: tmp, encoding: "utf8" }),
+  };
+}
 
 test("bell_anchors_served_register_matches_source — served register == ANCHORS.md real lines; proofs byte-equal; manifests hash to their digest", () => {
   const source = parseAnchorsRegister(readFileSync(join(SOURCE, "ANCHORS.md"), "utf8"));
@@ -69,6 +96,10 @@ test("bell_publication_anchors_served_register_matches_source — publications.j
     return r.seq;
   });
   assert.ok(bound.length >= 1, "no timestamped publication row served (false green)");
+  // Every served row, timestamped or not, binds to the chain the site data walked (lines[] of bell-served.json v4): seq, line_hash, kind, and
+  // the manifest's files (SYNC-LINES-CHECK-1 extended; G2-M7 reds here).
+  const { lines } = loadBellServed(ROOT);
+  for (const r of source) bindPublicationRowToLines(r, r.manifest_file === null ? null : manifestEntries(readFileSync(join(SERVED, r.manifest_file), "utf8")), lines);
   // Until PR-B replaces the pages' `.some` (page.tsx:254), their loader stays blind to these files: seq 2 lists states/<head.state_sha256>.
   assert.ok(!readFileSync(join(ROOT, "apps", "site", "lib", "bell-anchors-load.ts"), "utf8").includes("publications"), "the pages' loader reads no publication file yet");
 });
@@ -84,17 +115,93 @@ test("bell_publication_anchors_source_holds_no_fixture", () => {
   assert.ok(!WHITELIST_DIRS.includes("test") && !WHITELIST_FILES.some((f) => f.startsWith("test/")), "test/ stays out of the public export's whitelist");
 });
 
-// G2 CM-13: the sync binds each publication row BEFORE it writes. Temp root: the sync, the reader, both registers and the served set; the
-// course manifests at the bytes their rows name (the served copies), so no `git show` runs outside a repository.
+// CM-13 (G2 of PR-A) and S-1..S-4, S-11 (ADR-BELL-OTS-PRB T-B2): on syncRoot(), the sync refuses BEFORE any write a publication row that
+// its files or the chain the site data walked (lines[]) do not bind; the served directory stays byte for byte.
 test("bell_publication_anchors_sync_refuses_an_unbound_row_before_writing", () => {
-  const tmp = mkdtempSync(join(tmpdir(), "bell-sync-")), out = join(tmp, "apps", "site", "public", "bell", "anchors"), snap = (): string[] => readdirSync(out).sort().map((n) => `${n} ${sha256(readFileSync(join(out, n)))}`);
-  for (const rel of ["scripts/sync-bell-anchors.mjs", "apps/site/lib/bell-anchors.ts", "docs/course-bell", "docs/bell-publications", "apps/site/public/bell/anchors"]) cpSync(join(ROOT, rel), join(tmp, rel), { recursive: true });
-  for (const r of parseAnchorsRegister(readFileSync(join(SOURCE, "ANCHORS.md"), "utf8"))) if (r.manifest_file !== null) cpSync(join(SERVED, r.manifest_file), join(tmp, "docs", "course-bell", r.manifest_file));
-  const reg = join(tmp, "docs", "bell-publications", "ANCHORS.md"), [row] = parsePublicationAnchors(readFileSync(reg, "utf8")), before = snap();
-  writeFileSync(reg, readFileSync(reg, "utf8").replace(`\`${row?.line_hash ?? ""}\``, `\`${"0".repeat(64)}\``));
-  const r = spawnSync(process.execPath, [join(tmp, "scripts", "sync-bell-anchors.mjs")], { cwd: tmp, encoding: "utf8" });
-  assert.deepEqual([r.status, /timeline\.jsonl#L2 differs from line_hash/.test(r.stderr), snap()], [1, true, before], `refused before any write: ${r.stderr}`);
-  rmSync(tmp, { recursive: true, force: true });
+  const [row] = parsePublicationAnchors(readFileSync(join(PUB, "ANCHORS.md"), "utf8")), { lines } = loadBellServed(ROOT);
+  assert.ok(row !== undefined && row.manifest_file !== null, "non-vacuity: a timestamped row");
+  const f = (i: number, k: "line_hash" | "provenance_sha256" | "state_sha256"): string => lines[i]?.[k] ?? "";
+  const [l1, p1, s1, p2, s2] = [f(0, "line_hash"), f(0, "provenance_sha256"), f(0, "state_sha256"), f(1, "provenance_sha256"), f(1, "state_sha256")] as const;
+  const { line_hash: lh, prefix_sha256: pre, manifest_sha256: msha, commit } = row, REG = "docs/bell-publications/ANCHORS.md", MAN = `docs/bell-publications/${row.manifest_file}`;
+  const edit = (tmp: string, rel: string, f: (s: string) => string): void => { writeFileSync(join(tmp, rel), f(readFileSync(join(tmp, rel), "utf8"))); };
+  const unstamped = (seq: number, kind: string, hash: string, ref = "not timestamped at 2026-09-24T13:40:00Z") => (tmp: string): void => {
+    edit(tmp, REG, (s) => `${s}| 2026-09-24T13:40:00Z | ${String(seq)} | ${kind} | \`${hash}\` | \`${pre}\` | \`${msha}\` | \`${commit}\` | ${ref} | test |\n`);
+  };
+  // S-3 = G2-M7: the manifest lists the files of line 1, its proof rebuilt on the new digest, the row re-hashed: bound to its files, not to line 2.
+  const m7 = (tmp: string): void => {
+    const text = readFileSync(join(tmp, MAN), "utf8").replace(`provenance/${p2}.json ${p2}`, `provenance/${p1}.json ${p1}`).replace(`states/${s2}.json ${s2}`, `states/${s1}.json ${s1}`);
+    const digest = sha256(Buffer.from(text)), proof = readFileSync(join(tmp, `${MAN}.ots`)), at = proof.indexOf(Buffer.from(msha, "hex"));
+    writeFileSync(join(tmp, MAN), text);
+    writeFileSync(join(tmp, `${MAN}.ots`), Buffer.concat([proof.subarray(0, at), Buffer.from(digest, "hex"), proof.subarray(at + 32)]));
+    edit(tmp, REG, (s) => s.replace(msha, digest));
+  };
+  assert.ok([l1, p1, s1, p2, s2].every((x) => x.length === 64) && p1 !== p2, "non-vacuity: two publication lines with their files");
+  for (const [name, mutate, re] of [
+    ["CM-13 a row whose line_hash its manifest does not carry", (tmp: string) => { edit(tmp, REG, (s) => s.replace(`\`${lh}\``, `\`${"0".repeat(64)}\``)); }, /timeline\.jsonl#L2 differs from line_hash/],
+    ["S-1 a row whose line_hash is not that of its line", unstamped(1, "publication", "0".repeat(64)), /seq 1: line_hash is not that of line 1/],
+    ["S-2 a row beyond lines[]", unstamped(3, "key_rotation", "0".repeat(64)), /seq 3 is beyond the served lines \(run the served-data sync first\)/],
+    ["S-3 a manifest listing the files of another line (G2-M7)", m7, /the manifest's files are not those line 2 names/],
+    ["S-4 a row whose kind is not that of its line", unstamped(1, "key_rotation", l1), /kind is not that of line 1/],
+    ["S-11 a misspelt ots_ref", unstamped(1, "publication", l1, "not timestmped at 2026-09-24T13:40:00Z"), /neither a proof name nor 'not timestamped at <ISO Z>'/],
+  ] as const) {
+    const s = syncRoot();
+    try {
+      const before = s.snap();
+      mutate(s.tmp);
+      const r = s.run();
+      assert.deepEqual([r.status, re.test(r.stderr), s.snap()], [1, true, before], `${name}: refused before any write: ${r.stderr}`);
+    } finally {
+      rmSync(s.tmp, { recursive: true, force: true });
+    }
+  }
+});
+
+// C-V-1 (tuyau P-4 in npm test): on the intact copy the sync exits 0 and rewrites the served set as the repository serves it, name by name
+// and sha256 by sha256; a sync that drops publications.json, or any file, reds here.
+test("bell_anchors_sync_rewrites_the_served_set_byte_for_byte", () => {
+  const s = syncRoot(), repo = readdirSync(SERVED).sort().map((n) => `${n} ${sha256(readFileSync(join(SERVED, n)))}`);
+  try {
+    const r = s.run();
+    assert.deepEqual([r.status, /^sync-bell-anchors OK/.test(r.stdout), s.snap()], [0, true, repo], r.stderr);
+    assert.ok(repo.some((l) => l.startsWith("publications.json ")) && repo.some((l) => l.startsWith("anchors.json ")), "non-vacuity: both registers are served");
+  } finally {
+    rmSync(s.tmp, { recursive: true, force: true });
+  }
+});
+
+// SYNC-LSTAT-PATH-1 and SYNC-SERVED-JUNCTION-1 (S-5..S-10 = B1..B6): a register, a source directory, the site data or the served directory
+// replaced by a link or a junction to a target outside the tree: the sync exits 1 before any write, the served files and the target stay
+// byte for byte. A platform that refuses to create the link (EPERM: a file link needs a privilege on win32) skips that case BY NAME.
+test("bell_anchors_sync_follows_no_link", async (t) => {
+  for (const [name, rel, type] of [
+    ["B1 the publications register as a file link", "docs/bell-publications/ANCHORS.md", "file"],
+    ["B2 the course register as a file link", "docs/course-bell/ANCHORS.md", "file"],
+    ["B3 docs/bell-publications as a junction", "docs/bell-publications", "junction"],
+    ["B4 the served directory as a junction", OUT_REL, "junction"],
+    ["B5 docs/course-bell as a junction", "docs/course-bell", "junction"],
+    ["B6 bell-served.json as a file link", "apps/site/data/bell-served.json", "file"],
+  ] as const) {
+    await t.test(name, (st) => {
+      const s = syncRoot(), at = join(s.tmp, rel), outside = join(s.tmp, "outside", rel);
+      try {
+        mkdirSync(dirname(outside), { recursive: true });
+        renameSync(at, outside);
+        try {
+          symlinkSync(outside, at, type);
+        } catch (e) {
+          if ((e as NodeJS.ErrnoException).code !== "EPERM") throw e;
+          st.skip(`${name}: this platform refuses a ${type} link (EPERM)`);
+          return;
+        }
+        const tree = (dir: string, pre = ""): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? tree(join(dir, d.name), `${pre}${d.name}/`) : [`${pre}${d.name} ${sha256(readFileSync(join(dir, d.name)))}`]));
+        const target = (): string[] => (type === "file" ? [sha256(readFileSync(outside))] : tree(outside).sort());
+        const before = [s.snap(), target()], r = s.run();
+        assert.deepEqual([r.status, /no link or junction is followed/.test(r.stderr), s.snap(), target()], [1, true, ...before], `${name}: ${r.stderr}`);
+      } finally {
+        rmSync(s.tmp, { recursive: true, force: true });
+      }
+    });
+  }
 });
 
 // The publications reader fails closed with a named error, on mutated copies of the committed register, manifest and proof.
@@ -114,6 +221,20 @@ test("bell_publication_anchors_reader_fails_closed_with_named_errors", () => {
     [() => bindPublicationAnchor(row, text.replace("timeline.jsonl#L2 ", "timeline.jsonl#L3 "), digest, proof), /does not have exactly the entries of publication line 2/],
     [() => bindPublicationAnchor(row, text, digest, other), /does not timestamp manifest_sha256/], [() => manifestEntries(text.slice(0, -1)), /not LF-terminated/],
     [() => manifestEntries(text.split("\n").reverse().join("\n").slice(1) + "\n"), /strictly increasing byte order/]] as const) assert.throws(f, re);
+  // bindPublicationRowToLines (S-1, S-2, S-4, S-3) on lines built here, the files of line 2 taken from the row's manifest; D-B15 (S-11).
+  const entries = manifestEntries(text), fileOf = (dir: string): string => entries.find((e) => e.relpath.startsWith(dir))?.digest ?? "";
+  const lines = [{ seq: 1, kind: "publication", line_hash: "1".repeat(64), prev_line_hash: "0".repeat(64), state_sha256: "3".repeat(64), provenance_sha256: "4".repeat(64) },
+    { seq: 2, kind: "publication", line_hash: row.line_hash, prev_line_hash: "1".repeat(64), state_sha256: fileOf("states/"), provenance_sha256: fileOf("provenance/") }];
+  bindPublicationRowToLines(row, entries, lines);
+  bindPublicationRowToLines({ seq: 1, kind: "publication", line_hash: "1".repeat(64) }, null, lines); // a row without proof: seq, line_hash, kind only
+  const unstamped = (ref: string): string => `${md.trimEnd()}\n| 2026-09-24T13:40:00Z | 1 | publication | \`${"1".repeat(64)}\` | \`${row.prefix_sha256}\` | \`${row.manifest_sha256}\` | \`${row.commit}\` | ${ref} | x |\n`;
+  assert.equal(parsePublicationAnchors(unstamped("not timestamped at 2026-09-24T13:40:00Z"))[0]?.proof_file, null, "control: the register's own form of a row without proof parses");
+  for (const [f, re] of [[() => bindPublicationRowToLines({ ...row, line_hash: "0".repeat(64) }, entries, lines), /seq 2: line_hash is not that of line 2/],
+    [() => bindPublicationRowToLines({ ...row, seq: 3 }, null, lines), /seq 3 is beyond the served lines \(run the served-data sync first\)/],
+    [() => bindPublicationRowToLines({ ...row, kind: "key_rotation" }, entries, lines), /kind is not that of line 2/],
+    [() => bindPublicationRowToLines(row, entries, lines.map((l) => (l.seq === 2 ? { ...l, state_sha256: "3".repeat(64) } : l))), /the manifest's files are not those line 2 names/],
+    [() => bindPublicationRowToLines(row, entries, lines.map((l) => (l.seq === 2 ? { ...l, kind: "key_rotation" } : l))), /kind is not that of line 2/],
+    [() => parsePublicationAnchors(unstamped("not timestmped at 2026-09-24T13:40:00Z")), /neither a proof name nor 'not timestamped at <ISO Z>'/]] as const) assert.throws(f, re);
 });
 
 test("bell_ots_reader_matches_reference_client — known answer from `ots info` (probe_end) + fail-closed on malformed bytes", () => {

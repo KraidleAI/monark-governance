@@ -448,8 +448,9 @@ or `upgrade_exit=1` with "Timestamp not complete": still pending, retry at a lat
 renamed the old proof to `timeline-seq<n>-manifest.txt.ots.bak` before writing the new one: move that `.bak` to
 `/f/PRODUITS/bell-mirror/ots/` (a `.bak` left in place makes the next upgrade fail; never committed, never served), copy the new
 proof there too (digest to the JOURNAL), run the check of point 5, commit the upgraded proof (its git history is the record,
-ruling GO1-D), then `node scripts/sync-bell-anchors.mjs`, the storefront build and upload. Rollback of 13 bis: none that deletes
-a proof (a pending proof may still complete; a new stamp of the same line takes the `-<k>` name).
+ruling GO1-D), then `node scripts/sync-bell-anchors.mjs`, the storefront build and upload. An upgrade keeps the same head: it
+does not re-run `scripts/sync-bell-served.mjs` (the anchors sync binds the upgraded row to the committed `lines[]`). Rollback of
+13 bis: none that deletes a proof (a pending proof may still complete; a new stamp of the same line takes the `-<k>` name).
 
 ---
 
@@ -458,9 +459,12 @@ a proof (a pending proof may still complete; a new stamp of the same line takes 
 Section 8 bis (from seq 2: one day crossed dry, the course of every instrument, `PASS Q6-C14`), then steps 9 and 10 for the new
 bundle (`bundle-<n>`), step 11 (fresh host capture and probe capture) and steps 12-13 (JOURNAL,
 mirror `timeline-seq<n>.jsonl` and the two immutable files of line n), then step 13 bis (the timestamp of line n, in the same
-window; its upgrade at a later window, after the durable copy). The same bundle twice publishes nothing (`nothing_to_publish`, exit 0). Until item
-BELL-SITE-SEQ2-1 lands, the CA of seq >= 2 is written OUT of the repo (`--out /f/tmp/bell-dn/deploy-CA-bell-seq<n>.json`, its
-sha256 in the JOURNAL) and `docs/deploy-CA-bell.json` stays seq 1 (ADR-BELL-CASH-LEG-1 C-1).
+window; its upgrade at a later window, after the durable copy). The same bundle twice publishes nothing (`nothing_to_publish`, exit 0).
+Then the storefront, in this order (ADR-BELL-OTS-PRB D-B3, D-B12): the deploy check of the new bodies committed as
+`docs/deploy-CA-bell.json` (item BELL-SITE-SEQ2-1 landed at upload 16); `node scripts/sync-bell-served.mjs` (v4: it walks the
+whole timeline, writes `lines[]` and sets its own entry of `apps/site/data/manifest.sha256.json`; re-pin `PINNED_FILE_SHA256` in
+`test/bell-served.test.ts` with the sha256 it prints); step 13 bis; `node scripts/sync-bell-anchors.mjs` (it refuses, before any
+write, a register row beyond `lines[]` or not bound to its line); the storefront build and upload.
 
 ## Key incidents (ADR D9, ESC-2)
 

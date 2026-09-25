@@ -268,9 +268,9 @@ export interface PublicationAnchorRow {
 export interface PublicationAnchorsRegister { register: string; rows: PublicationAnchorRow[] }
 
 /** Parse the publications register: its header (PUBLICATION_COLUMNS) first, then EVERY table row is a real row (no template row);
- *  a malformed row throws, naming its column. An `ots_ref` that is not a `.ots` name marks the row NOT timestamped (both files
- *  null); a `.ots` name must be the proof name of the row's own seq, named once. Sorted by seq, then date. The files are bound by
- *  bindPublicationAnchor. */
+ *  a malformed row throws, naming its column. An `ots_ref` that is not a `.ots` name must read `not timestamped at <ISO Z>` and marks
+ *  the row NOT timestamped (both files null); a `.ots` name must be the proof name of the row's own seq, named once. Sorted by seq,
+ *  then date. The files are bound by bindPublicationAnchor, the row to the served chain by bindPublicationRowToLines. */
 export function parsePublicationAnchors(markdown: string): PublicationAnchorRow[] {
   const rows: PublicationAnchorRow[] = [];
   let header = false;
@@ -289,6 +289,7 @@ export function parsePublicationAnchors(markdown: string): PublicationAnchorRow[
     if (!SHORT_SHA.test(commit)) no(`malformed commit '${commit}'`);
     if (stamped && PUBLICATION_PROOF.exec(otsRef)?.[1] !== seq) no(`ots_ref '${otsRef}' is not the proof name of line ${seq}`);
     if (stamped && rows.some((r) => r.proof_file === otsRef)) no(`ots_ref '${otsRef}' is named twice`);
+    if (!stamped && !/^not timestamped at \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(otsRef)) no(`ots_ref '${otsRef}' is neither a proof name nor 'not timestamped at <ISO Z>'`);
     rows.push({ date_utc: dateU, seq: Number(seq), kind: kind as PublicationKind, line_hash: lineHash, prefix_sha256: prefix, manifest_sha256: manifest, commit,
       manifest_file: stamped ? otsRef.slice(0, -".ots".length) : null, proof_file: stamped ? otsRef : null });
   }
@@ -326,4 +327,20 @@ export function bindPublicationAnchor(row: PublicationAnchorRow, manifestText: s
   if (digestOf(lineKey) !== row.line_hash) no(`the manifest entry ${lineKey} differs from line_hash`);
   if (digestOf(prefixKey) !== row.prefix_sha256) no(`the manifest entry ${prefixKey} differs from prefix_sha256`);
   if (proof.hashOp !== "sha256" || proof.digestHex !== row.manifest_sha256) no("the proof does not timestamp manifest_sha256");
+}
+
+/** The facts of one line of the served timeline (lines[] of the site data): a publication names its state and provenance files. */
+export interface TimelineLineFacts { seq: number; kind: string; line_hash: string; prev_line_hash: string; state_sha256?: string; provenance_sha256?: string }
+
+/** Bind a register row to the chain the site data walked, one named error per requirement: its seq is a served line, its line_hash and
+ *  its kind are that line's, and for a timestamped row (its manifest entries given; null for a row without proof) the manifest's files
+ *  are exactly the ones the line names: its provenance and state files for a publication, none for a key line. */
+export function bindPublicationRowToLines(row: Pick<PublicationAnchorRow, "seq" | "kind" | "line_hash">, entries: ReadonlyArray<{ relpath: string; digest: string }> | null, lines: readonly TimelineLineFacts[]): void {
+  const n = String(row.seq), line = lines[row.seq - 1], no = (why: string): Error => new Error(`publications register, seq ${n}: ${why}`);
+  if (line === undefined || line.seq !== row.seq) throw no(`seq ${n} is beyond the served lines (run the served-data sync first)`);
+  if (row.line_hash !== line.line_hash) throw no(`line_hash is not that of line ${n}`);
+  if (row.kind !== line.kind) throw no(`kind is not that of line ${n}`);
+  const files = entries?.filter((e) => !e.relpath.startsWith("timeline.jsonl#")).map((e) => `${e.relpath} ${e.digest}`).sort().join("\n");
+  const [p, s] = [line.provenance_sha256 ?? "", line.state_sha256 ?? ""], want = line.kind === "publication" ? `provenance/${p}.json ${p}\nstates/${s}.json ${s}` : "";
+  if (files !== undefined && files !== want) throw no(`the manifest's files are not those line ${n} names`);
 }
