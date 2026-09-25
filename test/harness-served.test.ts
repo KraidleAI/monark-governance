@@ -46,7 +46,7 @@ const read = (rel: string): string => readFileSync(join(ROOT, rel), "utf8");
 // Pins: the snapshot as read on the served harness on 2026-09-24 (03:39:46Z) by scripts/sync-harness-served.mjs, and the
 // two traces (the SAME pins as test/byo-demo-probe.test.ts and test/h5-e2e-probe.test.ts: a re-record re-pins here too).
 const PINNED: Record<string, string> = {
-  [HARNESS_SERVED_REL]: "7cf4b7cd49a8a0ce68338ead44557fa4a3986f669a5e3832cd3dbd2309790d63",
+  [HARNESS_SERVED_REL]: "55bd4ad228d6b015a49906a3e13036a7f789790cf22e4d7028027401eace6f4a",
   [BYO_TRACE_REL]: "daf8d3eabacbc601e608d01936d02c0f7ba78dfb5a0d6f5741ecea5fb4eef6d2",
   [H5_TRACE_REL]: "0b32b33071b15c6e40ea529d87221fdade7bf4fb5f2171773802a85083569932", // re-pinned with the h5 re-record of U-4b-2b
 };

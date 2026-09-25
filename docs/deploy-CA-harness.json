@@ -1,7 +1,7 @@
 {
   "url": "https://api.monarkgate.tech",
   "mcp_url": "https://mcp.monarkgate.tech",
-  "checked_at": "2026-09-23T00:54:20.288Z",
+  "checked_at": "2026-09-25T03:24:23.912Z",
   "checks": [
     {
       "name": "health",
@@ -14,7 +14,7 @@
       "name": "openapi",
       "ok": true,
       "status": 200,
-      "sha256": "ad4371217ba87b261e682d428ea58825be5f740e9082484914c9036daa3fe2ba",
+      "sha256": "9e3176eae8893f05e7168f3c1e1b9e4dd4a1170a8a8a8f3cd933c94ff657a2ff",
       "detail": "paths=/gate,/cascade,/attest,/calibrate"
     },
     {
@@ -35,7 +35,7 @@
       "name": "mcp_tools_list",
       "ok": true,
       "status": 200,
-      "sha256": "8d3743c74f58c33d9b1bc13ce1653f8c8e97e9a35585d8446e62357e8f295b76",
+      "sha256": "17602a13a00efa17c699a2e79ab2dfbac9fd4d91436ca3c7461259674e25b30a",
       "detail": "tools=gate,cascade,attest,calibrate"
     },
     {
@@ -49,15 +49,22 @@
       "name": "gate_liq_call",
       "ok": true,
       "status": 200,
-      "sha256": "db85941e2845029e4c6d1c3e49636265bad1f734448fb2ac5110d0a702389dcd",
-      "detail": "status=200 reason=under_calib empty_registry_text=true"
+      "sha256": "7922956678f3336c3d119ee0469ab483f549803d99165d685584e3df5d5a3243",
+      "detail": "status=200 action=defer reason=interval_too_wide verdict_reason=covered upper_bound=true n_calib=170 digest_s0=true committed_text=true empty_text=false"
+    },
+    {
+      "name": "gate_liq_uncommitted_call",
+      "ok": true,
+      "status": 200,
+      "sha256": "68151bfbe91b8ae53f7b9c45ae4a69503d780cc250cc3873f4eff5d20437a50d",
+      "detail": "status=200 action=abstain reason=under_calib verdict_reason=under_calib n_calib=0"
     },
     {
       "name": "mcp_gate_description_liq",
       "ok": true,
       "status": 200,
-      "sha256": "8d3743c74f58c33d9b1bc13ce1653f8c8e97e9a35585d8446e62357e8f295b76",
-      "detail": "status=200 empty_registry_sentence=true h3_sentence=false"
+      "sha256": "17602a13a00efa17c699a2e79ab2dfbac9fd4d91436ca3c7461259674e25b30a",
+      "detail": "status=200 committed_clause=true empty_registry_sentence=false"
     },
     {
       "name": "cascade_call",
