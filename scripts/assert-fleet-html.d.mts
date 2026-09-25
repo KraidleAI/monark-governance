@@ -41,23 +41,32 @@ export function scanNumericTokens(text: string): string[];
 export function extractMain(body: string): string;
 /** The /ukemi <main> scan corpus: stripped text nodes + captured alt/title/aria-label values. */
 export function mainCorpus(mainHtml: string): string;
-/** The expectations of the built /ukemi page: the synced served state and the sentences it binds. */
+/** A figure of the closed list /ukemi may render: its exact string and where the check read it. */
+export interface UkemiFigure {
+  value: string;
+  source: string;
+}
+/** The expectations of the built /ukemi page: the synced served state, the sentences it binds and its closed list of figures. */
 export interface UkemiExpected {
   registryState: "empty" | "committed";
   emptyRegistrySentence: string;
   committedStateSentence: string;
   conditionalSentence: string;
   status: string;
+  /** Empty while the registry is empty; else n, the bound margin, the digest and the day, read from the committed files. */
+  figures: ReadonlyArray<UkemiFigure>;
 }
-/** Assert the rendered /ukemi <main> is digit-free, carries the sentence of the synced served state (and never the other
- *  state's), the conditional clause and the registry-status pill ("Ukemi <status>"), with no interval/cascade/Bell/Aave;
- *  throws on failure (vacuity-guarded). `expected.status` is the real FLEET_AGENTS Ukemi status (C-1, kills mutant X5). */
+/** Assert the rendered /ukemi <main> carries each figure of the closed list exactly once (bounded, in the text nodes) and
+ *  no other number, the sentence of the synced served state (and never the other state's), the conditional clause and
+ *  the registry-status pill ("Ukemi <status>"), with no interval/cascade/Bell/Aave; throws on failure (vacuity-guarded).
+ *  `expected.status` is the real FLEET_AGENTS Ukemi status (C-1, kills mutant X5). */
 export function assertUkemiBody(args: {
   html: string;
   expected: UkemiExpected;
-}): { mainChars: number; corpusChars: number; numericTokens: number; status: string; registryState: "empty" | "committed" };
+}): { mainChars: number; corpusChars: number; numericTokens: number; figures: number; figureTokens: number; status: string; registryState: "empty" | "committed" };
 /** What main() asserts on the built /ukemi page: the served state of the served-state file under `dataRoot` (default the
- *  repo root) through the page's own loader, the sentences of lib/ukemi-copy.ts, the pill status of lib/fleet.ts. */
+ *  repo root) through the page's own loader, the sentences of lib/ukemi-copy.ts, the pill status of lib/fleet.ts, and the
+ *  closed list of figures from the served-state file and the course report through their loaders. */
 export function ukemiExpected(dataRoot?: string): Promise<UkemiExpected>;
 
 /* ── Bell: the timestamp state of the latest published record (T-3b) ── */
