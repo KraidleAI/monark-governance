@@ -50,7 +50,7 @@ export default function DocsVerifyPage() {
     { head: "The signatures", body: "check every line's Ed25519 signature under the committed keyring", today: true, source: "public verifier" },
     { head: "The state files", body: "hash the immutable state and provenance files named by the line", today: true, source: "served" },
     { head: "The token address", body: "compare the address on the token page with the committed public file", today: true, source: "public repository" },
-    { head: "The timestamps", body: "verify the anchor of a published line against a Bitcoin node of your choice", today: anchorState.state === "anchored", source: "anchors register" },
+    { head: "The timestamps", body: "verify the anchor of a published line against a Bitcoin node of your choice", today: anchorState.state === "anchored", source: "publication register" },
   ];
   const toc = [
     { id: "gestures", label: "The gestures" },

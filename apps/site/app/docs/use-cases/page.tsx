@@ -148,13 +148,13 @@ export default function DocsUseCasesPage() {
           record checks each line&rsquo;s signature and chain against the committed keyring, relays the value with the line&rsquo;s
           hash, and lets any consumer trace the value back to the signed line and recompute it from the ledger.
         </p>
-        <Figure caption={<>An oracle that wraps a verifiable record, at full deployment. The anchoring state is derived from the served anchors register.</>}>
+        <Figure caption={<>An oracle that wraps a verifiable record, at full deployment. The anchoring state is read from the publication register.</>}>
           <FlowSchema
             label="An oracle checks the signed record, relays the value with the line hash, and a consumer traces and recomputes it."
             steps={[
               { head: "The signed line", body: "each line signed over its canonical bytes and chained to the one before", today: bell.status === "built", source: bell.name },
               { head: "The oracle checks", body: "the signature against the committed keyring, the chain back to the genesis value", today: true, source: "public verifier" },
-              { head: "A public timestamp", body: "each published line anchored, so its existence before a block is shown by anyone", today: anchorState.state === "anchored", source: "anchors register" },
+              { head: "A public timestamp", body: "each published line anchored, so its existence before a block is shown by anyone", today: anchorState.state === "anchored", source: "publication register" },
               { head: "The value relayed", body: "with the line hash, so a consumer can trace it and recompute it", today: false, source: "an oracle" },
             ]}
             footer="A signature attests origin, never truth: the consumer's check of a fact is the recompute from the ledger."

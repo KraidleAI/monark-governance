@@ -733,7 +733,7 @@ test("docs_state_the_bell_timestamp_as_bell_does — /docs/bell and /docs/use-ca
   const uses = read("apps/site/app/docs/use-cases/page.tsx"), verify = read("apps/site/app/docs/verify/page.tsx").replace(/\s+/g, " ");
   assert.match(uses, /The latest record&rsquo;s timestamp status: \{publicationAnchorSentence\(anchorState\)\}\./, "/docs/use-cases: /bell's sentence");
   assert.ok(verify.includes("The published records are signed and chained. Their timestamp anchoring is read from the publication register: none, pending while the proof carries calendar attestations only, anchored once it carries a Bitcoin block; this gesture applies to an anchored line."), "/docs/verify: the tri-state text of the erratum");
-  for (const [rel, text] of [["use-cases", uses], ["verify", verify]] as const) assert.match(text, /today: anchorState\.state === "anchored", source: "anchors register"/, `/docs/${rel}: the timestamp step is solid only when anchored`);
+  for (const [rel, text] of [["use-cases", uses], ["verify", verify]] as const) assert.match(text, /today: anchorState\.state === "anchored", source: "publication register"/, `/docs/${rel}: the timestamp step is solid only when anchored`);
 });
 
 // C-G2-11 decided: MakerDAO and Compound are banned on the storefront, with one exception, the verbatim cited figures of
