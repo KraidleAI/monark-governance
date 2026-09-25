@@ -198,8 +198,8 @@ export function runUkemiPredict(rawInput: unknown): UkemiPredictOutput {
     task_class: TASK_LIQ_ELIGIBLE,
     yhat,
     // Provenance only: the gate re-derives `${UKEMI_LIQ_PREDICTOR_BASE}/s${strateOf(yhat)}` SERVER-side and
-    // IGNORES the client predictor_id for this class (checkpoint-1 C-10). The base literal is honest — it says
-    // "uncommitted-until-u4b-2b" (the served region is committed at -2b).
+    // IGNORES the client predictor_id for this class (checkpoint-1 C-10). The base is the committed cell-A key of the
+    // fresh episode (re-pinned at U-4b-2b; until then a placeholder that matched no committed entry).
     predictor_id: `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(strate)}`,
     produced_at: input.produced_at,
     // ECHO of the caller-carried digest (never recomputed, not re-verified; K-8) — a trace, not an attestation.

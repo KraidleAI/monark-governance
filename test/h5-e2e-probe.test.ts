@@ -70,7 +70,14 @@ const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url
 // bound nor the H-3 sentence. ONE field of the trace changes, the tools/list step's `response_sha256` (b88cd066... ->
 // 6b78a420...); no served DECISION, `structuredContent`, `content` text, `yhat`, or digest changes, and the
 // cascade/attest/calibrate descriptions are byte-identical; the file holds at 21943 bytes (prior pin 4ad9b340...).
-const TRACE_SHA256_PINNED = "90a21adf1f109d695bd99a5a3521b055b74daba02248de22defe79b070108252";
+// Re-pinned 2026-09-24 for U-4b-2b (ADR-U4b-2b D4, prediction C-6 measured): TWO fields change and nothing else. (1) The
+// liq registry now holds the committed stratum s0, so the `gate` description is describeGate(true), byte-identical to
+// the pre-HARNESS-DESC-1 text: the tools/list step's `response_sha256` returns to b88cd066... (from 6b78a420...); measured
+// without (2), the whole trace returns exactly to the prior pin 4ad9b340... (21943 bytes). (2) IF-1 (ADR-U5a, G2
+// A-9-OUTILLE): the step-6 note says "previously Shogen-verified" (with the macron, covered by the third `verified`
+// exemption), so the fourth exemption `committed, previously ` is retired; +8 bytes, 21951. No served DECISION,
+// `structuredContent`, `content` text, `yhat` or digest of the trace changes (the trace calls no liq class).
+const TRACE_SHA256_PINNED = "0b32b33071b15c6e40ea529d87221fdade7bf4fb5f2171773802a85083569932";
 
 const DEMONSTRATIVE_LABEL = "real, notary Shōgen, demonstrative, not probative";
 
