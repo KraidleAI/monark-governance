@@ -63,3 +63,9 @@ Réponse au post (étape 3), une fois l'identifiant reçu :
 ```text
 🎫 Request ID: CLXXXXX
 ```
+
+## 6. Saisie faite le 2026-09-25 (orchestrateur, Chrome de l'investisseur ; envoi = investisseur)
+- Post de vérification publié par l'investisseur : `https://x.com/usemonark/status/2103536869091012820` (18:27).
+- Formulaire « New Token / Active Listing » rempli (trois étapes). Valeurs notables : TGE 2026-09-10 (première frappe par l'autorité Pump.fun, Solscan « 15d ago ») ; offre max = totale = 952 955 610 ; circulante 931 112 610 ; allocation fondateur 2,29 % = 21 843 000 MONARK **achetés sur le marché** (confirmé par l'investisseur) et verrouillés dans le contrat Streamflow `63dKEiLjxBHg3ZGTy4ApyAcJYFgePrPNr4s46RNVb1Pn` (lu sur place : immuable, 0 % débloqué, cliff jusqu'au 2027-09-12, linéaire quotidien jusqu'au 2029-09-11, personne ne peut annuler ni transférer) ; liens linktree `https://linktr.ee/monarkgate`, ClawPump `https://clawpump.tech/tokens/<mint>`, DEX Screener ; catégories Solana Token-2022, AI Agents, Decentralized Finance ; logo `monark-mark-on-dark-1024.png`, bannière `monark-dexscreener-1500x500.jpg` ; Regular Pass.
+- Non fait par l'orchestrateur : connexion `partner.coingecko.com`, cases de conditions, captcha, Submit ; puis réponse au post avec `CLxxxxx`.
+- Le lien ClawHub du linktree n'a pas été saisi (règle 175).
