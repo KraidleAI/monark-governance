@@ -226,3 +226,196 @@ Les sha256 complets des 32 artefacts ci-dessous sont dans `F:\tmp\ots-prb\g1\ART
 - Après l'orientation, avant tout code : l'advisor a qualifié le recensement faux de `listedDigests` de contradiction ADR/code au sens de la règle d'arrêt, conseillé d'exécuter la seule partie que la contradiction n'atteint pas puis de s'arrêter avec la consultation formée, et jugé conforme aussi un arrêt sans code ; il a proposé la fixture v4 construite par `buildBellServed` sur les octets réels (entrées toutes présentes hors ligne), l'épingle v3 laissée à l'orchestrateur, la vérification du verrou avant `npm ci --offline`, l'extraction du pathspec R-25 par programme et la mesure de `lstat` sur une jonction. Retenu : tout, sauf l'extension de la coupe à T-B4 et T-B7 (E-1) et `git archive` pour la base (E-7).
 - Avant la clôture, sur ce journal écrit : l'advisor a demandé de mesurer « rien d'indexé » au lieu de l'affirmer (fait, en-tête), d'écrire en tête du §0 la dépendance de build et la séquence de l'orchestrateur (fait), de noter le déplacement de la tête de `F:/Monark` et l'épinglage des clones (fait, en-tête et §7), de dire que la liste des rouges v3 a été classée après coup (fait, §4) ; il a retiré son avis d'étendre la coupe à T-B4 et T-B7 (E-1 tient) et confirmé la garde E-9 gardée, `noLinkOnPath` sur `isSymbolicLink()`, les quatre erreurs nommées et le traitement de « proves » ×2. Tout retenu.
 - Ce journal est gelé avant un dernier passage complet de `npm test` sur `v4tree` qui l'inclut ; le résultat de ce passage est rendu hors du fichier, avec le sha256 du journal.
+
+---
+
+# PR-B2 : T-B4 à T-B10 et les trois pages `/docs` (option (a) de l'erratum D-B7)
+
+Modèle résolu : `claude-opus-5-5[1m]` (préfixe `claude-opus-5-5`, effort max), déclaré en première ligne de la reprise (R-1).
+Worktree `F:/Monark-wt-prb`, branche `lot/bell-ots-prb`, HEAD `ac824e9` (gel de PR-B1 par l'orchestrateur : mon code PR-B1, les données v4 réelles `apps/site/data/bell-served.json` sha256 `8bf1424b…9f53`, la ré-épingle, ce G1, l'erratum D-B7 et la ligne datée C-10) ; arbre propre à la reprise ; aucun commit, aucun workflow (R-20). Mission `F:\tmp\ots-prb\mission-g1-prb2.md` (sha256 `4814a78049c7193dcadf7021a7abaf0610ff17b0e8430fe6c24517ecf2c70984`), lue à 02:58:56Z ; l'erratum en fin de `docs/adr/ADR-BELL-OTS-PRB.md` (fichier à `ac824e9`, sha256 `322dff17…3662`) lu en premier, il fait foi ; ligne datée C-10 de l'ADR mère lue. Horloge `date -u` : 02:58:56Z (reprise), 03:10:18Z (premier code), 03:41:20Z (début de cette partie).
+Hygiène : ceinture `F:/tmp/ots-prb/g1b/tools/belt.sh` (même contenu que PR-B1, temporaires sous `F:/tmp/ots-prb/g1b/tmp`) ; **aucun `GIT_DIR`, aucun `GIT_WORK_TREE`, aucun `--write-tree`** ; aucun réseau (`npm ci --offline`, bouclage `127.0.0.1:3072` seul) ; rien écrit sur C: ; copies de travail par `git clone --shared` à `ac824e9` sous `F:/tmp/ots-prb/g1b/` : `b2base` (base propre), `b2tree` (fichiers livrés copiés à l'octet, sha256 comparés un à un, pour l'oracle), `b2mut` (mutants sur données réelles), `b2bloc` (variante « bloc » : les deux copies de la preuve de seq 2 remplacées par la fixture de bloc au digest substitué, `tools/bloc.mjs`). Le worktree n'a servi qu'à éditer et à lancer deux fichiers de tests sans `git` (`test/bell-publication-state.test.ts`, `test/bell-anchors.test.ts`). L'advisor intégré a été appelé avant le code : **délai dépassé** (« The advisor timed out »), aucune réponse ; conformément à la consigne, travail poursuivi sans lui, aucune seconde tentative ; consultation formée non nécessaire (aucun blocage).
+Aucune donnée n'a été régénérée ; aucune ligne de l'ADR mère ni de l'erratum n'a été touchée (C-10).
+
+## B2.1 Journal de provenance
+
+| Date | PR/commit | Modèle (identifiant épinglé exact) | Effort | Contexte fourni | Générateur | Réviseur | Verdict G2 |
+|---|---|---|---|---|---|---|---|
+| 2026-09-25 | PR-B2 du lot BELL-OTS-ANCHOR-1 (T-B4..T-B10 + `/docs`, option (a)), non committée, base `ac824e9` | `claude-opus-5-5` | max | ADR-BELL-OTS-PRB (erratum D-B7) + ADR mère + mission G1 PR-B2 de l'orchestrateur `claude-fable-5-1` | worker | orchestrateur (R-21), puis G2 et checkpoint-2 | en attente |
+
+## B2.2 Fichiers livrés par PR-B2 (sha256 des octets du worktree, LF ; +/− = numstat R-25 contre `ac824e9`)
+
+| Fichier | État | +/− | sha256 livré | sha256 à `ac824e9` |
+|---|---|---|---|---|
+| `apps/site/lib/bell-anchors.ts` | `utcLabel` (déplacé ici), `BoundPublicationRow`, `PublicationAnchorState`, `publicationAnchorState`, `publicationAnchorSentence`, `latestAnchoredLine` | 50/1 | `34fac5d0b19b0ca54f1421cf767ae1820f3b1fd604c6577b2ecfef557cc30204` | `023ae095…` |
+| `apps/site/lib/bell-publications-load.ts` | nouveau : `loadPublicationAnchors(publicDir, served, lib)` | 54/0 | `e08f8b2dcc3fb14efb2a5e743c0952749e18251d55a1d11e31fc4818b8a3c16b` | absent |
+| `apps/site/lib/bell-anchors-load.ts` | `listedDigests` retiré (le contrôle de forme `manifestDigests` reste) ; `loadPublications(lines)` ; `utcLabel` ré-exporté | 13/13 | `f2b7aaf66a8faa86accb06b63fe8341fa79d5fac82c33bd220665c78b9372da3` | `819206a2…` |
+| `apps/site/app/bell/page.tsx` | état et phrase par la fonction ; P-B2, P-B3, P-B4 ; P-B5 (ruling 214) | 15/18 | `d1c5a69fa465b4b681290baeee38fb7e5c337690cf17b89aaff1c96857f2cf6a` | `a4db1cf8…` |
+| `apps/site/app/bell/method/page.tsx` | état et phrase ; P-M1..P-M6 (clés du manifeste lues des données) ; `BellContact` vers `/bell#request-a-symbol` | 42/14 | `25a6d66e7a3b48fbec44ac2307833630a65d5c3ba4281e066574493ae1a13722` | `ac9c1806…` |
+| `apps/site/app/bell/anchors/page.tsx` | P-A1..P-A7, P-A9 ; section et table des publications | 43/6 | `0c64b249d1e612f7ebae34dd88ba5b3875446b4e0a372463aa8e1f9ce55bbc09` | `86d98d5f…` |
+| `apps/site/components/bell/publication-anchors-table.tsx` | nouveau : table P-A8 | 50/0 | `6f9c3e9d5a88b503245ba467a0dabad80a8598de12abadb227bcddc0678e0649` | absent |
+| `apps/site/components/bell/anchors-table.tsx` | `AnchorStatusCell` extraite et partagée (C-8, première option), libellés de course mot pour mot | 37/31 | `ea135fbce73a699813caaa40d332282456a74a05761985700cc678b90cda03b2` | `085d0381…` |
+| `apps/site/components/bell/contact.tsx` | `href` en paramètre (BELL-METHOD-ANCHOR-1) | 4/3 | `643f8529dcac6b60591d337535158fd8adaadd2cb03a8fb93c6cfeca68079963` | `eee2a860…` |
+| `apps/site/lib/fleet.ts` | `served.integration_test` de Bell + T-3a (D-B13) | 1/1 | `9eac73e2e2de42673ccccd4b4e684dabf1acf8f6eddabadbe0ba8dadde3fd258` | `dc6452b3…` |
+| `apps/site/COMPONENTS-PROVENANCE.md` | une entrée (la table, la cellule partagée) | 3/0 | `5b7d27c166960135b974bfc4a6913a05aebfe974ab5c80ab528fc869361ff75d` | `97c3e386…` |
+| `scripts/assert-fleet-html.mjs` | T-3b : `assertBellAnchorBody`, `bellStatusText`, `assertBellPublicationsTable`, bloc Bell de `main()` | 71/0 | `09145a566ad1440075e956ff4464c592ef4fb812d707834c0b5d1ce441ed3301` | `fcbd28b0…` |
+| `scripts/assert-fleet-html.d.mts` | leurs types | 14/0 | `45332e88e138d4b3be1fc50265af694dc5222bcee2c3ebd5c5649584257779a4` | `27cac187…` |
+| `test/bell-publication-state.test.ts` | nouveau : T-1 et le pilote de T-3b | 79/0 | `9b49939c5194cd29077e7068c26025f0bf28847738d372901b35c83c0a56ac63` | absent |
+| `test/bell-anchors.test.ts` | T-3a ; garde E-9 retirée (D-B8) ; épingle `anchored === false` retirée ; ré-épingle `publicationAnchorState(` sur six pages | 57/13 | `5e2d3e723a2cd23c9cbefa7ad2cd136544e80e7c9763107aa0a23f21d86b524f` | `e5456067…` |
+| `test/bell-served.test.ts` | ré-épingle `:473` ; `SCANNED` + la table, le chargeur, `publications.json` | 3/2 | `d09521d06dd4ece870a92b232ae085fe63cbf4e9f2e6b1a00a41a1f7e9350688` | `d400070e…` |
+| `test/site-build-fleet.test.ts` | ré-épingle P-2 (phrase `none` dans la bibliothèque ; `/bell` la rend par la fonction) | 4/1 | `b82f7bf247c709eb834b55462df572a0a5378c1c0d977b57edf9cb86506ce6d2` | `22ae658d…` |
+| `test/site-docs.test.ts` | garde D8 étendue (T-B10, ruling 214) ; ré-épingle des trois pages `/docs` | 22/3 | `e4a931d202696a23b7895143ec58f3fcf9019a2e13a67b826ef44fc07c52a1af` | `25be37de…` |
+| `apps/site/app/docs/bell/page.tsx` | CONTENU : état par la fonction ; `timestamp anchor` et la phrase de `/bell` | 7/6 | `74584fdd894c13b93acf220bddb211346ec406fc9de2a04d1cf0bfcaedfb3e28` | `62841430…` |
+| `apps/site/app/docs/use-cases/page.tsx` | CONTENU : état par la fonction ; la phrase de `/bell` ; étape du schéma tri-état | 5/5 | `2ce89ad2c24006f30d834f97e0663e2c2b018fc023128dea7ea4cbb9b57b7519` | `050e9062…` |
+| `apps/site/app/docs/verify/page.tsx` | CONTENU : état par la fonction ; texte tri-état de l'erratum ; phrase du schéma ; étape tri-état | 11/10 | `813d5519555025c262443fe71e7501598cbd4ce3b5cc41b32fdb87961f28ca62` | `99364b56…` |
+| `docs/G1-lot-bell-ots-prb.md` | cette partie (docs, exclu de R-25) | exclu | dans `F:\tmp\ots-prb\g1b\DELIVERED-B2.sha256` | `70c4d141…` |
+
+## B2.3 Tâches du G0 et option (a) → livrable
+
+| Tâche | Livré | Preuve |
+|---|---|---|
+| T-B4 état et phrases (D-B5, D-B6) | `publicationAnchorState(head, lines, bound)` : jette si une ligne après la tête n'est pas une ligne de clé ; une ligne compte si (i) `seq ≥ head.seq`, (ii) `lines[]` porte le `line_hash` de la tête à son rang et chaîne chaque ligne de la tête à la ligne (entrées présentes jusqu'à elle), (iii) son entrée `timeline.jsonl#L<seq>` porte le hash de la ligne (clé et valeur), (iv) tenu par le chargeur ; `anchored` = hauteur la plus petite sur les lignes comptées (départage seq puis date), `pending` = la plus ancienne ligne comptée, sinon `none` ; `latestAnchoredSeq` = plus grand seq d'une ligne qui porte sa propre ligne et un bloc. `publicationAnchorSentence` rend S-0 (mot pour mot), S-1, S-1v, S-2, S-3 du §4.3 ; `latestAnchoredLine` rend P-A7 | T-1 (§B2.6) ; T-3a |
+| T-B5 chargeur (D-B7, PRB-BIND-IN-LOADER-1) | `bell-publications-load.ts` autonome (built-ins, lecteur pur injecté en propriétés de fonction : inférence et contrôle contravariants) : chaque ligne horodatée liée à ses fichiers (`bindPublicationAnchor`) puis à `lines[]` (`bindPublicationRowToLines`), toute ligne non horodatée à `lines[]` ; comptes ; `bound`. `listedDigests` retiré (D-B7 exécuté sur cinq fichiers, erratum) | M-5, M-5 bis, M-5 ter (T-3a) ; M-6 re-cadré |
+| T-B6 pages et table (D-B9), C-8, BELL-METHOD-ANCHOR-1 | `/bell`, `/bell/method` : état par `publicationAnchorState(served.head, served.lines, …)`, phrase par `publicationAnchorSentence` ; renvois P-B2, P-M6 ; P-B3, P-B4, P-B5 ; carte « Anchors of published records » (P-M1..P-M4, clés `timeline.jsonl#L1-L2` et `#L2` lues du manifeste servi) ; libellé P-M5 ; `/bell/anchors` : P-A1..P-A7, P-A9, table P-A8 ; cellule de statut partagée (première option de C-8, libellés de course mot pour mot, pastille « bitcoin attestation ») ; lien de contact de `/bell/method` vers `/bell#request-a-symbol` | T-3b (build), sondes (§B2.5), liens (§B2.5) |
+| Option (a), trois pages `/docs` | `/docs/bell` : `timestamp anchor` (le libellé de `/bell`) et la phrase ; `/docs/use-cases` : « The latest record: » suivi de la phrase ; étape « A public timestamp » tri-état ; `/docs/verify` : le texte tri-état de l'erratum, mot pour mot (`:136-138`), la phrase du schéma réécrite (`:78-80`, E-B2-8), `today: anchorState.state === "anchored"` | T-3b (quatre pages de phrase + `/docs/verify` sans état), `docs_state_the_bell_timestamp_as_bell_does`, sondes |
+| T-B7 T-1 | `test/bell-publication-state.test.ts` (fichier racine nouveau, choix déclaré E-B2-1) : objets construits, M-1..M-4 (deux valeurs de M-4), M-7, M-7 bis, M-8, M-9, et S-0..S-3 mot pour mot | §B2.6 |
+| T-B8 T-3a et ré-épingles | `bell_publication_anchor_composes_served_head_to_rendered_claim` : sur les fichiers servis et `bell-served.json` v4 réels, l'état recalculé dans le test (sha256, lignes du manifeste recoupées, clé et valeur, chaînage, hauteurs du lecteur structurel) égale `publicationAnchorState` des lignes liées, sans littéral d'état ; copie « bloc » (fixture au digest substitué) : `anchored`, ligne 2, hauteur 1 ; M-5 ; M-5 ter (deux formes). Garde E-9 retirée (D-B8), épingle `anchored === false` retirée, ré-épingles sur `publicationAnchorState(` (six pages, et `/bell` dans `bell-served.test.ts`) | §B2.6 |
+| T-B9 T-3b | `assert-fleet-html.mjs` : la phrase de l'état calculé sur `/bell`, `/bell/method`, `/docs/bell`, `/docs/use-cases` et aucune amorce d'un autre état ; `/docs/verify` sans amorce ni « in preparation » ; chaque ligne de la table des publications rend, dans sa rangée, le libellé suivi du détail recalculés du statut de sa preuve, et la ligne P-A7 de `latestAnchoredSeq` calculé ; `main()` importe les deux chargeurs et le lecteur par URL de fichier. Pilote sur HTML synthétique ; ré-épingle P-2 dans `site-build-fleet.test.ts` | M-6, M-10, M-11, M-12 (§B2.6) |
+| T-B10 registre, gardes, balayages | T-3a dans `served.integration_test` de Bell ; garde D8 : les trois pages Bell, les deux tables, les littéraux de `bell-anchors.ts`, avec un mutant de contrôle (l'ancienne phrase de `/bell` rougit) ; `D8_ALLOWED` et les décisions 208/211 inchangés ; `SCANNED` + table, chargeur, `publications.json` | `ci-gates`, `site-docs`, `bell-served` verts |
+
+## B2.4 Textes publics rendus (pour le checkpoint-2 : comparaison au §4.3 et à l'erratum)
+
+- **Phrase d'état** (bibliothèque, régime G2) : rendue aujourd'hui, état `pending` : « submitted for a timestamp on 2026-09-24 13:37:02 UTC; the proof is pending: it records calendars, no Bitcoin block yet » sur `/bell` (dd `timestamp anchor`), `/bell/method` (dd `the latest published record`), `/docs/bell` (dd `timestamp anchor`), `/docs/use-cases` (« The latest record: … yet. »). S-0 mot pour mot ; S-2 rendue sur la variante « bloc » seulement (fixture, jamais servie) : « anchored: the proof file records Bitcoin block 1; the record's line and every line before it existed before that block; read from the file when this page was built, not checked against a node here » (`oracle/bloc-sentences.log`). S-1v et S-3 éprouvées par T-1.
+- **P-A7** : « latest line whose proof records a Bitcoin block: none yet » (réel) ; « …: 2 » (variante « bloc »).
+- **Textes JSX** (régime vitrine) : P-B2, P-B3, P-B4, P-B5 (décision 214), P-M1..P-M6, P-A1..P-A6, P-A8 (en-têtes), P-A9, tels que le §4.3 les écrit, sauf : apostrophes typographiques (`&rsquo;`, usage des pages) dans « record's », « host's », « line's », « manifest's » ; P-A9 coupé en lignes dans son bloc `pre` comme la carte de course ; P-A8 : cellule partagée (C-8), donc « bitcoin attestation » au lieu de « block record » et « earliest block {h} · {n} block record(s) · {c} calendar record(s) pending ».
+- **`/docs/verify`** : `:136-138` = le texte de l'erratum mot pour mot ; `:78-80`, texte nouveau (l'erratum n'en donne pas, l'ancien disait « not timestamp-anchored yet ») : « The last one is drawn dashed until a proof covering the latest published record carries a Bitcoin block: that state is read from the anchors register. » (E-B2-8).
+- Aucun « proves » hors des deux formes permises, aucun « not timestamp-anchored yet », aucun « in preparation », aucun nom de fournisseur sur les six pages servies (sondes, §B2.5) ; « OpenTimestamps » (protocole) seul nom propre technique.
+
+## B2.5 Oracle (ceinture ci-dessus ; journaux sous `F:\tmp\ots-prb\g1b\oracle\`)
+
+Base : clone `b2base` du gel `ac824e9`, données v4 réelles. PR-B2 : clone `b2tree` = `ac824e9` + les 21 fichiers livrés copiés à l'octet (aucune substitution : les données réelles sont dans l'arbre, ruling 215).
+
+| Porte | Base `ac824e9` | PR-B2 (final, 03:40:53Z-03:47:43Z) | Journal |
+|---|---|---|---|
+| `npm run typecheck` | exit 0 | exit 0 | `*-typecheck.log` |
+| `npm run lint` | exit 0 | exit 0 | `*-lint.log` |
+| `npm run lint:ratchet` | 69/69 | **69/69** | `*-lint-ratchet.log` |
+| `npm run gate:vocab` | exit 0, 313 fichiers | exit 0, 315 fichiers | `*-gate-vocab.log` |
+| `npm run lang:gate` | exit 0 | exit 0 | `*-lang-gate.log` |
+| `npm run export:check` | exit 0 | exit 0 | `*-export-check.log` |
+| `node --check` des trois `.mjs` du lot | ok | ok | `*-node-check.log` |
+| `npm run build -w @monark/site` (`.next` supprimé avant) | exit 0, 41 pages | exit 0, 41 pages | `*-build.log` |
+| `node scripts/assert-fleet-html.mjs` (T-3b) | exit 0 (/fleet, /ukemi) | exit 0 : « Bell timestamp state "pending": its sentence on 4 pages and no other state's, none stated on /docs/verify, 1 publication row(s) with the status read from the proof, the latest-anchored line as computed » | `*-assert-fleet.log` |
+| rendu (`renderedBody`, balise `next-size-adjust` retirée) | 41 empreintes | **35 identiques à la base, 6 changées, exactement les six pages du lot** (`bell`, `bell/method`, `bell/anchors`, `docs/bell`, `docs/use-cases`, `docs/verify`) ; deux builds de PR-B2 (`b2`, `b2final`) aux empreintes identiques | `base-rendered.sha`, `b2-rendered.sha`, `b2final-rendered.sha` |
+| `npm test` complet | tests 1311, pass 1309, fail 0, skipped 2 | **tests 1315, pass 1313, fail 0, skipped 2** (+4 : T-1, le pilote de T-3b, T-3a, `docs_state_the_bell_timestamp_as_bell_does`) ; sauts identiques à la base, par nom | `base-test.log`, `b2final-test.log` (sha256 `b971f444…0233`) |
+
+- **Variante « bloc »** (`b2bloc`, preuve de seq 2 remplacée par la fixture de bloc au digest `602ff93d…`, source et servi, `oracle/bloc-subst.log`) : build exit 0 ; T-3b : « Bell timestamp state "anchored" … » ; S-2 rendue sur les quatre pages, P-A7 « …: 2 », rangée « bitcoin attestation earliest block 1 · 1 block record · 0 calendar records pending » (`oracle/bloc-sentences.log`).
+- **Sondes servies** (`next start -H 127.0.0.1 -p 3072` sur `b2tree`, 03:40:01Z-03:40:04Z, `oracle/probe.log`) : six pages à 200 ; la phrase `pending` une fois sur `/bell`, `/bell/method`, `/docs/bell`, `/docs/use-cases` ; la rangée « pending 4 calendar records, no block yet » sur `/bell/anchors` ; le texte tri-état une fois sur `/docs/verify` ; sur les six : 0 « not timestamp-anchored yet », 0 « in preparation », 0 « proves » hors des deux formes permises, 0 forme fournisseur ; après l'arrêt, **0 écouteur** sur 3072.
+- **Liens** (`oracle/links.log`) : `links.mjs` (liens absolus, filtre des six pages) : base 462 liens, 0 cassé ; PR-B2 466 liens, 0 cassé. `tools/fraglinks.mjs` (liens de fragment de la même page, que `links.mjs` ne vérifie pas) : base, `/bell/method` porte `#request-a-symbol` sans l'identifiant (BELL-METHOD-ANCHOR-1) ; PR-B2 : 0 sur les six pages.
+- **Export réel** (`node scripts/export-public.mjs --out F:/tmp/ots-prb/g1b/export`, `oracle/export-real.log`) : exit 0, 485 fichiers ; 17 `.ots`, tous sous `apps/site/public/bell/anchors/` ; 0 `fixture-*` ; 0 fichier `test/` racine ; `bell-publications-load.ts`, `publication-anchors-table.tsx`, `assert-fleet-html.mjs` exportés ; `assert-fleet-html.d.mts` et les deux synchros non exportés ; `EXPORT-MANIFEST.json` sha256 `6ff2b0909f1248c5ab63a879fdfc17787653d35d24bda2ddcc8e1b9a29205fb8`.
+- **Largeur 375 px** : non mesurée (§B2.11).
+
+## B2.6 Mutants (clones `b2mut` et `b2bloc`, jamais le worktree ; exécuteur `tools/mutants.mjs`, listes `oracle/mutants-b2.json`, `oracle/mutants-bloc.json`, `oracle/mutants-bloc2.json`, résultats `.tsv`)
+
+Chaque motif remplacé existe exactement une fois ; octets restaurés et sha256 revenus (« restored » pour tous) ; sha256 des 21 fichiers modifiés de `b2mut` et des 23 de `b2bloc` identiques avant et après les séries. **Total : 26 mutants, 26 tués** (22 sur données réelles, 3 sur la variante « bloc », plus M-11b réexprimé), et M-6 re-cadré (cinq fichiers rouges).
+
+| Id | Mutation | Rouge |
+|---|---|---|
+| M-1 | une ligne compte dès qu'une de ses entrées porte un digest de la ligne de tête (le `.some` retiré) | T-1 |
+| M-2 | une preuve aux seuls calendriers compte comme un bloc (hauteur 0) | T-1, pilote |
+| M-3 | la clé de ligne vérifiée, pas sa valeur | T-1 |
+| M-3 bis | la valeur vérifiée, pas sa clé | T-1 |
+| M-4 a | une ligne antérieure à la tête compte pour elle | T-1 |
+| M-4 b | `latestAnchoredSeq` sur les seules lignes comptées | T-1 (valeur `latestAnchoredSeq === row.seq` affirmée, C-3) |
+| M-7 | seule la ligne de la tête compte (strict) | T-1 |
+| M-7 bis | le chaînage `prev_line_hash` de la tête à la ligne n'est pas parcouru | T-1 |
+| M-8 | une publication après la tête ne jette pas | T-1 |
+| M-9 a | la première ligne à bloc gagne, pas la plus petite hauteur | T-1 |
+| M-9 b | `pending` nomme la ligne la plus récente | T-1 |
+| M-5 | (scénario de T-3a) un chiffre du digest de préfixe changé dans une copie du manifeste servi : le chargeur jette « do not hash to manifest_sha256 » | affirmé dans T-3a ; rendu porteur par M-5 bis |
+| M-5 bis | le chargeur ne lie pas la ligne à ses fichiers | T-3a |
+| M-5 ter | le chargeur ne lie pas les lignes à `lines[]` (les deux appels) | T-3a (C-5) |
+| M-6 a (re-cadré, erratum) | les cinq pages de `ac824e9` (le `.some` sur `listedDigests`) remises face au chargeur de PR-B2 | `tsc -p apps/site` : 5 erreurs TS2339, une par fichier, `/bell`, `/bell/method`, `/docs/bell`, `/docs/use-cases`, `/docs/verify` (`oracle/m6-five.log`) |
+| M-6 b | `/bell` rend la phrase `none` en littéral | T-3b (build) ; et la ré-épingle P-2 (`site-build-fleet`, M-6 b-pin) |
+| M-6 c | `/bell/method` dérive l'état d'aucune ligne | T-3b |
+| M-6 d (bloc) | `/bell` rend en littéral la phrase `pending` d'aujourd'hui | T-3b sur la variante « bloc » (survivrait sur les données réelles) |
+| M-10 | `/docs/bell` rend la phrase d'un autre état | T-3b |
+| M-11 a | la cellule rend un bloc quel que soit le fichier | T-3b (rangée de seq 2) |
+| M-11 b (bloc) | la cellule rend « pending » quelle que soit la preuve : première forme (`false ?`) tuée par le typage seul (TS18047), réexprimée (`blocks > Number.MAX_SAFE_INTEGER ?`), seconde forme tuée par T-3b | T-3b sur la variante « bloc » |
+| M-12 a | P-A7 rend le seq de la tête | T-3b |
+| M-12 b (bloc) | P-A7 rend « none yet » en dur | T-3b sur la variante « bloc » (C-4) |
+| D-2 | `/docs/use-cases` reprend l'ancienne phrase | T-3b (amorce `none`, phrase absente) |
+| D-3 | `/docs/verify` dessine l'étape pleine quel que soit l'état | `docs_state_the_bell_timestamp_as_bell_does` |
+| D-4 | `/docs/verify` reprend « in preparation » | T-3b |
+
+Aucun survivant ; aucune seconde tentative hors M-11 b (règle d'arrêt tenue : tué au second essai, par l'oracle visé).
+
+## B2.7 R-25 (pathspecs CODE `ci.yml:82` et CONTENU `ci.yml:86` extraits tels quels, `awk` de `:90` ; `tools/r25.sh` sur le clone `b2tree`, index du clone seul)
+
+| Mesure | CODE | CONTENU |
+|---|---|---|
+| lot entier, base de fusion `0e38b5d` (PR-B1 + PR-B2) | **1 015** (23 fichiers, 869+/146−) | **44** (3 fichiers, 23+/21−) |
+| PR-B2 seule, contre `ac824e9` | **668** (18 fichiers, 562+/106−) | **44** |
+
+Sous le seuil STOP de 1 150 et le plafond de 1 205 ; CONTENU sous 8 000. Journaux `oracle/r25-lot.log`, `oracle/r25-prb2.log`.
+
+## B2.8 Tuyaux après PR-B2 (règle Branchement)
+
+| Tuyau | Entrée | Sortie, consommateur | État | Test non-LLM | État après PR-B2 |
+|---|---|---|---|---|---|
+| P-4 registre → servi | registres, manifestes, preuves, `lines[]` | `apps/site/public/bell/anchors/` → `loadPublications` → table de `/bell/anchors` | dépôt | C-V-1, T-2, S-1..S-11, T-3b (table) | **câblé jusqu'à la page** |
+| P-5 servi + tête → affirmation | lignes liées (T-B5), tête et `lines[]` (T-B1) | `publicationAnchorState` → `publicationAnchorSentence` → `/bell`, `/bell/method`, `/docs/bell`, `/docs/use-cases` ; `/docs/verify` (schéma) ; `latestAnchoredSeq` → `/bell/anchors` | calculé à chaque build | T-1, T-3a, T-3b | **câblé** ; état servi `pending` (la preuve de seq 2 n'a aucun bloc) ; `served.integration_test` de Bell porte T-3a (CA-11) |
+| P-6 servi → tiers | fichiers servis | vérification du tiers | aucun | gestes 1, 2, 3 et 5 recalculés par T-3a ; geste 4 (nœud) hors oracle | **fixture** tant que BELL-OTS-NODE-VERIFY-1 est ouvert (inchangé) |
+
+Condition de G7 propre au lot (G0 §5 point 12, ADR mère §7) : T-3 vert sur les données réelles (fait : T-3a dans `npm test`, T-3b après le build) ; état servi `pending`, jamais « anchored » par anticipation ; l'item de mise à niveau de la preuve de seq 2 reste nommé.
+
+## B2.9 Écarts déclarés (PR-B2)
+
+- **E-B2-1** T-1 et le pilote de T-3b vivent dans un fichier racine nouveau, `test/bell-publication-state.test.ts` (choix ouvert par T-B7).
+- **E-B2-2** La phrase P-A7 est rendue par `latestAnchoredLine` de la bibliothèque (une seule formulation pour la page et T-3b), la valeur venant de l'état calculé.
+- **E-B2-3** `latestAnchoredSeq` ne retient qu'une ligne dont le manifeste porte sa propre ligne (clé et valeur) : égal au G0 pour toute ligne liée par le chargeur, plus strict si une ligne non liée lui parvenait.
+- **E-B2-4** `utcLabel` déplacé dans `bell-anchors.ts` (la phrase S-1 en a besoin), ré-exporté par `bell-anchors-load.ts` (R-3).
+- **E-B2-5** Le chargeur lie aussi les lignes non horodatées à `lines[]` (le G0 dit « chaque ligne horodatée ») et refuse un nom de fichier servi qui n'est pas un nom simple : défense en profondeur, sans effet sur les données.
+- **E-B2-6** La garde D8 couvre aussi la table de course `anchors-table.tsx`, qui porte la cellule partagée.
+- **E-B2-7** Les pages appellent `publicationAnchorState(<données>.head, <données>.lines, loadPublications(<données>.lines).bound)` ; `/docs/use-cases` nomme ses données `bellServed` : la ré-épingle accepte tout nom, pourvu que ce soit le même objet pour la tête et `lines[]`.
+- **E-B2-8** `/docs/verify:78-80` : texte nouveau au régime vitrine (§B2.4), l'erratum ne donnant de texte que pour `:136-138` ; la légende du schéma et le libellé de source « anchors register » sont gardés (aucune phrase nouvelle hors nécessité). Candidate à trancher au checkpoint-2 : la légende « A dashed step does not exist yet for the published records » reste lisible en état `pending` (le geste de vérification contre un nœud n'est pas encore possible), mais l'horodatage, lui, existe et est pendant ; une reformulation serait un texte de plus au régime vitrine.
+- **E-B2-9** Cadrage des deux pages `/docs` sans phrase nouvelle : sur `/docs/bell`, la paire `timestamp anchor` / phrase de `/bell` ; sur `/docs/use-cases`, « The latest record: » (mots déjà présents) puis la phrase et un point. L'étape « A public timestamp » du schéma de `/docs/use-cases` devient tri-état comme celle de `/docs/verify` (l'erratum ne la nomme pas ; même règle, même source).
+- **E-B2-10** Lecture de la sonde « la même phrase d'état `pending` partout » : la phrase sur les quatre pages qui énoncent l'état ; sur `/bell/anchors`, le statut « pending » de la rangée de seq 2 (la page n'énonce pas l'état de la tête, §4.3) ; sur `/docs/verify`, aucun état énoncé (texte tri-état de l'erratum, schéma tireté).
+- **E-B2-11** P-B3 relie la route des ancres deux fois de suite (la phrase précédente la reliait déjà) : texte du §4.3 tenu.
+- **E-B2-12** Mesure à 375 px non faite (§B2.11) : c'était un devoir du G1 (C-9 (ii), non-régression de `/bell`) ; à planifier au checkpoint-2 ou au G7.
+- **E-B2-13 R-25** : le G0 estimait PR-B2 (T-B4..T-B10) à environ 406 lignes CODE et le CONTENU à 0 (§2.2, §2.3) ; mesuré 668 CODE et 44 CONTENU (l'erratum a admis CONTENU > 0 pour les trois pages `/docs`). Causes : T-3b et son pilote (`assert-fleet-html.mjs` +71, `.d.mts` +14, pilote dans les 79 lignes du fichier de test nouveau), T-3a (+57/−13), la cellule partagée extraite (+37/−31, C-8), la ré-épingle et la garde des trois pages `/docs` (`site-docs.test.ts` +22/−3), absentes du plan. `error_origin` proposé : planification (estimation des tests et du T-3b ; recensement `/docs` manquant, erratum) et génération. Le lot entier reste à 1 015 CODE, sous le seuil STOP de 1 150. La ligne datée C-10 de l'ADR mère cite « PR-B1 321 » : les chiffres de PR-B2 (668 CODE, 44 CONTENU ; lot 1 015 et 44) sont à y ajouter par l'orchestrateur.
+- **E-B2-14** `/bell/anchors` charge les données par `loadBellServed(bellServedRepoRoot())` sans la liste fermée des résidus (`/bell` et `/bell/method` la passent) : la page n'en lit que la tête et `lines[]`, et le même build valide le même fichier avec la liste par les autres pages ; déclaré, non modifié.
+
+### Écarts à l'ADR mère constatés par PR-B2 (la ligne datée C-10 reste l'acte de l'orchestrateur)
+
+Aucun écart nouveau hors ceux que la ligne datée du 2026-09-25 02:58 UTC liste déjà ; l'état, les phrases, T-3a et T-3b suivent D5, D6 (avec « before ») et D7 tels que le G0 et l'erratum les amendent.
+
+## B2.10 Items
+
+| Id | Disposition |
+|---|---|
+| PRB-DOCS-LISTEDDIGESTS-1 | **absorbé** (option (a)) |
+| PRB-LOADER-GUARD-1 | **absorbé** : garde E-9 retirée avec l'état, le chargeur et T-3 (D-B8) |
+| PRB-BIND-IN-LOADER-1 | **absorbé** (T-B5, M-5 bis, M-5 ter) |
+| FIXTURE-GEN-VERSIONED-1 | **absorbé** : aucune preuve nouvelle ; substitution de digest en temporaire (T-3a) et dans le clone « bloc » |
+| BELL-D8-PROVES-1 | **absorbé** : P-B5 servie, garde D8 étendue aux pages Bell avec contrôle ; clôture au G7 |
+| BELL-METHOD-ANCHOR-1 | **absorbé** : lien de contact de `/bell/method` vers `/bell#request-a-symbol` ; mesuré (§B2.5) |
+| RENDER-FINGERPRINT-NONDET-1 | méthode appliquée (balise retirée, builds comptés) |
+| SYNC-LSTAT-PATH-1 (B1, B2, B6) | vert localement ; la preuve CI ubuntu reste à citer au G7 (C-7) |
+| Mise à niveau de la preuve de seq 2, BELL-OTS-NODE-VERIFY-1, SYNC-GITSHOW-BRANCH-TEST-1, SCRIPTS-STATIC-COVERAGE-1, BELL-MOBILE-375-1, SITE-RENDER-GATES-1, TEST-GIT-ENV-ISOLATION-1, TMP-HYGIENE-1 (hors fichiers de ce lot) | inchangés, déclencheurs du G0 |
+
+## B2.11 Ce que je n'ai pas pu confirmer (PR-B2)
+
+1. **État `anchored` sur données réelles** : impossible aujourd'hui (preuve de seq 2 pendante) ; rendu seulement sur la variante « bloc » d'un clone (fixture synthétique, jamais servie).
+2. **375 px** (`mobile375.mjs`) : non exécuté ; l'outil pilote un navigateur par CDP, et un navigateur lancé peut appeler le réseau (mises à jour, services), ce que la mission interdit. Les 35 pages non touchées ont un rendu identique à la base ; les six pages touchées n'ont pas été mesurées en largeur (BELL-MOBILE-375-1 garde ce sujet, la non-régression de `/bell` reste à mesurer au checkpoint-2 ou au G7).
+3. **Run CI ubuntu** de B1, B2, B6 : hors de portée du worker (R-20).
+4. **Workflow public dérivé** : non exécuté ; seuls `export:check` et l'export réel (manifeste) sont mesurés.
+5. **Trafic réseau pendant `npm test`** : non surveillé (aucune capture) ; aucune variable payante posée.
+6. **Acceptation** des textes nouveaux de `/docs/verify:78-80` et des cadrages `/docs` : au checkpoint-2.
+
+## B2.12 Consultation de clôture (advisor intégré, canal 1, conseil, jamais verdict)
+
+Sur ce journal écrit et l'oracle vert : l'advisor a demandé de consigner cette consultation et de rejouer `npm test` après l'édition (fait, §B2.13), de déclarer l'écart R-25 de PR-B2 et d'en donner les chiffres pour la ligne datée C-10 (E-B2-13), de déclarer le chargement des données de `/bell/anchors` sans la liste des résidus (E-B2-14, déclaré plutôt que modifié après l'oracle), de nommer la légende du schéma de `/docs/verify` comme point à trancher (E-B2-8), et de répéter dans le rendu final le devoir de mesure à 375 px (E-B2-12). Il a confirmé T-3a indépendant, les règles de l'état conformes à D5 et C-1, S-0..S-3 mot pour mot, les en-têtes P-A8, M-6 re-cadré, la cellule partagée, le contrôle adjacent du libellé et du détail, et la réexpression de M-11 b. Tout retenu. La consultation d'avant le code (en-tête de cette partie) a expiré sans réponse.
+
+## B2.13 Gel
+
+Cette partie est gelée avant un dernier passage complet de `npm test` sur `b2tree` qui l'inclut ; son résultat, `git diff --stat`, R-25 et le sha256 de ce journal sont rendus hors du fichier (`F:\tmp\ots-prb\g1b\DELIVERED-B2.sha256`).

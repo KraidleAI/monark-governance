@@ -23,9 +23,10 @@ import { tmpdir } from "node:os";
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { join, dirname } from "node:path";
 import { createHash } from "node:crypto";
-import { parseAnchorsRegister, readOtsProof, anchorStatus, manifestDigests, parsePublicationAnchors, bindPublicationAnchor, bindPublicationRowToLines, manifestEntries } from "../apps/site/lib/bell-anchors.ts";
+import { parseAnchorsRegister, readOtsProof, anchorStatus, manifestDigests, parsePublicationAnchors, bindPublicationAnchor, bindPublicationRowToLines, manifestEntries, publicationAnchorState } from "../apps/site/lib/bell-anchors.ts";
 import type { AnchorsRegister, PublicationAnchorsRegister } from "../apps/site/lib/bell-anchors.ts";
 import { loadBellServed } from "../apps/site/lib/bell-served-load.ts";
+import { loadPublicationAnchors } from "../apps/site/lib/bell-publications-load.ts";
 import { WHITELIST_DIRS, WHITELIST_FILES } from "../scripts/export-public.mjs";
 
 const ROOT = join(import.meta.dirname, "..");
@@ -100,8 +101,54 @@ test("bell_publication_anchors_served_register_matches_source — publications.j
   // the manifest's files (SYNC-LINES-CHECK-1 extended; G2-M7 reds here).
   const { lines } = loadBellServed(ROOT);
   for (const r of source) bindPublicationRowToLines(r, r.manifest_file === null ? null : manifestEntries(readFileSync(join(SERVED, r.manifest_file), "utf8")), lines);
-  // Until PR-B replaces the pages' `.some` (page.tsx:254), their loader stays blind to these files: seq 2 lists states/<head.state_sha256>.
-  assert.ok(!readFileSync(join(ROOT, "apps", "site", "lib", "bell-anchors-load.ts"), "utf8").includes("publications"), "the pages' loader reads no publication file yet");
+});
+
+// T-3a (tuyau P-5, ADR-BELL-OTS-PRB T-B8): from the served data (head, lines[]) and the served files, the state is RECOMPUTED here (sha256
+// by node:crypto, the manifest lines split anew, key AND digest compared, the prev_line_hash chain walked, heights read by the structural
+// reader) and must equal publicationAnchorState over the rows loadPublicationAnchors binds; the same on a copy whose proof is the synthetic
+// block fixture, its digest substituted (anchored). M-5: a manifest byte changed throws; M-5 ter: lines[] not covering a row, or a foreign
+// line_hash, throws the named error (a loader that skipped the binding would render "none" in silence). No state literal on real data.
+test("bell_publication_anchor_composes_served_head_to_rendered_claim — the state recomputed from the served files equals the pages' (T-3a)", () => {
+  const served = loadBellServed(ROOT), { head, lines } = served, pub = JSON.parse(readFileSync(join(SERVED, "publications.json"), "utf8")) as PublicationAnchorsRegister;
+  const load = (dir: string, ls = lines) => loadPublicationAnchors(dir, { lines: ls }, { readOtsProof, anchorStatus, manifestEntries, bindPublicationAnchor, bindPublicationRowToLines });
+  const recompute = (dir: string): Record<string, unknown> => {
+    const counted: Array<{ seq: number; date: string; h: number[] }> = [];
+    let latest: number | null = null;
+    for (const r of pub.rows) {
+      if (r.manifest_file === null || r.proof_file === null) continue;
+      const bytes = readFileSync(join(dir, r.manifest_file)), proof = readOtsProof(new Uint8Array(readFileSync(join(dir, r.proof_file))));
+      assert.ok(sha256(bytes) === r.manifest_sha256 && proof.digestHex === r.manifest_sha256, `${r.manifest_file}: bytes and proof timestamp the row's digest`);
+      const carries = bytes.toString("utf8").split("\n").some((l) => l === `timeline.jsonl#L${String(r.seq)} ${lines[r.seq - 1]?.line_hash ?? "?"}`);
+      const h = [...new Set(proof.attestations.flatMap((a) => (a.kind === "bitcoin" ? [a.height] : [])))].sort((x, y) => x - y);
+      let chained = lines[head.seq - 1]?.line_hash === head.line_hash;
+      for (let k = head.seq + 1; k <= r.seq; k++) chained = chained && lines[k - 1]?.prev_line_hash === lines[k - 2]?.line_hash;
+      if (carries && h.length > 0) latest = Math.max(latest ?? 0, r.seq);
+      if (r.seq >= head.seq && chained && carries) counted.push({ seq: r.seq, date: r.date_utc, h });
+    }
+    counted.sort((a, b) => a.seq - b.seq || a.date.localeCompare(b.date));
+    const blocks = counted.filter((c) => c.h.length > 0).sort((a, b) => (a.h[0] ?? 0) - (b.h[0] ?? 0)), best = blocks[0], first = counted[0], base = { head_seq: head.seq, latestAnchoredSeq: latest };
+    if (best !== undefined) return { ...base, state: "anchored", via_seq: best.seq, date_utc: best.date, earliestHeight: best.h[0], blockRecords: best.h.length };
+    return first === undefined ? { ...base, state: "none" } : { ...base, state: "pending", via_seq: first.seq, date_utc: first.date };
+  };
+  assert.deepEqual(publicationAnchorState(head, lines, load(SERVED).bound), recompute(SERVED), "real served files: the pages' state is the recomputed one");
+  const row = pub.rows.find((r) => r.proof_file !== null && r.manifest_file !== null);
+  assert.ok(row !== undefined && row.proof_file !== null && row.manifest_file !== null, "non-vacuity: a timestamped publication row is served");
+  const tmp = mkdtempSync(join(tmpdir(), "bell-t3a-"));
+  try {
+    cpSync(SERVED, tmp, { recursive: true });
+    const fx = readFileSync(join(ROOT, "test", "fixtures", "fixture-bell-seq2-block.ots")), at = fx.indexOf(Buffer.from(readOtsProof(new Uint8Array(fx)).digestHex, "hex"));
+    writeFileSync(join(tmp, row.proof_file), Buffer.concat([fx.subarray(0, at), Buffer.from(row.manifest_sha256, "hex"), fx.subarray(at + 32)]));
+    const block = publicationAnchorState(head, lines, load(tmp).bound);
+    assert.deepEqual(block, recompute(tmp), "block copy: the pages' state is the recomputed one");
+    assert.deepEqual([block.state, block.state === "anchored" ? [block.via_seq, block.earliestHeight] : []], ["anchored", [row.seq, 1]], "the fixture's block record is read");
+    const man = readFileSync(join(tmp, row.manifest_file), "utf8"), pre = `timeline.jsonl#L1-L${String(row.seq)} `;
+    writeFileSync(join(tmp, row.manifest_file), man.replace(pre + row.prefix_sha256, pre + (row.prefix_sha256.startsWith("0") ? "1" : "0") + row.prefix_sha256.slice(1)));
+    assert.throws(() => load(tmp), /do not hash to manifest_sha256/, "M-5: a manifest byte changed: the loader throws");
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+  assert.throws(() => load(SERVED, lines.slice(0, row.seq - 1)), new RegExp(`seq ${String(row.seq)} is beyond the served lines`), "M-5 ter: lines[] does not cover the row");
+  assert.throws(() => load(SERVED, lines.map((l) => (l.seq === row.seq ? { ...l, line_hash: "0".repeat(64) } : l))), new RegExp(`line_hash is not that of line ${String(row.seq)}`), "M-5 ter: a foreign line_hash");
 });
 
 // C-7: synthetic proofs only under test/fixtures/ (fixture-*); the source holds exactly its register and named files; test/ is not exported.
@@ -258,9 +305,9 @@ test("bell_ots_reader_matches_reference_client — known answer from `ots info` 
 });
 
 // B38/B39 (vitrine audit 2026-09-24): the open-line wording states what the register holds (an instrument whose end line
-// is not in the register), never an activity the register cannot show; and the pages' claim about the latest published
-// record ("not timestamp-anchored") is DERIVED at build from the digests the served manifests list (lib/bell-anchors.ts
-// manifestDigests, used by lib/bell-anchors-load.ts), recomputed here from the same files.
+// is not in the register), never an activity the register cannot show; the course manifests keep their fail-closed shape check.
+// ADR-BELL-OTS-PRB (D-B7, D-B8, option (a)): every page that states the latest record's timestamp derives it by publicationAnchorState
+// from the bound publication rows; the `.some` over listed digests and its `anchored === false` pin are gone (T-3a recomputes the state).
 test("bell_anchors_wording_and_the_latest_record_anchoring_are_derived", () => {
   const table = readFileSync(join(ROOT, "apps", "site", "components", "bell", "anchors-table.tsx"), "utf8");
   assert.ok(!/run in progress/.test(table), "the table no longer claims a run in progress");
@@ -278,13 +325,10 @@ test("bell_anchors_wording_and_the_latest_record_anchoring_are_derived", () => {
   }
   assert.ok(manifests >= 1 && listed.size >= manifests, "non-vacuity: the served manifests list digests");
   assert.throws(() => manifestDigests("budget.json not-a-digest\n"), /not '<relpath> <sha256hex>'/, "a malformed manifest line fails closed");
-  const data = JSON.parse(readFileSync(join(ROOT, "apps", "site", "data", "bell-served.json"), "utf8")) as { head: { state_sha256: string; runs: Array<{ bell_sha: string }> } };
-  const anchored = [data.head.state_sha256, ...data.head.runs.map((r) => r.bell_sha)].some((d) => listed.has(d));
-  // Measured today (item Q6-ANCHOR-1 open): no anchor manifest lists the published record. The pages branch on the same
-  // computation by themselves; this pin reds when that changes, so the rendered sentence is re-read then.
-  assert.equal(anchored, false, "the latest published record is not listed in an anchor manifest");
-  for (const rel of ["apps/site/app/bell/page.tsx", "apps/site/app/bell/method/page.tsx"]) {
-    assert.match(readFileSync(join(ROOT, rel), "utf8"), /anchors\.listedDigests\.includes/, `${rel} derives the anchoring claim from the served manifests`);
+  for (const rel of ["bell/page.tsx", "bell/method/page.tsx", "bell/anchors/page.tsx", "docs/bell/page.tsx", "docs/use-cases/page.tsx", "docs/verify/page.tsx"]) {
+    const text = readFileSync(join(ROOT, "apps", "site", "app", ...rel.split("/")), "utf8");
+    assert.match(text, /publicationAnchorState\((\w+)\.head, \1\.lines, /,`${rel} derives the latest record's timestamp state from the bound publication rows`);
+    assert.ok(!text.includes("listedDigests"), `${rel} no longer derives it from listed digests`);
   }
 });
 

@@ -5,7 +5,8 @@ import { loadHarnessServed } from "@/lib/harness-served-load";
 import { loadUkemiServed } from "@/lib/ukemi-served-load";
 import { loadBellServed, bellServedRepoRoot } from "@/lib/bell-served-load";
 import { BELL_RESIDUAL_CODES_LISTED } from "@/lib/bell-method";
-import { loadAnchors } from "@/lib/bell-anchors-load";
+import { loadPublications } from "@/lib/bell-anchors-load";
+import { publicationAnchorState, publicationAnchorSentence } from "@/lib/bell-anchors";
 import { docsRepoRoot } from "@/lib/docs-references-load";
 import { DocHeader, Toc, DocSection, Figure, Callout, StatusPill, PrevNext } from "@/components/docs/doc-kit";
 import { FlowSchema } from "@/components/docs/schemas/flow";
@@ -48,7 +49,6 @@ export default function DocsUseCasesPage() {
   const harness = loadHarnessServed(root);
   const ukemiServed = loadUkemiServed(root);
   const bellServed = loadBellServed(bellServedRepoRoot(), BELL_RESIDUAL_CODES_LISTED);
-  const anchors = loadAnchors();
   const bell = app("bell");
   const gate = agent("Hikae");
   const ukemi = agent("Ukemi");
@@ -65,7 +65,7 @@ export default function DocsUseCasesPage() {
   const byoServed = harness.byo_clause.length > 0;
   const liqCommitted = ukemiServed.registry_state === "committed";
   const head = bellServed.head;
-  const headAnchored = [head.state_sha256, ...head.runs.map((r) => r.bell_sha)].some((d) => anchors.listedDigests.includes(d));
+  const anchorState = publicationAnchorState(bellServed.head, bellServed.lines, loadPublications(bellServed.lines).bound);
   const toc = [
     { id: "venue", label: "A venue listing tokenized equities" },
     { id: "agent", label: "An agent that moves money" },
@@ -154,7 +154,7 @@ export default function DocsUseCasesPage() {
             steps={[
               { head: "The signed line", body: "each line signed over its canonical bytes and chained to the one before", today: bell.status === "built", source: bell.name },
               { head: "The oracle checks", body: "the signature against the committed keyring, the chain back to the genesis value", today: true, source: "public verifier" },
-              { head: "A public timestamp", body: "each published line anchored, so its existence before a block is shown by anyone", today: headAnchored, source: "anchors register" },
+              { head: "A public timestamp", body: "each published line anchored, so its existence before a block is shown by anyone", today: anchorState.state === "anchored", source: "anchors register" },
               { head: "The value relayed", body: "with the line hash, so a consumer can trace it and recompute it", today: false, source: "an oracle" },
             ]}
             footer="A signature attests origin, never truth: the consumer's check of a fact is the recompute from the ledger."
@@ -163,7 +163,7 @@ export default function DocsUseCasesPage() {
         <Callout tone="today" title="Today">
           <StateList items={[bell, shogen]} />
           <p>
-            The latest record {headAnchored ? "is listed in an anchor manifest." : "is signed and chained, not timestamp-anchored yet."}{" "}
+            The latest record: {publicationAnchorSentence(anchorState)}.{" "}
             The reader-side verifier and the public keyring are public; no oracle relays the record.
           </p>
         </Callout>

@@ -48,3 +48,17 @@ export function assertUkemiBody(args: {
   html: string;
   expected: { emptyRegistrySentence: string; conditionalSentence: string; status: string };
 }): { mainChars: number; corpusChars: number; numericTokens: number; status: string };
+
+/* ── Bell: the timestamp state of the latest published record (T-3b) ── */
+/** The built pages that state it, the verification page (states none), the anchors page (the publications table). */
+export const BELL_STATE_PAGES_REL: string[];
+export const BELL_VERIFY_REL: string;
+export const BELL_ANCHORS_REL: string;
+/** A fragment each state's sentence carries and no other state's does. */
+export const BELL_STATE_PRIMERS: { none: string; pending: string; anchored: string };
+/** Assert the rendered <main> carries the sentence of `state` and no other state's primer (state null: none at all); throws on failure. */
+export function assertBellAnchorBody(args: { html: string; state: "none" | "pending" | "anchored" | null; sentence: string | null }): { state: string | null; corpusChars: number };
+/** The status label and detail the anchors tables render for a row, recomputed from the proof's status. */
+export function bellStatusText(status: { bitcoinHeights: number[]; pendingCalendars: string[] } | null): { label: string; detail: string };
+/** Assert each publication row renders its status label and detail beside its manifest digest, and the latest-anchored line; throws. */
+export function assertBellPublicationsTable(args: { html: string; rows: ReadonlyArray<{ manifest_sha256: string; label: string; detail: string }>; latest: string }): { rows: number };

@@ -9,6 +9,8 @@
 // body via assertUkemiBody() — digit-free numeric-hole scan + served-state/conditional-clause presence +
 // interval/cascade/Bell/Aave absence. renderedBody()/assertFleetBody() are SHARED and UNCHANGED; the g3-site
 // `run:` line is unchanged (checkpoint-1 C-4). See the /ukemi extension block below.
+// EXTENDED (ADR-BELL-OTS-PRB T-B9, T-3b): the same main() asserts the Bell timestamp state of the latest published record on the
+// built pages (its one sentence, no other state's; the publications table row by row). See the Bell block below.
 //
 // The pure function assertFleetBody() is import-free (built-ins only) — what test/site-build-fleet.test.ts
 // drives on a synthetic fixture. main() DYNAMICALLY imports apps/site/lib/fleet.ts (the SINGLE SOURCE of the
@@ -396,6 +398,53 @@ export function assertUkemiBody({ html, expected }) {
   return { mainChars: mainHtml.length, corpusChars: corpus.length, numericTokens: nums.length, status };
 }
 
+/* ─────────── Bell: the timestamp state of the latest published record (ADR-BELL-OTS-PRB T-B9, T-3b) ───────────
+ * The pages that state it render the ONE sentence of the state computed from the committed data, and no primer of another state; the
+ * verification page describes the three states and states none; /bell/anchors renders each publication row with the status read from its
+ * proof, and the highest line whose proof records a block. main() computes the state as the pages do: the loaders and the pure reader of
+ * apps/site/lib are self-contained and imported by file URL (no alias). The functions below are pure (test/bell-publication-state.test.ts). */
+export const BELL_STATE_PAGES_REL = ["bell", "bell/method", "docs/bell", "docs/use-cases"].map((p) => `apps/site/.next/server/app/${p}.html`);
+export const BELL_VERIFY_REL = "apps/site/.next/server/app/docs/verify.html";
+export const BELL_ANCHORS_REL = "apps/site/.next/server/app/bell/anchors.html";
+/** A fragment each state's sentence carries and no other state's does. */
+export const BELL_STATE_PRIMERS = { none: "not timestamp-anchored", pending: "the proof is pending: it records calendars", anchored: "the proof file records Bitcoin block" };
+
+/** Assert a rendered <main> carries the sentence of `state` and no primer of another state; with `state` null (a page that states no
+ *  state), no primer at all and not the retired "in preparation". Throws on failure (vacuity-guarded). */
+export function assertBellAnchorBody({ html, state, sentence }) {
+  if (state !== null && !(typeof sentence === "string" && sentence.includes(BELL_STATE_PRIMERS[state] ?? "\u0000"))) throw new Error("assert-bell: the expected sentence does not carry its state's primer (vacuity guard)");
+  const corpus = mainCorpus(extractMain(renderedBody(html)));
+  if (state !== null && !corpus.includes(sentence)) throw new Error(`assert-bell: the ${state} sentence is absent from the rendered <main>: ${JSON.stringify(sentence)}`);
+  const stray = Object.entries(BELL_STATE_PRIMERS).filter(([s, p]) => s !== state && corpus.includes(p)).map(([s]) => s);
+  if (state === null && corpus.includes("in preparation")) stray.push("in preparation");
+  if (stray.length > 0) throw new Error(`assert-bell: the rendered <main> states another state than ${String(state)}: ${stray.join(", ")}`);
+  return { state, corpusChars: corpus.length };
+}
+
+/** The status label and detail the anchors tables render for a row, recomputed here from the proof's status (not imported). */
+export function bellStatusText(status) {
+  if (status === null) return { label: "not timestamped", detail: "no proof file for this line" };
+  const c = status.pendingCalendars.length, b = status.bitcoinHeights.length, cal = `${String(c)} ${c === 1 ? "calendar record" : "calendar records"}`;
+  return b > 0
+    ? { label: "bitcoin attestation", detail: `earliest block ${String(status.bitcoinHeights[0])} · ${String(b)} ${b === 1 ? "block record" : "block records"} · ${cal} pending` }
+    : { label: "pending", detail: `${cal}, no block yet` };
+}
+
+/** Assert the rendered /bell/anchors carries, in the table row holding each manifest digest (title attribute), that row's status label and
+ *  detail, and the latest-anchored line. `rows`: [{ manifest_sha256, label, detail }]. Throws on failure (vacuity-guarded). */
+export function assertBellPublicationsTable({ html, rows, latest }) {
+  if (!Array.isArray(rows) || rows.length === 0 || typeof latest !== "string" || latest.length === 0) throw new Error("assert-bell: no publication row or no latest line to check (vacuity guard)");
+  const main = extractMain(renderedBody(html));
+  for (const r of rows) {
+    const tr = main.split(/<tr\b/i).find((seg) => seg.includes(`title="${r.manifest_sha256}"`));
+    if (tr === undefined) throw new Error(`assert-bell: no table row carries the manifest digest ${r.manifest_sha256}`);
+    const want = `${r.label} ${r.detail}`; // the label and, right after it, its detail (one status cell)
+    if (!mainCorpus(tr).includes(want)) throw new Error(`assert-bell: the row of ${r.manifest_sha256} does not render ${JSON.stringify(want)}`);
+  }
+  if (!mainCorpus(main).includes(latest)) throw new Error(`assert-bell: the latest-anchored line is absent: ${JSON.stringify(latest)}`);
+  return { rows: rows.length };
+}
+
 async function main() {
   // --- /fleet (O-2, UNCHANGED) ---
   const fleetAbs = join(REPO_ROOT, ...FLEET_HTML_REL.split("/"));
@@ -435,6 +484,28 @@ async function main() {
       expected: { emptyRegistrySentence: LIQ_EMPTY_REGISTRY_SENTENCE, conditionalSentence: LIQ_CONDITIONAL_SENTENCE, status: ukemiAgent.status },
     });
     console.log(`assert-fleet-html OK — /ukemi <main> digit-free (${r.numericTokens} numeric tokens), served state + conditional clause present, pill carries registry status ${JSON.stringify(r.status)}, no interval/cascade/Bell/Aave (${r.corpusChars} corpus chars).`);
+  } catch (e) {
+    console.error(String(e instanceof Error ? e.message : e));
+    process.exit(1);
+  }
+
+  // --- Bell: the timestamp state of the latest published record (T-3b), computed as the pages compute it ---
+  const lib = (f) => import(pathToFileURL(join(REPO_ROOT, "apps", "site", "lib", f)).href);
+  const [{ loadBellServed }, { loadPublicationAnchors }, reader] = await Promise.all([lib("bell-served-load.ts"), lib("bell-publications-load.ts"), lib("bell-anchors.ts")]);
+  const built = (rel) => {
+    const abs = join(REPO_ROOT, ...rel.split("/"));
+    if (!existsSync(abs)) throw new Error(`assert-fleet-html: FAIL-CLOSED — ${rel} not found. Run \`${SITE_BUILD_RUN}\` first (never a skip).`);
+    return readFileSync(abs, "utf8");
+  };
+  try {
+    const served = loadBellServed(REPO_ROOT);
+    const pubs = loadPublicationAnchors(join(REPO_ROOT, "apps", "site", "public", "bell", "anchors"), served, reader);
+    const state = reader.publicationAnchorState(served.head, served.lines, pubs.bound), sentence = reader.publicationAnchorSentence(state);
+    for (const rel of BELL_STATE_PAGES_REL) assertBellAnchorBody({ html: built(rel), state: state.state, sentence });
+    assertBellAnchorBody({ html: built(BELL_VERIFY_REL), state: null, sentence: null });
+    const rows = pubs.rows.map((x) => ({ manifest_sha256: x.manifest_sha256, ...bellStatusText(x.status) }));
+    assertBellPublicationsTable({ html: built(BELL_ANCHORS_REL), rows, latest: reader.latestAnchoredLine(state.latestAnchoredSeq) });
+    console.log(`assert-fleet-html OK — Bell timestamp state ${JSON.stringify(state.state)}: its sentence on ${String(BELL_STATE_PAGES_REL.length)} pages and no other state's, none stated on /docs/verify, ${String(rows.length)} publication row(s) with the status read from the proof, the latest-anchored line as computed.`);
   } catch (e) {
     console.error(String(e instanceof Error ? e.message : e));
     process.exit(1);

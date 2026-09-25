@@ -686,13 +686,17 @@ const stripAllowed = (s: string) => D8_ALLOWED.reduce((acc, re) => acc.replace(r
 // String-literal attributes that carry geometry or markup, never public text (shared by the vocabulary and D8 scans; G2B, R-3).
 const MARKUP = new Set(["className", "d", "transform", "viewBox", "fill", "stroke", "fontFamily", "href", "key", "xmlns", "textAnchor", "fontStyle", "role", "strokeDasharray", "style", "id", "import", "refId", "slug", "aria-labelledby"]);
 const sentencesOf = (s: string): string[] => s.replace(/\s+/g, " ").split(/(?<=\.)\s+/).map((x) => x.trim());
+// Ruling 214 (ADR-BELL-OTS-PRB T-B10): the guard covers the three Bell pages, the two anchors tables and the sentences of lib/bell-anchors.ts.
+const BELL_TSX = ["apps/site/app/bell/page.tsx", "apps/site/app/bell/method/page.tsx", "apps/site/app/bell/anchors/page.tsx", "apps/site/components/bell/anchors-table.tsx", "apps/site/components/bell/publication-anchors-table.tsx"];
 
 test("docs_carry_no_ots_d8_forbidden_form — no 'proves', 'proof that', 'at a point in time' and the rest in the docs and MONARK Building", () => {
   const hits: string[] = [];
-  for (const rel of [...DOCS_TSX, ROADMAP]) for (const t of renderedOf(rel)) for (const sent of sentencesOf(t)) if (D8.test(stripAllowed(sent))) hits.push(`${rel}: ${t.slice(0, 90)}`);
+  for (const rel of [...DOCS_TSX, ROADMAP, ...BELL_TSX]) for (const t of renderedOf(rel)) for (const sent of sentencesOf(t)) if (D8.test(stripAllowed(sent))) hits.push(`${rel}: ${t.slice(0, 90)}`);
   // G2B: string literals rendered by property access (a TOC label, a constant) are public text too; markup is not.
-  for (const rel of [...DOCS_TSX, ROADMAP]) for (const l of literalsOf(sourceFile(rel))) if (l.attr === null || !MARKUP.has(l.attr)) for (const sent of sentencesOf(l.text)) if (D8.test(stripAllowed(sent))) hits.push(`${rel}: literal: ${sent.slice(0, 90)}`);
-  for (const rel of DOCS_LIBS) for (const l of literalsOf(sourceFile(rel))) if (D8.test(stripAllowed(l.text))) hits.push(`${rel}: ${l.text.slice(0, 90)}`);
+  for (const rel of [...DOCS_TSX, ROADMAP, ...BELL_TSX]) for (const l of literalsOf(sourceFile(rel))) if (l.attr === null || !MARKUP.has(l.attr)) for (const sent of sentencesOf(l.text)) if (D8.test(stripAllowed(sent))) hits.push(`${rel}: literal: ${sent.slice(0, 90)}`);
+  for (const rel of [...DOCS_LIBS, "apps/site/lib/bell-anchors.ts"]) for (const l of literalsOf(sourceFile(rel))) if (D8.test(stripAllowed(l.text))) hits.push(`${rel}: ${l.text.slice(0, 90)}`);
+  const bellMutant = read("apps/site/app/bell/page.tsx").replace("The signature shows who published the record and that it is intact;", "The signature proves who published the record and when;");
+  assert.ok(renderedOf("apps/site/app/bell/page.tsx", bellMutant).some((t) => sentencesOf(t).some((x) => D8.test(stripAllowed(x)))), "control: the retired /bell sentence reds (the Bell pages are scanned)");
   let panelScanned = 0;
   for (const t of renderedOf(SHOGEN_PANEL)) for (const sent of sentencesOf(t)) { panelScanned += 1; if (D8.test(stripAllowed(sent))) hits.push(`${SHOGEN_PANEL}: ${sent.slice(0, 90)}`); }
   assert.ok(panelScanned >= 8, `control: the panel's rendered sentences are scanned (${String(panelScanned)})`);
@@ -705,6 +709,21 @@ test("docs_carry_no_ots_d8_forbidden_form — no 'proves', 'proof that', 'at a p
   assert.ok(D8.test(stripAllowed("Not so: An attestation proves what a source said, never that the source is right.")), "control: the allowed form inside a longer sentence reds (the anchors are load-bearing)");
   assert.ok(sentencesOf("An attestation proves what a source said, never that the source is right. The anchor proves the record existed.").some((x) => D8.test(stripAllowed(x))), "control: any other proves still reds");
   assert.ok(renderedOf(SHOGEN_PANEL).some((t) => /An attested testimony proves what was said/.test(t)), "control: the panel is scanned and carries the second allowed form");
+});
+
+// ADR-BELL-OTS-PRB option (a) (erratum D-B7): the three /docs pages that spoke of the latest record's anchoring derive its state as /bell
+// does, from the bound publication rows, and /docs/bell and /docs/use-cases render /bell's own sentence (the built pages are asserted by
+// scripts/assert-fleet-html.mjs, T-3b); /docs/verify describes the three states, word for word, and its last gesture is solid only when anchored.
+test("docs_state_the_bell_timestamp_as_bell_does — /docs/bell and /docs/use-cases render /bell's sentence; /docs/verify is tri-state", () => {
+  for (const rel of ["apps/site/app/docs/bell/page.tsx", "apps/site/app/docs/use-cases/page.tsx", "apps/site/app/docs/verify/page.tsx"]) {
+    assert.match(read(rel), /publicationAnchorState\((\w+)\.head, \1\.lines, loadPublications\(\1\.lines\)\.bound\)/, `${rel}: the state from the bound publication rows`);
+    assert.doesNotMatch(read(rel), /listedDigests|timestamp-anchored yet|in preparation/, `${rel}: no retired derivation or wording`);
+  }
+  assert.match(read("apps/site/app/docs/bell/page.tsx"), /<dt>timestamp anchor<\/dt>\s*<dd>\{publicationAnchorSentence\(anchorState\)\}<\/dd>/, "/docs/bell: /bell's label and sentence");
+  const uses = read("apps/site/app/docs/use-cases/page.tsx"), verify = read("apps/site/app/docs/verify/page.tsx").replace(/\s+/g, " ");
+  assert.match(uses, /The latest record: \{publicationAnchorSentence\(anchorState\)\}\./, "/docs/use-cases: /bell's sentence");
+  assert.ok(verify.includes("The published records are signed and chained. Their timestamp anchoring is read from the publication register: none, pending while the proof carries calendar attestations only, anchored once it carries a Bitcoin block; this gesture applies to an anchored line."), "/docs/verify: the tri-state text of the erratum");
+  for (const [rel, text] of [["use-cases", uses], ["verify", verify]] as const) assert.match(text, /today: anchorState\.state === "anchored", source: "anchors register"/, `/docs/${rel}: the timestamp step is solid only when anchored`);
 });
 
 // C-G2-11 decided: MakerDAO and Compound are banned on the storefront, with one exception, the verbatim cited figures of

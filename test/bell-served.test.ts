@@ -176,7 +176,8 @@ const NUMBER_PATHS = new Set([
 const FORBIDDEN_KEYS = new Set(["vol_ratio", "provider", "providers", "method", "note", "statement", "close_source", "adv_source", "jwk", "x", "d"]);
 // Provider and third-party forms (the audit list): never on the data file or on a Bell storefront source.
 const PROVIDER_FORMS = [/\bmassive\b/i, /databento/i, /polygon/i, /POLYGON_API_KEY/, /helius/i, /chainstack/i, /tenderly/i, /drpc/i, /chainlink/i, /network firm/i, /hostinger/i, /\bpocket\b/i];
-const SCANNED = [BELL_SERVED_REL, ...PAGES, "apps/site/app/bell/anchors/page.tsx", "apps/site/components/bell/anchors-table.tsx", "apps/site/lib/bell-served-load.ts", "apps/site/lib/bell-method.ts", "apps/site/lib/bell-anchors-load.ts"];
+const SCANNED = [BELL_SERVED_REL, ...PAGES, "apps/site/app/bell/anchors/page.tsx", "apps/site/components/bell/anchors-table.tsx", "apps/site/lib/bell-served-load.ts", "apps/site/lib/bell-method.ts", "apps/site/lib/bell-anchors-load.ts",
+  "apps/site/components/bell/publication-anchors-table.tsx", "apps/site/lib/bell-publications-load.ts", "apps/site/public/bell/anchors/publications.json"];
 
 function walkJson(v: unknown, path: string, onNumber: (p: string) => void, onKey: (k: string, p: string) => void): void {
   if (typeof v === "number") onNumber(path);
@@ -469,7 +470,7 @@ test("bell_pages_render_served_values_never_typed", () => {
   const method = readFileSync(join(ROOT, PAGES[1] ?? ""), "utf8");
   assert.match(bell, /bellStatePathOf\(head\.state_sha256\)/, "/bell links the immutable state by its loaded digest");
   assert.match(bell, /head\.runs|runs\.map\(\(run\) =>/, "/bell renders every run of the latest publication");
-  assert.match(bell, /anchors\.listedDigests/, "/bell derives the anchoring of the latest record from the served manifests");
+  assert.match(bell, /publicationAnchorState\(served\.head, served\.lines, /, "/bell derives the latest record's timestamp state from the bound publication rows");
   assert.match(method, /r\.bell_sha/, "/bell/method renders the published digests by property access (B02)");
   assert.match(method, /thresholdsOf\(/, "/bell/method derives the thresholds from the served schema (B22)");
   assert.match(method, /\{schemaText\}/, "/bell/method renders the served schema block (B21)");

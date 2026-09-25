@@ -5,7 +5,8 @@ import { join } from "node:path";
 import { countWord, capitalized } from "@/lib/fleet";
 import { loadBellServed, bellServedRepoRoot, BELL_HOST, BELL_PUBKEY_PATH, BELL_TIMELINE_PATH, bellStatePathOf } from "@/lib/bell-served-load";
 import { BELL_RESIDUAL_CODES_LISTED, BELL_PUBLIC_REPO_URL } from "@/lib/bell-method";
-import { loadAnchors, ANCHORS_ROUTE } from "@/lib/bell-anchors-load";
+import { loadAnchors, loadPublications, ANCHORS_ROUTE } from "@/lib/bell-anchors-load";
+import { publicationAnchorState } from "@/lib/bell-anchors";
 import { loadH5Trace } from "@/lib/harness-served-load";
 import { NARABI_ROUTE } from "@/lib/narabi-live";
 import { docsRepoRoot } from "@/lib/docs-references-load";
@@ -15,8 +16,8 @@ import { FlowSchema, type FlowStep } from "@/components/docs/schemas/flow";
 // /docs/verify (server component). The checks a third party can run with standard tools and no MONARK account; the files are
 // public and any copy serves; the signature check is a separate step through the open verifier. Every host, path, key id, digest and count is read from committed, hashed data (the Bell facts, the served anchors
 // register, the recorded trace); the token address is read at build from the committed public file out/mint.txt, the same
-// value a root test pins on the token page. Whether the published records are timestamp-anchored is derived from the anchors
-// register, never typed.
+// value a root test pins on the token page. The latest published record's timestamp state is derived from the bound publication rows
+// (publicationAnchorState), never typed: the last gesture is solid only once a proof covering that record carries a Bitcoin block.
 export const metadata: Metadata = {
   title: "Verify it yourself · Docs · MONARK",
   description:
@@ -38,7 +39,7 @@ export default function DocsVerifyPage() {
   const address = tokenAddress(root);
   const head = served.head;
   const first = served.first_record;
-  const anchored = [head.state_sha256, ...head.runs.map((r) => r.bell_sha)].some((d) => anchors.listedDigests.includes(d));
+  const anchorState = publicationAnchorState(served.head, served.lines, loadPublications(served.lines).bound);
   const abstained = h5.decisions.find((d) => d.action !== "commit");
   const pub = `${BELL_HOST}${BELL_PUBKEY_PATH}`;
   const timeline = `${BELL_HOST}${BELL_TIMELINE_PATH}`;
@@ -49,7 +50,7 @@ export default function DocsVerifyPage() {
     { head: "The signatures", body: "check every line's Ed25519 signature under the committed keyring", today: true, source: "public verifier" },
     { head: "The state files", body: "hash the immutable state and provenance files named by the line", today: true, source: "served" },
     { head: "The token address", body: "compare the address on the token page with the committed public file", today: true, source: "public repository" },
-    { head: "The timestamps", body: "verify the anchor of a published line against a Bitcoin node of your choice", today: anchored, source: "anchors register" },
+    { head: "The timestamps", body: "verify the anchor of a published line against a Bitcoin node of your choice", today: anchorState.state === "anchored", source: "anchors register" },
   ];
   const toc = [
     { id: "gestures", label: "The gestures" },
@@ -76,8 +77,8 @@ export default function DocsVerifyPage() {
       <DocSection id="gestures" title="The gestures">
         <p>
           {capitalized(countWord(steps.length))} gestures on MONARK Bell&rsquo;s published record and on the token, in order. The last
-          one is drawn dashed while the published records are not timestamp-anchored yet: that state is read from the anchors
-          register.
+          one is drawn dashed until a proof covering the latest published record carries a Bitcoin block: that state is read from the
+          anchors register.
         </p>
         <Figure caption={<>The gestures, in order. A dashed step does not exist yet for the published records; its state is derived from the served anchors register.</>}>
           <FlowSchema label="The verification gestures: the key, the chain, the signatures, the state files, the token address, the timestamps." steps={steps} footer="Keep a copy of the timeline: a later change to a published line shows at recomputation." />
@@ -133,9 +134,9 @@ export default function DocsVerifyPage() {
 
       <DocSection id="timestamps" title="The timestamps">
         <p>
-          {anchored
-            ? "The latest published record is listed in an anchor manifest: download the manifest and its proof, and verify the proof against a Bitcoin node of your choice."
-            : "The published records are not timestamp-anchored yet: the latest line is signed and chained, not anchored. Anchoring each published line with OpenTimestamps is in preparation; this gesture applies once it is served."}
+          The published records are signed and chained. Their timestamp anchoring is read from the publication register: none, pending
+          while the proof carries calendar attestations only, anchored once it carries a Bitcoin block; this gesture applies to an
+          anchored line.
         </p>
         <p>
           Today the anchors cover the manifests of the counter-verification run of the multiplier history: {anchors.rows.length} lines

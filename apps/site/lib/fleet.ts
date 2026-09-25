@@ -351,7 +351,7 @@ export const PRODUCTS: FleetProduct[] = [
     // real reader-side verifier) and the site data read from it.
     served: {
       served_by: "https://bell.monarkgate.tech (timeline.jsonl, state.json, provenance.json, bell/pubkey.json, states/<sha256>.json, provenance/<sha256>.json); deploy check docs/deploy-CA-bell.json by scripts/verify-bell.mjs; site data apps/site/data/bell-served.json",
-      integration_test: ["verify_bell_ca_check5_runs_real_bell_verify", "bell_served_data_matches_deploy_ca"],
+      integration_test: ["verify_bell_ca_check5_runs_real_bell_verify", "bell_served_data_matches_deploy_ca", "bell_publication_anchor_composes_served_head_to_rendered_claim"],
       note: "a signed, hash-chained timeline served on its own host, checked end to end by a non-LLM reader-side verifier against the committed keyring",
     },
   },
