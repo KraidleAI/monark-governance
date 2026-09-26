@@ -32,7 +32,7 @@ Ce dossier **complète** `docs/PASSATION-2026-09-24.md` (toujours valable pour �
 
 - Driver vivant au 26/09 05:39Z (trois `python.exe`, journal `F:/shogen-campagne/campagne/journal.jsonl` 451 162 lignes, dernière fenêtre 1790401080 = 05:38Z, chainlink ok). Fin prévue ≈ lundi 28/09 00:00Z (ADR-0024, 38 600 fenêtres, cinquième week-end).
 - Après la fin : rapport J28 à requalifier ; SHOGEN-TORN-LINE-1 (auto-isolement des lignes NUL déchirées, `campagne/repair-2026-09-23.py` réutilisable) avant S3 ; audit d'entrée `docs/AUDIT-ENTREE.md` dû à la prochaine passe.
-- Dépôt Shōgen : modifications non committées `.claude/agents/shogen-{devops,orchestrator}.md`, `CLAUDE.md`, `.claude/launch.json` (roster/UUID firecrawl) : à relire puis committer (orchestrateur seul).
+- Dépôt Shōgen : roster/UUID committés le 26/09 05:5x Z (CLAUDE.md point 7 réécrit : Opus 5.5 workers/chercheurs/lecteurs, Fable 5.1 orchestrateur ; agents épinglés ; launch.json preview) ; arbre propre.
 
 ## 4. Film « Engine first. Body later. » (mis de côté par l'investisseur le 26/09 05:5x UTC)
 
@@ -64,3 +64,4 @@ Ce dossier **complète** `docs/PASSATION-2026-09-24.md` (toujours valable pour �
 
 - 26/09 05:44Z : §1.1 lecture Chainstack « après » faite (+15/16, partiel) ; en cours : §1.2 amendement ADR SNAPSHOT (D-18 + items formés).
 - 2026-09-26 05:47 UTC : §1.2 ADR cinquième pli committé (gel 6 `4c6631d`) ; en cours : §1.3 checkpoint-1 bref du validateur-humain sur ce pli (agent lancé, rapport attendu sous `F:/tmp/dojo/cp1c/`).
+- 2026-09-26 05:48 UTC : §3 dépôt Shōgen committé (roster aligné) ; cp-1 bref Dōjō toujours en cours.
