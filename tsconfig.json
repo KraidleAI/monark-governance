@@ -29,6 +29,8 @@
     "apps/sentinel/src/**/*.ts",
     "apps/sentinel/test/**/*.ts",
     "apps/bell/src/**/*.ts",
-    "apps/bell/test/**/*.ts"
+    "apps/bell/test/**/*.ts",
+    "apps/dojo/src/**/*.ts",
+    "apps/dojo/test/**/*.ts"
   ]
 }
