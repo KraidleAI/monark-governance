@@ -1,0 +1,13 @@
+// apps/dojo/scripts/dojo-chain.d.mts -- type surface of dojo-chain.mjs (TS7016 sidecar, precedent dojo-core.d.mts) so the
+// type-checked tests import the runtime module. Runtime = dojo-chain.mjs.
+import type { Break, Trust } from "../../bell/scripts/bell-chain.mjs";
+
+export const DOJO_TIMELINE_SCHEMA: "dojo-timeline-v1";
+/** Codes of ADR-DOJO-SNAPSHOT-1 D-10 (l.248), plus rotation_key_not_in_keyring (Bell's walk; admitted at the mere's eighth pli, G1 Q-1). */
+export type DojoWalkReason = "timeline_malformed" | "chain_broken" | "rotation_key_not_in_keyring" | "key_not_in_keyring"
+  | "signature_invalid" | "key_not_active" | "rotation_malformed" | "revocation_malformed" | "anchor_missing" | "day_not_increasing"
+  | "seed_revealed_early" | "seed_chain_broken" | "price_version_mismatch" | "version_not_in_force";
+export const DOJO_WALK_REASONS: readonly DojoWalkReason[];
+export type DojoWalkResult = { ok: true; active: string | null; head: Record<string, unknown> | null; voided: number[]; breaks: Break[] }
+  | { ok: false; seq: number; reason: DojoWalkReason };
+export function walkDojoTimeline(lines: readonly unknown[], trust: Trust): DojoWalkResult;
