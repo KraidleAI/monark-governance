@@ -35,4 +35,6 @@ Orchestrateur Fable 5.1, Claude in Chrome (sessions ouvertes par l'investisseur 
 
 - Plafond de cycle Helius : garde interne 8 M (décision 112) ; 3,74 M + 115 crédits comptés (au pire 1 060 facturés si « archival » = 10) reste très en deçà.
 - Plafond de cycle Chainstack : 16 M (décision 115) ; 282 515 + 16 RU.
+- Clé Helius en vigueur : **confirmée par l'investisseur** (« oui », 2026-09-26 ≈ 01:07 UTC) ; valeur jamais lue ni affichée.
+- Grand livre : dernière ligne de `helius.jsonl` = `outcome: "unlocked"`, « bell/collect: course end (finally, N unlock) » ; aucun fichier de verrou sous `F:\monark-ledger` ⇒ aucun cours actif.
 - Verrous : aucune course active (« No requests in the last 24 hours » côté Helius ; 0 RU Solana les 25 et 26/09 côté Chainstack) ; à confirmer sur le grand livre avant l'ouverture (`.head` de `F:\monark-ledger\helius-2026-09-19\`).
