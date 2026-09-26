@@ -2,7 +2,7 @@
 
 Décision investisseur (2026-09-26 05:5x UTC, verbatim) : « on laisse de coté la vidéo, on continue, mais préparéez, toi et vernier, les consignes de passation vers un autre claude. comme la derniére fois, on va atteindre le budget weekly dans pas longtemps alors consignez ce que vous faites en passation, dans le méme dossier passation ».
 
-Ce dossier **complète** `docs/PASSATION-2026-09-24.md` (toujours valable pour §0 « comment travailler ici », §3 roadmap, §4 hôtes/comptes, §7 MCP/SKILL) : ne relis que ce qui a changé. Ordre de lecture : `~/.claude/CLAUDE.md` (= `F:\claude-config\CLAUDE.md`, règles absolues ; amendements 22/09 Opus 5.5, 25/09 config dir sur F:, 26/09 UUID firecrawl `8aa0cccf…`), les 25 dernières entrées de `docs/CHANTIERS.md` (depuis « 2026-09-25 07:57 UTC »), puis ce dossier. Vernier écrit son propre dossier dans son dépôt (message envoyé 05:38Z, réponse attendue avec chemin + sha).
+Ce dossier **complète** `docs/PASSATION-2026-09-24.md` (toujours valable pour §0 « comment travailler ici », §3 roadmap, §4 hôtes/comptes, §7 MCP/SKILL) : ne relis que ce qui a changé. Ordre de lecture : `~/.claude/CLAUDE.md` (= `F:\claude-config\CLAUDE.md`, règles absolues ; amendements 22/09 Opus 5.5, 25/09 config dir sur F:, 26/09 UUID firecrawl `8aa0cccf…`), les 25 dernières entrées de `docs/CHANTIERS.md` (depuis « 2026-09-25 07:57 UTC »), puis ce dossier. Dossier Vernier : `F:VernierdocsPASSATION-2026-09-26.md` (sha256 `1fd005f1…`, commit `20a69f7` sur `master`, reçu 05:42Z) ; Vernier a 10 questions d'escalade posées à l'investisseur (26/09 ~05:30Z) sans réponse, et le volet commun Vernier–MONARK (décision 226) en §3.
 
 ## 0. Ce qui a changé dans la façon de travailler depuis le 24/09
 
