@@ -32,3 +32,12 @@ Cause 3 (C-28, Q-6) — **trou de lecture de l'orchestrateur, `error_origin` orc
 - Option `filters.tokenAccounts` : la page dit « token accounts **owned by** the address » — le mint ne possède aucun compte, le filtre ne remplace rien sur le mint ; côté propriétaires il suppose de les connaître (fin de phase B) et ne vaut que chez helius (chainstack garde ses pages `getSignaturesForAddress`). Ce n'est **pas** un candidat au pli C-24 : item avec sonde **DOJO-GTFA-TOKENACCOUNTS-1** (sémantique à mesurer, jamais devinée ; déclencheur : avant le G0 de PR-2b-4 ; propriétaire orchestrateur).
 
 Sha256 de ce fichier : rendu hors du fichier (CHANTIERS).
+
+## 4. É-3 mesuré (ajout 2026-09-26 15:0x UTC, orchestrateur) — tableau de bord Helius vs grand livre du garde
+| Méthode | Tableau de bord (lu 00:59–01:03Z, FAITS-floor-probe-3-avant) | Grand livre `helius-2026-09-19\helius.jsonl` (`attempted`, dernier write 01:47Z ; script scratchpad 14:5xZ) | Écart |
+|---|---|---|---|
+| getTransactionsForAddress | 3 690 270 | 35 724 appels × 10 = 357 240 | **× 10,33** |
+| getTransaction | 40 295 | 39 390 | + 905 |
+| getSignaturesForAddress | 7 376 | 4 128 | + 3 248 |
+| total | 3 738 080 | `credits_derived` 400 788 | — |
+Lecture : le barème « 10 crédits par 100 transactions complètes rendues » (L-2) appliqué aux pages `full`/`limit 1000` de Bell explique l'ordre de grandeur (jusqu'à 100 par appel) ; résidus (appels hors garde, décalage de début de cycle, sonde PROBE-3 postérieure au relevé) déclarés, non résolus. GARDE-GTFA-FULL-TARIFF-1 : deux nombres (réservation avant appel `10×⌈limit/100⌉` ; grand livre après `10×⌈rendus/100⌉`, min 10) — à livrer avant toute collecte Bell.
