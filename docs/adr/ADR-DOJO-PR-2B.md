@@ -1,6 +1,6 @@
 # ADR-DOJO-PR-2B : MONARK Dōjō, pièce 1, PR-2b — collecteur de l'historique rétroactif (G0 de lot, plan de sprint sans code)
 
-- **Statut** : proposé (G0 de lot). Checkpoint-1 bref du validateur-humain dû sur ce document avant tout G1 de la série PR-2b (règle C-3 de l'ADR-mère : faits non confirmés ; décisions nouvelles D-4, D-7, D-9, D-12 (séparation `publish/` et `evidence/`, règle d'existence des lignes), D-13 (déclencheur de RECONCILE-WINDOW-1 déplacé, retour de `unlock`) et D-14 ; écarts É-2 à É-8). Ce document n'écrit ni code ni test, ne committe rien, n'émet aucun appel réseau ni RPC (R-20 ; règle de mission).
+- **Statut** : proposé (G0 de lot). Checkpoint-1 bref du validateur-humain dû sur ce document avant tout G1 de la série PR-2b (règle C-3 de l'ADR-mère : faits non confirmés ; décisions nouvelles D-4, D-7, D-9, D-12 (séparation `publish/` et `evidence/`, règle d'existence des lignes), D-13 (déclencheur de RECONCILE-WINDOW-1 déplacé, retour de `unlock`) et D-14 ; écarts É-2 à É-8). Ce document n'écrit ni code ni test, ne committe rien, n'émet aucun appel réseau ni RPC (R-20 ; règle de mission). **Checkpoint-1 bref tenu le 2026-09-26** : ACCEPTE-AVEC-CORRECTIONS (validateur-humain `claude-fable-5-1`, `F:/tmp/dojo/cp1d/CP1D-report.md`, sha256 `4fa57831c169d387a60e9515eba0d1531b0a040cb6a3dab614d5b57c2921b7ef`), liste fermée C-24 à C-31, écarts É-2 à É-8 acceptés ; C-24 est pliée dans l'ADR-mère (sixième pli) ; C-25 à C-31 le sont ici, récapitulées par l'amendement daté « Corrections checkpoint-1 bref », en fin de document, qui fait foi sur tout le texte antérieur.
 - **Dates** : ouverture 2026-09-26T05:59:42Z (`date -u`) ; relevés hors ligne de 06:0x à 06:38Z ; début de l'écriture 06:39:08Z ; heure et sha256 du fichier final rendus hors du fichier · approbation : néant à ce jour · dernière modification : 2026-09-26.
 - **Propriétaire de la décision** : l'orchestrateur `claude-fable-5-1` (planificateur) pour D-1 à D-14 ; le validateur-humain pour le checkpoint-1 bref ; l'investisseur pour le seul go des actes réseau (§7). Aucune question P-* nouvelle ne lui est posée.
 - **Gate concerné** : G0 (doc 02).
@@ -216,6 +216,7 @@ Ces relevés ne viennent ni d'un FAITS ni de `derived.json`. Ils sont lus par sc
 - **`commitment: "finalized"`** est passé explicitement aux trois méthodes. C'est le défaut documenté (H-1, H-2, H-4), mais la sonde ne l'a pas passé : les premiers appels du premier acte éprouvent la forme explicite (Q-12). Une `RpcError` de paramètres arrête la collecte sans donnée.
 - **Statut de confirmation** : toute entrée de page doit porter `confirmationStatus: "finalized"`, ce que font toutes les entrées relevées (R-a). Toute autre valeur rend la signature contestée (D-4).
 - **`limit: 100` pour gTFA** : à ce `limit`, la facturation lue (H-4) ne dépasse pas 10 crédits par appel, soit le compte du garde. Le collecteur refuse tout `limit` supérieur avant l'appel (mutant M-Y21).
+- **Aucun `filters`** (pli, C-25) : la forme fermée de gTFA ne passe aucun `filters`, donc aucun `filters.status`, dont le défaut est `any` (FAITS cp1d L-1) : les pages rendent aussi les transactions en échec (Q-18).
 
 ### D-3 : algorithme (pseudo-code déterministe)
 
@@ -244,7 +245,7 @@ PHASE B — corps (mère D-18 (c))
   helius : pages gTFA [MINT, {transactionDetails: "full", sortOrder: "asc", limit: 100, encoding: "jsonParsed",
            maxSupportedTransactionVersion: 1, commitment: "finalized", paginationToken?}] depuis le début de l'historique,
            jusqu'à la première page dont le dernier corps a slot > S_CUT, ou un jeton absent ou vide, ou une page vide ;
-           corps rangés par transaction.signatures[0] ; cohérence avec IDX[helius][MINT] contrôlée (D-9)
+           corps rangés par transaction.signatures[0] ; cohérence sur R contrôlée (D-9 ; pli, C-25)
   chainstack : pour s ∈ R, dans l'ordre (slot, signature) : getTransaction [s, {encoding: "jsonParsed",
            maxSupportedTransactionVersion: 1, commitment: "finalized"}]
   helius, compléments : pour s ∈ R absent des pages gTFA : getTransaction (même forme)
@@ -352,9 +353,10 @@ clé(corps) = sha256(canonical({
   - La preuve d'invariance au fractionnement de mère D-16 (minimum sur des instants communs, M8) s'étend donc aux emplacements non ordonnés, **pourvu que la règle s'applique à l'emplacement et non à l'adresse**. La mesure M-H1 (R-j) le vérifie (0 violation) et montre que la règle appliquée par adresse viole (899 configurations).
 - **Mesures (R-a, R-f)** : tous les corps lus portent un rang et le rang ordonne strictement les 2 937 emplacements partagés de l'index helius. Le repli est donc une défense : le collecteur compte les emplacements non ordonnés (Q-1).
 - **Alternatives rejetées** :
-  - marquer ces emplacements comme jours manquants : un jour manquant ne remet rien à zéro, et une vente faite dans un tel emplacement cacherait sa baisse ;
+  - marquer ces emplacements comme jours manquants : un jour manquant ne remet rien à zéro, et une vente faite dans un tel emplacement cacherait sa baisse (pli : contraire à mère P-29 bis, décision 228, une part vendue perd ses points) ;
   - prendre l'ordre le plus favorable : on pourrait viser un ordre, vente d'abord ;
   - lire l'ordre sur un seul opérateur : ce ne serait plus un quorum (mutant M-Y14).
+- **Information de l'investisseur et déclencheur d'escalade** (pli ; rapport du checkpoint-1 bref §6 ; information et recommandation, aucune décision nouvelle) : dans un emplacement non ordonné (0 cas sur les 2 937 emplacements partagés relevés, R-f), un détenteur touché peut perdre jusqu'à la somme des baisses de l'emplacement : une vente puis un rachat dans le même bloc sur deux comptes compteraient comme la vente seule. Recommandation : garder la borne basse ; `null` est rejeté parce qu'il cacherait une baisse (mère P-29 bis, décision 228). Déclencheur d'escalade : compteur Q-1 non nul à l'acte 1 **et** un détenteur touché ⇒ effet mesuré présenté à l'investisseur **avant** toute publication, le fichier publié étant immuable. Une préférence de l'investisseur pour `null` serait une décision nouvelle, portée par une ligne datée.
 
 ### D-8 : contrôles de cohérence (mère T-22) et arrêt
 
@@ -366,10 +368,10 @@ clé(corps) = sha256(canonical({
 | (iv) création | SIG0 est la dernière entrée des deux index du mint ; son corps admis porte `initializeMint2` de MINT, 6 décimales, et la frappe de 10^15 unités de base (R2) | ARRÊT |
 | (v) jours | `blockTime` non nul ; `jour` non décroissant en ordre d'emplacement ; un seul `blockTime` par emplacement (R-e : 0 exception sur 23 628) | ARRÊT |
 | (vi) instructions | les types Token-2022 portant sur MINT ou ses comptes appartiennent à la liste fermée : types vus dans les corps de la sonde (R-c, R-d : `initializeMetadataPointer`, `initializeMint2`, `getAccountDataSize`, `initializeImmutableOwner`, `initializeAccount3`, `initializeTokenMetadata`, `updateTokenMetadataAuthority`, `mintTo`, `setAuthority`, `transferChecked`) et types nommés par H-3 ou par l'ADR-mère (`transfer`, `closeAccount`, `burn`, `burnChecked`, `mintToChecked`) ; tout autre type, ou une instruction Token-2022 non analysée, est consigné, et une ligne datée étend la liste. SIG0 passe (vi) : ses neuf instructions Token-2022 sont analysées, et l'instruction non analysée que note FAITS l.15 (inner[1][14]) relève du programme de lancement `6EF8…F6P`, non de Token-2022 (relevé `sig0-unparsed.mjs`) | ARRÊT |
-| (vii) bornes | écarts d'index X, transactions sans quorum, emplacements non ordonnés et corps en échec des pages gTFA avec pre ≠ post sur le mint (Q-6) : bornes déclarées au G1 de PR-2b-1 | ARRÊT au-delà |
+| (vii) bornes | écarts d'index X, transactions sans quorum, emplacements non ordonnés et corps en échec des pages gTFA avec pre ≠ post sur le mint (Q-6), si les pages les rendent (compteur des corps en échec rendus, consigné ; Q-18 ; pli, C-25) : bornes déclarées au G1 de PR-2b-1 ; la borne de X, rapportée à la taille de R, est un chiffre sans source jusqu'à ce G1, où sa justification est due ; tout X > 0 est consigné dans le FAITS de l'acte, borne franchie ou non (pli, É-8) | ARRÊT au-delà |
 
 - **Effet de l'arrêt** : aucun contrôle en échec n'est corrigé en ligne. L'arrêt laisse le statut `partial` avec son motif (D-11). Une correction de l'historique après publication exige une nouvelle ancre (mère D-18).
-- **Transactions en échec** : le contrôle (vii) sur les corps en échec vient d'une propriété de la voie gTFA. Ses pages rendent aussi les transactions en échec, pour 0,1 crédit par corps à `limit: 100`, et leur égalité pre = post sur le mint teste gratuitement l'hypothèse qui exclut ces transactions avant lecture (Q-6). Ces corps ne servent à rien d'autre.
+- **Transactions en échec** (conditionnel depuis le pli, C-25) : le contrôle (vii) sur les corps en échec vient d'une propriété de la voie gTFA, **si** ses pages rendent aussi les transactions en échec : c'est le cas au niveau documentaire, `filters.status` valant `any` par défaut et D-2 n'en passant aucun (FAITS cp1d L-1 ; Q-18), à confirmer par la première page de l'acte 0 (§7). Elles coûtent alors 0,1 crédit par corps à `limit: 100`, et leur égalité pre = post sur le mint teste l'hypothèse qui exclut ces transactions avant lecture (Q-6). Un compteur consigne le nombre de corps en échec rendus par les pages ; ces corps ne servent à rien d'autre.
 
 ### D-9 : corps helius par `getTransactionsForAddress`
 
@@ -379,10 +381,10 @@ clé(corps) = sha256(canonical({
   - Le corps gTFA est canoniquement égal au corps `getTransaction` (R-b).
   - La voie existe déjà dans Bell (`rebase-produce.ts:79-94`).
 - **`limit: 100`, jamais plus** : sinon le compte du garde, 10 par appel, passerait sous la facturation lue (É-3).
-- **Cohérence des deux sources helius** : c'est un opérateur, pas un quorum. L'ensemble des signatures des pages gTFA d'emplacement au plus S_CUT doit égaler `IDX[helius][MINT]`. Un corps absent des pages est lu par `getTransaction` helius ; une signature des pages absente de l'index devient contestée (D-4). Les deux écarts sont comptés (Q-11).
+- **Cohérence des deux sources helius** (réécrite au pli, C-25) : c'est un opérateur, pas un quorum. Elle s'écrit sur R (réussies et contestées, D-4), jamais sur F, pour les signatures d'emplacement au plus S_CUT : toute signature de R absente des pages gTFA est lue par `getTransaction` ; toute signature des pages absente de l'index est contestée ; une signature de F présente ou absente des pages n'est jamais demandée. Les écarts sont comptés (Q-11).
 - **Rejeté** :
   - `getTransaction` helius pour tous les corps : 10 fois le coût au barème, 100 fois les appels (§5) ;
-  - le filtre `status` de gTFA : forme non lue (H-4 le nomme sans ses valeurs).
+  - le filtre `status` de gTFA : lu au pli (FAITS cp1d L-1 : défaut `any`, valeurs `succeeded`, `failed` et `any`) ; D-2 n'en passe aucun, et les pages rendent donc les échecs, dont (vii) se sert (Q-18).
 
 ### D-10 : plafonds, garde ×10, débit
 
@@ -390,6 +392,7 @@ clé(corps) = sha256(canonical({
   - J = nombre de jours UTC du 2026-09-10 au jour de l'exécution, bornes comprises (la sonde : J = 17).
   - S(J) = 6 467 × J : borne haute des signatures du mint, soit le pic du 19/09 sans déduction des échecs (`derived.json` R4).
   - p(x, L) = ⌊x / L⌋ + 1 : pages pour x entrées à L par page, page terminale comprise. Pour N = 23 628, p = 24, comme A2.
+- **Acte 0** (pli, C-26 ; §7, point 5) : helius, une page gTFA (10 crédits au barème) et une page `getSignaturesForAddress` (1 crédit) ; chainstack, une page `getSignaturesForAddress` (2 RU). Plafonds de course : 11 crédits helius et 2 RU chainstack, trois appels, plus une marge de reprise déclarée au go ; garde ×10 comme ci-dessous.
 - **Acte 1 (phases A et B)** :
   - helius : `runCaps.helius` = p(S, 1 000) + 10 × p(S, 100) + c_h, où c_h est le nombre de compléments `getTransaction` déclaré au go (aucun sur l'échantillon).
   - chainstack : `runCaps.chainstack` = 2 × (p(S, 1 000) + S).
@@ -418,6 +421,7 @@ clé(corps) = sha256(canonical({
   - Il n'écrit rien sous `publish/`.
   - Il déverrouille chaque opérateur par l'`unlock` servi en `finally` (`collect.ts:762-775`), puis consigne le sha256 de chaque ligne `unlocked`, fin de course au sens de RECONCILE-WINDOW-1.
   - Code de sortie non nul.
+- **Arrêt sur durée** (pli, C-27) : une course bornée en durée (paramètre déclaré, §7 point 4) s'arrête à sa borne comme sur un plafond : aucun appel de plus, statut `partial` avec son motif, `unlock` servi ; la course suivante repart par la reprise décrite ci-dessous.
 - **Arrêt sur contrôle** : même chose, motif nommé : `creation_mismatch`, `chain_break`, `supply_mismatch`, `enumeration_mismatch`, `no_quorum_unbounded`, `instruction_not_allowed`, `day_not_monotone`, `bound_exceeded`.
 - **Journal** : `evidence/journal.jsonl`, en ajout seul. Chaque ligne porte son `seq`, le sha256 de la ligne précédente, la phase, l'opérateur, l'unité, la méthode, le sha256 des paramètres, le chemin et le sha256 non compressé de la réponse brute, sa taille et son issue. L'écriture est durable (ouvrir, écrire, `fsync`, fermer ; calque déclaré de `ledger.ts:56-59`, non exporté par le garde). La première ligne fixe les entrées : sha256 du paquet B1R, S_CUT, D_LAST, sha256 de `out/mint.txt`, sha256 des sources du collecteur.
 - **Unités closes** :
@@ -525,16 +529,16 @@ Méthode de mère §7 : estimation ascendante, puis facteurs de dérive mesurés
 
 | # | Entrée (qui produit) | Sortie (qui consomme) | État (où il vit) | Test non-LLM | Au G7 de PR-2b-4 |
 |---|---|---|---|---|---|
-| TU-12a | chaîne Solana lue par helius et chainstack via `openGuardedClient` (collecteur, machine opérateur) | évidence : journal, réponses brutes | `…/history/<date>/evidence/` | `dojo_history_calls_have_the_closed_forms`, `dojo_history_budget_stops_fail_closed`, `dojo_history_resume_from_last_complete_unit` (chaîne simulée) | branché (l'acte réseau suit le G7) |
-| TU-12b | évidence + paquet du premier jour lu (PR-2) + mint épinglé (TU-3) | `publish/` : lignes, manifeste, `SHA256SUMS` | `…/history/<date>/publish/` | `dojo_history_rebuilds_balances_from_transactions`, `dojo_history_matches_first_enumeration`, `dojo_history_lines_are_canonical_sorted_and_rooted` | branché |
+| TU-12a | chaîne Solana lue par helius et chainstack via `openGuardedClient` (collecteur, machine opérateur) | évidence : journal, réponses brutes | `…/history/<date>/evidence/` | `dojo_history_calls_have_the_closed_forms`, `dojo_history_budget_stops_fail_closed`, `dojo_history_resume_from_last_complete_unit` (chaîne simulée) | composé en test (chaîne simulée) ; servi au G7 de PR-3a puis de la pièce (pli, C-29) |
+| TU-12b | évidence + paquet du premier jour lu (PR-2) + mint épinglé (TU-3) | `publish/` : lignes, manifeste, `SHA256SUMS` | `…/history/<date>/publish/` | `dojo_history_rebuilds_balances_from_transactions`, `dojo_history_matches_first_enumeration`, `dojo_history_lines_are_canonical_sorted_and_rooted` | composé en test (chaîne simulée) ; servi au G7 de PR-3a puis de la pièce (pli, C-29) |
 | TU-12c | `publish/` → éditeur (PR-3a) | fichier servi `history/<sha256>.jsonl` et ligne signée `history` | hôte | `dojo_publish_history_before_the_first_snapshot` (PR-3a) | **absent** : tuyau annoncé par l'ADR-mère (PR-3a), non par ce lot ; déclencheur : G7 de PR-3a ; aucun consommateur servi avant lui, la pièce reste `upcoming` |
 | TU-12d | fichier d'historique → vérificateur de tiers (PR-1b-2) | verdict | aucun | `dojo_verify_history_transition` (PR-1b-2) ; `dojo_history_collect_to_verify_end_to_end` (ce lot, par signataire de fixture) | composé en test ; servi au G7 de la pièce |
-| TU-1h | paquet du premier jour lu (PR-2) → collecteur d'historique | fenêtre (D_LAST, S_CUT), réponses d'énumération pour (ii), mint `jsonParsed` pour l'acte | `F:/PRODUITS/dojo-mirror/bundles/` | `dojo_history_matches_first_enumeration` (fixture au format de PR-2) | dépend de PR-2 (PR-2-BUNDLE-FOR-HISTORY-1) |
+| TU-1h | paquet du premier jour lu (PR-2) → collecteur d'historique | fenêtre (D_LAST, S_CUT), réponses d'énumération pour (ii), mint `jsonParsed` pour l'acte | `F:/PRODUITS/dojo-mirror/bundles/` | `dojo_history_matches_first_enumeration` ; paquet du premier jour lu écrit par l'écrivain de PR-2 (sortie committée de son propre test) ou chargé par son lecteur, jamais construit à la main (pli, C-29) | dépend de PR-2 (PR-2-BUNDLE-FOR-HISTORY-1) |
 | TU-rg | grand livre de course → rapprochement servi (`--course-end`) | code de sortie consommé par la procédure de l'acte | grand livre hors dépôt | `reconcile_course_window_isolates_one_course` (lot rpc-guard) ; `dojo_history_budget_stops_fail_closed` | branché au G7 du lot rpc-guard |
 
 **Test d'intégration non-LLM** : `dojo_history_collect_to_verify_end_to_end` (PR-2b-4) rejoue la composition collecteur → paquet → vérificateur. Déroulé :
 1. **Montage** : une chaîne simulée (§4, `history-chain.ts`) sert les trois méthodes par un `fetch` remplacé avant l'import du garde (`harness.ts:37-45` ; `probe-3.mjs:595`), avec des hôtes `.invalid` et des clés factices. Les pièges « aucune socket, aucune résolution DNS » sont armés. Le vrai `openGuardedClient` écrit dans un grand livre temporaire ; les plafonds viennent des formules du D-10, garde ×10 satisfaite.
-2. **Collecte** : le CLI du collecteur s'exécute de bout en bout, avec le paquet du premier jour lu en fixture.
+2. **Collecte** : le CLI du collecteur s'exécute de bout en bout, avec le paquet du premier jour lu écrit par l'écrivain de PR-2 (sortie committée de son propre test) ou chargé par son lecteur, jamais construit à la main (pli, C-29).
 3. **Assertions sur le paquet** :
    - code de sortie 0 et statut `complete` ;
    - `SHA256SUMS` vérifié ;
@@ -584,7 +588,7 @@ Tests non-LLM (`npm test`), sans réseau, sans clé committée. Les mutants s'ap
   - le rapprochement servi en `--course-end`, avec des relevés simulés égaux au compte de la course, rend GO ; avec un relevé supérieur d'une unité, NO-GO `hard:<méthode>` ;
   - ce second point exige RECONCILE-WINDOW-1.
   - Tue M-Y23.
-- `dojo_history_gtfa_matches_the_helius_index` : un corps absent des pages gTFA est lu par `getTransaction` ; une signature des pages absente de l'index est contestée ; les deux écarts sont comptés. Tue M-Y26.
+- `dojo_history_gtfa_matches_the_helius_index` (réécrit au pli, C-25) : un corps de R absent des pages gTFA est lu par `getTransaction` ; une signature des pages absente de l'index est contestée ; une signature de F, présente ou absente des pages, n'est jamais demandée ; les écarts sont comptés. Tue M-Y26.
 
 ### PR-2b-4 : phase C, reprise, intégration
 
@@ -619,7 +623,7 @@ Tests non-LLM (`npm test`), sans réseau, sans clé committée. Les mutants s'ap
 - **M-Y23** appel émis après une `BudgetExceededError`, ou statut `complete` après un arrêt.
 - **M-Y24** compte non clos repris à sa dernière page, ou unité close sans vérification du sha256 brut.
 - **M-Y25** engagement autre que `finalized`, ou V ≠ 1.
-- **M-Y26** corps absent des pages gTFA non complété.
+- **M-Y26** (reformulé au pli, C-25) corps de R absent des pages non complété, ou corps de F demandé.
 
 ### Fixtures dérivées de la sonde (PR-2b-1)
 
@@ -685,45 +689,52 @@ Arithmétique sur `derived.json` R4 (pic 6 467, N = 23 628, 5 714 échecs, 17 jo
 | TY-9 | Extension du mint qui sort des montants de `amount` | frais retenus, soldes confidentiels | condition de l'acte (D-13) ; (i) ; (vi) | ouvert jusqu'à DOJO-MINT-EXTENSIONS-1 |
 | TY-10 | `blockTime` non monotone ou nul | estimation pondérée (H-7) | (v) ; recomptage : 0 inversion sur 23 628 (R-e) | neutralisé ; précision aux bornes non levée (H-7) |
 | TY-11 | Disque plein | évidence de plusieurs Go | précondition d'espace (D-10) ; écritures durables | fail-closed |
-| TY-12 | Course concurrente sur un opérateur | Bell ou une autre course chainstack | verrous par opérateur (`LockHeldError`) ; contrôle du répertoire canonique chainstack (`probe-3.mjs:551-552`) | fail-closed |
+| TY-12 | Course concurrente sur un opérateur | Bell ou une autre course chainstack ; l'acte tient les verrous `<cycleDir>/<op>.lock` du cycle partagé avec Bell pendant des heures (D-10 : 0,5 à 35 h pour J = 20) (pli, C-27) | verrous par opérateur (`LockHeldError`) ; contrôle du répertoire canonique chainstack (`probe-3.mjs:551-552`) ; courses bornées en durée placées entre deux courses Bell, ou pause de Bell déclarée par acte de l'orchestrateur (§7, point 4 ; C-27) | fail-closed pour la course qui trouve le verrou tenu : Bell échoue `LockHeldError` et manque sa ligne du jour ; le collecteur ne s'ouvre pas et n'émet aucun appel (pli, C-27) |
+
+**MAST (pli, C-31 ; renvoi à mère §9, qui couvre la pièce)** : modes propres à ce lot, chacun avec sa contre-mesure déjà écrite. FM-1.1, spécification non suivie (« FM-1.2 » dans le rapport du checkpoint-1 bref, C-31) : le collecteur lit tous les corps par `getTransaction`, ou gTFA à `limit` supérieur à 100 ⇒ formes fermées du D-2, M-Y20 et M-Y21 (`dojo_history_calls_have_the_closed_forms`). FM-2.4, rétention d'information (« FM-2.x » dans le rapport) : une fixture réduite perd un champ lu plus tard ⇒ liste déclarée des champs gardés et sources épinglées dans `sources.json` (§4, fixtures). FM-3.1, terminaison prématurée : un arrêt déguisé en `complete` ⇒ M-Y23 (`dojo_history_budget_stops_fail_closed`). FM-3.3, vérification incorrecte : un oracle tiré du collecteur ⇒ oracle recodé depuis les soldes de vérité de la chaîne simulée (§3, test d'intégration).
 
 ## 7. Gates et ordre
 
 1. **Ce G0**, puis checkpoint-1 bref du validateur-humain sur ce document (C-3), avant le G1 de PR-2b-1.
 2. **Lot rpc-guard** (RECONCILE-WINDOW-1 et RPC-GUARD-HELIUS-HOST-1) : G0 (amendement daté), puis G1, G2, checkpoint-2 et G7. Il doit précéder le G1 de PR-2b-3.
 3. **PR-2b-1, PR-2b-2, PR-2b-3, PR-2b-4**, dans cet ordre. Chacune passe par G1 (worker, journal G1 avec R-25 mesuré), G2 (relecteur frais, différent du générateur), checkpoint-2 et G7 (orchestrateur, fusion). Dépendances : D-13.
-4. **Préconditions de l'acte réseau** (DOJO-HISTORY-ACTE-1 ; actes de l'orchestrateur, go par action) :
+4. **Préconditions des actes 1 et 2** (DOJO-HISTORY-ACTE-1 ; actes de l'orchestrateur, go par action ; celles de l'acte 0 au point 5, pli) :
    - G7 de PR-2b-4 ;
    - paquet du premier jour lu (PR-2) portant le mint `jsonParsed` et les deux réponses de la première énumération ;
    - DOJO-MINT-EXTENSIONS-1 levé ;
    - lecture sur place des limites de plan et essai à blanc sur une copie du grand livre (DOJO-HISTORY-THROUGHPUT-1) ;
    - planchers relevés le jour même ; garde ×10 ; espace disque ;
-   - aucun verrou tenu.
-5. **Acte 1 (phases A et B), puis acte 2 (phase C, puis D à F)**. Chaque acte est une course, suivie d'un rapprochement servi par opérateur en `--course-end`. FAITS daté.
+   - aucun verrou tenu ;
+   - verrous `<cycleDir>/<op>.lock` du cycle partagés avec Bell (pli, C-27) : chaque acte est découpé en courses bornées en durée (paramètre déclaré, reprise D-11 entre deux courses), placées entre deux courses Bell ; ou pause de Bell déclarée par acte de l'orchestrateur.
+5. **Acte 0 (pli, C-26), puis acte 1 (phases A et B), puis acte 2 (phase C, puis D à F)**.
+   - Acte 0, go par action, avant le go de l'acte 1 : une page gTFA de la forme fermée du D-2 (`full`, `limit: 100` ; 10 crédits au barème) ; une page `getSignaturesForAddress` à `commitment: "finalized"` explicite par opérateur (1 crédit helius, 2 RU chainstack) ; `unlock` ; rapprochement `--course-end` par opérateur dès que RECONCILE-WINDOW-1 existe, sinon rapprochement par lecture du tableau de bord par l'orchestrateur, consigné ; FAITS daté. Préconditions : planchers relevés le jour même, garde ×10, aucun verrou tenu, C-27. Il tranche Q-2, Q-12 (pour ces deux méthodes) et Q-18 pour 11 crédits helius au barème (10 + 1) et 2 RU chainstack ; le rapport du checkpoint-1 bref écrit « ≈ 12 crédits ».
+   - Actes 1 et 2 : chaque course est suivie d'un rapprochement servi par opérateur en `--course-end`. FAITS daté.
 6. **Publication par PR-3a**, après la fin du sondage X (mère P-35) et avant le premier `snapshot` (mère P-36).
 
 ## 8. Registre des items
 
 | Id | Nature | Objet | Déclencheur | Propriétaire |
 |---|---|---|---|---|
-| **RECONCILE-WINDOW-1** (mère §11) | correctif rpc-guard | changement précisé au D-13 : `window.courseEnd`, `--course-end`, ligne `course:` hors des bornes du mode actuel | avant le G1 de PR-2b-3 (É-7 : proposé, à valider au checkpoint-1 bref) | orchestrateur |
+| **RECONCILE-WINDOW-1** (mère §11) | correctif rpc-guard | changement précisé au D-13 : `window.courseEnd`, `--course-end`, ligne `course:` hors des bornes du mode actuel | avant le G1 de PR-2b-3 (É-7 : accepté au checkpoint-1 bref, rapport §3.3 ; ADR-mère, sixième pli (c)) | orchestrateur |
 | **RPC-GUARD-HELIUS-HOST-1** (mère §11) | correctif rpc-guard | contrôle structurel de l'hôte helius (D-13) | atteint par le lot RECONCILE-WINDOW-1 | orchestrateur |
-| **GARDE-GTFA-FULL-TARIFF-1** (nouveau) | mesure, puis correctif rpc-guard et Bell | le garde compte 10 crédits par appel gTFA quel que soit le nombre de corps (`tariff.ts:13`) ; H-4 facture le mode `full` 10 par 100 ; Bell appelle `limit: 1000` (`rebase-produce.ts:84`, `discover.ts:131`) ; sous-compte possible jusqu'à ×10 sur ces appels. Mesure : rapprochement par méthode d'une course Bell gTFA bornée par `--course-end`. Correctifs possibles : refus de `full` au-delà de 100 dans le garde, ou barème fonction de `limit` | avant toute nouvelle course Bell gTFA `full` à `limit` > 100 ; au plus tard au lot rpc-guard | orchestrateur |
+| **GARDE-GTFA-FULL-TARIFF-1** (nouveau ; précisé au pli, C-30) | mesure, puis correctif rpc-guard et Bell | le garde compte 10 crédits par appel gTFA quel que soit le nombre de corps (`tariff.ts:13`) ; le barème lu au pli (FAITS cp1d L-2) facture le mode `full` 10 crédits par 100 transactions rendues, minimum 10 (le mode `signatures`, 10 à forfait) ; Bell appelle `limit: 1000` (`rebase-produce.ts:84`, `discover.ts:131`), soit jusqu'à 100 crédits par appel pour 10 comptés ; ordre de grandeur mesuré le 2026-09-26 : ×10,33 (FAITS cp1d §4 : 3 690 270 crédits gTFA au tableau de bord, contre 35 724 appels × 10 = 357 240 au grand livre). Correctif à **deux nombres**, jamais un seul : **réservation avant appel** = 10 × ⌈limit / 100⌉, pire cas, fail-closed, nombre qu'utilisent la garde ×10 et les plafonds ; **grand livre après appel** = 10 × ⌈rendus / 100⌉, minimum 10. Mesure : rapprochement par méthode d'une course Bell gTFA bornée par `--course-end` | avant toute collecte Bell et avant le G1 de PR-2b-3 | orchestrateur |
 | **PR-2-BUNDLE-FOR-HISTORY-1** (nouveau) | exigence transmise | le paquet quotidien de PR-2 porte, pour la première lecture, les deux réponses d'énumération (`context.slot`, liste compte, propriétaire, montant) et la réponse `jsonParsed` complète du mint (extensions) | G0 ou ligne d'amendement de PR-2, avant son G1 | orchestrateur |
-| **ADR-SNAPSHOT-D18-ORDER-1** (nouveau) | correction de document | mère D-18 : « indépendant de l'ordre des transactions d'un même bloc » ne vaut que par compte (É-2) ; renvoi à D-7 | prochain pli de l'ADR-mère, ou checkpoint-1 bref de ce G0 | orchestrateur |
+| **ADR-SNAPSHOT-D18-ORDER-1** (nouveau) | correction de document | mère D-18 : « indépendant de l'ordre des transactions d'un même bloc » ne vaut que par compte (É-2) ; renvoi à D-7 | prochain pli de l'ADR-mère, ou checkpoint-1 bref de ce G0 ; **clos** par le sixième pli de l'ADR-mère (2026-09-26, point (a)) | orchestrateur |
 | **FAITS-PROBE3-L17-1** (nouveau) | correction de document | FAITS-probe-3 l.17 : `blockTime` 1 790 386 504 = 2026-09-26T01:35:04Z (É-1) | prochaine édition du FAITS ou entrée de CHANTIERS | orchestrateur |
 | **FAITS-TOKEN2022-PARSER-1** (nouveau) | lecture sur place | formes `jsonParsed` de `burn`, `burnChecked` et `mintToChecked` de Token-2022 (champs du montant et du mint), dans l'analyseur de la bibliothèque de statuts de transaction de l'implémentation de référence (Q-7) | avant le G1 de PR-2b-1 | orchestrateur, ou lecteur sur le texte |
 | **DOJO-HISTORY-THROUGHPUT-1** (nouveau) | lecture sur place, puis mesure | limites de requêtes des plans helius et chainstack ; essai à blanc sur une copie du grand livre (débit des lignes durables) ; paramètre de concurrence (Q-4) | avant le go de l'acte 1 | orchestrateur |
-| **DOJO-HISTORY-ACTE-1** (nouveau) | acte réseau, go par action | actes 1 et 2 (§7), plafonds du §5 recalculés pour J, préconditions, rapprochements, FAITS daté | après le G7 de PR-2b-4 et le premier jour lu | orchestrateur, go de l'investisseur |
+| **DOJO-HISTORY-ACTE-1** (nouveau ; acte 0 et courses au pli, C-26, C-27) | acte réseau, go par action | acte 0 (§7 point 5, D-10 : une page gTFA, une page de signatures par opérateur, `unlock`, rapprochement ; tranche Q-2, Q-12 et Q-18), puis actes 1 et 2 (§7), plafonds du §5 recalculés pour J, préconditions (dont les courses bornées en durée entre deux courses Bell, ou la pause de Bell, C-27), rapprochements, FAITS daté | acte 0 : sur go, avant le go de l'acte 1 ; actes 1 et 2 : après le G7 de PR-2b-4 et le premier jour lu | orchestrateur, go de l'investisseur |
 | **DOJO-MINT-EXTENSIONS-1** (mère) | lecture de première main | condition de l'acte (D-13) | celui de SNAPSHOT-PROBE-1 (a) | orchestrateur |
 | **CHAINSTACK-AFTER-2** (mère) | lecture sur place | calibre la bande « soft » chainstack (D-13) | à partir du 2026-09-27 02:00Z | orchestrateur |
+| **FAITS-SOLANA-ATOMICITY-1** (pli, C-28 ; formé et clos le 2026-09-26) | lecture sur place | une transaction en échec ne change aucun état de compte, frais exceptés (Q-6) : `https://solana.com/docs/core/transactions`, lue par l'orchestrateur le 2026-09-26 à 14:31Z (FAITS cp1d L-3) : « If any instruction fails, the entire transaction fails and all state changes are reverted. » ; « Fees are still charged on failure. » | clos par la lecture L-3 | orchestrateur |
+| **DOJO-GTFA-TOKENACCOUNTS-1** (pli ; item-sonde, avis de l'agent advisor du 2026-09-26 14:45) | sonde, puis lecture | `filters.tokenAccounts` de gTFA (« token accounts owned by the address », défaut `none` ; FAITS cp1d L-1) n'est **jamais** un substitut de la phase C : point unique de découverte ; chainstack sans gTFA ; sémantique « owned by » variable dans le temps. Sonde d'environ 10 crédits : mode `signatures`, un propriétaire connu (`2v82…m6F`, propriétaire du compte `6tW6…YWo` de D1 ; CHANTIERS du tronc, 2026-09-26 14:45), `tokenAccounts: all` et `tokenTransfer.mint`, comparée à D1. À lire avant fermeture : le modèle de compte Solana (le mint ne possède aucun compte : connaissance, non lue sur place) | avant le G0 de PR-2b-4 | orchestrateur |
 
 ## 9. Ce que je ne sais pas (liste fermée ; chaque question avec ce qui la tranche)
 
 - **Q-1** Le rang (`transactionIndex`) est-il toujours présent et concordant dans les corps des deux opérateurs ? La page lue ne le documente pas (H-2) ; relevé : 9 corps sur 9 (R-a).
   - Tranche : le compteur d'emplacements non ordonnés du premier acte (évidence) ; si ce compteur n'est pas nul, D-7 applique le repli.
-- **Q-2** Facture-t-on 10 crédits par appel gTFA `full` à `limit: 100` ? H-4 [lu] le dit ; la mesure n'existe qu'à `limit: 1`.
-  - Tranche : le rapprochement par méthode du premier acte (delta du tableau de bord = 10 × appels).
+- **Q-2** Facture-t-on 10 crédits par appel gTFA `full` à `limit: 100` ? H-4 [lu] le dit, et le barème lu au pli le confirme (FAITS cp1d L-2 : 10 crédits par 100 transactions complètes rendues, minimum 10) ; la mesure n'existe qu'à `limit: 1`.
+  - Tranche : le rapprochement par méthode de l'acte 0 (pli, C-26 : une page, delta attendu 10), puis celui du premier acte (delta du tableau de bord = 10 × appels).
 - **Q-3** Combien de comptes de jetons du mint, fermés compris (n_acc), et combien de signatures par compte ? C'est le coût de la phase C.
   - Tranche : l'exécution de l'acte 1 (fin de phase B). SNAPSHOT-PROBE-1 (b) ne donne que les comptes ouverts.
 - **Q-4** Quel débit soutenable par opérateur (limites de plan, 429) et par le grand livre durable ? Le grand livre du cycle compte 79 303 lignes (FAITS l.30), quand la mesure du RUNBOOK portait sur 10 866.
@@ -731,7 +742,8 @@ Arithmétique sur `derived.json` R4 (pic 6 467, N = 23 628, 5 714 échecs, 17 jo
 - **Q-5** L'espace libre du volume de sortie couvre-t-il l'évidence (≈ 0,7 à 3,6 Go compressés, D-10) ?
   - Tranche : la précondition d'espace du collecteur, puis la taille réelle consignée par exécution.
 - **Q-6** Une transaction en échec peut-elle changer un solde de jeton ? C'est l'hypothèse de l'exclusion avant lecture des corps.
-  - Tranche : la lecture sur place de la documentation Solana sur l'atomicité des transactions ; la mesure gratuite (vii) sur les corps en échec des pages gTFA.
+  - Tranche : la lecture sur place de la documentation Solana sur l'atomicité des transactions ; la mesure (vii) sur les corps en échec des pages gTFA, si elles les rendent (pli, C-25).
+  - **Tranchée le 2026-09-26** (pli, C-28) par la lecture L-3 (FAITS-SOLANA-ATOMICITY-1, §8) : une transaction en échec ne change aucun état de compte, frais exceptés ; aucun solde de jeton ne bouge, et l'exclusion de F avant lecture des corps (D-4) est sûre ; (vii) reste un filet.
 - **Q-7** Quelles sont les formes `jsonParsed` de `burn`, `burnChecked` et `mintToChecked` ? Seuls `mintTo` et `transferChecked` ont été vus (R-c) ; l'offre courante lue, inférieure à 10^15 unités de base (mère §1.2), fait attendre des brûlages.
   - Tranche : FAITS-TOKEN2022-PARSER-1 ; à défaut, (vi) arrête sur toute forme inconnue.
 - **Q-8** `owner` est-il toujours présent ? H-2b le dit « may be omitted » ; il est présent sur tout l'échantillon (R6).
@@ -743,7 +755,7 @@ Arithmétique sur `derived.json` R4 (pic 6 467, N = 23 628, 5 714 échecs, 17 jo
 - **Q-11** gTFA(MINT) rend-il exactement l'index helius du mint sur toute la fenêtre ? R1 ne l'établit que pour SIG0.
   - Tranche : la cohérence contrôlée par D-9 à chaque exécution.
 - **Q-12** `commitment: "finalized"` passé explicitement est-il accepté par les trois méthodes ? C'est documenté (H-1, H-2, H-4) mais non essayé (C-21 (e)).
-  - Tranche : les premiers appels de l'acte 1 ; une `RpcError` de paramètres arrête sans donnée.
+  - Tranche : l'acte 0 (pli, C-26) pour `getSignaturesForAddress` (les deux opérateurs) et `getTransactionsForAddress` ; les premiers appels de l'acte 1 pour `getTransaction`, que l'acte 0 n'appelle pas ; une `RpcError` de paramètres arrête sans donnée.
 - **Q-13** Quelles sont les extensions actuelles du mint ?
   - Tranche : DOJO-MINT-EXTENSIONS-1, soit SNAPSHOT-PROBE-1 (a) et le contrôle du mint du paquet du premier jour lu.
 - **Q-14** Le paquet de PR-2 portera-t-il les deux réponses d'énumération et le mint `jsonParsed` ?
@@ -754,6 +766,9 @@ Arithmétique sur `derived.json` R4 (pic 6 467, N = 23 628, 5 714 échecs, 17 jo
   - Tranche : GARDE-GTFA-FULL-TARIFF-1 (rapprochement par méthode d'une course Bell bornée).
 - **Q-17** Quelle est la marge de cycle helius le jour de l'acte, Bell consommant le même cycle ?
   - Tranche : le relevé du tableau de bord (plancher) le jour même ; la garde ×10 refuse si la marge manque.
+- **Q-18** (pli, C-25) gTFA `full` rend-il les transactions en échec par défaut ? H-4 nommait `filters.status` sans ses valeurs ; A1 n'a rendu qu'une transaction réussie.
+  - Réponse documentaire (FAITS cp1d L-1) : `filters.status` vaut `any` par défaut, donc oui ; D-2 ne passe aucun `filters.status`.
+  - Tranche : la première page de l'acte 0 (§7, point 5), mesure de confirmation.
 
 ## 10. Alternatives rejetées
 
@@ -838,11 +853,12 @@ Arithmétique sur `derived.json` R4 (pic 6 467, N = 23 628, 5 714 échecs, 17 jo
 | Date | Objet | Modèle (identifiant résolu) | Effort | Contexte fourni | Générateur | Réviseur | Verdict G2 |
 |---|---|---|---|---|---|---|---|
 | 2026-09-26 | G0 du lot PR-2b, `docs/adr/ADR-DOJO-PR-2B.md`, non committé, base `9f50f1d` | `claude-opus-5-5[1m]` | max | message de mission de l'orchestrateur ; ADR-mère gel 7 ; FAITS de la sonde ; sortie de la sonde ; code du dépôt | worker | orchestrateur (R-21), puis checkpoint-1 bref | sans objet (G0) |
+| 2026-09-26 | Pli des corrections du checkpoint-1 bref (C-25 à C-31, D-7, É-8 et DOJO-GTFA-TOKENACCOUNTS-1 ici ; C-24 et décision 231 dans l'ADR-mère, sixième pli), même fichier, base `3a5e591`, non committé | `claude-opus-5-5[1m]` | max | mission `F:/tmp/dojo/mission-pli-pr2b.md` et message de l'orchestrateur (décision 231) ; rapport CP1D ; FAITS cp1d ; CHANTIERS du tronc (2026-09-26 14:45 et 15:0x) ; ADR-mère | worker | orchestrateur (R-21) | sans objet (G0) |
 
 - **Horloge (`date -u`)** : 05:59:42Z (ouverture), 06:32:40Z (relevés), 06:39:08Z (début de l'écriture) ; l'heure du hachage final est rendue hors du fichier.
 - **Commandes `git`, en lecture seule** : `log`, `status`, `show <sha>:<chemin>`, `branch -a`, `log --all -- <chemin>`. Aucun `GIT_DIR`, aucun `GIT_WORK_TREE`, aucun `git merge-tree --write-tree`, aucune commande `git` qui écrive.
 - **Réseau** : aucun appel réseau, aucun appel RPC ; aucune page web ouverte.
-- **Écritures** : rien écrit sur C: (le corpus y a seulement été lu). Un seul fichier touché dans le dépôt : celui-ci, non suivi, jamais commité. Il a été écrit d'un bloc par l'outil d'écriture de fichiers à partir de 06:39:08Z : un heredoc aurait dépassé la borne de lexage du harnais (HARNESS-BASH-8K-1). Il a ensuite été corrigé en place par l'outil d'édition, de 06:4xZ à 06:55Z, en quatorze éditions (celle-ci comprise) :
+- **Écritures** : rien écrit sur C: (le corpus y a seulement été lu). Un seul fichier touché dans le dépôt : celui-ci, non suivi, jamais commité. Il a été écrit d'un bloc par l'outil d'écriture de fichiers à partir de 06:39:08Z : un heredoc aurait dépassé la borne de lexage du harnais (HARNESS-BASH-8K-1). Il a ensuite été corrigé en place par l'outil d'édition, de 06:4xZ à 06:55Z, en treize éditions identifiables dans la liste qui suit (celle-ci comprise ; compte rectifié au pli, C-30) :
   - renvoi « D-15 » corrigé en « §4 » (§3) ;
   - `probe-3.mjs:545` corrigé en `:546` (D-10) ;
   - deux lignes du tableau du D-4 reformulées ;
@@ -858,6 +874,30 @@ Arithmétique sur `derived.json` R4 (pic 6 467, N = 23 628, 5 714 échecs, 17 jo
 - **`error_origin` proposés, à assigner au G7** :
   - É-1 (heure du FAITS l.17) : orchestrateur (rédaction du FAITS) ;
   - É-2 (phrase de mère D-18) : rédacteur de l'ADR-mère, quatrième pli ;
-  - É-3 (tarif de gTFA) : lecture antérieure de Bell (`rebase-crosscheck.ts:47-57`), contredite par la lecture H-4 du 2026-09-26 ;
+  - É-3 (tarif de gTFA ; rectifié au pli, C-30) : non établi : lecture du 21/09 incomplète (FAQ pricing ; page de référence gTFA non lue) ou barème Helius changé (page credits : « metering starts on September 24, 2026 » pour les Parsed Events) ; ordre de grandeur mesuré le 2026-09-26 : ×10,33 (FAITS cp1d §4) ; à établir par GARDE-GTFA-FULL-TARIFF-1 ;
   - É-4 et É-5 : estimations antérieures à la sonde, aucune erreur ;
   - É-6 à É-8 : aucune erreur, raffinements soumis au checkpoint-1 bref.
+- **Pli des corrections du checkpoint-1 bref (2026-09-26)** : rédacteur worker `claude-opus-5-5[1m]` (préfixe `claude-opus-5-5` déclaré à l'ouverture, R-1), effort max, contexte frais ; mission `F:/tmp/dojo/mission-pli-pr2b.md` (sha256 `045ca1474fc783c86226429c1d5cfefde92e51bcef47676469ca41b353a10325`), complétée par un message de l'orchestrateur (décision 231, ADR-mère seule) ; base `3a5e591`, `git status --short` vide à l'ouverture ; horloge `date -u` : 15:25:38Z (orientation), 15:28:40Z (ouverture du pli) ; fichiers touchés : `docs/adr/ADR-DOJO-SNAPSHOT-1.md` (sixième pli) et ce fichier ; éditions par remplacements exacts, tout ou rien (script Node écrit hors dépôt, `F:/tmp/claude/F--Monark/e03dd7cc-4452-4c79-9aa6-58827dad4d19/scratchpad/pli/apply.mjs`), appliquées sur copie puis recopiées ; `git diff --stat` : `ADR-DOJO-PR-2B.md` 67 insertions, 27 suppressions ; `ADR-DOJO-SNAPSHOT-1.md` 44 insertions, 19 suppressions ; `git` en lecture seule, aucun `GIT_DIR`, aucun `GIT_WORK_TREE`, aucun `--write-tree`, aucun réseau, rien sur C: ; advisor intégré consulté avant les éditions et avant la remise ; sha256 après le pli rendu hors du fichier ; réviseur : orchestrateur (R-21).
+
+## Corrections checkpoint-1 bref (amendement daté du 2026-09-26, fait foi)
+
+- **Sources** : rapport du validateur-humain `claude-fable-5-1`, `F:/tmp/dojo/cp1d/CP1D-report.md` (sha256 `4fa57831c169d387a60e9515eba0d1531b0a040cb6a3dab614d5b57c2921b7ef`), verdict ACCEPTE-AVEC-CORRECTIONS sur ce document au commit `3a5e591`, liste fermée C-24 à C-31 (rapport §5) et information D-7 (rapport §6) ; lectures sur place de l'orchestrateur `docs/dojo/FAITS-cp1d-lectures-2026-09-26.md` (tronc `lot/etude-suite`, fichier committé à `5e2a3e8`, sha256 du blob `598a43e59ed616e64f140acbb6794513fe3c873d2ed1a00aff957ac0840b856a`), lectures L-1 à L-3 et §4 ; avis de l'agent advisor du 2026-09-26 14:45, retenu par l'orchestrateur (`F:/Monark/docs/CHANTIERS.md`, tronc `lot/etude-suite`, commit `54dfa51`, entrée « 2026-09-26 14:45 UTC » ; absente de la branche de ce document). Pli ouvert le 2026-09-26 à 15:28:40Z (`date -u`), en place, sans commit.
+- **Règle de lecture** : cet amendement fait foi sur tout le texte antérieur ; chaque édition en place porte la mention « pli » ou renvoie à ce pli ; §1.1 et §1.5 restent la trace du G0 (état de l'ADR-mère au gel 7, écarts tels que relevés).
+
+| Correction | Contenu retenu | Pliée dans | Preuve ou source |
+|---|---|---|---|
+| **C-24** (bloquante avant le G1 de PR-2b-1) | neuf points (a) à (i) de l'ADR-mère | ADR-mère, sixième pli (amendement daté en fin de document) | rapport §5 |
+| **C-25** (bloquante avant le G1 de PR-2b-3) | cohérence gTFA ↔ index écrite sur R, jamais sur F (les trois phrases du validateur) ; (vii) sur les corps en échec conditionnelle (« si les pages les rendent »), avec compteur ; Q-18 : réponse documentaire L-1 (`filters.status` défaut `any`), D-2 ne passe aucun `filters`, mesure de confirmation à la première page de l'acte 0 ; M-Y26 reformulé | D-2 ; D-3 (phase B) ; D-8 ((vii), transactions en échec) ; D-9 (cohérence, rejets) ; §4 (test et mutant M-Y26) ; §9 (Q-6, Q-18) | FAITS cp1d L-1 |
+| **C-26** | acte 0, go par action : une page gTFA `full` à `limit: 100`, une page `getSignaturesForAddress` à `finalized` explicite par opérateur, `unlock`, rapprochement `--course-end` par opérateur dès que RECONCILE-WINDOW-1 existe, sinon par lecture du tableau de bord (orchestrateur, consigné) ; 11 crédits helius au barème (10 + 1) et 2 RU chainstack, contre « ≈ 12 crédits » au rapport ; tranche Q-2, Q-12 (pour ces deux méthodes) et Q-18 | D-10 ; §7 (points 4 et 5) ; §8 (DOJO-HISTORY-ACTE-1) ; §9 (Q-2, Q-12, Q-18) | barème du garde (`tariff.ts:12-30`, `:54-57`) ; FAITS cp1d L-2 |
+| **C-27** | verrous `<cycleDir>/<op>.lock` partagés avec Bell : courses bornées en durée (paramètre déclaré, reprise D-11 entre deux courses) placées entre deux courses Bell, ou pause de Bell déclarée ; fail-closed dit pour qui (Bell : ligne du jour manquée ; le collecteur ne s'ouvre pas) | D-11 (arrêt sur durée) ; §6 (TY-12) ; §7 (point 4) ; §8 (DOJO-HISTORY-ACTE-1) | rapport §5 ; D-10 (durées) |
+| **C-28** | FAITS-SOLANA-ATOMICITY-1 formé et clos par L-3 (URL, 14:31Z, citation) ; Q-6 tranchée | §8 ; §9 (Q-6) | FAITS cp1d L-3 |
+| **C-29** | TU-12a et TU-12b : « composé en test (chaîne simulée) ; servi au G7 de PR-3a puis de la pièce » ; TU-1h et test d'intégration : paquet du premier jour lu écrit par l'écrivain de PR-2 (sortie committée de son test) ou chargé par son lecteur, jamais construit à la main | §3 (table, déroulé point 2) | rapport §3.8 |
+| **C-30** | `error_origin` de É-3 non établi, ordre de grandeur mesuré ×10,33, à établir par GARDE-GTFA-FULL-TARIFF-1 ; item à deux nombres (réservation avant appel 10 × ⌈limit / 100⌉ ; grand livre après appel 10 × ⌈rendus / 100⌉, minimum 10), déclencheur avant toute collecte Bell et avant le G1 de PR-2b-3 ; compte des éditions du §13 rectifié à treize | §8 ; §13 | FAITS cp1d L-2 et §4 |
+| **C-31** | paragraphe MAST : FM-1.1 (« FM-1.2 » au rapport), FM-2.4 (« FM-2.x » au rapport), FM-3.1 et FM-3.3, chacun avec sa contre-mesure déjà écrite | fin du §6 | mère §9 |
+| **DOJO-GTFA-TOKENACCOUNTS-1** (avis 14:45) | item-sonde : jamais un substitut de la phase C ; sonde d'environ 10 crédits ; déclencheur avant le G0 de PR-2b-4 | §8 | FAITS cp1d L-1 ; `calls.jsonl` de la sonde (D1 = compte `6tW6…YWo`) |
+| **D-7** (rapport §6) | information et recommandation, aucune décision nouvelle ; déclencheur d'escalade (compteur Q-1 non nul à l'acte 1 et un détenteur touché ⇒ effet mesuré présenté à l'investisseur avant publication) ; `null` rejeté (mère P-29 bis, décision 228) | D-7 | rapport §2 (0 violation), §6 |
+| **É-8** (avis 14:45) | borne sur X rapportée à R : chiffre sans source jusqu'au G1 de PR-2b-1, justification due ; tout X > 0 consigné dans le FAITS de l'acte, borne franchie ou non | D-8 (vii) ; ADR-mère, sixième pli (b) | avis de l'agent advisor (CHANTIERS, 14:45) |
+
+- **Retouches hors de cette table, déclarées** : en-tête (Statut : checkpoint-1 bref tenu) ; §8, RECONCILE-WINDOW-1 (É-7 accepté, rapport §3.3) et ADR-SNAPSHOT-D18-ORDER-1 (clos par le sixième pli de l'ADR-mère, point (a)) ; §13 (provenance du pli).
+- **Inchangé** : §0 ; §1 ; D-1, D-4 à D-6 et D-12 à D-14 ; §5 ; §10 à §12 ; l'estimation R-25 de D-14 (1 787 lignes ascendantes), non ré-évaluée par ce pli : la mesure du G1 fait foi (mère C-6).
+- **`error_origin`** : É-3 rectifié au §13 (C-30) ; les autres inchangés.
