@@ -4,6 +4,8 @@ Décision investisseur (2026-09-26 05:5x UTC, verbatim) : « on laisse de coté 
 
 Ce dossier **complète** `docs/PASSATION-2026-09-24.md` (toujours valable pour §0 « comment travailler ici », §3 roadmap, §4 hôtes/comptes, §7 MCP/SKILL) : ne relis que ce qui a changé. Ordre de lecture : `~/.claude/CLAUDE.md` (= `F:\claude-config\CLAUDE.md`, règles absolues ; amendements 22/09 Opus 5.5, 25/09 config dir sur F:, 26/09 UUID firecrawl `8aa0cccf…`), les 25 dernières entrées de `docs/CHANTIERS.md` (depuis « 2026-09-25 07:57 UTC »), puis ce dossier. Dossier Vernier : `F:VernierdocsPASSATION-2026-09-26.md` (sha256 `1fd005f1…`, commit `20a69f7` sur `master`, reçu 05:42Z) ; Vernier a 10 questions d'escalade posées à l'investisseur (26/09 ~05:30Z) sans réponse, et le volet commun Vernier–MONARK (décision 226) en §3.
 
+**Décision investisseur 2026-09-26 06:11 UTC (verbatim) : « plus de GO, je passe sur l autre claude dés que tes sous agents rentent ». Conséquence : cette session ne lance plus rien ; le seul sous-agent en vol est le G0 de PR-2b (§1.4) ; à son retour, son livrable est consigné ici et la session se termine. L'agent suivant reprend au §1.4 (cp-1 bref sur l'ADR PR-2b) et au §2 (Pocket, sans go implicite : demander).**
+
 ## 0. Ce qui a changé dans la façon de travailler depuis le 24/09
 
 - **Config Claude sur F:** (`CLAUDE_CONFIG_DIR=F:\claude-config`, 25/09) : agents globaux dans `F:\claude-config\agents\`, transcriptions `F:\claude-config\projects\`, scratchpad `F:\tmp\claude\<projet>\<session>\scratchpad\`. Rien n'est écrit sur C: (règle investisseur). L'ancien `C:\Users\KACIMI\.claude` existe encore : suppression = acte investisseur.
@@ -35,7 +37,8 @@ Ce dossier **complète** `docs/PASSATION-2026-09-24.md` (toujours valable pour �
 **Ce que l'agent suivant fait, dans l'ordre** :
 1. Demander le **go investisseur** pour un W2 RÉDUIT (≤ 8 agents : 3 lentilles au lieu de 5, 1 juge par proposition au lieu de 3 sur les 6 meilleures, advisor-marche + advisor-defi, 1 critique) — annoncer le nombre d'agents avant de lancer ; ou, si l'investisseur refuse tout workflow, faire la synthèse **en mono-agent** (un worker Opus 5.5) puis les deux consultations d'advisors par l'outil Agent.
 2. Éditer `wf2-synthese-pocket.js` en conséquence (réduire `LENSES`, `JUDGE_LENSES`, `slice(0,6)`), et faire lire aux agents `refutations/SYNTHESE-REFUTATION.md` + `RESULTATS.json` selon Q-ORCH-1 (le CADRE du script l.20 n'autorise encore que les confirmées : à amender).
-3. Rapport final `F:\Shogen\docs-etude-pocket-network-2026-09-25.md` (rédigé par l'orchestrateur, pas un worker ; niveaux [lu]/[mesure]/[corrigé] ; section « sensible » non publiable ; aucun nom de fournisseur si une version publique est tirée), puis JOURNAL-PROVENANCE Shōgen, CHANTIERS MONARK, memstack.
+3. Rapport final `F:\Shogen\docs
+-etude-pocket-network-2026-09-25.md` (rédigé par l'orchestrateur, pas un worker ; niveaux [lu]/[mesure]/[corrigé] ; section « sensible » non publiable ; aucun nom de fournisseur si une version publique est tirée), puis JOURNAL-PROVENANCE Shōgen, CHANTIERS MONARK, memstack.
 4. Livrables possibles issus de l'étude (à faire trancher, pas à décider seul) : mesure de diversité de sources (k_eff, co-défaillance) comme témoin de quorum recalculable ; position à prendre auprès de la PNF (contact X du 23/09) ; divulgation privée de l'hypothèse sensible.
 
 ## 3. Shōgen — campagne S2 (F:\Shogen, hors MONARK)
@@ -77,3 +80,4 @@ Ce dossier **complète** `docs/PASSATION-2026-09-24.md` (toujours valable pour �
 - 2026-09-26 05:48 UTC : §3 dépôt Shōgen committé (roster aligné) ; cp-1 bref Dōjō toujours en cours.
 - 2026-09-26 05:58 UTC : §1.3 cp-1 bref plié (gel 7 `9f50f1d`) ; prochaine étape §1.4 = G0 de PR-2b (worker Opus 5.5 en contexte frais, ADR de lot), LANCÉ 2026-09-26 05:59 UTC (un worker Opus 5.5, livrable `F:\Monark-wt-dojo\docsdr\ADR-DOJO-PR-2B.md`, non committé par le worker) ; si la session s'arrête avant son retour : le fichier, s'il existe, est à relire par l'orchestrateur suivant (contrôle R-1 du préfixe dans son en-tête), puis cp-1 bref.
 - 2026-09-26 06:10 UTC : §2 Pocket réécrit en consigne de reprise détaillée (point d'arrêt, acquis, ordre) ; scripts W1/W2 copiés dans le dossier de l'étude.
+- 2026-09-26 06:11 UTC : consigne « plus de go » reçue ; en attente du seul agent en vol (G0 PR-2b) ; rien d'autre ne sera lancé.
