@@ -17,7 +17,7 @@ Ce dossier **complète** `docs/PASSATION-2026-09-24.md` (toujours valable pour �
 État : probe exécutée le 26/09 01:45Z, code 0, FAITS complets `docs/dojo/FAITS-probe-3-2026-09-26.md` (sha256 `9b7b3f78…`), sortie hors dépôt `F:/PRODUITS/dojo-mirror/probe-3/2026-09-26T0145Z/` (49 fichiers, SHA256SUMS OK, aucune clé), script `F:/PRODUITS/dojo-mirror/probe-3/probe-3.mjs` (sha256 `8d0a65a0…`, 798 lignes) + `README-probe-3.md`. Résultats : création établie sous quorum 3/3 (SIG0 `2rgTPb…86uoU`, slot 445 903 343, 2026-09-10T14:10:06Z, `initializeMint2` + `mintTo` 10^15), N = 23 628 signatures (24 pages, 5 714 failed), facturation Helius = compte du garde à l'unité (+39 crédits : 3 738 080 → 3 738 119), 16 RU Chainstack, R3 vrai, R6 owner/programId présents, R7 3/10 lookup-table, R8 0 absent, reconcile « servi » = NO-GO doux (fenêtre = cycle entier ; cf. item RECONCILE-WINDOW-1).
 
 À faire, dans l'ordre :
-1. **Lecture Chainstack « après »** (console, onglet ouvert) : RU avant = 282 515 ; attendu +16 ; puis lecture de stabilité (quelques heures plus tard) ; consigner dans `FAITS-probe-3-2026-09-26.md` §T-3 et l'agrégat reconcile.
+1. ~~Lecture Chainstack « après »~~ **FAIT 26/09 05:44Z** : 282 530 RU (+15 pour 16 attendus ; chiffre du jour partiel selon la console) → consigné dans `FAITS-probe-3-2026-09-26.md` §4. **Reste** : relevé de stabilité à partir du 27/09 02:00Z (même page, ligne Solana du 26/09), puis conclusion R9 Chainstack.
 2. **ADR SNAPSHOT** (`docs/adr/ADR-DOJO-SNAPSHOT-1.md`, gel `1e380b0` + plis 227/228) : amender D-18 (historique depuis le jour 1 = 2026-09-10, sans récupération, min du jour), paramètres mesurés (V = `maxSupportedTransactionVersion` 1 ; A1 = `getTransactionsForAddress` limit 1 asc jsonParsed ; paire d'opérateurs helius + chainstack ; ≈ 1 390 signatures/jour), items formés : BELL-TX-VERSION-1 (Bell utilise 2, non documenté), RECONCILE-WINDOW-1, RPC-GUARD-HELIUS-HOST-1, HARNESS-BASH-BASH-BACKSLASH-1, DOJO-MINT-EXTENSIONS-1 (Token-2022 : `Transfer` sans mint refusé seulement avec TransferHook/TransferFee/Pausable).
 3. **Checkpoint-1 du validateur** sur l'ADR amendé, puis **G1 PR-2b** (collecteur historique) sous le garde `openGuardedClient` (`F:/Monark-wt-dojo/packages/rpc-guard`, HEAD `5b75cd2`), RunLimits/runCaps identiques à la probe, cycle `helius-2026-09-19`, `BELL_SOLANA_RPC` lu depuis `apps/bell/ops/launch-q6.sh` (ligne `HELIUS_ENDPOINT=`, jamais affichée).
 4. Worktree : `F:\Monark-wt-dojo` (branche `lot/dojo-snapshot-1`) ; dépôt principal `F:\Monark` sur `lot/etude-suite` (propre au 26/09 05:35Z, dernier commit `aeaaf21`).
@@ -59,3 +59,7 @@ Ce dossier **complète** `docs/PASSATION-2026-09-24.md` (toujours valable pour �
 - Pocket : 35 affirmations non soumises à réfutation (rangs > 20) ; la divergence « la signature lie-t-elle la requête ? » n'est pas tranchée (c'est le rôle de W2).
 - Film : S5b v1 gardée en alternative ; audio des clips coupé sans écoute (des répliques v1 subsistaient) ; aucune écoute humaine de l'export.
 - memstack non alimenté depuis le 25/09 (MCP absent) ; CHANTIERS fait foi.
+
+## 8. Journal d'avancement de la passation (mis à jour à chaque étape)
+
+- 26/09 05:44Z : §1.1 lecture Chainstack « après » faite (+15/16, partiel) ; en cours : §1.2 amendement ADR SNAPSHOT (D-18 + items formés).
