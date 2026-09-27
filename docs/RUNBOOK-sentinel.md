@@ -467,6 +467,77 @@ Les références `run.ts:NNN` des l. 187-313 visent une version antérieure à -
 
 Avec -1d, `openChainstackLeg` (`:319`) s'exécute AVANT `loadState` ; il n'appelle aucun RPC (lecture de l'env, fichiers, verrou) et, dans la forme de vérification du Mode B (`sudo -u sentinel … --dry-run`, sans EnvironmentFile), rend `unconfigured` sans toucher au ledger : le « network-free » de la l. 300 reste vrai. Re-pointage en place des l. 187-313 : item formé (propriétaire orchestrateur ; déclencheur : prochaine édition du RUNBOOK, au plus tard le 2ᵉ redéploiement).
 
+## 7. After T >= 7 — publish the labelled instrument at `/narabi/instrument.json` (ADR-M012 item (l))
+
+ONE new static file beside `state.json` and `timeline.jsonl`, labelled `instrument, not the official tracker` (D6).
+**Nothing else changes:** no code deploy on the VPS (the `sentinel_sha` of the daily lines stays the same), no unit, no
+Caddy edit (the existing `handle_path /narabi/*` already serves every file of `/var/lib/monark-sentinel/public`),
+`state.json` and `timeline.jsonl` untouched (the CLI refuses them as `--out`). Run by the orchestrator, under the
+investor's go, from the NAMED G7 SHA of the lot that carries `apps/sentinel/src/instrument-replay.ts` (decision 72).
+
+**Preconditions (all true, else STOP):** `tracker.t >= 7` in the served `state.json`; ADR-M014-a `9d67302` and
+M014-b `3846be5` on origin BEFORE any gap draw (`git branch -r --contains 9d67302` non-empty — the pre-registration
+precedes the draw, ADR-M014); a go for (1) the gap draw (network) and for (5) the upload (outbound action).
+**Before (1), NARABI-L-GAP-1 (all true, else STOP):** (a) the terms of use of every endpoint of the keyless pool
+(`rpc.ts` `PUBLIC_ENDPOINTS`) read on the provider's own page and filed as dated FAITS BEFORE the draw; (b) a bounded
+archive probe of ONE day (2025-10-16), measuring whether two DISTINCT providers (`providerOf`) serve the old state
+(`eth_getLogs` over the day's blocks and `eth_call totalSupply` at an old block); (c) the draw runs on the
+orchestrator's machine, never on the VPS; (d) **archive quorum: two distinct providers serve the old state, else STOP
+and a decision** (never widen the pool nor add a paid leg without one). Measured by the orchestrator on 2026-09-27
+(00:4x-00:50 UTC) (`F:\tmp\narabi-gap-logs\`): the keyless pool alone does NOT give this quorum on 2025-10-15.
+The only output filed there is the single-block probe (00:50:41Z, block 23586600: 2 of the 6 providers served a
+100-block `eth_getLogs` and the old `eth_call`); the full-day reads are console-only, not filed.
+
+```bash
+cd <a clean tree of the named G7 SHA, npm ci done>   # every command below runs from this tree's root, on the orchestrator's machine
+# (1) GAP DRAW — the eleven months 2025-10-15 .. J0-1 are in NO committed file (the series ends 2025-10-15, the live
+#     timeline opens at J0 = 2026-09-17). Read them with the sentinel's OWN engine into a SCRATCH state dir on the
+#     orchestrator's machine: keyless public pool only (every Chainstack key removed), never under a public/ dir.
+#     J0 of the scratch run = 2025-10-15, so its first line RE-READS the committed seed (the CLI checks they agree).
+#     Each run stops at the 180 s catch-up budget (run.ts BUDGET_MAX_S, the default when MONARK_SENTINEL_BUDGET_S is
+#     unset, hence the -u below) and the next one resumes; the only measured timing is one published day in 25.481 s
+#     (section "Sonde externe"), so the draw takes hours (extrapolation).
+#     Days eleven months back need ARCHIVE state (totalSupply at old blocks): measured NOT enough on this keyless pool
+#     for 2025-10-15 (precondition (d) above: no draw until a decision). A provider
+#     without it fails the two-provider quorum, the run stops fail-closed (exit 1) and the loop retries; if the SAME
+#     day keeps stopping, STOP and escalate (never widen the pool or add a paid leg without a decision).
+G=F:/tmp/narabi-gap; lastday() { tail -1 "$G/timeline.jsonl" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).day))'; }
+for i in $(seq 1 150); do
+  [ -f "$G/timeline.jsonl" ] && [ "$(lastday)" \> "2026-09-15" ] && break
+  env -u CHAINSTACK_ETH_URL -u CHAINSTACK_CYCLE_ID -u CHAINSTACK_ETH_ORIGIN -u CHAINSTACK_CYCLE_FLOOR -u MONARK_SENTINEL_BUDGET_S \
+    MONARK_SENTINEL_J0=2025-10-15 node apps/sentinel/src/run.ts --state "$G" || sleep 60
+done; lastday   # must be >= 2026-09-16 (a later day is fine: the overlap with the live days must agree)
+#     run.ts also creates $G/public/ (its local copies; harmless). --gap reads $G/timeline.jsonl, NEVER $G/public/...
+#     Record in docs/JOURNAL-PROVENANCE.md the UTC start/end of the draw and sha256 of $G/timeline.jsonl.
+# (2) LIVE FILES, read in the same minute AFTER the day's publishing run:
+L=F:/tmp/narabi-l; mkdir -p "$L"
+curl -sf https://monarkgate.tech/narabi/timeline.jsonl -o "$L/timeline.jsonl"   # -f: an HTTP error page is never saved
+curl -sf https://monarkgate.tech/narabi/state.json    -o "$L/state.json"
+# (3) REPLAY (offline, writes ONE file). Defaults are the pre-registered ones: --perms 1000, --seed 20260917, --series =
+#     the committed fixture (seed 2025-10-15, recorded in params.seed_series_sha256). No --publish: $L is not public.
+node apps/sentinel/src/instrument-replay.ts --gap "$G/timeline.jsonl" --timeline "$L/timeline.jsonl" --out "$L/instrument.json"
+#     Expect "instrument written: N windows 2025-10-15..<last day>, digest <d>, state_digest <s>."; any FATAL = STOP.
+# (4) DIGEST CONTROL: the digest recomputes, state_digest == the served state.json digest, and differs from it.
+node -e 'const f=require("fs"),c=require("crypto");const d=JSON.parse(f.readFileSync(process.argv[1],"utf8")),s=JSON.parse(f.readFileSync(process.argv[2],"utf8"));const {digest,generated_at,...b}=d;const ok=c.createHash("sha256").update(JSON.stringify(b)).digest("hex")===digest&&d.state_digest===s.digest&&digest!==s.digest;console.log(ok?"digest OK":"STOP: digest");process.exitCode=ok?0:1' "$L/instrument.json" "$L/state.json"
+sha256sum "$L/instrument.json"   # the LOCAL sha, compared in (6)
+# (5) UPLOAD, atomic: the temp file sits OUTSIDE public/ on the SAME filesystem, so the mv is a rename (no half file served).
+ssh -i ~/.ssh/monark_vps root@31.97.155.188 'umask 022; T=/var/lib/monark-sentinel/.instrument.json.new; cat > $T && chown sentinel:sentinel $T && chmod 0644 $T && mv -f $T /var/lib/monark-sentinel/public/instrument.json && sha256sum /var/lib/monark-sentinel/public/instrument.json' < "$L/instrument.json"
+# (6) SERVED CHECK
+curl -sfI https://monarkgate.tech/narabi/instrument.json | head -1     # HTTP/2 200
+curl -sf  https://monarkgate.tech/narabi/instrument.json | sha256sum   # == the LOCAL sha of (4) and the remote sha of (5)
+curl -sf  https://monarkgate.tech/narabi/state.json | head -c 200      # unchanged by this step
+```
+
+Record in `docs/JOURNAL-PROVENANCE.md`: the G7 SHA, `gap_sha256`, `timeline_sha256`, `digest`, `state_digest`, the served
+sha256 and the UTC time. **Rollback:** `ssh … 'rm -f /var/lib/monark-sentinel/public/instrument.json'` — nothing else
+to undo. **Refresh: none — ONE snapshot, taken once at T >= 7** (the days up to `params.last_day`); the daily job never
+touches it. Any refresh is an ADR decision (a dated line under ADR-M012 (l)) and publishes NO new permutation p:
+ADR-M014 D4 (the CUSUM and its permutation test read a CLOSED block once; no repeated look, no sequential reading).
+The CLI as delivered always computes that section, so the decision also says how a refreshed file is issued (SAME gap
+file, its sha recorded, no new draw). **Not recommended:** running (3) on the VPS with
+`--out /var/lib/monark-sentinel/public/instrument.json --publish` needs the tree re-archived there, which changes the
+`sentinel_sha` of every later timeline line (ADR-M014, Consequences) — "nothing else changes" would no longer hold.
+
 ## Déploiement de la sonde (Bell) — sub-lot NARABI-OPS-1b-ii
 
 The external probe + mail alert ship as a single built-ins-only `scripts/probe-narabi.mjs` under
