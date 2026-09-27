@@ -480,8 +480,9 @@ M014-b `3846be5` on origin BEFORE any gap draw (`git branch -r --contains 9d6730
 precedes the draw, ADR-M014); a go for (1) the gap draw (network) and for (5) the upload (outbound action).
 **Before (1), NARABI-L-GAP-1 (all true, else STOP):** (a) the terms of use of every endpoint of the keyless pool
 (`rpc.ts` `PUBLIC_ENDPOINTS`) read on the provider's own page and filed as dated FAITS BEFORE the draw; (b) a bounded
-archive probe of ONE day (2025-10-16), measuring whether two DISTINCT providers (`providerOf`) serve the old state
-(`eth_getLogs` over the day's blocks and `eth_call totalSupply` at an old block); (c) the draw runs on the
+archive probe, measuring whether two DISTINCT providers (`providerOf`) serve the old state (`eth_getLogs` over old
+blocks and `eth_call totalSupply` at an old block); measured on 2026-09-27 at block 23 586 600 and on the days
+2025-10-15 and 2025-10-20 (FAITS sections 2-3 and the filed files below); (c) the draw runs on the
 orchestrator's machine, never on the VPS; (d) **archive quorum: two distinct providers serve the old state, else STOP
 and a decision** (never widen the pool nor add a paid leg without one). Measured by the orchestrator on 2026-09-27
 (00:4x-00:50 UTC) (`F:\tmp\narabi-gap-logs\`): the keyless pool alone does NOT give this quorum on 2025-10-15.
@@ -490,10 +491,16 @@ providers, mevblocker and Pocket, served a 100-block `eth_getLogs` and the old `
 `diag-day2-1020-20260927T0134Z.txt` (01:34Z, day 2025-10-20; Q-C-1). **Decision 247 (2026-09-27): the draw runs WITH
 the guarded Chainstack Ethereum leg (archive) AND with Pocket excluded** (`MONARK_SENTINEL_EXCLUDE_HOSTS`, below).
 Motive, measured: Pocket sometimes answers an archive `eth_getLogs` with a well-formed EMPTY result and no error
-(00:54Z: 2 434 / 0 / 2 434 logs on one request; 01:2x UTC: day 2025-10-20 read as 0 logs, console), and `quorumTwo`
-takes the first two successes in list order, so mevblocker + a lying Pocket stop the day before the Chainstack leg
-(last) is ever consulted, identically on every pass. It is intermittent, not constant: in the filed 01:34Z read Pocket
-agreed with mevblocker (4 276 + 3 499 = 7 775 logs). FAITS: `docs/narabi/FAITS-gap-archive-probe-2026-09-27.md`
+(00:54Z: 2 434 / 0 / 2 434 logs on one request, FAITS section 3), and `quorumTwo` takes the first two successes in list
+order, so mevblocker + a lying Pocket stop the day before the Chainstack leg (last) is ever consulted, identically on
+every pass. Dated record of the stops: `F:\tmp\narabi-gap-logs\run-N.log` of draw 1 (Chainstack leg, Pocket NOT
+excluded), `"stopped": "quorum_disagreement:<day>"` on 10 passes, all ended before the 01:56:18Z stop line of
+`draw.log`: runs 1, 2, 4, 6, 7, 8, 10, 20, 21, 22 (01:00Z-01:54Z; days 2025-10-20 twice, 2025-10-25, 2025-10-31,
+2025-11-08, 2025-11-15, 2025-11-28, 2026-01-07, 2026-01-14 twice). These logs record the DISAGREEMENT, not which side
+answered empty; the empty answer itself is the 00:54Z measure (the 01:2x UTC read of 2025-10-20 at 0 logs was console
+only, not filed). It is intermittent, not constant: in the filed 01:34Z read Pocket agreed with mevblocker
+(4 276 + 3 499 = 7 775 logs), and `probe-sub-0log-20260927T0154Z.txt` shows Pocket answering 2 434 logs six times in a
+row on the 00:54Z range. FAITS: `docs/narabi/FAITS-gap-archive-probe-2026-09-27.md`
 (commit `2381525`). Item NARABI-QUORUM-TIEBREAK-1 (consult a third provider on disagreement) is the engine-side fix.
 
 ```bash

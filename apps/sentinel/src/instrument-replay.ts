@@ -29,8 +29,8 @@ export const INSTRUMENT_LABEL = "instrument, not the official tracker";
 /** The public sentence of item (l), carried as `note`. Literature sources: the three M012-h procurement fiches
  *  only (Lorden 1971 pp. 1897-1898 for the form, which it presents as Page's 1954 procedure, its ref. [6]; p. 1900
  *  for the i.i.d. proof; Vovk 2012 Prop. 1 p. 477 for
- *  exchangeability; Shin, Ramdas and Rinaldo 2022: no permutation anywhere). No run-length, delay or optimality
- *  claim is made (ADR-M012 amendment (h)). */
+ *  exchangeability; Shin, Ramdas and Rinaldo 2022: no permutation anywhere). No sequential claim is made
+ *  (ADR-M012 amendment (h)). */
 export const INSTRUMENT_NOTE = "Instrument, not the official tracker: tracker replays at alternative parameters, and a one-sided CUSUM in the form Page (1954) introduced and Lorden (1971) presents, on the static misses, assessed by a permutation test of exchangeability as Vovk (2012) defines it. A third way, outside Lorden's i.i.d. theory and the e-detectors of Shin, Ramdas and Rinaldo (2022); no bound is claimed.";
 
 const CALM_LABEL = "replay block CUSUM (retrospective permutation diagnostic over the closed block, not a sequential reading; ADR-M014 D4): E_static over calm pairs";

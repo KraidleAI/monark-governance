@@ -649,3 +649,133 @@ dépendants de l'hôte.
  M docs/RUNBOOK-sentinel.md
 ?? apps/sentinel/test/sentinel-exclude-hosts.test.ts
 ```
+
+## Pli 3 (checkpoint-2 : C-V-0 bloquante, C-V-1, C-V-2, C-V-3)
+claude-opus-5-5[1m]
+
+- **Modèle résolu (R-1, verbatim)** : `claude-opus-5-5[1m]` (préfixe `claude-opus-5-5`). Worker, instance fraîche, horodatage de
+  passe 2026-09-27T02:45Z (horloge `date -u` : travail 02:41:35Z → 03:09:34Z, livraison ensuite).
+- **Mission** `F:\tmp\narabi\mission-corr3-narabi-l.md` (sha256 `c4e54bba…b4e2cd`) lue en entier ; rapport cp-2
+  `F:\tmp\cp2-narabi-l\CP2-report.md` (sha256 relu `318685a4bbfdbce0…cbb17e` = celui de la mission) lu en entier, dont
+  `logs/export-repro-exclude.tap` ; FAITS `docs/narabi/FAITS-gap-archive-probe-2026-09-27.md` (lu dans `F:\Monark`, commit
+  `2381525`, sha `c9348b25…71d0`) §2-§4 ; `F:\tmp\narabi-gap-logs\` (`draw.sh`, `draw2.sh`, `draw.log`, `run-N.log`,
+  `probe-sub-0log-20260927T0154Z.txt`) en lecture partagée seulement.
+- **État initial annoncé** : worktree `F:\Monark-wt-narabi`, branche `lot/narabi-l`, `git rev-parse HEAD` =
+  `33ece9f0499346c87a5aa35ad325ac98dd9feede` (gel 2) ; `git status --short` = **une entrée non suivie qui n'est pas du lot** :
+  `?? docs/CHECKPOINT2-lot-narabi-l.md` (dépôt de l'orchestrateur ; ni lu comme source, ni touché, ni livré). Arbre du lot propre.
+- Aucun `git add/commit/push` ; git en lecture seule (`status`, `diff`, `show`, `rev-parse`) + `clone --no-local` / `checkout
+  --detach 33ece9f` dans MES clones sous `F:\tmp\narabi\` (aucun segment `public`) : `l-corr3-clone` (tests, typecheck, lint,
+  vocab, export, oracle), `l-corr3-mutants\tree` (mutants), `l-corr3-r25` (R-25). Fichiers copiés par `sync-corr3.sh` (sha des deux
+  côtés comparé). Jonctions `node_modules` par `F:\tmp\g2-garde2bi\mk-nm.ps1` (220 / 10 / fail 0 sur le clone, l'export et l'arbre
+  des mutants), retirées à la fin par `rm-nm.ps1` (`removed:` ×3) ; `F:\Monark\node_modules` intact (220, `@monark` 10). Aucun réseau
+  de ma part ; seul chemin réseau possible = le `npm ci` interne du test 42 (comportement existant, cache `npm config get cache` =
+  `F:\cache\npm`), déclaré comme au cp-2. `TEMP/TMP/TMPDIR` = `F:\tmp\narabi\tmp` pour tout node ; 0 entrée neuve sous
+  `C:\Users\KACIMI\AppData\Local\Temp` depuis 02:44Z (mesuré à 03:07Z).
+- Advisor intégré (conseil, jamais verdict) : (1) après l'orientation, avant toute écriture (forme exacte de C-V-0, `(t) =>`,
+  C-V-2 en deux endroits, périmètre des 10 passes, verrou sans charge propre) ; (2) avant la clôture.
+- Incident d'outillage (à moi, sans effet sur le livré) : le harnais Bash a réduit les doubles barres obliques inverses d'un
+  heredoc ⇒ le chemin `F:\tmp\narabi-gap-logs\run-N.log` du RUNBOOK s'est écrit avec une tabulation et deux sauts de ligne ;
+  réparé par `fix-bs.mjs` (octets construits par `String.fromCharCode(92)`, motif compté 1 fois) avant toute copie vers un clone ;
+  `git diff --check` = 0. Les fichiers portant des barres obliques inverses (`mutants3.mjs`, `oracle-corr3.sh`,
+  `deliver-corr3.sh`, cette section) ont ensuite été écrits par l'outil d'écriture de fichier ; les deux heredocs postérieurs
+  (`edit-corr3-runbook2.mjs`, `sync-corr3.sh`) n'en portaient aucune.
+
+### Livré
+
+| # | Où | Ce qui est fait |
+|---|---|---|
+| C-V-0 | `apps/sentinel/test/sentinel-exclude-hosts.test.ts` (l. 114-121) | La SEULE assertion sur l'unité est conditionnée par `existsSync(join(REPO, "deploy"))` (convention de `sentinel-catchup-budget.test.ts:318-321`) : `deploy/` présent ⇒ lecture de `deploy/monark-sentinel.service` et assertion « the unit does not set the key » (un `.service` absent avec `deploy/` présent rougit par `ENOENT`, jamais un skip) ; `deploy/` absent (export public, ADR-NARABI-OPS-1c C3) ⇒ `t.diagnostic("deploy/ absent (public export, C3): unit check not run")`, déclaré dans le TAP. Le rappel du test devient `(t) => {` ; **aucun `{ skip }`** : l'unité pure et les quatre sous-processus du vrai `run.ts` (preuve de X1/X4/X7) tournent dans l'export. |
+| C-V-3 | même fichier, l. 1 et l. 80 | Les deux tirets cadratins → `-` ASCII (en-tête et titre du test ; le premier jeton du titre, lu par les harnais `not ok N - (\S+)`, est inchangé). `grep -nP '[^\x00-\x7F]'` sur le fichier : 0 ligne. |
+| C-V-1 | `apps/sentinel/src/instrument-replay.ts:32-33` (docstring) | « No run-length, delay or optimality claim is made (ADR-M012 amendment (h)) » → « No sequential claim is made (ADR-M012 amendment (h)) » (forme proposée par la mission). `grep -n 'delay\|optimal\|run-length'` sur le fichier : 0. Aucun octet servi ne change (`INSTRUMENT_NOTE`, libellés et clés intacts). `gate:vocab` : 320 fichiers, OK (non-régression ; il était déjà vert avant — la preuve de C-V-1 est le grep). **Lacune G2 consignée** : le G2 a écrit « 0 occurrence … dans les commentaires » ; c'était inexact (présent depuis le G1, FM-3.3) ; corrigé ici. |
+| C-V-2 | `docs/RUNBOOK-sentinel.md` §7, précondition (b) et paragraphe « Motive, measured » | (b) : « ONE day (2025-10-16) » remplacé par la sonde bornée telle que mesurée le 2026-09-27 : **bloc 23 586 600** et **jours 2025-10-15 et 2025-10-20** (FAITS §2-§3 et fichiers déposés). Paragraphe : « 01:2x UTC: day 2025-10-20 read as 0 logs, console » remplacé par la preuve datée déposée **`F:\tmp\narabi-gap-logs\run-N.log`** du tirage 1 (jambe Chainstack, Pocket NON exclu) : `"stopped": "quorum_disagreement:<day>"` sur **10 passes**, toutes finies avant la ligne d'arrêt 01:56:18Z de `draw.log` : runs 1, 2, 4, 6, 7, 8, 10, 20, 21, 22 (01:00Z-01:54Z ; jours 2025-10-20 ×2, 2025-10-25, 2025-10-31, 2025-11-08, 2025-11-15, 2025-11-28, 2026-01-07, 2026-01-14 ×2 ; `"chainstack": true` dans les 10, mesuré). Dit honnêtement : ces journaux enregistrent le DÉSACCORD, pas le côté qui a répondu vide ; la réponse vide elle-même = la mesure 00:54Z (FAITS §3) ; la lecture console de 01:2x UTC n'est pas déposée. Intermittence gardée et renforcée : la lecture déposée de 01:34Z (7 775 logs concordants) ET `probe-sub-0log-20260927T0154Z.txt` (Pocket 2 434 logs six fois de suite sur la plage de 00:54Z). |
+
+Autres occurrences de `2025-10-16` : RUNBOOK l. 252 (« ONE day at a time », sans rapport) ; journal l. 12, 15, 85, 149, 408 =
+historique du G1/pli 1 (la ligne 408 décrit le libellé d'alors, remplacé ici) — non réécrits.
+
+### Déviations déclarées (D-P3-n)
+
+- **D-P3-1 (RUNBOOK, une phrase de plus que demandé)** : la phrase d'intermittence cite aussi `probe-sub-0log-20260927T0154Z.txt`
+  (fichier déposé, lu : six réponses Pocket de 2 434 logs), comme le demande le cp-2 (« en gardant l'énoncé de l'intermittence (les
+  deux fichiers déposés montrent la concordance) »).
+- **D-P3-2 (outil de tests sentinelle)** : `run-sentinel.sh` du pli 2 réutilisé tel quel (sha `c61879c4…90095`) : il retire
+  `CHAINSTACK_ETH_URL`, les trois clés de cycle et le budget, pas les quatre autres `CHAINSTACK_*_URL` présentes dans mon shell (noms
+  seulement relevés, jamais les valeurs) ; mêmes conditions qu'aux plis 1-2 ; le test d'exclusion retire lui-même `CHAINSTACK_*` et
+  `MONARK_SENTINEL_*` de l'enfant. L'export et l'oracle utilisent la liste `env -u` complète du cp-2.
+
+### Preuves (ordre du checkpoint-2)
+
+- **(i) Tests sentinelle** (`apps/sentinel/test/*.test.ts`, clone `l-corr3-clone` = `33ece9f` + fichiers du pli) : **passage 1**
+  02:46:27Z → 02:52:25Z et **passage 2** 02:52:25Z → 02:55:51Z : **308 / 306 pass / 0 fail / 2 skip** chacun ; skips DÉCLARÉS :
+  `sentinel_run_releases_chainstack_lock_on_sigterm` (win32) et `sentinel_instrument_out_win32_short_name` (F: sans noms 8.3) ;
+  `ok 36 - sentinel_exclude_hosts_removes_pool_and_published` ; **aucune** ligne `# deploy/ absent` côté dépôt (`deploy/` présent :
+  l'assertion sur l'unité a tourné). `typecheck` (`tsc --noEmit`) 0 ; `eslint` sur les deux fichiers de code/test 0 ; `gate:vocab`
+  320 fichiers OK.
+- **(ii) Export local** : `node scripts/export-public.mjs --out F:/tmp/narabi/l-corr3-export` depuis le clone ⇒ `export OK — 489
+  file(s)`, exit 0 ; `deploy/` ABSENT de l'export (mesuré) ; le fichier de test exporté a le sha du livré (`07b8a8bf…`). Jonctions
+  `mk-nm.ps1` sur l'export, puis `node --test --test-reporter=tap apps/sentinel/test/sentinel-exclude-hosts.test.ts`, cwd = export,
+  `env -u` complet : **`ok 1`, `# pass 1 / # fail 0`, exit 0 (02:47:27Z)**, avec la ligne **`# deploy/ absent (public export, C3):
+  unit check not run`** dans le TAP (`export-run.tap`). **Contrôle** : la version du gel 2 (`git show 33ece9f:…`) posée
+  temporairement sous un autre nom dans le MÊME export ⇒ `not ok 1`, `ENOENT … l-corr3-export\deploy\monark-sentinel.service`
+  (reproduction du cp-2 ; fichier temporaire retiré, absence vérifiée).
+- **(iii) Verrou d'hôte** `F:\tmp\oracle-lock` (`oracle-corr3.sh`, sha `d79906eb…c217`) : `mkdir` atomique réussi du premier coup
+  à **02:56:07Z** (0 s d'attente), `owner.txt` « pli 3 NARABI-L-1 2026-09-27T02:56:07Z » ; `node` actifs avant : 23 (tirages Narabi,
+  autres sessions) ; rien d'autre de moi pendant la tenue. **Test 42 à part** (`node --test --test-timeout=900000
+  test/export-public.test.ts`) : **exit 0, 3/3 pass**, dont `ok 2 - export_public_no_governance_no_french` (02:56:08Z → 02:59:48Z,
+  fichier 219 s). **Gate `test` complète** (`npm run test`, même tenue) : **exit 0 — 1 367 tests / 1 364 pass / 0 fail / 3 skip**
+  (02:59:48Z → 03:06:04Z, 375 s ; test 42 dans la suite `✔` en 360,9 s < 600) ; skips = les trois déclarés (`sigterm` win32,
+  `win32_short_name`, `u4b_labels_replay_via_main_real_artifact`) ; = le cp-2 (1 363 pass + 1 fail) avec le rouge passé au vert.
+  **Libéré** (`trap` : `rm owner.txt` + `rmdir`) à **03:06:04Z** ; absence de `F:\tmp\oracle-lock` vérifiée après.
+- **(iv) Mutants** (`F:\tmp\narabi\l-corr3-mutants\`, arbre `33ece9f` + fichiers du pli, node v24.15.0, 02:48:47Z → 02:49:13Z,
+  avant la tenue du verrou) : harnais `mutants3.mjs` (sha `c89cb9fc…0306`), mêmes règles que les plis 1-2 (A-11 tué SEULEMENT si
+  `not ok N - <test visé>` ; D-1-bis ; A-13 motif compté 1 fois ; env enfant sans `CHAINSTACK_*`/`MONARK_SENTINEL_*`) ;
+  `golden.sha256` relu OK après la campagne.
+
+| # | Contrôle | Mutation | Résultat |
+|---|---|---|---|
+| Y1 | **C-V-0 (mission)** : `deploy/` présent + l'unité porte la clé | ligne `Environment=MONARK_SENTINEL_EXCLUDE_HOSTS=eth.api.pocket.network` ajoutée après `Environment=MONARK_SENTINEL_DIR=…` | **tué** (`the unit does not set the key`) |
+| Y2 | `deploy/` présent + `.service` absent ⇒ rouge, jamais un skip | `.service` renommé, `deploy/` gardé | **tué** (`ENOENT … deploy\monark-sentinel.service`) |
+
+  **2/2**. Non-régression : harnais du pli 2 `mutants2.mjs` (sha `b42b669d…15c9`) rejoué sur le même arbre : **8/10**, X1-X7 tués
+  par `sentinel_exclude_hosts_removes_pool_and_published` (le conditionnement n'affaiblit pas la preuve du câblage), X9 tué, X8/X10
+  survivants déclarés dépendants de l'hôte (inchangé).
+- **R-25 = 794** (`l-corr-r25-g2.mjs`, sha `16a86443…41a0` inchangé, lit `ci.yml:82`/`:90`, clone `l-corr3-r25` au gel 2 +
+  fichiers du pli, base `d974e81`, aucune écriture git) : `instrument-replay.ts` 267/0, `instrument.ts` 12/10, `run.ts` 25/2,
+  `sentinel-catchup-budget.test.ts` 4/2, `sentinel-exclude-hosts.test.ts` **122/0** (était 116), `sentinel-instrument-replay.test.ts`
+  344/0, `sentinel.test.ts` 4/2 ⇒ 778 + 16. **+6 sur 788** (le test : +7/−1 ; la docstring : 2 lignes remplacées à compte égal).
+  RUNBOOK et journal hors pathspec (`docs/**/*.md`). Borne ADR 1 205, STOP 1 150 : loin. `package-lock.json` absent du diff.
+
+### Questions (propriétaire orchestrateur)
+
+- **Q-P3-1 (tirage 1 toujours vivant ?)** : `F:\tmp\narabi-gap-logs\draw.log` porte « STOP-1 2026-09-27T01:56:18Z tirage 1 arrete
+  par TaskStop (lignes=91) », mais des passes 24 → 49 y sont encore ajoutées après (01:58:05Z → 02:41:20Z, `lastday` avançant jusqu'à
+  2026-03-12) et `run-24.log` … `run-48.log` s'écrivent (dernier vu 02:40Z) : la boucle `draw.sh` du tirage 1 (Pocket NON exclu, jambe
+  Chainstack) semble toujours tourner, en parallèle du tirage 2 (`draw2`), sur `F:\tmp\narabi-gap\` — deux tirages sur la jambe
+  payante à la fois. Hors de mon périmètre (rien touché) ; à vérifier (processus, RU au grand livre). C'est aussi pourquoi le RUNBOOK
+  ne cite que les 10 passes finies avant 01:56:18Z. (La première ligne `STOP 01:04:45Z` était déjà suivie de passes.)
+- **Q-P3-2 (dossiers temporaires)** : `F:\tmp\narabi\tmp` accumule des dossiers `t1b-*`, `bell-*` d'autres suites (préexistant, hors
+  lot) ; aucun `narabi-exclude-*` orphelin (0). Nettoyage éventuel = acte orchestrateur.
+
+### Empreintes finales (sha256) et état
+
+- `apps/sentinel/test/sentinel-exclude-hosts.test.ts` `07b8a8bff3179890d6a1351386b2eca7c63e4c5066b22842d513058b8768a2b9` (122 l.)
+- `apps/sentinel/src/instrument-replay.ts` `8fdaf7def2d75a5d8ebe4831a955fa5b232b6c40abd92256562c97dfb1216a7e` (267 l.)
+- `docs/RUNBOOK-sentinel.md` `f12a04767ac3dd3de2f570e99fafc8891026558f16a04f6891075ed79a4d0853` (644 l.)
+- Inchangés depuis le gel 2 : `run.ts` `a02a9542…`, `instrument.ts` `dc0e9df8…`, `sentinel-instrument-replay.test.ts` `9898b91c…`,
+  `sentinel-catchup-budget.test.ts` `e56dff02…`, `sentinel.test.ts` `676bb034…`.
+- Ce journal : dans `F:\tmp\narabi\l-corr3-deliver\DELIVERED.sha256` seulement.
+- Traces : `F:\tmp\narabi\l-corr3-logs\` (`pass1.tap` `36d47450…`, `pass2.tap` `06161907…`, `passes.log`, `typecheck.log`,
+  `eslint.log`, `vocab.log`, `export.log`, `export-run.tap` `e376eea0…`, `export-run.txt`, `export-control-gel2.tap` `37cbff6b…`,
+  `r25.txt` `2ae457cd…`, `oracle\{lock.log,header.txt,exits.txt,t42-alone.tap 9e3961de…,test.log 86566053…}`) ; mutants
+  `l-corr3-mutants\{mutants3.mjs,golden.sha256,run.log fe99a612…,out\results.json 0774dbcb…,out2\results.json f18ee7b7…}` ; outils
+  `sync-corr3.sh` `acb71f2d…`, `edit-corr3.mjs` `898f47a0…`, `edit-corr3-runbook.mjs` `846e4ce1…`, `edit-corr3-runbook2.mjs`
+  `97c814df…`, `fix-bs.mjs` `a54b68ad…`, `oracle-corr3.sh` `d79906eb…`, `deliver-corr3.sh`.
+- **`git status --short` final** (HEAD `33ece9f0499346c87a5aa35ad325ac98dd9feede`, branche `lot/narabi-l`) : les quatre fichiers du
+  pli modifiés + l'entrée non suivie préexistante de l'orchestrateur :
+
+```
+ M apps/sentinel/src/instrument-replay.ts
+ M apps/sentinel/test/sentinel-exclude-hosts.test.ts
+ M docs/G1-lot-narabi-l.md
+ M docs/RUNBOOK-sentinel.md
+?? docs/CHECKPOINT2-lot-narabi-l.md
+```

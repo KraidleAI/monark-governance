@@ -1,4 +1,4 @@
-// SENTINEL — off-tool daily job (ADR-M012, K-8): the harness never imports this; this never imports apps/harness/src/tools.
+// SENTINEL - off-tool daily job (ADR-M012, K-8): the harness never imports this; this never imports apps/harness/src/tools.
 //
 // NARABI-L-1 pli 2 (NARABI-L-GAP-1): MONARK_SENTINEL_EXCLUDE_HOSTS, the archive-draw-only exclusion. UNIT: the pure
 // `excludeHosts` (parallel pool/published lists, the paid leg's label/origin pair). SUBPROCESS: the REAL run.ts with a
@@ -77,7 +77,7 @@ function runWith(exclude: string | undefined): Run {
   return { status: r.status ?? -1, stderr: r.stderr ?? "", timeline, dialled: existsSync(log) ? readFileSync(log, "utf8").split("\n").filter(Boolean) : [], last: JSON.parse(lines[lines.length - 1]!) as TimelineLine };
 }
 
-test("sentinel_exclude_hosts_removes_pool_and_published — the excluded host leaves the pool AND the provenance; absent or empty = identical; an unknown host throws at start-up (NARABI-L-GAP-1)", () => {
+test("sentinel_exclude_hosts_removes_pool_and_published - the excluded host leaves the pool AND the provenance; absent or empty = identical; an unknown host throws at start-up (NARABI-L-GAP-1)", (t) => {
   // (unit) the pure filter, on the draw's real shape: the paid leg is a LABEL in the pool and its ORIGIN in provenance.
   const pool = [...PUBLIC_ENDPOINTS, CHAINSTACK_LABEL], pub = [...PUBLIC_ENDPOINTS, ORIGIN];
   const drawn = excludeHosts("eth.api.pocket.network", pool, pub);
@@ -111,6 +111,12 @@ test("sentinel_exclude_hosts_removes_pool_and_published — the excluded host le
   assert.match(bad.stderr, /sentinel FATAL[\s\S]*MONARK_SENTINEL_EXCLUDE_HOSTS: "rpc\.mevblocker\.oi" is not a host of the pool/);
   assert.deepEqual(bad.dialled, [], "the refusal precedes any RPC");
   assert.equal(bad.timeline, fixtureRaw().slice(0, 2).join("\n") + "\n", "nothing written");
-  // The served unit never sets it (RUNBOOK section 7 (1)).
-  assert.ok(!readFileSync(join(REPO, "deploy", "monark-sentinel.service"), "utf8").includes("EXCLUDE_HOSTS"), "the unit does not set the key");
+  // The served unit never sets it (RUNBOOK section 7 (1)). The public export omits deploy/ (ADR-NARABI-OPS-1c C3): this
+  // ONE assertion is then not run, DECLARED; the test itself always runs (convention of sentinel-catchup-budget.test.ts).
+  // A present deploy/ with the .service missing reds (ENOENT), never skips.
+  if (existsSync(join(REPO, "deploy"))) {
+    assert.ok(!readFileSync(join(REPO, "deploy", "monark-sentinel.service"), "utf8").includes("EXCLUDE_HOSTS"), "the unit does not set the key");
+  } else {
+    t.diagnostic("deploy/ absent (public export, C3): unit check not run");
+  }
 });
