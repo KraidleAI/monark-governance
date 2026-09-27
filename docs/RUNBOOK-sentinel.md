@@ -467,6 +467,137 @@ Les références `run.ts:NNN` des l. 187-313 visent une version antérieure à -
 
 Avec -1d, `openChainstackLeg` (`:319`) s'exécute AVANT `loadState` ; il n'appelle aucun RPC (lecture de l'env, fichiers, verrou) et, dans la forme de vérification du Mode B (`sudo -u sentinel … --dry-run`, sans EnvironmentFile), rend `unconfigured` sans toucher au ledger : le « network-free » de la l. 300 reste vrai. Re-pointage en place des l. 187-313 : item formé (propriétaire orchestrateur ; déclencheur : prochaine édition du RUNBOOK, au plus tard le 2ᵉ redéploiement).
 
+## 7. After T >= 7 — publish the labelled instrument at `/narabi/instrument.json` (ADR-M012 item (l))
+
+ONE new static file beside `state.json` and `timeline.jsonl`, labelled `instrument, not the official tracker` (D6).
+**Nothing else changes:** no code deploy on the VPS (the `sentinel_sha` of the daily lines stays the same), no unit, no
+Caddy edit (the existing `handle_path /narabi/*` already serves every file of `/var/lib/monark-sentinel/public`),
+`state.json` and `timeline.jsonl` untouched (the CLI refuses them as `--out`). Run by the orchestrator, under the
+investor's go, from the NAMED G7 SHA of the lot that carries `apps/sentinel/src/instrument-replay.ts` (decision 72).
+
+**Preconditions (all true, else STOP):** `tracker.t >= 7` in the served `state.json`; ADR-M014-a `9d67302` and
+M014-b `3846be5` on origin BEFORE any gap draw (`git branch -r --contains 9d67302` non-empty — the pre-registration
+precedes the draw, ADR-M014); a go for (1) the gap draw (network) and for (5) the upload (outbound action).
+**Before (1), NARABI-L-GAP-1 (all true, else STOP):** (a) the terms of use of every endpoint of the keyless pool
+(`rpc.ts` `PUBLIC_ENDPOINTS`) read on the provider's own page and filed as dated FAITS BEFORE the draw; (b) a bounded
+archive probe, measuring whether two DISTINCT providers (`providerOf`) serve the old state (`eth_getLogs` over old
+blocks and `eth_call totalSupply` at an old block); measured on 2026-09-27 at block 23 586 600 and on the days
+2025-10-15 and 2025-10-20 (FAITS sections 2-3 and the filed files below); (c) the draw runs on the
+orchestrator's machine, never on the VPS; (d) **archive quorum: two distinct providers serve the old state, else STOP
+and a decision** (never widen the pool nor add a paid leg without one). Measured by the orchestrator on 2026-09-27
+(00:4x-00:50 UTC) (`F:\tmp\narabi-gap-logs\`): the keyless pool alone does NOT give this quorum on 2025-10-15.
+Filed there: the single-block probe `probe-archive-20260927T0050Z.json` (00:50:41Z, block 23586600: 2 of the 6
+providers, mevblocker and Pocket, served a 100-block `eth_getLogs` and the old `eth_call`) and the full-day read
+`diag-day2-1020-20260927T0134Z.txt` (01:34Z, day 2025-10-20; Q-C-1). **Decision 247 (2026-09-27): the draw runs WITH
+the guarded Chainstack Ethereum leg (archive) AND with Pocket excluded** (`MONARK_SENTINEL_EXCLUDE_HOSTS`, below).
+Motive, measured: Pocket sometimes answers an archive `eth_getLogs` with a well-formed EMPTY result and no error
+(00:54Z: 2 434 / 0 / 2 434 logs on one request, FAITS section 3), and `quorumTwo` takes the first two successes in list
+order, so mevblocker + a lying Pocket stop the day before the Chainstack leg (last) is ever consulted, identically on
+every pass. Dated record of the stops: `F:\tmp\narabi-gap-logs\run-N.log` of draw 1 (Chainstack leg, Pocket NOT
+excluded), `"stopped": "quorum_disagreement:<day>"` on 10 passes, all ended before the 01:56:18Z stop line of
+`draw.log`: runs 1, 2, 4, 6, 7, 8, 10, 20, 21, 22 (01:00Z-01:54Z; days 2025-10-20 twice, 2025-10-25, 2025-10-31,
+2025-11-08, 2025-11-15, 2025-11-28, 2026-01-07, 2026-01-14 twice). These logs record the DISAGREEMENT, not which side
+answered empty; the empty answer itself is the 00:54Z measure (the 01:2x UTC read of 2025-10-20 at 0 logs was console
+only, not filed). It is intermittent, not constant: in the filed 01:34Z read Pocket agreed with mevblocker
+(4 276 + 3 499 = 7 775 logs), and `probe-sub-0log-20260927T0154Z.txt` shows Pocket answering 2 434 logs six times in a
+row on the 00:54Z range. FAITS: `docs/narabi/FAITS-gap-archive-probe-2026-09-27.md`
+(commit `2381525`). Item NARABI-QUORUM-TIEBREAK-1 (consult a third provider on disagreement) is the engine-side fix.
+
+```bash
+cd <a clean tree of the named G7 SHA, npm ci done>   # every command below runs from this tree's root, on the orchestrator's machine
+# (1) GAP DRAW — the eleven months 2025-10-15 .. J0-1 are in NO committed file (the series ends 2025-10-15, the live
+#     timeline opens at J0 = 2026-09-17). Read them with the sentinel's OWN engine into a SCRATCH state dir on the
+#     orchestrator's machine, never under a public/ dir (pool: see below, decision 247).
+#     J0 of the scratch run = 2025-10-15, so its first line RE-READS the committed seed (the CLI checks they agree).
+#     Each run stops at the 180 s catch-up budget (run.ts BUDGET_MAX_S, the default when MONARK_SENTINEL_BUDGET_S is
+#     unset, hence the -u below) and the next one resumes; the only measured timing is one published day in 25.481 s
+#     (section "Sonde externe"), so the draw takes hours (extrapolation).
+#     Days eleven months back need ARCHIVE state (totalSupply at old blocks, old logs): the keyless pool alone is NOT
+#     enough (precondition (d)), hence decision 247: pool = the 7 keyless endpoints + the guarded Chainstack Ethereum
+#     leg (ledgered and capped by @monark/rpc-guard; the key-bearing CHAINSTACK_ETH_URL stays in the orchestrator's
+#     environment, read by the guard's transport, never on a command line; its ledger dir must pre-exist), MINUS
+#     Pocket: MONARK_SENTINEL_EXCLUDE_HOSTS=eth.api.pocket.network (motive: (d) above, a well-formed empty answer holds
+#     the quorum). The exclusion holds for this ARCHIVE draw only: production keeps the full pool; the served unit
+#     never sets the key, and it is never written into /etc/monark/sentinel.env. An excluded host leaves the pool AND
+#     each line's `endpoints` (provenance: only the endpoints actually used); a host not in the pool (a typo) is FATAL
+#     at start-up, before any read or write. A run that still stops fails closed (exit 1) and the loop retries; if the
+#     SAME day keeps stopping, STOP and escalate (never widen the pool or add a paid leg without a decision).
+G=F:/tmp/narabi-gap; mkdir -p "$G/ledger"; lastday() { tail -1 "$G/timeline.jsonl" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).day))'; }
+for i in $(seq 1 150); do
+  [ -f "$G/timeline.jsonl" ] && [ "$(lastday)" \> "2026-09-15" ] && break
+  env -u CHAINSTACK_ROBINHOOD_URL -u CHAINSTACK_SOLANA_URL -u CHAINSTACK_BASE_URL -u CHAINSTACK_BSC_URL -u MONARK_SENTINEL_BUDGET_S \
+    CHAINSTACK_CYCLE_ID=<current cycle id> CHAINSTACK_ETH_ORIGIN=https://ethereum-mainnet.core.chainstack.com \
+    CHAINSTACK_CYCLE_FLOOR=<dashboard total at the rollover, RU> MONARK_SENTINEL_EXCLUDE_HOSTS=eth.api.pocket.network \
+    MONARK_SENTINEL_J0=2025-10-15 node apps/sentinel/src/run.ts --state "$G" || sleep 60
+done; lastday   # must be >= 2026-09-16 (a later day is fine: the overlap with the live days must agree)
+#     Each end JSON must show "chainstack": true, "chainstack_guard": "ok"; the lines' `endpoints` must not list Pocket.
+#     Record also the RU actually spent, read from $G/ledger (never an estimate).
+#     run.ts also creates $G/public/ (its local copies; harmless). --gap reads $G/timeline.jsonl, NEVER $G/public/...
+#     Record in docs/JOURNAL-PROVENANCE.md the UTC start/end of the draw and sha256 of $G/timeline.jsonl.
+# (2) LIVE FILES, read in the same minute AFTER the day's publishing run:
+L=F:/tmp/narabi-l; mkdir -p "$L"
+curl -sf https://monarkgate.tech/narabi/timeline.jsonl -o "$L/timeline.jsonl"   # -f: an HTTP error page is never saved
+curl -sf https://monarkgate.tech/narabi/state.json    -o "$L/state.json"
+# (3) REPLAY (offline, writes ONE file). Defaults are the pre-registered ones: --perms 1000, --seed 20260917, --series =
+#     the committed fixture (seed 2025-10-15, recorded in params.seed_series_sha256). No --publish: $L is not public.
+node apps/sentinel/src/instrument-replay.ts --gap "$G/timeline.jsonl" --timeline "$L/timeline.jsonl" --out "$L/instrument.json"
+#     Expect "instrument written: N windows 2025-10-15..<last day>, digest <d>, state_digest <s>."; any FATAL = STOP.
+# (4) DIGEST CONTROL: the digest recomputes, state_digest == the served state.json digest, and differs from it.
+node -e 'const f=require("fs"),c=require("crypto");const d=JSON.parse(f.readFileSync(process.argv[1],"utf8")),s=JSON.parse(f.readFileSync(process.argv[2],"utf8"));const {digest,generated_at,...b}=d;const ok=c.createHash("sha256").update(JSON.stringify(b)).digest("hex")===digest&&d.state_digest===s.digest&&digest!==s.digest;console.log(ok?"digest OK":"STOP: digest");process.exitCode=ok?0:1' "$L/instrument.json" "$L/state.json"
+sha256sum "$L/instrument.json"   # the LOCAL sha, compared in (6)
+# (5) UPLOAD, atomic: the temp file sits OUTSIDE public/ on the SAME filesystem, so the mv is a rename (no half file served).
+ssh -i ~/.ssh/monark_vps root@31.97.155.188 'umask 022; T=/var/lib/monark-sentinel/.instrument.json.new; cat > $T && chown sentinel:sentinel $T && chmod 0644 $T && mv -f $T /var/lib/monark-sentinel/public/instrument.json && sha256sum /var/lib/monark-sentinel/public/instrument.json' < "$L/instrument.json"
+# (6) SERVED CHECK
+curl -sfI https://monarkgate.tech/narabi/instrument.json | head -1     # HTTP/2 200
+curl -sf  https://monarkgate.tech/narabi/instrument.json | sha256sum   # == the LOCAL sha of (4) and the remote sha of (5)
+curl -sf  https://monarkgate.tech/narabi/state.json | head -c 200      # unchanged by this step
+```
+
+Record in `docs/JOURNAL-PROVENANCE.md`: the G7 SHA, `gap_sha256`, `timeline_sha256`, `digest`, `state_digest`, the served
+sha256 and the UTC time. **Rollback:** `ssh … 'rm -f /var/lib/monark-sentinel/public/instrument.json'` — nothing else
+to undo. **Refresh: none — ONE snapshot, taken once at T >= 7** (the days up to `params.last_day`); the daily job never
+touches it. Any refresh is an ADR decision (a dated line under ADR-M012 (l)) and publishes NO new permutation p:
+ADR-M014 D4 (the CUSUM and its permutation test read a CLOSED block once; no repeated look, no sequential reading).
+The CLI as delivered always computes that section, so the decision also says how a refreshed file is issued (SAME gap
+file, its sha recorded, no new draw). **Not recommended:** running (3) on the VPS with
+`--out /var/lib/monark-sentinel/public/instrument.json --publish` needs the tree re-archived there, which changes the
+`sentinel_sha` of every later timeline line (ADR-M014, Consequences) — "nothing else changes" would no longer hold.
+
+**Amendement 2026-09-27 (G7 de NARABI-L-1)** (dated lines, additive; ADR-M012 item (l) and ADR-M014 D4 are amended the same day):
+- **Amendement 2026-09-27 (G7 de NARABI-L-1) — `sentinel_sha` consequence (ADR-M014, Consequences).** This section deploys no code,
+  so the daily lines keep their `sentinel_sha`. Any LATER redeploy of the sentinel tree from a SHA that carries
+  `apps/sentinel/src/instrument-replay.ts` (the G7 SHA of NARABI-L-1 or any later one) changes `sentinel_sha` on every daily line
+  written after it: `sentinelSha` hashes every `src/*.ts` (`run.ts:156-161`), and `run.ts` itself also changed in this lot
+  (`MONARK_SENTINEL_EXCLUDE_HOSTS`, gel 2 `33ece9f`). Declare it in that redeploy's entry of `docs/JOURNAL-PROVENANCE.md` (old and
+  new value, first day carrying the new one): expected, not a fault.
+- **Amendement 2026-09-27 (G7 de NARABI-L-1) — rule TASKSTOP-BASH-LOOP-1.** A harness TaskStop on a Git Bash loop running in the
+  background does NOT kill the loop nor its children (measured on draw 1, below). Every PAID loop run in the background (the (1) draw
+  loop above, Chainstack leg) carries a STOP file read at each iteration, as the first statement of the loop body:
+  `[ -f "$G/STOP" ] && { echo "STOP file $(date -u +%FT%TZ)"; break; }`; to stop, `touch "$G/STOP"`. A stop is recorded only after it
+  is verified by a process count (`Get-CimInstance Win32_Process`) covering BOTH the loop (its command line) AND its child
+  `node apps/sentinel/src/run.ts` (filter on `run.ts` too): 0 left for each. A STOP file acts between iterations only: a pass already
+  running (up to the 180 s budget) still finishes and still spends RU; a kill of the loop alone does not stop that child (measured on
+  draw 1, below). The bash block above is kept byte-identical (as accepted at the re-checkpoint-2 of NARABI-L-1); the operator adds the
+  STOP line when launching.
+- **Amendement 2026-09-27 (G7 de NARABI-L-1) — draw 1 note (shared reads only, `date -u` 03:41Z).** The line
+  `STOP-1 2026-09-27T01:56:18Z tirage 1 arrete par TaskStop` of `F:\tmp\narabi-gap-logs\draw.log` is FALSE: draw 1 (Pocket NOT excluded,
+  Chainstack leg, state `F:\tmp\narabi-gap`) went on, passes 24 to 62 from 01:58:05Z, in parallel with draw 2 on the paid leg. The last
+  line of `draw.log` (127 lines, mtime 03:10:29Z) is `pass 62 2026-09-27T03:10:29Z`, with NO `exit=` line after it: the bash loop was
+  killed during pass 62, at about 03:10-03:11Z (the orchestrator's process check read `date -u` 03:10). Its `node run.ts` child
+  OUTLIVED that kill: `run-62.log` reports `elapsed_ms` 184 651 (03:10:29Z + 184.7 s = 03:13:34Z) and, with
+  `F:\tmp\narabi-gap\timeline.jsonl`, was last written at 03:13:35Z (mtime read with `TZ=UTC`): `catchup_budget`, 15 lines written after
+  the kill on the paid leg (last day 2026-05-15; the file went from 198 lines at the end of pass 61, the count of the CHANTIERS incident entry, to 213). The process count of that
+  kill covered the `draw.sh` processes only (inference from these measures; it would not see the child). The "04:1x UTC" of the CHANTIERS incident entry of 2026-09-27 and of the re-checkpoint-2 report is
+  local time (GMT+1) labelled UTC, corrected by the CHANTIERS entry "03:2x UTC — CORRECTION D'HORODATAGE". Draw 1 stays a witness,
+  never an input of (3). The RU actually spent by BOTH draws are read at the end of draw 2 from
+  `F:\tmp\narabi-gap\ledger\chainstack-2026-09-19` and `F:\tmp\narabi-gap2\ledger\chainstack-2026-09-19` and recorded in
+  `docs/JOURNAL-PROVENANCE.md` — never estimated; draw 1's reading includes pass 62, run after the kill of its loop.
+- **Amendement 2026-09-27 (G7 de NARABI-L-1) — draw 2 provenance (declared).** Draw 2 (state `F:\tmp\narabi-gap2`, Pocket excluded,
+  Chainstack leg) runs from a clone of gel 2 `33ece9f` (`F:\tmp\narabi-gap-tree2`), not from the G7 SHA named at the top of this
+  section. Between gel 2 and gel 3 `b45db28`, the only change under `apps/sentinel/src/` is a two-line docstring of
+  `instrument-replay.ts` (C-V-1): the engine that writes the gap lines is the same code (`run.ts` `a02a9542…` at both), and those lines
+  carry the gel-2 `sentinel_sha`. Step (3) runs from the G7 SHA.
+
 ## Déploiement de la sonde (Bell) — sub-lot NARABI-OPS-1b-ii
 
 The external probe + mail alert ship as a single built-ins-only `scripts/probe-narabi.mjs` under

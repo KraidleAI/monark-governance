@@ -8,7 +8,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { join } from "node:path";
+import { join, parse } from "node:path";
 import { splitQuantile, trackerReplay, trackerDigest, trackerStepSize, mulberry32 } from "@monark/hikae";
 import type { Miscover } from "@monark/hikae";
 import { USDE_STABLE_RUN_CALIB } from "@monark/harness/calibration";
@@ -714,7 +714,9 @@ test("sentinel_edetector_out_guard", () => {
   for (const bad of ["/var/lib/monark-sentinel/public/instrument.json", "./public/x.json", "public/x.json"]) {
     assert.throws(() => assertOutPathAllowed(bad), /public/, `refuses ${bad}`);
   }
-  for (const ok of ["/var/lib/monark-sentinel/instrument.json", "publicfoo/x.json", "/tmp/instrument.json"]) {
+  // Allowed paths are ABSOLUTE, anchored at the root: a relative one resolves against the cwd and turns red when the
+  // repo lives under a `public` directory (C-G2-6).
+  for (const ok of ["/var/lib/monark-sentinel/instrument.json", join(parse(process.cwd()).root, "publicfoo", "x.json"), "/tmp/instrument.json"]) {
     assert.doesNotThrow(() => assertOutPathAllowed(ok), `allows ${ok}`);
   }
 });
