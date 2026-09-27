@@ -24,7 +24,7 @@ export type DojoVerifyReport = { ok: true; reason: null; seq: number; day: strin
   active_key_id: string | null; voided_lines: number[]; snapshots: number;
   head: { seq: number; lines_sha256: string; lines_count: number; recomputed_root: string } | null;
   history: { history_sha256: string; history_lines_count: number; recomputed_root: string } | null;
-  inclusion: Inclusion | null; scope: string }
+  inclusion: Inclusion | null; beacon_bls_verified: false; scope: string }
   | { ok: false; reason: string; seq: number | null; day: string | null; detail: string };
 export function verifyDojoServed(opts: { source: Source; keyring?: unknown; address?: string | null; bounds?: VerifyBounds }): Promise<DojoVerifyReport>;
 export function runVerifyCli(argv: readonly string[]): Promise<number>;

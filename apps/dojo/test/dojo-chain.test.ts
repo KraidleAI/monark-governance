@@ -212,6 +212,9 @@ test("dojo_walk_price_versions_increase_with_seven_values", () => {
 test("dojo_walk_price_version_takes_effect_after_its_window", () => {
   const f = dojoFixture();
   assert.deepEqual(run(f, (s) => { body(s, 9).effective_day = dateOf(FIRST + 6); }), refused(10, "price_version_mismatch"), "effect on the window's last day");
+  assert.deepEqual(run(f, (s) => { body(s, 9).published_at = at(FIRST + 6, 23.5); }), refused(10, "price_version_mismatch"), "published before its window ends (Q-6)");
+  assert.deepEqual(run(f, (s) => { body(s, 9).published_at = at(FIRST + 7, 0); }), OK, "published at its window's end");
+  assert.deepEqual(run(f, (s) => { body(s, 9).published_at = dateOf(FIRST + 7); }), refused(10, "timeline_malformed"), "published_at out of form");
   const late = (s: Step[]): void => {
     const [v] = s.splice(9, 1);
     Object.assign(body(s, 9), { price_version: null, holders_count: null });
@@ -227,8 +230,8 @@ test("dojo_walk_snapshot_names_the_version_in_force", () => {
   assert.deepEqual(run(f, (s) => { body(s, 10).price_version = 2; }), refused(11, "version_not_in_force"), "a version never published");
   assert.deepEqual(run(f, (s) => { body(s, 8).price_version = 1; }), refused(9, "version_not_in_force"), "a version not yet published");
   const early = (s: Step[]): void => { const [v] = s.splice(9, 1); if (v !== undefined) s.splice(8, 0, v); };
-  assert.deepEqual(run(f, early), OK, "published before the snapshot of the window's last day, which it does not cover");
-  assert.deepEqual(run(f, (s) => { early(s); body(s, 9).price_version = 1; }), refused(10, "version_not_in_force"), "named before its effective day");
+  assert.deepEqual(run(f, early), refused(9, "price_version_mismatch"), "published before the snapshot of its window's last day (Q-6 of PR-1b-3)");
+  assert.deepEqual(run(f, (s) => { body(s, 9).effective_day = dateOf(FIRST + 8); }), refused(11, "version_not_in_force"), "named before its effective day");
   const v2 = (named: number) => (s: Step[]): void => { // version 2 (effect on read day 10), then the snapshot of read day 10
     s.push({ key: f.key, body: versionBody(2, FIRST + 2, at(FIRST + 9, 2)) }, { key: f.key, body: snapshotBody(FIRST + 9, f.seed(10), named) }); };
   assert.deepEqual(run(f, v2(2)), OK, "version 2 from its effective day");
@@ -241,6 +244,39 @@ test("dojo_walk_refuses_malformed_fields", () => {
   const cases: Array<[number, string, unknown]> = [[0, "seed_anchor", "zz"], [0, "mint", ""], [1, "history_root", "zz"], [1, "history_sha256", "zz"],
     [1, "history_lines_count", -1], [1, "history_last_day", "2026-09-31"], [2, "seed", f.seed(1).toUpperCase()], [9, "threshold_unit", "0"]];
   for (const [i, k, x] of cases) assert.deepEqual(run(f, (s) => { body(s, i)[k] = x; }), refused(i + 1, "timeline_malformed"), `${k} ${String(x)}`);
+  for (const [k, v] of [[255, OK], [256, refused(1, "timeline_malformed")]] as const) assert.deepEqual(run(f, (s) => { body(s, 0).k_reads = k; }), v, `K = ${String(k)} (Q-9)`);
+});
+
+// ---- PR-1b-3 (ADR-DOJO-PR-2 D-5 l.154, D-8 l.192; M-K3): the anchor carries read_rule, eight closed keys, its scheme, offset, tolerance
+// and freshness fixed, its hash and key in lowercase hexadecimal of 32 and 96 bytes; else timeline_malformed, detail read_rule. An anchor
+// without it (the form of PR-1b-2) is refused: no anchor line is published before PR-1b-3 (ADR-DOJO-PR-2 D-1 l.117) ----
+test("dojo_walk_requires_the_read_rule", () => {
+  const f = dojoFixture();
+  const said = (edit: (s: Step[]) => void): string => {
+    const s = f.steps.map((x) => ({ ...x, body: structuredClone(x.body) }));
+    edit(s);
+    const r = walkDojoTimeline(seal(S, s), f.trust);
+    if (!r.ok) seen.add(r.reason);
+    return r.ok ? "ok" : `${r.reason} @${String(r.seq)} ${String(r.detail)}`;
+  };
+  const rr = (g: (r: Line) => void) => (s: Step[]): void => { g(body(s, 0).read_rule as Line); };
+  const keys = Object.keys(body(f.steps, 0).read_rule as Line);
+  assert.equal(said(() => undefined), "ok");
+  assert.equal(keys.length, 8);
+  const cases: Array<[string, (s: Step[]) => void]> = [["absent", (s) => { delete body(s, 0).read_rule; }], ["null", (s) => { body(s, 0).read_rule = null; }],
+    ...keys.map((k): [string, (s: Step[]) => void] => [`without ${k}`, rr((r) => { delete r[k]; })]), ["an extra key", rr((r) => { r.beacon_round = 1; })],
+    ["another scheme", rr((r) => { r.beacon_scheme = "bls-unchained-on-g1"; })], ["offset 899", rr((r) => { r.read_offset_s = 899; })],
+    ["offset as text", rr((r) => { r.read_offset_s = "900"; })], ["tolerance 601", rr((r) => { r.read_tolerance_s = 601; })],
+    ["freshness 166", rr((r) => { r.sol_usd_max_age_s = 166; })], ["period 0", rr((r) => { r.beacon_period = 0; })],
+    ["genesis -1", rr((r) => { r.beacon_genesis_time = -1; })], ["genesis 1.5", rr((r) => { r.beacon_genesis_time = 1.5; })],
+    ["a key of 95 bytes", rr((r) => { r.beacon_public_key = String(r.beacon_public_key).slice(2); })],
+    ["a key in capitals", rr((r) => { r.beacon_public_key = String(r.beacon_public_key).toUpperCase(); })],
+    ["a hash of 31 bytes", rr((r) => { r.beacon_chain_hash = String(r.beacon_chain_hash).slice(2); })]];
+  for (const [what, edit] of cases) assert.equal(said(edit), "timeline_malformed @1 read_rule", what);
+  const other = seedChain("dojo-fixture-seed-2", 40), second = anchorBody(other(0), 40, ANCHOR_DAY + 4);
+  delete second.read_rule;
+  assert.equal(said((s) => { s.splice(5, 7, { key: f.key, body: second }, { key: f.key, body: snapshotBody(ANCHOR_DAY + 5, other(1), null) }); }),
+    "timeline_malformed @6 read_rule", "a new anchor without read_rule");
 });
 
 // ---- D-10 l.248: the walker's reasons are codes of the closed list, read from the mere (never retyped; kinds are not codes),

@@ -22,6 +22,13 @@ export const MINT = "FYZcYCHSp8FzNba1UtDZydKKGosmxVNpFBiVuia38AhT"; // out/mint.
 const TOKEN_2022 = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"; // mere l.56, D-5 l.198
 const O1 = "5000000"; // SYNTHETIC objective of one unit, micro-dollar-days
 const EMPTY = createHash("sha256").digest("hex"); // sha256 of zero bytes: the lines and history files of this tree are empty
+/** PR-1b-3: the anchor's read_rule (ADR-DOJO-PR-2 D-5 l.154). Chain hash, public key, genesis_time and period of the public beacon as read
+ *  in docs/dojo/FAITS-pr2-lectures-2026-09-27.md l.55 (period and genesis_time also in RAPPORT-DOJO-RANDOMNESS-1 l.156, which gives the key
+ *  and the hash as identical to those of l.55); O = 900 (D-5 l.152), tolerance 600 (l.154), SOL/USD freshness 165 (D-3 l.134). Test
+ *  values: a published anchor re-reads the beacon's values on two relays first (D-5 l.154). */
+export const READ_RULE = { beacon_chain_hash: "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971",
+  beacon_public_key: "83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a",
+  beacon_scheme: "bls-unchained-g1-rfc9380", beacon_genesis_time: 1_692_803_367, beacon_period: 3, read_offset_s: 900, read_tolerance_s: 600, sol_usd_max_age_s: 165 };
 
 export const newKey = (): KeyObject => generateKeyPairSync("ed25519").privateKey;
 /** UTC date AAAA-MM-JJ of a day count (ADR-DOJO-PR-2B D-12 l.457); at(d, h) = toISOString of hour h of day d. */
@@ -81,26 +88,58 @@ export function anchorBody(seedAnchor: string, horizon: number, day: number): Li
   return { kind: "anchor", published_at: at(day, 12), seed_anchor: seedAnchor, mint: MINT, program: TOKEN_2022, k_reads: 4, horizon, // K = 4: P-4 l.538
     validation_days: 30, tier_windows: [30, 30, 30, 30, 180], price_window_days: 7, dust_threshold_microusd: "1000000", // D-8 l.227
     objective_unit_microusd_days: O1, tier_units: ["1", "2", "4", "8", "16"], pool: "fixture-pool", pool_quote_vault: "fixture-quote-vault",
-    sol_usd_source: "fixture-sol-usd-source" };
+    sol_usd_source: "fixture-sol-usd-source", read_rule: { ...READ_RULE } };
 }
 /** Published once its last day is over, on the first read day (reads may start before it: P-36 l.589). */
 export function historyBody(lastDay: number): Line {
   return { kind: "history", published_at: at(lastDay + 1, 0.5), history_first_day: dateOf(DAY1), history_last_day: dateOf(lastDay),
     history_sha256: EMPTY, history_lines_count: 0, history_root: rootOf([]) };
 }
-/** reads: [] -- the entries of a reading are not fixed by the mere (G1 journal Q-5); decimals 6: mere l.56-57. */
+/** beacon {round r_d, beta} and the four reads of the day (PR-1b-3, ADR-DOJO-PR-2 D-5 l.155, D-8 l.188); decimals 6: mere l.56-57. */
 export function snapshotBody(day: number, seed: string, version: number | null): Line {
-  return { kind: "snapshot", published_at: at(day + 1, 1), day: dateOf(day), seed, reads: [], mint: MINT, decimals: 6, price_version: version,
+  const beta = betaOf(day);
+  return { kind: "snapshot", published_at: at(day + 1, 1), day: dateOf(day), seed, beacon: { round: roundOf(day), signature: beta }, reads: readsOf(day, seed, beta),
+    mint: MINT, decimals: 6, price_version: version,
     lines_sha256: EMPTY, lines_count: 0, root: rootOf([]), score_total: "0", validated_total: "0", holders_count: version === null ? null : 0, status: "counted" };
 }
-/** Window of seven read days from windowFirst, effect the next day (D-17 l.287-288); p, T_1 and dust_threshold computed by
- *  dojo-core (D-3 l.174, D-17 l.290); SYNTHETIC daily series. */
+/** Window of seven read days from windowFirst, effect the next day (D-17 l.287-288); the daily values are the smallest non-null reads of
+ *  each day's snapshot (ADR-DOJO-PR-2 D-8 l.194): priceOf(d) and 150 (PR-1b-3; read days 1 to 7 keep (10 + k)/7, reduced). */
 export function versionBody(v: number, windowFirst: number, publishedAt: string): Line {
-  const pi: Fraction[] = [0, 1, 2, 3, 4, 5, 6].map((k): Fraction => [String(10 + k), "7"]);
-  const sigma: Fraction[] = [0, 1, 2, 3, 4, 5, 6].map((): Fraction => ["150", "1"]);
+  return versionOf(v, windowFirst, publishedAt, [0, 1, 2, 3, 4, 5, 6].map((k) => priceOf(windowFirst + k)), Array.from({ length: 7 }, (): Fraction => ["150", "1"]));
+}
+/** A version of the given daily series; p, T_1 and dust_threshold computed by dojo-core (D-3 l.174, D-17 l.290). */
+export function versionOf(v: number, windowFirst: number, publishedAt: string, pi: Fraction[], sigma: Fraction[]): Line {
   const p = unitPrice(pi, sigma);
   return { kind: "price_version", published_at: publishedAt, price_version: v, effective_day: dateOf(windowFirst + 7), window_first_day: dateOf(windowFirst),
     pool_price_daily: pi, usd_per_sol_daily: sigma, unit_price_microusd: p, threshold_unit: unitThreshold(O1, p), dust_threshold: unitThreshold("1000000", p) };
+}
+
+// ---- PR-1b-3: the beacon and the reads of a snapshot (ADR-DOJO-PR-2 D-5 l.152-155, D-8 l.188), recoded here, never from dojo-core ----
+const sha = (...xs: (Buffer | string)[]): Buffer => xs.reduce((h, x) => h.update(x), createHash("sha256")).digest();
+/** r_d, the first round at or after T_d: round r starts at genesis + (r - 1) x period (RAPPORT-DOJO-RANDOMNESS-1 l.84). */
+export const roundOf = (day: number): number => Math.ceil((day * 86_400 - READ_RULE.beacon_genesis_time) / READ_RULE.beacon_period) + 1;
+/** SYNTHETIC beta of a day: 48 bytes, compression bit set, infinity bit clear (D-5 l.157); never a real signature (the BLS is not verified). */
+export function betaOf(day: number): string {
+  const b = Buffer.concat([sha(`dojo-fixture-beta-${String(day)}`), sha(`dojo-fixture-beta+${String(day)}`)]).subarray(0, 48);
+  b[0] = ((b[0] ?? 0) & 0x3f) | 0x80;
+  return b.toString("hex");
+}
+/** The four instants of a day in seconds, sorted, duplicates kept (D-5 l.152): T_d + 900 + BE(SHA-256(g_d || "dojo-read" || byte(i) || beta)) mod 85 500. */
+export const instantsOf = (day: number, seed: string, beta: string): number[] => [1, 2, 3, 4].map((i) => day * 86_400 + 900
+  + Number(BigInt(`0x${sha(Buffer.from(seed, "hex"), "dojo-read", Buffer.of(i), Buffer.from(beta, "hex")).toString("hex")}`) % 85_500n)).sort((x, y) => x - y);
+const red = (n: number, d: number): Fraction => { let [a, b] = [n, d]; while (b !== 0) [a, b] = [b, a % b]; return [String(n / a), String(d / a)]; };
+/** SYNTHETIC pool price of a day, (10 + day - FIRST)/7 (1/7 at least), reduced: the smallest non-null pool read of the day. */
+export const priceOf = (day: number): Fraction => red(Math.max(1, 10 + day - FIRST), 7);
+/** The four reads of a day, SYNTHETIC: read 1 above the day's price and at 301/2 dollars per SOL, read 2 at the day's values (150), read 3
+ *  without pool price, read 4 missed (its instant and nulls: D-8 l.188); SOL/USD published 41 s before the instant, read 60 s after it. */
+export function readsOf(day: number, seed: string, beta: string): Line[] {
+  const b = Math.max(1, 10 + day - FIRST), iso = (s: number): string => new Date(s * 1000).toISOString();
+  const vals: Array<[Fraction | null, Fraction | null]> = [[red(b + 1, 7), ["301", "2"]], [red(b, 7), ["150", "1"]], [null, ["152", "1"]]];
+  return instantsOf(day, seed, beta).map((t, j) => {
+    const [pool, usd] = vals[j] ?? [null, null], made = j < 3;
+    return { instant: iso(t), read_at: made ? iso(t + 60) : null, slot_min: made ? 400_000_000 + j : null, slot_max: made ? 400_000_002 + j : null,
+      accounts_concordant: made ? 4 : 0, accounts_no_quorum: made ? 0 : 4, pool_price: pool, usd_per_sol: usd, usd_per_sol_publish_time: usd === null ? null : t - 41 };
+  });
 }
 
 export interface Fixture { key: KeyObject; trust: Trust; seed: (j: number) => string; steps: Step[] }
@@ -235,12 +274,6 @@ export function linesOf(steps: readonly Step[], i: number): DayLine[] {
 export function dojoKeyringOf(keys: ReadonlyArray<readonly [KeyObject, number, number?]>): Line {
   return { schema: "dojo-keyring-v1", keys: keys.map(([k, from, to]) => ({ key_id: keyIdOf(k), public_key: keyringOf(k, from).keys[0]?.jwk,
     valid_from_seq: from, ...(to === undefined ? {} : { valid_to_seq: to }) })) };
-}
-/** Version v whose seven SOL/USD values are `rate` (SYNTHETIC); p and the thresholds recomputed by the core (D-17 l.291-294). */
-export function versionAt(v: number, windowFirst: number, publishedAt: string, rate: string): Line {
-  const b = versionBody(v, windowFirst, publishedAt), sigma = Array.from({ length: 7 }, (): Fraction => [rate, "1"]);
-  const p = unitPrice(b.pool_price_daily as Fraction[], sigma);
-  return { ...b, usd_per_sol_daily: sigma, unit_price_microusd: p, threshold_unit: unitThreshold(O1, p), dust_threshold: unitThreshold("1000000", p) };
 }
 /** The served tree (D-9 l.246) of `steps`: the history file and each snapshot's lines (from `files`, else from the scenario), each
  *  named by its sha256; each signed line carries its file's sha256, count and root, a snapshot its totals (D-8 l.231); `edit` then

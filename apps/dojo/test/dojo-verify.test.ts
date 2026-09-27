@@ -11,9 +11,10 @@ import { canonical, keyIdOf } from "../../bell/scripts/bell-chain.mjs";
 import { proofOf, rootOf } from "../scripts/dojo-core.mjs";
 import { DOJO_VERIFY_REFUSALS, DojoVerifyError, VERIFY_BOUNDS, checkInclusion, dirSource, verifyDojoServed, type DojoVerifyReport,
   type VerifyBounds } from "../scripts/dojo-verify.mjs";
-import { ADDR, ANCHOR_DAY, DAY1, FIRST, anchorBody, at, dateOf, dayLines, dojoFixture, dojoKeyringOf, historyBody, historyLines, keyringOfKeys,
-  linesOf, newKey, removeTrees, render, seedChain, snapshotBody, versionAt, versionBody, writeTree, type DayLine, type Fixture, type HistoryLine,
+import { ADDR, ANCHOR_DAY, DAY1, FIRST, anchorBody, at, dateOf, dayLines, dojoFixture, dojoKeyringOf, historyBody, historyLines, instantsOf, keyringOfKeys,
+  linesOf, newKey, removeTrees, render, seedChain, snapshotBody, versionBody, versionOf, writeTree, type DayLine, type Fixture, type HistoryLine,
   type Line, type Step } from "./helpers/dojo-fixture.ts";
+import type { Fraction } from "../scripts/dojo-core.mjs";
 
 const SCRIPT = join(import.meta.dirname, "..", "scripts", "dojo-verify.mjs");
 const DAY = (j: number): number => ANCHOR_DAY - DAY1 + 1 + j; // day number of read day j (read day 0 = the anchor's day, the last history day)
@@ -53,9 +54,9 @@ test("dojo_verify_accepts_a_signed_served_fixture", async () => {
   assert.deepEqual([dayLines(DAY(2), null).find((l) => l.address === ADDR.D)?.lots, dayLines(DAY(3), null).some((l) => l.address === ADDR.D)], [[], false]);
   const self = await check(tree, null); // without a supplied keyring: self-consistent only (D-10 l.253; bell-verify.mjs:114)
   assert.deepEqual([self.ok, self.ok && self.status], [true, "self_consistent_only"]);
-  // a day without a snapshot line is a missing day for every address; an anchor and its history line alone are accepted, without a
-  // head (ADR-DOJO-PR-2B l.547)
-  assert.equal(said(await check(render(f.steps.filter((_, i) => i !== 5)), kr)), "ok");
+  // a day without a snapshot line is a missing day for every address (PR-1b-3: read day 8, outside version 1's window, ADR-DOJO-PR-2 D-8
+  // l.194); an anchor and its history line alone are accepted, without a head (ADR-DOJO-PR-2B l.547)
+  assert.equal(said(await check(render(f.steps.filter((_, i) => i !== 10)), kr)), "ok");
   const h = await check(render(f.steps.slice(0, 2)), kr);
   assert.deepEqual([said(h), h.ok && h.head, h.ok && h.history?.history_lines_count], ["ok", null, 73]);
 });
@@ -149,10 +150,12 @@ test("dojo_price_version_recomputes_the_unit", async () => {
 // ---- DOJO-WALK-GAPS-1 (a) (l.658; D-17 l.293: the history days carry no price, the first version comes from the read days) ----
 test("dojo_verify_refuses_a_price_version_on_history_days", async () => {
   const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]);
-  const tl = (first: number): Step[] => [step(f.steps, 0), step(f.steps, 1), { key: f.key, body: versionBody(1, first, at(FIRST, 0.75)) },
-    ...[1, 2, 3].map((j): Step => ({ key: f.key, body: snapshotBody(ANCHOR_DAY + j, f.seed(j), first + 7 <= ANCHOR_DAY + j ? 1 : null) }))];
-  assert.equal(said(await check(render(tl(ANCHOR_DAY - 6)), kr)), "price_version_mismatch @3", "a window of history days, in force from the first read day");
-  assert.equal(said(await check(render(tl(ANCHOR_DAY)), kr)), "price_version_mismatch @3", "a window opening on the last history day");
+  const tl = (first: number, eff = first + 7): Step[] => { // seven snapshots (D-8 l.194); Q-6 of PR-1b-3: the version after the snapshot of day eff - 1
+    const ss = [1, 2, 3, 4, 5, 6, 7].map((j): Step => ({ key: f.key, body: snapshotBody(ANCHOR_DAY + j, f.seed(j), ANCHOR_DAY + j >= eff ? 1 : null) })), n = eff - 1 - ANCHOR_DAY;
+    return [step(f.steps, 0), step(f.steps, 1), ...ss.slice(0, n), { key: f.key, body: { ...versionBody(1, first, at(eff, 2)), effective_day: dateOf(eff) } }, ...ss.slice(n)]; };
+  const why = async (s: Step[]): Promise<string> => { const r = await check(render(s), kr); return r.ok ? "ok" : `${r.reason} @${String(r.seq)} ${r.detail}`; }, a = "a window on history days (DOJO-WALK-GAPS-1 (a))";
+  assert.equal(await why(tl(ANCHOR_DAY - 6, ANCHOR_DAY + 2)), `price_version_mismatch @4 ${a}`, "a window of history days, in force from the second read day (effect after first + 7: PR-1b-1 Q-5)");
+  assert.equal(await why(tl(ANCHOR_DAY)), `price_version_mismatch @9 ${a}`, "a window opening on the last history day");
   assert.equal(said(await check(render(tl(FIRST)), kr)), "ok", "a window of read days");
 });
 
@@ -209,7 +212,7 @@ test("dojo_verify_refuses_a_snapshot_derived_from_voided_lines", async () => {
   const f = dojoFixture(), K2 = newKey(), both = dojoKeyringOf([[f.key, 1, 3], [K2, 3]]), ks = both.keys as Line[], e0 = ks[0] ?? {};
   const rot = [step(f.steps, 0), step(f.steps, 1), { key: f.key, rotateTo: K2, body: { kind: "key_rotation", published_at: at(FIRST, 0.75) } },
     ...f.steps.slice(2).map((x) => ({ ...x, key: K2 }))], kr = { ...both, keys: [{ ...e0, revoked_from_seq: 2 }, ks[1] ?? {}] };
-  const r4 = await check(render(rot.slice(0, 4)), kr), late = await check(render([...f.steps, { key: f.key, body: versionAt(2, FIRST + 2, at(FIRST + 9, 2), "300") }]),
+  const r4 = await check(render(rot.slice(0, 4)), kr), late = await check(render([...f.steps, { key: f.key, body: versionBody(2, FIRST + 2, at(FIRST + 9, 2)) }]),
     { schema: "dojo-keyring-v1", keys: [{ ...((dojoKeyringOf([[f.key, 1]]).keys as Line[])[0] ?? {}), revoked_from_seq: 13 }] });
   assert.deepEqual([said(r4), !r4.ok && r4.detail], ["key_not_active @2", "voided_lines 2,3: signed by a key revoked at its seq"], "line 4 (a snapshot) after the voided 2 and 3");
   assert.equal(said(await check(render(rot.slice(0, 1)), kr)), "ok", "line 1, before every voided line");
@@ -242,6 +245,114 @@ test("dojo_verify_refuses_a_provisional_typed_alone", async () => {
   assert.equal(await pinned((f) => [on11(f, ADDR.A, (l) => [{ ...l, provisional: "1" }]), undefined]), "validation_mismatch @12", "R-17: provisional alone on A (M-16)");
 });
 
+// ---- PR-1b-3 (ADR-DOJO-PR-2 D-5 l.152-157, D-8 l.188-195; M-20, M-21, M-22): r_d, beta and the K instants recomputed from read_rule and
+// the revealed seed; the detail names the sub-check (C-V-1 (b)). Oracle: r_d and the instants of read day 1 pinned from an independent
+// recoding in Python (hashlib; G1 journal of PR-1b-3), never from the verifier or dojo-core ----
+const told = (r: DojoVerifyReport): string => (r.ok ? "ok" : `${r.reason} @${String(r.seq)} ${r.detail}`);
+const rd = (b: Line): Line[] => b.reads as Line[];
+const bc = (b: Line): { round: number; signature: string } => b.beacon as { round: number; signature: string };
+const ms = (s: unknown, d: number): string => new Date(Date.parse(String(s)) + d).toISOString();
+const fresh = (steps: readonly Step[]): Step[] => steps.map((x) => ({ ...x, body: structuredClone(x.body) })); // render copies bodies shallowly
+test("dojo_verify_recomputes_the_read_instants", async () => {
+  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), b2 = body(f.steps, 2);
+  // 2026-09-27 opens round 32 554 612 (ADR-DOJO-PR-2 section 4; RAPPORT-DOJO-RANDOMNESS-1 l.84), then 28 800 rounds of 3 s a day
+  assert.deepEqual([b2.day, bc(b2).round, rd(b2).map((r) => r.instant)], ["2026-10-02", 32_554_612 + 5 * 28_800,
+    ["2026-10-02T03:08:57.000Z", "2026-10-02T09:42:29.000Z", "2026-10-02T18:02:34.000Z", "2026-10-02T22:46:37.000Z"]]);
+  const run = async (edit: (s: Step[]) => void): Promise<string> => told(await check(render(fresh(f.steps), undefined, edit), kr));
+  const on = (i: number, g: (b: Line) => void) => (s: Step[]): void => { g(body(s, i)); };
+  const sig = (g: (x: Buffer) => Buffer) => on(2, (b) => { bc(b).signature = g(Buffer.from(bc(b).signature, "hex")).toString("hex"); });
+  const byte0 = (m: number, v: number) => sig((x) => Buffer.concat([Buffer.of(((x[0] ?? 0) & m) | v), x.subarray(1)]));
+  const r1 = (g: (r: Line) => void) => on(2, (b) => { g(rd(b)[1] ?? {}); });
+  const cases: Array<[string, (s: Step[]) => void, string]> = [
+    ["the fixture: a null pool read and a missed read (instant and nulls)", () => undefined, "ok"],
+    ["an anchor without read_rule, the form of PR-1b-2", on(0, (b) => { delete b.read_rule; }), "timeline_malformed @1 read_rule"],
+    ["M-22 round r_d + 1", on(2, (b) => { bc(b).round += 1; }), "read_instant_mismatch @3 beacon"],
+    ["M-22 the last round of the eve", on(2, (b) => { bc(b).round -= 1; }), "read_instant_mismatch @3 beacon"],
+    ["a beacon genesis after the day", on(0, (b) => { (b.read_rule as Line).beacon_genesis_time = (FIRST + 1) * 86_400; }), "read_instant_mismatch @3 beacon"],
+    ["M-20 an instant one second later", r1((r) => { r.instant = ms(r.instant, 1000); }), "read_instant_mismatch @3 instant"],
+    ["M-20 two reads swapped", on(2, (b) => { b.reads = [rd(b)[1], rd(b)[0], ...rd(b).slice(2)]; }), "read_instant_mismatch @3 instant"],
+    ["M-21 beta altered, its form kept", sig((x) => Buffer.concat([x.subarray(0, 47), Buffer.of((x[47] ?? 0) ^ 1)])), "read_instant_mismatch @3 instant"],
+    ["M-21 beta with the infinity bit", byte0(0xff, 0x40), "timeline_malformed @3 beacon"],
+    ["M-21 beta without the compression bit", byte0(0x7f, 0), "timeline_malformed @3 beacon"],
+    ["beta of 47 bytes", sig((x) => x.subarray(1)), "timeline_malformed @3 beacon"],
+    ["a beacon with an extra key", on(2, (b) => { b.beacon = { ...bc(b), randomness: "00" }; }), "timeline_malformed @3 beacon"],
+    ["a counted day without beacon", on(2, (b) => { b.beacon = null; }), "timeline_malformed @3 beacon"],
+    ["a counted day without beacon nor reads (Q-5)", on(2, (b) => { Object.assign(b, { beacon: null, reads: [] }); }), "timeline_malformed @3 beacon"],
+    ["an abstained day without beacon, its reads kept", on(2, (b) => { Object.assign(b, { beacon: null, status: "abstained" }); }), "timeline_malformed @3 beacon"],
+    ["duplicate instants kept (D-5 l.152)", on(2, (b) => { // SYNTHETIC beta: SHA-256("g2-dup-8962") || SHA-256("g2-dup+8962"), 48 bytes, byte 0 & 0x3f | 0x80;
+      // counter 8962: two of the four instants of read day 1 coincide (G2 of PR-1b-3); instants recoded by the fixture, never by the module
+      const x = Buffer.concat(["-", "+"].map((c) => createHash("sha256").update(`g2-dup${c}8962`).digest())).subarray(0, 48);
+      x[0] = ((x[0] ?? 0) & 0x3f) | 0x80;
+      const t = instantsOf(FIRST, String(b.seed), x.toString("hex")), iso = (u: number): string => new Date(u * 1000).toISOString();
+      bc(b).signature = x.toString("hex"); rd(b).forEach((r, j) => { const u = t[j] ?? 0; Object.assign(r, { instant: iso(u), read_at: r.read_at === null ? null : iso(u + 60),
+        usd_per_sol_publish_time: r.usd_per_sol_publish_time === null ? null : u - 41 }); }); assert.equal(new Set(t).size, 3); }), "ok"],
+    ["read_at 1 ms before the instant", r1((r) => { r.read_at = ms(r.instant, -1); }), "read_instant_mismatch @3 read_at"],
+    ["read_at at the tolerance, 600 s", r1((r) => { r.read_at = ms(r.instant, 600_000); }), "ok"],
+    ["read_at 601 s after the instant", r1((r) => { r.read_at = ms(r.instant, 601_000); }), "read_instant_mismatch @3 read_at"],
+    ["three reads", on(2, (b) => { b.reads = rd(b).slice(1); }), "timeline_malformed @3 reads"],
+    ["an extra key in a read", r1((r) => { r.operator = "x"; }), "timeline_malformed @3 reads"],
+    ["a pool price not reduced", r1((r) => { r.pool_price = ["22", "14"]; }), "timeline_malformed @3 reads"],
+    ["a missed read with a pool price", on(2, (b) => { (rd(b)[3] ?? {}).pool_price = ["1", "1"]; }), "timeline_malformed @3 reads"],
+    ...["slot_min", "slot_max"].map((k): [string, (s: Step[]) => void, string] => [`a missed read with ${k}`, on(2, (b) => { (rd(b)[3] ?? {})[k] = 1; }), "timeline_malformed @3 reads"]),
+    ["a missed read with a SOL/USD value and its time", on(2, (b) => { Object.assign(rd(b)[3] ?? {}, { usd_per_sol: ["150", "1"], usd_per_sol_publish_time: 1 }); }), "timeline_malformed @3 reads"],
+    ["an abstained day without beacon nor reads (read day 9, outside the window)", on(11, (b) => { Object.assign(b, { beacon: null, reads: [], status: "abstained" }); }), "ok"],
+  ];
+  for (const [what, edit, want] of cases) assert.equal(await run(edit), want, what);
+  const ok = await check(render(f.steps), kr);
+  assert.deepEqual([ok.ok && ok.beacon_bls_verified, ok.ok && ok.scope.endsWith("refused as its instants")], [false, true], "the report says the BLS is not verified (D-5 l.157, Q-2)");
+});
+
+// ---- PR-1b-3 (ADR-DOJO-PR-2 D-3 l.134, D-8 l.193; M-23): t - sol_usd_max_age_s <= usd_per_sol_publish_time <= read_at, detail usd_per_sol ----
+test("dojo_verify_refuses_a_stale_sol_usd_reading", async () => {
+  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]);
+  assert.equal((body(f.steps, 0).read_rule as Line).sol_usd_max_age_s, 165, "three published beats of 55 s (decision 248)");
+  const run = async (j: number, shift: number): Promise<string> => told(await check(render(fresh(f.steps), undefined, (s) => {
+    const r = rd(body(s, 11))[j] ?? {};
+    r.usd_per_sol_publish_time = Date.parse(String(r.instant)) / 1000 + shift;
+  }), kr));
+  for (const [j, shift, want] of [[1, -165, "ok"], [1, -166, "read_instant_mismatch @12 usd_per_sol"], [0, -166, "read_instant_mismatch @12 usd_per_sol"],
+    [1, 60, "ok"], [1, 61, "read_instant_mismatch @12 usd_per_sol"]] as const) assert.equal(await run(j, shift), want, `read ${String(j + 1)}, instant ${String(shift)} s`);
+  assert.equal(told(await check(render(fresh(f.steps), undefined, (s) => { (rd(body(s, 11))[1] ?? {}).usd_per_sol_publish_time = null; }), kr)),
+    "timeline_malformed @12 reads", "a SOL/USD value without its publish time");
+});
+
+// ---- PR-1b-3 (ADR-DOJO-PR-2 D-8 l.194; mere D-17: seven valid daily values; M-24): the daily values of a price_version are the smallest
+// non-null reads of the snapshot of each window day, reduced. Oracle: minima recoded here from the served reads ----
+test("dojo_verify_daily_values_follow_the_snapshot_reads", async () => {
+  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), v = body(f.steps, 9);
+  const gcd = (x: bigint, y: bigint): bigint => (y === 0n ? x : gcd(y, x % y));
+  const least = (b: Line, key: string): string => {
+    const xs = rd(b).map((r) => r[key]).filter((x): x is [string, string] => x !== null).map(([n, d]) => [BigInt(n), BigInt(d)] as const);
+    const [n, d] = xs.reduce((m, x) => (x[0] * m[1] < m[0] * x[1] ? x : m));
+    return canonical([String(n / gcd(n, d)), String(d / gcd(n, d))]);
+  };
+  const days = [2, 3, 4, 5, 6, 7, 8].map((i) => body(f.steps, i));
+  assert.deepEqual([days.map((b) => least(b, "pool_price")), days.map((b) => least(b, "usd_per_sol"))],
+    [(v.pool_price_daily as unknown[]).map((x) => canonical(x)), (v.usd_per_sol_daily as unknown[]).map((x) => canonical(x))]);
+  assert.deepEqual(v.pool_price_daily, [["10", "7"], ["11", "7"], ["12", "7"], ["13", "7"], ["2", "1"], ["15", "7"], ["16", "7"]], "(10 + k)/7, reduced");
+  // a version whose series is changed, its p and thresholds recomputed (the unit check passes): only the daily values differ
+  const series = (field: string, k: number, x: [string, string]) => (s: Step[]): void => {
+    const b = body(s, 9), pi = structuredClone(b.pool_price_daily) as Fraction[], sigma = structuredClone(b.usd_per_sol_daily) as Fraction[];
+    (field === "pool_price_daily" ? pi : sigma)[k] = x;
+    s[9] = { ...step(s, 9), body: versionOf(1, FIRST, String(b.published_at), pi, sigma) };
+  };
+  const run = async (edit: (s: Step[]) => void, steps: readonly Step[] = f.steps): Promise<string> => told(await check(render(fresh(steps), undefined, edit), kr));
+  const cases: Array<[string, Promise<string>, string]> = [
+    ["the fixture", run(() => undefined), "ok"],
+    ["M-24 a pool value at the day's largest read", run(series("pool_price_daily", 2, ["13", "7"])), "price_version_mismatch @10 pool_price_daily"],
+    ["M-24 a SOL/USD value at a read other than the smallest", run(series("usd_per_sol_daily", 0, ["301", "2"])), "price_version_mismatch @10 usd_per_sol_daily"],
+    ["a daily value not reduced (p unchanged)", run(series("pool_price_daily", 4, ["14", "7"])), "price_version_mismatch @10 pool_price_daily"],
+    ["M-24 the smallest read of a window day raised", run((s) => { const r = rd(body(s, 4)); (r[1] ?? {}).pool_price = r[0]?.pool_price; }),
+      "price_version_mismatch @10 pool_price_daily"],
+    ["a window day whose pool reads are all null", run((s) => { for (const r of rd(body(s, 5))) r.pool_price = null; }), "price_version_mismatch @10 pool_price_daily"],
+    ["a window day without snapshot", run(() => undefined, f.steps.filter((_, i) => i !== 5)), "price_version_mismatch @9 pool_price_daily"],
+    ["Q-6 a version before the snapshot of its window's last day (the walker)", run((s) => { const [x] = s.splice(9, 1); if (x !== undefined) s.splice(8, 0, x); }),
+      "price_version_mismatch @9 timeline.jsonl"],
+    ["Q-7 a window day abstained, its beacon and reads kept", run((s) => { body(s, 4).status = "abstained"; }), "price_version_mismatch @10 pool_price_daily"],
+  ];
+  for (const [what, got, want] of cases) assert.equal(await got, want, what);
+});
+
 // ---- section 6 l.378-393 (M-1 to M-16; M-13 and M-14 above, M-17 and M-18 in the history test) and D-10 l.252: each named mutant of a
 // served tree is refused by its code; the codes given in this file are those of D-10, read from the mere. Runs last ----
 test("dojo_verify_refuses_each_named_mutant", async () => {
@@ -249,7 +360,8 @@ test("dojo_verify_refuses_each_named_mutant", async () => {
   const run = async (steps: readonly Step[], files?: ReadonlyMap<number, readonly object[]>, edit?: (s: Step[]) => void): Promise<string> =>
     said(await check(render(steps, files, edit), kr));
   const lines = (i: number, g: (l: DayLine) => DayLine, a: string): Map<number, DayLine[]> => new Map([[i, linesOf(f.steps, i).map((l) => (l.address === a ? g(l) : l))]]);
-  const v2: Step = { key: f.key, body: versionAt(2, FIRST + 2, at(FIRST + 8, 2), "300") }, s4 = [...f.steps.slice(0, 11), v2, ...f.steps.slice(11)];
+  const v2: Step = { key: f.key, body: { ...versionBody(2, FIRST + 2, at(FIRST + 9, 2)), effective_day: dateOf(FIRST + 10) } }; // Q-6 of PR-1b-3 (option C)
+  const s4 = [...f.steps, v2, { key: f.key, body: snapshotBody(FIRST + 9, f.seed(10), 1) }];
   const cases: Array<[string, Promise<string>, string]> = [
     ["M-1 a score typed +1 on a line", run(f.steps, lines(11, (l) => ({ ...l, score: String(BigInt(l.score) + 1n) }), ADDR.A)), "score_mismatch @12"],
     ["M-2 the line of an address of the eve omitted", run(f.steps, new Map([[11, linesOf(f.steps, 11).filter((l) => l.address !== ADDR.B)]])), "line_missing @12"],
@@ -257,7 +369,7 @@ test("dojo_verify_refuses_each_named_mutant", async () => {
     ["M-3 sorted lines under the root of another order", run(f.steps, undefined, (s) => { body(s, 11).root = rootOf(linesOf(f.steps, 11).reverse().map((l) => canonical(l))); }),
       "root_mismatch @12"],
     ["M-4 control: version 2 published, not yet in force", run(s4), "ok"],
-    ["M-4 the thresholds of version 2 applied before its effective day", run(s4, new Map([[12, dayLines(DAY(9), v2.body)]])), "threshold_mismatch @13"],
+    ["M-4 the thresholds of version 2 applied before its effective day", run(s4, new Map([[13, dayLines(DAY(10), v2.body)]])), "threshold_mismatch @14"],
     ["M-4 version 1 applied to a day before it", run(f.steps, new Map([[8, dayLines(DAY(7), body(f.steps, 9))]])), "threshold_mismatch @9"],
     ["units typed on a line, no version's threshold", run(f.steps, lines(11, (l) => ({ ...l, units: "9" }), ADDR.A)), "units_mismatch @12"],
     ["a tier typed on a line", run(f.steps, lines(11, (l) => ({ ...l, tier: 3 }), ADDR.A)), "tier_mismatch @12"],

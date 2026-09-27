@@ -48,15 +48,23 @@ function hashTimes(seed, j) {
 
 // Anchor (D-8 l.227): its fields; tier_units u_1 = 1 then strictly increasing (D-3 l.171), five tiers (decision 224);
 // tier_windows non-decreasing (precondition of tierOf, l.858 (c)); price_window_days = 7, the seven daily values of D-17
-// l.287 that medianOfSeven fixes (Q-4, l.858 (c)).
+// l.287 that medianOfSeven fixes (Q-4, l.858 (c)); k_reads <= 255, byte(i) (ADR-DOJO-PR-2 D-5 l.152; Q-9 of PR-1b-3).
 function anchorForm(l) {
   const u = l.tier_units, w = l.tier_windows;
   return hex64(l.seed_anchor) && [l.mint, l.program, l.pool, l.pool_quote_vault, l.sol_usd_source].every(named)
-    && [l.k_reads, l.horizon, l.validation_days].every(count) && positive(l.objective_unit_microusd_days) && positive(l.dust_threshold_microusd)
+    && [l.k_reads, l.horizon, l.validation_days].every(count) && l.k_reads <= 255 && positive(l.objective_unit_microusd_days) && positive(l.dust_threshold_microusd)
     && Array.isArray(u) && u.length === 5 && u.every(positive) && u[0] === "1" && u.every((x, k) => k === 0 || BigInt(x) > BigInt(u[k - 1]))
     && Array.isArray(w) && w.length === 5 && w.every(count) && w.every((x, k) => k === 0 || x >= w[k - 1])
     && l.price_window_days === 7 && instantOf(l.published_at) !== null;
 }
+// read_rule (ADR-DOJO-PR-2 D-5 l.154, closed keys; PR-1b-3): the beacon's chain hash (32 bytes) and public key (96 bytes) in lowercase
+// hexadecimal, its scheme, genesis time and period (seconds), then O = 900 (D-5 l.152), the tolerance 600 and the SOL/USD freshness 165 (D-3).
+const READ_RULE = ["beacon_chain_hash", "beacon_public_key", "beacon_scheme", "beacon_genesis_time", "beacon_period", "read_offset_s",
+  "read_tolerance_s", "sol_usd_max_age_s"];
+const readRuleForm = (r) => r !== null && typeof r === "object" && !Array.isArray(r) && Object.keys(r).length === 8 && READ_RULE.every((k) => Object.hasOwn(r, k))
+  && hex64(r.beacon_chain_hash) && typeof r.beacon_public_key === "string" && /^[0-9a-f]{192}$/.test(r.beacon_public_key)
+  && r.beacon_scheme === "bls-unchained-g1-rfc9380" && Number.isSafeInteger(r.beacon_genesis_time) && r.beacon_genesis_time >= 0 && count(r.beacon_period)
+  && r.read_offset_s === 900 && r.read_tolerance_s === 600 && r.sol_usd_max_age_s === 165;
 
 // price_version (D-8 l.227-228, D-17 l.287-288): numbers and effective days strictly increasing; seven daily values per
 // series; effect after the last day of its window, which the line does not carry: first + 7 - 1 bounds it from below
@@ -65,9 +73,10 @@ function versionCheck(l, st) {
   const eff = dayOf(l.effective_day), first = dayOf(l.window_first_day), prev = st.versions[st.versions.length - 1];
   const seven = (s) => Array.isArray(s) && s.length === st.anchor.price_window_days && s.every(fraction);
   if (!count(l.price_version) || eff === null || first === null || !seven(l.pool_price_daily) || !seven(l.usd_per_sol_daily)
-    || !fraction(l.unit_price_microusd) || !positive(l.unit_price_microusd[0]) || !positive(l.threshold_unit) || !positive(l.dust_threshold)
+    || !fraction(l.unit_price_microusd) || !positive(l.unit_price_microusd[0]) || !positive(l.threshold_unit) || !positive(l.dust_threshold) || instantOf(l.published_at) === null
     || (prev !== undefined && (l.price_version <= prev.v || eff <= prev.eff))) return "timeline_malformed";
-  if (eff <= first + st.anchor.price_window_days - 1) return "price_version_mismatch";
+  const W = st.anchor.price_window_days; // Q-6 of PR-1b-3: published after its window's end, after the snapshot of its last day
+  if (eff <= first + W - 1 || instantOf(l.published_at) < (first + W) * DAY_MS || st.last === null || st.last < first + W - 1) return "price_version_mismatch";
   if (st.last !== null && eff <= st.last) return "version_not_in_force";
   st.versions.push({ v: l.price_version, eff });
   return null;
@@ -97,6 +106,7 @@ function dojoCheck(l, first, st) {
   if (first && l.kind !== "anchor") return "anchor_missing";
   if (l.kind === "anchor") {
     if (!anchorForm(l)) return "timeline_malformed";
+    if (!readRuleForm(l.read_rule)) return ["timeline_malformed", "read_rule"]; // a reason and the sub-check its detail names (D-8, C-V-1 (b))
     const day = Math.floor(instantOf(l.published_at) / DAY_MS);
     Object.assign(st, { anchor: l, anchorDay: day, seed: l.seed_anchor, seedDay: day });
     return null;
@@ -114,7 +124,8 @@ function dojoCheck(l, first, st) {
 }
 
 /** Walk a dojo-timeline-v1 under a trust set (trustOf of the keyring supplied by the reader). Returns {ok: true, active,
- *  head, voided, breaks} (head = last snapshot line or null), or {ok: false, seq, reason}; an empty timeline has no anchor. */
+ *  head, voided, breaks} (head = last snapshot line or null), or {ok: false, seq, reason}, plus detail = "read_rule" when the
+ *  anchor's read_rule is out of form (PR-1b-3); an empty timeline has no anchor. */
 export function walkDojoTimeline(lines, trust) {
   if (lines.length === 0) return { ok: false, seq: 1, reason: "anchor_missing" };
   let prev = GENESIS, active = null;
@@ -147,6 +158,7 @@ export function walkDojoTimeline(lines, trust) {
     }
     // ---- then the Dojo checks of the line (D-8 l.228) ----
     const reason = dojoCheck(l, i === 0, st);
+    if (Array.isArray(reason)) return { ...fail(reason[0]), detail: reason[1] };
     if (reason !== null) return fail(reason);
     prev = lineHash(l);
   }
