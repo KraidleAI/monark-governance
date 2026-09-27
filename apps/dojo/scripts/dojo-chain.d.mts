@@ -3,7 +3,7 @@
 import type { Break, Trust } from "../../bell/scripts/bell-chain.mjs";
 
 export const DOJO_TIMELINE_SCHEMA: "dojo-timeline-v1";
-/** Codes of ADR-DOJO-SNAPSHOT-1 D-10 (l.248), plus rotation_key_not_in_keyring (Bell's walk; admitted at the mere's eighth pli, G1 Q-1). */
+/** Codes of ADR-DOJO-SNAPSHOT-1 D-10 (l.252 since the eighth pli, rotation_key_not_in_keyring included: Bell's walk emits it). */
 export type DojoWalkReason = "timeline_malformed" | "chain_broken" | "rotation_key_not_in_keyring" | "key_not_in_keyring"
   | "signature_invalid" | "key_not_active" | "rotation_malformed" | "revocation_malformed" | "anchor_missing" | "day_not_increasing"
   | "seed_revealed_early" | "seed_chain_broken" | "price_version_mismatch" | "version_not_in_force";

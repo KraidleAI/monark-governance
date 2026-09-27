@@ -411,3 +411,82 @@ export function verifyProof(line, index, count, path, root) {
     return false;
   }
 }
+
+// ---- PR-2-1: seeds, beacon round, read instants, reading prices (ADR-DOJO-PR-2 D-1 l.105, D-5 l.149; mere D-4 l.191, l.193) --
+
+const DAY_S = 86_400;
+function midnight(t) {
+  if (!Number.isSafeInteger(t) || t < 0 || t % DAY_S !== 0) throw new Error("dojo/core: a day start is a UTC midnight in seconds");
+  return t;
+}
+function hashChain(hex, k) {
+  let b = hashBytes(hex);
+  for (let i = 0; i < k; i++) b = sha256(b);
+  return b.toString("hex");
+}
+
+/** Anchor a_0 = H^n(s), H = SHA-256 on the 32 raw bytes of the secret s (64 lowercase hex), n the horizon (mere D-4 l.191). */
+export function seedAnchor(secret, horizon) {
+  return hashChain(secret, posInt(horizon, "horizon"));
+}
+
+/** Seed of the day j days after the anchor's day, g = H^(n-j)(s), 1 <= j <= n (mere D-4 l.191; the anchor's day is day 0 of the
+ *  chain and is never read, ADR-DOJO-PR-2 D-8 l.190). */
+export function daySeed(secret, horizon, j) {
+  if (posInt(j, "day offset") > posInt(horizon, "horizon")) throw new Error("dojo/core: the day offset exceeds the horizon");
+  return hashChain(secret, horizon - j);
+}
+
+/** r_d = the first beacon round at or after the day start T_d (ADR-DOJO-PR-2 D-5 l.149): round r starts at genesis + (r - 1) x
+ *  period, so r_d = ceil((T_d - genesis) / period) + 1. Genesis time and period are arguments (read_rule, D-5 l.151). */
+export function beaconRound(dayStart, genesisTime, period) {
+  const t = midnight(dayStart);
+  if (!Number.isSafeInteger(genesisTime) || genesisTime < 0 || t < genesisTime) throw new Error("dojo/core: the day starts before the beacon genesis");
+  const p = posInt(period, "beacon period");
+  return Math.floor((t - genesisTime + p - 1) / p) + 1;
+}
+
+// beta = 48 raw bytes, a compressed G1 point: compression bit 0x80 set, infinity bit 0x40 clear (ADR-DOJO-PR-2 D-5 l.154).
+function beaconBytes(sig) {
+  if (typeof sig !== "string" || !/^[0-9a-f]{96}$/.test(sig)) throw new Error("dojo/core: a beacon signature is 96 lowercase hex characters");
+  const b = Buffer.from(sig, "hex");
+  if ((b[0] & 0x80) === 0 || (b[0] & 0x40) !== 0) throw new Error("dojo/core: a beacon signature is a compressed, finite point");
+  return b;
+}
+
+/** The K read instants of a day in seconds, sorted, duplicates kept (ADR-DOJO-PR-2 D-5 l.149; mere D-4 l.193): t_i = T_d + O +
+ *  (big-endian integer of SHA-256(g_d || "dojo-read" || byte(i) || beta) mod (86 400 - O)), i = 1..K, g_d 32 raw bytes. */
+export function readInstants(seed, beaconSig, k, dayStart, offset) {
+  const g = hashBytes(seed);
+  const beta = beaconBytes(beaconSig);
+  if (posInt(k, "k") > 255) throw new Error("dojo/core: byte(i) holds at most 255 readings");
+  const t = midnight(dayStart);
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset >= DAY_S) throw new Error("dojo/core: the read offset lies within a day");
+  const span = BigInt(DAY_S - offset);
+  const out = [];
+  for (let i = 1; i <= k; i++) {
+    const h = sha256(g, Buffer.from("dojo-read", "ascii"), Buffer.of(i), beta).toString("hex");
+    out.push(t + offset + Number(BigInt(`0x${h}`) % span));
+  }
+  return out.sort((a, b) => a - b);
+}
+
+/** Exact price of one reading, reduced; null when the denominator is 0 (ADR-DOJO-PR-2 D-4 l.144: r_M = 0 gives no price). Pool
+ *  price [r_S, r_M] in lamports per base unit (D-4 l.144); SOL rate [price, 10^-exponent] in dollars per SOL (D-3 l.133). */
+export function readingPrice(numerator, denominator) {
+  const n = big(numerator, "numerator");
+  const d = big(denominator, "denominator");
+  return d === 0n ? null : reduced(n, d);
+}
+
+/** Daily value: the smallest of the non-null reading values, reduced; null when none (mere D-17 l.299 pi_d, l.301 sigma_d). */
+export function dayMinimum(values) {
+  if (!Array.isArray(values)) throw new Error("dojo/core: values must be an array");
+  let m = null;
+  for (const v of values) {
+    if (v === null) continue;
+    const f = fraction(v, "reading value");
+    if (m === null || f.n * m.d < m.n * f.d) m = f;
+  }
+  return m === null ? null : reduced(m.n, m.d);
+}
