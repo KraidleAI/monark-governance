@@ -33,7 +33,7 @@ export interface OperatorClass {
   readonly cycleCap?: number;
 }
 
-/** Course inputs, ALL required, fail-closed before any network. PER OPERATOR (C-2): a `runCaps` RU cap NEVER sums with
+/** Course inputs, ALL required except the OPTIONAL `cycleAttempts`, fail-closed before any network. PER OPERATOR (C-2): a `runCaps` RU cap NEVER sums with
  *  a credits cap, and a helius floor never governs chainstack. `maxCalls` is a run-wide ATTEMPT COUNT (unit-agnostic);
  *  `methodCaps` is a per-method attempt cap counted per (op, method) so a keyless method never spends a paid method's cap. */
 export interface RunLimits {
@@ -41,6 +41,9 @@ export interface RunLimits {
   readonly runCaps: Readonly<Record<string, number>>;
   readonly methodCaps: Readonly<Record<string, number>>;
   readonly cycleFloor: Readonly<Record<string, number>>;
+  /** DRAND-RELAY-GET-1a (ADR-RPC-GUARD-DRAND-1 D-1 (b)): OPTIONAL per-cycle ATTEMPT cap of a KEYLESS operator (label -> an integer
+   *  > 0). The prior is the count of `attempted` lines of its ledger at open; prior + this run + 1 > cap => refuse(cycle_attempts). */
+  readonly cycleAttempts?: Readonly<Record<string, number>>;
 }
 export interface ClientConfig {
   readonly operators: Readonly<Record<string, OperatorClass>>;
@@ -74,6 +77,9 @@ export function assertLimits(operators: Readonly<Record<string, OperatorClass>>,
     if (floor > cls.cycleCap) throw new BudgetExceededError(`rpc-guard: cycle floor ${String(floor)} exceeds cap ${String(cls.cycleCap)} for '${label}', fail-closed`);
     if (Object.keys(limits.methodCaps).length === 0) throw new BudgetExceededError(`rpc-guard: --method-caps empty for paid operator '${label}' (C-V-5, no default), fail-closed`);
   }
+  // DRAND-RELAY-GET-1a (D-1 (b)): an attempt cap is an integer > 0 on a KEYLESS operator (a paid cycle is capped in its unit);
+  // a cap naming an operator this course did not request is validated (an integer > 0), then ignored (stricter than runCaps / cycleFloor, ignored unvalidated).
+  for (const [label, cap] of Object.entries(limits.cycleAttempts ?? {})) if (!(Number.isInteger(cap) && cap > 0) || (operators[label]?.unit ?? "keyless") !== "keyless") throw new BudgetExceededError(`rpc-guard: cycle attempt cap for '${label}' must be an integer > 0 on a keyless operator, fail-closed`);
 }
 
 export function makeClient(config: ClientConfig, ledgers: ReadonlyMap<string, CycleLedger>, opts: { transport: Transport }): BudgetedClient {
@@ -85,6 +91,9 @@ export function makeClient(config: ClientConfig, ledgers: ReadonlyMap<string, Cy
   // (2) FREEZE the cycle prior per operator = max(floor, Sigma_at_open attempted) (C-V-1), each in its own unit.
   const priorFrozen = new Map<string, number>();
   for (const [label, led] of ledgers) priorFrozen.set(label, led.priorAtOpen());
+  // DRAND-RELAY-GET-1a (D-1 (b)): the ATTEMPTS per operator in this cycle = its `attempted` lines at open (read under the lock) + this run's.
+  const cycleAttempted = new Map<string, number>();
+  for (const [label, led] of ledgers) cycleAttempted.set(label, led.priorAttemptsAtOpen());
 
   const transport = opts.transport;
   let attempts = 0;
@@ -108,6 +117,8 @@ export function makeClient(config: ClientConfig, ledgers: ReadonlyMap<string, Cy
     const cls = classOf(op);
     const cost = costOf(op, cls, method);
     if (attempts + 1 > limits.maxCalls) refuse(op, method, "run_calls");
+    const acap = limits.cycleAttempts?.[op]; // assertLimits: held on a keyless operator only
+    if (acap !== undefined && exceeds(cycleAttempted.get(op) ?? 0, 1, acap)) refuse(op, method, "cycle_attempts");
     if (cls.unit !== "keyless") {
       // run cost cap PER OPERATOR (C-2): the chainstack RU cap never sums with the helius credit spend.
       if ((runByOp.get(op) ?? 0) + cost > limits.runCaps[op]!) refuse(op, method, "run_credits");
@@ -122,6 +133,7 @@ export function makeClient(config: ClientConfig, ledgers: ReadonlyMap<string, Cy
   const commit = (op: string, method: string, cost: number): void => {
     ledgers.get(op)!.append({ op, method, outcome: "attempted", credits: cost }); // WRITE-AHEAD (before the transport)
     attempts += 1;
+    cycleAttempted.set(op, (cycleAttempted.get(op) ?? 0) + 1);
     runByOp.set(op, (runByOp.get(op) ?? 0) + cost);
     methodAttempts[`${op}|${method}`] = (methodAttempts[`${op}|${method}`] ?? 0) + 1;
   };

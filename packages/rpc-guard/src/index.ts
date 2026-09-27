@@ -18,6 +18,8 @@ export { runCli } from "./cli.ts";
 export { verifyCycleLedger } from "./ledger.ts";
 export { heliusCredits, HELIUS_TARIFF_VERSION, chainstackRu, CHAINSTACK_TARIFF_VERSION } from "./tariff.ts";
 export { HELIUS_CYCLE_CAP_CREDITS, CHAINSTACK_CYCLE_CAP_RU, ETH_CALL_KEYLESS_LABELS, GET_LOGS_KEYLESS_LABELS } from "./transport.ts";
+// DRAND-RELAY-GET-1a (ADR-RPC-GUARD-DRAND-1 D-1): the two drand relay LABELS only - never a URL, a host, a path or the chain hash.
+export { DRAND_RELAY_LABELS } from "./transport.ts";
 // GARDE-HELIUS-1b-0 (D-8 / C-3c): the closed Bell-Solana method table + a construction-time --method-caps coverage
 // check the Bell client calls before a course opens (apps -> packages direction is licit; migrated at 1b-ii).
 export { BELL_SOLANA_METHODS, assertMethodCapsCover } from "./bell-methods.ts";

@@ -144,6 +144,8 @@ export interface CycleLedger {
   readonly op: string;
   entries(): readonly CycleLedgerEntry[];
   priorAtOpen(): number;
+  /** DRAND-RELAY-GET-1a (D-1 (b)): the count of `attempted` lines at open (refused, reconciled and unlocked lines excluded). */
+  priorAttemptsAtOpen(): number;
   append(rec: AttemptRecord): void;
   appendChained(outcome: Outcome, byOpMethod: Record<string, number>, credits: number, reason?: string): CycleLedgerEntry;
 }
@@ -188,6 +190,7 @@ export function openOperatorLedger(cycleDir: string, op: string, floor: number, 
   if (existsSync(`${headPath}.tmp`)) DURABLE_FS.unlinkSync(`${headPath}.tmp`);
   let head = ledgerHeadSha(entries);
   const frozenPrior = Math.max(floor, entries.reduce((a, e) => a + (e.outcome === "attempted" ? e.credits_derived : 0), 0));
+  const frozenAttempts = entries.filter((e) => e.outcome === "attempted").length; // D-1 (b): attempts at open, never credits
   const tariffVersion = tariffVersionOf(op); // per-operator (GARDE-HELIUS-2): a chainstack line never carries the helius version
   const appendChained = (outcome: Outcome, byOpMethod: Record<string, number>, credits: number, reason?: string): CycleLedgerEntry => {
     // GARDE-HELIUS-1b-0 (C-5 / 121): stamp `network` (after credits_derived, before reason) ONLY when this operator
@@ -204,6 +207,7 @@ export function openOperatorLedger(cycleDir: string, op: string, floor: number, 
     path, headPath, cycleDir, op,
     entries: () => entries,
     priorAtOpen: () => frozenPrior,
+    priorAttemptsAtOpen: () => frozenAttempts,
     append: (rec: AttemptRecord) => { appendChained(rec.outcome, { [`${rec.op}|${rec.method}`]: 1 }, rec.credits, rec.reason); },
     appendChained,
   };

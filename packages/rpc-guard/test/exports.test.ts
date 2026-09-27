@@ -60,8 +60,10 @@ test("public_export_set_is_closed", async () => {
     // GARDE-HELIUS-1b-0 (C-3c): the closed Bell-Solana method table + its construction-time --method-caps coverage
     // check (Bell imports these at 1b-ii; NOT a paid path - no symbol returns/accepts an endpoint URL).
     "BELL_SOLANA_METHODS", "assertMethodCapsCover",
+    // DRAND-RELAY-GET-1a (ADR-RPC-GUARD-DRAND-1 D-1): the two drand relay LABELS (never a URL, a host, a path or the chain hash).
+    "DRAND_RELAY_LABELS",
   ].sort(), "the public VALUE-export set drifted (no new paid path may be exported)");
-  for (const forbidden of ["makeClient", "resolveOperators", "resolveConfig", "InMemorySink", "openOperatorLedger", "acquireLock", "runUnlock"]) {
+  for (const forbidden of ["makeClient", "resolveOperators", "resolveConfig", "InMemorySink", "openOperatorLedger", "acquireLock", "runUnlock", "DRAND_QUICKNET_HASH"]) {
     assert.ok(!(forbidden in pub), `${forbidden} must NOT be public (C-V-2)`);
   }
 });
