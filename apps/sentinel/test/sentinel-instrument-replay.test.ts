@@ -8,7 +8,7 @@
 // document digest): no expected value is computed by the code under test. Temp files: os.tmpdir() (TEMP on F:).
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, existsSync, statSync, rmSync, symlinkSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, existsSync, statSync, rmSync, symlinkSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";
@@ -268,10 +268,6 @@ test("sentinel_instrument_never_touches_state_json - state.json and the inputs s
   }
   assert.equal(pathKey(join("A", "State.JSON"), "win32"), resolve("A", "State.JSON").toLowerCase(), "win32 keys are case-folded");
   assert.equal(pathKey(join("A", "State.JSON"), "linux"), resolve("A", "State.JSON"), "elsewhere the case is kept");
-  // A symlink is followed (real path): an --out link to state.json is state.json (writeFileSync would follow it).
-  const link = join(t.dir, "link.json");
-  symlinkSync(state, link);
-  assert.throws(() => runReplayCli(argsOf(t, link)), /--out is never state\.json/, "--out = a symlink to state.json");
   assert.deepEqual(snap(), before, "unchanged after the refusals");
   // Nor READ (C-G2-3): with state.json a DIRECTORY, any read of it throws EISDIR, and the run still succeeds.
   const u = tree();
@@ -311,4 +307,38 @@ test("sentinel_instrument_note_has_no_guarantee_words - closed list (ARL, guaran
     const patterns = compilePatterns([...cfg.banned, ...(s.banned ?? [])]);
     assert.deepEqual(scanText(served.join("\n"), patterns, s.exemptPhrases ?? []), [], `vocab scope ${scope}`);
   }
+});
+
+// Q-C-3: a symlink is followed (real path): an --out link to state.json is state.json (writeFileSync would follow it).
+// Creating a link needs a right on Windows (developer mode or administrator): EPERM => a DECLARED skip, never silent;
+// any other error fails the test.
+test("sentinel_instrument_out_symlink_is_state_json - an --out link to state.json is refused (skip declared on EPERM only)", (c) => {
+  const t = tree(), state = join(t.dir, "state.json"), link = join(t.dir, "link.json");
+  writeFileSync(state, "{}\n");
+  try { symlinkSync(state, link); } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "EPERM") throw e;
+    c.skip("symlink right absent (EPERM): the link case did not run on this host");
+    return;
+  }
+  assert.throws(() => runReplayCli(argsOf(t, link)), /--out is never state\.json/, "--out = a symlink to state.json");
+  assert.equal(readFileSync(state, "utf8"), "{}\n", "state.json untouched");
+});
+
+// Q-C-2, win32 only. Under Node a trailing dot or space is NOT an alias (paths are opened in the \?\ namespace):
+// "state.json." is a distinct file, written beside an untouched state.json (measured 2026-09-27; a Node that aliased
+// it would turn this red). An 8.3 short name IS an alias: realpathSync.native resolves it to the long name.
+const WIN_ONLY = process.platform === "win32" ? false : "win32 only (NTFS name aliases)";
+test("sentinel_instrument_out_win32_trailing_dot - state.json. is a distinct file under Node, state.json stays untouched", { skip: WIN_ONLY }, () => {
+  const t = tree(), state = join(t.dir, "state.json"), dotted = join(t.dir, "state.json.");
+  writeFileSync(state, "{}\n");
+  runReplayCli(argsOf(t, dotted));
+  assert.equal(readFileSync(state, "utf8"), "{}\n", "state.json untouched");
+  assert.ok(readdirSync(t.dir).includes("state.json."), "the output is its own file, named state.json.");
+});
+test("sentinel_instrument_out_win32_short_name - the 8.3 name of state.json is state.json (skip declared without 8.3 names)", { skip: WIN_ONLY }, (c) => {
+  const t = tree(), state = join(t.dir, "state.json"), short = join(t.dir, "STATE~1.JSO");
+  writeFileSync(state, "{}\n");
+  if (!existsSync(short)) { c.skip("no 8.3 short name on this volume (8dot3name creation off): the case did not run"); return; }
+  assert.throws(() => runReplayCli(argsOf(t, short)), /--out is never state\.json/, "STATE~1.JSO");
+  assert.equal(readFileSync(state, "utf8"), "{}\n", "state.json untouched");
 });

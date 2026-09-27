@@ -485,28 +485,46 @@ archive probe of ONE day (2025-10-16), measuring whether two DISTINCT providers 
 orchestrator's machine, never on the VPS; (d) **archive quorum: two distinct providers serve the old state, else STOP
 and a decision** (never widen the pool nor add a paid leg without one). Measured by the orchestrator on 2026-09-27
 (00:4x-00:50 UTC) (`F:\tmp\narabi-gap-logs\`): the keyless pool alone does NOT give this quorum on 2025-10-15.
-The only output filed there is the single-block probe (00:50:41Z, block 23586600: 2 of the 6 providers served a
-100-block `eth_getLogs` and the old `eth_call`); the full-day reads are console-only, not filed.
+Filed there: the single-block probe `probe-archive-20260927T0050Z.json` (00:50:41Z, block 23586600: 2 of the 6
+providers, mevblocker and Pocket, served a 100-block `eth_getLogs` and the old `eth_call`) and the full-day read
+`diag-day2-1020-20260927T0134Z.txt` (01:34Z, day 2025-10-20; Q-C-1). **Decision 247 (2026-09-27): the draw runs WITH
+the guarded Chainstack Ethereum leg (archive) AND with Pocket excluded** (`MONARK_SENTINEL_EXCLUDE_HOSTS`, below).
+Motive, measured: Pocket sometimes answers an archive `eth_getLogs` with a well-formed EMPTY result and no error
+(00:54Z: 2 434 / 0 / 2 434 logs on one request; 01:2x UTC: day 2025-10-20 read as 0 logs, console), and `quorumTwo`
+takes the first two successes in list order, so mevblocker + a lying Pocket stop the day before the Chainstack leg
+(last) is ever consulted, identically on every pass. It is intermittent, not constant: in the filed 01:34Z read Pocket
+agreed with mevblocker (4 276 + 3 499 = 7 775 logs). FAITS: `docs/narabi/FAITS-gap-archive-probe-2026-09-27.md`
+(commit `2381525`). Item NARABI-QUORUM-TIEBREAK-1 (consult a third provider on disagreement) is the engine-side fix.
 
 ```bash
 cd <a clean tree of the named G7 SHA, npm ci done>   # every command below runs from this tree's root, on the orchestrator's machine
 # (1) GAP DRAW — the eleven months 2025-10-15 .. J0-1 are in NO committed file (the series ends 2025-10-15, the live
 #     timeline opens at J0 = 2026-09-17). Read them with the sentinel's OWN engine into a SCRATCH state dir on the
-#     orchestrator's machine: keyless public pool only (every Chainstack key removed), never under a public/ dir.
+#     orchestrator's machine, never under a public/ dir (pool: see below, decision 247).
 #     J0 of the scratch run = 2025-10-15, so its first line RE-READS the committed seed (the CLI checks they agree).
 #     Each run stops at the 180 s catch-up budget (run.ts BUDGET_MAX_S, the default when MONARK_SENTINEL_BUDGET_S is
 #     unset, hence the -u below) and the next one resumes; the only measured timing is one published day in 25.481 s
 #     (section "Sonde externe"), so the draw takes hours (extrapolation).
-#     Days eleven months back need ARCHIVE state (totalSupply at old blocks): measured NOT enough on this keyless pool
-#     for 2025-10-15 (precondition (d) above: no draw until a decision). A provider
-#     without it fails the two-provider quorum, the run stops fail-closed (exit 1) and the loop retries; if the SAME
-#     day keeps stopping, STOP and escalate (never widen the pool or add a paid leg without a decision).
-G=F:/tmp/narabi-gap; lastday() { tail -1 "$G/timeline.jsonl" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).day))'; }
+#     Days eleven months back need ARCHIVE state (totalSupply at old blocks, old logs): the keyless pool alone is NOT
+#     enough (precondition (d)), hence decision 247: pool = the 7 keyless endpoints + the guarded Chainstack Ethereum
+#     leg (ledgered and capped by @monark/rpc-guard; the key-bearing CHAINSTACK_ETH_URL stays in the orchestrator's
+#     environment, read by the guard's transport, never on a command line; its ledger dir must pre-exist), MINUS
+#     Pocket: MONARK_SENTINEL_EXCLUDE_HOSTS=eth.api.pocket.network (motive: (d) above, a well-formed empty answer holds
+#     the quorum). The exclusion holds for this ARCHIVE draw only: production keeps the full pool; the served unit
+#     never sets the key, and it is never written into /etc/monark/sentinel.env. An excluded host leaves the pool AND
+#     each line's `endpoints` (provenance: only the endpoints actually used); a host not in the pool (a typo) is FATAL
+#     at start-up, before any read or write. A run that still stops fails closed (exit 1) and the loop retries; if the
+#     SAME day keeps stopping, STOP and escalate (never widen the pool or add a paid leg without a decision).
+G=F:/tmp/narabi-gap; mkdir -p "$G/ledger"; lastday() { tail -1 "$G/timeline.jsonl" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).day))'; }
 for i in $(seq 1 150); do
   [ -f "$G/timeline.jsonl" ] && [ "$(lastday)" \> "2026-09-15" ] && break
-  env -u CHAINSTACK_ETH_URL -u CHAINSTACK_CYCLE_ID -u CHAINSTACK_ETH_ORIGIN -u CHAINSTACK_CYCLE_FLOOR -u MONARK_SENTINEL_BUDGET_S \
+  env -u CHAINSTACK_ROBINHOOD_URL -u CHAINSTACK_SOLANA_URL -u CHAINSTACK_BASE_URL -u CHAINSTACK_BSC_URL -u MONARK_SENTINEL_BUDGET_S \
+    CHAINSTACK_CYCLE_ID=<current cycle id> CHAINSTACK_ETH_ORIGIN=https://ethereum-mainnet.core.chainstack.com \
+    CHAINSTACK_CYCLE_FLOOR=<dashboard total at the rollover, RU> MONARK_SENTINEL_EXCLUDE_HOSTS=eth.api.pocket.network \
     MONARK_SENTINEL_J0=2025-10-15 node apps/sentinel/src/run.ts --state "$G" || sleep 60
 done; lastday   # must be >= 2026-09-16 (a later day is fine: the overlap with the live days must agree)
+#     Each end JSON must show "chainstack": true, "chainstack_guard": "ok"; the lines' `endpoints` must not list Pocket.
+#     Record also the RU actually spent, read from $G/ledger (never an estimate).
 #     run.ts also creates $G/public/ (its local copies; harmless). --gap reads $G/timeline.jsonl, NEVER $G/public/...
 #     Record in docs/JOURNAL-PROVENANCE.md the UTC start/end of the draw and sha256 of $G/timeline.jsonl.
 # (2) LIVE FILES, read in the same minute AFTER the day's publishing run:

@@ -177,11 +177,13 @@ export function buildReplay(block: readonly WindowFacts[], perms: number, seed: 
 const rawInt = (v: string | null, re: RegExp): number => (v !== null && re.test(v) ? Number(v) : Number.NaN);
 
 /** The comparison key of a path: its real path when it exists (a symlink is followed), else its resolved path; on
- *  win32 (NTFS, case-insensitive: the orchestrator's machine, RUNBOOK section 7 (3)) case-folded, so STATE.JSON is
- *  state.json and another spelling of an input is that input. */
+ *  win32 (NTFS, case-insensitive: the orchestrator's machine, RUNBOOK section 7 (3)) the SYSTEM's final path
+ *  (realpathSync.native: an 8.3 short name such as STATE~1.JSO resolves to its long name, Q-C-2), case-folded, so
+ *  STATE.JSON is state.json and another spelling of an input is that input. A trailing dot or space is NOT an alias
+ *  under Node (it opens paths in the \\?\ namespace: "state.json." is a distinct file, measured 2026-09-27). */
 export function pathKey(p: string, platform: string = process.platform): string {
   let r = resolve(p);
-  try { r = realpathSync(r); } catch { /* not there yet (the --out file): its resolved path */ }
+  try { r = (platform === "win32" ? realpathSync.native : realpathSync)(r); } catch { /* not there yet (the --out file): its resolved path */ }
   return platform === "win32" ? r.toLowerCase() : r;
 }
 

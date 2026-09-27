@@ -501,3 +501,151 @@ citation du §5) — **60 mots** (découpe du test, limite atteinte), texte `F:\
 ?? apps/sentinel/test/sentinel-instrument-replay.test.ts
 ?? docs/G1-lot-narabi-l.md
 ```
+
+## Pli 2 (NARABI-L-GAP-1 : exclusion d'hôte pour le tirage d'archive ; Q-C-2, Q-C-3)
+claude-opus-5-5[1m]
+
+- **Modèle résolu (R-1, verbatim)** : `claude-opus-5-5[1m]` (préfixe `claude-opus-5-5`). Worker, instance fraîche, horodatage de
+  passe 2026-09-27T01:36Z (horloge `date -u` : travail ≈ 01:36Z → 01:51Z (livraison)).
+- **Mission** `F:\tmp\narabi\mission-corr2-narabi-l.md` (sha256 `9fb848ba…6e0e9d`) lue en entier ; section « Corrections après G2 »
+  de ce journal relue ; FAITS `docs/narabi/FAITS-gap-archive-probe-2026-09-27.md` (commit `2381525`, hors de cette branche),
+  `F:\tmp\narabi-gap-logs\` (`draw.sh`, `draw.log`, `diag-day2.mjs`, `diag-day2-1020-20260927T0134Z.txt`) et CHANTIERS
+  (décisions 246, 247, entrée 01:2x UTC) lus.
+- **État initial annoncé** : worktree `F:\Monark-wt-narabi`, branche `lot/narabi-l`, `git rev-parse HEAD` =
+  `a3e6f8f3221c3bff69abf5e5842ef759c7fc182e` (gel 1), `git status --short` **vide** (arbre propre, attendu).
+- Aucun `git add/commit/push` ; git en lecture seule ; aucun réseau ; `TEMP/TMP/TMPDIR=F:/tmp/narabi/tmp` ; rien sur C:. Tests
+  sentinelle seuls. Clones `git clone --no-local F:/Monark` + `checkout --detach a3e6f8f` (sans `alternates`), sous `F:\tmp\narabi\`
+  (aucun segment `public`) : `l-corr2-clone` (tests, typecheck, lint, vocab), `l-corr2-mutants\tree` (mutants), `l-corr2-r25`
+  (R-25, aucun `git add`) ; fichiers copiés par `sync-corr2.sh` (sha `a00d2d9b…0c10`, sha comparé des deux côtés) ; jonctions
+  `node_modules` par `mk-nm.ps1` (220 / 10 / fail 0, deux arbres).
+- Advisor intégré : consultations (conseil, jamais verdict) : (1) avant l'écriture (cohérence du RUNBOOK (1) avec la décision 247,
+  test d'env existant, fidélité du fichier Q-C-1, mutant « pool mais pas published » tuable seulement en sous-processus, 8.3 et
+  symlink en skip déclaré, R-25 > 700 en question) ; (2) avant la clôture.
+
+### Livré
+
+| # | Où | Ce qui est fait |
+|---|---|---|
+| 1 | `apps/sentinel/src/run.ts` | `excludeHosts(raw, endpoints, published)` (exportée, pure) : liste d'hôtes séparés par des virgules, chaque élément `trim()` + minuscules, comparé au `hostname` de l'URL (déjà en minuscules) de `published` ; `endpoints` et `published` sont parallèles (la jambe payante est le LIBELLÉ `chainstack` dans l'un, son ORIGINE dans l'autre) ⇒ filtrage par index des deux listes ; longueurs différentes ⇒ throw. Absent ou `""` ⇒ copies inchangées. Élément inconnu (faute de frappe, élément vide, espace seul, virgule finale, domaine enregistrable nu `pocket.network`) ⇒ throw (« … is not a host of the pool (…) »). **Lecture UNIQUE** dans `main`, à l'endroit où le pool est construit : `kept = excludeHosts(process.env.MONARK_SENTINEL_EXCLUDE_HOSTS, endpoints, published)` ; `prov.endpoints = kept.published`, `makeRpcPool({ endpoints: kept.endpoints })`. Le throw a lieu AVANT `makeRpcPool` et avant tout RPC ; il tombe dans le `try` ouvert après `openChainstackLeg`, donc le `finally` libère le verrou de cycle (exit 1, `sentinel FATAL`). |
+| 2 | `apps/sentinel/test/sentinel-exclude-hosts.test.ts` (neuf, 116 l.) | `sentinel_exclude_hosts_removes_pool_and_published` : **unité** sur la forme réelle du tirage (`[...PUBLIC, "chainstack"]` / `[...PUBLIC, origine]`) : Pocket sort des deux listes, libellé et origine Chainstack restent ; la paire libellé/origine sort ensemble (casse mêlée) ; `undefined` et `""` = inchangé ; 4 valeurs fautives refusées. **Sous-processus** (le VRAI `run.ts`, stub `fetch` dérivé de la capture committée, motif `sentinel-retry.test.ts` ; env enfant sans `CHAINSTACK_*` ni `MONARK_SENTINEL_*`) : seuls mevblocker, 1rpc et Pocket répondent. Absent ⇒ jour écrit, mevblocker **appelé** (non-vacuité), 7 endpoints publiés ; `""` ⇒ **mêmes octets** de `timeline.jsonl` ; `" RPC.MEVBLOCKER.IO , eth.drpc.org"` ⇒ jour écrit sur 1rpc + Pocket, les deux hôtes **jamais appelés** (journal des hôtes du stub), `endpoints` de la ligne = les 5 restants, `line_hash` identique ; `rpc.mevblocker.oi` ⇒ exit 1, `sentinel FATAL … is not a host of the pool`, **zéro appel RPC**, rien écrit ; `deploy/monark-sentinel.service` ne contient pas `EXCLUDE_HOSTS`. C'est le test d'intégration non-LLM du tuyau (règle Branchement). |
+| 3 | `docs/RUNBOOK-sentinel.md` §7 (1) | Précondition (d) complétée : fichiers déposés (sonde bloc `probe-archive-20260927T0050Z.json` ET lecture jour `diag-day2-1020-20260927T0134Z.txt`, Q-C-1), **décision 247** (jambe Chainstack + exclusion de Pocket), motif mesuré (réponse bien formée VIDE sans erreur : 2 434 / 0 / 2 434 à 00:54Z ; jour 2025-10-20 lu à 0 log, console, 01:2x UTC ; `quorumTwo` prend les deux premiers succès dans l'ordre, Chainstack dernier jamais consulté), **caractère intermittent dit** (la lecture déposée de 01:34Z montre Pocket CONCORDANT : 4 276 + 3 499 = 7 775 logs), renvoi NARABI-QUORUM-TIEBREAK-1. Commande du tirage : `MONARK_SENTINEL_EXCLUDE_HOSTS=eth.api.pocket.network` + jambe Chainstack (`CHAINSTACK_CYCLE_ID`, `CHAINSTACK_ETH_ORIGIN`, `CHAINSTACK_CYCLE_FLOOR` en gabarit ; `CHAINSTACK_ETH_URL` porteuse de clé laissée dans l'environnement de l'orchestrateur, lue par le transport du garde, jamais en ligne de commande ; `mkdir -p "$G/ledger"` ; les quatre autres `CHAINSTACK_*_URL` et `MONARK_SENTINEL_BUDGET_S` retirés — calque de `draw.sh`) ; note « l'exclusion ne vaut que pour le tirage d'archive ; la production garde le pool complet ; l'unité servie ne pose jamais la clé, jamais écrite dans `/etc/monark/sentinel.env` » ; contrôle de fin (`chainstack: true`, `chainstack_guard: "ok"`, pas de Pocket dans `endpoints`, RU lus au grand livre). Aucune ligne `ssh` ajoutée. |
+| 4 | `apps/sentinel/src/instrument-replay.ts` `pathKey` (Q-C-2) | Sous `win32` : `realpathSync.native` (chemin final du système : un nom court 8.3 se résout en nom long), puis minuscules ; ailleurs `realpathSync` inchangé. Docstring : un point/espace final n'est PAS un alias sous Node (mesure ci-dessous). |
+| 5 | `apps/sentinel/test/sentinel-instrument-replay.test.ts` (Q-C-2, Q-C-3) | Cas du lien symbolique SORTI de `never_touches` vers `sentinel_instrument_out_symlink_is_state_json` : `EPERM` à la création ⇒ `t.skip("symlink right absent (EPERM): …")` DÉCLARÉ, toute autre erreur ⇒ échec. Deux tests `{ skip: "win32 only (NTFS name aliases)" }` hors win32 : `sentinel_instrument_out_win32_trailing_dot` (épingle la mesure : `--out state.json.` écrit un fichier distinct nommé `state.json.`, `state.json` intact) et `sentinel_instrument_out_win32_short_name` (si `STATE~1.JSO` existe : refusé comme `state.json` ; sinon `t.skip("no 8.3 short name on this volume (8dot3name creation off): …")` DÉCLARÉ). |
+| 6 | `apps/sentinel/test/sentinel-catchup-budget.test.ts` | `sentinel_no_clock_env_is_read` : mise à jour ANNOTÉE (motif D-4 de NARABI-OPS-1d) — septième clé `MONARK_SENTINEL_EXCLUDE_HOSTS` dans la liste fermée ; « six » → « seven » dans le titre et le message. |
+
+**Mesure Q-C-2 (2026-09-27 ≈ 01:41Z, `F:\tmp\narabi\c2probe\`, node v24.15.0)** : `state.json` créé ; `existsSync`, `readFileSync`,
+`realpathSync` et `realpathSync.native` sur `state.json.`, `state.json ` et `STATE~1.JSO` ⇒ tous `ENOENT` ; `writeFileSync("new.json.")`
+crée un fichier nommé littéralement `new.json.` (Node ouvre les chemins dans l'espace `\\?\`, sans la normalisation Win32).
+`fsutil 8dot3name query F:` : création de noms 8.3 désactivée sur F: ; `fsutil file setshortname` refusé (privilège absent, non
+contourné). Conséquences : le point/espace final n'est pas un alias à couvrir sous Node (D-P2-3) ; le nom 8.3 en est un sur un volume
+qui en crée, et `realpathSync.native` le couvre, mais ce n'est **pas prouvé sur ce poste** (skip déclaré ; mutant X8 non tuable ici).
+
+### Item formé
+
+- **NARABI-QUORUM-TIEBREAK-1** — `quorumTwo` (`apps/sentinel/src/rpc.ts:175-197`) s'arrête aux DEUX premiers succès dans l'ordre de
+  la liste (`PUBLIC_ENDPOINTS` puis la jambe Chainstack en dernier) ; un fournisseur qui ment (réponse bien formée fausse, ex. `[]`
+  d'archive) face à un fournisseur honnête lève `QuorumDisagreementError` sans qu'un troisième soit jamais consulté, et chaque passe
+  repart de `rr = 0` ⇒ blocage **déterministe** du même jour (mesuré passes 2-3 du tirage du 27/09). Forme attendue : sur désaccord,
+  consulter un troisième fournisseur distinct (`providerOf`) avant de conclure — **2 sur 3** (deux réponses identiques l'emportent ;
+  trois distinctes ou pas de troisième ⇒ fail-closed inchangé) ; ligne d'ADR-M012 (quorum). Propriétaire : orchestrateur.
+  Déclencheur : prochain lot sentinelle. `MONARK_SENTINEL_EXCLUDE_HOSTS` est le palliatif du tirage, pas cette correction ; `rpc.ts`
+  non touché ici.
+
+### Déviations déclarées (D-P2-n)
+
+- **D-P2-1 (RUNBOOK (1) au-delà d'« une ligne »)** : la commande retirait TOUTES les clés Chainstack (pool public seul) ; exclure
+  Pocket d'un pool public seul laisse mevblocker comme unique fournisseur d'archive (FAITS §2) ⇒ quorum impossible dès le premier jour.
+  La commande est donc alignée sur la décision 247 et sur `draw.sh` (jambe Chainstack), en plus de la ligne demandée.
+- **D-P2-2 (test existant modifié)** : `sentinel_no_clock_env_is_read` rougit dès qu'une clé d'env est lue dans `run.ts` ; mis à jour
+  honnêtement (septième clé annotée), jamais contourné (pas de `process.env["…"]`).
+- **D-P2-3 (Q-C-2, point/espace final)** : mesuré non-alias sous Node ⇒ aucun repli de `.`/espace dans la clé (une première écriture
+  qui les retirait a été abandonnée avant tout test) ; le test win32 épingle le comportement mesuré (fichier distinct, `state.json`
+  intact) au lieu d'un refus ; un Node futur qui les aliaserait rougirait ce test.
+- **D-P2-4 (carte des tueurs du pli 1)** : le cas symlink quitte `never_touches` ⇒ la sonde N5 du pli 1 (« `realpath` retiré »)
+  aurait pour tueur `sentinel_instrument_out_symlink_is_state_json` ; la ligne `pathKey` est réécrite ⇒ les motifs N4/N5/N6 du harnais
+  du pli 1 ne se trouvent plus tels quels (à reprendre si ce harnais est rejoué). Le fichier de test du lot passe de 4 à 7 tests.
+- **D-P2-5 (ordre de lecture)** : la variable est lue après `openChainstackLeg` (la liste `published` dépend de l'origine de la jambe) ;
+  le throw précède tout RPC, et le verrou est libéré par le `finally` existant.
+- **D-P2-6 (artefact du crochet `after`)** : quand le test échoue dans sa partie unitaire (avant tout sous-processus), l'assertion de
+  non-vacuité du crochet `after` échoue aussi (aucun dossier alloué) ⇒ une ligne `not ok` au niveau du fichier ; visible pour X2, X3,
+  X5, X6. Même motif que les autres fichiers de la sentinelle.
+
+### Mutants (`F:\tmp\narabi\l-corr2-mutants\`, arbre `a3e6f8f` + fichiers du pli, node v24.15.0, 01:45:47Z → 01:45:55Z)
+
+Harnais `mutants2.mjs` (sha `b42b669d…15c9`) : règles du pli 1 (A-11 : tué SEULEMENT si le TAP porte `not ok N - <test visé>` ;
+D-1-bis : fichier temporaire + `fsync` + `rename`, sha du golden relu ; A-13 : chaque motif trouvé exactement 1 fois) ; env enfant sans
+`CHAINSTACK_*` ni `MONARK_SENTINEL_*`. `golden.sha256` relu OK après la campagne. `run.log` `c69cd7c6…2674`, `out/results.json`
+`534d1b1b…21cb`, un TAP par mutant dans `out/`.
+
+| # | Contrôle | Mutation | Résultat |
+|---|---|---|---|
+| X1 | **provenance filtrée dans `main`** (mission : « pool mais pas `published` ») | `prov.endpoints = published` | tué (sous-processus : `endpoints` de la ligne) |
+| X2 | **hôte inconnu = throw** (mission) | `continue` au lieu du throw | tué |
+| X3 | **comparaison insensible à la casse** (mission) | `.toLowerCase()` retiré du jeton | tué |
+| X4 | pool filtré dans `main` | `makeRpcPool({ endpoints })` non filtré | tué (journal des hôtes du stub) |
+| X5 | `published` filtré dans l'aide | `published: [...published]` | tué |
+| X6 | `""` = inchangé | garde `raw === ""` retirée | tué |
+| X7 | la clé est lue | `excludeHosts(undefined, …)` | tué |
+| X8 | Q-C-2 `realpathSync.native` | `realpathSync(r)` | **survit sur ce poste** : le test 8.3 est sauté (déclaré, F: sans noms 8.3) — dépend de l'hôte |
+| X9 | Q-C-2 point final non replié (mesure) | repli `[. ]+$` ajouté | tué (`trailing_dot`) |
+| X10 | Q-C-3 skip sur `EPERM` seul | `if (code !== "EPERM") throw e` retiré | **survit sur ce poste** (le droit de lien existe, la branche n'est pas atteinte) — équivalent sur cet hôte, déclaré |
+
+**8/10 tués par le test visé ; les 7 mutants de l'exclusion (dont les 3 de la mission) : 7/7** ; X8 et X10 survivants déclarés,
+dépendants de l'hôte.
+
+### Mesures
+
+- **Tests du pli** (clone, deux fichiers) : 8 tests, 7 pass, 0 fail, 1 skip déclaré (`win32_short_name`).
+- **Sentinelle** (`apps/sentinel/test/*.test.ts`, `run-sentinel.sh` sha `c61879c4…90095`, `env -u` des clés payantes et du budget,
+  clone `l-corr2-clone`) : **passage 1** 01:44:54Z → 01:48:11Z et **passage 2** 01:48:11Z → 01:51:32Z : **308 / 306 pass / 0 fail / 2 skip**
+  chacun (304 du pli 1 + 1 test d'exclusion + 3 tests Q-C-2/Q-C-3) ; les deux skips DÉCLARÉS : `sentinel_run_releases_chainstack_lock_on_sigterm`
+  (préexistant, win32) et `sentinel_instrument_out_win32_short_name` (F: sans noms 8.3) ; le test symlink a TOURNÉ (droit présent).
+  TAP `l-corr2-logs\pass1.tap` `c9c3327a…7fac1`, `pass2.tap` `147f942d…b835`, `passes.log`. Mutants lancés en parallèle du passage 1,
+  sur un arbre distinct.
+- **`typecheck`** (`tsc --noEmit`, clone ; `--listFilesOnly` confirme `run.ts`, `instrument-replay.ts` et les deux fichiers de test) : 0.
+  **`eslint`** sur les 5 fichiers de code/test touchés : 0. **`gate:vocab`** : 320 fichiers, OK.
+- **R-25 = 788** (`l-corr-r25-g2.mjs` du pli 1, sha `16a86443…41a0` inchangé, lit `ci.yml:82`/`:90`, clone `l-corr2-r25` au gel 1 +
+  fichiers du pli, base `d974e81`, aucune écriture git) : suivis `instrument-replay.ts` 267/0, `instrument.ts` 12/10, `run.ts` 25/2,
+  `sentinel-catchup-budget.test.ts` 4/2, `sentinel-instrument-replay.test.ts` 344/0, `sentinel.test.ts` 4/2 ; non suivi
+  `sentinel-exclude-hosts.test.ts` 116 ⇒ 772 + 16. **+181 sur 607** (run.ts +27, test neuf +116, test du lot +30, `pathKey` +2,
+  test d'env +6). Borne ADR 1 205, STOP 1 150 loin ; **au-dessus du seuil 700 évoqué au pli 1 ⇒ Q-P2-1**. `package-lock.json` absent
+  du diff. `r25.txt` `740e78df…a9f9`.
+- **Jonctions** : `rm-nm.ps1 -Tree` : `removed:` ×2 (`l-corr2-clone`, `l-corr2-mutants\tree` ; `l-corr2-r25` n'en a jamais eu) ;
+  `F:\Monark\node_modules` intact (220 entrées, `@monark` 10). Dossier de mesure `F:\tmp\narabi\c2probe\` laissé (un `state.json` de 3 octets).
+
+### Questions (propriétaire orchestrateur)
+
+- **Q-P2-1 (R-25 788 > 700)** : accepter (borne 1 205) ou couper ; seule coupe sensée = la moitié sous-processus du test neuf (≈ 60 l.),
+  mais c'est elle qui tue X1/X4/X7 (le câblage de `main`) — coupe déconseillée.
+- **Q-P2-2 (Q-C-2)** : prémisse « point/espace final » mesurée fausse sous Node (D-P2-3) ; le cas 8.3 n'est prouvé sur aucun hôte
+  mesuré (F: sans 8.3, `setshortname` sans privilège ; C: exclu par règle ; CI Linux = sauté). Décider : skip déclaré accepté, ou une
+  exécution unique du test sur un volume à noms 8.3 (acte orchestrateur).
+- **Q-P2-3 (RUNBOOK (1) aligné sur la décision 247)** : confirmer la forme (jambe Chainstack + exclusion, gabarits `<current cycle id>`
+  et `<dashboard total at the rollover, RU>`, `mkdir -p "$G/ledger"`). Avec Pocket exclu, l'archive tient sur **mevblocker + Chainstack
+  seuls** (FAITS §2) : un jour où mevblocker échoue franchement arrête la passe (quorum à deux fournisseurs) ; la boucle réessaie ; la
+  correction durable est NARABI-QUORUM-TIEBREAK-1.
+- **Q-P2-4 (Q-C-1, fidélité)** : le seul fichier déposé de lecture jour (`diag-day2-1020-20260927T0134Z.txt`, sha `576cb227…9047`)
+  montre Pocket CONCORDANT (7 775 logs) ; la lecture « 0 log sans erreur » du 2025-10-20 reste en console. Le RUNBOOK dit les deux ;
+  déposer une sortie datée de la lecture à 0 log si elle doit servir de preuve.
+
+### Empreintes finales (sha256) et état
+
+- `apps/sentinel/src/run.ts` `a02a9542f340eaf44a2d634bff52830e879973e67576f5c949305defe750aaf8` (399 l.)
+- `apps/sentinel/src/instrument-replay.ts` `c34f1757445be20e6e5c85617fb95252bc8a7377ec6c1011a9779bc1b33f9a06` (267 l.)
+- `apps/sentinel/test/sentinel-exclude-hosts.test.ts` `b23b73e2b9c2144888a018c65c69eb7e8fb349b2150df84120da028084c927e3` (116 l.)
+- `apps/sentinel/test/sentinel-instrument-replay.test.ts` `9898b91c85e7b19926cca13a3fcdf3cac136db211d8fe701f4e8da17520f8aa0` (344 l.)
+- `apps/sentinel/test/sentinel-catchup-budget.test.ts` `e56dff02e288bf2c6dec1eac4c364c7446f160b2662580555da0700a315a6eba` (404 l.)
+- `docs/RUNBOOK-sentinel.md` `dcafd8e3ccd9569f9dc6b306c74d593dcb2f7b8ba42ceb2a1a1d9ce67914f9b5` (637 l.)
+- Inchangés depuis le gel 1 : `apps/sentinel/src/instrument.ts` `dc0e9df8…325a0b`, `apps/sentinel/test/sentinel.test.ts` `676bb034…d094d165`.
+- Ce journal : dans `F:\tmp\narabi\l-corr2-deliver\DELIVERED.sha256` seulement. Outils : `sync-corr2.sh` `a00d2d9b…0c10`, `deliver-corr2.sh`.
+- **`git status --short` final** (HEAD `a3e6f8f3221c3bff69abf5e5842ef759c7fc182e`, branche `lot/narabi-l`), sept entrées (ce journal, committé au gel 1, est modifié) :
+
+```
+ M apps/sentinel/src/instrument-replay.ts
+ M apps/sentinel/src/run.ts
+ M apps/sentinel/test/sentinel-catchup-budget.test.ts
+ M apps/sentinel/test/sentinel-instrument-replay.test.ts
+ M docs/G1-lot-narabi-l.md
+ M docs/RUNBOOK-sentinel.md
+?? apps/sentinel/test/sentinel-exclude-hosts.test.ts
+```
