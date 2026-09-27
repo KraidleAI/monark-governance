@@ -1,7 +1,7 @@
 # ADR-M014 — e-détecteur de dérive (Shin–Ramdas–Rinaldo) : pré-enregistrement ancré, instrument étiqueté, jamais déclencheur
 
 - **Statut** : décision (pré-enregistrement) 2026-09-18 · checkpoint-1 validateur — dû avant le code · checkpoint-2 — dû avant clôture
-- **Dates** : décision 2026-09-18 · dernière modification 2026-09-18
+- **Dates** : décision 2026-09-18 · dernière modification 2026-09-27 (G7 de NARABI-L-1 : amendement D4)
 - **Rattachement** : ADR-M012 D6 (section instrument hors état), items (h) (clos 2026-09-18, `docs/biblio/M012-h/`) et (l) (publication
   post-J0, T ≥ 7) ; ADR-M010 (release) ; ADR-M013 ne s'applique pas (hors `apps/site`).
 - **Décision investisseur (verbatim, 2026-09-18)** : « demande aux deux advisor si on peut le faire maintenant, on est la, on vient juste de
@@ -123,3 +123,16 @@ mécaniquement et toutes ratées) ; les premières semaines n'invitent aucun re-
   no bound » conservé pour le 4,38 in-sample.
 - **Bascule** : si un franchissement devait un jour déclencher une action automatique, D2 tombe et le contrôle PFA (Rem. 2.7) devient obligatoire.
 - Rectificatif de renvoi : les « chemins 1/2 » sont portés par D2 de cet ADR, pas par `AVIS-advisor-defi-2e-cle-c-prime.md`.
+
+## Amendement 2026-09-27 (G7 de NARABI-L-1) — D4 : instantané unique du diagnostic de permutation (ADR-M012 (l))
+- **Refresh: none ; toute reprise = décision d'ADR sans nouveau p de permutation.** Le fichier `/narabi/instrument.json` de l'item (l)
+  d'ADR-M012 est **un instantané unique**, pris une fois à T ≥ 7 (jours jusqu'à `params.last_day`), jamais rafraîchi par le job quotidien.
+  Toute reprise est une **décision d'ADR** (ligne datée sous ADR-M012 (l)) et **ne publie aucun nouveau p de permutation** : le CUSUM et son
+  contrôle lisent un **bloc clos une fois** (aucun regard répété, aucune lecture séquentielle). La CLI livrée (`instrument-replay.ts`, gel
+  `b45db28`) **calcule toujours** la section `permutation` (`calm`, `all_evaluable`) : la décision de reprise dit donc aussi comment un
+  fichier repris est émis (même fichier de gap, son sha consigné, aucun nouveau tirage ; RUNBOOK-sentinel §7 « Refresh »).
+- `series` porte la valeur courante du CUSUM par fenêtre sous le libellé « retrospective permutation diagnostic over the closed block, not a
+  sequential reading » ; aucune clé d'alarme (`crossed`, `alarm`, `stop`, `detected` : 0 dans le fichier écrit, mesuré au checkpoint-2 de
+  NARABI-L-1).
+- La **section pré-J0** que D4 dit publiée (CUSUM 9,54 ; p = 1/1001 sur la fixture) **n'est pas** dans le fichier de (l) : elle est
+  renvoyée au lot NARABI-L-2 (clé `pre_j0`, recalculée hors ligne sur la série committée ; déclencheur 2026-10-18 ou go anticipé).

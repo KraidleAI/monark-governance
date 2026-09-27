@@ -563,6 +563,41 @@ file, its sha recorded, no new draw). **Not recommended:** running (3) on the VP
 `--out /var/lib/monark-sentinel/public/instrument.json --publish` needs the tree re-archived there, which changes the
 `sentinel_sha` of every later timeline line (ADR-M014, Consequences) — "nothing else changes" would no longer hold.
 
+**Amendement 2026-09-27 (G7 de NARABI-L-1)** (dated lines, additive; ADR-M012 item (l) and ADR-M014 D4 are amended the same day):
+- **Amendement 2026-09-27 (G7 de NARABI-L-1) — `sentinel_sha` consequence (ADR-M014, Consequences).** This section deploys no code,
+  so the daily lines keep their `sentinel_sha`. Any LATER redeploy of the sentinel tree from a SHA that carries
+  `apps/sentinel/src/instrument-replay.ts` (the G7 SHA of NARABI-L-1 or any later one) changes `sentinel_sha` on every daily line
+  written after it: `sentinelSha` hashes every `src/*.ts` (`run.ts:156-161`), and `run.ts` itself also changed in this lot
+  (`MONARK_SENTINEL_EXCLUDE_HOSTS`, gel 2 `33ece9f`). Declare it in that redeploy's entry of `docs/JOURNAL-PROVENANCE.md` (old and
+  new value, first day carrying the new one): expected, not a fault.
+- **Amendement 2026-09-27 (G7 de NARABI-L-1) — rule TASKSTOP-BASH-LOOP-1.** A harness TaskStop on a Git Bash loop running in the
+  background does NOT kill the loop nor its children (measured on draw 1, below). Every PAID loop run in the background (the (1) draw
+  loop above, Chainstack leg) carries a STOP file read at each iteration, as the first statement of the loop body:
+  `[ -f "$G/STOP" ] && { echo "STOP file $(date -u +%FT%TZ)"; break; }`; to stop, `touch "$G/STOP"`. A stop is recorded only after it
+  is verified by a process count (`Get-CimInstance Win32_Process`) covering BOTH the loop (its command line) AND its child
+  `node apps/sentinel/src/run.ts` (filter on `run.ts` too): 0 left for each. A STOP file acts between iterations only: a pass already
+  running (up to the 180 s budget) still finishes and still spends RU; a kill of the loop alone does not stop that child (measured on
+  draw 1, below). The bash block above is kept byte-identical (as accepted at the re-checkpoint-2 of NARABI-L-1); the operator adds the
+  STOP line when launching.
+- **Amendement 2026-09-27 (G7 de NARABI-L-1) — draw 1 note (shared reads only, `date -u` 03:41Z).** The line
+  `STOP-1 2026-09-27T01:56:18Z tirage 1 arrete par TaskStop` of `F:\tmp\narabi-gap-logs\draw.log` is FALSE: draw 1 (Pocket NOT excluded,
+  Chainstack leg, state `F:\tmp\narabi-gap`) went on, passes 24 to 62 from 01:58:05Z, in parallel with draw 2 on the paid leg. The last
+  line of `draw.log` (127 lines, mtime 03:10:29Z) is `pass 62 2026-09-27T03:10:29Z`, with NO `exit=` line after it: the bash loop was
+  killed during pass 62, at about 03:10-03:11Z (the orchestrator's process check read `date -u` 03:10). Its `node run.ts` child
+  OUTLIVED that kill: `run-62.log` reports `elapsed_ms` 184 651 (03:10:29Z + 184.7 s = 03:13:34Z) and, with
+  `F:\tmp\narabi-gap\timeline.jsonl`, was last written at 03:13:35Z (mtime read with `TZ=UTC`): `catchup_budget`, 15 lines written after
+  the kill on the paid leg (last day 2026-05-15; the file went from 198 lines at the end of pass 61, the count of the CHANTIERS incident entry, to 213). The process count of that
+  kill covered the `draw.sh` processes only (inference from these measures; it would not see the child). The "04:1x UTC" of the CHANTIERS incident entry of 2026-09-27 and of the re-checkpoint-2 report is
+  local time (GMT+1) labelled UTC, corrected by the CHANTIERS entry "03:2x UTC — CORRECTION D'HORODATAGE". Draw 1 stays a witness,
+  never an input of (3). The RU actually spent by BOTH draws are read at the end of draw 2 from
+  `F:\tmp\narabi-gap\ledger\chainstack-2026-09-19` and `F:\tmp\narabi-gap2\ledger\chainstack-2026-09-19` and recorded in
+  `docs/JOURNAL-PROVENANCE.md` — never estimated; draw 1's reading includes pass 62, run after the kill of its loop.
+- **Amendement 2026-09-27 (G7 de NARABI-L-1) — draw 2 provenance (declared).** Draw 2 (state `F:\tmp\narabi-gap2`, Pocket excluded,
+  Chainstack leg) runs from a clone of gel 2 `33ece9f` (`F:\tmp\narabi-gap-tree2`), not from the G7 SHA named at the top of this
+  section. Between gel 2 and gel 3 `b45db28`, the only change under `apps/sentinel/src/` is a two-line docstring of
+  `instrument-replay.ts` (C-V-1): the engine that writes the gap lines is the same code (`run.ts` `a02a9542…` at both), and those lines
+  carry the gel-2 `sentinel_sha`. Step (3) runs from the G7 SHA.
+
 ## Déploiement de la sonde (Bell) — sub-lot NARABI-OPS-1b-ii
 
 The external probe + mail alert ship as a single built-ins-only `scripts/probe-narabi.mjs` under

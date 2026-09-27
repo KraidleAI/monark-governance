@@ -779,3 +779,49 @@ historique du G1/pli 1 (la ligne 408 décrit le libellé d'alors, remplacé ici)
  M docs/RUNBOOK-sentinel.md
 ?? docs/CHECKPOINT2-lot-narabi-l.md
 ```
+
+## G7 (pli documentaire : ADR-M012 (l), ADR-M014 D4, RUNBOOK §7, ce journal)
+claude-opus-5-5[1m]
+
+- **Modèle résolu (R-1, verbatim)** : `claude-opus-5-5[1m]` (préfixe `claude-opus-5-5`). Worker documentaire, contexte frais, horodatage
+  de mission 2026-09-27T03:45Z ; horloge `date -u` : lectures 03:40:09Z → écriture 03:45:20Z → 03:51:01Z (dernière édition).
+- **Mission** `F:\tmp\narabi\mission-g7-narabi-l.md` lue en entier. Entrées lues : `docs/CHECKPOINT2-lot-narabi-l.md` (sha `318685a4…`)
+  et `docs/CHECKPOINT2b-lot-narabi-l.md` (sha `9ec9a9b3d93f6340…` = `F:\tmp\cp2-narabi-l\CP2b-report.md.sha256`), ce journal (intégral),
+  ADR-M012 (intégral), ADR-M014 (intégral), RUNBOOK §7, `F:\Monark\docs\CHANTIERS.md` (entrées NARABI-L-1 du 2026-09-26/27, décision 247,
+  CONSIGNE-G1-EXPORT-RUN-1, TASKSTOP-BASH-LOOP-1, correction d'horodatage 03:2x UTC) ; `F:\tmp\narabi-gap-logs\draw.log`, `run-62.log` et
+  les deux `timeline.jsonl` des tirages en lecture partagée seulement (mtime, `wc -l`, `tail`).
+- Worktree `F:\Monark-wt-narabi`, branche `lot/narabi-l`, HEAD `b45db28` (gel 3) ; état initial : deux non suivis de l'orchestrateur
+  (`docs/CHECKPOINT2-lot-narabi-l.md`, `docs/CHECKPOINT2b-lot-narabi-l.md`), non touchés. Aucun git écrivant, aucun réseau, rien sur C:.
+  Aucun des quatre fichiers n'est exporté (`scripts/export-public.mjs` : `docs/**` hors liste blanche, `docs/adr/` et `docs/G1-` dans
+  `STRUCTURAL_BLACKLIST`). Éditions additives seulement (0 ligne supprimée, `git diff` mesuré), LF, 0 CR.
+
+### Lignes datées
+
+- **Amendement 2026-09-27 (G7 de NARABI-L-1) — `error_origin` assigné au G7** (repris à l'ADR-M012, amendement (g)) :
+
+| Constat | `error_origin` | Suite |
+|---|---|---|
+| C-V-0 (test d'exclusion lisant `deploy/` sans condition ⇒ CI de l'export public rouge, test 42) | worker pli 2 | corrigé pli 3, rejoué dans un export local réel (cp-2b) |
+| C-V-1 (« delay », « optimality » dans la docstring d'`instrument-replay.ts`, non servis) | lacune de vérification G2 (FM-3.3) + libellé de mission (mission G1 : liste fermée sur la phrase publique ; missions G2 et cp-2 : aussi les commentaires) | corrigé pli 3 |
+| C-V-2 (RUNBOOK §7 (b) : jour nommé ≠ mesures déposées ; preuve « 0 log » non citée) | worker pli 2, forme | corrigé pli 3 |
+| C-V-3 (deux tirets cadratins) | worker pli 2, forme | corrigé pli 3 |
+
+  « PRÊT POUR CP-2 » du G2 (gel 0) et refus du cp-2 (gel 2) : arbres différents (le test fautif est né au pli 2), pas une divergence de
+  jugement. Incidents consignés avec l'origine déjà déclarée à la source, sans nouvelle assignation : écarts d'outillage du validateur (cp-2
+  §0, sans effet) ; heredoc du worker pli 3 (« Pli 3 », sans effet, réparé) ; ligne `STOP-1 01:56:18Z` fausse dans `draw.log` et boucle du
+  tirage 1 survivante au TaskStop (CHANTIERS, incident du 2026-09-27, règle TASKSTOP-BASH-LOOP-1 ; mesures au RUNBOOK §7).
+- **Amendement 2026-09-27 (G7 de NARABI-L-1) — aléa d'oracle local (hors lot)** : au passage 1 du gate `test` du re-checkpoint-2,
+  `apps/bell/test/bell-served-e2e.test.ts` a rougi au niveau fichier (1,55 s, sans assertion ; 1 363 au lieu de 1 367) ; rejoué seul :
+  5/5 verts ; passage 2 sous verrou : exit 0, 1 367 / 1 364 / 0 / 3. Fichier hors diff du lot (0 fichier Bell). Même famille que Q-11 (charge
+  d'hôte, 23 → 50 processus `node`). Consigné comme aléa, pas comme dette du lot ; **item formé seulement s'il se reproduit** (propriétaire
+  de Bell, « exécution à part sous verrou », modèle ORACLE-LOCAL-T42-1).
+
+### Fichiers de ce pli (sha256 avant → après)
+
+- `docs/adr/ADR-M012-narabi-live-sentinel.md` : `7833c133…2d8baacb` → `45d4c22a…90e75bb3` (+67 l. : amendements (a)-(h) en fin de fichier).
+- `docs/adr/ADR-M014-edetector-preregistration.md` : `199c0fd3…9817b601` → `6f01f3f7…d4609589` (+13 l. : section datée, D4).
+- `docs/RUNBOOK-sentinel.md` : `f12a0476…9a4d0853` → `1a1093fd…521537fe` (+35 l. en fin de §7, bloc bash inchangé ; le
+  tirage 1 y est mesuré : boucle tuée pendant la passe 62 vers 03:10-03:11Z, enfant `node run.ts` survivant jusqu'à 03:13:35Z, 15 lignes
+  écrites après l'arrêt sur la jambe payante — la vérification par comptage doit couvrir la boucle ET cet enfant).
+- Ce journal : avant `97cf04e4…d66ff4ea` ; après : dans la réponse du worker seulement.
+- **`git status --short` final attendu** (HEAD `b45db28`) : ` M` sur les quatre fichiers ci-dessus + les deux `??` de l'orchestrateur.
