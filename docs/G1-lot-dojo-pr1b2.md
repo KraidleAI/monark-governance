@@ -324,3 +324,14 @@ claude-opus-5-5[1m]
 - **Q-C-2 (« ligne demandée » de F-1)** — Lue comme la tête (dernier `snapshot`), sinon la dernière ligne ; une ligne annulée après la tête est acceptée et rapportée (`voided_lines`). Alternative plus stricte : toute ligne annulée refuse (P-55 deviendrait le code). À confirmer au G7, avec la ligne datée de divergence Bell.
 - **Q-C-3 (numérotation)** — Section ajoutée en §16 (les §14 et §15 existaient) ; aucune renumérotation.
 - Aucune consultation advisor intégrée n'a précédé une lecture sous droits ; deux consultations (après l'orientation ; avant la déclaration de fin), avis jamais verdict.
+
+### 16.7 `error_origin` assigné au G7 (ligne datée 2026-09-27, neuvième pli de la mère)
+- Ligne datée 2026-09-27 (G7 de PR-1b-2 ; écrite par le worker `claude-opus-5-5[1m]` du neuvième pli, mission `F:\tmp\dojo\mission-g7-pli9.md`, sur la proposition du rapport du checkpoint-2 §5, C-V-5 ; réviseur : orchestrateur `claude-fable-5-1`) : **error_origin assigné au G7** :
+  - **C-G2-1** (commentaire redondant de `dojo-chain.d.mts:6` laissé au gel de PR-1b-1, hors des lignes admises) = **orchestrateur** ;
+  - **C-G2-2** (table des emplois des codes du vérificateur absente de la mère) = **planificateur** (pli documentaire dû, même assignation que C-V-1 au huitième pli ; posée par analogie, le rapport ne la nomme pas : question formée au pli) ;
+  - **C-G2-3** (six comportements corrects non épinglés : R-03, R-04, R-06, R-07, R-15, R-17) = **générateur** ;
+  - **C-G2-4** (dossiers temporaires laissés par `writeTree`) = **générateur** ; le précédent Bell identique (`apps/bell/test/helpers/bell-served.ts:24`) = **doctrine** (item BELL-TMP-CLEANUP-1) ;
+  - **C-G2-5** (lecture d'une borne de 600 s ; `detail`) = **générateur** ;
+  - **F-1** (D-10 ne disait pas le sort des lignes annulées ; tranché fail-closed par l'orchestrateur) = **spécification** ;
+  - **F-2** (règle d'existence d'une ligne : D-7 l.222 de la mère au `2a2a576`, l.223 après le neuvième pli, contre ADR de lot l.463) = **spécification** ; à trancher par PLI-PR2B-NEXT-1.
+- **Précision (rapport du checkpoint-2 §5)** : la table des emplois des codes par le vérificateur, dans l'amendement « Neuvième pli » de la mère, **fait foi** sur le §3.1 point 5 et sur la ligne `key_not_active` du §3.2 de ce journal, élargis par F-1 (§16.1) et laissés tels quels comme trace.
