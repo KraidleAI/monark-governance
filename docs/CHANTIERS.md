@@ -1909,3 +1909,8 @@ CI complète sur l'arbre fusionné 573/573 ; R-25 1 195 ; checkpoint-2 REFUSE (a
 - **G2 PR-2b-3** lancé (`wf_059d4dfd-ddd`, relecteur effort max, mission `mission-g2-pr2b3.md` sha `328b49e8…`, sondes P-1..P-10 imposées, point 5 du cp-2 de PR-2b-2 à vérifier).
 - Investisseur : liste des **33 procurements PAROXYSME avec DOI** rendue (PXP-01..33 ; P1 = 01..10) ; proposition : tenter PXP-07/15/19/21/24/25/26/27 (accès libre probable) par navigateur externe sous go.
 - En vol (6) : pli C-V-1 PR-4a-1, G1 DRAND-1a, G1 PR-3b-1, G2 PR-2b-3, G0 RG-RECONCILE-1 ; PR-4b prête.
+
+### 2026-09-27 13:28Z — Dōjō PR-4a-1 : pli C-V-1 RENDU → G7 ACCEPTÉE → gel 2 `1aa1acb` → FUSION `2ad2e47` ; mère 13ᵉ pli + plan FUSIONNÉS dans le tronc `8c60f65` (DOJO-SITE-MERE-ALIGN-1 servi) ; G1 PR-4b LANCÉ
+- Pli (`claude-opus-5-5[1m]`, 42 min) : 12 lignes de test (C-1..C-4, C-7 ; chaque refus vérifié sur son message), module `apps/site/lib` inchangé (40 sha égaux), 4/4, 7/7 portes (verrou 13:13–13:24Z après 19 min), test 42 vert en suite (352 s) et à part (206 s), mutants **51/54** (survivants G-M8, G-M19, C-8 — C-8 reclassé « équivalent par construction » : le marcheur refuse une seconde ligne `history` ; confirmé), R-25 **499** (≤ 502). `error_origin` §14.11 confirmés. Réponses (a)-(e) en ligne datée ADR PR-4.
+- Fusions sans conflit : PR-4a-1 → tronc ; `lot/dojo-snapshot-1` (mère 1 361 l., plan, FAITS) → tronc ; tronc → `lot/dojo-site` (`809b9da`). **Tronc : 9 PR Dōjō fusionnées** (A1, 1a, 1b-1, 1b-2, 1b-3, 2-1, 2-2, 2b-1, 2b-2, 4a-1).
+- **G1 PR-4b lancé** (mission `mission-g1-pr4b.md` mise à jour, effort max ; coupe de repli pré-déclarée à 547 asc. avant écriture ; textes du cp-1 bref ; TXT-14+ exclus jusqu'à PR-4c-1).
