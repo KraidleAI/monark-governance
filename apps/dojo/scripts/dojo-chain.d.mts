@@ -9,5 +9,5 @@ export type DojoWalkReason = "timeline_malformed" | "chain_broken" | "rotation_k
   | "seed_revealed_early" | "seed_chain_broken" | "price_version_mismatch" | "version_not_in_force";
 export const DOJO_WALK_REASONS: readonly DojoWalkReason[];
 export type DojoWalkResult = { ok: true; active: string | null; head: Record<string, unknown> | null; voided: number[]; breaks: Break[] }
-  | { ok: false; seq: number; reason: DojoWalkReason };
+  | { ok: false; seq: number; reason: DojoWalkReason; detail?: "read_rule" };
 export function walkDojoTimeline(lines: readonly unknown[], trust: Trust): DojoWalkResult;
