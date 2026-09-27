@@ -158,3 +158,13 @@ was read after checking that each unpacked file equals its archive entry byte fo
   (`public/scene/blocks-hero.html`, unchanged, still served) and its legend are the hero visual of /bell.
 
 - `components/bell-scene.tsx` (2026-09-24, orchestrateur `claude-fable-5-1`, investor request the same day: text and animation side by side, full size, one block, no frame) — the /bell hero scene rewritten as a native client component from `public/scene/blocks-hero.html` (removed the same day; its drawing, palette and four labels are carried over unchanged). Fixes the lag on scrolling back: the iframe's own loop kept running out of view; the component pauses its loop while out of the viewport (IntersectionObserver) and while the document is hidden, resumes from a wall clock capped at 0.1 s per frame, follows its container with a ResizeObserver, draws one still frame under reduced motion. Layout `.c-hero--bell` (globals.css): two columns on desktop, stacked on mobile (300 px). No library.
+
+## The Dōjō hold snapshot (2026-09-27)
+
+Authored directly (no CLI, no npm dependency added):
+
+- `app/dojo/page.tsx` — the /dojo page, rendered at build time from the committed, hashed record (`data/dojo-served.json`
+  with its entry in `data/manifest.sha256.json`, read by `lib/dojo-served-load.ts`); without a record it is not a page.
+- `components/dojo/dojo-figures.tsx` — the one path by which the page renders a figure (property access, never typed).
+- `lib/dojo-copy.ts` — the closed list of the page's texts and the tier names; `lib/dojo-register.ts` — the program's
+  register, apart from `lib/fleet.ts`. `app/token/page.tsx` links to /dojo only once a record is committed.

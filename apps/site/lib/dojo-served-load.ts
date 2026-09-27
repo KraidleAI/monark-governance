@@ -30,7 +30,7 @@ export const dojoHistoryPathOf = (sha256: string): string => `history/${sha256}.
 
 // -- Closed keys (the timeline line of each kind, the head record, the dojo-keyring-v1 key set) --
 export const DOJO_HEAD_KEYS = ["seq", "day", "status", "lines_count", "root", "lines_sha256", "score_total", "validated_total", "holders_count",
-  "price_version", "threshold_unit", "dust_threshold", "decimals", "k_reads", "slot_min", "slot_max", "line_hash", "key_id", "published_at"] as const;
+  "price_version", "threshold_unit", "dust_threshold", "decimals", "k_reads", "reads_done", "slot_min", "slot_max", "line_hash", "key_id", "published_at"] as const;
 export const DOJO_HISTORY_KEYS = ["history_first_day", "history_last_day", "history_sha256", "history_lines_count", "history_root"] as const;
 /** The signed anchor line, carried whole: the one committed source of k_reads, validation_days, tier_units and tier_windows. */
 export const DOJO_ANCHOR_KEYS = ["schema", "seq", "kind", "prev_line_hash", "key_id", "published_at", "sig", "seed_anchor", "mint", "program", "k_reads",
@@ -44,7 +44,7 @@ export type DojoStatus = "counted" | "abstained";
 export interface DojoServedHead {
   seq: number; day: string; status: DojoStatus; lines_count: number; root: string; lines_sha256: string; score_total: string; validated_total: string;
   holders_count: number | null; price_version: number | null; threshold_unit: string | null; dust_threshold: string | null; decimals: number;
-  k_reads: number; slot_min: number | null; slot_max: number | null; line_hash: string; key_id: string; published_at: string;
+  k_reads: number; reads_done: number; slot_min: number | null; slot_max: number | null; line_hash: string; key_id: string; published_at: string;
 }
 export interface DojoServedHistory { history_first_day: string; history_last_day: string; history_sha256: string; history_lines_count: number; history_root: string }
 export interface DojoKeyringEntry { key_id: string; public_key: { kty: "OKP"; crv: "Ed25519"; x: string }; valid_from_seq: number; valid_to_seq?: number; revoked_from_seq?: number }
@@ -133,7 +133,7 @@ export function loadDojoServed(rootDir: string): DojoServedData | null {
     score_total: str(h.score_total, DEC, "head.score_total"), validated_total: str(h.validated_total, DEC, "head.validated_total"),
     holders_count: orNull(h.holders_count, (x) => int(x, "head.holders_count")), price_version: orNull(h.price_version, (x) => int(x, "head.price_version", 1)),
     threshold_unit: orNull(h.threshold_unit, (x) => str(x, DEC, "head.threshold_unit")), dust_threshold: orNull(h.dust_threshold, (x) => str(x, DEC, "head.dust_threshold")),
-    decimals: int(h.decimals, "head.decimals"), k_reads: int(h.k_reads, "head.k_reads", 1),
+    decimals: int(h.decimals, "head.decimals"), k_reads: int(h.k_reads, "head.k_reads", 1), reads_done: int(h.reads_done, "head.reads_done"),
     slot_min: orNull(h.slot_min, (x) => int(x, "head.slot_min")), slot_max: orNull(h.slot_max, (x) => int(x, "head.slot_max")),
     line_hash: str(h.line_hash, HEX64, "head.line_hash"), key_id: str(h.key_id, HEX64, "head.key_id"), published_at: str(h.published_at, ISO_UTC, "head.published_at"),
   };
@@ -142,6 +142,7 @@ export function loadDojoServed(rootDir: string): DojoServedData | null {
   if (versioned.some((x) => x !== (head.price_version !== null))) fail("head: holders_count, threshold_unit and dust_threshold exist exactly with a price_version");
   if ((head.slot_min === null) !== (head.slot_max === null) || (head.slot_min === null) !== (status === "abstained")) fail("head: a counted snapshot carries its slots, an abstained one none");
   if (head.slot_min !== null && head.slot_max !== null && head.slot_min > head.slot_max) fail("head: slot_min exceeds slot_max");
+  if ((head.reads_done === 0) !== (status === "abstained") || head.reads_done > head.k_reads) fail("head: reads_done is 0 exactly when abstained, and at most k_reads");
   if (BigInt(head.validated_total) > BigInt(head.score_total) || (head.holders_count ?? 0) > head.lines_count) fail("head: totals disagree");
   const anchor = anchorOf(tl.anchor);
   const timeline = { schema: str(tl.schema, SCHEMA_ID, "timeline.schema"), lines: int(tl.lines, "timeline.lines", 1), snapshots: int(tl.snapshots, "timeline.snapshots", 1), anchor };
@@ -239,7 +240,7 @@ export async function buildDojoServed<T extends ReadonlyMap<string, { x: string 
     head: { seq: head.seq, day: head.day, status: head.status, lines_count: head.lines_count, root: head.root, lines_sha256: head.lines_sha256,
       score_total: head.score_total, validated_total: head.validated_total, holders_count: head.holders_count, price_version: head.price_version,
       threshold_unit: version === null ? null : version.threshold_unit, dust_threshold: version === null ? null : version.dust_threshold, decimals: head.decimals,
-      k_reads: anchor.k_reads, slot_min: slot(mins, (a, b) => Math.min(a, b)), slot_max: slot(maxs, (a, b) => Math.max(a, b)), line_hash: deps.lineHash(head), key_id: head.key_id, published_at: head.published_at },
+      k_reads: anchor.k_reads, reads_done: mins.length, slot_min: slot(mins, (a, b) => Math.min(a, b)), slot_max: slot(maxs, (a, b) => Math.max(a, b)), line_hash: deps.lineHash(head), key_id: head.key_id, published_at: head.published_at },
     history: Object.fromEntries(DOJO_HISTORY_KEYS.map((k) => [k, hist[k]])),
     keyring,
     bodies_sha256: { timeline: sha256Hex(body(DOJO_TIMELINE_PATH)), pubkey: sha256Hex(body(DOJO_PUBKEY_PATH)) },

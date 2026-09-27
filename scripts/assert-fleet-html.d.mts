@@ -86,3 +86,27 @@ export function assertBellAnchorBody(args: { html: string; state: "none" | "pend
 export function bellStatusText(status: { bitcoinHeights: number[]; pendingCalendars: string[] } | null): { label: string; detail: string };
 /** Assert each publication row renders its status label and detail beside its manifest digest, and the latest-anchored line; throws. */
 export function assertBellPublicationsTable(args: { html: string; rows: ReadonlyArray<{ manifest_sha256: string; label: string; detail: string }>; latest: string; counts: string }): { rows: number };
+
+/* ── /dojo: the hold snapshot, rendered only once a snapshot is served ── */
+/** The built /dojo artefact and its metadata, and the built /token artefact, relative to the repo root. */
+export const DOJO_HTML_REL: string;
+export const DOJO_META_REL: string;
+export const TOKEN_HTML_REL: string;
+/** The two names whose digits the texts of /dojo carry: SHA-256 and Ed25519. */
+export const DOJO_NAMED_IDS: readonly string[];
+/** The tier names, the closed list in its order, held apart from the page's constant. */
+export const DOJO_TIER_NAMES: readonly string[];
+/** Words /dojo never renders (whole words, any case). */
+export const DOJO_FORBIDDEN: readonly RegExp[];
+/** A figure of the closed list /dojo renders: its exact string and where the check read it. */
+export interface DojoFigure { value: string; source: string }
+/** What main() asserts on /dojo for the state of the committed record ("E0": no record, so no page). */
+export type DojoExpected =
+  | { state: "E0" }
+  | { state: "E1" | "E2" | "EA"; figures: ReadonlyArray<DojoFigure>; sentences: string[]; absentSentences: string[]; tierNames: string[]; status: string };
+/** Assert the built /dojo <main> against `expected`; throws on failure (vacuity-guarded, fail-closed). */
+export function assertDojoBody(args: { html: string; expected: Exclude<DojoExpected, { state: "E0" }> }): { state: string; figures: number; corpusChars: number; status: string };
+/** Before any served snapshot: no /dojo page (none, or the not-found document with status 404) and no link to it on /token; throws. */
+export function assertDojoAbsent(args: { dojoHtml: string | null; dojoMeta: string | null; tokenHtml: string }): { page: string };
+/** The expectations of /dojo from the committed record under `dataRoot` (default the repo root); throws fail-closed. */
+export function dojoExpected(dataRoot?: string): Promise<DojoExpected>;

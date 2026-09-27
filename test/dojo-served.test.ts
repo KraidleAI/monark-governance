@@ -58,14 +58,14 @@ const tokens = (raw: string, d: number): string => {
 function expected(tree: Tree): Rec {
   const lines = (tree.get("timeline.jsonl") ?? Buffer.alloc(0)).toString().trimEnd().split("\n").map((s) => JSON.parse(s) as Rec);
   const head = lines.filter((l) => l.kind === "snapshot").pop() ?? {}, anchor = lines.find((l) => l.kind === "anchor") ?? {};
-  if (head.status === "abstained") return { state: "EA", day: head.day };
+  const v = lines.find((l) => l.kind === "price_version" && l.price_version === head.price_version) ?? {}, d = head.decimals as number;
+  if (head.status === "abstained") return { state: "EA", day: head.day, ...(head.price_version === null ? {} : { threshold_unit_token_days: tokens(String(v.threshold_unit), d) }) };
   const raw = (tree.get(`lines/${String(head.lines_sha256)}.jsonl`) ?? Buffer.alloc(0)).toString().split("\n").filter((s) => s !== "");
   const objs = raw.map((s) => JSON.parse(s) as Rec), sum = (k: string): string => String(objs.reduce((t, o) => t + BigInt(String(o[k])), 0n));
   const reads = head.reads as Rec[], slots = (k: string): number[] => reads.map((r) => r[k]).filter((x): x is number => typeof x === "number");
-  const out: Rec = { state: head.price_version === null ? "E1" : "E2", day: head.day, k_reads: String(anchor.k_reads), slot_min: String(Math.min(...slots("slot_min"))),
-    slot_max: String(Math.max(...slots("slot_max"))), lines_count: String(raw.length), root: merkle(raw).toString("hex"), score_total: sum("score"), validated_total: sum("validated") };
+  const out: Rec = { state: head.price_version === null ? "E1" : "E2", day: head.day, reads_done: String(slots("slot_min").length), k_reads: String(anchor.k_reads), slot_min: String(Math.min(...slots("slot_min"))),
+    slot_max: String(Math.max(...slots("slot_max"))), lines_count: String(raw.length), root: merkle(raw).toString("hex"), score_total: tokens(sum("score"), d), validated_total: tokens(sum("validated"), d) };
   if (head.price_version === null) return out;
-  const v = lines.find((l) => l.kind === "price_version" && l.price_version === head.price_version) ?? {}, d = head.decimals as number;
   return { ...out, threshold_unit_token_days: tokens(String(v.threshold_unit), d), holders_count: String(objs.filter((o) => o.holder_counted === true).length),
     dust_threshold_tokens: tokens(String(v.dust_threshold), d) };
 }
@@ -133,6 +133,7 @@ test("dojo_served_loader_is_fail_closed", async () => {
     [data, (d) => { (d.history as Rec).history_last_day = hd(d).day; }, /history must end before the head's day/],
     [data, (d) => { hd(d).status = "abstained"; }, /a counted snapshot carries its slots/],
     [data, (d) => { hd(d).validated_total = `${String(hd(d).score_total)}1`; }, /totals disagree/],
+    [data, (d) => { hd(d).reads_done = (hd(d).k_reads as number) + 1; }, /reads_done is 0 exactly when abstained/], [data, (d) => { hd(d).reads_done = 0; }, /reads_done is 0 exactly when abstained/],
     // C-V-1 (cp-2): the anchor before the head, the head and the snapshots within the timeline, one schema (C-4); the history's days in order (C-7).
     [data, (d) => { (tl(d).anchor as Rec).seq = hd(d).seq; }, /counts disagree/], [data, (d) => { tl(d).lines = (hd(d).seq as number) - 1; }, /counts disagree/],
     [data, (d) => { tl(d).snapshots = (tl(d).lines as number) + 1; }, /counts disagree/], [data, (d) => { tl(d).schema = "dojo-timeline-v2"; }, /counts disagree/],
