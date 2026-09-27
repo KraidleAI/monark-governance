@@ -4,13 +4,19 @@
 // "RPC calls are 1 credit with two exceptions: getProgramAccounts and archival calls are 10 credits. DAS calls
 // are 10 credits." Cross-checked against apps/bell/src/rebase-crosscheck.ts:55-56 (CREDITS_PER_GTFA=10,
 // CREDITS_PER_GET_TX=1). Version-stamped so the tariff is frozen in ONE place (ledger header `tariff_version`).
-export const HELIUS_TARIFF_VERSION = "helius-2026-09-21";
+// GARDE-GTFA-FULL-TARIFF-1 (ADR-RPC-GUARD-RECONCILE-1 D-2): gTfA is metered by RETURNED results, read on site on the credits
+// page (docs/dojo/FAITS-cp1d-lectures-2026-09-26.md L-2 [lu]): "Full transactions cost 10 credits per 100 returned;
+// signatures-only responses cost 10 credits flat"; "Failed API responses Free". Hence TWO numbers: the worst case RESERVED
+// before the call (heliusCredits) and the credits SETTLED on the response (heliusSettle). The version is the date of L-2.
+import type { SettleOutcome } from "./client.ts";
+
+export const HELIUS_TARIFF_VERSION = "helius-2026-09-26";
 
 /** The 10-credit methods: archival + getProgramAccounts + DAS (getAsset*). Everything else on the table = 1. A
  *  method ABSENT from the table is fail-closed (throws) - mis-pricing an archival/DAS method at 1 would be a
- *  fail-open of the HELIUS-1 class (ruling Q2). getTransactionsForAddress is the archival gTfA of the incident. */
+ *  fail-open of the HELIUS-1 class (ruling Q2). getTransactionsForAddress (the archival gTfA of the incident) is priced
+ *  by its page, below (D-2). */
 const TEN_CREDIT = new Set<string>([
-  "getTransactionsForAddress",
   "getProgramAccounts",
   "getAsset", "getAssetProof", "getAssetsByOwner", "getAssetsByGroup", "getAssetsByCreator",
   "getAssetsByAuthority", "searchAssets", "getSignaturesForAsset", "getTokenAccounts", "getNftEditions",
@@ -21,12 +27,39 @@ const ONE_CREDIT = new Set<string>([
   "sendTransaction", "getTokenSupply", "getTokenAccountBalance", "isBlockhashValid",
 ]);
 
-/** Credits for one Helius request of `method`. Throws (fail-closed) when the method is not on the closed table -
- *  NEVER a default of 0 or a silent worst-case (T15, ruling Q2). */
-export function heliusCredits(method: string): number {
+/** gTfA (D-2): 10 credits per started 100 results, 10 minimum (L-2 table: 1-100 -> 10, 250 -> 30, 1,000 -> 100). */
+const GTFA = "getTransactionsForAddress";
+const perHundred = (n: number): number => 10 * Math.max(1, Math.ceil(n / 100));
+/** The gTfA options object params[1] ({transactionDetails, limit, ...}); anything else reads as "no option" (worst case). */
+const gtfaOptions = (params?: readonly unknown[]): { readonly transactionDetails?: unknown; readonly limit?: unknown } => {
+  const o = params?.[1];
+  return typeof o === "object" && o !== null ? o : {};
+};
+
+/** Credits RESERVED for one Helius request of `method`, BEFORE the call: the write-ahead `attempted` line and the run and
+ *  cycle caps read this number (fail-closed). gTfA: `signatures` => 10 flat; otherwise (full, absent or unknown) the worst
+ *  case 10 x ceil(L/100), L = `limit` when an integer in 1..1000, else 1000 (L-1 [lu]: default 1000, "Use 1-1000").
+ *  Throws (fail-closed) when the method is not on the closed table - NEVER a default of 0 or a silent worst-case (T15,
+ *  ruling Q2). */
+export function heliusCredits(method: string, params?: readonly unknown[]): number {
+  if (method === GTFA) {
+    const o = gtfaOptions(params), l = o.limit;
+    return o.transactionDetails === "signatures" ? 10 : perHundred(typeof l === "number" && Number.isInteger(l) && l >= 1 && l <= 1000 ? l : 1000);
+  }
   if (TEN_CREDIT.has(method)) return 10;
   if (ONE_CREDIT.has(method)) return 1;
   throw new Error(`rpc-guard: Helius method '${method}' is absent from the closed tariff table (fail-closed; ruling Q2)`);
+}
+
+/** Credits SETTLED once a gTfA response is in (D-2): 10 x max(1, ceil(n/100)) on the n bodies RENDERED (`result.data`),
+ *  NEVER capped at the reservation (TY-7); a RECEIVED failed response is free (Q-O1 (a), L-2 "Failed API responses
+ *  Free"). undefined = no settlement, the reservation stands: another method, `signatures` (flat), or no `data` array. */
+export function heliusSettle(method: string, params: readonly unknown[], outcome: SettleOutcome): { credits: number; note: string } | undefined {
+  if (method !== GTFA) return undefined;
+  if ("failed" in outcome) return { credits: 0, note: `failed:${outcome.failed}` };
+  const r = outcome.result, data = typeof r === "object" && r !== null ? (r as { data?: unknown }).data : undefined;
+  if (gtfaOptions(params).transactionDetails === "signatures" || !Array.isArray(data)) return undefined;
+  return { credits: perHundred(data.length), note: `rendered:${String(data.length)}` };
 }
 
 // ---------------------------------------------------------------------------------------------------------------

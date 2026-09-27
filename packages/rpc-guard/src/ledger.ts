@@ -23,6 +23,9 @@ import type { AttemptRecord, Outcome } from "./client.ts";
 import { tariffVersionOf } from "./tariff.ts";
 
 export const LEDGER_GENESIS = "0".repeat(64);
+/** Ledger FORMAT (ADR-RPC-GUARD-RECONCILE-1 D-1 versioning): v2 = v1 + the `settled` issue (D-2); v1 lines stay byte-identical,
+ *  told apart by their issue. Internal (NOT in index.ts). A new issue or core field => v3 + ledger-format-lock.test.ts. */
+export const LEDGER_FORMAT = 2;
 export const sha256Hex = (s: string): string => createHash("sha256").update(s, "utf8").digest("hex");
 
 /** GARDE-FSYNC-1 (INCIDENT 2026-09-22: a power cut kept 9 460 lines and lost ~420 the process HAD appended - 211 008
@@ -149,7 +152,7 @@ export interface CycleLedger {
 }
 
 /** Open (create) the PER-OPERATOR ledger under an existing <cycleDir>. prior_cycle is FROZEN at open =
- *  max(floor, Sigma attempted credits) (C-V-1); the head sidecar makes a tail truncation fail-closed (C-V-8). */
+ *  max(floor, Sigma attempted + settled credits) (C-V-1, D-2: net); the head sidecar makes a tail truncation fail-closed (C-V-8). */
 export function openOperatorLedger(cycleDir: string, op: string, floor: number, network?: string): CycleLedger {
   const cycleId = basename(cycleDir);
   const path = join(cycleDir, `${op}.jsonl`);
@@ -187,7 +190,7 @@ export function openOperatorLedger(cycleDir: string, op: string, floor: number, 
   // on disk stays authoritative (at most one entry behind, healed above). Removed only once the pair is verified.
   if (existsSync(`${headPath}.tmp`)) DURABLE_FS.unlinkSync(`${headPath}.tmp`);
   let head = ledgerHeadSha(entries);
-  const frozenPrior = Math.max(floor, entries.reduce((a, e) => a + (e.outcome === "attempted" ? e.credits_derived : 0), 0));
+  const frozenPrior = Math.max(floor, entries.reduce((a, e) => a + (e.outcome === "attempted" || e.outcome === "settled" ? e.credits_derived : 0), 0));
   const tariffVersion = tariffVersionOf(op); // per-operator (GARDE-HELIUS-2): a chainstack line never carries the helius version
   const appendChained = (outcome: Outcome, byOpMethod: Record<string, number>, credits: number, reason?: string): CycleLedgerEntry => {
     // GARDE-HELIUS-1b-0 (C-5 / 121): stamp `network` (after credits_derived, before reason) ONLY when this operator

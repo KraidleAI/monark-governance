@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { BudgetExceededError } from "@monark/rpc-guard";
 import { verifyCycleLedger } from "../src/ledger.ts";
-import { HELIUS, OK, tmp, heliusLedger, heliusCfg, heliusClient } from "./harness.ts";
+import { HELIUS, OK, tmp, heliusLedger, heliusCfg, heliusClient, GTFA_P100 } from "./harness.ts";
 import type { Transport } from "../src/client.ts";
 
 const diskLines = (path: string): number => readFileSync(path, "utf8").trim().split("\n").filter(Boolean).length;
@@ -51,8 +51,8 @@ test("run_credits_cap_stops", async () => {
     const ledger = heliusLedger(dir);
     let calls = 0; const spy: Transport = () => { calls++; return Promise.resolve({ ok: 1 }); };
     const client = heliusClient(heliusCfg({ runCaps: { helius: 15 }, methodCaps: { getTransactionsForAddress: 100 } }), ledger, spy); // gTfA = 10 cr
-    await client.call(HELIUS, "getTransactionsForAddress", ["m"]);                                                          // 0 + 10 = 10 <= 15
-    await assert.rejects(client.call(HELIUS, "getTransactionsForAddress", ["m"]), (e: unknown) => e instanceof BudgetExceededError); // 10 + 10 = 20 > 15
+    await client.call(HELIUS, "getTransactionsForAddress", GTFA_P100);                                                          // 0 + 10 = 10 <= 15
+    await assert.rejects(client.call(HELIUS, "getTransactionsForAddress", GTFA_P100), (e: unknown) => e instanceof BudgetExceededError); // 10 + 10 = 20 > 15
     assert.equal(calls, 1, "C-G2-5: 0 fetch on the refused call");
     const last = ledger.entries().at(-1)!;
     assert.equal(last.outcome, "refused"); assert.equal(last.reason, "run_credits"); // C-G2-2 (mutant runCredits+cost>maxCredits -> false reds)
@@ -78,8 +78,8 @@ test("cycle_cap_stops", async () => {
     const ledger = heliusLedger(dir, "cycle-8", 15); // floor 15 (P3-floor scenario)
     let calls = 0; const spy: Transport = () => { calls++; return Promise.resolve({ ok: 1 }); };
     const client = heliusClient(heliusCfg({ cycleFloor: { helius: 15 }, methodCaps: { getTransactionsForAddress: 100 } }, 25), ledger, spy); // cap 25; gTfA=10
-    await client.call(HELIUS, "getTransactionsForAddress", ["m"]);                                    // prior 15 + 0 + 10 = 25, not > 25 => passes
-    await assert.rejects(client.call(HELIUS, "getTransactionsForAddress", ["m"]), (e: unknown) => e instanceof BudgetExceededError); // 15 + 10 + 10 = 35 > 25 => refused
+    await client.call(HELIUS, "getTransactionsForAddress", GTFA_P100);                                    // prior 15 + 0 + 10 = 25, not > 25 => passes
+    await assert.rejects(client.call(HELIUS, "getTransactionsForAddress", GTFA_P100), (e: unknown) => e instanceof BudgetExceededError); // 15 + 10 + 10 = 35 > 25 => refused
     assert.equal(calls, 1, "P3-floor: exactly ONE transport (the 2nd gTfA is refused BEFORE the transport)");
     const last = ledger.entries().at(-1)!;
     assert.equal(last.outcome, "refused"); assert.equal(last.reason, "cycle_cap");
@@ -94,8 +94,8 @@ test("cycle_cap_floor_probe", async () => {
     const ledger = heliusLedger(dir, "c-g2-1", 100);
     let calls = 0; const spy: Transport = () => { calls++; return Promise.resolve({ ok: 1 }); };
     const client = heliusClient(heliusCfg({ cycleFloor: { helius: 100 }, methodCaps: { getTransactionsForAddress: 100 } }, 115), ledger, spy);
-    await client.call(HELIUS, "getTransactionsForAddress", ["m"]);
-    await assert.rejects(client.call(HELIUS, "getTransactionsForAddress", ["m"]), (e: unknown) => e instanceof BudgetExceededError);
+    await client.call(HELIUS, "getTransactionsForAddress", GTFA_P100);
+    await assert.rejects(client.call(HELIUS, "getTransactionsForAddress", GTFA_P100), (e: unknown) => e instanceof BudgetExceededError);
     assert.equal(calls, 1, "exactly ONE transport (a floor near the cap must not permit ~floor of extra spend)");
   } finally { cleanup(); }
 });

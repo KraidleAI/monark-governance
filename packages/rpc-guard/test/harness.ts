@@ -12,6 +12,9 @@ import { heliusCredits } from "../src/tariff.ts";
 
 export const HELIUS = "helius" as OperatorLabel;
 export const OK: Transport = () => Promise.resolve({ ok: 1 });
+/** RPC-GUARD-RECONCILE-1b (ADR D-2): gTfA params asking a page of 100 reserve 10 credits, the pre-1b flat price, so the amended
+ *  cap tests keep their expected values (a bare ["m"] now reserves the worst case, 100). */
+export const GTFA_P100: readonly unknown[] = ["m", { limit: 100 }];
 
 export function tmp(): { dir: string; cleanup: () => void } {
   const dir = mkdtempSync(join(tmpdir(), "rpcg-")); // OUTSIDE the repo (os tmp)

@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { sha256Hex, ledgerHeadSha, chainCycleEntry, verifyCycleLedger, LEDGER_GENESIS } from "../src/ledger.ts";
+import { sha256Hex, ledgerHeadSha, chainCycleEntry, verifyCycleLedger, LEDGER_GENESIS, LEDGER_FORMAT, type CycleLedgerEntry } from "../src/ledger.ts";
+import type { Outcome } from "../src/client.ts";
 
 // LOCK the cycle-ledger chaining primitive to the reference it is a calque of (plan sect.3.2: "redeclare
 // byte-identical with a lock test"). The reference apps/bell/src/rebase-crosscheck.ts lives in the REPO but is NOT
@@ -40,7 +41,18 @@ const CORE_KEYS_10 = [
   "tx_count", "tail_sigs_at_slot_hi", "list_sha256", "payload_sha256",
 ] as const;
 
+// RPC-GUARD-RECONCILE-1 (D-1 versioning, D-2): FORMAT v2 = v1 + the `settled` issue. The CLOSED issue set is a Record<Outcome, true>
+// (a new issue fails the typecheck gate until this lock moves to v3); a v1 line stays byte-identical (GOLDEN_V1: its entry_sha256
+// was computed by sha256sum over the literal core, never by this code).
+const V2_ISSUES: Record<Outcome, true> = { attempted: true, refused: true, reconciled: true, unlocked: true, settled: true };
+const GOLDEN_V1 = '{"prev_entry_sha256":"0000000000000000000000000000000000000000000000000000000000000000","cycle_id":"c","tariff_version":"helius-2026-09-21","by_op_method":{"helius|getTransaction":1},"outcome":"attempted","credits_derived":1,"entry_sha256":"716c1b1f01e4d936574e89c52aead0516df467acde1eea411c8b9466fd0b7ba9"}';
+
 test("ledger_format_locked_to_rebase_crosscheck", async (t) => {
+  // (0) the v2 lock, BEFORE the skip (it needs no Bell reference).
+  assert.equal(LEDGER_FORMAT, 2);
+  assert.deepEqual(Object.keys(V2_ISSUES).sort(), ["attempted", "reconciled", "refused", "settled", "unlocked"], "the closed v2 issue set drifted: a new issue => v3");
+  assert.equal(JSON.stringify(chainCycleEntry(LEDGER_GENESIS, { cycle_id: "c", tariff_version: "helius-2026-09-21", by_op_method: { "helius|getTransaction": 1 }, outcome: "attempted", credits_derived: 1 })), GOLDEN_V1, "a v1 line is byte-identical under v2");
+  verifyCycleLedger([JSON.parse(GOLDEN_V1) as CycleLedgerEntry]);
   if (!existsSync(REF_ABS)) { t.skip("reference apps/bell absent in this tree (public export); the lock runs in the repo CI"); return; }
   const spec: string = REF_REL; // non-literal => tsc leaves it unresolved; Node resolves it at runtime
   const ref = (await import(spec)) as RefMod;

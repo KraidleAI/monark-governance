@@ -14,7 +14,7 @@
 // FORMED items (request caps land at their trigger, never guessed). This is the SOLE reader of a paid endpoint key
 // (HELIUS_API_KEY, CHAINSTACK_ETH_URL / CHAINSTACK_SOLANA_URL) and the SOLE fetch site.
 import type { OperatorLabel, Transport, OperatorClass } from "./client.ts";
-import { heliusCredits, chainstackRu } from "./tariff.ts";
+import { heliusCredits, heliusSettle, chainstackRu } from "./tariff.ts";
 import { TransportError, RpcError } from "./errors.ts";
 import { closedHint } from "./classify.ts";
 
@@ -95,7 +95,9 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
   if (heliusBase !== undefined) {
     const key = env.HELIUS_API_KEY;
     urls.set("helius", key ? `${heliusBase}?api-key=${key}` : heliusBase);
-    classes["helius"] = { unit: "credits", credits: heliusCredits, cycleCap: HELIUS_CYCLE_CAP_CREDITS };
+    // D-2: helius reserves heliusCredits(method, params) and settles on the RENDERED count = result.data.length of the value
+    // this transport returns (unchanged, heliusSettle).
+    classes["helius"] = { unit: "credits", credits: heliusCredits, settle: heliusSettle, cycleCap: HELIUS_CYCLE_CAP_CREDITS };
   }
   // Chainstack: the SECOND paid operator (RU), ONE operator PER ACCOUNT (decision 121). The key lives ONLY here.
   // opts.network resolves CHAINSTACK_<network>_URL: "solana-mainnet" => CHAINSTACK_SOLANA_URL (a Bell Solana course),

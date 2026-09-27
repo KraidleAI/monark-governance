@@ -3,7 +3,7 @@
 // ASYMMETRIC (C-6):
 //   HARD bound: Delta_dashboard <= ledger_run. Delta ABOVE the ledger = consumption OUTSIDE the guard => NO-GO.
 //   SOFT band:  ledger_run - Delta_dashboard <= max(50, 0.5% of the run) - expected over-count (decision 113).
-// WINDOW (C-V-7): ledger_run = the `attempted` entries SINCE the last `reconciled` line (a chained boundary already in
+// WINDOW (C-V-7): ledger_run = the `attempted` + `settled` (D-2) entries SINCE the last `reconciled` line (a chained boundary already in
 // the ledger), NOT the whole cycle. Rollover (before.cycle != after.cycle != --cycle) => NO-GO (C-7). Every run APPENDS
 // a chained `reconciled` line; the verdict is CONSUMED as the course exit code (branchement; T16/T17 replay it).
 //
@@ -53,13 +53,14 @@ function repairedInWindow(ledger: CycleLedger): boolean {
     try { const n = (JSON.parse(l) as { lines_after?: unknown }).lines_after; return typeof n !== "number" || n >= start; } catch { return true; }
   });
 }
-/** ledger_run per method = Sigma credits_derived of the `attempted` lines AFTER the last `reconciled` line (windowed). */
+/** ledger_run per method = Sigma credits_derived of the `attempted` + `settled` lines (D-2: reservation + signed delta =
+ *  the credits billed) AFTER the last `reconciled` line (windowed). */
 function ledgerRunSinceLastReconciled(ledger: CycleLedger, cycle: string): Record<string, number> {
   const es = ledger.entries();
   const out: Record<string, number> = {};
   for (let i = windowStart(es); i < es.length; i++) {
     const e = es[i]!;
-    if (e.outcome !== "attempted" || e.cycle_id !== cycle) continue;
+    if ((e.outcome !== "attempted" && e.outcome !== "settled") || e.cycle_id !== cycle) continue;
     for (const key of Object.keys(e.by_op_method)) { const m = key.split("|")[1] ?? key; out[m] = (out[m] ?? 0) + e.credits_derived; }
   }
   return out;

@@ -85,7 +85,7 @@ Use it for a ledger written by GARDE-FSYNC-1 code. It changes NO byte when it re
    Either NO-GO is emitted ONCE for the repaired window: it appends a `reconciled` line, which closes that window at
    once, whatever the orchestrator does next. The tool therefore NEVER computes the numeric bound of the repaired window:
    the orchestrator computes it by hand and journals it — `Delta_dashboard` of that window (its `--after` minus its
-   `--before`) against `Sigma credits_derived` of the `attempted` lines between the previous `reconciled` line and the
+   `--before`) against `Sigma credits_derived` of the `attempted` and `settled` lines (reservation + signed delta, ADR-RPC-GUARD-RECONCILE-1 D-2) between the previous `reconciled` line and the
    `reconciled` line of reason `repaired_in_window`, per method (`per-method` mode) or in total (`aggregate` modes), with
    that mode's criterion (`packages/rpc-guard/src/reconcile.ts` header: hard bound, then soft band). In the rollover
    case there is NO hand computation: one or both of that reconcile's snapshots carry a `cycle` other than `--cycle`
