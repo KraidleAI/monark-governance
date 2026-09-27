@@ -1,0 +1,144 @@
+{
+ "probe": "SNAPSHOT-PROBE-3",
+ "probe_dir": "F:/PRODUITS/dojo-mirror/probe-3/2026-09-26T0145Z/",
+ "probe_sha256sums": "e8ff845f3d0b3205e73c3a9135d6114fdb3e60ed35d4e4c8b16591eafa55e28f",
+ "mint": "FYZcYCHSp8FzNba1UtDZydKKGosmxVNpFBiVuia38AhT",
+ "members": "a = the first operator of ADR-DOJO-PR-2B D-3 OPS, b = the second; a source is named by its probe call id, its member and its sha256 in the probe SHA256SUMS, never by an operator",
+ "encoding": "each fixture = one JSON string: hexadecimal of canonical(reduced value); sha256 below = of the decoded text",
+ "body_rule": "slot, blockTime, transactionIndex, version, meta.err, pre/postTokenBalances (all mints), loadedAddresses if any, inner Token-2022 instructions, outer instructions (non Token-2022: programId only), accountKeys (pubkey, source), signatures; key = readKey(readBody(raw), true)",
+ "shared_sha256": {
+  "fixtures": [
+   "c1.b.json",
+   "c2.b.json"
+  ],
+  "note": "two probe files of the same call carry this source sha256 (identical bytes, one of them from the third operator that D-3 never uses): the fixture is the same whichever is read"
+ },
+ "fixtures": {
+  "sig0.a.json": {
+   "call": "A5",
+   "member": "a",
+   "source_sha256": "f4254e7ee85d67d64e942f48761c0e13281ee7f2ce9f6dd77e892548d37cc710",
+   "rule": "body",
+   "sha256": "3135d32dd9b31dcd897b687436455ff61efe62d3071ec28af2c0a519d15d6fdd",
+   "key": "ba6754d2d7bf2b2e38d323ec05768f65cbfaee18061a95b202be8285899a300c"
+  },
+  "sig0.b.json": {
+   "call": "A3",
+   "member": "b",
+   "source_sha256": "e062bdceb780f4df8c7e6bb5d52693c4745e9b07d19fe190e31d7910533c60dd",
+   "rule": "body",
+   "sha256": "3135d32dd9b31dcd897b687436455ff61efe62d3071ec28af2c0a519d15d6fdd",
+   "key": "ba6754d2d7bf2b2e38d323ec05768f65cbfaee18061a95b202be8285899a300c"
+  },
+  "sig0.a-page.json": {
+   "call": "A1",
+   "member": "a",
+   "source_sha256": "b6b0830560ae4585305bd40ad6e387f66f40c983d9f1fe4ff73193c4a9b75bd8",
+   "rule": "full page",
+   "sha256": "a8b3b912e25b30b55b59c223c1d36c8eec87488e3750be4933f066107c73b461",
+   "key": "ba6754d2d7bf2b2e38d323ec05768f65cbfaee18061a95b202be8285899a300c"
+  },
+  "c1.a.json": {
+   "call": "C1",
+   "member": "a",
+   "source_sha256": "75f864c01043d1d0bc4a2a002c5e7b3f062299b244fa8c6d3d2919a8d829b2a7",
+   "rule": "body",
+   "sha256": "6dc1c54637597c074e5377d7a4f04a2b7087fa806bb253fbe0b1847c92c1e530",
+   "key": "c8aa9179f556f3bb148354d2d72d14a002fe2d93d4e0efa621a5c975449f843f"
+  },
+  "c1.b.json": {
+   "call": "C1",
+   "member": "b",
+   "source_sha256": "c97b29b2cb2d3b8df809c7fe8fa05765b73d61ca29172bd9c97d3a01a3594c10",
+   "rule": "body",
+   "sha256": "6dc1c54637597c074e5377d7a4f04a2b7087fa806bb253fbe0b1847c92c1e530",
+   "key": "c8aa9179f556f3bb148354d2d72d14a002fe2d93d4e0efa621a5c975449f843f"
+  },
+  "c2.a.json": {
+   "call": "C2",
+   "member": "a",
+   "source_sha256": "ffc3cb0eba3e60ced7b35d294fdab107a68bee3fdf9763f981dd693795ea8585",
+   "rule": "body",
+   "sha256": "97ac5dca1d6fdf8f86ea3f506a4e97adc39a4f433f9c797cf6d44b3c783ebdaf",
+   "key": "1c48afbc16c32e543df976fcf71ba399d4e6aa049184b20d4ac88e77fc2bb14d"
+  },
+  "c2.b.json": {
+   "call": "C2",
+   "member": "b",
+   "source_sha256": "3617b24dd370180909292a33e48a6ec98daae2d9c5bba47369bccbc6d1b8fe29",
+   "rule": "body",
+   "sha256": "97ac5dca1d6fdf8f86ea3f506a4e97adc39a4f433f9c797cf6d44b3c783ebdaf",
+   "key": "1c48afbc16c32e543df976fcf71ba399d4e6aa049184b20d4ac88e77fc2bb14d"
+  },
+  "mint-tail.a.json": {
+   "call": "A2-p024",
+   "member": "a",
+   "source_sha256": "0160165738ecd010d311e8a50dcd50abcd8a36677ff7fbdd172a4da18f87c572",
+   "rule": "last 100",
+   "sha256": "8dc558977eeaa8b1555dc14e5319a13ab2936121e24c1d1867cbe726ee87de2e"
+  },
+  "mint-before-sig0.b.json": {
+   "call": "A6",
+   "member": "b",
+   "source_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "rule": "all",
+   "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "mint-tail.b.json": {
+   "call": "B1",
+   "member": "b",
+   "source_sha256": "03d9fcca15bb732f9c299f514eb184c1155693dc34b8abe07a14a1644898508e",
+   "rule": "last 100",
+   "sha256": "8dc558977eeaa8b1555dc14e5319a13ab2936121e24c1d1867cbe726ee87de2e"
+  },
+  "mint-head.a.json": {
+   "call": "A2-p001",
+   "member": "a",
+   "source_sha256": "2534a43fda0e4cd2370e1683bb5f8c9385f0ac2e989242e8b0cb25a765e5c0c5",
+   "rule": "entries 1 to 100 (after L[0])",
+   "sha256": "46d1e0dc682834a6b21b89a1ebbdd2200fa1238fa2a83ed1d192d8e3aaf7c5a4"
+  },
+  "mint-head.b.json": {
+   "call": "B3",
+   "member": "b",
+   "source_sha256": "41238e72d43807682b16f1517945b5445249a0e4c66e62bfe8ec4833cbdef201",
+   "rule": "first 100 (before = L[0])",
+   "sha256": "859418569242c1d6a88f8b5a9ead9da9543a7df2c11d2c259124e64682c92856"
+  },
+  "acct-6tW6.a.json": {
+   "call": "D1",
+   "member": "a",
+   "source_sha256": "92f3766e9457464b00560af592c7e2b65a73c8631d860ce6b6fb3ebbf019f48d",
+   "rule": "first 100",
+   "sha256": "52e357576e9caf8c48348b9c8586a03db7ab8c0f3a1c56675f8022b9e5193b04"
+  },
+  "acct-6tW6.b.json": {
+   "call": "D1",
+   "member": "b",
+   "source_sha256": "cb42f2b492512ae7f5fb7c37789ce98fda924b212ee91a078f9a41dcda945194",
+   "rule": "first 100",
+   "sha256": "d27f153f61d7b6ae8fbe937f96eeb678ceed0da9848e85abaa9d3810c8c86c57"
+  },
+  "acct-MeQM.a.json": {
+   "call": "D2",
+   "member": "a",
+   "source_sha256": "5cfa315d9eb5c79496efc1077bb95c5d4a3f47205674dc2a28e04f83c32a0889",
+   "rule": "first 100",
+   "sha256": "90cb466f4628fd220697ea79c244b73b4673286ad5510753f2bfbfb383e9fde9"
+  },
+  "acct-MeQM.b.json": {
+   "call": "D2",
+   "member": "b",
+   "source_sha256": "38ff4875c00b81c593db29062aacf6e46d056f1bdbb16531c4b516a1085653be",
+   "rule": "first 100",
+   "sha256": "5f7ff5ffc3c4cb6d9bdb2fca4f1863dd7636a4078c52aadadaf336207e60d5cc"
+  },
+  "probe3-expect.json": {
+   "call": "derived",
+   "member": null,
+   "source_sha256": "e9b4a4fbbaf9f04546cdf1c8a6544cb68a29e0a9456cf02f6e510cdd42ca5514",
+   "rule": "R2 sig0, slot, blockTime; SMID signature, blockTime",
+   "sha256": "bdf0ad6e0b57a87fbdee67d17f231cd45f43ead46ad8120c0fad5ab690194a53"
+  }
+ }
+}
