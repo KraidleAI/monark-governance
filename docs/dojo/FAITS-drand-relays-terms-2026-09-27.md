@@ -28,3 +28,6 @@
 
 ## Forme v1 d'une ronde quicknet, lue sur deux relais (orchestrateur, hors garde, `curl`, 2026-09-27 10:30:50Z)
 - `GET /<hash>/public/latest` (api.drand.sh) → `{"round":32567229,"randomness":"f41ee236…be5b","signature":"b1ce8cd4…ede2"}` ; puis `GET /<hash>/public/32567229` sur **api.drand.sh** et **drand.cloudflare.com** : mêmes trois clés (ordre différent : `round,randomness,signature` vs `round,signature,randomness`), **signature identique** (96 hex = 48 octets), **`randomness` = SHA-256(signature)** vérifié. Copies `F:\tmp\dojo\drand-r-drandsh.json`, `drand-r-cf.json`. Conséquence : le collecteur compare les champs, jamais les octets bruts de la réponse (ordre des clés non garanti).
+
+## `/info` de la chaîne PAR DÉFAUT (sans hash) lu sur place (orchestrateur, hors garde, `curl`, 2026-09-27 14:04:53Z, procurement Q-3 du G1 DRAND-1a)
+- `GET https://api.drand.sh/info` (HTTP 200, fichier `F:\tmp\dojo\drand-info-default-drandsh.json`) : `hash` = **`8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce`** (chaîne default, complète ; FAITS l.21 n'en donnait que `8990e7a9…b2ce`, concordant), `period` 30, `schemeID` `pedersen-bls-chained`, `genesis_time` 1595431050. Un seul appel, un seul relais (identification de la constante, pas une mesure de disponibilité).

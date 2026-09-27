@@ -14,3 +14,8 @@
 - Hôte `bell` : **systemd 259 (259.5-0ubuntu3.4)**, Ubuntu 26.04.1 LTS — même version que le VPS du site ; les extraits de `systemd.timer(5)` ci-dessus valent pour les deux hôtes (même paquet).
 - `systemd.time(7)` (man local, « Calendar Events ») : « Values may be suffixed with "/" and a repetition value, which indicates that the value itself and the value plus all multiples of the repetition value are matched » ⇒ **`OnCalendar=*:0/5`** = minutes 0, 5, 10, … de chaque heure (forme idempotente toutes les 5 min du `--tick`, ligne datée 08:00Z de l'ADR PR-2) — sourcé.
 - Existant sur l'hôte Bell : `monark-probe.timer` (prochain 10:30 UTC, dernier 16:30:06 UTC la veille), utilisateurs `probe` (997) et `bell` (994) ; aucune unité Dōjō. Aucune écriture.
+
+## FAITS-SYSTEMD-CRED-1 — systemd.exec(5) lu sur place (orchestrateur, `curl https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html`, 2026-09-27 14:12:49Z, HTTP 200 ; version « latest », l'hôte Bell est en systemd 259 : concordance à confirmer par `man systemd.exec` sur l'hôte à A-5)
+- [lu] « the location of credentials is exported as the $CREDENTIALS_DIRECTORY environment variable to the unit's processes ».
+- [lu] « ExecStart=cat ${CREDENTIALS_DIRECTORY}/mycred » ; dans une ligne `Environment=`, la forme est « %d/mycred » ; pour les services système, aussi « /run/credentials/UNITNAME ».
+- Conséquence (Q-3 du G1 de PR-3b-1) : la forme `ExecStart=… ${CREDENTIALS_DIRECTORY}/dojo-seed` de l'unité est celle de la documentation primaire ; `%d` est réservé aux lignes `Environment=`.
