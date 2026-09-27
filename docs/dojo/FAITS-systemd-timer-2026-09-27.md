@@ -19,3 +19,8 @@
 - [lu] « the location of credentials is exported as the $CREDENTIALS_DIRECTORY environment variable to the unit's processes ».
 - [lu] « ExecStart=cat ${CREDENTIALS_DIRECTORY}/mycred » ; dans une ligne `Environment=`, la forme est « %d/mycred » ; pour les services système, aussi « /run/credentials/UNITNAME ».
 - Conséquence (Q-3 du G1 de PR-3b-1) : la forme `ExecStart=… ${CREDENTIALS_DIRECTORY}/dojo-seed` de l'unité est celle de la documentation primaire ; `%d` est réservé aux lignes `Environment=`.
+
+## FAITS-SYSTEMD-TIMEOUT-1 — systemd.service(5) et systemd.resource-control(5) lus sur place (orchestrateur, freedesktop.org « latest », 2026-09-27 14:13:55Z, HTTP 200/200 ; DOJO-COLLECT-TIMEOUT-1)
+- [lu] `TimeoutStartSec=` : « Configures the time to wait for start-up … Takes a unit-less value in seconds, or a time span value such as "5min 20s" … Defaults to DefaultTimeoutStartSec= set in the manager, except when Type=oneshot is used, in which case the timeout is disabled by default ».
+- Conséquence : l'unité de collecte (`Type=oneshot`) n'a **aucun** délai par défaut ⇒ un pas suspendu bloquerait les déclenchements suivants ; `TimeoutStartSec=` doit être posé explicitement (valeur : borne de la fenêtre d'un pas, ≤ 5 min du pas de minuterie ; à fixer aux corrections post-G2 de PR-3b-1, avec `RuntimeMaxSec=` si le manuel le prescrit pour `oneshot` — à relire dans la copie `F:\tmp\dojo\systemd-service.html`).
+- [lu] `TasksMax=` (resource-control) : active le contrôleur `pids` ; valeur à poser (l'unité lance `node` seul : une dizaine de tâches suffisent ; valeur chiffrée à mesurer à A-5 sur l'hôte, pas devinée).
