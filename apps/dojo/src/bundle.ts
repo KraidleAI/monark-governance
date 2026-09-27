@@ -166,7 +166,9 @@ export function readRecord(text: string): ReadingRecord {
       && typeof r.pyth.exponent === "number" && Number.isSafeInteger(r.pyth.exponent) && decimal(r.pyth.conf) && int(r.pyth.publish_time)))
     && closed(r.faults, ["enumeration", "mint", "pool", "wsol", "pyth"]) && Object.values(r.faults).every((f) => int(f) && f <= 2 && ((r.read as J).read_at !== null || f === 0))
     && Array.isArray(r.no_quorum_accounts) && r.no_quorum_accounts.every((x) => closed(x, ["account", "cause"]) && typeof x.account === "string"
-      && ((r.read as J).read_at === null ? x.cause === "missed" : x.cause === "disagreement" || x.cause === "fault")) && sortedBy(r.no_quorum_accounts as { account: string }[], (x) => x.account);
+      && ((r.read as J).read_at === null ? x.cause === "missed" : x.cause === "disagreement" || x.cause === "fault")) && sortedBy(r.no_quorum_accounts as { account: string }[], (x) => x.account)
+    && ((r.read as J).read_at !== null || (r.enumerations.length === 0 && r.mint === null && r.pool === null && r.pyth === null // DOJO-READER-MISSED-FORM-1 (PR-2-2)
+      && ["slot_min", "slot_max", "pool_price", "usd_per_sol", "usd_per_sol_publish_time"].every((f) => (r.read as J)[f] === null)));
   if (!ok || bytesOf(r) !== text) fail("record_malformed", "form");
   return r as ReadingRecord;
 }
