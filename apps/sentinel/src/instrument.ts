@@ -125,12 +125,12 @@ export interface Instrument {
 }
 
 /** Build one alternative-parameter replay entry with its own digest (never carried). */
-function replayEntry(label: string, params: TrackerParams, q1: number, scores: readonly number[]): InstrumentReplay {
+export function replayEntry(label: string, params: TrackerParams, q1: number, scores: readonly number[]): InstrumentReplay {
   return { label, params, q: trackerReplay(q1, params, scores).q, T: scores.length, digest: trackerDigest(q1, params, scores) };
 }
 
 /** Page CUSUM statistic + a deterministic permutation control over `sequence` (mulberry32, ADR-M012 D6). */
-function cusumDiagnostic(label: string, sequence: readonly Miscover[], p0: number, p1: number, perms: number, seed: number): InstrumentCusum {
+export function cusumDiagnostic(label: string, sequence: readonly Miscover[], p0: number, p1: number, perms: number, seed: number): InstrumentCusum {
   const statistic = pageCusumMax(sequence, p0, p1);
   const rnd = mulberry32(seed);
   const shuffled: Miscover[] = [...sequence];
@@ -225,18 +225,18 @@ export function buildInstrument(state: SentinelState, opts: { perms?: number; se
 }
 
 // ── CLI fold (the committed series fixture) — used only by the CLI entry, never by the live job ─────────
-interface SeriesWindow {
+export interface SeriesWindow {
   readonly day: string; readonly fromBlock: number; readonly toBlock: number;
   readonly burns: string; readonly mints: string; readonly supplyClose: string; readonly supplyOpen: string;
   readonly v_t_per_hr: number | null; readonly error?: string;
 }
-interface Series { readonly windows: readonly SeriesWindow[]; }
+export interface Series { readonly windows: readonly SeriesWindow[]; }
 
 const INSTRUMENT_PROV: { endpoints: readonly string[]; node_version: string; sentinel_sha: string } = {
   endpoints: [], node_version: "instrument", sentinel_sha: "0".repeat(64),
 };
 
-function factsOf(w: SeriesWindow): WindowFacts {
+export function factsOf(w: SeriesWindow): WindowFacts {
   return { day: w.day, fromBlock: w.fromBlock, toBlock: w.toBlock, burns: BigInt(w.burns), mints: BigInt(w.mints), supplyClose: BigInt(w.supplyClose), supplyOpen: BigInt(w.supplyOpen) };
 }
 
@@ -267,12 +267,14 @@ export function foldSeries(windows: readonly SeriesWindow[]): SentinelState {
 }
 
 /** Refuse an `--out` whose resolved path passes through a directory named exactly `public` (ADR-M012 (l),
- *  C-3): the instrument is a diagnostic file, never served from the public Caddy root. Segment-exact, so
- *  `publicfoo` passes while `./public/x.json` and `/var/lib/.../public/x.json` throw. Pure — writes nothing. */
-export function assertOutPathAllowed(out: string): void {
+ *  C-3): the instrument is a diagnostic file, never served from the public Caddy root by accident. Segment-exact,
+ *  so `publicfoo` passes while `./public/x.json` and `/var/lib/.../public/x.json` throw. Item (h) closed on
+ *  2026-09-18, so the guard is now an explicit path control: only `publish = true` (the `--publish` flag of the
+ *  post-J0 replay entry, instrument-replay.ts) lifts it. Pure — writes nothing. */
+export function assertOutPathAllowed(out: string, publish = false): void {
   const segments = resolve(out).split(/[/\\]+/);
-  if (segments.some((s) => s === "public")) {
-    throw new Error(`instrument: --out must not be under a directory named 'public' (got ${out}).`);
+  if (!publish && segments.some((s) => s === "public")) {
+    throw new Error(`instrument: --out must not be under a directory named 'public' without --publish (got ${out}).`);
   }
 }
 

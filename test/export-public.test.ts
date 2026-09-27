@@ -26,7 +26,8 @@
  *   (f) the exported .github/workflows/ci.yml is DERIVED (D7 bis R1): no `r25` at all (bare regex, =
  *       the `grep -c r25 = 0` oracle, subsumes the r25-taille-de-lot job), a `push` trigger under
  *       `on:`, >= 2 SHA-pinned actions, and no continue-on-error DIRECTIVE (YAML key; the prose
- *       "No continue-on-error" comment is allowed — mirrors test 38 in ci-gates.test.ts).
+ *       "No continue-on-error" comment is allowed — mirrors test 38 in ci-gates.test.ts). ADR-PUBLIC-CADENCE-1 adds: no
+ *       `secrets.<name>` in it, and no scripts/public-text-deny.* file in the export.
  *   (h) (Lot F-public) build output (.next/.turbo) and installed deps (node_modules) are NEVER exported
  *       into apps/site (WALK_SKIP_DIRS). Seeded in the source copy, asserted absent from the output.
  *       (Lettered (h), not (g): ADR-M004 D7 bis R4 already names 42(g) for the MINE-B assertion.)
@@ -301,6 +302,10 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
       if (sha) pinnedShas.add(sha);
     }
     assert.ok(pinnedShas.size >= 2, `exported workflow must keep >= 2 SHA-pinned actions (found ${pinnedShas.size})`);
+    // (f, ADR-PUBLIC-CADENCE-1 PR-A1) the derived workflow references no secret (PUBLIC-WORKFLOW-NO-SECRETS-1, CA-4.2, mutant
+    //     M4-a), and the vendor lists of the public-text gate never ship (CA-1.5, mutant M1-n).
+    assert.ok(!/\bsecrets\.[A-Za-z_]/.test(ciYml), "exported workflow must reference no secrets.<name>");
+    assert.deepEqual(files.filter((f) => f.startsWith("scripts/public-text-deny.")), [], "scripts/public-text-deny.* must not be exported");
 
     // (c) language gate GREEN on root,contracts,schemas,site (throws if it exits 1 — how mutant M2 reds).
     //     The `schemas` scope (ADR-M001 D9-bis) gives the frozen schemas/ English-only teeth: French prose

@@ -3,7 +3,7 @@
 - **Statut** : **proposé** (G0) — **checkpoint-1 validateur `claude-fable-5-1` 2026-09-17 : ACCEPTE-AVEC-CORRECTIONS C-1..C-14
   (foldées) + escalade investisseur TRANCHÉE le 2026-09-17 : ε = 0,1 ; option B « plus tard » ; AM-2 bis entériné**. Antériorité du pré-enregistrement D6 = date de cet avis
   (le PLAN était non suivi ; M012-a le fige a posteriori, même déclaration que F2-B — C-14). Aucune action sortante sans go.
-- **Dates** : décision 2026-09-17 · approbation checkpoint-2 M012-e rendu (amendement 2026-09-18) · dernière modification 2026-09-18
+- **Dates** : décision 2026-09-17 · approbation checkpoint-2 M012-e rendu (amendement 2026-09-18) · dernière modification 2026-09-27 (G7 de NARABI-L-1 : item (l) livré, amendements (a)-(h))
 - **Propriétaire de la décision** : investisseur (décision verbatim 2026-09-17 : « on fait i et ii, on finalise tout, la
   condition iii arrivera quand elle arrivera, on garde adaptatif. et on annonce narabi adaptatif ») ; rédaction et
   exécution : orchestrateur `claude-fable-5-1`.
@@ -212,3 +212,70 @@ déclaré, hors score).
   permutation n'est couvert par aucun des trois (0 occurrence) : troisième voie, à dire comme telle. **(l) reste formé** : publication de
   `instrument.json` + rejeu post-J0 dès T ≥ 7, avec la phrase publique proposée dans le README (aucune garantie ARL revendiquée).
 
+- **Amendement 2026-09-27 (G7 de NARABI-L-1) — (a) item (l) LIVRÉ (code, tests, étape runbook) au gel 3 `b45db28`** (branche
+  `lot/narabi-l`, base `d974e81`) : entrée CLI `apps/sentinel/src/instrument-replay.ts` (rejeu post-J0, `instrument.json` à digest
+  séparé, `state.json` jamais lu ni écrit), test `sentinel-instrument-replay.test.ts`, exclusion d'hôtes du tirage (`run.ts`, test
+  `sentinel-exclude-hosts.test.ts`), `docs/RUNBOOK-sentinel.md` §7. Acceptation : checkpoint-2 du gel 2 `33ece9f` REFUSÉ (motif unique
+  CA-6 / C-V-0 ; rapport `F:\tmp\cp2-narabi-l\CP2-report.md` sha `318685a4…`, copié `docs/CHECKPOINT2-lot-narabi-l.md`), puis
+  **re-checkpoint-2 delta : ACCEPTE le gel 3** (validateur `claude-fable-5-1` ; rapport `F:\tmp\cp2-narabi-l\CP2b-report.md` sha
+  `9ec9a9b3d93f6340…`, copié `docs/CHECKPOINT2b-lot-narabi-l.md`, même sha) : gate `test` **1 367 / 1 364 / 0 / 3** (second passage sous
+  verrou d'hôte, exit 0 ; le premier, rouge sur un fichier Bell hors lot, est un aléa d'hôte rejoué vert), **test 42 vert** (en suite ×2,
+  seul ×1), mutants **Y1/Y2 tués** et **X1-X7** non régressés, fichier de test exécuté vert dans un export public local réel
+  (export-run), tests sentinelle 308 / 306 / 0 / 2 ×2, **R-25 = 794** (borne 1 205). « Livré » ne vaut pas publication :
+  `/narabi/instrument.json` n'est pas servi à cette date (voir (h)).
+- **Amendement 2026-09-27 (G7 de NARABI-L-1) — (b) Tuyaux de (l)** (règle Branchement ; journal G1 §4, checkpoint-2 §6 (1)) :
+  **entrée** = timeline du gap (tirage NARABI-L-GAP-1 sous la décision 247, format ligne de la sentinelle) + `timeline.jsonl` live servie
+  + série committée `fixtures/usde-calib-series.json` (graine 2025-10-15, `seed_series_sha256` `7c33027a…`) ; **sortie** =
+  `/narabi/instrument.json`, fichier statique servi par le `handle_path /narabi/*` existant (aucune édition Caddy) ; **état** : aucun
+  (instantané unique jusqu'à `params.last_day`, jamais rafraîchi par le job quotidien ; ADR-M014 D4, amendement du même jour) ; **test de
+  composition non-LLM** = `sentinel-instrument-replay.test.ts` (CLI en processus sur des lignes live = octets servis capturés, et en
+  sous-processus) ; **consommateur interne : aucun** (la page `/narabi` ne lit pas ce fichier) ⇒ **fichier de diagnostic, jamais
+  `built`** dans un registre public ; lecture par le site = item **NARABI-SITE-INSTRUMENT-1** (lot site ; déclencheur : première
+  publication du fichier). **Déviations actées** : **D-1** `--gap` obligatoire en plus de `--timeline` ; **D-2** clés hors liste `note`,
+  `replays`, `gap_sha256` ; **D-3** garde `public` sur tout segment `public` (sur-ensemble de `apps/site/public/`) ; **D-4** graine = dernière
+  fenêtre de `--series` (2025-10-15 en production), première paire close le 2025-10-16, J0 paire évaluable dans le rejeu (le rejeu
+  recalcule, il ne recopie pas) ; **D-5** un jour du gap postérieur au dernier jour live est retiré sans comparaison (`params.last_day`
+  fixé par la timeline live).
+- **Amendement 2026-09-27 (G7 de NARABI-L-1) — (c) exclusion d'hôtes `MONARK_SENTINEL_EXCLUDE_HOSTS`** : palliatif du **tirage
+  d'archive seul** (décision investisseur 247, verbatim : « crées une session nomée POKT X SHOGENgo, ne me demandes plus, on paye pour ça, si il le faut, je paye un autre abonnement, on en aura deux » — go de la jambe Chainstack pour le tirage) ; motif mesuré : un
+  fournisseur du pool (Pocket) rend parfois une réponse d'archive bien formée VIDE sans erreur, et `quorumTwo` s'arrête aux deux premiers
+  succès (FAITS `docs/narabi/FAITS-gap-archive-probe-2026-09-27.md`) ; **jamais posée par l'unité servie** (`deploy/monark-sentinel.service`
+  sans la clé, testé ; la production garde le pool complet). Tuyau : variable lue une fois dans `main` → pool ET `endpoints` de chaque
+  ligne écrite (provenance fidèle) ; valeur inconnue ⇒ FATAL avant tout RPC ; état : aucun ; test = `sentinel-exclude-hosts.test.ts`
+  (sous-processus du vrai `run.ts`, vert aussi dans l'export public depuis C-V-0). **Correction durable = item NARABI-QUORUM-TIEBREAK-1** :
+  sur désaccord de `quorumTwo`, consulter un troisième fournisseur distinct (`providerOf`) — 2 sur 3 ; trois réponses distinctes ou pas de
+  troisième ⇒ fail-closed inchangé ; ligne « quorum » de cet ADR (D1 (3)) à amender par ce futur lot ; propriétaire orchestrateur ;
+  déclencheur : prochain lot sentinelle. **POCKET-LOSSY-LOGS-1** est renvoyé au doc 15 Shōgen (session « POKT X SHOGEN », décision 247).
+- **Amendement 2026-09-27 (G7 de NARABI-L-1) — (d) item NARABI-L-2 (« l-bis »)** : section `edetector_segment` (ADR-M014 D1 : depuis la
+  première paire calme postérieure au 2025-10-15, `preregistration_commit` en 40 hex, `crossed_sr`), phrase D3 d'ADR-M014 (texte public,
+  sous go), clé `pre_j0` (CUSUM pré-J0 9,54 ; p = 1/1001, recalculés hors ligne sur la série committée ; ADR-M014 D4), nits `edetector.ts`
+  (garde λ > 0 de `bridgeMonoLambda`, `makeGrid` K = 1, séquence vide), taux de `non_evaluable` par régime (ADR-M014 item (c)).
+  Propriétaire : orchestrateur. Déclencheur : lecture D3 à J+30 (**2026-10-18**) ou go anticipé de l'investisseur. (l) reste borné à D6
+  (rejeux + CUSUM + contrôle par permutation) ; aucun retrait par ADR (la pré-inscription M014 s'y engage).
+- **Amendement 2026-09-27 (G7 de NARABI-L-1) — (e) phrase publique** : la phrase de 60 mots portée par `note` (`INSTRUMENT_NOTE`, journal
+  G1 « Corrections après G2 », Q-G2-1) et proposée pour `README.md` / `apps/sentinel/README.md` est un texte public ⇒ **go 4 de
+  l'investisseur avant toute pose** ; **jamais posée** par ce lot (README hors diff, mesuré au checkpoint-2). La `note` ne devient publique
+  qu'avec le dépôt du fichier, lui-même sous go (h).
+- **Amendement 2026-09-27 (G7 de NARABI-L-1) — (f) rapport à (h)** : la précondition (h) de (l) est **close depuis le 2026-09-18**
+  (amendement ci-dessus) ; (l) publie **sans revendication d'ARL, de délai ni d'optimalité**, conformément à la fin de l'amendement (h) du
+  2026-09-18 (« aucune garantie ARL revendiquée ») : la `note` cite seulement la forme Page (1954) / Lorden (1971) de la statistique et l'échangeabilité
+  au sens de Vovk (2012, Prop. 1), se dit « troisième voie » et dit « no bound is claimed » ; 0 mot de la liste fermée dans les chaînes
+  servies (A-9, mesuré au checkpoint-2 sur un fichier synthétique de 344 fenêtres, jamais publié) et, depuis C-V-1, 0 dans les
+  commentaires d'`instrument-replay.ts`. La garde `--out` hors de `public/` (fin de l'item (l) ci-dessus) est **conservée** malgré la
+  clôture de (h) : levée par `--publish` explicite seulement (D-3) ; `state.json` / `timeline.jsonl` restent refusés même avec `--publish`.
+- **Amendement 2026-09-27 (G7 de NARABI-L-1) — (g) `error_origin` assigné au G7** : **C-V-0** (test d'exclusion lisant `deploy/` sans
+  condition ⇒ CI de l'export public rouge, test 42) = **worker pli 2** ; **C-V-1** (« delay », « optimality » dans une docstring depuis le
+  G1, non servis) = **lacune de vérification G2** (FM-3.3 : « 0 occurrence … dans les commentaires » inexact) **+ libellé de mission** (la
+  mission G1 bornait la liste fermée à la phrase publique ; les missions G2 et checkpoint-2 l'étendaient aux commentaires) ; **C-V-2**
+  (RUNBOOK §7 (b) : jour nommé ≠ mesures déposées, preuve « 0 log » non citée) et **C-V-3** (deux tirets cadratins) = **worker pli 2**,
+  forme. Tous corrigés au pli 3, vérifiés au re-checkpoint-2. **Note** : le « PRÊT POUR CP-2 » du G2 (arbre du gel 0) et le refus du
+  checkpoint-2 (oracle rouge sur le gel 2) portent sur des **arbres différents** — le test fautif est né au pli 2, après le G2 — ; ce n'est
+  pas une divergence de jugement, et elle a été tranchée par rejeu.
+- **Amendement 2026-09-27 (G7 de NARABI-L-1) — (h) ce qui reste sous go** : RUNBOOK §7 **(2)-(6)** — lecture des deux fichiers live,
+  **rejeu réel** avec le fichier du **tirage 2** (`F:\tmp\narabi-gap2\timeline.jsonl` : clone du gel 2, Pocket exclu, jambe Chainstack ; le
+  tirage 1, avec Pocket, reste témoin, jamais une entrée), contrôle du digest, **dépôt sur le VPS** (envoi = action sortante, **go
+  investisseur**), contrôle servi, puis `docs/JOURNAL-PROVENANCE.md` (SHA du commit G7, `gap_sha256`, `timeline_sha256`, `digest`,
+  `state_digest`, sha servi, heure UTC, RU réels des deux tirages lus aux grands livres). Items formés restant ouverts (propriétaire
+  orchestrateur) : NARABI-SITE-INSTRUMENT-1, NARABI-QUORUM-TIEBREAK-1, NARABI-L-2, SENTINEL-INSTRUMENT-ARGS-1 (`instrument.ts:288-289`,
+  prochaine édition d'`instrument.ts`), ORACLE-LOCAL-T42-1 (test 42 à part dans tout oracle local), CONSIGNE-G1-EXPORT-RUN-1 (tout test
+  neuf sous un dossier exporté exécuté une fois dans un export local avant gel). Aucun « dû » nu.
