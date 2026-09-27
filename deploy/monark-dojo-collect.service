@@ -1,0 +1,52 @@
+# systemd unit for the MONARK Dojo collector (ADR-DOJO-PR-3 D-1 table l.64, D-2, D-3 variant A, D-5, dated lines 14:13Z and 15:00Z;
+# ADR-DOJO-PR-2 D-1 dated line C-V-2, DOJO-TICK-ARGV-1). Orchestrator-deployed on the Bell host (decision 254) by docs/RUNBOOK-dojo.md,
+# acts A-2 to A-5, under the investor's grouped go. A Type=oneshot job driven by monark-dojo-collect.timer every 5 minutes (NOT a
+# server): each run is one idempotent `--tick` of apps/dojo/src/collect.ts (closes each ended day, plans the day before 00:15 UTC,
+# reads each due instant) and exits. Its network calls go through @monark/rpc-guard only (write-ahead ledger, locks, caps). It holds
+# the Helius key (the EnvironmentFile below), the seed and the anchor (LoadCredential below), and NO key of the publication: the
+# signature lives in the other unit, under another user, with no writable path shared with this one (D-5). Node 24 strips TypeScript.
+[Unit]
+Description=MONARK Dojo collector - 5-minute idempotent --tick step (ADR-DOJO-PR-3)
+Documentation=https://github.com/KraidleAI/monark
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# The dedicated tree (act A-3): exactly scripts/dojo-deploy.mjs DOJO_COLLECT_TREE_PATHS, shipped by git archive at the G7 SHA,
+# root-owned, with the resolution link node_modules/@monark/rpc-guard -> ../../packages/rpc-guard (D-3).
+WorkingDirectory=/opt/monark-dojo-collect
+# The Helius key (read by the guard's transport) and the three non-secret keys of the cycle (DOJO-GUARD-LEDGER-SPLIT-1): a
+# root:dojo-collect 0640 file, NEVER committed, NEVER printed. No leading `-`: a missing file fails the start (D-5), never a mute run.
+EnvironmentFile=/etc/monark/dojo-collect.env
+# The seed (act A-4) and the anchor line in force (acts A-5, A-9): root:root 0600 sources, handed to the job by PID 1 under
+# $CREDENTIALS_DIRECTORY (FAITS-SYSTEMD-CRED-1), read-only there: the unit can replace neither (Q-2 (a)). Missing or unreadable, the
+# collector refuses before any lock or call (seed_mismatch, anchor_malformed: collect.ts setup).
+LoadCredential=dojo-seed:/etc/monark/dojo-collect/seed
+LoadCredential=dojo-anchor:/etc/monark/dojo-collect/anchor.json
+# The closed argv of DOJO-TICK-ARGV-1: one mode (--tick) and the six required flags; run caps 24 calls and 40 credits (ADR-DOJO-PR-2
+# D-6). collect.ts binds the seed to the credentials directory (credentials_path); the anchor only by this argv (Q-G2-4, pinned by test).
+ExecStart=/usr/bin/env node /opt/monark-dojo-collect/apps/dojo/src/collect.ts --tick --state /var/lib/monark-dojo-collect --mint-file /opt/monark-dojo-collect/out/mint.txt --max-calls 24 --max-credits 40 --seed-file ${CREDENTIALS_DIRECTORY}/dojo-seed --anchor-file ${CREDENTIALS_DIRECTORY}/dojo-anchor
+# A oneshot has NO start timeout by default, and RuntimeMaxSec= has no effect on it (systemd.service(5), FAITS-SYSTEMD-TIMEOUT-1).
+# The worst course of one reading, from the code: 10 calls (5 pieces x 2 operators = 2 x sum(DOJO_METHOD_CAPS) / TRIES), each of TRIES
+# = 2 attempts of at most 30 s to the response head (DEFAULT_TIMEOUT_MS), 1 wait of at most 60 s (the Retry-After cap) and 1 s before
+# each public attempt (PUBLIC_HOST_GAP_MS): 20 x 30 + 10 x 60 + 10 x 1 = 1210 s; + 25 %, to the hundred: 1500 s (dated line 15:00Z).
+# At the timeout systemd sends SIGTERM and the locks of the killed course stay held (RUNBOOK section 9; DOJO-COLLECT-SIGTERM-UNLOCK-1).
+TimeoutStartSec=1500
+# PROVISIONAL (dated line 15:00Z): one node process and its threads; measured at A-5 (TasksCurrent), then pinned by a dated line.
+TasksMax=64
+# Least privilege: a dedicated non-login user (act A-2) whose ONLY writable path is its state directory (bundles/, ledger/).
+User=dojo-collect
+Group=dojo-collect
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/monark-dojo-collect
+# The publication's key directory, inaccessible with everything below it (systemd.exec(5); Q-G2-3). No leading `-`: A-2 creates it.
+InaccessiblePaths=/etc/monark/dojo
+# Directories 0750, files 0640: the publication reads a closed day through the group of bundles/ (setgid, act A-2), never more.
+UMask=0027
+# Resource caps on the shared Bell host (2 vCPU): at most a quarter of ONE CPU (precedent monark-bell-publish.service).
+CPUQuota=25%
+MemoryMax=512M
