@@ -62,7 +62,7 @@ test("lang_gate_skips_the_session_folder", () => {
   const run = (dir: string) => {
     const r = spawnSync(process.execPath, [gate, "--dir", dir, "--json"], { encoding: "utf8" });
     // --json prints the report object; on exit 0 an "lang-gate OK" line follows it on stdout (the failure line goes to stderr).
-    const files = r.status === 0 || r.status === 1 ? JSON.parse(r.stdout.split("\nlang-gate OK")[0] ?? "").files : null;
+    const files = r.status === 0 || r.status === 1 ? (JSON.parse(r.stdout.split("\nlang-gate OK")[0] ?? "") as { files: Array<{ rel: string }> }).files : null;
     return { status: r.status, rels: (files ?? []).map((f: { rel: string }) => f.rel).sort(), stderr: r.stderr };
   };
   assert.equal(skipDir(".claude", ""), true, "the repo-root session folder is skipped");
