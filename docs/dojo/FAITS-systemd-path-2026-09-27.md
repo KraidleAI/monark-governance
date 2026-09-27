@@ -1,4 +1,4 @@
-# FAITS-SYSTEMD-PATH-1 — `systemd.path(5)` lu sur place (orchestrateur, curl `https://www.freedesktop.org/software/systemd/man/latest/systemd.path.html`, HTTP 200, 2026-09-27 20:46:00Z ; copie `F:	mp\dojo\systemd-path.html`) — porte du G1 de K-1a-sig (ADR-K1 Q-PLI-2 (A))
+# FAITS-SYSTEMD-PATH-1 — `systemd.path(5)` lu sur place (orchestrateur, curl `https://www.freedesktop.org/software/systemd/man/latest/systemd.path.html`, HTTP 200, 2026-09-27 20:46:00Z ; copie `F:\tmp\dojo\systemd-path.html`) — porte du G1 de K-1a-sig (ADR-K1 Q-PLI-2 (A))
 
 - `PathExistsGlob=` [lu] : « PathExistsGlob= , PathChanged= , PathModified= , DirectoryNotEmpty= ¶ Defines paths to monitor for certain changes: PathExists= may be used to watch the mere existence of a file or directory. If the file specified exists, the conf »
 - `PathChanged=` [lu] : « PathChanged= , PathModified= , DirectoryNotEmpty= ¶ Defines paths to monitor for certain changes: PathExists= may be used to watch the mere existence of a file or directory. If the file specified exists, the configured unit is act »
