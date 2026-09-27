@@ -91,6 +91,7 @@ test("dojo_history_x10_guard_refuses_before_any_lock", async () => {
     [swap("--mint-file", join(f.root, "none")), ENV, "mint_mismatch"], [swap("--mint-file", join(f.root, "other.txt")), ENV, "mint_mismatch"], [ok, { ...ENV, [DOJO_HISTORY_ENV[OB][1]]: "0" }, "cycle_missing"],
     [swap("--max-credits", "800000"), ENV, "budget_guard"], [swap("--max-ru", "16000000"), ENV, "budget_guard"]]; // 1 + 10 x 800 000 > 8 000 000; 1 + 16 000 000 > 16 000 000
   for (const [a, env, want] of cases) assert.equal(await codeOf(runHistoryCollect(a, deps({ env }))), want, a.join(" "));
+  assert.equal(await main([...ok, "--x", "1"], deps()), 64, "a malformed argv exits 64, the code of usage (ADR l.967; C-V-3 of the cp-2)");
   assert.deepEqual([sim.reqs.length, readdirSync(join(f.state, "ledger")), existsSync(join(repo, "..g2x"))], [0, [], false], "refused before any lock: no cycle directory, no .lock, no ledger line");
   assert.equal(await codeOf(runHistoryCollect(argv(f, "B"), deps())), "phase_order", "B before A: refused before the lock");
   mkdirSync(join(f.state, "ledger", "cyc"));
@@ -99,6 +100,10 @@ test("dojo_history_x10_guard_refuses_before_any_lock", async () => {
   assert.deepEqual([sim.reqs.length, readdirSync(join(f.state, "ledger", "cyc"))], [0, [`${OB}.lock`]], "rollback: no other lock, no line");
   rmSync(join(f.state, "ledger", "cyc", `${OB}.lock`));
   assert.equal(await run(f, "A", { "--max-credits": "799999", "--max-ru": "15999999" }), null, "at the bound: 1 + 7 999 990 <= 8 000 000, 1 + 15 999 999 <= 16 000 000");
+  const J = Math.floor((NOW - Date.UTC(2026, 8, 10)) / 86_400_000) + 1, S = 6467 * J, p = (x: number, L: number): number => Math.floor(x / L) + 1; // D-10 l.392-394, recoded
+  assert.deepEqual([J, p(S, 1000), p(S, 100), S], [3, 20, 195, 19401], "J counts the UTC days from 2026-09-10 to the injected clock, both included");
+  assert.deepEqual((lastRun(f, "run.json").caps as { method_caps: unknown }).method_caps, { getSignaturesForAddress: p(S, 1000), getTransactionsForAddress: p(S, 100), getTransaction: S },
+    "run.json carries the method caps of D-10 l.399 (C-V-1 of the cp-2)");
   assert.equal(await codeOf(run(f, "A", { "--cut": String(Number(f.cut) + 1) })), "inputs_mismatch", "a resume keeps the fixed inputs (D-11 step 2)");
   const dots = join(f.root, "..x", "state"); mkdirSync(join(dots, "ledger"), { recursive: true });
   assert.equal(await run({ ...f, state: dots }, "A"), null, "`..x` is a name, not a parent segment: accepted outside any repository (C-G2-4)");
@@ -274,6 +279,15 @@ test("dojo_history_a_secret_in_a_response_stops_the_course_unwritten", async () 
     const f = fresh(), t = sim.txs.filter(ok)[2] as Tx; assert.equal(await run(f, "A", {}, { env }), null, `phase A: ${plant}`);
     sim.override = (r) => (r.op === "b" && r.params[0] === t.sig ? { ...structuredClone(t.body), meta: { ...(structuredClone(t.body.meta) as object), logMessages: [`debug ${plant}`] } } : undefined);
     assert.deepEqual([await run(f, "B", {}, { env }), leaks(f, plant), lastRun(f, "run.json").stop_detail], ["secret_in_response", [], `B|${OB}|getTransaction|${t.sig}`], plant);
+  }
+  // C-V-2 of the cp-2: under the declared lengths (a path segment of 15 characters; a query value, a user name and a password of 7), a
+  // part of the second operator's url is not a form: the response carrying it is written and the course ends without a stop.
+  const S15 = "s15-short-part1", Q7 = "q7-part", U7 = "u7-part", P7 = "w7-part", bodies = (f: F): string[] => files(join(f.state, "evidence", "raw", "B", OB));
+  for (const [plant, url] of [[S15, `https://${HOSTS.b}/${S15}`], [`${Q7} ${U7} ${P7}`, `https://${U7}:${P7}@${HOSTS.b}/?q=${Q7}`]] as [string, string][]) {
+    const f = fresh(), t = sim.txs.filter(ok)[2] as Tx, env = { ...ENV, CHAINSTACK_SOLANA_URL: url }; assert.equal(await run(f, "A", {}, { env }), null, `phase A: ${url}`);
+    sim.override = (r) => (r.op === "b" && r.params[0] === t.sig ? { ...structuredClone(t.body), meta: { ...(structuredClone(t.body.meta) as object), logMessages: [`debug ${plant}`] } } : undefined);
+    assert.deepEqual([[S15.length, Q7.length, U7.length, P7.length], await run(f, "B", {}, { env }), json(join(f.state, "evidence", "status.json")).stop_reason,
+      bodies(f).filter((p) => gunzipSync(readFileSync(p)).toString("utf8").includes(plant)).length], [[15, 7, 7, 7], null, null, 1], `not a form, written: ${plant}`);
   }
   const g = fresh(); sim.override = (r) => (r.method === "getSignaturesForAddress" ? new Response(`upstream ${K1} ${K2}`, { status: 500 }) : undefined);
   assert.deepEqual([await run(g, "A", {}, { env: e1 }), leaks(g, K1)], ["transport_fault", []], "an error body carrying both keys: nothing written");
