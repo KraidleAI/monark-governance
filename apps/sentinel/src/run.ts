@@ -307,6 +307,27 @@ export function openChainstackLeg(stateDir: string): ChainstackLeg {
   return { status: "ok", client, origin, release };
 }
 
+/** NARABI-L-GAP-1 (pli 2 of NARABI-L-1): MONARK_SENTINEL_EXCLUDE_HOSTS, comma-separated hostnames compared
+ *  case-insensitively to each endpoint's URL hostname, removes those endpoints from the pool AND from the published
+ *  provenance (a line lists only the endpoints actually used). For the ARCHIVE gap draw only (RUNBOOK section 7
+ *  (1): a provider answering a well-formed but empty eth_getLogs holds quorumTwo on its first two successes); the
+ *  served unit never sets it. Absent or "" => both lists unchanged. An item naming no host of the pool (a typo, an
+ *  empty item) THROWS at start-up: fail-closed, never ignored. `endpoints` and `published` are parallel (the paid
+ *  leg is a label in one, its origin in the other), so the host is read from `published`. */
+export function excludeHosts(raw: string | undefined, endpoints: readonly string[], published: readonly string[]): { endpoints: string[]; published: string[] } {
+  if (raw === undefined || raw === "") return { endpoints: [...endpoints], published: [...published] };
+  if (endpoints.length !== published.length) throw new Error("MONARK_SENTINEL_EXCLUDE_HOSTS: pool and published lists differ.");
+  const hosts = published.map((u) => { try { return new URL(u).hostname; } catch { return u; } });
+  const drop = new Set<string>();
+  for (const item of raw.split(",")) {
+    const h = item.trim().toLowerCase();
+    if (!hosts.includes(h)) throw new Error(`MONARK_SENTINEL_EXCLUDE_HOSTS: ${JSON.stringify(item)} is not a host of the pool (${hosts.join(", ")}).`);
+    drop.add(h);
+  }
+  const keep = (_: string, i: number): boolean => !drop.has(hosts[i]!);
+  return { endpoints: endpoints.filter(keep), published: published.filter(keep) };
+}
+
 async function main(): Promise<void> {
   const { dryRun, day, dir } = parseArgs(process.argv.slice(2));
   const budgetMs = budgetMsFromEnv(process.env); // fail-closed at start-up: a mis-set budget throws before any network.
@@ -325,8 +346,10 @@ async function main(): Promise<void> {
     // C-6 (provenance): the Chainstack ORIGIN (non-secret scheme+host) is published ONLY when the guarded leg
     // actually opened; a degraded run publishes the 7 public endpoints and no origin (chainstack_present:false).
     const published = hasChain ? [...PUBLIC_ENDPOINTS, leg.origin!] : [...PUBLIC_ENDPOINTS];
-    const prov: Provenance = { endpoints: published, node_version: process.version, sentinel_sha: sentinelSha(srcDir) };
-    const rpc = makeRpcPool({ endpoints, call: makeDispatchCall(leg.client) });
+    // NARABI-L-GAP-1: the exclusion is read ONCE, here, before any RPC; it filters the pool AND the provenance.
+    const kept = excludeHosts(process.env.MONARK_SENTINEL_EXCLUDE_HOSTS, endpoints, published);
+    const prov: Provenance = { endpoints: kept.published, node_version: process.version, sentinel_sha: sentinelSha(srcDir) };
+    const rpc = makeRpcPool({ endpoints: kept.endpoints, call: makeDispatchCall(leg.client) });
     const { state } = loadState(dir, prov);
     const startDay = resolveStartDay(process.env.MONARK_SENTINEL_J0, day, state.prevDay, new Date().toISOString().slice(0, 10));
     // Never-skip under the CLI: a non-dry `--day` must be the natural next day (else a silent backlog write).

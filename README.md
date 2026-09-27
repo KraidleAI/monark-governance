@@ -64,6 +64,7 @@ Everything below is live, machine-readable, and replayable by a third party with
 |---|---|---|
 | `https://mcp.monarkgate.tech/mcp` · `https://api.monarkgate.tech/openapi.json` | The engine's four tools (`attest · gate · cascade · calibrate`) over MCP and a plain HTTP/JSON mirror; the served OpenAPI document states the served version | Any MCP-capable agent |
 | `https://monarkgate.tech/narabi/state.json` · `timeline.jsonl` | Narabi's tracker state and its append-only, per-line hash-chained daily timeline (one line per window, with the blocks it was read from) | Anyone replaying the tracker; the site's `/narabi` page |
+| `https://monarkgate.tech/narabi/instrument.json` | A diagnostic file beside the tracker, written once from a closed block of days (never by the daily job): tracker replays at alternative parameters and a permutation-assessed CUSUM; it claims no bound | Anyone auditing the tracker; no page reads it |
 | `https://bell.monarkgate.tech/state.json` · `timeline.jsonl` · `provenance.json` · `bell/pubkey.json` | MONARK Bell's signed publications: per-session fills, VWAP and volume for the listed tokenized equities, halt census, supply and proof-of-reserve residuals, the provenance of each run, the active Ed25519 key | Anyone verifying a publication; the site's `/bell` page |
 | `https://monarkgate.tech` | The vitrine: every number on it is read from a committed, hashed copy of the served files above — never typed | Readers |
 
@@ -116,6 +117,7 @@ The labels are the point: they say what exists today and what is only named.
   weights) wording — *no coverage is measured*. **Every other population abstains** (`under_calib`).
   An off-tool **daily** sentinel steps the tracker at block finality and publishes a replayable timeline at
   `https://monarkgate.tech/narabi/` (`state.json`, `timeline.jsonl`, per-line hash-chained).
+  - `instrument.json` — Instrument, not the official tracker: tracker replays at alternative parameters, and a one-sided CUSUM in the form Page (1954) introduced and Lorden (1971) presents, on the static misses, assessed by a permutation test of exchangeability as Vovk (2012) defines it. A third way, outside Lorden's i.i.d. theory and the e-detectors of Shin, Ramdas and Rinaldo (2022); no bound is claimed. One snapshot, taken once, never refreshed by the daily job.
 
 The single public sentence for Narabi, verbatim:
 

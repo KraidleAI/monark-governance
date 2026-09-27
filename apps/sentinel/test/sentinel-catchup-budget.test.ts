@@ -384,7 +384,7 @@ test("sentinel_dry_run_honours_budget_same_exit — --dry-run walks the same cat
   assert.equal(existsSync(join(dirDry, "state.json")), false, "--dry-run wrote no state.json");
 });
 
-test("sentinel_no_clock_env_is_read — run.ts reads only the six declared env keys (no clock env), and runDue references neither Date.now nor performance.now (C4; NARABI-OPS-1d adds the 3 non-secret Chainstack cycle keys)", () => {
+test("sentinel_no_clock_env_is_read — run.ts reads only the seven declared env keys (no clock env), and runDue references neither Date.now nor performance.now (C4; NARABI-OPS-1d adds the 3 non-secret Chainstack cycle keys; NARABI-L-1 pli 2 the exclusion key)", () => {
   const src = readFileSync(RUN_TS, "utf8");
   const keys = new Set<string>();
   const re = /(?:process\.env|\benv)\.([A-Za-z_][A-Za-z0-9_]*)/g;
@@ -393,7 +393,9 @@ test("sentinel_no_clock_env_is_read — run.ts reads only the six declared env k
   // D-4 (annotated update): NARABI-OPS-1d added CHAINSTACK_CYCLE_ID/CHAINSTACK_ETH_ORIGIN/CHAINSTACK_CYCLE_FLOOR
   // (all NON-secret; decision 121 option 1). The SECRET endpoint URL (CHAINSTACK_ETH_URL) is read by
   // @monark/rpc-guard's transport, NEVER by run.ts (fetch_only_inside_client proves run.ts carries no key read).
-  assert.deepEqual([...keys].sort(), ["CHAINSTACK_CYCLE_FLOOR", "CHAINSTACK_CYCLE_ID", "CHAINSTACK_ETH_ORIGIN", "MONARK_SENTINEL_BUDGET_S", "MONARK_SENTINEL_DIR", "MONARK_SENTINEL_J0"], "exactly the six declared env keys are read");
+  // Annotated update (NARABI-L-1 pli 2, NARABI-L-GAP-1): MONARK_SENTINEL_EXCLUDE_HOSTS, the archive-draw-only host
+  // exclusion (non-secret, never set by the served unit; test sentinel_exclude_hosts_removes_pool_and_published).
+  assert.deepEqual([...keys].sort(), ["CHAINSTACK_CYCLE_FLOOR", "CHAINSTACK_CYCLE_ID", "CHAINSTACK_ETH_ORIGIN", "MONARK_SENTINEL_BUDGET_S", "MONARK_SENTINEL_DIR", "MONARK_SENTINEL_EXCLUDE_HOSTS", "MONARK_SENTINEL_J0"], "exactly the seven declared env keys are read");
   for (const k of keys) assert.ok(!/CLOCK|TICK|WALL/i.test(k), `no clock env key (${k})`);
   const body = src.slice(src.indexOf("export async function runDue"), src.indexOf("function sentinelSha"));
   assert.ok(body.length > 0, "runDue is locatable in the source");

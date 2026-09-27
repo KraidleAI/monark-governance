@@ -11,8 +11,8 @@ import { pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
 import { canonical, trustOf } from "../../bell/scripts/bell-chain.mjs";
 import { walkDojoTimeline } from "./dojo-chain.mjs";
-import { dayValue, holderCounted, ownerClass, proofOf, provisionalOf, rootOf, scoreOf, stepLots, tierOf, unitPrice, unitThreshold,
-  unitsOf, validatedOf, verifyProof } from "./dojo-core.mjs";
+import { beaconRound, dayMinimum, dayValue, holderCounted, ownerClass, proofOf, provisionalOf, readInstants, rootOf, scoreOf, stepLots, tierOf,
+  unitPrice, unitThreshold, unitsOf, validatedOf, verifyProof } from "./dojo-core.mjs";
 
 /** The closed list of D-10 (l.252), in its order: 45 codes. A refusal's detail names a file, a line or a field, never a value. */
 export const DOJO_VERIFY_REFUSALS = Object.freeze(["insecure_url", "redirect_refused", "http_status", "unreachable", "too_large",
@@ -73,8 +73,8 @@ export function dojoTrustOf(k) {
 const COMMON = ["schema", "seq", "kind", "prev_line_hash", "key_id", "published_at", "sig"];
 const FIELDS = {
   anchor: ["seed_anchor", "mint", "program", "k_reads", "horizon", "validation_days", "objective_unit_microusd_days", "tier_units",
-    "tier_windows", "price_window_days", "pool", "pool_quote_vault", "sol_usd_source", "dust_threshold_microusd"],
-  snapshot: ["day", "seed", "reads", "mint", "decimals", "price_version", "lines_sha256", "lines_count", "root", "score_total",
+    "tier_windows", "price_window_days", "pool", "pool_quote_vault", "sol_usd_source", "dust_threshold_microusd", "read_rule"],
+  snapshot: ["day", "seed", "beacon", "reads", "mint", "decimals", "price_version", "lines_sha256", "lines_count", "root", "score_total",
     "validated_total", "holders_count", "status"],
   price_version: ["price_version", "effective_day", "window_first_day", "pool_price_daily", "usd_per_sol_daily", "unit_price_microusd",
     "threshold_unit", "dust_threshold"],
@@ -98,6 +98,37 @@ const instantDay = (s) => Math.floor(Date.parse(s) / DAY_MS); // the UTC day of 
 const addressOk = (a) => { try { ownerClass(a); return true; } catch { return false; } };
 const lt = (a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)) < 0; // byte order (D-7 l.221)
 const dayOf = (l) => (l !== null && typeof l === "object" && typeof l.day === "string" ? l.day : null);
+
+// PR-1b-3 (ADR-DOJO-PR-2 D-5 l.152-157, D-8 l.188-196): a snapshot's beacon {round, signature} and its K reads, closed keys (D-8 l.188).
+// A missed reading carries its instant and nulls (l.188); a day without beacon is abstained, without reads (D-5 l.156). Codes of D-8,
+// the detail naming the sub-check (C-V-1 (b)). The beacon's BLS signature is NOT verified: an operator's assertion, checkable offline
+// by any client of the beacon with the anchor's key (D-5 l.157); the report says so (beacon_bls_verified).
+const READ = ["instant", "read_at", "slot_min", "slot_max", "accounts_concordant", "accounts_no_quorum", "pool_price", "usd_per_sol", "usd_per_sol_publish_time"];
+const int0 = (n) => Number.isSafeInteger(n) && n >= 0;
+const isoOk = (s) => typeof s === "string" && Number.isFinite(Date.parse(s)) && new Date(Date.parse(s)).toISOString() === s;
+const gcd = (a, b) => (b === 0n ? a : gcd(b, a % b));
+const frac = (f) => f === null || (Array.isArray(f) && f.length === 2 && f.every((x) => x !== null && decOrNull(x)) && f[1] !== "0" && gcd(BigInt(f[0]), BigInt(f[1])) === 1n);
+const readOk = (r) => r !== null && typeof r === "object" && same(Object.keys(r), READ) && isoOk(r.instant) && (r.read_at === null || isoOk(r.read_at))
+  && [r.slot_min, r.slot_max, r.usd_per_sol_publish_time].every((n) => n === null || int0(n)) && int0(r.accounts_concordant) && int0(r.accounts_no_quorum)
+  && frac(r.pool_price) && frac(r.usd_per_sol) && (r.usd_per_sol === null) === (r.usd_per_sol_publish_time === null)
+  && (r.read_at !== null || [r.slot_min, r.slot_max, r.pool_price, r.usd_per_sol].every((x) => x === null));
+function readsCheck(L, A, at) {
+  const b = L.beacon, rule = A.read_rule, k = A.k_reads, absent = b === null && L.status === "abstained" && L.reads.length === 0;
+  if (!absent && !(b !== null && typeof b === "object" && same(Object.keys(b), ["round", "signature"]) && seqNo(b.round) && typeof b.signature === "string"
+    && /^[0-9a-f]{96}$/.test(b.signature) && (parseInt(b.signature.slice(0, 2), 16) & 0xc0) === 0x80)) at("timeline_malformed", "beacon"); // 48 bytes, compressed, finite
+  if (!L.reads.every(readOk) || L.reads.length !== (b === null ? 0 : k)) at("timeline_malformed", "reads"); // K <= 255: the anchor's form (walker; Q-9 of PR-1b-3)
+  if (b === null) return;
+  const T = epoch(L.day) * 86_400; // T_d in seconds
+  if (T < rule.beacon_genesis_time || b.round !== beaconRound(T, rule.beacon_genesis_time, rule.beacon_period)) at("read_instant_mismatch", "beacon");
+  const t = readInstants(L.seed, b.signature, k, T, rule.read_offset_s); // g_d = the revealed seed of the line, then beta (D-5 l.152)
+  L.reads.forEach((r, j) => {
+    const i = Date.parse(r.instant), a = r.read_at === null ? null : Date.parse(r.read_at);
+    if (i !== (t[j] ?? -1) * 1000) at("read_instant_mismatch", "instant");
+    if (a !== null && (a < i || a > i + rule.read_tolerance_s * 1000)) at("read_instant_mismatch", "read_at");
+    const p = r.usd_per_sol_publish_time; // t - sol_usd_max_age_s <= publish_time <= read_at (D-3 l.134)
+    if (p !== null && (a === null || p * 1000 < i - rule.sol_usd_max_age_s * 1000 || p * 1000 > a)) at("read_instant_mismatch", "usd_per_sol");
+  });
+}
 
 /** One immutable file named by its signed line (D-7 l.221, D-18 l.306), bounded as a body: LF-terminated lines; the count, the
  *  sha256, then each line in canonical JSON of Bell with closed keys and its forms, then the order, then the Merkle root (RFC 9162
@@ -141,7 +172,7 @@ async function verify({ source, keyring, address, bounds }) {
   if (root === null) refuse("keyring_invalid", null, null, "the supplied keyring");
   for (const [id, k] of served.trust) if (root.trust.get(id)?.x !== k.x) refuse("served_key_not_in_keyring", null, null, id);
   const w = walkDojoTimeline(lines, root.trust); // D-8 l.232: Bell's checks, then the walker's (table of the eighth pli)
-  if (!w.ok) refuse(w.reason, w.seq, dayOf(lines[w.seq - 1]), "timeline.jsonl");
+  if (!w.ok) refuse(w.reason, w.seq, dayOf(lines[w.seq - 1]), w.detail ?? "timeline.jsonl");
 
   // The timeline, line by line: closed keys, the keyring's validity windows, DOJO-WALK-GAPS-1 (a) to (c), each price_version
   // recomputed (D-17 l.291-294), the fields of each snapshot the walker does not read (D-8 l.231).
@@ -170,8 +201,20 @@ async function verify({ source, keyring, address, bounds }) {
     } else if (l.kind === "snapshot") {
       if (!HEX64.test(l.lines_sha256) || !HEX64.test(l.root) || !(Number.isSafeInteger(l.lines_count) && l.lines_count >= 0) || l.mint !== anchor.mint
         || !(Number.isSafeInteger(l.decimals) && l.decimals >= 0) || !["counted", "abstained"].includes(l.status)) at("timeline_malformed", "snapshot fields");
+      readsCheck(l, anchor, at);
       last = epoch(l.day);
       snaps.push({ l, anchor });
+    }
+  }
+  // Each price_version's daily values (D-8 l.194; mere D-17: seven valid values in the window, else no version): the snapshot of day
+  // window_first_day + k, counted and before the version (Q-6, Q-7 of PR-1b-3), has that value as the smallest of its non-null reads, reduced (M-24).
+  const byDay = new Map(snaps.map(({ l }) => [l.day, l]));
+  for (const v of versions.values()) {
+    for (const [field, key] of [["pool_price_daily", "pool_price"], ["usd_per_sol_daily", "usd_per_sol"]]) {
+      v[field].forEach((x, k) => {
+        const s = byDay.get(new Date((epoch(v.window_first_day) + k) * DAY_MS).toISOString().slice(0, 10)), m = s === undefined || s.seq > v.seq || s.status !== "counted" ? null : dayMinimum(s.reads.map((r) => r[key]));
+        if (m === null || canonical(m) !== canonical(x)) refuse("price_version_mismatch", v.seq, null, field);
+      });
     }
   }
   // F-1 (fail-closed; orchestrator's decision after the G2 of PR-1b-2): a line voided at or before the verified line (the head, else
@@ -262,7 +305,8 @@ async function verify({ source, keyring, address, bounds }) {
     active_key_id: w.active, voided_lines: w.voided, snapshots: snaps.length,
     head: head === null ? null : { seq: head.seq, lines_sha256: head.lines_sha256, lines_count: head.lines_count, recomputed_root: headFile.root },
     history: hist === null ? null : { history_sha256: hist.history_sha256, history_lines_count: hist.history_lines_count, recomputed_root: hFile.root },
-    inclusion, scope: "a signature attests origin, never truth; the readings are what two operators reported; the Solana chain is not read" };
+    inclusion, beacon_bls_verified: false,
+    scope: "a signature attests origin, never truth; the readings are what two operators reported; the Solana chain is not read; the beacon's BLS signature is not verified: an altered signature of valid form is refused as its instants" };
 }
 
 /** The complete check of D-10 (l.251): resolves to {ok: true, ...} or {ok: false, reason, seq, day, detail}, reason in

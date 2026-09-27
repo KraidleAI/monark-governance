@@ -9,3 +9,8 @@
 ## Conséquences pour PR-3b-1 (ADR-DOJO-PR-3 D-5 : « minuteries à valeurs posées »)
 - Le pas `--tick` avant 00:15 UTC et les lectures aux instants tirés exigent **`AccuracySec=1s`** (défaut 1 min) et **`RandomizedDelaySec=0`** (défaut 0, à écrire explicitement) ; `Persistent=true` rejouerait un `--tick` manqué au démarrage : à décider (un `--tick` après 00:15 = jour abstenu `beacon_unavailable` par construction, D-5 « tout le jour ou rien » ; donc `Persistent=false` pour le tick, `true` admissible pour la publication).
 - Les lectures à instants tirés ne sont pas des `OnCalendar=` fixes : soit un service long (`--reading` armé par le processus jusqu'à l'instant, précédent à écrire), soit des minuteries transitoires `systemd-run --on-calendar` posées par `--tick` (à trancher au G1 de PR-3b-1 ; forme fermée exigée par DOJO-TICK-ARGV-1).
+
+## Complément [lu, hôte BELL `178.16.131.29` (variante A recommandée), SSH lecture seule, 2026-09-27 08:14Z] — cp-1 PR-2-2 C-V-4
+- Hôte `bell` : **systemd 259 (259.5-0ubuntu3.4)**, Ubuntu 26.04.1 LTS — même version que le VPS du site ; les extraits de `systemd.timer(5)` ci-dessus valent pour les deux hôtes (même paquet).
+- `systemd.time(7)` (man local, « Calendar Events ») : « Values may be suffixed with "/" and a repetition value, which indicates that the value itself and the value plus all multiples of the repetition value are matched » ⇒ **`OnCalendar=*:0/5`** = minutes 0, 5, 10, … de chaque heure (forme idempotente toutes les 5 min du `--tick`, ligne datée 08:00Z de l'ADR PR-2) — sourcé.
+- Existant sur l'hôte Bell : `monark-probe.timer` (prochain 10:30 UTC, dernier 16:30:06 UTC la veille), utilisateurs `probe` (997) et `bell` (994) ; aucune unité Dōjō. Aucune écriture.

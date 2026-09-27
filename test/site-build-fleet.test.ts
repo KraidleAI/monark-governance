@@ -30,6 +30,7 @@ import { derivePublicWorkflow, collectFiles, CI_WORKFLOW_PATH } from "../scripts
 import ts from "typescript";
 import { renderedTexts } from "../apps/site/test/honesty-lint.ts";
 import { compilePatterns, scanText } from "../scripts/grep-forbidden.mjs";
+import { DATA_SOURCE_FORMS, DATA_SOURCE_STEMS, DATA_SOURCE_MENTIONS, OPERATOR_FORMS, KITCHEN_FORMS } from "../scripts/public-text-deny.mjs";
 import { parseTimeline, lagStatus, addDays } from "../apps/site/lib/narabi-live.ts";
 import { loadNarabiServed } from "../apps/site/lib/narabi-served-load.ts";
 import { loadNarabiCapture } from "../apps/site/lib/narabi-capture-load.ts";
@@ -260,20 +261,8 @@ const REGISTER_PAGES = [
   "apps/site/app/applications/page.tsx",
 ];
 
-// Data-source name forms (VOCAB-PROVIDERS-SITE-1). These LITERALS live ONLY in this repo-root test/ file, which is never
-// exported — the confinement of decision 69 / C-9 (test/no-cash-provider-name.test.ts): vocab-banned.json is exported,
-// so a rule there would publish the very name it bans. Scanned over every EXPORTED apps/site file by
-// site_names_no_data_source; asserted absent from vocab-banned.json by the vocab test below.
-const DATA_SOURCE_FORMS: { re: RegExp; why: string }[] = [
-  { re: /databento/i, why: "close-source brand (any form, substring)" },
-  { re: /\bmassive\b/i, why: "cash cross-check brand (whole word; conservative over-match on the adjective)" },
-  // Case-SENSITIVE on purpose: the lower-case SVG element <polygon> and the CSS clip-path function polygon() are markup,
-  // not a name (measured: Base UI ships clip-path polygon() in the /fleet and /products chunks); the capitalised word is
-  // the brand — and a chain of the same name, which also reds on the storefront (declared limit).
-  { re: /\bPolygon\b/, why: "cash cross-check former brand (capitalised whole word; a chain of the same name also reds on the storefront)" },
-  { re: /polygon\.io/i, why: "cash cross-check API domain" },
-  { re: /\b(?:POLYGON|DATABENTO)_API_KEY\b/, why: "data-source env-key name" },
-];
+// The vendor name lists (data sources, RPC operators) live in scripts/public-text-deny.mjs, a governance-only module (never
+// exported, CA-1.5): exporting them would publish the very names they ban (decision 69 / C-9).
 
 // Binary exports carry no prose (fonts, images, OpenTimestamps proofs).
 const BINARY_EXPORT = /\.(?:png|jpg|jpeg|gif|ico|webp|woff2?|ttf|otf|ots)$/i;
@@ -299,12 +288,6 @@ const jsonStrings = (v: unknown, out: string[] = []): string[] => {
   }
   return out;
 };
-
-// Data-source STEMS for the exported gate file (vocab-banned.json): matched as SUBSTRINGS, never behind a word boundary
-// (a boundary form is what an escaped rule evades). No legitimate rule, reason or comment of that file needs them.
-const DATA_SOURCE_STEMS: readonly RegExp[] = [/massive/i, /databento/i, /polygon/i];
-// What a rule BANNING a data-source name would match, however the rule is spelled (escapes, character classes).
-const DATA_SOURCE_MENTIONS: readonly string[] = ["Massive", "Databento", "Polygon", "polygon.io", "POLYGON_API_KEY", "DATABENTO_API_KEY"];
 
 /** Data-source leaks in the TEXT of the exported gate file: its raw bytes and every parsed string (escapes neutralized)
  *  scanned for the stems, and every rule of every scope, compiled as the gate compiles it, tried on the mentions (a rule
@@ -818,10 +801,11 @@ test("vocab_site_scope_bans_operator_and_venue_names — operator and venue name
   assert.deepEqual(hits, [], `apps/site surfaces redden the site vocab scope: ${hits.join(", ")}`);
 });
 
-test("site_names_no_data_source — no data-source name form in ANY exported apps/site file, rendered surface or committed data; the literals stay in this non-exported file (VOCAB-PROVIDERS-SITE-1, R13, R50; decision 69 / C-9)", () => {
+test("site_names_no_data_source — no data-source name form in ANY exported apps/site file, rendered surface or committed data; the literals stay in the non-exported scripts/public-text-deny.mjs (VOCAB-PROVIDERS-SITE-1, R13, R50; decision 69 / C-9)", () => {
   const kept = collectFiles(ROOT).kept;
-  // The literals below must never be exported (else they would publish the names they ban).
+  // The name literals (this file, and the module it imports them from) must never be exported (else they would publish the names they ban).
   assert.ok(!kept.some((f) => f.rel.startsWith("test/")), "no repo-root test/ file may be exported");
+  assert.ok(!kept.some((f) => f.rel.startsWith("scripts/public-text-deny.")), "scripts/public-text-deny.* (the vendor lists) is never exported (CA-1.5)");
   const siteFiles = kept.filter((f) => f.rel.startsWith("apps/site/") && !BINARY_EXPORT.test(f.rel));
   assert.ok(siteFiles.length >= 50, `implausibly few exported apps/site text files (${String(siteFiles.length)}) — false green?`);
   // Each file is scanned as written AND with its escapes neutralized: a regex source `\bmassive\b` or an escaped spelling
@@ -1106,23 +1090,11 @@ test("owner_decisions_of_2026_09_24_retired_wording_stays_out — B_t caller-car
 
 // KITCHEN-PUBLIC-1 — the internal work vocabulary never rides on the public storefront. A CLOSED list of forms, scanned
 // over EVERY exported apps/site text file (sources with their comments, committed data with its $comment, public assets),
-// as written and with escapes neutralized; the literals live in this non-exported file (listing them in the exported gate
+// as written and with escapes neutralized; the literals (KITCHEN_FORMS) live in the non-exported public-text-deny.mjs (the exported gate
 // file would publish them). The closed exemptions are exact spans, each tied to a formed item with its trigger; an
 // exemption whose span is gone reds (no stale exemption). DECLARED LIMITS: the bare word "ADR" in a method sentence is
 // not a form here (item KITCHEN-ADR-WORD-1, owner's ruling): it is held to a closed count per file, so a new occurrence
 // reds; "worker" and "checkpoint" redden as plain English words too (none on the storefront when added).
-const KITCHEN_FORMS: readonly { re: RegExp; why: string }[] = [
-  { re: /\bsub-?agents?\b/i, why: "sub-agent" },
-  { re: /\borchestrat(?:or|ors|ion|ed|ing)\b/i, why: "orchestrator" },
-  { re: /\bworkers?\b/i, why: "worker" },
-  { re: /\bcheckpoint(?:s|-\d+)?\b/i, why: "checkpoint" },
-  { re: /\bG[0-7]\b/, why: "gate G0..G7" },
-  { re: /\b[Ll]ots? [A-Z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)+/, why: "lot <NAME>" },
-  { re: /\bdecisions? (?:n°\s*)?\d+/i, why: "decision <n>" },
-  { re: /\bADR-[A-Z0-9]/, why: "ADR identifier" },
-  { re: /vibe-?cod/i, why: "vibecoding" },
-  { re: /\bG2 review\b/i, why: "G2 review" },
-];
 const KITCHEN_EXEMPT: readonly { rel: string; span: string; item: string }[] = [
   {
     rel: "apps/site/data/ukemi-course.json",
@@ -1396,18 +1368,7 @@ test("site_raw_html_injection_points_pinned - dangerouslySetInnerHTML only in ap
   assert.deepEqual(rawHtml, [], "no raw .html document under apps/site/public");
 });
 
-// G2 SITE-DOCS-1 (C-G2-9) — RPC operator names, confined like the data-source forms above: the literals live in this
-// non-exported root test file, so the guard does not publish the operator set. The operators the repository reads through
-// (measured in its code on 2026-09-24) and the operators of the review's list; "pocket" alone would hit "pocket knife" on
-// /docs, so that network is named by its token and full name. helius, chainstack and tenderly stay in the exported site scope.
-const OPERATOR_FORMS: { re: RegExp; why: string }[] = [
-  { re: /\bdrpc\b/i, why: "RPC operator" }, { re: /\bpublicnode\b/i, why: "RPC operator" }, { re: /\bllamarpc\b/i, why: "RPC operator" },
-  { re: /\bblastapi\b/i, why: "RPC operator" }, { re: /\bmevblocker\b/i, why: "RPC operator" }, { re: /\b1rpc\b/i, why: "RPC operator" },
-  { re: /\bankr\b/i, why: "RPC operator" }, { re: /\bpokt\b|\bpocket\s+network\b/i, why: "RPC operator" }, { re: /\balchemy\b/i, why: "RPC operator" },
-  { re: /\bquicknode\b/i, why: "RPC operator" }, { re: /\binfura\b/i, why: "RPC operator" }, { re: /\bkaiko\b/i, why: "market-data vendor" },
-  { re: /\bdune\b/i, why: "query vendor" },
-];
-test("site_names_no_rpc_operator — no operator or vendor name form in ANY exported apps/site file; the literals stay in this non-exported file", () => {
+test("site_names_no_rpc_operator — no operator or vendor name form in ANY exported apps/site file; the literals stay in the non-exported scripts/public-text-deny.mjs", () => {
   const siteFiles = collectFiles(ROOT).kept.filter((f) => f.rel.startsWith("apps/site/") && !BINARY_EXPORT.test(f.rel));
   assert.ok(siteFiles.length >= 50, "the exported apps/site files are collected (false-green guard)");
   const hits: string[] = [];
