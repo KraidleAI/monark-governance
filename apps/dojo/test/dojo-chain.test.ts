@@ -251,7 +251,7 @@ test("dojo_walk_reasons_are_the_closed_list", () => {
   const kinds = ["anchor", "snapshot", "price_version", "history", "key_rotation", "key_revocation"]; // D-8 l.227: kinds, not codes
   const d10 = new Set([...line.matchAll(/`([a-z_]+)`/g)].map((m) => m[1] ?? "").filter((c) => !kinds.includes(c)));
   assert.ok(d10.has("insecure_url") && d10.has("history_transition_mismatch") && d10.size >= 44, "D-10 read from the mere");
-  for (const r of DOJO_WALK_REASONS) assert.ok(d10.has(r) || r === "rotation_key_not_in_keyring", `${r}: in D-10 or admitted at the eighth pli (Q-1)`);
+  for (const r of DOJO_WALK_REASONS) assert.ok(d10.has(r), `${r}: in D-10 (l.252 since the eighth pli, Q-1)`);
   assert.deepEqual([...seen].sort(), [...DOJO_WALK_REASONS].sort(), "the tests above reached every reason, and no other");
 });
 

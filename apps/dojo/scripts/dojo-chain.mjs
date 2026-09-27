@@ -4,8 +4,8 @@
 // and Bell's key schedule, then the Dojo checks of the line (D-8 l.228). The Bell primitives are imported unchanged, from the
 // closed list of P-15 (l.594); isJwk (bell-chain.mjs:103, module-private) is the one declared duplicate. Pure, Node
 // built-ins only: no I/O, no clock, no network. A refusal is {ok: false, seq, reason}, reason in DOJO_WALK_REASONS: codes
-// of D-10 (l.248) plus rotation_key_not_in_keyring, which Bell's walk emits (bell-chain.mjs:134): admitted to D-10 at the
-// mere's eighth pli (G1 journal Q-1). The interface choices below are declared in the G1 journal (Q-2 to Q-6), never silent.
+// of D-10 (l.252 since the mere's eighth pli, rotation_key_not_in_keyring included: Bell's walk emits it, bell-chain.mjs:134;
+// G1 journal Q-1). The interface choices below are declared in the G1 journal (Q-2 to Q-6), never silent.
 import { createHash } from "node:crypto";
 import { GENESIS, lineHash, verifyLine, publicKeyOfJwk } from "../../bell/scripts/bell-chain.mjs";
 

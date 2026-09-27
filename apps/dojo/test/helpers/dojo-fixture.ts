@@ -5,9 +5,13 @@
 // and a history line with this helper (ADR-DOJO-PR-2B l.547). Values fixed by the mere are cited; every other value is a
 // SYNTHETIC test input, never a protocol value (O_1 and u_k: DOJO-OBJECTIVES-1; pool, quote vault and SOL/USD source:
 // FAITS-SOL-USD-SOURCE-1; the anchor day, the horizon, the daily series and the seed secrets).
-import { createHash, generateKeyPairSync, type KeyObject } from "node:crypto";
+import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, type KeyObject } from "node:crypto";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { GENESIS, canonical, keyIdOf, keyringOf, lineHash, signLine, trustOf, type Keyring, type Trust } from "../../../bell/scripts/bell-chain.mjs";
-import { rootOf, unitPrice, unitThreshold, type Fraction } from "../../scripts/dojo-core.mjs";
+import { dayValue, holderCounted, lotsOf, provisionalOf, rootOf, scoreOf, tierOf, unitPrice, unitThreshold, unitsOf, validatedOf,
+  type Fraction } from "../../scripts/dojo-core.mjs";
 
 export type Line = Record<string, unknown>;
 export const DAY_MS = 86_400_000;
@@ -148,4 +152,140 @@ export function renamedPair(events: readonly Ev[]): { bell: Line[]; dojo: Line[]
     dojo.push({ ...step, body: { ...body } });
   }
   return { bell: seal("bell-timeline-v1", bell), dojo: seal("dojo-timeline-v1", dojo) };
+}
+
+// ---- PR-1b-2: the served tree read by the verifier (D-9 l.246, D-10 l.251). Its files come from a SYNTHETIC scenario computed with
+// the pure core, as the publisher of PR-3a will; the verifier's tests pin values by hand. dojoFixture and servedTree are unchanged ----
+const DOJO = "dojo-timeline-v1"; // D-8 l.231
+const ANCHOR = anchorBody("", 1, ANCHOR_DAY); // this fixture's anchor values (D-8 l.231; eighth pli: 30 kept as test values)
+const W = ANCHOR.validation_days as number, TIER_U = ANCHOR.tier_units as string[], TIER_W = ANCHOR.tier_windows as number[];
+const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; // Bitcoin alphabet (FAITS PR-1a L-14)
+function b58(bytes: Uint8Array): string {
+  let x = BigInt(`0x${Buffer.from(bytes).toString("hex")}`), s = "";
+  for (; x > 0n; x /= 58n) s = B58.charAt(Number(x % 58n)) + s;
+  for (let i = 0; i < bytes.length && bytes[i] === 0; i++) s = `1${s}`;
+  return s;
+}
+/** A holder: the public key of the SYNTHETIC Ed25519 seed sha256(label), on the curve by construction (motif
+ *  test/bell-anchor-timeline.test.ts:21); P: the 32 bytes of y = 2, off the curve (FAITS PR-1a section 2, test of PR-1a). */
+const holder = (label: string): string => b58(Buffer.from(createPublicKey(createPrivateKey({ format: "der", type: "pkcs8",
+  key: Buffer.concat([Buffer.from("302e020100300506032b657004220420", "hex"), createHash("sha256").update(label).digest()]) }))
+  .export({ format: "jwk" }).x ?? "", "base64url"));
+export const ADDR = { A: holder("dojo-fixture-A"), B: holder("dojo-fixture-B"), D: holder("dojo-fixture-D"),
+  P: b58(Uint8Array.from({ length: 32 }, (_, i) => (i === 0 ? 2 : 0))) };
+const X4 = (v: string | null): (string | null)[] => [v, v, v, v]; // K = 4 readings (k_reads of the anchor)
+/** SYNTHETIC readings of day number d (day 1 = 2026-09-10, the anchor's day is 22, read days 23 to 31): A holds 5 000 000 from day 2;
+ *  B 2 000 000 from day 10 (day 15 missing), two readings without quorum on day 24, a sale to 500 000 on day 25, day 26 missing, a
+ *  rebuy to 1 500 000 on day 27; D holds 1 000 000 from day 5 and reads a concordant 0 on day 24 (C-1: sold out); P, a program
+ *  address, reads 7 000 000 from day 2. */
+const SCENARIO: ReadonlyArray<readonly [string, (d: number) => (string | null)[]]> = [
+  [ADDR.A, (d) => X4(d >= 2 ? "5000000" : "0")],
+  [ADDR.B, (d) => (d === 15 || d === 26 ? X4(null) : d === 24 ? [null, "2000000", "2000000", null]
+    : d === 25 ? ["600000", "500000", "2000000", "2000000"] : X4(d < 10 ? "0" : d < 25 ? "2000000" : "1500000"))],
+  [ADDR.D, (d) => X4(d >= 5 && d <= 23 ? "1000000" : "0")],
+  [ADDR.P, (d) => X4(d >= 2 ? "7000000" : "0")],
+];
+export interface DayLine { address: string; class: string; reads: (string | null)[]; day_value: string | null; lots: [string, number][]; score: string;
+  validated: string; provisional: string; units: string | null; tier: number | null; holder_counted: boolean | null }
+export interface HistoryLine { address: string; class: string; day: string; day_value: string | null }
+const byAddress = <T extends { address: string }>(ls: T[]): T[] => ls.sort((x, y) => Buffer.compare(Buffer.from(x.address), Buffer.from(y.address)));
+/** Day values of days 1 to d; a day not `known` is missing (a day without a snapshot line: D-2 l.162, D-16 l.275). */
+const seriesOf = (r: (d: number) => (string | null)[], d: number, known: (n: number) => boolean): (string | null)[] =>
+  Array.from({ length: d }, (_, i) => (known(i + 1) ? dayValue(r(i + 1).map((x) => [x])) : null));
+const dayNo = (s: unknown): number => Date.parse(`${String(s)}T00:00:00.000Z`) / DAY_MS - DAY1 + 1;
+
+/** History lines of days 1 to `last` (D-18 l.306), by day then address: a line when the day is missing, positive, or follows a
+ *  positive last defined value (existence rule of ADR-DOJO-PR-2B l.463). */
+export function historyLines(last: number): HistoryLine[] {
+  const out: HistoryLine[] = [];
+  for (let d = 1; d <= last; d++) {
+    const today: HistoryLine[] = [];
+    for (const [address, r] of SCENARIO) {
+      const s = seriesOf(r, d, () => true), v = s[d - 1] ?? null, before = s.slice(0, -1).filter((x) => x !== null).pop() ?? "0";
+      if (v === null || v !== "0" || before !== "0") today.push({ address, class: address === ADDR.P ? "program" : "holder", day: dateOf(DAY1 + d - 1), day_value: v });
+    }
+    out.push(...byAddress(today));
+  }
+  return out;
+}
+/** Lines of day number d (D-7 l.221-222) under the thresholds of `ver`, the price_version in force (null before the first: D-17
+ *  l.293): a line when a reading is positive or the eve's pile is not empty; lots, points, units, tier, holder_counted by the core. */
+export function dayLines(d: number, ver: Line | null, known: (n: number) => boolean = () => true): DayLine[] {
+  const out: DayLine[] = [], T = ver === null ? null : (ver.threshold_unit as string), dust = ver === null ? null : (ver.dust_threshold as string);
+  for (const [address, r] of SCENARIO) {
+    const s = seriesOf(r, d, known), reads = r(d), program = address === ADDR.P, v = s[d - 1] ?? null;
+    if (!reads.some((x) => x !== null && x !== "0") && (program || lotsOf(s.slice(0, -1)).length === 0)) continue;
+    out.push(program ? { address, class: "program", reads, day_value: v, lots: [], score: "0", validated: "0", provisional: "0",
+      units: T === null ? null : "0", tier: T === null ? null : 0, holder_counted: T === null ? null : false }
+      : { address, class: "holder", reads, day_value: v, lots: lotsOf(s), score: scoreOf(s), validated: validatedOf(s, W), provisional: provisionalOf(s, W),
+        units: unitsOf(s, W, T), tier: tierOf(s, T, TIER_U, TIER_W), holder_counted: holderCounted("holder", s, dust) });
+  }
+  return byAddress(out);
+}
+/** The lines render() serves for the snapshot at steps[i]: from the scenario, under the version it names; a day that is neither a
+ *  history day nor a snapshot day of `steps` is missing. */
+export function linesOf(steps: readonly Step[], i: number): DayLine[] {
+  const b = steps[i]?.body ?? {}, h = steps.find((x) => x.body.kind === "history")?.body.history_last_day;
+  const days = new Set(steps.filter((x) => x.body.kind === "snapshot").map((x) => dayNo(x.body.day)));
+  const ver = steps.find((x) => x.body.kind === "price_version" && x.body.price_version === b.price_version)?.body ?? null;
+  return dayLines(dayNo(b.day), ver, (n) => (h !== undefined && n <= dayNo(h)) || days.has(n));
+}
+/** dojo-keyring-v1 (item DOJO-KEYRING-SCHEMA-1, schema of the G1 journal of PR-1b-2): [key, valid_from_seq, valid_to_seq?] per key,
+ *  its key_id (bell-chain.mjs keyIdOf) and the public members of its JWK. */
+export function dojoKeyringOf(keys: ReadonlyArray<readonly [KeyObject, number, number?]>): Line {
+  return { schema: "dojo-keyring-v1", keys: keys.map(([k, from, to]) => ({ key_id: keyIdOf(k), public_key: keyringOf(k, from).keys[0]?.jwk,
+    valid_from_seq: from, ...(to === undefined ? {} : { valid_to_seq: to }) })) };
+}
+/** Version v whose seven SOL/USD values are `rate` (SYNTHETIC); p and the thresholds recomputed by the core (D-17 l.291-294). */
+export function versionAt(v: number, windowFirst: number, publishedAt: string, rate: string): Line {
+  const b = versionBody(v, windowFirst, publishedAt), sigma = Array.from({ length: 7 }, (): Fraction => [rate, "1"]);
+  const p = unitPrice(b.pool_price_daily as Fraction[], sigma);
+  return { ...b, usd_per_sol_daily: sigma, unit_price_microusd: p, threshold_unit: unitThreshold(O1, p), dust_threshold: unitThreshold("1000000", p) };
+}
+/** The served tree (D-9 l.246) of `steps`: the history file and each snapshot's lines (from `files`, else from the scenario), each
+ *  named by its sha256; each signed line carries its file's sha256, count and root, a snapshot its totals (D-8 l.231); `edit` then
+ *  changes the bodies before the signatures (the key holder's own tampering); dojo/pubkey.json = the first signer's dojo-keyring-v1. */
+export function render(steps: readonly Step[], files: ReadonlyMap<number, readonly object[]> = new Map(), edit?: (s: Step[]) => void): Map<string, Buffer> {
+  const tree = new Map<string, Buffer>(), s = steps.map((x) => ({ ...x, body: { ...x.body } }));
+  const text = (ls: readonly object[]): string => ls.map((l) => `${canonical(l)}\n`).join("");
+  const put = (dir: string, ls: readonly object[]): [string, number, string] => {
+    const t = text(ls), sha = createHash("sha256").update(t).digest("hex");
+    tree.set(`${dir}/${sha}.jsonl`, Buffer.from(t));
+    return [sha, ls.length, rootOf(ls.map((l) => canonical(l)))];
+  };
+  s.forEach(({ body: b }, i) => {
+    if (b.kind === "history") {
+      const [sha, n, root] = put("history", files.get(i) ?? historyLines(dayNo(b.history_last_day)));
+      Object.assign(b, { history_sha256: sha, history_lines_count: n, history_root: root });
+    } else if (b.kind === "snapshot") {
+      const ls = (files.get(i) ?? linesOf(steps, i)) as DayLine[], [sha, n, root] = put("lines", ls);
+      const sum = (k: "score" | "validated"): string => String(ls.reduce((t, l) => t + BigInt(l[k]), 0n));
+      Object.assign(b, { lines_sha256: sha, lines_count: n, root, score_total: sum("score"), validated_total: sum("validated"),
+        holders_count: b.price_version === null ? null : ls.filter((l) => l.holder_counted === true).length });
+    }
+  });
+  edit?.(s);
+  tree.set("timeline.jsonl", Buffer.from(text(seal(DOJO, s))));
+  const first = s[0];
+  if (first !== undefined) tree.set("dojo/pubkey.json", Buffer.from(`${canonical(dojoKeyringOf([[first.key, 1]]))}\n`));
+  return tree;
+}
+const made: string[] = []; // the directories writeTree created, removed by removeTrees (C-G2-4 of PR-1b-2)
+/** Writes a served tree under a new directory of os.tmpdir() (TEMP on F: for every run of this lot). */
+export function writeTree(tree: ReadonlyMap<string, Buffer>): string {
+  const dir = mkdtempSync(join(tmpdir(), "dojo-v-"));
+  made.push(dir);
+  for (const [rel, b] of tree) {
+    const p = join(dir, ...rel.split("/"));
+    mkdirSync(dirname(p), { recursive: true });
+    writeFileSync(p, b);
+  }
+  return dir;
+}
+/** Removes every directory writeTree created (called from the after() of the tests that write trees); tolerant: a directory
+ *  already gone, or one that cannot be removed, does not fail the run. */
+export function removeTrees(): void {
+  for (const dir of made.splice(0)) {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* tolerant */ }
+  }
 }
