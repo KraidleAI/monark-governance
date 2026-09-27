@@ -338,6 +338,28 @@ mais n'asserte pas l'APPARTENANCE d'un fichier, donc le test garde ses dents pou
 **AUCUN** changement au scope `lang:gate` ni à `scripts/lang-exempt.json` (tout élargissement est un autre lot).
 `error_origin` = ce lot (prémisse rendue périmée par le branchement), surfacée et corrigée au G1.
 
+### Addendum D7 — 2026-09-27 : `lang:gate` ne balaye plus le dossier de session `.claude/` (lot LANG-GATE-CLAUDE-1)
+**Fait (mesuré 2026-09-27 06:0x UTC, tronc `bf3433c`)** : `npm run lang:gate` = exit 1, 495 hits non exemptés, **tous** sous
+`.claude/` (412 dans `.claude/agents/*.md`, prompts d'agents projet en français ajoutés par `61e485a` ; 83 dans
+`.claude/worktrees/**`, copies d'arbre créées par l'application, non suivies) ; 0 hit hors `.claude/`. `ci.yml` exécute la porte
+(job r25, Addendum LANG-GATE-CI) ⇒ toute PR vers `main` rougit. Le mécanisme `paths` de `lang-exempt.json` (glob `*` sans `/`)
+ne couvre pas un dossier récursif. L'export public (`scripts/export-public.mjs`, liste blanche fermée) ne livre jamais `.claude/`.
+**Décision** : `.claude/` à la **racine** est le dossier de session de l'outil (prompts internes en français, jamais exporté ;
+`.gitignore` ignore `.claude/agents/`) ; le parcours de `lang:gate` le **saute**. La porte n'est ni retirée ni affaiblie
+ailleurs : exclusion de BALAYAGE, pas de mots ; aucun changement à `lang-exempt.json` ni aux scopes.
+**Mécanisme** : `".claude"` ajouté à `SKIP_DIRS` de `scripts/lang-gate.mjs` (même liste, même `skipDir` que
+`node_modules`/`.git`) ; `skipDir` rend `false` si `relDir !== ""` (même forme que l'exception `docs` d'`apps/site`) : un
+`.claude` **imbriqué** (ex. `apps/site/.claude/`) reste parcouru et gaté — frontière déclarée. Commentaire d'en-tête daté.
+**Tuyaux** : entrée = `collectTextFiles` (parcours) ; sortie = code de sortie de `npm run lang:gate` consommé par le job CI r25 ;
+état = aucun (pur parcours de fichiers). **Test** (non-LLM) : `lang_gate_skips_the_session_folder`
+(`test/lang-gate-routing.test.ts`, le fichier dédié à `lang-gate.mjs` ; `test/ci-gates.test.ts` n'importe pas le module) —
+arbre temporaire portant le vrai `lang-exempt.json`, CLI `--dir --json` : (1) `.claude/x/fr.md` français ⇒ exit 0 ; (2) le même
+texte en `notes/fr.md` ⇒ exit 1, seul fichier rapporté ; (3) en `apps/site/.claude/fr.md` ⇒ exit 1. Mutants rejoués (restauration
+sha256 byte-exacte) : retirer `.claude` de `SKIP_DIRS` ⇒ test ROUGE (et `lang:gate` du tronc exit 1) ; retirer la garde `relDir`
+⇒ test ROUGE. Oracle : `npm run lang:gate` = exit 0 sur le tronc **avec** `.claude/agents/*.md` présents sur disque. Journal :
+`docs/G1-lot-lang-gate-claude-1.md`. `error_origin` = lot `61e485a` (prompts français versés sous un dossier balayé sans
+rejouer la porte).
+
 ### D8 — Lot E (English only) et R-25 (item 11)
 Scindé par package, une PR chacune, **aucun lot exempté** ; **hikae scindé `src` / `test`** (mesure §1.3) ; règle générale : si la mesure d'un lot dépasse 1 205, scission par répertoire (`src`, `test`, sous-répertoire `s2/`). **E-contracts ne touche jamais aux identifiants gelés** (test 0 `contracts_frozen`). Ordre : E-root (CI, scripts, tests racine) ∥ E-contracts → E-hikae-src → E-hikae-test → E-ukemi → E-atelier → E-monark.
 
