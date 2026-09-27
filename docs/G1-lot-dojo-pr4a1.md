@@ -149,7 +149,7 @@ Script `F:/tmp/dojo/pr4a1-mutants/mutants.mjs` (sha256 `161c6720dea5543e26495d89
 - **Q-2 (orchestrateur, puis cp-1 bref de PR-4b)** : TXT-3 rend « {k_reads} readings » ; la fixture porte une lecture manquée (`read_at` nul) sur quatre : `k_reads` = K de l'ancre (retenu, nom de la clé de la mère D-11) dit « 4 readings » quand trois ont été faites. Garder K, ou composer le nombre de lectures faites (clé nouvelle, amendement de D-11) ?
 - **Q-3 (orchestrateur)** : la mission cite « unités et paliers si `price_version` » et « paliers » parmi les chiffres recodés ; ni l'ADR D-1 ni la mère l.272 ne listent de chiffre par palier (TXT-4 et TXT-12 n'en rendent pas) : rien composé ; confirmer.
 - **Q-4 (orchestrateur)** : `deploy_check` hors de la forme de PR-4a-1 (§3 point 5, DOJO-SERVED-DEPLOY-CHECK-1) : confirmer, ou l'imposer dès ce lot sous la forme des comptes Bell.
-- **Q-5 (orchestrateur, écart de base)** : la mission cite la mère au treizième pli ; `lot/dojo-site` porte le dixième (`fc93f66c…`) ; le treizième est lu sur `lot/dojo-snapshot-1` (`b64691b`), sans effet sur ce lot. À aligner à la fusion.
+- **Q-5 (orchestrateur, écart de base)** : la mission cite la mère au treizième pli ; `lot/dojo-site` porte le dixième (`fc93f66c…`) ; le treizième est lu sur `lot/dojo-snapshot-1` (`b64691b`), sans effet sur ce lot. À aligner à la fusion. **Fermée le 2026-09-27 (C-V-3 du cp-2)** : item formé DOJO-SITE-MERE-ALIGN-1 (ADR §7, déclencheur : fusion de `lot/dojo-site` dans le tronc, au plus tard avant le G1 de PR-4b).
 - **Q-6 (orchestrateur)** : placement de `buildDojoServed` (ADR ↔ mission, §3 point 1) : ADR tenue.
 
 ## 12. Advisor
@@ -210,6 +210,7 @@ Aucun `git add/commit/stash/checkout/branch` dans le worktree (R-20) ; `git` en 
 | `docs/G1-lot-dojo-pr4a1.md` | ce journal, §14 ajouté | — | rendu hors du fichier (`DELIVERED.sha256`) |
 
 - Interface changée : `DojoChainDeps.verify: (opts: { source: { get: (rel: string) => Promise<Buffer> }; keyring: unknown }) => Promise<unknown>` ; `buildDojoServed(...)` : `Promise<Record<string, unknown>>`. `loadDojoServed` et `dojo-served.ts` inchangés hors commentaires.
+- **Ligne datée (C-V-4 du cp-2, 2026-09-27, `date -u` 12:53Z)** : l'ADR est cité ci-dessus à l'état du **livrable du correcteur** (`155f8919…`, 236 l.). Au **gel 1** (`88f8861`) il porte `1f2c791f4df36a48ca0b6595f68992d14f0d8feee70542e449587a50304ee04f`, **238 l.** (= livrable + la ligne datée de l'orchestrateur de 12:03Z + une ligne vide, diff relu au cp-2). Au **gel corrigé** (pli C-V-1, §15 : deux lignes datées ajoutées au §7, aucune retirée) il porte `9b2152c9766e4dfcd1e27266d034e5a3c8f8b8e36e42794a37ad7a7c56052893`, **240 l.** (valeurs de l'arbre de travail avant commit ; toute ligne datée ajoutée au commit par l'orchestrateur les déplace de nouveau). Le test passe à 211 l. (§15) ; les deux modules sont inchangés.
 
 ### 14.4 Tests, R-25
 
@@ -266,3 +267,132 @@ Relevé à 12:00:13Z (`git diff --stat HEAD` : `docs/adr/ADR-DOJO-PR-4.md | 5 ++
 ```
 
 Aucun `git add/commit/stash/checkout/branch` dans le worktree (R-20) ; `git` en lecture seule (`status`, `log`, `diff`, `rev-parse`) ; deux `git clone --no-local` hors dépôt (`F:/tmp/dojo/pr4a1-corr/clone`, `…/probe`) et l'export `…/export`, jetables : leurs `node_modules` sont des jonctions de `mk-nm.ps1`, à retirer par `rm-nm.ps1 -Tree <arbre>` **avant** toute suppression. Aucun réseau ; rien sur C: (TEMP/TMP/TMPDIR sur `F:/tmp/dojo/pr4a1-corr/tmp`). Livrables : `F:/tmp/dojo/pr4a1-corr-deliver/` + `DELIVERED.sha256`.
+
+### 14.11 `error_origin` par correction (C-V-2 du cp-2, assignation du G7 par l'orchestrateur, 2026-09-27)
+
+| Correction | `error_origin` | Motif |
+|---|---|---|
+| C-G2-1 (bloquante : branches fail-closed non testées) | **worker G1** | test court sur des contrôles déclarés au journal (§3, §5) |
+| C-G2-2 (forme (B) tirée dans PR-4a-1) | **orchestrateur** | mission G1 écrite en forme différée (l'outil du lecteur hors du chemin de construction) |
+| C-G2-3 (tête `counted` à K lectures toutes manquées) | **conception amont** | `dojo-verify` (PR-2-1) accepte un `counted` sans lecture faite ; item DOJO-SERVED-ALL-MISSED-1 |
+| C-G2-4 (`export:check` rouge dans l'export) | **pré-existant** | `export-public.mjs` hors lot ; item EXPORT-CHECK-IN-EXPORT-1 |
+| C-G2-5 (TXT-3, `k_reads`) | **plan** | tranché au cp-1 de PR-4b (ligne datée ADR D-1) |
+| C-G2-6 (octets hors ASCII, M-P9) | **worker G1** | forme |
+| C-V-1 du cp-2 (cinq branches fail-closed non tenues : C-1, C-2, C-3, C-4, C-7) | **worker G1** | test court (même classe que C-G2-1) |
+
+## 15. Pli C-V-1 du cp-2 (2026-09-27) : test seul, module inchangé
+
+- **Modèle résolu** (R-1) : `claude-opus-5-5[1m]`, préfixe `claude-opus-5-5` ; worker, instance fraîche, distincte du générateur du G1, du relecteur G2, du correcteur et du validateur ; effort high (mission).
+- **Mission** : `F:/tmp/dojo/mission-cv1-pr4a1.md` (sha256 `f9d1228e419c501677d100f62e81699bdfafdf57e9b7a19f77262b685a5eb25e`, texte calculé par le script de l'orchestrateur, lu comme tel) ; `date -u` à la lecture : 12:45:38Z. Entrées lues en entier : rapport cp-2 `F:/tmp/cp2-pr4a1/CP2-report.md` (sha256 `93832675bdef916ce1fb1827e9615adf77b40434a09f7d0ecd8b63e1f528b1e9`, recomputé égal), `mutants.mjs` (`e6a1ae12…0056`), `mutants-A.json` (`45c5f706…8d05`), `mutants-B.json` (`90660111…b17c`), le test, les deux modules, la fixture (`render`, `seal`, `readsOf`), la sonde `cp2-p11c.test.ts` ; ce journal §11 et §14, l'ADR §7 à §10.
+- **État à l'ouverture** (12:45:38Z) : worktree `F:/Monark-wt-dojo-c`, branche `lot/dojo-site`, HEAD `88f88613fe83c419d365491c9e52dd6f375d6b0d` = gel 1, `git status --porcelain` **vide** (arbre propre).
+
+### 15.1 Horaires (`date -u`)
+
+| Heure | Acte |
+|---|---|
+| 12:45:38Z | lecture de la mission, du rapport cp-2, des mutants, du test, des modules, de la fixture |
+| 12:49:02Z | sha256 d'avant (`sha-before.txt` ; `lib-sha-before.txt` : les 40 fichiers de `apps/site/lib`) ; test écrit (`apply-cv1.mjs`, remplacements exacts) |
+| 12:49:20Z | test du lot **4/4** dans le worktree ; `tsc --noEmit -p .` 0 ; `eslint` des trois fichiers 0 (binaires locaux, jamais `npx`) ; R-25 = 499 |
+| 12:50:03Z → 12:51:27Z | rejeu des 54 mutants du cp-2 sur la copie `F:/tmp/cp2-pr4a1/probe` : **51/54** ; puis sondes par clause de C-4 ; test de la copie restauré (sha256 `335b123a…`, `git status` de la copie vide) |
+| 12:53Z | ADR §7 : deux lignes datées (C-V-1/C-8, C-V-3) ; ce journal : Q-5, §14.3 (C-V-4), §14.11 (C-V-2), §15 |
+| §15.5 | oracle sous verrou d'hôte |
+
+### 15.2 Test ajouté (`test/dojo-served.test.ts`, `dojo_served_loader_is_fail_closed`, forme minimale du cp-2 §4)
+
+- **Table des formes** (chaque mutant re-haché au manifeste, seul le chargeur refuse) : C-4 en quatre cas, un par clause : `timeline.anchor.seq` = `head.seq` ; `timeline.lines` = `head.seq` − 1 ; `timeline.snapshots` = `timeline.lines` + 1 ; `timeline.schema` = `dojo-timeline-v2` (schéma d'ancre ≠ schéma de chronologie) ⇒ « head, anchor and timeline counts disagree » ; C-7 : `history_first_day` = `head.day` (> `history_last_day`, qui reste avant la tête) ⇒ « history must end before the head's day ».
+- **Construction** (refus vérifiés à **leur** message, car chaque mutant laisse le module fail-closed en aval avec un autre message) : C-1 : la dernière ligne modifiée **après** signature (`render(…, edit)`, crochet `post` de `seal` : `published_at` changé) ⇒ « the timeline does not walk under the committed keyring » (sous C-1, la marche en échec tombait sur le contrôle `voided`) ; C-2 : tête `counted` à K lectures toutes manquées, champs de `readsOf` fidèles (forme exacte de `cp2-p11c.test.ts` : `read_at`, `slot_min`, `slot_max`, `pool_price`, `usd_per_sol`, `usd_per_sol_publish_time` à `null`, `accounts_concordant` 0, `accounts_no_quorum` 4) ⇒ « a counted snapshot carries a reading made » (à amender si DOJO-SERVED-ALL-MISSED-1 tranche autrement) ; C-3 : `timeline.jsonl` sans son LF final ⇒ « timeline.jsonl lacks its final newline » (sous C-3, la dernière ligne tronquée donnait « is not JSON »).
+- **Volume** : +12 lignes (199 → 211 ; une ligne existante étendue : l'aide `tl` à côté de `hd`) ; 0 octet hors ASCII, 0 CR.
+- **Module `apps/site/lib/*` INCHANGÉ** : `dojo-served-load.ts` `89b54b157b18971f36eeaf6bc0f32e71684faba98eda4072da5c803ee689eed0` et `dojo-served.ts` `0ed8c63131d70c0d39f749064c6de9d57ddaecd2da9a131fbfb24fd3ae074722` **avant et après** ; les 40 fichiers de `apps/site/lib` : `lib-sha-before.txt` = `lib-sha-after.txt` (livrables). Test : `335b123a…edf3b` → `e2f9bdd37666f1ef2ed8109a26b87406b0d4795bb7034a00773f491430eb2074`. Export-run **non requis** (module inchangé : les fichiers exportés sont ceux du cp-2, dont l'export-run tient ; `test/` n'est pas exporté).
+
+### 15.3 Tests, R-25
+
+- Worktree : `node --test test/dojo-served.test.ts` **4/4** (`composes` 369 ms, `head_is_the_latest` 223 ms, `loader_is_fail_closed` 508 ms, `refuses_a_tree_the_verifier_refuses` 348 ms) ; `tsc --noEmit -p .` exit 0 ; `eslint` des trois fichiers exit 0.
+- **R-25 = 499** (247 + 41 + 211) : `git diff --shortstat ceeb8cd` sur l'arbre de travail, pathspec de `ci.yml:82` recopié (20 jetons), métrique `ci.yml:90` : « 3 files changed, 499 insertions(+) » ; ≤ 502 (borne de la mission), ≤ 661,5 (×2,1), sous le seuil de repli 600 ; l'ADR et ce journal hors pathspec.
+
+### 15.4 Mutants (rejeu du cp-2, copie hors dépôt)
+
+- Script : `mutants-cv1.mjs` (`9d8f0ea4…0cd6`) = `F:/tmp/cp2-pr4a1/mutants.mjs` (`e6a1ae12…0056`) à deux chemins près (sortie `F:/tmp/dojo/pr4a1-cv1-deliver/RESULTS-mutants-cv1.txt`, TEMP ; `diff` relu), listes du cp-2 inchangées ; la sortie du cp-2 n'est pas écrasée. Copie : `F:/tmp/cp2-pr4a1/probe` (clone du cp-2, HEAD `88f8861`, `git status` vide) avec le **test corrigé** copié en `probe/test/` ; sha256 des deux modules et du test de la copie égaux avant et après (`probe-sha-before.txt` = `probe-sha-after.txt`) ; puis test d'origine restauré (`335b123a…`), `git status` de la copie vide.
+- **Résultat : 51/54 tués** (`RESULTS-mutants-cv1.txt` `769c7871…5a4d`, 12:50:03Z → 12:51:27Z) ; survivants **exactement** G-M8, G-M19, C-8, G-M8 et G-M19 équivalents sous la fixture (une clé, une version) ; **C-8 équivalent par construction** (le marcheur refuse une seconde ligne `history` : `dojo-chain.mjs` l.104, l.116, relu à 13:25Z sur conseil de l'advisor) ; tous trois dans DOJO-SERVED-FIXTURE-SPREAD-1 (ADR §7, ligne datée 12:53Z pour C-8, où C-8 est « à constater, non à tuer »). Avant le pli : 46/54 (cp-2).
+- **Sondes par clause de C-4** (hors des 54, `c4-clauses.mjs` `71fe4e02…0549`, `c4-clauses.log` `bb78d1f8…1afe`) : chacune des quatre clauses remplacée seule par `false` est tuée (4/4).
+
+| Mutant | Résultat | Tué par | Objet (forme du cp-2) |
+|---|---|---|---|
+| M-P5 | tué | `dojo_served_loader_is_fail_closed` | loader: sha256 not compared to the manifest |
+| M-P9 | tué | `dojo_served_loader_is_fail_closed` | build: Merkle root not recomputed |
+| M-P12a | tué | `dojo_served_loader_is_fail_closed` | loader: file without entry read as E0 |
+| M-P12b | tué | `dojo_served_loader_is_fail_closed` | loader: entry without file read as E0 |
+| M-P13 | tué | `dojo_snapshot_composes_served_lines_to_page_figures`, `dojo_served_head_is_the_latest_snapshot`, `dojo_served_loader_is_fail_closed` | build: head = first snapshot |
+| M-P14 | tué | `dojo_snapshot_composes_served_lines_to_page_figures` | build: slots of one read only |
+| M-P15a | tué | `dojo_served_loader_is_fail_closed` | build: trust root from served dojo/pubkey.json |
+| M-P15b | tué | `dojo_snapshot_composes_served_lines_to_page_figures` | build: record keyring = served key set |
+| M-X1 | tué | `dojo_served_loader_is_fail_closed` | build: lines sha256 not compared |
+| M-X2 | tué | `dojo_served_loader_is_fail_closed` | build: lines count not compared |
+| M-X3 | tué | `dojo_served_loader_is_fail_closed` | build: sums not compared to signed totals |
+| M-X4 | tué | `dojo_served_loader_is_fail_closed` | build: holders_count not compared |
+| M-X5 | tué | `dojo_served_loader_is_fail_closed` | loader: version coupling removed |
+| M-X6 | tué | `dojo_served_loader_is_fail_closed` | loader: head.k_reads not bound to the anchor |
+| M-X7 | tué | `dojo_served_loader_is_fail_closed` | loader: head closed keys not checked |
+| M-X8 | tué | `dojo_served_loader_is_fail_closed` | build: served keys not bound to the committed keyring |
+| M-X9 | tué | `dojo_snapshot_composes_served_lines_to_page_figures`, `dojo_served_loader_is_fail_closed` | build: k_reads = reads made |
+| M-F1 | tué | `dojo_snapshot_composes_served_lines_to_page_figures` | figures: no decimal shift on the unit |
+| M-F2 | tué | `dojo_snapshot_composes_served_lines_to_page_figures` | figures: E2 rendered as E1 |
+| M-F3 | tué | `dojo_snapshot_composes_served_lines_to_page_figures` | figures: shiftUnits keeps a leading zero |
+| G-M1 | tué | `dojo_served_loader_is_fail_closed` | build: voided line accepted |
+| G-M2 | tué | `dojo_served_loader_is_fail_closed` | build: broken rotation accepted |
+| G-M3 | tué | `dojo_served_loader_is_fail_closed` | build: history file not bound |
+| G-M4 | tué | `dojo_snapshot_composes_served_lines_to_page_figures` | build: line_hash of another line (history) |
+| G-M5 | tué | `dojo_snapshot_composes_served_lines_to_page_figures` | build: bodies_sha256.pubkey = timeline |
+| G-M6 | tué | `dojo_snapshot_composes_served_lines_to_page_figures` | build: timeline.snapshots counts every non-anchor line |
+| G-M7 | tué | `dojo_snapshot_composes_served_lines_to_page_figures` | build: published_at = read_at |
+| G-M8 | **survit** | — | build: key_id of the anchor (equivalence check) |
+| G-M9 | tué | `dojo_snapshot_composes_served_lines_to_page_figures`, `dojo_served_loader_is_fail_closed` | build: threshold_unit = unit price |
+| G-M10 | tué | `dojo_served_loader_is_fail_closed` | loader: manifest algorithm not checked |
+| G-M11 | tué | `dojo_served_loader_is_fail_closed` | loader: signing keys not bound to the keyring |
+| G-M12 | tué | `dojo_served_loader_is_fail_closed` | loader: history end not bound to head day |
+| G-M13 | tué | `dojo_served_loader_is_fail_closed` | loader: slots/status coupling removed |
+| G-M14 | tué | `dojo_served_loader_is_fail_closed` | loader: totals order not checked |
+| G-M15 | tué | `dojo_served_loader_is_fail_closed` | loader: host not checked |
+| G-M16 | tué | `dojo_served_loader_is_fail_closed` | loader: schema not checked |
+| G-M17 | tué | `dojo_served_loader_is_fail_closed` | loader: read_rule closed keys not checked |
+| G-M18 | tué | `dojo_served_loader_is_fail_closed` | build: served-line closed keys not checked |
+| G-M19 | **survit** | — | build: version = first price_version (equivalence check) |
+| G-M20 | tué | `dojo_snapshot_composes_served_lines_to_page_figures` | figures: holders_count = seq |
+| V-1 | tué | `dojo_served_loader_is_fail_closed`, `dojo_served_refuses_a_tree_the_verifier_refuses` | build: reader tool not run (forged ok report) |
+| V-2 | tué | `dojo_served_refuses_a_tree_the_verifier_refuses` | build: report.ok not checked |
+| V-3 | tué | `dojo_served_refuses_a_tree_the_verifier_refuses` | build: head recomputed root not compared |
+| V-4 | tué | `dojo_served_refuses_a_tree_the_verifier_refuses` | build: history recomputed root not compared |
+| V-5 | tué | `dojo_served_refuses_a_tree_the_verifier_refuses` | build: tool under the served key set |
+| V-6 | tué | `dojo_served_refuses_a_tree_the_verifier_refuses` | build: tool self-consistent only |
+| C-1 | tué | `dojo_served_loader_is_fail_closed` | OWN build: walk.ok not checked |
+| C-2 | tué | `dojo_served_loader_is_fail_closed` | OWN build: reads/status coupling removed (all reads missed accepted) |
+| C-3 | tué | `dojo_served_loader_is_fail_closed` | OWN build: final newline not required |
+| C-4 | tué | `dojo_served_loader_is_fail_closed` | OWN loader: head/anchor/timeline counts not checked |
+| C-5 | tué | `dojo_snapshot_composes_served_lines_to_page_figures` | OWN figures: EA day = published_at |
+| C-6 | tué | `dojo_snapshot_composes_served_lines_to_page_figures` | OWN build: slot_min = max of mins |
+| C-7 | tué | `dojo_served_loader_is_fail_closed` | OWN loader: history order not checked |
+| C-8 | **survit** | — | OWN build: hist = last history line instead of first |
+
+### 15.5 Oracle (sous verrou d'hôte, une prise ; C-V-4)
+
+- **Scripts** (`F:/tmp/dojo/pr4a1-cv1-deliver/`) : `locked.sh` (`945ea2d9…0eda` : `mkdir F:/tmp/oracle-lock` atomique, propriétaire « cv1 PR-4a-1 », attente 60 s jusqu'à 90 min, `rmdir` dans le piège EXIT), `oracle-pass.sh` (`4db32c04…0096`) et `t42.sh` (`8eecc05a…6d5e`) = ceux du cp-2 à TEMP près (`diff` relu : huit variables payantes retirées par `env -u`, `npm_config_cache=F:/tmp/npm-cache`), `run-all.sh` (`b21c5c6f…8131`). **Arbre** : clone du cp-2 `F:/tmp/cp2-pr4a1/clone` (HEAD `88f8861`, `git status` vide), les trois fichiers du pli copiés (`cmp` égaux au worktree ; originaux gardés dans `clone-orig/`), Node v24.15.0. `lot-sha-before.txt` = `lot-sha-after.txt` : modules `89b54b15…`/`0ed8c631…`, test `e2f9bdd3…`, ADR `55e8a200…`, journal `a0fe302f…` (**état du journal avant cette section 15.5** : les résultats ci-dessous sont écrits après la prise ; seul ce texte diffère). Après la prise, une phrase de la ligne datée C-V-1 de l'ADR §7 est reformulée (C-8 équivalent par construction, §15.4 ; même nombre de lignes) : ADR `55e8a200…` (oracle) → `9b2152c9…` (gel corrigé, §14.3) ; aucun code ni test touché après la prise.
+- **Prise unique** (`locked-run.log` `3e1548da…1a2e`) : attente 1 140 s (tenu par « cp-2 PR-2b-2 » puis « G1 PR-2b-3 »), verrou **pris 13:13:41Z**, **rendu 13:24:15Z** (`rmdir`, piège EXIT ; absent ensuite, mesuré).
+- **Sept portes** (`out-1`, 13:13:41Z → 13:20:47Z ; **24 `node.exe`** au lancement ; `exits.txt` `ef4cdc2e…d1f1`) : **7/7 exit 0** : `gate:vocab`, `typecheck`, **`test`**, `lint`, `lint:ratchet`, `lang:gate`, `export:check` (dans le dépôt).
+- **`test`** (`test.log` `d32413c1…fc3a`) : **1 395 tests, 1 393 pass, 0 fail, 0 annulé, 2 skipped** (préexistants), 365,0 s ; les quatre `dojo_*` du lot ✔ (`composes` 763 ms, `head_is_the_latest` 390 ms, `loader_is_fail_closed` 993 ms, `refuses_a_tree_the_verifier_refuses` 438 ms) ; `site_names_no_kitchen` ✔ ; `site_names_no_rpc_operator` ✔ ; **test 42 ✔ dans la suite** (`export_public_no_governance_no_french`, 352,5 s) ; `export_public_derived_jobs_are_byte_identical` ✔.
+- **Test 42 à part, même prise** (`t42`, 13:20:48Z → 13:24:15Z ; **24 `node.exe`** au lancement ; `test42.log` `84f7b76a…eb4e`) : exit 0, **2/2** ✔ (206,3 s). Une prise, une passe, jamais relancé.
+- **Export-run non requis** : le module `apps/site/lib/*` est inchangé (sha256 ci-dessus) et `test/` n'est pas exporté ; l'export-run du cp-2 (modules exportés exécutés et typés) tient pour les mêmes octets.
+- **Restauration de la copie** : les trois originaux remis depuis `clone-orig/` (13:24:25Z) ; `git status --porcelain` du clone **vide** ; modules `89b54b15…`/`0ed8c631…`, test `335b123a…` (gel 1).
+
+### 15.6 Advisor
+
+- Outil intégré consulté après l'orientation, avant l'écriture : refus vérifiés à leur message (C-1 tombe sinon sur `voided`, C-3 sur « is not JSON »), forme exacte de P11c pour C-2, C-4 en quatre cas, R-25 mesuré sur l'arbre de travail (deux points), sortie des mutants redirigée (celle du cp-2 non écrasée), ordre ADR puis sha puis journal, suite sous verrou sur un arbre portant aussi les documents. Seconde consultation (livrables écrits, verrou en attente) : une prise sans chasse au vert, restauration du clone, divergence déclarée du journal, lecture explicite des lignes `dojo_*` et `site_names_no_kitchen`, chiffre de la mère relu, ordre de clôture (`DELIVERED.sha256` en dernier). Conseil, jamais verdict ; chaque point vérifié sur pièce.
+- **Chiffres relus** (conseil suivi) : mère au 10ᵉ pli sur la branche : `git show HEAD:docs/adr/ADR-DOJO-SNAPSHOT-1.md` ⇒ sha256 `fc93f66c…9d35078`, 1 103 l., dernier commit `9cca56b` ; à `b64691b` la mère porte le « Treizième pli » (en-tête l.3), 1 361 l. ; `b64691b` et `b876747` **non ancêtres** de HEAD (`git merge-base --is-ancestor`), `docs/PLAN-DOJO-PAGE-1.md` absent de l'arbre de `88f8861` (`git ls-tree` vide).
+
+### 15.7 `git status --short` final (worktree)
+
+```
+ M docs/G1-lot-dojo-pr4a1.md
+ M docs/adr/ADR-DOJO-PR-4.md
+ M test/dojo-served.test.ts
+```
+
+HEAD `88f8861` inchangé. Aucun `git add/commit/stash/checkout/branch/clone` (R-20) ; `git` en lecture seule (`rev-parse`, `status`, `diff`, `show`, `log`, `ls-tree`, `cat-file`, `branch --contains`, `merge-base --is-ancestor`) ; aucun `GIT_DIR`. Aucun réseau, aucun `npx` ; rien sur C: (TEMP/TMP/TMPDIR sur `F:/tmp/dojo/pr4a1-cv1-deliver/tmp`, cache npm `F:/tmp/npm-cache`). Copies utilisées : `F:/tmp/cp2-pr4a1/probe` (mutants) et `F:/tmp/cp2-pr4a1/clone` (oracle), clones du cp-2 remis à leur état (`git status` vide). Livrables : `F:/tmp/dojo/pr4a1-cv1-deliver/` + `DELIVERED.sha256`.

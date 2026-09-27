@@ -122,7 +122,7 @@ test("dojo_served_loader_is_fail_closed", async () => {
   assert.throws(() => withRoot(data, sha("x"), (dir) => loadDojoServed(dir)), /sha256 mismatch/, "a file whose sha256 is not the manifest's is refused (M-P5)");
   assert.throws(() => withRoot(data, undefined, (dir) => loadDojoServed(dir), "sha1"), /algorithm is not sha256/, "a manifest of another algorithm is refused");
   // The closed shape: each mutant is hashed into the manifest, so only the loader's own checks refuse it.
-  const e1Data = await build(e1, committed), hd = (d: Rec): Rec => d.head as Rec;
+  const e1Data = await build(e1, committed), hd = (d: Rec): Rec => d.head as Rec, tl = (d: Rec): Rec => d.timeline as Rec;
   const shapes: Array<[Rec, (d: Rec) => void, RegExp]> = [
     [data, (d) => { d.extra = true; }, /must carry exactly/], [data, (d) => { hd(d).extra = 0; }, /head must carry exactly/],
     [data, (d) => { ((d.timeline as Rec).anchor as Rec).extra = 0; }, /timeline\.anchor must carry exactly/],
@@ -133,6 +133,10 @@ test("dojo_served_loader_is_fail_closed", async () => {
     [data, (d) => { (d.history as Rec).history_last_day = hd(d).day; }, /history must end before the head's day/],
     [data, (d) => { hd(d).status = "abstained"; }, /a counted snapshot carries its slots/],
     [data, (d) => { hd(d).validated_total = `${String(hd(d).score_total)}1`; }, /totals disagree/],
+    // C-V-1 (cp-2): the anchor before the head, the head and the snapshots within the timeline, one schema (C-4); the history's days in order (C-7).
+    [data, (d) => { (tl(d).anchor as Rec).seq = hd(d).seq; }, /counts disagree/], [data, (d) => { tl(d).lines = (hd(d).seq as number) - 1; }, /counts disagree/],
+    [data, (d) => { tl(d).snapshots = (tl(d).lines as number) + 1; }, /counts disagree/], [data, (d) => { tl(d).schema = "dojo-timeline-v2"; }, /counts disagree/],
+    [data, (d) => { (d.history as Rec).history_first_day = hd(d).day; }, /history must end before/],
   ];
   for (const [base, edit, re] of shapes) {
     const d = JSON.parse(JSON.stringify(base)) as Rec;
@@ -143,6 +147,14 @@ test("dojo_served_loader_is_fail_closed", async () => {
   const walkWith = (extra: Rec): DojoChainDeps<Trust> => ({ ...DEPS, walk: (l, t) => ({ ...walkDojoTimeline(l, t), ...extra }) });
   await assert.rejects(build(e2, committed, walkWith({ voided: [3] })), /a line is voided by a revocation/, "a voided line is refused");
   await assert.rejects(build(e2, committed, walkWith({ breaks: [{ seq: 4 }] })), /broken-continuity rotation/, "a broken rotation is refused");
+  // C-V-1 (cp-2): a line changed after signing does not walk (C-1); a counted head whose K reads all missed (C-2); no final LF (C-3).
+  const tampered = render(steps, new Map(), (s) => { const x = s[last]; if (x !== undefined) x.post = (l) => { l.published_at = READ_AT; }; });
+  await assert.rejects(build(tampered, committed), /does not walk under the committed keyring/, "a line changed after signing is refused");
+  const missed = render(steps, new Map(), (s) => { const b = s[last]?.body ?? {}; b.reads = (b.reads as Rec[]).map((r) => ({ ...r, read_at: null, slot_min: null, slot_max: null,
+    accounts_concordant: 0, accounts_no_quorum: 4, pool_price: null, usd_per_sol: null, usd_per_sol_publish_time: null })); });
+  await assert.rejects(build(missed, committed), /a counted snapshot carries a reading made/, "all K reads missed is refused (DOJO-SERVED-ALL-MISSED-1)");
+  const noLf = new Map(e2).set("timeline.jsonl", (e2.get("timeline.jsonl") ?? Buffer.alloc(0)).subarray(0, -1));
+  await assert.rejects(build(noLf, committed), /timeline.jsonl lacks its final newline/, "a timeline without its final LF is refused");
   // It binds the head's lines to their signed line: a root signed by the key holder but not recomputable is refused (M-P9) ...
   const badRoot = render(steps, new Map(), (s) => { Object.assign(s[s.length - 1]?.body ?? {}, { root: "ab".repeat(32) }); });
   await assert.rejects(build(badRoot, committed), /recomputed Merkle root differs/, "a signed root that the lines do not rebuild is refused (M-P9)");
