@@ -10,22 +10,25 @@
 // --from-recu fills `mission` from a green receipt of scripts/mission/launch.mjs (recu_head = its head) and the sha256 of the
 // mission bytes read now; --from-oracle fills `oracle` (and tree_head) from a record of scripts/oracle/run.mjs and its sha256.
 // add stores absolute paths; a relative path in an entry is read from --repo (frozen fixtures).
+// --r25 of an entry: the R-25 (insertions + deletions) of the tree that holds it, its own line included (convention, C-G2-10).
 // build reads every docs/journal/*.jsonl and prints one line per hit `code lot:line extract`, the count per code, the verdict.
 // Green only, it writes docs/journal/INDEX.md, dated by the last entry, never by the clock; red leaves the previous index.
 // --only <lot>: that lot alone, never an index. Exit 0 green, 1 red, 2 usage, unreadable journal or tool error. Green proves
-// the coherence of the cited facts, never that a verdict is right (MAST FM-2.6). An entry red on J-SCHEMA is read by no other
-// control; J-ORACLE, J-RECU and J-LINT read outside the repository and fail closed (an absent file is red, never skipped).
+// the coherence of the facts the controls below read, never that a verdict is right (MAST FM-2.6). A line red on J-SCHEMA is
+// read by no other control; J-ORACLE, J-RECU and J-LINT read outside the repository and fail closed (absent: red, never skipped).
 //   J-SCHEMA a field outside FIELDS or missing, a value outside its domain (no text holds a control byte or "F:" + two spaces:
 //            the byte guard of lot M-1 covers docs/journal/), a field null where NEED requires it, a lot != its file
 //   J-TIME   date before the committer date (%cI) of commit or commit unknown, or the dates of a lot decreasing
 //   J-TRACE  a G7 without public_trace, or a trace with an empty ref (D10)
 //   J-ORIGIN an error_origin code outside the vocabulary of audit A plus G2 (D11 and its dated line of 2026-09-28)
 //   J-TOURS  more than 5 distinct corr tours (values of tour) in a lot and no G7 with an adjudication (D12 (d))
-//   J-ORACLE G2, cp-2, G7: record absent or not JSON, sha256 != oracle.sha256, incomplete (REQUIRED of scripts/oracle/run.mjs:33,
-//            schema, pid, tree.object), role != gate, tree.head != commit, start before the commit date, served_from not null
-//            (a store citation), static_only, tree.dirty or exit != 0 (not a full, clean, green run), a field copied != the record
+//   J-ORACLE G2, cp-2, G7 (required), G1 and corr (if cited; G0, cp-1, fusion: never read): record absent or not JSON, sha256 !=
+//            oracle.sha256, incomplete (REQUIRED of scripts/oracle/run.mjs:33, schema, pid, tree.object), role != gate, static_only
+//            or exit != 0, a field copied != the record; G2, cp-2, G7 also: tree.head != commit, start before the commit date,
+//            served_from or tree.dirty not null (a full, clean replay). G1, corr: a run before the gel, dirty or served (D4) admitted
 //   J-RECU   the mission file absent or its sha256 != mission.sha, or mission.sha != mission.recu_sha
-//   J-LINT   a receipt (recu_sha) on a text that lintMission reddens at commit, else at recu_head (never on disk; not a commit: red)
+//   J-LINT   a receipt (recu_sha) on a text that lintMission reddens at commit, else at recu_head (not a commit: red); repo paths
+//            are read at that revision, never on disk; absolute paths, branches and tool directories on the host now (C-G2-8)
 //   J-MODEL  an entry with a mission, a tier or a model: tier outside TIERS, or the model is not the tier (token boundary)
 //   J-ADJ    a G7 without a non-empty adjudication (its presence, never its nature)
 import { execFileSync } from "node:child_process";
@@ -38,7 +41,7 @@ import { lintMission, TIERS } from "../mission/lint.mjs";
 const CODES = ["J-SCHEMA", "J-TIME", "J-TRACE", "J-ORIGIN", "J-TOURS", "J-ORACLE", "J-RECU", "J-LINT", "J-MODEL", "J-ADJ"];
 const FIELDS = ["schema", "lot", "gate", "date", "tour", "commit", "tree_head", "mission", "model_resolved", "tier", "effort", "r25",
   "oracle", "corrections", "verdict", "adjudication", "error_origin", "public_trace", "note"];
-const GATES = ["G0", "G1", "G2", "corr", "cp-1", "cp-2", "G7", "fusion"], ORACLED = ["G2", "cp-2", "G7"];
+const GATES = ["G0", "G1", "G2", "corr", "cp-1", "cp-2", "G7", "fusion"], ORACLED = ["G2", "cp-2", "G7"], PRE_GEL = ["G1", "corr"];
 const VERDICTS = ["ACCEPTE", "ACCEPTE-AVEC-CORRECTIONS", "CORRECTIONS-D-ABORD", "REFUS", "ESCALADE"];
 const ORIGINS = ["G0", "G1", "G2", "ORCH", "OUT", "ANT", "VAL", "PROV", "NA"], KINDS = ["commit", "release", "note", "motif"];
 // Non-null by gate. commit may be null at G0 and cp-1, and at G1 and corr (Q-M5-1): their entry precedes the gel it lands in.
@@ -131,17 +134,17 @@ function build(o) {
   const when = (c) => once(`c:${c}`, () => { try { return Date.parse(execFileSync("git", ["-C", repo, "show", "-s", "--format=%cI", `${c}^{commit}`], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim()); } catch { return NaN; } });
   const adjudicated = (x) => x.e.gate === "G7" && (x.e.adjudication ?? "").trim() !== "";
   const oracleWhy = (e) => { // J-ORACLE: the first reason the cited record does not back the entry, or null
-    const o = e.oracle, b = read(o.record), r = b === null ? null : jsonOf(b);
+    const o = e.oracle, b = read(o.record), r = b === null ? null : jsonOf(b), gel = ORACLED.includes(e.gate); // false: G1 or corr, a run before the gel
     if (r === null || typeof r !== "object") return b === null ? "record absent" : "record not JSON";
     if (hash(b) !== o.sha256) return "sha256 != oracle.sha256";
     const miss = REQUIRED.filter((k) => r[k] === undefined).concat(r.schema === "monark.oracle.v1" ? [] : ["schema"], Number.isInteger(r.pid) && r.pid > 0 ? [] : ["pid"], /^[0-9a-f]{40,64}$/.test(r.tree?.object) ? [] : ["tree.object"]);
     if (miss.length > 0) return `incomplete record (missing or invalid: ${[...new Set(miss)].join(", ")})`;
     if (r.role !== e.gate) return `role ${String(r.role)} != gate ${e.gate}`;
-    if (r.tree?.head !== e.commit) return `tree.head ${String(r.tree?.head)} != commit`;
-    if (!(Date.parse(r.start) >= when(e.commit))) return `start ${String(r.start)} before the commit date`;
-    if (r.served_from !== null) return "served_from not null: a store citation, never a replay";
-    if (r.static_only !== false || r.tree?.dirty !== null || r.exit !== 0) return `static_only ${String(r.static_only)}, tree.dirty ${String(r.tree?.dirty)}, exit ${String(r.exit)}: not a full, clean, green run`;
-    if (o.role !== r.role || o.head !== r.tree.head || o.start !== r.start || o.served_from !== null || o.tests_total !== (r.tests?.total ?? null)) return "a field copied into the entry != the record";
+    if (gel && r.tree?.head !== e.commit) return `tree.head ${String(r.tree?.head)} != commit`;
+    if (gel && !(Date.parse(r.start) >= when(e.commit))) return `start ${String(r.start)} before the commit date`;
+    if (gel && r.served_from !== null) return "served_from not null: a store citation, never a replay";
+    if (r.static_only !== false || gel && r.tree?.dirty !== null || r.exit !== 0) return `static_only ${String(r.static_only)}, tree.dirty ${String(r.tree?.dirty)}, exit ${String(r.exit)}: not a full${gel ? ", clean" : ""}, green run`;
+    if (o.role !== r.role || o.head !== r.tree.head || o.start !== r.start || JSON.stringify(o.served_from) !== JSON.stringify(r.served_from) || o.tests_total !== (r.tests?.total ?? null)) return "a field copied into the entry != the record";
     return null;
   };
   const check = (lot, entries) => {
@@ -153,7 +156,7 @@ function build(o) {
       last = Math.max(last, t);
       if ((e.gate === "G7" && e.public_trace === null) || (e.public_trace !== null && e.public_trace.ref.trim() === "")) h("J-TRACE", `${e.gate} without a public trace or with an empty ref`);
       for (const x of e.error_origin ?? []) if (!ORIGINS.includes(x)) h("J-ORIGIN", `error_origin ${x} outside ${ORIGINS.join(",")}`);
-      const why = ORACLED.includes(e.gate) ? oracleWhy(e) : null;
+      const why = ORACLED.includes(e.gate) || (e.oracle !== null && PRE_GEL.includes(e.gate)) ? oracleWhy(e) : null;
       if (why !== null) h("J-ORACLE", `${base(e.oracle.record)}: ${why}`);
       const b = m === null ? null : read(m.path);
       if (m !== null && (b === null || hash(b) !== m.sha || m.sha !== m.recu_sha)) h("J-RECU", `${base(m.path)}: ${b === null ? "absent" : `bytes ${hash(b).slice(0, 12)}, sha ${m.sha.slice(0, 12)}, receipt ${String(m.recu_sha).slice(0, 12)}`}`);

@@ -12,7 +12,7 @@ import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -65,11 +65,11 @@ const required = (rel: string): unknown => { try { return JSON.parse(/const REQU
 /** An oracle record derived from the frozen G7 record (tree merged), written under the temp root; returns the entry's `oracle` as add fills it. */
 function record(name: string, patch: Entry): Entry {
   const g = JSON.parse(readFileSync(join(FX, "oracle-G7.json"), "utf8")) as Entry, r: Entry = { ...g, ...patch, tree: { ...(g.tree as Entry), ...(patch.tree as Entry | undefined) } }, [path, sha256] = file(name, `${JSON.stringify(r)}\n`);
-  return { record: path, sha256, role: r.role, head: (r.tree as Entry).head, start: r.start, served_from: r.served_from, tests_total: (r.tests as Entry).total };
+  return { record: path, sha256, role: r.role, head: (r.tree as Entry).head, start: r.start, served_from: r.served_from, tests_total: (r.tests as Entry | null)?.total ?? null };
 }
-const why = (oracle: Entry): string[] => build({ "M-X": [x(7, { oracle })] }).hits.map((h) => h.replace(/^J-ORACLE M-X:1 [\w.-]+\.json: /, ""));
+const why = (oracle: Entry, n = 7): string[] => build({ "M-X": [x(n, { oracle })] }).hits.map((h) => h.replace(/^J-ORACLE M-X:1 [\w.-]+\.json: /, ""));
 
-// killer: scripts/journal/index.mjs:193 CONST "all.map((e) => e.date).sort().at(-1)" -> "new Date().toISOString()"
+// killer: scripts/journal/index.mjs:196 CONST "all.map((e) => e.date).sort().at(-1)" -> "new Date().toISOString()"
 test("golden: build on the frozen entries writes INDEX.golden.md byte for byte, dated by the last entry", () => {
   assert.deepEqual([git(["rev-parse", "HEAD~1"]), git(["rev-parse", "HEAD"])], [C1, C2], "fixture commits not reproduced: a git config, identity or object format leaked into the throwaway repository");
   const r = repo(), idx = join(r, "docs", "journal", "INDEX.md");
@@ -79,7 +79,7 @@ test("golden: build on the frozen entries writes INDEX.golden.md byte for byte, 
   assert.equal(readFileSync(idx, "utf8"), readFileSync(join(FX, "INDEX.golden.md"), "utf8"));
 });
 
-// killer: scripts/journal/index.mjs:180 COR "hits.length === 0 && o.only === undefined" -> "o.only === undefined"
+// killer: scripts/journal/index.mjs:183 COR "hits.length === 0 && o.only === undefined" -> "o.only === undefined"
 test("build: red exits 1 with one line per hit and keeps the previous INDEX.md; --only never writes; no journal exits 2", () => {
   const r = repo({ "M-X": X, "M-Y": [x(1, { lot: "M-Y", date: "2026-02-30T00:00:00Z" })] }), idx = join(r, "docs", "journal", "INDEX.md");
   writeFileSync(idx, "previous index\n");
@@ -89,7 +89,7 @@ test("build: red exits 1 with one line per hit and keeps the previous INDEX.md; 
   assert.deepEqual(build({ "M-10": ["{"], "M-2a": ["{"] }).hits.map((h) => h.split(" ")[1]), ["M-2a:1", "M-10:1"]); // lots in natural order
 });
 
-// killer: scripts/journal/index.mjs:100 CONST "new Date()" -> "new Date(0)"
+// killer: scripts/journal/index.mjs:103 CONST "new Date()" -> "new Date(0)"
 test("add: a launch receipt and an oracle record give one conforming line dated by the tool, and build is green on it (CA-11)", () => {
   const r = repo(), fx = join(r, "test", "fixtures", "journal"), t0 = Date.now() - 1000;
   assert.equal(spawnSync(process.execPath, [join(ROOT, "scripts", "mission", "launch.mjs"), join(fx, "mission.md"), "--repo", r], { env: ENV }).status, 0);
@@ -106,14 +106,14 @@ test("add: a launch receipt and an oracle record give one conforming line dated 
   assert.equal(cli("build", "--repo", r).status, 0);
 });
 
-// killer: scripts/journal/index.mjs:115 ROR "p.length > 0" -> "p.length > 99"
+// killer: scripts/journal/index.mjs:118 ROR "p.length > 0" -> "p.length > 99"
 test("add: a field required by the gate missing (G2 without --tour) exits 2 and writes nothing", () => {
   const r = repo(), p = cli("add", "--repo", r, "--lot", "M-Z", "--gate", "G2", "--commit", C1);
   assert.deepEqual([p.status, existsSync(join(r, "docs", "journal", "M-Z.jsonl"))], [2, false]);
   assert.match(p.stderr, /J-SCHEMA: .*tour null, required for G2/);
 });
 
-// killer: scripts/journal/index.mjs:104 COR "r?.verdict !== \"vert\" || " -> ""
+// killer: scripts/journal/index.mjs:107 COR "r?.verdict !== \"vert\" || " -> ""
 test("add: a receipt that is not green, or whose mission file is absent, exits 2 and writes nothing; a green one is recorded", () => {
   const r = repo(), recu = (name: string, patch: Entry): string => file(name, JSON.stringify({ sha: M.sha, verdict: "vert", date: "2026-01-01T00:45:00Z", mission: join(FX, "mission.md"), head: C1, ...patch }))[0];
   const add = (p: string) => cli("add", "--repo", r, "--lot", "M-Z", "--gate", "G1", "--from-recu", p, "--model", "claude-opus-5-5[1m]", "--tier", "claude-opus-5-5");
@@ -122,30 +122,31 @@ test("add: a receipt that is not green, or whose mission file is absent, exits 2
   assert.equal(add(recu("green.recu.json", {})).status, 0);
 });
 
-// killer: scripts/journal/index.mjs:220 CONST "\"gate\", \"from-recu\"" -> "\"gate\", \"date\", \"from-recu\""
+// killer: scripts/journal/index.mjs:223 CONST "\"gate\", \"from-recu\"" -> "\"gate\", \"date\", \"from-recu\""
 test("add: a date given by the caller (--date) exits 2 and writes nothing", () => {
   const r = repo(), p = cli("add", "--repo", r, "--lot", "M-Z", "--gate", "G0", "--date", "2020-01-01T00:00:00Z");
   assert.deepEqual([p.status, existsSync(join(r, "docs", "journal", "M-Z.jsonl"))], [2, false]);
   assert.match(p.stderr, /unknown or incomplete option --date/);
 });
 
-// killer: scripts/journal/index.mjs:48 CONST "[\\x00-\\x1f\\x7f-\\x9f]" -> "[\\x00-\\x08\\x0a-\\x1f\\x7f-\\x9f]"
+// killer: scripts/journal/index.mjs:51 CONST "[\\x00-\\x1f\\x7f-\\x9f]" -> "[\\x00-\\x08\\x0a-\\x1f\\x7f-\\x9f]"
 test("add: a TAB in a note, or F: followed by two spaces, exits 2 (the byte guard of lot M-1 covers docs/journal/)", () => {
   const r = repo(), run = (note: string) => cli("add", "--repo", r, "--lot", "M-Z", "--gate", "G0", "--note", note);
   assert.deepEqual([run("a\tb").status, run(`see F:${" ".repeat(2)}x`).status, existsSync(join(r, "docs", "journal", "M-Z.jsonl"))], [2, 2, false]);
   assert.deepEqual([run("a b").status, existsSync(join(r, "docs", "journal", "M-Z.jsonl"))], [0, true]);
 });
 
-// killer: scripts/journal/index.mjs:86 CONST "!FIELDS.includes(k)" -> "false"
+// killer: scripts/journal/index.mjs:89 CONST "!FIELDS.includes(k)" -> "false"
 test("J-SCHEMA: an unknown field, a missing field, a value out of domain, a line that is not JSON, a lot in another file", () => {
   const noTier = Object.fromEntries(Object.entries(x(3)).filter(([k]) => k !== "tier"));
   const b = build({ "M-X": [x(3, { extra: 1 }), noTier, x(3, { gate: "G3" }), "{not json", x(3, { lot: "M-Y" }), x(8, { commit: null }),
-    ...["--all", "HEAD", null].map((recu_head) => x(3, { mission: { ...M, recu_head } }))] }); // recu_head: an option (never reaches git), a ref, absent without a commit
-  assert.deepEqual([b.hits.map((h) => h.split(" ").slice(0, 2).join(" ")), b.hits.slice(6).map((h) => h.split(" ").slice(2).join(" "))], [[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `J-SCHEMA M-X:${String(n)}`), ["mission out of domain", "mission out of domain", "mission out of domain"]]);
+    ...["--all", `--output=${join(T, "pwned")}`, "HEAD", null].map((recu_head) => x(3, { mission: { ...M, recu_head } }))] }); // recu_head: two options (never reach git), a ref, absent without a commit
+  assert.deepEqual([b.hits.map((h) => h.split(" ").slice(0, 2).join(" ")), b.hits.slice(6).map((h) => h.split(" ").slice(2).join(" "))], [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => `J-SCHEMA M-X:${String(n)}`), Array<string>(4).fill("mission out of domain")]);
+  assert.deepEqual(readdirSync(T).filter((f) => f.startsWith("pwned")), [], "git got the out-of-domain recu_head as an option and wrote a file"); // C-G2-12: kills R3b
   assert.deepEqual(build({ "M-X": X }).codes, []);
 });
 
-// killer: scripts/journal/index.mjs:151 SDL "!(t >= when(e.commit))" -> ""
+// killer: scripts/journal/index.mjs:154 SDL "!(t >= when(e.commit))" -> ""
 test("J-TIME: an entry dated before its commit (host clock set back, forged line) or before the previous entry of its lot", () => {
   assert.deepEqual(build({ "M-X": [x(8, { date: "2026-01-02T00:29:59Z" })] }).codes, ["J-TIME"]);
   assert.deepEqual(build({ "M-X": [x(8, { commit: "0".repeat(40) })] }).codes, ["J-TIME"]);
@@ -155,27 +156,27 @@ test("J-TIME: an entry dated before its commit (host clock set back, forged line
   assert.deepEqual([at3("2026-01-03T00:30:00Z"), at3("2026-01-03T01:00:00Z"), at3("2026-01-03T00:00:00Z")], [[], [], ["J-TIME"]]); // same second; inside the offset hour; after the author date only
 });
 
-// killer: scripts/journal/index.mjs:154 SDL "h(\"J-TRACE\"" -> ""
+// killer: scripts/journal/index.mjs:157 SDL "h(\"J-TRACE\"" -> ""
 test("J-TRACE: a G7 without public trace, or a motif whose ref is empty", () => {
   assert.deepEqual(build({ "M-X": [x(7, { public_trace: null })] }).codes, ["J-TRACE"]);
   assert.deepEqual(build({ "M-X": [x(7, { public_trace: { kind: "motif", ref: " " } })] }).codes, ["J-TRACE"]);
   assert.deepEqual(build({ "M-X": [x(7)] }).codes, []);
 });
 
-// killer: scripts/journal/index.mjs:155 SDL "h(\"J-ORIGIN\"" -> ""
+// killer: scripts/journal/index.mjs:158 SDL "h(\"J-ORIGIN\"" -> ""
 test("J-ORIGIN: an error_origin code outside the vocabulary of audit A; an empty list is a declared none, never refused", () => {
   assert.deepEqual(build({ "M-X": [x(7, { error_origin: ["G1", "WORKER"] })] }).codes, ["J-ORIGIN"]);
   assert.deepEqual([[], ["G0", "G1", "G2", "ORCH", "OUT", "ANT", "VAL", "PROV", "NA"]].map((error_origin) => build({ "M-X": [x(7, { error_origin })] }).codes), [[], []]);
 });
 
-// killer: scripts/journal/index.mjs:166 SDL "hit(\"J-TOURS\"" -> ""
+// killer: scripts/journal/index.mjs:169 SDL "hit(\"J-TOURS\"" -> ""
 test("J-TOURS and J-ADJ: six distinct corr tours with a G7 that has no adjudication; an adjudicated G7, or five tours in six entries, clear J-TOURS", () => {
   const six = [1, 2, 3, 4, 5, 6].map((t) => x(5, { tour: t })), five = [1, 2, 3, 4, 5, 5].map((t) => x(5, { tour: t }));
   assert.deepEqual(build({ "M-X": [...six, x(7, { adjudication: null })] }).codes, ["J-ADJ", "J-TOURS"]);
   assert.deepEqual([build({ "M-X": [...six, x(7)] }).codes, build({ "M-X": six.slice(1) }).codes, build({ "M-X": five }).codes], [[], [], []]);
 });
 
-// killer: scripts/journal/index.mjs:142 CONST "r.served_from !== null" -> "false"
+// killer: scripts/journal/index.mjs:145 CONST "r.served_from !== null" -> "false"
 test("J-ORACLE: a record served from the store, absent, of another role or head, started before its commit, of another sha, or miscopied", () => {
   assert.deepEqual(why(record("served.json", { served_from: { file: "x.json", sha256: "0".repeat(64) } })), ["served_from not null: a store citation, never a replay"]);
   assert.deepEqual(why({ ...record("absent.json", {}), record: join(T, "none.json") }), ["record absent"]);
@@ -188,21 +189,30 @@ test("J-ORACLE: a record served from the store, absent, of another role or head,
   assert.deepEqual(why(record("clean.json", {})), []);
 });
 
-// killer: scripts/journal/index.mjs:143 CONST "r.static_only !== false || " -> ""
+// killer: scripts/journal/index.mjs:146 CONST "r.static_only !== false || " -> ""
 test("J-ORACLE: a record of a static-only run, of a dirty tree, red, incomplete or of another schema; REQUIRED is the list of scripts/oracle/run.mjs", () => {
   const not = (s: string, d: string, e: string): string[] => [`static_only ${s}, tree.dirty ${d}, exit ${e}: not a full, clean, green run`];
   assert.deepEqual(why(record("static.json", { static_only: true })), not("true", "null", "0"));
-  // killer: scripts/journal/index.mjs:143 CONST "r.tree?.dirty !== null || " -> ""
+  // killer: scripts/journal/index.mjs:146 CONST "r.tree?.dirty !== null || " -> ""
   assert.deepEqual(why(record("dirty.json", { tree: { dirty: "f".repeat(64) } })), not("false", "f".repeat(64), "0"));
-  // killer: scripts/journal/index.mjs:143 CONST " || r.exit !== 0" -> ""
+  // killer: scripts/journal/index.mjs:146 CONST " || r.exit !== 0" -> ""
   assert.deepEqual(why(record("exit1.json", { exit: 1 })), not("false", "null", "1"));
-  // killer: scripts/journal/index.mjs:138 ROR "miss.length > 0" -> "miss.length > 99"
+  // killer: scripts/journal/index.mjs:141 ROR "miss.length > 0" -> "miss.length > 99"
   assert.deepEqual([{ cv4: undefined, pid: 0 }, { schema: "monark.oracle.v0" }, { tree: { object: null } }].map((p, i) => why(record(`incomplete${String(i)}.json`, p))), ["cv4, pid", "schema", "tree.object"].map((m) => [`incomplete record (missing or invalid: ${m})`]));
-  // killer: scripts/journal/index.mjs:46 CONST "\"cv4\", " -> ""
+  // killer: scripts/journal/index.mjs:49 CONST "\"cv4\", " -> ""
   assert.deepEqual([required("scripts/journal/index.mjs"), Array.isArray(required("scripts/oracle/run.mjs"))], [required("scripts/oracle/run.mjs"), true]);
 });
 
-// killer: scripts/journal/index.mjs:159 SDL "h(\"J-RECU\"" -> ""
+// killer: scripts/journal/index.mjs:159 CONST " || (e.oracle !== null && PRE_GEL.includes(e.gate))" -> ""
+test("J-ORACLE at G1 and corr (a run before the gel): a record absent, of another sha or role, incomplete, static-only, red or miscopied reddens; a dirty tree or a served record is admitted", () => {
+  const pre = (n: number, name: string, patch: Entry, copy: Entry = {}): string[] => why({ ...record(name, { role: n === 3 ? "G1" : "corr", ...patch }), ...copy }, n);
+  assert.deepEqual([pre(5, "c-sha.json", {}, { sha256: "0".repeat(64) }), pre(5, "c-absent.json", {}, { record: join(T, "none.json") }), pre(5, "c-copy.json", {}, { tests_total: 99 }), pre(5, "c-role.json", { role: "G2" }), pre(3, "g-static.json", { static_only: true }), pre(5, "c-exit.json", { exit: 1 }), pre(3, "g-cv4.json", { cv4: undefined })],
+    [["sha256 != oracle.sha256"], ["record absent"], ["a field copied into the entry != the record"], ["role G2 != gate corr"], ["static_only true, tree.dirty null, exit 0: not a full, green run"], ["static_only false, tree.dirty null, exit 1: not a full, green run"], ["incomplete record (missing or invalid: cv4)"]]);
+  // killer: scripts/journal/index.mjs:137 CONST "gel = ORACLED.includes(e.gate)" -> "gel = true"
+  assert.deepEqual([pre(5, "c-dirty.json", { tree: { dirty: "f".repeat(64) } }), pre(3, "g-dirty.json", { tree: { dirty: "f".repeat(64) } }), pre(5, "c-served.json", { served_from: { file: "x.json", sha256: "0".repeat(64) }, tests: null })], [[], [], []]);
+});
+
+// killer: scripts/journal/index.mjs:162 SDL "h(\"J-RECU\"" -> ""
 test("J-RECU: a mission edited on disk after its receipt, a receipt of another text, a mission file absent", () => {
   const [edited] = file("edited.md", `${readFileSync(join(FX, "mission.md"), "utf8")}Edited after the launch.\n`);
   assert.deepEqual(build({ "M-X": [x(3, { mission: { ...M, path: edited } })] }).codes, ["J-RECU"]);
@@ -210,7 +220,7 @@ test("J-RECU: a mission edited on disk after its receipt, a receipt of another t
   assert.deepEqual(build({ "M-X": [x(3, { mission: { ...M, path: join(T, "none.md") } })] }).codes, ["J-LINT", "J-RECU"]);
 });
 
-// killer: scripts/journal/index.mjs:160 CONST "repo, rev })" -> "repo, rev: e.commit })"
+// killer: scripts/journal/index.mjs:163 CONST "repo, rev })" -> "repo, rev: e.commit })"
 test("J-LINT: a green receipt on a text the linter replayed at the entry's commit, else at the receipt's head, reddens (a TODO; a path absent there); never on disk", () => {
   const [todo, s1] = file("todo.md", `${readFileSync(join(FX, "mission.md"), "utf8")}Size TODO.\n`);
   const [later, s2] = file("later.md", `${readFileSync(join(FX, "mission.md"), "utf8")}Read \`docs/b.md\`.\n`);
@@ -222,16 +232,17 @@ test("J-LINT: a green receipt on a text the linter replayed at the entry's commi
   assert.deepEqual([codes(at(4)), codes(at(6)), codes(at(3)), codes(at(3, later, s2, C2)), codes(at(3, String(M.path), String(M.sha), "0".repeat(40)))], [["J-LINT"], [], ["J-LINT"], [], ["J-LINT"]]);
   assert.deepEqual([3, 4, 5, 6].map((n) => codes(at(n, disk, s3))), [["J-LINT"], ["J-LINT"], ["J-LINT"], ["J-LINT"]]); // docs/journal/ is on disk only
   assert.deepEqual(build({ "M-X": [at(4), at(6)] }).hits.map((h) => h.split(" ").slice(0, 2).join(" ")), ["J-LINT M-X:1"]); // one text at two commits
+  assert.deepEqual(build({ "M-X": [at(3, later, s2, C2), at(3, todo, s1, C2)] }).hits.map((h) => h.split(" ").slice(0, 2).join(" ")), ["J-LINT M-X:2"]); // two texts at one revision (C-G2-13: kills R4)
 });
 
-// killer: scripts/journal/index.mjs:162 COR " && !/^[\\w-]/.test(e.model_resolved.slice(e.tier.length))" -> ""
+// killer: scripts/journal/index.mjs:165 COR " && !/^[\\w-]/.test(e.model_resolved.slice(e.tier.length))" -> ""
 test("J-MODEL: a tier outside TIERS, a model of another tier or a longer id (prefix trap), an agent entry without its model", () => {
   const codes = (tier: string | null, model: string | null): string[] => build({ "M-X": [x(3, { tier, model_resolved: model })] }).codes;
   assert.deepEqual([codes("claude-opus-5", "claude-opus-5[1m]"), codes("claude-opus-5-5", "claude-sonnet-5"), codes("claude-sonnet-5", "claude-sonnet-5-5"), codes(null, null)], [["J-MODEL"], ["J-MODEL"], ["J-MODEL"], ["J-MODEL"]]);
   assert.deepEqual(codes("claude-sonnet-5", "claude-sonnet-5"), []);
 });
 
-// killer: scripts/journal/index.mjs:163 SDL "h(\"J-ADJ\"" -> ""
+// killer: scripts/journal/index.mjs:166 SDL "h(\"J-ADJ\"" -> ""
 test("J-ADJ: a G7 whose adjudication is blank; its presence is checked, never its nature", () => {
   assert.deepEqual(build({ "M-X": [x(7, { adjudication: " " })] }).codes, ["J-ADJ"]);
   assert.deepEqual(build({ "M-X": [x(7, { adjudication: "x" })] }).codes, []);
