@@ -41,6 +41,8 @@ git("branch", "lot/x");
 const H = (body: string, title = "# MISSION G2 fixture"): string => `${title}\nWorker \`claude-opus-5-5\`, branch \`lot/x\`, base tronc \`${BASE}\`.\n${body}\n`;
 const lint = (text: string, rev: string | null = null): LintResult => lintMission({ text, missionPath: join(T, "m.md"), repo: REPO, rev });
 const red = (text: string): string[] => lint(text).hits.map((h) => h.code);
+const STAMP = "G\u00e9n\u00e9r\u00e9 : `F:/x/scripts/mission/gen.mjs` `0123abcd` 2026-09-28T00:00:00Z"; // the stamp line of gen.mjs
+const stamped = (text: string, line = STAMP): string => text.replace("\n", `\n${line}\n`);
 /** A workflow fixture: the guard block copied verbatim from launch-guard.js, run in an empty context (no import, no fs, no
  *  crypto), then agent() called with what assertRecu returns. Returns the texts agent() received ([] when refused). */
 const GUARD = /\/\/ BEGIN launch-guard\r?\n([\s\S]*?)\/\/ END launch-guard/.exec(readFileSync(join(ROOT, "scripts", "mission", "launch-guard.js"), "utf8"))?.[1] ?? "";
@@ -220,21 +222,21 @@ for (const [c, rev] of CORPUS) {
 
 // Lot M-2b (decision 275-d): the four semantic rules, MODEL-FIELD-1 and CREATE-SCOPE-1; each killer below is the line above
 // its test, in the format of red-proof.mjs (production file:line, operator, before -> after).
-// killer: scripts/mission/lint.mjs:152 SDL "hit(\"R-VAGUE\"" -> ""
+// killer: scripts/mission/lint.mjs:158 SDL "hit(\"R-VAGUE\"" -> ""
 test("R-VAGUE: a phrase of the closed list outside backticks is red, a quoted mention or a near miss is not [mutant: R-VAGUE check removed]", () => {
   assert.deepEqual(red(H("Add appropriate error handling, handle edge cases as needed, as appropriate.")), new Array<string>(4).fill("R-VAGUE"));
   assert.deepEqual(red(H("Gestion d\u2019erre\u0075rs appropri\u00e9e, validation appropri\u00e9e, cas limites appropri\u00e9s, relire a\u0075 besoin, appropriate validation.")), new Array<string>(5).fill("R-VAGUE"));
   assert.deepEqual(red(H("Quoted: `as needed`, `a\u0075 besoin`. Near misses: as needs, handled edge cases, appropriately validated.")), []);
 });
 
-// killer: scripts/mission/lint.mjs:153 SDL "hit(\"R-SIMILAR\"" -> ""
+// killer: scripts/mission/lint.mjs:159 SDL "hit(\"R-SIMILAR\"" -> ""
 test("R-SIMILAR: an empty cross-reference of the closed list followed by a number is red, a quoted or number-less one is not [mutant: R-SIMILAR check removed]", () => {
   assert.deepEqual(red(H("Similar to Task 3, same as step 2, like task 4.")), new Array<string>(3).fill("R-SIMILAR"));
   assert.deepEqual(red(H("Co\u006dme l\u0061 t\u00e2che 2, idem \u00e9tape 3, m\u00eame chose q\u0075e 1.")), new Array<string>(3).fill("R-SIMILAR"));
   assert.deepEqual(red(H("Similar to the task, same as `step 2`, like tasks, task 3 alone.")), []);
 });
 
-// killer: scripts/mission/lint.mjs:164 SDL "hit(\"R-SYMBOL\"" -> ""
+// killer: scripts/mission/lint.mjs:170 SDL "hit(\"R-SYMBOL\"" -> ""
 test("R-SYMBOL: an identifier presented as existing and defined nowhere in the tree is red; one defined in an untracked file or declared to-create is not; --rev reads the tree of the commit [mutants: R-SYMBOL check removed; untracked files not searched]", () => {
   writeFileSync(join(REPO, "scripts", "defs.mjs"), "export function onlyHere() {}\nexport class Shape {}\nconst inner = 1;\nexport { inner };\n");
   assert.deepEqual(red(H("Call `nowhere()`, the function `onlyHere`, `onlyHere()`, the class `Shape`, `inner()` and the type `Ghost`.")), ["R-SYMBOL", "R-SYMBOL"]);
@@ -242,13 +244,13 @@ test("R-SYMBOL: an identifier presented as existing and defined nowhere in the t
   assert.deepEqual(lint(H("Call `onlyHere()`."), BASE).hits.map((h) => h.code), ["R-SYMBOL"]);
 });
 
-// killer: scripts/mission/lint.mjs:155 SDL "step[1] = true" -> ""
+// killer: scripts/mission/lint.mjs:161 SDL "step[1] = true" -> ""
 test("R-STEP: under a steps heading, a numbered step with neither a backtick span nor a path is red; a command on a continuation line, a path in prose or a list under another heading is not [mutants: R-STEP check removed; continuation lines ignored]", () => {
   assert.deepEqual(red(H("## Steps\n1. Think hard.\n2. Run `scripts/present.mjs`.\n## \u00c0 fai\u0072e\n1. Decide.")), ["R-STEP", "R-STEP"]);
   assert.deepEqual(red(H("## Recette\n1. Rerun the suite,\n   then `scripts/present.mjs`.\n2. Read docs/ten.md again.\n## Notes\n3. Nothing to run.")), []);
 });
 
-// killer: scripts/mission/lint.mjs:156 COR "!pf && FABLE_CODER" -> "FABLE_CODER"
+// killer: scripts/mission/lint.mjs:162 COR "!pf && FABLE_CODER" -> "FABLE_CODER"
 test("MODEL-FIELD-1: the Palier field is read before the prose; claude-fable-5-1 with an implementer or corrector role in the fields is red [mutants: proximity rule kept despite the field; Role field ignored]", () => {
   const F = (fields: string, body = "x"): string[] => red(`# MISSION G2 fixture\n${fields}\nbranch \`lot/x\`, base tronc \`${BASE}\`.\n${body}\n`);
   assert.deepEqual(F("Palier : `claude-opus-5-5`\nR\u00f4l\u0065 : G1 (impl\u00e9menteur)", "Never `claude-fable-5-1` corrector (decision 274)."), []);
@@ -256,10 +258,43 @@ test("MODEL-FIELD-1: the Palier field is read before the prose; claude-fable-5-1
   assert.deepEqual([F("Palier : `claude-fable-5-1`\nR\u00f4l\u0065 : G2 (relecteur)"), F("Palier : `claude-opus-5-5`. R\u00f4l\u0065 : worker G1 (impl\u00e9menteur), effort max."), F("Palier : `gpt-5`\nR\u00f4l\u0065 : G2")], [[], [], ["R-MODEL"]]);
 });
 
-// killer: scripts/mission/lint.mjs:115 COR "(!generated && CREATE.test(raw))" -> "CREATE.test(raw)"
+// killer: scripts/mission/lint.mjs:121 COR "(!generated && CREATE.test(raw))" -> "CREATE.test(raw)"
 test("CREATE-SCOPE-1: in a mission stamped by gen.mjs only the to-create section declares, a creation word no longer does, the stamp line is never checked; a hand-written mission is unchanged [mutants: creation word still declares; stamp line checked]", () => {
   const body = "Write `docs/a.md` (nouveau).\n## \u00c0 cr\u00e9er\n- `docs/b.md`\n## Next\nSee `docs/b.md`.";
-  const stamped = H(body).replace("\n", "\nG\u00e9n\u00e9r\u00e9 : scripts/mission/gen.mjs 2026-09-28T00:00:00Z\n");
-  assert.deepEqual(lint(stamped).hits.map((h) => [h.code, h.line]), [["R-PATH", 4]]);
+  assert.deepEqual(lint(stamped(H(body))).hits.map((h) => [h.code, h.line]), [["R-PATH", 4]]);
   assert.deepEqual(red(H(body)), []);
 });
+
+// Corrections, tour 1 (C-G2-1..3, C-G2-7): each test pins a decided behaviour; its killer is the correction removed, or the
+// mutant the G2 measured surviving (G03..G16 of F:/tmp/methode/m2b/g2/mine/mine.mjs). One-line tests, no blank line between.
+writeFileSync(join(REPO, "scripts", "forms.ts"), "var legacy = 1;\nenum Color { A }\nexport default mkThing;\n");
+writeFileSync(join(REPO, "scripts", "imports.mjs"), "import { execFileSync } from \"node:child_process\";\n");
+// killer: scripts/mission/lint.mjs:77 CONST "Z$/u;" -> "Z/u;"
+test("stamp line anchored at its end (G13): a stamp line that carries more text is no stamp, every citation on it is checked", () => assert.deepEqual([lint(stamped(H("x"), `${STAMP} \`docs/absent.md\``)).hits.map((h) => h.code).sort(), red(stamped(H("x")))], [["R-PATH", "R-TOOL"], []]));
+// killer: scripts/mission/lint.mjs:77 CONST "/^G" -> "/G"
+test("stamp line anchored at its start: text before the stamp makes it no stamp, and the line is checked", () => assert.deepEqual([red(stamped(H("x"), `See ${STAMP}`)), red(stamped(H("x")))], [["R-TOOL"], []]));
+// killer: scripts/mission/lint.mjs:53 CONST "\"claude-sonnet-5-5\", " -> ""
+test("Sonnet 5.5 tier (decision 280, C-G2-1): a Palier field or a reader at claude-sonnet-5-5 is vert, claude-opus-5 stays red, the retired claude-sonnet-5 stays vert in a --rev replay", () => {
+  const F = (fields: string, rev: string | null = null): string[] => lint(`# MISSION G2 fixture\n${fields}\nbranch \`lot/x\`, base tronc \`${BASE}\`.\nx\n`, rev).hits.map((h) => h.code);
+  assert.deepEqual([F("Palier : `claude-sonnet-5-5`\nR\u00f4l\u0065 : G2"), red(H("Readers `claude-sonnet-5-5`.")), F("Palier : `claude-opus-5`"), F("Palier : `claude-sonnet-5`\nR\u00f4l\u0065 : G2", BASE)], [[], [], ["R-MODEL"], []]);
+});
+// killer: scripts/mission/lint.mjs:83 CONST "[\"agent\", \"pipeline\", \"parallel\", \"phase\", \"log\", \"args\", \"budget\", \"workflow\"]" -> "[]"
+test("workflow globals and imports (Q-M2B-6, C-G2-2): the eight engine globals of a workflow script and a name bound on an import line are defined; any other undefined name stays red", () => assert.deepEqual(red(H("Call `agent()`, `pipeline()`, `parallel()`, `phase()`, `log()`, `args()`, `budget()`, `workflow()`, the imported `execFileSync()`, not `nowhere()`.")), ["R-SYMBOL"]));
+// killer: scripts/mission/lint.mjs:73 CONST "${FQ}" -> ""
+test("French quotes (Q-M2B-7, C-G2-3), R-VAGUE: a phrase of the list inside a pair of French quotes is a quotation; the same phrase in bare prose stays red", () => assert.deepEqual(red(H("Banned: \u00ab as needed \u00bb, \u00ab handle edge cases \u00bb; bare: as needed.")), ["R-VAGUE"]));
+// killer: scripts/mission/lint.mjs:75 CONST "${FQ}" -> ""
+test("French quotes (Q-M2B-7, C-G2-3), R-SIMILAR: a reference of the list inside a pair of French quotes is a quotation; the same reference in bare prose stays red", () => assert.deepEqual(red(H("Banned: \u00ab similar to Task 3 \u00bb; bare: like task 4.")), ["R-SIMILAR"]));
+// killer: scripts/mission/lint.mjs:113 CONST "pf = PALIER.exec(src)" -> "pf = [...src.matchAll(new RegExp(PALIER.source, \"gmu\"))].pop() ?? null"
+test("Palier precedence (G03): the Palier field of the header wins over a later Palier line of the body", () => assert.deepEqual(red(`# MISSION G2 fixture\nPalier : \`claude-fable-5-1\`\nR\u00f4l\u0065 : G1 (impl\u00e9menteur)\nbranch \`lot/x\`, base tronc \`${BASE}\`.\nPalier : \`claude-opus-5-5\`\n`), ["R-MODEL"]));
+// killer: scripts/mission/lint.mjs:78 CONST "/^Palier" -> "/Palier"
+test("Palier field anchored (G04): Palier at the start of a line is the field, in the middle of a line it is prose", () => assert.deepEqual([red(H("x").replace("Worker", "Palier : `gpt-5`\nWorker")), red(H("See the Palier : `gpt-5` example."))], [["R-MODEL"], []]));
+// killer: scripts/mission/lint.mjs:125 COR "if (create) declared.add(tool[1]);" -> "if (create || CREATE.test(raw)) declared.add(tool[1]);"
+test("stamped mission, bare tool (G06): a creation word never declares a bare tool there", () => assert.deepEqual(red(stamped(H("Write `made.ps1` (nouveau).\nRun `made.ps1`."))), ["R-TOOL", "R-TOOL"]));
+// killer: scripts/mission/lint.mjs:160 COR "if (create) declared.add(m[1] ?? m[2]);" -> "if (create || CREATE.test(raw)) declared.add(m[1] ?? m[2]);"
+test("stamped mission, symbol (G07): a creation word never declares a symbol there", () => assert.deepEqual(red(stamped(H("Write the function `fresh` (nouveau), then call `fresh()`."))), ["R-SYMBOL", "R-SYMBOL"]));
+// killer: scripts/mission/lint.mjs:82 CONST "const|let|var|class|interface|type|enum" -> "const|let|class|interface|type"
+test("definition forms var and enum (G11A, Q-M2B-11): a name defined by var or enum is defined; an undefined one stays red", () => assert.deepEqual(red(H("Call `legacy()`, `Color()`, not `ghost()`.")), ["R-SYMBOL"]));
+// killer: scripts/mission/lint.mjs:82 CONST "|\\\\bexport\\\\s+default\\\\s+${s}\\\\b" -> ""
+test("definition form export default (G11B, Q-M2B-11): a name exported as default is defined; an undefined one stays red", () => assert.deepEqual(red(H("Call `mkThing()`, not `ghost()`.")), ["R-SYMBOL"]));
+// killer: scripts/mission/lint.mjs:161 CONST "`|^\\s*```/.test(raw)" -> "`/.test(raw)"
+test("steps, fenced code block (G16): a fence under a step is its code; a step with none stays red", () => assert.deepEqual([red(H("## Steps\n1. Run:\n```\nnpm test\n```")), red(H("## Steps\n1. Think hard."))], [[], ["R-STEP"]]));

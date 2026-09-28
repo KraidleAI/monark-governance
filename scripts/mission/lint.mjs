@@ -1,6 +1,8 @@
 // scripts/mission/lint.mjs - mission linter (ADR-METHODE-2 D1, lot M-2a). Node 24, zero dependencies.
 // It proves the EXISTENCE and BOUNDS of what a mission cites, never its meaning (MAST FM-2.6): green reads "every cited
-// path, line, branch, base, tool and tier exists and is allowed", not "the mission is right".
+// path, line, branch, base, tool and tier exists and is allowed", not "the mission is right". R-VAGUE, R-SIMILAR and
+// R-STEP prove only the ABSENCE of the forms they list (for R-STEP: that a step carries some backtick span or path), never
+// that a phrase, a reference or a step is right (C-G2-10).
 // Closed rule list, one code each; one hit makes the verdict "rouge" (exit 1):
 //   R-LINE        a cited line (`path:N[-M][,K]`, or `l.N` in the parenthesis or chain right after a path) is past the end
 //   R-PATH        a repo path (first segment docs, scripts, test, apps, packages or a top-level directory of the tree) or an
@@ -16,18 +18,20 @@
 //   R-FOCUS       a "MISSION G1" title without a "Review Focus" heading, with 0 or more than 5 classes, or with a class that
 //                 names no task, step, test or item
 // Lot M-2b (D12 (a)(h), decision 275-d) adds four codes, each on a closed list:
-//   R-VAGUE       outside backticks, a VAGUE phrase: add appropriate error handling, appropriate validation, handle edge
-//                 cases, as appropriate, as needed, and four French forms
-//   R-SIMILAR     outside backticks, a SIMILAR reference then a number: similar to Task N, same as step N, like task N, and
-//                 three French forms
+//   R-VAGUE       outside backticks and pairs of French quotes (a quotation, Q-M2B-7), a VAGUE phrase: add appropriate
+//                 error handling, appropriate validation, handle edge cases, as appropriate, as needed, four French forms
+//   R-SIMILAR     outside backticks and pairs of French quotes, a SIMILAR reference then a number: similar to Task N, same
+//                 as step N, like task N, and three French forms
 //   R-SYMBOL      an identifier shown as existing (function, type, interface, class or a French form before a backticked
 //                 name, or a backticked name()) that no .ts .mts .mjs .js .cjs file of --repo (untracked files included)
 //                 or of the --rev tree defines (function, const, let, var, class, interface, type, enum, export list or
-//                 default; one git grep), unless declared to-create
+//                 default, a binding on an import line; one git grep), unless declared to-create or one of the closed
+//                 list GLOBALS, the names a workflow script receives from its engine (Q-M2B-6)
 //   R-STEP        under a STEPS heading, a numbered step (N. at column 0 and its continuation lines, up to the next step or
 //                 heading) with neither a backtick span nor a path
-// A GENERATED mission carries the stamp line of scripts/mission/gen.mjs (the line itself is never checked): only a
-// to-create heading declares there, never a creation word (MISSION-LINT-CREATE-SCOPE-1). A line starting with the Palier
+// A GENERATED mission carries the stamp line of scripts/mission/gen.mjs, anchored at both ends: its absolute path, the
+// short sha of its checkout's HEAD, the UTC time (Q-G2-6; the line itself is never checked): only a to-create heading
+// declares there, never a creation word (MISSION-LINT-CREATE-SCOPE-1). A line starting with the Palier
 // field sets the tier, read before the prose: an id outside TIERS, or claude-fable-5-1 with an implementer or corrector
 // role (Role field, else the Palier line; decision 274), is red; the proximity rule applies only without that field
 // (MISSION-LINT-MODEL-FIELD-1).
@@ -46,7 +50,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const CODES = ["R-LINE", "R-PATH", "R-BRANCH", "R-BASE", "R-TOOL", "R-MODEL", "R-PLACEHOLDER", "R-FOCUS", "R-VAGUE", "R-SIMILAR", "R-SYMBOL", "R-STEP"];
-export const TIERS = ["claude-opus-5-5", "claude-sonnet-5", "claude-fable-5-1"];
+export const TIERS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-sonnet-5", "claude-fable-5-1"]; // claude-sonnet-5: retired (decision 280), kept for --rev replays
 const W = "\\p{L}\\p{N}_";
 const SEG = `(?:\\{[^{}\\s\`]+\\}|[${W}.~+-])+`;
 const PATH_RE = new RegExp(`(?<![${W}./\\\\-])([A-Za-z]:[\\\\/](?:${SEG}[\\\\/]?)*|(?:${SEG}[\\\\/])+(?:${SEG})?)(?::(\\d+(?:-\\d+)?(?:,\\d+(?:-\\d+)?)*))?`, "gu");
@@ -65,16 +69,18 @@ const FABLE_CODER = new RegExp(`${ROLE}[^${W}\\n]{0,4}claude-fable-5-1|claude-fa
 const PLACEHOLDER = new RegExp(`(?<![${W}])(?:TBD|TODO|XXX)(?![${W}])|[\\u00e0\\u00c0]\\s+compl[\\u00e9\\u00c9]ter`, "gu");
 const TIED = new RegExp(`(?<!\\p{L})(?:t[\\u00e2a]ches?|tasks?|[\\u00e9e]tapes?|steps?|tests?|items?|\\([a-z]\\)|\\([ivx]{1,4}\\))(?!\\p{L})`, "iu");
 const words = (list) => list.join("|").replace(/ /g, "\\s+");
-const VAGUE = new RegExp(`(?<![${W}])(?:${words(["add appropriate error handling", "appropriate validation", "handle edge cases", "as appropriate", "as needed",
+const FQ = "(?!(?<=\\u00ab[^\\u00ab\\u00bb\\n]*)[^\\u00ab\\u00bb\\n]*\\u00bb)"; // not inside a pair of French quotes on its line (Q-M2B-7)
+const VAGUE = new RegExp(`(?<![${W}])${FQ}(?:${words(["add appropriate error handling", "appropriate validation", "handle edge cases", "as appropriate", "as needed",
   "gestion d['\\u2019]?\\s*erre\\u0075rs? appropri[\\u00e9e]e?s?", "validations? appropri[\\u00e9e]e?s?", "cas limites? appropri[\\u00e9e]e?s?", "a\\u0075 besoin"])})(?![${W}])`, "giu");
-const SIMILAR = new RegExp(`(?<![${W}])(?:${words(["similar to tasks?", "same as steps?", "like tasks?", "co\\u006dme l\\u0061 t[\\u00e2a]ches?", "idem [\\u00e9e]tapes?", "m[\\u00eae]me chose q\\u0075e"])})\\s+\\d+`, "giu");
+const SIMILAR = new RegExp(`(?<![${W}])${FQ}(?:${words(["similar to tasks?", "same as steps?", "like tasks?", "co\\u006dme l\\u0061 t[\\u00e2a]ches?", "idem [\\u00e9e]tapes?", "m[\\u00eae]me chose q\\u0075e"])})\\s+\\d+`, "giu");
 const STEPS = /^#{1,6}\s.*(?:[\u00e0a]\s+fai\u0072e|recette|[\u00e9e]tapes|steps)/iu;
-const GENERATED = /^G\u00e9n\u00e9r\u00e9 : scripts\/mission\/gen\.mjs \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/u;
+const GENERATED = /^G\u00e9n\u00e9r\u00e9 : `(?:[A-Za-z]:)?\/[^`\s]*\/scripts\/mission\/gen\.mjs` `[0-9a-f]{8}` \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/u;
 const PALIER = /^Palier\s*:\s*`([^`\n]+)`/mu;
 const ROLE_FIELD = /(?<!\p{L})R[\u00f4o]l[e]\s*:\s*([^\n,;.]*)/u;
 const IMPL = new RegExp(`(?<![${W}-])(?:G1|corr)(?![${W}-])|${ROLE}`, "iu");
 const SYMBOL = /(?<![\p{L}\p{N}_])(?:fonction|function|type|interface|classe|class)\s+`([A-Za-z_]\w*)`|`([A-Za-z_]\w*)\(\)`/giu;
-const DEF = (s) => new RegExp(`(?:\\bfunction(?:\\s*\\*\\s*|\\s+)|\\b(?:const|let|var|class|interface|type|enum)\\s+)${s}\\b|\\bexport\\s*\\{[^}\\n]*\\b${s}\\b|\\bexport\\s+default\\s+${s}\\b`);
+const DEF = (s) => new RegExp(`(?:\\bfunction(?:\\s*\\*\\s*|\\s+)|\\b(?:const|let|var|class|interface|type|enum)\\s+)${s}\\b|\\bexport\\s*\\{[^}\\n]*\\b${s}\\b|\\bexport\\s+default\\s+${s}\\b|\\bimport\\b[^;\\n]*\\b${s}\\b[^;\\n]*\\bfrom\\b`);
+const GLOBALS = ["agent", "pipeline", "parallel", "phase", "log", "args", "budget", "workflow"]; // engine names of a workflow script (Q-M2B-6)
 const blank = (s) => " ".repeat(s.length);
 const expand = (p) => { const m = /^(.*?)\{([^{}]+)\}(.*)$/.exec(p); return m ? m[2].split(",").flatMap((x) => expand(m[1] + x + m[3])) : [p]; };
 const count = (s) => (s === null ? null : (s.match(/\n/g) ?? []).length + (s.length > 0 && !s.endsWith("\n") ? 1 : 0));
@@ -159,9 +165,9 @@ export function lintMission({ text, missionPath, repo, rev = null }) {
   for (const [code, ln, p] of absent) if (!covers(p)) hit(code, ln, `${p} absent`);
   for (const [name, ln] of bare)
     if (!declared.has(name) && ![...toolDirs].some((d) => existsSync(join(d, name))) && !inRepo(name) && ![...repoDirs].some((d) => inRepo(`${d}/${name}`))) hit("R-TOOL", ln, `${name} held by no directory the mission names`);
-  const want = [...new Set(syms.map(([s]) => s))].filter((s) => !declared.has(s));
+  const want = [...new Set(syms.map(([s]) => s))].filter((s) => !declared.has(s) && !GLOBALS.includes(s));
   const defs = want.length === 0 ? "" : git("grep", "-I", "-h", "-w", "-F", ...(rev === null ? ["--untracked"] : []), ...want.flatMap((s) => ["-e", s]), ...(rev === null ? [] : [rev]), "--", "*.ts", "*.mts", "*.mjs", "*.js", "*.cjs") ?? "";
-  for (const [s, ln] of syms) if (!declared.has(s) && !DEF(s).test(defs)) hit("R-SYMBOL", ln, `${s} is defined nowhere in the tree`);
+  for (const [s, ln] of syms) if (!declared.has(s) && !GLOBALS.includes(s) && !DEF(s).test(defs)) hit("R-SYMBOL", ln, `${s} is defined nowhere in the tree`);
   const bm = BASE_RE.exec(src) ?? ALT_BASE_RE.exec(src);
   const base = bm ? git("rev-parse", "--verify", "--quiet", `${bm[1]}^{commit}`)?.trim() || null : null;
   if (!bm) hit("R-BASE", 1, "no pinned base (base [tronc] <sha>)");
