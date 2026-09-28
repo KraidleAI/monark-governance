@@ -100,7 +100,7 @@ function worktreeRun(): Run {
     rmSync(join(wt, "lib", "old.ts"));
     write(wt, {
       "packages/w/index.js": W(true), "test/good.test.ts": `${HEAD}import { existsSync } from "node:fs";\nimport { double } from "@fx/w";\n${F2P}// killer: packages/w/index.js:1 COR "x + x" -> "x - x"\ntest("old_gone", () => { assert.equal(existsSync("lib/old.ts") ? 0 : double(1), 2); });\n`,
-      "test/old.test.ts": OLD('import { twice } from "./helpers/h.ts";\n// killer: packages/w/index.js:1 COR "x + x" -> "x - x"\n', `\n// A new test between two old ones, with a preamble:\n/**\n * a blank line, line and block comments (in no body).\n */\n${TWICE}// killer: packages/w/index.js:1 COR "x + x" -> "x - x"\n`, ""),
+      "test/old.test.ts": OLD('import { twice } from "./helpers/h.ts";\n// killer: packages/w/index.js:1 COR "x + x" -> "x - x"\n', `const helper = 0;\n\n// A new test between two old ones, with a preamble:\n/**\n * a blank line, line and block comments (in no body).\n */\n${TWICE}// killer: packages/w/index.js:1 COR "x + x" -> "x - x"\n`, ""),
       "test/helpers/h.ts": 'import { double } from "@fx/w";\nexport const twice = (x: number): number => double(double(x));\n',
     });
   }
@@ -110,7 +110,10 @@ function weakRun(): Run { // a second linked worktree, at gel: four admitted tes
   const f = fixture(), wt = join(f.root, "wt2");
   if (!existsSync(wt)) {
     git(f.dir, "worktree", "add", "-q", "--detach", wt, f.gel);
-    write(wt, { "lib/old.ts": "export const OLD = 2;\n", "test/weak.test.ts": `${HEAD}import { OLD } from "../lib/old.ts";\n// killer: lib/fresh.ts:1 CONST "3" -> "4"\ntest("weak", () => { assert.equal(OLD, 2); });\n` });
+    write(wt, {
+      "lib/old.ts": "export const OLD = 2;\n", "test/weak.test.ts": `${HEAD}import { OLD } from "../lib/old.ts";\n// killer: lib/fresh.ts:1 CONST "3" -> "4"\ntest("weak", () => { assert.equal(OLD, 2); });\n`,
+      "test/layout.test.ts": `${HEAD}// killer: lib/old.ts:1 CONST "2" -> "1"\ntest("layout_bad", () => {\n  assert.equal(1, 1);\n  });\n`, // RED-PROOF-LEX-FALLBACK-1: closes indented, not at column 0 -> unsupported test layout
+    });
     write(wt, { "lib/vi.ts": "export const vi = (): number => 1;\nexport const vj = (): number => 2;\nexport const vk = async (): Promise<number> => 3;\n", "test/vi.test.ts": `${HEAD}import { vi, vj, vk } from "../lib/vi.ts";\n// killer: lib/vi.ts:2 SDL "export" -> ""\ntest("vi_invalid", () => { assert.equal(vj(), 2); });\n// killer: lib/vi.ts:1 CONST "1" -> "process.exit(134)"\ntest("vi_dies", () => { assert.equal(vi(), 1); });\n// killer: lib/vi.ts:3 CONST "=> 3" -> "=> new Promise(() => {})"\ntest("vi_hangs", { timeout: 500 }, async () => { assert.equal(await vk(), 3); });\n` });
   }
   return run("weak", wt, ["--draw", "4", "--seed", "1"], f.gel);
@@ -244,6 +247,12 @@ test("red_proof_never_runs_test_42_outside_the_host_lock", () => {
 test("red_proof_fails_on_a_stillborn_draw_or_an_empty_diff", () => {
   const weak = weakRun(), empty = run("empty", fixture().gel, [], fixture().gel);
   assert.deepEqual([weak.proof.tests.map((t) => t.verdict), Object.fromEntries((weak.proof.draw?.drawn ?? []).map((d) => [d.name, d.outcome])), weak.proof.ok, weak.status],
-    [["new-module", "new-module", "new-module", "F2P"], { vi_invalid: "invalid", vi_dies: "inconclusive", vi_hangs: "inconclusive", weak: "stillborn" }, false, 1]); // a load failure, a dead child or a timeout is never a kill (D6)
+    [["refused", "new-module", "new-module", "new-module", "F2P"], { vi_invalid: "invalid", vi_dies: "inconclusive", vi_hangs: "inconclusive", weak: "stillborn" }, false, 1]); // a load failure, a dead child or a timeout is never a kill (D6); "refused" = layout_bad (RED-PROOF-LEX-FALLBACK-1), sorts first, never drawn
   assert.deepEqual([empty.proof.tests.length, empty.proof.ok, empty.status, empty.proof.drawn], [0, false, 1, 0]);
+});
+
+// killer: scripts/red-proof.mjs:242 CONST "unsupported test layout" -> "" (RED-PROOF-LEX-FALLBACK-1: the old body-end fallback is dead under C-G2-10 -- P-M1, C-M12..C-M16)
+test("red_proof_refuses_an_unsupported_test_layout", () => {
+  const r = weakRun().proof.tests.find((t) => t.file === "test/layout.test.ts" && t.name === "layout_bad");
+  assert.deepEqual([r?.verdict, r?.reason], ["refused", "unsupported test layout"]);
 });

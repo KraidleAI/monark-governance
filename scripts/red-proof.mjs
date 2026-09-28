@@ -14,6 +14,7 @@
 // 1 otherwise; 2 on a usage or tool error. "(test 42)" is skipped (host lock only). Outputs in --out: RED-PROOF.json (digest over the
 // changes, docs/**/*.md out), base.tap and gel.tap (per-file TAP streams after "# red-proof file:" lines).
 //
+// Style hypothesis (C-G2-10): a body closes on its declaration line (ends with ");") or on the first later line closing at column 0 ("}" or ")"); else refused, "unsupported test layout" (RED-PROOF-LEX-FALLBACK-1).
 // KILLER CONVENTION (closed): the line right above a top-level test( or it( declaration reads
 //   // killer: <file>:<line> <OP> "<before>" -> "<after>"        OP in COR, ROR, SDL, CONST
 // <file> is repo-relative production code (never *.test.ts nor under test/) whose real path lies in the gel clone (else out of scope);
@@ -119,10 +120,10 @@ function changedLines(gitDir, range, file) {
 }
 
 function judgedOf(text, changed) { // a changed line judges a test only inside its body (declaration to last code line); blank and comment lines (//, /* */, JSDoc *) between tests are in no body
-  const lines = text.split("\n"), decls = declarations(text), gap = (l) => /^\s*(\/\/.*|\/\*.*|\*.*)?$/.test(lines[l - 1] ?? "");
+  const lines = text.split("\n"), decls = declarations(text), unsupported = new Set();
   const hit = (l) => (changed === null || changed.has(l)) && !/^\s*\/\/ killer:/.test(lines[l - 1]);
-  const judged = decls.filter((t, i) => { let end = (decls[i + 1]?.line ?? lines.length + 1) - 1; while (end > t.line && gap(end)) end--; for (let l = t.line; l <= end; l += 0.5) if (hit(l)) return true; return false; });
-  return { judged, all: decls.length };
+  const judged = decls.filter((t, i) => { const bound = (decls[i + 1]?.line ?? lines.length + 1) - 1; let end; if (/\);\s*(\/\/.*)?$/.test(lines[t.line - 1])) end = t.line; else for (let l = t.line + 1; l <= bound; l++) if (/^[})]/.test(lines[l - 1])) { end = l; break; } if (end === undefined) { unsupported.add(t); return true; } for (let l = t.line; l <= end; l += 0.5) if (hit(l)) return true; return false; });
+  return { judged, all: decls.length, unsupported };
 }
 
 function cloneAt(repo, rev, dir) {
@@ -232,12 +233,12 @@ export function main(argv) {
     for (const f of tests) {
       const b = runFile(baseTree, f, tmp), g = runFile(gelTree, f, tmp);
       baseTap += `# red-proof file: ${f}\n${b.tap}`; gelTap += `# red-proof file: ${f}\n${g.tap}`;
-      const { judged, all } = judgedOf(readFileSync(join(gelTree, f), "utf8"), added.has(f) ? null : changedLines(gitDir, range, f));
+      const { judged, all, unsupported } = judgedOf(readFileSync(join(gelTree, f), "utf8"), added.has(f) ? null : changedLines(gitDir, range, f));
       unchanged += all - judged.length;
       for (const t of judged) {
         const bs = statusIn(b, t.name), gs = statusIn(g, t.name), module = bs.status === "import-fail" ? missingModule(bs.entry, f, added) : null;
         const row = { name: t.name, file: f, line: t.line, base: bs.status, gel: gs.status, module, killer: t.killer, killerProblem: t.killer === null ? null : killerProblem(t.killer, gelTree) };
-        const [verdict, reason] = verdictOf({ ...row, newModule: module !== null && added.has(module) });
+        const [verdict, reason] = unsupported.has(t) ? ["refused", "unsupported test layout"] : verdictOf({ ...row, newModule: module !== null && added.has(module) });
         rows.push({ ...row, verdict, reason });
       }
     }
