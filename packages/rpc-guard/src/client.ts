@@ -14,7 +14,7 @@ export type OperatorLabel = string & { readonly __brand: "OperatorLabel" };
 /** The injected transport receives the LABEL, never the resolved endpoint URL (C-3, probe P6). */
 export type Transport = (op: OperatorLabel, method: string, params: readonly unknown[]) => Promise<unknown>;
 
-export type Outcome = "attempted" | "refused" | "reconciled" | "unlocked";
+export type Outcome = "attempted" | "refused" | "reconciled" | "unlocked" | "course_reconciled"; // ledger format v2 (ledger.ts LEDGER_FORMAT)
 /** One append-only ledger fact: a REQUEST by (op, method) with its DERIVED cost in the op's unit (0 for refused/keyless). */
 export interface AttemptRecord {
   readonly op: string;
