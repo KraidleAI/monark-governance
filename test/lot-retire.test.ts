@@ -18,13 +18,13 @@ const RETIRE = join(SCRIPTS_ROOT, "scripts", "lot", "retire.mjs");
 const AGES = join(SCRIPTS_ROOT, "scripts", "lot", "ages.mjs");
 const TMP_BASE = tmpdir(); // honors TEMP/TMPDIR on win32; portable elsewhere (house pattern, C-outillage)
 
-function identityEnv(date: string) {
+function identityEnv(date: string, authorDate = date) {
   return {
     GIT_AUTHOR_NAME: "Fixture",
     GIT_AUTHOR_EMAIL: "fixture@example.invalid",
     GIT_COMMITTER_NAME: "Fixture",
     GIT_COMMITTER_EMAIL: "fixture@example.invalid",
-    GIT_AUTHOR_DATE: date,
+    GIT_AUTHOR_DATE: authorDate,
     GIT_COMMITTER_DATE: date,
   };
 }
@@ -99,7 +99,7 @@ beforeEach(() => {
   sh(repo, ["worktree", "add", "-q", "-b", "feat-dirty", wtDirty, "trunk"]);
   writeFileSync(join(wtDirty, "d.txt"), "d\n");
   sh(wtDirty, ["add", "d.txt"]);
-  sh(wtDirty, ["commit", "-q", "-m", "feat-dirty"], identityEnv("2026-09-10T00:00:00Z"));
+  sh(wtDirty, ["commit", "-q", "-m", "feat-dirty"], identityEnv("2026-09-10T00:00:00Z", "2026-08-01T00:00:00Z"));
   sh(repo, ["merge", "-q", "--no-edit", "feat-dirty"]);
   appendFileSync(join(wtDirty, "d.txt"), "uncommitted\n");
 
@@ -148,7 +148,7 @@ afterEach(() => {
   }
 });
 
-// killer: scripts/lot/retire.mjs:111 "!merged.has(wt.branch)" -> "merged.has(wt.branch)" (merged check inverted)
+// killer: scripts/lot/retire.mjs:111 COR "!merged.has(wt.branch)" -> "merged.has(wt.branch)"
 test("lot_retire_unmerged_branch_is_kept", () => {
   const r = runRetire(["--repo", fx.repo, "--trunk", "trunk", "--only", fx.wtUnmerged]);
   assert.equal(r.status, 0, r.stderr);
@@ -157,7 +157,7 @@ test("lot_retire_unmerged_branch_is_kept", () => {
   assert.match(list, /feat-unmerged/, "the unmerged worktree must survive");
 });
 
-// killer: scripts/lot/retire.mjs:137 "st.stdout.trim() !== ''" -> "false" (dirty check removed)
+// killer: scripts/lot/retire.mjs:137 COR "st.stdout.trim() !== ''" -> "false"
 test("lot_retire_merged_dirty_worktree_is_kept", () => {
   const r = runRetire(["--repo", fx.repo, "--trunk", "trunk", "--only", fx.wtDirty]);
   assert.equal(r.status, 0, r.stderr);
@@ -166,7 +166,7 @@ test("lot_retire_merged_dirty_worktree_is_kept", () => {
   assert.match(list, /feat-dirty/, "the dirty worktree must survive despite being merged");
 });
 
-// killer: scripts/lot/retire.mjs:93 "if ((wtNorm + '/').startsWith(repoNorm))" -> "if (false)" (in-tree guard removed)
+// killer: scripts/lot/retire.mjs:93 COR "if ((wtNorm + '/').startsWith(norm(main.path) + '/'))" -> "if (false)"
 test("lot_retire_in_tree_worktree_is_refused", () => {
   const r = runRetire(["--repo", fx.repo, "--trunk", "trunk", "--only", fx.wtInTree]);
   assert.equal(r.status, 0, r.stderr);
@@ -176,7 +176,7 @@ test("lot_retire_in_tree_worktree_is_refused", () => {
   assert.match(list, /feat-intree/, "a worktree under the repo tree is never removed by this tool");
 });
 
-// killer: scripts/lot/retire.mjs:145 "if (args.dryRun)" -> "if (false)" (dry-run acting for real)
+// killer: scripts/lot/retire.mjs:145 COR "if (args.dryRun)" -> "if (false)"
 test("lot_retire_dry_run_changes_nothing", () => {
   const before1 = sh(fx.repo, ["worktree", "list", "--porcelain"]);
   const branchesBefore = sh(fx.repo, ["branch", "--list"]);
@@ -192,7 +192,7 @@ test("lot_retire_dry_run_changes_nothing", () => {
   assert.equal(branchesAfter, branchesBefore, "--dry-run must not delete any branch");
 });
 
-// killer: scripts/lot/ages.mjs:58 ".slice(1)" -> "" (the main worktree shows up in the table)
+// killer: scripts/lot/ages.mjs:58 CONST "slice(1)" -> "slice(0)"
 test("lot_ages_reports_the_seven_remaining_worktrees", () => {
   const r = runAges(["--repo", fx.repo, "--trunk", "trunk", "--json"]);
   assert.equal(r.status, 0, r.stderr);
@@ -210,7 +210,7 @@ test("lot_ages_reports_the_seven_remaining_worktrees", () => {
   assert.equal(unmergedRow?.merged, false);
 });
 
-// killer: scripts/lot/ages.mjs:67 "86400" -> "3600" (age divided by the wrong constant)
+// killer: scripts/lot/ages.mjs:67 CONST "86400" -> "3600"
 test("lot_ages_age_in_days_matches_the_committer_date", () => {
   const r = runAges(["--repo", fx.repo, "--trunk", "trunk", "--json"]);
   assert.equal(r.status, 0, r.stderr);
@@ -219,10 +219,10 @@ test("lot_ages_age_in_days_matches_the_committer_date", () => {
   // commit date "2026-09-10T00:00:00Z": age recomputed independently (expected epoch, 1-day epsilon)
   const expectedSeconds = Math.floor(Date.now() / 1000) - Date.parse("2026-09-10T00:00:00Z") / 1000;
   const expectedDays = expectedSeconds / 86400;
-  assert.ok(Math.abs(dirtyAge - expectedDays) < 1, `ageDays=${dirtyAge} expected close to ${expectedDays}`);
+  assert.ok(Math.abs(dirtyAge - expectedDays) < 0.001, `ageDays=${dirtyAge} expected close to ${expectedDays}`);
 });
 
-// killer: scripts/lot/ages.mjs:77 "(b.ageDays ?? -1) - (a.ageDays ?? -1)" -> "(a.ageDays ?? -1) - (b.ageDays ?? -1)" (sort reversed)
+// killer: scripts/lot/ages.mjs:77 COR "(b.ageDays ?? -1) - (a.ageDays ?? -1)" -> "(a.ageDays ?? -1) - (b.ageDays ?? -1)"
 test("lot_ages_rows_are_sorted_oldest_first", () => {
   const r = runAges(["--repo", fx.repo, "--trunk", "trunk", "--json"]);
   assert.equal(r.status, 0, r.stderr);
@@ -235,7 +235,7 @@ test("lot_ages_rows_are_sorted_oldest_first", () => {
   }
 });
 
-// killer: scripts/lot/retire.mjs:38 "line.slice('worktree '.length)" -> "line.split(' ')[1]" (path truncated at first space)
+// killer: scripts/lot/retire.mjs:38 COR "line.slice('worktree '.length)" -> "line.split(' ')[1]"
 test("lot_retire_worktree_path_with_a_space_is_retired", () => {
   const r = runRetire(["--repo", fx.repo, "--trunk", "trunk", "--only", fx.wtSpace]);
   assert.equal(r.status, 0, r.stderr);
@@ -244,7 +244,7 @@ test("lot_retire_worktree_path_with_a_space_is_retired", () => {
   assert.doesNotMatch(list, /feat-space/);
 });
 
-// killer: scripts/lot/retire.mjs:105 "if (wt.prunable)" -> "if (false)" (spawns `git status` on a vanished directory)
+// killer: scripts/lot/retire.mjs:105 COR "if (wt.prunable)" -> "if (false)"
 test("lot_retire_prunable_worktree_is_kept_never_attempted", () => {
   rmSync(fx.wtVanish, { recursive: true, force: true });
   const r = runRetire(["--repo", fx.repo, "--trunk", "trunk", "--only", fx.wtVanish]);
@@ -254,7 +254,7 @@ test("lot_retire_prunable_worktree_is_kept_never_attempted", () => {
   assert.match(branches, /feat-vanish/, "never removed while the directory is missing (Q-M8)");
 });
 
-// killer: scripts/lot/retire.mjs:150 "'remove'" -> "'--help'" (removes nothing, prints a fake RETIRE)
+// killer: scripts/lot/retire.mjs:150 CONST "'remove'" -> "'list'"
 test("lot_retire_merged_clean_worktree_is_retired", () => {
   const r = runRetire(["--repo", fx.repo, "--trunk", "trunk", "--only", fx.wtMerged]);
   assert.equal(r.status, 0, r.stderr);
@@ -265,7 +265,7 @@ test("lot_retire_merged_clean_worktree_is_retired", () => {
   assert.equal(branches.trim(), "", "the merged branch must be deleted (-d)");
 });
 
-// killer: scripts/lot/retire.mjs:157 "'-d'" -> "'-D'" (force-deletes despite the real HEAD's refusal)
+// killer: scripts/lot/retire.mjs:157 CONST "'-d'" -> "'-D'"
 test("lot_retire_refuses_to_force_delete_branch_not_merged_into_repos_own_head", () => {
   const r = runRetire(["--repo", fx.repo, "--trunk", "release", "--only", fx.wtReleaseOnly]);
   // merged into "release" (passes check (a)) but NOT into the repo's real HEAD ("trunk"):

@@ -17,7 +17,7 @@ function parseArgs(argv) {
 }
 
 function git(cwdRepo, args) {
-  const r = spawnSync('git', ['-C', cwdRepo, ...args], { encoding: 'utf8' });
+  const r = spawnSync('git', ['-C', cwdRepo, ...args], { encoding: 'utf8', env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } });
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '', error: r.error };
 }
 

@@ -11,7 +11,7 @@ function parseArgs(argv) {
     if (a === '--repo') out.repo = argv[++i];
     else if (a === '--trunk') out.trunk = argv[++i];
     else if (a === '--dry-run') out.dryRun = true;
-    else if (a === '--only') out.only = argv[++i];
+    else if (a === '--only' && argv[i + 1]) out.only = argv[++i];
     else throw new Error(`unknown argument: ${a}`);
   }
   if (!out.repo || !out.trunk) throw new Error('--repo and --trunk are required');
@@ -25,7 +25,7 @@ function norm(p) {
 }
 
 function git(cwdRepo, args) {
-  const r = spawnSync('git', ['-C', cwdRepo, ...args], { encoding: 'utf8' });
+  const r = spawnSync('git', ['-C', cwdRepo, ...args], { encoding: 'utf8', env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } });
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '', error: r.error };
 }
 
@@ -58,9 +58,9 @@ function mergedBranches(repo, trunk) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const repoNorm = norm(path.resolve(args.repo)) + '/';
+  const argNorm = norm(path.resolve(args.repo)) + '/'; // git runs there (-C): never removed
   const onlyNorm = args.only ? norm(path.resolve(args.only)) : null;
-  const cwdNorm = norm(process.cwd());
+  const cwdNorm = norm(process.cwd()) + '/';
 
   const list = git(args.repo, ['worktree', 'list', '--porcelain']);
   if (list.error || list.status !== 0) {
@@ -69,7 +69,7 @@ function main() {
     return;
   }
   const entries = parsePorcelain(list.stdout);
-  const rest = entries.slice(1); // first block = the main worktree, never touched
+  const [main, ...rest] = entries; // first block = the main worktree, never touched
 
   let merged;
   try {
@@ -90,13 +90,13 @@ function main() {
     if (onlyNorm && wtNorm !== onlyNorm) continue;
 
     // (d) path under the repo tree: never removed by this tool, orchestrator action only
-    if ((wtNorm + '/').startsWith(repoNorm)) {
+    if ((wtNorm + '/').startsWith(norm(main.path) + '/')) {
       console.log(`REFUSE-IN-TREE ${wt.path}`);
       refused++;
       continue;
     }
     // the worktree this script is running from: never removed
-    if (wtNorm === cwdNorm) {
+    if ([cwdNorm, argNorm].some((p) => p.startsWith(wtNorm + '/'))) {
       console.log(`KEEP ${wt.path} current-worktree`);
       kept++;
       continue;
