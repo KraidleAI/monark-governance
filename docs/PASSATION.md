@@ -1,6 +1,6 @@
 # PASSATION — dossier de reprise pour un nouvel orchestrateur (nouveau compte Claude ou nouvelle session) — mis à jour à chaque retour d'agent et à chaque décision (décision 271, investisseur, 2026-09-28)
 
-**Dernière mise à jour** : 2026-09-28 03:39 UTC — Shōgen lot A ADR-0025 gelé (commit F:/Shogen) ; en vol : cp-1 bis ADR-METHODE-2 v2 (`wf_a201d446-bce`) seulement.
+**Dernière mise à jour** : 2026-09-28 03:45 UTC — cp-1 bis ADR-METHODE-2 rendu (C-7..C-18, escalade Q-A) ; RIEN en vol ; mode point par point avec l investisseur (attente : strate poolée 1/2/3, Q-A).
 
 ## 0. Lire dans cet ordre (30 minutes)
 1. `F:\claude-config\CLAUDE.md` (règles globales, roster, amendement 267 en fin de fichier) — **contient des octets 0x08/0x07 aux l.203 et l.286 (BYTE-GUARD-CONFIG-1), ne pas « corriger » sans go**.
