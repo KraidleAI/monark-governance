@@ -12,7 +12,7 @@
 // 267 (c)); G2, cp-2 and G7 always replay; a same-key record missing a field, its pid or its tree object is a refusal.
 // Exit: 0 green or served | 1 a gate red | 2 refusal (usage, tree, incomplete record, record not written) | 3 C-V-4 |
 // 75 lock timeout | 130/143 SIGINT/SIGTERM. Env: ORACLE_ROOT=F:/tmp, ORACLE_MIN_FREE_MB=4096, ORACLE_MAX_NODE=40 (C-V-4,
-// decision Q-M3-8), ORACLE_LOCK_POLL_MS=5000, ORACLE_LOCK_MAX_MS=5400000 (90 min, the bound of the older protocol).
+// decision Q-M3-8), ORACLE_LOCK_POLL_MS=5000, ORACLE_LOCK_MAX_MS=5400000 (90 min, the bound of the older protocol). Precedence (Q-G2-5): 3 and 75 are mutually exclusive per run (C-V-4 is read only after the lock is granted) and either overrides a red static gate (`code = refusal ?? …`).
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { closeSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
@@ -43,7 +43,7 @@ const [role, treeArg, baseArg, label] = ["--role", "--tree", "--base", "--key"].
 const refuse = (msg) => { console.error(`oracle: refused: ${msg}`); process.exit(2); };
 if (!ROLES.includes(role)) refuse(`--role ${ROLES.join("|")} is required (C-1); got ${role ?? "none"}`);
 if (!treeArg || !baseArg) refuse("--tree <path> and --base <sha> are required");
-for (const k of Object.keys(process.env)) if (DENY.test(k)) delete process.env[k]; // before any child process (DENY above)
+for (const k of Object.keys(process.env)) if (DENY.test(k) || /^npm_config_(offline|logs_dir)$/i.test(k)) delete process.env[k]; // before any child process (DENY above); genv's npm overrides win under any case
 const sha256 = (b) => createHash("sha256").update(b).digest("hex"), stamp = () => new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 const git = (cwd, ...a) => execFileSync("git", ["-C", cwd, ...a], { maxBuffer: 1 << 30, stdio: ["ignore", "pipe", "pipe"] });
 const gitS = (cwd, ...a) => git(cwd, ...a).toString().trim();
@@ -51,7 +51,7 @@ const tree = resolve(treeArg), start = stamp(), root = process.env.ORACLE_ROOT ?
 let head, base, patch, untracked;
 try {
   [head, base] = [gitS(tree, "rev-parse", "HEAD"), gitS(tree, "rev-parse", "--verify", `${baseArg}^{commit}`)];
-  patch = git(tree, "diff", "--binary", "HEAD");
+  patch = git(tree, "diff", "--binary", "--full-index", "HEAD");
   untracked = git(tree, "ls-files", "-z", "--others", "--exclude-standard").toString().split("\0").filter((f) => f !== "" && !f.endsWith("/")).sort();
 } catch (e) { refuse(`tree or base not readable by git (${tree}, ${baseArg}): ${String(e.message).split("\n")[0]}`); }
 const dh = createHash("sha256").update(patch);
@@ -154,7 +154,7 @@ try {
         ? execFileSync("tasklist", ["/FI", "IMAGENAME eq node.exe", "/NH", "/FO", "CSV"], { encoding: "utf8" }).split("\n").filter((l) => l.startsWith('"node.exe"'))
         : execFileSync("ps", ["-A", "-o", "comm="], { encoding: "utf8" }).split("\n").filter((l) => l.trim() === "node");
       cv4 = { free_mb: Math.floor(freemem() / 2 ** 20), node_exe: node.length, min_free_mb: Number(process.env.ORACLE_MIN_FREE_MB ?? 4096), max_node: Number(process.env.ORACLE_MAX_NODE ?? 40) };
-      if (cv4.free_mb < cv4.min_free_mb || cv4.node_exe > cv4.max_node) refusal = 3;
+      if (!(cv4.free_mb >= cv4.min_free_mb && cv4.node_exe <= cv4.max_node)) refusal = 3;
       else gates.filter((g) => !STATIC.test(g.cmd)).forEach(runGate);
     } finally { lk.release(); }
   }
@@ -165,5 +165,5 @@ try {
   code = refusal ?? (ran.every((g) => g.exit === 0) ? 0 : 1);
   if (refusal) console.error(`oracle: ${refusal === 3 ? `C-V-4 refused the suite: ${JSON.stringify(cv4)}` : "lock not obtained in time"}`);
   write({ static_only: staticOnly, gates: ran, tests, r25: r25counts, residues: { tmp_entries: readdirSync(tmp).length }, ci_only: ciOnly, cv4, lock_wait_s: waited, exit: code, served_from: null });
-} catch (e) { console.error(`oracle: refused: run dir preparation or gate derivation failed: ${e.stack ?? e}`); }
+} catch (e) { code = 2; console.error(`oracle: refused: run dir preparation or gate derivation failed: ${e.stack ?? e}`); }
 process.exitCode = code;

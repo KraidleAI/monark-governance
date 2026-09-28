@@ -41,7 +41,7 @@ jobs:
 `;
 const ENV = "console.log('env ' + JSON.stringify(Object.keys(process.env)) + ' offline=' + process.env.npm_config_offline)";
 const SCRIPTS = {
-  lint: `node -e "const fs = require('fs'), r = process.env.ORACLE_ROOT + '/oracle-results'; ${ENV}; if (fs.existsSync('BRK')) for (const d of fs.readdirSync(r)) fs.mkdirSync(r + '/' + d + '.json.tmp'); process.exit(fs.existsSync('BAD') ? 1 : 0)"`,
+  lint: `node -e "const fs = require('fs'), r = process.env.ORACLE_ROOT + '/oracle-results'; ${ENV}; if (fs.existsSync('RMT')) fs.rmSync(process.env.TEMP, { recursive: true, force: true }); if (fs.existsSync('BRK')) for (const d of fs.readdirSync(r)) fs.mkdirSync(r + '/' + d + '.json.tmp'); process.exit(fs.existsSync('BAD') ? 1 : 0)"`,
   test: `node -e "const fs = require('fs'); fs.appendFileSync(process.env.FX_COUNT, 't'); ${ENV}; console.log('owner ' + fs.readFileSync(process.env.ORACLE_ROOT + '/oracle-lock/owner.txt')); console.log('# tests 3'); console.log('# pass 3'); console.log('# fail 0'); console.log('# skipped 0')"`,
   extra: `node -e "0"`,
 };
@@ -119,16 +119,17 @@ test("oracle_gates_are_the_run_lines_of_ci_yml — derived at launch, CI-only li
   assert.equal(b.status, 0, b.out);
   assert.deepEqual(b.rec?.gates.map((g) => g.name), ["r25", "lint", "test", "extra"]);
   appendFileSync(join(fx.repo, ".github", "workflows", "ci.yml"), "      - run: |\n          node -e \"process.exit(1)\"\n          node -e \"process.exit(0)\"\n");
-  git(fx.repo, "commit", "-qam", "a block whose first line fails");
+  git(fx.repo, "commit", "-qam", "a block whose first line fails"); // O2 (pipefail) needs its own reached, unaborted pipe: conflicts with K-E at 2 lines here, item ORACLE-PIPEFAIL-TEST-1
   const c = oracle(fx, ["--role", "G1"]);
-  assert.deepEqual([c.status, c.rec?.gates.at(-1)?.exit], [1, 1], "a run: | block runs under bash -e: a failing line fails the gate");
+  assert.deepEqual([c.status, c.rec?.gates.at(-1)?.exit], [1, 1], "a run: | block runs under bash -e: a failing line fails the gate (K-E)");
 }));
 
 test("oracle_gates_see_no_foreign_credential — no credential NAME reaches a gate of either lane (static lint, locked test) and npm runs offline (C-G2-1, X1)", () => withFx((fx) => {
   // killer: scripts/oracle/run.mjs:46 SDL "for (const k of Object.keys(process.env)) if (DENY.test(k)) delete process.env[k];" -> ""
   // killer: scripts/oracle/run.mjs:136 SDL "npm_config_offline: \"true\", " -> ""
-  const fake = ["FX_API_KEY_1", "FX_PRIVATE_KEY", "FX_TOKEN_1", "FX_SECRET_1", "GH_FX", "GITHUB_FX", "CHAINSTACK_FX", "MONARK_PUBLIC_MIRROR"];
-  const a = oracle(fx, ["--role", "G1"], { ...Object.fromEntries(fake.map((k) => [k, "fake"])), FX_VISIBLE: "1" });
+  // killer: scripts/oracle/run.mjs:46 COR " || /^npm_config_(offline|logs_dir)$/i.test(k)" -> ""
+  const fake = ["FX_API_KEY_1", "FX_PRIVATE_KEY", "FX_TOKEN_1", "fx_secret_1", "GH_FX", "GITHUB_FX", "CHAINSTACK_FX", "MONARK_PUBLIC_MIRROR"]; // lowercase name: DENY must be case-insensitive (Windows env names, O1); a synthetic FX_ name, never MONARK_PUBLIC_MIRROR itself (that exact name is real in this session's own environment, C-G2-1 §0: a lowercase fake of it collides and is overridden by Windows' case-insensitive env merge, not by DENY)
+  const a = oracle(fx, ["--role", "G1"], { ...Object.fromEntries(fake.map((k) => [k, "fake"])), FX_VISIBLE: "1", NPM_CONFIG_OFFLINE: "false" });
   assert.equal(a.status, 0, a.out);
   for (const gate of ["lint", "test"]) {
     const log = readFileSync(a.rec?.gates.find((g) => g.name === gate)?.log ?? "", "utf8");
@@ -213,8 +214,8 @@ test("oracle_refuses_an_incomplete_same_key_record — a record without pid, or 
   const a = oracle(fx, ["--role", "G1", "--key", "k"]);
   assert.equal(a.status, 0, a.out);
   const body = readFileSync(a.file, "utf8"), forged = JSON.parse(body) as Record<string, unknown>;
-  delete forged.pid;
-  for (const [field, text] of [["pid", JSON.stringify(forged)], ["tree.object", body.replace(/,\s*"object": "\w+"/, "")], ["tree.object", body.replace(/"object": "\w+"/, "\"object\": null")]] as const) {
+  forged.pid = 0; // O5: pid 0 (not merely absent) must still be incomplete
+  for (const [field, text] of [["pid", JSON.stringify(forged)], ["tree.object", body.replace(/,\s*"object": "\w+"/, "")], ["tree.object", body.replace(/"object": "\w+"/, "\"object\": null")], ["role", body.replace(/\n\s*"role": "[^"]*",/, "")]] as const) {
     writeFileSync(a.file, text);
     const b = oracle(fx, ["--role", "G1", "--key", "k"]);
     assert.equal(b.status, 2, b.out);
@@ -230,6 +231,9 @@ test("oracle_record_not_written_is_a_refusal — a gate turns the record path in
   assert.deepEqual([a.status, a.file], [2, ""], a.out);
   assert.match(a.out, /refused: record not written/);
   assert.deepEqual(readdirSync(join(fx.root, "oracle-results")).filter((f) => f.endsWith(".json")), [], "no record");
+  // killer: scripts/oracle/run.mjs:168 SDL "code = 2; " -> ""
+  rmSync(join(fx.repo, "BRK")); writeFileSync(join(fx.repo, "RMT"), "x\n"); const b = oracle(fx, ["--role", "G1", "--static-only"]);
+  assert.deepEqual([b.status, b.file], [2, ""], `a green gate removed the run TEMP: still a refusal (C-G2-11) ${b.out}`);
 }));
 
 test("oracle_lock_fifo — a dead pid (queue and owner) is taken over; a live queued head is waited for (M9, M10)", () => withFx((fx) => {
@@ -260,7 +264,7 @@ test("oracle_lock_never_takes_a_live_or_unknown_owner — owner.txt JSON of this
     writeFileSync(join(lock, "owner.txt"), text);
     const a = oracle(fx, ["--role", "G1"], { ORACLE_LOCK_MAX_MS: "1500" });
     assert.equal(a.status, 75, a.out);
-    assert.deepEqual([readFileSync(join(lock, "owner.txt"), "utf8"), ran(fx)], [text, 0], "owner.txt untouched, no locked gate");
+    assert.deepEqual([existsSync(join(lock, "owner.txt")) ? readFileSync(join(lock, "owner.txt"), "utf8") : "(absent)", ran(fx)], [text, 0], "owner.txt untouched, no locked gate (O6: release must never drop a foreign owner)");
     rmSync(lock, { recursive: true });
   }
 }));
@@ -280,6 +284,8 @@ test("oracle_r25_over_the_ci_bound_is_red — insertions + deletions against VIB
   assert.deepEqual(a.rec?.r25?.map((c) => [c.name, c.insertions, c.deletions, c.changed, c.limit]), [["STAT", 15, 3, 18, 5]]);
   assert.equal(a.rec?.gates.find((g) => g.name === "r25")?.exit, 1);
   assert.equal(ran(fx), 0, "--static-only runs no locked gate");
+  // killer: scripts/oracle/run.mjs:54 SDL "\"--full-index\", " -> ""
+  assert.equal(a.rec?.tree.dirty, createHash("sha256").update(execFileSync("git", ["-C", fx.repo, "diff", "--binary", "--full-index", "HEAD"])).update(`\0big.txt\0${sha256(readFileSync(join(fx.repo, "big.txt")))}`).digest("hex"), "dirty is reproducible from content (full index)");
   const re = (f: string): string | undefined => /const R25_DIFF_RE = (\/.+\/);/.exec(readFileSync(join(ROOT, f), "utf8"))?.[1];
   assert.equal(re("scripts/oracle/r25.mjs"), re("test/ci-gates.test.ts"), "R25_DIFF_RE drifted from test 38");
 }));
@@ -287,7 +293,7 @@ test("oracle_r25_over_the_ci_bound_is_red — insertions + deletions against VIB
 test("oracle_cv4_refuses_the_suite — free memory or node.exe out of bounds => exit 3, no suite, lock released; defaults 4096 MB free and 40 node.exe (M12, X13)", () => withFx((fx) => {
   // killer: scripts/oracle/run.mjs:156 LVR "ORACLE_MIN_FREE_MB ?? 4096" -> "ORACLE_MIN_FREE_MB ?? 0"
   // killer: scripts/oracle/run.mjs:156 LVR "ORACLE_MAX_NODE ?? 40" -> "ORACLE_MAX_NODE ?? 48"
-  for (const env of [{ ORACLE_MIN_FREE_MB: "1000000000" }, { ORACLE_MAX_NODE: "0" }]) {
+  for (const env of [{ ORACLE_MIN_FREE_MB: "1000000000" }, { ORACLE_MAX_NODE: "0" }, { ORACLE_MAX_NODE: "abc" }]) {
     const a = oracle(fx, ["--role", "G1"], env);
     assert.equal(a.status, 3, a.out);
     assert.ok((a.rec?.cv4?.node_exe ?? 0) >= 1, "at least this oracle's own node process is counted");

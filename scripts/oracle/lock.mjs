@@ -33,7 +33,7 @@ export async function acquire(root, owner, { pollMs = 5000, maxMs = 5_400_000 } 
       if (pid !== undefined && !alive(pid)) dropLock(dir); // dead owner: the lock is taken over
       try {
         mkdirSync(dir);
-        writeFileSync(join(dir, "owner.txt"), JSON.stringify({ ...owner, lock: MARK, pid: process.pid }));
+        writeFileSync(join(dir, "owner.txt"), JSON.stringify({ ...owner, lock: MARK, pid: process.pid, date: new Date().toISOString().replace(/\.\d{3}Z$/, "Z") })); // Q-G2-15: dated at the TAKE, not the request
         rmSync(join(queue, mine), { force: true });
         return { release, waitedMs: Date.now() - t0 };
       } catch (e) { if (e.code !== "EEXIST") throw e; }
