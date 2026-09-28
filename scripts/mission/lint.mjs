@@ -34,7 +34,7 @@ export const TIERS = ["claude-opus-5-5", "claude-sonnet-5", "claude-fable-5-1"];
 const W = "\\p{L}\\p{N}_";
 const SEG = `(?:\\{[^{}\\s\`]+\\}|[${W}.~+-])+`;
 const PATH_RE = new RegExp(`(?<![${W}./\\\\-])([A-Za-z]:[\\\\/](?:${SEG}[\\\\/]?)*|(?:${SEG}[\\\\/])+(?:${SEG})?)(?::(\\d+(?:-\\d+)?(?:,\\d+(?:-\\d+)?)*))?`, "gu");
-const LTAIL = /^`?\**\s*(\([^()]*\)|l\.\d+(?:-\d+)?(?:\s*(?:,|\u00e0|et|-)\s*l\.\d+(?:-\d+)?)*)/u;
+const LTAIL = /^`?\**\s*(\([^()`]*\)|l\.\d+(?:-\d+)?(?:\s*(?:,|\u00e0|et|-)\s*l\.\d+(?:-\d+)?)*)/u;
 const CREATE = new RegExp(`(?<![${W}])(?:cr\\u00e9(?:er|\\u00e9e?s?|es?|ation)|neu(?:fs?|ves?)|nouveaux?|nouvelles?|nouvel)(?![${W}])`, "iu");
 const TO_CREATE = /^#{1,6}\s.*(?:[\u00e0a]\s+cr[\u00e9e]er|to\s+create)/iu;
 const HEAD = /^#{1,6}\s/;
@@ -42,11 +42,12 @@ const LOCK = /(?:^|[/._-])lock\/?$/i;
 const SCRIPT = /\.(?:ps1|sh|mjs|cjs|js|py)$/i;
 const BRANCH_RE = new RegExp(`(?<![${W}./\\\\-])lot/[${W}][${W}./-]*`, "gu");
 const BASE_RE = new RegExp(`(?<![${W}-])base(?:\\s+tronc)?\\s*[:=]?\\s*\`?([0-9a-f]{7,40})(?![${W}])`, "iu");
+const ALT_BASE_RE = new RegExp(`(?<![${W}])(?:--base\\s+|gel\\s*[:=]?\\s*)\`?([0-9a-f]{7,40})(?![${W}])`, "iu");
 const MODEL_RE = /(?<![\w-])claude-(?:opus|sonnet|haiku|fable)(?:-[a-z0-9]+)*/giu;
 const ROLE = "(?:worker|impl(?:\\u00e9|e)menteur|implementer|correcteur|corrector)";
 const FABLE_CODER = new RegExp(`${ROLE}[^${W}\\n]{0,4}claude-fable-5-1|claude-fable-5-1[^${W}\\n]{0,4}${ROLE}`, "iu");
 const PLACEHOLDER = new RegExp(`(?<![${W}])(?:TBD|TODO|XXX)(?![${W}])|[\\u00e0\\u00c0]\\s+compl[\\u00e9\\u00c9]ter`, "gu");
-const TIED = new RegExp(`(?<!\\p{L})(?:t[\\u00e2a]ches?|tasks?|[\\u00e9e]tapes?|steps?|tests?|items?)(?!\\p{L})`, "iu");
+const TIED = new RegExp(`(?<!\\p{L})(?:t[\\u00e2a]ches?|tasks?|[\\u00e9e]tapes?|steps?|tests?|items?|\\([a-z]\\)|\\([ivx]{1,4}\\))(?!\\p{L})`, "iu");
 const blank = (s) => " ".repeat(s.length);
 const expand = (p) => { const m = /^(.*?)\{([^{}]+)\}(.*)$/.exec(p); return m ? m[2].split(",").flatMap((x) => expand(m[1] + x + m[3])) : [p]; };
 const count = (s) => (s === null ? null : (s.match(/\n/g) ?? []).length + (s.length > 0 && !s.endsWith("\n") ? 1 : 0));
@@ -74,6 +75,7 @@ export function lintMission({ text, missionPath, repo, rev = null }) {
   const bare = [];
   const absent = [];
   const declared = new Set();
+  const covers = (q) => [...declared].some((d) => (d.endsWith("/") ? q === d.slice(0, -1) || q.startsWith(d) : q === d));
   let createSection = false;
   lines.forEach((raw, i) => {
     const ln = i + 1;
@@ -97,7 +99,7 @@ export function lintMission({ text, missionPath, repo, rev = null }) {
       for (const p of expand(rawPath.replace(/\\/g, "/"))) {
         const abs = /^[A-Za-z]:\//.test(p);
         if (!abs && !roots.has(p.split("/")[0])) { const q = resolve(missionDir, p); if (existsSync(q)) toolDirs.add(isDir(q) ? q : dirname(q)); continue; }
-        if (create) declared.add(p.replace(/\/$/, ""));
+        if (create) declared.add(p);
         if (!(abs ? existsSync(p) : inRepo(p))) {
           if (!(abs && LOCK.test(p))) absent.push([SCRIPT.test(p) && (abs || /(^|\/)scripts\//.test(p)) ? "R-TOOL" : "R-PATH", ln, p]);
           continue;
@@ -117,10 +119,10 @@ export function lintMission({ text, missionPath, repo, rev = null }) {
     for (const m of prose.matchAll(PLACEHOLDER)) hit("R-PLACEHOLDER", ln, m[0]);
     if (FABLE_CODER.test(raw)) hit("R-MODEL", ln, "claude-fable-5-1 as worker, implementer or corrector (decision 274)");
   });
-  for (const [code, ln, p] of absent) if (!declared.has(p.replace(/\/$/, ""))) hit(code, ln, `${p} absent`);
+  for (const [code, ln, p] of absent) if (!covers(p)) hit(code, ln, `${p} absent`);
   for (const [name, ln] of bare)
     if (!declared.has(name) && ![...toolDirs].some((d) => existsSync(join(d, name))) && !inRepo(name) && ![...repoDirs].some((d) => inRepo(`${d}/${name}`))) hit("R-TOOL", ln, `${name} held by no directory the mission names`);
-  const bm = BASE_RE.exec(src);
+  const bm = BASE_RE.exec(src) ?? ALT_BASE_RE.exec(src);
   const base = bm ? git("rev-parse", "--verify", "--quiet", `${bm[1]}^{commit}`)?.trim() || null : null;
   if (!bm) hit("R-BASE", 1, "no pinned base (base [tronc] <sha>)");
   else if (!base) hit("R-BASE", lineOf(bm.index), `${bm[1]} is not a commit of ${repo}`);
@@ -149,6 +151,7 @@ function main(argv) {
   const o = { mission: null, repo: null, rev: null, json: false };
   for (let i = 0; i < argv.length; i++) if (argv[i] === "--json") o.json = true; else if (argv[i] === "--repo" || argv[i] === "--rev") o[argv[i].slice(2)] = argv[++i] ?? null; else o.mission = argv[i];
   if (!o.mission || !o.repo) { console.error("usage: node scripts/mission/lint.mjs <mission.md> --repo <worktree> [--rev <commit>] [--json]"); process.exitCode = 2; return; }
+  if (o.rev) { try { execFileSync("git", ["-C", o.repo, "cat-file", "-e", `${o.rev}^{commit}`], { stdio: "ignore" }); } catch { console.error(`usage: --rev ${o.rev} is not a commit of ${o.repo}`); process.exitCode = 2; return; } }
   const r = lintMission({ text: readFileSync(o.mission, "utf8"), missionPath: o.mission, repo: o.repo, rev: o.rev });
   console.log(o.json ? JSON.stringify({ mission: o.mission, repo: o.repo, rev: o.rev, ...r }, null, 2) : formatReport(r, o.mission));
   process.exitCode = r.verdict === "vert" ? 0 : 1;

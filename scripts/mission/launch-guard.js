@@ -3,6 +3,8 @@
 // and cite its sha256 in the lot journal. The block is pure (no import, no global, no I/O: a workflow has neither fs nor
 // crypto). Call `const mission = assertRecu(args)` before any agent(): it throws unless args.recu is a green receipt of
 // scripts/mission/launch.mjs carrying a sha256, and returns args.mission, the only text an agent() may be given.
+// assertRecu never compares sha256(args.mission) to recu.sha: a stale or forged receipt (mission text edited after the
+// receipt was written) still passes here; that equality is replayed after the fact by M-5 (item METHODE-RECU-SIGNE-1).
 // BEGIN launch-guard
 function assertRecu(args) {
   const recu = args && args.recu;

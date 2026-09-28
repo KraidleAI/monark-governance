@@ -15,6 +15,7 @@
 //   3. sha256(args.mission) === recu.sha is replayed after the fact by M-5: a stale or forged receipt is detected there, not
 //      prevented here (item METHODE-RECU-SIGNE-1). A launch outside a workflow escapes the gate (METHODE-LAUNCH-AGENT-1).
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,7 +31,8 @@ export function launch(mission, repo) {
   const out = recuPath(mission);
   if (lint.verdict !== "vert") { rmSync(out, { force: true }); return { recu: null, lint }; }
   const recu = { sha: createHash("sha256").update(bytes).digest("hex"), verdict: "vert", date: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
-    lint: lint.counts, repo: resolve(repo).replace(/\\/g, "/"), base: lint.base, mission: resolve(mission).replace(/\\/g, "/") };
+    lint: lint.counts, repo: resolve(repo).replace(/\\/g, "/"), base: lint.base, mission: resolve(mission).replace(/\\/g, "/"),
+    head: execFileSync("git", ["-C", repo, "rev-parse", "HEAD"], { encoding: "utf8" }).trim() };
   writeFileSync(out, `${JSON.stringify(recu, null, 2)}\n`);
   return { recu, lint };
 }
