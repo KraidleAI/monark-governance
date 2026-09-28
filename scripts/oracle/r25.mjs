@@ -4,7 +4,7 @@
 // metric of l.90-91; the bounds of l.49-50, read from their env: keys (absent or not numeric: red, as l.52-61); red
 // iff a count exceeds its bound (l.94, l.98). `origin/${{ github.base_ref }}` becomes the mandatory --base: the range
 // stays `<base>...HEAD`, HEAD being the clone's freeze commit (untracked files included). Insertions and deletions are
-// reported apart: R25-UNIT-1 leaves open whether the 547 bound counts insertions or insertions + deletions.
+// reported apart; the lot bound counts both, like the CI (decision Q-M3-5 on R25-UNIT-1), and equality is green (-gt).
 import { execFileSync } from "node:child_process";
 
 export const R25_DIFF_RE = /^\s*([A-Z_]+)=\$\(git diff --shortstat "origin\/\$\{\{ github\.base_ref \}\}\.\.\.HEAD" -- (.+)\) \|\| \{\s*$/;
