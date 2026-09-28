@@ -1,6 +1,6 @@
 # PASSATION — dossier de reprise pour un nouvel orchestrateur (nouveau compte Claude ou nouvelle session) — mis à jour à chaque retour d'agent et à chaque décision (décision 271, investisseur, 2026-09-28)
 
-**Dernière mise à jour** : 2026-09-28 04:25 UTC — ADR-METHODE-2 v3 rendue (`F:/tmp/methode/ADR-METHODE-2.v3.md`) ; en vol : cp-1 ter (final) du validateur ; procurements complets (21 PDF) ; Firecrawl rétabli.
+**Dernière mise à jour** : 2026-09-28 04:32 UTC — REDÉMARRAGE demandé par l investisseur ; le cp-1 ter de l ADR-METHODE-2 (`wf_c90635a2-8a8`) sera mort : LE RELANCER en premier (§0 bis).
 
 ## 0. Lire dans cet ordre (30 minutes)
 1. `F:\claude-config\CLAUDE.md` (règles globales, roster, amendement 267 en fin de fichier) — **contient des octets 0x08/0x07 aux l.203 et l.286 (BYTE-GUARD-CONFIG-1), ne pas « corriger » sans go**.
@@ -8,6 +8,12 @@
 3. `F:\Monark\docs\FILE-ATTENTE-2026-09-28.md` (ce qui est en vol, ce qui attend un go, les items) puis la fin de `F:\Monark\docs\CHANTIERS.md` (décisions 259 → 271, une entrée datée par retour).
 4. `F:\tmp\methode\ADR-METHODE-2.md` (+ v2 si rendue) et `CP1-methode.md` : la méthode en cours de calibration.
 5. Corpus qualité : `C:\Users\KACIMI\compiliance et ingénierie locielle et architecturale\docs\` (02 gates, 03 méthodologie, 06 AgileGates).
+
+## 0 bis. Première action après ce redémarrage (investisseur : « je redémarre, et relance ce workflow »)
+1. Vérifier l état : `git -C F:/Monark status --short` (doit être vide), `journal.jsonl` de `wf_c90635a2-8a8` (aucun `result` ⇒ mort).
+2. Relancer le **checkpoint-1 ter (final) du validateur-humain** sur `F:/tmp/methode/ADR-METHODE-2.v3.md` (sha `a0575045…`) : script `F:/claude-config/projects/F--Monark/e03dd7cc-4452-4c79-9aa6-58827dad4d19/workflows/scripts/cp1-ter-adr-methode-2-wf_c90635a2-8a8.js` — `Workflow({scriptPath, resumeFromRunId: 'wf_c90635a2-8a8'})` (rejoue depuis le cache si l agent avait fini) ou relance à neuf avec le même prompt (le script porte le prompt complet : décisions Q-PLI3-1..8, Q-A = option 2).
+3. À son retour : verdict → lignes datées mineures par l orchestrateur → **commit de l ADR dans `docs/adr/ADR-METHODE-2.md`** (+ section « Pli orchestrateur ») → G0 commun acquis → G1 de M-1 (garde d octets), puis M-2a, M-2b, M-3, M-4 (G1 → G2 → cp-2 → G7 chacun). Gel 271 : rien d autre.
+4. Contrôles post-redémarrage : UUID Firecrawl (`ToolSearch firecrawl`), memstack, `advisorModel`, agents (`worker.md` max ; `lecteur.md`/`chercheur.md` Sonnet 5 high), superpowers listé ; R-1 au premier agent de chaque palier.
 
 ## 1. Qui est qui
 - **Investisseur** : KACIMI (siège des exigences, gos, escalades). Nom donné à l'orchestrateur : **Fable**. Ton : partenaires ; il tutoie ; réponses en français, courtes, chiffrées, sourcées ; jamais d'accord performatif.
