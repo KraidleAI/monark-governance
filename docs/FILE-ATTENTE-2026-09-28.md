@@ -55,3 +55,4 @@ BIBLIO-ID-2411-1 ; REPO-STRAY-WORKTREE-GUARD-1 ; VALIDATEUR-CA-12-TIERS-1 ; VOCA
 - **2026-09-28 05:59 UTC — G1 M-1 rendu, gel `f454fa7d`, G2 lancé (`wf_c66c17f5-5d5`)** ; suite : G2 → cp-2 (validateur) → G7 (fusion tronc : attendre collisions CHANTIERS ; renommage TRUNK-MANGLED-NAMES-1 au G7) ; items BYTE-GUARD-SCOPE-1, METHODE-TRN-1 (+2 faits).
 - **2026-09-28 06:31 UTC — G1 M-3 rendu, gel `79c3320b`, G2 lancé (`wf_1befaefa-fed`)** ; suite : G2 (hygiène env bloquante attendue → correcteur) → cp-2 → G7 ; items ORACLE-SITE-BUILD-1, ORACLE-LINUX-LANE-1, LINT-PINNING-HOST-1.
 - **2026-09-28 06:52 UTC — G1 M-4 rendu, gel `aaf44fd9`, G2 lancé (`wf_13408304-d30`)** ; suite : G2 → corrections (Q-M4-3/8/9, ≤ 30 l.) → cp-2 → G7 ; item METHODE-M4-NAME-PATTERN-1 mesuré au G2.
+- **2026-09-28 06:54 UTC — G2 M-1 accepté, correcteur Sonnet 5 lancé (`wf_7686229f-c00`)** ; suite : gel 2 → cp-2 → G7 (`git rm` des 5 doublons TRUNK-MANGLED-NAMES-1).
