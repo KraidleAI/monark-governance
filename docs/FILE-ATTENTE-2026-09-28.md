@@ -24,8 +24,13 @@ Règle : à chaque retour d'agent, l'orchestrateur **traite** (lit, tranche, con
 - **Prover C-PX2-b v2** rendu (`a3bd6fea…`) : G2 léger de v2 → G0 C-PX2-c (S2) ; Q-V2-2 (B) item NARABI-POW-ACC-1.
 - **Procurements investisseur** : P-PX2-g (Barber et al. arXiv 2307.16895 dernière version + actes NeurIPS 2023), McLean-Pontiff 2016, Opdyke 2007, Mertens 2002, P-PX4-d/i (Lou 1996, Schwager 1983), SM de la version Science de PPI.
 
+## B′. Rang 1 après la méthode (décision 266) — activité publique
+- **PUBLIC-CADENCE-1** : PR-A1b (19 lignes + C-V2-2..4) → PR-A2 → PR-C → PR-B (après réponses investisseur) ; l'ADR-METHODE-2 doit intégrer « trace publique au G7 » (commit + release + note passés à la porte) comme étape de gate ; premier commit public = rattrapage du tronc depuis le 2026-09-24 (export 494 fichiers, `docs/**` exclu), message écrit par l'orchestrateur, push sous go.
+- **Sécurités** : côté dépôt — mutants de l'export rejoués, assertion « aucun `secrets.` dans le workflow dérivé », VOCAB-TIERS-1, opérateurs nommés dans le code exporté (Q ADR-PUBLIC-CADENCE-1 §1) ; côté GitHub (actes investisseur) — 2FA exigée sur l'organisation, secret scanning par défaut au niveau organisation, vérification que `main` du miroir garde ses 4 contrôles requis, aucun jeton d'écriture persistant.
+
 ## C. Items formés sans agent (à planifier après la méthode)
 BIBLIO-ID-2411-1 ; REPO-STRAY-WORKTREE-GUARD-1 ; VALIDATEUR-CA-12-TIERS-1 ; VOCAB-TIERS-1 ; MONARK-PRINCIPAL-AGENT-1 ; NARABI-POW-ACC-1 ; NARABI-K-SUP-90-122-1 ; ORACLE-TEST42-IN-SUITE-1 ; DOJO-I-G2-1 ; DOJO-PAGE-MODEL-1 ; MONARK-KRAIDLE-INTERFACE-1 ; PAROXYSME : campagnes Shōgen / Hikae / Ukemi / Bell ; nature « Tiers » à ajouter aux registres.
 
 ## D. Journal des retours (ajouté à chaque retour, plus récent en bas)
 - 2026-09-28 00:44 UTC — avis v2 advisor-defi rendu → EN ATTENTE : (1) lot texte NARABI-PROVENANCE-1 (Thm 8.7/8.8 ; `tracker.ts:15-17`, PAROXYSME-Narabi L8-L10, phrase S2) ; (2) UKEMI-UPPER-BOUND-1 : compter les ex æquo des 170 scores (recorder), puis lot texte Thm 3.11/3.2 ; (3) prover « M = 1, ε_r > 0 » sur 2609.28522 AVANT tout usage (précondition de L2) + procurement Howard 2021 ; (4) MONARK-PRINCIPAL-AGENT-1 : relecture 2205.06812 sous le mapping mandant/MONARK ; (5) procurements P-1..P-6 → investisseur ; (6) venues DBLP/S2 des 4 papiers non établis ; (7) corriger le cadrage §0 (Li, Zhu seuls).
+- 2026-09-28 01:08 UTC — décision 266 (activité publique) → EN ATTENTE : PUBLIC-CADENCE-1 PR-A1b/PR-A2 rang 1 après la méthode ; exigence « trace publique au G7 » à porter dans l ADR-METHODE-2 (à ajouter au checkpoint-1 s il manque).
