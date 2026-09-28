@@ -1,0 +1,252 @@
+claude-opus-5-5[1m]
+# G1 — lot M-1 « garde d'octets » (ADR-METHODE-2 D9, ligne M-1) — journal
+
+- **Modèle résolu (R-1)** : `claude-opus-5-5[1m]` (préfixe `claude-opus-5-5` = palier de la mission ; effort max). Première ligne de ce fichier.
+- **Horloge** (`date -u`) : ouverture 2026-09-28T04:47:09Z ; base F2P 05:21:26Z (préliminaire) et 05:40:23Z (officielle) ; restitutions écrites 05:26:02Z ; oracle sous verrou 05:39:26Z → 05:51:09Z ; gel du code 05:51:30Z (F2P de gel) ; ce journal écrit ensuite (docs seuls).
+- **Arbre** : worktree `F:\Monark-wt-m1`, branche `lot/methode-m1-byte-guard`, base tronc `6f769b7` (`6f769b770e046f46da50f930992a28df1c2ee491`), modifié en place. Aucun git écrivant dans le dépôt ni dans le worktree (lecture seule : `status`, `diff`, `log`, `blame`, `ls-files`, `rev-parse`). Git écrivant **uniquement** dans des dépôts jetables hors dépôt : les fixtures du test (sous `os.tmpdir()`), le dépôt de rejeu F2P `F:\tmp\methode\m1\f2p\base-repo` et le dépôt de simulation après commit `F:\tmp\methode\m1\f2p\sim-repo` (tous deux : `git init` + `fetch --depth 1 file:///F:/Monark 6f769b7`). Aucun réseau (oracle en `npm_config_offline=true`) ; rien écrit sur C: (lecture d'existence seule de `C:\WINDOWS\system32\bash.exe`, oracle de la restitution l.1904) ; TEMP `F:\tmp\methode\m1\tmp`.
+- **Classification D-4 (e)** : **bounded** (un test racine nouveau dans `test/`, motif `no-secret-in-repo.test.ts` ; corrections de docs hors R-25).
+- **Entrées** : `docs/adr/ADR-METHODE-2.md`, `docs/DOCTRINE.md`, `F:\tmp\methode\A-defauts.md`, `test/no-secret-in-repo.test.ts`, `scripts/lang-gate.mjs`, `.github/workflows/ci.yml`, `package.json` : lus en entier. `docs/CHANTIERS.md` : l.1880-2056 (phase méthode) lues en entier, et chaque ligne corrompue avec ses voisines ; **l.1-1879 non lues en prose** (1,17 Mo) mais **balayées octet par octet** (les six classes de la garde + recherche des coupures de chemin) — écart déclaré à « lis en entier ». Lus en plus : `scripts/lang-gate.d.mts`, `scripts/export-public.mjs` (liste blanche : `test/` racine non exportée), `eslint.config.mjs`, `lint-ratchet.json`, `tsconfig.json`, `.gitattributes`, les scripts d'oracle des G1 précédents (`F:\tmp\dojo\rg1a-corr\scripts\`).
+
+## 1. Livrable : `test/byte-guard.test.ts` (nouveau, 216 l., sha256 `5a35cec8edfa55729567d540376db0746fb998492dc0f4586938bd9d45103f74`)
+- **Parcours** : `git ls-files -z` (l'index : jamais le disque ; un fichier non suivi, une jonction `node_modules` ou un worktree parasite ne sont pas l'arbre), contenu lu dans l'arbre de travail en latin1 (un octet = un caractère ; un octet < 0x20 n'apparaît jamais dans une séquence UTF-8). Fichier suivi absent du disque : ignoré (il ne porte aucun octet) ; toute autre erreur de lecture reste fatale.
+- **Types lus (liste fermée déclarée dans le test)** : `TEXT_EXTS` de lang-gate (`.ts .tsx .mjs .cjs .js .jsx .md .mdx .yml .yaml .json .html .css .sh .txt`) plus `.mts` (35 surfaces de types), `.jsonl`, `.csv`, `.tsv`, `.svg`, et les noms `Makefile`, `go.mod`. Non réutilisé par import : `scripts/lang-gate.d.mts` ne type pas `TEXT_EXTS`, et `TEXT_EXTS` n'a ni `.mts` ni les séries (Q-M1-9). Binaires (`.ttf .png .jpg .cbor .ots`) : non lus (extension hors liste).
+- **Classes** (un hit = une ligne × une classe) : `TAB` (0x09) hors types licites ; `CTRL` (0x01-0x08, 0x0B, 0x0C, 0x0E-0x1F ; 0x0D exclu : fins CRLF) ; `NUL` (0x00) ; `CONFLICT` (en début de ligne : 7 « < » + espace, exactement 7 « = », 7 « > » + espace) ; `F_SPACES` (`F:` suivi d'au moins deux espaces : mesuré, 0 faux positif dans l'arbre contre 74 lignes de prose légitime à une espace) ; `F_CTRL` (`F:` suivi d'un octet de contrôle, TAB compris).
+- **TAB licite (liste fermée, motif)** : `Makefile` (recettes), `go.mod` (gofmt), `*.tsv` (séparateur de champs). Aucun autre type.
+- **Exemptions par chemin (liste fermée, `EXEMPT`, classe + plage de lignes + motif)** : sortie d'outil collée verbatim, dix entrées — `git diff --numstat` : `docs/G1-lot-dojo-pr1a.md` l.165-171, `docs/G1-lot-dojo-pr1b1.md` l.197-200, `docs/G1-lot-lang-gate-claude-1.md` l.53-56, `docs/G1-lot-narabi-txt-1.md` l.23-24, `docs/G1-lot-public-cadence-1-A1.md` l.63-71, `docs/G2-lot-ukemi-retry-2.md` l.19-22, `docs/PLI-lot-t1a-ii-b1.md` l.221-228 ; `git diff --name-status` : `docs/G2-delta-lot-e-honnetete-2.md` l.15-19 ; en-tête de diff unifié : `docs/sec-4927/work-2026-09-24/DIFF-v3-v4.md` l.10-11 ; `CONFLICT` cité : `docs/G2-delta-lot-t1a-ii-a.md` l.109-115 (sortie de `git merge-tree` dans un bloc clôturé, preuve G2). Une exemption ne couvre que sa classe et sa plage ; une entrée dont la plage ne porte plus sa classe rougit le test de l'arbre (entrée périmée).
+- **Sortie** : `byte guard: N hit(s) (CLASSE n, …)` puis une ligne `chemin:ligne:CLASSE` par hit ; `node --test test/byte-guard.test.ts` sort en code non nul dès **un** hit (usage autonome : pré-commit, G1).
+- **Fixtures** : dépôts git jetables sous `os.tmpdir()` (`git init -q -b main` + `git add` : l'index suffit à `ls-files`, ni commit ni identité), toute variable `GIT_*` retirée et aucune configuration système ou globale lue ; le fichier construit toutes les formes interdites à l'exécution (`"<".repeat(7)`, `\x08`, `" ".repeat(4)`…), il ne porte lui-même aucune forme et n'a pas besoin d'exemption (vérifié : 0 octet de contrôle, 0 TAB, 0 `F:` + deux espaces, 0 ligne-marqueur, 0 octet non ASCII).
+- Statique : `eslint` 0, `tsc --noEmit` 0, `lint:ratchet` 69/69 (inchangé), `lang:gate` 0 hit (toutes portées).
+
+## 2. Recompte à HEAD `6f769b7` (information G0 M-1 ; le chiffre de A et celui du validateur ne sont pas repris)
+- `docs/CHANTIERS.md` (2 056 l.) : **19 octets de contrôle sur 14 lignes** (0x08 ×10, 0x07 ×7, 0x0B ×1, 0x0C ×1 : l.106, 110, 125, 127, 208, 212, 213, 214, 1884, 1886, 1904, 1930, 1951, 1973), 0 TAB, **5 lignes `F:` + au moins deux espaces** (l.1895, 1901, 1905, 1907, 1909) ; plus **8 coupures de ligne dans un chemin** (un `\n` ou un `\r` interprété) : l.213/214 (CR, 5fa36bb4), 1895/1896, 1901/1902, 1905/1906, 1907/1908, 1924/1925, 1927/1928 (CR), 1952/1953 — les trois dernières sans octet résiduel. Recompte à `29519c2` : mêmes 19 octets sur les **mêmes 14 lignes** (le validateur écrit 13 : Q-M1-6).
+- Arbre suivi entier (1 768 fichiers ; 1 696 lus ; 72 non lus = 44 binaires, 5 noms mutilés, 23 types texte hors liste, §10 RF-3) : **35 hits (CTRL 19, F_SPACES 5, TAB 6, F_CTRL 5) dans 8 fichiers** (sortie du test sur la base, §4). Hors classes, mesurés 0 dans tout fichier texte suivi : CR isolé, DEL 0x7F, C1 0x80-0x9F, U+FFFD, BOM, U+2028/2029, zone privée U+F000-U+F0FF.
+
+## 3. Restitutions (43, dans 9 fichiers ; « docs hors R-25 »)
+Script `F:\tmp\methode\m1\correct.mjs` (sha au §11) : chaque opération affirme ses octets attendus (compte exact d'occurrences sur sa ligne, ou fin et début exacts pour une jointure) avant toute écriture, tout ou rien ; barre oblique inverse et accent grave construits à l'exécution. Deux modèles, choisis ligne par ligne sur preuve, mécaniques une fois choisis :
+- **B (échappement « barre oblique inverse » interprété par une couche shell/JSON/Python)** : 0x07 ← `\a`, 0x08 ← `\b`, 0x09 ← `\t`, 0x0B ← `\v`, 0x0C ← `\f`, 0x0F ← `\co` (bash ANSI-C), LF ← `\n`, CR ← `\r`, plus les barres obliques perdues devant une lettre non échappable (`pliRENDU`, `mpcp2`, `mpdojo`, `pr1b1before`), rétablies seulement quand le chemin existe sur le disque. Oracle : le chemin existe (vérifié pour chacun), le code (`scripts/assert-fleet-html.mjs:232` pour `/<script\b/i`) ou le fichier suivi (`test/byo-demo-probe.test.ts`).
+- **P (échappement PowerShell « accent grave » d'un segment de code Markdown)** : CHANTIERS l.208, 212, 213, 214 seulement. Preuve discriminante : le bloc l.203-214 (commits `91f9a74b` et `5fa36bb4`, 2026-09-20 18:39 et 18:41 +01:00) ne porte **aucun** accent grave sur ≈ 3 100 caractères qui nomment des identifiants de code, contre 2 à 30 par ligne voisine ; chaque octet de contrôle est à la place d'un accent grave ouvrant devant un identifiant dont l'initiale est une lettre d'échappement PowerShell (`` `a `` 0x07, `` `b `` 0x08, `` `v `` 0x0B, `` `r `` CR) ; le CR isolé de `5fa36bb4` (`<CR>esiduals.ts`) ; `docs/G0-lot-ci-site.md:28` cite ces identifiants entre accents graves. Restitution : l'échappement inverse **plus** l'accent grave fermant à la frontière de l'identifiant (mangé par `` `, `` / `` `) `` / accent grave + espace). Non restitués (aucun résidu, aucune preuve) : les accents graves des identifiants à initiale non échappable (`README.md`, `skills/**`, `scripts/export-public.mjs`, `close.ts`, `collect.ts`, `cash_cross_*`, `journal.jsonl`, `/ukemi/`) : irrécupérables, déclarés. Ambiguïté unique : l.212 `` `bell.` `` retenu (les items voisins de la liste fermée ne finissent pas par un point), alternative `` `bell`. `` déclarée (Q-M1-3).
+- **Nombre de lignes** : `docs/CHANTIERS.md` est cité par numéro de ligne sans ancre dans tout le dépôt (ADR-METHODE-2 : l.1909, 1919, 1931, 1961, 1972, 1973…) : chaque jointure y restitue la ligne d'origine en place et **laisse vide la ligne de continuation** (2 056 l. avant et après). `docs/G1-lot-narabi-txt-1.md` (106 → 105) et `docs/adr/ADR-M020-programme-ukemi.md` (87 → 86) : **jointure vraie** (aucune citation de ligne au-delà du point de jointure, mesuré par `git grep` ; pour ADR-M020 la ligne est une rangée de tableau que la coupure brisait, rétablie) — Q-M1-1, Q-M1-2.
+- **Au-delà de ce que le test révèle** (même famille, aucun octet résiduel) : CHANTIERS 1924/1925, 1927/1928, 1952/1953 et ADR-M020 79/80, trouvés par la recherche des coupures (`F:\tmp\methode\m1\tmp\measure\splits.mjs`) — corrigés sous D9 « corruptions vivantes (A) » (Q-M1-4). Non touché : `docs/G2-lot-K.md` l.218/219 (la coupure est un retour à la ligne volontaire dans une regex : son `\b` voisin a survécu, aucun caractère perdu).
+- sha256 avant → après : `docs/CHANTIERS.md` `7cfa4f04…` → `6bc14ee3acbf38cc…` ; `docs/CHECKPOINT2-delta-lot-t1b-pr2.md` `6c05ebe8…` → `163617c50966ba81…` ; `docs/CHECKPOINT2-delta-lot-t1b-pr3.md` `43749259…` → `2f94ec32ffb84e6c…` ; `docs/CHECKPOINT2-lot-dojo-pr1b1.md` `5a7c8d7e…` → `a8e5a219e2dfb065…` ; `docs/CHECKPOINT2-lot-ukemi-pre5-tests.md` `2a616f5a…` → `99815e9746916e04…` ; `docs/G1-lot-narabi-txt-1.md` `25437805…` → `e9020cdfd06572e8…` ; `docs/PASSATION-2026-09-26.md` `dae09548…` → `50fd41275e26305e…` ; `docs/adr/ADR-CODEQL-ALERTS-1.md` `a12726a9…` → `4b008c022acbd908…` ; `docs/adr/ADR-M020-programme-ukemi.md` `e5d850af…` → `87f3c2b2e82a8a30…`. Après écriture : 0 octet de contrôle, 0 `F:` + deux espaces dans les 9 fichiers ; les seuls TAB restants sont ceux des plages exemptées ; `git diff --word-diff` relu : seuls les octets prévus changent.
+
+Liste chemin:ligne avant/après (octets de contrôle écrits `<0xNN>`, espaces après `F:` écrites `␣`, fenêtre ±70 caractères ; rendue par `F:\tmp\methode\m1\journal\gen-corrections.mjs` depuis `correct-log.json`) :
+
+````text
+docs/CHANTIERS.md:106 [B] disk F:/PRODUITS/etude-2026-09-19/bell-b1-spike
+  - s dépôt** (artefact D9 sha-pinné sous `F:\PRODUITS\etude-2026-09-19<0x08>ell-b1-spike\`), seules les **séries réduites recalculées** (donn
+  + s dépôt** (artefact D9 sha-pinné sous `F:\PRODUITS\etude-2026-09-19\bell-b1-spike\`), seules les **séries réduites recalculées** (donn
+docs/CHANTIERS.md:110 [B] disk F:/MONARK SUITE/bell-design/design_handoff_bell
+  - ight market »** (light par défaut, dark option) archivé `F:\MONARK SUITE<0x08>ell-design\design_handoff_bell\` (zip sha `f822ec1f…`) : `toke
+  + ight market »** (light par défaut, dark option) archivé `F:\MONARK SUITE\bell-design\design_handoff_bell\` (zip sha `f822ec1f…`) : `tok
+docs/CHANTIERS.md:125 [B] disk F:/MONARK SUITE/bell-design/handoff-v2/landing_handoff_bell
+  - **design** du site Bell (charte C Night market, handoff v2 `F:\MONARK SUITE<0x08>ell-design\handoff-v2\landing_handoff_bell\` : landing 10 sectio
+  + **design** du site Bell (charte C Night market, handoff v2 `F:\MONARK SUITE\bell-design\handoff-v2\landing_handoff_bell\` : landing 10 secti
+docs/CHANTIERS.md:127 [B] disk (same)
+  - de MONARK ; filet sous le nom ; BELL espacé) — fichiers `F:\MONARK SUITE<0x08>ell-design\handoff-v2\landing_handoff_bell<0x07>ssets\monark-bell-log
+  + de MONARK ; filet sous le nom ; BELL espacé) — fichiers `F:\MONARK SUITE\bell-design\handoff-v2\landing_handoff_bell<0x07>ssets\monark-bell-lo
+docs/CHANTIERS.md:127 [B] disk .../landing_handoff_bell/assets (monark-bell-logo.svg, -dark.svg)
+  -  ; BELL espacé) — fichiers `F:\MONARK SUITE\bell-design\handoff-v2\landing_handoff_bell<0x07>ssets\monark-bell-logo{,-dark}.svg`, `monark-bell
+  +  ; BELL espacé) — fichiers `F:\MONARK SUITE\bell-design\handoff-v2\landing_handoff_bell\assets\monark-bell-logo{,-dark}.svg`, `monark-bel
+docs/CHANTIERS.md:208 [P] tool name `book` (docs/G0-lot-u4.md:32); 0 backtick on l.203-214 vs 2-30 on neighbours
+  - -25 → A-5..A-8 → G2 → checkpoint-2 → G7 → fusion) → U-4b (outil <0x08>ook, re-pin h5, publication MCP Registry) → U-4c (classe clus
+  + -25 → A-5..A-8 → G2 → checkpoint-2 → G7 → fusion) → U-4b (outil `book`, re-pin h5, publication MCP Registry) → U-4c (classe cl
+docs/CHANTIERS.md:212 [P] pairing inferred; alternative `bell`. (sibling items carry no period)
+  - or M002 ; go de déploiement Narabi (+ pose du secret SMTP) ; go T-1b/DNS <0x08>ell. ; fenêtre publique.
+  + or M002 ; go de déploiement Narabi (+ pose du secret SMTP) ; go T-1b/DNS `bell.` ; fenêtre publique.
+docs/CHANTIERS.md:213 [P] docs/G0-lot-ci-site.md:28 quotes it as `apps/site/**`
+  -  version ultérieure de Bell, sur décision investisseur. **Mesuré** : <0x07>pps/site/**, README.md, skills/** = 0 occurrence de « Massive »/
+  +  version ultérieure de Bell, sur décision investisseur. **Mesuré** : `apps/site/**`, README.md, skills/** = 0 occurrence de « Massive »
+docs/CHANTIERS.md:213 [P] docs/G0-lot-ci-site.md:28 quotes it as `apps/bell`
+  -  de « Massive »/« Polygon » ; scripts/export-public.mjs n'exporte pas <0x07>pps/bell ; la surface Bell ne publie que les codes génériques c
+  +  de « Massive »/« Polygon » ; scripts/export-public.mjs n'exporte pas `apps/bell` ; la surface Bell ne publie que les codes génériques
+docs/CHANTIERS.md:214 [P] same identifier
+  - esiduals.ts). **Item formé (déclencheur : G0 T-1b et tout ajout de <0x07>pps/bell à l'export public ; propriétaire orchestrateur)** : tes
+  + esiduals.ts). **Item formé (déclencheur : G0 T-1b et tout ajout de `apps/bell` à l'export public ; propriétaire orchestrateur)** : t
+docs/CHANTIERS.md:214 [P] tracked file vocab-banned.json
+  - ur de recoupement dans une surface ou un source exporté » (ajout à <0x0b>ocab-banned.json, scope des surfaces publiques). **Dû investisseur (
+  + ur de recoupement dans une surface ou un source exporté » (ajout à `vocab-banned.json`, scope des surfaces publiques). **Dû investisseur
+docs/CHANTIERS.md:1884 [B] disk F:/PRODUITS/annonces/article-conformal-2026-09-27
+  - ent toi ») — ÉCRIT PAR L'ORCHESTRATEUR SEUL, rendu.** Dossier `F:\PRODUITS<0x07>nnonces<0x07>rticle-conformal-2026-09-27\` : `FAITS-article-confor
+  + ent toi ») — ÉCRIT PAR L'ORCHESTRATEUR SEUL, rendu.** Dossier `F:\PRODUITS\annonces\article-conformal-2026-09-27\` : `FAITS-article-conf
+docs/CHANTIERS.md:1886 [B] disk .../article-conformal-2026-09-27/v3/fig1-two-years.html
+  - -marque ; `@font-face` file://), marque M3 + mot MONARK ; pages HTML `v3<0x0c>ig1..fig5.html` + `cover.html` rendues par Chrome headless (`--allo
+  + -marque ; `@font-face` file://), marque M3 + mot MONARK ; pages HTML `v3\fig1..fig5.html` + `cover.html` rendues par Chrome headless (`--all
+docs/CHANTIERS.md:1904 [B] disk C:/WINDOWS/system32/bash.exe (existence only)
+  - RG-1a » 20:24Z) ; incident sans effet : un lancement par `C:\WINDOWS\system32<0x08>ash.exe` (WSL, chemin introuvable) arrêté aussitôt. Le ré
+  + RG-1a » 20:24Z) ; incident sans effet : un lancement par `C:\WINDOWS\system32\bash.exe` (WSL, chemin introuvable) arrêté aussitôt. Le r
+docs/CHANTIERS.md:1909 [B] disk F:/tmp/k1/ADR-K1-attesteur-narabi.v2.md
+  - UTC — PLI cp-1 K-1 RENDU, ADR v2 porté, G1 K-1a lancé.** ADR v2 (`F:␣␣␣␣mp\k1\ADR-K1-attesteur-narabi.v2.md`, sha `936b1084…`, 195 l.,
+  + UTC — PLI cp-1 K-1 RENDU, ADR v2 porté, G1 K-1a lancé.** ADR v2 (`F:\tmp\k1\ADR-K1-attesteur-narabi.v2.md`, sha `936b1084…`, 195 l., v
+docs/CHANTIERS.md:1930 [B] disk F:/MONARK SUITE/backup-2026-09-28/lecteur.md
+  - x » ; frontmatter `lecteur.md` `max`→`high`, sauvegarde `F:\MONARK SUITE<0x08>ackup-2026-09-28\lecteur.md`, effet au redémarrage ; les workfl
+  + x » ; frontmatter `lecteur.md` `max`→`high`, sauvegarde `F:\MONARK SUITE\backup-2026-09-28\lecteur.md`, effet au redémarrage ; les workf
+docs/CHANTIERS.md:1951 [B] disk F:/MONARK SUITE/backup-2026-09-28/CLAUDE.md.pre-267
+  - até à la fin de `F:\claude-config\CLAUDE.md` (sauvegarde `F:\MONARK SUITE<0x08>ackup-2026-09-28\CLAUDE.md.pre-267` ; ajout en fin de fichier se
+  + até à la fin de `F:\claude-config\CLAUDE.md` (sauvegarde `F:\MONARK SUITE\backup-2026-09-28\CLAUDE.md.pre-267` ; ajout en fin de fichier s
+docs/CHANTIERS.md:1973 [B] paths F:/MONARK SUITE/backup-2026-09-28, F:/claude-config/agents
+  - ` : octets 0x08 ×2 et 0x07 ×1 remplacés par les textes d origine (`SUITE<0x08>ackup`, `config<0x07>gents` ; sauvegarde `CLAUDE.md.pre-bytefix`), am
+  + ` : octets 0x08 ×2 et 0x07 ×1 remplacés par les textes d origine (`SUITE\backup`, `config<0x07>gents` ; sauvegarde `CLAUDE.md.pre-bytefix`), a
+docs/CHANTIERS.md:1973 [B] same
+  - ×2 et 0x07 ×1 remplacés par les textes d origine (`SUITE\backup`, `config<0x07>gents` ; sauvegarde `CLAUDE.md.pre-bytefix`), amendement 267 co
+  + ×2 et 0x07 ×1 remplacés par les textes d origine (`SUITE\backup`, `config\agents` ; sauvegarde `CLAUDE.md.pre-bytefix`), amendement 267 c
+docs/CHANTIERS.md:213-214 [P] lone CR at 5fa36bb4 (`r), later turned into a line break; apps/bell/src/residuals.ts
+  - aît que dans des commentaires de code privés (close.ts, collect.ts,  [LF] esiduals.ts). **Item formé (déclencheur : G0 T-1
+  +  nom n'apparaît que dans des commentaires de code privés (close.ts, collect.ts, `residuals.ts`). **Item formé (déclencheur : G0 T-1b et  ; l.214 left empty (line count kept: cited by line)
+docs/CHANTIERS.md:1895-1896 [B] disk F:/tmp/narabi-px2/PROVER-C-PX2-b.md
+  -  ne couvre TY-3 — consigne datée. (3) **Prover C-PX2-b** (`F:␣␣␣␣mp [LF] arabi-px2\PROVER-C-PX2-b.md`, `claude-opus-5-5`, 1
+  + océdure ne couvre TY-3 — consigne datée. (3) **Prover C-PX2-b** (`F:\tmp\narabi-px2\PROVER-C-PX2-b.md`, `claude-opus-5-5`, 19:48Z, scrip ; l.1896 left empty (line count kept: cited by line)
+docs/CHANTIERS.md:1901-1902 [B] disk F:/tmp/narabi-px2/CP1-NARABI-2-report.md
+  - - **2026-09-27 20:5x UTC — cp-1 NARABI-2 RENDU** (`F:␣␣␣␣mp [LF] arabi-px2\CP1-NARABI-2-report.md`, sha `dc34f4de
+  + - **2026-09-27 20:5x UTC — cp-1 NARABI-2 RENDU** (`F:\tmp\narabi-px2\CP1-NARABI-2-report.md`, sha `dc34f4de…`, Fable 5. ; l.1902 left empty (line count kept: cited by line)
+docs/CHANTIERS.md:1905-1906 [B] disk F:/tmp/narabi-px2/g2/G2-PROVER-report.md
+  -  + mode course ») ; cp-2 lancé. (2) **G2 preuve C-PX2-b** (`F:␣␣␣␣mp [LF] arabi-px2\g2\G2-PROVER-report.md`, sha `7bc95d62
+  + SE-END-1 + mode course ») ; cp-2 lancé. (2) **G2 preuve C-PX2-b** (`F:\tmp\narabi-px2\g2\G2-PROVER-report.md`, sha `7bc95d62…`) : T1-T3  ; l.1906 left empty (line count kept: cited by line)
+docs/CHANTIERS.md:1907-1908 [B] disk F:/tmp/narabi-px2/p2/PROVER-2.md
+  - - **2026-09-27 21:1x UTC — PROVER 2 RENDU** (`F:␣␣␣␣mp [LF] arabi-px2\p2\PROVER-2.md`, sha `fb70e36e…`, `cla
+  + - **2026-09-27 21:1x UTC — PROVER 2 RENDU** (`F:\tmp\narabi-px2\p2\PROVER-2.md`, sha `fb70e36e…`, `claude-opus-5-5 ; l.1908 left empty (line count kept: cited by line)
+docs/CHANTIERS.md:1924-1925 [B] disk F:/tmp/narabi-px2/p2/g2/G2-PROVER-2-report.md (split, no residual byte)
+  - é ; corrections RG-1c lancées (`wf_1c7e48b3-50f`).** Rapport `F:\tmp [LF] arabi-px2\p2\g2\G2-PROVER-2-report.md` (sha `8efa6
+  + 2 lancé ; corrections RG-1c lancées (`wf_1c7e48b3-50f`).** Rapport `F:\tmp\narabi-px2\p2\g2\G2-PROVER-2-report.md` (sha `8efa6e02…`, con ; l.1925 left empty (line count kept: cited by line)
+docs/CHANTIERS.md:1927-1928 [B] disk F:/tmp/g7-pr3b1/run2/ORACLE.log (split by CR, no residual byte)
+  - le de fusion PR-3b-1 run 2 : VERT** (rc=0, 22:25:28Z, `F:\tmp\g7-pr3b1 [LF] un2\ORACLE.log`) : la fusion `b45e7e0` est confirm
+  + worker). **Oracle de fusion PR-3b-1 run 2 : VERT** (rc=0, 22:25:28Z, `F:\tmp\g7-pr3b1\run2\ORACLE.log`) : la fusion `b45e7e0` est confirmée ; l.1928 left empty (line count kept: cited by line)
+docs/CHANTIERS.md:1952-1953 [B] disk F:/tmp/narabi-px2/mission-g2-v2s.md (split, no residual byte)
+  - ROVER-2.v2 et PROVER-C-PX2-b.v2 (relecteurs `claude-opus-5-5`, `F:\tmp [LF] arabi-px2\mission-g2-v2s.md`) ; (4) **prover « M 
+  + * de PROVER-2.v2 et PROVER-C-PX2-b.v2 (relecteurs `claude-opus-5-5`, `F:\tmp\narabi-px2\mission-g2-v2s.md`) ; (4) **prover « M = 1, ε_r >  ; l.1953 left empty (line count kept: cited by line)
+docs/CHECKPOINT2-delta-lot-t1b-pr2.md:7 [B] disk F:/tmp/t1b-pr2-pli/RENDU.md (dropped backslash before RENDU restored)
+  -  ET à la pointe `lot/t1b-pr3` = `5da8962` (PR-3 ter) ; RENDU du pli `F:<0x09>mp<0x09>1b-pr2-pliRENDU.md` LU : sha256 813b851f (= G2-delta), R-1 `clau
+  +  ET à la pointe `lot/t1b-pr3` = `5da8962` (PR-3 ter) ; RENDU du pli `F:\tmp\t1b-pr2-pli\RENDU.md` LU : sha256 813b851f (= G2-delta), R-1 `c
+docs/CHECKPOINT2-delta-lot-t1b-pr3.md:57 [B] inverse map only (no trailing backslash invented)
+  - - Écritures, TOUTES sous `F:<0x09>mp` : `F:<0x09>mpcp2-t1b-pr3delta` (`CP2.md`, `R25.txt`, `sha-befo
+  + - Écritures, TOUTES sous `F:\tmp` : `F:<0x09>mpcp2-t1b-pr3delta` (`CP2.md`, `R25.txt`, `sha-bef
+docs/CHECKPOINT2-delta-lot-t1b-pr3.md:57 [B] disk F:/tmp/cp2-t1b-pr3/delta
+  - - Écritures, TOUTES sous `F:\tmp` : `F:<0x09>mpcp2-t1b-pr3delta` (`CP2.md`, `R25.txt`, `sha-before/after.txt`, `
+  + - Écritures, TOUTES sous `F:\tmp` : `F:\tmp\cp2-t1b-pr3\delta` (`CP2.md`, `R25.txt`, `sha-before/after.txt`
+docs/CHECKPOINT2-delta-lot-t1b-pr3.md:57 [B] disk F:/tmp/cp2-t1b-pr3/wt
+  - m` restant**), `tmp` (TEMP des tests), `wt-*` copies des 11 blobs) ; `F:<0x09>mpcp2-t1b-pr3wt` (11 fichiers remis à `5da8962` ; `docs/RUNBOOK-be
+  + m` restant**), `tmp` (TEMP des tests), `wt-*` copies des 11 blobs) ; `F:\tmp\cp2-t1b-pr3\wt` (11 fichiers remis à `5da8962` ; `docs/RUNBOOK
+docs/CHECKPOINT2-delta-lot-t1b-pr3.md:57 [B] disk F:/tmp/cp2-t1b-pr2/tree2
+  - muté 6 fois puis restauré au golden, sha relu `a120d677…` 6/6) ; `F:<0x09>mpcp2-t1b-pr2<0x09>ree2` (12 fichiers PR-2 remis à `55bcdac`, 2 fichier
+  + muté 6 fois puis restauré au golden, sha relu `a120d677…` 6/6) ; `F:\tmp\cp2-t1b-pr2\tree2` (12 fichiers PR-2 remis à `55bcdac`, 2 fich
+docs/CHECKPOINT2-delta-lot-t1b-pr3.md:59 [B] disk (same)
+  - - Chemin de rejeu (AM-2 ter) : `F:<0x09>mpcp2-t1b-pr3delta` ; copie `F:<0x09>mpcp2-t1b-pr3wt` ; arbre fusionné 
+  + - Chemin de rejeu (AM-2 ter) : `F:\tmp\cp2-t1b-pr3\delta` ; copie `F:<0x09>mpcp2-t1b-pr3wt` ; arbre fusionn
+docs/CHECKPOINT2-delta-lot-t1b-pr3.md:59 [B] disk (same)
+  - - Chemin de rejeu (AM-2 ter) : `F:\tmp\cp2-t1b-pr3\delta` ; copie `F:<0x09>mpcp2-t1b-pr3wt` ; arbre fusionné `F:<0x09>mpcp2-t1b-pr2<0x09>ree2`.
+  + - Chemin de rejeu (AM-2 ter) : `F:\tmp\cp2-t1b-pr3\delta` ; copie `F:\tmp\cp2-t1b-pr3\wt` ; arbre fusionné `F:<0x09>mpcp2-t1b-pr2<0x09>ree2`.
+docs/CHECKPOINT2-delta-lot-t1b-pr3.md:59 [B] disk (same)
+  - cp2-t1b-pr3\delta` ; copie `F:\tmp\cp2-t1b-pr3\wt` ; arbre fusionné `F:<0x09>mpcp2-t1b-pr2<0x09>ree2`.
+  + cp2-t1b-pr3\delta` ; copie `F:\tmp\cp2-t1b-pr3\wt` ; arbre fusionné `F:\tmp\cp2-t1b-pr2\tree2`.
+docs/CHECKPOINT2-lot-dojo-pr1b1.md:49 [B] disk F:/tmp/dojo/corr-pr1b1/before (0x0F <- backslash-co, bash ANSI-C; dropped backslashes restored)
+  -  depuis le G1, prouvé par `diff`** de la copie d'avant corrections (`F:<0x09>mpdojo<0x0f>rr-pr1b1before`) contre le gel : `dojo-chain.mjs` 1 hunk (`7
+  +  depuis le G1, prouvé par `diff`** de la copie d'avant corrections (`F:\tmp\dojo\corr-pr1b1\before`) contre le gel : `dojo-chain.mjs` 1 hun
+docs/CHECKPOINT2-lot-ukemi-pre5-tests.md:72 [B] tracked test/byo-demo-probe.test.ts
+  - rejeu (`bell_durable_rename_retry_cap_exhausted_fails_closed_named`, `test<0x08>yo-demo-probe.test.ts`) — hors lot, même motif que le précéd
+  + rejeu (`bell_durable_rename_retry_cap_exhausted_fails_closed_named`, `test\byo-demo-probe.test.ts`) — hors lot, même motif que le précé
+docs/G1-lot-narabi-txt-1.md:104-105 [B] disk F:/tmp/narabi/txt1-{export,tests,vocab}.log
+  - cash-provider-name`, `public-text-deny`, `ci-gates` verts (voir `F:<0x09>mp [LF] arabi<0x09>xt1-*.log`). Q-1 (DV-1) approuvé ; Q-3 : pl
+  +  `no-cash-provider-name`, `public-text-deny`, `ci-gates` verts (voir `F:\tmp\narabi\txt1-*.log`). Q-1 (DV-1) approuvé ; Q-3 : placement gar ; l.105 removed (true join: no line citation past it, measured)
+docs/PASSATION-2026-09-26.md:83 [B] disk F:/Monark-wt-dojo/docs/adr/ADR-DOJO-PR-2B.md
+  - 2026-09-26 05:59 UTC (un worker Opus 5.5, livrable `F:\Monark-wt-dojo\docs<0x07>dr\ADR-DOJO-PR-2B.md`, non committé par le worker) ; si la sessi
+  + 2026-09-26 05:59 UTC (un worker Opus 5.5, livrable `F:\Monark-wt-dojo\docs\adr\ADR-DOJO-PR-2B.md`, non committé par le worker) ; si la sess
+docs/PASSATION-2026-09-26.md:86 [B] disk (existence only) F:/claude-config/projects/F--Shogen/90684fb2-.../subagents/agent-ac8b0a8f784c14495.jsonl
+  - claude-config\projects\F--Shogen\90684fb2-4e7b-42e9-b820-f042dc4465f3\subagents<0x07>gent-ac8b0a8f784c14495.jsonl`, 1,8 Mo à 06:42Z, livrable `F
+  + claude-config\projects\F--Shogen\90684fb2-4e7b-42e9-b820-f042dc4465f3\subagents\agent-ac8b0a8f784c14495.jsonl`, 1,8 Mo à 06:42Z, livrable `
+docs/PASSATION-2026-09-26.md:86 [B] disk (same as l.83)
+  - 8b0a8f784c14495.jsonl`, 1,8 Mo à 06:42Z, livrable `F:\Monark-wt-dojo\docs<0x07>dr\ADR-DOJO-PR-2B.md` pas encore écrit). Si cette session est co
+  + 8b0a8f784c14495.jsonl`, 1,8 Mo à 06:42Z, livrable `F:\Monark-wt-dojo\docs\adr\ADR-DOJO-PR-2B.md` pas encore écrit). Si cette session est c
+docs/adr/ADR-CODEQL-ALERTS-1.md:23 [B] code scripts/assert-fleet-html.mjs:232 /<script\b/i
+  - <!--` **résiduel** ⇒ **throw** fail-closed (symétrie de la garde `/<script<0x08>/i` l.65) — `<!-<!---->-` devient un cas rouge (mesuré par
+  + <!--` **résiduel** ⇒ **throw** fail-closed (symétrie de la garde `/<script\b/i` l.65) — `<!-<!---->-` devient un cas rouge (mesuré pa
+docs/adr/ADR-M020-programme-ukemi.md:79-80 [B] disk F:/PRODUITS/etude-2026-09-19/nexus-mutual (split, no residual byte)
+  -  **vérifié** sur la copie investisseur `F:\PRODUITS\etude-2026-09-19 [LF] exus-mutual\`, archivé `pdf/…-Qmdvjh-CURRENT.pd
+  + ateur), sha256 `b339a1f3…` **vérifié** sur la copie investisseur `F:\PRODUITS\etude-2026-09-19\nexus-mutual\`, archivé `pdf/…-Qmdvjh- ; l.80 removed (true join: no line citation past it, measured)
+````
+
+## 4. Preuve F2P (D2)
+- Commande (rejouable) : `node --test --test-reporter=tap test/byte-guard.test.ts`, TEMP sur F:, aucune dépendance installée (modules intégrés de Node seulement).
+- **Rouge sur la base** (officielle) : dépôt `F:\tmp\methode\m1\f2p\base-repo` = `git init` + `git fetch --depth 1 file:///F:/Monark 6f769b7` + `checkout --detach` (HEAD `6f769b770e04…`, 1 768 fichiers suivis, statut `?? test/byte-guard.test.ts` seul), test final copié (sha `5a35cec8…`, `cmp` égal), 2026-09-28T05:40:23Z : **sortie 1 ; 15/16 ; `byte_guard_tracked_tree_is_clean` rouge par échec d'assertion** (`ERR_ASSERTION`, `35 !== 0`, message « byte guard: 35 hit(s) (CTRL 19, F_SPACES 5, TAB 6, F_CTRL 5) » + les 35 lignes `chemin:ligne:CLASSE`). TAP `F2P-base.tap` sha256 `05fd14cb1e06de07049bb5455cad1ecc74918d7b57536ce2abe4b5ce25563f69` ; en-tête `F2P-base.header.txt` `85eb49568426377e29c7be0d8684faac52e1fa6f1054e3f82f4200c77bbdf607`.
+- Préliminaires (même arbre de base : le worktree avant toute restitution, statut `?? test/byte-guard.test.ts` seul) : tentative 0 **invalide** (plantage au chargement : une fixture nommée `nul.md` — nom de périphérique réservé de Windows, écrit dans le périphérique NUL — donc `git add` « unable to stat » ; pas un rouge d'assertion ; TAP `0b3638d5…` conservé) ; tentative 1 (test v1 `2e72a17d…`, 05:21:26Z) : 12/13, **mêmes 35 hits**, TAP `9efe2430…`.
+- **Vert au gel** : worktree `F:\Monark-wt-m1` après les restitutions (statut : les 9 docs `M` + `?? test/byte-guard.test.ts` ; sha des 10 fichiers du lot dans l'en-tête, égaux à ceux de l'oracle), 2026-09-28T05:51:30Z : **sortie 0 ; 16/16**. TAP `F2P-freeze.tap` sha256 `a2ee6c5e9bce79ebc1fc27b7d16eb634041f5c4f302ae03fd0360dca15e96bae` ; en-tête `ac7e75f92b81b2828aad3c7d8be69b5c0bdb5f770ace6f3edc4d5057dbfaed2e`.
+- **Simulation après commit** (dans le worktree, le test et ce journal ne sont pas suivis, donc pas lus par la garde ; une fois commis ils le seront) : dépôt jetable `F:\tmp\methode\m1\f2p\sim-repo` (même construction que la base), les 11 fichiers du lot (9 docs, le test, ce journal) copiés (`cmp` égaux) puis `git add`-és dans ce dépôt jetable, même commande. Exécutée **après** l'écriture de ce journal, qu'elle lit : résultat et sha du TAP dans `evidence/f2p/F2P-sim.*` (livrés, `DELIVERED.sha256`) et dans la réponse du G1.
+
+## 5. Tests (16, `node --test` ; chaque test nomme la mutation qui le rougit)
+| Test | Mutation qui le rougit (mutants du §6) |
+|---|---|
+| `byte_guard_flags_tab` | classe TAB retirée (K01) ; types licites élargis à `.md` (K08) ou à un nom (K10) |
+| `byte_guard_flags_control_byte_0x08` | classe CTRL retirée (K02), 0x08 hors plage (K13), numéro de ligne décalé (K23) |
+| `byte_guard_flags_nul` | classe NUL retirée (K03) |
+| `byte_guard_flags_conflict_markers` | classe CONFLICT retirée (K04), marqueur `=======` perdu (K14) |
+| `byte_guard_flags_f_followed_by_spaces` | classe F_SPACES retirée (K05) |
+| `byte_guard_flags_f_followed_by_a_control_byte` | classe F_CTRL retirée (K06) |
+| `byte_guard_clean_file_is_green` | faux positifs : CR de CRLF compté (K15), `F:` + une espace (K16), suite de 8 « > » lue comme marqueur (K17) |
+| `byte_guard_ignores_binary_extensions` | filtre de type contourné (K18) |
+| `byte_guard_reads_git_ls_files_not_the_disk` | parcours du disque au lieu de `git ls-files` : le fichier non suivi planté rougit (K07) |
+| `byte_guard_tab_licit_types_are_closed` | liste TAB-licite élargie (K08, K09), type lu retiré (K22 `Makefile`) |
+| `byte_guard_exemptions_are_per_path_class_and_range` | exemption étendue à toutes les classes (K19) ou hors de sa plage (K20) |
+| `byte_guard_skips_a_deleted_file_and_fails_on_an_unreadable_one` | toute erreur de lecture avalée (K25), fichier suivi supprimé rendu fatal (K26) |
+| `byte_guard_fixture_git_ignores_the_callers_git_env` | variables `GIT_*` conservées : un `GIT_DIR` leurre est écrit (K27) |
+| `byte_guard_fixture_git_ignores_the_host_git_config` | configuration git de l'hôte non isolée : une config globale hostile injectée par `HOME` (`core.autocrlf` + `core.safecrlf`, `git add` d'un fichier LF fatal, mesuré) rougit (K28) |
+| `byte_guard_fails_on_a_single_hit` | sortie 0 malgré un hit : assertion retirée (K12) ou seuil au-dessus d'un hit (K11) ; rapport sans comptes par classe (K29) ou sans `:CLASSE` (K30) |
+| `byte_guard_tracked_tree_is_clean` | exemption périmée ajoutée (K21), compteur de lecture retiré (K24) ; F2P (§4) |
+
+## 6. Mutants : **30/30 tués**, module restauré au sha après chacun
+- Harnais `F:\tmp\methode\m1\mutants\run-mutants.mjs` (sha au §11) : ancres exactes (chacune trouvée exactement une fois), mutation **en place** dans le worktree, une exécution TAP, restitution octet pour octet et sha256 relu après **chaque** mutant (`finally`) ; sha du fichier avant/après chaque mutant et à la fin : `5a35cec8edfa55729567d540376db0746fb998492dc0f4586938bd9d45103f74`. Campagne finale 2026-09-28T05:36:54Z → 05:37:41Z ; `RESULTS.txt`, `results.json`, un TAP par mutant.
+- Mission : classe retirée ⇒ rouge sur sa fixture (K01-K06) ; parcours du disque ⇒ détecté par le fichier non suivi planté (K07) ; liste TAB-licite élargie ⇒ rouge (K08-K10) ; sortie 0 malgré un hit ⇒ rouge (K11, K12). Conception : K13-K30 (§5).
+- Campagnes antérieures (conservées, remplacées) : run 1 29/30 (K18 tué mais enfant coupé par le tampon de 1 Mo de `spawnSync` ; K27 tué en laissant un `GIT_DIR` leurre, nettoyage du test déplacé en `finally`) ; run 2 29/30 (K28 vivant : tué ensuite par injection, doctrine D-1 C3, plutôt que déclaré vivant).
+
+## 7. Oracle (7 portes + suite complète sous verrou d'hôte, test 42 à part, même prise)
+- **Verrou d'hôte** `F:\tmp\oracle-lock` (`mkdir` atomique, `owner.txt` « G1 M-1 2026-09-28T05:39:26Z », attente par pas de 60 s jusqu'à 90 min, `owner.txt` + `rmdir` dans le piège EXIT) : mis en file 05:39:25Z, **pris 05:39:26Z sans attente**, **rendu 05:51:09Z**, absence relue aussitôt (`session.log`).
+- **Arbre** : le worktree en place (HEAD `6f769b7` ; 9 docs modifiés, `test/byte-guard.test.ts` non suivi) ; `lot-sha-at-take.txt` = `lot-sha-at-release.txt` (10 fichiers) et `git status --porcelain` identique à la prise et au rendu (aucun artefact écrit dans l'arbre) ; `node_modules` = jonctions `F:/tmp/dojo/drand-1a/mk-nm.ps1` (220 entrées, 10 liens `@monark` vers le worktree, 0 échec ; retirées ensuite par `rm-nm.ps1`) ; Node v24.15.0 ; `env -u` des 8 variables payantes et de `MONARK_PUBLIC_MIRROR`, `API_KEY_21ST`, `PERPLEXITY_API_KEY`, `RAILWAY_TOKEN`, `CLAUDE_CODE_MESSAGING_TOKEN` ; `npm_config_offline=true` ; TEMP sur F:.
+- **C-V-4** (`node.exe` / mémoire libre, 65 483 Mo au total) : file 18 / 12 287 Mo ; prise 19 / 12 282 ; début des portes 17 / 12 432 ; fin des portes 18 / 11 678 ; début du test 42 21 / 11 441 ; fin 14 / 12 654 ; rendu 14 / 12 526.
+- **7 portes : 7/7 sortie 0** — `gate:vocab` 0 (05:39:29Z, 322 fichiers, aucune revendication interdite) ; `typecheck` 0 (05:39:36Z) ; `test` 0 (05:46:32Z, 415,5 s) : **1 465 tests, 1 462 pass, 0 fail, 3 skipped** (les trois sauts préexistants déclarés : SIGTERM de la sentinelle sous win32, nom 8.3, artefacts réels u4b), les 16 `byte_guard_*` ✔ dans la suite (`byte_guard_tracked_tree_is_clean` 900,9 ms) ; `lint` 0 (05:46:52Z) ; `lint:ratchet` 0 (**69/69**) ; `lang:gate` 0 (0 hit, toutes portées) ; `export:check` 0 (0 chemin interdit, 0 hit).
+- **Test 42 à part** (même prise, après les 7 portes, 05:47:17Z → 05:51:08Z) : **sortie 0, 2/2** (`export_public_no_governance_no_french` 230,5 s ; `export_public_derived_jobs_are_byte_identical`).
+- Résidus TEMP : la suite laisse 383 répertoires ou fichiers d'autres tests (`t1b-crash-*` 90, `t1b-state-*` 37, `t1b-lbl-*` 32…) dans `F:\tmp\methode\m1\tmp` : item existant TEST-TMP-RESIDUE-1 ; 0 venu de la garde (ses fixtures sont retirées par `after()`, et par `fixture()` lui-même si sa construction échoue).
+
+## 8. R-25 (mesuré au gel ; « 547 ascendantes », R25-UNIT-1 : les deux quantités imprimées)
+- **CODE : 216 insertions, 0 suppression (ins + sup = 216)** — deux méthodes concordantes : (A) le pathspec CODE du job `r25-taille-de-lot` (ci.yml:82, exclusions comprises ; somme ins + sup ci.yml:90) rejoué sur `git diff --shortstat 6f769b7` : 0 ligne suivie modifiée hors docs ; nouveau fichier non suivi : `git diff --no-index --shortstat /dev/null test/byte-guard.test.ts` = 216 insertions ; (B) `wc -l` = 216. Sous la coupe 547 ; au-dessus de l'attendu 100-150 (×1,44 de la borne haute) : cause nommée = quatre tests au-delà du minimum de la mission (portée des exemptions, erreurs de lecture, isolement `GIT_*`, isolement de la configuration git de l'hôte) et la table `EXEMPT` exigée par la sortie d'outil verbatim de l'arbre (Q-M1-11).
+- Docs (hors R-25, exclus par `docs/**/*.md` et `docs/G1-lot-*.md`) : 9 fichiers, 39 insertions, 41 suppressions, plus ce journal.
+
+## 9. CA-11 — tuyau (règle Branchement)
+- **Entrée** : l'arbre suivi (`git ls-files -z` sur l'index ; octets lus dans l'arbre de travail). **Sortie** : le verdict `{hits chemin:ligne:CLASSE, compte par classe}` → l'assertion de `byte_guard_tracked_tree_is_clean`. **État** : aucun (lecture seule). **Consommateur servi** : `npm test` (package.json:16, glob `test/*.test.ts`) → job CI **`g3-verification`** (ci.yml:126 ; étape `run:` ci.yml:142 `npm run gate:vocab && npm run typecheck && npm test`) et tout oracle local (porte `test`). La mission écrit « CI `g1` » : `g1-controle-generation` (ci.yml:28) ne lance que `lint-model-pinning.sh` (Q-M1-5).
+- **Test d'intégration non-LLM qui rejoue la composition** : `byte_guard_tracked_tree_is_clean` passe par la **même** fonction `scan` que les fixtures, sur le vrai arbre suivi ; preuve : rouge sur la base, vert au gel (§4), et vert dans la porte `test` de l'oracle (§7, ligne `byte_guard_*` du journal de la suite).
+
+## 10. Review Focus (≤ 5 classes d'entrée non couvertes, chacune rattachée)
+1. **Corruptions de transport sans octet résiduel** : `\n`/`\r` interprétés qui coupent une ligne (LF est légitime), barres obliques perdues (`\d` → `d`), `\\` replié en `\`, accents graves mangés par PowerShell (seules les initiales a/b/f/n/r/t/v/0 laissent un octet), apostrophes perdues (A : l.1936 @`7376ae0` ; « d origine » l.1973), `F:` + **une** espace (TAB devenu une espace). Mesuré en direct pendant ce G1 : l'outil Bash replie `\\` en `\` dans un heredoc à délimiteur entre apostrophes ; l'outil Write matérialise certains `\uXXXX` en caractères bruts. → **METHODE-TRN-1** (déclencheur : G7 de M-1).
+2. **Noms de fichiers suivis mutilés** (zone privée U+F022, U+F00A, U+F03A ; 5 fichiers sous `docs/biblio/procurements-M015/`, commit `41f3f79c`) : la garde lit le contenu, pas les noms, et ces noms n'ont pas d'extension connue (non lus). → **TRUNK-MANGLED-NAMES-1** (item existant, G1 RG-1c Q-8).
+3. **Types suivis hors de la liste lue** : `Caddyfile.*` (3 fichiers, 51 TAB d'indentation, déployés tels quels), unités systemd (`.service` ×5, `.timer` ×3), extraits `.log` (7), fichiers-points (`.gitignore`, `.gitattributes`, `.gitkeep`), `LICENSE` ×2, et **toute extension nouvelle** (liste fermée ⇒ un type nouveau n'est pas lu). → item formé **BYTE-GUARD-SCOPE-1** : partition fermée texte/binaire par extension, un type inconnu rougit, TAB licite par type pour `Caddyfile` ; bloqué par TRUNK-MANGLED-NAMES-1 (les 5 noms mutilés n'ont pas d'extension) ; propriétaire orchestrateur ; déclencheur : G7 de M-1.
+4. **Formes hors C0 et variantes** : DEL 0x7F, C1 0x80-0x9F, U+FFFD, BOM en cours de fichier, U+2028/2029, CR isolé (le `` `r `` de `5fa36bb4`), marqueur diff3 `|||||||`, marqueurs sans étiquette — mesurés 0 dans l'arbre aujourd'hui. → **METHODE-TRN-1** (même question : quel contrôle au-delà de D9).
+5. **Fichiers écrits hors dépôt** (D9 « couvre aussi les fichiers écrits hors dépôt ») : mesuré le 2026-09-28 : `F:\claude-config\CLAUDE.md`, `F:\claude-config\agents\*.md`, `F:\Monark\.claude\agents\*.md` et `F:\tmp\methode\*.md` propres (34 fichiers), sauf `F:\tmp\methode\mission-g1-m1.md` qui cite deux fois la forme corrompue en clair (`F:` + quatre espaces) : une mission versée au dépôt rougirait la garde ; écrire ces formes `F:␣␣␣␣mp`. → **BYTE-GUARD-CONFIG-1** (moitié « hors dépôt », D9 reste dû).
+
+## 11. Scripts et preuves (hors dépôt, livrés dans `F:\tmp\methode\m1-deliver\evidence\`, `DELIVERED.sha256`)
+- Restitution : `correct.mjs` `7b3aaac967f83ba6…` ; journaux `correct-dry.json` = `correct-log.json` `9e6aa611bae41ecd…`.
+- Mutants : `mutants/run-mutants.mjs` `ee4f2e185ef4752e…` ; `RESULTS.txt` `88dc4a4b9c860db2…` ; `results.json` `f772f72d24e27aba…` ; `taps/K01.tap` … `K30.tap` ; `RESULTS-run1-superseded.txt`, `RESULTS-run2-superseded.txt`.
+- F2P : `f2p/F2P-base.{tap,header.txt,sha256}`, `f2p/F2P-freeze.{tap,header.txt,sha256}`, `f2p/F2P-sim.*`, préliminaires `f2p/base*.{tap,txt,sha256}`.
+- Oracle : `oracle/locked.sh` `2274cbea993a4d3e…`, `oracle/oracle-all.sh` `d4e8aee9419c2b87…`, `oracle/host.sh` `5368ea30bdc56fcb…` (copie octet pour octet de `F:\tmp\dojo\rg1a-corr\scripts\host.sh`), `oracle/session.log`, `oracle/out/*` (journal complet de la suite : sha dans `test.log.sha256`, extrait `test-summary.txt`).
+- Mesures (outils de ce G1, jamais versés au dépôt) : `measure/{scan-all,show,ctx,bytes,splits,adjacent}.mjs` ; rendu du §3 : `journal/gen-corrections.mjs` `88fd17719b071e86…`, `journal/corrections.md` `225412db6e676861…` ; livraison `deliver.sh` ; jonctions `mknm.log`.
+
+## 12. MAST (risque résiduel)
+- **FM-3.3 vérification incorrecte** : une garde verte lue « texte intact » alors que des corruptions sans octet résiduel subsistent (RF-1) → la portée est écrite (§1, §10), METHODE-TRN-1.
+- **FM-3.2 vérification incomplète** : types non lus (RF-3) ; un fichier nouveau non suivi n'est lu qu'une fois commis → simulation après commit (§4), BYTE-GUARD-SCOPE-1.
+- **FM-1.1 écart à la spécification** : restitutions au-delà de ce que le test révèle, forme des jointures, exemptions, liste de types non importée de lang-gate → déclarés, Q-M1-1..4, 8, 9.
+- **FM-2.6 écart raisonnement/action** : restitutions par inférence (accents graves fermants du modèle P, `bell.`) → preuve par ligne (§3), alternative déclarée.
+
+## 13. `error_origin` proposés (codes de A ; assignés au G7)
+- Corruptions de `docs/CHANTIERS.md` (14 lignes CTRL, 5 lignes `F:`, 8 coupures) : **ORCH** (journal de l'orchestrateur ; modèle B, et modèle P le 2026-09-20). `docs/G1-lot-narabi-txt-1.md` l.104 (« Complément de l'orchestrateur ») et `docs/PASSATION-2026-09-26.md` : **ORCH**. `docs/adr/ADR-M020-programme-ukemi.md` l.79 (`2726b01`, lecture Nexus Mutual consignée) : **ORCH**.
+- `docs/CHECKPOINT2-delta-lot-t1b-pr2.md`, `docs/CHECKPOINT2-delta-lot-t1b-pr3.md`, `docs/CHECKPOINT2-lot-dojo-pr1b1.md`, `docs/CHECKPOINT2-lot-ukemi-pre5-tests.md` : **VAL** (rapports écrits corrompus par le validateur : les originaux hors dépôt `F:\tmp\cp2-t1b-pr3\delta\CP2.md` et `F:\tmp\dojo\cp2-pr1b1\CP2-report.md` portent les mêmes octets, mesuré).
+- `docs/adr/ADR-CODEQL-ALERTS-1.md` l.23 (`e7af51c`, pli v2.1 de l'ADR) : **G0** (rédacteur du pli à confirmer au G7).
+- Mission « CI `g1` » : **ORCH**. Compte « 13 lignes » du validateur à `29519c2` : **VAL**. Fixture `nul.md` (tentative 0) : **G1** (ce worker, attrapé avant la F2P). Repliement de `\\` par l'outil Bash, matérialisation de `\uXXXX` par l'outil Write : **OUT**.
+
+## 14. Questions à l'orchestrateur (Q-M1-n)
+- **Q-M1-1** : coupures de CHANTIERS restituées en place avec la ligne de continuation laissée vide (2 056 l. conservées, citations sans ancre préservées) : ratifier cette forme ?
+- **Q-M1-2** : jointures vraies dans `docs/G1-lot-narabi-txt-1.md` (106 → 105) et `docs/adr/ADR-M020-programme-ukemi.md` (87 → 86, rangée de tableau rétablie), aucune citation de ligne au-delà (mesuré) : ratifier ? Une ligne datée est-elle voulue dans ADR-M020 et ADR-CODEQL-ALERTS-1 (restitution d'octets, aucune décision changée) ?
+- **Q-M1-3** : modèle P pour CHANTIERS l.208, 212-214 (accents graves fermants inférés ; `` `bell.` `` contre `` `bell`. `` ; accents graves des initiales non échappables déclarés irrécupérables) : ratifier ?
+- **Q-M1-4** : restitutions au-delà de ce que le test révèle (CHANTIERS 1924/1925, 1927/1928, 1952/1953 ; ADR-M020 79/80), sous D9 « corruptions vivantes (A) » : ratifier ?
+- **Q-M1-5** : la mission écrit « CI `g1` » (la colonne tuyau de l'ADR, « `npm test` (tout oracle) », est juste) ; `npm test` tourne dans `g3-verification` (ci.yml:126/142) : corriger le libellé des missions suivantes ?
+- **Q-M1-6** : recompte : 19 octets sur **14** lignes à `29519c2` comme à HEAD (le validateur écrit 13) ; `error_origin` validateur ?
+- **Q-M1-7** : les 5 noms mutilés (TRUNK-MANGLED-NAMES-1) : leur renommage est un acte git de l'orchestrateur ; tant qu'il n'est pas fait, BYTE-GUARD-SCOPE-1 (partition fail-closed des extensions) ne peut pas passer au vert. Ordre ?
+- **Q-M1-8** : `EXEMPT` (10 plages de sortie d'outil verbatim) : garder, ou convertir ces TAB en espaces dans 9 journaux dont les sha sont cités ailleurs ?
+- **Q-M1-9** : liste des types lus déclarée dans le test plutôt qu'importée de lang-gate (`TEXT_EXTS` non typé dans `lang-gate.d.mts`, et sans `.mts .jsonl .csv .tsv .svg`) : ratifier ?
+- **Q-M1-10** : oracle lancé sans `MONARK_PUBLIC_MIRROR` (chemin du vrai clone du miroir) ni les jetons étrangers présents dans l'environnement (`API_KEY_21ST`, `PERPLEXITY_API_KEY`, `RAILWAY_TOKEN`, `CLAUDE_CODE_MESSAGING_TOKEN`), en plus des 8 variables payantes, et en `npm_config_offline=true` : règle à porter dans le script d'oracle de M-3 ?
+- **Q-M1-11** : R-25 216 (attendu 100-150, sous 547 ; cause au §8) : accepter ?
+- **Q-M1-12** : verser à METHODE-TRN-1 les deux transports observés en direct pendant ce G1 (Bash : `\\` → `\` ; Write : `\uXXXX` matérialisés), `error_origin` OUT ?
