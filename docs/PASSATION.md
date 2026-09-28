@@ -1,6 +1,6 @@
 # PASSATION — dossier de reprise pour un nouvel orchestrateur (nouveau compte Claude ou nouvelle session) — mis à jour à chaque retour d'agent et à chaque décision (décision 271, investisseur, 2026-09-28)
 
-**Dernière mise à jour** : 2026-09-28 05:12 UTC — DÉCISION 275 (pleins pouvoirs à l'orchestrateur ; livrable 1 = méthode M-1..M-9 ; livrable 2 = Dōjō page snapshot ; livrable 3 = le reste). En vol : G1 M-1 (`wf_1b352c31-ad4`, `F:/Monark-wt-m1`), G1 M-2a/M-3/M-4 (`wf_c91f49af-680`, `F:/Monark-wt-m2a|m3|m4`, base `0d54280d`, missions `F:/tmp/methode/mission-g1-m{2a,3,4}.md`).
+**Dernière mise à jour** : 2026-09-28 05:59 UTC — G1 M-1 rendu, gel `f454fa7d`, G2 M-1 en vol (`wf_c66c17f5-5d5`) ; G1 M-2a/M-3/M-4 en vol (`wf_c91f49af-680`). Décisions Q-M1-1..12 au CHANTIERS.
 
 ## 0. Lire dans cet ordre (30 minutes)
 1. `F:\claude-config\CLAUDE.md` (règles globales, roster, amendement 267 en fin de fichier) — **contient des octets 0x08/0x07 aux l.203 et l.286 (BYTE-GUARD-CONFIG-1), ne pas « corriger » sans go**.
