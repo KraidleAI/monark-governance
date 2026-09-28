@@ -1,5 +1,7 @@
 # FILE D'ATTENTE — gel des lancements (décision 265, investisseur, 2026-09-28 00:4x UTC : « ne lance plus d'autres tâches, note les prochaines tâches à chaque retour, on améliore notre méthode de travail d'abord, et on relance les chantiers »)
 
+**[2026-09-28 05:12 UTC — DÉCISION 275 : gel LEVÉ. Ordre : livrable 1 = M-1..M-9 (méthode) ; livrable 2 = Dōjō page snapshot (chemin critique PLAN-DOJO-PAGE-1 §2) ; livrable 3 = le reste. Cette file reste le registre des tâches ; « EN ATTENTE » se lit désormais « après le livrable en cours ».]**
+
 Règle : à chaque retour d'agent, l'orchestrateur **traite** (lit, tranche, consigne, gèle si le lot est prêt) mais **ne lance rien** ; la tâche suivante est écrite ici avec son déclencheur. Seule la chaîne « méthode » (audit A/B/C → ADR-METHODE-2 → cp-1 → lots de mise en œuvre) continue. Les agents déjà en vol (reprise `wf_fe8bf1ca-926`, avis v2 advisor-defi, audit `wf_6da5393a-f9d`) vont à leur terme. La reprise des chantiers = décision investisseur, dans l'ordre de cette file.
 
 ## A. En vol (à traiter au retour, sans relance)
@@ -49,3 +51,4 @@ BIBLIO-ID-2411-1 ; REPO-STRAY-WORKTREE-GUARD-1 ; VALIDATEUR-CA-12-TIERS-1 ; VOCA
 - 2026-09-28T04:09Z — 17 procurements reçus (14 conformes) → EN ATTENTE : campagne de lecture après la méthode (Narabi : Barber AoS, Howard, Lou, Schwager, Karwe-Naus ; KAIZEN : McLean-Pontiff, Opdyke ; méthode : Boehm, Ackerman, Parnas, Ammann-Offutt, Stodden ; D-2 : Tetenov, LTT). Dus : Mertens E. 2002, PID dernière version + NeurIPS, SM Science.
 - 2026-09-28 04:24 UTC — procurements complets (21 PDF) ; Firecrawl rétabli ; campagne de lecture prête à cadrer dès la levée du gel.
 - 2026-09-28 04:47 UTC — ADR-METHODE-2 commise ; G1 M-1 LANCÉ → suite : G2 M-1 → cp-2 → G7 ; puis M-2a, M-2b, M-3, M-4 ; puis M-11, M-12 (après fusion N2-1a), M-10 (après rejeu A-REJEU-1).
+- **2026-09-28 05:12 UTC — DÉCISION 275 (pleins pouvoirs, enchaîner tout)** : G1 M-2a/M-3/M-4 lancés en parallèle (`wf_c91f49af-680`) ; M-1 en vol. Suite écrite : retours G1 → G2 (relecteur Opus 5.5 frais, `red-proof` de M-4 rejoué dès qu'il existe) → cp-2 → G7 → fusion tronc ; puis M-2b, M-5..M-9 ; puis Dōjō (rang 1 : G7 RG-1b → cp-2/G7 RG-1a, RG-1c → fusion DRAND-1a → G7 PR-4b → G7 PR-2b-3 → G0 PR-3a-1).
