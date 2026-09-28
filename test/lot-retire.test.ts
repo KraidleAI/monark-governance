@@ -3,7 +3,7 @@
  * test builds then destroys its OWN fixture repo (isolated from the host's git config): no shared
  * state, so no mutant can cascade into a test that is not its own (doctrine A-11). Scripts are invoked
  * as subprocesses (never imported). Each test names, in a preceding comment, its own mutation (harness
- * F:\tmp\methode\m8\mutants\run-mutants.mjs, sha256 restore after each mutant).
+ * F:\tmp\methode\m8\mutants\run-mutants.mjs, RM05 excluded/neutralized (C-M8-HELP-1), sha256 restore after each mutant).
  */
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -216,7 +216,7 @@ test("lot_ages_age_in_days_matches_the_committer_date", () => {
   assert.equal(r.status, 0, r.stderr);
   const rows = JSON.parse(r.stdout) as AgeRow[];
   const dirtyAge = rows.find((row: AgeRow) => row.path.includes("wt-dirty"))?.ageDays ?? NaN;
-  // commit date "2026-09-10T00:00:00Z": age recomputed independently (expected epoch, 1-day epsilon)
+  // commit date "2026-09-10T00:00:00Z": age recomputed independently (expected epoch, 0.001-day epsilon, ~86.4s)
   const expectedSeconds = Math.floor(Date.now() / 1000) - Date.parse("2026-09-10T00:00:00Z") / 1000;
   const expectedDays = expectedSeconds / 86400;
   assert.ok(Math.abs(dirtyAge - expectedDays) < 0.001, `ageDays=${dirtyAge} expected close to ${expectedDays}`);

@@ -3,7 +3,7 @@
 // Usage: node scripts/lot/retire.mjs --repo <repo> --trunk <branch> [--dry-run] [--only <path>]
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
-
+import { realpathSync } from 'node:fs';
 function parseArgs(argv) {
   const out = { repo: null, trunk: null, dryRun: false, only: null };
   for (let i = 0; i < argv.length; i++) {
@@ -58,10 +58,10 @@ function mergedBranches(repo, trunk) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const argNorm = norm(path.resolve(args.repo)) + '/'; // git runs there (-C): never removed
+  const argNorm = norm(realpathSync.native(path.resolve(args.repo))) + '/'; // git runs there (-C): never removed
   const onlyNorm = args.only ? norm(path.resolve(args.only)) : null;
-  const cwdNorm = norm(process.cwd()) + '/';
-
+  const cwdNorm = norm(realpathSync.native(process.cwd())) + '/'; // physical path: junction and symlink aliases resolved
+  if ([argNorm, cwdNorm].some((p) => p.startsWith('//'))) throw new Error('UNC cwd or --repo: local drive paths only');
   const list = git(args.repo, ['worktree', 'list', '--porcelain']);
   if (list.error || list.status !== 0) {
     console.error(`git worktree list failed: ${list.stderr}`);
