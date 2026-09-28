@@ -47,3 +47,4 @@ BIBLIO-ID-2411-1 ; REPO-STRAY-WORKTREE-GUARD-1 ; VALIDATEUR-CA-12-TIERS-1 ; VOCA
 - 2026-09-28 03:39 UTC — Shōgen lot A gelé → EN ATTENTE : G2 lot A, lot B sensibilité, J14, J28 ; investisseur : ratifier borne 15:08Z (ADR-0025), trancher SHOGEN-STRATE-POOLEE-1, désactiver watchdog.
 - 2026-09-28 03:46 UTC — décision 273 : SHOGEN-STRATE-POOLEE-1 (ADR puis code) inséré avant J14.
 - 2026-09-28T04:09Z — 17 procurements reçus (14 conformes) → EN ATTENTE : campagne de lecture après la méthode (Narabi : Barber AoS, Howard, Lou, Schwager, Karwe-Naus ; KAIZEN : McLean-Pontiff, Opdyke ; méthode : Boehm, Ackerman, Parnas, Ammann-Offutt, Stodden ; D-2 : Tetenov, LTT). Dus : Mertens E. 2002, PID dernière version + NeurIPS, SM Science.
+- 2026-09-28 04:24 UTC — procurements complets (21 PDF) ; Firecrawl rétabli ; campagne de lecture prête à cadrer dès la levée du gel.
