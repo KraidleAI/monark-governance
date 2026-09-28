@@ -1,6 +1,6 @@
 # PASSATION — dossier de reprise pour un nouvel orchestrateur (nouveau compte Claude ou nouvelle session) — mis à jour à chaque retour d'agent et à chaque décision (décision 271, investisseur, 2026-09-28)
 
-**Dernière mise à jour** : 2026-09-28 13:57 UTC — 2ᵉ COUPURE 13:52Z → reprise 13:56Z : re-revue G2 M-3, re-revue G2 M-4, G2 M-8, corr M-2a relancés (`wf_7366bf8a-117`). Verrou périmé retiré. memstack à relancer (DOWN à 13:58Z). Tronc `dcbe6c6b`.
+**Dernière mise à jour** : 2026-09-28 14:26 UTC — PXP-01 : substitut alrw.net reçu (13 PDF scellés) ; livre 2ᵉ éd. toujours dû ; reprise 2 des quatre missions en vol
 
 ## 0. Lire dans cet ordre (30 minutes)
 1. `F:\claude-config\CLAUDE.md` (règles globales, roster, amendement 267 en fin de fichier) — **contient des octets 0x08/0x07 aux l.203 et l.286 (BYTE-GUARD-CONFIG-1), ne pas « corriger » sans go**.
