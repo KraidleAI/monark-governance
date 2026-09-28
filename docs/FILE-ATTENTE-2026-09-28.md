@@ -42,3 +42,4 @@ BIBLIO-ID-2411-1 ; REPO-STRAY-WORKTREE-GUARD-1 ; VALIDATEUR-CA-12-TIERS-1 ; VOCA
 - 2026-09-28 02:53 UTC — campagne S2 Shōgen close → G0 rapport J28 / critère S2 (sans verrou) à lancer ; acte investisseur : désactiver le watchdog Shōgen.
 - 2026-09-28 03:00 UTC — décision 269 : lot ADR-0025 lancé → EN ATTENTE : G2 du lot → commit F:/Shogen → rapport J28 (outil existant, copie des journaux scellés) → recalcul oracle → clôture S2 (rapport de passe, critère binaire) → publication (investisseur) ; J14 jamais produit : à déclarer au rapport final.
 - 2026-09-28 03:04 UTC — décision 270 : J14 à PRODUIRE (copie tronquée à J14 des journaux scellés, même outil, daté de sa production) avant le J28 ; les deux non publiés sans go.
+- 2026-09-28 03:16 UTC — décision 271 : gel total des lancements jusqu à calibration de la méthode ; PASSATION.md tenu à jour à chaque retour.
