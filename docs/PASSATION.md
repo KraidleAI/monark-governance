@@ -1,6 +1,6 @@
 # PASSATION — dossier de reprise pour un nouvel orchestrateur (nouveau compte Claude ou nouvelle session) — mis à jour à chaque retour d'agent et à chaque décision (décision 271, investisseur, 2026-09-28)
 
-**Dernière mise à jour** : 2026-09-28 18:25 UTC — 275-e : G1 M-5 lancé par la porte (wf_079c4083-18f) ; en vol 4 : rr2 M-4, rr3 M-8, G1 M-2b, G1 M-5
+**Dernière mise à jour** : 2026-09-28 18:51 UTC — DÉCISION 278 : aucun lancement après les 4 retours en vol (redémarrage de session pour superpowers) ; retours traités et gelés, suites écrites en FILE-ATTENTE
 
 ## 0. Lire dans cet ordre (30 minutes)
 1. `F:\claude-config\CLAUDE.md` (règles globales, roster, amendement 267 en fin de fichier) — **contient des octets 0x08/0x07 aux l.203 et l.286 (BYTE-GUARD-CONFIG-1), ne pas « corriger » sans go**.
@@ -22,7 +22,7 @@
 - **Workers** : `claude-opus-5-5` effort `max` (jugement, G1 multi-fichiers, G2, provers, corrections) ; `claude-sonnet-5` effort `max` (mécanique à brief complet, re-revues ciblées, lecteurs/chercheurs) ; `claude-opus-5` BANNI ; jamais sous Sonnet 5 ; toujours l'ID complet, déclaré à chaque lancement (décision 267).
 - **Advisors** : `advisor`, `advisor-defi`, `advisor-marche`, `lecture-advisor` (Fable 5.1, medium) : avis, jamais verdict ; ils n'ont pas Write → l'orchestrateur persiste leurs retours (tel quel, scellé sha256). Les lecteurs non plus.
 
-## 2. Régime en cours (décision 275, 2026-09-28 05:12 UTC) — pleins pouvoirs, enchaîner tout, un livrable après l'autre
+## 2. Régime en cours (décision 275, 2026-09-28 05:12 UTC ; **décision 278, 18:4x UTC : aucun lancement après les quatre retours en vol, redémarrage de session pour superpowers, puis reprise de la FILE-ATTENTE dans l ordre**) — pleins pouvoirs, enchaîner tout, un livrable après l'autre
 - **Décision 275 (verbatim au CHANTIERS)** : l'orchestrateur prend toutes les décisions (consignées), enchaîne sans attendre de go sauf pour les actes sortants (push, VPS, déploiement, publication, dépense). Ordre : **livrable 1** = AgileGates outillé = lots M-1..M-9 au G7 et fusionnés (M-10/11/12 après Dōjō) ; **275-a** : la porte de relance = M-1..M-4 fusionnés (ADR « Ordre et relance ») ; dès lors les actes d'orchestrateur Dōjō de rang 1 (G7 des gels) s'entrelacent avec M-5..M-9 ; **livrable 2** = Dōjō : page snapshot servie sur données réelles (adresses + score cumulé) — chantier « primordial » ; **livrable 3** = le reste, un chantier à la fois.
 - **Parallélisme admis** : G1 de lots sur pièces disjointes en même temps (DOCTRINE C5) ; jamais deux lots de code sur une même pièce ; verrou d'hôte FIFO.
 - **Ancien régime (265/271, du 28/09 00:4x à 05:12 UTC)** : gel des lancements jusqu'à l'ADR-METHODE-2 ; levé par 275. Les agents morts à une limite laissent des états partiels dans les worktrees : préambule `F:/tmp/REPRISE-2026-09-28.md`.
