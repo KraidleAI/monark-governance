@@ -4,8 +4,8 @@
  *   TAB outside the closed types where it is licit (Makefile, go.mod, *.tsv) and the closed per-path ranges of EXEMPT;
  *   CTRL, a C0 control byte 0x01-0x08, 0x0B, 0x0C, 0x0E-0x1F (a shell, PowerShell or JSON layer read an escape);
  *   NUL (0x00); CONFLICT, a git conflict marker at line start (7 "<" + space, exactly 7 "=", 7 ">" + space);
- *   F_SPACES, "F:" followed by two or more spaces (measured: the TAB of a "F:\tmp" path rewritten as spaces);
- *   F_CTRL, "F:" followed by a control byte.
+ *   F_SPACES, "F:" (not preceded by a letter or digit: a word ending in F, e.g. "PDF:" then two spaces, stays green — Q-G2-4)
+ *   followed by two or more spaces (measured: the TAB of a "F:\tmp" path rewritten as spaces); F_CTRL, same word boundary, "F:" followed by a control byte.
  * Red output: one "path:line:CLASS" per hit and the count per class; `node --test test/byte-guard.test.ts` exits non-zero on
  * a single hit (standalone use: pre-commit, G1). Binary types are not read (extension outside the scanned list). Fixtures are
  * throwaway git repositories under os.tmpdir() (index only: no commit, no identity; every GIT_* variable removed, no system or
@@ -28,8 +28,8 @@ const CLASSES: ReadonlyArray<readonly [Cls, RegExp]> = [
   ["CTRL", /[\x01-\x08\x0b\x0c\x0e-\x1f]/],
   ["TAB", /\t/],
   ["CONFLICT", /^(?:<{7} |={7}\r?$|>{7} )/],
-  ["F_SPACES", /F: {2}/],
-  ["F_CTRL", /F:[\x00-\x09\x0b\x0c\x0e-\x1f]/],
+  ["F_SPACES", /(?<![A-Za-z0-9])F: {2}/], // Q-G2-4: word boundary (a letter or digit before F excludes it, e.g. "PDF:" or "REF:" then spaces)
+  ["F_CTRL", /(?<![A-Za-z0-9])F:[\x00-\x09\x0b\x0c\x0e-\x1f]/], // same word boundary as F_SPACES
 ];
 
 /** Read types (closed): lang-gate's TEXT_EXTS plus the other text types of the tree (.mts type surfaces, .jsonl/.csv/.tsv
@@ -92,13 +92,16 @@ function assertClean(v: Verdict): void {
   assert.equal(v.hits.length, 0, report(v));
 }
 
+/** Paths of `EXEMPT` whose range no longer carries its class (stale): shared by the tree test and a fixture below (C-G2-3, G2-M05). */
+const stale = (v: Verdict, paths: readonly string[] = Object.keys(EXEMPT)): string[] => paths.filter((p) => (v.exempted.get(p) ?? 0) === 0);
+
 const TMP: string[] = [];
 after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true, maxRetries: 3 }); });
 
 /** A throwaway repository outside the tree: `tracked` files are written then `git add`-ed (the index is what ls-files reads),
  *  `loose` files are written only. No GIT_* variable and no system/global config reach git, so a hook context can never point it
  *  at the real repository. */
-function fixture(tracked: Record<string, string>, loose: Record<string, string> = {}, afterAdd: (root: string) => void = () => undefined): Verdict {
+function fixture(tracked: Record<string, string>, loose: Record<string, string> = {}, afterAdd: (root: string, env: NodeJS.ProcessEnv) => void = () => undefined): Verdict {
   const base = mkdtempSync(join(tmpdir(), "byte-guard-"));
   TMP.push(base);
   const root = join(base, "repo");
@@ -113,7 +116,7 @@ function fixture(tracked: Record<string, string>, loose: Record<string, string> 
       writeFileSync(join(root, rel), body, "latin1");
     }
     execFileSync("git", ["add", "--", ...Object.keys(tracked)], { cwd: root, env });
-    afterAdd(root);
+    afterAdd(root, env);
     return scan(root, env);
   } catch (e) { rmSync(base, { recursive: true, force: true, maxRetries: 3 }); throw e; } // a load-time failure never reaches after()
 }
@@ -123,51 +126,66 @@ const LT = "<".repeat(7), EQ = "=".repeat(7), GT = ">".repeat(7);
 const PIN_EXT = [".ts", ".tsx", ".mts", ".mjs", ".cjs", ".js", ".jsx", ".md", ".mdx", ".yml", ".yaml", ".json", ".jsonl", ".html",
   ".css", ".svg", ".sh", ".txt", ".csv", ".tsv"];
 const EX_PATH = "docs/G2-delta-lot-t1a-ii-a.md"; // its CONFLICT range 109-115, replayed below with a TAB inside and a marker after
+const STALE_PATH = "docs/G1-lot-narabi-txt-1.md"; // EXEMPT'd TAB at l.23-24; this fixture carries none there => stale (G2-M05)
+const NON_ASCII = `${String.fromCharCode(0xe9)}t${String.fromCharCode(0xe9)}.md`; // non-ASCII name: `git ls-files` without -z octal-quotes and ENOENT-skips it (G2-M07)
 const V = fixture({
   "tab.md": "a\tb\n",
-  "ctrl.md": "one\ntwo \x08ell\n",
+  "UP.MD": "a\tb\n", // G2-M06: extension compared without toLowerCase() would miss this
+  [NON_ASCII]: "a\tb\n",
+  "ctrl.md": "one\ntwo \x08ell\n\x0c\n\x0f\n\x1f\n", // G2-M03/G2-M04 pin 0x0F, 0x1F (the 0x0E-0x1F range) and 0x0C at l.3-5
   "zero.md": "x\x00y\n", // never "nul.*": a reserved device name on Windows
   "conflict.md": `${LT} HEAD\nours\n${EQ}\ntheirs\n${GT} branch\n`,
-  "fspaces.md": `see F:${" ".repeat(4)}mp\n`,
+  "fspaces.md": `see F:${" ".repeat(4)}mp\nF:${" ".repeat(2)}two\n`, // G2-M02 pins the exact 2-space bound at l.2
   "fctrl.md": "see F:\x0bocab\n",
-  "clean.md": `F: drive, LF: end\r\n${"<".repeat(6)} six\r\n${"=".repeat(8)}\r\n${">".repeat(8)} eight\r\n`,
+  "clean.md": `F: drive, LF: end\r\nPDF:${" ".repeat(2)}see\r\nREF:${" ".repeat(3)}x\r\n${"<".repeat(6)} six\r\n${"=".repeat(8)}\r\n${">".repeat(8)} eight\r\n${"<".repeat(8)} eight\r\n`,
   "bin.png": `\x00\t\x08F:${" ".repeat(4)}\n${EQ}\n`,
   [EX_PATH]: `${"\n".repeat(108)}${LT} .our\n\tx\nx\n${EQ}\nx\nx\n${GT} .their\n${LT} after the range\n`,
+  [STALE_PATH]: `${"\n".repeat(22)}no tab here\nstill none\n`,
   ...Object.fromEntries(PIN_EXT.map((e) => [`t/x${e}`, "a\tb\n"])),
   "t/Makefile": "all:\n\techo \x07\n",
   "t/go.mod": "require (\n\tx v1 \x07\n)\n",
+  "t/x.tsv": "a\tb\nF:\tmp\n", // override: G2-M12, F: + TAB in a .tsv (TAB itself licit) still reddens F_CTRL
 }, { "loose.md": "a\tb\n" });
 const at = (file: string): string[] => V.hits.filter((h) => h.file === file).map((h) => `${String(h.line)}:${h.cls}`);
 
 // Mutant: the TAB class removed from CLASSES => red.
-test("byte_guard_flags_tab", () => { assert.deepEqual(at("tab.md"), ["1:TAB"]); });
-// Mutant: the CTRL class removed, or its range without 0x08 (e.g. [\x01-\x07]), or a line number off by one => red.
-test("byte_guard_flags_control_byte_0x08", () => { assert.deepEqual(at("ctrl.md"), ["2:CTRL"]); });
+test("byte_guard_flags_tab", () => {
+  assert.deepEqual(at("tab.md"), ["1:TAB"]);
+  assert.deepEqual(at("UP.MD"), ["1:TAB"]); // G2-M06: extension read via toLowerCase(), ".MD" is ".md"
+});
+// Mutant: the CTRL class removed, its range without 0x08/0x0C/0x0F/0x1F, or a line number off by one => red (G2-M03: the
+// 0x0E-0x1F half of the range; G2-M04: 0x0C).
+test("byte_guard_flags_control_byte_0x08", () => { assert.deepEqual(at("ctrl.md"), ["2:CTRL", "3:CTRL", "4:CTRL", "5:CTRL"]); });
 // Mutant: the NUL class removed => red.
 test("byte_guard_flags_nul", () => { assert.deepEqual(at("zero.md"), ["1:NUL"]); });
 // Mutant: the CONFLICT class removed, or any of its three markers dropped => red.
 test("byte_guard_flags_conflict_markers", () => { assert.deepEqual(at("conflict.md"), ["1:CONFLICT", "3:CONFLICT", "5:CONFLICT"]); });
-// Mutant: the F_SPACES class removed => red.
-test("byte_guard_flags_f_followed_by_spaces", () => { assert.deepEqual(at("fspaces.md"), ["1:F_SPACES"]); });
+// Mutant: the F_SPACES class removed, or its bound widened past two spaces (G2-M02, l.2 is exactly two) => red.
+test("byte_guard_flags_f_followed_by_spaces", () => { assert.deepEqual(at("fspaces.md"), ["1:F_SPACES", "2:F_SPACES"]); });
 // Mutant: the F_CTRL class removed => red (the same line also carries its CTRL hit).
 test("byte_guard_flags_f_followed_by_a_control_byte", () => { assert.deepEqual(at("fctrl.md"), ["1:CTRL", "1:F_CTRL"]); });
-// Mutant: a false positive (the CR of CRLF read as CTRL, "F:" + ONE space, a 6- or 8-character run read as a marker) => red.
+// Mutant: a false positive (the CR of CRLF read as CTRL, "F:" + ONE space, a word ending in F before "F:" + two spaces
+// (Q-G2-4, e.g. "PDF:"), a 6- or 8-character run read as a marker on EITHER side (G2-M01: 8 "<" symmetric to 8 ">")) => red.
 test("byte_guard_clean_file_is_green", () => { assert.deepEqual(at("clean.md"), []); });
 // Mutant: binary extensions read (the type filter bypassed) => red.
 test("byte_guard_ignores_binary_extensions", () => { assert.deepEqual(at("bin.png"), []); });
 // Mutant: a disk walk instead of `git ls-files` => the planted untracked loose.md reddens.
-test("byte_guard_reads_git_ls_files_not_the_disk", () => { assert.deepEqual(at("loose.md"), []); });
+test("byte_guard_reads_git_ls_files_not_the_disk", () => {
+  assert.deepEqual(at("loose.md"), []);
+  assert.deepEqual(at(NON_ASCII), ["1:TAB"]); // G2-M07: without -z, git octal-quotes this name and the read ENOENT-skips it
+});
 // Mutant: the TAB-licit types widened (any read type added, or the rule inverted), or a read type dropped => red; Makefile and
 // go.mod stay READ (a control byte in each reddens) while their TABs are licit.
 test("byte_guard_tab_licit_types_are_closed", () => {
   const tab = V.hits.filter((h) => h.cls === "TAB" && h.file.startsWith("t/")).map((h) => h.file).sort();
   assert.deepEqual(tab, PIN_EXT.filter((e) => e !== ".tsv").map((e) => `t/x${e}`).sort());
-  assert.deepEqual([...at("t/Makefile"), ...at("t/go.mod"), ...at("t/x.tsv")], ["2:CTRL", "2:CTRL"]);
+  assert.deepEqual([...at("t/Makefile"), ...at("t/go.mod"), ...at("t/x.tsv")], ["2:CTRL", "2:CTRL", "2:F_CTRL"]); // G2-M12: F: + TAB in a .tsv still reddens F_CTRL though TAB is licit there
 });
 // Mutant: an exemption applied to every class of its file, or beyond its line range => red.
 test("byte_guard_exemptions_are_per_path_class_and_range", () => {
   assert.deepEqual(at(EX_PATH), ["110:TAB", "116:CONFLICT"]);
   assert.equal(V.exempted.get(EX_PATH), 3);
+  assert.deepEqual(stale(V, [EX_PATH, STALE_PATH]), [STALE_PATH]); // G2-M05: TAB->spaces at l.23-24 makes this entry stale
 });
 // Mutant: every read error swallowed (an unreadable or locked tracked path skipped in silence), or a deleted tracked file made
 // fatal => red. A tracked file deleted in the working tree carries no byte; any other read error stays fatal (fail-closed).
@@ -187,13 +205,20 @@ test("byte_guard_fixture_git_ignores_the_callers_git_env", () => {
   }
   assert.equal(leaked, false, "the fixture wrote into the caller's GIT_DIR");
 });
-// Mutant: the host's system/global git config reaching the fixture's git => a hostile global config injected through HOME
-// (core.autocrlf + core.safecrlf: `git add` of an LF file is fatal, measured 2026-09-28) reddens.
+// Mutant: the host's global git config reaching the fixture's git => a hostile global config injected through HOME
+// (core.autocrlf + core.safecrlf: `git add` of an LF file is fatal, measured 2026-09-28) reddens. The system half (k14c) is
+// pinned structurally below, GIT_CONFIG_NOSYSTEM and GIT_CONFIG_GLOBAL under the throwaway base, not by probing this host's
+// own system config (C-G2-4: this comment named "system/global", only the global half was tested).
 test("byte_guard_fixture_git_ignores_the_host_git_config", () => {
   const home = mkdtempSync(join(tmpdir(), "byte-guard-home-")), prev = process.env.HOME;
   writeFileSync(join(home, ".gitconfig"), "[core]\n  autocrlf = true\n  safecrlf = true\n");
   process.env.HOME = home;
-  try { assert.deepEqual(fixture({ "a.md": "x\n" }).hits, []); } finally {
+  try {
+    assert.deepEqual(fixture({ "a.md": "x\n" }, {}, (r, e) => {
+      assert.equal(e.GIT_CONFIG_NOSYSTEM, "1");
+      assert.ok(e.GIT_CONFIG_GLOBAL !== undefined && e.GIT_CONFIG_GLOBAL.startsWith(dirname(r)));
+    }).hits, []);
+  } finally {
     if (prev === undefined) delete process.env.HOME; else process.env.HOME = prev;
     rmSync(home, { recursive: true, force: true, maxRetries: 3 });
   }
@@ -211,6 +236,6 @@ test("byte_guard_fails_on_a_single_hit", () => {
 test("byte_guard_tracked_tree_is_clean", () => {
   const v = scan(REPO);
   assert.ok(v.read > 1000, `implausibly few tracked text files read (${String(v.read)})`);
-  assert.deepEqual(Object.keys(EXEMPT).filter((p) => (v.exempted.get(p) ?? 0) === 0), [], "stale exemption: its range lost its class");
+  assert.deepEqual(stale(v), [], "stale exemption: its range lost its class");
   assertClean(v);
 });

@@ -39,8 +39,8 @@ Ce dossier **complète** `docs/PASSATION-2026-09-24.md` (toujours valable pour �
 **Ce que l'agent suivant fait, dans l'ordre** :
 1. Demander le **go investisseur** pour un W2 RÉDUIT (≤ 8 agents : 3 lentilles au lieu de 5, 1 juge par proposition au lieu de 3 sur les 6 meilleures, advisor-marche + advisor-defi, 1 critique) — annoncer le nombre d'agents avant de lancer ; ou, si l'investisseur refuse tout workflow, faire la synthèse **en mono-agent** (un worker Opus 5.5) puis les deux consultations d'advisors par l'outil Agent.
 2. Éditer `wf2-synthese-pocket.js` en conséquence (réduire `LENSES`, `JUDGE_LENSES`, `slice(0,6)`), et faire lire aux agents `refutations/SYNTHESE-REFUTATION.md` + `RESULTATS.json` selon Q-ORCH-1 (le CADRE du script l.20 n'autorise encore que les confirmées : à amender).
-3. Rapport final `F:\Shogen\docs
--etude-pocket-network-2026-09-25.md` (rédigé par l'orchestrateur, pas un worker ; niveaux [lu]/[mesure]/[corrigé] ; section « sensible » non publiable ; aucun nom de fournisseur si une version publique est tirée), puis JOURNAL-PROVENANCE Shōgen, CHANTIERS MONARK, memstack.
+3. Rapport final `F:\Shogen\docs\15-etude-pocket-network-2026-09-25.md` (rédigé par l'orchestrateur, pas un worker ; niveaux [lu]/[mesure]/[corrigé] ; section « sensible » non publiable ; aucun nom de fournisseur si une version publique est tirée), puis JOURNAL-PROVENANCE Shōgen, CHANTIERS MONARK, memstack.
+
 4. Livrables possibles issus de l'étude (à faire trancher, pas à décider seul) : mesure de diversité de sources (k_eff, co-défaillance) comme témoin de quorum recalculable ; position à prendre auprès de la PNF (contact X du 23/09) ; divulgation privée de l'hypothèse sensible.
 
 ## 3. Shōgen — campagne S2 (F:\Shogen, hors MONARK)
