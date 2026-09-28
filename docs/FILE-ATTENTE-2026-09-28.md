@@ -57,3 +57,4 @@ BIBLIO-ID-2411-1 ; REPO-STRAY-WORKTREE-GUARD-1 ; VALIDATEUR-CA-12-TIERS-1 ; VOCA
 - **2026-09-28 06:52 UTC — G1 M-4 rendu, gel `aaf44fd9`, G2 lancé (`wf_13408304-d30`)** ; suite : G2 → corrections (Q-M4-3/8/9, ≤ 30 l.) → cp-2 → G7 ; item METHODE-M4-NAME-PATTERN-1 mesuré au G2.
 - **2026-09-28 06:54 UTC — G2 M-1 accepté, correcteur Sonnet 5 lancé (`wf_7686229f-c00`)** ; suite : gel 2 → cp-2 → G7 (`git rm` des 5 doublons TRUNK-MANGLED-NAMES-1).
 - **2026-09-28 07:21 UTC — G2 M-3 corrections d'abord, correcteur tour 1 lancé (`wf_67b91a60-d29`)** ; suite : re-revue G2 (Sonnet 5 ciblée si diff petit, sinon Opus) → cp-2 → G7 ; items ORACLE-GATE-TIMEOUT-1, ORACLE-PID-REUSE-1.
+- **2026-09-28 07:42 UTC — M-1 gel 2 `caaff594`, cp-2 lancé (`wf_5ac081b9-8f1`)** ; suite : G7 (fusion, `git rm` des 5 doublons, garde verte sur l'arbre fusionné, export-check) ; item BYTE-GUARD-FCTRL-KILLER-1.
