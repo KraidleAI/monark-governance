@@ -497,7 +497,7 @@ Relevé à 06:44:37Z (HEAD `0d54280d` inchangé ; `git diff --stat HEAD` vide ; 
 ## 20. Corrections tour 3 (D-4 (d), correcteur `claude-sonnet-5`, effort high, contexte frais)
 
 - **Modèle résolu** : `claude-sonnet-5` (préfixe vérifié, R-1) ; mission `F:/tmp/methode/mission-corr-m4-t3.md` (sha256 `bbe62e19...` recalculé égal avant lecture) lue en entier, ainsi que le préambule `F:/tmp/REPRISE-2026-09-28-coupure.md`.
-- **Reprise (Q-G2-7)** : `corr3/` absent à l'ouverture (17:18Z), livraison du tour 2 écrite à 17:16Z : **aucun prédécesseur mort de ce tour, tour neuf** — le préambule de reprise ne s'applique qu'au constat général (verrou trouvé pris, cf. plus bas), pas à un état partiel de ce tour à récupérer. Vérifications d'état avant tout travail : `git status --short` sur `F:/Monark-wt-m4` = exactement `M docs/G1-lot-methode-m4.md`, `M scripts/red-proof.mjs`, `M test/red-proof.test.ts` (HEAD `9fb73f97e94ddf8a1b6b15744b335eb0e06709b6`) ; sha256 des deux fichiers du tour 2 recalculés égaux aux valeurs citées (`2a596f14...` 272 l., `59f41567...` 281 l.) ; sha256 du rapport G2 recalculé égal à `af36b6e0...`.
+- **Reprise (Q-G2-7)** : `corr3/` absent à l'ouverture (~~17:18Z~~ 16:18Z), livraison du tour 2 écrite à ~~17:16Z~~ 16:16Z [2026-09-28 20:28 UTC — tour 4, C-G2-19 : heures locales (UTC+1) marquées Z ; sources : workflow `wf_1e6f6d93-003`, `startTime` 16:18:46Z (`corr3/` créé à 16:27:15Z, après) ; manifeste `m4-corr2-deliver/DELIVERED.sha256`, mtime 16:16:04Z (`REPONSE.md` 16:16:00Z)] : **aucun prédécesseur mort de ce tour, tour neuf** — le préambule de reprise ne s'applique qu'au constat général (verrou trouvé pris, cf. plus bas), pas à un état partiel de ce tour à récupérer. Vérifications d'état avant tout travail : `git status --short` sur `F:/Monark-wt-m4` = exactement `M docs/G1-lot-methode-m4.md`, `M scripts/red-proof.mjs`, `M test/red-proof.test.ts` (HEAD `9fb73f97e94ddf8a1b6b15744b335eb0e06709b6`) ; sha256 des deux fichiers du tour 2 recalculés égaux aux valeurs citées (`2a596f14...` 272 l., `59f41567...` 281 l.) ; sha256 du rapport G2 recalculé égal à `af36b6e0...`.
 
 ### 20.1 Étape A — RED-PROOF-LEX-FALLBACK-1 (code de repli mort)
 
@@ -537,7 +537,7 @@ Retiré du worktree livré, **dans l'ordre imposé** (C-G2-13 → C-G2-12 → C-
 | 16:47:10Z→16:47:26Z | lot réel `--repo F:/Monark --base bb9247c3 --gel a68abfba` | sortie 1, **4 jugés** tous refusés « no killer declared » (lot antérieur à la convention), **7 inchangés** (`budget_ignores_pending_label` non jugé, conforme), **0** `unsupported test layout` — `corr3/history/a68abfba/RED-PROOF.json` |
 | 16:46:33Z→16:47:01Z | **historique rejoué moi-même** (règle livrée du worktree, PAS `proto-end.mjs` du tour 2 — introuvable sur disque, § écarts) : `corr3/history/{truth,history,red-proof-derived}.mjs` (recette de l'en-tête G2 : le script livré + une ligne d'export), 97 fusions premier-parent de `lot/etude-suite` (tronc à `647b00d4`, une de plus que les 96 de la re-revue : le tronc a avancé depuis) | **0 faux positif, 0 faux négatif** (380 tests changés = 380 jugés sur 41 lots à test modifié, 134 fichiers) ; **`unsupported` = 0** sur les 380 — le nouveau refus fail-closed de l'Étape A ne s'est déclenché sur AUCUN cas réel, confirmant la mesure du G2 (aucun style non standard dans l'historique) |
 | 16:41:22Z→16:55:01Z | mutants **G1(26)+G2(11, M09 exclu)+P(6)+C(17)+G2R(8) = 68**, un à la fois sur clone isolé `corr3/clones/mut-final` (jamais le worktree livré), fichier restauré et sha relu après chacun (harnais réutilisé du tour 2, `corr2-mutants.mjs` copié tel quel, chemins seuls changés — REPRISE règle 2) | voir §20.4 |
-| 17:32Z→17:32Z (isolé, après) | **+ 1 (A-M1)** rejoué à la main sur le même clone : ligne 241 (le `reason` de l'Étape A), `CONST "unsupported test layout" -> ""`, test ciblé seul → rouge, fichier restauré, sha égal | voir §20.4 |
+| ~~17:32Z→17:32Z~~ →16:55:44Z (isolé, après ; début non tracé) [2026-09-28 20:28 UTC — tour 4, C-G2-19 : 17:32Z ne correspond à aucune horloge ; source : mtime du TAP `corr3/mutants/A-M1-red.tap`, 16:55:44Z ; dans la suite sous verrou 16:49:33Z→16:57:04Z, §20.4] | **+ 1 (A-M1)** rejoué à la main sur le même clone : ligne 241 (le `reason` de l'Étape A), `CONST "unsupported test layout" -> ""`, test ciblé seul → rouge, fichier restauré, sha égal | voir §20.4 |
 | 16:49:26Z→fin (voir §20.5) | suite complète **sous verrou** (porte 7 ; `--test-concurrency=4`, C-V-4 : 12-20 `node.exe`, jamais > 40) | voir §20.4 |
 
 ### 20.4 Mutants et oracle sous verrou
@@ -570,3 +570,158 @@ Retiré du worktree livré, **dans l'ordre imposé** (C-G2-13 → C-G2-12 → C-
 - **Q-C4T3-2** : mutant **C-M16** (« a pure deletion just below a body counted in it ») survit, et sa survie n'est **pas** due à C-G2-10 ni à l'Étape A (le tour 2 l'avait classé à tort dans le même lot que P-M1/C-M12..15 ; § 20.4). C'est un écart indépendant, mesuré 0/0 sur les 380 tests de l'historique réel et sur les 1 456 tests actuels du dépôt (aucune fixture, réelle ou de test, ne place une suppression pure exactement à la demi-position `end + 0.5`). Item formé **RED-PROOF-LEX-BOUNDARY-1** : soit une fixture dédiée (suppression pure juste sous un corps, au gel) pour transformer cet équivalent en killer réel, soit une recherche de solution académique si le repli est jugé structurellement inatteignable comme C-G2-10 l'a été pour son propre repli — décision hors budget de ce tour (aucun coût mesuré, aucune ligne touchée). Ne pas confondre avec RED-PROOF-LEX-FALLBACK-1 (clos par ce tour, Étape A).
 - **Q-C4T3-3** : la campagne de 68 mutants n'a été rejouée qu'à l'état final livré, pas aux deux états intermédiaires de l'Étape B (après C-G2-13 seul retiré, après C-G2-12 seul retiré) — la mission demande « killers restants rejoués » à chaque retrait. Rejouer ces deux campagnes (≈ 30 min chacune, harnais déjà en main, states non livrés) si le G7 l'exige, ou accepter que seul l'état livré (le seul qui compte réellement pour le lot) ait été mesuré à 68 mutants ?
 - **Q-C4T3-4** : après le retrait C-G2-11 (R-25 = 548, encore > 547), ce tour a resserré l'Étape A elle-même d'une ligne (→ 547) plutôt que de s'arrêter au dépassement mesuré ou de retirer un item supplémentaire non nommé par la mission — un choix hors de la règle écrite (§2 : « si un choix surgit hors de cette règle, arrête-toi et pose Q-C4T3-n »), agi puis consigné plutôt qu'arrêté avant d'agir (la correction est triviale, réversible, comportement inchangé, F2P et 16/16 revérifiés après coup). Ratifier ce choix (R-25 = 547 livré tel quel), ou l'annuler (revenir à 548, en dépassement mesuré de 1, jusqu'à décision) ?
+
+## 22. Corrections tour 4 (D-4 (d), correcteur `claude-opus-5-5`, effort max, instance fraîche)
+
+- **Modèle résolu** : `claude-opus-5-5` (R-1 ; palier exigé par la mission et D12 (d)/(h) : tour 4 = correcteur frais `claude-opus-5-5`, distinct du worker G1, des correcteurs des tours 1 à 3 et des relecteurs) ; effort max. Mission `F:/tmp/methode/mission-corr-m4-t4.md` : sha256 `7e6d5712e71d7fbf0849c14cce28d2b28f05dc8789fd1ad5f1c1f283403e819f` recalculé à 20:08:02Z, égal au reçu de la porte ; lue en entier. Worktree à l'ouverture : HEAD `b4dbcd1a` (gel 3), `git status --short` vide, sha des quatre fichiers = blobs du gel 3 (`36eeb073…42b3`, `0ded59be…49b8`, `9e00e918…5969`, journal `bca4124f…cd1e4`) : **tour neuf, aucune reprise** (`corr4/` absent à l'ouverture).
+- **Question d'architecture (D12 (d))** : posée et répondue par l'orchestrateur avant ce tour (Q-G2-22, CHANTIERS 2026-09-28 19:1x UTC : cause = adressage absolu des killers ; garde = clôture de chaque tour par `red-proof.mjs` sur le lot lui-même, sortie 0 exigée, plus un test d'auto-contrôle des killers dans M-4b ; adressage relatif = item de recherche) ; appliquée ici (§22.8). Advisor (outil intégré ; modèle configuré `claude-fable-5-1`, `F:/claude-config/settings.json` l.80, résolution non vérifiée) consulté sur le plan avant tout code et avant la clôture : avis, jamais verdict.
+- **Entrées lues en entier** (sha256) : `docs/adr/ADR-METHODE-2.md` du tronc (`01a21813…ce1e`, 191 l. : D2, ligne M-4, D12 (d)(g) ; la copie du worktree `9c71fc53…85c2`, 190 l., n'a pas la ligne datée de la décision 280) ; `scripts/red-proof.mjs` et `test/red-proof.test.ts` du gel 3 ; ce journal §19 à §21 ; rapport de re-revue 2 `F:/tmp/methode/m4/g2/rr2/G2-lot-methode-m4.rr2.md` (`0358aa40…0556`, 200 l.) ; `killers/kfix.diff` (`bb6c33f4…5551`), `killers/kcheck-kfix.mjs` (`11f9ad54…65d0`), `killers/kcheck/kcheck-gel3.txt`, `mine/cm16-recipe.diff` (`c558481c…c13a`), `mine/cm16-recipe.mjs`, `mine/lists.mjs` (`49dfa737…25b4`), `mine/rr2-mutants.mjs` (`585a718f…7966`) ; mission du tour 3 (`bbe62e19…`) ; outil d'oracle du tronc (`run.mjs` `baad946c…`, `lock.mjs` `781744f9…`, `r25.mjs` `4d0544df…`).
+- **Cadre** : modifications EN PLACE dans `F:/Monark-wt-m4` ; aucun git écrivant (seuls `git apply --check` et `git apply` simple, jamais `--index` ; index du worktree non réécrit : mtime 17:05:26Z = commit du gel 3, relu à 20:14:17Z) ; clones `--no-local` sous `F:/tmp/methode/m4/corr4/clones/` ; TEMP `F:/tmp/methode/m4/corr4/tmp` (et un TEMP par campagne sous `corr4/mutants/<campagne>/tmp`) ; les 13 variables sensibles présentes (liste DENY de M-3) retirées de tout environnement d'exécution par `corr4/tools/env.sh` (noms seuls, jamais les valeurs) ; stdin fermé, `GIT_TERMINAL_PROMPT=0`, `GIT_OPTIONAL_LOCKS=0` ; C-V-4 (`Get-CimInstance`) lu avant chaque course (`corr4/tools/cv4.sh`) ; aucun réseau ; rien sur C: ; aucun `rm`.
+
+### 22.1 Horaires (`date -u`)
+
+| Heure | Acte |
+|---|---|
+| 20:08:02Z | sha de la mission recalculé = reçu ; horloge locale mesurée UTC+1 (GMT Standard Time, heure d'été) |
+| 20:08Z → 20:19Z | lectures (entrées ci-dessus) ; sources horaires des tours 2 et 3 relevées (§22.6) ; advisor (plan) |
+| 20:19:38Z | `corr4/START.txt` : état initial = gel 3 |
+| 20:20:22Z | R-25 avant, méthode A : 547 |
+| 20:20:29Z | C-G2-14 : `kfix.diff` appliqué |
+| 20:20:53Z | `kcheck-wt.mjs` : 16/16 valides ; témoin gel 3 : 0/16 |
+| 20:21:10Z → 20:21:58Z | `red-proof.mjs` sur le lot, `--draw 3 --seed 2026` (`corr4/f2p`) : sortie 0 |
+| 20:22:29Z → 20:23:53Z | même outil, `--draw 16 --seed 2026` (`corr4/f2p16`) : sortie 0 |
+| 20:24:02Z | C-M16 : `cm16-recipe.diff` appliqué |
+| 20:25:07Z → 20:25:38Z | clone `cm16` : original 16/16, puis C-M16 tué |
+| 20:28:09Z → 20:28:20Z | C-G2-16 : commentaires réécrits en place ; ancres, kcheck, `gate:vocab`, `lang:gate` |
+| 20:28Z | C-G2-19 : trois heures corrigées en place (§22.6) |
+| 20:29:09Z → 20:30:11Z | oracle par l'outil, `--static-only` (hors verrou) : 8/8 portes sortie 0, r25 547 |
+| 20:30:25Z | R-25 après, méthode A : 547 |
+| 20:30:58Z → 20:32:39Z | **clôture de tour** : `red-proof.mjs` sur le lot final, `--draw 3` puis `--draw 16`, graine 2026 : sortie 0 ×2 |
+| 20:33:38Z → 20:35:33Z | mes mutants des lignes `// killer:` (clone `kmut`, un lancement) : 5/5 tués |
+| 20:35:43Z → 20:51:35Z | campagne complète de mutants (clone `mut`, un lancement, 77 mutants) : §22.7 |
+| après ce paragraphe | oracle complet par l'outil (`--role corr`, verrou FIFO, suite entière) : §22.9 bis, écrit après la prise |
+
+### 22.2 R-25 (méthode A, pathspec lu à `ci.yml:82` du worktree par la `R25_DIFF_RE` du tronc, 20 jetons ; jamais retapé)
+
+- **Avant** (20:20:22Z, arbre de travail = HEAD du gel 3) : `3 files changed, 547 insertions(+)` ⇒ **547**.
+- **Après** (20:30:25Z, arbre de travail modifié) : `3 files changed, 547 insertions(+)` ⇒ **547** ; `r25.mjs` du tronc sur le commit de gel de l'outil (enregistrement statique, §22.9) : STAT 547 insertions, 0 suppression, 547 ≤ 1 205, CONTENT_STAT 0, GREEN. **547 = 547 : 0 ligne nette** (script 3 lignes réécrites, test 22 lignes réécrites : 16 killers, 1 ligne de recette, 5 lignes d'en-tête ; `.d.mts` intact ; `git diff --numstat HEAD` à 20:30:25Z : script 3/3, test 22/22 ; le journal est hors R-25 par `:(exclude,glob)docs/**/*.md`). Outil : `corr4/tools/r25-methodA.mjs` ; sorties `corr4/r25/avant-methodA.txt`, `apres-methodA.txt`.
+
+### 22.3 C-G2-14 (bloquante) : adresses des 16 killers
+
+- **Fait** : `git apply --check -v` (sortie 0) puis `git apply` simple de `kfix.diff` (20:20:29Z) : 16 lignes `// killer:` réécrites en place, 15 adresses n → n + 1 (décalage de la ligne d'en-tête l.17 du tour 2) et la 16ᵉ (T16) → `// killer: scripts/red-proof.mjs:241 CONST "unsupported test layout" -> ""` (texte final retiré ; l'explication reste au commentaire de T15). Test : 258 l., sha `b76a3d24ab2dce1543245a927ad9d8462d5d2066a01df481265b0342400c3411`, **identique** au test du clone `kfix` de la re-revue (l'état qu'elle a mesuré 0 ligne, 16 `new-module`, 3/3 puis 16/16).
+- **Preuve 1, adresses** : `corr4/tools/kcheck-wt.mjs` = `kcheck-kfix.mjs` dont les trois chemins codés en dur (clone `kfix` de la re-revue) sont paramétrés ; ajoutés et déclarés : résumé, contrôle « ligne killer juste au-dessus d'une déclaration `test(` de niveau 0 », code de sortie. Worktree : **16/16 valides** (`<avant>` exactement une fois sur la ligne citée), sortie 0 (`corr4/logs/kcheck-step1.txt`) ; témoin : même vérificateur sur les octets du gel 3 (clone `tool` de la re-revue) : 0/16, sortie 1.
+- **Preuve 2, l'outil sur le lot** : `node F:/Monark-wt-m4/scripts/red-proof.mjs --base 0d54280d --gel F:/Monark-wt-m4 --repo F:/Monark-wt-m4 --out F:/tmp/methode/m4/corr4/f2p --draw 3 --seed 2026` (20:21:10Z → 20:21:58Z) : **sortie 0**, `red-proof OK: 16 judged, 0 unchanged, 3 killer(s) drawn` ; les 16 : base `import-fail` sur `scripts/red-proof.mjs` (module neuf), gel `pass` ⇒ **16 `new-module`**, 0 refus ; tirés : l.254 CONST (T8), l.168 SDL (T6), l.217 SDL (T12) : **3/3 `killed`** (statut `assert-fail`, TAP `code: 'ERR_ASSERTION'`), `sha256_before` = `sha256_after` = `36eeb073…` ×3 ; `RED-PROOF.json` `b8ac8d907912c42272be1302566e3c11e1e696e9a82190cc523434aeb570128d`. `--draw 16` (`corr4/f2p16`, 20:22:29Z → 20:23:53Z) : **16/16 `killed`**, sortie 0, `9703dc685b2dd6a3dece020864097605dd2d4f49397dd39fd1618a9e11adcd5e`. **Vérification indépendante** (`corr4/tools/verify-proof.mjs` : sha des TAP recalculés, tirage recalculé par `drawKillers` du script, codes d'échec lus dans chaque TAP, restauration) : PASS ×2 (`corr4/logs/verify-f2p*.txt`). TEMP vide après chaque course.
+
+### 22.4 C-M16 (item RED-PROOF-LEX-BOUNDARY-1, décision Q-G2-19) : tué à 0 ligne
+
+- **Fait** : `git apply --check -v` puis `git apply` de `cm16-recipe.diff` (20:24:02Z) : la ligne 114 de `weakRun()` reçoit, en place, l'entrée `"test/cases.test.ts": readFileSync(join(wt, "test", "cases.test.ts"), "utf8").replace('// killer: lib/old.ts:1 CONST "1" -> "5"\n', "")` : le deuxième worktree porte `cases.test.ts` privé de la ligne killer située juste sous `no_killer` (suppression pure sous un corps d'une ligne inchangé, qui ne doit pas le juger). 1 ligne modifiée, 0 ajoutée (258 l., sha `f828a8bd…918d`) ; aucune ligne `// killer:` déplacée : kcheck 16/16 rejoué.
+- **Preuve** : clone `corr4/clones/cm16` (`--no-local` du worktree, `b4dbcd1a` + fichiers du lot copiés, `cmp` 3/3) : script original **16/16** (20:25:07Z → 20:25:19Z, `corr4/mutants/cm16/baseline.tap` `465b0b900173184cce377bccc6834911dc049155ef4f387b151dd9e2f2acc99b`) ; C-M16 (texte des listes de la re-revue : `l <= end; l += 0.5` → `l <= end + 0.5; l += 0.5`), un lancement du harnais : **tué** par T15 `red_proof_fails_on_a_stillborn_draw_or_an_empty_diff`, **`ERR_ASSERTION`** (attendu `['refused', 'new-module', 'new-module', 'new-module', 'F2P']`, obtenu un `'refused'` de plus : `no_killer` jugé) (20:25:26Z → 20:25:38Z, `corr4/mutants/cm16/RESULTS.txt`, `C-M16.tap`) ; script restauré au sha `36eeb073…` ; rejoué sur l'état final dans la campagne complète : tué (§22.7). **RED-PROOF-LEX-BOUNDARY-1 : clos** (recette mesurée par la re-revue, avancée à ce tour par Q-G2-19).
+
+### 22.5 C-G2-16 : commentaires sur la borne actuelle (réécrits en place, même nombre de lignes)
+
+Script (l.7 conservée, encore exacte : « A test is JUDGED when a changed ») : l.8, l.9 et l.122 ; en-tête du test : l.2 à l.6 (fixture `layout` et fixture de C-M16 nommées). Le texte décrit le mécanisme du code (ligne de déclaration finissant par `);`, commentaire `//` admis ensuite ; sinon première ligne suivante en colonne 0 par `}` ou `)`, avant la déclaration suivante ; sinon refus `unsupported test layout` ; ligne killer changée jamais comptée), pas l'intention « ligne qui ferme l'appel » (limite C-G2-15, non couverte par la règle). Édition par `corr4/tools/edit-cg216.mjs` (chaque ligne comparée à son ancien texte exact avant écriture ; nombre de lignes contrôlé) :
+
+```diff
+@@ scripts/red-proof.mjs -8,2 +8,2 @@
+-// line falls in its body, from its top-level declaration to its last code line: blank and comment lines between tests (killer lines among
+-// them) are in no body; a pure deletion counts between two lines of one body. F2P = red at base by an assertion failure (TAP code
++// line falls in its body: its declaration line if that line ends with ");" (a // note may follow), else from it down to the first later line opening at column 0 with "}" or ")" before the next test
++// (neither: refused, "unsupported test layout"); a changed killer line never counts; a pure deletion counts between two lines of one body. F2P = red at base by an assertion failure (TAP code
+@@ scripts/red-proof.mjs -122 +122 @@
+-function judgedOf(text, changed) { // a changed line judges a test only inside its body (declaration to last code line); blank and comment lines (//, /* */, JSDoc *) between tests are in no body
++function judgedOf(text, changed) { // a changed line judges a test only inside its body: from its declaration line to its end, that line if it ends with ");", else the first later line opening at column 0 with "}" or ")" before the next test (none: refused); a changed killer line never counts
+@@ test/red-proof.test.ts -2,5 +2,5 @@
+- * Root tests of scripts/red-proof.mjs, the F2P proof of a lot (ADR-METHODE-2 D2, lot M-4, decision 267 (b)), on a fixture repo built under
+- * TEMP, git isolated (GIT_* out, no system config, a global core.autocrlf=true): a base commit, a gel commit (fifteen case tests in four
+- * new files, a moved test file, a docs note) and two linked worktrees (an untracked test file, a modified one with a new test between two
+- * old ones, a support helper, a deleted file; stillborn, invalid, dead and hanging killers); node_modules holds a plain package and a
+- * workspace link, as npm installs them. Each test names the mutation of the script that reddens it (killer convention). Governance-only.
++ * Root tests of scripts/red-proof.mjs, the F2P proof of a lot (ADR-METHODE-2 D2, lot M-4, decision 267 (b)), on a fixture repo built under TEMP, git isolated (GIT_*
++ * out, no system config, a global core.autocrlf=true): a base commit, a gel commit (fifteen case tests in four new files, a moved test file, a docs note) and two
++ * linked worktrees (an untracked test file, a modified one with a new test between two old ones, a support helper, a deleted file; stillborn, invalid, dead and
++ * hanging killers, a test closing indented (layout: unsupported), a killer line deleted right under an unchanged one-line test (not judged)); node_modules holds a
++ * plain package and a workspace link, as npm installs them. Each test names the mutation of the script that reddens it (killer convention). Governance-only.
+```
+
+Contrôles (20:28:09Z → 20:28:20Z) : script 268 l., sha `36eeb073…` → `6869fa3dde229a0da96f62bb0942f90cc7eb9bd1e10df7b64b0bded111636203` ; test 258 l., `f828a8bd…` → `9014a1924c37afadf5df9df7751dac9759886d6806903330aaa0d438c2ea2e6b` ; **ancres des 87 mutants des listes de la re-revue recomptées dans le script avant et après : identiques** (78 uniques, 9 absentes : E24, P-M1, C-M12 à C-M15, et G2R-M08b, MM9, MM9b propres à M-4b ; 0 multiple ; `corr4/logs/anchors-{before,after}.txt`) ; kcheck 16/16 (`"unsupported test layout"` présent l.9, l.17, l.241 ; une seule fois sur la ligne citée 241) ; `gate:vocab` sortie 0 (322 fichiers ; la porte ne scanne pas `scripts/` ni `test/` à la racine) ; `lang:gate` sortie 0 (portée `root` comprise) ; `typecheck`, `lint`, `lint:ratchet`, `export:check` sortie 0 (oracle statique, §22.9).
+
+### 22.6 C-G2-19 : heures du tour 3 corrigées en UTC (en place, ancien texte barré, crochet daté 20:28 UTC)
+
+| Ligne | Écrit | Corrigé (UTC) | Source |
+|---|---|---|---|
+| l.500 | « `corr3/` absent à l'ouverture (17:18Z) » | 16:18Z | workflow `wf_1e6f6d93-003` (tour 3), `startTime` 16:18:46.584Z ; `corr3/` créé à 16:27:15Z, après ; 17:18 = heure locale (UTC+1) |
+| l.500 | « livraison du tour 2 écrite à 17:16Z » | 16:16Z | manifeste `m4-corr2-deliver/DELIVERED.sha256`, mtime 16:16:04Z (`REPONSE.md` 16:16:00Z) ; heure locale |
+| l.540 | « A-M1 … 17:32Z→17:32Z » | →16:55:44Z (fin ; début non tracé) | mtime du TAP `corr3/mutants/A-M1-red.tap`, 16:55:44.131Z ; 17:32Z ne correspond à aucune horloge (ni UTC ni locale) |
+
+- **Vérifiées UTC, inchangées** : §19 (tour 2) : toutes les heures tombent dans la fenêtre du workflow `wf_bd1a94e0-a0e` (`startTime` 15:02:19Z, fin 16:17:34Z) et concordent avec les mtimes de `corr2/` (`f2p/full-run-1.tap` 15:15:47Z, `full-run-3.tap` 15:26:42Z, `oracle/locked/suite.tap` 16:13:58Z pour « arrêtée à 16:13:39Z ») ; §20.3 à §20.5 : `f2p/final-r25-547.tap` 16:39:18Z (16:39:02Z), `oracle/1..6-*.log` 16:47:57Z → 16:48:39Z (16:47:48Z → 16:48:57Z), `history/a68abfba/RED-PROOF.json` 16:47:26Z, `history/history.json` 16:47:00Z, `mutants/corr3-mutants.mjs` 16:41:19Z et `run.log` 16:55:01Z, `lock-holder-pid.txt` 16:49:22Z, `oracle/7-full-suite.tap` 16:57:39Z ; 16:15:25Z = date d'`owner.txt` (JSON UTC du verrou) ; fenêtre du tour 3 : 16:18:46Z → 17:04:56Z. §21 : aucune heure.
+- **Fait consigné, sans jugement** : l'heure réelle d'A-M1 (16:55:44Z) et la fin de la campagne de mutants du tour 3 (16:55:01Z, lancée 16:41:22Z) tombent dans la suite sous verrou du tour 3 (16:49:33Z → 16:57:04Z, §20.4) : courses ciblées pendant sa propre suite, la classe que vise la règle de gabarit de Q-G2-20 ; cette suite-là est restée verte (1 465, 0 échec).
+- Le `REPONSE.md` du tour 3 (scellé par son `DELIVERED.sha256`) porte les deux mêmes heures locales : non modifié (livrable scellé) ; Q-C4T4-1.
+
+### 22.7 Mutants (un lancement de harnais par clone ; fichier réécrit et sha relu après chacun ; enfant mort, délai ou échec de chargement = « non conclu », jamais « tué »)
+
+- **Campagne complète** (clone `corr4/clones/mut` = `b4dbcd1a` + fichiers finaux du lot, `cmp` 3/3 ; script `6869fa3d…`, test `9014a192…` ; 20:35:43Z → 20:51:35Z ; harnais `corr4/tools/corr4-mutants.mjs`, textes importés des listes de la re-revue `mine/lists.mjs` `49dfa737…`, jamais retapés ; codes d'échec relevés dans le TAP) : **77 mutants (69 des tours + MM1 à MM8 de la re-revue) : 58 tués, 13 survivants, 6 non appliqués, 0 non conclu** ; fichier restauré au sha après chacun (`corr4/mutants/full/RESULTS.txt`, `RESULTS.json`, un TAP par mutant).
+- **Les 11 survivants du gel 3** : E1 survit ; G2-M06 survit ; C-M11 survit ; G2R-M01 survit ; G2R-M02 survit ; G2R-M04 survit ; G2R-M05 survit ; G2R-M06 survit ; G2R-M07 survit ; G2R-M08 survit ; C-M16 **tué**. E1 (équivalence déclarée sur le domaine de la convention, Q-C4-1), G2-M06 et C-M11 (ancre de Q-G2-3) : **survivent, étiquetés** ; G2R-M01, M02, M04, M05, M06, M07, M08 : **survivent** (couverture partie en M-4b, tués sur le clone patché par la re-revue, §3 de son rapport) ; **C-M16 tué** par `red_proof_fails_on_a_stillborn_draw_or_an_empty_diff` [ERR_ASSERTION].
+- **Autres survivants** : MM5, MM6, MM8 (C-G2-18, trois clauses de la borne non épinglées : hors de ce tour, M-4b) ; **non appliqués** : E24, P-M1, C-M12, C-M13, C-M14, C-M15 (ancre disparue avec le code retiré aux tours 1 et 3).
+- **Non-régression** (comparaison avec les résultats de la re-revue 2 au gel 3, `mine/tours/RESULTS.json` et `mine/own/RESULTS.json`, mêmes textes) : seul changement : C-M16 SURVIVED → killed ; tout mutant tué au gel 3 reste tué après la recette C-M16 et la réécriture des commentaires.
+- **Mes mutants des lignes `// killer:` corrigées** (clone `corr4/clones/kmut`, un lancement, 20:33:38Z → 20:35:33Z ; harnais `corr4/tools/corr4-kmutants.mjs` : la ligne du test est réécrite, puis `red-proof.mjs` du clone tourne sur le lot lui-même ; tué = sortie 1 **et** ligne mutée refusée pour le motif attendu **et** 15 autres `new-module`) : **5/5 tués**, 0 non conclu, fichier restauré au sha après chacun :
+  - MK1 (address +1 (the tour 2 defect, other way): T1 cites :143, its <before> is on :142) : sortie 1, `refused` « invalid killer: "!ent.isSymbolicLink()" does not occur exactly once on scripts/red-proof.mjs:143 ».
+  - MK2 (parasite text after "<after>" (the tour 3 defect): T16's killer line carries a note) : sortie 1, `refused` « no killer declared on the line above the test ».
+  - MK3 (address -1 (the gel 3 value back): T8 cites :253, its <before> is on :254) : sortie 1, `refused` « invalid killer: "sha256: sha(baseTap)" does not occur exactly once on scripts/red-proof.mjs:253 ».
+  - MK4 (T16 back to :242 (the 548 -> 547 compaction left it one line low)) : sortie 1, `refused` « invalid killer: "unsupported test layout" does not occur exactly once on scripts/red-proof.mjs:242 ».
+  - MK5 (parasite text after "<after>" on an inherited killer (T13)) : sortie 1, `refused` « no killer declared on the line above the test ».
+- **C-M16 seul** (clone `cm16`, §22.4) : C-M16 killed par `red_proof_fails_on_a_stillborn_draw_or_an_empty_diff` [ERR_ASSERTION].
+- Récapitulatif des trois lancements : `corr4/mutants/RESULTS.txt`.
+
+### 22.8 Clôture de tour (règle Q-G2-18) : `red-proof.mjs` sur le lot lui-même, état final
+
+- `sha256` des fichiers du lot au lancement (20:30:58Z) : `scripts/red-proof.mjs` `6869fa3d…6203`, `scripts/red-proof.d.mts` `0ded59be…49b8`, `test/red-proof.test.ts` `9014a192…2e6b`.
+- `--draw 3 --seed 2026` (`corr4/f2p-final`, 20:30:58Z → 20:31:32Z) : **sortie 0**, 16 jugés, **16 `new-module`**, tirés l.254 (T8), l.168 (T6), l.217 (T12) : **3/3 `killed`** (`ERR_ASSERTION`), script restauré au sha `6869fa3d…` ; `RED-PROOF.json` `cddd038f1844b32596f74f7417d50b66e248a7aa4c9527a8aad9f2b0a27c7728`.
+- `--draw 16 --seed 2026` (`corr4/f2p16-final`, 20:31:33Z → 20:32:39Z) : **sortie 0, 16/16 `killed`** ; `RED-PROOF.json` `f7d21f44d75ab7d74722a2314c642ec33326a40a846ed677cfebb9eb40892841`.
+- Vérification indépendante : PASS ×2 ; `digest` des deux preuves `8ce53b8629314bd8fe835ec9b059e94679075180a998c7af1d0c6cf64b8d0799`, **recalculé égal depuis les fichiers du worktree** (recette de l'outil : `A <chemin> <sha256>` triés, journal exclu) après la campagne de mutants et à la clôture (§22.13).
+
+### 22.9 Oracle par l'outil du tronc
+
+- **Passage statique** (`node F:/Monark/scripts/oracle/run.mjs --role corr --tree F:/Monark-wt-m4 --base 0d54280d --static-only`, 2026-09-28T20:29:09Z → 2026-09-28T20:30:10Z, hors verrou) : **8/8 portes sortie 0** (`bash enforcement/lint-model-pinning.sh .`, `r25`, `lang:gate`, `export:check`, `gate:vocab`, `typecheck`, `lint`, `lint:ratchet`) ; r25 : STAT 547 insertions, 0 suppression, 547 ≤ 1205 ; CONTENT_STAT 0. Enregistrement `F:/tmp/oracle-results/b4dbcd1a60b3f0cb27643fd6d57be900c5c33b28-ff1d5e368fa2bfe1-corr-20260928T202909Z-42860.json`, sha256 `59f21508a43c2de03beedfbee2a1150cb610c5e3a9ad945d85887efdf67877e8` : `role` corr, `tree.head` `b4dbcd1a60b3f0cb27643fd6d57be900c5c33b28`, `tree.dirty` `ff1d5e368fa2bfe1…`, `tree.object` `06de6e3e130b…`, `static_only:true`, `exit` 0 (pré-contrôle, jamais servable).
+- **Passage complet** (`--role corr`, sans `--static-only`) : lancé après l'écriture de ce paragraphe, aucune course de ma part pendant sa suite ; résultat au §22.9 bis, écrit après la prise.
+
+### 22.10 `error_origin` proposés (assignés au G7)
+
+| Défaut | Proposé |
+|---|---|
+| C-G2-14 (killers hors convention) | repris de la re-revue 2 : **G1** (IMPLÉMENTEUR, correcteurs des tours 2 et 3) ; contributifs **ORCH**, **VAL** |
+| C-G2-16 (commentaires périmés) | G1 (IMPLÉMENTEUR) |
+| C-G2-19 (heures locales marquées Z) | G1 (correcteur du tour 3) |
+| C-M16 (survivant non épinglé) | G1 (TEST-FAIBLE) |
+| ce tour : premier relevé R-25 lu 0 (outil écrit par heredoc : la couche d'outil a réduit `\\d` en `\d`, l'expression ne captait plus rien) ; vu à la sortie incohérente (« 547 insertions » lu 0), réécrit par l'outil d'écriture, rejoué avant tout usage | **OUT** (outillage : heredoc) ; contributif **G1** (moi : sortie non relue avant la première exécution) |
+
+### 22.11 Écarts (déclarés)
+
+1. **Oracle statique ajouté** (`--static-only`, 20:29:09Z, hors verrou) avant les mutants : non demandé par la mission ; premier typecheck de la ligne de la recette C-M16 (la re-revue ne l'avait passée que sous `node --test`) ; enregistrement cité §22.9, jamais servi (un enregistrement statique n'est pas servable).
+2. **Campagne complète** (77 = 69 des tours + MM1 à MM8) au lieu des seuls 11 survivants : sur-ensemble, **seul** lancement du clone `mut` ; motif : la recette C-M16 change la fixture de `weakRun()`, lue par T15 et T16 ; la non-régression des tués se mesure, elle ne se suppose pas.
+3. **Premier relevé R-25 à 0** (tableau §22.10) : écarté, jamais cité.
+4. `git status --short` de l'ouverture (20:08Z) lancé sans `GIT_OPTIONAL_LOCKS=0` : index relu, mtime inchangé (17:05:26Z) : aucune écriture ; toutes les commandes suivantes avec `GIT_OPTIONAL_LOCKS=0`.
+5. **Enregistrement d'oracle et journal** : l'enregistrement complet (§22.9) porte l'empreinte `dirty` de l'arbre au lancement, antérieure aux §22.9 bis et §22.13 et à deux précisions de texte portées ensuite au §22 après la revue de clôture de l'advisor (modèle de l'advisor, relecture de l'index) (journal seul, `docs/**/*.md`, hors R-25 et hors `digest`) ; les sha des trois fichiers du lot sont égaux au lancement et à la clôture (§22.13).
+
+### 22.12 Questions (Q-C4T4-n, fermées)
+
+- **Q-C4T4-1** : le `REPONSE.md` scellé du tour 3 garde ses deux heures locales (17:18Z, 17:16Z) ; la correction vit au journal seul (§22.6, l.500). Accepté tel quel ?
+- **Q-C4T4-2** : les lignes de commentaire réécrites font 191 à 293 caractères (le fichier en porte déjà de 214, l.17) pour décrire la borne entière à nombre de lignes constant (R-25 547). Accepté ?
+- **Q-C4T4-3** : `corr4/tools/kcheck-wt.mjs` (sortie 1 si une ligne killer ne se lit pas, ne pointe pas son `<avant>` ou n'est pas au-dessus d'une déclaration) sert-il de base au test d'auto-contrôle des killers de M-4b (Q-G2-18, second volet) ?
+- **Q-C4T4-4** : le fait du §22.6 (A-M1 et fin de campagne du tour 3 dans sa propre suite sous verrou) est-il à verser à la règle de gabarit de Q-G2-20, étendue aux missions de correction ?
+
+
+### 22.9 bis Oracle complet par l'outil du tronc (écrit après la prise)
+
+- **Commande** : `node F:/Monark/scripts/oracle/run.mjs --role corr --tree F:/Monark-wt-m4 --base 0d54280d` (environnement filtré, stdin fermé, `timeout 7200`), lancé 20:52:36Z ; **aucune course de ma part pendant** (attente passive par lecture du journal de l'outil ; campagne de mutants finie à 20:51:35Z, clôture `red-proof` à 20:32:39Z).
+- **Portes statiques** hors verrou : 8/8 sortie 0 (`lint-model-pinning`, `r25`, `lang:gate`, `export:check`, `gate:vocab`, `typecheck`, `lint`, `lint:ratchet`) ; verrou FIFO libre : **attente 0 s** ; **C-V-4 à la prise** : 15 `node.exe`, 26 392 Mo libres ; **suite** (`npm test`, 490 196 ms) : **1 465 tests, 1 462 pass, 0 fail, 0 annulé, 3 sautés** (les trois préexistants : `sentinel_run_releases_chainstack_lock_on_sigterm`, `sentinel_instrument_out_win32_short_name`, `u4b_labels_replay_via_main_real_artifact`) ; **test 42** (`export_public_no_governance_no_french`) **une fois, dans la suite** (476 409 ms) ; les **16 `red_proof_*` verts** ; `bell_durable_rename_retry_cap_exhausted_fails_closed_named` vert.
+- **Enregistrement cité** : `F:/tmp/oracle-results/b4dbcd1a60b3f0cb27643fd6d57be900c5c33b28-274f929e7cad54fa-corr-20260928T205236Z-83012.json`, sha256 **`412a150e22aeb6aeb9a70b338db75440111f0d97742e9638e09d5cc9559ce30b`** : `role` corr, **`tree.head` `b4dbcd1a60b3f0cb27643fd6d57be900c5c33b28`**, `tree.dirty` `274f929e7cad54fa505fd18e817c667a294d8c4eac8e46b50a0c95f6ce6f822e`, `tree.object` `1eec74c9b8daaa9b3c273bc8fc6d909498c03b00`, `base` `0d54280d`, **`static_only:false`**, `r25` STAT 547 / 1 205 (CONTENT_STAT 0 / 8 000), `served_from` nul, `lock_wait_s` 0, `residues.tmp_entries` 379 (même valeur que l'enregistrement du passage 2 de la re-revue, `…T185046Z-134564.json` : propriété de la suite ; le dossier de course est retiré par l'outil, aucun restant sous `F:/tmp/oracle-runs`), **`exit` 0**, 20:52:36Z → 21:01:49Z ; journal de la suite `09-test.log` sha256 `e0623d90a4cbf31c0917d05725690b37fc7b7e1b704759c7296e0f14dac0f6b3`.
+- **Compte** : 1 465 = 1 449 (suite de la base du lot `0d54280d`) + 16 (`test/red-proof.test.ts`) : l'attendu de la mission.
+- **Arbre de l'enregistrement** : `dirty` = diff du worktree à 20:52:36Z, journal compris jusqu'au §22.12 ; ce §22.9 bis et le §22.13 sont écrits après (journal seul, hors R-25 et hors `digest`) ; sha des trois fichiers du lot au lancement de l'oracle = sha de la clôture (`corr4/logs/lot-sha-at-oracle.txt`, `cmp` égal).
+- `F:/Monark/node_modules` : 220 entrées, 10 `@monark`, empreinte des noms `dd16d37940b6a33d67add04c4c98ef2be57609f123180932d4597838f557837c` identique avant (20:39:24Z) et après (21:02:44Z) ; verrou relu libre après. Aucune jonction créée par moi (`mk-nm.ps1` non utilisé : ni le worktree ni mes clones n'en ont besoin ; l'outil d'oracle jonctionne dans son dossier de course et le retire).
+
+### 22.13 Clôture (21:03:11Z, `corr4/tools/final-check.sh`, lecture seule, sortie 0)
+
+- Worktree `F:/Monark-wt-m4` : HEAD `b4dbcd1a60b3f0cb27643fd6d57be900c5c33b28` ; `git status --short` = exactement `M docs/G1-lot-methode-m4.md`, `M scripts/red-proof.mjs`, `M test/red-proof.test.ts` (aucun non suivi, `.d.mts` intact) ; aucun git écrivant (deux `git apply` simples, aucun `add`, aucun commit : le gel 4 est un acte de l'orchestrateur, R-20 ; index du worktree relu à 21:06:50Z : mtime 17:05:26Z, commit du gel 3, inchangé) ; pas de `node_modules`.
+- Fichiers du lot : `scripts/red-proof.mjs` 268 l. `6869fa3dde229a0da96f62bb0942f90cc7eb9bd1e10df7b64b0bded111636203` ; `scripts/red-proof.d.mts` 21 l. `0ded59be99da5e0405bbce3b0bc10085f0c9e8dbfc690a27e35f1418cb8149b8` ; `test/red-proof.test.ts` 258 l. `9014a1924c37afadf5df9df7751dac9759886d6806903330aaa0d438c2ea2e6b` ; = sha de la clôture `red-proof` (20:30:58Z) et du lancement de l'oracle (20:52:36Z) ; `digest` recalculé `8ce53b86…0799` = celui des deux preuves de clôture ; kcheck 16/16.
+- Clones laissés en place sous `F:/tmp/methode/m4/corr4/clones/` (`cm16`, `kmut`, `mut` : `b4dbcd1a` + fichiers du lot, sans jonction) ; TEMP vides ; aucun `rm`.
+- Livrables : `F:/tmp/methode/m4-corr4-deliver/` (`REPONSE.md`, fichiers du lot, ce journal, preuves `red-proof` ×4, enregistrements d'oracle copiés et leurs journaux, TAP et `RESULTS.txt` des mutants, outils) + `DELIVERED.sha256` (sha du journal final dans `REPONSE.md`, sha du manifeste dans la réponse structurée ; jamais dans le journal lui-même).

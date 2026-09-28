@@ -5,8 +5,8 @@
 // any directory of it) and the diff's other files under a test/ directory are copied into a no-local clone of the base; each test file
 // runs alone under node --test (TAP) there and in a clone of the gel, node_modules of --repo linked in, workspace links re-pointed to the
 // clone's packages/* and apps/*; no child sees a variable whose name matches DENY (M-3's closed list). A test is JUDGED when a changed
-// line falls in its body, from its top-level declaration to its last code line: blank and comment lines between tests (killer lines among
-// them) are in no body; a pure deletion counts between two lines of one body. F2P = red at base by an assertion failure (TAP code
+// line falls in its body: its declaration line if that line ends with ");" (a // note may follow), else from it down to the first later line opening at column 0 with "}" or ")" before the next test
+// (neither: refused, "unsupported test layout"); a changed killer line never counts; a pure deletion counts between two lines of one body. F2P = red at base by an assertion failure (TAP code
 // ERR_ASSERTION), green at gel; new-module = the base run cannot load a file that the diff adds. Refused: green at base (self-confirming),
 // an import red on a file that exists at base, any other red, not green at gel, no valid killer. A killed child (exit 134, signal, heap
 // limit) or a timed-out run or test is inconclusive, never a pass nor a kill. Exit 0 iff a test at least is judged, each is F2P or
@@ -119,7 +119,7 @@ function changedLines(gitDir, range, file) {
   return set;
 }
 
-function judgedOf(text, changed) { // a changed line judges a test only inside its body (declaration to last code line); blank and comment lines (//, /* */, JSDoc *) between tests are in no body
+function judgedOf(text, changed) { // a changed line judges a test only inside its body: from its declaration line to its end, that line if it ends with ");", else the first later line opening at column 0 with "}" or ")" before the next test (none: refused); a changed killer line never counts
   const lines = text.split("\n"), decls = declarations(text), unsupported = new Set();
   const hit = (l) => (changed === null || changed.has(l)) && !/^\s*\/\/ killer:/.test(lines[l - 1]);
   const judged = decls.filter((t, i) => { const bound = (decls[i + 1]?.line ?? lines.length + 1) - 1; let end; if (/\);\s*(\/\/.*)?$/.test(lines[t.line - 1])) end = t.line; else for (let l = t.line + 1; l <= bound; l++) if (/^[})]/.test(lines[l - 1])) { end = l; break; } if (end === undefined) { unsupported.add(t); return true; } for (let l = t.line; l <= end; l += 0.5) if (hit(l)) return true; return false; });

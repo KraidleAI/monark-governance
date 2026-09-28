@@ -1,9 +1,9 @@
 /**
- * Root tests of scripts/red-proof.mjs, the F2P proof of a lot (ADR-METHODE-2 D2, lot M-4, decision 267 (b)), on a fixture repo built under
- * TEMP, git isolated (GIT_* out, no system config, a global core.autocrlf=true): a base commit, a gel commit (fifteen case tests in four
- * new files, a moved test file, a docs note) and two linked worktrees (an untracked test file, a modified one with a new test between two
- * old ones, a support helper, a deleted file; stillborn, invalid, dead and hanging killers); node_modules holds a plain package and a
- * workspace link, as npm installs them. Each test names the mutation of the script that reddens it (killer convention). Governance-only.
+ * Root tests of scripts/red-proof.mjs, the F2P proof of a lot (ADR-METHODE-2 D2, lot M-4, decision 267 (b)), on a fixture repo built under TEMP, git isolated (GIT_*
+ * out, no system config, a global core.autocrlf=true): a base commit, a gel commit (fifteen case tests in four new files, a moved test file, a docs note) and two
+ * linked worktrees (an untracked test file, a modified one with a new test between two old ones, a support helper, a deleted file; stillborn, invalid, dead and
+ * hanging killers, a test closing indented (layout: unsupported), a killer line deleted right under an unchanged one-line test (not judged)); node_modules holds a
+ * plain package and a workspace link, as npm installs them. Each test names the mutation of the script that reddens it (killer convention). Governance-only.
  */
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
@@ -111,7 +111,7 @@ function weakRun(): Run { // a second linked worktree, at gel: four admitted tes
   if (!existsSync(wt)) {
     git(f.dir, "worktree", "add", "-q", "--detach", wt, f.gel);
     write(wt, {
-      "lib/old.ts": "export const OLD = 2;\n", "test/weak.test.ts": `${HEAD}import { OLD } from "../lib/old.ts";\n// killer: lib/fresh.ts:1 CONST "3" -> "4"\ntest("weak", () => { assert.equal(OLD, 2); });\n`,
+      "lib/old.ts": "export const OLD = 2;\n", "test/weak.test.ts": `${HEAD}import { OLD } from "../lib/old.ts";\n// killer: lib/fresh.ts:1 CONST "3" -> "4"\ntest("weak", () => { assert.equal(OLD, 2); });\n`, "test/cases.test.ts": readFileSync(join(wt, "test", "cases.test.ts"), "utf8").replace('// killer: lib/old.ts:1 CONST "1" -> "5"\n', ""),
       "test/layout.test.ts": `${HEAD}// killer: lib/old.ts:1 CONST "2" -> "1"\ntest("layout_bad", () => {\n  assert.equal(1, 1);\n  });\n`, // RED-PROOF-LEX-FALLBACK-1: closes indented, not at column 0 -> unsupported test layout
     });
     write(wt, { "lib/vi.ts": "export const vi = (): number => 1;\nexport const vj = (): number => 2;\nexport const vk = async (): Promise<number> => 3;\n", "test/vi.test.ts": `${HEAD}import { vi, vj, vk } from "../lib/vi.ts";\n// killer: lib/vi.ts:2 SDL "export" -> ""\ntest("vi_invalid", () => { assert.equal(vj(), 2); });\n// killer: lib/vi.ts:1 CONST "1" -> "process.exit(134)"\ntest("vi_dies", () => { assert.equal(vi(), 1); });\n// killer: lib/vi.ts:3 CONST "=> 3" -> "=> new Promise(() => {})"\ntest("vi_hangs", { timeout: 500 }, async () => { assert.equal(await vk(), 3); });\n` });
@@ -125,13 +125,13 @@ function row(name: string): ProofRow {
 }
 const admitted = (rows: ProofRow[]): ProofRow[] => rows.filter((t) => t.verdict === "F2P" || t.verdict === "new-module");
 
-// killer: scripts/red-proof.mjs:141 COR "!ent.isSymbolicLink()" -> "ent.isSymbolicLink()"
+// killer: scripts/red-proof.mjs:142 COR "!ent.isSymbolicLink()" -> "ent.isSymbolicLink()"
 test("red_proof_admits_an_assertion_red_at_base_through_a_workspace_link", () => {
   const r = row("f2p_true");
   assert.deepEqual([r.base, r.gel, r.verdict], ["assert-fail", "pass", "F2P"]);
 });
 
-// killer: scripts/red-proof.mjs:172 SDL "green at base" -> ""
+// killer: scripts/red-proof.mjs:173 SDL "green at base" -> ""
 test("red_proof_refuses_a_test_green_at_base_or_red_at_gel", () => {
   const r = row("green_at_base"), g = row("red_at_gel");
   assert.deepEqual([r.base, r.gel, r.verdict, g.base, g.gel, g.verdict], ["pass", "pass", "refused", "assert-fail", "assert-fail", "refused"]);
@@ -139,25 +139,25 @@ test("red_proof_refuses_a_test_green_at_base_or_red_at_gel", () => {
   assert.deepEqual([row("gel_typeerror").base, row("gel_typeerror").gel, row("gel_typeerror").verdict], ["assert-fail", "other-fail", "refused"]);
 });
 
-// killer: scripts/red-proof.mjs:170 COR "&& t.newModule" -> "|| t.newModule"
+// killer: scripts/red-proof.mjs:171 COR "&& t.newModule" -> "|| t.newModule"
 test("red_proof_refuses_an_import_red_on_a_module_that_exists_at_base", () => {
   const r = row("import_existing");
   assert.deepEqual([r.base, r.gel, r.module, r.verdict], ["import-fail", "pass", "lib/old.ts", "refused"]);
 });
 
-// killer: scripts/red-proof.mjs:240 COR "&& added.has(module)" -> "&& !added.has(module)"
+// killer: scripts/red-proof.mjs:241 COR "&& added.has(module)" -> "&& !added.has(module)"
 test("red_proof_admits_a_new_module_with_its_killer", () => {
   const r = row("new_module — (fresh) [x] $y 'z' #w"), n = row("new_no_killer");
   assert.deepEqual([r.base, r.gel, r.module, r.verdict, n.base, n.module, n.verdict], ["import-fail", "pass", "lib/fresh.ts", "new-module", "import-fail", "lib/fresh.ts", "refused"]);
 });
 
-// killer: scripts/red-proof.mjs:166 SDL "no killer declared" -> ""
+// killer: scripts/red-proof.mjs:167 SDL "no killer declared" -> ""
 test("red_proof_refuses_a_test_without_killer", () => {
   const r = row("no_killer");
   assert.deepEqual([r.base, r.gel, r.killer, r.verdict], ["assert-fail", "pass", null, "refused"]);
 });
 
-// killer: scripts/red-proof.mjs:167 SDL "invalid killer" -> ""
+// killer: scripts/red-proof.mjs:168 SDL "invalid killer" -> ""
 test("red_proof_refuses_a_stale_or_ambiguous_killer", () => {
   for (const r of [row("stale_killer"), row("ambiguous_killer")]) {
     assert.deepEqual([r.base, r.verdict], ["assert-fail", "refused"]);
@@ -166,14 +166,14 @@ test("red_proof_refuses_a_stale_or_ambiguous_killer", () => {
   assert.deepEqual([row("outside_killer").reason, row("test_code_killer").reason, statSync(join(fixture().dir, "node_modules", "fx-dep", "index.js")).mtimeMs], ["invalid killer: node_modules/fx-dep/index.js is out of scope: not a file inside the gel clone", "invalid killer: test/cases.test.ts is test code: a killer mutates production code", fixture().nm]);
 });
 
-// killer: scripts/red-proof.mjs:194 CONST "\"stillborn\"" -> "\"killed\""
+// killer: scripts/red-proof.mjs:195 CONST "\"stillborn\"" -> "\"killed\""
 test("red_proof_refuses_a_stillborn_killer_among_the_drawn", () => {
   const { status, proof } = commitRun();
   assert.deepEqual(Object.fromEntries((proof.draw?.drawn ?? []).map((d) => [d.name, d.outcome])), { f2p_true: "killed", stillborn: "stillborn", "new_module — (fresh) [x] $y 'z' #w": "killed" });
   assert.deepEqual([status, proof.ok], [1, false]);
 });
 
-// killer: scripts/red-proof.mjs:253 CONST "sha256: sha(baseTap)" -> "sha256: sha(gelTap)"
+// killer: scripts/red-proof.mjs:254 CONST "sha256: sha(baseTap)" -> "sha256: sha(gelTap)"
 test("red_proof_tap_sha256_recomputes_equal", () => {
   const { proof, out } = commitRun(), f = fixture();
   for (const t of [proof.tap.base, proof.tap.gel, ...(proof.draw?.drawn ?? []).map((d) => d.tap)]) assert.equal(sha(readFileSync(join(out, t.path))), t.sha256, t.path);
@@ -182,7 +182,7 @@ test("red_proof_tap_sha256_recomputes_equal", () => {
   assert.equal(proof.gel.digest, sha(Buffer.from(recipe.filter(([, p]) => !/^docs\/(.+\/)?[^/]+\.md$/.test(p ?? "")).map(([s, p]) => `${s ?? ""} ${p ?? ""} ${s === "D" ? "-" : sha(readFileSync(join(f.dir, p ?? "")))}`).join("\n"))), "digest recipe");
 });
 
-// killer: scripts/red-proof.mjs:261 SDL "rmSync(work" -> ""
+// killer: scripts/red-proof.mjs:262 SDL "rmSync(work" -> ""
 test("red_proof_restores_each_mutated_file_and_removes_its_clones", () => {
   const f = fixture(), { proof, left } = commitRun();
   assert.equal(proof.draw?.drawn.length, 3);
@@ -195,7 +195,7 @@ test("red_proof_restores_each_mutated_file_and_removes_its_clones", () => {
   assert.ok(existsSync(join(f.dir, "node_modules", "fx-dep", "index.js")), "the linked package survives the cleanup");
 });
 
-// killer: scripts/red-proof.mjs:98 SDL "Reached heap limit" -> ""
+// killer: scripts/red-proof.mjs:99 SDL "Reached heap limit" -> ""
 test("red_proof_counts_a_killed_child_as_inconclusive", () => {
   const tap = (diag: string, note = ""): string => `TAP version 13\n${note}not ok 1 - t\n  ---\n${diag}  ...\n1..1\n`;
   const oom = "# FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory\n"; // the shape measured on this host: both signals
@@ -210,7 +210,7 @@ test("red_proof_counts_a_killed_child_as_inconclusive", () => {
   assert.deepEqual([parent("ERR_ASSERTION", "ERR_ASSERTION"), parent("ERR_ASSERTION", "ERR_TEST_FAILURE")].map((t) => classify(parseTap(t)[0])), ["assert-fail", "other-fail"]);
 });
 
-// killer: scripts/red-proof.mjs:178 CONST "seed >>> 0" -> "0"
+// killer: scripts/red-proof.mjs:179 CONST "seed >>> 0" -> "0"
 test("red_proof_draw_is_reproducible_at_a_fixed_seed", () => {
   const pop = Array.from({ length: 20 }, (_, i) => i), d = drawKillers(pop, 3, 42);
   assert.deepEqual(drawKillers(pop, 3, 42), d);
@@ -220,7 +220,7 @@ test("red_proof_draw_is_reproducible_at_a_fixed_seed", () => {
   assert.deepEqual(proof.draw?.drawn.map((x) => x.name), drawKillers(admitted(proof.tests), 3, 7).map((t) => t.name));
 });
 
-// killer: scripts/red-proof.mjs:216 SDL "ls-files" -> ""
+// killer: scripts/red-proof.mjs:217 SDL "ls-files" -> ""
 test("red_proof_worktree_gel_counts_untracked_files_and_exits_zero", () => {
   const { status, proof } = worktreeRun(), sub = run("worktree-sub", join(fixture().root, "wt", "test"), []); // --gel names a sub-directory; no --draw
   assert.deepEqual([proof.tests, sub.proof.tests].map((ts) => ts.map((t) => [t.file, t.name, t.base, t.gel, t.verdict])), Array(2).fill([
@@ -230,20 +230,20 @@ test("red_proof_worktree_gel_counts_untracked_files_and_exits_zero", () => {
   assert.deepEqual([status, proof.ok, proof.gel.mode, proof.gel.head, proof.draw?.drawn.map((d) => d.outcome), proof.drawn, sub.status, sub.proof.ok, sub.proof.drawn], [0, true, "worktree", fixture().base, ["killed", "killed"], 2, 0, true, 0]);
 });
 
-// killer: scripts/red-proof.mjs:116 SDL "set.add(l)" -> ""
+// killer: scripts/red-proof.mjs:117 SDL "set.add(l)" -> ""
 test("red_proof_judges_only_the_changed_tests_of_a_modified_file", () => {
   const { proof } = worktreeRun(); // old_first: unchanged, the line deleted under it and the blank and comment lines added there are in no body; old_green loses a line: judged
   assert.deepEqual([proof.unchanged, proof.files.support, proof.tests.filter((t) => t.file === "test/old.test.ts").map((t) => t.name)], [1, ["test/helpers/h.ts"], ["twice_new", "old_green"]]);
 });
 
-// killer: scripts/red-proof.mjs:164 SDL "runs under the host lock only" -> ""
+// killer: scripts/red-proof.mjs:165 SDL "runs under the host lock only" -> ""
 test("red_proof_never_runs_test_42_outside_the_host_lock", () => {
   const r = row("slow (test 42)");
   assert.deepEqual([r.base, r.gel, r.verdict], ["missing", "missing", "refused"]); // filtered out by --test-skip-pattern: never run, absent from the TAP
   assert.match(r.reason, /host lock/);
 });
 
-// killer: scripts/red-proof.mjs:247 COR "&& drawn.every(" -> "|| drawn.every("
+// killer: scripts/red-proof.mjs:248 COR "&& drawn.every(" -> "|| drawn.every("
 test("red_proof_fails_on_a_stillborn_draw_or_an_empty_diff", () => {
   const weak = weakRun(), empty = run("empty", fixture().gel, [], fixture().gel);
   assert.deepEqual([weak.proof.tests.map((t) => t.verdict), Object.fromEntries((weak.proof.draw?.drawn ?? []).map((d) => [d.name, d.outcome])), weak.proof.ok, weak.status],
@@ -251,7 +251,7 @@ test("red_proof_fails_on_a_stillborn_draw_or_an_empty_diff", () => {
   assert.deepEqual([empty.proof.tests.length, empty.proof.ok, empty.status, empty.proof.drawn], [0, false, 1, 0]);
 });
 
-// killer: scripts/red-proof.mjs:242 CONST "unsupported test layout" -> "" (RED-PROOF-LEX-FALLBACK-1: the old body-end fallback is dead under C-G2-10 -- P-M1, C-M12..C-M16)
+// killer: scripts/red-proof.mjs:241 CONST "unsupported test layout" -> ""
 test("red_proof_refuses_an_unsupported_test_layout", () => {
   const r = weakRun().proof.tests.find((t) => t.file === "test/layout.test.ts" && t.name === "layout_bad");
   assert.deepEqual([r?.verdict, r?.reason], ["refused", "unsupported test layout"]);
