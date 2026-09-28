@@ -217,3 +217,49 @@ for (const [c, rev] of CORPUS) {
     assert.ok(r.hits.every((h) => CODES.includes(h.code)));
   });
 }
+
+// Lot M-2b (decision 275-d): the four semantic rules, MODEL-FIELD-1 and CREATE-SCOPE-1; each killer below is the line above
+// its test, in the format of red-proof.mjs (production file:line, operator, before -> after).
+// killer: scripts/mission/lint.mjs:152 SDL "hit(\"R-VAGUE\"" -> ""
+test("R-VAGUE: a phrase of the closed list outside backticks is red, a quoted mention or a near miss is not [mutant: R-VAGUE check removed]", () => {
+  assert.deepEqual(red(H("Add appropriate error handling, handle edge cases as needed, as appropriate.")), new Array<string>(4).fill("R-VAGUE"));
+  assert.deepEqual(red(H("Gestion d\u2019erre\u0075rs appropri\u00e9e, validation appropri\u00e9e, cas limites appropri\u00e9s, relire a\u0075 besoin, appropriate validation.")), new Array<string>(5).fill("R-VAGUE"));
+  assert.deepEqual(red(H("Quoted: `as needed`, `a\u0075 besoin`. Near misses: as needs, handled edge cases, appropriately validated.")), []);
+});
+
+// killer: scripts/mission/lint.mjs:153 SDL "hit(\"R-SIMILAR\"" -> ""
+test("R-SIMILAR: an empty cross-reference of the closed list followed by a number is red, a quoted or number-less one is not [mutant: R-SIMILAR check removed]", () => {
+  assert.deepEqual(red(H("Similar to Task 3, same as step 2, like task 4.")), new Array<string>(3).fill("R-SIMILAR"));
+  assert.deepEqual(red(H("Co\u006dme l\u0061 t\u00e2che 2, idem \u00e9tape 3, m\u00eame chose q\u0075e 1.")), new Array<string>(3).fill("R-SIMILAR"));
+  assert.deepEqual(red(H("Similar to the task, same as `step 2`, like tasks, task 3 alone.")), []);
+});
+
+// killer: scripts/mission/lint.mjs:164 SDL "hit(\"R-SYMBOL\"" -> ""
+test("R-SYMBOL: an identifier presented as existing and defined nowhere in the tree is red; one defined in an untracked file or declared to-create is not; --rev reads the tree of the commit [mutants: R-SYMBOL check removed; untracked files not searched]", () => {
+  writeFileSync(join(REPO, "scripts", "defs.mjs"), "export function onlyHere() {}\nexport class Shape {}\nconst inner = 1;\nexport { inner };\n");
+  assert.deepEqual(red(H("Call `nowhere()`, the function `onlyHere`, `onlyHere()`, the class `Shape`, `inner()` and the type `Ghost`.")), ["R-SYMBOL", "R-SYMBOL"]);
+  assert.deepEqual(red(H("Write the function `fresh` (nouveau), then call `fresh()`.")), []);
+  assert.deepEqual(lint(H("Call `onlyHere()`."), BASE).hits.map((h) => h.code), ["R-SYMBOL"]);
+});
+
+// killer: scripts/mission/lint.mjs:155 SDL "step[1] = true" -> ""
+test("R-STEP: under a steps heading, a numbered step with neither a backtick span nor a path is red; a command on a continuation line, a path in prose or a list under another heading is not [mutants: R-STEP check removed; continuation lines ignored]", () => {
+  assert.deepEqual(red(H("## Steps\n1. Think hard.\n2. Run `scripts/present.mjs`.\n## \u00c0 fai\u0072e\n1. Decide.")), ["R-STEP", "R-STEP"]);
+  assert.deepEqual(red(H("## Recette\n1. Rerun the suite,\n   then `scripts/present.mjs`.\n2. Read docs/ten.md again.\n## Notes\n3. Nothing to run.")), []);
+});
+
+// killer: scripts/mission/lint.mjs:156 COR "!pf && FABLE_CODER" -> "FABLE_CODER"
+test("MODEL-FIELD-1: the Palier field is read before the prose; claude-fable-5-1 with an implementer or corrector role in the fields is red [mutants: proximity rule kept despite the field; Role field ignored]", () => {
+  const F = (fields: string, body = "x"): string[] => red(`# MISSION G2 fixture\n${fields}\nbranch \`lot/x\`, base tronc \`${BASE}\`.\n${body}\n`);
+  assert.deepEqual(F("Palier : `claude-opus-5-5`\nR\u00f4l\u0065 : G1 (impl\u00e9menteur)", "Never `claude-fable-5-1` corrector (decision 274)."), []);
+  assert.deepEqual([F("Palier : `claude-fable-5-1`\nR\u00f4l\u0065 : G1"), F("Palier : `claude-fable-5-1`\nR\u00f4l\u0065 : corr"), F("Palier : `claude-fable-5-1`. R\u00f4l\u0065 : worker G1 (impl\u00e9menteur), effort max.")], [["R-MODEL"], ["R-MODEL"], ["R-MODEL"]]);
+  assert.deepEqual([F("Palier : `claude-fable-5-1`\nR\u00f4l\u0065 : G2 (relecteur)"), F("Palier : `claude-opus-5-5`. R\u00f4l\u0065 : worker G1 (impl\u00e9menteur), effort max."), F("Palier : `gpt-5`\nR\u00f4l\u0065 : G2")], [[], [], ["R-MODEL"]]);
+});
+
+// killer: scripts/mission/lint.mjs:115 COR "(!generated && CREATE.test(raw))" -> "CREATE.test(raw)"
+test("CREATE-SCOPE-1: in a mission stamped by gen.mjs only the to-create section declares, a creation word no longer does, the stamp line is never checked; a hand-written mission is unchanged [mutants: creation word still declares; stamp line checked]", () => {
+  const body = "Write `docs/a.md` (nouveau).\n## \u00c0 cr\u00e9er\n- `docs/b.md`\n## Next\nSee `docs/b.md`.";
+  const stamped = H(body).replace("\n", "\nG\u00e9n\u00e9r\u00e9 : scripts/mission/gen.mjs 2026-09-28T00:00:00Z\n");
+  assert.deepEqual(lint(stamped).hits.map((h) => [h.code, h.line]), [["R-PATH", 4]]);
+  assert.deepEqual(red(H(body)), []);
+});
