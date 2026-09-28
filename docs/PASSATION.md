@@ -1,6 +1,6 @@
 # PASSATION — dossier de reprise pour un nouvel orchestrateur (nouveau compte Claude ou nouvelle session) — mis à jour à chaque retour d'agent et à chaque décision (décision 271, investisseur, 2026-09-28)
 
-**Dernière mise à jour** : 2026-09-28 04:46 UTC — ADR-METHODE-2 acceptée (cp-1 ter) et commise dans docs/adr ; prochaine action : G1 de M-1 (garde d octets) ; memstack relancé (start.ps1).
+**Dernière mise à jour** : 2026-09-28 04:47 UTC — G1 M-1 en vol (`F:/Monark-wt-m1`, mission `F:/tmp/methode/mission-g1-m1.md`) ; ADR-METHODE-2 commise `6f769b7`.
 
 ## 0. Lire dans cet ordre (30 minutes)
 1. `F:\claude-config\CLAUDE.md` (règles globales, roster, amendement 267 en fin de fichier) — **contient des octets 0x08/0x07 aux l.203 et l.286 (BYTE-GUARD-CONFIG-1), ne pas « corriger » sans go**.

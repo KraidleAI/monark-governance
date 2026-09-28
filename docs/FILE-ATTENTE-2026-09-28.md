@@ -48,3 +48,4 @@ BIBLIO-ID-2411-1 ; REPO-STRAY-WORKTREE-GUARD-1 ; VALIDATEUR-CA-12-TIERS-1 ; VOCA
 - 2026-09-28 03:46 UTC — décision 273 : SHOGEN-STRATE-POOLEE-1 (ADR puis code) inséré avant J14.
 - 2026-09-28T04:09Z — 17 procurements reçus (14 conformes) → EN ATTENTE : campagne de lecture après la méthode (Narabi : Barber AoS, Howard, Lou, Schwager, Karwe-Naus ; KAIZEN : McLean-Pontiff, Opdyke ; méthode : Boehm, Ackerman, Parnas, Ammann-Offutt, Stodden ; D-2 : Tetenov, LTT). Dus : Mertens E. 2002, PID dernière version + NeurIPS, SM Science.
 - 2026-09-28 04:24 UTC — procurements complets (21 PDF) ; Firecrawl rétabli ; campagne de lecture prête à cadrer dès la levée du gel.
+- 2026-09-28 04:47 UTC — ADR-METHODE-2 commise ; G1 M-1 LANCÉ → suite : G2 M-1 → cp-2 → G7 ; puis M-2a, M-2b, M-3, M-4 ; puis M-11, M-12 (après fusion N2-1a), M-10 (après rejeu A-REJEU-1).
