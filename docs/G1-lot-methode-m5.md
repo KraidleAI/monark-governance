@@ -41,7 +41,7 @@ claude-opus-5-5[1m]
 9. Section « Point d'étape » rendue `## Status point` : l'index doré sous `test/` est lu par `lang:gate` (portée root), un diacritique le rougirait (Q-M5-9).
 
 ## R-25
-Méthode A, pathspec `ci.yml:82`, par la fonction `r25()` du tronc (`F:/Monark/scripts/oracle/r25.mjs` n'a pas de CLI : Q-M5-8) sur un clone `--no-local` à commit de gel (fichiers non suivis inclus) : **476** avant l'entrée du journal, **477** avec `docs/journal/M-5.jsonl` (1 l.) ; 0 suppression ; CONTENT_STAT 0. Répartition : script 220, test 200 (dont 16 lignes `// killer:`), fixtures 20, index doré 37 ; `docs/**/*.md` exclus (ce journal, `INDEX.md`). **Au-dessus de la tolérance 294 (×2,1 de 140), sous le STOP 547.** Cause nommée : 275-e a fixé après C dix contrôles, un schéma fermé de 19 champs, deux sous-commandes, `--from-recu` et `--from-oracle`, un test par contrôle ; C chiffrait « `index.mjs` ≈ 80 + test doré ≈ 60 » pour un index sans contrôles ; et `test/fixtures/` n'est pas une racine de série exclue (seul `docs/**/*.md` l'est), d'où 57 l. de fixtures comptées. Scission pré-déclarée **non faite** (déclencheur : au-delà de 547) ; elle n'amènerait pas le lot sous 294 (J-ORACLE, J-RECU, J-LINT et leurs tests ≈ 70 l.). Décision : Q-M5-7.
+Méthode A, pathspec `ci.yml:82`, par la fonction `r25()` du tronc (`F:/Monark/scripts/oracle/r25.mjs` n'a pas de CLI : Q-M5-8) sur un clone `--no-local` à commit de gel (fichiers non suivis inclus) : **476** avant l'entrée du journal, **477** avec `docs/journal/M-5.jsonl` (1 l.) ; 0 suppression ; CONTENT_STAT 0. Répartition : script 220, test 200 (dont 16 lignes `// killer:`), fixtures 19 + l'entrée réelle `docs/journal/M-5.jsonl` 1 (corrigé au tour 1, C-G2-7), index doré 37 ; `docs/**/*.md` exclus (ce journal, `INDEX.md`). **Au-dessus de la tolérance 294 (×2,1 de 140), sous le STOP 547.** Cause nommée : 275-e a fixé après C dix contrôles, un schéma fermé de 19 champs, deux sous-commandes, `--from-recu` et `--from-oracle`, un test par contrôle ; C chiffrait « `index.mjs` ≈ 80 + test doré ≈ 60 » pour un index sans contrôles ; et `test/fixtures/` n'est pas une racine de série exclue (seul `docs/**/*.md` l'est), d'où 57 l. de fixtures comptées. Scission pré-déclarée **non faite** (déclencheur : au-delà de 547) ; elle n'amènerait pas le lot sous 294 (J-ORACLE, J-RECU, J-LINT et leurs tests ≈ 70 l.). Décision : Q-M5-7.
 
 ## Tests (16 neufs, `node --test test/journal-index.test.ts`)
 Dépôt fixture sous TEMP : deux commits déterministes (identité et dates fixes, `GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL` vide, aucune variable `GIT_*`) : C1 `d3b8d4d9814b74bfa0ae9563616e8feb6f27309d` (a.txt, 2026-01-01T00:30:00Z), C2 `8216f30324b60802d9d6c91beb5f3082dbe0653e` (docs/b.md, 2026-01-02T00:30:00Z), reproduits à l'identique sur deux exécutions ; le test doré les vérifie avec un message de cause. Les entrées figées (M-X : G0, cp-1, G1, G2 à C1, corr, cp-2, G7, fusion ; M-Y : G0, G1, 4 corr) sont la fixture propre ; chaque test de contrôle en forge un défaut. Reçu du test CA-11 : écrit par le vrai `scripts/mission/launch.mjs`. Les 16 tests : golden ; build rouge (index intact, `--only`, aucun journal = exit 2) ; add CA-11 ; add champ requis manquant ; add `--date` ; add TAB et `F:` + deux espaces ; J-SCHEMA ; J-TIME ; J-TRACE ; J-ORIGIN (liste vide admise) ; J-TOURS et J-ADJ ; J-ORACLE (7 raisons + propre) ; J-RECU ; J-LINT (TODO ; chemin absent au commit) ; J-MODEL ; J-ADJ. Durée locale : 11 s. `tsc --noEmit` et `eslint` du test : 0 ; règles du cliquet sur le test : 0 (plafond 69 inchangé).
@@ -132,3 +132,116 @@ Dépôt fixture sous TEMP : deux commits déterministes (identité et dates fixe
 - **Q-M5-12** : J-MODEL compare au palier **déclaré dans l'entrée** (`--tier`), pas à celui de l'en-tête de la mission (format fixé par M-2b, non fusionné) : **item** au G0 de M-2b ou M-5b : `add --from-recu` lit le palier de l'en-tête ?
 - **Q-M5-13** : `add --from-recu` hache la mission lue au moment de `add`, pas les octets que le lanceur a hachés : une mission éditée entre le lancement et la lecture de l'agent, puis rétablie avant `add`, reste invisible à J-RECU (même octets) ; c'est le reçu non signé de METHODE-RECU-SIGNE-1 : **rattacher** à cet item (aucun code ici) ?
 - **Q-M5-14** : `build` sur un fichier de lot vide : J-SCHEMA rouge (exit 1, contenu malformé) ; aucun fichier `*.jsonl` (ou `--only` d'un lot absent) : exit 2 (rien à construire). Deux codes pour deux états voisins, voulus : **confirmer** ?
+
+## Corrections — tour 1 (correcteur, 2026-09-28)
+- **Correcteur** : modèle résolu `claude-opus-5-5` (identifiant exact donné par le harnais, R-1), palier `claude-opus-5-5`, effort max, instance fraîche (≠ worker G1 `claude-opus-5-5[1m]`, ≠ relecteur G2). **Heures** (`date -u`) : début 21:05:45Z (sha de la mission recalculé) ; code, fixtures et test 21:18-21:28Z ; entrée réelle 21:28:57Z ; red-proof 21:29:24-21:38:36Z ; mutants 21:35:16-21:36:47Z ; oracle 21:40:05-21:47:53Z ; R-25 21:48:31Z ; TAP 21:48:37Z ; rédaction 21:48:51-21:50:38Z.
+- **Mission** `F:/tmp/methode/mission-corr-m5-t1.md` : sha256 `0bfbe8ca4cef2dec8b7de5a687091f23536965422c872ee68ce7bf23846504a0` recalculé, égal au reçu `F:/tmp/methode/mission-corr-m5-t1.recu.json` (vert, 21:04:26Z, head `d92c2d52`).
+- **Cadre** : worktree modifié en place, aucun git écrivant (ni le worktree ni `F:/Monark`) ; clones `--no-local` sous `F:/tmp/methode/m5/corr1/` seulement (`lint`, `mutants/clone`, `r25clone`) ; TEMP `F:/tmp/methode/m5/corr1/tmp` ; jonctions du clone `lint` par `mk-nm.ps1` (220 entrées, 10 `@monark`, 0 échec), retirées par `rm-nm.ps1` (« removed ») ; aucun réseau ; rien sur C: ; aucune course ciblée ni harnais pendant la suite sous verrou (21:40:59-21:47:43Z).
+- **R-25** (`r25()` du tronc sur `r25clone`, gel figé, `3f502aa9...HEAD`, pathspec `ci.yml:82`) : **477 → 522** (0 suppression, CONTENT_STAT 0), égal au champ `r25` de l'enregistrement d'oracle ; script 225, test 238, doré 38, fixtures 20 (M-X 8, M-Y 7, mission 2, trois enregistrements 1), entrée réelle 1. **Au-delà de l'estimation 485-495, sous le STOP 547 (marge 25).** Cause nommée, par correction ci-dessous : test J-ORACLE neuf avec quatre tueurs internes (+16), test `add` des reçus (+8), cas J-LINT (+5), épinglage du compte de tours de l'index (+2) (Q-C5T1-4).
+
+### C-G2-1 (bloquante) — J-ORACLE n'accepte qu'un enregistrement complet de M-3, plein, propre et vert
+- **Fait** : `oracleWhy` (l.133-146) vérifie, après le sha, la complétude (l.137-138) : copie de `REQUIRED` (l.46, égale à `scripts/oracle/run.mjs` l.33, Q-G2-1 (a)), `schema` = `monark.oracle.v1`, `pid` entier > 0 et `tree.object` 40-64 hex (l'expression de `run.mjs` l.80). Après `served_from`, il exige `static_only === false`, `tree.dirty === null` et `exit === 0` (l.143). Les fixtures d'oracle passent au schéma complet (17 champs, une ligne chacune ; `tree.object` = arbres réels de C1 et C2, `81f4fbba…` et `30cd0efe…`) ; sha repinés dans `M-X.jsonl` l.4, 6, 7 (`9691725d…`, `a6837e46…`, `a1459a15…`).
+- **Preuve** : test neuf « J-ORACLE: a record of a static-only run, of a dirty tree, red, incomplete or of another schema; REQUIRED is the list of scripts/oracle/run.mjs », une assertion par condition, chacune sous son `// killer:` : tueur de tête K1 (`static_only`), tueurs internes K2 (`dirty`), K3 (`exit`), N4 (complétude) et N3 (copie de `REQUIRED`). L'égalité lit `scripts/oracle/run.mjs` **du même arbre**, dans un `try` (à la base, rouge par assertion, jamais par exception). K1, K2, K3, N3, N4 et N5 (schéma étranger) sont tués par `ERR_ASSERTION`. Le tronc n'est pas touché (C5).
+- **Taille** : code +4 (l.46, 137, 138, 143), en-tête +1 ; test +16 (test neuf 14, aide `required` 2) ; fixtures 0 nette (six lignes remplacées).
+
+### C-G2-2 (bloquante) — J-LINT rejoue à `commit ?? recu_head`, jamais sur disque
+- **Fait** : `mission.recu_head` entre au schéma (l.59-60) : requis et validé par `SHA` quand il y a un reçu, nul sinon. `add --from-recu` recopie `head` du reçu (l.105). J-LINT (l.160-161) rejoue à `rev = commit ?? recu_head`, avec le mémo par `(chemin, rev)`, et rougit une révision qui n'est pas un commit de `--repo` (Q-C5T1-1). Une ligne rouge à J-SCHEMA n'est lue par aucun autre contrôle : une valeur hors `SHA` n'atteint jamais `git show -s`, `git ls-tree` ni `git show`. Fixtures : `recu_head` = C1 dans les missions de M-X (l.3-6) et de M-Y (l.2-7).
+- **Preuve** :
+  - J-SCHEMA : `recu_head` `--all` (une option), `HEAD` (une réf) et `null` sans commit donnent trois hits « mission out of domain » (N1 tué).
+  - J-LINT : une entrée G1 à `recu_head` C1 dont la mission cite `docs/b.md` (absent à C1, présent sur disque) est **rouge** ; au gel, elle était verte, c'était le fail-open. À C2, elle est verte.
+  - Une mission citant `docs/journal/M-X.jsonl`, présent sur disque seulement, rougit aux gates G1, G2, corr et cp-2 (Y05, Y06, M18, N7 tués).
+  - Le même texte à deux commits ne donne qu'un rouge (Y13 tué). Un `recu_head` de 40 zéros donne « not a commit of --repo » (N2 tué). CA-11 : `recu_head` est recopié du reçu (N6 tué).
+- **Taille** : code 0 nette (cinq lignes remplacées) ; test +6 (J-SCHEMA 1, J-LINT 5) ; fixtures 0 nette.
+
+### C-G2-3 — J-TOURS et l'index comptent les tours distincts
+- **Fait** : J-TOURS compte les valeurs distinctes de `tour` (l.165-166) ; le rouge porte sur la première entrée du sixième tour. L'index fait de même (l.192) : libellé « Tours (distinct corr tours) » (l.199), et « Over 3 tours » (l.202) suit.
+- **Preuve** : six entrées pour cinq tours ⇒ vert, six tours ⇒ J-TOURS (test J-TOURS) ; K4 (compte des entrées, qui plante) et K4b (sans plantage) tués. Pour l'index, M-Y porte un tour 4 réenregistré (l.7) et le doré dit « 4 » tours pour 15 entrées : N8, l'index revenu au compte des entrées, est tué par le test doré.
+- **Taille** : code 0 nette (quatre lignes remplacées) ; fixtures +2 (M-Y 1, doré 1).
+
+### C-G2-4 — l'aide `build()` du test distingue « vert » de « plantage »
+- **Fait** : l'aide renvoie le code sentinelle `CLI-FAILED`, avec l'exit et la sortie d'erreur, quand la CLI n'imprime pas de JSON ou sort autrement que 0 (vert) ou 1 (rouge) (Q-C5T1-2).
+- **Preuve** : Z1b (plantage sur deux dates égales) est tué par son test J-TIME, et K4 (plantage) par le test J-TOURS, tous deux par `ERR_ASSERTION`. La preuve F2P est préservée : 18 rouges à la base, tous par `ERR_ASSERTION`.
+- **Taille** : test +2.
+
+### C-G2-5 — bornes épinglées
+- **Y01, Y02, Y03** : un commit objet C3 hors branche (`commit-tree` ; HEAD reste C2, le doré ne bouge pas), commis à 00:30Z et affiché `+01:00`, d'auteur 23:30Z la veille. Une entrée à la même seconde ⇒ vert ; dans l'heure du décalage ⇒ vert ; après la seule date d'auteur ⇒ J-TIME.
+- **Y04, Y12** : test neuf « add: a receipt that is not green, or whose mission file is absent, exits 2 and writes nothing; a green one is recorded ». Reçu `rouge` et mission absente : exit 2, rien d'écrit, messages vérifiés ; témoin vert : exit 0.
+- **Y07, Y08** : des copies `start` et `served_from` différentes de l'enregistrement ⇒ « a field copied into the entry != the record ».
+- **Y09** : des lots `M-10` et `M-2a` donnent leurs hits dans l'ordre naturel. **Y10** : les 9 codes exacts de `ORIGINS` sont verts (C-G2-6, décision Q-G2-4 : `G2` gardé, aucun code changé). **Y13** : ci-dessus.
+- **Preuve** : Y01-Y10, Y12 et Y13 tués par `ERR_ASSERTION` ; aucun survivant, donc aucune équivalence à prouver.
+- **Y11** (enfant mort), rejoué : **conclu**. La ligne du test ciblé est absente et le fichier est rouge au niveau fichier (`ERR_TEST_FAILURE`, `exitCode: 1`, `signal: ~`). `classify()` de red-proof le classe `other-fail`, pas `inconclusive` (ni exit 134 ni signal). Le mutant est donc détecté (le fichier, donc `npm test`, rougit), mais jamais par assertion : le processus qui assertait est mort (Q-C5T1-6).
+- **Taille** : test +13 (C3 1, Y09 1, test `add` 8, J-TIME 2, copies 1 ; Y10 0).
+
+### C-G2-7 — registre
+- l.44 de ce journal : « fixtures 20 » devient « fixtures 19 + l'entrée réelle `docs/journal/M-5.jsonl` 1 ». Le `REPONSE.md` du G1 n'est pas réécrit ; la réponse de ce tour porte la correction (477 = 220 + 200 + 37 + 19 + 1).
+
+### Q-G2-2 (a) — entrée réelle régénérée
+- La ligne G1 d'origine (`6cf7433e…`) est déplacée vers `F:/tmp/methode/m5/corr1/M-5.jsonl.g1`.
+- `add --repo F:/Monark-wt-m5 --lot M-5 --gate G1 --from-recu F:/tmp/methode/mission-g1-m5.recu.json --from-oracle F:/tmp/oracle-results/3f502aa956f02bd8053379fc6b5323113c053e77-badf88ea5a13ff22-G1-20260928T190452Z-93676.json --model claude-opus-5-5[1m] --tier claude-opus-5-5 --effort max --r25 477/547 --note "regeneree au tour 1 (C-G2-2) ; entree G1 d origine ecrite le 2026-09-28T19:13:18Z"`, à 21:28:57Z : exit 0.
+- `docs/journal/M-5.jsonl` : une ligne, sha256 `bf6392a8…`, `recu_head` `3f502aa9` (le `head` du reçu).
+- `build --repo F:/Monark-wt-m5` **vert** (0 hit, 1 lot, 1 entrée) ; `INDEX.md` 17 l., `84d82d07…`, identique à l'octet sur deux `build`.
+- Le second enregistrement G1 de `F:/tmp/oracle-results` (`…-2203d2bad901733e-G1-20260928T191501Z-56736.json`) n'est pas utilisé (Q-C5T1-7).
+
+### Mutants (un clone, un lancement : `F:/tmp/methode/m5/corr1/mutants/`, 21:35:16-21:36:47Z)
+57 mutants : les 30 du G1 (M01-M30, ancres déplacées, même mutation), K1-K4b et Z1b de la revue G2, Y01-Y13 du G2 réancrés, N1-N8 sur les gardes de ce tour. Ligne de base : les 18 tests ciblés verts avant tout mutant ; ancres et noms de tests vérifiés à sec (`--check-anchors`) avant le clone. **56 tués, 0 survivant, 1 conclu hors assertion (Y11).** Les 56 portent exactement un `ERR_ASSERTION` et sont classés `assert-fail` par `classify()` de red-proof. `RESULTS.txt` `a0a5d04a…`, `harness.mjs` `6d0f40ff…` ; `index.mjs` restauré après chaque mutant (`4eb51fd9…`).
+
+| id | mutation | ligne | test ciblé | issue |
+|---|---|---|---|---|
+| M01-M30 | les 30 du G1 (J-TIME, J-ORACLE, J-RECU, J-LINT, J-TOURS, J-MODEL, J-TRACE, J-ORIGIN, J-ADJ, `--date`, `--only`, TAB, NEED, J-SCHEMA, horloge) | déplacées | leurs tests | 30 tués |
+| K1 / K2 / K3 | J-ORACLE ignore `static_only` / `tree.dirty` / accepte `exit ≠ 0` | 143 | J-ORACLE complet | tués |
+| K4 / K4b | J-TOURS revenu au compte des entrées (avec et sans plantage) | 166 | J-TOURS | tués |
+| Z1b | `build` plante sur deux dates égales | 152 | J-TIME | tué (sentinelle) |
+| Y01 / Y02 / Y03 | décalage de `%cI` perdu / `%aI` / `>` strict | 131, 151 | J-TIME | tués |
+| Y04 / Y12 | `add` accepte une mission absente / un reçu non vert | 105, 104 | add reçus | tués |
+| Y05 / Y06 | J-LINT sur disque (toutes entrées / cp-2) | 160 | J-LINT | tués |
+| Y07 / Y08 | copies `served_from` / `start` non comparées | 144 | J-ORACLE | tués |
+| Y09 | tri naturel retiré | 171 | build rouge | tué |
+| Y10 | `G2` retiré d'`ORIGINS` | 43 | J-ORIGIN | tué |
+| Y11 | la CLI tue le processus du test | 125 | J-ADJ | conclu : détecté au niveau fichier (`other-fail`), jamais par assertion |
+| Y13 | mémo J-LINT par chemin seul | 160 | J-LINT | tué |
+| N1 | `recu_head` non validé par `SHA` | 60 | J-SCHEMA | tué |
+| N2 | révision absente rejouée quand même | 160 | J-LINT | tué |
+| N3 / N4 / N5 | copie de `REQUIRED` divergente / complétude ignorée / schéma étranger | 46, 138, 137 | J-ORACLE complet | tués |
+| N6 | `recu_head` non recopié par `add` | 105 | add CA-11 | tué |
+| N7 | entrée sans commit rejouée sur disque (règle du gel) | 160 | J-LINT | tué |
+| N8 | index revenu au compte des entrées | 192 | doré | tué |
+
+### Preuve F2P de clôture (`F:/Monark-wt-m4/scripts/red-proof.mjs`, gel 3 de M-4, lecture seule)
+- `--draw 0` (21:29:24-21:30:05Z) : 18 jugés, 18 F2P ; tous les tueurs sont valides (`killerProblem`).
+- `node F:/Monark-wt-m4/scripts/red-proof.mjs --base 3f502aa9 --gel F:/Monark-wt-m5 --repo F:/Monark-wt-m5 --out F:/tmp/methode/m5/corr1/f2p --draw 3 --seed 2026` (21:37:17-21:37:49Z) : **exit 0, `ok: true`, 18 jugés, 18 F2P** (rouges à la base par `ERR_ASSERTION`, verts au gel), **3/3 tués** (`index.mjs:151 SDL`, `:48 CONST`, `:142 CONST`), fichier restauré (`4eb51fd9…` avant et après). Digest `2e209353aaa6bdf41ac42ce9c327af57bacea11d382a0ea30f1e826019e1367e` ; `RED-PROOF.json` `b3868a7a…` ; `base.tap` `4d7409dd…` ; `gel.tap` `339f2b89…`.
+- `--draw 18` (`f2pall/`, 21:37:49-21:38:36Z) : **18/18 tués**, chacun par un seul `ERR_ASSERTION`, `ok: true`, même digest ; `RED-PROOF.json` `0b72ef63…`.
+- Les deux `MODULE_NOT_FOUND` de `base.tap` sont du texte de la sortie d'erreur de la CLI absente, recopié dans des messages d'assertion ; le code de l'entrée est `ERR_ASSERTION`.
+- Les premières passes (`f2p-run1/`, `f2pall-run1/`, 21:30-21:31Z) précèdent l'ajout du tour réenregistré de M-Y (N8) : elles sont remplacées, et gardées.
+
+### Oracle (outil du tronc, rôle corr)
+`node F:/Monark/scripts/oracle/run.mjs --role corr --tree F:/Monark-wt-m5 --base 3f502aa9` (21:40:05-21:47:53Z ; outils du tronc inchangés depuis `3f502aa9`, `git diff --stat` vide sur scripts, test, package.json et .github ; C-V-4 avant : 24 711 Mo libres, 11 `node.exe` ; verrou pris et rendu par l'outil, attente 0 s).
+- **Enregistrement** `F:/tmp/oracle-results/d92c2d5263ec8ac96780cb6aba494ad3b7f374f0-5269820baddc7495-corr-20260928T214006Z-69056.json`, sha256 `42e0a578843094fb5f4ebd6997b858d3a240a0684d9b1f77d3499cb24c7928ac` : `tree.head` `d92c2d52…` (gel 1), `dirty` `5269820baddc74959c22e0afc2cc9c78caaf0ecd956bc32622adbdc00691702c` (les corrections de ce tour), `tree.object` `e5c416dd…`, `static_only: false`, `served_from: null`, **`exit` 0**.
+- Portes : 9, toutes à exit 0 (8 statiques hors verrou, `test` sous verrou 403 s).
+- Tests : **1 513 = 1 495 + 18** (pass 1 510, skip 3, fail 0). Les trois skips sont des skips déclarés d'avant le lot (sentinel win32 deux fois, artefact u4b) ; les 18 tests du lot passent chacun une fois. Test 42 : une fois (`09-test.log` l.1836).
+- `r25` de l'enregistrement : STAT 522.
+- Après l'oracle, le seul fichier modifié est ce journal (docs, hors R-25 et hors digest F2P). Les sha des onze fichiers pris par l'oracle sont dans `F:/tmp/methode/m5/corr1/pre-oracle-sha256.txt`, inchangés sauf celui-ci.
+
+### `error_origin` (vocabulaire fermé de D11 et sa ligne datée du 2026-09-28 21:0x UTC : `G2` = défaut introduit ou laissé passer par le relecteur G2)
+| Correction | Origine proposée | Motif |
+|---|---|---|
+| C-G2-1 | ORCH + G1 | liste J-ORACLE de 275-e sans complétude ; fixtures à 6 champs malgré « au format `monark.oracle.v1` » |
+| C-G2-2 | ORCH | « sur disque quand `commit` est `null` » (275-e) |
+| C-G2-3 | ORCH | « entrées `corr` (tours) », libellé ambigu |
+| C-G2-4 | G1 | aide de test qui lisait un plantage comme un vert |
+| C-G2-5 | G1 | bornes sans fixture (fuseau, auteur, même seconde, reçu non vert, mission absente, tri, recopies) |
+| C-G2-7 | G1 | classe REGISTRE-INTERNE |
+
+Aucun défaut échappé de ce tour. Un presque-défaut a été fermé dans le tour : la correction (b), telle que mesurée en `probe-q5`, laissait passer un `recu_head` bien formé mais absent du dépôt (N2). Si le G7 l'enregistre, l'origine proposée est `G2`.
+
+### Q-C5T1-n (fermées : une réponse par option)
+- **Q-C5T1-1** (C-G2-2) : J-LINT rougit une révision bien formée (`commit` ou `recu_head`) qui n'est pas un commit de `--repo`, comme le refus `--rev` de `lint.mjs` l.154. Sans ce garde, `lintMission` lit un arbre vide, et une mission sans chemin de dépôt passe verte (mesuré, mutant N2). **Garder**, ou retirer ?
+- **Q-C5T1-2** (C-G2-4) : la sentinelle `CLI-FAILED` couvre aussi un exit incohérent avec les hits (JSON imprimé puis plantage). **Garder**, ou la restreindre à « pas de JSON » ?
+- **Q-C5T1-3** (C-G2-1) : la complétude reprend l'expression de `run.mjs` l.80 (champs définis, `pid` entier > 0, `tree.object` hex), plus `schema`. J-ORACLE rougit donc aussi un `pid` invalide. **Garder** ?
+- **Q-C5T1-4** (R-25) : 522 dépasse l'estimation 485-495, pour les causes nommées ci-dessus ; la marge est de 25 l. jusqu'au STOP 547 pour les tours 2 à 5. **Accepter** ? Sinon, deux retraits possibles : (a) fondre le test J-ORACLE neuf dans le test existant (environ -4 l.) ; (b) retirer les cas N2 et mémo de J-LINT (-1 l., N2 et Y13 survivraient).
+- **Q-C5T1-5** : l'entrée `corr` du tour 1 n'est pas écrite (la mission dit « une ligne »). Deux options :
+  - l'orchestrateur l'écrit au gel 2 : `add --gate corr --tour 1 --from-recu F:/tmp/methode/mission-corr-m5-t1.recu.json --from-oracle <l'enregistrement ci-dessus>`, commit nul (Q-M5-1) ;
+  - le correcteur l'écrit, à partir du tour 2.
+- **Q-C5T1-6** (Y11) : conclu « détecté au niveau fichier, jamais par assertion ». **Accepter** ? Sinon, un isolement de la CLI (processus intermédiaire) rendrait rouge par assertion la mort du parent, dans un lot à part.
+- **Q-C5T1-7** : un second enregistrement G1 existe dans `F:/tmp/oracle-results` (`…-2203d2bad901733e-G1-20260928T191501Z-56736.json`, 19:15:01Z, après l'entrée G1 d'origine). Il n'est ni cité par le G1 ni utilisé ici. Le citer au G7, ou l'ignorer ?
+- **Q-C5T1-8** (C-G2-3) : le tour 4 réenregistré de M-Y (fixture +1, doré +1) épingle le compte de tours de l'index (N8). **Garder** ?
+- **Q-C5T1-9** (C-G2-2) : le domaine exige un `recu_head` (`SHA`) dès qu'il y a un reçu (`recu_sha` non nul), que l'entrée ait un `commit` ou non. C'est plus strict que la lettre de la mission (« entrée sans `commit` ni `recu_head` ⇒ J-SCHEMA rouge »). Tout reçu de `launch.mjs` porte `head` (l.35), et c'est le domaine que la sonde `probe-q5` du G2 a mesuré. **Garder**, ou n'exiger `recu_head` que si `commit` est nul ?
