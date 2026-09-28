@@ -255,3 +255,200 @@ Relevé à 06:44:37Z (HEAD `0d54280d` inchangé ; `git diff --stat HEAD` vide ; 
 - **Constat pour le G2** : le `owner.txt` du verrou vu à 06:14Z (« G2 M-1 ») est au format JSON avec pid, mes scripts et les précédents écrivent du texte : le protocole `mkdir` reste compatible, un lecteur de `owner.txt` doit accepter les deux formes (M-3).
 - Le `digest` de `RED-PROOF.json` (`b0c7d677…`) est **périmé par construction** : il couvre ce journal à son état de 06:17Z ; la comparaison utile au G2 est celle des trois fichiers de code et de leurs sha (`9bf54a99…`, `a26cb754…`, `ac8193b2…`), égaux dans `lot-sha-after.txt` de l'oracle (Q-M4-3). La preuve n° 1 n'est pas rejouée : le journal a changé depuis, rejouer entrerait dans la boucle de Q-M4-3.
 - Livrables : `F:/tmp/methode/m4-deliver/` (`files/` = les quatre fichiers du lot ; `red-proof-own/`, `red-proof-pr4a1/`, `f2p-manual/`, `mutants/` dont `name-meta.mjs`, `oracle/` dont `journal-at-oracle.md`) ; `DELIVERED.sha256` écrit en dernier, hors de lui-même.
+
+## 18. Corrections tour 1 (2026-09-28, 08:18:41Z → voir §18.12)
+
+- **Modèle résolu** : `claude-opus-5-5[1m]` (préfixe `claude-opus-5-5`, palier exigé, R-1) ; correcteur à contexte frais, instance distincte du G1 et du G2 ; effort de la mission : max.
+- **Mission** : `F:/tmp/methode/mission-corr-m4.md` (10 l., sha256 `4cdb2639a261a83730762c57a853f2058f216feddc7487a2ba41df1f78394ce1` = attendu, recalculé avant lecture, 08:18:41Z).
+- **Entrées lues en entier** (sha256) : rapport G2 `F:/tmp/methode/m4/g2/G2-lot-methode-m4.md` (`c0ed6c98…0817` = attendu) ; prototype `review/proto/prototype-v3.diff` (`5ede7536…b0eb` = attendu) ; ce journal au gel (`f6da1a01…4ac5`) ; `scripts/red-proof.mjs` (`9bf54a99…4048`), `.d.mts` (`a26cb754…0f62`), `test/red-proof.test.ts` (`ac8193b2…099a`) ; `docs/adr/ADR-METHODE-2.md` (`9c71fc53…85c2` : D2, D6, ligne M-4, décision 267 (b)) ; harnais du G2 (`g2-mutants.mjs`, `probes.mjs`, `proto-mutants.mjs`, `proto-probes.mjs`, `remap-killers.mjs`, `body-history.mjs`) et du G1 (`extra-mutants.mjs` `5763b669…a59e`) ; liste DENY de M-3 (`F:/Monark-wt-m3/scripts/oracle/run.mjs` l.35-46) ; scripts d'oracle du G2 ; `mk-nm.ps1`, `rm-nm.ps1`.
+- **Arbre** : worktree `F:/Monark-wt-m4` (branche `lot/methode-m4`, HEAD `aaf44fd9`) modifié en place ; **aucun git écrivant** dans le worktree (lectures avec `--no-optional-locks`, l'outil pose `GIT_OPTIONAL_LOCKS=0`) ; prototype appliqué par GNU `patch`, hors git ; clones `--no-local` sous `F:/tmp/methode/m4/corr/` seulement ; TEMP `F:/tmp/methode/m4/corr/tmp` ; aucun réseau ; rien sur C:.
+
+### 18.1 Horaires (`date -u`)
+
+| Heure | Acte |
+|---|---|
+| 08:18:41Z | sha de la mission vérifié, mission lue ; entrées lues, sha du rapport G2 et du prototype vérifiés |
+| 08:29Z → 08:34Z | mesure Node 24 : un test hors délai = `failureType: 'testTimeoutFailure'`, `code: 'ERR_TEST_FAILURE'` ; un `{ timeout: 500 }` par test prime sur `--test-timeout=120000` (0,5 s) ; advisor consulté (§18.11) |
+| 08:35:19Z | copies de référence du gel ; blobs `acfcd7c`/`eadd2be` = gel ; prototype appliqué (`patch -p1`) : script `ac68fcbb…cd4` = outil prototype mesuré par le G2 |
+| 08:36Z → 08:41Z | compléments (§18.2, §18.3), en-têtes, renumérotation des 15 killers en une passe ; test du lot 15/15 |
+| 08:42Z → 08:50:07Z | clones de mutants ; passe préliminaire des mutants (archivée `prefinal/`) |
+| 08:44:48Z | F2P manuscrite préliminaire : T12 rouge par ENOENT à `aaf44fd9` ⇒ assertion ajoutée dans `run()` (§18.3) |
+| 08:45:59Z | **graine déclarée** 1790585159 (`SEED.txt`), avant tout tirage |
+| 08:46:11Z → 08:46:34Z | `red-proof` sur dojo-c (§18.7) |
+| 08:48:02Z → 08:48:13Z | F2P manuscrite finale (§18.6) |
+| 08:50:23Z → 08:57:15Z | campagnes finales de mutants (§18.5) |
+| 08:50:40Z → 08:51:50Z | `red-proof` sur soi, `--draw 18` (§18.7) |
+| 08:52:14Z → 08:52:52Z | `red-proof` sur son propre tour, base `aaf44fd9` (§18.6) |
+| 08:53:20Z | R-25 (§18.8) |
+| 08:53:52Z → 08:54:54Z | six portes statiques hors verrou (`static-1`, 0) |
+| §18.12 | oracle sous verrou (7 portes, suite complète, test 42 une fois dans la suite) |
+
+### 18.2 Prototype du G2 : réutilisé, conforme, complété
+
+- Appliqué tel quel : `patch -p1 --dry-run` puis `patch -p1` ; le script obtenu a le sha de l'outil prototype mesuré par le G2 (`PROTO-PROBES.json`, `toolSha` `ac68fcbb…`). Conforme pour C-G2-1 à C-G2-9, Q-M4-3, Q-M4-8, Q-M4-9.
+- **Écarts de ce tour** (chacun épinglé, §18.3) : (a) C-G2-1 : « commentaires » au sens large : les lignes `/* */` et JSDoc (`*`) entre deux tests sont hors de tout corps, comme `//` (le prototype ne traitait que `//` ; mesuré dans le worktree à HEAD : 27 fichiers de test portent, après leur première déclaration de niveau 0, des lignes de commentaire bloc en colonne 0 ou 1, `/*`, ` *`, `*/`) ; borne basse épinglée : une suppression pure juste sous un corps n'y compte pas ; (b) C-G2-2 : motif « killer hors périmètre » rendu `out of scope: not a file inside the gel clone` (anglais : portée racine sous `lang:gate`, d-j) ; « aucun mtime changé hors clone » épinglé ; (c) recette du digest de T8 : filtre exact `docs/**/*.md` (le prototype filtrait tout `docs/`) ; (d) en-tête du script (convention fermée) réécrit : le prototype le laissait périmé (« between its top-level declaration and the next one ») ; en-tête du test mis à jour ; faute `const text =readFileSync` corrigée.
+- **Compléments décidés par l'orchestrateur**, absents du prototype : Q-G2-3, Q-G2-5, Q-G2-2, Q-G2-6 ; et une assertion dans `run()` (§18.3, dernière ligne).
+
+### 18.3 Corrections (fait + preuve, D-4 (g))
+
+| Item | Fait (code) | Épinglé par (test : cas) | Mutant tué (§18.5) | Lignes |
+|---|---|---|---|---|
+| C-G2-1 (bloquante) | `judgedOf` : corps = de la déclaration à la dernière ligne de code ; lignes blanches, `//`, `/* */`, `*` entre tests hors de tout corps ; suppression pure en c + 0,5, comptée entre deux lignes d'un même corps | T12, T13 : dans `old.test.ts` (worktree), `twice_new` inséré entre `old_first` et `old_green` sous un préambule (ligne blanche, `//`, bloc JSDoc de 3 lignes) ; la note de la base sous `old_first` est supprimée (hunk `@@ -5 +6,0 @@`, mesuré) ; `old_green` perd une ligne : jugés `twice_new`, `old_green` ; `old_first` inchangé | P-M1, P-M6, C-M12 à C-M16 | 0 |
+| C-G2-2 (bloquante) | `killerProblem` : `realpathSync` du fichier confiné à `realpathSync(clone) + sep` ; `node_modules/…`, `..`, absolu ⇒ `invalid killer: … out of scope` | T6 : `outside_killer` (`node_modules/fx-dep/index.js`) refusé, motif exact ; mtime du fichier du dépôt fixture = valeur à la création | P-M2 ; G2-M09 non rejoué (redondant, mission) | prototype |
+| C-G2-3 | fichier de killer `*.test.ts` ou sous `test/` ⇒ refus (D-4 (b)) | T6 : `test_code_killer` refusé, motif exact | P-M3 | prototype |
+| C-G2-4 | — | T4 : `new_no_killer` (module neuf sans killer) refusé | G2-M01 | prototype |
+| C-G2-5 | — | T15 : second worktree, killers tirés `invalid` (export retiré) et sortie 134 : jamais `killed` | G2-M04, G2-M05 | prototype |
+| C-G2-6 | — | T4, T7 : `new_module — (fresh) [x] $y 'z' #w` tiré et tué | G2-M02, G2-M14 | prototype |
+| C-G2-7 | — | T2 : `gel_typeerror` (assertion à la base, TypeError au gel) refusé | G2-M10 | prototype |
+| C-G2-8 | — | T7 : killer de `lib/fresh.ts:2` dont `<avant>` figure aussi l.1 : tué sur SA ligne | G2-M11 | prototype |
+| C-G2-9 | — | T8 : `git mv` au commit gel (recette `--no-renames`, lignes `D`) ; T12 : suppression `lib/old.ts` au worktree + `old_gone` | G2-M07, G2-M08 | prototype |
+| Q-M4-3 | digest sans `docs/**/*.md` | T8 : `docs/note.md` au gel, recette au filtre identique | P-M4 | prototype |
+| Q-M4-9 | `--show-toplevel` | T12 : course `worktree-sub`, `--gel` = sous-dossier `test/` du worktree : mêmes lignes | P-M5 | prototype |
+| Q-M4-8 | fixture isolée : `GIT_*` retirées, `GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL` = fichier posant `core.autocrlf = true` | toute la fixture ; E21 tué (mesuré sur cet hôte ; l'`autocrlf` vient désormais de la configuration de la fixture, non de l'hôte : volet E21 de METHODE-M4-LINUX-1 fermé par construction, à confirmer au premier passage CI) | E21 | prototype |
+| Q-G2-3 | `dead` ⇐ `r.status === 134` (le lanceur lui-même a avorté) | — (étiquette, §18.5) | C-M11 survit, déclaré | 0 |
+| Q-G2-5 | `DENY` = liste fermée de M-3 ; `ENV` = `process.env` filtré : aucun enfant (tests, git) ne voit ces noms | T1, T12 : `f2p_true` affirme au gel qu'aucun des 8 noms factices (un par alternative : `FX_API_KEY_1`, `FX_PRIVATE_KEY`, `FX_TOKEN_1`, `FX_SECRET_1`, `GH_FX`, `GITHUB_FX`, `CHAINSTACK_FX`, `MONARK_PUBLIC_MIRROR`) ne l'atteint, et que le témoin `FX_VISIBLE` l'atteint | C-M01 à C-M09 (filtre, puis chaque alternative) | +1 script, +1 test |
+| Q-G2-2 | `classify` : un bloc `failureType: 'testTimeoutFailure'` ⇒ `inconclusive` (sous killer : jamais `killed`) | T15 : `vi_hangs` (`{ timeout: 500 }`), killer `=> 3` → `=> new Promise(() => {})` : `inconclusive` | C-M10 | 0 |
+| Q-G2-6 | champ `drawn` (nombre de killers tirés) au JSON ; en-tête : `ok` vrai sans `--draw`, le JSON lit alors `"drawn": 0` | T12 : `worktree-sub` sans `--draw` : sortie 0, `ok` vrai, `drawn` 0 ; course worktree : `drawn` 2 ; T15 : diff vide, `drawn` 0 | C-M17 | 0 |
+| Assertion de `run()` | un plantage de l'outil (sortie 2 sans `RED-PROOF.json`) est un échec d'assertion portant le stderr, non un ENOENT ; `mkdirSync(tmp, { recursive: true })` | T12 rouge par assertion à `aaf44fd9` (§18.6) | — | +1 test |
+| En-têtes | convention fermée du script réécrite ; en-tête du test | — | — | +4 script, +1 test |
+
+- **Chiffrage du prototype** (G2 §8, mesuré) : +12 (script +1, test +11). **Total du tour : +20** (§18.8).
+
+### 18.4 Killers (15, renumérotés en une passe, `F:/tmp/methode/m4/corr/tools/remap-killers.mjs` `68411534…0f14`)
+
+| # | Test | Killer (`scripts/red-proof.mjs`) | Gel |
+|---|---|---|---|
+| T1 | `…admits_an_assertion_red_at_base_through_a_workspace_link` | l.141 COR `!ent.isSymbolicLink()` → `ent.isSymbolicLink()` | l.135 |
+| T2 | `…refuses_a_test_green_at_base_or_red_at_gel` | l.172 SDL `green at base` | l.166 |
+| T3 | `…refuses_an_import_red_on_a_module_that_exists_at_base` | l.170 COR `&& t.newModule` → `\|\| t.newModule` | l.164 |
+| T4 | `…admits_a_new_module_with_its_killer` | l.240 COR `&& added.has(module)` → `&& !added.has(module)` | l.234 |
+| T5 | `…refuses_a_test_without_killer` | l.166 SDL `no killer declared` | l.160 |
+| T6 | `…refuses_a_stale_or_ambiguous_killer` | l.167 SDL `invalid killer` | l.161 |
+| T7 | `…refuses_a_stillborn_killer_among_the_drawn` | l.194 CONST `"stillborn"` → `"killed"` | l.188 |
+| T8 | `…tap_sha256_recomputes_equal` | l.253 CONST `sha256: sha(baseTap)` → `sha256: sha(gelTap)` | l.247 |
+| T9 | `…restores_each_mutated_file_and_removes_its_clones` | l.261 SDL `rmSync(work` | l.255 |
+| T10 | `…counts_a_killed_child_as_inconclusive` | l.98 SDL `Reached heap limit` (ligne réécrite par Q-G2-2, `<avant>` conservé) | l.92 |
+| T11 | `…draw_is_reproducible_at_a_fixed_seed` | l.178 CONST `seed >>> 0` → `0` | l.172 |
+| T12 | `…worktree_gel_counts_untracked_files_and_exits_zero` | l.216 SDL `ls-files` | l.210 |
+| T13 | `…judges_only_the_changed_tests_of_a_modified_file` | l.116 SDL `set.add(l)` : **réécrit** (ligne réécrite par C-G2-1, `<avant>` `set.add(l)` une fois sur la nouvelle ligne) | l.110 |
+| T14 | `…never_runs_test_42_outside_the_host_lock` | l.164 SDL `runs under the host lock only` | l.158 |
+| T15 | `…fails_on_a_stillborn_draw_or_an_empty_diff` | l.247 COR `&& drawn.every(` → `\|\| drawn.every(` | l.241 |
+
+- Validation : `remap-killers.mjs --check` 15/15 (`<avant>` une fois sur la ligne citée, opérateur fermé) ; la preuve sur soi (§18.7) a validé les 15 par `killerProblem` (aucun refusé) puis les a tirés et tués tous les 15.
+
+### 18.5 Mutants (clones `--no-local` de `aaf44fd9` + les trois fichiers corrigés, `cmp` égaux ; script `a1f13844…6eec`)
+
+- **Du G2** (liste importée telle quelle de `g2-mutants.mjs` ; harnais `F:/tmp/methode/m4/corr/mutants/corr-mutants.mjs` `8bf3ab3a…f18f`) : 11 rejoués, **10 tués** ; **G2-M09 non rejoué** (mission : redondant avec le confinement réel de C-G2-2, P-M2 tué) ; **G2-M06 survit : étiquette** (ancre adaptée à la ligne réécrite par Q-G2-3, même mutation) : une course morte donne `inconclusive`, sans le drapeau la TAP tronquée donne `missing` ⇒ refus à la base et au gel, `inconclusive` sous killer : jamais admis, jamais tué, même sortie (sonde `flood_gel` du G2).
+- **« Correction retirée » du prototype** (P-M1 à P-M6, textes du G2) : **6/6 tués**.
+- **De ce tour** (C-M01 à C-M17) : **16/17 tués** ; **C-M11 survit : étiquette** (clause `|| r.status === 134` retirée : même lecture que G2-M06 ; un lanceur qui avorte lui-même en 134 ne se provoque pas sans épuiser le tas du parent : non épinglé, déclaré).
+- **Du G1** (26, harnais `5763b669…a59e`, seules les constantes de chemin de la ligne 10 changent, `replay.diff` `6381fac6…3e1b`) : **24 tués** ; **E1 déclaré équivalent** sur le domaine de la convention : une ligne killer est la ligne au-dessus d'une déclaration, donc un commentaire hors de tout corps ; sonde `F:/tmp/methode/m4/corr/probes/e1-probe.mjs` (`a66eb3df…1dfb`, `E1-PROBE.json` `d5533d32…de77`) : ligne killer changée au-dessus d'un test inchangé : outil et E1 identiques (0 jugé, 1 inchangé) ; hors convention, commentaire `// killer: …` changé DANS un corps : l'outil ne juge pas le test, E1 le juge (vert à la base, refusé) (Q-C4-1) ; **E24 sans ancre** (sa ligne est réécrite par C-G2-1) : remplacé par P-M6, tué.
+- Résultats : `RESULTS.txt` `7cb062d1…ce76` (corr), `42390c85…a07b` (G1) ; la passe préliminaire (test sans l'assertion de `run()`) a donné des `RESULTS.txt` **identiques octet pour octet**.
+- **Survivants, et seulement eux** : G2-M06, C-M11 (étiquettes), E1 (équivalent déclaré).
+
+### 18.6 F2P des tests ajoutés (rouges sur `aaf44fd9`, verts après)
+
+- **Manuscrite** : clone `--no-local` à `aaf44fd9` (script `9bf54a99…`), seul le test final copié (`cmp` égal) : sortie 1, **7 rouges, tous `ERR_ASSERTION`** (TAP `9c6094f8…fdd0`, résumé `b201b1e2…0dbc`) : T1 (Q-G2-5 : `f2p_true` rouge au gel, les noms factices l'atteignent), T6 (C-G2-2, C-G2-3 : `outside_killer` et `test_code_killer` admis F2P ; mtime du paquet lié changé : l'ancien outil a tiré `outside_killer` et écrit à travers la jonction, hors du clone), T7 (tirage `{…, outside_killer: stillborn, test_code_killer: invalid}`), T8 (Q-M4-3 : digest), T12 (Q-M4-9 : `--gel` sous-dossier : l'ancien outil sort en 2, ENOENT sur `wt/test/packages/w/index.js`), T13 (C-G2-1 : `old_first` jugé, `unchanged` 0), T15 (Q-G2-2 : `vi_hangs` compté `killed`). **8 verts** : T2 et T4 (broches pures : la preuve est le mutant du G2 tué, G2-M10 ; G2-M01, G2-M02, G2-M14), T3, T5, T9, T10, T11, T14 (corps inchangés). Gel corrigé : **15/15** (TAP `55080130…e442`).
+- **Outillée, sur son propre tour** : `red-proof.mjs --base aaf44fd9 --gel F:/Monark-wt-m4` (sans tirage) : sortie 1, **8 jugés** (les 8 tests au corps modifié), **7 inchangés** (T1, T3, T5, T9, T10, T11, T14 : seule leur ligne killer change, hors de tout corps : C-G2-1 à l'œuvre sur un fichier réel), **6 F2P** (T6, T7, T8, T12, T13, T15 : `assert-fail` / `pass`), **2 refusés « green at base »** (T2, T4 : broches pures) ; T1, rouge à `aaf44fd9` par le seul changement de la fixture partagée (corps inchangé), n'est pas jugé (règle du corps, Q-M4-1). `RED-PROOF.json` `7206d093…97d6`. Sortie 1 attendue : un tour de corrections qui épingle des comportements déjà justes n'est pas un F2P.
+
+### 18.7 `red-proof` corrigé sur soi et sur dojo-c
+
+- **Sur soi** : `node scripts/red-proof.mjs --base 0d54280d --gel F:/Monark-wt-m4 --draw 18 --seed 1790585159 --out F:/tmp/methode/m4/corr/red-proof/own` (graine déclarée à 08:45:59Z, `SEED.txt` `d35a4c02…10dc` ; 18 = 15 tests à module neuf + 3, règle Q-G2-4) : **sortie 0**, 15 jugés, **15 `new-module`**, 0 inchangé, population 15, **15 tirés, 15 `killed`**, `drawn` 15, `sha256_before` = `sha256_after` = `a1f13844…` pour les 15 ; TAP recalculés 17/17 égaux ; `digest` `672e1e25…f3ae` recalculé par sa recette (journal exclu, Q-M4-3 : il ne change plus quand ce journal change) ; statut et sha des fichiers du lot identiques avant et après ; TEMP vide. `RED-PROOF.json` `20f59c36…089f`, `base.tap` `d7f69f42…f563`, `gel.tap` `b4be0eeb…7de9`.
+- **dojo-c** (`--repo F:/Monark --base 8c60f652 --gel F:/Monark-wt-dojo-c`, HEAD `0a23979a`, base = merge-base avec `lot/etude-suite`) : sortie 1, **7 jugés** (les 7 tests réellement neufs ou modifiés), **35 inchangés**, `wiring_test_roots_exclusion_is_declared` **non jugé**, **0 « green at base »** ; les 7 refusés « no killer declared » (le lot précède la convention) ; `digest` `baf66147…` = celui du prototype du G2 ; TAP recalculés égaux ; statut du worktree identique avant et après. `RED-PROOF.json` `a779a052…ef73`.
+
+### 18.8 R-25
+
+- `F:/tmp/dojo/pr2-1-r25-methodA.mjs` (`140be120…d3bf`, inchangé), pathspec de `ci.yml:82` (20 jetons), base `0d54280d`, sans écriture : **537** (21 + 267 + 249) ; `r25.txt` `e8569d13…b48f`. **≤ 547, marge 10 : pas de scission M-4b.**
+- Delta sur le gel : +20 (517 → 537) = prototype +12 (chiffrage du G2) + Q-G2-5 +2 (DENY, broche) + en-têtes +5 (script +4, test +1) + assertion de `run()` +1. **+7 au-delà de l'attendu de la mission (530)** : en-têtes (convention fermée à jour), broche de DENY, assertion (Q-C4-4).
+
+### 18.9 Décisions de l'orchestrateur portées ; items formés
+
+- **Q-G2-1** : un renommage pur reste « ajouté » (lecture littérale) : un test déplacé sans changement est jugé comme neuf, vert à la base ⇒ refusé. **Item RED-PROOF-RENAME-1** (règle Dettes ; propriétaire : orchestrateur) : recherche d'un traitement d'un renommage `R` comme une modification (corps changés seuls, contenu comparé) ; **déclencheur : premier lot qui déplace un fichier de test**.
+- **Q-G2-4** : règle de mission, rien dans l'outil : G2 et cp-2 tirent `--draw` = nombre de tests à module neuf + 3 ; appliquée à la preuve sur soi (`--draw 18`).
+- **Q-G2-6** : `ok` reste vrai sans `--draw` ; le JSON porte `"drawn": 0` en clair ; l'en-tête le documente. **Item RED-PROOF-ROLE-1** : alignement sur le `--role` de M-3 (refuser `ok` sans tirage pour G2 et cp-2) ; **déclencheur : lot M-5**.
+- **Q-G2-7** : la prochaine mesure des noms (METHODE-M4-NAME-PATTERN-1) se fait sur M-2a, premier lot à killers réels ; **déclencheur : G2 de M-2a**.
+- **Item RED-PROOF-BODY-EXTENT-1** (règle PAROXYSME : limite déclarée ⇒ item de recherche) : la fin d'un corps est « la dernière ligne de code avant la déclaration suivante » (définition de la mission) : un helper de niveau 0 ajouté sous un test inchangé le rend jugé (faux refus), et un test changé par la seule fixture partagée n'est pas jugé (T1 au §18.6) ; recherche : fin exacte de l'appel `test(…)` par l'arbre syntaxique (`typescript` est une dépendance de développement du dépôt ; coût : dépendance du script) et jugement par dépendance aux helpers modifiés (graphe d'imports de M-6) ; **déclencheur : premier faux refus mesuré sur un lot réel, au plus tard G0 de M-6**.
+
+### 18.10 Questions
+
+- **Q-C4-1** (E1) : l'exclusion des lignes `// killer:` dans `hit` est redondante sur le domaine de la convention ; hors convention (commentaire `// killer:` dans un corps), elle fait ne pas juger un changement de commentaire seul (aucun faux « green at base »). Garder (équivalence déclarée sur le domaine, §18.5) ou retirer (0 ligne ; E1 disparaît ; ce commentaire jugerait son test) ?
+- **Q-C4-2** (Q-G2-2) : le délai est lu dans `classify`, donc aussi à la base et au gel : une ligne hors délai y devient `inconclusive` au lieu de « refused (other-fail) » (jamais admise dans les deux cas ; l'en-tête du G1 l'annonçait déjà). Confirmer cette portée, ou la restreindre au seul killer ?
+- **Q-C4-3** : un killer sur `node_modules/@fx/w/…` (lien d'espace de travail re-pointé vers `packages/w` du clone) a un chemin réel dans le clone : accepté (son fichier est du code de production du clone). Accepter, ou refuser tout chemin `node_modules/` par son nom ?
+- **Q-C4-4** : R-25 537, +7 au-delà de l'attendu de la mission (530) : en-têtes +5, broche DENY +1, assertion de `run()` +1 ; sous 547. Accepter ?
+
+### 18.11 Advisor
+
+- Consulté par l'outil intégré après l'orientation, avant toute écriture : prototype conforme mais incomplet (Q-G2-3, Q-G2-5, Q-G2-2, Q-G2-6), en-tête périmé et faute `=readFileSync`, broches à 0 ligne (délai réel par `{ timeout }` à vérifier d'abord : vérifié, 0,5 s), renumérotation en dernier sur une référence gelée, clones reconstruits (ceux du G2 supprimés), survivants attendus (E1, E24, G2-M06, G2-M09), F2P outillée sur base `aaf44fd9`, ordre de clôture. Chaque point vérifié sur pièce ; conseil, jamais verdict.
+
+### 18.12 Oracle sous verrou d'hôte (écrit après la prise)
+
+- **Divergence déclarée** : l'oracle a tourné avec ce journal à l'état `66b0d0e3eb87cd27060fdfa6ef64ac67623e41e86968e7f2db063ac54ea4f645` (copie `oracle/journal-at-oracle.md`) ; le présent fichier lui est identique octet pour octet jusqu'au titre de cette section (57 317 octets, mesuré) ; seule la ligne d'attente qui suivait ce titre est remplacée par ce relevé et les sections suivantes. Code et test : inchangés depuis l'oracle (sha ci-dessous).
+- **Clone** `F:/tmp/methode/m4/corr/clone-gel` (`--no-local`, `aaf44fd9`, les quatre fichiers du lot copiés, `cmp` égaux) ; `node_modules` = jonctions `mk-nm.ps1` (`entries: 220  monark: 10  fail: 0`) ; Node v24.15.0 ; `envx.sh` : les 13 variables sensibles du G2 puis tout nom de la liste DENY retirés, `npm_config_offline=true`, TEMP et cache npm sur F:, stdin fermé.
+- **Scripts** `F:/tmp/methode/m4/corr/oracle/` : `locked.sh` `1d67579a…66fc` (`mkdir` atomique de `F:/tmp/oracle-lock`, `owner.txt` JSON {rôle « corr M-4 », sha, date, pid}, attente par pas de 60 s jusqu'à 90 min ; rendu dans le piège EXIT : `owner.txt` retiré PUIS `rmdir`, absence relue), `pass.sh` `19123bc7…7640` (sept portes, `timeout 900` autour de la suite, sha des quatre fichiers et statut avant/après, C-V-4 à chaque lancement), `envx.sh` `325ab8fc…77b2`, `cv4.sh` `c81112a0…b883`.
+- **Prise unique** (`locked-run.log` `1b35d88a…d653`) : lancée 09:01:5xZ, verrou libre, **pris 09:01:57Z** (pid 665002), **rendu 09:09:26Z** : `owner-after=no dir-after=no` ; la session suivante (« corr », sha `79c3320b…`, M-3, en file depuis 09:03:11Z) l'a pris ensuite, relu à 09:09Z.
+- **Sept portes : 7/7 sortie 0** (`exits.txt` `e779c851…edb4`) : `gate:vocab` 0 (322 fichiers) ; `typecheck` 0 ; `lint` 0 ; `lint:ratchet` 0 (**69/69**) ; `lang:gate` 0 ; `export:check` 0 ; `test` 0 : **1 464 tests, 1 461 pass, 0 fail, 0 annulé, 3 sautés** (préexistants : `sentinel_run_releases_chainstack_lock_on_sigterm` sous win32, `sentinel_instrument_out_win32_short_name` sans nom 8.3, `u4b_labels_replay_via_main_real_artifact` sans artefacts), 391,9 s ; les **15 `red_proof_*` ✔** ; **test 42 ✔, une fois, dans la suite** (`export_public_no_governance_no_french`, 378,8 s ; jamais lancé à part). `test.log` `ae8878d7…6221`.
+- **Compte** : 1 464 = 1 449 (base `0d54280d`, mesurée par le G2 sur un clone vierge) + 15 ; 1 461 = 1 446 + 15 ; sautés 3 = 3 : le lot ajoute un seul fichier de test, 15 tests de niveau 0 (aucun test de niveau 0 ajouté par ce tour).
+- **C-V-4** : 14 à 19 `node.exe`, 9 496 à 12 958 Mo libres aux lancements (≤ 40, ≥ 4 096). Hors verrou : seulement le fichier de test du lot, les courses de l'outil (fichiers de test du diff, test 42 exclu), les mutants (un fichier de test), les six portes statiques (`static-1`) ; aucune suite complète hors verrou.
+- **Arbre** : sha des quatre fichiers identiques avant et après (`scripts/red-proof.mjs` `a1f13844…6eec`, `scripts/red-proof.d.mts` `0ded59be…49b8`, `test/red-proof.test.ts` `dc19474e…d429`, journal `66b0d0e3…f645`) ; statut du clone identique avant et après.
+
+## 18.13 Reprise après la coupure de courant (2026-09-28, 12:17:42Z → voir 18.13.8)
+
+- **Préambule** `F:/tmp/REPRISE-2026-09-28-coupure.md` (sha256 `f4bb518e…8214`, préfixe attendu `f4bb518ebb21b461` : égal) et **mission** (`4cdb2639…4ce1` = attendu) recalculés avant lecture (12:17Z), lus en entier ; **modèle résolu** `claude-opus-5-5[1m]` (préfixe `claude-opus-5-5`, R-1) : correcteur de reprise à contexte frais, instance nouvelle du même rôle (≠ G1, ≠ G2, ≠ correcteur interrompu) ; entrées relues en entier, sha revérifiés (rapport G2 `c0ed6c98…0817`, prototype `5ede7536…b0eb`, ADR `9c71fc53…85c2`, les trois fichiers, ce journal).
+- Les §18 à §18.12 sont le relevé du correcteur interrompu, conservé tel quel : leurs chiffres sont **repris** ; ceux de cette section sont les miens (rejoués, datés), sauf mention **[repris, non rejoué]**.
+
+### 18.13.1 Trouvé (12:17:42Z → 12:31:35Z, lecture seule)
+
+- Worktree : HEAD `aaf44fd9`, branche `lot/methode-m4`, les quatre fichiers du lot en `M`, aucun non suivi ; sha : `scripts/red-proof.mjs` `a1f13844…6eec`, `.d.mts` `0ded59be…49b8`, test `dc19474e…d429` (= `lot-sha-before` et `lot-sha-after` de l'oracle du §18.12), journal `8a81b20d…9591` (§18 écrit jusqu'au §18.12 inclus ; ses 57 317 premiers octets = `journal-at-oracle.md`, mesuré).
+- `F:/tmp/methode/m4/corr/` : sorties toutes antérieures à la coupure (dernier mtime 09:10:12Z : oracle rendu 09:09:26Z, `measures/`) ; clones `clone-f2p` (gel + test corrigé), `clone-gel` (gel + trois fichiers corrigés + journal de l'oracle), `clone-mut`, `clone-mut2` (gel + trois fichiers corrigés) : à `aaf44fd9`, fichiers `cmp` égaux à l'attendu, **sans `node_modules`** (jonctions de `clone-gel` retirées après l'oracle).
+- `tools/deliver.sh` écrit à 09:02:20Z, **jamais lancé** : `F:/tmp/methode/m4-corr-deliver/` absent. Verrou d'hôte libre (le propriétaire mort retiré par l'orchestrateur, « corr » pid 118440 marqué `oracle/lock.mjs`, n'est pas ce lot, dont le propriétaire était « corr M-4 » ; lecture non vérifiée : les corrections de M-3, entrées après ce lot au §18.12) ; `F:/Monark/node_modules` intact : 220 entrées, 10 jonctions `@monark` (12:31:35Z).
+- Lecture : le correcteur est mort après avoir écrit le §18.12 et avant la livraison ; état cohérent (diff conforme, sorties datées, sha présents) : **pas de reprise de zéro**.
+
+### 18.13.2 Revu à neuf, avant tout rejeu
+
+- Diff relu contre chaque item de la mission (1 à 5) et contre le prototype du G2 : conforme ; écarts au prototype déjà déclarés (§18.2).
+- **Killers** (`reprise/checks/check-killers.mjs`, `killers.txt`) : 15/15 suivent la convention fermée (opérateur de la liste, `<avant>` une fois sur la ligne citée, SDL ⇒ `<après>` vide, code de production) et sont chacun la **même mutation** qu'au gel ; 12 visent une ligne au texte inchangé (décalage +6), 3 une ligne réécrite par ce tour (T8 l.253, T10 l.98, T13 l.116).
+- **Domaine des lignes « hors corps »** (C-G2-1, `gap-domain.mjs`, `gap-domain.txt`) : sur les 171 fichiers de test suivis du worktree et du tronc (`d587fd67`), 95 commentaires bloc ouverts en colonne 0 ou 1 après la première déclaration, dans 27 fichiers : **0 ligne** hors de l'expression `gap` (un bloc dont une ligne intérieure ne commencerait pas par `*` serait lu comme du code : aucun sur le dépôt réel).
+- **Garde d'octets de M-1** (fusionnée au tronc ; le gel de M-4 la précède) : ses classes (`test/byte-guard.test.ts` à `d587fd67`, `checks/bytes.mjs`) sur les quatre fichiers du lot : 0 occurrence, 0 CRLF (information pour la fusion).
+
+### 18.13.3 Réutilisé [repris, non rejoué]
+
+- **Oracle sous verrou (§18.12)** : 7/7 sortie 0 ; 1 464 / 1 461 / 0 / 3 ; test 42 une fois, dans la suite ; prise 09:01:57Z → 09:09:26Z, rendue (`owner-after=no dir-after=no`). Motif : les octets du code testé sont les octets livrés (sha égaux, relus à 12:18:09Z) ; seul ce journal a changé depuis, et ni porte ni test de la suite ne le lit (mesuré dans `clone-gel` : `lang:gate` saute `docs/`, `gate:vocab` parcourt `packages/` et `apps/`, `export:check` suit sa liste blanche, aucun test ne lit ce journal) ; ne pas reprendre le verrou évite la file des trois missions parallèles. Journal final couvert par les six portes statiques rejouées hors verrou (18.13.4). Q-C4-5.
+- Mesure du délai de Node (§18.1, 08:29Z → 08:34Z, `measures/`, `probe-timeout/`), passes préliminaires (`prefinal/`), portes `static-1`, consultation de l'advisor du §18.11 : [repris, non rejoué] ; le délai reste exercé par T15 (`vi_hangs`) à chaque passage du test.
+
+### 18.13.4 Refait (mes chiffres ; sorties sous `F:/tmp/methode/m4/corr/reprise/`, jamais sur celles du correcteur interrompu ; environnement `reprise/envr.sh` : 13 variables sensibles et liste DENY retirées, TEMP sur F:, stdin fermé ; `timeout` autour de chaque `node --test`)
+
+| Heure (`date -u`) | Rejeu | Résultat | = relevé interrompu |
+|---|---|---|---|
+| 12:32:49Z → 12:33:00Z | test du lot sur `clone-gel` (code `cmp` égal au worktree) | **15/15**, TEMP vide ; TAP `8ce4a05b…d083` | oui |
+| 12:33:19Z → 12:33:29Z | F2P manuscrite sur `clone-f2p` (script du gel `9bf54a99…` + test corrigé `cmp` égal) | sortie 1, **7 rouges, tous `ERR_ASSERTION`** (T1, T6, T7, T8, T12, T13, T15), chacun pour le motif du §18.6 (T6 : mtime du paquet lié changé, l'ancien outil écrit à travers la jonction) ; 8 verts (T2, T4 broches pures ; T3, T5, T9, T10, T11, T14 au corps inchangé) ; TAP `8cc2e3dc…487f` ; gel corrigé : 15/15 (ligne précédente) | oui |
+| 12:34:26Z → 12:35:00Z | `red-proof --base aaf44fd9 --gel F:/Monark-wt-m4` (son propre tour, sans tirage) | sortie 1 : 8 jugés, 7 inchangés, 6 F2P (T6, T7, T8, T12, T13, T15), 2 refusés « green at base » (T2, T4) ; JSON `145df9fb…c597` | oui (lignes, digest) |
+| 12:35:09Z | graine **1790585159 reprise** (déclarée à 08:45:59Z, avant tout tirage), écrite dans `SEED.txt` avant le tirage : rejeu de reproductibilité (population 15 ≤ 18 : tous tirés, seul l'ordre dépend de la graine) | — | — |
+| 12:35:10Z → 12:36:23Z | `red-proof --base 0d54280d --gel F:/Monark-wt-m4 --draw 18 --seed 1790585159` | **sortie 0** : 15 jugés, **15 `new-module`**, 0 inchangé, population 15, **15 tirés, 15 `killed`**, `drawn` 15, `sha256_before` = `sha256_after` = `a1f13844…` ; TAP recalculés 17/17 égaux ; `digest` `672e1e25…f3ae` recalculé par sa recette (trois lignes `A`, journal exclu) ; statut et sha du lot identiques avant et après ; TEMP vide ; JSON `a05b677f…6df2` | oui : lignes, ordre et issues du tirage, digest (`check-proof.mjs`) |
+| 12:37:00Z → 12:37:23Z | `red-proof --repo F:/Monark --base 8c60f652 --gel F:/Monark-wt-dojo-c` (HEAD `0a23979a` ; merge-base avec le tronc toujours `8c60f652`) | sortie 1 : **7 jugés** (6 `import-fail`/`pass`, 1 `assert-fail`/`pass`, tous refusés « no killer declared »), **35 inchangés**, **0 « green at base »**, `wiring_test_roots_exclusion_is_declared` non jugé ; `digest` `baf66147…9413` = celui du prototype du G2 ; worktree identique avant et après | oui |
+| 12:38:15Z | R-25 (`pr2-1-r25-methodA.mjs` `140be120…`, pathspec `ci.yml:82`, 20 jetons, base `0d54280d`) | **537** (267 + 21 + 249) ≤ 547, marge 10 ; `reprise/r25/r25.txt` | oui |
+| 12:38:34Z → 12:38:40Z | sonde E1 (copie : chemins vers `reprise/`, `rmSync` retirés) | `E1-PROBE.json` identique octet pour octet (`d5533d32…de77`) | oui |
+| 12:38:07Z → 12:46:10Z | mutants, deux campagnes en parallèle (copies des harnais : seule la ligne des chemins change, `reprise.diff`) sur `clone-mut` et `clone-mut2` (`cmp` égaux au worktree) ; fichier restauré et sha relu après chacun ; aucun enfant mort | du G2 (liste importée de `g2-mutants.mjs` `6499cf09…`) : 11 rejoués, **10 tués**, G2-M06 survit (étiquette, §18.5) ; G2-M09 non rejoué (redondant, mission) ; « correction retirée » du prototype, P-M1 à P-M6 : **6/6** ; de ce tour, C-M01 à C-M17 : **16/17**, C-M11 survit (étiquette) ; du G1 (26) : **24 tués**, E1 survit (équivalent déclaré ; sonde E1 ci-dessous), E24 sans ancre (remplacé par P-M6, tué) ; `RESULTS.txt` `7cb062d1…ce76` et `42390c85…a07b` | oui, octet pour octet |
+| 12:46:48Z → 12:47:55Z | six portes statiques hors verrou (D3) sur `clone-gel`, les quatre fichiers finaux copiés (`cmp`) ; jonctions `mk-nm.ps1` (12:41:59Z : 220 entrées, 10 `@monark`, 0 échec), retirées par `rm-nm.ps1` (12:48:06Z : `removed`) ; C-V-4 appliqué avant chaque porte (7 à 11 `node.exe`, ≥ 27 010 Mo libres) | **6/6 sortie 0** : `gate:vocab` (322 fichiers), `typecheck`, `lint`, `lint:ratchet` **69/69**, `lang:gate`, `export:check` ; sha du lot et statut du clone identiques avant et après ; journal testé `reprise/static/journal-at-static.md` (`5b87a3e4…efed4`) = le présent fichier hormis cette ligne et le 18.13.8, écrits après, et deux corrections de texte faites ensuite (18.13.1 : lecture du propriétaire mort ; ligne `--base aaf44fd9` : empreinte `…c597`) | — (le relevé interrompu n'a que `static-1`, antérieur au §18) |
+
+### 18.13.5 Écarts
+
+1. `oracle/locked.sh` (correcteur interrompu) écrit `"pid": $$` dans `owner.txt` : sous Git Bash, c'est le pid MSYS (665002), non le WINPID qu'exige la règle 4 du préambule ; sans effet sur la prise de 09:01:57Z (rendue proprement), mais un contrôle « pid vivant » (M-3) ne pouvait pas la juger. Je n'ai pas pris le verrou ; tout script qui le prendra écrira `/proc/$$/winpid`. `error_origin` proposé : correcteur interrompu, OUTILLAGE.
+2. `tools/deliver.sh` (interrompu) ouvrait sur `rm -rf "$D"` (cible variable, contraire à la règle 2 du préambule) : non lancé, remplacé par `reprise/deliver.sh` (`mkdir` d'un dossier absent, aucun `rm`).
+3. La sonde E1 supprimait ses dossiers de travail (`rmSync` à cible calculée) : retiré dans la copie rejouée (dossiers neufs) ; les copies des deux harnais de mutants ne changent que la ligne de leurs chemins (`reprise.diff`).
+4. Tronc `lot/etude-suite` à `d587fd67` à 12:31Z (le préambule dit `e5d492ba`) : sans effet sur ce lot (base `0d54280d`, gel `aaf44fd9`, merge-base de dojo-c inchangée).
+5. Outil Bash de l'hôte : une double barre oblique inverse y devient simple, même dans un heredoc entre apostrophes (mesuré) ; tout script de cette reprise qui en porte est écrit par l'outil d'écriture de fichiers.
+
+### 18.13.6 Questions ajoutées
+
+- **Q-C4-5** : l'oracle du correcteur interrompu est réutilisé [repris, non rejoué] (octets du code identiques ; seul ce journal a changé, lu par aucune porte ni aucun test ; portes statiques rejouées sur le journal final). Suffit-il pour ce tour, la re-revue G2 rejouant l'oracle de toute façon (« Ce qui ne change pas ») ?
+- **Q-C4-6** (information pour M-3) : un `owner.txt` au pid MSYS (écart 1) peut encore se présenter sur l'hôte : le lecteur « pid vivant » de M-3 doit-il reprendre un verrou dont il ne trouve pas le pid parmi les processus Windows, ou le signaler seulement ?
+
+### 18.13.7 Advisor
+
+- Consulté par l'outil intégré après l'orientation (12:31Z), avant tout rejeu : réutiliser l'oracle (octets du code identiques) et couvrir le journal par les portes statiques hors verrou ; rejouer le reste vers `reprise/` sans écraser ; écarts à déclarer (pid MSYS, tronc, `node_modules` de l'hôte à vérifier, `rm -rf` de `deliver.sh`) ; ordre de clôture. Chaque point vérifié sur pièce ; conseil, jamais verdict.
+
+### 18.13.8 Clôture
+
+- **Fichiers du lot** (worktree, inchangés depuis l'oracle du §18.12) : `scripts/red-proof.mjs` `a1f138445a416e39845fca789983d8e9acfa8f3000dda4feae7f634b513e6eec` (267 l.), `scripts/red-proof.d.mts` `0ded59be99da5e0405bbce3b0bc10085f0c9e8dbfc690a27e35f1418cb8149b8` (21 l.), `test/red-proof.test.ts` `dc19474e771b895de5b97c1e093783ce5591b4d8ebc152d395d1072b2654d429` (249 l.) ; ce journal : sha rendu hors du fichier.
+- Worktree : HEAD `aaf44fd9`, les quatre fichiers en `M`, rien d'autre ; aucun git écrivant dans le worktree (lectures avec `--no-optional-locks` ; l'outil pose `GIT_OPTIONAL_LOCKS=0`) ; worktree de dojo-c identique avant et après.
+- Aucun `rm` : clones laissés sous `F:/tmp/methode/m4/corr/`, sans jonctions ; `F:/Monark/node_modules` intact (220 entrées, 10 `@monark`, 12:48:06Z) ; TEMP de mes courses vides, sauf les quatre dossiers de cas de la sonde E1 et un `node-compile-cache` des portes ; les 379 résidus de la suite complète du §18.12 (`tmp/oracle`) laissés en place.
+- **Livrables** : `F:/tmp/methode/m4-corr-deliver/` : `files/` (les quatre fichiers, `cmp` égaux), `interrupted/` (preuves du correcteur interrompu telles que trouvées, dont l'oracle réutilisé), `reprise/` (preuves et scripts de cette reprise) ; écrits par `reprise/deliver.sh` (12:49:08Z), puis mis à jour sans `rm` par `reprise/redeliver.sh` (journal final, contrôles des empreintes abrégées de cette section : 23/23 égales à une valeur mesurée, `checks/abbrev.txt`) ; `DELIVERED.sha256` réécrit en dernier, hors de lui-même ; son sha est rendu hors du fichier.

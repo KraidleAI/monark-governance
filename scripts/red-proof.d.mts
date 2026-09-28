@@ -14,7 +14,7 @@ export interface DrawnKiller {
 export interface RedProof {
   schema: "red-proof-v1"; at: string; node: string; repo: string; base: string; gel: { ref: string; mode: "worktree" | "commit"; head: string; digest: string };
   files: { tests: string[]; support: string[]; added: string[] }; tests: ProofRow[]; unchanged: number;
-  draw: { seed: number; requested: number; population: number; drawn: DrawnKiller[] } | null; tap: Record<"base" | "gel", { path: string; sha256: string }>; ok: boolean;
+  draw: { seed: number; requested: number; population: number; drawn: DrawnKiller[] } | null; tap: Record<"base" | "gel", { path: string; sha256: string }>; drawn: number; ok: boolean;
 }
 export function parseTap(tap: string): TapEntry[];
 export function classify(entry: TapEntry | undefined): Status;

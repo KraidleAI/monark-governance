@@ -1,32 +1,37 @@
 // scripts/red-proof.mjs -- mechanical F2P proof of a lot's tests (ADR-METHODE-2 D2, lot M-4, decision 267 (b)). Node 24, zero dependencies.
 // Usage: node scripts/red-proof.mjs --base <sha> --gel <worktree dir | sha> [--repo <dir>] [--out <dir>] [--draw <n> --seed <integer>]
 //
-// The *.test.ts files that base..gel adds or modifies (a worktree gel counts its untracked files) and the diff's other files under a
-// test/ directory are copied into a no-local clone of the base; each test file runs alone under node --test (TAP) there and in a clone
-// of the gel (worktree gel = base clone + the worktree's diff), node_modules of --repo linked in, workspace links re-pointed to the
-// clone's packages/* and apps/*. A test is JUDGED when a changed line other than a killer line falls between its top-level declaration
-// and the next one. F2P = red at base by an assertion failure (TAP code ERR_ASSERTION), green at gel; new-module = the base run cannot
-// load a file that the diff adds. Refused: green at base (self-confirming), an import red on a file that exists at base, any other red,
-// not green at gel, no valid killer. A killed or timed-out child is inconclusive, never a pass nor a kill. Exit 0 iff a test at least
-// is judged, each is F2P or new-module and each drawn killer is killed; 1 otherwise; 2 on a usage or tool error. "(test 42)" is skipped
-// (host lock only). Outputs in --out: RED-PROOF.json, base.tap and gel.tap (per-file TAP streams after "# red-proof file:" lines).
+// The *.test.ts files that base..gel adds or modifies (a worktree gel counts its untracked files and applies its deletions; --gel may name
+// any directory of it) and the diff's other files under a test/ directory are copied into a no-local clone of the base; each test file
+// runs alone under node --test (TAP) there and in a clone of the gel, node_modules of --repo linked in, workspace links re-pointed to the
+// clone's packages/* and apps/*; no child sees a variable whose name matches DENY (M-3's closed list). A test is JUDGED when a changed
+// line falls in its body, from its top-level declaration to its last code line: blank and comment lines between tests (killer lines among
+// them) are in no body; a pure deletion counts between two lines of one body. F2P = red at base by an assertion failure (TAP code
+// ERR_ASSERTION), green at gel; new-module = the base run cannot load a file that the diff adds. Refused: green at base (self-confirming),
+// an import red on a file that exists at base, any other red, not green at gel, no valid killer. A killed child (exit 134, signal, heap
+// limit) or a timed-out run or test is inconclusive, never a pass nor a kill. Exit 0 iff a test at least is judged, each is F2P or
+// new-module and each drawn killer is killed (ok holds without --draw: the JSON then reads "drawn": 0; G2 and cp-2 draw by mission);
+// 1 otherwise; 2 on a usage or tool error. "(test 42)" is skipped (host lock only). Outputs in --out: RED-PROOF.json (digest over the
+// changes, docs/**/*.md out), base.tap and gel.tap (per-file TAP streams after "# red-proof file:" lines).
 //
 // KILLER CONVENTION (closed): the line right above a top-level test( or it( declaration reads
 //   // killer: <file>:<line> <OP> "<before>" -> "<after>"        OP in COR, ROR, SDL, CONST
-// <file> is repo-relative; <before> occurs exactly once on that line of the gel tree and becomes <after>; SDL empties the line, with ""
-// as <after>. --draw n --seed s draws n killers of the admitted tests (seeded, reproducible), applies each alone to the gel clone and
-// reruns that test: killed = red with its modules loaded, stillborn = still green, invalid = a load failure; the file is restored
-// (sha256 checked before and after) and the run kept as killer-<n>.tap.
+// <file> is repo-relative production code (never *.test.ts nor under test/) whose real path lies in the gel clone (else out of scope);
+// <before> occurs exactly once on that line and becomes <after>; SDL empties the line, with "" as <after>. --draw n --seed s draws n
+// killers of the admitted tests (seeded, reproducible), applies each alone to the gel clone and reruns that test: killed = red with its
+// modules loaded, stillborn = still green, invalid = a load failure, inconclusive = as above; the file is restored (sha256 checked
+// before and after) and the run kept as killer-<n>.tap.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, posix, resolve } from "node:path";
+import { dirname, join, posix, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const OPS = ["COR", "ROR", "SDL", "CONST"];
 const KILLER = /^\s*\/\/ killer: (\S+):(\d+) (\w+) "((?:[^"\\]|\\.)*)" -> "((?:[^"\\]|\\.)*)"\s*$/;
-const ENV = { ...process.env, GIT_OPTIONAL_LOCKS: "0", NODE_TEST_CONTEXT: undefined }; // a nested node --test must print TAP, not report to a parent
+const DENY = /API_KEY|_KEY$|TOKEN|SECRET|^GH_|^GITHUB_|^CHAINSTACK_|^MONARK_PUBLIC_MIRROR$/i; // the lot's tests never see these names (Q-G2-5)
+const ENV = { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !DENY.test(k))), GIT_OPTIONAL_LOCKS: "0", NODE_TEST_CONTEXT: undefined }; // a nested node --test must print TAP, not report to a parent
 const sha = (b) => createHash("sha256").update(b).digest("hex");
 const str = (s) => { try { return JSON.parse(`"${s}"`); } catch { return s; } };
 const isDir = (p) => existsSync(p) && statSync(p).isDirectory();
@@ -44,7 +49,8 @@ export function parseKiller(line) {
 
 function killerProblem(k, tree) {
   if (!OPS.includes(k.op)) return `operator ${k.op} is not one of ${OPS.join(", ")}`;
-  if (!/^[\w.@-]+(\/[\w.@-]+)*$/.test(k.file) || k.file.split("/").includes("..") || !existsSync(join(tree, k.file))) return `${k.file} is not a file of the gel tree`;
+  if (!/^[\w.@-]+(\/[\w.@-]+)*$/.test(k.file) || k.file.split("/").includes("..") || !existsSync(join(tree, k.file)) || !realpathSync(join(tree, k.file)).startsWith(realpathSync(tree) + sep)) return `${k.file} is out of scope: not a file inside the gel clone`;
+  if (/(^|\/)test\/|\.test\.ts$/.test(k.file)) return `${k.file} is test code: a killer mutates production code`;
   const text = readFileSync(join(tree, k.file), "utf8").split("\n")[k.line - 1];
   if (text === undefined) return `${k.file}:${k.line} is out of range`;
   if (k.op === "SDL" ? k.after !== "" : k.before === k.after) return "SDL takes an empty <after>; the other operators change the text";
@@ -89,7 +95,7 @@ export function classify(e) {
   if (e === undefined) return "missing";
   if (e.ok) return e.skip ? "skip" : "pass";
   const bs = blocks(e.lines), me = bs.at(-1) ?? {};
-  if (/Reached heap limit|heap out of memory/.test(notes(e)) || me.exitCode === "134" || (me.signal ?? "~") !== "~") return "inconclusive";
+  if (/Reached heap limit|heap out of memory/.test(notes(e)) || me.exitCode === "134" || (me.signal ?? "~") !== "~" || bs.some((b) => b.failureType === "'testTimeoutFailure'")) return "inconclusive";
   if ("exitCode" in me) return /ERR_MODULE_NOT_FOUND|does not provide an export named/.test(notes(e)) ? "import-fail" : "other-fail";
   const fails = bs.filter((b) => "failureType" in b && b.failureType !== "'subtestsFailed'");
   return fails.length > 0 && fails.every((b) => b.code === "'ERR_ASSERTION'") ? "assert-fail" : "other-fail";
@@ -106,16 +112,16 @@ function missingModule(e, file, added) {
 function changedLines(gitDir, range, file) {
   const set = new Set();
   for (const m of git(gitDir, ["diff", "-U0", "--no-color", "--no-ext-diff", ...range, "--", file]).matchAll(/^@@ -\S+ \+(\d+)(?:,(\d+))? @@/gm)) {
-    const c = Math.max(Number(m[1]), 1), d = m[2] === undefined ? 1 : Number(m[2]);
-    for (let l = c; l < c + Math.max(d, 1); l++) set.add(l);
+    const c = Number(m[1]), d = m[2] === undefined ? 1 : Number(m[2]);
+    if (d === 0) set.add(c + 0.5); else for (let l = c; l < c + d; l++) set.add(l); // a pure deletion sits between lines c and c + 1
   }
   return set;
 }
 
-function judgedOf(text, changed) {
-  const lines = text.split("\n"), decls = declarations(text);
+function judgedOf(text, changed) { // a changed line judges a test only inside its body (declaration to last code line); blank and comment lines (//, /* */, JSDoc *) between tests are in no body
+  const lines = text.split("\n"), decls = declarations(text), gap = (l) => /^\s*(\/\/.*|\/\*.*|\*.*)?$/.test(lines[l - 1] ?? "");
   const hit = (l) => (changed === null || changed.has(l)) && !/^\s*\/\/ killer:/.test(lines[l - 1]);
-  const judged = decls.filter((t, i) => { for (let l = t.line; l < (decls[i + 1]?.line ?? lines.length + 1); l++) if (hit(l)) return true; return false; });
+  const judged = decls.filter((t, i) => { let end = (decls[i + 1]?.line ?? lines.length + 1) - 1; while (end > t.line && gap(end)) end--; for (let l = t.line; l <= end; l += 0.5) if (hit(l)) return true; return false; });
   return { judged, all: decls.length };
 }
 
@@ -145,7 +151,7 @@ function runFile(tree, file, tmp, only) {
   const pick = only === undefined ? [] : [`--test-name-pattern=^${only.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`];
   const r = spawnSync(process.execPath, ["--test", "--test-reporter=tap", "--test-force-exit", "--test-timeout=120000", "--test-skip-pattern=\\(test 42\\)", ...pick, file],
     { cwd: tree, env: { ...ENV, TEMP: tmp, TMP: tmp, TMPDIR: tmp }, encoding: "utf8", timeout: 1_800_000, maxBuffer: 1 << 28 });
-  return { tap: r.stdout ?? "", dead: r.error !== undefined || r.signal !== null };
+  return { tap: r.stdout ?? "", dead: r.error !== undefined || r.signal !== null || r.status === 134 }; // 134: the runner itself aborted (Q-G2-3)
 }
 
 function statusIn(run, name) {
@@ -201,7 +207,7 @@ function parseArgs(argv) {
 }
 
 export function main(argv) {
-  const a = parseArgs(argv), wt = isDir(a.gel), repo = resolve(a.repo ?? (wt ? a.gel : ".")), gitDir = wt ? resolve(a.gel) : repo;
+  const a = parseArgs(argv), wt = isDir(a.gel), top = wt ? git(resolve(a.gel), ["rev-parse", "--show-toplevel"]).trim() : null, repo = resolve(a.repo ?? top ?? "."), gitDir = top ?? repo;
   const base = git(repo, ["rev-parse", "--verify", `${a.base}^{commit}`]).trim();
   const gelSha = wt ? null : git(repo, ["rev-parse", "--verify", `${a.gel}^{commit}`]).trim();
   const range = wt ? [base] : [base, gelSha], changes = new Map();
@@ -220,7 +226,7 @@ export function main(argv) {
     cloneAt(repo, base, baseTree);
     for (const p of [...tests, ...support]) put(gelTree, baseTree, p);
     linkModules(repo, gelTree); linkModules(repo, baseTree);
-    const digest = sha([...changes.keys()].sort().map((p) => `${changes.get(p)} ${p} ${changes.get(p) === "D" ? "-" : sha(readFileSync(join(gelTree, p)))}`).join("\n"));
+    const digest = sha([...changes.keys()].filter((p) => !/^docs\/(.+\/)?[^/]+\.md$/.test(p)).sort().map((p) => `${changes.get(p)} ${p} ${changes.get(p) === "D" ? "-" : sha(readFileSync(join(gelTree, p)))}`).join("\n"));
     const rows = [];
     let baseTap = "", gelTap = "", unchanged = 0;
     for (const f of tests) {
@@ -244,7 +250,7 @@ export function main(argv) {
       schema: "red-proof-v1", at: new Date().toISOString(), node: process.version, repo, base, gel: { ref: a.gel, mode: wt ? "worktree" : "commit", head, digest },
       files: { tests, support, added: [...added].sort() }, tests: rows, unchanged,
       draw: a.draw > 0 ? { seed: a.seed, requested: a.draw, population: admitted.length, drawn } : null,
-      tap: { base: { path: "base.tap", sha256: sha(baseTap) }, gel: { path: "gel.tap", sha256: sha(gelTap) } }, ok,
+      tap: { base: { path: "base.tap", sha256: sha(baseTap) }, gel: { path: "gel.tap", sha256: sha(gelTap) } }, drawn: drawn.length, ok,
     };
     writeFileSync(join(out, "RED-PROOF.json"), `${JSON.stringify(proof, null, 2)}\n`);
     for (const r of rows) console.log(`${r.verdict.padEnd(12)} ${r.file} :: ${r.name}${admitted.includes(r) ? "" : ` -- ${r.reason}`}`);
