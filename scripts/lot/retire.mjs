@@ -3,7 +3,7 @@
 // Usage: node scripts/lot/retire.mjs --repo <repo> --trunk <branch> [--dry-run] [--only <path>]
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
-import { realpathSync } from 'node:fs';
+import { realpathSync, statSync } from 'node:fs';
 function parseArgs(argv) {
   const out = { repo: null, trunk: null, dryRun: false, only: null };
   for (let i = 0; i < argv.length; i++) {
@@ -18,12 +18,12 @@ function parseArgs(argv) {
   return out;
 }
 
-function norm(p) {
-  let n = p.replace(/\\/g, '/');
-  if (process.platform === 'win32') n = n.toLowerCase();
-  return n;
-}
-
+// file identity (dev, ino) read by stat, never a spelling: native, UNC, subst, junction and \\?\ paths of one directory agree (C-G2-24)
+function fileId(p) { try { const s = statSync(p, { bigint: true }); return `${s.dev}:${s.ino}`; } catch { return null; } } // null: stat failed
+function sameDir(a, b) { return a !== null && a === b; } // two identities: equal and non-null
+// inner is the directory outerId or lies under it: the parents of its spelling, then of its physical path (a junction may lead into a subdirectory)
+function within(inner, outerId) { let real = null; try { real = realpathSync.native(inner); } catch { /* missing or EPERM: the spelling alone */ } return climb(inner, outerId) || (real !== null && climb(real, outerId)); }
+function climb(p, outerId) { return sameDir(fileId(p), outerId) || (path.dirname(p) !== p && climb(path.dirname(p), outerId)); } // p, then its parents up to the root (fixed point of path.dirname)
 function git(cwdRepo, args) {
   const r = spawnSync('git', ['-C', cwdRepo, ...args], { encoding: 'utf8', env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } });
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '', error: r.error };
@@ -58,10 +58,10 @@ function mergedBranches(repo, trunk) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const argNorm = norm(realpathSync.native(path.resolve(args.repo))) + '/'; // git runs there (-C): never removed
-  const onlyNorm = args.only ? norm(path.resolve(args.only)) : null;
-  const cwdNorm = norm(realpathSync.native(process.cwd())) + '/'; // physical path: junction and symlink aliases resolved
-  if ([argNorm, cwdNorm].some((p) => p.startsWith('//'))) throw new Error('UNC cwd or --repo: local drive paths only');
+  const repoArg = path.resolve(args.repo); // git runs there (-C): never removed
+  const onlyId = args.only ? fileId(path.resolve(args.only)) : null; // --only by identity: an alias selects the worktree it names
+  if (!fileId(repoArg) || !fileId(process.cwd())) throw new Error('--repo or cwd without file identity (stat failed): nothing done');
+  if ([repoArg, process.cwd()].some((p) => /^[\\/]{2}/.test(realpathSync.native(p)))) throw new Error('UNC cwd or --repo: local drive paths only');
   const list = git(args.repo, ['worktree', 'list', '--porcelain']);
   if (list.error || list.status !== 0) {
     console.error(`git worktree list failed: ${list.stderr}`);
@@ -70,7 +70,7 @@ function main() {
   }
   const entries = parsePorcelain(list.stdout);
   const [main, ...rest] = entries; // first block = the main worktree, never touched
-
+  const mainId = fileId(main.path); if (!mainId) throw new Error(`main worktree ${main.path} without file identity (stat failed): nothing done`);
   let merged;
   try {
     merged = mergedBranches(args.repo, args.trunk);
@@ -86,17 +86,16 @@ function main() {
   let hadError = false;
 
   for (const wt of rest) {
-    const wtNorm = norm(wt.path);
-    if (onlyNorm && wtNorm !== onlyNorm) continue;
-
-    // (d) path under the repo tree: never removed by this tool, orchestrator action only
-    if ((wtNorm + '/').startsWith(norm(main.path) + '/')) {
+    const wtId = fileId(wt.path); // null: the registered path is missing or unreadable (EPERM...)
+    if (args.only && onlyId !== wtId) continue; // a target without identity selects the entries without one only: never retired (below)
+    // (d) under the repo tree, by identity (an ancestor of the registered path is the main worktree): never removed by this tool, orchestrator action only
+    if (within(wt.path, mainId)) {
       console.log(`REFUSE-IN-TREE ${wt.path}`);
       refused++;
       continue;
     }
-    // the worktree this script is running from: never removed
-    if ([cwdNorm, argNorm].some((p) => p.startsWith(wtNorm + '/'))) {
+    // the worktree this script is running from (cwd or --repo is it or lies under it, by identity): never removed
+    if (within(process.cwd(), wtId) || within(repoArg, wtId)) {
       console.log(`KEEP ${wt.path} current-worktree`);
       kept++;
       continue;
@@ -107,6 +106,7 @@ function main() {
       kept++;
       continue;
     }
+    if (wtId === null) { console.log(`KEEP ${wt.path} unreadable`); kept++; hadError = true; continue; } // no identity, not prunable (locked, EPERM): fail-closed per path, exit 2 at the end
     // (a) branch not merged
     if (!wt.detached && !merged.has(wt.branch)) {
       console.log(`KEEP ${wt.path} not-merged`);

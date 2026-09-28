@@ -166,7 +166,7 @@ test("lot_retire_merged_dirty_worktree_is_kept", () => {
   assert.match(list, /feat-dirty/, "the dirty worktree must survive despite being merged");
 });
 
-// killer: scripts/lot/retire.mjs:93 COR "if ((wtNorm + '/').startsWith(norm(main.path) + '/'))" -> "if (false)"
+// killer: scripts/lot/retire.mjs:92 COR "if (within(wt.path, mainId))" -> "if (false)"
 test("lot_retire_in_tree_worktree_is_refused", () => {
   const r = runRetire(["--repo", fx.repo, "--trunk", "trunk", "--only", fx.wtInTree]);
   assert.equal(r.status, 0, r.stderr);
@@ -244,7 +244,7 @@ test("lot_retire_worktree_path_with_a_space_is_retired", () => {
   assert.doesNotMatch(list, /feat-space/);
 });
 
-// killer: scripts/lot/retire.mjs:105 COR "if (wt.prunable)" -> "if (false)"
+// killer: scripts/lot/retire.mjs:104 COR "if (wt.prunable)" -> "if (false)"
 test("lot_retire_prunable_worktree_is_kept_never_attempted", () => {
   rmSync(fx.wtVanish, { recursive: true, force: true });
   const r = runRetire(["--repo", fx.repo, "--trunk", "trunk", "--only", fx.wtVanish]);
