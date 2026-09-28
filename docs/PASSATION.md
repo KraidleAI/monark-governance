@@ -1,6 +1,6 @@
 # PASSATION — dossier de reprise pour un nouvel orchestrateur (nouveau compte Claude ou nouvelle session) — mis à jour à chaque retour d'agent et à chaque décision (décision 271, investisseur, 2026-09-28)
 
-**Dernière mise à jour** : 2026-09-28 07:42 UTC — M-1 gel 2 `caaff594`, cp-2 en vol (`wf_5ac081b9-8f1`) ; corr M-3 (`wf_67b91a60-d29`), G2 M-4 (`wf_13408304-d30`), G1 M-2a (`wf_c91f49af-680`) en vol.
+**Dernière mise à jour** : 2026-09-28 08:14 UTC — G1 M-2a repris (`wf_d506cb4c-b1e`) après agent pendu ; cp-2 M-1 (`wf_5ac081b9-8f1`), corr M-3 (`wf_67b91a60-d29`), G2 M-4 (`wf_13408304-d30`) en vol. Item METHODE-HANG-DETECT-1.
 
 ## 0. Lire dans cet ordre (30 minutes)
 1. `F:\claude-config\CLAUDE.md` (règles globales, roster, amendement 267 en fin de fichier) — **contient des octets 0x08/0x07 aux l.203 et l.286 (BYTE-GUARD-CONFIG-1), ne pas « corriger » sans go**.
