@@ -1,6 +1,6 @@
 # PASSATION — dossier de reprise pour un nouvel orchestrateur (nouveau compte Claude ou nouvelle session) — mis à jour à chaque retour d'agent et à chaque décision (décision 271, investisseur, 2026-09-28)
 
-**Dernière mise à jour** : 2026-09-28 17:24 UTC — M-8 gel 3 cc0c36b8 → re-revue 3 wf_7a7438e9 (par la porte) ; M-4 re-revue 2 wf_dad59c7a en vol ; fusionnés M-1, M-2a, M-3
+**Dernière mise à jour** : 2026-09-28 18:08 UTC — BASCULE DE COMPTE : re-revues M-4 rr2 / M-8 rr3 mortes (limite hebdo) → relancées wf_afd52c32-21b / wf_c9888652-4f9 ; Firecrawl 24 agents ré-épinglés 1e993196… ; superpowers absent (acte investisseur)
 
 ## 0. Lire dans cet ordre (30 minutes)
 1. `F:\claude-config\CLAUDE.md` (règles globales, roster, amendement 267 en fin de fichier) — **contient des octets 0x08/0x07 aux l.203 et l.286 (BYTE-GUARD-CONFIG-1), ne pas « corriger » sans go**.
