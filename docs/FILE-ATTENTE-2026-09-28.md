@@ -205,3 +205,4 @@ BIBLIO-ID-2411-1 ; REPO-STRAY-WORKTREE-GUARD-1 ; VALIDATEUR-CA-12-TIERS-1 ; VOCA
 - **2026-09-29 19:32 UTC — G7 PR-2b-3 ACCEPTÉ, fusion `a8cd45b3`, oracle vert** → pistes parallèles : cp-2 RG-1c ; G1 PR-3a-1 ; G1 PR-4a-2.
 - **2026-09-29 19:36 UTC — trois pistes en vol : cp-2 RG-1c, G1 PR-3a-1, G1 PR-4a-2** → retours : G2 de chaque G1 (relecteur frais), G7 RG-1c (fusion I-4) puis DRAND-1a ; G0 PR-1b-4 à écrire par l orchestrateur.
 - **2026-09-29 20:53 UTC — G7 RG-1c ACCEPTÉ, fusion I-4 `c972f943` mécanique + pli `5edc3244`, oracle G7 vert 1 709** → DRAND-1a ; G2 PR-3a-1 et PR-4a-2 au retour des G1. Items : ORACLE-NM-ABSENT-1, MUTANTS-REPLAY-VERDICT-1, ORACLE-FLAKE-LOOPBACK-1.
+- **2026-09-29 20:59 UTC — gel 1 PR-4a-2 `9dfc5ab7` ; G2 PR-4a-2 et cp-2 DRAND-1a en vol ; G1 PR-3a-1 en vol** → G7 DRAND-1a (fusion après I-4) ; cp-2 PR-4a-2 ; G2 PR-3a-1.
