@@ -1,6 +1,6 @@
 # PASSATION — dossier de reprise pour un nouvel orchestrateur (nouveau compte Claude ou nouvelle session) — mis à jour à chaque retour d'agent et à chaque décision (décision 271, investisseur, 2026-09-28)
 
-**Dernière mise à jour** : 2026-09-29 09:53 UTC — corr1 M-6 rendue → gel 1 8a34b89b → G2 M-6 lancé (wf_6d4e87a7-ff7) ; en vol (3) : G2 M-6, G2 M-7, G1 M-5c
+**Dernière mise à jour** : 2026-09-29 10:19 UTC — G2 M-7 CORRECTIONS D ABORD (2 bloquantes, 11 survivants) → tour 1 lancé (wf_867dde96-103) ; en vol (3) : corr1 M-7, G2 M-6, G1 M-5c
 
 ## 0. Lire dans cet ordre (30 minutes)
 1. `F:\claude-config\CLAUDE.md` (règles globales, roster, amendement 267 en fin de fichier) — **BYTE-GUARD-CONFIG-1 CLOS le 28/09 03:52 UTC (octets 0x08/0x07 remplacés, sauvegarde `CLAUDE.md.pre-bytefix`) ; mesure 28/09 18:06Z et 19:1xZ : 0 octet de contrôle ; CLAUDE.md = acte de l orchestrateur (décision 279)**.
