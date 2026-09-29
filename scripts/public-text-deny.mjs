@@ -52,6 +52,8 @@ export const OPERATOR_FORMS = Object.freeze([
   rpc("drpc"), rpc("publicnode"), rpc("llamarpc"), rpc("blastapi"), rpc("mevblocker"), rpc("1rpc"), rpc("ankr"),
   { re: /\bpokt\b|\bpocket\s+network\b/i, why: "RPC operator", sample: "pokt" }, rpc("alchemy"), rpc("quicknode"), rpc("infura"),
   { re: /\bkaiko\b/i, why: "market-data vendor", sample: "kaiko" }, { re: /\bdune\b/i, why: "query vendor", sample: "dune" },
+  // The inference partner of the Dōjō's later piece: named in the internal records only, never on the storefront (any form).
+  { re: /\buse[\s._-]*pod\b/i, why: "inference partner", sample: "UsePod" },
 ]);
 // Q-4 (decision of the orchestrator, CHANTIERS l.1647): the hosting, registrar, registry and CDN vendors named in governance
 // (ADR-M004 D2, D3, D6, D16 K-7). Open tools and protocols (web server, TLS, container runtime) are NOT listed. Applied to

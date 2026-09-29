@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { join } from "node:path";
 import { GateSim } from "@/components/gate-sim";
 import { CaCopy } from "@/components/token/ca-copy";
 import { loadGateEnums } from "@/lib/gate-enums";
 import { COST, AMBIENT, BT_SERVED_RULE, BT_FLOOR_RULE } from "@/lib/sim";
+import { loadDojoServed } from "@/lib/dojo-served-load";
+import { DOJO_ROUTE, DOJO_TITLE } from "@/lib/dojo-copy";
 
 // Static metadata only (honesty lint scans title/description; no digits). No generateMetadata (gate
 // no_generate_metadata_in_apps_site). "B_t" carries no digit; "yield"/"probability" are honest denials,
@@ -30,6 +33,8 @@ const CA_ADDRESS = "FYZcYCHSp8FzNba1UtDZydKKGosmxVNpFBiVuia38AhT";
 export default function TokenPage() {
   const root = join(process.cwd(), "..", "..");
   const { actions, reasons } = loadGateEnums(root);
+  // The hold snapshot page exists only once a snapshot is served (a committed record): no link to it before.
+  const dojo = loadDojoServed(root);
   return (
     <main className="mx-auto max-w-5xl px-6 py-16">
       {/* Contract address first: copyable field + copy button, before the hero. The address is an identifier
@@ -132,6 +137,11 @@ export default function TokenPage() {
             to be announced
           </span>
         </div>
+        {dojo === null ? null : (
+          <p className="mt-4 text-sm">
+            <Link href={DOJO_ROUTE}>{DOJO_TITLE}</Link>
+          </p>
+        )}
       </section>
     </main>
   );

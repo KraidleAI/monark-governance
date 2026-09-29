@@ -39,6 +39,8 @@ import { renderedTexts, scanText as scanNumericText, loadExemptFile, scanAppsSit
 import { FLEET_AGENTS, PRODUCTS } from "../apps/site/lib/fleet.ts";
 import type { FleetStatus, FleetWiring } from "../apps/site/lib/fleet.ts";
 import type { AgentStatus } from "../apps/site/lib/status.ts";
+import { DOJO_REGISTER, holdSnapshotStatus, type DojoRegister, type DojoServedPath } from "../apps/site/lib/dojo-register.ts";
+import { loadDojoServed } from "../apps/site/lib/dojo-served-load.ts";
 import { loadGateEnums } from "../apps/site/lib/gate-enums.ts";
 import { ACTION_COMMIT, ACTION_DEFER, ACTION_ABSTAIN, SENSOR_NODES, AMBIENT, decide, fresh, CAVEAT, gateJson, push } from "../apps/site/lib/sim.ts";
 import { AGENTS_PRESENTATION } from "../apps/site/lib/agents-presentation.ts";
@@ -1164,6 +1166,49 @@ test("wiring_test_roots_exclusion_is_declared — TEST_ROOTS ⇔ a documented li
     assert.match(root, /^packages\//, `the documented exclusion must name a packages/*/test path: ${root}`);
     assert.ok(why.trim().length > 0, `excluded root ${root} must carry a non-empty reason`);
   }
+});
+
+// Dōjō register (ADR-DOJO-PR-4 D-3; C-V-4 of its checkpoint-1): apart from the fleet register (lib/fleet.ts unchanged), its one
+// piece, the hold snapshot, stays upcoming until the piece's G7. The guard states what "built" needs, on the SAME
+// WIRING_TEST_ROOTS: a served path, its integration tests declared under those roots (the two of the piece's condition among
+// them), a note without digits, a committed record listed in the site manifest (so the committed leg of
+// dojo_served_data_matches_deploy_ca ran on it) and a unit version in force in that record. Named mutants: M-P4, M-P18, M-P21.
+test("dojo_register_is_frozen — the hold snapshot is upcoming; built only with a served path, its integration tests under the wiring roots, a committed record in the site manifest and a unit version in force", () => {
+  const corpus = WIRING_TEST_ROOTS.map((r) => join(ROOT, ...r.split("/"))).flatMap((dir) =>
+    existsSync(dir) ? readdirSync(dir).filter((n) => n.endsWith(".test.ts")).map((n) => readFileSync(join(dir, n), "utf8")) : []).join("\n");
+  assert.ok(corpus.length > 0, "no *.test.ts under the wiring roots (false green)");
+  const legs = ["dojo_snapshot_composes_served_lines_to_page_figures", "dojo_served_data_matches_deploy_ca"];
+  /** Why the register may not say built: [] when its piece is upcoming or every condition holds. */
+  const refusals = (register: DojoRegister, record: { head: { price_version: number | null } } | null): string[] =>
+    register.pieces.flatMap((p) => {
+      if (p.status !== "built") return [];
+      const ids = p.served.tests.map((t) => t.trim()), out: string[] = [];
+      if (p.served.path.trim() === "") out.push("no served path");
+      if (ids.length === 0 || new Set(ids).size !== ids.length) out.push("no distinct integration tests");
+      for (const id of ids) if (!/^[A-Za-z0-9_]+$/.test(id) || !new RegExp(`test\\(\\s*["']${id}(?:["']| — )`).test(corpus)) out.push(`no test ${id} under the wiring roots`);
+      for (const id of legs) if (!ids.includes(id)) out.push(`the integration tests omit ${id}`);
+      if (p.served.note.trim() === "" || /\d/.test(p.served.note)) out.push("a blank note or a note with a digit");
+      if (record === null) out.push("no committed record in the site manifest: the committed leg has not run");
+      else if (record.head.price_version === null) out.push("the committed record carries no unit version");
+      return out;
+    });
+  // (1) the register as committed, beside the record the page's loader reads (null before any served snapshot).
+  assert.deepEqual(refusals(DOJO_REGISTER, loadDojoServed(ROOT)), [], "the register says built without its conditions");
+  assert.equal(DOJO_REGISTER.program, "MONARK Dōjō");
+  assert.deepEqual(DOJO_REGISTER.pieces.map((p) => [p.key, p.status]), [["hold-snapshot", "upcoming"]], "the hold snapshot stays upcoming until the piece's G7");
+  assert.equal(holdSnapshotStatus(), "upcoming", "the function the page calls reads the register's status, never another");
+  assert.throws(() => holdSnapshotStatus({ program: "MONARK Dōjō", pieces: [] }), /hold snapshot is missing/, "a register without the piece: no silent fallback");
+  // (2) the guard is live: each condition missing is refused (M-P4, M-P18, M-P21). Today the committed leg's test is not written
+  // yet (it comes with the sync): built is refused even with every other condition met.
+  const built = (served: DojoServedPath): DojoRegister => ({ program: "MONARK Dōjō", pieces: [{ key: "hold-snapshot", name: "hold snapshot", status: "built", served }] });
+  const served: DojoServedPath = { path: "the page /dojo, built from the committed record", tests: legs, note: "the figures of the committed record" };
+  const withVersion = { head: { price_version: 1 } }, noVersion = { head: { price_version: null } };
+  assert.ok(refusals(built({ ...served, path: " " }), withVersion).includes("no served path"), "M-P4: built without a served path");
+  assert.ok(refusals(built(served), null).includes("no committed record in the site manifest: the committed leg has not run"), "M-P18");
+  assert.ok(refusals(built(served), noVersion).includes("the committed record carries no unit version"), "M-P21: built on a record without a unit version");
+  assert.ok(refusals(built({ ...served, note: "read on day 60" }), withVersion).includes("a blank note or a note with a digit"), "a note with a digit");
+  for (const note of ["validated from 2026-11-09", "see ADR-M018", "rule R-25"]) assert.ok(refusals(built({ ...served, note }), withVersion).includes("a blank note or a note with a digit"), note);
+  assert.deepEqual(refusals(built(served), withVersion), ["no test dojo_served_data_matches_deploy_ca under the wiring roots"], "only the unwritten committed leg refuses");
 });
 
 // ────────────────────────────────────────────────────────────────────────────────────────────────

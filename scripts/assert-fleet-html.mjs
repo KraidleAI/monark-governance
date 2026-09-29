@@ -11,6 +11,8 @@
 // `run:` line is unchanged (checkpoint-1 C-4). See the /ukemi extension block below.
 // EXTENDED (ADR-BELL-OTS-PRB T-B9, T-3b): the same main() asserts the Bell timestamp state of the latest published record on the
 // built pages (its one sentence, no other state's; the publications table row by row). See the Bell block below.
+// EXTENDED (Dōjō hold snapshot): the same main() asserts /dojo against the committed record: before any served snapshot, no page and
+// no link on /token; after it, the closed list of figures of the record's state, its sentences and pill. See the /dojo block below.
 //
 // The pure function assertFleetBody() is import-free (built-ins only) — what test/site-build-fleet.test.ts
 // drives on a synthetic fixture. main() DYNAMICALLY imports apps/site/lib/fleet.ts (the SINGLE SOURCE of the
@@ -564,6 +566,123 @@ export function assertBellPublicationsTable({ html, rows, latest, counts }) {
   return { rows: rows.length };
 }
 
+/* ─────────── /dojo: the hold snapshot, rendered only once a snapshot is served ───────────
+ * Before any served snapshot there is no committed record (apps/site/data/dojo-served.json with its manifest entry, read by the
+ * page's own fail-closed loader): main() then asserts that /dojo is no page (no artefact, or the not-found document Next writes with
+ * status 404) and that /token renders no link to it. Once a record is committed, it asserts the built <main> of /dojo against
+ * dojoExpected(): the closed list of figures of the record's state, composed HERE from the record (never through the page's figures
+ * module), each as often as the list carries it; no other number (the names SHA-256 and Ed25519 aside, and no date or identifier
+ * exemption: a day of the history is a number outside the list); the sentences of that state from lib/dojo-copy.ts and none of the
+ * other states'; the tier names of the closed list; no forbidden word; the pill "Dōjō <status>" of lib/dojo-register.ts. */
+export const DOJO_HTML_REL = "apps/site/.next/server/app/dojo.html";
+export const DOJO_META_REL = "apps/site/.next/server/app/dojo.meta";
+export const TOKEN_HTML_REL = "apps/site/.next/server/app/token.html";
+/** The two names whose digits the texts of /dojo carry. */
+export const DOJO_NAMED_IDS = ["SHA-256", "Ed25519"];
+/** The tier names, a closed list in this order, held here apart from the page's constant. */
+export const DOJO_TIER_NAMES = ["Egg", "Caterpillar", "Chrysalis", "Monarch", "Migration"];
+/** Words /dojo never renders (whole words, any case): the refusals of its closed lexicon, "thirty" and "independent". */
+export const DOJO_FORBIDDEN = [
+  /\bagents?\b/i, /\brewards?\b/i, /\bearn(?:s|ing|ings)?\b/i, /\bairdrops?\b/i, /\byields?\b/i, /\beligible\b|\beligibility\b/i, /\brights?\b/i,
+  /\bentitle(?:s|d|ment)?\b/i, /\bsoon\b/i, /\bcoming\b/i, /\blive\b/i, /\bguarantee[sd]?\b/i, /\bverified\b/i, /\bproven\b/i,
+  /\bcertified\b/i, /\btrustless\b/i, /\btamper[- ]?proof\b/i, /\bat a point in time\b/i, /\breal[- ]?time\b/i, /\brank(?:s|ed|ing|ings)?\b/i,
+  /\bleaderboards?\b/i, /\btop holders\b/i, /(?<!\bhold )\bscores?\b/i, /\binferences?\b/i, /\bbudgets?\b/i, /\bNFTs?\b/i, /\bdollars?\b/i,
+  /\bUSD\b/i, /\$/, /\bbuy(?:s|ing)?\b/i, /\bsell(?:s|ing)?\b/i, /\bthirty\b/i, /\bindependent(?:ly)?\b/i,
+];
+
+/** Assert the built /dojo <main> against `expected` (dojoExpected): the figures of its closed list exactly, no other number, the
+ *  sentences of its state and none of the others', the tier names, no forbidden word, the register's status on the pill. Pure,
+ *  built-ins only; throws on any failure (vacuity-guarded, fail-closed). */
+export function assertDojoBody({ html, expected }) {
+  const blank = (s) => typeof s !== "string" || s.trim().length === 0;
+  if (typeof html !== "string" || expected === null || typeof expected !== "object") throw new Error("assert-dojo: html must be a string and expected an object (vacuity guard)");
+  const { state, figures, sentences, absentSentences, tierNames, status } = expected;
+  if (!["E1", "E2", "EA"].includes(state)) throw new Error(`assert-dojo: no /dojo page is asserted in state ${JSON.stringify(state)} (fail-closed)`);
+  if (!Array.isArray(figures) || figures.length === 0 || figures.some((f) => f === null || typeof f !== "object" || blank(f.value) || blank(f.source)))
+    throw new Error("assert-dojo: expected.figures is empty or holds a blank value or source (vacuity guard)");
+  if (![sentences, absentSentences].every((l) => Array.isArray(l) && l.length > 0 && !l.some(blank)) || blank(status))
+    throw new Error("assert-dojo: expected.sentences, expected.absentSentences or expected.status is empty (vacuity guard)");
+  if (!Array.isArray(tierNames) || tierNames.join("|") !== DOJO_TIER_NAMES.join("|"))
+    throw new Error(`assert-dojo: the tier names are not the closed list, in its order: ${JSON.stringify(tierNames)}`);
+  const body = renderedBody(html), mainHtml = extractMain(body), open = /<main\b[^>]*>/i.exec(body)?.[0] ?? "";
+  const corpus = mainCorpus(open + mainHtml), parts = mainTextAndAttrs(open + mainHtml);
+  // (1) the sentences of the state, whole; none of another state's (its longest fixed part).
+  for (const s of sentences) if (!corpus.includes(s)) throw new Error(`assert-dojo: a sentence of state ${state} is absent from the /dojo <main>: ${JSON.stringify(s)}`);
+  for (const s of absentSentences) if (corpus.includes(s)) throw new Error(`assert-dojo: a sentence of another state is rendered in state ${state}: ${JSON.stringify(s)}`);
+  // (2) each tier name exactly as often as those sentences carry it (a name rendered elsewhere, or dropped, reds).
+  for (const n of tierNames) {
+    const want = sentences.join("\n").split(n).length - 1, got = corpus.split(n).length - 1;
+    if (got !== want) throw new Error(`assert-dojo: the tier name ${n} occurs ${String(got)} time(s) in the /dojo <main> (expected ${String(want)})`);
+  }
+  // (3) each figure value exactly as often as the closed list carries it, as a bounded occurrence of the text nodes (never an
+  // attribute), longest first, in the text reduced by the two names (a count of 256 beside SHA-256) and by the longer values.
+  const unnamed = (t) => DOJO_NAMED_IDS.reduce((x, id) => x.split(id).join(" "), t);
+  let rest = unnamed(parts.text);
+  const sourcesOf = new Map();
+  for (const f of figures) sourcesOf.set(f.value, [...(sourcesOf.get(f.value) ?? []), f.source]);
+  for (const [value, sources] of [...sourcesOf].sort((a, b) => b[0].length - a[0].length)) {
+    const hits = boundedOccurrences(rest, value);
+    if (hits.length !== sources.length)
+      throw new Error(`assert-dojo: the figure ${JSON.stringify(value)} (${sources.join(", ")}) occurs ${String(hits.length)} time(s) as a bounded occurrence in the text of the /dojo <main> (expected ${String(sources.length)})`);
+    for (const i of hits.reverse()) rest = rest.slice(0, i) + " " + rest.slice(i + value.length);
+  }
+  // (4) no other number, in the reduced text or a visible attribute (the <main> tag's own included); the two forms the scan cannot read are refused first.
+  if (/&(?:lt|gt|#0*6[02]|#x0*3[ce]);/i.test(extractMain(stripHiddenSurfaces(html))))
+    throw new Error("assert-dojo: an angle bracket written as an entity in the /dojo <main> would hide the text after it from the numeric scan (fail-closed)");
+  if (/(?![0-9])\p{N}/u.test(corpus)) throw new Error("assert-dojo: a number written with non-ASCII digits in the /dojo <main> escapes the numeric scan (fail-closed)");
+  const stray = `${rest} ${unnamed(parts.attrs.join(" "))}`.match(/\d+(?:[.,]\d+)*/g) ?? [];
+  if (stray.length > 0) throw new Error(`assert-dojo: ${String(stray.length)} numeric token(s) rendered in the /dojo <main> outside the closed list of figures: ${JSON.stringify(stray)}`);
+  // (5) no forbidden word; (6) the pill: the program's name, then the register's status.
+  const word = DOJO_FORBIDDEN.find((re) => re.test(corpus));
+  if (word !== undefined) throw new Error(`assert-dojo: a forbidden word is rendered in the /dojo <main>: ${String(word)}`);
+  if (!corpus.includes(`Dōjō ${status}`)) throw new Error(`assert-dojo: the /dojo pill does not carry the register's status (expected "Dōjō ${status}")`);
+  return { state, figures: figures.length, corpusChars: corpus.length, status };
+}
+
+/** Before any served snapshot: /dojo is no page (no artefact, or the not-found document Next writes with status 404, without a
+ *  <main>) and /token renders no link to it. Pure; throws on failure. */
+export function assertDojoAbsent({ dojoHtml, dojoMeta, tokenHtml }) {
+  if (typeof tokenHtml !== "string" || tokenHtml.trim().length === 0) throw new Error("assert-dojo: the built /token page is empty (vacuity guard)");
+  if (dojoHtml !== null || dojoMeta !== null) {
+    let status;
+    try { status = JSON.parse(String(dojoMeta)).status; } catch { status = undefined; }
+    if (status !== 404) throw new Error(`assert-dojo: a /dojo page was rendered before any served snapshot (status ${String(status)}, not 404)`);
+    if (/<main\b/i.test(renderedBody(dojoHtml ?? ""))) throw new Error("assert-dojo: the not-found /dojo document carries a <main> before any served snapshot");
+  }
+  if (/href\s*=\s*["']?(?:https?:)?(?:\/\/[^/"'\s>]*)?\/dojo(?=["'\s/?#>]|$)/i.test(renderedBody(tokenHtml))) throw new Error("assert-dojo: /token links to /dojo before any served snapshot");
+  return { page: dojoHtml === null && dojoMeta === null ? "absent" : "the not-found document (status 404)" };
+}
+
+/** What main() asserts on /dojo, read from the site's own modules and the committed record (never typed here): the record under
+ *  `dataRoot` through the page's fail-closed loader ({ state: "E0" } without one); its figures composed here, apart from the page's
+ *  figures module; the sentences of its state (the others' by their longest fixed part) and the tier names from lib/dojo-copy.ts;
+ *  the status from the register constant of lib/dojo-register.ts, read apart from the function the page calls. */
+export async function dojoExpected(dataRoot = REPO_ROOT) {
+  const lib = (f) => import(pathToFileURL(join(REPO_ROOT, "apps", "site", "lib", f)).href);
+  const [{ loadDojoServed }, copy, { DOJO_REGISTER }] = await Promise.all([lib("dojo-served-load.ts"), lib("dojo-copy.ts"), lib("dojo-register.ts")]);
+  const data = loadDojoServed(dataRoot);
+  if (data === null) return { state: "E0" };
+  const h = data.head, T = copy.DOJO_TEXT, counted = h.status === "counted", versioned = h.price_version !== null;
+  const e2 = counted && versioned, holders = h.holders_count === 1 ? T.holder : T.holders; // one holder: the singular sentence
+  const tokens = (raw) => {
+    const p = raw.padStart(h.decimals + 1, "0"), c = p.length - h.decimals, whole = p.slice(0, c).replace(/^0+(?=\d)/, "");
+    return h.decimals === 0 ? whole : `${whole}.${p.slice(c)}`;
+  };
+  const f = !counted ? { day: h.day, ...(versioned ? { threshold_unit_token_days: tokens(h.threshold_unit) } : {}) } : { day: h.day, reads_done: String(h.reads_done), k_reads: String(h.k_reads), slot_min: String(h.slot_min), slot_max: String(h.slot_max),
+    lines_count: String(h.lines_count), root: h.root, score_total: tokens(h.score_total), validated_total: tokens(h.validated_total),
+    ...(versioned ? { threshold_unit_token_days: tokens(h.threshold_unit), holders_count: String(h.holders_count), dust_threshold_tokens: tokens(h.dust_threshold) } : {}) };
+  const shown = [T.lead, counted ? T.counted : T.abstained, versioned ? T.tiers : T.noVersion, T.method, T.exclusion, T.bounds, T.check, T.tree, T.beacon,
+    ...(counted ? [T.totals] : []), ...(e2 ? [holders, T.tier] : [])];
+  const fill = (s) => s.replace(/\{([a-z_]+)\}/g, (_, k) => {
+    if (!Object.hasOwn(f, k)) throw new Error(`assert-dojo: {${k}} names no figure of the record's state (fail-closed)`);
+    return f[k];
+  });
+  const fixed = (s) => s.split(/\{[a-z_]+\}/).map((x) => x.trim()).sort((a, b) => b.length - a.length)[0];
+  return { state: !counted ? "EA" : versioned ? "E2" : "E1", figures: Object.entries(f).map(([k, value]) => ({ value, source: `dojo-served.json head, figure ${k}` })),
+    sentences: [copy.DOJO_TITLE, ...shown.map(fill)], absentSentences: Object.values(T).filter((s) => !shown.includes(s) && !(e2 && (s === T.holder || s === T.holders))).map(fixed),
+    tierNames: [...copy.DOJO_TIER_NAMES], status: DOJO_REGISTER.pieces.find((p) => p.key === "hold-snapshot")?.status };
+}
+
 async function main() {
   // --- /fleet (O-2, UNCHANGED) ---
   const fleetAbs = join(REPO_ROOT, ...FLEET_HTML_REL.split("/"));
@@ -615,6 +734,24 @@ async function main() {
     const rows = pubs.rows.map((x) => ({ manifest_sha256: x.manifest_sha256, ...bellStatusText(x.status) }));
     assertBellPublicationsTable({ html: built(BELL_ANCHORS_REL), rows, latest: reader.latestAnchoredLine(state.latestAnchoredSeq), counts: bellCountsText(pubs.rows.map((x) => x.status)) });
     console.log(`assert-fleet-html OK — Bell timestamp state ${JSON.stringify(state.state)}: its sentence on ${String(BELL_STATE_PAGES_REL.length)} pages and no other state's, none stated on /docs/verify, ${String(rows.length)} publication row(s) with the status read from the proof, the latest-anchored line as computed.`);
+  } catch (e) {
+    console.error(String(e instanceof Error ? e.message : e));
+    process.exit(1);
+  }
+
+  // --- /dojo: before any served snapshot, no page and no link on /token; after it, the built <main> against the committed record ---
+  const maybe = (rel) => (existsSync(join(REPO_ROOT, ...rel.split("/"))) ? readFileSync(join(REPO_ROOT, ...rel.split("/")), "utf8") : null);
+  try {
+    const expected = await dojoExpected(), tokenHtml = built(TOKEN_HTML_REL);
+    if (expected.state === "E0") {
+      const r = assertDojoAbsent({ dojoHtml: maybe(DOJO_HTML_REL), dojoMeta: maybe(DOJO_META_REL), tokenHtml });
+      console.log(`assert-fleet-html OK — /dojo: no served snapshot; /dojo is ${r.page} and /token renders no link to it.`);
+    } else {
+      const r = assertDojoBody({ html: built(DOJO_HTML_REL), expected }), meta = maybe(DOJO_META_REL), tokenMain = extractMain(renderedBody(tokenHtml));
+      if (meta !== null && JSON.parse(meta).status === 404) throw new Error("assert-dojo: /dojo was built as the not-found page although a snapshot is served");
+      if (!/href="\/dojo"/.test(tokenMain) || !mainCorpus(tokenMain).includes(expected.sentences[0])) throw new Error("assert-dojo: /token does not link to /dojo under its title although a snapshot is served");
+      console.log(`assert-fleet-html OK — /dojo ${r.state}: ${String(r.figures)} figure(s) of the closed list, each as often as listed, no other number; the sentences of the state, the tier names, no forbidden word, pill ${JSON.stringify(r.status)}; /token links to it.`);
+    }
   } catch (e) {
     console.error(String(e instanceof Error ? e.message : e));
     process.exit(1);
