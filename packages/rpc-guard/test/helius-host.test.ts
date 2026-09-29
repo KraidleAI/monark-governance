@@ -79,6 +79,7 @@ test("helius_key_is_never_sent_off_host", async () => {
     assert.equal(sent.at(-1), "https://cs.example.invalid/FAKE-CS", "the chainstack course runs");
     assert.deepEqual(operatorLabels(cs).filter((l) => l === HELIUS || l === "chainstack"), ["chainstack"], "helius refused, chainstack resolved");
     assert.throws(open({ HELIUS_API_KEY: KEY }, "helius").client, /is not resolved from env/, "BELL_SOLANA_RPC absent: not resolved, never the named refusal");
+    assert.throws(open(envOf(PROD, KEY), "toString").client, /'toString' is not resolved from env/, "a prototype-named label is never resolved (Q-G2-5)");
     assert.equal(sent.length, admitted.length + 1, "one fetch per admitted course, none for a refusal");
   } finally { globalThis.fetch = real; cleanup(); }
 });
