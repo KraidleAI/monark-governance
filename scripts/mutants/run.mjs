@@ -6,27 +6,27 @@
 // ROR, SDL, CONST (SDL empties the line); a row without file mutates --file, else the one non-test code file that base..tree
 // changes, else refused ("ambiguous file"). --killers: the "// killer:" lines (parseKiller of scripts/red-proof.mjs) of the test
 // files that base..tree changes, as K1, K2... (files sorted, then line), each first run as the test declared right below it, alone.
-// TARGETS: the test files of the quoted package.json "test" globs whose import closure holds the mutated file (targetsOf): import/
-// export ... from "x", import "x", import("x") of a string literal (a computed import( is skipped, never a target: item
-// MUTANTS-DYNAMIC-IMPORT-1); relative and file: specifiers; .ts .tsx .mts .cts .mjs .cjs .js. First run on the direct importers
-// (a killer: its own test file), a survivor rerun on every target file whole; no importer: --targets, else refused.
-// REFUSED (exit 2) before any clone: usage, --repo without .git, --out inside --repo, a host oracle lock that held() of
-// oracle/lock.mjs reads held (no race with an oracle), <out>/clone present (one launch per clone), a malformed row, no target.
-// THEN: one --no-local clone of --repo at its HEAD, its changed and untracked files copied (sha256 checked), deleted ones removed;
-// a baseline run of every target file (not green: no mutant runs, "non conclu (base)"); one mutant at a time: <before> exactly once
-// on its line, else anchor-lost (counted, never applied elsewhere); free memory under --min-free-mb (default and floor 4096: C-V-4, C-V-9):
-// "non conclu (memoire)", nothing runs; node --test (TAP), the file restored in a finally and its sha256 checked (a mismatch, or a
-// file changed since the start, stops the campaign: exit 3). VERDICT: tue iff a top-level entry fails by assertion (classify of
-// red-proof.mjs: ERR_ASSERTION), survit iff every entry is ok, non conclu otherwise (dead or timed-out child, signal, exit 134, no
-// entry, failures without assertion); never "equivalent". Children: childEnv of oracle/run.mjs over the DENY list of red-proof.mjs.
-// RECORD monark.mutants.v1 <out>/RESULTS.json (tool_sha256: the bytes that run; tool_tree: HEAD of the tool's repository), one line
-// per mutant in <out>/RESULTS.txt, TAP in <out>/tap/; last stdout line: mutants-result {"exit","record","sha256"}. Exit 0 iff every
-// mutant is killed, 1 otherwise (a survivor, non conclu or anchor-lost), 2 refused, 3 restore.
+// TARGETS: the test files of the quoted package.json "test" globs whose import closure holds the mutated file (targetsOf): import/export ... from
+// "x", import "x", import("x") of a string literal (a computed import( is skipped, never a target: item MUTANTS-DYNAMIC-IMPORT-1); relative and
+// file: specifiers; .ts .tsx .mts .cts .mjs .cjs .js; plus the --targets files, no duplicate (Q-G2-3). First run on the direct importers (a killer:
+// its own test file), else on every target; a survivor rerun on every target file whole. REFUSED (exit 2) before any clone: usage, --repo without
+// .git, --out inside --repo by real paths (a link, a name like ..x: C-G2-3), a host oracle lock that held() of oracle/lock.mjs reads held (no race
+// with an oracle), <out>/clone present (one launch per clone), the tool outside a git checkout (tool_tree), a --file or --targets not in the tree,
+// a malformed row, no target (an empty graph needs --targets). THEN: one --no-local clone of --repo at its HEAD, its changed and untracked files
+// copied (sha256 checked), deleted ones removed; a baseline run of every target file (not green: no mutant runs, "non conclu (base)"); one mutant
+// at a time: <before> exactly once on its line, else anchor-lost (counted, never applied elsewhere); free memory under --min-free-mb (default and
+// floor 4096: C-V-4, C-V-9): "non conclu (memoire)", nothing runs; node --test in TAP ("(test 42)" skipped: it runs once, in the oracle's suite,
+// ADR D3), the file restored in a finally and its sha256 checked (a mismatch, or a file changed since the start, stops the campaign: exit 3).
+// VERDICT: tue iff a top-level entry fails by assertion (classify of red-proof.mjs: ERR_ASSERTION), survit iff every entry is ok, non conclu
+// otherwise (dead or timed-out child, signal, exit 134, no entry, failures without assertion); never "equivalent". Children: childEnv of
+// oracle/run.mjs over the DENY list of red-proof.mjs. RECORD monark.mutants.v1 <out>/RESULTS.json (tool_sha256: the bytes that run; tool_tree,
+// tool_dirty: HEAD and dirty recipe of the tool's repository), one line per mutant in <out>/RESULTS.txt, TAP in <out>/tap/; last stdout line:
+// mutants-result {"exit","record","sha256"}. Exit 0 iff every mutant is killed, 1 otherwise, 2 refused, 3 restore. Main guard: import.meta.main.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, copyFileSync, existsSync, globSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, globSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { freemem, tmpdir } from "node:os";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { classify, DENY, parseKiller, parseTap } from "../red-proof.mjs";
 import { held } from "../oracle/lock.mjs";
@@ -39,9 +39,12 @@ const VALUED = ["--repo", "--base", "--out", "--table", "--file", "--only", "--t
 const USAGE = "usage: --repo <worktree> --base <sha> --out <dir> (--table <mutants.mjs|.json> | --killers | both) [--file <path>] [--only <id,...>] [--targets <test.ts,...>] [--timeout-ms <n>] [--min-free-mb <n, at least 4096>] [--lock-root <dir>]";
 const sha = (b) => createHash("sha256").update(b).digest("hex");
 const TOOL_SHA256 = sha(readFileSync(fileURLToPath(import.meta.url))); // the bytes that run, never a blob of HEAD
+const TOOL_ROOT = join(import.meta.dirname, "..", ".."); // the checkout of the tool and of its imports: tool_tree, tool_dirty (Q-V-4, Q-G2-5)
 const stamp = () => new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 const slash = (p) => p.split(sep).join("/");
 const isFile = (p) => existsSync(p) && statSync(p).isFile();
+const real = (p) => { try { return realpathSync(p); } catch { return dirname(p) === p ? p : join(real(dirname(p)), basename(p)); } }; // C-G2-3
+const inTree = (root, f) => /^[\w.@-]+(\/[\w.@-]+)*$/.test(f ?? "") && !f.split("/").includes("..") && isFile(join(root, f)); // relative, no ..
 const str = (s) => { try { return JSON.parse(`"${s}"`); } catch { return s; } };
 
 function git(cwd, ...args) {
@@ -50,6 +53,12 @@ function git(cwd, ...args) {
   return r.stdout;
 }
 const names = (cwd, ...args) => git(cwd, ...args).toString("utf8").split("\0").filter((f) => f !== "" && !f.endsWith("/"));
+function stateOf(dir) { // [HEAD, dirty, untracked]: dirty is the recipe of oracle/run.mjs, sha256 of the diff to HEAD and of the untracked files, or null
+  const head = git(dir, "rev-parse", "HEAD").toString().trim(), patch = git(dir, "diff", "--binary", "--full-index", "HEAD");
+  const untracked = names(dir, "ls-files", "--others", "--exclude-standard", "-z").sort(), dh = createHash("sha256").update(patch);
+  for (const f of untracked) dh.update(`\0${f}\0${sha(readFileSync(join(dir, f)))}`);
+  return [head, patch.length > 0 || untracked.length > 0 ? dh.digest("hex") : null, untracked];
+}
 
 function resolveSpec(from, spec) { // a relative or file: specifier to an existing source file; a bare name is not followed (null)
   if (!/^(?:\.\.?\/|file:)/.test(spec)) return null;
@@ -94,7 +103,7 @@ function mutate(text, m) { // the text with the mutant applied on its line, or n
 
 function lostOf(m, root) { // why the mutant cannot apply to the tree at root, or null
   if (!OPS.includes(m.op) || m.before === "") return `operator ${m.op} or an empty <before>`;
-  if (!/^[\w.@-]+(\/[\w.@-]+)*$/.test(m.file ?? "") || m.file.split("/").includes("..") || !isFile(join(root, m.file))) return `${String(m.file)} is not a file of the tree`;
+  if (!inTree(root, m.file)) return `${String(m.file)} is not a file of the tree`;
   if (TEST_CODE.test(m.file)) return `${m.file} is test code: a mutant mutates production code`;
   return mutate(readFileSync(join(root, m.file), "utf8"), m) === null ? `"${m.before}" is not exactly once on ${m.file}:${m.line}` : null;
 }
@@ -109,12 +118,15 @@ const lineOf = (r) => `${r.id} l.${r.line} ${r.op} ${r.status} (${r.fails.length
 export async function main(argv) {
   const o = parseArgs(argv), repo = resolve(o.repo), out = resolve(o.out), clone = join(out, "clone"), tmp = join(out, "tmp"), taps = join(out, "tap");
   if (!existsSync(join(repo, ".git"))) throw new Error(`${slash(repo)} is not a git checkout (no .git)`);
-  if (!relative(repo, out).startsWith("..") && !isAbsolute(relative(repo, out))) throw new Error(`--out ${slash(out)} lies inside --repo: a campaign never writes in the tree`);
+  const rel = relative(realpathSync(repo), real(out)); // C-G2-3: real paths, never a string prefix (a link into --repo, a name like ..x: inside)
+  if (!isAbsolute(rel) && rel.split(sep)[0] !== "..") throw new Error(`--out ${slash(out)} lies inside --repo: a campaign never writes in the tree`);
   const lock = held(o.lockRoot);
   if (lock !== null) throw new Error(`${lock}: no campaign races an oracle`);
   if (existsSync(clone)) throw new Error(`${slash(clone)} exists: one launch per clone (read its RESULTS.txt, take a new --out)`);
-  const base = git(repo, "rev-parse", "--verify", `${o.base}^{commit}`).toString().trim(), gel = git(repo, "rev-parse", "HEAD").toString().trim();
-  const toolTree = git(join(import.meta.dirname, "..", ".."), "rev-parse", "HEAD").toString().trim(); // Q-V-4: the commit of the tool and of its imports
+  if (o.file !== undefined && !inTree(repo, o.file)) throw new Error(`--file ${o.file} is not a file of the tree`); // Q-G2-6: before any clone
+  const base = git(repo, "rev-parse", "--verify", `${o.base}^{commit}`).toString().trim(), [gel, dirty, untracked] = stateOf(repo);
+  let toolTree, toolDirty; // Q-V-4, Q-G2-5: HEAD and dirty recipe of the tool's checkout; outside one, refused naming tool_tree and its root (C-G2-2)
+  try { [toolTree, toolDirty] = stateOf(TOOL_ROOT); } catch (e) { throw new Error(`tool_tree: ${slash(TOOL_ROOT)} is not a git checkout: ${e.message}`); }
   const changed = [...new Set([...names(repo, "diff", "--name-only", "--no-renames", "-z", base), ...names(repo, "ls-files", "--others", "--exclude-standard", "-z")])].sort();
   let table = null, mutants = [];
   if (o.table) {
@@ -144,7 +156,7 @@ export async function main(argv) {
   for (const m of mutants) {
     m.lost = lostOf(m, repo);
     const g = m.lost === null ? targetsOf(repo, m.file, globs) : { direct: [], transitive: [] }, found = [...g.direct, ...g.transitive];
-    m.targets = [...new Set([...(m.own ? [m.own] : []), ...(found.length > 0 ? found : fallback)])];
+    m.targets = [...new Set([...(m.own ? [m.own] : []), ...found, ...fallback])]; // Q-G2-3: --targets adds its files to the graph's
     m.first = m.own ? [m.own] : g.direct.length > 0 ? g.direct : m.targets;
     if (m.lost === null && m.targets.length === 0) throw new Error(`no target: ${m.id} (${m.file}) is imported by no test file of ${globs.join(" ")}; name one with --targets`);
   }
@@ -152,10 +164,6 @@ export async function main(argv) {
   mkdirSync(out, { recursive: true });
   git(out, "clone", "-q", "--no-local", "--no-checkout", "-c", "core.autocrlf=false", repo, clone);
   git(clone, "checkout", "-q", "--detach", gel);
-  const patch = git(repo, "diff", "--binary", "--full-index", "HEAD"), untracked = names(repo, "ls-files", "--others", "--exclude-standard", "-z").sort();
-  const dh = createHash("sha256").update(patch);
-  for (const f of untracked) dh.update(`\0${f}\0${sha(readFileSync(join(repo, f)))}`);
-  const dirty = patch.length > 0 || untracked.length > 0 ? dh.digest("hex") : null; // the recipe of oracle/run.mjs
   for (const p of new Set([...names(repo, "diff", "--name-only", "--no-renames", "-z", "HEAD"), ...untracked])) {
     if (!isFile(join(repo, p))) { rmSync(join(clone, p), { force: true }); continue; }
     mkdirSync(dirname(join(clone, p)), { recursive: true });
@@ -166,7 +174,7 @@ export async function main(argv) {
   mkdirSync(taps);
 
   const txt = join(out, "RESULTS.txt"), start = stamp(), memShort = () => Math.floor(freemem() / 2 ** 20) < o.minFree;
-  const say = (s) => { appendFileSync(txt, `${s}\n`); console.log(s); };
+  const say = (s) => { writeFileSync(txt, `${s}\n`, { flag: "a" }); console.log(s); };
   const runSet = (files, pattern, name) => {
     const args = ["--test", "--test-reporter=tap", `--test-timeout=${o.timeout}`, "--test-force-exit", "--test-skip-pattern=\\(test 42\\)"];
     if (pattern !== undefined) args.push(`--test-name-pattern=^${pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
@@ -215,8 +223,9 @@ export async function main(argv) {
   for (const r of rows) counts[r.status] = (counts[r.status] ?? 0) + 1;
   code ??= rows.length > 0 && rows.every((r) => r.status === "tue") ? 0 : 1;
   say(`# end ${end} ; tues ${counts.tue ?? 0} / ${rows.length}, survivants ${ids((r) => r.status === "survit")}, non conclus ${ids((r) => r.status.startsWith("non conclu"))}, anchor-lost ${ids((r) => r.status === "anchor-lost")}, exit ${code}`);
-  const rec = { schema: "monark.mutants.v1", repo: slash(repo), base, gel, dirty, tool_sha256: TOOL_SHA256, tool_tree: toolTree, table, killers: o.killers, only: only ?? null, test_globs: globs, clone: slash(clone),
-    timeout_ms: o.timeout, min_free_mb: o.minFree, lock_root: slash(resolve(o.lockRoot)), start, end, sha0, baseline: b, results: rows, counts, exit: code };
+  const rec = { schema: "monark.mutants.v1", repo: slash(repo), base, gel, dirty, tool_sha256: TOOL_SHA256, tool_tree: toolTree, tool_dirty: toolDirty,
+    table, killers: o.killers, only: only ?? null, test_globs: globs, clone: slash(clone), timeout_ms: o.timeout, min_free_mb: o.minFree,
+    lock_root: slash(resolve(o.lockRoot)), start, end, sha0, baseline: b, results: rows, counts, exit: code };
   const file = join(out, "RESULTS.json"), body = `${JSON.stringify(rec, null, 2)}\n`;
   writeFileSync(`${file}.tmp`, body);
   renameSync(`${file}.tmp`, file);
@@ -224,6 +233,6 @@ export async function main(argv) {
   return code;
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (import.meta.main !== false) { // C-G2-1: as oracle/run.mjs l.40, a launch through a junction or a link runs main; an import runs nothing
   try { process.exitCode = await main(process.argv.slice(2)); } catch (e) { console.error(`mutants: refused: ${e instanceof Error ? e.message : String(e)}`); process.exitCode = 2; }
 }
