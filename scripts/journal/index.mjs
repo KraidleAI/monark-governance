@@ -15,6 +15,9 @@
 // RED-PROOF, and the lint record it freezes, monark.lint.v1) in the git objects of --repo OUT OF THE TREE, under refs/journal/facts
 // (archiveFacts: never a branch, R-25 and git status unchanged), and sets `facts` {commit, origin, recu, lint}; no fact, no commit.
 // A clone reads the archive after one line (docs/methode/REGLES-MISSION.md): git fetch origin '+refs/journal/*:refs/journal/*'
+// A clone that writes (add) runs that line first; the archive leaves the host only by: git push origin 'refs/journal/*:refs/journal/*'
+// (never forced: a non-fast-forward refusal is a stop to investigate, C-G2-7). Every guard of add (usage, J-SCHEMA, a lot file without
+// a final newline) runs before its first effect: exit 2 appends no byte and neither creates nor moves refs/journal/facts (C-G2-3).
 // add stores absolute paths; a relative path in an entry is read from --repo (frozen fixtures).
 // --r25 of an entry: the R-25 of the gel the entry records (insertions + deletions of the lot diff at that gel, the entry line included).
 // build reads every docs/journal/*.jsonl and prints one line per hit `code lot:line extract`, the count per code, the verdict.
@@ -26,7 +29,7 @@
 // the sha256 of the bytes is their name), never a host path (FM-3.2). v1 and v2 coexist until the freeze of lot M-5d (FM-1.3).
 //   J-SCHEMA a field outside FIELDS or missing, a value outside its domain (no text holds a control byte or "F:" + two spaces:
 //            the byte guard of lot M-1 covers docs/journal/), a field null where NEED requires it, a lot != its file, an oracle at G0, cp-1 or fusion
-//            (v2: FIELDS_V2, as strict; `facts` null while mission, oracle or redproof is not)
+//            (v2: FIELDS_V2, as strict; `facts` null while mission, oracle or redproof is not; a redproof at G0, cp-1, G7 or fusion)
 //   J-TIME   date before the committer date (%cI) of commit or commit unknown, or the dates of a lot decreasing
 //   J-TRACE  a G7 without public_trace, or a trace with an empty ref (D10)
 //   J-ORIGIN an error_origin code outside the vocabulary of audit A plus G2 (D11 and its dated line of 2026-09-28)
@@ -65,8 +68,10 @@
 //   J-REDPROOF a v2 line: redproof null at G2 or cp-2 of origin add; else the record archived not JSON or not red-proof-v1, a
 //            copied field != deriveRedproof, head != commit (G2, cp-2) or mission.recu_head (G1, corr) ("a proof of another tree"),
 //            base not an ancestor of head or != the Base tronc line of the mission, f2p + pins != judged, killed != drawn, ok false
-//            with no pin (PIN-1 vocabulary: ok false at all), or at G2, cp-2 of origin add a draw requested or drawn < 3 ("CA-13
-//            draw absent"). Green proves the counts coherent, never that a pin is one: pins is DERIVED (FM-2.6, RED-PROOF-PIN-1)
+//            with no pin (PIN-1 vocabulary: ok false at all), a draw whose population != f2p, drawn != min(requested, population)
+//            ("a truncated draw" when fewer: drawKillers of scripts/red-proof.mjs draws min(n, population); C-G2-2), or at G2, cp-2
+//            of origin add a draw requested or drawn < 3 ("CA-13 draw absent"). Green proves the counts coherent, never that a pin
+//            is one: pins is DERIVED (FM-2.6, RED-PROOF-PIN-1)
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -78,7 +83,7 @@ const CODES = ["J-SCHEMA", "J-TIME", "J-TRACE", "J-ORIGIN", "J-TOURS", "J-ORACLE
 const FIELDS_V1 = ["schema", "lot", "gate", "date", "tour", "commit", "tree_head", "mission", "model_resolved", "tier", "effort", "r25",
   "oracle", "corrections", "verdict", "adjudication", "error_origin", "public_trace", "note"];
 const V1 = "monark.journal.v1", V2 = "monark.journal.v2", FIELDS_V2 = [...FIELDS_V1, "facts", "redproof"]; // v1: read, never written (M-5c)
-const COPIED = ["base", "head", "digest", "judged", "f2p", "pins", "drawn", "killed", "ok"], GAB = "green at base: a self-confirming test"; // J-REDPROOF
+const COPIED = ["base", "head", "digest", "judged", "f2p", "pins", "population", "drawn", "killed", "ok"], GAB = "green at base: a self-confirming test";
 const FACTS_REF = "refs/journal/facts", FETCH = "git fetch origin '+refs/journal/*:refs/journal/*'", ID = { GIT_AUTHOR_NAME: "monark-journal",
   GIT_AUTHOR_EMAIL: "journal@monark.invalid", GIT_COMMITTER_NAME: "monark-journal", GIT_COMMITTER_EMAIL: "journal@monark.invalid" }; // archive commits
 const GATES = ["G0", "G1", "G2", "corr", "cp-1", "cp-2", "G7", "fusion"], ORACLED = ["G2", "cp-2", "G7"], PRE_GEL = ["G1", "corr"];
@@ -113,7 +118,7 @@ const DOMAIN = {
   public_trace: (v) => shape(v, ["kind", "ref"]) && KINDS.includes(v.kind) && txt(v.ref, 500), note: (v) => txt(v, 500),
   facts: (v) => shape(v, ["commit", "origin", "recu", "lint"]) && sha(v.commit) && ["add", "freeze"].includes(v.origin) && [v.recu, v.lint].every((x) => x === null || H64.test(x)),
   redproof: (v) => shape(v, ["record", "sha256", ...COPIED]) && full(v.record) && [v.sha256, v.digest].every((x) => H64.test(x)) && sha(v.base) && sha(v.head)
-    && ["judged", "f2p", "pins", "drawn", "killed"].every((k) => nat(v[k])) && typeof v.ok === "boolean",
+    && ["judged", "f2p", "pins", "population", "drawn", "killed"].every((k) => nat(v[k])) && typeof v.ok === "boolean",
 };
 // add options -> [field, parse]; a value that does not parse stays a string, and J-SCHEMA refuses it.
 const OPTS = {
@@ -159,6 +164,7 @@ function problems(e, lot) {
     else if (["schema", "lot", "gate", "date"].includes(k) || NEED[k]?.includes(e.gate)) p.push(`${k} null, required for ${String(e.gate)}`);
   }
   if (["G0", "cp-1", "fusion"].includes(e.gate) && (e.oracle ?? null) !== null) p.push("oracle cited at a gate that never runs one");
+  if (["G0", "cp-1", "G7", "fusion"].includes(e.gate) && (e.redproof ?? null) !== null) p.push("redproof cited at a gate without a head binding");
   if (e.facts === null && [e.mission, e.oracle, e.redproof].some((x) => (x ?? null) !== null)) p.push("facts null while mission, oracle or redproof is cited");
   if (lot !== undefined && e.lot !== lot) p.push(`lot ${String(e.lot)} in the journal of ${lot}`);
   return p;
@@ -205,10 +211,11 @@ function add(o) {
     const lb = Buffer.from(JSON.stringify({ schema: "monark.lint.v1", mission_sha: e.mission.sha, rev, verdict: l.verdict, hits: l.hits, tool: hash(readFileSync(new URL("../mission/lint.mjs", import.meta.url))) }).concat(String.fromCharCode(10))); // one line; no template literal as the argument (the import scan of rpc-guard durable.test.ts)
     facts.push(lb); e.facts.lint = hash(lb);
   }
-  if (facts.length > 0) try { e.facts.commit = archiveFacts(repo, facts, { message: `${e.lot} ${e.gate} ${e.date}`, date: e.date }); } catch (x) { throw new Usage(`archive ${FACTS_REF} not written: ${String(x.message).split("\n")[0]}`); }
-  const dir = join(o.repo, "docs", "journal"), file = join(dir, `${e.lot}.jsonl`), line = `${JSON.stringify(e)}\n`;
-  mkdirSync(dir, { recursive: true });
+  const dir = join(o.repo, "docs", "journal"), file = join(dir, `${e.lot}.jsonl`); // every guard before the first effect (C-G2-3, FM-1.2)
   if (existsSync(file) && !/(?:^|\n)$/.test(readFileSync(file, "utf8"))) throw new Usage(`${file} does not end with a newline: nothing appended`);
+  if (facts.length > 0) try { e.facts.commit = archiveFacts(repo, facts, { message: `${e.lot} ${e.gate} ${e.date}`, date: e.date }); } catch (x) { throw new Usage(`archive ${FACTS_REF} not written: ${String(x.message).split("\n")[0]}`); }
+  const line = `${JSON.stringify(e)}\n`;
+  mkdirSync(dir, { recursive: true });
   appendFileSync(file, line);
   process.stdout.write(line);
   return 0;
@@ -293,6 +300,9 @@ function build(o) {
     if (d.f2p + d.pins !== d.judged) return `f2p ${d.f2p} + pins ${d.pins} != judged ${d.judged}`;
     if (d.killed !== d.drawn) return `killed ${d.killed} != drawn ${d.drawn}`;
     if (!d.ok && (d.pins === 0 || d.strict)) return `ok false with ${d.pins} pin(s)${d.strict ? " (PIN-1 vocabulary: ok true required)" : ""}`;
+    const cap = Math.min(d.requested, d.population), tag = `draw of ${d.requested} requested, ${d.drawn} drawn of ${d.population}`; // C-G2-2
+    if (d.drew && d.population !== d.f2p) return `draw population ${d.population} != f2p ${d.f2p}: a draw of another population`;
+    if (d.drawn !== cap) return `${tag}: ${d.drawn < cap ? "a truncated draw" : "more drawn than min(requested, population)"}`;
     return rev && byAdd && (d.requested < 3 || d.drawn < 3) ? `draw of ${d.requested} requested, ${d.drawn} drawn at ${e.gate}: CA-13 draw absent` : null;
   };
   const check = (lot, entries) => {
@@ -403,15 +413,18 @@ export function readFact(repo, sha256) {
   return b === null ? { bytes: null, why: "archive absent" } : hash(b) === sha256 ? { bytes: b, why: null } : { bytes: null, why: "archive corrupt" };
 }
 /** (B) M-5c: the fields `redproof` copies or derives from a red-proof-v1 record, never throwing (`draw` null or not an object: 0 drawn,
- * 0 killed, 0 requested). pins = the rows at verdict "pin" once the record speaks the PIN-1 vocabulary of lot M-4b (a pin row, a
- * `pinned` field or a `pins` count: `strict`, ok true then required); before it (TRANSITION, dated line of ADR-METHODE-2 l.60), the
- * rows refused "green at base: a self-confirming test". FM-2.6: pins is DERIVED here, never proved (RED-PROOF-PIN-1). */
+ * 0 killed, 0 requested, 0 population, drew false); population is draw.population, copied (Q-V-3: the F2P and new-module rows a draw
+ * picks among; J-REDPROOF requires it = f2p). pins = the rows at verdict "pin" once the record speaks the PIN-1 vocabulary of lot M-4b
+ * (a pin row, a `pinned` field or a `pins` count: `strict`, ok true then required); before it (TRANSITION, dated line of ADR-METHODE-2
+ * l.60), the rows refused with a reason starting "green at base: a self-confirming test" (a prefix: Q-G2-5). FM-2.6: pins is DERIVED
+ * here, never proved (RED-PROOF-PIN-1). */
 export function deriveRedproof(r) {
   const rows = Array.isArray(r?.tests) ? r.tests : [], dr = r?.draw !== null && typeof r?.draw === "object" && !Array.isArray(r.draw) ? r.draw : null, drawn = Array.isArray(dr?.drawn) ? dr.drawn : [];
   const is = (t, v) => t?.verdict === v, strict = Object.hasOwn(Object(r), "pins") || rows.some((t) => is(t, "pin") || Object.hasOwn(Object(t), "pinned"));
   return { base: r?.base ?? null, head: r?.gel?.head ?? null, digest: r?.gel?.digest ?? null, judged: rows.length, f2p: rows.filter((t) => is(t, "F2P") || is(t, "new-module")).length,
     pins: rows.filter((t) => (strict ? is(t, "pin") : is(t, "refused") && String(t.reason).startsWith(GAB))).length, drawn: drawn.length,
-    killed: drawn.filter((x) => x?.outcome === "killed").length, ok: r?.ok ?? null, requested: Number.isInteger(dr?.requested) ? dr.requested : 0, strict };
+    killed: drawn.filter((x) => x?.outcome === "killed").length, ok: r?.ok ?? null, requested: Number.isInteger(dr?.requested) ? dr.requested : 0, strict,
+    population: Number.isInteger(dr?.population) ? dr.population : 0, drew: dr !== null };
 }
 
 function main([cmd, ...rest]) {

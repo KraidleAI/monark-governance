@@ -142,3 +142,239 @@ Q-M5C-1 (comptes 24 / 26) : **VAL** (cp-1 § 1 et § 4.9), repris par la mission
 - `F:/tmp/methode/m5c-deliver/REPONSE.md` et `F:/tmp/methode/m5c-deliver/DELIVERED.sha256` (sha256 de chaque livrable ci-dessous, écrit par `F:/tmp/methode/m5c/g1/tools/deliver.sh`).
 - Worktree (non commis, gel = acte de l orchestrateur) : `scripts/journal/index.mjs` `8c73a4259fc183db3062e37b9106a18b6bf6b7fc9acafb31c537eab36f1be4e3`, `test/journal-index.test.ts` `6c8245342fe0110d66f7edc362b6843f699cd6a4ae6f15e6d7c5ebc628eae2f9`, `docs/methode/REGLES-MISSION.md` (ligne datée `fetch`), `docs/methode/CHECKLIST-G7.md` (cases 5 et 7), ce journal.
 - Preuves : `F:/tmp/methode/m5c/g1/f2p3/RED-PROOF.json` `dec1d2ac…` (+ TAP) ; `F:/tmp/methode/m5c/g1/mutants/{mutants.mjs, harness.mjs, run2/RESULTS.json, run2/RESULTS.txt}` ; enregistrement d oracle `…-G1-20260929T105418Z-82816.json` `39e6c22e…` et `F:/tmp/methode/m5c/g1/oracle2.log` ; rejeu réel `F:/tmp/methode/m5c/g1/rejeu2/` (`rejeu.sh`, `steps.log`, sorties) ; outils `F:/tmp/methode/m5c/g1/tools/{killers.mjs, r25-wt.mjs, english-labels.mjs, deliver.sh}` ; contrôles `killers-check3.out`, `r25-step3.out`.
+
+## 16. Tour 1 (correcteur `corr`, D12 (d), POST-G2) — journal du 2026-09-29, 12:06-13:05:43Z
+
+claude-opus-5-5
+
+- **Modèle résolu (R-1)** : `claude-opus-5-5` (identifiant exact donné par le harnais), palier de la mission, effort max ; instance
+  fraîche, distincte du G1 et du G2 de M-5c et de tout agent de M-6, M-7.
+- **Mission** : `F:/tmp/methode/mission-corr1-m5c.md` sha256 `dec00efc7f49215c87cbf80fc4d651d495794f3272b9ec1a46df488f2c06b21e` = reçu
+  `F:/tmp/methode/mission-corr1-m5c.recu.json` (vert, 12 codes à 0, head `65170ad4`, 12:04:21Z) ; outils de l en-tête recalculés égaux
+  (`lint.mjs` `4d1383c8…`, `launch.mjs` `fb6c277f…`, `run.mjs` `baad946c…`, `r25.mjs` `4d0544df…`, `red-proof.mjs` `6869fa3d…`,
+  `gen.mjs` `9eecb371…`, REGLES du tronc `410dd919…`) ; `git diff --stat cb0e268a <tronc> -- scripts test` vide.
+- **Gel 1 relu puis copié** avant toute écriture (12:22:42Z) dans `F:/tmp/methode/m5c/corr1/gel1/` : les 5 sha de l en-tête de la mission
+  (`8c73a425…`, `6c824534…`, `1843e254…`, `b4265563…`, `44e7a379…`).
+- **Horloge** (`date -u`) : début 12:06:15Z ; lecture (rapport G2 entier, l.60 et ses plis dont 11:5x, l.61, D12, missions G1 et G2,
+  tables `new.mjs`/`new2.mjs`, code, test, textes, RED-PROOF réel, `red-proof.mjs`) 12:06-12:21Z ; avis advisor (canal 1) avant tout
+  code ; code 12:23-12:30Z ; tests 12:30-12:34Z ; tueurs réadressés 12:31Z ; suite du fichier 12:34:53-12:35:52Z (44/44) ; portes
+  statiques 12:36-12:38Z ; F2P 12:44:20-12:46:16Z ; mutants 12:46:33-12:56:44Z ; rejeu réel 12:48:10-12:49:24Z ; contrôle d ordre
+  12:49:49-12:49:59Z ; oracle 12:57:00-13:04:40Z.
+- **Verdict** : **CORRIGÉ-AVEC-RESERVES** : les 7 corrections de la liste fermée sont tenues, chacune prouvée par un test qui tue son mutant ;
+  réserve unique : la règle « ligne ≤ 160 » appliquée au code et aux tests seuls ; deux lignes `.md` longues au style de la maison
+  (case 7 corrigée, puce REGLES neuve : Q-C1-9).
+
+### 16.1 Corrections (liste fermée 275-d de la mission, décisions citées, jamais rediscutées)
+| C-G2-n | lignes (`index.mjs` corrigé, 437 l.) | test | mutants tués |
+|---|---|---|---|
+| C-G2-1 | l.167 `problems()` ; en-tête l.32 | `schema_v2_strict` (4 portes) ; `add_guards_before_effects` (fusion) | C01-C03 ; tueurs l.533, l.548 |
+| C-G2-2 | l.86, l.121, l.303-305, l.427 ; en-tête l.71-74 | `redproof_roundtrip` : 5/3 de 9, 11 ≠ 9, 4 tirés sur 3 | C05-C11 ; tueur l.468 |
+| C-G2-3 | l.214-219 `add()` ; en-tête l.19-20 | `add_guards_before_effects` (sans LF : créée, déplacée) | tueur l.538, C04, ordre gel 1 |
+| C-G2-4 | code inchangé (l.294, l.290, l.306) | `redproof_bound_gates` (neuf) | G05 (tueur l.487), G06 (l.493), G07 |
+| C-G2-5 | code inchangé (l.210, l.281) | `lint_frozen_and_recu_archived` (4 lignes neuves) | G17, G21 (tueur l.581), G22, G23 |
+| C-G2-6 | domaine l.120-121 (`population` ajouté) | `schema_v2_strict` : `ok: "yes"`, `population: -1` | G10, C12 |
+| C-G2-7 | `CHECKLIST-G7.md` case 7 ; REGLES ligne datée ; en-tête l.18-19 | texte ; sonde P4 refaite (§ 16.6) | — |
+
+- **C-G2-1** : `if (["G0", "cp-1", "G7", "fusion"].includes(e.gate) && (e.redproof ?? null) !== null)` pousse « redproof cited at a
+  gate without a head binding » ; `add` l appelle avant toute écriture (exit 2, rien d écrit, aucune ref). Le cas M-X:7 existant (`{}` à
+  G0) porte désormais les deux motifs (« redproof out of domain; redproof cited at a gate without a head binding »).
+- **C-G2-2** : `deriveRedproof` COPIE `population` = `draw.population` (entier, sinon 0 : même règle fail-closed que `requested`) et rend
+  `drew` (tirage présent) ; `population` rejoint `COPIED` (12 champs de `redproof`) et les comptes naturels du domaine ; J-REDPROOF, APRÈS
+  la règle `ok` faux (les premiers motifs des rouges existants inchangés) : tirage présent et `population` ≠ `f2p` ⇒ « draw population P
+  != f2p F: a draw of another population » ; `drawn` ≠ min(`requested`, `population`) ⇒ « draw of R requested, D drawn of P: a truncated
+  draw » (moins) ou « …: more drawn than min(requested, population) » (plus) ; puis le plancher CA-13 inchangé (Q-C1-1, Q-C1-2).
+- **C-G2-3** : `dir`/`file` et la garde de fin de ligne passent AVANT `archiveFacts` ; la ligne est sérialisée après `facts.commit` ;
+  `mkdirSync` après l archive (un CAS perdu ne crée pas non plus de répertoire). En-tête l.9 « exit 2, nothing written » désormais vrai.
+- **C-G2-4, C-G2-5, C-G2-6** : tests seuls (le code tenait les clauses) ; la G1 citant une preuve de tête C1 ≠ `recu_head` C2 ; deux
+  lignes G2 (`--commit C1`, `oracle-G2.json`) sans `redproof` et à `draw: null` ; un tirage de 3 demandés, 2 tirés sur une population de
+  2 (cohérent : il atteint le plancher CA-13 et tue G07) ; reçu archivé : sha (`sha` = `recu_sha` = l enregistrement de lint), tête
+  (`recu_head` C1), verdict (`rouge` greffé) ; un reçu dont la tête `0…0` n est pas un commit ⇒ « frozen at 0…0: J-LINT ».
+- **C-G2-7** : case 7 : `git push origin 'refs/journal/*:refs/journal/*'` SANS `+` (refus non-fast-forward = arrêt à instruire) + tout
+  clone écrivain `git fetch origin '+refs/journal/*:refs/journal/*'` AVANT tout `add` (le `fetch` garde son `+`) ; la ligne datée du G1
+  est corrigée EN PLACE (titre « refspec corrigée le 2026-09-29 12:3x UTC, corr1 M-5c, C-G2-7 ») : la forme forcée n y est plus lisible ;
+  même contenu dans une ligne datée neuve de REGLES-MISSION et dans l en-tête d `index.mjs` (l.18-19, anglais).
+- **Q-G2-5** : préfixe gardé (rien à changer) ; la doc de `deriveRedproof` dit désormais « a reason starting … (a prefix: Q-G2-5) ».
+- **Hors tour, non touchés** : G08 (M-5d (J)), G14 et G15, JOURNAL-FACTS-SIGN-1, JOURNAL-REDPROOF-CUTOFF-1, ORACLE-CORPUS-CLONE-1 ;
+  `scripts/red-proof.mjs` et l oracle intouchés.
+
+### 16.2 Tests (`test/journal-index.test.ts`, 594 l., sha256 `71e55c6d21779a455884fd980756f711b767ff490d841e4ddbcf26e5171eabdf`)
+- **44 tests = 42 du gel 1 (verts) + 2 neufs** (`redproof_bound_gates` l.488, `add_guards_before_effects` l.539), chacun avec son
+  `// killer:` de tête ; lignes ajoutées dans (viii) l.452, `schema_v2_strict` l.521, `lint_frozen_and_recu_archived` l.563.
+- **Réparation des fixtures (Q-C1-4)** : le RED-PROOF synthétisé tirait 3 tueurs parmi 1 ligne admise avec `population` = `rows.length`
+  (incohérent avec `drawKillers`) : `population` = lignes F2P ∪ new-module (l.116), `dp` sur le tirage (l.111), `F3` (3 lignes F2P, l.107)
+  pour les cas VERTS (l.155, l.396, `one` de (ix) l.481, `before`/`after` de la transition l.505).
+- **Tueurs** : 64 lignes `// killer:` (44 de tête, 20 de corps) = 57 du gel 1 réadressés + 7 neufs ; outil
+  `F:/tmp/methode/m5c/corr1/tools/killers.mjs` (`parseKiller` du tronc ; ligne unique où `<before>` figure une fois, sinon celle égale à la
+  ligne du gel 1) : 63 déplacés, 0 problème. Le tueur de `facts_branch_deleted_stays_green` change de TEXTE (Q-C1-5).
+- **Suite du fichier** (verrou libre vérifié) : 12:34:53Z 44/44 (`run/t1.tap`) ; 12:37:16Z fichier + `byte-guard` + `durable` 67/67
+  (`run/t2.tap` ; scan d import de `durable.test.ts` à 0 hit).
+- **Portes statiques** (jonction posée 12:35Z) : `lang-gate` exit 0 (0 hit, toutes portées) ; `grep-forbidden` 0 ; `tsc --noEmit` 0 ;
+  `eslint` 0 (un `no-base-to-string` corrigé) ; `lint-ratchet` 69/69 ; garde d octets sur les 4 fichiers : 0 TAB, 0 contrôle, 0 C1, 0 CR ;
+  `index.mjs` et test en ASCII ; toute ligne de code ou de test touchée ou créée ≤ 160 (contrôlé sur le diff au gel 1).
+- **REGLES-MISSION relue par le linter** (`lint.mjs` sur le texte seul, gel 1 contre corr1) : mêmes 2 hits d en-tête (R-BASE, R-MODEL :
+  un texte de règles n a ni base ni palier), 0 R-PATH, 0 R-LINE : la ligne neuve n ajoute rien.
+
+### 16.3 R-25
+Méthode A (`F:/tmp/methode/m5c/g1/tools/r25-wt.mjs`, pathspec `ci.yml:82`) : **496** = `index.mjs` +156/−20, test +280/−40 (gel 1 : 414) ;
+≤ 547, **aucune scission** (M-5c-2 non déclenchée). Écart à l estimation ≈ 430 (Q-C1-6) : la règle ≤ 160 scinde chaque ligne longue
+touchée, la réparation des fixtures, deux tests neufs, l en-tête. Oracle : STAT 496 (+436/−60).
+
+### 16.4 F2P (outil du tronc)
+`node F:/Monark/scripts/red-proof.mjs --base cb0e268a --gel F:/Monark-wt-m5c --repo F:/tmp/methode/m5c/corr1/base --out
+F:/tmp/methode/m5c/corr1/f2p --draw 3 --seed 2026` (base clonée du worktree puis détachée à `cb0e268a`, jonction posée ;
+12:44:20-12:46:16Z, sortie 1 attendue sous la transition) : `RED-PROOF.json` sha256
+**`fd621dec7d09e447f15a102d50ebb3517f7eff8ef787b3be7587b84ee7c96f90`** (`base.tap` `59e9aa2c…`, `gel.tap` `1257f96e…`, `killer-1..3.tap`
+`fd3effce…`, `586063a5…`, `8dcd9bb6…`) : **20 jugés, 24 inchangés : 19 F2P = 17 + 2** + **1 épingle déclarée** `J-HEADER` (l.382,
+`refused` « green at base: a self-confirming test », base `pass`, gel `pass`) ; tirage graine 2026, population 19, **3/3 tués** (l.405
+`facts_r25_unchanged`, l.403 `facts_crlf_bytes`, l.319 `v1_real_lines_read_as_v1`) ; `gel.head` `65170ad4` (mode worktree),
+`digest` `971bba6f…`. `deriveRedproof` du tour sur cet enregistrement : 20 / 19 / 1, `population` 19 = `f2p`, `drawn` 3 = min(3, 19),
+`killed` 3, `ok` faux (transition) : citable par une ligne corr (tête = `recu_head` `65170ad4`).
+
+### 16.5 Mutants
+Harnais propre au tour, à la discipline commune (`F:/tmp/methode/m5c/corr1/mutants/harness.mjs`, 49 l., sha256 `899c6697…`) : UN
+lancement, sur son clone `mutants/clone` (`git clone --no-local` du worktree à `65170ad4`, les 4 fichiers modifiés copiés, sha `262225fe…`
+et `71e55c6d…` vérifiés) ; `<before>` exactement une fois sur sa ligne sinon « anchor-lost » ; tests ciblés en TAP puis fichier entier
+sur survivant ; issue par `classify`/`parseTap` de `F:/Monark/scripts/red-proof.mjs` (mort, `inconclusive`, `missing`, `skip` ⇒ « non
+conclu », jamais « tué ») ; octets restaurés et sha revérifié à chaque pas ; attente du verrou d hôte AVANT chaque course (12 ms en
+tout). Tables RÉADRESSÉES par `tools/tables.mjs` (`table.json` `921cf122…` : G1 N01-N39, G2 G01-G16 + G17, G21-G23, tour C01-C12 dans
+`mutants/c1.mjs` `8a5b3c89…` ; aux tests ciblés de G05-G07 s ajoute `redproof_bound_gates`) : 0 anchor-lost ; tueurs lus dans le test du
+clone (64). Sortie `mutants/run/` (12:46:33-12:56:44Z) : `RESULTS.txt` `b4a044334f36787d899d138887c7f60886166cb7fa97fe80a0c03933cfe586c0`,
+`RESULTS.json` `87a3a1ab8cafd16ba4b6de608ce51ee17d9073f439e17385e1426c51e991e6bd` ; BASELINE vert 44/44.
+
+| ensemble | mutants | tués | survivants |
+|---|---|---|---|
+| G1, table N01-N39 | 39 | 39 | — |
+| G2, tables `new.mjs` + `new2.mjs` (G01-G23) | 20 | 17 | G08, G14, G15 |
+| tour, table C01-C12 | 12 | 12 | — |
+| tueurs du test (57 du gel 1 réadressés + 7 neufs) | 64 | 64 | — |
+| **total** | **135** | **132** | **3** |
+
+- Tous les tués le sont par `assert-fail` sur leurs tests ciblés (0 « fichier entier »), 0 non conclu, 0 anchor-lost, 135 restaurations.
+- Les 9 survivants neufs du G2 qui étaient des clauses non épinglées sont **tués** : G05, G06, G07 par `redproof_bound_gates` ; G10 par
+  `schema_v2_strict` ; G17, G21, G22, G23 par `lint_frozen_and_recu_archived`.
+- Survivants restants, attendus et nommés : **G08** (origine `freeze` traitée comme `add` : aucune ligne `freeze` avant M-5d ; le test
+  du `freeze` le tuera, l.61 (J)) ; **G14** (équivalent : `--stdin` sans `--path` implique `--no-filters`) ; **G15** (équivalent sous
+  l outil actuel, qui écrit la raison GAB exacte ; préfixe gardé, Q-G2-5).
+- Tour : C01-C03 (portes sans tête), C04 (garde qui ne stoppe pas), C05-C11 (population, étiquettes, min, copie, `drew`), C12 (domaine) :
+  12/12 ; tueurs neufs K468, K487, K493, K533, K538, K548, K581 tués ; le tueur de texte modifié K421 (Q-C1-5) tué.
+- **Contrôle d ordre** (C-G2-3 ; mutant multi-ligne hors harnais, `tools/order-check.mjs` `1ff3acd8…`, clone `mutants/clone-order`,
+  12:49:49-12:49:59Z) : la garde de fin de ligne replacée APRÈS `archiveFacts` (l ordre du gel 1) rougit `add_guards_before_effects` par
+  `assert-fail` : `created` voit la ref créée (`3c0e13d3…` au lieu de rien), `moved` voit le tip déplacé (`1389f8fc…` au lieu de
+  `d5c126c5…`) ; `order.tap` `7c77049b…` ; octets restaurés.
+
+### 16.6 Rejeu réel (clones seulement ; outil = `index.mjs` corrigé du worktree, lu ; `F:/tmp/methode/m5c/corr1/replay/`)
+- **Base** (`replay.sh`, `steps.log`, 12:48:10-12:48:44Z) : `git clone --no-local F:/Monark`, branche à `cb0e268a`, 101 branches
+  `lot/*` locales, 0 ref `refs/journal` ; `build` **vert, 0 hit, 7 lots, 21 entrées** ; `INDEX.md` **identique à l octet** à
+  `cb0e268a:docs/journal/INDEX.md` (`e8ad7ec1…` ×2) ; `status` 0 ligne.
+- **Ligne v2 de démonstration** (mission `mission-cp2-demo.md` du G1, `a926167d…`, relancée par `launch.mjs` ; enregistrement d oracle
+  `fb6bbc0b…-cp-2-20260929T070905Z-126300.json` `8fad97e3…` ; RED-PROOF réel du cp-2 M-5b `e19ccef5…`) : `add` exit 0, `redproof` = 11 /
+  9 / 2 / **`population` 9** / 3 / 3 / `ok` faux, `facts.commit` `da782da1…`, 5 entrées ; `build` complet **vert, 8 lots, 22 entrées**
+  (3 demandés, 3 tirés sur 9 : vert).
+- **Variantes du réel** (`variants.mjs`) : `requested` 5 ⇒ **`J-REDPROOF … draw of 5 requested, 3 drawn of 9: a truncated draw`** ;
+  `population` 11 ⇒ `… draw population 11 != f2p 9: a draw of another population`.
+- **C-G2-1 sur le réel** : `add --gate fusion --commit cb0e268a --from-redproof` (tête `fb6bbc0b`) ⇒ exit 2 `J-SCHEMA: redproof cited at a
+  gate without a head binding`, aucun fichier de lot, tip inchangé (`c4208863…` avant et après).
+- **C-G2-3 sur le réel (P1)** : fichier de lot `x` sans LF, `add` à 5 faits ⇒ exit 2 « does not end with a newline: nothing appended »,
+  tip inchangé (`c4208863…`), octets `x`.
+- **Clone du clone** : sans `fetch` : rouge et stderr `archive: ref absent from --repo, fetch expected: git fetch origin
+  '+refs/journal/*:refs/journal/*'` ; après `fetch` : vert (1 lot, 1 entrée).
+- **Sonde P4 refaite (C-G2-7)** (origine nue locale, aucun réseau) : w1 archive A1 `c6054521…` et pousse SANS `+` (création acceptée) ;
+  w2 = clone de reprise sans `fetch` (0 ref), `add` ⇒ A2 `9b5c90c5…` RACINE ; push SANS `+` : **`! [rejected] refs/journal/facts ->
+  refs/journal/facts (non-fast-forward)`**, exit 1, l origine garde A1 ; w3 = clone de reprise qui fait `fetch` AVANT `add` : A3 `f926bf24…`
+  de parent A1 ; push SANS `+` **accepté** (tip A3) ; A1 ancêtre du tip (exit 0), atteignable (1), le fait de A1 relu au tip (sha256 =
+  nom `5fd6d2f9…`) : **faits antérieurs atteignables**.
+- **Tronc courant** (`replay-head.sh`, `steps-head.log`, 12:49:08-12:49:24Z ; le tronc a bougé : `29897794` ajoute 4 lignes v1 de M-7) :
+  clone de `F:/Monark` à `d115be5e`, 101 branches `lot/*` : `build` **vert, 0 hit, 8 lots, 25 entrées** ; `INDEX.md` **identique à l
+  octet** à `F:/Monark/docs/journal/INDEX.md` (`cf4e1433…` ×2).
+
+### 16.7 Oracle
+`node F:/Monark/scripts/oracle/run.mjs --role corr --tree F:/Monark-wt-m5c --base cb0e268a --key M-5c` (jonction posée, C-V-4 et verrou
+vérifiés avant : 21 421 Mo, 8 `node.exe`, verrou libre, 12:56:50Z ; aucune course de ma part pendant la suite) : exit 0 ; enregistrement
+**`F:/tmp/oracle-results/65170ad4e4a82c7c61cdc27fe791ec78d00ac4f5-2f09c9424dff1433-corr-20260929T125700Z-113076.json`**
+sha256 **`d9b1995de864815787dd4b31b08fbaac05c056d8201de326fde343dc1e74e909`** : `role` corr, `tree.head` `65170ad4e4a82c7c61cdc27fe791ec78d00ac4f5`,
+`tree.dirty` `2f09c9424dff1433d27b1e41e8b26379a3ba3908c4a39fcebd3df215aa21ec63`, `tree.object` `5dbf0167f646…`, `key` `f45a0dd008c2…`,
+**`static_only` false, `served_from` null, `exit` 0**, `lock_wait_s` 0, `cv4` 22418 Mo / 9 `node.exe`,
+2026-09-29T12:57:00Z-2026-09-29T13:04:40Z ; portes : `bash enforcement/lint-model-pinning.sh .` 0, `r25` 0, `lang:gate` 0, `export:check` 0, `gate:vocab` 0,
+`typecheck` 0, `lint` 0, `lint:ratchet` 0, `test` 0 ;
+**tests 1642 = 1 640 + 2** (1639 pass, 0 fail, 3 skip) ; test 42 une fois, dans la suite ;
+**r25 STAT 496** (+436/−60, borne CI 1205) ; `residues.tmp_entries` 379.
+
+### 16.8 MAST
+- **FM-1.2** : `add` enregistre, `build` juge ; toute garde (usage, J-SCHEMA dont C-G2-1, fin de ligne) précède `archiveFacts` : exit 2
+  ⇒ 0 octet, aucune ref créée ni déplacée (test `add_guards_before_effects` ; l ordre du gel 1 le rougit : `created` et `moved` rouges ;
+  P1 et fusion sur le réel : tip inchangé).
+- **FM-3.2** : inchangé ; N02-N04, G02-G04 re-tués ; clone du clone sans `fetch` rouge nommé ; aucune lecture d hôte pour une ligne v2.
+- **FM-2.6** : la cohérence du tirage s élargit (`population` = `f2p`, `drawn` = min(`requested`, `population`)) ; `pins` reste DÉRIVÉ,
+  `ok` reste COPIÉ (le « `ok` recalculé » de Q-G2-3 n est pas dans la liste fermée : non fait).
+- **FM-1.3** : coexistence v1/v2 : 21 v1 vertes à la base, 25 au tronc courant, `INDEX.md` à l octet ; G08 survit jusqu au `freeze`.
+
+### 16.9 `error_origin` proposés (D11)
+C-G2-1 **G0** ; C-G2-2 **ORCH** ; C-G2-3 à C-G2-6 **G1** ; C-G2-7 **VAL** (repris du G2, § 8) ; fixture `proof()` incohérente avec
+`drawKillers` (`population` = `rows.length`, 3 tirés sur 1) : **G1** ; écart R-25 à l estimation : **ORCH** (estimation sans la règle
+≤ 160 ni la réparation des fixtures).
+
+### 16.10 Review Focus (couverture)
+1. Fichier de lot sans LF : exit 2, 0 octet, ni créée ni déplacée : `add_guards_before_effects` (créée, déplacée), P1 réel.
+2. `redproof` à fusion, preuve d une autre tête : refusé par `add` (test, réel) et par `build` (`schema_v2_strict`, ligne `x(8)`).
+3. 5 demandés / 3 tirés sur 9 : rouge « a truncated draw » (test M-Z:10, réel) ; 3 / 3 : vert (ligne `m5b` du test, ligne réelle).
+4. Reçu archivé forgé (sha, tête, verdict) : rouges nommés `J-RECU` (M-Z:1-3 de `lint_frozen_and_recu_archived`).
+5. Push de reprise sans `fetch` : rejeté sans `+` ; faits antérieurs atteignables (P4, § 16.6).
+
+### 16.11 Questions (Q-C1-n)
+- **Q-C1-1 (C-G2-2, lecture de « `population` (= `f2p`) »)** : `population` est COPIÉ de `draw.population` et J-REDPROOF exige
+  `population` = `f2p` quand un tirage existe (« draw population P != f2p F: a draw of another population », libellé hors liste) : sans
+  cette égalité, un `draw.population` édité à la baisse masquerait un tirage tronqué (`drawn` = min(`requested`, `population`) tiendrait).
+  Autre lecture possible : `population` := `f2p` dérivé, `draw.population` ignoré ; mêmes verdicts sur tout enregistrement honnête et sur
+  la variante 5 / 3 ; seul un `draw.population` édité diffère. À confirmer (ou repli : 1 ligne de code, 1 cas de test).
+- **Q-C1-2 (C-G2-2, surtirage ; couplage M-4b)** : `drawn` > min(`requested`, `population`) est rouge « more drawn than min(requested,
+  population) » (« `drawn` = min exigé » l implique ; libellé hors liste). l.62 (M-4b) : « les tueurs d épingles sont TOUS tirés, hors
+  tirage » : si l outil de M-4b les écrit dans `draw.drawn`, `drawn` = min + `pins` rougira toute preuve à épingle (`killed` = `drawn`
+  tiendrait) ; la ligne datée due au G7 de M-4b (l.60 et l.62) doit dire où vivent ces tueurs, ou ajuster J-REDPROOF ; proposé : le
+  rattacher à RED-PROOF-PIN-1 (déclencheur : fusion de M-4b).
+- **Q-C1-3 (C-G2-6, domaine de `head`/`base`)** : `sha()` gardé = 40 hex (64 sous un format d objets SHA-256, comme `commit`,
+  `tree_head`, `facts.commit`) ; « sha (40 hex) » lu comme la forme SHA-1 de ce domaine : réduire à 40 seuls rendrait la tête d un dépôt
+  SHA-256 inégale à son `commit` pour toujours (J-REDPROOF). Les deux cas du test (`ok: "yes"`, `population: -1`) sont refusés par
+  toute lecture. À confirmer.
+- **Q-C1-4 (fixtures, `error_origin` G1)** : le RED-PROOF synthétisé du test écrivait `population` = `rows.length` et tirait 3 tueurs
+  parmi une ligne admise : incohérent avec `drawKillers` (min(n, population)), rouge sous la clause neuve ; réparé (population = lignes
+  F2P ∪ new-module ; `F3` pour les cas verts) ; les cas rouges gardent leur premier motif (règles neuves placées après `ok` faux).
+- **Q-C1-5 (tueur modifié en texte)** : réadresser le tueur de tête de `facts_branch_deleted_stays_green` (texte du gel 1 : 214 caractères)
+  touchait une ligne > 160 ; nouveau texte `CONST "r?.verdict" -> "lintMission({ text: String(fact(m.sha).bytes), missionPath: repo,
+  repo, rev }).verdict"` (J-LINT recalculé sans le post-filtre LINT-UNTRACKED : même classe que N11) ; N11 (recalcul complet) reste dans
+  la table du G1, tué. À confirmer.
+- **Q-C1-6 (R-25)** : 496 ≤ 547 (marge 51), non ≈ 430 : la règle ≤ 160 scinde chaque ligne longue touchée (l.114 : 202 car., l.152 :
+  280, l.458 : 507, l.460 : 259 du gel 1), la réparation des fixtures, deux tests neufs et les cas ajoutés, l en-tête ; aucune scission.
+- **Q-C1-7 (titres)** : les titres de (viii) `redproof_roundtrip`, `schema_v2_strict` et `lint_frozen_and_recu_archived` dépassent 160 caractères et ne
+  peuvent être touchés (la ligne de déclaration est lue entière par `judgedOf` et les harnais) : leurs cas neufs sont nommés par des
+  tueurs de corps et par ce journal ; item proposé JOURNAL-TEST-TITLES-1 (M-5d, ou un lot de lisibilité comme M-7b) : scinder ces tests,
+  titres ≤ 145.
+- **Q-C1-8 (arithmétique des mutants)** : « 96 + 20 − 2 tués » compte G08 tué ; mesuré 96/96 + 17/20 = 113, plus 7 tueurs neufs et
+  12 mutants du tour = **132/135**, survivants G08 (M-5d (J)), G14 (équivalent), G15 (équivalent sous l outil actuel).
+- **Q-C1-9 (≤ 160 dans les `.md`)** : appliquée au code et aux tests (`scripts/`, `test/`) : toute ligne touchée ou créée ≤ 160,
+  contrôlé sur le diff. Dans les `.md` (style de la maison : une ligne par case, par règle, par paragraphe ; REGLES-MISSION insérée
+  verbatim dans les missions), la case 7 corrigée de CHECKLIST-G7 (touchée) et la puce neuve de REGLES-MISSION (créée) sont des lignes
+  longues ; ce § est coupé à ≤ 160. Si la règle couvre aussi les `.md` : reformatage de forme seule (R-25 0).
+- **Q-C1-10 (case 7 corrigée en place)** : la ligne datée du G1 (non fusionnée) porte désormais le `push` SANS `+` et un titre daté
+  « refspec corrigée … corr1, C-G2-7 », au lieu d une ligne datée neuve qui laisserait la commande forcée lisible dans la liste de contrôle
+  (une commande lisible est une invitation à l exécuter). Exception au « rien n est effacé » à confirmer.
+
+### 16.12 Écarts et traces
+- **Écritures** : le worktree (4 fichiers de la liste « À créer » et ce journal) et `F:/tmp/methode/m5c/corr1/`, `F:/tmp/methode/m5c-corr1-deliver/`
+  (plus l enregistrement d oracle écrit par l outil sous `F:/tmp/oracle-results/`). **Aucun git écrivant** dans le worktree ni dans
+  `F:/Monark` (des `git clone` en lecture seulement) ; `refs/journal/facts` écrite seulement dans les dépôts jetables du test (sous
+  `os.tmpdir()` = `F:/tmp/methode/m5c/corr1/tmp`), dans les clones `replay/trunk`, `replay/c3`, `replay/p4/w1..w3` et l origine nue locale
+  `replay/p4/origin.git` ; un commit dans le clone `replay/trunk` (ligne v2 de démonstration), sans option de signature ; aucun réseau ;
+  rien sur C: ; TEMP `F:/tmp/methode/m5c/corr1/tmp` partout.
+- **Verrou d hôte** : lu avant chaque course : suite du fichier 12:34:53Z (après la libération d un oracle `corr` tenu depuis 12:26:45Z),
+  12:37:16Z ; F2P après 90 s d attente (cp-2 de M-7, 12:37:47-12:44:20Z) ; harnais mutants avec attente AVANT chaque course (12 ms en
+  tout) ; contrôle d ordre 12:49:49Z ; les portes statiques (`tsc`, `eslint`, `lang-gate`, 12:36:06-12:36:21Z) sans relecture à cet
+  instant (pas des tests ; verrou libre à 12:34:53Z et 12:37:16Z, pris à 12:37:47Z) ; aucune course ni harnais de ma part pendant la
+  suite de mon oracle (rédaction seule).
+- **Jonctions `node_modules`** : worktree (12:35Z) et clone `base` (12:42Z) par `mk-nm.ps1` ; retirées par `rm-nm.ps1` avant le rendu
+  (`removed` ×2 à 13:05:15Z ; `F:/Monark/node_modules` intact, 220 entrées).
+- **Transport** : l outil d écriture décode `\uXXXX` (mesuré sur un fichier de brouillon) : aucune telle séquence écrite ; `\"` et `\\`
+  préservés, contrôlés par `parseKiller` (64 tueurs, 0 problème).
+- **Rejeu** : la comparaison d `INDEX.md` de la base au `F:/Monark` courant diffère (attendu : le tronc a bougé, `29897794`) ; comparé
+  au tronc courant par `replay-head.sh` : identique.
+- **Oracle** : `tree.dirty` haché au lancement (12:56:5xZ), AVANT l écriture de ce § 16 (texte `.md` seul ; aucun octet de code ni de
+  test changé après 12:37Z : `index.mjs` `262225fe…`, test `71e55c6d…`).
