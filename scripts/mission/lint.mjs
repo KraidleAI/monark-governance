@@ -29,12 +29,13 @@
 //                 list GLOBALS, the names a workflow script receives from its engine (Q-M2B-6)
 //   R-STEP        under a STEPS heading, a numbered step (N. at column 0 and its continuation lines, up to the next step or
 //                 heading) with neither a backtick span nor a path
-// A GENERATED mission carries the stamp line of scripts/mission/gen.mjs, anchored at both ends: its absolute path, the
-// short sha of its checkout's HEAD, the UTC time (Q-G2-6; the line itself is never checked): only a to-create heading
-// declares there, never a creation word (MISSION-LINT-CREATE-SCOPE-1). A line starting with the Palier
-// field sets the tier, read before the prose: an id outside TIERS, or claude-fable-5-1 with an implementer or corrector
-// role (Role field, else the Palier line; decision 274), is red; the proximity rule applies only without that field
-// (MISSION-LINT-MODEL-FIELD-1).
+// A GENERATED mission carries the stamp line of scripts/mission/gen.mjs, anchored at both ends: its absolute path (blanks
+// allowed, never a backtick: MISSION-GEN-PATH-SPACE-1), the short sha of its checkout's HEAD, the sha256 of its bytes that
+// ran (MISSION-GEN-SELF-SHA-1), the UTC time (Q-G2-6; the line itself is never checked): only a to-create heading declares
+// there, never a creation word (MISSION-LINT-CREATE-SCOPE-1). A line starting with the Palier field sets the tier, read
+// before the prose: an id outside TIERS, or claude-fable-5-1 with an implementer or corrector role (Role field, else the
+// Palier line; decision 274), is red; the proximity rule applies only without that field (MISSION-LINT-MODEL-FIELD-1).
+// claude-sonnet-5, retired (decision 280), is a tier only with --rev (a replay of a historical receipt): on disk, red (Q-G2-9).
 // To-create list (R-PATH, R-TOOL): a path or bare tool is declared when one of its mentions sits under a heading that says
 // "a creer" or "to create", or on a line that carries a creation word (creer, cree, creation, neuf, nouveau and their
 // inflections); every mention of a declared path is then exempt. Never checked: a lock path (last segment
@@ -50,7 +51,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const CODES = ["R-LINE", "R-PATH", "R-BRANCH", "R-BASE", "R-TOOL", "R-MODEL", "R-PLACEHOLDER", "R-FOCUS", "R-VAGUE", "R-SIMILAR", "R-SYMBOL", "R-STEP"];
-export const TIERS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-sonnet-5", "claude-fable-5-1"]; // claude-sonnet-5: retired (decision 280), kept for --rev replays
+export const TIERS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-sonnet-5", "claude-fable-5-1"]; // claude-sonnet-5: retired (decision 280), --rev replays only (Q-G2-9)
 const W = "\\p{L}\\p{N}_";
 const SEG = `(?:\\{[^{}\\s\`]+\\}|[${W}.~+-])+`;
 const PATH_RE = new RegExp(`(?<![${W}./\\\\-])([A-Za-z]:[\\\\/](?:${SEG}[\\\\/]?)*|(?:${SEG}[\\\\/])+(?:${SEG})?)(?::(\\d+(?:-\\d+)?(?:,\\d+(?:-\\d+)?)*))?`, "gu");
@@ -74,7 +75,7 @@ const VAGUE = new RegExp(`(?<![${W}])${FQ}(?:${words(["add appropriate error han
   "gestion d['\\u2019]?\\s*erre\\u0075rs? appropri[\\u00e9e]e?s?", "validations? appropri[\\u00e9e]e?s?", "cas limites? appropri[\\u00e9e]e?s?", "a\\u0075 besoin"])})(?![${W}])`, "giu");
 const SIMILAR = new RegExp(`(?<![${W}])${FQ}(?:${words(["similar to tasks?", "same as steps?", "like tasks?", "co\\u006dme l\\u0061 t[\\u00e2a]ches?", "idem [\\u00e9e]tapes?", "m[\\u00eae]me chose q\\u0075e"])})\\s+\\d+`, "giu");
 const STEPS = /^#{1,6}\s.*(?:[\u00e0a]\s+fai\u0072e|recette|[\u00e9e]tapes|steps)/iu;
-const GENERATED = /^G\u00e9n\u00e9r\u00e9 : `(?:[A-Za-z]:)?\/[^`\s]*\/scripts\/mission\/gen\.mjs` `[0-9a-f]{8}` \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/u;
+const GENERATED = /^G\u00e9n\u00e9r\u00e9 : `(?:[A-Za-z]:)?\/[^`]*\/scripts\/mission\/gen\.mjs` `[0-9a-f]{8}` sha256 `[0-9a-f]{64}` \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/u;
 const PALIER = /^Palier\s*:\s*`([^`\n]+)`/mu;
 const ROLE_FIELD = /(?<!\p{L})R[\u00f4o]l[e]\s*:\s*([^\n,;.]*)/u;
 const IMPL = new RegExp(`(?<![${W}-])(?:G1|corr)(?![${W}-])|${ROLE}`, "iu");
@@ -174,10 +175,11 @@ export function lintMission({ text, missionPath, repo, rev = null }) {
   else if (!base) hit("R-BASE", lineOf(bm.index), `${bm[1]} is not a commit of ${repo}`);
   const models = [...src.matchAll(MODEL_RE)];
   const tier = pf?.[1].trim().toLowerCase(), at = pf ? pf.index + pf[0].indexOf("`") + 1 : -1;
-  if (pf && !TIERS.includes(tier)) hit("R-MODEL", lineOf(pf.index), `Palier ${tier} ${tier === "claude-opus-5" ? "is banned" : "is outside the tier list"}`);
+  const tiers = rev === null ? TIERS.filter((t) => t !== "claude-sonnet-5") : TIERS, why = (t) => (t === "claude-opus-5" ? "is banned" : TIERS.includes(t) ? "is retired (decision 280): a --rev replay only (Q-G2-9)" : "is outside the tier list");
+  if (pf && !tiers.includes(tier)) hit("R-MODEL", lineOf(pf.index), `Palier ${tier} ${why(tier)}`);
   else if (tier === "claude-fable-5-1" && IMPL.test(ROLE_FIELD.exec(src)?.[1] ?? lines[lineOf(pf.index) - 1])) hit("R-MODEL", lineOf(pf.index), "Palier claude-fable-5-1 with an implementer or corrector role (decision 274)");
-  if (!pf && !models.some((m) => TIERS.includes(m[0].toLowerCase()))) hit("R-MODEL", 1, `no allowed tier (${TIERS.join(", ")})`);
-  for (const m of models) if (m.index !== at && !TIERS.includes(m[0].toLowerCase())) hit("R-MODEL", lineOf(m.index), `${m[0]} ${m[0].toLowerCase() === "claude-opus-5" ? "is banned" : "is outside the tier list"}`);
+  if (!pf && !models.some((m) => tiers.includes(m[0].toLowerCase()))) hit("R-MODEL", 1, `no allowed tier (${tiers.join(", ")})`);
+  for (const m of models) if (m.index !== at && !tiers.includes(m[0].toLowerCase())) hit("R-MODEL", lineOf(m.index), `${m[0]} ${why(m[0].toLowerCase())}`);
   if (/\bMISSION G1\b/.test(lines.find((l) => /^#\s/.test(l)) ?? "")) {
     const h = lines.findIndex((l) => /^#{1,6}\s.*review focus/i.test(l));
     const items = [];

@@ -3,21 +3,22 @@
 //          --body <body.md> --out <mission.md> [--adr <docs/adr/X.md>] [--r25 <n>] [--rules <file>] [--tools-root <dir>]
 // It writes a HEADER read from `git -C <repo>`, the ADR and --tools-root (default: the checkout of this generator), then
 // the rules and the hand-written BODY byte for byte. One header field per line: the title; the fixed fields Palier and
-// Role (MISSION-LINT-MODEL-FIELD-1); the stamp line: this generator's absolute path, the short sha of its checkout's HEAD,
-// the UTC time (Q-G2-6; in a stamped mission only a to-create heading declares: MISSION-LINT-CREATE-SCOPE-1); the pinned
-// base (short and full sha); the current branch; the worktree; HEAD; every path that differs from the base (`git diff
-// <base>`: base..HEAD, uncommitted and untracked, Q-M2B-3) with the sha256 of its bytes, deleted paths counted, not listed;
-// the ADR anchor, the first line of <tools-root>/<adr> starting with "| <LOT> |", cited by that path:N (Q-G2-5); the R-25
-// bound (default 547); the tools under <tools-root> with their sha256 (red-proof.mjs when on disk: there, else the M-4
-// worktree; Q-G2-4, C-G2-12); the roster (effort max for claude-opus-5-5, else high: decisions 262, 267); the path and
-// sha256 of --rules (default <tools-root>/docs/methode/REGLES-MISSION.md), whose bytes follow, a LF added if they lack
-// one (Q-M2B-9). The text is linted against --repo by scripts/mission/lint.mjs: green writes --out, prints the report and
-// "sha256 <hex> <out>" of the bytes read back from disk, the sha the receipt of launch.mjs must carry (C-G2-5), exit 0;
-// red writes nothing, prints the hits (exit 1). Exit 2 (refused, nothing written): usage; a role outside the vocabulary of
-// scripts/oracle/run.mjs; a tier outside TIERS, claude-sonnet-5 (retired, decision 280) or claude-fable-5-1 as G1 or corr
-// (decision 274), before any git read; --out naming the --body file by path or by (dev, ino) identity
-// (docs/methode/FAITS-fs-ino-2026-09-28.md); a base that is not a commit of --repo; an unreadable body or rules file; a
-// body opening with a UTF-8 BOM (C-G2-9); a generator checkout without a HEAD; an ADR without the anchor line.
+// Role (MISSION-LINT-MODEL-FIELD-1); the stamp line: this generator's absolute path, its checkout's short HEAD, the sha256
+// of its own bytes as run (MISSION-GEN-SELF-SHA-1), the UTC time (Q-G2-6; then only a to-create heading declares:
+// MISSION-LINT-CREATE-SCOPE-1); the pinned base (short and full sha); the branch; the worktree; HEAD; every path that
+// differs from the base (`git diff <base>`: base..HEAD, uncommitted and untracked, Q-M2B-3) with the sha256 of its bytes,
+// deleted paths counted, not listed; the ADR anchor, the first line of <tools-root>/<adr> starting with "| <LOT> |", cited
+// by that path:N (Q-G2-5); the R-25 bound (default 547); the five tools under <tools-root> with their sha256, red-proof.mjs
+// included, no fallback (Q-G2-4, C-G2-12, MISSION-GEN-REDPROOF-PATH-1); the roster (effort max for claude-opus-5-5, else
+// high: decisions 262, 267); the path and sha256 of --rules (default <tools-root>/docs/methode/REGLES-MISSION.md), whose
+// bytes follow, a LF added if they lack one (Q-M2B-9). The text is linted against --repo by scripts/mission/lint.mjs: green
+// writes --out, prints the report and "sha256 <hex> <out>" of the bytes read back from disk, the receipt's sha (C-G2-5),
+// exit 0; red writes nothing, prints the hits (exit 1). Exit 2 (refused, nothing written): usage; a role outside the
+// vocabulary of scripts/oracle/run.mjs; a tier outside TIERS, claude-sonnet-5 (retired, decision 280) or claude-fable-5-1
+// as G1 or corr (decision 274), before any git read; --out naming --body by path or (dev, ino)
+// (docs/methode/FAITS-fs-ino-2026-09-28.md); a --tools-root lacking a tool (C-G2-16); a base not a commit of --repo; an
+// unreadable body or rules file; a body opening with a UTF-8 BOM (C-G2-9); a generator checkout without a HEAD or whose
+// path holds a backtick or a line break (MISSION-GEN-PATH-SPACE-1); an ADR without the anchor line.
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -30,7 +31,7 @@ const DUTY = { G1: "impl\u00e9menteur", G2: "relecteur", "cp-2": "validateur", G
 const OPTS = ["lot", "role", "tier", "repo", "base", "body", "out", "adr", "r25", "rules", "tools-root"]; // the first seven are required
 const ROOT = fileURLToPath(new URL("../..", import.meta.url)).replace(/\\/g, "/").replace(/\/$/, "");
 const TOOLS = ["scripts/mission/lint.mjs", "scripts/mission/launch.mjs", "scripts/oracle/run.mjs", "scripts/oracle/r25.mjs"];
-const hex = (b) => createHash("sha256").update(b).digest("hex"), fwd = (p) => resolve(p).replace(/\\/g, "/");
+const hex = (b) => createHash("sha256").update(b).digest("hex"), fwd = (p) => resolve(p).replace(/\\/g, "/"), SELF = hex(readFileSync(fileURLToPath(import.meta.url))); // SELF: the bytes as run
 
 /** Assemble and lint a mission, never writing: {exit: 2, error} when refused, else {exit: 0 | 1, bytes, text, lint, out}. */
 export function generate(o) {
@@ -48,11 +49,14 @@ export function generate(o) {
   if (existsSync(out) && existsSync(o.body) && id(out) === id(o.body)) return { exit: 2, error: "--out names the --body file under another spelling (same dev and ino)" };
   const gitIn = (cwd, ...a) => execFileSync("git", ["-C", cwd, ...a], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" }, maxBuffer: 1 << 28 }), git = (...a) => gitIn(repo, ...a);
   const toolsRoot = o["tools-root"] === undefined ? ROOT : fwd(o["tools-root"]).replace(/\/$/, ""), rulesPath = o.rules === undefined ? `${toolsRoot}/docs/methode/REGLES-MISSION.md` : fwd(o.rules);
+  const tools = [...TOOLS.map((t) => `${toolsRoot}/${t}`), `${toolsRoot}/scripts/red-proof.mjs`], lost = tools.filter((p) => !existsSync(p)); // no fallback to another tree
+  if (lost.length > 0) return { exit: 2, error: `--tools-root ${toolsRoot}: ${lost.join(", ")} absent (C-G2-16; never a fallback to another tree)` };
   let base, head, body, rules, genHead, branch = null;
   try { base = git("rev-parse", "--verify", "--quiet", `${o.base}^{commit}`).trim(); head = git("rev-parse", "HEAD").trim(); } catch { return { exit: 2, error: `--base ${o.base} is not a commit of ${repo}` }; }
   try { body = readFileSync(o.body); } catch { return { exit: 2, error: `--body ${o.body} cannot be read` }; }
   if (body[0] === 0xef && body[1] === 0xbb && body[2] === 0xbf) return { exit: 2, error: "--body starts with a UTF-8 BOM: its first line would escape the linter (R-STEP)" };
   try { rules = readFileSync(rulesPath); } catch { return { exit: 2, error: `--rules ${rulesPath} cannot be read` }; }
+  if (/[`\r\n]/.test(ROOT)) return { exit: 2, error: `the checkout of this generator (${ROOT}) holds a backtick or a line break: no stamp could be recognised (MISSION-GEN-PATH-SPACE-1)` };
   try { genHead = gitIn(ROOT, "rev-parse", "HEAD").trim().slice(0, 8); } catch { return { exit: 2, error: `the checkout of this generator (${ROOT}) has no HEAD` }; }
   try { branch = git("symbolic-ref", "--short", "HEAD").trim(); } catch { /* detached HEAD: no branch */ }
   let anchor = "(`--adr` absent)";
@@ -69,12 +73,11 @@ export function generate(o) {
   const kept = [...status].filter(([, s]) => s !== "D").sort(([a], [b]) => (a < b ? -1 : 1));
   const sha = (p) => hex(readFileSync(resolve(repo, p)));
   const stamp = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-  const tools = [...TOOLS.map((t) => `${toolsRoot}/${t}`), ...[`${toolsRoot}/scripts/red-proof.mjs`, "F:/Monark-wt-m4/scripts/red-proof.mjs"].filter((p) => existsSync(p)).slice(0, 1)];
   const header = [
     `# MISSION ${o.role} \u2014 lot ${o.lot} \u2014 ${stamp.slice(0, 10)}`,
     `Palier : \`${o.tier}\``,
     `R\u00f4l\u0065 : ${o.role} (${DUTY[o.role]})`,
-    `G\u00e9n\u00e9r\u00e9 : \`${ROOT}/scripts/mission/gen.mjs\` \`${genHead}\` ${stamp}`,
+    `G\u00e9n\u00e9r\u00e9 : \`${ROOT}/scripts/mission/gen.mjs\` \`${genHead}\` sha256 \`${SELF}\` ${stamp}`,
     `Base tronc \`${base.slice(0, 8)}\` (${base})`,
     `Branche ${branch === null ? ": HEAD d\u00e9tach\u00e9e" : `\`${branch}\``}`,
     `Worktree \`${repo}\``,
