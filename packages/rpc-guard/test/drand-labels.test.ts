@@ -79,7 +79,7 @@ test("rpc_guard_drand_labels_are_host_bound", async () => {
       [[{ "drand-pl|getAccountInfo": 1 }, "attempted", 0], [{ "drand-pl|getTransaction": 1 }, "attempted", 0]], "TY-5: the attempted lines sit under the calling cycle");
     runCli(["unlock", "--cycle", day, "--op", "drand-pl", "--reason", "C-G2-3"], { ledgerDir: dir, floor: 0, readSnapshot: () => { throw new Error("unused"); } }); // left above: 1 attempted + 1 refused
     const again = openGuardedClient({}, { maxCalls: 4, runCaps: {}, methodCaps: {}, cycleFloor: {}, cycleAttempts: { "drand-pl": 2 } }, dir, { "drand-pl": day });
-    await offline(() => undefined, async () => { await again.call(op("drand-pl"), "GET", [ROUND]); await assert.rejects(again.call(op("drand-pl"), "GET", [ROUND]), BudgetExceededError, "a refused line is not an attempt: prior 1, cap 2"); });
+    await offline(() => undefined, async () => { await assert.doesNotReject(again.call(op("drand-pl"), "GET", [ROUND]), "a refused line is not an attempt: admitted at prior 1"); await assert.rejects(again.call(op("drand-pl"), "GET", [ROUND]), BudgetExceededError, "a refused line is not an attempt: prior 1, cap 2"); });
   } finally { cleanup(); }
 });
 
@@ -114,5 +114,6 @@ test("rpc_guard_keyless_cycle_attempts_hold_across_courses", async () => {
     assert.throws(() => openGuardedClient(FAKE_HELIUS_ENV, { ...ONE_METHOD_LIMITS, cycleAttempts: { helius: 4 } }, dir, { helius: "drand-bad" }), BudgetExceededError, "a cap on a paid operator");
     assert.ok(!existsSync(join(dir, "drand-bad")), "no cycle dir and no lock before a refused config");
     assert.doesNotThrow(() => openGuardedClient({}, { ...limits(4), cycleAttempts: { "drand-cf": 4 } }, dir, { "drand-pl": "drand-q6" }), "a valid cap naming an unrequested operator is ignored (Q-6)");
+    assert.throws(() => openGuardedClient({}, { ...limits(4), cycleAttempts: { "drand-pl": 4, "drand-cf": 0 } }, dir, { "drand-pl": "drand-q6b" }), BudgetExceededError, "an invalid cap naming an unrequested operator is validated, then refused (Q-C1, K-2)");
   } finally { cleanup(); }
 });

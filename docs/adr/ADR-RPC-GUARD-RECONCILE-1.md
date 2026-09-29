@@ -214,3 +214,7 @@ MAST : FM-1.1 (spécification non suivie : `commit` déplacé après le transpor
 - **1c/C-V-1** : la base de la mission cp-2 était fausse (`3cd3c0eb` au lieu de `72214c97` : la branche du lot a fusionné le tronc `1e179d23`, deux bases de fusion) ; `error_origin` orchestrateur.
 - **1c/C-V-3, items d outillage hors lot** : ORACLE-NM-ABSENT-1 (l oracle doit REFUSER un arbre sans `node_modules` au lieu de rendre 113 rouges d import ; porté par M-3) ; MUTANTS-REPLAY-VERDICT-1 (l outil garde « survit » quand son propre rejeu sur toutes les cibles tue le mutant, cas I4-a ; porté par M-6b) ; ORACLE-FLAKE-LOOPBACK-1 (`probe_get_over_loopback_http_executes` rouge une fois sur trois en suite, 47/47 isolé deux fois ; déclencheur : prochain rouge de ce test).
 - **1c/CA-11** : TU-host composé depuis l artefact réel du lanceur Bell (`apps/bell/ops/launch-q6.sh:45` et `:140`) ; `@monark/rpc-guard` reste `upcoming` ; « à brancher » au sens du registre (DOJO-HISTORY-ACTE-1, BELL-COURSE-END-1).
+
+## Ligne datée de fusion DRAND-1a (2026-09-29 22:1x UTC) — orchestrateur, fait foi
+
+- **TY-12 FERMÉ à la fusion de DRAND-1a** (`d452247a`, acte I-1 `i1.patch` `9494f28a…`) : la cellule « fermé au G1 de 1b » de la table des menaces est périmée ; la fusion sans la ligne I-1 laisse survivre M-TY12 (`F:/tmp/dojo/cp2-drand1a/mutants-noi1/RESULTS.json`), avec elle le mutant est tué ; cp-2 DRAND-1a C-V-2.
