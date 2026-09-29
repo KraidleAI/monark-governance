@@ -37,7 +37,7 @@ const ENV_KEY = ["NODE_OPTIONS", "NODE_ENV", "TZ", "LANG", "LC_ALL", "CI"]; // t
 // DATABENTO_API_KEY, CHAINSTACK_{ETH,SOLANA,BASE,BSC,ROBINHOOD}_URL), any *API_KEY*, *_KEY, *TOKEN*, *SECRET*, GH_*,
 // GITHUB_*, and MONARK_PUBLIC_MIRROR. The gates also get npm_config_offline=true (npm never reaches the registry).
 const DENY = /API_KEY|_KEY$|TOKEN|SECRET|^GH_|^GITHUB_|^CHAINSTACK_|^MONARK_PUBLIC_MIRROR$/i;
-
+if (import.meta.main !== false) { // main guard (lot M-6, Q-V-3): an import (childEnv below) runs nothing; fail-closed: runs where Node lacks import.meta.main
 const argv = process.argv.slice(2), opt = (k) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : undefined);
 const [role, treeArg, baseArg, label] = ["--role", "--tree", "--base", "--key"].map(opt), staticOnly = argv.includes("--static-only");
 const refuse = (msg) => { console.error(`oracle: refused: ${msg}`); process.exit(2); };
@@ -133,7 +133,7 @@ try {
   }
 
   const sh = process.platform === "win32" ? join(execFileSync("git", ["--exec-path"], { encoding: "utf8" }).trim(), "..", "..", "..", "bin", "bash.exe") : "bash";
-  const genv = { ...process.env, TEMP: tmp, TMP: tmp, TMPDIR: tmp, NEXT_TELEMETRY_DISABLED: "1", npm_config_offline: "true", npm_config_logs_dir: join(runDir, "npm-logs") };
+  const genv = { ...childEnv(tmp), NEXT_TELEMETRY_DISABLED: "1", npm_config_offline: "true", npm_config_logs_dir: join(runDir, "npm-logs") };
   let r25counts = null, refusal, cv4 = null, waited = null;
   const runGate = (g) => {
     const log = join(logs, `${String(ran.length + 1).padStart(2, "0")}-${g.name.replace(/[^\w.-]+/g, "_").slice(0, 60)}.log`), t = Date.now();
@@ -167,3 +167,7 @@ try {
   write({ static_only: staticOnly, gates: ran, tests, r25: r25counts, residues: { tmp_entries: readdirSync(tmp).length }, ci_only: ciOnly, cv4, lock_wait_s: waited, exit: code, served_from: null });
 } catch (e) { code = 2; console.error(`oracle: refused: run dir preparation or gate derivation failed: ${e.stack ?? e}`); }
 process.exitCode = code;
+} // end of the main guard (l.40)
+
+/** The env of every gate's child (l.136) and of scripts/mutants/run.mjs's children (lot M-6, Q-V-3): process.env without a name matching deny, TEMP/TMP/TMPDIR = tmp. */
+export function childEnv(tmp, deny = DENY) { return { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !deny.test(k))), TEMP: tmp, TMP: tmp, TMPDIR: tmp }; }

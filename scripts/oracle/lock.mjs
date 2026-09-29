@@ -6,7 +6,7 @@
 // protocol, or being written), or JSON of another writer, whose pid may be of another namespace (MSYS bash `$$`).
 // Declared residuals: older waiters do not queue, they may pass ahead (LOCK-LEGACY-1); a reused pid reads as alive, the wait
 // ends at maxMs and a live lock is never stolen (ORACLE-PID-REUSE-1); on Windows a SIGTERM runs no handler (dead-pid takeover).
-import { mkdirSync, readdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const MARK = "oracle/lock.mjs"; // the owner.txt writer tag: only this module's pid is a pid of process.kill's namespace
@@ -42,3 +42,6 @@ export async function acquire(root, owner, { pollMs = 5000, maxMs = 5_400_000 } 
     await new Promise((r) => setTimeout(r, pollMs));
   }
 }
+
+/** Read-only: null when <root>/oracle-lock is absent or written HERE by a dead pid (acquire takes it over), else why it is held (lot M-6, Q-V-1). */
+export const held = (root) => { const dir = join(root, "oracle-lock"), pid = ownerPid(dir); return !existsSync(dir) || (pid !== undefined && !alive(pid)) ? null : `${dir} is held by ${pid === undefined ? `an owner not written by ${MARK} (never taken over)` : `the live pid ${pid}`}`; };
