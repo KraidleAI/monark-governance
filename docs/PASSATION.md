@@ -1,6 +1,6 @@
 # PASSATION — dossier de reprise pour un nouvel orchestrateur (nouveau compte Claude ou nouvelle session) — mis à jour à chaque retour d'agent et à chaque décision (décision 271, investisseur, 2026-09-28)
 
-**Dernière mise à jour** : 2026-09-28 00:11 UTC — DECISION 283 : AgileGates seul jusqu au G7 de tous ses lots, rien d autre avant ; memstack relance (ok) ; en vol 2 : tour 2 M-2b, rr2 M-5
+**Dernière mise à jour** : 2026-09-28 00:15 UTC — G0 M-8b ecrit (ADR l.54 d045b708), cp-1 bref du validateur amende et lance (recu b072b4cd) ; en vol 3 : tour 2 M-2b, rr2 M-5, cp-1 M-8b
 
 ## 0. Lire dans cet ordre (30 minutes)
 1. `F:\claude-config\CLAUDE.md` (règles globales, roster, amendement 267 en fin de fichier) — **BYTE-GUARD-CONFIG-1 CLOS le 28/09 03:52 UTC (octets 0x08/0x07 remplacés, sauvegarde `CLAUDE.md.pre-bytefix`) ; mesure 28/09 18:06Z et 19:1xZ : 0 octet de contrôle ; CLAUDE.md = acte de l orchestrateur (décision 279)**.
