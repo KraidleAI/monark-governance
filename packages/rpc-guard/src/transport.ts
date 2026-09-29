@@ -21,6 +21,18 @@ import { closedHint } from "./classify.ts";
 /** Cycle caps live in ONE place (decisions 112/115). Helius in CREDITS; Chainstack in RU. */
 export const HELIUS_CYCLE_CAP_CREDITS = 8_000_000;
 export const CHAINSTACK_CYCLE_CAP_RU = 16_000_000;
+/** RPC-GUARD-HELIUS-HOST-1 (ADR-RPC-GUARD-RECONCILE-1 D-3): the CLOSED list of exact hosts the helius key may travel to (production,
+ *  apps/bell/ops/launch-q6.sh:45), never a domain suffix; tests use the reserved `.invalid` TLD (RFC 6761 6.4, FAITS-RFC6761-INVALID-1). */
+const HELIUS_ADMITTED_HOSTS: readonly string[] = ["mainnet.helius-rpc.com"];
+/** D-3: the first BELL_SOLANA_RPC element parsed ONCE, returned iff https without userinfo, query, fragment or port, with a lower-case
+ *  hostname in HELIUS_ADMITTED_HOSTS or ending with `.invalid` (free path). Never throws nor echoes; the key is set on THIS checked record. */
+function admittedHeliusUrl(base: string): URL | undefined {
+  let u: URL;
+  try { u = new URL(base); } catch { return undefined; }
+  if (u.protocol !== "https:" || u.username !== "" || u.password !== "" || u.search !== "" || u.hash !== "" || u.port !== "") return undefined;
+  const host = u.hostname.toLowerCase();
+  return HELIUS_ADMITTED_HOSTS.includes(host) || host.endsWith(".invalid") ? u : undefined;
+}
 
 /** Default per-attempt transport timeout (C-5): an AbortController fires at this deadline so a hung endpoint cannot
  *  wedge a course. Tests inject a tiny value; the live default matches the recorder's record.ts:83 (30 s). */
@@ -79,6 +91,8 @@ export function parseRetryAfterMs(header: string | null | undefined, nowMs: numb
 export interface Resolved {
   readonly classes: Readonly<Record<string, OperatorClass>>;
   readonly transport: Transport;
+  /** D-3: label -> why its endpoint was REFUSED (a fixed reason, never the url); openGuardedClient raises it before any lock. */
+  readonly refused: Readonly<Record<string, string>>;
 }
 
 /** Resolve paid endpoints from `env` INTERNALLY: returns the LABELS + metering classes; the URLs stay captured
@@ -86,15 +100,21 @@ export interface Resolved {
 export function resolveOperators(env: Record<string, string | undefined>, opts: TransportOpts = {}): Resolved {
   const urls = new Map<string, string>();
   const classes: Record<string, OperatorClass> = {};
+  const refused: Record<string, string> = {};
   // GARDE-HELIUS-1b-0 (C-7 beta): operators whose transport is an HTTP GET (method="GET", params=[pathAndQuery]) rather
   // than a JSON-RPC POST. Keyless, one admitted host each; assertHostAllowed is STRUCTURAL (in the transport below).
   const getOps = new Set<string>();
 
   const solana = (env.BELL_SOLANA_RPC ?? "").split(",").map((s) => s.trim()).filter((s) => s.length > 0);
   const heliusBase = solana[0];
-  if (heliusBase !== undefined) {
+  // RPC-GUARD-HELIUS-HOST-1 (D-3): the host is checked BEFORE any key is attached, with or without HELIUS_API_KEY. Refused => helius stays
+  // UNRESOLVED (no url, no class), named in `refused`. Admitted => `api-key` set by the URL API (production base: the former string).
+  const heliusUrl = heliusBase === undefined ? undefined : admittedHeliusUrl(heliusBase);
+  if (heliusBase !== undefined && heliusUrl === undefined) refused["helius"] = "BELL_SOLANA_RPC host not admitted (fail-closed, RPC-GUARD-HELIUS-HOST-1)";
+  if (heliusUrl !== undefined) {
     const key = env.HELIUS_API_KEY;
-    urls.set("helius", key ? `${heliusBase}?api-key=${key}` : heliusBase);
+    if (key) heliusUrl.searchParams.set("api-key", key);
+    urls.set("helius", heliusUrl.href);
     // D-2: helius reserves heliusCredits(method, params) and settles on the RENDERED count = result.data.length of the value
     // this transport returns (unchanged, heliusSettle).
     classes["helius"] = { unit: "credits", credits: heliusCredits, settle: heliusSettle, cycleCap: HELIUS_CYCLE_CAP_CREDITS };
@@ -254,7 +274,7 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
     return json.result;
   };
 
-  return { classes, transport };
+  return { classes, transport, refused };
 }
 
 /** The labels a resolved env exposes - LABELS only, never a URL. INTERNAL (used by openGuardedClient + tests). */
