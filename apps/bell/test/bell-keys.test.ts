@@ -154,7 +154,8 @@ test("bell_publish_bare_label_guard_pins_operator_vocabulary", () => {
   const labels = operatorLabels({ BELL_SOLANA_RPC: "https://rpc.example.invalid", CHAINSTACK_ETH_URL: "https://cs.example.invalid" }).map(String);
   // + the ETH leg's fault label (collect.ts:829) + the three cash-leg labels (ADR-BELL-CASH-LEG-1 C-11: they publish)
   const emitted = [...labels.filter((l) => !keyless.has(l)), "ethereum", CASH_CLOSE_LABEL, CASH_CROSS_LABEL, ADV_BARS_LABEL].sort();
-  assert.deepEqual(emitted, ["adv-bars", "cash-close", "cash-crosscheck", "chainstack", "ethereum", "helius", "solana-foundation", "xstocks-issuer"], "the labels a Bell provenance can carry");
+  // DRAND-RELAY-GET-1a (ADR-RPC-GUARD-DRAND-1 D-1, Q-2, 2026-09-27): + drand-cf, drand-pl, the dot-free drand relay labels of the guard.
+  assert.deepEqual(emitted, ["adv-bars", "cash-close", "cash-crosscheck", "chainstack", "drand-cf", "drand-pl", "ethereum", "helius", "solana-foundation", "xstocks-issuer"], "the labels a Bell provenance can carry");
   const withLabel = (label: string, where: "providers" | "faults"): string => {
     const s = tmp("t1b-lbl-");
     dropRun(s, "b0", 365n);

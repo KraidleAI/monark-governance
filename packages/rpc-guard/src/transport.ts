@@ -13,6 +13,7 @@
 // issuer public API (an HTTP GET witness, 1b-0 C-7), all resolved LABELS (0 cost, counted). The two cash-leg data sources stay
 // FORMED items (request caps land at their trigger, never guessed). This is the SOLE reader of a paid endpoint key
 // (HELIUS_API_KEY, CHAINSTACK_ETH_URL / CHAINSTACK_SOLANA_URL) and the SOLE fetch site.
+// DRAND-RELAY-GET-1a (ADR-RPC-GUARD-DRAND-1): + the two drand relays, keyless HTTP GET witnesses, one host and ONE closed path each.
 import type { OperatorLabel, Transport, OperatorClass } from "./client.ts";
 import { heliusCredits, heliusSettle, chainstackRu } from "./tariff.ts";
 import { TransportError, RpcError } from "./errors.ts";
@@ -76,6 +77,17 @@ export interface TransportOpts { readonly timeoutMs?: number; readonly network?:
  *  `xstocks-issuer` resolves ONLY this host; assertHostAllowed is STRUCTURAL (label -> one host, a pathAndQuery can
  *  never escape it). Calque of apps/bell/src/universe.ts:36 ISSUER_HOST (PLI / CONF-SRC-4). */
 export const XSTOCKS_ISSUER_HOST = "api.xstocks.fi";
+
+/** DRAND-RELAY-GET-1a (ADR-RPC-GUARD-DRAND-1 D-1): the two KEYLESS drand relay labels, dot-free (the BARE_LABEL vocabulary of
+ *  Bell), each resolving ONE host (the xstocks-issuer motif). Only the labels are public (index.ts); this table stays here. */
+const DRAND_RELAY_HOSTS: ReadonlyMap<string, string> = new Map([["drand-pl", "api.drand.sh"], ["drand-cf", "drand.cloudflare.com"]]);
+export const DRAND_RELAY_LABELS: readonly string[] = [...DRAND_RELAY_HOSTS.keys()];
+/** The quicknet chain hash, PINNED (docs/dojo/FAITS-drand-relays-terms-2026-09-27.md l.21, l.26): a chain rotation is an
+ *  amendment of the lot, never a read by the guard. NOT exported by index.ts. */
+export const DRAND_QUICKNET_HASH = "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971";
+/** The ONE admitted drand request: a v1 round (>= 1, at most 16 digits) of the pinned chain, matched on the RAW pathAndQuery
+ *  BEFORE any URL resolution, so no query, fragment, dot segment, backslash or blank survives a URL normalization. */
+export const DRAND_ROUND_PATH = new RegExp(`^/${DRAND_QUICKNET_HASH}/public/[1-9][0-9]{0,15}$`);
 
 /** Parse a Retry-After header (delta-seconds or an HTTP-date) to ms, bounded by capMs (never a negative wait). Pure;
  *  calque of apps/bell/src/universe.ts:103 retryAfterMs. Returns undefined for an absent/unparseable header (C-3b). */
@@ -142,6 +154,9 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
   urls.set("xstocks-issuer", `https://${XSTOCKS_ISSUER_HOST}`);
   classes["xstocks-issuer"] = { unit: "keyless" };
   getOps.add("xstocks-issuer");
+  // DRAND-RELAY-GET-1a (D-1): the two drand relays, KEYLESS HTTP GET witnesses (0 cost, counted), one host each (the motif
+  // above); resolveGetUrl closes the path to DRAND_ROUND_PATH (/info, /v2/, latest, another chain: refused).
+  for (const [label, host] of DRAND_RELAY_HOSTS) { urls.set(label, `https://${host}`); classes[label] = { unit: "keyless" }; getOps.add(label); }
 
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const onErr = opts.onTransportError;
@@ -219,6 +234,9 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
   // or an absolute "https://evil" pathAndQuery => a different host => throw). https only, no userinfo. No URL leaks.
   const resolveGetUrl = (op: string, base: string, params: readonly unknown[]): string => {
     const pathAndQuery = typeof params[0] === "string" ? params[0] : "";
+    // DRAND-RELAY-GET-1a (D-1, D-3 TY-4/TY-5): a drand label admits ONLY DRAND_ROUND_PATH, tested on the RAW string, fail-closed
+    // before any fetch; a Bell JSON-RPC call on a drand label (an address, or a non-string params[0] read as "") is refused here.
+    if (DRAND_RELAY_HOSTS.has(op) && !DRAND_ROUND_PATH.test(pathAndQuery)) throw new Error(`rpc-guard: request path for operator '${op}' is off the closed drand round path (fail-closed, D-1)`);
     const admitted = new URL(base);
     let u: URL;
     try { u = new URL(pathAndQuery, base); } catch { throw new Error(`rpc-guard: request path for operator '${op}' is not resolvable (fail-closed)`); }

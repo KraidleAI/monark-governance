@@ -170,6 +170,7 @@ test("rpc_guard_gtfa_settled_lines_are_not_attempts", async () => {
       attempts = c.spent().attempts;
     }, { ...LIMITS, maxCalls: 2, methodCaps: { [GTFA]: 2 } });
     assert.equal(attempts, 2);
+    assert.equal(openOperatorLedger(join(dir, "a11"), "helius", 0).priorAttemptsAtOpen(), 2, "TY-12: DRAND-1a's attempt prior ignores settled lines");
     assert.deepEqual(ledger(dir, "a11").map((e) => [e.outcome, Object.values(e.by_op_method)[0]]), [["attempted", 1], ["settled", 0], ["attempted", 1], ["settled", 0], ["refused", 1], ["unlocked", 1]]);
   } finally { cleanup(); }
 });
