@@ -11,7 +11,7 @@
 // stale or incomplete check is refused); no operator label of the reading, no vendor name and no site-banned word rides in it.
 // FAIL-CLOSED: every check holds before either write, else nothing is written and it exits 1. Output: LF, two-space JSON, its
 // CRLF->LF sha256 set as its entry of the site manifest, whose $comment names the file once (setManifestEntry). The pure parts
-// and runSync (I/O injected) are exported for test/dojo-served.test.ts, which runs them without the network.
+// and runSync and httpsGet (I/O and fetch injected) are exported for test/dojo-served.test.ts, which runs them without the network.
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createHash } from "node:crypto";
@@ -150,14 +150,19 @@ export async function runSync({ root, g7, get, readAt }) {
   return { record, sha };
 }
 
-/** GET on the Dojo host: https only (the host constant), a redirect refused, 200 only, the body within the reader's bound. */
-async function httpsGet(rel) {
-  const res = await fetch(`${DOJO_HOST}/${rel}`, { redirect: "manual", signal: AbortSignal.timeout(30_000) });
+/** GET on the Dojo host: https only (the host constant), a redirect refused, 200 only, the body within the reader's bound, read as a
+ *  stream and cut at the bound even without a content-length (leaving the loop cancels the body); `fetchImpl` is the test's seam. */
+export async function httpsGet(rel, fetchImpl = fetch) {
+  const res = await fetchImpl(`${DOJO_HOST}/${rel}`, { redirect: "manual", signal: AbortSignal.timeout(30_000) });
   if (res.status !== 200) fail(`GET ${rel} answered ${String(res.status)} (200 only, no redirect followed)`);
   if (Number(res.headers.get("content-length") ?? 0) > VERIFY_BOUNDS.MAX_BODY_BYTES) fail(`GET ${rel}: the body exceeds the reader's bound`);
-  const buf = Buffer.from(await res.arrayBuffer());
-  if (buf.length > VERIFY_BOUNDS.MAX_BODY_BYTES) fail(`GET ${rel}: the body exceeds the reader's bound`);
-  return buf;
+  const chunks = [];
+  let n = 0;
+  for await (const c of res.body ?? []) {
+    if ((n += c.byteLength) > VERIFY_BOUNDS.MAX_BODY_BYTES) fail(`GET ${rel}: the body exceeds the reader's bound`);
+    chunks.push(c);
+  }
+  return Buffer.concat(chunks);
 }
 
 async function main(argv) {

@@ -302,3 +302,218 @@ Fichier des tâches 1 à 7 : `scripts/sync-dojo-served.mjs` ; test D = `dojo_ser
   `?? docs/G1-lot-dojo-pr4a2.md`, `?? scripts/sync-dojo-served.d.mts`, `?? scripts/sync-dojo-served.mjs`.
 - Hors dépôt : `F:/tmp/dojo/pr4a2/` (clones `base`, `gel`, `f2p`, `f2p2`, `mutants`, journaux `run-*.log`, `e1-red.log`,
   `ratchet-*.json`, `tsc-*.log`, table et aide) ; `F:/tmp/dojo/pr4a2-deliver/` (`REPONSE.md`, `DELIVERED.sha256`).
+
+## 18. Corrections post-G2 (correcteur `claude-opus-5-5`, contexte frais, effort max)
+
+- **Correcteur** : `claude-opus-5-5` (R-1), instance distincte du G1 et du relecteur G2. Mission `F:/tmp/dojo/mission-corr-pr4a2.md`,
+  sha256 recalculé AVANT lecture (première commande de la session ; `date -u` suivant : 21:57:56Z) =
+  `d0fb65e3ee2042f38cfcce03b6fc274bb19f70e7d5eea92c3b14372430baae3f` = `sha` du reçu `F:/tmp/dojo/mission-corr-pr4a2.recu.json`
+  (lint 12 codes à 0, `base` `80c224cf`, `head` `9dfc5ab7`). Règles `F:/Monark/docs/methode/REGLES-MISSION.md` (7 685 octets,
+  sha256 `e5443e556069e6b5e449cc30446f7d5f60509293150c8573630b985340644059`) lues en entier.
+- **Entrées lues dans l'ordre** (21:57-22:03Z) : rapport G2 `F:/tmp/dojo/g2-pr4a2/G2-report.md` (348 l., sha256 `a9271ed8…3018`) ;
+  mission G1 (`a2aa4003…8188`) ; ce journal (304 l., `4e2b8b90…3f7e`) ; ADR PR-4 (`d1b5bf35…eea7` : D-2, D-3, §3, §4, §5) ;
+  synchro (`5f2ff3bb…ab79`), `.d.mts` (`b846d4ff…003a`), test (`db1de774…65b7`) ; diffs validés du G2 (`fix-all3.diff` `f5f7c3e4…21cb`).
+- **Décision 275 de l'orchestrateur, citée** : C-G2-1 et C-G2-2 bloquantes ; C-G2-3 ; C-G2-4 DANS CE LOT (règle PAROXYSME) ;
+  C-G2-5 ; Q-G2-1 à Q-G2-5 hors de la charge du correcteur (actes de l'orchestrateur au G7).
+- **Ouverture** : worktree HEAD `9dfc5ab7`, `status --porcelain` vide ; C-V-4 à 22:08:29Z : 25 `node`, 16 201 Mo physiques et
+  33 723 Mo virtuels libres ; verrou d'hôte tenu (oracle G2 d'un autre lot, pid 51468, pris à 22:04:32Z) : aucun test pendant.
+- **Sonde d'orientation** (22:03Z, `F:/tmp/dojo/pr4a2-corr/scratch/stream-probe.mjs`) : un `Response` construit sur un
+  `ReadableStream` expose ce flux même ; à `highWaterMark` 0, rien n'est tiré avant la lecture ; une sortie de `for await` par
+  exception annule le flux ; la lecture s'arrête à la borne plus un bloc.
+
+### 18.1 Compte ascendant prévu (22:09Z, avant toute ligne de code ; R-25 du gel : 358)
+
+| Correction | Fichier | Prévu (ins. + suppr.) |
+|---|---|---|
+| C-G2-1 : `bareManifest()`, écrit par `syncRoot`, sa ligne de doc | `test/dojo-served.test.ts` | +9 −2 = 11 |
+| C-G2-2 : négatif de la branche « présent » de la jambe committée | idem | +1 |
+| C-G2-3 : portée `site` de `LABEL_FORMS` | idem | +4 |
+| C-G2-4 : test à `fetch` simulé (et son killer), deux imports | idem | ≈ +24 +2 −2 = 28 |
+| C-G2-5 : « (FM-1.1) », l.255 | idem | +1 −1 = 2 |
+| C-G2-4 : `httpsGet` exportée, `fetch` injectable, lecture en flux ; l.14 de l'en-tête en place | `scripts/sync-dojo-served.mjs` | +13 −7 = 20 |
+| C-G2-4 : surface de `httpsGet` | `scripts/sync-dojo-served.d.mts` | +3 |
+| **Total** | | **≈ 69 : R-25 ≈ 427 ≤ 547 (solde ≈ 120 : C-V-6 ne joue pas)** |
+
+- Rien n'est touché au-dessus de la l.153 de la synchro, sauf la l.14 réécrite en place (nombre de lignes inchangé) : les 17 rangs
+  de la table du G1, K2 (l.74), K3 (l.145), G-2 (l.53) et G-3 (l.113) gardent leur numéro et leur ancre.
+
+### 18.2 Tâche → ligne → test → mutant (fichiers finaux : synchro `8409dbe1…0271`, `.d.mts` `7f570831…bec9`, test `8d6e3ace…07ae`)
+
+| Correction | Lignes | Test | Mutants (tous tués, § 18.4) |
+|---|---|---|---|
+| C-G2-1 (bloquante) | test l.241-248, l.252 | `dojo_served_data_matches_deploy_ca` | N4 ; témoins A et B verts |
+| C-G2-2 (bloquante) | test l.284 | idem (branche « présent ») | G-3 (l.113) ; témoin C rouge |
+| C-G2-3 | test l.355-358 | `dojo_sync_drops_operator_labels` | G-2 (l.53) |
+| C-G2-4 | synchro l.14, l.153-166 ; `.d.mts` l.34-36 ; test l.19, l.25, l.360-388 | `dojo_sync_get_holds_its_contract` | G-7 (l.157), C4-a à C4-h, K4 |
+| C-G2-5 | test l.262 : « (FM-1.1) » | (commentaire) | sans objet |
+
+- **C-G2-1** : `bareManifest()` (l.241-247) rend le manifeste committé sans l'entrée ni la clause de l'enregistrement ; `syncRoot`
+  l'écrit (l.252) et sa ligne de doc le dit (l.248) : la jambe synthétique part du manifeste d'avant la première synchro, dans les
+  deux états du dépôt (absence, présence) ; l'insertion de la clause reste exercée (N4).
+- **C-G2-2** : l.284, la CA de la tête `e1` sur l'enregistrement de `e2`, branche « présent » ⇒ `/another head/` (forme du G2).
+- **C-G2-3** : l.355-358, les mots bornés de la portée `site` de `vocab-banned.json`, lus et jamais tapés (forme du G2, 4 lignes).
+- **C-G2-4** : test neuf ; killer l.361 = K4 (synchro l.162, SDL de la garde en flux) ; imports l.19 (`VERIFY_BOUNDS`), l.25 (`httpsGet`).
+
+- **C-G2-4, code** : `httpsGet(rel, fetchImpl = fetch)` exportée ; la CLI passe toujours `get: httpsGet` (l.170, inchangée : `fetch`
+  global par défaut). Statut et `content-length` comme au gel (l.157-158) ; le corps est lu EN FLUX (`for await` sur `res.body`,
+  l.159-164) avec un compte d'octets cumulé : au-delà de `VERIFY_BOUNDS.MAX_BODY_BYTES`, refus, et la sortie de boucle annule le
+  flux ; l'égalité reste admise, comme chez le lecteur (`apps/dojo/scripts/dojo-verify.mjs` l.47 : refus si `size > MAX_BODY_BYTES`).
+- **C-G2-4, test** : `fetch` simulé qui rend un `Response` construit sur un flux compteur (`highWaterMark` 0 : rien n'est tiré avant
+  la lecture, mesuré par la sonde d'orientation). Épinglés : URL `https://dojo.monarkgate.tech/timeline.jsonl`, `redirect: "manual"`,
+  un `AbortSignal` ; refus de 301, 404 et 206 (« 200 seul ») ; longueur déclarée borne + 1 : refus avant tout octet tiré (0) ; corps
+  d'exactement la borne, ainsi déclaré : lu entier ; corps sans `content-length` de borne + 4 blocs de 1 Mio : refus, octets tirés
+  ≤ borne + 1 bloc, flux annulé. Le 206 et la valeur limite ont été ajoutés après le compte prévu, AVANT toute exécution.
+
+### 18.3 Témoins (tâche 3) : clone `F:/tmp/dojo/pr4a2-corr/wit` (`--no-local` du worktree, HEAD `9dfc5ab7`, trois fichiers copiés, sha256 égaux)
+
+| État | Fichier entier | `dojo_served_data_matches_deploy_ca` | TAP (`F:/tmp/dojo/pr4a2-corr/witness/`) |
+|---|---|---|---|
+| A : dépôt tel que committé (absence) | 7 / 7 | vert | `A-absence.tap` `71e35f6d…7d35` |
+| B : présence liée (le iv-d du G2) | 7 / 7 | **vert** | `B-presence.tap` `e1d079bf…4875` |
+| C : CA committée périmée (tête `e1`) | 6 / 7 | rouge, `ERR_ASSERTION` l.323 | `C-stale-ca.tap` `728b45d5…712e` |
+| D : CA committée absente | 6 / 7 | rouge, `ERR_ASSERTION` l.323 | `D-no-ca.tap` `dbbec7d5…433e` |
+
+- Actes : A (22:19:09Z) aucun ; B (22:19:23Z) `corr-gen.ts` écrit le trousseau, une CA verte des mêmes corps, puis `runSync` à la
+  racine ; C (22:19:34Z) CA écrasée par `ca-stale-e1.json` (`ebcc5124…b8c2`) ; D (22:19:42Z) CA renommée hors du clone
+  (`wit-side/ca-moved-out-for-D.json`). Refus lus dans les TAP : C « the deploy check was captured on another head » ; D « a
+  committed record without its committed deploy check ».
+
+- Générateur `F:/tmp/dojo/pr4a2-corr/wit/corr-gen.ts` (`6081af6d…aa02`) : copie du `probe-leg/g2-gen.ts` du G2 (`8a09dfb5…411b`),
+  deux lignes changées (dossier latéral sous `pr4a2-corr/wit-side`, jamais celui du G2 ; libellé d'`inputs_sha256`) ; sortie
+  `witness/gen.log` (`23fd3f3c…49a1`) : enregistrement `4fcdf1f9…8eec`, tête seq 12 ; CA `fe34fe6d…ff62`, manifeste `8d5c9f13…46b0`.
+- La l.323 est l'assertion de la jambe committée (`committedRefusals(leg)` égal à `[]`) : en C et D, le rouge vient de la jambe
+  committée elle-même, plus d'une assertion de la jambe synthétique qui la masquait (le rouge du iv-d du G2 était à l'ancienne l.270).
+- Exécutions par `witness/wit-run.sh` (`683958cd…0398`) : TAP, `--test-force-exit`, TEMP/TMP/TMPDIR sous `pr4a2-corr/tmp`, refus de
+  démarrer si le verrou d'hôte est présent : relu absent à chacun des quatre lancements (22:19:09Z à 22:19:42Z). Relevés antérieurs :
+  tenu à 22:08:29Z (oracle G2 d'un autre lot, pid 51468, pris à 22:04:32Z), de 22:12:50Z à 22:17:19Z (oracle G7, pid 123760, pris à
+  22:11:49Z) ; relevé libre à 22:18:58Z. Aucun test, harnais ni contrôle statique pendant ces relevés.
+
+### 18.4 Mutants (tâche 4) : outil du tronc, un lancement
+
+- Commande (lancée 22:20:01Z, outil 22:20:18-22:20:33Z ; `held(F:/tmp)` nul ; C-V-4 : 13 `node`, 18 240 Mo physiques, 36 835 Mo
+  virtuels libres) :
+  `node F:/Monark/scripts/mutants/run.mjs --repo F:/tmp/dojo/pr4a2-corr/mrepo --base 80c224cf --out F:/tmp/dojo/pr4a2-corr/mutants/corr
+  --table F:/tmp/dojo/pr4a2-corr/mutants-corr-table.mjs --killers --file scripts/sync-dojo-served.mjs --targets test/dojo-served.test.ts
+  --lock-root F:/tmp --min-free-mb 4096` ; `mrepo` = clone `--no-local` du worktree à `9dfc5ab7` plus les trois fichiers copiés
+  (aucun commit) ; `node_modules` du dossier de sortie par `mk-nm.ps1 -Tree <out>` (220 entrées), retiré après.
+- Table `mutants-corr-table.mjs` (`a4d63656…aa30`, 28 rangs) : les 17 rangs du G1 extraits verbatim par `sed` de sa table
+  (`02c314a9…5b65`, l.6-39), G-2 et G-3 du G2 verbatim (`d103290a…7f78`, l.10-13), G-7 renuméroté (l.156 → l.157) et jugé par le test
+  neuf, C4-a à C4-h sur la nouvelle `httpsGet` ; ancres vérifiées avant (`scratch/anchor-check.mjs` : 0 perdue) ; `--killers` : K1
+  (`dojo-register.ts:19`), K2 (l.74), K3 (l.145), K4 (l.162, neuf) ; killers validés par `parseKiller` du tronc avant.
+- **`F:/tmp/dojo/pr4a2-corr/mutants/corr/RESULTS.json`, sha256 `78952196f2d14a4fa12d094df58820233fc885b103dbc13aad472206c1d01004`** ;
+  `RESULTS.txt` `fd69e52d…358e` lu en entier ; outil `2606e7da…3b19` (celui du G1 et du G2), `tool_tree` `7d9e413e`, `tool_dirty` nul ;
+  ligne de base verte (40 tests : les deux fichiers) ; **32 / 32 tués, tous stricts (`ERR_ASSERTION` seul), tous restaurés**, exit 0.
+- Détail : M-P6, M-P7, M-P7b, M-P7c, M-P9, M-P9h, M-P9n, M-P20, M-P20b, M-P20c, N1 à N7 (rejeu du G1) ; **G-2** (tué par
+  `dojo_sync_drops_operator_labels`), **G-3** (par `dojo_served_data_matches_deploy_ca`), **G-7** (par le test neuf) : les trois
+  survivants du G2 ; C4-a (redirection suivie), C4-b (longueur déclarée non lue), C4-c (flux non annulé : `preventCancel`), C4-d
+  (http), C4-e (autre 2xx admis), C4-f (compte d'un seul bloc), C4-g et C4-h (égalité à la borne refusée) ; K1 à K4.
+- G-8 (Q-G2-5, non conclu par exception) n'est pas rejoué : hors de la charge du correcteur (décision 275).
+
+### 18.5 Portes statiques ciblées, avant l'oracle (verrou libre ; journaux sous `F:/tmp/dojo/pr4a2-corr/static/`)
+
+- Clone témoin (22:20:52-22:21:20Z) : `tsc --noEmit` 0 (`tsc.log` vide) ; ESLint sur `test/dojo-served.test.ts` 0 (`eslint.log` vide) ;
+  cliquet des six règles de `lint-ratchet.json` réactivées sur ce seul fichier (surcharge de `scripts/lint-ratchet.mjs`) : 0
+  (`ratchet.log` `4a954992…e477`), 0 au gel (journal G1 § 9). Clone `mrepo` : `gate:vocab` 0 (`vocab.log` `820413bf…7871`),
+  `lang:gate` 0 (`lang.log` `b7247d5b…270f`).
+
+### 18.6 Oracle et R-25 (tâche 5)
+
+- Commande (lancée à 22:22:06Z ; `held(F:/tmp)` nul ; C-V-4 : 12 `node`, 18 248 Mo physiques, 37 173 Mo virtuels libres ; plafond
+  `timeout 7200` ≥ `ORACLE_LOCK_MAX_MS` 5 400 s + suite ; rien d'autre lancé pendant la suite) :
+  `node F:/Monark/scripts/oracle/run.mjs --role corr --tree F:/Monark-wt-dojo-pr4a2 --base 80c224cf --key PR-4a-2`.
+- **Enregistrement** `F:/tmp/oracle-results/9dfc5ab70336da9782473d5e57ae8011e8be988a-8d4397a397466ce9-corr-20260929T222206Z-48728.json`,
+  **sha256 `0ced3abe829656b9c4be8705592cce15b73c14490ebe84d2e51f9e7e7960a578`** ; `exit` 0 ; `static_only` false ; `served_from` nul
+  (arbre modifié : rejoué, ligne datée 21:2x des REGLES) ; `tree.head` `9dfc5ab7`, `dirty` `8d4397a3…4fc3`, `object` `152fef62…ebbf` ;
+  22:22:06Z → 22:30:48Z ; verrou pris à 22:23:06Z, attente 0 s ; C-V-4 de l'oracle : 18 541 Mo libres, 14 `node.exe`.
+- Portes, neuf, toutes à 0 : `lint-model-pinning`, `r25`, `lang:gate`, `export:check`, `gate:vocab`, `typecheck`, `lint`,
+  `lint:ratchet` (hors verrou), `test` (sous verrou, 462 s). CI seule : `npm ci`, `sbom`, `audit`, build du site, `assert-fleet-html`.
+- Suite : **1 711 tests, 1 708 verts, 0 rouge**, 3 sautés étrangers au lot (sentinelle SIGTERM, nom court 8.3, artefacts u4b : les
+  mêmes qu'au G1 et au G2) ; un test de plus qu'au G2 (1 710) : le test neuf ; `dojo_register_is_frozen`,
+  `dojo_served_data_matches_deploy_ca`, `dojo_sync_drops_operator_labels`, `dojo_sync_get_holds_its_contract` verts ; test 42 vert
+  (440,6 s) ; journal `…-48728/09-test.log` sha256 `01a5f794…ed05`.
+- **R-25, calcul exporté `r25()` de `scripts/oracle/r25.mjs` (porte `r25` de l'oracle, sur son commit de gel)** : `STAT` 402
+  insertions, 7 suppressions, **409** changées (borne `VIBEGATES_PR_LIMIT` 1 205) ; `CONTENT_STAT` 0. **409 ≤ 547, solde 138** : la
+  clause C-V-6 (solde < 10) ne joue pas. Pré-mesure en lecture seule (`scratch/r25-pre.mjs`, 22:15Z) : 409, égale.
+- Écart au compte prévu (§ 18.1), contre le gel (`git diff --numstat HEAD`) : synchro +12 −7 = 19 (prévu 20), `.d.mts` +3 (prévu 3),
+  test +46 −5 = 51 (prévu 46 : le cas 206 et la valeur limite, § 18.2) ; total 73 contre ≈ 69.
+- Depuis le lancement de l'oracle, seul ce journal a changé (`docs/**/*.md`, hors R-25 et hors code) : les trois fichiers de code
+  et de test ont les sha256 éprouvés (`8409dbe1…0271`, `7f570831…bec9`, `8d6e3ace…07ae`).
+
+### 18.7 Chemin par défaut de la CLI (`fetch` global), hors test unitaire
+
+- Le test neuf injecte `fetchImpl` ; la CLI passe `get: httpsGet` sans second argument. Éprouvé à 22:31:47Z (verrou libre, après
+  l'oracle), sur le modèle de la sonde (vi) du G2, dans le clone témoin (trousseau et CA présents) :
+  `node --import file:///F:/tmp/dojo/pr4a2-corr/cli/nofetch.mjs scripts/sync-dojo-served.mjs --g7 7777…7777` ; le préchargeur
+  (`f36c573c…5c0b`) remplace le `fetch` global par un marqueur puis une exception : aucune requête ne sort.
+- Résultat : exit 1, « FAIL-CLOSED: corrector probe: fetch called » (`cli/cli-default.log` `6d98376a…f270`) ; un seul appel, marqueur
+  `fetch https://dojo.monarkgate.tech/timeline.jsonl redirect=manual signal=true` (`cli/fetch.mark` `fb351e1a…1d3b`) ; enregistrement,
+  manifeste, trousseau et CA inchangés (`sha256sum -c cli/before.sha256` : 4 / 4 OK).
+
+### 18.8 MAST (C-V-5)
+
+- **FM-1.1** (dérive de format) : pin `3024482e…` inchangé (l.263) ; l'étiquette suit l'ADR (C-G2-5) ; résidu Q-G2-1 : acte de l'orchestrateur.
+- **FM-1.3** (périmètre) : quatre fichiers, ceux des sorties déclarées de la mission ; aucun fichier des dossiers du G1 ni du G2 écrit.
+- **FM-1.5** (condition de fin ignorée) : la jambe committée est verte sur un enregistrement écrit par `runSync` à une racine (témoin
+  B) : l'aggravant du G2 (condition du registre inatteignable) est levé ; une CA périmée ou absente la rougit par assertion (C, D).
+- **FM-2.6** : aucune donnée réelle committée ; les fichiers des témoins ne vivent que dans le clone `wit`.
+- **FM-3.2 / FM-3.3** (vérification incomplète ou incorrecte) : les trois survivants du G2 (G-2, G-3, G-7) tués ; la nouvelle lecture
+  en flux porte neuf mutants tués (C4-a à C4-h, K4) ; G-8 reste non conclu (Q-G2-5, déclaré par l'orchestrateur).
+
+### 18.9 `error_origin` proposés (assignés au G7)
+
+- C-G2-1 à C-G2-4 : worker G1 (proposition du G2) ; C-G2-5 : planificateur (étiquette de la mission G1), propagée par le worker G1.
+- Écarts du correcteur (§ 18.11) : correcteur, corrigés avant toute preuve retenue, sans trace dans un fichier livré.
+
+### 18.10 Questions à l'orchestrateur (Q-C-n)
+
+- **Q-C-1** : le test neuf `dojo_sync_get_holds_its_contract` et les mutants C4-a à C4-h ne sont pas nommés au § 4 de l'ADR PR-4
+  (PR-4a-2 y nomme deux tests et M-P6, M-P7, M-P9, M-P20) : ligne de pli datée au G7, précédent « Pli corrections G2 de PR-4a-1 »
+  (§ 4, C-G2-6 : `dojo_served_refuses_a_tree_the_verifier_refuses`, G-M1 à G-M20, V-1 à V-6).
+- **Q-C-2 (item à former)** : aux refus sur statut (301, 404, 206) et sur longueur déclarée, `httpsGet` lève sans lire ni annuler le
+  corps ; hors du contrat de l'en-tête l.5 et de la forme de C-G2-4 ; sans effet sur la sûreté (rien écrit, exit 1, § 18.7). Qu'un
+  corps non consommé garde le processus de la CLI vivant après le FAIL-CLOSED n'est PAS établi ici : aucune source lue (aucun réseau ;
+  `F:/Monark/node_modules/undici` absent, `undici-types/README.md` sans la section). Proposition : DOJO-SYNC-GET-BODY-CANCEL-1,
+  recherche par lecture sur place de l'orchestrateur (README de nodejs/undici, section sur la consommation des corps) ; si établi,
+  `await res.body?.cancel()` avant chaque refus et `cancelled` affirmé aux cas 404 et longueur déclarée (≈ 4 lignes) ; déclencheur :
+  avant l'acte TU-7 ; propriétaire : orchestrateur.
+- **Q-C-3** : `DELIVERED.sha256` suit le précédent du G1 (format `sha256sum -c`, sans ligne de modèle). Mesuré à 22:38Z
+  (`F:/tmp/dojo/pr4a2-corr/scratch/model-line.sha256` `17431323…a97b` : une ligne `claude-opus-5-5` puis une ligne valide) :
+  `sha256sum -c` sort 0 avec « 1 line is improperly formatted », `sha256sum -c --strict` sort 1 ; aide de GNU coreutils 8.32 lue :
+  « --strict exit non-zero for improperly formatted checksum lines ». Le modèle résolu est la première ligne de `REPONSE.md`, que le
+  sceau couvre. À ratifier, ou à trancher pour les lots suivants.
+
+### 18.11 Écarts du correcteur (consignés, aucun contournement)
+
+- `scratch/killer-check.mjs`, premier lancement : import par chemin Windows absolu refusé (`ERR_UNSUPPORTED_ESM_URL_SCHEME`) ; repris
+  par URL `file:///` (`08fa6404…22e9`) ; aucun effet sur un fichier livré.
+- Garde d'octets, premier passage par `grep -P` : 42 octets de continuation UTF-8 du journal (accents) comptés comme « C1 » : faux
+  positif de l'outil ; remplacée par un décodage UTF-8 strict (`scratch/byteguard.mjs` `e54ece8e…431d`) : 0 point de code de
+  contrôle, 0 TAB, 0 CR dans les quatre fichiers.
+- `static/ratchet-one.mjs`, premier lancement : `eslint` résolu depuis le dossier du script (`ERR_MODULE_NOT_FOUND`, journal gardé
+  `static/ratchet-1-module-not-found.log` `b0eb698c…a2d3`) ; import repointé par URL vers l'`eslint` du clone témoin ; relancé : 0.
+- Test modifié deux fois après sa première écriture (cas 206 plié dans la ligne du 404 ; valeur limite, +2 lignes), AVANT toute
+  exécution : témoins, portes statiques, mutants et oracle portent tous les octets finaux `8d6e3ace…07ae`.
+- Six lignes de tableau de ce journal au-delà de 160 caractères, réécrites avant la fin (max final 153).
+
+### 18.12 Advisor et conduite
+
+- Outil advisor intégré consulté après l'orientation, avant toute écriture (plan) : conseil, jamais verdict. Retenus et vérifiés sur
+  pièce : journal d'abord ; rien au-dessus de la l.153 ; type explicite de `fetchImpl` (pas `typeof fetch`) ; portes statiques avant
+  l'oracle ; flux fini et modeste pour que les mutants de lecture meurent par assertion ; générateur dans mon seul dossier.
+- Seconde consultation, à la clôture (livrables écrits et scellés) : deux corrections retenues et appliquées, Q-C-3 prouvée par
+  mesure (elle affirmait sans preuve le refus de `--strict`) et relevés du verrou dits exactement (la continuité 22:04Z-22:18:58Z
+  n'était pas relevée) ; sceau régénéré ensuite.
+- Git : **aucun `GIT_DIR`, aucun `GIT_WORK_TREE`, aucun `--write-tree`** ; aucun commit ; dans le worktree et dans `F:/Monark`, git en
+  lecture seule (`--no-optional-locks`) ; git écrivant seulement dans mes clones (`clone --no-local`, `checkout --detach`) ; les
+  clones internes des outils (`mutants/corr/clone`, dossier de l'oracle) sont les leurs. Aucun réseau ; rien écrit sur C:.
+
+### 18.13 Provenance et état final des corrections
+
+- Rédigé par `claude-opus-5-5` (correcteur post-G2, effort max), 2026-09-29, contexte : mission ci-dessus ; réviseurs attendus :
+  cp-2 (validateur-humain), G7 (orchestrateur). Aucun commit, aucun workflow (R-20) ; le gel 2 est un acte de l'orchestrateur.
+- Worktree : ` M docs/G1-lot-dojo-pr4a2.md`, ` M scripts/sync-dojo-served.d.mts`, ` M scripts/sync-dojo-served.mjs`,
+  ` M test/dojo-served.test.ts` (HEAD `9dfc5ab7`). Jonctions `node_modules` retirées de `wit` et de `mutants/corr` (22:21:54Z, puis
+  22:31:57Z après la sonde de la CLI) ; `F:/Monark/node_modules` intact (220 entrées, 10 `@monark`).
+- Hors dépôt, sous `F:/tmp/dojo/pr4a2-corr/` : clones `wit` (témoins) et `mrepo` (dépôt de la campagne), `wit-side/`, `witness/`,
+  `mutants/` (`corr/`, `corr-run.log`), `mutants-corr-table.mjs`, `static/`, `cli/`, `scratch/`, `tmp/`, `oracle-run.log` ;
+  livraison `F:/tmp/dojo/pr4a2-corr-deliver/` (`REPONSE.md`, `DELIVERED.sha256`).

@@ -31,3 +31,6 @@ export function committedRefusals(leg: { record: DojoRecord | null; present: boo
  *  bodies through `get`; rejects before any write when a check does not hold. */
 export function runSync(opts: { root: string; g7: string; get: (rel: string) => Promise<Uint8Array>; readAt: string }):
   Promise<{ record: Record<string, unknown>; sha: string }>;
+/** The CLI's GET of `rel` on the Dojo host: https only, no redirect followed, 200 only, the body streamed and cut at the reader's
+ *  bound; rejects otherwise. `fetchImpl` defaults to the global fetch (the test passes a simulated one). */
+export function httpsGet(rel: string, fetchImpl?: (url: string, init: RequestInit) => Promise<Response>): Promise<Buffer>;

@@ -16,13 +16,13 @@ import { dojoPageFiguresOf, shiftUnits } from "../apps/site/lib/dojo-served.ts";
 import { shiftDecimal } from "../apps/site/lib/bell-served-load.ts";
 import { ANCHOR_DAY, dateOf, dojoFixture, dojoKeyringOf, linesOf, newKey, render, type Step } from "../apps/dojo/test/helpers/dojo-fixture.ts";
 import { walkDojoTimeline } from "../apps/dojo/scripts/dojo-chain.mjs";
-import { dojoTrustOf, verifyDojoServed } from "../apps/dojo/scripts/dojo-verify.mjs";
+import { dojoTrustOf, verifyDojoServed, VERIFY_BOUNDS } from "../apps/dojo/scripts/dojo-verify.mjs";
 import { rootOf } from "../apps/dojo/scripts/dojo-core.mjs";
 import { canonical, lineHash, type Trust } from "../apps/bell/scripts/bell-chain.mjs";
 import { holdSnapshotStatus } from "../apps/site/lib/dojo-register.ts";
 import { CHAIN_OPERATORS } from "../apps/dojo/src/dojo-methods.ts";
 import { DATA_SOURCE_FORMS, KITCHEN_FORMS, OPERATOR_FORMS } from "../scripts/public-text-deny.mjs";
-import { bindDojoCa, committedRefusals, operatorLabelsIn, runSync, setManifestEntry, CA_CHECKS, CA_KEYS, CA_REL, KEYRING_REL, MANIFEST_ANCHOR,
+import { bindDojoCa, committedRefusals, httpsGet, operatorLabelsIn, runSync, setManifestEntry, CA_CHECKS, CA_KEYS, CA_REL, KEYRING_REL, MANIFEST_ANCHOR,
   MANIFEST_CLAUSE, MANIFEST_REL, OUT_REL } from "../scripts/sync-dojo-served.mjs";
 
 type Tree = Map<string, Buffer>;
@@ -238,11 +238,18 @@ function caOf(tree: Tree): Rec {
     history: { history_sha256: sha(tree.get(hf) ?? ""), history_lines_count: rows(hf).length, history_root: merkle(rows(hf)).toString("hex") },
     bodies_sha256: { "/timeline.jsonl": sha(tl), "/dojo/pubkey.json": sha(tree.get("dojo/pubkey.json") ?? "") } };
 }
-/** A temporary repository root for the sync: the committed keyring, the deploy check and the site manifest as committed. */
+/** The committed site manifest without the record's entry and $comment clause (the manifest before the first sync). */
+function bareManifest(): string {
+  const m = JSON.parse(readFileSync(join(ROOT, MANIFEST_REL), "utf8")) as { $comment: string; files: Record<string, string> };
+  delete m.files[OUT_REL];
+  m.$comment = m.$comment.replace(MANIFEST_CLAUSE, "");
+  return `${JSON.stringify(m, null, 2)}\n`;
+}
+/** A temporary repository root for the sync: the committed keyring, the deploy check and the site manifest before the first sync. */
 function syncRoot(keyring: Rec, ca: Rec): string {
   const dir = mkdtempSync(join(tmpdir(), "dojo-sync-"));
   const files: Array<[string, string]> = [[KEYRING_REL, `${canonical(keyring)}\n`], [CA_REL, `${JSON.stringify(ca, null, 2)}\n`],
-    [MANIFEST_REL, readFileSync(join(ROOT, MANIFEST_REL), "utf8")]];
+    [MANIFEST_REL, bareManifest()]];
   for (const [rel, text] of files) { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), text); }
   return dir;
 }
@@ -252,7 +259,7 @@ const drop = (dir: string): void => { rmSync(dir, { recursive: true, force: true
 
 // killer: scripts/sync-dojo-served.mjs:74 SDL "if (ca.head.recomputed_root !== h.root)" -> ""
 test("dojo_served_data_matches_deploy_ca", async () => {
-  // The check is read by the keys of DOJO-CA-FORMAT-1, cited by sha (FM-2.3): a dated change of the bullet re-pins the sync here.
+  // The check is read by the keys of DOJO-CA-FORMAT-1, cited by sha (FM-1.1): a dated change of the bullet re-pins the sync here.
   assert.equal(sha(CA_BULLET), "3024482e26d653563b7adb9391d0ab09c73e70bc6e8cb9ff731cbcec2d4c0f90", "the frozen bullet of ADR-DOJO-PR-3 D-2");
   assert.deepEqual([CA_NAMES.length, [...CA_CHECKS]], [12, CA_NAMES], "the sync reads the twelve controls of the frozen format, in order");
   assert.deepEqual([...CA_KEYS].sort(), ["bodies_sha256", "checks", "g7", "head", "history", "inputs_sha256", "schema", "tls", "url"]);
@@ -274,6 +281,7 @@ test("dojo_served_data_matches_deploy_ca", async () => {
     assert.deepEqual([...leaks.map((f) => f.why), ...operatorLabelsIn([MANIFEST_CLAUSE, record.$comment])], [], "clean comments");
     assert.deepEqual(committedRefusals({ record: loaded, present: true, listed: true, status: "upcoming", ca }), [], "bound to its check");
     assert.match(committedRefusals({ record: loaded, present: true, listed: true, status: "upcoming", ca: null }).join(), /without its committed/);
+    assert.match(committedRefusals({ record: loaded, present: true, listed: true, status: "upcoming", ca: caOf(e1) }).join(), /another head/);
     // A stale or incomplete check is refused (M-P7, M-P9 on the check's side), one refusal each.
     const bad: Array<[string, (c: Rec) => void, RegExp]> = [
       ["another G7 (M-P7)", (c) => { c.g7 = "8".repeat(40); }, /another G7/], ["no full G7", (c) => { c.g7 = "HEAD"; }, /another G7/],
@@ -344,4 +352,37 @@ test("dojo_sync_drops_operator_labels", async () => {
   for (const f of [...OPERATOR_FORMS, ...DATA_SOURCE_FORMS]) assert.notDeepEqual(operatorLabelsIn({ pool: `the ${f.sample} pool` }), [], f.sample);
   for (const label of CHAIN_OPERATORS) assert.notDeepEqual(operatorLabelsIn({ [label.toUpperCase()]: 0 }), [], `${label} as a key`);
   assert.deepEqual(operatorLabelsIn(await build(e2, committed)), [], "the fixture's record carries no label");
+  const siteWords = (JSON.parse(readFileSync(join(ROOT, "vocab-banned.json"), "utf8")) as { scan: { site: { banned: { re: string }[] } } })
+    .scan.site.banned.map((b) => /^\\b([A-Za-z]+)\\b$/.exec(b.re)?.[1]).filter((w): w is string => w !== undefined);
+  assert.ok(siteWords.length > 0, "the site scope has whole-word patterns");
+  for (const w of siteWords) assert.notDeepEqual(operatorLabelsIn({ pool: `the ${w} pool` }), [], `site scope: ${w}`);
+});
+
+// killer: scripts/sync-dojo-served.mjs:162 SDL "if ((n += c.byteLength) > VERIFY_BOUNDS.MAX_BODY_BYTES)" -> ""
+test("dojo_sync_get_holds_its_contract", async () => {
+  // The CLI's GET (header l.5) on a simulated fetch: the host constant over https, no redirect followed, 200 only, each body read as a
+  // stream and cut at the reader's bound, with or without a content-length (C-G2-4). A served body counts the bytes the reader pulls.
+  const bound = VERIFY_BOUNDS.MAX_BODY_BYTES, block = new Uint8Array(1 << 20);
+  const served = (chunk: Uint8Array, count: number): { st: { pulled: number; cancelled: boolean }; s: ReadableStream<Uint8Array> } => {
+    const st = { pulled: 0, cancelled: false }, end = count * chunk.length;
+    const s = new ReadableStream<Uint8Array>({ pull: (c) => { if (st.pulled >= end) c.close(); else { st.pulled += chunk.length; c.enqueue(chunk); } },
+      cancel: () => { st.cancelled = true; } }, { highWaterMark: 0 });
+    return { st, s };
+  };
+  const seen: Array<[string, RequestInit]> = [];
+  const get = (res: Response): Promise<Buffer> => httpsGet("timeline.jsonl", (url, init) => { seen.push([url, init]); return Promise.resolve(res); });
+  const small = served(Buffer.from("abc"), 3);
+  assert.equal((await get(new Response(small.s, { status: 200 }))).toString(), "abcabcabc", "a body within the bound is read whole");
+  assert.deepEqual([seen[0]?.[0], seen[0]?.[1].redirect, seen[0]?.[1].signal instanceof AbortSignal],
+    ["https://dojo.monarkgate.tech/timeline.jsonl", "manual", true], "https on the host constant, no redirect followed, a time bound");
+  await assert.rejects(get(new Response(null, { status: 301, headers: { location: "https://elsewhere.invalid/" } })), /answered 301/, "a redirect");
+  for (const status of [404, 206]) await assert.rejects(get(new Response("not the body", { status })), new RegExp(`answered ${String(status)}`), "200 only");
+  const declared = served(block, 2), streamed = served(block, bound / block.length + 4), exact = served(block, bound / block.length);
+  const long = new Response(declared.s, { status: 200, headers: { "content-length": String(bound + 1) } });
+  await assert.rejects(get(long), /exceeds the reader's bound/, "a declared length beyond the bound");
+  assert.equal(declared.st.pulled, 0, "refused before any byte is read");
+  const whole = new Response(exact.s, { status: 200, headers: { "content-length": String(bound) } });
+  assert.equal((await get(whole).catch(String)).length, bound, "a body of exactly the bound, so declared, is read whole (the reader's bound)");
+  await assert.rejects(get(new Response(streamed.s, { status: 200 })), /exceeds the reader's bound/, "no content-length: the stream is cut");
+  assert.ok(streamed.st.pulled <= bound + block.length && streamed.st.cancelled, "the read stopped at the bound and the body was cancelled");
 });
