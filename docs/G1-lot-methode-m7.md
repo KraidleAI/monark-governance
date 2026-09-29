@@ -243,3 +243,187 @@ Supplément (en place) : `wf_7a7438e9-085` (`--now` 2026-09-28T17:39:25Z) : exit
 
 - Dépôt (worktree, non commis) : `scripts/mission/relance.mjs`, `scripts/mission/relance.d.mts`, `test/mission-relance.test.ts`, `test/fixtures/relance/` (9 fichiers : 7 synthétiques, 2 réels), ce journal.
 - Hors dépôt : `F:/tmp/methode/m7/g1/` (`f2p*`, `mutants*`, `relance/`, `r25/`, `hygiene/`, `tmp/`, clones) ; `F:/tmp/methode/m7-deliver/REPONSE.md` et `DELIVERED.sha256`. Aucune scission (`F:/tmp/methode/m7/split/` non créé).
+
+## 16. Tour 1 de corrections (correcteur `corr`, D12 (d)), 2026-09-29
+
+Modèle résolu (R-1) : claude-opus-5-5 (Claude Opus 5.5), effort max, correcteur du tour 1, instance fraîche (ni le G1 `wf_9f4e0bfe-d66` ni le G2 `wf_90590f7b-a23` de M-7, aucun agent de M-6 ni de M-5c).
+
+- Mission `F:/tmp/methode/mission-corr1-m7.md`, sha256 `cceb71785b87a1161900c04a1156953b4c1893a462343e800c464b74da0d7633` = champ `sha` du reçu `F:/tmp/methode/mission-corr1-m7.recu.json` (vert, 12 codes à 0, base `aca75444f04a8881721cb6c6789e759448b5fc7e`, head `0ed778dbe0e09451584a003b19975670be7ff4e9`) ; générée par `gen.mjs` `52b9a171` le 2026-09-29T10:16:14Z. Décisions 275-d de la mission citées telles quelles, non rediscutées : C-G2-1 (Q-M7-1, Q-G2-1), C-G2-2 (Q-M7-8), C-G2-3 (Q-M7-3), C-G2-4 (Q-G2-3 : forme fermée sur les champs REQUIS, tolérante aux champs additionnels ; remplace la clause « tout changement du harnais ⇒ exit 2 »), C-G2-5 (Q-M7-4), C-G2-6, C-G2-7 (Q-G2-2 : tranchée en correction), C-G2-8 (Q-M7-9 : lignes touchées ou créées ≤ 160 caractères, item RELANCE-LINE-LENGTH-1), Q-G2-4 (fixture réelle verbatim, non touchée).
+- Entrées lues en entier : ADR l.52 (G0 + pli du cp-1), l.28 (D8), l.33 (D12 (d)(e)) ; rapport G2 `F:/tmp/methode/m7/g2/G2-lot-methode-m7.md` (sha256 `719ad068c2e063635278da6b410a16fbfe81304e479cf1639b81d8fd45229e69`, recalculé) ; `PROBE.json` (sha `c03d6b82…`) et la table `mutants-g2.mjs` ; missions G1 et G2 ; l outil, le `.d.mts`, le test, les 9 fixtures, ce journal (sections 0 à 15) au gel 1 (copies de lecture par `git show HEAD:` sous `F:/tmp/methode/m7/corr1/work/gel/`, sha256 = en-tête de la mission) ; CHANTIERS 2026-09-29 09:36 et 10:19 UTC ; runs réels en lecture seule.
+- Cadre tenu : worktree modifié EN PLACE, aucun git écrivant dans le worktree ni dans `F:/Monark` (seuls `git show`, `git status`, `git diff`, `git ls-files`, et des clones `--no-local` sous `F:/tmp/methode/m7/corr1/`) ; `F:/claude-config` lu seulement (aucun `--out` dessous) ; aucun réseau ; rien sur C: ; TEMP `F:/tmp/methode/m7/corr1/tmp` ; jonction `node_modules` du worktree par `mk-nm.ps1` (10:32Z : 220 entrées, 10 `@monark`, 0 échec) retirée par `rm-nm.ps1` avant le rendu ; R-20 (aucun commit, aucun workflow).
+
+### 16.1 Étapes (`date -u`)
+
+| UTC | étape |
+|---|---|
+| 10:18 - 10:31 | lecture (ADR, rapport G2, `PROBE.json`, missions, code, test, fixtures, journal G1, CHANTIERS) ; consultation de l outil advisor intégré (plan) |
+| 10:31 - 10:33 | C-V-4 (21 607 Mo libres, 14 `node.exe`, verrou libre), jonction ; sonde des fuseaux (§ 16.3) |
+| 10:37 - 10:39 | code dans l ordre de la mission (C-G2-1, C-G2-2, C-G2-3, C-G2-4, C-G2-5, C-G2-7) puis `.d.mts` ; 24 tests : 21 verts, 3 rendus faux par les décisions (§ 16.4) |
+| 10:40 - 10:46 | 3 tests adaptés (24/24) ; 24 tueurs ré-ancrés ; 13 tests neufs (37/37) ; R-25 compté 560 > 547, compaction à 543 (§ 16.5) |
+| 10:46 - 10:47 | `tsc --noEmit` exit 0 ; `eslint test/mission-relance.test.ts` exit 0 ; `lint-ratchet` 69/69 (apport 0) |
+| 10:47 - 10:50 | table des 35 mutants réadressés (0 ancre perdue), harnais, script de rejeu ; sonde R-25 : 543 (10:50:10Z) |
+| 10:50 - 11:04 | attente du verrou d oracle (G2 M-6 : 10:43:00Z → 10:57:27Z ; G1 M-5c : 10:57:32Z → 11:03:59Z) |
+| 11:04:04 - 11:07:43 | F2P tirage 3 (3/3 tués) ; mutants (35/35 tués, 11:04:43Z → 11:06:56Z) ; F2P tirage 37 (37/37) |
+| 11:07:46 | rejeu d histoire réelle R1-R10 (lecture seule) |
+| 11:08:40 | C-V-4 (21 901 Mo, 14 `node.exe`, verrou libre), oracle `--role corr --key M-7` lancé (§ 16.13) |
+| 11:10 - 11:14 | section 16 écrite (un heredoc échoué, § 16.12) puis ajoutée au journal (11:13:56Z) |
+| 11:16:27 | oracle : exit 0, 1 662 tests |
+| 11:17:39 - 11:18:39 | hygiène sur clone qui suit le journal : 58/58, deux fois (`hygiene/`, `hygiene2/`) ; `REPONSE.md` écrit |
+| 11:19 - 11:21 | seconde consultation de l outil advisor intégré (avant rendu) ; jonction retirée par `rm-nm.ps1` (11:21:12Z : `F:/Monark-wt-m7/node_modules` absent, `F:/Monark/node_modules` intact, 220 entrées) |
+| 11:21 - 11:2x | contrôles finaux (worktree : 4 fichiers modifiés, 0 non suivi, HEAD `0ed778db` ; `F:/Monark` : `git status` vide ; écritures sous `F:/claude-config`, § 16.12) ; Q-C1-9 ; `DELIVERED.sha256` et `sha256sum -c` |
+
+### 16.2 Corrections : C-G2-n → ligne → test → mutant
+
+Lignes de `scripts/mission/relance.mjs` au tour 1 (98 l., sha256 `c9af87cc3701d692ce75cd196a696fda8322a72fab06bf305301a5e07cf02bb2`) ; `relance.d.mts` 66 l. (sha256 `150e7ce4feb5e25f19e1e8e0760f8ef8ce3d47cfb35bea3321d5c03a3f897ace`) ; `test/mission-relance.test.ts` 354 l. (sha256 `f39c3d56a97fc6621fd1d2132f53283f6dc24fb509b6eb622b80b077191bc041`) ; fixtures inchangées.
+
+| C-G2 | décision | code (l.) | `.d.mts` | test(s) neuf(s) | mutant tué |
+|---|---|---|---|---|---|
+| C-G2-1 (bloquante) | Q-M7-1, Q-G2-1 | l.20-23 : candidats du jour (ou de l année) et du suivant, premier instant ≥ l ancre, pour les DEUX formes ; l.28-29 : texte ancré sur le `timestamp` de la ligne synthétique, jamais sur `--now` ; l.31 : ligne sans `timestamp` valide ⇒ texte non lu, `cause` `unknown`, `resets_at` = epoch sinon `null`, `divergence` nulle ; l.32 : frontière `> 60` s inchangée | `parseResets(text, anchor)`, `resetsOf` (`resets_at: string | null`) | `resets_of_anchors_the_text_on_the_stamp_of_its_line_never_on_now`, `resets_of_names_a_divergence_beyond_60_seconds_only` (60 s : rien ; 61 s : nommée), `parse_dated_form_across_the_new_year_takes_the_next_year` | N01, N09, N10 |
+| C-G2-2 (bloquante) | Q-M7-8 | l.34-35 `answer` (partagé) : la première clé dont le PREMIER enregistrement est un `started` au rang ≥ `lo`, non prise, de même `label` + `phase` ; l.43-46 : dans `classify`, une clé `failed` répondue par une clé neuve démarrée après son dernier enregistrement et `stored` est `replaced`, avec `by: {key, agentId}` ; `--run` (l.89) appelle `classify` : aucun autre changement ; l.92 : `resume_at` nul si une clé `failed` a un `resets_at` nul (explicite, Q-C1-3) | `Status` += `replaced`, `KeyEntry.by`, doc de `classify` | `run_failed_key_answered_by_a_new_key_stored_after_it_is_replaced_with_its_identity` (fixture réelle prolongée d une reprise : exit 0, `replaced` avec `by`, `resume` et `resume_at` nuls) | son tueur l.46 (tirage 37) ; N07 (garde partagée) |
+| C-G2-3 | Q-M7-3 | l.63-65 : `vacuous` = aucune clé `failed` à la borne ; les compteurs ne portent que sur les clés `failed` d origine (Q-C1-4) | `VerifyCounts.vacuous` | faux : test de N06 ; vrai : test de C-G2-7 ; test 22 adapté (`vacuous: false`) | N06 (même test) |
+| C-G2-4 | Q-G2-3 | l.12 `TYPED` (`key`, `label`, `phase` chaînes, `agentId` `a` + hexadécimal, `result` présent) ; l.75-77 : `Object.hasOwn(SHAPE, type)`, champ fautif nommé : `journal.jsonl:<n>: <type> record: field <champ> missing or mistyped` ; champs additionnels tolérés ; en-tête l.3-6 réécrit | doc de `JournalRecord` | `run_record_with_a_mistyped_field_exits_2_naming_file_line_type_and_field`, `run_record_missing_a_required_field_exits_2_never_a_class`, `run_key_of_another_type_exits_2_and_an_additional_field_is_tolerated` | N03, N04, N08 |
+| C-G2-5 | Q-M7-4 | en-tête l.3 (`--stale`, défaut 30 min, à `--run` ET à `--verify`) | doc de `verify` (« staleMin as --stale ») et de `main` (options des deux formes) | `verify_cli_applies_stale_to_the_origin_states` | N02 |
+| C-G2-6 | classes décidées | (tests seuls) | aucune | `verify_stored_origin_key_not_restarted_stays_stored_never_replayed`, `verify_failed_key_restarted_without_a_result_takes_its_current_state_exit_1`, `verify_origin_key_restarted_after_the_bound_never_answers_for_another`, `verify_new_key_answering_with_a_null_result_is_null_served_exit_1` (+ N09, N10 ci-dessus) | N05, N06, N07, N11 (+ N09, N10) |
+| C-G2-7 | Q-G2-2 | l.55 : clé `dead`, `running` ou `replaced` d origine ⇒ son état COURANT (journal entier) ; l.57 : `answer(records, k, from, …)` ne regarde que les clés NEUVES après la borne ; l.61 : une clé neuve qui répond laisse à l entrée la clé et l agent d origine et se nomme dans `by` ; l.67 : `verify.unmatched` (clé, label, phase, état courant) des clés neuves appariées à aucune ; exit inchangé | `VerifyCounts.unmatched`, doc de `verify` | `verify_reports_unmatched_new_keys_origin_keys_in_their_current_state_and_the_answering_key` (clé `dead` redémarrée ⇒ `stored`, `vacuous` vrai, `unmatched` d une clé, `by` et `agentId` d origine) | son tueur l.55 (tirage 37) |
+| C-G2-8 | Q-M7-9 | 36 lignes touchées ou créées dans l outil, 28 dans le `.d.mts`, 97 dans le test : **0 au-delà de 160 caractères** (`linecheck.mjs`) ; lignes longues NON touchées restantes : outil l.11, 13, 18, 19, 22, 32, 38, 41, 42, 50, 51, 52, 71, 78, 83, 84, 85, 87, 88, 89, 90, 93, 98 (23) ; `.d.mts` l.63 (1, signature de `verify` rendue à l octet) ; test 17 ⇒ item RELANCE-LINE-LENGTH-1 | aucune | aucun | aucun |
+
+### 16.3 Forme datée sous « premier instant ≥ ancre » : le candidat de la veille retiré, N10 réadressé
+
+Sous la règle décidée (C-G2-1, Q-G2-1 : premier instant ≥ le `timestamp`, pour les deux formes), un candidat de la veille (ou de l année précédente) ne peut être retenu que si l horloge murale du fuseau recule en franchissant une date après l ancre. Sonde `F:/tmp/methode/m7/corr1/work/fold-probe.mjs` (sha256 `64f8d1e89acc12c0868f73dd0be979c96f59d6e714b3c8ba68063d39fafb96d6`, 10:32:01Z → 10:33:05Z, Node v24.15.0) : les 418 fuseaux IANA de `Intl.supportedValuesOf`, heure par heure du 2026-01-01 au 2029-01-01 : 390 heures à recul, **0 recul franchissant une date** (`fold-probe.out` sha256 `8e1a1ef3d25d66e1bffe9f165fafd1eab431636f14e21aa279ad7a6062746fc3`). Le candidat `-1` est donc mort sous la règle : retiré (l.21 `[0, 1]`). Conséquences : le N10 du G2 (`[-1, 0, 1]` → `[0, 1]`) deviendrait équivalent ; il est réadressé sur le candidat du lendemain (`[0, 1]` → `[0]`), même classe (forme datée à cheval sur l année) ; la règle « l année la plus proche » (`reduce`) disparaît : M18 est réadressé sur le tri des candidats (l.22 `a - b` → `b - a` : l année la plus lointaine ≥ l ancre). L entrée de sonde du G2 pour N10 (« Dec 31, 11pm » lu le 1er janvier) donne désormais 2027-12-31T23:00Z (jamais une année avant l ancre) : assertion du test neuf.
+
+### 16.4 Tests : 37 = 24 du G1 + 13 neufs
+
+- **Rendus faux par les décisions, adaptés (dit)** : test 4 (`run_failed_key_without_a_synthetic_line_is_unknown_at_now`) : ses trois lignes de détection n avaient pas de `timestamp` ; sous Q-G2-1 (ligne sans `timestamp` ⇒ `cause` `unknown`) elles ne discriminaient plus la détection ; l aide les horodate (`{ timestamp: NOW_A, ...line }`). Test 11 : renommé `parse_dated_form_takes_the_first_year_at_or_after_the_stamp` ; l assertion « lu après la réinitialisation : cette année » devient « horodaté après l instant : l année suivante, jamais avant l ancre » (C-G2-1, Q-G2-1). Test 22 : `verify` porte `vacuous: false` et `unmatched: []` (C-G2-3, C-G2-7). Aucun autre test du G1 touché hors ses lignes `// killer:` ; l aide `W` (texte hebdomadaire) remonte parmi les aides.
+- **Tueurs ré-ancrés** : les 24 lignes `// killer:` du G1 gardent leur texte, seul le numéro de ligne change (`rekill.mjs` puis `reanchor.mjs` : la ligne unique où `<before>` figure une fois ; trois textes présents sur deux lignes : la plus proche du numéro courant, relevée) ; contrôle `killcheck.mjs` (forme de `parseKiller` de `red-proof.mjs`, opérateur, portée, `<before>` exactement une fois) : **37/37 valides**.
+- **13 tests neufs** (chacun sous son `// killer:`, `--now` toujours donné) : N01 à N11 (un par survivant, § 16.2), `--run` sur journal prolongé (C-G2-2), `--verify` : `unmatched`, `dead` redémarrée, `by` (C-G2-7). Aides neuves : `syn` (ligne synthétique, horodatée si donné), `spoiled` (`--run` sur une copie de `wf_fx-a` à une ligne de journal de plus).
+- Fichier seul : 37/37 verts ; typecheck, eslint, `lint-ratchet` 69/69.
+
+### 16.5 R-25 par étape
+
+| étape | outil | `.d.mts` | test | fixtures | total |
+|---|---|---|---|---|---|
+| gel 1 | 80 | 59 | 276 | 25 | 440 |
+| outil corrigé (C-G2-1 à C-G2-7, en-tête) | 99 | 59 | 276 | 25 | 459 |
+| `.d.mts` | 99 | 68 | 276 | 25 | 468 |
+| 3 tests adaptés | 99 | 68 | 277 | 25 | 469 |
+| 13 tests neufs et aides | 99 | 68 | 368 | 25 | **560 > 547** |
+| compaction (ci-dessous) | 98 | 66 | 354 | 25 | **543** |
+
+Compaction, sans changement de comportement ni ligne > 160 : dans `classify`, l ouverture du `map` et le calcul de `by` sur une ligne ; au `.d.mts`, la signature de `verify` rendue à l octet (ligne non touchée) et la règle de forme ramenée à la doc de `JournalRecord` (l en-tête de l outil la porte en entier) ; au test, **les 13 tests neufs ne sont pas séparés par une ligne vide** (12 lignes), le test de N01 regroupe ses quatre cas en un tableau, le test de N08 porte le champ additionnel en une assertion. La scission M-7b pré-déclarée n aurait pas suffi seule : sans C-G2-7 et avec la mise en page ordinaire, le compte restait ≈ 550. Mesure : `r25()` de `F:/Monark/scripts/oracle/r25.mjs` (méthode A : clone `--no-local` du worktree, changements copiés et gelés dans un commit du clone, `aca75444...HEAD`, pathspec de `ci.yml` l.82) par `F:/tmp/methode/m7/corr1/r25/r25-probe.mjs` (sha256 `b59ee8f0d0e7a57f90ac9b23563efb1d91057d39c30b1e0557554e467dbe2206`) à 10:50:10Z : **STAT 543 insertions, 0 suppression, 543** (borne CI 1 205), CONTENT_STAT 0, GREEN ; `R25-a.json` sha256 `b610b70709eb890bacf83c7a898cea9844612a41ce907930fb588c4347889b57` ; **543 ≤ 547 : pas de scission M-7b** (solde 4 lignes). Ce journal est exclu par la pathspec.
+
+### 16.6 F2P
+
+- `node F:/Monark/scripts/red-proof.mjs --base aca75444 --gel F:/Monark-wt-m7 --repo F:/tmp/methode/m7/corr1/base --out F:/tmp/methode/m7/corr1/f2p --draw 3 --seed 2026` (base : clone `--no-local` détaché à `aca75444`, sans `scripts/mission/relance.*` ; 11:04:04Z → 11:04:38Z) : **exit 0**, « red-proof OK: 37 judged, 0 unchanged, 3 killer(s) drawn » ; 37 `new-module` ; tirés : `verify_null_result_after_the_bound_is_null_served_exit_1` (l.58 ROR), `run_script_is_the_persisted_script_of_the_run_or_null` (l.88 CONST), `verify_cli_applies_stale_to_the_origin_states` (l.89 CONST, N02) : **3/3 tués** ; `RED-PROOF.json` sha256 `d1169d9a1274567383949f3ec8f94ef11c74902d79b48ee1c5b088c9094e1bc2` ; `gel.digest` `4c96a26f976aaf6b…` ; `killer-1.tap` `65aa53fa…`, `killer-2.tap` `5893a049…`, `killer-3.tap` `01236993…` ; `base.tap` `0dacedf9…`, `gel.tap` `6457d959…`.
+- Même commande `--draw 37 --out F:/tmp/methode/m7/corr1/f2p-all` (11:07:09Z → 11:07:43Z) : **exit 0, 37/37 tués** (dont les tueurs des tests de C-G2-2, l.46, et de C-G2-7, l.55, hors table de mutants) ; `RED-PROOF.json` sha256 `5d78befc388c73edc5b9b63fd7c757785f40191c9b16713dd6c5e46e6243b03e` (même `gel.digest`).
+
+### 16.7 Mutants : 35/35 tués
+
+Table `F:/tmp/methode/m7/corr1/mutants-def/mutants.mjs` (sha256 `5197e0f0ceeb33a65bffdbf485c3bef44cce80c30f585e3276d1ce6c71498208`) : les 24 du G1 et les 11 du G2 RÉADRESSÉS sur l outil corrigé (champ `was` = ligne du gel ; 0 ancre perdue au contrôle `check.mjs`). Harnais `F:/tmp/methode/m7/corr1/mutants-def/run.mjs` (53 l., sha256 `2d6e680bd746882909d8eebbab23baf1533ba54552aecfdf39fac9b689860c0b`, précédent : le harnais du G2) : un clone `--no-local` du worktree au gel 1, les 3 fichiers changés copiés et vérifiés par sha256, un seul lancement ; attente du verrou d oracle avant la ligne de base et avant chaque mutant (0 attente) ; C-V-4 avant chaque mutant ; ancre unique sinon `anchor-lost` ; fichier de test entier en TAP ; restauration à l octet vérifiée ; statut par `classify` de `red-proof.mjs` (enfant mort = non conclu ; `red-other` jamais tué). Lancement unique 11:04:43Z → 11:06:56Z : ligne de base **37/37 verts** (`baseline.tap` sha256 `5814d321…`, 14 `node.exe`, 21 834 Mo), `sha0` `c9af87cc…` (= l outil livré) ; **35 tués, 0 survivant, 0 non conclu, 0 `anchor-lost`, 0 `red-other`** ; `RESULTS.json` sha256 `5f8f5796740bc478711f5132058c95af5bdc7aeca6185898c7e3d7018dcf9cfa`, `RESULTS.txt` sha256 `7849f693c4deeb081f10204e03966e03f045f1833631264dd47237425277678e`.
+
+| id | l. gel → tour 1 | réadressage | tests rouges |
+|---|---|---|---|
+| M01 | 33 → 41 | même texte | 7 |
+| M02, M03 | 26 → 32 | même texte | 1, 2 |
+| M04 | 43 → 54 | même texte | 3 |
+| M05 | 48 → 59 | même texte (ligne du statut) | 3 |
+| M06 | 39 → 50 | même texte | 8 |
+| M07 | 33 → 41 | même texte | 3 |
+| M08 | 69 → 86 | même texte (SDL) | 1 |
+| M09 | 68 → 85 | même texte | 4 |
+| M10 | 80 → 98 | même texte | 7 |
+| M11 | 28 → 36 | même texte | 1 |
+| M12 | 10 → 13 | même texte | 5 |
+| M13 | 19 → 23 | même texte (règle commune aux deux formes) | 1 |
+| M14 | 47 → 60 | `taken.add(by);` de `verify` (SDL) | 2 |
+| M15 | 60 → 76 | même texte | 1 |
+| M16 | 60 → 12 | même texte (`TYPED.agentId`) | 1 |
+| M17 | 18 → 22 | même texte | 1 |
+| M18 | 19 → 22 | réadressé : tri des candidats inversé (l année la plus lointaine ≥ l ancre ; la règle « la plus proche » n existe plus) | 9 |
+| M19 | 52 → 68 | même texte | 1 |
+| M20 | 74 → 92 | même texte | 1 |
+| M21 | 32 → 40 | même texte | 1 |
+| M22 | 41 → 52 | même texte | 1 |
+| M23 | 25 → 30 | même texte | 2 |
+| M24 | 61 → 78 | même texte | 18 |
+| N01 | 24 → 29 | `parseResets(text, line.timestamp)` → `parseResets(text, now)` | 1 (son test) |
+| N02 | 72 → 89 | même texte (`stale` retiré de `verify`) | 1 (son test) |
+| N03 | 60 → 77 | le message perd type et champ | 3 (dont son test) |
+| N04 | 60 → 76 | `!(f in r) || ` retiré | 1 (son test) |
+| N05 | 41 → 52 | même texte | 1 (son test) |
+| N06 | 48 → 59 | même texte | 1 (son test) |
+| N07 | 45 → 35 | la garde des clés neuves est la condition « premier enregistrement au rang `i` » de `answer` : retirée | 1 (son test) |
+| N08 | 60 → 12 | `key: str` → `key: () => true` | 1 (son test) |
+| N09 | 26 → 32 | même texte | 1 (son test) |
+| N10 | 17 → 21 | réadressé : `[0, 1]` → `[0]` (§ 16.3) | 5 (dont son test) |
+| N11 | 46 → 57 | même texte | 1 (son test) |
+
+### 16.8 Rejeu d histoire réelle (lecture seule)
+
+`F:/tmp/methode/m7/corr1/relance/replay.mjs` (sha256 `fb9a60644e340921232c4938fe3689b7c7a0822693cca04278d1c246d58c6514`, 11:07:46Z ; outil du worktree ; copies tronquées NEUVES sous `F:/tmp/methode/m7/corr1/relance/copies/` : journal par ses n premières lignes, transcriptions de ses agents copiées à l octet, script persisté ; `--out` sous `F:/tmp/methode/m7/corr1/relance/` ; synthèse `REPLAY.json` sha256 `369ea06bae624071ec8ac08c38aaf194e5e9636830e46f063398852fb9fea279`). Lignes R1-R10 = celles du G2.
+
+| # | exécution | sortie (sha256) | résultat |
+|---|---|---|---|
+| R1 | `--run` copie 19 l. `wf_682419e6-d20`, `--now 2026-09-27T04:03:00Z` | `813ad2f1…` | exit 1 ; 8 `failed` `five_hour` 2026-09-27T05:20:00.000Z, 0 divergence ; 1 `stored` |
+| R2 | idem, `--now 2026-09-27T06:00:00Z` (après la réinitialisation) | `3750a1e1…` | exit 1 ; mêmes états ; **0 divergence** (G2 : 8 × 86 400 s) : C-G2-1 tenue |
+| R3 | `--run` en place, journal entier (37 l.) | `814a06a4…` | **exit 0** ; 9 `stored` + **1 `replaced`** (l ancienne synthèse `v2:6d467d47…`, `a9a2198e3a9fcf81a`, `by` = `v2:1a26cabb…` / `a7f34bcaed99a7994`) ; aucune `failed` ; `resume` et `resume_at` nuls ; verdict « stored 9, replaced 1; nothing to relaunch » : C-G2-2 tenue |
+| R4 | `--verify --from 19` en place | `438e9606…` | exit 0 ; 7 `relaunched`, 1 `replaced` (avec `by`), 1 `replayed` (870,464 s), 0 `served-from-cache`, 0 `null-served` ; `vacuous: false`, `unmatched: []` |
+| R5, R6 | `--run` copie 2 l. `wf_c90635a2-8a8`, `--now` 05:03Z puis 04:32:50Z | `ee9f0a77…`, `5b27b3c5…` | `dead` puis `running` (= G2) |
+| R7 | `--verify --from 2` en place `wf_c90635a2-8a8` | `22f60248…` | exit 0 ; **`vacuous: true`** ; la clé `dead` d origine rapportée dans son état COURANT **`stored`** (`ae851373ba7c2b7a9`) : C-G2-3, C-G2-7 tenues |
+| R8 | `--run` en place `wf_c90635a2-8a8` | `65fc211f…` | exit 0 ; 1 `stored` |
+| R9 | `--verify --from 3` en place `wf_2dd4ebc4-88a` | `973ee7ed…` | exit 1 ; la clé relancée `dead` (= G2) |
+| R10 | `--run` en place `wf_7a7438e9-085`, `--now 2026-10-02T12:00:00Z` (après la réinitialisation hebdomadaire) | `271df26e…` | exit 1 ; 1 `failed` `seven_day` 2026-10-01T10:00:00.000Z, **0 divergence** (texte ancré sur 2026-09-28T17:38:25.555Z) ; sortie identique à l octet à celle du G2 |
+
+### 16.9 Questions Q-C1-n (à l orchestrateur)
+
+- **Q-C1-1 (Q-G2-1, application littérale)** : ligne synthétique sans `timestamp` valide : `cause` `unknown` même quand `quotaLimits.rateLimitType` est présent (le texte de la décision dit « `cause` `unknown` » là où le G2 proposait « cause inchangée ») ; un `timestamp` présent mais illisible est traité comme absent (sinon `formatToParts` lèverait une `RangeError` non nommée). 0 cas sur 299 mesurés. Garder, ou `cause` = `rateLimitType` ?
+- **Q-C1-2 (forme datée)** : sous « premier instant ≥ ancre », le candidat de la veille est mort (§ 16.3, 0 cas sur 418 fuseaux, 2026-2028) : retiré ; N10 et M18 réadressés ; le test 11 dit « jamais une année avant l ancre ». À confirmer.
+- **Q-C1-3 (`resume_at`)** : `resets_at` peut désormais être `null` (Q-G2-1) ; `resume_at` = `null` dès qu une clé `failed` a une réinitialisation inconnue (l.92, explicite ; au gel, le tri de chaînes plaçait déjà `"null"` en dernier, par accident). Alternative : le maximum des seules valeurs connues.
+- **Q-C1-4 (compteurs de `--verify`)** : restreints aux clés `failed` d origine (sinon `replaced` compterait les clés déjà remplacées avant la borne, désormais classées `replaced` par `classify`, ou les clés `dead` devenues `replaced`).
+- **Q-C1-5 (`by`)** : à `--verify`, toute réponse d une clé neuve (pas seulement `replaced` : aussi `null-served` ou l état de la clé neuve) porte `by` ; à `--run`, seul `replaced` le porte.
+- **Q-C1-6 (chaîne de remplacements, 0 cas mesuré)** : `k1` `failed` → `k2` neuve `failed` → `k3` neuve `stored` : `--run` rapporte `k1` `failed` (la première clé neuve répond, une réponse par clé) et `k2` `replaced`. Item ou acceptation ?
+- **Q-C1-7 (R-25)** : 543 / 547 ; les 13 tests neufs sans ligne vide de séparation (§ 16.5) ; tout ajout ultérieur dans M-7 n a plus que 4 lignes ; la réécriture RELANCE-LINE-LENGTH-1 (+ 35 à + 45) ne tient que dans un lot suivant.
+- **Q-C1-8 (message d exit 2)** : les refus de type (type inconnu, `launched` hors tête) nomment le champ `type` (« `<type> record: field type missing or mistyped` »).
+- **Q-C1-9 (C-G2-7 (b), sur-ensemble)** : la décision vise une clé `dead` ou `running` d origine REDÉMARRÉE après la borne ; l.55 donne l état courant à TOUTE clé d origine ni `failed` ni `stored` (redémarrée ou non) : une clé `running` à la borne qui a fini après sans redémarrer se lit `stored`, une clé déjà `replaced` avant la borne est relue sur le journal entier ; une clé non redémarrée et sans enregistrement après la borne garde son état (recalculé à `--now`, comme au gel). Garder le sur-ensemble, ou restreindre aux clés redémarrées (une condition `restarts(k.key).length > 0`) ?
+
+### 16.10 MAST
+
+- FM-1.2 : l outil ne relance toujours rien (aucun `spawn`, aucun `Workflow`) ; `--run` ne prépare plus la relance d une clé déjà remplacée (R3 : exit 0, `resume` nul ; au gel : exit 1, `resume` non nul).
+- FM-2.4 : l appariement ne lit que des champs du journal (`label`, `phase`, rang) ; aucun texte de transcription ne classe une clé ; `--verify` rapporte désormais toutes les clés : les clés neuves non appariées (`unmatched`) et l état courant des clés `dead`/`running` d origine (R7) : la revendication du § 10 vaut aussi pour `--verify`.
+- FM-2.6 : `resume_at` reste un instant lu, jamais un quota rétabli ; l ancrage sur le `timestamp` retire les fausses divergences (R2 : 0 au lieu de 8 × 86 400 s) ; une réinitialisation inconnue rend `resume_at` nul (Q-C1-3).
+- FM-3.2 : champ requis manquant ou mal typé ⇒ exit 2 nommant fichier, ligne, type et champ, jamais un classement partiel ; champ additionnel toléré (Q-G2-3).
+
+### 16.11 `error_origin` proposés (assignés au G7)
+
+- `G0` : C-G2-1, C-G2-2, C-G2-3, C-G2-8 (= G2) ; les 3 tests adaptés (tests 4 et 11 : règle changée par Q-G2-1 ; test 22 : forme changée par C-G2-3 et C-G2-7).
+- `G1` : C-G2-4 à C-G2-7 (= G2).
+- `corr` : les déviations du § 16.12.
+- `OUT` : l écriture du harnais d agent sous `F:/claude-config` (§ 16.12, même classe que le § 9 du G2).
+
+### 16.12 Déviations déclarées (REGLES-MISSION)
+
+- Entre 10:43:00Z (prise du verrou par l oracle du G2 de M-6) et 10:46:11Z : deux exécutions ciblées du fichier de test (37 tests, environ 3 s chacune) pendant que le verrou d oracle était tenu par un autre processus, constaté à 10:46:38Z ; depuis, chaque course attend la libération du verrou (le harnais l attend lui-même).
+- 10:48:37Z : une commande de contrôle `grep` avec une barre inverse produite par `printf` (hors heredoc) a échoué (« Trailing backslash ») ; rien écrit ; contrôle refait par `node` (0 octet 0x5C).
+- 10:49:35Z : la première écriture de `r25-probe.mjs` par heredoc contenait des séquences à barre inverse (5 octets 0x5C, dans deux expressions régulières) ; octets vérifiés intacts (0 octet de contrôle) ; fichier réécrit sans barre inverse à 10:49:58Z, avant tout usage.
+- 11:1xZ : une écriture de cette section par heredoc Bash a échoué à l analyse du shell (« unexpected EOF ») ; rien écrit (sha256 du journal inchangé, `504ab968…`) ; section écrite par l outil d écriture de fichiers dans `F:/tmp/methode/m7/corr1/work/journal-tour1.md` puis ajoutée par `cat`, octets contrôlés.
+- `F:/claude-config` : `find` des fichiers du dossier de session réel `e03dd7cc-4452-4c79-9aa6-58827dad4d19` plus récents que 2026-09-29T10:18:00Z (repère `F:/tmp/methode/m7/corr1/work/start-marker`) = **0** (les runs rejoués en place n ont reçu aucune écriture) ; une écriture du HARNAIS d agent dans ma propre session : `F:/claude-config/projects/F--Monark/a0cf3d1b-5446-43e6-b228-3b1feff36069/tool-results/bv3hwgvbs.txt` (10:18:27Z, 33 313 octets : sortie d outil de 32,5 Ko persistée, lecture de l ADR) : acte du harnais, pas de l agent ; sorties tenues sous 30 Ko ensuite (`error_origin` OUT).
+- Sorties (MISSION-LINT-OUTPUTS-1) : toutes sous la racine déclarée `F:/tmp/methode/m7/corr1/` ; hors de la liste « À créer », dans cette racine : `work/`, `f2p-all/`, `mutants-def/`, `r25/`, `hygiene/`, `hygiene2/`, `base/` et les journaux `f2p.log`, `f2p-all.log`, `mutants-run.log`, `oracle.log`, `oracle-start.txt` ; hors de cette racine, seulement l enregistrement d oracle et son dossier (`F:/tmp/oracle-results/`, `F:/tmp/oracle-runs/`, sorties normales de l outil) et `F:/tmp/methode/m7-corr1-deliver/` (déclaré).
+
+### 16.13 Oracle
+
+`node F:/Monark/scripts/oracle/run.mjs --role corr --tree F:/Monark-wt-m7 --base aca75444 --key M-7` (lancé 11:08:40Z après C-V-4 par `Get-CimInstance Win32_OperatingSystem` : 21 901 Mo libres, 14 `node.exe`, verrou libre ; aucune course ni harnais de ma part pendant sa suite ; fin 11:16:27Z) :
+- enregistrement `F:/tmp/oracle-results/0ed778dbe0e09451584a003b19975670be7ff4e9-307a983cde73e93b-corr-20260929T110844Z-118256.json`, sha256 **`353de63a85d17ed805be00badc93a1f487bef18b2f0c65da7e5b81cd5abe38d3`** (= champ `sha256` de la ligne `oracle-result`, recalculé) ;
+- `schema` `monark.oracle.v1`, `role` corr, `tree.head` `0ed778dbe0e09451584a003b19975670be7ff4e9`, `tree.dirty` `307a983cde73e93bba456028bce49e4949d8135303324c4b32a57216a3d25e92`, `tree.object` `3bf1639217b2a335be8bb70c60ad44e4d39042c9`, `base` `aca75444…`, **exit 0**, `static_only:false`, `served_from:null` (arbre non propre : rejoué, jamais servi, D4 ; décision 282 : `--key` passé), C-V-4 sous verrou 21 821 Mo / 15 `node.exe` ;
+- 9 portes vertes : `lint-model-pinning`, `r25` (STAT 543/0, CONTENT 0), `lang:gate`, `export:check`, `gate:vocab`, `typecheck`, `lint`, `lint:ratchet` (hors verrou), `test` (sous verrou, 391 s ; test 42 une fois, dans la suite) ;
+- **tests 1 662 = 1 649 + 13** (= 1 625 + 37 ; pass 1 659, fail 0, skip 3) ; les 37 tests du lot verts dans `09-test.log` (sha256 `c60a2330b9d83b858c8b6f7a5bdcc3d08f9fe258e476f55fd366bd66087d0dc3`), ainsi que `byte_guard_tracked_tree_is_clean` et `no_secret_in_repo` ; skip 3 au lieu de 4 au G2 : le test de corpus `F:/tmp/dojo/mission-g2-rg1b.md` a tourné ici (dépend d un fichier de l hôte), sans lien avec le lot ; `residues.tmp_entries` 379 (= G1, G2).
+- Instantané de l oracle = état livré moins la présente section 16 de ce journal (ajoutée après le lancement ; seul `docs/G1-lot-methode-m7.md` diffère, exclu de R-25) : octets du journal final contrôlés (0 CR, 0 TAB, 0 octet de contrôle, 0 point de code C1, fin par LF) et tests d hygiène du tronc sur un clone qui SUIT le journal final (§ 16.14).
+
+### 16.14 Hygiène finale et livrables
+
+- Dépôt (worktree, non commis) : `scripts/mission/relance.mjs`, `scripts/mission/relance.d.mts`, `test/mission-relance.test.ts`, ce journal (section 16) ; fixtures inchangées (9 fichiers, sha256 du gel) ; aucun fichier non suivi.
+- Hors dépôt : `F:/tmp/methode/m7/corr1/` (`work/`, `f2p/`, `f2p-all/`, `mutants-def/`, `mutants/`, `relance/`, `r25/`, `base/`, `hygiene/`, `tmp/`) ; aucune scission (`F:/tmp/methode/m7/split/` non créé) ; livrables `F:/tmp/methode/m7-corr1-deliver/REPONSE.md` et `DELIVERED.sha256`.
+- Hygiène sur le journal final : `F:/tmp/methode/m7/corr1/hygiene/hygiene.mjs` (clone `--no-local` du worktree, les 4 fichiers changés copiés et commis dans le clone seul, donc SUIVIS ; verrou libre) : `byte-guard`, `no-secret-in-repo`, `public-text-deny` et le test du lot : 58/58 verts (11:17:39Z → 11:17:56Z, TAP sha256 `a6bdaa86f765b7ca12cf417d582f458d1c46c1d8b60915adf0d3a77975c7f7b8`) ; rejoué après l ajout de ces dernières lignes (`hygiene2/`, § 16.15).
+- Jonction `node_modules` du worktree retirée par `rm-nm.ps1` avant le rendu ; worktree : 4 fichiers modifiés, 0 non suivi ; `F:/Monark` : aucun changement de ma part.
+
+### 16.15 Verdict du tour 1
+
+**CORRIGÉ** : C-G2-1 à C-G2-7 tenues (C-G2-8 : 0 ligne touchée ou créée au-delà de 160 caractères, le reste en item) ; 37/37 tests ; R-25 543 ≤ 547 sans scission ; F2P 3/3 (et 37/37) ; 35/35 mutants tués ; rejeu réel R2 0 divergence, R3 `replaced` exit 0 `resume` nul, R7 `vacuous` vrai et `stored`, R10 `seven_day` sans divergence ; oracle corr exit 0, 1 662 = 1 649 + 13. Questions Q-C1-1 à Q-C1-9 (§ 16.9). Fin de rédaction du journal : 2026-09-29T11:25Z (`date -u`) ; l hygiène du journal final et le manifeste sont cités dans `F:/tmp/methode/m7-corr1-deliver/REPONSE.md`.
