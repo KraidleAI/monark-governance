@@ -3,12 +3,13 @@
 // root `test` (WIRING_TEST_ROOTS unchanged, D-3). The signed tree is GENERATED at run time by the fixture of the Dojo tests (keys made
 // by node:crypto, never written): no dojo-served.json is committed (DOJO-SITE-BUILD-BEFORE-DATA-1); each record is written under a
 // temporary root with its own manifest, read back through loadDojoServed, then removed. The oracles (Merkle root, sums, slots, decimal
-// shift, line hash, body hashes) are recoded here, never taken from the modules under test.
+// shift, line hash, body hashes) are recoded here, never taken from the modules under test. PR-4a-2 (ADR-DOJO-PR-4 D-2, D-3 TU-7):
+// the sync scripts/sync-dojo-served.mjs, bound to a synthetic deploy check of DOJO-CA-FORMAT-1 made here, and the committed leg (end).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { createHash } from "node:crypto";
 import { buildDojoServed, loadDojoServed, DOJO_SERVED_REL, type DojoChainDeps, type DojoServedData } from "../apps/site/lib/dojo-served-load.ts";
 import { dojoPageFiguresOf, shiftUnits } from "../apps/site/lib/dojo-served.ts";
@@ -18,6 +19,11 @@ import { walkDojoTimeline } from "../apps/dojo/scripts/dojo-chain.mjs";
 import { dojoTrustOf, verifyDojoServed } from "../apps/dojo/scripts/dojo-verify.mjs";
 import { rootOf } from "../apps/dojo/scripts/dojo-core.mjs";
 import { canonical, lineHash, type Trust } from "../apps/bell/scripts/bell-chain.mjs";
+import { holdSnapshotStatus } from "../apps/site/lib/dojo-register.ts";
+import { CHAIN_OPERATORS } from "../apps/dojo/src/dojo-methods.ts";
+import { DATA_SOURCE_FORMS, KITCHEN_FORMS, OPERATOR_FORMS } from "../scripts/public-text-deny.mjs";
+import { bindDojoCa, committedRefusals, operatorLabelsIn, runSync, setManifestEntry, CA_CHECKS, CA_KEYS, CA_REL, KEYRING_REL, MANIFEST_ANCHOR,
+  MANIFEST_CLAUSE, MANIFEST_REL, OUT_REL } from "../scripts/sync-dojo-served.mjs";
 
 type Tree = Map<string, Buffer>;
 type Rec = Record<string, unknown>;
@@ -209,4 +215,133 @@ test("dojo_served_refuses_a_tree_the_verifier_refuses", async () => {
     };
     await assert.rejects(build(e2, committed, { ...DEPS, verify }), /recomputes other roots than the signed ones/, `${part}: another recomputed root is refused`);
   }
+});
+
+// ---- PR-4a-2: the sync. No real deploy check and no real record are committed: each check is made here, from the served bytes ----
+const ROOT = join(import.meta.dirname, "..");
+const G7 = "7".repeat(40);
+/** DOJO-CA-FORMAT-1 as frozen (ADR-DOJO-PR-3 D-2 l.84), read from the ADR: its bullet, and its twelve controls in order. */
+const CA_BULLET = readFileSync(join(ROOT, "docs", "adr", "ADR-DOJO-PR-3.md"), "utf8").split(/\r?\n/)
+  .find((l) => l.startsWith("- **DOJO-CA-FORMAT-1 (")) ?? "";
+const CA_NAMES = [...CA_BULLET.matchAll(/`(c\d{2}_[a-z0-9_]+)`/g)].map((m) => m[1] ?? "");
+/** The green deploy check a verifier writes for `tree`, recomputed here from the served bytes: the last snapshot line, its lines
+ *  file (sha256, count, Merkle root), the history line and file, the sha256 of the timeline and of the served key set. */
+function caOf(tree: Tree): Rec {
+  const tl = tree.get("timeline.jsonl") ?? Buffer.alloc(0), lines = tl.toString().trimEnd().split("\n").map((s) => JSON.parse(s) as Rec);
+  const head = lines.filter((l) => l.kind === "snapshot").pop() ?? {}, hist = lines.find((l) => l.kind === "history") ?? {};
+  const rows = (rel: string): string[] => (tree.get(rel) ?? Buffer.alloc(0)).toString().split("\n").filter((s) => s !== "");
+  const lf = `lines/${String(head.lines_sha256)}.jsonl`, hf = `history/${String(hist.history_sha256)}.jsonl`;
+  return { schema: "dojo-deploy-ca-v1", url: "https://dojo.monarkgate.tech", g7: G7, tls: { authorized: true },
+    checks: CA_NAMES.map((name) => ({ name, pass: true, detail: "ok" })), inputs_sha256: { tree: sha("tree") },
+    head: { seq: head.seq, day: head.day, lines_sha256: sha(tree.get(lf) ?? ""), lines_count: rows(lf).length,
+      recomputed_root: merkle(rows(lf)).toString("hex") },
+    history: { history_sha256: sha(tree.get(hf) ?? ""), history_lines_count: rows(hf).length, history_root: merkle(rows(hf)).toString("hex") },
+    bodies_sha256: { "/timeline.jsonl": sha(tl), "/dojo/pubkey.json": sha(tree.get("dojo/pubkey.json") ?? "") } };
+}
+/** A temporary repository root for the sync: the committed keyring, the deploy check and the site manifest as committed. */
+function syncRoot(keyring: Rec, ca: Rec): string {
+  const dir = mkdtempSync(join(tmpdir(), "dojo-sync-"));
+  const files: Array<[string, string]> = [[KEYRING_REL, `${canonical(keyring)}\n`], [CA_REL, `${JSON.stringify(ca, null, 2)}\n`],
+    [MANIFEST_REL, readFileSync(join(ROOT, MANIFEST_REL), "utf8")]];
+  for (const [rel, text] of files) { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), text); }
+  return dir;
+}
+const syncIn = (dir: string, tree: Tree): Promise<{ record: Rec; sha: string }> => runSync({ root: dir, g7: G7, readAt: READ_AT,
+  get: (rel) => { const b = tree.get(rel); return b === undefined ? Promise.reject(new Error(`no ${rel}`)) : Promise.resolve(b); } });
+const drop = (dir: string): void => { rmSync(dir, { recursive: true, force: true }); };
+
+// killer: scripts/sync-dojo-served.mjs:74 SDL "if (ca.head.recomputed_root !== h.root)" -> ""
+test("dojo_served_data_matches_deploy_ca", async () => {
+  // The check is read by the keys of DOJO-CA-FORMAT-1, cited by sha (FM-2.3): a dated change of the bullet re-pins the sync here.
+  assert.equal(sha(CA_BULLET), "3024482e26d653563b7adb9391d0ab09c73e70bc6e8cb9ff731cbcec2d4c0f90", "the frozen bullet of ADR-DOJO-PR-3 D-2");
+  assert.deepEqual([CA_NAMES.length, [...CA_CHECKS]], [12, CA_NAMES], "the sync reads the twelve controls of the frozen format, in order");
+  assert.deepEqual([...CA_KEYS].sort(), ["bodies_sha256", "checks", "g7", "head", "history", "inputs_sha256", "schema", "tls", "url"]);
+  // Synthetic leg: served tree -> the sync (the reader's tool inside) -> a temporary root -> the loader; the record is the check's.
+  const { committed, e1, e2, key } = trees(), ca = caOf(e2), dir = syncRoot(committed, ca);
+  try {
+    const was = JSON.parse(readFileSync(join(dir, MANIFEST_REL), "utf8")) as { $comment: string; files: Record<string, string> };
+    const { record, sha: s } = await syncIn(dir, e2), loaded = loadDojoServed(dir), text = readFileSync(join(dir, MANIFEST_REL), "utf8");
+    assert.ok(loaded !== null, "the record loads against the manifest entry the sync set");
+    assert.deepEqual(JSON.parse(JSON.stringify(loaded)), JSON.parse(JSON.stringify({ ...record, $comment: undefined, schema: undefined })));
+    const [h, hi] = [ca.head as Rec, ca.history as Rec];
+    assert.deepEqual([loaded.head.root, loaded.head.lines_sha256, loaded.head.lines_count, loaded.head.seq, loaded.history.history_root],
+      [h.recomputed_root, h.lines_sha256, h.lines_count, h.seq, hi.history_root], "head and history equal the check's (mere C-4)");
+    const $comment = was.$comment.replace(MANIFEST_ANCHOR, `${MANIFEST_CLAUSE}${MANIFEST_ANCHOR}`);
+    assert.deepEqual(JSON.parse(text), { ...was, $comment, files: { ...was.files, [OUT_REL]: s } }, "the entry and the $comment clause, nothing else");
+    assert.equal(setManifestEntry(text, s), text, "a second sync keeps one clause and one entry");
+    // Both comments land in exported files at the act: the site's kitchen and name gates read them (KITCHEN-PUBLIC-1).
+    const leaks = [...KITCHEN_FORMS, ...DATA_SOURCE_FORMS].filter((f) => f.re.test(MANIFEST_CLAUSE) || f.re.test(String(record.$comment)));
+    assert.deepEqual([...leaks.map((f) => f.why), ...operatorLabelsIn([MANIFEST_CLAUSE, record.$comment])], [], "clean comments");
+    assert.deepEqual(committedRefusals({ record: loaded, present: true, listed: true, status: "upcoming", ca }), [], "bound to its check");
+    assert.match(committedRefusals({ record: loaded, present: true, listed: true, status: "upcoming", ca: null }).join(), /without its committed/);
+    // A stale or incomplete check is refused (M-P7, M-P9 on the check's side), one refusal each.
+    const bad: Array<[string, (c: Rec) => void, RegExp]> = [
+      ["another G7 (M-P7)", (c) => { c.g7 = "8".repeat(40); }, /another G7/], ["no full G7", (c) => { c.g7 = "HEAD"; }, /another G7/],
+      ["another timeline (M-P7)", (c) => { (c.bodies_sha256 as Rec)["/timeline.jsonl"] = sha("old"); }, /other served bodies/],
+      ["another key set", (c) => { (c.bodies_sha256 as Rec)["/dojo/pubkey.json"] = sha("old"); }, /other served bodies/],
+      ["no recomputed root (M-P9)", (c) => { (c.head as Rec).recomputed_root = null; }, /recomputed root of the head/],
+      ["another recomputed root", (c) => { (c.head as Rec).recomputed_root = "0".repeat(64); }, /recomputed root of the head/],
+      ["no history (M-P9)", (c) => { c.history = null; }, /no history, or another/],
+      ["no history root (M-P9)", (c) => { (c.history as Rec).history_root = "0".repeat(64); }, /recomputed root of the history/],
+      ["another history count", (c) => { (c.history as Rec).history_lines_count = 0; }, /no history, or another/],
+      ["a control not green", (c) => { ((c.checks as Rec[])[2] as Rec).pass = false; }, /not green/],
+      ["TLS not authorized", (c) => { c.tls = { authorized: false }; }, /not green/],
+      ["eleven controls", (c) => { (c.checks as Rec[]).pop(); }, /twelve controls/],
+      ["controls out of order", (c) => { (c.checks as Rec[]).reverse(); }, /twelve controls/],
+      ["another host", (c) => { c.url = "https://bell.monarkgate.tech"; }, /not a check of the Dojo host/],
+      ["another schema", (c) => { c.schema = "bell-deploy-ca-v1"; }, /not a check of the Dojo host/],
+      ["a key outside the format", (c) => { c.checked_at = READ_AT; }, /not a check of the Dojo host/],
+    ];
+    for (const [why, edit, re] of bad) {
+      const c = JSON.parse(JSON.stringify(ca)) as Rec;
+      edit(c);
+      assert.throws(() => { bindDojoCa(c, loaded, G7); }, re, why);
+    }
+    assert.throws(() => { bindDojoCa(caOf(e1), loaded, G7); }, /captured on another head/, "a check of an earlier head (M-P7)");
+    // Through the sync, nothing is synced on a refusal: a stale check; a tree the reader's tool refuses (P-10: window closed at seq 5).
+    const closed = dojoKeyringOf([[key, 1, 5], [newKey(), 1]]);
+    for (const [keyring, check, re] of [[committed, caOf(e1), /another head/], [closed, ca, /reader's tool refuses/]] as const) {
+      const d = syncRoot(keyring, check), before = readFileSync(join(d, MANIFEST_REL));
+      try {
+        await assert.rejects(syncIn(d, e2), re);
+        assert.ok(!existsSync(join(d, OUT_REL)) && readFileSync(join(d, MANIFEST_REL)).equals(before), "refused: nothing synced");
+      } finally { drop(d); }
+    }
+  } finally { drop(dir); }
+  // Committed leg, on the repository as committed, never a skip: a listed record bound to the committed check, else a coherent absence.
+  const files = (JSON.parse(readFileSync(join(ROOT, MANIFEST_REL), "utf8")) as { files: Record<string, string> }).files;
+  const leg = { record: loadDojoServed(ROOT), present: existsSync(join(ROOT, OUT_REL)), listed: OUT_REL in files, status: holdSnapshotStatus(),
+    ca: existsSync(join(ROOT, CA_REL)) ? (JSON.parse(readFileSync(join(ROOT, CA_REL), "utf8")) as unknown) : null };
+  assert.deepEqual(committedRefusals(leg), [], "the committed leg holds on the repository as committed");
+  const absent = { record: null, present: false, listed: false, status: "upcoming", ca: null };
+  assert.match(committedRefusals({ ...absent, present: true }).join(), /is present while no record loads/, "M-P20: a file without its record");
+  assert.match(committedRefusals({ ...absent, listed: true }).join(), /is listed in the site manifest/, "M-P20: an entry without its record");
+  assert.match(committedRefusals({ ...absent, status: "built" }).join(), /register is not upcoming/, "M-P20: built without a record");
+});
+
+// killer: scripts/sync-dojo-served.mjs:145 SDL "if (labels.length > 0)" -> ""
+test("dojo_sync_drops_operator_labels", async () => {
+  const { committed, e2, steps } = trees();
+  // Dropped: a deploy check whose free texts name the reading's operators and a vendor; no text of the check rides in the record.
+  const noisy = caOf(e2), named = `read through ${CHAIN_OPERATORS.join(" and ")} and ${OPERATOR_FORMS[0]?.sample ?? ""}`;
+  noisy.checks = (noisy.checks as Rec[]).map((c) => ({ ...c, detail: named }));
+  const dir = syncRoot(committed, noisy);
+  try {
+    await syncIn(dir, e2);
+    const out = `${readFileSync(join(dir, OUT_REL), "utf8")}${readFileSync(join(dir, MANIFEST_REL), "utf8")}`.toLowerCase();
+    for (const label of [...CHAIN_OPERATORS, OPERATOR_FORMS[0]?.sample ?? ""]) assert.ok(!out.includes(label.toLowerCase()), `${label} never rides`);
+  } finally { drop(dir); }
+  // Refused: a signed anchor that names an operator in a free field walks and verifies; the sync refuses it and writes nothing (M-P6).
+  for (const label of CHAIN_OPERATORS) {
+    const tree = render(steps, new Map(), (s) => { Object.assign(s[0]?.body ?? {}, { sol_usd_source: `${label} feed` }); });
+    const d = syncRoot(committed, caOf(tree));
+    try {
+      await assert.rejects(syncIn(d, tree), /would carry an operator or vendor label/, `${label} in the signed anchor is refused (M-P6)`);
+      assert.ok(!existsSync(join(d, OUT_REL)), "refused: nothing written");
+    } finally { drop(d); }
+  }
+  // Each form is live on its own sample, the reading's labels as keys too; the clean record carries none.
+  for (const f of [...OPERATOR_FORMS, ...DATA_SOURCE_FORMS]) assert.notDeepEqual(operatorLabelsIn({ pool: `the ${f.sample} pool` }), [], f.sample);
+  for (const label of CHAIN_OPERATORS) assert.notDeepEqual(operatorLabelsIn({ [label.toUpperCase()]: 0 }), [], `${label} as a key`);
+  assert.deepEqual(operatorLabelsIn(await build(e2, committed)), [], "the fixture's record carries no label");
 });

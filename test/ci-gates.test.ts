@@ -1173,6 +1173,7 @@ test("wiring_test_roots_exclusion_is_declared — TEST_ROOTS ⇔ a documented li
 // WIRING_TEST_ROOTS: a served path, its integration tests declared under those roots (the two of the piece's condition among
 // them), a note without digits, a committed record listed in the site manifest (so the committed leg of
 // dojo_served_data_matches_deploy_ca ran on it) and a unit version in force in that record. Named mutants: M-P4, M-P18, M-P21.
+// killer: apps/site/lib/dojo-register.ts:19 CONST "piece.status" -> "'built'"
 test("dojo_register_is_frozen — the hold snapshot is upcoming; built only with a served path, its integration tests under the wiring roots, a committed record in the site manifest and a unit version in force", () => {
   const corpus = WIRING_TEST_ROOTS.map((r) => join(ROOT, ...r.split("/"))).flatMap((dir) =>
     existsSync(dir) ? readdirSync(dir).filter((n) => n.endsWith(".test.ts")).map((n) => readFileSync(join(dir, n), "utf8")) : []).join("\n");
@@ -1198,8 +1199,8 @@ test("dojo_register_is_frozen — the hold snapshot is upcoming; built only with
   assert.deepEqual(DOJO_REGISTER.pieces.map((p) => [p.key, p.status]), [["hold-snapshot", "upcoming"]], "the hold snapshot stays upcoming until the piece's G7");
   assert.equal(holdSnapshotStatus(), "upcoming", "the function the page calls reads the register's status, never another");
   assert.throws(() => holdSnapshotStatus({ program: "MONARK Dōjō", pieces: [] }), /hold snapshot is missing/, "a register without the piece: no silent fallback");
-  // (2) the guard is live: each condition missing is refused (M-P4, M-P18, M-P21). Today the committed leg's test is not written
-  // yet (it comes with the sync): built is refused even with every other condition met.
+  // (2) the guard is live: each condition missing is refused (M-P4, M-P18, M-P21). Since PR-4a-2 the committed leg's test is written,
+  // with the sync that writes the record it reads: every condition met admits built, and a test not written is refused.
   const built = (served: DojoServedPath): DojoRegister => ({ program: "MONARK Dōjō", pieces: [{ key: "hold-snapshot", name: "hold snapshot", status: "built", served }] });
   const served: DojoServedPath = { path: "the page /dojo, built from the committed record", tests: legs, note: "the figures of the committed record" };
   const withVersion = { head: { price_version: 1 } }, noVersion = { head: { price_version: null } };
@@ -1208,7 +1209,10 @@ test("dojo_register_is_frozen — the hold snapshot is upcoming; built only with
   assert.ok(refusals(built(served), noVersion).includes("the committed record carries no unit version"), "M-P21: built on a record without a unit version");
   assert.ok(refusals(built({ ...served, note: "read on day 60" }), withVersion).includes("a blank note or a note with a digit"), "a note with a digit");
   for (const note of ["validated from 2026-11-09", "see ADR-M018", "rule R-25"]) assert.ok(refusals(built({ ...served, note }), withVersion).includes("a blank note or a note with a digit"), note);
-  assert.deepEqual(refusals(built(served), withVersion), ["no test dojo_served_data_matches_deploy_ca under the wiring roots"], "only the unwritten committed leg refuses");
+  assert.deepEqual(refusals(built(served), withVersion), [], "every condition met: the register may say built");
+  const unwritten = refusals(built({ ...served, tests: [...legs, "dojo_leg_not_written"] }), withVersion);
+  assert.deepEqual(unwritten, ["no test dojo_leg_not_written under the wiring roots"], "a test not written is refused");
+  assert.ok(existsSync(join(ROOT, "scripts", "sync-dojo-served.mjs")), "the committed leg comes with the sync that writes the record it reads");
 });
 
 // ────────────────────────────────────────────────────────────────────────────────────────────────
