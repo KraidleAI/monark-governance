@@ -1,6 +1,6 @@
 # PASSATION — dossier de reprise pour un nouvel orchestrateur (nouveau compte Claude ou nouvelle session) — mis à jour à chaque retour d'agent et à chaque décision (décision 271, investisseur, 2026-09-28)
 
-**Dernière mise à jour** : 2026-09-29 12:33 UTC — Decision investisseur 288 : Q-V-2 option 3 (relance des dead seulement sous coupure d hote confirmee) ; pli l.52 ADR ; METHODE-POWER-1 reforme
+**Dernière mise à jour** : 2026-09-29 12:48 UTC — Advisors mesures : 43 appels, 36 servis, 1 expire (cp-2 M-7, 363 s), 6 sans resultat, tous chez des agents Fable ; aucun verdict affecte ; item METHODE-ADVISOR-TIMEOUT-1
 
 ## 0. Lire dans cet ordre (30 minutes)
 1. `F:\claude-config\CLAUDE.md` (règles globales, roster, amendement 267 en fin de fichier) — **BYTE-GUARD-CONFIG-1 CLOS le 28/09 03:52 UTC (octets 0x08/0x07 remplacés, sauvegarde `CLAUDE.md.pre-bytefix`) ; mesure 28/09 18:06Z et 19:1xZ : 0 octet de contrôle ; CLAUDE.md = acte de l orchestrateur (décision 279)**.
