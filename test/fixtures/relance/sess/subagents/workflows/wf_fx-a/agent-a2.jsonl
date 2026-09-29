@@ -1,0 +1,1 @@
+{"type":"assistant","timestamp":"2026-09-27T21:40:40.000Z","message":{"model":"<synthetic>","content":[{"type":"text","text":"You've hit your weekly limit · resets Oct 1, 11am (Europe/London)"}]},"quotaLimits":{"resetsAt":1790848800,"rateLimitType":"seven_day"},"error":"rate_limit","apiErrorStatus":429}

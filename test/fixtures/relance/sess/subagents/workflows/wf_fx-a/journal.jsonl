@@ -1,0 +1,15 @@
+{"type":"launched"}
+{"type":"started","key":"k1","agentId":"a1","label":"read:1","phase":"Reads"}
+{"type":"started","key":"k2","agentId":"a2","label":"read:2","phase":"Reads"}
+{"type":"started","key":"k3","agentId":"a3","label":"read:3","phase":"Reads"}
+{"type":"started","key":"k4","agentId":"a4","label":"read:4","phase":"Reads"}
+{"type":"started","key":"k5","agentId":"a5","label":"read:5","phase":"Reads"}
+{"type":"started","key":"k6","agentId":"a6","label":"read:6","phase":"Reads"}
+{"type":"started","key":"k7","agentId":"a7","label":"read:7","phase":"Reads"}
+{"type":"started","key":"k8","agentId":"a8","label":"read:8","phase":"Reads"}
+{"type":"result","key":"k6","agentId":"a6","result":{"path":"r6.md"}}
+{"type":"result","key":"k5","agentId":"a5","result":null}
+{"type":"failed","key":"k1","agentId":"a1"}
+{"type":"failed","key":"k2","agentId":"a2"}
+{"type":"failed","key":"k3","agentId":"a3"}
+{"type":"failed","key":"k4","agentId":"a4"}
