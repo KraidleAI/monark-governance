@@ -212,3 +212,4 @@ BIBLIO-ID-2411-1 ; REPO-STRAY-WORKTREE-GUARD-1 ; VALIDATEUR-CA-12-TIERS-1 ; VOCA
 - **2026-09-29 22:21 UTC — G0 PR-1b-4 lancé** → en vol : corr PR-4a-2, G2 PR-3a-1a, G0 PR-1b-4.
 - **2026-09-29 22:36 UTC — G2 PR-3a-1a PRÊT POUR CORRECTIONS (3 bloquantes) → correcteur lancé** → en vol : corr PR-4a-2, corr PR-3a-1a, G0 PR-1b-4.
 - **2026-09-29 22:41 UTC — gel 2 PR-4a-2 `dec7a055`, cp-2 lancé** → en vol : cp-2 PR-4a-2, corr PR-3a-1a, G0 PR-1b-4.
+- **2026-09-29 22:58 UTC — G0 PR-1b-4 rendu et gelé, cp-1 bref lancé** → en vol : cp-2 PR-4a-2, corr PR-3a-1a, cp-1 PR-1b-4.
