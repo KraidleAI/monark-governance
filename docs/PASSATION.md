@@ -1,6 +1,6 @@
 # PASSATION — dossier de reprise pour un nouvel orchestrateur (nouveau compte Claude ou nouvelle session) — mis à jour à chaque retour d'agent et à chaque décision (décision 271, investisseur, 2026-09-28)
 
-**Dernière mise à jour** : 2026-09-29 13:22 UTC — G0 M-7b pose (ligne l.63) ; cp-1 bref M-7b lance (mission cb34f73b, recu vert, validateur Fable 5.1) ; en vol : rr1 M-6, rr1 M-5c, cp-1 M-7b
+**Dernière mise à jour** : 2026-09-29 13:45 UTC — cp-1 bref M-7b ACCEPTE-AVEC-CORRECTIONS : plis l.63, ligne M-7c l.64, exit 3 additif, ligne REGLES, items RELANCE-DEAD-EXIT-1 / RELANCE-LINE-LENGTH-2 / METHODE-POWER-1 (b) vers M-7c ; G1 M-7b au premier siege libre
 
 ## 0. Lire dans cet ordre (30 minutes)
 1. `F:\claude-config\CLAUDE.md` (règles globales, roster, amendement 267 en fin de fichier) — **BYTE-GUARD-CONFIG-1 CLOS le 28/09 03:52 UTC (octets 0x08/0x07 remplacés, sauvegarde `CLAUDE.md.pre-bytefix`) ; mesure 28/09 18:06Z et 19:1xZ : 0 octet de contrôle ; CLAUDE.md = acte de l orchestrateur (décision 279)**.
