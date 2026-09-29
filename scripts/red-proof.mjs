@@ -31,7 +31,7 @@ import { fileURLToPath } from "node:url";
 
 const OPS = ["COR", "ROR", "SDL", "CONST"];
 const KILLER = /^\s*\/\/ killer: (\S+):(\d+) (\w+) "((?:[^"\\]|\\.)*)" -> "((?:[^"\\]|\\.)*)"\s*$/;
-const DENY = /API_KEY|_KEY$|TOKEN|SECRET|^GH_|^GITHUB_|^CHAINSTACK_|^MONARK_PUBLIC_MIRROR$/i; // the lot's tests never see these names (Q-G2-5)
+export const DENY = /API_KEY|_KEY$|TOKEN|SECRET|^GH_|^GITHUB_|^CHAINSTACK_|^MONARK_PUBLIC_MIRROR$/i; // the lot's tests never see these names (Q-G2-5); exported for scripts/mutants/run.mjs (lot M-6, Q-V-3)
 const ENV = { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !DENY.test(k))), GIT_OPTIONAL_LOCKS: "0", NODE_TEST_CONTEXT: undefined }; // a nested node --test must print TAP, not report to a parent
 const sha = (b) => createHash("sha256").update(b).digest("hex");
 const str = (s) => { try { return JSON.parse(`"${s}"`); } catch { return s; } };
