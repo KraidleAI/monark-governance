@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 // The SOLE public paid path (C-V-2). resolveOperators / makeClient / InMemorySink are NOT here (proven below).
 import { openGuardedClient, BudgetExceededError } from "@monark/rpc-guard";
-import { HELIUS, tmp } from "./harness.ts";
+import { HELIUS, tmp, GTFA_P100 } from "./harness.ts";
 import type { RunLimits } from "../src/client.ts";
 
 const PROBE_ENV = { BELL_SOLANA_RPC: "https://example.invalid/HELIUS", HELIUS_API_KEY: "FAKEKEY-9z9z9z" };
@@ -40,8 +40,8 @@ test("public_api_freezes_the_prior_p3_floor", async () => {
   globalThis.fetch = () => { calls++; return Promise.resolve(new Response(JSON.stringify({ result: 1 }), { status: 200, headers: { "content-type": "application/json" } })); };
   try {
     const client = openGuardedClient(PROBE_ENV, { maxCalls: 10, runCaps: { helius: 100_000_000 }, methodCaps: { getTransactionsForAddress: 100 }, cycleFloor: { helius: 7_999_990 } }, dir, { helius: "cycle-p3" });
-    await client.call(HELIUS, "getTransactionsForAddress", ["m"]);
-    await assert.rejects(client.call(HELIUS, "getTransactionsForAddress", ["m"]), (e: unknown) => e instanceof BudgetExceededError);
+    await client.call(HELIUS, "getTransactionsForAddress", GTFA_P100);
+    await assert.rejects(client.call(HELIUS, "getTransactionsForAddress", GTFA_P100), (e: unknown) => e instanceof BudgetExceededError);
     assert.equal(calls, 1, "the frozen prior (max(floor, 0)) is enforced through the PUBLIC API, not just makeClient");
   } finally { globalThis.fetch = realFetch; cleanup(); }
 });

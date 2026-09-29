@@ -11,7 +11,7 @@ import { makeClient, type OperatorClass, type RunLimits, type OperatorLabel } fr
 import { ensureCycleDir, openOperatorLedger } from "../src/ledger.ts";
 import { acquireLock, releaseLock, LockHeldError } from "../src/lock.ts";
 import { chainstackRu, heliusCredits } from "../src/tariff.ts";
-import { tmp, OK } from "./harness.ts";
+import { tmp, OK, GTFA_P100 } from "./harness.ts";
 
 const HELIUS = "helius" as OperatorLabel, CHAINSTACK = "chainstack" as OperatorLabel, DRPC = "drpc.org" as OperatorLabel;
 const ENV_BOTH = { BELL_SOLANA_RPC: "https://example.invalid/HELIUS", HELIUS_API_KEY: "FAKEKEY-9z9z9z", CHAINSTACK_ETH_URL: "https://example.invalid/CHAINSTACK" };
@@ -29,8 +29,8 @@ test("two_paid_operators_keep_separate_priors_and_units", async () => {
     // one side: helius's floor on chainstack over-refuses, or chainstack's on helius under-refuses.
     const limits: RunLimits = { maxCalls: 100, runCaps: { helius: 1_000_000_000, chainstack: 1_000_000_000 }, methodCaps: { getTransactionsForAddress: 100, eth_call: 100 }, cycleFloor: { helius: 7_999_990, chainstack: 15_999_990 } };
     const client = openGuardedClient(ENV_BOTH, limits, dir, { helius: "cyc", chainstack: "cyc" });
-    await client.call(HELIUS, "getTransactionsForAddress", ["m"]);                                                                   // 7999990 + 0 + 10 = 8000000 <= 8M => ok
-    await assert.rejects(client.call(HELIUS, "getTransactionsForAddress", ["m"]), (e: unknown) => e instanceof BudgetExceededError);  // 7999990 + 10 + 10 > 8M
+    await client.call(HELIUS, "getTransactionsForAddress", GTFA_P100);                                                                   // 7999990 + 0 + 10 = 8000000 <= 8M => ok
+    await assert.rejects(client.call(HELIUS, "getTransactionsForAddress", GTFA_P100), (e: unknown) => e instanceof BudgetExceededError);  // 7999990 + 10 + 10 > 8M
     for (let i = 0; i < 5; i++) await client.call(CHAINSTACK, "eth_call", [{}, "0x1"]);                                              // 15999990 + 2i + 2; 5th = 16000000 (inclusive cap) => ok
     await assert.rejects(client.call(CHAINSTACK, "eth_call", [{}, "0x1"]), (e: unknown) => e instanceof BudgetExceededError);         // 15999990 + 10 + 2 > 16M
     // spent PER OPERATOR in the op's unit - credits (10) and RU (5 x 2 = 10) are NEVER summed (mutant "units merged" reds).
@@ -62,7 +62,7 @@ test("run_caps_are_per_operator_at_the_meter", async () => {
     const ops = { helius: { unit: "credits", credits: heliusCredits, cycleCap: 8_000_000 } as OperatorClass, chainstack: { unit: "ru", credits: chainstackRu, cycleCap: 16_000_000 } as OperatorClass };
     const limits: RunLimits = { maxCalls: 100, runCaps: { helius: 1000, chainstack: 4 }, methodCaps: { getTransactionsForAddress: 100, eth_call: 100 }, cycleFloor: { helius: 0, chainstack: 0 } };
     const client = makeClient({ operators: ops, limits }, new Map([["helius", openOperatorLedger(cd, "helius", 0)], ["chainstack", openOperatorLedger(cd, "chainstack", 0)]]), { transport: OK });
-    for (let i = 0; i < 5; i++) await client.call(HELIUS, "getTransactionsForAddress", ["m"]); // 50 credits on helius (high cap)
+    for (let i = 0; i < 5; i++) await client.call(HELIUS, "getTransactionsForAddress", GTFA_P100); // 50 credits on helius (high cap)
     await client.call(CHAINSTACK, "eth_call", [{}, "0x1"]);                                     // chainstack 0+2 <= 4 (mutant: 50+2 > 4 refuses)
     await client.call(CHAINSTACK, "eth_call", [{}, "0x1"]);                                     // chainstack 2+2 = 4 <= 4 => ok
     await assert.rejects(client.call(CHAINSTACK, "eth_call", [{}, "0x1"]), (e: unknown) => e instanceof BudgetExceededError); // 4+2 > 4 => run_credits

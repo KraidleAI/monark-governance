@@ -6,7 +6,7 @@
 // and FREEZES each operator's cycle prior. makeClient does NOT lock: the sole public path (openGuardedClient) acquires
 // the per-operator locks BEFORE it opens the ledgers (C-2, "prior frozen AFTER the lock"). Retry is exactly ONE layer,
 // at the CALLER (C-4): call makes EXACTLY one attempt (one write-ahead ledger line + one transport) and propagates.
-import { BudgetExceededError } from "./errors.ts";
+import { BudgetExceededError, TransportError } from "./errors.ts";
 import type { CycleLedger } from "./ledger.ts";
 
 /** A LABEL for an independent paid operator (helius, chainstack, ...) - a branded string, NEVER a URL (ruling Q7). */
@@ -14,7 +14,8 @@ export type OperatorLabel = string & { readonly __brand: "OperatorLabel" };
 /** The injected transport receives the LABEL, never the resolved endpoint URL (C-3, probe P6). */
 export type Transport = (op: OperatorLabel, method: string, params: readonly unknown[]) => Promise<unknown>;
 
-export type Outcome = "attempted" | "refused" | "reconciled" | "unlocked";
+/** `settled` (GARDE-GTFA-FULL-TARIFF-1, D-2): the SIGNED delta from a reservation to the credits billed on the response. */
+export type Outcome = "attempted" | "refused" | "reconciled" | "unlocked" | "settled";
 /** One append-only ledger fact: a REQUEST by (op, method) with its DERIVED cost in the op's unit (0 for refused/keyless). */
 export interface AttemptRecord {
   readonly op: string;
@@ -24,12 +25,16 @@ export interface AttemptRecord {
   readonly reason?: string;
 }
 
+/** D-2: what a response said - the transport's value, or the NAME of a RECEIVED failed response (Q-O1 (a)). */
+export type SettleOutcome = { readonly result: unknown } | { readonly failed: string };
 /** Per-operator metering class. Decision 115: every PAID operator (unit != "keyless") MUST carry a cycleCap. The
  *  `credits` fn returns the cost in the operator's UNIT (credits for helius, RU for chainstack) and THROWS on a method
  *  absent from its closed tariff (routed to a `refuse(unknown_method)`, never a bare Error). Keyless carries neither. */
 export interface OperatorClass {
   readonly unit: "credits" | "ru" | "keyless";
-  readonly credits?: (method: string) => number;
+  readonly credits?: (method: string, params?: readonly unknown[]) => number;
+  /** D-2 (helius): the credits BILLED once the response is in, with a reason note; undefined = the reservation stands. */
+  readonly settle?: (method: string, params: readonly unknown[], outcome: SettleOutcome) => { readonly credits: number; readonly note: string } | undefined;
   readonly cycleCap?: number;
 }
 
@@ -82,7 +87,7 @@ export function makeClient(config: ClientConfig, ledgers: ReadonlyMap<string, Cy
   //     ledgers, so by the time makeClient runs, the ledgers were read UNDER the lock (prior frozen after the lock).
   assertLimits(ops, limits);
   for (const label of Object.keys(ops)) if (!ledgers.has(label)) throw new BudgetExceededError(`rpc-guard: no ledger for operator '${label}', fail-closed`);
-  // (2) FREEZE the cycle prior per operator = max(floor, Sigma_at_open attempted) (C-V-1), each in its own unit.
+  // (2) FREEZE the cycle prior per operator = max(floor, Sigma_at_open attempted + settled) (C-V-1, D-2), each in its own unit.
   const priorFrozen = new Map<string, number>();
   for (const [label, led] of ledgers) priorFrozen.set(label, led.priorAtOpen());
 
@@ -100,13 +105,13 @@ export function makeClient(config: ClientConfig, ledgers: ReadonlyMap<string, Cy
     ledgers.get(op)!.append({ op, method, outcome: "refused", credits: 0, reason });
     throw new BudgetExceededError(`rpc-guard: ${reason} (fail-closed)`);
   };
-  const costOf = (op: string, cls: OperatorClass, method: string): number => {
+  const costOf = (op: string, cls: OperatorClass, method: string, params?: readonly unknown[]): number => {
     if (cls.unit === "keyless") return 0;
-    try { return cls.credits!(method); } catch { return refuse(op, method, "unknown_method"); } // C-V-6: ledgered, never a bare Error
+    try { return cls.credits!(method, params); } catch { return refuse(op, method, "unknown_method"); } // C-V-6: ledgered, never a bare Error
   };
-  const meter = (op: string, method: string): number => {
+  const meter = (op: string, method: string, params?: readonly unknown[]): number => {
     const cls = classOf(op);
-    const cost = costOf(op, cls, method);
+    const cost = costOf(op, cls, method, params); // D-2: the RESERVATION (a gTfA page's worst case), read BEFORE any call
     if (attempts + 1 > limits.maxCalls) refuse(op, method, "run_calls");
     if (cls.unit !== "keyless") {
       // run cost cap PER OPERATOR (C-2): the chainstack RU cap never sums with the helius credit spend.
@@ -119,19 +124,36 @@ export function makeClient(config: ClientConfig, ledgers: ReadonlyMap<string, Cy
     }
     return cost;
   };
-  const commit = (op: string, method: string, cost: number): void => {
+  const commit = (op: string, method: string, cost: number): string => {
     ledgers.get(op)!.append({ op, method, outcome: "attempted", credits: cost }); // WRITE-AHEAD (before the transport)
     attempts += 1;
     runByOp.set(op, (runByOp.get(op) ?? 0) + cost);
     methodAttempts[`${op}|${method}`] = (methodAttempts[`${op}|${method}`] ?? 0) + 1;
+    return ledgers.get(op)!.entries().at(-1)!.entry_sha256; // D-2: the sha a `settled` line names
+  };
+  // D-2: a `settled` line (by_op_method count 0: a correction, never a request) carries the SIGNED delta from the reservation
+  // to the credits billed, iff they differ; runByOp moves by the same delta, so spent() and the run/cycle caps read the net.
+  const settleLine = (op: string, method: string, sha: string, cost: number, s: { readonly credits: number; readonly note: string } | undefined): void => {
+    if (s === undefined || s.credits === cost) return;
+    ledgers.get(op)!.appendChained("settled", { [`${op}|${method}`]: 0 }, s.credits - cost, `settles:${sha};${s.note}`);
+    runByOp.set(op, (runByOp.get(op) ?? 0) + s.credits - cost);
   };
 
   return {
     operators: () => Object.keys(ops) as OperatorLabel[],
     async call(op, method, params) {
-      const cost = meter(op, method);
-      commit(op, method, cost);
-      return transport(op, method, params); // ONE attempt, no retry (C-4); the caller owns retry
+      const cost = meter(op, method, params);
+      const sha = commit(op, method, cost), settle = classOf(op).settle;
+      let result: unknown;
+      try { result = await transport(op, method, params); } // ONE attempt, no retry (C-4); the caller owns retry
+      catch (e) {
+        // Q-O1 (a): a RECEIVED failed response (HttpError, RpcError) is free (L-2); a network fault, a timeout, NonJsonBody or
+        // RedirectBlocked keeps its reservation (outcome unknown). The settled line lands BEFORE the rethrow.
+        if (e instanceof TransportError && (e.name === "HttpError" || e.name === "RpcError")) settleLine(op, method, sha, cost, settle?.(method, params, { failed: e.name }));
+        throw e;
+      }
+      settleLine(op, method, sha, cost, settle?.(method, params, { result }));
+      return result;
     },
     tick(op, kind) { const cost = meter(op, kind); commit(op, kind, cost); },
     spent: () => ({ attempts, byOperator: Object.fromEntries(runByOp) }),

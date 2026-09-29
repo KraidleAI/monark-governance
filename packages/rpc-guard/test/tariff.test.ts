@@ -5,7 +5,7 @@ import { CHAINSTACK_AGE_SENSITIVE_EVM, CHAINSTACK_ARCHIVABLE_SOLANA, CHAINSTACK_
 
 test("unknown_method_fail_closed", () => {
   // the [lu] closed table (FAITS-tarification-helius-2026-09-21 + rebase-crosscheck.ts:55-56):
-  assert.equal(heliusCredits("getTransactionsForAddress"), 10, "archival gTfA - the incident's method");
+  assert.equal(heliusCredits("getTransactionsForAddress"), 100, "gTfA without params: the worst case 10 x ceil(1000/100) (D-2; table at test (7))");
   assert.equal(heliusCredits("getProgramAccounts"), 10);
   assert.equal(heliusCredits("getAssetsByOwner"), 10, "a DAS call");
   assert.equal(heliusCredits("getTransaction"), 1);
