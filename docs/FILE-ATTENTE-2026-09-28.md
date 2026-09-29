@@ -203,3 +203,4 @@ BIBLIO-ID-2411-1 ; REPO-STRAY-WORKTREE-GUARD-1 ; VALIDATEUR-CA-12-TIERS-1 ; VOCA
 - **2026-09-29 18:17 UTC — fichier d échange F: actif (plafond 106 Go) ; cp-2 RG-1a lancé (`34884929…`)** → cp-2 RG-1a → G7 (fusion I-2/I-3 selon le patch du validateur si mécanique) → cp-2 RG-1c → G7 → DRAND-1a → G7 PR-2b-3.
 - **2026-09-29 19:16 UTC — G7 RG-1a ACCEPTÉ, fusion I-2/I-3 `cb9e39a1` + pli `1b194dc4`, oracle G7 vert ; RG-SNAPSHOT-NONNEG-INT-1 bloquant avant --course-end** → cp-2 RG-1c → G7 → DRAND-1a → G7 PR-2b-3.
 - **2026-09-29 19:32 UTC — G7 PR-2b-3 ACCEPTÉ, fusion `a8cd45b3`, oracle vert** → pistes parallèles : cp-2 RG-1c ; G1 PR-3a-1 ; G1 PR-4a-2.
+- **2026-09-29 19:36 UTC — trois pistes en vol : cp-2 RG-1c, G1 PR-3a-1, G1 PR-4a-2** → retours : G2 de chaque G1 (relecteur frais), G7 RG-1c (fusion I-4) puis DRAND-1a ; G0 PR-1b-4 à écrire par l orchestrateur.
