@@ -10,12 +10,12 @@ import { spawnSync } from "node:child_process";
 import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, type KeyObject } from "node:crypto";
 import { appendFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, relative, sep } from "node:path";
+import { basename, dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { keyIdOf } from "../../bell/scripts/bell-chain.mjs";
 import { dirSource, verifyDojoServed } from "../scripts/dojo-verify.mjs";
 import { initSeed } from "../scripts/dojo-seed.mjs";
-import { ANCHOR_KEYS, DojoPublishError, publishAnchor, revokeKey, rotateKey } from "../scripts/dojo-publish.mjs";
+import { ANCHOR_KEYS, DURABLE_FS, DojoPublishError, publishAnchor, revokeKey, rotateKey } from "../scripts/dojo-publish.mjs";
 import { READ_RULE } from "../src/dojo-methods.ts";
 import { MINT, dojoKeyringOf } from "./helpers/dojo-fixture.ts";
 
@@ -87,6 +87,8 @@ test("dojo_publish_anchor_carries_the_read_rule", async () => {
   const e = tmp("dojo-p-refused-"), bad: [Obj, string][] = [
     [{ ...req, reference_price: "1" }, "anchor_malformed"], // M-E2: a price field is never signed
     [{ ...req, sol_usd_source: "helius" }, "anchor_malformed"], // M-E3: an operator label is never served
+    ...["mint", "program", "pool", "pool_quote_vault"].map((f): [Obj, string] => [{ ...req, [f]: "helius" }, "anchor_malformed"]), // Q-G1-4: each account
+    [{ ...req, objective_unit_microusd_days: `1${"0".repeat(1 << 20)}` }, "line_refused"], // a line over MAX_LINE_BYTES is never committed
     [Object.fromEntries(Object.entries(req).filter(([x]) => x !== "read_rule")), "anchor_malformed"],
     [{ ...req, read_rule: { ...READ_RULE, read_offset_s: 901 } }, "line_refused"], // the walker's read_rule (ADR-DOJO-PR-2 D-5)
     [{ ...req, read_rule: { ...READ_RULE, beacon_period_ms: 3000 } }, "line_refused"],
@@ -102,9 +104,13 @@ test("dojo_publish_anchor_carries_the_read_rule", async () => {
   const yes = cli(["--anchor", q, "--state", c], creds), out = json(yes.stdout);
   assert.deepEqual([yes.status, out.status, out.key_id], [0, "anchored", keyIdOf(k)], yes.stderr);
   assert.equal((await verify(c, served(c))).ok, true, "the CLI's tree verifies under its served keyring");
+  const big = join(tmp("dojo-p-req-"), "big.json");
+  writeFileSync(big, JSON.stringify({ ...req, dust_threshold_microusd: "1".repeat(1 << 20) }));
+  const over = cli(["--anchor", big, "--state", tmp("dojo-p-cli-")], creds);
+  assert.deepEqual([over.status, /anchor_malformed: the request file is absent or too large/.test(over.stderr)], [1, true], "a 1 MiB request: never read");
 });
 
-// killer: apps/dojo/scripts/dojo-publish.mjs:179 CONST "wx" -> "w"
+// killer: apps/dojo/scripts/dojo-publish.mjs:183 CONST "wx" -> "w"
 test("dojo_generate_key_prints_no_private_member", (t) => {
   const p = join(tmp("dojo-p-keygen-"), "signing-key.pem"), run = () => cli(["--generate-key", p]);
   const first = run();
@@ -122,7 +128,7 @@ test("dojo_generate_key_prints_no_private_member", (t) => {
   else assert.equal(statSync(p).mode & 0o777, 0o600);
 });
 
-// killer: apps/dojo/scripts/dojo-publish.mjs:166 CONST "active" -> "lost"
+// killer: apps/dojo/scripts/dojo-publish.mjs:169 CONST "active" -> "lost"
 test("dojo_publish_rotation_and_revocation_follow_bell", async () => {
   const [K1, K2, K3, K4] = [gen(), gen(), gen(), gen()], [id1, id2, id3, id4] = [K1, K2, K3, K4].map((k) => keyIdOf(k)) as [string, string, string, string];
   const s = tmp("dojo-p-keys-"), at = (dt: number) => (): number => T0 + dt;
@@ -132,14 +138,21 @@ test("dojo_publish_rotation_and_revocation_follow_bell", async () => {
   assert.equal(ok(() => rotateKey({ stateDir: s, oldKey: K1, newKey: K2, clock: at(1) })).key_id, id2, "seq 2: cross-signed by K1 and K2");
   refuses(() => rotateKey({ stateDir: s, oldKey: K2, newKey: K1, clock: at(2) }), "key_already_in_keyring");
   refuses(() => publishAnchor({ stateDir: s, key: K1, request: request(), clock: at(2) }), "signing_key_not_in_keyring"); // a retired key signs nothing
+  const ra = tmp("dojo-p-reanchor-"); // a re-anchor by the active key after a rotation: the genesis key of keyring.json stays
+  ok(() => publishAnchor({ stateDir: ra, key: K1, request: request(), clock: at(0) }));
+  ok(() => rotateKey({ stateDir: ra, oldKey: K1, newKey: K2, clock: at(1) }));
+  assert.equal(ok(() => publishAnchor({ stateDir: ra, key: K2, request: request(), clock: at(2) })).seq, 3, "a re-anchor by the active key");
   for (const [id, from] of [[id2, 2], [id1, 0], [id1, 4], [id4, 2]] as const) {
     refuses(() => revokeKey({ stateDir: s, key: K2, revokedKeyId: id, revokedFromSeq: from, clock: at(2) }), "revocation_invalid");
   }
-  const v = tmp("dojo-p-void-"); // revoked from the rotation's own seq: that line of K1 is void, the reader refuses it (F-1)
+  const v = tmp("dojo-p-void-"); // from-seq 1 or 2 would void a committed line of K1, which the reader refuses (F-1): refused, nothing written
   ok(() => publishAnchor({ stateDir: v, key: K1, request: request(), clock: at(0) }));
   ok(() => rotateKey({ stateDir: v, oldKey: K1, newKey: K2, clock: at(1) }));
-  ok(() => revokeKey({ stateDir: v, key: K2, revokedKeyId: id1, revokedFromSeq: 2, clock: at(2) }));
-  assert.deepEqual(await verify(v, served(v)), { ok: false, reason: "key_not_active", seq: 2, day: null,
+  const kept = files(v);
+  for (const from of [1, 2]) refuses(() => revokeKey({ stateDir: v, key: K2, revokedKeyId: id1, revokedFromSeq: from, clock: at(2) }), "revocation_invalid");
+  assert.deepEqual(files(v), kept, "a revocation that voids a committed line writes nothing");
+  const kv = served(v) as { keys: Obj[] }, kRev = { ...kv, keys: kv.keys.map((k) => (k.key_id === id1 ? { ...k, revoked_from_seq: 2 } : k)) };
+  assert.deepEqual(await verify(v, kRev), { ok: false, reason: "key_not_active", seq: 2, day: null,
     detail: "voided_lines 2: signed by a key revoked at its seq" }, "the key revoked is refused from --from-seq (Review Focus)");
   ok(() => revokeKey({ stateDir: s, key: K2, revokedKeyId: id1, revokedFromSeq: 3, clock: at(2) })); // seq 3: no line of K1 from seq 3
   assert.equal(ok(() => rotateKey({ stateDir: s, newKey: K3, clock: at(3) })).key_id, id3, "seq 4: K2 lost, continuity broken, signed by K3 alone");
@@ -184,6 +197,19 @@ test("dojo_publish_imports_no_network_module", () => {
 // killer: apps/dojo/scripts/dojo-publish.mjs:50 CONST "staging" -> "public/staging"
 test("dojo_publish_state_is_outside_public", () => {
   const s = tmp("dojo-p-state-"), [K1, K2, K3] = [gen(), gen(), gen()];
+  const log: string[] = [], jd = tmp("dojo-p-journal-"), J = { ...DURABLE_FS, // the durable writes, journaled through the seam
+    openSync: (p: string, f: string): number => { log.push(`open ${basename(p)} ${f}`); return DURABLE_FS.openSync(p, f); },
+    writeSync: (fd: number, d: string): void => { log.push("write"); DURABLE_FS.writeSync(fd, d); },
+    fsyncSync: (fd: number): void => { log.push("fsync"); DURABLE_FS.fsyncSync(fd); },
+    closeSync: (fd: number): void => { log.push("close"); DURABLE_FS.closeSync(fd); },
+    renameSync: (a: string, b: string): void => { log.push(`rename ${basename(b)}`); DURABLE_FS.renameSync(a, b); },
+    fsyncDir: (d: string): void => { log.push(`fsyncdir ${basename(d)}`); DURABLE_FS.fsyncDir(d); } };
+  ok(() => publishAnchor({ stateDir: jd, key: K1, request: request(), clock: () => T0, fs: J }));
+  const krAt = log.indexOf("rename keyring.json"), appendAt = log.indexOf("open timeline.jsonl a");
+  log.length = 0;
+  ok(() => rotateKey({ stateDir: jd, oldKey: K1, newKey: K2, clock: () => T0 + 1, fs: J }));
+  assert.deepEqual([krAt >= 0 && krAt < appendAt, log.slice(0, 6)], [true, ["open timeline.jsonl a", "write", "fsync", "close", `fsyncdir ${basename(jd)}`,
+    "open tmp-timeline.jsonl w"]], "keyring.json durable before the first line; each line written, fsynced, closed, its directory fsynced, then public/");
   ok(() => publishAnchor({ stateDir: s, key: K1, request: request(), clock: () => T0 }));
   ok(() => rotateKey({ stateDir: s, oldKey: K1, newKey: K2, clock: () => T0 + 1 }));
   assert.deepEqual([readdirSync(s).sort(), readdirSync(join(s, "public")).sort()], [["keyring.json", "public", "staging", "timeline.jsonl"],
@@ -200,8 +226,39 @@ test("dojo_publish_state_is_outside_public", () => {
   writeFileSync(pubTl, `${served0}{}\n`); // a served line that the private timeline does not hold
   refuses(() => rotateKey({ stateDir: s, oldKey: K3, newKey: gen(), clock: () => T0 + 3 }), "existing_timeline_corrupt");
   writeFileSync(pubTl, served0);
+  const good = readFileSync(priv, "utf8"), cut = files(s); // line 3 altered and not yet served (public/ = line 1): refused, never served
+  writeFileSync(pubTl, `${good.split("\n")[0] ?? ""}\n`);
+  writeFileSync(priv, good.replace('"seq":3,', '"seq":3,"x":1,'));
+  refuses(() => rotateKey({ stateDir: s, oldKey: K3, newKey: gen(), clock: () => T0 + 3 }), "existing_timeline_corrupt");
+  assert.equal(readFileSync(pubTl, "utf8"), `${good.split("\n")[0] ?? ""}\n`, "the start-up repair never serves an invalid line");
+  writeFileSync(priv, good);
+  writeFileSync(pubTl, served0);
+  assert.deepEqual(files(s), cut);
   writeFileSync(priv, readFileSync(priv, "utf8").replace("\"k_reads\":4", "\"k_reads\":5")); // a private line altered after its signature
   const before = files(s);
   refuses(() => rotateKey({ stateDir: s, oldKey: K3, newKey: gen(), clock: () => T0 + 3 }), "existing_timeline_corrupt");
   assert.deepEqual(files(s), before, "a corrupt state is refused with nothing written");
+});
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:141 SDL "if (last?.kind === " -> ""
+test("dojo_publish_anchor_replayed_after_a_stop_adds_no_line", () => {
+  const s = tmp("dojo-p-replay-"), k = gen(), req = request(), tl = join(s, "public", "timeline.jsonl"), priv = join(s, "timeline.jsonl");
+  const stop = { ...DURABLE_FS, fsyncDir: (d: string): void => { if (existsSync(priv)) throw new Error("SYNTHETIC stop"); DURABLE_FS.fsyncDir(d); } };
+  assert.throws(() => publishAnchor({ stateDir: s, key: k, request: req, clock: () => T0, fs: stop }), /SYNTHETIC stop/); // committed, not yet served
+  const again = ok(() => publishAnchor({ stateDir: s, key: k, request: { ...req }, clock: () => T0 + 1 }));
+  assert.deepEqual([again.seq, again.published_at, linesOf(tl).length], [1, new Date(T0).toISOString(), 1], "the same request replayed: its anchor, no line");
+  assert.equal(ok(() => publishAnchor({ stateDir: s, key: k, request: request(), clock: () => T0 + 2 })).seq, 2, "another request: a re-anchor, as before");
+});
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:195 CONST "^[1-9][0-9]*$" -> "^"
+test("dojo_publish_revoke_reads_a_plain_decimal_from_seq", async () => {
+  const s = tmp("dojo-p-fromseq-"), [K1, K2] = [gen(), gen()], creds = credsOf({ "dojo-signing-key": K2 });
+  ok(() => publishAnchor({ stateDir: s, key: K1, request: request(), clock: () => T0 }));
+  ok(() => rotateKey({ stateDir: s, newKey: K2, clock: () => T0 + 1 })); // seq 2: K1 lost, continuity broken, signed by K2 alone
+  const kept = files(s), rev = (f: string) => cli(["--revoke", keyIdOf(K1), "--from-seq", f, "--state", s], creds);
+  const bad = ["0x3", "3.0", "3e0", "+3", "0b11", "0o3", "03", " 3"].map((f) => [f, rev(f)] as const); // each one reads 3 under Number()
+  assert.deepEqual(bad.map(([f, u]) => [f, u.status, /^dojo\/publish: revocation_invalid: --from-seq /.test(u.stderr)]), bad.map(([f]) => [f, 1, true]));
+  assert.deepEqual(files(s), kept, "Q-G2-5: a --from-seq outside the plain decimal form is refused, nothing written");
+  const lost = rev("2"); // K1 revoked from its broken rotation's seq: no line of K1 from seq 2 (C-G2-1 bounds by key_id): admitted
+  assert.deepEqual([lost.status, (await verify(s, served(s))).ok], [0, true], lost.stderr);
 });

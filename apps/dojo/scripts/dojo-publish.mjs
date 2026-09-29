@@ -136,6 +136,9 @@ export function publishAnchor({ stateDir, key, request, clock, fs: D = DURABLE_F
   if (Object.keys(r).length !== ANCHOR_KEYS.length || !ANCHOR_KEYS.every((k) => Object.hasOwn(r, k))) refuse("anchor_malformed", "closed keys");
   const bad = ACCOUNTS.find((k) => { try { ownerClass(r[k]); return false; } catch { return true; } });
   if (bad !== undefined) refuse("anchor_malformed", `${bad}: not a 32-byte base58 address`);
+  // C-G2-5: the request of the anchor committed last (replayed after a stop past its commit; its signer is the loaded key, openState) writes nothing
+  const last = st.lines[st.lines.length - 1];
+  if (last?.kind === "anchor" && canonical(Object.fromEntries(ANCHOR_KEYS.map((k) => [k, last[k]]))) === canonical(r)) return result("anchored", last);
   const line = { ...r, ...lineHead(st, "anchor", t, keyIdOf(key)) };
   line.sig = signLine(line, key);
   commitLine(stateDir, { ...st, genesis: st.genesis ?? keyringOf(key, 1).keys[0] }, line, D);
@@ -166,6 +169,7 @@ export function revokeKey({ stateDir, key, revokedKeyId, revokedFromSeq, clock, 
   if (k === undefined || k.status === "active" || !Number.isInteger(revokedFromSeq) || revokedFromSeq < 1 || revokedFromSeq > st.lines.length + 1) {
     refuse("revocation_invalid", "a former key of the state keyring and 1 <= from-seq <= the revocation's seq");
   }
+  if (st.lines.some((l) => l.key_id === revokedKeyId && l.seq >= revokedFromSeq)) refuse("revocation_invalid", "from-seq voids a committed line of that key");
   const line = { ...lineHead(st, "key_revocation", t, activeKeyId(st.keyring)), revoked_key_id: revokedKeyId, revoked_from_seq: revokedFromSeq };
   line.sig = signLine(line, key);
   commitLine(stateDir, st, line, D);
@@ -187,6 +191,8 @@ function readRequest(path) {
   if (!existsSync(path) || statSync(path).size > BOUNDS.MAX_LINE_BYTES) refuse("anchor_malformed", "the request file is absent or too large");
   try { return JSON.parse(readFileSync(path, "utf8")); } catch { return refuse("anchor_malformed", "the request is not JSON"); }
 }
+/** --from-seq: a positive decimal integer, no sign, no leading zero (Q-G2-5: Number() also reads 0x3, 3.0, 3e0, +3, 0b11, 0o3). */
+const fromSeq = (s) => (/^[1-9][0-9]*$/.test(s) ? Number(s) : refuse("revocation_invalid", "--from-seq is not a plain positive decimal integer"));
 const USAGE = "dojo/publish: usage: --anchor <request> --state <dir> | --generate-key <file> | --rotate [--broken] --state <dir>"
   + " | --revoke <key_id> --from-seq <n> --state <dir>\n";
 const MODES = { "--anchor": ["--state"], "--generate-key": [], "--rotate": ["--state", "--broken"], "--revoke": ["--from-seq", "--state"] };
@@ -219,7 +225,7 @@ export function runCli(argv) {
     const stateDir = opt.get("--state"), clock = () => Date.now();
     const r = mode === "--anchor" ? publishAnchor({ stateDir, key: load(KEY), request: readRequest(opt.get(mode)), clock })
       : mode === "--rotate" ? rotateKey({ stateDir, oldKey: opt.has("--broken") ? null : load(KEY), newKey: load(`${KEY}-new`), clock })
-        : revokeKey({ stateDir, key: load(KEY), revokedKeyId: opt.get(mode), revokedFromSeq: Number(opt.get("--from-seq")), clock });
+        : revokeKey({ stateDir, key: load(KEY), revokedKeyId: opt.get(mode), revokedFromSeq: fromSeq(opt.get("--from-seq")), clock });
     process.stdout.write(`${JSON.stringify(r)}\n`);
     return 0;
   } catch (e) {
