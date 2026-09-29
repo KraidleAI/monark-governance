@@ -93,3 +93,4 @@ BIBLIO-ID-2411-1 ; REPO-STRAY-WORKTREE-GUARD-1 ; VALIDATEUR-CA-12-TIERS-1 ; VOCA
 - **2026-09-29 01:08 UTC — Visuel du manifeste livré (composition locale, 0 dépense) ; Higgsfield = plan gratuit (0 crédit, génération refusée) ; plugin design = critique/design system, pas de génération d image** → actes investisseur : publication (tweet, fil, article, visuel) ; plan Higgsfield si version photo voulue ; autorisation Figma/Canva si voulue.
 - **2026-09-29 01:22 UTC — Illustration sans mot livrée (passerelle, lanterne, règle graduée) ; premier visuel refusé, gardé comme variante** → acte investisseur : choisir et publier.
 - **2026-09-29 01:26 UTC — Visuel du manifeste RETENU (illustration sans mot)** → acte investisseur : publier tweet + fil + article + illustration.
+- **2026-09-29 01:28 UTC — Manifeste publié (acte investisseur fait) ; TWEET-MANIFESTE-PERSIST-1 (lien à consigner)** → suite : AgileGates jusqu au bout (283).
