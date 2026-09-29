@@ -43,3 +43,12 @@ Points ouverts de (d), à trancher au cp-1 complet, pas ici : (i) `refs/heads/jo
 - Aucun procurement externe nécessaire pour trancher : PROV-DM, in-toto RD, git-notes et Pro Git sont lus [lu] en première main ; le « magasin adressé par contenu / arbre de Merkle » de la ligne M-5c est le magasin d objets git lui-même (Pro Git, §Git Objects).
 - Dette évitée : aucune option n est retenue ici ; le cp-1 COMPLET reçoit ce document en entrée et tranche (a)/(b)/(c)/(d) ; si (a) est retenue, la dérogation de pathspec remonte à l investisseur (Q-V-1) ; si (c), la mesure `r25()` sur une entrée compacte réelle est due AVANT le verdict.
 - Item formé : **JOURNAL-CI-BUILD-1** (porte CI `journal:build` après M-5c ; déclencheur : première CI verte du journal ; propriétaire orchestrateur ; portée 3).
+
+## 6. Ligne datée 2026-09-29 08:5x UTC — rectifications du cp-1 complet (C-V-5, rejeu CA-9 sur clones, `F:/tmp/methode/m5c/cp1/`)
+- « `refs/heads/journal-facts` clonée par défaut » est vrai SOUS UN AUTRE NOM : au clone elle devient `refs/remotes/origin/journal-facts` (un `build` à nom fixe y serait rouge) ; c est le motif du choix de `refs/journal/facts`, à nom unique partout, fetchée par une ligne explicite.
+- CRLF : `core.autocrlf=true` sur l hôte ; `git hash-object -w` sans `--no-filters` altère les octets d un fichier à CRLF ⇒ sha256 ≠ nom ; `--no-filters --stdin` obligatoire (mesuré).
+- Isolation : `refs/journal/*` est invisible à `git branch --list`, `--merged`, au DWIM de `checkout` et à R-BRANCH du linter (mesuré) ; une ref sous `refs/heads/` ne l est pas.
+- Compression : 2,8× mesurée sur quatre faits (2,4× ici sur deux) ; sans conséquence.
+- Fixtures : les fichiers `test/fixtures/**/*.json|jsonl` sont comptés par R-25 (pathspec `ci.yml` l.82 n exclut que `docs/**/*.md`) : un RED-PROOF réel de 306 l. en fixture coûterait 306 lignes ; les tests le synthétisent.
+- Décisions rendues par le cp-1 complet (rapport `F:/tmp/methode/m5c/cp1/CHECKPOINT1-lot-methode-m5c.md` sha `d9ab3242…`) : portée 2 avec CI préparée ; option (d) sur `refs/journal/facts` ; `monark.journal.v2` non-migrant, migration des 21 lignes v1 par `freeze` (lot M-5d) ; aucune dérogation ⇒ rien ne remonte à l investisseur.
+
