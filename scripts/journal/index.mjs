@@ -1,5 +1,5 @@
 // scripts/journal/index.mjs - the lot journal written by a tool, its generated index and the closing controls (ADR-METHODE-2
-// D8a, D10, D11, D12 (d); lot M-5; orchestrator decision 275-e). Node 24, zero dependencies.
+// D8a, D10, D11, D12 (d); lots M-5 and M-5b; orchestrator decisions 275-e and 275-d). Node 24, zero dependencies.
 //   add   --repo <tree> --lot <LOT> --gate <gate> [--tour n] [--commit <sha>] [--tree-head <sha>] [--from-recu <receipt>]
 //         [--from-oracle <record>] [--model <resolved>] [--tier <id>] [--effort <e>] [--r25 <n>[/<cap>]] [--verdict <v>]
 //         [--adjudication <text>] [--origin <code>[,<code>]] [--trace <kind>:<ref>] [--note <text>] [--corrections <b>/<nb>]
@@ -8,7 +8,9 @@
 // to the second; no option sets it), checks J-SCHEMA only (a fact incomplete from another point of view is recorded, build
 // reddens it), appends one line to <tree>/docs/journal/<LOT>.jsonl and prints it; usage or J-SCHEMA: exit 2, nothing written.
 // --from-recu fills `mission` from a green receipt of scripts/mission/launch.mjs (recu_head = its head) and the sha256 of the
-// mission bytes read now; --from-oracle fills `oracle` (and tree_head) from a record of scripts/oracle/run.mjs and its sha256.
+// mission bytes read now, and `tier` from the Palier field of that mission (generated or hand-written; M-5b): --tier given
+// and different, or no field and no --tier, exits 2 (TIER-FROM-HEADER); --from-oracle fills `oracle` (and tree_head) from a
+// record of scripts/oracle/run.mjs and its sha256.
 // add stores absolute paths; a relative path in an entry is read from --repo (frozen fixtures).
 // --r25 of an entry: the R-25 of the gel the entry records (insertions + deletions of the lot diff at that gel, the entry line included).
 // build reads every docs/journal/*.jsonl and prints one line per hit `code lot:line extract`, the count per code, the verdict.
@@ -25,24 +27,43 @@
 //   J-ORACLE G2, cp-2, G7 (required), G1 and corr (if cited; G0, cp-1, fusion: refused by J-SCHEMA): record absent or not JSON, sha256 !=
 //            oracle.sha256, incomplete (REQUIRED of scripts/oracle/run.mjs:33, schema, pid, tree.object), role != gate, static_only
 //            or exit != 0, a field copied != the record; G2, cp-2, G7 also: tree.head != commit, start before the commit date,
-//            served_from or tree.dirty not null (a full, clean replay). G1, corr: a run before the gel, dirty or served (D4) admitted
+//            served_from or tree.dirty not null (a full, clean replay). G1, corr: a run before the gel, dirty or served (D4) admitted,
+//            bound to its launch (M-5b): tree.head != mission.recu_head, start before mission.recu_date, or a served record
+//            (served_from.file, next to the citing one) absent, unreadable, of another sha256 or tree.head: red, never skipped
 //   J-RECU   the mission file absent or its sha256 != mission.sha, or mission.sha != mission.recu_sha
 //   J-LINT   a receipt (recu_sha) on a text that lintMission reddens at commit, else at recu_head (not a commit: red); repo paths
-//            are read at that revision, never on disk; absolute paths, branches and tool directories on the host now (C-G2-8)
+//            are read at that revision, never on disk; absolute paths, branches and tool directories on the host now (C-G2-8);
+//            an R-PATH hit on a path that the generated header lists "(non suivi)" is removed, whatever the revision replayed
+//            (LINT-UNTRACKED, M-5b; lint.mjs untouched): any other hit stays, R-TOOL on an untracked script included
 //   J-MODEL  an entry with a mission, a tier or a model: tier outside TIERS, or the model is not the tier (token boundary)
 //   J-ADJ    a G7 without a non-empty adjudication (its presence, never its nature)
+// J-ORDER and J-VERDICT read only a lot file holding a G2 or cp-2 line (a file of retro G7 lines alone is not read):
+//   J-ORDER  a cp-2 or G7 line at ACCEPTE or ACCEPTE-AVEC-CORRECTIONS whose nearest G2 or cp-2 line with a verdict ABOVE it in
+//            the FILE (never by date: two lines can share a second; ESCALADE lines are transparent, neither witness nor target)
+//            is missing, is not at ACCEPTE or ACCEPTE-AVEC-CORRECTIONS (a refusal is lifted by a review), or carries a commit
+//            that is neither the line's commit nor an ancestor of it (git merge-base --is-ancestor; any git error: red)
+//   J-VERDICT a verdict with corrections null; ACCEPTE with blocking > 0; ACCEPTE-AVEC-CORRECTIONS, CORRECTIONS-D-ABORD or REFUS
+//            at 0/0; CORRECTIONS-D-ABORD with blocking 0; ESCALADE: no rule (corrections null admitted). Both check coherence
+//            of the verdicts with their order and counts, never that a verdict is right (FM-2.6)
+//   J-HEADER a mission holding a stamp line of scripts/mission/gen.mjs (else not read; M-5b): its HEAD line != mission.recu_head,
+//            a stamp without sha256 (earlier format), or the stamp's sha256 != the blob scripts/mission/gen.mjs at the stamp's
+//            own revision (the generator's checkout, never recu_head) resolved in --repo (unresolvable: red)
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { isAbsolute, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { lintMission, TIERS } from "../mission/lint.mjs";
 
-const CODES = ["J-SCHEMA", "J-TIME", "J-TRACE", "J-ORIGIN", "J-TOURS", "J-ORACLE", "J-RECU", "J-LINT", "J-MODEL", "J-ADJ"];
+const CODES = ["J-SCHEMA", "J-TIME", "J-TRACE", "J-ORIGIN", "J-TOURS", "J-ORACLE", "J-RECU", "J-LINT", "J-MODEL", "J-ADJ", "J-ORDER", "J-VERDICT", "J-HEADER"];
 const FIELDS = ["schema", "lot", "gate", "date", "tour", "commit", "tree_head", "mission", "model_resolved", "tier", "effort", "r25",
   "oracle", "corrections", "verdict", "adjudication", "error_origin", "public_trace", "note"];
 const GATES = ["G0", "G1", "G2", "corr", "cp-1", "cp-2", "G7", "fusion"], ORACLED = ["G2", "cp-2", "G7"], PRE_GEL = ["G1", "corr"];
 const VERDICTS = ["ACCEPTE", "ACCEPTE-AVEC-CORRECTIONS", "CORRECTIONS-D-ABORD", "REFUS", "ESCALADE"];
+const REVIEWED = ["G2", "cp-2"], TARGETS = ["cp-2", "G7"], OK = ["ACCEPTE", "ACCEPTE-AVEC-CORRECTIONS"]; // J-ORDER, J-VERDICT
+const STAMP_FIELD = "G\u00e9n\u00e9r\u00e9 :"; // the stamp line of scripts/mission/gen.mjs: a generated mission (LINT-UNTRACKED, J-HEADER)
+const PALIER = /^Palier\s*:\s*`([^`\n]+)`/mu; // the Palier field as scripts/mission/lint.mjs reads it (trimmed, lower case): TIER-FROM-HEADER
+const STAMP = /^G\u00e9n\u00e9r\u00e9 : `(?:[A-Za-z]:)?\/[^`]*\/scripts\/mission\/gen\.mjs` `([0-9a-f]{8})` sha256 `([0-9a-f]{64})` \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/u; // = GENERATED of lint.mjs
 const ORIGINS = ["G0", "G1", "G2", "ORCH", "OUT", "ANT", "VAL", "PROV", "NA"], KINDS = ["commit", "release", "note", "motif"];
 // Non-null by gate. commit may be null at G0 and cp-1, and at G1 and corr (Q-M5-1): their entry precedes the gel it lands in.
 const NEED = { tour: ["G2", "corr"], commit: ["G2", "cp-2", "G7", "fusion"], mission: ["G1", "G2", "corr", "cp-2"], oracle: ORACLED, error_origin: ["G7"] };
@@ -82,6 +103,23 @@ const abs = (p) => resolve(p).replace(/\\/g, "/"), base = (p) => p.split(/[\\/]/
 const natural = (s) => s.replace(/\d+/g, (d) => d.padStart(9, "0"));
 const bytesOf = (p, what) => { try { return readFileSync(p); } catch (e) { throw new Usage(`${what} ${p} unreadable (${e.code ?? e.message})`); } };
 const jsonOf = (b) => { try { return JSON.parse(b.toString("utf8")); } catch { return null; } };
+/** J-VERDICT: the first rule a line with a verdict breaks, or null (no verdict, or ESCALADE: no rule). */
+const verdictWhy = ({ verdict: v, corrections: c }) => (v === null || v === "ESCALADE" ? null : c === null ? `${v} with corrections null`
+  : v === "ACCEPTE" && c.blocking > 0 ? `ACCEPTE with ${c.blocking} blocking correction(s)`
+  : ["ACCEPTE-AVEC-CORRECTIONS", "CORRECTIONS-D-ABORD", "REFUS"].includes(v) && c.blocking === 0 && c.nonblocking === 0 ? `${v} with no correction (0/0)`
+  : v === "CORRECTIONS-D-ABORD" && c.blocking === 0 ? `CORRECTIONS-D-ABORD without a blocking correction (0/${c.nonblocking})` : null);
+/** LINT-UNTRACKED (M-5b): the lint result less its R-PATH hits on the paths that the generated header of the mission (a stamp
+ * line present) lists with the marker "(non suivi)", in the path lines right under its Changements field; any other hit stays. */
+function unlisted(r, text) {
+  const lines = text.split(/\r?\n/), i = lines.findIndex((l) => l.startsWith("Changements ")), off = new Set();
+  if (lines.some((l) => l.startsWith(STAMP_FIELD))) for (let j = i + 1; i >= 0 && j < lines.length; j++) {
+    const p = /^- `([^`]+)` \(([^()]+)\) `[0-9a-f]{64}`$/.exec(lines[j]);
+    if (p === null) break;
+    if (p[2] === "non suivi") off.add(`${p[1]} absent`); // the extract of an R-PATH hit (scripts/mission/lint.mjs)
+  }
+  const hits = r.hits.filter((h) => !(h.code === "R-PATH" && off.has(h.extract)));
+  return { ...r, hits, verdict: hits.length === 0 ? "vert" : "rouge" };
+}
 
 /** J-SCHEMA: the problems of one parsed line ([] when valid); `lot` is the lot of its file (build only). */
 function problems(e, lot) {
@@ -106,7 +144,10 @@ function add(o) {
   if (o["from-recu"] !== undefined) {
     const r = jsonOf(bytesOf(o["from-recu"], "receipt"));
     if (r?.verdict !== "vert" || typeof r.mission !== "string") throw new Usage(`--from-recu ${o["from-recu"]}: not a green launch receipt`);
-    e.mission = { path: abs(r.mission), sha: hash(bytesOf(r.mission, "mission")), recu_sha: r.sha ?? null, recu_date: r.date ?? null, recu_head: r.head ?? null };
+    const mb = bytesOf(r.mission, "mission"), tier = PALIER.exec(mb.toString("utf8"))?.[1].trim().toLowerCase(); // TIER-FROM-HEADER (M-5b)
+    if (tier === undefined ? o.tier === undefined : o.tier !== undefined && o.tier !== tier) throw new Usage(`--from-recu: Palier ${tier ?? "absent"} of the mission, --tier ${o.tier ?? "absent"}: ${tier === undefined ? "no tier" : "they differ"} (TIER-FROM-HEADER)`);
+    e.tier = tier ?? o.tier;
+    e.mission = { path: abs(r.mission), sha: hash(mb), recu_sha: r.sha ?? null, recu_date: r.date ?? null, recu_head: r.head ?? null };
   }
   if (o["from-oracle"] !== undefined) {
     const b = bytesOf(o["from-oracle"], "oracle record"), r = jsonOf(b);
@@ -134,6 +175,18 @@ function build(o) {
   const read = (p) => once(`f:${p}`, () => { try { return readFileSync(at(p)); } catch { return null; } });
   const when = (c) => once(`c:${c}`, () => { try { return Date.parse(execFileSync("git", ["-C", repo, "show", "-s", "--format=%cI", `${c}^{commit}`], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim()); } catch { return NaN; } });
   const adjudicated = (x) => x.e.gate === "G7" && (x.e.adjudication ?? "").trim() !== "";
+  const ancestor = (a, c) => a === c || once(`a:${a}:${c}`, () => { try { execFileSync("git", ["-C", repo, "merge-base", "--is-ancestor", a, c], { stdio: "ignore" }); return true; } catch { return false; } });
+  const headerWhy = (text, m) => { // J-HEADER: null for a mission without a stamp line; else every reason its generated header does not hold
+    const lines = text.split(/\r?\n/), s = lines.find((l) => l.startsWith(STAMP_FIELD)), g = s === undefined ? null : STAMP.exec(s), why = [];
+    if (s === undefined) return null;
+    const head = lines.map((l) => /^HEAD `([0-9a-f]{40}(?:[0-9a-f]{24})?)`$/.exec(l)?.[1]).find((x) => x !== undefined) ?? null;
+    if (head !== m.recu_head) why.push(`HEAD ${String(head)} of the header != mission.recu_head ${String(m.recu_head)}`);
+    const blob = g === null ? null : once(`g:${g[1]}`, () => { try { return execFileSync("git", ["-C", repo, "cat-file", "blob", `${g[1]}^{commit}:scripts/mission/gen.mjs`], { stdio: ["ignore", "pipe", "ignore"], maxBuffer: 1 << 28 }); } catch { return null; } });
+    if (g === null) why.push(`a stamp line without sha256 (earlier format): ${s}`);
+    else if (blob === null) why.push(`no blob scripts/mission/gen.mjs at ${g[1]} in --repo (revision unresolvable)`);
+    else if (hash(blob) !== g[2]) why.push(`gen.mjs sha256 ${g[2].slice(0, 12)} != the blob at ${g[1]} (${hash(blob).slice(0, 12)})`);
+    return why.length === 0 ? null : why.join("; ");
+  };
   const oracleWhy = (e) => { // J-ORACLE: the first reason the cited record does not back the entry, or null
     const o = e.oracle, b = read(o.record), r = b === null ? null : jsonOf(b), gel = ORACLED.includes(e.gate); // false: G1 or corr, a run before the gel
     if (r === null || typeof r !== "object") return b === null ? "record absent" : "record not JSON";
@@ -146,6 +199,13 @@ function build(o) {
     if (gel && r.served_from !== null) return "served_from not null: a store citation, never a replay";
     if (r.static_only !== false || gel && r.tree?.dirty !== null || r.exit !== 0) return `static_only ${String(r.static_only)}, tree.dirty ${String(r.tree?.dirty)}, exit ${String(r.exit)}: not a full${gel ? ", clean" : ""}, green run`;
     if (o.role !== r.role || o.head !== r.tree.head || o.start !== r.start || JSON.stringify(o.served_from) !== JSON.stringify(r.served_from) || o.tests_total !== (r.tests?.total ?? null)) return "a field copied into the entry != the record";
+    if (gel) return null; // G1, corr (PRE-GEL-BIND, M-5b): bound to the launch of their mission; a served record read, never skipped (FM-3.2)
+    const m = e.mission, sf = r.served_from, sb = sf === null ? null : typeof sf.file === "string" ? read(join(dirname(at(o.record)), sf.file)) : null, s = sb === null ? null : jsonOf(sb);
+    if (o.head !== m.recu_head) return `head ${o.head} != mission.recu_head ${String(m.recu_head)}: a run of another tree`;
+    if (!(Date.parse(o.start) >= Date.parse(m.recu_date))) return `start ${o.start} before mission.recu_date ${String(m.recu_date)}`;
+    if (sf !== null && sb === null) return `served_from.file ${String(sf.file)}: the served record is absent or unreadable`;
+    if (sf !== null && hash(sb) !== sf.sha256) return `served record ${sf.file}: sha256 != served_from.sha256`;
+    if (sf !== null && s?.tree?.head !== o.head) return `served record ${sf.file}: tree.head ${String(s?.tree?.head)} != head ${o.head}`;
     return null;
   };
   const check = (lot, entries) => {
@@ -161,13 +221,25 @@ function build(o) {
       if (why !== null) h("J-ORACLE", `${base(e.oracle.record)}: ${why}`);
       const b = m === null ? null : read(m.path);
       if (m !== null && (b === null || hash(b) !== m.sha || m.sha !== m.recu_sha)) h("J-RECU", `${base(m.path)}: ${b === null ? "absent" : `bytes ${hash(b).slice(0, 12)}, sha ${m.sha.slice(0, 12)}, receipt ${String(m.recu_sha).slice(0, 12)}`}`);
-      const rev = e.commit ?? m?.recu_head, lint = m === null || m.recu_sha === null || b === null || Number.isNaN(when(rev)) ? null : once(`l:${m.path}:${rev}`, () => lintMission({ text: b.toString("utf8"), missionPath: at(m.path), repo, rev }));
+      const rev = e.commit ?? m?.recu_head, lint = m === null || m.recu_sha === null || b === null || Number.isNaN(when(rev)) ? null : once(`l:${m.path}:${rev}`, () => unlisted(lintMission({ text: b.toString("utf8"), missionPath: at(m.path), repo, rev }), b.toString("utf8")));
       if (m !== null && m.recu_sha !== null && lint?.verdict !== "vert") h("J-LINT", `${base(m.path)} replayed at ${rev}: ${lint === null ? (b === null ? "mission absent" : "not a commit of --repo") : lint.hits.map((x) => x.code).join(",")}`);
+      const header = b === null ? null : headerWhy(b.toString("utf8"), m); // a mission absent: J-RECU (and J-LINT) redden it
+      if (header !== null) h("J-HEADER", `${base(m.path)}: ${header}`);
       if ((m ?? e.tier ?? e.model_resolved) !== null && !(TIERS.includes(e.tier) && e.model_resolved?.startsWith(e.tier) && !/^[\w-]/.test(e.model_resolved.slice(e.tier.length)))) h("J-MODEL", `model ${String(e.model_resolved)} is not the tier ${String(e.tier)} (${TIERS.join(", ")})`);
       if (e.gate === "G7" && !adjudicated({ e })) h("J-ADJ", "G7 without an adjudication");
     }
     const corr = entries.filter((x) => x.e.gate === "corr"), tours = [...new Set(corr.map((x) => x.e.tour))];
     if (tours.length > 5 && !entries.some(adjudicated)) hit("J-TOURS", lot, corr.find((x) => x.e.tour === tours[5]).n, `${tours.length} distinct corr tours and no G7 adjudication (D12 (d))`);
+    if (entries.some((x) => REVIEWED.includes(x.e.gate))) entries.forEach(({ e, n }, i) => { // J-ORDER, J-VERDICT: in FILE order
+      const w = entries.slice(0, i).findLast((x) => REVIEWED.includes(x.e.gate) && x.e.verdict !== null && x.e.verdict !== "ESCALADE"), me = `${e.gate} ${e.verdict} at ${e.commit?.slice(0, 12)}`;
+      if (TARGETS.includes(e.gate) && OK.includes(e.verdict)) {
+        if (w === undefined) hit("J-ORDER", lot, n, `${me}: no G2 or cp-2 line with a verdict above it`);
+        else if (!OK.includes(w.e.verdict)) hit("J-ORDER", lot, n, `${me}: the nearest reviewed line above (${w.n}, ${w.e.gate} ${w.e.verdict}) is not an acceptance`);
+        else if (!ancestor(w.e.commit, e.commit)) hit("J-ORDER", lot, n, `${me}: the commit ${w.e.commit.slice(0, 12)} of line ${w.n} is neither this commit nor an ancestor`);
+      }
+      const v = verdictWhy(e);
+      if (v !== null) hit("J-VERDICT", lot, n, v);
+    });
   };
   let files;
   try { files = readdirSync(dir).filter((f) => f.endsWith(".jsonl") && (o.only === undefined || f === `${o.only}.jsonl`)); } catch { throw new Usage(`no journal directory ${dir}`); }
