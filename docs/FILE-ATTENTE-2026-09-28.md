@@ -94,3 +94,4 @@ BIBLIO-ID-2411-1 ; REPO-STRAY-WORKTREE-GUARD-1 ; VALIDATEUR-CA-12-TIERS-1 ; VOCA
 - **2026-09-29 01:22 UTC — Illustration sans mot livrée (passerelle, lanterne, règle graduée) ; premier visuel refusé, gardé comme variante** → acte investisseur : choisir et publier.
 - **2026-09-29 01:26 UTC — Visuel du manifeste RETENU (illustration sans mot)** → acte investisseur : publier tweet + fil + article + illustration.
 - **2026-09-29 01:28 UTC — Manifeste publié (acte investisseur fait) ; TWEET-MANIFESTE-PERSIST-1 (lien à consigner)** → suite : AgileGates jusqu au bout (283).
+- **2026-09-29 01:31 UTC — Décision 286 : abstention ; M-6/M-7/M-9 après la fusion de M-2b, missions générées ; worktrees vides m6/m7/m9 à la tête du tronc.**
