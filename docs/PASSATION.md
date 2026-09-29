@@ -1,6 +1,6 @@
 # PASSATION — dossier de reprise pour un nouvel orchestrateur (nouveau compte Claude ou nouvelle session) — mis à jour à chaque retour d'agent et à chaque décision (décision 271, investisseur, 2026-09-28)
 
-**Dernière mise à jour** : 2026-09-28 08:00 UTC — G0/G1 M-6 consignés à retard, déviation ORCH (G1 sans cp-1) → cp-1 bref tardif M-6 lancé ; G0 M-7 (3307af26) → cp-1 bref M-7 lancé ; en vol (3) : G1 M-6, cp-1 M-6, cp-1 M-7
+**Dernière mise à jour** : 2026-09-28 08:09 UTC — Recherche formée M-5c rendue (portée clone du même hôte, option (d) objets git hors arbre, JOURNAL-CI-BUILD-1) ; en vol (3) : G1 M-6, cp-1 M-6, cp-1 M-7 ; suivant : cp-1 COMPLET M-5c
 
 ## 0. Lire dans cet ordre (30 minutes)
 1. `F:\claude-config\CLAUDE.md` (règles globales, roster, amendement 267 en fin de fichier) — **BYTE-GUARD-CONFIG-1 CLOS le 28/09 03:52 UTC (octets 0x08/0x07 remplacés, sauvegarde `CLAUDE.md.pre-bytefix`) ; mesure 28/09 18:06Z et 19:1xZ : 0 octet de contrôle ; CLAUDE.md = acte de l orchestrateur (décision 279)**.
