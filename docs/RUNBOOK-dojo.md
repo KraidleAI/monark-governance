@@ -260,7 +260,7 @@ the collector, `seed_mismatch`; the archive of the rehearsal is kept).
 `readings/<name>.tmp`. **Why**: every file of a day is written as `<path>.tmp` then renamed (`writeAtomic`, `apps/dojo/src/layout.ts`);
 a stop between the two leaves the `.tmp`; the next write of the same path reuses and renames it, so a stray outlives its day only when
 no such write comes (for example a manual start of the same reading beside the timer, stopped after the other one renamed). The
-layout reader refuses any file of `readings/` outside its closed list. Code fix: PR-1b-4 (routing of the ADR dated line 13:13Z).
+layout reader refuses any file of `readings/` outside its closed list. Code fix: G1 of DRAND-1b, before A-5 (rerouted 2026-09-30, ADR-DOJO-PR-1B-4 dated line Q-1).
 
 ```bash
 ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl stop monark-dojo-collect.timer && systemctl is-active monark-dojo-collect.service; find /var/lib/monark-dojo-collect/bundles/<d>/readings -maxdepth 1 -type f -name "*.tmp" -printf "%f %s\n"'
