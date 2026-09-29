@@ -270,7 +270,7 @@ test("dojo_history_unlock_is_confirmed_or_the_course_stops", async () => { // C-
 
 test("dojo_history_a_secret_in_a_response_stops_the_course_unwritten", async () => { // C-G2-7 (P-1 of the G2, its case 4 and case 1); Q-11
   const K1 = "k1-0123456789abcdef", K2 = "Pp4SECRET@path6Hh1Jj0Ll5Zz", K3 = "q3-secret-value", K4 = "b4-secret-value", K5 = "u5-secret-user", K6 = "w6-secret-pass";
-  const e1 = { ...ENV, HELIUS_API_KEY: K1, CHAINSTACK_SOLANA_URL: `https://${HOSTS.b}/${K2}?q=${K3}`, BELL_SOLANA_RPC: `https://${HOSTS.a}/?id=${K4}` }; // the guard's key variables
+  const e1 = { ...ENV, HELIUS_API_KEY: K1, CHAINSTACK_SOLANA_URL: `https://${HOSTS.b}/${K2}?q=${K3}`, BELL_SOLANA_RPC: `https://${HOSTS.a},https://${HOSTS.a}/?id=${K4}` }; // the guard's key variables
   const e2 = { ...ENV, CHAINSTACK_SOLANA_URL: `https://${HOSTS.b}/short9key` }, e3 = { ...ENV, CHAINSTACK_SOLANA_URL: `https://${K5}:${K6}@${HOSTS.b}` }; // a short key; userinfo
   const S16 = "s16-exact-part01", Q8 = "q8-exact", U8 = "u8-exact", P8 = "w8-exact", K8 = "k8-exact", e4 = { ...ENV, HELIUS_API_KEY: K8, CHAINSTACK_SOLANA_URL: `https://${U8}:${P8}@${HOSTS.b}/${S16}?q=${Q8}` }; // QV-2: each rule at its exact threshold, a form
   const files = (d: string): string[] => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? files(join(d, e.name)) : [join(d, e.name)]));
