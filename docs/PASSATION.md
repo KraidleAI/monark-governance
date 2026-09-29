@@ -1,6 +1,6 @@
 # PASSATION — dossier de reprise pour un nouvel orchestrateur (nouveau compte Claude ou nouvelle session) — mis à jour à chaque retour d'agent et à chaque décision (décision 271, investisseur, 2026-09-28)
 
-**Dernière mise à jour** : 2026-09-28 00:56 UTC — Decision 284 : manifeste MONARK livre (tweet, fil, article ; porte 6/6 verts ; FAITS + VISION-ALIGNEMENT) ; consignes pas honnete / manipulation declinees ; publication = acte investisseur ; en vol 2 : tour 3 M-5, rr2 M-2b
+**Dernière mise à jour** : 2026-09-28 01:08 UTC — Visuel du manifeste livre (composition locale) ; Higgsfield plan gratuit ; plugin design = critique, pas de generation ; publication = acte investisseur ; en vol 2 : tour 3 M-5, rr2 M-2b
 
 ## 0. Lire dans cet ordre (30 minutes)
 1. `F:\claude-config\CLAUDE.md` (règles globales, roster, amendement 267 en fin de fichier) — **BYTE-GUARD-CONFIG-1 CLOS le 28/09 03:52 UTC (octets 0x08/0x07 remplacés, sauvegarde `CLAUDE.md.pre-bytefix`) ; mesure 28/09 18:06Z et 19:1xZ : 0 octet de contrôle ; CLAUDE.md = acte de l orchestrateur (décision 279)**.
