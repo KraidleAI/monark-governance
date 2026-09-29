@@ -1,6 +1,6 @@
 # PASSATION — dossier de reprise pour un nouvel orchestrateur (nouveau compte Claude ou nouvelle session) — mis à jour à chaque retour d'agent et à chaque décision (décision 271, investisseur, 2026-09-28)
 
-**Dernière mise à jour** : 2026-09-28 00:42 UTC — rr2 M-5 ACCEPTE (tour 3 court lance wf_75cfa752-c40, gel 4 caed685a) ; cp-1 bref M-8b ACCEPTE-AVEC-CORRECTIONS (ligne ADR reecrite 137f79c4, C-G2-9 garde main/tronc requise) ; M-2b tour 2 rendu, gel 3 5a3a5c59, rr2 lancee wf_94a54850-a3d ; en vol 2 : tour 3 M-5, rr2 M-2b
+**Dernière mise à jour** : 2026-09-28 00:56 UTC — Decision 284 : manifeste MONARK livre (tweet, fil, article ; porte 6/6 verts ; FAITS + VISION-ALIGNEMENT) ; consignes pas honnete / manipulation declinees ; publication = acte investisseur ; en vol 2 : tour 3 M-5, rr2 M-2b
 
 ## 0. Lire dans cet ordre (30 minutes)
 1. `F:\claude-config\CLAUDE.md` (règles globales, roster, amendement 267 en fin de fichier) — **BYTE-GUARD-CONFIG-1 CLOS le 28/09 03:52 UTC (octets 0x08/0x07 remplacés, sauvegarde `CLAUDE.md.pre-bytefix`) ; mesure 28/09 18:06Z et 19:1xZ : 0 octet de contrôle ; CLAUDE.md = acte de l orchestrateur (décision 279)**.
