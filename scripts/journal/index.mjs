@@ -10,19 +10,19 @@
 // --from-recu fills `mission` from a green receipt of scripts/mission/launch.mjs (recu_head = its head) and the sha256 of the
 // mission bytes read now; --from-oracle fills `oracle` (and tree_head) from a record of scripts/oracle/run.mjs and its sha256.
 // add stores absolute paths; a relative path in an entry is read from --repo (frozen fixtures).
-// --r25 of an entry: the R-25 (insertions + deletions) of the tree that holds it, its own line included (convention, C-G2-10).
+// --r25 of an entry: the R-25 of the gel the entry records (insertions + deletions of the lot diff at that gel, the entry line included).
 // build reads every docs/journal/*.jsonl and prints one line per hit `code lot:line extract`, the count per code, the verdict.
 // Green only, it writes docs/journal/INDEX.md, dated by the last entry, never by the clock; red leaves the previous index.
 // --only <lot>: that lot alone, never an index. Exit 0 green, 1 red, 2 usage, unreadable journal or tool error. Green proves
 // the coherence of the facts the controls below read, never that a verdict is right (MAST FM-2.6). A line red on J-SCHEMA is
 // read by no other control; J-ORACLE, J-RECU and J-LINT read outside the repository and fail closed (absent: red, never skipped).
 //   J-SCHEMA a field outside FIELDS or missing, a value outside its domain (no text holds a control byte or "F:" + two spaces:
-//            the byte guard of lot M-1 covers docs/journal/), a field null where NEED requires it, a lot != its file
+//            the byte guard of lot M-1 covers docs/journal/), a field null where NEED requires it, a lot != its file, an oracle at G0, cp-1 or fusion
 //   J-TIME   date before the committer date (%cI) of commit or commit unknown, or the dates of a lot decreasing
 //   J-TRACE  a G7 without public_trace, or a trace with an empty ref (D10)
 //   J-ORIGIN an error_origin code outside the vocabulary of audit A plus G2 (D11 and its dated line of 2026-09-28)
 //   J-TOURS  more than 5 distinct corr tours (values of tour) in a lot and no G7 with an adjudication (D12 (d))
-//   J-ORACLE G2, cp-2, G7 (required), G1 and corr (if cited; G0, cp-1, fusion: never read): record absent or not JSON, sha256 !=
+//   J-ORACLE G2, cp-2, G7 (required), G1 and corr (if cited; G0, cp-1, fusion: refused by J-SCHEMA): record absent or not JSON, sha256 !=
 //            oracle.sha256, incomplete (REQUIRED of scripts/oracle/run.mjs:33, schema, pid, tree.object), role != gate, static_only
 //            or exit != 0, a field copied != the record; G2, cp-2, G7 also: tree.head != commit, start before the commit date,
 //            served_from or tree.dirty not null (a full, clean replay). G1, corr: a run before the gel, dirty or served (D4) admitted
@@ -92,6 +92,7 @@ function problems(e, lot) {
     else if (e[k] !== null) { if (!DOMAIN[k](e[k])) p.push(`${k} out of domain`); }
     else if (["schema", "lot", "gate", "date"].includes(k) || NEED[k]?.includes(e.gate)) p.push(`${k} null, required for ${String(e.gate)}`);
   }
+  if (["G0", "cp-1", "fusion"].includes(e.gate) && (e.oracle ?? null) !== null) p.push("oracle cited at a gate that never runs one");
   if (lot !== undefined && e.lot !== lot) p.push(`lot ${String(e.lot)} in the journal of ${lot}`);
   return p;
 }
