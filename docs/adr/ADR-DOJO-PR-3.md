@@ -282,3 +282,5 @@ Mutants appliqués sur copie, restaurés au sha256, hors de l'index ; aucun test
 
 
 - **Ligne datée (orchestrateur, 2026-09-29 23:1x UTC, décision 275) — REROUTAGE de DOJO-TMP-STRAY-1** : le code n est plus porté par PR-1b-4 mais par le **G1 de DRAND-1b, avant A-5** (ADR-DOJO-PR-1B-4, ligne datée Q-1 ; cp-1 PR-1b-4 C-V-5 : écrit au tronc avant le G7, le G1 de DRAND-1b pouvant le précéder) ; la consigne d hôte du RUNBOOK-dojo §8 tient jusque-là ; l absorption d un `.tmp` orphelin par la réécriture de la même cible est une LECTURE du code, à MESURER par un test à ce G1.
+
+- **Ligne datée (orchestrateur, 2026-09-29 23:3x UTC) — DOJO-CA-BODY-KEYS-1, complément de DOJO-CA-FORMAT-1 (l.84 inchangée ; G1 PR-4a-2 Q-G1-1, G2 Q-G2-1, cp-2 C-V-3)** : `url` vaut `https://dojo.monarkgate.tech` SANS barre finale (la synchro compare exactement) ; les clés de `bodies_sha256` sont les chemins d URL servis (`/timeline.jsonl`, `/dojo/pubkey.json`), motif de `docs/deploy-CA-bell.json` ; `tls` lu sous la forme fermée `{authorized}` ; chaque contrôle `c01`..`c12` sous la forme fermée `{name, pass, detail}` ; l écrivain de PR-3b-2 s y épingle.
