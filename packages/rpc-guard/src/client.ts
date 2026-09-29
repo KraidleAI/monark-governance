@@ -15,7 +15,7 @@ export type OperatorLabel = string & { readonly __brand: "OperatorLabel" };
 export type Transport = (op: OperatorLabel, method: string, params: readonly unknown[]) => Promise<unknown>;
 
 /** `settled` (GARDE-GTFA-FULL-TARIFF-1, D-2): the SIGNED delta from a reservation to the credits billed on the response. */
-export type Outcome = "attempted" | "refused" | "reconciled" | "unlocked" | "settled";
+export type Outcome = "attempted" | "refused" | "reconciled" | "unlocked" | "settled" | "course_reconciled"; // ledger format v2 (ledger.ts LEDGER_FORMAT)
 /** One append-only ledger fact: a REQUEST by (op, method) with its DERIVED cost in the op's unit (0 for refused/keyless). */
 export interface AttemptRecord {
   readonly op: string;

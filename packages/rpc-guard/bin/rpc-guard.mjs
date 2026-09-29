@@ -25,6 +25,8 @@ else {
       const rest = stripPair(stripPair(argv, "--ledger-dir"), "--floor");
       const r = runCli(rest, { ledgerDir, floor, readSnapshot: (p) => JSON.parse(readFileSync(p, "utf8")) });
       if (r.verdict !== undefined) process.stdout.write(r.verdict + (r.reason !== undefined ? ` ${r.reason}` : "") + "\n");
+      if (r.perMethod !== undefined) process.stdout.write(JSON.stringify(r.perMethod) + "\n"); // D-1 / Q-O5: the course table (course mode)
+      if (r.unlocked !== undefined) process.stdout.write(`unlocked ${r.unlocked}\n`); // D-1: the course id, the value --course-end takes
       process.exitCode = r.exitCode;
     } catch (e) {
       process.stderr.write((e instanceof Error ? e.message : String(e)) + "\n");

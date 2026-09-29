@@ -146,6 +146,12 @@ test("reconcile_counts_settled_lines", async () => {
     assert.deepEqual(reconcile(tot(421), tot(562), ["--mode", "aggregate"]), { exitCode: 1, verdict: "NO-GO", reason: "hard:total" }, "aggregate: +1 => NO-GO hard");
     await course(dir, "r10", bare, three);
     assert.deepEqual(reconcile(pm(562), pm(702)), { exitCode: 1, verdict: "NO-GO", reason: "soft" }, "witness without settled lines: NO-GO soft");
+    // I-2 (the merge of 1a and 1b): the COURSE window (--course-end) sums the settled lines too: GO at 140, NO-GO hard at +1.
+    const courseEnd = async (): Promise<string> => { await course(dir, "r10", partial, three); return ledger(dir, "r10").at(-1)!.entry_sha256; };
+    const e1 = await courseEnd();
+    assert.deepEqual([reconcile(pm(702), pm(842), ["--course-end", e1]).verdict, ledger(dir, "r10").at(-1)!.outcome], ["GO", "course_reconciled"], "course mode: GO at the true tariff");
+    const e2 = await courseEnd();
+    assert.equal(reconcile(pm(842), pm(983), ["--course-end", e2]).reason, `hard:${GTFA}`, "course mode: +1 => NO-GO hard");
     verifyCycleLedger(ledger(dir, "r10"));
   } finally { cleanup(); }
 });

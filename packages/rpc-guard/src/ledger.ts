@@ -23,10 +23,11 @@ import type { AttemptRecord, Outcome } from "./client.ts";
 import { tariffVersionOf } from "./tariff.ts";
 
 export const LEDGER_GENESIS = "0".repeat(64);
-/** Ledger FORMAT (ADR-RPC-GUARD-RECONCILE-1 D-1 versioning): v2 = v1 + the `settled` issue (D-2); v1 lines stay byte-identical,
- *  told apart by their issue. Internal (NOT in index.ts). A new issue or core field => v3 + ledger-format-lock.test.ts. */
-export const LEDGER_FORMAT = 2;
 export const sha256Hex = (s: string): string => createHash("sha256").update(s, "utf8").digest("hex");
+/** Ledger FORMAT v2 (ADR-RPC-GUARD-RECONCILE-1 D-1): v1 plus the outcome `course_reconciled` (lot 1a; `settled` joins with lot
+ *  1b) and the `course` field on `course_reconciled` lines ONLY; every v1 line kind stays byte-identical. Internal (NOT exported
+ *  by index.ts); pinned by ledger_format_locked_to_rebase_crosscheck: a new outcome or core field reds it (=> v3). */
+export const LEDGER_FORMAT = 2;
 
 /** GARDE-FSYNC-1 (INCIDENT 2026-09-22: a power cut kept 9 460 lines and lost ~420 the process HAD appended - 211 008
  *  NUL bytes at the tail - with the head sidecar AHEAD of the durable chain). A returned write sits in the OS cache until
@@ -97,6 +98,9 @@ export interface CycleLedgerEntry {
   // pre-121 chainstack line written without opts.network, so those stay byte-identical; verifyCycleLedger recomputes
   // on the PRESENT fields, so a legacy (no-network) line and a network line chain and verify in the SAME ledger.
   readonly network?: string;
+  // ADR-RPC-GUARD-RECONCILE-1 D-1 (format v2), on a `course_reconciled` line ONLY (after network, before reason): `to` = the
+  // entry_sha256 of the course's `unlocked` line (the course id), `from` = the boundary line before it, or LEDGER_GENESIS.
+  readonly course?: { readonly from: string; readonly to: string };
   readonly reason?: string;
   readonly entry_sha256: string;
 }
@@ -148,7 +152,7 @@ export interface CycleLedger {
   entries(): readonly CycleLedgerEntry[];
   priorAtOpen(): number;
   append(rec: AttemptRecord): void;
-  appendChained(outcome: Outcome, byOpMethod: Record<string, number>, credits: number, reason?: string): CycleLedgerEntry;
+  appendChained(outcome: Outcome, byOpMethod: Record<string, number>, credits: number, reason?: string, course?: CycleLedgerEntry["course"]): CycleLedgerEntry;
 }
 
 /** Open (create) the PER-OPERATOR ledger under an existing <cycleDir>. prior_cycle is FROZEN at open =
@@ -192,11 +196,11 @@ export function openOperatorLedger(cycleDir: string, op: string, floor: number, 
   let head = ledgerHeadSha(entries);
   const frozenPrior = Math.max(floor, entries.reduce((a, e) => a + (e.outcome === "attempted" || e.outcome === "settled" ? e.credits_derived : 0), 0));
   const tariffVersion = tariffVersionOf(op); // per-operator (GARDE-HELIUS-2): a chainstack line never carries the helius version
-  const appendChained = (outcome: Outcome, byOpMethod: Record<string, number>, credits: number, reason?: string): CycleLedgerEntry => {
+  const appendChained = (outcome: Outcome, byOpMethod: Record<string, number>, credits: number, reason?: string, course?: CycleLedgerEntry["course"]): CycleLedgerEntry => {
     // GARDE-HELIUS-1b-0 (C-5 / 121): stamp `network` (after credits_derived, before reason) ONLY when this operator
     // ledger was opened FOR a network (chainstack under an explicit opts.network). Omitted otherwise => byte-identical
     // legacy lines; a mixed ledger (legacy + network lines) chains + verifies (verifyCycleLedger recomputes present fields).
-    const core: CycleCore = { cycle_id: cycleId, tariff_version: tariffVersion, by_op_method: byOpMethod, outcome, credits_derived: credits, ...(network !== undefined ? { network } : {}), ...(reason !== undefined ? { reason } : {}) };
+    const core: CycleCore = { cycle_id: cycleId, tariff_version: tariffVersion, by_op_method: byOpMethod, outcome, credits_derived: credits, ...(network !== undefined ? { network } : {}), ...(course !== undefined ? { course } : {}), ...(reason !== undefined ? { reason } : {}) };
     const entry = chainCycleEntry(head, core);
     writeDurable(path, "a", JSON.stringify(entry) + "\n"); // the LINE is durable BEFORE its head (C-V-8 order)
     entries.push(entry); head = entry.entry_sha256;
