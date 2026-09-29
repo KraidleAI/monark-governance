@@ -1,0 +1,1 @@
+{"type":"assistant","timestamp":"2026-09-27T21:40:42.536Z","message":{"model":"<synthetic>","content":[{"type":"text","text":"You've hit your session limit · resets 12:40am (Europe/London)"}]},"quotaLimits":{"resetsAt":1790552400,"rateLimitType":"five_hour"},"error":"rate_limit","apiErrorStatus":429}
