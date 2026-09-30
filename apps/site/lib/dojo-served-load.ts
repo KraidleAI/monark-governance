@@ -140,9 +140,9 @@ export function loadDojoServed(rootDir: string): DojoServedData | null {
   // A version in force carries the unit, the dust threshold and the count of holders; none of them exists without it.
   const versioned = [head.holders_count, head.threshold_unit, head.dust_threshold].map((x) => x !== null);
   if (versioned.some((x) => x !== (head.price_version !== null))) fail("head: holders_count, threshold_unit and dust_threshold exist exactly with a price_version");
-  if ((head.slot_min === null) !== (head.slot_max === null) || (head.slot_min === null) !== (status === "abstained")) fail("head: a counted snapshot carries its slots, an abstained one none");
+  if ((head.slot_min === null) !== (head.slot_max === null) || (head.slot_min === null) !== (head.reads_done === 0)) fail("head: slots exactly with a reading");
   if (head.slot_min !== null && head.slot_max !== null && head.slot_min > head.slot_max) fail("head: slot_min exceeds slot_max");
-  if ((head.reads_done === 0) !== (status === "abstained") || head.reads_done > head.k_reads) fail("head: reads_done is 0 exactly when abstained, and at most k_reads");
+  if ((status === "counted" && head.reads_done === 0) || head.reads_done > head.k_reads) fail("head: reads_done is at least 1 when counted, at most k_reads");
   if (BigInt(head.validated_total) > BigInt(head.score_total) || (head.holders_count ?? 0) > head.lines_count) fail("head: totals disagree");
   const anchor = anchorOf(tl.anchor);
   const timeline = { schema: str(tl.schema, SCHEMA_ID, "timeline.schema"), lines: int(tl.lines, "timeline.lines", 1), snapshots: int(tl.snapshots, "timeline.snapshots", 1), anchor };
@@ -221,11 +221,11 @@ export async function buildDojoServed<T extends ReadonlyMap<string, { x: string 
   const sum = (k: string): string => String(dayLines.reduce((t, l, i) => t + BigInt(str(l[k], DEC, `head line ${String(i + 1)} ${k}`)), 0n));
   if (sum("score") !== head.score_total || sum("validated") !== head.validated_total) fail("the lines do not sum to the signed totals");
   if ((version === null ? null : dayLines.filter((l) => l.holder_counted === true).length) !== head.holders_count) fail("the lines do not count the signed holders_count");
-  // The slots of the K reads: the smallest and the largest over every reading made (an abstained day has none).
+  // The slots of the K reads: the smallest and the largest over every reading made (a day abstained on its mint keeps its readings).
   const reads = Array.isArray(head.reads) ? head.reads.filter(isObj) : fail("the head carries no reads");
   const mins = reads.map((r) => r.slot_min).filter((x) => x !== null).map((x) => int(x, "read slot_min"));
   const maxs = reads.map((r) => r.slot_max).filter((x) => x !== null).map((x) => int(x, "read slot_max"));
-  if ((mins.length === 0) !== (head.status === "abstained") || mins.length !== maxs.length) fail("a counted snapshot carries a reading made, an abstained one none");
+  if ((mins.length === 0 && head.status === "counted") || mins.length !== maxs.length) fail("a counted snapshot carries a reading made");
   const slot = (xs: number[], pick: (a: number, b: number) => number): number | null => (xs.length === 0 ? null : xs.reduce(pick));
   // The reader's tool, on the very bytes projected here (views, no copy) and under the committed keyring: lots, points, units,
   // versions and key windows are its checks; the page composes no figure it refuses.
