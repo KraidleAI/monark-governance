@@ -96,3 +96,7 @@ export type { S2Params, S2Output } from "./s2/run.ts";
 // Quantile tracker (ADR-M009) — consumed out-of-tool by the sentinel (apps/sentinel/src/timeline.ts); no guarantee claimed here.
 export { trackerInit, trackerStepSize, trackerStep, clipScore, trackerReplay, trackerDigest } from "./tracker.ts";
 export type { TrackerParams, TrackerState } from "./tracker.ts";
+
+// Runs diagnostic (worksite 2, lot L2-1r): exact one-sided runs test on a time-ordered 0/1 sequence; import-guard input.
+export { runsCount, runsLowerTailLeq, medianExceedance } from "./runs.ts";
+export type { Bits, RunsTail } from "./runs.ts";
