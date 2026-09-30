@@ -1,4 +1,4 @@
-// MONARK Dojo -- the publisher of PR-3a-1, parts 1a and 1b (ADR-DOJO-PR-3 D-1 row PR-3a-1, cut DOJO-PR3A1-CUT-1; mere
+// MONARK Dojo -- the publisher of PR-3a-1, parts 1a to 1c (ADR-DOJO-PR-3 D-1 row PR-3a-1, cut DOJO-PR3A1-CUT-1; mere
 // ADR-DOJO-SNAPSHOT-1 T-9, D-8). It keeps the signed, chained dojo-timeline-v1 under --state and serves it from the public/ subtree,
 // Caddy's only root (M-E9). A declared calque of apps/bell/scripts/bell-publish.mjs (state layout, durable writes, key schedule, CLI),
 // with the Dojo walker: every line is walked by walkDojoTimeline of dojo-chain.mjs BEFORE its commit, so no line the reader's walker
@@ -15,15 +15,17 @@ import { createPrivateKey, generateKeyPairSync } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { GENESIS, canonical, deriveKeyring, keyIdOf, keyringOf, lineHash, sha256Hex, signLine, trustOf } from "../../bell/scripts/bell-chain.mjs";
 import { DOJO_TIMELINE_SCHEMA, walkDojoTimeline } from "./dojo-chain.mjs";
+import { dirSource, verifyDojoServed } from "./dojo-verify.mjs";
 import { dayMinimum, dayValue, holderCounted, lotsOf, ownerClass, provisionalOf, rootOf, scoreOf, seedAnchor, tierOf, unitPrice, unitThreshold,
   unitsOf, validatedOf } from "./dojo-core.mjs";
 import { DOJO_BUNDLE_REFUSALS } from "../src/bundle.ts";
 import { DOJO_LAYOUT_REFUSALS, readDayLayout } from "../src/layout.ts";
+import { READ_RULE } from "../src/dojo-methods.ts";
 
 /** The refusals of the layout reader and of the bundle reader (PR-2-1, PR-2-2), passed through under their own names. */
 const PASSED = Object.freeze([...DOJO_LAYOUT_REFUSALS, ...DOJO_BUNDLE_REFUSALS]);
 /** The CLOSED list of the publisher's refusals, outside the verifier's 45 codes. A detail names a file, a key or a seq, never a value. */
-export const DOJO_PUBLISH_REFUSALS = Object.freeze(["existing_timeline_corrupt", "signing_key_missing", "signing_key_not_in_keyring",
+export const DOJO_PUBLISH_REFUSALS = Object.freeze(["existing_timeline_corrupt", "signing_key_missing", "signing_key_not_in_keyring", "price_version_pending",
   "anchor_malformed", "line_refused", "no_timeline", "key_already_in_keyring", "revocation_invalid", "key_file_exists", "anchor_on_published_day",
   "history_missing", "day_not_after_anchor", "bundle_day_mismatch", "bundle_anchor_mismatch", "seed_outside_anchor_chain", "eve_mismatch", ...PASSED]);
 export class DojoPublishError extends Error {
@@ -161,9 +163,11 @@ export function publishAnchor({ stateDir, key, request, clock, fs: D = DURABLE_F
   if (Object.keys(r).length !== ANCHOR_KEYS.length || !ANCHOR_KEYS.every((k) => Object.hasOwn(r, k))) refuse("anchor_malformed", "closed keys");
   const bad = ACCOUNTS.find((k) => { try { ownerClass(r[k]); return false; } catch { return true; } });
   if (bad !== undefined) refuse("anchor_malformed", `${bad}: not a 32-byte base58 address`);
+  if (canonical(r.read_rule) !== canonical(READ_RULE)) refuse("anchor_malformed", "read_rule"); // D-C2: the collector's READ_RULE only (TB-17)
   // C-G2-5: the request of the anchor committed last (replayed after a stop past its commit; its signer is the loaded key, openState) writes nothing
   const last = st.lines[st.lines.length - 1];
   if (last?.kind === "anchor" && canonical(Object.fromEntries(ANCHOR_KEYS.map((k) => [k, last[k]]))) === canonical(r)) return result("anchored", last);
+  if (pending(st, t, key) !== null) refuse("price_version_pending", "a price_version is due: --inbox completes it first (D-C3, TB-16)");
   const days = st.lines.flatMap((l) => (l.kind === "snapshot" ? [epochOf(l.day)] : l.kind === "history" ? [epochOf(l.history_last_day)] : []));
   if (Math.floor(t / DAY_MS) <= Math.max(...days)) refuse("anchor_on_published_day", "a new anchor comes after the last published day"); // DOJO-WALK-GAPS-1 (c)
   const line = { ...r, ...lineHead(st, "anchor", t, keyIdOf(key)) };
@@ -183,10 +187,14 @@ function immutable(stateDir, dir, h) {
  *  closed, read through the layout reader of PR-2-2 (publish/SHA256SUMS, its K readings and its Eve; readDayBundle WITH its check;
  *  never evidence/), guarded before any signature (the history line first, decision 231; a day after the anchor's; the seed on the
  *  anchor's chain), then its lines computed from the history and every published day exactly as dojo-verify.mjs recomputes them, their
- *  immutable file, the snapshot line, and, at the seventh consecutive valid day, the price_version line. */
-export function publishDay({ inboxDir, stateDir, key, clock, fs: D = DURABLE_FS }) {
+ *  immutable file, the snapshot line, and, at the seventh consecutive valid day, the price_version line. PR-3a-1c: the snapshot and its
+ *  price_version are verified TOGETHER by the reader's verifier before the first append (D-C1, VAE); a price_version due after the last
+ *  snapshot and absent is completed first, the launch's only action (D-C3). */
+export async function publishDay({ inboxDir, stateDir, key, clock, fs: D = DURABLE_FS }) {
   const t = clock(), st = openState(stateDir, BOUNDS, D, key), L = st.lines, hist = L.find((l) => l.kind === "history");
   if (hist === undefined) refuse("history_missing", "the first snapshot waits for the history line (decision 231)");
+  const due = pending(st, t, key); // D-C3 (DOJO-PUBLISH-PV-ATOMIC-1): the reprise that completes, before any new day
+  if (due !== null) return complete(stateDir, st, due, D);
   const ai = L.findLastIndex((l) => l.kind === "anchor"), A = L[ai], anchorDay = Math.floor(Date.parse(A.published_at) / DAY_MS);
   const snaps = L.filter((l) => l.kind === "snapshot"), last = snaps[snaps.length - 1], chain = L.slice(ai).filter((l) => l.kind === "snapshot").pop();
   const d = Math.max(anchorDay, epochOf(hist.history_last_day), last === undefined ? -Infinity : epochOf(last.day)) + 1, day = dateOf(d);
@@ -226,7 +234,9 @@ export function publishDay({ inboxDir, stateDir, key, clock, fs: D = DURABLE_FS 
     root: rootOf(lines.map((l) => canonical(l))), score_total: sum("score"), validated_total: sum("validated"),
     holders_count: v === null ? null : lines.filter((l) => l.holder_counted === true).length, status: b.status };
   snap.sig = signLine(snap, key);
-  const after = commitLine(stateDir, st, snap, D, [[`lines/${h}.jsonl`, text]]), pv = versionAfter(after, A, t, key);
+  const pv = versionAfter({ ...st, lines: [...L, snap] }, A, t, key), imm = [[`lines/${h}.jsonl`, text]];
+  await checked(stateDir, st, [snap, ...(pv === null ? [] : [pv])], imm); // D-C1: both candidates verified before the first append
+  const after = commitLine(stateDir, st, snap, D, imm);
   if (pv !== null) commitLine(stateDir, after, pv, D);
   return { ...result("published", snap), day, lines_sha256: h, lines_count: lines.length, price_version: pv === null ? null : pv.price_version };
 }
@@ -247,6 +257,33 @@ function versionAfter(st, A, t, key) {
     threshold_unit: unitThreshold(A.objective_unit_microusd_days, p), dust_threshold: unitThreshold(A.dust_threshold_microusd, p) };
   line.sig = signLine(line, key);
   return line;
+}
+/** The price_version due after the last snapshot and absent (D-C3), else null. None before a first snapshot, read before any anchor (the
+ *  first anchor and the first --inbox: versionAfter throws on a timeline without snapshot, PC-3); none when an anchor follows the last
+ *  snapshot (the segment guard, C-V-1 (a): a new segment owes nothing, TB-16); else versionAfter under the last anchor. */
+function pending(st, t, key) {
+  const L = st.lines, s = L.findLastIndex((l) => l.kind === "snapshot");
+  if (s < 0) return null; // M-E19
+  if (L.slice(s).some((l) => l.kind === "anchor")) return null; // M-E20
+  return versionAfter(st, L.findLast((l) => l.kind === "anchor"), t, key);
+}
+/** VAE (D-C1, DOJO-PUBLISH-VERIFY-BEFORE-COMMIT-1): the REAL verifier of dojo-verify.mjs, self_consistent_only, over the served tree plus
+ *  the candidates (in memory: the committed timeline then the candidate lines, the derived dojo/pubkey.json, the candidates' immutables);
+ *  refused: line_refused, its detail the verifier's seq, reason and sub-check, and nothing written. */
+async function checked(stateDir, st, cand, files) {
+  const text = st.privText + cand.map((l) => `${canonical(l)}\n`).join(""), disk = dirSource(join(stateDir, "public"));
+  const mem = new Map([...files, ["timeline.jsonl", text], ["dojo/pubkey.json", `${canonical(dojoKeyring(st.keyring))}\n`]]);
+  const v = await verifyDojoServed({ source: { get: (rel) => (mem.has(rel) ? Promise.resolve(Buffer.from(mem.get(rel))) : disk.get(rel)) } });
+  if (!v.ok) refuse("line_refused", `seq ${v.seq}: ${v.reason} (${v.detail})`);
+}
+/** D-C3 (DOJO-PUBLISH-PV-ATOMIC-1), the reprise that completes: the price_version due, recomputed over the committed snapshots (the window
+ *  and the effect of a launch without a stop; only its published_at is later, which the walker admits), verified, committed and named on
+ *  stderr (as repaired_torn_tail); the launch's only action. */
+async function complete(stateDir, st, pv, D) {
+  await checked(stateDir, st, [pv], []);
+  commitLine(stateDir, st, pv, D);
+  process.stderr.write("dojo/publish: completed_price_version\n");
+  return { ...result("completed", pv), price_version: pv.price_version };
 }
 
 /** --rotate (calque of bell-publish.mjs rotateKey; Q-11 of the mere D-8 settled by ADR-DOJO-PR-3 D-5): one key_rotation line,
@@ -305,7 +342,7 @@ const VALUED = ["--inbox", "--anchor", "--state", "--generate-key", "--revoke", 
 
 /** CLI (calque of bell-publish.mjs runCli, argv closed): exit 0 with one JSON line on stdout, or exit 1 with `dojo/publish: <code>:
  *  <detail>` (or the usage) on stderr. */
-export function runCli(argv) {
+export async function runCli(argv) {
   const opt = new Map();
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i], v = argv[i + 1], valued = VALUED.includes(a);
@@ -328,7 +365,7 @@ export function runCli(argv) {
       return k;
     };
     const stateDir = opt.get("--state"), clock = () => Date.now();
-    const r = mode === "--inbox" ? publishDay({ inboxDir: opt.get(mode), stateDir, key: load(KEY), clock })
+    const r = mode === "--inbox" ? await publishDay({ inboxDir: opt.get(mode), stateDir, key: load(KEY), clock })
       : mode === "--anchor" ? publishAnchor({ stateDir, key: load(KEY), request: readRequest(opt.get(mode)), clock })
       : mode === "--rotate" ? rotateKey({ stateDir, oldKey: opt.has("--broken") ? null : load(KEY), newKey: load(`${KEY}-new`), clock })
         : revokeKey({ stateDir, key: load(KEY), revokedKeyId: opt.get(mode), revokedFromSeq: fromSeq(opt.get("--from-seq")), clock });
@@ -340,4 +377,4 @@ export function runCli(argv) {
   }
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = runCli(process.argv.slice(2));
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = await runCli(process.argv.slice(2));
