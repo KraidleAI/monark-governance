@@ -371,6 +371,22 @@ function validateCalibration(cal: ByoCalibration): void {
 }
 
 /**
+ * BYO set-mode tau cap (ADR-M005 D5 K-4(d) amendment 2026-09-30, class policy v1, D3 and D5): tau above the
+ * number of candidates minus 1 would let a COMMIT stand on the whole candidate list, so it is a named tool error
+ * (400) that names the required value. Runs after `validateCalibration` (B-3 label checks) and the yhat type
+ * check; interval mode is not capped.
+ */
+function assertByoSetTauCap(params: HarnessParams, cal: ByoCalibration): void {
+  if (cal.mode !== "set") return;
+  const candidates = cal.candidates ?? [];
+  if (params.tau > candidates.length - 1) {
+    throw new HarnessToolError(
+      `byo 'set' mode requires params.tau = ${String(candidates.length - 1)} or smaller (the number of candidates minus 1, so a COMMIT is never on the whole candidate list), got ${String(params.tau)}`,
+    );
+  }
+}
+
+/**
  * BYO conformal path (C2, ADR-M007 D7): compose the SAME real HIKAE primitives on the CALLER's scores.
  * Order mirrors `validateCalibration` then the committed dispatch — validate, then check `yhat` TYPE for the
  * mode (wrong type ⇒ tool error BEFORE any computation), then `splitQuantile` (under-calibration ⇒ fail-closed
@@ -391,6 +407,7 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
   if (cal.mode === "set" && typeof yhat !== "string") {
     throw new HarnessToolError(`byo 'set' mode expects a string yhat (label), got ${typeof yhat}`);
   }
+  assertByoSetTauCap(params, cal); // D3 order: after the B-3 label checks and the yhat type check
 
   // label_schema for set mode is DERIVED from the caller's candidates (B-3), joined by `|`; interval mode
   // is a NUMERIC class, so its empty under_calib region carries NUMERIC_LABEL_SCHEMA, never `up|down` (E9).
