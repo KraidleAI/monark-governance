@@ -106,9 +106,11 @@ test("dojo_publish_anchor_carries_the_read_rule", async () => {
     [{ ...req, read_rule: { ...READ_RULE, beacon_period: 30 } }, "anchor_malformed"], // P1: a form the walker admits, never the collector's
     [{ ...req, k_reads: 256 }, "line_refused"], [{ ...req, price_window_days: 6 }, "line_refused"]];
   for (const [q, code] of bad) refuses(() => publishAnchor({ stateDir: e, key: k, request: q, clock: () => T0 }), code);
+  assert.throws(() => publishAnchor({ stateDir: e, key: k, request: { ...req, read_rule: { ...READ_RULE, read_offset_s: 901 } }, clock: () => T0 }),
+    (x: unknown) => x instanceof DojoPublishError && x.code === "anchor_malformed" && x.detail === "read_rule", "C-G2-4: D-C2 names read_rule");
   assert.deepEqual(readdirSync(e), [], "a refused request writes nothing, not even keyring.json");
   const c = tmp("dojo-p-cli-"), q = join(tmp("dojo-p-req-"), "anchor.json"), creds = credsOf({ "dojo-signing-key": k });
-  writeFileSync(q, JSON.stringify(req));
+  writeFileSync(q, canonical(req)); // C-G2-2: the request in canonical JSON, every key sorted, read_rule's too (D-C2 compares that form)
   const no = cli(["--anchor", q, "--state", c]), near = cli(["--anchor", q, "--state", c], relative(dirname(creds), creds), dirname(creds));
   assert.deepEqual([near.status, /^dojo\/publish: signing_key_missing: \$CREDENTIALS_DIRECTORY is not an absolute path/.test(near.stderr)], [1, true],
     "a relative $CREDENTIALS_DIRECTORY is never read, even when it names the key (systemd sets an absolute one)");
@@ -527,9 +529,14 @@ test("dojo_publish_completes_a_pending_price_version", async () => {
   const kept = files(w.s);
   refuses(() => publishAnchor({ stateDir: w.s, key: w.key, request: request(), clock: slot(A + 7) }), "price_version_pending"); // TB-16
   assert.deepEqual([linesOf(priv).at(-1)?.kind, files(w.s)], ["snapshot", kept], "stopped at the second append; --anchor refused, nothing written");
-  const r = await okA(() => publishDay({ inboxDir: w.inbox, stateDir: w.s, key: w.key, clock: slot(A + 7) })), pv = linesOf(priv).at(-1);
-  assert.deepEqual([r.status, r.status === "completed" && r.seq, pv?.kind, pv?.window_first_day, pv?.effective_day],
-    ["completed", 10, "price_version", dateOf(A + 1), dateOf(A + 8)], "the reprise at the same slot: the version due, its window and effect unshifted");
+  const err: string[] = [], real = process.stderr.write.bind(process.stderr); // C-G2-4: stderr around the reprise, spied (PC-3)
+  process.stderr.write = (c: string | Uint8Array): boolean => { err.push(String(c)); return true; };
+  const r = await okA(() => publishDay({ inboxDir: w.inbox, stateDir: w.s, key: w.key, clock: slot(A + 7) }))
+    .finally(() => { process.stderr.write = real; });
+  const pv = linesOf(priv).at(-1);
+  assert.deepEqual([r.status, r.status === "completed" && r.seq, pv?.kind, pv?.window_first_day, pv?.effective_day, pv?.published_at, err],
+    ["completed", 10, "price_version", dateOf(A + 1), dateOf(A + 8), new Date(slot(A + 7)()).toISOString(), ["dojo/publish: completed_price_version\n"]],
+    "the reprise at the same slot: the version due, its window and effect unshifted, dated at the reprise, one completed_price_version on stderr");
   await publish(w, A + 8);
   assert.deepEqual([linesOf(priv).at(-1)?.price_version, (await verify(w.s, kr)).ok], [1, true], "day 8 names the version completed; the tree verifies");
   const fl = linesOf(join(f1, "timeline.jsonl")), s7 = fl.at(-1) ?? {}, r0 = (s7.reads as Obj[])[0] ?? {}; // C-V-1 (b): a forge inside the segment
@@ -566,4 +573,23 @@ test("dojo_publish_follows_the_last_anchor_after_a_re_anchor", async () => {
   assert.equal((await publish(w, A + 3)).status, "published", "the next day follows the last anchor: its day and its seed chain");
   const v = await verify(w.s, dojoKeyringOf([[w.key, 1]]));
   assert.deepEqual([v.ok, v.ok && v.snapshots], [true, 2], JSON.stringify(v));
+});
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:265 CONST "L.findLastIndex(" -> "L.findIndex("
+test("dojo_publish_completes_a_price_version_due_after_a_re_anchor", async () => {
+  const w = world(), A = w.A, file = join(tmp("dojo-p-seed-"), "seed"), second = initSeed(file, 365), secret = readFileSync(file, "utf8").trim();
+  const priv = join(w.s, "timeline.jsonl"), kr = dojoKeyringOf([[w.key, 1]]);
+  let eve = writeDay(w, A + 1, w.eve), n = 0;
+  await publish(w, A + 1);
+  ok(() => publishAnchor({ stateDir: w.s, key: w.key, request: { ...request(), ...second }, clock: () => (A + 2) * DAY + 600_000 })); // C-G2-3
+  for (let j = 3; j <= 10; j++) eve = writeDay(w, A + j, eve, { seed: daySeed(secret, 365, j - 2) }); // the second seed chain: A + 3 to A + 10
+  for (let j = 3; j <= 8; j++) await publish(w, A + j);
+  const stop: typeof DURABLE_FS = { ...DURABLE_FS, openSync: (p, f) => { // SYNTHETIC stop at the second append of the segment's seventh day
+    if (f === "a" && ++n === 2) throw new Error("SYNTHETIC stop"); return DURABLE_FS.openSync(p, f); } };
+  await assert.rejects(async () => publishDay({ inboxDir: w.inbox, stateDir: w.s, key: w.key, clock: slot(A + 9), fs: stop }), /SYNTHETIC stop/);
+  const r = await okA(() => publishDay({ inboxDir: w.inbox, stateDir: w.s, key: w.key, clock: slot(A + 9) })), pv = linesOf(priv).at(-1);
+  assert.deepEqual([r.status, r.status === "completed" && r.seq, pv?.kind, pv?.window_first_day, pv?.effective_day, (await verify(w.s, kr)).ok],
+    ["completed", 12, "price_version", dateOf(A + 3), dateOf(A + 10), true], "the version due after a re-anchor: its window opens the segment");
+  assert.deepEqual([(await publish(w, A + 10)).status, linesOf(priv).at(-1)?.price_version, (await verify(w.s, kr)).ok], ["published", 1, true],
+    "the next day is published and names the version completed; the tree verifies");
 });

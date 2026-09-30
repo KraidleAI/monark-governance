@@ -475,3 +475,197 @@ T-8 `…_imports_no_network_module` (étendus) ; T-9 `dojo_publish_to_verify_end
   verrou libre et file vide au lancement ; l'enregistrement (chemin, sha256, `exit`, portes, suite, R-25 de `r25()`, `tree.object`) et le
   sha256 de ce journal au lancement sont cités dans `F:/tmp/dojo/pr3a1c-deliver/REPONSE.md`, avec le verdict du lot, qui en dépend.
 - **Journal clos à 20:19:01Z** : aucune écriture dans le worktree après cette ligne ; l'arbre gelé est celui de l'enregistrement d'oracle.
+
+## Corrections post-G2 (correcteur, 2026-09-30) : section ajoutée après la clôture du G1 (l.477), les lignes au-dessus restent intactes
+
+- **Rédacteur** : correcteur `claude-opus-5-5` (R-1), effort max, instance et contexte frais (ni le générateur G1, ni le relecteur G2) ;
+  ne committe pas, ne lance aucun workflow (R-20).
+- **Mission** : `F:/tmp/dojo/mission-corr-pr3a1c.md` (68 l.), sha256 `92991e1b37a6b981ab065265550802074090d0cdef3100cc9557242ff2a0866e`,
+  recalculé AVANT lecture (`date -u` suivant : 21:41:55Z), égal au reçu `F:/tmp/dojo/mission-corr-pr3a1c.recu.json` (verdict `vert`, douze
+  codes à 0, base `ea70a43b`, head `1720a95a`) ; lue en entier, règles `docs/methode/REGLES-MISSION.md` (`12d5f2df…0335`) verbatim.
+- **Entrées lues en entier, dans l'ordre de la mission** (sha256 recalculés entre 21:43Z et 21:49Z) : rapport G2
+  `F:/tmp/dojo/g2-pr3a1c/G2-report.md` (402 l., `f3b53de9…5208` ; §3.8, §5.2, §7 compris) ; sondes
+  `F:/tmp/dojo/g2-pr3a1c/proto/apps/dojo/test/g2-probes.test.ts` (`08853fe0…41fb` ; P-B l.155-170, P-H l.225-248) ; table
+  `F:/tmp/dojo/g2-pr3a1c/mutants-g2-table.mjs` (`910a6643…3e6c`, 17 rangs) ; ce journal (477 l., `265b90ed…97f0`) ; la dernière ligne datée
+  de `docs/adr/ADR-DOJO-PR-3.md` (21:4x UTC, l.412-419 ; fichier `26867874…99b7`) ; `apps/dojo/test/dojo-publish.test.ts` (569 l.,
+  `d3f46e61…68d3`) ; `apps/dojo/scripts/dojo-publish.mjs` (380 l., `2350af49…4030`) ; `F:/Monark/scripts/red-proof.mjs` (`6579b550…ab36`,
+  `parseKiller` l.46-49). Hors liste, lus pour agir sur pièce : les outils du tronc `mutants/run.mjs` (`2606e7da…3b19`), `oracle/run.mjs`
+  (`f22b9045…a41b`), `oracle/r25.mjs` (`4d0544df…7cf0`), `oracle/lock.mjs` (`501a76b5…33bb`), en entier ; `mk-nm.ps1`, `rm-nm.ps1` ;
+  `apps/dojo/scripts/dojo-publish.d.mts` ; la section 16 de `docs/G1-lot-dojo-pr4c1b.md` du tronc et les outils de son correcteur (calques).
+- **Worktree à l'ouverture** (21:42Z) : HEAD `1720a95a` (gel 1 `ca929381` plus la ligne datée de 21:4x UTC), branche `lot/dojo-pr3a1c`,
+  `status --porcelain` vide ; les sept chemins base..HEAD aux sha256 de la mission. Tronc `F:/Monark` : HEAD `19227ec0` = `e0d9a723` (celui
+  du générateur de la mission) plus un commit de registres (`docs/CHANTIERS.md`, `docs/FILE-ATTENTE-2026-09-28.md`, `docs/PASSATION.md`) ;
+  aucun fichier du lot ni de ses imports changé depuis `ea70a43b` ; outils de la mission aux sha256 de la mission.
+- **Hôte** (21:49:23Z) : verrou `F:/tmp/oracle-lock` absent, file vide ; 8 `node.exe`, 14 911 Mo physiques et 31 382 Mo virtuels libres.
+
+### Compte prévu (écrit à 21:59Z, AVANT toute édition du worktree)
+
+Unité R-25 (insertions + suppressions de `r25()` ; une ligne modifiée compte 2). Un seul fichier compté : `apps/dojo/test/dojo-publish.test.ts`
+(ce journal est hors pathspec, `ci.yml:82`). Module inchangé (décision) : aucune ligne de `apps/dojo/scripts/**` ni de `apps/dojo/src/**`.
+Éditions écrites en spécifications `F:/tmp/dojo/pr3a1c-corr/tools/edits/e1.txt` à `e4.txt`, appliquées par `tools/apply.mjs` (ancre
+exigée une seule fois) ; essai à blanc sur le worktree (rien écrit) puis prototype sur le clone `verts` (hors worktree) : 19/19 verts,
+21:57:52Z → 21:58:04Z (`logs/proto-run1.tap` `80a4ea8c…c864`).
+
+| Constat | Édition (lignes du gel) | + / − | Compte |
+|---|---|---|---|
+| C-G2-2 | T-7 l.111 : requête de la CLI en JSON canonique, `canonical(req)` (importé l.17) | +1 / −1 | 2 |
+| C-G2-4 | T-7, après l.108 : un refus D-C2 lu avec son détail `read_rule` | +2 | 2 |
+| C-G2-4 | T-2 l.530-532 : espion de stderr autour de la reprise ; `published_at` et stderr dans l'assertion | +8 / −3 | 11 |
+| C-G2-3 | test neuf après T-3 : ligne vide, tueur `:265`, déclaration, 15 lignes de corps, fermeture | +19 | 19 |
+
+- **Total prévu : 30 insertions, 4 suppressions = 34** ; fichier 569 → 595 lignes (essai à blanc) ; R-25 attendu 254 + 34 = 288 ≤ 1 150,
+  solde attendu 862 ≥ 10.
+- Barres inverses : +1 au test (55 → 56), l'échappement du saut de ligne dans l'attendu stderr de T-2 (même nature que les deux du G1).
+
+### Prédictions (écrites avant toute course officielle)
+
+- **Tests** : 19 sur les deux fichiers du lot (18 du gel 1 plus le test neuf), tous verts.
+- **F2P** (`red-proof`, `--draw 3 --seed 2026`) : 14 jugés (les 13 du G1 plus le test neuf), 5 inchangés ; 5 F2P (T-7, T-8, T-1, T-2 et le
+  test neuf : la base rend `nothing_to_publish` à la reprise) ; les neuf épingles de Q-G1-8 refusées « vert à la base » ; sortie 1.
+- **Mutants, table du G2 `--only` les cinq** : G2C-RRJSON et G2C-RRDETAIL tués par T-7, G2C-PUBAT et G2C-STDERR par T-2, morts strictes.
+  **G2C-FIRSTSNAP : « survit » au premier passage**, car son rang nomme T-2 (`test: T2`) et l'outil ne lance d'abord que ce test (motif de
+  nom), que ce mutant ne distingue pas (aucun ré-ancrage avant la version due de T-2) ; le rejeu des deux fichiers entiers le tue par le
+  test neuf ; statut du rang « survit », sortie 1. Le tueur `:265` du test neuf porte la même mutation (ligne 265 mutée identique à l'octet) :
+  la campagne `--killers` le tue par le test neuf ; une campagne complémentaire sur une table dérivée (seul le champ `test` de ce rang
+  remplacé, table du G2 importée, jamais recopiée) en donne la mort stricte. Question formée : Q-C-1 (fin de section).
+
+### Corrections faites (21:59:32Z), puis correction → ligne → test → mutant
+
+- Chemins courts : `tools/…`, `logs/…`, `f2p/…`, `mutants/…` sont relatifs à `F:/tmp/dojo/pr3a1c-corr/`.
+- `tools/apply.mjs` (`f19d3756…bcd2`) `--write` avec `tools/edits/e1.txt` à `e4.txt` (`5defbbeb…3789`, `15bbfeb5…1372`, `67d4042e…245d`,
+  `58a0f5c1…37ce`) : `apps/dojo/test/dojo-publish.test.ts` `d3f46e61…68d3` → `2ba9d543f4e1877ff7469e012510f8f8d287eb718db0853243be87f94bfd8007`
+  (569 → 595 lignes), égal à l'octet au prototype de `verts` ; `git diff --numstat HEAD` (`--no-optional-locks`) : test `30 4` (= compte
+  prévu), ce journal ajout pur (ses 477 premières lignes gardent `265b90ed…97f0`) ; module `2350af49…4030` inchangé. Garde d'octets du test :
+  0 TAB, 0 CR, 0 contrôle, aucune ligne au-delà de 160, fin LF ; barres inverses 55 → 56 (celle prévue).
+- T-C3 = `dojo_publish_completes_a_price_version_due_after_a_re_anchor` (étiquette de ce journal ; « T-10 » désigne déjà un test de la mère).
+
+| Constat | Lignes (fichier corrigé) | Test | Mutants tués (campagnes A, B, C ci-dessous) |
+|---|---|---|---|
+| C-G2-2 | l.113 `writeFileSync(q, canonical(req));` | T-7 (l.88) | G2C-RRJSON (A, C) |
+| C-G2-4 | l.109-110 : un refus D-C2 lu avec son détail `read_rule` | T-7 | G2C-RRDETAIL (A, C) |
+| C-G2-4 | l.532-539 : espion de stderr ; `published_at` et stderr dans l'assertion | T-2 (l.520) | G2C-PUBAT, G2C-STDERR (A, C) |
+| C-G2-3 | l.577-595 : test neuf, tueur l.578 (`dojo-publish.mjs:265`) | T-C3 (l.579) | G2C-FIRSTSNAP (rejeu de A ; C) ; K18 (B) |
+
+- **C-G2-2** : la requête que lit la CLI est écrite en JSON canonique (toutes les clés triées, celles de `read_rule` comprises), la forme des
+  outils du dépôt ; `canonical` vient de l'import l.17 (`apps/bell/scripts/bell-chain.mjs`), jamais une copie. Au gel, l'assertion `yes`
+  (l.118-119 : sortie 0, `anchored`) reste verte ; sous G2C-RRJSON elle voit `[1, undefined, undefined]`. La clé est chargée avant la
+  lecture de la requête (`key: load(KEY)` précède `readRequest` dans le littéral, module l.369) : `no` et `near` ne changent pas.
+- **C-G2-4, T-7** : un refus D-C2 (`read_offset_s` 901) lu avec son code ET son détail (`x.detail === "read_rule"`), placé avant le constat
+  « rien d'écrit » (`readdirSync(e)`), qui le couvre ; sous G2C-RRDETAIL, l'assertion l.109 rougit (message `C-G2-4: D-C2 names read_rule`).
+- **C-G2-4, T-2** : idiome du dépôt (`apps/bell/test/bell-keys.test.ts:196-198` : `process.stderr.write.bind(process.stderr)`, affectation
+  typée) ; restauration par `.finally` de la promesse, donc aussi sur rejet ; l'assertion de la reprise porte en plus `pv?.published_at`
+  (= `new Date(slot(A + 7)()).toISOString()`) et la liste des écritures sur stderr : une seule, `dojo/publish: completed_price_version` suivie
+  d'un saut de ligne. Sous G2C-PUBAT : `2026-09-20T00:30:00.000Z` au lieu de `2026-09-19T00:30:00.000Z` ; sous G2C-STDERR : `[]`.
+- **C-G2-3, T-C3** : P-H rejouée dans l'idiome du fichier : premier `snapshot` (A+1), ré-ancrage à A+2 sur une graine neuve
+  (`{ ...request(), ...second }`, comme T-3), sept jours valides A+3 à A+9 sur la seconde chaîne, arrêt synthétique au second ajout de A+9
+  (sa `price_version`), reprise `completed` seq 12, fenêtre A+3 (2026-09-14), effet A+10 (2026-09-21), arbre vert sous trousseau fourni ;
+  puis A+10 publié, son `snapshot` nomme la version 1, arbre vert. Sous la mutation de la l.265 (`L.findLastIndex(` → `L.findIndex(`) :
+  reprise `nothing_to_publish`, dernière ligne `snapshot` (même effet que P-H sous G2C-FIRSTSNAP au G2).
+
+### Mesures (tâches 3 à 6)
+
+Clone `verts` (`git clone --no-local` du worktree, détaché à `1720a95a`, arbre `5f0f5a1b`) portant le test corrigé et ce journal à son état
+de 21:59:31Z (`729ac919…df2b1`), copiés à sha256 égal ; `node_modules` par `mk-nm.ps1` (220 entrées, 11 `@monark` vers le clone). Garde
+d'hôte `tools/gate.mjs` (`8ff737f7…c868` ; testée : racine libre 0, racine tenue 3) et C-V-4 `tools/cv4.ps1` (`4c2a8afa…5ccf`,
+`Get-CimInstance`) relus libres et verts avant CHAQUE lancement ci-dessous ; TEMP, TMP, TMPDIR = `F:/tmp/dojo/pr3a1c-corr/tmp`.
+
+- **Tests** : les deux fichiers du lot, seuls consommateurs de l'éditeur (liste du rapport G2, §3.7, recontrôlée par `git grep` dans `verts` :
+  `dojo-verify.test.ts:691` ne le cite qu'en commentaire) : **19/19 verts**, 22:00:08Z (`tools/run-tests.mjs` `4b53d662…1765` ;
+  `logs/verts-lot.tap` `85687dcf…5fb8`). T-8 est désormais l.196-215 (l.194-213 au gel 1 ; renvoi de DOJO-VERIFY-MERE-REFS-1).
+- **Portes statiques** (`tools/static-gates.mjs` `0d72cda9…e385`, commandes node des scripts, jamais `npm`), 22:00:36Z → 22:01:23Z :
+  `typecheck` 0 et `lint` (`eslint .`) 0, journaux vides ; `lint:ratchet` 69/69 (`bf35ba72…cfd8`) ; `lang:gate` OK (`b7247d5b…270f`) ;
+  `export:check` OK (`08affca0…9f3f`) : 5/5 à 0 ; ces trois journaux ont les sha256 complets de ceux du G1 (recalculés à 22:16:25Z :
+  `F:/tmp/dojo/pr3a1c/reprise/gate-ratchet.log`, `gate-lang.log`, `gate-export.log` ; `logs/static-vs-g1.txt`).
+- **F2P** : `node F:/Monark/scripts/red-proof.mjs --base ea70a43b --gel F:/Monark-wt-dojo-pr3a1c --repo F:/tmp/dojo/pr3a1c-corr/base`
+  `--out F:/tmp/dojo/pr3a1c-corr/f2p --draw 3 --seed 2026` (clone `base` `--no-local` détaché à `ea70a43b`, jonctions par `mk-nm.ps1`),
+  22:01:49Z → 22:02:32Z, sortie 1 (prédite). **`f2p/RED-PROOF.json` sha256 `bf89ed42d4100932ee3b3c25dfda5dcd26ffe98974b8075e893b46bdde278c8d`**
+  (condensé du gel `05dd1e94…b861`) : 14 jugés, 5 inchangés ; **5 F2P**, rouges à la base par `ERR_ASSERTION`, verts au gel : T-7, T-8, T-1,
+  T-2 et **T-C3** (à la base, l'assertion de la reprise, l.591, voit `nothing_to_publish` et une dernière ligne `snapshot` : l'arrêt au second
+  ajout a eu lieu, la base ne complète pas) ; les neuf épingles de Q-G1-8 refusées « vert à la base » ; T-2 et T-7 gardent leur cause du G1
+  (« Missing expected exception: price_version_pending » ; `anchor_malformed`) ; tirage graine 2026, population 5 : `:238` (T-1), `:163`
+  (T-7), `:197` (T-2) tués, fichier restauré ; `:265` non tiré (tué par la campagne B).
+- **Mutants** : outil du tronc `F:/Monark/scripts/mutants/run.mjs` (`2606e7da…3b19`, arbre d'outil `19227ec0`, `tool_dirty` nul), `--repo` =
+  `verts` (gel `1720a95a`, `dirty` `110aab2a…3fcb`), `--base ea70a43b`, `--file apps/dojo/scripts/dojo-publish.mjs`, `--targets` les deux
+  fichiers du lot, `--lock-root F:/tmp`, `--min-free-mb 4096` ; `<out>/node_modules` par `tools/mk-out-nm.mjs` (`261b5233…39b3`, calque de
+  celui du G2 : 218 jonctions, 1 fichier, 11 `@monark` vers `<out>/clone`, jamais vers `F:/Monark`) ; au moins 31 197 Mo virtuels libres à
+  chaque lancement ; aucune autre course ni oracle pendant ; chaque `RESULTS.txt` relu avant la campagne suivante ; dans chaque
+  `<out>/clone`, test corrigé (`2ba9d543…`) et module (`2350af49…`) relus après la campagne.
+  - **A, littérale (commande de la mission)** : `--table F:/tmp/dojo/g2-pr3a1c/mutants-g2-table.mjs` (`910a6643…3e6c`) `--only G2C-RRJSON,`
+    `G2C-FIRSTSNAP,G2C-PUBAT,G2C-STDERR,G2C-RRDETAIL`, `--out mutants/g2-five`, 22:03:37Z → 22:04:18Z, ligne de base verte (19 tests).
+    **`mutants/g2-five/RESULTS.json` sha256 `25439316584877ecf78f310266ee29997aea55be87ea780bb186e208d67e62d4`** : **4 tués sur 5**, morts
+    strictes (G2C-PUBAT, G2C-STDERR par T-2 ; G2C-RRJSON, G2C-RRDETAIL par T-7) ; **G2C-FIRSTSNAP « survit » au premier passage** (T-2 seul,
+    que son rang nomme) ; **rejeu des deux fichiers entiers : tué par T-C3 seul** (1 rouge, 18 verts) ; sortie 1, comme prédit (Q-C-1).
+  - **B, `--killers`**, `--out mutants/killers`, 22:04:38Z → 22:05:49Z, ligne de base verte (59 tests, 6 fichiers : ceux du lot et les
+    importeurs de `layout.ts`). **`mutants/killers/RESULTS.json` sha256 `84ad5570cb54541869601bad958bf3a77dee37aa8823a9399ba89928e9fc91a6`** :
+    **19/19 tués, 19 morts strictes**, sortie 0 (K1 à K18 : les tueurs du test unitaire dans l'ordre du fichier ; K19 : celui de l'e2e) ;
+    **K18 = `:265`, tué par T-C3** ; sa ligne 265 mutée est identique à l'octet à celle de G2C-FIRSTSNAP (`s = L.findLastIndex(` devient
+    `s = L.findIndex(` dans les deux cas ; comparaison faite par programme).
+  - **C, complément (jamais substitut de A)** : table dérivée `F:/tmp/dojo/pr3a1c-corr/mutants-derived-table.mjs` (`578dc6fa…095e`), qui
+    IMPORTE la table du G2 et ne remplace que le champ `test` de G2C-FIRSTSNAP par T-C3 (mesuré : 17 rangs contre 17, un seul champ
+    différent) ; même `--only`, `--out mutants/g2-five-derived`, 22:06:19Z → 22:06:46Z. **`mutants/g2-five-derived/RESULTS.json` sha256
+    `dcca7b2c9f6eac6239a2aced54d4e1d61ed19badc064a32ca4c8f644b333825b`** : **5/5 tués, morts strictes**, sortie 0.
+- **R-25 (mesure préalable)** : `r25()` du tronc (`tools/r25-run.mjs` `90431b1f…9724`) sur `r25clone` (clone `--no-local`, test et journal
+  copiés à sha256 égal, commit de gel local `07ad1962`, parent `1720a95a`), 22:07:16Z : **215 insertions, 67 suppressions = 282**, `GREEN`
+  (porte CI 1 205 ; borne de coupe 1 150, **solde 868** ≥ 10) ; test unitaire 162/53. Écart au compte prévu (288) : les 3 lignes de T-2 que
+  e3 remplace étaient des insertions du G1 (T-2 est neuf dans le lot) ; contre la base, elles annulent 3 insertions au lieu de compter
+  3 suppressions : 34 − 6 = **28** (254 → 282). Compte officiel du tour : la porte `r25` de l'oracle, citée dans `REPONSE.md`.
+
+### Question à l'orchestrateur (fermée, recommandation jointe)
+
+- **Q-C-1 (critère « cinq tués » de la tâche 5)** : le rang G2C-FIRSTSNAP de la table du G2 nomme T-2 (`test: T2`) ; l'outil lance d'abord le
+  seul test nommé et ne rejoue les fichiers entiers qu'à titre d'information (le statut du rang est celui du premier passage) ; T-2 n'a aucun
+  ré-ancrage avant sa version due et ne distingue pas ce mutant. Avec l'option principale de la décision (test neuf portant le tueur `:265`,
+  sortie F2P exigée), « cinq tués » est donc inatteignable à la lettre avec cette table. Options : (a) admettre la preuve de B (K18, même
+  ligne mutée, mort stricte par T-C3) et de C (5/5 stricts) avec le rejeu de A ; (b) amender la table du G2 (champ `test` du rang : T-C3),
+  la G7 rejouant la table amendée ; (c) l'option « extension de T-2 » (le tueur `:265` ne se place plus sans empiler deux lignes
+  `// killer:` au-dessus de T-2, forme inédite relevée à Q-C-1 de PR-4c-1b). **Recommandation : (a) ; au rejeu de la G7, la table dérivée C
+  (sha256 cité) à côté de celle du G2.** `error_origin` proposé : relecteur G2 (critère du §7 écrit sans le champ `test` du rang) et
+  orchestrateur (critère recopié dans la mission).
+
+### MAST, `error_origin` (proposés, assignés au G7)
+
+- FM-3.2 (vérification absente) : fermée pour C-G2-2 à C-G2-4 (campagnes A à C, F2P) ; FM-3.3 (vérification incorrecte) : Q-C-1.
+- `error_origin` : Q-C-1 ci-dessus ; E-1 à E-3 et J-1 ci-dessous : ce correcteur.
+
+### Conduite, écarts, jonctions
+
+- Aucun `GIT_DIR`, aucun `GIT_WORK_TREE`, aucun `write-tree` ni `merge-tree --write-tree` ; aucun commit, add ni stash dans le worktree ni
+  dans `F:/Monark`, aucun workflow (R-20). Git dans le worktree en lecture seule (`--no-optional-locks`, `GIT_OPTIONAL_LOCKS=0` : `rev-parse`,
+  `status`, `diff`, `log`) ; l'index du worktree garde la date 21:40:26Z (l'instant du commit `1720a95a`) et le sha256 `d08e395a…b34a`
+  relevés à 22:09:28Z. Git écrivant seulement dans mes clones `--no-local` (`verts`, `base`, `r25clone` : clone, extraction détachée ;
+  commit de gel local dans `r25clone` seul) et dans ceux des outils. Aucun réseau, aucun outil de recherche distant ; rien sur C: ;
+  `F:/Monark` jamais écrit.
+- Écritures dans le worktree : le test (par `tools/apply.mjs`) et ce journal (ajouts par `cat >>` de morceaux passés à la garde d'octets).
+  Fichiers créés (outils, spécifications, table dérivée, morceaux de journal) : 0 barre inverse, 0 ligne au-delà de 160 à leur état final.
+- **E-1** : `tools/gate.mjs` (l.19, 163 caractères) et `tools/cv4.ps1` (l.9, 177) ont été exécutés une fois dans la commande même où la
+  garde les signalait (21:55:08Z) ; repliés au même chemin, garde propre, re-testés (racine libre : 0 ; racine tenue : 3).
+- **E-2** : ce repli (21:55Z), puis l'élargissement du motif de `tools/hash-audit.mjs` (entre 22:09:28Z et 22:16:19Z), sont passés par
+  des commandes `node -e` portant des guillemets ou des `$` échappés par barre inverse (hors heredoc, aucun chemin ; les fichiers résultants en ont 0).
+- **J-1** : deux empreintes abrégées de mes brouillons étaient fausses (celles de `logs/static-export-check.log` et de
+  `tools/mk-out-nm.mjs` ; les fichiers désignés étaient les bons), vues par `tools/hash-audit.mjs` AVANT tout ajout au journal, corrigées ;
+  audit final : chaque abrégé et chaque empreinte complète de cette section égale à une seule empreinte recalculée.
+- **E-3** : `logs/nm-after.txt` est tronqué (9 lignes sur 12) par mon tube `tee | head -1`, qui a coupé `tee` ; relevé refait sans tube
+  (`logs/nm-after-2.txt`), égal à `logs/nm-before.txt` ; la trace tronquée est gardée.
+- **Jonctions** : retirées de 22:09:09Z à 22:09:11Z par `tools/rm-nm-junctions.ps1` (`e4ec3790…b748`) : chaque jonction par
+  `[System.IO.Directory]::Delete`, jamais récursif (outil testé d'abord sur une fixture : cibles intactes) ; 5 × 229 jonctions (`verts`,
+  `base`, trois dossiers de mutants) ; balayage de `F:/tmp/dojo/pr3a1c-corr` : 1 145 liens avant, **0 après** (`tools/reparse-scan.mjs`) ;
+  `F:/Monark/node_modules` : 220 entrées et 11 liens `@monark` identiques avant (21:57:39Z) et après (22:09:20Z).
+- **Sorties hors de la liste « À créer »** (MISSION-LINT-OUTPUTS-1), toutes sous `F:/tmp/dojo/pr3a1c-corr/` : `tools/` (mes outils et les
+  spécifications `tools/edits/`), `logs/` (TAP, journaux des portes, relevés), `journal/` (morceaux de ce journal avant ajout), `gatetest/`
+  et `rmtest/` (fixtures des essais de la garde d'hôte et du retrait des jonctions), `mutants-derived-table.mjs` (table de la campagne C) ;
+  sous `mutants/`, les dossiers `g2-five`, `killers`, `g2-five-derived` ; clones `verts`, `base`, `r25clone` et, après cette clôture,
+  `treeclone` (prédiction de l'objet d'arbre de l'oracle). Hors du dossier : l'enregistrement et les journaux de l'oracle sous
+  `F:/tmp/oracle-results/` (outil du tronc).
+- **Advisor intégré** : consultation 1 (entre 21:49:23Z et 21:54:23Z, après l'orientation, avant toute écriture) : option « test neuf »
+  confirmée ; campagne A rendue telle quelle, campagnes B et C, Q-C-1 ; compte prévu avant l'édition ; idiome de l'espion ; barre inverse
+  déclarée et jamais portée par un heredoc ; jonctions par `[System.IO.Directory]::Delete` ; oracle sous `GIT_OPTIONAL_LOCKS=0`.
+  Consultation 2 (brouillons écrits, avant 22:16:19Z) : rien ne bloque la clôture ; précisions suivies : égalité des journaux de portes
+  avec ceux du G1 mesurée par empreintes complètes, puce des sorties hors liste, garde d'octets et audit d'empreintes sur le journal
+  entier, `gate:vocab` et `lint-model-pinning` rejoués sur le journal final, objet d'arbre prédit avant l'oracle. Conseil, jamais
+  verdict ; chaque point vérifié sur pièce. La consultation de fin est rapportée dans `REPONSE.md`.
+- **Erratum (correcteur, même section)** : deux heures du début de cette section sont des estimations, non lues à l'horloge :
+  « Worktree à l'ouverture (21:42Z) » et « sha256 recalculés entre 21:43Z et 21:49Z » ; les deux `date -u` qui encadrent ces relevés
+  donnent 21:41:55Z et 21:49:08Z. Les lignes ne sont pas réécrites ; celle-ci fait foi.
+- **Journal CLOS ici**, avant le lancement de l'oracle (`node F:/Monark/scripts/oracle/run.mjs --role corr --tree F:/Monark-wt-dojo-pr3a1c`
+  `--base ea70a43b --key PR-3a-1c`, sous `GIT_OPTIONAL_LOCKS=0`) ; il n'est plus touché ensuite. Enregistrement, R-25 officiel (porte `r25`),
+  objet d'arbre et empreintes des livrables : `F:/tmp/dojo/pr3a1c-corr-deliver/REPONSE.md` et `DELIVERED.sha256`.
