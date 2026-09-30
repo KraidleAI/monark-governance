@@ -30,6 +30,7 @@ const ranks = (n: number): number[] => Array.from({ length: n }, (_, i) => i + 1
 // [TB Alg. 3.6, Thm 3.2] Grid n = 1..200, alpha = k/100, k = 1..99. under_calib iff exact rank > n; the
 // code rank equals the exact rank, except on cells where (n+1)(100-k) is divisible by 100, where the
 // float product may round up by one step (conservative, signal P10): there the rank is exact or exact + 1.
+// Equality holds on every cell for alpha in {0.01, 0.02, 0.05, 0.1, 0.2, 0.25, 0.5} (M-1, G0 section 5).
 // killer: packages/hikae/src/l1-split.ts:37 CONST "(n + 1)" -> "(n + 0)"
 test("oracle_split_rank_matches_exact_rational_rank", () => {
   for (let n = 1; n <= 200; n++) {
@@ -43,7 +44,8 @@ test("oracle_split_rank_matches_exact_rational_rank", () => {
         continue;
       }
       assert.ok("qhat" in r, `${cell}: a qhat is produced`);
-      if (((n + 1) * (100 - k)) % 100 === 0) {
+      const strict = [1, 2, 5, 10, 20, 25, 50].includes(k);
+      if (!strict && ((n + 1) * (100 - k)) % 100 === 0) {
         assert.ok(r.qhat === exact || r.qhat === exact + 1, `${cell}: divisible cell, code rank ${r.qhat}`);
       } else {
         assert.equal(r.qhat, exact, `${cell}: code rank`);
