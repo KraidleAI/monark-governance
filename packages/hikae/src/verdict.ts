@@ -6,10 +6,11 @@
  * guard against forbidden keys). No timestamp read here: `produced_at` is INJECTED
  * (hash stability).
  *
- * `abstain` semantics (DECLARED): `abstain = 1{|C| > tau}` in the gate sense (Grok doc 11
+ * `abstain` semantics (DECLARED): `abstain = 1{|C| > tau or |C| = 0}` in the gate sense (Grok doc 11
  * §4 step 3) — a DEFER carries a verdict `{ abstain: true }`, which makes the
  * "abstention (tau=1)" column of the S2 journal recalculable without trusting HIKAE. `verdict.reason`
- * reflects the coverage LEVEL (`covered` / `set_too_large` / `under_calib`); the GATE reason
+ * reflects the coverage LEVEL (`covered` / `set_too_large` / `under_calib`, and `intent_not_in_region` for an
+ * empty set on the BYO set path, ADR-M005 D5 K-4(d) amendment 2026-09-30, D8); the GATE reason
  * (timeout / budget / clock) lives on `GateDecision.reason` (the sole gate-level truth).
  *
  * Under-calibration (D5): EMPTY `set` region (labels `[]`), `abstain=true`, `qhat=null`

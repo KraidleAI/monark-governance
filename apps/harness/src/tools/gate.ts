@@ -375,7 +375,7 @@ function validateCalibration(cal: ByoCalibration): void {
  * Order mirrors `validateCalibration` then the committed dispatch — validate, then check `yhat` TYPE for the
  * mode (wrong type ⇒ tool error BEFORE any computation), then `splitQuantile` (under-calibration ⇒ fail-closed
  * `underCalibVerdict`), then the region. `abstain`/`reason` conventions mirror the committed paths (set:
- * |C|>tau ⇒ set_too_large else covered, as in `btcDirVerdict`; interval: abstain:false/covered, as in
+ * |C|>tau => set_too_large else covered, as in `btcDirVerdict`, but |C|=0 => intent_not_in_region (P3, D8); interval: abstain:false/covered, as in
  * `conformInterval`; the L3 gate decides DEFER/ABSTAIN on the width). Every error is `HarnessToolError`
  * (⇒ 400), never a 500. (Line-number cross-refs refreshed for F2-B — the "next touch" M011 promised.)
  */
@@ -452,7 +452,10 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
   }
   const derivedSchema = labelSchema ?? candidates.map((c) => c.label).join("|");
   const labels = conformalSet(new Map(candidates.map((c) => [c.label, c.score] as const)), qhat);
-  const abstain = labels.length > params.tau;
+  // P3 (ADR-M005 D5 K-4(d) amendment 2026-09-30, D8): an EMPTY set holds no intent, so the verdict abstains with
+  // intent_not_in_region (qhat stays the number, unlike under_calib); never covered. abstain = 1{|C| > tau or |C| = 0}.
+  const empty = labels.length === 0;
+  const abstain = empty || labels.length > params.tau;
   return buildVerdict({
     taskClass,
     method: "split",
@@ -461,7 +464,7 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
     region: buildSetRegion(labels, derivedSchema),
     qhat,
     abstain,
-    reason: abstain ? "set_too_large" : "covered",
+    reason: empty ? "intent_not_in_region" : abstain ? "set_too_large" : "covered",
     residual: [],
     producedAt: prediction.produced_at,
     schemaVersion: SCHEMA_VERSION,
