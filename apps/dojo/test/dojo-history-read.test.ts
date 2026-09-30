@@ -97,7 +97,7 @@ test("dojo_history_quorum_on_signatures_and_balances", () => {
   stops(() => checkBounds({ ...counts, noQuorum: Number.NaN }, bounds), "read_malformed");
   stops(() => checkBounds(counts, { noQuorum: 1, unordered: 0, failedMoving: 0 } as never), "read_malformed");
   assert.deepEqual(readdirSync(dir).filter((f) => f.endsWith(".json") && f !== "sources.json").sort(), Object.keys(SRC.fixtures).sort());
-  for (const [n, f] of Object.entries(SRC.fixtures)) assert.ok(n === "probe3-expect.json" ? f.member === null : /^[ab]$/.test(f.member ?? "") && new RegExp(`\.${f.member ?? ""}(-page)?\.json$`).test(n), n);
+  for (const [n, f] of Object.entries(SRC.fixtures)) assert.ok(n === "probe3-expect.json" ? f.member === null : /^[ab]$/.test(f.member ?? "") && new RegExp(`\\.${f.member ?? ""}(-page)?\\.json$`).test(n), n);
   // fixtures: decoded text equals the pinned sha256; the key of each reduced body equals the key recorded on the RAW body (FM-2.4)
   for (const [name, f] of Object.entries(SRC.fixtures)) assert.equal(createHash("sha256").update(text(name)).digest("hex"), f.sha256, name);
   for (const [n, raw] of [["sig0.b.json", SIG0B], ["sig0.a.json", SIG0A], ["c1.a.json", C1], ["c2.a.json", C2], ["c1.b.json", body("c1.b.json")],

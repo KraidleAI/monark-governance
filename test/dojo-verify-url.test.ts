@@ -16,7 +16,7 @@ import * as dv from "../apps/dojo/scripts/dojo-verify.mjs"; // C-V-1: the new ex
 import { ADDR, ANCHOR_DAY, dateOf, dojoFixture, dojoKeyringOf, removeTrees, render, writeTree } from "../apps/dojo/test/helpers/dojo-fixture.ts";
 
 type Ok = Extract<dv.DojoVerifyReport, { ok: true }>;
-const SCRIPT = join(import.meta.dirname, "..", "apps", "dojo", "scripts", "dojo-verify.mjs");
+const SCRIPT = join(import.meta.dirname, "..", "apps", "dojo", "scripts", "dojo-verify-cli.mjs"); // PR-1b-5b (ADR-DOJO-PR-1B-5 PLI-1)
 after(removeTrees);
 const sha = (b: Buffer): string => createHash("sha256").update(b).digest("hex");
 /** The verifier CLI under `env`, asynchronous: [exit code, stdout]. */
@@ -28,7 +28,7 @@ const cli = (env: NodeJS.ProcessEnv, ...args: string[]): Promise<[number | null,
 /** A success: exit 0 and exactly one line on stdout (D-3), asserted before its report is parsed. */
 async function success(env: NodeJS.ProcessEnv, ...args: string[]): Promise<Ok> {
   const [code, out] = await cli(env, ...args);
-  assert.deepEqual([code, out.indexOf("\n")], [0, out.length - 1], out);
+  assert.deepEqual([code, out.indexOf("\n"), out.length > 1], [0, out.length - 1, true], out); // C-G2-1 (G2 of PR-1b-5b): an empty stdout is no line
   return JSON.parse(out) as Ok;
 }
 /** A loopback server (127.0.0.1, port 0) of the tree that `get` names at each request; each path asked, in order. */
@@ -44,7 +44,7 @@ async function serve(get: () => ReadonlyMap<string, Buffer>): Promise<{ url: str
   return { url: `http://127.0.0.1:${String(port)}`, seen, close };
 }
 
-// killer: apps/dojo/scripts/dojo-verify.mjs:370 CONST "sha256(tl)" -> "sha256(text.trim())"
+// killer: apps/dojo/scripts/dojo-verify.mjs:349 CONST "sha256(tl)" -> "sha256(text.trim())"
 test("dojo_verify_url_cli_is_the_ca_contract", async () => {
   assert.ok(Array.isArray(dv.DOJO_VERIFY_REPORT_KEYS), "the closed keys of a report are exported (D-3)");
   assert.deepEqual(dv.DOJO_VERIFY_REPORT_KEYS, ["active_key_id", "beacon_bls_verified", "breaks", "day", "detail", "head", "history", "inclusion",
@@ -64,6 +64,8 @@ test("dojo_verify_url_cli_is_the_ca_contract", async () => {
     assert.deepEqual([r.head, r.day, r.history, r.timeline_sha256], [{ seq: 12, lines_sha256: h.lines_sha256, lines_count: h.lines_count,
       recomputed_root: rootOf(rows(lf)) }, h.day, { history_sha256: hi.history_sha256, history_lines_count: hi.history_lines_count,
       recomputed_root: rootOf(rows(hf)) }, sha(tl)], "c11: the head (its day at the first level, E-2), the history, the timeline's bytes");
+    const lib = await dv.verifyDojoServed({ source: dv.dirSource(writeTree(tree)), keyring: dojoKeyringOf([[f.key, 1]]) }); // PR-1b-5b (PLI-4)
+    assert.deepEqual(r, lib, "composition: the real CLI (dojo-verify-cli.mjs, --url) reports what the core reports on the same tree, detail null");
     const dr = rows(df), i = dr.findIndex((l) => l.includes(ADDR.A));
     const t = await success(clean, "--url", `${srv.url}/`, "--keyring", kr, "--day", dateOf(ANCHOR_DAY + 3), "--address", ADDR.A);
     assert.deepEqual([t.target, t.inclusion], [{ seq: 5, day: d.day, lines_sha256: d.lines_sha256, lines_count: d.lines_count, recomputed_root: rootOf(dr) },
@@ -85,5 +87,8 @@ test("dojo_verify_url_cli_is_the_ca_contract", async () => {
     const env = { ...clean, NODE_EXTRA_CA_CERTS: join(tmpdir(), "dojo-verify-absent.pem"), NODE_USE_SYSTEM_CA: "1", NODE_USE_ENV_PROXY: "1" };
     assert.equal((await success(env, "--url", srv.url, "--keyring", kr)).detail, "TLS environment: NODE_EXTRA_CA_CERTS, NODE_USE_SYSTEM_CA, NODE_USE_ENV_PROXY",
       "FAITS F-2, F-4, F-5: the variables named, never their values");
+    served = new Map([...tree].filter(([k]) => k !== "dojo/pubkey.json")); // ADR-DOJO-PR-1B-5 D-3 (b), V-2: a refusal under the TLS variables
+    assert.deepEqual(await cli(env, "--url", srv.url, "--keyring", kr), [1, `${canonical({ ok: false, reason: "http_status", seq: null, day: null,
+      detail: "dojo/pubkey.json" })}\n`], "V-2: a refusal keeps its own detail (the path), never the TLS note");
   } finally { await srv.close(); }
 });

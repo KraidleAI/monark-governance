@@ -60,6 +60,8 @@ after(() => {
 const fixtureRaw = (): string[] => readFileSync(FIXTURE, "utf8").replace(/\r\n/g, "\n").split("\n").filter((x) => x.trim());
 
 interface Run { status: number; stderr: string; timeline: string; dialled: string[]; last: TimelineLine; }
+/** Exact membership of a host or a URL in a list (an element test, never a substring test). */
+const has = (list: readonly string[], item: string): boolean => list.some((x) => x === item);
 /** The REAL run.ts on a state resumed at 2026-09-18 (2026-09-19 due). Hygiene: every CHAINSTACK_* and MONARK_SENTINEL_*
  *  key of the parent shell is dropped (keyless pool, no leg), then the case's exclusion value (or none) is set. */
 function runWith(exclude: string | undefined): Run {
@@ -84,7 +86,7 @@ test("sentinel_exclude_hosts_removes_pool_and_published - the excluded host leav
   assert.deepEqual(drawn.endpoints, pool.filter((u) => u !== POCKET), "Pocket leaves the pool; the Chainstack label stays");
   assert.deepEqual(drawn.published, pub.filter((u) => u !== POCKET), "and leaves the provenance; the Chainstack origin stays");
   const noLeg = excludeHosts("ETHEREUM-MAINNET.core.chainstack.com", pool, pub);
-  assert.ok(!noLeg.endpoints.includes(CHAINSTACK_LABEL) && !noLeg.published.includes(ORIGIN), "the label/origin pair leaves together (case-insensitive)");
+  assert.ok(!has(noLeg.endpoints, CHAINSTACK_LABEL) && !has(noLeg.published, ORIGIN), "the label/origin pair leaves together (case-insensitive)");
   for (const v of [undefined, ""]) assert.deepEqual(excludeHosts(v, pool, pub), { endpoints: pool, published: pub }, `${String(v)} => unchanged`);
   for (const bad of ["eth.api.pocket.netwrok", "eth.api.pocket.network,", "pocket.network", " "]) {
     assert.throws(() => excludeHosts(bad, pool, pub), /MONARK_SENTINEL_EXCLUDE_HOSTS: .* is not a host of the pool/, `${JSON.stringify(bad)} is refused`);
@@ -93,7 +95,7 @@ test("sentinel_exclude_hosts_removes_pool_and_published - the excluded host leav
   // (subprocess) absent: the quorum reads mevblocker + 1rpc (non-vacuity: the host excluded below IS used here).
   const base = runWith(undefined);
   assert.equal(base.status, 0, `absent: the day is written (${base.stderr})`);
-  assert.ok(base.dialled.includes("rpc.mevblocker.io"), "absent: mevblocker is dialled");
+  assert.ok(has(base.dialled, "rpc.mevblocker.io"), "absent: mevblocker is dialled");
   assert.deepEqual(base.last.endpoints, [...PUBLIC_ENDPOINTS], "absent: the 7 public endpoints are published");
   // Empty value = absent, byte for byte (the written timeline, provenance included).
   const empty = runWith("");
@@ -102,7 +104,7 @@ test("sentinel_exclude_hosts_removes_pool_and_published - the excluded host leav
   // Excluded (upper case, two items, spaces): never dialled, absent from the provenance, the facts unchanged.
   const ex = runWith(" RPC.MEVBLOCKER.IO , eth.drpc.org");
   assert.equal(ex.status, 0, `excluded: the day is written on 1rpc + Pocket (${ex.stderr})`);
-  assert.ok(ex.dialled.length > 0 && !ex.dialled.includes("rpc.mevblocker.io") && !ex.dialled.includes("eth.drpc.org"), "the excluded hosts are never dialled (pool)");
+  assert.ok(ex.dialled.length > 0 && !has(ex.dialled, "rpc.mevblocker.io") && !has(ex.dialled, "eth.drpc.org"), "the excluded hosts are never dialled (pool)");
   assert.deepEqual(ex.last.endpoints, PUBLIC_ENDPOINTS.filter((u) => u !== MEV && u !== DRPC), "the provenance lists the 5 endpoints actually usable");
   assert.equal(ex.last.line_hash, base.last.line_hash, "the hashed facts are unchanged (endpoints are provenance only)");
   // Unknown host: FATAL at start-up, exit 1, no RPC at all, nothing written.

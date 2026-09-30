@@ -18,10 +18,8 @@ export interface VerifyBounds { readonly MAX_BODY_BYTES: number; readonly MAX_LI
 export const VERIFY_BOUNDS: VerifyBounds;
 export interface Source { get(rel: string): Promise<Buffer> }
 export function dirSource(root: string, bounds?: VerifyBounds): Source;
-/** T-1 and T-2 on the raw string: https anywhere, http on 127.0.0.1 or [::1] only, no ? nor # (ADR-DOJO-PR-1B-4 D-1). */
-export function urlAllowed(u: unknown): boolean;
-/** A served base URL (D-1); `note` names the TLS variables of the environment, null without any (T-9 amended). */
-export function urlSource(base: string, bounds?: VerifyBounds): Source & { readonly note: string | null };
+/** A day YYYY-MM-DD of the calendar: the one rule of the day, read by the CLI for --day (ADR-DOJO-PR-1B-5 PLI-1). */
+export const dayOk: (s: unknown) => boolean;
 /** dojo-keyring-v1 -> the trust set of the walker and the validity windows [valid_from_seq, valid_to_seq]; null when malformed. */
 export function dojoTrustOf(keyring: unknown): { trust: Trust; windows: Map<string, [number, number]> } | null;
 export function checkInclusion(line: string, index: number, count: number, path: readonly string[], root: string): void;
@@ -38,4 +36,3 @@ export type DojoVerifyReport = { ok: true; reason: null; seq: number; day: strin
   | { ok: false; reason: string; seq: number | null; day: string | null; detail: string };
 export function verifyDojoServed(opts: { source: Source; keyring?: unknown; address?: string | null; day?: string | null;
   bounds?: VerifyBounds }): Promise<DojoVerifyReport>;
-export function runVerifyCli(argv: readonly string[]): Promise<number>;

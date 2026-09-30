@@ -52,7 +52,8 @@ const add = (html: string, s: string): string => html.replace("</main>", () => `
 const valuesOf = (f: DojoPageFigures): string[] => (f.state === "E0" ? [] : f.state === "EA" ? [f.day, ...(f.threshold_unit_token_days === undefined ? [] : [f.threshold_unit_token_days])] : [f.day, f.reads_done, f.k_reads, f.slot_min, f.slot_max,
   f.lines_count, f.root, f.score_total, f.validated_total, ...(f.state === "E2" ? [f.threshold_unit_token_days, f.holders_count, f.dust_threshold_tokens] : [])]);
 
-test("dojo_page_renders_served_figures_only — per state (E1, E2, EA, and EA under a unit version), the figures of the closed list read from the committed record, each once, no other number; the sentences of the state and none of another's; no rereading sentence", async () => {
+// killer: scripts/assert-fleet-html.mjs:675 CONST "T.rereadFirst, ...(counted" -> "...(counted"
+test("dojo_page_renders_served_figures_only — per state, each listed figure once, no other number; the state's sentences, the reread's first", async () => {
   const byState: Record<string, Shown> = {};
   for (const state of ["E1", "E2", "EA", "EAV"] as const) {
     const [e, figures, historyDay] = await withState(state, async (dir) => {
@@ -62,7 +63,7 @@ test("dojo_page_renders_served_figures_only — per state (E1, E2, EA, and EA un
     byState[state] = e;
     assert.equal(e.state, state.slice(0, 2));
     assert.deepEqual(e.figures.map((x) => x.value).sort(), valuesOf(figures).sort(), `${state}: the check composes the page's figures apart, equal on the fixture`);
-    assert.ok(e.sentences.every((s) => !/\bbrowser\b|\breread/i.test(s)), `${state}: no sentence promises a rereading the page does not do`);
+    assert.deepEqual(e.sentences.filter((s) => /browser|reread/i.test(s)), [copy.DOJO_TEXT.rereadFirst], `${state}: the reread's first sentence (TXT-14r)`);
     const page = pageOf(e), first = e.figures[0] ?? assert.fail("no figure");
     assert.doesNotThrow(() => assertDojoBody({ html: page, expected: e }), `${state}: a faithful page passes`);
     const red = (html: string, re: RegExp, why: string): void => assert.throws(() => assertDojoBody({ html, expected: e }), re, `${state}: ${why}`);
@@ -70,6 +71,7 @@ test("dojo_page_renders_served_figures_only — per state (E1, E2, EA, and EA un
     red(add(page, first.value), /occurs 2 time/, "a figure twice");
     red(page.replace(first.value, "x"), /is absent|occurs 0 time/, "a figure dropped");
     red(add(page, historyDay), /numeric token/, "a day of the history, without its text (M-P17)");
+    red(add(page, copy.DOJO_TEXT.rereadDone), /another state/, "an outcome of the reread on the built page (TXT-14a)");
     red(page.replace(copy.DOJO_TEXT.bounds, ""), /is absent/, "the bounds sentence dropped (M-P8)");
     red(page.replace(copy.DOJO_TEXT.check, ""), /is absent/, "the check sentence dropped");
     red(page.replace(`<span>${e.status}</span>`, `<span>${e.status === "built" ? "upcoming" : "built"}</span>`), /pill/, "a flipped pill");
@@ -93,10 +95,12 @@ test("dojo_page_renders_served_figures_only — per state (E1, E2, EA, and EA un
   for (const s of [copy.DOJO_TEXT.tier, copy.DOJO_TEXT.noVersion, copy.DOJO_TEXT.totals, copy.DOJO_TEXT.holder, copy.DOJO_TEXT.holders]) assert.throws(() => assertDojoBody({ html: add(pageOf(eav), s), expected: eav }), /another state/, `EA under a version: ${s.slice(0, 32)}`);
 });
 
+// killer: apps/site/lib/dojo-copy.ts:75 CONST "could not be reread" -> "could not be read"
 test("dojo_page_lexicon_is_closed — the closed list of texts is the approved one (its sha256, its three denials); no text of /dojo carries a forbidden word, 'thirty', 'independent', a name the site vocabulary bans or an operator's or the partner's name; the check refuses each on the page", async () => {
   const texts = [copy.DOJO_NAME, copy.DOJO_TITLE, ...Object.values(copy.DOJO_TEXT)];
-  assert.equal(texts.length, 17, "the name, the title and the fifteen sentences");
-  const TEXTS_SHA256 = "930d245b37c2123496ca43d270d999c68828d3d6e8f4d47e923bd3f89fd19e56"; // ADR-DOJO-PR-4 D-1, fold of the corrections after the G2 of PR-4b
+  assert.equal(texts.length, 22, "the name, the title and the twenty sentences");
+  // ADR-DOJO-PR-4, G0 fold of PR-4c-1 (TXT-14r, 14a, 14b-r, 14c, 14d added to the fifteen of PR-4b), pinned at the G1 of PR-4c-1b.
+  const TEXTS_SHA256 = "b8ffb789f79b1203be8359c1f0038924d50dadde007383980cd26c7a608778ad";
   assert.equal(createHash("sha256").update(canonical({ DOJO_TEXT: copy.DOJO_TEXT, DOJO_TITLE: copy.DOJO_TITLE, DOJO_TIER_NAMES: copy.DOJO_TIER_NAMES })).digest("hex"), TEXTS_SHA256, "the closed list of texts is the approved one, byte for byte");
   for (const [s, re] of [[copy.DOJO_TEXT.bounds, /What it does not show:/], [copy.DOJO_TEXT.check, /The check does not read the chain\./], [copy.DOJO_TEXT.beacon, /this page does not check that signature/]] as const) assert.match(s, re, "a denial of the approved wording");
   const vocab = JSON.parse(readFileSync(join(ROOT, "vocab-banned.json"), "utf8")) as { banned: { re: string }[]; scan: { site: { banned: { re: string }[] } } };
@@ -153,14 +157,17 @@ test("dojo_page_absent_before_data — no record: no /dojo page (none, or the no
   assert.equal(tokenSrc.split("DOJO_ROUTE").length - 1, 2, "one import and one link");
 });
 
+// killer: apps/site/components/dojo/dojo-live.tsx:43 CONST "<p>{view.note}</p>" -> "<p>{view.note} again</p>"
 test("dojo_copy_is_digit_free — the texts of /dojo and their module type no digit (the names SHA-256 and Ed25519 aside); the page and its figures component render no literal text", () => {
   const unnamed = (s: string): string => DOJO_NAMED_IDS.reduce((t, id) => t.split(id).join(" "), s);
   const strings = [copy.DOJO_ROUTE, copy.DOJO_NAME, copy.DOJO_TITLE, ...copy.DOJO_TIER_NAMES, ...Object.values(copy.DOJO_TEXT)];
   assert.deepEqual(Object.keys(copy).sort(), ["DOJO_NAME", "DOJO_ROUTE", "DOJO_TEXT", "DOJO_TIER_NAMES", "DOJO_TITLE"], "every export is scanned");
   for (const s of strings) assert.doesNotMatch(unnamed(s), /\d/, `a digit in ${JSON.stringify(s.slice(0, 48))} (M-P1)`);
-  assert.deepEqual([strings.filter((s) => s.includes("SHA-256")), strings.filter((s) => s.includes("Ed25519"))], [[copy.DOJO_TEXT.check], [copy.DOJO_TEXT.exclusion]]);
+  const t = copy.DOJO_TEXT, withId = (id: string): string[] => strings.filter((s) => s.includes(id));
+  const named = [[t.check, t.rereadDone], [t.exclusion, t.rereadFirst, t.rereadDone, t.rereadNoCheck]];
+  assert.deepEqual([withId("SHA-256"), withId("Ed25519")], named, "the two names, where the texts carry them");
   assert.doesNotMatch(unnamed(readFileSync(join(ROOT, "apps", "site", "lib", "dojo-copy.ts"), "utf8")), /\d/, "no digit in the module's source (M-P1)");
-  for (const rel of ["apps/site/app/dojo/page.tsx", "apps/site/components/dojo/dojo-figures.tsx"]) {
+  for (const rel of ["apps/site/app/dojo/page.tsx", "apps/site/components/dojo/dojo-figures.tsx", "apps/site/components/dojo/dojo-live.tsx"]) {
     const sf = ts.createSourceFile(rel, readFileSync(join(ROOT, ...rel.split("/")), "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     assert.deepEqual(renderedTexts(sf).map((r) => r.text.trim()).filter((t) => t !== ""), [], `${rel} renders a literal text of its own (M-P1, M-P3)`);
   }
