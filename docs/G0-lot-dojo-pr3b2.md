@@ -85,3 +85,25 @@ claude-opus-5-5
 ## Remise
 
 - ADR : `docs/adr/ADR-DOJO-PR-3.md`, 425 lignes. sha256 au premier ajout (07:37:40Z) : `fa745db62b48cdd1ffcb298279d3b4d72de4ee57e62f10098ee0bd4b35976d4d` (remplacé : corrections de la consultation n° 2). **sha256 final (07:44:15Z) : `a0f20225ec57ed3b98f6186a499c31cf0ddeb44a50426641acc7524c79fe2adc`** ; aucune édition de l'ADR après ce relevé.
+
+## Corrections post-cp-1 (2026-09-30, `date -u` 08:14:41Z à 08:23Z ; décisions 275 et 291 de l'orchestrateur)
+
+- Rapport `F:/tmp/dojo/cp1-pr3b2/CP1-report.md` (94 l.) : sha256 recalculé AVANT lecture (08:14:41Z), égal à celui de la consigne :
+- `52eb07048a36010ac5d20231ef168fe629f13b75d6cbaa679c1e6d15c9446f52`.
+- Lu en entier (§1 à §7, dont l'erratum E-1 à E-3). Worktree au HEAD `c2270504` (pli, puis PB-11 de l'orchestrateur), propre avant correction.
+- ADR avant correction : 432 l., sha256 `e2af9b515bf064bb8a9402384e529cf99593d37a1ffad5314c36eb1d0277516c` (= rapport cp-1 §1).
+- Faits revérifiés avant écriture : test 8 l.50-51 = littéral des 18 clés (tronc `257d9b05`) ; `ed8edfe9` = CHECKLIST-G7 l.8 ; décision 295 l.2149.
+- Corrections faites sur ordre de l'orchestrateur, après la clause « aucune édition » de la section « Remise », que ce passage supplante.
+- Lignes datées « 2026-09-30 08:17Z, cp-1 … » apposées à leurs cibles ; aucune ligne du pli réécrite ; PB-11 réécrite (C-V-6 (a)) ; PB-12 ajoutée.
+- C-V-1 : aucune ligne (PB-4 « Registre » dit déjà « cp-2 maintenu pour 2a et 2b », décision 295) ; C-V-2 : PB-1 « Repli », PB-11 (Q-B1).
+- C-V-3 : PB-1 « Repli » (solde), PB-8 É-B5 (unités), PB-7 (item R25-UNIT-LINE-PR1B5-1 et sa ligne), PB-11 (Q-B2).
+- C-V-4 : PB-2 (table fermée hors ligne et deux lignes), PB-5 (ligne datée CA-0) ; C-V-5 : PB-1 (ligne PR-3b-2b datée et deux lignes), PB-11.
+- C-V-6 : (a) PB-11 réécrite par ancres ; (b) PB-0 (D-B4) ; (c) PB-4 (deux lignes) ; Q-V-1 : PB-3 ; Q-V-2 : PB-2 (`c11`) ; Q-V-4 : PB-7.
+- PB-11 comparée au texte de l'orchestrateur : trois éléments rétablis (ADR-M003 D9 ; « ratifie l.241 et l.243 » ; « rédaction de la mission »).
+- PB-12 : ligne de trace ajoutée après l'avis intégré de fin de tour (puces d'origine de PB-11 lisibles au commit `c2270504`, vérifié).
+- Contrôles (08:27:35Z) : seules les l.428-432 du HEAD (anciennes puces de PB-11) disparaissent ; toute autre ligne du HEAD reste, dans l'ordre.
+- 63 lignes créées, toutes ≤ 160 caractères (max 158 ; la ligne `c11` hors ligne, retouchée à 163, raccourcie avant ce relevé).
+- 0 CR, 0 TAB, 0 contrôle, 0 barre inverse ; LF final ; ancres `| PR-3b-2a |` et `| PR-3b-2b |` uniques ; tables cohérentes.
+- Puce gelée l.84 : `3024482e…0f90` ; `head -n 304` : `b5a5a6f9…21bb` ; ADR après correction : 492 l.
+- **sha256 de l'ADR après correction : `55b2d763488b19ad6672f16fc5943d2ddd2136eef53d52ab58d76ed9e5d42529`** ; sha256 de ce journal : rendu hors du fichier.
+- Écritures : ADR et ce journal ; temporaires sous `F:/tmp/methode/pr3b2/` ; `git` en lecture seule ; aucun `GIT_DIR`, `GIT_WORK_TREE` ni `--write-tree`.
