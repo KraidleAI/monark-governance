@@ -66,6 +66,8 @@ test("binomial_cdf_exact_against_closed_forms", () => {
   assert.equal(binomCdfLeq(170, 0, dec("0.01"), dec("0.1811")), false, "liq s0 share above 0.1811");
   assert.equal(binomCdfLeq(5, -1, dec("0.1"), { num: 0n, den: 1n }), true, "k < 0: empty sum");
   assert.equal(binomCdfLeq(5, 5, dec("0.1"), dec("0.99")), false, "k >= n: the tail is 1");
+  assert.equal(binomCdfLeq(5, 7, dec("0.1"), dec("0.99")), false, "k > n: the tail is 1");
+  assert.equal(binomCdfLeq(5, 7, dec("0.1"), { num: 1n, den: 1n }), true, "k > n: the tail is 1, at most 1");
 });
 
 // [M-1] zero-error floors n0 = ceil(ln(delta) / ln(1 - alpha)); n0 meets the rule and n0 - 1 does not (checked here
@@ -194,7 +196,7 @@ test("binomial_upper_bound_monotone", () => {
 // test_delta at or above 0.25; "0.10" equals "0.1"; the public functions refuse the same strings.
 // killer: packages/hikae/src/binomial.ts:56 ROR ">=" -> ">"
 test("binomial_refuses_out_of_range_inputs", () => {
-  for (const bad of ["0", "1", "-0.1", "NaN", "1e-1", "0.1.0", "", "1.5", "0.", ".5", "0.0", " 0.1", "0.1 ", "+0.1", "0x1"]) {
+  for (const bad of ["0", "1", "-0.1", "NaN", "1e-1", "0.1.0", "", "1.5", "0.", ".5", "0.0", " 0.1", "0.1 ", "+0.1", "0x1", "0.1:", "0./1"]) {
     assert.throws(() => parseAlpha(bad), RangeError, `alpha "${bad}"`);
     assert.throws(() => parseTestDelta(bad), RangeError, `delta "${bad}"`);
   }
@@ -211,6 +213,9 @@ test("binomial_refuses_out_of_range_inputs", () => {
   assert.throws(() => missUpperBound(100, 4, "1e-1"), RangeError, "U refuses exponent form");
   assert.throws(() => missUpperBound(10, 10, "0.05"), RangeError, "U refuses kStar = n");
   assert.throws(() => riskControlMaxExceedances(1.5, "0.1", "0.05"), RangeError, "non-integer n");
+  assert.throws(() => binomCdfLeq(-1, 0, dec("0.1"), dec("0.05")), RangeError, "negative n");
+  assert.throws(() => binomCdfLeq(10, 0.5, dec("0.1"), dec("0.05")), RangeError, "non-integer k");
+  assert.throws(() => binomCdfLeq(10, 0, { num: 3n, den: 2n }, dec("0.05")), RangeError, "a above 1");
 });
 
 // [M-18] four-decimal rounding up of exact ratios: 61/614 -> 0.0994, 1/171 -> 0.0059, 49/614 -> 0.0799,
