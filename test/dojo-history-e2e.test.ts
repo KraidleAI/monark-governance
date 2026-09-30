@@ -54,7 +54,7 @@ function oracle(txs: readonly Tx[], last: number): string[] {
   return rows.map(([d, o, v]) => canonical({ address: o, class: ownerClass(o), day: dateOf(d), day_value: String(v) }));
 }
 
-// killer: apps/dojo/src/history-collect.ts:432 CONST "status: \"complete\", stop_reason: null" -> "status: \"partial\", stop_reason: null"
+// killer: apps/dojo/src/history-collect.ts:433 CONST "status: \"complete\", stop_reason: null" -> "status: \"partial\", stop_reason: null"
 test("dojo_history_collect_to_verify_end_to_end", async () => {
   Object.assign(sim, { txs: world(24, 2, 7, { gap: 40_000, mintless: [24], close: [10] }), reqs: [], tick: 0, drop: { a: new Set(), b: new Set() },
     pageDrop: new Set(), diverge: new Set(), override: null }); // days of blockTime, a transfer without the mint, a closed account
@@ -85,7 +85,8 @@ test("dojo_history_collect_to_verify_end_to_end", async () => {
   // Verification (section 3 step 4): an anchor and the history line signed by an ephemeral key; dojo-verify reads the served tree.
   const k = newKey(), seed = seedChain("dojo-e2e-anchor", 40);
   const steps: Step[] = [{ key: k, body: anchorBody(seed(0), 40, last) }, { key: k, body: historyBody(last) }]; // the anchor on the last history day
-  const lines = want.map((l) => JSON.parse(l) as Record<string, string>), tree = render(steps, new Map([[1, lines]])), rel = `history/${name}`;
+  const lines = readFileSync(join(pub, "history", name), "utf8").trimEnd().split("\n").map((l) => JSON.parse(l) as Record<string, string>); // publish/, Q-G2-3
+  const tree = render(steps, new Map([[1, lines]])), rel = `history/${name}`;
   assert.equal(tree.get(rel)?.toString("utf8"), bytes, "the served history file is the collector's, byte for byte");
   const kr = dojoKeyringOf([[k, 1]]), check = async (t: ReadonlyMap<string, Buffer>): Promise<string> => {
     const r = await verifyDojoServed({ source: dirSource(writeTree(t)), keyring: kr });

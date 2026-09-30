@@ -295,3 +295,185 @@ d'intégration), vérifiée par F2P (6 / 6), mutants (22 / 22 stricts) et oracle
 Réserves : les neuf questions Q-G1-1 à Q-G1-9 (choix à trancher, dont l'identité à l'octet hors lien d'évidence et la granularité de
 l'arrêt anticipé en phase B) ; trois items ré-routés avec motif (JOURNAL-TAIL-1, REASONS-FOLD-1, METHODS-HOME-1) ; cinq items
 proposés (§13) ; l'écart É-G1-1 (une course ciblée sous un verrou tenu par un cp-2).
+
+## 16. Corrections post-G2 (correcteur, 2026-09-30)
+
+- **Rôle** : correcteur post-G2, instance fraîche, modèle résolu `claude-opus-5-5` (R-1), effort max ; distinct du générateur G1 et du
+  relecteur G2. Mission `F:/tmp/dojo/mission-corr-pr2b4.md`, sha256 recalculé AVANT lecture
+  `e7c43633618aaddc47ad6985274c18bf95767abd3f997acbf33303203262fea5` = reçu `mission-corr-pr2b4.recu.json` (verdict vert, 12 codes à 0) ;
+  règles `F:/Monark/docs/methode/REGLES-MISSION.md` (`12d5f2df…0335`, 18 l.) lues en entier. Ouverture 05:49:30Z (`date -u`).
+- **Entrées lues en entier, dans l'ordre** : rapport G2 `F:/tmp/dojo/g2-pr2b4/G2-report.md` (`ad955bea…de1a`, 329 l.) ; mission G1
+  (`fbdb0c20…980b`) ; ce journal (`b11ebe57…a47f`, 297 l.) ; `ADR-DOJO-PR-2B.md` (`82c7ad18…f3e6`, 990 l., tronc = worktree) ;
+  `history-collect.ts` (`0b3eda0c…1820`), `history-read.ts` (`f9f1463e…8651`, `checkBounds` l.207-213), les deux fichiers de tests
+  (`5905bac2…3f3a`, `9077aec1…9da0`) et la chaîne simulée (`4a88317d…d39f`, hors des sorties déclarées : non modifiée).
+- **Arbre** : worktree au gel 1 `30ef4ac4`, `git status --short` vide et `git diff --stat 30ef4ac4` vide à l'ouverture.
+
+### 16.1 Compte ascendant prévu, AVANT tout code (06:07Z)
+
+Règle de coût (celle de `r25()`, `ins + del` hors `docs/**/*.md`) : ligne neuve = 1 ; ligne de la BASE modifiée = 2 ; ligne ajoutée par
+le lot (gel 1) modifiée = 0. Lignes de base relevées par `git diff -U0 5b92681c` : `history-collect.ts` l.289-291, l.315, l.316, l.320 ;
+test l.21 (import de `bundle.ts`). Les dix tests non jugés du fichier ne sont pas touchés (sinon jugés sans killer).
+
+| Fichier | Poste | Neuves | Base ×2 | Total |
+|---|---|---|---|---|
+| `history-collect.ts` | C-G2-1 : X = `Set` (l.292 lot), site `extra` (l.315 base), `ma.contested` (l.333 lot), `X.size` (l.346 lot) | 0 | 1 | 2 |
+| | C-G2-2 : l.158 (lot) sans `a.phase === "C" &&` | 0 | 0 | 0 |
+| | C-G2-3 : (a) une ligne neuve avant la ligne de lecture l.331, gardée à l'octet ; (b) `else X.add(s)` sur l.332 (lot) | 1 | 0 | 1 |
+| test collecteur | imports : `writeDayBundle` (l.21 base), `closeLayout`, aides de `dojo-fixture.ts` | 2 | 1 | 4 |
+| | G2-8 : écrivain local du premier jour lu à deux emplacements (écrivain de PR-2, C-29) ; x10 : min refusé, max accepté | 14 | 0 | 14 |
+| | T1 : corps lus en C = le seul transfert sans mint, chez a et chez b (G2-10) | 1 | 0 | 1 |
+| | T2 : A, B et C refusées, `status.json` intact (C-G2-2) ; second arrêt juste après le premier corps de C (G2-11) | 5 | 0 | 5 |
+| | T4 : X = 1 et hx lue chez a et chez b (C-G2-1) ; C relancée après une B au-delà d'une borne (G2-7) | 3 | 0 | 3 |
+| | test neuf (killer, P8 (b), C-G2-3 (a) et (b), G2-4) | 19 | 0 | 19 |
+| `dojo-history-e2e.test.ts` | arbre servi rendu depuis `publish/` (Q-G2-3) ; killer réaligné (ligne du lot) | 1 | 0 | 1 |
+| **Total prévu** | | | | **50** |
+
+- Borne : 471 + 50 = 521 ≤ 547 ; solde prévu 26 (≥ 10 : aucune scission, aucune compaction, C-V-6). STOP mesuré 1 150 non concerné.
+- Écart au chiffrage de la mission (≈ 10 lignes pour G2-7, G2-8, G2-10, G2-11) : la forme du G2 pour G2-8 (une ligne dans
+  `history-chain.ts`) sort des sorties déclarées ; l'écrivain local coûte ≈ 14 lignes (Q-C-1, §16.8).
+
+### 16.2 Tâche → ligne → test → mutant (lignes du fichier corrigé)
+
+| Tâche (décision) | `history-collect.ts` | Test | Mutants |
+|---|---|---|---|
+| C-G2-1 : X = signatures DISTINCTES (D-4 l.304) | l.292, l.315, l.334, l.347 | T4 (hx : X = 1, lue chez a et b) ; test neuf (P8 (b)) | N13, G2-2, CG-1, CG-1b |
+| C-G2-2 : A ou B relancée sur un historique complet refusée `phase_order` | l.158 | T2 (A, B, C refusées ; `status.json` intact) | N4, CG-2 |
+| C-G2-3 (a) : s ∈ F ∩ R_a comptée | l.331 (ligne neuve ; lecture l.332 gardée à l'octet) | test neuf, cas (a) (et F jamais lue) | CG-3a, G2-3 |
+| C-G2-3 (b) : s ∈ R ∩ F_a comptée | l.333 (`else X.add(s)`) | test neuf, cas (b) | killer du test neuf |
+| C-G2-4 / G2-7 : C n'ouvre aucune course après une B rejouée au-delà d'une borne | l.326 | T4 (`run.json.unlocked` = `{}`, 0 appel) | G2-7 |
+| C-G2-4 / G2-8 : S_CUT = max E_e | l.155 | x10 (jour lu à deux emplacements, `twoSlots`) | G2-8 |
+| C-G2-4 / G2-10 : NOUVEAUX = R_a ∖ (R ∪ F) | l.332 | T1 (corps de C = le seul transfert sans mint, chez a et b) | G2-10 |
+| C-G2-4 / G2-11 : un corps de C lu avant l'arrêt est servi à la reprise | l.213 | T2 (second arrêt juste après le premier corps de C) | G2-11 |
+| C-G2-4 / G2-4 : F ← F ∪ F_a | l.333 | test neuf, cas z (`failed_excluded` = échecs + 1) | G2-4 (CONST) |
+| Q-G2-3 : arbre servi rendu depuis `publish/` | e2e l.88-89 | T3 | killer de T3 (l.433) |
+
+- T1 = `dojo_history_per_account_pages_until_fixpoint`, T2 = `dojo_history_resume_from_last_complete_unit`, T4 =
+  `dojo_history_early_bounds_and_a_403_stop_the_course_at_once`, T3 = `dojo_history_collect_to_verify_end_to_end`, x10 =
+  `dojo_history_x10_guard_refuses_before_any_lock` ; test neuf = `dojo_history_x_counts_each_signature_once_and_every_index_disagreement`
+  (killer `history-collect.ts:333 CONST "else X.add(s)" -> "else void s"`).
+- C-G2-1 en détail : l.292 `const X = new Set(m.contested)` (remplace `xc`) ; l.315 `X.add(b.signature)` au site `extra` (ligne de base,
+  `extra` gardé pour `gtfa.extra`) ; l.334 `for (const s of ma.contested) X.add(s)` ; l.347 `contested: X.size`. En phase B, X a la même
+  taille qu'avant (contestées de la fusion du mint et signatures `extra`, disjointes) : aucun test de PR-2b-3 ne change de valeur.
+- Killers réalignés : seul celui de T3 bouge (l.432 → l.433, une ligne insérée à la l.331) ; les six autres visent des lignes
+  inchangées. Contrôle `F:/tmp/dojo/pr2b4-corr/check-killers.mjs` (logique de `killerProblem`) : 7 / 7 valides.
+- Mesure R-25 en lecture seule après le code (06:11Z, pathspecs de `ci.yml:82`) : 461 + 62 = **523** (prévu 521 ; +2 : écrivain
+  local 12 lignes, test neuf 20) ; solde 24.
+
+### 16.3 Courses ciblées, contrôles statiques, rouge au gel 1
+
+- Toutes les courses passent par `F:/tmp/dojo/pr2b4-corr/guard.mjs` (`held()` de `oracle/lock.mjs` sur `F:/tmp`, C-V-4 par
+  `Get-CimInstance`, mémoire virtuelle ≥ 8 192 Mo), relue à chaque lancement : verrou tenu par deux G1 d'un autre lot de 05:54Z à
+  06:18:53Z, aucune course pendant. Lanceurs `nt.mjs` et `rf.mjs` : noms `DENY` de `red-proof.mjs` retirés de l'environnement (13 noms,
+  valeurs jamais lues), TEMP `F:/tmp/dojo/pr2b4-corr/tmp`. Courses sur le clone `F:/tmp/dojo/pr2b4-corr/run` (`--no-local` du worktree
+  au gel 1, trois fichiers corrigés recopiés, sha256 égaux), jamais sur le worktree.
+- Les deux fichiers de tests (06:18:59Z → 06:19:46Z) : **16 / 16 verts**, 0 rouge (`logs/tests-1.log`, `2e9c425c…aae1`) ; le test
+  neuf et les six jugés compris. `tsc --noEmit` (746 fichiers, dont les trois du tour) : 0 ; ESLint sur les trois fichiers : 0 erreur,
+  0 avertissement ; `lint:ratchet` 69 / 69 (`logs/ratchet-1.log`, `bf35ba72…fd8`).
+- **Rouge au gel 1** (06:21Z) : le fichier de tests corrigé contre le `history-collect.ts` du gel 1 (`0b3eda0c…1820`, clone
+  `probe-gel1`) : 12 verts, **3 rouges par `ERR_ASSERTION`**, exactement les trois visés (`logs/gel1-red.log`, `b641f321…c88c`) :
+  T2 (A et B acceptées sur l'historique complet, `status.json` réécrit `partial` : C-G2-2) ; T4 (X = 2 : C-G2-1) ; test neuf, cas (a)
+  (X = 0 et `complete` : C-G2-3). Les assertions de C-G2-4 y sont vertes : trous de test, prouvés par mutants (§16.5).
+
+### 16.4 F2P (06:22:35Z → 06:23:50Z)
+
+- Commande de la mission : `node F:/Monark/scripts/red-proof.mjs --base 5b92681c --gel F:/Monark-wt-dojo-pr2b4 --repo
+  F:/tmp/dojo/pr2b4-corr/base --out F:/tmp/dojo/pr2b4-corr/f2p --draw 3 --seed 2026` ; `--repo` = clone `--no-local` de `F:/Monark`
+  détaché à `5b92681c` (ancêtre du tronc vérifié), `node_modules` = UNE jonction vers `F:/Monark/node_modules`.
+- `F:/tmp/dojo/pr2b4-corr/f2p/RED-PROOF.json`, sha256 `dd4cbc96fac1a7b733f46c64ab34b0977d1660e44db4ba56b9f85f5438cf989a`, `ok: true` ;
+  gel `worktree`, tête `30ef4ac4`, empreinte des changements `3ff68243…3274` ; **7 jugés, 7 F2P** (rouges à la base par assertion, verts
+  au gel), 9 inchangés. Killers tirés (graine 2026, population 7) : l.238 (T4), l.213 (T2), l.333 (test neuf) : **3 tués**
+  (`assert-fail`), fichier restauré (`11a45354…e7a0` avant et après).
+
+### 16.5 Mutants, par l'outil du tronc (`2606e7da…3b19`)
+
+- Commande commune : `--repo F:/tmp/dojo/pr2b4-corr/run --base 5b92681c --file apps/dojo/src/history-collect.ts --targets
+  apps/dojo/test/dojo-history-collect.test.ts,test/dojo-history-e2e.test.ts --lock-root F:/tmp --min-free-mb 4096` ; `<out>/node_modules`
+  = jonction vers `run/node_modules` ; garde passée avant chaque campagne, aucune course pendant ; ancres vérifiées avant lancement
+  (`check-anchors.mjs` : 33 / 33). Base verte (16 tests) aux deux campagnes ; module initial `11a45354…e7a0`.
+- **Campagne 1** (06:24:19Z → 06:26:23Z) : table du G1 ré-ancrée `F:/tmp/dojo/pr2b4-corr/mutants-g1-corr.mjs` (`551aa29a…debc` ; N13
+  réécrit : `for (const s of ma.contested) X.add(s);` retiré) plus `--killers` (7). `mutants-g1/RESULTS.json`
+  **`6dc0c013a2486d99ea2d47b82ea6d52bc7383f59e6abb3ce27cb09e38f3f5c35`** : **23 / 23 tués, tous stricts**, restaurés ; sortie 0.
+- **Campagne 2** (06:26:32Z → 06:29:19Z) : les treize du G2 ré-ancrés plus CG-1, CG-1b, CG-2, CG-3a
+  (`mutants-g2-corr.mjs`, `5a7ecf72…fa93` ; G2-4 passé de SDL à CONST sur `F.add(s)`, sa ligne portant aussi C-G2-3 (b)).
+  `mutants-g2/RESULTS.json` **`f43e388553a129730b6a62c984b2f1c8083ed1e039e6169818284f156449ee8e`** : **16 / 17 tués, tous stricts** ;
+  sortie 1 pour le seul survivant **G2-9** (ordre des comptes de C), rejoué sur les deux fichiers entiers : disposition déclarée par
+  renvoi à Q-G2-1 (ordre déclaré libre : acte du G7, hors de ma charge), aucune assertion d'ordre ajoutée.
+- **G2-2 (M-Y8 en phase C), mesure demandée** : tué par l'assertion neuve de T4 (« the contested signature is read at a and at b »,
+  `mutants-g2/tap/G2-2.tap`) : le décompte X = 1 ne le distinguait plus, comme le G2 l'avait prévu.
+- G2-3, G2-4, G2-7, G2-8, G2-10, G2-11 (six des sept survivants du G2) sont tués ; `tool_tree` diffère entre les deux campagnes
+  (`7ca7bac0`, `2ba5df8e` : le tronc a avancé entre elles), `tool_sha256` est le même.
+
+### 16.6 Oracle et R-25
+
+- Commande : `node F:/Monark/scripts/oracle/run.mjs --role corr --tree F:/Monark-wt-dojo-pr2b4 --base 5b92681c --key PR-2b-4`, lancée en
+  arrière-plan à 06:30:38Z (garde passée), jamais interrompue ; verrou pris à 06:31:50Z ; aucune course de ma part pendant sa suite.
+- Enregistrement `F:/tmp/oracle-results/30ef4ac49bcb5e5f8abb33af890d7e86e0b8007a-fae2aeea64cb4358-corr-20260930T063038Z-110324.json`,
+  sha256 **`c800cd2bc7d4146b6214fae09962e6c71e026f195c1f8e3e80cfad5728d3ac60`** (recalculé égal à la ligne `oracle-result`) ; `exit` 0,
+  `static_only` false, `served_from` nul (arbre modifié : rejoué, M-9) ; arbre `dirty` `fae2aeea…710a`, objet `6d98b1e3…6041` ; fin 06:40:17Z.
+- Portes 9 / 9 à 0 (épinglage, `r25`, `lang:gate`, `export:check`, `gate:vocab`, typecheck, lint, `lint:ratchet`, test). Suite : **1 727
+  tests, 1 724 verts, 0 rouge, 3 sautés** (le G1 : 1 726 ; +1 = le test neuf) ; **test 42 vert dans la suite** (l.1897 de `09-test.log`,
+  sha256 `137ad4d2…c1ff`) ; les sept tests jugés verts (l.464, l.473-477, l.1879). C-V-4 de l'oracle : 16 725 Mo libres, 9 `node.exe`.
+- **R-25** par le calcul exporté `r25()` de `F:/Monark/scripts/oracle/r25.mjs`, dans la porte `r25` de l'oracle : `STAT` **461 + 62 =
+  523** (borne `VIBEGATES_PR_LIMIT` 1 205 ; STOP 1 150 non atteint) ; `CONTENT_STAT` 0 ; égal à la pré-mesure du §16.2. Borne de la
+  mission 547 : tenue, solde **24** (≥ 10, C-V-6). Rapport au compte prévu : 523 − 471 = 52 lignes pour 50 prévues.
+- Seul ce journal (`docs/*.md`, hors R-25, hors code) change depuis l'arbre de l'oracle (§16.6 à §16.9 écrits après son gel).
+
+### 16.7 MAST (risque résiduel après correction)
+
+- FM-1.1 (spécification non suivie) : X en signatures distinctes (D-4 l.304), mesuré 1 là où les incidences donnaient 2 ou 3 (T4, P8 (b),
+  rouge au gel 1). FM-1.5 (condition d'arrêt ignorée) : toute phase refusée sur un historique complet, statut intact (T2, CG-2).
+- FM-2.4 (rétention d'information) : les deux intersections du G2 sont comptées (C-G2-3) ; deux classes voisines restent silencieuses,
+  MESURÉES par sonde : Q-C-3 (item formé). FM-3.2 (vérification incomplète) : six des sept survivants du G2 tués ; G2-9 déclaré (Q-G2-1).
+- FM-3.3 (vérification incorrecte) : l'e2e sert à `dojo-verify` les octets lus dans `publish/` (Q-G2-3), plus ceux de l'oracle recodé ;
+  G2-2 est tué par une assertion de lecture, non plus par l'artefact des incidences.
+
+### 16.8 Questions formées (Q-C-n, options et recommandation) et items
+
+- **Q-C-1 (coût de G2-8)** : la forme du G2 (une ligne dans `history-chain.ts`) sortait des sorties déclarées de la mission ; le jour lu
+  à deux emplacements est écrit dans le fichier de tests par l'écrivain de PR-2 (`twoSlots`, 12 lignes, C-29 tenu). Options : (a) garder ;
+  (b) item **DOJO-HISTORY-FIRSTREAD-TWO-SLOTS-1** : `firstReadDay` reçoit un emplacement optionnel pour b (1 ligne) et `twoSlots` est
+  retiré (−12 lignes) ; déclencheur : premier lot qui touche `apps/dojo/test/helpers/history-chain.ts`. Recommandé : (b).
+- **Q-C-2 (dénominateur de X)** : X peut compter des signatures hors de R (C-G2-3 (a), F ∩ R_a ; une contestée d'un index de compte qui
+  est dans F), alors que `checkBounds` rapporte X à |R| (`history-read.ts` l.211) : plus strict, fail-closed. Options : (a) garder |R| et
+  le déclarer par ligne datée ; (b) rapporter X aux signatures distinctes comparées. Recommandé : (a).
+- **Q-C-3 (deux classes voisines silencieuses, MESURÉES)** : sonde hors livraison `F:/tmp/dojo/pr2b4-corr/run/apps/dojo/test/
+  zz-corr-probe.test.ts` (`e0e2e956…0150`), journal `logs/probe-qc3.log` (`e3167176…0963`, 06:41:08Z), sur le code corrigé : (i) une
+  signature de R que les index de ses deux comptes omettent chez les deux opérateurs (omission concordante) : `complete`, X = 0 ; (ii) une
+  signature de R listée par les index d'un compte qu'elle ne touche pas (a0 = `6tW6…`, vérifié) : `complete`, X = 0. Aucune perte de corps
+  (la signature vient de l'index du mint), mais un index de compte infidèle ne laisse aucune trace. Options : (a) les compter (X ou un
+  compteur borné `index_omissions`), ≈ 3 lignes et un test par `sim.override`, avec **DOJO-HISTORY-CROSS-INDEX-1** (même déclencheur :
+  avant le go de l'acte 2 ; Q-G2-4 : avant le go de l'acte 1 s'il touche le collecteur) ; (b) les déclarer hors du modèle de menace.
+  Recommandé : (a) (règle PAROXYSME).
+- **Q-C-4 (information, mesurée)** : cas z du test neuf : un transfert sans mint que les index de compte des deux opérateurs disent en
+  échec n'est jamais lu (F ← F ∪ F_a) ; la course s'arrête `enumeration_mismatch` par (ii) : fail-closed, aucun faux historique. Rien à
+  trancher.
+- **DOJO-HISTORY-CROSS-INDEX-1** garde pour objet la lecture des corps de F ∩ R_a (forme complète), déclencheur avant le go de l'acte 2
+  (décision de la mission) ; son inscription au registre est un acte du G7.
+- Hors de ma charge (actes du G7, mission) : Q-G2-1, Q-G2-2, Q-G2-4, lignes datées Q-G1-3 (D-3), EVIDENCE-LINK-1, B1R-MINT-CHECK-1,
+  EARLY-BOUNDS-B-1. Conséquence de Q-G2-4 constatée : ce tour touche `history-collect.ts`, épinglé par `collector_sha256`.
+
+### 16.9 Écarts, `error_origin`, provenance
+
+- **É-C-1** : R-25 mesuré 523 pour 521 prévus (+2) : écrivain local et test neuf chacun sous-estimés d'une ligne. Borne tenue.
+- **É-C-2** : premier lancement de `check-killers.mjs` refusé par Node (import par chemin `F:/…` au lieu d'une URL `file:///`) : erreur de
+  mon script, corrigée avant tout résultat ; aucun effet.
+- **É-C-3 (déclaré, hors sorties listées mais sous la racine déclarée)** : clone `probe-gel1` (rouge au gel 1) et sonde Q-C-3 dans le clone
+  `run`, tous deux sous `F:/tmp/dojo/pr2b4-corr/`, jamais livrés au dépôt.
+- **É-C-4 (nommage des sorties)** : la mission déclare `mutants/` ; deux campagnes exigent deux dossiers (un lancement par clone) :
+  `mutants-g1/` et `mutants-g2/`, plus `logs/` et les scripts (`guard.mjs`, `nt.mjs`, `rf.mjs`, `check-*.mjs`) sous la même racine. La
+  sonde Q-C-3 a été ajoutée au clone `run` APRÈS les deux campagnes : l'état actuel de `run` ne redonne plus leur `dirty` (`13dfea42…7596`,
+  mesuré à leur lancement et juste) ; un rejeu doit retirer ce fichier non suivi, ou partir d'un clone neuf.
+- `error_origin` proposés (au G7) : C-G2-1 : G0 (D-3 l.264 contre D-4 l.304 ; décision 291) ; C-G2-2 : G1 ; C-G2-3 : G0 (aucun
+  désaccord entre fusions défini par D-3, D-4) ; C-G2-4 et Q-G2-3 : G1 (tests) ; Q-C-1 : orchestrateur (sorties déclarées sans la chaîne
+  simulée, chiffrage repris de la forme du G2) ; Q-C-3 : G0 (même lacune que C-G2-3) ; É-C-1, É-C-2, É-C-4 : correcteur.
+- Git : lecture seule sur le worktree et sur `F:/Monark` (`status`, `diff`, `rev-parse`, `merge-base --is-ancestor`, `clone --no-local`
+  depuis eux) ; écritures seulement dans mes clones sous `F:/tmp/dojo/pr2b4-corr/` (clone, `checkout --detach`). **Aucun `GIT_DIR`,
+  aucun `GIT_WORK_TREE`, aucun `--write-tree`**, aucun commit, aucun workflow. Aucun réseau (chaîne simulée, pièges armés) ; aucune clé
+  réelle (noms `DENY` retirés de tout enfant) ; rien écrit sur C:. Fichiers du tour écrits par les outils d'édition (aucune séquence barre
+  inverse par heredoc) ; commandes Bash toutes sous 6 Ko.
+- Advisor intégré consulté après l'orientation, avant tout code (plan, forme à deux boucles, cas « mint et deux comptes », G2-8 hors
+  `history-chain.ts`) ; puis avant le rendu. Conseil, jamais verdict.
+
+| Date | Objet | Modèle (identifiant résolu) | Effort | Contexte | Générateur | Réviseur |
+|---|---|---|---|---|---|---|
+| 2026-09-30 | corrections post-G2 : code, tests, §16 | `claude-opus-5-5` | max | mission `e7c43633…fea5`, G2 `ad955bea…` | correcteur | orchestrateur, cp-2 |

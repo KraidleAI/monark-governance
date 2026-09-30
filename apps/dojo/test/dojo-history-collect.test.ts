@@ -18,8 +18,10 @@ import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
 import { runCli, type Snapshot } from "@monark/rpc-guard";
 import { canonical } from "../../bell/scripts/bell-chain.mjs";
-import { readingRecord, recordBytes } from "../src/bundle.ts";
+import { readingRecord, recordBytes, writeDayBundle } from "../src/bundle.ts";
 import { admit, type Body } from "../src/history-read.ts";
+import { closeLayout } from "../src/layout.ts";
+import { READ_RULE, betaOf, dateOf, instantsOf, roundOf } from "./helpers/dojo-fixture.ts";
 import { DOJO_HISTORY_BOUNDS, DOJO_HISTORY_COLLECT_REASONS, DOJO_HISTORY_ENV, DOJO_HISTORY_METHODS, DOJO_HISTORY_OPS, closeHistory, composeChecks, main, runHistoryCollect,
   type RunDeps } from "../src/history-collect.ts";
 
@@ -43,6 +45,18 @@ const FR = 20708; // the first day read of these worlds, 2026-09-12 (D_LAST = 20
 const first = (f: F, cut: string): string => {
   const d = join(f.root, `first-${cut}`); return existsSync(d) ? d : firstReadDay(d, FR, Number(cut), rowsAt(Number(cut)));
 };
+/** G2-8: a first day read whose reading carries its two enumerations at two slots, lo at a and hi at b, by PR-2's writer as firstReadDay (C-29). */
+function twoSlots(dir: string, lo: number, hi: number): string {
+  const day = dateOf(FR), seed = sha256(`two slots ${day}`), beta = betaOf(FR), none = { a: null, b: null }, eve = { addresses: [], accounts: [] };
+  const en = (slot: number): unknown => ({ context: { slot }, value: [] }), anchor = { mint: MINT, pool: key("pool"), pool_quote_vault: key("vault"),
+    sol_usd_max_age_s: 165 }; // an empty enumeration at each slot (decodeEnumeration takes an empty list); the rest as firstReadDay
+  const records = instantsOf(FR, seed, beta).map((t, j) => readingRecord({ day, i: j + 1, instant: t, enumeration: j === 0 ? { a: en(lo), b: en(hi) } : none,
+    read_at: j === 0 ? new Date((t + 5) * 1000).toISOString() : null, mint: null, pool: none, wsol: none, pyth: none, eve, anchor }));
+  mkdirSync(join(dir, "readings"), { recursive: true }); writeFileSync(join(dir, "eve.json"), `${canonical(eve)}\n`);
+  records.forEach((r, j) => { writeFileSync(join(dir, "readings", `${String(j + 1)}.json`), recordBytes(r)); });
+  closeLayout(dir, [], 4, writeDayBundle({ day, seed, beacon: { round: roundOf(FR), signature: beta }, read_rule: READ_RULE, k_reads: 4, mint: MINT,
+    program: T22, decimals: 6, records, eve }, (FR + 2) * 86400).bytes); return dir;
+}
 const argv = (f: F, phase: string, over: Record<string, string> = {}): string[] => Object.entries({ "--phase": phase, "--state": f.state, "--mint-file": f.mint,
   "--cut": f.cut, "--max-calls": "5000", "--max-credits": "400", "--max-ru": "4000", "--deadline": "2026-09-12T13:00:00Z",
   "--first-read": first(f, over["--cut"] ?? f.cut), ...over }).flat();
@@ -128,6 +142,9 @@ test("dojo_history_x10_guard_refuses_before_any_lock", async () => {
   assert.equal(await run({ ...f, state: dots }, "A"), null, "`..x` is a name, not a parent segment: accepted outside any repository (C-G2-4)");
   const g = fresh(), N1 = Date.UTC(2026, 8, 10, 12), J1 = Math.floor((N1 - Date.UTC(2026, 8, 10)) / 86_400_000) + 1, S1 = 6467 * J1; sim.nowMs = N1; assert.equal(await run(g, "A"), null, "a phase A course at a second clock: noon of day 1 (QV-3)");
   assert.deepEqual([[J1, p(S1, 1000), p(S1, 100), S1], (lastRun(g, "run.json").caps as { method_caps: unknown }).method_caps], [[1, 7, 65, 6467], { getSignaturesForAddress: p(S1, 1000), getTransactionsForAddress: p(S1, 100), getTransaction: S1 }], "at J = 1 the method caps follow the injected clock (D-10 l.392-399; QV-3)");
+  const h = fresh(), two = twoSlots(join(h.root, "two"), Number(h.cut) - 1, Number(h.cut)); // E_a < E_b: --cut is S_CUT = max E_e (D-3 l.230; G2-8)
+  assert.deepEqual([await stopOf(h, "A", { "--first-read": two, "--cut": String(Number(h.cut) - 1) }), await stopOf(h, "A", { "--first-read": two })],
+    ["refused inputs_mismatch", null], "two enumeration slots in the first day read: --cut at min E_e refused, at max E_e accepted");
 });
 
 test("dojo_history_budget_stops_fail_closed", async () => {
@@ -376,6 +393,7 @@ test("dojo_history_per_account_pages_until_fixpoint", async () => { // M-Y5
   assert.deepEqual([pages("a").sort(), pages("b").sort()], [[...every].sort(), [...every].sort()], "every account seen: its short page at each operator");
   assert.deepEqual([every.has(closed), !all.slice(31).some((t) => keysOf(t).includes(closed)), every.has(dst), src === dst], [true, true, true, false]);
   assert.ok(c.findIndex((r) => r.params[0] === dst) > c.findIndex((r) => r.params[0] === hid.sig), "the account found in phase C is paged in its turn");
+  assert.deepEqual([gets("a", c), gets("b", c)], [[hid.sig], [hid.sig]], "phase C reads its new bodies only, R_a minus (R u F), at both operators (D-3 l.263)");
   const m = json(join(f.state, "publish", "manifest.json")), runs = join(f.state, "evidence", "runs"), final = readdirSync(runs).sort().at(-1) ?? "";
   assert.deepEqual([m.transactions_admitted, m.token_accounts, m.evidence_sha256sums_sha256], [all.filter(ok).length, every.size,
     sha256(readFileSync(join(runs, final, "SHA256SUMS"), "utf8"))], "every success admitted, every account kept; the link to the final course's evidence");
@@ -406,14 +424,19 @@ test("dojo_history_resume_from_last_complete_unit", async () => { // M-Y24
   writeFileSync(raw, bytes);
   const other = firstReadDay(join(f.root, "other"), FR, Number(f.cut), rowsAt(Number(f.cut)).slice(1)); // same day and cut, another content
   assert.equal(await stopOf(f, "C", { "--first-read": other }), "refused inputs_mismatch", "another first day read: other fixed inputs (D-11 step 2)");
+  const j = refC.findIndex((r) => r.method === "getTransaction"); // the first body of phase C, at a: a second stop right after it (G2-11)
+  sim.reqs = [];
+  assert.deepEqual([await stopOf(f, "C", { "--max-calls": String(j - k + 1) }), sim.reqs.map(reqKey)], ["run_calls", refC.slice(k, j + 1).map(reqKey)],
+    "the account not closed is read again from its first page; nothing closed is called; the course stops after its first body at a");
   sim.reqs = [];
   assert.equal(await stopOf(f, "C"), null, "the resumed course completes");
-  assert.deepEqual(sim.reqs.map(reqKey), refC.slice(k).map(reqKey), "the account not closed is read again from its first page; nothing closed is called");
+  assert.deepEqual(sim.reqs.map(reqKey), [...refC.slice(j - 2, j), ...refC.slice(j + 1)].map(reqKey), "its pages again, its body at a served (D-11)");
   const pub = (g: F): unknown[] => { const d = join(g.state, "publish"), [h = ""] = readdirSync(join(d, "history"));
     return [h, readFileSync(join(d, "history", h), "utf8"), readFileSync(join(d, "eve.json"), "utf8"),
       { ...json(join(d, "manifest.json")), evidence_sha256sums_sha256: null }]; };
   assert.deepEqual(pub(f), pub(ref), "identical to the byte: history file, eve, manifest (its link to the course's evidence apart: journal Q-G1-3)");
-  assert.equal(await stopOf(f, "C"), "refused phase_order", "a complete history is never written again (D-12)");
+  assert.deepEqual([await stopOf(f, "A"), await stopOf(f, "B"), await stopOf(f, "C"), json(join(f.state, "evidence", "status.json"))],
+    [...Array<string>(3).fill("refused phase_order"), { status: "complete", stop_reason: null }], "every phase refused, status kept (D-12)");
 });
 
 // killer: apps/dojo/src/history-collect.ts:238 CONST "e.code === 403" -> "e.code === 404"
@@ -428,15 +451,18 @@ test("dojo_history_early_bounds_and_a_403_stop_the_course_at_once", async () => 
   sim.reqs = []; sim.diverge.add(s1);
   assert.deepEqual([await stopOf(g, "B"), sim.reqs.filter((r) => r.method === "getTransactionsForAddress").length], ["bound_exceeded", 1],
     "phase B: no page after the fault's");
+  sim.reqs = []; // G2-7: phase B, replayed, has crossed a bound: phase C takes no lock and calls nothing
+  assert.deepEqual([await stopOf(g, "C"), sim.reqs.length, lastRun(g, "run.json").unlocked], ["bound_exceeded", 0, {}], "no course opens in C (G2-7)");
   const h = fresh();
   assert.equal(await stopOf(h, "A"), null);
   Object.assign(sim, { reqs: [], override: (r: Req) => (r.op === "b" && r.method === "getTransaction" ? new Response("no", { status: 403 }) : undefined) });
   assert.deepEqual([await stopOf(h, "B"), sim.reqs.filter((r) => r.op === "b").length], ["transport_fault", 1],
     "a 403 stops the course: no retry, no other body");
-  const x = fresh(60, 3, hidden), hx = sim.txs.find((t) => t.mintless === true) as Tx; // X <- X + X_a (D-3 l.260): an index gap in phase C counts
+  const x = fresh(60, 3, hidden), hx = sim.txs.find((t) => t.mintless === true) as Tx; // one signature contested in two merges: X counts it once (C-G2-1)
   assert.deepEqual([await stopOf(x, "A"), await stopOf(x, "B")], [null, null]);
   sim.drop.a.add(hx.sig); // absent from the first operator's indexes of both its accounts only: contested in their two merges
-  assert.deepEqual([await stopOf(x, "C"), (lastRun(x, "checks.json").counts as { contested: number }).contested], ["bound_exceeded", 2]);
+  assert.deepEqual([await stopOf(x, "C"), (lastRun(x, "checks.json").counts as { contested: number }).contested], ["bound_exceeded", 1]);
+  assert.deepEqual([gets("a").includes(hx.sig), gets("b").includes(hx.sig)], [true, true], "the contested signature is read at a and at b (M-Y8, D-4 l.304)");
 });
 
 // killer: apps/dojo/src/history-collect.ts:128 CONST "[0, 1, 2].map" -> "[0].map"
@@ -456,4 +482,24 @@ test("dojo_history_secret_forms_cover_every_alignment_and_the_url_floor", async 
     sim.override = (r) => (r.op === "a" && r.method === "getSignaturesForAddress" ? top : undefined);
     assert.deepEqual([await stopOf(f, "A", {}, { env: { ...ENV, CHAINSTACK_SOLANA_URL: url } }), sim.reqs.length, holding(f, `note ${url}`)], want, url);
   }
+});
+
+// killer: apps/dojo/src/history-collect.ts:333 CONST "else X.add(s)" -> "else void s"
+test("dojo_history_x_counts_each_signature_once_and_every_index_disagreement", async () => { // C-G2-1 (P8 (b)), C-G2-3 (P9) and G2-4 of the G2
+  const e = { InstructionError: [0, { Custom: 1 }] }, xOf = (g: F): unknown => (lastRun(g, "checks.json").counts as { contested: number }).contested;
+  const flip = (sig: string, err: unknown): ((r: Req) => unknown) => (r) => (r.method !== "getSignaturesForAddress" || r.params[0] === MINT ? undefined
+    : sim.txs.filter((t) => keysOf(t).includes(String(r.params[0]))).sort((p, q) => byPos(q, p)) // an account's index, one short page, one `err` changed
+      .map((t) => ({ ...structuredClone(t.entry), ...(t.sig === sig ? { err } : {}) })));
+  for (const failed of [true, false]) { // (a) a failure of F that both operators' account indexes list as a success; (b) a success of R they list as a failure
+    const g = fresh(60, 3, hidden), t = sim.txs.slice(1).find((u) => u.failed === failed) as Tx;
+    assert.deepEqual([await stopOf(g, "A"), await stopOf(g, "B")], [null, null]);
+    sim.override = flip(t.sig, failed ? null : e);
+    assert.deepEqual([await stopOf(g, "C"), xOf(g), gets("b").includes(t.sig)], ["bound_exceeded", 1, !failed], `C-G2-3 (${failed ? "a" : "b"})`);
+  }
+  const y = fresh(60, 3, hidden), yt = sim.txs.filter(ok)[5] as Tx; sim.drop.a.add(yt.sig); // absent at a from the mint's index and from its two accounts'
+  assert.deepEqual([await stopOf(y, "A"), await stopOf(y, "B"), await stopOf(y, "C"), xOf(y)], [null, "bound_exceeded", "bound_exceeded", 1], "P8 (b): one X");
+  const z = fresh(60, 3, hidden), zh = sim.txs.find((t) => t.mintless === true) as Tx, fails = sim.txs.filter((t) => t.failed).length;
+  assert.deepEqual([await stopOf(z, "A"), await stopOf(z, "B")], [null, null]);
+  sim.override = flip(zh.sig, e); // a failure that only the accounts' indexes show: excluded and counted (F <- F u F_a, D-3 l.264; G2-4)
+  assert.deepEqual([await stopOf(z, "C"), (lastRun(z, "checks.json") as { failed_excluded: number }).failed_excluded], ["enumeration_mismatch", fails + 1]);
 });

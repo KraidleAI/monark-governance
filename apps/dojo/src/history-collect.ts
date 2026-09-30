@@ -155,7 +155,7 @@ function setup(argv: readonly string[], deps: RunDeps): Ctx {
       cut: Math.max(...fr.enumerations.map((e) => e.context_slot)), records };
   } catch { refuse("inputs_mismatch", "--first-read"); } // a day that does not read, or reads without two enumerations (Q-G1-1)
   if (first?.cut !== a.cut) refuse("inputs_mismatch", "--cut"); // DOJO-HISTORY-CUT-CHECK-1: --cut is S_CUT (D-3 l.230)
-  if (a.phase === "C" && existsSync(join(a.state, "publish", "SHA256SUMS"))) refuse("phase_order", "complete"); // D-12: never overwritten
+  if (existsSync(join(a.state, "publish", "SHA256SUMS"))) refuse("phase_order", "complete"); // D-12: never overwritten, by any phase (C-G2-2)
   const cycles: Record<string, string> = {}, floors: Record<string, number> = {};
   for (const op of DOJO_HISTORY_OPS) {
     const [id, fl] = DOJO_HISTORY_ENV[op].map((k) => deps.env[k]);
@@ -289,7 +289,7 @@ async function collectBodies(c: Ctx, f: Fetch, ia: unknown[], ib: unknown[], lat
   const m = mergeIndexes(ia, ib, c.a.cut), idx = new Map([...readIndex(ib), ...readIndex(ia)].map((e) => [e.signature, e] as const));
   const R = new Set(m.read), F = new Set(m.failed), seen = new Set<string>(), slot = new Map([...idx].map(([s, e]) => [s, e.slot] as const));
   const adm = new Map<string, Admission>(), failedMoving = new Set<string>(), used = new Set<string>();
-  let extra = 0, failedBodies = 0, nq = 0, xc = 0; // xc: the X_a of the accounts of phase C (X <- X + X_a, D-3 l.260)
+  let extra = 0, failedBodies = 0, nq = 0; const X = new Set(m.contested); // X: the distinct signatures contested or in disagreement (C-G2-1)
   const uo = new Set<number>(), acc = new Set<string>(), B7 = DOJO_HISTORY_BOUNDS; // the unordered slots so far; every account seen in a body read
   const early = (): boolean => nq > B7.noQuorum || uo.size > B7.unordered || failedMoving.size > B7.failedMoving;
   const order = (x: string, y: string): number => (slot.get(x) ?? 0) - (slot.get(y) ?? 0) || (x < y ? -1 : x > y ? 1 : 0);
@@ -312,7 +312,7 @@ async function collectBodies(c: Ctx, f: Fetch, ia: unknown[], ib: unknown[], lat
       seen.add(b.signature); slot.set(b.signature, b.slot); for (const e of b.mint) acc.add(e.account);
       if (b.err !== null) { failedBodies += 1; if (moves(b)) failedMoving.add(b.signature); }
       if (F.has(b.signature)) continue;
-      if (!R.has(b.signature)) { R.add(b.signature); extra += 1; }
+      if (!R.has(b.signature)) { R.add(b.signature); X.add(b.signature); extra += 1; }
       batch.set(b.signature, x);
     }
     const t = obj(pg)?.paginationToken, next = typeof t === "string" && t !== "" && data.length > 0 && last <= c.a.cut ? t : null;
@@ -328,9 +328,10 @@ async function collectBodies(c: Ctx, f: Fetch, ia: unknown[], ib: unknown[], lat
   for (let a = g === undefined ? undefined : next(); a !== undefined && g !== undefined && !early(); a = next()) {
     const [pa, pb] = [await indexOf(g, A, a, "C"), await indexOf(g, B, a, "C")], ma = mergeIndexes(pa, pb, c.a.cut);
     for (const e of [...readIndex(pb), ...readIndex(pa)]) slot.set(e.signature, e.slot);
+    for (const s of ma.read) if (F.has(s)) X.add(s); // C-G2-3 (a): a failure of F that both operators' indexes of this account list as a success
     for (const s of ma.read) if (!R.has(s) && !F.has(s) && !early()) { R.add(s); await pair(s, await g("C", A, "getTransaction", txForm(s), s), g, "C"); }
-    for (const s of ma.failed) if (!R.has(s)) F.add(s);
-    xc += ma.contested.length; done.add(a);
+    for (const s of ma.failed) if (!R.has(s)) F.add(s); else X.add(s); // C-G2-3 (b): a signature of R that they list as a failure
+    for (const s of ma.contested) X.add(s); done.add(a); // D-4 l.304: one signature, one X, however many merges contest it (C-G2-1)
     if (!early() && !c.accounts.has(a)) {
       append(c, { phase: "C", op: "", unit: a, method: "close", params_sha256: sha(canonical([a])), raw: null, raw_sha256: null, size: 0, outcome: "ok" });
     }
@@ -343,7 +344,7 @@ async function collectBodies(c: Ctx, f: Fetch, ia: unknown[], ib: unknown[], lat
     else if (x?.kind === "failed") { failed += 1; if (x.moves) failedMoving.add(s); }
     else if (x?.kind === "no_quorum") noQuorum.push(x);
   }
-  const counts = { read: R.size, contested: m.contested.length + extra + xc, noQuorum: noQuorum.length,
+  const counts = { read: R.size, contested: X.size, noQuorum: noQuorum.length,
     unordered: new Set(txs.filter((t) => t.rank === null).map((t) => t.slot)).size,
     failedMoving: failedMoving.size };
   return { ia, ib, txs, noQuorum, counts, failedExcluded: F.size + failed, gtfa: { missing: missing.length, extra, failedBodies } };
