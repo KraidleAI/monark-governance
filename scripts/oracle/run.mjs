@@ -152,7 +152,7 @@ try {
       waited = Math.round(lk.waitedMs / 1000);
       const node = process.platform === "win32"
         ? execFileSync("tasklist", ["/FI", "IMAGENAME eq node.exe", "/NH", "/FO", "CSV"], { encoding: "utf8" }).split("\n").filter((l) => l.startsWith('"node.exe"'))
-        : execFileSync("ps", ["-A", "-o", "comm="], { encoding: "utf8" }).split("\n").filter((l) => l.trim() === "node");
+        : execFileSync("ps", ["-A", "-o", "args="], { encoding: "utf8" }).split("\n").filter((l) => /^(\S*\/)?node(\s|$)/.test(l.trim()));
       cv4 = { free_mb: Math.floor(freemem() / 2 ** 20), node_exe: node.length, min_free_mb: Number(process.env.ORACLE_MIN_FREE_MB ?? 4096), max_node: Number(process.env.ORACLE_MAX_NODE ?? 40) };
       if (!(cv4.free_mb >= cv4.min_free_mb && cv4.node_exe <= cv4.max_node)) refusal = 3;
       else gates.filter((g) => !STATIC.test(g.cmd)).forEach(runGate);
