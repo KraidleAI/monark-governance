@@ -40,6 +40,7 @@ test("quantile_formula_n_plus_1", () => {
 
 // Test 5 — empty set not allowed. At score 0/1, q̂∈{0,1} ⇒ C never empty
 // (ŷ always has score 0 ≤ q̂). GUARD, vacuous at score 0/1 (labelled, ADR-M002 D11).
+// An empty set (any score family) abstains with intent_not_in_region on the BYO set path (ADR-M005 D5 K-4(d) amendment, D8).
 test("empty_set_not_allow", () => {
   const scores = indicatorScores("up", ["up", "down"]); // up→0, down→1
   // q̂=0 ⇒ {up}; q̂=1 ⇒ {up,down}; never empty.
