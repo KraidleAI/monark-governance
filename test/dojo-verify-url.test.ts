@@ -44,7 +44,7 @@ async function serve(get: () => ReadonlyMap<string, Buffer>): Promise<{ url: str
   return { url: `http://127.0.0.1:${String(port)}`, seen, close };
 }
 
-// killer: apps/dojo/scripts/dojo-verify.mjs:370 CONST "sha256(tl)" -> "sha256(text.trim())"
+// killer: apps/dojo/scripts/dojo-verify.mjs:393 CONST "sha256(tl)" -> "sha256(text.trim())"
 test("dojo_verify_url_cli_is_the_ca_contract", async () => {
   assert.ok(Array.isArray(dv.DOJO_VERIFY_REPORT_KEYS), "the closed keys of a report are exported (D-3)");
   assert.deepEqual(dv.DOJO_VERIFY_REPORT_KEYS, ["active_key_id", "beacon_bls_verified", "breaks", "day", "detail", "head", "history", "inclusion",
@@ -85,5 +85,8 @@ test("dojo_verify_url_cli_is_the_ca_contract", async () => {
     const env = { ...clean, NODE_EXTRA_CA_CERTS: join(tmpdir(), "dojo-verify-absent.pem"), NODE_USE_SYSTEM_CA: "1", NODE_USE_ENV_PROXY: "1" };
     assert.equal((await success(env, "--url", srv.url, "--keyring", kr)).detail, "TLS environment: NODE_EXTRA_CA_CERTS, NODE_USE_SYSTEM_CA, NODE_USE_ENV_PROXY",
       "FAITS F-2, F-4, F-5: the variables named, never their values");
+    served = new Map([...tree].filter(([k]) => k !== "dojo/pubkey.json")); // ADR-DOJO-PR-1B-5 D-3 (b), V-2: a refusal under the TLS variables
+    assert.deepEqual(await cli(env, "--url", srv.url, "--keyring", kr), [1, `${canonical({ ok: false, reason: "http_status", seq: null, day: null,
+      detail: "dojo/pubkey.json" })}\n`], "V-2: a refusal keeps its own detail (the path), never the TLS note");
   } finally { await srv.close(); }
 });
