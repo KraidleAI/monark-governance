@@ -240,3 +240,4 @@ BIBLIO-ID-2411-1 ; REPO-STRAY-WORKTREE-GUARD-1 ; VALIDATEUR-CA-12-TIERS-1 ; VOCA
 - **2026-09-30 22:48 UTC — G1 PR-3b-2a lancé ; décision 299 portée à l ADR du lot ; dépôt privé : push suspendu** → en vol : G1 3b-2a, G0 4c-2, inventaire. Ensuite : plans des petits lots bloquants ; cp-1 et G1 de 4c-2.
 - **2026-09-30 22:51 UTC — petit lot ENTRY-MAIN-LINK-1 lancé (garde réelle de cinq programmes hôtes)** → en vol : G1 3b-2a, G1 ENTRY-MAIN-LINK-1, G0 4c-2, inventaire. Ensuite : plans des autres petits lots bloquants à l arrivée de l inventaire.
 - **2026-09-30 22:58 UTC — RECHERCHES : v3.1 du chantier 2 acceptée (recherches#10)** → en vol : G1 3b-2a, G1 ENTRY-MAIN-LINK-1, G0 4c-2, inventaire.
+- **2026-10-01 23:07 UTC — tronc poussé (`55c99204`)** → en vol : G1 3b-2a, G1 ENTRY-MAIN-LINK-1, G0 4c-2, inventaire.
