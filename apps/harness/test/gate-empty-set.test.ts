@@ -39,7 +39,7 @@ const SCORES = [0.5, 0.1, 0.9, 0.3, 1.0, 0.7, 0.2, 0.8, 0.4, 0.6];
 // Test E-1 (F2P): candidates A 1.5 and B 2.0 both score above qhat = 1.0, so C is empty. The verdict abstains
 // with intent_not_in_region, qhat stays the number 1, the region is the empty set; the gate decision is
 // ABSTAIN intent_not_in_region for tau 0 and 1.
-// killer: apps/harness/src/tools/gate.ts:457 ROR "labels.length === 0" -> "labels.length < 0"
+// killer: apps/harness/src/tools/gate.ts:474 ROR "labels.length === 0" -> "labels.length < 0"
 test("byo_set_empty_region_abstains_intent_not_in_region", () => {
   for (const tau of [0, 1]) {
     const d = runGate(BYO_SET_PRED, {
@@ -59,14 +59,14 @@ test("byo_set_empty_region_abstains_intent_not_in_region", () => {
 });
 
 // Test E-3 (pin): a non-empty set keeps abstain = 1{size of C > tau}. Four candidates, the first k score 0.5
-// (inside qhat = 1.0) and the others 1.5, so the size of C is k in {1, 2, 3}; tau in {0..4}, including
-// size = tau. Reasons covered / set_too_large; the intent A is always in C, so the gate COMMITs or DEFERs.
-// killer: apps/harness/src/tools/gate.ts:458 ROR "labels.length > params.tau" -> "labels.length >= params.tau"
+// (inside qhat = 1.0) and the others 1.5, so the size of C is k in {1, 2, 3}; tau in {0..3} (the L4-5 cap:
+// four candidates minus 1), including size = tau. Reasons covered / set_too_large; the intent A is always in C, so the gate COMMITs or DEFERs.
+// killer: apps/harness/src/tools/gate.ts:475 ROR "labels.length > params.tau" -> "labels.length >= params.tau"
 test("nonempty_set_verdict_semantics_unchanged", () => {
   const names = ["A", "B", "C", "D"];
   for (const k of [1, 2, 3]) {
     const candidates = names.map((label, i) => ({ label, score: i < k ? 0.5 : 1.5 }));
-    for (const tau of [0, 1, 2, 3, 4]) {
+    for (const tau of [0, 1, 2, 3]) {
       const d = runGate(BYO_SET_PRED, { ...PARAMS, tau, calibration: { scores: SCORES, mode: "set", candidates } });
       assertClosedGateDecision(d);
       const at = `size ${String(k)}, tau ${String(tau)}`;
