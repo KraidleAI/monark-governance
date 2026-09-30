@@ -220,3 +220,4 @@ BIBLIO-ID-2411-1 ; REPO-STRAY-WORKTREE-GUARD-1 ; VALIDATEUR-CA-12-TIERS-1 ; VOCA
 - **2026-09-30 00:58 UTC — gel 1 PR-3a-1b `b0e595a5`, G2 lancé ; DOJO-PUBLISH-VERIFY-BEFORE-COMMIT-1 bloquant avant A-8** → en vol : G2 PR-1b-4, G2 PR-3a-1b.
 - **2026-09-30 02:01 UTC — G2 PR-3a-1b prêt pour cp-2 ; rebase `48556d80` ; cp-2 lancé ; G0 PR-3a-1c lancé** → en vol : corr PR-1b-4, cp-2 PR-3a-1b, G1 PR-2b-4, G0 PR-4c-1, G0 PR-3a-1c. Items : RED-PROOF-BASE-PRESENT-1, DOJO-PUBLISH-PV-ATOMIC-1.
 - **2026-09-30 02:10 UTC — pli G0 PR-4c-1 gelé (coupe 1a/1b/1c), cp-1 bref lancé** → en vol : corr PR-1b-4, cp-2 PR-3a-1b, G1 PR-2b-4, G0 PR-3a-1c, cp-1 PR-4c-1. Lecture sur place due : FAITS-CADDY-PROXY-HEADERS-1 (avant G1 de 4c-1b).
+- **2026-09-30 02:19 UTC — gel 2 PR-1b-4 `db158c8a`, cp-2 lancé ; FAITS Caddy lus** → en vol : cp-2 PR-1b-4, cp-2 PR-3a-1b, G1 PR-2b-4, G0 PR-3a-1c, cp-1 PR-4c-1.
