@@ -6,9 +6,9 @@
 // the collect host (docs/RUNBOOK-dojo.md, act A-4), never in a code tree (seed_inside_tree). Exit 0 with one JSON line; 1 on a refusal
 // (`dojo/seed: <code>: <detail>`); 2 on usage.
 import { randomBytes } from "node:crypto";
-import { closeSync, fsyncSync, openSync, writeSync } from "node:fs";
+import { closeSync, fsyncSync, openSync, realpathSync, writeSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { seedAnchor } from "./dojo-core.mjs";
 
 export const DOJO_SEED_REFUSALS = Object.freeze(["seed_file_exists", "seed_inside_tree"]);
@@ -47,4 +47,6 @@ export function runCli(argv) {
   }
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = runCli(process.argv.slice(2));
+// ENTRY-MAIN-LINK-1 (C-G2-1 of PR-1b-5b): REAL paths compared, so a launch through a directory link runs it; argv[1] absent or unreadable: an import.
+const isEntry = () => { try { return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]); } catch { return false; } };
+if (isEntry()) process.exitCode = runCli(process.argv.slice(2));
