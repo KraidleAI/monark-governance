@@ -1,16 +1,19 @@
 // MONARK Dojo -- PR-1b-2 T-6 oracles (ADR-DOJO-SNAPSHOT-1 D-10 l.250-253; section 6 l.377-395; eighth pli: table of the uses of the
 // codes, DOJO-WALK-GAPS-1, DOJO-KEYRING-SCHEMA-1). Every served tree is signed at run time by helpers/dojo-fixture.ts; the expected
 // verdicts are written from the mere, never read from the verifier; values of the fixture are pinned by hand. No network.
+// PR-1b-4 (ADR-DOJO-PR-1B-4 section 4): the URL source, --day and the closed keys of a report; loopback servers (127.0.0.1) only.
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { createServer, type ServerResponse } from "node:http";
 import { canonical, keyIdOf } from "../../bell/scripts/bell-chain.mjs";
 import { proofOf, rootOf } from "../scripts/dojo-core.mjs";
 import { DOJO_VERIFY_REFUSALS, DojoVerifyError, VERIFY_BOUNDS, checkInclusion, dirSource, verifyDojoServed, type DojoVerifyReport,
   type VerifyBounds } from "../scripts/dojo-verify.mjs";
+import * as dv from "../scripts/dojo-verify.mjs"; // PR-1b-4 C-V-1: the new exports through the namespace, checked first by each new test
 import { ADDR, ANCHOR_DAY, DAY1, FIRST, anchorBody, at, dateOf, dayLines, dojoFixture, dojoKeyringOf, historyBody, historyLines, instantsOf, keyringOfKeys,
   linesOf, newKey, removeTrees, render, seedChain, snapshotBody, versionBody, versionOf, writeTree, type DayLine, type Fixture, type HistoryLine,
   type Line, type Step } from "./helpers/dojo-fixture.ts";
@@ -62,6 +65,7 @@ test("dojo_verify_accepts_a_signed_served_fixture", async () => {
 });
 
 // ---- D-10 l.250, mission of PR-1b-2: the CLI is fail-closed; the path TU-5 (signer -> served directory -> CLI) end to end ----
+// killer: apps/dojo/scripts/dojo-verify.mjs:56 CONST "Promise.resolve(readFileSync(p))" -> "Promise.resolve(readFileSync(p)) ?? fetch(p)"
 test("dojo_verify_cli_is_fail_closed", () => {
   const f = dojoFixture(), dir = writeTree(render(f.steps));
   const put = (name: string, text: string): string => join(writeTree(new Map([[name, Buffer.from(text)]])), name);
@@ -77,6 +81,13 @@ test("dojo_verify_cli_is_fail_closed", () => {
     const [s, r, err] = cli(...a);
     assert.deepEqual([s, r, /^dojo\/verify: usage: /.test(err)], [1, null, true], `usage: ${a.join(" ")}`);
   }
+  // PR-1b-4 D-1, D-2: --url twice, with a tree or without a value; --day out of form or without a value (green at base: unknown flags)
+  const u = "http://127.0.0.1:1";
+  for (const a of [["--url", u, "--url", u, "--self-consistent-only"], [dir, "--url", u, "--self-consistent-only"], ["--url", "--self-consistent-only"],
+    ...["2026-02-30", "2026-9-1", "2026-10-02T00:00Z"].map((d) => [dir, "--self-consistent-only", "--day", d]), [dir, "--self-consistent-only", "--day"]]) {
+    const [s, r, err] = cli(...a);
+    assert.deepEqual([s, r, /^dojo\/verify: usage: /.test(err)], [1, null, true], `usage: ${a.join(" ")}`);
+  }
   for (const k of [join(dir, "absent.json"), put("null.json", "null")]) {
     assert.deepEqual(cli(dir, "--keyring", k).slice(0, 2), [1, { ok: false, reason: "keyring_invalid", seq: null, day: null, detail: "--keyring" }], "never a run without a root");
   }
@@ -87,13 +98,18 @@ test("dojo_verify_cli_is_fail_closed", () => {
   assert.deepEqual([s4, r4?.ok === true && r4.inclusion], [0, { address: ADDR.A, index: i, count: 3, line: raw[i], proof: proofOf(raw, i) }]);
   assert.deepEqual(cli(dir, "--keyring", kr, "--address", ADDR.D)[1],
     { ok: false, reason: "line_missing", seq: 12, day: dateOf(ANCHOR_DAY + 9), detail: "--address: no line in the head snapshot" });
-  // built-in modules and the three local modules only; no network, no environment (motif apps/bell/test/bell-verify.test.ts)
+  // built-in modules and the three local modules only (motif apps/bell/test/bell-verify.test.ts); the network and the environment: T-10
   const text = readFileSync(SCRIPT, "utf8");
   assert.deepEqual([...text.matchAll(/\b(?:from|import)\s*["'`]([^"'`]+)["'`]/g)].map((m) => m[1]),
     ["node:fs", "node:path", "node:url", "node:crypto", "../../bell/scripts/bell-chain.mjs", "./dojo-chain.mjs", "./dojo-core.mjs"]);
-  for (const re of [/node:https?\b/, /node:net\b/, /node:tls\b/, /node:dns\b/, /child_process/, /\bfetch\s*\(/, /\bimport\s*\(/, /\brequire\s*\(/, /process\.env/]) {
+  for (const re of [/node:https?\b/, /node:net\b/, /node:tls\b/, /node:dns\b/, /child_process/, /\bimport\s*\(/, /\brequire\s*\(/]) {
     assert.equal(re.test(text), false, String(re));
   }
+  // PR-1b-4 T-10 and T-9 amended: one fetch and one read of the environment in the module, both in the body of urlSource (C-V-1 (d))
+  const k0 = text.indexOf("export function urlSource("), src = k0 < 0 ? "" : text.slice(k0, text.indexOf("\n}\n", k0));
+  const n = (s: string, re: RegExp): number => [...s.matchAll(re)].length;
+  assert.deepEqual([n(text, /\bfetch\s*\(/g), n(src, /\bfetch\s*\(/g), n(text, /process\.env/g), n(src, /process\.env/g)], [1, 1, 1, 1], "T-10");
+  assert.deepEqual(Object.keys(r1 ?? {}), dv.DOJO_VERIFY_REPORT_KEYS, "the closed keys of a report (D-3)");
 });
 
 // ---- D-10 l.251, D-18 l.306, TU-12 l.355 (M-17, M-18); ADR-DOJO-PR-2B l.548: order of the history refusals ----
@@ -427,4 +443,156 @@ test("dojo_verify_refuses_each_named_mutant", async () => {
   const d10 = [...line.matchAll(/`([a-z_]+)`/g)].map((m) => m[1] ?? "").filter((c) => !kinds.includes(c));
   assert.deepEqual([...DOJO_VERIFY_REFUSALS], d10, "the closed list of D-10, read from the mere, in its order");
   for (const r of seen) assert.ok(d10.includes(r), `${r}: a code of D-10`);
+});
+
+// ---- PR-1b-4 (ADR-DOJO-PR-1B-4 section 4; pli cp-1 C-V-1): the URL source, --day and the closed keys of a report. Loopback servers
+// only (127.0.0.1, port 0, closed in a finally), lowered bounds and race guards (motif apps/bell/test/bell-verify.test.ts:101) ----
+type Served = { url: string; seen: string[]; close: () => Promise<void> };
+/** A loopback server of `tree`: each path asked, in order; `route` answers first when it returns true, else the file (200) or 404. */
+async function serve(tree: ReadonlyMap<string, Buffer>, route: (p: string, res: ServerResponse) => boolean = () => false): Promise<Served> {
+  const seen: string[] = [], server = createServer((req, res) => {
+    const p = req.url ?? "/", b = tree.get(p.slice(1));
+    seen.push(p);
+    if (!route(p, res)) res.writeHead(b === undefined ? 404 : 200).end(b);
+  });
+  await new Promise<void>((r) => { server.listen(0, "127.0.0.1", () => { r(); }); });
+  const a = server.address(), port = a !== null && typeof a === "object" ? a.port : 0;
+  const close = (): Promise<void> => new Promise<void>((r) => { server.closeAllConnections(); server.close(() => { r(); }); });
+  return { url: `http://127.0.0.1:${String(port)}`, seen, close };
+}
+const refused = (reason: string, detail: string): DojoVerifyReport => ({ ok: false, reason, seq: null, day: null, detail });
+const viaUrl = (base: string, keyring: unknown, b: Partial<VerifyBounds> = {}): Promise<DojoVerifyReport> =>
+  verifyDojoServed({ source: dv.urlSource(base, { ...dv.VERIFY_BOUNDS, ...b }), keyring, bounds: { ...dv.VERIFY_BOUNDS, ...b } });
+/** True once `ok()` holds, polled for at most 2 s. */
+const soon = async (ok: () => boolean): Promise<boolean> => {
+  for (let t = 0; t < 100 && !ok(); t++) await new Promise((r) => setTimeout(r, 20));
+  return ok();
+};
+
+// killer: apps/dojo/scripts/dojo-verify.mjs:80 SDL "if (!SERVED.test(rel))" -> ""
+test("dojo_verify_url_transport_is_the_bell_policy", async () => {
+  assert.equal(typeof dv.urlSource, "function", "urlSource is exported (D-1)");
+  // T-1 and T-2 as a pure predicate, before any socket: Bell's lists (apps/bell/test/bell-verify.test.ts:84-85), plus ? and #
+  for (const x of ["https://bell.monarkgate.tech", "HTTPS://dojo.monarkgate.tech/", "http://127.0.0.1:8080", "http://[::1]:8080/"]) {
+    assert.ok(dv.urlAllowed(x), x);
+  }
+  for (const x of ["http://bell.monarkgate.tech", "http://127.1:8080", "http://localhost:8080", "http://127.0.0.1.example.invalid", "http://u@127.0.0.1:8080",
+    "https://u@x.invalid", "ftp://x.invalid", "https://x.invalid/?a", "https://x.invalid/#a", "http://127.0.0.1:8080/b?c"]) assert.ok(!dv.urlAllowed(x), x);
+  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), tree = render(f.steps), closed: string[] = [];
+  const srv = await serve(tree, (p, res) => {
+    const [, dir = "", code = ""] = p.split("/"); // /r/<status>/<file>, a three-digit status (C-G2-1, C-G2-4)
+    if (dir === "r") res.writeHead(Number(code), { location: p.slice(6) }).end(tree.get(p.slice(7))); // T-4, T-5: target and body, the file itself
+    else if (dir === "gone" || dir === "big") { // T-5, T-6: a body never ended, 64 bytes or four chunks of 64 without content-length
+      res.writeHead(dir === "gone" ? 404 : 200);
+      for (let i = 0; i < (dir === "gone" ? 1 : 4); i++) res.write(Buffer.alloc(64));
+      res.on("close", () => { closed.push(p); });
+    } else if (dir === "mute") res.writeHead(200).write("x"); // T-7: headers, then silence
+    return ["r", "gone", "big", "mute"].includes(dir);
+  });
+  try {
+    const port = srv.url.slice(srv.url.lastIndexOf(":") + 1);
+    for (const base of [`http://localhost:${port}`, `http://127.1:${port}`, `${srv.url}/?x`, `${srv.url}/#x`, `HTTP://127.0.0.1:${port}`]) {
+      assert.deepEqual(await viaUrl(base, kr), refused("insecure_url", "--url"), base);
+    }
+    for (const rel of ["../timeline.jsonl", `lines/${"A".repeat(64)}.jsonl`, `history/${"0".repeat(63)}.jsonl`, "dojo/pubkey.json?x"]) { // T-8
+      await assert.rejects(dv.urlSource(srv.url).get(rel), (e: unknown) => e instanceof DojoVerifyError && e.code === "insecure_url" && e.detail === rel, rel);
+    }
+    assert.deepEqual(srv.seen, [], "every refusal above comes before its request");
+    const codes = [301, 302, 303, 307, 308, 206], got: DojoVerifyReport[] = []; // C-G2-1: 301, 302, 303, 307, 308; C-G2-4: a 2xx other than 200
+    for (const c of codes) got.push(await viaUrl(`${srv.url}/r/${String(c)}`, kr));
+    assert.deepEqual([got, srv.seen], [codes.map((c) => refused(c === 206 ? "http_status" : "redirect_refused", "timeline.jsonl")),
+      codes.map((c) => `/r/${String(c)}/timeline.jsonl`)], "T-4: any 3xx refused, never followed (its target never asked); T-5: 200 only");
+    const t2 = { TIMEOUT_MS: 2000 }; // bodies never ended: a mutant that reads them dies in 2 s, not in 30
+    assert.deepEqual(await viaUrl(`${srv.url}/gone`, kr, t2), refused("http_status", "timeline.jsonl"), "the path, never the status (E-4)");
+    assert.deepEqual(await viaUrl(`${srv.url}/big`, kr, { ...t2, MAX_BODY_BYTES: 100 }), refused("too_large", "timeline.jsonl"), "counted as it streams");
+    assert.ok(await soon(() => closed.includes("/gone/timeline.jsonl") && closed.includes("/big/timeline.jsonl")), "F-6: a refused body is cancelled");
+    const hung = new Promise<string>((r) => { setTimeout(() => { r("hung"); }, 5000).unref(); }); // a race guard, never the 120 s test timeout
+    assert.equal(await Promise.race([viaUrl(`${srv.url}/mute`, kr, { TIMEOUT_MS: 200 }).then(told), hung]), "unreachable @null timeline.jsonl", "T-7");
+  } finally { await srv.close(); }
+});
+
+// killer: apps/dojo/scripts/dojo-verify.mjs:85 CONST "${root}/${rel}" -> "${base}/${rel}"
+test("dojo_verify_url_equals_dir_on_the_same_tree", async () => {
+  assert.equal(typeof dv.urlSource, "function", "urlSource is exported (D-1)");
+  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), tree = render(f.steps), srv = await serve(tree);
+  try {
+    const want = canonical(await verifyDojoServed({ source: dirSource(writeTree(tree)), keyring: kr, address: ADDR.A }));
+    for (const base of [srv.url, `${srv.url}/`, `${srv.url}//`]) { // T-3: the final slashes dropped, then <base>/<rel>
+      const n = srv.seen.length, got = canonical(await verifyDojoServed({ source: dv.urlSource(base), keyring: kr, address: ADDR.A }));
+      assert.deepEqual([got, srv.seen.slice(n).sort()], [want, [...tree.keys()].map((k) => `/${k}`).sort()], `${base}: the same report, each file once`);
+    }
+    assert.equal(tree.size, 12, "timeline.jsonl, dojo/pubkey.json, the history file and the lines of the nine snapshots");
+  } finally { await srv.close(); }
+});
+
+// killer: apps/dojo/scripts/dojo-verify.mjs:81 ROR "++files > bounds.MAX_FILES" -> "++files >= bounds.MAX_FILES"
+test("dojo_verify_totals_are_bounded", async () => {
+  assert.equal(typeof dv.urlSource, "function", "urlSource is exported (D-1)");
+  const B = dv.VERIFY_BOUNDS; // D-1 by hand: 30 s, 1 024 files, 2 GiB (Q-2: provisional, tested); 64 MiB per body, 1 MiB per line
+  assert.deepEqual([B.TIMEOUT_MS, B.MAX_FILES, B.MAX_TOTAL_BYTES, B.MAX_BODY_BYTES, B.MAX_LINE_BYTES], [30_000, 1024, 2 ** 31, 2 ** 26, 2 ** 20]);
+  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), tree = render(f.steps), srv = await serve(tree);
+  const all = [...tree.values()].reduce((t, b) => t + b.length, 0);
+  const run = async (b: Partial<VerifyBounds>): Promise<[string, number]> => {
+    const n = srv.seen.length, r = await viaUrl(srv.url, kr, b);
+    return [r.ok ? "ok" : `${r.reason} ${r.detail}`, srv.seen.length - n];
+  };
+  try {
+    assert.deepEqual(await run({ MAX_FILES: tree.size }), ["ok", 12], "twelve GETs, the bound included");
+    assert.deepEqual(await run({ MAX_FILES: tree.size - 1 }), ["too_large total files", 11], "no GET beyond the bound");
+    assert.deepEqual(await run({ MAX_TOTAL_BYTES: all }), ["ok", 12], "every byte, the bound included");
+    assert.deepEqual(await run({ MAX_TOTAL_BYTES: all - 1 }), ["too_large total bytes", 12], "one byte over, on the last body");
+    const big = Math.max(...[...tree.values()].map((b) => b.length)); // C-G2-5: the largest of the twelve bodies, under their total
+    assert.deepEqual([await run({ MAX_BODY_BYTES: big }), big < all], [["ok", 12], true], "T-6 counts each body, never the running total");
+    const tiny = { ...B, MAX_FILES: 1, MAX_TOTAL_BYTES: 1 }; // Q-V-1: the totals count a URL source's GETs; a directory keeps its body bound
+    assert.equal(said(await verifyDojoServed({ source: dirSource(writeTree(tree), tiny), keyring: kr, bounds: tiny })), "ok", "Q-V-1");
+  } finally { await srv.close(); }
+});
+
+// killer: apps/dojo/scripts/dojo-verify.mjs:356 CONST "recomputed_root: pick.f.root" -> "recomputed_root: headFile.root"
+test("dojo_verify_day_proves_a_past_day", async () => {
+  assert.ok(Array.isArray(dv.DOJO_VERIFY_REPORT_KEYS), "the closed keys of a report are exported (D-3)");
+  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), dir = writeTree(render(f.steps)), day = dateOf(ANCHOR_DAY + 3);
+  const raw = linesOf(f.steps, 4).map((l) => canonical(l)), sha = createHash("sha256").update(raw.map((l) => `${l}\n`).join("")).digest("hex");
+  const i = raw.findIndex((l) => l.includes(ADDR.A)), all = await verifyDojoServed({ source: dirSource(dir), keyring: kr });
+  const r = await verifyDojoServed({ source: dirSource(dir), keyring: kr, address: ADDR.A, day }); // D-2: seq 5, read day 3
+  assert.deepEqual(r.ok && [r.target, r.head, r.day, r.inclusion], [{ seq: 5, day, lines_sha256: sha, lines_count: raw.length, recomputed_root: rootOf(raw) },
+    all.ok && all.head, dateOf(ANCHOR_DAY + 9), { address: ADDR.A, index: i, count: raw.length, line: raw[i], proof: proofOf(raw, i) }], said(r));
+  assert.deepEqual([all.ok && all.target, i >= 0], [null, true], "without --day, no target; A holds a line on read day 3");
+  const d = await verifyDojoServed({ source: dirSource(dir), keyring: kr, address: ADDR.D, day }); // Q-G1-4 (C-G2-2): D, no line on read day 3
+  assert.deepEqual([d, raw.some((l) => l.includes(ADDR.D))], [{ ok: false, reason: "line_missing", seq: 5, day,
+    detail: "--address: no line in the --day snapshot" }, false], "Q-G1-4: refused at the seq and day of D, its snapshot named");
+});
+
+// killer: apps/dojo/scripts/dojo-verify.mjs:352 ROR "epoch(day) < instantDay" -> "epoch(day) <= instantDay"
+test("dojo_verify_day_refusals_are_named", async () => {
+  assert.ok(Array.isArray(dv.DOJO_VERIFY_REPORT_KEYS), "the closed keys of a report are exported (D-3)");
+  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), head = dateOf(ANCHOR_DAY + 9), gap = f.steps.filter((_, i) => i !== 10);
+  const run = (steps: readonly Step[], day: string, edit?: (s: Step[]) => void): Promise<DojoVerifyReport> =>
+    verifyDojoServed({ source: dirSource(writeTree(render(steps, undefined, edit))), keyring: kr, day });
+  const miss = (seq: number, d: string | null, why: string): DojoVerifyReport => ({ ok: false, reason: "line_missing", seq, day: d, detail: `--day: ${why}` });
+  const cases: Array<[string, DojoVerifyReport, DojoVerifyReport]> = [ // D-2: after the whole check, at the head's seq and day
+    ["a history day, before the anchor's", await run(f.steps, dateOf(ANCHOR_DAY - 1)), miss(12, head, "before the anchor's day")],
+    ["the anchor's day", await run(f.steps, dateOf(ANCHOR_DAY)), miss(12, head, "no snapshot of that day")],
+    ["a missing day (read day 8 withdrawn)", await run(gap, dateOf(ANCHOR_DAY + 8)), miss(11, head, "no snapshot of that day")],
+    ["the day after the SERVED head, no clock read", await run(f.steps, dateOf(ANCHOR_DAY + 10)), miss(12, head, "after the head's day")],
+    ["a timeline without snapshot", await run(f.steps.slice(0, 2), dateOf(ANCHOR_DAY + 1)), miss(2, null, "after the head's day")],
+    ["a prefix given to the library (out of form)", await run(f.steps, head.slice(0, 7)), miss(12, head, "no snapshot of that day")],
+    ["2026-09 to the library: never compared (else before the anchor's day)", await run(f.steps, "2026-09"), miss(12, head, "no snapshot of that day")],
+    ["2027 to the library: never compared (else after the head's day)", await run(f.steps, "2027"), miss(12, head, "no snapshot of that day")],
+    ["a faulty tree: its own code, whatever the day", await run(f.steps, dateOf(ANCHOR_DAY - 1), (s) => { body(s, 11).score_total = "0"; }),
+      { ok: false, reason: "score_mismatch", seq: 12, day: head, detail: "score_total" }],
+  ];
+  for (const [what, got, want] of cases) assert.deepEqual(got, want, what);
+});
+
+// killer: apps/dojo/scripts/dojo-verify.mjs:367 CONST "breaks: w.breaks" -> "breaks: w.voided"
+test("dojo_verify_reports_broken_rotations", async () => {
+  assert.ok(Array.isArray(dv.DOJO_VERIFY_REPORT_KEYS), "the closed keys of a report are exported (D-3)");
+  // DOJO-VERIFY-BREAKS-1: a rotation of continuity "broken", signed by the new key alone (dojo-fixture.ts:64, :76; bell-verify.mjs:115)
+  const f = dojoFixture(), K2 = newKey(), lost: Step[] = [step(f.steps, 0), step(f.steps, 1),
+    { key: K2, rotateTo: K2, broken: true, body: { kind: "key_rotation", published_at: at(FIRST, 0.75) } },
+    ...f.steps.slice(2).map((x) => ({ ...x, key: K2 }))];
+  const r = await check(render(lost), dojoKeyringOf([[f.key, 1, 3], [K2, 3]])), r0 = await check(render(f.steps), dojoKeyringOf([[f.key, 1]]));
+  assert.deepEqual([said(r), r.ok && r.breaks, r.ok && r.active_key_id, r0.ok && r0.breaks],
+    ["ok", [{ seq: 3, lost_key_id: keyIdOf(f.key), new_key_id: keyIdOf(K2) }], keyIdOf(K2), []]);
 });
