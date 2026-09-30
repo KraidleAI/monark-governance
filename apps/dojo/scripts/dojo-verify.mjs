@@ -5,6 +5,8 @@
 // DOJO-KEYRING-SCHEMA-1); the served dojo/pubkey.json is a cross-checked channel; --self-consistent-only runs under the served
 // keyring and says so (motif bell-verify.mjs:1-9). Refusals: the codes of D-10 l.252 only; their uses are declared in the G1
 // journal of PR-1b-2. It never reads the Solana chain: a signature attests origin, never truth (D-10 l.253). Built-ins only.
+// PR-1b-4 (ADR-DOJO-PR-1B-4): the served files through --url <base> (urlSource: Bell's transport policy, the runtime's global
+// fetch), --day <day> (a past day, proven after the whole check) and the closed keys of a report, DOJO_VERIFY_REPORT_KEYS (D-3).
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -31,10 +33,16 @@ export class DojoVerifyError extends Error {
   }
 }
 const refuse = (code, seq, day, detail) => { throw new DojoVerifyError(code, seq, day, detail); };
+/** The closed keys of a success report, in the order of canonical (ADR-DOJO-PR-1B-4 D-3): its consumer and the tests read them here. */
+export const DOJO_VERIFY_REPORT_KEYS = Object.freeze(["active_key_id", "beacon_bls_verified", "breaks", "day", "detail", "head", "history",
+  "inclusion", "ok", "reason", "scope", "seq", "snapshots", "status", "target", "timeline_sha256", "trust_root", "voided_lines"]);
 
 // Bounds (D-10 l.250: sources and bounds as bell-verify.mjs): 64 MiB per body and 1 MiB per line, bell-verify.mjs:25-28; a day of
-// lines weighs 26,7 MiB for N = 10^5 addresses at K = 4 (D-7 l.223, M3).
-export const VERIFY_BOUNDS = Object.freeze({ MAX_BODY_BYTES: 64 * 1024 * 1024, MAX_LINE_BYTES: 1024 * 1024 });
+// lines weighs 26,7 MiB for N = 10^5 addresses at K = 4 (D-7 l.223, M3). PR-1b-4 D-1: TIMEOUT_MS 30 s per GET, Bell's (rpc-guard
+// DEFAULT_TIMEOUT_MS); the totals of a URL source (Q-V-1), PROVISIONAL until DOJO-VERIFY-SCALE-1 measures them (Q-2): 1 024 files
+// (3 fixed and 1 021 snapshots, 2.8 years of days) and 2 GiB (1 021 days of 313 KiB at N = 1 144, a margin of 6.5).
+export const VERIFY_BOUNDS = Object.freeze({ MAX_BODY_BYTES: 64 * 1024 * 1024, MAX_LINE_BYTES: 1024 * 1024, TIMEOUT_MS: 30_000, MAX_FILES: 1024,
+  MAX_TOTAL_BYTES: 2 * 1024 ** 3 });
 
 /** A directory holding the served layout (a mirror, or the publisher's public/); motif bell-verify.mjs:35-46. */
 export function dirSource(root, bounds = VERIFY_BOUNDS) {
@@ -46,6 +54,50 @@ export function dirSource(root, bounds = VERIFY_BOUNDS) {
       if (size < 0) refuse("unreachable", null, null, rel);
       if (size > bounds.MAX_BODY_BYTES) refuse("too_large", null, null, rel);
       return Promise.resolve(readFileSync(p));
+    },
+  };
+}
+
+/** Transport policy (PR-1b-4 T-1, bell-verify.mjs:30-32), read on the RAW string before any normalization: https (no userinfo)
+ *  anywhere, http ONLY on the loopback literals 127.0.0.1 or [::1]; and no ? nor # anywhere in the base (T-2, declared divergence). */
+export const urlAllowed = (u) => typeof u === "string" && !/[?#]/.test(u)
+  && (/^https:\/\/[^/?#@\s\\]+(?:[/?#]|$)/i.test(u) || /^http:\/\/(?:127\.0\.0\.1|\[::1\])(?::\d{1,5})?(?:\/|$)/.test(u));
+const SERVED = /^(?:timeline\.jsonl|dojo\/pubkey\.json|(?:lines|history)\/[0-9a-f]{64}\.jsonl)$/; // T-8: the closed list (mere D-9 l.254)
+const TLS_ENV = ["NODE_EXTRA_CA_CERTS", "NODE_USE_SYSTEM_CA", "NODE_USE_ENV_PROXY"]; // extend the trust or route the GETs (FAITS F-2, F-4, F-5)
+/** A served base URL (PR-1b-4 D-1, T-3 to T-10; bell-verify.mjs:47-68): one GET per file of the closed list, redirect "manual" and
+ *  any 3xx refused (never followed), 200 only, the body counted as it streams (content-length never read) and cancelled on any
+ *  refusal (FAITS F-6), one timer per GET over headers and body; the totals of the whole check are counted here (Q-V-1). Every
+ *  refusal comes at a get, before its request, so that verifyDojoServed reports it; NODE_TLS_REJECT_UNAUTHORIZED at 0 disables
+ *  the certificate check (FAITS F-1): refused (T-9 amended). `note` names the TLS variables present, never a value (for the CLI). */
+export function urlSource(base, bounds = VERIFY_BOUNDS) {
+  const env = process.env, root = String(base).replace(/\/+$/, ""), set = TLS_ENV.filter((k) => env[k] !== undefined);
+  let files = 0, bytes = 0;
+  return {
+    note: set.length === 0 ? null : `TLS environment: ${set.join(", ")}`,
+    get: async (rel) => {
+      if (env.NODE_TLS_REJECT_UNAUTHORIZED === "0") refuse("insecure_url", null, null, "NODE_TLS_REJECT_UNAUTHORIZED");
+      if (!urlAllowed(base)) refuse("insecure_url", null, null, "--url");
+      if (!SERVED.test(rel)) refuse("insecure_url", null, null, rel);
+      if (++files > bounds.MAX_FILES) refuse("too_large", null, null, "total files");
+      const ctl = new AbortController(), timer = setTimeout(() => { ctl.abort(); }, bounds.TIMEOUT_MS);
+      let res = null;
+      try {
+        res = await fetch(`${root}/${rel}`, { redirect: "manual", signal: ctl.signal });
+        if (res.type === "opaqueredirect" || (res.status >= 300 && res.status < 400)) refuse("redirect_refused", null, null, rel);
+        if (res.status !== 200 || res.body === null) refuse("http_status", null, null, rel);
+        const chunks = [];
+        let n = 0;
+        for await (const c of res.body) {
+          if ((n += c.length) > bounds.MAX_BODY_BYTES) refuse("too_large", null, null, rel);
+          if ((bytes += c.length) > bounds.MAX_TOTAL_BYTES) refuse("too_large", null, null, "total bytes");
+          chunks.push(c);
+        }
+        return Buffer.concat(chunks);
+      } catch (e) {
+        await res?.body?.cancel().catch(() => undefined); // F-6: a refused body is cancelled, never left to the collector
+        if (e instanceof DojoVerifyError) throw e;
+        return refuse("unreachable", null, null, rel);
+      } finally { clearTimeout(timer); }
     },
   };
 }
@@ -158,9 +210,9 @@ export function checkInclusion(line, index, count, path, root) {
   if (!verifyProof(line, index, count, path, root)) refuse("proof_invalid", null, null, `inclusion of line ${index + 1} of ${count}`);
 }
 
-async function verify({ source, keyring, address, bounds }) {
+async function verify({ source, keyring, address, day, bounds }) {
   const parse = (buf, code, seq, what) => { try { return JSON.parse(buf.toString("utf8")); } catch { return refuse(code, seq, null, what); } };
-  const text = (await source.get("timeline.jsonl")).toString("utf8");
+  const tl = await source.get("timeline.jsonl"), text = tl.toString("utf8"); // tl: the verified bytes, hashed into timeline_sha256 (D-3)
   if (text !== "" && !text.endsWith("\n")) refuse("timeline_malformed", null, null, "timeline.jsonl: no final newline");
   const lines = text === "" ? [] : text.slice(0, -1).split("\n").map((s, i) => {
     if (Buffer.byteLength(s) + 1 > bounds.MAX_LINE_BYTES) refuse("too_large", i + 1, null, "timeline.jsonl");
@@ -227,7 +279,7 @@ async function verify({ source, keyring, address, bounds }) {
   const series = new Map();
   const seriesOf = (a, d) => { const s = series.get(a) ?? []; while (s.length < d) s.push(null); series.set(a, s); return s; };
   const no = (s) => epoch(s) - (hist === null ? 0 : epoch(hist.history_first_day)) + 1;
-  let piles = new Map(), hFile = null, headFile = null;
+  let piles = new Map(), hFile = null, headFile = null, aim = null;
   if (hist !== null) {
     const N = no(hist.history_last_day), at = (code, what) => refuse(code, hist.seq, null, what), rel = `history/${hist.history_sha256}.jsonl`;
     hFile = await readImmutable(source, rel, { seq: hist.seq, day: null, count: hist.history_lines_count, sha: hist.history_sha256, root: hist.history_root },
@@ -290,45 +342,58 @@ async function verify({ source, keyring, address, bounds }) {
     if (L.holders_count !== (v === null ? null : f.objs.filter((o) => o.holder_counted === true).length)) at("holders_count_mismatch", "holders_count");
     piles = next;
     headFile = f;
+    if (L.day === day) aim = { l: L, f }; // --day (PR-1b-4 D-2): the one snapshot of day D (day_not_increasing), its lines checked here
   }
 
-  let inclusion = null; // --address (D-10 l.250-251): the head's line, its path, checked against the signed root
+  // --day, read only after the whole check (D-2): refused as line_missing at the head, detail in English; "after" = after the SERVED
+  // head, no clock is read; a day out of form (the library, without the CLI) is a day without snapshot, compared to nothing.
+  const hs = head === null ? lines.length : head.seq, hd = head === null ? null : head.day, pick = day === null ? { l: head, f: headFile } : aim;
+  if (pick === null) {
+    refuse("line_missing", hs, hd, `--day: ${!dayOk(day) ? "no snapshot of that day" : epoch(day) < instantDay(lines[0].published_at)
+      ? "before the anchor's day" : head === null || epoch(day) > epoch(head.day) ? "after the head's day" : "no snapshot of that day"}`);
+  }
+  const target = day === null ? null : { seq: pick.l.seq, day: pick.l.day, lines_sha256: pick.l.lines_sha256, lines_count: pick.l.lines_count,
+    recomputed_root: pick.f.root };
+  let inclusion = null; // --address (D-10 l.250-251; D-2): the line of the head (of day D), its path, checked against that signed root
   if (address !== null) {
-    const i = headFile === null ? -1 : headFile.objs.findIndex((o) => o.address === address);
-    if (i < 0) refuse("line_missing", head === null ? lines.length : head.seq, head === null ? null : head.day, "--address: no line in the head snapshot");
-    const path = proofOf(headFile.raw, i);
-    checkInclusion(headFile.raw[i], i, headFile.raw.length, path, head.root);
-    inclusion = { address, index: i, count: headFile.raw.length, line: headFile.raw[i], proof: path };
+    const i = pick.f === null ? -1 : pick.f.objs.findIndex((o) => o.address === address), where = day === null ? "the head" : "the --day";
+    if (i < 0) refuse("line_missing", pick.l === null ? hs : pick.l.seq, pick.l === null ? null : pick.l.day, `--address: no line in ${where} snapshot`);
+    const path = proofOf(pick.f.raw, i);
+    checkInclusion(pick.f.raw[i], i, pick.f.raw.length, path, pick.l.root);
+    inclusion = { address, index: i, count: pick.f.raw.length, line: pick.f.raw[i], proof: path };
   }
   return { ok: true, reason: null, seq: lines.length, day: head === null ? null : head.day, detail: null,
     status: keyring === null ? "self_consistent_only" : "consistent_with_supplied_keyring", trust_root: keyring === null ? "served_keyring" : "supplied_keyring",
-    active_key_id: w.active, voided_lines: w.voided, snapshots: snaps.length,
+    active_key_id: w.active, voided_lines: w.voided, breaks: w.breaks, snapshots: snaps.length,
     head: head === null ? null : { seq: head.seq, lines_sha256: head.lines_sha256, lines_count: head.lines_count, recomputed_root: headFile.root },
     history: hist === null ? null : { history_sha256: hist.history_sha256, history_lines_count: hist.history_lines_count, recomputed_root: hFile.root },
-    inclusion, beacon_bls_verified: false,
+    inclusion, target, timeline_sha256: sha256(tl), beacon_bls_verified: false,
     scope: "a signature attests origin, never truth; the readings are what two operators reported; the Solana chain is not read; the beacon's BLS signature is not verified: an altered signature of valid form is refused as its instants" };
 }
 
 /** The complete check of D-10 (l.251): resolves to {ok: true, ...} or {ok: false, reason, seq, day, detail}, reason in
- *  DOJO_VERIFY_REFUSALS. `keyring` = the SUPPLIED dojo-keyring-v1 (parsed JSON), the trust root; null = self_consistent_only. */
-export async function verifyDojoServed({ source, keyring = null, address = null, bounds = VERIFY_BOUNDS }) {
+ *  DOJO_VERIFY_REFUSALS. `keyring` = the SUPPLIED dojo-keyring-v1 (parsed JSON), the trust root; null = self_consistent_only.
+ *  `day` (PR-1b-4 D-2): a day YYYY-MM-DD proven after the whole check, reported under target; null = none. */
+export async function verifyDojoServed({ source, keyring = null, address = null, day = null, bounds = VERIFY_BOUNDS }) {
   try {
-    return await verify({ source, keyring, address, bounds });
+    return await verify({ source, keyring, address, day, bounds });
   } catch (e) {
     if (e instanceof DojoVerifyError) return { ok: false, reason: e.code, seq: e.seq, day: e.day, detail: e.detail };
     throw e;
   }
 }
 
-const USAGE = "dojo/verify: usage: node dojo-verify.mjs <served tree> (--keyring <file> | --self-consistent-only) [--address <address>]\n";
-/** CLI (D-10 l.250; mission of PR-1b-2): one served tree (a directory) and a trust root chosen explicitly, --keyring <file> or
- *  --self-consistent-only; neither, both, a flag twice, a dangling or unknown flag, zero or two trees: usage on stderr, nothing on
- *  stdout, exit 1. Otherwise one canonical JSON line on stdout, exit 0 iff ok; a keyring file unreadable or not an object is
- *  keyring_invalid, never a run without a root. */
+const USAGE = "dojo/verify: usage: node dojo-verify.mjs (<served tree> | --url <base>) (--keyring <file> | --self-consistent-only)"
+  + " [--address <address>] [--day <YYYY-MM-DD>]\n";
+/** CLI (D-10 l.250; mission of PR-1b-2; PR-1b-4 D-1): one source, a served tree (a directory) or --url <base>, and a trust root
+ *  chosen explicitly, --keyring <file> or --self-consistent-only; neither, both, a flag twice, a dangling or unknown flag, zero or
+ *  two sources, a --day out of form: usage on stderr, nothing on stdout, exit 1. Otherwise one canonical JSON line on stdout, exit 0
+ *  iff ok; a keyring file unreadable or not an object is keyring_invalid, never a run without a root. Under --url, the detail of a
+ *  success names the TLS variables of the environment (T-9 amended), never their values. */
 export async function runVerifyCli(argv) {
   const opt = new Map(), trees = [];
   for (let i = 0; i < argv.length; i++) {
-    const a = argv[i], valued = a === "--keyring" || a === "--address";
+    const a = argv[i], valued = ["--keyring", "--address", "--url", "--day"].includes(a);
     if (opt.has(a) || (a.startsWith("--") && !valued && a !== "--self-consistent-only") || (valued && (argv[i + 1] ?? "--").startsWith("--"))) {
       process.stderr.write(USAGE);
       return 1;
@@ -337,14 +402,16 @@ export async function runVerifyCli(argv) {
     else if (valued) opt.set(a, argv[++i]);
     else trees.push(a);
   }
-  if (trees.length !== 1 || opt.has("--keyring") === opt.has("--self-consistent-only")) { process.stderr.write(USAGE); return 1; }
+  if (trees.length + (opt.has("--url") ? 1 : 0) !== 1 || opt.has("--keyring") === opt.has("--self-consistent-only")
+    || (opt.has("--day") && !dayOk(opt.get("--day")))) { process.stderr.write(USAGE); return 1; }
   try {
     let keyring = null;
     if (opt.has("--keyring")) { try { keyring = JSON.parse(readFileSync(opt.get("--keyring"), "utf8")); } catch { keyring = undefined; } }
+    const source = opt.has("--url") ? urlSource(opt.get("--url")) : dirSource(trees[0]);
     const r = opt.has("--keyring") && (keyring === null || typeof keyring !== "object")
       ? { ok: false, reason: "keyring_invalid", seq: null, day: null, detail: "--keyring" }
-      : await verifyDojoServed({ source: dirSource(trees[0]), keyring, address: opt.get("--address") ?? null });
-    process.stdout.write(`${canonical(r)}\n`);
+      : await verifyDojoServed({ source, keyring, address: opt.get("--address") ?? null, day: opt.get("--day") ?? null });
+    process.stdout.write(`${canonical(r.ok ? { ...r, detail: source.note ?? null } : r)}\n`);
     return r.ok ? 0 : 1;
   } catch (e) {
     process.stderr.write(`dojo/verify: fatal: ${String(e?.name ?? "error")}\n`);
