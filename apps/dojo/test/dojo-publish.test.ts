@@ -142,6 +142,8 @@ test("dojo_publish_rotation_and_revocation_follow_bell", async () => {
   ok(() => publishAnchor({ stateDir: ra, key: K1, request: request(), clock: at(0) }));
   ok(() => rotateKey({ stateDir: ra, oldKey: K1, newKey: K2, clock: at(1) }));
   assert.equal(ok(() => publishAnchor({ stateDir: ra, key: K2, request: request(), clock: at(2) })).seq, 3, "a re-anchor by the active key");
+  ok(() => rotateKey({ stateDir: ra, oldKey: K2, newKey: K3, clock: at(3) })); // seq 4: K2 signed seq 3 and seq 4
+  refuses(() => revokeKey({ stateDir: ra, key: K3, revokedKeyId: id2, revokedFromSeq: 2, clock: at(4) }), "revocation_invalid"); // below K2 lines
   for (const [id, from] of [[id2, 2], [id1, 0], [id1, 4], [id4, 2]] as const) {
     refuses(() => revokeKey({ stateDir: s, key: K2, revokedKeyId: id, revokedFromSeq: from, clock: at(2) }), "revocation_invalid");
   }
@@ -248,6 +250,7 @@ test("dojo_publish_anchor_replayed_after_a_stop_adds_no_line", () => {
   const again = ok(() => publishAnchor({ stateDir: s, key: k, request: { ...req }, clock: () => T0 + 1 }));
   assert.deepEqual([again.seq, again.published_at, linesOf(tl).length], [1, new Date(T0).toISOString(), 1], "the same request replayed: its anchor, no line");
   assert.equal(ok(() => publishAnchor({ stateDir: s, key: k, request: request(), clock: () => T0 + 2 })).seq, 2, "another request: a re-anchor, as before");
+  assert.equal(ok(() => publishAnchor({ stateDir: s, key: k, request: req, clock: () => T0 + 3 })).seq, 3, "req after another: a re-anchor");
 });
 
 // killer: apps/dojo/scripts/dojo-publish.mjs:195 CONST "^[1-9][0-9]*$" -> "^"
