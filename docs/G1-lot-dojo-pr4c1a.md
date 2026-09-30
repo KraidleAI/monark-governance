@@ -373,3 +373,97 @@ Fichier des lignes citées : `apps/site/lib/dojo-live.ts` (297 l.) sauf mention 
   de son arbre, section 17).
 - `git status --porcelain` à la remise : ` M apps/dojo/test/helpers/dojo-fixture.ts`, ` M apps/site/lib/dojo-served-load.ts`,
   ` M test/dojo-served.test.ts`, `?? apps/site/lib/dojo-live.ts`, `?? docs/G1-lot-dojo-pr4c1a.md`, `?? test/dojo-live.test.ts`.
+
+## 19. Corrections post-G2 (C-G2-1, tour tests seuls ; correcteur, 2026-09-30)
+
+- **Correcteur (R-1)** : `claude-opus-5-5`, effort max, instance fraîche (correcteur ≠ relecteur ≠ générateur). Mission
+  `F:/tmp/dojo/mission-corr-pr4c1a.md`, sha256 `bcd72ae2a1dc3b39a4aed9c33efc2e568fc76718a0323ec1d7918904aed87425`, recalculé à 07:53:08Z
+  AVANT lecture ; reçu absent au chemin cité (`….md.recu.json`) et au chemin canonique (`recuPath` de `launch.mjs` l.22 :
+  `mission-corr-pr4c1a.recu.json`) ; linter du tronc rejoué seul, en lecture, à 07:53:41Z : vert, 12 codes à 0
+  (`F:/tmp/dojo/pr4c1a-corr/tmp/lint-mission.json`).
+- **Entrées lues en entier** (sha256) : rapport G2 `f7dbc9cf…4133` ; modèles `g2-p9-survivors.test.ts` `b51dfdca…ee92` et
+  `g2-common.ts` `f2aef5c5…7b2e` ; table `table-g2.mjs` `c3ab9a0a…f305` ; mission G1 `d8c98efe…09db` ; ce journal `bc3c1e81…5ce0` ;
+  ADR `25bbc9a8…1cc6c` (pli G0 l.267-379) ; `dojo-live.ts` `d6f1570b…10ba` ; `test/dojo-live.test.ts` `af2ea8ca…36c7`. Worktree au
+  gel 1 `dbbd976c` (arbre `7a06f35c`), `git status --porcelain` vide à 08:03:51Z.
+- **Forme retenue** : huit tests NEUFS, un par mutant survivant de la campagne c2 du G2, ajoutés à la fin de `test/dojo-live.test.ts`
+  (après l.271), chacun sous sa ligne `// killer:` (format `parseKiller` de `red-proof.mjs`) ; la mission fixe 28 tests (20 + 8) et un
+  tueur par test neuf, ce que des entrées dans les tableaux `beyond` (l.142) et `signed` (l.174) ne donneraient pas (20 tests, aucun
+  tueur neuf, mutants hors de la population tirée par `red-proof`). Les tests de (a), (c), (e), (f) assertent la forme de `beyond` :
+  le marcheur parcourt l'arbre, la construction le refuse, le navigateur replie au code attendu. Aucune ligne de
+  `apps/site/lib/dojo-live.ts` ni d'aucun autre fichier de code touchée ; aucune barre inverse dans les lignes ajoutées.
+- **Compte ascendant prévu, écrit AVANT toute ligne de test (08:03:51Z)** : `test/dojo-live.test.ts` + 76, tout en insertions après
+  l.271 : blanc 1 ; commentaire 1 ; aides 16 (`e1Record` 5, `firstReading` 5, `beyondTheWalker` 6) ; blanc 1 ; tests 57 (G2-1, G2-2,
+  G2-4, G2-5 : 6 chacun ; G2-3 : 13 ; G2-6 : 7 ; G2-7 : 8 ; G2-15 : 5, dernier du fichier, sans blanc). Autres fichiers : 0. R-25 attendu
+  ≈ 592 + 76 = 668 ≤ 1 150 (borne mesurée) et ≤ 1 205 (porte CI). L'estimation du G2 (≈ + 20, R-25 ≈ 612) valait pour des entrées de
+  tableau, sans déclaration ni tueur par test.
+- **Tests écrits (08:05:39Z)** : `test/dojo-live.test.ts` 271 → 347 lignes, + 76 et 0 suppression (`git diff --numstat`) : mesuré = prévu ;
+  sha256 `ce24bafa9c17cd468311359180d0469126a3df7ea30a9c11077052d93229eb70`. Garde d'octets (`F:/tmp/dojo/pr4c1a-corr/tmp/bytes.mjs`, sans
+  barre inverse) : 0 caractère de contrôle, LF final ; lignes ajoutées : 0 barre inverse, 154 caractères au plus (les 32 barres inverses
+  du fichier sont celles du gel 1, blob `af2ea8ca…36c7`). Les 16 lignes `// killer:` du fichier sont lues par `parseKiller` du tronc,
+  chaque `<before>` une seule fois sur sa ligne (`F:/tmp/dojo/pr4c1a-corr/tmp/check-killers.mjs`).
+- **Test → mutant tué → ligne** (module `apps/site/lib/dojo-live.ts` inchangé, `d6f1570b…10ba` ; K = rang du tueur dans la campagne) :
+  - (a) `dojo_live_refuses_a_new_head_of_another_mint` (l.292) : G2-1 et K9, l.222 (`l.mint === anchor.mint` → `true`) ;
+  - (a) `dojo_live_refuses_a_new_head_of_another_status` (l.298) : G2-2 et K10, l.223 ; K10 = `(l.status === ` → `(true || l.status === `,
+    même effet que G2-2, écrit sans guillemet ni barre inverse ;
+  - (b) `dojo_live_times_out_a_body_that_stalls` (l.304) : G2-3 et K11, l.102 (lecture du corps hors de la course contre le minuteur) ;
+    `TIMEOUT_MS` abaissé à 100, course bornée à 3 s (minuteur annulé après elle), repli « timed out » et corps annulé, assertés ;
+  - (c) `dojo_live_refuses_a_reading_without_its_slot_max` (l.317) : G2-4 et K12, l.290 (`m.length !== M.length` → `false`) ;
+  - (c) `dojo_live_refuses_a_slot_that_is_not_an_integer` (l.323) : G2-5 et K13, l.290 (`![...mins, ...maxs].every(int0)` → `false`) ;
+  - (d) `dojo_live_binds_the_committed_dust_threshold` (l.329) : G2-6 et K14, l.276 (moitié `dust_threshold` de la garde M-L22b) ;
+  - (e) `dojo_live_refuses_a_lines_row_that_is_not_an_object` (l.336) : G2-7 et K15, l.284 (`objs.length !== rows.length ||` → `false ||`) ;
+    fichier de lignes bâti à la main (les lignes de la fixture plus une ligne `1`), lié à la tête par son sha256, son compte, sa racine ;
+  - (f) `dojo_live_binds_the_validated_total_to_the_lines` (l.344) : G2-15 et K16, l.286 ; K16 = `!== h.validated_total` →
+    `!== h.validated_total && false`, même effet que G2-15, écrit sans guillemet.
+  - Aides ajoutées dans le fichier (aucun import de `g2-common.ts`) : `e1Record` (fixture, trousseau committé, enregistrement à E1),
+    `firstReading` (édition signée de la première lecture de la tête), `beyondTheWalker` (le marcheur parcourt, la construction refuse,
+    le navigateur replie au code attendu).
+- **Tests (08:06:51Z → 08:06:59Z)** : clone `--no-local` `F:/tmp/dojo/pr4c1a-corr/clone` (gel 1 `dbbd976c` détaché, les deux fichiers du
+  tour recopiés à sha256 égal ; `node_modules` par `mk-nm.ps1` : 220 entrées, 10 `@monark` repointés, 0 échec) ;
+  `node --test test/dojo-live.test.ts test/dojo-served.test.ts test/dojo-page.test.ts` : **28 sur 28 verts** (16 + 7 + 5), 0 rouge,
+  0 sauté (`F:/tmp/dojo/pr4c1a-corr/logs/tests.log`).
+- **Double compilation (08:07:12Z)**, TypeScript 6.0.3, le seul `dojo-live.ts` (inchangé) : programme Next (`tsc-dom`, hérite
+  d'`apps/site/tsconfig.json` : DOM et types Node) : 0 erreur ; programme DOM seul (`tsc-domonly`, aucun type Node) : 6 erreurs, toutes
+  dans `dojo-served-load.ts` (`node:fs`, `node:crypto`, `node:path`, trois `Buffer`), 0 dans `dojo-live.ts` ; les six du G1 et du G2 (seul
+  le préfixe de chemin diffère de la sortie du G2, lancée depuis un autre dossier). Programme racine `tsc --noEmit` : 0 erreur
+  (08:07:24Z → 08:07:34Z, fichier de test compris).
+- **Portes statiques sur le clone (08:07:50Z → 08:08:35Z)** : ESLint sur `test/dojo-live.test.ts` 0 ; `lint-ratchet` **69/69** (plafond
+  inchangé : aucune violation `no-unsafe-*` ajoutée) ; `lang:gate` 0 ; `gate:vocab` 0 (327 fichiers) ; `export:check` 0.
+- **F2P** : `node F:/Monark/scripts/red-proof.mjs --base 1775c1ed --gel F:/Monark-wt-dojo-pr4c1 --repo F:/tmp/dojo/pr4c1a-corr/base
+  --out F:/tmp/dojo/pr4c1a-corr/f2p --draw 3 --seed 2026` (mode worktree ; `--repo` = clone `--no-local` à `1775c1ed`, `node_modules` =
+  une jonction vers `F:/Monark/node_modules`) ; 08:09:20Z → 08:09:57Z, sortie 0. `RED-PROOF.json`
+  **`7109ca5eed070e304413b62079772c40225988586867f89128e955553515f108`** : `ok` ; 17 jugés (les 16 tests de `test/dojo-live.test.ts` en
+  `new-module`, `dojo_served_loader_is_fail_closed` en F2P), 6 inchangés ; population 17, trois tueurs tirés (graine 2026) : chargeur
+  l.143 et l.243, `dojo-live.ts` l.290 (K12, test neuf de (c)), **tués par assertion**, fichiers restaurés au même sha256 ; condensé
+  des changements `374e00e2ce84c5cca17337d02e97409dc0dcfdd35bf6bf1c64eda62646e5d6b1`.
+- **Mutants** (outil du tronc `F:/Monark/scripts/mutants/run.mjs` `2606e7da…3b19`, forme des REGLES) : `--repo F:/tmp/dojo/pr4c1a-corr/clone
+  --base 1775c1ed… --out F:/tmp/dojo/pr4c1a-corr/mutants/c1 --table F:/tmp/dojo/g2-pr4c1a/mutants/table-g2.mjs --killers --file
+  apps/site/lib/dojo-live.ts --targets test/dojo-live.test.ts,test/dojo-served.test.ts --lock-root F:/tmp --min-free-mb 4096` ;
+  `<out>/node_modules` = jonction vers `F:/Monark/node_modules` ; garde externe à 08:11:08Z (`held("F:/tmp")` = `null`, 10 `node`,
+  15 560 Mo physiques et 33 766 Mo virtuels libres) ; aucun oracle ni aucune course de ma part pendant la campagne ; 08:11:59Z →
+  08:15:30Z ; base verte (61 tests). `RESULTS.json` **`b85c8b1135f463d2bbcdbcb64fe498ff8c1dc3346182ade77cf4134a7e99f5d0`**
+  (`RESULTS.txt` `406e0f7c…7460`, relu en entier) : table du G2 **19 tués sur 19** (G2-1 à G2-7 et G2-15 chacun par son seul test
+  neuf), tueurs **20 tués sur 20** (K1 à K16 de `test/dojo-live.test.ts`, K17 à K20 de `test/dojo-served.test.ts`) ; 39 morts strictes
+  (un seul test rouge, un seul `ERR_ASSERTION`), fichiers restaurés au même sha256 ; 0 survivant, 0 non conclu, 0 ancre perdue ; sortie 0.
+- **R-25, aperçu** (`F:/tmp/dojo/pr4c1a-corr/tmp/r25-worktree.mjs` : pathspecs du job CI lues par `R25_DIFF_RE` exporté de
+  `F:/Monark/scripts/oracle/r25.mjs`, comptées sur l'arbre de travail contre `1775c1ed`, `--no-optional-locks` ; 08:16:08Z) : `STAT`
+  662 insertions + 6 suppressions = **668** ≤ 1 150 (borne mesurée) et ≤ 1 205 (porte CI) ; `CONTENT_STAT` vide ; par fichier :
+  `test/dojo-live.test.ts` 347 (271 + 76), les quatre autres inchangés depuis le gel 1. Mesuré = prévu (+ 76). Compte officiel : porte
+  `r25` de l'oracle (dans `REPONSE.md`).
+- **Jonctions** : `clone/node_modules` retiré par `rm-nm.ps1`, `base/node_modules` et `mutants/c1/node_modules` par
+  `[System.IO.Directory]::Delete` (08:16:34Z) ; balayage de `F:/tmp/dojo/pr4c1a-corr` à 08:16:44Z : 0 point de réanalyse ;
+  `F:/Monark/node_modules` compté avant et après : 220 entrées, 10 `@monark`, `typescript` présent.
+- **Oracle** : lancé APRÈS la clôture de ce journal, par `node F:/Monark/scripts/oracle/run.mjs --role corr --tree F:/Monark-wt-dojo-pr4c1
+  --base 1775c1ed --key PR-4c-1a` ; son enregistrement est cité dans `F:/tmp/dojo/pr4c1a-corr-deliver/REPONSE.md` et ce journal n'est plus
+  touché après le lancement : l'objet d'arbre de l'enregistrement est celui de l'arbre à geler (piège relevé par Q-G2-5).
+- **`error_origin`** (assignés au G7) : C-G2-1 : worker G1 (assignation du G2) ; forme des tests (texte double de la mission : entrées de
+  tableau et « 28 tests ») : génération de la mission (Q-C-2 de la réponse) ; reçu absent au chemin cité : orchestrateur (Q-C-1).
+- **Provenance et conduite** : correcteur `claude-opus-5-5` (R-1), effort max ; git en lecture seule dans le worktree et dans `F:/Monark`
+  (`status --porcelain`, `rev-parse`, `branch --show-current`, `log`, `diff`, `show`) ; l'index du worktree garde sa date d'avant ce tour
+  (06:25:08Z, relevée à 08:12Z et à 08:17:14Z) ; `clone --no-local` et `checkout --detach` dans mes seuls clones (`clone`, `base`) ;
+  **aucun `GIT_DIR`, aucun `GIT_WORK_TREE`, aucun `--write-tree`** ; aucun add, commit ni stash ; aucun réseau ; aucune clé réelle ;
+  rien sur C: (TEMP, TMP, TMPDIR = `F:/tmp/dojo/pr4c1a-corr/tmp`) ; verrou d'hôte relu libre avant chaque exécution. Advisor intégré
+  consulté après l'orientation, avant l'écriture (forme des tests, tueurs sans barre inverse, ordre journal puis oracle) : conseil,
+  jamais verdict, chaque point vérifié sur pièce ; la consultation de fin, après l'oracle, est rapportée dans `REPONSE.md`. Écart
+  consigné : des commandes de lecture ou de contrôle (`grep`, PowerShell) portaient des séquences barre inverse hors heredoc (échappements
+  de motif et de `$`), hors chemin ; aucune n'a écrit de fichier livré ; le seul contrôle qui en dépendait (octets, 08:04Z) est refait
+  par le script sans barre inverse `bytes.mjs`.

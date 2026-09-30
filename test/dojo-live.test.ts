@@ -269,3 +269,79 @@ test("dojo_served_accepts_an_abstained_head_with_readings", async () => {
     assert.deepStrictEqual(headOf(await reread(await committedOf(render(f.steps.slice(0, n - 1)), k), tree)), h, `${name}: the browser projects it too`);
   }
 });
+
+// C-G2-1 of the G2 of PR-4c-1a: one test per mutant that survived the reviewer's campaign c2 (its table-g2.mjs), which kills it by assertion.
+/** The fixture, its committed keyring (a second key committed too) and the record committed at E1 (seq 9): new lines are seq 10 to 12. */
+async function e1Record(): Promise<{ f: ReturnType<typeof dojoFixture>; k: Rec; c: DojoServedData }> {
+  const f = dojoFixture(), k = dojoKeyringOf([[f.key, 1], [newKey(), 1]]);
+  return { f, k, c: await committedOf(render(f.steps.slice(0, 9)), k) };
+}
+/** An edit of the first reading of the new head (seq 12, step 11), before the key holder signs it. */
+const firstReading = (fn: (r: Rec) => Rec) => (s: Step[]): void => {
+  const b = s[11]?.body ?? {};
+  b.reads = (b.reads as Rec[]).map((r, i) => (i === 0 ? fn(r) : r));
+};
+/** The reader's tool beyond the walker: the walker walks the served tree, the build refuses it, the browser falls back with `why`. */
+async function beyondTheWalker(tree: Tree, k: Rec, c: DojoServedData, why: RegExp): Promise<void> {
+  assert.equal(walkDojoTimeline(timelineOf(tree), trustOf(k)).ok, true, "the walker walks it");
+  await assert.rejects(build(tree, k), Error, "the build refuses it");
+  assert.match(whyOf(await reread(c, tree)), why, "the browser falls back");
+}
+
+// killer: apps/site/lib/dojo-live.ts:222 CONST "l.mint === anchor.mint" -> "true"
+test("dojo_live_refuses_a_new_head_of_another_mint", async () => {
+  const { f, k, c } = await e1Record();
+  await beyondTheWalker(render(f.steps, new Map(), body(11, { mint: "x" })), k, c, /^timeline_malformed$/);
+});
+
+// killer: apps/site/lib/dojo-live.ts:223 CONST "(l.status === " -> "(true || l.status === "
+test("dojo_live_refuses_a_new_head_of_another_status", async () => {
+  const { f, k, c } = await e1Record();
+  await beyondTheWalker(render(f.steps, new Map(), body(11, { status: "provisional" })), k, c, /^timeline_malformed$/);
+});
+
+// killer: apps/site/lib/dojo-live.ts:102 CONST "await Promise.race([reader.read(), late])" -> "await reader.read()"
+test("dojo_live_times_out_a_body_that_stalls", async () => {
+  const { c } = await e1Record();
+  let cancelled = false, timer: ReturnType<typeof setTimeout> | undefined;
+  const get: live.DojoLiveGet = () => Promise.resolve(new Response(new ReadableStream<Uint8Array>({ start: (q) => { q.enqueue(new Uint8Array(8)); },
+    cancel: () => { cancelled = true; } }), { status: 200 }));
+  const run = live.rereadDojoHead(c, { sha256, verifyEd25519, get, bounds: { ...live.DOJO_LIVE_BOUNDS, TIMEOUT_MS: 100 } });
+  const hung = new Promise<"hung">((r) => { timer = setTimeout(() => { r("hung"); }, 3000); });
+  const o = await Promise.race([run, hung]).finally(() => { clearTimeout(timer); });
+  assert.match(o === "hung" ? assert.fail("the reread waits on a stalled body") : whyOf(o), /timed out/, "a stalled body is timed out");
+  assert.ok(cancelled, "and its body cancelled");
+});
+
+// killer: apps/site/lib/dojo-live.ts:290 CONST "m.length !== M.length" -> "false"
+test("dojo_live_refuses_a_reading_without_its_slot_max", async () => {
+  const { f, k, c } = await e1Record();
+  await beyondTheWalker(render(f.steps, new Map(), firstReading((r) => ({ ...r, slot_max: null }))), k, c, /a counted head without a reading/);
+});
+
+// killer: apps/site/lib/dojo-live.ts:290 CONST "![...mins, ...maxs].every(int0)" -> "false"
+test("dojo_live_refuses_a_slot_that_is_not_an_integer", async () => {
+  const { f, k, c } = await e1Record();
+  await beyondTheWalker(render(f.steps, new Map(), firstReading((r) => ({ ...r, slot_min: "x" }))), k, c, /a counted head without a reading/);
+});
+
+// killer: apps/site/lib/dojo-live.ts:276 CONST "version.dust_threshold !== c.dust_threshold" -> "false"
+test("dojo_live_binds_the_committed_dust_threshold", async () => {
+  const f = dojoFixture(), k = dojoKeyringOf([[f.key, 1], [newKey(), 1]]), c11 = await committedOf(render(f.steps.slice(0, 11)), k);
+  const c = { ...c11, head: { ...c11.head, dust_threshold: `${String(c11.head.dust_threshold)}1` } };
+  assert.match(whyOf(await reread(c, render(f.steps))), /other thresholds/, "a committed record whose dust threshold alone differs");
+});
+
+// killer: apps/site/lib/dojo-live.ts:284 CONST "objs.length !== rows.length ||" -> "false ||"
+test("dojo_live_refuses_a_lines_row_that_is_not_an_object", async () => {
+  const { f, k, c } = await e1Record(), nl = String.fromCharCode(10), rows = [...linesOf(f.steps, 11).map((l) => canonical(l)), "1"];
+  const bytes = Buffer.from(rows.map((r) => `${r}${nl}`).join("")), sha = createHash("sha256").update(bytes).digest("hex");
+  const tree = render(f.steps, new Map(), body(11, { lines_sha256: sha, lines_count: rows.length, root: rootOf(rows) })).set(`lines/${sha}.jsonl`, bytes);
+  await beyondTheWalker(tree, k, c, /^line_malformed$/);
+});
+
+// killer: apps/site/lib/dojo-live.ts:286 CONST "!== h.validated_total" -> "!== h.validated_total && false"
+test("dojo_live_binds_the_validated_total_to_the_lines", async () => {
+  const { f, k, c } = await e1Record();
+  await beyondTheWalker(render(f.steps, new Map(), body(11, { validated_total: "1" })), k, c, /sum to the signed totals/);
+});
