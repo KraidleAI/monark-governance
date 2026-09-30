@@ -407,7 +407,11 @@ test("dojo_verify_price_versions_follow_the_first_eligible_window", async () => 
 test("dojo_verify_refuses_a_snapshot_after_a_missing_version", async () => {
   const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), none = [...f.steps.slice(0, 9), readDay(f, 8, null), readDay(f, 9, null)]; // no version 1
   const run = async (edit?: (s: Step[]) => void): Promise<string> => told(await check(render(none, undefined, edit), kr));
-  assert.equal(await run(), "version_not_in_force @10 a price_version due is missing (N3)", "M-N4: read day 7 (seq 9) ends seven valid days");
+  const miss = (seq: number, j: number): DojoVerifyReport => ({ ok: false, reason: "version_not_in_force", seq, day: dateOf(ANCHOR_DAY + j),
+    detail: "a price_version due is missing (N3)" }); // the whole refusal, its day that of the refusing snapshot (C-G2-3 of PR-1b-5a)
+  assert.deepEqual(await check(render(none), kr), miss(10, 8), "M-N4: read day 7 (seq 9) ends seven valid days; read day 8 (seq 10) refuses, on its day");
+  // C-G2-1 (TY-2 after the first version): version 2 due at read day 14 (window 8 to 14, N2), absent; read day 15 (seq 18), naming version 1, refuses
+  assert.deepEqual(await check(render([...fourteen(f), readDay(f, 15, 1)]), kr), miss(18, 15), "M-G2-2: a version skipped in the weekly regime");
   // witnesses: read day 4 (seq 6) not valid, so no seven valid days before read day 11: nothing is due up to read day 9 (fresh arrays of reads)
   const reads = (g: (r: Line) => Line) => (s: Step[]): void => { const b = body(s, 5); b.reads = rd(b).map(g); };
   for (const [what, edit] of [["abstained, its beacon and reads kept (M-N7)", (s: Step[]): void => { body(s, 5).status = "abstained"; }],
@@ -431,6 +435,10 @@ test("dojo_verify_refuses_a_segment_closed_with_a_price_version_due", async () =
     "version_not_in_force @10 a segment closed with a price_version due (N3, fail-closed)",
     "M-N5: a new anchor dated read day 8 closes the segment of read days 1 to 7, whose version is due (cp-1 of PR-3a-1c, C-V-1 (c))");
   assert.equal(told(await check(render([...f.steps.slice(0, 8), a8]), kr)), "ok", "the same anchor after read day 6: nothing is due");
+  // C-G2-2 (after the first version): version 2 due at read day 14 (window 8 to 14, N2); an anchor dated read day 15 (seq 18) closes the segment
+  const a15: Step = { key: f.key, body: anchorBody(seedChain("dojo-fixture-seed-2", 40)(0), 40, ANCHOR_DAY + 15) };
+  assert.equal(told(await check(render([...fourteen(f), a15]), kr)), "version_not_in_force @18 a segment closed with a price_version due (N3, fail-closed)",
+    "M-G2-3: the fail-closed refusal in the weekly regime, not only for the first version");
 });
 
 // ---- section 6 l.378-393 (M-1 to M-16; M-13 and M-14 above, M-17 and M-18 in the history test) and D-10 l.252: each named mutant of a
