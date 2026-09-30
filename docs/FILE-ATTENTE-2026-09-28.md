@@ -216,3 +216,4 @@ BIBLIO-ID-2411-1 ; REPO-STRAY-WORKTREE-GUARD-1 ; VALIDATEUR-CA-12-TIERS-1 ; VOCA
 - **2026-09-29 23:18 UTC — cp-1 PR-1b-4 accepté, pli `cf4a4704`, FAITS fetch Node lus, G1 PR-1b-4 lancé** → en vol : cp-2 PR-4a-2, corr PR-3a-1a, G1 PR-1b-4. DOJO-SYNC-GET-BODY-CANCEL-1 confirmé (à porter au G7 de PR-4a-2 ou avant TU-7).
 - **2026-09-29 23:38 UTC — G7 PR-4a-2 ACCEPTÉ, fusion `52e07d56`, oracle G7 vert au second passage (premier rouge par une ligne des REGLES de l orchestrateur, corrigée `1e99f27b`)** → en vol : cp-2 PR-3a-1a, G1 PR-3a-1b, G1 PR-1b-4.
 - **2026-09-30 00:30 UTC — G7 PR-3a-1a ACCEPTÉ, fusion `ef8b961e`, pli `5845ba77`, oracle G7 vert 1 721** → en vol : G1 PR-3a-1b, G1 PR-1b-4.
+- **2026-09-30 00:46 UTC — gel 1 PR-1b-4 `381de4fd`, G2 lancé** → en vol : G2 PR-1b-4, G1 PR-3a-1b.
