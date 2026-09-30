@@ -9,6 +9,8 @@
  * Pure: no clock, no file, no floating point in a decision.
  */
 
+import { parseUnitDecimal } from "./binomial.ts";
+
 /** A 0/1 sequence in time order. */
 export type Bits = readonly (0 | 1)[];
 
@@ -40,15 +42,6 @@ export function runsCount(bits: Bits): number {
   return runs;
 }
 
-/** Private minimal parse of a plain decimal in (0, 1), such as 0.05, to an integer ratio (to be merged with L2-1). */
-function parseLevel(levelDec: string): { num: bigint; den: bigint } {
-  if (!/^0[.][0-9]+$/.test(levelDec)) throw new RangeError("runs: level must be a plain decimal in (0, 1)");
-  const digits = levelDec.slice(2);
-  const num = BigInt(digits);
-  if (num === 0n) throw new RangeError("runs: level must be a plain decimal in (0, 1)");
-  return { num, den: 10n ** BigInt(digits.length) };
-}
-
 /** Row m of Pascal's triangle: C(m, 0) .. C(m, m). */
 function binomRow(m: number): bigint[] {
   const row = [1n];
@@ -68,7 +61,7 @@ const at = (row: readonly bigint[], j: number): bigint => row[j] ?? 0n;
  * r = 2k: 2 C(n1 - 1, k - 1) C(n0 - 1, k - 1); r = 2k + 1: C(n1 - 1, k) C(n0 - 1, k - 1) + C(n1 - 1, k - 1) C(n0 - 1, k).
  */
 export function runsLowerTailLeq(bits: Bits, levelDec: string): RunsTail {
-  const level = parseLevel(levelDec);
+  const level = parseUnitDecimal(levelDec); // plain decimal in (0, 1), zero refused (binomial.ts)
   const runs = runsCount(bits);
   const ones = bits.filter((b) => b === 1).length;
   const zeros = bits.length - ones;
