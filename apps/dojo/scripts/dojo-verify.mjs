@@ -269,6 +269,29 @@ async function verify({ source, keyring, address, day, bounds }) {
       });
     }
   }
+  // The calendar of the versions (DOJO-VERIFY-PV-SCHEDULE-1; mere D-17 l.303-305, l.17; ADR-DOJO-PR-1B-5 D-2), in the order of the seqs.
+  // A day is valid when its snapshot is counted with both day minima non-null (as above); day d is due when d - W + 1 to d are valid
+  // and, after a version, d - W + 1 >= its window_first_day + W (N2). N1: the effect is the day after the window; N3: a version's window
+  // is the one due, and a version due but absent refuses the next snapshot, or the anchor that closes the segment (fail-closed).
+  const valid = new Set();
+  let cal = null, due = null, prev = null; // the anchor in force; the day due, not yet versioned; the last version's window_first_day
+  for (const l of lines) {
+    const at = (code, what) => refuse(code, l.seq, dayOf(l), what), W = cal?.price_window_days;
+    if (l.kind === "anchor") {
+      if (due !== null) at("version_not_in_force", "a segment closed with a price_version due (N3, fail-closed)");
+      cal = l;
+    } else if (l.kind === "snapshot") {
+      if (due !== null) at("version_not_in_force", "a price_version due is missing (N3)");
+      const d = epoch(l.day), has = (key) => dayMinimum(l.reads.map((r) => r[key])) !== null;
+      if (l.status === "counted" && has("pool_price") && has("usd_per_sol")) valid.add(d);
+      if (Array.from({ length: W }, (_, k) => d - k).every((x) => valid.has(x)) && (prev === null || d - W + 1 >= prev + W)) due = d;
+    } else if (l.kind === "price_version") {
+      const f = epoch(l.window_first_day);
+      if (epoch(l.effective_day) !== f + W) at("price_version_mismatch", "effective_day (N1: the day after the window)");
+      if (due === null || f !== due - W + 1) at("price_version_mismatch", "window_first_day (N3: the window due)");
+      [due, prev] = [null, f];
+    }
+  } // the head: a version due there stays pending, admitted (D-2 (4)); "ok" does not say it yet (item DOJO-VERIFY-PV-PENDING-REPORT-1)
   // F-1 (fail-closed; orchestrator's decision after the G2 of PR-1b-2): a line voided at or before the verified line (the head, else
   // the last line) refuses, since piles, series and versions would derive from it; a later voided line does not (Bell reports and goes on).
   const head = snaps.length === 0 ? null : snaps[snaps.length - 1].l, voided = w.voided.filter((s) => s <= (head === null ? lines.length : head.seq));

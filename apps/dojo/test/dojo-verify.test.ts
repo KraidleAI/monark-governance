@@ -98,6 +98,9 @@ test("dojo_verify_cli_is_fail_closed", () => {
   assert.deepEqual([s4, r4?.ok === true && r4.inclusion], [0, { address: ADDR.A, index: i, count: 3, line: raw[i], proof: proofOf(raw, i) }]);
   assert.deepEqual(cli(dir, "--keyring", kr, "--address", ADDR.D)[1],
     { ok: false, reason: "line_missing", seq: 12, day: dateOf(ANCHOR_DAY + 9), detail: "--address: no line in the head snapshot" });
+  // ADR-DOJO-PR-1B-5 D-3 (a), V-3: --day through the CLI on a served TREE reads its target (read day 3 = seq 5, by hand)
+  const [s5, r5] = cli(dir, "--keyring", kr, "--day", dateOf(ANCHOR_DAY + 3));
+  assert.deepEqual([s5, r5?.ok === true && r5.target?.seq, r5?.ok === true && r5.target?.day], [0, 5, dateOf(ANCHOR_DAY + 3)], "V-3: --day on a tree");
   // built-in modules and the three local modules only (motif apps/bell/test/bell-verify.test.ts); the network and the environment: T-10
   const text = readFileSync(SCRIPT, "utf8");
   assert.deepEqual([...text.matchAll(/\b(?:from|import)\s*["'`]([^"'`]+)["'`]/g)].map((m) => m[1]),
@@ -224,15 +227,18 @@ test("dojo_verify_keyring_is_the_dojo_schema", async () => {
 
 // ---- F-1 (orchestrator's decision after the G2 of PR-1b-2, fail-closed; declared divergence from bell-verify.mjs:104): a line voided at or
 // before the verified line refuses it, key_not_active at the oldest voided seq, voided_lines in the detail; a later voided line does not ----
+// killer: apps/dojo/scripts/dojo-verify.mjs:297 CONST "head.seq" -> "lines.length"
 test("dojo_verify_refuses_a_snapshot_derived_from_voided_lines", async () => {
   const f = dojoFixture(), K2 = newKey(), both = dojoKeyringOf([[f.key, 1, 3], [K2, 3]]), ks = both.keys as Line[], e0 = ks[0] ?? {};
   const rot = [step(f.steps, 0), step(f.steps, 1), { key: f.key, rotateTo: K2, body: { kind: "key_rotation", published_at: at(FIRST, 0.75) } },
     ...f.steps.slice(2).map((x) => ({ ...x, key: K2 }))], kr = { ...both, keys: [{ ...e0, revoked_from_seq: 2 }, ks[1] ?? {}] };
-  const r4 = await check(render(rot.slice(0, 4)), kr), late = await check(render([...f.steps, { key: f.key, body: versionBody(2, FIRST + 2, at(FIRST + 9, 2)) }]),
+  // ADR-DOJO-PR-1B-5 D-2: the line voided after the head is licit under the calendar (nothing is due after read day 9): an anchor dated read day 10
+  const r4 = await check(render(rot.slice(0, 4)), kr), a10 = anchorBody(seedChain("dojo-fixture-seed-2", 40)(0), 40, ANCHOR_DAY + 10);
+  const late = await check(render([...f.steps, { key: f.key, body: a10 }]),
     { schema: "dojo-keyring-v1", keys: [{ ...((dojoKeyringOf([[f.key, 1]]).keys as Line[])[0] ?? {}), revoked_from_seq: 13 }] });
   assert.deepEqual([said(r4), !r4.ok && r4.detail], ["key_not_active @2", "voided_lines 2,3: signed by a key revoked at its seq"], "line 4 (a snapshot) after the voided 2 and 3");
   assert.equal(said(await check(render(rot.slice(0, 1)), kr)), "ok", "line 1, before every voided line");
-  assert.deepEqual([said(late), late.ok && late.voided_lines], ["ok", [13]], "a version voided after the head (seq 12) does not refuse it");
+  assert.deepEqual([said(late), late.ok && late.voided_lines], ["ok", [13]], "an anchor voided after the head (seq 12) does not refuse it");
 });
 
 // ---- G2 of PR-1b-2, C-G2-3: six behaviours of the verifier pinned (probes R-04, R-15, R-03, R-06, R-07, R-17); verdicts from the mere ----
@@ -369,15 +375,74 @@ test("dojo_verify_daily_values_follow_the_snapshot_reads", async () => {
   for (const [what, got, want] of cases) assert.equal(await got, want, what);
 });
 
+// ---- ADR-DOJO-PR-1B-5 D-2 (DOJO-VERIFY-PV-SCHEDULE-1; mere D-17 l.303-305, l.17): the calendar of the price versions, W = 7. Read day j is
+// day ANCHOR_DAY + j; the fixture's version 1 (seq 10) has the window of read days 1 to 7 (seq 3 to 9) and takes effect on read day 8. Seqs,
+// days and windows are written by hand from the mere, never computed by the verifier nor by the publisher (FM-3.3) ----
+const readDay = (f: Fixture, j: number, v: number | null): Step => ({ key: f.key, body: snapshotBody(ANCHOR_DAY + j, f.seed(j), v) });
+/** The fixture, then read days 10 to 14 under version 1 (seq 13 to 17): read day 14 ends the first window eligible after version 1's. */
+const fourteen = (f: Fixture): Step[] => [...f.steps, ...[10, 11, 12, 13, 14].map((j) => readDay(f, j, 1))];
+
+// killer: apps/dojo/scripts/dojo-verify.mjs:290 SDL "if (epoch(l.effective_day) !== f + W)" -> ""
+test("dojo_verify_price_version_takes_effect_the_day_after_its_window", async () => {
+  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), v1 = body(f.steps, 9);
+  assert.equal(told(await check(render(f.steps), kr)), "ok", "N1: the window of read days 1 to 7, the effect on read day 8");
+  // the effect on read day 9, one day late, the snapshot of read day 8 naming none: the walker admits it (an effect after the window's end)
+  const late = f.steps.map((x, i) => (i === 9 ? { ...x, body: { ...v1, effective_day: dateOf(ANCHOR_DAY + 9) } } : i === 10 ? readDay(f, 8, null) : x));
+  assert.equal(told(await check(render(late), kr)), "price_version_mismatch @10 effective_day (N1: the day after the window)", "M-N1");
+});
+
+// killer: apps/dojo/scripts/dojo-verify.mjs:291 SDL "if (due === null || f !== due - W + 1)" -> ""
+test("dojo_verify_price_versions_follow_the_first_eligible_window", async () => {
+  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]);
+  // N2: version 2 on read days 8 to 14 (version 1's window + W exactly), published after the snapshot of read day 14, in force on read day 15
+  const next = [...fourteen(f), { key: f.key, body: versionBody(2, FIRST + 7, at(FIRST + 14, 2)) }, readDay(f, 15, 2)];
+  assert.equal(told(await check(render(next), kr)), "ok", "N2: the first window eligible after version 1");
+  // N3: version 2 on read days 6 to 12, overlapping version 1's window, effect on read day 13 (seq 16), as the walker admits
+  const over = [...f.steps, ...[10, 11, 12].map((j) => readDay(f, j, 1)), { key: f.key, body: versionBody(2, FIRST + 5, at(FIRST + 12, 2)) },
+    readDay(f, 13, 2), readDay(f, 14, 2)];
+  assert.equal(told(await check(render(over), kr)), "price_version_mismatch @16 window_first_day (N3: the window due)", "M-N3: an overlapping window");
+});
+
+// killer: apps/dojo/scripts/dojo-verify.mjs:284 SDL "a price_version due is missing (N3)" -> ""
+test("dojo_verify_refuses_a_snapshot_after_a_missing_version", async () => {
+  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), none = [...f.steps.slice(0, 9), readDay(f, 8, null), readDay(f, 9, null)]; // no version 1
+  const run = async (edit?: (s: Step[]) => void): Promise<string> => told(await check(render(none, undefined, edit), kr));
+  assert.equal(await run(), "version_not_in_force @10 a price_version due is missing (N3)", "M-N4: read day 7 (seq 9) ends seven valid days");
+  // witnesses: read day 4 (seq 6) not valid, so no seven valid days before read day 11: nothing is due up to read day 9 (fresh arrays of reads)
+  const reads = (g: (r: Line) => Line) => (s: Step[]): void => { const b = body(s, 5); b.reads = rd(b).map(g); };
+  for (const [what, edit] of [["abstained, its beacon and reads kept (M-N7)", (s: Step[]): void => { body(s, 5).status = "abstained"; }],
+    ["counted, SOL/USD reads all null (M-N8)", reads((r) => ({ ...r, usd_per_sol: null, usd_per_sol_publish_time: null }))],
+    ["counted, pool reads all null (M-N9)", reads((r) => ({ ...r, pool_price: null }))]] as const) assert.equal(await run(edit), "ok", `read day 4 ${what}`);
+});
+
+// killer: apps/dojo/scripts/dojo-verify.mjs:294 CONST "} // the head" -> "} if (due !== null) refuse('version_not_in_force', 0, null, 'N3'); // the head"
+test("dojo_verify_accepts_a_price_version_pending_at_the_head", async () => {
+  const f = dojoFixture(), K2 = newKey(), seven = f.steps.slice(0, 9); // the head, read day 7 (seq 9), ends seven valid days: version 1 is due
+  assert.equal(told(await check(render(seven), dojoKeyringOf([[f.key, 1]]))), "ok", "the head exception (D-2 (4)): the version due at the head is pending");
+  const rot: Step = { key: f.key, rotateTo: K2, body: { kind: "key_rotation", published_at: at(FIRST + 7, 2) } }; // a key line: no snapshot, no anchor
+  assert.equal(told(await check(render([...seven, rot]), dojoKeyringOf([[f.key, 1], [K2, 10]]))), "ok", "a key rotation after it keeps the version pending");
+});
+
+// killer: apps/dojo/scripts/dojo-verify.mjs:281 SDL "a segment closed with a price_version due" -> ""
+test("dojo_verify_refuses_a_segment_closed_with_a_price_version_due", async () => {
+  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]);
+  const a8: Step = { key: f.key, body: anchorBody(seedChain("dojo-fixture-seed-2", 40)(0), 40, ANCHOR_DAY + 8) }; // a new anchor, a second seed chain
+  assert.equal(told(await check(render([...f.steps.slice(0, 9), a8]), kr)),
+    "version_not_in_force @10 a segment closed with a price_version due (N3, fail-closed)",
+    "M-N5: a new anchor dated read day 8 closes the segment of read days 1 to 7, whose version is due (cp-1 of PR-3a-1c, C-V-1 (c))");
+  assert.equal(told(await check(render([...f.steps.slice(0, 8), a8]), kr)), "ok", "the same anchor after read day 6: nothing is due");
+});
+
 // ---- section 6 l.378-393 (M-1 to M-16; M-13 and M-14 above, M-17 and M-18 in the history test) and D-10 l.252: each named mutant of a
 // served tree is refused by its code; the codes given in this file are those of D-10, read from the mere. Runs last ----
+// killer: apps/dojo/scripts/dojo-verify.mjs:358 CONST "[null, ...versions.values()]" -> "[null]"
 test("dojo_verify_refuses_each_named_mutant", async () => {
   const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), X = newKey();
   const run = async (steps: readonly Step[], files?: ReadonlyMap<number, readonly object[]>, edit?: (s: Step[]) => void): Promise<string> =>
     said(await check(render(steps, files, edit), kr));
   const lines = (i: number, g: (l: DayLine) => DayLine, a: string): Map<number, DayLine[]> => new Map([[i, linesOf(f.steps, i).map((l) => (l.address === a ? g(l) : l))]]);
-  const v2: Step = { key: f.key, body: { ...versionBody(2, FIRST + 2, at(FIRST + 9, 2)), effective_day: dateOf(FIRST + 10) } }; // Q-6 of PR-1b-3 (option C)
-  const s4 = [...f.steps, v2, { key: f.key, body: snapshotBody(FIRST + 9, f.seed(10), 1) }];
+  const v2: Step = { key: f.key, body: versionBody(2, FIRST + 7, at(FIRST + 14, 2)) }; // ADR-DOJO-PR-1B-5 D-2: read days 8 to 14, in force on day 15
+  const s4 = [...fourteen(f), v2]; // version 2 at the head (seq 18), after the snapshot of read day 14 (seq 17)
   const cases: Array<[string, Promise<string>, string]> = [
     ["M-1 a score typed +1 on a line", run(f.steps, lines(11, (l) => ({ ...l, score: String(BigInt(l.score) + 1n) }), ADDR.A)), "score_mismatch @12"],
     ["M-2 the line of an address of the eve omitted", run(f.steps, new Map([[11, linesOf(f.steps, 11).filter((l) => l.address !== ADDR.B)]])), "line_missing @12"],
@@ -385,7 +450,7 @@ test("dojo_verify_refuses_each_named_mutant", async () => {
     ["M-3 sorted lines under the root of another order", run(f.steps, undefined, (s) => { body(s, 11).root = rootOf(linesOf(f.steps, 11).reverse().map((l) => canonical(l))); }),
       "root_mismatch @12"],
     ["M-4 control: version 2 published, not yet in force", run(s4), "ok"],
-    ["M-4 the thresholds of version 2 applied before its effective day", run(s4, new Map([[13, dayLines(DAY(10), v2.body)]])), "threshold_mismatch @14"],
+    ["M-4 the thresholds of version 2 applied before its effective day", run(s4, new Map([[16, dayLines(DAY(14), v2.body)]])), "threshold_mismatch @17"],
     ["M-4 version 1 applied to a day before it", run(f.steps, new Map([[8, dayLines(DAY(7), body(f.steps, 9))]])), "threshold_mismatch @9"],
     ["units typed on a line, no version's threshold", run(f.steps, lines(11, (l) => ({ ...l, units: "9" }), ADDR.A)), "units_mismatch @12"],
     ["a tier typed on a line", run(f.steps, lines(11, (l) => ({ ...l, tier: 3 }), ADDR.A)), "tier_mismatch @12"],
@@ -548,7 +613,7 @@ test("dojo_verify_totals_are_bounded", async () => {
   } finally { await srv.close(); }
 });
 
-// killer: apps/dojo/scripts/dojo-verify.mjs:356 CONST "recomputed_root: pick.f.root" -> "recomputed_root: headFile.root"
+// killer: apps/dojo/scripts/dojo-verify.mjs:379 CONST "recomputed_root: pick.f.root" -> "recomputed_root: headFile.root"
 test("dojo_verify_day_proves_a_past_day", async () => {
   assert.ok(Array.isArray(dv.DOJO_VERIFY_REPORT_KEYS), "the closed keys of a report are exported (D-3)");
   const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), dir = writeTree(render(f.steps)), day = dateOf(ANCHOR_DAY + 3);
@@ -563,7 +628,7 @@ test("dojo_verify_day_proves_a_past_day", async () => {
     detail: "--address: no line in the --day snapshot" }, false], "Q-G1-4: refused at the seq and day of D, its snapshot named");
 });
 
-// killer: apps/dojo/scripts/dojo-verify.mjs:352 ROR "epoch(day) < instantDay" -> "epoch(day) <= instantDay"
+// killer: apps/dojo/scripts/dojo-verify.mjs:375 ROR "epoch(day) < instantDay" -> "epoch(day) <= instantDay"
 test("dojo_verify_day_refusals_are_named", async () => {
   assert.ok(Array.isArray(dv.DOJO_VERIFY_REPORT_KEYS), "the closed keys of a report are exported (D-3)");
   const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), head = dateOf(ANCHOR_DAY + 9), gap = f.steps.filter((_, i) => i !== 10);
@@ -585,7 +650,7 @@ test("dojo_verify_day_refusals_are_named", async () => {
   for (const [what, got, want] of cases) assert.deepEqual(got, want, what);
 });
 
-// killer: apps/dojo/scripts/dojo-verify.mjs:367 CONST "breaks: w.breaks" -> "breaks: w.voided"
+// killer: apps/dojo/scripts/dojo-verify.mjs:390 CONST "breaks: w.breaks" -> "breaks: w.voided"
 test("dojo_verify_reports_broken_rotations", async () => {
   assert.ok(Array.isArray(dv.DOJO_VERIFY_REPORT_KEYS), "the closed keys of a report are exported (D-3)");
   // DOJO-VERIFY-BREAKS-1: a rotation of continuity "broken", signed by the new key alone (dojo-fixture.ts:64, :76; bell-verify.mjs:115)
