@@ -344,3 +344,112 @@ Abréviations : S = `apps/site/lib/dojo-served.ts`, C = `apps/site/components/do
   --base 281376be --key PR-4c-1b`, verrou et C-V-4 relus au lancement, lancée en arrière-plan (borne du verrou 90 min plus la suite),
   jamais interrompue, aucune course de ma part pendant elle. Son enregistrement (chemin, sha256, portes, compte R-25 officiel par la porte
   `r25`) est cité dans `F:/tmp/dojo/pr4c1b-deliver/REPONSE.md` ; les empreintes des livrables dans `DELIVERED.sha256`.
+
+## 16. Corrections post-G2 (correcteur, 2026-09-30)
+
+- **Rédacteur** : correcteur `claude-opus-5-5` (R-1), effort max, instance fraîche (ni le générateur G1, ni le relecteur G2). Mission
+  `F:/tmp/dojo/mission-corr-pr4c1b.md`, sha256 `91e629d8598f3e42a03f220cf1ec4fc80b43a39fd827b7f0e0da4fd61231ae08`, recalculé AVANT lecture
+  (17:30:29Z), égal au reçu `F:/tmp/dojo/mission-corr-pr4c1b.recu.json` (verdict vert, douze codes à 0, `head` `ef3aaab4`).
+- **Entrées** : rapport G2 `F:/tmp/dojo/g2-pr4c1b/G2-report.md` (sha256 `74684387…f224`, PRÊT POUR CORRECTIONS : C-G2-1, C-G2-2, tests
+  seuls) ; décisions 275, 291, 295 (mission, section « Décisions ») ; gel 1 `ef3aaab4`, arbre `7db2f920`, `status` vide à 17:41:01Z.
+- **Compte prévu, écrit à 17:41:54Z AVANT toute édition du test** (unité R-25 : insertions + suppressions ; `test/**` compté, ce journal
+  hors compte) : `test/dojo-live-surface.test.ts` seul, **≈ 11 lignes (10 insertions, 1 suppression)**, aucune ligne exécutable du lot :
+  - C-G2-1, + 5 : une ligne `// killer:` neuve JUSTE au-dessus de `test("dojo_live_calls_the_reread_without_bounds"` (le tueur existant
+    `dojo-live.tsx:29`, dit K6 au §9, garde sa ligne, au-dessus de la neuve : `red-proof` ne lit que la ligne juste au-dessus d'un
+    `test(`, l'outil de mutants lit toute ligne `// killer:`) ; le tableau des cinq chaînes du rendu (2 lignes) ; l'assertion « une fois
+    chacune, dans l'ordre » (2 lignes).
+  - C-G2-2 (bornes), + 3 : un commentaire et les quatre têtes à la borne dans `cases` (2 lignes).
+  - C-G2-2 (délimiteurs), + 2 − 1 : un commentaire ; l'extraction `fail[(]"(head: [^"]+)"[)]` réécrite en alternance des trois
+    délimiteurs de chaîne (guillemets, apostrophes, accents graves), sans barre inverse (aucune rétro-référence).
+  - Prévision R-25 : 616 + 11 = 627 ≤ 1 150 (solde ≈ 523).
+- **Tronc** : HEAD `2aa2bf37` à l'ouverture (la mission citait `5157dab8`) ; `git diff --stat 5157dab8 2aa2bf37 -- scripts/` vide ; outils
+  du tronc aux sha256 de la mission (`red-proof.mjs` `6579b550…`, `mutants/run.mjs` `2606e7da…`, `oracle/run.mjs` `8ab26615…`,
+  `oracle/r25.mjs` `4d0544df…`), `REGLES-MISSION.md` `12d5f2df…` ; racine de travail `F:/tmp/dojo/pr4c1b-corr/` (chemins ci-dessous).
+- **Corrections faites** (17:44:01Z ; `tools/apply.mjs`, fichiers de spécification `tools/edits/e1` à `e4`, chaque « avant » exigé une
+  seule fois) : `test/dojo-live-surface.test.ts` `de04816c…1fed` → `8f750958…1dfc` ; `git diff --numstat HEAD` : 10 insertions,
+  1 suppression (= compte prévu) ; `status --porcelain` : ce test et ce journal, seuls ; aucune ligne exécutable touchée.
+- **R-25 recompté** : contre la base, le fichier de test est NEUF (sa ligne supprimée n'était qu'une insertion) : attendu 568 − 315 + 324
+  = 577 insertions + 48 suppressions = **625** (et non les 627 prévus) ≤ 1 150, solde 525 ; `r25()` du tronc au gel 1 (clone `verts`,
+  HEAD `ef3aaab4`) : 616, égal au G1 et au G2 (`logs/r25.txt`) ; compte officiel du tour : porte `r25` de l'oracle, cité dans `REPONSE.md`.
+- **Correction → ligne → test → mutant** (lignes du fichier corrigé) :
+  - C-G2-1 : l.228, tueur neuf `apps/site/components/dojo/dojo-live.tsx:37 CONST "dojoBodyOf(view.figures);" ->`
+    `"dojoBodyOf(view.figures).reverse();"` (chemin complet : `killerProblem` exige un fichier du clone ; juste au-dessus du `test(` ;
+    K6 `dojo-live.tsx:29` reste l.227) ; l.252-253 les cinq chaînes du rendu ; l.254-255 « une fois chacune, dans l'ordre » →
+    `dojo_live_calls_the_reread_without_bounds` → G2-1, G2-2, G2-3 (morts strictes, commutation et campagne) et le tueur neuf (tiré
+    et tué au F2P ; K7 de la campagne).
+  - C-G2-2, bornes : l.291 commentaire, l.292-293 les quatre têtes à la borne → `dojo_live_refuses_a_head_the_loader_refuses` → G2-17
+    (chargeur l.144) et G2-17v (vue l.91), morts strictes ; suppléments de commutation : les trois autres bornes, des deux côtés (6).
+  - C-G2-2, délimiteurs : l.303 commentaire, l.304 extraction en alternance des trois délimiteurs (motif identique à celui mesuré,
+    `logs/killer-check.txt`) → même test → suppléments DLM-single et DLM-backtick (sixième règle au seul chargeur, entre apostrophes,
+    entre accents graves) : rouges au test corrigé, verts au test du gel 1 ; témoin DLM-double (entre guillemets) : rouge aux deux.
+- **Égalité de l'extraction, mesurée AVANT l'édition** (décision C-G2-2) : `tools/regex-probe.mjs` sur le chargeur du gel 1
+  (`d63b5326…0346`), 17:43:23Z : ancien et nouveau motif rendent les mêmes cinq règles, dans le même ordre (`logs/regex-probe.txt`) ;
+  élargissement donc appliqué. Règles synthétiques : entre apostrophes et entre accents graves, lues par le seul nouveau motif ; une
+  apostrophe dans une règle entre guillemets, lue par les deux ; `fail(` suivi d'une espace, ou une concaténation : lues par aucun (Q-C-3).
+- **Verts** (clone `verts` = gel 1 + le test corrigé et ce journal à son état de 17:46:08Z (`50f45209…1157`), copiés à sha256 égal ;
+  aucun fichier de test de la campagne ne lit ce journal : `ci-gates` ne le nomme qu'en commentaire ou en exclusion
+  `:(exclude)docs/G1-lot-*.md` ; `node_modules` par `mk-nm.ps1` ; verrou lu libre avant chaque
+  lancement) : fichiers du lot 30/30 (17:46:34Z, `logs/verts-lot3.tap` `2b56ff57…556c`) ; lot et importeurs du chargeur (`ci-gates`,
+  `dojo-served`) 70/70 (17:46:46Z, `logs/verts-five.tap` `af98ae84…e189`) ; `typecheck`, `lint`, `lint:ratchet` (69/69), `lang:gate`,
+  `export:check` : 5/5 à 0 (17:55:02Z → 17:56:01Z ; les commandes node des scripts, sans npm : ses journaux iraient sur C:).
+- **Commutation** (clone `comm` au gel 1 portant le test corrigé et, à côté, celui du gel 1 ; `tools/comm.mjs` `a2a335a9…`, un seul
+  lancement, 17:56:24Z → 17:57:11Z) : non mutés, les deux verts (8/8) ; sous G2-1, G2-2, G2-3, G2-17 (lignes de la table du G2), le
+  test corrigé rougit par `ERR_ASSERTION`, un seul test rouge chaque fois, et le test du gel 1 reste vert ; suppléments déclarés
+  (G2-17v, six bornes, trois délimiteurs) : 10/10 rouges au test corrigé ; `comm-out/RESULTS.json` `16e2050a…ec9e`.
+- **F2P** (`red-proof`, `--base 281376be`, `--gel` le worktree, `--repo` le clone de la base `base/`, `--draw 3 --seed 2026`, verrou
+  libre, 17:57:46Z → 17:58:19Z) : `f2p/RED-PROOF.json` `0901dc12…88cc` : `ok`, 12 jugés tous F2P, 18 inchangés, condensé
+  `d27e1fe9…2f9f` (le test a changé) ; tueurs tirés `dojo-live.tsx:37` (le neuf), `dojo-served.ts:141`, `dojo-live.ts:35` : tués.
+- **Mutants** (outil du tronc `2606e7da…3b19`, arbre `2aa2bf37` propre ; `--repo` = `verts` ; table `mutants/table-corr.json`
+  `f5d02f42…451d` : G2-1, G2-2, G2-3, G2-17 copiées de la table du G2, plus G2-17v ; `--killers` ; `--file` le composant ; `--targets` les
+  trois fichiers du lot ; verrou libre, 9 `node`, 11 489 Mo physiques, 29 858 Mo virtuels ; 17:59:06Z → 18:00:01Z) : **34/34 tués,
+  34 morts strictes**, 0 survivant, 0 non conclu, 34 restaurés ; base verte (134 tests, 8 fichiers) ; `mutants/run1/RESULTS.json`
+  `ab46be4c…c4c0`. Un oracle G7 d'un autre lot a pris le verrou à 18:00:02Z, après la fin de la campagne.
+- **Erratum daté (2026-09-30, correcteur)** : §6 l.155-156 (« Le résidu « prédicat restaté » est clos par ce test : ce n'est plus une
+  limite ») et §12 l.272 (« résidu CLOS par le renfort de T7 ») étaient inexacts au gel 1 : la parité n'y tenait que par exemples (onze
+  cas, aucune borne des quatre comparaisons) ; G2-17 y survivait (campagne B du G2, `F:/tmp/dojo/g2-pr4c1b/mutants/g2/RESULTS.json`
+  `b6379bc5…e7b2`). Ces lignes ne sont pas réécrites. Depuis ce tour, chaque comparaison est éprouvée en ses trois points : en deçà (la
+  tête de base : les huit mutants `>=`, G2-17, G2-17v et les six suppléments, survivent au test du gel 1, donc aucune tête de base
+  n'est à la borne), à la borne, au-delà ; ce qui détecte les sept mutants ROR de chacune [lu] (Kaminski, Ammann, Offutt, « Better
+  Predicate Testing », AST 2011, DOI 10.1145/1982595.1982608, copie d'auteur lue le 2026-09-30 : « only three are necessary » ; pour
+  `>` : `>=`, `!=`, `False`) ; mesuré ici pour `>=`. Restent deux limites déclarées, chacune portée par une question formée (règle
+  PAROXYSME) : Q-C-2, Q-C-3.
+- **Questions à l'orchestrateur (Q-C-n)** :
+  - **Q-C-1 (disposition des tueurs)** : deux lignes `// killer:` empilées au-dessus d'un même test, forme inédite dans `test/`
+    (mesurée par `tools/killer-check.mjs`, `logs/killer-check.txt`) : `red-proof` lit la plus proche (la neuve : tirée et tuée au
+    F2P) ; l'outil de mutants lit les deux (K6 en fichier entier, `test` nul, mort stricte). Retenue pour ne retirer aucun tueur du G1.
+    Autre forme : remplacer K6 (sa mutation reste dans la table du G1, G7-bounds, mais perd sa ligne au dépôt). Confirmer, ou ordonner.
+  - **Q-C-2 (PAROXYSME : parité par points, hors ROR)** : un changement du chargeur autre qu'un opérateur relationnel (un opérande, un
+    terme ajouté sur un autre champ, le couplage des nuls de l.142-143 en combinaison) n'est vu que s'il touche l'un des quinze cas.
+    Construction qui donne la garantie : UNE source des règles de tête, appelée par le chargeur et par la vue ; obstacle mesuré au G1
+    (§4 : aucun import relatif de valeur entre modules `lib/` ne passe les deux programmes) ; piste à mesurer : l'option
+    `allowImportingTsExtensions` du tsconfig du site (≈ 1 ligne ; prédicat déplacé ≈ 10 lignes ; test de parité remplacé par un test
+    d'identité), la référence tsconfig de TypeScript à lire d'abord (conditions de l'option), puis double compilation et construction
+    Next. Prix plancher sans outillage neuf : un test différentiel sur une grille de têtes (chaque champ en ses classes limites, chargeur
+    contre vue), ≈ 15 lignes. Propriétaire : orchestrateur ; déclencheur proposé : au plus tard avant (iii-a).
+  - **Q-C-3 (PAROXYSME : extraction syntaxique)** : une règle écrite `fail( "head: …")` (espace), par concaténation, ou par gabarit
+    interpolé échappe au motif (le gabarit interpolé rougit : rouge conservateur). Construction : lire les appels `fail(` du chargeur par
+    l'analyseur de TypeScript (`typescript` 6.0.3 déjà présent, employé par la sonde (xi) du G2) et exiger que tout appel dont l'argument
+    mentionne `head:` soit un littéral simple ; ≈ 8 à 10 lignes de test. Même propriétaire, même déclencheur proposé.
+- **Conduite** : aucun commit, add ni stash ; aucun `GIT_DIR`, aucun `GIT_WORK_TREE`, aucun `write-tree` (ni `--write-tree`, ni
+  `--help`) ; git dans le worktree en lecture seule (`--no-optional-locks` : `rev-parse`, `status`, `diff` ; `red-proof` pose
+  `GIT_OPTIONAL_LOCKS=0`) ; l'index du worktree garde le sha256 `3459f50e…e780` et la date 16:21:37Z relevés à 17:41:01Z et à 17:58:41Z ;
+  écritures git dans mes seuls clones (`clone --no-local`, `checkout --detach`) : `verts`, `comm`, `base` ; `git show` du test du gel 1
+  (lecture) redirigé vers un fichier de `comm` ; rien sur C: ;
+  TEMP, TMP, TMPDIR = `F:/tmp/dojo/pr4c1b-corr/tmp`. Verrou : chaque course partait d'un contrôle testé (`tools/gate.mjs` `02e1b1a2…`,
+  auto-test 6/6 sur six racines de fixture, `logs/gate-selftest2.log`) ; à 17:47:24Z il a arrêté ma chaîne des portes statiques (verrou
+  pris à 17:47:15Z par un oracle G2 d'un autre lot) : attente outillée jusqu'à 17:54:48Z, aucune course pendant.
+- **Écarts, consignés** : (1) entre 18:00:54Z et 18:03:55Z, deux appels à l'outil de recherche distant (une recherche, une lecture de
+  la copie d'auteur de Kaminski et al.) pour sourcer l'affirmation ROR de l'erratum : accès réseau côté service, contraire à la lettre
+  « aucun réseau réel » du cadre ; aucun processus local n'a touché le réseau ; (2) une commande de vérification `node -e` portant des
+  barres inverses d'échappement (17:42Z, lecture seule, rien écrit) ; (3) première sortie de `regex-probe` (une barre inverse
+  d'échappement JSON, deux lignes de plus de 160 caractères) et première table (quatre lignes longues) réécrites au même chemin avant
+  tout usage ; (4) premier auto-test du contrôle de verrou (`logs/gate-selftest.log`, chemins Windows) gardé comme trace : le contrôle
+  a changé ensuite (sortie en barres obliques), re-testé sur des racines neuves. Les sorties d'outils (TAP, journaux) gardent leurs
+  octets bruts, comme preuves.
+- **Advisor** : outil intégré consulté deux fois : après l'orientation (forme du tueur, motif sans barre inverse, jonctions, ordre) ;
+  avant la clôture de ce journal (cette ligne corrigée ; `byte-guard`, `gate:vocab` et `lint-model-pinning` rejoués sur le journal
+  final, résultats dans `REPONSE.md`). Conseil, jamais verdict ; chaque point vérifié sur pièce. La consultation de fin, après
+  l'oracle, est rapportée dans `REPONSE.md`.
+- **Journal CLOS ici**, avant le lancement de l'oracle (`node F:/Monark/scripts/oracle/run.mjs --role corr --tree
+  F:/Monark-wt-dojo-pr4c1b --base 281376be --key PR-4c-1b`) ; il n'est plus touché ensuite. L'enregistrement de l'oracle, le compte
+  R-25 officiel et les empreintes des livrables sont dans `F:/tmp/dojo/pr4c1b-corr-deliver/REPONSE.md` et `DELIVERED.sha256`.

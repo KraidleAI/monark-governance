@@ -225,6 +225,7 @@ test("dojo_live_never_renders_why", async () => {
 });
 
 // killer: apps/site/components/dojo/dojo-live.tsx:29 CONST "{ sha256, verifyEd25519, get }" -> "{ sha256, verifyEd25519, get, bounds: undefined }"
+// killer: apps/site/components/dojo/dojo-live.tsx:37 CONST "dojoBodyOf(view.figures);" -> "dojoBodyOf(view.figures).reverse();"
 test("dojo_live_calls_the_reread_without_bounds", () => {
   const init = added("DOJO_LIVE_FETCH_INIT"), rel = join(ROOT, "apps", "site", "components", "dojo", "dojo-live.tsx");
   assert.deepStrictEqual(init, { cache: "no-store", redirect: "error", credentials: "omit" }, "never a cached, redirected or credentialed GET (M-L14)");
@@ -248,6 +249,10 @@ test("dojo_live_calls_the_reread_without_bounds", () => {
   assert.equal(count("void dojoLiveViewOf(committed, { verifyEd25519, signingBytes, signatureOf, reread, text: T })"), 1, "the reread, once mounted");
   assert.deepEqual([count("useEffect("), count("<DojoSentence "), count("{view.note}"), count("view.figures."), count("dangerouslySetInnerHTML")],
     [1, 2, 1, 0, 0], "the figures only through DojoSentence, the view's sentence as text");
+  const body = ["const [head, ...rest] = dojoBodyOf(view.figures);", "<DojoSentence text={T[head]} figures={view.figures} />", "<p>{view.note}</p>",
+    "{rest.map((k) => (", "<DojoSentence text={T[k]} figures={view.figures} />"];
+  assert.ok(body.every((s, i) => count(s) === 1 && (i === 0 || src.indexOf(body[i - 1] ?? "") < src.indexOf(s))),
+    "the head's sentence (its day), the view's own right after it (QF-3), then the others: each once, in this order (C-G2-1)");
   assert.equal(count('import type { DojoServedData } from "@/lib/dojo-served-load";'), 1, "the loader, which reads files, as a type only");
   const page = readFileSync(join(ROOT, "apps", "site", "app", "dojo", "page.tsx"), "utf8"), inPage = (s: string): number => page.split(s).length - 1;
   assert.deepEqual([inPage("<DojoLive committed={data} />"), inPage("DojoSentence"), inPage("T.reread")], [1, 0, 0],
@@ -283,6 +288,9 @@ test("dojo_live_refuses_a_head_the_loader_refuses", async () => {
   const r2 = await recordOf(render(f.steps), k), h1 = c.head, h2 = (await loaded(r2)).head, max = h1.slot_max ?? assert.fail("slots");
   const cases: Array<[Rec, DojoServedHead]> = [[r1, h1], [r1, { ...h1, holders_count: 0 }], [r1, { ...h1, slot_max: null }], [r1, { ...h1, reads_done: 0 }],
     [r1, { ...h1, slot_min: max + 1 }], [r1, { ...h1, reads_done: h1.k_reads + 1 }], [r1, { ...h1, validated_total: `${h1.score_total}1` }],
+    // Each of the four comparisons at its bound: a head that loads, at the loader and here (C-G2-2).
+    [r1, { ...h1, slot_min: max }], [r1, { ...h1, reads_done: h1.k_reads }], [r1, { ...h1, validated_total: h1.score_total }],
+    [r2, { ...h2, holders_count: h2.lines_count }],
     [r1, { ...h1, status: "abstained" }], [r2, h2], [r2, { ...h2, holders_count: h2.lines_count + 1 }], [r2, { ...h2, dust_threshold: null }]];
   const met = new Set<string | null>();
   for (const [record, h] of cases) {
@@ -292,7 +300,8 @@ test("dojo_live_refuses_a_head_the_loader_refuses", async () => {
   }
   // Every rule of a head that the loader's source carries is restated here and met above (a rule added to the loader alone reds).
   const loader = readFileSync(join(ROOT, "apps", "site", "lib", "dojo-served-load.ts"), "utf8");
-  const rules = [...loader.matchAll(/fail[(]"(head: [^"]+)"[)]/g)].map((m) => m[1] ?? "");
+  // Under any of the three delimiters of a string: a rule written with single quotes or backticks is read too (C-G2-2).
+  const rules = [...loader.matchAll(/fail[(](?:"(head: [^"]+)"|'(head: [^']+)'|`(head: [^`]+)`)[)]/g)].map((m) => m[1] ?? m[2] ?? m[3] ?? "");
   assert.deepEqual([...met].sort(), [...rules, null].sort(), "the loader's five rules of a head, each in its words, and a head that loads");
 });
 
