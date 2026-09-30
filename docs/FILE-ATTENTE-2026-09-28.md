@@ -217,3 +217,4 @@ BIBLIO-ID-2411-1 ; REPO-STRAY-WORKTREE-GUARD-1 ; VALIDATEUR-CA-12-TIERS-1 ; VOCA
 - **2026-09-29 23:38 UTC — G7 PR-4a-2 ACCEPTÉ, fusion `52e07d56`, oracle G7 vert au second passage (premier rouge par une ligne des REGLES de l orchestrateur, corrigée `1e99f27b`)** → en vol : cp-2 PR-3a-1a, G1 PR-3a-1b, G1 PR-1b-4.
 - **2026-09-30 00:30 UTC — G7 PR-3a-1a ACCEPTÉ, fusion `ef8b961e`, pli `5845ba77`, oracle G7 vert 1 721** → en vol : G1 PR-3a-1b, G1 PR-1b-4.
 - **2026-09-30 00:46 UTC — gel 1 PR-1b-4 `381de4fd`, G2 lancé** → en vol : G2 PR-1b-4, G1 PR-3a-1b.
+- **2026-09-30 00:58 UTC — gel 1 PR-3a-1b `b0e595a5`, G2 lancé ; DOJO-PUBLISH-VERIFY-BEFORE-COMMIT-1 bloquant avant A-8** → en vol : G2 PR-1b-4, G2 PR-3a-1b.
