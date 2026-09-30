@@ -218,3 +218,4 @@ BIBLIO-ID-2411-1 ; REPO-STRAY-WORKTREE-GUARD-1 ; VALIDATEUR-CA-12-TIERS-1 ; VOCA
 - **2026-09-30 00:30 UTC — G7 PR-3a-1a ACCEPTÉ, fusion `ef8b961e`, pli `5845ba77`, oracle G7 vert 1 721** → en vol : G1 PR-3a-1b, G1 PR-1b-4.
 - **2026-09-30 00:46 UTC — gel 1 PR-1b-4 `381de4fd`, G2 lancé** → en vol : G2 PR-1b-4, G1 PR-3a-1b.
 - **2026-09-30 00:58 UTC — gel 1 PR-3a-1b `b0e595a5`, G2 lancé ; DOJO-PUBLISH-VERIFY-BEFORE-COMMIT-1 bloquant avant A-8** → en vol : G2 PR-1b-4, G2 PR-3a-1b.
+- **2026-09-30 02:01 UTC — G2 PR-3a-1b prêt pour cp-2 ; rebase `48556d80` ; cp-2 lancé ; G0 PR-3a-1c lancé** → en vol : corr PR-1b-4, cp-2 PR-3a-1b, G1 PR-2b-4, G0 PR-4c-1, G0 PR-3a-1c. Items : RED-PROOF-BASE-PRESENT-1, DOJO-PUBLISH-PV-ATOMIC-1.
