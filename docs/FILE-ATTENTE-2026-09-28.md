@@ -225,3 +225,4 @@ BIBLIO-ID-2411-1 ; REPO-STRAY-WORKTREE-GUARD-1 ; VALIDATEUR-CA-12-TIERS-1 ; VOCA
 - **2026-09-30 03:06 UTC — G7 PR-3a-1b ACCEPTÉ (fusion `948d74c2`, oracle 1 729) ; cp-1 PR-3a-1c accepté ; gel 1 PR-2b-4 `30ef4ac4`, G2 + advisor lancés** → en vol : cp-2 PR-1b-4, G2 PR-2b-4, advisor PR-2b-4. Ensuite : G7 PR-1b-4 → G0 PR-1b-5 → G1 PR-4c-1a ; G1 PR-3a-1c après PR-1b-5.
 - **2026-09-30 03:31 UTC — G7 PR-1b-4 ACCEPTÉ (fusion `5431b1f1`, oracle 1 736)** → lancer G0 PR-1b-5 et G1 PR-4c-1a ; en vol : G2 PR-2b-4.
 - **2026-09-30 03:34 UTC — G1 PR-4c-1a et G0 PR-1b-5 lancés** → en vol : G2 PR-2b-4, G1 PR-4c-1a, G0 PR-1b-5. Chaîne avant A-8 : G7 PR-1b-5 → G1 PR-3a-1c → G7 → PR-3b-2.
+- **2026-09-30 06:58 UTC — G7 PR-2b-4 ACCEPTÉ (fusion `59adcfb5`, oracle 1 742) ; 10 lots fusionnés** → en vol : G2 PR-4c-1a, G1 PR-1b-5a, G1 PR-1b-5b. Ensuite : G7 5a → rebase 5b → G7 5b → G1 PR-3a-1c ; cp-2 PR-4c-1a ; G0 PR-3b-2 à écrire.
