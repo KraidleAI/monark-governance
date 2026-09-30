@@ -12,6 +12,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { runsCount, runsLowerTailLeq, medianExceedance } from "../src/runs.ts";
 import type { Bits, RunsTail } from "../src/runs.ts";
+import * as hikae from "../src/index.ts";
 
 /** Bits of x, lowest bit first. */
 const bitsOf = (x: number, len: number): (0 | 1)[] => Array.from({ length: len }, (_, i): 0 | 1 => ((x >> i) & 1 ? 1 : 0));
@@ -47,7 +48,7 @@ const tailOf = (r: RunsTail): { num: bigint; den: bigint } => {
   return { num: r.tailNum, den: r.tailDen };
 };
 
-/** The reading of the import guard: a sequence passes only with a computed tail above the level. */
+/** A sequence passes only with a computed tail above the level; `empty` is never a pass here (ADR D6: the guard of L2-3 accepts an empty miss sequence at k_obs = 0 and fails closed on an empty median one). */
 const passes = (r: RunsTail): boolean => r.empty === false && r.reject === false;
 
 // Enumeration oracle (every arrangement of length 1 to 16), plus [G0] M-20 and [SE] thresholds, plus monotonicity.
@@ -101,7 +102,7 @@ test("runs_lower_tail_exact_against_enumeration", () => {
   assert.equal(prev.num, prev.den);
 });
 
-// Empty sequences (no ones or no zeros) are reported as empty and never read as a pass.
+// Empty sequences (no ones or no zeros) are reported as empty, with no tail and no decision; the module never reads them as a pass.
 // killer: packages/hikae/src/runs.ts:75 CONST "empty: true, runs" -> "empty: false, runs"
 test("runs_empty_and_fail_closed", () => {
   const empties: Bits[] = [[], [0], [1], [0, 0, 0, 0], [1, 1, 1], new Array<0 | 1>(170).fill(0)];
@@ -168,6 +169,11 @@ test("runs_refuses_bad_inputs", () => {
   // [SE] n1 = n2 = 10: P(R <= 7) = 4735/92378 = 0.05126 (exact, recomputed): kept at 0.0512, rejected at 0.0513.
   assert.equal(passes(runsLowerTailLeq(bits, "0.0512")), true);
   assert.equal(passes(runsLowerTailLeq(bits, "0.0513")), false);
+  // A tail equal to the level is rejected (ADR D6: a tail at most runs_level fails): ones 1, zeros 3, 2 runs, tail 2/4.
+  assert.deepEqual(runsLowerTailLeq([1, 0, 0, 0], "0.5"), { empty: false, runs: 2, ones: 1, zeros: 3, tailNum: 2n, tailDen: 4n, reject: true });
+  assert.equal(passes(runsLowerTailLeq([1, 0, 0, 0], "0.4999")), true);
+  // The package entry re-exports this module (consumers import it from there).
+  assert.deepEqual([hikae.runsCount, hikae.runsLowerTailLeq, hikae.medianExceedance], [runsCount, runsLowerTailLeq, medianExceedance]);
   assert.throws(() => runsCount([0, 2] as unknown as Bits), RangeError);
   assert.throws(() => runsLowerTailLeq([1, 0.5] as unknown as Bits, "0.05"), RangeError);
   assert.throws(() => medianExceedance([1, Number.NaN]), RangeError);
