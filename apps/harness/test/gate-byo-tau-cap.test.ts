@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { assertClosedGateDecision } from "@monark/contracts";
-import type { Prediction } from "@monark/contracts";
+import type { GateDecision, Prediction } from "@monark/contracts";
 import { runGate, HarnessToolError, type HarnessParams } from "../src/tools/gate.ts";
 
 const PARAMS: HarnessParams = {
@@ -92,10 +92,16 @@ test("byo_set_tau_cap_after_label_validation", () => {
 });
 
 // B-3 (pin). Interval mode is not capped (ADR D5): tau 9 with scores 0.1 .. 1.0 gives the region [-1, 1],
-// width 2 <= tauInterval 2, intent 0 inside, a COMMIT.
+// width 2 <= tauInterval 2, intent 0 inside, a COMMIT. A tool error here is an assertion failure (assert.fail),
+// so the killer is killed in the closed format (ERR_ASSERTION), not merely red.
 // killer: apps/harness/src/tools/gate.ts:380 SDL "cal.mode !==" -> ""
 test("byo_interval_mode_ignores_tau", () => {
-  const d = runGate(INTERVAL_PRED, { ...PARAMS, tau: 9, intent: 0, calibration: { scores: SCORES, mode: "interval" } });
+  let d: GateDecision;
+  try {
+    d = runGate(INTERVAL_PRED, { ...PARAMS, tau: 9, intent: 0, calibration: { scores: SCORES, mode: "interval" } });
+  } catch (e) {
+    assert.fail(`interval mode, tau 9: no tool error expected, got ${String(e)}`);
+  }
   assertClosedGateDecision(d);
   assert.equal(d.action, "commit", "interval mode, tau 9: a decision, no tau refusal");
   assert.equal(d.reason, "covered");
