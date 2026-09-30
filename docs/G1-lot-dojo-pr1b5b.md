@@ -318,3 +318,86 @@ claude-opus-5-5
   `log`, `ls-files`, `rev-parse`, `merge-base`, `config --get`, sous `--no-optional-locks`) ; git écrivant seulement dans mes clones `gel`, `base`,
   `r25clone` (clone, extraction détachée ; commit de gel local dans `r25clone` seul) et dans ceux des outils ; écritures dans le worktree : les
   deux fichiers de test (par `reanchor.mjs`) et cette section ; aucun réseau réel ; rien sur C: ; aucun commit, aucun workflow (R-20).
+
+## Corrections post-G2 (correcteur, 2026-09-30 ; section close AVANT l'oracle du tour)
+
+- **Modèle résolu (R-1)** : `claude-opus-5-5`, effort max, instance et contexte frais (ni G1, ni réancreur, ni relecteur G2). Mission
+  `F:/tmp/dojo/mission-corr-pr1b5b.md`, sha256 `90acb4880b55861c2b4f78f763d52914114e181dc54993714464b4d338e6667d`, recalculé AVANT lecture
+  (16:14:54Z) = reçu vert `F:/tmp/dojo/mission-corr-pr1b5b.recu.json` (12 codes à 0, head `e1e59c1f`). Rapport G2 `F:/tmp/dojo/g2-pr1b5b/G2-report.md`
+  sha256 `e78abb7e…d369` = mission. Sept chemins du lot au gel 2 : sha256 égaux à la mission ; `status --porcelain` 0 ligne à l'ouverture.
+  Preuves sous `F:/tmp/dojo/pr1b5b-corr/` (noms relatifs ci-dessous) ; sha256 complets dans `F:/tmp/dojo/pr1b5b-corr-deliver/REPONSE.md`.
+- **Mesures AVANT code** (Node v24.15.0 ; précontrôle `sondes/precheck.mjs`, testé 7 / 7 sur racines synthétiques, `sondes/precheck-test.log`) :
+  `sondes/guard-probe.log` : la forme décidée `realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])`, sous `try`,
+  vaut vrai pour l'entrée lancée directement, par jonction, par jonction sous `--preserve-symlinks-main`, lettre de lecteur minuscule, chemin
+  relatif ; faux pour un module importé (import direct, par jonction, sous `--preserve-symlinks-main`) et sous `node -e` (`argv[1]` absent ou
+  illisible), sans exception. Retirer le `realpathSync` côté `argv[1]` (la sémantique de l'ancien idiome) : faux par jonction simple ; retirer
+  celui côté module : faux SEULEMENT sous `--preserve-symlinks-main`. `realpathSync(undefined)` : ENOENT (le nom `undefined` résolu dans le
+  répertoire courant ; une entrée de ce nom rendrait un autre chemin, donc faux aussi) : le `try` couvre les deux cas, sans test `typeof`.
+  `sondes/rm-junction-probe.log` : `rmSync(dossier, { recursive, force })` délie une jonction du dossier sans traverser sa cible (canaris relus) ;
+  une jonction vers une cible encore absente se crée (utile au `node_modules` des mutants).
+
+### Compte prévu (AVANT code ; insertions + suppressions du tour, indicatif)
+
+| Correction | Fichier : lignes | Prévu |
+|---|---|---|
+| C-G2-1 garde du cœur | `dojo-verify.mjs` l.10 (`realpathSync`), l.12 (`fileURLToPath` remplace `pathToFileURL`), fin : commentaire, aide, l.366 | +4 −3 |
+| C-G2-1 entrée de la CLI | `dojo-verify-cli.mjs` l.6, l.7, fin : un commentaire, une aide `isEntry`, l.93 | +5 −3 |
+| Q-G2-3 en-tête du cœur | `dojo-verify.mjs` l.6-7 : renvoi par nom (« D-10, the reader's verifier »), deux lignes gardées | +2 −2 |
+| C-G2-1 test neuf du lien | `dojo-verify.test.ts` fin : jonction vers `apps/`, deux jeux de drapeaux, imports sous `-e` ; l.7 | ≈ +24 −1 |
+| C-G2-1 sortie non vide | `test/dojo-verify-url.test.ts` l.31 (`success`) | +1 −1 |
+| C-G2-2 mot `fetch` | `dojo-verify.test.ts` l.695 (liste `FORBIDDEN`) | +1 −1 |
+| Ancre du tueur l.692 | `dojo-verify.test.ts` l.692 : `pathToFileURL` devient `fileURLToPath` (sinon `anchor-lost`) | +1 −1 |
+| Q-G2-2 branche `fatal` | `dojo-verify.test.ts` fin : test neuf par injection de faute (module préchargé), si environ 10 lignes suffisent | ≈ +8 |
+
+- Total prévu ≈ +46 −12 ≈ 58 ; R-25 du lot ≈ 301 + 58 ≈ 359 (borne 1 150). Aucune ligne d'ancre de tueur ne bouge : l.6-7, l.10 et l.12 restent
+  une ligne chacune ; les gardes ne grossissent qu'en fin de fichier (tueurs du cœur l.12 à l.346, de la CLI l.32 à l.37).
+
+### Correction → ligne → test → mutant (mesuré)
+
+| Correction | Ligne(s) après correction | Test | Mutants tués |
+|---|---|---|---|
+| C-G2-1 cœur | `dojo-verify.mjs` l.10, l.12, l.366-368 (`isEntry`) | le test neuf du lien, test 7 | C-E2, C-A2, C-M2, C-T2, C-C2 |
+| C-G2-1 CLI | `dojo-verify-cli.mjs` l.6, l.7, l.93-95 (`isEntry`) | le test neuf (tueur l.94), test 7, test 8 | K16, C-E1, C-M1, C-T1, C-C1 |
+| C-G2-1 (3) sortie non vide | `test/dojo-verify-url.test.ts:31`, hors corps de test (ne juge rien seule) | test 8 | C-E1-T8 (strict) |
+| C-G2-2 mot `fetch` | `dojo-verify.test.ts:695-696` (liste `FORBIDDEN` réécrite sur ses deux lignes) | `dojo_verify_core_imports_no_network_module` | C-E7 |
+| Ancre du tueur | `dojo-verify.test.ts:692` (`fileURLToPath`) | idem | K15 |
+| Q-G2-3 en-tête | `dojo-verify.mjs` l.6-7 : « the closed list of D-10 (the reader's verifier) », « (D-10, its report) » | sans objet | sans objet |
+| Q-G2-2 branche `fatal` | test neuf `dojo_verify_cli_fatal_error_exits_1`, par INJECTION DE FAUTE (module préchargé) | lui-même | K17, C-E9 |
+
+- **Compte mesuré** (`sondes/r25.log`) : tour (gel 2 → corrigé, code et tests) +53 −13 = 66 (prévu ≈ 58 : têtes de commentaire des deux tests
+  neufs, boucle des drapeaux) ; R-25 du lot par `r25()` sur `r25clone` (commit de gel LOCAL, clone jetable) : 228 + 123 = **351**, porte CI 1 205
+  verte, borne 1 150, solde 799. Aucune ligne d'ancre de tueur n'a bougé (cœur l.12 à l.349, CLI l.32 à l.37, `sondes/killers-check.log`).
+- **Tests**, clone `gel` (gel 2 + quatre fichiers copiés, sha256 égaux ; `node_modules` par `mk-nm.ps1`, 220 entrées, 10 `@monark` ; précontrôle
+  vert avant chaque course) : lot **34 / 34** (16:37:43Z, `sondes/tests-lot.tap`), dont les deux neufs ; consommateurs **70 / 70** sur neuf fichiers
+  (16:38:10Z, liste du G2 remesurée par `git grep`) ; portes statiques lancées par `node` sans `npm` (16:38:37Z à 16:39:52Z) : `typecheck` 0,
+  `lint` 0, `lint:ratchet` 69 / 69, `lang:gate` OK, `export:check` OK.
+- **Commutation** (clone `gel2code` : CODE du gel 2, tests corrigés) : seul le test du lien rougit, par `ERR_ASSERTION`, « the old command
+  through a link », réel `[0, "", ""]` (`sondes/commutation-gel2code.tap`) : le défaut C-G2-1 lui-même ; le test `fatal` y est vert (branche héritée).
+- **F2P** (commande de la mission, 16:41:02Z à 16:41:52Z, sortie 0) : `f2p/RED-PROOF.json` `6b0ee79e…9050` : 8 jugés, **8 F2P** (rouges à la
+  base par `assert-fail`, verts au gel), 26 inchangés, `killerProblem` nul ; tirage (graine 2026, population 8) : CLI l.33, cœur l.56, CLI l.94
+  (tueur du test du lien) : 3 tués, fichiers restaurés. Contrôle préalable des 18 tueurs : 0 invalide ; non-vacuité : l'ancien tueur l.692 rejeté.
+- **Mutants** (outil du tronc `2606e7da…`, `--repo` le clone `gel`, `--targets` les deux fichiers du lot, `--lock-root F:/tmp`, `--min-free-mb 4096` ;
+  `<out>/node_modules` par `sondes/mk-out-nm.mjs`, `@monark/*` vers `<out>/clone`, principe de `cp2-drand1a/scripts/mk-nm-out.ps1`) :
+  A, tueurs : `mutants/killers/RESULTS.json` `9a400125…` : **18 / 18 tués, tous stricts**, base 104 verts.
+  B, table `mutants-table-corr.mjs` (`a8ec603e…`, prédictions écrites avant la course) : `mutants/corr/RESULTS.json` `e8d06009…` : **11 / 11 tués
+  comme prédit**, 9 stricts ; C-E1 (quatre échecs, tous `ERR_ASSERTION`) et C-E2 (trois échecs nommés `ERR_ASSERTION`, dix entrées de FICHIER
+  `ERR_TEST_FAILURE` : `exitCode` 1 posé par la garde mutée à l'import de chaque processus de test) : « strict » de l'outil = une seule ligne `code:`.
+  C, table `mutants-table-corr2.mjs` (`489b8580…`) : C-E1 contre chaque test SEUL : `mutants/corr-targeted/RESULTS.json` `c9b6a2a9…` : **4 / 4
+  stricts** ; C-E1-T8 : le test 8 seul échoue sur `[0, -1, false]` contre `[0, -1, true]` (au gel 2, G2-E1 l'atteignait par `SyntaxError`).
+- **Questions** (détail et recommandations dans `REPONSE.md`) : Q-C-1 `--key PR-1b-5b` passé à l'oracle (REGLES, décision 282) alors que l'étape 6
+  de la mission l'omet ; Q-C-2 lancement sous `--preserve-symlinks-main` et lien vers `apps/` : extension de la lettre de la décision (le seul
+  lancement qui voit le `realpathSync` côté module), rayable ; Q-C-3 branche `fatal` atteinte par injection de faute, jamais par une entrée servie ;
+  Q-C-4 renvois numérotés « D-10 l.25x » périmés hors l.6-7 (cœur l.1, 40, 164, 280, 336, 353 ; CLI l.59 ; `dojo-verify.d.mts` l.5), laissés ;
+  Q-C-5 « morts strictes » contre la définition de l'outil (C-E2 non strict par construction).
+- **Écarts** (`error_origin` : ce correcteur) : **É-C-1** `sondes/mk-out-nm.mjs` écrit avec deux barres inverses (heredoc), vu par la garde
+  d'octets AVANT toute exécution, réécrit (`sep`) ; **É-C-2** C-T1 et C-T2 d'abord écrits en erreur de syntaxe (mutants mort-nés), vus avant la
+  course, remplacés (`catch` devenu `finally`), onze lignes mutées vérifiées par `node --check` ; **É-C-3** trois lignes de ce journal (174, 165, 177)
+  caractères) à leur première écriture, raccourcies aussitôt ; **É-C-4** une recherche `grep -r` trop large (lecture seule) sur `F:/tmp/dojo`, passée
+  en arrière-plan après 120 s, sans écriture ; sa sortie n'a servi qu'à trouver le précédent `mk-nm-out.ps1`.
+- **Conduite** : aucun `GIT_DIR`, aucun `GIT_WORK_TREE`, aucun `git merge-tree --write-tree` ; worktree : lectures git (`rev-parse`, `branch`,
+  `status`, `diff`, `log`, `worktree list`) et cinq fichiers édités par l'outil d'édition ; git écrivant seulement dans mes clones `gel`, `gel2code`,
+  `base`, `r25clone` (clone, extraction détachée ; `add` et commit de gel local dans `r25clone` seul) et dans ceux des outils ; aucun réseau réel
+  (boucle locale) ; rien sur C: (TEMP `F:/tmp` puis `F:/tmp/dojo/pr1b5b-corr/tmp`) ; précontrôle testé avant chaque course, verrou libre à chacune ;
+  jonctions `node_modules` retirées à 16:51:43Z (`rm-nm.ps1`, `[System.IO.Directory]::Delete`), `F:/Monark/node_modules` intact (220, 10) ; deux
+  jonctions de sonde retirées de même. Advisor intégré consulté après l'orientation (avis suivi, vérifié sur pièce) ; seconde consultation avant la remise.
+- **Clôture de la section** : ce journal n'est plus modifié avant l'oracle du tour ; l'arbre de l'enregistrement est celui du gel 3 à venir.

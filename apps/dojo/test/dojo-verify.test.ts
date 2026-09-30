@@ -4,7 +4,7 @@
 // PR-1b-4 (ADR-DOJO-PR-1B-4 section 4): the URL source, --day and the closed keys of a report; loopback servers (127.0.0.1) only.
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, symlinkSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
@@ -689,11 +689,11 @@ test("dojo_verify_reports_broken_rotations", async () => {
 
 // ---- PR-1b-5b (ADR-DOJO-PR-1B-5 PLI-1, PLI-5; DOJO-VERIFY-CORE-NO-NET-1): the verifier core loads no network module. Declared calque of
 // dojo_publish_imports_no_network_module (dojo-publish.test.ts:189-205), its two lists plus process.env, walked from dojo-verify.mjs ----
-// killer: apps/dojo/scripts/dojo-verify.mjs:12 CONST "import { pathToFileURL }" -> "import \"node:http\"; import { pathToFileURL }"
+// killer: apps/dojo/scripts/dojo-verify.mjs:12 CONST "import { fileURLToPath }" -> "import \"node:http\"; import { fileURLToPath }"
 test("dojo_verify_core_imports_no_network_module", () => {
   const ALLOW = new Set(["node:crypto", "node:fs", "node:path", "node:url"]), seen = new Set<string>(), stack = [CORE];
-  const FORBIDDEN = [/node:https?\b/, /node:net\b/, /node:tls\b/, /node:dns\b/, /node:http2\b/, /node:dgram\b/, /child_process/, /\bfetch\s*\(/,
-    /\bimport\s*\(/, /\brequire\s*\(/, /createRequire/, /\bundici\b/, /\bWebSocket\b/, /process\.env/];
+  const FORBIDDEN = [/node:https?\b/, /node:net\b/, /node:tls\b/, /node:dns\b/, /node:http2\b/, /node:dgram\b/, /child_process/,
+    /(?<![A-Za-z0-9_$])fetch(?![A-Za-z0-9_$])/, /\bimport\s*\(/, /\brequire\s*\(/, /createRequire/, /\bundici\b/, /\bWebSocket\b/, /process\.env/];
   for (let f = stack.pop(); f !== undefined; f = stack.pop()) {
     if (seen.has(f)) continue;
     seen.add(f);
@@ -707,4 +707,40 @@ test("dojo_verify_core_imports_no_network_module", () => {
     "apps/dojo/scripts/dojo-chain.mjs", "apps/dojo/scripts/dojo-core.mjs", "apps/dojo/scripts/dojo-verify.mjs"], "the core's closure: four files, no CLI");
   assert.deepEqual(Object.keys(dv).sort(), ["DOJO_VERIFY_REFUSALS", "DOJO_VERIFY_REPORT_KEYS", "DojoVerifyError", "VERIFY_BOUNDS", "checkInclusion",
     "dayOk", "dirSource", "dojoTrustOf", "verifyDojoServed"], "the nine exports of the core: dayOk the one new, the transport never re-exported");
+});
+
+// ---- C-G2-1 of the G2 of PR-1b-5b (PLI-1 bis, TY-6 bis): both commands launched through a directory link to apps/ (a junction on Windows, a
+// symlink elsewhere), plain and under --preserve-symlinks-main (the entry keeps the link's path): never a silent 0. Imported under -e, argv[1]
+// absent then unreadable: neither guard runs, nothing is printed, nothing throws ----
+// killer: apps/dojo/scripts/dojo-verify-cli.mjs:94 CONST "realpathSync(process.argv[1])" -> "process.argv[1]"
+test("dojo_verify_commands_through_a_link_never_exit_0_silently", () => {
+  assert.ok(existsSync(SCRIPT), "the CLI lives in dojo-verify-cli.mjs (PR-1b-5b, PLI-1)");
+  const f = dojoFixture(), bad = writeTree(render(f.steps, undefined, (s) => { body(s, 11).score_total = "0"; }));
+  const kr = join(writeTree(new Map([["kr.json", Buffer.from(canonical(dojoKeyringOf([[f.key, 1]])))]])), "kr.json");
+  const link = join(writeTree(new Map<string, Buffer>()), "apps-link"), usage = "dojo/verify: usage: node apps/dojo/scripts/dojo-verify-cli.mjs"
+    + " (<served tree> | --url <base>) (--keyring <file> | --self-consistent-only) [--address <address>] [--day <YYYY-MM-DD>]\n"; // by hand
+  symlinkSync(join(import.meta.dirname, "..", ".."), link, "junction"); // apps/: ../../bell resolves from the link under --preserve-symlinks-main
+  for (const flags of [[], ["--preserve-symlinks-main"]]) {
+    const how = `through a link ${flags.join(" ")}`, run = (s: string) =>
+      spawnSync(process.execPath, [...flags, join(link, "dojo", "scripts", s), bad, "--keyring", kr], { encoding: "utf8" });
+    const old = run("dojo-verify.mjs"), cli = run("dojo-verify-cli.mjs");
+    assert.deepEqual([old.status, old.stdout, old.stderr], [1, "", usage], `the old command ${how}: exit 1 and the usage, never 0`);
+    assert.deepEqual([cli.status, cli.stdout !== "", cli.stderr], [1, true, ""], `the CLI ${how}: exit 1 and a report line, before any parse`);
+    assert.deepEqual(JSON.parse(cli.stdout) as DojoVerifyReport, { ok: false, reason: "score_mismatch", seq: 12, day: dateOf(ANCHOR_DAY + 9),
+      detail: "score_total" }, how);
+  }
+  const url = JSON.stringify(pathToFileURL(SCRIPT).href);
+  for (const argv of [[], [join(link, "absent")]]) { // imported, never launched: argv[1] absent, then unreadable
+    const p = spawnSync(process.execPath, ["--input-type=module", "-e", `await import(${url});`, ...argv], { encoding: "utf8" });
+    assert.deepEqual([p.status, p.stdout, p.stderr], [0, "", ""], `imported, argv ${argv.join(" ")}: neither guard runs, no throw`);
+  }
+});
+
+// ---- Q-G2-2 of the G2 of PR-1b-5b: the CLI's fatal branch, reached by a FAULT INJECTION (a preloaded module makes the report's write throw),
+// never by a served input: an error outside the closed refusals is "dojo/verify: fatal: <name>" on stderr, nothing on stdout, exit 1 ----
+// killer: apps/dojo/scripts/dojo-verify-cli.mjs:89 CONST "return 1;" -> "return 0;"
+test("dojo_verify_cli_fatal_error_exits_1", () => {
+  const boom = `data:text/javascript,${encodeURIComponent("process.stdout.write = () => { throw new RangeError(); };")}`;
+  const p = spawnSync(process.execPath, ["--import", boom, SCRIPT, writeTree(new Map<string, Buffer>()), "--self-consistent-only"], { encoding: "utf8" });
+  assert.deepEqual([p.status, p.stdout, p.stderr], [1, "", "dojo/verify: fatal: RangeError\n"], "an empty directory, the write of its refusal thrown");
 });

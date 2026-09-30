@@ -28,7 +28,7 @@ const cli = (env: NodeJS.ProcessEnv, ...args: string[]): Promise<[number | null,
 /** A success: exit 0 and exactly one line on stdout (D-3), asserted before its report is parsed. */
 async function success(env: NodeJS.ProcessEnv, ...args: string[]): Promise<Ok> {
   const [code, out] = await cli(env, ...args);
-  assert.deepEqual([code, out.indexOf("\n")], [0, out.length - 1], out);
+  assert.deepEqual([code, out.indexOf("\n"), out.length > 1], [0, out.length - 1, true], out); // C-G2-1 (G2 of PR-1b-5b): an empty stdout is no line
   return JSON.parse(out) as Ok;
 }
 /** A loopback server (127.0.0.1, port 0) of the tree that `get` names at each request; each path asked, in order. */

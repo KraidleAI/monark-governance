@@ -3,13 +3,13 @@
 // walks the timeline with walkDojoTimeline (D-8 l.232), then recomputes every price_version, the history file and the lines of
 // every snapshot with the pure core of PR-1a. TRUST ROOT = the dojo-keyring-v1 SUPPLIED with --keyring (D-8 l.234; item
 // DOJO-KEYRING-SCHEMA-1); the served dojo/pubkey.json is a cross-checked channel; --self-consistent-only runs under the served
-// keyring and says so (motif bell-verify.mjs:1-9). Refusals: the codes of D-10 l.252 only; their uses are declared in the G1
-// journal of PR-1b-2. It never reads the Solana chain: a signature attests origin, never truth (D-10 l.253). Built-ins only.
+// keyring and says so (motif bell-verify.mjs:1-9). Refusals: the closed list of D-10 (the reader's verifier) only; their uses are declared in the G1
+// journal of PR-1b-2. It never reads the Solana chain: a signature attests origin, never truth (D-10, its report). Built-ins only.
 // PR-1b-4 (ADR-DOJO-PR-1B-4): --day <day> (a past day, proven after the whole check) and the closed keys of a report, DOJO_VERIFY_REPORT_KEYS
 // (D-3). PR-1b-5b (ADR-DOJO-PR-1B-5, PLI-1): the URL transport and the CLI live in dojo-verify-cli.mjs; this core loads no network module.
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync, realpathSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { canonical, trustOf } from "../../bell/scripts/bell-chain.mjs";
 import { walkDojoTimeline } from "./dojo-chain.mjs";
@@ -363,7 +363,9 @@ export async function verifyDojoServed({ source, keyring = null, address = null,
 }
 
 // PLI-1 bis (ADR-DOJO-PR-1B-5): launched as a script, the old command runs nothing, names the new one on stderr and exits 1, never a silent 0.
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// C-G2-1 (G2 of PR-1b-5b): REAL paths compared, so a launch through a directory link runs it; argv[1] absent or unreadable: an import, no throw.
+const isEntry = () => { try { return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]); } catch { return false; } };
+if (isEntry()) {
   process.stderr.write("dojo/verify: usage: node apps/dojo/scripts/dojo-verify-cli.mjs (<served tree> | --url <base>)"
     + " (--keyring <file> | --self-consistent-only) [--address <address>] [--day <YYYY-MM-DD>]\n");
   process.exitCode = 1;

@@ -3,8 +3,8 @@
 // Here only: the one GET, through the runtime's global fetch, and the one read of the environment, both in urlSource (PR-1b-4 T-10).
 // The checks, the bounds and the refusals are the core's, imported and never copied (one DojoVerifyError class). The old command,
 // node apps/dojo/scripts/dojo-verify.mjs, runs nothing and names this one (PLI-1 bis). Built-ins only.
-import { readFileSync } from "node:fs";
-import { pathToFileURL } from "node:url";
+import { readFileSync, realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { canonical } from "../../bell/scripts/bell-chain.mjs";
 import { DojoVerifyError, VERIFY_BOUNDS, dayOk, dirSource, verifyDojoServed } from "./dojo-verify.mjs";
 
@@ -90,4 +90,6 @@ export async function runVerifyCli(argv) {
   }
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = await runVerifyCli(process.argv.slice(2));
+// C-G2-1 (G2 of PR-1b-5b): REAL paths compared, so a launch through a directory link runs it; argv[1] absent or unreadable: an import, no throw.
+const isEntry = () => { try { return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]); } catch { return false; } };
+if (isEntry()) process.exitCode = await runVerifyCli(process.argv.slice(2));
