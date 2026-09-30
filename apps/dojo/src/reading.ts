@@ -49,7 +49,7 @@ function intAt(d: Buffer, o: number, n: number, signed: boolean): bigint {
   for (let k = o + n - 1; k >= o; k--) v = (v << 8n) | BigInt(d[k] as number);
   return signed && v >= 1n << BigInt(8 * n - 1) ? v - (1n << BigInt(8 * n)) : v;
 }
-/** Byte order of the base58 strings, the order of dojo-verify.mjs:99 (mere D-7: lines sorted by address in byte order). */
+/** Byte order of the base58 strings, the order of `lt` in dojo-verify.mjs (mere D-7: lines sorted by address in byte order). */
 export const byteOrder = (x: string, y: string): number => Buffer.compare(Buffer.from(x), Buffer.from(y));
 
 // ---- pairs (ADR D-3 l.131, D-4 l.141-145; mere D-4 l.194-197) ---------------------------------------------------------------

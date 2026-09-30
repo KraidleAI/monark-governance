@@ -22,6 +22,10 @@ export interface DurableFs {
 }
 export const DURABLE_FS: DurableFs;
 export interface LineResult { status: string; seq: number; published_at: string; key_id: string; line_hash: string }
+/** --inbox: nothing_to_publish (the next day is not over, or not closed) or the published day (its snapshot, and its price_version if any). */
+export type DayResult = { status: "nothing_to_publish"; day: string }
+  | (LineResult & { status: "published"; day: string; lines_sha256: string; lines_count: number; price_version: number | null });
+export function publishDay(o: { inboxDir: string; stateDir: string; key: KeyObject; clock: () => number; fs?: DurableFs }): DayResult;
 export function publishAnchor(o: { stateDir: string; key: KeyObject; request: unknown; clock: () => number; fs?: DurableFs }): LineResult;
 export function rotateKey(o: { stateDir: string; oldKey?: KeyObject | null; newKey: KeyObject; clock: () => number; fs?: DurableFs }): LineResult;
 export function revokeKey(o: { stateDir: string; key: KeyObject; revokedKeyId: string; revokedFromSeq: number; clock: () => number;
