@@ -6,7 +6,14 @@
 //   E2: counted under a version in force: E1 plus the unit in token-days, the count of holders and the dust threshold in tokens,
 //       each shifted by the mint's decimals, never a price.
 // FAIL-CLOSED: a record whose state and figures disagree throws, so the build reds rather than render a partial state.
-import type { DojoServedData } from "./dojo-served-load.ts";
+// THE REREAD (components/dojo/dojo-live.tsx wires Web Crypto and a same-origin GET in; the root tests wire node:crypto and served
+// trees): one view for the first paint and after the reread, its sentences chosen by dojoBodyOf and filled by sentenceParts (the one
+// path of a figure). The reread head is shown only when Ed25519 answers the committed anchor's known answer, the reread of
+// lib/dojo-live.ts holds and the loader's rules of a head hold (restated here: that loader reads files); else the committed figures
+// and the sentence of the outcome, never its reason.
+import type { DojoServedData, DojoServedHead } from "./dojo-served-load.ts";
+import type { DojoLiveOutcome, VerifyEd25519 } from "./dojo-live.ts";
+import type { DOJO_TEXT } from "./dojo-copy.ts";
 
 interface DojoCountedFigures { day: string; reads_done: string; k_reads: string; slot_min: string; slot_max: string; lines_count: string; root: string; score_total: string; validated_total: string }
 export type DojoPageFigures =
@@ -14,6 +21,8 @@ export type DojoPageFigures =
   | { state: "EA"; day: string; threshold_unit_token_days?: string }
   | ({ state: "E1" } & DojoCountedFigures)
   | ({ state: "E2"; threshold_unit_token_days: string; holders_count: string; dust_threshold_tokens: string } & DojoCountedFigures);
+/** The figures of a state that renders: every state but E0. */
+export type DojoShownFigures = Exclude<DojoPageFigures, { state: "E0" }>;
 
 function fail(why: string): never {
   throw new Error(`dojo figures: ${why} (fail-closed)`);
@@ -38,4 +47,103 @@ export function dojoPageFiguresOf(data: DojoServedData | null): DojoPageFigures 
   if (h.threshold_unit === null || h.dust_threshold === null || h.holders_count === null) return fail("a version in force carries no unit, dust threshold or holders");
   return { state: "E2", ...counted, threshold_unit_token_days: shiftUnits(h.threshold_unit, h.decimals), holders_count: String(h.holders_count),
     dust_threshold_tokens: shiftUnits(h.dust_threshold, h.decimals) };
+}
+
+/** The figures of a record that renders (a record is never E0: the page is no page without one). */
+const shownOf = (d: DojoServedData): DojoShownFigures => {
+  const f = dojoPageFiguresOf(d);
+  return f.state === "E0" ? fail("a record without figures") : f;
+};
+
+/** A part of a sentence of the closed list: its fixed text, or the figure one {name} names, read by property access. */
+export type DojoPart = string | { name: string; value: string };
+/** The parts of one sentence for the figures of one head: the one path of a figure (components/dojo/dojo-figures.tsx renders
+ *  them). A {name} the state does not carry throws, so the build reds and the reread keeps the committed figures (fail-closed). */
+export function sentenceParts(text: string, figures: DojoShownFigures): DojoPart[] {
+  const values = new Map<string, string>(Object.entries(figures));
+  return text.split(/([{][a-z_]+[}])/).map((part) => {
+    const name = /^[{]([a-z_]+)[}]$/.exec(part)?.[1];
+    if (name === undefined) return part;
+    const value = name === "state" ? undefined : values.get(name);
+    if (value === undefined) return fail(`the sentence names ${name}, a figure this state does not carry`);
+    return { name, value };
+  });
+}
+
+/** The keys of the closed list whose sentences carry figures, in the page's order: the head's sentence, the totals (never on an
+ *  abstained day), the holders (E2), the unit or the absence of a version, the tier (E2). A version is in force in E2, and on an
+ *  abstained day that carries the unit. One order for the first paint and after the reread. */
+export type DojoBodyKey = "counted" | "abstained" | "totals" | "holder" | "holders" | "tiers" | "noVersion" | "tier";
+export function dojoBodyOf(f: DojoShownFigures): DojoBodyKey[] {
+  const e2 = f.state === "E2", versioned = e2 || (f.state === "EA" && f.threshold_unit_token_days !== undefined);
+  const holders: DojoBodyKey[] = e2 ? [f.holders_count === "1" ? "holder" : "holders"] : [];
+  return [f.state === "EA" ? "abstained" : "counted", ...(f.state === "EA" ? [] : ["totals" as const]), ...holders,
+    versioned ? "tiers" : "noVersion", ...(e2 ? ["tier" as const] : [])];
+}
+
+/** The loader's rules of a head (lib/dojo-served-load.ts, loadDojoServed: same order, same words), restated for a head reread in
+ *  the browser, which that loader never reads: the rule a head breaks, or null. Pinned to the loader's own refusals by test. */
+export function dojoHeadRefusal(h: DojoServedHead): string | null {
+  const versioned = [h.holders_count, h.threshold_unit, h.dust_threshold].map((x) => x !== null);
+  const clause = "head: holders_count, threshold_unit and dust_threshold exist exactly with a price_version";
+  if (versioned.some((x) => x !== (h.price_version !== null))) return clause;
+  if ((h.slot_min === null) !== (h.slot_max === null) || (h.slot_min === null) !== (h.reads_done === 0)) return "head: slots exactly with a reading";
+  if (h.slot_min !== null && h.slot_max !== null && h.slot_min > h.slot_max) return "head: slot_min exceeds slot_max";
+  if ((h.status === "counted" && h.reads_done === 0) || h.reads_done > h.k_reads) return "head: reads_done is at least 1 when counted, at most k_reads";
+  if (BigInt(h.validated_total) > BigInt(h.score_total) || (h.holders_count ?? 0) > h.lines_count) return "head: totals disagree";
+  return null;
+}
+
+// -- The reread (components/dojo/dojo-live.tsx wires Web Crypto and a same-origin GET in; the root tests wire node:crypto and trees) --
+/** The same-origin prefix of the published files (the site's proxy to the Dojo host, deploy/Caddyfile.monark-dojo-site.snippet), and
+ *  the init of every GET of the reread: never a cached, redirected or credentialed read. */
+export const DOJO_LIVE_PREFIX = "/dojo-served/";
+export const DOJO_LIVE_FETCH_INIT = Object.freeze({ cache: "no-store", redirect: "error", credentials: "omit" } as const);
+export type DojoText = { readonly [K in keyof typeof DOJO_TEXT]: string };
+/** What the figures section shows: the figures of one head, and the one sentence that says where they come from. */
+export interface DojoLiveView { figures: DojoShownFigures; note: string }
+export interface DojoLiveViewDeps {
+  /** The browser's Ed25519 (Web Crypto: the committed JWK imported, then verify); it rejects where the browser has none. */
+  verifyEd25519: VerifyEd25519;
+  /** signingBytes and signatureOf of lib/dojo-live.ts: the committed anchor line's signed bytes and signature, the known answer. */
+  signingBytes: (line: Readonly<Record<string, unknown>>) => Uint8Array;
+  signatureOf: (sig: unknown) => Uint8Array | null;
+  /** rereadDojoHead of lib/dojo-live.ts over the same-origin GET, under the same Ed25519 check and the reader's tool's bounds. */
+  reread: () => Promise<DojoLiveOutcome>;
+  text: DojoText;
+}
+/** Ed25519 is usable here iff the committed anchor's signature checks under its committed key AND the same bytes with one byte
+ *  changed do not: a known answer, never the success of an import alone. */
+export async function dojoEd25519Usable(committed: DojoServedData, deps: Pick<DojoLiveViewDeps, "verifyEd25519" | "signingBytes" | "signatureOf">):
+  Promise<boolean> {
+  try {
+    const a = committed.timeline.anchor, key = committed.keyring.keys.find((k) => k.key_id === a.key_id), sig = deps.signatureOf(a.sig);
+    if (key === undefined || sig === null) return false;
+    const signed = deps.signingBytes(a), bent = signed.map((b, i) => (i === 0 ? b ^ 1 : b));
+    if (!(await deps.verifyEd25519(key.public_key.x, signed, sig))) return false;
+    return !(await deps.verifyEd25519(key.public_key.x, bent, sig));
+  } catch {
+    return false;
+  }
+}
+/** The first paint (the build): the committed figures, and the sentence that says what a browser that can then does. */
+export const dojoFirstViewOf = (committed: DojoServedData, text: DojoText): DojoLiveView => ({ figures: shownOf(committed), note: text.rereadFirst });
+/** The view after the reread. Without a usable Ed25519: the committed figures, and no GET at all (TXT-14b-r). A key line among the
+ *  new lines: the committed figures (TXT-14d), whatever the walker would say of that line (declared: the figures are the committed
+ *  ones either way). Any other refusal, a reread head that breaks the loader's rules of a head, or a sentence that cannot be filled:
+ *  the committed figures (TXT-14c). The reread head's figures (TXT-14a) only when every check holds; never the reason of a refusal. */
+export async function dojoLiveViewOf(committed: DojoServedData, deps: DojoLiveViewDeps): Promise<DojoLiveView> {
+  const T = deps.text, first = dojoFirstViewOf(committed, T), keep = (note: string): DojoLiveView => ({ figures: first.figures, note });
+  try {
+    if (!(await dojoEd25519Usable(committed, deps))) return keep(T.rereadNoCheck);
+    const o = await deps.reread();
+    if (o.kind === "key_change") return keep(T.rereadKeyChange);
+    if (o.kind === "fallback") return keep(T.rereadFallback);
+    if (dojoHeadRefusal(o.head) !== null) return keep(T.rereadFallback);
+    const figures = shownOf({ ...committed, head: o.head });
+    for (const k of dojoBodyOf(figures)) sentenceParts(T[k], figures);
+    return { figures, note: T.rereadDone };
+  } catch {
+    return keep(T.rereadFallback);
+  }
 }

@@ -1,0 +1,26 @@
+# MONARK Dojo same-origin proxy snippet (the reread of the head of the day by /dojo). Deployed by an act under go, never by CI.
+#
+# INSERT the `handle_path /dojo-served/*` block below INSIDE the EXISTING vitrine site block (`monarkgate.tech, www.monarkgate.tech
+# { ... }`), BEFORE its `reverse_proxy localhost:3000`: a path matcher wins over the catch-all proxy. The prefix sits OUTSIDE the page
+# route: /dojo and /dojo/* stay with Next (a `/dojo-served/*` matcher matches neither). It relays GET of three closed paths of the
+# Dojo host and nothing else: timeline.jsonl, lines/<sha256>.jsonl, dojo/pubkey.json; any other method or path answers 404. The Host
+# header is set to the upstream (HTTPS upstream: Caddy does it by itself since v2.11.0; set here because the installed version is
+# read at the deploy act). Cache-Control of every relayed answer is replaced by no-store, so no edge in front of the site keeps a
+# served timeline (the edge's cache status is measured at the deploy act). TLS to the upstream is checked: no tls_insecure_* option.
+# Back up, validate, reload, then curl the three paths; rollback = delete these lines and reload (motif of the Narabi snippet).
+
+    handle_path /dojo-served/* {
+        @read {
+            method GET
+            path /timeline.jsonl /lines/* /dojo/pubkey.json
+        }
+        handle @read {
+            reverse_proxy https://dojo.monarkgate.tech {
+                header_up Host {upstream_hostport}
+                header_down Cache-Control "no-store"
+            }
+        }
+        handle {
+            respond 404
+        }
+    }
