@@ -97,6 +97,6 @@ export type { S2Params, S2Output } from "./s2/run.ts";
 export { trackerInit, trackerStepSize, trackerStep, clipScore, trackerReplay, trackerDigest } from "./tracker.ts";
 export type { TrackerParams, TrackerState } from "./tracker.ts";
 
-// Runs diagnostic (worksite 2, lot L2-1r): exact one-sided runs test on a time-ordered 0/1 sequence; import-guard input.
-export { runsCount, runsLowerTailLeq, medianExceedance } from "./runs.ts";
-export type { Bits, RunsTail } from "./runs.ts";
+// Runs diagnostic (worksite 2, lots L2-1r and L2-1r2): exact one-sided runs test on a time-ordered 0/1 sequence, balanced exceedance; import-guard input.
+export { runsCount, runsLowerTailLeq, balancedExceedance } from "./runs.ts";
+export type { Balanced, Bits, RunsTail } from "./runs.ts";
