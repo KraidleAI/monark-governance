@@ -36,6 +36,7 @@ const json = (t: string): Obj => { try { return JSON.parse(t) as Obj; } catch { 
 const linesOf = (p: string): Obj[] => readFileSync(p, "utf8").trimEnd().split("\n").map(json);
 /** Runs f, which must not throw: an unexpected refusal fails an assertion, never the test body. */
 function ok<T>(f: () => T): T { let r: T | undefined; assert.doesNotThrow(() => { r = f(); }); return r as T; }
+async function okA<T>(f: () => Promise<T>): Promise<T> { let r: T | undefined; await assert.doesNotReject(async () => { r = await f(); }); return r as T; }
 const fx = (f: string): Obj => json(readFileSync(new URL(`../apps/dojo/test/fixtures/collect/${f}`, import.meta.url), "utf8"));
 const E = fx("enumeration.json") as { a: Resp; b: Resp }, ACC = fx("accounts.json") as Record<"mint" | "pool" | "wsol" | "pyth", { a: Resp; b: Resp }>;
 const POOL = (ACC.wsol.a.value as { data: { parsed: { info: { owner: string } } } }).data.parsed.info.owner; // the Pool, owner of its wSOL account
@@ -97,13 +98,13 @@ function cliAt(t: number, args: string[], key: KeyObject): { status: number | nu
     { env: { ...process.env, CREDENTIALS_DIRECTORY: creds }, encoding: "utf8" });
 }
 
-// killer: apps/dojo/scripts/dojo-publish.mjs:220 CONST "lots: lotsOf(s)" -> "lots: lotsOf(s.slice(0, -1))"
+// killer: apps/dojo/scripts/dojo-publish.mjs:228 CONST "lots: lotsOf(s)" -> "lots: lotsOf(s.slice(0, -1))"
 test("dojo_publish_to_verify_end_to_end", async () => {
   const w = world(), got: (number | null)[] = [], pub = join(w.s, "public");
   let eve = w.eve;
   for (let d = A + 1; d <= A + 7; d++) {
     eve = writeDay(w, d, eve);
-    const r = ok(() => publishDay({ inboxDir: w.inbox, stateDir: w.s, key: w.key, clock: () => slot(d) }));
+    const r = await okA(() => publishDay({ inboxDir: w.inbox, stateDir: w.s, key: w.key, clock: () => slot(d) }));
     got.push(r.status === "published" ? r.price_version : -1);
   }
   writeDay(w, A + 8, eve);
