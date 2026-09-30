@@ -168,3 +168,7 @@ Authored directly (no CLI, no npm dependency added):
 - `components/dojo/dojo-figures.tsx` — the one path by which the page renders a figure (property access, never typed).
 - `lib/dojo-copy.ts` — the closed list of the page's texts and the tier names; `lib/dojo-register.ts` — the program's
   register, apart from `lib/fleet.ts`. `app/token/page.tsx` links to /dojo only once a record is committed.
+- `components/dojo/dojo-live.tsx` (2026-09-30) — the figures section of /dojo, a client component: its first paint is the committed
+  record's figures (the build); in a browser that runs it, the reread of `lib/dojo-live.ts` over the same-origin prefix `/dojo-served/`
+  (the site's proxy to the Dojo host) with Web Crypto replaces them only when every check holds (`dojoLiveViewOf` of
+  `lib/dojo-served.ts`); every figure goes through `components/dojo/dojo-figures.tsx`. No library, no npm dependency added.

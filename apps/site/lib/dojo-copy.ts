@@ -2,7 +2,8 @@
 // {name} in a sentence stands for the figure of that name, which the page renders by property access from the committed record
 // (lib/dojo-served.ts) and the build check reads from the same record. The tier names live in ONE constant, in their order, and
 // every sentence that names them reads it. Pure data (no React or Next import): the root tests and scripts/assert-fleet-html.mjs
-// import it. No digit anywhere in this file, except in the two names SHA-256 and Ed25519.
+// import it. No digit anywhere in this file, except in the two names SHA-256 and Ed25519. The five sentences of the reread are
+// rendered by the reread component only; the built page carries the first of them, never another.
 export const DOJO_ROUTE = "/dojo";
 /** The program's name, beside the status of its register on the page. */
 export const DOJO_NAME = "Dōjō";
@@ -59,4 +60,21 @@ export const DOJO_TEXT = {
   beacon:
     "The instants of a day also depend on the signature of a public randomness beacon, published with that day's snapshot; this " +
     "page does not check that signature, and any client of that beacon can, with the key named in the anchor line.",
+  // The reread of the head of the day (components/dojo/dojo-live.tsx): the first paint says the figures were committed and what a
+  // browser that can then does; after the reread, exactly one of the four others says what is shown, never why a reread was refused.
+  rereadFirst:
+    "These figures were committed with this page. A browser that runs its script and can check Ed25519 signatures then rereads " +
+    "the published timeline and lines file, and replaces these figures only when every check holds.",
+  rereadDone:
+    "Reread in your browser from the published files: each new line chains to the committed record by its SHA-256, its Ed25519 " +
+    "signature matches a committed key, and the lines file's SHA-256 and Merkle root match the signed line.",
+  rereadNoCheck:
+    "This browser cannot check Ed25519 signatures, so the published files were not reread here: the figures shown are those " +
+    "committed with this page.",
+  rereadFallback:
+    "The published files could not be reread, or did not match the committed record, in your browser: the figures shown are " +
+    "those committed with this page.",
+  rereadKeyChange:
+    "The new lines carry a key change, which this page does not follow in your browser: the figures shown are those committed " +
+    "with this page.",
 } as const;

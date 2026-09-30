@@ -32,7 +32,7 @@ export const DOJO_LIVE_BOUNDS = Object.freeze({ MAX_BODY_BYTES: 64 * 1024 * 1024
 export type DojoLiveBounds = { readonly [K in keyof typeof DOJO_LIVE_BOUNDS]: number };
 
 // -- Primitives, recoded from apps/bell/scripts/bell-chain.mjs and apps/dojo/scripts/dojo-core.mjs (pinned equal by test) --
-const enc = new TextEncoder(), utf8 = new TextDecoder("utf-8", { fatal: true });
+const enc = new TextEncoder(), utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 /** Lowercase hex of some bytes. */
 export const toHex = (b: Uint8Array): string => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 function cat(xs: readonly Uint8Array[]): Uint8Array {

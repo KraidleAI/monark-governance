@@ -345,3 +345,12 @@ test("dojo_live_binds_the_validated_total_to_the_lines", async () => {
   const { f, k, c } = await e1Record();
   await beyondTheWalker(render(f.steps, new Map(), body(11, { validated_total: "1" })), k, c, /sum to the signed totals/);
 });
+
+// killer: apps/site/lib/dojo-live.ts:35 CONST "{ fatal: true, ignoreBOM: true }" -> "{ fatal: true }"
+test("dojo_live_refuses_a_timeline_behind_a_bom", async () => {
+  const { f, k, c } = await e1Record(), e2 = render(f.steps), tl = e2.get("timeline.jsonl") ?? Buffer.alloc(0);
+  const bom = new Map(e2).set("timeline.jsonl", Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), tl]));
+  await assert.rejects(build(bom, k), Error, "the build refuses a timeline behind a BOM (the reader's tool: timeline_malformed at seq 1)");
+  assert.equal((await reread(c, bom)).kind, "fallback", "the browser too: the BOM stays in the text, and the first line does not parse");
+  assert.equal((await reread(c, e2)).kind, "reread", "control: the same bytes without it are reread");
+});

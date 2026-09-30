@@ -14,9 +14,12 @@ const nextConfig = {
   // Local review only: in production Caddy serves /narabi/* (the sentinel's published files) before Next
   // ever sees the request, so this rewrite is unreachable there. Under `next dev` it proxies the two
   // published files from the live host so the links on /narabi resolve during review instead of 404ing.
+  // Same for /dojo-served/* (the Dojo host's published files, relayed in production by the site's proxy snippet
+  // deploy/Caddyfile.monark-dojo-site.snippet): under `next dev` only, so the /dojo reread resolves during review.
   async rewrites() {
     if (process.env.NODE_ENV !== "development") return [];
-    return [{ source: "/narabi/:file(state.json|timeline.jsonl)", destination: "https://monarkgate.tech/narabi/:file" }];
+    return [{ source: "/narabi/:file(state.json|timeline.jsonl)", destination: "https://monarkgate.tech/narabi/:file" },
+      { source: "/dojo-served/:path*", destination: "https://dojo.monarkgate.tech/:path*" }];
   },
   // /building is the page title of /roadmap (MONARK Building); the route keeps its address for the links that exist, and the
   // alias redirects to it (temporary, so the canonical address can still change without a cached permanent redirect).
