@@ -31,7 +31,7 @@ export class DojoPublishError extends Error {
 }
 const refuse = (code, detail) => { throw new DojoPublishError(code, detail); };
 
-/** 1 MiB per timeline line and per anchor request: the verifier's MAX_LINE_BYTES (dojo-verify.mjs:37). */
+/** 1 MiB per timeline line and per anchor request: the verifier's VERIFY_BOUNDS.MAX_LINE_BYTES (dojo-verify.mjs). */
 export const BOUNDS = Object.freeze({ MAX_LINE_BYTES: 1024 * 1024 });
 /** An anchor request = the anchor line's own fields (mere D-8, tenth pli), closed; declared duplicate of FIELDS.anchor of dojo-verify.mjs. */
 export const ANCHOR_KEYS = Object.freeze(["seed_anchor", "mint", "program", "k_reads", "horizon", "validation_days", "tier_units",
