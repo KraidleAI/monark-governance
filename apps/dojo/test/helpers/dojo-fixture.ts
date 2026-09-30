@@ -152,6 +152,16 @@ export function dojoFixture(horizon = 40, chain = horizon): Fixture {
     ...[1, 2, 3, 4, 5, 6, 7].map(snap), { key, body: versionBody(1, FIRST, at(FIRST + 7, 2)) }, snap(8), snap(9)];
   return { key, trust: trustOfKeys([key]), seed, steps };
 }
+/** DOJO-SERVED-FIXTURE-SPREAD-1: dojoFixture's 12 lines, a cross-signed key rotation to `next` (seq 13), then, signed by `next`, the
+ *  snapshots of read days 10 to 14, price_version 2 (window = read days 8 to 14, effect on read day 15, published after its window) and
+ *  the snapshots of read days 15 and 16, which name it: 21 lines; the head is signed by another key than the anchor, under the second
+ *  version. Committed keyring of its tests: dojoKeyringOf([[key, 1, 13], [next, 13]]). */
+export function dojoSpreadFixture(): Fixture & { next: KeyObject } {
+  const f = dojoFixture(), next = newKey(), snap = (j: number): Step => ({ key: next, body: snapshotBody(ANCHOR_DAY + j, f.seed(j), j >= 15 ? 2 : 1) });
+  const steps: Step[] = [...f.steps, { key: f.key, rotateTo: next, body: { kind: "key_rotation", published_at: at(FIRST + 9, 3) } },
+    ...[10, 11, 12, 13, 14].map(snap), { key: next, body: versionBody(2, FIRST + 7, at(FIRST + 14, 2)) }, snap(15), snap(16)];
+  return { ...f, trust: trustOfKeys([f.key, next]), steps, next };
+}
 /** The minimal served tree (D-9 l.242): timeline.jsonl, dojo/pubkey.json, and the (empty) lines and history files it names. */
 export function servedTree(lines: readonly Line[], keys: readonly KeyObject[]): Map<string, Buffer> {
   return new Map([["timeline.jsonl", Buffer.from(lines.map((l) => canonical(l) + "\n").join(""))],
