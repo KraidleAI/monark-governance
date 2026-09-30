@@ -1,23 +1,30 @@
-// MONARK Dojo -- PR-3a-1a oracle (ADR-DOJO-PR-3 section 4, PR-3a-1; cut DOJO-PR3A1-CUT-1, part 1a): the publisher's anchor, key modes
-// and state, through the REAL module and its CLI, each served tree read back by the REAL verifier (dojo-verify.mjs) under a SUPPLIED
-// dojo-keyring-v1. Keys are generated at run time by node:crypto and written only under the OS temp dir (TEMP on F: for every run of
-// this lot), never committed; seed_anchor and horizon come from the real dojo-seed.mjs over a temp file. Anchor values: the mere's
+// MONARK Dojo -- PR-3a-1 oracle (ADR-DOJO-PR-3 section 4, PR-3a-1; cut DOJO-PR3A1-CUT-1, parts 1a and 1b): the publisher's anchor, key
+// modes, state and days, through the REAL module and its CLI, each served tree read back by the REAL verifier (dojo-verify.mjs) under a
+// SUPPLIED dojo-keyring-v1. Keys are generated at run time by node:crypto and written only under the OS temp dir (TEMP on F: for every run
+// of this lot), never committed; seed_anchor and horizon come from the real dojo-seed.mjs over a temp file. Anchor values: the mere's
 // (D-3, D-8; decisions 225 (7), 234, 236, 248), the pinned read_rule of dojo-methods.ts, the pinned mint and the addresses of
-// fixtures/collect/; the instants are SYNTHETIC.
+// fixtures/collect/; the instants are SYNTHETIC. Part 1b writes its days with the REAL writers of PR-2-1 and PR-2-2; its end-to-end
+// test (TU-1c) lives under the wiring root, test/dojo-publish-e2e.test.ts (decision 275, Q-G1-5).
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, type KeyObject } from "node:crypto";
-import { appendFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { createRequire, syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { keyIdOf } from "../../bell/scripts/bell-chain.mjs";
+import { canonical, keyIdOf, lineHash, signLine } from "../../bell/scripts/bell-chain.mjs";
+import { daySeed, ownerClass, readInstants, rootOf } from "../scripts/dojo-core.mjs";
 import { dirSource, verifyDojoServed } from "../scripts/dojo-verify.mjs";
 import { initSeed } from "../scripts/dojo-seed.mjs";
 import { ANCHOR_KEYS, DURABLE_FS, DojoPublishError, publishAnchor, revokeKey, rotateKey } from "../scripts/dojo-publish.mjs";
+import * as publisher from "../scripts/dojo-publish.mjs"; // publishDay, bound late below: the base of the lot, which lacks it, loads this file
+import { readRecord, readingRecord, recordBytes, writeDayBundle } from "../src/bundle.ts";
 import { READ_RULE } from "../src/dojo-methods.ts";
-import { MINT, dojoKeyringOf } from "./helpers/dojo-fixture.ts";
+import { closeLayout, nextEve, readDayLayout } from "../src/layout.ts";
+import type { Eve } from "../src/reading.ts";
+import { ADDR, MINT, betaOf, dateOf, dojoKeyringOf, roundOf } from "./helpers/dojo-fixture.ts";
 
 type Obj = Record<string, unknown>;
 const HERE = dirname(fileURLToPath(import.meta.url)), SCRIPT = join(HERE, "..", "scripts", "dojo-publish.mjs");
@@ -73,7 +80,7 @@ function credsOf(keys: Readonly<Record<string, KeyObject>>): string {
 }
 const pk = (k: KeyObject): Obj => ({ kty: "OKP", crv: "Ed25519", x: createPublicKey(k).export({ format: "jwk" }).x });
 
-// killer: apps/dojo/scripts/dojo-publish.mjs:136 SDL "closed keys" -> ""
+// killer: apps/dojo/scripts/dojo-publish.mjs:161 SDL "closed keys" -> ""
 test("dojo_publish_anchor_carries_the_read_rule", async () => {
   const s = tmp("dojo-p-anchor-"), k = gen(), req = request();
   const r = ok(() => publishAnchor({ stateDir: s, key: k, request: req, clock: () => T0 }));
@@ -110,7 +117,7 @@ test("dojo_publish_anchor_carries_the_read_rule", async () => {
   assert.deepEqual([over.status, /anchor_malformed: the request file is absent or too large/.test(over.stderr)], [1, true], "a 1 MiB request: never read");
 });
 
-// killer: apps/dojo/scripts/dojo-publish.mjs:183 CONST "wx" -> "w"
+// killer: apps/dojo/scripts/dojo-publish.mjs:287 CONST "wx" -> "w"
 test("dojo_generate_key_prints_no_private_member", (t) => {
   const p = join(tmp("dojo-p-keygen-"), "signing-key.pem"), run = () => cli(["--generate-key", p]);
   const first = run();
@@ -128,7 +135,7 @@ test("dojo_generate_key_prints_no_private_member", (t) => {
   else assert.equal(statSync(p).mode & 0o777, 0o600);
 });
 
-// killer: apps/dojo/scripts/dojo-publish.mjs:169 CONST "active" -> "lost"
+// killer: apps/dojo/scripts/dojo-publish.mjs:273 CONST "active" -> "lost"
 test("dojo_publish_rotation_and_revocation_follow_bell", async () => {
   const [K1, K2, K3, K4] = [gen(), gen(), gen(), gen()], [id1, id2, id3, id4] = [K1, K2, K3, K4].map((k) => keyIdOf(k)) as [string, string, string, string];
   const s = tmp("dojo-p-keys-"), at = (dt: number) => (): number => T0 + dt;
@@ -178,7 +185,7 @@ test("dojo_publish_rotation_and_revocation_follow_bell", async () => {
   assert.deepEqual([r.ok, r.ok && r.active_key_id, r.ok && r.voided_lines, r.ok && r.seq], [true, id4, [], 6], JSON.stringify(r));
 });
 
-// killer: apps/dojo/scripts/dojo-publish.mjs:13 CONST "import { pathToFileURL }" -> "import \"node:dns\"; import { pathToFileURL }"
+// killer: apps/dojo/scripts/dojo-publish.mjs:15 CONST "import { pathToFileURL }" -> "import \"node:dns\"; import { pathToFileURL }"
 test("dojo_publish_imports_no_network_module", () => {
   const ALLOW = new Set(["node:crypto", "node:fs", "node:path", "node:url"]), seen = new Set<string>(), stack = [SCRIPT];
   const FORBIDDEN = [/node:https?\b/, /node:net\b/, /node:tls\b/, /node:dns\b/, /node:http2\b/, /node:dgram\b/, /child_process/, /\bfetch\s*\(/,
@@ -193,10 +200,11 @@ test("dojo_publish_imports_no_network_module", () => {
   }
   const root = join(HERE, "..", "..", "..");
   assert.deepEqual([...seen].map((f) => relative(root, f).split(sep).join("/")).sort(), ["apps/bell/scripts/bell-chain.mjs",
-    "apps/dojo/scripts/dojo-chain.mjs", "apps/dojo/scripts/dojo-core.mjs", "apps/dojo/scripts/dojo-publish.mjs"], "the whole import closure");
+    "apps/dojo/scripts/dojo-chain.mjs", "apps/dojo/scripts/dojo-core.mjs", "apps/dojo/scripts/dojo-publish.mjs", "apps/dojo/src/bundle.ts",
+    "apps/dojo/src/layout.ts", "apps/dojo/src/reading.ts"], "the whole import closure: the real reader of the bundle (FM-1.1), no copy");
 });
 
-// killer: apps/dojo/scripts/dojo-publish.mjs:50 CONST "staging" -> "public/staging"
+// killer: apps/dojo/scripts/dojo-publish.mjs:62 CONST "staging" -> "public/staging"
 test("dojo_publish_state_is_outside_public", () => {
   const s = tmp("dojo-p-state-"), [K1, K2, K3] = [gen(), gen(), gen()];
   const log: string[] = [], jd = tmp("dojo-p-journal-"), J = { ...DURABLE_FS, // the durable writes, journaled through the seam
@@ -242,7 +250,7 @@ test("dojo_publish_state_is_outside_public", () => {
   assert.deepEqual(files(s), before, "a corrupt state is refused with nothing written");
 });
 
-// killer: apps/dojo/scripts/dojo-publish.mjs:141 SDL "if (last?.kind === " -> ""
+// killer: apps/dojo/scripts/dojo-publish.mjs:166 SDL "if (last?.kind === " -> ""
 test("dojo_publish_anchor_replayed_after_a_stop_adds_no_line", () => {
   const s = tmp("dojo-p-replay-"), k = gen(), req = request(), tl = join(s, "public", "timeline.jsonl"), priv = join(s, "timeline.jsonl");
   const stop = { ...DURABLE_FS, fsyncDir: (d: string): void => { if (existsSync(priv)) throw new Error("SYNTHETIC stop"); DURABLE_FS.fsyncDir(d); } };
@@ -253,7 +261,7 @@ test("dojo_publish_anchor_replayed_after_a_stop_adds_no_line", () => {
   assert.equal(ok(() => publishAnchor({ stateDir: s, key: k, request: req, clock: () => T0 + 3 })).seq, 3, "req after another: a re-anchor");
 });
 
-// killer: apps/dojo/scripts/dojo-publish.mjs:195 CONST "^[1-9][0-9]*$" -> "^"
+// killer: apps/dojo/scripts/dojo-publish.mjs:299 CONST "^[1-9][0-9]*$" -> "^"
 test("dojo_publish_revoke_reads_a_plain_decimal_from_seq", async () => {
   const s = tmp("dojo-p-fromseq-"), [K1, K2] = [gen(), gen()], creds = credsOf({ "dojo-signing-key": K2 });
   ok(() => publishAnchor({ stateDir: s, key: K1, request: request(), clock: () => T0 }));
@@ -264,4 +272,215 @@ test("dojo_publish_revoke_reads_a_plain_decimal_from_seq", async () => {
   assert.deepEqual(files(s), kept, "Q-G2-5: a --from-seq outside the plain decimal form is refused, nothing written");
   const lost = rev("2"); // K1 revoked from its broken rotation's seq: no line of K1 from seq 2 (C-G2-1 bounds by key_id): admitted
   assert.deepEqual([lost.status, (await verify(s, served(s))).ok], [0, true], lost.stderr);
+});
+
+// ---- part 1b: days of the inbox written by the REAL writers of PR-2-1 and PR-2-2 (readingRecord, writeDayBundle; closeLayout, nextEve)
+// in the handoff layout DOJO-HANDOFF-LAYOUT-1 (ADR-DOJO-PR-2 D-7, dated line C-V-1), from the verbatim responses of fixtures/collect/;
+// betas and instants SYNTHETIC (betaOf of the signed fixture); the history line and its file stand in for PR-3a-2, their writer.
+type Resp = { context: { slot: number }; value: unknown };
+const { publishDay } = publisher; // undefined at the base of the lot: every call below is wrapped (ok, refuses, assert.throws), an assertion there
+const fx = (f: string): Obj => json(readFileSync(new URL(`./fixtures/collect/${f}`, import.meta.url), "utf8"));
+const E = fx("enumeration.json") as { a: Resp; b: Resp }, ACC = fx("accounts.json") as Record<"mint" | "pool" | "wsol" | "pyth", { a: Resp; b: Resp }>;
+const DAY = 86_400_000, K = 4, X = "Dw76Ydu2svQ9rMWRevhumwjnRdF1dpzSyD1bY7wF3WbW"; // X: the holder of the fixture's account 3tdL
+/** The fixture's Pyth account at a SYNTHETIC publish_time (little-endian i64 at byte 93, reading.ts decodePyth). */
+function pythAt(sec: number): Resp {
+  const r = structuredClone(ACC.pyth.a) as { context: { slot: number }; value: { data: [string, string] } }, b = Buffer.from(r.value.data[0], "base64");
+  new DataView(b.buffer, b.byteOffset, b.byteLength).setBigInt64(93, BigInt(sec), true); // little-endian
+  r.value.data = [b.toString("base64"), "base64"];
+  return r;
+}
+/** The fixture's mint with SYNTHETIC decimals 9: checkMint refuses it (mint_decimals), the day abstains (mint_changed) with its reads. */
+function mintChanged(): Resp {
+  const r = structuredClone(ACC.mint.a) as { context: { slot: number }; value: { data: { parsed: { info: { decimals: number } } } } };
+  r.value.data.parsed.info.decimals = 9;
+  return r;
+}
+interface World { s: string; inbox: string; key: KeyObject; secret: string; chain: number; A: number; eve: Eve }
+/** Stand-in for PR-3a-2 (the history line's writer): a history line signed after the committed timeline (mere D-18; the walker's day 1,
+ *  2026-09-10) and its immutable file in public/history/. */
+function withHistory(s: string, key: KeyObject, lastDay: number, hl: readonly Obj[]): void {
+  const priv = join(s, "timeline.jsonl"), prior = linesOf(priv), text = hl.map((l) => `${canonical(l)}\n`).join(""), h = sha(text);
+  mkdirSync(join(s, "public", "history"), { recursive: true });
+  writeFileSync(join(s, "public", "history", `${h}.jsonl`), text);
+  const line: Obj = { schema: "dojo-timeline-v1", seq: prior.length + 1, kind: "history", prev_line_hash: lineHash(prior.at(-1)), key_id: keyIdOf(key),
+    published_at: new Date((lastDay + 1) * DAY + 600_000).toISOString(), history_first_day: "2026-09-10", history_last_day: dateOf(lastDay),
+    history_sha256: h, history_lines_count: hl.length, history_root: rootOf(hl.map((l) => canonical(l))) };
+  appendFileSync(priv, `${canonical({ ...line, sig: signLine(line, key) })}\n`);
+  writeFileSync(join(s, "public", "timeline.jsonl"), readFileSync(priv)); // served as its writer would: public/ = the private timeline
+}
+/** An anchored state (day A = 2026-09-11), its seed chain from dojo-seed.mjs and, unless `history` is false, the history line of days 1 to A:
+ *  X holds 40 000 000 000 000 (sold down to its enumerated amount on A + 1), ADDR.A holds 5 000 000 (no account on the read days: a
+ *  concordant 0, C-1); the Eve of A + 1 = those two addresses (Q-2). SYNTHETIC values. */
+function world(o: { horizon?: number; chain?: number; history?: boolean } = {}): World {
+  const s = tmp("dojo-p-day-"), inbox = tmp("dojo-p-inbox-"), key = gen(), file = join(tmp("dojo-p-seed-"), "seed"), A = Math.floor(T0 / DAY);
+  const horizon = o.horizon ?? 365, chain = o.chain ?? horizon, seed = initSeed(file, chain), secret = readFileSync(file, "utf8").trim();
+  ok(() => publishAnchor({ stateDir: s, key, request: { ...request(), seed_anchor: seed.seed_anchor, horizon }, clock: () => T0 }));
+  const hl = [{ address: X, day_value: "40000000000000" }, { address: ADDR.A, day_value: "5000000" }]
+    .map((x) => ({ ...x, class: ownerClass(x.address), day: dateOf(A) })).sort((x, y) => Buffer.compare(Buffer.from(x.address), Buffer.from(y.address)));
+  if (o.history !== false) withHistory(s, key, A, hl);
+  return { s, inbox, key, secret, chain, A, eve: { addresses: hl.map((x) => x.address), accounts: [] } };
+}
+interface Opt { day?: number; seed?: string; program?: string; token?: string; k?: number; sol?: boolean; mint?: boolean; beacon?: boolean; inbox?: string }
+/** Writes bundles/<d>/ with the real writers and returns the Eve of d + 1 (nextEve of the layout reader's day). `day` misplaces the bundle
+ *  of another day under d; `seed`, `program`, `token` (the bundle's mint) and `k` replace the chain's and the anchor's; `sol` false = a
+ *  Pyth fault all day (sigma null); `mint` false = the mint changed (abstained, reads kept); `beacon` false = a day without beacon. */
+function writeDay(w: World, d: number, eve: Eve, o: Opt = {}): Eve {
+  const dd = o.day ?? d, day = dateOf(dd), seed = o.seed ?? daySeed(w.secret, w.chain, dd - w.A), beta = betaOf(dd), T = dd * 86_400;
+  const dir = join(o.inbox ?? w.inbox, dateOf(d)), anchor = { mint: MINT, pool: POOL, pool_quote_vault: QUOTE_VAULT, sol_usd_max_age_s: 165 };
+  const mint = o.mint === false ? { a: mintChanged(), b: mintChanged() } : ACC.mint;
+  const recs = o.beacon === false ? [] : readInstants(seed, beta, o.k ?? K, T, 900).map((t, j) => readingRecord({ day, i: j + 1, instant: t, anchor, eve,
+    read_at: new Date((t + 10) * 1000).toISOString(), enumeration: E, mint: j === 0 ? mint : null, pool: ACC.pool, wsol: ACC.wsol,
+    pyth: o.sol === false ? { a: null, b: null } : { a: pythAt(t - 10), b: pythAt(t - 10) } }));
+  const { bytes } = writeDayBundle({ day, seed, beacon: o.beacon === false ? null : { round: roundOf(dd), signature: beta }, read_rule: READ_RULE,
+    k_reads: o.k ?? K, mint: o.token ?? MINT, program: o.program ?? TOKEN_2022, decimals: 6, records: recs, eve }, T + 2 * 86_400);
+  mkdirSync(join(dir, "readings"), { recursive: true });
+  recs.forEach((r, j) => { writeFileSync(join(dir, "readings", `${j + 1}.json`), recordBytes(r)); });
+  writeFileSync(join(dir, "eve.json"), `${canonical(eve)}\n`);
+  closeLayout(dir, [], recs.length, bytes);
+  const L = readDayLayout(dir);
+  return nextEve(L.bundle, L.records, L.eve);
+}
+const slot = (d: number): (() => number) => () => (d + 1) * DAY + 1_800_000; // 00:30 UTC of d + 1, the first slot of the publish timer (D-5)
+const publish = (w: World, d: number, inbox = w.inbox) => ok(() => publishDay({ inboxDir: inbox, stateDir: w.s, key: w.key, clock: slot(d) }));
+const versionOf = (r: ReturnType<typeof publish>): number | null => (r.status === "published" ? r.price_version : -1);
+const linesAt = (w: World, l: Obj | undefined): Obj[] => linesOf(join(w.s, "public", "lines", `${String(l?.lines_sha256)}.jsonl`));
+/** Rewrites one file of a day and its sha256 in publish/SHA256SUMS, so that the layout's sums agree and the deeper reader judges. */
+function resum(dir: string, rel: string, f: (text: string) => string): void {
+  const old = readFileSync(join(dir, ...rel.split("/")), "utf8"), text = f(old), p = join(dir, "publish", "SHA256SUMS");
+  writeFileSync(join(dir, ...rel.split("/")), text);
+  writeFileSync(p, readFileSync(p, "utf8").replace(`${sha(old)}  ${rel}`, `${sha(text)}  ${rel}`));
+}
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:224 CONST "reads: b.reads," -> "reads: b.reads.slice(1),"
+test("dojo_publish_snapshot_carries_beacon_and_reads", async () => {
+  const w = world(), d = w.A + 1;
+  writeDay(w, d + 1, writeDay(w, d, w.eve), { beacon: false }); // A + 2: a day without beacon (ADR-DOJO-PR-2 D-8, Q-5)
+  publish(w, d);
+  publish(w, d + 1);
+  const [s1, s2] = linesOf(join(w.s, "timeline.jsonl")).filter((l) => l.kind === "snapshot"), b1 = readDayLayout(join(w.inbox, dateOf(d))).bundle;
+  assert.deepEqual([s1?.day, s1?.seed, s1?.beacon, s1?.reads, s1?.status, s1?.mint, s1?.decimals], [b1.day, b1.seed, b1.beacon, b1.reads, "counted", MINT, 6]);
+  assert.deepEqual([s2?.beacon, s2?.reads, s2?.status], [null, [], "abstained"], "a day without beacon: abstained, no reads");
+  const [l1, l2] = [linesAt(w, s1), linesAt(w, s2)], row = (a: unknown) => b1.addresses?.find((x) => x.address === a)?.reads;
+  assert.ok(l1.length > 0 && l1.every((l) => canonical(l.reads) === canonical(row(l.address))), "each line carries the bundle's K composed reads");
+  assert.deepEqual(l2.map((l) => [l.address, l.reads, l.day_value]), l1.filter((l) => l.class === "holder" && canonical(l.lots) !== "[]")
+    .map((l) => [l.address, [null, null, null, null], null]), "an abstained day: a line per pile, its reads null, a missing day (D-2)");
+  const v = await verify(w.s, dojoKeyringOf([[w.key, 1]]));
+  assert.deepEqual([v.ok, v.ok && v.snapshots], [true, 2], JSON.stringify(v));
+});
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:242 ROR "!==" -> "==="
+test("dojo_publish_price_version_needs_seven_valid_days", async () => {
+  const w = world(), got: (number | null)[] = [];
+  let eve = w.eve;
+  for (let j = 1; j <= 11; j++) { eve = writeDay(w, w.A + j, eve, { sol: j !== 3, mint: j !== 4 }); got.push(versionOf(publish(w, w.A + j))); }
+  assert.deepEqual(got, [null, null, null, null, null, null, null, null, null, null, 1],
+    "day 3 without SOL rate (counted, sigma null), day 4 abstained (mint changed, prices kept): the first seven valid days are 5 to 11 (M-E7)");
+  const pv = linesOf(join(w.s, "timeline.jsonl")).find((l) => l.kind === "price_version");
+  assert.deepEqual([pv?.window_first_day, pv?.effective_day], [dateOf(w.A + 5), dateOf(w.A + 12)], "never on history days; in force the next day");
+  const v = await verify(w.s, dojoKeyringOf([[w.key, 1]]));
+  assert.equal(v.ok, true, JSON.stringify(v));
+});
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:144 SDL "for (const [rel, text] of immutables)" -> ""
+test("dojo_publish_writes_immutables_before_the_line", async () => {
+  const w = world(), d = w.A + 1, log: string[] = [], rel = (p: string): string => relative(w.s, p).split(sep).join("/");
+  const eve = writeDay(w, d, w.eve);
+  const spy: typeof DURABLE_FS = { ...DURABLE_FS, openSync: (p, f) => { log.push(`open ${rel(p)} ${f}`); return DURABLE_FS.openSync(p, f); },
+    renameSync: (a, b) => { log.push(`rename ${rel(b)}`); DURABLE_FS.renameSync(a, b); },
+    fsyncDir: (x) => { log.push(`fsyncdir ${rel(x)}`); DURABLE_FS.fsyncDir(x); } };
+  const crash: typeof spy = { ...spy, openSync: (p, f) => { if (f === "a") throw new Error("SYNTHETIC crash at the append"); return spy.openSync(p, f); } };
+  const before = files(join(w.s, "public")), tl = readFileSync(join(w.s, "timeline.jsonl"), "utf8");
+  assert.throws(() => publishDay({ inboxDir: w.inbox, stateDir: w.s, key: w.key, clock: slot(d), fs: crash }), /SYNTHETIC crash/);
+  assert.deepEqual([files(join(w.s, "public")), readFileSync(join(w.s, "timeline.jsonl"), "utf8")], [before, tl], "a crash before the line: nothing served");
+  log.length = 0;
+  const r = ok(() => publishDay({ inboxDir: w.inbox, stateDir: w.s, key: w.key, clock: slot(d), fs: spy }));
+  const h = r.status === "published" ? r.lines_sha256 : "", i = log.indexOf(`rename staging/lines/${h}.jsonl`), j = log.indexOf("open timeline.jsonl a");
+  assert.ok(i >= 0 && log[i + 1] === "fsyncdir staging/lines" && i < j, `the immutable is durable before its line (M-E1): ${log.join(" | ")}`);
+  assert.ok(log.indexOf(`rename public/lines/${h}.jsonl`) > j, "served after the commit point");
+  writeDay(w, d + 1, eve); // day d + 1: a served immutable altered is refused; a stop past the commit point is repaired at the next start
+  const f = join(w.s, "public", "lines", `${h}.jsonl`), kept = readFileSync(f), next = { inboxDir: w.inbox, stateDir: w.s, key: w.key, clock: slot(d + 1) };
+  writeFileSync(f, kept.toString("utf8").replace('"day_value":"', '"day_value":"1')); // still JSON: only its sha256 tells
+  refuses(() => publishDay(next), "existing_timeline_corrupt");
+  writeFileSync(f, kept);
+  const stop: typeof DURABLE_FS = { ...DURABLE_FS, renameSync: (a, b) => {
+    if (rel(b).startsWith("public/lines/")) throw new Error("SYNTHETIC stop past the commit point"); DURABLE_FS.renameSync(a, b); } };
+  assert.throws(() => publishDay({ ...next, fs: stop }), /SYNTHETIC stop/);
+  assert.equal(ok(() => publishDay(next)).status, "nothing_to_publish", "the next start serves day d + 1 with its immutable (moved from staging/)");
+  assert.equal((await verify(w.s, dojoKeyringOf([[w.key, 1]]))).ok, true, "no served line names a missing file (M-E1 at the repair)");
+});
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:196 CONST "refuse(e.code" -> "refuse(\"line_refused\""
+test("dojo_publish_refuses_a_malformed_bundle", () => {
+  const w = world(), d = w.A + 1, src = join(w.inbox, dateOf(d)), before = files(w.s);
+  writeDay(w, d, w.eve);
+  const cases: [(dir: string) => void, string][] = [[(p) => { writeFileSync(join(p, "publish", "extra.json"), "{}"); }, "layout_stray_file"],
+    [(p) => { rmSync(join(p, "readings", "2.json")); }, "layout_malformed"], [(p) => { writeFileSync(join(p, "eve.json"), "{}\n"); }, "layout_sha_mismatch"],
+    [(p) => { resum(p, "publish/day.json", (t) => t.replace("\"counted\"", " \"counted\"")); }, "bundle_malformed"],
+    [(p) => { resum(p, "eve.json", () => "[]\n"); }, "eve_malformed"], [(p) => { resum(p, "readings/1.json", (t) => `${t} `); }, "record_malformed"]];
+  for (const [edit, code] of cases) {
+    const inbox = tmp("dojo-p-bad-"), dir = join(inbox, dateOf(d));
+    cpSync(src, dir, { recursive: true });
+    edit(dir);
+    refuses(() => publishDay({ inboxDir: inbox, stateDir: w.s, key: w.key, clock: slot(d) }), code);
+  }
+  const lost = world(); // an Eve without ADDR.A, which holds lots at the history's last day: its line would be missing
+  writeDay(lost, d, { addresses: [X], accounts: [] });
+  refuses(() => publishDay({ inboxDir: lost.inbox, stateDir: lost.s, key: lost.key, clock: slot(d) }), "eve_mismatch");
+  assert.deepEqual(files(w.s), before, "refused with nothing written");
+  assert.equal(publish(w, d).status, "published", "the pristine day publishes");
+});
+
+// killer: apps/dojo/src/layout.ts:94 CONST ", { records: recs, eve })" -> ")"
+test("dojo_publish_reads_the_bundle_with_its_check", () => {
+  const w = world(), d = w.A + 1, dir = join(w.inbox, dateOf(d));
+  writeDay(w, d, w.eve);
+  mkdirSync(join(dir, "evidence"), { recursive: true });
+  writeFileSync(join(dir, "evidence", "plan.json"), "{}"); // never read (ADR-DOJO-PR-2 D-7, dated line C-V-1)
+  const bad = tmp("dojo-p-check-"), copy = join(bad, dateOf(d));
+  cpSync(dir, copy, { recursive: true });
+  resum(copy, "readings/1.json", (t) => {
+    const r = readRecord(t);
+    return recordBytes({ ...r, read: { ...r.read, accounts_concordant: r.read.accounts_concordant + 1 } });
+  });
+  refuses(() => publishDay({ inboxDir: bad, stateDir: w.s, key: w.key, clock: slot(d) }), "bundle_records_mismatch"); // DOJO-BUNDLE-CHECK-REQUIRED-1
+  const fsc = createRequire(import.meta.url)("node:fs") as { readFileSync: (...a: unknown[]) => unknown }, orig = fsc.readFileSync, read: string[] = [];
+  fsc.readFileSync = (...a: unknown[]) => {
+    if (typeof a[0] === "string" && a[0].startsWith(dir)) read.push(relative(dir, a[0]).split(sep).join("/"));
+    return orig(...a);
+  };
+  syncBuiltinESMExports();
+  try { assert.equal(publish(w, d).status, "published"); } finally { fsc.readFileSync = orig; syncBuiltinESMExports(); }
+  assert.deepEqual(read.sort(), ["eve.json", "publish/SHA256SUMS", "publish/day.json", ...[1, 2, 3, 4].map((i) => `readings/${i}.json`)],
+    "exactly the files publish/SHA256SUMS enumerates: never evidence/, never readings/SHA256SUMS");
+});
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:201 SDL "refuse(\"seed_outside_anchor_chain\"" -> ""
+test("dojo_publish_refuses_a_seed_outside_the_anchor_chain", () => {
+  const w = world(), d = w.A + 1, rehearsal = daySeed(sha("SYNTHETIC rehearsal secret"), 30, 1), before = files(w.s);
+  const at = (o: Opt): string => { const inbox = tmp("dojo-p-guard-"); writeDay(w, d, w.eve, { ...o, inbox }); return inbox; };
+  const cases: [string, string][] = [[at({ seed: rehearsal }), "seed_outside_anchor_chain"], // M-E6: a rehearsal bundle in the inbox (TB-5)
+    [at({ day: w.A, seed: rehearsal }), "day_not_after_anchor"], [at({ day: d + 1 }), "bundle_day_mismatch"],
+    [at({ program: MINT }), "bundle_anchor_mismatch"], [at({ token: TOKEN_2022 }), "bundle_anchor_mismatch"], [at({ k: 3 }), "bundle_anchor_mismatch"]];
+  for (const [inbox, code] of cases) refuses(() => publishDay({ inboxDir: inbox, stateDir: w.s, key: w.key, clock: slot(d) }), code);
+  assert.deepEqual(files(w.s), before, "refused before any signature: nothing written");
+  const early = world({ history: false }); // decision 231: no snapshot before the history line
+  writeDay(early, d, early.eve);
+  refuses(() => publishDay({ inboxDir: early.inbox, stateDir: early.s, key: early.key, clock: slot(d) }), "history_missing");
+  const short = world({ horizon: 1, chain: 2 }); // day A + 2 is on the secret's chain but past the anchor's horizon: outside it
+  writeDay(short, d + 1, writeDay(short, d, short.eve));
+  publish(short, d);
+  refuses(() => publishDay({ inboxDir: short.inbox, stateDir: short.s, key: short.key, clock: slot(d + 1) }), "seed_outside_anchor_chain");
+  const late = (): number => (d + 1) * DAY - 1; // the end of day d, a published day: never a new anchor there (DOJO-WALK-GAPS-1 (c))
+  refuses(() => publishAnchor({ stateDir: short.s, key: short.key, request: request(), clock: late }), "anchor_on_published_day");
+});
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:194 CONST "t < (d + 1) * DAY_MS" -> "t < d * DAY_MS"
+test("dojo_publish_same_bundle_twice_publishes_nothing", () => {
+  const w = world(), d = w.A + 1, run = (t: number) => ok(() => publishDay({ inboxDir: w.inbox, stateDir: w.s, key: w.key, clock: () => t }));
+  writeDay(w, d, w.eve);
+  assert.deepEqual(run((d + 1) * DAY - 1), { status: "nothing_to_publish", day: dateOf(d) }, "the seed of a day is never revealed before its end (M-12)");
+  assert.equal(run(slot(d)()).status, "published");
+  const tl = readFileSync(join(w.s, "timeline.jsonl"), "utf8"), pub = files(join(w.s, "public"));
+  assert.deepEqual([run(slot(d)() + 3_600_000), readFileSync(join(w.s, "timeline.jsonl"), "utf8"), files(join(w.s, "public"))],
+    [{ status: "nothing_to_publish", day: dateOf(d + 1) }, tl, pub], "the same bundle twice publishes nothing");
 });

@@ -1,23 +1,31 @@
-// MONARK Dojo -- the publisher, part 1a of PR-3a-1 (ADR-DOJO-PR-3 D-1 row PR-3a-1, cut DOJO-PR3A1-CUT-1; mere ADR-DOJO-SNAPSHOT-1
-// T-9, D-8). It keeps the signed, chained dojo-timeline-v1 under --state and serves it from the public/ subtree, Caddy's only root
-// (M-E9). A declared calque of apps/bell/scripts/bell-publish.mjs (state layout, durable writes, key schedule, CLI), with the Dojo
-// walker: every line is walked by walkDojoTimeline of dojo-chain.mjs BEFORE its commit, so no line the reader's walker refuses is
-// ever committed. Modes: --anchor <request> (the anchor line's closed keys, read_rule included; seed_anchor and horizon as printed
-// by dojo-seed.mjs --init), --generate-key <new file>, --rotate [--broken], --revoke <key_id> --from-seq <n>. Keys are read ONLY
-// from $CREDENTIALS_DIRECTORY (dojo-signing-key, dojo-signing-key-new: systemd LoadCredential, PKCS#8 PEM). Layout of --state:
-// timeline.jsonl (private, source of truth, commit point), keyring.json (the genesis key; the rest derives from the key lines),
-// staging/, public/ (timeline.jsonl, dojo/pubkey.json in dojo-keyring-v1). Node built-ins and three modules of the repo: no network.
+// MONARK Dojo -- the publisher of PR-3a-1, parts 1a and 1b (ADR-DOJO-PR-3 D-1 row PR-3a-1, cut DOJO-PR3A1-CUT-1; mere
+// ADR-DOJO-SNAPSHOT-1 T-9, D-8). It keeps the signed, chained dojo-timeline-v1 under --state and serves it from the public/ subtree,
+// Caddy's only root (M-E9). A declared calque of apps/bell/scripts/bell-publish.mjs (state layout, durable writes, key schedule, CLI),
+// with the Dojo walker: every line is walked by walkDojoTimeline of dojo-chain.mjs BEFORE its commit, so no line the reader's walker
+// refuses is ever committed. Modes: --inbox <bundles> (the next closed day of the collector's handoff layout, read by the layout reader
+// of PR-2-2 with its check, published as its lines file and its snapshot line, then a price_version at the seventh valid day),
+// --anchor <request> (the anchor line's closed keys, read_rule included; seed_anchor and horizon as printed by dojo-seed.mjs --init),
+// --generate-key <new file>, --rotate [--broken], --revoke <key_id> --from-seq <n>. Keys are read ONLY from $CREDENTIALS_DIRECTORY
+// (dojo-signing-key, dojo-signing-key-new: systemd LoadCredential, PKCS#8 PEM). Layout of --state: timeline.jsonl (private, source of
+// truth, commit point), keyring.json (the genesis key; the rest derives from the key lines), staging/, public/ (timeline.jsonl,
+// dojo/pubkey.json in dojo-keyring-v1, lines/<sha256>.jsonl, history/<sha256>.jsonl). Node built-ins and modules of the repo only.
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, statSync, writeSync } from "node:fs";
 import { basename, dirname, isAbsolute, join } from "node:path";
 import { createPrivateKey, generateKeyPairSync } from "node:crypto";
 import { pathToFileURL } from "node:url";
-import { GENESIS, canonical, deriveKeyring, keyIdOf, keyringOf, lineHash, signLine, trustOf } from "../../bell/scripts/bell-chain.mjs";
+import { GENESIS, canonical, deriveKeyring, keyIdOf, keyringOf, lineHash, sha256Hex, signLine, trustOf } from "../../bell/scripts/bell-chain.mjs";
 import { DOJO_TIMELINE_SCHEMA, walkDojoTimeline } from "./dojo-chain.mjs";
-import { ownerClass } from "./dojo-core.mjs";
+import { dayMinimum, dayValue, holderCounted, lotsOf, ownerClass, provisionalOf, rootOf, scoreOf, seedAnchor, tierOf, unitPrice, unitThreshold,
+  unitsOf, validatedOf } from "./dojo-core.mjs";
+import { DOJO_BUNDLE_REFUSALS } from "../src/bundle.ts";
+import { DOJO_LAYOUT_REFUSALS, readDayLayout } from "../src/layout.ts";
 
+/** The refusals of the layout reader and of the bundle reader (PR-2-1, PR-2-2), passed through under their own names. */
+const PASSED = Object.freeze([...DOJO_LAYOUT_REFUSALS, ...DOJO_BUNDLE_REFUSALS]);
 /** The CLOSED list of the publisher's refusals, outside the verifier's 45 codes. A detail names a file, a key or a seq, never a value. */
 export const DOJO_PUBLISH_REFUSALS = Object.freeze(["existing_timeline_corrupt", "signing_key_missing", "signing_key_not_in_keyring",
-  "anchor_malformed", "line_refused", "no_timeline", "key_already_in_keyring", "revocation_invalid", "key_file_exists"]);
+  "anchor_malformed", "line_refused", "no_timeline", "key_already_in_keyring", "revocation_invalid", "key_file_exists", "anchor_on_published_day",
+  "history_missing", "day_not_after_anchor", "bundle_day_mismatch", "bundle_anchor_mismatch", "seed_outside_anchor_chain", "eve_mismatch", ...PASSED]);
 export class DojoPublishError extends Error {
   constructor(code, detail) { super(`dojo/publish: ${code}: ${detail}`); this.name = "DojoPublishError"; this.code = code; this.detail = detail; }
 }
@@ -32,6 +40,10 @@ export const ANCHOR_KEYS = Object.freeze(["seed_anchor", "mint", "program", "k_r
 /** The anchor's account fields are 32-byte base58 addresses, never a label: no operator label is ever served (M-E3). */
 const ACCOUNTS = ["mint", "program", "pool", "pool_quote_vault", "sol_usd_source"];
 const KEY = "dojo-signing-key";
+const DAY_MS = 86_400_000;
+/** A day AAAA-MM-JJ as its count of days since 1970-01-01, and back (the walker's forms, dojo-chain.mjs:33-37). */
+const epochOf = (s) => Date.parse(`${s}T00:00:00.000Z`) / DAY_MS;
+const dateOf = (n) => new Date(n * DAY_MS).toISOString().slice(0, 10);
 
 /** The durable write primitives (calque of bell-publish.mjs DURABLE_FS): a MUTABLE object on purpose, the test seam. */
 export const DURABLE_FS = {
@@ -67,10 +79,12 @@ const dojoKeyring = (keyring) => ({ schema: "dojo-keyring-v1", keys: keyring.key
   valid_from_seq: k.valid_from_seq, ...(k.valid_to_seq === undefined ? {} : { valid_to_seq: k.valid_to_seq }),
   ...(k.revoked_from_seq === undefined ? {} : { revoked_from_seq: k.revoked_from_seq }) })) });
 
-/** Idempotent (also the start-up repair): public/timeline.jsonl = the private timeline, then public/dojo/pubkey.json. */
-function serve(stateDir, privText, keyring, D) {
+/** Idempotent (also the start-up repair): the immutables `moves` into public/, then public/timeline.jsonl = the private timeline, then
+ *  public/dojo/pubkey.json. */
+function serve(stateDir, privText, keyring, D, moves = []) {
   const pub = join(stateDir, "public");
   let wrote = false;
+  for (const [a, b] of moves) { ensureDir(dirname(b), D); D.renameSync(a, b); D.fsyncDir(dirname(b)); wrote = true; }
   for (const [p, c] of [[join(pub, "timeline.jsonl"), privText], [join(pub, "dojo", "pubkey.json"), `${canonical(dojoKeyring(keyring))}\n`]]) {
     if (!existsSync(p) || readFileSync(p, "utf8") !== c) { writeDurable(p, c, stateDir, D); wrote = true; }
   }
@@ -103,26 +117,37 @@ function openState(stateDir, B, D, key) {
   }
   const pub = readTimeline(join(stateDir, "public", "timeline.jsonl"), B);
   if (pub.tail !== "" || pub.texts.length > texts.length || pub.texts.some((s, i) => s !== texts[i])) corrupt("public/timeline.jsonl is not a prefix");
+  const moves = []; // the immutable of every committed line: in public/, else still in staging/ (moved at repair), else corrupt
+  const named = (l) => (l.kind === "snapshot" ? [["lines", l.lines_sha256]] : l.kind === "history" ? [["history", l.history_sha256]] : []);
+  for (const l of lines) for (const [dir, h] of named(l)) {
+    const dst = join(stateDir, "public", dir, `${h}.jsonl`), src = join(stateDir, "staging", dir, `${h}.jsonl`);
+    if (existsSync(dst)) continue;
+    if (!existsSync(src) || sha256Hex(readFileSync(src)) !== h) corrupt(`immutable ${dir}/${h}.jsonl missing`);
+    moves.push([src, dst]);
+  }
   if (key !== null && keyring !== null && activeKeyId(keyring) !== keyIdOf(key)) refuse("signing_key_not_in_keyring", "the loaded key is not the active key");
   const privText = texts.map((s) => `${s}\n`).join("");
   if (torn) { writeDurable(join(stateDir, "timeline.jsonl"), privText, stateDir, D); process.stderr.write("dojo/publish: repaired_torn_tail\n"); }
-  if (lines.length > 0 && serve(stateDir, privText, keyring, D)) process.stderr.write("dojo/publish: rederived_public\n");
+  if (lines.length > 0 && serve(stateDir, privText, keyring, D, moves)) process.stderr.write("dojo/publish: rederived_public\n");
   return { lines, genesis, keyring, privText };
 }
 
 /** The COMMIT POINT of one line: walked by the Dojo walker after the committed timeline, under the keyring derived WITH it, else refused
- *  with nothing written; keyring.json before the first line; the durable append of the private timeline; then public/. */
-function commitLine(stateDir, st, line, D) {
+ *  with nothing written; its immutables ([path under staging/ and public/, text]) durable in staging/ BEFORE the line (M-E1);
+ *  keyring.json before the first line; the durable append of the private timeline; then public/. Returns the state after the line. */
+function commitLine(stateDir, st, line, D, immutables = []) {
   const lines = [...st.lines, line], keyring = deriveKeyring(st.genesis, lines);
   const w = walkDojoTimeline(lines, trustOf(keyring) ?? refuse("line_refused", "the key lines derive a malformed keyring"));
   if (!w.ok) refuse("line_refused", `seq ${w.seq}: ${w.reason}${w.detail === undefined ? "" : ` (${w.detail})`}`);
   const lineText = `${canonical(line)}\n`;
   if (Buffer.byteLength(lineText) > BOUNDS.MAX_LINE_BYTES) refuse("line_refused", "the line exceeds MAX_LINE_BYTES");
+  for (const [rel, text] of immutables) writeDurable(join(stateDir, "staging", rel), text, stateDir, D);
   if (st.lines.length === 0) writeDurable(join(stateDir, "keyring.json"), `${canonical({ schema: "bell-keyring-v1", keys: [st.genesis] })}\n`, stateDir, D);
   const fd = D.openSync(join(stateDir, "timeline.jsonl"), "a");
   try { D.writeSync(fd, lineText); D.fsyncSync(fd); } finally { D.closeSync(fd); }
   D.fsyncDir(stateDir);
-  serve(stateDir, st.privText + lineText, keyring, D);
+  serve(stateDir, st.privText + lineText, keyring, D, immutables.map(([rel]) => [join(stateDir, "staging", rel), join(stateDir, "public", rel)]));
+  return { ...st, lines, keyring, privText: st.privText + lineText };
 }
 const lineHead = (st, kind, t, keyId) => ({ schema: DOJO_TIMELINE_SCHEMA, seq: st.lines.length + 1, kind, key_id: keyId,
   prev_line_hash: st.lines.length === 0 ? GENESIS : lineHash(st.lines[st.lines.length - 1]), published_at: new Date(t).toISOString() });
@@ -139,10 +164,89 @@ export function publishAnchor({ stateDir, key, request, clock, fs: D = DURABLE_F
   // C-G2-5: the request of the anchor committed last (replayed after a stop past its commit; its signer is the loaded key, openState) writes nothing
   const last = st.lines[st.lines.length - 1];
   if (last?.kind === "anchor" && canonical(Object.fromEntries(ANCHOR_KEYS.map((k) => [k, last[k]]))) === canonical(r)) return result("anchored", last);
+  const days = st.lines.flatMap((l) => (l.kind === "snapshot" ? [epochOf(l.day)] : l.kind === "history" ? [epochOf(l.history_last_day)] : []));
+  if (Math.floor(t / DAY_MS) <= Math.max(...days)) refuse("anchor_on_published_day", "a new anchor comes after the last published day"); // DOJO-WALK-GAPS-1 (c)
   const line = { ...r, ...lineHead(st, "anchor", t, keyIdOf(key)) };
   line.sig = signLine(line, key);
   commitLine(stateDir, { ...st, genesis: st.genesis ?? keyringOf(key, 1).keys[0] }, line, D);
   return result("anchored", line);
+}
+
+/** One immutable of the served tree, checked against the sha256 its signed line names (fail-closed), as parsed lines. */
+function immutable(stateDir, dir, h) {
+  const buf = readFileSync(join(stateDir, "public", dir, `${h}.jsonl`)), text = buf.toString("utf8");
+  if (sha256Hex(buf) !== h) refuse("existing_timeline_corrupt", `public/${dir}/${h}.jsonl: sha256`);
+  return text === "" ? [] : text.slice(0, -1).split("\n").map((s) => JSON.parse(s));
+}
+
+/** --inbox (ADR-DOJO-PR-3 D-1, D-2 TU-1c; mere T-9, D-7, D-16): the day after the last published day and the anchor's day, once over and
+ *  closed, read through the layout reader of PR-2-2 (publish/SHA256SUMS, its K readings and its Eve; readDayBundle WITH its check;
+ *  never evidence/), guarded before any signature (the history line first, decision 231; a day after the anchor's; the seed on the
+ *  anchor's chain), then its lines computed from the history and every published day exactly as dojo-verify.mjs recomputes them, their
+ *  immutable file, the snapshot line, and, at the seventh consecutive valid day, the price_version line. */
+export function publishDay({ inboxDir, stateDir, key, clock, fs: D = DURABLE_FS }) {
+  const t = clock(), st = openState(stateDir, BOUNDS, D, key), L = st.lines, hist = L.find((l) => l.kind === "history");
+  if (hist === undefined) refuse("history_missing", "the first snapshot waits for the history line (decision 231)");
+  const ai = L.findLastIndex((l) => l.kind === "anchor"), A = L[ai], anchorDay = Math.floor(Date.parse(A.published_at) / DAY_MS);
+  const snaps = L.filter((l) => l.kind === "snapshot"), last = snaps[snaps.length - 1], chain = L.slice(ai).filter((l) => l.kind === "snapshot").pop();
+  const d = Math.max(anchorDay, epochOf(hist.history_last_day), last === undefined ? -Infinity : epochOf(last.day)) + 1, day = dateOf(d);
+  const dir = join(inboxDir, day);
+  if (t < (d + 1) * DAY_MS || !existsSync(join(dir, "publish", "SHA256SUMS"))) return { status: "nothing_to_publish", day }; // M-12; open day
+  let b;
+  try { b = readDayLayout(dir).bundle; } catch (e) { if (PASSED.includes(e?.code)) refuse(e.code, `${day}: ${e.detail}`); throw e; }
+  if (epochOf(b.day) <= anchorDay) refuse("day_not_after_anchor", `${day}/publish/day.json: day`); // M-E8
+  if (b.day !== day) refuse("bundle_day_mismatch", `${day}/publish/day.json: day`);
+  if (b.mint !== A.mint || b.program !== A.program || b.k_reads !== A.k_reads) refuse("bundle_anchor_mismatch", `${day}: mint, program or k_reads`);
+  const seedDay = chain === undefined ? anchorDay : epochOf(chain.day), prior = chain === undefined ? A.seed_anchor : chain.seed;
+  if (d - anchorDay > A.horizon || seedAnchor(b.seed, d - seedDay) !== prior) refuse("seed_outside_anchor_chain", `${day}: seed`); // M-E6
+  // The series of every address from day 1 (the history's first day): its history lines, then each published day's lines (D-16).
+  const day1 = epochOf(hist.history_first_day), n = d - day1 + 1, series = new Map(), K = A.k_reads, W = A.validation_days;
+  const put = (a, k, x) => { const s = series.get(a) ?? []; while (s.length < k - 1) s.push(null); s[k - 1] = x; series.set(a, s); };
+  for (const o of immutable(stateDir, "history", hist.history_sha256)) put(o.address, epochOf(o.day) - day1 + 1, o.day_value);
+  for (const s of snaps) for (const o of immutable(stateDir, "lines", s.lines_sha256)) put(o.address, epochOf(s.day) - day1 + 1, o.day_value);
+  const v = L.filter((l) => l.kind === "price_version" && epochOf(l.effective_day) <= d).pop() ?? null; // the version in force at d
+  const T = v === null ? null : v.threshold_unit, dust = v === null ? null : v.dust_threshold, rows = new Map((b.addresses ?? []).map((x) => [x.address, x]));
+  const holds = (a) => ownerClass(a) === "holder" && lotsOf(series.get(a) ?? []).length > 0; // the eve's pile (D-7: its line is due)
+  const piled = [...series.keys()].filter(holds);
+  if (b.addresses !== null && piled.some((a) => !rows.has(a))) refuse("eve_mismatch", `${day}: an address holding lots is not in the bundle`);
+  const lines = [...new Set([...rows.keys(), ...piled])].sort((x, y) => Buffer.compare(Buffer.from(x), Buffer.from(y))).flatMap((a) => {
+    const reads = rows.get(a)?.reads ?? Array.from({ length: K }, () => null), c = ownerClass(a), m = dayValue(reads.map((r) => [r]));
+    const s = [...(series.get(a) ?? [])];
+    while (s.length < n - 1) s.push(null);
+    s.push(m);
+    if (!reads.some((r) => r !== null && r !== "0") && !holds(a)) return []; // D-7: a positive reading or a pile the eve
+    return [c === "program" ? { address: a, class: c, reads, day_value: m, lots: [], score: "0", validated: "0", provisional: "0",
+      units: T === null ? null : "0", tier: T === null ? null : 0, holder_counted: T === null ? null : false }
+      : { address: a, class: c, reads, day_value: m, lots: lotsOf(s), score: scoreOf(s), validated: validatedOf(s, W), provisional: provisionalOf(s, W),
+        units: unitsOf(s, W, T), tier: tierOf(s, T, A.tier_units, A.tier_windows), holder_counted: holderCounted("holder", s, dust) }];
+  });
+  const text = lines.map((l) => `${canonical(l)}\n`).join(""), h = sha256Hex(text), sum = (k) => String(lines.reduce((x, l) => x + BigInt(l[k]), 0n));
+  const snap = { ...lineHead(st, "snapshot", t, keyIdOf(key)), day, seed: b.seed, beacon: b.beacon, reads: b.reads, mint: b.mint,
+    decimals: b.decimals, price_version: v === null ? null : v.price_version, lines_sha256: h, lines_count: lines.length,
+    root: rootOf(lines.map((l) => canonical(l))), score_total: sum("score"), validated_total: sum("validated"),
+    holders_count: v === null ? null : lines.filter((l) => l.holder_counted === true).length, status: b.status };
+  snap.sig = signLine(snap, key);
+  const after = commitLine(stateDir, st, snap, D, [[`lines/${h}.jsonl`, text]]), pv = versionAfter(after, A, t, key);
+  if (pv !== null) commitLine(stateDir, after, pv, D);
+  return { ...result("published", snap), day, lines_sha256: h, lines_count: lines.length, price_version: pv === null ? null : pv.price_version };
+}
+
+/** The price_version after the snapshot of day d (mere D-3 "Versions", D-17; TU-11): the price_window_days consecutive days ending at d, each
+ *  a counted snapshot with a pool price and a SOL rate (the smallest non-null reads, as dojo-verify.mjs recomputes them), starting after the
+ *  window of the version before (one version per window, never two over the same day); in force from d + 1. Else null. The window is on
+ *  read days only: a snapshot is always after the history's last day and the anchor's day (walker, DOJO-WALK-GAPS-1 (a)). */
+function versionAfter(st, A, t, key) {
+  const snaps = new Map(st.lines.filter((l) => l.kind === "snapshot").map((l) => [l.day, l])), P = A.price_window_days;
+  const prev = st.lines.filter((l) => l.kind === "price_version").pop(), d = epochOf([...snaps.keys()].pop()), first = d - P + 1;
+  const win = Array.from({ length: P }, (_, k) => snaps.get(dateOf(first + k)));
+  const daily = (f) => win.map((l) => (l === undefined || l.status !== "counted" ? null : dayMinimum(l.reads.map((r) => r[f]))));
+  const pi = daily("pool_price"), sigma = daily("usd_per_sol");
+  if ([...pi, ...sigma].some((x) => x === null) || (prev !== undefined && first < epochOf(prev.window_first_day) + P)) return null; // M-E7
+  const p = unitPrice(pi, sigma), line = { ...lineHead(st, "price_version", t, keyIdOf(key)), price_version: (prev?.price_version ?? 0) + 1,
+    effective_day: dateOf(d + 1), window_first_day: dateOf(first), pool_price_daily: pi, usd_per_sol_daily: sigma, unit_price_microusd: p,
+    threshold_unit: unitThreshold(A.objective_unit_microusd_days, p), dust_threshold: unitThreshold(A.dust_threshold_microusd, p) };
+  line.sig = signLine(line, key);
+  return line;
 }
 
 /** --rotate (calque of bell-publish.mjs rotateKey; Q-11 of the mere D-8 settled by ADR-DOJO-PR-3 D-5): one key_rotation line,
@@ -193,10 +297,11 @@ function readRequest(path) {
 }
 /** --from-seq: a positive decimal integer, no sign, no leading zero (Q-G2-5: Number() also reads 0x3, 3.0, 3e0, +3, 0b11, 0o3). */
 const fromSeq = (s) => (/^[1-9][0-9]*$/.test(s) ? Number(s) : refuse("revocation_invalid", "--from-seq is not a plain positive decimal integer"));
-const USAGE = "dojo/publish: usage: --anchor <request> --state <dir> | --generate-key <file> | --rotate [--broken] --state <dir>"
-  + " | --revoke <key_id> --from-seq <n> --state <dir>\n";
-const MODES = { "--anchor": ["--state"], "--generate-key": [], "--rotate": ["--state", "--broken"], "--revoke": ["--from-seq", "--state"] };
-const VALUED = ["--anchor", "--state", "--generate-key", "--revoke", "--from-seq"];
+const USAGE = "dojo/publish: usage: --inbox <bundles> --state <dir> | --anchor <request> --state <dir> | --generate-key <file>"
+  + " | --rotate [--broken] --state <dir> | --revoke <key_id> --from-seq <n> --state <dir>\n";
+const MODES = { "--inbox": ["--state"], "--anchor": ["--state"], "--generate-key": [], "--rotate": ["--state", "--broken"],
+  "--revoke": ["--from-seq", "--state"] };
+const VALUED = ["--inbox", "--anchor", "--state", "--generate-key", "--revoke", "--from-seq"];
 
 /** CLI (calque of bell-publish.mjs runCli, argv closed): exit 0 with one JSON line on stdout, or exit 1 with `dojo/publish: <code>:
  *  <detail>` (or the usage) on stderr. */
@@ -223,7 +328,8 @@ export function runCli(argv) {
       return k;
     };
     const stateDir = opt.get("--state"), clock = () => Date.now();
-    const r = mode === "--anchor" ? publishAnchor({ stateDir, key: load(KEY), request: readRequest(opt.get(mode)), clock })
+    const r = mode === "--inbox" ? publishDay({ inboxDir: opt.get(mode), stateDir, key: load(KEY), clock })
+      : mode === "--anchor" ? publishAnchor({ stateDir, key: load(KEY), request: readRequest(opt.get(mode)), clock })
       : mode === "--rotate" ? rotateKey({ stateDir, oldKey: opt.has("--broken") ? null : load(KEY), newKey: load(`${KEY}-new`), clock })
         : revokeKey({ stateDir, key: load(KEY), revokedKeyId: opt.get(mode), revokedFromSeq: fromSeq(opt.get("--from-seq")), clock });
     process.stdout.write(`${JSON.stringify(r)}\n`);
