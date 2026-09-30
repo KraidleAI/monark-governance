@@ -390,3 +390,13 @@ Mutants appliqués sur copie, restaurés au sha256, hors de l'index ; aucun test
   - **Q-V-2 = oui** : la mission du G1 cite les trois sha de fusion (PR-3a-1b `948d74c2`, PR-1b-4, PR-1b-5), le chemin exact du module de cœur de PR-1b-5 (fermeture de T-8) et le réancrage des 6 survivants + 15 tueurs.
   - **Q-V-3** : la mission du G1 se génère sur `| PR-3a-1c |` (l.312, seule de sa forme) tant que le compte reste ≤ 236 ; la ligne `| PR-3a-1c-1 |` n est ajoutée que si la coupe est prise.
   - **CA-2** : A-8 recule d un cycle (PR-1b-5) ; le G0 de PR-1b-5 tranche si le déplacement du cœur tient en un lot sous `r25.mjs` (insertions + suppressions).
+
+- **Ligne datée (orchestrateur, 2026-09-30 03:0x UTC) — pli G7 de PR-3a-1b (cp-2 `F:/tmp/dojo/cp2-pr3a1b/CHECKPOINT2-lot-pr3a1b.md`, sha256 `6ebfa826…`, ACCEPTE-AVEC-CORRECTIONS, 0 ligne de code ; gel rebasé `48556d80`, fusion `948d74c2`, mécanique, sans conflit)** :
+  - **3a1b/C-V-1** : DOJO-PR3A1B-REBASE-1 et C-G2-1 CLOS (`r25()` = 536 ≤ 547 contre `450830fe`) ; DOJO-PR3-PIPES-1 : TU-1c « composée en test » (écrivains PR-2-1/2-2 → lecteur avec `check` → éditeur et CLI `--inbox` → vrai `dojo-verify.mjs`, sous `test/`), servie au premier `snapshot` ; §7 : DOJO-PUBLISH-VERIFY-BEFORE-COMMIT-1 (BLOQUANT avant A-8, porté par PR-3a-1c, prototype G2 `d7cf2bc8…`, confirmé par la mesure du validateur) et DOJO-PUBLISH-PV-ATOMIC-1 (avant A-10, porté par PR-3a-1c) ; C-G2-2..4 = contenu de PR-3a-1c ; report au futur `PAROXYSME-Dojo.md` à la clôture de phase.
+  - **3a1b/C-V-2 (erratum, C-G2-6)** : le journal G1 §10 dit « irréversible sans nouvelle ancre » ; MESURÉ (G2, validateur) : une nouvelle ancre ne répare PAS une ligne refusée engagée ; seul remède : une chronologie neuve. Le journal du gel ne bouge pas ; cette ligne fait foi.
+  - **3a1b/C-V-3, `error_origin`** : « deux hunks » pour 8 → orchestrateur ; `writeBigInt64LE` → workers G1 ; E-1/E-2/E-4 (oracle orphelin) → worker G1, rattaché à ORACLE-CHILD-ABORT-1 ; E-3/E-5 → outil (MUTANTS-LOCK-MIDRUN-1) ; C-G2-1 → orchestrateur ; C-G2-2/5 → planificateur G0 et G1 ; C-G2-3/4/6 → G1 ; limite P1 → planificateur G0.
+  - **3a1b/C-V-4** : résidus d hôte `F:/tmp/oracle-runs/run-YznTcf`, `run-uRg7fr` retirés par l orchestrateur (jonctions seules, `node_modules` du tronc intact) ; `run-bek8w3` déjà absent.
+  - **3a1b/Q-V-1** : oui, le G0 de PR-3a-1c porte les DEUX gardes (VAE de `snapshot`/`price_version` et `read_rule` épinglé à `--anchor`).
+  - **3a1b/Q-V-2** : ligne datée à DOJO-PR3-PIPES-1 : TU-1c rejouée avec le vrai écrivain d historique au G7 de PR-3a-2 (TU-12c).
+  - **3a1b/Q-V-3** : item d outil RED-PROOF-PIN-1 (`gel.mode` « worktree » pour un clone détaché ; sans effet).
+  - **CA-11** : « à brancher », `hold-snapshot` `upcoming`.

@@ -3,18 +3,20 @@
 // walks the timeline with walkDojoTimeline (D-8 l.232), then recomputes every price_version, the history file and the lines of
 // every snapshot with the pure core of PR-1a. TRUST ROOT = the dojo-keyring-v1 SUPPLIED with --keyring (D-8 l.234; item
 // DOJO-KEYRING-SCHEMA-1); the served dojo/pubkey.json is a cross-checked channel; --self-consistent-only runs under the served
-// keyring and says so (motif bell-verify.mjs:1-9). Refusals: the codes of D-10 l.252 only; their uses are declared in the G1
-// journal of PR-1b-2. It never reads the Solana chain: a signature attests origin, never truth (D-10 l.253). Built-ins only.
-import { readFileSync, statSync } from "node:fs";
+// keyring and says so (motif bell-verify.mjs:1-9). Refusals: the closed list of D-10 (the reader's verifier) only; their uses are declared in the G1
+// journal of PR-1b-2. It never reads the Solana chain: a signature attests origin, never truth (D-10, its report). Built-ins only.
+// PR-1b-4 (ADR-DOJO-PR-1B-4): --day <day> (a past day, proven after the whole check) and the closed keys of a report, DOJO_VERIFY_REPORT_KEYS
+// (D-3). PR-1b-5b (ADR-DOJO-PR-1B-5, PLI-1): the URL transport and the CLI live in dojo-verify-cli.mjs; this core loads no network module.
+import { readFileSync, realpathSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { canonical, trustOf } from "../../bell/scripts/bell-chain.mjs";
 import { walkDojoTimeline } from "./dojo-chain.mjs";
 import { beaconRound, dayMinimum, dayValue, holderCounted, ownerClass, proofOf, provisionalOf, readInstants, rootOf, scoreOf, stepLots, tierOf,
   unitPrice, unitThreshold, unitsOf, validatedOf, verifyProof } from "./dojo-core.mjs";
 
-/** The closed list of D-10 (l.252), in its order: 45 codes. A refusal's detail names a file, a line or a field, never a value. */
+/** The closed list of D-10, in its order: 45 codes. A refusal's detail names a file, a line or a field, never a value. */
 export const DOJO_VERIFY_REFUSALS = Object.freeze(["insecure_url", "redirect_refused", "http_status", "unreachable", "too_large",
   "not_json", "keyring_invalid", "served_key_not_in_keyring", "timeline_malformed", "chain_broken", "rotation_key_not_in_keyring",
   "key_not_in_keyring", "signature_invalid", "key_not_active", "rotation_malformed", "revocation_malformed", "anchor_missing",
@@ -31,10 +33,16 @@ export class DojoVerifyError extends Error {
   }
 }
 const refuse = (code, seq, day, detail) => { throw new DojoVerifyError(code, seq, day, detail); };
+/** The closed keys of a success report, in the order of canonical (ADR-DOJO-PR-1B-4 D-3): its consumer and the tests read them here. */
+export const DOJO_VERIFY_REPORT_KEYS = Object.freeze(["active_key_id", "beacon_bls_verified", "breaks", "day", "detail", "head", "history",
+  "inclusion", "ok", "reason", "scope", "seq", "snapshots", "status", "target", "timeline_sha256", "trust_root", "voided_lines"]);
 
 // Bounds (D-10 l.250: sources and bounds as bell-verify.mjs): 64 MiB per body and 1 MiB per line, bell-verify.mjs:25-28; a day of
-// lines weighs 26,7 MiB for N = 10^5 addresses at K = 4 (D-7 l.223, M3).
-export const VERIFY_BOUNDS = Object.freeze({ MAX_BODY_BYTES: 64 * 1024 * 1024, MAX_LINE_BYTES: 1024 * 1024 });
+// lines weighs 26,7 MiB for N = 10^5 addresses at K = 4 (D-7 l.223, M3). PR-1b-4 D-1: TIMEOUT_MS 30 s per GET, Bell's (rpc-guard
+// DEFAULT_TIMEOUT_MS); the totals of a URL source (Q-V-1), PROVISIONAL until DOJO-VERIFY-SCALE-1 measures them (Q-2): 1 024 files
+// (3 fixed and 1 021 snapshots, 2.8 years of days) and 2 GiB (1 021 days of 313 KiB at N = 1 144, a margin of 6.5).
+export const VERIFY_BOUNDS = Object.freeze({ MAX_BODY_BYTES: 64 * 1024 * 1024, MAX_LINE_BYTES: 1024 * 1024, TIMEOUT_MS: 30_000, MAX_FILES: 1024,
+  MAX_TOTAL_BYTES: 2 * 1024 ** 3 });
 
 /** A directory holding the served layout (a mirror, or the publisher's public/); motif bell-verify.mjs:35-46. */
 export function dirSource(root, bounds = VERIFY_BOUNDS) {
@@ -92,7 +100,7 @@ const HEX64 = /^[0-9a-f]{64}$/;
 const decOrNull = (s) => s === null || (typeof s === "string" && /^(0|[1-9][0-9]*)$/.test(s));
 const sha256 = (b) => createHash("sha256").update(b).digest("hex");
 const epoch = (s) => Date.parse(`${s}T00:00:00.000Z`) / DAY_MS; // a day AAAA-MM-JJ, as days since 1970-01-01 (journal of PR-1b-1, Q-4)
-const dayOk = (s) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && Number.isFinite(epoch(s))
+export const dayOk = (s) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && Number.isFinite(epoch(s))
   && new Date(epoch(s) * DAY_MS).toISOString().startsWith(s);
 const instantDay = (s) => Math.floor(Date.parse(s) / DAY_MS); // the UTC day of a published_at: an anchor's day (journal of PR-1b-1, Q-2 (B))
 const addressOk = (a) => { try { ownerClass(a); return true; } catch { return false; } };
@@ -158,9 +166,9 @@ export function checkInclusion(line, index, count, path, root) {
   if (!verifyProof(line, index, count, path, root)) refuse("proof_invalid", null, null, `inclusion of line ${index + 1} of ${count}`);
 }
 
-async function verify({ source, keyring, address, bounds }) {
+async function verify({ source, keyring, address, day, bounds }) {
   const parse = (buf, code, seq, what) => { try { return JSON.parse(buf.toString("utf8")); } catch { return refuse(code, seq, null, what); } };
-  const text = (await source.get("timeline.jsonl")).toString("utf8");
+  const tl = await source.get("timeline.jsonl"), text = tl.toString("utf8"); // tl: the verified bytes, hashed into timeline_sha256 (D-3)
   if (text !== "" && !text.endsWith("\n")) refuse("timeline_malformed", null, null, "timeline.jsonl: no final newline");
   const lines = text === "" ? [] : text.slice(0, -1).split("\n").map((s, i) => {
     if (Buffer.byteLength(s) + 1 > bounds.MAX_LINE_BYTES) refuse("too_large", i + 1, null, "timeline.jsonl");
@@ -217,6 +225,29 @@ async function verify({ source, keyring, address, bounds }) {
       });
     }
   }
+  // The calendar of the versions (DOJO-VERIFY-PV-SCHEDULE-1; mere D-17 l.303-305, l.17; ADR-DOJO-PR-1B-5 D-2), in the order of the seqs.
+  // A day is valid when its snapshot is counted with both day minima non-null (as above); day d is due when d - W + 1 to d are valid
+  // and, after a version, d - W + 1 >= its window_first_day + W (N2). N1: the effect is the day after the window; N3: a version's window
+  // is the one due, and a version due but absent refuses the next snapshot, or the anchor that closes the segment (fail-closed).
+  const valid = new Set();
+  let cal = null, due = null, prev = null; // the anchor in force; the day due, not yet versioned; the last version's window_first_day
+  for (const l of lines) {
+    const at = (code, what) => refuse(code, l.seq, dayOf(l), what), W = cal?.price_window_days;
+    if (l.kind === "anchor") {
+      if (due !== null) at("version_not_in_force", "a segment closed with a price_version due (N3, fail-closed)");
+      cal = l;
+    } else if (l.kind === "snapshot") {
+      if (due !== null) at("version_not_in_force", "a price_version due is missing (N3)");
+      const d = epoch(l.day), has = (key) => dayMinimum(l.reads.map((r) => r[key])) !== null;
+      if (l.status === "counted" && has("pool_price") && has("usd_per_sol")) valid.add(d);
+      if (Array.from({ length: W }, (_, k) => d - k).every((x) => valid.has(x)) && (prev === null || d - W + 1 >= prev + W)) due = d;
+    } else if (l.kind === "price_version") {
+      const f = epoch(l.window_first_day);
+      if (epoch(l.effective_day) !== f + W) at("price_version_mismatch", "effective_day (N1: the day after the window)");
+      if (due === null || f !== due - W + 1) at("price_version_mismatch", "window_first_day (N3: the window due)");
+      [due, prev] = [null, f];
+    }
+  } // the head: a version due there stays pending, admitted (D-2 (4)); "ok" does not say it yet (item DOJO-VERIFY-PV-PENDING-REPORT-1)
   // F-1 (fail-closed; orchestrator's decision after the G2 of PR-1b-2): a line voided at or before the verified line (the head, else
   // the last line) refuses, since piles, series and versions would derive from it; a later voided line does not (Bell reports and goes on).
   const head = snaps.length === 0 ? null : snaps[snaps.length - 1].l, voided = w.voided.filter((s) => s <= (head === null ? lines.length : head.seq));
@@ -227,7 +258,7 @@ async function verify({ source, keyring, address, bounds }) {
   const series = new Map();
   const seriesOf = (a, d) => { const s = series.get(a) ?? []; while (s.length < d) s.push(null); series.set(a, s); return s; };
   const no = (s) => epoch(s) - (hist === null ? 0 : epoch(hist.history_first_day)) + 1;
-  let piles = new Map(), hFile = null, headFile = null;
+  let piles = new Map(), hFile = null, headFile = null, aim = null;
   if (hist !== null) {
     const N = no(hist.history_last_day), at = (code, what) => refuse(code, hist.seq, null, what), rel = `history/${hist.history_sha256}.jsonl`;
     hFile = await readImmutable(source, rel, { seq: hist.seq, day: null, count: hist.history_lines_count, sha: hist.history_sha256, root: hist.history_root },
@@ -290,66 +321,52 @@ async function verify({ source, keyring, address, bounds }) {
     if (L.holders_count !== (v === null ? null : f.objs.filter((o) => o.holder_counted === true).length)) at("holders_count_mismatch", "holders_count");
     piles = next;
     headFile = f;
+    if (L.day === day) aim = { l: L, f }; // --day (PR-1b-4 D-2): the one snapshot of day D (day_not_increasing), its lines checked here
   }
 
-  let inclusion = null; // --address (D-10 l.250-251): the head's line, its path, checked against the signed root
+  // --day, read only after the whole check (D-2): refused as line_missing at the head, detail in English; "after" = after the SERVED
+  // head, no clock is read; a day out of form (the library, without the CLI) is a day without snapshot, compared to nothing.
+  const hs = head === null ? lines.length : head.seq, hd = head === null ? null : head.day, pick = day === null ? { l: head, f: headFile } : aim;
+  if (pick === null) {
+    refuse("line_missing", hs, hd, `--day: ${!dayOk(day) ? "no snapshot of that day" : epoch(day) < instantDay(lines[0].published_at)
+      ? "before the anchor's day" : head === null || epoch(day) > epoch(head.day) ? "after the head's day" : "no snapshot of that day"}`);
+  }
+  const target = day === null ? null : { seq: pick.l.seq, day: pick.l.day, lines_sha256: pick.l.lines_sha256, lines_count: pick.l.lines_count,
+    recomputed_root: pick.f.root };
+  let inclusion = null; // --address (D-10 l.250-251; D-2): the line of the head (of day D), its path, checked against that signed root
   if (address !== null) {
-    const i = headFile === null ? -1 : headFile.objs.findIndex((o) => o.address === address);
-    if (i < 0) refuse("line_missing", head === null ? lines.length : head.seq, head === null ? null : head.day, "--address: no line in the head snapshot");
-    const path = proofOf(headFile.raw, i);
-    checkInclusion(headFile.raw[i], i, headFile.raw.length, path, head.root);
-    inclusion = { address, index: i, count: headFile.raw.length, line: headFile.raw[i], proof: path };
+    const i = pick.f === null ? -1 : pick.f.objs.findIndex((o) => o.address === address), where = day === null ? "the head" : "the --day";
+    if (i < 0) refuse("line_missing", pick.l === null ? hs : pick.l.seq, pick.l === null ? null : pick.l.day, `--address: no line in ${where} snapshot`);
+    const path = proofOf(pick.f.raw, i);
+    checkInclusion(pick.f.raw[i], i, pick.f.raw.length, path, pick.l.root);
+    inclusion = { address, index: i, count: pick.f.raw.length, line: pick.f.raw[i], proof: path };
   }
   return { ok: true, reason: null, seq: lines.length, day: head === null ? null : head.day, detail: null,
     status: keyring === null ? "self_consistent_only" : "consistent_with_supplied_keyring", trust_root: keyring === null ? "served_keyring" : "supplied_keyring",
-    active_key_id: w.active, voided_lines: w.voided, snapshots: snaps.length,
+    active_key_id: w.active, voided_lines: w.voided, breaks: w.breaks, snapshots: snaps.length,
     head: head === null ? null : { seq: head.seq, lines_sha256: head.lines_sha256, lines_count: head.lines_count, recomputed_root: headFile.root },
     history: hist === null ? null : { history_sha256: hist.history_sha256, history_lines_count: hist.history_lines_count, recomputed_root: hFile.root },
-    inclusion, beacon_bls_verified: false,
+    inclusion, target, timeline_sha256: sha256(tl), beacon_bls_verified: false,
     scope: "a signature attests origin, never truth; the readings are what two operators reported; the Solana chain is not read; the beacon's BLS signature is not verified: an altered signature of valid form is refused as its instants" };
 }
 
 /** The complete check of D-10 (l.251): resolves to {ok: true, ...} or {ok: false, reason, seq, day, detail}, reason in
- *  DOJO_VERIFY_REFUSALS. `keyring` = the SUPPLIED dojo-keyring-v1 (parsed JSON), the trust root; null = self_consistent_only. */
-export async function verifyDojoServed({ source, keyring = null, address = null, bounds = VERIFY_BOUNDS }) {
+ *  DOJO_VERIFY_REFUSALS. `keyring` = the SUPPLIED dojo-keyring-v1 (parsed JSON), the trust root; null = self_consistent_only.
+ *  `day` (PR-1b-4 D-2): a day YYYY-MM-DD proven after the whole check, reported under target; null = none. */
+export async function verifyDojoServed({ source, keyring = null, address = null, day = null, bounds = VERIFY_BOUNDS }) {
   try {
-    return await verify({ source, keyring, address, bounds });
+    return await verify({ source, keyring, address, day, bounds });
   } catch (e) {
     if (e instanceof DojoVerifyError) return { ok: false, reason: e.code, seq: e.seq, day: e.day, detail: e.detail };
     throw e;
   }
 }
 
-const USAGE = "dojo/verify: usage: node dojo-verify.mjs <served tree> (--keyring <file> | --self-consistent-only) [--address <address>]\n";
-/** CLI (D-10 l.250; mission of PR-1b-2): one served tree (a directory) and a trust root chosen explicitly, --keyring <file> or
- *  --self-consistent-only; neither, both, a flag twice, a dangling or unknown flag, zero or two trees: usage on stderr, nothing on
- *  stdout, exit 1. Otherwise one canonical JSON line on stdout, exit 0 iff ok; a keyring file unreadable or not an object is
- *  keyring_invalid, never a run without a root. */
-export async function runVerifyCli(argv) {
-  const opt = new Map(), trees = [];
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i], valued = a === "--keyring" || a === "--address";
-    if (opt.has(a) || (a.startsWith("--") && !valued && a !== "--self-consistent-only") || (valued && (argv[i + 1] ?? "--").startsWith("--"))) {
-      process.stderr.write(USAGE);
-      return 1;
-    }
-    if (a === "--self-consistent-only") opt.set(a, true);
-    else if (valued) opt.set(a, argv[++i]);
-    else trees.push(a);
-  }
-  if (trees.length !== 1 || opt.has("--keyring") === opt.has("--self-consistent-only")) { process.stderr.write(USAGE); return 1; }
-  try {
-    let keyring = null;
-    if (opt.has("--keyring")) { try { keyring = JSON.parse(readFileSync(opt.get("--keyring"), "utf8")); } catch { keyring = undefined; } }
-    const r = opt.has("--keyring") && (keyring === null || typeof keyring !== "object")
-      ? { ok: false, reason: "keyring_invalid", seq: null, day: null, detail: "--keyring" }
-      : await verifyDojoServed({ source: dirSource(trees[0]), keyring, address: opt.get("--address") ?? null });
-    process.stdout.write(`${canonical(r)}\n`);
-    return r.ok ? 0 : 1;
-  } catch (e) {
-    process.stderr.write(`dojo/verify: fatal: ${String(e?.name ?? "error")}\n`);
-    return 1;
-  }
+// PLI-1 bis (ADR-DOJO-PR-1B-5): launched as a script, the old command runs nothing, names the new one on stderr and exits 1, never a silent 0.
+// C-G2-1 (G2 of PR-1b-5b): REAL paths compared, so a launch through a directory link runs it; argv[1] absent or unreadable: an import, no throw.
+const isEntry = () => { try { return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]); } catch { return false; } };
+if (isEntry()) {
+  process.stderr.write("dojo/verify: usage: node apps/dojo/scripts/dojo-verify-cli.mjs (<served tree> | --url <base>)"
+    + " (--keyring <file> | --self-consistent-only) [--address <address>] [--day <YYYY-MM-DD>]\n");
+  process.exitCode = 1;
 }
-
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = await runVerifyCli(process.argv.slice(2));

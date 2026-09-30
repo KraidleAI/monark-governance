@@ -118,6 +118,7 @@ test("dojo_served_head_is_the_latest_snapshot", async () => {
   assert.deepEqual([h1.seq, h1.price_version], [9, null], "E1: the head is the seventh counted day, no version");
 });
 
+// killer: apps/site/lib/dojo-served-load.ts:145 CONST "&& head.reads_done === 0" -> "&& false"
 test("dojo_served_loader_is_fail_closed", async () => {
   const { committed, e1, e2, steps } = trees();
   const data = await build(e2, committed), last = steps.length - 1;
@@ -137,9 +138,10 @@ test("dojo_served_loader_is_fail_closed", async () => {
     [data, (d) => { d.host = "http://dojo.monarkgate.tech"; }, /host must be/], [data, (d) => { d.schema = "monark-site-dojo-served-v2"; }, /schema is not/],
     [data, (d) => { hd(d).key_id = "cd".repeat(32); }, /every signing key must be in the committed keyring/],
     [data, (d) => { (d.history as Rec).history_last_day = hd(d).day; }, /history must end before the head's day/],
-    [data, (d) => { hd(d).status = "abstained"; }, /a counted snapshot carries its slots/],
+    [data, (d) => { Object.assign(hd(d), { slot_min: null, slot_max: null, reads_done: 0 }); }, /reads_done is at least 1 when counted/],
     [data, (d) => { hd(d).validated_total = `${String(hd(d).score_total)}1`; }, /totals disagree/],
-    [data, (d) => { hd(d).reads_done = (hd(d).k_reads as number) + 1; }, /reads_done is 0 exactly when abstained/], [data, (d) => { hd(d).reads_done = 0; }, /reads_done is 0 exactly when abstained/],
+    [data, (d) => { hd(d).reads_done = (hd(d).k_reads as number) + 1; }, /at most k_reads/],
+    [data, (d) => { hd(d).reads_done = 0; }, /slots exactly with a reading/],
     // C-V-1 (cp-2): the anchor before the head, the head and the snapshots within the timeline, one schema (C-4); the history's days in order (C-7).
     [data, (d) => { (tl(d).anchor as Rec).seq = hd(d).seq; }, /counts disagree/], [data, (d) => { tl(d).lines = (hd(d).seq as number) - 1; }, /counts disagree/],
     [data, (d) => { tl(d).snapshots = (tl(d).lines as number) + 1; }, /counts disagree/], [data, (d) => { tl(d).schema = "dojo-timeline-v2"; }, /counts disagree/],

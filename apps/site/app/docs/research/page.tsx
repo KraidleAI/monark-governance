@@ -59,7 +59,7 @@ export default function DocsResearchPage() {
   };
   // The place in the work a figure's source line names after the work itself (for instance ", Appendix A"), kept next to the
   // page; the attribution itself is the bibliography's.
-  const placeIn = (source: string): string => /\)((?:,\s*[^,()]+)+)$/.exec(source)?.[1] ?? "";
+  const placeIn = (source: string): string => /\)((?:,[^,()]+)+)$/.exec(source)?.[1] ?? "";
   const beyond = resultById(refs, "beyond-exchangeability");
   const split = resultById(refs, "split-quantile");
   const typeWise = resultById(refs, "type-wise");

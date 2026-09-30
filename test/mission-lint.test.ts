@@ -42,7 +42,7 @@ const H = (body: string, title = "# MISSION G2 fixture"): string => `${title}\nW
 const lint = (text: string, rev: string | null = null): LintResult => lintMission({ text, missionPath: join(T, "m.md"), repo: REPO, rev });
 const red = (text: string): string[] => lint(text).hits.map((h) => h.code);
 const STAMP = `G\u00e9n\u00e9r\u00e9 : \`F:/x/scripts/mission/gen.mjs\` \`0123abcd\` sha256 \`${"e".repeat(64)}\` 2026-09-28T00:00:00Z`; // the stamp line of gen.mjs
-const stamped = (text: string, line = STAMP): string => text.replace("\n", `\n${line}\n`);
+const stamped = (text: string, line = STAMP): string => { const i = text.indexOf("\n"); return i < 0 ? text : `${text.slice(0, i)}\n${line}${text.slice(i)}`; };
 /** A workflow fixture: the guard block copied verbatim from launch-guard.js, run in an empty context (no import, no fs, no
  *  crypto), then agent() called with what assertRecu returns. Returns the texts agent() received ([] when refused). */
 const GUARD = /\/\/ BEGIN launch-guard\r?\n([\s\S]*?)\/\/ END launch-guard/.exec(readFileSync(join(ROOT, "scripts", "mission", "launch-guard.js"), "utf8"))?.[1] ?? "";
