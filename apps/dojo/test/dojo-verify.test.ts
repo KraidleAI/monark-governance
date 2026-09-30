@@ -478,10 +478,10 @@ test("dojo_verify_url_transport_is_the_bell_policy", async () => {
   }
   for (const x of ["http://bell.monarkgate.tech", "http://127.1:8080", "http://localhost:8080", "http://127.0.0.1.example.invalid", "http://u@127.0.0.1:8080",
     "https://u@x.invalid", "ftp://x.invalid", "https://x.invalid/?a", "https://x.invalid/#a", "http://127.0.0.1:8080/b?c"]) assert.ok(!dv.urlAllowed(x), x);
-  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), closed: string[] = [];
-  const srv = await serve(render(f.steps), (p, res) => {
-    const [, dir = ""] = p.split("/");
-    if (dir === "r") res.writeHead(302, { location: p.slice(2) }).end(); // T-4: its target is the file itself, never asked
+  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), tree = render(f.steps), closed: string[] = [];
+  const srv = await serve(tree, (p, res) => {
+    const [, dir = "", code = ""] = p.split("/"); // /r/<status>/<file>, a three-digit status (C-G2-1, C-G2-4)
+    if (dir === "r") res.writeHead(Number(code), { location: p.slice(6) }).end(tree.get(p.slice(7))); // T-4, T-5: target and body, the file itself
     else if (dir === "gone" || dir === "big") { // T-5, T-6: a body never ended, 64 bytes or four chunks of 64 without content-length
       res.writeHead(dir === "gone" ? 404 : 200);
       for (let i = 0; i < (dir === "gone" ? 1 : 4); i++) res.write(Buffer.alloc(64));
@@ -498,7 +498,10 @@ test("dojo_verify_url_transport_is_the_bell_policy", async () => {
       await assert.rejects(dv.urlSource(srv.url).get(rel), (e: unknown) => e instanceof DojoVerifyError && e.code === "insecure_url" && e.detail === rel, rel);
     }
     assert.deepEqual(srv.seen, [], "every refusal above comes before its request");
-    assert.deepEqual([await viaUrl(`${srv.url}/r`, kr), srv.seen], [refused("redirect_refused", "timeline.jsonl"), ["/r/timeline.jsonl"]], "never followed");
+    const codes = [301, 302, 303, 307, 308, 206], got: DojoVerifyReport[] = []; // C-G2-1: 301, 302, 303, 307, 308; C-G2-4: a 2xx other than 200
+    for (const c of codes) got.push(await viaUrl(`${srv.url}/r/${String(c)}`, kr));
+    assert.deepEqual([got, srv.seen], [codes.map((c) => refused(c === 206 ? "http_status" : "redirect_refused", "timeline.jsonl")),
+      codes.map((c) => `/r/${String(c)}/timeline.jsonl`)], "T-4: any 3xx refused, never followed (its target never asked); T-5: 200 only");
     const t2 = { TIMEOUT_MS: 2000 }; // bodies never ended: a mutant that reads them dies in 2 s, not in 30
     assert.deepEqual(await viaUrl(`${srv.url}/gone`, kr, t2), refused("http_status", "timeline.jsonl"), "the path, never the status (E-4)");
     assert.deepEqual(await viaUrl(`${srv.url}/big`, kr, { ...t2, MAX_BODY_BYTES: 100 }), refused("too_large", "timeline.jsonl"), "counted as it streams");
@@ -538,6 +541,8 @@ test("dojo_verify_totals_are_bounded", async () => {
     assert.deepEqual(await run({ MAX_FILES: tree.size - 1 }), ["too_large total files", 11], "no GET beyond the bound");
     assert.deepEqual(await run({ MAX_TOTAL_BYTES: all }), ["ok", 12], "every byte, the bound included");
     assert.deepEqual(await run({ MAX_TOTAL_BYTES: all - 1 }), ["too_large total bytes", 12], "one byte over, on the last body");
+    const big = Math.max(...[...tree.values()].map((b) => b.length)); // C-G2-5: the largest of the twelve bodies, under their total
+    assert.deepEqual([await run({ MAX_BODY_BYTES: big }), big < all], [["ok", 12], true], "T-6 counts each body, never the running total");
     const tiny = { ...B, MAX_FILES: 1, MAX_TOTAL_BYTES: 1 }; // Q-V-1: the totals count a URL source's GETs; a directory keeps its body bound
     assert.equal(said(await verifyDojoServed({ source: dirSource(writeTree(tree), tiny), keyring: kr, bounds: tiny })), "ok", "Q-V-1");
   } finally { await srv.close(); }
@@ -553,6 +558,9 @@ test("dojo_verify_day_proves_a_past_day", async () => {
   assert.deepEqual(r.ok && [r.target, r.head, r.day, r.inclusion], [{ seq: 5, day, lines_sha256: sha, lines_count: raw.length, recomputed_root: rootOf(raw) },
     all.ok && all.head, dateOf(ANCHOR_DAY + 9), { address: ADDR.A, index: i, count: raw.length, line: raw[i], proof: proofOf(raw, i) }], said(r));
   assert.deepEqual([all.ok && all.target, i >= 0], [null, true], "without --day, no target; A holds a line on read day 3");
+  const d = await verifyDojoServed({ source: dirSource(dir), keyring: kr, address: ADDR.D, day }); // Q-G1-4 (C-G2-2): D, no line on read day 3
+  assert.deepEqual([d, raw.some((l) => l.includes(ADDR.D))], [{ ok: false, reason: "line_missing", seq: 5, day,
+    detail: "--address: no line in the --day snapshot" }, false], "Q-G1-4: refused at the seq and day of D, its snapshot named");
 });
 
 // killer: apps/dojo/scripts/dojo-verify.mjs:352 ROR "epoch(day) < instantDay" -> "epoch(day) <= instantDay"
@@ -569,6 +577,8 @@ test("dojo_verify_day_refusals_are_named", async () => {
     ["the day after the SERVED head, no clock read", await run(f.steps, dateOf(ANCHOR_DAY + 10)), miss(12, head, "after the head's day")],
     ["a timeline without snapshot", await run(f.steps.slice(0, 2), dateOf(ANCHOR_DAY + 1)), miss(2, null, "after the head's day")],
     ["a prefix given to the library (out of form)", await run(f.steps, head.slice(0, 7)), miss(12, head, "no snapshot of that day")],
+    ["2026-09 to the library: never compared (else before the anchor's day)", await run(f.steps, "2026-09"), miss(12, head, "no snapshot of that day")],
+    ["2027 to the library: never compared (else after the head's day)", await run(f.steps, "2027"), miss(12, head, "no snapshot of that day")],
     ["a faulty tree: its own code, whatever the day", await run(f.steps, dateOf(ANCHOR_DAY - 1), (s) => { body(s, 11).score_total = "0"; }),
       { ok: false, reason: "score_mismatch", seq: 12, day: head, detail: "score_total" }],
   ];

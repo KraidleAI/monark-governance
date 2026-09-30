@@ -64,11 +64,11 @@ export const urlAllowed = (u) => typeof u === "string" && !/[?#]/.test(u)
   && (/^https:\/\/[^/?#@\s\\]+(?:[/?#]|$)/i.test(u) || /^http:\/\/(?:127\.0\.0\.1|\[::1\])(?::\d{1,5})?(?:\/|$)/.test(u));
 const SERVED = /^(?:timeline\.jsonl|dojo\/pubkey\.json|(?:lines|history)\/[0-9a-f]{64}\.jsonl)$/; // T-8: the closed list (mere D-9 l.254)
 const TLS_ENV = ["NODE_EXTRA_CA_CERTS", "NODE_USE_SYSTEM_CA", "NODE_USE_ENV_PROXY"]; // extend the trust or route the GETs (FAITS F-2, F-4, F-5)
-/** A served base URL (PR-1b-4 D-1, T-3 to T-10; bell-verify.mjs:47-68): one GET per file of the closed list, redirect "manual" and
- *  any 3xx refused (never followed), 200 only, the body counted as it streams (content-length never read) and cancelled on any
- *  refusal (FAITS F-6), one timer per GET over headers and body; the totals of the whole check are counted here (Q-V-1). Every
- *  refusal comes at a get, before its request, so that verifyDojoServed reports it; NODE_TLS_REJECT_UNAUTHORIZED at 0 disables
- *  the certificate check (FAITS F-1): refused (T-9 amended). `note` names the TLS variables present, never a value (for the CLI). */
+/** A served base URL (PR-1b-4 D-1, T-3 to T-10; bell-verify.mjs:47-68): one GET per file of the closed list, redirect "manual" and any 3xx refused (never
+ *  followed), 200 only, the body counted as it streams (content-length never read) and cancelled on any refusal (FAITS F-6), one timer per GET over headers
+ *  and body; the totals of the whole check are counted here (Q-V-1). Every refusal comes at a get, before its request, so that verifyDojoServed reports it;
+ *  NODE_TLS_REJECT_UNAUTHORIZED at 0 disables the certificate check (FAITS F-1): refused (T-9 amended). `note` names the TLS variables present, never a value
+ *  (for the CLI). FAITS F-7, measured on Node 24.15.0 (G2 of PR-1b-4): fetch yields the body DECODED, so T-6 bounds the decoded bytes (gzip bombs too). */
 export function urlSource(base, bounds = VERIFY_BOUNDS) {
   const env = process.env, root = String(base).replace(/\/+$/, ""), set = TLS_ENV.filter((k) => env[k] !== undefined);
   let files = 0, bytes = 0;

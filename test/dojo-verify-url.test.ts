@@ -54,7 +54,7 @@ test("dojo_verify_url_cli_is_the_ca_contract", async () => {
   const signed = rows("timeline.jsonl").map((l) => JSON.parse(l) as Record<string, unknown>), [h, hi, d] = [signed[11] ?? {}, signed[1] ?? {}, signed[4] ?? {}];
   const lf = `lines/${String(h.lines_sha256)}.jsonl`, hf = `history/${String(hi.history_sha256)}.jsonl`, df = `lines/${String(d.lines_sha256)}.jsonl`;
   const clean: NodeJS.ProcessEnv = { ...process.env, NODE_TLS_REJECT_UNAUTHORIZED: undefined, NODE_EXTRA_CA_CERTS: undefined, NODE_USE_SYSTEM_CA: undefined,
-    NODE_USE_ENV_PROXY: undefined, HTTP_PROXY: undefined, HTTPS_PROXY: undefined };
+    NODE_USE_ENV_PROXY: undefined, HTTP_PROXY: undefined, HTTPS_PROXY: undefined, http_proxy: undefined, https_proxy: undefined, no_proxy: undefined };
   let served: ReadonlyMap<string, Buffer> = tree;
   const srv = await serve(() => served);
   try {

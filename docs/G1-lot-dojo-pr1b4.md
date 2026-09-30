@@ -307,8 +307,10 @@ claude-opus-5-5
 
 - **DOJO-VERIFY-URL-1** (mère, code) : porté par ce lot (D-1, D-2, D-3) ; résolu au G7 de PR-1b-4 ; orchestrateur.
 - **DOJO-VERIFY-BREAKS-1** (code) : inclus (`breaks`, test 6, M-B1) ; résolu au G7 de PR-1b-4 ; orchestrateur.
-- **FAITS-NODE-FETCH-TLS-1** (lecture) : résolu pour ce lot (pli Q-V-4) ; F-7 (`Content-Encoding`) reste non établi, déclaré en
-  commentaire de T-6 ; déclencheur : lecture de la spécification Fetch si T-6 en dépend, au G1 de PR-3b-2 ; orchestrateur.
+- **FAITS-NODE-FETCH-TLS-1** (lecture) : résolu pour ce lot (pli Q-V-4) ; F-7 (`Content-Encoding`) : mesuré par le G2 (rapport §5 :
+  Node 24.15.0, undici 7.24.4, corps `gzip` rendu décodé, bombe refusée : T-6 compte les octets décodés), déclaré au commentaire
+  d'`urlSource` (C-G2-6 ; ligne corrigée post-G2, texte du gel 1 cité au §19.7) ; clos pour ce runtime par la ligne datée 01:4x UTC
+  de l'orchestrateur aux FAITS (Q-G2-2), à remesurer à tout changement de version de Node ou d'undici ; orchestrateur.
 - **DOJO-VERIFY-TLS-FLAGS-1** (neuf, PAROXYSME, conception) : les drapeaux `--use-openssl-ca`, `--use-system-ca`, `--use-bundled-ca`,
   `--use-env-proxy` passés par `NODE_OPTIONS` ou la ligne de commande, et `SSL_CERT_FILE`, `SSL_CERT_DIR` sous `--use-openssl-ca`
   (FAITS F-3 à F-5), ne sont ni refusés ni déclarés ; objet : les déclarer ou les refuser d'après `process.execArgv` et
@@ -390,3 +392,260 @@ claude-opus-5-5
   `detail` vérifié sans consommateur touché (section 4) ; (5) réponse finale calquée sur `REPONSE.md`.
 - `DELIVERED.sha256` suit le précédent de PR-4a-2 : format `sha256sum` pur (sans ligne de modèle, pour que `sha256sum -c` passe) ;
   sa ligne sur l'enregistrement de l'oracle dépasse 160 caractères, le chemin absolu étant incompressible.
+
+## 19. Corrections post-G2 (correcteur `claude-opus-5-5`, effort max, contexte frais ; correcteur ≠ relecteur ≠ générateur)
+
+- **Correcteur** : `claude-opus-5-5` (R-1), instance distincte du G1 et du relecteur G2. Mission `F:/tmp/dojo/mission-corr-pr1b4.md`
+  (67 l., 15 181 o.), sha256 recalculé AVANT lecture (première commande ; `date -u` suivant : 01:33:28Z) =
+  `edcfdf0ff6aeafdd73c935a410df8d294dca30f048898a368ca33adbe2047720` = `sha` du reçu `F:/tmp/dojo/mission-corr-pr1b4.recu.json`
+  (verdict `vert`, 12 codes du linter à 0, 2026-09-30T01:33:03Z, `base` `7d9e413e`, `head` `381de4fd`) ; règles embarquées
+  (`e5443e55…4059`) lues en entier ; la ligne datée 23:3x du tronc (rejeu de `red-proof.mjs` par une mission de corrections),
+  à laquelle renvoie la tâche 3, lue dans `F:/Monark/docs/methode/REGLES-MISSION.md` (`c5a3c674…1f5b`).
+- **Ouverture** (01:33:28Z) : worktree HEAD `381de4fd`, `status --porcelain` vide (lu avec `--no-optional-locks`), les sept
+  fichiers aux sha256 de la mission ; tronc `F:/Monark` à `0d9913e4` (le G2 l'avait lu à `6951d972`) ; outils du tronc aux
+  sha256 de la mission (`red-proof.mjs` `6579b550…ab36`, `oracle/run.mjs` `8ab26615…5a90`, `r25.mjs` `4d0544df…cf0`),
+  `mutants/run.mjs` `2606e7da…3b19` (celui du G1 et du G2).
+- **Entrées lues en entier, dans l'ordre** (01:33Z-01:45Z) : rapport G2 `F:/tmp/dojo/g2-pr1b4/G2-report.md` (304 l.,
+  `53b57d34…10d8`), son §14 et `probes/` (`lib.mjs`, `p1` à `p9` et leurs sorties) ; mission G1 (`1f8d585f…7e`) ; ce journal
+  (392 l., `c21026c5…da1`) ; ADR (236 l., `888d5a5b…8bca5` : §4, pli cp-1) ; `dojo-verify.mjs` (422 l., `f3292bdb…8298`),
+  `dojo-verify.test.ts` (588 l., `d5b781f9…fea`), `test/dojo-verify-url.test.ts` (89 l., `540643f3…acd963`). Outils et
+  précédents : `red-proof.mjs` et `mutants/run.mjs` (en entier) ; tables du G1 (`13dec40b…cd5b`) et du G2 (`f6a4435c…7acc`) ;
+  `mk-nm.ps1` (`d70d8aea…fbe4`), `rm-nm.ps1` (`b51b5d22…8749`) ; journaux de PR-4a-2 (§18) et de PR-3a-1 (§10) au tronc.
+- **Décisions de l'orchestrateur portées par la mission (décisions 275 et 291)** : C-G2-1 (bloquante), C-G2-2 à C-G2-6 et Q-G2-3
+  dans ce tour ; C-G2-7, Q-G2-1, Q-G2-2 et Q-G2-4 hors de ma charge (actes du G7).
+- **Verrou d'hôte** : tenu par l'oracle G2 d'un autre lot de 01:36:28Z (pid 75104) puis de 01:45:01Z (pid 83656, même arbre
+  `b0e595a5`) : ce compte et les éditions sont écrits pendant ce verrou, sans test, harnais ni contrôle statique (écart E-C-1 :
+  §19.10).
+
+### 19.1 Compte ascendant prévu (écrit de 01:49:18Z à 01:49:27Z, AVANT tout code ; R-25 du gel 1 : 391, borne 547)
+
+| Correction | Fichier | Tour (ins. + suppr.) | R-25 |
+|---|---|---|---|
+| C-G2-1, C-G2-4 : arbre nommé, route `/r/<statut>/`, boucle 301 à 308 et 206 | `apps/dojo/test/dojo-verify.test.ts` | 4 + 4, puis 4 + 1 | +3 |
+| C-G2-5 : plus gros corps à la borne par corps, sous le total | idem | 2 + 0 | +2 |
+| C-G2-2 : Q-G1-4 au test 4 | idem | 3 + 0 | +3 |
+| C-G2-3 : `2026-09` et `2027` ajoutés, `2026-10` gardé | idem | 2 + 0 | +2 |
+| Q-G2-3 : `http_proxy`, `https_proxy`, `no_proxy` retirés | `test/dojo-verify-url.test.ts` | 1 + 1 | 0 |
+| C-G2-6 : phrase F-7 au commentaire d'`urlSource`, l.67-71 réécrites | `apps/dojo/scripts/dojo-verify.mjs` | 5 + 5 | 0 |
+| **Total** | | **≈ 32** | **≈ +10 : ≈ 401** |
+
+- ≈ 401 ≤ 547, solde ≈ 146 : aucune scission (C-V-6 ne joue pas). Les lignes réécrites (test l.481-484 et l.501, test 8 l.57,
+  module l.67-71) ont été ajoutées par le G1 : contre la base, leur réécriture est neutre, seules les insertions nettes comptent.
+  Pré-mesure en lecture et mesure d'autorité (`r25()` de l'oracle) : §19.6.
+- **Nombre de lignes du module constant (422)** : les huit killers (`dojo-verify.mjs:56`, `:80`, `:81`, `:85`, `:352`, `:356`, `:367`,
+  `:370`) et les rangs de table du G1 et du G2 portent `fichier:ligne` ; `killerProblem` de `red-proof.mjs` et `lostOf` de
+  `mutants/run.mjs` refusent au premier décalage. La phrase de C-G2-6 prend donc place dans les cinq lignes du commentaire,
+  réécrites en place, et n'y écrit ni appel de `fetch`, ni `process.env`, ni import (motifs que le test 7 compte dans le texte du
+  module). Aucune ligne exécutable neuve : le code est juste (104 / 104 contrôles de sonde du G2).
+- **C-G2-3, écart à la lettre de la décision, déclaré (Q-C-1)** : la décision dit « `2026-10` remplacé par `2026-09` et `2027` ».
+  Or le cas `2026-10` est le SEUL tueur de M-D3 (préfixe de jour admis, `L.day.startsWith(day)`, l.345) : sous M-D3, le test 5
+  rougit à ce cas (`F:/tmp/dojo/pr1b4/mutants2/tap/M-D3.tap` l.38, « a prefix given to the library (out of form) ») et les cinq
+  cas qui le précèdent passent ; `2026-09` et `2027` ne préfixent aucun jour servi (2026-10-02 à 2026-10-10). La version
+  littérale ferait survivre un mutant du G1 que la tâche 4 impose de rejouer : je GARDE `2026-10` et AJOUTE les deux cas (G2-4
+  tué, M-D3 gardé). Témoin mesuré de la version littérale : §19.5.
+- Advisor intégré consulté après l'orientation, avant cette écriture (§19.10).
+
+### 19.2 Tâche → ligne → test → mutant (fichiers finaux : module `596a349d…ef59`, 422 l. ; test `10cfacb7…f28c`, 598 l. ; test 8 `689176d2…1704`)
+
+| Correction | Lignes finales | Test | Mutants (tous tués, §19.5) |
+|---|---|---|---|
+| C-G2-1 (bloquante) | test l.481-484 (route), l.501-504 (boucle) | 1 | G2-1 ; CORR-R301, CORR-R302, CORR-R303, CORR-R307, CORR-R308 |
+| C-G2-4 | test l.501-504 (206, fichier entier) | 1 | G2-2 |
+| C-G2-5 | test l.544-545 | 3 | G2-3 ; CORR-BODY-EQ |
+| C-G2-2 | test l.561-563 | 4 | G2-5, G2-6 |
+| C-G2-3 | test l.580-581 (l.579, `2026-10`, gardée) | 5 | G2-4 ; M-D3 (l.579) |
+| C-G2-6 | module l.67-71 ; ce journal, §15 | — | sans objet (commentaire) |
+| Q-G2-3 | test 8 l.57 | 8 | sans objet (environnement de l'enfant) |
+
+- Tests : 1 `dojo_verify_url_transport_is_the_bell_policy`, 3 `dojo_verify_totals_are_bounded`, 4 `dojo_verify_day_proves_a_past_day`,
+  5 `dojo_verify_day_refusals_are_named` (`apps/dojo/test/dojo-verify.test.ts`) ; 8 `dojo_verify_url_cli_is_the_ca_contract`
+  (`test/dojo-verify-url.test.ts`). Aucun test neuf, aucune ligne `// killer:` touchée : les huit killers du G1 restent ceux du lot.
+- **C-G2-1** : la route `r` lit son statut dans le chemin (`/r/<statut>/<fichier>`, trois chiffres) ; sa cible (`Location`) et son
+  corps sont le fichier lui-même, servi à la racine du même serveur. La boucle demande 301, 302, 303, 307 et 308 : `redirect_refused`
+  `timeline.jsonl` pour chacun, et `srv.seen` vaut EXACTEMENT les chemins `/r/<statut>/timeline.jsonl` : aucune cible demandée.
+- **C-G2-4** : dans la même boucle, un 206 portant le fichier ENTIER : `http_status` `timeline.jsonl`. Sous G2-2 (`!res.ok`), l'arbre
+  servi en 206 passe entier (`mutants/tap/G2-2.tap` : un rapport `ok` à la place du refus) : seule la règle « 200 seul » le refuse.
+- **C-G2-5** : `big`, le plus gros des douze corps ; `run({ MAX_BODY_BYTES: big })` égal à `["ok", 12]`, et `big < all`, précondition
+  de la discrimination, écrite dans l'assertion ; un cumul (G2-3) ou l'égalité refusée (CORR-BODY-EQ) rougit.
+- **C-G2-2** : `--address` `ADDR.D` sous `--day` 2026-10-04 (jour de lecture 3, seq 5) : `{ ok: false, reason: "line_missing", seq: 5,
+  day, detail: "--address: no line in the --day snapshot" }`, valeur mesurée par le G2 (`probes/p6-address-day.out`) ; l'absence de
+  ligne de D dans `raw` est assertée avec (hypothèse du fixture rendue visible).
+- **C-G2-3** : `2026-09` et `2027` passés à la bibliothèque : « no snapshot of that day » au seq 12 ; sous G2-4, `2026-09` rend
+  « before the anchor's day » (`mutants/tap/G2-4.tap`) ; `2026-10` gardé (§19.1, témoin au §19.5).
+- **C-G2-6** : l.71, « FAITS F-7, measured on Node 24.15.0 (G2 of PR-1b-4): fetch yields the body DECODED, so T-6 bounds the decoded
+  bytes (gzip bombs too). » ; les cinq lignes l.67-71 refluées en place, texte d'origine inchangé mot pour mot ; le test 7 compte
+  toujours un seul appel `fetch` et une seule lecture `process.env` dans le module (vert). Ligne du journal : §19.7.
+- **Q-G2-3** : `http_proxy`, `https_proxy` et `no_proxy` retirés de l'environnement de l'enfant, en plus de `HTTP_PROXY` et
+  `HTTPS_PROXY`. `NO_PROXY` (majuscules) reste hors de la décision : FAITS F-5 (Node lit `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`) ;
+  sans variable de mandataire dans l'enfant, cette liste d'exclusion n'a rien à exclure (inférence, non mesurée) : Q-C-3.
+
+### 19.3 Contrôles et course ciblée (clone `F:/tmp/dojo/pr1b4-corr/gel` ; preuves sous `F:/tmp/dojo/pr1b4-corr/`)
+
+- `gel` : clone `--no-local` du worktree (HEAD `381de4fd`, 01:53:48Z), les quatre fichiers du tour copiés (`cmp` égal) ;
+  `node_modules` par `mk-nm.ps1 -Tree` : 220 entrées, 10 `@monark` vers le clone, 0 échec (`mk-nm-gel.out` `e4712ef3…538f`).
+- Porte `scratch/gate.sh` (`0d02a633…36db`) en tête de chaque lancement, par `&&` : verrou d'hôte absent, puis C-V-4 (≤ 40 `node.exe`,
+  ≥ 4 096 Mo physiques, ≥ 8 192 Mo virtuels : METHODE-VMEM-PRECHECK-1) ; relevés de 01:53:29Z à 02:01:54Z : 12 à 15 `node.exe`,
+  18 781 à 19 602 Mo physiques et 35 691 à 37 177 Mo virtuels libres.
+- Ancres (01:54:47Z ; `scratch/anchors-corr.mjs` `84173b08…b462`, sortie `anchors-corr.out` `2c8fe27b…673d`) : les 8 killers valides
+  (`parseKiller` du tronc, puis `<before>` une seule fois sur `fichier:ligne`, comme `killerProblem`), les 42 rangs de table valides,
+  0 perdu ; module à 422 lignes.
+- Portes statiques (01:55:12Z-01:55:45Z, journaux sous `static/`) : `tsc --noEmit` 0, journal vide (les trois fichiers TypeScript du
+  lot dans le programme, `--listFiles`) ; ESLint des deux fichiers de test 0, journal vide ; cliquet des six règles de
+  `lint-ratchet.json` réactivées sur ces deux fichiers (`scratch/ratchet-two.mjs` `b4b2d378…ebb8`, modèle `scripts/lint-ratchet.mjs`) :
+  0 message suivi, 0 fatal (`ratchet.log` `d370007c…5517`) ; `lang-gate` OK (`lang.log` `b7247d5b…270f`).
+- Course ciblée n° 1 (01:56:02Z → 01:56:16Z ; `scratch/run-tests.mjs` `2543210b…7198`, environnement filtré par `DENY` de
+  `red-proof.mjs`, TEMP sur F:) : **26 / 26 verts** (`run-1.log` `c11925b1…c30f`).
+- Garde d'octets (`scratch/byteguard.mjs` `aeb3b215…de63`, 02:01:31Z) : UTF-8 strict, 0 point de contrôle (TAB, CR, C0 hors LF, C1),
+  LF final, code et tests en ASCII ; lignes créées par ce tour ≤ 160 (module 158, test 152, test 8 151 ; journal : 154 au plus) ;
+  les lignes de plus de 160 caractères préexistantes (11 au module, 47 au test) sont identiques au gel 1 (même empreinte).
+
+### 19.4 F2P (tâche 3 ; outil du tronc `F:/Monark/scripts/red-proof.mjs` `6579b550…ab36`)
+
+- Commande de la mission : `node F:/Monark/scripts/red-proof.mjs --base 7d9e413e --gel F:/Monark-wt-dojo-pr1b4 --repo
+  F:/tmp/dojo/pr1b4-corr/base --out F:/tmp/dojo/pr1b4-corr/f2p --draw 3 --seed 2026` ; `base` = clone `--no-local` au `7d9e413e`,
+  son `node_modules` = UNE jonction vers `F:/Monark/node_modules` (220 entrées) ; TEMP, TMP, TMPDIR sur F: ; 01:56:39Z → 01:57:24Z,
+  sortie 0 (`f2p.log` `4bee9971…3b23`).
+- **`F:/tmp/dojo/pr1b4-corr/f2p/RED-PROOF.json`, sha256 `3aa13b1b1f8ede671a8e6f0eb9a936459277a9f44c175d53ccce03003ff14422`** :
+  `ok: true`, mode `worktree`, head `381de4fd`, `digest` `032e79575c9f3659cfd1c130fb2a9c7173cd4a782fa9d2861c5254942d3bd8e8` (G1 :
+  `94d16803…3b58` ; la différence est ce tour) ; 8 jugés, **8 F2P** (base `assert-fail`, gel `pass`), 18 inchangés.
+- Tirage 3 sur 8, graine 2026 : `dojo-verify.mjs:81` ROR (test 3), `:56` CONST (test 7), `:352` ROR (test 5), le tirage du G1 (même
+  population) ; **trois tués**, sha256 du module avant = après (`596a349d…ef59`) ; `killer-1.tap` à `killer-3.tap` (`670eafa9…`,
+  `7a7616f0…`, `e0475ab4…`), `base.tap` `b766d901…e597`, `gel.tap` `48e54067…6a`.
+
+### 19.5 Mutants (tâche 4 ; outil du tronc `F:/Monark/scripts/mutants/run.mjs` `2606e7da…3b19`, un lancement par clone)
+
+- Commande (porte à 01:57:48Z : verrou absent, `held(F:/tmp)` nul relu par `lock.mjs` ; 12 `node.exe`, 19 602 Mo physiques, 36 813 Mo
+  virtuels libres ; rien d'autre lancé pendant) : `node F:/Monark/scripts/mutants/run.mjs --repo F:/tmp/dojo/pr1b4-corr/gel --base
+  7d9e413e --out F:/tmp/dojo/pr1b4-corr/mutants --table F:/tmp/dojo/pr1b4-corr/mutants-table-corr.mjs --killers --file
+  apps/dojo/scripts/dojo-verify.mjs --targets apps/dojo/test/dojo-verify.test.ts,test/dojo-verify-url.test.ts --lock-root F:/tmp
+  --min-free-mb 4096` ; `<out>/node_modules` = une jonction vers `gel/node_modules` (MUTANTS-NM-WORKSPACES-1, même montage qu'au
+  G1 et au G2).
+- Table `mutants-table-corr.mjs` (`a2b60e3e…bd3f`, 42 rangs) : la table du G1 importée ENTIÈRE (30 rangs, `13dec40b…cd5b`) ; G2-1 à
+  G2-6 filtrés par identifiant dans la table du G2 (`f6a4435c…7acc`), prédiction réécrite « expect tue » AVANT le lancement ; mes six
+  rangs : CORR-R301, CORR-R302, CORR-R303, CORR-R307, CORR-R308 (un statut de redirection exclu à la fois, l.86 : chaque statut du
+  Review Focus épinglé un à un, ce que G2-1 seul ne prouve pas) et CORR-BODY-EQ (l.91, `>` en `>=` : la borne par corps à l'égalité).
+- **`F:/tmp/dojo/pr1b4-corr/mutants/RESULTS.json`, sha256 `5cbf064d6ecb49b2ecd907a783be6bc0bb21389de2f265c0db1f90b16c1fd5dc`**
+  (`RESULTS.txt` `95e11fb3…796d`, lu en entier) : 01:58:10Z → 01:59:25Z, gel `381de4fd`, `dirty` `2d2e59af…cfc6`, `tool_tree`
+  `0d9913e4`, `tool_dirty` nul ; ligne de base verte (77 tests, les huit importeurs directs) ; **50 / 50 tués, tous stricts
+  (`ERR_ASSERTION` seul), tous restaurés** (sha256 `596a349d…ef59` avant et après), 0 non conclu, 0 ancre perdue ; sortie 0.
+- Rejeu du G1 : 38 / 38 tués (M-U1 à M-U10, M-D1 à M-D6, M-B1, M-C1, M-C2, N1 à N11, K1 à K8), chacun par le test de la table du G1.
+- **Les six survivants du G2 tués**, par les assertions neuves (message de l'assertion rouge lu dans chaque TAP) : G2-1 et G2-2 par
+  « T-4: any 3xx refused … T-5: 200 only » (test 1 ; G2-1 : 301, 303, 307, 308 en `http_status` ; G2-2 : le 206 rendu `ok`) ; G2-3 par
+  « T-6 counts each body, never the running total » (test 3) ; G2-4 par « 2026-09 to the library … » (test 5 : « before the anchor's
+  day ») ; G2-5 et G2-6 par « Q-G1-4: refused at the seq and day of D … » (test 4). Mes six rangs, tués de même (test 1, test 3).
+- M-D3 reste tué par le cas `2026-10` (« a prefix given to the library (out of form) », `mutants/tap/M-D3.tap`).
+- **Témoin de Q-C-1 (version LITTÉRALE de C-G2-3)** : clone `F:/tmp/dojo/pr1b4-corr/lit` (`--no-local` du worktree, fichiers du
+  tour copiés), dont le test 5 perd la seule ligne `2026-10` (`0380037c…b9`, 597 l. ; `diff` : une ligne) ; même outil, même table,
+  `--only M-D3,G2-4`, sortie `F:/tmp/dojo/pr1b4-corr/mutants-lit` (porte à 02:00:12Z) :
+  **`mutants-lit/RESULTS.json` `a6310376eb2d890d73642674c01e5d6710b6b3b7c314189a1a885cca273e9d0c`** (`RESULTS.txt` `4bfc6039…d3bc`) :
+  ligne de base verte (77) ; **M-D3 SURVIT** (premier passage : 8 verts ; rejeu sur les huit fichiers cibles : 77 verts, 0 rouge) ;
+  G2-4 tué ; sortie 1 (le survivant). La version littérale aurait donc rendu un survivant parmi les mutants du G1 : l'écart du §19.1
+  est nécessaire.
+
+### 19.6 Oracle et R-25 (tâche 5 ; outil du tronc `F:/Monark/scripts/oracle/run.mjs` `8ab26615…5a90`)
+
+- Commande : `node F:/Monark/scripts/oracle/run.mjs --role corr --tree F:/Monark-wt-dojo-pr1b4 --base 7d9e413e --key PR-1b-4`, lancée
+  à 02:01:54Z derrière la porte (verrou absent ; 15 `node.exe`, 19 385 Mo physiques, 35 855 Mo virtuels libres), en arrière-plan,
+  plafond `timeout 7200` ≥ `ORACLE_LOCK_MAX_MS` (5 400 s) + suite ; jamais interrompue ; rien écrit dans le worktree pendant sa course.
+- **Enregistrement : `F:/tmp/oracle-results/381de4fd57ca222b830b359f0d2474030abc18dd-2d2e59af5941ba3f-corr-20260930T020155Z-112232.json`,
+  sha256 `8af5f4e0b4fb15599cae3e5b2b780e6f62c9e5a812cc131ad2a67d426eaa1938`** (recalculé = annoncé par la ligne `oracle-result`) ;
+  `exit` 0, rôle `corr`, `served_from` nul (arbre modifié : rejoué, ligne datée 21:2x des REGLES), `static_only` faux, `label`
+  `PR-1b-4` ; `tree.head` `381de4fd`, `tree.dirty` `2d2e59af…cfc6` (celui de la campagne de mutants), `tree.object`
+  `869b9f3be17d62635aef782c79fe2cee81b2f3bf` ; 02:01:55Z → 02:10:32Z ; verrou pris à 02:02:56Z, attente 0 s ; C-V-4 de l'oracle :
+  19 515 Mo libres, 13 `node.exe`.
+- Portes, neuf, toutes à 0 : `lint-model-pinning`, `r25`, `lang:gate`, `export:check`, `gate:vocab`, `typecheck`, `lint`,
+  `lint:ratchet` (hors verrou), `test` (sous verrou, 455 s). Suite (`09-test.log` `206cad0f…73d1`) : **1 718 tests, 1 715 verts,
+  0 rouge, 3 sautés** (sentinelle SIGTERM, nom court 8.3, artefacts u4b : étrangers au lot, les mêmes qu'au G1 et au G2) ; test 42
+  vert une seule fois (432 s) ; les huit tests du lot verts, une fois chacun ; `dojo_collect_to_verify_end_to_end` vert (son rejeu
+  sur l'arbre fusionné reste l'acte du G7, C-V-4 (b), avec les importeurs du tronc : Q-G2-4).
+- **R-25**, calcul exporté `r25()` de `scripts/oracle/r25.mjs` (porte `r25` de l'oracle, sur son commit de gel ; `02-r25.log`
+  `8914b967…9e20`) : `STAT` **368 insertions, 33 suppressions, 401** (borne `VIBEGATES_PR_LIMIT` 1 205) ; `CONTENT_STAT` 0 (borne
+  8 000) ; GREEN. **401 ≤ 547, solde 146** : C-V-6 ne joue pas. Prévu ≈ 401 (§19.1) ; pré-mesure en lecture (02:07:55Z,
+  `git diff --shortstat 7d9e413e` sur l'arbre de travail, pathspec de `ci.yml:82` recopié) : 368 + 33 = 401, égale.
+- Depuis le lancement de l'oracle, seul ce journal a changé (`docs/**/*.md`, hors R-25 et hors code) : les trois fichiers de code et
+  de test du tour ont les sha256 du §19.2, ceux de l'arbre éprouvé par l'oracle.
+
+### 19.7 C-G2-6 : la ligne du §15 corrigée en place (exception motivée au style « rien n'est effacé »)
+
+- Texte du gel 1, cité mot pour mot (commit `381de4fd`, `docs/G1-lot-dojo-pr1b4.md` l.310-311) : « F-7 (`Content-Encoding`) reste
+  non établi, déclaré en commentaire de T-6 ; déclencheur : lecture de la spécification Fetch si T-6 en dépend, au G1 de PR-3b-2 ;
+  orchestrateur. » Il était inexact : au gel 1, le module ne mentionnait ni F-7 ni l'encodage (G2 §10, C-G2-6).
+- Texte corrigé (l.310-313) : F-7 mesuré par le G2, déclaré au commentaire d'`urlSource` (l.71 du module), clos pour ce runtime par la
+  ligne datée 01:4x UTC de l'orchestrateur aux FAITS (`F:/Monark/docs/dojo/FAITS-node-fetch-tls-2026-09-30.md`, `dc31cbee…6f2`,
+  26 l., lu à 02:03Z ; le G1 l'avait lu à 23 l., `7de80c82…`), avec son déclencheur de re-mesure (tout changement de version).
+- Forme : ligne corrigée en place, le texte d'origine vivant dans son commit et cité ici (modèle : ligne datée 17:1x des REGLES) ;
+  le §4 (l.119-120) énonce F-7 « non établi » comme décision du G1 à son heure : laissé tel quel, ce paragraphe le met à jour.
+
+### 19.8 MAST et `error_origin`
+
+- **FM-1.1** (spécification non suivie) : T-4 et T-5 épinglés au-delà de 302 et 404 (C-G2-1, C-G2-4) ; CORR-R301 à CORR-R308 prouvent
+  chaque statut de redirection un à un.
+- **FM-3.3** (vérification incorrecte) : le test 5 discrimine la règle D-2 hors forme (C-G2-3) ; les deux compteurs sont distingués
+  (C-G2-5) ; l'environnement de l'enfant du test 8 ne dépend plus de la casse de l'hôte pour les trois variables décidées (Q-G2-3).
+- **FM-3.2** (vérification absente) : Q-G1-4 épinglé (C-G2-2). **FM-2.4** (information retenue) : F-7 a sa pièce (C-G2-6).
+- `error_origin` proposés (assignés au G7) : C-G2-1 et C-G2-4 : planificateur du G0 (§4, test 1 plus étroit que T-4 et T-5 ;
+  proposition du G2) ; C-G2-2, C-G2-3, C-G2-5, C-G2-6 : worker G1 (proposition du G2) ; écart à la lettre de C-G2-3 (Q-C-1) :
+  rédaction de la décision, sans l'information que `2026-10` est le seul tueur de M-D3 (orchestrateur) ; E-C-1 : correcteur.
+
+### 19.9 Questions à l'orchestrateur (Q-C-n)
+
+- **Q-C-1 (C-G2-3)** : ratifier `2026-10` gardé, `2026-09` et `2027` ajoutés, contre la lettre « remplacé » ? Mesuré : la version
+  littérale laisse survivre M-D3 (§19.5, `mutants-lit/RESULTS.json` `a6310376…9d0c`). Recommandation : ratifier.
+- **Q-C-2 (ADR §4)** : le test 1 de l'ADR §4 nomme « 302 ⇒ `redirect_refused` ; 404 ⇒ `http_status` » ; il épingle désormais 301, 302,
+  303, 307, 308 et 206 ; CORR-R301 à CORR-R308 et CORR-BODY-EQ ne sont pas nommés au §4. Ligne de pli datée au G7 (précédent : Q-C-1
+  des corrections de PR-4a-2) ? Recommandation : oui.
+- **Q-C-3 (Q-G2-3)** : `NO_PROXY` en majuscules reste dans l'environnement de l'enfant (hors décision ; sans effet par inférence, §19.2).
+  Refermer cet environnement par une liste insensible à la casse (motif `DROP` de `probes/lib.mjs` du G2) ? Recommandation : à porter
+  par DOJO-VERIFY-TLS-FLAGS-1 (déclencheur G1 de PR-3b-2), qui refond l'environnement lu par le vérificateur ; rien dans ce lot.
+- **Q-C-4** : `DELIVERED.sha256` au format `sha256sum` pur (précédent : Q-C-3 des corrections de PR-4a-2) ; le modèle résolu est la
+  première ligne de `REPONSE.md`, que le sceau couvre. À ratifier.
+
+### 19.10 Conduite, écarts, advisor, provenance
+
+- **Git** : lecture seule dans le worktree et au tronc (`rev-parse`, `status`, `diff`, `show`, `log`, avec `--no-optional-locks` ou
+  `GIT_OPTIONAL_LOCKS=0`) ; clones `--no-local` sous `F:/tmp/dojo/pr1b4-corr/` (`gel`, `base`, `lit` ; `checkout --detach 7d9e413e`
+  dans `base`) ; les clones de `red-proof.mjs`, de l'outil de mutants et de l'oracle sont leurs actes (le commit de gel de l'oracle vit
+  dans son dossier de course). **Aucun `GIT_DIR`, aucun `GIT_WORK_TREE`, aucun `--write-tree`** ; aucun commit, `add`, `stash` ni
+  workflow (R-20).
+- **Écritures du worktree** : les trois fichiers du lot et ce journal, par l'outil d'édition (remplacement exact et unique) et par
+  ajout en heredoc cité, sans barre inverse ; aucun autre fichier (état final : §19.11).
+- **E-C-1** (`error_origin` = correcteur) : un `node -e` de lecture JSON (`F:/tmp/dojo/pr1b4/mutants2/RESULTS.json` du G1 : lignes
+  M-D3, M-D4, M-D6, N11) vers 01:40Z, pendant le verrou tenu depuis 01:36:28Z (oracle G2 d'un autre lot, pid 75104), relevé après coup
+  à 01:40:55Z ; environ une seconde ; ni test, ni harnais, ni contrôle statique. Remède : tout lancement suivant derrière la porte.
+- **E-C-2** (correcteur) : cinq lectures JSON courtes par `node -e` hors porte : `held(F:/tmp)` vers 01:57:4xZ, les deux
+  `RESULTS.json` vers 01:59:4xZ et 02:01:0xZ (chacune encadrée par des relevés libres de la porte : 01:57:48Z, 02:00:12Z, 02:01:31Z),
+  puis l'enregistrement de mon oracle, deux fois, vers 02:10:4xZ et 02:10:5xZ, après la fin de sa course (verrou relevé absent juste
+  avant la première ; porte libre ensuite à 02:12:29Z). Lectures seules, sans test, harnais ni contrôle statique ; rien à réexécuter.
+- **E-C-3** (correcteur) : huit `node -e` de comptage de longueurs de lignes sur mes brouillons (02:08:5xZ), pendant la suite de MON
+  oracle sous son verrou ; ni test, ni harnais, ni contrôle statique ; la suite de l'oracle, lue dans son enregistrement : §19.6.
+  Ensuite, plus aucun lancement `node` jusqu'à la fin de l'oracle (comptages par `awk`).
+- **Réseau** : boucle locale `127.0.0.1` seule (serveurs des tests) ; aucune URL hors boucle locale n'a atteint `fetch`.
+- **C:** : rien écrit ; TEMP, TMP et TMPDIR sous `F:/tmp/dojo/pr1b4-corr/tmp` à chaque lancement.
+- **Advisor intégré** : consulté après l'orientation, avant toute écriture (écart C-G2-3 déclaré avec témoin mesuré ; nombre de lignes
+  du module constant et contrôle d'ancres ; correction en place du §15 avec citation du gel 1 ; séquence sous verrou et porte ;
+  mémoire virtuelle ; rangs CORR ; tirage du F2P ; pré-mesure R-25 ; transport) : tous retenus, chacun vérifié sur pièce ; conseil,
+  jamais verdict. Seconde consultation avant la remise : §19.11.
+
+| Date | Objet | Modèle (identifiant résolu) | Effort | Contexte fourni | Générateur | Réviseur | Verdict G2 |
+|---|---|---|---|---|---|---|---|
+| 2026-09-30 | corrections post-G2 | `claude-opus-5-5` | max | mission, règles, §19 | correcteur | orchestrateur, cp-2 | gel 1 : PRÊT POUR CORRECTIONS |
+
+### 19.11 Remise
+
+- **Jonctions** : `gel/node_modules` (`mk-nm.ps1`), `base/node_modules`, `mutants/node_modules` et `mutants-lit/node_modules` (une
+  jonction chacune) retirées par `rm-nm.ps1` de 02:11:09Z à 02:11:15Z (`rm-nm.out` `a335f980…f410`), absence vérifiée ;
+  `F:/Monark/node_modules` intact (220 entrées, 10 `@monark`, `typescript` présent) ; aucun dossier de course de mon oracle ne reste.
+- **État du worktree** : HEAD `381de4fd` inchangé ; `status --porcelain` = ` M` pour `apps/dojo/scripts/dojo-verify.mjs`,
+  `apps/dojo/test/dojo-verify.test.ts`, `test/dojo-verify-url.test.ts` et ce journal ; tronc `F:/Monark` à `70239e3a` à 02:17:22Z
+  (trois commits de documents depuis l'ouverture : registres, un FAITS Caddy ; outils aux mêmes sha256), rien écrit de ma main.
+- **Livrables** : `F:/tmp/dojo/pr1b4-corr-deliver/REPONSE.md` et `DELIVERED.sha256` (format `sha256sum` pur, Q-C-4) ; le sha256 de ce
+  journal est rendu hors du fichier. Trois lignes du sceau dépassent 160 caractères (l'enregistrement de l'oracle, son `09-test.log`,
+  son `02-r25.log` : chemin absolu de plus de 110 caractères plus le sha256), déclarées et gardées telles quelles, comme au G1 (§18).
+- **Garde d'octets de `REPONSE.md`** (`scratch/byteguard.mjs`, derrière la porte, sortie `byteguard-deliver.out`) : UTF-8 strict,
+  0 point de contrôle, LF final, aucune ligne de plus de 160 caractères.
+- **Seconde consultation de l'advisor intégré** (02:13Z-02:16Z), sur la remise rendue durable (`REPONSE.md` `82efbb16…8a28`, sceau
+  `d50aa39d…ea8e`, 39 OK) : quatre points, tous appliqués avant le rescellement : (1) cette ligne et l'heure du compte au titre du
+  §19.1 ; (2) les trois lignes longues du sceau déclarées ; (3) garde d'octets de `REPONSE.md` ; (4) E-C-2 recompté à cinq lectures
+  JSON (deux après la fin de mon oracle). Conseil, jamais verdict ; chaque point vérifié sur pièce.
+- **Verdict proposé : LIVRE-AVEC-RESERVES** : Q-C-1 à ratifier (écart à la lettre de C-G2-3, mesuré nécessaire) ; Q-C-2 (pli de l'ADR
+  §4 au G7) ; écarts E-C-1 à E-C-3 (§19.10) ; ce journal changé après le lancement de l'oracle (documents seuls).
