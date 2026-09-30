@@ -17,6 +17,10 @@
 export { indicatorScore, indicatorScores, splitQuantile, conformalSet } from "./l1-split.ts";
 export type { SplitResult } from "./l1-split.ts";
 
+// Binomial core (worksite 2, lot L2-1): exact comparator, k*, n0, the upper bound U, four-decimal rounding, spend.
+export { parseUnitDecimal, parseAlpha, parseTestDelta, binomCdfLeq, riskControlMaxExceedances, zeroErrorFloor, missUpperBound, ceilDecimal4, spendDelta } from "./binomial.ts";
+export type { Ratio } from "./binomial.ts";
+
 // L2 — monitor (no guarantee claimed).
 export { imocpStep, arrivedErrors, remainingBudget, budgetAt } from "./l2-monitor.ts";
 export type { Miscover } from "./l2-monitor.ts";
