@@ -4,8 +4,9 @@
 // PR-1b-4 (ADR-DOJO-PR-1B-4 section 4): the URL source, --day and the closed keys of a report; loopback servers (127.0.0.1) only.
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join, relative, sep } from "node:path";
+import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createServer, type ServerResponse } from "node:http";
@@ -19,7 +20,16 @@ import { ADDR, ANCHOR_DAY, DAY1, FIRST, anchorBody, at, dateOf, dayLines, dojoFi
   type Line, type Step } from "./helpers/dojo-fixture.ts";
 import type { Fraction } from "../scripts/dojo-core.mjs";
 
-const SCRIPT = join(import.meta.dirname, "..", "scripts", "dojo-verify.mjs");
+const SCRIPT = join(import.meta.dirname, "..", "scripts", "dojo-verify-cli.mjs"); // PR-1b-5b (ADR-DOJO-PR-1B-5 PLI-1): the CLI and its transport
+const CORE = join(import.meta.dirname, "..", "scripts", "dojo-verify.mjs"); // the verifier core; as a script, the old command runs nothing (PLI-1 bis)
+/** The transport of the CLI module (dojo-verify-cli.d.mts), typed here: its computed import keeps both test files the first run of that module's
+ *  mutants (scripts/mutants/run.mjs, targetsOf); absent at base, the assertion fails first (ADR-DOJO-PR-1B-4 l.227). */
+type Transport = { urlAllowed(u: unknown): boolean;
+  urlSource(base: string, bounds?: VerifyBounds): { get(rel: string): Promise<Buffer>; readonly note: string | null } };
+const cliModule = async (): Promise<Transport> => {
+  assert.ok(existsSync(SCRIPT), "the URL transport lives in dojo-verify-cli.mjs (PR-1b-5b, PLI-1)");
+  return (await import(pathToFileURL(SCRIPT).href)) as Transport;
+};
 const DAY = (j: number): number => ANCHOR_DAY - DAY1 + 1 + j; // day number of read day j (read day 0 = the anchor's day, the last history day)
 const seen = new Set<string>(); // every reason the verifier gave in this file (closed-list assertion, last test)
 after(removeTrees); // the trees written under os.tmpdir() by this file (C-G2-4 of PR-1b-2)
@@ -101,10 +111,10 @@ test("dojo_verify_cli_is_fail_closed", () => {
   // ADR-DOJO-PR-1B-5 D-3 (a), V-3: --day through the CLI on a served TREE reads its target (read day 3 = seq 5, by hand)
   const [s5, r5] = cli(dir, "--keyring", kr, "--day", dateOf(ANCHOR_DAY + 3));
   assert.deepEqual([s5, r5?.ok === true && r5.target?.seq, r5?.ok === true && r5.target?.day], [0, 5, dateOf(ANCHOR_DAY + 3)], "V-3: --day on a tree");
-  // built-in modules and the three local modules only (motif apps/bell/test/bell-verify.test.ts); the network and the environment: T-10
+  // built-in modules and the two local modules only (motif apps/bell/test/bell-verify.test.ts); the network and the environment: T-10
   const text = readFileSync(SCRIPT, "utf8");
   assert.deepEqual([...text.matchAll(/\b(?:from|import)\s*["'`]([^"'`]+)["'`]/g)].map((m) => m[1]),
-    ["node:fs", "node:path", "node:url", "node:crypto", "../../bell/scripts/bell-chain.mjs", "./dojo-chain.mjs", "./dojo-core.mjs"]);
+    ["node:fs", "node:url", "../../bell/scripts/bell-chain.mjs", "./dojo-verify.mjs"]); // PR-1b-5b: the CLI module, the core imported by name
   for (const re of [/node:https?\b/, /node:net\b/, /node:tls\b/, /node:dns\b/, /child_process/, /\bimport\s*\(/, /\brequire\s*\(/]) {
     assert.equal(re.test(text), false, String(re));
   }
@@ -112,6 +122,13 @@ test("dojo_verify_cli_is_fail_closed", () => {
   const k0 = text.indexOf("export function urlSource("), src = k0 < 0 ? "" : text.slice(k0, text.indexOf("\n}\n", k0));
   const n = (s: string, re: RegExp): number => [...s.matchAll(re)].length;
   assert.deepEqual([n(text, /\bfetch\s*\(/g), n(src, /\bfetch\s*\(/g), n(text, /process\.env/g), n(src, /process\.env/g)], [1, 1, 1, 1], "T-10");
+  // PR-1b-5b (PLI-1): the core keeps its imports and holds neither a fetch nor a read of the environment; PLI-1 bis: the old command
+  // runs nothing (exit 1, stdout empty) and prints the usage of the new one, byte for byte: never a silent 0
+  const core = readFileSync(CORE, "utf8"), old = spawnSync(process.execPath, [CORE, dir, "--keyring", kr], { encoding: "utf8" });
+  assert.deepEqual([...core.matchAll(/\b(?:from|import)\s*["'`]([^"'`]+)["'`]/g)].map((m) => m[1]),
+    ["node:fs", "node:path", "node:url", "node:crypto", "../../bell/scripts/bell-chain.mjs", "./dojo-chain.mjs", "./dojo-core.mjs"], "the core's imports");
+  assert.deepEqual([n(core, /\bfetch\s*\(/g), n(core, /process\.env/g)], [0, 0], "T-10: no fetch and no environment in the core");
+  assert.deepEqual([old.status, old.stdout, old.stderr], [1, "", cli()[2]], "PLI-1 bis: the old command names dojo-verify-cli.mjs");
   assert.deepEqual(Object.keys(r1 ?? {}), dv.DOJO_VERIFY_REPORT_KEYS, "the closed keys of a report (D-3)");
 });
 
@@ -227,7 +244,7 @@ test("dojo_verify_keyring_is_the_dojo_schema", async () => {
 
 // ---- F-1 (orchestrator's decision after the G2 of PR-1b-2, fail-closed; declared divergence from bell-verify.mjs:104): a line voided at or
 // before the verified line refuses it, key_not_active at the oldest voided seq, voided_lines in the detail; a later voided line does not ----
-// killer: apps/dojo/scripts/dojo-verify.mjs:297 CONST "head.seq" -> "lines.length"
+// killer: apps/dojo/scripts/dojo-verify.mjs:253 CONST "head.seq" -> "lines.length"
 test("dojo_verify_refuses_a_snapshot_derived_from_voided_lines", async () => {
   const f = dojoFixture(), K2 = newKey(), both = dojoKeyringOf([[f.key, 1, 3], [K2, 3]]), ks = both.keys as Line[], e0 = ks[0] ?? {};
   const rot = [step(f.steps, 0), step(f.steps, 1), { key: f.key, rotateTo: K2, body: { kind: "key_rotation", published_at: at(FIRST, 0.75) } },
@@ -382,7 +399,7 @@ const readDay = (f: Fixture, j: number, v: number | null): Step => ({ key: f.key
 /** The fixture, then read days 10 to 14 under version 1 (seq 13 to 17): read day 14 ends the first window eligible after version 1's. */
 const fourteen = (f: Fixture): Step[] => [...f.steps, ...[10, 11, 12, 13, 14].map((j) => readDay(f, j, 1))];
 
-// killer: apps/dojo/scripts/dojo-verify.mjs:290 SDL "if (epoch(l.effective_day) !== f + W)" -> ""
+// killer: apps/dojo/scripts/dojo-verify.mjs:246 SDL "if (epoch(l.effective_day) !== f + W)" -> ""
 test("dojo_verify_price_version_takes_effect_the_day_after_its_window", async () => {
   const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), v1 = body(f.steps, 9);
   assert.equal(told(await check(render(f.steps), kr)), "ok", "N1: the window of read days 1 to 7, the effect on read day 8");
@@ -391,7 +408,7 @@ test("dojo_verify_price_version_takes_effect_the_day_after_its_window", async ()
   assert.equal(told(await check(render(late), kr)), "price_version_mismatch @10 effective_day (N1: the day after the window)", "M-N1");
 });
 
-// killer: apps/dojo/scripts/dojo-verify.mjs:291 SDL "if (due === null || f !== due - W + 1)" -> ""
+// killer: apps/dojo/scripts/dojo-verify.mjs:247 SDL "if (due === null || f !== due - W + 1)" -> ""
 test("dojo_verify_price_versions_follow_the_first_eligible_window", async () => {
   const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]);
   // N2: version 2 on read days 8 to 14 (version 1's window + W exactly), published after the snapshot of read day 14, in force on read day 15
@@ -403,7 +420,7 @@ test("dojo_verify_price_versions_follow_the_first_eligible_window", async () => 
   assert.equal(told(await check(render(over), kr)), "price_version_mismatch @16 window_first_day (N3: the window due)", "M-N3: an overlapping window");
 });
 
-// killer: apps/dojo/scripts/dojo-verify.mjs:284 SDL "a price_version due is missing (N3)" -> ""
+// killer: apps/dojo/scripts/dojo-verify.mjs:240 SDL "a price_version due is missing (N3)" -> ""
 test("dojo_verify_refuses_a_snapshot_after_a_missing_version", async () => {
   const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), none = [...f.steps.slice(0, 9), readDay(f, 8, null), readDay(f, 9, null)]; // no version 1
   const run = async (edit?: (s: Step[]) => void): Promise<string> => told(await check(render(none, undefined, edit), kr));
@@ -419,7 +436,7 @@ test("dojo_verify_refuses_a_snapshot_after_a_missing_version", async () => {
     ["counted, pool reads all null (M-N9)", reads((r) => ({ ...r, pool_price: null }))]] as const) assert.equal(await run(edit), "ok", `read day 4 ${what}`);
 });
 
-// killer: apps/dojo/scripts/dojo-verify.mjs:294 CONST "} // the head" -> "} if (due !== null) refuse('version_not_in_force', 0, null, 'N3'); // the head"
+// killer: apps/dojo/scripts/dojo-verify.mjs:250 CONST "} // the head" -> "} if (due !== null) refuse('version_not_in_force', 0, null, 'N3'); // the head"
 test("dojo_verify_accepts_a_price_version_pending_at_the_head", async () => {
   const f = dojoFixture(), K2 = newKey(), seven = f.steps.slice(0, 9); // the head, read day 7 (seq 9), ends seven valid days: version 1 is due
   assert.equal(told(await check(render(seven), dojoKeyringOf([[f.key, 1]]))), "ok", "the head exception (D-2 (4)): the version due at the head is pending");
@@ -427,7 +444,7 @@ test("dojo_verify_accepts_a_price_version_pending_at_the_head", async () => {
   assert.equal(told(await check(render([...seven, rot]), dojoKeyringOf([[f.key, 1], [K2, 10]]))), "ok", "a key rotation after it keeps the version pending");
 });
 
-// killer: apps/dojo/scripts/dojo-verify.mjs:281 SDL "a segment closed with a price_version due" -> ""
+// killer: apps/dojo/scripts/dojo-verify.mjs:237 SDL "a segment closed with a price_version due" -> ""
 test("dojo_verify_refuses_a_segment_closed_with_a_price_version_due", async () => {
   const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]);
   const a8: Step = { key: f.key, body: anchorBody(seedChain("dojo-fixture-seed-2", 40)(0), 40, ANCHOR_DAY + 8) }; // a new anchor, a second seed chain
@@ -443,7 +460,7 @@ test("dojo_verify_refuses_a_segment_closed_with_a_price_version_due", async () =
 
 // ---- section 6 l.378-393 (M-1 to M-16; M-13 and M-14 above, M-17 and M-18 in the history test) and D-10 l.252: each named mutant of a
 // served tree is refused by its code; the codes given in this file are those of D-10, read from the mere. Runs last ----
-// killer: apps/dojo/scripts/dojo-verify.mjs:358 CONST "[null, ...versions.values()]" -> "[null]"
+// killer: apps/dojo/scripts/dojo-verify.mjs:314 CONST "[null, ...versions.values()]" -> "[null]"
 test("dojo_verify_refuses_each_named_mutant", async () => {
   const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), X = newKey();
   const run = async (steps: readonly Step[], files?: ReadonlyMap<number, readonly object[]>, edit?: (s: Step[]) => void): Promise<string> =>
@@ -534,23 +551,23 @@ async function serve(tree: ReadonlyMap<string, Buffer>, route: (p: string, res: 
   return { url: `http://127.0.0.1:${String(port)}`, seen, close };
 }
 const refused = (reason: string, detail: string): DojoVerifyReport => ({ ok: false, reason, seq: null, day: null, detail });
-const viaUrl = (base: string, keyring: unknown, b: Partial<VerifyBounds> = {}): Promise<DojoVerifyReport> =>
-  verifyDojoServed({ source: dv.urlSource(base, { ...dv.VERIFY_BOUNDS, ...b }), keyring, bounds: { ...dv.VERIFY_BOUNDS, ...b } });
+const viaUrl = async (base: string, keyring: unknown, b: Partial<VerifyBounds> = {}): Promise<DojoVerifyReport> =>
+  verifyDojoServed({ source: (await cliModule()).urlSource(base, { ...dv.VERIFY_BOUNDS, ...b }), keyring, bounds: { ...dv.VERIFY_BOUNDS, ...b } });
 /** True once `ok()` holds, polled for at most 2 s. */
 const soon = async (ok: () => boolean): Promise<boolean> => {
   for (let t = 0; t < 100 && !ok(); t++) await new Promise((r) => setTimeout(r, 20));
   return ok();
 };
 
-// killer: apps/dojo/scripts/dojo-verify.mjs:80 SDL "if (!SERVED.test(rel))" -> ""
+// killer: apps/dojo/scripts/dojo-verify-cli.mjs:32 SDL "if (!SERVED.test(rel))" -> ""
 test("dojo_verify_url_transport_is_the_bell_policy", async () => {
-  assert.equal(typeof dv.urlSource, "function", "urlSource is exported (D-1)");
+  const cm = await cliModule(); assert.equal(typeof cm.urlSource, "function", "urlSource is exported by dojo-verify-cli.mjs (PLI-1)");
   // T-1 and T-2 as a pure predicate, before any socket: Bell's lists (apps/bell/test/bell-verify.test.ts:84-85), plus ? and #
   for (const x of ["https://bell.monarkgate.tech", "HTTPS://dojo.monarkgate.tech/", "http://127.0.0.1:8080", "http://[::1]:8080/"]) {
-    assert.ok(dv.urlAllowed(x), x);
+    assert.ok(cm.urlAllowed(x), x);
   }
   for (const x of ["http://bell.monarkgate.tech", "http://127.1:8080", "http://localhost:8080", "http://127.0.0.1.example.invalid", "http://u@127.0.0.1:8080",
-    "https://u@x.invalid", "ftp://x.invalid", "https://x.invalid/?a", "https://x.invalid/#a", "http://127.0.0.1:8080/b?c"]) assert.ok(!dv.urlAllowed(x), x);
+    "https://u@x.invalid", "ftp://x.invalid", "https://x.invalid/?a", "https://x.invalid/#a", "http://127.0.0.1:8080/b?c"]) assert.ok(!cm.urlAllowed(x), x);
   const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), tree = render(f.steps), closed: string[] = [];
   const srv = await serve(tree, (p, res) => {
     const [, dir = "", code = ""] = p.split("/"); // /r/<status>/<file>, a three-digit status (C-G2-1, C-G2-4)
@@ -568,7 +585,7 @@ test("dojo_verify_url_transport_is_the_bell_policy", async () => {
       assert.deepEqual(await viaUrl(base, kr), refused("insecure_url", "--url"), base);
     }
     for (const rel of ["../timeline.jsonl", `lines/${"A".repeat(64)}.jsonl`, `history/${"0".repeat(63)}.jsonl`, "dojo/pubkey.json?x"]) { // T-8
-      await assert.rejects(dv.urlSource(srv.url).get(rel), (e: unknown) => e instanceof DojoVerifyError && e.code === "insecure_url" && e.detail === rel, rel);
+      await assert.rejects(cm.urlSource(srv.url).get(rel), (e: unknown) => e instanceof DojoVerifyError && e.code === "insecure_url" && e.detail === rel, rel);
     }
     assert.deepEqual(srv.seen, [], "every refusal above comes before its request");
     const codes = [301, 302, 303, 307, 308, 206], got: DojoVerifyReport[] = []; // C-G2-1: 301, 302, 303, 307, 308; C-G2-4: a 2xx other than 200
@@ -584,23 +601,23 @@ test("dojo_verify_url_transport_is_the_bell_policy", async () => {
   } finally { await srv.close(); }
 });
 
-// killer: apps/dojo/scripts/dojo-verify.mjs:85 CONST "${root}/${rel}" -> "${base}/${rel}"
+// killer: apps/dojo/scripts/dojo-verify-cli.mjs:37 CONST "${root}/${rel}" -> "${base}/${rel}"
 test("dojo_verify_url_equals_dir_on_the_same_tree", async () => {
-  assert.equal(typeof dv.urlSource, "function", "urlSource is exported (D-1)");
+  const cm = await cliModule(); assert.equal(typeof cm.urlSource, "function", "urlSource is exported by dojo-verify-cli.mjs (PLI-1)");
   const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), tree = render(f.steps), srv = await serve(tree);
   try {
     const want = canonical(await verifyDojoServed({ source: dirSource(writeTree(tree)), keyring: kr, address: ADDR.A }));
     for (const base of [srv.url, `${srv.url}/`, `${srv.url}//`]) { // T-3: the final slashes dropped, then <base>/<rel>
-      const n = srv.seen.length, got = canonical(await verifyDojoServed({ source: dv.urlSource(base), keyring: kr, address: ADDR.A }));
+      const n = srv.seen.length, got = canonical(await verifyDojoServed({ source: cm.urlSource(base), keyring: kr, address: ADDR.A }));
       assert.deepEqual([got, srv.seen.slice(n).sort()], [want, [...tree.keys()].map((k) => `/${k}`).sort()], `${base}: the same report, each file once`);
     }
     assert.equal(tree.size, 12, "timeline.jsonl, dojo/pubkey.json, the history file and the lines of the nine snapshots");
   } finally { await srv.close(); }
 });
 
-// killer: apps/dojo/scripts/dojo-verify.mjs:81 ROR "++files > bounds.MAX_FILES" -> "++files >= bounds.MAX_FILES"
+// killer: apps/dojo/scripts/dojo-verify-cli.mjs:33 ROR "++files > bounds.MAX_FILES" -> "++files >= bounds.MAX_FILES"
 test("dojo_verify_totals_are_bounded", async () => {
-  assert.equal(typeof dv.urlSource, "function", "urlSource is exported (D-1)");
+  assert.equal(typeof (await cliModule()).urlSource, "function", "urlSource is exported by dojo-verify-cli.mjs (PLI-1)");
   const B = dv.VERIFY_BOUNDS; // D-1 by hand: 30 s, 1 024 files, 2 GiB (Q-2: provisional, tested); 64 MiB per body, 1 MiB per line
   assert.deepEqual([B.TIMEOUT_MS, B.MAX_FILES, B.MAX_TOTAL_BYTES, B.MAX_BODY_BYTES, B.MAX_LINE_BYTES], [30_000, 1024, 2 ** 31, 2 ** 26, 2 ** 20]);
   const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), tree = render(f.steps), srv = await serve(tree);
@@ -621,7 +638,7 @@ test("dojo_verify_totals_are_bounded", async () => {
   } finally { await srv.close(); }
 });
 
-// killer: apps/dojo/scripts/dojo-verify.mjs:379 CONST "recomputed_root: pick.f.root" -> "recomputed_root: headFile.root"
+// killer: apps/dojo/scripts/dojo-verify.mjs:335 CONST "recomputed_root: pick.f.root" -> "recomputed_root: headFile.root"
 test("dojo_verify_day_proves_a_past_day", async () => {
   assert.ok(Array.isArray(dv.DOJO_VERIFY_REPORT_KEYS), "the closed keys of a report are exported (D-3)");
   const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), dir = writeTree(render(f.steps)), day = dateOf(ANCHOR_DAY + 3);
@@ -636,7 +653,7 @@ test("dojo_verify_day_proves_a_past_day", async () => {
     detail: "--address: no line in the --day snapshot" }, false], "Q-G1-4: refused at the seq and day of D, its snapshot named");
 });
 
-// killer: apps/dojo/scripts/dojo-verify.mjs:375 ROR "epoch(day) < instantDay" -> "epoch(day) <= instantDay"
+// killer: apps/dojo/scripts/dojo-verify.mjs:331 ROR "epoch(day) < instantDay" -> "epoch(day) <= instantDay"
 test("dojo_verify_day_refusals_are_named", async () => {
   assert.ok(Array.isArray(dv.DOJO_VERIFY_REPORT_KEYS), "the closed keys of a report are exported (D-3)");
   const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), head = dateOf(ANCHOR_DAY + 9), gap = f.steps.filter((_, i) => i !== 10);
@@ -658,7 +675,7 @@ test("dojo_verify_day_refusals_are_named", async () => {
   for (const [what, got, want] of cases) assert.deepEqual(got, want, what);
 });
 
-// killer: apps/dojo/scripts/dojo-verify.mjs:390 CONST "breaks: w.breaks" -> "breaks: w.voided"
+// killer: apps/dojo/scripts/dojo-verify.mjs:346 CONST "breaks: w.breaks" -> "breaks: w.voided"
 test("dojo_verify_reports_broken_rotations", async () => {
   assert.ok(Array.isArray(dv.DOJO_VERIFY_REPORT_KEYS), "the closed keys of a report are exported (D-3)");
   // DOJO-VERIFY-BREAKS-1: a rotation of continuity "broken", signed by the new key alone (dojo-fixture.ts:64, :76; bell-verify.mjs:115)
@@ -668,4 +685,26 @@ test("dojo_verify_reports_broken_rotations", async () => {
   const r = await check(render(lost), dojoKeyringOf([[f.key, 1, 3], [K2, 3]])), r0 = await check(render(f.steps), dojoKeyringOf([[f.key, 1]]));
   assert.deepEqual([said(r), r.ok && r.breaks, r.ok && r.active_key_id, r0.ok && r0.breaks],
     ["ok", [{ seq: 3, lost_key_id: keyIdOf(f.key), new_key_id: keyIdOf(K2) }], keyIdOf(K2), []]);
+});
+
+// ---- PR-1b-5b (ADR-DOJO-PR-1B-5 PLI-1, PLI-5; DOJO-VERIFY-CORE-NO-NET-1): the verifier core loads no network module. Declared calque of
+// dojo_publish_imports_no_network_module (dojo-publish.test.ts:189-205), its two lists plus process.env, walked from dojo-verify.mjs ----
+// killer: apps/dojo/scripts/dojo-verify.mjs:12 CONST "import { pathToFileURL }" -> "import \"node:http\"; import { pathToFileURL }"
+test("dojo_verify_core_imports_no_network_module", () => {
+  const ALLOW = new Set(["node:crypto", "node:fs", "node:path", "node:url"]), seen = new Set<string>(), stack = [CORE];
+  const FORBIDDEN = [/node:https?\b/, /node:net\b/, /node:tls\b/, /node:dns\b/, /node:http2\b/, /node:dgram\b/, /child_process/, /\bfetch\s*\(/,
+    /\bimport\s*\(/, /\brequire\s*\(/, /createRequire/, /\bundici\b/, /\bWebSocket\b/, /process\.env/];
+  for (let f = stack.pop(); f !== undefined; f = stack.pop()) {
+    if (seen.has(f)) continue;
+    seen.add(f);
+    const text = readFileSync(f, "utf8"), specs = [...text.matchAll(/\b(?:from|import)\s*["'`]([^"'`]+)["'`]/g)].map((m) => m[1] ?? "");
+    assert.ok(specs.length >= 1, `${f}: its imports are parsed (non-vacuity)`);
+    for (const x of specs) if (x.startsWith(".")) stack.push(join(dirname(f), x)); else assert.ok(ALLOW.has(x), `${f}: import '${x}' outside the allowlist`);
+    for (const re of FORBIDDEN) assert.equal(re.test(text), false, `${f}: forbidden network, dynamic-load or environment token ${String(re)}`);
+  }
+  const root = join(import.meta.dirname, "..", "..", "..");
+  assert.deepEqual([...seen].map((f) => relative(root, f).split(sep).join("/")).sort(), ["apps/bell/scripts/bell-chain.mjs",
+    "apps/dojo/scripts/dojo-chain.mjs", "apps/dojo/scripts/dojo-core.mjs", "apps/dojo/scripts/dojo-verify.mjs"], "the core's closure: four files, no CLI");
+  assert.deepEqual(Object.keys(dv).sort(), ["DOJO_VERIFY_REFUSALS", "DOJO_VERIFY_REPORT_KEYS", "DojoVerifyError", "VERIFY_BOUNDS", "checkInclusion",
+    "dayOk", "dirSource", "dojoTrustOf", "verifyDojoServed"], "the nine exports of the core: dayOk the one new, the transport never re-exported");
 });

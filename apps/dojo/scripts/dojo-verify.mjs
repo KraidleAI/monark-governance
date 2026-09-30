@@ -5,8 +5,8 @@
 // DOJO-KEYRING-SCHEMA-1); the served dojo/pubkey.json is a cross-checked channel; --self-consistent-only runs under the served
 // keyring and says so (motif bell-verify.mjs:1-9). Refusals: the codes of D-10 l.252 only; their uses are declared in the G1
 // journal of PR-1b-2. It never reads the Solana chain: a signature attests origin, never truth (D-10 l.253). Built-ins only.
-// PR-1b-4 (ADR-DOJO-PR-1B-4): the served files through --url <base> (urlSource: Bell's transport policy, the runtime's global
-// fetch), --day <day> (a past day, proven after the whole check) and the closed keys of a report, DOJO_VERIFY_REPORT_KEYS (D-3).
+// PR-1b-4 (ADR-DOJO-PR-1B-4): --day <day> (a past day, proven after the whole check) and the closed keys of a report, DOJO_VERIFY_REPORT_KEYS
+// (D-3). PR-1b-5b (ADR-DOJO-PR-1B-5, PLI-1): the URL transport and the CLI live in dojo-verify-cli.mjs; this core loads no network module.
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -16,7 +16,7 @@ import { walkDojoTimeline } from "./dojo-chain.mjs";
 import { beaconRound, dayMinimum, dayValue, holderCounted, ownerClass, proofOf, provisionalOf, readInstants, rootOf, scoreOf, stepLots, tierOf,
   unitPrice, unitThreshold, unitsOf, validatedOf, verifyProof } from "./dojo-core.mjs";
 
-/** The closed list of D-10 (l.252), in its order: 45 codes. A refusal's detail names a file, a line or a field, never a value. */
+/** The closed list of D-10, in its order: 45 codes. A refusal's detail names a file, a line or a field, never a value. */
 export const DOJO_VERIFY_REFUSALS = Object.freeze(["insecure_url", "redirect_refused", "http_status", "unreachable", "too_large",
   "not_json", "keyring_invalid", "served_key_not_in_keyring", "timeline_malformed", "chain_broken", "rotation_key_not_in_keyring",
   "key_not_in_keyring", "signature_invalid", "key_not_active", "rotation_malformed", "revocation_malformed", "anchor_missing",
@@ -54,50 +54,6 @@ export function dirSource(root, bounds = VERIFY_BOUNDS) {
       if (size < 0) refuse("unreachable", null, null, rel);
       if (size > bounds.MAX_BODY_BYTES) refuse("too_large", null, null, rel);
       return Promise.resolve(readFileSync(p));
-    },
-  };
-}
-
-/** Transport policy (PR-1b-4 T-1, bell-verify.mjs:30-32), read on the RAW string before any normalization: https (no userinfo)
- *  anywhere, http ONLY on the loopback literals 127.0.0.1 or [::1]; and no ? nor # anywhere in the base (T-2, declared divergence). */
-export const urlAllowed = (u) => typeof u === "string" && !/[?#]/.test(u)
-  && (/^https:\/\/[^/?#@\s\\]+(?:[/?#]|$)/i.test(u) || /^http:\/\/(?:127\.0\.0\.1|\[::1\])(?::\d{1,5})?(?:\/|$)/.test(u));
-const SERVED = /^(?:timeline\.jsonl|dojo\/pubkey\.json|(?:lines|history)\/[0-9a-f]{64}\.jsonl)$/; // T-8: the closed list (mere D-9 l.254)
-const TLS_ENV = ["NODE_EXTRA_CA_CERTS", "NODE_USE_SYSTEM_CA", "NODE_USE_ENV_PROXY"]; // extend the trust or route the GETs (FAITS F-2, F-4, F-5)
-/** A served base URL (PR-1b-4 D-1, T-3 to T-10; bell-verify.mjs:47-68): one GET per file of the closed list, redirect "manual" and any 3xx refused (never
- *  followed), 200 only, the body counted as it streams (content-length never read) and cancelled on any refusal (FAITS F-6), one timer per GET over headers
- *  and body; the totals of the whole check are counted here (Q-V-1). Every refusal comes at a get, before its request, so that verifyDojoServed reports it;
- *  NODE_TLS_REJECT_UNAUTHORIZED at 0 disables the certificate check (FAITS F-1): refused (T-9 amended). `note` names the TLS variables present, never a value
- *  (for the CLI). FAITS F-7, measured on Node 24.15.0 (G2 of PR-1b-4): fetch yields the body DECODED, so T-6 bounds the decoded bytes (gzip bombs too). */
-export function urlSource(base, bounds = VERIFY_BOUNDS) {
-  const env = process.env, root = String(base).replace(/\/+$/, ""), set = TLS_ENV.filter((k) => env[k] !== undefined);
-  let files = 0, bytes = 0;
-  return {
-    note: set.length === 0 ? null : `TLS environment: ${set.join(", ")}`,
-    get: async (rel) => {
-      if (env.NODE_TLS_REJECT_UNAUTHORIZED === "0") refuse("insecure_url", null, null, "NODE_TLS_REJECT_UNAUTHORIZED");
-      if (!urlAllowed(base)) refuse("insecure_url", null, null, "--url");
-      if (!SERVED.test(rel)) refuse("insecure_url", null, null, rel);
-      if (++files > bounds.MAX_FILES) refuse("too_large", null, null, "total files");
-      const ctl = new AbortController(), timer = setTimeout(() => { ctl.abort(); }, bounds.TIMEOUT_MS);
-      let res = null;
-      try {
-        res = await fetch(`${root}/${rel}`, { redirect: "manual", signal: ctl.signal });
-        if (res.type === "opaqueredirect" || (res.status >= 300 && res.status < 400)) refuse("redirect_refused", null, null, rel);
-        if (res.status !== 200 || res.body === null) refuse("http_status", null, null, rel);
-        const chunks = [];
-        let n = 0;
-        for await (const c of res.body) {
-          if ((n += c.length) > bounds.MAX_BODY_BYTES) refuse("too_large", null, null, rel);
-          if ((bytes += c.length) > bounds.MAX_TOTAL_BYTES) refuse("too_large", null, null, "total bytes");
-          chunks.push(c);
-        }
-        return Buffer.concat(chunks);
-      } catch (e) {
-        await res?.body?.cancel().catch(() => undefined); // F-6: a refused body is cancelled, never left to the collector
-        if (e instanceof DojoVerifyError) throw e;
-        return refuse("unreachable", null, null, rel);
-      } finally { clearTimeout(timer); }
     },
   };
 }
@@ -144,7 +100,7 @@ const HEX64 = /^[0-9a-f]{64}$/;
 const decOrNull = (s) => s === null || (typeof s === "string" && /^(0|[1-9][0-9]*)$/.test(s));
 const sha256 = (b) => createHash("sha256").update(b).digest("hex");
 const epoch = (s) => Date.parse(`${s}T00:00:00.000Z`) / DAY_MS; // a day AAAA-MM-JJ, as days since 1970-01-01 (journal of PR-1b-1, Q-4)
-const dayOk = (s) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && Number.isFinite(epoch(s))
+export const dayOk = (s) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && Number.isFinite(epoch(s))
   && new Date(epoch(s) * DAY_MS).toISOString().startsWith(s);
 const instantDay = (s) => Math.floor(Date.parse(s) / DAY_MS); // the UTC day of a published_at: an anchor's day (journal of PR-1b-1, Q-2 (B))
 const addressOk = (a) => { try { ownerClass(a); return true; } catch { return false; } };
@@ -406,40 +362,9 @@ export async function verifyDojoServed({ source, keyring = null, address = null,
   }
 }
 
-const USAGE = "dojo/verify: usage: node dojo-verify.mjs (<served tree> | --url <base>) (--keyring <file> | --self-consistent-only)"
-  + " [--address <address>] [--day <YYYY-MM-DD>]\n";
-/** CLI (D-10 l.250; mission of PR-1b-2; PR-1b-4 D-1): one source, a served tree (a directory) or --url <base>, and a trust root
- *  chosen explicitly, --keyring <file> or --self-consistent-only; neither, both, a flag twice, a dangling or unknown flag, zero or
- *  two sources, a --day out of form: usage on stderr, nothing on stdout, exit 1. Otherwise one canonical JSON line on stdout, exit 0
- *  iff ok; a keyring file unreadable or not an object is keyring_invalid, never a run without a root. Under --url, the detail of a
- *  success names the TLS variables of the environment (T-9 amended), never their values. */
-export async function runVerifyCli(argv) {
-  const opt = new Map(), trees = [];
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i], valued = ["--keyring", "--address", "--url", "--day"].includes(a);
-    if (opt.has(a) || (a.startsWith("--") && !valued && a !== "--self-consistent-only") || (valued && (argv[i + 1] ?? "--").startsWith("--"))) {
-      process.stderr.write(USAGE);
-      return 1;
-    }
-    if (a === "--self-consistent-only") opt.set(a, true);
-    else if (valued) opt.set(a, argv[++i]);
-    else trees.push(a);
-  }
-  if (trees.length + (opt.has("--url") ? 1 : 0) !== 1 || opt.has("--keyring") === opt.has("--self-consistent-only")
-    || (opt.has("--day") && !dayOk(opt.get("--day")))) { process.stderr.write(USAGE); return 1; }
-  try {
-    let keyring = null;
-    if (opt.has("--keyring")) { try { keyring = JSON.parse(readFileSync(opt.get("--keyring"), "utf8")); } catch { keyring = undefined; } }
-    const source = opt.has("--url") ? urlSource(opt.get("--url")) : dirSource(trees[0]);
-    const r = opt.has("--keyring") && (keyring === null || typeof keyring !== "object")
-      ? { ok: false, reason: "keyring_invalid", seq: null, day: null, detail: "--keyring" }
-      : await verifyDojoServed({ source, keyring, address: opt.get("--address") ?? null, day: opt.get("--day") ?? null });
-    process.stdout.write(`${canonical(r.ok ? { ...r, detail: source.note ?? null } : r)}\n`);
-    return r.ok ? 0 : 1;
-  } catch (e) {
-    process.stderr.write(`dojo/verify: fatal: ${String(e?.name ?? "error")}\n`);
-    return 1;
-  }
+// PLI-1 bis (ADR-DOJO-PR-1B-5): launched as a script, the old command runs nothing, names the new one on stderr and exits 1, never a silent 0.
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  process.stderr.write("dojo/verify: usage: node apps/dojo/scripts/dojo-verify-cli.mjs (<served tree> | --url <base>)"
+    + " (--keyring <file> | --self-consistent-only) [--address <address>] [--day <YYYY-MM-DD>]\n");
+  process.exitCode = 1;
 }
-
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = await runVerifyCli(process.argv.slice(2));
