@@ -354,3 +354,81 @@ test("dojo_live_refuses_a_timeline_behind_a_bom", async () => {
   assert.equal((await reread(c, bom)).kind, "fallback", "the browser too: the BOM stays in the text, and the first line does not parse");
   assert.equal((await reread(c, e2)).kind, "reread", "control: the same bytes without it are reread");
 });
+
+// ---- Lot VERIFY-NONFINITE (G1 journal docs/G1-lot-verify-nonfinite.md): a served number that is not finite (1e400, which JSON.parse reads as
+// Infinity, and -1e400) falls back by name, where the reader's tool refuses it: timeline_malformed at the seq of its timeline line (at base: the
+// exception of canonical, caught with no seq), line_malformed for a lines file (at base: the file accepted and the head reread) ----
+const NL = String.fromCharCode(10);
+/** The served timeline with line `seq` edited as text by a relay, never re-signed. */
+function edited(tree: Tree, seq: number, from: string | RegExp, to: string): Tree {
+  const rows = (tree.get("timeline.jsonl") ?? Buffer.alloc(0)).toString("utf8").split(NL), row = rows[seq - 1] ?? "";
+  assert.ok(typeof from === "string" ? row.includes(from) : from.test(row), `timeline line ${String(seq)} carries ${String(from)}`);
+  rows[seq - 1] = row.replace(from, to);
+  return new Map(tree).set("timeline.jsonl", Buffer.from(rows.join(NL)));
+}
+/** The reader's tool on a served tree under the keyring `k`: "<reason> @<seq>", "ok", or "threw <error>". */
+const toolSays = (t: Tree, k: Rec): Promise<string> => verifyDojoServed({ source: { get: (rel: string) => Promise.resolve(t.get(rel) ?? Buffer.alloc(0)) },
+  keyring: k }).then((r) => (r.ok ? "ok" : `${r.reason} @${String(r.seq)}`), (e: unknown) => `threw ${String(e)}`);
+
+// killer: apps/site/lib/dojo-live.ts:240 CONST "canonical(l);" -> "void l;"
+test("dojo_live_falls_back_on_a_non_finite_number_in_the_timeline", async () => {
+  const { f, k, c } = await e1Record(), tree = render(f.steps);
+  // a new line (seq 12, beyond the committed head at seq 9: its signed bytes) and a line of the committed prefix (seq 3: its chain hash)
+  const places: Array<[number, string | RegExp, (x: string) => string]> = [[12, '"lines_count":3', (x) => `"lines_count":${x}`],
+    [3, /"round":[0-9]+/, (x) => `"round":${x}`]];
+  for (const x of ["1e400", "-1e400"]) {
+    for (const [seq, from, to] of places) {
+      const t = edited(tree, seq, from, to(x));
+      assert.deepEqual([await reread(c, t), await toolSays(t, k)], [{ kind: "fallback", seq, why: "timeline_malformed" }, `timeline_malformed @${String(seq)}`],
+        `${x} at seq ${String(seq)}: the browser falls back where the reader's tool refuses`);
+    }
+  }
+});
+
+// killer: apps/site/lib/dojo-live.ts:300 CONST "canonical(o); return o;" -> "return o;"
+test("dojo_live_falls_back_on_a_non_finite_number_in_a_lines_file", async () => {
+  const { f, k, c } = await e1Record(), text = linesOf(f.steps, 11).map((l) => `${canonical(l)}${NL}`).join("");
+  const places: Array<[string, (x: string) => string]> = [['"tier":4', (x) => `"tier":${x}`], [",2]]", (x) => `,${x}]]`]];
+  for (const x of ["1e400", "-1e400"]) {
+    for (const [token, to] of places) {
+      assert.ok(text.includes(token), `the head's lines carry ${token}`);
+      const bytes = Buffer.from(text.replace(token, to(x))), sha = createHash("sha256").update(bytes).digest("hex");
+      const edit = body(11, { lines_sha256: sha, root: rootOf(bytes.toString("utf8").slice(0, -1).split(NL)) });
+      const tree = render(f.steps, new Map(), edit).set(`lines/${sha}.jsonl`, bytes);
+      await beyondTheWalker(tree, k, c, /^line_malformed$/); // the reread of the new head: walked, refused by the build, falls back
+      const head = timelineOf(tree)[11] ?? assert.fail("the signed head");
+      assert.equal(await live.bindDojoLines(bytes, head, sha256), "line_malformed", `${x} for ${token}: the binding of the table (dojo-table.tsx:29)`);
+    }
+  }
+});
+
+// killer: apps/site/lib/dojo-served-load.ts:256 CONST "lineHash(l);" -> "void l;"
+test("dojo_served_build_names_a_line_the_walk_cannot_hash", async () => {
+  // BUILD-NONFINITE-1: the build walks the timeline before the reader's tool runs; a served line with a number canonical cannot write (1e400,
+  // -1e400) or a value nested beyond the stack is refused as the walk refuses it, never by canonical's exception (at base: thrown, unnamed)
+  const f = dojoFixture(), k = dojoKeyringOf([[f.key, 1], [newKey(), 1]]), tree = render(f.steps), deep = `${"[".repeat(200_000)}${"]".repeat(200_000)}`;
+  const places: Array<[string, Tree, number]> = [["1e400", edited(tree, 12, '"lines_count":3', '"lines_count":1e400'), 12],
+    ["-1e400", edited(tree, 3, /"round":[0-9]+/, '"round":-1e400'), 3], ["nested 200 000 deep", edited(tree, 5, '{"', `{"deep":${deep},"`), 5]];
+  for (const [what, t, seq] of places) {
+    const why = await build(t, k).then(() => "built", (e: unknown) => String(e));
+    assert.equal(why, `Error: dojo served: the timeline does not walk under the committed keyring (seq ${String(seq)}: timeline_malformed)`, what);
+  }
+});
+
+// killer: apps/site/lib/dojo-live.ts:240 CONST "let l: unknown = null; try { l = JSON.parse(raw);" -> "let l: unknown = JSON.parse(raw); try {"
+test("dojo_live_falls_back_by_name_on_a_line_that_is_not_json", async () => {
+  // LIVE-NOTJSON-1: a timeline line that is not JSON falls back at its seq, timeline_malformed, and a row of the head's lines file that is not
+  // JSON line_malformed, as the reader's tool refuses them (at base: the parser's message, and no seq)
+  const { f, k, c } = await e1Record(), tree = render(f.steps), text = linesOf(f.steps, 11).map((l) => `${canonical(l)}${NL}`).join("");
+  for (const seq of [12, 3]) {
+    const t = edited(tree, seq, '{"', '{x"');
+    assert.deepEqual([await reread(c, t), await toolSays(t, k)], [{ kind: "fallback", seq, why: "timeline_malformed" }, `timeline_malformed @${String(seq)}`],
+      `timeline line ${String(seq)}`);
+  }
+  const bytes = Buffer.from(text.replace('"tier":4', '"tier":4x')), sha = createHash("sha256").update(bytes).digest("hex");
+  const edit = body(11, { lines_sha256: sha, root: rootOf(bytes.toString("utf8").slice(0, -1).split(NL)) });
+  const withRow = render(f.steps, new Map(), edit).set(`lines/${sha}.jsonl`, bytes), head = timelineOf(withRow)[11] ?? assert.fail("the signed head");
+  assert.deepEqual([await reread(c, withRow), await toolSays(withRow, k)], [{ kind: "fallback", seq: 12, why: "line_malformed" }, "line_malformed @12"],
+    "a row of the lines file");
+  assert.equal(await live.bindDojoLines(bytes, head, sha256), "line_malformed", "the binding of the table (dojo-table.tsx:29)");
+});

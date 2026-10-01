@@ -195,7 +195,7 @@ export async function buildDojoServed<T extends ReadonlyMap<string, { x: string 
   const root = deps.trustOf(keyring) ?? fail("the committed keyring is malformed");
   const served = deps.trustOf(parseJson(utf8(body(DOJO_PUBKEY_PATH), DOJO_PUBKEY_PATH), DOJO_PUBKEY_PATH)) ?? fail(`${DOJO_PUBKEY_PATH} is malformed`);
   for (const [id, k] of served.trust) if (root.trust.get(id)?.x !== k.x) fail(`${DOJO_PUBKEY_PATH} serves a key outside the committed keyring`);
-  const lines = linesOfBody(body(DOJO_TIMELINE_PATH), DOJO_TIMELINE_PATH).map((s, i) => parseJson(s, `timeline line ${String(i + 1)}`));
+  const lines = linesOfBody(body(DOJO_TIMELINE_PATH), DOJO_TIMELINE_PATH).map((s, i) => walkable(s, i + 1, deps.lineHash));
   const walk = deps.walk(lines, root.trust) as { ok?: unknown; seq?: unknown; reason?: unknown; head?: unknown; voided?: unknown; breaks?: unknown };
   if (walk.ok !== true) fail(`the timeline does not walk under the committed keyring (seq ${String(walk.seq)}: ${String(walk.reason)})`);
   if (!Array.isArray(walk.voided) || walk.voided.length > 0) fail("a line is voided by a revocation; the page renders no voided line (fail-closed)");
@@ -245,4 +245,14 @@ export async function buildDojoServed<T extends ReadonlyMap<string, { x: string 
     keyring,
     bodies_sha256: { timeline: sha256Hex(body(DOJO_TIMELINE_PATH)), pubkey: sha256Hex(body(DOJO_PUBKEY_PATH)) },
   };
+}
+
+/** A served timeline line as the walker takes it (lot VERIFY-NONFINITE, BUILD-NONFINITE-1): JSON, then hashed through the injected lineHash,
+ *  whose canonical throws on a number it cannot write (JSON.parse reads 1e400 as Infinity) or on a value nested beyond the stack: such a line is
+ *  refused as the walk refuses it, timeline_malformed at its seq (the reader's tool says the same), never by that exception. Declared last, so
+ *  that no line above it moves (the killers of the tests name lines of this file). */
+function walkable(s: string, seq: number, lineHash: (line: unknown) => string): unknown {
+  const l = parseJson(s, `timeline line ${String(seq)}`);
+  try { lineHash(l); } catch { fail(`the timeline does not walk under the committed keyring (seq ${String(seq)}: timeline_malformed)`); }
+  return l;
 }

@@ -237,7 +237,7 @@ export async function rereadDojoHead(committed: DojoServedData, deps: DojoLiveDe
     for (const [i, raw] of raws.entries()) {
       const seq = i + 1, fail = (why: string): DojoLiveOutcome => fallback(seq, why);
       if (enc.encode(raw).length + 1 > bounds.MAX_LINE_BYTES) return fail("a timeline line beyond the bound of a line");
-      const l: unknown = JSON.parse(raw);
+      let l: unknown = null; try { l = JSON.parse(raw); canonical(l); } catch { l = null; } // not JSON, or 1e400 (Infinity): malformed below
       if (!isObj(l) || l.schema !== SCHEMA || l.seq !== seq || !KINDS.includes(l.kind as string)) return fail("timeline_malformed");
       if (l.prev_line_hash !== prev) return fail("chain_broken");
       const key = trust.get(l.key_id as string), keyLine = l.kind === "key_rotation" || l.kind === "key_revocation";
@@ -291,13 +291,13 @@ async function project(head: { l: Line; hash: string; anchor: Line }, versions: 
 
 /** The lines of a lines file AS SERVED (each without its LF), bound to the signed line that names it (the reread's new head, or the
  *  committed head, whose file the table lists): count, SHA-256, Merkle root, closed keys, sums and holders, in this order; else the
- *  refusal. A body out of UTF-8 or without its final LF throws, as does a line that is not JSON. */
+ *  refusal. A body out of UTF-8 or without its final LF throws; a line that is not JSON, or that canonical cannot write, is line_malformed. */
 export async function bindDojoLines(bytes: Uint8Array, h: Line | DojoServedHead, sha256: Sha256): Promise<string[] | string> {
   const rows = linesOf(bytes, `lines/${h.lines_sha256 as string}.jsonl`);
   if (rows.length !== h.lines_count) return "lines_count_mismatch";
   if (toHex(await sha256(bytes)) !== h.lines_sha256) return "lines_sha_mismatch";
   if ((await rootOf(rows, sha256)) !== h.root) return "root_mismatch";
-  const objs = rows.map((s): unknown => JSON.parse(s)).filter(isObj);
+  const objs = rows.map((s): unknown => { try { const o: unknown = JSON.parse(s); canonical(o); return o; } catch { return null; } }).filter(isObj);
   if (objs.length !== rows.length || !objs.every((o) => same(Object.keys(o), LINE_KEYS))) return "line_malformed";
   const sum = (k: string): string | null => (objs.every((o) => dec(o[k])) ? String(objs.reduce((t, o) => t + BigInt(o[k] as string), 0n)) : null);
   if (sum("score") !== h.score_total || sum("validated") !== h.validated_total) return "the lines do not sum to the signed totals";

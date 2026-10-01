@@ -744,3 +744,120 @@ test("dojo_verify_cli_fatal_error_exits_1", () => {
   const p = spawnSync(process.execPath, ["--import", boom, SCRIPT, writeTree(new Map<string, Buffer>()), "--self-consistent-only"], { encoding: "utf8" });
   assert.deepEqual([p.status, p.stdout, p.stderr], [1, "", "dojo/verify: fatal: RangeError\n"], "an empty directory, the write of its refusal thrown");
 });
+
+// ---- Lot VERIFY-NONFINITE (G1 journal docs/G1-lot-verify-nonfinite.md): a served number that is not finite (1e400, which JSON.parse reads as
+// Infinity, and -1e400) is a refusal of the closed list, never the exception of canonical (bell-chain.mjs:17): timeline_malformed for a timeline
+// line, line_malformed for a line of an immutable file, keyring_invalid for a key file. At base the verifier threw "non-finite number in digest":
+// `named` turns a throw into a string, so that the base reds by an assertion, never by the test's own exception. ----
+const NL = String.fromCharCode(10), NONFINITE = ["1e400", "-1e400"] as const;
+/** The verifier's report on a served tree under `keyring`, or "threw <error>". */
+const named = (tree: ReadonlyMap<string, Buffer>, keyring: unknown): Promise<DojoVerifyReport | string> =>
+  check(tree, keyring).catch((e: unknown) => `threw ${String(e)}`);
+/** The served tree with timeline line `seq` edited as text, never re-signed (its parse refuses it before any signature is read). */
+function edited(tree: ReadonlyMap<string, Buffer>, seq: number, from: string | RegExp, to: string): Map<string, Buffer> {
+  const rows = (tree.get("timeline.jsonl") ?? Buffer.alloc(0)).toString("utf8").split(NL), row = rows[seq - 1] ?? "";
+  assert.ok(typeof from === "string" ? row.includes(from) : from.test(row), `timeline line ${String(seq)} carries ${String(from)}`);
+  rows[seq - 1] = row.replace(from, to);
+  return new Map([...tree, ["timeline.jsonl", Buffer.from(rows.join(NL))]]);
+}
+/** `steps` rendered with the immutable file of step `i` replaced by `text`, its sha256 and Merkle root signed in its line (the key holder's act). */
+function resigned(steps: readonly Step[], i: number, dir: "history" | "lines", text: string): Map<string, Buffer> {
+  const sha = createHash("sha256").update(text).digest("hex"), root = rootOf(text.slice(0, -1).split(NL));
+  const signed = dir === "history" ? { history_sha256: sha, history_root: root } : { lines_sha256: sha, root };
+  return render(steps, undefined, (s) => { Object.assign(body(s, i), signed); }).set(`${dir}/${sha}.jsonl`, Buffer.from(text));
+}
+/** The number, from 1, of the line of `text` where `token` first occurs. */
+function lineOf(text: string, token: string): number {
+  assert.ok(text.includes(token), `the file carries ${token}`);
+  return text.slice(0, text.indexOf(token)).split(NL).length;
+}
+/** The text of an immutable file: one canonical line per object, each ended by LF. */
+const fileText = (ls: readonly object[]): string => ls.map((l) => `${canonical(l)}${NL}`).join("");
+
+// killer: apps/dojo/scripts/dojo-verify.mjs:175 CONST "canonical(l); return l;" -> "return l;"
+test("dojo_verify_names_a_non_finite_number_in_the_timeline", async () => {
+  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), tree = render(f.steps);
+  // a field of the head (seq 12); a field nested in a beacon (seq 3); a sig_new on the anchor (seq 1), which its signature does not cover:
+  // signingBytes drops sig_new, the chain hash keeps it (at base: dojo-chain.mjs:163)
+  const places: Array<[number, string | RegExp, (x: string) => string]> = [[12, '"lines_count":3', (x) => `"lines_count":${x}`],
+    [3, /"round":[0-9]+/, (x) => `"round":${x}`], [1, '{"', (x) => `{"sig_new":${x},"`]];
+  for (const x of NONFINITE) {
+    for (const [seq, from, to] of places) {
+      assert.deepEqual(await named(edited(tree, seq, from, to(x)), kr), { ok: false, reason: "timeline_malformed", seq, day: null,
+        detail: "timeline.jsonl" }, `${x} in timeline line ${String(seq)}`);
+    }
+  }
+});
+
+// killer: apps/dojo/scripts/dojo-verify.mjs:152 CONST "catch { o = null; }" -> "catch (e) { throw e; }"
+test("dojo_verify_names_a_non_finite_number_in_a_history_line", async () => {
+  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), text = fileText(historyLines(DAY(0))), token = '"day_value":"5000000"';
+  for (const x of NONFINITE) {
+    const changed = text.replace(token, `"day_value":${x}`), sha = createHash("sha256").update(changed).digest("hex");
+    assert.deepEqual(await named(resigned(f.steps, 1, "history", changed), kr), { ok: false, reason: "line_malformed", seq: 2, day: null,
+      detail: `history/${sha}.jsonl line ${String(lineOf(text, token))}` }, `${x} in a history line`);
+  }
+});
+
+// killer: apps/dojo/scripts/dojo-verify.mjs:152 CONST "if (canonical(o) !== s) o = null;" -> "void s;"
+test("dojo_verify_names_a_non_finite_number_in_a_lines_file", async () => {
+  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), text = fileText(linesOf(f.steps, 11));
+  // a field that the form of a line does not read (tier), then a value nested in a lot (its day): canonical alone sees them
+  const places: Array<[string, (x: string) => string]> = [['"tier":4', (x) => `"tier":${x}`], [",2]]", (x) => `,${x}]]`]];
+  for (const x of NONFINITE) {
+    for (const [token, to] of places) {
+      const changed = text.replace(token, to(x)), sha = createHash("sha256").update(changed).digest("hex");
+      assert.deepEqual(await named(resigned(f.steps, 11, "lines", changed), kr), { ok: false, reason: "line_malformed", seq: 12,
+        day: dateOf(ANCHOR_DAY + 9), detail: `lines/${sha}.jsonl line ${String(lineOf(text, token))}` }, `${x} for ${token}`);
+    }
+  }
+});
+
+// killer: apps/dojo/scripts/dojo-verify.mjs:70 CONST "seqNo(e.valid_from_seq)" -> "true"
+test("dojo_verify_names_a_non_finite_number_in_a_key_file", async () => {
+  // Green at base, declared (G1 journal, Q-2): dojoTrustOf reads every number of a keyring as an integer before any digest, so the served key
+  // file and the supplied keyring were already refused by their own code; this test pins that refusal, for both signs.
+  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), tree = render(f.steps), from = '"valid_from_seq":1';
+  const pk = (tree.get("dojo/pubkey.json") ?? Buffer.alloc(0)).toString("utf8");
+  const supplied = (to: string): unknown => JSON.parse(canonical(kr).replace(from, to)) as unknown;
+  for (const x of NONFINITE) {
+    const served = new Map([...tree, ["dojo/pubkey.json", Buffer.from(pk.replace(from, `"valid_from_seq":${x}`))]]);
+    assert.deepEqual(await named(served, kr), { ok: false, reason: "keyring_invalid", seq: null, day: null, detail: "dojo/pubkey.json" }, `${x}: served`);
+    for (const to of [`"valid_from_seq":${x}`, `"revoked_from_seq":${x},${from}`]) {
+      assert.deepEqual(await named(tree, supplied(to)), { ok: false, reason: "keyring_invalid", seq: null, day: null,
+        detail: "the supplied keyring" }, `${x}: supplied, ${to}`);
+    }
+  }
+});
+
+// killer: apps/dojo/scripts/dojo-verify.mjs:152 CONST "catch { o = null; }" -> "catch (e) { throw e; }"
+test("dojo_verify_cli_names_a_non_finite_number", () => {
+  // The CLI on a local copy of a served tree: one canonical refusal line on stdout, nothing on stderr, exit 1 (at base: an empty stdout and
+  // "dojo/verify: fatal: Error" on stderr, from the catch of dojo-verify-cli.mjs:87-89)
+  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), tree = render(f.steps), text = fileText(linesOf(f.steps, 11));
+  const file = (name: string, t: string): string => join(writeTree(new Map([[name, Buffer.from(t)]])), name), good = file("kr.json", canonical(kr));
+  const run = (dir: string, keyring: string): [number | null, string, string] => {
+    const p = spawnSync(process.execPath, [SCRIPT, dir, "--keyring", keyring], { encoding: "utf8" });
+    return [p.status, p.stdout, p.stderr];
+  };
+  const line = (r: object): string => `${canonical(r)}${NL}`, changed = text.replace('"tier":4', '"tier":-1e400');
+  const sha = createHash("sha256").update(changed).digest("hex"), bad = canonical(kr).replace('"valid_from_seq":1', '"valid_from_seq":1e400');
+  assert.deepEqual(run(writeTree(edited(tree, 12, '"lines_count":3', '"lines_count":1e400')), good),
+    [1, line({ ok: false, reason: "timeline_malformed", seq: 12, day: null, detail: "timeline.jsonl" }), ""], "a timeline line");
+  assert.deepEqual(run(writeTree(resigned(f.steps, 11, "lines", changed)), good), [1, line({ ok: false, reason: "line_malformed", seq: 12,
+    day: dateOf(ANCHOR_DAY + 9), detail: `lines/${sha}.jsonl line ${String(lineOf(text, '"tier":4'))}` }), ""], "a line of a lines file");
+  assert.deepEqual(run(writeTree(tree), file("bad.json", bad)),
+    [1, line({ ok: false, reason: "keyring_invalid", seq: null, day: null, detail: "the supplied keyring" }), ""], "a keyring file");
+});
+
+// killer: apps/dojo/scripts/dojo-verify.mjs:175 CONST "canonical(l); return l;" -> "return l;"
+test("dojo_verify_names_a_value_nested_too_deep", async () => {
+  // VERIFY-DEPTH-1: a value nested 200 000 deep (400 KB, under the bound of a line) parses (V8's JSON.parse, measured on Node 24.15.0), but
+  // the recursive canonical exhausts the stack: the guards of 1e400 catch that RangeError too (at base: thrown, unnamed)
+  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), deep = `${"[".repeat(200_000)}${"]".repeat(200_000)}`;
+  assert.deepEqual(await named(edited(render(f.steps), 12, '{"', `{"deep":${deep},"`), kr),
+    { ok: false, reason: "timeline_malformed", seq: 12, day: null, detail: "timeline.jsonl" }, "a timeline line");
+  const text = fileText(linesOf(f.steps, 11)), changed = text.replace('"tier":4', `"tier":${deep}`), sha = createHash("sha256").update(changed).digest("hex");
+  assert.deepEqual(await named(resigned(f.steps, 11, "lines", changed), kr), { ok: false, reason: "line_malformed", seq: 12,
+    day: dateOf(ANCHOR_DAY + 9), detail: `lines/${sha}.jsonl line ${String(lineOf(text, '"tier":4'))}` }, "a line of a lines file");
+});
