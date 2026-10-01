@@ -593,7 +593,7 @@ export const DOJO_FORBIDDEN = [
 ];
 
 /** Assert the built /dojo <main> against `expected` (dojoExpected): the figures of its closed list exactly, no other number, the
- *  sentences of its state and none of the others', the tier names, no forbidden word, the register's status on the pill. Pure,
+ *  sentences of its state and none of the others', the tier names, no forbidden word, no {name} left unfilled, the register's status on the pill. Pure,
  *  built-ins only; throws on any failure (vacuity-guarded, fail-closed). */
 export function assertDojoBody({ html, expected }) {
   const blank = (s) => typeof s !== "string" || s.trim().length === 0;
@@ -634,9 +634,10 @@ export function assertDojoBody({ html, expected }) {
   if (/(?![0-9])\p{N}/u.test(corpus)) throw new Error("assert-dojo: a number written with non-ASCII digits in the /dojo <main> escapes the numeric scan (fail-closed)");
   const stray = `${rest} ${unnamed(parts.attrs.join(" "))}`.match(/\d+(?:[.,]\d+)*/g) ?? [];
   if (stray.length > 0) throw new Error(`assert-dojo: ${String(stray.length)} numeric token(s) rendered in the /dojo <main> outside the closed list of figures: ${JSON.stringify(stray)}`);
-  // (5) no forbidden word; (6) the pill: the program's name, then the register's status.
+  // (5) no forbidden word, no {name} of the closed list left unfilled; (6) the pill: the program's name, then the register's status.
   const word = DOJO_FORBIDDEN.find((re) => re.test(corpus));
   if (word !== undefined) throw new Error(`assert-dojo: a forbidden word is rendered in the /dojo <main>: ${String(word)}`);
+  if (/[{][a-z_]+[}]/.test(corpus)) throw new Error("assert-dojo: a {name} of the closed list is rendered unfilled in the /dojo <main> (fail-closed)");
   if (!corpus.includes(`Dōjō ${status}`)) throw new Error(`assert-dojo: the /dojo pill does not carry the register's status (expected "Dōjō ${status}")`);
   return { state, figures: figures.length, corpusChars: corpus.length, status };
 }
@@ -673,8 +674,9 @@ export async function dojoExpected(dataRoot = REPO_ROOT) {
   const f = !counted ? { day: h.day, ...(versioned ? { threshold_unit_token_days: tokens(h.threshold_unit) } : {}) } : { day: h.day, reads_done: String(h.reads_done), k_reads: String(h.k_reads), slot_min: String(h.slot_min), slot_max: String(h.slot_max),
     lines_count: String(h.lines_count), root: h.root, score_total: tokens(h.score_total), validated_total: tokens(h.validated_total),
     ...(versioned ? { threshold_unit_token_days: tokens(h.threshold_unit), holders_count: String(h.holders_count), dust_threshold_tokens: tokens(h.dust_threshold) } : {}) };
-  // The method sentence's one figure, in every state: the validation window of the record's anchor in days, read here from the anchor.
-  const anchor = { validation_days: String(data.timeline.anchor.validation_days) }, all = { ...f, ...anchor };
+  // The anchor's figures, read here from the anchor in force: validation window (method, every state), Migration window (tier sentence, E2).
+  const A = data.timeline.anchor, anchor = { validation_days: String(A.validation_days), ...(e2 ? { migration_days: String(A.tier_windows[4]) } : {}) };
+  const all = { ...f, ...anchor };
   const shown = [T.lead, counted ? T.counted : T.abstained, versioned ? T.tiers : T.noVersion, T.method, T.exclusion, T.bounds, T.check, T.tree, T.beacon,
     T.rereadFirst, ...(counted ? [T.totals, T.table] : []), ...(e2 ? [holders, T.tier] : [])];
   const fill = (s) => s.replace(/\{([a-z_]+)\}/g, (_, k) => {

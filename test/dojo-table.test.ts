@@ -1,7 +1,7 @@
 // Root tests of PR-4c-2a (ADR-DOJO-PR-4: G0 fold of PR-4c-2, its cp-1 correction C-V-1; decision 301, the order by hold score): the
 // table of every line of the head /dojo shows, and the look-up of one address among them. Under test: dojoTableOf and dojoTableFirstOf
 // of apps/site/lib/dojo-served.ts (the reread's lines, or one GET of the committed head's lines file bound by bindDojoLines of
-// lib/dojo-live.ts; forms, signed order, cells, order shown), isDojoAddress, findDojoRow and dojoLookupOf of lib/dojo-lookup.ts, and the
+// lib/dojo-live.ts; forms, signed order, cells, order shown), isDojoAddress, findDojoRow, dojoLookupOf and dojoTableLookupOf of lib/dojo-lookup.ts, and the
 // component's wiring read from its source (no root program loads a .tsx). Oracles, never the modules under test: the reader's tool on
 // the same served tree (verifyDojoServed with an address and a day: its inclusion), the core's address rule (ownerClass), the served
 // bytes. Trees are signed at run time by the Dojo fixture (keys made by node:crypto, never written); no network. Exports this lot adds
@@ -75,11 +75,17 @@ async function run(c: DojoServedData, tree: Tree, verifyEd25519 = ed25519, bound
 }
 /** The rows of a table, at least one line bound: an assertion on its rows never holds on an empty table (a fixture that changed). */
 const rowsOf = (t: served.DojoTable): Rows => (t.kind === "rows" && t.bound.length > 0 ? t : assert.fail(`no line bound: ${t.kind}`));
-/** Whether the signed line a row carries is listed: every line without a version; under one, all but a holder line not counted. */
-const listedLine = (r: served.DojoTableRow): boolean => {
-  const o = JSON.parse(r.line) as Rec;
-  return o.class === "program" || o.holder_counted !== false;
-};
+/** The dust threshold of the version a head names, in base units, read from the price_version line of the served timeline, never from the
+ *  module under test; null for a head without a version. */
+function dustIn(tree: Tree, h: DojoServedHead): bigint | null {
+  if (h.price_version === null) return null;
+  const tl = (tree.get("timeline.jsonl") ?? assert.fail("a timeline")).toString().split(NL).filter((s) => s !== "").map((s) => JSON.parse(s) as Rec);
+  return BigInt(String((tl.find((l) => l.kind === "price_version" && l.price_version === h.price_version) ?? assert.fail("its version")).dust_threshold));
+}
+/** Whether a signed line is under the dust threshold (C-1 and N-3 of the G2 of SITE-PREP): a version in force and a day value known and
+ *  smaller, a holder or a program line; a line without a day value is not. The table lists every line but those. */
+const under = (dust: bigint | null, o: Rec): boolean => dust !== null && typeof o.day_value === "string" && BigInt(o.day_value) < dust;
+const listedLine = (dust: bigint | null) => (r: served.DojoTableRow): boolean => !under(dust, JSON.parse(r.line) as Rec);
 /** The fixture, its committed keyring (a second key committed too) and the committed records at seq 8 (E1), 9 (E1) and 12 (E2). */
 async function records() {
   const f = dojoFixture(), k = dojoKeyringOf([[f.key, 1], [newKey(), 1]]), e1 = render(f.steps.slice(0, 9)), e2 = render(f.steps);
@@ -134,18 +140,18 @@ test("dojo_table_rows_are_the_verifier_lines", async () => {
       const unit = h.price_version === null ? [x.length] : [x.length, x[5], tiers.indexOf(x[6] ?? "")];
       assert.deepEqual(unit, h.price_version === null ? [5] : [7, o.units, o.tier], `${name}: units, and a tier name or none, under a version only`);
     }
-    // Shown: the bound rows a version does not hide (a holder line not counted, under the dust threshold), by hold score, highest first,
+    // Shown: the bound rows a version does not hide (a line whose day value is under its dust threshold), by hold score, highest first,
     // equal hold scores by address (decision 301 (1), M-K12 reformulated); the order of the lines listed is the order of all.
-    const want = bound.filter(listedLine).sort((p, q) => (BigInt(p.score) === BigInt(q.score) ? Buffer.compare(Buffer.from(p.address), Buffer.from(q.address))
-      : BigInt(p.score) > BigInt(q.score) ? -1 : 1));
+    const dust = dustIn(tree, h), want = bound.filter(listedLine(dust)).sort((p, q) => (BigInt(p.score) === BigInt(q.score)
+      ? Buffer.compare(Buffer.from(p.address), Buffer.from(q.address)) : BigInt(p.score) > BigInt(q.score) ? -1 : 1));
     assert.deepEqual(shown, want, `${name}: the order shown is the order declared`);
   }
   // Equal hold scores, and a longer one (compared as numbers, never as text), on lines given to the table: ten first, then the nines.
   const r = await run(c9, e2), base = rowsOf(r.table).bound, scores = ["9", "10", "9"];
   assert.equal(base.length, scores.length, "three lines at the head of the fixture");
   const lines = base.map((row, i) => {
-    const o = JSON.parse(row.line) as Rec; // each line listed: a holder line counted, under the version of this head
-    return canonical({ ...o, score: scores[i], holder_counted: o.class === "holder" ? true : o.holder_counted });
+    const o = JSON.parse(row.line) as Rec; // each line listed under this head's version: no day value read, not counted, under no threshold
+    return canonical({ ...o, score: scores[i], reads: [null, null, null, null], day_value: null, holder_counted: false });
   });
   const t = rowsOf(await served.dojoTableOf({ ...r.view, rows: lines }, r.deps));
   assert.deepEqual(t.shown.map((x) => x.address), [1, 0, 2].map((i) => base[i]?.address), "ten first, then the two nines by address");
@@ -191,6 +197,7 @@ test("dojo_table_follows_the_displayed_head", async () => {
 
 // killer: apps/site/lib/dojo-served.ts:200 SDL "address >= r.address" -> ""
 // killer: apps/site/lib/dojo-served.ts:196 SDL "typeof hc" -> ""
+// killer: apps/site/lib/dojo-served.ts:195 CONST " || (m !== null && !decimal(m))" -> ""
 test("dojo_table_refuses_a_file_it_cannot_bind", async () => {
   const { f, e2, c8, c9 } = await records(), rel = `lines/${c9.head.lines_sha256}.jsonl`, lf = e2.get(rel) ?? assert.fail("the committed file");
   const text = lf.toString(), without = new Map(e2), bounds = live.DOJO_LIVE_BOUNDS;
@@ -217,7 +224,9 @@ test("dojo_table_refuses_a_file_it_cannot_bind", async () => {
     ["a provisional count that is not a decimal", edit(first((l) => ({ ...l, provisional: "01" })))],
     ["a tier beyond the list", edit(first((l) => ({ ...l, tier: 6 })))],
     ["a program line counted as a holder", edit((ls) => ls.map((l) => (l.class === "program" ? { ...l, holder_counted: true } : l)))],
-    ["no holder_counted under a version", edit(first((l) => ({ ...l, holder_counted: null })))]];
+    ["no holder_counted under a version", edit(first((l) => ({ ...l, holder_counted: null })))],
+    // A day value out of the verifier's form (decOrNull, dojo-verify.mjs:100), each one BigInt would read: no line (C-1 of the G2 of SITE-PREP).
+    ...[5, "05", "", true].map((x): [string, Tree] => [`a day value out of form (${JSON.stringify(x)})`, edit(first((l) => ({ ...l, day_value: x })))])];
   for (const [name, tree] of signed) {
     const r = await run(c9, tree);
     assert.deepEqual([r.view.note, r.table, r.gets], [T.rereadDone, { kind: "refused" }, []], `${name}: the reread holds, no line listed`);
@@ -226,6 +235,10 @@ test("dojo_table_refuses_a_file_it_cannot_bind", async () => {
   const e1hc = render(f.steps.slice(0, 9), new Map([[8, (linesOf(f.steps, 8) as unknown as Rec[]).map((l, i) =>
     (i === 0 ? { ...l, holder_counted: false } : l))]])), r1 = await run(c8, e1hc);
   assert.deepEqual([r1.view.note, r1.table], [T.rereadDone, { kind: "refused" }], "holder_counted without a version: no line listed");
+  // A day value out of form without a version too, where no threshold is compared: no line listed.
+  const e1dv = render(f.steps.slice(0, 9), new Map([[8, (linesOf(f.steps, 8) as unknown as Rec[]).map((l, i) => (i === 0 ? { ...l, day_value: "05" } : l))]]));
+  const r2 = await run(c8, e1dv);
+  assert.deepEqual([r2.view.note, r2.table], [T.rereadDone, { kind: "refused" }], "a day value out of form without a version: no line listed");
   // The component says a refusal by TXT-17c alone, never its reason, under the limits of the module (no bound of its own).
   const src = readFileSync(join(ROOT, "apps", "site", "components", "dojo", "dojo-table.tsx"), "utf8"), count = (s: string): number => src.split(s).length - 1;
   assert.deepEqual([count("T.tableRefused"), count("why"), count("bounds"), count("boundedSource(get)")], [1, 0, 0, 1], "TXT-17c, never a reason");
@@ -253,6 +266,7 @@ test("dojo_table_units_only_with_a_version", async () => {
 });
 
 // killer: apps/site/lib/dojo-lookup.ts:41 CONST "row };" -> "row, typed };"
+// killer: apps/site/components/dojo/dojo-table.tsx:43 CONST ", table));" -> ", { ...table, bound: table.shown }));"
 test("dojo_lookup_never_echoes_the_input", async () => {
   const { dojoLookupOf, findDojoRow } = await lookupModule(), { e2, c9 } = await records(), { bound } = rowsOf((await run(c9, e2)).table);
   // Each address of the table, typed with spaces around it: its row, the very row bound, and nothing more (M-K1, M-K13, M-K14).
@@ -269,10 +283,12 @@ test("dojo_lookup_never_echoes_the_input", async () => {
     const out = dojoLookupOf(s, bound);
     assert.deepEqual([Object.keys(out), out.kind === "found"], [["kind"], false], `${s}: an exact search`);
   }
-  // The component reads its field once, into the look-up, and never gives it back to the page.
+  // The component reads its field once, into the look-up of the table among every line bound (C-2 of the G2 of SITE-PREP: the whole
+  // table, never the lines shown, and no look-up of its own), and never gives it back to the page.
   const src = readFileSync(join(ROOT, "apps", "site", "components", "dojo", "dojo-table.tsx"), "utf8"), count = (s: string): number => src.split(s).length - 1;
-  const reads = ["typed.current", "dojoLookupOf(typed.current?.value", "value=", "defaultValue", "dangerouslySetInnerHTML"].map(count);
-  assert.deepEqual(reads, [1, 1, 0, 0, 0], "the field read once, into the look-up, never rendered");
+  const look = 'dojoTableLookupOf(typed.current?.value ?? "", table)';
+  const reads = ["typed.current", look, "dojoLookupOf(", "value=", "defaultValue", "dangerouslySetInnerHTML"].map(count);
+  assert.deepEqual(reads, [1, 1, 0, 0, 0, 0], "the field read once, into the look-up of the table, never rendered");
 });
 
 // killer: apps/site/components/dojo/dojo-table.tsx:80 CONST "spellCheck={false}" -> "spellCheck={false} name={W.address}"
@@ -293,33 +309,62 @@ test("dojo_lookup_sends_no_address", async () => {
     assert.deepEqual(tokens.filter((t) => src.includes(t)), [], `${rel}: none of ${tokens.join(" ")}`);
   }
   const lookup = readFileSync(join(ROOT, "apps", "site", "lib", "dojo-lookup.ts"), "utf8").split(NL).filter((l) => /^import/.test(l));
-  assert.deepEqual(lookup, ['import type { DojoTableRow } from "./dojo-served.ts";'], "the look-up imports a type alone");
+  assert.deepEqual(lookup, ['import type { DojoTable, DojoTableRow } from "./dojo-served.ts";'], "the look-up imports types alone");
 });
 
 // killer: apps/site/lib/dojo-served.ts:202 CONST "bound.filter((r) => r.listed)" -> "bound.filter((r) => r.listed || true)"
+// killer: apps/site/lib/dojo-served.ts:198 ROR "BigInt(m) >= dust" -> "BigInt(m) > dust"
+// killer: apps/site/lib/dojo-served.ts:198 CONST "listed: dust === null" -> "listed: c === 'program' || dust === null"
+// killer: apps/site/lib/dojo-served.ts:198 CONST "m === null || BigInt(m) >= dust" -> "(m !== null && BigInt(m) >= dust)"
 test("dojo_table_hides_dust_lines_under_a_version", async () => {
-  const { dojoLookupOf } = await lookupModule(), { e1, e2, c8, c9, c12 } = await records();
-  // [case, committed record, served tree, Ed25519, a version in force at the head shown]
-  const cases: Array<[string, DojoServedData, Tree, live.VerifyEd25519, boolean]> = [["reread E2", c9, e2, ed25519, true],
-    ["committed E2", c12, e2, noEd25519, true], ["reread E1", c8, e1, ed25519, false], ["committed E1", c9, e2, noEd25519, false]];
-  for (const [name, c, tree, ed, versioned] of cases) {
+  const lookups = await lookupModule(), { f, e1, e2, c8, c9, c12 } = await records();
+  // C-1 of the G2 of SITE-PREP, extended to the program lines (N-3): under a version, a line is hidden iff its day value is known and
+  // under the dust threshold of that version (the investor: exclude the accounts under one dollar, from the first price version).
+  const d = String(dustIn(e2, c12.head) ?? assert.fail("a version in force at the head of the fixture")), none = [null, null, null, null];
+  const at11 = (fn: (l: Rec) => Rec): Tree => render(f.steps, new Map([[11, (linesOf(f.steps, 11) as unknown as Rec[]).map(fn)]]));
+  const of = (a: string, x: Rec) => (l: Rec): Rec => (l.address === a ? { ...l, ...x } : l);
+  // [case, committed record, served tree, Ed25519, the addresses under the threshold, by hand from the fixture's readings]; the three cases
+  // where the rule and holder_counted part first (lines the reread binds), so that at the base the test reds there, by an assertion.
+  const cases: Array<[string, DojoServedData, Tree, live.VerifyEd25519, string[]]> = [
+    ["a holder line without a day value, listed", c9, at11(of(ADDR.B, { reads: none, day_value: null })), ed25519, []],
+    ["a program line under the threshold, hidden", c9, at11(of(ADDR.P, { reads: ["1", "1", "1", "1"], day_value: "1" })), ed25519, [ADDR.B, ADDR.P]],
+    ["two lines at the threshold exactly, listed", c9, at11((l) => (l.address === ADDR.A ? l
+      : { ...l, reads: [d, d, d, d], day_value: d, holder_counted: l.class === "holder" })), ed25519, []],
+    ["reread E2", c9, e2, ed25519, [ADDR.B]], ["committed E2", c12, e2, noEd25519, [ADDR.B]], ["reread E1", c8, e1, ed25519, []],
+    ["committed E1", c9, e2, noEd25519, []]];
+  for (const [name, c, tree, ed, hidden] of cases) {
     const { view, table } = await run(c, tree, ed), h = view.head ?? assert.fail(name), t = rowsOf(table);
-    // The oracle: the class and holder_counted of each signed line of the file the head shown names, read from the served bytes.
+    // The oracle: the day value of each signed line of the file the head shown names, against the threshold of its version line.
     const file = (tree.get(`lines/${h.lines_sha256}.jsonl`) ?? assert.fail(name)).toString().split(NL).slice(0, -1).map((s) => JSON.parse(s) as Rec);
-    const dust = file.filter((o) => o.class === "holder" && o.holder_counted === false).map((o) => String(o.address));
-    assert.deepEqual([t.versioned, dust.length > 0], [versioned, versioned], `${name}: a version in force, and a dust line under it only`);
-    // Listed: every line without a version; under one, every line but the holder lines not counted (program lines stay listed).
-    const want = file.map((o) => String(o.address)).filter((a) => !dust.includes(a));
+    const dust = dustIn(tree, h), dusty = file.filter((o) => under(dust, o)).map((o) => String(o.address)).sort();
+    assert.deepEqual([view.note, t.versioned, dusty], [ed === ed25519 ? T.rereadDone : T.rereadNoCheck, dust !== null, [...hidden].sort()],
+      `${name}: the head shown, a version in force or none, the lines under its threshold`);
+    // Listed: every line but those, holder or program lines; every line still bound in the signed order; the order of the lines listed.
+    const want = file.map((o) => String(o.address)).filter((a) => !dusty.includes(a));
     assert.deepEqual(t.shown.map((r) => r.address).sort(), want.sort(), `${name}: the lines listed`);
-    // Every line is still bound in the signed order; the lines listed keep the order of all (hold score, highest first, then address).
     assert.deepEqual(t.bound.map((r) => r.address), file.map((o) => String(o.address)), `${name}: every line bound`);
     const order = [...t.shown].sort((p, q) => (BigInt(p.score) === BigInt(q.score) ? Buffer.compare(Buffer.from(p.address), Buffer.from(q.address))
       : BigInt(p.score) > BigInt(q.score) ? -1 : 1));
     assert.deepEqual(t.shown, order, `${name}: the order of the lines listed`);
-    // The look-up still finds a hidden line; its row says that it is not listed (the page then says it is under the dust threshold).
-    for (const a of dust) {
-      const out = dojoLookupOf(a, t.bound);
-      assert.deepEqual([out.kind, out.kind === "found" && out.row.listed], ["found", false], `${a}: found, not listed`);
+    // The look-up the component makes still finds a hidden line; its row says that it is not listed (the page then says so).
+    for (const a of dusty) {
+      const out = added(lookups, "dojoTableLookupOf")(a, t);
+      assert.deepEqual([out?.kind, out?.kind === "found" && out.row.listed], ["found", false], `${a}: found, not listed`);
     }
   }
+});
+
+// killer: apps/site/lib/dojo-lookup.ts:47 CONST "table.bound" -> "table.shown"
+test("dojo_table_look_up_searches_every_line_bound", async () => {
+  const tableLookupOf = added(await lookupModule(), "dojoTableLookupOf"), { e2, c9 } = await records();
+  // C-2 of the G2 of SITE-PREP: the look-up the component makes searches every line bound, a line the table does not list included,
+  // never the lines shown (fewer under a version); its outcome is that of dojoLookupOf on them; nothing before the lines are bound.
+  const t = rowsOf((await run(c9, e2)).table), hidden = t.bound.filter((r) => !t.shown.includes(r));
+  assert.deepEqual([t.versioned, hidden.length > 0, t.shown.length > 0], [true, true, true], "a version in force: lines listed, and lines not");
+  for (const row of t.bound) {
+    const out = tableLookupOf(`  ${row.address} `, t);
+    assert.ok(out?.kind === "found" && out.row === row, `${row.address}: its row, listed or not`);
+  }
+  assert.deepEqual([tableLookupOf("not an address", t), tableLookupOf(ADDR.D, t)], [{ kind: "invalid" }, { kind: "absent" }], "as dojoLookupOf");
+  for (const kind of ["wait", "none", "refused"] as const) assert.equal(tableLookupOf(ADDR.A, { kind }), null, `${kind}: no look-up`);
 });

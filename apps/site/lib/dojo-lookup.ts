@@ -3,7 +3,7 @@
 // by the rule of the reader's tool BEFORE any use (ownerClass of apps/dojo/scripts/dojo-core.mjs does not throw on it: pinned equal
 // by test), then searched EXACTLY among the rows already bound, in the order of the signed file (strict byte order of addresses), by
 // bisection. It enters no request and no link, it is never kept, and an outcome never carries it: the row found, or no row.
-import type { DojoTableRow } from "./dojo-served.ts";
+import type { DojoTable, DojoTableRow } from "./dojo-served.ts";
 
 /** The Bitcoin alphabet of base58: the digits but zero, the letters but capital O, capital I and small l. */
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -39,4 +39,10 @@ export function dojoLookupOf(typed: string, bound: readonly DojoTableRow[]): Doj
   if (!isDojoAddress(typed)) return { kind: "invalid" };
   const row = findDojoRow(bound, typed.trim());
   return row === null ? { kind: "absent" } : { kind: "found", row };
+}
+
+/** The look-up of the table (components/dojo/dojo-table.tsx): the text typed, searched among EVERY line bound, a line the table does not
+ *  list included (under the dust threshold of a version in force), never among the lines shown; no look-up before the lines are bound. */
+export function dojoTableLookupOf(typed: string, table: DojoTable): DojoLookup | null {
+  return table.kind === "rows" ? dojoLookupOf(typed, table.bound) : null;
 }

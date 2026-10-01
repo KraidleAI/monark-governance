@@ -63,7 +63,8 @@ const tokens = (raw: string, d: number): string => {
 /** The figures a reader recomputes by hand from the served tree: the last snapshot line, its lines file, the anchor, the version. */
 function expected(tree: Tree): Rec {
   const lines = (tree.get("timeline.jsonl") ?? Buffer.alloc(0)).toString().trimEnd().split("\n").map((s) => JSON.parse(s) as Rec);
-  const head = lines.filter((l) => l.kind === "snapshot").pop() ?? {}, anchor = lines.find((l) => l.kind === "anchor") ?? {};
+  const head = lines.filter((l) => l.kind === "snapshot").pop() ?? {};
+  const anchor = lines.filter((l) => l.kind === "anchor" && Number(l.seq) < Number(head.seq)).pop() ?? {}; // the anchor in force at the head
   const v = lines.find((l) => l.kind === "price_version" && l.price_version === head.price_version) ?? {}, d = head.decimals as number;
   const w = { validation_days: String(anchor.validation_days) }; // the window of the anchor in days, the method sentence's figure in every state
   if (head.status === "abstained") return { state: "EA", day: head.day, ...w,
@@ -76,7 +77,7 @@ function expected(tree: Tree): Rec {
   Object.assign(out, w);
   if (head.price_version === null) return out;
   return { ...out, threshold_unit_token_days: tokens(String(v.threshold_unit), d), holders_count: String(objs.filter((o) => o.holder_counted === true).length),
-    dust_threshold_tokens: tokens(String(v.dust_threshold), d) };
+    dust_threshold_tokens: tokens(String(v.dust_threshold), d), migration_days: String((anchor.tier_windows as number[])[4]) };
 }
 /** The committed facts a reader recomputes from the served bytes: the last snapshot line's hash (SHA-256 of its canonical bytes as
  *  served), its key and instant, the counts of lines and snapshots, the SHA-256 of the timeline and of the served key set. */

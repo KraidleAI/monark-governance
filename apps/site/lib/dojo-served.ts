@@ -4,7 +4,7 @@
 //   E0: no record (no served snapshot): no page and no link; EA: the head is abstained: its day, and the unit under a version in force;
 //   E1: the head is counted with no version in force: day, readings made and scheduled, slots, lines, root, the two totals in token-days;
 //   E2: counted under a version in force: E1 plus the unit in token-days, the count of holders and the dust threshold in tokens,
-//       each shifted by the mint's decimals, never a price.
+//       each shifted by the mint's decimals, never a price, and the Migration window of the anchor in force, in days (the tier sentence).
 // FAIL-CLOSED: a record whose state and figures disagree throws, so the build reds rather than render a partial state.
 // THE REREAD (components/dojo/dojo-live.tsx wires Web Crypto and a same-origin GET in; the root tests wire node:crypto and served
 // trees): one view for the first paint and after the reread, its sentences chosen by dojoBodyOf and filled by sentenceParts (the one
@@ -20,7 +20,7 @@ export type DojoPageFigures =
   | { state: "E0" }
   | { state: "EA"; day: string; validation_days: string; threshold_unit_token_days?: string }
   | ({ state: "E1"; validation_days: string } & DojoCountedFigures)
-  | ({ state: "E2"; validation_days: string; threshold_unit_token_days: string; holders_count: string; dust_threshold_tokens: string } & DojoCountedFigures);
+  | ({ state: "E2"; validation_days: string } & DojoVersionedFigures & DojoCountedFigures);
 /** The figures of a state that renders: every state but E0. */
 export type DojoShownFigures = Exclude<DojoPageFigures, { state: "E0" }>;
 
@@ -35,7 +35,7 @@ export function shiftUnits(raw: string, decimals: number): string {
   return decimals === 0 ? whole : `${whole}.${padded.slice(cut)}`;
 }
 
-/** The figures of the committed record by state, with the validation window of its anchor in days; E0 exactly when there is no record. */
+/** The figures of the committed record by state, with its anchor's validation window in days (E2: and its Migration window); E0 iff no record. */
 export function dojoPageFiguresOf(data: DojoServedData | null): DojoPageFigures {
   if (data === null) return { state: "E0" };
   const h = data.head, validation_days = windowOf(data);
@@ -46,7 +46,7 @@ export function dojoPageFiguresOf(data: DojoServedData | null): DojoPageFigures 
   if (h.price_version === null) return { state: "E1", validation_days, ...counted };
   if (h.threshold_unit === null || h.dust_threshold === null || h.holders_count === null) return fail("a version in force carries no unit, dust threshold or holders");
   return { state: "E2", ...counted, threshold_unit_token_days: shiftUnits(h.threshold_unit, h.decimals), holders_count: String(h.holders_count),
-    dust_threshold_tokens: shiftUnits(h.dust_threshold, h.decimals), validation_days };
+    dust_threshold_tokens: shiftUnits(h.dust_threshold, h.decimals), validation_days, migration_days: migrationOf(data) };
 }
 
 /** The figures of a record that renders (a record is never E0: the page is no page without one). */
@@ -151,8 +151,8 @@ export async function dojoLiveViewOf(committed: DojoServedData, deps: DojoLiveVi
 // -- The table of the lines (components/dojo/dojo-table.tsx wires the same GET and SHA-256 in; the root tests wire served trees) --
 /** The words of the table (DOJO_TABLE of lib/dojo-copy.ts), injected as the sentences are. */
 export type DojoTableWords = { readonly [K in keyof typeof DOJO_TABLE]: string };
-/** One line of the head's lines file: the line AS SERVED, its address, its hold score (a decimal), whether the table lists it (a holder
- *  line under the dust threshold of a version in force is bound and searched, never listed) and its cells, in the columns' order. */
+/** One line of the head's lines file: the line AS SERVED, its address, its hold score (a decimal), whether the table lists it (a line whose
+ *  day value is under the dust threshold of a version in force is bound and searched, never listed) and its cells, in the columns' order. */
 export interface DojoTableRow { line: string; address: string; score: string; listed: boolean; cells: string[] }
 /** wait: no table yet (the build, or a file still read): the sentence of a table to come; none: the head shown is abstained; refused: no
  *  line is listed, and a sentence says so; rows: every line, bound and searched in the order of the signed file (strict byte order of
@@ -176,26 +176,26 @@ const byScore = (x: DojoTableRow, y: DojoTableRow): number =>
   y.score.length - x.score.length || (x.score === y.score ? (x.address < y.address ? -1 : 1) : x.score < y.score ? 1 : -1);
 /** The table of the head the view shows, once the reread has an outcome and never before (one read of a file): the reread's lines when
  *  that head is the reread one (no second GET), else one GET of the committed head's lines file, bound to its signed values. Every line
- *  in form (an address of the base58 alphabet, in strict byte order; a class; three decimals; a unit count and a tier index from zero
- *  to five under a version, both null without one; holder_counted a boolean under a version, never true for a program line, null without
- *  one), or no line at all; each cell a declared function of one field of its line. Listed: every line without a version; under one, every
- *  line but the holder lines not counted (under its dust threshold), each still bound and searched. */
+ *  in form (an address of the base58 alphabet, in strict byte order; a class; three decimals and a day value, a decimal or null; a unit
+ *  count and a tier index from zero to five under a version, both null without one; holder_counted a boolean under a version, never true
+ *  for a program line, null without one), or no line; each cell a declared function of one field of its line. Listed: every line without a
+ *  version; under one, all but the lines whose day value is under its dust threshold (one without a day value stays), each bound and searched. */
 export async function dojoTableOf(view: DojoLiveView, deps: DojoTableDeps): Promise<DojoTable> {
   const h = view.head, W = deps.words;
   if (h === undefined || view.figures.state === "EA") return dojoTableFirstOf(view);
   try {
     const rows = view.rows ?? (await deps.bind(await deps.read(`lines/${h.lines_sha256}.jsonl`), h));
     if (typeof rows === "string") return { kind: "refused" };
-    const versioned = h.price_version !== null, shift = (x: string): string => shiftUnits(x, h.decimals);
+    const versioned = h.price_version !== null, shift = (x: string): string => shiftUnits(x, h.decimals), dust = dustOf(h);
     const bound = rows.map((line): DojoTableRow => {
       const o = JSON.parse(line) as Record<string, unknown>, a = o.address, c = o.class, t = o.tier, u = o.units, hc = o.holder_counted;
       const tiered = versioned ? decimal(u) && Number.isSafeInteger(t) && (t as number) >= 0 && (t as number) <= 5 : u === null && t === null;
       if (typeof a !== "string" || !BASE58.test(a) || (c !== "holder" && c !== "program") || !tiered) return fail("a line out of form");
-      const [s, v, p] = [o.score, o.validated, o.provisional];
-      if (!decimal(s) || !decimal(v) || !decimal(p)) return fail("a line out of form");
+      const [s, v, p, m] = [o.score, o.validated, o.provisional, o.day_value];
+      if (!decimal(s) || !decimal(v) || !decimal(p) || (m !== null && !decimal(m))) return fail("a line out of form");
       if (versioned ? typeof hc !== "boolean" || (c === "program" && hc) : hc !== null) return fail("a line out of form");
       const tier = versioned ? [u as string, t === 0 ? W.none : (deps.tiers[(t as number) - 1] ?? fail("a tier out of the list"))] : [];
-      return { line, address: a, score: s, listed: c === "program" || hc !== false, cells: [a, W[c], shift(s), shift(v), shift(p), ...tier] };
+      return { line, address: a, score: s, listed: dust === null || m === null || BigInt(m) >= dust, cells: [a, W[c], shift(s), shift(v), shift(p), ...tier] };
     });
     if (bound.some((r, i) => i > 0 && (bound[i - 1] as DojoTableRow).address >= r.address)) return { kind: "refused" };
     const columns = [W.address, W.class, W.holdScore, W.validated, W.provisional, ...(versioned ? [W.units, W.tier] : [])];
@@ -221,3 +221,16 @@ function windowOf(data: DojoServedData): string {
 function unitOf(h: DojoServedHead): { threshold_unit_token_days?: string } {
   return h.threshold_unit === null ? {} : { threshold_unit_token_days: shiftUnits(h.threshold_unit, h.decimals) };
 }
+/** The dust threshold of the version in force at the head, in base units, to which the table compares the day value of a line (the version
+ *  line's, as the loader and the reread carry it): null without a version; a version without a decimal threshold is fail-closed (no line). */
+function dustOf(h: DojoServedHead): bigint | null {
+  return h.price_version === null ? null : decimal(h.dust_threshold) ? BigInt(h.dust_threshold) : fail("a version without its dust threshold");
+}
+/** The Migration window of the record's anchor in days, tier_windows[4], which the tier sentence names (never a literal of the closed list,
+ *  DOJO-COPY-DURATIONS-DERIVED-1): the loader's integer of at least one, else fail-closed. */
+function migrationOf(data: DojoServedData): string {
+  const w = data.timeline.anchor.tier_windows, m: unknown = Array.isArray(w) ? w[4] : undefined;
+  return typeof m === "number" && Number.isSafeInteger(m) && m >= 1 ? String(m) : fail("the anchor carries no Migration window");
+}
+/** The figures E2 adds to E1: the unit in token-days, the count of holders, the dust threshold in tokens, the Migration window in days. */
+interface DojoVersionedFigures { threshold_unit_token_days: string; holders_count: string; dust_threshold_tokens: string; migration_days: string }

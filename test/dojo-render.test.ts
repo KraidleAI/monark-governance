@@ -22,7 +22,7 @@ import * as copy from "../apps/site/lib/dojo-copy.ts";
 import { dojoLookupOf } from "../apps/site/lib/dojo-lookup.ts";
 import { buildDojoServed, loadDojoServed, DOJO_SERVED_REL, type DojoChainDeps, type DojoServedData } from "../apps/site/lib/dojo-served-load.ts";
 import { assertDojoBody, dojoExpected } from "../scripts/assert-fleet-html.mjs";
-import { dojoFixture, dojoKeyringOf, newKey, render, type Step } from "../apps/dojo/test/helpers/dojo-fixture.ts";
+import { ANCHOR_DAY, at, dojoFixture, dojoKeyringOf, newKey, render, type Step } from "../apps/dojo/test/helpers/dojo-fixture.ts";
 import { walkDojoTimeline } from "../apps/dojo/scripts/dojo-chain.mjs";
 import { dojoTrustOf, verifyDojoServed } from "../apps/dojo/scripts/dojo-verify.mjs";
 import { rootOf } from "../apps/dojo/scripts/dojo-core.mjs";
@@ -124,7 +124,11 @@ async function expectedAt(dir: string): Promise<Exclude<Awaited<ReturnType<typeo
   return e.state === "E0" ? assert.fail("a record was expected") : e;
 }
 
+// killer: apps/site/app/dojo/page.tsx:19 CONST "[T.exclusion," -> "[T.method, T.exclusion,"
 // killer: apps/site/app/dojo/page.tsx:39 CONST "<DojoSentence text={T.method} figures={figures} />" -> "{T.method}"
+// killer: scripts/assert-fleet-html.mjs:678 CONST "String(A.tier_windows[4])" -> "String(A.tier_windows[3])"
+// killer: apps/site/lib/dojo-served.ts:49 CONST "migration_days: migrationOf(data)" -> "migration_days: validation_days"
+// killer: apps/site/lib/dojo-copy.ts:41 CONST "{migration_days} days" -> "one hundred and eighty days"
 test("dojo_render_page_passes_the_build_check", async () => {
   const { recs } = await records(), pages = new Map<string, string>();
   for (const state of ["E1", "E2", "EA"] as const) {
@@ -132,6 +136,10 @@ test("dojo_render_page_passes_the_build_check", async () => {
     const days = String(((record.timeline as Rec).anchor as Rec).validation_days);
     // The method sentence names the validation window of the record's anchor, in days: never a duration typed in the copy.
     assert.ok(textOf(html).includes(`has been held for ${days} days in a row`), `${state}: the anchor's window, ${days} days`);
+    // The tier sentence (E2 only) names the Migration window of the same anchor, tier_windows[4], in days; no page says it in words.
+    const migration = String((((record.timeline as Rec).anchor as Rec).tier_windows as number[])[4]);
+    assert.deepEqual([textOf(html).includes(`held for at least ${migration} days, read from its line`), textOf(html).includes("one hundred and eighty")],
+      [state === "E2", false], `${state}: the anchor's Migration window, ${migration} days, in E2 alone; no duration typed in words`);
     const expected = await expectedAt(dir);
     assert.doesNotThrow(() => assertDojoBody({ html, expected }), `${state}: the page the server renders passes the build check`);
     pages.set(state, html);
@@ -142,6 +150,16 @@ test("dojo_render_page_passes_the_build_check", async () => {
   assert.ok(textOf(html).includes("has been held for 60 days in a row"), "the window of the anchor, whatever it is");
   assert.doesNotThrow(() => assertDojoBody({ html, expected }), "the page of that anchor passes");
   assert.throws(() => assertDojoBody({ html: pages.get("E2") ?? "", expected }), /is absent|occurs 0 time/, "a window other than the anchor's is refused");
+  // A second anchor line, as on the served chronology (line 2, Migration at 90 days, same seed and day): the record takes the anchor in force,
+  // the page names its Migration window and passes; the page of the first anchor is refused against it (DOJO-COPY-DURATIONS-DERIVED-1).
+  const fx = dojoFixture(), [a1, ...rest] = fx.steps, one = a1 ?? assert.fail("an anchor line"), k1 = dojoKeyringOf([[fx.key, 1]]);
+  const a2: Step = { key: fx.key, body: { ...one.body, published_at: at(ANCHOR_DAY, 13), tier_windows: [30, 30, 30, 30, 90] } };
+  const two = await buildDojoServed({ readAt: "2026-10-11T06:00:00.000Z", tree: render([one, a2, ...rest]), committedKeyring: Buffer.from(canonical(k1) + NL) },
+    DEPS), a = (two.timeline as Rec).anchor as Rec, dir2 = rootWith(two), html2 = await pageAt(dir2), expected2 = await expectedAt(dir2);
+  assert.deepEqual([a.seq, a.tier_windows, textOf(html2).includes("held for at least 90 days, read from its line")], [2, [30, 30, 30, 30, 90], true],
+    "the anchor in force is line 2, and the page names its Migration window, 90 days");
+  assert.doesNotThrow(() => assertDojoBody({ html: html2, expected: expected2 }), "the page of the anchor in force passes the build check");
+  assert.throws(() => assertDojoBody({ html: pages.get("E2") ?? "", expected: expected2 }), /is absent|occurs 0 time/, "the first anchor's page is refused");
 });
 
 // killer: apps/site/components/dojo/dojo-table.tsx:67 CONST "slice(0, count)" -> "slice(0, count + 1)"
@@ -192,21 +210,34 @@ test("dojo_render_table_says_a_look_up_in_a_status_region", async () => {
 
 // killer: apps/site/components/dojo/dojo-table.tsx:71 CONST "table.versioned ? T.tableDust : T.tableNoVersion" -> "T.tableDust"
 test("dojo_render_table_says_the_dust_rule", async () => {
-  const { trees, recs } = await records();
-  const e1 = rowsOf(await tableOf(loadDojoServed(rootWith(recs.E1)) ?? assert.fail("E1"), trees.E1));
-  const e2 = rowsOf(await tableOf(loadDojoServed(rootWith(recs.E2)) ?? assert.fail("E2"), trees.E2));
+  const { trees, recs } = await records(), c2 = loadDojoServed(rootWith(recs.E2)) ?? assert.fail("E2");
+  const e1 = rowsOf(await tableOf(loadDojoServed(rootWith(recs.E1)) ?? assert.fail("E1"), trees.E1)), e2 = rowsOf(await tableOf(c2, trees.E2));
   // Without a unit version: every line listed, and the sentence of what the first version changes.
   const h1 = await body(e1);
   assert.deepEqual([h1.includes(T.tableNoVersion), h1.includes(T.tableDust), rowsIn(h1).length], [true, false, e1.bound.length], "E1: every line");
-  // Under a version: the sentence of the dust rule; a holder line not counted is bound, never listed, and a look-up finds it and says so.
-  const hidden = e2.bound.filter((r) => (JSON.parse(r.line) as Rec).class === "holder" && (JSON.parse(r.line) as Rec).holder_counted === false);
-  assert.ok(hidden.length > 0, "the fixture holds a holder line under the dust threshold");
-  const h2 = await body(e2), listed = rowsIn(h2).map((cells) => cells[0]);
-  assert.deepEqual([h2.includes(T.tableDust), h2.includes(T.tableNoVersion), hidden.some((r) => listed.includes(r.address))], [true, false, false],
-    "E2: the dust rule, and no hidden line listed");
-  for (const r of hidden) {
-    const html = await body(e2, dojoLookupOf(r.address, e2.bound));
-    assert.deepEqual([html.includes(`<p role="status">${T.lookupDust}</p>`), rowsIn(html)], [true, [r.cells]], `${r.address}: found, said under the threshold`);
+  // Under a version: the sentence of the dust rule; a line whose day value is under the dust threshold of the version line the served
+  // timeline signs (never the module's) is bound, never listed, and a look-up finds it and says so (C-1 and N-3 of the G2 of SITE-PREP).
+  // First the same lines with the program line under the threshold and the holder line under it read without a day value, then the fixture's.
+  const tl = (trees.E2.get("timeline.jsonl") ?? assert.fail("a timeline")).toString().split(NL).filter((s) => s !== "").map((s) => JSON.parse(s) as Rec);
+  const dust = BigInt(String((tl.find((l) => l.kind === "price_version") ?? assert.fail("a version line")).dust_threshold));
+  const under = (r: served.DojoTableRow): boolean => {
+    const v = (JSON.parse(r.line) as Rec).day_value;
+    return typeof v === "string" && BigInt(v) < dust;
+  };
+  const swap = (o: Rec): Rec => (o.class === "program" ? { ...o, day_value: "1" } : BigInt(String(o.day_value)) < dust ? { ...o, day_value: null } : o);
+  const quiet = { read: () => assert.fail("no GET"), bind: () => assert.fail("no binding"), words: copy.DOJO_TABLE, tiers: copy.DOJO_TIER_NAMES };
+  const view = { ...served.dojoFirstViewOf(c2, T), head: c2.head, rows: e2.bound.map((r) => canonical(swap(JSON.parse(r.line) as Rec))) };
+  const swapped = rowsOf(await served.dojoTableOf(view, quiet)), lookups = await import("../apps/site/lib/dojo-lookup.ts");
+  for (const [name, t, klass] of [["a program line under it, a holder line without a day value", swapped, "program"], ["the fixture", e2, "holder"]] as const) {
+    const hidden = t.bound.filter(under), h2 = await body(t), listed = rowsIn(h2).map((cells) => cells[0] ?? "").sort();
+    assert.deepEqual([hidden.map((r) => (JSON.parse(r.line) as Rec).class), h2.includes(T.tableDust), h2.includes(T.tableNoVersion)], [[klass], true, false],
+      `${name}: one ${klass} line under the threshold, and the dust rule`);
+    assert.deepEqual(listed, t.bound.filter((r) => !under(r)).map((r) => r.address).sort(), `${name}: every line listed but the one under the threshold`);
+    for (const r of hidden) {
+      assert.ok("dojoTableLookupOf" in lookups, "lib/dojo-lookup.ts exports dojoTableLookupOf (the look-up the component makes)");
+      const html = await body(t, lookups.dojoTableLookupOf(r.address, t)), said = [html.includes(`<p role="status">${T.lookupDust}</p>`), rowsIn(html)];
+      assert.deepEqual(said, [true, [r.cells]], `${r.address}: found, said under the threshold`);
+    }
   }
 });
 

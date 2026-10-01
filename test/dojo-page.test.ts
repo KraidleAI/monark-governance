@@ -52,9 +52,10 @@ const add = (html: string, s: string): string => html.replace("</main>", () => `
 const valuesOf = (f: DojoPageFigures): string[] => (f.state === "E0" ? [] : [f.validation_days, ...(f.state === "EA"
   ? [f.day, ...(f.threshold_unit_token_days === undefined ? [] : [f.threshold_unit_token_days])] : [f.day, f.reads_done, f.k_reads, f.slot_min, f.slot_max,
     f.lines_count, f.root, f.score_total, f.validated_total,
-    ...(f.state === "E2" ? [f.threshold_unit_token_days, f.holders_count, f.dust_threshold_tokens] : [])])]);
+    ...(f.state === "E2" ? [f.threshold_unit_token_days, f.holders_count, f.dust_threshold_tokens, f.migration_days] : [])])]);
 
-// killer: scripts/assert-fleet-html.mjs:679 CONST "T.rereadFirst, ...(counted" -> "...(counted"
+// killer: scripts/assert-fleet-html.mjs:681 CONST "T.rereadFirst, ...(counted" -> "...(counted"
+// killer: scripts/assert-fleet-html.mjs:640 SDL "unfilled" -> ""
 test("dojo_page_renders_served_figures_only — per state, each listed figure once, no other number; the state's sentences, the reread's first", async () => {
   const byState: Record<string, Shown> = {};
   for (const state of ["E1", "E2", "EA", "EAV"] as const) {
@@ -91,6 +92,7 @@ test("dojo_page_renders_served_figures_only — per state, each listed figure on
     red(page.replace("<main>", '<main><p title="7"></p>'), /numeric token/, "a number in a visible attribute (G2-M1)");
     red(page.replace("<main>", `<main title="${historyDay}">`), /numeric token/, "a day of the history in the <main> tag's own attribute (G2-M16)");
     red(add(page, "\u0663"), /non-ASCII digits/, "a number in non-ASCII digits (G2-M2)");
+    red(add(page, copy.DOJO_TEXT.method), /unfilled/, "a sentence of the closed list with its {name} unfilled (N-1 and G2-M6 of the G2 of SITE-PREP)");
     assert.doesNotThrow(() => assertDojoBody({ html: add(page, first.value), expected: { ...e, figures: [...e.figures, { value: first.value, source: "an equal figure" }] } }), `${state}: two figures of equal value, both rendered (G2-M3)`);
   }
   const pick = (s: string): Shown => byState[s] ?? assert.fail(`the state ${s} is missing`), e1 = pick("E1"), e2 = pick("E2"), ea = pick("EA"), eav = pick("EAV");
@@ -116,7 +118,10 @@ test("dojo_page_lexicon_is_closed — the closed list of texts is the approved o
   assert.deepEqual([texts.length, words.length], [32, 13], "the name, the title and the thirty sentences; the thirteen words of the table");
   // ADR-DOJO-PR-4, G0 fold of PR-4c-2 (TXT-14b-r2, 15r, 15a, 15b-r, 17, 17a, 17c, DOJO_TABLE) and decision 301 (TXT-17o), pinned at the G1 of PR-4c-2a;
   // part 3 of the page: TXT-5 names the anchor's window, TXT-17c its third case, the dust rule (17, 17a, 15r, 15b-r, three sentences added).
-  const TEXTS_SHA256 = "5c11eb6a9f72c4a0046c45d4df272aba7088e8434e05b2189cc34e17c77963f5";
+  // SITE-CORR (C-1 and N-3 of the G2 of SITE-PREP): tableDust and tableNoVersion say "lines", every line under the threshold; and the
+  // tier sentence names the Migration window of the anchor in force, {migration_days}, never typed (DOJO-COPY-DURATIONS-DERIVED-1).
+  const TEXTS_SHA256 = "e52373eef751a9b84ed4bb0eb9e9b7724dc28f0eaf43c7c3b284c628bb978a29";
+  assert.deepEqual(texts.filter((t) => t.includes("one hundred and eighty")), [], "no duration of the closed list is typed in words");
   const closed = { DOJO_TEXT: copy.DOJO_TEXT, DOJO_TITLE: copy.DOJO_TITLE, DOJO_TIER_NAMES: copy.DOJO_TIER_NAMES, DOJO_TABLE: copy.DOJO_TABLE };
   assert.equal(createHash("sha256").update(canonical(closed)).digest("hex"), TEXTS_SHA256, "the closed list of texts is the approved one, byte for byte");
   for (const [s, re] of [[copy.DOJO_TEXT.bounds, /What it does not show:/], [copy.DOJO_TEXT.check, /The check does not read the chain\./], [copy.DOJO_TEXT.beacon, /this page does not check that signature/]] as const) assert.match(s, re, "a denial of the approved wording");

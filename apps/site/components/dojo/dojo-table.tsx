@@ -4,16 +4,16 @@
 // one address among them. First paint (the build): the sentence of a table to come, and nothing under an abstained head. Once the
 // view of the figures section has an outcome, lib/dojo-served.ts (dojoTableOf) binds the lines of the head it shows: those its reread
 // already bound, else one GET of the committed head's lines file (under the limits of the reader's tool, the module's own) bound to
-// its signed values; a refusal lists no line and says so, never its reason. Under a unit version in force, a holder line under its
-// dust threshold is bound and searched, never listed; without one, every line is listed and a sentence says what the first version
-// changes. Every cell is rendered by property access, each in its own element; every text is read from lib/dojo-copy.ts. The address
+// its signed values; a refusal lists no line and says so, never its reason. Under a unit version in force, a line whose day value is
+// under its dust threshold is bound and searched, never listed; without one, every line is listed and a sentence says what the first
+// version changes. Every cell is rendered by property access, each in its own element; every text is read from lib/dojo-copy.ts. The address
 // typed stays in its field: read on the button or on Enter, checked by lib/dojo-lookup.ts before any use and searched among the lines
 // already bound; it enters no request, link or kept value, and the page never shows it back. DojoTable holds the state and the
 // effect; DojoTableBody renders one state with no hook of its own, so that a server render shows each state as the browser does.
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { bindDojoLines, boundedSource, type DojoLiveGet, type Sha256 } from "@/lib/dojo-live";
 import { dojoTableFirstOf, dojoTableOf, type DojoLiveView, type DojoTable as Table } from "@/lib/dojo-served";
-import { dojoLookupOf, type DojoLookup } from "@/lib/dojo-lookup";
+import { dojoTableLookupOf, type DojoLookup } from "@/lib/dojo-lookup";
 import type { DojoServedHead } from "@/lib/dojo-served-load";
 import { DOJO_TABLE as W, DOJO_TEXT as T, DOJO_TIER_NAMES } from "@/lib/dojo-copy";
 
@@ -40,7 +40,7 @@ export function DojoTable({ view, get, sha256 }: { view: DojoLiveView; get: Dojo
     };
   }, [view, get, sha256]);
   const look = () => {
-    if (table.kind === "rows") setFound(dojoLookupOf(typed.current?.value ?? "", table.bound));
+    setFound(dojoTableLookupOf(typed.current?.value ?? "", table));
   };
   const more = () => setCount(count + STEP);
   return <DojoTableBody table={table} found={found} count={count} typed={typed} look={look} all={() => setFound(null)} more={more} />;

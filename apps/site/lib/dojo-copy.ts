@@ -38,7 +38,7 @@ export const DOJO_TEXT = {
     "counted days with both daily series read on the chain, and until it applies no address holds a unit or a tier.",
   tier:
     `Tier of an address: the highest of ${EGG}, ${CATERPILLAR}, ${CHRYSALIS}, ${MONARCH} and ${MIGRATION} whose number of units ` +
-    `it holds, ${MIGRATION} counting only the parts held for at least one hundred and eighty days, read from its line.`,
+    `it holds, ${MIGRATION} counting only the parts held for at least {migration_days} days, read from its line.`,
   method:
     "Each day, every address is read at instants drawn from a seed committed in advance and revealed afterwards; the day counts " +
     "the smallest reading, and an account no longer found counts as zero. When a balance decreases, the part that left starts " +
@@ -87,10 +87,10 @@ export const DOJO_TEXT = {
     "root match the signed line; hold scores and points are in token-days.",
   tableOrder: "Listed by hold score, highest first; equal hold scores by address.",
   tableDust:
-    "Holder lines under the dust threshold of the version in force are published and not listed here; the look-up below searches " +
+    "Lines under the dust threshold of the version in force are published and not listed here; the look-up below searches " +
     "every line.",
   tableNoVersion:
-    "No unit version is in force yet, so every line is listed; once the first one applies, holder lines under its dust threshold " +
+    "No unit version is in force yet, so every line is listed; once the first one applies, lines under its dust threshold " +
     "are published and not listed here.",
   tableRefused:
     "The lines file of the snapshot shown above could not be read in your browser, did not match the signed line, or carries a " +

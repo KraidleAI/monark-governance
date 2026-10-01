@@ -85,6 +85,7 @@ async function e1(): Promise<{ f: ReturnType<typeof dojoFixture>; k: Rec; r1: Re
 }
 
 // killer: apps/site/lib/dojo-served.ts:143 CONST "head: o.head" -> "head: committed.head"
+// killer: apps/site/lib/dojo-served.ts:232 CONST "w[4]" -> "w[3]"
 test("dojo_live_renders_through_the_same_figures", async () => {
   const viewOf = added("dojoLiveViewOf"), firstOf = added("dojoFirstViewOf"), bodyOf = added("dojoBodyOf");
   const { k, r1, c, e2 } = await e1(), r2 = await recordOf(e2, k), after = await loaded(r2);
@@ -100,6 +101,9 @@ test("dojo_live_renders_through_the_same_figures", async () => {
   // Every state carries the validation window of the committed anchor in days, the one figure of the method sentence the page renders.
   assert.deepEqual([first.figures.validation_days, v.figures.validation_days], [String(c.timeline.anchor.validation_days),
     String(c.timeline.anchor.validation_days)], "the anchor's window, before and after the reread");
+  // Under a version, the Migration window of the committed anchor in days, tier_windows[4], the tier sentence's figure (DURATIONS-DERIVED-1).
+  const window4 = String((c.timeline.anchor.tier_windows as number[])[4]), mig = v.figures.state === "E2" ? v.figures.migration_days : null;
+  assert.deepEqual([v.figures.state, mig], ["E2", window4], "the anchor's Migration window, after the reread under a version");
   assert.deepEqual([first.note, v.note], [T.rereadFirst, T.rereadDone], "the first paint says TXT-14r; a reread where every check holds, TXT-14a");
   assert.deepStrictEqual(first.figures, served.dojoPageFiguresOf(c), "the first paint: the committed figures");
   assert.deepStrictEqual(v.figures, served.dojoPageFiguresOf(after), "the reread head's figures: those of the build of the same served tree");
@@ -110,7 +114,7 @@ test("dojo_live_renders_through_the_same_figures", async () => {
   assert.equal(shown(v)[1], T.rereadDone, "the view's sentence right after the head's sentence: the age of the figures is never hidden");
   const day = { day: "d", validation_days: "w" };
   const counted = { ...day, reads_done: "r", k_reads: "k", slot_min: "a", slot_max: "b", lines_count: "n", root: "h", score_total: "s",
-    validated_total: "v" }, unit = { threshold_unit_token_days: "u", dust_threshold_tokens: "t" };
+    validated_total: "v" }, unit = { threshold_unit_token_days: "u", dust_threshold_tokens: "t", migration_days: "m" };
   const orders: Array<[served.DojoShownFigures, served.DojoBodyKey[]]> = [[{ state: "E1", ...counted }, ["counted", "totals", "noVersion"]],
     [{ state: "E2", ...counted, ...unit, holders_count: "1" }, ["counted", "totals", "holder", "tiers", "tier"]],
     [{ state: "E2", ...counted, ...unit, holders_count: "2" }, ["counted", "totals", "holders", "tiers", "tier"]],
