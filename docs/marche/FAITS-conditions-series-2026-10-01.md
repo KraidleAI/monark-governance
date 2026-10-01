@@ -65,3 +65,5 @@ publiquement un étalonnage dérivé de ces séries (un kata) n'est pas couvert 
 - Coinbase BTC-USD : non enregistré. Bloqué par l'interdit IA et par l'interdit des œuvres dérivées ; décision du fondateur.
 - Binance BTCUSDT, ETHUSDT, BNBUSDT : enregistrables pour la recherche interne, après relecture de l'enregistreur par RECHERCHES.
   Ce sont des séries brutes non redistribuables. Le service public d'un kata qui en dérive attend une décision du fondateur.
+- Ajout du 2026-10-01 vers 01:10 UTC, à la demande du fondateur : Binance SOLUSDT (Solana), aux mêmes conditions que les trois
+  autres. Les mêmes clauses s'appliquent : aucune clause propre à un symbole dans les textes lus.
