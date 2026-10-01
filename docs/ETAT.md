@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 10:2x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 11:3x UTC.
 
 ## Règle
 
@@ -134,7 +134,12 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
 ## Ce qui reste pour la page
 
 1. **Partie 1, code** : finir les pièces en cours, les réunir sur `lot/page-v1`, une inspection, fusion au tronc.
-2. **Partie 2, mise en service sur le serveur Bell** : utilisateurs, arbres, clé, unités, ancre signée, répétition R, paquet d'historique provisoire (Eve du premier jour), premier jour compté d (lu sur le plan du collecteur, R + 2 attendu), paquet final après la clôture de d, ligne `history`, première publication.
+2. **Partie 2, mise en service ACCÉLÉRÉE sur le serveur Bell** (décision de l'investisseur du 2026-10-01, voir « Choix de travail ») :
+   faits le 2026-10-01 : contrôles, A-2, A-3 (arbre de collecte de `89403796`), A-4 (graines, fichier d'environnement), A-5 (unités,
+   minuterie non activée), A-2p. Journal privé : `F:/PRODUITS/dojo-mirror/JOURNAL-mise-en-service-2026-10-01.md`. Reste : arbre de
+   publication et clé (après DEPTH-CORR et l'envoi du trousseau), ancre signée sans attente du bloc Bitcoin, historique provisoire (lot
+   FAST-START), départ réel le jour de l'ancre, premier jour compté d = lendemain, paquet final après la clôture de d, ligne `history`,
+   première publication.
 3. **Partie 3, site** : synchro des données, mandataire, envoi du site, validation visuelle de l'investisseur.
 
 ## Choix de travail actuels (révisables)
@@ -150,6 +155,24 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - Prix : une course d'historique de plus. Résidu : une adresse qui acquiert des lots entre R − 1 et d − 1, puis ferme son compte avant
     le premier instant lu de d, fait sauter d (un jour de plus). Jamais une ligne fausse.
 
+- **Mise en service accélérée** (investisseur, 2026-10-01, mot pour mot : « différe la preuve bitcoin, accélére le travail, on doit
+  publier quelque chose, il faut finir le snapshot. avec les scores déja realisés a ce jour. et qui se mettent a jour. on rajoute le
+  timestamping aprés publication ») : plus de jour de répétition (lu comme un oui) ; ancre signée sans attendre le bloc Bitcoin,
+  horodatage après la première publication (DOJO-ANCHOR-OTS-AFTER-PUBLICATION-1) ; historique provisoire sans jour clos (lot FAST-START) ;
+  premier jour compté = lendemain du jour de l'ancre. Objectif : départ réel ce soir avant minuit UTC, page le 3 octobre, sinon le 4.
+- **Valeurs de l'ancre** (investisseur, 2026-10-01 ; amende DOJO-OBJECTIVES-1) : « 30 jours, l unité c est 1000$ tenu 30 JOURS. chaque
+  unité est un pallier. » et « 180 jours pour Migration ». Donc `objective_unit_microusd_days` 30 000 000 000, `tier_units` 1 à 5,
+  `tier_windows` 30, 30, 30, 30, 180, `validation_days` 30 ; inchangés : poussière 1 $, 7 jours de prix, 4 lectures, horizon 365.
+  Le texte du site « sixty days » (`apps/site/lib/dojo-copy.ts:46`) passe à « thirty » avant l'envoi du site (DOJO-COPY-VALIDATION-30-1).
+- **Reports après la première publication** (investisseur : « Oui, après publication » pour drand) : DOJO-BLS-VERIFY-1 (en attendant,
+  deux relais doivent rendre le même tirage, sinon pas de plan), PUBLISH-REQUEST-DEPTH-1, DOJO-UNIT-OFFLINE-ORACLE-1, collecte N-2 à N-5,
+  HELIUS-CREDIT-RECONCILE-1 (plancher conservateur 7 900 000 en attendant le relevé du tableau de bord).
+- **Dépôt `monark-governance`** : l'investisseur le rend public lui-même (« Je le rends public quand même »), après avertissement
+  (atelier entier, documents internes en français, adresse IP du serveur dans le mode d'emploi, noms internes) : exception de
+  l'investisseur au garde-fou sur l'adresse IP ; aucun envoi avant son signal.
+- **Test 42** (EXPORT-CI-TIMEOUT-BOUND-1, rapport `a1330724…`) : décidé (a), `npm run ci` passe de 600 à 1 800 s, `npm ci` reste à
+  600 s ; la lenteur vient de `apps/sentinel/test/ukemi-conc.test.ts` (32 586 fsync) sous contention d'entrées-sorties, pas de la page.
+  Items : UKEMI-CONC-FSYNC-1, TEST42-ORPHAN-KILL-1, HOST-FOREIGN-LOAD-CV4-1, et une pièce de plus pour VERIFY-TEST-DEAD-CHILD-2.
 - **Au-delà de la borne de profondeur** (orchestrateur, 2026-10-01, G7 sur C-1 du G2 DEPTH-BOUND) : un texte servi plus profond que 16
   n'est pas analysé ; chaque lecteur le refuse sous le code de sa forme (`keyring_invalid`, `timeline_malformed`, phrases du chargeur),
   JSON ou non. `not_json` ne nomme qu'un texte hors JSON en deçà de la borne. Le code ne change pas ; ligne datée d'ADR avec DEPTH-CORR.
