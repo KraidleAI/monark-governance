@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 00:3x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 01:4x UTC.
 
 ## Règle
 
@@ -39,17 +39,19 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
 
 - **Rien ne tourne sur le serveur** : aucune collecte, aucune clé de signature (`apps/dojo/keys` absent).
 - **Aucune donnée publiée** : pas de `apps/site/data/dojo-served.json`, donc la page ne s'affiche pas encore.
-- **Code en cours (partie 1)**, une branche par pièce :
-  - relais drand pour le premier pas réel (`lot/drand-1b`, plan fait, code en cours) ;
-  - grand livre `rpc-guard` : grand livre neuf, corps borné pour le collecteur, relevés entiers (`lot/rpcguard-first`, code en cours) ;
-  - écrivain unique de l'éditeur, `--unlock` explicite (`lot/single-writer`, code en cours).
-- **Déjà livré et réuni sur `lot/page-v1`** (tête `8aaba460`) :
+- **Corrections en cours avant l'inspection (partie 1)** :
+  - le vérificateur nomme le refus d'un nombre non fini (`lot/verify-nonfinite`) ;
+  - le test `dojo_collect_unit_runs_the_real_tick` devient déterministe (`lot/midnight-flake`, item DOJO-COLLECT-UNIT-TICK-MIDNIGHT-1 : rouge environ 1,5 % du temps quand un instant tombe dans les 300 dernières secondes du jour).
+- **Livré et réuni sur `lot/page-v1`** (tête `1b57566c`) :
   - la garde de lancement des programmes de l'hôte ;
   - les unités de publication (minuterie 00:30, 01:30, 03:30, 06:30 UTC), le Caddy de l'hôte, les constantes de déploiement et le mode d'emploi, avec le jour zéro gardé ;
   - la publication de l'historique par l'éditeur (`--history`, vérifiée avant engagement, quatre refus nommés) ;
   - le tableau de toutes les adresses, classé par score décroissant (égalités par adresse), avec la recherche locale d'une adresse ;
-  - corrections d'assemblage : mode d'emploi des refus de l'historique (section 19) et de l'acte `--history` (section 18) ; le test `evidence/` ne prend plus un nom de clé du manifeste pour un chemin.
-  - Tests du Dōjō et de la page sur la branche réunie : 217, dont 216 verts, 0 rouge et 1 ignoré (il attend la clé du serveur).
+  - l'écrivain unique de l'éditeur (`publish.lock`, refus `lock_held`, `--unlock` explicite), `--history` compris ;
+  - les relais drand par le garde (cycle du jour), les verrous rendus sur SIGTERM, le refus `layout_stray_file` ;
+  - le grand livre `rpc-guard` neuf, le corps borné pour le collecteur (chaîne et relais), les relevés entiers ;
+  - corrections d'assemblage : mode d'emploi des refus de l'historique, de l'acte `--history`, de `lock_held` et de `--unlock` ; 31 tueurs réancrés ; imports des tests ; test de composition collecte vers publication aligné sur les relais par le garde.
+  - Tests du Dōjō, de la page et de `rpc-guard` sur la branche réunie : 342, dont 340 verts, 0 rouge et 2 ignorés (la clé du serveur ; la variante par vrai signal sous Windows). Typecheck et lint à 0.
 
 ## Points connus (à traiter, non bloquants sauf mention)
 
@@ -61,6 +63,10 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
 - **À trancher à l'inspection** : un fichier étranger sous `publish/` du paquet d'historique est ignoré, pas refusé ; aucune garde « dernier jour d'historique révolu » dans l'éditeur ; le test de la liste des refus suppose un seul site `refuse(e.code` ; la recherche contrôle l'alphabet base58, pas le décodage en 32 octets.
 - **Textes du tableau** : TXT-17 et TXT-17a corrigés et TXT-17o ajouté (« Listed by hold score, highest first; equal hold scores by address. »), à valider par l'investisseur avec la page.
 - **Adresse du serveur Bell** : déjà dans le dépôt public (19 fichiers de `main` depuis le 23/09, et le mode d'emploi du Dōjō). Ce n'est pas un secret : `bell.monarkgate.tech` y renvoie. Aucune clé n'est publiée.
+- **Collecteur d'historique** : il lit encore les réponses sans borne de taille (`history-collect.ts` l.408-409). À borner avant le premier acte d'historique, après mesure de la plus grosse page (item RPC-GUARD-BODY-BOUNDS-ALL-1).
+- **SIGTERM** : la variante par vrai signal du test est sautée sous Windows ; à prouver sur Linux (item DOJO-SIGTERM-LINUX-PROOF-1).
+- **Mode d'emploi** : une commande de la section 9 tient sur une ligne de 629 caractères (une commande par ligne) ; exception déclarée.
+- **Dépôt `monark-governance` privé** depuis le 01/10 au moins : aucun push sans vérification préalable de la visibilité et accord de l'investisseur (une CI lancée par erreur à 01:04 UTC, annulée).
 
 ## Ce qui reste pour la page
 
