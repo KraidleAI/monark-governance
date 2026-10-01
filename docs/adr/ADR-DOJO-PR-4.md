@@ -526,3 +526,9 @@ Voir §4 (par PR), §6 (menaces), §7 (items). C-V-4 : chaque G1 de la piste C r
   navigateur (`apps/site/lib/dojo-live.ts`) et le chargeur de la page (`apps/site/lib/dojo-served-load.ts`) appliquent la même borne de
   profondeur (16) par leur propre copie du balayage, épinglée égale à celle du cœur par un test ; au-delà, leur refus nommé existant.
   Choix et mesure de la borne : `docs/G1-lot-depth-bound.md` §1.4.
+- **Ligne datée (orchestrateur, 2026-10-01 12:1x UTC) — G7 sur C-1 du lot DEPTH-BOUND, précision de la ligne précédente** (relecture
+  G2 neuve du lot, `F:/PRODUITS/inspections/page-partie1-2026-10-01/RAPPORT-g2-depth.md`, sha256 `221701fa…`, C-1) : au-delà de la
+  borne, un texte servi n'est pas analysé ; chaque lecteur le refuse sous le code de sa forme (`keyring_invalid`, `timeline_malformed`,
+  `line_malformed` et les phrases du chargeur), JSON ou non ; `not_json` ne nomme qu'un texte hors JSON EN DEÇÀ de la borne. Le code
+  ne change pas (décision de l'orchestrateur, `docs/ETAT.md`).
+  « Leur refus nommé existant » se lit donc « un refus nommé ».

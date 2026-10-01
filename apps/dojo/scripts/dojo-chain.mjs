@@ -1,11 +1,11 @@
 // MONARK Dojo -- PR-1b-1 T-5: the timeline walker (ADR-DOJO-SNAPSHOT-1 D-8 l.227-229; section 6 PR-1b-1 l.370, l.372,
-// l.391). walkDojoTimeline is a DECLARED CALQUE of walkTimeline (apps/bell/scripts/bell-chain.mjs:118-157), which stays
-// unmodified (D-8 l.231: parametrising it is the rejected alternative): Bell's checks in Bell's order, with Bell's reasons
-// and Bell's key schedule, then the Dojo checks of the line (D-8 l.228). The Bell primitives are imported unchanged, from the
-// closed list of P-15 (l.594); isJwk (bell-chain.mjs:103, module-private) is the one declared duplicate. Pure, Node
-// built-ins only: no I/O, no clock, no network. A refusal is {ok: false, seq, reason}, reason in DOJO_WALK_REASONS: codes
-// of D-10 (l.252 since the mere's eighth pli, rotation_key_not_in_keyring included: Bell's walk emits it, bell-chain.mjs:134;
-// G1 journal Q-1). The interface choices below are declared in the G1 journal (Q-2 to Q-6), never silent.
+// l.391). walkDojoTimeline is a DECLARED CALQUE of walkTimeline (apps/bell/scripts/bell-chain.mjs:118-157), which stays unmodified (D-8 l.231: parametrising it
+// is the rejected alternative): Bell's checks in Bell's order, with Bell's reasons and Bell's key schedule, plus ONE guard Bell's walk lacks, the Dojo's depth
+// bound (lot DEPTH-BOUND): a line nested past it (17 levels) is timeline_malformed where Bell's order goes on to the signature (signature_invalid for a line
+// edited after signing; far deeper, canonical recurses); then the Dojo checks of the line (D-8 l.228). The Bell primitives are imported unchanged, from the
+// closed list of P-15 (l.594); isJwk (bell-chain.mjs:103, module-private) is the one declared duplicate. Pure, Node built-ins only: no I/O, no clock, no
+// network. A refusal is {ok: false, seq, reason}, reason in DOJO_WALK_REASONS: codes of D-10 (l.252 since the mere's eighth pli, rotation_key_not_in_keyring
+// included: Bell's walk emits it, bell-chain.mjs:134; G1 journal Q-1). The interface choices below are declared in the G1 journal (Q-2 to Q-6), never silent.
 import { createHash } from "node:crypto";
 import { GENESIS, lineHash, verifyLine, publicKeyOfJwk } from "../../bell/scripts/bell-chain.mjs";
 
@@ -134,7 +134,7 @@ export function walkDojoTimeline(lines, trust) {
   const st = { anchor: null, anchorDay: 0, seed: "", seedDay: 0, history: null, last: null, versions: [] };
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i], seq = i + 1, fail = (reason) => ({ ok: false, seq, reason });
-    // ---- Bell's checks, same order, same reasons (bell-chain.mjs:131-151) ----
+    // ---- Bell's checks, same order, same reasons (bell-chain.mjs:131-151), and the depth guard, a Dojo addition Bell's walk lacks (header) ----
     if (l === null || typeof l !== "object" || l.schema !== DOJO_TIMELINE_SCHEMA || l.seq !== seq || !KINDS.has(l.kind)) return fail("timeline_malformed");
     if (depthOf(l) > DOJO_MAX_DEPTH) return fail("timeline_malformed"); // nested past the bound: no canonical (verifyLine, lineHash) runs on it
     if (l.prev_line_hash !== prev) return fail("chain_broken");
@@ -168,8 +168,8 @@ export function walkDojoTimeline(lines, trust) {
   return { ok: true, active, head: snapshots[snapshots.length - 1] ?? null, voided, breaks };
 }
 
-// ---- The depth bound of a served JSON text (G1 journal of lot DEPTH-BOUND, section 1.4): every reader measures a text before any JSON.parse,
-// the walker measures a value before any canonical; neither recurses, so no served value comes near an engine's stack ----
+// ---- The depth bound of a served JSON text (G1 journal of lot DEPTH-BOUND, section 1.4): the verifier, its CLI, the browser's reread and the page
+// build measure a text before any JSON.parse (the sync does not: item SYNC-SERVED-DEPTH-SCAN-1), the walker a value before any canonical; none recurses ----
 /** The deepest nesting of objects and arrays a served JSON text may carry: 16, four times the deepest served form (4: a snapshot line's
  *  readings, line > reads > reading > fraction; a key file, file > keys > key > public_key), and about 1/197 of the 3 148 levels canonical
  *  writes before its RangeError on Node 24.15.0 (win32). */
@@ -185,8 +185,8 @@ export function jsonDepth(text) {
   }
   return max;
 }
-/** A served JSON text parsed only within DOJO_MAX_DEPTH, else null, which no served form accepts: each reader then refuses it as it refuses a
- *  null, by its own code, and nothing recurses over it. A text that is not JSON still throws, as JSON.parse does. */
+/** A served JSON text parsed only within DOJO_MAX_DEPTH, where a text that is not JSON throws, as JSON.parse does; past it, null, JSON or not, never
+ *  parsed, which no served form accepts: each reader refuses it as it refuses a null, by the code of its form (not_json names a text within the bound). */
 export function readJson(text) {
   return jsonDepth(text) > DOJO_MAX_DEPTH ? null : JSON.parse(text);
 }

@@ -466,17 +466,29 @@ test("dojo_live_reads_no_text_past_the_depth_bound", async () => {
 });
 
 // killer: apps/site/lib/dojo-served-load.ts:277 CONST "jsonDepth(text) > DOJO_SERVED_MAX_DEPTH" -> "false"
+// killer: apps/site/lib/dojo-served-load.ts:277 ROR "jsonDepth(text) > DOJO_SERVED_MAX_DEPTH" -> "jsonDepth(text) >= DOJO_SERVED_MAX_DEPTH"
 test("dojo_served_build_reads_no_text_past_the_depth_bound", async () => {
-  // VERIFY-DEPTH-BOUND-1: the build reads every served JSON text through its restated readJson: past the bound, a head line is not an object
-  // and the key file is malformed, both refused before any parse (at base: the head line parsed, then refused by the reader's tool for its tier)
+  // VERIFY-DEPTH-BOUND-1: the build reads every served JSON text through its restated readJson. A head line at the bound (16) is read, then refused by
+  // the reader's tool for its tier; one level more (17) it is not an object, refused before any parse (at base: parsed, then refused by the reader's
+  // tool). DEPTH-CORR (C-2 of the review): the case at the bound pins the comparator; both key files are pins, refused alike at base (out of form)
   assert.equal(load.DOJO_SERVED_MAX_DEPTH, 16, "the bound, restated");
-  const f = dojoFixture(), k = dojoKeyringOf([[f.key, 1], [newKey(), 1]]), tree = render(f.steps), nest = `${"[".repeat(16)}${"]".repeat(16)}`;
-  const why = (t: Tree): Promise<string> => build(t, k).then(() => "built", (e: unknown) => String(e));
-  const text = linesOf(f.steps, 11).map((l) => `${canonical(l)}${NL}`).join(""), bytes = Buffer.from(text.replace('"tier":4', `"tier":${nest}`));
-  const sha = createHash("sha256").update(bytes).digest("hex");
-  const edit = body(11, { lines_sha256: sha, root: rootOf(bytes.toString("utf8").slice(0, -1).split(NL)) });
-  assert.equal(await why(render(f.steps, new Map(), edit).set(`lines/${sha}.jsonl`, bytes)), "Error: dojo served: head line 3 must be an object",
-    "a head line past the bound (A's line, the third)");
-  const pk = (tree.get("dojo/pubkey.json") ?? Buffer.alloc(0)).toString("utf8").replace('"valid_from_seq":1', `"valid_from_seq":${nest}`);
-  assert.equal(await why(new Map(tree).set("dojo/pubkey.json", Buffer.from(pk))), "Error: dojo served: dojo/pubkey.json is malformed", "the key file");
+  const f = dojoFixture(), k = dojoKeyringOf([[f.key, 1], [newKey(), 1]]), tree = render(f.steps);
+  const nest = (n: number): string => `${"[".repeat(n)}${"]".repeat(n)}`;
+  const why = (t: Tree, ring = `${canonical(k)}${NL}`): Promise<string> =>
+    buildDojoServed({ readAt: "2026-10-11T06:00:00.000Z", tree: t, committedKeyring: Buffer.from(ring) }, DEPS).then(() => "built", (e: unknown) => String(e));
+  const text = linesOf(f.steps, 11).map((l) => `${canonical(l)}${NL}`).join("");
+  const headAt = async (n: number): Promise<[number, string, string]> => { // A's line, the third, its tier nested n levels deep
+    const bytes = Buffer.from(text.replace('"tier":4', `"tier":${nest(n)}`)), sha = createHash("sha256").update(bytes).digest("hex");
+    const rows = bytes.toString("utf8").slice(0, -1).split(NL), t = render(f.steps, new Map(), body(11, { lines_sha256: sha, root: rootOf(rows) }));
+    return [load.jsonDepth(rows[2] ?? ""), sha, await why(t.set(`lines/${sha}.jsonl`, bytes))];
+  };
+  const [atDepth, atSha, atWhy] = await headAt(15), [pastDepth, , pastWhy] = await headAt(16);
+  const refused = "Error: dojo served: the reader's tool refuses the served tree under the committed keyring";
+  assert.deepEqual([atDepth, atWhy], [16, `${refused} (tier_mismatch at seq 12: lines/${atSha}.jsonl line 3)`],
+    "a head line at the bound: read, then refused by the reader's tool for its tier");
+  assert.deepEqual([pastDepth, pastWhy], [17, "Error: dojo served: head line 3 must be an object"], "a head line past the bound (A's line, the third)");
+  const ring = `${canonical(k).replace('"valid_from_seq":1', `"valid_from_seq":${nest(14)}`)}${NL}`;
+  assert.deepEqual([load.jsonDepth(ring), await why(tree, ring)], [17, "Error: dojo served: the committed keyring is malformed"], "pin: the committed keyring");
+  const pk = (tree.get("dojo/pubkey.json") ?? Buffer.alloc(0)).toString("utf8").replace('"valid_from_seq":1', `"valid_from_seq":${nest(16)}`);
+  assert.equal(await why(new Map(tree).set("dojo/pubkey.json", Buffer.from(pk))), "Error: dojo served: dojo/pubkey.json is malformed", "pin: the key file");
 });

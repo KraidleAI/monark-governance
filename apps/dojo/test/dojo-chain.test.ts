@@ -318,8 +318,9 @@ test("dojo_walk_refuses_a_line_nested_past_the_bound", () => {
   const f = dojoFixture(), lines = seal(S, f.steps), deep = (k: number): Line[] => lines.map((l, i) => (i === 11 ? { ...l, deep: nest(k) } : l));
   assert.deepEqual(walk(deep(15), f.trust), refused(12, "signature_invalid"), "a line at the bound (16): walked, then refused by its signature");
   assert.deepEqual(walk(deep(16), f.trust), refused(12, "timeline_malformed"), "a line past it (17): refused before any canonical");
-  // readJson: JSON.parse within the bound, null past it; a text that is not JSON still throws
+  // readJson: JSON.parse within the bound, where a text that is not JSON throws; past it, null, JSON or not, never parsed (DEPTH-CORR, C-1)
   const text = (k: number): string => `{"deep":${"[".repeat(k)}${"]".repeat(k)}}`;
   assert.deepEqual([chain.jsonDepth(text(15)), chain.readJson(text(15)) !== null, chain.jsonDepth(text(16)), chain.readJson(text(16))], [16, true, 17, null]);
   assert.throws(() => chain.readJson("{x"), SyntaxError, "a text that is not JSON");
+  assert.doesNotThrow(() => { assert.equal(chain.readJson("{".repeat(17)), null); }, "a text that is not JSON, past the bound: null, never parsed");
 });

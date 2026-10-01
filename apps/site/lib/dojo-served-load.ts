@@ -271,8 +271,8 @@ export function jsonDepth(text: string): number {
   }
   return max;
 }
-/** A served JSON text parsed only within the bound, else null, which every reader of this module refuses by its own sentence (a timeline line
- *  as the walk refuses it, the key file as malformed, a head line as not an object); one that is not JSON still throws. */
+/** A served JSON text parsed only within the bound, where one that is not JSON throws (refused as not JSON); past it, null, JSON or not, never parsed, which
+ *  every reader of this module refuses by its own sentence (a timeline line as the walk refuses it, a key file as malformed, a head line as not an object). */
 function readJson(text: string): unknown {
   return jsonDepth(text) > DOJO_SERVED_MAX_DEPTH ? null : (JSON.parse(text) as unknown);
 }
