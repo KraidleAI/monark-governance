@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 11:3x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 13:1x UTC.
 
 ## Règle
 
@@ -173,6 +173,23 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
 - **Test 42** (EXPORT-CI-TIMEOUT-BOUND-1, rapport `a1330724…`) : décidé (a), `npm run ci` passe de 600 à 1 800 s, `npm ci` reste à
   600 s ; la lenteur vient de `apps/sentinel/test/ukemi-conc.test.ts` (32 586 fsync) sous contention d'entrées-sorties, pas de la page.
   Items : UKEMI-CONC-FSYNC-1, TEST42-ORPHAN-KILL-1, HOST-FOREIGN-LOAD-CV4-1, et une pièce de plus pour VERIFY-TEST-DEAD-CHILD-2.
+- **Avancement de la mise en service** (13:1x UTC) :
+  - partie 1 : DEPTH-CORR (`e6b52de6`) et T42-BOUND (`24376bf9`, tronc) acceptés au checkpoint-2 ciblé (`206bc5e3…`, oracle cp-2
+    `5a63b991…` sortie 0) ; `lot/page-v1` avancée à `e6b52de6`, puis le trousseau `764f2302` (A-4p) ; item CI-G3-TIMEOUT-MINUTES-1
+    (C-V-1 du cp-2) : le job `g3-verification` (`timeout-minutes: 10`) passe à 45 par ligne d'ADR qui amende le plafond de
+    `test/ci-gates.test.ts` l.1673, avant le G7 de la fusion de T42-BOUND au tronc ;
+  - hôte : A-2 à A-5, A-2p, A-3p (G7 `e6b52de6`, deux arbres TREE-EQUAL), A-4p (clé née sur l'hôte, key_id `c7963c9b…`),
+    A-5p (départ à blanc `history_missing`, rien d'écrit), FAITS-SYSTEMD-RUN-UNSETENV-1 lu sur l'hôte ; journal privé cité plus haut ;
+  - oracle complet du commit du trousseau : premier passage `a10fd4b8…` rouge par le seul test 42 (1 test de l'export sur 534, sous
+    la charge des relecteurs ; le fichier ajouté n'est pas exporté) : non conclu, relancé une fois ;
+  - lot FAST-START `5f694f83` livré (oracle G1 `f8e251f0…` sortie 0), relecture G2 en cours ; envoi du trousseau en attente du
+    signal de l'investisseur (`monark-governance` public) ; signature de l'ancre ensuite (A-8).
+- **Reporté aussi après la première publication** : CA-0, le contrôle de conformité hors ligne (`scripts/verify-dojo.mjs`, PR-3b-2b,
+  jamais écrit ; item DOJO-CA0-SCRIPT-1) ; en attendant, chaque acte sur l'hôte est contrôlé par empreintes.
+- **Katas (hors page)** : P0 publié (`KraidleAI/monark-precommitments` commit `36c09828`, reçu par GitHub à 11:47:32Z ; validation
+  du fondateur « ok je valide l'adr ») ; revue MONARK de P1 : approuvée avec corrections (A-1 à A-8 ; rapport `6ead4219…`, messagerie
+  recherches#23) ; décisions de l'investisseur : spécification dans un nouveau dépôt public `KraidleAI/monark-kata-spec` après A-3,
+  séries par pièce jointe privée du dépôt recherches à la clôture de P1.
 - **Au-delà de la borne de profondeur** (orchestrateur, 2026-10-01, G7 sur C-1 du G2 DEPTH-BOUND) : un texte servi plus profond que 16
   n'est pas analysé ; chaque lecteur le refuse sous le code de sa forme (`keyring_invalid`, `timeline_malformed`, phrases du chargeur),
   JSON ou non. `not_json` ne nomme qu'un texte hors JSON en deçà de la borne. Le code ne change pas ; ligne datée d'ADR avec DEPTH-CORR.
