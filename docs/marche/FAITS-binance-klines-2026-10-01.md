@@ -33,3 +33,19 @@ Aucune requête n'a été faite au point d'accès.
   proposée à RECHERCHES, jamais faite en silence.
 - Charge prévue : 71 requêtes par série (70 080 bougies, 1 000 par page), poids 2 chacune, au moins 500 ms entre deux requêtes ; au
   plus environ 240 de poids par minute.
+
+## Ajout daté du 2026-10-01 à 19:24:39 UTC : H-6, intervalles 1h et 4h (FAITS-BINANCE-INTERVALS-1, journal `docs/G1-lot-series-intervals.md`)
+
+Relu sur place par l'orchestrateur (navigateur interne), même fichier brut, inchangé : sha256 du texte rendu recalculé dans le
+navigateur, `49ea6809243fc7fb426e07f2fe662097736c7bb405bd2da5eef637d715427999` (181 007 caractères). Aucune requête au point d'accès.
+
+- **(a) Intervalles admis : `1h` et `4h` y sont.** Table « Supported kline intervals (case-sensitive) », ligne des heures :
+  `1h`, `2h`, `4h`, `6h`, `8h`, `12h`.
+- **(b) `timeZone`** : paramètre facultatif, « Default: 0 (UTC) » ; « If `timeZone` provided, kline intervals are interpreted in that
+  timezone instead of UTC » ; « `startTime` and `endTime` are always interpreted in UTC, regardless of `timeZone` ». L'enregistreur
+  n'envoie pas `timeZone` : les intervalles sont lus en UTC.
+- **(c) Exemple de réponse** : ouverture `1499040000000`, clôture `1499644799999`, soit ouverture + 604 799 999 ms (une semaine moins
+  1 ms) ; l'intervalle de l'exemple n'est pas nommé.
+- **H-6 : confirmée en partie.** Lu : 1h et 4h admis, intervalles lus en UTC par défaut, clôture de l'exemple = ouverture + durée − 1 ms.
+  Non écrit mot pour mot : que les bougies 4h s'ouvrent à 00:00, 04:00, …, 20:00 UTC. La garde stricte de l'enregistreur
+  (`off_grid`, `close_time`) arrête la première page qui en dévierait ; aucune lecture fausse en silence.
