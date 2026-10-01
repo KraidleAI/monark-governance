@@ -1013,3 +1013,10 @@ Arithmétique sur `derived.json` R4 (pic 6 467, N = 23 628, 5 714 échecs, 17 jo
   chaque entrée du mint porte son propriétaire : le repli n y est pas atteint. Tests : `dojo_history_ins_added_types_pass_near_the_mint`,
   `dojo_history_ins_unknown_and_unparsed_still_stop`, sonde positive de `dojo_history_budget_stops_fail_closed` ; F2P et trois tueurs
   tués (`RED-PROOF.json` `aee325f2…`).
+- **Ligne datée (orchestrateur, 2026-10-01 18:2x UTC ; G2 ciblée de HISTORY-INS, rapport `a517346e…`, APPROUVE-AVEC-CORRECTIONS, C-1)** :
+  FAITS-TOKEN2022-PROCESSOR-1 est CLOS par la mesure : la sûreté ne repose pas sur la sémantique du programme Token-2022 (sonde P1 de
+  la G2 : un solde glissé sous un type ajouté arrête la course en `supply_mismatch` ; sonde positive de la collecte). Tout texte public qui
+  affirmerait cette sémantique rouvre l'item. Items formés : DOJO-HISTORY-OWNER-FALLBACK-SETAUTH-1 (O-1, défaut antérieur au lot : le repli
+  lit le premier `initializeAccount*` et ignore un `setAuthority` plus loin dans la même transaction ; arrêt `owner_unknown` dans ce cas ;
+  avant le go de l'acte 1 ou dès qu'une entrée du mint sans propriétaire est observée) ; HISTORY-INS ajouté à la liste « avant le go de
+  l'acte 1 » (O-3 : le journal épingle le sha de `history-read.ts`).
