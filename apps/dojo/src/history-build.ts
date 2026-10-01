@@ -6,6 +6,7 @@
 // read (ADR-DOJO-PR-2 D-7, Q-2 line). No network, no clock, no I/O; no operator is named. Consumers: the collector (PR-2b-3, PR-2b-4)
 // and the publisher (PR-3a, publish/ only). Every stop of this module is named in DOJO_HISTORY_STOPS or DOJO_HISTORY_BUILD_STOPS; a
 // malformed record text passes PR-2's refusal through (record_malformed, raised by readRecord), a partial reason too (C-G2-4).
+// FAST-START (G1 of 2026-10-01): provisionalEve, the same reconstruction for a day read nowhere, gives its Eve alone, never a bundle.
 import { createHash } from "node:crypto";
 import { assertNoCloseLike, canonical } from "../../bell/scripts/bell-chain.mjs";
 import { base58Decode, ownerClass, rootOf } from "../scripts/dojo-core.mjs";
@@ -13,13 +14,15 @@ import { readRecord } from "./bundle.ts";
 import { byteOrder, type Enumeration, type Eve } from "./reading.ts";
 import { DOJO_HISTORY_STOPS, DojoHistoryStop, chainAccounts, checkDays, type Body, type HistoryStop, type NoQuorum } from "./history-read.ts";
 
-/** The stop of D-11 l.425 that the enumeration check (ii) raises and that DOJO_HISTORY_STOPS (history-read.ts, frozen) does not list;
- *  disjoint from the 45 verifier codes (mere D-10); to fold into DOJO_HISTORY_STOPS (journal question). */
-export const DOJO_HISTORY_BUILD_STOPS = Object.freeze(["enumeration_mismatch"] as const);
+/** The stops of D-11 l.425 that DOJO_HISTORY_STOPS (history-read.ts, frozen) does not list: the enumeration check (ii), and the
+ *  provisional Eve left empty while the chain has holders (FAST-START); disjoint from the 45 verifier codes (mere D-10); to fold into
+ *  DOJO_HISTORY_STOPS (journal question). */
+export const DOJO_HISTORY_BUILD_STOPS = Object.freeze(["enumeration_mismatch", "eve_empty"] as const);
+type BuildStop = (typeof DOJO_HISTORY_BUILD_STOPS)[number];
 export class DojoHistoryBuildStop extends Error {
-  readonly code: (typeof DOJO_HISTORY_BUILD_STOPS)[number];
+  readonly code: BuildStop;
   readonly detail: string;
-  constructor(detail: string) { super(`dojo/history: enumeration_mismatch: ${detail}`); this.code = "enumeration_mismatch"; this.detail = detail; }
+  constructor(detail: string, code: BuildStop = "enumeration_mismatch") { super(`dojo/history: ${code}: ${detail}`); this.code = code; this.detail = detail; }
 }
 /** Reasons of a partial bundle (evidence/status.json, D-12 l.453, D-11 l.418-432): the collector stops, the guard refusals
  *  (section 1.4 l.138), evidence_corrupt and PR-2's record_malformed (firstRead, C-G2-4). The stop on duration (C-27, Q-6): G1 of PR-2b-3. */
@@ -28,7 +31,7 @@ export const DOJO_HISTORY_PARTIAL_REASONS = Object.freeze([...DOJO_HISTORY_STOPS
 export const DOJO_HISTORY_FIRST_DAY = "2026-09-10"; // D-3 l.229: DAY1 = 1 788 998 400 / 86 400 = 20 706 (mere D-18, decision 227)
 export const DOJO_HISTORY_SCHEMA = "dojo-history-bundle-v1"; // D-12 l.467
 const stop = (code: HistoryStop, detail: string): never => { throw new DojoHistoryStop(code, detail); };
-const mismatch = (detail: string): never => { throw new DojoHistoryBuildStop(detail); };
+const mismatch = (detail: string, code?: BuildStop): never => { throw new DojoHistoryBuildStop(detail, code); };
 
 const DAY = 86400, DAY1 = Date.parse(`${DOJO_HISTORY_FIRST_DAY}T00:00:00.000Z`) / 1000 / DAY;
 const dayNo = (t: number): number => Math.floor(t / DAY) - DAY1 + 1; // day number of a block time or a day start, day 1 = DAY1
@@ -82,7 +85,27 @@ const moves = (t: Body): bigint => t.supply.reduce((s, m) => s + (m.type.startsW
 
 /** Reconstruction (D-3 phase D) and checks (i), (ii) of the admitted transactions of slot <= S_CUT, then the lines of days 1..D_LAST. */
 export function buildHistory(x: HistoryBuildInput): HistoryBuild {
-  const fr = firstRead(x.records), E = fr.enumerations, sCut = Math.max(...E.map((e) => e.context_slot));
+  const fr = firstRead(x.records);
+  return rebuild(x, fr, Math.max(...fr.enumerations.map((e) => e.context_slot))).build;
+}
+/** FAST-START: the Eve of a day P read nowhere (the provisional packet of B-1): D_LAST = P - 1, S_CUT = cut (a finalized slot of the
+ *  operator), no enumeration, so no check (ii). Its Eve alone leaves, never a HistoryBuild: no bundle, no manifest, no line. An empty
+ *  Eve while an owner holds a positive balance at the end of D_LAST stops eve_empty (never an empty Eve on a chain with holders).
+ *  FAST-CORR (Q-2 (b) of the G2 of FAST-START): in this mode only, the Eve that leaves is the union, in byte order, of that Eve and of the
+ *  owners whose balance is strictly positive at S_CUT (one that acquires on P before S_CUT is read on P + 1; one in excess reads 0), each
+ *  added owner classified as the owner of a line is (read_malformed otherwise); eve_empty is judged on that Eve, before the union. */
+export function provisionalEve(x: Pick<HistoryBuildInput, "txs" | "noQuorum"> & { readonly day: string; readonly cut: number }): Eve {
+  if (!nat(x.cut)) stop("read_malformed", "cut");
+  const { build, held, atCut } = rebuild(x, { day: x.day, enumerations: [] }, x.cut);
+  if (held && build.eve.addresses.length === 0) mismatch(`${build.history_last_day}: an owner holds, the Eve is empty`, "eve_empty");
+  for (const o of atCut) { try { ownerClass(o); } catch { stop("read_malformed", `owner ${o}`); } } // as klass does for a line's owner
+  return { addresses: [...new Set([...build.eve.addresses, ...atCut])].sort(byteOrder), accounts: [] };
+}
+type Rebuilt = { readonly build: HistoryBuild; readonly held: boolean; readonly atCut: readonly string[] };
+/** The reconstruction shared by buildHistory and provisionalEve; held: an owner holds a positive balance at the end of D_LAST; atCut
+ *  (FAST-CORR): the owners whose balance is strictly positive at S_CUT, after every admitted transaction of slot <= S_CUT. */
+function rebuild(x: Pick<HistoryBuildInput, "txs" | "noQuorum">, fr: FirstRead, sCut: number): Rebuilt {
+  const E = fr.enumerations;
   const last = dayNo(Date.parse(`${fr.day}T00:00:00.000Z`) / 1000) - 1; // D_LAST = first_read_day - 1 (D-3 l.230)
   if (!(last >= 1)) stop("read_malformed", "first read day");
   const T = x.txs.filter((t) => t.slot <= sCut);
@@ -118,7 +141,7 @@ export function buildHistory(x: HistoryBuildInput): HistoryBuild {
 
   const state = new Map<string, St>(), bal = new Map<string, bigint>(), mins = new Map<string, bigint>(), moved = new Set<string>();
   const series = new Map<string, bigint[]>();
-  let total = 0n, supply = 0n;
+  let total = 0n, supply = 0n, held = false;
   const put = (a: string, s: St): void => {
     const p = state.get(a) ?? ZERO;
     for (const [o, v] of [[p.owner, -p.amount], [s.owner, s.amount]] as const) {
@@ -142,6 +165,7 @@ export function buildHistory(x: HistoryBuildInput): HistoryBuild {
   const endDay = (d: number): void => {
     for (const [o, b] of bal) { let s = series.get(o); if (s === undefined) { s = Array.from({ length: d - 1 }, () => 0n); series.set(o, s); } s.push(mins.get(o) ?? b); }
     mins.clear();
+    if (d === last) held = [...bal.values()].some((b) => b > 0n); // an owner holds at the end of D_LAST (FAST-START, eve_empty)
     const open = wins.some((w) => w.d0 <= d && d < w.d1); // an account in a window at the end of day d (D-8 (i) l.365)
     if (open && d === last) stop("supply_mismatch", `${dayName(d)}: the last history day is not evaluable`);
     if (!open && total !== supply) stop("supply_mismatch", `${dayName(d)}: balances ${total}, supply ${supply}`);
@@ -216,11 +240,12 @@ export function buildHistory(x: HistoryBuildInput): HistoryBuild {
   rows.sort((p, q) => p.d - q.d || byteOrder(p.o, q.o));
   const lines = rows.map((r) => canonical({ address: r.o, class: klass(r.o), day: dayName(r.d), day_value: r.v === null ? null : String(r.v) }));
   const bytes = lines.map((l) => `${l}\n`).join("");
-  return { history_first_day: DOJO_HISTORY_FIRST_DAY, history_last_day: dayName(last), first_read_day: fr.day, window_slot_max: sCut,
+  const atCut = [...bal].filter(([, b]) => b > 0n).map(([o]) => o); // FAST-CORR: the balances after the last slot <= S_CUT (put)
+  return { held, atCut, build: { history_first_day: DOJO_HISTORY_FIRST_DAY, history_last_day: dayName(last), first_read_day: fr.day, window_slot_max: sCut,
     enumeration_slots: E.map((e) => e.context_slot), lines, bytes, sha256: sha(bytes), root: rootOf(lines),
     eve: { addresses: rows.filter((r) => r.d === last).map((r) => r.o), accounts: [] }, transactions_admitted: T.length,
     transactions_without_quorum: x.noQuorum.length, token_accounts: state.size, addresses: new Set(rows.map((r) => r.o)).size,
-    missing_address_days: rows.filter((r) => r.v === null).length };
+    missing_address_days: rows.filter((r) => r.v === null).length } };
 }
 
 export interface BundleInput {

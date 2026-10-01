@@ -14,6 +14,9 @@
 // account, whose pages are read again from the first when it was not closed (D-11). Every phase pins the first day read (--first-read,
 // B1R) in the first journal line with D_LAST, and --cut must be S_CUT = max E_e (DOJO-HISTORY-CUT-CHECK-1). The bounds of (vii) that
 // only grow stop a course early (DOJO-HISTORY-EARLY-BOUNDS-1): per page in phase B, per admission in phase C; a 403 stops at once.
+// FAST-START (G1 of 2026-10-01): --provisional-day P, exclusive of --first-read, runs the same course for a day P read nowhere, never
+// ahead of the clock: D_LAST = P - 1, S_CUT = --cut, both in the first journal line; phase C writes provisional/eve.json alone (the
+// Eve of provisionalEve), then the status provisional; never publish/, so the publisher's --history can never read such a state.
 import { createHash } from "node:crypto";
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, statfsSync, writeSync } from "node:fs";
 import { gunzipSync, gzipSync } from "node:zlib";
@@ -25,7 +28,7 @@ import { withRetry } from "../../bell/src/quorum.ts";
 import { canonical } from "../../bell/scripts/bell-chain.mjs";
 import { DOJO_HISTORY_CREATION as SIG0, DojoHistoryStop, FAULT, admit, checkBounds, checkCreation, checkInstructions, checkSupply, mergeIndexes, readBody,
   readIndex, type Admission, type Body, type HistoryBounds, type HistoryCounts, type NoQuorum } from "./history-read.ts";
-import { DOJO_HISTORY_PARTIAL_REASONS, DojoHistoryBuildStop, buildHistory, firstRead, historyBundle, type BundleInput,
+import { DOJO_HISTORY_PARTIAL_REASONS, DojoHistoryBuildStop, buildHistory, firstRead, historyBundle, provisionalEve, type BundleInput,
   type HistoryBundle } from "./history-build.ts";
 import { readDayLayout } from "./layout.ts";
 import { recordBytes } from "./bundle.ts";
@@ -39,7 +42,7 @@ export const DOJO_HISTORY_BOUNDS: HistoryBounds = { contested: [3, 2000], noQuor
 /** Cycle id and dashboard floor of each operator (calque of PR-2-2's HELIUS_CYCLE_* and of deploy/monark-sentinel.service:28-31). */
 export const DOJO_HISTORY_ENV = { helius: ["HELIUS_CYCLE_ID", "HELIUS_CYCLE_FLOOR"], chainstack: ["CHAINSTACK_CYCLE_ID", "CHAINSTACK_CYCLE_FLOOR"] } as const;
 export const DOJO_HISTORY_COLLECT_REFUSALS = Object.freeze(["usage", "state_path_malformed", "state_inside_repo", "mint_mismatch", "cycle_missing",
-  "budget_guard", "state_missing", "disk_space", "phase_order", "inputs_mismatch", "lock_held"] as const);
+  "budget_guard", "state_missing", "disk_space", "phase_order", "inputs_mismatch", "lock_held", "provisional_day_future"] as const);
 /** Reasons of a partial status: those of PR-2b-2 (frozen) plus the stop on duration (C-27, Q-6), a transport fault that ends a page or an
  *  RpcError of parameters (D-2 l.215), and the stops of the corrections of the G2 of PR-2b-3: a cursor that does not advance (C-G2-1), an
  *  unlock the ledger does not confirm (Q-12, C-G2-2), a response carrying a secret form (C-G2-7). To fold into DOJO_HISTORY_PARTIAL_REASONS
@@ -81,11 +84,12 @@ const pageForm = (mint: string, token?: string): unknown[] => [mint, { transacti
 const txForm = (s: string): unknown[] => [s, { ...TX }];
 
 export interface Args { readonly phase: "A" | "B" | "C"; readonly state: string; readonly mintFile: string; readonly cut: number; readonly maxCalls: number;
-  readonly maxCredits: number; readonly maxRu: number; readonly deadline: number; readonly firstRead: string }
-const FLAGS = ["--phase", "--state", "--mint-file", "--cut", "--max-calls", "--max-credits", "--max-ru", "--deadline", "--first-read"];
-/** The closed argv: the nine flags, each once, each with a well-formed value; --deadline is the UTC instant bounding the course (C-27),
- *  so named (Q-2 of the orchestrator) that it never reads as the reconcile's --course-end <sha256> (D-13); --first-read is the closed day
- *  of PR-2 that is the first day read (B1R of D-3, TU-1h). */
+  readonly maxCredits: number; readonly maxRu: number; readonly deadline: number; readonly firstRead: string | null; readonly provisionalDay: string | null }
+const FLAGS = ["--phase", "--state", "--mint-file", "--cut", "--max-calls", "--max-credits", "--max-ru", "--deadline", "--first-read", "--provisional-day"];
+/** The closed argv: the first eight flags and one of the last two, each once, each with a well-formed value; --deadline is the UTC instant
+ *  bounding the course (C-27), so named (Q-2 of the orchestrator) that it never reads as the reconcile's --course-end <sha256> (D-13);
+ *  --first-read is the closed day of PR-2 that is the first day read (B1R of D-3, TU-1h); --provisional-day (FAST-START) a real UTC day
+ *  after day 1 (D_LAST >= day 1), never ahead of the clock (setup), whose --cut is a finalized slot given by the operator. */
 export function parseArgv(argv: readonly string[]): Args {
   const got = new Map<string, string>();
   for (let j = 0; j < argv.length; j += 2) {
@@ -93,7 +97,10 @@ export function parseArgv(argv: readonly string[]): Args {
     if (!FLAGS.includes(f) || got.has(f) || v === undefined || v.startsWith("--")) refuse("usage", f);
     got.set(f, v as string);
   }
-  for (const f of FLAGS) if (!got.has(f)) refuse("usage", `missing ${f}`);
+  for (const f of FLAGS.slice(0, -2)) if (!got.has(f)) refuse("usage", `missing ${f}`);
+  if (got.has("--first-read") === got.has("--provisional-day")) refuse("usage", "one of --first-read and --provisional-day");
+  const pd = got.get("--provisional-day"), t = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(pd ?? "") ? Date.parse(`${pd ?? ""}T00:00:00.000Z`) : NaN;
+  if (pd !== undefined && !(t / 1000 / DAY > DAY1 && new Date(t).toISOString().slice(0, 10) === pd)) refuse("usage", "--provisional-day");
   const s = (f: string): string => got.get(f) ?? "";
   const n = (f: string): number => (/^[1-9][0-9]{0,11}$/.test(s(f)) ? Number(s(f)) : refuse("usage", f));
   const end = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(s("--deadline")) ? Date.parse(s("--deadline")) : NaN;
@@ -101,7 +108,7 @@ export function parseArgv(argv: readonly string[]): Args {
   const phase = s("--phase");
   if (phase !== "A" && phase !== "B" && phase !== "C") return refuse("usage", "--phase");
   return { phase, state: s("--state"), mintFile: s("--mint-file"), cut: n("--cut"), maxCalls: n("--max-calls"), maxCredits: n("--max-credits"),
-    maxRu: n("--max-ru"), deadline: end, firstRead: s("--first-read") };
+    maxRu: n("--max-ru"), deadline: end, firstRead: got.get("--first-read") ?? null, provisionalDay: pd ?? null };
 }
 
 export interface RunDeps { readonly env: Readonly<Record<string, string | undefined>>; readonly nowMs: () => number; readonly sleep?: (ms: number) => Promise<void> }
@@ -109,7 +116,7 @@ interface Line { readonly seq: number; readonly prev_sha256: string | null; read
   readonly params_sha256: string; readonly raw: string | null; readonly raw_sha256: string | null; readonly size: number; readonly outcome: "ok" | "null" | "fault" }
 interface Ctx { a: Args; deps: RunDeps; mint: string; ev: string; ledger: string; cycles: Record<string, string>; floors: Record<string, number>;
   methodCaps: Record<string, number>; secrets: readonly string[]; closed: Map<string, Line>; seq: number; prev: string | null; accounts: Set<string>;
-  first: { readonly sha256: string; readonly d_last: string; readonly cut: number; readonly records: readonly string[] } }
+  first: { readonly sha256: string | null; readonly d_last: string; readonly cut: number; readonly records: readonly string[] } }
 
 /** D-12 l.444 "outside any repository" (probe-3.mjs:554; C-G2-4): --state is absolute with no `.` or `..` segment (each segment tested
  *  exactly: `..x` is a name), else state_path_malformed; neither the path nor its real path (a junction) nor an ancestor of either holds
@@ -149,13 +156,18 @@ function setup(argv: readonly string[], deps: RunDeps): Ctx {
   try { text = readFileSync(a.mintFile, "utf8"); } catch { refuse("mint_mismatch", "--mint-file"); }
   if (sha(text) !== MINT_TXT_SHA256) refuse("mint_mismatch", "--mint-file");
   let first: Ctx["first"] | null = null; // B1R (D-3 l.227) through PR-2's reader of a closed day (C-29): D_LAST = its day - 1, S_CUT = max E_e
-  try {
-    const records = readDayLayout(a.firstRead).records.map(recordBytes), fr = firstRead(records), d0 = Date.parse(`${fr.day}T00:00:00.000Z`) / 1000;
-    first = { sha256: sha(readFileSync(join(a.firstRead, "publish", "SHA256SUMS"), "utf8")), d_last: new Date((d0 - DAY) * 1000).toISOString().slice(0, 10),
+  const P = a.provisionalDay === null ? NaN : Date.parse(`${a.provisionalDay}T00:00:00.000Z`), dir = a.firstRead ?? ""; // FAST-START: P read nowhere
+  if (P > deps.nowMs()) refuse("provisional_day_future", "--provisional-day"); // P is today (UTC) at the latest, by the injected clock
+  if (Number.isFinite(P)) first = { sha256: null, d_last: new Date(P - DAY * 1000).toISOString().slice(0, 10), cut: a.cut, records: [] };
+  else try {
+    const records = readDayLayout(dir).records.map(recordBytes), fr = firstRead(records), d0 = Date.parse(`${fr.day}T00:00:00.000Z`) / 1000;
+    first = { sha256: sha(readFileSync(join(dir, "publish", "SHA256SUMS"), "utf8")), d_last: new Date((d0 - DAY) * 1000).toISOString().slice(0, 10),
       cut: Math.max(...fr.enumerations.map((e) => e.context_slot)), records };
   } catch { refuse("inputs_mismatch", "--first-read"); } // a day that does not read, or reads without two enumerations (Q-G1-1)
-  if (first?.cut !== a.cut) refuse("inputs_mismatch", "--cut"); // DOJO-HISTORY-CUT-CHECK-1: --cut is S_CUT (D-3 l.230)
-  if (existsSync(join(a.state, "publish", "SHA256SUMS"))) refuse("phase_order", "complete"); // D-12: never overwritten, by any phase (C-G2-2)
+  if (first?.cut !== a.cut) refuse("inputs_mismatch", "--cut"); // DOJO-HISTORY-CUT-CHECK-1: --cut is S_CUT (D-3 l.230); provisional: --cut itself
+  for (const done of [["publish", "SHA256SUMS"], ["provisional", "eve.json"]]) { // D-12: never overwritten, by any phase (C-G2-2); FAST-START too
+    if (existsSync(join(a.state, ...done))) refuse("phase_order", "complete");
+  }
   const cycles: Record<string, string> = {}, floors: Record<string, number> = {};
   for (const op of DOJO_HISTORY_OPS) {
     const [id, fl] = DOJO_HISTORY_ENV[op].map((k) => deps.env[k]);
@@ -198,7 +210,8 @@ const rawText = (c: Ctx, l: { readonly raw: string | null; readonly raw_sha256: 
  *  fault is not closed); a page of phase C only when its account is closed: step 4, an account not closed is read again from its first page. */
 function openJournal(c: Ctx): void {
   const p = join(c.ev, "journal.jsonl"), inputs = { mint: c.mint, mint_sha256: MINT_TXT_SHA256, cut: c.a.cut, collector_sha256: sources(),
-    first_read_sha256: c.first.sha256, d_last: c.first.d_last }; // D-11 l.427 (DOJO-HISTORY-CUT-CHECK-1)
+    ...(c.a.provisionalDay === null ? { first_read_sha256: c.first.sha256 } : { provisional_day: c.a.provisionalDay }), // FAST-START: P, no read
+    d_last: c.first.d_last }; // D-11 l.427 (DOJO-HISTORY-CUT-CHECK-1)
   const lines = existsSync(p) ? readFileSync(p, "utf8").split("\n").filter((l) => l !== "") : [];
   lines.forEach((text, i) => {
     let l: (Line & { inputs?: unknown }) | null = null;
@@ -376,7 +389,8 @@ function reasonOf(e: unknown): string | null {
   const g = e instanceof BudgetExceededError ? /rpc-guard: (\w+) \(fail-closed\)/.exec(e.message)?.[1] : undefined;
   return g !== undefined && GUARD_REASONS.includes(g) ? g : null;
 }
-export interface Status { readonly status: "partial" | "complete"; readonly stop_reason: string | null; readonly unlocked: Readonly<Record<string, string>> }
+export interface Status { readonly status: "partial" | "complete" | "provisional"; readonly stop_reason: string | null;
+  readonly unlocked: Readonly<Record<string, string>> }
 
 /** The served unlock of one operator (D-11, D-13 point 6): the sha256 of its `unlocked` line when that line is the last of the ledger and
  *  equals the head `<op>.head`; `unconfirmed` otherwise, a throw included, so that the next operator is still unlocked (C-G2-2). */
@@ -395,11 +409,12 @@ function release(c: Ctx, op: string): string {
  *  operator is then unlocked; one unlock not confirmed stops the course unlock_unconfirmed (Q-12): status.json and run.json are written,
  *  and run.json keeps the first reason and its detail (C-G2-2). Phase C (PR-2b-4) also runs D and E (buildHistory) inside the course,
  *  then, ended without stop, writes the evidence of its course, publish/ through closeHistory (its manifest links that evidence; its
- *  SHA256SUMS last), and only then the status complete (D-12). */
+ *  SHA256SUMS last), and only then the status complete (D-12). FAST-START: with --provisional-day, D and E give the Eve alone
+ *  (provisionalEve), written to provisional/eve.json after the evidence, then the status provisional; publish/ is never written. */
 export async function runHistoryCollect(argv: readonly string[], deps: RunDeps): Promise<Status> {
   const c = setup(argv, deps), started = new Date(deps.nowMs()).toISOString(), unlocked: Record<string, string> = {};
   let client = null as BudgetedClient | null, reason: string | null = null, detail: string | null = null, got: Collected | null = null, built = false;
-  let composed: readonly string[] | null = null, fatal: { readonly e: unknown } | null = null;
+  let composed: readonly string[] | null = null, fatal: { readonly e: unknown } | null = null, eve: string | null = null;
   try {
     openJournal(c);
     const served = fetcher(c, null), idx = c.a.phase === "A" ? null : [await indexOf(served, A, c.mint), await indexOf(served, B, c.mint)];
@@ -412,7 +427,11 @@ export async function runHistoryCollect(argv: readonly string[], deps: RunDeps):
     if (idx === null) { const f = open(); for (const op of DOJO_HISTORY_OPS) await indexOf(f, op, c.mint); }
     else { got = await collectBodies(c, c.a.phase === "B" ? open() : served, idx[0] ?? [], idx[1] ?? [], c.a.phase === "C" ? open : undefined); }
     if (got !== null) composed = composeChecks(got, c.mint);
-    if (got !== null && c.a.phase === "C") { buildHistory({ txs: got.txs, noQuorum: got.noQuorum, records: c.first.records }); built = true; }
+    if (got !== null && c.a.phase === "C") { // D and E; FAST-START: the provisional Eve alone, never a HistoryBuild (provisionalEve)
+      if (c.a.provisionalDay === null) buildHistory({ txs: got.txs, noQuorum: got.noQuorum, records: c.first.records });
+      else eve = `${canonical(provisionalEve({ txs: got.txs, noQuorum: got.noQuorum, day: c.a.provisionalDay, cut: c.a.cut }))}\n`;
+      built = true;
+    }
   } catch (e) { reason = reasonOf(e); detail = e instanceof Halt ? e.detail : null; if (reason === null) fatal = { e }; }
   for (const op of client?.operators() ?? []) unlocked[op] = release(c, op);
   const stop = Object.values(unlocked).includes("unconfirmed") ? "unlock_unconfirmed" : reason;
@@ -426,7 +445,11 @@ export async function runHistoryCollect(argv: readonly string[], deps: RunDeps):
     for (const [n, t] of Object.entries(files)) durable(join(run, n), t, "wx");
     const sums = Object.keys(files).sort().map((n) => `${sha(files[n] ?? "")}  ${n}\n`).join("");
     durable(join(run, "SHA256SUMS"), sums, "wx");
-    if (built && got !== null && stop === null) { // F (D-12): publish/ once the evidence it links is written, its SHA256SUMS last, then the status
+    if (built && got !== null && stop === null && eve !== null) { // FAST-START: the Eve alone, beside the evidence, never under publish/
+      replace(join(c.a.state, "provisional", "eve.json"), eve);
+      status = { status: "provisional", stop_reason: null };
+    }
+    if (built && got !== null && stop === null && c.a.provisionalDay === null) { // F (D-12): publish/ after the evidence it links, SHA256SUMS last
       const pub = closeHistory({ ...got, records: c.first.records }, { mint: c.mint, program: T22, decimals: SIG0.decimals, sig0: SIG0.signature,
         sig0_slot: SIG0.slot, transactions_failed_excluded: got.failedExcluded, collector_sha256: sources(), evidence_sha256sums_sha256: sha(sums) }).publish;
       for (const [p, t] of Object.entries(pub ?? {})) replace(join(c.a.state, "publish", ...p.split("/")), t);
@@ -440,7 +463,7 @@ export async function runHistoryCollect(argv: readonly string[], deps: RunDeps):
 
 export async function main(argv: readonly string[], deps: RunDeps): Promise<number> {
   try {
-    const s = await runHistoryCollect(argv, deps), said = s.stop_reason ?? (s.status === "complete" ? "complete" : "phase done");
+    const s = await runHistoryCollect(argv, deps), said = s.stop_reason ?? (s.status === "partial" ? "phase done" : s.status);
     process.stderr.write(`dojo/history-collect: ${said}\n`); return s.stop_reason === null ? 0 : 1;
   } catch (e) {
     const code = (e as { code?: unknown }).code;

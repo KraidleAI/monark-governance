@@ -54,7 +54,7 @@ function oracle(txs: readonly Tx[], last: number): string[] {
   return rows.map(([d, o, v]) => canonical({ address: o, class: ownerClass(o), day: dateOf(d), day_value: String(v) }));
 }
 
-// killer: apps/dojo/src/history-collect.ts:433 CONST "status: \"complete\", stop_reason: null" -> "status: \"partial\", stop_reason: null"
+// killer: apps/dojo/src/history-collect.ts:456 CONST "status: \"complete\", stop_reason: null" -> "status: \"partial\", stop_reason: null"
 test("dojo_history_collect_to_verify_end_to_end", async () => {
   Object.assign(sim, { txs: world(24, 2, 7, { gap: 40_000, mintless: [24], close: [10] }), reqs: [], tick: 0, drop: { a: new Set(), b: new Set() },
     pageDrop: new Set(), diverge: new Set(), override: null }); // days of blockTime, a transfer without the mint, a closed account

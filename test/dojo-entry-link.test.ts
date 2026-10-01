@@ -54,9 +54,9 @@ test("dojo_collect_through_a_directory_link_runs_its_main", () => {
 // killer: apps/dojo/src/collect.ts:305 CONST "catch { return false; }" -> "catch { return true; }"
 test("dojo_collect_imported_runs_no_main", () => imported("src/collect.ts"));
 
-// killer: apps/dojo/src/history-collect.ts:452 CONST "realpathSync(process.argv[1] as string)" -> "process.argv[1] as string"
+// killer: apps/dojo/src/history-collect.ts:475 CONST "realpathSync(process.argv[1] as string)" -> "process.argv[1] as string"
 test("dojo_history_collect_through_a_directory_link_runs_its_main", () => {
   assert.deepEqual(out(viaLink("src/history-collect.ts"), "dojo/history-collect: usage"), [64, "", true], "exit 64 and the usage, never 0");
 });
-// killer: apps/dojo/src/history-collect.ts:452 CONST "catch { return false; }" -> "catch { return true; }"
+// killer: apps/dojo/src/history-collect.ts:475 CONST "catch { return false; }" -> "catch { return true; }"
 test("dojo_history_collect_imported_runs_no_main", () => imported("src/history-collect.ts"));
