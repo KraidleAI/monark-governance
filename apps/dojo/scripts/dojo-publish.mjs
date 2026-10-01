@@ -5,11 +5,11 @@
 // refuses is ever committed. Modes: --inbox <bundles> (the next closed day of the collector's handoff layout, read by the layout reader
 // of PR-2-2 with its check, published as its lines file and its snapshot line, then a price_version at the seventh valid day),
 // --anchor <request> (the anchor line's closed keys, read_rule included; seed_anchor and horizon as printed by dojo-seed.mjs --init),
-// --generate-key <new file>, --rotate [--broken], --revoke <key_id> --from-seq <n>. Keys are read ONLY from $CREDENTIALS_DIRECTORY
+// --generate-key <new file>, --unlock <state>, --rotate [--broken], --revoke <key_id> --from-seq <n>. Keys are read ONLY from $CREDENTIALS_DIRECTORY
 // (dojo-signing-key, dojo-signing-key-new: systemd LoadCredential, PKCS#8 PEM). Layout of --state: timeline.jsonl (private, source of
-// truth, commit point), keyring.json (the genesis key; the rest derives from the key lines), staging/, public/ (timeline.jsonl,
+// truth, commit point), publish.lock (one writer), keyring.json (the genesis key; the rest derives from the key lines), staging/, public/ (timeline.jsonl,
 // dojo/pubkey.json in dojo-keyring-v1, lines/<sha256>.jsonl, history/<sha256>.jsonl). Node built-ins and modules of the repo only.
-import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, statSync, writeSync } from "node:fs";
+import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync, writeSync } from "node:fs";
 import { basename, dirname, isAbsolute, join } from "node:path";
 import { createPrivateKey, generateKeyPairSync } from "node:crypto";
 import { fileURLToPath } from "node:url";
@@ -26,7 +26,7 @@ import { READ_RULE } from "../src/dojo-methods.ts";
 const PASSED = Object.freeze([...DOJO_LAYOUT_REFUSALS, ...DOJO_BUNDLE_REFUSALS]);
 /** The CLOSED list of the publisher's refusals, outside the verifier's 45 codes. A detail names a file, a key or a seq, never a value. */
 export const DOJO_PUBLISH_REFUSALS = Object.freeze(["existing_timeline_corrupt", "signing_key_missing", "signing_key_not_in_keyring", "price_version_pending",
-  "anchor_malformed", "line_refused", "no_timeline", "key_already_in_keyring", "revocation_invalid", "key_file_exists", "anchor_on_published_day",
+  "anchor_malformed", "line_refused", "no_timeline", "key_already_in_keyring", "revocation_invalid", "key_file_exists", "anchor_on_published_day", "lock_held",
   "history_missing", "day_not_after_anchor", "bundle_day_mismatch", "bundle_anchor_mismatch", "seed_outside_anchor_chain", "eve_mismatch", ...PASSED]);
 export class DojoPublishError extends Error {
   constructor(code, detail) { super(`dojo/publish: ${code}: ${detail}`); this.name = "DojoPublishError"; this.code = code; this.detail = detail; }
@@ -334,11 +334,46 @@ function readRequest(path) {
 }
 /** --from-seq: a positive decimal integer, no sign, no leading zero (Q-G2-5: Number() also reads 0x3, 3.0, 3e0, +3, 0b11, 0o3). */
 const fromSeq = (s) => (/^[1-9][0-9]*$/.test(s) ? Number(s) : refuse("revocation_invalid", "--from-seq is not a plain positive decimal integer"));
+/** The single writer of --state (DOJO-PUBLISH-SINGLE-WRITER-1, D-SW1 to D-SW3; calque of packages/rpc-guard/src/lock.ts, C-9): each launch
+ *  of a mode that writes takes <state>/publish.lock, created exclusive; any other launch refuses lock_held, named, with nothing written. */
+export const STATE_LOCK = "publish.lock";
+/** Signal 0 tests a pid of this host: delivered, or any error but ESRCH (EPERM: another user's process), it reads running (fail-closed). */
+const running = (pid) => { try { return process.kill(pid, 0); } catch (e) { return e?.code !== "ESRCH"; } };
+/** The lock's record {pid, mode, taken_at}, or null when unreadable (empty, torn, foreign): such an owner is never released by --unlock. */
+const owner = (p) => { try { const o = JSON.parse(readFileSync(p, "utf8")); return Number.isInteger(o?.pid) && o.pid > 0 ? o : null; } catch { return null; } };
+const held = (o) => refuse("lock_held", `${STATE_LOCK}: ${o === null ? "owner unreadable" : running(o.pid) ? "running" : "not running: --unlock releases it"}`);
+/** D-SW2: "wx" = O_CREAT and O_EXCL, EEXIST when the lock exists; no ensureDir (an absent --state fails ENOENT, D-SW7); the record written,
+ *  fsynced and closed, its directory fsynced. Returns the release, which removes the lock only while it holds THIS launch's record. */
+function takeLock(stateDir, mode, D = DURABLE_FS) {
+  const p = join(stateDir, STATE_LOCK), mine = JSON.stringify({ pid: process.pid, mode, taken_at: Date.now() });
+  let fd;
+  try { fd = D.openSync(p, "wx"); } catch (e) { if (e?.code === "EEXIST") held(owner(p)); throw e; }
+  try { D.writeSync(fd, mine); D.fsyncSync(fd); } finally { D.closeSync(fd); }
+  D.fsyncDir(stateDir);
+  return () => { if (existsSync(p) && readFileSync(p, "utf8") === mine) { unlinkSync(p); D.fsyncDir(stateDir); } };
+}
+/** The dispatch of the modes that write --state, under the lock taken OUTSIDE the try it guards: a launch refused lock_held releases nothing. */
+async function locked(stateDir, mode, f) {
+  const release = takeLock(stateDir, mode);
+  try { return await f(); } finally { release(); }
+}
+/** --unlock <state> (D-SW3, Q-SW-2 (a)): the lock of a launch that no longer runs is removed and its record returned; the next launch
+ *  repairs the state (openState). A running or unreadable owner is refused lock_held, nothing written: never an automatic theft. */
+function unlock(stateDir, D = DURABLE_FS) {
+  const p = join(stateDir, STATE_LOCK);
+  if (!existsSync(p)) return { status: "not_locked" };
+  const o = owner(p);
+  if (o === null || running(o.pid)) held(o);
+  unlinkSync(p);
+  D.fsyncDir(stateDir);
+  process.stderr.write("dojo/publish: unlocked\n");
+  return { status: "unlocked", pid: o.pid, mode: o.mode, taken_at: o.taken_at };
+}
 const USAGE = "dojo/publish: usage: --inbox <bundles> --state <dir> | --anchor <request> --state <dir> | --generate-key <file>"
-  + " | --rotate [--broken] --state <dir> | --revoke <key_id> --from-seq <n> --state <dir>\n";
+  + " | --rotate [--broken] --state <dir> | --revoke <key_id> --from-seq <n> --state <dir> | --unlock <state>\n";
 const MODES = { "--inbox": ["--state"], "--anchor": ["--state"], "--generate-key": [], "--rotate": ["--state", "--broken"],
-  "--revoke": ["--from-seq", "--state"] };
-const VALUED = ["--inbox", "--anchor", "--state", "--generate-key", "--revoke", "--from-seq"];
+  "--revoke": ["--from-seq", "--state"], "--unlock": [] };
+const VALUED = ["--inbox", "--anchor", "--state", "--generate-key", "--revoke", "--from-seq", "--unlock"];
 
 /** CLI (calque of bell-publish.mjs runCli, argv closed): exit 0 with one JSON line on stdout, or exit 1 with `dojo/publish: <code>:
  *  <detail>` (or the usage) on stderr. */
@@ -356,6 +391,7 @@ export async function runCli(argv) {
   }
   try {
     if (mode === "--generate-key") { process.stdout.write(`${JSON.stringify(generateKey(opt.get(mode)))}\n`); return 0; } // reads no environment
+    if (mode === "--unlock") { process.stdout.write(`${JSON.stringify(unlock(opt.get(mode)))}\n`); return 0; } // reads no key (D-SW3)
     const credDir = process.env.CREDENTIALS_DIRECTORY; // systemd LoadCredential: the ONLY environment read of this module
     if (typeof credDir !== "string" || !isAbsolute(credDir)) refuse("signing_key_missing", "$CREDENTIALS_DIRECTORY is not an absolute path");
     const load = (name) => {
@@ -365,10 +401,10 @@ export async function runCli(argv) {
       return k;
     };
     const stateDir = opt.get("--state"), clock = () => Date.now();
-    const r = mode === "--inbox" ? await publishDay({ inboxDir: opt.get(mode), stateDir, key: load(KEY), clock })
+    const r = await locked(stateDir, mode, async () => (mode === "--inbox" ? await publishDay({ inboxDir: opt.get(mode), stateDir, key: load(KEY), clock })
       : mode === "--anchor" ? publishAnchor({ stateDir, key: load(KEY), request: readRequest(opt.get(mode)), clock })
       : mode === "--rotate" ? rotateKey({ stateDir, oldKey: opt.has("--broken") ? null : load(KEY), newKey: load(`${KEY}-new`), clock })
-        : revokeKey({ stateDir, key: load(KEY), revokedKeyId: opt.get(mode), revokedFromSeq: fromSeq(opt.get("--from-seq")), clock });
+        : revokeKey({ stateDir, key: load(KEY), revokedKeyId: opt.get(mode), revokedFromSeq: fromSeq(opt.get("--from-seq")), clock })));
     process.stdout.write(`${JSON.stringify(r)}\n`);
     return 0;
   } catch (e) {

@@ -26,11 +26,11 @@ function imported(rel: string): void {
   }
 }
 
-// killer: apps/dojo/scripts/dojo-publish.mjs:381 CONST "realpathSync(process.argv[1])" -> "process.argv[1]"
+// killer: apps/dojo/scripts/dojo-publish.mjs:417 CONST "realpathSync(process.argv[1])" -> "process.argv[1]"
 test("dojo_publish_through_a_directory_link_runs_its_main", () => {
   assert.deepEqual(out(viaLink("scripts/dojo-publish.mjs"), "dojo/publish: usage: --inbox"), [1, "", true], "exit 1 and the usage, never 0");
 });
-// killer: apps/dojo/scripts/dojo-publish.mjs:381 CONST "catch { return false; }" -> "catch { return true; }"
+// killer: apps/dojo/scripts/dojo-publish.mjs:417 CONST "catch { return false; }" -> "catch { return true; }"
 test("dojo_publish_imported_runs_no_main", () => imported("scripts/dojo-publish.mjs"));
 
 // killer: apps/dojo/scripts/dojo-eve.mjs:26 CONST "realpathSync(process.argv[1])" -> "process.argv[1]"

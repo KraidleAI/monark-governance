@@ -12,6 +12,8 @@ export class DojoPublishError extends Error {
 export const BOUNDS: { readonly MAX_LINE_BYTES: number };
 /** The closed keys of an anchor request (the anchor line's own fields, read_rule included). */
 export const ANCHOR_KEYS: readonly string[];
+/** The single writer's lock at the root of --state (D-SW2): created exclusive by each launch of a mode that writes --state. */
+export const STATE_LOCK: "publish.lock";
 export interface DurableFs {
   openSync(p: string, flags: string): number;
   writeSync(fd: number, data: string): void;
