@@ -5,7 +5,7 @@
 // refuses is ever committed. Modes: --inbox <bundles> (the next closed day of the collector's handoff layout, read by the layout reader
 // of PR-2-2 with its check, published as its lines file and its snapshot line, then a price_version at the seventh valid day),
 // --anchor <request> (the anchor line's closed keys, read_rule included; seed_anchor and horizon as printed by dojo-seed.mjs --init),
-// --generate-key <new file>, --rotate [--broken], --revoke <key_id> --from-seq <n>. Keys are read ONLY from $CREDENTIALS_DIRECTORY
+// --generate-key <new file>, --rotate [--broken], --revoke <key_id> --from-seq <n>, --history <packet>. Keys are read ONLY from $CREDENTIALS_DIRECTORY
 // (dojo-signing-key, dojo-signing-key-new: systemd LoadCredential, PKCS#8 PEM). Layout of --state: timeline.jsonl (private, source of
 // truth, commit point), keyring.json (the genesis key; the rest derives from the key lines), staging/, public/ (timeline.jsonl,
 // dojo/pubkey.json in dojo-keyring-v1, lines/<sha256>.jsonl, history/<sha256>.jsonl). Node built-ins and modules of the repo only.
@@ -22,11 +22,11 @@ import { DOJO_BUNDLE_REFUSALS } from "../src/bundle.ts";
 import { DOJO_LAYOUT_REFUSALS, readDayLayout } from "../src/layout.ts";
 import { READ_RULE } from "../src/dojo-methods.ts";
 
-/** The refusals of the layout reader and of the bundle reader (PR-2-1, PR-2-2), passed through under their own names. */
-const PASSED = Object.freeze([...DOJO_LAYOUT_REFUSALS, ...DOJO_BUNDLE_REFUSALS]);
+const HISTORY = Object.freeze(["history_exists", "history_after_snapshot", "history_bundle_malformed", "history_bundle_mismatch"]); // --history (PR-3a-2)
+const PASSED = Object.freeze([...DOJO_LAYOUT_REFUSALS, ...DOJO_BUNDLE_REFUSALS]); // the readers' (PR-2-1, PR-2-2), passed through under their own names
 /** The CLOSED list of the publisher's refusals, outside the verifier's 45 codes. A detail names a file, a key or a seq, never a value. */
 export const DOJO_PUBLISH_REFUSALS = Object.freeze(["existing_timeline_corrupt", "signing_key_missing", "signing_key_not_in_keyring", "price_version_pending",
-  "anchor_malformed", "line_refused", "no_timeline", "key_already_in_keyring", "revocation_invalid", "key_file_exists", "anchor_on_published_day",
+  "anchor_malformed", "line_refused", "no_timeline", "key_already_in_keyring", "revocation_invalid", "key_file_exists", "anchor_on_published_day", ...HISTORY,
   "history_missing", "day_not_after_anchor", "bundle_day_mismatch", "bundle_anchor_mismatch", "seed_outside_anchor_chain", "eve_mismatch", ...PASSED]);
 export class DojoPublishError extends Error {
   constructor(code, detail) { super(`dojo/publish: ${code}: ${detail}`); this.name = "DojoPublishError"; this.code = code; this.detail = detail; }
@@ -334,11 +334,63 @@ function readRequest(path) {
 }
 /** --from-seq: a positive decimal integer, no sign, no leading zero (Q-G2-5: Number() also reads 0x3, 3.0, 3e0, +3, 0b11, 0o3). */
 const fromSeq = (s) => (/^[1-9][0-9]*$/.test(s) ? Number(s) : refuse("revocation_invalid", "--from-seq is not a plain positive decimal integer"));
+
+/** The history line's own fields (mere D-18; declared duplicate of FIELDS.history of dojo-verify.mjs), taken from the manifest. */
+const HISTORY_LINE = ["history_first_day", "history_last_day", "history_sha256", "history_lines_count", "history_root"];
+/** The manifest's CLOSED keys (ADR-DOJO-PR-2B D-12): a declared duplicate of the literal of historyBundle (history-build.ts), pinned by the
+ *  end-to-end test that runs that real writer (dojo_history_publish_to_verify_end_to_end). */
+const MANIFEST = ["schema", "status", "mint", "program", "decimals", "history_first_day", "history_last_day", "sig0", "sig0_slot", "window_slot_max",
+  "first_read_day", "enumeration_slots", "history_sha256", "history_lines_count", "history_root", "transactions_admitted", "transactions_failed_excluded",
+  "transactions_without_quorum", "token_accounts", "addresses", "missing_address_days", "supply_check", "enumeration_check", "chain_check",
+  "collector_sha256", "evidence_sha256sums_sha256"];
+/** The history packet of PR-2b, read WITH its check (ADR-DOJO-PR-2B D-12 l.474 and its dated line of 11:53Z; M-E12): publish/SHA256SUMS,
+ *  its single entry, names exactly eve.json, history/<sha256>.jsonl and manifest.json (relative to publish/, in byte order), and each file
+ *  is checked against its sha256, as bytes; then the manifest: canonical, its closed keys, complete, its three checks passed, naming the
+ *  file. Nothing else is read (never evidence/); the file's lines are the verifier's (count, sha256, forms, order, root: the VAE). */
+function readHistory(dir) {
+  const pub = join(dir, "publish"), bad = (why) => refuse("history_bundle_malformed", why);
+  const get = (p) => (existsSync(join(pub, ...p.split("/"))) ? readFileSync(join(pub, ...p.split("/"))) : bad(`publish/${p} is missing`));
+  const sums = get("SHA256SUMS").toString("utf8");
+  const rows = sums.split("\n").slice(0, -1).map((l) => /^([0-9a-f]{64}) {2}(eve\.json|history\/[0-9a-f]{64}\.jsonl|manifest\.json)$/.exec(l)
+    ?? bad("publish/SHA256SUMS line"));
+  const paths = rows.map((r) => r[2]), [ep, hp, mp] = paths;
+  if (!sums.endsWith("\n") || paths.map((p) => p.split("/")[0]).join(" ") !== "eve.json history manifest.json") bad("publish/SHA256SUMS paths");
+  const body = new Map(rows.map(([, , p]) => [p, get(p)]));
+  for (const [, hex, p] of rows) if (sha256Hex(body.get(p)) !== hex) refuse("history_bundle_mismatch", `publish/${p}: sha256`); // the check (M-E12)
+  const text = (p) => body.get(p).toString("utf8");
+  let m = null;
+  try { m = JSON.parse(text(mp)); if (`${canonical(m)}\n` !== text(mp)) m = null; } catch { m = null; }
+  if (m?.schema !== "dojo-history-bundle-v1" || Object.keys(m).length !== MANIFEST.length || !MANIFEST.every((k) => Object.hasOwn(m, k))
+    || m.status !== "complete" || [m.supply_check, m.enumeration_check, m.chain_check].some((c) => c !== "pass")
+    || hp !== `history/${m.history_sha256}.jsonl`) bad("publish/manifest.json");
+  return { m, text: text(hp), eve: text(ep) };
+}
+/** --history <packet> (PR-3a-2; ADR-DOJO-PR-3 D-1 row PR-3a-2, TU-12c; mere D-18, decision 231): the history packet of PR-2b, read with
+ *  its check, under the anchor in force (its mint and program: the line carries neither), before every snapshot and once per timeline;
+ *  its line and its file verified TOGETHER by the reader's verifier before any append (PC-7: the same VAE, asynchronous from its birth),
+ *  the Eve of the first day read checked against the file's last day, then the file durable before the line (M-E4, commitLine). */
+export async function publishHistory({ historyDir, stateDir, key, clock, fs: D = DURABLE_FS }) {
+  const t = clock(), st = openState(stateDir, BOUNDS, D, key), A = st.lines.findLast((l) => l.kind === "anchor");
+  if (A === undefined) refuse("no_timeline", "the history line follows an anchor");
+  if (st.lines.some((l) => l.kind === "snapshot")) refuse("history_after_snapshot", "a snapshot is published: the history precedes it (decision 231)");
+  if (st.lines.some((l) => l.kind === "history")) refuse("history_exists", "one history line per timeline");
+  const { m, text, eve } = readHistory(historyDir), imm = [[`history/${m.history_sha256}.jsonl`, text]];
+  if (m.mint !== A.mint || m.program !== A.program) refuse("bundle_anchor_mismatch", "history publish/manifest.json: mint or program");
+  const line = { ...lineHead(st, "history", t, keyIdOf(key)), ...Object.fromEntries(HISTORY_LINE.map((k) => [k, m[k]])) };
+  line.sig = signLine(line, key);
+  await checked(stateDir, st, [line], imm); // the line and its file verified together, before any append (PC-7)
+  const last = text.split("\n").slice(0, -1).map((s) => JSON.parse(s)).filter((o) => o.day === m.history_last_day); // verified lines, LF-ended
+  if (eve !== `${canonical({ addresses: last.map((o) => o.address), accounts: [] })}\n`) refuse("history_bundle_mismatch", "publish/eve.json: addresses");
+  commitLine(stateDir, st, line, D, imm);
+  return { ...result("published", line), history_last_day: line.history_last_day, history_sha256: line.history_sha256,
+    history_lines_count: line.history_lines_count };
+}
+
 const USAGE = "dojo/publish: usage: --inbox <bundles> --state <dir> | --anchor <request> --state <dir> | --generate-key <file>"
-  + " | --rotate [--broken] --state <dir> | --revoke <key_id> --from-seq <n> --state <dir>\n";
-const MODES = { "--inbox": ["--state"], "--anchor": ["--state"], "--generate-key": [], "--rotate": ["--state", "--broken"],
+  + " | --rotate [--broken] --state <dir> | --revoke <key_id> --from-seq <n> --state <dir> | --history <packet> --state <dir>\n";
+const MODES = { "--inbox": ["--state"], "--history": ["--state"], "--anchor": ["--state"], "--generate-key": [], "--rotate": ["--state", "--broken"],
   "--revoke": ["--from-seq", "--state"] };
-const VALUED = ["--inbox", "--anchor", "--state", "--generate-key", "--revoke", "--from-seq"];
+const VALUED = ["--inbox", "--history", "--anchor", "--state", "--generate-key", "--revoke", "--from-seq"];
 
 /** CLI (calque of bell-publish.mjs runCli, argv closed): exit 0 with one JSON line on stdout, or exit 1 with `dojo/publish: <code>:
  *  <detail>` (or the usage) on stderr. */
@@ -366,6 +418,7 @@ export async function runCli(argv) {
     };
     const stateDir = opt.get("--state"), clock = () => Date.now();
     const r = mode === "--inbox" ? await publishDay({ inboxDir: opt.get(mode), stateDir, key: load(KEY), clock })
+      : mode === "--history" ? await publishHistory({ historyDir: opt.get(mode), stateDir, key: load(KEY), clock })
       : mode === "--anchor" ? publishAnchor({ stateDir, key: load(KEY), request: readRequest(opt.get(mode)), clock })
       : mode === "--rotate" ? rotateKey({ stateDir, oldKey: opt.has("--broken") ? null : load(KEY), newKey: load(`${KEY}-new`), clock })
         : revokeKey({ stateDir, key: load(KEY), revokedKeyId: opt.get(mode), revokedFromSeq: fromSeq(opt.get("--from-seq")), clock });
