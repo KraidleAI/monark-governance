@@ -32,9 +32,9 @@ export function urlSource(base, bounds = VERIFY_BOUNDS) {
       if (!SERVED.test(rel)) refuse("insecure_url", null, null, rel);
       if (++files > bounds.MAX_FILES) refuse("too_large", null, null, "total files");
       const ctl = new AbortController(), timer = setTimeout(() => { ctl.abort(); }, bounds.TIMEOUT_MS);
-      let res = null;
+      let res = null, tries = 0; // replayOf: the same GET once more, only if the connection failed before any answer
       try {
-        res = await fetch(`${root}/${rel}`, { redirect: "manual", signal: ctl.signal });
+        while (res === null) res = await fetch(`${root}/${rel}`, { redirect: "manual", signal: ctl.signal }).catch((e) => replayOf(e, ++tries, ctl.signal));
         if (res.type === "opaqueredirect" || (res.status >= 300 && res.status < 400)) refuse("redirect_refused", null, null, rel);
         if (res.status !== 200 || res.body === null) refuse("http_status", null, null, rel);
         const chunks = [];
@@ -93,3 +93,13 @@ export async function runVerifyCli(argv) {
 // C-G2-1 (G2 of PR-1b-5b): REAL paths compared, so a launch through a directory link runs it; argv[1] absent or unreadable: an import, no throw.
 const isEntry = () => { try { return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]); } catch { return false; } };
 if (isEntry()) process.exitCode = await runVerifyCli(process.argv.slice(2));
+
+/** The replay rule of one GET of urlSource: null (the same GET is sent once more) when its FIRST try failed before any answer on a
+ *  closed connection (a kept-alive connection the host closed while the check computed; the runtime drops that socket, so the replay
+ *  opens a new one); else the error, rethrown. Never on the GET's timer (its signal aborted), never once an answer came (a refusal, a
+ *  status or a body cut short are read after this), never for another error (a refused or unresolved host); the replayed bytes are
+ *  hashed against the signed lines like any others. Hoisted, declared last so that no line above it moves (killers name its lines). */
+function replayOf(e, tries, signal) {
+  if (tries > 1 || signal.aborted || !["UND_ERR_SOCKET", "ECONNRESET"].includes(e?.cause?.code)) throw e; // the codes of a closed or reset socket
+  return null;
+}

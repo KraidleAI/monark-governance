@@ -43,7 +43,7 @@ export const DOJO_TEXT = {
     "Each day, every address is read at instants drawn from a seed committed in advance and revealed afterwards; the day counts " +
     "the smallest reading, and an account no longer found counts as zero. When a balance decreases, the part that left starts " +
     "again from zero, newest first. The hold score is the sum, over the days counted, of the part still held. Points become " +
-    "validated once the part that produced them has been held for sixty days in a row, and stay provisional until then.",
+    "validated once the part that produced them has been held for {validation_days} days in a row, and stay provisional until then.",
   exclusion:
     "An address off the Ed25519 curve is a program address, such as a pool or an escrow, or an address no key can sign for: its " +
     "line is published with the class program and a hold score of zero.",
@@ -77,23 +77,30 @@ export const DOJO_TEXT = {
   rereadKeyChange:
     "The new lines carry a key change, which this page does not follow in your browser: the figures shown are those committed " +
     "with this page.",
-  // The table of every line (components/dojo/dojo-table.tsx): the first paint says what a browser that runs its script then lists;
-  // once the lines file is bound, the table, its order and the look-up; if it cannot be bound, no line and the sentence that says so.
+  // The table of the lines (components/dojo/dojo-table.tsx): the first paint says what a browser that runs its script then lists; once
+  // the lines file is bound, the table, its dust rule, its order and the look-up; if it cannot be bound, no line and the sentence that says so.
   table:
-    "A browser that runs its script lists here every line of the snapshot shown above, once the lines file's SHA-256, count and " +
+    "A browser that runs its script lists here the lines of the snapshot shown above, once the lines file's SHA-256, count and " +
     "Merkle root match the signed line.",
   tableDone:
-    "Every line of the snapshot shown above, read in your browser from the published lines file, whose SHA-256, count and Merkle " +
+    "The lines of the snapshot shown above, read in your browser from the published lines file, whose SHA-256, count and Merkle " +
     "root match the signed line; hold scores and points are in token-days.",
   tableOrder: "Listed by hold score, highest first; equal hold scores by address.",
+  tableDust:
+    "Holder lines under the dust threshold of the version in force are published and not listed here; the look-up below searches " +
+    "every line.",
+  tableNoVersion:
+    "No unit version is in force yet, so every line is listed; once the first one applies, holder lines under its dust threshold " +
+    "are published and not listed here.",
   tableRefused:
-    "The lines file of the snapshot shown above could not be read in your browser, or did not match the signed line: no line is " +
-    "listed.",
+    "The lines file of the snapshot shown above could not be read in your browser, did not match the signed line, or carries a " +
+    "line out of form: no line is listed.",
   lookup:
-    "Look up an address among the lines listed below: your browser searches them here, and the address you enter is not sent " +
-    "anywhere.",
+    "Look up an address among the lines of the snapshot shown above: your browser searches them here, and the address you enter " +
+    "is not sent anywhere.",
   lookupInvalid: "This is not a valid address.",
-  lookupAbsent: "No line for this address among the lines listed below.",
+  lookupAbsent: "No line for this address in the snapshot shown above.",
+  lookupDust: "This line is under the dust threshold of the version in force, so it is not listed among the others.",
 } as const;
 
 /** The words of the table of every line (components/dojo/dojo-table.tsx): its columns, the two classes, the tier of an address that

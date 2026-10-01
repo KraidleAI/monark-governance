@@ -26,7 +26,7 @@ import { canonical, lineHash, type Trust } from "../apps/bell/scripts/bell-chain
 
 type Tree = Map<string, Buffer>;
 type Rec = Record<string, unknown>;
-type Rows = { columns: string[]; bound: served.DojoTableRow[]; shown: served.DojoTableRow[] };
+type Rows = Extract<served.DojoTable, { kind: "rows" }>;
 const ROOT = join(import.meta.dirname, ".."), NL = String.fromCharCode(10), T = copy.DOJO_TEXT;
 const DEPS: DojoChainDeps<Trust> = { trustOf: dojoTrustOf, walk: walkDojoTimeline, lineHash, rootOf, verify: verifyDojoServed };
 const ed25519: live.VerifyEd25519 = async (x, m, s) =>
@@ -73,7 +73,13 @@ async function run(c: DojoServedData, tree: Tree, verifyEd25519 = ed25519, bound
   const table = await tableOf(view, deps);
   return { view, table, all, gets: all.slice(g), sha: calls.sha - s, deps };
 }
-const rowsOf = (t: served.DojoTable): Rows => (t.kind === "rows" ? t : assert.fail(`no line listed: ${t.kind}`));
+/** The rows of a table, at least one line bound: an assertion on its rows never holds on an empty table (a fixture that changed). */
+const rowsOf = (t: served.DojoTable): Rows => (t.kind === "rows" && t.bound.length > 0 ? t : assert.fail(`no line bound: ${t.kind}`));
+/** Whether the signed line a row carries is listed: every line without a version; under one, all but a holder line not counted. */
+const listedLine = (r: served.DojoTableRow): boolean => {
+  const o = JSON.parse(r.line) as Rec;
+  return o.class === "program" || o.holder_counted !== false;
+};
 /** The fixture, its committed keyring (a second key committed too) and the committed records at seq 8 (E1), 9 (E1) and 12 (E2). */
 async function records() {
   const f = dojoFixture(), k = dojoKeyringOf([[f.key, 1], [newKey(), 1]]), e1 = render(f.steps.slice(0, 9)), e2 = render(f.steps);
@@ -98,8 +104,8 @@ test("dojo_lookup_address_rule_equals_the_core", async () => {
   for (const s of corpus) assert.equal(isDojoAddress(`  ${s} `), core(s.trim()), `trimmed: ${JSON.stringify(s)}`);
 });
 
-// killer: apps/site/lib/dojo-served.ts:193 CONST "W[c]" -> "c"
-// killer: apps/site/lib/dojo-served.ts:193 CONST "shift(s), shift(v)" -> "s, shift(v)"
+// killer: apps/site/lib/dojo-served.ts:198 CONST "W[c]" -> "c"
+// killer: apps/site/lib/dojo-served.ts:198 CONST "shift(s), shift(v)" -> "s, shift(v)"
 test("dojo_table_rows_are_the_verifier_lines", async () => {
   const { k, e1, e2, c8, c9, c12 } = await records();
   // Heads shown: reread under a version and without one; committed (no Ed25519 here) under a version, and while the tree went on.
@@ -128,15 +134,19 @@ test("dojo_table_rows_are_the_verifier_lines", async () => {
       const unit = h.price_version === null ? [x.length] : [x.length, x[5], tiers.indexOf(x[6] ?? "")];
       assert.deepEqual(unit, h.price_version === null ? [5] : [7, o.units, o.tier], `${name}: units, and a tier name or none, under a version only`);
     }
-    // Shown: the bound rows by hold score, highest first, equal hold scores by address (decision 301 (1), M-K12 reformulated).
-    const want = [...bound].sort((p, q) => (BigInt(p.score) === BigInt(q.score) ? Buffer.compare(Buffer.from(p.address), Buffer.from(q.address))
+    // Shown: the bound rows a version does not hide (a holder line not counted, under the dust threshold), by hold score, highest first,
+    // equal hold scores by address (decision 301 (1), M-K12 reformulated); the order of the lines listed is the order of all.
+    const want = bound.filter(listedLine).sort((p, q) => (BigInt(p.score) === BigInt(q.score) ? Buffer.compare(Buffer.from(p.address), Buffer.from(q.address))
       : BigInt(p.score) > BigInt(q.score) ? -1 : 1));
     assert.deepEqual(shown, want, `${name}: the order shown is the order declared`);
   }
   // Equal hold scores, and a longer one (compared as numbers, never as text), on lines given to the table: ten first, then the nines.
   const r = await run(c9, e2), base = rowsOf(r.table).bound, scores = ["9", "10", "9"];
   assert.equal(base.length, scores.length, "three lines at the head of the fixture");
-  const lines = base.map((row, i) => canonical({ ...(JSON.parse(row.line) as Rec), score: scores[i] }));
+  const lines = base.map((row, i) => {
+    const o = JSON.parse(row.line) as Rec; // each line listed: a holder line counted, under the version of this head
+    return canonical({ ...o, score: scores[i], holder_counted: o.class === "holder" ? true : o.holder_counted });
+  });
   const t = rowsOf(await served.dojoTableOf({ ...r.view, rows: lines }, r.deps));
   assert.deepEqual(t.shown.map((x) => x.address), [1, 0, 2].map((i) => base[i]?.address), "ten first, then the two nines by address");
   // The class cell is the word given for the line's class, never its raw key (M-K17): other words injected, both classes present.
@@ -146,7 +156,7 @@ test("dojo_table_rows_are_the_verifier_lines", async () => {
     [["holder", "program"], base.map((x) => (classOf(x) === "holder" ? "H-word" : "P-word"))], "each class cell is its injected word (M-K17)");
 });
 
-// killer: apps/site/lib/dojo-served.ts:183 CONST "view.rows ??" -> "null ??"
+// killer: apps/site/lib/dojo-served.ts:187 CONST "view.rows ??" -> "null ??"
 test("dojo_table_follows_the_displayed_head", async () => {
   const { f, e2, c9 } = await records(), tl = e2.get("timeline.jsonl") ?? assert.fail("a timeline");
   const s = dojoSpreadFixture(), ks = dojoKeyringOf([[s.key, 1, 13], [s.next, 13]]), cs = await committedOf(render(s.steps.slice(0, 12)), ks);
@@ -179,9 +189,10 @@ test("dojo_table_follows_the_displayed_head", async () => {
     [{ kind: "wait" }, { kind: "wait" }, { kind: "none" }, { kind: "none" }], "the first paint waits, with no GET");
 });
 
-// killer: apps/site/lib/dojo-served.ts:195 SDL "address >= r.address" -> ""
+// killer: apps/site/lib/dojo-served.ts:200 SDL "address >= r.address" -> ""
+// killer: apps/site/lib/dojo-served.ts:196 SDL "typeof hc" -> ""
 test("dojo_table_refuses_a_file_it_cannot_bind", async () => {
-  const { f, e2, c9 } = await records(), rel = `lines/${c9.head.lines_sha256}.jsonl`, lf = e2.get(rel) ?? assert.fail("the committed file");
+  const { f, e2, c8, c9 } = await records(), rel = `lines/${c9.head.lines_sha256}.jsonl`, lf = e2.get(rel) ?? assert.fail("the committed file");
   const text = lf.toString(), without = new Map(e2), bounds = live.DOJO_LIVE_BOUNDS;
   without.delete(rel);
   // The committed head's file, read without Ed25519 (one GET): absent, changed after signing, a line short, behind a BOM, beyond a
@@ -204,17 +215,23 @@ test("dojo_table_refuses_a_file_it_cannot_bind", async () => {
     ["a class out of the list", edit(first((l) => ({ ...l, class: "robot" })))],
     ["an address out of the alphabet", edit(first((l) => ({ ...l, address: `0${String(l.address).slice(1)}` })))],
     ["a provisional count that is not a decimal", edit(first((l) => ({ ...l, provisional: "01" })))],
-    ["a tier beyond the list", edit(first((l) => ({ ...l, tier: 6 })))]];
+    ["a tier beyond the list", edit(first((l) => ({ ...l, tier: 6 })))],
+    ["a program line counted as a holder", edit((ls) => ls.map((l) => (l.class === "program" ? { ...l, holder_counted: true } : l)))],
+    ["no holder_counted under a version", edit(first((l) => ({ ...l, holder_counted: null })))]];
   for (const [name, tree] of signed) {
     const r = await run(c9, tree);
     assert.deepEqual([r.view.note, r.table, r.gets], [T.rereadDone, { kind: "refused" }, []], `${name}: the reread holds, no line listed`);
   }
+  // Without a version, holder_counted is null on every line: a line counted or not counted is out of form, the table lists none.
+  const e1hc = render(f.steps.slice(0, 9), new Map([[8, (linesOf(f.steps, 8) as unknown as Rec[]).map((l, i) =>
+    (i === 0 ? { ...l, holder_counted: false } : l))]])), r1 = await run(c8, e1hc);
+  assert.deepEqual([r1.view.note, r1.table], [T.rereadDone, { kind: "refused" }], "holder_counted without a version: no line listed");
   // The component says a refusal by TXT-17c alone, never its reason, under the limits of the module (no bound of its own).
   const src = readFileSync(join(ROOT, "apps", "site", "components", "dojo", "dojo-table.tsx"), "utf8"), count = (s: string): number => src.split(s).length - 1;
   assert.deepEqual([count("T.tableRefused"), count("why"), count("bounds"), count("boundedSource(get)")], [1, 0, 0, 1], "TXT-17c, never a reason");
 });
 
-// killer: apps/site/lib/dojo-served.ts:196 CONST "...(versioned ? [W.units, W.tier] : [])" -> "W.units, W.tier"
+// killer: apps/site/lib/dojo-served.ts:201 CONST "...(versioned ? [W.units, W.tier] : [])" -> "W.units, W.tier"
 test("dojo_table_units_only_with_a_version", async () => {
   const { f, e1, e2, c8, c9 } = await records(), W = added(copy, "DOJO_TABLE"), five = [W.address, W.class, W.holdScore, W.validated, W.provisional];
   const cases: Array<[string, DojoServedData, Tree, live.VerifyEd25519, string[]]> = [["E1 reread", c8, e1, ed25519, five],
@@ -258,7 +275,7 @@ test("dojo_lookup_never_echoes_the_input", async () => {
   assert.deepEqual(reads, [1, 1, 0, 0, 0], "the field read once, into the look-up, never rendered");
 });
 
-// killer: apps/site/components/dojo/dojo-table.tsx:58 CONST "spellCheck={false}" -> "spellCheck={false} name={W.address}"
+// killer: apps/site/components/dojo/dojo-table.tsx:80 CONST "spellCheck={false}" -> "spellCheck={false} name={W.address}"
 test("dojo_lookup_sends_no_address", async () => {
   const { dojoLookupOf } = await lookupModule(), { e2, c9 } = await records();
   for (const ed of [ed25519, noEd25519]) {
@@ -277,4 +294,32 @@ test("dojo_lookup_sends_no_address", async () => {
   }
   const lookup = readFileSync(join(ROOT, "apps", "site", "lib", "dojo-lookup.ts"), "utf8").split(NL).filter((l) => /^import/.test(l));
   assert.deepEqual(lookup, ['import type { DojoTableRow } from "./dojo-served.ts";'], "the look-up imports a type alone");
+});
+
+// killer: apps/site/lib/dojo-served.ts:202 CONST "bound.filter((r) => r.listed)" -> "bound.filter((r) => r.listed || true)"
+test("dojo_table_hides_dust_lines_under_a_version", async () => {
+  const { dojoLookupOf } = await lookupModule(), { e1, e2, c8, c9, c12 } = await records();
+  // [case, committed record, served tree, Ed25519, a version in force at the head shown]
+  const cases: Array<[string, DojoServedData, Tree, live.VerifyEd25519, boolean]> = [["reread E2", c9, e2, ed25519, true],
+    ["committed E2", c12, e2, noEd25519, true], ["reread E1", c8, e1, ed25519, false], ["committed E1", c9, e2, noEd25519, false]];
+  for (const [name, c, tree, ed, versioned] of cases) {
+    const { view, table } = await run(c, tree, ed), h = view.head ?? assert.fail(name), t = rowsOf(table);
+    // The oracle: the class and holder_counted of each signed line of the file the head shown names, read from the served bytes.
+    const file = (tree.get(`lines/${h.lines_sha256}.jsonl`) ?? assert.fail(name)).toString().split(NL).slice(0, -1).map((s) => JSON.parse(s) as Rec);
+    const dust = file.filter((o) => o.class === "holder" && o.holder_counted === false).map((o) => String(o.address));
+    assert.deepEqual([t.versioned, dust.length > 0], [versioned, versioned], `${name}: a version in force, and a dust line under it only`);
+    // Listed: every line without a version; under one, every line but the holder lines not counted (program lines stay listed).
+    const want = file.map((o) => String(o.address)).filter((a) => !dust.includes(a));
+    assert.deepEqual(t.shown.map((r) => r.address).sort(), want.sort(), `${name}: the lines listed`);
+    // Every line is still bound in the signed order; the lines listed keep the order of all (hold score, highest first, then address).
+    assert.deepEqual(t.bound.map((r) => r.address), file.map((o) => String(o.address)), `${name}: every line bound`);
+    const order = [...t.shown].sort((p, q) => (BigInt(p.score) === BigInt(q.score) ? Buffer.compare(Buffer.from(p.address), Buffer.from(q.address))
+      : BigInt(p.score) > BigInt(q.score) ? -1 : 1));
+    assert.deepEqual(t.shown, order, `${name}: the order of the lines listed`);
+    // The look-up still finds a hidden line; its row says that it is not listed (the page then says it is under the dust threshold).
+    for (const a of dust) {
+      const out = dojoLookupOf(a, t.bound);
+      assert.deepEqual([out.kind, out.kind === "found" && out.row.listed], ["found", false], `${a}: found, not listed`);
+    }
+  }
 });

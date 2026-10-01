@@ -175,4 +175,6 @@ Authored directly (no CLI, no npm dependency added):
 - `components/dojo/dojo-table.tsx` (2026-09-30) — the table of every line of the snapshot the figures section shows, a client
   component mounted by `components/dojo/dojo-live.tsx`: once the reread has an outcome, the lines of that head (bound by
   `bindDojoLines` of `lib/dojo-live.ts`, put in form by `dojoTableOf` of `lib/dojo-served.ts`), listed by hold score; the look-up of
-  one address among them by `lib/dojo-lookup.ts`, in the browser only. No library, no npm dependency added.
+  one address among them by `lib/dojo-lookup.ts`, in the browser only. No library, no npm dependency added. Under a unit version in
+  force, a holder line under its dust threshold is bound and found by the look-up, never listed; `DojoTableBody` renders one state of
+  the table with no hook of its own (a server render shows each state); the figures section keys the table by the head it shows.

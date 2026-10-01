@@ -6,15 +6,17 @@ import { dojoPageFiguresOf } from "@/lib/dojo-served";
 import { holdSnapshotStatus } from "@/lib/dojo-register";
 import { DOJO_NAME, DOJO_TITLE, DOJO_TEXT as T } from "@/lib/dojo-copy";
 import { DojoLive } from "@/components/dojo/dojo-live";
+import { DojoSentence } from "@/components/dojo/dojo-figures";
 
 // /dojo: the hold snapshot, rendered at build time from the committed, hashed record (lib/dojo-served-load.ts, fail-closed).
 // Static server component, static metadata only. Before any served snapshot there is no record, and no page: notFound(). The
 // texts are the closed list of lib/dojo-copy.ts. The figures section is the reread component (components/dojo/dojo-live.tsx): its
 // first paint is the record's figures, by state (counted without a unit version, counted under one, or abstained), each through
-// components/dojo/dojo-figures.tsx, and the sentence of a conditional reread. The pill carries the register's status.
+// components/dojo/dojo-figures.tsx, and the sentence of a conditional reread. The pill carries the register's status. The method
+// sentence names one figure, the validation window of the record's anchor in days, rendered through the same component.
 export const metadata: Metadata = { title: DOJO_TITLE, description: T.lead };
 
-const PROSE = [T.method, T.exclusion, T.bounds, T.check, T.tree, T.beacon];
+const PROSE = [T.exclusion, T.bounds, T.check, T.tree, T.beacon];
 
 export default function DojoPage() {
   const data = loadDojoServed(join(process.cwd(), "..", ".."));
@@ -33,6 +35,9 @@ export default function DojoPage() {
       </section>
       <DojoLive committed={data} />
       <section className="c-section flex flex-col gap-3 text-sm text-muted-foreground">
+        <p>
+          <DojoSentence text={T.method} figures={figures} />
+        </p>
         {PROSE.map((s) => (
           <p key={s}>{s}</p>
         ))}
