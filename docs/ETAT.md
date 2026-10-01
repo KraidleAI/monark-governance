@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 20:0x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 21:0x UTC.
 
 ## Règle
 
@@ -264,3 +264,8 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   Seconde course arrêtée en phase C à 19:57 UTC (`withdrawExcessLamports` ×5, 2 574 comptes fermés) : correction HISTORY-INS-2
   en cours, puis course neuve. Départ au plus tard avant 00:15 UTC du 2 octobre (jour o planifié avec sa balise : d = 2 octobre) ;
   au-delà, un jour de plus (d = 3 octobre).
+  HISTORY-INS-2 commis (`0b3c02b3`, `withdrawExcessLamports`, `amountToUiAmount`, `uiAmountToAmount` ; `reallocate` écarté) ; G2
+  ciblée APPROUVE-AVEC-CORRECTIONS, code tel quel, C-1 faite (lignes datées de l'ADR, `dfd9f873`) ; troisième course lancée à 20:45 UTC
+  (coupe 452391928). Item DOJO-HISTORY-BATCH-NEAR-1 (un `batch` analysé n'est pas jugé par la liste fermée ; la proximité testée à toute
+  profondeur, deux ou trois lignes et un test) : avant la course finale du 3 octobre ; FAITS-TOKEN2022-PARSER-REALLOCATE-1 : au premier
+  arrêt qui nomme `reallocate`.
