@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 00:5x UTC.
 
 ## Règle
 
@@ -20,7 +20,7 @@ Toutes les décisions antérieures sont effacées, sur ordre de l'investisseur (
 
 - Aucune dépense.
 - Rien de publié sur X.
-- Aucun secret ni adresse IP d'hôte publiés.
+- Aucun secret ni adresse IP d'hôte publiés (voir « Adresse du serveur Bell » plus bas : déjà publique avant cette règle).
 - Aucune suppression définitive sans accord.
 
 ## Ce qui existe dans le code
@@ -40,12 +40,16 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
 - **Rien ne tourne sur le serveur** : aucune collecte, aucune clé de signature (`apps/dojo/keys` absent).
 - **Aucune donnée publiée** : pas de `apps/site/data/dojo-served.json`, donc la page ne s'affiche pas encore.
 - **Code en cours (partie 1)**, une branche par pièce :
-  - tableau et recherche (`lot/dojo-pr4c2`) ;
-  - publication de l'historique (`lot/dojo-pr3a2`) ;
   - relais drand pour le premier pas réel (`lot/drand-1b`, plan fait, code en cours) ;
   - grand livre `rpc-guard` : grand livre neuf, corps borné pour le collecteur, relevés entiers (`lot/rpcguard-first`, code en cours) ;
   - écrivain unique de l'éditeur, `--unlock` explicite (`lot/single-writer`, code en cours).
-- **Déjà livré et réuni sur `lot/page-v1`** : la garde de lancement des programmes de l'hôte ; les unités de publication (minuterie 00:30, 01:30, 03:30, 06:30 UTC), le Caddy de l'hôte, les constantes de déploiement et le mode d'emploi, avec le jour zéro gardé.
+- **Déjà livré et réuni sur `lot/page-v1`** (tête `8aaba460`) :
+  - la garde de lancement des programmes de l'hôte ;
+  - les unités de publication (minuterie 00:30, 01:30, 03:30, 06:30 UTC), le Caddy de l'hôte, les constantes de déploiement et le mode d'emploi, avec le jour zéro gardé ;
+  - la publication de l'historique par l'éditeur (`--history`, vérifiée avant engagement, quatre refus nommés) ;
+  - le tableau de toutes les adresses, classé par score décroissant (égalités par adresse), avec la recherche locale d'une adresse ;
+  - corrections d'assemblage : mode d'emploi des refus de l'historique (section 19) et de l'acte `--history` (section 18) ; le test `evidence/` ne prend plus un nom de clé du manifeste pour un chemin.
+  - Tests du Dōjō et de la page sur la branche réunie : 217, dont 216 verts, 0 rouge et 1 ignoré (il attend la clé du serveur).
 
 ## Points connus (à traiter, non bloquants sauf mention)
 
@@ -53,6 +57,10 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
 - **La CLI du vérificateur en `--url`** rend `unreachable` si le serveur ferme une connexion inactive pendant un long calcul. La vérification sur une copie locale n'est pas touchée.
 - **Mode d'emploi** : les copies se comparent sur l'empreinte seule (64 caractères), car `sha256sum` sous Git Bash ajoute ` *`.
 - **Unité** : deux directives systemd dépassent 160 caractères, sans coupure possible.
+- **Vérificateur, à corriger avant l'inspection** : un nombre non fini (`1e400`) dans une ligne d'historique le fait échouer sans refus nommé (`non-finite number in digest`). Rien n'est écrit.
+- **À trancher à l'inspection** : un fichier étranger sous `publish/` du paquet d'historique est ignoré, pas refusé ; aucune garde « dernier jour d'historique révolu » dans l'éditeur ; le test de la liste des refus suppose un seul site `refuse(e.code` ; la recherche contrôle l'alphabet base58, pas le décodage en 32 octets.
+- **Textes du tableau** : TXT-17 et TXT-17a corrigés et TXT-17o ajouté (« Listed by hold score, highest first; equal hold scores by address. »), à valider par l'investisseur avec la page.
+- **Adresse du serveur Bell** : déjà dans le dépôt public (19 fichiers de `main` depuis le 23/09, et le mode d'emploi du Dōjō). Ce n'est pas un secret : `bell.monarkgate.tech` y renvoie. Aucune clé n'est publiée.
 
 ## Ce qui reste pour la page
 
