@@ -13,7 +13,7 @@ import { ENV, POOL, PYTH, QUOTE_VAULT, roots, sim, stateOf, type Req } from "./h
 import { ANCHOR_DAY, anchorBody, betaOf, dateOf, seedChain } from "./helpers/dojo-fixture.ts";
 import { readRecord } from "../src/bundle.ts";
 import { runCollect } from "../src/collect.ts";
-import { DEFAULT_MAX_BODY_BYTES } from "../../../packages/rpc-guard/src/transport.ts"; // not exported by the guard's index
+import * as transport from "../../../packages/rpc-guard/src/transport.ts"; // by namespace: the cap is read, never an import of a missing name
 
 const H = 40, LABEL = "dojo-collect-body-seed", SECRET = createHash("sha256").update(LABEL).digest("hex"), SEED = seedChain(LABEL, H); // SYNTHETIC
 const ANCHOR = { ...anchorBody(SEED(0), H, ANCHOR_DAY), pool: POOL, pool_quote_vault: QUOTE_VAULT, sol_usd_source: PYTH };
@@ -33,7 +33,7 @@ const calls = (f: F): unknown[][] =>
 const outcomes = (f: F, op: string): string[] => readFileSync(join(f.state, "ledger", `drand-${dateOf(D1)}`, `${op}.jsonl`), "utf8").trim().split(LF)
   .map((l) => (JSON.parse(l) as { outcome: string }).outcome);
 /** A 200 whose JSON is valid once padded with blanks to more than the cap: only the bound refuses it. */
-const over = (json: string): Response => new Response(`${json}${" ".repeat(DEFAULT_MAX_BODY_BYTES)}`, { status: 200 });
+const over = (json: string): Response => new Response(`${json}${" ".repeat(transport.DEFAULT_MAX_BODY_BYTES)}`, { status: 200 });
 
 // killer: apps/dojo/src/collect.ts:131 CONST "{ boundBody: true }" -> "{}"
 test("dojo_collect_refuses_a_body_over_the_cap_by_name", async () => {

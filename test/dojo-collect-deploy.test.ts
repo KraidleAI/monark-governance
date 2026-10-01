@@ -47,7 +47,7 @@ const SERVICE: Readonly<Record<string, string>> = { Type: "oneshot", WorkingDire
 const TIMER: Readonly<Record<string, string>> = { OnCalendar: "*-*-* *:00/5:00 UTC", AccuracySec: "1s", RandomizedDelaySec: "0", Persistent: PERSISTENT,
   Unit: basename(D.DOJO_COLLECT_UNIT) };
 /** The worst course of one reading, from the code (dated line 15:00Z, C-G2-2): CALLS calls of TRIES attempts of at most DEFAULT_TIMEOUT_MS
- *  to the response head, TRIES - 1 waits of at most the Retry-After cap, and PUBLIC_HOST_GAP_MS before each public attempt (half). */
+ *  to the response head and body, TRIES - 1 waits of at most the Retry-After cap, and PUBLIC_HOST_GAP_MS before each public attempt (half). */
 const CALLS = (2 * Object.values(DOJO_METHOD_CAPS).reduce((s, n) => s + n, 0)) / TRIES;
 const WORST_S = (CALLS * TRIES * DEFAULT_TIMEOUT_MS + CALLS * (TRIES - 1) * Math.max(parseRetryAfterMs("86400", 0) ?? NaN, BACKOFF_MS)
   + (CALLS / 2) * TRIES * PUBLIC_HOST_GAP_MS) / 1000;
