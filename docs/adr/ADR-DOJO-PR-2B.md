@@ -1001,3 +1001,15 @@ Arithmétique sur `derived.json` R4 (pic 6 467, N = 23 628, 5 714 échecs, 17 jo
   - **2b4/Q-G2-4** : le journal épingle les sha de `history-collect.ts`, `history-read.ts`, `history-build.ts` : tout item qui les touche passe AVANT le go de l acte 1 (sinon `inputs_mismatch` à la reprise). Items concernés : REASONS-FOLD-1, METHODS-HOME-1 (mini-lot), JOURNAL-TAIL-1, B1R-MINT-CHECK-1, DOJO-HISTORY-FIRSTREAD-TWO-SLOTS-1 (Q-C-1), RG-SNAPSHOT-NONNEG-INT-1 (toujours ouvert, bloque l acte 1).
   - **2b4/Q-C-2** : X peut compter des signatures hors de R ; `checkBounds` rapporte X à |R| : plus strict, gardé et déclaré.
   - **CA-11** : « à brancher » (e2e composé en test ; DOJO-HISTORY-ACTE-1 reste un acte) ; registre `upcoming`.
+
+- **Ligne datée (orchestrateur, 2026-10-01 18:0x UTC ; lot HISTORY-INS ; D-8 (vi) l.370 ; ajout seul)** : la liste fermée de (vi) est étendue de cinq types et
+  de rien d autre : `initializeAccount` et `approve`, vus « proches » du mint en phase B de la course provisoire (3 et 1 fois sur 25 409
+  transactions des pages brutes `F:/PRODUITS/dojo-history/provisional-2026-10-01/evidence/raw/B/helius/` ; sondes `scan-ins2.mjs`
+  `d2587478…`, `probe-shapes.mjs` `60bf0811…`, `probe-owner.mjs` `2c9a10e6…`), et leurs voisins de même classe `initializeAccount2`,
+  `approveChecked` et `revoke`. Aucun n entre dans l offre (`SUPPLY_TYPES` inchangé : `mintTo`, `mintToChecked`, `burn`, `burnChecked`) ;
+  aucun ne fournit un solde (les soldes viennent de `pre/postTokenBalances`) ; le repli de propriétaire de D-5 l.329 lit `info.owner` des
+  seuls `initializeAccount*` (formes `jsonParsed` de `parse_token.rs` l.92-127, l.180-219, l.388-410, copie `50370cf4…`, FAITS L-10).
+  Une instruction non analysée et tout autre type restent refusés (`instruction_not_allowed`). Dans les quatre transactions observées,
+  chaque entrée du mint porte son propriétaire : le repli n y est pas atteint. Tests : `dojo_history_ins_added_types_pass_near_the_mint`,
+  `dojo_history_ins_unknown_and_unparsed_still_stop`, sonde positive de `dojo_history_budget_stops_fail_closed` ; F2P et trois tueurs
+  tués (`RED-PROOF.json` `aee325f2…`).
