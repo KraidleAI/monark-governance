@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 05:1x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 06:0x UTC.
 
 ## Règle
 
@@ -66,6 +66,14 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - avant 18 (iv) : garde `test ! -e /var/lib/monark-dojo/publish.lock` avant le retrait du paquet (Q-14) ; une phrase : aucun acte sur l'éditeur ni sur `bundles/<d>` entre (iv) et le premier `snapshot` (Q-13) ; mesure de charge si l'historique dépasse la grille DOJO-VERIFY-SCALE-1 (Q-12) ;
   - documentation : la ligne TU-1h d'ADR-DOJO-PR-3 dit `readings/` seul, le code exige le jour clos entier.
 - **Recherche du tableau** : elle contrôle l'alphabet base58, pas le décodage en 32 octets ; accepté à l'inspection (rendu sûr).
+- **Mort d'un fichier de test sur ce poste** (item VERIFY-TEST-DEAD-CHILD-2) : sous charge, environ une fois sur vingt, un fichier de test
+  meurt sans rien rapporter (code 0xC0000409, arrêt natif de Node sous Windows), déjà vu le 2026-09-29 sur un autre fichier. Ce n'est pas
+  un défaut du code de la page. Règle d'ici là : un tel fichier est « non conclu » et l'oracle est relancé une fois. Pour nommer la cause,
+  il faut une copie mémoire du processus mort : demande formée à l'investisseur (activer WER `LocalDumps` pour `node.exe`, ou fournir
+  ProcDump et un débogueur) ; c'est un réglage du système, que l'orchestrateur ne fait pas lui-même.
+- **Partie 1, état de l'inspection** : tête finale `lot/page-v1` = `2e84103e`. Relectures G2 : collecte, éditeur et page approuvées
+  (AC-5 appliqué). Preuves F2P des huit pièces faites. Reste la passe mécanique finale (oracle complet, mutants, F2P des corrections),
+  puis le checkpoint du validateur et la fusion au tronc.
 - **Textes du tableau** : TXT-17 et TXT-17a corrigés et TXT-17o ajouté (« Listed by hold score, highest first; equal hold scores by address. »), à valider par l'investisseur avec la page.
 - **Adresse du serveur Bell** : déjà dans le dépôt public (19 fichiers de `main` depuis le 23/09, et le mode d'emploi du Dōjō). Ce n'est pas un secret : `bell.monarkgate.tech` y renvoie. Aucune clé n'est publiée.
 - **Collecteur d'historique** : il lit encore les réponses sans borne de taille (`history-collect.ts` l.408-409). À borner avant le premier acte d'historique, après mesure de la plus grosse page (item RPC-GUARD-BODY-BOUNDS-ALL-1).
