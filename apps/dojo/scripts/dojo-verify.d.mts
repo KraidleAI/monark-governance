@@ -22,6 +22,8 @@ export function dirSource(root: string, bounds?: VerifyBounds): Source;
 export const dayOk: (s: unknown) => boolean;
 /** dojo-keyring-v1 -> the trust set of the walker and the validity windows [valid_from_seq, valid_to_seq]; null when malformed. */
 export function dojoTrustOf(keyring: unknown): { trust: Trust; windows: Map<string, [number, number]> } | null;
+/** readJson of dojo-chain.mjs, re-exported for the CLI: JSON.parse of a served text within the depth bound, else null. */
+export function readJson(text: string): unknown;
 export function checkInclusion(line: string, index: number, count: number, path: readonly string[], root: string): void;
 export interface Inclusion { address: string; index: number; count: number; line: string; proof: string[] }
 /** The snapshot of --day (D-2): its line and its recomputed root. */

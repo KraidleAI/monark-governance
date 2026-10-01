@@ -136,6 +136,7 @@ export function walkDojoTimeline(lines, trust) {
     const l = lines[i], seq = i + 1, fail = (reason) => ({ ok: false, seq, reason });
     // ---- Bell's checks, same order, same reasons (bell-chain.mjs:131-151) ----
     if (l === null || typeof l !== "object" || l.schema !== DOJO_TIMELINE_SCHEMA || l.seq !== seq || !KINDS.has(l.kind)) return fail("timeline_malformed");
+    if (depthOf(l) > DOJO_MAX_DEPTH) return fail("timeline_malformed"); // nested past the bound: no canonical (verifyLine, lineHash) runs on it
     if (l.prev_line_hash !== prev) return fail("chain_broken");
     const rot = l.kind === "key_rotation", broken = rot && l.continuity === "broken";
     if (rot && !trust.has(l.new_key_id)) return fail("rotation_key_not_in_keyring");
@@ -165,4 +166,40 @@ export function walkDojoTimeline(lines, trust) {
   const voided = lines.filter((l) => l.seq >= (revoked.get(l.key_id) ?? Infinity)).map((l) => l.seq);
   const snapshots = lines.filter((l) => l.kind === "snapshot");
   return { ok: true, active, head: snapshots[snapshots.length - 1] ?? null, voided, breaks };
+}
+
+// ---- The depth bound of a served JSON text (G1 journal of lot DEPTH-BOUND, section 1.4): every reader measures a text before any JSON.parse,
+// the walker measures a value before any canonical; neither recurses, so no served value comes near an engine's stack ----
+/** The deepest nesting of objects and arrays a served JSON text may carry: 16, four times the deepest served form (4: a snapshot line's
+ *  readings, line > reads > reading > fraction; a key file, file > keys > key > public_key), and about 1/197 of the 3 148 levels canonical
+ *  writes before its RangeError on Node 24.15.0 (win32). */
+export const DOJO_MAX_DEPTH = 16;
+/** The deepest nesting of objects and arrays in a JSON text, read in one pass over its characters: a string is skipped with its escapes (a
+ *  reverse solidus, code 92, skips the character after it); nothing is parsed and nothing recurses, so a text of any depth is measured. */
+export function jsonDepth(text) {
+  let depth = 0, max = 0, str = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (str) { if (c === 92) i++; else if (c === 34) str = false; } else if (c === 34) str = true;
+    else if (c === 123 || c === 91) { depth++; if (depth > max) max = depth; } else if (c === 125 || c === 93) depth--;
+  }
+  return max;
+}
+/** A served JSON text parsed only within DOJO_MAX_DEPTH, else null, which no served form accepts: each reader then refuses it as it refuses a
+ *  null, by its own code, and nothing recurses over it. A text that is not JSON still throws, as JSON.parse does. */
+export function readJson(text) {
+  return jsonDepth(text) > DOJO_MAX_DEPTH ? null : JSON.parse(text);
+}
+/** The nesting depth of a parsed value, without recursion (an explicit stack), cut short once past DOJO_MAX_DEPTH: the walker's guard, since
+ *  the walker receives values, not texts. */
+function depthOf(v) {
+  let max = 0;
+  for (const stack = [[v, 0]]; stack.length > 0 && max <= DOJO_MAX_DEPTH;) {
+    const [x, d] = stack.pop();
+    if (x !== null && typeof x === "object") {
+      if (d + 1 > max) max = d + 1;
+      for (const y of Object.values(x)) stack.push([y, d + 1]);
+    }
+  }
+  return max;
 }

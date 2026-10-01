@@ -15,6 +15,7 @@ import { proofOf, rootOf } from "../scripts/dojo-core.mjs";
 import { DOJO_VERIFY_REFUSALS, DojoVerifyError, VERIFY_BOUNDS, checkInclusion, dirSource, verifyDojoServed, type DojoVerifyReport,
   type VerifyBounds } from "../scripts/dojo-verify.mjs";
 import * as dv from "../scripts/dojo-verify.mjs"; // PR-1b-4 C-V-1: the new exports through the namespace, checked first by each new test
+import * as chain from "../scripts/dojo-chain.mjs"; // lot DEPTH-BOUND: its new exports through the namespace too, so the file loads at base
 import { ADDR, ANCHOR_DAY, DAY1, FIRST, anchorBody, at, dateOf, dayLines, dojoFixture, dojoKeyringOf, historyBody, historyLines, instantsOf, keyringOfKeys,
   linesOf, newKey, removeTrees, render, seedChain, snapshotBody, versionBody, versionOf, writeTree, type DayLine, type Fixture, type HistoryLine,
   type Line, type Step } from "./helpers/dojo-fixture.ts";
@@ -706,7 +707,7 @@ test("dojo_verify_core_imports_no_network_module", () => {
   assert.deepEqual([...seen].map((f) => relative(root, f).split(sep).join("/")).sort(), ["apps/bell/scripts/bell-chain.mjs",
     "apps/dojo/scripts/dojo-chain.mjs", "apps/dojo/scripts/dojo-core.mjs", "apps/dojo/scripts/dojo-verify.mjs"], "the core's closure: four files, no CLI");
   assert.deepEqual(Object.keys(dv).sort(), ["DOJO_VERIFY_REFUSALS", "DOJO_VERIFY_REPORT_KEYS", "DojoVerifyError", "VERIFY_BOUNDS", "checkInclusion",
-    "dayOk", "dirSource", "dojoTrustOf", "verifyDojoServed"], "the nine exports of the core: dayOk the one new, the transport never re-exported");
+    "dayOk", "dirSource", "dojoTrustOf", "readJson", "verifyDojoServed"], "the ten exports of the core: readJson (lot DEPTH-BOUND, for the CLI) the new one");
 });
 
 // ---- C-G2-1 of the G2 of PR-1b-5b (PLI-1 bis, TY-6 bis): both commands launched through a directory link to apps/ (a junction on Windows, a
@@ -850,14 +851,51 @@ test("dojo_verify_cli_names_a_non_finite_number", () => {
     [1, line({ ok: false, reason: "keyring_invalid", seq: null, day: null, detail: "the supplied keyring" }), ""], "a keyring file");
 });
 
-// killer: apps/dojo/scripts/dojo-verify.mjs:175 CONST "canonical(l); return l;" -> "return l;"
+// killer: apps/dojo/scripts/dojo-chain.mjs:191 CONST "jsonDepth(text) > DOJO_MAX_DEPTH" -> "false"
 test("dojo_verify_names_a_value_nested_too_deep", async () => {
-  // VERIFY-DEPTH-1: a value nested 200 000 deep (400 KB, under the bound of a line) parses (V8's JSON.parse, measured on Node 24.15.0), but
-  // the recursive canonical exhausts the stack: the guards of 1e400 catch that RangeError too (at base: thrown, unnamed)
-  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), deep = `${"[".repeat(200_000)}${"]".repeat(200_000)}`;
-  assert.deepEqual(await named(edited(render(f.steps), 12, '{"', `{"deep":${deep},"`), kr),
-    { ok: false, reason: "timeline_malformed", seq: 12, day: null, detail: "timeline.jsonl" }, "a timeline line");
-  const text = fileText(linesOf(f.steps, 11)), changed = text.replace('"tier":4', `"tier":${deep}`), sha = createHash("sha256").update(changed).digest("hex");
-  assert.deepEqual(await named(resigned(f.steps, 11, "lines", changed), kr), { ok: false, reason: "line_malformed", seq: 12,
-    day: dateOf(ANCHOR_DAY + 9), detail: `lines/${sha}.jsonl line ${String(lineOf(text, '"tier":4'))}` }, "a line of a lines file");
+  // VERIFY-DEPTH-BOUND-1 (lot DEPTH-BOUND): a served text nested past the declared bound is neither parsed nor canonicalized; it reads as null
+  // and each reader refuses it by its own code. At the bound (16) a text is read as any other; one level more (17), it is refused, whatever the
+  // engine's stack (at base: read, then refused by its signature or its tier, never as malformed). k arrays inside a line object nest k + 1.
+  assert.equal(chain.DOJO_MAX_DEPTH, 16, "the declared bound (G1 journal of lot DEPTH-BOUND, section 1.4)");
+  const f = dojoFixture(), kr = dojoKeyringOf([[f.key, 1]]), tree = render(f.steps), b = chain.DOJO_MAX_DEPTH;
+  const nest = (k: number): string => `${"[".repeat(k)}${"]".repeat(k)}`, saidOf = async (t: ReadonlyMap<string, Buffer>, k: unknown = kr) => {
+    const r = await named(t, k);
+    return typeof r === "string" ? r : said(r);
+  };
+  const timeline = (k: number): Map<string, Buffer> => edited(tree, 12, '{"', `{"deep":${nest(k)},"`);
+  assert.equal(await saidOf(timeline(b - 1)), "signature_invalid @12", "a timeline line at the bound is read, then refused by its signature");
+  assert.deepEqual(await named(timeline(b), kr), { ok: false, reason: "timeline_malformed", seq: 12, day: null, detail: "timeline.jsonl" }, "past it");
+  const text = fileText(linesOf(f.steps, 11)), row = lineOf(text, '"tier":4');
+  const lines = (k: number): [Map<string, Buffer>, string] => {
+    const changed = text.replace('"tier":4', `"tier":${nest(k)}`);
+    return [resigned(f.steps, 11, "lines", changed), createHash("sha256").update(changed).digest("hex")];
+  };
+  const [atBound, atSha] = lines(b - 1), [past, pastSha] = lines(b);
+  assert.deepEqual(await named(atBound, kr), { ok: false, reason: "tier_mismatch", seq: 12, day: dateOf(ANCHOR_DAY + 9),
+    detail: `lines/${atSha}.jsonl line ${String(row)}` }, "a line of a lines file at the bound is read, then refused by its tier");
+  assert.deepEqual(await named(past, kr), { ok: false, reason: "line_malformed", seq: 12, day: dateOf(ANCHOR_DAY + 9),
+    detail: `lines/${pastSha}.jsonl line ${String(row)}` }, "past it");
+  // pins (the form or the key schema refused these at base too): a history line and the served key file past the bound
+  const hText = fileText(historyLines(DAY(0))), hChanged = hText.replace('"day_value":"5000000"', `"day_value":${nest(b)}`);
+  assert.equal(await saidOf(resigned(f.steps, 1, "history", hChanged)), "line_malformed @2", "a history line past the bound");
+  const pk = (tree.get("dojo/pubkey.json") ?? Buffer.alloc(0)).toString("utf8").replace('"valid_from_seq":1', `"valid_from_seq":${nest(b)}`);
+  assert.equal(await saidOf(new Map([...tree, ["dojo/pubkey.json", Buffer.from(pk)]])), "keyring_invalid @null", "the served key file past it");
+});
+
+// killer: apps/dojo/scripts/dojo-verify-cli.mjs:80 CONST "keyring = readJson(" -> "keyring = JSON.parse("
+test("dojo_verify_cli_reads_no_keyring_past_the_depth_bound", () => {
+  // VERIFY-DEPTH-BOUND-1: the --keyring file goes through the core's readJson before any parse. At the bound it is read and refused by the
+  // verifier (detail "the supplied keyring"); one level more, the CLI refuses it itself, never parsed (detail "--keyring"; at base: parsed).
+  const f = dojoFixture(), kr = canonical(dojoKeyringOf([[f.key, 1]])), dir = writeTree(render(f.steps)), b = chain.DOJO_MAX_DEPTH;
+  assert.equal(b, 16, "the declared bound");
+  const file = (t: string): string => join(writeTree(new Map([["kr.json", Buffer.from(t)]])), "kr.json");
+  const run = (keyring: string): [number | null, string, string] => {
+    const p = spawnSync(process.execPath, [SCRIPT, dir, "--keyring", keyring], { encoding: "utf8" });
+    return [p.status, p.stdout, p.stderr];
+  };
+  // a key file nests 3 around its valid_from_seq (the file, keys, the key): k arrays there nest k + 3
+  const deep = (k: number): string => file(kr.replace('"valid_from_seq":1', `"valid_from_seq":${"[".repeat(k)}${"]".repeat(k)}`));
+  const line = (detail: string): string => `${canonical({ ok: false, reason: "keyring_invalid", seq: null, day: null, detail })}${NL}`;
+  assert.deepEqual(run(deep(b - 3)), [1, line("the supplied keyring"), ""], "a keyring at the bound is parsed, then refused by the verifier");
+  assert.deepEqual(run(deep(b - 2)), [1, line("--keyring"), ""], "a keyring past the bound is refused by the CLI, never parsed");
 });
