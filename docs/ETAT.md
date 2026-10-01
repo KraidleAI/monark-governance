@@ -215,6 +215,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
 - **Au-delà de la borne de profondeur** (orchestrateur, 2026-10-01, G7 sur C-1 du G2 DEPTH-BOUND) : un texte servi plus profond que 16
   n'est pas analysé ; chaque lecteur le refuse sous le code de sa forme (`keyring_invalid`, `timeline_malformed`, phrases du chargeur),
   JSON ou non. `not_json` ne nomme qu'un texte hors JSON en deçà de la borne. Le code ne change pas ; ligne datée d'ADR avec DEPTH-CORR.
-- Site envoyé depuis un commit validé du tronc ; `main` (844 commits de retard sur le tronc, qui a lui-même 47 commits de retard sur `main`, dont le moteur [W2]
+- Site envoyé depuis le commit validé de la branche de la page (G7 des parties 1 et 2, puis du site), choix révisé le 2026-10-01 :
+  la première fusion par pas au tronc (`8950ab15...d07ad193`) est rouge sur 2 tests réels (`dojo_two_units_share_no_writable_path`,
+  `dojo_runbook_stops_before_the_stamp_and_on_refusals`, record `d3d2855f…`) : les états intermédiaires de `lot/page-v1` ne sont pas
+  tous verts. Item TRUNK-MERGE-STEPS-1 : un découpage dont chaque pas est vert, déclencheur après la première publication.
+  Le tronc a reçu T42-BOUND (`ccfc5820`, oracle G7 `46aced61…` sortie 0, premier passage non conclu au test 42).
+  Ancien choix : `main` (844 commits de retard sur le tronc, qui a lui-même 47 commits de retard sur `main`, dont le moteur [W2]
   de RECHERCHES) est intégré après la page.
 - Page servie dès la première publication.
