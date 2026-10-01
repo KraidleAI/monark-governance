@@ -401,3 +401,85 @@ Fait au code (20:07Z-20:09Z), lignes visées par des tueurs relevées à leur pl
   décompte des textes visés par les tueurs passait par `awk split`, qui lit le séparateur comme une expression (zéro trouvé à tort),
   refait par `grep -F` (une fois chacun) ; le journal est complété après le départ de l'oracle 2 (20:14:40Z), aucun fichier de code ni de
   test n'ayant changé depuis (12 « OK » à 20:24:15Z).
+
+## 13. Second ajout daté (orchestrateur, message daté « vers 21:10 UTC », lu à 21:06:50Z à mon horloge) : C-1 de la G2 ciblée, voie (b)
+
+Source : relecture G2 ciblée de `39a8d8ee`, APPROUVE-AVEC-CORRECTIONS, `F:/tmp/dojo/g2-sitecorr/RAPPORT.md` (sha256 recalculé à 21:06:50Z,
+`8d5e82e4a63bfcbdd27e9bc8b2f6fecce2c2e51b53859b4617e4705c37888c36`, égal au sceau), lu en entier ; sonde P2
+(`probe/p2-anchor-after-head.ts` `2dbc73be…712f`, sortie `7b2ff400…e122`) lue : record committé à la tête seq 12 (ancre seq 1, Migration
+180), ancre seq 13 (sa propre chaîne de graines, le jour qui suit le dernier jour lu, Migration 90), instantané seq 14 ; construction :
+ancre en vigueur seq 13, `migration_days` 90 ; relecture : issue `reread`, TXT-14a, `migration_days` 180 ; invariant rompu.
+Décision (voie (b)) : l'issue de relecture porte l'ancre en vigueur (la dernière avant la tête relue) ; la vue compose `validation_days` et
+`migration_days` avec elle ; aucun texte neuf ; éditions en place ; aucune ligne visée par un tueur ne bouge ; un test rouge à la base.
+Worktree : HEAD `39a8d8ee` (commit de l'orchestrateur), `status` vide à 21:06:50Z ; travail par-dessus, aucun git écrivant.
+
+Faits lus avant le code : l'issue est typée `dojo-live.ts:25` ; `project` la rend l.284-289, l'ancre en vigueur de la tête relue y est déjà
+(`head.anchor`, l.262, l.287) ; des tueurs nomment 17 lignes de `dojo-live.ts` (35, 73, 91, 102, 222, 223, 231, 240, 249, 261, 276, 283,
+288, 300, 301, 303, 324) : ni l.23-25 ni l.289 ; la vue compose à `dojo-served.ts:143` (tueur `CONST "head: o.head"`, chaîne gardée).
+
+Plan : `dojo-live.ts` l.23 (commentaire), l.25 (`anchor: Line` dans l'issue `reread`), l.289 (`anchor: head.anchor`) ; `dojo-served.ts`
+l.143 (`timeline: { ...committed.timeline, anchor: o.anchor }`) et l.134 (commentaire) ; test neuf `dojo_live_reread_takes_the_anchor_in_force`
+dans `test/dojo-live-surface.test.ts` (chronologie de P2 : figures relues 90 et égales à celles de la construction du même arbre ; rouge à
+`39a8d8ee`), tueur sur `dojo-served.ts:143`. Compte estimé : `dojo-live.ts` 6, `dojo-served.ts` 4, `test/dojo-live-surface.test.ts` 16 :
+environ 26 de plus.
+
+Fait (21:08Z-21:09Z), éditions en place, nombre de lignes inchangé (`dojo-live.ts` 325, `dojo-served.ts` 236), hunks d'une ligne :
+- `dojo-live.ts` l.23 (commentaire), l.25 (l'issue `reread` porte `anchor: Line`), l.289 (`project` rend `anchor: head.anchor`, l'ancre en
+  vigueur à la tête relue) ; aucune des 17 lignes visées par des tueurs n'a bougé ;
+- `dojo-served.ts` l.143 : `shownOf({ ...committed, head: o.head, timeline: { ...committed.timeline, anchor: o.anchor } })` (la chaîne du
+  tueur `CONST "head: o.head"` y est une fois) ; l.134 (commentaire). Aucun texte neuf.
+- Test neuf `dojo_live_reread_takes_the_anchor_in_force` (`test/dojo-live-surface.test.ts`, après l'invariant ; import de la fixture complété
+  de `ANCHOR_DAY`, `anchorBody`, `seedChain`, `snapshotBody`, exportés à la base ; fixture inchangée) : chronologie de P2 (ancre seq 13,
+  Migration 90, sa propre chaîne de graines `seedChain("dojo-live-anchor-in-force", 40)`, le jour `ANCHOR_DAY + 10` ; instantané seq 14) ;
+  record committé seq 12 (ancre seq 1, 180) ; la relecture rend TXT-14a et la tête seq 14 ; la construction du même arbre prend l'ancre
+  seq 13 ; figures relues : Migration 90, validation 30, et `deepStrictEqual` à celles de la construction (l'invariant). Tueur
+  `dojo-served.ts:143 CONST "anchor: o.anchor" -> "anchor: committed.timeline.anchor"`.
+- Courses sur un clone neuf `F:/tmp/dojo/sitecorr/c2` (`--no-local`, `checkout --detach 39a8d8ee`, les 4 fichiers copiés,
+  `expected-v4.sha256` 4 « OK », jonctions 220 entrées, 11 `@monark`, 0 échec) : `tsc` du site 0, `tsc` racine 0, `eslint` 0
+  (21:10:11Z-21:10:28Z) ; 21 fichiers de test : **304 tests, 304 verts** (21:10:39Z-21:10:57Z), `logs/run4.tap`
+  `b99366fa2dbd2d2b3338915ff54c3cf0c75d9cbcd92f27140a2e28bbd4764c8e`.
+- **`red-proof`, base `39a8d8ee`** (le commit qui porte le défaut), `--out F:/tmp/dojo/sitecorr/rp3 --draw 1 --seed 4280630826`,
+  21:11:07Z-21:11:27Z, sortie 0 : `rp3/RED-PROOF.json` `9c7ec3919b906225766512fbc2c0be9cf079a2ad8e49ad32d100fcc98a9c76c9` : `ok: true`,
+  **1 jugé, 1 F2P**, 8 inchangés, **1 tueur tiré, tué** ; à la base, rouge par « the committed anchor's Migration window, then, after the
+  reread, that of the anchor in force » : réel `["180", "180", "30"]` contre attendu `["180", "90", "30"]`, le défaut mesuré par P2.
+- **`red-proof`, base `494eaffd`** (tout le tour), `--out F:/tmp/dojo/sitecorr/rp4 --draw 12`, 21:11:47Z-21:12:34Z, sortie 0 :
+  `rp4/RED-PROOF.json` `e484e4492fa7c71d7e0e8dd8de134ebcdd52552ac32b972b18b010104a7fc1b4` : `ok: true`, **12 jugés, 12 F2P**, 25 inchangés,
+  **12 tueurs tirés, 12 tués**.
+- **Mutants** (`--repo F:/tmp/dojo/sitecorr/c2 --base 494eaffd --out F:/tmp/dojo/sitecorr/mut3 --killers`, les 5 fichiers de test du tour),
+  `held` null et C-V-4 (14 778 Mo physiques, 30 991 Mo virtuels) avant, 21:12:50Z-21:14:18Z, sortie 0 : base verte (157), **46 tueurs sur
+  46 tués** (K3, le tueur neuf, par le test neuf), 0 survivant, 0 non conclu, 0 ancre perdue ; `mut3/RESULTS.json`
+  `c093c8199b2c509c9ef332f62226a3844768b6ff730dbe17913e81afb4744f76`, `RESULTS.txt` `cd096f10…5c21`, `dirty`
+  `7acb6cfd4bf8d0987955157bc3c1409b5d43928f8dd3a2b99e4d59c4b20177fe`.
+- **R-25** (chemins et expression de `r25.mjs`, arbre de travail, 21:14:40Z) : ce second ajout (`39a8d8ee` à l'arbre) **23 + 6 = 29**
+  (3 fichiers) ; le tour SITE-CORR (`494eaffd` à l'arbre) **217 + 92 = 309** ; le lot entier (`c0c60617` à l'arbre) **719 + 129 = 848** ;
+  contenu 0 ; borne 1 150.
+- Q-10 : traité (voie (b)) ; DOJO-LIVE-ANCHOR-FIGURES-1 n'est plus un item. N-2 de la G2 ciblée (DOJO-COPY-TIER-WINDOWS-EQUAL-1) reste un
+  item formé par la G2, hors de ce tour (décision de l'orchestrateur).
+- **Oracle du tronc** : `node F:/Monark/scripts/oracle/run.mjs --role corr --tree F:/Monark-wt-site --base 494eaffd --key SITE-CORR-3`,
+  lancé à 21:14:30Z (verrou libre ; C-V-4 : 14 473 Mo physiques, 30 729 Mo virtuels), en arrière-plan ; ni course ni harnais de ma part
+  pendant son verrou ; sortie **0** à 21:22:48Z. Enregistrement
+  `F:/tmp/oracle-results/39a8d8ee65c44ee4d46ee7201662fdb2534daa38-7acb6cfd4bf8d098-corr-20261001T211434Z-329476.json`, sha256
+  `16ac95bff60207aa5bbf2c18f0baf8e797539475f1adaa233cc0200373568be4` (copie : `F:/tmp/dojo/sitecorr/oracle-corr3-record.json`) ; `label`
+  `SITE-CORR-3` ; arbre : tête `39a8d8ee`, `dirty` `7acb6cfd…77fe` (celui de `mut3`), objet `9f3925d3d04ca5d5d775290361cab56447f5bc3b`,
+  `served_from` null. Portes à 0 : épinglage des modèles, `r25`, `lang:gate`, `export:check`, `gate:vocab`, `typecheck`, `lint`,
+  `lint:ratchet`, `test` (431 s). **R-25** (`02-r25.log` `7c1d895a…546d`) : 217 + 92 = **309** pour le tour SITE-CORR (porte 1 205),
+  contenu 0, égal à la mesure ci-dessus. **Tests** : **1 864, 1 860 verts, 0 rouge, 4 ignorés** (les sauts connus ; un test de plus,
+  `dojo_live_reread_takes_the_anchor_in_force`, vert) ; test 42 vert une seule fois, dans la suite (399 s) ; aucun fichier mort ;
+  `09-test.log` `2aa95c12…fc9c`.
+- **État final** (21:23:46Z) : worktree HEAD `39a8d8ee`, 3 fichiers de code et de test modifiés et ce journal, rien d'autre ; les 3 fichiers
+  ont les sha256 relevés au départ de l'oracle 3 (`frozen-at-oracle3-code.sha256`, 3 « OK ») : ceux que `red-proof` (rp3, rp4), les mutants
+  (mut3) et l'oracle 3 ont jugés. Jonctions de `c2` et de `mut3/clone` retirées (« removed », 21:23:39Z), aucun `node_modules` sous
+  `F:/tmp/dojo/sitecorr/` ; `F:/Monark/node_modules` : 220 entrées, 11 `@monark`. `F:/Monark` lu seulement : HEAD `5ef6fd5c` (commit ETAT
+  de 21:04:36Z, rien sous `scripts/`), `status` vide, outils du tronc aux sha256 de la mission. Aucun `GIT_DIR`, aucun `GIT_WORK_TREE`,
+  aucun `--write-tree`, aucun commit, aucun workflow.
+- **Empreintes finales** des 13 fichiers du tour (`F:/tmp/dojo/sitecorr/final-files-v3.sha256` ; les 10 autres égaux au §12) :
+  `apps/site/lib/dojo-live.ts` `6d3dbcfbdf2eb39721493afb8bacdaa123eb52f34f1fcbbcd30c0ca2a1ad6a33`, `apps/site/lib/dojo-served.ts`
+  `b8921860d303da205cf19c33adb23a8689b632e32e5214316f483e188ceb5aeb`, `test/dojo-live-surface.test.ts`
+  `459fc00d6bb1d559f6a4c312a7597efaa056496a4e55f0e7a3be1927178747a8`.
+- **Synthèse finale** : C-1 de la G2 ciblée (voie (b)) : `dojo-live.ts` l.23, l.25, l.289, `dojo-served.ts` l.134, l.143 ;
+  `dojo_live_reread_takes_the_anchor_in_force` ; tueur `dojo-served.ts:143` (`anchor: o.anchor`, K3 de `mut3`) tué. R-25 : ajout 29,
+  tour 309, lot 848 ; borne 1 150. `red-proof` : rp3 1 sur 1 (base `39a8d8ee`), rp4 12 sur 12 (base `494eaffd`). Mutants : 46 sur 46.
+  Oracle 3 : sortie 0, 1 864 tests, 0 rouge. Verdict de ce correcteur : **LIVRE** ; en aval : la relecture G2 ciblée de ce second ajout,
+  la validation visuelle des textes par l'investisseur ; N-2 de la G2 (DOJO-COPY-TIER-WINDOWS-EQUAL-1) reste un item hors de ce tour.
+- Écarts : aucun ; le journal est complété après le départ de l'oracle 3 (21:14:30Z), aucun fichier de code ni de test n'ayant changé
+  depuis (3 « OK » à 21:23Z).

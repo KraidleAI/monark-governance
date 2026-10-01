@@ -131,7 +131,7 @@ export const dojoFirstViewOf = (committed: DojoServedData, text: DojoText): Dojo
 /** The view after the reread. Without a usable Ed25519: the committed figures, and no GET at all (TXT-14b-r). A key line among the
  *  new lines: the committed figures (TXT-14d), whatever the walker would say of that line (declared: the figures are the committed
  *  ones either way). Any other refusal, a reread head that breaks the loader's rules of a head, or a sentence that cannot be filled:
- *  the committed figures (TXT-14c). The reread head's figures (TXT-14a) only when every check holds; never the reason of a refusal. */
+ *  the committed figures (TXT-14c). The reread head's figures and its anchor's (TXT-14a) only when every check holds; never the reason of a refusal. */
 export async function dojoLiveViewOf(committed: DojoServedData, deps: DojoLiveViewDeps): Promise<DojoLiveView> {
   const T = deps.text, first = dojoFirstViewOf(committed, T), keep = (note: string): DojoLiveView => ({ ...first, note, head: committed.head, rows: null });
   try {
@@ -140,7 +140,7 @@ export async function dojoLiveViewOf(committed: DojoServedData, deps: DojoLiveVi
     if (o.kind === "key_change") return keep(T.rereadKeyChange);
     if (o.kind === "fallback") return keep(T.rereadFallback);
     if (dojoHeadRefusal(o.head) !== null) return keep(T.rereadFallback);
-    const figures = shownOf({ ...committed, head: o.head });
+    const figures = shownOf({ ...committed, head: o.head, timeline: { ...committed.timeline, anchor: o.anchor } });
     for (const k of dojoBodyOf(figures)) sentenceParts(T[k], figures);
     return { figures, note: T.rereadDone, head: o.head, rows: o.rows };
   } catch {

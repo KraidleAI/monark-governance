@@ -20,7 +20,8 @@ import { buildDojoServed, loadDojoServed, DOJO_HOST, DOJO_PUBKEY_PATH, DOJO_SERV
   type DojoServedHead } from "../apps/site/lib/dojo-served-load.ts";
 import * as copy from "../apps/site/lib/dojo-copy.ts";
 import { dojoExpected } from "../scripts/assert-fleet-html.mjs";
-import { FIRST, at, dojoFixture, dojoKeyringOf, dojoSpreadFixture, newKey, render, type Step } from "../apps/dojo/test/helpers/dojo-fixture.ts";
+import { ANCHOR_DAY, FIRST, anchorBody, at, dojoFixture, dojoKeyringOf, dojoSpreadFixture, newKey, render, seedChain, snapshotBody,
+  type Step } from "../apps/dojo/test/helpers/dojo-fixture.ts";
 import { walkDojoTimeline } from "../apps/dojo/scripts/dojo-chain.mjs";
 import { dojoTrustOf, verifyDojoServed } from "../apps/dojo/scripts/dojo-verify.mjs";
 import { rootOf } from "../apps/dojo/scripts/dojo-core.mjs";
@@ -126,6 +127,22 @@ test("dojo_live_renders_through_the_same_figures", async () => {
   assert.deepEqual([text(v).includes(after.head.day), text(v).includes(c.head.day)], [true, false], "a reread: its own day only");
   assert.deepEqual([fb.note, text(fb).includes(c.head.day), text(fb).includes(after.head.day)], [T.rereadFallback, true, false],
     "a fallback: the committed day only");
+});
+
+// killer: apps/site/lib/dojo-served.ts:143 CONST "anchor: o.anchor" -> "anchor: committed.timeline.anchor"
+test("dojo_live_reread_takes_the_anchor_in_force", async () => {
+  // C-1 of the targeted G2 of SITE-CORR (its probe P2): a served chronology where a new anchor line (Migration at 90 days, its own seed
+  // chain, the day after the last read day) follows the committed head, then one snapshot under the version in force. The reread view
+  // composes its figures with the anchor in force at the head it shows, as the build of the same served tree does (the lot's invariant).
+  const viewOf = added("dojoLiveViewOf"), f = dojoFixture(), k = dojoKeyringOf([[f.key, 1]]), c = await loaded(await recordOf(render(f.steps), k));
+  const seed2 = seedChain("dojo-live-anchor-in-force", 40), day = ANCHOR_DAY + 10;
+  const a2: Step = { key: f.key, body: { ...anchorBody(seed2(0), 40, day), tier_windows: [30, 30, 30, 30, 90] } };
+  const tree = render([...f.steps, a2, { key: f.key, body: snapshotBody(day + 1, seed2(1), 1) }]), after = await loaded(await recordOf(tree, k));
+  const v = await viewOf(c, wired(c, tree).deps), mig = (x: served.DojoPageFigures): string | null => (x.state === "E2" ? x.migration_days : null);
+  assert.deepEqual([c.timeline.anchor.seq, after.timeline.anchor.seq, v.note, v.head?.seq], [1, 13, T.rereadDone, 14], "a reread past a new anchor");
+  assert.deepEqual([mig(served.dojoPageFiguresOf(c)), mig(v.figures), v.figures.validation_days], ["180", "90", "30"],
+    "the committed anchor's Migration window, then, after the reread, that of the anchor in force");
+  assert.deepStrictEqual(v.figures, served.dojoPageFiguresOf(after), "the reread head's figures: those of the build of the same served tree");
 });
 
 // killer: apps/site/lib/dojo-served.ts:124 CONST "!(await deps.verifyEd25519(key.public_key.x, bent, sig))" -> "true"
