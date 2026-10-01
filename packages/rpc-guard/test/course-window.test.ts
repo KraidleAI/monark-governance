@@ -27,6 +27,8 @@ const entriesOf = (dir: string, cycle: string): CycleLedgerEntry[] => readFileSy
 /** Every file of the cycle dir with its sha: an argument refusal must leave this EXACTLY as it was. */
 const files = (cd: string): string[] => readdirSync(cd).sort().map((f) => `${f}:${sha(readFileSync(join(cd, f)))}`);
 const pm = (cycle: string, g: number, t: number): Snapshot => ({ cycle, byMethod: { [GTFA]: g, [GT]: t } });
+/** RG-SNAPSHOT-NONNEG-INT-1 (Q-3): a snapshot value that is not a safe integer >= 0 answers this, with its line and no table. */
+const INVALID = { exitCode: 1, verdict: "NO-GO", reason: "snapshot_invalid" };
 /** The served reconcile of <dir>/<cycle>/helius.jsonl; `before` and `after` are what readSnapshot hands back. */
 const rec = (dir: string, cycle: string, before: Snapshot, after: Snapshot, ...extra: string[]): ReturnType<typeof runCli> =>
   runCli(["reconcile", "--cycle", cycle, "--op", "helius", "--before", "b", "--after", "a", ...extra], { ledgerDir: dir, floor: 0, readSnapshot: (p) => (p === "b" ? before : after) });
@@ -47,6 +49,7 @@ async function course(dir: string, cycle: string, g: number, t: number, refuse =
   return r.unlocked;
 }
 
+// killer: packages/rpc-guard/src/reconcile.ts:166 CONST "Number.isSafeInteger(v)" -> "Number.isFinite(v)"
 test("reconcile_course_window_isolates_one_course", async () => {
   // Three courses on ONE ledger: A (6 gTFA = 60 credits, never reconciled), B (2 gTFA + 3 getTransaction = 23), C (60). A and C
   // each exceed the soft band's 50 and carry gTFA: a window leaking over A (M-R1) or over C (M-R2) can never answer like B's.
@@ -81,12 +84,19 @@ test("reconcile_course_window_isolates_one_course", async () => {
     assert.deepEqual(rec(dir, "c", ru(124), ru(100), "--mode", "aggregate", "--course-end", B), { exitCode: 1, verdict: "NO-GO", reason: "negative_delta", perMethod: { methods: {}, total: { count: 23, delta: -24, verdict: "NO-GO" } } });
     assert.deepEqual(rec(dir, "c", pm("c", 520, 9), pm("c", 500, 12), "--course-end", B), { exitCode: 1, verdict: "NO-GO", reason: `negative_delta:${GTFA}`, perMethod: table(-20, "NO-GO") });
     assert.deepEqual([rec(dir, "c", pm("c", 500, 12), pm("c", 521, 9), "--course-end", B).reason, rec(dir, "c", pm("c", 520, 12), pm("c", 500, 9))], [`hard:${GTFA}`, { exitCode: 1, verdict: "NO-GO", reason: `negative_delta:${GTFA}` }]);
-    // C-G2-1: a snapshot value that is not a FINITE JSON number is a NO-GO line in both modes and both windows, never coerced, no table.
-    for (const v of ["1,234,567", "abc", null, "12", NaN, Infinity] as unknown as number[]) for (const extra of [["--course-end", B], []]) {
+    // RG-PRECEDENCE-TEST-1: on course C (60 credits, no getTransaction) a getTransaction delta of -1 is negative_delta, decided BEFORE
+    // the soft band (60 - (-1) = 61 > 50 would answer soft: the mutant V-3).
+    assert.equal(rec(dir, "c", pm("c", 500, 10), pm("c", 500, 9), "--course-end", C).reason, `negative_delta:${GT}`);
+    // C-G2-1 and RG-SNAPSHOT-NONNEG-INT-1 (Q-3): a snapshot value that is not a safe integer >= 0 (not a JSON number, negative,
+    // fractional, above 2^53 - 1) is a NO-GO line in both modes and both windows, never coerced, no table.
+    const values = ["1,234,567", "abc", null, "12", NaN, Infinity, -1, 1.5, 2 ** 53] as unknown as number[];
+    for (const v of values) for (const extra of [["--course-end", B], []]) {
       const cases: [Snapshot, Snapshot, string[]][] = [[pm("c", 0, 0), pm("c", v, 3), []], [pm("c", v, 0), pm("c", 20, 3), []], [ru(0), ru(v), ["--mode", "aggregate"]], [ru(v), ru(23), ["--mode", "aggregate"]]];
-      for (const [b, a, mode] of cases) assert.deepEqual(rec(dir, "c", b, a, ...mode, ...extra), { exitCode: 1, verdict: "NO-GO", reason: "snapshot_not_finite" }, `${JSON.stringify([b, a])} ${extra.join(" ")}`);
+      for (const [b, a, mode] of cases) assert.deepEqual(rec(dir, "c", b, a, ...mode, ...extra), INVALID, `${JSON.stringify([b, a])} ${extra.join(" ")}`);
     }
-    assert.deepEqual([last().outcome, last().reason], ["reconciled", "snapshot_not_finite"]);
+    assert.deepEqual([last().outcome, last().reason], ["reconciled", "snapshot_invalid"]);
+    // the case measured at the cp-2 of lot 1a (probe A3): before -10, after -5 answered a course GO; it is a NO-GO now.
+    assert.deepEqual(rec(dir, "c", pm("c", -10, 0), pm("c", -5, 3), "--course-end", B), INVALID);
     // G-9: a `refused` line INSIDE a course is no boundary: D = gTFA attempted, gTFA refused (its cap is 1), getTransaction attempted.
     const D = await course(dir, "c", 1, 1, true);
     assert.deepEqual([entriesOf(dir, "c").slice(-4).map((e) => e.outcome), rec(dir, "c", pm("c", 0, 0), pm("c", 10, 1), "--course-end", D).perMethod?.total], [["attempted", "refused", "attempted", "unlocked"], { count: 11, delta: 11, verdict: "GO" }]);
@@ -186,6 +196,7 @@ test("reconcile_course_repair_bound_is_the_course", async () => {
   } finally { cleanup(); }
 });
 
+// killer: packages/rpc-guard/src/reconcile.ts:146 CONST "snapshot_invalid" -> "snapshot_not_finite"
 test("cli_unlock_returns_the_unlocked_sha", async (t) => {
   const { dir, cleanup } = tmp();
   try {
@@ -211,6 +222,7 @@ test("cli_unlock_returns_the_unlocked_sha", async (t) => {
     assert.deepEqual([rs, lines[0], JSON.parse(lines[1] ?? "") as unknown, lines.slice(2)], [0, "GO", { methods: { [GT]: { count: 2, delta: 2, verdict: "GO" }, [GTFA]: { count: 0, delta: 0, verdict: "GO" } }, total: { count: 2, delta: 2, verdict: "GO" } }, [""]]);
     assert.deepEqual(reconcileTo(LEDGER_GENESIS), [1, "NO-GO course_end_unknown\n"], "the genesis is no line: an argument refusal, no table");
     const inf = join(dir, "snap-inf.json"); writeFileSync(inf, `{"cycle":"c","byMethod":{"${GT}":1e999}}`); // JSON.parse reads 1e999 as Infinity
-    assert.deepEqual(run("reconcile", "--cycle", "c", "--op", "helius", "--before", bf!, "--after", inf, "--course-end", B), [1, "NO-GO snapshot_not_finite\n"], "C-G2-1 through the bin: no table");
+    const [is, io] = run("reconcile", "--cycle", "c", "--op", "helius", "--before", bf!, "--after", inf, "--course-end", B);
+    assert.deepEqual([is, io.split(String.fromCharCode(10))], [1, ["NO-GO snapshot_invalid", ""]], "C-G2-1 through the bin: no table");
   } finally { cleanup(); }
 });

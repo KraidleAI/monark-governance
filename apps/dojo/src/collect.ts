@@ -128,7 +128,7 @@ async function course<T>(c: Ctx, cycles: Readonly<Record<string, string>>, limit
   let client: BudgetedClient | null = null;
   ensureDir(join(dir, "evidence", "parsed"), 0o700);
   try {
-    client = openGuardedClient(c.deps.env, limits, c.ledger, cycles);
+    client = openGuardedClient(c.deps.env, limits, c.ledger, cycles, { boundBody: true }); // RPC-GUARD-BODY-TIMEOUT-1 (Q-1): chain and relays
   } catch (e) { if (e instanceof Error && e.constructor.name === "LockHeldError") refuse("lock_held", "operator lock"); throw e; }
   const g = client, log: unknown[] = [];
   let released = false;

@@ -31,7 +31,7 @@ export function runRepairTail(ledgerDir: string, cycle: string, op: string, reas
   const at = (name: string): string => join(cycleDir, name);
   const path = at(`${op}.jsonl`), headPath = at(`${op}.head`), lockPath = at(`${op}.lock`);
   if (!existsSync(path)) return refuse("ledger_absent");
-  if (!existsSync(headPath)) return refuse("head_absent"); // C-5: head absent stays REFUSED (ledger.ts header residual)
+  if (!existsSync(headPath)) return refuse("head_absent"); // C-5: a deleted head, or a pre-FIRST-APPEND-HEAD-1 ledger: REFUSED
   let lockHeld = false;
   if (existsSync(lockPath)) {
     let pid: unknown;
