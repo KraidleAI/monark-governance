@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 13:1x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 14:5x UTC.
 
 ## Règle
 
@@ -98,7 +98,8 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     DOJO-SIGTERM-LINUX-PROOF-1 (vrai signal, sous Linux) ; avant A-11 : la ligne TU-1h d'ADR-DOJO-PR-3 alignée sur le code ;
   - à A-4p : DOJO-KEYRING-KILLER-REMEASURE-1 (le tueur K131 se mesure quand la clé existe) ;
   - avant 18 (iv) : DOJO-PUBLISH-SCALE-1 (fichier candidat de plus de 64 Mio pendant la vérification) ;
-  - avant le premier `--anchor` sur Bell (partie 2) : PUBLISH-REQUEST-DEPTH-1 (la requête d'ancre de l'éditeur est lue sans borne de
+  - après la première publication (report de la mise en service accélérée ; l'ancien déclencheur « avant le premier `--anchor` » est
+    remplacé) : PUBLISH-REQUEST-DEPTH-1 (la requête d'ancre de l'éditeur est lue sans borne de
     profondeur : `RangeError` sans nom à 500 000 niveaux, rien d'écrit ; la lire par `readJson`, `null` refusé `anchor_malformed`) ;
   - avant la première synchro (partie 3) : SYNC-SERVED-DEPTH-SCAN-1 (la synchro lit chaque ligne servie par `JSON.parse` sans mesure ;
     pas de récursion, un coût mémoire seul ; mesurer par `jsonDepth` et laisser à la construction le refus nommé) ;
@@ -112,7 +113,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - MUTANTS-NM-WORKSPACES-1 : branché (outil réparé fusionné au tronc `eda6ff85`, première campagne d'un autre lot faite au checkpoint-2).
 - **Textes du tableau** : TXT-17 et TXT-17a corrigés et TXT-17o ajouté (« Listed by hold score, highest first; equal hold scores by address. »), à valider par l'investisseur avec la page.
 - **Adresse du serveur Bell** : déjà dans le dépôt public (19 fichiers de `main` depuis le 23/09, et le mode d'emploi du Dōjō). Ce n'est pas un secret : `bell.monarkgate.tech` y renvoie. Aucune clé n'est publiée.
-- **Collecteur d'historique** : il lit encore les réponses sans borne de taille (`history-collect.ts` l.408-409). À borner avant le premier acte d'historique, après mesure de la plus grosse page (item RPC-GUARD-BODY-BOUNDS-ALL-1).
+- **Collecteur d'historique** (report décidé par l'orchestrateur le 2026-10-01, cp-2 de la partie 2, correction 1) :
+  RPC-GUARD-BODY-BOUNDS-ALL-1 passe après la première publication. Atténuation : les courses tournent sur la machine de l'opérateur,
+  jamais sur l'hôte ; une réponse démesurée ne peut que faire échouer la course (refus ou arrêt), jamais écrire une ligne. Constat
+  d'origine : il lit encore les réponses sans borne de taille
+  (`history-collect.ts` l.408-409). À borner avant le premier acte d'historique, après mesure de la plus grosse page (item RPC-GUARD-BODY-BOUNDS-ALL-1).
 - **SIGTERM** : la variante par vrai signal du test est sautée sous Windows ; à prouver sur Linux avant A-9 (7) (item DOJO-SIGTERM-LINUX-PROOF-1 ; C-2 de la G2 de FAST-START).
 - **Mode d'emploi** : une commande de la section 9 tient sur une ligne de 629 caractères (une commande par ligne) ; exception déclarée.
 - **Séries de marché (demande du fondateur, hors page)** : Binance BTCUSDT, ETHUSDT, BNBUSDT et SOLUSDT, bougies de 15 minutes du
@@ -168,6 +173,18 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
 - **Reports après la première publication** (investisseur : « Oui, après publication » pour drand) : DOJO-BLS-VERIFY-1 (en attendant,
   deux relais doivent rendre le même tirage, sinon pas de plan), PUBLISH-REQUEST-DEPTH-1, DOJO-UNIT-OFFLINE-ORACLE-1, collecte N-2 à N-5,
   HELIUS-CREDIT-RECONCILE-1 (plancher conservateur 7 900 000 en attendant le relevé du tableau de bord).
+- **Conditions de l'en-tête du mode d'emploi** (cp-2 de la partie 2, correction 3), statut au 14:5x UTC :
+  - FAITS-JOURNALCTL-1 : sans objet sur le chemin réel (il sert au critère de répétition de A-7, retiré) ; à lire avant la première
+    surveillance par le journal, après la première publication ;
+  - DOJO-DRAND-RELAY-TERMS-1 : fait (`docs/dojo/FAITS-drand-relays-terms-2026-09-27.md`) ; relais par le garde : dans la partie 1 ;
+  - QI-5 : rempli, la graine de répétition n'a servi qu'au départ de contrôle de A-5, jamais ancrée ni publiée ;
+  - RPC-GUARD-FIRST-APPEND-HEAD-1 : fait (`packages/rpc-guard/test/first-append.test.ts`) ;
+  - P-4 : rempli par le tirage drand du jour (`read_rule` de l'ancre, deux relais égaux exigés) ;
+  - DOJO-OPERATOR-INDEPENDENCE-1 (amont commun des deux opérateurs, non mesuré) : reporté après la première publication.
+- **Qui a décidé les reports** (cp-2 de la partie 2, correction 4) : l'investisseur pour l'horodatage Bitcoin et pour drand (verbatim
+  plus haut) ; l'orchestrateur, sous la directive « accélère le travail », pour PUBLISH-REQUEST-DEPTH-1, DOJO-UNIT-OFFLINE-ORACLE-1,
+  collecte N-2 à N-5, HELIUS-CREDIT-RECONCILE-1, CA-0, RPC-GUARD-BODY-BOUNDS-ALL-1 et DOJO-OPERATOR-INDEPENDENCE-1 ; aucun ne peut
+  produire une ligne fausse, au pire un jour de plus.
 - **Dépôt `monark-governance`** : l'investisseur le rend public lui-même (« Je le rends public quand même »), après avertissement
   (atelier entier, documents internes en français, adresse IP du serveur dans le mode d'emploi, noms internes) : exception de
   l'investisseur au garde-fou sur l'adresse IP ; aucun envoi avant son signal.
