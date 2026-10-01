@@ -149,8 +149,8 @@ async function readImmutable(source, rel, sig, keys, form, before, codes) {
   if (sha256(buf) !== sig.sha) at(codes[1], rel);
   const objs = raw.map((s, i) => {
     let o = null;
-    try { o = JSON.parse(s); } catch { o = null; }
-    if (o === null || typeof o !== "object" || Array.isArray(o) || canonical(o) !== s || !same(Object.keys(o), keys) || !form(o)) {
+    try { o = JSON.parse(s); if (canonical(o) !== s) o = null; } catch { o = null; } // canonical throws on a non-finite number (1e400)
+    if (o === null || typeof o !== "object" || Array.isArray(o) || !same(Object.keys(o), keys) || !form(o)) {
       at("line_malformed", `${rel} line ${i + 1}`);
     }
     return o;
@@ -172,8 +172,8 @@ async function verify({ source, keyring, address, day, bounds }) {
   if (text !== "" && !text.endsWith("\n")) refuse("timeline_malformed", null, null, "timeline.jsonl: no final newline");
   const lines = text === "" ? [] : text.slice(0, -1).split("\n").map((s, i) => {
     if (Buffer.byteLength(s) + 1 > bounds.MAX_LINE_BYTES) refuse("too_large", i + 1, null, "timeline.jsonl");
-    return parse(Buffer.from(s), "timeline_malformed", i + 1, "timeline.jsonl");
-  });
+    try { const l = JSON.parse(s); canonical(l); return l; } catch { return refuse("timeline_malformed", i + 1, null, "timeline.jsonl"); }
+  }); // canonical(l): the walker reads every line through it (signature, chain); a number it cannot write (1e400) is malformed here, by name
   const served = dojoTrustOf(parse(await source.get("dojo/pubkey.json"), "not_json", null, "dojo/pubkey.json"));
   if (served === null) refuse("keyring_invalid", null, null, "dojo/pubkey.json");
   const root = keyring === null ? served : dojoTrustOf(keyring);

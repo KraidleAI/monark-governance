@@ -202,7 +202,7 @@ test("dojo_live_never_renders_why", async () => {
   noLines.delete(lf);
   // Refusals of several kinds, each with the reason the module gives: the view shows TXT-14c and the committed figures, never the reason.
   const trees: Array<[string, Tree]> = [["a timeline that ends before the committed head", render(f.steps.slice(0, 8))],
-    ["a served line that is not JSON (the engine's message quotes the served text)",
+    ["a served line that is not JSON (named by its seq; the served text is never quoted)",
       new Map(e2).set(DOJO_TIMELINE_PATH, Buffer.concat([tl, Buffer.from(`xxxxxxxxxxxxxxxx${NL}`)]))],
     ["a timeline behind a BOM", new Map(e2).set(DOJO_TIMELINE_PATH, Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), tl]))], ["no lines file", noLines]];
   for (const [name, tree] of trees) {
