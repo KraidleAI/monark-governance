@@ -3,7 +3,7 @@
 // (lib/dojo-served.ts) and the build check reads from the same record. The tier names live in ONE constant, in their order, and
 // every sentence that names them reads it. Pure data (no React or Next import): the root tests and scripts/assert-fleet-html.mjs
 // import it. No digit anywhere in this file, except in the two names SHA-256 and Ed25519. The five sentences of the reread are
-// rendered by the reread component only; the built page carries the first of them, never another.
+// rendered by the reread component only, the built page carrying the first of them; so for the table's sentences and words.
 export const DOJO_ROUTE = "/dojo";
 /** The program's name, beside the status of its register on the page. */
 export const DOJO_NAME = "Dōjō";
@@ -69,7 +69,7 @@ export const DOJO_TEXT = {
     "Reread in your browser from the published files: each new line chains to the committed record by its SHA-256, its Ed25519 " +
     "signature matches a committed key, and the lines file's SHA-256 and Merkle root match the signed line.",
   rereadNoCheck:
-    "This browser cannot check Ed25519 signatures, so the published files were not reread here: the figures shown are those " +
+    "This browser cannot check Ed25519 signatures, so the published timeline was not reread here: the figures shown are those " +
     "committed with this page.",
   rereadFallback:
     "The published files could not be reread, or did not match the committed record, in your browser: the figures shown are " +
@@ -77,4 +77,29 @@ export const DOJO_TEXT = {
   rereadKeyChange:
     "The new lines carry a key change, which this page does not follow in your browser: the figures shown are those committed " +
     "with this page.",
+  // The table of every line (components/dojo/dojo-table.tsx): the first paint says what a browser that runs its script then lists;
+  // once the lines file is bound, the table, its order and the look-up; if it cannot be bound, no line and the sentence that says so.
+  table:
+    "A browser that runs its script lists here every line of the snapshot shown above, once the lines file's SHA-256, count and " +
+    "Merkle root match the signed line.",
+  tableDone:
+    "Every line of the snapshot shown above, read in your browser from the published lines file, whose SHA-256, count and Merkle " +
+    "root match the signed line; hold scores and points are in token-days.",
+  tableOrder: "Listed by hold score, highest first; equal hold scores by address.",
+  tableRefused:
+    "The lines file of the snapshot shown above could not be read in your browser, or did not match the signed line: no line is " +
+    "listed.",
+  lookup:
+    "Look up an address among the lines listed below: your browser searches them here, and the address you enter is not sent " +
+    "anywhere.",
+  lookupInvalid: "This is not a valid address.",
+  lookupAbsent: "No line for this address among the lines listed below.",
+} as const;
+
+/** The words of the table of every line (components/dojo/dojo-table.tsx): its columns, the two classes, the tier of an address that
+ *  holds none, and its buttons. The tier names are those of DOJO_TIER_NAMES, never written twice. */
+export const DOJO_TABLE = {
+  address: "Address", class: "Class", holdScore: "Hold score", validated: "Validated", provisional: "Provisional", units: "Units",
+  tier: "Tier", holder: "holder", program: "program", none: "none", showMore: "Show more lines", lookUp: "Look up",
+  showAll: "Show all lines",
 } as const;

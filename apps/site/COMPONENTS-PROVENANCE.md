@@ -172,3 +172,7 @@ Authored directly (no CLI, no npm dependency added):
   record's figures (the build); in a browser that runs it, the reread of `lib/dojo-live.ts` over the same-origin prefix `/dojo-served/`
   (the site's proxy to the Dojo host) with Web Crypto replaces them only when every check holds (`dojoLiveViewOf` of
   `lib/dojo-served.ts`); every figure goes through `components/dojo/dojo-figures.tsx`. No library, no npm dependency added.
+- `components/dojo/dojo-table.tsx` (2026-09-30) — the table of every line of the snapshot the figures section shows, a client
+  component mounted by `components/dojo/dojo-live.tsx`: once the reread has an outcome, the lines of that head (bound by
+  `bindDojoLines` of `lib/dojo-live.ts`, put in form by `dojoTableOf` of `lib/dojo-served.ts`), listed by hold score; the look-up of
+  one address among them by `lib/dojo-lookup.ts`, in the browser only. No library, no npm dependency added.

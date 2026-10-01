@@ -6,13 +6,14 @@
 // Crypto for SHA-256 and Ed25519, under the limits of the reader's tool (the module's own: none is passed here). The view of
 // lib/dojo-served.ts decides what is shown: the reread head only when Ed25519 answers the committed anchor's known answer and every
 // check holds; else the committed figures and the sentence of the outcome, never its reason. Every figure goes through
-// components/dojo/dojo-figures.tsx; every sentence is read from lib/dojo-copy.ts.
+// components/dojo/dojo-figures.tsx; every sentence is read from lib/dojo-copy.ts. The table of every line follows (dojo-table.tsx).
 import { useEffect, useState } from "react";
 import { rereadDojoHead, signatureOf, signingBytes, type DojoLiveGet, type Sha256, type VerifyEd25519 } from "@/lib/dojo-live";
 import { dojoBodyOf, dojoFirstViewOf, dojoLiveViewOf, DOJO_LIVE_FETCH_INIT, DOJO_LIVE_PREFIX, type DojoLiveView } from "@/lib/dojo-served";
 import type { DojoServedData } from "@/lib/dojo-served-load";
 import { DOJO_TEXT as T } from "@/lib/dojo-copy";
 import { DojoSentence } from "@/components/dojo/dojo-figures";
+import { DojoTable } from "@/components/dojo/dojo-table";
 
 const sha256: Sha256 = async (bytes) => new Uint8Array(await crypto.subtle.digest("SHA-256", Uint8Array.from(bytes)));
 const verifyEd25519: VerifyEd25519 = async (x, message, signature) => {
@@ -46,6 +47,7 @@ export function DojoLive({ committed }: { committed: DojoServedData }) {
           <DojoSentence text={T[k]} figures={view.figures} />
         </p>
       ))}
+      <DojoTable view={view} get={get} sha256={sha256} />
     </section>
   );
 }

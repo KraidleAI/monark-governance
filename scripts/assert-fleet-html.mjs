@@ -672,7 +672,7 @@ export async function dojoExpected(dataRoot = REPO_ROOT) {
     lines_count: String(h.lines_count), root: h.root, score_total: tokens(h.score_total), validated_total: tokens(h.validated_total),
     ...(versioned ? { threshold_unit_token_days: tokens(h.threshold_unit), holders_count: String(h.holders_count), dust_threshold_tokens: tokens(h.dust_threshold) } : {}) };
   const shown = [T.lead, counted ? T.counted : T.abstained, versioned ? T.tiers : T.noVersion, T.method, T.exclusion, T.bounds, T.check, T.tree, T.beacon,
-    T.rereadFirst, ...(counted ? [T.totals] : []), ...(e2 ? [holders, T.tier] : [])];
+    T.rereadFirst, ...(counted ? [T.totals, T.table] : []), ...(e2 ? [holders, T.tier] : [])];
   const fill = (s) => s.replace(/\{([a-z_]+)\}/g, (_, k) => {
     if (!Object.hasOwn(f, k)) throw new Error(`assert-dojo: {${k}} names no figure of the record's state (fail-closed)`);
     return f[k];

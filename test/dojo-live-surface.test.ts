@@ -88,11 +88,12 @@ async function e1(): Promise<{ f: ReturnType<typeof dojoFixture>; k: Rec; r1: Re
 test("dojo_live_renders_through_the_same_figures", async () => {
   const viewOf = added("dojoLiveViewOf"), firstOf = added("dojoFirstViewOf"), bodyOf = added("dojoBodyOf");
   const { k, r1, c, e2 } = await e1(), r2 = await recordOf(e2, k), after = await loaded(r2);
-  const fixed = [copy.DOJO_TITLE, T.lead, T.method, T.exclusion, T.bounds, T.check, T.tree, T.beacon, T.rereadFirst];
+  const fixed = [copy.DOJO_TITLE, T.lead, T.method, T.exclusion, T.bounds, T.check, T.tree, T.beacon, T.rereadFirst, T.table];
   /** The sentences the build check composes apart for a record (dojoExpected), those that carry figures. */
   const built = async (r: Rec): Promise<string[]> => {
     const e = await atRoot(r, (dir) => dojoExpected(dir));
     assert.ok(e.state !== "E0" && e.sentences.includes(T.rereadFirst), "every built page carries the reread's first sentence (TXT-14r)");
+    assert.ok(e.sentences.includes(T.table), "and, its head counted, the first sentence of the table of every line (TXT-17)");
     return e.sentences.filter((s) => !fixed.includes(s)).sort();
   };
   const first = firstOf(c, T), v = await viewOf(c, wired(c, e2).deps);
@@ -224,8 +225,8 @@ test("dojo_live_never_renders_why", async () => {
     [false, false], "no `why` in the component, no `.why` in the view");
 });
 
-// killer: apps/site/components/dojo/dojo-live.tsx:29 CONST "{ sha256, verifyEd25519, get }" -> "{ sha256, verifyEd25519, get, bounds: undefined }"
-// killer: apps/site/components/dojo/dojo-live.tsx:37 CONST "dojoBodyOf(view.figures);" -> "dojoBodyOf(view.figures).reverse();"
+// killer: apps/site/components/dojo/dojo-live.tsx:30 CONST "{ sha256, verifyEd25519, get }" -> "{ sha256, verifyEd25519, get, bounds: undefined }"
+// killer: apps/site/components/dojo/dojo-live.tsx:38 CONST "dojoBodyOf(view.figures);" -> "dojoBodyOf(view.figures).reverse();"
 test("dojo_live_calls_the_reread_without_bounds", () => {
   const init = added("DOJO_LIVE_FETCH_INIT"), rel = join(ROOT, "apps", "site", "components", "dojo", "dojo-live.tsx");
   assert.deepStrictEqual(init, { cache: "no-store", redirect: "error", credentials: "omit" }, "never a cached, redirected or credentialed GET (M-L14)");
