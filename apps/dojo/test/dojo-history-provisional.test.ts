@@ -5,6 +5,7 @@
 // state. Over the simulated chain of PR-2b-3 (helpers/history-chain.ts, imported first: no socket, no name resolution) and the REAL guard
 // on a temporary ledger, the clock injected. The expected Eve is recoded HERE from the chain's truth balances (the oracle of
 // test/dojo-history-e2e.test.ts, declared duplicate), never read from the collector. This file holds no backslash (byte guard).
+// FAST-CORR (Q-2 (b) of the G2 of FAST-START): the provisional Eve is that Eve and every owner holding at --cut (withHolders, test 4).
 import { HOSTS, MINT, firstReadDay, rowsAt, sim, world, type Tx } from "./helpers/history-chain.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
@@ -17,8 +18,9 @@ import { DOJO_PUBLISH_REFUSALS, publishAnchor, publishHistory } from "../scripts
 import { initSeed } from "../scripts/dojo-seed.mjs";
 import { DOJO_VERIFY_REFUSALS } from "../scripts/dojo-verify.mjs";
 import { READ_RULE } from "../src/dojo-methods.ts";
-import { DOJO_HISTORY_BUILD_STOPS } from "../src/history-build.ts";
+import { DOJO_HISTORY_BUILD_STOPS, provisionalEve } from "../src/history-build.ts";
 import { DOJO_HISTORY_COLLECT_REFUSALS, DOJO_HISTORY_ENV, main, runHistoryCollect, type RunDeps } from "../src/history-collect.ts";
+import { readBody, type Body } from "../src/history-read.ts";
 import { readEve } from "../src/layout.ts";
 
 const LF = String.fromCharCode(10), BS = String.fromCharCode(92), DAY = 86_400, D1 = 20_706; // day 1 = 2026-09-10, in days since 1970-01-01
@@ -79,6 +81,19 @@ function oracleEve(txs: readonly Tx[], last: number): { accounts: string[]; addr
   }
   return { accounts: [], addresses: out.sort((x, y) => Buffer.compare(Buffer.from(x), Buffer.from(y))) };
 }
+/** The balance of each owner after transaction t (the sum of its accounts in the chain's truth); none before the first. */
+function totalsOf(t: Tx | undefined): Map<string, bigint> {
+  const m = new Map<string, bigint>();
+  for (const [, [o, v]] of t?.truth ?? new Map<string, readonly [string, bigint]>()) m.set(o, (m.get(o) ?? 0n) + v);
+  return m;
+}
+/** The balance of each owner after the last transaction of slot <= s. */
+const totalsAt = (txs: readonly Tx[], s: number): Map<string, bigint> => totalsOf(txs.filter((t) => t.slot <= s).at(-1));
+/** Q-2 (b) of the G2 of FAST-START: the provisional Eve, the Eve of D_LAST and every owner whose balance is > 0 at the cut, byte order. */
+function withHolders(eve: { addresses: string[] }, txs: readonly Tx[], cut: number): { accounts: string[]; addresses: string[] } {
+  const held = [...totalsAt(txs, cut)].filter(([, v]) => v > 0n).map(([o]) => o);
+  return { accounts: [], addresses: [...new Set([...eve.addresses, ...held])].sort((x, y) => Buffer.compare(Buffer.from(x), Buffer.from(y))) };
+}
 /** A publisher's state anchored by its REAL --anchor under an ephemeral key (the request of apps/dojo/test/dojo-publish.test.ts, declared
  *  duplicate: dojo-seed.mjs for seed_anchor and horizon, K = 4, W = 60, u = 1..5, O_1, one dollar of dust): what --history needs first. */
 function anchored(root: string): { s: string; key: KeyObject } {
@@ -111,7 +126,7 @@ test("dojo_history_provisional_refusals_write_nothing", async () => { // Review 
 // killer: apps/dojo/src/history-collect.ts:449 CONST "provisional" -> "publish"
 test("dojo_history_provisional_course_writes_the_eve_alone", async () => { // Review Focus: never publish/ nor a manifest --history would read
   const txs = world(24, 2, 7, { gap: 40_000, mintless: [24], close: [10] }), pd = dayOf(txs.at(-1) as Tx), P = dateOf(pd); // P = J: its morning
-  const f = fresh(txs), want = oracleEve(txs, pd - 1), first = firstReadDay(join(f.root, "first"), pd, f.cut, rowsAt(f.cut));
+  const f = fresh(txs), want = withHolders(oracleEve(txs, pd - 1), txs, f.cut), first = firstReadDay(join(f.root, "first"), pd, f.cut, rowsAt(f.cut));
   sim.nowMs = (pd * DAY + 3600) * 1000; // one hour into P: P is today, its transactions up to --cut are read, its lines are never built
   const normal = argv(f, "B", P, { "--provisional-day": null, "--first-read": first });
   assert.deepEqual([await main(argv(f, "A", P), deps()), await stopOf(normal), await main(argv(f, "B", P), deps()), await main(argv(f, "C", P), deps())],
@@ -138,7 +153,7 @@ test("dojo_history_provisional_course_writes_the_eve_alone", async () => { // Re
     ["dojo/publish: history_bundle_malformed: publish/SHA256SUMS is missing", true, true], "--history cannot read a provisional state");
 });
 
-// killer: apps/dojo/src/history-build.ts:97 CONST "held && build.eve" -> "false && build.eve"
+// killer: apps/dojo/src/history-build.ts:100 CONST "held && build.eve" -> "false && build.eve"
 test("dojo_history_provisional_eve_is_never_empty_on_a_held_chain", async () => { // Review Focus: an empty Eve while the chain has holders
   const stops = [...DOJO_VERIFY_REFUSALS, ...DOJO_PUBLISH_REFUSALS];
   assert.ok((DOJO_HISTORY_BUILD_STOPS as readonly string[]).includes("eve_empty") && !stops.includes("eve_empty"), "a stop of its own, no verifier's code");
@@ -155,4 +170,35 @@ test("dojo_history_provisional_eve_is_never_empty_on_a_held_chain", async () => 
   const course = [await stopOf(argv(g, "A", Q)), await stopOf(argv(g, "B", Q)), await stopOf(argv(g, "C", Q))];
   assert.deepEqual([course, text(join(g.state, "provisional", "eve.json"))], [[null, null, null], `${canonical(want)}${LF}`], "it refuses an empty Eve only");
   assert.ok(want.addresses.length > 0, "not vacuous: an Eve with addresses");
+});
+
+// killer: apps/dojo/src/history-build.ts:102 CONST "...build.eve.addresses, ...atCut" -> "...build.eve.addresses"
+test("dojo_history_provisional_eve_holds_the_owners_at_the_cut", async () => { // Q-2 (b) of the G2 of FAST-START, in the provisional mode only
+  const txs = world(40, 1, 24, { gap: 20_000, close: [36] }), pd = dayOf(txs.at(-1) as Tx), P = dateOf(pd), onP = txs.filter((t) => dayOf(t) === pd);
+  const cut = (onP[Math.floor(onP.length / 2)] as Tx).slot, eve = oracleEve(txs, pd - 1), want = withHolders(eve, txs, cut), f = { ...fresh(txs), cut };
+  sim.nowMs = ((pd + 1) * DAY - 60) * 1000; // P = J, the cut in its middle: the transactions of J after the cut are never read
+  const course = [await stopOf(argv(f, "A", P)), await stopOf(argv(f, "B", P)), await stopOf(argv(f, "C", P))];
+  assert.deepEqual([course, text(join(f.state, "provisional", "eve.json"))], [[null, null, null], `${canonical(want)}${LF}`],
+    "the Eve of J - 1 and every owner holding at the cut, in byte order");
+  const at = totalsAt(txs, cut), start = totalsOf(txs.filter((t) => dayOf(t) < pd).at(-1)), end = totalsOf(txs.at(-1)), old = new Set(eve.addresses);
+  const seen = (ts: readonly Tx[]): Set<string> => new Set(ts.flatMap((t) => [...totalsOf(t).keys()])), nil = (o: string): boolean => (at.get(o) ?? 0n) === 0n;
+  const acquired = [...at].filter(([o, v]) => v > 0n && (start.get(o) ?? 0n) === 0n && !old.has(o)).map(([o]) => o); // on J, before the cut
+  const zero = [...seen(txs.filter((t) => t.slot <= cut))].filter((o) => nil(o) && !old.has(o));
+  const late = [...end].filter(([o, v]) => v > 0n && nil(o) && !old.has(o)).map(([o]) => o), kept = eve.addresses.filter(nil);
+  const has = (o: string): boolean => want.addresses.includes(o);
+  assert.deepEqual([acquired, zero, late, kept].map((l) => l.length > 0), [true, true, true, true], "not vacuous: the four classes");
+  assert.deepEqual([acquired.every(has), zero.some(has), late.some(has), kept.every(has)], [true, false, false, true],
+    "an owner that acquires on J before the cut is in; one at 0 at the cut, or acquiring after it, is not; the Eve of J - 1 stays whole");
+  const g = { ...fresh(txs), cut }, first = firstReadDay(join(g.root, "first"), pd, cut, rowsAt(cut)); // the normal mode: same chain and cut
+  const normal = (p: string): string[] => argv(g, p, P, { "--provisional-day": null, "--first-read": first });
+  assert.deepEqual([await stopOf(normal("A")), await stopOf(normal("B")), await stopOf(normal("C")), text(join(g.state, "publish", "eve.json"))],
+    [null, null, null, `${canonical(eve)}${LF}`], "the final packet keeps the Eve of its first day read, never the union");
+  const before = seen(txs.filter((t) => dayOf(t) < pd)), o = acquired.find((x) => !before.has(x)) ?? ""; // an owner with no line on any day
+  const bodies = txs.filter((t) => t.slot <= cut).map((t) => readBody(t.body, MINT));
+  const blind = bodies.map((b): Body => ({ ...b, mint: b.mint.map((e) => (e.owner === o ? { ...e, owner: "0" } : e)) }));
+  const why = (y: readonly Body[]): string => {
+    try { return provisionalEve({ txs: y, noQuorum: [], day: P, cut }).addresses.join(" "); } catch (e) { return String((e as { code?: unknown }).code); }
+  };
+  assert.deepEqual([o !== "", why(bodies), why(blind)], [true, want.addresses.join(" "), "read_malformed"],
+    "the Eve of the course; an added owner that no class reads stops read_malformed, as the owner of a line does");
 });

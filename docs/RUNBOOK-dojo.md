@@ -264,7 +264,12 @@ writes `publish/`, so it has no line), then its `provisional/eve.json` deposited
 restarted collector opens (the start (6) is made on J, the anchor day, which opens nothing); as in section 6 (`dojo-collect:dojo-handoff`
 0640), BEFORE the start; its content is that course's `Eve` (addresses only, ADR D-2 TU-1p), never the empty one. (6) Then the start of
 section 5, on J: expected as there, except that its listing holds six paths (the state root, `bundles`, `bundles/<o>`,
-`bundles/<o>/eve.json`, `ledger`, the empty `rehearsal-<date>` of (2): no day opened), and (7) only then, on J, the timer: the second command of
+`bundles/<o>/eve.json`, `ledger`, the empty `rehearsal-<date>` of (2): no day opened). A start made AFTER J (a provisional course ended
+after midnight; C-1 of the G2 of FAST-START; o is then the day of that start, below) is expected otherwise: the date printed is o,
+`start_exit=0`, no `dojo/collect:` line, `bundles/<o>/evidence/plan.json` present (read below), its `beacon` null if the start follows
+00:15 UTC (then d = o + 1); its listing (the six paths above, `bundles/<o>/evidence`, and the guard's ledger of the beacon for a start
+before 00:15 UTC) to the JOURNAL. For that start only, the STOP of section 5 on a start on another day does not hold (the anchor in force
+is the signed line of A-8, never rewritten); every other STOP of section 5 holds. (7) Only then, on the day of (6), the timer: the second command of
 section 6 (`systemctl enable --now monark-dojo-collect.timer`). **The first day read, d** (B-1 and D2-4 of the G2 inspection of part
 1): `collect.ts` plans a day with its beacon only at a step before T + 900 s (00:15 UTC; `plan`); at a later step it writes the day
 abstained, without any call (`beacon_unavailable`); every step plans the current day if it follows the anchor day; an abstained day
@@ -358,12 +363,14 @@ credential it loads. Sources: ADR-DOJO-PR-3, pli G0 of PR-3b-2 (PB-2 files, PB-3
 lines of the pli G7 of PR-3a-1c; `docs/dojo/FAITS-systemd-publish-2026-09-30.md`; constants `scripts/dojo-deploy.mjs`; pins
 `test/dojo-publish-deploy.test.ts`. PR-3b-2b adds CA-1 and TU-7 and pins the script of CA-0.
 
-**Order** (PB-5; FAST-START, decisions of 2026-10-01): A-2p → A-3p → A-4p → A-5p → CA-0 → A-8 (1) to (4) (the anchor signed on day J,
+**Order** (PB-5; FAST-START, decisions of 2026-10-01): A-2p → A-3p → A-4p → A-5p → A-8 (1) to (4) (the anchor signed on day J,
 checked offline; no `ots` act) → A-9 (1) to (4) → A-11 (i) (the PROVISIONAL course, `--provisional-day` J, and its `Eve` deposited at
 `bundles/<J+1>/eve.json`) → A-9 (6) and (7) (the start and the timer, on J; d read on the plan of J + 1, expected d = J + 1) → A-10 → close
 of d → A-11 (ii) to (iv) (the FINAL packet, `--first-read` = d; the `history` line, checked against d BEFORE it is committed)
-→ the first `snapshot` (d) published → A-8 (5) to (9) (the timestamp, item DOJO-ANCHOR-OTS-AFTER-PUBLICATION-1) → the announcement day
-(QI-4 (c)): A-1 → A-6 → CA-1 → TU-7. A-9 is the collect act of section 7; A-7 (the rehearsal, section 6) is off the real path: no
+→ the first `snapshot` (d) published → A-8 (5) to (9) (the timestamp, item DOJO-ANCHOR-OTS-AFTER-PUBLICATION-1) → CA-0 (section 15,
+after the first publication: decision of 2026-10-01, item DOJO-CA0-SCRIPT-1 of `docs/ETAT.md`; until then each act on the host is
+checked by its digests) → the announcement day (QI-4 (c)): A-1 → A-6 → CA-1 → TU-7. A-9 is the collect act of section 7; A-7 (the
+rehearsal, section 6) is off the real path: no
 rehearsal day. Two courses of the history collector (B-1 of the G2 inspection of part 1; decision of the orchestrator, `docs/ETAT.md`,
 2026-10-01): the provisional one (a day read nowhere, never `publish/`) gives the `Eve` of the first day the restarted collector opens,
 never a line; the final one gives the `history` line, whose last day is d − 1, since the first `snapshot` is the day after the history's
@@ -529,11 +536,13 @@ systemctl daemon-reload'
 
 ## 15. CA-0 — the offline conformity check (its place; the script and the host captures are PR-3b-2b's)
 
-When: after A-5p, replayed after A-8 and after A-10; never committed. Form (pli G0 of PR-3b-2, PB-2, written in full and pinned by
+When: after the first publication (section 10; decision of 2026-10-01, item DOJO-CA0-SCRIPT-1 of `docs/ETAT.md`; N-7 of the G2 of
+FAST-START): its script is PR-3b-2b's and not written yet, so until then each act on the host is checked by its digests; never committed.
+Form (pli G0 of PR-3b-2, PB-2, written in full and pinned by
 PR-3b-2b): `node scripts/verify-dojo.mjs --offline <mirror> --keyring apps/dojo/keys/dojo-keyring.json`, with `--g7`,
 `--tree-digests <publication> <collect>`, `--loaded-config <captures>` and `--bell-digests <before> <after>`. Expected (the closed
 table of PB-2): `c09`, `c10` and `c12` green; `c01`, `c02`, `c03` and `c08` evaluated on the mirror; `c11` red without a `snapshot`;
-`c04` to `c07` never passed, so never `VERIFY OK` (M-H28). Rollback: none (read-only). Blockers: the G7 of PR-3b-2b; A-5p.
+`c04` to `c07` never passed, so never `VERIFY OK` (M-H28). Rollback: none (read-only). Blockers: the G7 of PR-3b-2b; the first publication.
 
 ## 16. A-8 — the anchor: signed by a transient job, checked OFFLINE, timestamped after the first publication (ADR D-4)
 
@@ -728,7 +737,7 @@ e=$?; echo "phase_$p=$e"; [ "$e" = 0 ] || break; done; cat "$S/evidence/status.j
 
 Expected: `dojo/history-collect: phase done` then `phase_A=0`, the same for B, then `dojo/history-collect: provisional`, `phase_C=0`,
 `{"status":"provisional","stop_reason":null}` and the digest of the `Eve` (JOURNAL). **STOP** on any other output, nothing deposited:
-`provisional_day_future` (J is not today at the operator's clock), `usage`, `state_inside_repo`, `inputs_mismatch` or `phase_order` (a
+`provisional_day_future` (J is after today at the operator's clock), `usage`, `state_inside_repo`, `inputs_mismatch` or `phase_order` (a
 state reused: a new one), `eve_empty` (an owner holds lots at the end of J − 1, yet no address has a line on it: escalation), `lock_held`,
 or a partial reason (`evidence/status.json` and the course's `run.json`), but `method_cap` in phase C, resumed below.
 
@@ -774,6 +783,34 @@ B=$(ssh -i ~/.ssh/monark_vps "$H" "cd $D && find eve.json publish readings -type
 ```
 
 Expected: `COPY-EQUAL`; `/f/PRODUITS/dojo-mirror/days/<x>` is then the `--first-read` of the course (never `evidence/`: it stays on the host).
+
+The FINAL course (N-2 of the G2 of FAST-START), on the operator machine as (i), after (ii) for x = d. Its `--cut` is S_CUT of d, the
+largest `context_slot` of the enumerations of the first reading of d that carries two (ADR-DOJO-PR-2B D-3 l.230, DOJO-HISTORY-CUT-CHECK-1),
+read by the course's own reader, never by the scratch phase A of (i):
+
+```bash
+cd /f/Monark && D=/f/PRODUITS/dojo-mirror/days/<d> && node --input-type=module -e '
+const { readDayLayout } = await import("./apps/dojo/src/layout.ts"); const { recordBytes } = await import("./apps/dojo/src/bundle.ts");
+const { firstRead } = await import("./apps/dojo/src/history-build.ts"); const f = firstRead(readDayLayout(process.argv[1]).records.map(recordBytes));
+console.log(f.day, Math.max(...f.enumerations.map((e) => e.context_slot)));' "$D"
+```
+
+Expected: d and its S_CUT (JOURNAL; measured by FAST-CORR on a day of the simulated chain: the value printed passes the course's check,
+one less is refused `inputs_mismatch`). **STOP** on any other output. Then the course, on a NEW state, with the flags of (i) (a new
+`--deadline`), `--first-read` in place of `--provisional-day`:
+
+```bash
+cd /f/Monark && S=/f/PRODUITS/dojo-history/final-<d> && test ! -e "$S" && mkdir -p "$S/ledger" &&
+X="--mint-file out/mint.txt --cut <S_CUT> --max-calls <n> --max-credits <n> --max-ru <n> --deadline <UTC instant>
+--first-read /f/PRODUITS/dojo-mirror/days/<d>" && for p in A B C; do node apps/dojo/src/history-collect.ts --phase "$p" --state "$S" $X;
+e=$?; echo "phase_$p=$e"; [ "$e" = 0 ] || break; done; cat "$S/evidence/status.json"; sha256sum "$S/publish/SHA256SUMS"
+```
+
+Expected: `dojo/history-collect: phase done` then `phase_A=0`, the same for B, then `dojo/history-collect: complete`, `phase_C=0`,
+`{"status":"complete","stop_reason":null}` and the digest of `publish/SHA256SUMS` (JOURNAL); `$S` is then the `<local packet>` of (iii).
+Phase C is resumed on `method_cap` as in (i), with these flags (Q-9 of the G1 journal of FAST-START: the same property), until `complete`.
+**STOP** on any other output, nothing copied: `usage`, `state_inside_repo`, `inputs_mismatch` (a `--cut` other than S_CUT, or a state
+reused: a new one) or `phase_order`, `lock_held`, or a partial reason (`evidence/status.json` and the course's `run.json`).
 
 (iii) The FINAL packet (the directory holding its `publish/`: `SHA256SUMS`, `eve.json`, `history/<sha256>.jsonl`, `manifest.json`; its
 manifest's `first_read_day` is d) → `/var/lib/monark-dojo/history-packet/publish/` (`dojo:dojo`, 0750 and 0640; never under `public/`,
@@ -828,10 +865,12 @@ of d at blank, by `publishDay` itself, and the reader's verifier checks it WITH 
 publication of d would meet comes here, before the irreversible line, and writes nothing (section 19):
 
 - `first_read_day_open`: d is not closed yet, or not over: wait for its close, then (iv) again;
-- `eve_mismatch`: d lacks an address holding lots on the history's last day. The residue of B-1, declared: an address that acquired
-  lots between J − 1 and d − 1 (so absent from the provisional `Eve`), then closed its account before the first instant read of d (so
-  absent from its enumerations). The next closed day replaces d (one more day, never a false line): the act of (iii) removes this
-  packet, then (ii), a final course with `--first-read` = d + 1 (one more course) and (iii) again, then (iv);
+- `eve_mismatch`: d lacks an address holding lots on the history's last day. The residue of B-1, declared: an address absent from the
+  provisional `Eve` (no line on J − 1 and no balance at its `--cut`: that `Eve` holds both, Q-2 of the G2 of FAST-START) that held lots on
+  d − 1, then closed its account before the first instant read of d (so absent from its enumerations); none when that cut is on J and
+  d = J + 1 (such an address holds at every instant of J, so at the cut). The next closed day replaces d (one more day, never a false
+  line): the act of (iii) removes this packet, then (ii), a final course with `--first-read` = d + 1 (one more course) and (iii) again,
+  then (iv);
 - `history_bundle_malformed` with `publish/manifest.json: first_read_day`: the packet's first day read is not the day after its last day
   (a packet not made by the writer of PR-2b); the act of (iii), then the right packet;
 - `day_not_after_anchor`, `bundle_day_mismatch`, `bundle_anchor_mismatch`, `seed_outside_anchor_chain` (the bundle of d against the anchor

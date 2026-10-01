@@ -366,7 +366,7 @@ function keyUses(text: string): string[] {
   return out;
 }
 
-// killer: docs/RUNBOOK-dojo.md:453 CONST "grep -c PRIVATE /root/dojo-pubkey.out; " -> "cat /etc/monark/dojo/signing-key.pem; "
+// killer: docs/RUNBOOK-dojo.md:460 CONST "grep -c PRIVATE /root/dojo-pubkey.out; " -> "cat /etc/monark/dojo/signing-key.pem; "
 test("dojo_runbook_never_prints_private_key", () => {
   exists();
   const K = D.DOJO_SIGNING_KEY_SOURCE, text = read(RUNBOOK), a4 = sectionOf(13);
@@ -389,7 +389,7 @@ test("dojo_runbook_never_prints_private_key", () => {
   }
 });
 
-// killer: docs/RUNBOOK-dojo.md:608 CONST "run only AFTER the first" -> "run only BEFORE the first"
+// killer: docs/RUNBOOK-dojo.md:617 CONST "run only AFTER the first" -> "run only BEFORE the first"
 test("dojo_runbook_counts_without_rehearsal_and_stamps_after_the_first_publication", () => {
   exists(); // FAST-START (decisions of 2026-10-01, G1 journal docs/G1-lot-fast-start.md): no rehearsal day, no Bitcoin block before d
   const a8 = sectionOf(16, true), at = (x: string): number => { const i = a8.indexOf(x); assert.ok(i >= 0, `A-8: ${x}`); return i; };
@@ -400,8 +400,9 @@ test("dojo_runbook_counts_without_rehearsal_and_stamps_after_the_first_publicati
   assert.ok(a8.includes("(5) to (9) below run only AFTER the first `snapshot` is published") && !a8.includes("**Only an upgraded proof opens A-9**")
     && !a8.includes("no A-9 without the proof"), "A-8: the timestamp follows the first publication and never gates A-9");
   const order = sectionOf(10, true), first = order.indexOf("→ the first `snapshot` (d) published → A-8 (5) to (9)");
-  assert.ok(order.includes("CA-0 → A-8 (1) to (4)") && first > order.indexOf("A-11 (ii) to (iv)") && !order.includes("`ots upgrade` complete"),
-    "section 10: A-9 after the offline check, the timestamp after the first snapshot");
+  assert.ok(order.includes("A-5p → A-8 (1) to (4)") && first > order.indexOf("A-11 (ii) to (iv)") && !order.includes("`ots upgrade` complete")
+    && order.indexOf("→ CA-0 (section 15, after the first publication") > first && sectionOf(15, true).includes("When: after the first publication"),
+    "section 10: A-9 after the offline check; the timestamp, then CA-0 (N-7 of the G2 of FAST-START), after the first snapshot");
   const a9 = sectionOf(7, true), head = read(RUNBOOK).slice(0, read(RUNBOOK).indexOf("**Conventions.**"));
   assert.ok(a9.includes("`--provisional-day` J") && a9.includes("o = J + 1") && !a9.includes("The first counted day follows DOJO-ANCHOR-OTS-DATE-RULE-1")
     && !a9.includes("R + 2"), "section 7: d read on the plan of J + 1, without the rule of the block nor a rehearsal day");
@@ -409,6 +410,10 @@ test("dojo_runbook_counts_without_rehearsal_and_stamps_after_the_first_publicati
   const a11 = sectionOf(18, true);
   assert.ok(a11.includes("--provisional-day <J>") && a11.includes("<local provisional state>/provisional/eve.json") && !a11.includes("`--first-read` = R"),
     "18 (i): the Eve of the provisional course, never a packet");
+  assert.ok(a9.includes("A start made AFTER J") && a9.includes("For that start only, the STOP of section 5 on a start on another day does not hold")
+    && a11.includes("(J is after today at the operator's clock)") && a11.includes("`--first-read` in place of `--provisional-day`")
+    && a11.includes("Math.max(...f.enumerations.map((e) => e.context_slot))") && a11.includes("no line on J − 1 and no balance at its `--cut`"),
+    "C-1 (7 (6)), N-1, N-2 (18 (i) to (iii)) and the residue of 18 (iv) after Q-2 (b), of the G2 of FAST-START");
 });
 
 const TU_K = "apps/dojo/keys/dojo-keyring.json", TU_K_SKIP = `TU-K: skipped by name until act A-4p (DOJO-KEY-1) commits ${TU_K}`;
@@ -423,7 +428,7 @@ test("dojo_keyring_shares_no_key_with_bell", { skip: existsSync(REPO + TU_K) ? f
   assert.deepEqual(bk.keys.filter((x) => ids.has(x.key_id) || ids.has(x.jwk.x)), [], "no key of Bell's keyring in Dojo's (key_id or x)");
 });
 
-// killer: docs/RUNBOOK-dojo.md:857 SDL "price_version_pending" -> ""
+// killer: docs/RUNBOOK-dojo.md:896 SDL "price_version_pending" -> ""
 test("dojo_runbook_stops_before_the_stamp_and_on_refusals", () => {
   exists();
   const a8 = sectionOf(16, true), check = a8.indexOf("dojo-verify-cli.mjs /f/PRODUITS/dojo-mirror/public-seq1 --self-consistent-only");
@@ -444,7 +449,7 @@ test("dojo_runbook_stops_before_the_stamp_and_on_refusals", () => {
   assert.ok(sectionOf(17, true).includes("**STOP** on every other refusal (section 19)"), "A-10: a STOP on every refusal of section 19");
 });
 
-// killer: docs/RUNBOOK-dojo.md:814 CONST "-p SupplementaryGroups=dojo-handoff" -> "-p SupplementaryGroups=dojo-collect"
+// killer: docs/RUNBOOK-dojo.md:851 CONST "-p SupplementaryGroups=dojo-handoff" -> "-p SupplementaryGroups=dojo-collect"
 test("dojo_runbook_jobs_carry_the_unit_properties", () => {
   exists(); // C-3 and Q-3 of the G2 inspection of part 1: the three systemd-run jobs of the RUNBOOK, each property the unit's own
   const svc = service(D.DOJO_PUBLISH_UNIT), SANDBOX = ["PrivateNetwork", "NoNewPrivileges", "ProtectSystem", "ProtectHome", "PrivateTmp",

@@ -90,14 +90,21 @@ export function buildHistory(x: HistoryBuildInput): HistoryBuild {
 }
 /** FAST-START: the Eve of a day P read nowhere (the provisional packet of B-1): D_LAST = P - 1, S_CUT = cut (a finalized slot of the
  *  operator), no enumeration, so no check (ii). Its Eve alone leaves, never a HistoryBuild: no bundle, no manifest, no line. An empty
- *  Eve while an owner holds a positive balance at the end of D_LAST stops eve_empty (never an empty Eve on a chain with holders). */
+ *  Eve while an owner holds a positive balance at the end of D_LAST stops eve_empty (never an empty Eve on a chain with holders).
+ *  FAST-CORR (Q-2 (b) of the G2 of FAST-START): in this mode only, the Eve that leaves is the union, in byte order, of that Eve and of the
+ *  owners whose balance is strictly positive at S_CUT (one that acquires on P before S_CUT is read on P + 1; one in excess reads 0), each
+ *  added owner classified as the owner of a line is (read_malformed otherwise); eve_empty is judged on that Eve, before the union. */
 export function provisionalEve(x: Pick<HistoryBuildInput, "txs" | "noQuorum"> & { readonly day: string; readonly cut: number }): Eve {
   if (!nat(x.cut)) stop("read_malformed", "cut");
-  const { build, held } = rebuild(x, { day: x.day, enumerations: [] }, x.cut);
-  return held && build.eve.addresses.length === 0 ? mismatch(`${build.history_last_day}: an owner holds, the Eve is empty`, "eve_empty") : build.eve;
+  const { build, held, atCut } = rebuild(x, { day: x.day, enumerations: [] }, x.cut);
+  if (held && build.eve.addresses.length === 0) mismatch(`${build.history_last_day}: an owner holds, the Eve is empty`, "eve_empty");
+  for (const o of atCut) { try { ownerClass(o); } catch { stop("read_malformed", `owner ${o}`); } } // as klass does for a line's owner
+  return { addresses: [...new Set([...build.eve.addresses, ...atCut])].sort(byteOrder), accounts: [] };
 }
-/** The reconstruction shared by buildHistory and provisionalEve; held: an owner holds a positive balance at the end of D_LAST. */
-function rebuild(x: Pick<HistoryBuildInput, "txs" | "noQuorum">, fr: FirstRead, sCut: number): { readonly build: HistoryBuild; readonly held: boolean } {
+type Rebuilt = { readonly build: HistoryBuild; readonly held: boolean; readonly atCut: readonly string[] };
+/** The reconstruction shared by buildHistory and provisionalEve; held: an owner holds a positive balance at the end of D_LAST; atCut
+ *  (FAST-CORR): the owners whose balance is strictly positive at S_CUT, after every admitted transaction of slot <= S_CUT. */
+function rebuild(x: Pick<HistoryBuildInput, "txs" | "noQuorum">, fr: FirstRead, sCut: number): Rebuilt {
   const E = fr.enumerations;
   const last = dayNo(Date.parse(`${fr.day}T00:00:00.000Z`) / 1000) - 1; // D_LAST = first_read_day - 1 (D-3 l.230)
   if (!(last >= 1)) stop("read_malformed", "first read day");
@@ -233,7 +240,8 @@ function rebuild(x: Pick<HistoryBuildInput, "txs" | "noQuorum">, fr: FirstRead, 
   rows.sort((p, q) => p.d - q.d || byteOrder(p.o, q.o));
   const lines = rows.map((r) => canonical({ address: r.o, class: klass(r.o), day: dayName(r.d), day_value: r.v === null ? null : String(r.v) }));
   const bytes = lines.map((l) => `${l}\n`).join("");
-  return { held, build: { history_first_day: DOJO_HISTORY_FIRST_DAY, history_last_day: dayName(last), first_read_day: fr.day, window_slot_max: sCut,
+  const atCut = [...bal].filter(([, b]) => b > 0n).map(([o]) => o); // FAST-CORR: the balances after the last slot <= S_CUT (put)
+  return { held, atCut, build: { history_first_day: DOJO_HISTORY_FIRST_DAY, history_last_day: dayName(last), first_read_day: fr.day, window_slot_max: sCut,
     enumeration_slots: E.map((e) => e.context_slot), lines, bytes, sha256: sha(bytes), root: rootOf(lines),
     eve: { addresses: rows.filter((r) => r.d === last).map((r) => r.o), accounts: [] }, transactions_admitted: T.length,
     transactions_without_quorum: x.noQuorum.length, token_accounts: state.size, addresses: new Set(rows.map((r) => r.o)).size,
