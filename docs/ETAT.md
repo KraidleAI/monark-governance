@@ -44,7 +44,8 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - tableau et recherche (`lot/dojo-pr4c2`) ;
   - publication de l'historique (`lot/dojo-pr3a2`) ;
   - relais drand pour le premier pas réel (`lot/drand-1b`, plan fait, code en cours) ;
-  - plans de deux correctifs : grand livre `rpc-guard`, écrivain unique.
+  - grand livre `rpc-guard` : grand livre neuf, corps borné pour le collecteur, relevés entiers (`lot/rpcguard-first`, code en cours) ;
+  - écrivain unique de l'éditeur, `--unlock` explicite (`lot/single-writer`, code en cours).
 - **Déjà livré et réuni sur `lot/page-v1`** : la garde de lancement des programmes de l'hôte.
 
 ## Ce qui reste pour la page
