@@ -43,7 +43,8 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - unités de publication, Caddy de l'hôte et mode d'emploi (`lot/dojo-pr3b2`) ;
   - tableau et recherche (`lot/dojo-pr4c2`) ;
   - publication de l'historique (`lot/dojo-pr3a2`) ;
-  - plans de trois correctifs : grand livre `rpc-guard`, écrivain unique, relais drand.
+  - relais drand pour le premier pas réel (`lot/drand-1b`, plan fait, code en cours) ;
+  - plans de deux correctifs : grand livre `rpc-guard`, écrivain unique.
 - **Déjà livré et réuni sur `lot/page-v1`** : la garde de lancement des programmes de l'hôte.
 
 ## Ce qui reste pour la page
