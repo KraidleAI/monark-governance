@@ -40,13 +40,19 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
 - **Rien ne tourne sur le serveur** : aucune collecte, aucune clé de signature (`apps/dojo/keys` absent).
 - **Aucune donnée publiée** : pas de `apps/site/data/dojo-served.json`, donc la page ne s'affiche pas encore.
 - **Code en cours (partie 1)**, une branche par pièce :
-  - unités de publication, Caddy de l'hôte et mode d'emploi (`lot/dojo-pr3b2`) ;
   - tableau et recherche (`lot/dojo-pr4c2`) ;
   - publication de l'historique (`lot/dojo-pr3a2`) ;
   - relais drand pour le premier pas réel (`lot/drand-1b`, plan fait, code en cours) ;
   - grand livre `rpc-guard` : grand livre neuf, corps borné pour le collecteur, relevés entiers (`lot/rpcguard-first`, code en cours) ;
   - écrivain unique de l'éditeur, `--unlock` explicite (`lot/single-writer`, code en cours).
-- **Déjà livré et réuni sur `lot/page-v1`** : la garde de lancement des programmes de l'hôte.
+- **Déjà livré et réuni sur `lot/page-v1`** : la garde de lancement des programmes de l'hôte ; les unités de publication (minuterie 00:30, 01:30, 03:30, 06:30 UTC), le Caddy de l'hôte, les constantes de déploiement et le mode d'emploi, avec le jour zéro gardé.
+
+## Points connus (à traiter, non bloquants sauf mention)
+
+- **Charge mesurée de la publication** : 80 s pour 1 144 adresses sur 30 jours, 559 s sur 365 jours, 562 s pour 10 000 adresses sur 30 jours. Limites de l'unité : `TimeoutStartSec=2900`, `MemoryMax=512M`. Au-delà d'environ 10 000 adresses sur un an, il faudra revoir la vérification avant écriture.
+- **La CLI du vérificateur en `--url`** rend `unreachable` si le serveur ferme une connexion inactive pendant un long calcul. La vérification sur une copie locale n'est pas touchée.
+- **Mode d'emploi** : les copies se comparent sur l'empreinte seule (64 caractères), car `sha256sum` sous Git Bash ajoute ` *`.
+- **Unité** : deux directives systemd dépassent 160 caractères, sans coupure possible.
 
 ## Ce qui reste pour la page
 
