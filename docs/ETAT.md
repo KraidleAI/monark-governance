@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 10:0x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 10:1x UTC.
 
 ## Règle
 
@@ -79,7 +79,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   documentation seulement ; mission verte `69e46e9c…`), lancé après la mesure du test 42 ; puis `red-proof`, mutant ciblé, oracle et
   checkpoint-2 sur le delta, sans G2 ciblée (`docs/methode/REGLES-MISSION.md` l.18). Avant la fusion aussi : mesure du test 42 (en
   cours ; ses passes de 09:2x à 09:5x UTC ont tourné pendant la relecture G2 : elles ne valent que si l'hôte était au repos), fusion par
-  pas (jamais une fusion unique de 3 393 lignes), accord de l'investisseur pour la partie.
+  pas (jamais une fusion unique de 3 393 lignes).
+- **Accord de l'investisseur pour la partie 1** : « oui », le 2026-10-01 à 10:1x UTC, en réponse à la phrase présentée à 09:08 UTC
+  (correction 3 (f) du checkpoint-2) : « Choix B-1 : le premier jour compté vient après le jour de répétition (en principe deux jours plus
+  tard), au prix d'une course d'historique supplémentaire. Risque restant : si une adresse achète puis ferme son compte juste avant la
+  première lecture de ce jour, on perd un jour. On ne publie jamais une ligne fausse. »
 - **Provenance de l'inspection de la partie 1** (hors `F:/tmp`) : `F:/PRODUITS/inspections/page-partie1-2026-10-01/`, index `SHA256SUMS`
   (sha256 `e96d8f75fce1c213716660e33239a1dfb920f8fdd809be01add1937576ca8fd2`) : les cinq rapports (G2 collecte `61e65f55…`, G2 éditeur
   `8cbc8922…`, G2 page `95873fbc…`, F2P `9ef65dd9…`, passe mécanique `3007e888…`), le checkpoint-2 `3bc97433…`, la campagne de mutants
