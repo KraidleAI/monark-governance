@@ -1,0 +1,27 @@
+# systemd timer for the MONARK Dojo publisher (ADR-DOJO-PR-3 D-5 l.110; pli G0 of PR-3b-2, PB-2; RUNBOOK-dojo act A-10). FOUR daily
+# UTC slots, 00:30, 01:30, 03:30 and 06:30: the collector closes day d at its first 5-minute step at or after T_{d+1} + 900 s (00:15
+# UTC, AccuracySec=1s of monark-dojo-collect.timer), so the 00:30 slot finds d closed unless that step ran long; the later slots publish
+# it then. Each start publishes ONE day at most (publishDay; the completion of a price_version due is alone in its start, D-C3 of
+# PR-3a-1c) and a day already published publishes nothing (nothing_to_publish): after an outage, at most four days are caught up per
+# UTC day (declared). The freshness constant of the probe of PR-4c-1c is pinned to this file (PL-3 of ADR-DOJO-PR-4).
+[Unit]
+Description=MONARK Dojo publisher timer - four daily UTC slots after the close of the day (ADR-DOJO-PR-3)
+Documentation=https://github.com/KraidleAI/monark
+
+[Timer]
+# Four separate expressions, never a comma list of hh:mm pairs (note C-2 of monark-sentinel.timer); each one is checked on the host
+# by systemd-analyze calendar (RUNBOOK-dojo, act A-5p). UTC whatever the host's zone.
+OnCalendar=*-*-* 00:30:00 UTC
+OnCalendar=*-*-* 01:30:00 UTC
+OnCalendar=*-*-* 03:30:00 UTC
+OnCalendar=*-*-* 06:30:00 UTC
+# Every value is written, none is left to a default (FM-2.2): AccuracySec defaults to 1 min, RandomizedDelaySec to 0 (systemd.timer(5)
+# of systemd 259, FAITS-SYSTEMD-TIMER-1); no randomized delay (the sentinel's 1800 s is never copied here).
+AccuracySec=1s
+RandomizedDelaySec=0
+# A slot missed while the timer was inactive runs once at activation; a start with nothing to publish writes nothing.
+Persistent=true
+Unit=monark-dojo-publish.service
+
+[Install]
+WantedBy=timers.target

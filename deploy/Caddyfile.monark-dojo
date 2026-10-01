@@ -1,0 +1,28 @@
+# MONARK Dojo - Caddy site for dojo.monarkgate.tech on the Bell host (ADR-DOJO-SNAPSHOT-1 D-9; ADR-DOJO-PR-3, pli G0 of PR-3b-2, PB-2).
+# Orchestrator-deployed by docs/RUNBOOK-dojo.md, act A-6 (the announcement day under QI-4 (c)): installed WHOLE at
+# /etc/caddy/monark-dojo.caddyfile and imported by ONE line of /etc/caddy/Caddyfile (mode IMPORT, after the Bell lot BELL-CA-DOJO-1);
+# never edited in place.
+#
+# Static only: the served tree is the publisher's public/ (timeline.jsonl, dojo/pubkey.json, lines/<sha256>.jsonl,
+# history/<sha256>.jsonl); its state (the private timeline, keyring.json, staging/) lies beside public/, never under it (M-E9). No
+# directory listing (no browse), no proxy, no access log. The host root / answers 404: no redirect before the page is served on real
+# data (DOJO-HOST-ROOT-1, rerouted). Guards of the site proxy F3 (deploy/Caddyfile.monark-dojo-site.snippet), on this side: (i) this
+# block answers the one name F3 sets by header_up Host {upstream_hostport}; (ii) no tls directive, no reverse_proxy, no http:// nor
+# :80 site: automatic HTTPS with a certificate of a public CA, which F3 checks with no tls_insecure_* option; (iii) the cache headers
+# below are the host's (CA check c06); F3 sets no-store on its own path. Indented with spaces.
+dojo.monarkgate.tech {
+    root * /var/lib/monark-dojo/public
+
+    # Every response: readable cross-origin by the site's reread and by third parties (the data is public), never sniffed.
+    header Access-Control-Allow-Origin "*"
+    header X-Content-Type-Options "nosniff"
+
+    # Content-addressed immutables never change (the name is the sha256); the timeline and the key change and are revalidated.
+    # The two matchers are complementary, so no header rule depends on ordering (calque of the Bell site).
+    @immutable path /lines/* /history/*
+    header @immutable Cache-Control "public, max-age=31536000, immutable"
+    @current not path /lines/* /history/*
+    header @current Cache-Control "no-cache"
+
+    file_server
+}
