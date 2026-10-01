@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 08:5x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 09:0x UTC.
 
 ## Règle
 
@@ -64,20 +64,42 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - avant A-8, sur l'hôte : lire la forme `--property=UnsetEnvironment=` et `InaccessiblePaths=` de `systemd-run`, et vérifier que l'état de l'éditeur est sur un système de fichiers à liens physiques (FAITS-SYSTEMD-RUN-UNSETENV-1) ;
   - avant A-10 : `--unlock` retire aussi les `publish.lock.<pid>` dont le processus est mort (Q-10) ; ignorer l'échec du seul retrait du nom temporaire après un lien réussi (D3-1) ;
   - avant 18 (iv) : garde `test ! -e /var/lib/monark-dojo/publish.lock` avant le retrait du paquet (Q-14) ; une phrase : aucun acte sur l'éditeur ni sur `bundles/<d>` entre (iv) et le premier `snapshot` (Q-13) ; mesure de charge si l'historique dépasse la grille DOJO-VERIFY-SCALE-1 (Q-12) ;
-  - documentation : la ligne TU-1h d'ADR-DOJO-PR-3 dit `readings/` seul, le code exige le jour clos entier.
+  - avant A-11 (documentation) : la ligne TU-1h d'ADR-DOJO-PR-3 dit `readings/` seul, le code exige le jour clos entier.
 - **Recherche du tableau** : elle contrôle l'alphabet base58, pas le décodage en 32 octets ; accepté à l'inspection (rendu sûr).
 - **Mort d'un fichier de test sur ce poste** (item VERIFY-TEST-DEAD-CHILD-2) : sous charge, environ une fois sur vingt, un fichier de test
   meurt sans rien rapporter (code 0xC0000409, arrêt natif de Node sous Windows), déjà vu le 2026-09-29 sur un autre fichier. Ce n'est pas
   un défaut du code de la page. Règle d'ici là : un tel fichier est « non conclu » et l'oracle est relancé une fois. Pour nommer la cause,
   il faut une copie mémoire du processus mort : demande formée à l'investisseur (activer WER `LocalDumps` pour `node.exe`, ou fournir
   ProcDump et un débogueur) ; c'est un réglage du système, que l'orchestrateur ne fait pas lui-même.
-- **Partie 1, état de l'inspection** : tête finale `lot/page-v1` = `2e84103e`. Relectures G2 : collecte, éditeur et page approuvées
-  (AC-5 appliqué). Preuves F2P des huit pièces faites. Reste la passe mécanique finale (oracle complet, mutants, F2P des corrections),
-  puis le checkpoint du validateur et la fusion au tronc.
+- **Partie 1, état de l'inspection** : tête `lot/page-v1` = `e79d9714`. Relectures G2 collecte, éditeur et page approuvées ; oracle
+  complet vert hors `r25` de la partie entière (1 849 tests, 0 rouge) ; F2P de toutes les pièces et corrections ; mutants 146 tués sur 147
+  (K31 corrigé, K131 non conclu par un saut voulu). Checkpoint-2 du validateur : ACCEPTE-AVEC-CORRECTIONS. Avant la fusion : relecture G2 du
+  lot DEPTH-BOUND (en cours), mesure du test 42 (en cours), fusion par pas (jamais une fusion unique de 3 393 lignes), ce registre complété,
+  accord de l'investisseur pour la partie.
+- **Provenance de l'inspection de la partie 1** (hors `F:/tmp`) : `F:/PRODUITS/inspections/page-partie1-2026-10-01/`, index `SHA256SUMS`
+  (sha256 `8fe5dfa1d909bc198d48fbf6a13db4a36d4a769ad601ab27e48db5345bc747c9`) : les cinq rapports (G2 collecte `61e65f55…`, G2 éditeur
+  `8cbc8922…`, G2 page `95873fbc…`, F2P `9ef65dd9…`, passe mécanique `3007e888…`), le checkpoint-2 `3bc97433…`, la campagne de mutants
+  `a3100dfc…`, le journal MUTANTS-NM `77542091…`, les records d'oracle `28aeca6d…` (`2e84103e`), `f932b387…` (incident, test 42 en
+  délai dépassé) et `ea6fa608…` (`e79d9714`).
+- **Items de l'inspection de la partie 1, avec déclencheur** (propriétaire : orchestrateur, sauf mention) :
+  - avant le premier jour compté (A-9) : DOJO-BLS-VERIFY-1 (la signature BLS de la balise drand n'est pas vérifiée ; deux relais égaux
+    exigés) ; collecte N-2 (`release` s'arrête au premier `unlock` qui échoue), N-3 (erreur anonyme dans `runs.jsonl`), N-4 et N-5 (flux
+    rompu en cours de corps, cas à ajouter à `body-bound`) ;
+  - avant A-7 : DOJO-SIGTERM-LINUX-PROOF-1 (vrai signal, sous Linux) ; avant A-11 : la ligne TU-1h d'ADR-DOJO-PR-3 alignée sur le code ;
+  - à A-4p : DOJO-KEYRING-KILLER-REMEASURE-1 (le tueur K131 se mesure quand la clé existe) ;
+  - avant 18 (iv) : DOJO-PUBLISH-SCALE-1 (fichier candidat de plus de 64 Mio pendant la vérification) ;
+  - avant l'envoi du site (partie 3) : DOJO-VERIFY-URL-IDLE-1 (CLI `--url` et connexion fermée), DOJO-LOOKUP-PAYLOAD-1 jambe 2,
+    DOJO-LIVE-RENDER-ORACLE-1, page N-1 à N-4 et N-8 (TXT-17c, tests vides si la fixture change, état transitoire, fichier de lignes vide,
+    `role="status"`) ;
+  - hôte au repos, non bloquant : DOJO-MIDNIGHT-ALLFOUR-SEED-1 et collecte N-8 (branche de minuit couverte une course sur 72) ;
+  - outillage, avant la prochaine campagne de mutants : MUTANTS-NM-UNLINK-1 et MUTANTS-NM-RECORD-1 ; avant le prochain rejeu `red-proof`
+    d'un validateur sur un clone à jonctions : RED-PROOF-REPO-JUNCTIONS-1 ; avec VERIFY-TEST-DEAD-CHILD-2 : ORACLE-DEAD-CHILD-EXITCODE-1 ;
+  - CV4-POWERSHELL-C-WRITE-1 : décidé, admis et déclaré (PowerShell réécrit son propre fichier de profil sur C: ; aucun fichier du projet) ;
+  - MUTANTS-NM-WORKSPACES-1 : branché (outil réparé fusionné au tronc `eda6ff85`, première campagne d'un autre lot faite au checkpoint-2).
 - **Textes du tableau** : TXT-17 et TXT-17a corrigés et TXT-17o ajouté (« Listed by hold score, highest first; equal hold scores by address. »), à valider par l'investisseur avec la page.
 - **Adresse du serveur Bell** : déjà dans le dépôt public (19 fichiers de `main` depuis le 23/09, et le mode d'emploi du Dōjō). Ce n'est pas un secret : `bell.monarkgate.tech` y renvoie. Aucune clé n'est publiée.
 - **Collecteur d'historique** : il lit encore les réponses sans borne de taille (`history-collect.ts` l.408-409). À borner avant le premier acte d'historique, après mesure de la plus grosse page (item RPC-GUARD-BODY-BOUNDS-ALL-1).
-- **SIGTERM** : la variante par vrai signal du test est sautée sous Windows ; à prouver sur Linux (item DOJO-SIGTERM-LINUX-PROOF-1).
+- **SIGTERM** : la variante par vrai signal du test est sautée sous Windows ; à prouver sur Linux avant A-7 (item DOJO-SIGTERM-LINUX-PROOF-1).
 - **Mode d'emploi** : une commande de la section 9 tient sur une ligne de 629 caractères (une commande par ligne) ; exception déclarée.
 - **Séries de marché (demande du fondateur, hors page)** : Binance BTCUSDT, ETHUSDT, BNBUSDT et SOLUSDT, bougies de 15 minutes du
   2024-10-01 au 2026-10-01 exclu, enregistrées le 2026-10-01 à 08:41-08:46 UTC après relecture favorable de RECHERCHES ; 70 080 bougies
