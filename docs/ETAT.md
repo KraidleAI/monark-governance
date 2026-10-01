@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 10:1x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 10:2x UTC.
 
 ## Règle
 
@@ -121,8 +121,12 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   Décision du fondateur reçue le 2026-10-01 (messagerie recherches) : usage des données couvert par des accords avec les plateformes ;
   fichier de faits privé ouvert hors dépôt, textes des accords attendus. Coinbase BTC-USD 15m : possible, pas prioritaire, après la partie 1.
 - **ADR des katas de RECHERCHES (0005 v2, hors page)** : checkpoint-1 de MONARK le 2026-10-01, accepté avec corrections (messagerie
-  recherches#17 ; rapport du validateur sha256 `262b3b62…`, nombres recalculés deux fois). v3 attendue avant P0. Q-7 (lieu public de
-  l'empreinte de P0) chez l'investisseur. Tout travail de MONARK pour les katas vient après la page (P0, recalcul P2, revue P3, site P4,
+  recherches#17 ; rapport du validateur sha256 `262b3b62…`, nombres recalculés deux fois).
+  v3 reçue (recherches `2d4619c`, sha256 `d8881c71…`), contrôle par diff en cours. Q-7 décidée par l'investisseur à 10:2x UTC :
+  « c est ok pour le depot publique, tout en anglais c est tout ». Dépôt public `KraidleAI/monark-precommitments`, créé à 10:24 UTC
+  (présentation et table vide, tout en anglais, aucune CI), sans horodatage tiers ; P0 y inscrit les empreintes après le contrôle par
+  diff et la validation du fondateur.
+  Tout travail de MONARK pour les katas vient après la page (P0, recalcul P2, revue P3, site P4,
   F-K-7, D10, F-K-1), sauf décision de l'investisseur. Item LIVE-1-RECORD-1 : enregistrer le bloc LIVE-1 (2026-10-01 → 2027-01-01) avec
   le même enregistreur ; déclencheur 2027-01-01 après minuit UTC ; conditions de Binance relues ce jour-là ; sha256 postés à RECHERCHES.
 - **Dépôt `monark-governance` privé** depuis le 01/10 au moins : aucun push sans vérification préalable de la visibilité et accord de l'investisseur (une CI lancée par erreur à 01:04 UTC, annulée).
