@@ -23,10 +23,10 @@ flight, then exits 1; test `dojo_collect_releases_locks_on_sigterm`); `man syste
 (Credentials, `InaccessiblePaths=`) and `man systemd.service` (`TimeoutStartSec=`) read on this host, to confirm on systemd 259 the
 "latest" pages read by the orchestrator for FAITS-SYSTEMD-CRED-1 (14:12:49Z) and FAITS-SYSTEMD-TIMEOUT-1 (14:13:55Z); the start of
 section 5 is the empirical proof. Before A-7: DOJO-DRAND-RELAY-TERMS-1, the lot DRAND-RELAY-GET-1 (1b: the beacon relays through
-the guard, labels `drand-pl` and `drand-cf`, cycle `drand-<AAAA-MM-JJ>` of the day, 4 attempts per relay and per day; before its G7 every
-step before 00:15 UTC refuses `relay_missing`), HELIUS-CREDIT-RECONCILE-1, QI-5,
-RPC-GUARD-FIRST-APPEND-HEAD-1 (section 9). Before A-9: FAITS-BTC-BLOCKTIME-1, DOJO-OPERATOR-INDEPENDENCE-1, P-4 and the rehearsal
-criterion of section 6.
+the guard, labels `drand-pl` and `drand-cf`, cycle `drand-<AAAA-MM-JJ>` of the day, 4 attempts per relay and per day), HELIUS-CREDIT-RECONCILE-1,
+QI-5, RPC-GUARD-FIRST-APPEND-HEAD-1 (carried by RPC-GUARD-FIRST-APPEND-1: the genesis head is written before the first line and a head one
+entry behind is healed at the open; test `rpc_guard_first_append_crash_is_healed_never_refused`; section 9). Before A-9: FAITS-BTC-BLOCKTIME-1,
+DOJO-OPERATOR-INDEPENDENCE-1, P-4 and the rehearsal criterion of section 6.
 
 **Conventions.** Each step gives the command, the expected output and the rollback. Commands are ONE line each and carry no shell
 state: the G7 SHA is read from `/f/tmp/dojo-dn/G7.txt` (local scratch, outside the repo). **The seeds and the Helius key are never
@@ -119,7 +119,7 @@ Expected: `COPY-EQUAL`. The copy stays in the mirror, next to the provider's bac
 `DOJO_COLLECT_ENV_KEYS`: the Helius endpoint base (the FIRST entry of the operator's `BELL_SOLANA_RPC`: the guard's transport reads
 it as `helius`), the cycle id and floor of DOJO-GUARD-LEDGER-SPLIT-1 (floor = the dashboard total read at this act plus the reserve
 declared for the operator machine), and the key, last. `HELIUS_BASE` is set first in the local shell to that endpoint base (no key
-in it: the transport appends `?api-key=` from `HELIUS_API_KEY`, `packages/rpc-guard/src/transport.ts:93-97`):
+in it: the transport appends `?api-key=` from `HELIUS_API_KEY`, `packages/rpc-guard/src/transport.ts:171-172`):
 
 ```bash
 printf 'BELL_SOLANA_RPC=%s\nHELIUS_CYCLE_ID=%s\nHELIUS_CYCLE_FLOOR=%s\nHELIUS_API_KEY=%s\n' "$HELIUS_BASE" '<CYCLE>' '<FLOOR>' "$HELIUS_API_KEY" | ssh -i ~/.ssh/monark_vps root@178.16.131.29 'umask 077 && cat > /etc/monark/dojo-collect.env && chown root:dojo-collect /etc/monark/dojo-collect.env && chmod 0640 /etc/monark/dojo-collect.env && stat -c "%a %U:%G %n" /etc/monark/dojo-collect.env && cut -d= -f1 /etc/monark/dojo-collect.env'
@@ -222,10 +222,10 @@ of the journal: `eve_missing` (the `Eve` is not on the first day the chain opens
 `lock_held` (section 9 before anything else), and every line listed in section 5. Stop (rollback):
 `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl disable --now monark-dojo-collect.timer'`.
 
-**Start timeout** (`TimeoutStartSec=1500`, dated line 15:00Z): the worst course of one reading read in the code is 1210 s (the
-unit's comment); a step still `activating` after 1500 s is ended by systemd (SIGTERM, the unit `failed`), and a course killed that
-way leaves the guard's locks held: every later step refuses `lock_held` until section 9. A step runs one course per due instant: two
-instants in the same 5-minute slot make one step of two courses.
+**Start timeout** (`TimeoutStartSec=1500`, dated line 15:00Z): the worst course of one reading read in the code is 1210 s (the unit's comment);
+a step still `activating` after 1500 s is ended by systemd with `KillSignal=` (default SIGTERM, to confirm at L-2; the unit `failed`): on SIGTERM
+the course in flight releases its locks (journal `dojo/collect: sigterm`); an OOM kill, a SIGKILL or a power cut leaves them held, and every later
+step refuses `lock_held` until section 9. A step runs one course per due instant: two instants in the same 5-minute slot make one step of two courses.
 
 ## 7. A-9 (collect side) — from the rehearsal to the counted days
 
@@ -315,8 +315,10 @@ Expected, for each operator with a lock (`<op>: no lock` for the others): `exit=
 `"outcome":"unlocked"` and
 `"reason":"runbook-lock-held-unlock"` (JOURNAL: time, cycle, pids, the two lines). Then `systemctl start monark-dojo-collect.timer`;
 the next steps read again (a reading whose window passed meanwhile is written missed at the close). **STOP, no repair by hand,
-escalation to the orchestrator** if `unlock` fails on "head sidecar" or "cycle ledger" (fail-closed C-V-8: for example a kill between
-the first line of a new cycle's ledger and its head, item RPC-GUARD-FIRST-APPEND-HEAD-1). Never `rm` of a `.lock`, never root.
+escalation to the orchestrator** if `unlock` fails on "head sidecar" or "cycle ledger" (fail-closed C-V-8, `packages/rpc-guard/src/ledger.ts`:
+for example a head sidecar deleted, l.171, `head_absent` of RUNBOOK-rpc-guard section 3, or a NUL tail after a power cut, l.135, same section; a
+kill between the first line of a new cycle's ledger and its head is healed at the open, never refused: l.211, l.188-189, RPC-GUARD-FIRST-APPEND-HEAD-1).
+Never `rm` of a `.lock`, never root.
 
 ## 10. The publication side (PR-3b-2a): what, order, go, conventions
 
