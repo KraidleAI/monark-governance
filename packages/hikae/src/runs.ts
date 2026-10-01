@@ -1,6 +1,6 @@
 /**
- * HIKAE - dependence diagnostic for per-calibration rows (worksite 2 of the conformal alignment, lot L2-1r;
- * ADR draft 0004 v3 D6, KraidleAI/recherches decisions/0004).
+ * HIKAE - dependence diagnostic for per-calibration rows (worksite 2 of the conformal alignment, lots L2-1r and L2-1r2;
+ * ADR draft 0004 v3.1 D6, KraidleAI/recherches decisions/0004).
  *
  * Exact one-sided Wald-Wolfowitz runs test on a time-ordered 0/1 sequence: R = the number of runs, and
  * P(R <= r_obs | the counts of ones and zeros) under the uniform law of the arrangements (i.i.d. or
@@ -8,6 +8,8 @@
  * indicator. It is a test against that one alternative: passing it never establishes exchangeability.
  * Pure: no clock, no file, no floating point in a decision.
  */
+
+import { parseUnitDecimal } from "./binomial.ts";
 
 /** A 0/1 sequence in time order. */
 export type Bits = readonly (0 | 1)[];
@@ -40,15 +42,6 @@ export function runsCount(bits: Bits): number {
   return runs;
 }
 
-/** Private minimal parse of a plain decimal in (0, 1), such as 0.05, to an integer ratio (to be merged with L2-1). */
-function parseLevel(levelDec: string): { num: bigint; den: bigint } {
-  if (!/^0[.][0-9]+$/.test(levelDec)) throw new RangeError("runs: level must be a plain decimal in (0, 1)");
-  const digits = levelDec.slice(2);
-  const num = BigInt(digits);
-  if (num === 0n) throw new RangeError("runs: level must be a plain decimal in (0, 1)");
-  return { num, den: 10n ** BigInt(digits.length) };
-}
-
 /** Row m of Pascal's triangle: C(m, 0) .. C(m, m). */
 function binomRow(m: number): bigint[] {
   const row = [1n];
@@ -68,7 +61,7 @@ const at = (row: readonly bigint[], j: number): bigint => row[j] ?? 0n;
  * r = 2k: 2 C(n1 - 1, k - 1) C(n0 - 1, k - 1); r = 2k + 1: C(n1 - 1, k) C(n0 - 1, k - 1) + C(n1 - 1, k - 1) C(n0 - 1, k).
  */
 export function runsLowerTailLeq(bits: Bits, levelDec: string): RunsTail {
-  const level = parseLevel(levelDec);
+  const level = parseUnitDecimal(levelDec); // plain decimal in (0, 1), zero refused (binomial.ts)
   const runs = runsCount(bits);
   const ones = bits.filter((b) => b === 1).length;
   const zeros = bits.length - ones;
@@ -84,11 +77,31 @@ export function runsLowerTailLeq(bits: Bits, levelDec: string): RunsTail {
   return { empty: false, runs, ones, zeros, tailNum, tailDen, reject: tailNum * level.den <= level.num * tailDen };
 }
 
-/** Median exceedance 1{s > m}, m = the ceil(n/2)-th smallest score; ties at m count as 0. */
-export function medianExceedance(scores: readonly number[]): (0 | 1)[] {
-  if (scores.some((s) => Number.isNaN(s))) throw new RangeError("runs: a score is NaN");
-  const sorted = [...scores].sort((x, y) => x - y);
-  const m = sorted[Math.ceil(scores.length / 2) - 1];
-  if (m === undefined) return [];
-  return scores.map((s): 0 | 1 => (s > m ? 1 : 0));
+/** Result of the balanced exceedance: `empty` when the sequence has fewer than two distinct values (nothing to test). */
+export type Balanced =
+  | { readonly empty: true }
+  | { readonly empty: false; readonly threshold: number; readonly bits: (0 | 1)[] };
+
+/**
+ * Balanced exceedance 1{v > t} of a time-ordered sequence (ADR draft 0004 v3.1 D6, lot L2-1r2): over the distinct values
+ * t, ones(t) = the count of values > t; a t with ones(t) = 0 is skipped; t minimizes abs(2 ones(t) - n), ties toward the
+ * larger ones(t). t is a value of the sequence and depends on the multiset only, never on the order; the choice uses
+ * counts and comparisons only. `empty` iff the sequence is constant (or has no value). A NaN is refused.
+ */
+export function balancedExceedance(values: readonly number[]): Balanced {
+  if (values.some((v) => Number.isNaN(v))) throw new RangeError("runs: a value is NaN");
+  const n = values.length;
+  const sorted = [...values].sort((x, y) => (x < y ? -1 : x > y ? 1 : 0));
+  let best: { t: number; ones: number; gap: number } | undefined;
+  for (let i = 0; i < n; i++) {
+    const t = sorted[i];
+    if (t === undefined || sorted[i + 1] === t) continue;
+    const ones = n - i - 1;
+    if (ones === 0) continue;
+    const gap = Math.abs(2 * ones - n);
+    if (best === undefined || gap < best.gap || (gap === best.gap && ones > best.ones)) best = { t, ones, gap };
+  }
+  if (best === undefined) return { empty: true };
+  const t = best.t;
+  return { empty: false, threshold: t, bits: values.map((v): 0 | 1 => (v > t ? 1 : 0)) };
 }

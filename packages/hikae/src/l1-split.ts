@@ -14,6 +14,8 @@
  * on a binary — it is calibrated silence, not a defect (GROK-DECORTICATION §2).
  */
 
+import { missUpperBound, parseAlpha, parseTestDelta, riskControlMaxExceedances, zeroErrorFloor } from "./binomial.ts";
+
 /** Indicator score k=1 (D3): 0 if `y === yhat`, 1 otherwise. */
 export function indicatorScore(yhat: string, y: string): 0 | 1 {
   return y === yhat ? 0 : 1;
@@ -40,6 +42,41 @@ export function splitQuantile(
   const q = sorted[p - 1];
   if (q === undefined) return { reason: "under_calib" }; // noUncheckedIndexedAccess guard
   return { qhat: q };
+}
+
+/** Risk-controlling result: the served value at rank n - kStar, or fail-closed under-calibration (no `qhat` key). */
+export type RiskControlResult =
+  | { readonly qhat: number; readonly rank: number; readonly kStar: number; readonly kObs: number; readonly missBound: string }
+  | { readonly reason: "under_calib" };
+
+/**
+ * Risk-controlling quantile of a per-calibration row (worksite 2, lot L2-2; ADR draft 0004 v3.1 D2 and D3).
+ * kStar = the largest k >= 0 with P(Bin(n, alpha) <= k) <= test_delta, decided in exact rationals (binomial.ts);
+ * served rank = n - kStar; qhat = the rank-th smallest score (with ties, the order statistic at that rank);
+ * kObs = the count of scores strictly above qhat (descriptive, kObs <= kStar); missBound = U(n, kStar, test_delta),
+ * never computed from kObs (an atom at qhat lowers kObs, not the miss rate). FAIL-CLOSED `under_calib`: n < nMin,
+ * n < n0 (zero misses do not meet the rule), a refused alpha or test_delta (binomial.ts parsers), a NaN score,
+ * a nMin that is not an integer. `splitQuantile` is unchanged.
+ */
+export function riskControlQuantile(scores: readonly number[], alphaDec: string, deltaDec: string, nMin: number): RiskControlResult {
+  const under: RiskControlResult = { reason: "under_calib" };
+  const n = scores.length;
+  if (!Number.isSafeInteger(nMin) || n < nMin) return under;
+  if (scores.some((s) => Number.isNaN(s))) return under;
+  try {
+    parseAlpha(alphaDec);
+    parseTestDelta(deltaDec);
+  } catch {
+    return under;
+  }
+  if (n < zeroErrorFloor(alphaDec, deltaDec)) return under;
+  const kStar = riskControlMaxExceedances(n, alphaDec, deltaDec);
+  const rank = n - kStar;
+  const sorted = [...scores].sort((x, y) => (x < y ? -1 : x > y ? 1 : 0));
+  const qhat = sorted[rank - 1];
+  if (qhat === undefined) throw new RangeError(`served rank ${String(rank)} outside 1..${String(n)}`);
+  const kObs = scores.filter((s) => s > qhat).length;
+  return { qhat, rank, kStar, kObs, missBound: missUpperBound(n, kStar, deltaDec) };
 }
 
 /**
