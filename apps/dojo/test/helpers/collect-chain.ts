@@ -1,7 +1,8 @@
 // MONARK Dojo -- PR-2-2 simulated chain (ADR-DOJO-PR-2 section 3, step 1): globalThis.fetch is replaced before any course, so the
 // REAL openGuardedClient (write-ahead ledger, locks, caps) runs over a temporary ledger; the guard resolves helius from the env to a
 // `.invalid` host and the public host to its fixed host, and this stub answers both without any socket or name resolution (traps
-// armed at import: a socket or a lookup throws). The two beacon relays are the injected RunDeps.relays (item DRAND-RELAY-GET-1). Responses are built from the verbatim fixtures of
+// armed at import: a socket or a lookup throws). The two beacon relays are the guard's labels drand-pl and drand-cf (DRAND-RELAY-GET-1b):
+// a GET of the v1 path on api.drand.sh or drand.cloudflare.com, answered here by host. Responses are built from the verbatim fixtures of
 // fixtures/collect/ (provenance.json); every change of the world (rows, amounts per operator, mint, beta) is SYNTHETIC and declared.
 import { createHash } from "node:crypto";
 import dns from "node:dns";
@@ -9,7 +10,6 @@ import net from "node:net";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { TransportError } from "@monark/rpc-guard";
 
 net.Socket.prototype.connect = function trap(): never { throw new Error("collect-chain: a socket was opened"); };
 dns.lookup = ((): never => { throw new Error("collect-chain: a name was resolved"); }) as never;
@@ -21,7 +21,8 @@ const A = fixture("accounts.json") as Record<"mint" | "pool" | "wsol" | "pyth", 
 const infoOf = (e: Json): Json => ((e.account as Json).data as Json & { parsed: { info: Json } }).parsed.info;
 export const HELIUS_HOST = "helius.dojo.invalid";
 export const ENV = { BELL_SOLANA_RPC: `https://${HELIUS_HOST}`, HELIUS_CYCLE_ID: "cyc", HELIUS_CYCLE_FLOOR: "0" };
-const OPS: Readonly<Record<string, string>> = { [HELIUS_HOST]: "helius", "api.mainnet.solana.com": "solana-foundation" };
+const OPS: Readonly<Record<string, string>> = { [HELIUS_HOST]: "helius", "api.mainnet.solana.com": "solana-foundation",
+  "api.drand.sh": "drand-pl", "drand.cloudflare.com": "drand-cf" }; // the two relay hosts of the guard's transport (DRAND-RELAY-GET-1a)
 export const MINT = infoOf(E.a.value[0] as Json).mint as string;
 export const POOL = (((A.wsol.a.value.data as Json).parsed as Json).info as Json).owner as string;
 export const QUOTE_VAULT = "6KLxyVpYwMGyQJHsvWqFpRk1crEQ79sG3Wi3C1SkZbTW"; // pool_quote_token_account (ADR section 1.3 l.56)
@@ -30,7 +31,8 @@ export const PYTH = "7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE"; // ADR D-3 l
 export type Row = [account: string, owner: string, a: string | null, b: string | null];
 export const ROWS: Row[] = E.a.value.map((e) => { const i = infoOf(e), amt = (i.tokenAmount as Json).amount as string; return [e.pubkey as string, i.owner as string, amt, amt]; });
 export interface Req { op: string; method: string; params: unknown[] }
-export interface Sim { reqs: Req[]; nowMs: number; rows: Row[]; mint: string; beta: string | null; override: ((r: Req) => Response | undefined) | null }
+/** override: a Response answers the request; an Error rejects the fetch (a timeout of the guard reads AbortError); undefined: the world. */
+export interface Sim { reqs: Req[]; nowMs: number; rows: Row[]; mint: string; beta: string | null; override: ((r: Req) => Response | Error | undefined) | null }
 /** The clock at each chain request (C-G2-5). */
 export const stampOf = new WeakMap<Req, number>();
 export const sim: Sim = { reqs: [], nowMs: 0, rows: ROWS, mint: MINT, beta: null, override: null };
@@ -66,25 +68,20 @@ const relay = (round: number): Response => (sim.beta === null ? json({ error: "n
   : json({ round, randomness: createHash("sha256").update(Buffer.from(sim.beta, "hex")).digest("hex"), signature: sim.beta }));
 
 globalThis.fetch = ((input: string | URL, init?: RequestInit): Promise<Response> => {
-  const u = new URL(String(input)), op = OPS[u.hostname];
+  const u = new URL(String(input)), op = OPS[u.hostname], get = init?.method === "GET"; // a relay: one GET of the v1 path, no body
   if (op === undefined) throw new Error(`collect-chain: unknown host ${u.hostname}`);
-  const body = JSON.parse(typeof init?.body === "string" ? init.body : "{}") as { method: string; params: unknown[] };
+  const body = get ? { method: "GET", params: [u.pathname] as unknown[] }
+    : JSON.parse(typeof init?.body === "string" ? init.body : "{}") as { method: string; params: unknown[] };
   const req: Req = { op, method: body.method, params: body.params };
   sim.reqs.push(req);
   stampOf.set(req, sim.nowMs);
   const over = sim.override?.(req);
+  if (over instanceof Error) return Promise.reject(over);
   if (over !== undefined) return Promise.resolve(over);
+  if (get) return Promise.resolve(relay(Number(u.pathname.split("/").pop())));
   const side = op === "helius" ? "a" : "b";
   return Promise.resolve(rpc(req.method === "getProgramAccounts" ? enumeration(side) : account(side, String(req.params[0]))));
 }) as typeof globalThis.fetch;
-/** The two injected relays (RunDeps.relays): a non-2xx answer throws the guard's TransportError, as the guard's transport would. */
-export const relays = [1, 2].map((n) => async (path: string): Promise<unknown> => {
-  const req: Req = { op: `relay-${String(n)}`, method: "GET", params: [path] };
-  sim.reqs.push(req);
-  const res = sim.override?.(req) ?? relay(Number(path.split("/").pop()));
-  if (!res.ok) throw new TransportError(req.op, "relay", "HttpError", res.status);
-  return res.json();
-});
 
 /** The temporary roots of stateOf, removed by the test's after(). */
 export const roots: string[] = [];

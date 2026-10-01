@@ -15,9 +15,9 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from "node:os";
 import { basename, dirname, join, posix } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { heliusCredits } from "@monark/rpc-guard";
+import { DRAND_RELAY_LABELS, heliusCredits } from "@monark/rpc-guard";
 import { DEFAULT_TIMEOUT_MS, parseRetryAfterMs } from "../packages/rpc-guard/src/transport.ts";
-import { ENV as SIM_ENV, MINT, POOL, PYTH, QUOTE_VAULT, ROWS, relays, sim } from "../apps/dojo/test/helpers/collect-chain.ts";
+import { ENV as SIM_ENV, MINT, POOL, PYTH, QUOTE_VAULT, ROWS, sim } from "../apps/dojo/test/helpers/collect-chain.ts";
 import { ANCHOR_DAY, anchorBody, betaOf, dateOf } from "../apps/dojo/test/helpers/dojo-fixture.ts";
 import { canonical } from "../apps/bell/scripts/bell-chain.mjs";
 import { daySeed, readInstants, seedAnchor } from "../apps/dojo/scripts/dojo-core.mjs";
@@ -33,6 +33,7 @@ const sha = (b: string | Buffer): string => createHash("sha256").update(b).diges
 const roots: string[] = [];
 after(() => { for (const r of roots.splice(0)) rmSync(r, { recursive: true, force: true }); });
 const SEED_TOOL = "apps/dojo/scripts/dojo-seed.mjs", EVE_TOOL = "apps/dojo/scripts/dojo-eve.mjs", UNLOCK_TOOL = "packages/rpc-guard/bin/rpc-guard.mjs";
+const FS_TRACE = "apps/dojo/test/helpers/fs-trace.mjs"; // the preload of dojo_seed_writes_only_its_seed (DOJO-SEED-FS-TRACE-1)
 const CRED_VAR = "${CREDENTIALS_DIRECTORY}", RUNBOOK = "docs/RUNBOOK-dojo.md";
 /** Q-1 of the G1 journal, CONFIRMED by the dated line 14:13Z (ADR-DOJO-PR-3 D-5; ADR-DOJO-PR-2 dated line 08:28Z (6)). */
 const PERSISTENT = "true";
@@ -257,6 +258,7 @@ test("dojo_collect_tree_is_the_import_closure", () => {
 });
 
 // TU-C (ADR section 3): timer -> the unit's argv -> the REAL --tick of the tree -> bundles/<day>/, closed and readable by the publisher.
+// killer: packages/rpc-guard/src/lock.ts:42 SDL "if (existsSync(lockPath)) unlinkSync(lockPath);" -> ""
 test("dojo_collect_unit_runs_the_real_tick", async () => {
   const R = mkdtempSync(join(tmpdir(), "dojo-collect-unit-")), host = (p: string): string => join(R, ...p.split("/").filter((x) => x !== ""));
   roots.push(R);
@@ -287,8 +289,14 @@ test("dojo_collect_unit_runs_the_real_tick", async () => {
   const env = { ...Object.fromEntries(D.DOJO_COLLECT_ENV_KEYS.map((k) => [k, values[k]])), CREDENTIALS_DIRECTORY: creds };
   Object.assign(sim, { reqs: [], rows: ROWS, mint: MINT, beta: betaOf(ANCHOR_DAY + 1), override: null });
   const T = (d: number): number => d * 86_400, D1 = ANCHOR_DAY + 1, day = join(state, "bundles", dateOf(D1));
-  const tick = (s: number, e: Record<string, string | undefined> = env): Promise<void> => { sim.nowMs = s * 1000; return collect.runCollect(argv, { env: e, nowMs: () => sim.nowMs, sleep: () => Promise.resolve(), relays }); };
+  const tick = (s: number, e: Record<string, string | undefined> = env): Promise<void> => {
+    sim.nowMs = s * 1000; return collect.runCollect(argv, { env: e, nowMs: () => sim.nowMs, sleep: () => Promise.resolve() }); }; // no relay injected
   const codeOf = async (p: Promise<unknown>): Promise<string> => { try { await p; return "none"; } catch (e) { return (e as { code?: string }).code ?? String((e as Error).message); } };
+  // T6 (G0 DRAND-RELAY-GET-1b section 2, constat 7): the step before 00:15 UTC runs the course of the relays, from the constants (each relay:
+  // TRIES tries of at most DEFAULT_TIMEOUT_MS, TRIES - 1 waits of at most the guard's Retry-After cap), and at most one reading (WORST_S).
+  const WAIT_MS = Math.max(parseRetryAfterMs("86400", 0) ?? NaN, BACKOFF_MS);
+  const WORST_PLAN_S = (DRAND_RELAY_LABELS.length * (TRIES * DEFAULT_TIMEOUT_MS + (TRIES - 1) * WAIT_MS)) / 1000;
+  assert.deepEqual([WORST_PLAN_S, WORST_PLAN_S + WORST_S <= Number(one(svc, "TimeoutStartSec"))], [240, true], "240 + 1210 s <= TimeoutStartSec 1500 s");
   assert.equal(await codeOf(tick(T(D1) + 60, { ...env, [ENV_CYCLE_ID]: undefined })), "cycle_missing", "the cycle id key is required");
   assert.equal(await codeOf(tick(T(D1) + 60, { ...env, CREDENTIALS_DIRECTORY: join(R, "elsewhere") })), "credentials_path", "the seed only from the credential");
   await tick(T(ANCHOR_DAY) + 1000); // RUNBOOK section 5: the one start of A-5, made on the anchor day, has no day to open
@@ -298,19 +306,52 @@ test("dojo_collect_unit_runs_the_real_tick", async () => {
   assert.equal(eve.status, 0, eve.stderr);
   mkdirSync(day, { recursive: true });
   writeFileSync(join(day, "eve.json"), eve.stdout);
-  await tick(T(D1) + 60); // the step of 00:01 plans the day (beacon on both relays)
+  assert.equal(await codeOf(tick(T(D1) + 60)), "none", "the step of 00:01 plans the day: one GET per relay through the guard");
   const inst = (JSON.parse(readFileSync(join(day, "evidence", "plan.json"), "utf8")) as { instants: number[] }).instants;
   assert.deepEqual(inst, readInstants(daySeed(secret, 365, 1), betaOf(D1), 4, T(D1), READ_RULE.read_offset_s), "instants of the seed made by dojo-seed");
   const step = (t: number): number => Math.ceil(t / 300) * 300; // the timer: the first 5-minute step at or after t
   assert.match(await codeOf(tick(step(inst[0] ?? 0), { ...env, BELL_SOLANA_RPC: undefined })), /operator 'helius' is not resolved from env/, "no endpoint: the guard refuses");
   assert.equal(existsSync(join(day, "readings", "1.json")), false, "...and writes nothing");
-  for (const t of inst) await tick(step(t));
+  // DOJO-UNLOCK-CHAIN-TEST-1 on the tree: a helius.lock left by a killed step (SIGKILL: no handler runs) refuses the step (lock_held);
+  // the tree's served unlock, run as RUNBOOK section 9 runs it, releases it (exit 0, last line unlocked); the next step of that instant reads.
+  const cyc = join(state, "ledger", SIM_ENV.HELIUS_CYCLE_ID), lock = join(cyc, "helius.lock");
+  mkdirSync(cyc, { recursive: true });
+  writeFileSync(lock, "{}");
+  assert.equal(await codeOf(tick(step(inst[0] ?? 0))), "lock_held", "a lock left held stops the step before any call");
+  const served = spawnSync(process.execPath, [join(tree, UNLOCK_TOOL), "--ledger-dir", join(state, "ledger"), "--floor", "0", "unlock", "--cycle",
+    SIM_ENV.HELIUS_CYCLE_ID, "--op", "helius", "--reason", "runbook-lock-held-unlock"], { encoding: "utf8" });
+  const last = JSON.parse(readFileSync(join(cyc, "helius.jsonl"), "utf8").trim().split("\n").at(-1) ?? "{}") as { outcome?: string; reason?: string };
+  assert.deepEqual([served.status, existsSync(lock), last.outcome, last.reason], [0, false, "unlocked", "runbook-lock-held-unlock"], served.stderr);
+  for (const t of inst) assert.equal(await codeOf(tick(step(t))), "none", "each step reads its instant");
   await tick(T(D1 + 1) + 900); // the first step after the end of the reading day closes it (and plans the next day without a call)
   const got = readDayLayout(day), ops = sim.reqs.map((r) => r.op);
   assert.deepEqual([got.bundle.status, got.bundle.day, got.bundle.seed, got.bundle.k_reads], ["counted", dateOf(D1), daySeed(secret, 365, 1), 4], "a counted day");
   assert.ok(got.records.every((r) => r.read.read_at !== null), "the four readings were made at their steps");
-  assert.deepEqual([ops.filter((o) => o.startsWith("relay")).length, ops.filter((o) => o === "helius").length, ops.filter((o) => o === "solana-foundation").length],
-    [2, 17, 17], "one beacon GET per relay; 5 + 3 x 4 pieces per operator (the mint read once)");
+  assert.deepEqual([...DRAND_RELAY_LABELS, "helius", "solana-foundation"].map((op) => ops.filter((o) => o === op).length), [1, 1, 17, 17],
+    "one beacon GET per relay through the guard; 5 + 3 x 4 pieces per operator (the mint read once)");
   assert.ok(readdirSync(join(state, "ledger")).length > 0, "the guard's ledger lives in the unit's only writable path");
   assert.equal(digest(), before, "the tree is left byte-identical (read-only to the unit)");
+});
+
+// DOJO-SEED-FS-TRACE-1 (ADR-DOJO-PR-3 l.224; G0 DRAND-RELAY-GET-1b section 4.4): the seed tool, under a preload that traces every path-taking
+// writer of node:fs and node:fs/promises, writes its seed file and touches its directory, nothing else (A-4 runs it as root on the real seed).
+// killer: apps/dojo/scripts/dojo-seed.mjs:30 CONST "fsyncSync(fd); }" -> "fsyncSync(fd); writeSync(openSync(`${dirname(path)}-copy`, `w`), secret); }"
+test("dojo_seed_writes_only_its_seed", () => {
+  const dir = mkdtempSync(join(tmpdir(), "dojo-seed-trace-")), seed = join(dir, "seed", "seed"), trace = join(dir, "trace.txt"), probe = join(dir, "probe.mjs");
+  roots.push(dir);
+  mkdirSync(dirname(seed));
+  const traced = (...a: string[]): { status: number | null; stderr: string; paths: string[]; lines: string[] } => {
+    rmSync(trace, { force: true });
+    const env = { ...process.env, DOJO_FS_TRACE: trace };
+    const r = spawnSync(process.execPath, ["--import", pathToFileURL(REPO + FS_TRACE).href, ...a], { encoding: "utf8", env });
+    const lines = existsSync(trace) ? readFileSync(trace, "utf8").trim().split("\n") : [];
+    return { status: r.status, stderr: r.stderr, paths: [...new Set(lines.map((l) => l.slice(l.indexOf(" ") + 1)))], lines };
+  };
+  // Positive control (M-F1): a write through node:fs/promises is traced; the re-binding is proven in the repository for node:fs only.
+  writeFileSync(probe, `import { writeFile } from "node:fs/promises";\nawait writeFile(${JSON.stringify(join(dir, "probe-out"))}, "x");\n`);
+  const p = traced(probe);
+  assert.deepEqual([p.status, p.lines.includes(`writeFile ${join(dir, "probe-out")}`), p.paths], [0, true, [join(dir, "probe-out")]], p.stderr);
+  const r = traced(REPO + SEED_TOOL, "--init", seed, "--horizon", "365");
+  assert.deepEqual([r.status, r.stderr, r.paths.includes(seed), r.paths.every((x) => x === seed || x === dirname(seed))], [0, "", true, true],
+    `the seed file and its directory, nothing else: ${r.lines.join(" | ")}`);
 });

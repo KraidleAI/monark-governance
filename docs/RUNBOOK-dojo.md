@@ -18,11 +18,13 @@ on this host, `*:0/5`, `AccuracySec` default 1 min; FAITS-SYSTEMD-CRED-1; FAITS-
 (`ssh -i ~/.ssh/monark_vps root@178.16.131.29`), and **only under the investor's grouped go on the closed list A-1 to A-11**
 (ADR D-3, dated line C-V-4). Before the grouped go: FAITS-JOURNALCTL-1 (the message forms of systemd 259 that section 6 counts, read
 on this host; dated line 14:13Z, Q-12). At the first host act: DOJO-UNIT-OFFLINE-ORACLE-1. Before A-4: HELIUS-CREDIT-RECONCILE-1.
-Before A-5: DOJO-COLLECT-SIGTERM-UNLOCK-1 (DRAND-RELAY-GET-1b: `collect.ts` releases its locks on SIGTERM); `man systemd.exec`
+Before A-5: DOJO-COLLECT-SIGTERM-UNLOCK-1 (carried by DRAND-RELAY-GET-1b: on SIGTERM `collect.ts` releases the locks of the course in
+flight, then exits 1; test `dojo_collect_releases_locks_on_sigterm`); `man systemd.exec`
 (Credentials, `InaccessiblePaths=`) and `man systemd.service` (`TimeoutStartSec=`) read on this host, to confirm on systemd 259 the
 "latest" pages read by the orchestrator for FAITS-SYSTEMD-CRED-1 (14:12:49Z) and FAITS-SYSTEMD-TIMEOUT-1 (14:13:55Z); the start of
-section 5 is the empirical proof. Before A-7: DOJO-DRAND-RELAY-TERMS-1, the lot DRAND-RELAY-GET-1 (until then `main` of `collect.ts`
-hands no beacon relay and every step before 00:15 UTC refuses `relay_missing`), HELIUS-CREDIT-RECONCILE-1, QI-5,
+section 5 is the empirical proof. Before A-7: DOJO-DRAND-RELAY-TERMS-1, the lot DRAND-RELAY-GET-1 (1b: the beacon relays through
+the guard, labels `drand-pl` and `drand-cf`, cycle `drand-<AAAA-MM-JJ>` of the day, 4 attempts per relay and per day; before its G7 every
+step before 00:15 UTC refuses `relay_missing`), HELIUS-CREDIT-RECONCILE-1, QI-5,
 RPC-GUARD-FIRST-APPEND-HEAD-1 (section 9). Before A-9: FAITS-BTC-BLOCKTIME-1, DOJO-OPERATOR-INDEPENDENCE-1, P-4 and the rehearsal
 criterion of section 6.
 
@@ -261,7 +263,10 @@ the collector, `seed_mismatch`; the archive of the rehearsal is kept).
 `readings/<name>.tmp`. **Why**: every file of a day is written as `<path>.tmp` then renamed (`writeAtomic`, `apps/dojo/src/layout.ts`);
 a stop between the two leaves the `.tmp`; the next write of the same path reuses and renames it, so a stray outlives its day only when
 no such write comes (for example a manual start of the same reading beside the timer, stopped after the other one renamed). The
-layout reader refuses any file of `readings/` outside its closed list. Code fix: G1 of DRAND-1b, before A-5 (rerouted 2026-09-29, ADR-DOJO-PR-1B-4 Q-1).
+layout reader refuses any file of `readings/` outside its closed list. Measured at the G1 of DRAND-RELAY-GET-1b (test
+`dojo_close_absorbs_an_orphan_tmp`): within ONE process, a stop between a `.tmp` and its rename (a reading, a missed reading at the
+close, `readings/SHA256SUMS`) is absorbed by the next write of the same path. The stray of this section is the case of TWO processes:
+kept refused (`layout_stray_file`, test `dojo_collect_to_verify_end_to_end`) and removed by this procedure, no purge in code (G0 Q-2 (a)).
 
 ```bash
 ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl stop monark-dojo-collect.timer && systemctl is-active monark-dojo-collect.service; find /var/lib/monark-dojo-collect/bundles/<d>/readings -maxdepth 1 -type f -name "*.tmp" -printf "%f %s\n"'
@@ -280,26 +285,34 @@ Expected: `0`; if the day is closed, the reader command of section 6 now answers
 ## 9. The guard's lock left held — `lock_held` (dated line 15:00Z, C-G2-4; calque of RUNBOOK-sentinel l.417-429)
 
 **When**: the collect journal shows `dojo/collect: lock_held`: every step refuses before any call, so the whole collection is stopped
-until this section is done. **Why**: a step killed in the middle of a course (`TimeoutStartSec`, the OOM killer of `MemoryMax`, a
-stop or reboot of the host) leaves `<cycle>/helius.lock` and `<cycle>/solana-foundation.lock` under `ledger/` (only the first one
-if the kill falls between the two acquisitions); a stale lock STAYS held
-and only the served, ledgered `unlock` releases it (`packages/rpc-guard/src/lock.ts:4-6`); until DOJO-COLLECT-SIGTERM-UNLOCK-1,
-`collect.ts` has no SIGTERM handler. First, the state (read-only; the lock files hold `{pid, iso}`, no secret):
+until this section is done. **Why**: a step killed in the middle of a course leaves the locks of that course under `ledger/`:
+`<cycle>/helius.lock` and `<cycle>/solana-foundation.lock` for a reading (the cycle `HELIUS_CYCLE_ID`), `drand-<AAAA-MM-JJ>/drand-pl.lock`
+and `drand-<AAAA-MM-JJ>/drand-cf.lock` for the course of the beacon relays (the plan of day d, before 00:15 UTC); only the first one if the
+kill falls between the two acquisitions. A stale lock STAYS held and only the served, ledgered `unlock` releases it
+(`packages/rpc-guard/src/lock.ts:4-6`). Since DRAND-RELAY-GET-1b, a SIGTERM (`TimeoutStartSec` acts by `KillSignal=`, default to confirm at
+L-2) releases the locks of the course in flight (journal `dojo/collect: sigterm`, ledger line `unlocked` of reason `dojo/collect: SIGTERM`);
+the OOM killer of `MemoryMax`, a SIGKILL or a power cut still leave them; a stop or a reboot of the host acts by `KillSignal=`
+(`systemd.kill(5)`, not read: request L-2 of the G0 of DRAND-RELAY-GET-1b). A stale drand lock in [T_d, T_d + 900 s) stops each step
+before its readings: unlocked in time, the next step plans day d; otherwise d is abstained (`beacon_unavailable` from T_d + 900 s) and
+the readings of d−1 due meanwhile are written missed. First, the state (read-only; the lock files hold `{pid, iso}`, no secret):
 
 ```bash
 ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl stop monark-dojo-collect.timer; systemctl is-active monark-dojo-collect.service; ls /var/lib/monark-dojo-collect/ledger/*/*.lock; for f in /var/lib/monark-dojo-collect/ledger/*/*.lock; do echo "$f $(cat "$f")"; done'
 ```
 
-Expected: `inactive` or `failed`, NEVER `activating` (a live step: wait and re-run; never unlock a live step); one or both of the
-paths `<cycle>/helius.lock` and `<cycle>/solana-foundation.lock`, of ONE cycle, else **STOP** (another lock name, or two cycles); for each, a pid that no longer exists (check
+Expected: `inactive` or `failed`, NEVER `activating` (a live step: wait and re-run; never unlock a live step); the locks of ONE
+course under ONE cycle: one or both of `<cycle>/helius.lock` and `<cycle>/solana-foundation.lock` (a reading), or one or both of
+`drand-<AAAA-MM-JJ>/drand-pl.lock` and `drand-<AAAA-MM-JJ>/drand-cf.lock` (the relays), else **STOP** (another lock name, or two
+cycles); for each, a pid that no longer exists (check
 `ps -p <pid>` prints no process line), else **STOP**. Then the served `unlock` of each operator, as `dojo-collect` and NEVER as root
 (a root-owned ledger file would make the unit's next appends fail), with `--floor 0` (the `unlocked` line carries no credit):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cd /opt/monark-dojo-collect && for op in helius solana-foundation; do L=$(ls /var/lib/monark-dojo-collect/ledger/*/$op.lock 2>/dev/null) || { echo "$op: no lock"; continue; }; C=$(basename "$(dirname "$L")"); sudo -u dojo-collect /usr/bin/env node /opt/monark-dojo-collect/packages/rpc-guard/bin/rpc-guard.mjs --ledger-dir /var/lib/monark-dojo-collect/ledger --floor 0 unlock --cycle "$C" --op "$op" --reason runbook-lock-held-unlock; echo "$op exit=$?"; test ! -e "$L" && echo "$op lock released"; tail -n 1 "/var/lib/monark-dojo-collect/ledger/$C/$op.jsonl"; done'
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cd /opt/monark-dojo-collect && for op in helius solana-foundation drand-pl drand-cf; do L=$(ls /var/lib/monark-dojo-collect/ledger/*/$op.lock 2>/dev/null) || { echo "$op: no lock"; continue; }; C=$(basename "$(dirname "$L")"); sudo -u dojo-collect /usr/bin/env node /opt/monark-dojo-collect/packages/rpc-guard/bin/rpc-guard.mjs --ledger-dir /var/lib/monark-dojo-collect/ledger --floor 0 unlock --cycle "$C" --op "$op" --reason runbook-lock-held-unlock; echo "$op exit=$?"; test ! -e "$L" && echo "$op lock released"; tail -n 1 "/var/lib/monark-dojo-collect/ledger/$C/$op.jsonl"; done'
 ```
 
-Expected, for each operator with a lock (`<op>: no lock` for the other): `exit=0`, `lock released`, and a last ledger line with `"outcome":"unlocked"` and
+Expected, for each operator with a lock (`<op>: no lock` for the others): `exit=0`, `lock released`, and a last ledger line with
+`"outcome":"unlocked"` and
 `"reason":"runbook-lock-held-unlock"` (JOURNAL: time, cycle, pids, the two lines). Then `systemctl start monark-dojo-collect.timer`;
 the next steps read again (a reading whose window passed meanwhile is written missed at the close). **STOP, no repair by hand,
 escalation to the orchestrator** if `unlock` fails on "head sidecar" or "cycle ledger" (fail-closed C-V-8: for example a kill between

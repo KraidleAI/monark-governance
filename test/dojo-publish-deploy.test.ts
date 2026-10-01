@@ -347,7 +347,7 @@ function keyUses(text: string): string[] {
   return out;
 }
 
-// killer: docs/RUNBOOK-dojo.md:405 CONST "grep -c PRIVATE /root/dojo-pubkey.out; " -> "cat /etc/monark/dojo/signing-key.pem; "
+// killer: docs/RUNBOOK-dojo.md:418 CONST "grep -c PRIVATE /root/dojo-pubkey.out; " -> "cat /etc/monark/dojo/signing-key.pem; "
 test("dojo_runbook_never_prints_private_key", () => {
   exists();
   const K = D.DOJO_SIGNING_KEY_SOURCE, text = read(RUNBOOK), a4 = sectionOf(13);
@@ -370,7 +370,7 @@ test("dojo_runbook_never_prints_private_key", () => {
   }
 });
 
-// killer: docs/RUNBOOK-dojo.md:593 CONST "upgrade docs/dojo-publications" -> "stamp docs/dojo-publications"
+// killer: docs/RUNBOOK-dojo.md:606 CONST "upgrade docs/dojo-publications" -> "stamp docs/dojo-publications"
 test("dojo_runbook_counts_only_after_the_block", () => {
   exists();
   const a8 = sectionOf(16, true), at = (x: string): number => { const i = a8.indexOf(x); assert.ok(i >= 0, `A-8: ${x}`); return i; };
@@ -397,7 +397,7 @@ test("dojo_keyring_shares_no_key_with_bell", { skip: existsSync(REPO + TU_K) ? f
   assert.deepEqual(bk.keys.filter((x) => ids.has(x.key_id) || ids.has(x.jwk.x)), [], "no key of Bell's keyring in Dojo's (key_id or x)");
 });
 
-// killer: docs/RUNBOOK-dojo.md:708 SDL "price_version_pending" -> ""
+// killer: docs/RUNBOOK-dojo.md:721 SDL "price_version_pending" -> ""
 test("dojo_runbook_stops_before_the_stamp_and_on_refusals", () => {
   exists();
   const a8 = sectionOf(16, true), check = a8.indexOf("dojo-verify-cli.mjs /f/PRODUITS/dojo-mirror/public-seq1 --self-consistent-only");
