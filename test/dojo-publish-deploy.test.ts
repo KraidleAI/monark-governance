@@ -17,7 +17,7 @@ import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSyn
 import { tmpdir } from "node:os";
 import { dirname, join, posix } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { ENV as SIM_ENV, MINT, POOL, PYTH, QUOTE_VAULT, ROWS, relays, sim } from "../apps/dojo/test/helpers/collect-chain.ts";
+import { ENV as SIM_ENV, MINT, POOL, PYTH, QUOTE_VAULT, ROWS, sim } from "../apps/dojo/test/helpers/collect-chain.ts";
 import { ANCHOR_DAY, DAY1, anchorBody, betaOf, dateOf } from "../apps/dojo/test/helpers/dojo-fixture.ts";
 import { canonical, keyIdOf, lineHash, signLine } from "../apps/bell/scripts/bell-chain.mjs";
 import { rootOf } from "../apps/dojo/scripts/dojo-core.mjs";
@@ -311,7 +311,7 @@ test("dojo_units_compose_collect_to_publish_to_verify", async () => {
   Object.assign(sim, { reqs: [], rows: ROWS, mint: MINT, beta: betaOf(D1), override: null });
   const tick = (sec: number): Promise<void> => {
     sim.nowMs = sec * 1000;
-    return collect.runCollect(cargv, { env, nowMs: () => sim.nowMs, sleep: () => Promise.resolve(), relays });
+    return collect.runCollect(cargv, { env, nowMs: () => sim.nowMs, sleep: () => Promise.resolve() }); // the relays: the guard labels, by host (DRAND-1b)
   };
   await tick(D1 * 86_400 + 60);
   const plan = JSON.parse(readFileSync(join(day, "evidence", "plan.json"), "utf8")) as { instants: number[] };
