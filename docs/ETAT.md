@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 19:3x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 20:0x UTC.
 
 ## Règle
 
@@ -168,8 +168,14 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   premier jour compté = lendemain du jour de l'ancre. Objectif : départ réel ce soir avant minuit UTC, page le 3 octobre, sinon le 4.
 - **Valeurs de l'ancre** (investisseur, 2026-10-01 ; amende DOJO-OBJECTIVES-1) : « 30 jours, l unité c est 1000$ tenu 30 JOURS. chaque
   unité est un pallier. » et « 180 jours pour Migration ». Donc `objective_unit_microusd_days` 30 000 000 000, `tier_units` 1 à 5,
-  `tier_windows` 30, 30, 30, 30, 180, `validation_days` 30 ; inchangés : poussière 1 $, 7 jours de prix, 4 lectures, horizon 365.
+  `tier_windows` 30, 30, 30, 30, 90 (correction ci-dessous), `validation_days` 30 ; inchangés : poussière 1 $, 7 jours de prix, 4 lectures, horizon 365.
   Le texte du site « sixty days » (`apps/site/lib/dojo-copy.ts:46`) passe à « thirty » avant l'envoi du site (DOJO-COPY-VALIDATION-30-1).
+  - Correction de l'investisseur (2026-10-01 19:4x UTC, mot pour mot : « corrige. la migration c est aprés 90 jours. pas 180 désolé
+    j avais pas fait atention à ça avant. ») : Migration à 90 jours. Seconde ligne d'ancre signée à 19:56:58Z (seq 2, `line_hash`
+    `1e50d25f…`), voie prévue par le code (DOJO-WALK-GAPS-1 (c)), avant tout jour publié ; la ligne 1 (180, signée à 16:14Z, jamais
+    servie) reste dans la chronologie : la correction y est visible et vérifiable. Accréditation du collecteur = ligne 2. La page lit
+    l'ancre en vigueur (la dernière avant la tête) ; sa phrase `tier` lira la durée dans l'ancre (DOJO-COPY-DURATIONS-DERIVED-1, tour
+    SITE-CORR). L'horodatage reporté (DOJO-ANCHOR-OTS-AFTER-PUBLICATION-1) couvrira aussi la ligne 2.
 - **Reports après la première publication** (investisseur : « Oui, après publication » pour drand) : DOJO-BLS-VERIFY-1 (en attendant,
   deux relais doivent rendre le même tirage, sinon pas de plan), PUBLISH-REQUEST-DEPTH-1, DOJO-UNIT-OFFLINE-ORACLE-1, collecte N-2 à N-5,
   HELIUS-CREDIT-RECONCILE-1 (plancher conservateur 7 900 000 en attendant le relevé du tableau de bord).
@@ -255,3 +261,6 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   sur `instruction_not_allowed` (`initializeAccount` ×3 et `approve` ×1 sur le mint, aucun ne change un solde) ; HISTORY-INS les
   admet (relecture G2 ciblée APPROUVE-AVEC-CORRECTIONS, aucune ligne exécutable à changer). État neuf `provisional-2026-10-01-r2`,
   coupe 452362695 ; les arbres de l'hôte ne changent pas (la course tourne sur la machine de l'opérateur).
+  Seconde course arrêtée en phase C à 19:57 UTC (`withdrawExcessLamports` ×5, 2 574 comptes fermés) : correction HISTORY-INS-2
+  en cours, puis course neuve. Départ au plus tard avant 00:15 UTC du 2 octobre (jour o planifié avec sa balise : d = 2 octobre) ;
+  au-delà, un jour de plus (d = 3 octobre).
