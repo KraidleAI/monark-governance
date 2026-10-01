@@ -94,7 +94,8 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - avant le premier jour compté (A-9) : DOJO-BLS-VERIFY-1 (la signature BLS de la balise drand n'est pas vérifiée ; deux relais égaux
     exigés) ; collecte N-2 (`release` s'arrête au premier `unlock` qui échoue), N-3 (erreur anonyme dans `runs.jsonl`), N-4 et N-5 (flux
     rompu en cours de corps, cas à ajouter à `body-bound`) ;
-  - avant A-7 : DOJO-SIGTERM-LINUX-PROOF-1 (vrai signal, sous Linux) ; avant A-11 : la ligne TU-1h d'ADR-DOJO-PR-3 alignée sur le code ;
+  - avant A-9 (7), l'activation de la minuterie de collecte (relecture G2 de FAST-START, C-2 ; A-7 n'est plus sur le chemin réel) :
+    DOJO-SIGTERM-LINUX-PROOF-1 (vrai signal, sous Linux) ; avant A-11 : la ligne TU-1h d'ADR-DOJO-PR-3 alignée sur le code ;
   - à A-4p : DOJO-KEYRING-KILLER-REMEASURE-1 (le tueur K131 se mesure quand la clé existe) ;
   - avant 18 (iv) : DOJO-PUBLISH-SCALE-1 (fichier candidat de plus de 64 Mio pendant la vérification) ;
   - avant le premier `--anchor` sur Bell (partie 2) : PUBLISH-REQUEST-DEPTH-1 (la requête d'ancre de l'éditeur est lue sans borne de
@@ -112,7 +113,7 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
 - **Textes du tableau** : TXT-17 et TXT-17a corrigés et TXT-17o ajouté (« Listed by hold score, highest first; equal hold scores by address. »), à valider par l'investisseur avec la page.
 - **Adresse du serveur Bell** : déjà dans le dépôt public (19 fichiers de `main` depuis le 23/09, et le mode d'emploi du Dōjō). Ce n'est pas un secret : `bell.monarkgate.tech` y renvoie. Aucune clé n'est publiée.
 - **Collecteur d'historique** : il lit encore les réponses sans borne de taille (`history-collect.ts` l.408-409). À borner avant le premier acte d'historique, après mesure de la plus grosse page (item RPC-GUARD-BODY-BOUNDS-ALL-1).
-- **SIGTERM** : la variante par vrai signal du test est sautée sous Windows ; à prouver sur Linux avant A-7 (item DOJO-SIGTERM-LINUX-PROOF-1).
+- **SIGTERM** : la variante par vrai signal du test est sautée sous Windows ; à prouver sur Linux avant A-9 (7) (item DOJO-SIGTERM-LINUX-PROOF-1 ; C-2 de la G2 de FAST-START).
 - **Mode d'emploi** : une commande de la section 9 tient sur une ligne de 629 caractères (une commande par ligne) ; exception déclarée.
 - **Séries de marché (demande du fondateur, hors page)** : Binance BTCUSDT, ETHUSDT, BNBUSDT et SOLUSDT, bougies de 15 minutes du
   2024-10-01 au 2026-10-01 exclu, enregistrées le 2026-10-01 à 08:41-08:46 UTC après relecture favorable de RECHERCHES ; 70 080 bougies
