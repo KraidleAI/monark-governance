@@ -14,7 +14,7 @@ import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFi
 import { tmpdir } from "node:os";
 import { dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { canonical } from "../apps/bell/scripts/bell-chain.mjs";
+import { canonical, keyIdOf } from "../apps/bell/scripts/bell-chain.mjs";
 import { daySeed, ownerClass, readInstants, rootOf } from "../apps/dojo/scripts/dojo-core.mjs";
 import * as publisher from "../apps/dojo/scripts/dojo-publish.mjs"; // publishDay bound late: the base of the lot, which lacks it, loads this file
 import { initSeed } from "../apps/dojo/scripts/dojo-seed.mjs";
