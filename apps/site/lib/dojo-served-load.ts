@@ -247,7 +247,7 @@ export async function buildDojoServed<T extends ReadonlyMap<string, { x: string 
   };
 }
 
-/** A served timeline line as the walker takes it (lot VERIFY-NONFINITE, BUILD-NONFINITE-1): JSON, then hashed through the injected lineHash,
+/** A served timeline line as the walker takes it: JSON, then hashed through the injected lineHash,
  *  whose canonical throws on a number it cannot write (JSON.parse reads 1e400 as Infinity) or on a value nested beyond the stack: such a line is
  *  refused as the walk refuses it, timeline_malformed at its seq (the reader's tool says the same), never by that exception. Declared last, so
  *  that no line above it moves (the killers of the tests name lines of this file). */
