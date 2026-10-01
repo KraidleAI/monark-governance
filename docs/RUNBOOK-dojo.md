@@ -676,8 +676,8 @@ Expected: three `OK` lines, then `COPY-EQUAL`. Blockers: the acts of PR-2b and t
 DOJO-HISTORY-CROSS-INDEX-1, items Q-G2-4 of PR-2b-4); (ii) after the close of d. Rollback: none that erases (copies).
 
 (iv) The `history` line (PR-3a-2), after (ii) and (iii), before the first `snapshot`: ONE transient job with the unit's user,
-sandbox and credential (as A-8 (2)), the unit `inactive` at that instant and away from its four slots (a timer start beside the
-job would be a second writer):
+sandbox and credential (as A-8 (2)), the unit `inactive` at that instant and away from its four slots (one writer at a time: a
+timer start beside the job refuses `lock_held`, or the job does; nothing written either way):
 
 ```bash
 ssh -i ~/.ssh/monark_vps root@178.16.131.29 'test "$(systemctl is-active monark-dojo-publish.service)" = inactive &&
@@ -718,6 +718,7 @@ timeline's durable append, after the checks). The detail names a file, a key or 
 | `history_after_snapshot` | `--history` after a `snapshot` line | **STOP**; the `history` line precedes the first snapshot: escalation |
 | `history_bundle_malformed` | `--history`: `publish/SHA256SUMS`, a file missing, or `manifest.json` | **STOP**; read the detail; never edit the packet |
 | `history_bundle_mismatch` | `--history`: a file off its digest, or `eve.json` off the last history day | **STOP**; read the detail; the copy (18 (iii)) |
+| `lock_held` | every mode that writes `--state`, and `--unlock`: `publish.lock` (one writer) | **STOP**; never remove the lock by hand (below) |
 | `day_not_after_anchor` | a day at or before the anchor's day (M-E8) | **STOP** |
 | `bundle_day_mismatch` | the day's directory and its `day.json` | **STOP** |
 | `bundle_anchor_mismatch` | mint, program or `k_reads` of the day; `--history`: the packet's mint or program | **STOP** (the anchor in force: section 7 (4)) |
@@ -738,6 +739,22 @@ written. Known motive: an anchor line appended OUTSIDE `--anchor` above a `price
 due any more (the segment guard), but the verification refuses every later day (`version_not_in_force` at the seq of that anchor),
 at every start: a DURABLE stop, fail-closed, without writing; a new anchor does not repair it; the only remedy is a new timeline.
 Escalation to the orchestrator before anything else; never an edit of the timeline.
+
+**`lock_held`** (DOJO-PUBLISH-SINGLE-WRITER-1): every launch that writes `--state` takes `<state>/publish.lock` first; nothing is
+written by a refused launch. Its detail names the owner: `running` (another launch writes: wait for its end, read the journal, never
+a second launch beside it); `not running: --unlock releases it` (a launch stopped mid-way: the act below, then the next start repairs
+the state from the committed timeline); `owner unreadable` (escalation; never removed by hand). The act, ONE transient job with the
+unit's user and sandbox, without the credential (`--unlock` reads no key), the unit `inactive`:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'test "$(systemctl is-active monark-dojo-publish.service)" = inactive &&
+S="-p PrivateNetwork=yes -p NoNewPrivileges=true -p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true
+-p ReadWritePaths=/var/lib/monark-dojo -p UMask=0022" && C="/usr/bin/env node /opt/monark-dojo/apps/dojo/scripts/dojo-publish.mjs
+--unlock /var/lib/monark-dojo" && systemd-run --wait --pipe --collect --uid=dojo --gid=dojo $S $C'
+```
+
+Expected: `{"status":"unlocked","pid":<n>,"mode":"<mode>","taken_at":<ms>}` (JOURNAL) or `{"status":"not_locked"}`. **STOP** on
+`lock_held` (the owner runs, or cannot be judged): escalation.
 
 ## 20. A key rotation and the page (consigne of QF-3 (d), ADR-DOJO-PR-4 dated line 01:3x)
 
