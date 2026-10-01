@@ -195,7 +195,8 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - partie 1 : DEPTH-CORR (`e6b52de6`) et T42-BOUND (`24376bf9`, tronc) acceptés au checkpoint-2 ciblé (`206bc5e3…`, oracle cp-2
     `5a63b991…` sortie 0) ; `lot/page-v1` avancée à `e6b52de6`, puis le trousseau `764f2302` (A-4p) ; item CI-G3-TIMEOUT-MINUTES-1
     (C-V-1 du cp-2) : le job `g3-verification` (`timeout-minutes: 10`) passe à 45 par ligne d'ADR qui amende le plafond de
-    `test/ci-gates.test.ts` l.1673, avant le G7 de la fusion de T42-BOUND au tronc ;
+    `test/ci-gates.test.ts` l.1673 ; décision de l'orchestrateur (2026-10-01, avant le G7 de la fusion de T42-BOUND) : défaut
+    latent, la CI ne tourne que sur une PR ; déclencheur : avant la première PR ouverte sur `monark-governance` ;
   - hôte : A-2 à A-5, A-2p, A-3p (G7 `e6b52de6`, deux arbres TREE-EQUAL), A-4p (clé née sur l'hôte, key_id `c7963c9b…`),
     A-5p (départ à blanc `history_missing`, rien d'écrit), FAITS-SYSTEMD-RUN-UNSETENV-1 lu sur l'hôte ; journal privé cité plus haut ;
   - oracle complet du commit du trousseau : premier passage `a10fd4b8…` rouge par le seul test 42 (1 test de l'export sur 534, sous
