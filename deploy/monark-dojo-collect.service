@@ -29,7 +29,7 @@ LoadCredential=dojo-anchor:/etc/monark/dojo-collect/anchor.json
 ExecStart=/usr/bin/env node /opt/monark-dojo-collect/apps/dojo/src/collect.ts --tick --state /var/lib/monark-dojo-collect --mint-file /opt/monark-dojo-collect/out/mint.txt --max-calls 24 --max-credits 40 --seed-file ${CREDENTIALS_DIRECTORY}/dojo-seed --anchor-file ${CREDENTIALS_DIRECTORY}/dojo-anchor
 # A oneshot has NO start timeout by default, and RuntimeMaxSec= has no effect on it (systemd.service(5), FAITS-SYSTEMD-TIMEOUT-1).
 # The worst course of one reading, from the code: 10 calls (5 pieces x 2 operators = 2 x sum(DOJO_METHOD_CAPS) / TRIES), each of TRIES
-# = 2 attempts of at most 30 s to the response head (DEFAULT_TIMEOUT_MS), 1 wait of at most 60 s (the Retry-After cap) and 1 s before
+# = 2 attempts of at most 30 s, head and body (DEFAULT_TIMEOUT_MS, boundBody), 1 wait of at most 60 s (the Retry-After cap) and 1 s before
 # each public attempt (PUBLIC_HOST_GAP_MS): 20 x 30 + 10 x 60 + 10 x 1 = 1210 s; + 25 %, to the hundred: 1500 s (dated line 15:00Z).
 # The step before 00:15 UTC adds the course of the two beacon relays (DRAND-RELAY-GET-1b): 2 x (2 x 30 + 1 x 60) = 240 s, and at most
 # one reading: 240 + 1210 = 1450 s <= 1500 s (asserted by dojo_collect_unit_runs_the_real_tick); two readings: DOJO-COLLECT-STEP-COURSES-1.

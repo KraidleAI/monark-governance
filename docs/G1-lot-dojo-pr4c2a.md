@@ -147,7 +147,7 @@ l.37, l.43 bougent d'une ligne, réancrés) ; `page.tsx` inchangé (Q-G1-3).
   17o, 17c, 15r, 15a, 15b-r absentes du build par `absentSentences`. Tests amendés : `dojo_page_renders_served_figures_only`,
   `dojo_live_renders_through_the_same_figures` ; construction réelle E2 et EA au §5.
 - **D-K9 (textes)** : `dojo-copy.ts` l.72 (TXT-14b-r2), l.80-96 (TXT-17, 17a, 17o, 17c, 15r, 15a, 15b-r), l.99-105 (`DOJO_TABLE`) ; liste
-  fermée MESURÉE (`F:/tmp/dojo/pr4c2a/tools/texts-sha.mjs`, sha256 `0ea0a77e…6b6d`), jamais tapée : 29 textes, 13 mots, sha256
+  fermée MESURÉE (`F:/tmp/dojo/pr4c2a/tools/texts-sha.mjs`, sha256 `0ea0a77e…5b6d`), jamais tapée : 29 textes, 13 mots, sha256
   `711e929d69f43d9b4eacbe6eaf4afe9649bb513f49e7a69f5746faf7cbe45947` de `canonical({DOJO_TEXT, DOJO_TITLE, DOJO_TIER_NAMES,
   DOJO_TABLE})`, épinglée par `dojo_page_lexicon_is_closed` ; `dojo_copy_is_digit_free` étendu aux mots et au composant neuf.
 - **Montage** : `dojo-live.tsx` l.16 (import) et l.50 (`<DojoTable view={view} get={get} sha256={sha256} />` après la dernière
@@ -207,7 +207,7 @@ l.37, l.43 bougent d'une ligne, réancrés) ; `page.tsx` inchangé (Q-G1-3).
 
 - Hôte : AMD Ryzen 9 3900X (12 cœurs, 24 fils), 15 487 Mo libres, 31 088 Mo virtuels, node.exe 10, Node v24.15.0 (00:15:35Z).
 - `rootOf` de `dojo-live.ts` sous `crypto.subtle.digest` de Node (empreintes asynchrones, comme le navigateur), lignes de la forme d'une
-  ligne de détenteur de la fixture (290 o), adresse variée ; trois passages, médiane (`logs/leg1.txt`, sha256 `97505b6a…22bc`) :
+  ligne de détenteur de la fixture (290 o), adresse variée ; trois passages, médiane (`logs/leg1.txt`, sha256 `97505b6a…b2cc`) :
   N = 10³ : 46 ms ; N = 10⁴ : 439 ms ; N = 10⁵ : 3 942 ms ; appels SHA-256 de `rootOf` : 2N − 1 (plus le corps : 2N, épinglé par test).
 
 ## 7. R-25
@@ -261,3 +261,17 @@ l.37, l.43 bougent d'une ligne, réancrés) ; `page.tsx` inchangé (Q-G1-3).
   tueurs, comportement de `bindDojoLines`, voies de test, épingles, F2P, `page.tsx`, exécutions) ; seconde consultation avant la
   remise (00:21Z) : un point retenu et fait (le `.next` de `clone-b` était la sortie du semis EA : reconstruit en E0, §5) ; ordre de
   remise : ce journal, `REPONSE.md`, puis `DELIVERED.sha256` en dernier ; conseil, jamais verdict, chaque point vérifié sur pièce.
+
+## 10. Ligne datée (2026-10-01 02:42Z, correcteur SMALL-CORR `claude-opus-5-5`) : constat page AC-2 de l'inspection de la partie 1
+
+- `error_origin` : ce G1 (deux empreintes abrégées mal recopiées, producteur de `leg1.txt` non nommé). l.150 et l.210 corrigées EN PLACE, à
+  longueur égale (aucune ligne décalée). Valeurs complètes mesurées par `sha256sum` à 02:15Z :
+  `F:/tmp/dojo/pr4c2a/tools/texts-sha.mjs` = `0ea0a77ef2f00a661f94ac1b26a6664430624143d7705b551d2142789c0e5b6d` (écrit `…6b6d`) ;
+  `F:/tmp/dojo/pr4c2a/logs/leg1.txt` = `97505b6ab7cd9d2bbb692325d8d7c39ba28a29c2d71258e51482f23b4f8bb2cc` (écrit `…22bc`).
+- Producteur de `leg1.txt` : `F:/tmp/dojo/pr4c2a/clone-t/tmp-measure/leg1.ts`, écrit par heredoc à 00:15:44Z et lancé dans `clone-t`
+  (`node tmp-measure/leg1.ts`, sortie par `tee` vers `logs/leg1.txt`), retiré par ce G1 à 00:16:10Z (`rm`, `rmdir`) : absent du disque
+  (contrôlé à 02:36:38Z). Son texte reste dans la transcription de ce G1 : `F:/claude-config/projects/F--Monark/`
+  `a0cf3d1b-5446-43e6-b228-3b1feff36069/subagents/agent-aeafe319163c67d7a.jsonl`, l.636 (écriture et lancement), l.641 (retrait).
+- Forme rejouable sur disque : la sonde de l'inspection `F:/tmp/dojo/insp1/g2-site/tmp/tools/leg1-replay.mts` (sha256
+  `7233493fcde38b04e4249dc757a673eac3b6b91e61edf8e112fa0e15106ff6b8`) ; son rejeu (`F:/tmp/dojo/insp1/g2-site/tmp/logs/leg1-replay-2.txt`, sha256
+  `411afb129fc662eab816a377b48f1fbc41ea3eec9520cdc21a96010c1b132121`) : médianes 54, 512 et 4 363 ms ; 1 999, 19 999 et 199 999 appels.
