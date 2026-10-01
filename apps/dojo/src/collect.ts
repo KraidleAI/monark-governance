@@ -124,7 +124,7 @@ async function course<T>(c: Ctx, relays: boolean, dir: string, run: string, body
   ensureDir(join(dir, "evidence", "parsed"), 0o700);
   try {
     if (!relays) client = openGuardedClient(c.deps.env, { maxCalls: c.a.maxCalls, runCaps: { helius: c.a.maxCredits }, methodCaps: { ...DOJO_METHOD_CAPS }, cycleFloor: { helius: c.floor } },
-      c.ledger, Object.fromEntries(CHAIN_OPERATORS.map((o) => [o, c.cycle])));
+      c.ledger, Object.fromEntries(CHAIN_OPERATORS.map((o) => [o, c.cycle])), { boundBody: true }); // RPC-GUARD-BODY-TIMEOUT-1 (Q-1)
   } catch (e) { if (e instanceof Error && e.constructor.name === "LockHeldError") refuse("lock_held", "operator lock"); throw e; }
   const g = client, log: unknown[] = [];
   const send: Call = (op, method, params) => (g === null ? (c.deps.relays?.[Number(op.slice(6)) - 1] as RelayGet)(String(params[0])) : g.call(op as OperatorLabel, method, params));

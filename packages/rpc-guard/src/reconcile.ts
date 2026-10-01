@@ -98,8 +98,8 @@ function ledgerRunInWindow(ledger: CycleLedger, cycle: string, w?: CourseWindow)
 }
 
 /** The served reconcile (cli.ts runs it under the operator lock). `courseEnd` (--course-end) selects the COURSE window;
- *  without it, the since-last-reconciled window, byte-identical to the pre-D-1 code on VALID input (post-G2 dated line: a non-finite
- *  snapshot value or a negative per-method delta is now a NO-GO, both windows). Exported, OUTSIDE the served invariant "a course holds no
+ *  without it, the since-last-reconciled window, byte-identical to the pre-D-1 code on VALID input (a snapshot value that is not a
+ *  safe integer >= 0, or a negative per-method delta, is a NO-GO in both windows). Exported, OUTSIDE the served invariant "a course holds no
  *  reconcile line" (the cli appends under the lock, a direct call does not: cp-1 O-1). An unknown or non-`unlocked` courseEnd throws: no line. */
 export function runReconcile(ledger: CycleLedger, before: Snapshot, after: Snapshot, cycle: string, mode: ReconcileMode = "per-method", courseEnd?: string): ReconcileResult {
   const w = courseEnd === undefined ? undefined : courseWindow(ledger.entries(), courseEnd);
@@ -121,7 +121,7 @@ export function runReconcile(ledger: CycleLedger, before: Snapshot, after: Snaps
     // EXACTLY ONE field per mode: a missing total_ru OR a stray byMethod is a NO-GO (never a silent field-ignore).
     if (before.total_ru === undefined || after.total_ru === undefined) return finish("NO-GO", "aggregate_mode_needs_total_ru");
     if (before.byMethod !== undefined || after.byMethod !== undefined) return finish("NO-GO", "aggregate_mode_rejects_by_method");
-    if (!Number.isFinite(before.total_ru) || !Number.isFinite(after.total_ru)) return finish("NO-GO", "snapshot_not_finite"); // C-G2-1: never coerced ("12", null, NaN, 1e999)
+    if (!isSnapshotCount(before.total_ru) || !isSnapshotCount(after.total_ru)) return finish("NO-GO", "snapshot_invalid"); // C-G2-1, Q-3
     const ledgerTotal = Object.values(run).reduce((a, b) => a + b, 0); // Sigma conservative RU over the window
     const delta = after.total_ru - before.total_ru;
     table = { methods: {}, count: ledgerTotal, delta };
@@ -143,7 +143,7 @@ export function runReconcile(ledger: CycleLedger, before: Snapshot, after: Snaps
   if (before.byMethod === undefined || after.byMethod === undefined) return finish("NO-GO", "per_method_mode_needs_by_method");
   if (before.total_ru !== undefined || after.total_ru !== undefined) return finish("NO-GO", "per_method_mode_rejects_total_ru");
   const bm = before.byMethod, am = after.byMethod;
-  if (![...Object.values(bm), ...Object.values(am)].every((v) => Number.isFinite(v))) return finish("NO-GO", "snapshot_not_finite"); // C-G2-1 (no table)
+  if (![...Object.values(bm), ...Object.values(am)].every(isSnapshotCount)) return finish("NO-GO", "snapshot_invalid"); // C-G2-1 (no table)
   let totalRun = 0, totalDelta = 0, hard: string | undefined, neg: string | undefined;
   const methods: Record<string, CourseRow> = {};
   for (const method of new Set([...Object.keys(run), ...Object.keys(am), ...Object.keys(bm)])) {
@@ -160,3 +160,7 @@ export function runReconcile(ledger: CycleLedger, before: Snapshot, after: Snaps
   if (totalRun - totalDelta > Math.max(50, 0.005 * totalRun)) return finish("NO-GO", "soft");
   return finish("GO");
 }
+
+/** RG-SNAPSHOT-NONNEG-INT-1 (Q-3): a dashboard value is a count, a safe integer >= 0 (a negative, fractional or unsafe value fakes
+ *  a delta or subtracts inexactly); anything else is `snapshot_invalid`, in both modes and both windows, never coerced. */
+function isSnapshotCount(v: number): boolean { return Number.isSafeInteger(v) && v >= 0; }

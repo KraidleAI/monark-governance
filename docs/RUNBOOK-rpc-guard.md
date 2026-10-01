@@ -19,6 +19,10 @@ U="env -u HELIUS_API_KEY -u CHAINSTACK_ETH_URL -u CHAINSTACK_SOLANA_URL -u CHAIN
 | Power loss | only what was flushed (fsync) | the line being appended when the power went (its request was NOT sent: the transport runs only after the append returns) may be a NUL run or a torn line; head equal or ONE behind; an orphan `<op>.head.tmp` | open heals / removes the orphan; a NUL tail is repaired by `repair-tail` (§3); a torn line is manual (§4) |
 | Lying device (acknowledges a flush it does not perform: volatile write cache without power-loss protection) | undefined | anything | out of reach of software: the chain replay and the head sidecar DETECT (fail-closed); lost data is not recoverable; §4 + reconcile against the dashboard |
 
+New ledger (RPC-GUARD-FIRST-APPEND-HEAD-1): its head, the genesis (64 zeros), is written durably BEFORE its first line, so a
+process crash during the FIRST append is the case of the first row (head one entry behind: healed at the next open, then the
+served `unlock`). A genesis head whose ledger was never written opens as a new ledger; an open alone writes nothing.
+
 Before GARDE-FSYNC-1 (code up to `66f75c2`) nothing was flushed: cut #1 (~20:32 UTC) left 211 008 NUL bytes after
 9 460 lines and a head AHEAD of the chain (~420 sent requests lost from the ledger); cut #2 (~21:37 UTC) left
 13 776 NUL bytes and a head of 64 NUL bytes (an in-place rewrite whose size reached the disk, not its data).
@@ -109,7 +113,7 @@ Use it for a ledger written by GARDE-FSYNC-1 code. It changes NO byte when it re
 | Token | Meaning | Next step |
 |---|---|---|
 | `ledger_absent` | no `<op>.jsonl` in `<ledger-dir>/<cycle>` | check the path |
-| `head_absent` | `<op>.head` missing (also after a cut on the very FIRST append) | §4 — kept refused by design (a deleted head + a truncation would pass) |
+| `head_absent` | `<op>.head` missing: deleted, or a ledger begun before RPC-GUARD-FIRST-APPEND-HEAD-1 and cut at its first append | §4 — refused by design |
 | `lock_unreadable` | the lock's `{pid}` never reached the disk | make sure no process runs, then §4 |
 | `writer_alive` | a process with the lock's pid exists (EPERM counts as existing) | stop the writer; if the pid was reused after the reboot, §4 |
 | `no_nul_tail` | nothing to strip | the damage is elsewhere: §4 |
@@ -117,6 +121,9 @@ Use it for a ledger written by GARDE-FSYNC-1 code. It changes NO byte when it re
 | `malformed_line` / `chain_broken` | damage INSIDE the durable part | §4 + investigate (not a power-cut signature) |
 | `tail_truncation` | after the strip the head is neither the recomputed head nor its penultimate: a head AHEAD (a truncation signature — never produced by a cut since GARDE-FSYNC-1), a NUL-filled head (pre-lot in-place write), or a head more than one entry behind | §4 + investigation; the served tool NEVER rewrites such a head |
 | `bak_exists` | an earlier repair's `.bak` is present | move both `.bak` files (with their sha) to the backup folder, rerun |
+
+`head_absent` stays refused by design: healing it would let a deleted head plus a truncation pass. A ledger written since
+RPC-GUARD-FIRST-APPEND-HEAD-1 has its genesis head before its first line, so a cut on its first append is never `head_absent`.
 
 Interrupted repair (a `.bak` present and no record in `<op>.repair.jsonl` whose `bak_sha256.jsonl` is the sha of that
 `.bak`): compare `sha256sum <op>.jsonl` with the `.bak`. Equal: nothing was truncated — move the `.bak` files away and
@@ -187,7 +194,8 @@ when its two snapshots bracket EVERY course of its window (item BELL-COURSE-END-
 2. Snapshots: the exact per-method values of the dashboard's "Copy CSV" export, never the rounded interface figure (the
    act-0 reading "3.69M" does not reconcile per method), written as JSON NUMBERS (`"byMethod": {"<method>": 1234567}`,
    or `"total_ru": 1234567` in an aggregate mode), never a quoted cell (`"1,234,567"`, `"12"`) nor `null`: a value that
-   is not a finite number answers `NO-GO snapshot_not_finite` (C-G2-1); `--before` taken before the course; `--after`
+   is not a safe integer >= 0 (a negative, fractional or over 2^53 - 1 value included) answers `NO-GO snapshot_invalid`
+   (C-G2-1, RG-SNAPSHOT-NONNEG-INT-1); `--before` taken before the course; `--after`
    taken once TWO equal readings, spaced in time, agree (the dashboard lags 1 to 50 minutes, TY-10).
 3. Run the bin of the MERGED trunk, paid keys removed:
    ```
@@ -201,17 +209,19 @@ when its two snapshots bracket EVERY course of its window (item BELL-COURSE-END-
 4. Read: exit 0 = GO, 1 = NO-GO, 2 = error (stderr). Stdout line 1: the verdict and its reason. Line 2, once the bounds
    were evaluated: the course table `{"methods":{"<method>":{"count":<n>,"delta":<n>,"verdict":"GO|NO-GO"}},"total":{...}}` — count =
    the guard's credits (RU) over the course window, delta = after - before, a row's verdict = its hard bound, `total`
-   carries the reconcile's verdict (aggregate modes: `total` only). No table for a form refusal: `snapshot_not_finite`
+   carries the reconcile's verdict (aggregate modes: `total` only). No table for a form refusal: `snapshot_invalid`
    (step 2) and the mode refusals. A negative delta is a NO-GO WITH its table, never a soft over-count (swapped or reset
    snapshots): `negative_delta` (aggregate) or `negative_delta:<method>` (per-method, the first such method; a
    `hard:<method>` of the same run is reported first).
 5. Argument refusals append no line, take no lock and change no byte of an existing ledger (an unseen `--cycle` still
    gets its empty directory, C-8): `NO-GO course_end_unknown` (the sha is no line of `<cycle>/<op>.jsonl`: another
-   course, operator or cycle) and `NO-GO course_end_not_unlocked` (the sha names another kind of line), exit 1; a value
+   operator or cycle) and `NO-GO course_end_not_unlocked` (the sha names another kind of line), exit 1; a value
    that is not 64 lowercase hexadecimal characters, or the flag without a value, exit 2; `rpc-guard: unknown option
    (...)`, exit 2, checked FIRST (before any directory): a flag outside the closed set `--cycle --op --mode --before
    --after --course-end` (another spelling such as `--course_end` or `--Course-End`, a prefix, a bin flag repeated or
    written `--floor=<n>`) or a repeated flag - never a fall-back to the since-last-reconciled mode. Fix the argument and rerun.
+   The sha of ANOTHER course of the same `<cycle>/<op>` is a line of this ledger: it is ACCEPTED and reconciles THAT course,
+   not the one meant (cp-2 of lot 1a, C-V-5). Take the sha only from the `unlock` of step 1.
 6. Every run with a valid sha appends ONE `course_reconciled` line (`course: {from, to}`, `from` = the boundary before the
    course or 64 zeros), a rollover (checked first) and a repaired course (§3 step 6) included. That line never bounds the
    since-last-reconciled mode, and the course window never moves: a rerun with other snapshots reconciles the SAME lines.
