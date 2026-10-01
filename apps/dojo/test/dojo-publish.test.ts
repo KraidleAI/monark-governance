@@ -715,7 +715,8 @@ test("dojo_publish_history_waits_for_the_first_day_read", async () => {
   const before = files(w.s), over = hclock(w)(), bad = tmp("dojo-p-hlay-");
   await refusesA(() => go(over), "first_read_day_open"); // d, the first day read, absent from the inbox
   writeDay(w, d, w.eve);
-  await refusesA(() => go((d + 1) * DAY - 1), "first_read_day_open"); // d closed in the inbox, but not over at the clock
+  await assert.rejects(async () => go((d + 1) * DAY - 1), (e: unknown) => e instanceof DojoPublishError && e.code === "first_read_day_open"
+    && e.detail === `${dateOf(d)}: not closed in the inbox, or not over`, "d closed in the inbox, but not over at the clock: the clock check itself");
   writeDay(w, d, { addresses: [X], accounts: [] }, { inbox: lost }); // d without ADDR.A, which holds lots on the history's last day
   await assert.rejects(async () => go(over, lost), (e: unknown) => e instanceof DojoPublishError && e.code === "eve_mismatch"
     && e.detail === `${dateOf(d)}: an address holding lots is not in the bundle`, "the check of --inbox (evePile), run before the line");
