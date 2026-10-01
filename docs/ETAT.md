@@ -208,6 +208,9 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   du fondateur « ok je valide l'adr ») ; revue MONARK de P1 : approuvée avec corrections (A-1 à A-8 ; rapport `6ead4219…`, messagerie
   recherches#23) ; décisions de l'investisseur : spécification dans un nouveau dépôt public `KraidleAI/monark-kata-spec` après A-3,
   séries par pièce jointe privée du dépôt recherches à la clôture de P1.
+  P1 close le 2026-10-01 (contrôle de clôture APPROUVE, rapport `b9b34076…`, tête recherches `7174835`). Écart R-25 de P1b inscrit (D-2) :
+  1 234 lignes au périmètre CI du tronc, au-dessus de la porte de 1 205, accepté sans réécriture d'un historique déjà fusionné ; la règle
+  de mesure de RECHERCHES est désormais celle du tronc (`kata/scripts/r25.sh`).
 - **Au-delà de la borne de profondeur** (orchestrateur, 2026-10-01, G7 sur C-1 du G2 DEPTH-BOUND) : un texte servi plus profond que 16
   n'est pas analysé ; chaque lecteur le refuse sous le code de sa forme (`keyring_invalid`, `timeline_malformed`, phrases du chargeur),
   JSON ou non. `not_json` ne nomme qu'un texte hors JSON en deçà de la borne. Le code ne change pas ; ligne datée d'ADR avec DEPTH-CORR.
