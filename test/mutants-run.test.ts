@@ -7,6 +7,7 @@
  * DENY name that test/a.test.ts asserts absent: the host lock never decides a verdict here, except where a test sets it. graph/ (never run) holds the import
  * forms and extensions of targetsOf. The line above each test is the mutation that reddens it (killer convention of scripts/red-proof.mjs). Governance-only.
  * The shared campaign adds --targets test/b.test.ts,test/a.test.ts (Q-G2-3); repo-link/, scripts-junction/ (junctions) and tool-copy/ serve C-G2-1..3, Q-G2-5.
+ * ws/ (workspaces @monark/fx, @monark/ax, a third-party module, npm's links in node_modules) and wt/, its linked worktree: MUTANTS-NM-WORKSPACES-1.
  */
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
@@ -78,7 +79,7 @@ const campaign = (): Run => (main ??= run(["--base", fixture().base, "--table", 
   "--targets", "test/b.test.ts,test/a.test.ts"])); // adds b, imported by no test, to the graph's targets; a is one already: no duplicate (Q-G2-3)
 const row = (r: Run, id: string): MutantRow | undefined => r.rec?.results.find((x) => x.id === id);
 
-// killer: scripts/mutants/run.mjs:185 CONST "classify(e) === \"assert-fail\"" -> "classify(e) !== \"pass\""
+// killer: scripts/mutants/run.mjs:199 CONST "classify(e) === \"assert-fail\"" -> "classify(e) !== \"pass\""
 test("mutants_kill_is_an_assertion_failure_of_a_top_level_test", () => {
   const r = campaign(), t1 = row(r, "T1");
   assert.equal(r.status, 1, r.stderr);
@@ -86,14 +87,14 @@ test("mutants_kill_is_an_assertion_failure_of_a_top_level_test", () => {
   assert.deepEqual(["N1", "X1"].map((id) => row(r, id)?.status), ["non conclu", "non conclu"]);
 });
 
-// killer: scripts/mutants/run.mjs:185 CONST "\"assert-fail\"" -> "\"inconclusive\""
+// killer: scripts/mutants/run.mjs:199 CONST "\"assert-fail\"" -> "\"inconclusive\""
 test("mutants_dead_child_is_non_conclu_never_killed", () => {
   const r = campaign(), n1 = row(r, "N1"), tap = join(r.out, "tap", "N1.tap");
   assert.deepEqual([n1?.status, n1?.strict, n1?.fails.length, n1?.oks, existsSync(tap)], ["non conclu", false, 1, 0, true]);
   assert.match(readFileSync(tap, "utf8"), /exitCode: 134/);
 });
 
-// killer: scripts/mutants/run.mjs:213 CONST "writeFileSync(p, orig)" -> "void orig"
+// killer: scripts/mutants/run.mjs:227 CONST "writeFileSync(p, orig)" -> "void orig"
 test("mutants_restore_each_mutated_file_to_the_byte", () => {
   const r = campaign(), s = sha(M), ran = r.rec?.results.filter((x) => x.sha_before !== null) ?? [], p = join(r.out, "clone", "lib", "m.mjs");
   assert.deepEqual(ran.map((x) => [x.id, x.sha_before, x.sha_after]), ["T1", "S1", "N1", "X1", "K1"].map((id) => [id, s, s]));
@@ -101,7 +102,7 @@ test("mutants_restore_each_mutated_file_to_the_byte", () => {
   assert.deepEqual(["lib/old.mjs", "test/b.test.ts"].map((q) => existsSync(join(r.out, "clone", q))), [false, true]); // the tree's deletion and untracked file
 });
 
-// killer: scripts/mutants/run.mjs:99 ROR "l.split(m.before).length !== 2" -> "l.split(m.before).length < 2"
+// killer: scripts/mutants/run.mjs:101 ROR "l.split(m.before).length !== 2" -> "l.split(m.before).length < 2"
 test("mutants_anchor_absent_or_twice_on_its_line_is_lost_counted_never_applied", () => {
   const r = campaign();
   assert.deepEqual(["A1", "A2"].map((id) => [row(r, id)?.status, row(r, id)?.sha_before, existsSync(join(r.out, "tap", `${id}.tap`))]), [["anchor-lost", null, false], ["anchor-lost", null, false]]);
@@ -110,7 +111,7 @@ test("mutants_anchor_absent_or_twice_on_its_line_is_lost_counted_never_applied",
   assert.deepEqual([d.status, row(d, "A1")?.status, d.rec?.baseline, d.rec?.min_free_mb], [1, "anchor-lost", null, 4096], d.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:124 CONST "lock !== null" -> "false"
+// killer: scripts/mutants/run.mjs:126 CONST "lock !== null" -> "false"
 test("mutants_refuse_under_a_live_oracle_lock_before_any_clone", () => {
   const f = fixture(), t = table("one.json", [T1]), dead = spawnSync(process.execPath, ["-e", "0"]).pid, mark = (pid: number): string => JSON.stringify({ lock: "oracle/lock.mjs", pid });
   const owners: [string | null, number][] = [[mark(process.pid), 2], ["a legacy free-text owner", 2], [JSON.stringify({ lock: "sh", pid: dead }), 2], [JSON.stringify({ pid: dead }), 2], [null, 2], [mark(dead), 0]];
@@ -122,14 +123,14 @@ test("mutants_refuse_under_a_live_oracle_lock_before_any_clone", () => {
   }
 });
 
-// killer: scripts/mutants/run.mjs:176 CONST "< o.minFree" -> "< 0"
+// killer: scripts/mutants/run.mjs:190 CONST "< o.minFree" -> "< 0"
 test("mutants_short_memory_runs_nothing", () => {
   const r = run(["--base", fixture().base, "--table", table("one.json", [T1]), "--min-free-mb", "999999999"]), taps = join(r.out, "tap");
   assert.deepEqual([r.status, row(r, "T1")?.status, r.rec?.baseline?.status, r.rec?.min_free_mb], [1, "non conclu (memoire)", "non conclu (memoire)", 999999999], r.stderr);
   assert.deepEqual(existsSync(taps) ? readdirSync(taps) : null, []);
 });
 
-// killer: scripts/mutants/run.mjs:77 CONST "stack.push(...deps(f))" -> "void deps(f)"
+// killer: scripts/mutants/run.mjs:79 CONST "stack.push(...deps(f))" -> "void deps(f)"
 test("mutants_targets_follow_the_transitive_import_closure", () => {
   const f = fixture(), g = ["test/*.test.ts"];
   assert.deepEqual(targetsOf(f.dir, "lib/m.mjs", g), { direct: ["test/a.test.ts"], transitive: ["test/c.test.ts"] });
@@ -137,7 +138,7 @@ test("mutants_targets_follow_the_transitive_import_closure", () => {
   assert.deepEqual(row(campaign(), "T1")?.targets, ["test/a.test.ts", "test/c.test.ts", "test/b.test.ts"]); // --targets: b added, a not twice (Q-G2-3)
 });
 
-// killer: scripts/mutants/run.mjs:73 CONST "m[1] ?? m[2]" -> "m[1]"
+// killer: scripts/mutants/run.mjs:75 CONST "m[1] ?? m[2]" -> "m[1]"
 test("mutants_targets_follow_export_from_literal_import_calls_tsx_cts_mts_cjs", () => {
   const g = join(fixture().root, "graph"), imp = (p: string): string => `import "../lib/${p}";\n`, t = (file: string): unknown => targetsOf(g, file, ["test/*.test.ts"]);
   write(g, { "lib/goal.mjs": "export const a = 1;\n", "lib/star.mts": 'export * from "./goal.mjs";\n', "lib/named.cts": "export {\n  a as b,\n} from './goal.mjs';\n", "lib/v.tsx": 'import { a } from "./goal";\n',
@@ -146,7 +147,7 @@ test("mutants_targets_follow_export_from_literal_import_calls_tsx_cts_mts_cjs", 
   assert.deepEqual([t("lib/goal.mjs"), t("lib/w.cjs")], [{ direct: ["test/dyn.test.ts"], transitive: ["test/named.test.ts", "test/star.test.ts", "test/tsx.test.ts"] }, { direct: ["test/cjs.test.ts"], transitive: [] }]);
 });
 
-// killer: scripts/mutants/run.mjs:125 CONST "existsSync(clone)" -> "false"
+// killer: scripts/mutants/run.mjs:127 CONST "existsSync(clone)" -> "false"
 test("mutants_second_launch_on_one_out_is_refused", () => {
   const args = ["--base", fixture().gel, "--table", table("nofile.json", [BARE])], one = run(args), rec = join(one.out, "RESULTS.json");
   assert.deepEqual([one.status, row(one, "T1")?.file, row(one, "T1")?.status, existsSync(rec)], [0, "lib/m.mjs", "tue", true], one.stderr); // the one code file of gel..tree
@@ -154,14 +155,14 @@ test("mutants_second_launch_on_one_out_is_refused", () => {
   assert.deepEqual([two.status, /one launch per clone/.test(two.stderr), sha(readFileSync(rec))], [2, true, before], two.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:139 CONST "r.file ?? o.file ?? code[0]" -> "r.file ?? code[0]"
+// killer: scripts/mutants/run.mjs:141 CONST "r.file ?? o.file ?? code[0]" -> "r.file ?? code[0]"
 test("mutants_row_without_file_takes_file_else_ambiguous_file_exit_2", () => {
   const f = fixture(), t = table("nofile.json", [BARE]), amb = run(["--base", f.base, "--table", t]), named = run(["--base", f.base, "--table", t, "--file", "lib/m.mjs"]);
   assert.deepEqual([amb.status, /ambiguous file/.test(amb.stderr), existsSync(join(amb.out, "clone"))], [2, true, false], amb.stderr); // base..tree: four code files
   assert.deepEqual([named.status, row(named, "T1")?.file, row(named, "T1")?.status], [0, "lib/m.mjs", "tue"], named.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:212 CONST "first.status === \"survit\"" -> "false"
+// killer: scripts/mutants/run.mjs:226 CONST "first.status === \"survit\"" -> "false"
 test("mutants_survivor_is_replayed_on_every_target_file_whole", () => {
   const r = campaign(), s1 = row(r, "S1");
   assert.deepEqual([s1?.status, s1?.oks, s1?.replay?.files, s1?.replay?.status, s1?.replay?.oks],
@@ -169,19 +170,19 @@ test("mutants_survivor_is_replayed_on_every_target_file_whole", () => {
   assert.ok(existsSync(join(r.out, "tap", "S1.replay.tap")));
 });
 
-// killer: scripts/mutants/run.mjs:224 CONST "r.status === \"tue\"" -> "r.status !== \"anchor-lost\""
+// killer: scripts/mutants/run.mjs:238 CONST "r.status === \"tue\"" -> "r.status !== \"anchor-lost\""
 test("mutants_one_survivor_exits_1_with_its_record_written", () => {
   const r = run(["--base", fixture().base, "--table", table("ts.json", ROWS.slice(0, 2))]);
   assert.deepEqual([r.status, r.rec?.exit, r.rec?.counts, r.rec?.results.map((x) => [x.id, x.status])], [1, 1, { tue: 1, survit: 1 }, [["T1", "tue"], ["S1", "survit"]]], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:206 CONST "row.sha_before !== sha0[m.file]" -> "false"
+// killer: scripts/mutants/run.mjs:220 CONST "row.sha_before !== sha0[m.file]" -> "false"
 test("mutants_a_file_changed_since_the_start_stops_the_campaign_exit_3", () => {
   const r = run(["--base", fixture().base, "--table", table("w.json", [{ id: "W1", file: "lib/w.mjs", line: 1, op: "CONST", before: "1", after: "2", why: "its test rewrites it" }])]);
   assert.deepEqual([r.status, r.rec?.exit, row(r, "W1")?.status, row(r, "W1")?.note], [3, 3, "non conclu", "the file is not in its initial state"], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:209 CONST "b.status !== \"vert\"" -> "false"
+// killer: scripts/mutants/run.mjs:223 CONST "b.status !== \"vert\"" -> "false"
 test("mutants_without_target_are_refused_and_a_red_baseline_runs_no_mutant", () => {
   const f = fixture(), t = table("lone.json", [{ id: "L1", file: "lib/lone.mjs", line: 1, op: "CONST", before: "1", after: "2", why: "no importer" }]);
   const none = run(["--base", f.base, "--table", t]), red = run(["--base", f.base, "--table", t, "--targets", "test/r.test.ts"]);
@@ -189,13 +190,13 @@ test("mutants_without_target_are_refused_and_a_red_baseline_runs_no_mutant", () 
   assert.deepEqual([red.status, red.rec?.baseline?.status, row(red, "L1")?.status, row(red, "L1")?.targets], [1, "rouge", "non conclu (base)", ["test/r.test.ts"]], red.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:146 CONST "test: d ? str(d[1]) : undefined" -> "test: undefined"
+// killer: scripts/mutants/run.mjs:148 CONST "test: d ? str(d[1]) : undefined" -> "test: undefined"
 test("mutants_killer_lines_become_intent_mutants_run_alone", () => {
   const k1 = row(campaign(), "K1");
   assert.deepEqual([k1?.origin, k1?.file, k1?.line, k1?.op, k1?.why, k1?.test, k1?.status, k1?.fails, k1?.oks], ["killer", "lib/m.mjs", 1, "ROR", "killer of pos_zero", "pos_zero", "tue", ["pos_zero"], 0]);
 });
 
-// killer: scripts/mutants/run.mjs:232 CONST "sha256: sha(body)" -> "sha256: sha(`${body} `)"
+// killer: scripts/mutants/run.mjs:246 CONST "sha256: sha(body)" -> "sha256: sha(`${body} `)"
 test("mutants_record_is_complete_and_its_sha_printed_last", () => {
   const r = campaign(), f = fixture(), last = r.stdout.trim().split("\n").at(-1) ?? "", p = join(r.out, "RESULTS.json");
   assert.match(last, /^mutants-result \{/);
@@ -215,14 +216,14 @@ test("mutants_record_is_complete_and_its_sha_printed_last", () => {
   assert.match([lines[0], lines.at(-1)].join("|"), /^# mutants monark\.mutants\.v1, repo .+\|# end .+, exit 1$/); // header, one line each, end
 });
 
-// killer: scripts/mutants/run.mjs:32 CONST "import { held } from \"../oracle/lock.mjs\";" -> "const held = (root) => (existsSync(join(root, \"oracle-lock\")) ? \"oracle/lock.mjs\" : null);"
+// killer: scripts/mutants/run.mjs:34 CONST "import { held } from \"../oracle/lock.mjs\";" -> "const held = (root) => (existsSync(join(root, \"oracle-lock\")) ? \"oracle/lock.mjs\" : null);"
 test("mutants_tool_imports_held_deny_and_child_env_never_recopies_them", () => {
   const src = readFileSync(CLI, "utf8"), from = (names: string, mod: string): boolean => src.includes(`import { ${names} } from "../${mod}";`);
   assert.deepEqual([from("held", "oracle/lock.mjs"), from("classify, DENY, parseKiller, parseTap", "red-proof.mjs"), from("childEnv", "oracle/run.mjs"), src.includes('"oracle/lock.mjs"'), src.includes("API_KEY")],
     [true, true, true, false, false]); // the owner.txt tag of oracle/lock.mjs and the DENY list of red-proof.mjs are never recopied (Q-V-1, Q-V-3)
 });
 
-// killer: scripts/mutants/run.mjs:93 CONST "o.minFree >= 4096" -> "o.minFree >= 1024"
+// killer: scripts/mutants/run.mjs:95 CONST "o.minFree >= 4096" -> "o.minFree >= 1024"
 test("mutants_usage_repo_and_bound_refusals_exit_2", () => {
   const f = fixture(), t = table("one.json", [T1]), nf = table("nofile.json", [BARE]), b = ["--base", f.base], link = join(f.root, "repo-link");
   symlinkSync(f.dir, link, "junction"); // C-G2-3: --out inside --repo through a link (a junction on Windows), or by a name that begins with two dots
@@ -235,7 +236,7 @@ test("mutants_usage_repo_and_bound_refusals_exit_2", () => {
   assert.deepEqual(["inside", "..x", "sub"].map((d) => existsSync(join(f.dir, d))), [false, false, false]); // refused before any write: nothing in --repo
 });
 
-// killer: scripts/mutants/run.mjs:236 CONST "import.meta.main !== false" -> "process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)"
+// killer: scripts/mutants/run.mjs:250 CONST "import.meta.main !== false" -> "process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)"
 test("mutants_launched_through_a_junction_records_or_refuses_never_a_silent_exit_0", () => {
   const f = fixture(), j = join(f.root, "scripts-junction"), cli = join(j, "mutants", "run.mjs"), t = table("one.json", [T1]); // C-G2-1
   symlinkSync(join(import.meta.dirname, "..", "scripts"), j, "junction"); // New-Item -ItemType Junction on Windows, a symlink elsewhere
@@ -243,7 +244,7 @@ test("mutants_launched_through_a_junction_records_or_refuses_never_a_silent_exit
   assert.deepEqual([u.status, /usage/.test(u.stderr), r.status, r.rec?.exit, /^mutants-result /m.test(r.stdout)], [2, true, 0, 0, true], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:129 CONST "tool_tree: ${slash(TOOL_ROOT)}" -> "${slash(TOOL_ROOT)}"
+// killer: scripts/mutants/run.mjs:131 CONST "tool_tree: ${slash(TOOL_ROOT)}" -> "${slash(TOOL_ROOT)}"
 test("mutants_tool_tree_and_tool_dirty_read_the_tools_checkout_else_refused_naming_it", () => {
   const f = fixture(), copy = join(f.root, "tool-copy"), args = ["--base", f.base, "--table", table("one.json", [T1])];
   cpSync(join(import.meta.dirname, "..", "scripts"), join(copy, "scripts"), { recursive: true }); // the tool and its imports, outside any checkout (C-G2-2)
@@ -252,4 +253,35 @@ test("mutants_tool_tree_and_tool_dirty_read_the_tools_checkout_else_refused_nami
   const ingit = run(args, { cli }), dirty = sha(`\0x.txt\0${sha("x")}`); // the recipe of dirty: an empty diff to HEAD, one untracked file
   assert.deepEqual([nogit.status, nogit.stderr.includes(`tool_tree: ${root} is not a git checkout`), existsSync(nogit.out)], [2, true, false], nogit.stderr);
   assert.deepEqual([ingit.status, ingit.rec?.tool_tree, ingit.rec?.tool_dirty], [0, git(copy, "rev-parse", "HEAD"), dirty], ingit.stderr);
+});
+
+// killer: scripts/mutants/run.mjs:184 CONST "symlinkSync(w, join(nm, n)" -> "symlinkSync(join(repo, relative(clone, w)), join(nm, n)"
+test("mutants_clone_resolves_monark_workspaces_in_itself_and_other_modules_in_the_repo", () => {
+  const f = fixture(), ws = join(f.root, "ws"), lf = String.fromCharCode(10), third = join(ws, "node_modules", "third");
+  const json = (o: object): string => `${JSON.stringify(o)}${lf}`, mod = (name: string): string => json({ name, type: "module", exports: "./index.mjs" });
+  write(ws, { ".gitignore": `node_modules/${lf}`,
+    "package.json": json({ name: "ws", private: true, type: "module", scripts: { test: 'node --test "test/*.test.ts"' } }) });
+  git(ws, "init", "-q", "-b", "main"); git(ws, "add", "-A"); git(ws, "commit", "-q", "-m", "base");
+  const base = git(ws, "rev-parse", "HEAD"), real = (p: string): string | null => (existsSync(p) ? realpathSync(p) : null);
+  write(ws, { "packages/fx/package.json": mod("@monark/fx"), "packages/fx/index.mjs": `export const NAME = 'fx';${lf}`,
+    "apps/ax/package.json": mod("@monark/ax"), "apps/ax/index.mjs": `export const APP = 'ax';${lf}`,
+    "node_modules/third/package.json": mod("third"), "node_modules/third/index.mjs": `export const THIRD = 3;${lf}`,
+    "node_modules/.package-lock.json": json({ lockfileVersion: 3 }) }); // a file at the top of node_modules, as npm writes one
+  mkdirSync(join(ws, "node_modules", "@monark"), { recursive: true }); // npm links each workspace into the repo: the clone must never use these links
+  for (const [d, x] of [["packages", "fx"], ["apps", "ax"]] as const) symlinkSync(join(ws, d, x), join(ws, "node_modules", "@monark", x), "junction");
+  const own = (p: string): string => `realpathSync(fileURLToPath(new URL("../${p}/index.mjs", import.meta.url)))`, inner = [
+    `import { realpathSync } from "node:fs";`, `import { fileURLToPath } from "node:url";`, `import { NAME } from "@monark/fx";`,
+    `import { APP } from "@monark/ax";`, `import { THIRD } from "third";`, "const at = (s) => realpathSync(fileURLToPath(import.meta.resolve(s)));",
+    `// killer: packages/fx/index.mjs:1 CONST "'fx'" -> "'fy'"`, `test("ws_resolution", () => {`, `  assert.deepEqual([NAME, APP, THIRD], ["fx", "ax", 3]);`,
+    `  assert.equal(at("@monark/fx"), ${own("packages/fx")});`, `  assert.equal(at("@monark/ax"), ${own("apps/ax")});`,
+    `  assert.equal(at("third"), ${JSON.stringify(realpathSync(join(third, "index.mjs")))});`, "});", ""];
+  write(ws, { "test/ws.test.ts": `${HEAD}${inner.join(lf)}` }); // K1 mutates the clone's packages/fx: killed only if @monark/fx resolves in the clone
+  git(ws, "add", "-A"); git(ws, "commit", "-q", "-m", "gel"); git(ws, "worktree", "add", "-q", "--detach", join(f.root, "wt"), "HEAD");
+  // --repo is the linked worktree wt/, without node_modules: the tool takes the main checkout's (git's common dir), as oracle/run.mjs does
+  const r = run(["--repo", join(f.root, "wt"), "--base", base, "--killers"]), k1 = row(r, "K1"), clone = join(r.out, "clone"), nm = join(clone, "node_modules");
+  assert.deepEqual([r.status, r.rec?.baseline?.status, k1?.file, k1?.status, k1?.strict], [0, "vert", "packages/fx/index.mjs", "tue", true], r.stderr);
+  const got = ([["@monark", "fx"], ["@monark", "ax"], ["third"]] as const).map((p) => real(join(nm, ...p))); // the clone's links, followed
+  assert.deepEqual(got, [real(join(clone, "packages", "fx")), real(join(clone, "apps", "ax")), real(third)]); // workspaces in the clone, the rest in the repo
+  const files = existsSync(nm) ? readdirSync(nm, { withFileTypes: true }).filter((e) => e.isFile()).map((e) => e.name) : null;
+  assert.deepEqual(files, [".package-lock.json"]); // a file is copied, never linked (oracle/run.mjs l.109)
 });

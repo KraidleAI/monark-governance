@@ -13,7 +13,8 @@
 // .git, --out inside --repo by real paths (a link, a name like ..x: C-G2-3), a host oracle lock that held() of oracle/lock.mjs reads held (no race
 // with an oracle), <out>/clone present (one launch per clone), the tool outside a git checkout (tool_tree), a --file or --targets not in the tree,
 // a malformed row, no target (an empty graph needs --targets). THEN: one --no-local clone of --repo at its HEAD, its changed and untracked files
-// copied (sha256 checked), deleted ones removed; a baseline run of every target file (not green: no mutant runs, "non conclu (base)"); one mutant
+// copied (sha256 checked), deleted ones removed; its node_modules built as in oracle/run.mjs: the main checkout's entries junctioned, @monark/*
+// re-pointed into the clone (item MUTANTS-NM-WORKSPACES-1); a baseline run of every target file (not green: no mutant runs, "non conclu (base)"); one mutant
 // at a time: <before> exactly once on its line, else anchor-lost (counted, never applied elsewhere); free memory under --min-free-mb (default and
 // floor 4096: C-V-4, C-V-9): "non conclu (memoire)", nothing runs; node --test in TAP ("(test 42)" skipped: it runs once, in the oracle's suite,
 // ADR D3), the file restored in a finally and its sha256 checked (a mismatch, or a file changed since the start, stops the campaign: exit 3).
@@ -24,7 +25,8 @@
 // mutants-result {"exit","record","sha256"}. Exit 0 iff every mutant is killed, 1 otherwise, 2 refused, 3 restore. Main guard: import.meta.main.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, globSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, globSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, symlinkSync,
+  writeFileSync } from "node:fs";
 import { freemem, tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -169,6 +171,18 @@ export async function main(argv) {
     mkdirSync(dirname(join(clone, p)), { recursive: true });
     copyFileSync(join(repo, p), join(clone, p));
     if (sha(readFileSync(join(clone, p))) !== sha(readFileSync(join(repo, p)))) throw new Error(`${p}: the copy differs from the tree`);
+  }
+  // node_modules of the clone: scripts/oracle/run.mjs l.105-115 copied, unchanged there (item MUTANTS-NM-WORKSPACES-1), its tree read as --repo
+  const nmSrc = join(dirname(resolve(repo, git(repo, "rev-parse", "--git-common-dir").toString().trim())), "node_modules"), nm = join(clone, "node_modules");
+  if (existsSync(nmSrc)) { // as mk-nm.ps1: every entry junctioned, except the workspaces, re-pointed into the clone
+    mkdirSync(join(nm, "@monark"), { recursive: true });
+    for (const e of readdirSync(nmSrc, { withFileTypes: true }).filter((x) => x.name !== "@monark")) {
+      if (e.isFile()) copyFileSync(join(nmSrc, e.name), join(nm, e.name)); else symlinkSync(join(nmSrc, e.name), join(nm, e.name), "junction");
+    }
+    for (const w of ["packages", "apps"].flatMap((d) => (existsSync(join(clone, d)) ? readdirSync(join(clone, d)).map((x) => join(clone, d, x)) : []))) {
+      const n = existsSync(join(w, "package.json")) ? JSON.parse(readFileSync(join(w, "package.json"), "utf8")).name : undefined;
+      if (typeof n === "string" && n.startsWith("@monark/")) symlinkSync(w, join(nm, n), "junction");
+    }
   }
   mkdirSync(tmp);
   mkdirSync(taps);
