@@ -8,6 +8,7 @@ import { join } from "node:path";
 import type { KeyObject } from "node:crypto";
 import { keyIdOf, keyringOf, trustOf, walkTimeline, type Trust } from "../../bell/scripts/bell-chain.mjs";
 import { DOJO_TIMELINE_SCHEMA as S, DOJO_WALK_REASONS, walkDojoTimeline } from "../scripts/dojo-chain.mjs";
+import * as chain from "../scripts/dojo-chain.mjs"; // lot DEPTH-BOUND: the new exports through the namespace, so the file loads at base
 import { ANCHOR_DAY, DAY1, DAY_MS, FIRST, anchorBody, at, dateOf, dojoFixture, historyBody, newKey, renamedPair, seal, seedChain, servedTree,
   snapshotBody, trustOfKeys, versionBody, type Ev, type Fixture, type Line, type Step } from "./helpers/dojo-fixture.ts";
 
@@ -302,4 +303,23 @@ test("dojo_walk_imports_the_closed_list", () => {
   for (const re of [/node:https?\b/, /node:net\b/, /node:tls\b/, /node:dns\b/, /node:fs\b/, /child_process/, /\bfetch\s*\(/, /\bimport\s*\(/, /\brequire\s*\(/]) {
     assert.equal(re.test(text), false, String(re));
   }
+});
+
+// ---- Lot DEPTH-BOUND (VERIFY-DEPTH-BOUND-1): the declared bound of a served JSON text, its one-pass reader, and the walker's own guard on the
+// values it receives (from any caller, the publisher included), before any canonical; at base the walk reads the line, then refuses its signature ----
+// killer: apps/dojo/scripts/dojo-chain.mjs:139 SDL "if (depthOf(l) > DOJO_MAX_DEPTH)" -> ""
+test("dojo_walk_refuses_a_line_nested_past_the_bound", () => {
+  assert.deepEqual([chain.DOJO_MAX_DEPTH, typeof chain.jsonDepth, typeof chain.readJson], [16, "function", "function"], "the bound and its readers");
+  const nest = (k: number): unknown => { // k nested arrays, built without recursion
+    let v: unknown = [];
+    for (let i = 1; i < k; i++) v = [v];
+    return v;
+  };
+  const f = dojoFixture(), lines = seal(S, f.steps), deep = (k: number): Line[] => lines.map((l, i) => (i === 11 ? { ...l, deep: nest(k) } : l));
+  assert.deepEqual(walk(deep(15), f.trust), refused(12, "signature_invalid"), "a line at the bound (16): walked, then refused by its signature");
+  assert.deepEqual(walk(deep(16), f.trust), refused(12, "timeline_malformed"), "a line past it (17): refused before any canonical");
+  // readJson: JSON.parse within the bound, null past it; a text that is not JSON still throws
+  const text = (k: number): string => `{"deep":${"[".repeat(k)}${"]".repeat(k)}}`;
+  assert.deepEqual([chain.jsonDepth(text(15)), chain.readJson(text(15)) !== null, chain.jsonDepth(text(16)), chain.readJson(text(16))], [16, true, 17, null]);
+  assert.throws(() => chain.readJson("{x"), SyntaxError, "a text that is not JSON");
 });
