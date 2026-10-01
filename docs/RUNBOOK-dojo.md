@@ -1,11 +1,12 @@
-# RUNBOOK — MONARK Dojo on the Bell host: the collect side and the rehearsal (orchestrator-deployed)
+# RUNBOOK — MONARK Dojo on the Bell host: the collect side, the rehearsal and the publication side (orchestrator-deployed)
 
 **What.** The collector `apps/dojo/src/collect.ts` runs as the systemd unit `monark-dojo-collect.service`, started every 5 minutes by
 `monark-dojo-collect.timer`: each start is one idempotent `--tick` (it closes each ended day, plans the day before 00:15 UTC, reads
 each due instant) writing only under `/var/lib/monark-dojo-collect`. This file is written at PR-3b-1 and covers the collect side of
 acts A-2 to A-5, the rehearsal (A-7) with its `Eve` (A-11-rep), the collect side of A-9, the host rule DOJO-TMP-STRAY-1 (section 8)
 and the guard's lock left held (section 9). PR-3b-2 completes it: user `dojo`, publication unit and timer, Caddy, CA, keyring and
-anchor (A-1, A-6, A-8, A-10, A-11).
+anchor (A-1, A-6, A-8, A-10, A-11). PR-3b-2a writes the publication side in sections 10 to 20 (A-2p to A-5p, CA-0, A-8, A-10,
+A-11, the publisher's refusals, a key rotation and the page); PR-3b-2b adds CA-1 and TU-7.
 
 **Normative sources.** `docs/adr/ADR-DOJO-PR-3.md` (D-1 table l.64, D-2, D-3 variant A and acts A-1 to A-11, D-4, D-5, section 7,
 dated lines of 13:13Z, 14:13Z and 15:00Z); `docs/adr/ADR-DOJO-PR-2.md` (D-1 dated line C-V-2: the closed argv, DOJO-TICK-ARGV-1; D-7
@@ -304,6 +305,411 @@ the next steps read again (a reading whose window passed meanwhile is written mi
 escalation to the orchestrator** if `unlock` fails on "head sidecar" or "cycle ledger" (fail-closed C-V-8: for example a kill between
 the first line of a new cycle's ledger and its head, item RPC-GUARD-FIRST-APPEND-HEAD-1). Never `rm` of a `.lock`, never root.
 
+## 10. The publication side (PR-3b-2a): what, order, go, conventions
+
+**What.** The publisher `apps/dojo/scripts/dojo-publish.mjs` runs as the systemd unit `monark-dojo-publish.service`, started four
+times a day by `monark-dojo-publish.timer` (00:30, 01:30, 03:30, 06:30 UTC): each start publishes the next closed day of the
+collect handoff (`--inbox /var/lib/monark-dojo-collect/bundles`, read-only, through the group `dojo-handoff`), verified with the
+whole served tree by the real verifier BEFORE its first append, and writes only under `/var/lib/monark-dojo` (the private
+timeline, `keyring.json`, `staging/`, and `public/`, the only root of Caddy). It has no network; it holds the signing key, the ONLY
+credential it loads. Sources: ADR-DOJO-PR-3, pli G0 of PR-3b-2 (PB-2 files, PB-3 environment, PB-5 acts, PB-6 tests) and the dated
+lines of the pli G7 of PR-3a-1c; `docs/dojo/FAITS-systemd-publish-2026-09-30.md`; constants `scripts/dojo-deploy.mjs`; pins
+`test/dojo-publish-deploy.test.ts`. PR-3b-2b adds CA-1 and TU-7 and pins the script of CA-0.
+
+**Order** (PB-5): A-2p → A-3p → A-4p → A-5p → CA-0 → A-8 (its last point: `ots upgrade` complete) → A-9 (1) to (4) → A-11 (i)
+and (iii) → A-9 (6) and (7) → A-10 → close of d → A-11 (ii) → the `history` line (PR-3a-2) → the first `snapshot` published → the
+announcement day (QI-4 (c)): A-1 → A-6 → CA-1 → TU-7. A-9 is the collect act of section 7; A-7 (the rehearsal, section 6) runs
+from A-5 on, without the anchor, and its criterion precedes A-9; the rehearsal is also the day zero of the history acts (the
+closed day their `--first-read` needs: NE-1, decided by the orchestrator on 2026-09-30, decision 300). ONE G7 (the SHA of
+`G7.txt`) for both trees, the four units and the extract (DOJO-SYNC-G7-REF-1). **Go**: the closed list of PB-5, delegated to the
+orchestrator (decision 292); QI-4 and QI-5 stay the investor's.
+
+**Conventions.** Those of sections 1 to 9 (one fenced block is ONE command, with no shell state; `G7.txt`). The signing key is
+never displayed, copied or hashed: its file is only generated, `stat`ed, handed to systemd as a credential source or shredded
+(`dojo_runbook_never_prints_private_key` pins these uses); `--generate-key` prints the PUBLIC part only, counted before it is
+read. A command longer than 160 characters is broken after `&&`, `;` or `|`, or inside a quoted string where the newline
+separates words or JavaScript statements. A digest compared across the two machines is compared on its 64 hex characters
+(`cut -c1-64`), and a listing is made with `sha256sum -t` on BOTH sides: the `sha256sum` of Git Bash prints a binary marker (` *`)
+by default (measured on the operator machine, 2026-09-30).
+
+## 11. A-2p — user `dojo` and its state
+
+```bash
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'useradd --system --no-create-home --shell /usr/sbin/nologin --groups dojo-handoff dojo &&
+install -d -o dojo -g dojo -m 0755 /var/lib/monark-dojo /var/lib/monark-dojo/public && id dojo &&
+stat -c "%a %U:%G %n" /var/lib/monark-dojo /var/lib/monark-dojo/public /etc/monark/dojo &&
+sudo -u caddy test -x /var/lib/monark-dojo/public && echo caddy-traverse-ok'
+```
+
+Expected: `uid=... (dojo) gid=... (dojo) groups=...(dojo),...(dojo-handoff)` (the membership, which the unit's
+`SupplementaryGroups=dojo-handoff` extends: FAITS-SYSTEMD-PUBLISH-1 F-1); `755 dojo:dojo` on both state paths (Caddy traverses the
+state to `public/`; no secret lies under the state); `700 root:root /etc/monark/dojo` (made at A-2, collect side); then
+`caddy-traverse-ok`. **STOP** on `useradd: user 'dojo' already exists`, a missing group `dojo-handoff` (A-2 first) or any other
+output. Blockers: the G7 of PR-3b-2a; A-2 (collect side); FAITS-JOURNALCTL-1; DOJO-UNIT-OFFLINE-ORACLE-1 (the first host act);
+FAITS-SYSTEMD-PUBLISH-1. Rollback (before A-4p only):
+`ssh -i ~/.ssh/monark_vps root@178.16.131.29 'rm -r /var/lib/monark-dojo && userdel dojo'`.
+
+## 12. A-3p — the publication tree at G7, and the collect tree compared at the SAME G7
+
+The two lists are those of `scripts/dojo-deploy.mjs` AT THE G7, read from its blob, never retyped:
+`DOJO_PUBLISH_TREE_PATHS` (the publisher's import closure, pinned by `dojo_publish_tree_is_the_import_closure`) and
+`DOJO_COLLECT_TREE_PATHS` (section 3):
+
+```bash
+G7=$(cat /f/tmp/dojo-dn/G7.txt) && git -C /f/Monark show "$G7:scripts/dojo-deploy.mjs" > /f/tmp/dojo-dn/dojo-deploy-g7.mjs &&
+cd /f/tmp/dojo-dn && node --input-type=module -e "const m = await import('./dojo-deploy-g7.mjs');
+console.log(m.DOJO_PUBLISH_TREE_PATHS.join(' ')); console.error(m.DOJO_COLLECT_TREE_PATHS.join(' '));" > publish-tree.txt 2> collect-tree.txt &&
+wc -w publish-tree.txt collect-tree.txt
+```
+
+Expected: `10 publish-tree.txt` and `26 collect-tree.txt`. Then the publication tree, shipped and read back (motif of section 3):
+
+```bash
+G7=$(cat /f/tmp/dojo-dn/G7.txt) && git -C /f/Monark archive --format=tar.gz "$G7" $(cat /f/tmp/dojo-dn/publish-tree.txt) |
+tee /f/tmp/dojo-dn/publish-tree.tar.gz | ssh -i ~/.ssh/monark_vps root@178.16.131.29 'install -d -m 0755 -o root -g root /opt/monark-dojo &&
+tar xzf - -C /opt/monark-dojo --no-same-owner --no-same-permissions && chown -R root:root /opt/monark-dojo &&
+find /opt/monark-dojo -type d -exec chmod 0755 {} + && find /opt/monark-dojo -type f -exec chmod 0644 {} + &&
+cd /opt/monark-dojo && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t' > /f/tmp/dojo-dn/publish-tree.host.sha
+```
+
+```bash
+rm -rf /f/tmp/dojo-dn/publish-tree && mkdir -p /f/tmp/dojo-dn/publish-tree &&
+tar xzf /f/tmp/dojo-dn/publish-tree.tar.gz -C /f/tmp/dojo-dn/publish-tree && cd /f/tmp/dojo-dn/publish-tree &&
+find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t > /f/tmp/dojo-dn/publish-tree.local.sha && wc -l < /f/tmp/dojo-dn/publish-tree.local.sha &&
+cmp -s /f/tmp/dojo-dn/publish-tree.local.sha /f/tmp/dojo-dn/publish-tree.host.sha && echo TREE-EQUAL || echo TREE-DIFFERENT
+```
+
+Expected: `10`, then `TREE-EQUAL` (the host's digests equal the local ones line for line). No `node_modules` link: the closure of the
+publisher holds no bare specifier. Then the collect tree at the SAME G7, compared, nothing written on the host (DOJO-SYNC-G7-REF-1):
+
+```bash
+G7=$(cat /f/tmp/dojo-dn/G7.txt) && rm -rf /f/tmp/dojo-dn/collect-g7 && mkdir -p /f/tmp/dojo-dn/collect-g7 &&
+git -C /f/Monark archive --format=tar "$G7" $(cat /f/tmp/dojo-dn/collect-tree.txt) | tar xf - -C /f/tmp/dojo-dn/collect-g7 &&
+cd /f/tmp/dojo-dn/collect-g7 && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t > /f/tmp/dojo-dn/collect-g7.local.sha &&
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cd /opt/monark-dojo-collect &&
+find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t' > /f/tmp/dojo-dn/collect-g7.host.sha &&
+cmp -s /f/tmp/dojo-dn/collect-g7.local.sha /f/tmp/dojo-dn/collect-g7.host.sha && echo TREE-EQUAL || echo TREE-DIFFERENT
+```
+
+Expected: `TREE-EQUAL` (the 26 files; the link `node_modules/@monark/rpc-guard` is not a file). **STOP** on `TREE-DIFFERENT` (PB-5):
+the collect tree differs at the new G7: A-3 and A-5 (collect side) are redone at this G7 and the rehearsal criterion (section 6)
+restarts at the next whole day. Blockers: the G7 of PR-1b-5a, PR-1b-5b, PR-3a-1c and PR-3b-2a; DOJO-PUBLISH-TREE-PATHS-1 closed.
+Rollback: `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'rm -rf /opt/monark-dojo'`.
+
+## 13. A-4p — the signing key, generated ON the host, and the committed keyring (DOJO-KEY-1)
+
+```bash
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'umask 077 &&
+node /opt/monark-dojo/apps/dojo/scripts/dojo-publish.mjs --generate-key /etc/monark/dojo/signing-key.pem > /root/dojo-pubkey.out;
+echo gen_exit=$?; stat -c "%a %U:%G %s" /etc/monark/dojo/signing-key.pem;
+grep -c PRIVATE /root/dojo-pubkey.out; grep -c -E "[{,] *.d. *:" /root/dojo-pubkey.out; wc -c < /root/dojo-pubkey.out'
+```
+
+Expected: `gen_exit=0`; `600 root:root <size>` (a PKCS#8 PEM file); `0` and `0` (the saved output holds no private material:
+counts only, never contents); a small byte count. Then the PUBLIC output, and nothing else:
+`ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cat /root/dojo-pubkey.out'` prints one line
+`{"key_id":"<64 hex>","public_key":{"kty":"OKP","crv":"Ed25519","x":"<x>"}}`; both values to the JOURNAL. **STOP** if a count is
+not 0 (an exposure before any line):
+
+```bash
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'shred -u /etc/monark/dojo/signing-key.pem /root/dojo-pubkey.out'
+```
+
+then record it, and no new key before a fix. **STOP** on `key_file_exists` (never remove a key to make room). The committed
+keyring (the trust root), made on the operator machine from that public output by the repo's own code, which refuses a `key_id`
+that is not the sha256 of `x`; its bytes are the ones the publisher serves at `/dojo/pubkey.json` for its genesis key (pinned by
+`dojo_units_compose_collect_to_publish_to_verify`):
+
+```bash
+cd /f/Monark && mkdir -p apps/dojo/keys &&
+node --input-type=module -e "import { keyringOf, publicKeyOfJwk, canonical } from './apps/bell/scripts/bell-chain.mjs';
+const [x, id] = process.argv.slice(1); const e = keyringOf(publicKeyOfJwk({ x }), 1).keys[0];
+if (e.key_id !== id) { console.error('STOP: key_id mismatch'); process.exit(1); }
+console.log(canonical({ schema: 'dojo-keyring-v1',
+keys: [{ key_id: e.key_id, public_key: e.jwk, valid_from_seq: 1 }] }));" -- '<x>' '<key_id>' > apps/dojo/keys/dojo-keyring.json;
+echo exit=$?; cat apps/dojo/keys/dojo-keyring.json
+```
+
+Expected: `exit=0`, then one canonical line
+`{"keys":[{"key_id":"<key_id>","public_key":{"crv":"Ed25519","kty":"OKP","x":"<x>"},"valid_from_seq":1}],"schema":"dojo-keyring-v1"}`.
+Then the label guard (DOJO-SYNC-LABEL-FALSE-REFUSAL-1 and DOJO-SYNC-LABEL-SUBSTRING-1: the key and the keyring pass it before the
+commit, ADR-DOJO-PR-4 l.252-253), the commit (orchestrator, R-20), the full oracle and the push: committed and pushed BEFORE any line
+is signed (DOJO-KEY-1); this commit un-skips `dojo_keyring_shares_no_key_with_bell` (TU-K). Blockers: the G7 of PR-3a-1c;
+DOJO-KEYMODE-RETRY-1; DOJO-ROTATION-FORK-WINDOW-1; the two label items. Rollback: while no line is signed, the `shred -u` above and
+the local commit dropped; after a signed line, a rotation (section 20), never a deletion.
+
+## 14. A-5p — the two units from the G7 bytes, their calendar, one dry start
+
+```bash
+G7=$(cat /f/tmp/dojo-dn/G7.txt) && for u in monark-dojo-publish.service monark-dojo-publish.timer; do
+git -C /f/Monark cat-file blob "$G7:deploy/$u" |
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 "umask 022 && cat > /etc/systemd/system/$u" || echo "FAILED $u"; done;
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl daemon-reload &&
+systemctl show -p LoadState -p FragmentPath -p DropInPaths -p NeedDaemonReload monark-dojo-publish.service monark-dojo-publish.timer &&
+sha256sum /etc/systemd/system/monark-dojo-publish.service /etc/systemd/system/monark-dojo-publish.timer &&
+for h in 00 01 03 06; do systemd-analyze calendar "*-*-* $h:30:00 UTC" | grep -E "Normalized|Next"; done &&
+stat -c "%a %U:%G %n" /etc/monark/dojo-collect /etc/monark/dojo-collect.env /var/lib/monark-dojo-collect/ledger &&
+stat -c "%a %U:%G %n" /var/lib/monark-dojo-collect/bundles && systemctl show-environment | cut -d= -f1'
+```
+
+Expected: no `FAILED`; `LoadState=loaded` twice, both `FragmentPath` under `/etc/systemd/system`, `DropInPaths=` empty,
+`NeedDaemonReload=no`; each digest equal to `git -C /f/Monark cat-file blob "$G7:deploy/<unit>" | sha256sum`; the four
+expressions accepted, each next elapse at hh:30 UTC (JOURNAL: the normalized forms read on systemd 259); the four paths of the
+collect side exist (the unit's `InaccessiblePaths=` and `ReadOnlyPaths=` carry no `-`: a missing path fails the start, so A-2 and
+A-4 of the collect side come first); the NAMES of the manager's environment block (FAITS-SYSTEMD-PUBLISH-1 F-3), none of the
+families `NODE_`, `SSL_`, `OPENSSL_` or ending in `PROXY` (TB-25; else **STOP**: never print a value). Never `systemctl edit` (a
+drop-in changes the pinned unit), never `systemctl enable` here (the timer is enabled at A-10 only). Then one dry start (the
+unit's user, sandbox, credential, tree, argv and environment), with nothing to publish yet:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl start monark-dojo-publish.service; echo start_exit=$?;
+journalctl -u monark-dojo-publish.service -n 10 --no-pager -o cat | grep "dojo/publish";
+systemctl reset-failed monark-dojo-publish.service; find /var/lib/monark-dojo -mindepth 1 | sort'
+```
+
+Expected: `start_exit=1`; the journal line `dojo/publish: history_missing: the first snapshot waits for the history line (decision
+231)`, NEVER `signing_key_missing` (the key is loaded before any state is read: `runCli` evaluates `load(KEY)` before
+`publishDay`); `find` lists `/var/lib/monark-dojo/public` only (nothing written). **STOP** on any other output:
+`signing_key_missing`, a start that fails before the job (a namespace, a missing path, the credential: read
+`systemctl status monark-dojo-publish.service`), a Node `ERR_MODULE_NOT_FOUND` (the tree is incomplete), any written path.
+Blockers: A-3p; A-4p pushed; the dated line of DOJO-VERIFY-SCALE-1 (the unit's `MemoryMax`, heap and `TimeoutStartSec`). Rollback:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'rm /etc/systemd/system/monark-dojo-publish.service /etc/systemd/system/monark-dojo-publish.timer &&
+systemctl daemon-reload'
+```
+
+## 15. CA-0 — the offline conformity check (its place; the script and the host captures are PR-3b-2b's)
+
+When: after A-5p, replayed after A-8 and after A-10; never committed. Form (pli G0 of PR-3b-2, PB-2, written in full and pinned by
+PR-3b-2b): `node scripts/verify-dojo.mjs --offline <mirror> --keyring apps/dojo/keys/dojo-keyring.json`, with `--g7`,
+`--tree-digests <publication> <collect>`, `--loaded-config <captures>` and `--bell-digests <before> <after>`. Expected (the closed
+table of PB-2): `c09`, `c10` and `c12` green; `c01`, `c02`, `c03` and `c08` evaluated on the mirror; `c11` red without a `snapshot`;
+`c04` to `c07` never passed, so never `VERIFY OK` (M-H28). Rollback: none (read-only). Blockers: the G7 of PR-3b-2b; A-5p.
+
+## 16. A-8 — the anchor: signed by a transient job, checked OFFLINE, then timestamped (ADR D-4)
+
+Blockers: DOJO-PUBLISH-VERIFY-BEFORE-COMMIT-1 and D-C2 (G7 of PR-3a-1c); A-4p pushed; A-5p; this section (T-A11). The unit is
+`inactive` (its timer is enabled at A-10 only): the job below is the only writer (motif R3, RUNBOOK-bell l.483-485).
+
+(1) The request, prepared by the orchestrator on its machine: the fifteen keys of `ANCHOR_KEYS` of
+`apps/dojo/scripts/dojo-publish.mjs`, `read_rule` = `READ_RULE` of `apps/dojo/src/dojo-methods.ts`, `seed_anchor` and `horizon`
+(365) = the public line of the REAL seed (A-4, collect side: `seed.next`, JOURNAL), the other values those the ADRs fix; its
+sha256 to the JOURNAL. It holds no secret. Written by root into the state, readable by the job's user, removed after the act:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'umask 027 && cat > /var/lib/monark-dojo/anchor-request.json &&
+chown dojo:dojo /var/lib/monark-dojo/anchor-request.json && stat -c "%a %U:%G %s %n" /var/lib/monark-dojo/anchor-request.json &&
+sha256sum < /var/lib/monark-dojo/anchor-request.json' < '<local anchor request file>'
+```
+
+Expected: `640 dojo:dojo <size> /var/lib/monark-dojo/anchor-request.json` and the local digest. (2) The anchor line, by ONE
+transient job with the unit's user, sandbox and credential (each property of `S` is the unit's own, pinned by
+`dojo_unit_is_offline_and_loads_its_own_credential`):
+
+```bash
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'test "$(systemctl is-active monark-dojo-publish.service)" = inactive &&
+S="-p PrivateNetwork=yes -p NoNewPrivileges=true -p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true
+-p ReadWritePaths=/var/lib/monark-dojo -p UMask=0022" && K="-p LoadCredential=dojo-signing-key:/etc/monark/dojo/signing-key.pem" &&
+C="/usr/bin/env node /opt/monark-dojo/apps/dojo/scripts/dojo-publish.mjs
+--anchor /var/lib/monark-dojo/anchor-request.json --state /var/lib/monark-dojo" &&
+systemd-run --wait --pipe --collect --uid=dojo --gid=dojo $S $K $C'
+```
+
+Expected: one JSON line `{"status":"anchored","seq":1,"published_at":"<ISO>","key_id":"<A-4p key_id>","line_hash":"<64 hex>"}`
+(JOURNAL). **STOP** on any other output: `anchor_malformed` (the request; nothing written), `signing_key_missing`,
+`existing_timeline_corrupt`, `anchor_on_published_day`, `line_refused` (section 19); a property that `systemd-run` refuses fails
+before the job (read its error; nothing written). Then the request goes, its digest equal to (1):
+`ssh -i ~/.ssh/monark_vps root@178.16.131.29 'sha256sum < /var/lib/monark-dojo/anchor-request.json && rm /var/lib/monark-dojo/anchor-request.json'`.
+
+(3) The mirror copy of `public/` (durable, never under `F:/tmp` alone), digests on both sides:
+
+```bash
+mkdir -p /f/PRODUITS/dojo-mirror/public-seq1 &&
+scp -r -i ~/.ssh/monark_vps 'root@178.16.131.29:/var/lib/monark-dojo/public/*' /f/PRODUITS/dojo-mirror/public-seq1/ &&
+cd /f/PRODUITS/dojo-mirror/public-seq1 && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t > /f/tmp/dojo-dn/public-seq1.local.sha &&
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cd /var/lib/monark-dojo/public &&
+find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t' > /f/tmp/dojo-dn/public-seq1.host.sha &&
+cmp -s /f/tmp/dojo-dn/public-seq1.local.sha /f/tmp/dojo-dn/public-seq1.host.sha && echo MIRROR-EQUAL || echo MIRROR-DIFFERENT
+```
+
+Expected: `MIRROR-EQUAL` (two files: `timeline.jsonl` and `dojo/pubkey.json`). (4) **STOP, offline, BEFORE any `ots stamp`** (pli
+of PR-3a-1c, Q-V-1): the real verifier's public command on the mirror, from the served files alone:
+
+```bash
+cd /f/Monark && node apps/dojo/scripts/dojo-verify-cli.mjs /f/PRODUITS/dojo-mirror/public-seq1 --self-consistent-only; echo verify_exit=$?
+```
+
+Expected: `verify_exit=0` and one line with `"ok":true`, `"seq":1`, `"snapshots":0`, `"head":null` and
+`"status":"self_consistent_only"`. Then the declared extension (stronger, offline too, never a substitute), under the committed
+keyring:
+
+```bash
+cd /f/Monark && node apps/dojo/scripts/dojo-verify-cli.mjs /f/PRODUITS/dojo-mirror/public-seq1 --keyring apps/dojo/keys/dojo-keyring.json;
+echo verify_exit=$?
+```
+
+Expected: `verify_exit=0` and `"status":"consistent_with_supplied_keyring"`. **STOP on any other output: no `ots stamp`, nothing
+served**; no rollback erases: the state is set aside and a NEW timeline starts (a new anchor does not repair a refused line: dated
+lines of PR-3a-1b C-V-2 and of PR-3a-1c). (5) The manifest (ADR-BELL-OTS-ANCHOR-1 D1: `#L1` hashes line 1 without its LF, its
+`line_hash`; `#L1-L1` hashes it with its LF), in the register `docs/dojo-publications/` (calque of Bell D3; its service is
+DOJO-ANCHOR-SERVE-1):
+
+```bash
+cd /f/Monark && mkdir -p docs/dojo-publications && T=/f/PRODUITS/dojo-mirror/public-seq1/timeline.jsonl &&
+M=docs/dojo-publications/timeline-seq1-manifest.txt && test ! -e "$M" && L=$(head -n 1 "$T" | head -c -1 | sha256sum | cut -c1-64) &&
+P=$(head -n 1 "$T" | sha256sum | cut -c1-64) && echo "timeline.jsonl#L1 $L" > "$M" && echo "timeline.jsonl#L1-L1 $P" >> "$M" &&
+cat "$M" && sha256sum "$M"
+```
+
+Expected: two lines, sorted by relpath, the `#L1` digest equal to the `line_hash` of (2) (else **STOP**); the manifest's digest to
+the JOURNAL. (6) The timestamp, in the frozen form of ruling GO1-F (its two paths held in variables to keep lines short), then the
+date:
+
+```bash
+cd /f/Monark && O="/f/MONARK SUITE/ots/venv/Scripts/ots" && D="/f/MONARK SUITE/ots/dll:/c/Program Files/Git/mingw64/bin" &&
+PATH="$D:$PATH" "$O" --cache /f/tmp/ots-cache stamp docs/dojo-publications/timeline-seq1-manifest.txt; echo stamp_exit=$?;
+date -u +%Y-%m-%dT%H:%M:%SZ
+```
+
+Expected: `stamp_exit=0` and `timeline-seq1-manifest.txt.ots` beside the manifest, a PENDING proof. Fewer than two calendars
+answer: one more try in the same window, else a later window (no A-9 without the proof; a pending proof is never remade over a
+lost one). (7) The durable copy, IMMEDIATELY (the pending proof carries a random nonce: lost, it cannot be rebuilt):
+
+```bash
+cd /f/Monark/docs/dojo-publications && T=$(date -u +%Y%m%dT%H%MZ) && mkdir -p /f/PRODUITS/dojo-mirror/ots &&
+cp -n timeline-seq1-manifest.txt "/f/PRODUITS/dojo-mirror/ots/timeline-seq1-manifest-$T.txt" &&
+cp -n timeline-seq1-manifest.txt.ots "/f/PRODUITS/dojo-mirror/ots/timeline-seq1-manifest-$T.txt.ots" &&
+sha256sum "/f/PRODUITS/dojo-mirror/ots/timeline-seq1-manifest-$T.txt" "/f/PRODUITS/dojo-mirror/ots/timeline-seq1-manifest-$T.txt.ots"
+```
+
+Expected: the manifest's digest of (5) and the proof's digest (JOURNAL). (8) The commit of the pair (orchestrator, R-20; `.txt`
+text eol=lf, `.ots` binary): the staged digest, the `File sha256 hash:` of `ots info` and the digest of (5) are one value (calque of
+RUNBOOK-bell 13 bis, point 4); the register row and its service follow DOJO-ANCHOR-SERVE-1 (piste C). (9) Later, the upgrade,
+ONLY once the durable copy of (7) exists:
+
+```bash
+cd /f/Monark && O="/f/MONARK SUITE/ots/venv/Scripts/ots" && D="/f/MONARK SUITE/ots/dll:/c/Program Files/Git/mingw64/bin" &&
+PATH="$D:$PATH" "$O" --cache /f/tmp/ots-cache upgrade docs/dojo-publications/timeline-seq1-manifest.txt.ots; echo upgrade_exit=$?;
+ls docs/dojo-publications
+```
+
+Expected: `upgrade_exit=0` ("Timestamp complete": the proof records a Bitcoin block, whose time is read per FAITS-BTC-BLOCKTIME-1)
+or `upgrade_exit=1` "Timestamp not complete" (retry at a later window). A `.bak` the client leaves moves to
+`/f/PRODUITS/dojo-mirror/ots/` (never committed, never served); the new proof is copied there too (digest to the JOURNAL), then
+committed. **Only an upgraded proof opens A-9** (DOJO-ANCHOR-OTS-DATE-RULE-1: the first counted day is the first day after the
+anchor day whose T_d follows that block, constated, never predicted; until then no day is counted, the collection stays in
+rehearsal).
+
+## 17. A-10 — the publication timer and its cadence
+
+Blockers: A-9 (the rehearsal archived outside `bundles/`); DOJO-PUBLISH-SINGLE-WRITER-1 (its own lot: TB-23); DOJO-PUBLISH-PV-ATOMIC-1
+and DOJO-VERIFY-PV-SCHEDULE-1 (G7 of PR-3a-1c and PR-1b-5a); the dated line of DOJO-VERIFY-SCALE-1; section 19 read.
+
+```bash
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl enable --now monark-dojo-publish.timer &&
+systemctl list-timers monark-dojo-publish.timer --no-pager'
+```
+
+Expected: the next elapse at 00:30, 01:30, 03:30 or 06:30 UTC. **Cadence** (PB-2; Q-G2-4 of PR-3a-1c): four slots a day; each start
+publishes ONE day at most (`"status":"published"` and its day), or completes a `price_version` due, alone in its start
+(`dojo/publish: completed_price_version` on stderr, D-C3), or publishes nothing (`nothing_to_publish`: the day is open, or published
+already); a day closed after 06:30 waits for the next 00:30; after an outage, at most four days are caught up per UTC day. Each
+start, read in the journal:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'journalctl -u monark-dojo-publish.service --since "<UTC date> 00:00:00 UTC" --no-pager -o cat |
+grep -E "status|dojo/publish"'
+```
+
+Expected: `history_missing` at every start until the `history` line (decision 231; nothing written), then `published` or
+`nothing_to_publish`. **STOP** on every other refusal (section 19). Never a manual `--inbox` beside the timer (a second writer,
+TB-23). Rollback (a stop): `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl disable --now monark-dojo-publish.timer'`.
+
+## 18. A-11 — the transfers of the first counted day (TU-1p, TU-1h)
+
+Three copies by `scp`, digests on both sides to the JOURNAL (motif RUNBOOK-bell section 9), none that erases. (i) The `Eve` of the
+`publish/` of PR-2b-4 (addresses only) → `bundles/<d>/eve.json` of the first day d the restarted collector opens (section 7 (5)),
+`dojo-collect:dojo-handoff` 0640, BEFORE the start (6) and the timer (7) (else `eve_missing` and a stop):
+
+```bash
+scp -i ~/.ssh/monark_vps '<local Eve of PR-2b-4>' root@178.16.131.29:/root/dojo-eve-first.json &&
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cat /root/dojo-eve-first.json | sudo -u dojo-collect sh -c "umask 0027 &&
+mkdir -p /var/lib/monark-dojo-collect/bundles/<d> && cat > /var/lib/monark-dojo-collect/bundles/<d>/eve.json.tmp &&
+mv /var/lib/monark-dojo-collect/bundles/<d>/eve.json.tmp /var/lib/monark-dojo-collect/bundles/<d>/eve.json" &&
+stat -c "%a %U:%G %s %n" /var/lib/monark-dojo-collect/bundles/<d>/eve.json && rm /root/dojo-eve-first.json'
+```
+
+```bash
+A=$(sha256sum < '<local Eve of PR-2b-4>' | cut -c1-64) &&
+B=$(ssh -i ~/.ssh/monark_vps root@178.16.131.29 'sha256sum < /var/lib/monark-dojo-collect/bundles/<d>/eve.json | cut -c1-64') &&
+[ "$A" = "$B" ] && echo COPY-EQUAL || echo COPY-DIFFERENT
+```
+
+Expected: `640 dojo-collect:dojo-handoff <size> .../bundles/<d>/eve.json`, then `COPY-EQUAL`. (ii) `readings/` of d → the
+operator machine, AFTER the close of d (its `publish/SHA256SUMS` exists): the input of the history collector (TU-1h):
+
+```bash
+mkdir -p /f/PRODUITS/dojo-mirror/readings &&
+scp -r -i ~/.ssh/monark_vps root@178.16.131.29:/var/lib/monark-dojo-collect/bundles/<d>/readings /f/PRODUITS/dojo-mirror/readings/<d> &&
+cd /f/PRODUITS/dojo-mirror/readings/<d> && A=$(find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t) &&
+B=$(ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cd /var/lib/monark-dojo-collect/bundles/<d>/readings &&
+find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t') && [ "$A" = "$B" ] && echo COPY-EQUAL || echo COPY-DIFFERENT
+```
+
+Expected: `COPY-EQUAL`. (iii) The history bundle of PR-2b → the box of PR-3a-2 (its path is PR-3a-2's), BEFORE the close of d,
+hence before the `history` line and the first `snapshot`; the same two-sided digests, `COPY-EQUAL`. Blockers: the acts of PR-2b
+and theirs (RG-SNAPSHOT-NONNEG-INT-1, DOJO-HISTORY-CROSS-INDEX-1, items Q-G2-4 of PR-2b-4); the G7 of PR-3a-2; (ii) after the close
+of d. Rollback: none that erases (copies).
+
+## 19. The publisher's refusals — every one a STOP (consignes of PR-3a-1c; pinned by T-A11)
+
+A refusal is one line `dojo/publish: <code>: <detail>` on stderr, exit 1, and NOTHING written (the commit point is the private
+timeline's durable append, after the checks). The detail names a file, a key or a seq, never a value. The closed list:
+
+| Code | From | The orchestrator |
+|---|---|---|
+| `existing_timeline_corrupt` | every mode: the state does not re-read as committed | **STOP**; read the detail; never edit the state by hand; escalation |
+| `signing_key_missing` | every mode but `--generate-key`: the credential | **STOP** (A-5p: the sandbox or the key file) |
+| `signing_key_not_in_keyring` | the loaded key is not the active key | **STOP** (a rotation half made: section 20) |
+| `price_version_pending` | `--anchor` while a `price_version` is due | **STOP**: run `--inbox` first (the next start completes it, D-C3) |
+| `anchor_malformed` | `--anchor`: the fifteen keys, the accounts, `read_rule` | **STOP**; fix the request (A-8 (1)) |
+| `line_refused` | the walker or the verification before the append | **STOP**, escalation (below) |
+| `no_timeline` | `--rotate`, `--revoke` on an empty state | **STOP** |
+| `key_already_in_keyring` | `--rotate` with a key already in the keyring | **STOP** |
+| `revocation_invalid` | `--revoke`: the key or the seq | **STOP** |
+| `key_file_exists` | `--generate-key` over a file | **STOP**; never remove a key to make room |
+| `anchor_on_published_day` | `--anchor` on or before the last published day | **STOP**; a new anchor comes on a later day |
+| `history_missing` | `--inbox` before the `history` line | expected until that line (decision 231); **STOP** after it |
+| `day_not_after_anchor` | a day at or before the anchor's day (M-E8) | **STOP** |
+| `bundle_day_mismatch` | the day's directory and its `day.json` | **STOP** |
+| `bundle_anchor_mismatch` | mint, program or `k_reads` of the day | **STOP** (the anchor in force at the collect side: section 7 (4)) |
+| `seed_outside_anchor_chain` | the day's seed off the anchor's chain (M-E6) | **STOP** (the seed in force: section 7 (3)) |
+| `eve_mismatch` | an address holding lots missing from the day | **STOP** (the `Eve` of the first day: A-11 (i)) |
+| `layout_malformed` | the layout reader of PR-2-2 | **STOP** |
+| `layout_sha_mismatch` | the layout reader: a digest of `SHA256SUMS` | **STOP** |
+| `layout_stray_file` | the layout reader: a file off its closed list | **STOP**; a `readings/<name>.tmp`: section 8 |
+| `eve_malformed` | the layout reader: the `Eve` | **STOP** |
+| `day_not_ended` | the bundle reader of PR-2-1 | **STOP** |
+| `bundle_input_malformed` | the bundle reader | **STOP** |
+| `record_malformed` | the bundle reader: a reading | **STOP** |
+| `bundle_malformed` | the bundle reader: `day.json` | **STOP** |
+| `bundle_records_mismatch` | the bundle reader: the readings and `day.json` | **STOP** |
+
+**`line_refused`** (C-G2-1 of PR-3a-1c, dated line 21:4x): the detail names the seq, the reason and the sub-check; nothing is
+written. Known motive: an anchor line appended OUTSIDE `--anchor` above a `price_version` due (a signer handled by hand): nothing is
+due any more (the segment guard), but the verification refuses every later day (`version_not_in_force` at the seq of that anchor),
+at every start: a DURABLE stop, fail-closed, without writing; a new anchor does not repair it; the only remedy is a new timeline.
+Escalation to the orchestrator before anything else; never an edit of the timeline.
+
+## 20. A key rotation and the page (consigne of QF-3 (d), ADR-DOJO-PR-4 dated line 01:3x)
+
+A rotation of the signing key (the publisher's `--rotate`: the new key generated ON the host as in A-4p, its PUBLIC part committed
+and pushed BEFORE the `key_rotation` line, in the order of item KEYRING-COMMIT-AFTER-KEY-LINE-1 of Bell) is a one-off act under go,
+the unit `inactive`. Until the next synchro (TU-7, PR-3b-2b), the page's live reread (PR-4c-1) falls back to the committed figures
+and their day (TXT-14c, TXT-14d): the day shown is the committed one, never hidden. Then a new CA and a new synchro, as after any
+redeployment (DOJO-SYNC-G7-REF-1).
+
 ## Never
 
 `cat`/`head`/`tail`/`less`/`xxd`/`od`/`base64` on a seed file or on `/etc/monark/dojo-collect.env`, or a digest of them displayed;
@@ -313,3 +719,9 @@ a default `AccuracySec` or a calendar without `UTC`; a path of the publication s
 writable by the collect unit; a credential source (seed, anchor) under the state directory; editing a bundle, a reading, an `Eve` or
 the anchor by hand outside sections 5, 6 and 7 (only the `readings/*.tmp` of section 8 are removed); a `.lock` removed by hand or an
 `unlock` run as root (section 9); moving `bundles/` while a step runs (section 7).
+
+Publication side: `cat`/`head`/`tail`/`less`/`xxd`/`od`/`base64`/`openssl` on the signing key, or its digest displayed; a key
+generated off the host; `systemctl edit` or a drop-in on the publication units; `systemctl enable` of the publish unit (its timer
+only, at A-10); `--inbox` run by hand beside the timer (a second writer); `ots stamp` before the offline check of A-8 (4); `ots
+upgrade` before the durable copy of A-8 (7); a counted day before the upgraded proof records its block; editing the publisher's
+state or `public/` by hand; a listing, a proxy or a redirect of `/` in the Caddy extract; the anchor request left in the state.

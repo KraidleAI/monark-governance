@@ -1,0 +1,58 @@
+# systemd unit for the MONARK Dojo publisher (ADR-DOJO-SNAPSHOT-1 T-10; ADR-DOJO-PR-3 D-5, pli G0 of PR-3b-2, PB-2 and PB-3;
+# docs/dojo/FAITS-systemd-publish-2026-09-30.md). Orchestrator-deployed on the Bell host by docs/RUNBOOK-dojo.md, acts A-2p to A-5p
+# and A-10, under the go of the closed list of PB-5. A Type=oneshot job started by monark-dojo-publish.timer (NOT a server): each start
+# runs apps/dojo/scripts/dojo-publish.mjs --inbox once (the next closed day of the collect handoff, read through its
+# publish/SHA256SUMS with its check, verified with the whole served tree by the real verifier BEFORE the first append, signed, then
+# served under /var/lib/monark-dojo/public, which Caddy reads) and exits. It holds the signing key (LoadCredential below), NO network
+# and NO secret of the collect side: the collector runs in the other unit, under another user, with no writable path shared (D-5).
+[Unit]
+Description=MONARK Dojo publisher - publishes the next closed day of the collect handoff (ADR-DOJO-PR-3)
+Documentation=https://github.com/KraidleAI/monark
+
+[Service]
+Type=oneshot
+# The dedicated tree (act A-3p): exactly scripts/dojo-deploy.mjs DOJO_PUBLISH_TREE_PATHS, shipped by git archive at the G7 SHA,
+# root-owned 0644; the collect tree comes from the SAME G7 (DOJO-SYNC-G7-REF-1). Node built-ins and modules of the tree only.
+WorkingDirectory=/opt/monark-dojo
+# A dedicated non-login user (act A-2p), member of the handoff group: bundles/ is 2750 dojo-collect:dojo-handoff (act A-2), so the
+# publisher reads a closed day through that group. FAITS-SYSTEMD-PUBLISH-1 F-1: SupplementaryGroups= extends the user's own groups;
+# both are set (the unit declares the group, act A-2p makes the membership, `id dojo` is read back).
+User=dojo
+Group=dojo
+SupplementaryGroups=dojo-handoff
+# The signing key (act A-4p): a root:root 0600 file handed by PID 1 under $CREDENTIALS_DIRECTORY, read-only, the ONLY credential;
+# dojo-publish.mjs reads it there alone, under this exact name. An absolute source makes a missing key fatal to the start.
+LoadCredential=dojo-signing-key:/etc/monark/dojo/signing-key.pem
+# --max-old-space-size (MiB) keeps V8's old generation below MemoryMax (base-1024 suffix): a heap exhaustion ends as a clean V8 error
+# before the cgroup OOM killer (precedent monark-bell-publish.service). This line keeps the exact form of PB-2 (178 characters: a
+# systemd directive is broken only by a backslash continuation, which the lot's byte rule forbids; declared in the G1 journal).
+ExecStart=/usr/bin/env node --max-old-space-size=448 /opt/monark-dojo/apps/dojo/scripts/dojo-publish.mjs --inbox /var/lib/monark-dojo-collect/bundles --state /var/lib/monark-dojo
+# A oneshot has NO start timeout by default (systemd.service(5), FAITS-SYSTEMD-TIMEOUT-1). Every start verifies the whole served tree
+# before its first append (PR-3a-1c, TB-15). DOJO-VERIFY-SCALE-1 (G1 journal of PR-3b-2a): the worst measured start, 561.9 s of CPU
+# (N = 10 000, D = 30), x 4 (CPUQuota=25%), x 1.25, up to 100 s; covered: N <= 10 000 at D <= 30, N <= 1 144 at D <= 365.
+TimeoutStartSec=2900
+# No Environment=, no EnvironmentFile=, no PassEnvironment=: the publisher reads CREDENTIALS_DIRECTORY only. The manager's own block
+# (DefaultEnvironment=, systemctl set-environment) still reaches the job (FAITS-SYSTEMD-PUBLISH-1 F-2): the names that would load
+# code into the process holding the key or touch TLS are unset as the final step (the retained guard of F-2, verbatim).
+UnsetEnvironment=NODE_OPTIONS NODE_TLS_REJECT_UNAUTHORIZED NODE_EXTRA_CA_CERTS SSL_CERT_FILE SSL_CERT_DIR HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy all_proxy no_proxy
+# Least privilege: the ONLY writable path is the state directory (the private timeline, keyring.json, staging/ and public/).
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/monark-dojo
+# The collect side: bundles/ read-only (the handoff, TU-4), the rest of it inaccessible with everything below it: its credential
+# sources, its EnvironmentFile (the Helius key) and its ledger (symmetric of the collect unit's InaccessiblePaths=/etc/monark/dojo).
+# No leading `-`: each path must exist (acts A-2 and A-4, collect side), else the start fails. Under ProtectSystem=strict /opt is
+# already read-only, so the tree needs no ReadOnlyPaths= (the variant of FAITS F-5, redundant, is not taken).
+ReadOnlyPaths=/var/lib/monark-dojo-collect/bundles
+InaccessiblePaths=/etc/monark/dojo-collect /etc/monark/dojo-collect.env /var/lib/monark-dojo-collect/ledger
+# Offline by construction: a private network namespace with loopback only (systemd.exec(5)); second lock in code: the publisher's
+# import closure holds no network module (dojo_publish_imports_no_network_module).
+PrivateNetwork=yes
+# Files 0644, directories 0755: Caddy (user caddy) reads public/ and never writes it.
+UMask=0022
+# Resource caps on the shared Bell host (2 vCPU): at most a quarter of ONE CPU, one Node process (precedent monark-bell-publish).
+CPUQuota=25%
+MemoryMax=512M
+TasksMax=32
