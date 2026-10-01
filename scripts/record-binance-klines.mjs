@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// scripts/record-binance-klines.mjs -- recorder of Binance spot 15-minute klines for the strategy library of RECHERCHES (lot
-// SERIES-BINANCE, 2026-10-01). Node 24, zero dependencies. Condition C-5 (docs/marche/FAITS-conditions-series-2026-10-01.md): the
+// scripts/record-binance-klines.mjs -- recorder of Binance spot klines (15m, 1h or 4h) for the strategy library of RECHERCHES (lots
+// SERIES-BINANCE and SERIES-INTERVALS, 2026-10-01). Node 24, zero dependencies. Condition C-5 (docs/marche/FAITS-conditions-series-2026-10-01.md): the
 // terms were read before any request; one public raw endpoint, no key, no account, no cost; the series are NOT redistributable and
 // never enter a repository (an output directory under any git tree is refused); RECHERCHES reviews this recorder before its first call.
 //   record: node scripts/record-binance-klines.mjs --symbol BTCUSDT --interval 15m --start 2024-10-01T00:00Z --end 2026-10-01T00:00Z --out <dir>
@@ -9,10 +9,10 @@
 // Network discipline: one hard-coded endpoint whose host is checked against a closed list before each request; redirects refused (any
 // 3xx stops); proxies refused (NODE_USE_ENV_PROXY, --use-env-proxy in execArgv or NODE_OPTIONS); NODE_TLS_REJECT_UNAUTHORIZED=0 refused;
 // no header is set (so no authentication header); at least 500 ms between two requests; at most 100 requests; no retry, ever.
-// Pagination: startTime = cursor, endTime = end - 1 ms, limit = 1000; next cursor = last openTime + 15 min; the loop ends when the
+// Pagination: startTime = cursor, endTime = end - 1 ms, limit = 1000; next cursor = last openTime + one interval; the loop ends when the
 // cursor reaches the end or a page is empty (the rest of the grid is then declared missing).
 // Named stops (RecorderStop.code, closed list STOPS) write nothing to the normalized outputs; raw/ and requests.jsonl keep what was
-// received. Outputs in --out: raw/<symbol>-<startTime>.json (bytes as received), requests.jsonl, <symbol>-15m.csv (fixed header,
+// received. Outputs in --out: raw/<symbol>-<startTime>.json (bytes as received), requests.jsonl, <symbol>-<interval>.csv (fixed header,
 // decimal strings as received, ascending, identical duplicates removed), missing.json (every absent grid slot, never filled),
 // manifest.json, SHA256SUMS (sha256sum -c format). Exit 0 written, 1 named stop, 2 usage.
 // Test seam: run(argv, io) and main(argv, io) take fetch, sleep, clock, env, execArgv and print from their caller; neither the command
@@ -25,8 +25,8 @@ import { fileURLToPath } from "node:url";
 export const ENDPOINT = "https://api.binance.com/api/v3/klines";
 export const HOSTS = ["api.binance.com"];
 export const SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT"]; // closed list; SOLUSDT: amendment of 2026-10-01
-export const INTERVAL = "15m";
-export const STEP_MS = 900_000;
+export const INTERVALS = Object.freeze({ "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000 }); // closed list: name -> duration in ms
+const MINUTE_MS = 60_000; // a bad_time names the grid in minutes: "not on the 15-minute grid" (15m), "60-minute" (1h), "240-minute" (4h)
 export const LIMIT = 1000;
 export const PAUSE_MS = 500;
 export const MAX_PAGES = 100;
@@ -59,11 +59,11 @@ const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 /** ISO 8601 UTC to the second, the form of --start and --end: 2024-10-01T00:00:00Z. */
 export const isoOf = (ms) => new Date(ms).toISOString().replace(".000Z", "Z");
 
-/** --start or --end: YYYY-MM-DDTHH:MMZ or YYYY-MM-DDTHH:MM:00Z, a real date (round trip), on the 15-minute grid. */
-export function parseTime(text) {
-  const ms = TIME.test(text) ? Date.parse(text) : Number.NaN;
+/** --start or --end: YYYY-MM-DDTHH:MMZ or YYYY-MM-DDTHH:MM:00Z, a real date (round trip), on the grid of the interval (15m by default). */
+export function parseTime(text, interval = "15m") {
+  const ms = TIME.test(text) ? Date.parse(text) : Number.NaN, step = INTERVALS[interval];
   if (!Number.isFinite(ms) || isoOf(ms).slice(0, 16) !== text.slice(0, 16)) stop("bad_time", { value: text, why: "not a whole UTC minute" });
-  if (ms % STEP_MS !== 0) stop("bad_time", { value: text, why: "not on the 15-minute grid" });
+  if (ms % step !== 0) stop("bad_time", { value: text, why: `not on the ${String(step / MINUTE_MS)}-minute grid` });
   return ms;
 }
 
@@ -79,14 +79,14 @@ export function parseArgs(argv) {
   if (absent.length > 0) stop("usage", { absent });
   const symbol = a.get("symbol"), interval = a.get("interval");
   if (!SYMBOLS.includes(symbol)) stop("bad_symbol", { value: symbol, allowed: SYMBOLS });
-  if (interval !== INTERVAL) stop("bad_interval", { value: interval, allowed: [INTERVAL] });
-  const start = parseTime(a.get("start")), end = parseTime(a.get("end"));
+  if (!Object.hasOwn(INTERVALS, interval)) stop("bad_interval", { value: interval, allowed: Object.keys(INTERVALS) });
+  const step = INTERVALS[interval], start = parseTime(a.get("start"), interval), end = parseTime(a.get("end"), interval);
   if (end <= start) stop("bad_time", { why: "--end must come after --start" });
-  return { symbol, start, end, out: resolve(a.get("out")), fromRaw: a.has("from-raw") ? resolve(a.get("from-raw")) : null };
+  return { symbol, interval, step, start, end, out: resolve(a.get("out")), fromRaw: a.has("from-raw") ? resolve(a.get("from-raw")) : null };
 }
 
-/** Grid slots in [start, end), both on the grid: 70 080 from 2024-10-01 to 2026-10-01 (730 days x 96). */
-export const expectedCount = (start, end) => (end - start) / STEP_MS;
+/** Grid slots in [start, end), both on the grid of the interval: from 2024-10-01 to 2026-10-01, 70 080 (15m), 17 520 (1h), 4 380 (4h). */
+export const expectedCount = (start, end, interval = "15m") => (end - start) / INTERVALS[interval];
 
 /** No proxy (FAITS F-5: NODE_USE_ENV_PROXY or --use-env-proxy route fetch through HTTP(S)_PROXY) and no disabled TLS check (F-1). */
 export function guardEnv(env, execArgv) {
@@ -111,7 +111,7 @@ export function guardOut(out) {
 
 /** One request: every answer is logged; a 200 body is kept in raw/ before it is read; any other status stops, without retry. */
 async function livePage(ctx, cursor) {
-  const url = `${ENDPOINT}?symbol=${ctx.symbol}&interval=${INTERVAL}&startTime=${cursor}&endTime=${ctx.end - 1}&limit=${LIMIT}`;
+  const url = `${ENDPOINT}?symbol=${ctx.symbol}&interval=${ctx.interval}&startTime=${cursor}&endTime=${ctx.end - 1}&limit=${LIMIT}`;
   const u = new URL(url);
   if (u.protocol !== "https:" || !HOSTS.includes(u.host)) stop("host_refused", { url });
   const at = new Date(ctx.now()).toISOString();
@@ -149,8 +149,8 @@ function checkRow(k, ctx) {
   const shaped = Array.isArray(k) && k.length === 12 && [0, 6, 8].every((i) => Number.isSafeInteger(k[i]) && k[i] >= 0)
     && [1, 2, 3, 4, 5, 7, 9, 10].every((i) => typeof k[i] === "string" && DECIMAL.test(k[i])) && typeof k[11] === "string";
   if (!shaped) stop("row_shape", { row: k });
-  if (k[0] % STEP_MS !== 0) stop("off_grid", { open_time_ms: k[0] });
-  if (k[6] !== k[0] + STEP_MS - 1) stop("close_time", { open_time_ms: k[0], close_time_ms: k[6] });
+  if (k[0] % ctx.step !== 0) stop("off_grid", { open_time_ms: k[0] });
+  if (k[6] !== k[0] + ctx.step - 1) stop("close_time", { open_time_ms: k[0], close_time_ms: k[6] });
   if (k[0] < ctx.start || k[0] >= ctx.end) stop("out_of_range", { open_time_ms: k[0] });
 }
 
@@ -174,7 +174,7 @@ async function collect(ctx, page) {
       else stop("duplicate_conflict", { open_time_ms: k[0], kept, received: k });
     }
     if (list.length === 0) break;
-    const next = list[list.length - 1][0] + STEP_MS;
+    const next = list[list.length - 1][0] + ctx.step;
     if (next <= cursor) stop("cursor_not_advancing", { cursor, next });
     cursor = next;
   }
@@ -187,17 +187,18 @@ function normalize(ctx, rows) {
   const lines = times.map((t) => rows.get(t)).map((k) => [isoOf(k[0]), String(k[0]), k[1], k[2], k[3], k[4], k[5], String(k[6]), k[7],
     String(k[8]), k[9], k[10]].join(","));
   const missing = [];
-  for (let t = ctx.start; t < ctx.end; t += STEP_MS) if (!rows.has(t)) missing.push({ open_time_ms: t, open_time_utc: isoOf(t) });
+  for (let t = ctx.start; t < ctx.end; t += ctx.step) if (!rows.has(t)) missing.push({ open_time_ms: t, open_time_utc: isoOf(t) });
   return { csv: [CSV_COLUMNS.join(","), ...lines].join(LF) + LF, times, missing };
 }
 
 /** The normalized outputs, written once every check has passed; SHA256SUMS covers every file of --out. */
 function writeOutputs(ctx, got, norm, startedAt) {
-  const csvName = `${ctx.symbol}-${INTERVAL}.csv`, first = norm.times[0], last = norm.times.at(-1);
-  const missingDoc = { symbol: ctx.symbol, interval: INTERVAL, start: isoOf(ctx.start), end_exclusive: isoOf(ctx.end),
+  const csvName = `${ctx.symbol}-${ctx.interval}.csv`, first = norm.times[0], last = norm.times.at(-1);
+  const missingDoc = { symbol: ctx.symbol, interval: ctx.interval, start: isoOf(ctx.start), end_exclusive: isoOf(ctx.end),
     count: norm.missing.length, missing: norm.missing };
   const manifest = { schema: "monark.series.binance.v1", mode: ctx.live ? "record" : "replay", platform: "binance", endpoint: ENDPOINT,
-    symbol: ctx.symbol, interval: INTERVAL, start: isoOf(ctx.start), end_exclusive: isoOf(ctx.end), expected: expectedCount(ctx.start, ctx.end),
+    symbol: ctx.symbol, interval: ctx.interval, start: isoOf(ctx.start), end_exclusive: isoOf(ctx.end),
+    expected: expectedCount(ctx.start, ctx.end, ctx.interval),
     rows: norm.times.length, missing: norm.missing.length, duplicates_removed: got.duplicates, pages: got.pages,
     first_open_time: first === undefined ? null : isoOf(first), last_open_time: last === undefined ? null : isoOf(last),
     csv: csvName, csv_sha256: sha256(norm.csv), script_sha256: sha256(readFileSync(SCRIPT)), node: process.version,

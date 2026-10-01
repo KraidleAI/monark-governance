@@ -5,8 +5,7 @@
 export const ENDPOINT: string;
 export const HOSTS: readonly string[];
 export const SYMBOLS: readonly string[];
-export const INTERVAL: string;
-export const STEP_MS: number;
+export const INTERVALS: Readonly<Record<"15m" | "1h" | "4h", number>>;
 export const LIMIT: number;
 export const PAUSE_MS: number;
 export const MAX_PAGES: number;
@@ -27,6 +26,8 @@ export interface RecorderIo {
 /** The parsed command line: times in ms since the epoch, paths resolved. */
 export interface RecorderArgs {
   symbol: string;
+  interval: string;
+  step: number;
   start: number;
   end: number;
   out: string;
@@ -69,9 +70,9 @@ export class RecorderStop extends Error {
 }
 
 export function isoOf(ms: number): string;
-export function parseTime(text: string): number;
+export function parseTime(text: string, interval?: string): number;
 export function parseArgs(argv: readonly string[]): RecorderArgs;
-export function expectedCount(start: number, end: number): number;
+export function expectedCount(start: number, end: number, interval?: string): number;
 export function guardEnv(env: Record<string, string | undefined>, execArgv: readonly string[]): void;
 export function guardOut(out: string): void;
 export function run(argv: readonly string[], io?: RecorderIo): Promise<SeriesManifest>;
