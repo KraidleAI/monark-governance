@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 14:5x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 19:0x UTC.
 
 ## Règle
 
@@ -223,3 +223,26 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   Ancien choix : `main` (844 commits de retard sur le tronc, qui a lui-même 47 commits de retard sur `main`, dont le moteur [W2]
   de RECHERCHES) est intégré après la page.
 - Page servie dès la première publication.
+- **Poussière** (investisseur, 2026-10-01 17:3x UTC, mot pour mot : « il faut exclure les comptes de moins de 1$ » ; option « Masquer
+  dès le 1er prix », DOJO-TABLE-DUST-HIDE-1) : sous une version de prix, la table ne liste pas une ligne sous le seuil de poussière ;
+  la ligne reste publiée et la recherche la trouve ; avant la première version, tout est listé, avec une phrase. Jamais le mot
+  « dollar » sur la vitrine.
+  - Décision de l'orchestrateur (2026-10-01 19:0x UTC, relecture G2 de SITE-PREP, C-1 voie (a) et N-3) : une ligne est masquée
+    seulement si sa valeur du jour est connue et sous le seuil ; une ligne sans lecture concordante du jour reste listée (elle n'est
+    pas connue sous 1 $) ; les lignes `program` sont masquées aussi (lecture littérale de « les comptes ») ; réversible à la
+    validation visuelle (prix : une condition et deux phrases ; item DOJO-TABLE-PROGRAM-DUST-1).
+- **Relecture G2 du site** (SITE-PREP `494eaffd`, rapport `eb6871c4…`, oracle G2 sortie 0, R-25 = 661) : APPROUVE-AVEC-CORRECTIONS.
+  - Tour SITE-CORR en cours : C-1 (masque ci-dessus), C-2 (la recherche du composant cherche dans toutes les lignes, épinglée),
+    C-3 (commentaire de la CLI), N-1 (gabarit `{nom}` brut refusé à la construction), N-6 (provenance des composants) ; ensuite
+    G2 ciblée, `red-proof`, oracle, G7, fusion dans `lot/page-v1`.
+  - N-2 mesuré (45 essais : un abandon n'a jamais de code), sans correction.
+  - Items : DOJO-COPY-HOLDERS-MISSING-DAY-1 (phrase `holders`, à la validation des textes) ; DOJO-TABLE-STATUS-ANNOUNCE-1
+    (recherche : annonce des régions `role="status"`, au volet navigateur) ; DOJO-COPY-DURATIONS-DERIVED-1 (durée de Migration
+    littérale, avant toute ancre où elle diffère de 180) ; DOJO-VERIFY-URL-IDLE-MEASURE-1 (avant CA-1 de la partie 3).
+  - Avant l'envoi du site restent : jambe 2 de DOJO-LOOKUP-PAYLOAD-1 et volet navigateur de DOJO-LIVE-RENDER-ORACLE-1 (le 2 octobre),
+    la validation visuelle des textes par l'investisseur (dont `tableDust`, `tableNoVersion`, TXT-5 « committed in advance »).
+- **Course d'historique provisoire** (orchestrateur, 2026-10-01) : elle tourne depuis `F:/Monark-wt-page-v1` au commit `c2bcde20`
+  (HISTORY-INS), et non au commit G7 `c0c60617` que nomme le mode d'emploi (section 18 (i)). Motif : la première course s'est arrêtée
+  sur `instruction_not_allowed` (`initializeAccount` ×3 et `approve` ×1 sur le mint, aucun ne change un solde) ; HISTORY-INS les
+  admet (relecture G2 ciblée APPROUVE-AVEC-CORRECTIONS, aucune ligne exécutable à changer). État neuf `provisional-2026-10-01-r2`,
+  coupe 452362695 ; les arbres de l'hôte ne changent pas (la course tourne sur la machine de l'opérateur).
