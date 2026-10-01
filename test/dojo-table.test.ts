@@ -210,7 +210,7 @@ test("dojo_table_refuses_a_file_it_cannot_bind", async () => {
 
 // killer: apps/site/lib/dojo-served.ts:196 CONST "...(versioned ? [W.units, W.tier] : [])" -> "W.units, W.tier"
 test("dojo_table_units_only_with_a_version", async () => {
-  const { f, e1, e2, c8, c9 } = await records(), W = copy.DOJO_TABLE, five = [W.address, W.class, W.holdScore, W.validated, W.provisional];
+  const { f, e1, e2, c8, c9 } = await records(), W = added(copy, "DOJO_TABLE"), five = [W.address, W.class, W.holdScore, W.validated, W.provisional];
   const cases: Array<[string, DojoServedData, Tree, live.VerifyEd25519, string[]]> = [["E1 reread", c8, e1, ed25519, five],
     ["E1 committed", c9, e2, noEd25519, five], ["E2 reread", c9, e2, ed25519, [...five, W.units, W.tier]]];
   for (const [name, c, tree, ed, columns] of cases) {
