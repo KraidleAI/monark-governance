@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 02:1x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 05:1x UTC.
 
 ## Règle
 
@@ -59,8 +59,13 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
 - **La CLI du vérificateur en `--url`** rend `unreachable` si le serveur ferme une connexion inactive pendant un long calcul. La vérification sur une copie locale n'est pas touchée.
 - **Mode d'emploi** : les copies se comparent sur l'empreinte seule (64 caractères), car `sha256sum` sous Git Bash ajoute ` *`.
 - **Unité** : deux directives systemd dépassent 160 caractères, sans coupure possible.
-- **Vérificateur, à corriger avant l'inspection** : un nombre non fini (`1e400`) dans une ligne d'historique le fait échouer sans refus nommé (`non-finite number in digest`). Rien n'est écrit.
-- **À trancher à l'inspection** : un fichier étranger sous `publish/` du paquet d'historique est ignoré, pas refusé ; aucune garde « dernier jour d'historique révolu » dans l'éditeur ; le test de la liste des refus suppose un seul site `refuse(e.code` ; la recherche contrôle l'alphabet base58, pas le décodage en 32 octets.
+- **Corrigés à l'inspection de la partie 1** : nombres non finis (refus nommés partout), fichier étranger du paquet refusé, garde « dernier jour d'historique révolu », liste des refus testée par sites nommés, test du tableau rouge à la base par assertion, test de minuit déterministe, borne du corps testée, B-1 (premier jour compté).
+- **Items avec déclencheur, issus de l'inspection (partie 2)** :
+  - avant A-8, sur l'hôte : lire la forme `--property=UnsetEnvironment=` et `InaccessiblePaths=` de `systemd-run`, et vérifier que l'état de l'éditeur est sur un système de fichiers à liens physiques (FAITS-SYSTEMD-RUN-UNSETENV-1) ;
+  - avant A-10 : `--unlock` retire aussi les `publish.lock.<pid>` dont le processus est mort (Q-10) ; ignorer l'échec du seul retrait du nom temporaire après un lien réussi (D3-1) ;
+  - avant 18 (iv) : garde `test ! -e /var/lib/monark-dojo/publish.lock` avant le retrait du paquet (Q-14) ; une phrase : aucun acte sur l'éditeur ni sur `bundles/<d>` entre (iv) et le premier `snapshot` (Q-13) ; mesure de charge si l'historique dépasse la grille DOJO-VERIFY-SCALE-1 (Q-12) ;
+  - documentation : la ligne TU-1h d'ADR-DOJO-PR-3 dit `readings/` seul, le code exige le jour clos entier.
+- **Recherche du tableau** : elle contrôle l'alphabet base58, pas le décodage en 32 octets ; accepté à l'inspection (rendu sûr).
 - **Textes du tableau** : TXT-17 et TXT-17a corrigés et TXT-17o ajouté (« Listed by hold score, highest first; equal hold scores by address. »), à valider par l'investisseur avec la page.
 - **Adresse du serveur Bell** : déjà dans le dépôt public (19 fichiers de `main` depuis le 23/09, et le mode d'emploi du Dōjō). Ce n'est pas un secret : `bell.monarkgate.tech` y renvoie. Aucune clé n'est publiée.
 - **Collecteur d'historique** : il lit encore les réponses sans borne de taille (`history-collect.ts` l.408-409). À borner avant le premier acte d'historique, après mesure de la plus grosse page (item RPC-GUARD-BODY-BOUNDS-ALL-1).
@@ -71,7 +76,7 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
 ## Ce qui reste pour la page
 
 1. **Partie 1, code** : finir les pièces en cours, les réunir sur `lot/page-v1`, une inspection, fusion au tronc.
-2. **Partie 2, mise en service sur le serveur Bell** : utilisateurs, arbres, clé, unités, ancre signée, jour zéro de collecte (l'historique a besoin d'un premier jour clos), actes d'historique, premier jour compté, première publication.
+2. **Partie 2, mise en service sur le serveur Bell** : utilisateurs, arbres, clé, unités, ancre signée, répétition R, paquet d'historique provisoire (Eve du premier jour), premier jour compté d (lu sur le plan du collecteur, R + 2 attendu), paquet final après la clôture de d, ligne `history`, première publication.
 3. **Partie 3, site** : synchro des données, mandataire, envoi du site, validation visuelle de l'investisseur.
 
 ## Choix de travail actuels (révisables)
