@@ -344,24 +344,28 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
     for (const k of Object.keys(childEnv)) if (k.startsWith("NODE_TEST_")) delete childEnv[k];
     // Fixed literal commands passed as a single string (no args array) so shell:true does not trip
     // DEP0190; nothing here is interpolated from untrusted input.
-    const runNpm = (cmd: string): SpawnSyncReturns<string> =>
+    // Per-command bound (EXPORT-CI-TIMEOUT-BOUND-1, decision (a) of 2026-10-01): `npm ci` keeps 600 s; `npm run ci` gets 1800 s,
+    // 1.8x the worst estimated demand. Measurement report sha256 a1330724d64c619139628b7bc83ef31b5117a7844ff63681bd0755457cb6069a
+    // (F:/tmp/dojo/insp1/t42/RAPPORT.md on 2026-10-01): exported CI 175-200 s at rest, ETIMEDOUT at 600 s once under oracle load,
+    // worst demand estimated at 750-1000 s (fsync-bound apps/sentinel/test/ukemi-conc.test.ts under host I/O contention); npm ci 18-23 s.
+    const runNpm = (cmd: string, timeoutMs: number): SpawnSyncReturns<string> =>
       spawnSync(cmd, {
         cwd: out,
         env: childEnv,
         shell: true,
         stdio: "pipe",
         encoding: "utf8",
-        timeout: 600_000,
+        timeout: timeoutMs,
         maxBuffer: 64 * 1024 * 1024,
       });
 
-    const ci = runNpm("npm ci");
+    const ci = runNpm("npm ci", 600_000);
     assert.ok(
       !ci.error && ci.status === 0,
       `npm ci failed in export (status=${ci.status}, error=${ci.error?.message ?? "none"}):\n${String(ci.stderr ?? "").slice(-2000)}`,
     );
 
-    const run = runNpm("npm run ci");
+    const run = runNpm("npm run ci", 1_800_000);
     const output = `${String(run.stdout ?? "")}\n${String(run.stderr ?? "")}`;
     const nTests = summaryCount(output, "tests");
     const nPass = summaryCount(output, "pass");
