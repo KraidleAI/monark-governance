@@ -4,7 +4,8 @@
 // first day the collector opens in the rehearsal (act A-11-rep of docs/RUNBOOK-dojo.md), which no closed day before it can carry
 // (collect.ts stops on eve_missing). Never published (the publisher refuses the rehearsal seed chain, M-E6). --day names that day and
 // must be a real UTC calendar day; the operator writes the bytes to bundles/<day>/eve.json. Exit 0 with the bytes; 2 on usage.
-import { pathToFileURL } from "node:url";
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { canonical } from "../../bell/scripts/bell-chain.mjs";
 
 /** The bytes of the empty Eve (closed keys, empty sorted lists, canonical bytes + LF). */
@@ -21,4 +22,6 @@ export function runCli(argv) {
   return 0;
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = runCli(process.argv.slice(2));
+// ENTRY-MAIN-LINK-1 (C-G2-1 of PR-1b-5b): REAL paths compared, so a launch through a directory link runs it; argv[1] absent or unreadable: an import.
+const isEntry = () => { try { return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]); } catch { return false; } };
+if (isEntry()) process.exitCode = runCli(process.argv.slice(2));
