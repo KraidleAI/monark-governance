@@ -251,25 +251,26 @@ at all if the unit was not `inactive` (redo (1)). (5) A-11 (i) (section 18) depo
 (`--first-read` = R, the last rehearsal day closed before (1); its line is never committed) at `bundles/<o>/eve.json`, o = the first day the
 restarted collector opens: the day of the start (6), or the day after the signed anchor's `published_at` day if the start is made on that
 day (UTC); as in section 6 (`dojo-collect:dojo-handoff` 0640), BEFORE the start; its content is that packet's `publish/eve.json` (addresses
-only, ADR D-2 TU-1p), never the empty one. (6) Then the start of section 5, made on R + 1 at or after 00:15 UTC (R + 1 the anchor day:
-expected as there; else, after it: `start_exit=0`, no `dojo/collect:` line, `bundles/<o>/evidence/plan.json` present, the plan below), and
-(7) only then `systemctl enable --now monark-dojo-collect.timer`. **The first day read** (B-1 of the G2 inspection of part 1): `collect.ts`
+only, ADR D-2 TU-1p), never the empty one. (6) Then the start of section 5, expected on R + 1 at or after 00:15 UTC (R + 1 the anchor day:
+expected as there; else, after it: `start_exit=0`, no `dojo/collect:` line, `bundles/<o>/evidence/plan.json` present), and (7) only then
+`systemctl enable --now monark-dojo-collect.timer`. **The first day read, d** (B-1 and D2-4 of the G2 inspection of part 1): `collect.ts`
 plans a day with its beacon only at a step before T + 900 s (00:15 UTC; `plan`); at a later step it writes the day abstained, without any
 call (`beacon_unavailable`); every step plans the current day if it follows the anchor day; an abstained day carries its `Eve` to the next
-day at its close (`nextEve`), at 00:00 UTC, the step that plans that next day with its beacon. So the start of R + 1, at or after 00:15 UTC,
-opens o = R + 1 abstained, and d, the first day read (the `--first-read` of the final packet, section 18), is **d = R + 2**; a start on the
-anchor day opens nothing, and the timer reads o, the next day: d = o = the day after the start, as well (G1 journal of B1-CORR, 1.1). The
-plan of a start made on R + 1 (an abstained plan holds no instant, nothing secret):
+day at its close (`nextEve`), at 00:00 UTC, the step that plans that next day with its beacon. So d is READ on the plan of o, never assumed:
+abstained (`beacon` null) ⇒ d = o + 1; with its beacon ⇒ d = o. The expected case, a start on R + 1 at or after 00:15 UTC, opens o = R + 1
+abstained: d = R + 2; a longer provisional course moves the start, hence o, and d = o + 1 still; a start on the anchor day opens nothing,
+and the timer plans o, the next day, at 00:00 UTC with its beacon: d = o (G1 journal of B1-CORR, 1.1). The plan of o, read after the start
+(after the step of 00:00 UTC of o for a start on the anchor day), its `beacon` alone (a plan with a beacon holds instants, never printed):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cat /var/lib/monark-dojo-collect/bundles/<o>/evidence/plan.json'
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'grep -c "beacon.:null" /var/lib/monark-dojo-collect/bundles/<o>/evidence/plan.json'
 ```
 
-Expected: `{"beacon":null,"day":"<o>","instants":[],"reason":"beacon_unavailable"}`. A plan with a beacon (a start before 00:15 UTC) makes
-o itself the first day read: d = o, written to the JOURNAL, and section 18 follows that d. **STOP** on `eve_missing` (the `Eve` is not on
-the day the chain stops at: o, never d) and on every line of section 5. The first counted day follows DOJO-ANCHOR-OTS-DATE-RULE-1 (ADR D-4:
-the first day after the anchor day whose T_d follows the Bitcoin block constated by `ots upgrade`). Rollback: none that erases (a wrong
-seed or anchor in force is refused by the collector, `seed_mismatch`; the archive of the rehearsal is kept).
+Expected: `1` (o abstained: d = o + 1, the expected d = R + 2) or `0` (o read: d = o); d to the JOURNAL, and section 18 follows that d.
+**STOP** on `eve_missing` (the `Eve` is not on the day the chain stops at: o, never d) and on every line of section 5. The first counted day
+follows DOJO-ANCHOR-OTS-DATE-RULE-1 (ADR D-4: the first day after the anchor day whose T_d follows the Bitcoin block constated by `ots
+upgrade`). Rollback: none that erases (a wrong seed or anchor in force is refused by the collector, `seed_mismatch`; the archive of the
+rehearsal is kept).
 
 ## 8. Host rule DOJO-TMP-STRAY-1 — a stray `readings/*.tmp`
 
@@ -346,8 +347,9 @@ lines of the pli G7 of PR-3a-1c; `docs/dojo/FAITS-systemd-publish-2026-09-30.md`
 `test/dojo-publish-deploy.test.ts`. PR-3b-2b adds CA-1 and TU-7 and pins the script of CA-0.
 
 **Order** (PB-5): A-2p → A-3p → A-4p → A-5p → CA-0 → A-8 (its last point: `ots upgrade` complete) → A-9 (1) to (4) → A-11 (i)
-(the PROVISIONAL history packet, `--first-read` = R, and its `Eve`) → A-9 (6) and (7) (the start on R + 1, at or after 00:15 UTC) → A-10 →
-close of d = R + 2 → A-11 (ii) to (iv) (the FINAL packet, `--first-read` = d; the `history` line, checked against d BEFORE it is committed)
+(the PROVISIONAL history packet, `--first-read` = R, and its `Eve`) → A-9 (6) and (7) (the start, expected on R + 1 at or after 00:15 UTC; d
+read on the plan of o, expected R + 2) → A-10 → close of d → A-11 (ii) to (iv) (the FINAL packet, `--first-read` = d; the `history` line,
+checked against d BEFORE it is committed)
 → the first `snapshot` (d) published → the announcement day (QI-4 (c)): A-1 → A-6 → CA-1 → TU-7. A-9 is the collect act of section 7;
 A-7 (the rehearsal, section 6) runs from A-5 on, without the anchor, and its criterion precedes A-9; R is its last day closed before A-9
 (1). Two packets of the history collector (B-1 of the G2 inspection of part 1; decision of the orchestrator, `docs/ETAT.md`, 2026-10-01):
@@ -669,8 +671,9 @@ TB-23). Rollback (a stop): `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemc
 ## 18. A-11 — the first counted day and the history (TU-1p, TU-1h; B-1 of the G2 inspection of part 1)
 
 R is the last rehearsal day, closed before A-9 (1); o the first day the restarted collector opens; d the first day it READS, the first
-counted day: d = R + 2 (section 7 (5) to (7)). Two courses of the history collector of PR-2b (its acts), on the operator machine, each on
-a NEW `--state` (`history-collect.ts` pins `--first-read` in the first line of its journal, `inputs_mismatch` otherwise, and refuses a
+counted day, read on the plan of o (section 7 (5) to (7); expected d = R + 2). Two courses of the history collector of PR-2b (its acts),
+on the operator machine, each on a NEW `--state` (`history-collect.ts` pins `--first-read` in the first line of its journal,
+`inputs_mismatch` otherwise, and refuses a
 complete state, `phase_order`): the PROVISIONAL packet (`--first-read` = R), before the start (6), of which only the `Eve` is used: it
 never goes to the host, its line is never committed; the FINAL packet (`--first-read` = d, so its last day is d − 1), after the close of
 d. The `--first-read` of a course is a CLOSED day, read with its check (`readDayLayout`): its `eve.json`, `publish/` and `readings/`
@@ -736,9 +739,10 @@ Expected: `PACKET-REMOVED`. Blockers: the acts of PR-2b and theirs (RG-SNAPSHOT-
 PR-2b-4).
 
 (iv) The `history` line (PR-3a-2), after (iii), before the first `snapshot`: ONE transient job with the unit's user, sandbox, credential,
-`UnsetEnvironment=` (as A-8 (2)) and its read-only inbox (the unit's `SupplementaryGroups=` and `ReadOnlyPaths=`: `--history` reads d in
-`bundles/`), each property the unit's own (`dojo_runbook_jobs_carry_the_unit_properties`), the unit `inactive` at that instant and away
-from its four slots (one writer at a time: a timer start beside the job refuses `lock_held`, or the job does; nothing written either way):
+`UnsetEnvironment=` (as A-8 (2)), read-only inbox (the unit's `SupplementaryGroups=` and `ReadOnlyPaths=`: `--history` reads d in `bundles/`)
+and `InaccessiblePaths=` (the collect side's credentials, EnvironmentFile and ledger, as ONE argument `"$I"`, a list as `"$U"`), each property
+the unit's own (`dojo_runbook_jobs_carry_the_unit_properties`), the unit `inactive` at that instant and away from its four slots (one writer
+at a time: a timer start beside the job refuses `lock_held`, or the job does; nothing written either way):
 
 ```bash
 ssh -i ~/.ssh/monark_vps root@178.16.131.29 'test "$(systemctl is-active monark-dojo-publish.service)" = inactive &&
@@ -747,15 +751,17 @@ S="-p PrivateNetwork=yes -p NoNewPrivileges=true -p ProtectSystem=strict -p Prot
 K="-p LoadCredential=dojo-signing-key:/etc/monark/dojo/signing-key.pem" &&
 U="--property=UnsetEnvironment=NODE_OPTIONS NODE_TLS_REJECT_UNAUTHORIZED NODE_EXTRA_CA_CERTS SSL_CERT_FILE SSL_CERT_DIR" &&
 U="$U HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy all_proxy no_proxy" &&
+I="--property=InaccessiblePaths=/etc/monark/dojo-collect /etc/monark/dojo-collect.env /var/lib/monark-dojo-collect/ledger" &&
 C="/usr/bin/env node /opt/monark-dojo/apps/dojo/scripts/dojo-publish.mjs --history /var/lib/monark-dojo/history-packet
 --inbox /var/lib/monark-dojo-collect/bundles --state /var/lib/monark-dojo" &&
-systemd-run --wait --pipe --collect --uid=dojo --gid=dojo $S "$U" $K $C'
+systemd-run --wait --pipe --collect --uid=dojo --gid=dojo $S "$U" "$I" $K $C'
 ```
 
 Expected: one JSON line `{"status":"published","seq":<n>,"published_at":"<ISO>","key_id":"<key_id>","line_hash":"<64 hex>",
 "history_last_day":"<d − 1>","history_sha256":"<64 hex>","history_lines_count":<n>}` (JOURNAL; `history_sha256` equal to that of the
-packet's `manifest.json`). BEFORE its line, `--history` reads d (its `history_last_day` + 1) in the inbox, by the very checks `--inbox`
-will run on it; a refusal writes nothing (section 19):
+packet's `manifest.json`). BEFORE its line, `--history` reads d (its `history_last_day` + 1) in the inbox, then builds the first `snapshot`
+of d at blank, by `publishDay` itself, and the reader's verifier checks it WITH the line (B1-PRECHECK-FULL-1): every refusal the first
+publication of d would meet comes here, before the irreversible line, and writes nothing (section 19):
 
 - `first_read_day_open`: d is not closed yet, or not over: wait for its close, then (iv) again;
 - `eve_mismatch`: d lacks an address holding lots on the history's last day. The residue of B-1, declared: an address that acquired
@@ -764,6 +770,9 @@ will run on it; a refusal writes nothing (section 19):
   packet, then (ii), a final course with `--first-read` = d + 1 (one more course) and (iii) again, then (iv);
 - `history_bundle_malformed` with `publish/manifest.json: first_read_day`: the packet's first day read is not the day after its last day
   (a packet not made by the writer of PR-2b); the act of (iii), then the right packet;
+- `day_not_after_anchor`, `bundle_day_mismatch`, `bundle_anchor_mismatch`, `seed_outside_anchor_chain` (the bundle of d against the anchor
+  and the seed in force: section 7 (3) and (4); a day past the anchor's horizon too), `line_refused` (the verifier refuses the `snapshot`
+  of d, its seq named): **STOP**, d is not publishable as it is; escalation (a new collection under the right anchor and seed);
 - any other refusal: **STOP** (section 19).
 
 A replay gives `history_exists`: read the served timeline first (its `history` line carries this `history_sha256`: the act was done;

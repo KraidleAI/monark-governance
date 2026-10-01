@@ -268,3 +268,102 @@ Modifiés, chacun rouge à la base par une assertion (red-proof, §6) :
   cette heure (mtime 02:13:51Z, relevé à 03:35Z) : rafraîchissement opportuniste du cache de l'index, aucun contenu indexé (rien n'est
   ajouté : `status --porcelain` ne montre que les fichiers du lot, non indexés, HEAD `1f238254`). Toutes les lectures suivantes sous
   `--no-optional-locks` ou `GIT_OPTIONAL_LOCKS=0` : l'index n'a plus bougé (même mtime à 03:35Z).
+
+## 9. Suite de la mission (message de l'orchestrateur, 2026-10-01 vers 04:1x UTC) : plan écrit avant le code (04:1x UTC)
+
+- Base de la suite : le worktree avancé par l'orchestrateur en avance rapide sur `35930dc8` (le lot réuni sur `lot/page-v1`, tueurs du
+  RUNBOOK réancrés, commentaire de Q-5 corrigé) ; arbre propre à 04:08:25Z ; index du worktree daté de 04:08:07Z (l'avance rapide, avant ma
+  première commande, lue sous `--no-optional-locks`). Les fichiers du lot y sont ceux de ma livraison, sauf le test de déploiement (trois
+  tueurs réancrés de deux lignes) et le RUNBOOK (lot SMALL-CORR : deux lignes de plus avant le §13).
+- Décisions reçues, sans action ici : Q-1 (d = R + 2 gardé), Q-2 (demande FAITS-SYSTEMD-RUN-UNSETENV-1 et son bloquant gardés), Q-7 (item
+  noté), Q-9 (autre lot). À faire : Q-3, Q-4 (B1-PRECHECK-FULL-1), Q-6 (DOJO-PUBLISH-LOCK-LINK-1).
+- **Q-3** : au job de 18 (iv), `I="--property=InaccessiblePaths=<les trois chemins de l'unité>"` et `"$I"` après `"$U"` ; le test C-3 lit
+  désormais toute affectation `X="--property=K=V"` et ses suites `X="$X …"`, compare chaque valeur à celle de l'unité, et exige `"$U" "$I"`
+  pour 18 (iv), `"$U"` seul pour A-8 (2), aucun pour `--unlock`.
+- **Q-4** : `publishHistory` fait construire par `publishDay` lui-même, en mode « à blanc » (second argument interne `dry`), le `snapshot`
+  candidat de d sur l'état engagé suivi de la ligne `history` non engagée, puis la VAE vérifie ensemble la ligne et ce candidat (et le
+  fichier d'historique, en mémoire). En place dans `publishDay` : l.195 (l'état, par `stateOf`), l.214 (la série tirée du fichier du paquet),
+  l.240 (retour avant tout ajout), l.276 (`checked` lit aussi `st.files`) ; l.239 inchangée (son tueur demeure). `firstReadDay` garde ses deux
+  contrôles et appelle le mode à blanc ; il refuse si celui-ci ne rend pas son marqueur (fermé sur l'échec). Causes atteignables, un test et
+  un tueur chacune : `day_not_after_anchor`, `bundle_day_mismatch`, `bundle_anchor_mismatch`, `seed_outside_anchor_chain` (chaîne, puis
+  horizon), `line_refused` (VAE du candidat). Déjà couvertes : `eve_mismatch`, les refus du lecteur.
+- **Q-6** : l'enregistrement est écrit et synchronisé dans `publish.lock.<pid>` (ouvert « w » : un pid réutilisé écrase un reste), puis
+  `linkSync` vers `publish.lock` (atomique, EEXIST si tenu), puis le temporaire retiré, puis le répertoire synchronisé ; chaque échec ne
+  laisse rien (le test C-1 l'exige). Test neuf : processus tué entre la création et l'écriture de l'enregistrement (`killAt("writeSync",
+  "taken_at")`) : aucun `publish.lock`, le lancement suivant publie. Tueurs réancrés : celui de T-SW1 (« wx » n'existe plus) et celui de C-1.
+- **Compte ascendant de la suite** (lignes R-25 contre `35930dc8`) : éditeur ≈ 52 ; `.d.mts` ≈ 4 ; test unitaire ≈ 45 (cinq tests) ; e2e
+  ≈ 14 ; déploiement ≈ 16 ; total ≈ 131. Cumul du lot : 320 + la suite (borne 1 150).
+- Ajout de l'orchestrateur reçu pendant le code (04:2x UTC), d'après la relecture G2 du lot (`F:/tmp/dojo/insp1/g2-publish/RAPPORT.md`, section
+  « Delta B1-CORR », relue en entier ; sha256 `94bea336…` à 04:23Z) : la relecture lève B-1, C-1 à C-4, Q-6 à Q-8, N-5, N-6 et garde D2-1
+  (ce Q-4). Deux notes à appliquer ici : **D2-4** (au RUNBOOK, d se lit sur le plan de o, R + 2 restant le cas attendu) et **D2-5** (le refus
+  de `strays` nomme le chemin sous `publish/`). D2-6 (garde mécanique du retrait du paquet) n'est pas demandée : non faite (Q-14).
+
+### 9.1 Code de la suite (écrit après le plan)
+
+- `apps/dojo/scripts/dojo-publish.mjs`, sha256 `516ce36505bd2d9f21d3e71d0d060a2324a74ef074e58d65f4b650b68d3a914f` (525 → 542 lignes ; +40 −23
+  contre `35930dc8`) : import (`linkSync` ; `relative`, `sep`) ; `publishDay` (l.193-195 : `dry`, `stateOf` ; l.214 : la série tirée du fichier
+  du paquet en mode à blanc ; l.240 : retour `checked` avant tout ajout ; l.239 intacte) ; `checked` (l.276 : `st.files`) ; `publishHistory`
+  (l.372, l.385 : `await firstReadDay(…)`) ; `takeLock` (l.398-407, même nombre de lignes) ; `firstReadDay` (l.505-511 : ses deux contrôles,
+  puis `publishDay` à blanc, refus fermé si le marqueur manque) ; `strays` (l.521, l.525 : D2-5) ; neuves : `stateOf` (l.529),
+  `lockByLink` (l.537). Les lignes 1 à 504 gardent leurs numéros. Barres obliques inverses : 28, comme à la base.
+- `apps/dojo/scripts/dojo-publish.d.mts`, sha256 `c8410c0a5722ea8ce4628fd9e48a678c62e0a50bacbf73f5ecedfb7fa256728d` : doc de `publishHistory`.
+- `docs/RUNBOOK-dojo.md`, sha256 `7949b10716fe07b1c05cd7afb9c23f8f8710a9aecca6c02cd9f826f573aa5a4c` (867 → 870 lignes) : §7 (6) (D2-4 : d lu sur le plan
+  de o par `grep -c "beacon.:null"`, sans jamais imprimer d'instant ; R + 2 attendu) ; §10 (ordre) ; §18 (intro, D2-4 ; (iv) : `"$I"` et sa prose,
+  le pré-contrôle complet et ses refus). Lignes > 160 : les 25 de la base, aucune neuve ; barres obliques inverses : 15.
+
+### 9.2 Tests de la suite (6 neufs, 2 modifiés ; tueurs au format de `parseKiller`, 58 valides sur cinq fichiers)
+
+- `apps/dojo/test/dojo-publish.test.ts` (sha256 `e33f87f0…`) : aide `refusedBeforeTheLine` (l.751 : `--history` sur d clos et fini, refus
+  au détail exact de `--inbox`, état intact à l'octet) ; neufs, un par cause atteignable : `dojo_publish_history_checks_the_day_after_the_anchor`
+  (l.759, tueur `:206 SDL`), `..._checks_the_day_of_the_bundle` (l.766, `:207 SDL`), `..._checks_the_anchor_of_the_bundle` (l.773, `:208 CONST`),
+  `..._checks_the_seed_chain` (l.780, `:210 CONST` ; graine de répétition, puis jour au-delà de l'horizon), `..._verifies_the_first_snapshot_with_the_line`
+  (l.791, `:239 CONST`, `seq 3: read_instant_mismatch (instant)`) ; modifié : `dojo_publish_history_reads_the_packet_with_its_check` (D2-5 :
+  `publish/history/extra.jsonl: not listed`) ; tueur réancré : `:517` → `:518`.
+- `test/dojo-publish-e2e.test.ts` (sha256 `e824f106…`) : neuf `dojo_publish_lock_never_exists_without_its_record` (l.279 ; tué à l'écriture de
+  l'enregistrement par `killAt("writeSync", "taken_at")` : aucun `publish.lock`, seul `publish.lock.<pid>` reste, le lancement suivant publie ;
+  tueur `:538 CONST`) ; tueurs réancrés : T-SW1 (`:541 CONST "linkSync(tmp, p)" -> "renameSync(tmp, p)"`), C-1 (`:539`).
+- `test/dojo-publish-deploy.test.ts` (sha256 `97b2a681…`) : `dojo_runbook_jobs_carry_the_unit_properties` lit toute propriété quotée
+  (`"$U"`, `"$I"`) et exige `InaccessiblePaths=` égal à l'unité pour 18 (iv) ; tueurs du RUNBOOK réancrés : `:440`, `:633`, `:750`, `:793`.
+
+### 9.3 Exécution de la suite (clone neuf `F:/tmp/dojo/b1corr/gel2` à `35930dc8`, fichiers égaux au worktree : digest `042f8bd9…` des deux)
+
+- C-V-4 à 04:21Z : 8 `node.exe`, 13 375 708 Ko physiques, 32 088 792 Ko virtuels libres ; verrou d'hôte absent à chaque course.
+- Suite du Dōjō (22 fichiers) : 244 tests, 242 verts, 0 rouge, 2 ignorés connus (`runs/gel2-dojo-all-2.tap` `9f951db9…`, 04:27:02Z) ; après
+  les deux corrections du §9.5 (tests seuls), les trois fichiers touchés : 46 tests, 45 verts, 1 ignoré (`runs/gel2-3files-2.tap` `c3820400…`).
+- `red-proof.mjs` du tronc, `--base 35930dc8 --draw 30 --seed 20261001` (04:50:22Z, après les deux corrections du §9.5) :
+  `F:/tmp/dojo/b1corr/red-proof-4/RED-PROOF.json` sha256 `7234eb185dc67af79e831ba7ddbd30df6b8205da9df65500d699523e465f5d53` (digest du gel
+  `7b2f7b28`) : 8 jugés, 8 F2P, 8 tueurs tirés, 8 tués par `ERR_ASSERTION` ; sortie 0 (premier passage, avant elles : `red-proof-3`, 8 sur 8).
+- Tueurs réancrés, tirés un à un sur `gel2` par `tools/fire.mjs` (`1ef1652a…`, la logique de `fire` de red-proof ; fichier restauré, sha256
+  vérifié) : T-SW1 `:541`, C-1 `:539`, `names_a_missing_day` `:518`, `refuses_a_malformed_bundle` `:481`, `imports_no_network_module` `:16` :
+  5 tués par une assertion (`fire/killer-1.tap` à `-5.tap` : `338a7ce3…`, `f2753f5a…`, `4df8ddb6…`, `d650a87e…`, `b8d682d2…`).
+- R-25 de la suite contre `35930dc8` (`git diff --shortstat`, hors `docs/**/*.md`) : 125 + 39 = **164** (prévu ≈ 131, × 1,25) ; cumul du lot sur
+  ses six fichiers de code et de test contre `1f238254` : 339 + 87 = **426** (borne 1 150). L'oracle sur l'arbre final est cité dans `REPONSE.md`.
+
+### 9.4 Q-n de la suite
+
+- **Q-10, trace d'un lancement tué (Q-6)** : un processus tué entre la création et l'écriture laisse `publish.lock.<pid>` (vide ou partiel) ; il ne
+  bloque aucun lancement (le verrou est l'autre nom) et un pid réutilisé l'écrase (« w »). Non retiré. Construction, si voulue : `--unlock`
+  retire aussi les `publish.lock.<pid>` dont le pid ne tourne pas (≈ 3 lignes, un cas de T-SW2). Décision demandée.
+- **Q-11, liens physiques** : `linkSync` exige un système de fichiers qui les porte (ext4 à l'état de l'hôte Bell, NTFS ici) ; sur FAT ou exFAT,
+  chaque lancement finirait `fatal` (jamais un faux verrou). À relever avec FAITS-SYSTEMD-RUN-UNSETENV-1 : `stat -f -c %T /var/lib/monark-dojo`.
+- **Q-12, coût** : l'acte d'historique passe la VAE deux fois (la ligne seule, gardée pour l'ordre des refus que T-H2 et le §19 épinglent, puis
+  la ligne avec le `snapshot` candidat) ; la mesure DOJO-VERIFY-SCALE-1 de l'acte est à refaire avant 18 (iv) si l'historique est gros.
+- **Q-13, résidu de B1-PRECHECK-FULL-1** : le candidat est bâti à l'horloge de l'acte ; la vraie première publication vient au créneau suivant ;
+  seul un changement entre les deux (une rotation, une ancre, une retouche de `bundles/<d>`) pourrait la faire refuser, par un arrêt nommé.
+  Construction qui le fermerait : publier d dans le même lancement que la ligne `history` (deux lignes, une VAE). Décision demandée.
+- **Q-14, D2-6 non demandée** : le retrait du paquet (18 (iii)) n'a pas de garde mécanique ; construction du G2 : `test ! -e
+  /var/lib/monark-dojo/publish.lock` avant `rm -r`. Non faite (hors des deux notes demandées).
+- **Q-2 étendu** : la lecture sur l'hôte couvre aussi `"--property=InaccessiblePaths=<trois chemins>"` (même forme que `"$U"`).
+- **Git, suite** : index du worktree daté de 04:08:07Z (l'avance rapide de l'orchestrateur), inchangé depuis (relevé en fin de suite) ; toutes
+  mes lectures du worktree sous `--no-optional-locks` ou `GIT_OPTIONAL_LOCKS=0` ; aucun `GIT_DIR`, `GIT_WORK_TREE` ni `--write-tree`.
+
+### 9.5 Portes de la suite
+
+- Premier oracle complet de la suite (`--role corr --key b1-corr --base 35930dc8`, 04:31:01Z, record
+  `35930dc8…-589fc53079038b9b-corr-20261001T043101Z-357852`) : `typecheck` rouge (TS2339 : dans le cas de l'horizon,
+  `hl.map((l) => String(l.address))` lisait le tableau réécrit par étalement, que TypeScript type `{ day: string }`) et `lint` rouge
+  (`require-await` : le test neuf de Q-6 était `async` sans `await`). Corrigés : `short.hl.map(…)` ; le test rendu synchrone. Les tests
+  sous Node passaient (Node retire les types sans les vérifier) : l'oracle est la seule preuve des portes. Rejeu cité dans `REPONSE.md`.
+- Ce même passage : 1 845 tests, 1 839 verts, 5 ignorés connus, 1 rouge hors du lot, `probe_smtp_connect_deadline_bounds_handshake`
+  (`test/probe-narabi.test.ts:909`, une borne de temps réseau local) ; la porte `test` y a duré 843 s, le double des passages de la matinée
+  (12 à 20 `node.exe` d'autres travaux sur l'hôte) : à juger au rejeu, sans action dans ce lot.

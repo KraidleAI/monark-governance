@@ -366,7 +366,7 @@ function keyUses(text: string): string[] {
   return out;
 }
 
-// killer: docs/RUNBOOK-dojo.md:438 CONST "grep -c PRIVATE /root/dojo-pubkey.out; " -> "cat /etc/monark/dojo/signing-key.pem; "
+// killer: docs/RUNBOOK-dojo.md:440 CONST "grep -c PRIVATE /root/dojo-pubkey.out; " -> "cat /etc/monark/dojo/signing-key.pem; "
 test("dojo_runbook_never_prints_private_key", () => {
   exists();
   const K = D.DOJO_SIGNING_KEY_SOURCE, text = read(RUNBOOK), a4 = sectionOf(13);
@@ -389,7 +389,7 @@ test("dojo_runbook_never_prints_private_key", () => {
   }
 });
 
-// killer: docs/RUNBOOK-dojo.md:631 CONST "upgrade docs/dojo-publications" -> "stamp docs/dojo-publications"
+// killer: docs/RUNBOOK-dojo.md:633 CONST "upgrade docs/dojo-publications" -> "stamp docs/dojo-publications"
 test("dojo_runbook_counts_only_after_the_block", () => {
   exists();
   const a8 = sectionOf(16, true), at = (x: string): number => { const i = a8.indexOf(x); assert.ok(i >= 0, `A-8: ${x}`); return i; };
@@ -416,7 +416,7 @@ test("dojo_keyring_shares_no_key_with_bell", { skip: existsSync(REPO + TU_K) ? f
   assert.deepEqual(bk.keys.filter((x) => ids.has(x.key_id) || ids.has(x.jwk.x)), [], "no key of Bell's keyring in Dojo's (key_id or x)");
 });
 
-// killer: docs/RUNBOOK-dojo.md:784 SDL "price_version_pending" -> ""
+// killer: docs/RUNBOOK-dojo.md:793 SDL "price_version_pending" -> ""
 test("dojo_runbook_stops_before_the_stamp_and_on_refusals", () => {
   exists();
   const a8 = sectionOf(16, true), check = a8.indexOf("dojo-verify-cli.mjs /f/PRODUITS/dojo-mirror/public-seq1 --self-consistent-only");
@@ -437,19 +437,23 @@ test("dojo_runbook_stops_before_the_stamp_and_on_refusals", () => {
   assert.ok(sectionOf(17, true).includes("**STOP** on every other refusal (section 19)"), "A-10: a STOP on every refusal of section 19");
 });
 
-// killer: docs/RUNBOOK-dojo.md:746 CONST "-p SupplementaryGroups=dojo-handoff" -> "-p SupplementaryGroups=dojo-collect"
+// killer: docs/RUNBOOK-dojo.md:750 CONST "-p SupplementaryGroups=dojo-handoff" -> "-p SupplementaryGroups=dojo-collect"
 test("dojo_runbook_jobs_carry_the_unit_properties", () => {
-  exists(); // C-3 of the G2 inspection of part 1: the three systemd-run jobs of the RUNBOOK, each property the unit's own
+  exists(); // C-3 and Q-3 of the G2 inspection of part 1: the three systemd-run jobs of the RUNBOOK, each property the unit's own
   const svc = service(D.DOJO_PUBLISH_UNIT), SANDBOX = ["PrivateNetwork", "NoNewPrivileges", "ProtectSystem", "ProtectHome", "PrivateTmp",
-    "ReadWritePaths", "UMask"], KEY = ["LoadCredential", "UnsetEnvironment"], PREFIX = "--property=UnsetEnvironment=";
+    "ReadWritePaths", "UMask"], KEY = ["LoadCredential", "UnsetEnvironment"];
   const jobs = [16, 18, 19].map((n) => fenced(sectionOf(n)).filter((c) => c.includes("systemd-run")).map((c) => c.split(LF).join(" ")));
   assert.deepEqual(jobs.map((j) => j.length), [1, 1, 1], "three jobs: A-8 (2), 18 (iv) and --unlock (section 19)");
-  const want = [[...SANDBOX, ...KEY], [...SANDBOX, "SupplementaryGroups", "ReadOnlyPaths", ...KEY], SANDBOX];
+  const want = [[...SANDBOX, ...KEY], [...SANDBOX, "SupplementaryGroups", "ReadOnlyPaths", "InaccessiblePaths", ...KEY], SANDBOX];
+  const quoted = [["U"], ["U", "I"], []]; // a list is ONE argument "$X" (X="--property=K=V", then X="$X more"): $S is split on blanks
   jobs.flat().forEach((job, i) => {
-    const props = [...job.matchAll(/-p ([A-Za-z]+)=([^ "]+)/g)].map((m): [string, string] => [m[1] ?? "", m[2] ?? ""]);
-    const u = [...job.matchAll(/U="(?:[$]U )?([^"]*)"/g)].map((m) => m[1] ?? "").join(" ");
-    if (u !== "") props.push(["UnsetEnvironment", u.startsWith(PREFIX) ? u.slice(PREFIX.length) : u]); // ONE argument: $S is split on blanks
-    assert.ok(job.includes("--uid=dojo --gid=dojo") && job.includes(u === "" ? "$S $C'" : `$S "$U" $K $C'`), `job ${String(i + 1)}: user, "$U"`);
+    const props = [...job.matchAll(/-p ([A-Za-z]+)=([^ "]+)/g)].map((m): [string, string] => [m[1] ?? "", m[2] ?? ""]), q = new Map<string, string>();
+    for (const [, x = "", more, v = ""] of job.matchAll(/([A-Z])="([$][A-Z] )?([^"]*)"/g)) {
+      if (more !== undefined || v.startsWith("--property=")) q.set(x, `${q.get(x) ?? ""} ${v}`.trim());
+    }
+    for (const v of q.values()) { const m = /^--property=([A-Za-z]+)=(.+)$/.exec(v); props.push([m?.[1] ?? "?", m?.[2] ?? ""]); }
+    const args = [...q.keys()].map((x) => `"$${x}" `).join(""), run = `$S ${args}${q.size > 0 ? "$K " : ""}$C'`;
+    assert.deepEqual([[...q.keys()], job.includes("--uid=dojo --gid=dojo"), job.includes(run)], [quoted[i], true, true], `job ${String(i + 1)}: ${run}`);
     assert.deepEqual(props.map(([k]) => k).sort(), [...(want[i] ?? [])].sort(), `job ${String(i + 1)}: its properties, closed`);
     for (const [k, v] of props) assert.equal(v, one(svc, k), `job ${String(i + 1)}: ${k} is the unit's`);
   });

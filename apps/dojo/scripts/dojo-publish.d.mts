@@ -32,8 +32,8 @@ export type DayResult = { status: "nothing_to_publish"; day: string } | (LineRes
 export function publishDay(o: { inboxDir: string; stateDir: string; key: KeyObject; clock: () => number; fs?: DurableFs }): Promise<DayResult>;
 /** --history (PR-3a-2): the history packet of PR-2b read with its check, under the anchor in force; its line and its file verified together
  *  before the commit; then (B-1) the first day read, history_last_day + 1, is the manifest's first_read_day, closed in inboxDir (the collect
- *  handoff) and over, and it holds every address the first snapshot needs; the file durable before the line; one history line per
- *  timeline, before every snapshot. */
+ *  handoff) and over, and (B1-PRECHECK-FULL-1) its first snapshot, built at blank, is verified WITH the line, so every refusal of its first
+ *  publication comes before the line; the file durable before the line; one history line per timeline, before every snapshot. */
 export function publishHistory(o: { historyDir: string; inboxDir: string; stateDir: string; key: KeyObject; clock: () => number; fs?: DurableFs })
   : Promise<LineResult & { status: "published"; history_last_day: string; history_sha256: string; history_lines_count: number }>;
 export function publishAnchor(o: { stateDir: string; key: KeyObject; request: unknown; clock: () => number; fs?: DurableFs }): LineResult;
