@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 06:0x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 08:4x UTC.
 
 ## Règle
 
@@ -79,6 +79,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
 - **Collecteur d'historique** : il lit encore les réponses sans borne de taille (`history-collect.ts` l.408-409). À borner avant le premier acte d'historique, après mesure de la plus grosse page (item RPC-GUARD-BODY-BOUNDS-ALL-1).
 - **SIGTERM** : la variante par vrai signal du test est sautée sous Windows ; à prouver sur Linux (item DOJO-SIGTERM-LINUX-PROOF-1).
 - **Mode d'emploi** : une commande de la section 9 tient sur une ligne de 629 caractères (une commande par ligne) ; exception déclarée.
+- **Séries de marché (demande du fondateur, hors page)** : Binance BTCUSDT, ETHUSDT, BNBUSDT et SOLUSDT, bougies de 15 minutes du
+  2024-10-01 au 2026-10-01 exclu, enregistrées le 2026-10-01 à 08:41-08:46 UTC après relecture favorable de RECHERCHES ; 70 080 bougies
+  chacune, aucune manquante ; rejeu hors ligne identique. Stockées hors dépôt sous `F:/PRODUITS/marche/series-2026-10-01/`, NON
+  redistribuables, scellées pour RECHERCHES jusqu'au pré-enregistrement (messagerie recherches#15). Coinbase : bloqué par ses conditions.
+  Décisions du fondateur attendues : Coinbase, service public d'un kata Binance, « Prohibited Use Policy » de Binance à procurer.
 - **Dépôt `monark-governance` privé** depuis le 01/10 au moins : aucun push sans vérification préalable de la visibilité et accord de l'investisseur (une CI lancée par erreur à 01:04 UTC, annulée).
 
 ## Ce qui reste pour la page
