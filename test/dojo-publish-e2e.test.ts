@@ -175,7 +175,7 @@ test("dojo_history_publish_to_verify_end_to_end", async () => {
     "the first snapshot's lots follow the history's last day (history_transition_mismatch otherwise)");
 });
 
-// killer: apps/dojo/scripts/dojo-publish.mjs:403 CONST "wx" -> "w"
+// killer: apps/dojo/scripts/dojo-publish.mjs:541 CONST "linkSync(tmp, p)" -> "renameSync(tmp, p)"
 test("dojo_publish_one_writer_every_other_launch_refuses", async () => {
   assert.equal(publisher.STATE_LOCK, "publish.lock", "the lock at the root of --state (D-SW2)");
   const w = world(), d = A + 1, lock = join(w.s, "publish.lock"), priv = join(w.s, "timeline.jsonl"), D = publisher.DURABLE_FS, saved = { ...D };
@@ -249,7 +249,7 @@ test("dojo_publish_lock_of_a_killed_launch_resumes_without_loss", async () => {
   }
 });
 
-// killer: apps/dojo/scripts/dojo-publish.mjs:404 CONST "if (!recorded)" -> "if (recorded === null)"
+// killer: apps/dojo/scripts/dojo-publish.mjs:539 CONST "D.closeSync(fd); unlinkSync(tmp); throw e;" -> "D.closeSync(fd); throw e;"
 test("dojo_publish_lock_record_not_written_leaves_no_lock", async () => {
   const D = publisher.DURABLE_FS, saved = { ...D }, ENOSPC = (): never => { throw Object.assign(new Error("SYNTHETIC ENOSPC"), { code: "ENOSPC" }); };
   for (const f of ["writeSync", "fsyncDir"] as const) { // C-1: the lock's record, then its directory, not made durable (a disk full, an EIO)
@@ -273,4 +273,15 @@ test("dojo_publish_lock_record_not_written_leaves_no_lock", async () => {
       [{ status: "not_locked" }, 1, true, []],
       `${f}: the next launch takes the lock and reaches the publisher (an empty state: history_missing, named); ${next.stderr}`);
   }
+});
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:538 CONST "`${p}.${process.pid}`" -> "p"
+test("dojo_publish_lock_never_exists_without_its_record", () => {
+  const w = world(), d = A + 1, lock = join(w.s, "publish.lock"), inbox = ["--inbox", w.inbox, "--state", w.s];
+  const dead = cliAt(slot(d), inbox, w.key, killAt("writeSync", "taken_at")); // Q-6: killed at the write of its record, after the create
+  const left = files(w.s).filter((f) => f.startsWith("publish.lock")).map((f) => f.split(" ")[0]);
+  assert.deepEqual([dead.status !== 0, existsSync(lock), left], [true, false, [`publish.lock.${String(dead.pid)}`]],
+    `no publish.lock without its whole record: only this launch's own name is left, which blocks nothing; ${dead.stderr}`);
+  const next = cliAt(slot(d), inbox, w.key);
+  assert.deepEqual([next.status, json(next.stdout).status, existsSync(lock)], [0, "published", false], `the next launch takes the lock: ${next.stderr}`);
 });

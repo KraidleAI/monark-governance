@@ -685,6 +685,11 @@ test("dojo_publish_history_reads_the_packet_with_its_check", async () => {
   const early = packet(w.hl.map((l) => ({ ...l, day: dateOf(w.A - 1) })), w.A - 1); // a history ending before the anchor's day
   await assert.rejects(async () => go(early), (e: unknown) => e instanceof DojoPublishError && e.code === "line_refused"
     && e.detail === "seq 2: timeline_malformed (a history ending before the anchor's day (DOJO-WALK-GAPS-1 (b)))", "the walker admits it, the VAE refuses it");
+  const nested = tmp("dojo-p-hnest-"); // D2-5: a foreign file is named by its path under publish/, never by its name alone
+  cpSync(src, nested, { recursive: true });
+  writeFileSync(join(nested, "publish", "history", "extra.jsonl"), "");
+  await assert.rejects(async () => go(nested), (e: unknown) => e instanceof DojoPublishError && e.code === bad
+    && e.detail === "publish/history/extra.jsonl: not listed", "D2-5: the foreign file named by its path under publish/");
   assert.deepEqual(files(w.s), before, "every packet refused with nothing written: the state intact to the byte");
   assert.equal((await okA(() => go(src))).status, "published", "the pristine packet publishes");
 });
@@ -726,7 +731,7 @@ test("dojo_publish_history_waits_for_the_first_day_read", async () => {
   assert.equal((await publish(w, d)).status, "published", "the first snapshot is d, the day --history checked");
 });
 
-// killer: apps/dojo/scripts/dojo-publish.mjs:517 CONST "later.length > 0" -> "later.length > 1"
+// killer: apps/dojo/scripts/dojo-publish.mjs:518 CONST "later.length > 0" -> "later.length > 1"
 test("dojo_publish_names_a_missing_day", async () => {
   const w = world(), d = w.A + 1, empty = tmp("dojo-p-empty-");
   writeDay(w, d + 1, w.eve); // d + 1 closed, d absent: the day expected is missing (a day archived, or a history ending too early)
@@ -738,4 +743,53 @@ test("dojo_publish_names_a_missing_day", async () => {
   assert.deepEqual(files(w.s), before, "refused with nothing written");
   assert.deepEqual([await okA(() => run(empty)), await okA(() => run(join(empty, "absent")))], [{ status: "nothing_to_publish", day: dateOf(d) },
     { status: "nothing_to_publish", day: dateOf(d) }], "no later day closed, or no inbox at all: an open day, as before");
+});
+
+// ---- B1-PRECHECK-FULL-1 (suite of B-1): --history builds the first snapshot of d at blank and verifies it WITH its line, so each refusal
+// that publication would meet is raised before the irreversible line, with the very detail of --inbox; the state intact to the byte.
+const rehearsal = (): string => daySeed(sha("SYNTHETIC rehearsal secret"), 30, 1); // a seed off the anchor's chain (a rehearsal in force)
+async function refusedBeforeTheLine(w: World, inbox: string, d: number, code: string, detail: string, pkt = packet(w.hl, w.A)): Promise<void> {
+  const before = files(w.s), clock = (): number => (d + 1) * DAY + 1_200_000; // 00:20 UTC of d + 1: d over, and closed in `inbox`
+  await assert.rejects(async () => publishHistory({ historyDir: pkt, inboxDir: inbox, stateDir: w.s, key: w.key, clock }),
+    (e: unknown) => e instanceof DojoPublishError && e.code === code && e.detail === detail, `${code}: ${detail}`);
+  assert.deepEqual(files(w.s), before, `${code} before the history line: the state intact to the byte`);
+}
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:206 SDL "if (epochOf(b.day) <= anchorDay)" -> ""
+test("dojo_publish_history_checks_the_day_after_the_anchor", async () => {
+  const w = world({ history: false }), d = w.A + 1, inbox = tmp("dojo-p-pc1-");
+  writeDay(w, d, w.eve, { inbox, day: w.A, seed: rehearsal() }); // the bundle of the anchor's day, in the directory of d
+  await refusedBeforeTheLine(w, inbox, d, "day_not_after_anchor", `${dateOf(d)}/publish/day.json: day`);
+});
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:207 SDL "if (b.day !== day)" -> ""
+test("dojo_publish_history_checks_the_day_of_the_bundle", async () => {
+  const w = world({ history: false }), d = w.A + 1, inbox = tmp("dojo-p-pc2-");
+  writeDay(w, d, w.eve, { inbox, day: d + 1 }); // the bundle of d + 1, in the directory of d
+  await refusedBeforeTheLine(w, inbox, d, "bundle_day_mismatch", `${dateOf(d)}/publish/day.json: day`);
+});
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:208 CONST "b.program !== A.program" -> "false"
+test("dojo_publish_history_checks_the_anchor_of_the_bundle", async () => {
+  const w = world({ history: false }), d = w.A + 1, inbox = tmp("dojo-p-pc3-");
+  writeDay(w, d, w.eve, { inbox, program: MINT }); // another program than the anchor's (the snapshot line itself does not carry it)
+  await refusedBeforeTheLine(w, inbox, d, "bundle_anchor_mismatch", `${dateOf(d)}: mint, program or k_reads`);
+});
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:210 CONST "seedAnchor(b.seed, d - seedDay) !== prior" -> "false"
+test("dojo_publish_history_checks_the_seed_chain", async () => {
+  const w = world({ history: false }), d = w.A + 1, inbox = tmp("dojo-p-pc4-");
+  writeDay(w, d, w.eve, { inbox, seed: rehearsal() }); // the rehearsal's seed still in force at the restart (section 7 (3) not done)
+  await refusedBeforeTheLine(w, inbox, d, "seed_outside_anchor_chain", `${dateOf(d)}: seed`);
+  const short = world({ history: false, horizon: 1, chain: 2 }), far = short.A + 2; // a first day read past the anchor's horizon
+  const hl = short.hl.map((l) => ({ ...l, day: dateOf(far - 1) }));
+  writeDay(short, far, { addresses: short.hl.map((l) => String(l.address)), accounts: [] }); // the Eve of the first day read
+  await refusedBeforeTheLine(short, short.inbox, far, "seed_outside_anchor_chain", `${dateOf(far)}: seed`, packet(hl, far - 1));
+});
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:239 CONST "[snap, ...(pv === null ? [] : [pv])]" -> "[]"
+test("dojo_publish_history_verifies_the_first_snapshot_with_the_line", async () => {
+  const w = world({ history: false }), d = w.A + 1, inbox = tmp("dojo-p-pc5-");
+  writeDay(w, d, w.eve, { inbox, offset: 1800 }); // the REAL writers under another read_offset_s: the reader's verifier refuses that snapshot
+  await refusedBeforeTheLine(w, inbox, d, "line_refused", "seq 3: read_instant_mismatch (instant)");
 });

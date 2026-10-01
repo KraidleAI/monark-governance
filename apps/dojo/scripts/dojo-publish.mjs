@@ -9,9 +9,9 @@
 // $CREDENTIALS_DIRECTORY (dojo-signing-key, dojo-signing-key-new: systemd LoadCredential, PKCS#8 PEM). Layout of --state: timeline.jsonl (private, source of
 // truth, commit point), publish.lock (one writer), keyring.json (the genesis key; the rest derives from the key lines), staging/, public/ (timeline.jsonl,
 // dojo/pubkey.json in dojo-keyring-v1, lines/<sha256>.jsonl, history/<sha256>.jsonl). Node built-ins and modules of the repo only.
-import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync,
-  writeSync } from "node:fs";
-import { basename, dirname, isAbsolute, join } from "node:path";
+import { closeSync, existsSync, fsyncSync, linkSync, mkdirSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, statSync,
+  unlinkSync, writeSync } from "node:fs";
+import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import { createPrivateKey, generateKeyPairSync } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { GENESIS, canonical, deriveKeyring, keyIdOf, keyringOf, lineHash, sha256Hex, signLine, trustOf } from "../../bell/scripts/bell-chain.mjs";
@@ -190,9 +190,9 @@ function immutable(stateDir, dir, h) {
  *  anchor's chain), then its lines computed from the history and every published day exactly as dojo-verify.mjs recomputes them, their
  *  immutable file, the snapshot line, and, at the seventh consecutive valid day, the price_version line. PR-3a-1c: the snapshot and its
  *  price_version are verified TOGETHER by the reader's verifier before the first append (D-C1, VAE); a price_version due after the last
- *  snapshot and absent is completed first, the launch's only action (D-C3). */
-export async function publishDay({ inboxDir, stateDir, key, clock, fs: D = DURABLE_FS }) {
-  const t = clock(), st = openState(stateDir, BOUNDS, D, key), L = st.lines, hist = L.find((l) => l.kind === "history");
+ *  snapshot and absent is completed first, the launch's only action (D-C3). dry (internal): --history's check of d, nothing written. */
+export async function publishDay({ inboxDir, stateDir, key, clock, fs: D = DURABLE_FS }, dry = null) {
+  const t = clock(), st = stateOf(stateDir, D, key, dry), L = st.lines, hist = L.find((l) => l.kind === "history");
   if (hist === undefined) refuse("history_missing", "the first snapshot waits for the history line (decision 231)");
   const due = pending(st, t, key); // D-C3 (DOJO-PUBLISH-PV-ATOMIC-1): the reprise that completes, before any new day
   if (due !== null) return complete(stateDir, st, due, D);
@@ -211,7 +211,7 @@ export async function publishDay({ inboxDir, stateDir, key, clock, fs: D = DURAB
   // The series of every address from day 1 (the history's first day): its history lines, then each published day's lines (D-16).
   const day1 = epochOf(hist.history_first_day), n = d - day1 + 1, series = new Map(), K = A.k_reads, W = A.validation_days;
   // putDays (below the entry point) is shared with --history, which builds this series from its own file for the first day read (B-1).
-  putDays(series, day1, immutable(stateDir, "history", hist.history_sha256), (o) => o.day);
+  putDays(series, day1, dry === null ? immutable(stateDir, "history", hist.history_sha256) : dry.objs, (o) => o.day); // dry: the packet's file
   for (const s of snaps) putDays(series, day1, immutable(stateDir, "lines", s.lines_sha256), () => s.day);
   const v = L.filter((l) => l.kind === "price_version" && epochOf(l.effective_day) <= d).pop() ?? null; // the version in force at d
   const T = v === null ? null : v.threshold_unit, dust = v === null ? null : v.dust_threshold;
@@ -237,7 +237,7 @@ export async function publishDay({ inboxDir, stateDir, key, clock, fs: D = DURAB
   snap.sig = signLine(snap, key);
   const pv = versionAfter({ ...st, lines: [...L, snap] }, A, t, key), imm = [[`lines/${h}.jsonl`, text]];
   await checked(stateDir, st, [snap, ...(pv === null ? [] : [pv])], imm); // D-C1: both candidates verified before the first append
-  const after = commitLine(stateDir, st, snap, D, imm);
+  if (dry !== null) return { status: "checked", day }; const after = commitLine(stateDir, st, snap, D, imm); // dry: verified, nothing written
   if (pv !== null) commitLine(stateDir, after, pv, D);
   return { ...result("published", snap), day, lines_sha256: h, lines_count: lines.length, price_version: pv === null ? null : pv.price_version };
 }
@@ -273,7 +273,7 @@ function pending(st, t, key) {
  *  refused: line_refused, its detail the verifier's seq, reason and sub-check, and nothing written. */
 async function checked(stateDir, st, cand, files) {
   const text = st.privText + cand.map((l) => `${canonical(l)}\n`).join(""), disk = dirSource(join(stateDir, "public"));
-  const mem = new Map([...files, ["timeline.jsonl", text], ["dojo/pubkey.json", `${canonical(dojoKeyring(st.keyring))}\n`]]);
+  const mem = new Map([...(st.files ?? []), ...files, ["timeline.jsonl", text], ["dojo/pubkey.json", `${canonical(dojoKeyring(st.keyring))}\n`]]);
   const v = await verifyDojoServed({ source: { get: (rel) => (mem.has(rel) ? Promise.resolve(Buffer.from(mem.get(rel))) : disk.get(rel)) } });
   if (!v.ok) refuse("line_refused", `seq ${v.seq}: ${v.reason} (${v.detail})`);
 }
@@ -369,7 +369,7 @@ function readHistory(dir) {
 /** --history <packet> --inbox <bundles> (PR-3a-2; ADR-DOJO-PR-3 D-1 row PR-3a-2, TU-12c; mere D-18, decision 231): the history packet of
  *  PR-2b, read with its check, under the anchor in force (its mint and program: the line carries neither), before every snapshot and once
  *  per timeline; its line and its file verified TOGETHER by the reader's verifier before any append (PC-7), the Eve of the first day read
- *  checked against the file's last day, that day checked in the inbox (B-1, firstReadDay), then the file durable before the line (M-E4). */
+ *  checked against the file's last day, then d's first snapshot built and verified WITH the line (B-1, firstReadDay), the file durable first. */
 export async function publishHistory({ historyDir, inboxDir, stateDir, key, clock, fs: D = DURABLE_FS }) {
   const t = clock(), st = openState(stateDir, BOUNDS, D, key), A = st.lines.findLast((l) => l.kind === "anchor");
   if (A === undefined) refuse("no_timeline", "the history line follows an anchor");
@@ -382,7 +382,7 @@ export async function publishHistory({ historyDir, inboxDir, stateDir, key, cloc
   await checked(stateDir, st, [line], imm); // the line and its file verified together, before any append (PC-7)
   const objs = text.split("\n").slice(0, -1).map((s) => JSON.parse(s)), last = objs.filter((o) => o.day === m.history_last_day); // verified, LF-ended
   if (eve !== `${canonical({ addresses: last.map((o) => o.address), accounts: [] })}\n`) refuse("history_bundle_mismatch", "publish/eve.json: addresses");
-  firstReadDay(inboxDir, m, objs, t); commitLine(stateDir, st, line, D, imm); // B-1: the first day read, checked before the irreversible line
+  await firstReadDay(inboxDir, stateDir, m, t, key, { st, line, files: imm, objs }); commitLine(stateDir, st, line, D, imm); // B-1, B1-PRECHECK-FULL-1
   return { ...result("published", line), history_last_day: line.history_last_day, history_sha256: line.history_sha256,
     history_lines_count: line.history_lines_count };
 }
@@ -395,14 +395,14 @@ const running = (pid) => { try { return process.kill(pid, 0); } catch (e) { retu
 /** The lock's record {pid, mode, taken_at}, or null when unreadable (empty, torn, foreign): such an owner is never released by --unlock. */
 const owner = (p) => { try { const o = JSON.parse(readFileSync(p, "utf8")); return Number.isInteger(o?.pid) && o.pid > 0 ? o : null; } catch { return null; } };
 const held = (o) => refuse("lock_held", `${STATE_LOCK}: ${o === null ? "owner unreadable" : running(o.pid) ? "running" : "not running: --unlock releases it"}`);
-/** D-SW2: "wx" = O_CREAT and O_EXCL, EEXIST when the lock exists; no ensureDir (an absent --state fails ENOENT, D-SW7); the record written,
- *  fsynced and closed, its directory fsynced. Returns the release, which removes the lock only while it holds THIS launch's record. */
+/** D-SW2, Q-6 (DOJO-PUBLISH-LOCK-LINK-1): the record is written whole and synced under this launch's own name, then hard-linked to the lock
+ *  (lockByLink: link(2) is atomic, EEXIST when the lock exists); no ensureDir (an absent --state fails ENOENT, D-SW7); its directory fsynced. */
 function takeLock(stateDir, mode, D = DURABLE_FS) {
   const p = join(stateDir, STATE_LOCK), mine = JSON.stringify({ pid: process.pid, mode, taken_at: Date.now() });
-  let fd, recorded = false; // C-1: the file is this launch's own (O_EXCL): a record not written, or not durable, removes it, never left orphan
-  try { fd = D.openSync(p, "wx"); } catch (e) { if (e?.code === "EEXIST") held(owner(p)); throw e; }
-  try { D.writeSync(fd, mine); D.fsyncSync(fd); recorded = true; } finally { D.closeSync(fd); if (!recorded) unlinkSync(p); }
+  // C-1, Q-6: the lock never exists without its whole record, even if this process dies between a create and a write; nothing is left on failure.
+  try { lockByLink(p, mine, D); } catch (e) { if (e?.code === "EEXIST") held(owner(p)); throw e; }
   try { D.fsyncDir(stateDir); } catch (e) { unlinkSync(p); throw e; }
+  // The release removes the lock only while it holds THIS launch's record.
   return () => { if (existsSync(p) && readFileSync(p, "utf8") === mine) { unlinkSync(p); D.fsyncDir(stateDir); } };
 }
 /** The dispatch of the modes that write --state, under the lock taken OUTSIDE the try it guards: a launch refused lock_held releases nothing. */
@@ -499,14 +499,15 @@ function evePile(series, b, day) {
   if (b.addresses !== null && piled.some((a) => !rows.has(a))) refuse("eve_mismatch", `${day}: an address holding lots is not in the bundle`);
   return { rows, holds, piled };
 }
-/** B-1, before the irreversible history line: the first day read d = history_last_day + 1 (a real day: the VAE has walked the line) is the
- *  manifest's first_read_day (Q-7), closed in the inbox and over at the clock, read with its check (readDay), and its bundle holds every
- *  address the first snapshot of d needs (evePile over the series of this file, built as --inbox builds it). Else a named refusal. */
-function firstReadDay(inboxDir, m, objs, t) {
+/** B-1 and B1-PRECHECK-FULL-1, before the irreversible history line: the first day read d = history_last_day + 1 (a real day: the VAE has
+ *  walked the line) is the manifest's first_read_day (Q-7), closed in the inbox and over at the clock; then publishDay itself builds the first
+ *  snapshot of d at blank (dry) and the VAE verifies it WITH the line: every refusal that publication would meet is raised here, by name. */
+async function firstReadDay(inboxDir, stateDir, m, t, key, dry) {
   const d = epochOf(m.history_last_day) + 1, day = dateOf(d), dir = join(inboxDir, day);
   if (m.first_read_day !== day) refuse("history_bundle_malformed", "publish/manifest.json: first_read_day");
   if (t < (d + 1) * DAY_MS || !existsSync(join(dir, "publish", "SHA256SUMS"))) refuse("first_read_day_open", `${day}: not closed in the inbox, or not over`);
-  evePile(putDays(new Map(), epochOf(m.history_first_day), objs, (o) => o.day), readDay(dir, day), day);
+  const r = await publishDay({ inboxDir, stateDir, key, clock: () => t }, dry); // fail-closed: only a snapshot built and verified passes
+  if (r?.status !== "checked") refuse("first_read_day_open", `${day}: no first snapshot built`);
 }
 /** B-1, N-5: the day --inbox expects is not closed while a LATER day of the inbox is (a day archived, or a history ending before the first
  *  day collected): day_missing, named, never the nothing_to_publish of an open day. An absent inbox, or no later closed day: nothing. */
@@ -517,9 +518,25 @@ function gap(inboxDir, d) {
   if (later.length > 0) refuse("day_missing", `${dateOf(d)}: not closed, ${later[0]} closed`);
 }
 /** Q-6 (b): every file under the packet's publish/ is SHA256SUMS or a path it lists (D-12: a closed format; the day's reader refuses its
- *  counterpart, layout_stray_file), else history_bundle_malformed, named. */
+ *  counterpart, layout_stray_file), else history_bundle_malformed, named by its path under publish/ (D2-5). */
 function strays(pub, paths) {
   const known = new Set(["SHA256SUMS", ...paths].map((p) => join(pub, ...p.split("/"))));
   const extra = readdirSync(pub, { recursive: true, withFileTypes: true }).find((e) => !e.isDirectory() && !known.has(join(e.parentPath, e.name)));
-  if (extra !== undefined) refuse("history_bundle_malformed", `publish/${extra.name}: not in publish/SHA256SUMS`);
+  if (extra !== undefined) refuse("history_bundle_malformed", `publish/${relative(pub, join(extra.parentPath, extra.name)).split(sep).join("/")}: not listed`);
+}
+/** The state publishDay reads: the committed one (openState), or, for the check of --history (dry, B1-PRECHECK-FULL-1), the committed one
+ *  followed by the history line not yet committed, its text in privText and its file in files, as checked() reads them; nothing written. */
+function stateOf(stateDir, D, key, dry) {
+  if (dry === null) return openState(stateDir, BOUNDS, D, key);
+  const text = `${dry.st.privText}${canonical(dry.line)}${String.fromCharCode(10)}`;
+  return { ...dry.st, lines: [...dry.st.lines, dry.line], privText: text, files: dry.files };
+}
+/** Q-6 (DOJO-PUBLISH-LOCK-LINK-1): the lock's record, written and synced in publish.lock.<pid> (this launch's own name; "w": a stale one of a
+ *  reused pid is overwritten), then hard-linked to publish.lock, the temporary name removed in every case. A process killed between the
+ *  create and the write leaves only its publish.lock.<pid>, which never blocks a launch: the lock never exists without its whole record. */
+function lockByLink(p, mine, D) {
+  const tmp = `${p}.${process.pid}`, fd = D.openSync(tmp, "w");
+  try { D.writeSync(fd, mine); D.fsyncSync(fd); } catch (e) { D.closeSync(fd); unlinkSync(tmp); throw e; }
+  D.closeSync(fd);
+  try { linkSync(tmp, p); } finally { unlinkSync(tmp); }
 }
