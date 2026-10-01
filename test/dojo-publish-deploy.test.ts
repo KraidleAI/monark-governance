@@ -4,7 +4,8 @@
  * publish unit, its timer and the host's Caddy extract are parsed and pinned (closed directive sets), bound to the code they run
  * (the publisher's credential name, its import closure, its environment reads, its closed list of refusals) and to the acts of
  * docs/RUNBOOK-dojo.md. T-A7 replays the argv of BOTH units without systemd: the collect unit's REAL --tick over the simulated chain
- * of PR-2-2, then the publish unit's argv in a child under the unit's closed environment, then the verifier's public CLI under the
+ * of PR-2-2, then the job of RUNBOOK 18 (iv) (--history, a packet of the REAL writer of PR-2b) and the publish unit's argv, each in a
+ * child under the unit's closed environment, then the verifier's public CLI under the
  * keyring that the RUNBOOK's act A-4p commits. Keys and seeds are made at run time by the trees' own tools: no key, no seed and no
  * network in this file (the simulated chain traps sockets and name lookups). Each test first asserts the new exports of
  * scripts/dojo-deploy.mjs (F2P). No backslash in this file (character classes only); no `any`.
@@ -12,15 +13,16 @@
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { createHash, createPrivateKey } from "node:crypto";
-import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, posix } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { ENV as SIM_ENV, MINT, POOL, PYTH, QUOTE_VAULT, ROWS, sim } from "../apps/dojo/test/helpers/collect-chain.ts";
 import { ANCHOR_DAY, DAY1, anchorBody, betaOf, dateOf } from "../apps/dojo/test/helpers/dojo-fixture.ts";
-import { canonical, keyIdOf, lineHash, signLine } from "../apps/bell/scripts/bell-chain.mjs";
 import { rootOf } from "../apps/dojo/scripts/dojo-core.mjs";
+import { historyBundle } from "../apps/dojo/src/history-build.ts";
+import { DOJO_HISTORY_CREATION as SIG0 } from "../apps/dojo/src/history-read.ts";
 import { ANCHOR_KEYS, DOJO_PUBLISH_REFUSALS } from "../apps/dojo/scripts/dojo-publish.mjs";
 import { READ_RULE } from "../apps/dojo/src/dojo-methods.ts";
 import { headersFor, parseCaddyfile, type CaddySite } from "./bell-caddy.ts";
@@ -234,6 +236,21 @@ test("dojo_publish_unit_environment_is_closed", () => {
   assert.deepEqual(reads, [`${D.DOJO_PUBLISH_TREE_PROGRAMS[0] ?? "?"}:CREDENTIALS_DIRECTORY`], "the one environment read of the tree");
 });
 
+/** Act A-11 (iii) (model): the FINAL history packet by the REAL writer of PR-2b (historyBundle; a declared duplicate of packet() of
+ *  test/dojo-publish-e2e.test.ts): an EMPTY history of day 1 to `last`, its first day read `last` + 1, under `dir`/publish/, as copied there. */
+function packetAt(dir: string, anchor: Readonly<Record<string, unknown>>, last: number): void {
+  const out = historyBundle({ status: "complete", stop_reason: null, mint: anchor.mint as string, program: anchor.program as string, decimals: 6,
+    sig0: SIG0.signature, sig0_slot: SIG0.slot, transactions_failed_excluded: 0, collector_sha256: sha("SYNTHETIC collector"),
+    evidence_sha256sums_sha256: sha("SYNTHETIC run"), build: { history_first_day: dateOf(DAY1), history_last_day: dateOf(last),
+      first_read_day: dateOf(last + 1), window_slot_max: 1, enumeration_slots: [1], lines: [], bytes: "", sha256: sha(""), root: rootOf([]),
+      eve: { addresses: [], accounts: [] }, transactions_admitted: 0, transactions_without_quorum: 0, token_accounts: 0, addresses: 0,
+      missing_address_days: 0 } });
+  for (const [p, t] of Object.entries(out.publish ?? {})) {
+    mkdirSync(dirname(join(dir, "publish", p)), { recursive: true });
+    writeFileSync(join(dir, "publish", p), t);
+  }
+}
+
 // killer: deploy/monark-dojo-publish.service:29 CONST "--inbox /var/lib/monark-dojo-collect/bundles" -> "--inbox /var/lib/monark-dojo-collect/ledger"
 test("dojo_units_compose_collect_to_publish_to_verify", async () => {
   exists();
@@ -280,16 +297,7 @@ test("dojo_units_compose_collect_to_publish_to_verify", async () => {
   writeFileSync(join(R, "anchor-request.json"), JSON.stringify(Object.fromEntries(ANCHOR_KEYS.map((key) => [key, body[key]]))));
   const a8 = publish(T(ANCHOR_DAY) + 1_000_000, ["--anchor", join(R, "anchor-request.json"), "--state", sd]);
   assert.deepEqual([a8.status, (JSON.parse(a8.stdout || "{}") as { status?: string }).status], [0, "anchored"], a8.stderr);
-  // The history line, substituted until PR-3a-2 (its writer; DOJO-PR3-PIPES-1): an EMPTY history of day 1 to the anchor's day, signed
-  // after the committed anchor, its file in public/history/, served as its writer would.
-  const key = createPrivateKey(readFileSync(keySrc)), priv = join(sd, "timeline.jsonl"), line1 = readFileSync(priv, "utf8").split(LF)[0] ?? "";
-  mkdirSync(join(sd, "public", "history"), { recursive: true });
-  writeFileSync(join(sd, "public", "history", `${sha("")}.jsonl`), "");
-  const hl = { schema: "dojo-timeline-v1", seq: 2, kind: "history", prev_line_hash: lineHash(JSON.parse(line1) as Record<string, unknown>),
-    key_id: keyIdOf(key), published_at: new Date(T(D1) + 600_000).toISOString(), history_first_day: dateOf(DAY1), history_last_day: dateOf(ANCHOR_DAY),
-    history_sha256: sha(""), history_lines_count: 0, history_root: rootOf([]) };
-  appendFileSync(priv, `${canonical({ ...hl, sig: signLine(hl, key) })}${LF}`);
-  writeFileSync(join(sd, "public", "timeline.jsonl"), readFileSync(priv));
+  const line1 = readFileSync(join(sd, "timeline.jsonl"), "utf8").split(LF)[0] ?? ""; // the SIGNED anchor line, line 1 of the private timeline
   // Acts A-9 (3), A-9 (4) and A-11-rep (model): the seed and the SIGNED anchor line (line 1 of the private timeline, section 7 (4)) as
   // the collect unit's credentials; the Eve of the first day by the collect tree's dojo-eve.mjs (the history is empty).
   writeFileSync(host(D.DOJO_ANCHOR_SOURCE), `${line1}${LF}`);
@@ -316,7 +324,18 @@ test("dojo_units_compose_collect_to_publish_to_verify", async () => {
   await tick(D1 * 86_400 + 60);
   const plan = JSON.parse(readFileSync(join(day, "evidence", "plan.json"), "utf8")) as { instants: number[] };
   for (const t of plan.instants) await tick(Math.ceil(t / 300) * 300);
+  // Acts A-11 (iii) and (iv) (model; C-2 of the G2 inspection of part 1): the FINAL packet of the REAL writer of PR-2b (an EMPTY history of
+  // day 1 to the anchor's day; D1 its first day read) at the RUNBOOK's path, then the argv of the job of 18 (iv) in the unit's child: at
+  // 00:10 UTC of D1 + 1, D1 over but not yet closed, a named refusal with nothing written (B-1); after the close (00:15), the history line.
+  const iv = (fenced(sectionOf(18)).find((c) => c.includes("--history")) ?? "").split(LF).join(" "), hx = (/C="([^"]+)"/.exec(iv)?.[1] ?? "").split(/ +/);
+  packetAt(host(hx[4] ?? "?"), body, ANCHOR_DAY);
+  const job = (ms: number) => publish(ms, hx.slice(3).map((x) => (x.startsWith("/") ? host(x) : x))), early = job(T(D1 + 1) + 600_000);
+  assert.deepEqual([early.status, early.stderr.startsWith("dojo/publish: first_read_day_open: "), readFileSync(join(sd, "timeline.jsonl"), "utf8")],
+    [1, true, `${line1}${LF}`], `18 (iv) before the close of D1: refused, nothing written; ${early.stderr}`);
   await tick((D1 + 1) * 86_400 + 900);
+  const h = job(T(D1 + 1) + 1_200_000);
+  assert.deepEqual([h.status, hx[2] === px[3], (JSON.parse(h.stdout || "{}") as { history_last_day?: string }).history_last_day],
+    [0, true, dateOf(ANCHOR_DAY)], `the history line of 18 (iv), the unit's program: ${h.stderr}`);
   // The publish unit's argv at the first slot of its timer (00:30 UTC of d + 1): the day published into public/.
   const r = publish(T(D1 + 1) + 1_800_000, px.slice(4).map((x) => (x.startsWith("/") ? host(x) : x)));
   const out = JSON.parse(r.stdout || "{}") as { status?: string; day?: string };
@@ -347,7 +366,7 @@ function keyUses(text: string): string[] {
   return out;
 }
 
-// killer: docs/RUNBOOK-dojo.md:420 CONST "grep -c PRIVATE /root/dojo-pubkey.out; " -> "cat /etc/monark/dojo/signing-key.pem; "
+// killer: docs/RUNBOOK-dojo.md:438 CONST "grep -c PRIVATE /root/dojo-pubkey.out; " -> "cat /etc/monark/dojo/signing-key.pem; "
 test("dojo_runbook_never_prints_private_key", () => {
   exists();
   const K = D.DOJO_SIGNING_KEY_SOURCE, text = read(RUNBOOK), a4 = sectionOf(13);
@@ -370,7 +389,7 @@ test("dojo_runbook_never_prints_private_key", () => {
   }
 });
 
-// killer: docs/RUNBOOK-dojo.md:608 CONST "upgrade docs/dojo-publications" -> "stamp docs/dojo-publications"
+// killer: docs/RUNBOOK-dojo.md:631 CONST "upgrade docs/dojo-publications" -> "stamp docs/dojo-publications"
 test("dojo_runbook_counts_only_after_the_block", () => {
   exists();
   const a8 = sectionOf(16, true), at = (x: string): number => { const i = a8.indexOf(x); assert.ok(i >= 0, `A-8: ${x}`); return i; };
@@ -397,7 +416,7 @@ test("dojo_keyring_shares_no_key_with_bell", { skip: existsSync(REPO + TU_K) ? f
   assert.deepEqual(bk.keys.filter((x) => ids.has(x.key_id) || ids.has(x.jwk.x)), [], "no key of Bell's keyring in Dojo's (key_id or x)");
 });
 
-// killer: docs/RUNBOOK-dojo.md:723 SDL "price_version_pending" -> ""
+// killer: docs/RUNBOOK-dojo.md:784 SDL "price_version_pending" -> ""
 test("dojo_runbook_stops_before_the_stamp_and_on_refusals", () => {
   exists();
   const a8 = sectionOf(16, true), check = a8.indexOf("dojo-verify-cli.mjs /f/PRODUITS/dojo-mirror/public-seq1 --self-consistent-only");
@@ -410,8 +429,30 @@ test("dojo_runbook_stops_before_the_stamp_and_on_refusals", () => {
   const row = (c: string): string => rows.find(([x]) => x === c)?.[1] ?? "";
   assert.ok(row("history_missing").includes("expected until that line (decision 231)"), "history_missing: expected, then a STOP");
   assert.ok(row("price_version_pending").includes("run `--inbox` first"), "price_version_pending: --inbox first");
+  assert.ok(row("first_read_day_open").includes("wait for the close of d") && row("day_missing").includes("never waited out"),
+    "B-1: the first day read not closed (--history), a gap of days (--inbox): each a STOP with its act");
   const why = sectionOf(19, true);
   for (const x of ["an anchor line appended OUTSIDE `--anchor` above a `price_version` due", "a DURABLE stop, fail-closed",
     "the only remedy is a new timeline", "Escalation to the orchestrator"]) assert.ok(why.includes(x), `line_refused (C-G2-1 of PR-3a-1c): ${x}`);
   assert.ok(sectionOf(17, true).includes("**STOP** on every other refusal (section 19)"), "A-10: a STOP on every refusal of section 19");
+});
+
+// killer: docs/RUNBOOK-dojo.md:746 CONST "-p SupplementaryGroups=dojo-handoff" -> "-p SupplementaryGroups=dojo-collect"
+test("dojo_runbook_jobs_carry_the_unit_properties", () => {
+  exists(); // C-3 of the G2 inspection of part 1: the three systemd-run jobs of the RUNBOOK, each property the unit's own
+  const svc = service(D.DOJO_PUBLISH_UNIT), SANDBOX = ["PrivateNetwork", "NoNewPrivileges", "ProtectSystem", "ProtectHome", "PrivateTmp",
+    "ReadWritePaths", "UMask"], KEY = ["LoadCredential", "UnsetEnvironment"], PREFIX = "--property=UnsetEnvironment=";
+  const jobs = [16, 18, 19].map((n) => fenced(sectionOf(n)).filter((c) => c.includes("systemd-run")).map((c) => c.split(LF).join(" ")));
+  assert.deepEqual(jobs.map((j) => j.length), [1, 1, 1], "three jobs: A-8 (2), 18 (iv) and --unlock (section 19)");
+  const want = [[...SANDBOX, ...KEY], [...SANDBOX, "SupplementaryGroups", "ReadOnlyPaths", ...KEY], SANDBOX];
+  jobs.flat().forEach((job, i) => {
+    const props = [...job.matchAll(/-p ([A-Za-z]+)=([^ "]+)/g)].map((m): [string, string] => [m[1] ?? "", m[2] ?? ""]);
+    const u = [...job.matchAll(/U="(?:[$]U )?([^"]*)"/g)].map((m) => m[1] ?? "").join(" ");
+    if (u !== "") props.push(["UnsetEnvironment", u.startsWith(PREFIX) ? u.slice(PREFIX.length) : u]); // ONE argument: $S is split on blanks
+    assert.ok(job.includes("--uid=dojo --gid=dojo") && job.includes(u === "" ? "$S $C'" : `$S "$U" $K $C'`), `job ${String(i + 1)}: user, "$U"`);
+    assert.deepEqual(props.map(([k]) => k).sort(), [...(want[i] ?? [])].sort(), `job ${String(i + 1)}: its properties, closed`);
+    for (const [k, v] of props) assert.equal(v, one(svc, k), `job ${String(i + 1)}: ${k} is the unit's`);
+  });
+  // 18 (iv) reads d in the inbox (B-1): the very bundles/ the unit reads, read-only, through its group.
+  assert.ok((jobs[1]?.[0] ?? "").includes(`--inbox ${one(svc, "ReadOnlyPaths")} --state ${D.DOJO_PUBLISH_STATE}`), "18 (iv): --inbox, read-only");
 });
