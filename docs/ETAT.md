@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 19:0x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 19:3x UTC.
 
 ## Règle
 
@@ -212,6 +212,15 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   P1 close le 2026-10-01 (contrôle de clôture APPROUVE, rapport `b9b34076…`, tête recherches `7174835`). Écart R-25 de P1b inscrit (D-2) :
   1 234 lignes au périmètre CI du tronc, au-dessus de la porte de 1 205, accepté sans réécriture d'un historique déjà fusionné ; la règle
   de mesure de RECHERCHES est désormais celle du tronc (`kata/scripts/r25.sh`).
+  P2 : plan v3 accepté sans réserve (recherches#29). Enregistreur 1h et 4h (`lot/series-intervals` `599c29d4`, script
+  `48aa58b3…`, oracle G1 sortie 0 sur l'arbre même du commit ; relecture de RECHERCHES favorable, #30) ; documentation relue sur
+  place (H-6, `docs/marche/FAITS-binance-klines-2026-10-01.md`), conditions relues avant la première requête. Huit séries
+  enregistrées de 19:32 à 19:33 UTC (92 requêtes, aucune bougie manquante, rejeu égal), pièce jointe privée
+  `monark-series-binance-1h-4h-2026-10-01` (#31). Suite : épinglage R-1 par RECHERCHES, contrôle du diff, descellement.
+  Items : RED-PROOF-CHILD-STDERR-1 (déclencheur atteint, deuxième mort d'un enfant sur 63 passages : lot d'outillage après la
+  première publication ; d'ici là, toute mort d'enfant est rejouée une fois en `--test-isolation=none`, déclarée) ;
+  LOOPBACK-SEQUENTIAL-PORTS-1 (port 0 attribué en séquence sur cet hôte) ; REPLAY-INTERVAL-BIND-1 (le brut ne nomme pas son
+  intervalle).
 - **Au-delà de la borne de profondeur** (orchestrateur, 2026-10-01, G7 sur C-1 du G2 DEPTH-BOUND) : un texte servi plus profond que 16
   n'est pas analysé ; chaque lecteur le refuse sous le code de sa forme (`keyring_invalid`, `timeline_malformed`, phrases du chargeur),
   JSON ou non. `not_json` ne nomme qu'un texte hors JSON en deçà de la borne. Le code ne change pas ; ligne datée d'ADR avec DEPTH-CORR.

@@ -67,3 +67,13 @@ publiquement un étalonnage dérivé de ces séries (un kata) n'est pas couvert 
   Ce sont des séries brutes non redistribuables. Le service public d'un kata qui en dérive attend une décision du fondateur.
 - Ajout du 2026-10-01 vers 01:10 UTC, à la demande du fondateur : Binance SOLUSDT (Solana), aux mêmes conditions que les trois
   autres. Les mêmes clauses s'appliquent : aucune clause propre à un symbole dans les textes lus.
+
+## Ajout daté du 2026-10-01 vers 19:31 UTC : relecture avant les enregistrements 1h et 4h
+
+Relu sur place par l'orchestrateur (navigateur interne), juste avant la première requête 1h ou 4h :
+- https://developers.binance.com/en/docs/products/spot/PROD-TERMS-OF-USE : « Last modified on October 1, 2026 » (horodatage de la
+  page 2026-10-01T08:42:52.925Z, après la première lecture) ; même phrase, qui renvoie aux « Product Terms of Use »
+  (`https://www.binance.com/en/terms`).
+- https://www.binance.com/en/terms : sert le même PDF, nommé par son sha256 `bf4879710c904b991848972ec4818ba2cf9e4ce314c09adae84fa2750d3477f7`
+  (égal à la première lecture) : texte inchangé.
+- Statut inchangé : enregistrable pour la recherche interne, non redistribuable.
