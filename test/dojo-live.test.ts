@@ -86,7 +86,7 @@ test("dojo_live_primitives_equal_the_node_ones", async () => {
   assert.notEqual(await live.rootOf(rows, sha256), rootOf(rows.map((r) => canonical(JSON.parse(r) as unknown))), "never the root of a reserialization");
 });
 
-// killer: apps/site/lib/dojo-live.ts:295 CONST "Math.max(...M)" -> "Math.min(...M)"
+// killer: apps/site/lib/dojo-live.ts:288 CONST "Math.max(...M)" -> "Math.min(...M)"
 test("dojo_live_head_extends_the_committed_record", async () => {
   const f = dojoFixture(), k = dojoKeyringOf([[f.key, 1], [newKey(), 1]]), e1 = render(f.steps.slice(0, 9)), e2 = render(f.steps);
   const abstain = (s: Step[]): void => { Object.assign(s[s.length - 1]?.body ?? {}, { status: "abstained", beacon: null, reads: [] }); };
@@ -313,13 +313,13 @@ test("dojo_live_times_out_a_body_that_stalls", async () => {
   assert.ok(cancelled, "and its body cancelled");
 });
 
-// killer: apps/site/lib/dojo-live.ts:290 CONST "m.length !== M.length" -> "false"
+// killer: apps/site/lib/dojo-live.ts:283 CONST "m.length !== M.length" -> "false"
 test("dojo_live_refuses_a_reading_without_its_slot_max", async () => {
   const { f, k, c } = await e1Record();
   await beyondTheWalker(render(f.steps, new Map(), firstReading((r) => ({ ...r, slot_max: null }))), k, c, /a counted head without a reading/);
 });
 
-// killer: apps/site/lib/dojo-live.ts:290 CONST "![...mins, ...maxs].every(int0)" -> "false"
+// killer: apps/site/lib/dojo-live.ts:283 CONST "![...mins, ...maxs].every(int0)" -> "false"
 test("dojo_live_refuses_a_slot_that_is_not_an_integer", async () => {
   const { f, k, c } = await e1Record();
   await beyondTheWalker(render(f.steps, new Map(), firstReading((r) => ({ ...r, slot_min: "x" }))), k, c, /a counted head without a reading/);
@@ -332,7 +332,7 @@ test("dojo_live_binds_the_committed_dust_threshold", async () => {
   assert.match(whyOf(await reread(c, render(f.steps))), /other thresholds/, "a committed record whose dust threshold alone differs");
 });
 
-// killer: apps/site/lib/dojo-live.ts:284 CONST "objs.length !== rows.length ||" -> "false ||"
+// killer: apps/site/lib/dojo-live.ts:301 CONST "objs.length !== rows.length ||" -> "false ||"
 test("dojo_live_refuses_a_lines_row_that_is_not_an_object", async () => {
   const { f, k, c } = await e1Record(), nl = String.fromCharCode(10), rows = [...linesOf(f.steps, 11).map((l) => canonical(l)), "1"];
   const bytes = Buffer.from(rows.map((r) => `${r}${nl}`).join("")), sha = createHash("sha256").update(bytes).digest("hex");
@@ -340,7 +340,7 @@ test("dojo_live_refuses_a_lines_row_that_is_not_an_object", async () => {
   await beyondTheWalker(tree, k, c, /^line_malformed$/);
 });
 
-// killer: apps/site/lib/dojo-live.ts:286 CONST "!== h.validated_total" -> "!== h.validated_total && false"
+// killer: apps/site/lib/dojo-live.ts:303 CONST "!== h.validated_total" -> "!== h.validated_total && false"
 test("dojo_live_binds_the_validated_total_to_the_lines", async () => {
   const { f, k, c } = await e1Record();
   await beyondTheWalker(render(f.steps, new Map(), body(11, { validated_total: "1" })), k, c, /sum to the signed totals/);

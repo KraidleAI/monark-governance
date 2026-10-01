@@ -20,9 +20,9 @@ export interface DojoLiveReader { read(): Promise<{ done: boolean; value?: Uint8
 export interface DojoLiveResponse { readonly status: number; readonly body: { getReader(): DojoLiveReader } | null }
 export type DojoLiveGet = (rel: string, signal: AbortSignal) => Promise<DojoLiveResponse>;
 export interface DojoLiveDeps { sha256: Sha256; verifyEd25519: VerifyEd25519; get: DojoLiveGet; bounds?: DojoLiveBounds }
-/** reread: the new head, rendered through the same figures as the committed one; key_change: the new lines carry a key change, not
- *  followed here; fallback: anything else. In the last two cases the page shows the committed figures and says why. */
-export type DojoLiveOutcome = { kind: "reread"; head: DojoServedHead } | { kind: "key_change"; seq: number }
+/** reread: the new head, rendered through the same figures as the committed one, and its lines as served; key_change: the new lines
+ *  carry a key change, not followed here; fallback: anything else. In the last two cases the page shows the committed figures and says so. */
+export type DojoLiveOutcome = { kind: "reread"; head: DojoServedHead; rows: readonly string[] } | { kind: "key_change"; seq: number }
   | { kind: "fallback"; seq: number | null; why: string };
 
 /** The bounds of the reader's tool (VERIFY_BOUNDS, apps/dojo/scripts/dojo-verify.mjs), restated and never imported; the root test pins
@@ -276,15 +276,8 @@ async function project(head: { l: Line; hash: string; anchor: Line }, versions: 
   if (version !== null && pv === c.price_version && (version.threshold_unit !== c.threshold_unit || version.dust_threshold !== c.dust_threshold)) {
     return fail("the version the committed head names carries other thresholds");
   }
-  const rel = `lines/${h.lines_sha256 as string}.jsonl`, bytes = await source(rel), rows = linesOf(bytes, rel);
-  if (rows.length !== h.lines_count) return fail("lines_count_mismatch");
-  if (toHex(await sha256(bytes)) !== h.lines_sha256) return fail("lines_sha_mismatch");
-  if ((await rootOf(rows, sha256)) !== h.root) return fail("root_mismatch");
-  const objs = rows.map((s): unknown => JSON.parse(s)).filter(isObj);
-  if (objs.length !== rows.length || !objs.every((o) => same(Object.keys(o), LINE_KEYS))) return fail("line_malformed");
-  const sum = (k: string): string | null => (objs.every((o) => dec(o[k])) ? String(objs.reduce((t, o) => t + BigInt(o[k] as string), 0n)) : null);
-  if (sum("score") !== h.score_total || sum("validated") !== h.validated_total) return fail("the lines do not sum to the signed totals");
-  if ((version === null ? null : objs.filter((o) => o.holder_counted === true).length) !== h.holders_count) return fail("holders_count_mismatch");
+  const rows = await bindDojoLines(await source(`lines/${h.lines_sha256 as string}.jsonl`), h, sha256);
+  if (typeof rows === "string") return fail(rows);
   const reads = (h.reads as unknown[]).filter(isObj), mins = reads.map((r) => r.slot_min).filter((x) => x !== null);
   const maxs = reads.map((r) => r.slot_max).filter((x) => x !== null), m = mins as number[], M = maxs as number[];
   if (![...mins, ...maxs].every(int0) || m.length !== M.length || (m.length === 0 && h.status === "counted")) return fail("a counted head without a reading");
@@ -293,5 +286,21 @@ async function project(head: { l: Line; hash: string; anchor: Line }, versions: 
     holders_count: h.holders_count as number | null, price_version: pv, threshold_unit: version === null ? null : (version.threshold_unit as string),
     dust_threshold: version === null ? null : (version.dust_threshold as string), decimals: h.decimals as number, k_reads: head.anchor.k_reads as number,
     reads_done: m.length, slot_min: m.length === 0 ? null : Math.min(...m), slot_max: M.length === 0 ? null : Math.max(...M), line_hash: head.hash,
-    key_id: h.key_id as string, published_at: h.published_at as string } };
+    key_id: h.key_id as string, published_at: h.published_at as string }, rows };
+}
+
+/** The lines of a lines file AS SERVED (each without its LF), bound to the signed line that names it (the reread's new head, or the
+ *  committed head, whose file the table lists): count, SHA-256, Merkle root, closed keys, sums and holders, in this order; else the
+ *  refusal. A body out of UTF-8 or without its final LF throws, as does a line that is not JSON. */
+export async function bindDojoLines(bytes: Uint8Array, h: Line | DojoServedHead, sha256: Sha256): Promise<string[] | string> {
+  const rows = linesOf(bytes, `lines/${h.lines_sha256 as string}.jsonl`);
+  if (rows.length !== h.lines_count) return "lines_count_mismatch";
+  if (toHex(await sha256(bytes)) !== h.lines_sha256) return "lines_sha_mismatch";
+  if ((await rootOf(rows, sha256)) !== h.root) return "root_mismatch";
+  const objs = rows.map((s): unknown => JSON.parse(s)).filter(isObj);
+  if (objs.length !== rows.length || !objs.every((o) => same(Object.keys(o), LINE_KEYS))) return "line_malformed";
+  const sum = (k: string): string | null => (objs.every((o) => dec(o[k])) ? String(objs.reduce((t, o) => t + BigInt(o[k] as string), 0n)) : null);
+  if (sum("score") !== h.score_total || sum("validated") !== h.validated_total) return "the lines do not sum to the signed totals";
+  if ((h.price_version === null ? null : objs.filter((o) => o.holder_counted === true).length) !== h.holders_count) return "holders_count_mismatch";
+  return rows;
 }
