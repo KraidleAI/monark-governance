@@ -58,6 +58,7 @@ const ADDED: readonly (readonly [string, Record<string, unknown>])[] = [
 const BEFORE = ["initializeMetadataPointer", "initializeMint2", "getAccountDataSize", "initializeImmutableOwner", "initializeAccount3",
   "initializeTokenMetadata", "updateTokenMetadataAuthority", "mintTo", "setAuthority", "transferChecked", "transfer", "closeAccount", "burn",
   "burnChecked", "mintToChecked"]; // D-8 (vi) l.370, recoded
+const INS2 = ["withdrawExcessLamports", "amountToUiAmount", "uiAmountToAmount"]; // HISTORY-INS-2 (dojo-history-ins2.test.ts), recoded
 
 // killer: apps/dojo/src/history-read.ts:31 CONST "initializeAccount2" -> "initializeAccount9"
 test("dojo_history_ins_added_types_pass_near_the_mint", () => {
@@ -84,8 +85,8 @@ test("dojo_history_ins_added_types_pass_near_the_mint", () => {
 
 // killer: apps/dojo/src/history-read.ts:206 SDL "for (const i of tx.ins)" -> ""
 test("dojo_history_ins_unknown_and_unparsed_still_stop", () => {
-  // PIN (decision "no other type"): the closed list is the 15 types of D-8 (vi) l.370 and the five of HISTORY-INS, recoded; never unparsed
-  assert.deepEqual([...DOJO_HISTORY_INSTRUCTIONS].sort(), [...BEFORE, ...ADDED.map(([t]) => t)].sort());
+  // PIN (decision "no other type"): the 15 types of D-8 (vi) l.370, the five of HISTORY-INS and the three of HISTORY-INS-2, recoded; never unparsed
+  assert.deepEqual([...DOJO_HISTORY_INSTRUCTIONS].sort(), [...BEFORE, ...ADDED.map(([t]) => t), ...INS2].sort());
   assert.equal((DOJO_HISTORY_INSTRUCTIONS as readonly string[]).includes("unparsed"), false);
   // refused: Token-2022 types left out (one moves balances), names that extend an added type (an exact match, never a prefix), and an
   // unparsed instruction on a mint account; each stops alone, and AFTER an added type: the stop then names it, the added type passed (vi)
