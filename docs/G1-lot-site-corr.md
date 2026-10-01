@@ -483,3 +483,66 @@ Fait (21:08Z-21:09Z), éditions en place, nombre de lignes inchangé (`dojo-live
   la validation visuelle des textes par l'investisseur ; N-2 de la G2 (DOJO-COPY-TIER-WINDOWS-EQUAL-1) reste un item hors de ce tour.
 - Écarts : aucun ; le journal est complété après le départ de l'oracle 3 (21:14:30Z), aucun fichier de code ni de test n'ayant changé
   depuis (3 « OK » à 21:23Z).
+
+## 14. Troisième ajout daté (orchestrateur, message daté « vers 22:30 UTC », lu à 22:24:41Z à mon horloge) : C-1 de la G2 ciblée de `9abe3f0d`, tests seulement
+
+Source : `F:/tmp/dojo/g2-sitecorr3/RAPPORT.md` (sha256 recalculé à 22:24:41Z, `45de99c8d65e6de569c4f196d85a457717d6b312edec92d7048e18fec230241f`,
+égal au sceau), lu en entier : APPROUVE-AVEC-CORRECTIONS ; C-1 : mon test `dojo_live_reread_takes_the_anchor_in_force` ne change que
+`tier_windows[4]`, trois mutants survivent (G2-M1 `dojo-served.ts:143`, validation de l'ancre committée ; G2-M2 `dojo-live.ts:287`, `k_reads`
+de la tête committée ; G2-M4 `dojo-live.ts:264`, dernière ancre servie). Proposition lue : `proposal/stronger-test.txt`
+(`6c220ba5649b01ae13bb98dd552802c489659fa06bf4de9b1608836a81a17c92`), son script d'insertion `tmp/insert.mjs` (`46faf8ea…1aff` : deux
+imports complétés, puis le fragment ajouté en fin de fichier) et la table `g2-mutants.mjs` (`79ef04cf…1cd7`, G2-M1 à G2-M4).
+Décision : intégrer ce test (cas S9 : ancre à `k_reads` 3, validation 25, Migration 90 ; cas S5 : la même ancre après le dernier
+instantané), ses trois lignes `// killer:` ; aucune ligne de code produit ne change. Worktree : HEAD `9abe3f0d`, `status` vide à 22:24:41Z.
+
+Plan : dans `test/dojo-live-surface.test.ts` seulement, les deux mêmes éditions d'import que `insert.mjs` (fixture : `betaOf`, `linesOf`,
+`readsOf` ; cœur : `readInstants`), puis le fragment à la lettre en fin de fichier ; contrôle : le fichier obtenu égal octet pour octet à
+celui que la G2 a mesuré dans son clone (`F:/tmp/dojo/g2-sitecorr3/c2/test/dojo-live-surface.test.ts`). Mon test de l'ajout précédent est
+gardé (rien n'est retranché). Compte estimé : 25 + 2 = 27 (la mesure de la G2) ; lot 848 + 27 = 875.
+
+Fait (22:25Z) : les deux éditions d'import de `insert.mjs` (Edit, chaîne exacte), puis le fragment ajouté par `cat` ; le fichier obtenu,
+`test/dojo-live-surface.test.ts` `ddfa77f19eced52435bc07acb61f886aa32b66b1e2d8a00efa0086d024852274`, est **égal octet pour octet** (`cmp`) à
+celui que la G2 a mesuré dans son clone `c2`. Diff contre `9abe3f0d` : 25 + 2 ; aucune ligne de code produit (diff vide sous `apps/` et
+`scripts/`) ; textes des trois tueurs neufs une fois sur leur ligne (`dojo-served.ts:143`, `dojo-live.ts:264`, `dojo-live.ts:287`).
+- Clone neuf `F:/tmp/dojo/sitecorr/c3` (`9abe3f0d`, les 2 fichiers copiés, `expected-v5.sha256` 2 « OK », jonctions 220, 11, 0 échec) :
+  `tsc` racine 0, `eslint` du fichier 0 (22:26:11Z-22:26:24Z) ; 21 fichiers de test : **305 tests, 305 verts** (22:26:35Z-22:27:00Z),
+  `logs/run5.tap` `57fde1ad50bf845283047520b88a07111cb7118f5e059883bf9e9d490dfbfe73`.
+- **`red-proof`, base `39a8d8ee`** (à `9abe3f0d` le test plus fort est déjà vert), `--out F:/tmp/dojo/sitecorr/rp5 --draw 2 --seed 4280630826`,
+  22:27:09Z-22:27:32Z, sortie 0 : `rp5/RED-PROOF.json` `e8072657cab61a5b6c93d199dfa2bf997264e543c769451cad4282a89658ae03` : `ok: true`,
+  **2 jugés, 2 F2P**, 8 inchangés, **2 tueurs tirés (`dojo-served.ts:143`, `dojo-live.ts:287`), 2 tués** ; à la base, le test plus fort rougit
+  sur « the three figures move » (réel `["3", "30", …]`, attendu `["3", "25", …]`).
+- **Mutants**, `--repo F:/tmp/dojo/sitecorr/c3 --base 494eaffd --out F:/tmp/dojo/sitecorr/mut4 --table F:/tmp/dojo/g2-sitecorr3/g2-mutants.mjs
+  --killers --file apps/site/lib/dojo-served.ts --targets` (les 5 fichiers de test du tour), `held` null et C-V-4 (14 002 Mo, 28 101 Mo
+  virtuels) avant, 22:27:57Z-22:30:14Z, sortie 0 : base verte (158), **53 tués sur 53** : les 49 lignes `// killer:` (dont les trois neuves,
+  K12 `:143`, K13 `:264`, K14 `:287`) et la table de la G2 : **G2-M1, G2-M2, G2-M4 tués** par `dojo_live_reread_takes_every_figure_of_the_anchor_in_force`,
+  le témoin G2-M3 par les deux tests de l'ancre ; 0 survivant, 0 non conclu, 0 ancre perdue ; `mut4/RESULTS.json`
+  `c74d88b62eb83eba331255afaba18353ed54490c3a3501460b444498b94fa054`, `RESULTS.txt` `eccf676a…2578`, `dirty`
+  `ada144e16135d651d0ffeed49a921cfd8a40819f652b50921cf12a4ac3bbc140`.
+- **R-25** (chemins et expression de `r25.mjs`, arbre de travail, 22:30:38Z) : ce troisième ajout (`9abe3f0d` à l'arbre) **25 + 2 = 27** ;
+  le tour SITE-CORR (`494eaffd` à l'arbre) **241 + 93 = 334** ; le lot entier (`c0c60617` à l'arbre) **743 + 130 = 873** ; contenu 0 ;
+  borne 1 150.
+- **Oracle du tronc** : `node F:/Monark/scripts/oracle/run.mjs --role corr --tree F:/Monark-wt-site --base 494eaffd --key SITE-CORR-4`,
+  lancé à 22:30:29Z (verrou libre ; C-V-4 : 14 102 Mo physiques, 28 813 Mo virtuels), en arrière-plan ; ni course ni harnais de ma part
+  pendant son verrou ; sortie **0** à 22:39:05Z. Enregistrement
+  `F:/tmp/oracle-results/9abe3f0dfaba14b1b9fbeb82f5f1e4a1b83340fa-ada144e16135d651-corr-20261001T223034Z-15148.json`, sha256
+  `01904610cc53b4e613d63a13b3e189d7b830338bb1c6461b75a397df2e261ec4` (copie : `F:/tmp/dojo/sitecorr/oracle-corr4-record.json`) ; `label`
+  `SITE-CORR-4` ; arbre : tête `9abe3f0d`, `dirty` `ada144e1…c140` (celui de `mut4`), objet `0a9e7696fc6770942b810ed7d2b92bc826c67aea`,
+  `served_from` null. Portes à 0 : épinglage des modèles, `r25`, `lang:gate`, `export:check`, `gate:vocab`, `typecheck`, `lint`,
+  `lint:ratchet`, `test` (443 s). **R-25** (`02-r25.log` `d69c833c…d8ef`) : 241 + 93 = **334** pour le tour SITE-CORR (porte 1 205), contenu
+  0, égal à la mesure ci-dessus. **Tests** : **1 865, 1 861 verts, 0 rouge, 4 ignorés** (les sauts connus ; un test de plus,
+  `dojo_live_reread_takes_every_figure_of_the_anchor_in_force`, vert) ; test 42 vert une seule fois, dans la suite (412 s) ; aucun fichier
+  mort ; `09-test.log` `cb4ccdc0…e963`.
+- **État final** (22:39:55Z) : worktree HEAD `9abe3f0d`, `test/dojo-live-surface.test.ts` et ce journal modifiés, rien d'autre ; le test a
+  le sha256 relevé au départ de l'oracle 4 (`ddfa77f1…2274`, 1 « OK ») : celui que `red-proof` (rp5), les mutants (mut4) et l'oracle 4 ont
+  jugé, et celui que la G2 a mesuré. Jonctions de `c3` et de `mut4/clone` retirées (« removed »), aucun `node_modules` sous
+  `F:/tmp/dojo/sitecorr/` ; `F:/Monark/node_modules` : 220 entrées, 11 `@monark`. `F:/Monark` lu seulement : HEAD `657a7409` (commit ETAT de
+  21:43:13Z, rien sous `scripts/`), `status` vide, outils du tronc aux sha256 de la mission. `F:/Monark-wt-page-v1` et `F:/PRODUITS/` jamais
+  touchés. Aucun `GIT_DIR`, aucun `GIT_WORK_TREE`, aucun `--write-tree`, aucun commit, aucun workflow.
+- **Empreintes finales** des 13 fichiers du tour : `F:/tmp/dojo/sitecorr/final-files-v4.sha256` ; seul `test/dojo-live-surface.test.ts`
+  change depuis le §13 : `ddfa77f19eced52435bc07acb61f886aa32b66b1e2d8a00efa0086d024852274`.
+- **Synthèse** : C-1 de la G2 ciblée de `9abe3f0d` (tests seulement) : `test/dojo-live-surface.test.ts` ;
+  `dojo_live_reread_takes_every_figure_of_the_anchor_in_force` (S9 et S5) ; tueurs `dojo-served.ts:143`, `dojo-live.ts:264`, `dojo-live.ts:287`
+  tués, G2-M1, G2-M2, G2-M4 tués. R-25 : ajout 27, tour 334, lot 873 ; borne 1 150. `red-proof` (rp5, base `39a8d8ee`) : 2 sur 2. Mutants
+  (mut4) : 53 sur 53. Oracle 4 : sortie 0, 1 865 tests, 0 rouge. Verdict de ce correcteur : **LIVRE**. Aucune ligne exécutable touchée :
+  selon la G2 (§6) et REGLES-MISSION (ligne datée 2026-09-30 03:1x), pas de nouvelle relecture G2 ciblée si le checkpoint-2 rejoue le delta.
+- Écarts : aucun ; le journal est complété après le départ de l'oracle 4 (22:30:29Z), le test n'ayant pas changé depuis (1 « OK »).

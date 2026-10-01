@@ -20,11 +20,11 @@ import { buildDojoServed, loadDojoServed, DOJO_HOST, DOJO_PUBKEY_PATH, DOJO_SERV
   type DojoServedHead } from "../apps/site/lib/dojo-served-load.ts";
 import * as copy from "../apps/site/lib/dojo-copy.ts";
 import { dojoExpected } from "../scripts/assert-fleet-html.mjs";
-import { ANCHOR_DAY, FIRST, anchorBody, at, dojoFixture, dojoKeyringOf, dojoSpreadFixture, newKey, render, seedChain, snapshotBody,
+import { ANCHOR_DAY, FIRST, anchorBody, at, betaOf, linesOf, readsOf, dojoFixture, dojoKeyringOf, dojoSpreadFixture, newKey, render, seedChain, snapshotBody,
   type Step } from "../apps/dojo/test/helpers/dojo-fixture.ts";
 import { walkDojoTimeline } from "../apps/dojo/scripts/dojo-chain.mjs";
 import { dojoTrustOf, verifyDojoServed } from "../apps/dojo/scripts/dojo-verify.mjs";
-import { rootOf } from "../apps/dojo/scripts/dojo-core.mjs";
+import { readInstants, rootOf } from "../apps/dojo/scripts/dojo-core.mjs";
 import { canonical, keyIdOf, lineHash, type Trust } from "../apps/bell/scripts/bell-chain.mjs";
 
 type Tree = Map<string, Buffer>;
@@ -351,4 +351,27 @@ test("dojo_live_says_a_key_change", async () => {
   assert.deepEqual([w.ok, w.ok ? null : w.reason], [false, "key_not_active"], "the walker refuses that line");
   const v = await viewOf(c, wired(c, tree).deps);
   assert.deepStrictEqual([v.note, v.figures], [T.rereadKeyChange, served.dojoPageFiguresOf(c)], "TXT-14d, the committed figures");
+});
+
+// killer: apps/site/lib/dojo-served.ts:143 CONST "anchor: o.anchor" -> "anchor: { ...o.anchor, validation_days: committed.timeline.anchor.validation_days }"
+// killer: apps/site/lib/dojo-live.ts:264 CONST "project(head, st.versions" -> "project({ ...head, anchor: st.anchor as Line }, st.versions"
+// killer: apps/site/lib/dojo-live.ts:287 CONST "k_reads: head.anchor.k_reads as number" -> "k_reads: c.k_reads"
+test("dojo_live_reread_takes_every_figure_of_the_anchor_in_force", async () => {
+  // G2 SITE-CORR-3, price of its C-1 (probe P4, S5 and S9): a new anchor that moves the three figures it carries (k_reads 3, validation 25,
+  // Migration 90), then a snapshot of three readings under it; then the same anchor after the last snapshot, none under it.
+  const viewOf = added("dojoLiveViewOf"), f = dojoFixture(), k = dojoKeyringOf([[f.key, 1]]), c = await loaded(await recordOf(render(f.steps), k));
+  const seed2 = seedChain("dojo-live-every-figure", 40), day = ANCHOR_DAY + 10, s = seed2(1), beta = betaOf(day + 1), r4 = readsOf(day + 1, s, beta);
+  const iso = (x: number): string => new Date(x * 1000).toISOString();
+  const reads = readInstants(s, beta, 3, (day + 1) * 86_400, 900).map((t: number, j: number) => ({ ...r4[j], instant: iso(t), read_at: iso(t + 60),
+    usd_per_sol_publish_time: r4[j]?.usd_per_sol === null ? null : t - 41 }));
+  const a2: Step = { key: f.key, body: { ...anchorBody(seed2(0), 40, day), k_reads: 3, validation_days: 25, tier_windows: [30, 30, 30, 30, 90] } };
+  const steps = [...f.steps, a2, { key: f.key, body: { ...snapshotBody(day + 1, s, 1), reads } }], i = steps.length - 1;
+  const tree = render(steps, new Map([[i, linesOf(steps, i).map((l) => ({ ...l, reads: l.reads.slice(0, 3) }))]]));
+  const after = await loaded(await recordOf(tree, k)), v = await viewOf(c, wired(c, tree).deps);
+  const three = (x: served.DojoPageFigures): string[] => (x.state === "E2" ? [x.k_reads, x.validation_days, x.migration_days] : []);
+  assert.deepEqual([three(served.dojoPageFiguresOf(c)), three(v.figures)], [["4", "30", "180"], ["3", "25", "90"]], "the three figures move");
+  assert.deepStrictEqual(v.figures, served.dojoPageFiguresOf(after), "the reread head's figures: those of the build of the same served tree");
+  const trailing = render([...f.steps, a2]), t = await viewOf(c, wired(c, trailing).deps);
+  assert.deepStrictEqual([t.head?.seq, t.figures], [12, served.dojoPageFiguresOf(await loaded(await recordOf(trailing, k)))],
+    "an anchor after the last snapshot: the figures of the anchor in force at the head shown, as the build of that tree");
 });
