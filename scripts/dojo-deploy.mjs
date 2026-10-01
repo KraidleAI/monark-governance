@@ -42,8 +42,8 @@ export const DOJO_PUBLISH_STATE = "/var/lib/monark-dojo";
 /** The publication side (PR-3b-2a; pli G0 of PR-3b-2, PB-2; DOJO-PUBLISH-TREE-PATHS-1): the dedicated tree of the host (act A-3p: git
  *  archive at the SAME G7 SHA as the collect tree, DOJO-SYNC-G7-REF-1), root-owned, read-only to the unit. */
 export const DOJO_PUBLISH_TREE_ROOT = "/opt/monark-dojo";
-/** The one program of the tree: the publisher, run by the unit (--inbox) and by acts A-4p (--generate-key) and A-8 (--anchor, a
- *  transient job); the verifier's CLI runs on the operator machine (A-8's offline check, CA-0, CA-1), never on the host. */
+/** The one program of the tree: the publisher, run by the unit (--inbox), by act A-4p (--generate-key) and by transient jobs: A-8 (--anchor),
+ *  A-11 (iv) (--history) and section 19 (--unlock); the verifier's CLI runs on the operator machine (A-8, CA-0, CA-1), never on the host. */
 export const DOJO_PUBLISH_TREE_PROGRAMS = Object.freeze(["apps/dojo/scripts/dojo-publish.mjs"]);
 /** The tree: the static import closure of the publisher (the verifier's core included, T-8 of PR-3a-1c) and the package scope of its
  *  .ts files; no bare specifier, so no node_modules link. Byte order. Pinned by dojo_publish_tree_is_the_import_closure. */
