@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 21:0x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-01 à 21:4x UTC.
 
 ## Règle
 
@@ -269,3 +269,6 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   (coupe 452391928). Item DOJO-HISTORY-BATCH-NEAR-1 (un `batch` analysé n'est pas jugé par la liste fermée ; la proximité testée à toute
   profondeur, deux ou trois lignes et un test) : avant la course finale du 3 octobre ; FAITS-TOKEN2022-PARSER-REALLOCATE-1 : au premier
   arrêt qui nomme `reallocate`.
+  Troisième course ralentie par l'opérateur (appels à 608 ms contre 315 ms l'après-midi) : liste prête vers 01:30 UTC le 2 octobre.
+  Décision de l'investisseur (21:4x UTC, « Page le 4 octobre (Recommandé) ») : ordre du mode d'emploi gardé, rien de forcé ; départ
+  et minuterie le 2 octobre dès la liste déposée ; premier jour compté le 3 octobre ; première publication le 4 octobre.
