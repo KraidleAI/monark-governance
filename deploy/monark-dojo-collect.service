@@ -31,7 +31,10 @@ ExecStart=/usr/bin/env node /opt/monark-dojo-collect/apps/dojo/src/collect.ts --
 # The worst course of one reading, from the code: 10 calls (5 pieces x 2 operators = 2 x sum(DOJO_METHOD_CAPS) / TRIES), each of TRIES
 # = 2 attempts of at most 30 s to the response head (DEFAULT_TIMEOUT_MS), 1 wait of at most 60 s (the Retry-After cap) and 1 s before
 # each public attempt (PUBLIC_HOST_GAP_MS): 20 x 30 + 10 x 60 + 10 x 1 = 1210 s; + 25 %, to the hundred: 1500 s (dated line 15:00Z).
-# At the timeout systemd sends SIGTERM and the locks of the killed course stay held (RUNBOOK section 9; DOJO-COLLECT-SIGTERM-UNLOCK-1).
+# The step before 00:15 UTC adds the course of the two beacon relays (DRAND-RELAY-GET-1b): 2 x (2 x 30 + 1 x 60) = 240 s, and at most
+# one reading: 240 + 1210 = 1450 s <= 1500 s (asserted by dojo_collect_unit_runs_the_real_tick); two readings: DOJO-COLLECT-STEP-COURSES-1.
+# At the timeout systemd terminates the job with KillSignal= (FAITS-SYSTEMD-TIMEOUT-1; default SIGTERM per systemd.kill(5), not read: L-2);
+# on SIGTERM collect.ts releases the locks of the course in flight, then exits 1; SIGKILL, OOM killer, power cut: RUNBOOK section 9.
 TimeoutStartSec=1500
 # PROVISIONAL (dated line 15:00Z): one node process and its threads; measured at A-5 (TasksCurrent), then pinned by a dated line.
 TasksMax=64

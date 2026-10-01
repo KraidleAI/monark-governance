@@ -5,24 +5,27 @@
 // bundle of PR-2-1, the layout, the next Eve). Every call goes through openGuardedClient (write-ahead ledger, locks, caps); no URL,
 // no key and no fetch live here. The clock is injected (RunDeps.nowMs, a function: read_at is taken after the last call); argv is
 // CLOSED (DOJO-TICK-ARGV-1: an unknown, repeated or missing flag is refused as usage before any lock and any call).
+// The beacon relays are the guard's labels drand-pl and drand-cf, one cycle drand-<AAAA-MM-JJ> per day (DRAND-RELAY-GET-1b). A SIGTERM
+// (TimeoutStartSec) releases the locks of the course in flight by the served unlock, then exits 1 (main; DOJO-COLLECT-SIGTERM-UNLOCK-1).
 import { createHash } from "node:crypto";
 import { appendFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { BudgetExceededError, HELIUS_CYCLE_CAP_CREDITS, TransportError, assertMethodCapsCover, openGuardedClient, runCli, type BudgetedClient,
-  type OperatorLabel } from "@monark/rpc-guard";
+  DRAND_RELAY_LABELS, type OperatorLabel, type RunLimits } from "@monark/rpc-guard";
 import { canonical } from "../../bell/scripts/bell-chain.mjs";
 import { beaconRound, daySeed, readInstants, seedAnchor } from "../scripts/dojo-core.mjs";
 import { DojoBundleError, readingRecord, readRecord, recordBytes, writeDayBundle, type Beacon, type ReadingAnchor, type ReadingRecord } from "./bundle.ts";
 import type { Pair } from "./reading.ts";
 import { BACKOFF_MS, CHAIN_OPERATORS, DECIMALS, DOJO_METHOD_CAPS, DOJO_SOLANA_METHODS, ENV_CYCLE_FLOOR, ENV_CYCLE_ID, PUBLIC_HOST_GAP_MS,
-  READ_RULE, TOKEN_2022, TRIES } from "./dojo-methods.ts";
+  DRAND_CYCLE_ATTEMPTS, READ_RULE, TOKEN_2022, TRIES } from "./dojo-methods.ts";
 import { closeLayout, ensureDir, nextEve, readDayLayout, readEve, writeAtomic } from "./layout.ts";
+import { writeSync } from "node:fs"; // the SIGTERM line of main, written synchronously before process.exit (process.d.ts, exit())
 
 /** Refusals of the collector (outside the verifier's 45 codes; day_not_ended is the bundle's, ADR D-1 l.114). */
 export const DOJO_COLLECT_REFUSALS = Object.freeze(["usage", "outside_repo", "credentials_path", "anchor_malformed", "mint_mismatch", "seed_mismatch",
-  "cycle_missing", "budget_guard", "state_missing", "anchor_day_not_read", "outside_window", "eve_missing", "lock_held", "relay_missing"] as const);
+  "cycle_missing", "budget_guard", "state_missing", "anchor_day_not_read", "outside_window", "eve_missing", "lock_held"] as const);
 type Code = (typeof DOJO_COLLECT_REFUSALS)[number];
 export class DojoCollectError extends Error {
   readonly code: Code;
@@ -31,11 +34,8 @@ export class DojoCollectError extends Error {
 }
 const refuse = (code: Code, detail: string): never => { throw new DojoCollectError(code, detail); };
 
-/** A GET of one beacon relay (path /<chain hash>/public/<round>, D-5 dated line C-V-3), two relays of distinct operators, injected until
- *  the guard carries their labels (item DRAND-RELAY-GET-1); absent, --plan is refused (relay_missing) before any call. */
-export type RelayGet = (path: string) => Promise<unknown>;
 export interface RunDeps { readonly env: Readonly<Record<string, string | undefined>>; readonly nowMs: () => number; readonly sleep?: (ms: number) => Promise<void>;
-  readonly relays?: readonly RelayGet[] }
+}
 type Mode = { mode: "tick" | "plan" } | { mode: "reading"; i: number } | { mode: "close"; day: number };
 export type Args = Mode & { state: string; mintFile: string; maxCalls: number; maxCredits: number; seedFile: string; anchorFile: string };
 
@@ -113,21 +113,33 @@ const now = (c: Ctx): number => c.deps.nowMs() / 1000;
 const sha = (b: string): string => createHash("sha256").update(b).digest("hex");
 
 type Call = (op: string, method: string, params: readonly unknown[]) => Promise<unknown>;
-/** One course: the chain operators through openGuardedClient (locks released by the served unlock in finally), or the two beacon
- *  relays through the injected RunDeps.relays (item DRAND-RELAY-GET-1: no guard label yet, hence no lock and no ledger line). Each
+/** The release of the course in flight (DOJO-COLLECT-SIGTERM-UNLOCK-1): set once its client is open, cleared in its finally, run by the
+ *  SIGTERM handler of main; null between two courses. */
+let inFlight: ((why: string) => void) | null = null;
+/** One course through openGuardedClient (write-ahead ledger, locks, caps) on `cycles` (label -> cycle) under `limits`: the two chain
+ *  operators on the helius cycle (a reading), or the two beacon relays on drand-<AAAA-MM-JJ> (the plan, DRAND-RELAY-GET-1b). Each
  *  call is tried at most TRIES times on a transient fault, waiting the server's Retry-After when given (M-Q17); a fault after the
  *  tries is null, never a value; a budget stop is fatal. evidence/parsed/ keeps the parsed result of each call, not the response bytes
  *  (canonical JSON, compressed, named by its sha256; item DOJO-EVIDENCE-RAW-BYTES-1); evidence/runs.jsonl is chained (prev = sha256 of the
- *  previous line with its LF, null for the first). Locks are released before the run line is appended (a failed append leaves none). */
-async function course<T>(c: Ctx, relays: boolean, dir: string, run: string, body: (call: Call) => Promise<T>): Promise<T> {
+ *  previous line with its LF, null for the first). Locks are released before the run line is appended (a failed append leaves none),
+ *  by ONE idempotent release shared with the SIGTERM handler, each operator on ITS cycle (calque apps/sentinel/src/run.ts:299-306). */
+async function course<T>(c: Ctx, cycles: Readonly<Record<string, string>>, limits: RunLimits, dir: string, run: string,
+  body: (call: Call) => Promise<T>): Promise<T> {
   let client: BudgetedClient | null = null;
   ensureDir(join(dir, "evidence", "parsed"), 0o700);
   try {
-    if (!relays) client = openGuardedClient(c.deps.env, { maxCalls: c.a.maxCalls, runCaps: { helius: c.a.maxCredits }, methodCaps: { ...DOJO_METHOD_CAPS }, cycleFloor: { helius: c.floor } },
-      c.ledger, Object.fromEntries(CHAIN_OPERATORS.map((o) => [o, c.cycle])));
+    client = openGuardedClient(c.deps.env, limits, c.ledger, cycles);
   } catch (e) { if (e instanceof Error && e.constructor.name === "LockHeldError") refuse("lock_held", "operator lock"); throw e; }
   const g = client, log: unknown[] = [];
-  const send: Call = (op, method, params) => (g === null ? (c.deps.relays?.[Number(op.slice(6)) - 1] as RelayGet)(String(params[0])) : g.call(op as OperatorLabel, method, params));
+  let released = false;
+  const release = (why: string): void => {
+    if (released) return;
+    released = true;
+    for (const op of g.operators()) runCli(["unlock", "--cycle", String(cycles[op]), "--op", String(op), "--reason", why],
+      { ledgerDir: c.ledger, floor: op === "helius" ? c.floor : 0, readSnapshot: () => { throw new Error("dojo/collect: no snapshot for unlock"); } });
+  };
+  inFlight = release;
+  const send: Call = (op, method, params) => g.call(op as OperatorLabel, method, params);
   const call: Call = async (op, method, params) => {
     for (let k = 1; ; k++) {
       if (op === CHAIN_OPERATORS[1]) { const wait = c.lastPublic + PUBLIC_HOST_GAP_MS - c.deps.nowMs(); if (wait > 0) await c.sleep(wait); c.lastPublic = c.deps.nowMs(); }
@@ -146,8 +158,8 @@ async function course<T>(c: Ctx, relays: boolean, dir: string, run: string, body
     }
   };
   try { return await body(call); } finally {
-    for (const op of g?.operators() ?? []) runCli(["unlock", "--cycle", c.cycle, "--op", String(op), "--reason", "dojo/collect: course end (finally)"],
-      { ledgerDir: c.ledger, floor: op === "helius" ? c.floor : 0, readSnapshot: () => { throw new Error("dojo/collect: no snapshot for unlock"); } });
+    inFlight = null;
+    release("dojo/collect: course end (finally)");
     const runs = join(dir, "evidence", "runs.jsonl"), last = existsSync(runs) ? readFileSync(runs, "utf8").split("\n").at(-2) : undefined;
     appendFileSync(runs, `${canonical({ run, at: new Date(c.deps.nowMs()).toISOString(), calls: log, prev: last === undefined ? null : sha(`${last}\n`) })}\n`);
   }
@@ -161,7 +173,10 @@ function betaOf(x: unknown, round: number): string | null {
 }
 
 /** --plan (ADR D-5, dated line C-V-3): beta of r_d on BOTH relays, identical, or no plan this pass; from T_d + O without beta the day is
- *  abstained (beacon null, beacon_unavailable) with no call at all, never instants without beta (M-B3, M-B5). */
+ *  abstained (beacon null, beacon_unavailable) with no call at all, never instants without beta (M-B3, M-B5). Both relays are asked at
+ *  every pass, one after the other, through the guard (DRAND-RELAY-GET-1b): cycle drand-<AAAA-MM-JJ> of the day, at most
+ *  DRAND_CYCLE_ATTEMPTS per relay and per day. A budget stop of a CALL (cycle_attempts, run_calls) is no plan this pass, never fatal;
+ *  the opening is never inside that catch (a BudgetExceededError of assertLimits, a configuration refused, stays fatal: budget_stop). */
 async function plan(c: Ctx, T: number): Promise<void> {
   if (T <= c.anchorDay) refuse("anchor_day_not_read", "plan");
   if (existsSync(planPath(c, T))) return;
@@ -169,9 +184,17 @@ async function plan(c: Ctx, T: number): Promise<void> {
   ensureDir(dayDir(c, T), 0o750);
   ensureDir(join(dayDir(c, T), "evidence"), 0o700);
   if (now(c) < T + O) {
-    if (c.deps.relays?.length !== 2) refuse("relay_missing", "RunDeps.relays");
     const round = beaconRound(T, READ_RULE.beacon_genesis_time, READ_RULE.beacon_period), path = `/${READ_RULE.beacon_chain_hash}/public/${String(round)}`;
-    const got = await course(c, true, dayDir(c, T), "plan", async (call) => [betaOf(await call("relay-1", "GET", [path]), round), betaOf(await call("relay-2", "GET", [path]), round)]);
+    const ask = async (call: Call, op: string): Promise<string | null> => {
+      try { return betaOf(await call(op, "GET", [path]), round); } catch (e) { if (e instanceof BudgetExceededError) return null; throw e; }
+    };
+    const cycles = Object.fromEntries(DRAND_RELAY_LABELS.map((l) => [l, `drand-${dayName(T)}`])); // one cycle a day, never HELIUS_CYCLE_ID
+    const limits = { maxCalls: DRAND_RELAY_LABELS.length * TRIES, runCaps: {}, methodCaps: {}, cycleFloor: {}, cycleAttempts: DRAND_CYCLE_ATTEMPTS };
+    const got = await course(c, cycles, limits, dayDir(c, T), "plan", async (call) => {
+      const out: (string | null)[] = [];
+      for (const op of DRAND_RELAY_LABELS) out.push(await ask(call, op));
+      return out;
+    });
     if (got.length !== 2 || got.some((s) => s === null || s !== got[0])) return;
     beacon = { round, signature: got[0] as string };
   }
@@ -193,7 +216,8 @@ async function reading(c: Ctx, i: number, only?: number): Promise<void> {
   if (!existsSync(join(dir, "eve.json"))) refuse("eve_missing", "eve.json");
   const eve = readEve(readFileSync(join(dir, "eve.json"), "utf8")), A = c.anchor;
   const mintDone = Array.from({ length: A.k_reads }, (_, j) => join(dir, "readings", `${String(j + 1)}.json`)).some((f) => existsSync(f) && readRecord(readFileSync(f, "utf8")).mint !== null);
-  const pieces = await course(c, false, dir, `reading ${String(i)}`, async (call) => {
+  const limits = { maxCalls: c.a.maxCalls, runCaps: { helius: c.a.maxCredits }, methodCaps: { ...DOJO_METHOD_CAPS }, cycleFloor: { helius: c.floor } };
+  const pieces = await course(c, Object.fromEntries(CHAIN_OPERATORS.map((o) => [o, c.cycle])), limits, dir, `reading ${String(i)}`, async (call) => {
     const pair = async (params: readonly unknown[], method = "getAccountInfo"): Promise<Pair> => ({ a: await call(CHAIN_OPERATORS[0], method, params), b: await call(CHAIN_OPERATORS[1], method, params) });
     const info = (addr: string, encoding: string): Promise<Pair> => pair([addr, { commitment: "finalized", encoding }]);
     return { enumeration: await pair([TOKEN_2022, { commitment: "finalized", encoding: "jsonParsed", withContext: true, filters: [{ memcmp: { offset: 0, bytes: A.mint } }] }], "getProgramAccounts"),
@@ -265,10 +289,16 @@ export async function runCollect(argv: readonly string[], deps: RunDeps): Promis
 }
 
 export async function main(argv: readonly string[], deps: RunDeps): Promise<number> {
+  const onSigterm = (): void => { // DOJO-COLLECT-SIGTERM-UNLOCK-1 (calque apps/sentinel/src/run.ts:341): the course in flight unlocks, then exit 1
+    try { inFlight?.("dojo/collect: SIGTERM"); } catch { /* best effort: a refused ledger keeps its lock (RUNBOOK section 9, STOP) */ }
+    writeSync(2, "dojo/collect: sigterm\n");
+    process.exit(1);
+  };
+  process.on("SIGTERM", onSigterm);
   try { await runCollect(argv, deps); return 0; } catch (e) {
     const code = (e as { code?: unknown }).code;
     process.stderr.write(`dojo/collect: ${typeof code === "string" ? code : e instanceof BudgetExceededError ? "budget_stop" : "fatal"}\n`);
     return code === "usage" ? 64 : 1;
-  }
+  } finally { process.off("SIGTERM", onSigterm); }
 }
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = await main(process.argv.slice(2), { env: process.env, nowMs: () => Date.now() });
