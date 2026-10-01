@@ -29,10 +29,18 @@ function dec(s: string): Q {
   return { num: BigInt(frac), den: 10n ** BigInt(frac.length) };
 }
 
-/** riskControlQuantile through the namespace: at a base without it, an assertion fails (never an import). */
+/**
+ * riskControlQuantile through the namespace: at a base without it, an assertion fails (never an import). The function
+ * never throws on these inputs (every refusal is `under_calib`): a throw is reported as an assertion failure, so that a
+ * mutant reaching the internal RangeError is killed by assertion (scripts/mutants/run.mjs), not left inconclusive.
+ */
 function rcq(scores: readonly number[], alphaDec: string, deltaDec: string, nMin = 1): RiskControlResult {
   assert.equal(typeof l1.riskControlQuantile, "function", "l1-split.ts exports riskControlQuantile");
-  return l1.riskControlQuantile(scores, alphaDec, deltaDec, nMin);
+  try {
+    return l1.riskControlQuantile(scores, alphaDec, deltaDec, nMin);
+  } catch (e) {
+    return assert.fail(`riskControlQuantile threw on n ${scores.length}, alpha ${alphaDec}, delta ${deltaDec}, nMin ${nMin}: ${String(e)}`);
+  }
 }
 
 function served(r: RiskControlResult, cell: string): Served {
