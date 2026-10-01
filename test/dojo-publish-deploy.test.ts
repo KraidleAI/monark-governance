@@ -186,7 +186,9 @@ test("dojo_two_units_share_no_writable_path", () => {
   assert.deepEqual(words(col, "InaccessiblePaths"), [D.DOJO_SIGNING_KEY_DIR], "the collect unit masks the key directory");
   assert.deepEqual(col.filter((d) => /^(ReadOnlyPaths|BindPaths|BindReadOnlyPaths)$/.test(d.key)), [], "no read path into the publication");
   // A day's evidence/ is the collector's own (0700): the layout reader reads what publish/SHA256SUMS enumerates, never evidence/.
-  assert.deepEqual(treeCode().filter((p) => codeOf(p).includes("evidence")), [], "no module of the publication tree names evidence/");
+  // A key name such as evidence_sha256sums_sha256 (the history manifest's closed keys, PR-3a-2) is not a path: the word alone counts.
+  const namesEvidence = (p: string): boolean => /evidence(?![_A-Za-z0-9])/.test(codeOf(p));
+  assert.deepEqual(treeCode().filter(namesEvidence), [], "no module of the publication tree names evidence/");
 });
 
 // killer: scripts/dojo-deploy.mjs:52 CONST "apps/dojo/src/layout.ts" -> "apps/dojo/src/layout.js"
