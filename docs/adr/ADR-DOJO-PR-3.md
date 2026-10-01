@@ -636,3 +636,7 @@ Mutants appliqués sur copie, restaurés au sha256, hors de l'index ; aucun test
   - **Gardes mécaniques inchangées** : M-E6 (graine hors de la chaîne de `seed_anchor` refusée avant signature) et M-E8 (jour au plus égal au jour d ancre refusé).
   - **PB-5** : A-3p ne recommence plus de critère de répétition ; le bloquant « répétition archivée » de A-10 devient « archive du démarrage unique de A-5 » ; P-3 (go groupé de A-7) devient le go groupé de A-9, au même moment (le premier jour).
   - **RUNBOOK-dojo (lot 2a)** : §5 à §7 mis en cohérence (§6 marqué non exécuté par la décision 299, texte gardé pour mémoire ; §7 (1) et (2) réécrits pour un collecteur jamais minuté) ; STOP `line_refused` avec le motif de C-G2-1 de 3a-1c (ancre ajoutée hors de `--anchor` au-dessus d une version due : arrêt durable, remède une chronologie neuve) ; cadence de la minuterie de publication (PB-2 : quatre créneaux, un jour publié par lancement) ; consigne de QF-3 (d) (rotation de clé : la page relue retombe sur les chiffres committés jusqu à la synchro suivante).
+- **Ligne de documentation du 2026-10-01 09:06 UTC (inspection de la partie 1, lot DEPTH-BOUND, item VERIFY-DEPTH-BOUND-1)** : toute ligne servie lue
+  par le vérificateur, sa CLI et la marche de la chronologie passe d abord un balayage de profondeur, sans parse ni récursion (borne
+  déclarée `DOJO_MAX_DEPTH` = 16, `apps/dojo/scripts/dojo-chain.mjs`, `readJson`) ; au-delà, chaque site rend le refus nommé qu il
+  avait déjà. Choix et mesure de la borne : `docs/G1-lot-depth-bound.md` §1.4.

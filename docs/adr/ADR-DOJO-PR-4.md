@@ -522,3 +522,7 @@ Voir §4 (par PR), §6 (menaces), §7 (items). C-V-4 : chaque G1 de la piste C r
   - **Q-K2 = (a)** : TXT-14b-r2 (« published timeline ») et lecture de la l.303 comme « aucune relecture » ; sans Ed25519, le tableau lit le fichier de lignes de la tête committée, lié à son sha256, son compte et sa racine.
   - **Q-K3 = (a)** : jambe 2 de DOJO-LOOKUP-PAYLOAD-1 (émulation mobile) faite par l orchestrateur avant (iii-a).
   - **Q-K1 (ordre du tableau)** : posée à l investisseur (produit), options (a) ordre signé par adresse et (b) score décroissant, égalités par adresse, sans colonne de rang ; (c) exclue (amender `DOJO_FORBIDDEN`). Le G1 de 2a lit la réponse datée ; tant qu elle manque, (a).
+- **Ligne de documentation du 2026-10-01 09:06 UTC (inspection de la partie 1, lot DEPTH-BOUND, item VERIFY-DEPTH-BOUND-1)** : la relecture du
+  navigateur (`apps/site/lib/dojo-live.ts`) et le chargeur de la page (`apps/site/lib/dojo-served-load.ts`) appliquent la même borne de
+  profondeur (16) par leur propre copie du balayage, épinglée égale à celle du cœur par un test ; au-delà, leur refus nommé existant.
+  Choix et mesure de la borne : `docs/G1-lot-depth-bound.md` §1.4.
