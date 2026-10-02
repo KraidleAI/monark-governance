@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { loadDojoServed } from "@/lib/dojo-served-load";
 import { dojoPageFiguresOf } from "@/lib/dojo-served";
 import { holdSnapshotStatus } from "@/lib/dojo-register";
@@ -19,7 +19,7 @@ export const metadata: Metadata = { title: DOJO_TITLE, description: T.lead };
 const PROSE = [T.exclusion, T.bounds, T.check, T.tree, T.beacon];
 
 export default function DojoPage() {
-  const data = loadDojoServed(join(process.cwd(), "..", ".."));
+  const data = loadDojoServed(recordRootOf());
   const figures = dojoPageFiguresOf(data);
   if (data === null || figures.state === "E0") notFound();
   const status = holdSnapshotStatus();
@@ -44,4 +44,15 @@ export default function DojoPage() {
       </section>
     </main>
   );
+}
+
+/** The repository root the record is read under: two levels above the site's working directory while `next build` runs (the committed
+ *  record), or, for a local build on a fixture only, the absolute directory MONARK_DOJO_LOCAL_BUILD_ROOT names. Read here, by this server
+ *  page, when the build renders it: never in a client file, never set by the production build (test/dojo-render.test.ts); a relative or
+ *  empty value throws, so the build reds. Declared last, so that no line above it moves (the killers of the tests name lines of this file). */
+function recordRootOf(): string {
+  const local = process.env.MONARK_DOJO_LOCAL_BUILD_ROOT;
+  if (local === undefined) return join(process.cwd(), "..", "..");
+  if (!isAbsolute(local)) throw new Error("dojo page: MONARK_DOJO_LOCAL_BUILD_ROOT must name an absolute directory (fail-closed)");
+  return local;
 }
