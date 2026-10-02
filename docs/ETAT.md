@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-02 à 01:1x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-02 à 01:4x UTC.
 
 ## Règle
 
@@ -61,10 +61,18 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
 - **Unité** : deux directives systemd dépassent 160 caractères, sans coupure possible.
 - **Corrigés à l'inspection de la partie 1** : nombres non finis (refus nommés partout), fichier étranger du paquet refusé, garde « dernier jour d'historique révolu », liste des refus testée par sites nommés, test du tableau rouge à la base par assertion, test de minuit déterministe, borne du corps testée, B-1 (premier jour compté).
 - **Items avec déclencheur, issus de l'inspection (partie 2)** :
-  - avant A-8, sur l'hôte : lire la forme `--property=UnsetEnvironment=` et `InaccessiblePaths=` de `systemd-run`, et vérifier que l'état de l'éditeur est sur un système de fichiers à liens physiques (FAITS-SYSTEMD-RUN-UNSETENV-1) ;
-  - avant A-10 : `--unlock` retire aussi les `publish.lock.<pid>` dont le processus est mort (Q-10) ; ignorer l'échec du seul retrait du nom temporaire après un lien réussi (D3-1) ;
-  - avant 18 (iv) : garde `test ! -e /var/lib/monark-dojo/publish.lock` avant le retrait du paquet (Q-14) ; une phrase : aucun acte sur l'éditeur ni sur `bundles/<d>` entre (iv) et le premier `snapshot` (Q-13) ; mesure de charge si l'historique dépasse la grille DOJO-VERIFY-SCALE-1 (Q-12) ;
-  - avant A-11 (documentation) : la ligne TU-1h d'ADR-DOJO-PR-3 dit `readings/` seul, le code exige le jour clos entier.
+  - avant A-8, sur l'hôte : FAITS-SYSTEMD-RUN-UNSETENV-1 (forme `--property=UnsetEnvironment=` et `InaccessiblePaths=` de
+    `systemd-run` ; état de l'éditeur sur un système à liens physiques) : **fait** le 2026-10-01 à 12:5x UTC (ext4, journal privé) ;
+  - Q-10 (`--unlock` retire aussi les `publish.lock.<pid>` dont le processus est mort) et D3-1 (ignorer l'échec du seul retrait du nom
+    temporaire après un lien réussi), d'abord « avant A-10 ». **Décision datée (orchestrateur, 2026-10-02, 01:4x UTC, avis advisor)** :
+    déclencheur déplacé au premier redéploiement de l'arbre de publication, à la première rotation de clé, ou au plus tard le
+    2026-10-09. Motif : les deux cas arrêtent la publication ou laissent un fichier, sans rien écrire de faux (code lu à `d1120612`,
+    éditeur de l'hôte identique au blob près). Parade : chaque lecture du §17 liste `publish.lock*` (lot RUNBOOK-PRE-IV) ;
+  - avant 18 (iv) : garde `test ! -e /var/lib/monark-dojo/publish.lock` avant le retrait du paquet (Q-14) ; une phrase : aucun acte
+    sur l'éditeur ni sur `bundles/<d>` entre (iv) et le premier `snapshot` (Q-13) ; mesure de charge si l'historique dépasse la grille
+    DOJO-VERIFY-SCALE-1 (Q-12) : lot RUNBOOK-PRE-IV (G1 en cours depuis le 2 octobre, 01:4x UTC) ;
+  - avant A-11 (documentation) : la ligne TU-1h d'ADR-DOJO-PR-3 dit `readings/` seul, le code exige le jour clos entier ; ligne
+    datée de l'orchestrateur avec la fusion de RUNBOOK-PRE-IV.
 - **Recherche du tableau** : elle contrôle l'alphabet base58, pas le décodage en 32 octets ; accepté à l'inspection (rendu sûr).
 - **Mort d'un fichier de test sur ce poste** (item VERIFY-TEST-DEAD-CHILD-2) : sous charge, environ une fois sur vingt, un fichier de test
   meurt sans rien rapporter (code 0xC0000409, arrêt natif de Node sous Windows), déjà vu le 2026-09-29 sur un autre fichier. Ce n'est pas
@@ -280,8 +288,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   et minuterie le 2 octobre dès la liste déposée ; premier jour compté le 3 octobre ; première publication le 4 octobre.
   **Fait** : la course a fini à 23:06 UTC le 1er octobre (débit revenu), donc l'ordre du mode d'emploi, gardé, a donné mieux : liste
   déposée (284 adresses, `cb3d23b1…`), départ sur J et minuterie à 23:07 UTC, plan du 2 octobre fait avec sa balise à 00:00 UTC.
-  **Premier jour compté : 2 octobre ; première publication : 3 octobre.** Avant la course finale : DOJO-HISTORY-BATCH-NEAR-1 ;
-  pendant une lecture du 2 octobre : DOJO-TASKSMAX-SAMPLE-D-1 (échantillon de `TasksMax`, ligne datée).
+  **Premier jour compté : 2 octobre ; première publication : 3 octobre.** Avant la course finale : DOJO-HISTORY-BATCH-NEAR-1
+  (livré par le G1, commit `40f11dc7` sur `lot/batch-near` ; mesure sur r2 et r3 : 0 instruction proche par la seule règle profonde ;
+  G2 ciblée en cours). DOJO-TASKSMAX-SAMPLE-D-1 fait (pic 11 sur 64 pendant une lecture du 2 octobre ; pic 7 à A-5) ; ligne datée
+  d'épingle dans ADR-DOJO-PR-3 avec la fusion. A-10 fait le 2 octobre à 01:4x UTC (minuterie de publication active ; jusqu'à la
+  ligne d'historique, chaque créneau rend `history_missing` sans rien écrire).
   A-1 fait le 2 octobre (00:3x UTC) par l'investisseur : `dojo.monarkgate.tech` (A, TTL 300) vers l'hôte Bell, vérifié aux deux serveurs
   faisant autorité ; rien n'est servi sous ce nom avant le site Caddy de l'hôte (A-6).
 - **Partie 3, checkpoint** (rapport `ad2b8674…`, ACCEPTE-AVEC-CORRECTIONS) : `lot/site-prep` (`9abecbf8`) réuni à `lot/page-v1`
