@@ -29,8 +29,8 @@ visuelle de l investisseur et la première synchro.
   actes de l investisseur (refusés à l orchestrateur par le classifieur, ne pas contourner).
 
 ## 3. Agents en vol (lancés avant la consigne ; à consommer, rien à relancer)
-- **G2 ciblée BATCH-NEAR** : mission `F:/tmp/dojo/mission-g2-batch.md` (`6df437ce…`) ; rapport `F:/tmp/dojo/g2-batch/RAPPORT.md`.
-  Au retour : si APPROUVE, fusion de `lot/batch-near` dans `lot/page-v1` et G7 (§5).
+- **G2 ciblée BATCH-NEAR** : RENDUE à 02:04 UTC, APPROUVE-AVEC-CORRECTIONS (`eda667be…`, code tel quel) ; fusion `6c464bbc`, lignes
+  d ADR `2fab0d81`. Reste : le G7 de la fusion (oracle local en cours, sortie `F:/tmp/dojo/g7-batchmerge.txt`), puis ligne à ETAT.
 - **G2 ciblée SITE-SEND-PREP** : mission `F:/tmp/dojo/mission-g2-sendprep.md` (`81949561…`) ; rapport `F:/tmp/dojo/g2-sendprep/RAPPORT.md`.
   Au retour : si APPROUVE, fusion de `lot/site-send-prep` dans `lot/page-v1` et G7.
 - **G1 SITE-BROWSER** (lancée avant la compaction) : `F:/tmp/dojo/browser/MESURES.md`, captures `F:/tmp/dojo/browser/shots/`.
@@ -47,7 +47,7 @@ Les G2 de SITE-BROWSER et de RUNBOOK-PRE-IV seraient deux NOUVEAUX lancements : 
 ## 4. Branches
 - `lot/etude-suite` : `31e4359a` (FAITS Caddy) ← `9e979a36` (ETAT) ← `eb3ee3ec`. ETAT : `docs/ETAT.md`, édité par scripts à un coup
   (remplacement exact, lignes ≤ 160 caractères ; modèle `F:/tmp/dojo/etat-edit-17.mjs`).
-- `lot/page-v1` = `d1120612` (G7 : oracle `f553542d…` sortie 0, 1 869 tests, R-25 873) ; worktree `F:/Monark-wt-page-v1` (les courses
+- `lot/page-v1` = `2fab0d81` (fusion de BATCH-NEAR sur `d1120612`, G7 en cours) ; worktree `F:/Monark-wt-page-v1` (les courses
   d historique y tournent ; aucun agent n y touche).
 - `lot/batch-near` = `40f11dc7` (worktree `F:/Monark-wt-batch`) ; `lot/site-send-prep` = `9e016897` (`F:/Monark-wt-sendprep`) ;
   `lot/site-browser` et `lot/runbook-pre-iv` = `d1120612` + travail non commis (`F:/Monark-wt-browser`, `F:/Monark-wt-runbook`).
@@ -108,3 +108,4 @@ vérification BLS de drand (DOJO-BLS-VERIFY-1), DOJO-LIVE-HEALTH-1, DOJO-CA0-SCR
 
 ## 11. Journal des mises à jour de ce fichier
 - 2026-10-02 02:0x UTC : création (six agents en vol, aucun retour depuis la consigne).
+- 2026-10-02 02:1x UTC : retour de la G2 de BATCH-NEAR ; fusion dans page-v1 ; G7 de la fusion en cours.
