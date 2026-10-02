@@ -179,7 +179,7 @@ test("dojo_site_proxy_snippet_is_outside_the_page_route", async () => {
   assert.deepEqual(code, [`handle_path ${prefix}* {`, "@read {", "method GET", `path /${DOJO_TIMELINE_PATH} /lines/* /${DOJO_PUBKEY_PATH}`, "}",
     "handle @read {", `reverse_proxy ${DOJO_HOST} {`, "header_up Host {upstream_hostport}", ...CLIENT_ADDRESS_HEADERS.map((h) => `header_up -${h}`),
     'header_down Cache-Control "no-store"', "}", "}", "handle {", "respond 404", "}", "}"],
-  "one block: GET of the three closed paths relayed to the Dojo host, Host set to it and no client address sent (DOJO-SITE-PROXY-XFF-1), "
+  "one block: GET of the three closed paths relayed to the Dojo host, Host set to it, no address that Caddy writes sent (DOJO-SITE-PROXY-XFF-1), "
     + "no-store on every answer (M-L15), 404 for anything else");
   // Caddy path matchers, as the Narabi snippet's test reads them: "/x/*" matches every path under /x/, never /x itself (M-L9).
   const relayed = (route: string): boolean => route.startsWith(prefix);
@@ -222,7 +222,7 @@ test("dojo_site_proxy_sends_no_client_address_to_the_dojo_host", () => {
   assert.deepEqual(code.filter((l) => l.startsWith("reverse_proxy ")), [`reverse_proxy ${DOJO_HOST} {`], "one upstream: the Dojo host");
   assert.deepEqual(inside(`reverse_proxy ${DOJO_HOST} {`).filter((l) => l.startsWith("header_up ")),
     ["header_up Host {upstream_hostport}", ...CLIENT_ADDRESS_HEADERS.map((h) => `header_up -${h}`)],
-    "upstream: Host set to the Dojo host, then each client-address header deleted, in the closed list's order; no other header written");
+    "upstream: Host set to the Dojo host, then each client-address header deleted, in the closed list's order; no other header_up line");
   // Relayed: GET of the closed list of three paths; any other method or path answers the snippet's own 404.
   assert.deepEqual(inside("@read {"), ["method GET", `path /${DOJO_TIMELINE_PATH} /lines/* /${DOJO_PUBKEY_PATH}`], "GET of the three paths, only");
   assert.deepEqual(code.slice(code.indexOf("handle {")), ["handle {", "respond 404", "}", "}"], "anything else: 404");

@@ -664,4 +664,34 @@ Mutants appliqués sur copie, restaurés au sha256, hors de l'index ; aucun test
   départ refusé faute de tâche (journal de l'unité) ; sinon la valeur reste. Écart consigné : une lecture de contrôle
   (`systemctl list-timers`) a affiché localement l'heure du déclenchement de l'échantillon (rien publié) ; règle : ne lire que
   l'existence du fichier de résultat, jamais la liste des minuteurs (JOURNAL privé, 01:3x UTC).
-
+- **Ligne datée (orchestrateur, 2026-10-02 07:14 UTC) — DOJO-VERIFY-SCALE-1 ratifié pour la CA (N-6 de la G2 de la partie 3, rapport
+  `F:/tmp/dojo/g2-partie3/RAPPORT.md` sha256 `ba7514c8…`)** : le délai de l'enfant vérificateur de `scripts/verify-dojo.mjs` vaut 740 000 ms
+  (`DOJO_CA_TIMEOUT_MS`, l.38), valeur de la ligne datée proposée au journal G1 de PR-3b-2a (l.354), sœur des valeurs déjà adoptées par
+  l'unité de publication (tas 448 Mo, `MemoryMax=512M`, `TimeoutStartSec=2900`), mesurée sur 1 144 adresses et 30 jours en 80 s ; révision :
+  à un dépassement relevé à l'acte CA-1, ou à un historique hors de la grille de Q-12. Le double saut de ligne final de ce fichier (N-11)
+  est retiré par la même écriture.
+- **Ligne datée (orchestrateur, 2026-10-02 08:56 UTC) — Q-10 du tour de corrections de la partie 3, conséquence écrite (correction 3 du
+  checkpoint de la partie, rapport `F:/tmp/dojo/cp-partie3b/CP-PARTIE3B-RAPPORT.md` sha256 `aca2af79…`)** : un seul G7 pour les arbres de
+  l hôte et la CA (dessein du §22 gardé). Mesuré par l orchestrateur : entre `c0c60617` (valeur de `G7.txt`) et `58450ac3`, l arbre de
+  collecte (`DOJO_COLLECT_TREE_PATHS`) est identique ; l arbre de publication (`DOJO_PUBLISH_TREE_PATHS`) ne diffère que par
+  `apps/dojo/scripts/dojo-chain.mjs`, une ligne de commentaire (`494eaffd`). Comme `c09` compare chaque empreinte de l hôte au blob du
+  `--g7`, `c09` est rouge à tout G7 portant la CA tant que `/opt/monark-dojo` n est pas ré-archivé à ce G7. Ordre, tout AVANT CA-1 :
+  (1) G7 de la partie 3, puis fusion de `lot/page-v1` au tronc (TRUNK-MERGE-STEPS-1) ; (2) `G7.txt` porte ce commit de fusion ;
+  (3) `/f/Monark` en extraction PROPRE de ce commit (`same_tools=0`) ; (4) A-3p rejoué à ce G7, entre deux créneaux, verrou absent, unité
+  `inactive` ou `failed` ; arbre de collecte non redéployé. Ce ré-archivage est le premier redéploiement de l éditeur : déclencheur de
+  DJ-L190 (DOJO-PUBLISH-UNLOCK-DEAD-PID-1), DJ-L191 (DOJO-PUBLISH-TMP-UNLINK-1) et DJ-L34 (DOJO-ANCHOR-OUT-OF-BAND-GUARD-1) : ils sont
+  faits dans un lot de l éditeur fusionné AVANT ce ré-archivage, pour que l arbre redéployé les porte ; aucun n est re-décidé.
+- **Ligne datée (orchestrateur, 2026-10-02 08:56 UTC) — bloquant de TU-7 contre « page servie dès la première publication » (ETAT, choix
+  de travail ; correction 5 du même checkpoint)** : le bloquant tient. La première synchro (TU-7) attend, dans cet ordre : le premier
+  `snapshot` servi, CA-1 verte, l annonce du « jour 1 » par l investisseur (DOJO-DAY1-ANNOUNCE-1, acte de l investisseur, non vérifié
+  par l orchestrateur), puis le second cp-1 bref du validateur sur les textes (DOJO-RETRO-TEXT-1, PR4B-CP1-POST-ANNOUNCE-1), demandé par
+  l orchestrateur le jour de l annonce, après elle. « Dès la première publication » se lit : pas avant elle, et sous ces conditions.
+  Lever ce bloquant est une décision de l investisseur, jamais de l orchestrateur.
+- **Ligne datée (orchestrateur, 2026-10-02 14:20 UTC) — correction 3 : VOIE (b) décidée par l investisseur (verbatim : « voie (b) pour la
+  page »), la ligne du 08:56 UTC ci-dessus reste la voie (a), non retenue** : la seule ligne de commentaire de `apps/dojo/scripts/dojo-chain.mjs`
+  qui séparait l arbre de publication de `c0c60617` est ramenée à son texte de `c0c60617` (fichier égal à l octet, `cmp`) ; mesuré après
+  l acte : `git diff c0c60617 -- <les dix chemins de DOJO_PUBLISH_TREE_PATHS>` vide. Conséquences : `c09 tree_publication` sera vert à tout
+  G7 portant la CA sans ré-archivage de `/opt/monark-dojo` ; DJ-L190, DJ-L191 et DJ-L34 gardent leur déclencheur (2026-10-09 au plus tard) ;
+  `G7.txt` passe au commit de fusion de la partie 3 au tronc avant CA-1, `/f/Monark` en extraction propre de ce commit. Prix : le commentaire
+  redit « the sync does not: item SYNC-SERVED-DEPTH-SCAN-1 », faux depuis SITE-PREP (la synchro mesure la profondeur) : item
+  DOJO-CHAIN-COMMENT-STALE-1 (ETAT), déclencheur : le premier lot de l éditeur qui redéploie l arbre de publication, qui le corrige.
