@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-02 à 01:4x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-02 à 02:1x UTC.
 
 ## Règle
 
@@ -290,7 +290,9 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   déposée (284 adresses, `cb3d23b1…`), départ sur J et minuterie à 23:07 UTC, plan du 2 octobre fait avec sa balise à 00:00 UTC.
   **Premier jour compté : 2 octobre ; première publication : 3 octobre.** Avant la course finale : DOJO-HISTORY-BATCH-NEAR-1
   (livré par le G1, commit `40f11dc7` sur `lot/batch-near` ; mesure sur r2 et r3 : 0 instruction proche par la seule règle profonde ;
-  G2 ciblée en cours). DOJO-TASKSMAX-SAMPLE-D-1 fait (pic 11 sur 64 pendant une lecture du 2 octobre ; pic 7 à A-5) ; ligne datée
+  G2 ciblée APPROUVE-AVEC-CORRECTIONS, code tel quel ; fusionné dans `lot/page-v1` = `2fab0d81`, avec ses lignes d ADR ; G7 : oracle
+  `02104bde…` sortie 0, 1 872 tests, 0 rouge, R-25 168, arbre = commit).
+  DOJO-TASKSMAX-SAMPLE-D-1 fait (pic 11 sur 64 pendant une lecture du 2 octobre ; pic 7 à A-5) ; ligne datée
   d'épingle dans ADR-DOJO-PR-3 avec la fusion. A-10 fait le 2 octobre à 01:4x UTC (minuterie de publication active ; jusqu'à la
   ligne d'historique, chaque créneau rend `history_missing` sans rien écrire).
   A-1 fait le 2 octobre (00:3x UTC) par l'investisseur : `dojo.monarkgate.tech` (A, TTL 300) vers l'hôte Bell, vérifié aux deux serveurs
