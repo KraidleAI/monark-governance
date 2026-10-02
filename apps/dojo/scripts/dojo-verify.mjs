@@ -181,7 +181,7 @@ async function verify({ source, keyring, address, day, bounds }) {
   for (const [id, k] of served.trust) if (root.trust.get(id)?.x !== k.x) refuse("served_key_not_in_keyring", null, null, id);
   const w = walkDojoTimeline(lines, root.trust); // D-8 l.232: Bell's checks, then the walker's (table of the eighth pli)
   if (!w.ok) refuse(w.reason, w.seq, dayOf(lines[w.seq - 1]), w.detail ?? "timeline.jsonl");
-
+  // Several faults: the line named may differ from the browser's reread (one too deep is refused at the walk only, as a null one); one fault: same code and seq
   // The timeline, line by line: closed keys, the keyring's validity windows, DOJO-WALK-GAPS-1 (a) to (c), each price_version
   // recomputed (D-17 l.291-294), the fields of each snapshot the walker does not read (D-8 l.231).
   const hist = lines.find((l) => l.kind === "history") ?? null, versions = new Map(), snaps = [];

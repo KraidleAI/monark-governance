@@ -107,7 +107,7 @@ test("dojo_history_calls_have_the_closed_forms", async () => {
   assert.deepEqual(lastRun(f, "checks.json").composed, ["supply", "instructions", "creation", "day_pairing", "bounds"], "the composed checks, recorded once passed (C-G2-11)");
 });
 
-// killer: apps/dojo/src/history-collect.ts:156 CONST "refuse(\"inputs_mismatch\", \"--first-read\")" -> "refuse(\"usage\", \"--first-read\")"
+// killer: apps/dojo/src/history-collect.ts:166 CONST "refuse(\"inputs_mismatch\", \"--first-read\")" -> "refuse(\"usage\", \"--first-read\")"
 test("dojo_history_x10_guard_refuses_before_any_lock", async () => {
   const f = fresh(), ok = argv(f, "A"), repo = fileURLToPath(new URL("../../../", import.meta.url)), other = join(f.root, "other"), link = join(f.root, "link");
   writeFileSync(join(f.root, "other.txt"), `${key("other mint")}\n`); // a well-formed address, not the pinned file (TU-3)
@@ -378,7 +378,7 @@ const hidden = { mintless: [60], close: [30] }; // the last transaction (a succe
 const keysOf = (t: Tx): string[] => (t.body.transaction as { message: { accountKeys: { pubkey: string }[] } }).message.accountKeys.map((k) => k.pubkey);
 const reqKey = (r: Req): string => `${r.op} ${canonical(r.params)}`;
 
-// killer: apps/dojo/src/history-collect.ts:328 CONST "!early(); a = next()" -> "early(); a = next()"
+// killer: apps/dojo/src/history-collect.ts:341 CONST "!early(); a = next()" -> "early(); a = next()"
 test("dojo_history_per_account_pages_until_fixpoint", async () => { // M-Y5
   const f = fresh(60, 3, hidden), all = sim.txs, hid = all.find((t) => t.mintless === true) as Tx, [src = "", dst = ""] = keysOf(hid);
   const closed = keysOf(all[30] as Tx)[0] ?? "", every = new Set(all.flatMap((t) => [...t.truth.keys()]));
@@ -399,7 +399,7 @@ test("dojo_history_per_account_pages_until_fixpoint", async () => { // M-Y5
     sha256(readFileSync(join(runs, final, "SHA256SUMS"), "utf8"))], "every success admitted, every account kept; the link to the final course's evidence");
 });
 
-// killer: apps/dojo/src/history-collect.ts:213 SDL "c.closed.delete(k)" -> ""
+// killer: apps/dojo/src/history-collect.ts:226 SDL "c.closed.delete(k)" -> ""
 test("dojo_history_resume_from_last_complete_unit", async () => { // M-Y24
   const ref = fresh(60, 3, hidden);
   assert.deepEqual([await stopOf(ref, "A"), await stopOf(ref, "B")], [null, null], "a reference course, without stop");
@@ -439,7 +439,7 @@ test("dojo_history_resume_from_last_complete_unit", async () => { // M-Y24
     [...Array<string>(3).fill("refused phase_order"), { status: "complete", stop_reason: null }], "every phase refused, status kept (D-12)");
 });
 
-// killer: apps/dojo/src/history-collect.ts:238 CONST "e.code === 403" -> "e.code === 404"
+// killer: apps/dojo/src/history-collect.ts:251 CONST "e.code === 403" -> "e.code === 404"
 test("dojo_history_early_bounds_and_a_403_stop_the_course_at_once", async () => { // DOJO-HISTORY-EARLY-BOUNDS-1
   const f = fresh(60, 3, { mintless: [45, 54] }), [h1, h2] = sim.txs.filter((t) => t.mintless === true) as [Tx, Tx]; // one source, two new bodies
   assert.deepEqual([await stopOf(f, "A"), await stopOf(f, "B")], [null, null]);
@@ -465,7 +465,7 @@ test("dojo_history_early_bounds_and_a_403_stop_the_course_at_once", async () => 
   assert.deepEqual([gets("a").includes(hx.sig), gets("b").includes(hx.sig)], [true, true], "the contested signature is read at a and at b (M-Y8, D-4 l.304)");
 });
 
-// killer: apps/dojo/src/history-collect.ts:128 CONST "[0, 1, 2].map" -> "[0].map"
+// killer: apps/dojo/src/history-collect.ts:135 CONST "[0, 1, 2].map" -> "[0].map"
 test("dojo_history_secret_forms_cover_every_alignment_and_the_url_floor", async () => { // KEY-ALIGNMENT-1 (cp-2 C-V-5 of PR-2b-3), QW-1 (a)
   const K = "k1-0123456789abcdef", env = { ...ENV, HELIUS_API_KEY: K };
   for (const p of [3, 4, 5]) { // the key inside a longer base64 blob, at each offset modulo 3: one course per alignment
@@ -484,7 +484,7 @@ test("dojo_history_secret_forms_cover_every_alignment_and_the_url_floor", async 
   }
 });
 
-// killer: apps/dojo/src/history-collect.ts:333 CONST "else X.add(s)" -> "else void s"
+// killer: apps/dojo/src/history-collect.ts:346 CONST "else X.add(s)" -> "else void s"
 test("dojo_history_x_counts_each_signature_once_and_every_index_disagreement", async () => { // C-G2-1 (P8 (b)), C-G2-3 (P9) and G2-4 of the G2
   const e = { InstructionError: [0, { Custom: 1 }] }, xOf = (g: F): unknown => (lastRun(g, "checks.json").counts as { contested: number }).contested;
   const flip = (sig: string, err: unknown): ((r: Req) => unknown) => (r) => (r.method !== "getSignaturesForAddress" || r.params[0] === MINT ? undefined

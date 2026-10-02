@@ -319,7 +319,7 @@ export function jsonDepth(text: string): number {
   }
   return max;
 }
-/** A served JSON text parsed only within the bound, else null, which no line of the reread accepts; one that is not JSON still throws. */
+/** A served text parsed only within the bound, where one not JSON throws; past it, null, JSON or not, never parsed, which no line of the reread accepts. */
 function readJson(text: string): unknown {
   return jsonDepth(text) > DOJO_LIVE_MAX_DEPTH ? null : (JSON.parse(text) as unknown);
 }

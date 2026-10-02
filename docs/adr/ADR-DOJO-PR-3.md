@@ -640,3 +640,10 @@ Mutants appliqués sur copie, restaurés au sha256, hors de l'index ; aucun test
   par le vérificateur, sa CLI et la marche de la chronologie passe d abord un balayage de profondeur, sans parse ni récursion (borne
   déclarée `DOJO_MAX_DEPTH` = 16, `apps/dojo/scripts/dojo-chain.mjs`, `readJson`) ; au-delà, chaque site rend le refus nommé qu il
   avait déjà. Choix et mesure de la borne : `docs/G1-lot-depth-bound.md` §1.4.
+- **Ligne datée (orchestrateur, 2026-10-01 12:1x UTC) — G7 sur C-1 du lot DEPTH-BOUND, précision de la ligne précédente** (relecture
+  G2 neuve du lot, `F:/PRODUITS/inspections/page-partie1-2026-10-01/RAPPORT-g2-depth.md`, sha256 `221701fa…`, C-1) : au-delà de la
+  borne, un texte servi n'est pas analysé ; chaque lecteur le refuse sous le code de sa forme (`keyring_invalid`, `timeline_malformed`,
+  `line_malformed` et les phrases du chargeur), JSON ou non ; `not_json` ne nomme qu'un texte hors JSON EN DEÇÀ de la borne. Le code
+  ne change pas (décision de l'orchestrateur, `docs/ETAT.md`).
+  « Chaque site rend le refus nommé qu'il avait déjà » se lit donc « un refus nommé » ; la marche ne balaie pas un texte : elle
+  mesure la profondeur d'une valeur (`depthOf`, `apps/dojo/scripts/dojo-chain.mjs`).
