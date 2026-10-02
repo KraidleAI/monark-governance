@@ -352,6 +352,8 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   recalculs égaux ; Q-W2-28 : oui (tail_frac 0,95 à 1h, gels 2b sur SELECT-1). Tests d abord de W2-E reçus (`kata/w2e/`, 12 tests, oracle
   vert chez nous ; il réécrit vectors.json en CRLF sous Windows, signalé). Reste à RECHERCHES : validation du fondateur ; à MONARK : C-3
   (diff A-1) au début de W2-E, C-6 avec les FAITS ; empreintes de SERIES-FULL-HISTORY-1 à poster à la fin de l enregistrement.
+- 2026-10-02 19:13 UTC : ADR vague 2 v8.1 ACCEPTÉ par le fondateur (`7658b9b`) ; empreinte `fe48c03a…` recalculée sur place, égale ; CRLF de
+  l oracle W2-E corrigé (`4f5f177`). Rien d attendu ce soir côté RECHERCHES.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous

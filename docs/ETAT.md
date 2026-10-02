@@ -315,6 +315,9 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   (2020-09 → 2024-10), FAITS-EVENTS-2022-2024-1 (2022-09 → 2024-10, FTX compris), avant P0-2 ; ENGINE-ROW-RETIRE-PATH-1 devient BLOQUANT
   avant tout service d une ligne de la vague 2 (condition 2 de Q-W2-26) ;
   SERIES-FULL-HISTORY-1 (tout enregistrer de la première bougie au 2024-10-01, scellé par symbole et par mois ; sur go) ; W2-S-SIM-1.
+- **ADR de la vague 2 ACCEPTÉ par le fondateur** (v8.1, 2026-10-02 ; empreinte du texte accepté `fe48c03a33da7ab0090b97a41b911f74102de61fa6059188e1c01d23a8fb4be6`,
+  relevée sur place à 19:13 UTC, pour P0-2 ; checkpoint-1 MONARK ACCEPTE-AVEC-CORRECTIONS plié). Parties : A W2-E + W2-S (MONARK après le
+  chantier 2), B W2-H + W2-L, acte P0-2, C W2-C + W2-F, D course 2b. Dû par MONARK : C-3 (diff A-1) au début de W2-E ; C-6 (FAITS) avant P0-2.
   LIVE-2-RECORD-1 (conditionnel : si P0-2 vient après la première lecture de LIVE-1 par RECHERCHES, MONARK enregistre LIVE-2, premier
   trimestre civil complet après P0-2, scellé ; C-5 du checkpoint-1 v6). Checkpoint-1 v6 rendu le 2026-10-02 à 18:49 UTC :
   ACCEPTE-AVEC-CORRECTIONS (C-1 à C-10 ; rapport `F:/tmp/kata-w2v6/cp1/CP1-W2-RAPPORT.md` sha256 `c01df603…`, 17 recalculs égaux).
