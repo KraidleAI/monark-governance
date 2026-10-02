@@ -236,7 +236,7 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   (`lot/partie3-corr`), fusion `58450ac3` dans `lot/page-v1` : arbre propre ; commandes des §17 et §18 inchangées, une phrase N-2
   ajoutée au §17 (relu par diff). Ensuite : checkpoint du validateur sur la partie 3, puis G7 unique, puis accord de l investisseur
   sur la partie (décision 300).
-  08:33 UTC : checkpoint du validateur lancé (`validateur-humain`, `claude-fable-5-1`), mission `eaf63af3…`
+  08:28 UTC : checkpoint du validateur lancé (`validateur-humain`, `claude-fable-5-1`), mission `eaf63af3…`
   (`F:/tmp/dojo/mission-cp-partie3b.md`, reçu vert, HEAD `58450ac3`) ; sorties sous `F:/tmp/dojo/cp-partie3b/`.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
   `claude-opus-5-5` (519 tours dans la transcription de la session), pas sous `claude-fable-5-1` (règle : orchestrateur = Fable 5.1).
