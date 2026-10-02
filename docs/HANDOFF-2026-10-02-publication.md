@@ -192,6 +192,11 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   workflow `wf_eb65c340-f50`. Reste après eux : PR-3b-2b-2 (clé de Q-B1 (a), jambe « version due ») ; puis la G2 unique de la partie 3
   (corps `F:/tmp/dojo/body-g2-partie3.md`, à regénérer avec ces lots), revue, G7 ; actes A-6, CA-1, TU-7 (première synchro), envoi.
 
+- 2026-10-02 05:07 UTC : RECHERCHES a plié P-1 à P-3 (`1ea4f64`, tests et une ligne de doc). Rejeu du delta par l orchestrateur (`F:/tmp/kata-p2a/run5/`) :
+  63/63 sous trois fuseaux prouvés, 128/128 tueurs (R02, X01 tués) : ACCORD « P2a COMPLET » publié (recherches#38). Reste dû par MONARK :
+  P2-RECALC-TOOL-1 avant la comparaison de P2b. Note G7 : l oracle `corr` de SITE-SEND-PREP (pid 118624, pris 05:01:12) a tourné
+  environ 4 min en même temps que la campagne de tueurs du rejeu (04:52:36 → 05:05:49) : charge étrangère à citer au G7 de la partie.
+
 ## 12. Compléments (ajoutés le 2026-10-02 à 02:3x UTC)
 - **Accès aux hôtes** : clé `~/.ssh/monark_vps`. Hôte Bell : cible ssh lue dans `F:/tmp/dojo/s7-1.sh` (extraire par `grep -oE 'root@[0-9.]+'`,
   jamais afficher). Serveur du site : cible dans `docs/RUNBOOK-harness.md`. Toute sortie passe par un masque des adresses.
