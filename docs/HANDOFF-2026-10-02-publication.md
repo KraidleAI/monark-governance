@@ -146,6 +146,11 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   Sorties des lancements arrêtés renommées `*-arrete-20261002` (rien effacé). Pipeline de mesure orphelin du navigateur (figé depuis 02:23Z :
   Chrome 9333, next 3431, serve 3432) arrêté par l orchestrateur. Reste : clone `F:/tmp/dojo/browser/b1` verrouillé par le système, inerte.
 
+- 2026-10-02 03:07 UTC : PAROXYSME-Dojo : DJ-L07 à L34 pourvus d items (`9bcd4353`), plus aucune dette sans item au §1. Clôtures des 20
+  déclencheurs passés : vérification sur pièce confiée à quatre lecteurs (`wf_25285f45-110`, lecture seule), adjudication par l orchestrateur.
+  Écart de l orchestrateur : un premier lancement (`wf_5c458345-2f6`) est parti avec un paramètre factice au lieu des entrées ; arrêté dans la
+  minute, sans écriture possible (lecture seule) ; relancé avec des identifiants validés par le script.
+
 ## 12. Compléments (ajoutés le 2026-10-02 à 02:3x UTC)
 - **Accès aux hôtes** : clé `~/.ssh/monark_vps`. Hôte Bell : cible ssh lue dans `F:/tmp/dojo/s7-1.sh` (extraire par `grep -oE 'root@[0-9.]+'`,
   jamais afficher). Serveur du site : cible dans `docs/RUNBOOK-harness.md`. Toute sortie passe par un masque des adresses.
