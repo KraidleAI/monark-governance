@@ -21,6 +21,8 @@ Toutes les décisions antérieures sont effacées, sur ordre de l'investisseur (
   descellement 2022-09 → 2024-10, course et recomputation aveugle, mise en service de la vague 2. Objectif : livraison dans le mois ;
   « si une étape ne tient pas, dis-le tout de suite et propose ce qu on diffère ». GO : SERIES-FULL-HISTORY-1 et ses FAITS (lancé le
   2026-10-02 à 18:54 UTC, `F:/PRODUITS/marche/history/`, enregistreur `48aa58b3…`) ; chantier 2 après la page, puis W2-E.
+- **Décision investisseur (2026-10-02 19:06 UTC, verbatim : « Garde l ordre, chantier 2 d abord, W2-E après ») : Q-W2-23 de RECHERCHES refusée ;
+  l ordre du plan du mois tient.
 - **Décision investisseur (2026-10-02, verbatim : « pas de bloquant chez bonance, on utilise les données a notre guise »)** : la réserve sur
   la Prohibited Use Policy de Binance est levée par l investisseur ; les FAITS des conditions restent tels quels (usage interne).
 
