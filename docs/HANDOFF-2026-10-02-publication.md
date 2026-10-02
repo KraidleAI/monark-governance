@@ -183,6 +183,15 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   le delta de la partie 3, une revue, UN G7 ; calée avant la course finale (les commandes du 3 octobre en font partie). Agents en cours
   non arrêtés.
 
+- 2026-10-02 05:01 UTC : DEUX LOTS MANQUANTS sur le chemin du site, absents de cette passation, trouvés par lecture de l ADR PR-3 et du code :
+  (1) PR-3b-2b (`scripts/verify-dojo.mjs`, CA à douze contrôles DOJO-CA-FORMAT-1) jamais écrit, alors que la première synchro lit
+  `docs/deploy-CA-dojo.json` (`bindDojoCa`) ; ETAT le disait reportable (DOJO-CA0-SCRIPT-1) : c est CA-0 qui l est, pas CA-1.
+  (2) BELL-CA-DOJO-1 (contrôle 11 de la CA de Bell : ensemble fermé de deux `import` ; RUNBOOK-bell REPLACE → IMPORT) jamais écrit, alors
+  que A-6 ajoute la seconde ligne `import` ; aucune section A-6 au RUNBOOK-dojo. Lancés : G1 PR-3b-2b-1 (`F:/Monark-wt-verifydojo`,
+  `lot/pr3b2b-1`, mission `c1ab001b…`) et G1 BELL-CA-DOJO-1 (`F:/Monark-wt-bellcadojo`, `lot/bell-ca-dojo`, mission `71e262e1…`),
+  workflow `wf_eb65c340-f50`. Reste après eux : PR-3b-2b-2 (clé de Q-B1 (a), jambe « version due ») ; puis la G2 unique de la partie 3
+  (corps `F:/tmp/dojo/body-g2-partie3.md`, à regénérer avec ces lots), revue, G7 ; actes A-6, CA-1, TU-7 (première synchro), envoi.
+
 ## 12. Compléments (ajoutés le 2026-10-02 à 02:3x UTC)
 - **Accès aux hôtes** : clé `~/.ssh/monark_vps`. Hôte Bell : cible ssh lue dans `F:/tmp/dojo/s7-1.sh` (extraire par `grep -oE 'root@[0-9.]+'`,
   jamais afficher). Serveur du site : cible dans `docs/RUNBOOK-harness.md`. Toute sortie passe par un masque des adresses.
