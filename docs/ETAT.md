@@ -11,6 +11,18 @@ Toutes les décisions antérieures sont effacées, sur ordre de l'investisseur (
 - La seule référence est le code, ses tests et ce fichier, plus les consignes de l'investisseur à partir de maintenant.
 
 ## Consignes de l'investisseur, données ce jour
+- **Plan du mois (fondateur et investisseur, 2026-10-02 18:54 UTC, verbatim transmis)** : cinq chantiers dans l ordre : (1) la page
+  snapshot, rien ne l interrompt ; (2) les corrections du moteur (audit P3) juste après : BYO-NEAR-NAME-1, SERVED-HARDENING-1, puis les
+  prérequis bloquants de P3 (S-2, S-3, S-4/E-1, S-5/S-6, S-7, S-8, E-13/S-9) ; dès qu ils sont faits, mise en service de la vague 1 sans
+  attendre la vague 2 ; (3) en parallèle de la page, SERIES-FULL-HISTORY-1 (quatre séries 15 min + natives 1h et 4h, de la première bougie
+  au 2024-10-01 exclu, un dossier scellé par symbole, mois et intervalle, empreintes postées le jour même, rien transféré avant P0-2) et
+  les FAITS (USDT/USD historique, événements 2022-09 → 2024-10 dont FTX, identités 2020-09 → 2024-10) ; (4) W2-E : RECHERCHES écrit les
+  tests dès maintenant, MONARK code après le chantier 2 ; (5) RECHERCHES : tests W2-E, table de puissance, F-W2-9 avant P3, v7. Puis P0-2,
+  descellement 2022-09 → 2024-10, course et recomputation aveugle, mise en service de la vague 2. Objectif : livraison dans le mois ;
+  « si une étape ne tient pas, dis-le tout de suite et propose ce qu on diffère ». GO : SERIES-FULL-HISTORY-1 et ses FAITS (lancé le
+  2026-10-02 à 18:54 UTC, `F:/PRODUITS/marche/history/`, enregistreur `48aa58b3…`) ; chantier 2 après la page, puis W2-E.
+- **Décision investisseur (2026-10-02, verbatim : « pas de bloquant chez bonance, on utilise les données a notre guise »)** : la réserve sur
+  la Prohibited Use Policy de Binance est levée par l investisseur ; les FAITS des conditions restent tels quels (usage interne).
 
 - **Mission** : la page snapshot du Dōjō, en ligne au plus vite, avec rigueur.
 - **Méthode** : trois parties au plus ; une seule inspection par partie (relecture, tous les tests, checkpoint).
