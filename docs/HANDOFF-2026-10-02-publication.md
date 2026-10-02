@@ -339,6 +339,10 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   veto pont, veto vers l avant). Checkpoint-1 formel (validateur, mission `caff8777…`, `F:/tmp/kata-w2v6/`) et avis advisor-defi lancés.
   Réponses Q-W2-14, 16 à 20 envoyées (#50) : Q-W2-20 (tout enregistrer depuis 2017, scellé par symbole et par mois, un bloc par vague)
   faisable, SERIES-FULL-HISTORY-1 sur go de l investisseur ; trois FAITS historiques avant P0-2.
+- 2026-10-02 18:54 UTC : checkpoint-1 v6 rendu ACCEPTE-AVEC-CORRECTIONS (C-1 à C-10 ; 17 recalculs égaux) et avis advisor-defi, envoyés
+  avec pièces (#51). Plan du mois du fondateur reçu (ETAT, consignes) ; GO SERIES-FULL-HISTORY-1 : enregistrement lancé en arrière-plan
+  (`F:/PRODUITS/marche/history/run-history.sh`, journal `run-history.log`, ~1 000 dossiers scellés symbole × mois × intervalle) ; empreintes à
+  poster à la fin ; FAITS historiques (trois items) à lire sur place ensuite. Chantier 2 (audit P3) après la page, puis W2-E.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
