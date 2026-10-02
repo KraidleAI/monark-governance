@@ -176,6 +176,13 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   `= inactive` bloqueraient (iii), (iv) et `--unlock`. Décision : gardes `inactive` ou `failed` (remède mesuré par le G1). Corrections
   lancées (`wf_f6d60e4c-c0d`, missions `e7b89de7…` et `18bf81cd…`, reçus verts) ; ensuite G2 neuve de RUNBOOK-PRE-IV, fusions, G7.
 
+- 2026-10-02 04:42 UTC : décision 300 précisée et appliquée (investisseur : « max 3 », « jusqu a 5 si gros chantier », « oui je confirme,
+  applique ») : REGLES-MISSION et CLAUDE.md global corrigés à leur place ; plus aucune G2 ni G7 par lot. Conséquence pour la partie 3 :
+  la G2 séparée de RUNBOOK-PRE-IV est ANNULÉE (corps `F:/tmp/dojo/body-g2-runbook.md` non lancé) ; les lots SITE-SEND-PREP, RUNBOOK-PRE-IV
+  et SITE-BROWSER sont fusionnés l un après l autre dans `lot/page-v1` (tests, tueurs, mutations à chaque fusion), puis UNE G2 neuve sur tout
+  le delta de la partie 3, une revue, UN G7 ; calée avant la course finale (les commandes du 3 octobre en font partie). Agents en cours
+  non arrêtés.
+
 ## 12. Compléments (ajoutés le 2026-10-02 à 02:3x UTC)
 - **Accès aux hôtes** : clé `~/.ssh/monark_vps`. Hôte Bell : cible ssh lue dans `F:/tmp/dojo/s7-1.sh` (extraire par `grep -oE 'root@[0-9.]+'`,
   jamais afficher). Serveur du site : cible dans `docs/RUNBOOK-harness.md`. Toute sortie passe par un masque des adresses.
@@ -208,4 +215,4 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   4. priorité 2, préconditions de P3 dans un ADR de préparation P3 de MONARK : S-2, S-3, S-4/E-1, S-5, S-8, S-16, E-13/S-9, S-7 ;
   5. version datée de la spécification publique (S-5, 400 nommé), soumise à RECHERCHES avant publication ;
   6. priorité 3 : E-2, E-4, E-5, E-6, E-9, E-10, E-12, E-14, S-13, E-11/S-14 (remède ou raison de ne pas remédier au statut §4).
-- Méthode (décision 300) : un chantier = une ADR et trois ou quatre parties ; chaque lancement d agent sur go de l investisseur.
+- Méthode (décision 300) : un chantier = une ADR et au plus trois parties (cinq pour un gros chantier) ; chaque lancement d agent sur go de l investisseur.
