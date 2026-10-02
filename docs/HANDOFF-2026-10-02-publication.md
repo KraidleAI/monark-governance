@@ -294,6 +294,8 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   de la page n est servi aujourd hui, registre `upcoming` exact ; `history-read.ts` → `run-final.sh` branché pour cette nuit ;
   `verify-dojo.mjs` → synchro, extrait du mandataire, page : à brancher aux actes CA-1, §24, TU-7. Reste avant clôture : ACCORD de
   l investisseur sur la partie (décision 300), fusion par pas au tronc, puis les actes. Additif ADR 0005 accepté par l investisseur.
+- 2026-10-02 14:32 UTC : réponse à RECHERCHES recherches#40 (`e7471ac`) : contrôle de `a43ad70` conforme, additif accepté, outil en
+  cours ; prochain message = l empreinte MONARK, avant toute comparaison.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
   `claude-opus-5-5` (519 tours dans la transcription de la session), pas sous `claude-fable-5-1` (règle : orchestrateur = Fable 5.1).
   Actes faits sous ce modèle : contrôle et accord P2a complet (recherches#38), consolidation du CLAUDE.md global, adjudications et
