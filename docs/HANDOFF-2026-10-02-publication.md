@@ -146,3 +146,19 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   RECHERCHES avant publication, avant P3 ; ADR de préparation P3 ; P2-RECALC-TOOL-1 avant de comparer les résultats de P2b.
 - **Outillage des agents** (sur go seulement) : missions par `node F:/Monark/scripts/mission/gen.mjs` puis `launch.mjs` (reçu vert) ;
   agent `worker` épinglé `claude-opus-5-5` ; corps de missions réutilisables sous `F:/tmp/dojo/body-*.md`.
+
+## 13. La suite après la page snapshot : régler les points relevés dans le moteur MONARK
+- Investisseur, 2026-10-02 02:3x UTC (verbatim) : « est ce que tu lui a dis que la suite aprés la page snapshot serait de régler les
+  points qu on avait relévé dans le moteur monark? » : c est le chantier suivant, dès la page publiée.
+- Source : l audit P3 de RECHERCHES (`monark/AUDIT-P3-2026-10-01.md` de leur dépôt ; copie `F:/tmp/audit-p3/AUDIT-P3-2026-10-01.md`)
+  et notre statut point par point (`F:/tmp/audit-p3/STATUT-AUDIT-P3.md`, versé dans `coordination/pieces/2026-10-01-statut-audit-P3/` ;
+  message `coordination/messages/2026-10-01-MONARK-vers-RECHERCHES-statut-audit-P3.md`) : 27 points, 24 confirmés, 3 partiels,
+  aucun réfuté ; zone : `packages/hikae`, `packages/contracts`, `apps/harness`, `apps/sentinel` ; servi = `af9b889`.
+- Ordre écrit dans ce statut :
+  1. BYO-NEAR-NAME-1 (S-11, servi aujourd hui : noms imitants acceptés en BYO), premier lot après la première publication ;
+  2. SERVED-HARDENING-1 : S-12, S-1, S-6 (code d erreur stable, prérequis de S-5), S-10, S-15, E-7 ;
+  3. E-8 (NaN dans `decide()` : garde `Number.isFinite`, s abstient), dans le lot de préparation P3 ;
+  4. priorité 2, préconditions de P3 dans un ADR de préparation P3 de MONARK : S-2, S-3, S-4/E-1, S-5, S-8, S-16, E-13/S-9, S-7 ;
+  5. version datée de la spécification publique (S-5, 400 nommé), soumise à RECHERCHES avant publication ;
+  6. priorité 3 : E-2, E-4, E-5, E-6, E-9, E-10, E-12, E-14, S-13, E-11/S-14 (remède ou raison de ne pas remédier au statut §4).
+- Méthode (décision 300) : un chantier = une ADR et trois ou quatre parties ; chaque lancement d agent sur go de l investisseur.
