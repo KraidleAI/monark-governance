@@ -331,6 +331,10 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   formel (validateur-humain + avis advisor-defi sur D2/D3) attend le go de l investisseur ; Q-W2-6 posée au fondateur par RECHERCHES.
   18:1x UTC, go de l investisseur (« go pour le checkpoint-1 du validateur ») : checkpoint-1 lancé (`validateur-humain`, mission `0bda8e07…`,
   `F:/tmp/kata-w2/`, copie `ca2cd3c`) et consultation formée de `advisor-defi` sur D2/D3 (`F:/tmp/kata-w2/advisor/`), en parallèle.
+- 2026-10-02 18:20 UTC : décision produit du fondateur relayée par RECHERCHES (`6d2c2e8`) : la vague 2 prend des données ANTÉRIEURES au
+  2024-10-01, pas 2027-2028 ; v4 suspendue sur le calendrier, v5 à venir ; checkpoint-1 et avis advisor-defi ARRÊTÉS avant tout rendu
+  (à relancer sur la v5). Q-W2-15 répondue : profondeur lue sur place (FAITS `docs/marche/FAITS-binance-profondeur-2026-10-02.md`),
+  enregistreur sans borne basse ; SERIES-MONTHLY-2027-1 suspendu avec la v4.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
