@@ -140,6 +140,12 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
 
 - 2026-10-02 02:53 UTC : go de l investisseur pour le contrôle du diff P2a-2 (urgent) : workflow `wf_f34264e7-5c9` lancé (3 agents).
 
+- 2026-10-02 03:03 UTC : go de l investisseur (« continue le chantier pendant que ça tourne ») : G2 SITE-SEND-PREP, G1 RUNBOOK-PRE-IV et
+  G1 SITE-BROWSER relancés (workflow `wf_ba951eaf-522`, mêmes missions scellées, reçus verts 03:03Z ; navigateur après les deux autres).
+  Travail partiel des deux G1 gardé dans les worktrees (patchs `F:/tmp/dojo/arrete-20261002/`, SHA256SUMS) et repris par le nouveau G1.
+  Sorties des lancements arrêtés renommées `*-arrete-20261002` (rien effacé). Pipeline de mesure orphelin du navigateur (figé depuis 02:23Z :
+  Chrome 9333, next 3431, serve 3432) arrêté par l orchestrateur. Reste : clone `F:/tmp/dojo/browser/b1` verrouillé par le système, inerte.
+
 ## 12. Compléments (ajoutés le 2026-10-02 à 02:3x UTC)
 - **Accès aux hôtes** : clé `~/.ssh/monark_vps`. Hôte Bell : cible ssh lue dans `F:/tmp/dojo/s7-1.sh` (extraire par `grep -oE 'root@[0-9.]+'`,
   jamais afficher). Serveur du site : cible dans `docs/RUNBOOK-harness.md`. Toute sortie passe par un masque des adresses.
