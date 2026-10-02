@@ -223,6 +223,14 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   nom et clé d hôte comparée à l acte ; délai 740 000 ms ; import de Bell exigé ; migration de Bell avant A-6. Ensuite : corrections, revue,
   G7 unique de la partie.
 
+- 2026-10-02 07:15 UTC : G2 UNIQUE de la partie 3 rendue APPROUVE-AVEC-CORRECTIONS (rapport `F:/tmp/dojo/g2-partie3/RAPPORT.md` `ba7514c8…`,
+  oracle G2 `01b3cd29…` sortie 0, 1 882 tests, R-25 de la partie 1 126) : code des lots approuvé tel quel ; C-1 (5 ancres de tueurs),
+  C-2 (étape de clé d hôte puis commandes par le nom ; §17 et §18 gardent l adresse cette nuit), C-3 (§22 compare l arbre de travail
+  au G7), C-4 (attendu de CA-0), C-5 (deux messages d assertion). Tour de corrections unique lancé (`F:/Monark-wt-p3corr`, mission
+  `2e3a3ca6…`, `wf_2db64fa3-c32`) avec N-1, N-2, TU-7 et l acte DOJO-SITE-PROXY-1. Orchestrateur : ligne datée 740 000 ms à l ADR PR-3
+  (`8bd85181` sur `lot/page-v1`, N-6, N-11) ; condition d envoi SITE-BUILD-LOCAL-ROOT-UNSET-1 à ETAT (N-8) ; FAITS-CADDY-IMPORT-1 lu sur
+  place (`f03b550d`, N-7). Ensuite : revue de la partie (validateur), puis G7 unique.
+
 ## 12. Compléments (ajoutés le 2026-10-02 à 02:3x UTC)
 - **Accès aux hôtes** : clé `~/.ssh/monark_vps`. Hôte Bell : cible ssh lue dans `F:/tmp/dojo/s7-1.sh` (extraire par `grep -oE 'root@[0-9.]+'`,
   jamais afficher). Serveur du site : cible dans `docs/RUNBOOK-harness.md`. Toute sortie passe par un masque des adresses.
