@@ -284,6 +284,16 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   empreinte publiée ; l additif ne change aucune définition) ; décision à l investisseur. Réponse à RECHERCHES après elle.
 - 2026-10-02 14:30 UTC : oracle G7 de `f39e679c` (page après la voie (b), tête actuelle de `lot/page-v1`) sortie 0, `581c62c5…`, 1 882 tests,
   0 rouge, R-25 1 130 ; c est l oracle du G7 de la partie 3 ; le VERDICT attend une session sous `claude-fable-5-1`.
+- 2026-10-02 14:31 UTC, **G7 DE LA PARTIE 3 (la page, le site) : ACCEPTÉ** (orchestrateur `claude-fable-5-1`, session remise sous ce modèle
+  par l investisseur à 14:3x ; son autorisation « rends le G7 sous opus 5.5 » n a pas eu à servir). Arbre `f39e679c` de `lot/page-v1`
+  (`d1120612` → `f39e679c`) : G2 unique `ba7514c8…` approuvée avec corrections, tour de corrections `133b6287`, checkpoint `aca2af79…`
+  ACCEPTE-AVEC-CORRECTIONS (corrections 1 à 5 faites, dont la voie (b)), oracle G7 `581c62c5…` sortie 0 (1 882 tests, 0 rouge, R-25
+  1 130). `error_origin` du G7 : C-1 (ancres de tueurs décalées par les fusions) = orchestrateur, fusions sans contrôle des ancres
+  (item FUSION-KILLER-ANCHORS-1) ; C-2 à C-5, N-1 à N-12 = générateurs des lots, pliés ; Q-10 (`G7.txt` et arbre de publication) =
+  orchestrateur, planification de la CA sans relire `DOJO_PUBLISH_TREE_PATHS`, tranché par la voie (b). Tuyaux (Branchement) : rien
+  de la page n est servi aujourd hui, registre `upcoming` exact ; `history-read.ts` → `run-final.sh` branché pour cette nuit ;
+  `verify-dojo.mjs` → synchro, extrait du mandataire, page : à brancher aux actes CA-1, §24, TU-7. Reste avant clôture : ACCORD de
+  l investisseur sur la partie (décision 300), fusion par pas au tronc, puis les actes. Additif ADR 0005 accepté par l investisseur.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
   `claude-opus-5-5` (519 tours dans la transcription de la session), pas sous `claude-fable-5-1` (règle : orchestrateur = Fable 5.1).
   Actes faits sous ce modèle : contrôle et accord P2a complet (recherches#38), consolidation du CLAUDE.md global, adjudications et
