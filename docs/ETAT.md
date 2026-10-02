@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-02 à 01:0x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-02 à 01:1x UTC.
 
 ## Règle
 
@@ -285,7 +285,8 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   A-1 fait le 2 octobre (00:3x UTC) par l'investisseur : `dojo.monarkgate.tech` (A, TTL 300) vers l'hôte Bell, vérifié aux deux serveurs
   faisant autorité ; rien n'est servi sous ce nom avant le site Caddy de l'hôte (A-6).
 - **Partie 3, checkpoint** (rapport `ad2b8674…`, ACCEPTE-AVEC-CORRECTIONS) : `lot/site-prep` (`9abecbf8`) réuni à `lot/page-v1`
-  (`d1120612`, oracle G7 en cours). Conditions d'envoi du site (C-V-1, décidées par l'orchestrateur le 2026-10-02, 01:0x UTC) :
+  (`d1120612` ; G7 : oracle `f553542d…` sortie 0, 1 869 tests, 0 rouge, R-25 873).
+  Conditions d'envoi du site (C-V-1, décidées par l'orchestrateur le 2026-10-02, 01:0x UTC) :
   - faits : A-1 (DNS) ;
   - le 2 octobre, orchestrateur : DOJO-SITE-PROXY-XFF-1 GARDÉ comme condition (lot SITE-SEND-PREP : aucun en-tête d'adresse cliente
     transmis à l'hôte de la clé ; trois traversées attendues 404 à l'acte) ; volet navigateur et jambe 2 (lot SITE-BROWSER, mesure
