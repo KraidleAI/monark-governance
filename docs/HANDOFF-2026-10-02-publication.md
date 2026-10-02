@@ -197,6 +197,13 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   P2-RECALC-TOOL-1 avant la comparaison de P2b. Note G7 : l oracle `corr` de SITE-SEND-PREP (pid 118624, pris 05:01:12) a tourné
   environ 4 min en même temps que la campagne de tueurs du rejeu (04:52:36 → 05:05:49) : charge étrangère à citer au G7 de la partie.
 
+- 2026-10-02 05:32 UTC : corrections rendues. RUNBOOK-PRE-IV : gardes `inactive` ou `failed` (oracle corr `215ae490…` sortie 0, red-proof
+  `5043ab9e…`, 21/21 mutants) ; prose voisine (Q-C1) alignée par l orchestrateur ; gel 2 `986e5ebc` ; tests du RUNBOOK 23/23 sur un clone du
+  gel. SITE-SEND-PREP : C-1, C-2 commentaires seuls, LIVRE ; gel 2 `1c969589` ; Q-C1 (messages d assertion encore absolus, lignes exécutables)
+  et K12-K20 décalés d une ligne (0 ancre perdue) laissés à la G2 de partie. Fusions dans `lot/page-v1` : `11d3d9f2` (runbook), `09662ecc`
+  (send-prep), sans conflit ; oracle du tronc sur l arbre fusionné lancé (`--role corr --key partie3-fusions`). Note : le correcteur
+  SITE-SEND-PREP a trouvé ses oracles `corr` sous charge croisée (voir plus haut).
+
 ## 12. Compléments (ajoutés le 2026-10-02 à 02:3x UTC)
 - **Accès aux hôtes** : clé `~/.ssh/monark_vps`. Hôte Bell : cible ssh lue dans `F:/tmp/dojo/s7-1.sh` (extraire par `grep -oE 'root@[0-9.]+'`,
   jamais afficher). Serveur du site : cible dans `docs/RUNBOOK-harness.md`. Toute sortie passe par un masque des adresses.
