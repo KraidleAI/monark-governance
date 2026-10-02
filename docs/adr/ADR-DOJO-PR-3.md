@@ -664,4 +664,9 @@ Mutants appliqués sur copie, restaurés au sha256, hors de l'index ; aucun test
   départ refusé faute de tâche (journal de l'unité) ; sinon la valeur reste. Écart consigné : une lecture de contrôle
   (`systemctl list-timers`) a affiché localement l'heure du déclenchement de l'échantillon (rien publié) ; règle : ne lire que
   l'existence du fichier de résultat, jamais la liste des minuteurs (JOURNAL privé, 01:3x UTC).
-
+- **Ligne datée (orchestrateur, 2026-10-02 07:14 UTC) — DOJO-VERIFY-SCALE-1 ratifié pour la CA (N-6 de la G2 de la partie 3, rapport
+  `F:/tmp/dojo/g2-partie3/RAPPORT.md` sha256 `ba7514c8…`)** : le délai de l'enfant vérificateur de `scripts/verify-dojo.mjs` vaut 740 000 ms
+  (`DOJO_CA_TIMEOUT_MS`, l.38), valeur de la ligne datée proposée au journal G1 de PR-3b-2a (l.354), sœur des valeurs déjà adoptées par
+  l'unité de publication (tas 448 Mo, `MemoryMax=512M`, `TimeoutStartSec=2900`), mesurée sur 1 144 adresses et 30 jours en 80 s ; révision :
+  à un dépassement relevé à l'acte CA-1, ou à un historique hors de la grille de Q-12. Le double saut de ligne final de ce fichier (N-11)
+  est retiré par la même écriture.
